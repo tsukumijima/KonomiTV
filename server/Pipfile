@@ -1,0 +1,20 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[scripts]
+serve = "python manage.py runserver"
+uvicorn = "uvicorn --port 7000 config.asgi:application"
+
+[packages]
+django = "*"
+djangorestframework = "*"
+celery = "*"
+whitenoise = "*"
+uvicorn = {extras = ["standard"], version = "*"}
+
+[dev-packages]
+
+[requires]
+python_version = "3.9"

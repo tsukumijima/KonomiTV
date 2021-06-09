@@ -1,0 +1,4 @@
+{
+    // pipenv の仮想環境のあるフォルダを指定（指定しないと認識しない）
+    "python.pythonPath": "${workspaceFolder}/server/.venv/Scripts/python"
+}
