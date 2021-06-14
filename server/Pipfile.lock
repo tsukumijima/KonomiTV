@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "d3d05ff5275bc0748ed6b5c17f5e99c9439e7699dea8b5e4a9c625e16ee4e9ee"
+            "sha256": "bafdf0f95d4f1f60e241687020faf71c2d3df1a94a3164e59296596b3b683c23"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -23,6 +23,13 @@
             ],
             "markers": "python_version >= '3.6'",
             "version": "==5.0.6"
+        },
+        "ariblib": {
+            "hashes": [
+                "sha256:0fc13019b0350dc64cb8cccb4ba6c2e452acacd0221fe5f8cc0ddfe64fd91032"
+            ],
+            "index": "pypi",
+            "version": "==0.0.5"
         },
         "asgiref": {
             "hashes": [

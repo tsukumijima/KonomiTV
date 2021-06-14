@@ -13,6 +13,7 @@ djangorestframework = "*"
 celery = "*"
 whitenoise = "*"
 uvicorn = {extras = ["standard"], version = "*"}
+ariblib = "*"
 
 [dev-packages]
 
