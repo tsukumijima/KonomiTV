@@ -29,7 +29,7 @@ from ariblib.sections import ProgramAssociationSection, ProgramMapSection
 class TSInformation:
 
     """TS から各種情報を取得するクラス
-       ariblib の開発者の youzaka 氏に感謝します
+       : ariblib の開発者の youzaka 氏に感謝します
     """
 
     def __init__(self, ts:TransportStreamFile):
@@ -49,8 +49,8 @@ class TSInformation:
 
         # EIT (Event Information Table) から現在と次の番組情報を取得
         # 「現在」は録画開始時点のものなので、録画マージンがある場合基本的には eit_current には前の番組の情報が入る
-        eit_current = tsinfo.getEITInformation(0)
-        eit_following = tsinfo.getEITInformation(1)
+        eit_current = tsinfo.getEITInformation(sdt['service_id'], 0)
+        eit_following = tsinfo.getEITInformation(sdt['service_id'], 1)
 
         # TOT (Time Offset Table) からおおよその録画開始時刻・録画終了時刻を取得
         # TOT だけだと正確でないので、PCR (Packet Clock Reference) の値で補完する
@@ -80,7 +80,7 @@ class TSInformation:
     def getSDTInformation(self) -> dict:
 
         """TS 内の SDT (Service Descrition Table) からサービス（チャンネル）情報を取得する
-        より正確な情報を得るため、NIT (Network Information Table) からも情報を取得する
+        : PAT (Program Association Table) と NIT (Network Information Table) からも補助的に情報を取得する
 
         Returns:
             dict: サービス（チャンネル）情報が入った辞書
@@ -111,8 +111,9 @@ class TSInformation:
 
         # 雛形
         result = {
-            'service_id': None,
+            'type': None,
             'network_id': None,
+            'service_id': None,
             'transport_stream_id': None,
             'remote_control_key_id': None,
             'service_type': None,
@@ -123,29 +124,44 @@ class TSInformation:
         # 誤動作防止のため必ず最初にシークを戻す
         self.ts.seek(0)
 
+        # TS から PAT (Program Association Table) を抽出
+        pat = next(self.ts.sections(ProgramAssociationSection))
+
+        # トランスポートストリーム ID を取得
+        result['transport_stream_id'] = pat.transport_stream_id
+
+        # ネットワーク ID を取得
+        for pid in pat.pids:
+            if pid.program_number:
+                # だいぶ罠だったのだが、program_number は service_id と等しい
+                # つまり、PAT から抽出した service_id を使えば映像や音声が存在するストリームの番組情報を的確に抽出できる
+                result['service_id'] = pid.program_number
+                # 他にも pid があるかもしれないが（複数のチャンネルが同じストリームに含まれている場合など）、最初の pid のみを使うので break
+                break
+
         # TS から SDT (Service Description Table) を抽出
         for sdt in self.ts.sections(ActualStreamServiceDescriptionSection):
 
-            # NetworkID を取得
+            # ネットワーク ID を取得
             result['network_id'] = sdt.original_network_id
-
-            # TransportStreamID を取得
-            result['transport_stream_id'] = sdt.transport_stream_id
 
             # サービスごとに
             for service in sdt.services:
 
-                # ServiceID を取得
-                result['service_id'] = service.service_id
+                # service_id が PAT から抽出したものと一致した場合のみ
+                # CS の場合同じ TS の中に複数のチャンネルが含まれている事があり、録画する場合は基本的に他のチャンネルは削除される
+                # そうすると ffprobe で確認できるがサービス情報や番組情報だけ残ってしまい、別のチャンネルの番組情報になるケースがある
+                # PAT にはそうした削除済みのチャンネルは含まれていないので、正しいチャンネルの service_id を抽出できる
+                if service.service_id == result['service_id']:
 
-                # SDT から得られる ServiceDescriptor 内の情報（サービスタイプ・サービス名）を取得
-                for sd in service.descriptors[ServiceDescriptor]:
-                    result['service_type'] = SERVICE_TYPE[int(hex(sd.service_type), 16)]
-                    result['service_name'] = str(sd.service_name)
+                    # SDT から得られる ServiceDescriptor 内の情報（サービスタイプ・サービス名）を取得
+                    for sd in service.descriptors[ServiceDescriptor]:
+                        result['service_type'] = SERVICE_TYPE[int(hex(sd.service_type), 16)]
+                        result['service_name'] = str(sd.service_name)
+                        break
+                    else:
+                        continue
                     break
-                else:
-                    continue
-                break
             else:
                 continue
             break
@@ -169,11 +185,14 @@ class TSInformation:
 
         return result
 
-    def getEITInformation(self, eit_section_number:int) -> dict:
+    def getEITInformation(self, service_id:int, eit_section_number:int) -> dict:
 
         """TS内の EIT (Event Information Table) から番組情報を取得する
+        : サービス ID が必要な理由は、CS などで別のチャンネルの番組情報が取得されるのを防ぐため
+        : このため、事前に getSDTInformation() で service_id を取得しておく必要がある
 
         Args:
+            service_id (int): 取得したいチャンネルのサービス ID
             eit_section_number (int): 取得したい EIT セクション（ 0 なら現在の番組、1 なら次の番組）
 
         Returns:
@@ -253,8 +272,9 @@ class TSInformation:
         # TS から EIT (Event Information Table) を抽出
         for eit in self.ts.sections(ActualStreamPresentFollowingEventInformationSection):
 
-            # section_number が一致したときだけ
-            if eit.section_number == eit_section_number:
+            # section_number と service_id が一致したときだけ
+            # サービス ID が必要な理由は、CS などで同じトランスポートストリームに含まれる別チャンネルの番組情報になることを防ぐため
+            if eit.section_number == eit_section_number and eit.service_id == service_id:
 
                 # EIT から得られる各種 Descriptor 内の情報を取得
                 # ariblib.event が各種 Descriptor のラッパーになっていたのでそれを利用
