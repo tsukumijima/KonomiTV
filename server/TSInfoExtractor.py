@@ -18,11 +18,19 @@ from ariblib.sections import (
     ActualStreamPresentFollowingEventInformationSection,
     ActualStreamServiceDescriptionSection,
     NetworkInformationSection,
+    ProgramAssociationSection,
     TimeOffsetSection,
 )
+from ariblib.constants import VIDEO_ENCODE_FORMAT
+from ariblib.descriptors import VideoDecodeControlDescriptor
+from ariblib.sections import ProgramAssociationSection, ProgramMapSection
 
 
 class TSInformation:
+
+    """TS から各種情報を取得するクラス
+       ariblib の開発者の youzaka 氏に感謝します
+    """
 
     def __init__(self, ts:TransportStreamFile):
 
@@ -36,14 +44,6 @@ class TSInformation:
             str: TS の各種情報をまとめた辞書
         """
 
-        # TOT (Time Offset Table) からおおよその録画開始時刻・録画終了時刻を取得
-        # TOT だけだと正確でないので、PCR (Packet Clock Reference) の値で補完する
-        record_start_time = tsinfo.getRecordStartTime()
-        record_end_time = tsinfo.getRecordEndTime()
-
-        # 録画時間を算出
-        record_duration = record_end_time - record_start_time
-
         # SDT (Service Description Table) からチャンネル情報を取得
         sdt = tsinfo.getSDTInformation()
 
@@ -51,6 +51,14 @@ class TSInformation:
         # 「現在」は録画開始時点のものなので、録画マージンがある場合基本的には eit_current には前の番組の情報が入る
         eit_current = tsinfo.getEITInformation(0)
         eit_following = tsinfo.getEITInformation(1)
+
+        # TOT (Time Offset Table) からおおよその録画開始時刻・録画終了時刻を取得
+        # TOT だけだと正確でないので、PCR (Packet Clock Reference) の値で補完する
+        record_start_time = tsinfo.getRecordStartTime()
+        record_end_time = tsinfo.getRecordEndTime()
+
+        # 録画時間を算出
+        record_duration = record_end_time - record_start_time
 
         # 録画開始時刻と次の番組の開始時刻を比較して、差が1分以内（録画マージン）なら次の番組情報を利用する
         # 基本的に録画マージンがあるはずなので、番組途中から録画したとかでなければ次の番組情報を使う事になるはず
@@ -72,7 +80,7 @@ class TSInformation:
     def getSDTInformation(self) -> dict:
 
         """TS 内の SDT (Service Descrition Table) からサービス（チャンネル）情報を取得する
-        地上波のみ、リモコンキー ID を取得するため NIT (Network Information Table) からも情報を取得する
+        より正確な情報を得るため、NIT (Network Information Table) からも情報を取得する
 
         Returns:
             dict: サービス（チャンネル）情報が入った辞書
@@ -105,6 +113,7 @@ class TSInformation:
         result = {
             'service_id': None,
             'network_id': None,
+            'transport_stream_id': None,
             'remote_control_key_id': None,
             'service_type': None,
             'service_name': None,
@@ -120,14 +129,16 @@ class TSInformation:
             # NetworkID を取得
             result['network_id'] = sdt.original_network_id
 
-            # SDT から得られる ServiceDescriptor 内の情報（サービスタイプ・サービス名）を取得
-            for service in sdt.services:
+            # TransportStreamID を取得
+            result['transport_stream_id'] = sdt.transport_stream_id
 
-                print(service.service_id)
+            # サービスごとに
+            for service in sdt.services:
 
                 # ServiceID を取得
                 result['service_id'] = service.service_id
 
+                # SDT から得られる ServiceDescriptor 内の情報（サービスタイプ・サービス名）を取得
                 for sd in service.descriptors[ServiceDescriptor]:
                     result['service_type'] = SERVICE_TYPE[int(hex(sd.service_type), 16)]
                     result['service_name'] = str(sd.service_name)
@@ -139,25 +150,22 @@ class TSInformation:
                 continue
             break
 
-        # 地デジのみ（ network_id が 30000 ～ 40000 ）
-        # BS はどうやら取得できないらしい（形式が違うので当然か？）
-        if result['network_id'] > 30000 and result['network_id'] < 40000:
+        # TS から NIT (Network Information Table) を抽出
+        NetworkInformationSection._table_ids = [0x40]  # 自ネットワークのみ
+        for nit in self.ts.sections(NetworkInformationSection):
 
-            # TS から NIT (Network Information Table) を抽出
-            for nit in self.ts.sections(NetworkInformationSection):
+            for transport_stream in nit.transport_streams:
 
-                # SDT から得られる TSInformationDescriptor 内の情報（リモコンキー ID）を取得
-                for transport_stream in nit.transport_streams:
-                    for tsinformation in transport_stream.descriptors[TSInformationDescriptor]:
-                        result['remote_control_key_id'] = tsinformation.remote_control_key_id
-                        result['transport_stream_name'] = str(tsinformation.ts_name_char)
-                        break
-                    else:
-                        continue
+                # NIT から得られる TSInformationDescriptor 内の情報（リモコンキー ID）を取得
+                # 地デジのみで、BS には ServiceDescriptor 自体が存在しない
+                for tsinformation in transport_stream.descriptors.get(TSInformationDescriptor, []):
+                    result['remote_control_key_id'] = tsinformation.remote_control_key_id
+                    result['transport_stream_name'] = str(tsinformation.ts_name_char)
                     break
-                else:
-                    continue
                 break
+            else:
+                continue
+            break
 
         return result
 
@@ -371,7 +379,7 @@ class TSInformation:
         # ファイルの末尾から 188000 (188KB) まで遡ってシーク
         # だいたい PCR は 9 つ取得できる
         # 注意!!! シークする際は必ず 188（ TS パケット長）の倍数にすること
-        # そうしないと PCR が狂った値になる（ PCR 存在フラグは TS パケットに必ずあるので、188 の倍数でないとおかしくなるのは当たり前）
+        # そうしないと PCR が狂った値になる（ PCR は TS ヘッダの延長線上 (adaptation field) にあるので、188 の倍数でないとおかしくなるのは当たり前）
         self.ts.seek(-1880000, 2)
 
         # PCR を取得して配列に格納
