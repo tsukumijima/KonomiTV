@@ -21,14 +21,11 @@ from ariblib.sections import (
     ProgramAssociationSection,
     TimeOffsetSection,
 )
-from ariblib.constants import VIDEO_ENCODE_FORMAT
-from ariblib.descriptors import VideoDecodeControlDescriptor
-from ariblib.sections import ProgramAssociationSection, ProgramMapSection
 
 
 class TSInformation:
 
-    """TS から各種情報を取得するクラス
+    """TS ファイルから各種情報を取得するクラス
        : ariblib の開発者の youzaka 氏に感謝します
     """
 
@@ -504,6 +501,12 @@ class TSInformation:
 
 
 if __name__ == '__main__':
+
+    # 引数が足りない
+    if len(sys.argv) <= 1:
+        print(f'{sys.argv[0]}: TS ファイルから各種情報を取得して JSON で出力するツール')
+        print(f'usage: $ python {sys.argv[0]} [TSFilePath]')
+        sys.exit(0)
 
     # 引数の TS ファイルを開く
     # チャンクは 1000（だいたい 0.1 ～ 0.2 秒間隔）に設定
