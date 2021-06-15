@@ -77,6 +77,34 @@ class TSInformation:
             'program': eit,
         }
 
+    def getNetworkType(self, network_id:int) -> str:
+
+        """ネットワーク ID からネットワークの種別を取得する
+        : 返り値は GR・BS・CS・SKY のいずれか（ Mirakurun 互換）
+
+        Args:
+            network_id (int): ネットワーク ID
+
+        Returns:
+            str: GR・BS・CS・SKY のいずれか
+        """
+
+        # 以下は ARIB STD-B10 第2部 付録N より抜粋
+        # https://web.archive.org/web/2if_/http://www.arib.or.jp/english/html/overview/doc/2-STD-B10v5_3.pdf#page=256
+
+        # 地上デジタルテレビジョン放送 (0x7880 ～ 0x7FE8)
+        if network_id >= 30848 and network_id <= 32744:
+            return 'GR'
+        # BSデジタル放送
+        if network_id == 4:
+            return 'BS'
+        # 110度CSデジタル放送
+        if network_id == 6 or network_id == 7:
+            return 'CS'
+        # 124/128度CSデジタル放送（スカパー！プレミアムサービス）
+        if network_id == 1 or network_id == 3 or network_id == 10:
+            return 'SKY'
+
     def getSDTInformation(self) -> dict:
 
         """TS 内の SDT (Service Descrition Table) からサービス（チャンネル）情報を取得する
@@ -144,6 +172,9 @@ class TSInformation:
 
             # ネットワーク ID を取得
             result['network_id'] = sdt.original_network_id
+
+            # ネットワーク種別を取得
+            result['type'] = self.getNetworkType(result['network_id'])
 
             # サービスごとに
             for service in sdt.services:
