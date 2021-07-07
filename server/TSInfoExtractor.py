@@ -67,7 +67,9 @@ class TSInformation:
         return {
             'record': {
                 'start_time': record_start_time,
+                'start_margin': eit['start_time'] - record_start_time,
                 'end_time': record_end_time,
+                'end_margin': record_end_time - eit['end_time'],
                 'duration': record_duration,
             },
             'service': sdt,
@@ -505,7 +507,7 @@ if __name__ == '__main__':
     # 引数が足りない
     if len(sys.argv) <= 1:
         print(f'{sys.argv[0]}: TS ファイルから各種情報を取得して JSON で出力するツール')
-        print(f'usage: $ python {sys.argv[0]} [TSFilePath]')
+        print(f'usage: $ python {sys.argv[0]} TSFilePath [OutputPath]')
         sys.exit(0)
 
     # 引数の TS ファイルを開く
@@ -523,8 +525,12 @@ if __name__ == '__main__':
             if isinstance(obj, (datetime, date)):
                 return obj.isoformat()
             if isinstance(obj, (timedelta)):
-                return obj.seconds
+                return obj.total_seconds()
             raise TypeError('Type %s not serializable' % type(obj))
 
         # JSON 化して出力
-        print(json.dumps(extract, default=json_serial, ensure_ascii=False, indent=4))
+        if len(sys.argv) == 3:
+            with open(sys.argv[2], mode='wt', encoding='utf-8') as file:
+                json.dump(extract, file, default=json_serial, ensure_ascii=False, indent=4)
+        else:
+            print(json.dumps(extract, default=json_serial, ensure_ascii=False, indent=4))
