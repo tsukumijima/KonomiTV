@@ -12,6 +12,8 @@ db.sqlite3
 db.sqlite3-journal
 database.sqlite
 database.sqlite-journal
+celery.sqlite
+celery.sqlite-journal
 media
 
 # If your build process includes running collectstatic, then you probably don't need or want to include staticfiles/

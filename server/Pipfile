@@ -6,14 +6,17 @@ name = "pypi"
 [scripts]
 serve = "python manage.py runserver"
 uvicorn = "uvicorn --port 7000 config.asgi:application"
+celery = "celery -A config worker -l info -P eventlet"
 
 [packages]
 django = "*"
 djangorestframework = "*"
-celery = "*"
 whitenoise = "*"
 uvicorn = {extras = ["standard"], version = "*"}
 ariblib = "*"
+celery = "*"
+eventlet = "*"
+sqlalchemy = "*"
 
 [dev-packages]
 

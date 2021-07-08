@@ -73,6 +73,8 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
+CELERY_BROKER_URL = 'sqla+sqlite:///' + str(BASE_DIR / 'config/celery.sqlite')
+
 
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
