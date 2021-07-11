@@ -80,10 +80,12 @@ CELERY_BROKER_URL = 'sqla+sqlite:///' + str(BASE_DIR / 'config/celery.sqlite')
 LIBRARY_DIR = BASE_DIR = Path(__file__).resolve().parent.parent / 'thirdparty'
 
 # サードパーティーライブラリのあるパス
+import os
+executable_extension = '.exe' if os.name == 'nt' else ''
 LIBRARY_PATH = {
-    'arib-subtitle-timedmetadater': LIBRARY_DIR / 'arib-subtitle-timedmetadater/arib-subtitle-timedmetadater',
-    'ffmpeg': LIBRARY_DIR / 'FFmpeg/ffmpeg',
-    'ffprobe': LIBRARY_DIR / 'FFmpeg/ffprobe',
+    'arib-subtitle-timedmetadater': str(LIBRARY_DIR / 'arib-subtitle-timedmetadater/arib-subtitle-timedmetadater') + executable_extension,
+    'ffmpeg': str(LIBRARY_DIR / 'FFmpeg/ffmpeg') + executable_extension,
+    'ffprobe': str(LIBRARY_DIR / 'FFmpeg/ffprobe') + executable_extension,
 }
 
 

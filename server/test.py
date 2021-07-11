@@ -2,6 +2,8 @@
 from app.tasks import LiveEncodingTask
 from config.celery import celery
 
+celery.register_task(LiveEncodingTask)
+
 instance = LiveEncodingTask()
-celery.register_task(instance)
-instance.delay()
+instance.run() # 同期実行
+# instance.delay() # 非同期実行
