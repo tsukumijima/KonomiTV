@@ -164,3 +164,9 @@ Thumbs.db
 
 
 # End of https://www.toptal.com/developers/gitignore/api/django
+
+# thirdparty
+server/thirdparty/*
+
+# ignore .gitkeep
+!.gitkeep
