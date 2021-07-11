@@ -31,20 +31,20 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
-    'whitenoise.runserver_nostatic',
+    'whitenoise.runserver_nostatic',  # WhiteNoise
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'rest_framework',
+    'rest_framework',  # Django Rest Framework
     'app',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # WhiteNoise
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -73,7 +73,18 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
+# Celery のブローカー用 SQLite データベース
 CELERY_BROKER_URL = 'sqla+sqlite:///' + str(BASE_DIR / 'config/celery.sqlite')
+
+# サードパーティーライブラリのあるディレクトリ
+LIBRARY_DIR = BASE_DIR = Path(__file__).resolve().parent.parent / 'thirdparty'
+
+# サードパーティーライブラリのあるパス
+LIBRARY_PATH = {
+    'arib-subtitle-timedmetadater': LIBRARY_DIR / 'arib-subtitle-timedmetadater/arib-subtitle-timedmetadater',
+    'ffmpeg': LIBRARY_DIR / 'FFmpeg/ffmpeg',
+    'ffprobe': LIBRARY_DIR / 'FFmpeg/ffprobe',
+}
 
 
 # Database
@@ -125,7 +136,7 @@ USE_TZ = True
 
 STATIC_URL = '/assets/'
 STATICFILES_DIRS = [BASE_DIR.parent / 'client/dist/assets']
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'  # WhiteNoise
 
 
 # Default primary key field type
