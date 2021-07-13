@@ -1,8 +1,12 @@
 
+import asyncio
 import celery
 import celery.utils.log
 import os
+import pywintypes
 import subprocess
+import win32file
+import win32pipe
 from django.conf import settings
 
 
@@ -15,6 +19,9 @@ class LiveEncodingTask(celery.Task):
 
         # ロガー
         self.logger = celery.utils.log.get_task_logger(__name__)
+
+        # 名前付きパイプのハンドル（Windowsのみ）
+        self.pipe_handle = None
 
         # 映像・音声の品質定義
         self.quality = {
@@ -49,11 +56,12 @@ class LiveEncodingTask(celery.Task):
         }
 
 
-    def buildFFmpegOptions(self, quality:str, audiotype:str='normal') -> list:
+    def buildFFmpegOptions(self, quality:str, pipe_path:str, audiotype:str='normal') -> list:
         """FFmpeg に渡すオプションを組み立てる
 
         Args:
             quality (str): 映像の品質 (1080p ~ 360p)
+            pipe_path (str): 名前付きパイプのパス 例: \\.\pipe\Konomi_Live_NID32736-SID1024_1080p
             audiotype ([type], optional): 音声種別（ normal:通常・multiplex:音声多重放送・dualmono:デュアルモノ から選択）
 
         Returns:
@@ -106,7 +114,9 @@ class LiveEncodingTask(celery.Task):
         options.append('-threads auto -fflags nobuffer -flags low_delay -max_delay 250000 -max_interleave_delta 1')
 
         # 出力
-        options.append('test.ts')
+        options.append('-y')  # これを指定しないと File (パイプ名) already exists. Exiting. と言われる
+        options.append('-f mpegts')  # MPEG-TS 出力ということを明示
+        options.append(pipe_path)  # 名前付きパイプのパスを出力に指定
 
         # オプションをスペースで区切って配列にする
         result = []
@@ -116,10 +126,110 @@ class LiveEncodingTask(celery.Task):
         return result
 
 
-    def run(self, encoder_type='ffmpeg'):
+    def createNamedPipe(self, pipe_name:str) -> str:
+        """指定された名前付きパイプを作成する
+        Windows では Windows の名前付きパイプ、Linux では fifo を使う
+
+        Args:
+            pipe_name (str): 名前付きパイプの名称
+
+        Returns:
+            str: 名前付きパイプのパス
+        """
+
+        # Windows のみ
+        if os.name == 'nt':
+
+            # 名前付きパイプのパス
+            pipe_path = '\\\.\pipe\Konomi_' + pipe_name
+
+            # Win32Pipe を使って名前付きパイプを作成
+            # 参考: https://github.com/xtne6f/EDCB/blob/work-plus-s/SendTSTCP/SendTSTCP/SendTSTCPMain.cpp#L267
+            self.pipe_handle = win32pipe.CreateNamedPipe(
+                # Name: 名前付きパイプの名称
+                pipe_path,
+                # OpenMode: 双方向パイプ・オーバーラップモード
+                win32pipe.PIPE_ACCESS_DUPLEX | win32file.FILE_FLAG_OVERLAPPED,
+                # PipeMode: バイトストリーム・ブロッキング
+                win32pipe.PIPE_TYPE_BYTE | win32pipe.PIPE_READMODE_BYTE | win32pipe.PIPE_WAIT,
+                # MaxInstance: 1つのパイプインスタンス
+                1,
+                # OutBufferSize: 0B の出力バッファ
+                0,
+                # InBufferSize: 48128B の入力バッファ
+                48128,
+                # DefaultTimeOut: デフォルトのタイムアウト秒を使用
+                0,
+                None,
+            )
+
+            # 接続を待ち受け、出力をとりあえず読み取る
+            # Windows の名前付きパイプはどこかが常に読み取っていないと入力バッファがいっぱいになった時点で出力が書き込めなくなる
+            # これを防ぐために、ダミーでも入力データを読み取り続けるようにする
+            def connect():
+
+                # 名前付きパイプに接続
+                win32pipe.ConnectNamedPipe(self.pipe_handle, None)
+
+                # データを延々と読み出す
+                while True:
+                    try:
+                        win32file.ReadFile(self.pipe_handle, 65536)
+                    except pywintypes.error as ex:
+                        # エラー（ broken pipe など）が出たらループを終了
+                        print(f'Pipe Error. Code:{ex.args[0]} Message:{ex.args[2]}')
+                        break
+
+            # Windows の名前付きパイプは誰も接続してないと自動的に消えるため、並行処理で接続を維持する
+            asyncio.get_event_loop().run_in_executor(None, connect)
+
+        return pipe_path
+
+
+    def deleteNamedPipe(self, pipe_path:str) -> None:
+        """指定された名前付きパイプを削除する
+        Windows では Windows の名前付きパイプ、Linux では fifo を使う
+
+        Args:
+            pipe_path (str): 名前付きパイプのパス
+        """
+
+        # Windows のみ
+        if os.name == 'nt':
+
+            # 名前付きパイプを削除（破棄）する
+            # これをやらないとタスク再起動時に名前付きパイプに接続できなくなる
+            win32file.FlushFileBuffers(self.pipe_handle)
+            win32pipe.DisconnectNamedPipe(self.pipe_handle)
+            win32file.CloseHandle(self.pipe_handle)
+
+
+    def run(self, encoder_type:str='ffmpeg') -> None:
+
+        # ネットワーク ID (NID)・サービス ID (SID)
+        network_id = 32736
+        service_id = 1024
+        # 画質
+        quality = '1080p'
+        # 音声タイプ
+        audio_type = 'normal'
+
+
+        # Mirakurun 形式のストリーム ID
+        # NID と SID を 5 桁でゼロ埋めした上で int に変換する
+        mirakurun_stream_id = int(str(network_id).zfill(5) + str(service_id).zfill(5))
 
         # ストリームの URL（暫定で決め打ち）
-        stream_url = 'http://192.168.1.28:40772/api/services/3273601024/stream'
+        stream_url = f'http://192.168.1.28:40772/api/services/{mirakurun_stream_id}/stream'
+
+        # Konomi 内での識別に利用するストリームの ID
+        stream_id = f'Live_NID{network_id}-SID{service_id}_{quality}'
+
+
+        # 出力する名前付きパイプを作成
+        # Windows では Windows の名前付きパイプ、Linux では fifo が使われる
+        # 名前付きパイプの名称にはストリーム ID を利用する（Konomi_ のプレフィックスが自動でつく）
+        pipe_path = self.createNamedPipe(stream_id)
 
         # arib-subtitle-timedmetadater
         ## プロセスを非同期で作成・実行
@@ -127,22 +237,24 @@ class LiveEncodingTask(celery.Task):
             [settings.LIBRARY_PATH['arib-subtitle-timedmetadater'], '--http', stream_url],
             stdout=subprocess.PIPE,  # ffmpeg に繋ぐ
             creationflags=subprocess.CREATE_NO_WINDOW,  # conhost を開かない
-            bufsize=1000000,  # バッファサイズを 1MB に設定
         )
 
         # ffmpeg
         if encoder_type == 'ffmpeg':
 
             ## オプションを取得
-            encoder_options = self.buildFFmpegOptions('1080p', audiotype='normal')
+            encoder_options = self.buildFFmpegOptions(quality, pipe_path, audiotype=audio_type)
+
             ## プロセスを非同期で作成・実行
             encoder = subprocess.Popen(
                 [settings.LIBRARY_PATH['ffmpeg']] + encoder_options,
                 stdin=ast.stdout,  # arib-subtitle-timedmetadater からの入力
                 stderr=subprocess.PIPE,  # ログ出力
                 creationflags=subprocess.CREATE_NO_WINDOW,  # conhost を開かない
-                bufsize=1000000,  # バッファサイズを 1MB に設定
             )
+
+        # arib-subtitle-timedmetadater に SIGPIPE が届くようにする
+        ast.stdout.close()
 
         # エンコーダーの出力結果を取得
         line:str = str()
@@ -181,3 +293,18 @@ class LiveEncodingTask(celery.Task):
                 print(f'ReturnCode: {str(encoder.returncode)}')
                 print(f'Last Message: {line}')
                 break
+
+
+        # エンコード終了後の処理
+
+        # 名前付きパイプを削除
+        self.deleteNamedPipe(pipe_path)
+
+        # 明示的にプロセスを終了する
+        ast.kill()
+        encoder.kill()
+
+        # エラー終了の場合はタスクを再起動する
+        # 本番実装のときは再起動条件にいろいろ加わるが、今は簡易的に
+        if encoder.returncode != 0:
+            self.run('ffmpeg')
