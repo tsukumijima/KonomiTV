@@ -1,6 +1,7 @@
 
 import asyncio
 import celery
+from celery.utils.imports import qualname
 import celery.utils.log
 import os
 import pywintypes
@@ -8,6 +9,8 @@ import subprocess
 import win32file
 import win32pipe
 from django.conf import settings
+
+from app.utils import LiveStreamIDUtil
 
 
 class LiveEncodingTask(celery.Task):
@@ -56,12 +59,12 @@ class LiveEncodingTask(celery.Task):
         }
 
 
-    def buildFFmpegOptions(self, quality:str, pipe_path:str, audiotype:str='normal') -> list:
+    def buildFFmpegOptions(self, pipe_path:str, quality:str, audiotype:str='normal') -> list:
         """FFmpeg に渡すオプションを組み立てる
 
         Args:
-            quality (str): 映像の品質 (1080p ~ 360p)
             pipe_path (str): 名前付きパイプのパス 例: \\.\pipe\Konomi_Live_NID32736-SID1024_1080p
+            quality (str): 映像の品質 (1080p ~ 360p)
             audiotype ([type], optional): 音声種別（ normal:通常・multiplex:音声多重放送・dualmono:デュアルモノ から選択）
 
         Returns:
@@ -204,37 +207,30 @@ class LiveEncodingTask(celery.Task):
             win32file.CloseHandle(self.pipe_handle)
 
 
-    def run(self, encoder_type:str='ffmpeg') -> None:
+    def run(self, livestream_id:str, encoder_type:str='ffmpeg', audio_type:str='normal') -> None:
 
-        # ネットワーク ID (NID)・サービス ID (SID)
-        network_id = 32736
-        service_id = 1024
-        # 画質
-        quality = '1080p'
-        # 音声タイプ
-        audio_type = 'normal'
+        # ライブストリーム ID から NID・SID・映像の品質を取得
+        network_id, service_id, quality = LiveStreamIDUtil.parseLiveStreamID(livestream_id)
+
+        # ストリームの URL
+        ## Mirakurun 形式のサービス ID
+        ## NID と SID を 5 桁でゼロ埋めした上で int に変換する
+        mirakurun_service_id = int(str(network_id).zfill(5) + str(service_id).zfill(5))
+        ## 暫定で決め打ち
+        mirakurun_stream_url = f'http://192.168.1.28:40772/api/services/{mirakurun_service_id}/stream'
 
 
-        # Mirakurun 形式のストリーム ID
-        # NID と SID を 5 桁でゼロ埋めした上で int に変換する
-        mirakurun_stream_id = int(str(network_id).zfill(5) + str(service_id).zfill(5))
-
-        # ストリームの URL（暫定で決め打ち）
-        stream_url = f'http://192.168.1.28:40772/api/services/{mirakurun_stream_id}/stream'
-
-        # Konomi 内での識別に利用するストリームの ID
-        stream_id = f'Live_NID{network_id}-SID{service_id}_{quality}'
-
+        # ***** 外部プロセスの作成と実行 *****
 
         # 出力する名前付きパイプを作成
         # Windows では Windows の名前付きパイプ、Linux では fifo が使われる
         # 名前付きパイプの名称にはストリーム ID を利用する（Konomi_ のプレフィックスが自動でつく）
-        pipe_path = self.createNamedPipe(stream_id)
+        pipe_path = self.createNamedPipe(livestream_id)
 
         # arib-subtitle-timedmetadater
         ## プロセスを非同期で作成・実行
         ast = subprocess.Popen(
-            [settings.LIBRARY_PATH['arib-subtitle-timedmetadater'], '--http', stream_url],
+            [settings.LIBRARY_PATH['arib-subtitle-timedmetadater'], '--http', mirakurun_stream_url],
             stdout=subprocess.PIPE,  # ffmpeg に繋ぐ
             creationflags=subprocess.CREATE_NO_WINDOW,  # conhost を開かない
         )
@@ -243,7 +239,7 @@ class LiveEncodingTask(celery.Task):
         if encoder_type == 'ffmpeg':
 
             ## オプションを取得
-            encoder_options = self.buildFFmpegOptions(quality, pipe_path, audiotype=audio_type)
+            encoder_options = self.buildFFmpegOptions(pipe_path, quality, audiotype=audio_type)
 
             ## プロセスを非同期で作成・実行
             encoder = subprocess.Popen(
@@ -255,6 +251,9 @@ class LiveEncodingTask(celery.Task):
 
         # arib-subtitle-timedmetadater に SIGPIPE が届くようにする
         ast.stdout.close()
+
+
+        # ***** エンコーダーの出力監視と制御 *****
 
         # エンコーダーの出力結果を取得
         line:str = str()
@@ -295,7 +294,7 @@ class LiveEncodingTask(celery.Task):
                 break
 
 
-        # エンコード終了後の処理
+        # ***** エンコード終了後の処理 *****
 
         # 名前付きパイプを削除
         self.deleteNamedPipe(pipe_path)
@@ -307,4 +306,4 @@ class LiveEncodingTask(celery.Task):
         # エラー終了の場合はタスクを再起動する
         # 本番実装のときは再起動条件にいろいろ加わるが、今は簡易的に
         if encoder.returncode != 0:
-            self.run('ffmpeg')
+            self.run(livestream_id, encoder_type=encoder_type, audio_type=audio_type)
