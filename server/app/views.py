@@ -1,4 +1,5 @@
 
+from os import pipe
 from django.http.request import HttpRequest
 from django.http.response import HttpResponseBadRequest
 from django.http.response import StreamingHttpResponse
@@ -6,7 +7,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from app.utils import NamedPipeUtil
+from app.utils import NamedPipeClient
 
 
 class LiveMPEGTSStreamAPI(APIView):
@@ -14,8 +15,8 @@ class LiveMPEGTSStreamAPI(APIView):
     def get(self, request:HttpRequest, livestream_id:str) -> StreamingHttpResponse:
 
         # パイプに接続
-        namedpipe = NamedPipeUtil(livestream_id)
-        result = namedpipe.connectNamedPipe()
+        pipe_client = NamedPipeClient(livestream_id)
+        result = pipe_client.connect()
 
         # 接続できたなら
         if result is True:
@@ -24,8 +25,23 @@ class LiveMPEGTSStreamAPI(APIView):
                 """名前付きパイプから出力を読み取るジェネレーター
                 """
                 while True:
-                    data = namedpipe.readNamedPipe()
-                    if data is None:  # 読み取り失敗
+
+                    # パイプが開かれている間
+                    if pipe_client.pipe_handle is not None:
+
+                        # 名前付きパイプを読み取る
+                        data = pipe_client.read()
+
+                        # 読み取り失敗
+                        if data is False:
+                            pipe_client.close()  # 名前付きパイプを閉じる
+                            break
+
+                        # 読み取ったデータを yield で返す
+                        yield data
+
+                    # パイプが閉じられているので終了
+                    else:
                         break
 
             # StreamingHttpResponse で名前付きパイプから読み取ったデータをストリーミング

@@ -4,10 +4,12 @@ from celery.utils.imports import qualname
 import celery.utils.log
 import os
 import subprocess
+import threading
 from django.conf import settings
 
 from app.utils import LiveStreamIDUtil
-from app.utils import NamedPipeUtil
+from app.utils import NamedPipeClient
+from app.utils import NamedPipeServer
 
 
 class LiveEncodingTask(celery.Task):
@@ -53,11 +55,10 @@ class LiveEncodingTask(celery.Task):
         }
 
 
-    def buildFFmpegOptions(self, pipe_path:str, quality:str, audiotype:str='normal') -> list:
+    def buildFFmpegOptions(self, quality:str, audiotype:str='normal') -> list:
         """FFmpeg に渡すオプションを組み立てる
 
         Args:
-            pipe_path (str): 出力先の名前付きパイプのパス 例: \\.\pipe\Konomi_Live_NID32736-SID1024_1080p
             quality (str): 映像の品質 (1080p ~ 360p)
             audiotype ([type], optional): 音声種別（ normal:通常・multiplex:音声多重放送・dualmono:デュアルモノ から選択）
 
@@ -111,9 +112,8 @@ class LiveEncodingTask(celery.Task):
         options.append('-threads auto -fflags nobuffer -flags low_delay -max_delay 250000 -max_interleave_delta 1')
 
         # 出力
-        options.append('-y')  # これを指定しないと File (パイプ名) already exists. Exiting. と言われる
         options.append('-f mpegts')  # MPEG-TS 出力ということを明示
-        options.append(pipe_path)  # 名前付きパイプのパスを出力に指定
+        options.append('-')  # 標準入力へ出力
 
         # オプションをスペースで区切って配列にする
         result = []
@@ -141,8 +141,8 @@ class LiveEncodingTask(celery.Task):
         # 出力する名前付きパイプを作成
         # Windows では Windows の名前付きパイプ、Linux では fifo が使われる
         # 名前付きパイプの名称にはストリーム ID を利用する（Konomi_ のプレフィックスが自動でつく）
-        namedpipe = NamedPipeUtil(livestream_id)
-        pipe_path = namedpipe.createNamedPipe()
+        pipe_server = NamedPipeServer(livestream_id)
+        pipe_server.create()
 
         # arib-subtitle-timedmetadater
         ## プロセスを非同期で作成・実行
@@ -156,18 +156,44 @@ class LiveEncodingTask(celery.Task):
         if encoder_type == 'ffmpeg':
 
             ## オプションを取得
-            encoder_options = self.buildFFmpegOptions(pipe_path, quality, audiotype=audio_type)
+            encoder_options = self.buildFFmpegOptions(quality, audiotype=audio_type)
 
             ## プロセスを非同期で作成・実行
             encoder = subprocess.Popen(
                 [settings.LIBRARY_PATH['ffmpeg']] + encoder_options,
                 stdin=ast.stdout,  # arib-subtitle-timedmetadater からの入力
+                stdout=subprocess.PIPE,  # 出力を名前付きパイプに流す
                 stderr=subprocess.PIPE,  # ログ出力
                 creationflags=subprocess.CREATE_NO_WINDOW,  # conhost を開かない
             )
 
         # arib-subtitle-timedmetadater に SIGPIPE が届くようにする
         ast.stdout.close()
+
+        # 非同期でエンコーダーから受けた出力を随時名前付きパイプに書き込む
+        def write():
+
+            while True:
+
+                # パイプが開かれている間
+                if pipe_server.pipe_handle is not None:
+
+                    # 名前付きパイプに書き込む
+                    data = encoder.stdout.read(48128)
+                    result = pipe_server.write(data)
+
+                    # 書き込み失敗はスルーする
+                    # 他のクライアントが一切接続していない場合は当然書き込めない
+                    if result is False:
+                        pass
+
+                # パイプが閉じられているので終了
+                else:
+                    break
+
+        # スレッドを開始
+        thread_write = threading.Thread(target=write)
+        thread_write.start()
 
 
         # ***** エンコーダーの出力監視と制御 *****
@@ -213,8 +239,8 @@ class LiveEncodingTask(celery.Task):
 
         # ***** エンコード終了後の処理 *****
 
-        # 名前付きパイプを削除
-        namedpipe.deleteNamedPipe()
+        # 名前付きパイプを閉じる
+        pipe_server.close()
 
         # 明示的にプロセスを終了する
         ast.kill()
