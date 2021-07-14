@@ -16,8 +16,10 @@ Including another URLconf
 from django.contrib import admin
 from django.http.response import HttpResponse
 from django.shortcuts import render
-from django.urls import path, re_path
+from django.urls import path, re_path, include
 from django.views.generic import TemplateView
+
+import app.urls
 
 
 def favicon(request):
@@ -44,6 +46,9 @@ urlpatterns = [
 
     # Django-Admin
     path('admin/', admin.site.urls),
+
+    # API
+    path('api/', include(app.urls)),
 
     # 直下に置く必要のある静的ファイル
     path('favicon.ico', favicon),
