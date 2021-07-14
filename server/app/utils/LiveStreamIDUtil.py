@@ -1,6 +1,7 @@
 
 import re
 
+
 class LiveStreamIDUtil:
 
     @staticmethod
@@ -17,6 +18,7 @@ class LiveStreamIDUtil:
         """
 
         return f'Live_NID{str(network_id)}-SID{str(service_id)}_{quality}'
+
 
     @staticmethod
     def parseLiveStreamID(livestream_id:str) -> tuple:
