@@ -7,7 +7,7 @@ import subprocess
 import threading
 from django.conf import settings
 
-from app.utils import LiveStreamIDUtil
+from app.utils import LiveStreamID
 from app.utils import NamedPipeClient
 from app.utils import NamedPipeServer
 
@@ -126,7 +126,7 @@ class LiveEncodingTask(celery.Task):
     def run(self, livestream_id:str, encoder_type:str='ffmpeg', audio_type:str='normal') -> None:
 
         # ライブストリーム ID から NID・SID・映像の品質を取得
-        network_id, service_id, quality = LiveStreamIDUtil.parseLiveStreamID(livestream_id)
+        network_id, service_id, quality = LiveStreamID.parseLiveStreamID(livestream_id)
 
         # ストリームの URL
         ## Mirakurun 形式のサービス ID

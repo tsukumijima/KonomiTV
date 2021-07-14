@@ -2,7 +2,7 @@
 import re
 
 
-class LiveStreamIDUtil:
+class LiveStreamID:
 
     @staticmethod
     def buildLiveStreamID(network_id:int, service_id:int, quality:str) -> str:

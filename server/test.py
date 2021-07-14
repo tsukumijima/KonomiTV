@@ -1,6 +1,6 @@
 
 from app.tasks import LiveEncodingTask
-from app.utils import LiveStreamIDUtil
+from app.utils import LiveStreamID
 from config.celery import celery
 
 celery.register_task(LiveEncodingTask)
@@ -19,7 +19,7 @@ audio_type = 'normal'
 
 
 # ライブストリーム ID を取得
-livestream_id = LiveStreamIDUtil.buildLiveStreamID(network_id, service_id, quality)
+livestream_id = LiveStreamID.buildLiveStreamID(network_id, service_id, quality)
 
 # タスクを実行
 instance = LiveEncodingTask()
