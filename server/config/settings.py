@@ -74,7 +74,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 # Celery のブローカー用 SQLite データベース
-CELERY_BROKER_URL = 'sqla+sqlite:///' + str(BASE_DIR / 'config/celery.sqlite')
+CELERY_BROKER_URL = 'sqla+sqlite:///' + str(BASE_DIR / 'data/celery.sqlite')
 
 # サードパーティーライブラリのあるディレクトリ
 LIBRARY_DIR = BASE_DIR / 'thirdparty'
@@ -121,7 +121,7 @@ LOGGING = {
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'config/database.sqlite',
+        'NAME': BASE_DIR / 'data/database.sqlite',
     }
 }
 
