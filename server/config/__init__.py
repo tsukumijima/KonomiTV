@@ -2,3 +2,9 @@
 # Django の起動時に Celery を初期化する
 from .celery import celery as celery_app
 __all__ = ['celery_app']
+
+# FIFO キューのテスト
+import datetime
+import queue
+fifo = queue.Queue()
+fifo.put(datetime.datetime.now().isoformat())

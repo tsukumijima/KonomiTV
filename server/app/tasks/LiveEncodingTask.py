@@ -1,14 +1,13 @@
 
 import celery
-from celery.utils.imports import qualname
 import celery.utils.log
 import os
 import subprocess
 import threading
+from celery.utils.imports import qualname
 from django.conf import settings
 
 from app.utils import LiveStreamID
-from app.utils import NamedPipeClient
 from app.utils import NamedPipeServer
 
 

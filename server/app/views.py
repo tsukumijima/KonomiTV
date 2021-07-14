@@ -1,5 +1,5 @@
 
-from os import pipe
+from django.conf import settings
 from django.http.request import HttpRequest
 from django.http.response import HttpResponseBadRequest
 from django.http.response import StreamingHttpResponse
@@ -7,7 +7,24 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from config import fifo
 from app.utils import NamedPipeClient
+
+
+class TestAPI(APIView):
+
+    def get(self, request:HttpRequest):
+
+        import datetime
+        data = fifo.get()
+        fifo.put(datetime.datetime.now().isoformat())
+
+        return Response({
+            'meta': {
+                'code': 200,
+                'message': data,
+            }
+        })
 
 
 class LiveMPEGTSStreamAPI(APIView):
