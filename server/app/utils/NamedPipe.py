@@ -44,8 +44,13 @@ class NamedPipe:
             # 名前付きパイプから size 分読み取る
             try:
                 # 実行結果と読み取ったデータのタプルなので注意
-                _, data = win32file.ReadFile(self.pipe_handle, size)
-                return data
+                # 参考: http://timgolden.me.uk/pywin32-docs/win32file__ReadFile_meth.html
+                result, data = win32file.ReadFile(self.pipe_handle, size)
+                if result == 0:
+                    return data
+                else:
+                    self.logger.error(f'ReadFile() failed. Code:{result}')
+                    return False
             except pywintypes.error as ex:
                 # 読み取りに失敗した（主にパイプが閉じられているなどの理由）なら False を返す
                 self.logger.error(f'ReadFile() failed. Code:{ex.args[0]} Message:{ex.args[2]}')
@@ -67,8 +72,12 @@ class NamedPipe:
 
             # 名前付きパイプに書き込む
             try:
-                # 書き込みが成功したら True・失敗したら False が返る
-                return win32file.WriteFile(self.pipe_handle, data)
+                result, _ = win32file.WriteFile(self.pipe_handle, data)
+                if result == 0:
+                    return True
+                else:
+                    self.logger.error(f'WriteFile() failed. Code:{result}')
+                    return False
             except pywintypes.error as ex:
                 # 読み取りに失敗した（主にパイプが閉じられているなどの理由）なら False を返す
                 self.logger.error(f'WriteFile() failed. Code:{ex.args[0]} Message:{ex.args[2]}')
@@ -84,8 +93,11 @@ class NamedPipe:
 
             # 名前付きパイプを閉じる
             if self.pipe_handle is not None:
-                win32pipe.DisconnectNamedPipe(self.pipe_handle)
-                win32file.CloseHandle(self.pipe_handle)
+                try:
+                    win32pipe.DisconnectNamedPipe(self.pipe_handle)
+                    win32file.CloseHandle(self.pipe_handle)
+                except pywintypes.error:
+                    pass
 
         # ハンドルを空にする
         self.pipe_handle = None
