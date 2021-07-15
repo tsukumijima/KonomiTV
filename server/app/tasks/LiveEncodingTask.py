@@ -1,12 +1,15 @@
 
 import celery
 import celery.utils.log
+import io
+import logging
 import os
 import subprocess
 import threading
 from celery.utils.imports import qualname
 from django.conf import settings
 
+from app.apps import AppConfig
 from app.utils import LiveStreamID
 from app.utils import NamedPipeServer
 
@@ -19,7 +22,8 @@ class LiveEncodingTask(celery.Task):
         self.name = 'LiveEncodingTask'
 
         # ロガー
-        self.logger = celery.utils.log.get_task_logger(__name__)
+        # self.logger = celery.utils.log.get_task_logger(__name__)
+        self.logger = logging.getLogger('app')
 
         # 映像・音声の品質定義
         self.quality = {
@@ -140,8 +144,8 @@ class LiveEncodingTask(celery.Task):
         # 出力する名前付きパイプを作成
         # Windows では Windows の名前付きパイプ、Linux では fifo が使われる
         # 名前付きパイプの名称にはストリーム ID を利用する（Konomi_ のプレフィックスが自動でつく）
-        pipe_server = NamedPipeServer(livestream_id)
-        pipe_server.create()
+        #pipe_server = NamedPipeServer(livestream_id)
+        #pipe_server.create()
 
         # arib-subtitle-timedmetadater
         ## プロセスを非同期で作成・実行
@@ -169,26 +173,31 @@ class LiveEncodingTask(celery.Task):
         # arib-subtitle-timedmetadater に SIGPIPE が届くようにする
         ast.stdout.close()
 
+        AppConfig.livestream[livestream_id] = bytes()
+
         # 非同期でエンコーダーから受けた出力を随時名前付きパイプに書き込む
         def write():
 
             while True:
 
-                # パイプが開かれている間
-                if pipe_server.pipe_handle is not None:
-
-                    # 名前付きパイプに書き込む
-                    data = encoder.stdout.read(48128)
-                    result = pipe_server.write(data)
-
-                    # 書き込み失敗はスルーする
-                    # 他のクライアントが一切接続していない場合は当然書き込めない
-                    if result is False:
-                        pass
-
-                # パイプが閉じられているので終了
-                else:
+                AppConfig.livestream[livestream_id] = encoder.stdout.read(48128)
+                if encoder.poll() is not None:
                     break
+
+                # # パイプが開かれている間
+                # if pipe_server.pipe_handle is not None:
+
+                #     # 名前付きパイプに書き込む
+                #     result = pipe_server.write(data)
+
+                #     # 書き込み失敗はスルーする
+                #     # 他のクライアントが一切接続していない場合は当然書き込めない
+                #     if result is False:
+                #         pass
+
+                # # パイプが閉じられているので終了
+                # else:
+                #     break
 
         # スレッドを開始
         thread_write = threading.Thread(target=write)
@@ -226,20 +235,22 @@ class LiveEncodingTask(celery.Task):
                     linebuffer = bytes()
 
                     # 行の内容を表示
-                    print(line)
+                    #print(line)
                     self.logger.info(line)
 
             # プロセスが終了したらループ停止
             if not buffer and encoder.poll() is not None:
-                print(f'ReturnCode: {str(encoder.returncode)}')
-                print(f'Last Message: {line}')
+                self.logger.info(f'ReturnCode: {str(encoder.returncode)}')
+                self.logger.info(f'Last Message: {line}')
                 break
 
 
         # ***** エンコード終了後の処理 *****
 
+        del AppConfig.livestream[livestream_id]
+
         # 名前付きパイプを閉じる
-        pipe_server.close()
+        #pipe_server.close()
 
         # 明示的にプロセスを終了する
         ast.kill()
