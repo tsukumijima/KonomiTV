@@ -6,12 +6,10 @@ import logging
 import os
 import subprocess
 import threading
-from celery.utils.imports import qualname
 from django.conf import settings
 
 from app.apps import AppConfig
 from app.utils import LiveStreamID
-from app.utils import NamedPipeServer
 
 
 class LiveEncodingTask(celery.Task):
@@ -141,12 +139,6 @@ class LiveEncodingTask(celery.Task):
 
         # ***** 外部プロセスの作成と実行 *****
 
-        # 出力する名前付きパイプを作成
-        # Windows では Windows の名前付きパイプ、Linux では fifo が使われる
-        # 名前付きパイプの名称にはストリーム ID を利用する（Konomi_ のプレフィックスが自動でつく）
-        #pipe_server = NamedPipeServer(livestream_id)
-        #pipe_server.create()
-
         # arib-subtitle-timedmetadater
         ## プロセスを非同期で作成・実行
         ast = subprocess.Popen(
@@ -177,27 +169,10 @@ class LiveEncodingTask(celery.Task):
 
         # 非同期でエンコーダーから受けた出力を随時名前付きパイプに書き込む
         def write():
-
             while True:
-
                 AppConfig.livestream[livestream_id] = encoder.stdout.read(48128)
                 if encoder.poll() is not None:
                     break
-
-                # # パイプが開かれている間
-                # if pipe_server.pipe_handle is not None:
-
-                #     # 名前付きパイプに書き込む
-                #     result = pipe_server.write(data)
-
-                #     # 書き込み失敗はスルーする
-                #     # 他のクライアントが一切接続していない場合は当然書き込めない
-                #     if result is False:
-                #         pass
-
-                # # パイプが閉じられているので終了
-                # else:
-                #     break
 
         # スレッドを開始
         thread_write = threading.Thread(target=write)
@@ -247,10 +222,8 @@ class LiveEncodingTask(celery.Task):
 
         # ***** エンコード終了後の処理 *****
 
+        # ライブストリームを削除する
         del AppConfig.livestream[livestream_id]
-
-        # 名前付きパイプを閉じる
-        #pipe_server.close()
 
         # 明示的にプロセスを終了する
         ast.kill()
