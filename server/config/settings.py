@@ -39,11 +39,13 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',  # Django Rest Framework
+    'corsheaders',  # Django CORS Headers
     'app',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # Django CORS Headers
     'whitenoise.middleware.WhiteNoiseMiddleware',  # WhiteNoise
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -72,6 +74,10 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+
+# DEBUG 時のみ、CORS を許可する
+if DEBUG is True:
+    CORS_ALLOW_ALL_ORIGINS = True
 
 # Celery のブローカー用 SQLite データベース
 CELERY_BROKER_URL = 'sqla+sqlite:///' + str(BASE_DIR / 'data/celery.sqlite')

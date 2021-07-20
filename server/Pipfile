@@ -10,6 +10,7 @@ celery = "celery -A config worker -l info -P eventlet"
 
 [packages]
 django = "*"
+django-cors-headers = "*"
 djangorestframework = "*"
 whitenoise = "*"
 uvicorn = {extras = ["standard"], version = "*"}
