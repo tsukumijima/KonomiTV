@@ -95,7 +95,7 @@ class LiveEncodingTask(celery.Task):
 
         # 映像
         options.append(f'-vcodec libx264 -vb {self.quality[quality]["video_bitrate"]} -maxrate {self.quality[quality]["video_bitrate_max"]}')
-        options.append('-aspect 16:9 -r 30000/1001 -preset veryfast -profile:v main -flags +cgop')
+        options.append('-aspect 16:9 -r 30000/1001 -g 30 -preset veryfast -profile:v main -flags +cgop')
         if audiotype != 'dualmono':  # デュアルモノ以外
             ## 1440x1080 と 1920x1080 が混在しているので、1080p だけリサイズする解像度を指定しない
             if quality == '1080p':
