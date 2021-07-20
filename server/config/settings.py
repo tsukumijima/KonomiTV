@@ -79,6 +79,9 @@ WSGI_APPLICATION = 'config.wsgi.application'
 if DEBUG is True:
     CORS_ALLOW_ALL_ORIGINS = True
 
+# Whitenoise で提供される静的ファイルに CORS を許可しない
+WHITENOISE_ALLOW_ALL_ORIGINS = False
+
 # Celery のブローカー用 SQLite データベース
 CELERY_BROKER_URL = 'sqla+sqlite:///' + str(BASE_DIR / 'data/celery.sqlite')
 

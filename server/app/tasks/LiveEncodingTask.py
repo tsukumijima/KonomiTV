@@ -218,7 +218,7 @@ class LiveEncodingTask(celery.Task):
 
                     # 行の内容を表示
                     #print(line)
-                    #self.logger.info(line)
+                    self.logger.info(line)
 
             # プロセスが終了したらループ停止
             if not buffer and encoder.poll() is not None:
