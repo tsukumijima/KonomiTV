@@ -1,5 +1,5 @@
 
-import copy
+import os
 import threading
 from django.conf import settings
 from django.http.response import StreamingHttpResponse
@@ -48,14 +48,24 @@ class LiveMPEGTSStreamAPI(APIView):
             def read():
                 """名前付きパイプから出力を読み取るジェネレーター
                 """
-                last_data = bytes()
+
+                # 空の bytes を定義
+                last_stream_data = bytes()
+
                 while True:
 
+                    # ライブストリームが存在している間だけ
                     if livestream_id in AppConfig.livestream:
-                        data = copy.copy(AppConfig.livestream[livestream_id])
-                        if last_data != data:
-                            last_data = copy.copy(data)
-                            yield data
+
+                        # ストリームデータを取得
+                        stream_data = AppConfig.livestream[livestream_id]
+
+                        # 前回取得したストリームデータと異なっていれば yield で返す
+                        if stream_data != last_stream_data:
+                            last_stream_data = stream_data
+                            yield stream_data
+
+                    # ライブストリームが終了されたのでループを抜ける
                     else:
                         break
 

@@ -1,7 +1,6 @@
 
 import celery
 import celery.utils.log
-import io
 import logging
 import os
 import subprocess
@@ -165,12 +164,20 @@ class LiveEncodingTask(celery.Task):
         # arib-subtitle-timedmetadater に SIGPIPE が届くようにする
         ast.stdout.close()
 
+        # ストリームデータを定義
         AppConfig.livestream[livestream_id] = bytes()
 
-        # 非同期でエンコーダーから受けた出力を随時名前付きパイプに書き込む
         def write():
+
+            # 非同期でエンコーダーから受けた出力を随時スレッド間で共有する変数に書き込む
             while True:
-                AppConfig.livestream[livestream_id] = encoder.stdout.read(48128)
+
+                # 書き込み
+                # バッファ: 385024B (385KB) = 188B (TS Packet Size) * 2048
+                # 48128B だと拾いきれずにドロップしまくるが、これくらいバッファがあれば大丈夫そう
+                AppConfig.livestream[livestream_id] = encoder.stdout.read(385024)
+
+                # エンコーダープロセスが終了していたらループを抜ける
                 if encoder.poll() is not None:
                     break
 
@@ -211,7 +218,7 @@ class LiveEncodingTask(celery.Task):
 
                     # 行の内容を表示
                     #print(line)
-                    self.logger.info(line)
+                    #self.logger.info(line)
 
             # プロセスが終了したらループ停止
             if not buffer and encoder.poll() is not None:
