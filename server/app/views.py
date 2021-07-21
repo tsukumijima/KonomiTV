@@ -19,13 +19,10 @@ class LiveStreamAPI(APIView):
         # エンコーダー
         encoder_type = 'ffmpeg'
 
-        # 音声タイプ
-        audio_type = 'normal'
-
         # エンコードタスクを非同期で実行
         def run():
             instance = LiveEncodingTask()
-            instance.run(livestream_id, encoder_type=encoder_type, audio_type=audio_type)
+            instance.run(livestream_id, encoder_type=encoder_type)
         thread = threading.Thread(target=run)
         thread.start()
 

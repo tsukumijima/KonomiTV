@@ -55,12 +55,12 @@ class LiveEncodingTask(celery.Task):
         }
 
 
-    def buildFFmpegOptions(self, quality:str, audiotype:str='normal') -> list:
+    def buildFFmpegOptions(self, quality:str, is_dualmono:bool=False) -> list:
         """FFmpeg に渡すオプションを組み立てる
 
         Args:
             quality (str): 映像の品質 (1080p ~ 360p)
-            audiotype ([type], optional): 音声種別（ normal:通常・multiplex:音声多重放送・dualmono:デュアルモノ から選択）
+            is_dualmono (bool, optional): 放送がデュアルモノかどうか
 
         Returns:
             list: FFmpeg に渡すオプションが連なる配列
@@ -70,33 +70,34 @@ class LiveEncodingTask(celery.Task):
         options = []
 
         # 入力
+        ## analyzeduration をつけることで、ストリームの分析時間を短縮できる
         options.append('-f mpegts -analyzeduration 500000 -i pipe:0')
 
         # ストリームのマッピング
-        # 音声多重放送・デュアルモノの場合も主音声・副音声両方をエンコード後の TS に含む（将来の音声切替対応へ準備）
-        ## 通常向け
-        if audiotype == 'normal':
-            options.append('-map 0:v:0 -map 0:a:0 -map 0:d?')
-
-        ## 音声多重放送向け
+        # 主音声・副音声両方をエンコード後の TS に含む（将来の音声切替対応へ準備）
+        ## 通常放送・音声多重放送向け
         ## 副音声が検出できない場合にエラーにならないよう、? をつけておく
-        elif audiotype == 'multiplex':
-            options.append('-map 0:v:0 -map 0:a:0 -map 0:a:1? -map 0:d?')
+        if is_dualmono is False:
+            options.append('-map 0:v:0 -map 0:a:0 -map 0:a:1? -map 0:d? -ignore_unknown')
 
         ## デュアルモノ向け（Lが主音声・Rが副音声）
-        elif audiotype == 'dualmono':
+        else:
             # 参考: https://github.com/l3tnun/EPGStation/blob/master/config/enc3.js
             # -filter_complex を使うと -vf や -af が使えなくなるため、デュアルモノのみ -filter_complex に -vf や -af の内容も入れる
             ## 1440x1080 と 1920x1080 が混在しているので、1080p だけリサイズする解像度を指定しない
             scale = '' if quality == '1080p' else f',scale={self.quality[quality]["width"]}:{self.quality[quality]["height"]}'
             options.append(f'-filter_complex yadif=0:-1:1{scale};volume=2.0,channelsplit[FL][FR]')
             ## Lを主音声に、Rを副音声にマッピング
-            options.append('-map 0:v:0 -map [FL] -map [FR] -map 0:d?')
+            options.append('-map 0:v:0 -map [FL] -map [FR] -map 0:d? -ignore_unknown')
+
+        # フラグ
+        ## 主に ffmpeg の起動を高速化するための設定
+        options.append('-fflags nobuffer -flags low_delay -max_delay 250000 -max_interleave_delta 1 -threads auto')
 
         # 映像
-        options.append(f'-vcodec libx264 -vb {self.quality[quality]["video_bitrate"]} -maxrate {self.quality[quality]["video_bitrate_max"]}')
-        options.append('-aspect 16:9 -r 30000/1001 -g 30 -preset veryfast -profile:v main -flags +cgop')
-        if audiotype != 'dualmono':  # デュアルモノ以外
+        options.append(f'-vcodec libx264 -flags +cgop -vb {self.quality[quality]["video_bitrate"]} -maxrate {self.quality[quality]["video_bitrate_max"]}')
+        options.append('-aspect 16:9 -r 30000/1001 -g 15 -preset veryfast -profile:v main')
+        if is_dualmono is False:  # デュアルモノ以外
             ## 1440x1080 と 1920x1080 が混在しているので、1080p だけリサイズする解像度を指定しない
             if quality == '1080p':
                 options.append('-vf yadif=0:-1:1')
@@ -105,25 +106,24 @@ class LiveEncodingTask(celery.Task):
 
         # 音声
         options.append(f'-acodec aac -ac 2 -ab {self.quality[quality]["audio_bitrate"]} -ar 48000')
-        if audiotype != 'dualmono':  # デュアルモノ以外
+        if is_dualmono is False:  # デュアルモノ以外
             options.append('-af volume=2.0')
 
-        # フラグ
-        options.append('-threads auto -fflags nobuffer -flags low_delay -max_delay 250000 -max_interleave_delta 1')
-
         # 出力
-        options.append('-f mpegts')  # MPEG-TS 出力ということを明示
-        options.append('-')  # 標準入力へ出力
+        options.append('-y -f mpegts')  # MPEG-TS 出力ということを明示
+        options.append('pipe:1')  # 標準入力へ出力
 
         # オプションをスペースで区切って配列にする
         result = []
         for option in options:
             result += option.split(' ')
 
+        self.logger.info(f'ffmpeg commands: ffmpeg {" ".join(result)}')
+
         return result
 
 
-    def run(self, livestream_id:str, encoder_type:str='ffmpeg', audio_type:str='normal') -> None:
+    def run(self, livestream_id:str, encoder_type:str='ffmpeg', is_dualmono:bool=False) -> None:
 
         # ライブストリーム ID から NID・SID・映像の品質を取得
         network_id, service_id, quality = LiveStreamID.parseLiveStreamID(livestream_id)
@@ -150,7 +150,7 @@ class LiveEncodingTask(celery.Task):
         if encoder_type == 'ffmpeg':
 
             ## オプションを取得
-            encoder_options = self.buildFFmpegOptions(quality, audiotype=audio_type)
+            encoder_options = self.buildFFmpegOptions(quality, is_dualmono=is_dualmono)
 
             ## プロセスを非同期で作成・実行
             encoder = subprocess.Popen(
