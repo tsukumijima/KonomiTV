@@ -1,6 +1,6 @@
 
-import os
 import threading
+import time
 from django.conf import settings
 from django.http.response import StreamingHttpResponse
 from rest_framework import status
@@ -61,6 +61,8 @@ class LiveMPEGTSStreamAPI(APIView):
                         if stream_data != last_stream_data:
                             last_stream_data = stream_data
                             yield stream_data
+
+                        time.sleep(0.01)
 
                     # ライブストリームが終了されたのでループを抜ける
                     else:
