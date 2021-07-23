@@ -136,7 +136,7 @@ class LiveEncodingTask(celery.Task):
         mirakurun_stream_url = f'http://192.168.1.28:40772/api/services/{mirakurun_service_id}/stream'
 
 
-        # ***** 外部プロセスの作成と実行 *****
+        # ***** arib-subtitle-timedmetadater プロセスの作成と実行 *****
 
         # arib-subtitle-timedmetadater
         ## プロセスを非同期で作成・実行
@@ -146,7 +146,10 @@ class LiveEncodingTask(celery.Task):
             creationflags=subprocess.CREATE_NO_WINDOW,  # conhost を開かない
         )
 
-        # ffmpeg
+
+        # ***** エンコーダープロセスの作成と実行 *****
+
+        ## ffmpeg
         if encoder_type == 'ffmpeg':
 
             ## オプションを取得
@@ -156,18 +159,18 @@ class LiveEncodingTask(celery.Task):
             encoder = subprocess.Popen(
                 [settings.LIBRARY_PATH['ffmpeg']] + encoder_options,
                 stdin=ast.stdout,  # arib-subtitle-timedmetadater からの入力
-                stdout=subprocess.PIPE,  # 出力を名前付きパイプに流す
+                stdout=subprocess.PIPE,  # ストリーム出力
                 stderr=subprocess.PIPE,  # ログ出力
                 creationflags=subprocess.CREATE_NO_WINDOW,  # conhost を開かない
             )
 
-        # arib-subtitle-timedmetadater に SIGPIPE が届くようにする
-        ast.stdout.close()
+
+        # ***** エンコーダーの出力の書き込み *****
 
         # ストリームデータを定義
         AppConfig.livestream[livestream_id] = bytes()
 
-        def write():
+        def writer():
 
             # 非同期でエンコーダーから受けた出力を随時スレッド間で共有する変数に書き込む
             while True:
@@ -181,8 +184,8 @@ class LiveEncodingTask(celery.Task):
                     break
 
         # スレッドを開始
-        thread_write = threading.Thread(target=write)
-        thread_write.start()
+        thread_writer = threading.Thread(target=writer)
+        thread_writer.start()
 
 
         # ***** エンコーダーの出力監視と制御 *****
