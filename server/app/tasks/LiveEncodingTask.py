@@ -173,9 +173,8 @@ class LiveEncodingTask(celery.Task):
             while True:
 
                 # 書き込み
-                # バッファ: 385024B (385KB) = 188B (TS Packet Size) * 2048
-                # 48128B だと拾いきれずにドロップしまくるが、これくらいバッファがあれば大丈夫そう
-                AppConfig.livestream[livestream_id] = encoder.stdout.read(385024)
+                # バッファ: 188B (TS Packet Size) * 1000
+                AppConfig.livestream[livestream_id] = encoder.stdout.read(188000)
 
                 # エンコーダープロセスが終了していたらループを抜ける
                 if encoder.poll() is not None:
