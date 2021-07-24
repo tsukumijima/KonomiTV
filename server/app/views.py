@@ -40,7 +40,7 @@ class LiveMPEGTSStreamAPI(APIView):
 
     def get(self, request:Request, livestream_id:str) -> StreamingHttpResponse:
 
-        # エンコードしたライブストリームが存在する
+        # ライブストリームが存在する
         if livestream_id in AppConfig.livestream:
 
             # ストリームデータが入れられる Queue を登録する
@@ -52,17 +52,23 @@ class LiveMPEGTSStreamAPI(APIView):
                 """
                 while True:
 
-                    # 登録した Queue から受信したストリームデータ
-                    stream_data = AppConfig.livestream[livestream_id][queue_index].get()
+                    # ライブストリームが存在する
+                    if livestream_id in AppConfig.livestream:
 
-                    # ライブストリームが存在している間だけ
-                    if stream_data is not None:
+                        # 登録した Queue から受信したストリームデータ
+                        stream_data = AppConfig.livestream[livestream_id][queue_index].get()
 
-                        # Queue から取得したストリームデータを yield で返す
-                        yield stream_data
+                        # ストリームデータが存在する
+                        if stream_data is not None:
+
+                            # Queue から取得したストリームデータを yield で返す
+                            yield stream_data
+
+                        # stream_data に None が入った場合はエンコードタスクが終了したものとみなす
+                        else:
+                            break
 
                     # ライブストリームが終了されたのでループを抜ける
-                    # stream_data に None が入った場合はエンコードタスクが終了したものとみなす
                     else:
                         break
 
