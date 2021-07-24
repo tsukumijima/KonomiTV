@@ -167,20 +167,36 @@ class LiveEncodingTask(celery.Task):
 
         # ***** エンコーダーの出力の書き込み *****
 
-        # ストリームデータを定義
-        AppConfig.livestream[livestream_id] = bytes()
+        # 接続しているクライアントのストリームデータを入れる Queue が入るリスト
+        # ストリームデータはそれぞれのクライアントが持つ Queue ごとに書き込む
+        AppConfig.livestream[livestream_id] = list()
 
         def writer():
 
-            # 非同期でエンコーダーから受けた出力を随時スレッド間で共有する変数に書き込む
+            # 非同期でエンコーダーから受けた出力を随時 Queue に書き込む
             while True:
 
-                # 書き込み
-                # バッファ: 188B (TS Packet Size) * 1000
-                AppConfig.livestream[livestream_id] = encoder.stdout.read(188000)
+                # エンコーダーの出力を読み取る
+                # バッファ: 188B (TS Packet Size) * 256
+                stream_data = encoder.stdout.read(48128)
+
+                # 接続している全てのクライアントの Queue にストリームデータを書き込む
+                for client in AppConfig.livestream[livestream_id]:
+                    client.put(stream_data)
 
                 # エンコーダープロセスが終了していたらループを抜ける
                 if encoder.poll() is not None:
+
+                    # 抜ける前に、接続している全てのクライアントの Queue にエンコードタスクの終了を知らせる None を書き込む
+                    # クライアントは None を受信した場合、受信ループとストリーミングを終了する
+                    # これがないとクライアントはエンコードタスクが終了した事に気づかず、Queue を取り出そうとしてずっとブロッキングされてしまう
+                    for client in AppConfig.livestream[livestream_id]:
+                        client.put(None)
+
+                    # ライブストリームを削除する
+                    AppConfig.livestream.pop(livestream_id)
+
+                    # ループを抜ける
                     break
 
         # スレッドを開始
@@ -230,9 +246,6 @@ class LiveEncodingTask(celery.Task):
 
 
         # ***** エンコード終了後の処理 *****
-
-        # ライブストリームを削除する
-        del AppConfig.livestream[livestream_id]
 
         # 明示的にプロセスを終了する
         ast.kill()

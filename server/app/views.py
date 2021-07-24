@@ -1,4 +1,5 @@
 
+import queue
 import threading
 import time
 from django.conf import settings
@@ -42,29 +43,26 @@ class LiveMPEGTSStreamAPI(APIView):
         # エンコードしたライブストリームが存在する
         if livestream_id in AppConfig.livestream:
 
+            # ストリームデータが入れられる Queue を登録する
+            AppConfig.livestream[livestream_id].append(queue.Queue())
+            queue_index = len(AppConfig.livestream[livestream_id]) - 1  # 自分の Queue があるインデックスを取得
+
             def read():
                 """名前付きパイプから出力を読み取るジェネレーター
                 """
-
-                # 空の bytes を定義
-                last_stream_data = bytes()
-
                 while True:
 
+                    # 登録した Queue から受信したストリームデータ
+                    stream_data = AppConfig.livestream[livestream_id][queue_index].get()
+
                     # ライブストリームが存在している間だけ
-                    if livestream_id in AppConfig.livestream:
+                    if stream_data is not None:
 
-                        # ストリームデータを取得
-                        stream_data = AppConfig.livestream[livestream_id]
-
-                        # 前回取得したストリームデータと異なっていれば yield で返す
-                        if stream_data != last_stream_data:
-                            last_stream_data = stream_data
-                            yield stream_data
-
-                        time.sleep(0.01)
+                        # Queue から取得したストリームデータを yield で返す
+                        yield stream_data
 
                     # ライブストリームが終了されたのでループを抜ける
+                    # stream_data に None が入った場合はエンコードタスクが終了したものとみなす
                     else:
                         break
 
