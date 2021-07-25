@@ -1,7 +1,6 @@
 
 import queue
 import threading
-import time
 from django.conf import settings
 from django.http.response import StreamingHttpResponse
 from rest_framework import status
