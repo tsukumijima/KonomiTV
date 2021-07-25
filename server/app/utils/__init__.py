@@ -1,4 +1,4 @@
 
 # ユーティリティをモジュールとして登録
-from .LiveStreamID import *
+from .LiveStream import LiveStream
 from .NamedPipe import NamedPipeServer, NamedPipeClient

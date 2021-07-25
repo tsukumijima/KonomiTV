@@ -1,58 +1,15 @@
 
-import celery
-import celery.utils.log
 import logging
 import os
 import subprocess
 import threading
-from django.conf import settings
 
-from app.apps import AppConfig
-from app.utils import LiveStreamID
+from app.constants import LIBRARY_PATH
+from app.utils import LiveStream
+from app.utils import Logging
 
 
-class LiveEncodingTask(celery.Task):
-
-    def __init__(self):
-
-        # タスク名
-        self.name = 'LiveEncodingTask'
-
-        # ロガー
-        # self.logger = celery.utils.log.get_task_logger(__name__)
-        self.logger = logging.getLogger('app')
-
-        # 映像・音声の品質定義
-        self.quality = {
-            '1080p': {
-                'width': None,  # 縦解像度：1080p のみソースの解像度を使うため指定しない
-                'height': None,  # 横解像度：1080p のみソースの解像度を使うため指定しない
-                'video_bitrate': '6500K',  # 映像ビットレート
-                'video_bitrate_max': '9000K',  # 映像最大ビットレート
-                'audio_bitrate': '192K',  # 音声ビットレート
-            },
-            '720p': {
-                'width': 1280,
-                'height': 720,
-                'video_bitrate': '4500K',
-                'video_bitrate_max': '6200K',
-                'audio_bitrate': '192K',  # 音声ビットレート
-            },
-            '540p': {
-                'width': 940,
-                'height': 540,
-                'video_bitrate': '3000K',
-                'video_bitrate_max': '4100K',
-                'audio_bitrate': '192K',  # 音声ビットレート
-            },
-            '360p': {
-                'width': 640,
-                'height': 360,
-                'video_bitrate': '1500K',
-                'video_bitrate_max': '2000K',
-                'audio_bitrate': '128K',  # 音声ビットレート
-            },
-        }
+class LiveEncodingTask():
 
 
     def buildFFmpegOptions(self, quality:str, is_dualmono:bool=False) -> list:
@@ -85,7 +42,7 @@ class LiveEncodingTask(celery.Task):
             # 参考: https://github.com/l3tnun/EPGStation/blob/master/config/enc3.js
             # -filter_complex を使うと -vf や -af が使えなくなるため、デュアルモノのみ -filter_complex に -vf や -af の内容も入れる
             ## 1440x1080 と 1920x1080 が混在しているので、1080p だけリサイズする解像度を指定しない
-            scale = '' if quality == '1080p' else f',scale={self.quality[quality]["width"]}:{self.quality[quality]["height"]}'
+            scale = '' if quality == '1080p' else f',scale={LiveStream.quality[quality]["width"]}:{LiveStream.quality[quality]["height"]}'
             options.append(f'-filter_complex yadif=0:-1:1{scale};volume=2.0,channelsplit[FL][FR]')
             ## Lを主音声に、Rを副音声にマッピング
             options.append('-map 0:v:0 -map [FL] -map [FR] -map 0:d? -ignore_unknown')
@@ -95,17 +52,17 @@ class LiveEncodingTask(celery.Task):
         options.append('-fflags nobuffer -flags low_delay -max_delay 250000 -max_interleave_delta 1 -threads auto')
 
         # 映像
-        options.append(f'-vcodec libx264 -flags +cgop -vb {self.quality[quality]["video_bitrate"]} -maxrate {self.quality[quality]["video_bitrate_max"]}')
+        options.append(f'-vcodec libx264 -flags +cgop -vb {LiveStream.quality[quality]["video_bitrate"]} -maxrate {LiveStream.quality[quality]["video_bitrate_max"]}')
         options.append('-aspect 16:9 -r 30000/1001 -g 15 -preset veryfast -profile:v main')
         if is_dualmono is False:  # デュアルモノ以外
             ## 1440x1080 と 1920x1080 が混在しているので、1080p だけリサイズする解像度を指定しない
             if quality == '1080p':
                 options.append('-vf yadif=0:-1:1')
             else:
-                options.append(f'-vf yadif=0:-1:1,scale={self.quality[quality]["width"]}:{self.quality[quality]["height"]}')
+                options.append(f'-vf yadif=0:-1:1,scale={LiveStream.quality[quality]["width"]}:{LiveStream.quality[quality]["height"]}')
 
         # 音声
-        options.append(f'-acodec aac -ac 2 -ab {self.quality[quality]["audio_bitrate"]} -ar 48000')
+        options.append(f'-acodec aac -ac 2 -ab {LiveStream.quality[quality]["audio_bitrate"]} -ar 48000')
         if is_dualmono is False:  # デュアルモノ以外
             options.append('-af volume=2.0')
 
@@ -118,15 +75,16 @@ class LiveEncodingTask(celery.Task):
         for option in options:
             result += option.split(' ')
 
-        self.logger.info(f'ffmpeg commands: ffmpeg {" ".join(result)}')
+        Logging.info(f'ffmpeg commands: ffmpeg {" ".join(result)}')
 
         return result
 
 
-    def run(self, livestream_id:str, encoder_type:str='ffmpeg', is_dualmono:bool=False) -> None:
+    def run(self, channel_id:str, quality:str, encoder_type:str='ffmpeg', is_dualmono:bool=False) -> None:
 
-        # ライブストリーム ID から NID・SID・映像の品質を取得
-        network_id, service_id, quality = LiveStreamID.parseLiveStreamID(livestream_id)
+        # チャンネル ID からネットワーク ID とサービス ID を取得する
+        # 実装中につきダミーデータ
+        network_id, service_id = 32736, 1024
 
         # ストリームの URL
         ## Mirakurun 形式のサービス ID
@@ -141,7 +99,7 @@ class LiveEncodingTask(celery.Task):
         # arib-subtitle-timedmetadater
         ## プロセスを非同期で作成・実行
         ast = subprocess.Popen(
-            [settings.LIBRARY_PATH['arib-subtitle-timedmetadater'], '--http', mirakurun_stream_url],
+            [LIBRARY_PATH['arib-subtitle-timedmetadater'], '--http', mirakurun_stream_url],
             stdout=subprocess.PIPE,  # ffmpeg に繋ぐ
             creationflags=subprocess.CREATE_NO_WINDOW,  # conhost を開かない
         )
@@ -157,7 +115,7 @@ class LiveEncodingTask(celery.Task):
 
             ## プロセスを非同期で作成・実行
             encoder = subprocess.Popen(
-                [settings.LIBRARY_PATH['ffmpeg']] + encoder_options,
+                [LIBRARY_PATH['ffmpeg']] + encoder_options,
                 stdin=ast.stdout,  # arib-subtitle-timedmetadater からの入力
                 stdout=subprocess.PIPE,  # ストリーム出力
                 stderr=subprocess.PIPE,  # ログ出力
@@ -167,34 +125,23 @@ class LiveEncodingTask(celery.Task):
 
         # ***** エンコーダーの出力の書き込み *****
 
-        # 接続しているクライアントのストリームデータを入れる Queue が入るリスト
-        # ストリームデータはそれぞれのクライアントが持つ Queue ごとに書き込む
-        AppConfig.livestream[livestream_id] = list()
+        # 新しいライブストリームを作成
+        livestream = LiveStream(channel_id, quality)
 
         def writer():
 
             # 非同期でエンコーダーから受けた出力を随時 Queue に書き込む
             while True:
 
-                # エンコーダーの出力を読み取る
-                # バッファ: 188B (TS Packet Size) * 256
-                stream_data = encoder.stdout.read(48128)
+                # エンコーダーの出力をライブストリームに書き込む
+                # R/W バッファ: 188B (TS Packet Size) * 256
+                livestream.write(encoder.stdout.read(48128))
 
-                # 接続している全てのクライアントの Queue にストリームデータを書き込む
-                for client in AppConfig.livestream[livestream_id]:
-                    client.put(stream_data)
-
-                # エンコーダープロセスが終了していたらループを抜ける
+                # エンコーダープロセスが終了していたら、ライブストリームを終了する
                 if encoder.poll() is not None:
 
-                    # 抜ける前に、接続している全てのクライアントの Queue にエンコードタスクの終了を知らせる None を書き込む
-                    # クライアントは None を受信した場合、受信ループとストリーミングを終了する
-                    # これがないとクライアントはエンコードタスクが終了した事に気づかず、Queue を取り出そうとしてずっとブロッキングされてしまう
-                    for client in AppConfig.livestream[livestream_id]:
-                        client.put(None)
-
-                    # ライブストリームを削除する
-                    AppConfig.livestream.pop(livestream_id)
+                    # ライブストリームを終了する
+                    livestream.destroy()
 
                     # ループを抜ける
                     break
@@ -236,12 +183,12 @@ class LiveEncodingTask(celery.Task):
 
                     # 行の内容を表示
                     #print(line)
-                    self.logger.info(line)
+                    Logging.debug(line)
 
             # プロセスが終了したらループ停止
             if not buffer and encoder.poll() is not None:
-                self.logger.info(f'ReturnCode: {str(encoder.returncode)}')
-                self.logger.info(f'Last Message: {line}')
+                Logging.info(f'Encoder polled. ReturnCode: {str(encoder.returncode)}')
+                Logging.info(f'Last Message: {line}')
                 break
 
 
@@ -254,5 +201,5 @@ class LiveEncodingTask(celery.Task):
         # エラー終了の場合はタスクを再起動する
         # 本番実装のときは再起動条件にいろいろ加わるが、今は簡易的に
         if encoder.returncode != 0:
-            #self.run(livestream_id, encoder_type=encoder_type, audio_type=audio_type)
+            #self.run(channel_id, quality encoder_type=encoder_type, audio_type=audio_type)
             pass

@@ -1,23 +1,19 @@
+
 [[source]]
 url = "https://pypi.org/simple"
 verify_ssl = true
 name = "pypi"
 
 [scripts]
-serve = "python manage.py runserver"
-uvicorn = "uvicorn --host 0.0.0.0 --port 7000 config.asgi:application"
-celery = "celery -A config worker -l info -P eventlet"
+serve = "uvicorn app.app:app --host 0.0.0.0 --port 7000 --reload"
 
 [packages]
-django = "*"
-django-cors-headers = "*"
-djangorestframework = "*"
-whitenoise = "*"
-uvicorn = {extras = ["standard"], version = "*"}
+aiofiles = "*"
+alembic = "*"
 ariblib = "*"
-celery = "*"
-eventlet = "*"
+fastapi = "*"
 sqlalchemy = "*"
+uvicorn = {extras = ["standard"], version = "*"}
 
 [dev-packages]
 

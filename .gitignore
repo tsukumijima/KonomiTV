@@ -167,6 +167,7 @@ Thumbs.db
 
 # thirdparty
 server/thirdparty/*
+server copy/*
 
 # ignore .gitkeep
 !.gitkeep
