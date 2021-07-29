@@ -29,10 +29,16 @@ class TSInformation:
        : ariblib の開発者の youzaka 氏に感謝します
     """
 
-    def __init__(self, ts:TransportStreamFile):
+    def __init__(self, tspath:str):
+        """TS ファイルから各種情報を取得する
 
-        # tsopen() で取得した TS データ
-        self.ts = ts
+        Args:
+            tspath (str): TS ファイルのパス
+        """
+
+        # TS ファイルを開く
+        # チャンクは 1000（だいたい 0.1 ～ 0.2 秒間隔）に設定
+        self.ts:TransportStreamFile = ariblib.tsopen(tspath, chunk=1000)
 
     def extract(self) -> str:
         """TS 内から得られる各種番組情報などを抽出して辞書にまとめる
@@ -410,10 +416,10 @@ class TSInformation:
         # current_pcr と first_pcr の差分で TOT を取得するまでの時間を推測し、それを current_tot から引くことで、推定録画開始時刻を算出する
         first_tot:datetime = current_tot - (current_pcr - first_pcr)
 
-        # なぜかここで取得した推定録画開始時刻は実際の時刻より3～5秒早くなっている
+        # なぜかここで取得した推定録画開始時刻は実際の時刻より少し早くなっている
         # （おおよその実測値で、録画時間や録画マージン→切り替わりと比較するとよくわかる）
-        # 仕方がないので（どうにかできそうだけど）、間を取って一律で3.5秒足す
-        first_tot = first_tot + timedelta(seconds=3.5)
+        # 仕方がないので（どうにかできそうだけど）、実測値から一律で5.15秒足す
+        first_tot = first_tot + timedelta(seconds=5.15)
 
         # タイムゾーンを日本時間 (+9:00) に設定
         return first_tot.astimezone(timezone(timedelta(hours=9)))
@@ -461,9 +467,9 @@ class TSInformation:
         # last_pcr と current_pcr の差分で TOT を取得した後 EOF までの時間を推測し、それを current_tot に足すことで、推定録画終了時刻を算出する
         last_tot:datetime = current_tot + (last_pcr - current_pcr)
 
-        # なぜかここで取得した推定録画終了時刻は実際の時刻より1～2秒ほど遅くなっている
-        # 仕方がないので（どうにかできそうだけど）、間を取って一律で1.5秒引く
-        last_tot = last_tot - timedelta(seconds=1.5)
+        # なぜかここで取得した推定録画終了時刻は実際の時刻より少し速くなっている
+        # 仕方がないので（どうにかできそうだけど）、実測値から一律で0.5秒足す
+        last_tot = last_tot + timedelta(seconds=0.5)
 
         # タイムゾーンを日本時間 (+9:00) に設定
         return last_tot.astimezone(timezone(timedelta(hours=9)))
@@ -510,27 +516,23 @@ if __name__ == '__main__':
         print(f'usage: $ python {sys.argv[0]} TSFilePath [OutputPath]')
         sys.exit(0)
 
-    # 引数の TS ファイルを開く
-    # チャンクは 1000（だいたい 0.1 ～ 0.2 秒間隔）に設定
-    with ariblib.tsopen(sys.argv[1], chunk=1000) as ts:
+    # TSInformation を初期化
+    tsinfo = TSInformation(sys.argv[1])
 
-        # TSInformation を初期化
-        tsinfo = TSInformation(ts)
+    # TS 内の各種情報を抽出
+    extract = tsinfo.extract()
 
-        # TS 内の各種情報を抽出
-        extract = tsinfo.extract()
+    # 参考: https://www.yoheim.net/blog.php?q=20170703
+    def json_serial(obj:object):
+        if isinstance(obj, (datetime, date)):
+            return obj.isoformat()
+        if isinstance(obj, (timedelta)):
+            return obj.total_seconds()
+        raise TypeError('Type %s not serializable' % type(obj))
 
-        # 参考: https://www.yoheim.net/blog.php?q=20170703
-        def json_serial(obj:object):
-            if isinstance(obj, (datetime, date)):
-                return obj.isoformat()
-            if isinstance(obj, (timedelta)):
-                return obj.total_seconds()
-            raise TypeError('Type %s not serializable' % type(obj))
-
-        # JSON 化して出力
-        if len(sys.argv) == 3:
-            with open(sys.argv[2], mode='wt', encoding='utf-8') as file:
-                json.dump(extract, file, default=json_serial, ensure_ascii=False, indent=4)
-        else:
-            print(json.dumps(extract, default=json_serial, ensure_ascii=False, indent=4))
+    # JSON 化して出力
+    if len(sys.argv) == 3:
+        with open(sys.argv[2], mode='wt', encoding='utf-8') as file:
+            json.dump(extract, file, default=json_serial, ensure_ascii=False, indent=4)
+    else:
+        print(json.dumps(extract, default=json_serial, ensure_ascii=False, indent=4))
