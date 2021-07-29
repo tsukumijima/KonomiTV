@@ -8,11 +8,12 @@ name = "pypi"
 serve = "uvicorn app.app:app --host 0.0.0.0 --port 7000 --reload"
 
 [packages]
+aerich = "*"
 aiofiles = "*"
-alembic = "*"
+aiosqlite = "*"
 ariblib = "*"
 fastapi = "*"
-sqlalchemy = "*"
+tortoise-orm = "*"
 uvicorn = {extras = ["standard"], version = "*"}
 
 [dev-packages]
