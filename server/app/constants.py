@@ -3,9 +3,6 @@ import os
 from pathlib import Path
 
 
-# バージョン
-VERSION = '0.1.0'
-
 # ベースディレクトリ
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -22,3 +19,19 @@ LIBRARY_PATH = {
     'ffmpeg': str(LIBRARY_DIR / 'FFmpeg/ffmpeg') + LIBRARY_EXTENSION,
     'ffprobe': str(LIBRARY_DIR / 'FFmpeg/ffprobe') + LIBRARY_EXTENSION,
 }
+
+# データベース (Tortoise ORM) の設定
+DATABASE_CONFIG = {
+    'connections': {
+        'default': f'sqlite://{str(BASE_DIR / "app/database.sqlite")}',
+    },
+    'apps': {
+        'models': {
+            'models': ['app.models', 'aerich.models'],
+            'default_connection': 'default',
+        }
+    }
+}
+
+# バージョン
+VERSION = '0.1.0'

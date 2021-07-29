@@ -7,8 +7,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from tortoise.contrib.fastapi import register_tortoise
 
 from app.constants import CLIENT_DIR
+from app.constants import DATABASE_CONFIG
 from app.constants import VERSION
 from app.routers import Streams
 from app.utils import Logging
@@ -22,6 +24,14 @@ app = FastAPI(
     openapi_url='/api/openapi.json',
     docs_url='/api/docs',
     redoc_url='/api/redoc',
+)
+
+# Tortoise ORM の初期化
+register_tortoise(
+    app=app,
+    config=DATABASE_CONFIG,
+    generate_schemas=True,
+    add_exception_handlers=True,
 )
 
 # ルーターの追加
