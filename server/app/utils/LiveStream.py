@@ -5,13 +5,17 @@ import time
 from app.utils import Logging
 
 
+# ライブストリーム ID ごとに一つのインスタンスになるようにする
 # ref: https://qiita.com/ttsubo/items/c4af71ceba15b5b213f8
 class LiveStreamSingleton(object):
-    def __new__(cls, *args, **kargs):
-        # まだインスタンス化されておらず、かつ同じライブストリーム ID が存在しない
-        if not hasattr(cls, '_instance') and f'{args[0]}-{args[1]}' not in LiveStream.livestream:
-            cls._instance = super(LiveStreamSingleton, cls).__new__(cls)
-        return cls._instance
+    _instances = dict()
+    def __new__(cls, *args, **kwargs):
+        livestream_id = f'{args[0]}-{args[1]}'
+        # まだインスタンス化されておらず、かつ同じライブストリーム ID が存在しないときだけインスタンスを生成
+        if livestream_id not in cls._instances:
+            cls._instances[livestream_id] = super(LiveStreamSingleton, cls).__new__(cls)
+        # 登録されたインスタンスを返す
+        return cls._instances[livestream_id]
 
 
 class LiveStream(LiveStreamSingleton):
@@ -23,12 +27,13 @@ class LiveStream(LiveStreamSingleton):
     #       'gr011-1080p': [
     #           # クライアントは [(ストリームデータが入る Queue), (最終読み取り時刻)] のリストになっている
     #           # ここに登録されているクライアントの Queue 全てにストリームデータを書き込む必要がある
+    #           # 最終読み取り時刻から 5 秒以上経過したクライアントは削除され、None が設定される
     #           [queue.Queue(), time.time()],
     #           [queue.Queue(), time.time()],
     #           [queue.Queue(), time.time()],
     #       ]
     #   }
-    livestream = {}
+    livestream = dict()
 
     # 映像・音声の品質定義
     quality = {
@@ -81,10 +86,10 @@ class LiveStream(LiveStreamSingleton):
         # (チャンネルID)-(映像の品質) で一意な ID になる
         self.livestream_id = f'{channel_id}-{quality}'
 
-        # ライブストリームの作成
+        # ライブストリームの作成（まだ存在しない場合のみ）
         # 接続しているクライアントの Queue が入るリストを定義する
-        # なんか別々のインスタンスになってるっぽくてうまくいってない
-        #LiveStream.livestream[self.livestream_id] = list()
+        if self.livestream_id not in LiveStream.livestream:
+            LiveStream.livestream[self.livestream_id] = list()
 
 
     def connect(self) -> int:
@@ -113,11 +118,13 @@ class LiveStream(LiveStreamSingleton):
             bytes: ストリームデータ
         """
 
+        # 登録したクライアントの Queue から読み取ったストリームデータ
+        stream_data = LiveStream.livestream[self.livestream_id][client_id][LiveStream.CLIENT_QUEUE].get()
+
         # 最終読み取り時刻を更新
         LiveStream.livestream[self.livestream_id][client_id][LiveStream.CLIENT_LASTREADTIME] = time.time()
 
-        # 登録した Queue から読み取ったストリームデータを返す
-        return LiveStream.livestream[self.livestream_id][client_id][LiveStream.CLIENT_QUEUE].get()
+        return stream_data
 
 
     def write(self, stream_data:bytes) -> None:
@@ -126,10 +133,6 @@ class LiveStream(LiveStreamSingleton):
         Args:
             stream_data (bytes): 書き込むストリームデータ
         """
-
-        # ******暫定******
-        if self.livestream_id not in LiveStream.livestream:
-            LiveStream.livestream[self.livestream_id] = list()
 
         # 接続している全てのクライアントの Queue にストリームデータを書き込む
         for index, client in enumerate(LiveStream.livestream[self.livestream_id]):
@@ -142,8 +145,8 @@ class LiveStream(LiveStreamSingleton):
             # 要素ごと削除してしまうとインデックスがずれてしまうため、中身だけ削除する
             if (client is not None) and (client[LiveStream.CLIENT_LASTREADTIME] is not None) and \
                (time.time() - client[LiveStream.CLIENT_LASTREADTIME] > 5):
-                LiveStream.livestream[self.livestream_id][index] = None
                 Logging.info(f'***** LiveStream Disconnected. Client ID: {index} *****')
+                LiveStream.livestream[self.livestream_id][index] = None
 
 
     def destroy(self) -> None:
