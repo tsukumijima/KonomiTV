@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.constants import CLIENT_DIR
+from app.constants import VERSION
 from app.routers import streams
 from app.utils import Logging
 
@@ -17,7 +18,10 @@ from app.utils import Logging
 app = FastAPI(
     title='Konomi',
     description='Konomi: Kind and Optimized Next brOadcast watching systeM Infrastructure',
-    version='0.1.0',
+    version=VERSION,
+    openapi_url='/api/openapi.json',
+    docs_url='/api/docs',
+    redoc_url='/api/redoc',
 )
 
 # ルーターの追加

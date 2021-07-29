@@ -3,6 +3,9 @@ import os
 from pathlib import Path
 
 
+# バージョン
+VERSION = '0.1.0'
+
 # ベースディレクトリ
 BASE_DIR = Path(__file__).resolve().parent.parent
 
