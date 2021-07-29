@@ -10,10 +10,7 @@ __pycache__/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
-database.sqlite
-database.sqlite-journal
-celery.sqlite
-celery.sqlite-journal
+database.sqlite*
 media
 
 # If your build process includes running collectstatic, then you probably don't need or want to include staticfiles/
@@ -167,7 +164,6 @@ Thumbs.db
 
 # thirdparty
 server/thirdparty/*
-server copy/*
 
 # ignore .gitkeep
 !.gitkeep
