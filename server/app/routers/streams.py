@@ -63,9 +63,7 @@ def LiveMPEGTSStreamAPI(channel_id:str, quality:str, background_tasks: Backgroun
     # ライブストリームに接続し、クライアント ID を取得する
     livestream = LiveStream(channel_id, quality)
     client_id = livestream.connect()
-
-    Logging.info('LiveStream Connected.')
-    Logging.info('Client ID: ' + str(client_id))
+    Logging.info(f'***** LiveStream Connected. Client ID: {client_id} *****')
 
     def read():
         """ライブストリームを出力するジェネレーター
@@ -77,7 +75,6 @@ def LiveMPEGTSStreamAPI(channel_id:str, quality:str, background_tasks: Backgroun
 
                 # 登録した Queue から受信したストリームデータ
                 stream_data = livestream.read(client_id)
-                #Logging.info('Read Client ID: ' + str(client_id))
 
                 # ストリームデータが存在する
                 if stream_data is not None:

@@ -134,7 +134,7 @@ class LiveEncodingTask():
             while True:
 
                 # エンコーダーの出力をライブストリームに書き込む
-                # R/W バッファ: 188B (TS Packet Size) * 256
+                # R/W バッファ: 188B (TS Packet Size) * 256 = 48128B
                 livestream.write(encoder.stdout.read(48128))
 
                 # エンコーダープロセスが終了していたら、ライブストリームを終了する

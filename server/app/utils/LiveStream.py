@@ -1,5 +1,8 @@
 
 import queue
+import time
+
+from app.utils import Logging
 
 
 # ref: https://qiita.com/ttsubo/items/c4af71ceba15b5b213f8
@@ -18,11 +21,11 @@ class LiveStream(LiveStreamSingleton):
     #   livestream = {
     #       # ライブストリームID
     #       'gr011-1080p': [
-    #           # 接続しているクライアントごとに
-    #           # エンコードタスクはここに登録されている Queue 全てにストリームデータを書き込む必要がある
-    #           queue.Queue(),
-    #           queue.Queue(),
-    #           queue.Queue(),
+    #           # クライアントは [(ストリームデータが入る Queue), (最終読み取り時刻)] のリストになっている
+    #           # ここに登録されているクライアントの Queue 全てにストリームデータを書き込む必要がある
+    #           [queue.Queue(), time.time()],
+    #           [queue.Queue(), time.time()],
+    #           [queue.Queue(), time.time()],
     #       ]
     #   }
     livestream = {}
@@ -59,6 +62,12 @@ class LiveStream(LiveStreamSingleton):
         },
     }
 
+    # クライアントの Queue のインデックス
+    CLIENT_QUEUE = 0
+
+    # クライアントの最終読み取り時刻のインデックス
+    CLIENT_LASTREADTIME = 1
+
 
     def __init__(self, channel_id:str, quality:int):
         """ライブストリームを作成する
@@ -79,14 +88,16 @@ class LiveStream(LiveStreamSingleton):
 
 
     def connect(self) -> int:
-        """ライブストリームに接続（新しいクライアントを作成）し、クライアント ID を返す
+        """ライブストリームに接続（新しいクライアントを登録）し、クライアント ID を返す
 
         Returns:
             int: クライアントID
         """
 
-        # ストリームデータが入る Queue を登録する
-        LiveStream.livestream[self.livestream_id].append(queue.Queue())
+        # ストリームデータが入る Queue と、最終読み取り時刻のリストを登録する
+        # 最終読み取り時刻から 5 秒以上経っていたら、ここで登録したクライアントを削除する
+        # 接続時は最終読み取り時刻を登録しない（エンコーダーの起動で待たされるため）
+        LiveStream.livestream[self.livestream_id].append([queue.Queue(), None])
 
         # 自分の Queue があるインデックス（リストの長さ - 1）を返す
         return len(LiveStream.livestream[self.livestream_id]) - 1
@@ -102,8 +113,11 @@ class LiveStream(LiveStreamSingleton):
             bytes: ストリームデータ
         """
 
+        # 最終読み取り時刻を更新
+        LiveStream.livestream[self.livestream_id][client_id][LiveStream.CLIENT_LASTREADTIME] = time.time()
+
         # 登録した Queue から読み取ったストリームデータを返す
-        return LiveStream.livestream[self.livestream_id][client_id].get()
+        return LiveStream.livestream[self.livestream_id][client_id][LiveStream.CLIENT_QUEUE].get()
 
 
     def write(self, stream_data:bytes) -> None:
@@ -118,8 +132,18 @@ class LiveStream(LiveStreamSingleton):
             LiveStream.livestream[self.livestream_id] = list()
 
         # 接続している全てのクライアントの Queue にストリームデータを書き込む
-        for client in LiveStream.livestream[self.livestream_id]:
-            client.put(stream_data)
+        for index, client in enumerate(LiveStream.livestream[self.livestream_id]):
+
+            # 削除されたクライアントでなければ書き込む
+            if client is not None:
+                client[LiveStream.CLIENT_QUEUE].put(stream_data)
+
+            # 最終読み取り時刻から 5 秒以上経っていたら、クライアントの登録を削除する
+            # 要素ごと削除してしまうとインデックスがずれてしまうため、中身だけ削除する
+            if (client is not None) and (client[LiveStream.CLIENT_LASTREADTIME] is not None) and \
+               (time.time() - client[LiveStream.CLIENT_LASTREADTIME] > 5):
+                LiveStream.livestream[self.livestream_id][index] = None
+                Logging.info(f'***** LiveStream Disconnected. Client ID: {index} *****')
 
 
     def destroy(self) -> None:
@@ -129,7 +153,8 @@ class LiveStream(LiveStreamSingleton):
         # クライアントは None を受信した場合、ストリーミングを終了するようになっている
         # これがないとクライアントはライブストリームが終了した事に気づかず、Queue を取り出そうとしてずっとブロッキングされてしまう
         for client in LiveStream.livestream[self.livestream_id]:
-            client.put(None)
+            if client is not None:
+                client[LiveStream.CLIENT_QUEUE].put(None)
 
         # ライブストリームを削除する
         LiveStream.livestream.pop(self.livestream_id)
