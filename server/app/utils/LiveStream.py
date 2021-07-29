@@ -104,8 +104,12 @@ class LiveStream(LiveStreamSingleton):
         # 接続時は最終読み取り時刻を登録しない（エンコーダーの起動で待たされるため）
         LiveStream.livestream[self.livestream_id].append([queue.Queue(), None])
 
-        # 自分の Queue があるインデックス（リストの長さ - 1）を返す
-        return len(LiveStream.livestream[self.livestream_id]) - 1
+        # 自分の Queue があるインデックス（リストの長さ - 1）をクライアント ID とする
+        client_id = len(LiveStream.livestream[self.livestream_id]) - 1
+        Logging.info(f'***** LiveStream Connected. Client ID: {client_id} *****')
+
+        # 新たに振られたクライアント ID を返す
+        return client_id
 
 
     def read(self, client_id:int) -> bytes:

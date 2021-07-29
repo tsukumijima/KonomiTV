@@ -10,7 +10,6 @@ from fastapi.responses import StreamingResponse
 
 from app.tasks import LiveEncodingTask
 from app.utils import LiveStream
-from app.utils import Logging
 
 
 # ルーター
@@ -63,7 +62,6 @@ def LiveMPEGTSStreamAPI(channel_id:str, quality:str, background_tasks: Backgroun
     # ライブストリームに接続し、クライアント ID を取得する
     livestream = LiveStream(channel_id, quality)
     client_id = livestream.connect()
-    Logging.info(f'***** LiveStream Connected. Client ID: {client_id} *****')
 
     def read():
         """ライブストリームを出力するジェネレーター

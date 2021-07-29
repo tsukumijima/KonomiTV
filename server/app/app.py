@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.constants import CLIENT_DIR
 from app.constants import VERSION
-from app.routers import streams
+from app.routers import Streams
 from app.utils import Logging
 
 
@@ -25,7 +25,7 @@ app = FastAPI(
 )
 
 # ルーターの追加
-app.include_router(streams.router)
+app.include_router(Streams.router)
 
 # 静的ファイルの設定
 app.mount('/assets', StaticFiles(directory=CLIENT_DIR / 'assets', html=True))
