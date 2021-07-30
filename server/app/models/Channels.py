@@ -3,8 +3,10 @@ import requests
 from tortoise import fields
 from tortoise import models
 from tortoise.contrib.pydantic import pydantic_model_creator
+from typing import Optional
 
 from app.constants import CONFIG
+from app.utils import Logging
 
 
 class Channels(models.Model):
@@ -13,11 +15,12 @@ class Channels(models.Model):
     id:str = fields.TextField(pk=True)
     service_id:int = fields.IntField()
     network_id:int = fields.IntField()
+    remocon_id:Optional[int] = fields.IntField(null=True)
     channel_id:str = fields.TextField()
     channel_number:str = fields.TextField()
     channel_name:str = fields.TextField()
     channel_type:str = fields.TextField()
-    channel_force:int = fields.IntField(null=True)
+    channel_force:Optional[int] = fields.IntField(null=True)
     is_subchannel:bool = fields.BooleanField()
 
     @classmethod
@@ -47,6 +50,7 @@ class Channels(models.Model):
                 channel.id = f'NID{str(service["networkId"])}-SID{str(service["serviceId"]).zfill(3)}'
                 channel.service_id = service['serviceId']
                 channel.network_id = service['networkId']
+                channel.remocon_id = service['remoteControlKeyId'] if ('remoteControlKeyId' in service) else None
                 channel.channel_name = service['name']
                 channel.channel_type = service['channel']['type']
                 channel.channel_force = 0
@@ -59,8 +63,28 @@ class Channels(models.Model):
                 # ***** チャンネル番号・チャンネル ID を算出 *****
 
                 if channel.channel_type == 'GR':
+
                     # 地デジ: 上2桁はリモコン番号から、下1桁は同じネットワーク内にあるサービスのカウント
-                    channel.channel_number = str(service['remoteControlKeyId']).zfill(2) + str(same_network_id_count[channel.network_id])
+                    channel.channel_number = str(channel.remocon_id).zfill(2) + str(same_network_id_count[channel.network_id])
+
+                    # 既に同じチャンネル番号のチャンネルが存在する場合は枝番をつける
+                    while await Channels.filter(channel_number=channel.channel_number).get_or_none() is not None:
+
+                         # 既に枝番があればさらに枝番をつける
+                        if '-' in (await Channels.filter(channel_number=channel.channel_number).get()).channel_number:
+                            duplicate_channel_count = int(channel.channel_number[-1]) + 1  # チャンネル番号の最後の1文字 + 1
+
+                        # 通常
+                        else:
+                            duplicate_channel_count = 1
+
+                        # チャンネル番号を再定義
+                        channel.channel_number = (
+                            str(channel.remocon_id).zfill(2) +  # リモコン番号
+                            str(same_network_id_count[channel.network_id]) +  # 同じネットワーク内にあるサービスのカウント
+                            '-' + str(duplicate_channel_count)  # 枝番
+                        )
+
                 else:
                     # BS・CS・SKY: SID をそのままチャンネル番号とする
                     channel.channel_number = str(channel.service_id).zfill(3)
