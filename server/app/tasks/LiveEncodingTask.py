@@ -4,6 +4,7 @@ import os
 import subprocess
 import threading
 
+from app.constants import CONFIG
 from app.constants import LIBRARY_PATH
 from app.utils import LiveStream
 from app.utils import Logging
@@ -86,12 +87,11 @@ class LiveEncodingTask():
         # 実装中につきダミーデータ
         network_id, service_id = 32736, 1024
 
-        # ストリームの URL
-        ## Mirakurun 形式のサービス ID
-        ## NID と SID を 5 桁でゼロ埋めした上で int に変換する
+        # Mirakurun 形式のサービス ID
+        # NID と SID を 5 桁でゼロ埋めした上で int に変換する
         mirakurun_service_id = int(str(network_id).zfill(5) + str(service_id).zfill(5))
-        ## 暫定で決め打ち
-        mirakurun_stream_url = f'http://192.168.1.28:40772/api/services/{mirakurun_service_id}/stream'
+        # Mirakurun API の URL を作成
+        mirakurun_stream_api_url = f'{CONFIG["mirakurun_url"]}/api/services/{mirakurun_service_id}/stream'
 
 
         # ***** arib-subtitle-timedmetadater プロセスの作成と実行 *****
@@ -99,7 +99,7 @@ class LiveEncodingTask():
         # arib-subtitle-timedmetadater
         ## プロセスを非同期で作成・実行
         ast = subprocess.Popen(
-            [LIBRARY_PATH['arib-subtitle-timedmetadater'], '--http', mirakurun_stream_url],
+            [LIBRARY_PATH['arib-subtitle-timedmetadater'], '--http', mirakurun_stream_api_url],
             stdout=subprocess.PIPE,  # ffmpeg に繋ぐ
             creationflags=subprocess.CREATE_NO_WINDOW,  # conhost を開かない
         )
