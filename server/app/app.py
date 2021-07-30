@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from app.constants import CLIENT_DIR
 from app.constants import DATABASE_CONFIG
 from app.constants import VERSION
-from app.models import Channels as ChannelsModel
+from app.models import Channels as Channels
 from app.routers import Channels as ChannelsRouter
 from app.routers import Streams as StreamsRouter
 from app.utils import Logging
@@ -51,7 +51,7 @@ app.mount('/assets', StaticFiles(directory=CLIENT_DIR / 'assets', html=True))
 # ルート以下のルーティング
 # ファイルが存在すればそのまま配信し、ファイルが存在しなければ index.html を返す
 @app.get('/{file:path}', include_in_schema=False)
-def root(file:str):
+async def root(file:str):
 
     # ファイルが存在する
     filepath = CLIENT_DIR / f'{file}'
@@ -87,7 +87,7 @@ def root(file:str):
 
 # Internal Server Error のハンドリング
 @app.exception_handler(Exception)
-def exception_handler(request:Request, exc: Exception):
+async def exception_handler(request:Request, exc: Exception):
     return JSONResponse(
         {'detail': f'Oops! {type(exc).__name__} did something. There goes a rainbow...'},
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -111,4 +111,4 @@ tortoise.contrib.fastapi.register_tortoise(
 async def startup():
 
     # チャンネル情報を更新
-    await ChannelsModel.update()
+    await Channels.update()

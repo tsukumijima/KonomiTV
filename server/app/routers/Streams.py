@@ -8,6 +8,7 @@ from fastapi import status
 from fastapi.responses import Response
 from fastapi.responses import StreamingResponse
 
+from app.models import Channels
 from app.tasks import LiveEncodingTask
 from app.utils import LiveStream
 
@@ -30,7 +31,7 @@ router = APIRouter(
         }
     }
 )
-def LiveMPEGTSStreamAPI(
+async def LiveMPEGTSStreamAPI(
     channel_id:str = Path(..., description='チャンネル ID 。ex:gr011'),
     quality:str = Path(..., description='映像の品質。ex:1080p')
 ):
@@ -48,17 +49,17 @@ def LiveMPEGTSStreamAPI(
 
     # 指定されたチャンネル ID が存在しない
     # 実装中につきダミー
-    if False:
+    if await Channels.filter(channel_id=channel_id).get_or_none() is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail='Specified channel_id not found',
+            detail='Specified channel_id was not found',
         )
 
     # 指定された映像の品質が存在しない
     if quality not in LiveStream.quality:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail='Specified quality not found',
+            detail='Specified quality was not found',
         )
 
 

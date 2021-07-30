@@ -1,11 +1,12 @@
 
-import logging
+import asyncio
 import os
 import subprocess
 import threading
 
 from app.constants import CONFIG
 from app.constants import LIBRARY_PATH
+from app.models import Channels
 from app.utils import LiveStream
 from app.utils import Logging
 
@@ -83,9 +84,12 @@ class LiveEncodingTask():
 
     def run(self, channel_id:str, quality:str, encoder_type:str='ffmpeg', is_dualmono:bool=False) -> None:
 
-        # チャンネル ID からネットワーク ID とサービス ID を取得する
-        # 実装中につきダミーデータ
-        network_id, service_id = 32736, 1024
+        # チャンネル ID からサービス ID とネットワーク ID を取得する
+        async def getChannel():
+            return await Channels.filter(channel_id=channel_id).first()
+        channel = asyncio.run(getChannel())
+        service_id = channel.service_id
+        network_id = channel.network_id
 
         # Mirakurun 形式のサービス ID
         # NID と SID を 5 桁でゼロ埋めした上で int に変換する
