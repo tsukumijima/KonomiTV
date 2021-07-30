@@ -1,5 +1,4 @@
 
-import queue
 import threading
 import time
 from fastapi import APIRouter
@@ -15,11 +14,11 @@ from app.utils import LiveStream
 # ルーター
 router = APIRouter(
     tags=['Streams'],
-    prefix='/api/streams/live',
+    prefix='/api/streams',
 )
 
 
-@router.get('/{channel_id}/{quality}/mpegts', summary='ライブ MPEGTS ストリーム API')
+@router.get('/live/{channel_id}/{quality}/mpegts', summary='ライブ MPEGTS ストリーム API')
 def LiveMPEGTSStreamAPI(channel_id:str, quality:str, background_tasks: BackgroundTasks):
 
     # ***** バリデーション *****

@@ -7,8 +7,7 @@ handler = logging.StreamHandler()
 logger = logging.getLogger(__name__)
 
 # ロギングフォーマットを設定
-formatter = logging.Formatter('[%(asctime)s] [%(levelname)s] %(filename)s:%(lineno)s:\n  %(message)s')
-handler.setFormatter(formatter)
+handler.setFormatter(logging.Formatter('[%(asctime)s] [%(levelname)s] %(filename)s:%(lineno)s:\n  %(message)s'))
 logger.addHandler(handler)
 
 # ロギングレベル
