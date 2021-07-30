@@ -1,3 +1,3 @@
 
 # モデルをモジュールとして登録
-from .Channel import *
+from .Channels import *

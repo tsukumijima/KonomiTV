@@ -3,6 +3,12 @@ import os
 from pathlib import Path
 
 
+# 環境設定
+# 将来的には YAML からのロードになる予定
+CONFIG = {
+    'mirakurun_url': 'http://192.168.1.28:40772',
+}
+
 # ベースディレクトリ
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -23,7 +29,7 @@ LIBRARY_PATH = {
 # データベース (Tortoise ORM) の設定
 DATABASE_CONFIG = {
     'connections': {
-        'default': f'sqlite://{str(BASE_DIR / "app/database.sqlite")}',
+        'default': f'sqlite://{str(BASE_DIR / "data/database.sqlite")}',
     },
     'apps': {
         'models': {

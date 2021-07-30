@@ -1,0 +1,108 @@
+
+import requests
+from tortoise import fields
+from tortoise import models
+
+from app.constants import CONFIG
+
+
+class Channels(models.Model):
+
+    # テーブル設計は Notion を参照のこと
+    id:str = fields.TextField(pk=True)
+    service_id:int = fields.IntField()
+    network_id:int = fields.IntField()
+    channel_id:str = fields.TextField()
+    channel_number:str = fields.TextField()
+    channel_name:str = fields.TextField()
+    channel_type:str = fields.TextField()
+    channel_force:int = fields.IntField(null=True)
+    is_subchannel:bool = fields.BooleanField()
+
+    @classmethod
+    async def update(cls):
+        """チャンネル情報を更新する"""
+
+        # 既にデータベースにチャンネル情報が存在する場合は一旦全て削除する
+        await Channels.all().delete()
+
+        # Mirakurun の API からチャンネル情報を取得する
+        mirakurun_services_api_url = f'{CONFIG["mirakurun_url"]}/api/services'
+        services = requests.get(mirakurun_services_api_url).json()
+
+        # 同じネットワーク ID のサービスのカウント
+        same_network_id_count = dict()
+
+        # サービスごとに実行
+        for service in services:
+
+            # type が 1 のサービスのみ（＝ワンセグやデータ放送 (type:192) などを弾く）
+            if service['type'] == 1:
+
+                # 新しいチャンネルのレコードを作成
+                channel = Channels()
+
+                # 取得してきた値をそのまま設定
+                channel.id = f'NID{str(service["networkId"])}-SID{str(service["serviceId"]).zfill(3)}'
+                channel.service_id = service['serviceId']
+                channel.network_id = service['networkId']
+                channel.channel_name = service['name']
+                channel.channel_type = service['channel']['type']
+                channel.channel_force = 0
+
+                # カウントを追加
+                if channel.network_id not in same_network_id_count:  # まだキーが存在しない
+                    same_network_id_count[channel.network_id] = 0
+                same_network_id_count[channel.network_id] += 1  # カウントを足す
+
+                # ***** チャンネル番号・チャンネル ID を算出 *****
+
+                if channel.channel_type == 'GR':
+                    # 地デジ: 上2桁はリモコン番号から、下1桁は同じネットワーク内にあるサービスのカウント
+                    channel.channel_number = str(service['remoteControlKeyId']).zfill(2) + str(same_network_id_count[channel.network_id])
+                else:
+                    # BS・CS・SKY: SID をそのままチャンネル番号とする
+                    channel.channel_number = str(channel.service_id).zfill(3)
+
+                # チャンネルID = チャンネルタイプ(小文字)+チャンネル番号
+                channel.channel_id = channel.channel_type.lower() + channel.channel_number
+
+                # ***** サブチャンネルかどうかを算出 *****
+
+                # 地デジ: チャンネル番号の下一桁が 1 以外かどうか
+                if channel.channel_type == 'GR':
+                    channel.is_subchannel = bool(channel.channel_number[2:] != '1')
+
+                # BS: Mirakurun から得られる情報からはサブチャンネルかを判定できないため、決め打ちで設定
+                elif channel.channel_type == 'BS':
+                    if (
+                        # NHK BS1
+                        channel.service_id == 102 or
+                        # NHK BSプレミアム
+                        channel.service_id == 104 or
+                        # BS日テレ
+                        channel.service_id == 142 or
+                        channel.service_id == 143 or
+                        # BS朝日
+                        channel.service_id == 152 or
+                        channel.service_id == 153 or
+                        # BS-TBS
+                        channel.service_id == 162 or
+                        channel.service_id == 163 or
+                        # BSテレ東
+                        channel.service_id == 172 or
+                        channel.service_id == 173 or
+                        # BSフジ
+                        channel.service_id == 182 or
+                        channel.service_id == 183
+                    ):
+                        channel.is_subchannel = True
+                    else:
+                        channel.is_subchannel = False
+
+                # CS・SKY: サブチャンネルという概念自体がないため一律で False に設定
+                else:
+                    channel.is_subchannel = False
+
+                # レコードを保存する
+                await channel.save()

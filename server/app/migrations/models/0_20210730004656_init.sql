@@ -1,5 +1,5 @@
 -- upgrade --
-CREATE TABLE IF NOT EXISTS "channel" (
+CREATE TABLE IF NOT EXISTS "channels" (
     "id" TEXT NOT NULL  PRIMARY KEY,
     "service_id" INT NOT NULL,
     "network_id" INT NOT NULL,
