@@ -19,6 +19,9 @@ router = APIRouter(
     response_model = ChannelsAPIResponse,  # Response の構造を明示
 )
 async def ChannelsAPI():
+    """
+    地デジ (GR)・BS・CS・SKY それぞれのチャンネル情報を一括で取得する。
+    """
 
     # チャンネル情報を更新
     # 暫定、本来は起動時に実行する

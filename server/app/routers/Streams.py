@@ -3,10 +3,10 @@ import threading
 import time
 from fastapi import APIRouter
 from fastapi import HTTPException
+from fastapi import Path
 from fastapi import status
 from fastapi.responses import Response
 from fastapi.responses import StreamingResponse
-from starlette.status import HTTP_422_UNPROCESSABLE_ENTITY
 
 from app.tasks import LiveEncodingTask
 from app.utils import LiveStream
@@ -30,7 +30,19 @@ router = APIRouter(
         }
     }
 )
-def LiveMPEGTSStreamAPI(channel_id:str, quality:str):
+def LiveMPEGTSStreamAPI(
+    channel_id:str = Path(..., description='チャンネル ID 。ex:gr011'),
+    quality:str = Path(..., description='映像の品質。ex:1080p')
+):
+    """
+    ライブ MPEGTS ストリームを配信する。
+
+    同じチャンネル ID 、同じ画質のライブストリームが Offline 状態のときは、新たにエンコードタスクを立ち上げて、
+    ONAir 状態になるのを待機してからストリームデータを配信する。<br>
+    同じチャンネル ID 、同じ画質のライブストリームが ONAir 状態のときは、新たにエンコードタスクを立ち上げることなく、他のクライアントとストリームデータを共有して配信する。
+
+    何らかの理由でライブストリームが終了しない限り、継続的にレスポンスが出力される（ストリーミング）。
+    """
 
     # ***** バリデーション *****
 
