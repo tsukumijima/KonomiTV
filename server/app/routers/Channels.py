@@ -2,6 +2,7 @@
 from fastapi import APIRouter
 
 from app.models import Channels
+from app.schemas import ChannelsAPIResponse
 
 
 # ルーター
@@ -11,7 +12,12 @@ router = APIRouter(
 )
 
 
-@router.get('', summary='チャンネル情報 API')
+@router.get(
+    '',
+    summary = 'チャンネル情報 API',
+    response_description = 'チャンネル情報。',
+    response_model = ChannelsAPIResponse,  # Response の構造を明示
+)
 async def ChannelsAPI():
 
     # チャンネル情報を更新

@@ -2,10 +2,11 @@
 import threading
 import time
 from fastapi import APIRouter
-from fastapi import BackgroundTasks
 from fastapi import HTTPException
 from fastapi import status
+from fastapi.responses import Response
 from fastapi.responses import StreamingResponse
+from starlette.status import HTTP_422_UNPROCESSABLE_ENTITY
 
 from app.tasks import LiveEncodingTask
 from app.utils import LiveStream
@@ -18,8 +19,18 @@ router = APIRouter(
 )
 
 
-@router.get('/live/{channel_id}/{quality}/mpegts', summary='ライブ MPEGTS ストリーム API')
-def LiveMPEGTSStreamAPI(channel_id:str, quality:str, background_tasks: BackgroundTasks):
+@router.get(
+    '/live/{channel_id}/{quality}/mpegts',
+    summary = 'ライブ MPEGTS ストリーム API',
+    response_class = Response,
+    responses = {
+        status.HTTP_200_OK: {
+            'description': 'ライブ MPEGTS ストリーム。',
+            'content': {'video/mp2t': {}}
+        }
+    }
+)
+def LiveMPEGTSStreamAPI(channel_id:str, quality:str):
 
     # ***** バリデーション *****
 
