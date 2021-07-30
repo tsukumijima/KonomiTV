@@ -1,4 +1,5 @@
 
+import jaconv
 import requests
 from tortoise import fields
 from tortoise import models
@@ -51,7 +52,7 @@ class Channels(models.Model):
                 channel.service_id = service['serviceId']
                 channel.network_id = service['networkId']
                 channel.remocon_id = service['remoteControlKeyId'] if ('remoteControlKeyId' in service) else None
-                channel.channel_name = service['name']
+                channel.channel_name = jaconv.zen2han(service['name'], kana=False, digit=True, ascii=True)
                 channel.channel_type = service['channel']['type']
                 channel.channel_force = 0
 

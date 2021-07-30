@@ -13,6 +13,7 @@ aiofiles = "*"
 aiosqlite = "*"
 ariblib = "*"
 fastapi = "*"
+jaconv = "*"
 requests = "*"
 tortoise-orm = "*"
 uvicorn = {extras = ["standard"], version = "*"}

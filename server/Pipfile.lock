@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "32373535eb8628c80fa7453a6ff81de22199202284c6f88ba7b4082e6d926070"
+            "sha256": "e4dd1f9f631c011e965f15b19e06344c5d23a8c6da50cbe7f966e0200366b0c4"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -101,11 +101,11 @@
         },
         "fastapi": {
             "hashes": [
-                "sha256:24f45d65e589db3bab162c02a1e2e8b798c098861b1fa3e266efeb71b4faa8e2",
-                "sha256:b05f5af77af3b21cab896b8dade8b383b2d2f254caae4681a56313e29196f1ac"
+                "sha256:c9256a89b0436223b45f53fe3a39b178f3da6be5841a2c59deedff4b676d003f",
+                "sha256:f4dba2596b1e0a1f962834c3b9ec4291a7aec387a1031c6c2e25bf239d27fd0f"
             ],
             "index": "pypi",
-            "version": "==0.67.0"
+            "version": "==0.68.0"
         },
         "h11": {
             "hashes": [
@@ -149,6 +149,13 @@
                 "sha256:906714829fedbc89955d52806c903f2332e3948ed94e31e85037f9e0226b8376"
             ],
             "version": "==0.1.16"
+        },
+        "jaconv": {
+            "hashes": [
+                "sha256:cc70c796c19a6765598c03eac59d1399a555a9a8839cc70e540ec26f0ec3e66e"
+            ],
+            "index": "pypi",
+            "version": "==0.3"
         },
         "pydantic": {
             "hashes": [
