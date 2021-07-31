@@ -1,5 +1,4 @@
 
-import asyncio
 import os
 import subprocess
 import threading
@@ -9,6 +8,7 @@ from app.constants import LIBRARY_PATH
 from app.models import Channels
 from app.utils import LiveStream
 from app.utils import Logging
+from app.utils import RunAwait
 
 
 class LiveEncodingTask():
@@ -85,9 +85,7 @@ class LiveEncodingTask():
     def run(self, channel_id:str, quality:str, encoder_type:str='ffmpeg', is_dualmono:bool=False) -> None:
 
         # チャンネル ID からサービス ID とネットワーク ID を取得する
-        async def getChannel():
-            return await Channels.filter(channel_id=channel_id).first()
-        channel = asyncio.run(getChannel())
+        channel = RunAwait(Channels.filter(channel_id=channel_id).first())
         service_id = channel.service_id
         network_id = channel.network_id
 
