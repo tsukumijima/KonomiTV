@@ -77,7 +77,7 @@ class LiveEncodingTask():
         for option in options:
             result += option.split(' ')
 
-        Logging.info(f'ffmpeg commands: ffmpeg {" ".join(result)}')
+        Logging.info(f'***** FFmpeg Commands *****\nffmpeg {" ".join(result)}')
 
         return result
 
@@ -183,9 +183,15 @@ class LiveEncodingTask():
                     # 行バッファを消去
                     linebuffer = bytes()
 
-                    # 行の内容を表示
-                    #print(line)
-                    Logging.debug(line)
+                    # エンコードの進捗を判定
+                    #Logging.info(line)
+                    if encoder_type == 'ffmpeg':
+                        if 'libpostproc    55.  9.100 / 55.  9.100' in line:
+                            Logging.info('***** チューナーを開いています… *****')
+                        if 'arib parser was created' in line:
+                            Logging.info('***** エンコードを開始しています… *****')
+                        if 'frame=    1 fps=0.0 q=0.0' in line:
+                            Logging.info('***** バッファリングしています… *****')
 
             # プロセスが終了したらループ停止
             if not buffer and encoder.poll() is not None:
