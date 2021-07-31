@@ -34,7 +34,7 @@ router = APIRouter(
 )
 async def LiveMPEGTSStreamAPI(
     channel_id:str = Path(..., description='チャンネル ID 。ex:gr011'),
-    quality:str = Path(..., description='映像の品質。ex:1080p')
+    quality:str = Path(..., description='映像の品質。ex:1080p'),
 ):
     """
     ライブ MPEGTS ストリームを配信する。
@@ -112,5 +112,19 @@ async def LiveMPEGTSStreamAPI(
             else:
                 break
 
-    # StreamingResponse で名前付きパイプから読み取ったデータをストリーミング
+    # リクエストがキャンセルされたときにライブストリームへの接続を切断できるよう、モンキーパッチを当てる
+    # StreamingResponse はリクエストがキャンセルされるとレスポンスを強制終了してしまう
+    # そうするとリクエストがキャンセルされたか判定できないため、StreamingResponse.listen_for_disconnect() を書き換える
+    # ref: https://github.com/encode/starlette/pull/839
+    from starlette.types import Receive
+    async def listen_for_disconnect_monkeypatch(self, receive: Receive) -> None:
+            while True:
+                message = await receive()
+                if message['type'] == 'http.disconnect':
+                    # ライブストリームへの接続を切断する（クライアントを削除する）
+                    livestream.disconnect(client_id)
+                    break
+    StreamingResponse.listen_for_disconnect = listen_for_disconnect_monkeypatch
+
+    # StreamingResponse で読み取ったストリームデータをストリーミングする
     return StreamingResponse(read(), media_type='video/mp2t')
