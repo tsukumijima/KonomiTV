@@ -82,7 +82,7 @@ class LiveEncodingTask():
         return result
 
 
-    def run(self, channel_id:str, quality:str, encoder_type:str='ffmpeg', is_dualmono:bool=False) -> None:
+    def run(self, channel_id:str, quality:str, encoder_type:str, is_dualmono:bool=False) -> None:
 
         # チャンネル ID からサービス ID とネットワーク ID を取得する
         channel = RunAwait(Channels.filter(channel_id=channel_id).first())

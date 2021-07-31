@@ -8,6 +8,7 @@ from fastapi import status
 from fastapi.responses import Response
 from fastapi.responses import StreamingResponse
 
+from app.constants import CONFIG
 from app.models import Channels
 from app.tasks import LiveEncodingTask
 from app.utils import LiveStream
@@ -71,7 +72,7 @@ async def LiveMPEGTSStreamAPI(
         # エンコードタスクを非同期で実行
         def run():
             instance = LiveEncodingTask()
-            instance.run(channel_id, quality)
+            instance.run(channel_id, quality, CONFIG['preferred_encoder'])
         thread = threading.Thread(target=run)
         thread.start()
 

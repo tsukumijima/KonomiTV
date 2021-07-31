@@ -6,6 +6,8 @@ from pathlib import Path
 # 環境設定
 # 将来的には YAML からのロードになる予定
 CONFIG = {
+    'preferred_encoder': 'ffmpeg',
+    'preferred_quality': '1080p',
     'mirakurun_url': 'http://192.168.1.28:40772',
 }
 
