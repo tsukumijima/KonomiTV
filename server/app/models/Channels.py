@@ -7,7 +7,6 @@ from tortoise.contrib.pydantic import pydantic_model_creator
 from typing import Optional
 
 from app.constants import CONFIG
-from app.utils import Logging
 
 
 class Channels(models.Model):

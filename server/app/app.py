@@ -12,10 +12,12 @@ from fastapi.staticfiles import StaticFiles
 
 from app.constants import CLIENT_DIR
 from app.constants import DATABASE_CONFIG
+from app.constants import LIVESTREAM_QUALITY
 from app.constants import VERSION
 from app.models import Channels as Channels
 from app.routers import Channels as ChannelsRouter
 from app.routers import Streams as StreamsRouter
+from app.utils import LiveStream
 from app.utils import Logging
 
 
@@ -73,7 +75,7 @@ async def root(file:str):
         return FileResponse(filepath, media_type=mime)
 
     # デフォルトドキュメント (index.html)
-    elif os.path.isfile(filepath / 'index.html'):
+    elif os.path.isfile(str(filepath) + 'index.html'):
         return FileResponse(filepath / 'index.html', media_type='text/html')
 
     # 存在しない静的ファイルが指定された場合
@@ -112,3 +114,12 @@ async def startup():
 
     # チャンネル情報を更新
     await Channels.update()
+
+    # 全てのチャンネル&品質のライブストリームの初期定義を追加する
+    for channel in await Channels.all().order_by('channel_number').values():
+        for quality in LIVESTREAM_QUALITY:
+            LiveStream.livestreams[f'{channel["channel_id"]}-{quality}'] = {
+                'status': 'Offline',
+                'detail': 'ライブストリームは Offline です。',
+                'client': list(),
+            }

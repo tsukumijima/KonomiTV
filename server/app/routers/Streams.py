@@ -1,6 +1,4 @@
 
-import threading
-import time
 from fastapi import APIRouter
 from fastapi import HTTPException
 from fastapi import Path
@@ -11,7 +9,6 @@ from fastapi.responses import StreamingResponse
 from app.constants import CONFIG
 from app.constants import LIVESTREAM_QUALITY
 from app.models import Channels
-from app.tasks import LiveEncodingTask
 from app.utils import LiveStream
 
 
@@ -67,34 +64,20 @@ async def LiveMPEGTSStreamAPI(
 
     # ***** エンコードタスクの開始 *****
 
-    # ライブストリームが存在しない場合、バックグラウンドでエンコードタスクを作成・実行する
-    if f'{channel_id}-{quality}' not in LiveStream.livestream:
-
-        # エンコードタスクを非同期で実行
-        def run():
-            instance = LiveEncodingTask()
-            instance.run(channel_id, quality, CONFIG['preferred_encoder'])
-        thread = threading.Thread(target=run)
-        thread.start()
-
-        # ライブストリームが作成されるまで待機
-        while f'{channel_id}-{quality}' not in LiveStream.livestream:
-            time.sleep(0.01)
-
+    # ライブストリームに接続し、クライアント ID を取得する
+    # 接続時に Offline だった場合は自動的にエンコードタスクが起動される
+    livestream = LiveStream(channel_id, quality)
+    client_id = livestream.connect('mpegts')
 
     # ***** ライブストリームの読み取り・出力 *****
-
-    # ライブストリームに接続し、クライアント ID を取得する
-    livestream = LiveStream(channel_id, quality)
-    client_id = livestream.connect()
 
     def read():
         """ライブストリームを出力するジェネレーター
         """
         while True:
 
-            # ライブストリームが存在する
-            if livestream.livestream_id is not None:
+            # ライブストリームが Offline ではない
+            if livestream.getStatus()['status'] != 'Offline':
 
                 # 登録した Queue から受信したストリームデータ
                 stream_data = livestream.read(client_id)
@@ -109,7 +92,7 @@ async def LiveMPEGTSStreamAPI(
                 else:
                     break
 
-            # ライブストリームが終了されたのでループを抜ける
+            # ライブストリームが Offline になったのでループを抜ける
             else:
                 break
 

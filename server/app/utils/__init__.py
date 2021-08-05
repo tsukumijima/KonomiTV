@@ -4,10 +4,10 @@ from .LiveStream import LiveStream
 from .TSInformation import TSInformation
 
 import asyncio
-from typing import Coroutine
+import typing
 
 
-def RunAwait(coro:Coroutine):
+def RunAwait(coro:typing.Coroutine):
     """
     非同期関数を同期的に実行するためのヘルパー
     非同期関数を実行し、結果が返ってくるのを待つ
@@ -20,7 +20,7 @@ def RunAwait(coro:Coroutine):
     """
 
     # await で実行完了を待つ
-    async def run(coro:Coroutine):
+    async def run(coro:typing.Coroutine):
         return await coro
 
     # asyncio.run() で非同期関数を実行し、戻り値を返す

@@ -9,7 +9,6 @@ from app.constants import LIVESTREAM_QUALITY
 from app.models import Channels
 from app.utils import LiveStream
 from app.utils import Logging
-from app.utils import RunAwait
 
 
 class LiveEncodingTask():
@@ -85,6 +84,9 @@ class LiveEncodingTask():
 
     def run(self, channel_id:str, quality:str, encoder_type:str, is_dualmono:bool=False) -> None:
 
+        # 循環インポートを防ぐため、あえてここでインポートする
+        from app.utils import RunAwait
+
         # チャンネル ID からサービス ID とネットワーク ID を取得する
         channel = RunAwait(Channels.filter(channel_id=channel_id).first())
         service_id = channel.service_id
@@ -128,7 +130,7 @@ class LiveEncodingTask():
 
         # ***** エンコーダーの出力の書き込み *****
 
-        # 新しいライブストリームを作成
+        # ライブストリームのインスタンスを取得する
         livestream = LiveStream(channel_id, quality)
 
         def writer():
@@ -140,11 +142,15 @@ class LiveEncodingTask():
                 # R/W バッファ: 188B (TS Packet Size) * 256 = 48128B
                 livestream.write(encoder.stdout.read(48128))
 
-                # エンコーダープロセスが終了していたら、ライブストリームを終了する
+                # エンコーダープロセスが終了していたらループを抜ける
                 if encoder.poll() is not None:
 
-                    # ライブストリームを終了する
-                    livestream.destroy()
+                    # ループを抜ける前に、接続している全てのクライアントの Queue にライブストリームの終了を知らせる None を書き込む
+                    # クライアントは None を受信した場合、ストリーミングを終了するようになっている
+                    # これがないとクライアントはライブストリームが終了した事に気づかず、Queue を取り出そうとしてずっとブロッキングされてしまう
+                    for client in livestream.livestream['client']:
+                        if client is not None:
+                            client['queue'].put(None)
 
                     # ループを抜ける
                     break
@@ -184,18 +190,30 @@ class LiveEncodingTask():
                     # 行バッファを消去
                     linebuffer = bytes()
 
-                    # エンコードの進捗を判定
                     #Logging.info(line)
-                    if encoder_type == 'ffmpeg':
-                        if 'libpostproc    55.  9.100 / 55.  9.100' in line:
-                            Logging.info('***** チューナーを開いています… *****')
-                        if 'arib parser was created' in line:
-                            Logging.info('***** エンコードを開始しています… *****')
-                        if 'frame=    1 fps=0.0 q=0.0' in line:
-                            Logging.info('***** バッファリングしています… *****')
 
-            # プロセスが終了したらループ停止
+                    # エンコードの進捗を判定し、ステータスを更新する
+                    # 誤作動防止のため、ステータスが Standby の間のみ更新できるようにする
+                    if livestream.getStatus()['status'] == 'Standby':
+
+                        # ffmpeg
+                        if encoder_type == 'ffmpeg':
+                            if 'libpostproc    55.  9.100 / 55.  9.100' in line:
+                                livestream.setStatus('Standby', 'チューナーを開いています…')
+                            elif 'arib parser was created' in line:
+                                livestream.setStatus('Standby', 'エンコードを開始しています…')
+                            elif 'frame=    1 fps=0.0 q=0.0' in line:
+                                livestream.setStatus('Standby', 'バッファリングしています…')
+                            elif 'frame=' in line:
+                                livestream.setStatus('ONAir', 'ライブストリームは ONAir です。')
+
+
+            # プロセスが意図せず終了したらループを停止する
             if not buffer and encoder.poll() is not None:
+
+                # ステータスを Offline に設定
+                livestream.setStatus('Offline', 'エンコーダーが強制終了されました。')
+
                 Logging.info(f'Encoder polled. ReturnCode: {str(encoder.returncode)}')
                 Logging.info(f'Last Message: {line}')
                 break
