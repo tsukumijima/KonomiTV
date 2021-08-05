@@ -5,6 +5,7 @@ import threading
 
 from app.constants import CONFIG
 from app.constants import LIBRARY_PATH
+from app.constants import LIVESTREAM_QUALITY
 from app.models import Channels
 from app.utils import LiveStream
 from app.utils import Logging
@@ -44,7 +45,7 @@ class LiveEncodingTask():
             # 参考: https://github.com/l3tnun/EPGStation/blob/master/config/enc3.js
             # -filter_complex を使うと -vf や -af が使えなくなるため、デュアルモノのみ -filter_complex に -vf や -af の内容も入れる
             ## 1440x1080 と 1920x1080 が混在しているので、1080p だけリサイズする解像度を指定しない
-            scale = '' if quality == '1080p' else f',scale={LiveStream.quality[quality]["width"]}:{LiveStream.quality[quality]["height"]}'
+            scale = '' if quality == '1080p' else f',scale={LIVESTREAM_QUALITY[quality]["width"]}:{LIVESTREAM_QUALITY[quality]["height"]}'
             options.append(f'-filter_complex yadif=0:-1:1{scale};volume=2.0,channelsplit[FL][FR]')
             ## Lを主音声に、Rを副音声にマッピング
             options.append('-map 0:v:0 -map [FL] -map [FR] -map 0:d? -ignore_unknown')
@@ -54,17 +55,17 @@ class LiveEncodingTask():
         options.append('-fflags nobuffer -flags low_delay -max_delay 250000 -max_interleave_delta 1 -threads auto')
 
         # 映像
-        options.append(f'-vcodec libx264 -flags +cgop -vb {LiveStream.quality[quality]["video_bitrate"]} -maxrate {LiveStream.quality[quality]["video_bitrate_max"]}')
+        options.append(f'-vcodec libx264 -flags +cgop -vb {LIVESTREAM_QUALITY[quality]["video_bitrate"]} -maxrate {LIVESTREAM_QUALITY[quality]["video_bitrate_max"]}')
         options.append('-aspect 16:9 -r 30000/1001 -g 15 -preset veryfast -profile:v main')
         if is_dualmono is False:  # デュアルモノ以外
             ## 1440x1080 と 1920x1080 が混在しているので、1080p だけリサイズする解像度を指定しない
             if quality == '1080p':
                 options.append('-vf yadif=0:-1:1')
             else:
-                options.append(f'-vf yadif=0:-1:1,scale={LiveStream.quality[quality]["width"]}:{LiveStream.quality[quality]["height"]}')
+                options.append(f'-vf yadif=0:-1:1,scale={LIVESTREAM_QUALITY[quality]["width"]}:{LIVESTREAM_QUALITY[quality]["height"]}')
 
         # 音声
-        options.append(f'-acodec aac -ac 2 -ab {LiveStream.quality[quality]["audio_bitrate"]} -ar 48000')
+        options.append(f'-acodec aac -ac 2 -ab {LIVESTREAM_QUALITY[quality]["audio_bitrate"]} -ar 48000')
         if is_dualmono is False:  # デュアルモノ以外
             options.append('-af volume=2.0')
 

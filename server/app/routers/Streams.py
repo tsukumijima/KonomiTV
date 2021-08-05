@@ -9,6 +9,7 @@ from fastapi.responses import Response
 from fastapi.responses import StreamingResponse
 
 from app.constants import CONFIG
+from app.constants import LIVESTREAM_QUALITY
 from app.models import Channels
 from app.tasks import LiveEncodingTask
 from app.utils import LiveStream
@@ -57,7 +58,7 @@ async def LiveMPEGTSStreamAPI(
         )
 
     # 指定された映像の品質が存在しない
-    if quality not in LiveStream.quality:
+    if quality not in LIVESTREAM_QUALITY:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail='Specified quality was not found',

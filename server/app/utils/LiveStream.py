@@ -35,38 +35,6 @@ class LiveStream(LiveStreamSingleton):
     #   }
     livestream = dict()
 
-    # 映像・音声の品質定義
-    quality = {
-        '1080p': {
-            'width': None,  # 縦解像度：1080p のみソースの解像度を使うため指定しない
-            'height': None,  # 横解像度：1080p のみソースの解像度を使うため指定しない
-            'video_bitrate': '6500K',  # 映像ビットレート
-            'video_bitrate_max': '9000K',  # 映像最大ビットレート
-            'audio_bitrate': '192K',  # 音声ビットレート
-        },
-        '720p': {
-            'width': 1280,
-            'height': 720,
-            'video_bitrate': '4500K',
-            'video_bitrate_max': '6200K',
-            'audio_bitrate': '192K',  # 音声ビットレート
-        },
-        '540p': {
-            'width': 940,
-            'height': 540,
-            'video_bitrate': '3000K',
-            'video_bitrate_max': '4100K',
-            'audio_bitrate': '192K',  # 音声ビットレート
-        },
-        '360p': {
-            'width': 640,
-            'height': 360,
-            'video_bitrate': '1500K',
-            'video_bitrate_max': '2000K',
-            'audio_bitrate': '128K',  # 音声ビットレート
-        },
-    }
-
 
     def __init__(self, channel_id:str, quality:int):
         """ライブストリームを作成する
