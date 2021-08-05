@@ -1,6 +1,7 @@
 
 import logging
 import os
+import time
 import tortoise.contrib.fastapi
 from fastapi import FastAPI
 from fastapi import Request
@@ -121,5 +122,6 @@ async def startup():
             LiveStream.livestreams[f'{channel["channel_id"]}-{quality}'] = {
                 'status': 'Offline',
                 'detail': 'ライブストリームは Offline です。',
+                'updated_at': time.time(),
                 'client': list(),
             }

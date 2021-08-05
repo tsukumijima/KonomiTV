@@ -2,6 +2,7 @@
 import os
 import subprocess
 import threading
+import time
 
 from app.constants import CONFIG
 from app.constants import LIBRARY_PATH
@@ -167,6 +168,9 @@ class LiveEncodingTask():
         linebuffer:bytes = bytes()
         while True:
 
+            # ライブストリームのステータスを取得
+            livestream_status = livestream.getStatus()
+
             # 1バイトずつ読み込む
             buffer:bytes = encoder.stderr.read(1)
             if buffer:  # データがあれば
@@ -194,7 +198,7 @@ class LiveEncodingTask():
 
                     # エンコードの進捗を判定し、ステータスを更新する
                     # 誤作動防止のため、ステータスが Standby の間のみ更新できるようにする
-                    if livestream.getStatus()['status'] == 'Standby':
+                    if livestream_status['status'] == 'Standby':
 
                         # ffmpeg
                         if encoder_type == 'ffmpeg':
@@ -207,6 +211,14 @@ class LiveEncodingTask():
                             elif 'frame=' in line:
                                 livestream.setStatus('ONAir', 'ライブストリームは ONAir です。')
 
+            # 現在 ONAir でかつクライアント数が 0 なら Idling（アイドリング状態）に移行
+            if livestream_status['status'] == 'ONAir' and livestream_status['client_count'] == 0:
+                livestream.setStatus('Idling', 'ライブストリームは Idling です。')
+
+            # 現在 Idling でかつ最終更新から 10 秒以上経っていたらエンコーダーを終了し、Offline 状態に移行
+            if livestream_status['status'] == 'Idling' and time.time() - livestream_status['updated_at'] > 10:
+                livestream.setStatus('Offline', 'ライブストリームは Offline です。')
+                break
 
             # プロセスが意図せず終了したらループを停止する
             if not buffer and encoder.poll() is not None:

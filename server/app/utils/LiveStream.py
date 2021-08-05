@@ -1,6 +1,7 @@
 
 import queue
 import threading
+import time
 
 from app.constants import CONFIG
 from app.utils import Logging
@@ -35,6 +36,8 @@ class LiveStream(LiveStreamSingleton):
             'status': 'ONAir',
             # ステータスの詳細
             'detail': 'ライブストリームは ONAir です。',
+            # 最終更新
+            'updated_at': time.time(),
             # ライブストリームクライアント
             'client': [
                 # type が mpegts の場合のみ、クライアントが持つ Queue にストリームデータを入れる
@@ -134,21 +137,23 @@ class LiveStream(LiveStreamSingleton):
 
 
     def getStatus(self) -> dict:
-        """ライブストリームのステータスと詳細を取得する
+        """ライブストリームのステータスを取得する
 
         Returns:
-            dict: ライブストリームのステータスと詳細の辞書
+            dict: ライブストリームのステータスが入った辞書
         """
 
-        # ステータスと詳細を返す
+        # ステータス・詳細・最終更新・クライアント数を返す
         return {
             'status': self.livestream['status'],
             'detail': self.livestream['detail'],
+            'updated_at': self.livestream['updated_at'],
+            'client_count': len(list(filter(None, self.livestream['client']))),
         }
 
 
     def setStatus(self, status:str, detail:str) -> None:
-        """ライブストリームのステータスと詳細を設定する
+        """ライブストリームのステータスを設定する
 
         Args:
             status (str): ステータス ( Offline, Standby, ONAir, Idling のいずれか)
@@ -156,9 +161,12 @@ class LiveStream(LiveStreamSingleton):
         """
 
         # ステータスと詳細を設定
+        Logging.info(f'***** Status:{status} Detail:{detail} *****')
         self.livestream['status'] = status
         self.livestream['detail'] = detail
-        Logging.info(f'***** Status:{status} Detail:{detail} *****')
+
+        # 最終更新のタイムスタンプを更新
+        self.livestream['updated_at'] = time.time()
 
 
     def read(self, client_id:int) -> bytes:
@@ -172,7 +180,10 @@ class LiveStream(LiveStreamSingleton):
         """
 
         # 登録したクライアントの Queue から読み取ったストリームデータを返す
-        return self.livestream['client'][client_id]['queue'].get()
+        if self.livestream['client'][client_id] is not None:
+            return self.livestream['client'][client_id]['queue'].get()
+        else:
+            return None
 
 
     def write(self, stream_data:bytes) -> None:
