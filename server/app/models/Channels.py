@@ -31,7 +31,7 @@ class Channels(models.Model):
         await Channels.all().delete()
 
         # Mirakurun の API からチャンネル情報を取得する
-        mirakurun_services_api_url = f'{CONFIG["mirakurun_url"]}/api/services'
+        mirakurun_services_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services'
         services = requests.get(mirakurun_services_api_url).json()
 
         # 同じネットワーク ID のサービスのカウント

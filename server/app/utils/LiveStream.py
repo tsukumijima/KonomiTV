@@ -92,12 +92,20 @@ class LiveStream(LiveStreamSingleton):
         # ライブストリームが Offline な場合、新たにエンコードタスクを起動する
         if self.getStatus()['status'] == 'Offline':
 
+            # 現在 Idling 状態のライブストリームがあれば、うち最初のライブストリームを Offline にする
+            # 一般にチューナーリソースは無尽蔵にあるわけではないので、現在 Idling（=つまり誰も見ていない）ライブストリームがあるのなら
+            # それを Offline にしてチューナーリソースを解放し、新しいライブストリームがチューナーを使えるようにする
+            # MLT 系チューナーでなければ GR → BS,CS への切り替えでも解放されるのは非効率な気もするけど、一旦考えない事にする
+            idling_livestream = self.getIdlingLiveStream()
+            if len(idling_livestream) > 0:
+                idling_livestream[0].setStatus('Offline', '新しいライブストリームが開始されたため、チューナーリソースを解放しました。')
+
             # エンコードタスクを非同期で実行
             def run():
                 # ここでインポートしないとなぜかうまくいかない
                 from app.tasks import LiveEncodingTask
                 instance = LiveEncodingTask()
-                instance.run(self.channel_id, self.quality, CONFIG['preferred_encoder'])
+                instance.run(self.channel_id, self.quality, CONFIG['livestream']['preferred_encoder'])
             thread = threading.Thread(target=run)
             thread.start()
 
@@ -118,7 +126,7 @@ class LiveStream(LiveStreamSingleton):
 
         # 自分の Queue があるインデックス（リストの長さ - 1）をクライアント ID とする
         client_id = len(self.livestream['client']) - 1
-        Logging.info(f'***** LiveStream Connected. Client ID: {client_id} *****')
+        Logging.info(f'***** {self.livestream_id} Client Connected. Client ID: {client_id} *****')
 
         # 新たに振られたクライアント ID を返す
         return client_id
@@ -132,8 +140,28 @@ class LiveStream(LiveStreamSingleton):
         """
 
         # 指定されたクライアント ID のクライアントを削除する
-        self.livestream['client'][client_id] = None
-        Logging.info(f'***** LiveStream Disconnected. Client ID: {client_id} *****')
+        if len(self.livestream['client']) > 0:
+            self.livestream['client'][client_id] = None
+            Logging.info(f'***** {self.livestream_id} Client Disconnected. Client ID: {client_id} *****')
+
+
+    def getIdlingLiveStream(self) -> list:
+        """現在 Idling なライブストリームを取得する
+
+        Returns:
+            list: 現在 Idling なライブストリームのインスタンスの入ったリスト
+        """
+
+        result = []
+
+        # 現在 Idling 状態のライブストリームを探す
+        # 見つかったら、そのライブストリームのインスタンスをリストに入れる
+        for livestream_id, livestream in LiveStream.livestreams.items():
+            if livestream['status'] == 'Idling':
+                channel_id, quality = livestream_id.split('-')
+                result.append(LiveStream(channel_id, quality))
+
+        return result
 
 
     def getStatus(self) -> dict:
@@ -161,12 +189,16 @@ class LiveStream(LiveStreamSingleton):
         """
 
         # ステータスと詳細を設定
-        Logging.info(f'***** Status:{status} Detail:{detail} *****')
+        Logging.info(f'***** {self.livestream_id} Status:{status} Detail:{detail} *****')
         self.livestream['status'] = status
         self.livestream['detail'] = detail
 
         # 最終更新のタイムスタンプを更新
         self.livestream['updated_at'] = time.time()
+
+        # Offline 状態になったなら、client を空にする
+        if self.livestream['status'] == 'Offline':
+            self.livestream['client'] = list()
 
 
     def read(self, client_id:int) -> bytes:

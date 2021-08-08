@@ -97,7 +97,7 @@ class LiveEncodingTask():
         # NID と SID を 5 桁でゼロ埋めした上で int に変換する
         mirakurun_service_id = int(str(network_id).zfill(5) + str(service_id).zfill(5))
         # Mirakurun API の URL を作成
-        mirakurun_stream_api_url = f'{CONFIG["mirakurun_url"]}/api/services/{mirakurun_service_id}/stream'
+        mirakurun_stream_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services/{mirakurun_service_id}/stream'
 
 
         # ***** arib-subtitle-timedmetadater プロセスの作成と実行 *****
@@ -215,9 +215,15 @@ class LiveEncodingTask():
             if livestream_status['status'] == 'ONAir' and livestream_status['client_count'] == 0:
                 livestream.setStatus('Idling', 'ライブストリームは Idling です。')
 
-            # 現在 Idling でかつ最終更新から 10 秒以上経っていたらエンコーダーを終了し、Offline 状態に移行
-            if livestream_status['status'] == 'Idling' and time.time() - livestream_status['updated_at'] > 10:
+            # 現在 Idling でかつ最終更新から指定された秒数以上経っていたらエンコーダーを終了し、Offline 状態に移行
+            if (livestream_status['status'] == 'Idling') and \
+               (time.time() - livestream_status['updated_at'] > CONFIG['livestream']['max_alive_time']):
                 livestream.setStatus('Offline', 'ライブストリームは Offline です。')
+                break
+
+            # すでに Offline 状態になっていたらエンコーダーを終了する
+            # エンコードタスク以外から Offline 状態に移行される事もあり得るため
+            if livestream_status['status'] == 'Offline':
                 break
 
             # プロセスが意図せず終了したらループを停止する
