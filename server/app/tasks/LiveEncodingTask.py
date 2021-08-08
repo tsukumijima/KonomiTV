@@ -233,14 +233,18 @@ class LiveEncodingTask():
                     livestream.setStatus('Offline', 'チューナー不足のため、ライブストリームを開始できません。')
                     break
                 if 'Conversion failed!' in line:
-                    is_restart_required = True  # エンコーダーの再起動を要求
-                    livestream.setStatus('Offline', 'エンコードの継続に失敗しました。ライブストリームを再起動します。')
+                    # エンコーダーの再起動を要求
+                    is_restart_required = True
+                    # エンコーダーの再起動前提のため、あえて Offline にはせず Standby とする
+                    livestream.setStatus('Standby', 'エンコードの継続に失敗しました。ライブストリームを再起動します。')
                     break
 
             # エンコーダーが意図せず終了した場合、エンコーダーを（明示的に）終了する
             if not buffer and encoder.poll() is not None:
-                is_restart_required = True  # エンコーダーの再起動を要求
-                livestream.setStatus('Offline', 'エンコーダーが強制終了されました。ライブストリームを再起動します。')
+                # エンコーダーの再起動を要求
+                is_restart_required = True
+                # エンコーダーの再起動前提のため、あえて Offline にはせず Standby とする
+                livestream.setStatus('Standby', 'エンコーダーが強制終了されました。ライブストリームを再起動します。')
                 break
 
         # ***** エンコード終了後の処理 *****
