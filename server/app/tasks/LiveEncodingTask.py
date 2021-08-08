@@ -211,6 +211,16 @@ class LiveEncodingTask():
                             elif 'frame=' in line:
                                 livestream.setStatus('ONAir', 'ライブストリームは ONAir です。')
 
+                    # 特定のエラーログが出力されている場合は回復が見込めないため、エンコーダーを終了する
+                    # ffmpeg
+                    if encoder_type == 'ffmpeg':
+                        if 'Stream map \'0:v:0\' matches no streams.' in line:
+                            livestream.setStatus('Offline', 'チューナー不足のため、ライブストリームを開始できません。')
+                            break
+                        if 'Conversion failed!' in line:
+                            livestream.setStatus('Offline', 'エンコードの継続に失敗しました。')
+                            break
+
             # 現在 ONAir でかつクライアント数が 0 なら Idling（アイドリング状態）に移行
             if livestream_status['status'] == 'ONAir' and livestream_status['client_count'] == 0:
                 livestream.setStatus('Idling', 'ライブストリームは Idling です。')
