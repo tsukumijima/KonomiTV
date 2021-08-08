@@ -109,9 +109,6 @@ class LiveStream(LiveStreamSingleton):
             thread = threading.Thread(target=run)
             thread.start()
 
-            # ステータスを Standby に設定
-            self.setStatus('Standby', 'エンコーダーを起動しています…')
-
         # ライブストリームが Idling 状態な場合、ONAir 状態に戻す（アイドリングから復帰）
         if self.getStatus()['status'] == 'Idling':
             self.setStatus('ONAir', 'ライブストリームは ONAir です。')
@@ -212,7 +209,7 @@ class LiveStream(LiveStreamSingleton):
         """
 
         # 登録したクライアントの Queue から読み取ったストリームデータを返す
-        if self.livestream['client'][client_id] is not None:
+        if len(self.livestream['client']) > 0:
             return self.livestream['client'][client_id]['queue'].get()
         else:
             return None

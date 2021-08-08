@@ -78,17 +78,19 @@ class LiveEncodingTask():
         for option in options:
             result += option.split(' ')
 
-        Logging.info(f'***** FFmpeg Commands *****\nffmpeg {" ".join(result)}')
-
         return result
 
 
     def run(self, channel_id:str, quality:str, encoder_type:str, is_dualmono:bool=False) -> None:
 
-        # 循環インポートを防ぐため、あえてここでインポートする
-        from app.utils import RunAwait
+        # ライブストリームのインスタンスを取得する
+        livestream = LiveStream(channel_id, quality)
+
+        # ステータスを Standby に設定
+        livestream.setStatus('Standby', 'エンコーダーを起動しています…')
 
         # チャンネル ID からサービス ID とネットワーク ID を取得する
+        from app.utils import RunAwait  # 循環インポートを防ぐため、あえてここでインポートする
         channel = RunAwait(Channels.filter(channel_id=channel_id).first())
         service_id = channel.service_id
         network_id = channel.network_id
@@ -98,7 +100,6 @@ class LiveEncodingTask():
         mirakurun_service_id = int(str(network_id).zfill(5) + str(service_id).zfill(5))
         # Mirakurun API の URL を作成
         mirakurun_stream_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services/{mirakurun_service_id}/stream'
-
 
         # ***** arib-subtitle-timedmetadater プロセスの作成と実行 *****
 
@@ -110,7 +111,6 @@ class LiveEncodingTask():
             creationflags=subprocess.CREATE_NO_WINDOW,  # conhost を開かない
         )
 
-
         # ***** エンコーダープロセスの作成と実行 *****
 
         ## ffmpeg
@@ -118,6 +118,7 @@ class LiveEncodingTask():
 
             ## オプションを取得
             encoder_options = self.buildFFmpegOptions(quality, is_dualmono=is_dualmono)
+            Logging.info(f'***** {livestream.livestream_id} FFmpeg Commands *****\nffmpeg {" ".join(encoder_options)}')
 
             ## プロセスを非同期で作成・実行
             encoder = subprocess.Popen(
@@ -128,11 +129,7 @@ class LiveEncodingTask():
                 creationflags=subprocess.CREATE_NO_WINDOW,  # conhost を開かない
             )
 
-
         # ***** エンコーダーの出力の書き込み *****
-
-        # ライブストリームのインスタンスを取得する
-        livestream = LiveStream(channel_id, quality)
 
         def writer():
 
@@ -160,8 +157,10 @@ class LiveEncodingTask():
         thread_writer = threading.Thread(target=writer)
         thread_writer.start()
 
-
         # ***** エンコーダーの出力監視と制御 *****
+
+        # エンコード終了後にエンコードタスクを再起動すべきかのフラグ
+        is_restart_required = False
 
         # エンコーダーの出力結果を取得
         line:str = str()
@@ -211,16 +210,6 @@ class LiveEncodingTask():
                             elif 'frame=' in line:
                                 livestream.setStatus('ONAir', 'ライブストリームは ONAir です。')
 
-                    # 特定のエラーログが出力されている場合は回復が見込めないため、エンコーダーを終了する
-                    # ffmpeg
-                    if encoder_type == 'ffmpeg':
-                        if 'Stream map \'0:v:0\' matches no streams.' in line:
-                            livestream.setStatus('Offline', 'チューナー不足のため、ライブストリームを開始できません。')
-                            break
-                        if 'Conversion failed!' in line:
-                            livestream.setStatus('Offline', 'エンコードの継続に失敗しました。')
-                            break
-
             # 現在 ONAir でかつクライアント数が 0 なら Idling（アイドリング状態）に移行
             if livestream_status['status'] == 'ONAir' and livestream_status['client_count'] == 0:
                 livestream.setStatus('Idling', 'ライブストリームは Idling です。')
@@ -231,21 +220,28 @@ class LiveEncodingTask():
                 livestream.setStatus('Offline', 'ライブストリームは Offline です。')
                 break
 
-            # すでに Offline 状態になっていたらエンコーダーを終了する
+            # すでに Offline 状態になっている場合、エンコーダーを終了する
             # エンコードタスク以外から Offline 状態に移行される事もあり得るため
             if livestream_status['status'] == 'Offline':
                 break
 
-            # プロセスが意図せず終了したらループを停止する
+            # 特定のエラーログが出力されている場合は回復が見込めないため、エンコーダーを終了する
+            ## ffmpeg
+            if encoder_type == 'ffmpeg':
+                if 'Stream map \'0:v:0\' matches no streams.' in line:
+                    # 主にチューナー不足が原因のエラーのため、エンコーダーの再起動は行わない
+                    livestream.setStatus('Offline', 'チューナー不足のため、ライブストリームを開始できません。')
+                    break
+                if 'Conversion failed!' in line:
+                    is_restart_required = True  # エンコーダーの再起動を要求
+                    livestream.setStatus('Offline', 'エンコードの継続に失敗しました。ライブストリームを再起動します。')
+                    break
+
+            # エンコーダーが意図せず終了した場合、エンコーダーを（明示的に）終了する
             if not buffer and encoder.poll() is not None:
-
-                # ステータスを Offline に設定
-                livestream.setStatus('Offline', 'エンコーダーが強制終了されました。')
-
-                Logging.info(f'Encoder polled. ReturnCode: {str(encoder.returncode)}')
-                Logging.info(f'Last Message: {line}')
+                is_restart_required = True  # エンコーダーの再起動を要求
+                livestream.setStatus('Offline', 'エンコーダーが強制終了されました。ライブストリームを再起動します。')
                 break
-
 
         # ***** エンコード終了後の処理 *****
 
@@ -253,8 +249,6 @@ class LiveEncodingTask():
         ast.kill()
         encoder.kill()
 
-        # エラー終了の場合はタスクを再起動する
-        # 本番実装のときは再起動条件にいろいろ加わるが、今は簡易的に
-        if encoder.returncode != 0:
-            #self.run(channel_id, quality encoder_type=encoder_type, audio_type=audio_type)
-            pass
+        # エンコードタスクを再起動する（エンコーダーの再起動が必要な場合）
+        if is_restart_required is True:
+            self.run(channel_id, quality, encoder_type=encoder_type, is_dualmono=False)
