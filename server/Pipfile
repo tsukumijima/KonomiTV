@@ -15,6 +15,7 @@ ariblib = "*"
 fastapi = "*"
 jaconv = "*"
 requests = "*"
+sse-starlette = "*"
 tortoise-orm = "*"
 uvicorn = {extras = ["standard"], version = "*"}
 
