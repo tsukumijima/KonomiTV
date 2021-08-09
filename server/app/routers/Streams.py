@@ -9,10 +9,10 @@ from fastapi.responses import Response
 from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse
 
-from app.constants import CONFIG
 from app.constants import LIVESTREAM_QUALITY
 from app.models import Channels
 from app.utils import LiveStream
+from app.schemas import LiveStreamAPIResponse
 
 
 # ルーター
@@ -20,6 +20,47 @@ router = APIRouter(
     tags=['Streams'],
     prefix='/api/streams',
 )
+
+
+@router.get(
+    '/live/{channel_id}/{quality}',
+    summary = 'ライブストリーム API',
+    response_description = 'ライブストリームの状態。',
+    response_model = LiveStreamAPIResponse,  # Response の構造を明示
+)
+async def LiveStreamAPI(
+    channel_id:str = Path(..., description='チャンネル ID 。ex:gr011'),
+    quality:str = Path(..., description='映像の品質。ex:1080p'),
+):
+    """
+    ライブストリームのステータスを取得する。<br>
+    ライブストリーム イベント API にて配信されるイベントと同一のデータだが、一回限りの取得である点が異なる。
+    """
+
+    # ***** バリデーション *****
+
+    # 指定されたチャンネル ID が存在しない
+    if await Channels.filter(channel_id=channel_id).get_or_none() is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail='Specified channel_id was not found',
+        )
+
+    # 指定された映像の品質が存在しない
+    if quality not in LIVESTREAM_QUALITY:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail='Specified quality was not found',
+        )
+
+    # ***** ライブストリームの状態を返却する *****
+
+    # ライブストリームを取得
+    # ステータスを取得したいだけなので、接続はしない
+    livestream = LiveStream(channel_id, quality)
+
+    # そのまま返す
+    return livestream.getStatus()
 
 
 @router.get(
@@ -71,7 +112,7 @@ async def LiveStreamEventAPI(
     # ***** イベントの配信 *****
 
     # ライブストリームを取得
-    # イベントを取得したいだけなので、接続はしない
+    # ステータスを取得したいだけなので、接続はしない
     livestream = LiveStream(channel_id, quality)
 
     # ステータスの変更を監視し、変更があればステータスをイベントストリームとして出力する
