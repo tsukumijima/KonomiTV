@@ -5,6 +5,7 @@ import json
 import sys
 
 import ariblib
+import ariblib.constants
 import ariblib.event
 from ariblib.descriptors import (
     ServiceDescriptor,
@@ -24,13 +25,60 @@ from ariblib.sections import (
 
 
 class TSInformation:
-
-    """TS ファイルから各種情報を取得するクラス
-       : ariblib の開発者の youzaka 氏に感謝します
+    """
+    TS ファイルから各種情報を取得するクラス
+    ariblib の開発者の youzaka 氏に感謝します
     """
 
+    # 映像のコーデック
+    # 参考: https://github.com/Chinachu/Mirakurun/blob/master/src/Mirakurun/epg.ts#L27
+    STREAM_CONTENT = {
+        0x01: 'mpeg2',
+        0x05: 'h.264',
+        0x09: 'h.265',
+    }
+
+    # 映像の解像度
+    # 参考: https://github.com/Chinachu/Mirakurun/blob/master/src/Mirakurun/epg.ts#L33
+    COMPONENT_TYPE = {
+        0x01: '480i',
+        0x02: '480i',
+        0x03: '480i',
+        0x04: '480i',
+        0x83: '4320p',
+        0x91: '2160p',
+        0x92: '2160p',
+        0x93: '2160p',
+        0x94: '2160p',
+        0xA1: '480p',
+        0xA2: '480p',
+        0xA3: '480p',
+        0xA4: '480p',
+        0xB1: '1080i',
+        0xB2: '1080i',
+        0xB3: '1080i',
+        0xB4: '1080i',
+        0xC1: '720p',
+        0xC2: '720p',
+        0xC3: '720p',
+        0xC4: '720p',
+        0xD1: '240p',
+        0xD2: '240p',
+        0xD3: '240p',
+        0xD4: '240p',
+        0xE1: '1080p',
+        0xE2: '1080p',
+        0xE3: '1080p',
+        0xE4: '1080p',
+        0xF1: '180p',
+        0xF2: '180p',
+        0xF3: '180p',
+        0xF4: '180p',
+    }
+
     def __init__(self, tspath:str):
-        """TS ファイルから各種情報を取得する
+        """
+        TS ファイルから各種情報を取得する
 
         Args:
             tspath (str): TS ファイルのパス
@@ -41,7 +89,8 @@ class TSInformation:
         self.ts:TransportStreamFile = ariblib.tsopen(tspath, chunk=1000)
 
     def extract(self) -> str:
-        """TS 内から得られる各種番組情報などを抽出して辞書にまとめる
+        """
+        TS 内から得られる各種番組情報などを抽出して辞書にまとめる
 
         Returns:
             str: TS の各種情報をまとめた辞書
@@ -83,9 +132,9 @@ class TSInformation:
         }
 
     def getNetworkType(self, network_id:int) -> str:
-
-        """ネットワーク ID からネットワークの種別を取得する
-        : 返り値は GR・BS・CS・SKY のいずれか（ Mirakurun 互換）
+        """
+        ネットワーク ID からネットワークの種別を取得する
+        返り値は GR・BS・CS・SKY のいずれか（ Mirakurun 互換）
 
         Args:
             network_id (int): ネットワーク ID
@@ -111,36 +160,13 @@ class TSInformation:
             return 'SKY'
 
     def getSDTInformation(self) -> dict:
-
-        """TS 内の SDT (Service Descrition Table) からサービス（チャンネル）情報を取得する
-        : PAT (Program Association Table) と NIT (Network Information Table) からも補助的に情報を取得する
+        """
+        TS 内の SDT (Service Descrition Table) からサービス（チャンネル）情報を取得する
+        PAT (Program Association Table) と NIT (Network Information Table) からも補助的に情報を取得する
 
         Returns:
             dict: サービス（チャンネル）情報が入った辞書
         """
-
-        # サービスタイプ
-        # 参考: https://github.com/youzaka/ariblib/blob/master/ariblib/constants.py#L276
-        SERVICE_TYPE = {
-            0x00: '未定義',
-            0x01: 'デジタルTVサービス',
-            0x02: 'デジタル音声サービス',
-            0xA1: '臨時映像サービス',
-            0xA2: '臨時音声サービス',
-            0xA3: '臨時データサービス',
-            0xA4: 'エンジニアリングサービス',
-            0xA5: 'プロモーション映像サービス',
-            0xA6: 'プロモーション音声サービス',
-            0xA7: 'プロモーションデータサービス',
-            0xA8: '事前蓄積用データサービス',
-            0xA9: '蓄積専用データサービス',
-            0xAA: 'ブックマーク一覧データサービス',
-            0xAB: 'サーバー型サイマルサービス',
-            0xAC: '独立ファイルサービス',
-            0xC0: 'データサービス',
-            0xC1: 'TLVを用いた蓄積型サービス',
-            0xC2: 'マルチメディアサービス',
-        }
 
         # 雛形
         result = {
@@ -192,7 +218,7 @@ class TSInformation:
 
                     # SDT から得られる ServiceDescriptor 内の情報（サービスタイプ・サービス名）を取得
                     for sd in service.descriptors[ServiceDescriptor]:
-                        result['service_type'] = SERVICE_TYPE[int(hex(sd.service_type), 16)]
+                        result['service_type'] = ariblib.constants.SERVICE_TYPE[int(hex(sd.service_type), 16)]
                         result['service_name'] = str(sd.service_name)
                         break
                     else:
@@ -222,10 +248,10 @@ class TSInformation:
         return result
 
     def getEITInformation(self, service_id:int, eit_section_number:int) -> dict:
-
-        """TS内の EIT (Event Information Table) から番組情報を取得する
-        : サービス ID が必要な理由は、CS などで別のチャンネルの番組情報が取得されるのを防ぐため
-        : このため、事前に getSDTInformation() で service_id を取得しておく必要がある
+        """
+        TS内の EIT (Event Information Table) から番組情報を取得する
+        サービス ID が必要な理由は、CS などで別のチャンネルの番組情報が取得されるのを防ぐため
+        このため、事前に getSDTInformation() で service_id を取得しておく必要がある
 
         Args:
             service_id (int): 取得したいチャンネルのサービス ID
@@ -234,52 +260,6 @@ class TSInformation:
         Returns:
             dict: 番組情報が入った辞書
         """
-
-        # 映像のコーデック
-        # 参考: https://github.com/Chinachu/Mirakurun/blob/master/src/Mirakurun/epg.ts#L27
-        STREAM_CONTENT = {
-            0x01: 'mpeg2',
-            0x05: 'h.264',
-            0x09: 'h.265',
-        }
-
-        # 映像の解像度
-        # 参考: https://github.com/Chinachu/Mirakurun/blob/master/src/Mirakurun/epg.ts#L33
-        COMPONENT_TYPE = {
-            0x01: '480i',
-            0x02: '480i',
-            0x03: '480i',
-            0x04: '480i',
-            0x83: '4320p',
-            0x91: '2160p',
-            0x92: '2160p',
-            0x93: '2160p',
-            0x94: '2160p',
-            0xA1: '480p',
-            0xA2: '480p',
-            0xA3: '480p',
-            0xA4: '480p',
-            0xB1: '1080i',
-            0xB2: '1080i',
-            0xB3: '1080i',
-            0xB4: '1080i',
-            0xC1: '720p',
-            0xC2: '720p',
-            0xC3: '720p',
-            0xC4: '720p',
-            0xD1: '240p',
-            0xD2: '240p',
-            0xD3: '240p',
-            0xD4: '240p',
-            0xE1: '1080p',
-            0xE2: '1080p',
-            0xE3: '1080p',
-            0xE4: '1080p',
-            0xF1: '180p',
-            0xF2: '180p',
-            0xF3: '180p',
-            0xF4: '180p',
-        }
 
         # 雛形
         result = {
@@ -290,7 +270,7 @@ class TSInformation:
             'end_time': None,
             'duration': None,
             'is_free': None,
-            'genres': None,
+            'genre': None,
             'video': {
                 'type': None,
                 'codec': None,
@@ -351,9 +331,9 @@ class TSInformation:
                         result['is_free'] = not bool(event.free_CA_mode)
                     ## ジャンル
                     if hasattr(event, 'genre'):
-                        result['genres'] = []
+                        result['genre'] = []
                         for index, _ in enumerate(event.genre):
-                            result['genres'].append({
+                            result['genre'].append({
                                 'major': event.genre[index],
                                 'middle': event.subgenre[index],
                             })
@@ -362,10 +342,10 @@ class TSInformation:
                         result['video']['type'] = event.video
                     ## 映像コーデック
                     if hasattr(event, 'video_content'):
-                        result['video']['codec'] = STREAM_CONTENT[int(hex(event.video_content), 16)]
+                        result['video']['codec'] = self.STREAM_CONTENT[int(hex(event.video_content), 16)]
                     ## 解像度
                     if hasattr(event, 'video_component'):
-                        result['video']['resolution'] = COMPONENT_TYPE[int(hex(event.video_component), 16)]
+                        result['video']['resolution'] = self.COMPONENT_TYPE[int(hex(event.video_component), 16)]
                     ## 音声種別
                     if hasattr(event, 'audio'):
                         result['audio']['type'] = event.audio
@@ -393,8 +373,8 @@ class TSInformation:
         return result
 
     def getRecordStartTime(self) -> datetime:
-
-        """TS 内の TOT (Time Offset Table) と PCR (Program Clock Reference) の差分から、おおよその録画開始時刻を算出する
+        """
+        TS 内の TOT (Time Offset Table) と PCR (Program Clock Reference) の差分から、おおよその録画開始時刻を算出する
 
         Returns:
             datetime: 録画開始時刻の datetime
@@ -425,8 +405,8 @@ class TSInformation:
         return first_tot.astimezone(timezone(timedelta(hours=9)))
 
     def getRecordEndTime(self) -> datetime:
-
-        """TS 内の TOT (Time Offset Table) と PCR (Program Clock Reference) の差分から、おおよその録画終了時刻を算出する
+        """
+        TS 内の TOT (Time Offset Table) と PCR (Program Clock Reference) の差分から、おおよその録画終了時刻を算出する
 
         Returns:
             datetime: 録画終了時刻の datetime
@@ -475,8 +455,8 @@ class TSInformation:
         return last_tot.astimezone(timezone(timedelta(hours=9)))
 
     def getPCRTimeDelta(self) -> timedelta:
-
-        """現在の TS のシーク位置の PCR (Program Clock Reference) を取得する
+        """
+        現在の TS のシーク位置の PCR (Program Clock Reference) を取得する
 
         Returns:
             timedelta: PCR から算出した timedelta（時間差分）
