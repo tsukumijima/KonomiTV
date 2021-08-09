@@ -12,6 +12,7 @@ from sse_starlette.sse import EventSourceResponse
 from app.constants import LIVESTREAM_QUALITY
 from app.models import Channels
 from app.utils import LiveStream
+from app.schemas import LiveStreamListAPIResponse
 from app.schemas import LiveStreamAPIResponse
 
 
@@ -20,6 +21,41 @@ router = APIRouter(
     tags=['Streams'],
     prefix='/api/streams',
 )
+
+
+@router.get(
+    '/live',
+    summary = 'ライブストリームリスト API',
+    response_description = 'ステータスごとに分類された全てのライブストリームの状態。',
+    response_model = LiveStreamListAPIResponse,  # Response の構造を明示
+)
+async def LiveStreamListAPI():
+    """
+    全てのライブストリームの状態を Offline・Standby・ONAir・Idling の各ステータスごとに取得する。
+    """
+
+    # 返却するデータ
+    # 逆順なのは大半を占める Offline なストリームを最初に見ることになるのを避けるため
+    result = {
+        'Idling' : dict(),
+        'ONAir'  : dict(),
+        'Standby': dict(),
+        'Offline': dict(),
+    }
+
+    # 全てのストリームごとに
+    # 本来はインスタンス化してから取得するのがベターではあるのだが、チャンネル数×映像の品質数 個あるライブストリームを
+    # 全部インスタンス化していてはパフォーマンスが落ちるので、あえてライブストリームの「実態」にアクセスする
+    for livestream_id, livestream_entity in LiveStream.livestreams.items():
+        result[livestream_entity['status']][livestream_id] = {
+            'status': livestream_entity['status'],
+            'detail': livestream_entity['detail'],
+            'updated_at': livestream_entity['updated_at'],
+            'client_count': len(list(filter(None, livestream_entity['client']))),
+        }
+
+    # データを返す
+    return result
 
 
 @router.get(
@@ -33,7 +69,7 @@ async def LiveStreamAPI(
     quality:str = Path(..., description='映像の品質。ex:1080p'),
 ):
     """
-    ライブストリームのステータスを取得する。<br>
+    ライブストリームの状態を取得する。<br>
     ライブストリーム イベント API にて配信されるイベントと同一のデータだが、一回限りの取得である点が異なる。
     """
 
