@@ -15,7 +15,8 @@ from app.constants import CLIENT_DIR
 from app.constants import DATABASE_CONFIG
 from app.constants import LIVESTREAM_QUALITY
 from app.constants import VERSION
-from app.models import Channels as Channels
+from app.models import Channels
+from app.models import Programs
 from app.routers import Channels as ChannelsRouter
 from app.routers import Streams as StreamsRouter
 from app.utils import LiveStream
@@ -116,6 +117,9 @@ async def startup():
 
     # チャンネル情報を更新
     await Channels.update()
+
+    # 番組情報を更新
+    await Programs.update()
 
     # 全てのチャンネル&品質のライブストリームの初期定義を追加する
     for channel in await Channels.all().order_by('channel_number').values():
