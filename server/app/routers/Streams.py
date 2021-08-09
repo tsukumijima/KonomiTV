@@ -25,11 +25,11 @@ router = APIRouter(
 
 @router.get(
     '/live',
-    summary = 'ライブストリームリスト API',
+    summary = 'ライブストリーム API',
     response_description = 'ステータスごとに分類された全てのライブストリームの状態。',
     response_model = LiveStreamListAPIResponse,  # Response の構造を明示
 )
-async def LiveStreamListAPI():
+async def LiveStreamsAPI():
     """
     全てのライブストリームの状態を Offline・Standby・ONAir・Idling の各ステータスごとに取得する。
     """

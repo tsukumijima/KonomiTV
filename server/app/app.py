@@ -119,6 +119,7 @@ async def startup():
     await Channels.update()
 
     # 番組情報を更新
+    # TODO: 1時間に1回くらい更新をかける
     await Programs.update()
 
     # 全てのチャンネル&品質のライブストリームの初期定義を追加する
