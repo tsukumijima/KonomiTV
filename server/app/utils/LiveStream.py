@@ -185,6 +185,10 @@ class LiveStream(LiveStreamSingleton):
             detail (str): ステータスの詳細
         """
 
+        # ステータスも詳細も現在と同じなら、更新を行わない
+        if self.livestream['status'] == status and self.livestream['detail'] == detail:
+            return
+
         # ステータスと詳細を設定
         Logging.info(f'***** {self.livestream_id} Status:{status} Detail:{detail} *****')
         self.livestream['status'] = status

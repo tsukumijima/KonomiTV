@@ -154,8 +154,8 @@ class LiveEncodingTask():
                     break
 
         # スレッドを開始
-        thread_writer = threading.Thread(target=writer)
-        thread_writer.start()
+        thread = threading.Thread(target=writer)
+        thread.start()
 
         # ***** エンコーダーの出力監視と制御 *****
 
