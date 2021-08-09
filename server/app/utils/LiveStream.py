@@ -109,6 +109,11 @@ class LiveStream(LiveStreamSingleton):
             thread = threading.Thread(target=run)
             thread.start()
 
+            # ステータスを Standby に設定
+            # タイミングの関係でこっちで明示的に設定しておく必要がある
+            # エンコードタスクの方にも記載があるが、あっちはエンコードタスク再起動時の保険
+            self.setStatus('Standby', 'エンコーダーを起動しています…')
+
         # ライブストリームが Idling 状態な場合、ONAir 状態に戻す（アイドリングから復帰）
         if self.getStatus()['status'] == 'Idling':
             self.setStatus('ONAir', 'ライブストリームは ONAir です。')
