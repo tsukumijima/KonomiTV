@@ -3,7 +3,6 @@ import jaconv
 import requests
 from tortoise import fields
 from tortoise import models
-from tortoise.contrib.pydantic import pydantic_model_creator
 from typing import Optional
 
 from app.constants import CONFIG
@@ -132,8 +131,3 @@ class Channels(models.Model):
 
             # レコードを保存する
             await channel.save()
-
-
-# Pydantic のモデルに変換したもの
-# FastAPI 側のバリデーションなどで扱いやすくなる
-ChannelsPydantic = pydantic_model_creator(Channels, name='Channels')

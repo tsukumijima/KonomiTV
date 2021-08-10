@@ -9,11 +9,10 @@ from fastapi.responses import Response
 from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse
 
+from app import schemas
 from app.constants import LIVESTREAM_QUALITY
 from app.models import Channels
 from app.utils import LiveStream
-from app.schemas import LiveStreamListAPIResponse
-from app.schemas import LiveStreamAPIResponse
 
 
 # ルーター
@@ -27,7 +26,7 @@ router = APIRouter(
     '/live',
     summary = 'ライブストリーム API',
     response_description = 'ステータスごとに分類された全てのライブストリームの状態。',
-    response_model = LiveStreamListAPIResponse,  # Response の構造を明示
+    response_model = schemas.LiveStreams,  # Response の構造を明示
 )
 async def LiveStreamsAPI():
     """
@@ -62,7 +61,7 @@ async def LiveStreamsAPI():
     '/live/{channel_id}/{quality}',
     summary = 'ライブストリーム API',
     response_description = 'ライブストリームの状態。',
-    response_model = LiveStreamAPIResponse,  # Response の構造を明示
+    response_model = schemas.LiveStream,  # Response の構造を明示
 )
 async def LiveStreamAPI(
     channel_id:str = Path(..., description='チャンネル ID 。ex:gr011'),

@@ -9,7 +9,6 @@ from datetime import timedelta
 from tortoise import fields
 from tortoise import models
 from tortoise import timezone
-from tortoise.contrib.pydantic import pydantic_model_creator
 
 from app.constants import CONFIG
 from app.utils import Logging
@@ -138,8 +137,3 @@ class Programs(models.Model):
             await program.save()
 
         Logging.info(f'Program update complete. ({round(time.time() - timestamp, 3)} sec)')
-
-
-# Pydantic のモデルに変換したもの
-# FastAPI 側のバリデーションなどで扱いやすくなる
-ProgramsPydantic = pydantic_model_creator(Programs, name='Programs')

@@ -5,9 +5,9 @@ from datetime import timedelta
 from fastapi import APIRouter
 from tortoise import timezone
 
+from app import schemas
 from app.models import Channels
 from app.models import Programs
-from app.schemas import ChannelsAPIResponse
 from app.utils import Logging
 
 
@@ -22,6 +22,7 @@ router = APIRouter(
     '',
     summary = 'チャンネル情報 API',
     response_description = 'チャンネル情報。',
+    response_model = schemas.Channels,
 )
 async def ChannelsAPI():
     """
