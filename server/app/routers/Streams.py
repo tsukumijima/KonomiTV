@@ -12,7 +12,7 @@ from sse_starlette.sse import EventSourceResponse
 from app import schemas
 from app.constants import LIVESTREAM_QUALITY
 from app.models import Channels
-from app.utils import LiveStream
+from app.models import LiveStream
 
 
 # ルーター

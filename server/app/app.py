@@ -16,10 +16,10 @@ from app.constants import DATABASE_CONFIG
 from app.constants import LIVESTREAM_QUALITY
 from app.constants import VERSION
 from app.models import Channels
+from app.models import LiveStream
 from app.models import Programs
 from app.routers import Channels as ChannelsRouter
 from app.routers import Streams as StreamsRouter
-from app.utils import LiveStream
 from app.utils import Logging
 
 

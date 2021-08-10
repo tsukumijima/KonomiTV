@@ -128,7 +128,7 @@ class LiveStream(LiveStreamSingleton):
 
         # 自分の Queue があるインデックス（リストの長さ - 1）をクライアント ID とする
         client_id = len(self.livestream['client']) - 1
-        Logging.info(f'***** {self.livestream_id} Client Connected. Client ID: {client_id} *****')
+        Logging.info(f'LiveStream:{self.livestream_id} Client Connected. Client ID: {client_id}')
 
         # 新たに振られたクライアント ID を返す
         return client_id
@@ -144,7 +144,7 @@ class LiveStream(LiveStreamSingleton):
         # 指定されたクライアント ID のクライアントを削除する
         if len(self.livestream['client']) > 0:
             self.livestream['client'][client_id] = None
-            Logging.info(f'***** {self.livestream_id} Client Disconnected. Client ID: {client_id} *****')
+            Logging.info(f'LiveStream:{self.livestream_id} Client Disconnected. Client ID: {client_id}')
 
 
     def getIdlingLiveStream(self) -> list:
@@ -195,7 +195,7 @@ class LiveStream(LiveStreamSingleton):
             return
 
         # ステータスと詳細を設定
-        Logging.info(f'***** {self.livestream_id} Status:{status} Detail:{detail} *****')
+        Logging.info(f'LiveStream:{self.livestream_id} Status:{status.ljust(7, " ")} Detail:{detail}')
         self.livestream['status'] = status
         self.livestream['detail'] = detail
 
@@ -218,7 +218,7 @@ class LiveStream(LiveStreamSingleton):
         """
 
         # 登録したクライアントの Queue から読み取ったストリームデータを返す
-        if len(self.livestream['client']) > 0:
+        if len(self.livestream['client']) > 0 and self.livestream['client'][client_id] is not None:
             return self.livestream['client'][client_id]['queue'].get()
         else:
             return None

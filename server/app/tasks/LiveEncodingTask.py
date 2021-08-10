@@ -8,7 +8,7 @@ from app.constants import CONFIG
 from app.constants import LIBRARY_PATH
 from app.constants import LIVESTREAM_QUALITY
 from app.models import Channels
-from app.utils import LiveStream
+from app.models import LiveStream
 from app.utils import Logging
 
 
@@ -118,7 +118,7 @@ class LiveEncodingTask():
 
             ## オプションを取得
             encoder_options = self.buildFFmpegOptions(quality, is_dualmono=is_dualmono)
-            Logging.info(f'***** {livestream.livestream_id} FFmpeg Commands *****\nffmpeg {" ".join(encoder_options)}')
+            Logging.info(f'LiveStream:{livestream.livestream_id} FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
             ## プロセスを非同期で作成・実行
             encoder = subprocess.Popen(
