@@ -5,6 +5,7 @@ import jaconv
 import requests
 from tortoise import fields
 from tortoise import models
+from tortoise import timezone
 from tortoise.contrib.pydantic import pydantic_model_creator
 
 from app.constants import CONFIG
@@ -45,8 +46,8 @@ class Programs(models.Model):
 
             # 既に同じ番組が DB に登録されているならスキップ
             # DB は読み取るよりも書き込みの方が負荷と時間がかかるため、不要な書き込みは極力避ける
-            if Programs.filter(
-                id = f'NID{str(program_info["networkId"])}-SID{str(program_info["serviceId"])}-EID{str(program_info["eventId"])}'
+            if await Programs.filter(
+                id = f'NID{str(program_info["networkId"])}-SID{str(program_info["serviceId"]).zfill(3)}-EID{str(program_info["eventId"])}'
             ).get_or_none() is not None:
                 continue
 
@@ -66,11 +67,11 @@ class Programs(models.Model):
             program.description = jaconv.zen2han(program_info['description'], kana=False, digit=True, ascii=True)
             program.start_time = datetime.datetime.fromtimestamp(
                 program_info['startAt'] / 1000,  # ミリ秒なので秒に変換
-                datetime.timezone(datetime.timedelta(hours=9)),  # タイムゾーンを UTC+9（日本時間）に指定する
+                timezone.get_default_timezone(),  # タイムゾーンを UTC+9（日本時間）に指定する
             )
             program.end_time = datetime.datetime.fromtimestamp(
                 (program_info['startAt'] + program_info['duration']) / 1000,  # ミリ秒なので秒に変換
-                tz = datetime.timezone(datetime.timedelta(hours=9)),  # タイムゾーンを UTC+9（日本時間）に指定する
+                tz = timezone.get_default_timezone(),  # タイムゾーンを UTC+9（日本時間）に指定する
             )
             program.duration = float(program_info['duration'] / 1000)  # ミリ秒なので秒に変換
             program.is_free = program_info['isFree']

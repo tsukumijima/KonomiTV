@@ -67,6 +67,7 @@ LIBRARY_PATH = {
 
 # データベース (Tortoise ORM) の設定
 DATABASE_CONFIG = {
+    'timezone': 'Asia/Tokyo',
     'connections': {
         'default': f'sqlite://{str(BASE_DIR / "data/database.sqlite")}',
     },
