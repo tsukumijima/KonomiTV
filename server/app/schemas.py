@@ -22,6 +22,7 @@ class Channel(pydantic_model_creator(models.Channels, name='Channels')):
     program_next: Optional[Program]  # 追加カラム
 
 class LiveStream(BaseModel):
+    # LiveStream は特殊なモデルのため、ここで全て定義する
     status: str
     detail: str
     updated_at: float

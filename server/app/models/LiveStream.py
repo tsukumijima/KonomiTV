@@ -102,7 +102,8 @@ class LiveStream(LiveStreamSingleton):
 
             # エンコードタスクを非同期で実行
             def run():
-                # ここでインポートしないとなぜかうまくいかない
+                # 相互に依存し合っている場合、__init__.py でモジュール内の各クラスのインポートを定義している以上うまくいかないため、
+                # どちらかをモジュールの初回参照時にインポートされないようにする必要がある
                 from app.tasks import LiveEncodingTask
                 instance = LiveEncodingTask()
                 instance.run(self.channel_id, self.quality, CONFIG['livestream']['preferred_encoder'])
