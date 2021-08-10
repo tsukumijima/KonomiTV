@@ -1,6 +1,7 @@
 
 import ariblib.constants
 import datetime
+import logging
 import jaconv
 import requests
 import time
@@ -36,6 +37,8 @@ class Programs(models.Model):
     @classmethod
     async def update(cls):
 
+        timestamp = time.time()
+
         # Mirakurun の API から番組情報を取得する
         mirakurun_programs_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/programs'
         programs = requests.get(mirakurun_programs_api_url).json()
@@ -61,7 +64,7 @@ class Programs(models.Model):
 
                 # 番組終了時刻が現在時刻から1時間以上前ならレコードを削除
                 if timezone.now() - duplicate_program.end_time > timedelta(hours=1):
-                    Logging.info(f'**** Delete {duplicate_program.id} ****')
+                    Logging.debug(f'Delete Program: {duplicate_program.id}')
                     await duplicate_program.delete()
 
                 # 次のループへ
@@ -70,7 +73,6 @@ class Programs(models.Model):
             # 番組終了時刻が現在時刻より1時間以上前な番組を弾く
             # 既に終わった番組を登録してもしょうがないし、番組を DB に入れれば入れるほど重くなるので不要なものは減らしたい
             if time.time() - ((program_info['startAt'] + program_info['duration']) / 1000) > (60 * 60):
-                Logging.info(f'**** Skip {program_info["id"]} ****')
                 continue
 
             # 番組に紐づくチャンネルを取得
@@ -130,10 +132,12 @@ class Programs(models.Model):
                         'middle': ariblib.constants.CONTENT_TYPE[genre['lv1']][1][genre['lv2']],
                     })
 
-            Logging.info(f'**** Add {program.id} ****')
+            Logging.debug(f'Add Program: {program.id}')
 
             # レコードを保存する
             await program.save()
+
+        Logging.info(f'Program update complete. ({round(time.time() - timestamp, 3)} sec)')
 
 
 # Pydantic のモデルに変換したもの

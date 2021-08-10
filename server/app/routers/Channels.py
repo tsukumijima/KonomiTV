@@ -55,7 +55,7 @@ async def ChannelsAPI():
     # 並列実行
     channels, programs_current, programs_next = await asyncio.gather(*tasks)
 
-    Logging.info(f'***** Query Time: {time.time() - now_t} *****')
+    Logging.debug(f'Query Time: {time.time() - now_t}')
 
     # レスポンスの雛形
     result = {
@@ -81,7 +81,7 @@ async def ChannelsAPI():
         # チャンネルタイプで分類
         result[channel['channel_type']].append(channel)
 
-    Logging.info(f'***** Filter Time: {time.time() - now_t} *****')
+    Logging.debug(f'Filter Time: {time.time() - now_t}')
 
     # チャンネルタイプごとに返却
     return result

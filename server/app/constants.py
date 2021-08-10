@@ -7,6 +7,7 @@ from pathlib import Path
 # 将来的には YAML からのロードになる予定
 CONFIG = {
     'general': {
+        'debug': True,
         'mirakurun_url': 'http://192.168.1.28:40772',
     },
     'livestream': {
