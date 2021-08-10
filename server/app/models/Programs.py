@@ -3,12 +3,15 @@ import ariblib.constants
 import datetime
 import jaconv
 import requests
+import time
+from datetime import timedelta
 from tortoise import fields
 from tortoise import models
 from tortoise import timezone
 from tortoise.contrib.pydantic import pydantic_model_creator
 
 from app.constants import CONFIG
+from app.utils import Logging
 
 
 class Programs(models.Model):
@@ -37,6 +40,10 @@ class Programs(models.Model):
         mirakurun_programs_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/programs'
         programs = requests.get(mirakurun_programs_api_url).json()
 
+        # 登録されている全ての番組を取得し、番組 ID (ex:NID32736-SID1024-EID11200) をキーに持つ辞書に変換する
+        # EID (イベントID) だけでは一意にならないため、敢えて NID と SID も追加した ID としている
+        duplicate_programs = {temp.id:temp for temp in await Programs.all()}
+
         # 番組ごとに実行
         for program_info in programs:
 
@@ -44,11 +51,26 @@ class Programs(models.Model):
             if 'name' not in program_info:
                 continue
 
-            # 既に同じ番組が DB に登録されているならスキップ
+            # 既に同じ番組 ID の番組が DB に登録されているならスキップ
             # DB は読み取るよりも書き込みの方が負荷と時間がかかるため、不要な書き込みは極力避ける
-            if await Programs.filter(
-                id = f'NID{str(program_info["networkId"])}-SID{str(program_info["serviceId"]).zfill(3)}-EID{str(program_info["eventId"])}'
-            ).get_or_none() is not None:
+            duplicate_program_id = f'NID{str(program_info["networkId"])}-SID{str(program_info["serviceId"]).zfill(3)}-EID{str(program_info["eventId"])}'
+            if duplicate_program_id in duplicate_programs:
+
+                # 重複している番組のモデルを取得
+                duplicate_program = duplicate_programs[duplicate_program_id]
+
+                # 番組終了時刻が現在時刻から1時間以上前ならレコードを削除
+                if timezone.now() - duplicate_program.end_time > timedelta(hours=1):
+                    Logging.info(f'**** Delete {duplicate_program.id} ****')
+                    await duplicate_program.delete()
+
+                # 次のループへ
+                continue
+
+            # 番組終了時刻が現在時刻より1時間以上前な番組を弾く
+            # 既に終わった番組を登録してもしょうがないし、番組を DB に入れれば入れるほど重くなるので不要なものは減らしたい
+            if time.time() - ((program_info['startAt'] + program_info['duration']) / 1000) > (60 * 60):
+                Logging.info(f'**** Skip {program_info["id"]} ****')
                 continue
 
             # 番組に紐づくチャンネルを取得
@@ -107,6 +129,8 @@ class Programs(models.Model):
                         'major': ariblib.constants.CONTENT_TYPE[genre['lv1']][0],
                         'middle': ariblib.constants.CONTENT_TYPE[genre['lv1']][1][genre['lv2']],
                     })
+
+            Logging.info(f'**** Add {program.id} ****')
 
             # レコードを保存する
             await program.save()
