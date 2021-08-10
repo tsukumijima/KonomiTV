@@ -30,8 +30,26 @@ async def ChannelsAPI():
     # 現在時刻
     now = timezone.now()
 
+    now_t = time.time()
+
+    # タスク
+    tasks = list()
+
     # チャンネル情報を取得
-    channels = await Channels.all().order_by('channel_number').values()
+    tasks.append(Channels.all().order_by('channel_number').values())
+
+    # 現在の番組情報を取得する
+    ## 番組開始時刻が現在時刻と等しいかそれより前で、番組終了時刻が現在時刻よりも後
+    tasks.append(Programs.all().order_by('-start_time').filter(start_time__lte = now, end_time__gt = now).values())
+
+    # 次の番組情報を取得する
+    ## 番組開始時刻が現在時刻よりも後
+    tasks.append(Programs.all().order_by('start_time').filter(start_time__gt = now).values())
+
+    # 並列実行
+    channels, programs_current, programs_next = await asyncio.gather(*tasks)
+
+    Logging.info(f'***** Query Time: {time.time() - now_t} *****')
 
     # レスポンスの雛形
     result = {
@@ -41,37 +59,24 @@ async def ChannelsAPI():
         'SKY': list(),
     }
 
+    now_t = time.time()
+
     # チャンネルごとに実行
     tasks = list()
     for channel in channels:
 
-        # 非同期並列実行するタスク
-        async def task(channel):
+        # チャンネル ID で絞り込む
+        program_current = list(filter(lambda temp: temp['channel_id'] == channel['channel_id'], programs_current))
+        program_next = list(filter(lambda temp: temp['channel_id'] == channel['channel_id'], programs_next))
 
-            now = time.time()
+        # 要素が 0 個以上であれば
+        channel['program_current'] = program_current[0] if len(program_current) > 0 else None
+        channel['program_next'] = program_next[0] if len(program_next) > 0 else None
 
-            # 現在の番組情報を取得する
-            ## 番組開始時刻が現在時刻と等しいかそれより前で、番組終了時刻が現在時刻よりも後
-            program_current = await Programs.filter(channel_id=channel['channel_id']).order_by('-start_time') \
-                                            .filter(start_time__lte = now, end_time__gt = now).first().values()
-            channel['program_current'] = program_current[0] if len(program_current) > 0 else None
+        # チャンネルタイプで分類
+        result[channel['channel_type']].append(channel)
 
-            # 次の番組情報を取得する
-            ## 番組開始時刻が現在時刻よりも後
-            program_next = await Programs.filter(channel_id=channel['channel_id']).order_by('start_time') \
-                                        .filter(start_time__gt = now).first().values()
-            channel['program_next'] = program_next[0] if len(program_next) > 0 else None
-
-            # チャンネルタイプで分類
-            result[channel['channel_type']].append(channel)
-
-            Logging.info('time:' + str(time.time() - now))
-
-        # タスク（コルーチン）を順次追加していく
-        tasks.append(task(channel))
-
-    # 一気に並列実行
-    await asyncio.gather(*tasks)
+    Logging.info(f'***** Filter Time: {time.time() - now_t} *****')
 
     # チャンネルタイプごとに返却
     return result
