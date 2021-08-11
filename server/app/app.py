@@ -78,7 +78,7 @@ async def root(file:str):
 
     # デフォルトドキュメント (index.html)
     # URL の末尾にスラッシュがついている場合のみ
-    elif os.path.isfile(filepath / 'index.html') and file[-1] == '/':
+    elif os.path.isfile(filepath / 'index.html') and (file == '' or file[-1] == '/'):
         return FileResponse(filepath / 'index.html', media_type='text/html')
 
     # 存在しない静的ファイルが指定された場合
