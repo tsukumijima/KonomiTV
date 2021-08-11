@@ -2,32 +2,9 @@
 import queue
 import threading
 import time
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from app.utils import Logging
-
-
-class LiveStreamEntity(object):
-    """全てのライブストリームのインスタンスが格納されているクラス"""
-
-    # ライブストリームのインスタンスが入る、ライブストリーム ID をキーとした辞書
-    # この辞書にライブストリームの全てのデータが格納されている
-    # ライブストリーム機能の根幹
-    livestreams:dict = dict()
-
-    # ライブストリーム ID ごとに一つのインスタンスになるようにする（シングルトン）
-    # ref: https://qiita.com/ttsubo/items/c4af71ceba15b5b213f8
-    def __new__(cls, *args, **kwargs):
-
-        # まだ同じライブストリーム ID のインスタンスがないときだけインスタンスを生成
-        livestream_id = f'{args[0]}-{args[1]}'
-        if livestream_id not in cls.livestreams:
-
-            # livestreams に生成したインスタンスを登録する
-            cls.livestreams[livestream_id] = super(LiveStreamEntity, cls).__new__(cls)
-
-        # 登録されたインスタンスを返す
-        return cls.livestreams[livestream_id]
 
 
 class LiveStreamClient():
@@ -43,8 +20,12 @@ class LiveStreamClient():
         self.queue = queue
 
 
-class LiveStream(LiveStreamEntity):
+class LiveStream():
     """ライブストリームを管理するクラス"""
+
+    # ライブストリームのインスタンスが入る、ライブストリーム ID をキーとした辞書
+    # この辞書にライブストリームに関する全てのデータが格納されており、ライブストリーム機能の根幹をなす
+    __instances:Dict = dict()
 
     # ライブストリーム ID  ex:gr011-1080p
     livestream_id:str
@@ -61,7 +42,30 @@ class LiveStream(LiveStreamEntity):
     # ライブストリームクライアント
     # クライアントの接続が切断された場合、このリストからも削除される（正確にはインデックスを壊さないため None が入る）
     # したがって、クライアントの数は（ None になってるのを除いた）このリストの長さで求められる
-    clients:List[Optional[LiveStreamClient]] = list()
+    clients:List[Optional[LiveStreamClient]]
+
+    # 必ずライブストリーム ID ごとに1つのインスタンスになるように (Singleton)
+    # ref: https://qiita.com/ttsubo/items/c4af71ceba15b5b213f8
+    def __new__(cls, channel_id:str, quality:int):
+
+        # 型アノテーションを追加（IDE用）
+        ## クラス直下で自クラスを型として指定することはできないため、ここで明示的に指定する
+        cls.__instances:Dict[str, LiveStream]
+
+        # まだ同じライブストリーム ID のインスタンスがないときだけインスタンスを生成
+        livestream_id = f'{channel_id}-{quality}'
+        if livestream_id not in cls.__instances:
+
+            # 生成したインスタンスを登録する
+            cls.__instances[livestream_id] = super(LiveStream, cls).__new__(cls)
+
+            # ライブストリームクライアントを初期化する
+            # クラス直下で定義すると全てのインスタンスのライブストリームクライアントが同じ参照（同じオブジェクトID）になってしまうため、
+            # 同じ参照にならないようにインスタンス生成時に実行するようにする
+            cls.__instances[livestream_id].clients = list()
+
+        # 登録されたインスタンスを返す
+        return cls.__instances[livestream_id]
 
 
     def __init__(self, channel_id:str, quality:int):
@@ -80,6 +84,39 @@ class LiveStream(LiveStreamEntity):
         # ライブストリーム ID を設定
         # (チャンネルID)-(映像の品質) で一意な ID になる
         self.livestream_id = f'{self.channel_id}-{self.quality}'
+
+
+    @classmethod
+    def getAllLiveStream(cls) -> list:
+        """
+        全てのライブストリームのインスタンスを取得する
+
+        Returns:
+            list: ライブストリームのインスタンスの入ったリスト
+        """
+
+        # __instances 辞書を values() で値だけのリストにしたものを返す
+        return list(cls.__instances.values())
+
+
+    @classmethod
+    def getIdlingLiveStream(cls) -> list:
+        """
+        現在 Idling なライブストリームのインスタンスを取得する
+
+        Returns:
+            list: 現在 Idling なライブストリームのインスタンスの入ったリスト
+        """
+
+        result = []
+
+        # 現在 Idling 状態のライブストリームを探す
+        # 見つかったら、そのライブストリームのインスタンスをリストに入れる
+        for livestream in LiveStream.getAllLiveStream():
+            if livestream.status == 'Idling':
+                result.append(livestream)
+
+        return result
 
 
     def connect(self, type:str) -> int:
@@ -101,7 +138,8 @@ class LiveStream(LiveStreamEntity):
             # 現在 Idling 状態のライブストリームがあれば、うち最初のライブストリームを Offline にする
             # 一般にチューナーリソースは無尽蔵にあるわけではないので、現在 Idling（=つまり誰も見ていない）ライブストリームがあるのなら
             # それを Offline にしてチューナーリソースを解放し、新しいライブストリームがチューナーを使えるようにする
-            # MLT 系チューナーでなければ GR → BS,CS への切り替えでも解放されるのは非効率な気もするけど、一旦考えない事にする
+            # MLT 系チューナーでなければ GR → BS,CS への切り替えでも解放されるのは非効率な気もするけど、
+            # ただ複数のエンコードが同時に走る状態ってのもそんなによくない気がするし、一旦仕様として保留
             idling_livestream = self.getIdlingLiveStream()
             if len(idling_livestream) > 0:
                 idling_livestream[0].setStatus('Offline', '新しいライブストリームが開始されたため、チューナーリソースを解放しました。')
@@ -132,6 +170,7 @@ class LiveStream(LiveStreamEntity):
         client_id = len(self.clients) - 1
         # Client ID は表示上 1 起点とする（その方が直感的なため）
         Logging.info(f'LiveStream:{self.livestream_id} Client Connected. Client ID: {client_id + 1}')
+        Logging.debug(id(self.clients))
 
         # ***** アイドリングからの復帰 *****
 
@@ -156,26 +195,6 @@ class LiveStream(LiveStreamEntity):
             self.clients[client_id] = None
             # Client ID は表示上 1 起点とする（その方が直感的なため）
             Logging.info(f'LiveStream:{self.livestream_id} Client Disconnected. Client ID: {client_id + 1}')
-
-
-    def getIdlingLiveStream(self) -> list:
-        """
-        現在 Idling なライブストリームを取得する
-
-        Returns:
-            list: 現在 Idling なライブストリームのインスタンスの入ったリスト
-        """
-
-        result = []
-
-        # 現在 Idling 状態のライブストリームを探す
-        # 見つかったら、そのライブストリームのインスタンスをリストに入れる
-        for livestream in LiveStreamEntity.livestreams.values():
-            if livestream.status == 'Idling':
-                channel_id, quality = livestream.livestream_id.split('-')
-                result.append(LiveStream(channel_id, quality))
-
-        return result
 
 
     def getStatus(self) -> dict:
@@ -204,7 +223,7 @@ class LiveStream(LiveStreamEntity):
             detail (str): ステータスの詳細
         """
 
-        # ステータスも詳細も現在と同じなら、更新を行わない
+        # ステータスも詳細も現在の状態と重複しているなら、更新を行わない（同じ内容のイベントが複数発生するのを防ぐ）
         if self.status == status and self.detail == detail:
             return
 
@@ -222,7 +241,7 @@ class LiveStream(LiveStreamEntity):
         指定されたクライアント ID の Queue からストリームデータを読み取る
 
         Args:
-            client_id (int): LiveStream.connect() で受け取ったクライアントID
+            client_id (int): connect() で受け取ったクライアントID
 
         Returns:
             bytes: ストリームデータ

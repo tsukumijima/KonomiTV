@@ -14,7 +14,6 @@ from app import schemas
 from app.constants import LIVESTREAM_QUALITY
 from app.models import Channels
 from app.models import LiveStream
-from app.models import LiveStreamEntity
 from app.utils import RunAsync
 
 
@@ -46,7 +45,7 @@ async def LiveStreamsAPI():
     }
 
     # 全てのストリームごとに
-    for livestream in LiveStreamEntity.livestreams.values():
+    for livestream in LiveStream.getAllLiveStream():
         result[livestream.status][livestream.livestream_id] = livestream.getStatus()
 
     # データを返す
@@ -296,8 +295,8 @@ async def LiveMPEGTSStreamAPI(
         while True:
             message = await receive()
             if message['type'] == 'http.disconnect':
-                # 自前でリクエストがキャンセルされた事を検知できるように、0.5 秒待機する
-                await asyncio.sleep(0.5)
+                # 自前でリクエストがキャンセルされた事を検知できるように、1 秒待機する
+                await asyncio.sleep(1)
                 break
     StreamingResponse.listen_for_disconnect = listen_for_disconnect_monkeypatch
 
