@@ -27,7 +27,7 @@ router = APIRouter(
 
 @router.get(
     '/live',
-    summary = 'ライブストリーム API',
+    summary = 'ライブストリーム一覧 API',
     response_description = 'ステータスごとに分類された全てのライブストリームの状態。',
     response_model = schemas.LiveStreams,  # Response の構造を明示
 )

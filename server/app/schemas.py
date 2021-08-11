@@ -10,14 +10,14 @@ from app import models
 # 基本的には pydantic_model_creator() で Tortoise ORM モデルから変換したものを継承
 # JSONField など変換だけでは補いきれない部分や、新しく追加したいカラムなどを追加で定義する
 
-class Program(pydantic_model_creator(models.Programs, name='Programs')):
+class Program(pydantic_model_creator(models.Programs, name='Program')):
     class Genre(BaseModel):
         major:str
         middle:str
     detail: Dict[str, str]
     genre: List[Genre]
 
-class Channel(pydantic_model_creator(models.Channels, name='Channels')):
+class Channel(pydantic_model_creator(models.Channels, name='Channel')):
     program_current: Optional[Program]  # 追加カラム
     program_next: Optional[Program]  # 追加カラム
 
