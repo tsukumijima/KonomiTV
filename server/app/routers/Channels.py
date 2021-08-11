@@ -41,17 +41,20 @@ async def ChannelsAPI():
     tasks.append(Channels.all().order_by('channel_number').values())
 
     # 現在の番組情報を取得する
-    tasks.append(Programs.all().order_by('-start_time').filter(
+    ## 13時間分しか取得しないのはパフォーマンスの関係 当然 13 時間を超える番組は表示できなくなるが、
+    ## そもそも 13 時間を超える番組はデータ放送やショップチャンネル垂れ流しの CATV くらいなので実害はないと判断
+    ## 24時間分取得するときよりも 100ms ほど短縮される
+    tasks.append(Programs.all().filter(
         start_time__lte = now,  # 番組開始時刻が現在時刻と等しいかそれより前
         end_time__gt = now,  # 番組終了時刻が現在時刻よりも後
-        end_time__lt = now + timedelta(hours=24),  # 番組終了時刻が(現在時刻 + 24時間)より前
-    ).values())
+        end_time__lt = now + timedelta(hours=13),  # 番組終了時刻が(現在時刻 + 13時間)より前
+    ).order_by('-start_time').values())
 
     # 次の番組情報を取得する
-    tasks.append(Programs.all().order_by('start_time').filter(
+    tasks.append(Programs.all().filter(
         start_time__gt = now,  # 番組開始時刻が現在時刻よりも後
-        end_time__lt = now + timedelta(hours=24),  # 番組終了時刻が(現在時刻 + 24時間)より前
-    ).values())
+        end_time__lt = now + timedelta(hours=13),  # 番組終了時刻が(現在時刻 + 13時間)より前
+    ).order_by('start_time').values())
 
     # 並列実行
     channels, programs_current, programs_next = await asyncio.gather(*tasks)
