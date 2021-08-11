@@ -10,6 +10,7 @@ from app.constants import LIVESTREAM_QUALITY
 from app.models import Channels
 from app.models import LiveStream
 from app.utils import Logging
+from app.utils import RunAwait
 
 
 class LiveEncodingTask():
@@ -81,7 +82,13 @@ class LiveEncodingTask():
         return result
 
 
-    def run(self, channel_id:str, quality:str, encoder_type:str, is_dualmono:bool=False) -> None:
+    def run(self, channel_id:str, quality:str) -> None:
+        """エンコードタスクを実行する
+
+        Args:
+            channel_id (str): チャンネルID
+            quality (str): 映像の品質 (1080p ~ 360p)
+        """
 
         # ライブストリームのインスタンスを取得する
         livestream = LiveStream(channel_id, quality)
@@ -92,7 +99,6 @@ class LiveEncodingTask():
             livestream.setStatus('Standby', 'エンコーダーを起動しています…')
 
         # チャンネル ID からサービス ID とネットワーク ID を取得する
-        from app.utils import RunAwait  # 循環インポートを防ぐため、あえてここでインポートする
         channel = RunAwait(Channels.filter(channel_id=channel_id).first())
         service_id = channel.service_id
         network_id = channel.network_id
@@ -115,14 +121,17 @@ class LiveEncodingTask():
 
         # ***** エンコーダープロセスの作成と実行 *****
 
-        ## ffmpeg
+        # エンコーダーの種類を取得
+        encoder_type = CONFIG['livestream']['preferred_encoder']
+
+        # ffmpeg
         if encoder_type == 'ffmpeg':
 
-            ## オプションを取得
-            encoder_options = self.buildFFmpegOptions(quality, is_dualmono=is_dualmono)
+            # オプションを取得
+            encoder_options = self.buildFFmpegOptions(quality, is_dualmono=False)
             Logging.info(f'LiveStream:{livestream.livestream_id} FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
-            ## プロセスを非同期で作成・実行
+            # プロセスを非同期で作成・実行
             encoder = subprocess.Popen(
                 [LIBRARY_PATH['ffmpeg']] + encoder_options,
                 stdin=ast.stdout,  # arib-subtitle-timedmetadater からの入力

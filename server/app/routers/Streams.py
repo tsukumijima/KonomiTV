@@ -13,6 +13,7 @@ from app import schemas
 from app.constants import LIVESTREAM_QUALITY
 from app.models import Channels
 from app.models import LiveStream
+from app.utils import RunAwait
 
 
 # ルーター
@@ -211,7 +212,7 @@ async def LiveStreamEventAPI(
         }
     }
 )
-async def LiveMPEGTSStreamAPI(
+def LiveMPEGTSStreamAPI(
     channel_id:str = Path(..., description='チャンネル ID 。ex:gr011'),
     quality:str = Path(..., description='映像の品質。ex:1080p'),
 ):
@@ -228,7 +229,7 @@ async def LiveMPEGTSStreamAPI(
     # ***** バリデーション *****
 
     # 指定されたチャンネル ID が存在しない
-    if await Channels.filter(channel_id=channel_id).get_or_none() is None:
+    if RunAwait(Channels.filter(channel_id=channel_id).get_or_none()) is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail='Specified channel_id was not found',

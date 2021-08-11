@@ -3,7 +3,6 @@ import queue
 import threading
 import time
 
-from app.constants import CONFIG
 from app.utils import Logging
 
 
@@ -110,7 +109,7 @@ class LiveStream(LiveStreamSingleton):
                 # どちらかをモジュールの初回参照時にインポートされないようにする必要がある
                 from app.tasks import LiveEncodingTask
                 instance = LiveEncodingTask()
-                instance.run(self.channel_id, self.quality, CONFIG['livestream']['preferred_encoder'])
+                instance.run(self.channel_id, self.quality)
             thread = threading.Thread(target=run)
             thread.start()
 
