@@ -40,8 +40,8 @@ def debug(message):
 def info(message):
     logger.info(message, stacklevel=2)
 
-def warn(message):
-    logger.warn(message, stacklevel=2)
+def warning(message):
+    logger.warning(message, stacklevel=2)
 
 def error(message):
     logger.error(message, stacklevel=2)

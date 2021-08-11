@@ -96,7 +96,7 @@ class LiveEncodingTask():
         livestream = LiveStream(channel_id, quality)
 
         # まだ Standby になっていなければ、ステータスを Standby に設定
-        # 基本はエンコードタスクの呼び出し元である LiveStream.connect() の方で Standby に設定されるが、再起動の場合はそこを経由しないため必要
+        # 基本はエンコードタスクの呼び出し元である livestream.connect() の方で Standby に設定されるが、再起動の場合はそこを経由しないため必要
         if livestream.getStatus()['status'] != 'Standby':
             livestream.setStatus('Standby', 'エンコーダーを起動しています…')
 
@@ -209,8 +209,6 @@ class LiveEncodingTask():
                     # 行バッファを消去
                     linebuffer = bytes()
 
-                    #Logging.info(line)
-
                     # エンコードの進捗を判定し、ステータスを更新する
                     # 誤作動防止のため、ステータスが Standby の間のみ更新できるようにする
                     if livestream_status['status'] == 'Standby':
@@ -219,7 +217,7 @@ class LiveEncodingTask():
                         if encoder_type == 'ffmpeg':
                             if 'libpostproc    55.  9.100 / 55.  9.100' in line:
                                 livestream.setStatus('Standby', 'チューナーを開いています…')
-                            elif 'arib parser was created' in line:
+                            elif 'arib parser was created' in line or 'Invalid frame dimensions 0x0.' in line:
                                 livestream.setStatus('Standby', 'エンコードを開始しています…')
                             elif 'frame=    1 fps=0.0 q=0.0' in line:
                                 livestream.setStatus('Standby', 'バッファリングしています…')
