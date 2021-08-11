@@ -6,8 +6,8 @@ from fastapi import FastAPI
 from fastapi import Request
 from fastapi import status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from fastapi.responses import FileResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.constants import CLIENT_DIR
@@ -17,9 +17,8 @@ from app.constants import VERSION
 from app.models import Channels
 from app.models import LiveStream
 from app.models import Programs
-from app.routers import Channels as ChannelsRouter
-from app.routers import Streams as StreamsRouter
-from app.utils import Logging
+from app.routers import ChannelsRouter
+from app.routers import LiveStreamsRouter
 
 
 # FastAPI を初期化
@@ -46,7 +45,7 @@ app.add_middleware(
 
 # ルーターの追加
 app.include_router(ChannelsRouter.router)
-app.include_router(StreamsRouter.router)
+app.include_router(LiveStreamsRouter.router)
 
 # 静的ファイルの配信
 app.mount('/assets', StaticFiles(directory=CLIENT_DIR / 'assets', html=True))

@@ -20,7 +20,7 @@ router = APIRouter(
 
 @router.get(
     '',
-    summary = 'チャンネル情報 API',
+    summary = 'チャンネル情報一覧 API',
     response_description = 'チャンネル情報。',
     response_model = schemas.Channels,
 )

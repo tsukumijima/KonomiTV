@@ -20,14 +20,14 @@ from app.utils import RunAsync
 # ルーター
 router = APIRouter(
     tags=['Streams'],
-    prefix='/api/streams',
+    prefix='/api/streams/live',
 )
 
 
 @router.get(
-    '/live',
+    '',
     summary = 'ライブストリーム一覧 API',
-    response_description = 'ステータスごとに分類された全てのライブストリームの状態。',
+    response_description = 'ステータスごとに分類された、全てのライブストリームの状態。',
     response_model = schemas.LiveStreams,  # Response の構造を明示
 )
 async def LiveStreamsAPI():
@@ -53,7 +53,7 @@ async def LiveStreamsAPI():
 
 
 @router.get(
-    '/live/{channel_id}/{quality}',
+    '/{channel_id}/{quality}',
     summary = 'ライブストリーム API',
     response_description = 'ライブストリームの状態。',
     response_model = schemas.LiveStream,  # Response の構造を明示
@@ -94,7 +94,7 @@ async def LiveStreamAPI(
 
 
 @router.get(
-    '/live/{channel_id}/{quality}/events',
+    '/{channel_id}/{quality}/events',
     summary = 'ライブストリーム イベント API',
     response_class = Response,
     responses = {
@@ -196,7 +196,7 @@ async def LiveStreamEventAPI(
 
 
 @router.get(
-    '/live/{channel_id}/{quality}/mpegts',
+    '/{channel_id}/{quality}/mpegts',
     summary = 'ライブ MPEGTS ストリーム API',
     response_class = Response,
     responses = {
