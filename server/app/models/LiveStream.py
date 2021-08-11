@@ -55,7 +55,8 @@ class LiveStream(LiveStreamSingleton):
 
 
     def __init__(self, channel_id:str, quality:int):
-        """ライブストリームのインスタンスを取得する
+        """
+        ライブストリームのインスタンスを取得する
 
         Args:
             channel_id (str): チャンネルID
@@ -77,7 +78,8 @@ class LiveStream(LiveStreamSingleton):
 
 
     def connect(self, type:str) -> int:
-        """ライブストリームに接続（新しいクライアントを登録）し、クライアント ID を返す
+        """
+        ライブストリームに接続（新しいクライアントを登録）し、クライアント ID を返す
 
         Args:
             type (str): クライアントの種別 (mpegts or hls)
@@ -110,7 +112,7 @@ class LiveStream(LiveStreamSingleton):
                 from app.tasks import LiveEncodingTask
                 instance = LiveEncodingTask()
                 instance.run(self.channel_id, self.quality)
-            thread = threading.Thread(target=run)
+            thread = threading.Thread(target=run, name='LiveEncodingTask')
             thread.start()
 
         # ライブストリームが Idling 状態な場合、ONAir 状態に戻す（アイドリングから復帰）
@@ -129,13 +131,15 @@ class LiveStream(LiveStreamSingleton):
         client_id = len(self.livestream['client']) - 1
         # Client ID は表示上 1 起点とする（その方が直感的なため）
         Logging.info(f'LiveStream:{self.livestream_id} Client Connected. Client ID: {client_id + 1}')
+        Logging.debug(threading.enumerate())
 
         # 新たに振られたクライアント ID を返す
         return client_id
 
 
     def disconnect(self, client_id:int) -> None:
-        """指定されたクライアント ID のライブストリームへの接続を切断する
+        """
+        指定されたクライアント ID のライブストリームへの接続を切断する
 
         Args:
             client_id (int): クライアントID
@@ -149,7 +153,8 @@ class LiveStream(LiveStreamSingleton):
 
 
     def getIdlingLiveStream(self) -> list:
-        """現在 Idling なライブストリームを取得する
+        """
+        現在 Idling なライブストリームを取得する
 
         Returns:
             list: 現在 Idling なライブストリームのインスタンスの入ったリスト
@@ -168,7 +173,8 @@ class LiveStream(LiveStreamSingleton):
 
 
     def getStatus(self) -> dict:
-        """ライブストリームのステータスを取得する
+        """
+        ライブストリームのステータスを取得する
 
         Returns:
             dict: ライブストリームのステータスが入った辞書
@@ -184,7 +190,8 @@ class LiveStream(LiveStreamSingleton):
 
 
     def setStatus(self, status:str, detail:str) -> None:
-        """ライブストリームのステータスを設定する
+        """
+        ライブストリームのステータスを設定する
 
         Args:
             status (str): ステータス ( Offline, Standby, ONAir, Idling のいずれか)
@@ -205,7 +212,8 @@ class LiveStream(LiveStreamSingleton):
 
 
     def read(self, client_id:int) -> bytes:
-        """指定されたクライアント ID の Queue からストリームデータを読み取る
+        """
+        指定されたクライアント ID の Queue からストリームデータを読み取る
 
         Args:
             client_id (int): LiveStream.connect() で受け取ったクライアントID
@@ -225,7 +233,8 @@ class LiveStream(LiveStreamSingleton):
 
 
     def write(self, stream_data:bytes) -> None:
-        """接続している全てのクライアントの Queue にストリームデータを書き込む
+        """
+        接続している全てのクライアントの Queue にストリームデータを書き込む
 
         Args:
             stream_data (bytes): 書き込むストリームデータ

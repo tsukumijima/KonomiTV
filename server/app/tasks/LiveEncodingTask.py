@@ -17,7 +17,8 @@ class LiveEncodingTask():
 
 
     def buildFFmpegOptions(self, quality:str, is_dualmono:bool=False) -> list:
-        """FFmpeg に渡すオプションを組み立てる
+        """
+        FFmpeg に渡すオプションを組み立てる
 
         Args:
             quality (str): 映像の品質 (1080p ~ 360p)
@@ -83,7 +84,8 @@ class LiveEncodingTask():
 
 
     def run(self, channel_id:str, quality:str) -> None:
-        """エンコードタスクを実行する
+        """
+        エンコードタスクを実行する
 
         Args:
             channel_id (str): チャンネルID
@@ -168,7 +170,7 @@ class LiveEncodingTask():
                     break
 
         # スレッドを開始
-        thread = threading.Thread(target=writer)
+        thread = threading.Thread(target=writer, name='LiveEncodingTask-Writer')
         thread.start()
 
         # ***** エンコーダーの出力監視と制御 *****

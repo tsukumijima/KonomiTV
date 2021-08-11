@@ -35,6 +35,7 @@ class Programs(models.Model):
 
     @classmethod
     async def update(cls):
+        """番組情報を更新する"""
 
         timestamp = time.time()
 
