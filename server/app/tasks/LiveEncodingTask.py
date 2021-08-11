@@ -86,8 +86,10 @@ class LiveEncodingTask():
         # ライブストリームのインスタンスを取得する
         livestream = LiveStream(channel_id, quality)
 
-        # ステータスを Standby に設定
-        livestream.setStatus('Standby', 'エンコーダーを起動しています…')
+        # まだ Standby になっていなければ、ステータスを Standby に設定
+        # 基本はエンコードタスクの呼び出し元である LiveStream.connect() の方で Standby に設定されるが、再起動の場合はそこを経由しないため必要
+        if livestream.getStatus()['status'] != 'Standby':
+            livestream.setStatus('Standby', 'エンコーダーを起動しています…')
 
         # チャンネル ID からサービス ID とネットワーク ID を取得する
         from app.utils import RunAwait  # 循環インポートを防ぐため、あえてここでインポートする
@@ -149,6 +151,9 @@ class LiveEncodingTask():
                     for client in livestream.livestream['client']:
                         if client is not None:
                             client['queue'].put(None)
+
+                    # この時点で全てのクライアントの接続が切断されているので、クライアントが入るリストをクリアする
+                    livestream.livestream['client'] = list()
 
                     # ループを抜ける
                     break

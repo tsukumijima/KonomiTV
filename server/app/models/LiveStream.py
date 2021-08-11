@@ -100,6 +100,10 @@ class LiveStream(LiveStreamSingleton):
             if len(idling_livestream) > 0:
                 idling_livestream[0].setStatus('Offline', '新しいライブストリームが開始されたため、チューナーリソースを解放しました。')
 
+            # ステータスを Standby に設定
+            # タイミングの関係でこっちで明示的に設定しておく必要がある
+            self.setStatus('Standby', 'エンコーダーを起動しています…')
+
             # エンコードタスクを非同期で実行
             def run():
                 # 相互に依存し合っている場合、__init__.py でモジュール内の各クラスのインポートを定義している以上うまくいかないため、
@@ -109,11 +113,6 @@ class LiveStream(LiveStreamSingleton):
                 instance.run(self.channel_id, self.quality, CONFIG['livestream']['preferred_encoder'])
             thread = threading.Thread(target=run)
             thread.start()
-
-            # ステータスを Standby に設定
-            # タイミングの関係でこっちで明示的に設定しておく必要がある
-            # エンコードタスクの方にも記載があるが、あっちはエンコードタスク再起動時の保険
-            self.setStatus('Standby', 'エンコーダーを起動しています…')
 
         # ライブストリームが Idling 状態な場合、ONAir 状態に戻す（アイドリングから復帰）
         if self.getStatus()['status'] == 'Idling':
@@ -204,10 +203,6 @@ class LiveStream(LiveStreamSingleton):
 
         # 最終更新のタイムスタンプを更新
         self.livestream['updated_at'] = time.time()
-
-        # Offline 状態になったなら、client を空にする
-        if self.livestream['status'] == 'Offline':
-            self.livestream['client'] = list()
 
 
     def read(self, client_id:int) -> bytes:
