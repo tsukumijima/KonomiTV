@@ -26,7 +26,7 @@ class LiveStream(BaseModel):
     status: str
     detail: str
     updated_at: float
-    client_count: int
+    clients_count: int
 
 # API レスポンスに利用する Pydantic モデル
 # モデルを List や Dict でまとめたものが中心

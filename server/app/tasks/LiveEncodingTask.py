@@ -159,12 +159,12 @@ class LiveEncodingTask():
                     # ループを抜ける前に、接続している全てのクライアントの Queue にライブストリームの終了を知らせる None を書き込む
                     # クライアントは None を受信した場合、ストリーミングを終了するようになっている
                     # これがないとクライアントはライブストリームが終了した事に気づかず、Queue を取り出そうとしてずっとブロッキングされてしまう
-                    for client in livestream.livestream['client']:
+                    for client in livestream.clients:
                         if client is not None:
-                            client['queue'].put(None)
+                            client.queue.put(None)
 
                     # この時点で全てのクライアントの接続が切断されているので、クライアントが入るリストをクリアする
-                    livestream.livestream['client'] = list()
+                    livestream.clients = list()
 
                     # ループを抜ける
                     break
@@ -227,7 +227,7 @@ class LiveEncodingTask():
                                 livestream.setStatus('ONAir', 'ライブストリームは ONAir です。')
 
             # 現在 ONAir でかつクライアント数が 0 なら Idling（アイドリング状態）に移行
-            if livestream_status['status'] == 'ONAir' and livestream_status['client_count'] == 0:
+            if livestream_status['status'] == 'ONAir' and livestream_status['clients_count'] == 0:
                 livestream.setStatus('Idling', 'ライブストリームは Idling です。')
 
             # 現在 Idling でかつ最終更新から指定された秒数以上経っていたらエンコーダーを終了し、Offline 状態に移行

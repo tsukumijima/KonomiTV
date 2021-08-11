@@ -2,56 +2,66 @@
 import queue
 import threading
 import time
+from typing import List, Optional
 
 from app.utils import Logging
 
 
-# ライブストリーム ID ごとに一つのインスタンスになるようにする
-# ref: https://qiita.com/ttsubo/items/c4af71ceba15b5b213f8
-class LiveStreamSingleton(object):
-    _instances = dict()
+class LiveStreamEntity(object):
+    """全てのライブストリームのインスタンスが格納されているクラス"""
+
+    # ライブストリームのインスタンスが入る、ライブストリーム ID をキーとした辞書
+    # この辞書にライブストリームの全てのデータが格納されている
+    # ライブストリーム機能の根幹
+    livestreams:dict = dict()
+
+    # ライブストリーム ID ごとに一つのインスタンスになるようにする（シングルトン）
+    # ref: https://qiita.com/ttsubo/items/c4af71ceba15b5b213f8
     def __new__(cls, *args, **kwargs):
+
         # まだ同じライブストリーム ID のインスタンスがないときだけインスタンスを生成
         livestream_id = f'{args[0]}-{args[1]}'
-        if livestream_id not in cls._instances:
-            cls._instances[livestream_id] = super(LiveStreamSingleton, cls).__new__(cls)
+        if livestream_id not in cls.livestreams:
+
+            # livestreams に生成したインスタンスを登録する
+            cls.livestreams[livestream_id] = super(LiveStreamEntity, cls).__new__(cls)
+
         # 登録されたインスタンスを返す
-        return cls._instances[livestream_id]
+        return cls.livestreams[livestream_id]
 
 
-class LiveStream(LiveStreamSingleton):
+class LiveStreamClient():
+    """ライブストリームクライアントの構造定義"""
 
+    # type が mpegts の場合のみ、クライアントが持つ Queue にストリームデータを入れる
+    # type が hls の場合は配信方式が異なるため Queue は使われない
+    type:str  # クライアントの種別 (mpegts or hls)
+    queue:Optional[queue.Queue]  # ストリームデータが入る Queue または None
+
+    def __init__(self, type:str, queue:Optional[queue.Queue]):
+        self.type = type
+        self.queue = queue
+
+
+class LiveStream(LiveStreamEntity):
     """ライブストリームを管理するクラス"""
 
-    # ライブストリームの状態とストリームデータを格納する辞書
-    # 起動時に全てのチャンネル&品質のライブストリームが初期定義される
-    # interface (?) にしたほうがいい気もするけどとりあえず
-    # ネスト構造:
-    """
-    livestream = {
-        # ライブストリームID
-        'gr011-1080p': {
-            # ステータス ( Offline, Standby, ONAir, Idling のいずれか)
-            'status': 'ONAir',
-            # ステータスの詳細
-            'detail': 'ライブストリームは ONAir です。',
-            # 最終更新
-            'updated_at': time.time(),
-            # ライブストリームクライアント
-            'client': [
-                # type が mpegts の場合のみ、クライアントが持つ Queue にストリームデータを入れる
-                # type が hls の場合は配信方式が異なるため Queue は使われない
-                # クライアントの接続が切断された場合、このリストからも削除される（正確にはインデックスを壊さないため None が入る）
-                # したがって、クライアントの数は（ None になってるのを除いた）このリストの長さで求められる
-                {'type': 'mpegts', 'queue': queue.Queue()},
-                {'type': 'mpegts', 'queue': queue.Queue()},
-                {'type': 'mpegts', 'queue': queue.Queue()},
-                {'type': 'hls', 'queue': None},
-            ]
-        }
-    }
-    """
-    livestreams = dict()
+    # ライブストリーム ID  ex:gr011-1080p
+    livestream_id:str
+
+    # ステータス
+    status:str = 'Offline'
+
+    # ステータス詳細
+    detail:str = 'ラブストリームは Offline です。'
+
+    # 最終更新時刻のタイムスタンプ
+    updated_at:float = time.time()
+
+    # ライブストリームクライアント
+    # クライアントの接続が切断された場合、このリストからも削除される（正確にはインデックスを壊さないため None が入る）
+    # したがって、クライアントの数は（ None になってるのを除いた）このリストの長さで求められる
+    clients:List[Optional[LiveStreamClient]] = list()
 
 
     def __init__(self, channel_id:str, quality:int):
@@ -63,18 +73,13 @@ class LiveStream(LiveStreamSingleton):
             quality (int): 映像の品質 (1080p ~ 360p)
         """
 
-        # チャンネルID
+        # チャンネル ID 、映像の品質を設定
         self.channel_id = channel_id
-
-        # 映像の品質
         self.quality = quality
 
-        # ライブストリーム ID  ex:gr011-1080p
+        # ライブストリーム ID を設定
         # (チャンネルID)-(映像の品質) で一意な ID になる
         self.livestream_id = f'{self.channel_id}-{self.quality}'
-
-        # ライブストリーム ID に紐づくライブストリーム
-        self.livestream = LiveStream.livestreams[self.livestream_id]
 
 
     def connect(self, type:str) -> int:
@@ -115,22 +120,24 @@ class LiveStream(LiveStreamSingleton):
             thread = threading.Thread(target=run, name='LiveEncodingTask')
             thread.start()
 
-        # ライブストリームが Idling 状態な場合、ONAir 状態に戻す（アイドリングから復帰）
-        if self.getStatus()['status'] == 'Idling':
-            self.setStatus('ONAir', 'ライブストリームは ONAir です。')
-
         # ***** クライアントの登録 *****
 
         # クライアントの種別と、クライアントの種別が mpegts の場合に必要な Queue を登録する
-        self.livestream['client'].append({
-            'type': type,
-            'queue': queue.Queue() if type == 'mpegts' else None,
-        })
+        self.clients.append(LiveStreamClient(
+            type = type,
+            queue = queue.Queue() if type == 'mpegts' else None,
+        ))
 
         # 自分の Queue があるインデックス（リストの長さ - 1）をクライアント ID とする
-        client_id = len(self.livestream['client']) - 1
+        client_id = len(self.clients) - 1
         # Client ID は表示上 1 起点とする（その方が直感的なため）
         Logging.info(f'LiveStream:{self.livestream_id} Client Connected. Client ID: {client_id + 1}')
+
+        # ***** アイドリングからの復帰 *****
+
+        # ライブストリームが Idling 状態な場合、ONAir 状態に戻す（アイドリングから復帰）
+        if self.getStatus()['status'] == 'Idling':
+            self.setStatus('ONAir', 'ライブストリームは ONAir です。')
 
         # 新たに振られたクライアント ID を返す
         return client_id
@@ -145,8 +152,8 @@ class LiveStream(LiveStreamSingleton):
         """
 
         # 指定されたクライアント ID のクライアントを削除する
-        if len(self.livestream['client']) > 0:
-            self.livestream['client'][client_id] = None
+        if len(self.clients) > 0:
+            self.clients[client_id] = None
             # Client ID は表示上 1 起点とする（その方が直感的なため）
             Logging.info(f'LiveStream:{self.livestream_id} Client Disconnected. Client ID: {client_id + 1}')
 
@@ -163,9 +170,9 @@ class LiveStream(LiveStreamSingleton):
 
         # 現在 Idling 状態のライブストリームを探す
         # 見つかったら、そのライブストリームのインスタンスをリストに入れる
-        for livestream_id, livestream in LiveStream.livestreams.items():
-            if livestream['status'] == 'Idling':
-                channel_id, quality = livestream_id.split('-')
+        for livestream in LiveStreamEntity.livestreams.values():
+            if livestream.status == 'Idling':
+                channel_id, quality = livestream.livestream_id.split('-')
                 result.append(LiveStream(channel_id, quality))
 
         return result
@@ -181,10 +188,10 @@ class LiveStream(LiveStreamSingleton):
 
         # ステータス・詳細・最終更新・クライアント数を返す
         return {
-            'status': self.livestream['status'],
-            'detail': self.livestream['detail'],
-            'updated_at': self.livestream['updated_at'],
-            'client_count': len(list(filter(None, self.livestream['client']))),
+            'status': self.status,
+            'detail': self.detail,
+            'updated_at': self.updated_at,
+            'clients_count': len(list(filter(None, self.clients))),
         }
 
 
@@ -198,16 +205,16 @@ class LiveStream(LiveStreamSingleton):
         """
 
         # ステータスも詳細も現在と同じなら、更新を行わない
-        if self.livestream['status'] == status and self.livestream['detail'] == detail:
+        if self.status == status and self.detail == detail:
             return
 
         # ステータスと詳細を設定
         Logging.info(f'LiveStream:{self.livestream_id} Status:{status.ljust(7, " ")} Detail:{detail}')
-        self.livestream['status'] = status
-        self.livestream['detail'] = detail
+        self.status = status
+        self.detail = detail
 
         # 最終更新のタイムスタンプを更新
-        self.livestream['updated_at'] = time.time()
+        self.updated_at = time.time()
 
 
     def read(self, client_id:int) -> bytes:
@@ -222,9 +229,9 @@ class LiveStream(LiveStreamSingleton):
         """
 
         # 登録したクライアントの Queue から読み取ったストリームデータを返す
-        if len(self.livestream['client']) > 0 and self.livestream['client'][client_id] is not None:
+        if len(self.clients) > 0 and self.clients[client_id] is not None:
             try:
-                return self.livestream['client'][client_id]['queue'].get()
+                return self.clients[client_id].queue.get()
             except TypeError:
                 return None
         else:
@@ -240,8 +247,8 @@ class LiveStream(LiveStreamSingleton):
         """
 
         # 接続している全てのクライアントの Queue にストリームデータを書き込む
-        for client in self.livestream['client']:
+        for client in self.clients:
 
             # 削除されたクライアントでなく、かつクライアントの種別が mpegts であれば書き込む
-            if client is not None and client['type'] == 'mpegts':
-                client['queue'].put(stream_data)
+            if client is not None and client.type == 'mpegts':
+                client.queue.put(stream_data)

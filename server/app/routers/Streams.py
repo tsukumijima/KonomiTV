@@ -14,6 +14,7 @@ from app import schemas
 from app.constants import LIVESTREAM_QUALITY
 from app.models import Channels
 from app.models import LiveStream
+from app.models import LiveStreamEntity
 from app.utils import RunAsync
 
 
@@ -45,15 +46,8 @@ async def LiveStreamsAPI():
     }
 
     # 全てのストリームごとに
-    # 本来はインスタンス化してから取得するのがベターではあるのだが、チャンネル数×映像の品質数 個あるライブストリームを
-    # 全部インスタンス化していてはパフォーマンスが落ちるので、あえてライブストリームの「実態」にアクセスする
-    for livestream_id, livestream_entity in LiveStream.livestreams.items():
-        result[livestream_entity['status']][livestream_id] = {
-            'status': livestream_entity['status'],
-            'detail': livestream_entity['detail'],
-            'updated_at': livestream_entity['updated_at'],
-            'client_count': len(list(filter(None, livestream_entity['client']))),
-        }
+    for livestream in LiveStreamEntity.livestreams.values():
+        result[livestream.status][livestream.livestream_id] = livestream.getStatus()
 
     # データを返す
     return result
@@ -186,7 +180,7 @@ async def LiveStreamEventAPI(
                         'data': status,
                     }
                 # クライアント数が以前と異なる
-                elif previous_status['client_count'] != status['client_count']:
+                elif previous_status['clients_count'] != status['clients_count']:
                     yield {
                         'event': 'client_update',  # client_update イベントを設定
                         'data': status,

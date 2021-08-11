@@ -1,7 +1,6 @@
 
 import logging
 import os
-import time
 import tortoise.contrib.fastapi
 from fastapi import FastAPI
 from fastapi import Request
@@ -122,12 +121,7 @@ async def startup():
     # TODO: 1時間に1回くらい更新をかける
     await Programs.update()
 
-    # 全てのチャンネル&品質のライブストリームの初期定義を追加する
+    # 全てのチャンネル&品質のライブストリームを初期化する
     for channel in await Channels.all().order_by('channel_number').values():
         for quality in LIVESTREAM_QUALITY:
-            LiveStream.livestreams[f'{channel["channel_id"]}-{quality}'] = {
-                'status': 'Offline',
-                'detail': 'ライブストリームは Offline です。',
-                'updated_at': time.time(),
-                'client': list(),
-            }
+            LiveStream(channel['channel_id'], quality)
