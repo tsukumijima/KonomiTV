@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from fastapi import HTTPException
 from fastapi import Path
 from fastapi import status
+from fastapi.requests import Request
 from fastapi.responses import Response
 from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse
@@ -215,6 +216,7 @@ async def LiveStreamEventAPI(
 async def LiveMPEGTSStreamAPI(
     channel_id:str = Path(..., description='チャンネル ID 。ex:gr011'),
     quality:str = Path(..., description='映像の品質。ex:1080p'),
+    request:Request = Request,
 ):
     """
     ライブ MPEGTS ストリームを配信する。
@@ -255,6 +257,15 @@ async def LiveMPEGTSStreamAPI(
         """ライブストリームを出力するジェネレーター"""
         while True:
 
+            # リクエストがキャンセル（切断）されている場合
+            ## エンコードに失敗とかしない限り基本エンドレスで配信されるので、
+            ## チャンネル変えたりやタブの再読み込みで必然的にリクエストがキャンセルされる
+            if await request.is_disconnected():
+
+                # ライブストリームへの接続を切断し、ループを終了する
+                livestream.disconnect(client_id)
+                break
+
             # ライブストリームが Offline ではない
             if livestream.getStatus()['status'] != 'Offline':
 
@@ -269,24 +280,31 @@ async def LiveMPEGTSStreamAPI(
 
                 # stream_data に None が入った場合はエンコードタスクが終了したものとみなす
                 else:
+
+                    # ライブストリームへの接続を切断し、ループを終了する
+                    livestream.disconnect(client_id)
                     break
 
-            # ライブストリームが Offline になったのでループを抜ける
+            # ライブストリームが Offline になったのでループを終了
             else:
+
+                # ライブストリームへの接続を切断し、ループを終了する
+                livestream.disconnect(client_id)
                 break
 
-    # リクエストがキャンセルされたときにライブストリームへの接続を切断できるよう、モンキーパッチを当てる
-    # StreamingResponse はリクエストがキャンセルされるとレスポンスを強制終了してしまう
-    # そうするとリクエストがキャンセルされたか判定できないため、StreamingResponse.listen_for_disconnect() を書き換える
+    # リクエストがキャンセルされたときに自前でライブストリームの接続を切断できるよう、モンキーパッチを当てる
+    # StreamingResponse はリクエストがキャンセルされると勝手にレスポンスを生成するジェネレータの実行自体を強制終了してしまう
+    # そうするとリクエストがキャンセルされたか判定できないし、さらに強制終了によりスレッドプールがうまく解放されずに残ってしまうようで不具合が起きる
+    # これを避けるため StreamingResponse.listen_for_disconnect() を書き換えて、自前でリクエストがキャンセルされた事を検知できるようにする
     # ref: https://github.com/encode/starlette/pull/839
     from starlette.types import Receive
     async def listen_for_disconnect_monkeypatch(self, receive: Receive) -> None:
-            while True:
-                message = await receive()
-                if message['type'] == 'http.disconnect':
-                    # ライブストリームへの接続を切断する（クライアントを削除する）
-                    livestream.disconnect(client_id)
-                    break
+        while True:
+            message = await receive()
+            if message['type'] == 'http.disconnect':
+                # 自前でリクエストがキャンセルされた事を検知できるように、0.5 秒待機する
+                await asyncio.sleep(0.5)
+                break
     StreamingResponse.listen_for_disconnect = listen_for_disconnect_monkeypatch
 
     # StreamingResponse で読み取ったストリームデータをストリーミングする

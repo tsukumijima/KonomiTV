@@ -131,7 +131,6 @@ class LiveStream(LiveStreamSingleton):
         client_id = len(self.livestream['client']) - 1
         # Client ID は表示上 1 起点とする（その方が直感的なため）
         Logging.info(f'LiveStream:{self.livestream_id} Client Connected. Client ID: {client_id + 1}')
-        Logging.debug(threading.enumerate())
 
         # 新たに振られたクライアント ID を返す
         return client_id
