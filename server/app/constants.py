@@ -55,6 +55,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # クライアントの静的ファイルのあるディレクトリ
 CLIENT_DIR = BASE_DIR.parent / 'client/dist'
 
+# ロゴファイルのあるディレクトリ
+LOGO_DIR = BASE_DIR.parent / 'server/data/logo'
+
 # サードパーティーライブラリのあるディレクトリ
 LIBRARY_DIR = BASE_DIR / 'thirdparty'
 

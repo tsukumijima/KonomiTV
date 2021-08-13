@@ -10,10 +10,7 @@ from fastapi.responses import FileResponse
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.constants import CLIENT_DIR
-from app.constants import DATABASE_CONFIG
-from app.constants import LIVESTREAM_QUALITY
-from app.constants import VERSION
+from app.constants import CLIENT_DIR, DATABASE_CONFIG, LIVESTREAM_QUALITY, VERSION
 from app.models import Channels
 from app.models import LiveStream
 from app.models import Programs

@@ -1,15 +1,21 @@
 
 import asyncio
+import pathlib
+import requests
 from datetime import timedelta
 from fastapi import APIRouter
 from fastapi import HTTPException
 from fastapi import Path
 from fastapi import status
+from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from tortoise import timezone
 
 from app import schemas
+from app.constants import CONFIG, LOGO_DIR
 from app.models import Channels
 from app.models import Programs
+from app.utils import RunAsync
 
 
 # ルーター
@@ -138,3 +144,64 @@ async def ChannelAPI(
 
     # チャンネル情報を返却
     return channel
+
+
+@router.get(
+    '/{channel_id}/logo',
+    summary = 'チャンネルロゴ API',
+    response_class = Response,
+    responses = {
+        status.HTTP_200_OK: {
+            'description': 'チャンネルロゴ。',
+            'content': {'image/png': {}}
+        }
+    }
+)
+async def ChannelLogoAPI(
+    channel_id:str = Path(..., description='チャンネル ID 。ex:gr011'),
+):
+    """
+    チャンネルのロゴを取得する。
+    """
+
+    # チャンネル情報を取得
+    channel = await Channels.filter(channel_id=channel_id).get_or_none()
+
+    # 指定されたチャンネル ID が存在しない
+    if channel is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail='Specified channel_id was not found',
+        )
+
+    # ***** 同梱のロゴを利用（存在する場合）*****
+
+    # 放送波から取得できるロゴはどっちみち画質が悪いし、取得できていないケースもありうる
+    # そのため、同梱されているロゴがあればそれを返すようにする
+    # ロゴは NID32736-SID1024.png のようなファイル名の PNG ファイル (256x256) を想定
+    if pathlib.Path.exists(LOGO_DIR / f'{channel.id}.png'):
+        return FileResponse(LOGO_DIR / f'{channel.id}.png')
+
+    # ***** Mirakurun からロゴを取得 *****
+
+    # Mirakurun 形式のサービス ID
+    # NID と SID を 5 桁でゼロ埋めした上で int に変換する
+    mirakurun_service_id = int(str(channel.network_id).zfill(5) + str(channel.service_id).zfill(5))
+
+    # Mirakurun の API からロゴを取得する
+    # 同梱のロゴが存在しない場合のみ
+    mirakurun_logo_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services/{mirakurun_service_id}/logo'
+    mirakurun_logo_api_response:requests.Response = await RunAsync(requests.get, mirakurun_logo_api_url)
+
+    # ステータスコードが 200 であれば
+    # ステータスコードが 503 の場合はロゴデータが存在しない
+    if mirakurun_logo_api_response.status_code == 200:
+
+        # 取得したロゴデータを返す
+        mirakurun_logo = mirakurun_logo_api_response.content
+        return Response(content=mirakurun_logo, media_type='image/png')
+
+    # ***** デフォルトのロゴ画像を利用 *****
+
+    # 同梱のロゴファイルも Mirakurun のロゴもない場合のみ
+    return FileResponse(LOGO_DIR / 'default.png')

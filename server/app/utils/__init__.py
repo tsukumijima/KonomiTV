@@ -26,6 +26,7 @@ def RunAwait(coro:typing.Coroutine):
     # asyncio.run() で非同期関数を実行し、戻り値を返す
     return asyncio.run(run(coro))
 
+
 async def RunAsync(sync_function:typing.Callable, *args:typing.Any, **kwargs:typing.Any) -> typing.Coroutine:
     """
     同期関数をスレッド上で非同期的に実行するためのヘルパー
@@ -40,8 +41,8 @@ async def RunAsync(sync_function:typing.Callable, *args:typing.Any, **kwargs:typ
         typing.Coroutine: 同期関数のコルーチン
     """
 
-    # ref:https://github.com/tiangolo/fastapi/issues/1066
-    # ref:https://github.com/tiangolo/starlette/blob/master/starlette/concurrency.py
+    # ref: https://github.com/tiangolo/fastapi/issues/1066
+    # ref: https://github.com/tiangolo/starlette/blob/master/starlette/concurrency.py
 
     # 現在のイベントループを取得
     loop = asyncio.get_running_loop()

@@ -4,9 +4,7 @@ import subprocess
 import threading
 import time
 
-from app.constants import CONFIG
-from app.constants import LIBRARY_PATH
-from app.constants import LIVESTREAM_QUALITY
+from app.constants import CONFIG, LIBRARY_PATH, LIVESTREAM_QUALITY
 from app.models import Channels
 from app.models import LiveStream
 from app.utils import Logging
