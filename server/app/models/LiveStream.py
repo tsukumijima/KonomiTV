@@ -170,7 +170,6 @@ class LiveStream():
         client_id = len(self.clients) - 1
         # Client ID は表示上 1 起点とする（その方が直感的なため）
         Logging.info(f'LiveStream:{self.livestream_id} Client Connected. Client ID: {client_id + 1}')
-        Logging.debug(id(self.clients))
 
         # ***** アイドリングからの復帰 *****
 
