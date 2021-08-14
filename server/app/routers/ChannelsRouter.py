@@ -62,7 +62,7 @@ async def ChannelsAPI():
         end_time__lt = now + timedelta(hours=13),  # 番組終了時刻が(現在時刻 + 13時間)より前
     ).order_by('start_time'))
 
-    # 並列実行
+    # 並行実行
     channels, programs_current, programs_next = await asyncio.gather(*tasks)
 
     # レスポンスの雛形

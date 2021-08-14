@@ -149,24 +149,18 @@ class Channels(models.Model):
         # 現在時刻
         now = timezone.now()
 
-        # タスク
-        tasks = list()
-
         # 現在の番組情報を取得する
-        tasks.append(Programs.filter(
+        program_current = await Programs.filter(
             channel_id = self.channel_id,  # 同じチャンネルID
             start_time__lte = now,  # 番組開始時刻が現在時刻以下
             end_time__gte = now,  # 番組終了時刻が現在時刻以上
-        ).order_by('-start_time').first())
+        ).order_by('-start_time').first()
 
         # 次の番組情報を取得する
-        tasks.append(Programs.filter(
+        program_next = await Programs.filter(
             channel_id = self.channel_id,  # 同じチャンネルID
             start_time__gte = now,  # 番組開始時刻が現在時刻以上
-        ).order_by('start_time').first())
-
-        # 並列実行
-        program_current, program_next = await asyncio.gather(*tasks)
+        ).order_by('start_time').first()
 
         # 現在の番組情報、次の番組情報のタプルを返す
         return (program_current, program_next)
