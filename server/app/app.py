@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi_utils.tasks import repeat_every
 
 from app.constants import CLIENT_DIR, DATABASE_CONFIG, LIVESTREAM_QUALITY, VERSION
 from app.models import Channels
@@ -50,7 +51,7 @@ app.mount('/assets', StaticFiles(directory=CLIENT_DIR / 'assets', html=True))
 # ルート以下のルーティング
 # ファイルが存在すればそのまま配信し、ファイルが存在しなければ index.html を返す
 @app.get('/{file:path}', include_in_schema=False)
-async def root(file:str):
+async def Root(file:str):
 
     # ファイルが存在する
     filepath = CLIENT_DIR / f'{file}'
@@ -87,7 +88,7 @@ async def root(file:str):
 
 # Internal Server Error のハンドリング
 @app.exception_handler(Exception)
-async def exception_handler(request:Request, exc: Exception):
+async def ExceptionHandler(request:Request, exc: Exception):
     return JSONResponse(
         {'detail': f'Oops! {type(exc).__name__} did something. There goes a rainbow...'},
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -108,16 +109,20 @@ tortoise.contrib.fastapi.register_tortoise(
 
 # サーバーの起動時に実行する
 @app.on_event('startup')
-async def startup():
+async def Startup():
 
     # チャンネル情報を更新
     await Channels.update()
 
     # 番組情報を更新
-    # TODO: 1時間に1回くらい更新をかける
     await Programs.update()
 
     # 全てのチャンネル&品質のライブストリームを初期化する
     for channel in await Channels.all().order_by('channel_number').values():
         for quality in LIVESTREAM_QUALITY:
             LiveStream(channel['channel_id'], quality)
+
+# 30分に1回、番組情報を更新する
+@repeat_every(seconds=60 * 30)
+async def UpdateProgram():
+    await Programs.update()
