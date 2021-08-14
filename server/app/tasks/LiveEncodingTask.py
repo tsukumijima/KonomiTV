@@ -7,6 +7,7 @@ import time
 from app.constants import CONFIG, LIBRARY_PATH, LIVESTREAM_QUALITY
 from app.models import Channels
 from app.models import LiveStream
+from app.models import Programs
 from app.utils import Logging
 from app.utils import RunAwait
 
@@ -99,9 +100,12 @@ class LiveEncodingTask():
             livestream.setStatus('Standby', 'エンコーダーを起動しています…')
 
         # チャンネル情報からサービス ID とネットワーク ID を取得する
-        channel = RunAwait(Channels.filter(channel_id=channel_id).first())
+        channel:Channels = RunAwait(Channels.filter(channel_id=channel_id).first())
         service_id = channel.service_id
         network_id = channel.network_id
+
+        # 現在の番組情報を取得する
+        program_current:Programs = RunAwait(channel.getCurrentAndNextProgram())[0]
 
         # Mirakurun 形式のサービス ID
         # NID と SID を 5 桁でゼロ埋めした上で int に変換する
@@ -128,7 +132,11 @@ class LiveEncodingTask():
         if encoder_type == 'ffmpeg':
 
             # オプションを取得
-            encoder_options = self.buildFFmpegOptions(quality, is_dualmono=False)
+            # 現在放送中の番組がデュアルモノの場合、デュアルモノ用のエンコードオプションを取得
+            if program_current.audio_type == '1/0+1/0モード(デュアルモノ)':
+                encoder_options = self.buildFFmpegOptions(quality, is_dualmono=True)
+            else:
+                encoder_options = self.buildFFmpegOptions(quality, is_dualmono=False)
             Logging.info(f'LiveStream:{livestream.livestream_id} FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
             # プロセスを非同期で作成・実行
