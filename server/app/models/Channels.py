@@ -1,8 +1,10 @@
 
+import asyncio
 import jaconv
 import requests
 from tortoise import fields
 from tortoise import models
+from tortoise import timezone
 from typing import Optional
 
 from app.constants import CONFIG
@@ -21,6 +23,7 @@ class Channels(models.Model):
     channel_type:str = fields.TextField()
     channel_force:Optional[int] = fields.IntField(null=True)
     is_subchannel:bool = fields.BooleanField()
+
 
     @classmethod
     async def update(cls):
@@ -131,3 +134,39 @@ class Channels(models.Model):
 
             # レコードを保存する
             await channel.save()
+
+
+    async def getCurrentAndNextProgram(self) -> tuple:
+        """現在と次の番組情報を取得する
+
+        Returns:
+            tuple: 現在と次の番組情報が入ったタプル
+        """
+
+        # モジュール扱いになるのを避けるためここでインポート
+        from app.models import Programs
+
+        # 現在時刻
+        now = timezone.now()
+
+        # タスク
+        tasks = list()
+
+        # 現在の番組情報を取得する
+        tasks.append(Programs.filter(
+            channel_id = self.channel_id,  # 同じチャンネルID
+            start_time__lte = now,  # 番組開始時刻が現在時刻以下
+            end_time__gte = now,  # 番組終了時刻が現在時刻以上
+        ).order_by('-start_time').first())
+
+        # 次の番組情報を取得する
+        tasks.append(Programs.filter(
+            channel_id = self.channel_id,  # 同じチャンネルID
+            start_time__gte = now,  # 番組開始時刻が現在時刻以上
+        ).order_by('start_time').first())
+
+        # 並列実行
+        program_current, program_next = await asyncio.gather(*tasks)
+
+        # 現在の番組情報、次の番組情報のタプルを返す
+        return (program_current, program_next)

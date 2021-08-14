@@ -18,6 +18,7 @@ class Program(pydantic_model_creator(models.Programs, name='Program')):
     genre: List[Genre]
 
 class Channel(pydantic_model_creator(models.Channels, name='Channel')):
+    is_display: bool = True  # 追加カラム
     program_current: Optional[Program]  # 追加カラム
     program_next: Optional[Program]  # 追加カラム
 

@@ -33,6 +33,7 @@ class Programs(models.Model):
     audio_type:str = fields.TextField()
     audio_sampling_rate:str = fields.TextField()
 
+
     @classmethod
     async def update(cls):
         """番組情報を更新する"""

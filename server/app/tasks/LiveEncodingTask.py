@@ -98,7 +98,7 @@ class LiveEncodingTask():
         if livestream.getStatus()['status'] != 'Standby':
             livestream.setStatus('Standby', 'エンコーダーを起動しています…')
 
-        # チャンネル ID からサービス ID とネットワーク ID を取得する
+        # チャンネル情報からサービス ID とネットワーク ID を取得する
         channel = RunAwait(Channels.filter(channel_id=channel_id).first())
         service_id = channel.service_id
         network_id = channel.network_id

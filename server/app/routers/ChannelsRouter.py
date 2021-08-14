@@ -43,23 +43,24 @@ async def ChannelsAPI():
     tasks = list()
 
     # チャンネル情報を取得
-    tasks.append(Channels.all().order_by('channel_number').values())
+    tasks.append(Channels.all().order_by('channel_number'))
 
     # 現在の番組情報を取得する
-    ## 13時間分しか取得しないのはパフォーマンスの関係 当然 13 時間を超える番組は表示できなくなるが、
+    ## 一度に取得した方がパフォーマンスが向上するため敢えてそうしている
+    ## 13時間分しか取得しないのもパフォーマンスの関係 当然 13 時間を超える番組は表示できなくなるが、
     ## そもそも 13 時間を超える番組はデータ放送やショップチャンネル垂れ流しの CATV くらいなので実害はないと判断
     ## 24時間分取得するときよりも 100ms ほど短縮される
     tasks.append(Programs.all().filter(
         start_time__lte = now,  # 番組開始時刻が現在時刻以下
         end_time__gte = now,  # 番組終了時刻が現在時刻以上
         end_time__lt = now + timedelta(hours=13),  # 番組終了時刻が(現在時刻 + 13時間)より前
-    ).order_by('-start_time').values())
+    ).order_by('-start_time'))
 
     # 次の番組情報を取得する
     tasks.append(Programs.all().filter(
         start_time__gte = now,  # 番組開始時刻が現在時刻以上
         end_time__lt = now + timedelta(hours=13),  # 番組終了時刻が(現在時刻 + 13時間)より前
-    ).order_by('start_time').values())
+    ).order_by('start_time'))
 
     # 並列実行
     channels, programs_current, programs_next = await asyncio.gather(*tasks)
@@ -76,15 +77,21 @@ async def ChannelsAPI():
     for channel in channels:
 
         # チャンネル ID で絞り込む
-        program_current = list(filter(lambda temp: temp['channel_id'] == channel['channel_id'], programs_current))
-        program_next = list(filter(lambda temp: temp['channel_id'] == channel['channel_id'], programs_next))
+        program_current = list(filter(lambda temp: temp.channel_id == channel.channel_id, programs_current))
+        program_next = list(filter(lambda temp: temp.channel_id == channel.channel_id, programs_next))
 
         # 要素が 0 個以上であれば
-        channel['program_current'] = program_current[0] if len(program_current) > 0 else None
-        channel['program_next'] = program_next[0] if len(program_next) > 0 else None
+        channel.program_current = program_current[0] if len(program_current) > 0 else None
+        channel.program_next = program_next[0] if len(program_next) > 0 else None
+
+        # サブチャンネルでかつ現在の番組情報が両方存在しないなら、表示フラグを False に設定
+        # 現在放送されているサブチャンネルのみをチャンネルリストに表示するような挙動とする
+        # 一般的にサブチャンネルは常に放送されているわけではないため、放送されていない時にチャンネルリストに表示する必要はない
+        if channel.is_subchannel is True and channel.program_current is None:
+            channel.is_display = False
 
         # チャンネルタイプで分類
-        result[channel['channel_type']].append(channel)
+        result[channel.channel_type].append(channel)
 
     # チャンネルタイプごとに返却
     return result
@@ -104,43 +111,23 @@ async def ChannelAPI(
     """
 
     # チャンネル情報を取得
-    channels = await Channels.filter(channel_id=channel_id).values()
+    channel = await Channels.filter(channel_id=channel_id).get_or_none()
 
     # 指定されたチャンネル ID が存在しない
-    if len(channels) == 0:
+    if channel is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail='Specified channel_id was not found',
         )
-    else:
-        # 最初のチャンネルだけ抽出
-        channel = channels[0]
 
-    # 現在時刻
-    now = timezone.now()
+    # 現在と次の番組情報を取得
+    channel.program_current, channel.program_next = await channel.getCurrentAndNextProgram()
 
-    # タスク
-    tasks = list()
-
-    # 現在の番組情報を取得する
-    tasks.append(Programs.filter(
-        channel_id = channel['channel_id'],  # 同じチャンネルID
-        start_time__lte = now,  # 番組開始時刻が現在時刻以下
-        end_time__gte = now,  # 番組終了時刻が現在時刻以上
-    ).order_by('-start_time').first().values())
-
-    # 次の番組情報を取得する
-    tasks.append(Programs.filter(
-        channel_id = channel['channel_id'],  # 同じチャンネルID
-        start_time__gte = now,  # 番組開始時刻が現在時刻以上
-    ).order_by('start_time').first().values())
-
-    # 並列実行
-    program_current, program_next = await asyncio.gather(*tasks)
-
-    # 要素が 0 個以上であれば
-    channel['program_current'] = program_current[0] if len(program_current) > 0 else None
-    channel['program_next'] = program_next[0] if len(program_next) > 0 else None
+    # サブチャンネルでかつ現在の番組情報が両方存在しないなら、表示フラグを False に設定
+    # 現在放送されているサブチャンネルのみをチャンネルリストに表示するような挙動とする
+    # 一般的にサブチャンネルは常に放送されているわけではないため、放送されていない時にチャンネルリストに表示する必要はない
+    if channel.is_subchannel is True and channel.program_current is None:
+        channel.is_display = False
 
     # チャンネル情報を返却
     return channel
