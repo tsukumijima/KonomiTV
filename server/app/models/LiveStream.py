@@ -249,7 +249,9 @@ class LiveStream():
         # 登録したクライアントの Queue から読み取ったストリームデータを返す
         if len(self.clients) > 0 and self.clients[client_id] is not None:
             try:
-                return self.clients[client_id].queue.get()
+                return self.clients[client_id].queue.get_nowait()
+            except queue.Empty:
+                return b''  # None にはせず、処理を継続させる
             except TypeError:
                 return None
         else:
