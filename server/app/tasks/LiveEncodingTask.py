@@ -52,10 +52,10 @@ class LiveEncodingTask():
         ## デュアルモノ向け（Lが主音声・Rが副音声）
         else:
             ## 1440x1080 と 1920x1080 が混在しているので、1080p だけリサイズする解像度を特殊な設定に
-            scale = '' if quality == '1080p' else f',scale={QUALITY[quality]["width"]}:{QUALITY[quality]["height"]}'
+            scale = 'scale=-2:1080' if quality == '1080p' else f'scale={QUALITY[quality]["width"]}:{QUALITY[quality]["height"]}'
             # 参考: https://github.com/l3tnun/EPGStation/blob/master/config/enc3.js
             # -filter_complex を使うと -vf や -af が使えなくなるため、デュアルモノのみ -filter_complex に -vf や -af の内容も入れる
-            options.append(f'-filter_complex yadif=0:-1:1{scale};volume=2.0,channelsplit[FL][FR]')
+            options.append(f'-filter_complex yadif=0:-1:1,{scale};volume=2.0,channelsplit[FL][FR]')
             ## Lを主音声に、Rを副音声にマッピング
             options.append('-map 0:v:0 -map [FL] -map [FR] -map 0:d? -ignore_unknown')
 
@@ -67,9 +67,9 @@ class LiveEncodingTask():
         options.append(f'-vcodec libx264 -flags +cgop -vb {QUALITY[quality]["video_bitrate"]} -maxrate {QUALITY[quality]["video_bitrate_max"]}')
         options.append('-aspect 16:9 -r 30000/1001 -g 15 -preset veryfast -profile:v main')
         if is_dualmono is False:  # デュアルモノ以外
-            ## 1440x1080 と 1920x1080 が混在しているので、1080p だけリサイズする解像度を指定しない
+            ## 1440x1080 と 1920x1080 が混在しているので、1080p だけリサイズする解像度を特殊な設定に
             if quality == '1080p':
-                options.append('-vf yadif=0:-1:1')
+                options.append('-vf yadif=0:-1:1,scale=-2:1080')
             else:
                 options.append(f'-vf yadif=0:-1:1,scale={QUALITY[quality]["width"]}:{QUALITY[quality]["height"]}')
 
@@ -146,6 +146,7 @@ class LiveEncodingTask():
         elif encoder_type == 'VCEEncC':
             options.append('--preset balanced')
         ## 1440x1080 と 1920x1080 が混在しているので、1080p だけリサイズする解像度を指定しない
+        ## TODO: 本当は --output-res -2x1080 を使いたいのだが、なぜか 1080x1080 の扱いになってしまうため保留
         if quality != '1080p':
             options.append(f'--output-res {QUALITY[quality]["width"]}x{QUALITY[quality]["height"]}')
 
