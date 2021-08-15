@@ -31,21 +31,28 @@ QUALITY = {
         'height': 720,
         'video_bitrate': '4500K',
         'video_bitrate_max': '6200K',
-        'audio_bitrate': '192K',  # 音声ビットレート
+        'audio_bitrate': '192K',
     },
     '540p': {
         'width': 940,
         'height': 540,
         'video_bitrate': '3000K',
         'video_bitrate_max': '4100K',
-        'audio_bitrate': '192K',  # 音声ビットレート
+        'audio_bitrate': '192K',
+    },
+    '480p': {
+        'width': 854,
+        'height': 480,
+        'video_bitrate': '2500K',
+        'video_bitrate_max': '3400K',
+        'audio_bitrate': '192K',
     },
     '360p': {
         'width': 640,
         'height': 360,
         'video_bitrate': '1500K',
         'video_bitrate_max': '2000K',
-        'audio_bitrate': '128K',  # 音声ビットレート
+        'audio_bitrate': '128K',
     },
 }
 
