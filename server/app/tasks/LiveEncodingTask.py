@@ -74,7 +74,7 @@ class LiveEncodingTask():
                 options.append(f'-vf yadif=0:-1:1,scale={QUALITY[quality]["width"]}:{QUALITY[quality]["height"]}')
 
         # 音声
-        options.append(f'-acodec aac -ab {QUALITY[quality]["audio_bitrate"]} -ar 48000')
+        options.append(f'-acodec aac -ac 2 -ab {QUALITY[quality]["audio_bitrate"]} -ar 48000')
         if is_dualmono is False:  # デュアルモノ以外
             options.append('-af volume=2.0')
 
@@ -109,7 +109,7 @@ class LiveEncodingTask():
         # 入力
         ## --input-probesize, --input-analyze をつけることで、ストリームの分析時間を短縮できる
         ## 両方つけるのが重要で、--input-analyze だけだとエンコーダーがフリーズすることがある
-        options.append('--input-format mpegts --fps 30000/1001 --input-probesize 1000K --input-analyze 0.5 --input -')
+        options.append('--input-format mpegts --fps 30000/1001 --input-probesize 1000K --input-analyze 0.7 --input -')
         ## avhw エンコード
         options.append('--avhw')
 
@@ -117,7 +117,9 @@ class LiveEncodingTask():
         # 主音声・副音声両方をエンコード後の TS に含む（将来の音声切替対応へ準備）
         if is_dualmono is False:
             ## 通常放送・音声多重放送向け
-            options.append('--data-copy timed_id3')
+            ## 5.1ch 自体は再生可能だが、そのままエンコードするとコケる事があるし、
+            ## 何より 5.1ch 非対応な PC だと音がシャリシャリになって聞けたものではないのでステレオで固定する
+            options.append('--audio-stream 1?:stereo --audio-stream 2?:stereo --data-copy timed_id3')
         else:
             ## デュアルモノ向け（Lが主音声・Rが副音声）
             options.append('--audio-stream FL,FR --data-copy timed_id3')
@@ -288,6 +290,7 @@ class LiveEncodingTask():
 
         # エンコーダーの出力結果を取得
         line:str = str()
+        lines:list = list()
         linebuffer:bytes = bytes()
         while True:
 
@@ -313,6 +316,9 @@ class LiveEncodingTask():
                     # UnicodeDecodeError は握りつぶす（どっちみちチャンネル名とか解読できないし）
                     except UnicodeDecodeError:
                         pass
+
+                    # リストに追加
+                    lines.append(line)
 
                     # 行バッファを消去
                     linebuffer = bytes()
@@ -390,6 +396,7 @@ class LiveEncodingTask():
                 break
 
             # 特定のエラーログが出力されている場合は回復が見込めないため、エンコーダーを終了する
+            # エンコーダーを再起動することで回復が期待できる場合は、ステータスを Standby に設定しエンコードタスクを再起動する
             ## ffmpeg
             if encoder_type == 'ffmpeg':
                 if 'Stream map \'0:v:0\' matches no streams.' in line:
@@ -399,8 +406,10 @@ class LiveEncodingTask():
                 elif 'Conversion failed!' in line:
                     # 捕捉されないエラー
                     is_restart_required = True  # エンコーダーの再起動を要求
-                    # エンコーダーの再起動前提のため、あえて Offline にはせず Standby とする
                     livestream.setStatus('Standby', 'エンコード中に予期しないエラーが発生しました。ライブストリームを再起動します。')
+                    # 直近 30 件のログを表示
+                    for log in lines[-31:-1]:
+                        Logging.warning(log)
                     break
             ## HWEncC
             elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
@@ -424,11 +433,18 @@ class LiveEncodingTask():
                     # VCEEncC 非対応の環境
                     livestream.setStatus('Offline', 'VCEEncC 非対応の環境のため、ライブストリームを開始できません。')
                     break
+                elif 'Consider increasing the value for the --input-analyze and/or --input-probesize!' in line:
+                    # --input-probesize or --input-analyze の期間内に入力ストリームの解析が終わらなかった
+                    is_restart_required = True  # エンコーダーの再起動を要求
+                    livestream.setStatus('Standby', '入力ストリームの解析に失敗しました。ライブストリームを再起動します。')
+                    break
                 elif 'finished with error!' in line:
                     # 捕捉されないエラー
                     is_restart_required = True  # エンコーダーの再起動を要求
-                    # エンコーダーの再起動前提のため、あえて Offline にはせず Standby とする
                     livestream.setStatus('Standby', 'エンコード中に予期しないエラーが発生しました。ライブストリームを再起動します。')
+                    # 直近 30 件のログを表示 (最後の方 40 件はデバッグログなので除外)
+                    for log in lines[-70:-40]:
+                        Logging.warning(log)
                     break
 
             # エンコーダーが意図せず終了した場合、エンコーダーを（明示的に）終了する
