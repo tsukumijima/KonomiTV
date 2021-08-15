@@ -37,6 +37,9 @@ else:
 def debug(message):
     logger_debug.debug(message, stacklevel=2)
 
+def debug_simple(message):
+    logger.debug(message, stacklevel=2)
+
 def info(message):
     logger.info(message, stacklevel=2)
 

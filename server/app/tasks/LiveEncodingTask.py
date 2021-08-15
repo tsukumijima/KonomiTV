@@ -317,7 +317,9 @@ class LiveEncodingTask():
                     # 行バッファを消去
                     linebuffer = bytes()
 
-                    Logging.debug(line)
+                    # ストリーム関連のログを表示
+                    if 'Stream #0:' in line:
+                        Logging.debug_simple(line)
 
                     # エンコードの進捗を判定し、ステータスを更新する
                     # 誤作動防止のため、ステータスが Standby の間のみ更新できるようにする
