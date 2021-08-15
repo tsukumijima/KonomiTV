@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi_utils.tasks import repeat_every
 
-from app.constants import CLIENT_DIR, DATABASE_CONFIG, LIVESTREAM_QUALITY, VERSION
+from app.constants import CLIENT_DIR, DATABASE_CONFIG, QUALITY, VERSION
 from app.models import Channels
 from app.models import LiveStream
 from app.models import Programs
@@ -119,7 +119,7 @@ async def Startup():
 
     # 全てのチャンネル&品質のライブストリームを初期化する
     for channel in await Channels.all().order_by('channel_number').values():
-        for quality in LIVESTREAM_QUALITY:
+        for quality in QUALITY:
             LiveStream(channel['channel_id'], quality)
 
 # 30分に1回、番組情報を更新する

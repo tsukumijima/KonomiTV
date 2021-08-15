@@ -4,7 +4,7 @@ import subprocess
 import threading
 import time
 
-from app.constants import CONFIG, LIBRARY_PATH, LIVESTREAM_QUALITY
+from app.constants import CONFIG, LIBRARY_PATH, QUALITY
 from app.models import Channels
 from app.models import LiveStream
 from app.models import Programs
@@ -31,11 +31,12 @@ class LiveEncodingTask():
         options = []
 
         # 入力
-        ## analyzeduration をつけることで、ストリームの分析時間を短縮できる
+        ## -analyzeduration をつけることで、ストリームの分析時間を短縮できる
         options.append('-f mpegts -analyzeduration 500000 -i pipe:0')
 
         # ストリームのマッピング
         # 主音声・副音声両方をエンコード後の TS に含む（将来の音声切替対応へ準備）
+
         ## 通常放送・音声多重放送向け
         ## 副音声が検出できない場合にエラーにならないよう、? をつけておく
         if is_dualmono is False:
@@ -43,10 +44,10 @@ class LiveEncodingTask():
 
         ## デュアルモノ向け（Lが主音声・Rが副音声）
         else:
+            ## 1440x1080 と 1920x1080 が混在しているので、1080p だけリサイズする解像度を特殊な設定に
+            scale = '' if quality == '1080p' else f',scale={QUALITY[quality]["width"]}:{QUALITY[quality]["height"]}'
             # 参考: https://github.com/l3tnun/EPGStation/blob/master/config/enc3.js
             # -filter_complex を使うと -vf や -af が使えなくなるため、デュアルモノのみ -filter_complex に -vf や -af の内容も入れる
-            ## 1440x1080 と 1920x1080 が混在しているので、1080p だけリサイズする解像度を指定しない
-            scale = '' if quality == '1080p' else f',scale={LIVESTREAM_QUALITY[quality]["width"]}:{LIVESTREAM_QUALITY[quality]["height"]}'
             options.append(f'-filter_complex yadif=0:-1:1{scale};volume=2.0,channelsplit[FL][FR]')
             ## Lを主音声に、Rを副音声にマッピング
             options.append('-map 0:v:0 -map [FL] -map [FR] -map 0:d? -ignore_unknown')
@@ -56,23 +57,96 @@ class LiveEncodingTask():
         options.append('-fflags nobuffer -flags low_delay -max_delay 250000 -max_interleave_delta 1 -threads auto')
 
         # 映像
-        options.append(f'-vcodec libx264 -flags +cgop -vb {LIVESTREAM_QUALITY[quality]["video_bitrate"]} -maxrate {LIVESTREAM_QUALITY[quality]["video_bitrate_max"]}')
+        options.append(f'-vcodec libx264 -flags +cgop -vb {QUALITY[quality]["video_bitrate"]} -maxrate {QUALITY[quality]["video_bitrate_max"]}')
         options.append('-aspect 16:9 -r 30000/1001 -g 15 -preset veryfast -profile:v main')
         if is_dualmono is False:  # デュアルモノ以外
             ## 1440x1080 と 1920x1080 が混在しているので、1080p だけリサイズする解像度を指定しない
             if quality == '1080p':
                 options.append('-vf yadif=0:-1:1')
             else:
-                options.append(f'-vf yadif=0:-1:1,scale={LIVESTREAM_QUALITY[quality]["width"]}:{LIVESTREAM_QUALITY[quality]["height"]}')
+                options.append(f'-vf yadif=0:-1:1,scale={QUALITY[quality]["width"]}:{QUALITY[quality]["height"]}')
 
         # 音声
-        options.append(f'-acodec aac -ac 2 -ab {LIVESTREAM_QUALITY[quality]["audio_bitrate"]} -ar 48000')
+        options.append(f'-acodec aac -ab {QUALITY[quality]["audio_bitrate"]} -ar 48000')
         if is_dualmono is False:  # デュアルモノ以外
             options.append('-af volume=2.0')
 
         # 出力
         options.append('-y -f mpegts')  # MPEG-TS 出力ということを明示
         options.append('pipe:1')  # 標準入力へ出力
+
+        # オプションをスペースで区切って配列にする
+        result = []
+        for option in options:
+            result += option.split(' ')
+
+        return result
+
+
+    def buildHWEncCOptions(self, encoder_type:str, quality:str, is_dualmono:bool=False) -> list:
+        """
+        QSVEncC・NVEncC・VCEEncC (便宜上 HWEncC と総称) に渡すオプションを組み立てる
+
+        Args:
+            encoder_type (str): エンコーダー (QSVEncC or NVEncC or VCEEncC)
+            quality (str): 映像の品質 (1080p ~ 360p)
+            is_dualmono (bool, optional): 放送がデュアルモノかどうか
+
+        Returns:
+            list: HWEncC に渡すオプションが連なる配列
+        """
+
+        # オプションの入る配列
+        options = []
+
+        # 入力
+        ## --input-probesize, --input-analyze をつけることで、ストリームの分析時間を短縮できる
+        ## 両方つけるのが重要で、--input-analyze だけだとエンコーダーがフリーズすることがある
+        options.append('--input-format mpegts --fps 30000/1001 --input-probesize 1000K --input-analyze 0.5 --input -')
+        ## avhw エンコード
+        options.append('--avhw')
+
+        # ストリームのマッピング
+        # 主音声・副音声両方をエンコード後の TS に含む（将来の音声切替対応へ準備）
+        if is_dualmono is False:
+            ## 通常放送・音声多重放送向け
+            options.append('--data-copy timed_id3')
+        else:
+            ## デュアルモノ向け（Lが主音声・Rが副音声）
+            options.append('--audio-stream FL,FR --data-copy timed_id3')
+
+        # フラグ
+        ## 主に HWEncC の起動を高速化するための設定
+        options.append('-m fflags:nobuffer -m max_delay:250000 -m max_interleave_delta:1 --output-thread -1 --lowlatency')
+        ## その他の設定
+        options.append('--avsync forcecfr --max-procfps 60 --log-level debug')
+
+        # 映像
+        options.append(f'--vbr {QUALITY[quality]["video_bitrate"]} --max-bitrate {QUALITY[quality]["video_bitrate_max"]}')
+        options.append(f'--dar 16:9 --gop-len 15 --profile main --interlace tff')
+        ## インターレース解除
+        if encoder_type == 'QSVEncC' or encoder_type == 'NVEncC':
+            options.append('--vpp-deinterlace normal')
+        elif encoder_type == 'VCEEncC':
+            options.append('--vpp-afs preset=default')
+        ## プリセット
+        if encoder_type == 'QSVEncC':
+            options.append('--quality balanced')
+        elif encoder_type == 'NVEncC':
+            options.append('--preset default')
+        elif encoder_type == 'VCEEncC':
+            options.append('--preset balanced')
+        ## 1440x1080 と 1920x1080 が混在しているので、1080p だけリサイズする解像度を指定しない
+        if quality != '1080p':
+            options.append(f'--output-res {QUALITY[quality]["width"]}x{QUALITY[quality]["height"]}')
+
+        # 音声
+        options.append(f'--audio-codec aac --audio-bitrate {QUALITY[quality]["audio_bitrate"]} --audio-samplerate 48000')
+        options.append('--audio-filter volume=2.0 --audio-ignore-decode-error 30')
+
+        # 出力
+        options.append('--output-format mpegts')  # MPEG-TS 出力ということを明示
+        options.append('--output -')  # 標準入力へ出力
 
         # オプションをスペースで区切って配列にする
         result = []
@@ -149,6 +223,26 @@ class LiveEncodingTask():
                 creationflags=subprocess.CREATE_NO_WINDOW,  # conhost を開かない
             )
 
+        # HWEncC
+        elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
+
+            # オプションを取得
+            # 現在放送中の番組がデュアルモノの場合、デュアルモノ用のエンコードオプションを取得
+            if program_current.audio_type == '1/0+1/0モード(デュアルモノ)':
+                encoder_options = self.buildHWEncCOptions(encoder_type, quality, is_dualmono=True)
+            else:
+                encoder_options = self.buildHWEncCOptions(encoder_type, quality, is_dualmono=False)
+            Logging.info(f'LiveStream:{livestream.livestream_id} {encoder_type} Commands:\n{encoder_type} {" ".join(encoder_options)}')
+
+            # プロセスを非同期で作成・実行
+            encoder = subprocess.Popen(
+                [LIBRARY_PATH[encoder_type]] + encoder_options,
+                stdin=ast.stdout,  # arib-subtitle-timedmetadater からの入力
+                stdout=subprocess.PIPE,  # ストリーム出力
+                stderr=subprocess.PIPE,  # ログ出力
+                creationflags=subprocess.CREATE_NO_WINDOW,  # conhost を開かない
+            )
+
         # ***** エンコーダーの出力の書き込み *****
 
         def writer():
@@ -219,7 +313,6 @@ class LiveEncodingTask():
                     # エンコードの進捗を判定し、ステータスを更新する
                     # 誤作動防止のため、ステータスが Standby の間のみ更新できるようにする
                     if livestream_status['status'] == 'Standby':
-
                         # ffmpeg
                         if encoder_type == 'ffmpeg':
                             if 'libpostproc    55.  9.100 / 55.  9.100' in line:
@@ -229,6 +322,18 @@ class LiveEncodingTask():
                             elif 'frame=    1 fps=0.0 q=0.0' in line:
                                 livestream.setStatus('Standby', 'バッファリングしています…')
                             elif 'frame=' in line:
+                                livestream.setStatus('ONAir', 'ライブストリームは ONAir です。')
+                        ## HWEncC
+                        elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
+                            if 'input source set to stdin.' in line:
+                                livestream.setStatus('Standby', 'チューナーを開いています…')
+                            elif 'opened file "pipe:0"' in line:
+                                livestream.setStatus('Standby', 'エンコードを開始しています…')
+                            elif 'starting output thread...' in line:
+                                livestream.setStatus('Standby', 'バッファリングしています…')
+                            elif 'Encode Thread:' in line:
+                                livestream.setStatus('Standby', 'バッファリングしています…')
+                            elif ' frames: ' in line:
                                 livestream.setStatus('ONAir', 'ライブストリームは ONAir です。')
 
             # 現在放送中の番組が終了した時
@@ -280,11 +385,27 @@ class LiveEncodingTask():
                     # 主にチューナー不足が原因のエラーのため、エンコーダーの再起動は行わない
                     livestream.setStatus('Offline', 'チューナー不足のため、ライブストリームを開始できません。')
                     break
-                if 'Conversion failed!' in line:
+                elif 'due to the NVIDIA\'s driver limitation.' in line:
+                    # NVEncC で、同時にエンコードできるセッション数 (Geforceだと3つ) を全て使い果たしている時のエラー
+                    livestream.setStatus('Offline', 'NVEnc のエンコードセッション不足のため、ライブストリームを開始できません。')
+                    break
+                elif 'Conversion failed!' in line:
                     # エンコーダーの再起動を要求
                     is_restart_required = True
                     # エンコーダーの再起動前提のため、あえて Offline にはせず Standby とする
-                    livestream.setStatus('Standby', 'エンコードの継続に失敗しました。ライブストリームを再起動します。')
+                    livestream.setStatus('Standby', 'エンコード中に予期しないエラーが発生しました。ライブストリームを再起動します。')
+                    break
+            ## HWEncC
+            elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
+                if 'error finding stream information.' in line:
+                    # 主にチューナー不足が原因のエラーのため、エンコーダーの再起動は行わない
+                    livestream.setStatus('Offline', 'チューナー不足のため、ライブストリームを開始できません。')
+                    break
+                elif 'EncC.exe finished with error!' in line:
+                    # エンコーダーの再起動を要求
+                    is_restart_required = True
+                    # エンコーダーの再起動前提のため、あえて Offline にはせず Standby とする
+                    livestream.setStatus('Standby', 'エンコード中に予期しないエラーが発生しました。ライブストリームを再起動します。')
                     break
 
             # エンコーダーが意図せず終了した場合、エンコーダーを（明示的に）終了する

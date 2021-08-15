@@ -11,7 +11,7 @@ from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse
 
 from app import schemas
-from app.constants import LIVESTREAM_QUALITY
+from app.constants import QUALITY
 from app.models import Channels
 from app.models import LiveStream
 from app.utils import RunAsync
@@ -77,7 +77,7 @@ async def LiveStreamAPI(
         )
 
     # 指定された映像の品質が存在しない
-    if quality not in LIVESTREAM_QUALITY:
+    if quality not in QUALITY:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail='Specified quality was not found',
@@ -133,7 +133,7 @@ async def LiveStreamEventAPI(
         )
 
     # 指定された映像の品質が存在しない
-    if quality not in LIVESTREAM_QUALITY:
+    if quality not in QUALITY:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail='Specified quality was not found',
@@ -231,7 +231,7 @@ async def LiveMPEGTSStreamAPI(
         )
 
     # 指定された映像の品質が存在しない
-    if quality not in LIVESTREAM_QUALITY:
+    if quality not in QUALITY:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail='Specified quality was not found',

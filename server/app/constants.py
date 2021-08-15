@@ -11,14 +11,14 @@ CONFIG = {
         'mirakurun_url': 'http://192.168.1.28:40772',
     },
     'livestream': {
-        'preferred_encoder': 'ffmpeg',
+        'preferred_encoder': 'QSVEncC',
         'preferred_quality': '1080p',
         'max_alive_time': 10,
     }
 }
 
 # ライブストリームの映像/音声品質
-LIVESTREAM_QUALITY = {
+QUALITY = {
     '1080p': {
         'width': None,  # 縦解像度：1080p のみソースの解像度を使うため指定しない
         'height': None,  # 横解像度：1080p のみソースの解像度を使うため指定しない
@@ -67,6 +67,9 @@ LIBRARY_PATH = {
     'arib-subtitle-timedmetadater': str(LIBRARY_DIR / 'arib-subtitle-timedmetadater/arib-subtitle-timedmetadater') + LIBRARY_EXTENSION,
     'ffmpeg': str(LIBRARY_DIR / 'FFmpeg/ffmpeg') + LIBRARY_EXTENSION,
     'ffprobe': str(LIBRARY_DIR / 'FFmpeg/ffprobe') + LIBRARY_EXTENSION,
+    'QSVEncC': str(LIBRARY_DIR / 'QSVEncC/QSVEncC') + LIBRARY_EXTENSION,
+    'NVEncC': str(LIBRARY_DIR / 'NVEncC/NVEncC') + LIBRARY_EXTENSION,
+    'VCEEncC': str(LIBRARY_DIR / 'VCEEncC/VCEEncC') + LIBRARY_EXTENSION,
 }
 
 # データベース (Tortoise ORM) の設定
