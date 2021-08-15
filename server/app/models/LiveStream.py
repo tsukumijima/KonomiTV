@@ -119,6 +119,29 @@ class LiveStream():
         return result
 
 
+    @classmethod
+    def getWatching(cls, channel_id:str) -> int:
+        """
+        指定されたチャンネルのライブストリームの総視聴者数を取得する
+
+        Args:
+            channel_id (str): チャンネルID
+
+        Returns:
+            int: 視聴者数
+        """
+
+        # 指定されたチャンネル ID が含まれるライブストリームを探す
+        watching = 0
+        for livestream in LiveStream.getAllLiveStream():
+            if livestream.channel_id == channel_id:
+                # 足していく
+                watching += livestream.getStatus()['clients_count']
+
+        # カウントした視聴者数を返す
+        return watching
+
+
     def connect(self, type:str) -> int:
         """
         ライブストリームに接続（新しいクライアントを登録）し、クライアント ID を返す

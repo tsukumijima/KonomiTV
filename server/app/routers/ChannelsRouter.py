@@ -14,6 +14,7 @@ from tortoise import timezone
 from app import schemas
 from app.constants import CONFIG, LOGO_DIR
 from app.models import Channels
+from app.models import LiveStream
 from app.models import Programs
 from app.utils import RunAsync
 
@@ -90,6 +91,9 @@ async def ChannelsAPI():
         if channel.is_subchannel is True and channel.program_current is None:
             channel.is_display = False
 
+        # 現在の視聴者数を取得
+        channel.watching = LiveStream.getWatching(channel.channel_id)
+
         # チャンネルタイプで分類
         result[channel.channel_type].append(channel)
 
@@ -128,6 +132,9 @@ async def ChannelAPI(
     # 一般的にサブチャンネルは常に放送されているわけではないため、放送されていない時にチャンネルリストに表示する必要はない
     if channel.is_subchannel is True and channel.program_current is None:
         channel.is_display = False
+
+    # 現在の視聴者数を取得
+    channel.watching = LiveStream.getWatching(channel.channel_id)
 
     # チャンネル情報を返却
     return channel
