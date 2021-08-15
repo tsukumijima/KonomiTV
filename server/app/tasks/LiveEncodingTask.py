@@ -15,6 +15,13 @@ from app.utils import RunAwait
 class LiveEncodingTask():
 
 
+    def __init__(self):
+
+        # エンコーダーの最大再起動回数
+        # この数を超えた場合はエンコーダーを再起動しない（無限ループ避け）
+        self.max_retry_count = 5  # 5 回まで
+
+
     def buildFFmpegOptions(self, quality:str, is_dualmono:bool=False) -> list:
         """
         FFmpeg に渡すオプションを組み立てる
@@ -170,7 +177,7 @@ class LiveEncodingTask():
 
         # まだ Standby になっていなければ、ステータスを Standby に設定
         # 基本はエンコードタスクの呼び出し元である livestream.connect() の方で Standby に設定されるが、再起動の場合はそこを経由しないため必要
-        if livestream.getStatus()['status'] != 'Standby':
+        if not (livestream.getStatus()['status'] == 'Standby' and livestream.getStatus()['detail'] == 'エンコーダーを起動しています…'):
             livestream.setStatus('Standby', 'エンコーダーを起動しています…')
 
         # チャンネル情報からサービス ID とネットワーク ID を取得する
@@ -310,6 +317,8 @@ class LiveEncodingTask():
                     # 行バッファを消去
                     linebuffer = bytes()
 
+                    Logging.debug(line)
+
                     # エンコードの進捗を判定し、ステータスを更新する
                     # 誤作動防止のため、ステータスが Standby の間のみ更新できるようにする
                     if livestream_status['status'] == 'Standby':
@@ -385,13 +394,9 @@ class LiveEncodingTask():
                     # 主にチューナー不足が原因のエラーのため、エンコーダーの再起動は行わない
                     livestream.setStatus('Offline', 'チューナー不足のため、ライブストリームを開始できません。')
                     break
-                elif 'due to the NVIDIA\'s driver limitation.' in line:
-                    # NVEncC で、同時にエンコードできるセッション数 (Geforceだと3つ) を全て使い果たしている時のエラー
-                    livestream.setStatus('Offline', 'NVEnc のエンコードセッション不足のため、ライブストリームを開始できません。')
-                    break
                 elif 'Conversion failed!' in line:
-                    # エンコーダーの再起動を要求
-                    is_restart_required = True
+                    # 捕捉されないエラー
+                    is_restart_required = True  # エンコーダーの再起動を要求
                     # エンコーダーの再起動前提のため、あえて Offline にはせず Standby とする
                     livestream.setStatus('Standby', 'エンコード中に予期しないエラーが発生しました。ライブストリームを再起動します。')
                     break
@@ -401,9 +406,25 @@ class LiveEncodingTask():
                     # 主にチューナー不足が原因のエラーのため、エンコーダーの再起動は行わない
                     livestream.setStatus('Offline', 'チューナー不足のため、ライブストリームを開始できません。')
                     break
-                elif 'EncC.exe finished with error!' in line:
-                    # エンコーダーの再起動を要求
-                    is_restart_required = True
+                elif 'due to the NVIDIA\'s driver limitation.' in line:
+                    # NVEncC で、同時にエンコードできるセッション数 (Geforceだと3つ) を全て使い果たしている時のエラー
+                    livestream.setStatus('Offline', 'NVENC のエンコードセッション不足のため、ライブストリームを開始できません。')
+                    break
+                elif 'avqsv: codec h264(yuv420p) unable to decode by qsv.' in line:
+                    # QSVEncC 非対応の環境
+                    livestream.setStatus('Offline', 'QSVEncC 非対応の環境のため、ライブストリームを開始できません。')
+                    break
+                elif 'CUDA not available.' in line:
+                    # NVEncC 非対応の環境
+                    livestream.setStatus('Offline', 'NVEncC 非対応の環境のため、ライブストリームを開始できません。')
+                    break
+                elif 'Failed to initalize VCE factory:' in line:
+                    # VCEEncC 非対応の環境
+                    livestream.setStatus('Offline', 'VCEEncC 非対応の環境のため、ライブストリームを開始できません。')
+                    break
+                elif 'finished with error!' in line:
+                    # 捕捉されないエラー
+                    is_restart_required = True  # エンコーダーの再起動を要求
                     # エンコーダーの再起動前提のため、あえて Offline にはせず Standby とする
                     livestream.setStatus('Standby', 'エンコード中に予期しないエラーが発生しました。ライブストリームを再起動します。')
                     break
@@ -424,4 +445,12 @@ class LiveEncodingTask():
 
         # エンコードタスクを再起動する（エンコーダーの再起動が必要な場合）
         if is_restart_required is True:
-            self.run(channel_id, quality)
+
+            # 最大再起動回数が 0 より上であれば
+            if self.max_retry_count > 0:
+                self.max_retry_count = self.max_retry_count - 1  # カウントを減らす
+                self.run(channel_id, quality)  # 新しいタスクを立ち上げる
+
+            # 最大再起動回数を使い果たしたので、Offline にする
+            else:
+                livestream.setStatus('Offline', 'ライブストリームの再起動に失敗しました。')
