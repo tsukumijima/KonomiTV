@@ -20,8 +20,8 @@ class Program(pydantic_model_creator(models.Programs, name='Program')):
 class Channel(pydantic_model_creator(models.Channels, name='Channel')):
     is_display: bool = True  # 追加カラム
     watching: int
-    program_current: Optional[Program]  # 追加カラム
-    program_next: Optional[Program]  # 追加カラム
+    program_present: Optional[Program]  # 追加カラム
+    program_following: Optional[Program]  # 追加カラム
 
 class LiveStream(BaseModel):
     # LiveStream は特殊なモデルのため、ここで全て定義する

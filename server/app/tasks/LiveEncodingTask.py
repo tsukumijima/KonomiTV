@@ -189,8 +189,8 @@ class LiveEncodingTask():
         network_id = channel.network_id
 
         # 現在の番組情報を取得する
-        program_current:Programs = RunAwait(channel.getCurrentAndNextProgram())[0]
-        Logging.info(f'LiveStream:{livestream.livestream_id} Title:{program_current.title}')
+        program_present:Programs = RunAwait(channel.getCurrentAndNextProgram())[0]
+        Logging.info(f'LiveStream:{livestream.livestream_id} Title:{program_present.title}')
 
         # Mirakurun 形式のサービス ID
         # NID と SID を 5 桁でゼロ埋めした上で int に変換する
@@ -218,7 +218,7 @@ class LiveEncodingTask():
 
             # オプションを取得
             # 現在放送中の番組がデュアルモノの場合、デュアルモノ用のエンコードオプションを取得
-            if program_current.audio_type == '1/0+1/0モード(デュアルモノ)':
+            if program_present.audio_type == '1/0+1/0モード(デュアルモノ)':
                 encoder_options = self.buildFFmpegOptions(quality, is_dualmono=True)
             else:
                 encoder_options = self.buildFFmpegOptions(quality, is_dualmono=False)
@@ -238,7 +238,7 @@ class LiveEncodingTask():
 
             # オプションを取得
             # 現在放送中の番組がデュアルモノの場合、デュアルモノ用のエンコードオプションを取得
-            if program_current.audio_type == '1/0+1/0モード(デュアルモノ)':
+            if program_present.audio_type == '1/0+1/0モード(デュアルモノ)':
                 encoder_options = self.buildHWEncCOptions(encoder_type, quality, is_dualmono=True)
             else:
                 encoder_options = self.buildHWEncCOptions(encoder_type, quality, is_dualmono=False)
@@ -355,31 +355,31 @@ class LiveEncodingTask():
                                 livestream.setStatus('ONAir', 'ライブストリームは ONAir です。')
 
             # 現在放送中の番組が終了した時
-            if time.time() > program_current.end_time.timestamp():
+            if time.time() > program_present.end_time.timestamp():
 
                 # 次の番組情報を取得する
-                program_next:Programs = RunAwait(channel.getCurrentAndNextProgram())[0]
+                program_following:Programs = RunAwait(channel.getCurrentAndNextProgram())[0]
 
                 # 現在:デュアルモノ以外 → 次:デュアルモノ
-                if (program_current.audio_type != '1/0+1/0モード(デュアルモノ)') and \
-                   (program_next.audio_type == '1/0+1/0モード(デュアルモノ)'):
+                if (program_present.audio_type != '1/0+1/0モード(デュアルモノ)') and \
+                   (program_following.audio_type == '1/0+1/0モード(デュアルモノ)'):
                     # エンコーダーの音声出力をデュアルモノ対応にするため、エンコーダーを再起動する
                     is_restart_required = True
                     livestream.setStatus('Standby', '音声をデュアルモノに切り替えています…')
                     break
 
                 # 現在:デュアルモノ → 次:デュアルモノ以外
-                if (program_current.audio_type == '1/0+1/0モード(デュアルモノ)') and \
-                   (program_next.audio_type != '1/0+1/0モード(デュアルモノ)'):
+                if (program_present.audio_type == '1/0+1/0モード(デュアルモノ)') and \
+                   (program_following.audio_type != '1/0+1/0モード(デュアルモノ)'):
                     # エンコーダーの音声出力をステレオ対応にするため、エンコーダーを再起動する
                     is_restart_required = True
                     livestream.setStatus('Standby', '音声をステレオに切り替えています…')
                     break
 
                 # 次の番組情報を現在の番組情報にコピー
-                Logging.info(f'LiveStream:{livestream.livestream_id} Title:{program_next.title}')
-                program_current = program_next
-                del program_next
+                Logging.info(f'LiveStream:{livestream.livestream_id} Title:{program_following.title}')
+                program_present = program_following
+                del program_following
 
             # 現在 ONAir でかつクライアント数が 0 なら Idling（アイドリング状態）に移行
             if livestream_status['status'] == 'ONAir' and livestream_status['clients_count'] == 0:

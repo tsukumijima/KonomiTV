@@ -64,7 +64,7 @@ async def ChannelsAPI():
     ).order_by('start_time'))
 
     # 並行実行
-    channels, programs_current, programs_next = await asyncio.gather(*tasks)
+    channels, programs_present, programs_following = await asyncio.gather(*tasks)
 
     # レスポンスの雛形
     result = {
@@ -78,17 +78,17 @@ async def ChannelsAPI():
     for channel in channels:
 
         # チャンネル ID で絞り込む
-        program_current = list(filter(lambda temp: temp.channel_id == channel.channel_id, programs_current))
-        program_next = list(filter(lambda temp: temp.channel_id == channel.channel_id, programs_next))
+        program_present = list(filter(lambda temp: temp.channel_id == channel.channel_id, programs_present))
+        program_following = list(filter(lambda temp: temp.channel_id == channel.channel_id, programs_following))
 
         # 要素が 0 個以上であれば
-        channel.program_current = program_current[0] if len(program_current) > 0 else None
-        channel.program_next = program_next[0] if len(program_next) > 0 else None
+        channel.program_present = program_present[0] if len(program_present) > 0 else None
+        channel.program_following = program_following[0] if len(program_following) > 0 else None
 
         # サブチャンネルでかつ現在の番組情報が両方存在しないなら、表示フラグを False に設定
         # 現在放送されているサブチャンネルのみをチャンネルリストに表示するような挙動とする
         # 一般的にサブチャンネルは常に放送されているわけではないため、放送されていない時にチャンネルリストに表示する必要はない
-        if channel.is_subchannel is True and channel.program_current is None:
+        if channel.is_subchannel is True and channel.program_present is None:
             channel.is_display = False
 
         # 現在の視聴者数を取得
@@ -125,12 +125,12 @@ async def ChannelAPI(
         )
 
     # 現在と次の番組情報を取得
-    channel.program_current, channel.program_next = await channel.getCurrentAndNextProgram()
+    channel.program_present, channel.program_following = await channel.getCurrentAndNextProgram()
 
     # サブチャンネルでかつ現在の番組情報が両方存在しないなら、表示フラグを False に設定
     # 現在放送されているサブチャンネルのみをチャンネルリストに表示するような挙動とする
     # 一般的にサブチャンネルは常に放送されているわけではないため、放送されていない時にチャンネルリストに表示する必要はない
-    if channel.is_subchannel is True and channel.program_current is None:
+    if channel.is_subchannel is True and channel.program_present is None:
         channel.is_display = False
 
     # 現在の視聴者数を取得
