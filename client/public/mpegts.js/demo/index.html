@@ -156,6 +156,9 @@
             superimposeRenderer.show();
 
             player.on(mpegts.Events.PES_PRIVATE_DATA_ARRIVED, function(data) {
+                if (data.stream_id === 0xBD && data.data[0] === 0x80 && data.data.length != 20) {
+                    console.log(`PRIVATE_DATA Caption: ${data.pts}`)
+                }
                 if (arib_caption_transmit_mode !== 'private_stream_1') {
                     return;
                 }
@@ -174,6 +177,7 @@
             });
 
             player.on(mpegts.Events.TIMED_ID3_METADATA_ARRIVED, function(data) {
+                console.log(`ID3_METADATA Caption: ${data.pts}`)
                 if (arib_caption_transmit_mode !== 'timed_id3') {
                     return;
                 }
