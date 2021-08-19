@@ -5,14 +5,14 @@
   </div>
 </template>
 
-<script>
-// @ is an alias to /src
-import HelloWorld from '@/components/HelloWorld.vue'
+<script lang="ts">
+import Vue from 'vue';
+import HelloWorld from '@/components/HelloWorld.vue'; // @ is an alias to /src
 
-export default {
+export default Vue.extend({
   name: '404 Not Found',
   components: {
-    HelloWorld
-  }
-}
+    HelloWorld,
+  },
+});
 </script>
