@@ -47,7 +47,7 @@ class LiveEncodingTask():
         ## 通常放送・音声多重放送向け
         ## 副音声が検出できない場合にエラーにならないよう、? をつけておく
         if is_dualmono is False:
-            options.append('-map 0:v:0 -map 0:a:0 -map 0:a:1? -map 0:d? -ignore_unknown')
+            options.append('-map 0:v:0 -map 0:a:0 -map 0:a:1? -map 0:s? -map 0:d? -scodec copy -ignore_unknown')
 
         ## デュアルモノ向け（Lが主音声・Rが副音声）
         else:
@@ -57,7 +57,7 @@ class LiveEncodingTask():
             # -filter_complex を使うと -vf や -af が使えなくなるため、デュアルモノのみ -filter_complex に -vf や -af の内容も入れる
             options.append(f'-filter_complex yadif=0:-1:1,{scale};volume=2.0,channelsplit[FL][FR]')
             ## Lを主音声に、Rを副音声にマッピング
-            options.append('-map 0:v:0 -map [FL] -map [FR] -map 0:d? -ignore_unknown')
+            options.append('-map 0:v:0 -map [FL] -map [FR] -map 0:s? -map 0:d? -scodec copy -ignore_unknown')
 
         # フラグ
         ## 主に ffmpeg の起動を高速化するための設定
@@ -119,10 +119,10 @@ class LiveEncodingTask():
             ## 通常放送・音声多重放送向け
             ## 5.1ch 自体は再生可能だが、そのままエンコードするとコケる事があるし、
             ## 何より 5.1ch 非対応な PC だと音がシャリシャリになって聞けたものではないのでステレオで固定する
-            options.append('--audio-stream 1?:stereo --audio-stream 2?:stereo --data-copy timed_id3')
+            options.append('--audio-stream 1?:stereo --audio-stream 2?:stereo --sub-copy asdata --data-copy timed_id3')
         else:
             ## デュアルモノ向け（Lが主音声・Rが副音声）
-            options.append('--audio-stream FL,FR --data-copy timed_id3')
+            options.append('--audio-stream FL,FR  --sub-copy asdata--data-copy timed_id3')
 
         # フラグ
         ## 主に HWEncC の起動を高速化するための設定
