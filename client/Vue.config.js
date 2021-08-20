@@ -9,6 +9,8 @@ module.exports = {
     outputDir: 'dist/',
     assetsDir: 'assets/',
     publicPath: '/',
+    // Vuetify
+    transpileDependencies: ['vuetify'],
     // PWA 設定
     pwa: {
         name: 'Konomi',

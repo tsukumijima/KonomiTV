@@ -23,18 +23,19 @@
         "noImplicitThis": false,
         // ↑↑↑
         "types": [
-            "webpack-env"
+            "webpack-env",
+            "vuetify",
         ],
         "paths": {
             "@/*": [
-                "src/*"
+                "src/*",
             ]
         },
         "lib": [
             "esnext",
             "dom",
             "dom.iterable",
-            "scripthost"
+            "scripthost",
         ]
     },
     "include": [
@@ -42,9 +43,9 @@
         "src/**/*.tsx",
         "src/**/*.vue",
         "tests/**/*.ts",
-        "tests/**/*.tsx"
+        "tests/**/*.tsx",
     ],
     "exclude": [
-        "node_modules"
+        "node_modules",
     ]
 }
