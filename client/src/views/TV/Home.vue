@@ -18,5 +18,15 @@ export default Vue.extend({
         Header,
         Navigation,
     },
+    created() {
+        this.init();
+    },
+    methods: {
+        init() {
+            Vue.axios.get('http://localhost:7000/api/channels').then((response) => {
+                console.log(response.data)
+            });
+        }
+    }
 });
 </script>
