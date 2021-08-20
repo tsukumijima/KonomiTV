@@ -1,7 +1,8 @@
 <template>
-    <v-toolbar
+    <v-toolbar absolute
         color="background"
         elevation="8"
+        width="100%"
         height="65px">
         <v-toolbar-title class="ml-6">
             Konomi
