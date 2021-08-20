@@ -1,6 +1,8 @@
 <template>
     <v-app id="app">
-        <router-view/>
+        <transition>
+            <router-view/>
+        </transition>
     </v-app>
 </template>
 
@@ -11,13 +13,24 @@ body .v-application {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
-body .v-main {
-    height: 100%;
-}
 body .v-main__wrap {
     display: flex;
-    height: 100%;
+    height: 100vh;
     padding-top: 65px !important;
+}
+
+// ページ遷移アニメーション
+.v-enter-active, .v-leave-active {
+    transition: opacity 0.3s;
+}
+.v-enter, .v-leave-to {
+    opacity: 0;
+}
+.v-enter-active.route-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
 }
 
 // ユーティリティ

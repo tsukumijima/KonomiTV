@@ -1,5 +1,5 @@
 <template>
-    <div class="h-100">
+    <div class="route-container">
         <Header/>
         <v-main>
             <Navigation/>
