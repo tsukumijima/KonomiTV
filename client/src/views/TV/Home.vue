@@ -1,15 +1,17 @@
 <template>
-    <HelloWorld msg="Welcome to Your Vue.js + TypeScript App"/>
+    <v-main>
+        <Header/>
+    </v-main>
 </template>
 
 <script lang="ts">
 import Vue from 'vue';
-import HelloWorld from '@/components/HelloWorld.vue'; // @ is an alias to /src
+import Header from '@/components/Header.vue';
 
 export default Vue.extend({
-  name: 'Home',
-  components: {
-    HelloWorld,
-  },
+    name: 'Home',
+    components: {
+        Header,
+    },
 });
 </script>

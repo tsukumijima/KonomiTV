@@ -1,4 +1,5 @@
-# client
+
+# Konomi-Client
 
 ## Project setup
 ```
