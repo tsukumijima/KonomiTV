@@ -8,6 +8,7 @@
 
 <style lang="scss">
 body .v-application {
+    min-height: 100vh;
     font-family: "Open Sans", "Noto Sans JP", sans-serif;
     font-weight: 500;
     -webkit-font-smoothing: antialiased;
@@ -15,8 +16,22 @@ body .v-application {
 }
 body .v-main__wrap {
     display: flex;
-    height: 100vh;
+    min-height: 100vh;
     padding-top: 65px !important;
+}
+
+// スクロールバー
+::-webkit-scrollbar {
+    width: 12px;
+}
+::-webkit-scrollbar-track {
+    background: var(--v-background-base);
+}
+::-webkit-scrollbar-thumb {
+    background: var(--v-gray-base);
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--v-background-lighten2);
 }
 
 // ページ遷移アニメーション

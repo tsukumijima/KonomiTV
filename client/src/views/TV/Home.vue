@@ -88,10 +88,17 @@ export default Vue.extend({
     display: flex;
     flex-direction: column;
     width: 100%;
-    margin: 12px 21px;
+    margin-left: 21px;
+    margin-right: 21px;
 
     .channels-tab {
+        position: sticky;
         flex: none;
+        top: 65px;  // ヘッダーの高さ分
+        padding-top: 12px;
+        padding-bottom: 26px;
+        background:var(--v-background-base);
+        z-index: 1;
 
         .v-tabs-bar {
             height: 58px;
@@ -111,7 +118,6 @@ export default Vue.extend({
     }
 
     .channels-list {
-        padding-top: 26px;
         padding-bottom: 32px;
         background: var(--v-background-base) !important;
         overflow: inherit;

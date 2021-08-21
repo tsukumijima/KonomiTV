@@ -64,6 +64,7 @@ export default Vue.extend({
         left: 0px;
         bottom: 0px;
         background: var(--v-background-lighten1);
+        z-index: 1;
 
         .navigation__link {
             display: flex;
