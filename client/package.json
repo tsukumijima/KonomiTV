@@ -10,6 +10,7 @@
   "dependencies": {
     "axios": "^0.21.1",
     "core-js": "^3.6.5",
+    "dayjs": "^1.10.6",
     "register-service-worker": "^1.7.1",
     "vue": "^2.6.11",
     "vue-axios": "^3.2.5",

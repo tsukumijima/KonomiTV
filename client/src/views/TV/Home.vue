@@ -5,13 +5,11 @@
             <Navigation/>
             <div class="channels-container">
                 <v-tabs centered class="channels-tab" v-model="tab">
-                    <v-tab class="channels-tab__item">地デジ</v-tab>
-                    <v-tab class="channels-tab__item">BS</v-tab>
-                    <v-tab class="channels-tab__item">CS</v-tab>
+                    <v-tab class="channels-tab__item" v-for="(channels, channels_type) in channels_list" :key="channels.id">{{channels_type}}</v-tab>
                 </v-tabs>
                 <v-tabs-items class="channels-list" v-model="tab">
                     <v-tab-item class="channels" v-for="channels in channels_list" :key="channels.id">
-                        <div v-ripple class="channel" v-for="channel in channels" :key="channel.id">
+                        <router-link v-ripple class="channel" v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.channel_id}`">
                             <div class="channel__broadcaster">
                                 <img class="channel__broadcaster-icon" :src="`http://192.168.1.36:7000/api/channels/${channel.channel_id}/logo`">
                                 <div class="channel__broadcaster-content">
@@ -20,30 +18,30 @@
                                         <Icon icon="fa-solid:eye" height="12px" />
                                         <span class="ml-1">{{channel.watching}}</span>
                                         <Icon class="ml-4" icon="fa-solid:fire-alt" height="12px" />
-                                        <span class="ml-1">{{channel.channel_force}}</span>
+                                        <span class="ml-1">{{channel.channel_force !== null ? channel.channel_force : '-'}}</span>
                                         <Icon class="ml-4" icon="bi:chat-left-text-fill" height="12px" />
-                                        <span class="ml-1">0</span>
+                                        <span class="ml-1">{{channel.channel_comment !== null ? channel.channel_comment : '-'}}</span>
                                     </div>
                                 </div>
                             </div>
                             <div class="channel__program-present">
-                                <span class="channel__program-present-title"></span>
-                                <span class="channel__program-present-time">2021/06/21 (月) 08:15 ～ 09:55 (105分)</span>
-                                <span class="channel__program-present-description"></span>
+                                <span class="channel__program-present-title" v-html="decorateProgramInfo(channel.program_present, 'title')"></span>
+                                <span class="channel__program-present-time">{{getProgramTime(channel.program_present)}}</span>
+                                <span class="channel__program-present-description" v-html="decorateProgramInfo(channel.program_present, 'description')"></span>
                             </div>
                             <v-spacer></v-spacer>
                             <div class="channel__program-following">
                                 <div class="channel__program-following-title">
                                     <span class="channel__program-following-title-decorate">NEXT</span>
                                     <Icon class="channel__program-following-title-icon" icon="fluent:fast-forward-20-filled" width="16px" />
-                                    <span class="channel__program-following-title-text">NHKニュース おはよう日本“潜在看護師”接種業務にああああああ</span>
+                                    <span class="channel__program-following-title-text" v-html="decorateProgramInfo(channel.program_following, 'title')"></span>
                                 </div>
-                                <span class="channel__program-following-time">2021/06/21 (月) 06:30 ～ 07:00 (30分)</span>
+                                <span class="channel__program-following-time">{{getProgramTime(channel.program_following)}}</span>
                             </div>
                             <div class="channel__progressbar">
-                                <div class="channel__progressbar-progress w-25"></div>
+                                <div class="channel__progressbar-progress" :style="`width:${getProgramProgress(channel.program_present)}%;`"></div>
                             </div>
-                        </div>
+                        </router-link>
                     </v-tab-item>
                 </v-tabs-items>
             </div>
@@ -53,6 +51,8 @@
 
 <script lang="ts">
 import Vue from 'vue';
+import dayjs from 'dayjs';
+import 'dayjs/locale/ja';
 import { Icon } from '@iconify/vue2';
 import Header from '@/components/Header.vue';
 import Navigation from '@/components/Navigation.vue';
@@ -71,12 +71,82 @@ export default Vue.extend({
         }
     },
     created() {
-        this.init();
+        this.update();
+    },
+    computed: {
+        // 番組情報中の[字]や[解]などの記号をいい感じに装飾する
+        decorateProgramInfo: () => {
+            return (program: any, key: string) => {
+                if (program !== null) {
+                    // 本来 ARIB 外字である記号の一覧
+                    // ref: https://ja.wikipedia.org/wiki/%E7%95%AA%E7%B5%84%E8%A1%A8
+                    // ref: https://github.com/xtne6f/EDCB/blob/work-plus-s/EpgDataCap3/EpgDataCap3/ARIB8CharDecode.cpp#L1319
+                    const mark = '新|終|再|交|映|手|声|多|副|字|文|CC|OP|二|S|B|SS|無|無料' +
+                        'C|S1|S2|S3|MV|双|デ|D|N|W|P|H|HV|SD|天|解|料|前|後初|生|販|吹|PPV|' +
+                        '演|移|他|収|・|英|韓|中|字/日英|3D|2K|4K|8K|5.1|7.1|22.2|60P|120P|d|HC|HDR|SHV|UHD|VOD|配|初';
+                    // 正規表現で置換した結果を返す
+                    const pattern1 = new RegExp(`\\((二|字|再)\\)`, 'g');  // 通常の括弧で囲まれている記号
+                    const pattern2 = new RegExp(`\\[(${mark})\\]`, 'g');
+                    let replaced = program[key].replace(pattern1, '<span class="decorate-symbol">$1</span>');
+                    replaced = replaced.replace(pattern2, '<span class="decorate-symbol">$1</span>');
+                    return replaced;
+                } else {
+                    // 放送休止中
+                    return key == 'title' ? '放送休止': 'この時間は放送を終了しています。';
+                }
+            };
+        },
+        // 番組の放送時刻を取得する
+        getProgramTime: () => {
+            return (program: any) => {
+                if (program !== null) {
+                    // dayjs で日付を扱いやすく
+                    const start_time = dayjs(program.start_time);
+                    const end_time = dayjs(program.end_time);
+                    const duration = program.duration / 60;  // 分換算
+                    // フォーマットして返す
+                    dayjs.locale('ja');  // ロケールを日本に設定
+                    return `${start_time.format('YYYY/MM/DD (dd) HH:mm')} ～ ${end_time.format('HH:mm')} (${duration}分)`;
+                } else {
+                    // 放送休止中
+                    return '----/--/-- (-) --:-- ～ --:-- (--分)';
+                }
+            }
+        },
+        // 番組の進捗状況を取得する
+        getProgramProgress: () => {
+            return (program: any) => {
+                if (program !== null) {
+                    // 番組開始時刻から何秒進んだか
+                    const progress = dayjs(dayjs()).diff(program.start_time, 'second');
+                    // %単位の割合を算出して返す
+                    return progress / program.duration * 100;
+                } else {
+                    // 放送休止中
+                    return 0;
+                }
+            }
+        }
     },
     methods: {
-        init() {
+        // チャンネル情報を取得する
+        update() {
             Vue.axios.get('http://192.168.1.36:7000/api/channels').then((response) => {
-                this.channels_list = response.data;
+
+                // is_display が true のチャンネルのみに絞り込むフィルタ関数
+                // 放送していないサブチャンネルを表示から除外する
+                function filter(channel: any) {
+                    return channel.is_display;
+                }
+
+                // チャンネルリストを再構築
+                // 1つでもチャンネルが存在するチャンネルタイプのみ表示するように
+                // たとえば SKY (スカパー！プレミアムサービス) のタブは SKY に属すチャンネルが1つもない（=受信できない）なら表示されない
+                this.channels_list = {};
+                if (response.data.GR.length > 0) this.channels_list['地デジ'] = response.data.GR.filter(filter);
+                if (response.data.BS.length > 0) this.channels_list['BS'] = response.data.BS.filter(filter);
+                if (response.data.CS.length > 0) this.channels_list['CS'] = response.data.CS.filter(filter);
+                if (response.data.SKY.length > 0) this.channels_list['SKY'] = response.data.SKY.filter(filter);
             });
         }
     }
@@ -137,8 +207,10 @@ export default Vue.extend({
                 height: 275px;
                 padding: 18px 24px;
                 border-radius: 11px;
+                color: var(--v-text-base);
                 background: var(--v-background-lighten1);
                 overflow: hidden;  // progressbar を切り抜くために必要
+                text-decoration: none;
                 user-select: none;
                 cursor: pointer;
 
@@ -200,7 +272,7 @@ export default Vue.extend({
                         font-size: 10.5px;
                         line-height: 175%;
                         font-feature-settings: "palt" 1;  // 文字詰め
-                        letter-spacing: 0.06em;  // 字間を少し空ける
+                        letter-spacing: 0.07em;  // 字間を少し空ける
                         overflow: hidden;
                         -webkit-line-clamp: 3;  // 3行までに制限
                         -webkit-box-orient: vertical;
@@ -224,7 +296,7 @@ export default Vue.extend({
                            margin-left: 3px;
                        }
                        &-text {
-                           margin-left: 3px;
+                           margin-left: 2px;
                             overflow: hidden;
                             white-space: nowrap;
                             text-overflow: ellipsis;  // はみ出た部分を … で省略

@@ -7,6 +7,7 @@
 </template>
 
 <style lang="scss">
+// 全体のスタイル
 body .v-application {
     min-height: 100vh;
     font-family: "Open Sans", "Noto Sans JP", sans-serif;
@@ -18,6 +19,21 @@ body .v-main__wrap {
     display: flex;
     min-height: 100vh;
     padding-top: 65px !important;
+}
+
+// 記号の装飾
+.decorate-symbol {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    padding: 0px 3px;
+    margin-left: 2.5px;
+    margin-right: 2.5px;
+    border-radius: 4px;
+    color: var(--v-text-base);
+    background: var(--v-primary-base);
+    font-size: 0.94em;
 }
 
 // スクロールバー
