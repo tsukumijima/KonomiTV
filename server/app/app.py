@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi_utils.tasks import repeat_every
 
-from app.constants import CLIENT_DIR, DATABASE_CONFIG, QUALITY, VERSION
+from app.constants import CONFIG, CLIENT_DIR, DATABASE_CONFIG, QUALITY, VERSION
 from app.models import Channels
 from app.models import LiveStream
 from app.models import Programs
@@ -33,9 +33,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        'http://localhost',
-        'http://localhost:7000',
-        'http://localhost:7001',
+        '*' if CONFIG['general']['debug'] is True else '',  # デバッグ時のみ CORS ヘッダーを有効化
     ],
     allow_credentials=True,
     allow_methods=["*"],
