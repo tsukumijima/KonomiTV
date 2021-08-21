@@ -22,6 +22,7 @@ class Channels(models.Model):
     channel_name:str = fields.TextField()
     channel_type:str = fields.TextField()
     channel_force:Optional[int] = fields.IntField(null=True)
+    channel_comment:Optional[int] = fields.IntField(null=True)
     is_subchannel:bool = fields.BooleanField()
 
 
@@ -57,6 +58,7 @@ class Channels(models.Model):
             channel.channel_name = jaconv.zen2han(service['name'], kana=False, digit=True, ascii=True)
             channel.channel_type = service['channel']['type']
             channel.channel_force = 0
+            channel.channel_comment = 0
 
             # カウントを追加
             if channel.network_id not in same_network_id_count:  # まだキーが存在しない
