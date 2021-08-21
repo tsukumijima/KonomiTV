@@ -5,7 +5,10 @@
             <Navigation/>
             <div class="channels-container">
                 <v-tabs centered class="channels-tab" v-model="tab">
-                    <v-tab class="channels-tab__item" v-for="(channels, channels_type) in channels_list" :key="channels.id">{{channels_type}}</v-tab>
+                    <v-tab class="channels-tab__item" v-if="'地デジ' in channels_list">地デジ</v-tab>
+                    <v-tab class="channels-tab__item" v-if="'BS' in channels_list">BS</v-tab>
+                    <v-tab class="channels-tab__item" v-if="'CS' in channels_list">CS</v-tab>
+                    <v-tab class="channels-tab__item" v-if="'SKY' in channels_list">SKY</v-tab>
                 </v-tabs>
                 <v-tabs-items class="channels-list" v-model="tab">
                     <v-tab-item class="channels" v-for="channels in channels_list" :key="channels.id">
