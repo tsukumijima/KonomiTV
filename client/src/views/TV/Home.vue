@@ -10,26 +10,26 @@
                     <v-tab class="channels-tab__item">CS</v-tab>
                 </v-tabs>
                 <v-tabs-items class="channels-list" v-model="tab">
-                    <v-tab-item class="channels">
-                        <div v-ripple class="channel">
+                    <v-tab-item class="channels" v-for="channels in channels_list" :key="channels.id">
+                        <div v-ripple class="channel" v-for="channel in channels" :key="channel.id">
                             <div class="channel__broadcaster">
-                                <img class="channel__broadcaster-icon" src="http://localhost:7000/api/channels/gr011/logo">
+                                <img class="channel__broadcaster-icon" :src="`http://192.168.1.36:7000/api/channels/${channel.channel_id}/logo`">
                                 <div class="channel__broadcaster-content">
-                                    <span class="channel__broadcaster-name">Ch: 011 NHK総合1・東京</span>
+                                    <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.channel_name}}</span>
                                     <div class="channel__broadcaster-status">
                                         <Icon icon="fa-solid:eye" height="12px" />
-                                        <span class="ml-1">0</span>
+                                        <span class="ml-1">{{channel.watching}}</span>
                                         <Icon class="ml-4" icon="fa-solid:fire-alt" height="12px" />
-                                        <span class="ml-1">0</span>
+                                        <span class="ml-1">{{channel.channel_force}}</span>
                                         <Icon class="ml-4" icon="bi:chat-left-text-fill" height="12px" />
                                         <span class="ml-1">0</span>
                                     </div>
                                 </div>
                             </div>
                             <div class="channel__program-present">
-                                <span class="channel__program-present-title">あさイチ「家事も人間関係もラクに！いま注目の“論理的思考”のススメ」</span>
+                                <span class="channel__program-present-title"></span>
                                 <span class="channel__program-present-time">2021/06/21 (月) 08:15 ～ 09:55 (105分)</span>
-                                <span class="channel__program-present-description">お笑いコンビ・和牛もおススメ！いま注目の“論理的思考法”とは？▼家事や人間関係もラクに…お金のかからない方法で段取り＆伝え方を変える！▼子どもが自発的に課題解決</span>
+                                <span class="channel__program-present-description"></span>
                             </div>
                             <v-spacer></v-spacer>
                             <div class="channel__program-following">
@@ -44,12 +44,6 @@
                                 <div class="channel__progressbar-progress w-25"></div>
                             </div>
                         </div>
-                    </v-tab-item>
-                    <v-tab-item class="channels">
-                        <div>1aaaaaaa</div>
-                    </v-tab-item>
-                    <v-tab-item class="channels">
-                        <div>2aaaaaaa</div>
                     </v-tab-item>
                 </v-tabs-items>
             </div>
@@ -73,6 +67,7 @@ export default Vue.extend({
     data() {
         return {
             tab: null,
+            channels_list: null,
         }
     },
     created() {
@@ -80,8 +75,8 @@ export default Vue.extend({
     },
     methods: {
         init() {
-            Vue.axios.get('http://localhost:7000/api/channels').then((response) => {
-                console.log(response.data)
+            Vue.axios.get('http://192.168.1.36:7000/api/channels').then((response) => {
+                this.channels_list = response.data;
             });
         }
     }
@@ -116,13 +111,17 @@ export default Vue.extend({
     }
 
     .channels-list {
-        margin-top: 26px;
+        padding-top: 26px;
+        padding-bottom: 32px;
         background: var(--v-background-base) !important;
+        overflow: inherit;
 
         .channels {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 18px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, 430px);
+            grid-row-gap: 16px;
+            grid-column-gap: 16px;
+            justify-content: center;
 
             .channel {
                 display: flex;
