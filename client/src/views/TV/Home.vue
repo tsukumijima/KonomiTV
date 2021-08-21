@@ -69,8 +69,8 @@ export default Vue.extend({
     },
     data() {
         return {
-            tab: null,
-            channels_list: null,
+            tab: null,  // タブの状態管理
+            channels_list: null,  // チャンネルリスト
         }
     },
     created() {
@@ -194,6 +194,10 @@ export default Vue.extend({
         padding-bottom: 32px;
         background: var(--v-background-base) !important;
         overflow: inherit;
+
+        .v-window__container {
+            min-height: calc(100vh - 65px);
+        }
 
         .channels {
             display: grid;
