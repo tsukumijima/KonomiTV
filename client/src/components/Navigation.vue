@@ -1,32 +1,32 @@
 <template>
     <div class="navigation-container">
         <nav class="navigation elevation-8">
-            <router-link v-ripple class="navigation__link" exact-active-class="navigation__link--active" to="/tv/">
+            <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/tv/">
                 <Icon class="navigation__link-icon" icon="fluent:tv-20-regular" width="26px" />
                 <span class="navigation__link-text">テレビをみる</span>
             </router-link>
-            <router-link v-ripple class="navigation__link" exact-active-class="navigation__link--active" to="/video/">
+            <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/video/">
                 <Icon class="navigation__link-icon" icon="fluent:movies-and-tv-20-regular" width="26px" />
                 <span class="navigation__link-text">ビデオをみる</span>
             </router-link>
-            <router-link v-ripple class="navigation__link" exact-active-class="navigation__link--active" to="/schedules/">
+            <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/schedules/">
                 <Icon class="navigation__link-icon" icon="fluent:calendar-ltr-20-regular" width="26px" />
                 <span class="navigation__link-text">番組表</span>
             </router-link>
-            <router-link v-ripple class="navigation__link" exact-active-class="navigation__link--active" to="/captures/">
+            <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/captures/">
                 <Icon class="navigation__link-icon" icon="fluent:image-multiple-24-regular" width="26px" />
                 <span class="navigation__link-text">キャプチャ</span>
             </router-link>
-            <router-link v-ripple class="navigation__link" exact-active-class="navigation__link--active" to="/watchlist/">
+            <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/watchlist/">
                 <Icon class="navigation__link-icon" icon="ic:round-playlist-play" width="26px" />
                 <span class="navigation__link-text">ウォッチリスト</span>
             </router-link>
-            <router-link v-ripple class="navigation__link" exact-active-class="navigation__link--active" to="/history/">
+            <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/history/">
                 <Icon class="navigation__link-icon" icon="fluent:history-16-regular" width="26px" />
                 <span class="navigation__link-text">視聴履歴</span>
             </router-link>
             <v-spacer></v-spacer>
-            <router-link v-ripple class="navigation__link" exact-active-class="navigation__link--active" to="/settings/">
+            <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/settings/">
                 <Icon class="navigation__link-icon" icon="fluent:settings-20-regular" width="26px" />
                 <span class="navigation__link-text">設定</span>
             </router-link>
