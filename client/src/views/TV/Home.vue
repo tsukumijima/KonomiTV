@@ -233,22 +233,25 @@ export default Vue.extend({
 
     .channels-list {
         padding-bottom: 32px;
-        background: var(--v-background-base) !important;
+        background: transparent !important;
         overflow: inherit;
 
         .v-window__container {
             min-height: calc(100vh - 65px);
         }
-
         .channels {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(375px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(370px, 1fr));
             grid-row-gap: 16px;
             grid-column-gap: 16px;
             justify-content: center;
-            max-width: calc(445px * 3 + 16px * 2);
-            width: calc(100vw - 220px - 21px - 21px);
-            margin: 0 auto;
+
+            // 1630px 以上で幅を 445px に固定
+            @media screen and (min-width: 1630px) {
+                & {
+                    grid-template-columns: repeat(auto-fit, 445px);
+                }
+            }
 
             .channel {
                 display: flex;
@@ -279,6 +282,7 @@ export default Vue.extend({
                         width: 80px;
                         height: 44px;
                         border-radius: 5px;
+                        background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
                         object-fit: cover;
                     }
 

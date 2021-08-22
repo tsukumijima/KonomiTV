@@ -49,10 +49,10 @@ html {
     background: var(--v-background-base);
 }
 ::-webkit-scrollbar-thumb {
-    background: var(--v-gray-base);
-}
-::-webkit-scrollbar-thumb:hover {
     background: var(--v-background-lighten2);
+    &:hover {
+        background: var(--v-gray-base);
+    }
 }
 
 // ページ遷移アニメーション
