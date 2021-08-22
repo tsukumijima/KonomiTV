@@ -134,9 +134,16 @@ class Programs(models.Model):
                 ## 全角→半角へ変換するため、敢えて一度ばらしてから再構築する
                 program.detail = dict()  # 辞書を定義
                 for head, text in program_info['extended'].items():
+
+                    # 見出しと本文
                     head_han = ZenkakuToHankaku(head)
                     text_han = ZenkakuToHankaku(text)
                     program.detail[head_han] = text_han
+
+                    # 番組概要が空であれば番組詳細の最初の本文を概要として使う
+                    # 空でまったく情報がないよりかは良いはず
+                    if program.description == '':
+                        program.description == text_han
 
             # ジャンル
             if 'genres' not in program_info:
