@@ -117,7 +117,7 @@ export default Vue.extend({
                     // ref: https://github.com/xtne6f/EDCB/blob/work-plus-s/EpgDataCap3/EpgDataCap3/ARIB8CharDecode.cpp#L1319
                     const mark = '新|終|再|交|映|手|声|多|副|字|文|CC|OP|二|S|B|SS|無|無料' +
                         'C|S1|S2|S3|MV|双|デ|D|N|W|P|H|HV|SD|天|解|料|前|後初|生|販|吹|PPV|' +
-                        '演|移|他|収|・|英|韓|中|字/日英|3D|2K|4K|8K|5.1|7.1|22.2|60P|120P|d|HC|HDR|SHV|UHD|VOD|配|初';
+                        '演|移|他|収|・|英|韓|中|字/日|字/日英|3D|2K|4K|8K|5.1|7.1|22.2|60P|120P|d|HC|HDR|SHV|UHD|VOD|配|初';
                     // 正規表現で置換した結果を返す
                     const pattern1 = new RegExp(`\\((二|字|再)\\)`, 'g');  // 通常の括弧で囲まれている記号
                     const pattern2 = new RegExp(`\\[(${mark})\\]`, 'g');
@@ -126,7 +126,7 @@ export default Vue.extend({
                     return replaced;
                 } else {
                     // 放送休止中
-                    return key == 'title' ? '放送休止': 'この時間は放送を終了しています。';
+                    return key == 'title' ? '放送休止': 'この時間は放送を休止しています。';
                 }
             };
         },
@@ -320,6 +320,8 @@ export default Vue.extend({
                         margin-top: 14px;
                         font-size: 16px;
                         font-weight: 700;
+                        font-feature-settings: "palt" 1;  // 文字詰め
+                        letter-spacing: 0.07em;  // 字間を少し空ける
                         overflow: hidden;
                         -webkit-line-clamp: 2;  // 2行までに制限
                         -webkit-box-orient: vertical;
