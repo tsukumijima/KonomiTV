@@ -39,6 +39,14 @@ class Programs(models.Model):
     async def update(cls):
         """番組情報を更新する"""
 
+        def MillisecondToDatetime(millisecond: int) -> datetime.datetime:
+            """ミリ秒を datetime に変換するラッパー"""
+            return datetime.datetime.fromtimestamp(
+                millisecond / 1000,  # ミリ秒なので秒に変換
+                tz = timezone.get_default_timezone(),  # タイムゾーンを UTC+9（日本時間）に指定する
+            )
+
+        # 現在時刻のタイムスタンプ
         timestamp = time.time()
 
         # Mirakurun の API から番組情報を取得する
@@ -51,6 +59,9 @@ class Programs(models.Model):
 
         # 番組ごとに実行
         for program_info in programs:
+
+            # 既にある番組情報の更新かどうか
+            is_update = False
 
             # 番組タイトルがない（＝サブチャンネルでメインチャンネルの内容をそのまま放送している）を弾く
             if 'name' not in program_info:
@@ -69,10 +80,18 @@ class Programs(models.Model):
                     Logging.debug(f'Delete Program: {duplicate_program.id}')
                     await duplicate_program.delete()
 
-                # TODO: タイトル・番組概要・番組開始時刻・番組終了時刻・番組長がすべて同じならスキップ
+                # TODO: タイトル・番組概要・番組開始時刻・番組終了時刻がすべて同じならスキップ
+                if (duplicate_program.title == ZenkakuToHankaku(program_info['name'])) and \
+                   (duplicate_program.description == ZenkakuToHankaku(program_info['description'])) and \
+                   (duplicate_program.start_time == MillisecondToDatetime(program_info['startAt'])) and \
+                   (duplicate_program.end_time == MillisecondToDatetime(program_info['startAt'] + program_info['duration'])):
 
-                # 次のループへ
-                continue
+                    # 次のループへ
+                    continue
+
+                # すでに存在する番組情報を更新する
+                else:
+                    is_update = True
 
             # 番組終了時刻が現在時刻より1時間以上前な番組を弾く
             # 既に終わった番組を登録してもしょうがないし、番組を DB に入れれば入れるほど重くなるので不要なものは減らしたい
@@ -85,22 +104,20 @@ class Programs(models.Model):
             if channel is None:  # 登録されていないチャンネルの番組を弾く（ワンセグやデータ放送など）
                 continue
 
-            # 新しい番組のレコードを作成
-            program = Programs()
+            if is_update is False:
+                # 新しい番組のレコードを作成
+                program = Programs()
+            else:
+                # 既に存在する番組のレコードを設定
+                program = duplicate_program
 
             # 取得してきた値を設定
             program.id = f'{channel.id}-EID{str(program_info["eventId"])}'  # チャンネルの ID に EID (イベントID) を追加する
             program.channel_id = channel.channel_id
             program.title = ZenkakuToHankaku(program_info['name'])
             program.description = ZenkakuToHankaku(program_info['description'])
-            program.start_time = datetime.datetime.fromtimestamp(
-                program_info['startAt'] / 1000,  # ミリ秒なので秒に変換
-                timezone.get_default_timezone(),  # タイムゾーンを UTC+9（日本時間）に指定する
-            )
-            program.end_time = datetime.datetime.fromtimestamp(
-                (program_info['startAt'] + program_info['duration']) / 1000,  # ミリ秒なので秒に変換
-                tz = timezone.get_default_timezone(),  # タイムゾーンを UTC+9（日本時間）に指定する
-            )
+            program.start_time = MillisecondToDatetime(program_info['startAt'])
+            program.end_time = MillisecondToDatetime(program_info['startAt'] + program_info['duration'])
             program.duration = float(program_info['duration'] / 1000)  # ミリ秒なので秒に変換
             program.is_free = program_info['isFree']
             program.video_type = ariblib.constants.COMPONENT_TYPE[program_info['video']['streamContent']][program_info['video']['componentType']]
@@ -136,7 +153,10 @@ class Programs(models.Model):
                         'middle': ariblib.constants.CONTENT_TYPE[genre['lv1']][1][genre['lv2']],
                     })
 
-            Logging.debug(f'Add Program: {program.id}')
+            if is_update is False:
+                Logging.debug(f'Add Program: {program.id}')
+            else:
+                Logging.debug(f'Update Program: {program.id}')
 
             # レコードを保存する
             await program.save()
