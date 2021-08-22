@@ -3,12 +3,9 @@
         <Header/>
         <v-main>
             <Navigation/>
-            <div class="channels-container">
+            <div class="channels-container" :class="{'channels-container--loading': loading}">
                 <v-tabs centered class="channels-tab" v-model="tab">
-                    <v-tab class="channels-tab__item" v-if="'地デジ' in channels_list">地デジ</v-tab>
-                    <v-tab class="channels-tab__item" v-if="'BS' in channels_list">BS</v-tab>
-                    <v-tab class="channels-tab__item" v-if="'CS' in channels_list">CS</v-tab>
-                    <v-tab class="channels-tab__item" v-if="'SKY' in channels_list">SKY</v-tab>
+                    <v-tab class="channels-tab__item" v-for="(channels, channels_type) in channels_list" :key="channels.id">{{channels_type}}</v-tab>
                 </v-tabs>
                 <v-tabs-items class="channels-list" v-model="tab">
                     <v-tab-item class="channels" v-for="channels in channels_list" :key="channels.id">
@@ -69,6 +66,7 @@ export default Vue.extend({
     },
     data() {
         return {
+            loading: true,  // ローディング中かどうか
             tab: null,  // タブの状態管理
             channels_list: null,  // チャンネルリスト
         }
@@ -150,6 +148,9 @@ export default Vue.extend({
                 if (response.data.BS.length > 0) this.channels_list['BS'] = response.data.BS.filter(filter);
                 if (response.data.CS.length > 0) this.channels_list['CS'] = response.data.CS.filter(filter);
                 if (response.data.SKY.length > 0) this.channels_list['SKY'] = response.data.SKY.filter(filter);
+
+                // ローディング状態を解除
+                this.loading = false;
             });
         }
     }
@@ -163,6 +164,12 @@ export default Vue.extend({
     width: 100%;
     margin-left: 21px;
     margin-right: 21px;
+    opacity: 1;
+    transition: opacity 0.4s;
+
+    &--loading {
+        opacity: 0;
+    }
 
     .channels-tab {
         position: sticky;
@@ -179,6 +186,7 @@ export default Vue.extend({
 
             .v-tabs-slider-wrapper {
                 height: 3px !important;
+                transition: left 0.3s cubic-bezier(0.25, 0.8, 0.5, 1);
             }
 
             .channels-tab__item {
@@ -216,10 +224,15 @@ export default Vue.extend({
                 border-radius: 11px;
                 color: var(--v-text-base);
                 background: var(--v-background-lighten1);
+                transition: background-color 0.15s;
                 overflow: hidden;  // progressbar を切り抜くために必要
                 text-decoration: none;
                 user-select: none;
                 cursor: pointer;
+
+                &:hover {
+                    background: var(--v-background-lighten2);
+                }
 
                 .channel__broadcaster {
                     display: flex;

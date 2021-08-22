@@ -75,8 +75,13 @@ export default Vue.extend({
             border-radius: 11px;
             font-size: 16px;
             color: var(--v-text-base);
+            transition: background-color 0.15s;
             text-decoration: none;
             user-select: none;
+
+            &:hover {
+                background: var(--v-background-lighten2);
+            }
 
             + .navigation__link {
                 margin-top: 4px;
