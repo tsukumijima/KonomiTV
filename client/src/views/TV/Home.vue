@@ -83,10 +83,23 @@ export default Vue.extend({
         // チャンネル情報を取得
         this.update();
 
-        // 定期的に更新
-        setInterval(() => {
+        // 00秒までの残り秒数
+        // 現在 16:01:34 なら 26 (秒) になる
+        const residue_second = 60 - (Math.floor(new Date().getTime() / 1000) % 60);
+
+        // 00秒になるまで待ってから
+        // 番組は基本1分単位で組まれているため、20秒や45秒など中途半端な秒数で更新してしまうと反映が遅れてしまう
+        setTimeout(() => {
+
+            // チャンネル情報を更新
             this.update();
-        }, 60 * 1000);  // 1分おき
+
+            // チャンネル情報を定期的に更新
+            setInterval(() => {
+                this.update();
+            }, 60 * 1000);  // 1分おき
+
+        }, residue_second * 1000);
     },
     // 終了時に実行
     destroyed() {
