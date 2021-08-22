@@ -37,8 +37,13 @@ body .v-main__wrap {
 }
 
 // スクロールバー
+html {
+    scrollbar-color: var(--v-gray-base) var(--v-background-base);
+    scrollbar-width: thin;
+}
 ::-webkit-scrollbar {
     width: 12px;
+    height: 12px;
 }
 ::-webkit-scrollbar-track {
     background: var(--v-background-base);

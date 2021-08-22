@@ -66,13 +66,33 @@ export default Vue.extend({
     },
     data() {
         return {
-            loading: true,  // ローディング中かどうか
-            tab: null,  // タブの状態管理
-            channels_list: null,  // チャンネルリスト
+            // タブの状態管理
+            tab: null,
+            // ローディング中かどうか
+            loading: true,
+            // インターバル ID
+            // ページ遷移時にチャンネル情報の定期更新を止めるのに使う
+            interval_id: 0,
+            // チャンネルリスト
+            channels_list: null,
         }
     },
+    // 開始時に実行
     created() {
+
+        // チャンネル情報を取得
         this.update();
+
+        // 定期的に更新
+        setInterval(() => {
+            this.update();
+        }, 60 * 1000);  // 1分おき
+    },
+    // 終了時に実行
+    destroyed() {
+
+        // clearInterval でチャンネル情報の定期更新を止める
+        clearInterval(this.interval_id);
     },
     computed: {
         // 番組情報中の[字]や[解]などの記号をいい感じに装飾する
@@ -130,7 +150,7 @@ export default Vue.extend({
         }
     },
     methods: {
-        // チャンネル情報を取得する
+        // チャンネル情報一覧を取得し、画面を更新する
         update() {
             Vue.axios.get('http://192.168.1.36:7000/api/channels').then((response) => {
 
@@ -209,16 +229,18 @@ export default Vue.extend({
 
         .channels {
             display: grid;
-            grid-template-columns: repeat(auto-fit, 430px);
+            grid-template-columns: repeat(auto-fit, minmax(375px, 1fr));
             grid-row-gap: 16px;
             grid-column-gap: 16px;
             justify-content: center;
+            max-width: calc(445px * 3 + 16px * 2);
+            width: calc(100vw - 220px - 21px - 21px);
+            margin: 0 auto;
 
             .channel {
                 display: flex;
                 flex-direction: column;
                 position: relative;
-                width: 430px;
                 height: 275px;
                 padding: 18px 24px;
                 border-radius: 11px;
@@ -240,6 +262,7 @@ export default Vue.extend({
 
                     &-icon {
                         display: inline-block;
+                        flex-shrink: 0;
                         width: 80px;
                         height: 44px;
                         border-radius: 5px;
@@ -250,10 +273,16 @@ export default Vue.extend({
                         display: flex;
                         flex-direction: column;
                         margin-left: 16px;
+                        width: 100%;
+                        min-width: 0;
                     }
 
                     &-name {
+                        flex-shrink: 0;
                         font-size: 18px;
+                        overflow: hidden;
+                        white-space: nowrap;
+                        text-overflow: ellipsis;
                     }
 
                     &-status {
@@ -309,14 +338,14 @@ export default Vue.extend({
                        display: flex;
                        align-items: center;
                        &-decorate {
-                           flex-shrink: 0;
+                            flex-shrink: 0;
                        }
                        &-icon {
-                           flex-shrink: 0;
-                           margin-left: 3px;
+                            flex-shrink: 0;
+                            margin-left: 3px;
                        }
                        &-text {
-                           margin-left: 2px;
+                            margin-left: 2px;
                             overflow: hidden;
                             white-space: nowrap;
                             text-overflow: ellipsis;  // はみ出た部分を … で省略
