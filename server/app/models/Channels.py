@@ -1,6 +1,4 @@
 
-import asyncio
-import jaconv
 import requests
 from tortoise import fields
 from tortoise import models
@@ -8,6 +6,7 @@ from tortoise import timezone
 from typing import Optional
 
 from app.constants import CONFIG
+from app.utils import ZenkakuToHankaku
 
 
 class Channels(models.Model):
@@ -55,7 +54,7 @@ class Channels(models.Model):
             channel.service_id = service['serviceId']
             channel.network_id = service['networkId']
             channel.remocon_id = service['remoteControlKeyId'] if ('remoteControlKeyId' in service) else None
-            channel.channel_name = jaconv.zen2han(service['name'], kana=False, digit=True, ascii=True)
+            channel.channel_name = ZenkakuToHankaku(service['name'])
             channel.channel_type = service['channel']['type']
             channel.channel_force = 0
             channel.channel_comment = 0

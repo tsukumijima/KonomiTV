@@ -12,6 +12,7 @@ from tortoise import timezone
 
 from app.constants import CONFIG
 from app.utils import Logging
+from app.utils import ZenkakuToHankaku
 
 
 class Programs(models.Model):
@@ -55,7 +56,7 @@ class Programs(models.Model):
             if 'name' not in program_info:
                 continue
 
-            # 既に同じ番組 ID の番組が DB に登録されているならスキップ
+            # 既に同じ番組 ID の番組が DB に登録されているなら（情報の更新がない場合のみ）スキップ
             # DB は読み取るよりも書き込みの方が負荷と時間がかかるため、不要な書き込みは極力避ける
             duplicate_program_id = f'NID{str(program_info["networkId"])}-SID{str(program_info["serviceId"]).zfill(3)}-EID{str(program_info["eventId"])}'
             if duplicate_program_id in duplicate_programs:
@@ -67,6 +68,8 @@ class Programs(models.Model):
                 if timezone.now() - duplicate_program.end_time > timedelta(hours=1):
                     Logging.debug(f'Delete Program: {duplicate_program.id}')
                     await duplicate_program.delete()
+
+                # TODO: タイトル・番組概要・番組開始時刻・番組終了時刻・番組長がすべて同じならスキップ
 
                 # 次のループへ
                 continue
@@ -88,8 +91,8 @@ class Programs(models.Model):
             # 取得してきた値を設定
             program.id = f'{channel.id}-EID{str(program_info["eventId"])}'  # チャンネルの ID に EID (イベントID) を追加する
             program.channel_id = channel.channel_id
-            program.title = jaconv.zen2han(program_info['name'], kana=False, digit=True, ascii=True)
-            program.description = jaconv.zen2han(program_info['description'], kana=False, digit=True, ascii=True)
+            program.title = ZenkakuToHankaku(program_info['name'])
+            program.description = ZenkakuToHankaku(program_info['description'])
             program.start_time = datetime.datetime.fromtimestamp(
                 program_info['startAt'] / 1000,  # ミリ秒なので秒に変換
                 timezone.get_default_timezone(),  # タイムゾーンを UTC+9（日本時間）に指定する
@@ -114,8 +117,8 @@ class Programs(models.Model):
                 ## 全角→半角へ変換するため、敢えて一度ばらしてから再構築する
                 program.detail = dict()  # 辞書を定義
                 for head, text in program_info['extended'].items():
-                    head_han = jaconv.zen2han(head, kana=False, digit=True, ascii=True)
-                    text_han = jaconv.zen2han(text, kana=False, digit=True, ascii=True)
+                    head_han = ZenkakuToHankaku(head)
+                    text_han = ZenkakuToHankaku(text)
                     program.detail[head_han] = text_han
 
             # ジャンル

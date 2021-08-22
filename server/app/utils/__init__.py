@@ -4,10 +4,27 @@ from .TSInformation import TSInformation
 
 import asyncio
 import functools
+import jaconv
 import typing
 
 
-def RunAwait(coro:typing.Coroutine):
+def ZenkakuToHankaku(string: str) -> str:
+    """
+    全角文字を半角文字に変換するヘルパー (jaconv のラッパー)
+    jaconv では半角になってしまう！や？などの一部の記号を全角のままにして変換する
+
+    Args:
+        string (str): 全角文字が含まれる文字列
+
+    Returns:
+        str: 全角文字を半角文字に変換した文字列
+    """
+
+    # 変換結果を返す
+    return jaconv.zenkaku2hankaku(string, '！？＊：；', kana=False, digit=True, ascii=True)
+
+
+def RunAwait(coro:typing.Coroutine) -> typing.Any:
     """
     非同期関数を同期的に実行するためのヘルパー
     非同期関数を実行し、結果が返ってくるのを待つ
