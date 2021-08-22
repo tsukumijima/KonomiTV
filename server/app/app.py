@@ -17,6 +17,7 @@ from app.models import LiveStream
 from app.models import Programs
 from app.routers import ChannelsRouter
 from app.routers import LiveStreamsRouter
+from app.utils import Logging
 
 
 # FastAPI を初期化
@@ -122,6 +123,6 @@ async def Startup():
             LiveStream(channel['channel_id'], quality)
 
 # 30分に1回、番組情報を更新する
-@repeat_every(seconds=60 * 30)
+@repeat_every(seconds=60 * 30, logger=Logging.logger)
 async def UpdateProgram():
     await Programs.update()
