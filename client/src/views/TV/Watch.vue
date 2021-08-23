@@ -37,6 +37,7 @@
                     <span class="watch-header__now">{{time}}</span>
                 </header>
                 <div class="watch-player">
+                    <div class="watch-player__dplayer"></div>
                     <div class="watch-player__button">
                         <div v-ripple class="switch-button switch-button-up">
                             <Icon class="switch-button-icon" icon="fluent:ios-arrow-left-24-filled" width="31px" rotate="1" />
@@ -119,6 +120,9 @@ import Vue from 'vue';
 import mixins from 'vue-typed-mixins'
 import mixin from '@/mixins';
 import dayjs from 'dayjs';
+// @ts-ignore  JS 製なので型定義がないし、作ろうとするとまためんどいので黙殺
+import DPlayer from 'dplayer';
+import mpegts from 'mpegts.js';
 import { Icon } from '@iconify/vue2';
 
 export default mixins(mixin).extend({
@@ -198,6 +202,9 @@ export default mixins(mixin).extend({
 
             // チャンネル情報リスト
             channels_list: null,
+
+            // プレイヤー (DPlayer) のインスタンス
+            player: null,
         }
     },
     // 開始時に実行
@@ -229,25 +236,38 @@ export default mixins(mixin).extend({
 
         }, residue_second * 1000));
     },
-    // 終了時に実行
-    destroyed() {
+    // 終了前に実行
+    beforeDestroy() {
 
         // clearInterval() ですべての setInterval(), setTimeout() の実行を止める
         // clearInterval() と clearTimeout() は中身共通なので問題ない
         for (const interval_id in this.interval_ids) {
             clearInterval(parseInt(interval_id));  // 型推論がうまく効かないのでこうなる…つらい
         }
+
+        // プレイヤーを破棄する
+        this.player.destroy();
     },
     methods: {
 
         // チャンネル情報一覧を取得し、画面を更新する
         update() {
 
+            // チャンネル ID が未定義なら実行しない（フェイルセーフ）
+            if (this.$route.params.channel_id === undefined) {
+                return;
+            }
+
             // チャンネル情報 API にアクセス
             Vue.axios.get(`${this.api_base_url}/channels/${this.$route.params.channel_id}`).then((response) => {
 
                 // チャンネル情報を代入
                 this.channel = response.data;
+
+                // まだ初期化されていなければ、プレイヤーを初期化
+                if (this.player === null) {
+                    this.initPlayer();
+                }
 
                 // チャンネル情報一覧 API にアクセス
                 // チャンネル情報 API と同時にアクセスするとむしろレスポンスが遅くなるので、返ってくるのを待ってから実行
@@ -272,16 +292,96 @@ export default mixins(mixin).extend({
             // リクエスト失敗時
             }).catch((error) => {
 
+                // エラー内容を表示
+                console.error(error);
+
                 // ステータスコードが 422（チャンネルが存在しない）なら 404 ページにリダイレクト
                 // 正確には 404 ページ自体がルートとして存在するわけじゃないけど、そもそも存在しないページなら 404 になるので
-                if (error.response.status === 422 && error.response.data.detail === 'Specified channel_id was not found') {
+                if (error.response && error.response.status === 422 && error.response.data.detail === 'Specified channel_id was not found') {
                     window.location.href = '/404/';
                 }
             });
+        },
+
+        // プレイヤーを初期化する
+        initPlayer() {
+
+            // mpegts を window 空間に入れる
+            (window as any).mpegts = mpegts;
+
+            // DPlayer を初期化
+            this.player = new DPlayer({
+                container: document.querySelector('.watch-player__dplayer'),
+                volume: 1.0,
+                autoplay: true,
+                screenshot: true,
+                airplay: false,
+                live: true,
+                loop: true,
+                lang: 'ja-jp',
+                theme: '#E64F97',
+                // 読み込む m3u8 を指定する
+                video: {
+                    url: `${this.api_base_url}/streams/live/${this.channel_id}/${this.preferred_quality}/mpegts`,
+                    type: 'mpegts',
+                },
+                // コメント設定
+                // danmaku: {
+                //     id: 'Konomi',
+                //     user: 'Konomi',
+                //     api: '',
+                //     bottom: '10%',
+                //     height: 35,
+                //     unlimited: false,
+                // },
+                pluginOptions: {
+                    // mpegts.js
+                    mpegts: {
+                        mediaDataSource: {
+                            type: 'mpegts',
+                            isLive: true,
+                            url: `${this.api_base_url}/streams/live/${this.channel_id}/${this.preferred_quality}/mpegts`,
+                        },
+                        config: {
+                            enableWorker: true,
+                            liveBufferLatencyChasing: true,
+                            liveBufferLatencyMaxLatency: 2.0,
+                            liveBufferLatencyMinRemain: 0.5,
+                        }
+                    },
+                    // aribb24.js
+                    aribb24: {
+                        normalFont: '"Windows TV MaruGothic","Hiragino Maru Gothic Pro","Yu Gothic Medium",sans-serif',
+                        gaijiFont: '"Windows TV MaruGothic","Hiragino Maru Gothic Pro","Yu Gothic Medium",sans-serif',
+                        forceStrokeColor: 'black',  // 縁取りする色
+                        drcsReplacement: true,  // DRCS 文字を対応する Unicode 文字に置換
+                        enableRawCanvas: true,  // 高解像度の字幕 Canvas を取得できるように
+                        useStrokeText: true,  // 縁取りに strokeText API を利用
+                    }
+                },
+                subtitle: {
+                    type: 'aribb24',
+                }
+            });
+
+            // デバッグ用にプレイヤーインスタンスも window 名前空間に入れる
+            (window as any).player = this.player;
         }
     }
 });
 </script>
+
+<style lang="scss">
+// DPlayer のスタイル上書き
+.dplayer-controller {
+    padding-left: calc(68px + 13px);
+    padding-bottom: 4px;
+
+    .dplayer-icons {
+        bottom: auto;
+    }
+}
+</style>
 
 <style lang="scss" scoped>
 .route-container {
@@ -401,7 +501,10 @@ export default mixins(mixin).extend({
             height: 100vh;
             background-size: contain;
             background-position: center;
-            background-image: url(https://blog.tsukumijima.net/wp-content/uploads/2019/09/IMG_5687_1-e1593344299158.jpg);  // 仮
+
+            .watch-player__dplayer {
+                width: 100%;
+            }
 
             .watch-player__button {
                 display: flex;

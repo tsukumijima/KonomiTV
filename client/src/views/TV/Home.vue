@@ -106,8 +106,8 @@ export default mixins(mixin).extend({
 
         }, residue_second * 1000));
     },
-    // 終了時に実行
-    destroyed() {
+    // 終了前に実行
+    beforeDestroy() {
 
         // clearInterval() ですべての setInterval(), setTimeout() の実行を止める
         // clearInterval() と clearTimeout() は中身共通なので問題ない
