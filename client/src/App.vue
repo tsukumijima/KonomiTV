@@ -8,6 +8,9 @@
 
 <style lang="scss">
 // 全体のスタイル
+html {
+    overflow-y: auto !important;
+}
 body .v-application {
     min-height: 100vh;
     font-family: "Open Sans", "Noto Sans JP", sans-serif;
@@ -19,6 +22,11 @@ body .v-main__wrap {
     display: flex;
     min-height: 100vh;
     padding-top: 65px !important;
+}
+
+// 選択時の色
+*::selection {
+	background-color: #E64F9780;
 }
 
 // 記号の装飾
@@ -42,8 +50,8 @@ html {
     scrollbar-width: thin;
 }
 ::-webkit-scrollbar {
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
 }
 ::-webkit-scrollbar-track {
     background: var(--v-background-base);
