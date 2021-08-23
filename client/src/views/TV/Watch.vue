@@ -72,8 +72,8 @@
                         <div class="program-info__next-title">
                             <span class="program-info__next-title-decorate">NEXT</span>
                             <Icon class="program-info__next-title-icon" icon="fluent:fast-forward-20-filled" width="16px" />
-                            <span class="program-info__next-title-text" v-html="decorateProgramInfo(channel.program_following, 'title')"></span>
                         </div>
+                        <span class="program-info__next-title-text" v-html="decorateProgramInfo(channel.program_following, 'title')"></span>
                         <div class="program-info__next-time">{{getProgramTime(channel.program_following)}}</div>
                         <div class="program-info__status">
                             <Icon icon="fa-solid:eye" height="14px" />
@@ -85,7 +85,7 @@
                         </div>
                     </section>
                     <section class="program-detail-container">
-                        <div class="program-detail" v-for="(detail_text, detail_heading) in getAttribute(channel.program_present, 'detail', {})" :key="detail_text">
+                        <div class="program-detail" v-for="(detail_text, detail_heading) in getAttribute(channel.program_present, 'detail', {})" :key="detail_heading">
                             <h2 class="program-detail__heading">{{detail_heading}}</h2>
                             <div class="program-detail__text">{{detail_text}}</div>
                         </div>
@@ -235,7 +235,7 @@ export default mixins(mixin).extend({
         // clearInterval() ですべての setInterval(), setTimeout() の実行を止める
         // clearInterval() と clearTimeout() は中身共通なので問題ない
         for (const interval_id in this.interval_ids) {
-            clearInterval(interval_id);
+            clearInterval(parseInt(interval_id));  // 型推論がうまく効かないのでこうなる…つらい
         }
     },
     methods: {
@@ -329,7 +329,7 @@ export default mixins(mixin).extend({
 .watch-container {
     display: flex;
     width: calc(100% + 352px);  // パネルの幅分はみ出す
-    transition: width 0.4s;
+    transition: width 0.4s cubic-bezier(0.26, 0.68, 0.55, 0.99);
 
     // パネル表示時
     &--panel-display {
@@ -434,7 +434,7 @@ export default mixins(mixin).extend({
                     }
                     &-panel > .switch-button-icon {
                         top: 1.5px;
-                        transition: color 0.4s;
+                        transition: color 0.4s cubic-bezier(0.26, 0.68, 0.55, 0.99);
                     }
                     &-down > .switch-button-icon {
                         bottom: 4px;
@@ -556,24 +556,27 @@ export default mixins(mixin).extend({
                     &-icon {
                         flex-shrink: 0;
                         margin-left: 3px;
+                        font-size: 15px;
                     }
                     &-text {
                         display: -webkit-box;
-                        margin-left: 3px;
+                        margin-top: 2px;
+                        color: var(--v-text-darken1);
+                        font-size: 14px;
                         overflow: hidden;
                         -webkit-line-clamp: 2;  // 2行までに制限
                         -webkit-box-orient: vertical;
                     }
                 }
                 .program-info__next-time {
-                    margin-top: 3px;
+                    margin-top: 4px;
                     color: var(--v-text-darken1);
-                    font-size: 14px;
+                    font-size: 12px;
                 }
                 .program-info__status {
                     display: flex;
                     align-items: center;
-                    margin-top: 12px;
+                    margin-top: 16px;
                     font-size: 15px;
                     color: var(--v-text-darken1);
                 }
