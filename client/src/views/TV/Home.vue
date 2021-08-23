@@ -383,7 +383,7 @@ export default Vue.extend({
                     &-progress {
                         height: 4px;
                         background: var(--v-primary-base);
-                        transition: 0.3s ease;
+                        transition: width 0.3s;
                     }
                 }
             }

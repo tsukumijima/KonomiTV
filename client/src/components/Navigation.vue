@@ -69,6 +69,7 @@ export default Vue.extend({
         .navigation__link {
             display: flex;
             align-items: center;
+            flex-shrink: 0;
             height: 52px;
             padding-left: 16px;
             padding-right: 16px;
