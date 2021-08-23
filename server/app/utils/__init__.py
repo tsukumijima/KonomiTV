@@ -5,6 +5,7 @@ from .TSInformation import TSInformation
 import asyncio
 import functools
 import jaconv
+import time
 import typing
 
 
@@ -41,7 +42,15 @@ def RunAwait(coro:typing.Coroutine) -> typing.Any:
         return await coro
 
     # asyncio.run() で非同期関数を実行し、戻り値を返す
-    return asyncio.run(run(coro))
+    try:
+        result = asyncio.run(run(coro))
+    except RuntimeError:
+        # なぜかタイミングにより got Future <Future pending> attached to a different loop ってエラーが出ることがある
+        # 少し間を開けてもう一度試す
+        time.sleep(0.1)
+        result = asyncio.run(run(coro))
+
+    return result
 
 
 async def RunAsync(sync_function:typing.Callable, *args:typing.Any, **kwargs:typing.Any) -> typing.Coroutine:
