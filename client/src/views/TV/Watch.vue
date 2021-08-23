@@ -345,7 +345,7 @@ export default mixins(mixin).extend({
                         config: {
                             enableWorker: true,
                             liveBufferLatencyChasing: true,
-                            liveBufferLatencyMaxLatency: 2.0,
+                            liveBufferLatencyMaxLatency: 3.0,
                             liveBufferLatencyMinRemain: 0.5,
                         }
                     },
@@ -374,11 +374,16 @@ export default mixins(mixin).extend({
 <style lang="scss">
 // DPlayer のスタイル上書き
 .dplayer-controller {
-    padding-left: calc(68px + 13px);
-    padding-bottom: 4px;
+    padding-left: calc(68px + 14px);
+    padding-bottom: 6px;
 
     .dplayer-icons {
         bottom: auto;
+    }
+
+    .dplayer-controller-mask {
+        height: 82px;
+        background: linear-gradient(to bottom, transparent, var(--v-background-base));
     }
 }
 </style>
