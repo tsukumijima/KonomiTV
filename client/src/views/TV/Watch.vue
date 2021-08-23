@@ -30,7 +30,7 @@
         <main class="watch-container" :class="{'watch-container--panel-display': is_panel_display}">
             <div class="watch-content">
                 <header class="watch-header">
-                    <img class="watch-header__broadcaster" :src="`http://192.168.1.36:7000/api/channels/${($route.params.channel_id)}/logo`">
+                    <img class="watch-header__broadcaster" :src="`${api_base_url}/channels/${($route.params.channel_id)}/logo`">
                     <span class="watch-header__program-title" v-html="decorateProgramInfo(channel.program_present, 'title')"></span>
                     <span class="watch-header__program-time">{{getProgramTime(channel.program_present, true)}}</span>
                     <v-spacer></v-spacer>
@@ -59,7 +59,7 @@
                     </div>
                     <v-spacer></v-spacer>
                     <div class="panel-broadcaster">
-                        <img class="panel-broadcaster__icon" :src="`http://192.168.1.36:7000/api/channels/${($route.params.channel_id)}/logo`">
+                        <img class="panel-broadcaster__icon" :src="`${api_base_url}/channels/${($route.params.channel_id)}/logo`">
                         <div class="panel-broadcaster__number">{{channel.channel_number}}</div>
                         <div class="panel-broadcaster__name">{{channel.channel_name}}</div>
                     </div>
@@ -244,14 +244,14 @@ export default mixins(mixin).extend({
         update() {
 
             // チャンネル情報 API にアクセス
-            Vue.axios.get(`http://192.168.1.36:7000/api/channels/${this.$route.params.channel_id}`).then((response) => {
+            Vue.axios.get(`${this.api_base_url}/channels/${this.$route.params.channel_id}`).then((response) => {
 
                 // チャンネル情報を代入
                 this.channel = response.data;
 
                 // チャンネル情報一覧 API にアクセス
                 // チャンネル情報 API と同時にアクセスするとむしろレスポンスが遅くなるので、返ってくるのを待ってから実行
-                Vue.axios.get('http://192.168.1.36:7000/api/channels').then((response) => {
+                Vue.axios.get(`${this.api_base_url}/channels`).then((response) => {
 
                     // is_display が true のチャンネルのみに絞り込むフィルタ関数
                     // 放送していないサブチャンネルを表示から除外する
@@ -274,7 +274,7 @@ export default mixins(mixin).extend({
 
                 // ステータスコードが 422（チャンネルが存在しない）なら 404 ページにリダイレクト
                 // 正確には 404 ページ自体がルートとして存在するわけじゃないけど、そもそも存在しないページなら 404 になるので
-                if (error.response.status === 422) {
+                if (error.response.status === 422 && error.response.data.detail === 'Specified channel_id was not found') {
                     window.location.href = '/404/';
                 }
             });
@@ -547,7 +547,7 @@ export default mixins(mixin).extend({
                 .program-info__next-title {
                     display: flex;
                     align-items: center;
-                    margin-top: 12px;
+                    margin-top: 16px;
                     color: var(--v-text-darken1);
                     font-size: 14px;
                     &-decorate {

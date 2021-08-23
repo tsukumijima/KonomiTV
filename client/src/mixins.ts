@@ -6,6 +6,19 @@ import 'dayjs/locale/ja';
 
 // 共通で使う computed や method を定義
 export default Vue.extend({
+    data() {
+
+        // バックエンドの API のベース URL
+        let api_base_url = `${window.location.protocol}//${window.location.host}/api`;
+        if (process.env.NODE_ENV === 'development') {
+            // デバッグ時はポートを 7000 に強制する
+            api_base_url = `${window.location.protocol}//${window.location.hostname}:7000/api`;
+        }
+
+        return {
+            api_base_url: api_base_url,
+        }
+    },
     computed: {
 
         // 連想配列からプロパティを取得し、もしプロパティが存在しなければ代替値を返す

@@ -11,7 +11,7 @@
                     <v-tab-item class="channels" v-for="(channels, channels_type) in channels_list" :key="channels_type">
                         <router-link v-ripple class="channel" v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.channel_id}`">
                             <div class="channel__broadcaster">
-                                <img class="channel__broadcaster-icon" :src="`http://192.168.1.36:7000/api/channels/${channel.channel_id}/logo`">
+                                <img class="channel__broadcaster-icon" :src="`${api_base_url}/channels/${channel.channel_id}/logo`">
                                 <div class="channel__broadcaster-content">
                                     <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.channel_name}}</span>
                                     <div class="channel__broadcaster-status">
@@ -120,7 +120,7 @@ export default mixins(mixin).extend({
         update() {
 
             // チャンネル情報一覧 API にアクセス
-            Vue.axios.get('http://192.168.1.36:7000/api/channels').then((response) => {
+            Vue.axios.get(`${this.api_base_url}/channels`).then((response) => {
 
                 // is_display が true のチャンネルのみに絞り込むフィルタ関数
                 // 放送していないサブチャンネルを表示から除外する
