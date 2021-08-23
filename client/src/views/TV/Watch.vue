@@ -63,7 +63,38 @@
                         <div class="panel-broadcaster__name">NHK総合1・東京</div>
                     </div>
                 </div>
-                <div class="watch-panel__content"></div>
+                <div class="watch-panel__content">
+                    <section class="program-info">
+                        <h1 class="program-info__title">スーパーカブ 第1話「ないないの女の子」</h1>
+                        <div class="program-info__time">2021/04/08 (木) 01:35 ～ 02:05 (30分)</div>
+                        <div class="program-info__description">朝目を覚ましそそくさと朝食を済ませ、お弁当を用意し家を出る。親はいない、お金もない、趣味もない、友達と呼べる人も将来の目標もない、「ないないづくし」の…。</div>
+                        <div class="program-info__next-title">
+                            <span class="program-info__next-title-decorate">NEXT</span>
+                            <Icon class="program-info__next-title-icon" icon="fluent:fast-forward-20-filled" width="16px" />
+                            <span class="program-info__next-title-text">MIRAI系アイドルTV</span>
+                        </div>
+                        <div class="program-info__next-time">2021/04/08 (木) 01:35 ～ 02:05 (30分)</div>
+                        <div class="program-info__status">
+                            <Icon icon="fa-solid:eye" height="14px" />
+                            <span class="ml-2">0</span>
+                            <Icon class="ml-5" icon="fa-solid:fire-alt" height="14px" />
+                            <span class="ml-2">0</span>
+                            <Icon class="ml-5" icon="bi:chat-left-text-fill" height="14px" />
+                            <span class="ml-2">0</span>
+                        </div>
+                    </section>
+                    <section class="program-detail">
+                        <h2 class="program-detail__heading">番組内容</h2>
+                        <div class="program-detail__text">
+                            【STORY】<br>
+                            私にはなにもない。と思っていた。<br>
+                            山梨県北杜市の高校に通う女の子、小熊。<br>
+                            両親も友達も趣味も無い、<br>
+                            何も無い日々を過ごす彼女だが、<br>
+                            ふと見かけた中古のスーパーカブを買ったことで、ちょっとずつ短調な毎日が変わり始める。<br>
+                        </div>
+                    </section>
+                </div>
                 <div class="watch-panel__navigation">
                     <div v-ripple class="panel-navigation-button panel-navigation-button--active">
                         <Icon class="panel-navigation-button__icon" icon="fa-solid:info-circle" width="33px" />
@@ -144,12 +175,12 @@ export default Vue.extend({
             background: #433532A0;
         }
 
-        + .watch-navigation__link {
-            margin-top: 4px;
-        }
         &--active {
             color: var(--v-primary-base);
             background: #433532A0;
+        }
+        + .watch-navigation__link {
+            margin-top: 4px;
         }
     }
 }
@@ -202,6 +233,8 @@ export default Vue.extend({
                 margin-left: 18px;
                 font-size: 18px;
                 font-weight: bold;
+                font-feature-settings: "palt" 1;  // 文字詰め
+                letter-spacing: 0.05em;  // 字間を少し空ける
                 overflow: hidden;
                 white-space: nowrap;
                 text-overflow: ellipsis;
@@ -284,7 +317,7 @@ export default Vue.extend({
             align-items: center;
             flex-shrink: 0;
             width: 100%;
-            height: 57px;
+            height: 70px;
             padding-left: 16px;
             padding-right: 16px;
 
@@ -343,6 +376,78 @@ export default Vue.extend({
             padding-left: 16px;
             padding-right: calc(16px - 10px);  // スクロールバーの幅を引く
             overflow-y: scroll;
+
+            .program-info {
+                .program-info__title {
+                    font-size: 22px;
+                    font-weight: bold;
+                    line-height: 140%;
+                    font-feature-settings: "palt" 1;  // 文字詰め
+                    letter-spacing: 0.05em;  // 字間を少し空ける
+                }
+                .program-info__time {
+                    margin-top: 8px;
+                    color: var(--v-text-darken1);
+                    font-size: 14px;
+                }
+                .program-info__description {
+                    margin-top: 12px;
+                    color: var(--v-text-darken1);
+                    font-size: 12px;
+                    line-height: 165%;
+                    font-feature-settings: "palt" 1;  // 文字詰め
+                    letter-spacing: 0.07em;  // 字間を少し空ける
+                }
+                .program-info__next-title {
+                    display: flex;
+                    align-items: center;
+                    margin-top: 12px;
+                    color: var(--v-text-darken1);
+                    font-size: 14px;
+                    &-decorate {
+                        flex-shrink: 0;
+                    }
+                    &-icon {
+                        flex-shrink: 0;
+                        margin-left: 3px;
+                    }
+                    &-text {
+                        display: -webkit-box;
+                        margin-left: 3px;
+                        overflow: hidden;
+                        -webkit-line-clamp: 2;  // 2行までに制限
+                        -webkit-box-orient: vertical;
+                    }
+                }
+                .program-info__next-time {
+                    margin-top: 2px;
+                    color: var(--v-text-darken1);
+                    font-size: 14px;
+                }
+                .program-info__status {
+                    display: flex;
+                    align-items: center;
+                    margin-top: 12px;
+                    font-size: 15px;
+                    color: var(--v-text-darken1);
+                }
+            }
+
+            .program-detail {
+                margin-top: 24px;
+
+                .program-detail__heading {
+                    font-size: 18px;
+                }
+                .program-detail__text {
+                    margin-top: 8px;
+                    color: var(--v-text-darken1);
+                    font-size: 12px;
+                    line-height: 165%;
+                    font-feature-settings: "palt" 1;  // 文字詰め
+                    letter-spacing: 0.07em;  // 字間を少し空ける
+                }
+            }
         }
 
         .watch-panel__navigation {
