@@ -5,10 +5,10 @@
             <Navigation/>
             <div class="channels-container" :class="{'channels-container--loading': loading}">
                 <v-tabs centered class="channels-tab" v-model="tab">
-                    <v-tab class="channels-tab__item" v-for="(channels, channels_type) in channels_list" :key="channels">{{channels_type}}</v-tab>
+                    <v-tab class="channels-tab__item" v-for="(channels, channels_type) in channels_list" :key="channels_type">{{channels_type}}</v-tab>
                 </v-tabs>
                 <v-tabs-items class="channels-list" v-model="tab">
-                    <v-tab-item class="channels" v-for="channels in channels_list" :key="channels">
+                    <v-tab-item class="channels" v-for="(channels, channels_type) in channels_list" :key="channels_type">
                         <router-link v-ripple class="channel" v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.channel_id}`">
                             <div class="channel__broadcaster">
                                 <img class="channel__broadcaster-icon" :src="`http://192.168.1.36:7000/api/channels/${channel.channel_id}/logo`">
