@@ -27,21 +27,22 @@
                 <Icon class="watch-navigation__link-icon" icon="fluent:info-16-regular" width="26px" />
             </router-link>
         </nav>
-        <main class="watch-container watch-container--panel-display">
+        <main class="watch-container" :class="{'watch-container--panel-display': is_panel_display}">
             <div class="watch-content">
                 <header class="watch-header">
-                    <img class="watch-header__broadcaster" src="http://192.168.1.36:7000/api/channels/gr011/logo">
-                    <span class="watch-header__program-title">ニュースウオッチ9▽自宅療養者激増保健所は医療機関は…▽脱プラ企業は家庭は</span>
-                    <span class="watch-header__program-time">21:00 ～ 22:00</span>
+                    <img class="watch-header__broadcaster" :src="`http://192.168.1.36:7000/api/channels/${($route.params.channel_id)}/logo`">
+                    <span class="watch-header__program-title" v-html="decorateProgramInfo(channel.program_present, 'title')"></span>
+                    <span class="watch-header__program-time">{{getProgramTime(channel.program_present, true)}}</span>
                     <v-spacer></v-spacer>
-                    <span class="watch-header__now">2021/08/23 21:56:01</span>
+                    <span class="watch-header__now">{{time}}</span>
                 </header>
                 <div class="watch-player">
                     <div class="watch-player__button">
                         <div v-ripple class="switch-button switch-button-up">
                             <Icon class="switch-button-icon" icon="fluent:ios-arrow-left-24-filled" width="31px" rotate="1" />
                         </div>
-                        <div v-ripple class="switch-button switch-button-panel switch-button-panel--open">
+                        <div v-ripple class="switch-button switch-button-panel switch-button-panel--open"
+                            @click="is_panel_display = !is_panel_display">
                             <Icon class="switch-button-icon" icon="fluent:navigation-16-filled" width="31px" />
                         </div>
                         <div v-ripple class="switch-button switch-button-down">
@@ -52,46 +53,41 @@
             </div>
             <div class="watch-panel">
                 <div class="watch-panel__header">
-                    <div class="panel-close-button">
+                    <div v-ripple class="panel-close-button" @click="is_panel_display = false">
                         <Icon class="panel-close-button__icon" icon="akar-icons:chevron-right" width="25px" />
                         <span class="panel-close-button__text">閉じる</span>
                     </div>
                     <v-spacer></v-spacer>
                     <div class="panel-broadcaster">
-                        <img class="panel-broadcaster__icon" src="http://192.168.1.36:7000/api/channels/gr011/logo">
-                        <div class="panel-broadcaster__number">011</div>
-                        <div class="panel-broadcaster__name">NHK総合1・東京</div>
+                        <img class="panel-broadcaster__icon" :src="`http://192.168.1.36:7000/api/channels/${($route.params.channel_id)}/logo`">
+                        <div class="panel-broadcaster__number">{{channel.channel_number}}</div>
+                        <div class="panel-broadcaster__name">{{channel.channel_name}}</div>
                     </div>
                 </div>
                 <div class="watch-panel__content">
                     <section class="program-info">
-                        <h1 class="program-info__title">スーパーカブ 第1話「ないないの女の子」</h1>
-                        <div class="program-info__time">2021/04/08 (木) 01:35 ～ 02:05 (30分)</div>
-                        <div class="program-info__description">朝目を覚ましそそくさと朝食を済ませ、お弁当を用意し家を出る。親はいない、お金もない、趣味もない、友達と呼べる人も将来の目標もない、「ないないづくし」の…。</div>
+                        <h1 class="program-info__title" v-html="decorateProgramInfo(channel.program_present, 'title')"></h1>
+                        <div class="program-info__time">{{getProgramTime(channel.program_present)}}</div>
+                        <div class="program-info__description" v-html="decorateProgramInfo(channel.program_present, 'description')"></div>
                         <div class="program-info__next-title">
                             <span class="program-info__next-title-decorate">NEXT</span>
                             <Icon class="program-info__next-title-icon" icon="fluent:fast-forward-20-filled" width="16px" />
-                            <span class="program-info__next-title-text">MIRAI系アイドルTV</span>
+                            <span class="program-info__next-title-text" v-html="decorateProgramInfo(channel.program_following, 'title')"></span>
                         </div>
-                        <div class="program-info__next-time">2021/04/08 (木) 01:35 ～ 02:05 (30分)</div>
+                        <div class="program-info__next-time">{{getProgramTime(channel.program_following)}}</div>
                         <div class="program-info__status">
                             <Icon icon="fa-solid:eye" height="14px" />
-                            <span class="ml-2">0</span>
+                            <span class="ml-2">{{channel.watching}}</span>
                             <Icon class="ml-5" icon="fa-solid:fire-alt" height="14px" />
-                            <span class="ml-2">0</span>
+                            <span class="ml-2">{{getAttribute(channel, 'channel_force', '-')}}</span>
                             <Icon class="ml-5" icon="bi:chat-left-text-fill" height="14px" />
-                            <span class="ml-2">0</span>
+                            <span class="ml-2">{{getAttribute(channel, 'channel_comment', '-')}}</span>
                         </div>
                     </section>
-                    <section class="program-detail">
-                        <h2 class="program-detail__heading">番組内容</h2>
-                        <div class="program-detail__text">
-                            【STORY】<br>
-                            私にはなにもない。と思っていた。<br>
-                            山梨県北杜市の高校に通う女の子、小熊。<br>
-                            両親も友達も趣味も無い、<br>
-                            何も無い日々を過ごす彼女だが、<br>
-                            ふと見かけた中古のスーパーカブを買ったことで、ちょっとずつ短調な毎日が変わり始める。<br>
+                    <section class="program-detail-container">
+                        <div class="program-detail" v-for="(detail_text, detail_heading) in getAttribute(channel.program_present, 'detail', {})" :key="detail_text">
+                            <h2 class="program-detail__heading">{{detail_heading}}</h2>
+                            <div class="program-detail__text">{{detail_text}}</div>
                         </div>
                     </section>
                 </div>
@@ -120,24 +116,169 @@
 
 <script lang="ts">
 import Vue from 'vue';
+import mixins from 'vue-typed-mixins'
+import mixin from '@/mixins';
+import dayjs from 'dayjs';
 import { Icon } from '@iconify/vue2';
 
-export default Vue.extend({
+export default mixins(mixin).extend({
     name: 'Home',
     components: {
         Icon,
     },
     data() {
         return {
+
+            // 現在時刻
+            time: dayjs().format('YYYY/MM/DD HH:mm:ss'),
+
+            // パネルが表示されているか
+            // 既定で表示する
+            is_panel_display: true,
+
+            // インターバル ID
+            // ページ遷移時に setInterval(), setTimeout() の実行を止めるのに使う
+            // setInterval(), setTimeout() の返り値を登録する
+            interval_ids: [],
+
+            // チャンネル ID
+            channel_id: this.$route.params.channel_id,
+
+            // チャンネル情報
+            // 情報取得が完了するまでの間表示される初期値を定義
+            channel: {
+                "id": "NID0-SID0",
+                "service_id": 0,
+                "network_id": 0,
+                "remocon_id": 0,
+                "channel_id": "gr000",
+                "channel_number": "---",
+                "channel_name": "取得中…",
+                "channel_type": "GR",
+                "channel_force": 0,
+                "channel_comment": 0,
+                "is_subchannel": false,
+                "is_display": true,
+                "watching": 0,
+                "program_present": {
+                    "id": "NID0-SID0-EID0",
+                    "channel_id": "gr000",
+                    "title": "取得中…",
+                    "description": "取得中…",
+                    "detail": {},
+                    "start_time": "2000-01-01T00:00:00+09:00",
+                    "end_time": "2000-01-01T00:00:00+09:00",
+                    "duration": 0,
+                    "is_free": true,
+                    "genre": [],
+                    "video_type": "",
+                    "video_codec": "",
+                    "video_resolution": "",
+                    "audio_type": "",
+                    "audio_sampling_rate": "",
+                },
+                "program_following": {
+                    "id": "NID0-SID0-EID0",
+                    "channel_id": "gr000",
+                    "title": "取得中…",
+                    "description": "取得中…",
+                    "detail": {},
+                    "start_time": "2000-01-01T00:00:00+09:00",
+                    "end_time": "2000-01-01T00:00:00+09:00",
+                    "duration": 0,
+                    "is_free": true,
+                    "genre": [],
+                    "video_type": "",
+                    "video_codec": "",
+                    "video_resolution": "",
+                    "audio_type": "",
+                    "audio_sampling_rate": "",
+                }
+            },
+
+            // チャンネル情報リスト
+            channels_list: null,
         }
     },
     // 開始時に実行
     created() {
+
+        // チャンネル情報を取得
+        this.update();
+
+        // 現在時刻を1秒おきに更新
+        this.interval_ids.push(setInterval(() => {
+            this.time = dayjs().format('YYYY/MM/DD HH:mm:ss');
+        }, 1 * 1000));
+
+        // 00秒までの残り秒数
+        // 現在 16:01:34 なら 26 (秒) になる
+        const residue_second = 60 - (Math.floor(new Date().getTime() / 1000) % 60);
+
+        // 00秒になるまで待ってから
+        // 番組は基本1分単位で組まれているため、20秒や45秒など中途半端な秒数で更新してしまうと反映が遅れてしまう
+        this.interval_ids.push(setTimeout(() => {
+
+            // チャンネル情報を更新
+            this.update();
+
+            // チャンネル情報を定期的に更新
+            this.interval_ids.push(setInterval(() => {
+                this.update();
+            }, 60 * 1000));  // 1分おき
+
+        }, residue_second * 1000));
     },
     // 終了時に実行
     destroyed() {
+
+        // clearInterval() ですべての setInterval(), setTimeout() の実行を止める
+        // clearInterval() と clearTimeout() は中身共通なので問題ない
+        for (const interval_id in this.interval_ids) {
+            clearInterval(interval_id);
+        }
     },
     methods: {
+
+        // チャンネル情報一覧を取得し、画面を更新する
+        update() {
+
+            // チャンネル情報 API にアクセス
+            Vue.axios.get(`http://192.168.1.36:7000/api/channels/${this.$route.params.channel_id}`).then((response) => {
+
+                // チャンネル情報を代入
+                this.channel = response.data;
+
+                // チャンネル情報一覧 API にアクセス
+                // チャンネル情報 API と同時にアクセスするとむしろレスポンスが遅くなるので、返ってくるのを待ってから実行
+                Vue.axios.get('http://192.168.1.36:7000/api/channels').then((response) => {
+
+                    // is_display が true のチャンネルのみに絞り込むフィルタ関数
+                    // 放送していないサブチャンネルを表示から除外する
+                    function filter(channel: any) {
+                        return channel.is_display;
+                    }
+
+                    // チャンネルリストを再構築
+                    // 1つでもチャンネルが存在するチャンネルタイプのみ表示するように
+                    // たとえば SKY (スカパー！プレミアムサービス) のタブは SKY に属すチャンネルが1つもない（=受信できない）なら表示されない
+                    this.channels_list = {};
+                    if (response.data.GR.length > 0) this.channels_list['地デジ'] = response.data.GR.filter(filter);
+                    if (response.data.BS.length > 0) this.channels_list['BS'] = response.data.BS.filter(filter);
+                    if (response.data.CS.length > 0) this.channels_list['CS'] = response.data.CS.filter(filter);
+                    if (response.data.SKY.length > 0) this.channels_list['SKY'] = response.data.SKY.filter(filter);
+                });
+
+            // リクエスト失敗時
+            }).catch((error) => {
+
+                // ステータスコードが 422（チャンネルが存在しない）なら 404 ページにリダイレクト
+                // 正確には 404 ページ自体がルートとして存在するわけじゃないけど、そもそも存在しないページなら 404 になるので
+                if (error.response.status === 422) {
+                    window.location.href = '/404/';
+                }
+            });
+        }
     }
 });
 </script>
@@ -222,7 +363,7 @@ export default Vue.extend({
                 display: inline-block;
                 flex-shrink: 0;
                 width: 64px;
-                height: 35px;
+                height: 36px;
                 border-radius: 5px;
                 background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
                 object-fit: cover;
@@ -323,9 +464,13 @@ export default Vue.extend({
 
             .panel-close-button {
                 display: flex;
+                position: relative;
                 align-items: center;
                 flex-shrink: 0;
+                left: -4px;
                 height: 35px;
+                padding: 0 4px;
+                border-radius: 5px;
                 user-select: none;
                 cursor: pointer;
 
@@ -395,6 +540,7 @@ export default Vue.extend({
                     color: var(--v-text-darken1);
                     font-size: 12px;
                     line-height: 165%;
+                    overflow-wrap: break-word;
                     font-feature-settings: "palt" 1;  // 文字詰め
                     letter-spacing: 0.07em;  // 字間を少し空ける
                 }
@@ -420,7 +566,7 @@ export default Vue.extend({
                     }
                 }
                 .program-info__next-time {
-                    margin-top: 2px;
+                    margin-top: 3px;
                     color: var(--v-text-darken1);
                     font-size: 14px;
                 }
@@ -433,19 +579,26 @@ export default Vue.extend({
                 }
             }
 
-            .program-detail {
+            .program-detail-container {
                 margin-top: 24px;
+                margin-bottom: 24px;
 
-                .program-detail__heading {
-                    font-size: 18px;
-                }
-                .program-detail__text {
-                    margin-top: 8px;
-                    color: var(--v-text-darken1);
-                    font-size: 12px;
-                    line-height: 165%;
-                    font-feature-settings: "palt" 1;  // 文字詰め
-                    letter-spacing: 0.07em;  // 字間を少し空ける
+                .program-detail {
+                    margin-top: 16px;
+
+                    .program-detail__heading {
+                        font-size: 18px;
+                    }
+                    .program-detail__text {
+                        margin-top: 8px;
+                        color: var(--v-text-darken1);
+                        font-size: 12px;
+                        line-height: 165%;
+                        overflow-wrap: break-word;
+                        white-space: pre-wrap;  // \n で改行する
+                        font-feature-settings: "palt" 1;  // 文字詰め
+                        letter-spacing: 0.07em;  // 字間を少し空ける
+                    }
                 }
             }
         }

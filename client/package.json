@@ -15,6 +15,7 @@
     "vue": "^2.6.11",
     "vue-axios": "^3.2.5",
     "vue-router": "^3.2.0",
+    "vue-typed-mixins": "^0.2.0",
     "vuetify": "^2.4.0"
   },
   "devDependencies": {
