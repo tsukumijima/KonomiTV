@@ -153,12 +153,25 @@ class Programs(models.Model):
                 ## 数字だけでは開発中の視認性が低いのでテキストに変換する
                 program.genre = list() # リストを定義
                 for genre in program_info['genres']:
+
                     # major … 大分類
                     # middle … 中分類
-                    program.genre.append({
+                    genre_dict = {
                         'major': ariblib.constants.CONTENT_TYPE[genre['lv1']][0],
                         'middle': ariblib.constants.CONTENT_TYPE[genre['lv1']][1][genre['lv2']],
-                    })
+                    }
+
+                    # BS/地上デジタル放送用番組付属情報がジャンルに含まれている場合、user_nibble から値を取得して書き換える
+                    # たとえば「中止の可能性あり」や「延長の可能性あり」といった情報が取れる
+                    if genre_dict['major'] == '拡張':
+                        if genre_dict['middle'] == 'BS/地上デジタル放送用番組付属情報':
+                            user_nibble = (genre['un1'] * 0x10) + genre['un2']
+                            genre_dict['middle'] = ariblib.constants.USER_TYPE[user_nibble]
+                        # 「拡張」はあるがBS/地上デジタル放送用番組付属情報でない場合はなんの値なのかわからないのでパス
+                        else:
+                            continue
+
+                    program.genre.append(genre_dict)
 
             if is_update is False:
                 Logging.debug(f'Add Program: {program.id}')

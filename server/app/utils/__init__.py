@@ -44,6 +44,7 @@ def RunAwait(coro:typing.Coroutine) -> typing.Any:
     # 非同期関数を実行し、戻り値を返す
     # イベントループ周りは壊れやすいようで、asyncio.run() だとまれにエラーになることがある
     # ref: https://u7fa9.org/memo/HEAD/archives/2016-01/2016-01-27.rst
+    asyncio.set_event_loop(None)
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     result = loop.run_until_complete(run(coro))
