@@ -70,11 +70,16 @@
                         <h1 class="program-info__title" v-html="decorateProgramInfo(channel.program_present, 'title')"></h1>
                         <div class="program-info__time">{{getProgramTime(channel.program_present)}}</div>
                         <div class="program-info__description" v-html="decorateProgramInfo(channel.program_present, 'description')"></div>
-                        <div class="program-info__next-title">
-                            <span class="program-info__next-title-decorate">NEXT</span>
-                            <Icon class="program-info__next-title-icon" icon="fluent:fast-forward-20-filled" width="16px" />
+                        <div class="program-info__genre-container">
+                            <div class="program-info__genre" v-for="(genre, genre_index) in getAttribute(channel.program_present, 'genre', [])" :key="genre_index">
+                                {{genre.major}} / {{genre.middle}}
+                            </div>
                         </div>
-                        <span class="program-info__next-title-text" v-html="decorateProgramInfo(channel.program_following, 'title')"></span>
+                        <div class="program-info__next">
+                            <span class="program-info__next-decorate">NEXT</span>
+                            <Icon class="program-info__next-icon" icon="fluent:fast-forward-20-filled" width="16px" />
+                        </div>
+                        <span class="program-info__next-title" v-html="decorateProgramInfo(channel.program_following, 'title')"></span>
                         <div class="program-info__next-time">{{getProgramTime(channel.program_following)}}</div>
                         <div class="program-info__status">
                             <Icon icon="fa-solid:eye" height="14px" />
@@ -732,7 +737,7 @@ export default mixins(mixin).extend({
                 .program-info__title {
                     font-size: 22px;
                     font-weight: bold;
-                    line-height: 140%;
+                    line-height: 145%;
                     font-feature-settings: "palt" 1;  // 文字詰め
                     letter-spacing: 0.05em;  // 字間を少し空ける
                 }
@@ -745,17 +750,33 @@ export default mixins(mixin).extend({
                     margin-top: 12px;
                     color: var(--v-text-darken1);
                     font-size: 12px;
-                    line-height: 165%;
+                    line-height: 168%;
                     overflow-wrap: break-word;
                     font-feature-settings: "palt" 1;  // 文字詰め
-                    letter-spacing: 0.07em;  // 字間を少し空ける
+                    letter-spacing: 0.08em;  // 字間を少し空ける
                 }
-                .program-info__next-title {
+                .program-info__genre-container {
+                    display: flex;
+                    flex-wrap: wrap;
+                    margin-top: 10px;
+
+                    .program-info__genre {
+                        display: inline-block;
+                        font-size: 10.5px;
+                        padding: 3px;
+                        margin-top: 4px;
+                        margin-right: 4px;
+                        border-radius: 4px;
+                        background: var(--v-background-lighten2);
+                    }
+                }
+                .program-info__next {
                     display: flex;
                     align-items: center;
-                    margin-top: 16px;
+                    margin-top: 18px;
                     color: var(--v-text-darken1);
                     font-size: 14px;
+                    font-weight: bold;
                     &-decorate {
                         flex-shrink: 0;
                     }
@@ -764,18 +785,18 @@ export default mixins(mixin).extend({
                         margin-left: 3px;
                         font-size: 15px;
                     }
-                    &-text {
-                        display: -webkit-box;
-                        margin-top: 2px;
-                        color: var(--v-text-darken1);
-                        font-size: 14px;
-                        overflow: hidden;
-                        -webkit-line-clamp: 2;  // 2行までに制限
-                        -webkit-box-orient: vertical;
-                    }
+                }
+                .program-info__next-title {
+                    display: -webkit-box;
+                    margin-top: 2px;
+                    color: var(--v-text-darken1);
+                    font-size: 14px;
+                    overflow: hidden;
+                    -webkit-line-clamp: 2;  // 2行までに制限
+                    -webkit-box-orient: vertical;
                 }
                 .program-info__next-time {
-                    margin-top: 4px;
+                    margin-top: 3px;
                     color: var(--v-text-darken1);
                     font-size: 12px;
                 }
@@ -802,11 +823,11 @@ export default mixins(mixin).extend({
                         margin-top: 8px;
                         color: var(--v-text-darken1);
                         font-size: 12px;
-                        line-height: 165%;
+                        line-height: 168%;
                         overflow-wrap: break-word;
                         white-space: pre-wrap;  // \n で改行する
                         font-feature-settings: "palt" 1;  // 文字詰め
-                        letter-spacing: 0.07em;  // 字間を少し空ける
+                        letter-spacing: 0.08em;  // 字間を少し空ける
                     }
                 }
             }
