@@ -168,13 +168,19 @@ async def ChannelLogoAPI(
             detail='Specified channel_id was not found',
         )
 
+    # ブラウザにキャッシュしてもらえるようにヘッダーを設定
+	# ref: https://qiita.com/yuuuking/items/4f11ccfc822f4c198ab0
+    header = {
+        'Cache-Control': 'public, max-age=2592000',  # 30日間
+    }
+
     # ***** 同梱のロゴを利用（存在する場合）*****
 
     # 放送波から取得できるロゴはどっちみち画質が悪いし、取得できていないケースもありうる
     # そのため、同梱されているロゴがあればそれを返すようにする
     # ロゴは NID32736-SID1024.png のようなファイル名の PNG ファイル (256x256) を想定
     if pathlib.Path.exists(LOGO_DIR / f'{channel.id}.png'):
-        return FileResponse(LOGO_DIR / f'{channel.id}.png')
+        return FileResponse(LOGO_DIR / f'{channel.id}.png', headers=header)
 
     # ***** Mirakurun からロゴを取得 *****
 
@@ -193,9 +199,9 @@ async def ChannelLogoAPI(
 
         # 取得したロゴデータを返す
         mirakurun_logo = mirakurun_logo_api_response.content
-        return Response(content=mirakurun_logo, media_type='image/png')
+        return Response(content=mirakurun_logo, media_type='image/png', headers=header)
 
     # ***** デフォルトのロゴ画像を利用 *****
 
     # 同梱のロゴファイルも Mirakurun のロゴもない場合のみ
-    return FileResponse(LOGO_DIR / 'default.png')
+    return FileResponse(LOGO_DIR / 'default.png', headers=header)
