@@ -343,11 +343,6 @@ export default mixins(mixin).extend({
                 pluginOptions: {
                     // mpegts.js
                     mpegts: {
-                        mediaDataSource: {
-                            type: 'mpegts',
-                            isLive: true,
-                            url: `${this.api_base_url}/streams/live/${this.channel_id}/${this.preferred_quality}/mpegts`,
-                        },
                         config: {
                             enableWorker: true,
                             liveBufferLatencyChasing: true,
@@ -393,15 +388,47 @@ export default mixins(mixin).extend({
                 // クライアント数を更新
                 this.channel.watching = event.clients_count;
 
-                // Standby: プレイヤーに表示
-                if (event.status === 'Standby') {
-                    this.player.notice(event.detail);
-                }
+                // ステータスごとに処理を振り分け
+                switch (event.status) {
 
-                // Offline: イベントソースを閉じ、プレイヤーに表示
-                if (event.status === 'Standby') {
-                    this.eventsource.close();
-                    this.player.notice(event.detail);
+                    // Status: Standby
+                    case 'Standby': {
+
+                        // ステータス詳細をプレイヤーに表示
+                        this.player.notice(event.detail);
+
+                        break;
+                    }
+
+                    // Status: Restart
+                    case 'Restart': {
+
+                        // ステータス詳細をプレイヤーに表示
+                        this.player.notice(event.detail);
+
+                        // プレイヤーを再起動する
+                        this.player.switchVideo({
+                            url: `${this.api_base_url}/streams/live/${this.channel_id}/${this.preferred_quality}/mpegts`,
+                            type: 'mpegts',
+                        });
+
+                        // 再起動しただけでは自動再生されないので、明示的に
+                        this.player.play();
+
+                        break;
+                    }
+
+                    // Status: Offline
+                    case 'Offline': {
+
+                        // ステータス詳細をプレイヤーに表示
+                        this.player.notice(event.detail);
+
+                        // イベントソースを閉じる（復帰の見込みがないため）
+                        this.eventsource.close();
+
+                        break;
+                    }
                 }
             });
 
@@ -452,6 +479,10 @@ export default mixins(mixin).extend({
     }
 }
 .dplayer-notice {
+    left: calc(68px + 30px);
+}
+.dplayer-info-panel {
+    top: 82px;
     left: calc(68px + 30px);
 }
 </style>

@@ -68,7 +68,11 @@ export default Vue.extend({
 
                 // 放送休止中
                 } else {
-                    return key == 'title' ? '放送休止': 'この時間は放送を休止しています。';
+                    if (program[key] === '') {
+                        return '';
+                    } else {
+                        return key == 'title' ? '放送休止': 'この時間は放送を休止しています。';
+                    }
                 }
             };
         },
