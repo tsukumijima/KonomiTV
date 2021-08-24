@@ -45,7 +45,7 @@ body .v-main__wrap {
 }
 
 // スクロールバー
-html {
+* {
     scrollbar-color: var(--v-gray-base) var(--v-background-base);
     scrollbar-width: thin;
 }

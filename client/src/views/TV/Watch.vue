@@ -102,7 +102,7 @@
                         <span class="panel-navigation-button__text">チャンネル</span>
                     </div>
                     <div v-ripple class="panel-navigation-button">
-                        <Icon class="panel-navigation-button__icon" icon="bi:chat-left-text-fill" width="31px" />
+                        <Icon class="panel-navigation-button__icon" icon="bi:chat-left-text-fill" width="29px" />
                         <span class="panel-navigation-button__text">コメント</span>
                     </div>
                     <div v-ripple class="panel-navigation-button">
@@ -448,12 +448,11 @@ export default mixins(mixin).extend({
                 }
             });
 
-            // クライアント数が更新されたとき
+            // クライアント数（だけ）が更新されたとき
             this.eventsource.addEventListener('clients_update', (event_raw: MessageEvent) => {
 
                 // イベントを取得
                 const event = JSON.parse(event_raw.data.replace(/'/g, '"'));
-                console.log(event);
 
                 // クライアント数を更新
                 this.channel.watching = event.clients_count;
@@ -727,7 +726,7 @@ export default mixins(mixin).extend({
             height: 100%;
             padding-left: 16px;
             padding-right: calc(16px - 10px);  // スクロールバーの幅を引く
-            overflow-y: scroll;
+            overflow-y: auto;
 
             .program-info {
                 .program-info__title {
