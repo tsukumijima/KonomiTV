@@ -161,6 +161,10 @@ class Programs(models.Model):
                         'middle': ariblib.constants.CONTENT_TYPE[genre['lv1']][1][genre['lv2']],
                     }
 
+                    # ／ を・に置換
+                    genre_dict['major'] = genre_dict['major'].replace('／', '・')
+                    genre_dict['middle'] = genre_dict['middle'].replace('／', '・')
+
                     # BS/地上デジタル放送用番組付属情報がジャンルに含まれている場合、user_nibble から値を取得して書き換える
                     # たとえば「中止の可能性あり」や「延長の可能性あり」といった情報が取れる
                     if genre_dict['major'] == '拡張':
