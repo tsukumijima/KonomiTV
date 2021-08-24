@@ -43,22 +43,12 @@ def RunAwait(coro:typing.Coroutine) -> typing.Any:
 
     # 非同期関数を実行し、戻り値を返す
     # イベントループ周りは壊れやすいようで、asyncio.run() だとまれにエラーになることがある
-    # ref: https://stackoverflow.com/questions/53724665/using-queues-results-in-asyncio-exception-got-future-future-pending-attached
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-    try:
-        asyncio.set_event_loop(loop)
-        loop.set_debug(True)
-        result = loop.run_until_complete(run(coro))
-    finally:
-        try:
-            asyncio.runners._cancel_all_tasks(loop)
-            loop.run_until_complete(loop.shutdown_asyncgens())
-        finally:
-            asyncio.set_event_loop(None)
-            loop.close()
+    # ref: https://u7fa9.org/memo/HEAD/archives/2016-01/2016-01-27.rst
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    result = loop.run_until_complete(run(coro))
+    loop.close()
+    asyncio.set_event_loop(None)
 
     return result
 
