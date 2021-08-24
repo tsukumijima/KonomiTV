@@ -111,8 +111,8 @@ export default mixins(mixin).extend({
 
         // clearInterval() ですべての setInterval(), setTimeout() の実行を止める
         // clearInterval() と clearTimeout() は中身共通なので問題ない
-        for (const interval_id in this.interval_ids) {
-            clearInterval(parseInt(interval_id));  // 型推論がうまく効かないのでこうなる…つらい
+        for (const interval_id of this.interval_ids) {
+            clearInterval(parseInt(interval_id));
         }
     },
     methods: {

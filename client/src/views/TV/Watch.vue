@@ -39,16 +39,16 @@
                 <div class="watch-player">
                     <div class="watch-player__dplayer"></div>
                     <div class="watch-player__button">
-                        <div v-ripple class="switch-button switch-button-up">
+                        <router-link v-ripple class="switch-button switch-button-up" :to="`/tv/watch/${channel_previous.channel_id}`">
                             <Icon class="switch-button-icon" icon="fluent:ios-arrow-left-24-filled" width="31px" rotate="1" />
-                        </div>
+                        </router-link>
                         <div v-ripple class="switch-button switch-button-panel switch-button-panel--open"
                             @click="is_panel_display = !is_panel_display">
                             <Icon class="switch-button-icon" icon="fluent:navigation-16-filled" width="31px" />
                         </div>
-                        <div v-ripple class="switch-button switch-button-down">
+                        <router-link v-ripple class="switch-button switch-button-down" :to="`/tv/watch/${channel_next.channel_id}`">
                             <Icon class="switch-button-icon" icon="fluent:ios-arrow-right-24-filled" width="31px" rotate="1" />
-                        </div>
+                        </router-link>
                     </div>
                 </div>
             </div>
@@ -156,53 +156,63 @@ export default mixins(mixin).extend({
             // チャンネル情報
             // 情報取得が完了するまでの間表示される初期値を定義
             channel: {
-                "id": "NID0-SID0",
-                "service_id": 0,
-                "network_id": 0,
-                "remocon_id": 0,
-                "channel_id": "gr000",
-                "channel_number": "---",
-                "channel_name": "取得中…",
-                "channel_type": "GR",
-                "channel_force": 0,
-                "channel_comment": 0,
-                "is_subchannel": false,
-                "is_display": true,
-                "watching": 0,
-                "program_present": {
-                    "id": "NID0-SID0-EID0",
-                    "channel_id": "gr000",
-                    "title": "取得中…",
-                    "description": "取得中…",
-                    "detail": {},
-                    "start_time": "2000-01-01T00:00:00+09:00",
-                    "end_time": "2000-01-01T00:00:00+09:00",
-                    "duration": 0,
-                    "is_free": true,
-                    "genre": [],
-                    "video_type": "",
-                    "video_codec": "",
-                    "video_resolution": "",
-                    "audio_type": "",
-                    "audio_sampling_rate": "",
+                'id': 'NID0-SID0',
+                'service_id': 0,
+                'network_id': 0,
+                'remocon_id': 0,
+                'channel_id': 'gr000',
+                'channel_number': '---',
+                'channel_name': '取得中…',
+                'channel_type': 'GR',
+                'channel_force': 0,
+                'channel_comment': 0,
+                'is_subchannel': false,
+                'is_display': true,
+                'watching': 0,
+                'program_present': {
+                    'id': 'NID0-SID0-EID0',
+                    'channel_id': 'gr000',
+                    'title': '取得中…',
+                    'description': '取得中…',
+                    'detail': {},
+                    'start_time': '2000-01-01T00:00:00+09:00',
+                    'end_time': '2000-01-01T00:00:00+09:00',
+                    'duration': 0,
+                    'is_free': true,
+                    'genre': [],
+                    'video_type': '',
+                    'video_codec': '',
+                    'video_resolution': '',
+                    'audio_type': '',
+                    'audio_sampling_rate': '',
                 },
-                "program_following": {
-                    "id": "NID0-SID0-EID0",
-                    "channel_id": "gr000",
-                    "title": "取得中…",
-                    "description": "取得中…",
-                    "detail": {},
-                    "start_time": "2000-01-01T00:00:00+09:00",
-                    "end_time": "2000-01-01T00:00:00+09:00",
-                    "duration": 0,
-                    "is_free": true,
-                    "genre": [],
-                    "video_type": "",
-                    "video_codec": "",
-                    "video_resolution": "",
-                    "audio_type": "",
-                    "audio_sampling_rate": "",
+                'program_following': {
+                    'id': 'NID0-SID0-EID0',
+                    'channel_id': 'gr000',
+                    'title': '取得中…',
+                    'description': '取得中…',
+                    'detail': {},
+                    'start_time': '2000-01-01T00:00:00+09:00',
+                    'end_time': '2000-01-01T00:00:00+09:00',
+                    'duration': 0,
+                    'is_free': true,
+                    'genre': [],
+                    'video_type': '',
+                    'video_codec': '',
+                    'video_resolution': '',
+                    'audio_type': '',
+                    'audio_sampling_rate': '',
                 }
+            },
+
+            // 前のチャンネルのチャンネル情報
+            channel_previous: {
+                'channel_id': 'gr000',
+            },
+
+            // 次のチャンネルのチャンネル情報
+            channel_next: {
+                'channel_id': 'gr000',
             },
 
             // チャンネル情報リスト
@@ -218,48 +228,72 @@ export default mixins(mixin).extend({
     // 開始時に実行
     created() {
 
-        // チャンネル情報を取得
-        this.update();
-
-        // 現在時刻を1秒おきに更新
-        this.interval_ids.push(setInterval(() => {
-            this.time = dayjs().format('YYYY/MM/DD HH:mm:ss');
-        }, 1 * 1000));
-
-        // 00秒までの残り秒数
-        // 現在 16:01:34 なら 26 (秒) になる
-        const residue_second = 60 - (Math.floor(new Date().getTime() / 1000) % 60);
-
-        // 00秒になるまで待ってから
-        // 番組は基本1分単位で組まれているため、20秒や45秒など中途半端な秒数で更新してしまうと反映が遅れてしまう
-        this.interval_ids.push(setTimeout(() => {
-
-            // チャンネル情報を更新
-            this.update();
-
-            // チャンネル情報を定期的に更新
-            this.interval_ids.push(setInterval(() => {
-                this.update();
-            }, 60 * 1000));  // 1分おき
-
-        }, residue_second * 1000));
+        // init() を実行
+        this.init();
     },
     // 終了前に実行
     beforeDestroy() {
 
-        // clearInterval() ですべての setInterval(), setTimeout() の実行を止める
-        // clearInterval() と clearTimeout() は中身共通なので問題ない
-        for (const interval_id in this.interval_ids) {
-            clearInterval(parseInt(interval_id));  // 型推論がうまく効かないのでこうなる…つらい
-        }
+        // destroy() を実行
+        this.destroy();
+    },
+    // チャンネル切り替え時に実行
+    // コンポーネント（インスタンス）は再利用される
+    // ref: https://router.vuejs.org/ja/guide/advanced/navigation-guards.html#%E3%83%AB%E3%83%BC%E3%83%88%E5%8D%98%E4%BD%8D%E3%82%AB%E3%82%99%E3%83%BC%E3%83%88%E3%82%99
+    beforeRouteUpdate(to, from, next) {
 
-        // プレイヤーを破棄する
-        this.player.destroy();
+        // 前のインスタンスを破棄して終了する
+        this.destroy();
 
-        // イベントソースを閉じる
-        this.eventsource.close();
+        // チャンネル ID を次のチャンネルのものに切り替える
+        this.channel_id = to.params.channel_id;
+
+        // 既に取得済みのチャンネル情報で、前・現在・次のチャンネル情報を更新する
+        [this.channel_previous, this.channel, this.channel_next]
+            = this.getPreviousAndCurrentAndNextChannel(this.channel_id, this.channels_list);
+
+        // 0.7秒だけ待ってから
+        // 連続して押した時などにライブストリームを初期化しないように猶予を設ける
+        this.interval_ids.push(setTimeout(() => {
+
+            // 現在のインスタンスを初期化する
+            this.init();
+
+        }, 700));
+
+        next();
     },
     methods: {
+
+        // 初期化する
+        init() {
+
+            // チャンネル情報を取得
+            this.update();
+
+            // 現在時刻を1秒おきに更新
+            this.interval_ids.push(setInterval(() => {
+                this.time = dayjs().format('YYYY/MM/DD HH:mm:ss');
+            }, 1 * 1000));
+
+            // 00秒までの残り秒数
+            // 現在 16:01:34 なら 26 (秒) になる
+            const residue_second = 60 - (Math.floor(new Date().getTime() / 1000) % 60);
+
+            // 00秒になるまで待ってから
+            // 番組は基本1分単位で組まれているため、20秒や45秒など中途半端な秒数で更新してしまうと反映が遅れてしまう
+            this.interval_ids.push(setTimeout(() => {
+
+                // チャンネル情報を更新
+                this.update();
+
+                // チャンネル情報を定期的に更新
+                this.interval_ids.push(setInterval(() => {
+                    this.update();
+                }, 60 * 1000));  // 1分おき
+
+            }, residue_second * 1000));
+        },
 
         // チャンネル情報一覧を取得し、画面を更新する
         update() {
@@ -270,14 +304,19 @@ export default mixins(mixin).extend({
             }
 
             // チャンネル情報 API にアクセス
-            Vue.axios.get(`${this.api_base_url}/channels/${this.$route.params.channel_id}`).then((response) => {
+            Vue.axios.get(`${this.api_base_url}/channels/${this.channel_id}`).then((response) => {
 
                 // チャンネル情報を代入
                 this.channel = response.data;
 
-                // まだ初期化されていなければ、プレイヤーを初期化
+                // まだ初期化されていなければ
                 if (this.player === null) {
+
+                    // プレイヤーを初期化
                     this.initPlayer();
+
+                    // イベントハンドラーを初期化
+                    this.initEventHandler();
                 }
 
                 // チャンネル情報一覧 API にアクセス
@@ -298,6 +337,10 @@ export default mixins(mixin).extend({
                     if (response.data.BS.length > 0) this.channels_list['BS'] = response.data.BS.filter(filter);
                     if (response.data.CS.length > 0) this.channels_list['CS'] = response.data.CS.filter(filter);
                     if (response.data.SKY.length > 0) this.channels_list['SKY'] = response.data.SKY.filter(filter);
+
+                    // 前と次のチャンネル ID を取得する
+                    [this.channel_previous, , this.channel_next]
+                        = this.getPreviousAndCurrentAndNextChannel(this.channel_id, this.channels_list);
                 });
 
             // リクエスト失敗時
@@ -312,6 +355,39 @@ export default mixins(mixin).extend({
                     window.location.href = '/404/';
                 }
             });
+        },
+
+        // チャンネル ID からチャンネルタイプを取得する
+        getChannelType(channel_id: string, is_chideji: boolean = false): string {
+            const result = channel_id.match('(?<channel_type>[a-z]+)[0-9]+').groups.channel_type.toUpperCase();
+            if (result === 'GR' && is_chideji) {
+                return '地デジ';
+            } else {
+                return result;
+            }
+        },
+
+        // 前・現在・次のチャンネル情報を取得する
+        getPreviousAndCurrentAndNextChannel(channel_id: string, channels_list: any): Array<any> {
+
+            // 前後のチャンネルを取得
+            const channels = channels_list[this.getChannelType(channel_id, true)];
+            for (let index = 0; index < channels.length; index++) {
+                const element = channels[index];
+
+                // チャンネル ID が一致したときだけ
+                if (element.channel_id === channel_id) {
+
+                    // インデックスが最初か最後の時はそれぞれ最後と最初にインデックスを一周させる
+                    let previous_index = index - 1;
+                    if (previous_index === -1) previous_index = channels.length - 1;
+                    let next_index = index + 1;
+                    if (next_index === channels.length) next_index = 0;
+
+                    // 前・現在・次のチャンネル情報を返す
+                    return [channels[previous_index], channels[index], channels[next_index]];
+                }
+            }
         },
 
         // プレイヤーを初期化する
@@ -372,9 +448,6 @@ export default mixins(mixin).extend({
 
             // デバッグ用にプレイヤーインスタンスも window 名前空間に入れる
             (window as any).player = this.player;
-
-            // イベントハンドラーを初期化
-            this.initEventHandler();
         },
 
         // イベントハンドラーを初期化する
@@ -462,6 +535,31 @@ export default mixins(mixin).extend({
                 // クライアント数を更新
                 this.channel.watching = event.clients_count;
             });
+        },
+
+        // 破棄する
+        destroy() {
+
+            // clearInterval() ですべての setInterval(), setTimeout() の実行を止める
+            // clearInterval() と clearTimeout() は中身共通なので問題ない
+            for (const interval_id of this.interval_ids) {
+                clearInterval(parseInt(interval_id));
+            }
+
+            // interval_ids をクリア
+            this.interval_ids = [];
+
+            // プレイヤーを破棄する
+            if (this.player !== null) {
+                this.player.destroy();
+                this.player = null;
+            }
+
+            // イベントソースを閉じる
+            if (this.eventsource !== null) {
+                this.eventsource.close();
+                this.eventsource = null;
+            }
         }
     }
 });
@@ -630,10 +728,16 @@ export default mixins(mixin).extend({
                     align-items: center;
                     width: 48px;
                     height: 48px;
+                    color: var(--v-text-base);
                     background: #2F221FC0;
                     border-radius: 7px;
+                    transition: background-color 0.15s;
                     user-select: none;
                     cursor: pointer;
+
+                    &:hover {
+                        background: #2F221FF0;
+                    }
 
                     .switch-button-icon {
                         position: relative;
@@ -730,7 +834,7 @@ export default mixins(mixin).extend({
         .watch-panel__content {
             height: 100%;
             padding-left: 16px;
-            padding-right: calc(16px - 10px);  // スクロールバーの幅を引く
+            padding-right: 16px;
             overflow-y: auto;
 
             .program-info {
