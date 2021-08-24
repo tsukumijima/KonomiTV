@@ -168,23 +168,22 @@ class Programs(models.Model):
             # レコードを保存する
             await program.save()
 
-        # Mirakurun の番組 ID (ex:NID32736-SID1024-EID11200) をキーに持つ辞書に変換する
-        # EID (イベントID) だけでは一意にならないため、敢えて NID と SID も追加した ID としている
+        # Mirakurun の番組 ID (ex:327360102411200) をキーに持つ辞書に変換する
         mirakurun_programs = {temp['id']:temp for temp in programs}
 
         # DB に登録されているが Mirakurun の API レスポンスに存在しない番組を洗い出し、削除する
         # Mirakurun の API レスポンスに存在しないという事は何らかの理由で削除された番組なので、残しておくと幽霊化する
         for db_program in db_programs:
 
-            # SID・NID・EID を抽出
-            service_id, network_id, event_id = re.match(r'^NID([0-9]+)-SID([0-9]+)-EID([0-9]+)$', db_program.id).groups()
+            # NID・SID・EID を抽出
+            network_id, service_id, event_id = re.match(r'^NID([0-9]+)-SID([0-9]+)-EID([0-9]+)$', db_program.id).groups()
 
             # Mirakurun 形式の番組 ID を算出
             mirakurun_program_id = int(str(network_id).zfill(5) + str(service_id).zfill(5) + str(event_id).zfill(5))
 
-            # Mirakurun 側に存在しないなら番組を削除する
+            # Mirakurun の API レスポンスに存在しないなら番組を削除する
             if mirakurun_program_id not in mirakurun_programs:
                 Logging.debug(f'Delete Program (ghost): {db_program.id}')
-                db_program.delete()
+                await db_program.delete()
 
         Logging.info(f'Program update complete. ({round(time.time() - timestamp, 3)} sec)')
