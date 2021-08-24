@@ -38,19 +38,20 @@ def RunAwait(coro:typing.Coroutine) -> typing.Any:
     """
 
     # await で実行完了を待つ
+    # これを挟む事で、直接的にはコルーチンでない非同期関数もコルーチンにできる
     async def run(coro:typing.Coroutine):
         return await coro
 
-    # 非同期関数を実行し、戻り値を返す
-    # イベントループ周りは壊れやすいようで、asyncio.run() だとまれにエラーになることがある
-    # ref: https://u7fa9.org/memo/HEAD/archives/2016-01/2016-01-27.rst
-    asyncio.set_event_loop(None)
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    result = loop.run_until_complete(run(coro))
-    loop.close()
-    asyncio.set_event_loop(None)
+    # メインスレッドのイベントループを取ってくる
+    from app import app
+    loop = app.loop
 
+    # メインスレッドのイベントループ上でコルーチンを実行し、結果が返ってくるのを待つ
+    # メインスレッドのイベントループ上でないと変なエラーが出る事がある（スレッドセーフでないため）
+    future = asyncio.run_coroutine_threadsafe(run(coro), loop)
+    result = future.result()
+
+    # 実行結果を返す
     return result
 
 

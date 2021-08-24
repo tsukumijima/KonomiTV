@@ -1,4 +1,5 @@
 
+import asyncio
 import logging
 import os
 import tortoise.contrib.fastapi
@@ -19,6 +20,9 @@ from app.routers import ChannelsRouter
 from app.routers import LiveStreamsRouter
 from app.utils import Logging
 
+
+# このアプリケーションのイベントループ
+loop = asyncio.get_event_loop()
 
 # FastAPI を初期化
 app = FastAPI(
