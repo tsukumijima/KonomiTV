@@ -27,7 +27,7 @@
                 <Icon class="watch-navigation__link-icon" icon="fluent:info-16-regular" width="26px" />
             </router-link>
         </nav>
-        <main class="watch-container" :class="{'watch-container--panel-display': is_panel_display}">
+        <main class="watch-container" :class="{'watch-container--panel-visible': is_panel_visible}">
             <div class="watch-content">
                 <header class="watch-header">
                     <img class="watch-header__broadcaster" :src="`${api_base_url}/channels/${($route.params.channel_id)}/logo`">
@@ -43,7 +43,7 @@
                             <Icon class="switch-button-icon" icon="fluent:ios-arrow-left-24-filled" width="31px" rotate="1" />
                         </router-link>
                         <div v-ripple class="switch-button switch-button-panel switch-button-panel--open"
-                            @click="is_panel_display = !is_panel_display">
+                            @click="is_panel_visible = !is_panel_visible">
                             <Icon class="switch-button-icon" icon="fluent:navigation-16-filled" width="31px" />
                         </div>
                         <router-link v-ripple class="switch-button switch-button-down" :to="`/tv/watch/${channel_next.channel_id}`">
@@ -54,7 +54,7 @@
             </div>
             <div class="watch-panel">
                 <div class="watch-panel__header">
-                    <div v-ripple class="panel-close-button" @click="is_panel_display = false">
+                    <div v-ripple class="panel-close-button" @click="is_panel_visible = false">
                         <Icon class="panel-close-button__icon" icon="akar-icons:chevron-right" width="25px" />
                         <span class="panel-close-button__text">閉じる</span>
                     </div>
@@ -143,7 +143,7 @@ export default mixins(mixin).extend({
 
             // パネルが表示されているか
             // 既定で表示する
-            is_panel_display: true,
+            is_panel_visible: true,
 
             // インターバル ID
             // ページ遷移時に setInterval(), setTimeout() の実行を止めるのに使う
@@ -566,10 +566,17 @@ export default mixins(mixin).extend({
 </script>
 
 <style lang="scss">
-// DPlayer のスタイル上書き
+// DPlayer のスタイルの上書き
+.dplayer-bezel {
+    left: 68px;
+}
+.dplayer-controller-mask {
+    opacity: 1 !important;
+}
 .dplayer-controller {
     padding-left: calc(68px + 14px);
     padding-bottom: 6px;
+    opacity: 1 !important;
 
     .dplayer-icons {
         bottom: auto;
@@ -638,7 +645,7 @@ export default mixins(mixin).extend({
     transition: width 0.4s cubic-bezier(0.26, 0.68, 0.55, 0.99);
 
     // パネル表示時
-    &--panel-display {
+    &--panel-visible {
         width: calc(100%);  // 画面幅に収めるように
 
         // パネルアイコンをハイライト
