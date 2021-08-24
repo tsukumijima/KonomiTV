@@ -384,11 +384,36 @@ export default mixins(mixin).extend({
             this.eventsource = new EventSource(`${this.api_base_url}/streams/live/${this.channel_id}/${this.preferred_quality}/events`);
 
             // ステータスが更新されたとき
-            this.eventsource.addEventListener('status_update', (event_raw) => {
+            this.eventsource.addEventListener('status_update', (event_raw: MessageEvent) => {
 
                 // イベントを取得
                 const event = JSON.parse(event_raw.data.replace(/'/g, '"'));
                 console.log(event);
+
+                // クライアント数を更新
+                this.channel.watching = event.clients_count;
+
+                // Standby: プレイヤーに表示
+                if (event.status === 'Standby') {
+                    this.player.notice(event.detail);
+                }
+
+                // Offline: イベントソースを閉じ、プレイヤーに表示
+                if (event.status === 'Standby') {
+                    this.eventsource.close();
+                    this.player.notice(event.detail);
+                }
+            });
+
+            // ステータス詳細が更新されたとき
+            this.eventsource.addEventListener('detail_update', (event_raw: MessageEvent) => {
+
+                // イベントを取得
+                const event = JSON.parse(event_raw.data.replace(/'/g, '"'));
+                console.log(event);
+
+                // クライアント数を更新
+                this.channel.watching = event.clients_count;
 
                 // Standby のときだけプレイヤーに表示
                 if (event.status === 'Standby') {
@@ -396,17 +421,15 @@ export default mixins(mixin).extend({
                 }
             });
 
-            // ステータス詳細が更新されたとき
-            this.eventsource.addEventListener('detail_update', (event_raw) => {
+            // クライアント数が更新されたとき
+            this.eventsource.addEventListener('clients_update', (event_raw: MessageEvent) => {
 
                 // イベントを取得
                 const event = JSON.parse(event_raw.data.replace(/'/g, '"'));
                 console.log(event);
 
-                // Standby のときだけプレイヤーに表示
-                if (event.status === 'Standby') {
-                    this.player.notice(event.detail);
-                }
+                // クライアント数を更新
+                this.channel.watching = event.clients_count;
             });
         }
     }

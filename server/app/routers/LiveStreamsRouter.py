@@ -115,7 +115,7 @@ async def LiveStreamEventAPI(
 
     - ステータスの更新を示す **status_update**
     - ステータス詳細の更新を示す **detail_update**
-    - クライアント数の更新を示す **client_update**
+    - クライアント数の更新を示す **clients_update**
 
     の3種類がある。
 
@@ -181,7 +181,7 @@ async def LiveStreamEventAPI(
                 # クライアント数が以前と異なる
                 elif previous_status['clients_count'] != status['clients_count']:
                     yield {
-                        'event': 'client_update',  # client_update イベントを設定
+                        'event': 'clients_update',  # clients_update イベントを設定
                         'data': status,
                     }
 
