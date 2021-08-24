@@ -48,7 +48,7 @@ export default Vue.extend({
             return (program: any, key: string): string => {
 
                 // program が空でないかつ、program[key] が存在する
-                if (program !== null && program[key]) {
+                if (program !== null && key in program) {
 
                     // 本来 ARIB 外字である記号の一覧
                     // ref: https://ja.wikipedia.org/wiki/%E7%95%AA%E7%B5%84%E8%A1%A8
@@ -68,11 +68,7 @@ export default Vue.extend({
 
                 // 放送休止中
                 } else {
-                    if (program[key] === '') {
-                        return '';
-                    } else {
-                        return key == 'title' ? '放送休止': 'この時間は放送を休止しています。';
-                    }
+                    return key == 'title' ? '放送休止': 'この時間は放送を休止しています。';
                 }
             };
         },
