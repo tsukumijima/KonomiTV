@@ -365,7 +365,7 @@ class LiveEncodingTask():
                    (program_following.audio_type == '1/0+1/0モード(デュアルモノ)'):
                     # エンコーダーの音声出力をデュアルモノ対応にするため、エンコーダーを再起動する
                     is_restart_required = True
-                    livestream.setStatus('Standby', '音声をデュアルモノに切り替えています…')
+                    livestream.setStatus('Restart', '音声をデュアルモノに切り替えています…')
                     break
 
                 # 現在:デュアルモノ → 次:デュアルモノ以外
@@ -373,7 +373,7 @@ class LiveEncodingTask():
                    (program_following.audio_type != '1/0+1/0モード(デュアルモノ)'):
                     # エンコーダーの音声出力をステレオ対応にするため、エンコーダーを再起動する
                     is_restart_required = True
-                    livestream.setStatus('Standby', '音声をステレオに切り替えています…')
+                    livestream.setStatus('Restart', '音声をステレオに切り替えています…')
                     break
 
                 # 次の番組情報を現在の番組情報にコピー
@@ -397,7 +397,7 @@ class LiveEncodingTask():
                 break
 
             # 特定のエラーログが出力されている場合は回復が見込めないため、エンコーダーを終了する
-            # エンコーダーを再起動することで回復が期待できる場合は、ステータスを Standby に設定しエンコードタスクを再起動する
+            # エンコーダーを再起動することで回復が期待できる場合は、ステータスを Restart に設定しエンコードタスクを再起動する
             ## ffmpeg
             if encoder_type == 'ffmpeg':
                 if 'Stream map \'0:v:0\' matches no streams.' in line:
@@ -407,7 +407,7 @@ class LiveEncodingTask():
                 elif 'Conversion failed!' in line:
                     # 捕捉されないエラー
                     is_restart_required = True  # エンコーダーの再起動を要求
-                    livestream.setStatus('Standby', 'エンコード中に予期しないエラーが発生しました。ライブストリームを再起動します。')
+                    livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。ライブストリームを再起動します。')
                     # 直近 30 件のログを表示
                     for log in lines[-31:-1]:
                         Logging.warning(log)
@@ -437,12 +437,12 @@ class LiveEncodingTask():
                 elif 'Consider increasing the value for the --input-analyze and/or --input-probesize!' in line:
                     # --input-probesize or --input-analyze の期間内に入力ストリームの解析が終わらなかった
                     is_restart_required = True  # エンコーダーの再起動を要求
-                    livestream.setStatus('Standby', '入力ストリームの解析に失敗しました。ライブストリームを再起動します。')
+                    livestream.setStatus('Restart', '入力ストリームの解析に失敗しました。ライブストリームを再起動します。')
                     break
                 elif 'finished with error!' in line:
                     # 捕捉されないエラー
                     is_restart_required = True  # エンコーダーの再起動を要求
-                    livestream.setStatus('Standby', 'エンコード中に予期しないエラーが発生しました。ライブストリームを再起動します。')
+                    livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。ライブストリームを再起動します。')
                     # 直近 30 件のログを表示 (最後の方 40 件はデバッグログなので除外)
                     for log in lines[-70:-40]:
                         Logging.warning(log)
@@ -452,8 +452,8 @@ class LiveEncodingTask():
             if not buffer and encoder.poll() is not None:
                 # エンコーダーの再起動を要求
                 is_restart_required = True
-                # エンコーダーの再起動前提のため、あえて Offline にはせず Standby とする
-                livestream.setStatus('Standby', 'エンコーダーが強制終了されました。ライブストリームを再起動します。')
+                # エンコーダーの再起動前提のため、あえて Offline にはせず Restart とする
+                livestream.setStatus('Restart', 'エンコーダーが強制終了されました。ライブストリームを再起動します。')
                 break
 
         # ***** エンコード終了後の処理 *****
@@ -467,6 +467,7 @@ class LiveEncodingTask():
 
             # 最大再起動回数が 0 より上であれば
             if self.max_retry_count > 0:
+                time.sleep(0.1)  # 少し待つ
                 self.max_retry_count = self.max_retry_count - 1  # カウントを減らす
                 self.run(channel_id, quality)  # 新しいタスクを立ち上げる
 

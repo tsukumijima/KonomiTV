@@ -32,12 +32,13 @@ router = APIRouter(
 )
 async def LiveStreamsAPI():
     """
-    全てのライブストリームの状態を Offline・Standby・ONAir・Idling の各ステータスごとに取得する。
+    全てのライブストリームの状態を Offline・Standby・ONAir・Idling・Restart の各ステータスごとに取得する。
     """
 
     # 返却するデータ
     # 逆順なのは大半を占める Offline なストリームを最初に見ることになるのを避けるため
     result = {
+        'Restart': dict(),
         'Idling' : dict(),
         'ONAir'  : dict(),
         'Standby': dict(),

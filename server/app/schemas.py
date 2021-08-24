@@ -40,6 +40,7 @@ class Channels(BaseModel):
     SKY: List[Channel]
 
 class LiveStreams(BaseModel):
+    Restart: Dict[str, LiveStream]
     Idling: Dict[str, LiveStream]
     ONAir: Dict[str, LiveStream]
     Standby: Dict[str, LiveStream]

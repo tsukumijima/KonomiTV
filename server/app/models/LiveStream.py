@@ -241,7 +241,7 @@ class LiveStream():
         ライブストリームのステータスを設定する
 
         Args:
-            status (str): ステータス ( Offline, Standby, ONAir, Idling のいずれか)
+            status (str): ステータス ( Offline, Standby, ONAir, Idling, Restart のいずれか)
             detail (str): ステータスの詳細
         """
 
