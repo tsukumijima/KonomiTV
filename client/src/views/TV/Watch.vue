@@ -205,6 +205,9 @@ export default mixins(mixin).extend({
 
             // プレイヤー (DPlayer) のインスタンス
             player: null,
+
+            // イベントソースのインスタンス
+            eventsource: null,
         }
     },
     // 開始時に実行
@@ -247,6 +250,9 @@ export default mixins(mixin).extend({
 
         // プレイヤーを破棄する
         this.player.destroy();
+
+        // イベントソースを閉じる
+        this.eventsource.close();
     },
     methods: {
 
@@ -366,6 +372,42 @@ export default mixins(mixin).extend({
 
             // デバッグ用にプレイヤーインスタンスも window 名前空間に入れる
             (window as any).player = this.player;
+
+            // イベントハンドラーを初期化
+            this.initEventHandler();
+        },
+
+        // イベントハンドラーを初期化する
+        initEventHandler() {
+
+            // EventSource を作成
+            this.eventsource = new EventSource(`${this.api_base_url}/streams/live/${this.channel_id}/${this.preferred_quality}/events`);
+
+            // ステータスが更新されたとき
+            this.eventsource.addEventListener('status_update', (event_raw) => {
+
+                // イベントを取得
+                const event = JSON.parse(event_raw.data.replace(/'/g, '"'));
+                console.log(event);
+
+                // Standby のときだけプレイヤーに表示
+                if (event.status === 'Standby') {
+                    this.player.notice(event.detail);
+                }
+            });
+
+            // ステータス詳細が更新されたとき
+            this.eventsource.addEventListener('detail_update', (event_raw) => {
+
+                // イベントを取得
+                const event = JSON.parse(event_raw.data.replace(/'/g, '"'));
+                console.log(event);
+
+                // Standby のときだけプレイヤーに表示
+                if (event.status === 'Standby') {
+                    this.player.notice(event.detail);
+                }
+            });
         }
     }
 });
@@ -385,6 +427,9 @@ export default mixins(mixin).extend({
         height: 82px;
         background: linear-gradient(to bottom, transparent, var(--v-background-base));
     }
+}
+.dplayer-notice {
+    left: calc(68px + 30px);
 }
 </style>
 

@@ -156,12 +156,12 @@ async def LiveStreamEventAPI(
 
             # 取得したステータスが Offline であれば配信を停止する
             # 実際には JavaScript 側での対応が必要（自動で再接続してしまうため）
-            if status['status'] == 'Offline':
-                yield {
-                    'event': 'status_update',  # status_update イベントを設定
-                    'data': status,
-                }
-                break
+            # if status['status'] == 'Offline':
+            #     yield {
+            #         'event': 'status_update',  # status_update イベントを設定
+            #         'data': status,
+            #     }
+            #     break
 
             # 以前の結果と異なっている場合のみレスポンスを返す
             if previous_status != status:

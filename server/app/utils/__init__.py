@@ -47,7 +47,7 @@ def RunAwait(coro:typing.Coroutine) -> typing.Any:
     except RuntimeError:
         # なぜかタイミングにより got Future <Future pending> attached to a different loop ってエラーが出ることがある
         # 少し間を開けてもう一度試す
-        time.sleep(0.1)
+        time.sleep(0.5)
         result = asyncio.run(run(coro))
 
     return result
