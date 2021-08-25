@@ -74,7 +74,7 @@ class LiveStream():
 
         Args:
             channel_id (str): チャンネルID
-            quality (int): 映像の品質 (1080p ~ 360p)
+            quality (int): 映像の品質 (1080p ~ 240p)
         """
 
         # チャンネル ID 、映像の品質を設定

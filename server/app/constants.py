@@ -17,7 +17,7 @@ CONFIG = {
     }
 }
 
-# ライブストリームの映像/音声品質
+# 映像と音声の品質
 QUALITY = {
     '1080p': {
         'width': None,  # 縦解像度：1080p のみソースの解像度を使うため指定しない
@@ -52,6 +52,13 @@ QUALITY = {
         'height': 360,
         'video_bitrate': '1500K',
         'video_bitrate_max': '2000K',
+        'audio_bitrate': '128K',
+    },
+    '240p': {
+        'width': 426,
+        'height': 240,
+        'video_bitrate': '300K',
+        'video_bitrate_max': '400K',
         'audio_bitrate': '128K',
     },
 }

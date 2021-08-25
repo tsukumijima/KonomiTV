@@ -27,7 +27,7 @@ class LiveEncodingTask():
         FFmpeg に渡すオプションを組み立てる
 
         Args:
-            quality (str): 映像の品質 (1080p ~ 360p)
+            quality (str): 映像の品質 (1080p ~ 240p)
             is_dualmono (bool, optional): 放送がデュアルモノかどうか
 
         Returns:
@@ -96,7 +96,7 @@ class LiveEncodingTask():
 
         Args:
             encoder_type (str): エンコーダー (QSVEncC or NVEncC or VCEEncC)
-            quality (str): 映像の品質 (1080p ~ 360p)
+            quality (str): 映像の品質 (1080p ~ 240p)
             is_dualmono (bool, optional): 放送がデュアルモノかどうか
 
         Returns:
@@ -172,7 +172,7 @@ class LiveEncodingTask():
 
         Args:
             channel_id (str): チャンネルID
-            quality (str): 映像の品質 (1080p ~ 360p)
+            quality (str): 映像の品質 (1080p ~ 240p)
         """
 
         # ライブストリームのインスタンスを取得する
