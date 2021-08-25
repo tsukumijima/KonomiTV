@@ -605,15 +605,14 @@ export default mixins(mixin).extend({
     visibility: hidden;
 }
 .dplayer-controller {
-    padding-left: calc(68px + 16px);
-    padding-bottom: 6px;
+    padding-left: calc(68px + 18px) !important;
+    padding-bottom: 6px !important;
     opacity: 0 !important;
     visibility: hidden;
 
     .dplayer-icons {
-        bottom: auto;
+        bottom: auto !important;
     }
-
     .dplayer-controller-mask {
         height: 82px;
         background: linear-gradient(to bottom, transparent, var(--v-background-base));
