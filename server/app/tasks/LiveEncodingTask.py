@@ -190,6 +190,11 @@ class LiveEncodingTask():
 
         # 現在の番組情報を取得する
         program_present:Programs = RunAwait(channel.getCurrentAndNextProgram())[0]
+        ## 番組情報が取得できなければ（放送休止中など）ここで Offline にして中断する
+        if program_present is None:
+            time.sleep(0.5)  # ちょっと待つのがポイント
+            livestream.setStatus('Offline', 'この時間は放送を休止しています。')
+            return
         Logging.info(f'LiveStream:{livestream.livestream_id} Title:{program_present.title}')
 
         # Mirakurun 形式のサービス ID
