@@ -80,9 +80,10 @@ class Programs(models.Model):
                     Logging.debug(f'Delete Program: {duplicate_program.id}')
                     await duplicate_program.delete()
 
-                # TODO: タイトル・番組概要・番組開始時刻・番組終了時刻がすべて同じならスキップ
+                # TODO: タイトル・番組概要・番組詳細・番組開始時刻・番組終了時刻がすべて同じならスキップ
                 if (duplicate_program.title == ZenkakuToHankaku(program_info['name'])) and \
                    (duplicate_program.description == ZenkakuToHankaku(program_info['description'])) and \
+                   (len(duplicate_program.detail) == len(program_info.get('extended', {}))) and \
                    (duplicate_program.start_time == MillisecondToDatetime(program_info['startAt'])) and \
                    (duplicate_program.end_time == MillisecondToDatetime(program_info['startAt'] + program_info['duration'])):
 
