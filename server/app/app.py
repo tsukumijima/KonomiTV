@@ -126,7 +126,8 @@ async def Startup():
         for quality in QUALITY:
             LiveStream(channel['channel_id'], quality)
 
-# 30分に1回、番組情報を更新する
-@repeat_every(seconds=60 * 30, logger=Logging.logger)
+# 15分に1回、番組情報を定期的に更新する
+@app.on_event('startup')
+@repeat_every(seconds=15 * 60, wait_first=True, logger=Logging.logger)
 async def UpdateProgram():
     await Programs.update()
