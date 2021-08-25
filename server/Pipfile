@@ -16,6 +16,7 @@ fastapi = "*"
 fastapi-utils = "*"
 jaconv = "*"
 requests = "*"
+"ruamel.yaml" = "*"
 sse-starlette = "*"
 tortoise-orm = "*"
 uvicorn = {extras = ["standard"], version = "*"}

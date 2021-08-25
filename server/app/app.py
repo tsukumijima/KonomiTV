@@ -2,6 +2,7 @@
 import asyncio
 import logging
 import os
+import sys
 import tortoise.contrib.fastapi
 from fastapi import FastAPI
 from fastapi import Request
@@ -11,6 +12,7 @@ from fastapi.responses import FileResponse
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi_utils.tasks import repeat_every
+from pydantic import ValidationError
 
 from app.constants import CONFIG, CLIENT_DIR, DATABASE_CONFIG, QUALITY, VERSION
 from app.models import Channels
@@ -18,11 +20,23 @@ from app.models import LiveStream
 from app.models import Programs
 from app.routers import ChannelsRouter
 from app.routers import LiveStreamsRouter
+from app.schemas import Config
 from app.utils import Logging
 
 
 # このアプリケーションのイベントループ
 loop = asyncio.get_event_loop()
+
+# 環境設定のバリデーション
+try:
+    Config(**CONFIG)
+except ValidationError as error:
+    Logging.error(
+        '設定内容が不正なため、Konomi を起動できません。\n          '
+        '以下のエラーメッセージを参考に、config.yaml の記述が正しいかどうか確認してください。'
+    )
+    Logging.error(error)
+    sys.exit(1)
 
 # FastAPI を初期化
 app = FastAPI(

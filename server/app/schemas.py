@@ -1,10 +1,35 @@
 
-from pydantic import BaseModel
+from enum import Enum
+from pydantic import AnyHttpUrl, BaseModel, PositiveInt, validator
 from tortoise.contrib.pydantic import pydantic_model_creator
 from typing import Dict, List, Optional
 
 from app import models
+from app.constants import QUALITY
 
+
+# 環境設定を表す Pydantic モデル
+# バリデーションを兼ねる
+class Config(BaseModel):
+    class General(BaseModel):
+        debug: bool
+        mirakurun_url: AnyHttpUrl
+    class LiveStream(BaseModel):
+        class Encoder(Enum):
+            ffmpeg = 'ffmpeg'
+            QSVEncC = 'QSVEncC'
+            NVEncC = 'NVEncC'
+            VCEEncC = 'VCEEncC'
+        preferred_encoder: Encoder
+        preferred_quality: str
+        max_alive_time: PositiveInt
+        @validator('preferred_quality')
+        def check_quality(cls, value):
+            if value not in QUALITY:
+                raise ValueError(f'{value} という画質は定義されていません。')
+            return value
+    general: General
+    livestream: LiveStream
 
 # モデルを表す Pydantic モデル
 # 基本的には pydantic_model_creator() で Tortoise ORM モデルから変換したものを継承

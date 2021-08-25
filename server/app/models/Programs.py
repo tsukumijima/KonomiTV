@@ -38,6 +38,8 @@ class Programs(models.Model):
     async def update(cls):
         """番組情報を更新する"""
 
+        Logging.info('Program updating...')
+
         def MillisecondToDatetime(millisecond: int) -> datetime.datetime:
             """ミリ秒を datetime に変換するラッパー"""
             return datetime.datetime.fromtimestamp(

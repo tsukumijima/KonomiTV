@@ -1,21 +1,27 @@
 
+import logging
 import os
+import sys
+import ruamel.yaml
 from pathlib import Path
 
 
-# 環境設定
-# 将来的には YAML からのロードになる予定
-CONFIG = {
-    'general': {
-        'debug': True,
-        'mirakurun_url': 'http://192.168.1.28:40772',
-    },
-    'livestream': {
-        'preferred_encoder': 'QSVEncC',
-        'preferred_quality': '1080p',
-        'max_alive_time': 10,
-    }
-}
+# ベースディレクトリ
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# 設定ファイルのパス
+CONFIG_YAML = BASE_DIR.parent / 'config.yaml'
+if os.path.exists(CONFIG_YAML) is False:
+    logger = logging.getLogger('uvicorn')
+    logger.error(
+        '設定ファイルが配置されていないため、Konomi を起動できません。\n          '
+        'config.example.yaml を config.yaml にコピーし、お使いの環境に合わせて編集してください。'
+    )
+    sys.exit(1)
+
+# 環境設定を読み込む
+with open(CONFIG_YAML, encoding='utf-8') as stream:
+    CONFIG = ruamel.yaml.YAML().load(stream)
 
 # 映像と音声の品質
 QUALITY = {
@@ -63,20 +69,17 @@ QUALITY = {
     },
 }
 
-# ベースディレクトリ
-BASE_DIR = Path(__file__).resolve().parent.parent
-
 # クライアントの静的ファイルのあるディレクトリ
 CLIENT_DIR = BASE_DIR.parent / 'client/dist'
 
 # ロゴファイルのあるディレクトリ
-LOGO_DIR = BASE_DIR.parent / 'server/data/logo'
+LOGO_DIR = BASE_DIR / 'data/logo'
 
 # サードパーティーライブラリのあるディレクトリ
 LIBRARY_DIR = BASE_DIR / 'thirdparty'
 
 # サードパーティーライブラリのあるパス
-LIBRARY_EXTENSION = '.exe' if os.name == 'nt' else ''
+LIBRARY_EXTENSION = '.exe' if os.name == 'nt' else '.elf'
 LIBRARY_PATH = {
     'arib-subtitle-timedmetadater': str(LIBRARY_DIR / 'arib-subtitle-timedmetadater/arib-subtitle-timedmetadater') + LIBRARY_EXTENSION,
     'ffmpeg': str(LIBRARY_DIR / 'FFmpeg/ffmpeg') + LIBRARY_EXTENSION,
