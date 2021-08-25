@@ -1,33 +1,36 @@
 <template>
     <div class="route-container">
-        <nav class="watch-navigation">
-            <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/tv/">
-                <Icon class="watch-navigation__link-icon" icon="fluent:tv-20-regular" width="26px" />
-            </router-link>
-            <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/video/">
-                <Icon class="watch-navigation__link-icon" icon="fluent:movies-and-tv-20-regular" width="26px" />
-            </router-link>
-            <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/schedules/">
-                <Icon class="watch-navigation__link-icon" icon="fluent:calendar-ltr-20-regular" width="26px" />
-            </router-link>
-            <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/captures/">
-                <Icon class="watch-navigation__link-icon" icon="fluent:image-multiple-24-regular" width="26px" />
-            </router-link>
-            <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/watchlist/">
-                <Icon class="watch-navigation__link-icon" icon="ic:round-playlist-play" width="26px" />
-            </router-link>
-            <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/history/">
-                <Icon class="watch-navigation__link-icon" icon="fluent:history-16-regular" width="26px" />
-            </router-link>
-            <v-spacer></v-spacer>
-            <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/settings/">
-                <Icon class="watch-navigation__link-icon" icon="fluent:settings-20-regular" width="26px" />
-            </router-link>
-            <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/version/">
-                <Icon class="watch-navigation__link-icon" icon="fluent:info-16-regular" width="26px" />
-            </router-link>
-        </nav>
-        <main class="watch-container" :class="{'watch-container--panel-visible': is_panel_visible}">
+        <main class="watch-container" :class="{
+            'watch-container--control-visible': is_control_visible,
+            'watch-container--panel-visible': is_panel_visible,
+        }" v-on:mousemove="onMouseMove">
+            <nav class="watch-navigation">
+                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/tv/">
+                    <Icon class="watch-navigation__link-icon" icon="fluent:tv-20-regular" width="26px" />
+                </router-link>
+                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/video/">
+                    <Icon class="watch-navigation__link-icon" icon="fluent:movies-and-tv-20-regular" width="26px" />
+                </router-link>
+                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/schedules/">
+                    <Icon class="watch-navigation__link-icon" icon="fluent:calendar-ltr-20-regular" width="26px" />
+                </router-link>
+                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/captures/">
+                    <Icon class="watch-navigation__link-icon" icon="fluent:image-multiple-24-regular" width="26px" />
+                </router-link>
+                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/watchlist/">
+                    <Icon class="watch-navigation__link-icon" icon="ic:round-playlist-play" width="26px" />
+                </router-link>
+                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/history/">
+                    <Icon class="watch-navigation__link-icon" icon="fluent:history-16-regular" width="26px" />
+                </router-link>
+                <v-spacer></v-spacer>
+                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/settings/">
+                    <Icon class="watch-navigation__link-icon" icon="fluent:settings-20-regular" width="26px" />
+                </router-link>
+                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/version/">
+                    <Icon class="watch-navigation__link-icon" icon="fluent:info-16-regular" width="26px" />
+                </router-link>
+            </nav>
             <div class="watch-content">
                 <header class="watch-header">
                     <img class="watch-header__broadcaster" :src="`${api_base_url}/channels/${($route.params.channel_id)}/logo`">
@@ -141,7 +144,11 @@ export default mixins(mixin).extend({
             // 現在時刻
             time: dayjs().format('YYYY/MM/DD HH:mm:ss'),
 
-            // パネルが表示されているか
+            // コントロールを表示するか
+            // 既定で表示する
+            is_control_visible: true,
+
+            // パネルを表示するか
             // 既定で表示する
             is_panel_visible: true,
 
@@ -149,6 +156,10 @@ export default mixins(mixin).extend({
             // ページ遷移時に setInterval(), setTimeout() の実行を止めるのに使う
             // setInterval(), setTimeout() の返り値を登録する
             interval_ids: [],
+
+            // コントロール表示切り替え用のインターバル ID
+            // 混ぜるとダメなので独立させる
+            control_interval_id: 0,
 
             // チャンネル ID
             channel_id: this.$route.params.channel_id,
@@ -357,6 +368,23 @@ export default mixins(mixin).extend({
             });
         },
 
+        // マウスが動いた時のイベント
+        // 5秒間何も操作がなければコントロールを非表示にする
+        onMouseMove() {
+
+            // 以前セットされた setTimeout() を止める
+            clearTimeout(this.control_interval_id);
+
+            // コントロールを表示する
+            this.is_control_visible = true;
+
+            // 5秒間何も操作がなければコントロールを非表示にする
+            // 5秒間の間一度でもマウスが動けばタイマーが解除されてやり直しになる
+            this.control_interval_id = setTimeout(() => {
+                this.is_control_visible = false;
+            }, 5 * 1000);
+        },
+
         // チャンネル ID からチャンネルタイプを取得する
         getChannelType(channel_id: string, is_chideji: boolean = false): string {
             const result = channel_id.match('(?<channel_type>[a-z]+)[0-9]+').groups.channel_type.toUpperCase();
@@ -461,7 +489,7 @@ export default mixins(mixin).extend({
 
                 // イベントを取得
                 const event = JSON.parse(event_raw.data.replace(/'/g, '"'));
-                console.log(event);
+                console.log(`Status: ${event.status} Detail:${event.detail}`);
 
                 // クライアント数を更新
                 this.channel.watching = event.clients_count;
@@ -515,7 +543,7 @@ export default mixins(mixin).extend({
 
                 // イベントを取得
                 const event = JSON.parse(event_raw.data.replace(/'/g, '"'));
-                console.log(event);
+                console.log(`Status: ${event.status} Detail:${event.detail}`);
 
                 // クライアント数を更新
                 this.channel.watching = event.clients_count;
@@ -571,12 +599,14 @@ export default mixins(mixin).extend({
     left: 68px;
 }
 .dplayer-controller-mask {
-    opacity: 1 !important;
+    opacity: 0 !important;
+    visibility: hidden;
 }
 .dplayer-controller {
     padding-left: calc(68px + 14px);
     padding-bottom: 6px;
-    opacity: 1 !important;
+    opacity: 0 !important;
+    visibility: hidden;
 
     .dplayer-icons {
         bottom: auto;
@@ -594,55 +624,36 @@ export default mixins(mixin).extend({
     top: 82px;
     left: calc(68px + 30px);
 }
+.watch-container {
+    // コントロール表示時
+    &--control-visible {
+        .dplayer-controller-mask, .dplayer-controller {
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+    }
+}
 </style>
 
 <style lang="scss" scoped>
 .route-container {
     background: #000000 !important;
 }
-.watch-navigation {
-    display: flex;
-    flex-direction: column;
-    position: fixed;
-    padding: 22px 8px;
-    padding-top: 87px;
-    width: 68px;
-    top: 0px;
-    left: 0px;
-    bottom: 0px;
-    background: #2F221F80;
-    z-index: 1;
-
-    .watch-navigation__link {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 52px;
-        border-radius: 11px;
-        font-size: 16px;
-        color: var(--v-text-base);
-        transition: background-color 0.15s;
-        text-decoration: none;
-        user-select: none;
-
-        &:hover {
-            background: #433532A0;
-        }
-
-        &--active {
-            color: var(--v-primary-base);
-            background: #433532A0;
-        }
-        + .watch-navigation__link {
-            margin-top: 4px;
-        }
-    }
-}
-
 .watch-container {
     display: flex;
     width: calc(100% + 352px);  // パネルの幅分はみ出す
     transition: width 0.4s cubic-bezier(0.26, 0.68, 0.55, 0.99);
+
+    // コントロール表示時
+    &--control-visible {
+        .watch-content {
+            cursor: auto !important;
+        }
+        .watch-navigation, .watch-header, .watch-player__button {
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+    }
 
     // パネル表示時
     &--panel-visible {
@@ -654,10 +665,53 @@ export default mixins(mixin).extend({
         }
     }
 
+    .watch-navigation {
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+        padding: 22px 8px;
+        padding-top: 87px;
+        width: 68px;
+        top: 0px;
+        left: 0px;
+        bottom: 0px;
+        background: #2F221F80;
+        transition: opacity 0.3s, visibility 0.3s;
+        opacity: 0;
+        visibility: hidden;
+        z-index: 1;
+
+        .watch-navigation__link {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 52px;
+            border-radius: 11px;
+            font-size: 16px;
+            color: var(--v-text-base);
+            transition: background-color 0.15s;
+            text-decoration: none;
+            user-select: none;
+
+            &:hover {
+                background: #433532A0;
+            }
+
+            &--active {
+                color: var(--v-primary-base);
+                background: #433532A0;
+            }
+            + .watch-navigation__link {
+                margin-top: 4px;
+            }
+        }
+    }
+
     .watch-content {
         display: flex;
         position: relative;
         width: 100%;
+        cursor: none;
 
         .watch-header {
             display: flex;
@@ -670,6 +724,9 @@ export default mixins(mixin).extend({
             padding-left: calc(68px + 30px);
             padding-right: 30px;
             background: linear-gradient(to bottom, var(--v-background-base), transparent);
+            transition: opacity 0.3s, visibility 0.3s;
+            opacity: 0;
+            visibility: hidden;
             z-index: 2;
 
             .watch-header__broadcaster {
@@ -728,6 +785,9 @@ export default mixins(mixin).extend({
                 right: 20px;
                 height: 190px;
                 transform: translateY(-50%);
+                transition: opacity 0.3s, visibility 0.3s;
+                opacity: 0;
+                visibility: hidden;
 
                 .switch-button {
                     display: flex;
