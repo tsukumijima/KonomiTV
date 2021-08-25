@@ -19,9 +19,13 @@ export default Vue.extend({
         // 当面は 1080p で決め打ち
         const preferred_quality = '1080p';
 
+        // バージョン
+        const version = process.env.VUE_APP_VERSION;
+
         return {
             api_base_url: api_base_url,
             preferred_quality: preferred_quality,
+            version: version,
         }
     },
     computed: {

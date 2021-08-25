@@ -32,17 +32,18 @@
             </router-link>
             <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/version/">
                 <Icon class="navigation__link-icon" icon="fluent:info-16-regular" width="26px" />
-                <span class="navigation__link-text">version 0.1.0</span>
+                <span class="navigation__link-text">version {{version}}</span>
             </router-link>
         </nav>
     </div>
 </template>
 
 <script lang="ts">
-import Vue from 'vue';
+import mixins from 'vue-typed-mixins'
+import mixin from '@/mixins';
 import { Icon } from '@iconify/vue2';
 
-export default Vue.extend({
+export default mixins(mixin).extend({
 	components: {
 		Icon,
 	},
