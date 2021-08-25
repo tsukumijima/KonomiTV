@@ -579,7 +579,12 @@ export default mixins(mixin).extend({
 
             // プレイヤーを破棄する
             if (this.player !== null) {
-                this.player.destroy();
+                try {
+                    this.player.destroy();
+                } catch (error) {
+                    // mpegts.js がうまく初期化できない場合
+                    this.player.plugins.mpegts.destroy();
+                }
                 this.player = null;
             }
 
@@ -595,15 +600,12 @@ export default mixins(mixin).extend({
 
 <style lang="scss">
 // DPlayer のスタイルの上書き
-.dplayer-bezel {
-    left: 68px;
-}
 .dplayer-controller-mask {
     opacity: 0 !important;
     visibility: hidden;
 }
 .dplayer-controller {
-    padding-left: calc(68px + 14px);
+    padding-left: calc(68px + 16px);
     padding-bottom: 6px;
     opacity: 0 !important;
     visibility: hidden;
@@ -617,19 +619,25 @@ export default mixins(mixin).extend({
         background: linear-gradient(to bottom, transparent, var(--v-background-base));
     }
 }
-.dplayer-notice {
-    left: calc(68px + 30px);
-}
 .dplayer-info-panel {
-    top: 82px;
-    left: calc(68px + 30px);
+    transition: top 0.3s, left 0.3s;
 }
 .watch-container {
     // コントロール表示時
     &--control-visible {
+        .dplayer-bezel {
+            left: 68px;
+        }
         .dplayer-controller-mask, .dplayer-controller {
             opacity: 1 !important;
             visibility: visible !important;
+        }
+        .dplayer-notice {
+            left: calc(68px + 30px);
+        }
+        .dplayer-info-panel {
+            top: 82px;
+            left: calc(68px + 30px);
         }
     }
 }
