@@ -36,7 +36,7 @@ class LiveStream():
     # ステータス詳細
     detail:str = 'ラブストリームは Offline です。'
 
-    # 最終更新時刻のタイムスタンプ
+    # ステータスの最終更新時刻のタイムスタンプ
     updated_at:float = time.time()
 
     # ライブストリームクライアント
@@ -78,12 +78,17 @@ class LiveStream():
         """
 
         # チャンネル ID 、映像の品質を設定
-        self.channel_id = channel_id
-        self.quality = quality
+        self.channel_id:str = channel_id
+        self.quality:str = quality
 
         # ライブストリーム ID を設定
         # (チャンネルID)-(映像の品質) で一意な ID になる
-        self.livestream_id = f'{self.channel_id}-{self.quality}'
+        self.livestream_id:str = f'{self.channel_id}-{self.quality}'
+
+        # ストリームデータの最終書き込み時刻のタイムスタンプ
+        # ONAir 状態にも関わらず最終書き込み時刻が 3 秒以上更新されていない場合は、
+        # エンコーダーがフリーズしたものとみなしてエンコードタスクを再起動する
+        self.stream_data_writed_at:float = 0
 
 
     @classmethod
@@ -295,3 +300,6 @@ class LiveStream():
             # 削除されたクライアントでなく、かつクライアントの種別が mpegts であれば書き込む
             if client is not None and client.type == 'mpegts':
                 client.queue.put(stream_data)
+
+        # 最終書き込み時刻を更新
+        self.stream_data_writed_at = time.time()

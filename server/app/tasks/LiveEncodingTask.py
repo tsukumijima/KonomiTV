@@ -396,8 +396,27 @@ class LiveEncodingTask():
                 livestream.setStatus('Offline', 'ライブストリームは Offline です。')
                 break
 
+            # 現在 ONAir でかつストリームデータの最終書き込み時刻から 3 秒以上が経過しているなら、エンコーダーがフリーズしたものとみなす
+            # 何らかの理由でエンコードが途中で停止した場合、livestream.write() が実行されなくなるのを利用する
+            # ステータスを Restart に設定し、エンコードタスクを再起動する
+            if livestream_status['status'] == 'ONAir' and time.time() - livestream.stream_data_writed_at > 3:
+                is_restart_required = True  # エンコーダーの再起動を要求
+                livestream.setStatus('Restart', 'エンコードが途中で停止しました。ライブストリームを再起動します。')
+                if encoder_type == 'ffmpeg':
+                    # 直近 30 件のログを表示
+                    for log in lines[-31:-1]:
+                        Logging.warning(log)
+                    break
+                # HWEncC はログを詳細にハンドリングするためにログレベルを debug に設定しているため、ffmpeg よりもログが圧倒的に多い
+                elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
+                    # 直近 30 件のログを表示 (最後の方 40 件はデバッグログなので除外)
+                    for log in lines[-70:-40]:
+                        Logging.warning(log)
+                    break
+                break
+
             # すでに Offline 状態になっている場合、エンコーダーを終了する
-            # エンコードタスク以外から Offline 状態に移行される事もあり得るため
+            # エンコードタスク以外から Offline 状態に設定される事も考えられるため
             if livestream_status['status'] == 'Offline':
                 break
 
