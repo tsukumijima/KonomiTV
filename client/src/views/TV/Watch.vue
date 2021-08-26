@@ -3,7 +3,7 @@
         <main class="watch-container" :class="{
             'watch-container--control-visible': is_control_visible,
             'watch-container--panel-visible': is_panel_visible,
-        }" v-on:mousemove="onMouseMove">
+        }" v-on:mousemove="controlVisibleTimer" v-on:touchmove="controlVisibleTimer">
             <nav class="watch-navigation">
                 <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/tv/">
                     <Icon class="watch-navigation__link-icon" icon="fluent:tv-20-regular" width="26px" />
@@ -370,7 +370,7 @@ export default mixins(mixin).extend({
 
         // マウスが動いた時のイベント
         // 5秒間何も操作がなければコントロールを非表示にする
-        onMouseMove() {
+        controlVisibleTimer() {
 
             // 以前セットされた setTimeout() を止める
             clearTimeout(this.control_interval_id);
@@ -690,6 +690,18 @@ export default mixins(mixin).extend({
         opacity: 0;
         visibility: hidden;
         z-index: 1;
+
+        // スマホ・タブレットのブラウザでアドレスバーが完全に引っ込むまでビューポートの高さが更新されず、
+        // その間下に何も背景がない部分ができてしまうのを防ぐ
+        &:after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: -8px;
+            width: calc(100% + 8px);
+            height: 100px;
+            background: #2F221F80;
+        }
 
         .watch-navigation__link {
             display: flex;

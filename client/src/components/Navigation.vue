@@ -53,11 +53,7 @@ export default mixins(mixin).extend({
 <style lang="scss" scoped>
 .navigation-container {
     flex-shrink: 0;
-    position: sticky;
-    top: 0;
     width: 220px;  // .navigation を fixed にするため、浮いた分の幅を確保する
-    height: 100vh;
-    background: var(--v-background-lighten1);
 
     .navigation {
         display: flex;
@@ -68,7 +64,20 @@ export default mixins(mixin).extend({
         top: 65px;  // ヘッダーの高さ分
         left: 0px;
         bottom: 0px;
+        background: var(--v-background-lighten1);
         z-index: 1;
+
+        // スマホ・タブレットのブラウザでアドレスバーが完全に引っ込むまでビューポートの高さが更新されず、
+        // その間下に何も背景がない部分ができてしまうのを防ぐ
+        &:after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: -12px;
+            width: calc(100% + 12px);
+            height: 100px;
+            background: var(--v-background-lighten1);
+        }
 
         .navigation__link {
             display: flex;
