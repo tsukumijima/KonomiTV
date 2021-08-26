@@ -43,14 +43,14 @@
                     <div class="watch-player__dplayer"></div>
                     <div class="watch-player__button">
                         <router-link v-ripple class="switch-button switch-button-up" :to="`/tv/watch/${channel_previous.channel_id}`">
-                            <Icon class="switch-button-icon" icon="fluent:ios-arrow-left-24-filled" width="31px" rotate="1" />
+                            <Icon class="switch-button-icon" icon="fluent:ios-arrow-left-24-filled" width="32px" rotate="1" />
                         </router-link>
                         <div v-ripple class="switch-button switch-button-panel switch-button-panel--open"
                             @click="is_panel_visible = !is_panel_visible">
-                            <Icon class="switch-button-icon" icon="fluent:navigation-16-filled" width="31px" />
+                            <Icon class="switch-button-icon" icon="fluent:navigation-16-filled" width="32px" />
                         </div>
                         <router-link v-ripple class="switch-button switch-button-down" :to="`/tv/watch/${channel_next.channel_id}`">
-                            <Icon class="switch-button-icon" icon="fluent:ios-arrow-right-24-filled" width="31px" rotate="1" />
+                            <Icon class="switch-button-icon" icon="fluent:ios-arrow-right-24-filled" width="33px" rotate="1" />
                         </router-link>
                     </div>
                 </div>
@@ -601,6 +601,8 @@ export default mixins(mixin).extend({
 <style lang="scss">
 // DPlayer のスタイルの上書き
 .dplayer-controller-mask {
+    height: 82px !important;
+    background: linear-gradient(to bottom, transparent, var(--v-background-base)) !important;
     opacity: 0 !important;
     visibility: hidden;
 }
@@ -613,10 +615,9 @@ export default mixins(mixin).extend({
     .dplayer-icons {
         bottom: auto !important;
     }
-    .dplayer-controller-mask {
-        height: 82px;
-        background: linear-gradient(to bottom, transparent, var(--v-background-base));
-    }
+}
+.dplayer-mobile.dplayer-hide-controller .dplayer-controller {
+    transform: none !important;
 }
 .dplayer-info-panel {
     transition: top 0.3s, left 0.3s;
@@ -624,9 +625,6 @@ export default mixins(mixin).extend({
 .watch-container {
     // コントロール表示時
     &--control-visible {
-        .dplayer-bezel {
-            left: 68px;
-        }
         .dplayer-controller-mask, .dplayer-controller {
             opacity: 1 !important;
             visibility: visible !important;
@@ -638,6 +636,10 @@ export default mixins(mixin).extend({
             top: 82px;
             left: calc(68px + 30px);
         }
+        .dplayer-mobile .dplayer-mobile-icon-wrap {
+            opacity: 0.7 !important;
+            visibility: visible !important;
+        }
     }
 }
 </style>
@@ -645,6 +647,7 @@ export default mixins(mixin).extend({
 <style lang="scss" scoped>
 .route-container {
     background: #000000 !important;
+    overflow: hidden;
 }
 .watch-container {
     display: flex;
@@ -819,7 +822,6 @@ export default mixins(mixin).extend({
 
                     &-up > .switch-button-icon {
                         top: 6px;
-                        left: 1px;
                     }
                     &-panel > .switch-button-icon {
                         top: 1.5px;
@@ -827,7 +829,6 @@ export default mixins(mixin).extend({
                     }
                     &-down > .switch-button-icon {
                         bottom: 4px;
-                        left: 1px;
                     }
                 }
             }

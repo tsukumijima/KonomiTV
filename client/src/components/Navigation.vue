@@ -1,6 +1,6 @@
 <template>
-    <div class="navigation-container">
-        <nav class="navigation elevation-8">
+    <div class="navigation-container elevation-8">
+        <nav class="navigation">
             <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/tv/">
                 <Icon class="navigation__link-icon" icon="fluent:tv-20-regular" width="26px" />
                 <span class="navigation__link-text">テレビをみる</span>
@@ -52,8 +52,12 @@ export default mixins(mixin).extend({
 
 <style lang="scss" scoped>
 .navigation-container {
-    width: 220px;  // .navigation を fixed にするため、浮いた分の幅を確保する
     flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    width: 220px;  // .navigation を fixed にするため、浮いた分の幅を確保する
+    height: 100vh;
+    background: var(--v-background-lighten1);
 
     .navigation {
         display: flex;
@@ -64,7 +68,6 @@ export default mixins(mixin).extend({
         top: 65px;  // ヘッダーの高さ分
         left: 0px;
         bottom: 0px;
-        background: var(--v-background-lighten1);
         z-index: 1;
 
         .navigation__link {
