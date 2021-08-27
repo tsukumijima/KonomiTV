@@ -1,6 +1,8 @@
 
 # Konomi
 
+<img width="100%" src="https://user-images.githubusercontent.com/39271166/131187011-a4843531-3749-4f5b-a6de-a1e47ea4d470.png"><br>
+
 ## 備考・注意事項
 
 - 現在 α 版で、まだ実験的なプロダクトです。通常利用には耐えないでしょうし、サポートもできません。
