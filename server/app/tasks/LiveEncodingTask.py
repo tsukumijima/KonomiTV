@@ -60,7 +60,7 @@ class LiveEncodingTask():
             options.append('-map 0:v:0 -map [FL] -map [FR] -map 0:s? -map 0:d? -scodec copy -ignore_unknown')
 
         # フラグ
-        ## 主に ffmpeg の起動を高速化するための設定
+        ## 主に FFmpeg の起動を高速化するための設定
         options.append('-fflags nobuffer -flags low_delay -max_delay 250000 -max_interleave_delta 1 -threads auto')
 
         # 映像
@@ -209,7 +209,7 @@ class LiveEncodingTask():
         ## プロセスを非同期で作成・実行
         ast = subprocess.Popen(
             [LIBRARY_PATH['arib-subtitle-timedmetadater'], '--http', mirakurun_stream_api_url],
-            stdout=subprocess.PIPE,  # ffmpeg に繋ぐ
+            stdout=subprocess.PIPE,  # FFmpeg に繋ぐ
             creationflags=subprocess.CREATE_NO_WINDOW,  # conhost を開かない
         )
 
@@ -218,8 +218,8 @@ class LiveEncodingTask():
         # エンコーダーの種類を取得
         encoder_type = CONFIG['livestream']['preferred_encoder']
 
-        # ffmpeg
-        if encoder_type == 'ffmpeg':
+        # FFmpeg
+        if encoder_type == 'FFmpeg':
 
             # オプションを取得
             # 現在放送中の番組がデュアルモノの場合、デュアルモノ用のエンコードオプションを取得
@@ -231,7 +231,7 @@ class LiveEncodingTask():
 
             # プロセスを非同期で作成・実行
             encoder = subprocess.Popen(
-                [LIBRARY_PATH['ffmpeg']] + encoder_options,
+                [LIBRARY_PATH['FFmpeg']] + encoder_options,
                 stdin=ast.stdout,  # arib-subtitle-timedmetadater からの入力
                 stdout=subprocess.PIPE,  # ストリーム出力
                 stderr=subprocess.PIPE,  # ログ出力
@@ -336,8 +336,8 @@ class LiveEncodingTask():
                     # エンコードの進捗を判定し、ステータスを更新する
                     # 誤作動防止のため、ステータスが Standby の間のみ更新できるようにする
                     if livestream_status['status'] == 'Standby':
-                        # ffmpeg
-                        if encoder_type == 'ffmpeg':
+                        # FFmpeg
+                        if encoder_type == 'FFmpeg':
                             if 'libpostproc    55.  9.100 / 55.  9.100' in line:
                                 livestream.setStatus('Standby', 'チューナーを開いています…')
                             elif 'arib parser was created' in line or 'Invalid frame dimensions 0x0.' in line:
@@ -402,12 +402,12 @@ class LiveEncodingTask():
             if livestream_status['status'] == 'ONAir' and time.time() - livestream.stream_data_writed_at > 3:
                 is_restart_required = True  # エンコーダーの再起動を要求
                 livestream.setStatus('Restart', 'エンコードが途中で停止しました。ライブストリームを再起動します。')
-                if encoder_type == 'ffmpeg':
+                if encoder_type == 'FFmpeg':
                     # 直近 30 件のログを表示
                     for log in lines[-31:-1]:
                         Logging.warning(log)
                     break
-                # HWEncC はログを詳細にハンドリングするためにログレベルを debug に設定しているため、ffmpeg よりもログが圧倒的に多い
+                # HWEncC はログを詳細にハンドリングするためにログレベルを debug に設定しているため、FFmpeg よりもログが圧倒的に多い
                 elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
                     # 直近 30 件のログを表示 (最後の方 40 件はデバッグログなので除外)
                     for log in lines[-70:-40]:
@@ -422,8 +422,8 @@ class LiveEncodingTask():
 
             # 特定のエラーログが出力されている場合は回復が見込めないため、エンコーダーを終了する
             # エンコーダーを再起動することで回復が期待できる場合は、ステータスを Restart に設定しエンコードタスクを再起動する
-            ## ffmpeg
-            if encoder_type == 'ffmpeg':
+            ## FFmpeg
+            if encoder_type == 'FFmpeg':
                 if 'Stream map \'0:v:0\' matches no streams.' in line:
                     # 主にチューナー不足が原因のエラーのため、エンコーダーの再起動は行わない
                     livestream.setStatus('Offline', 'チューナー不足のため、ライブストリームを開始できません。')

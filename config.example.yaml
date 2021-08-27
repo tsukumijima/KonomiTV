@@ -16,7 +16,7 @@
     'livestream': {
 
         # 優先して利用するエンコーダー
-        # ffmpeg・QSVEncC・NVEncC・VCEEncC から選択
+        # FFmpeg・QSVEncC・NVEncC・VCEEncC から選択
         'preferred_encoder': 'QSVEncC',
 
         # 優先して利用する画質

@@ -16,7 +16,7 @@ class Config(BaseModel):
         mirakurun_url: AnyHttpUrl
     class LiveStream(BaseModel):
         class Encoder(Enum):
-            ffmpeg = 'ffmpeg'
+            FFmpeg = 'FFmpeg'
             QSVEncC = 'QSVEncC'
             NVEncC = 'NVEncC'
             VCEEncC = 'VCEEncC'
