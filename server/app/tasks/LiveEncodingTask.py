@@ -110,8 +110,12 @@ class LiveEncodingTask():
         ## --input-probesize, --input-analyze をつけることで、ストリームの分析時間を短縮できる
         ## 両方つけるのが重要で、--input-analyze だけだとエンコーダーがフリーズすることがある
         options.append('--input-format mpegts --fps 30000/1001 --input-probesize 1000K --input-analyze 0.7 --input -')
-        ## avhw エンコード
-        options.append('--avhw')
+        ## VCEEncC の HW デコーダーはエラー耐性が低く TS を扱う用途では不安定なので、SW デコーダーを利用する
+        if encoder_type == 'VCEEncC':
+            options.append('--avsw')
+        ## QSVEncC・NVEncC は HW デコーダーを利用する
+        else:
+            options.append('--avhw')
 
         # ストリームのマッピング
         # 主音声・副音声両方をエンコード後の TS に含む（将来の音声切替対応へ準備）
