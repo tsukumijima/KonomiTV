@@ -14,7 +14,7 @@
 importScripts("https://storage.googleapis.com/workbox-cdn/releases/4.3.1/workbox-sw.js");
 
 importScripts(
-  "/precache-manifest.87c13f7186ec0be1c89795400b3f7822.js"
+  "/precache-manifest.22a7b9dd9e6b5e98942205e28532f416.js"
 );
 
 workbox.core.setCacheNameDetails({prefix: "Konomi"});
