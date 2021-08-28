@@ -8,6 +8,7 @@ from datetime import timedelta
 from tortoise import fields
 from tortoise import models
 from tortoise import timezone
+from typing import Optional
 
 from app.constants import CONFIG
 from app.utils import Logging
@@ -30,8 +31,12 @@ class Programs(models.Model):
     video_type:str = fields.TextField()
     video_codec:str = fields.TextField()
     video_resolution:str = fields.TextField()
-    audio_type:str = fields.TextField()
-    audio_sampling_rate:str = fields.TextField()
+    primary_audio_type:str = fields.TextField()
+    primary_audio_language:str = fields.TextField()
+    primary_audio_sampling_rate:str = fields.TextField()
+    secondary_audio_type:Optional[str] = fields.TextField(null=True)
+    secondary_audio_language:Optional[str] = fields.TextField(null=True)
+    secondary_audio_sampling_rate:Optional[str] = fields.TextField(null=True)
 
 
     @classmethod
@@ -46,6 +51,29 @@ class Programs(models.Model):
                 millisecond / 1000,  # ミリ秒なので秒に変換
                 tz = timezone.get_default_timezone(),  # タイムゾーンを UTC+9（日本時間）に指定する
             )
+
+        def ISO639CodeToJapanese(iso639_code: str) -> str:
+            """ISO639 形式の言語コードを日本語に変換する"""
+            if iso639_code == 'jpn':
+                return '日本語'
+            elif iso639_code == 'eng':
+                return '英語'
+            elif iso639_code == 'deu':
+                return 'ドイツ語'
+            elif iso639_code == 'fra':
+                return 'フランス語'
+            elif iso639_code == 'ita':
+                return 'イタリア語'
+            elif iso639_code == 'rus':
+                return 'ロシア語'
+            elif iso639_code == 'zho':
+                return '中国語'
+            elif iso639_code == 'kor':
+                return '韓国語'
+            elif iso639_code == 'spa':
+                return 'スペイン語'
+            else:
+                return 'その他の言語'
 
         # 現在時刻のタイムスタンプ
         timestamp = time.time()
@@ -126,8 +154,31 @@ class Programs(models.Model):
             program.video_type = ariblib.constants.COMPONENT_TYPE[program_info['video']['streamContent']][program_info['video']['componentType']]
             program.video_codec = program_info['video']['type']
             program.video_resolution = program_info['video']['resolution']
-            program.audio_type = ariblib.constants.COMPONENT_TYPE[0x02][program_info['audio']['componentType']]
-            program.audio_sampling_rate = str(program_info['audio']['samplingRate'] / 1000) + 'kHz'  # kHz に変換
+
+            # 音声情報
+            ## Mirakurun 3.9.0 以降向け
+            ## ref: https://github.com/Chinachu/Mirakurun/blob/master/api.d.ts#L88-L105
+            if 'audios' in program_info:
+                ## 主音声
+                program.primary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02][program_info['audios'][0]['componentType']]
+                program.primary_audio_language = ISO639CodeToJapanese(program_info['audios'][0]['langs'][0])
+                program.primary_audio_sampling_rate = str(program_info['audios'][0]['samplingRate'] / 1000) + 'kHz'  # kHz に変換
+                ## デュアルモノのみ
+                if program.primary_audio_type == '1/0+1/0モード(デュアルモノ)':
+                    program.primary_audio_language = program.primary_audio_language + '+' + ISO639CodeToJapanese(program_info['audios'][0]['langs'][1])
+                ## 副音声（存在する場合）
+                if len(program_info['audios']) == 2:
+                    program.primary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02][program_info['audios'][1]['componentType']]
+                    program.primary_audio_language = ISO639CodeToJapanese(program_info['audios'][1]['langs'][0])
+                    program.primary_audio_sampling_rate = str(program_info['audios'][1]['samplingRate'] / 1000) + 'kHz'  # kHz に変換
+            ## Mirakurun 3.8.0 以下向け（フォールバック）
+            else:
+                program.primary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02][program_info['audio']['componentType']]
+                program.primary_audio_language = '日本語'  # 日本語で固定
+                program.primary_audio_sampling_rate = str(program_info['audio']['samplingRate'] / 1000) + 'kHz'  # kHz に変換
+                ## デュアルモノのみ
+                if program.primary_audio_type == '1/0+1/0モード(デュアルモノ)':
+                    program.primary_audio_language = '日本語+英語'  # 日本語+英語で固定
 
             # 番組詳細
             if 'extended' not in program_info:

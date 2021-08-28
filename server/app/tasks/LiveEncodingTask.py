@@ -227,7 +227,7 @@ class LiveEncodingTask():
 
             # オプションを取得
             # 現在放送中の番組がデュアルモノの場合、デュアルモノ用のエンコードオプションを取得
-            if program_present.audio_type == '1/0+1/0モード(デュアルモノ)':
+            if program_present.primary_audio_type == '1/0+1/0モード(デュアルモノ)':
                 encoder_options = self.buildFFmpegOptions(quality, is_dualmono=True)
             else:
                 encoder_options = self.buildFFmpegOptions(quality, is_dualmono=False)
@@ -247,7 +247,7 @@ class LiveEncodingTask():
 
             # オプションを取得
             # 現在放送中の番組がデュアルモノの場合、デュアルモノ用のエンコードオプションを取得
-            if program_present.audio_type == '1/0+1/0モード(デュアルモノ)':
+            if program_present.primary_audio_type == '1/0+1/0モード(デュアルモノ)':
                 encoder_options = self.buildHWEncCOptions(encoder_type, quality, is_dualmono=True)
             else:
                 encoder_options = self.buildHWEncCOptions(encoder_type, quality, is_dualmono=False)
@@ -370,16 +370,16 @@ class LiveEncodingTask():
                 program_following:Programs = RunAwait(channel.getCurrentAndNextProgram())[0]
 
                 # 現在:デュアルモノ以外 → 次:デュアルモノ
-                if (program_present.audio_type != '1/0+1/0モード(デュアルモノ)') and \
-                   (program_following.audio_type == '1/0+1/0モード(デュアルモノ)'):
+                if (program_present.primary_audio_type != '1/0+1/0モード(デュアルモノ)') and \
+                   (program_following.primary_audio_type == '1/0+1/0モード(デュアルモノ)'):
                     # エンコーダーの音声出力をデュアルモノ対応にするため、エンコーダーを再起動する
                     is_restart_required = True
                     livestream.setStatus('Restart', '音声をデュアルモノに切り替えています…')
                     break
 
                 # 現在:デュアルモノ → 次:デュアルモノ以外
-                if (program_present.audio_type == '1/0+1/0モード(デュアルモノ)') and \
-                   (program_following.audio_type != '1/0+1/0モード(デュアルモノ)'):
+                if (program_present.primary_audio_type == '1/0+1/0モード(デュアルモノ)') and \
+                   (program_following.primary_audio_type != '1/0+1/0モード(デュアルモノ)'):
                     # エンコーダーの音声出力をステレオ対応にするため、エンコーダーを再起動する
                     is_restart_required = True
                     livestream.setStatus('Restart', '音声をステレオに切り替えています…')
