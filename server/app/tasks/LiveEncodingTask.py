@@ -214,7 +214,7 @@ class LiveEncodingTask():
         ast = subprocess.Popen(
             [LIBRARY_PATH['arib-subtitle-timedmetadater'], '--http', mirakurun_stream_api_url],
             stdout=subprocess.PIPE,  # FFmpeg に繋ぐ
-            creationflags=subprocess.CREATE_NO_WINDOW,  # conhost を開かない
+            creationflags=(subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # conhost を開かない
         )
 
         # ***** エンコーダープロセスの作成と実行 *****
@@ -239,7 +239,7 @@ class LiveEncodingTask():
                 stdin=ast.stdout,  # arib-subtitle-timedmetadater からの入力
                 stdout=subprocess.PIPE,  # ストリーム出力
                 stderr=subprocess.PIPE,  # ログ出力
-                creationflags=subprocess.CREATE_NO_WINDOW,  # conhost を開かない
+                creationflags=(subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # conhost を開かない
             )
 
         # HWEncC
@@ -259,7 +259,7 @@ class LiveEncodingTask():
                 stdin=ast.stdout,  # arib-subtitle-timedmetadater からの入力
                 stdout=subprocess.PIPE,  # ストリーム出力
                 stderr=subprocess.PIPE,  # ログ出力
-                creationflags=subprocess.CREATE_NO_WINDOW,  # conhost を開かない
+                creationflags=(subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # conhost を開かない
             )
 
         # ***** エンコーダーの出力の書き込み *****
