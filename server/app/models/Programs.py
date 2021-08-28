@@ -165,20 +165,26 @@ class Programs(models.Model):
                 program.primary_audio_sampling_rate = str(program_info['audios'][0]['samplingRate'] / 1000) + 'kHz'  # kHz に変換
                 ## デュアルモノのみ
                 if program.primary_audio_type == '1/0+1/0モード(デュアルモノ)':
-                    program.primary_audio_language = program.primary_audio_language + '+' + ISO639CodeToJapanese(program_info['audios'][0]['langs'][1])
+                    if len(program_info['audios'][0]['langs']) == 2:  # 他言語の定義が存在すれば
+                        program.primary_audio_language = \
+                            program.primary_audio_language + '+' + ISO639CodeToJapanese(program_info['audios'][0]['langs'][1])
+                    else:
+                        program.primary_audio_language = program.primary_audio_language + '+英語'  # 英語で固定
                 ## 副音声（存在する場合）
                 if len(program_info['audios']) == 2:
-                    program.primary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02][program_info['audios'][1]['componentType']]
-                    program.primary_audio_language = ISO639CodeToJapanese(program_info['audios'][1]['langs'][0])
-                    program.primary_audio_sampling_rate = str(program_info['audios'][1]['samplingRate'] / 1000) + 'kHz'  # kHz に変換
+                    program.secondary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02][program_info['audios'][1]['componentType']]
+                    program.secondary_audio_language = ISO639CodeToJapanese(program_info['audios'][1]['langs'][0])
+                    program.secondary_audio_sampling_rate = str(program_info['audios'][1]['samplingRate'] / 1000) + 'kHz'  # kHz に変換
             ## Mirakurun 3.8.0 以下向け（フォールバック）
             else:
+                ## 主音声
                 program.primary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02][program_info['audio']['componentType']]
                 program.primary_audio_language = '日本語'  # 日本語で固定
                 program.primary_audio_sampling_rate = str(program_info['audio']['samplingRate'] / 1000) + 'kHz'  # kHz に変換
                 ## デュアルモノのみ
                 if program.primary_audio_type == '1/0+1/0モード(デュアルモノ)':
                     program.primary_audio_language = '日本語+英語'  # 日本語+英語で固定
+                ## 副音声の情報は常に存在しないため省略
 
             # 番組詳細
             if 'extended' not in program_info:
