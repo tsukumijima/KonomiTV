@@ -1,4 +1,5 @@
 
+import inspect
 import logging
 import os
 import sys
@@ -9,19 +10,27 @@ from pathlib import Path
 # ベースディレクトリ
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# 設定ファイルのパス
-CONFIG_YAML = BASE_DIR.parent / 'config.yaml'
-if os.path.exists(CONFIG_YAML) is False:
-    logger = logging.getLogger('uvicorn')
-    logger.error(
-        '設定ファイルが配置されていないため、Konomi を起動できません。\n          '
-        'config.example.yaml を config.yaml にコピーし、お使いの環境に合わせて編集してください。'
-    )
-    sys.exit(1)
+# Aerich（マイグレーションツール）からのインポート時に設定ファイルのロードをスキップ
+if len(inspect.stack()) > 8 and inspect.stack()[8].function == 'get_tortoise_config':
 
-# 環境設定を読み込む
-with open(CONFIG_YAML, encoding='utf-8') as stream:
-    CONFIG = ruamel.yaml.YAML().load(stream)
+    # ダミーの CONFIG を用意（インポートエラーの回避のため）
+    CONFIG = {'general': {'debug': True}}  # Logging モジュールの初期化に必要
+
+else:
+
+    # 設定ファイルのパス
+    CONFIG_YAML = BASE_DIR.parent / 'config.yaml'
+    if os.path.exists(CONFIG_YAML) is False:
+        logger = logging.getLogger('uvicorn')
+        logger.error(
+            '設定ファイルが配置されていないため、Konomi を起動できません。\n          '
+            'config.example.yaml を config.yaml にコピーし、お使いの環境に合わせて編集してください。'
+        )
+        sys.exit(1)
+
+    # 環境設定を読み込む
+    with open(CONFIG_YAML, encoding='utf-8') as stream:
+        CONFIG = ruamel.yaml.YAML().load(stream)
 
 # 映像と音声の品質
 QUALITY = {
