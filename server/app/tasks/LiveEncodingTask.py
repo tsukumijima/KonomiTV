@@ -369,24 +369,28 @@ class LiveEncodingTask():
                 # 次の番組情報を取得する
                 program_following:Programs = RunAwait(channel.getCurrentAndNextProgram())[0]
 
-                # 現在:デュアルモノ以外 → 次:デュアルモノ
-                if (program_present.primary_audio_type != '1/0+1/0モード(デュアルモノ)') and \
-                   (program_following.primary_audio_type == '1/0+1/0モード(デュアルモノ)'):
-                    # エンコーダーの音声出力をデュアルモノ対応にするため、エンコーダーを再起動する
-                    is_restart_required = True
-                    livestream.setStatus('Restart', '音声をデュアルモノに切り替えています…')
-                    break
+                # 前の番組も次の番組も None でない
+                if program_present is not None and program_following is not None:
 
-                # 現在:デュアルモノ → 次:デュアルモノ以外
-                if (program_present.primary_audio_type == '1/0+1/0モード(デュアルモノ)') and \
-                   (program_following.primary_audio_type != '1/0+1/0モード(デュアルモノ)'):
-                    # エンコーダーの音声出力をステレオ対応にするため、エンコーダーを再起動する
-                    is_restart_required = True
-                    livestream.setStatus('Restart', '音声をステレオに切り替えています…')
-                    break
+                    # 現在:デュアルモノ以外 → 次:デュアルモノ
+                    if (program_present.primary_audio_type != '1/0+1/0モード(デュアルモノ)') and \
+                       (program_following.primary_audio_type == '1/0+1/0モード(デュアルモノ)'):
+                        # エンコーダーの音声出力をデュアルモノ対応にするため、エンコーダーを再起動する
+                        is_restart_required = True
+                        livestream.setStatus('Restart', '音声をデュアルモノに切り替えています…')
+                        break
+
+                    # 現在:デュアルモノ → 次:デュアルモノ以外
+                    if (program_present.primary_audio_type == '1/0+1/0モード(デュアルモノ)') and \
+                       (program_following.primary_audio_type != '1/0+1/0モード(デュアルモノ)'):
+                        # エンコーダーの音声出力をステレオ対応にするため、エンコーダーを再起動する
+                        is_restart_required = True
+                        livestream.setStatus('Restart', '音声をステレオに切り替えています…')
+                        break
+
+                    Logging.info(f'LiveStream:{livestream.livestream_id} Title:{program_following.title}')
 
                 # 次の番組情報を現在の番組情報にコピー
-                Logging.info(f'LiveStream:{livestream.livestream_id} Title:{program_following.title}')
                 program_present = program_following
                 del program_following
 
