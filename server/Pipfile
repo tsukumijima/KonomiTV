@@ -5,7 +5,8 @@ verify_ssl = true
 name = "pypi"
 
 [scripts]
-serve = "uvicorn app.app:app --host 0.0.0.0 --port 7000 --reload --reload-dir app"
+serve = "uvicorn app.app:app --host 0.0.0.0 --port 7000"
+develop = "uvicorn app.app:app --host 0.0.0.0 --port 7000 --reload --reload-dir app"
 
 [packages]
 aerich = "*"
