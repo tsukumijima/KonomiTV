@@ -17,6 +17,7 @@
   - どちらかというと録画視聴機能の方がメインの予定でいますが、現時点ではテレビのライブ視聴機能のみの実装です。構想は壮大ですが、全て実装し終えるには年単位で時間がかかるでしょう。
 - 将来的に EDCB (xtne6f版) にも対応予定ですが、現時点ではバックエンドとして Mirakurun が必要です。
   - お使いの録画環境に合わせ、番組情報などを取得するバックエンドを EDCB と Mirakurun のいずれかで選択できるようにする予定でいます。
+- 現時点では画質は 1080p で固定です。プレイヤーでの画質切り替えはまだ実装できていません。
 - 現時点ではスマホには対応していません。Android であれば再生させる事自体は可能ですが、画面幅が PC 向けのため大幅に崩れ、まともに使えないでしょう。
   - タブレット (Fire HD 10 (2021), iPad mini 4) である程度動作することは確認しました。とはいえ、まだタッチデバイスに最適化できているわけではありません。
   - iPhone は Media Source Extensions API に対応していないため、現時点では動作しません。
@@ -31,24 +32,27 @@
 ## 動作環境
 
 Python 3.9 がインストールされた Windows 10 Home で開発と動作確認を行っています。  
-Python 3.8 でも動くとは思いますが、asyncio を多用しているため、3.7 以前ではまともに動作しない可能性が高いです。  
-Linux での動作確認はしていませんが、今のところ OS 依存のコードはないはずなので、もしかすると動くかもしれません。
+Python 3.8 でも動作するようですが、asyncio を多用しているため、3.7 以前ではまともに動かない可能性が高いです。  
 
-以下は Windows 10 での暫定的なインストール方法です。  
+Linux (Ubuntu 20.04 LTS x64) で動作することも確認しました。  
+ただし Windows ほどあまり検証できていないので、環境によっては動かないかもしれません。  
+また、ARM 用のサードパーティライブラリの実行ファイルを同梱していないため、ARM 版の Ubuntu では動かないでしょう。
+
+以下は暫定的なインストール方法です。  
 ただし、すべての環境でこの通りに進めて動くとは限りません。保証もできないので、すべて自己責任のもとでお願いします。
-
-もし Linux で動かせた方がいましたら、ぜひ報告頂けると助かります。OS 依存の記述は今のところないはずです。  
-将来的には Linux にも対応予定ですが、まだそこまでリソースを回せていません。
 
 ## インストール方法（暫定）
 
 事前に Python 3.9 がインストールされている事を前提とします。  
 なお、Microsoft ストアからインストールした Python では確実にまともに動作しません。
 
-また、インストール先をデフォルトの AppData 以下にするとそのユーザーしか使えなくなってしまいますが、とはいえ `C:\Program Files` 以下にインストールするとパッケージのインストールで管理者権限が必要になるので厄介です。個人的には `C:\Applications\Python\Python3.9` あたりにインストールすることを推奨しておきます。
+Windows の場合、インストール先をデフォルトの AppData 以下にするとそのユーザーしか使えなくなってしまいますが、とはいえ `C:\Program Files` 以下にインストールするとパッケージのインストールで管理者権限が必要になるので厄介です。個人的には `C:\Applications\Python\Python3.9` あたりにインストールすることを推奨しておきます。
+
+以下の手順では Windows では `C:\Develop` 、Linux では `/Develop` フォルダが作成されているものとして、`C:\Develop` または `/Develop` フォルダ以下にインストールするようになっています。  
+もし他のフォルダにインストールしたい場合は適宜読み替えてください。
 
 以下はほとんどコマンドメモです。詳細な解説はありませんし、開発者向けです。  
-PowerShell にて実行してください。<s>cmd.exe? 今すぐ窓から投げ捨てろ</s>
+Windows では PowerShell にて実行してください。<s>cmd.exe? 今すぐ窓から投げ捨てろ</s>
 
 ### 1. pipenv のインストール
 
@@ -61,7 +65,9 @@ pip install pipenv
 
 ### 2. Konomi 本体のインストール
 
-現時点では Git を使うことを推奨します。
+現時点では Git で常に最新の master ブランチを取得することを推奨します。
+
+#### Windows
 
 ```
 cd C:\Develop
@@ -69,29 +75,69 @@ git clone git@github.com:tsukumijima/Konomi.git
 cd C:\Develop\Konomi\server
 ```
 
+#### Linux
+
+```
+cd /Develop
+git clone git@github.com:tsukumijima/Konomi.git
+cd /Develop/Konomi/server
+```
+
 ### 3. サードパーティライブラリのインストール
 
 TVRemotePlus では Git の管理下に含めていましたが、Konomi ではバージョン情報のみを管理する方針としています。  
 将来的にはインストーラー側で自動ダウンロード/アップデートするようにしたいところですが、現時点では手動でのダウンロードと配置が必要です。
 
-一応 Linux 向けの実行ファイルも同梱してはいますが、実際に使えるかはわかりません。  
-少なくとも、QSVEncC・NVEncC・VCEEncC に関しては別途 Intel Media Driver / NVIDIA Graphics Driver / AMD Driver のインストールが必要です。  
-VCEEncC の Linux サポートはつい最近追加されたばかりなので、安定してエンコードできるかは微妙です。
+Linux 向けの実行ファイルも同梱しています（拡張子: .elf ）。Linux (Ubuntu 20.04 LTS x64) で動作することを確認しました。   
+QSVEncC・NVEncC・VCEEncC を使う場合は、別途 [Intel Media Driver](https://github.com/rigaya/QSVEnc/blob/master/Install.ja.md#linux-ubuntu-2004) / [NVIDIA Graphics Driver](https://github.com/rigaya/NVEnc/blob/master/Install.ja.md#linux-ubuntu-2004) / [AMD Driver](https://github.com/rigaya/VCEEnc/blob/master/Install.ja.md#linux-ubuntu-2004) のインストールが必要です。  
+VCEEncC の Linux サポートはつい最近追加されたばかりなので、安定してエンコードできるかは微妙です（環境がない…）。
 
-[こちら](https://github.com/tsukumijima/Konomi/releases/download/v0.1.0/thirdparty.7z) からサードパーティライブラリをダウンロードし、`C:\Develop\Konomi\server\thirdparty` に配置してください。解凍後サイズは 600MB あるので注意。  
-`C:\Develop\Konomi\server\thirdparty\FFmpeg` に `ffmpeg.exe` がある状態になっていれば OK です。
+[こちら](https://github.com/tsukumijima/Konomi/releases/download/v0.1.0/thirdparty.7z) からサードパーティライブラリをダウンロードし、`server/thirdparty` に配置してください。展開後サイズは 600MB あるので注意。  
+
+7z 、あるいは p7zip のコマンドライン版が利用できる場合は、コマンドラインでダウンロードと展開を行うこともできます。
+
+```
+curl -LO https://github.com/tsukumijima/Konomi/releases/download/v0.1.0/thirdparty.7z
+7z x -y thirdparty.7z
+```
+
+Windows では、`C:\Develop\Konomi\server\thirdparty\FFmpeg` に `ffmpeg.exe` がある状態になっていれば OK です。
+
+Linux では、`/Develop/Konomi/server/thirdparty/FFmpeg` に `ffmpeg.elf` がある状態でかつ、実行ファイルが実行権限を持っている必要があります。  
+以下のコマンドを実行して、実行権限を付与してください。
+
+```
+chmod 755 ./thirdparty/arib-subtitle-timedmetadater/arib-subtitle-timedmetadater.elf
+chmod 755 ./thirdparty/FFmpeg/ffmpeg.elf
+chmod 755 ./thirdparty/FFmpeg/ffprobe.elf
+chmod 755 ./thirdparty/QSVEncC/QSVEncC.elf
+chmod 755 ./thirdparty/NVEncC/NVEncC.elf
+chmod 755 ./thirdparty/VCEEncC/VCEEncC.elf
+```
 
 ### 4. 依存パッケージのインストール
 
+#### Windows
+
 ```
-# pipenv のパッケージを直下に保存する環境変数を定義（これをつけないと AppData に置かれてしまい面倒）
+# pipenv のパッケージを直下に保存する環境変数を定義
+# これをつけないと ~/.virtualenvs/ に置かれてしまい面倒
 $env:PIPENV_VENV_IN_PROJECT = "true"
-pipenv install
+pipenv sync
+```
+
+#### Linux
+
+```
+# pipenv のパッケージを直下に保存する環境変数を定義
+# これをつけないと ~/.local/share/virtualenvs/ に置かれてしまい面倒
+export PIPENV_VENV_IN_PROJECT="true"
+pipenv sync
 ```
 
 ### 5. データベースのアップグレード
 
-[aerich](https://github.com/tortoise/aerich) という Tortoise ORM のマイグレーションツールを使っています。  
+[Aerich](https://github.com/tortoise/aerich) という Tortoise ORM のマイグレーションツールを使っています。  
 データベース構造が変更される度に、以下のコマンドを実行してデータベース構造を更新する必要があります。
 
 ```
@@ -100,14 +146,14 @@ pipenv run aerich upgrade
 
 ### 6. 設定ファイルの編集
 
-ここまで手順通りにやっていれば `C:\Develop\Konomi\config.example.yaml` があるはずなので、同じ階層に config.yaml としてコピーします。  
+ここまで手順通りにやっていれば Readme.md のあるフォルダに config.example.yaml があるはずなので、同じ階層に config.yaml としてコピーします。  
 設定ファイルは YAML ですが、JSON のようなスタイルで書いています。括弧がないとわかりにくいと思うので…
 
 > JSON は YAML のサブセットなので、実は JSON は YAML として解釈可能です。
 
 Mirakurun の URL だけ皆さんの録画環境に合わせて編集してください。  
 他にも設定項目がありますが、おそらく変更する必要はありません。設定を反映するにはサーバーの再起動が必要です。  
-今のところ、画質は `preferred_quality` の値がそのまま利用されます。プレイヤー側の画質切り替え機能は実装できていません。
+今のところ、画質は設定項目にかかわらず 1080p で固定です。プレイヤー側の画質切り替え機能は実装できていません。
 
 なお、config.yaml が存在しなかったり、設定項目が誤っていると後述のサーバーの起動の時点でエラーが発生します。  
 その際はエラーメッセージに従い、config.yaml の内容を確認してみてください。
@@ -115,20 +161,22 @@ Mirakurun の URL だけ皆さんの録画環境に合わせて編集してく�
 ### 7. サーバーの起動
 
 FastAPI をホストする ASGI サーバーである Uvicorn を起動します。ポート 7000 にてリッスンされます。  
-今のところ reload モードで起動させているため、コードの内容が変更されると自動的にサーバーが再起動されます。  
+あらかじめ、ファイアウォールの設定でポート 7000 が開いているかどうか確認してください。
+
+```
+pipenv run serve
+```
+
+開発時などでリロードモード（コードを変更すると自動でサーバーが再起動される）で起動したいときは、`pipenv run develop` を実行してください。
 
 Uvicorn はアプリケーションサーバーであり、Konomi の場合は静的ファイルの配信も兼ねています。  
-静的ファイル（ SPA クライアント）は `C:\Develop\Konomi\client\dist` にある、ビルド済みのファイルを配信するように設定されています。  
-そのため、npm run build でクライアントのビルドを更新したのなら、サーバー側で配信されるファイルも更新されることになります。
+静的ファイル（ SPA クライアント）は `client/dist` にある、ビルド済みのファイルを配信するように設定されています。  
+そのため、`npm run build` でクライアントのビルドを更新したのなら、サーバー側で配信されるファイルも更新されることになります。
 
 クライアントは Vue.js で構築されており、コーディングとビルドには少なくとも Node.js が必要です。  
 クライアント側のデバッグは client フォルダにて `npm run serve` を実行し、ポート 7001 にてリッスンされるデバッグ用サーバーにて行っています。  
 `npm run serve` ではコードを変更すると自動的に差分の再ビルドがかかるため、毎回時間のかかる npm run build をする必要がありません。  
 とはいえ API（サーバー）はポート 7000 にてリッスンされているので、開発時のみ API のアクセス先を同じホストのポート 7000 に固定しています。
-
-```
-pipenv run serve
-```
 
 起動してみて、何もエラーなく `Application startup complete.` と表示されていれば完了です。  
 http://localhost:7000/ にアクセスすると、Konomi のホーム画面が表示されることでしょう。
