@@ -5,7 +5,6 @@ from .TSInformation import TSInformation
 import asyncio
 import functools
 import jaconv
-import time
 import typing
 
 
@@ -22,7 +21,7 @@ def ZenkakuToHankaku(string: str) -> str:
     """
 
     # 変換結果を返す
-    return jaconv.zenkaku2hankaku(string, '！？＊：；', kana=False, digit=True, ascii=True)
+    return jaconv.zenkaku2hankaku(string, '！？＊：；～', kana=False, digit=True, ascii=True)
 
 
 def RunAwait(coro:typing.Coroutine) -> typing.Any:

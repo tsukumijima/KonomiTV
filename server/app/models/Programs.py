@@ -11,6 +11,7 @@ from tortoise import timezone
 from typing import Optional
 
 from app.constants import CONFIG
+from app.models import Channels
 from app.utils import Logging
 from app.utils import ZenkakuToHankaku
 
@@ -187,7 +188,6 @@ class Programs(models.Model):
                 continue
 
             # 番組に紐づくチャンネルを取得
-            from app.models import Channels  # 循環インポート防止のためここでインポート
             channel = await Channels.filter(network_id=program_info['networkId'], service_id=program_info['serviceId']).first()
             if channel is None:  # 登録されていないチャンネルの番組を弾く（ワンセグやデータ放送など）
                 continue
