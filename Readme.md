@@ -90,7 +90,7 @@ TVRemotePlus では Git の管理下に含めていましたが、Konomi では�
 将来的にはインストーラー側で自動ダウンロード/アップデートするようにしたいところですが、現時点では手動でのダウンロードと配置が必要です。
 
 Linux 向けの実行ファイルも同梱しています（拡張子: .elf ）。Linux (Ubuntu 20.04 LTS x64) で動作することを確認しました。   
-QSVEncC・NVEncC・VCEEncC を使う場合は、別途 [Intel Media Driver](https://github.com/rigaya/QSVEnc/blob/master/Install.ja.md#linux-ubuntu-2004) / [NVIDIA Graphics Driver](https://github.com/rigaya/NVEnc/blob/master/Install.ja.md#linux-ubuntu-2004) / [AMD Driver](https://github.com/rigaya/VCEEnc/blob/master/Install.ja.md#linux-ubuntu-2004) のインストールが必要です。  
+なお、QSVEncC・NVEncC・VCEEncC を使う場合は、別途 [Intel Media Driver](https://github.com/rigaya/QSVEnc/blob/master/Install.ja.md#linux-ubuntu-2004) / [NVIDIA Graphics Driver](https://github.com/rigaya/NVEnc/blob/master/Install.ja.md#linux-ubuntu-2004) / [AMD Driver](https://github.com/rigaya/VCEEnc/blob/master/Install.ja.md#linux-ubuntu-2004) のインストールが必要です。  
 VCEEncC の Linux サポートはつい最近追加されたばかりなので、安定してエンコードできるかは微妙です（環境がない…）。
 
 [こちら](https://github.com/tsukumijima/Konomi/releases/download/v0.1.0/thirdparty.7z) からサードパーティライブラリをダウンロードし、`server/thirdparty` に配置してください。展開後サイズは 600MB あるので注意。  
@@ -114,6 +114,13 @@ chmod 755 ./thirdparty/FFmpeg/ffprobe.elf
 chmod 755 ./thirdparty/QSVEncC/QSVEncC.elf
 chmod 755 ./thirdparty/NVEncC/NVEncC.elf
 chmod 755 ./thirdparty/VCEEncC/VCEEncC.elf
+```
+
+このほか、Linux では FFmpeg の実行に libv4l-dev パッケージが必要です（インストールされていないと FFmpeg が実行できないみたいです）。  
+お使いの環境にインストールされていない場合は、あわせてインストールしてください。
+
+```
+sudo apt install -y libv4l-dev
 ```
 
 ### 4. 依存パッケージのインストール
