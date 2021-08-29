@@ -1,4 +1,5 @@
 
+import requests
 from enum import Enum
 from pydantic import AnyHttpUrl, BaseModel, PositiveInt, validator
 from tortoise.contrib.pydantic import pydantic_model_creator
@@ -9,25 +10,44 @@ from app.constants import QUALITY
 
 
 # 環境設定を表す Pydantic モデル
-# バリデーションを兼ねる
+# バリデーションは環境設定をこの Pydantic モデルに通して行う
 class Config(BaseModel):
+
     class General(BaseModel):
         debug: bool
         mirakurun_url: AnyHttpUrl
+
+        # Mirakurun にアクセスできるかをチェック
+        # 試しにリクエストを送り、200 (OK) が返ってきたときだけ有効な URL とみなす
+        @validator('mirakurun_url')
+        def check_mirakurun_url(cls, mirakurun_url):
+            try:
+                response = requests.get(f'{mirakurun_url}/api/version', timeout=3)
+            except requests.exceptions.ConnectionError:
+                raise ValueError(f'Mirakurun ({mirakurun_url}) にアクセスできませんでした。Mirakurun が起動していないか、URL を間違えている可能性があります。')
+            if response.status_code != 200:
+                raise ValueError(f'{mirakurun_url} は Mirakurun の URL ではありません。Mirakurun の URL を間違えている可能性があります。')
+            return mirakurun_url
+
     class LiveStream(BaseModel):
+
         class Encoder(Enum):
             FFmpeg = 'FFmpeg'
             QSVEncC = 'QSVEncC'
             NVEncC = 'NVEncC'
             VCEEncC = 'VCEEncC'
+
         preferred_encoder: Encoder
         preferred_quality: str
         max_alive_time: PositiveInt
+
+        # 画質が存在するかをチェック
         @validator('preferred_quality')
-        def check_quality(cls, value):
-            if value not in QUALITY:
-                raise ValueError(f'{value} という画質は定義されていません。')
-            return value
+        def check_quality(cls, quality):
+            if quality not in QUALITY:
+                raise ValueError(f'{quality} という画質は定義されていません。')
+            return quality
+
     general: General
     livestream: LiveStream
 
