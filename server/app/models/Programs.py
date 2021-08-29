@@ -45,15 +45,68 @@ class Programs(models.Model):
 
         Logging.info('Program updating...')
 
+        def IsMainProgram(program: dict) -> bool:
+            """
+            relatedItems からメインの番組情報か判定する
+            EIT[p/f] 対応により増えた番組情報から必要なものだけを取得する
+            ref: https://github.com/l3tnun/EPGStation/blob/master/src/model/epgUpdater/EPGUpdateManageModel.ts#L103-L136
+
+            Args:
+                program (dict): 番組情報の辞書
+            Returns:
+                bool: メインの番組情報かどうか
+            """
+
+            if 'relatedItems' not in program:
+                return True
+
+            for item in program['relatedItems']:
+
+                # Mirakurun 3.8 以下では type が存在しない && relatedItems が機能していないので true を返す
+                if 'type' not in item:
+                    return True
+
+                # 移動したイベントか？
+                if item['type'] == 'movement':
+                    return True
+
+                # リレーの場合は無視
+                if item['type'] == 'relay':
+                    continue
+
+                # type が shared でメインの放送か？
+                if item['eventId'] == program['eventId'] and item['serviceId'] == program['serviceId']:
+                    return True
+
+            return False
+
         def MillisecondToDatetime(millisecond: int) -> datetime.datetime:
-            """ミリ秒を datetime に変換するラッパー"""
+            """
+            ミリ秒から Datetime を取得する
+
+            Args:
+                millisecond (int): ミリ秒
+
+            Returns:
+                datetime.datetime: Datetime（タイムゾーン付き）
+            """
+
             return datetime.datetime.fromtimestamp(
                 millisecond / 1000,  # ミリ秒なので秒に変換
                 tz = timezone.get_default_timezone(),  # タイムゾーンを UTC+9（日本時間）に指定する
             )
 
         def ISO639CodeToJapanese(iso639_code: str) -> str:
-            """ISO639 形式の言語コードを日本語に変換する"""
+            """
+            ISO639 形式の言語コードを日本語に変換する
+
+            Args:
+                iso639_code (str): ISO639 形式の言語コード
+
+            Returns:
+                str: 日本語に訳した言語を示す文字列
+            """
+
             if iso639_code == 'jpn':
                 return '日本語'
             elif iso639_code == 'eng':
@@ -90,11 +143,15 @@ class Programs(models.Model):
         # 番組ごとに実行
         for program_info in programs:
 
-            # 既にある番組情報の更新かどうか
+            # 既にある番組情報の更新かどうかのフラグ
             is_update = False
 
             # 番組タイトルがない（＝サブチャンネルでメインチャンネルの内容をそのまま放送している）を弾く
             if 'name' not in program_info:
+                continue
+
+            # メインの番組情報でないなら弾く
+            if IsMainProgram(program_info) is False:
                 continue
 
             # 既に同じ番組 ID の番組が DB に登録されているなら（情報の更新がない場合のみ）スキップ
@@ -156,7 +213,7 @@ class Programs(models.Model):
             program.video_resolution = program_info['video']['resolution']
 
             # 音声情報
-            ## Mirakurun 3.9.0 以降向け
+            ## Mirakurun 3.9 以降向け
             ## ref: https://github.com/Chinachu/Mirakurun/blob/master/api.d.ts#L88-L105
             if 'audios' in program_info:
                 ## 主音声
@@ -175,7 +232,7 @@ class Programs(models.Model):
                     program.secondary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02][program_info['audios'][1]['componentType']]
                     program.secondary_audio_language = ISO639CodeToJapanese(program_info['audios'][1]['langs'][0])
                     program.secondary_audio_sampling_rate = str(program_info['audios'][1]['samplingRate'] / 1000) + 'kHz'  # kHz に変換
-            ## Mirakurun 3.8.0 以下向け（フォールバック）
+            ## Mirakurun 3.8 以下向け（フォールバック）
             else:
                 ## 主音声
                 program.primary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02][program_info['audio']['componentType']]
