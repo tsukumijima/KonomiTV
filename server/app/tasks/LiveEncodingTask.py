@@ -486,6 +486,17 @@ class LiveEncodingTask():
                 is_restart_required = True
                 # エンコーダーの再起動前提のため、あえて Offline にはせず Restart とする
                 livestream.setStatus('Restart', 'エンコーダーが強制終了されました。ライブストリームを再起動します。')
+                if encoder_type == 'FFmpeg':
+                    # 直近 30 件のログを表示
+                    for log in lines[-31:-1]:
+                        Logging.warning(log)
+                    break
+                # HWEncC はログを詳細にハンドリングするためにログレベルを debug に設定しているため、FFmpeg よりもログが圧倒的に多い
+                elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
+                    # 直近 70 件のログを表示
+                    for log in lines[-71:-1]:
+                        Logging.warning(log)
+                    break
                 break
 
         # ***** エンコード終了後の処理 *****
