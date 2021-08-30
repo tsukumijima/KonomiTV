@@ -22,6 +22,7 @@ from app.routers import ChannelsRouter
 from app.routers import LiveStreamsRouter
 from app.schemas import Config
 from app.utils import Logging
+from app.utils import RunAwait
 
 
 # このアプリケーションのイベントループ
@@ -141,7 +142,8 @@ async def Startup():
             LiveStream(channel['channel_id'], quality)
 
 # 15分に1回、番組情報を定期的に更新する
+# 番組情報の更新処理は重く他の処理に影響してしまうため、同期関数にして外部スレッドで実行する
 @app.on_event('startup')
 @repeat_every(seconds=15 * 60, wait_first=True, logger=Logging.logger)
-async def UpdateProgram():
-    await Programs.update()
+def UpdateProgram():
+    RunAwait(Programs.update())
