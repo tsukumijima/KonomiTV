@@ -1,0 +1,29 @@
+
+version: '3'
+services:
+    konomi:
+        image: konomi
+        container_name: Konomi
+        restart: always
+        build:
+            context: .
+        deploy:
+            resources:
+                reservations:
+                    devices:
+                        - driver: nvidia
+                          capabilities: [compute, utility, video]
+        devices:
+            - '/dev/dri:/dev/dri'
+        volumes:
+            - type: bind
+              source: './config.yaml'
+              target: '/code/config.yaml'
+            - type: bind
+              source: './server/app/'
+              target: '/code/server/app/'
+            - type: bind
+              source: './server/data/'
+              target: '/code/server/data/'
+        ports:
+            - '7000:7000'
