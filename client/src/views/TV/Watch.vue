@@ -454,7 +454,7 @@ export default mixins(mixin).extend({
                 theme: '#E64F97',
                 // 読み込む m3u8 を指定する
                 video: {
-                    defaultQuality: 0,
+                    defaultQuality: this.default_quality,
                     quality: [
                         {
                             name: '1080p',
