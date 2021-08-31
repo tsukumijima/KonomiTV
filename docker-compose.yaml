@@ -20,6 +20,9 @@ services:
               source: './config.yaml'
               target: '/code/config.yaml'
             - type: bind
+              source: './client/'
+              target: '/code/client/'
+            - type: bind
               source: './server/app/'
               target: '/code/server/app/'
             - type: bind
