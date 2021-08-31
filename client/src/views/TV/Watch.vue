@@ -39,8 +39,8 @@
                     <v-spacer></v-spacer>
                     <span class="watch-header__now">{{time}}</span>
                 </header>
-                <div class="watch-player">
-                    <div class="watch-player__background">
+                <div class="watch-player" :class="{'watch-player__background--visible': is_background_visible}">
+                    <div class="watch-player__background" :style="{backgroundImage: `url(${background_url})`}">
                         <div class="watch-player__background-logo">Konomi</div>
                     </div>
                     <div class="watch-player__dplayer"></div>
@@ -146,6 +146,13 @@ export default mixins(mixin).extend({
 
             // 現在時刻
             time: dayjs().format('YYYY/MM/DD HH:mm:ss'),
+
+            // 背景の URL
+            background_url: '/assets/img/player-background1.jpg',
+
+            // プレイヤーの背景を表示するか
+            // 既定で表示しない
+            is_background_visible: false,
 
             // コントロールを表示するか
             // 既定で表示する
@@ -281,6 +288,9 @@ export default mixins(mixin).extend({
 
         // 初期化する
         init() {
+
+            // 背景を4種類からランダムで設定
+            this.background_url = `/assets/img/player-background${(Math.floor(Math.random() * 4) + 1)}.jpg`;
 
             // コントロール表示タイマーを実行
             this.controlVisibleTimer();
@@ -512,8 +522,11 @@ export default mixins(mixin).extend({
                 }
             });
 
-            // 画質が切り替わったとき
+            // 画質の切り替えが開始されたとき
             this.player.on('quality_start', () => {
+
+                // 背景を4種類からランダムで設定
+                this.background_url = `/assets/img/player-background${(Math.floor(Math.random() * 4) + 1)}.jpg`;
 
                 // イベントソースを閉じる
                 if (this.eventsource !== null) {
@@ -558,6 +571,9 @@ export default mixins(mixin).extend({
                             this.player.notice(event.detail, -1);
                         }
 
+                        // プレイヤーの背景を表示する
+                        this.is_background_visible = true;
+
                         break;
                     }
 
@@ -568,6 +584,9 @@ export default mixins(mixin).extend({
                         if (!this.player.template.notice.textContent.includes('画質を')) {  // 画質切り替えの表示を上書きしない
                             this.player.notice(this.player.template.notice.textContent, 0.000001);
                         }
+
+                        // プレイヤーの背景を非表示にする
+                        this.is_background_visible = false;
 
                         break;
                     }
@@ -587,6 +606,9 @@ export default mixins(mixin).extend({
                         // 再起動しただけでは自動再生されないので、明示的に
                         this.player.play();
 
+                        // プレイヤーの背景を表示する
+                        this.is_background_visible = true;
+
                         break;
                     }
 
@@ -600,6 +622,9 @@ export default mixins(mixin).extend({
 
                         // イベントソースを閉じる（復帰の見込みがないため）
                         this.eventsource.close();
+
+                        // プレイヤーの背景を表示する
+                        this.is_background_visible = true;
 
                         break;
                     }
@@ -619,6 +644,21 @@ export default mixins(mixin).extend({
                 // Standby のときだけプレイヤーに表示
                 if (event.status === 'Standby') {
                     this.player.notice(event.detail, -1);
+
+                    // プレイヤーの背景を表示する
+                    if (!this.is_background_visible) {
+                        this.is_background_visible = true;
+                    }
+
+                    // バッファリングしています…の場合
+                    if (event.detail === 'バッファリングしています…') {
+
+                        // 再生可能になったらプレイヤーの背景を非表示にする
+                        this.player.video.oncanplay = () => {
+                            this.is_background_visible = false;
+                            this.player.video.oncanplay = null;
+                        }
+                    }
                 }
             });
 
@@ -686,6 +726,13 @@ export default mixins(mixin).extend({
 }
 .dplayer-video-wrap {
     background: transparent !important;
+}
+.dplayer-video-wrap-aspect {
+    transition: opacity 0.3s;
+    opacity: 1;
+}
+.watch-player__background--visible .dplayer-video-wrap-aspect {
+    opacity: 0;
 }
 .dplayer-controller-mask {
     height: 82px !important;
@@ -887,6 +934,11 @@ export default mixins(mixin).extend({
             background-size: contain;
             background-position: center;
 
+            &.watch-player__background--visible > .watch-player__background {
+                opacity: 1;
+                visibility: visible;
+            }
+
             .watch-player__background {
                 position: absolute;
                 top: 50%;
@@ -897,16 +949,19 @@ export default mixins(mixin).extend({
                 aspect-ratio: 16 / 9;
                 transform: translate(-50%,-50%);
                 background-blend-mode: color-burn;
-                background-color: rgba(14, 14, 18, 50%);
+                background-color: rgba(14, 14, 18, 40%);
                 background-size: cover;
-                background-image: url('/assets/img/player-background1.jpg');
+                background-image: none;
+                opacity: 0;
+                visibility: hidden;
+                transition: opacity 0.3s, visibility 0.3s;
 
                 .watch-player__background-logo {
                     position: absolute;
                     right: 53px;
                     bottom: 30px;
                     font-size: 34px;
-                    text-shadow: 0px 0px 10px var(--v-black-base);
+                    text-shadow: 0px 0px 20px var(--v-black-base);
                 }
             }
 
@@ -923,9 +978,9 @@ export default mixins(mixin).extend({
                 right: 20px;
                 height: 190px;
                 transform: translateY(-50%);
-                transition: opacity 0.3s, visibility 0.3s;
                 opacity: 0;
                 visibility: hidden;
+                transition: opacity 0.3s, visibility 0.3s;
 
                 .switch-button {
                     display: flex;
