@@ -16,7 +16,6 @@ class Config(BaseModel):
     class General(BaseModel):
         debug: bool
         mirakurun_url: AnyHttpUrl
-
         # Mirakurun にアクセスできるかをチェック
         # 試しにリクエストを送り、200 (OK) が返ってきたときだけ有効な URL とみなす
         @validator('mirakurun_url')
@@ -30,23 +29,13 @@ class Config(BaseModel):
             return mirakurun_url
 
     class LiveStream(BaseModel):
-
         class Encoder(Enum):
             FFmpeg = 'FFmpeg'
             QSVEncC = 'QSVEncC'
             NVEncC = 'NVEncC'
             VCEEncC = 'VCEEncC'
-
-        preferred_encoder: Encoder
-        preferred_quality: str
+        encoder: Encoder
         max_alive_time: PositiveInt
-
-        # 画質が存在するかをチェック
-        @validator('preferred_quality')
-        def check_quality(cls, quality):
-            if quality not in QUALITY:
-                raise ValueError(f'{quality} という画質は定義されていません。')
-            return quality
 
     general: General
     livestream: LiveStream

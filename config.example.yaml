@@ -15,13 +15,9 @@
     # ライブストリームの設定
     'livestream': {
 
-        # 優先して利用するエンコーダー
+        # 利用するエンコーダー
         # FFmpeg・QSVEncC・NVEncC・VCEEncC から選択
-        'preferred_encoder': 'QSVEncC',
-
-        # 優先して利用する画質
-        # 1080p・720p・540p・480p・360p・240p から選択
-        'preferred_quality': '1080p',
+        'encoder': 'QSVEncC',
 
         # 誰も見ていないライブストリームを何秒まで維持するか
         # 10 秒に設定したなら、10 秒間誰も見ていない状態が継続したらライブストリーム（エンコーダー）を終了する

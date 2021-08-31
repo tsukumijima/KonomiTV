@@ -220,7 +220,7 @@ class LiveEncodingTask():
         # ***** エンコーダープロセスの作成と実行 *****
 
         # エンコーダーの種類を取得
-        encoder_type = CONFIG['livestream']['preferred_encoder']
+        encoder_type = CONFIG['livestream']['encoder']
 
         # FFmpeg
         if encoder_type == 'FFmpeg':
