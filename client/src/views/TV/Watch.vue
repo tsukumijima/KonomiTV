@@ -227,7 +227,7 @@ export default mixins(mixin).extend({
             },
 
             // チャンネル情報リスト
-            channels_list: null,
+            channels_list: {},
 
             // プレイヤー (DPlayer) のインスタンス
             player: null,
@@ -278,6 +278,9 @@ export default mixins(mixin).extend({
 
         // 初期化する
         init() {
+
+            // コントロール表示タイマーを実行
+            this.controlVisibleTimer();
 
             // チャンネル情報を取得
             this.update();
@@ -334,10 +337,11 @@ export default mixins(mixin).extend({
                 // チャンネル情報 API と同時にアクセスするとむしろレスポンスが遅くなるので、返ってくるのを待ってから実行
                 Vue.axios.get(`${this.api_base_url}/channels`).then((response) => {
 
-                    // is_display が true のチャンネルのみに絞り込むフィルタ関数
+                    // is_display が true または現在表示中のチャンネルのみに絞り込むフィルタ関数
                     // 放送していないサブチャンネルを表示から除外する
+                    const channel_id = this.channel_id;
                     function filter(channel: any) {
-                        return channel.is_display;
+                        return channel.is_display || channel_id === channel.channel_id;
                     }
 
                     // チャンネルリストを再構築
@@ -437,8 +441,39 @@ export default mixins(mixin).extend({
                 theme: '#E64F97',
                 // 読み込む m3u8 を指定する
                 video: {
-                    url: `${this.api_base_url}/streams/live/${this.channel_id}/${this.preferred_quality}/mpegts`,
-                    type: 'mpegts',
+                    defaultQuality: 0,
+                    quality: [
+                        {
+                            name: '1080p',
+                            type: 'mpegts',
+                            url: `${this.api_base_url}/streams/live/${this.channel_id}/1080p/mpegts`,
+                        },
+                        {
+                            name: '720p',
+                            type: 'mpegts',
+                            url: `${this.api_base_url}/streams/live/${this.channel_id}/720p/mpegts`,
+                        },
+                        {
+                            name: '540p',
+                            type: 'mpegts',
+                            url: `${this.api_base_url}/streams/live/${this.channel_id}/540p/mpegts`,
+                        },
+                        {
+                            name: '480p',
+                            type: 'mpegts',
+                            url: `${this.api_base_url}/streams/live/${this.channel_id}/480p/mpegts`,
+                        },
+                        {
+                            name: '360p',
+                            type: 'mpegts',
+                            url: `${this.api_base_url}/streams/live/${this.channel_id}/360p/mpegts`,
+                        },
+                        {
+                            name: '240p',
+                            type: 'mpegts',
+                            url: `${this.api_base_url}/streams/live/${this.channel_id}/240p/mpegts`,
+                        },
+                    ],
                 },
                 // コメント設定
                 // danmaku: {
@@ -474,6 +509,21 @@ export default mixins(mixin).extend({
                 }
             });
 
+            // 画質が切り替わったとき
+            this.player.on('quality_start', () => {
+
+                // イベントソースを閉じる
+                if (this.eventsource !== null) {
+                    this.eventsource.close();
+                    this.eventsource = null;
+                }
+
+                // 新しい EventSource を作成
+                // 画質ごとにイベント API は異なるため、一度破棄してから作り直す
+                this.initEventHandler();
+
+            });
+
             // デバッグ用にプレイヤーインスタンスも window 名前空間に入れる
             (window as any).player = this.player;
         },
@@ -482,7 +532,7 @@ export default mixins(mixin).extend({
         initEventHandler() {
 
             // EventSource を作成
-            this.eventsource = new EventSource(`${this.api_base_url}/streams/live/${this.channel_id}/${this.preferred_quality}/events`);
+            this.eventsource = new EventSource(`${this.api_base_url}/streams/live/${this.channel_id}/${this.player.quality.name}/events`);
 
             // ステータスが更新されたとき
             this.eventsource.addEventListener('status_update', (event_raw: MessageEvent) => {
@@ -501,7 +551,20 @@ export default mixins(mixin).extend({
                     case 'Standby': {
 
                         // ステータス詳細をプレイヤーに表示
-                        this.player.notice(event.detail);
+                        if (!this.player.template.notice.textContent.includes('画質を')) {  // 画質切り替えの表示を上書きしない
+                            this.player.notice(event.detail, -1);
+                        }
+
+                        break;
+                    }
+
+                    // Status: ONAir
+                    case 'ONAir': {
+
+                        // ステータス詳細をプレイヤーから削除
+                        if (!this.player.template.notice.textContent.includes('画質を')) {  // 画質切り替えの表示を上書きしない
+                            this.player.notice(this.player.template.notice.textContent, 0.000001);
+                        }
 
                         break;
                     }
@@ -510,12 +573,12 @@ export default mixins(mixin).extend({
                     case 'Restart': {
 
                         // ステータス詳細をプレイヤーに表示
-                        this.player.notice(event.detail);
+                        this.player.notice(event.detail, -1);
 
                         // プレイヤーを再起動する
                         this.player.switchVideo({
-                            url: `${this.api_base_url}/streams/live/${this.channel_id}/${this.preferred_quality}/mpegts`,
-                            type: 'mpegts',
+                            url: this.player.quality.url,
+                            type: this.player.quality.type,
                         });
 
                         // 再起動しただけでは自動再生されないので、明示的に
@@ -528,7 +591,7 @@ export default mixins(mixin).extend({
                     case 'Offline': {
 
                         // ステータス詳細をプレイヤーに表示
-                        this.player.notice(event.detail);
+                        this.player.notice(event.detail, -1);
 
                         // イベントソースを閉じる（復帰の見込みがないため）
                         this.eventsource.close();
@@ -550,7 +613,7 @@ export default mixins(mixin).extend({
 
                 // Standby のときだけプレイヤーに表示
                 if (event.status === 'Standby') {
-                    this.player.notice(event.detail);
+                    this.player.notice(event.detail, -1);
                 }
             });
 
@@ -600,6 +663,9 @@ export default mixins(mixin).extend({
 
 <style lang="scss">
 // DPlayer のスタイルの上書き
+.dplayer-video-wrap {
+    background: var(--v-black-base) !important;
+}
 .dplayer-controller-mask {
     height: 82px !important;
     background: linear-gradient(to bottom, transparent, var(--v-background-base)) !important;
@@ -646,7 +712,7 @@ export default mixins(mixin).extend({
 
 <style lang="scss" scoped>
 .route-container {
-    background: #000000 !important;
+    background: var(--v-black-base) !important;
     overflow: hidden;
 }
 .watch-container {
