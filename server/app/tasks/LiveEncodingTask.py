@@ -194,12 +194,17 @@ class LiveEncodingTask():
 
         # 現在の番組情報を取得する
         program_present:Programs = RunAwait(channel.getCurrentAndNextProgram())[0]
+
         ## 番組情報が取得できなければ（放送休止中など）ここで Offline にして中断する
         if program_present is None:
             time.sleep(0.5)  # ちょっと待つのがポイント
             livestream.setStatus('Offline', 'この時間は放送を休止しています。')
             return
         Logging.info(f'LiveStream:{livestream.livestream_id} Title:{program_present.title}')
+
+        ## 画質が 480i なのに 1080p にしてもしょうがないので、指定された画質が 480p 以上なら 480p に固定する
+        if program_present.video_resolution == '480i' and int(quality[:-1]) > 480:
+            quality = '480p'
 
         # Mirakurun 形式のサービス ID
         # NID と SID を 5 桁でゼロ埋めした上で int に変換する
@@ -410,17 +415,9 @@ class LiveEncodingTask():
             if livestream_status['status'] == 'ONAir' and time.time() - livestream.stream_data_writed_at > 2:
                 is_restart_required = True  # エンコーダーの再起動を要求
                 livestream.setStatus('Restart', 'エンコードが途中で停止しました。ライブストリームを再起動します。')
-                if encoder_type == 'FFmpeg':
-                    # 直近 30 件のログを表示
-                    for log in lines[-31:-1]:
-                        Logging.warning(log)
-                    break
-                # HWEncC はログを詳細にハンドリングするためにログレベルを debug に設定しているため、FFmpeg よりもログが圧倒的に多い
-                elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
-                    # 直近 30 件のログを表示 (最後の方 40 件はデバッグログなので除外)
-                    for log in lines[-70:-40]:
-                        Logging.warning(log)
-                    break
+                # 直近 30 件のログを表示
+                for log in lines[-31:-1]:
+                    Logging.warning(log)
                 break
 
             # すでに Offline 状態になっている場合、エンコーダーを終了する
@@ -475,8 +472,8 @@ class LiveEncodingTask():
                     # 捕捉されないエラー
                     is_restart_required = True  # エンコーダーの再起動を要求
                     livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。ライブストリームを再起動します。')
-                    # 直近 30 件のログを表示 (最後の方 40 件はデバッグログなので除外)
-                    for log in lines[-70:-40]:
+                    # 直近 50 件のログを表示 (最後の方 80 件はデバッグログなので除外)
+                    for log in lines[-130:-80]:
                         Logging.warning(log)
                     break
 
@@ -493,8 +490,8 @@ class LiveEncodingTask():
                     break
                 # HWEncC はログを詳細にハンドリングするためにログレベルを debug に設定しているため、FFmpeg よりもログが圧倒的に多い
                 elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
-                    # 直近 70 件のログを表示
-                    for log in lines[-71:-1]:
+                    # 直近 50 件のログを表示 (最後の方 80 件はデバッグログなので除外)
+                    for log in lines[-130:-80]:
                         Logging.warning(log)
                     break
                 break
