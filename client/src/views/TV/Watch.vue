@@ -590,8 +590,10 @@ export default mixins(mixin).extend({
                     // Status: Offline
                     case 'Offline': {
 
-                        // ステータス詳細をプレイヤーに表示
-                        this.player.notice(event.detail, -1);
+                        // 少し送らせてからステータス詳細をプレイヤーに表示
+                        setTimeout(() => {
+                            this.player.notice(event.detail, -1);
+                        }, 100);
 
                         // イベントソースを閉じる（復帰の見込みがないため）
                         this.eventsource.close();
@@ -663,6 +665,15 @@ export default mixins(mixin).extend({
 
 <style lang="scss">
 // DPlayer のスタイルの上書き
+.dplayer-quality-icon, .dplayer-quality-list, .dplayer-time, .dplayer-live-badge {
+    color: var(--v-text-base) !important;
+}
+.dplayer-volume-bar {
+    background: var(--v-text-base) !important;
+}
+.dplayer svg circle, .dplayer svg path {
+    fill: var(--v-text-base) !important;
+}
 .dplayer-video-wrap {
     background: var(--v-black-base) !important;
 }
@@ -684,6 +695,11 @@ export default mixins(mixin).extend({
 }
 .dplayer-mobile.dplayer-hide-controller .dplayer-controller {
     transform: none !important;
+}
+.dplayer-notice {
+    font-size: 15px;
+    border-radius: 2px;
+    padding: 14px 20px;
 }
 .dplayer-info-panel {
     transition: top 0.3s, left 0.3s;
