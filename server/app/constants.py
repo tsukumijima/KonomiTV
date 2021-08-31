@@ -72,8 +72,8 @@ QUALITY = {
     '240p': {
         'width': 426,
         'height': 240,
-        'video_bitrate': '300K',
-        'video_bitrate_max': '400K',
+        'video_bitrate': '700K',
+        'video_bitrate_max': '850K',
         'audio_bitrate': '128K',
     },
 }
