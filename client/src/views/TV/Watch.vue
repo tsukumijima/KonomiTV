@@ -665,14 +665,21 @@ export default mixins(mixin).extend({
 
 <style lang="scss">
 // DPlayer のスタイルの上書き
+.dplayer svg circle, .dplayer svg path {
+    fill: var(--v-text-base) !important;
+}
 .dplayer-quality-icon, .dplayer-quality-list, .dplayer-time, .dplayer-live-badge {
     color: var(--v-text-base) !important;
 }
+.dplayer-quality-list {
+    border-radius: 4px !important;
+    .dplayer-quality-item {
+        height: 30px !important;
+        line-height: 30px !important;
+    }
+}
 .dplayer-volume-bar {
     background: var(--v-text-base) !important;
-}
-.dplayer svg circle, .dplayer svg path {
-    fill: var(--v-text-base) !important;
 }
 .dplayer-video-wrap {
     background: var(--v-black-base) !important;
@@ -697,9 +704,9 @@ export default mixins(mixin).extend({
     transform: none !important;
 }
 .dplayer-notice {
+    padding: 16px 22px;
+    border-radius: 4px;
     font-size: 15px;
-    border-radius: 2px;
-    padding: 14px 20px;
 }
 .dplayer-info-panel {
     transition: top 0.3s, left 0.3s;
@@ -713,6 +720,7 @@ export default mixins(mixin).extend({
         }
         .dplayer-notice {
             left: calc(68px + 30px);
+            bottom: 62px;
         }
         .dplayer-info-panel {
             top: 82px;
