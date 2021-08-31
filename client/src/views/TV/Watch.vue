@@ -40,6 +40,9 @@
                     <span class="watch-header__now">{{time}}</span>
                 </header>
                 <div class="watch-player">
+                    <div class="watch-player__background">
+                        <div class="watch-player__background-logo">Konomi</div>
+                    </div>
                     <div class="watch-player__dplayer"></div>
                     <div class="watch-player__button">
                         <router-link v-ripple class="switch-button switch-button-up" :to="`/tv/watch/${channel_previous.channel_id}`">
@@ -682,7 +685,7 @@ export default mixins(mixin).extend({
     background: var(--v-text-base) !important;
 }
 .dplayer-video-wrap {
-    background: var(--v-black-base) !important;
+    background: transparent !important;
 }
 .dplayer-controller-mask {
     height: 82px !important;
@@ -883,6 +886,29 @@ export default mixins(mixin).extend({
             height: 100vh;
             background-size: contain;
             background-position: center;
+
+            .watch-player__background {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                width: 100%;
+                max-width: 100%;
+                max-height: 100%;
+                aspect-ratio: 16 / 9;
+                transform: translate(-50%,-50%);
+                background-blend-mode: color-burn;
+                background-color: rgba(14, 14, 18, 50%);
+                background-size: cover;
+                background-image: url('/assets/img/player-background1.jpg');
+
+                .watch-player__background-logo {
+                    position: absolute;
+                    right: 53px;
+                    bottom: 30px;
+                    font-size: 34px;
+                    text-shadow: 0px 0px 10px var(--v-black-base);
+                }
+            }
 
             .watch-player__dplayer {
                 width: 100%;
