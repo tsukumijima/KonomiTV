@@ -301,5 +301,6 @@ class LiveStream():
             if client is not None and client.type == 'mpegts':
                 client.queue.put(stream_data)
 
-        # 最終書き込み時刻を更新
-        self.stream_data_writed_at = time.time()
+        # ストリームデータが空でなければ、最終書き込み時刻を更新
+        if stream_data != b'':
+            self.stream_data_writed_at = time.time()
