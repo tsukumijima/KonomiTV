@@ -253,7 +253,7 @@ class Programs(models.Model):
                 for head, text in program_info['extended'].items():
 
                     # 見出しと本文
-                    head_han = ZenkakuToHankaku(head)
+                    head_han = ZenkakuToHankaku(head).replace('◇', '')  # ◇ を取り除く
                     text_han = ZenkakuToHankaku(text)
                     program.detail[head_han] = text_han
 
