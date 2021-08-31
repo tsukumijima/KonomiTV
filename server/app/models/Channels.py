@@ -54,7 +54,7 @@ class Channels(models.Model):
             channel.service_id = service['serviceId']
             channel.network_id = service['networkId']
             channel.remocon_id = service['remoteControlKeyId'] if ('remoteControlKeyId' in service) else None
-            channel.channel_name = ZenkakuToHankaku(service['name'])
+            channel.channel_name = ZenkakuToHankaku(service['name']).replace('：', ':')
             channel.channel_type = service['channel']['type']
             channel.channel_force = 0
             channel.channel_comment = 0
