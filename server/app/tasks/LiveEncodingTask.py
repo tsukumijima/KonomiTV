@@ -364,13 +364,13 @@ class LiveEncodingTask():
                                 livestream.setStatus('ONAir', 'ライブストリームは ONAir です。')
 
             # 現在放送中の番組が終了した時
-            if time.time() > program_present.end_time.timestamp():
+            if program_present is not None and time.time() > program_present.end_time.timestamp():
 
                 # 次の番組情報を取得する
                 program_following:Programs = RunAwait(channel.getCurrentAndNextProgram())[0]
 
-                # 前の番組も次の番組も None でない
-                if program_present is not None and program_following is not None:
+                # 次の番組が None でない
+                if program_following is not None:
 
                     # 現在:デュアルモノ以外 → 次:デュアルモノ
                     if (program_present.primary_audio_type != '1/0+1/0モード(デュアルモノ)') and \
@@ -404,10 +404,10 @@ class LiveEncodingTask():
                 livestream.setStatus('Offline', 'ライブストリームは Offline です。')
                 break
 
-            # 現在 ONAir でかつストリームデータの最終書き込み時刻から 3 秒以上が経過しているなら、エンコーダーがフリーズしたものとみなす
+            # 現在 ONAir でかつストリームデータの最終書き込み時刻から 2 秒以上が経過しているなら、エンコーダーがフリーズしたものとみなす
             # 何らかの理由でエンコードが途中で停止した場合、livestream.write() が実行されなくなるのを利用する
             # ステータスを Restart に設定し、エンコードタスクを再起動する
-            if livestream_status['status'] == 'ONAir' and time.time() - livestream.stream_data_writed_at > 3:
+            if livestream_status['status'] == 'ONAir' and time.time() - livestream.stream_data_writed_at > 2:
                 is_restart_required = True  # エンコーダーの再起動を要求
                 livestream.setStatus('Restart', 'エンコードが途中で停止しました。ライブストリームを再起動します。')
                 if encoder_type == 'FFmpeg':
