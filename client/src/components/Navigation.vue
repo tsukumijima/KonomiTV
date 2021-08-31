@@ -30,10 +30,10 @@
                 <Icon class="navigation__link-icon" icon="fluent:settings-20-regular" width="26px" />
                 <span class="navigation__link-text">設定</span>
             </router-link>
-            <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/version/">
+            <a v-ripple class="navigation__link" active-class="navigation__link--active" href="https://github.com/tsukumijima/Konomi">
                 <Icon class="navigation__link-icon" icon="fluent:info-16-regular" width="26px" />
                 <span class="navigation__link-text">version {{version}}</span>
-            </router-link>
+            </a>
         </nav>
     </div>
 </template>

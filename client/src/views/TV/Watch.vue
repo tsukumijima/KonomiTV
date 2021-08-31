@@ -27,9 +27,9 @@
                 <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/settings/">
                     <Icon class="watch-navigation__link-icon" icon="fluent:settings-20-regular" width="26px" />
                 </router-link>
-                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/version/">
+                <a v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" href="https://github.com/tsukumijima/Konomi">
                     <Icon class="watch-navigation__link-icon" icon="fluent:info-16-regular" width="26px" />
-                </router-link>
+                </a>
             </nav>
             <div class="watch-content">
                 <header class="watch-header">
