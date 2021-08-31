@@ -36,8 +36,8 @@ RUN apt-get install -y python3.9 python3-pip
 RUN pip install pipenv
 ## 仮想環境 (.venv) をプロジェクト直下に作成する
 ENV PIPENV_VENV_IN_PROJECT true
-## pipenv --rm を実行しないとなぜか仮想環境の作成に失敗する
-RUN pipenv --rm
+## 既に pipenv sync を実行している場合に発生するエラーを回避
+RUN rm -rf .venv
 RUN pipenv sync
 
 # データベースをアップグレード
