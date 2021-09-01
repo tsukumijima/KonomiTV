@@ -40,8 +40,5 @@ ENV PIPENV_VENV_IN_PROJECT true
 RUN rm -rf .venv
 RUN pipenv sync
 
-# データベースをアップグレード
-RUN pipenv run aerich upgrade
-
-# エントリーポイント
-ENTRYPOINT ["pipenv", "run", "serve"]
+# データベースを必要な場合にアップグレードし、起動
+ENTRYPOINT pipenv run aerich upgrade && exec pipenv run serve
