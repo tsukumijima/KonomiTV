@@ -754,9 +754,9 @@ export default mixins(mixin).extend({
     transform: none !important;
 }
 .dplayer-notice {
-    padding: 16px 22px;
-    border-radius: 4px;
-    font-size: 15px;
+    padding: 16px 22px !important;
+    border-radius: 4px !important;
+    font-size: 15px !important;
 }
 .dplayer-info-panel {
     transition: top 0.3s, left 0.3s;
