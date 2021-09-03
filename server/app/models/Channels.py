@@ -27,7 +27,7 @@ class Channels(models.Model):
 
 
     @classmethod
-    async def update(cls):
+    async def update(cls) -> None:
         """チャンネル情報を更新する"""
 
         # 既にデータベースにチャンネル情報が存在する場合は一旦全て削除する
@@ -57,8 +57,8 @@ class Channels(models.Model):
             channel.remocon_id = service['remoteControlKeyId'] if ('remoteControlKeyId' in service) else None
             channel.channel_name = ZenkakuToHankaku(service['name']).replace('：', ':')
             channel.channel_type = service['channel']['type']
-            channel.channel_force = 0
-            channel.channel_comment = 0
+            channel.channel_force = None
+            channel.channel_comment = None
 
             # カウントを追加
             if channel.network_id not in same_network_id_count:  # まだキーが存在しない
@@ -136,6 +136,13 @@ class Channels(models.Model):
 
             # レコードを保存する
             await channel.save()
+
+
+    @classmethod
+    async def updateJikkyoStatus(cls) -> None:
+        """チャンネル情報のうち、ニコニコ実況関連のステータスを更新する"""
+
+
 
 
     async def getCurrentAndNextProgram(self) -> tuple:

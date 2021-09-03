@@ -41,7 +41,7 @@ class Programs(models.Model):
 
 
     @classmethod
-    async def update(cls):
+    async def update(cls) -> None:
         """番組情報を更新する"""
 
         Logging.info('Program updating...')
