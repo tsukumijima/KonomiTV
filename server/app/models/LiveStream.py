@@ -34,7 +34,7 @@ class LiveStream():
     status:str = 'Offline'
 
     # ステータス詳細
-    detail:str = 'ラブストリームは Offline です。'
+    detail:str = 'ライブストリームは Offline です。'
 
     # ステータスの最終更新時刻のタイムスタンプ
     updated_at:float = time.time()

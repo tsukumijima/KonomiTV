@@ -15,6 +15,7 @@ class Channels(models.Model):
     id:str = fields.TextField(pk=True)
     service_id:int = fields.IntField()
     network_id:int = fields.IntField()
+    transport_stream_id:Optional[int] = fields.IntField(null=True)
     remocon_id:Optional[int] = fields.IntField(null=True)
     channel_id:str = fields.TextField()
     channel_number:str = fields.TextField()
