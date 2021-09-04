@@ -226,7 +226,13 @@ class LiveEncodingTask():
             set_ch_info['ch_or_mode'] = 2
             # 起動または同一 ID のチャンネル変更
             nwtv_path = None
-            nwtv_process_id = RunAwait(cmd.sendNwTVIDSetCh(set_ch_info))
+            # ほかのタスクがチューナーを閉じている (Idling -> Offline) などで空きがない場合があるのでいくらかリトライする
+            set_ch_timeout = time.monotonic() + 5
+            while True:
+                nwtv_process_id = RunAwait(cmd.sendNwTVIDSetCh(set_ch_info))
+                if nwtv_process_id is not None or time.monotonic() >= set_ch_timeout:
+                    break
+                time.sleep(0.5)
             if nwtv_process_id is not None:
                 nwtv_path = RunAwait(EDCBUtil.findNwTVStreamPath(nwtv_id, nwtv_process_id))
                 # 少し古い (2021 年 6 月以前) EDCB はパイプの待ち受け再開に時間がかかるので少し待つとよい
