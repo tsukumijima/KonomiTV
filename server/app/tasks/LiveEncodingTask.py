@@ -233,14 +233,16 @@ class LiveEncodingTask():
                 if nwtv_process_id is not None or time.monotonic() >= set_ch_timeout:
                     break
                 time.sleep(0.5)
-            if nwtv_process_id is not None:
+            if nwtv_process_id is None:
+                # 失敗。成功時は sendNwTVIDClose() するか予約などに割り込まれるまで起動しつづけるので注意
+                nwtv_id = None
+            else:
                 nwtv_path = RunAwait(EDCBUtil.findNwTVStreamPath(nwtv_id, nwtv_process_id))
                 # 少し古い (2021 年 6 月以前) EDCB はパイプの待ち受け再開に時間がかかるので少し待つとよい
                 # time.sleep(2)
             if nwtv_path is None:
                 # 失敗だがこの後どうすればいいか知らないので開けなさそうな名前を入れておく
                 nwtv_path = '__error__'
-                nwtv_id = None
 
             ast = subprocess.Popen(
                 [LIBRARY_PATH['arib-subtitle-timedmetadater'], '-i', nwtv_path],
