@@ -8,12 +8,15 @@ from datetime import timedelta
 from tortoise import fields
 from tortoise import models
 from tortoise import timezone
+from tortoise import transactions
 from typing import Optional
 
 from app.constants import CONFIG
 from app.models import Channels
 from app.utils import Logging
+from app.utils import TSInformation
 from app.utils import ZenkakuToHankaku
+from app.utils.EDCB import EDCBUtil, CtrlCmdUtil
 
 
 class Programs(models.Model):
@@ -131,6 +134,160 @@ class Programs(models.Model):
 
         # 現在時刻のタイムスタンプ
         timestamp = time.time()
+
+        if CONFIG['general']['backend'] == 'EDCB':
+            cmd = CtrlCmdUtil()
+            if CONFIG['general']['edcb_host']:
+                cmd.setNWSetting(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'])
+
+            # 開始時間未定をのぞく全番組を取得する (リスト引数の前2要素は全番組、残り2要素は全期間を意味)
+            program_services = await cmd.sendEnumPgInfoEx([0xffffffffffff, 0xffffffffffff, 1, 0x7fffffffffffffff]) or []
+
+            # このトランザクションは単にパフォーマンスのため
+            async with transactions.in_transaction():
+                # これに不要なものだけ残してまとめて削除する
+                duplicate_programs = {temp.id:temp for temp in await Programs.all()}
+
+                for program_service in program_services:
+                    nid = program_service['service_info']['onid']
+                    tsid = program_service['service_info']['tsid']
+                    sid = program_service['service_info']['sid']
+                    # 番組ごとに DB アクセスするとかなり重いので注意
+                    channel = await Channels.filter(network_id = nid, service_id = sid).first()
+                    if channel is None:
+                        continue
+
+                    for program_info in program_service['event_list']:
+                        group_info = program_info.get('event_group_info')
+                        if (group_info is not None and
+                            len(group_info['event_data_list']) == 1 and
+                            (group_info['event_data_list'][0]['onid'] != nid or
+                             group_info['event_data_list'][0]['tsid'] != tsid or
+                             group_info['event_data_list'][0]['sid'] != sid or
+                             group_info['event_data_list'][0]['eid'] != program_info['eid'])):
+                            # メインの番組でない
+                            continue
+
+                        short_info = program_info.get('short_info')
+                        if short_info is not None:
+                            title = ZenkakuToHankaku(short_info['event_name'])
+                            description = ZenkakuToHankaku(short_info['text_char'])
+                        else:
+                            title = ''
+                            description = ''
+
+                        detail = {}
+                        ext_info = program_info.get('ext_info')
+                        if ext_info is not None:
+                            for head, text in EDCBUtil.parseProgramExtendedText(ZenkakuToHankaku(ext_info['text_char'])).items():
+                                detail[head.replace('◇', '')] = text
+                                if description == '':
+                                    description = text
+
+                        start_time = program_info['start_time']
+                        # 終了時間未定はとりあえず5分とする
+                        end_time = start_time + timedelta(seconds = program_info.get('duration_sec', 300))
+
+                        if datetime.datetime.now(CtrlCmdUtil.TZ) - end_time > timedelta(hours = 1):
+                            # 古い
+                            continue
+
+                        # ここからは追加か更新か更新不要のいずれか
+
+                        program_id = f'NID{nid}-SID{sid:03d}-EID{program_info["eid"]}'
+                        duplicate_program = duplicate_programs.get(program_id)
+                        if (duplicate_program is not None and
+                            duplicate_program.title == title and
+                            duplicate_program.description == description and
+                            len(duplicate_program.detail) == len(detail) and
+                            duplicate_program.start_time == start_time and
+                            duplicate_program.end_time == end_time):
+                            # 更新不要
+                            del duplicate_programs[program_id]
+                            continue
+
+                        if duplicate_program is None:
+                            program = Programs()
+                        else:
+                            del duplicate_programs[program_id]
+                            program = duplicate_program
+
+                        program.id = program_id
+                        program.channel_id = channel.channel_id
+                        program.title = title
+                        program.description = description
+                        program.detail = detail
+                        program.start_time = start_time
+                        program.end_time = end_time
+                        program.duration = (end_time - start_time).total_seconds()
+                        program.is_free = program_info['free_ca_flag'] == 0
+
+                        program.video_type = ''
+                        program.video_codec = ''
+                        program.video_resolution = ''
+                        component_info = program_info.get('component_info')
+                        if component_info is not None:
+                            component_types = ariblib.constants.COMPONENT_TYPE.get(component_info['stream_content'])
+                            if component_types is not None:
+                                program.video_type = component_types.get(component_info['component_type'], '')
+                            program.video_codec = TSInformation.STREAM_CONTENT.get(component_info['stream_content'], '')
+                            program.video_resolution = TSInformation.COMPONENT_TYPE.get(component_info['component_type'], '')
+
+                        program.primary_audio_type = ''
+                        program.primary_audio_language = ''
+                        program.primary_audio_sampling_rate = ''
+                        audio_info = program_info.get('audio_info')
+                        if audio_info is not None:
+                            if len(audio_info['component_list']) > 0:
+                                audio_component_info = audio_info['component_list'][0]
+                                program.primary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02].get(audio_component_info['component_type'], '')
+                                program.primary_audio_sampling_rate = ariblib.constants.SAMPLING_RATE.get(audio_component_info['sampling_rate'], '')
+                                # 言語コードは分からないので日本語か英語で固定
+                                if audio_component_info['component_type'] == 0x02:
+                                    program.primary_audio_language = '日本語+' + ('英語' if audio_component_info['es_multi_lingual_flag'] != 0 else '副')
+                                else:
+                                    program.primary_audio_language = '日本語'
+
+                                if len(audio_info['component_list']) > 1:
+                                    audio_component_info = audio_info['component_list'][1]
+                                    program.secondary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02].get(audio_component_info['component_type'], '')
+                                    program.secondary_audio_sampling_rate = ariblib.constants.SAMPLING_RATE.get(audio_component_info['sampling_rate'], '')
+                                    if audio_component_info['component_type'] == 0x02:
+                                        program.secondary_audio_language = '日本語+' + ('英語' if audio_component_info['es_multi_lingual_flag'] != 0 else '副')
+                                    else:
+                                        # 英語かもしれないし解説かもしれない
+                                        program.secondary_audio_language = '副'
+
+                        program.genre = []
+                        content_info = program_info.get('content_info')
+                        if content_info is not None:
+                            for content_data in content_info['nibble_list']:
+                                genre_dict = {'major': '', 'middle': ''}
+                                genre_tuple = ariblib.constants.CONTENT_TYPE.get(content_data['content_nibble'] >> 8)
+                                if genre_tuple is not None:
+                                    genre_dict['major'] = genre_tuple[0].replace('／', '・')
+                                    if content_data['content_nibble'] == 0x0e00:
+                                        user_nibble = (content_data['user_nibble'] >> 8 << 4) | (content_data['user_nibble'] & 0xf)
+                                        genre_dict['middle'] = ariblib.constants.USER_TYPE.get(user_nibble, '')
+                                    elif content_data['content_nibble'] >> 8 == 0x0e:
+                                        continue
+                                    else:
+                                        genre_dict['middle'] = genre_tuple[1].get(content_data['content_nibble'] & 0xf, '').replace('／', '・')
+                                program.genre.append(genre_dict)
+
+                        if duplicate_program is None:
+                            Logging.debug(f'Add Program: {program.id}')
+                        else:
+                            Logging.debug(f'Update Program: {program.id}')
+
+                        await program.save()
+
+                for db_program in duplicate_programs.values():
+                    Logging.debug(f'Delete Program: {db_program.id}')
+                    await db_program.delete()
+
+            Logging.info(f'Program update complete. ({round(time.time() - timestamp, 3)} sec)')
+            return
 
         # Mirakurun の API から番組情報を取得する
         mirakurun_programs_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/programs'

@@ -15,11 +15,16 @@ class Config(BaseModel):
 
     class General(BaseModel):
         debug: bool
+        backend: str
         mirakurun_url: AnyHttpUrl
+        edcb_host: str
+        edcb_port: str
         # Mirakurun にアクセスできるかをチェック
         # 試しにリクエストを送り、200 (OK) が返ってきたときだけ有効な URL とみなす
         @validator('mirakurun_url')
-        def check_mirakurun_url(cls, mirakurun_url):
+        def check_mirakurun_url(cls, mirakurun_url, values):
+            if 'backend' in values and values['backend'] != 'Mirakurun':
+                return mirakurun_url
             try:
                 response = requests.get(f'{mirakurun_url}/api/version', timeout=3)
             except requests.exceptions.ConnectionError:

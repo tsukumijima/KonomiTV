@@ -17,6 +17,7 @@ from app.models import Channels
 from app.models import LiveStream
 from app.models import Programs
 from app.utils import RunAsync
+from app.utils.EDCB import EDCBUtil, CtrlCmdUtil
 
 
 # ルーター
@@ -181,6 +182,34 @@ async def ChannelLogoAPI(
     # ロゴは NID32736-SID1024.png のようなファイル名の PNG ファイル (256x256) を想定
     if pathlib.Path.exists(LOGO_DIR / f'{channel.id}.png'):
         return FileResponse(LOGO_DIR / f'{channel.id}.png', headers=header)
+
+    if CONFIG['general']['backend'] == 'EDCB':
+        cmd = CtrlCmdUtil()
+        if CONFIG['general']['edcb_host']:
+            cmd.setNWSetting(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'])
+
+        # EDCB の LogoData フォルダからロゴを取得
+        logo = None
+        files = await cmd.sendFileCopy2(['LogoData.ini', 'LogoData\\*.*']) or []
+        if len(files) == 2:
+            logo_data_ini = EDCBUtil.convertBytesToString(files[0]['data'])
+            logo_dir_index = EDCBUtil.convertBytesToString(files[1]['data'])
+            logo_id = EDCBUtil.getLogoIDFromLogoDataIni(logo_data_ini, channel.network_id, channel.service_id)
+            if logo_id >= 0:
+                # なるべく良いロゴタイプのものを取得
+                for logo_type in [5, 2, 4, 1, 3, 0]:
+                    logo_name = EDCBUtil.getLogoFileNameFromDirectoryIndex(logo_dir_index, channel.network_id, logo_id, logo_type)
+                    if logo_name is not None:
+                        files = await cmd.sendFileCopy2(['LogoData\\' + logo_name]) or []
+                        if len(files) == 1:
+                            logo = files[0]['data']
+                            logo_media_type = 'image/bmp' if logo_name.upper().endswith('.BMP') else 'image/png'
+                        break
+
+        if logo is not None and len(logo) > 0:
+            return Response(content = logo, media_type = logo_media_type, headers = header)
+
+        return FileResponse(LOGO_DIR / 'default.png', headers = header)
 
     # ***** Mirakurun からロゴを取得 *****
 
