@@ -13,6 +13,7 @@ from typing import Optional
 from app.constants import CONFIG
 from app.models import Channels
 from app.utils import Logging
+from app.utils import RunAsync
 from app.utils import ZenkakuToHankaku
 
 
@@ -134,7 +135,7 @@ class Programs(models.Model):
 
         # Mirakurun の API から番組情報を取得する
         mirakurun_programs_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/programs'
-        programs = requests.get(mirakurun_programs_api_url).json()
+        programs = (await RunAsync(requests.get, mirakurun_programs_api_url)).json()
 
         # 登録されている全ての番組を取得し、番組 ID (ex:NID32736-SID1024-EID11200) をキーに持つ辞書に変換する
         # EID (イベントID) だけでは一意にならないため、敢えて NID と SID も追加した ID としている

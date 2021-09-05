@@ -6,6 +6,7 @@ from tortoise import timezone
 from typing import Optional
 
 from app.constants import CONFIG
+from app.utils import RunAsync
 from app.utils import ZenkakuToHankaku
 
 
@@ -35,7 +36,7 @@ class Channels(models.Model):
 
         # Mirakurun の API からチャンネル情報を取得する
         mirakurun_services_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services'
-        services = requests.get(mirakurun_services_api_url).json()
+        services = (await RunAsync(requests.get, mirakurun_services_api_url)).json()
 
         # 同じネットワーク ID のサービスのカウント
         same_network_id_count = dict()
