@@ -1,5 +1,8 @@
 
 import json
+import requests
+import xml.etree.ElementTree as ET
+from typing import Optional
 
 from app.constants import BASE_DIR
 
@@ -39,39 +42,140 @@ class Jikkyo:
         'jk333': {'type': 'community', 'id': 'co5245469', 'name': 'AT-X'},
     }
 
+    # 実況チャンネルのステータスが入る辞書
+    # getchannels API のリクエスト結果をキャッシュする
+    jikkyo_channels_status = dict()
 
-    def __init__(self, service_id:str, network_id:str):
+
+    def __init__(self, network_id:int, service_id:int):
         """
         ニコニコ実況を初期化する
 
         Args:
-            service_id (str): サービス ID
-            network_id (str): ネットワーク ID
+            network_id (int): ネットワーク ID
+            service_id (int): サービス ID
         """
 
-        # SID と NID を設定
-        self.service_id = service_id
+        # NID と SID を設定
         self.network_id = network_id
+        self.service_id = service_id
 
         # 実況 ID を取得する
         for jikkyo_channel in self.jikkyo_channels:
 
-            # SID と NID が一致したときのみ
-            if self.service_id == jikkyo_channel['service_id'] and self.network_id == int(jikkyo_channel['network_id'], 0):
-                self.jikkyo_id = jikkyo_channel['jikkyo_id']
+            # マッチ条件が複雑すぎるので、絞り込みのための関数を定義する
+            def match() -> bool:
+
+                # jikkyo_channels.json に定義されている NID と SID
+                jikkyo_network_id = jikkyo_channel['network_id']
+                jikkyo_service_id = int(jikkyo_channel['service_id'], 0)  # 16進数の文字列を数値に変換
+
+                # NID と SID が一致する
+                # BS・CS・SKY の場合はこれだけで OK
+                if self.network_id == jikkyo_network_id and self.service_id == jikkyo_service_id:
+                    return True
+
+                # NID が地上波の ID 範囲 (0x7880 ～ 0x7fef) で、かつ jikkyo_channels.json 記載の NID が 15（地上波）であれば
+                # jikkyo_channels.json 記載の地上波の NID はなぜか 15 で固定なので、地上波で絞り込めたら後はサービス ID のみで特定する
+                if 0x7880 <= self.network_id <= 0x7fef and jikkyo_network_id == 15:
+
+                    # サービス ID が一致する
+                    if self.service_id == jikkyo_service_id:
+                        return True
+
+                    # サブチャンネル用で、jikkyo_channels.json にはサブチャンネルは定義されていないため必要
+                    # 地上波の場合はサービス ID は別チャンネルと隣合わせにならないようになっているはず
+                    # 地上波のサブチャンネルはおそらく最大3つなのでこれでカバーしきれるはず
+
+                    # 1つ前のサービス ID なら一致する
+                    # たとえば SID が 1025 (NHK総合2・東京) の場合、1つ前の 1024 (NHK総合1・東京) であれば定義があるので一致する
+                    if self.service_id - 1 == jikkyo_service_id:
+                        return True
+
+                    # 2つ前のサービス ID なら一致する
+                    # たとえば SID が 1034 (NHKEテレ3東京) の場合、2つ前の 1032 (NHKEテレ1東京) であれば定義があるので一致する
+                    if self.service_id - 2 == jikkyo_service_id:
+                        return True
+
+                # ここまでの条件に一致しなかったら False を返す
+                return False
+
+            # 上記の条件に一致する場合のみ
+            if match():
+
+                # 実況 ID が -1 なら jk0 に
+                if jikkyo_channel['jikkyo_id'] == -1:
+                    self.jikkyo_id = 'jk0'
+                else:
+                    self.jikkyo_id = 'jk' + str(jikkyo_channel['jikkyo_id'])
                 break
 
-        # この時点で実況 ID が存在しないなら、-1 を設定する
+        # この時点で実況 ID が存在しないなら、jk0 を設定する
         if hasattr(self, 'jikkyo_id') is False:
-            self.jikkyo_id = -1
+            self.jikkyo_id = 'jk0'
 
         # ニコ生上のチャンネル/コミュニティ ID を取得する
-        if self.jikkyo_id > 0:
-            if f'jk{self.jikkyo_id}' in self.jikkyo_nicolive_table:
+        if self.jikkyo_id != 'jk0':
+            if self.jikkyo_id in self.jikkyo_nicolive_table:
                 # 対照表に存在する実況 ID
-                self.jikkyo_nicolive_id = self.jikkyo_nicolive_table['id']
+                self.jikkyo_nicolive_id = self.jikkyo_nicolive_table[self.jikkyo_id]['id']
             else:
                 # ニコ生への移行時に廃止されたなどの理由で対照表に存在しない実況 ID
                 self.jikkyo_nicolive_id = None
         else:
             self.jikkyo_nicolive_id = None
+
+
+    async def getStatus(self) -> Optional[dict]:
+        """
+        実況チャンネルのステータスを取得する
+
+        Returns:
+            Optional[dict]: 実況チャンネルのステータス
+        """
+
+        # まだ実況チャンネルのステータスが更新されていなければ更新する
+        if (self.jikkyo_channels_status == dict()):
+            await self.updateStatus()
+
+        # 実況 ID が jk0 であれば None を返す
+        if self.jikkyo_id == 'jk0':
+            return None
+
+        # このインスタンスに紐づく実況チャンネルのステータスを返す
+        return self.jikkyo_channels_status[self.jikkyo_id]
+
+
+    @classmethod
+    async def updateStatus(cls) -> None:
+        """
+        全ての実況チャンネルのステータスを更新する
+        更新したステータスは getStatus() で取得できる
+        """
+
+        # 循環インポートを防ぐ
+        from app.utils import RunAsync
+
+        # getchannels API から実況チャンネルのステータスを取得する
+        getchannels_api_url = 'https://jikkyo.tsukumijima.net/namami/api/v2/getchannels'
+        getchannels_api_result:requests.Response = await RunAsync(requests.get, getchannels_api_url)
+
+        # XML をパース
+        channels = ET.fromstring(getchannels_api_result.text)
+
+        # 実況チャンネルごとに
+        for channel in channels:
+
+            # ステータスを更新する
+            # XML だと色々めんどくさいので、辞書にまとめ直す
+            jikkyo_id = channel.find('video').text
+            cls.jikkyo_channels_status[jikkyo_id] = {
+                'force': int(channel.find('./thread/force').text),
+                'viewers': int(channel.find('./thread/viewers').text),
+                'comments': int(channel.find('./thread/comments').text),
+            }
+
+            # viewers と comments が -1 の場合、None に設定する
+            if (cls.jikkyo_channels_status[jikkyo_id]['viewers'] == -1) and \
+               (cls.jikkyo_channels_status[jikkyo_id]['comments'] == -1):
+                cls.jikkyo_channels_status[jikkyo_id] = None

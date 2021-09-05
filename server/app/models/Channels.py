@@ -6,6 +6,7 @@ from tortoise import timezone
 from typing import Optional
 
 from app.constants import CONFIG
+from app.utils import Jikkyo
 from app.utils import RunAsync
 from app.utils import ZenkakuToHankaku
 
@@ -143,7 +144,26 @@ class Channels(models.Model):
     async def updateJikkyoStatus(cls) -> None:
         """チャンネル情報のうち、ニコニコ実況関連のステータスを更新する"""
 
+        # 全ての実況チャンネルのステータスを更新
+        await Jikkyo.updateStatus()
 
+        # 全てのチャンネル情報を取得
+        channels = await Channels.all()
+
+        # チャンネル情報ごとに
+        for channel in channels:
+
+            # 実況チャンネルのステータスを取得
+            jikkyo = Jikkyo(channel.network_id, channel.service_id)
+            status = await jikkyo.getStatus()
+
+            # ステータスが None（実況チャンネル自体が存在しないか、コミュニティの場合で実況枠が存在しない）でなければ
+            if status != None:
+
+                # ステータスを更新
+                channel.channel_force = status['force']
+                channel.channel_comment = status['comments']
+                await channel.save()
 
 
     async def getCurrentAndNextProgram(self) -> tuple:
