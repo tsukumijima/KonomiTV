@@ -5,7 +5,7 @@
                 <Icon class="navigation__link-icon" icon="fluent:tv-20-regular" width="26px" />
                 <span class="navigation__link-text">テレビをみる</span>
             </router-link>
-            <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/video/">
+            <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/videos/">
                 <Icon class="navigation__link-icon" icon="fluent:movies-and-tv-20-regular" width="26px" />
                 <span class="navigation__link-text">ビデオをみる</span>
             </router-link>
@@ -17,11 +17,11 @@
                 <Icon class="navigation__link-icon" icon="fluent:image-multiple-24-regular" width="26px" />
                 <span class="navigation__link-text">キャプチャ</span>
             </router-link>
-            <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/watchlist/">
+            <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/watchlists/">
                 <Icon class="navigation__link-icon" icon="ic:round-playlist-play" width="26px" />
                 <span class="navigation__link-text">ウォッチリスト</span>
             </router-link>
-            <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/history/">
+            <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/histories/">
                 <Icon class="navigation__link-icon" icon="fluent:history-16-regular" width="26px" />
                 <span class="navigation__link-text">視聴履歴</span>
             </router-link>
