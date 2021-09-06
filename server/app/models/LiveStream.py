@@ -90,6 +90,16 @@ class LiveStream():
         # (チャンネルID)-(映像の品質) で一意な ID になる
         self.livestream_id:str = f'{self.channel_id}-{self.quality}'
 
+        # ライブストリームの整数の ID を設定
+        self.int_id:int = 0
+        int_ids = [livestream.int_id for livestream in self.__instances.values()]
+        int_ids.sort()
+        # 自身を含むので結果は 1 以上になる
+        for i in int_ids:
+            if self.int_id != i:
+                break
+            self.int_id += 1
+
 
     @classmethod
     def getAllLiveStream(cls) -> list:

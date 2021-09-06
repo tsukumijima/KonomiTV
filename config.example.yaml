@@ -8,8 +8,18 @@
         # 有効にした場合、表示されるログが増える
         'debug': True,
 
+        # バックエンド
+        'backend': 'Mirakurun',
+
         # Mirakurun の URL
         'mirakurun_url': 'http://192.168.1.11:40772',
+
+        # EDCB の接続先ホスト名
+        # 空のときはローカルに接続
+        'edcb_host': '',
+
+        # EDCB の接続先ポート
+        'edcb_port': 4510,
     },
 
     # ライブストリームの設定

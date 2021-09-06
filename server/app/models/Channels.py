@@ -9,6 +9,7 @@ from app.constants import CONFIG
 from app.utils import Jikkyo
 from app.utils import RunAsync
 from app.utils import ZenkakuToHankaku
+from app.utils.EDCB import EDCBUtil, CtrlCmdUtil
 
 
 class Channels(models.Model):
@@ -31,6 +32,83 @@ class Channels(models.Model):
     @classmethod
     async def update(cls) -> None:
         """チャンネル情報を更新する"""
+
+        if CONFIG['general']['backend'] == 'EDCB':
+            cmd = CtrlCmdUtil()
+            if CONFIG['general']['edcb_host']:
+                cmd.setNWSetting(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'])
+
+            # リモコン番号が取得できない場合に備える
+            db_remocon_ids = {channel.id: channel.remocon_id for channel in await Channels.all()}
+            await Channels.all().delete()
+
+            # sendEnumService() の情報源は番組表。期限切れなどで番組情報が1つもないサービスについては取得できないので注意
+            # あればラッキー程度の情報と考えてほしい
+            epg_services = await cmd.sendEnumService() or []
+            services = await cmd.sendFileCopy('ChSet5.txt')
+            if services is None:
+                services = []
+            else:
+                services = EDCBUtil.parseChSet5(EDCBUtil.convertBytesToString(services))
+                # 枝番処理がミスらないようソートしておく
+                services.sort(key = lambda a: (a['onid'] << 16) | a['sid'])
+
+            last_network_id = -1
+            same_network_id_count = 0
+            last_network_remocon_id = 0
+            remocon_id_counts = {}
+
+            for service in services:
+                if service['service_type'] != 1:
+                    continue
+                nid = service['onid']
+                sid = service['sid']
+                channel = Channels()
+                channel.id = f'NID{nid}-SID{sid:03d}'
+                channel.service_id = sid
+                channel.network_id = nid
+                channel.transport_stream_id = service['tsid']
+                channel.remocon_id = None
+                channel.channel_name = ZenkakuToHankaku(service['service_name']).replace('：', ':')
+                # TODO: TSInformation あたりの情報を使いたい
+                channel.channel_type = 'BS' if nid == 4 else 'CS' if nid == 6 or nid == 7 else 'SKY' if nid == 1 or nid == 3 or nid == 10 else 'GR'
+                channel.channel_force = None
+                channel.channel_comment = None
+
+                if channel.channel_type == 'GR':
+                    epg_service = next(filter(lambda a: a['onid'] == nid and a['sid'] == sid, epg_services), None)
+                    if epg_service is not None:
+                        channel.remocon_id = epg_service['remote_control_key_id']
+                    else:
+                        channel.remocon_id = db_remocon_ids.get(channel.id)
+
+                    if last_network_id != nid:
+                        last_network_id = nid
+                        same_network_id_count = 1
+                        # リモコン番号が不明のときはとりあえず 0 とする
+                        last_network_remocon_id = 0 if channel.remocon_id is None else channel.remocon_id
+                        remocon_id_counts.setdefault(last_network_remocon_id, 0)
+                        remocon_id_counts[last_network_remocon_id] += 1
+                    else:
+                        same_network_id_count += 1
+                    channel.channel_number = str(last_network_remocon_id).zfill(2) + str(same_network_id_count)
+                    # 枝番処理
+                    if remocon_id_counts[last_network_remocon_id] > 1:
+                        channel.channel_number += '-' + str(remocon_id_counts[last_network_remocon_id])
+                else:
+                    channel.channel_number = str(sid).zfill(3)
+
+                channel.channel_id = channel.channel_type.lower() + channel.channel_number
+
+                if 0x7880 <= nid <= 0x7fef:
+                    channel.is_subchannel = (sid & 0x0187) != 0
+                elif nid == 4:
+                    channel.is_subchannel = sid in [102, 104, 142, 143, 152, 153, 162, 163, 172, 173, 182, 183]
+                else:
+                    channel.is_subchannel = False
+
+                await channel.save()
+            return
 
         # 既にデータベースにチャンネル情報が存在する場合は一旦全て削除する
         await Channels.all().delete()
