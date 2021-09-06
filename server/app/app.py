@@ -133,6 +133,9 @@ async def Startup():
     # チャンネル情報を更新
     await Channels.update()
 
+    # ニコニコ実況関連のステータスを更新
+    await Channels.updateJikkyoStatus()
+
     # 番組情報を更新
     await Programs.update()
 
@@ -147,3 +150,9 @@ async def Startup():
 @repeat_every(seconds=15 * 60, wait_first=True, logger=Logging.logger)
 def UpdateProgram():
     RunAwait(Programs.update())
+
+# 1分に1回、ニコニコ実況関連のステータスを定期的に更新する
+@app.on_event('startup')
+@repeat_every(seconds=1 * 60, wait_first=True, logger=Logging.logger)
+async def UpdateJikkyoStatus():
+    await Channels.updateJikkyoStatus()

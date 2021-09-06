@@ -8,7 +8,7 @@
                 <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/tv/">
                     <Icon class="watch-navigation__link-icon" icon="fluent:tv-20-regular" width="26px" />
                 </router-link>
-                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/video/">
+                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/videos/">
                     <Icon class="watch-navigation__link-icon" icon="fluent:movies-and-tv-20-regular" width="26px" />
                 </router-link>
                 <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/schedules/">
@@ -17,10 +17,10 @@
                 <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/captures/">
                     <Icon class="watch-navigation__link-icon" icon="fluent:image-multiple-24-regular" width="26px" />
                 </router-link>
-                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/watchlist/">
+                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/watchlists/">
                     <Icon class="watch-navigation__link-icon" icon="ic:round-playlist-play" width="26px" />
                 </router-link>
-                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/history/">
+                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/histories/">
                     <Icon class="watch-navigation__link-icon" icon="fluent:history-16-regular" width="26px" />
                 </router-link>
                 <v-spacer></v-spacer>
