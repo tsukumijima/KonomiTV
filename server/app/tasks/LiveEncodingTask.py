@@ -208,9 +208,8 @@ class LiveEncodingTask():
             quality = '480p'
 
         if CONFIG['general']['backend'] == 'EDCB':
-            cmd = CtrlCmdUtil()
-            if CONFIG['general']['edcb_host']:
-                cmd.setNWSetting(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'])
+            edcb = CtrlCmdUtil()
+            edcb.setNWSetting(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'])
             set_ch_info = {}
             # これを False にすれば起動確認とプロセス ID の取得ができる
             set_ch_info['use_sid'] = True
@@ -229,7 +228,7 @@ class LiveEncodingTask():
             # ほかのタスクがチューナーを閉じている (Idling -> Offline) などで空きがない場合があるのでいくらかリトライする
             set_ch_timeout = time.monotonic() + 5
             while True:
-                nwtv_process_id = RunAwait(cmd.sendNwTVIDSetCh(set_ch_info))
+                nwtv_process_id = RunAwait(edcb.sendNwTVIDSetCh(set_ch_info))
                 if nwtv_process_id is not None or time.monotonic() >= set_ch_timeout:
                     break
                 time.sleep(0.5)
@@ -550,7 +549,7 @@ class LiveEncodingTask():
         if CONFIG['general']['backend'] == 'EDCB':
             if nwtv_id is not None:
                 # ここで閉じずに次のタスクにうまく引き継げば再利用もできるはず
-                RunAwait(cmd.sendNwTVIDClose(nwtv_id))
+                RunAwait(edcb.sendNwTVIDClose(nwtv_id))
 
         # エンコードタスクを再起動する（エンコーダーの再起動が必要な場合）
         if is_restart_required is True:

@@ -1,12 +1,12 @@
 
+import urllib.parse
 import requests
-from enum import Enum
 from pydantic import AnyHttpUrl, BaseModel, PositiveInt, validator
+from pydantic.networks import stricturl
 from tortoise.contrib.pydantic import pydantic_model_creator
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
 from app import models
-from app.constants import QUALITY
 
 
 # 環境設定を表す Pydantic モデル
@@ -15,31 +15,12 @@ class Config(BaseModel):
 
     class General(BaseModel):
         debug: bool
-        backend: str
+        backend: Literal['Mirakurun', 'EDCB']
         mirakurun_url: AnyHttpUrl
-        edcb_host: str
-        edcb_port: str
-        # Mirakurun にアクセスできるかをチェック
-        # 試しにリクエストを送り、200 (OK) が返ってきたときだけ有効な URL とみなす
-        @validator('mirakurun_url')
-        def check_mirakurun_url(cls, mirakurun_url, values):
-            if 'backend' in values and values['backend'] != 'Mirakurun':
-                return mirakurun_url
-            try:
-                response = requests.get(f'{mirakurun_url}/api/version', timeout=3)
-            except requests.exceptions.ConnectionError:
-                raise ValueError(f'Mirakurun ({mirakurun_url}) にアクセスできませんでした。Mirakurun が起動していないか、URL を間違えている可能性があります。')
-            if response.status_code != 200:
-                raise ValueError(f'{mirakurun_url} は Mirakurun の URL ではありません。Mirakurun の URL を間違えている可能性があります。')
-            return mirakurun_url
+        edcb_url: stricturl(allowed_schemes={'tcp'}, tld_required=False)
 
     class LiveStream(BaseModel):
-        class Encoder(Enum):
-            FFmpeg = 'FFmpeg'
-            QSVEncC = 'QSVEncC'
-            NVEncC = 'NVEncC'
-            VCEEncC = 'VCEEncC'
-        encoder: Encoder
+        encoder: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC']
         max_alive_time: PositiveInt
 
     general: General

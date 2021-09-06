@@ -34,9 +34,8 @@ class Channels(models.Model):
         """チャンネル情報を更新する"""
 
         if CONFIG['general']['backend'] == 'EDCB':
-            cmd = CtrlCmdUtil()
-            if CONFIG['general']['edcb_host']:
-                cmd.setNWSetting(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'])
+            edcb = CtrlCmdUtil()
+            edcb.setNWSetting(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'])
 
             # リモコン番号が取得できない場合に備える
             db_remocon_ids = {channel.id: channel.remocon_id for channel in await Channels.all()}
@@ -44,8 +43,8 @@ class Channels(models.Model):
 
             # sendEnumService() の情報源は番組表。期限切れなどで番組情報が1つもないサービスについては取得できないので注意
             # あればラッキー程度の情報と考えてほしい
-            epg_services = await cmd.sendEnumService() or []
-            services = await cmd.sendFileCopy('ChSet5.txt')
+            epg_services = await edcb.sendEnumService() or []
+            services = await edcb.sendFileCopy('ChSet5.txt')
             if services is None:
                 services = []
             else:

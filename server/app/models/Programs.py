@@ -137,12 +137,11 @@ class Programs(models.Model):
         timestamp = time.time()
 
         if CONFIG['general']['backend'] == 'EDCB':
-            cmd = CtrlCmdUtil()
-            if CONFIG['general']['edcb_host']:
-                cmd.setNWSetting(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'])
+            edcb = CtrlCmdUtil()
+            edcb.setNWSetting(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'])
 
             # 開始時間未定をのぞく全番組を取得する (リスト引数の前2要素は全番組、残り2要素は全期間を意味)
-            program_services = await cmd.sendEnumPgInfoEx([0xffffffffffff, 0xffffffffffff, 1, 0x7fffffffffffffff]) or []
+            program_services = await edcb.sendEnumPgInfoEx([0xffffffffffff, 0xffffffffffff, 1, 0x7fffffffffffffff]) or []
 
             # このトランザクションは単にパフォーマンスのため
             async with transactions.in_transaction():

@@ -2,8 +2,10 @@
 import asyncio
 import logging
 import os
+import requests
 import sys
 import tortoise.contrib.fastapi
+import urllib.parse
 from fastapi import FastAPI
 from fastapi import Request
 from fastapi import status
@@ -22,7 +24,9 @@ from app.routers import ChannelsRouter
 from app.routers import LiveStreamsRouter
 from app.schemas import Config
 from app.utils import Logging
+from app.utils import RunAsync
 from app.utils import RunAwait
+from app.utils.EDCB import CtrlCmdUtil
 
 
 # このアプリケーションのイベントループ
@@ -129,6 +133,55 @@ tortoise.contrib.fastapi.register_tortoise(
 # サーバーの起動時に実行する
 @app.on_event('startup')
 async def Startup():
+
+    try:
+
+        # Mirakurun バックエンドの接続確認
+        if CONFIG['general']['backend'] == 'Mirakurun':
+
+            # 試しにリクエストを送り、200 (OK) が返ってきたときだけ有効な URL とみなす
+            try:
+                response = await RunAsync(requests.get, f'{CONFIG["general"]["mirakurun_url"]}/api/version', timeout=3)
+            except requests.exceptions.ConnectionError:
+                raise ValueError(f'Mirakurun ({CONFIG["general"]["mirakurun_url"]}) にアクセスできませんでした。Mirakurun が起動していないか、URL を間違えている可能性があります。')
+            if response.status_code != 200:
+                raise ValueError(f'{CONFIG["general"]["mirakurun_url"]} は Mirakurun の URL ではありません。Mirakurun の URL を間違えている可能性があります。')
+
+        # EDCB バックエンドの接続確認
+        elif CONFIG['general']['backend'] == 'EDCB':
+
+            # URL を解析
+            edcb_url_parse = urllib.parse.urlparse(CONFIG['general']['edcb_url'])
+
+            # ホスト名またはポートが指定されていない
+            if edcb_url_parse.hostname is None or edcb_url_parse.port is None:
+                raise ValueError(f'URL 内にホスト名またはポートが指定されていません。EDCB の URL を間違えている可能性があります。')
+
+            # サービス一覧が取得できるか試してみる
+            edcb = CtrlCmdUtil()
+            edcb.setNWSetting(edcb_url_parse.hostname, edcb_url_parse.port)
+            edcb.setConnectTimeOutSec(5)  # 5秒後にタイムアウト
+            result = await edcb.sendEnumService()
+            if result is None:
+                raise ValueError(f'EDCB ({CONFIG["general"]["edcb_url"]}) にアクセスできませんでした。EDCB が起動していないか、URL を間違えている可能性があります。')
+
+            ## EDCB のホスト名とポートを追加で設定
+            ## 毎回 URL を解析するのは非効率なため、ここで設定しておく
+            CONFIG['general']['edcb_host'] = edcb_url_parse.hostname
+            CONFIG['general']['edcb_port'] = edcb_url_parse.port
+
+    # エラー発生時
+    except ValueError as exception:
+
+        # ログ出力
+        Logging.error(
+            '設定内容が不正なため、Konomi を起動できません。\n          '
+            '以下のエラーメッセージを参考に、config.yaml の記述が正しいかどうか確認してください。'
+        )
+        Logging.error(exception.args[0])
+
+        # サーバーを終了
+        os._exit(1)
 
     # チャンネル情報を更新
     await Channels.update()

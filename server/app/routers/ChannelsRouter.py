@@ -184,13 +184,12 @@ async def ChannelLogoAPI(
         return FileResponse(LOGO_DIR / f'{channel.id}.png', headers=header)
 
     if CONFIG['general']['backend'] == 'EDCB':
-        cmd = CtrlCmdUtil()
-        if CONFIG['general']['edcb_host']:
-            cmd.setNWSetting(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'])
+        edcb = CtrlCmdUtil()
+        edcb.setNWSetting(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'])
 
         # EDCB の LogoData フォルダからロゴを取得
         logo = None
-        files = await cmd.sendFileCopy2(['LogoData.ini', 'LogoData\\*.*']) or []
+        files = await edcb.sendFileCopy2(['LogoData.ini', 'LogoData\\*.*']) or []
         if len(files) == 2:
             logo_data_ini = EDCBUtil.convertBytesToString(files[0]['data'])
             logo_dir_index = EDCBUtil.convertBytesToString(files[1]['data'])
@@ -200,7 +199,7 @@ async def ChannelLogoAPI(
                 for logo_type in [5, 2, 4, 1, 3, 0]:
                     logo_name = EDCBUtil.getLogoFileNameFromDirectoryIndex(logo_dir_index, channel.network_id, logo_id, logo_type)
                     if logo_name is not None:
-                        files = await cmd.sendFileCopy2(['LogoData\\' + logo_name]) or []
+                        files = await edcb.sendFileCopy2(['LogoData\\' + logo_name]) or []
                         if len(files) == 1:
                             logo = files[0]['data']
                             logo_media_type = 'image/bmp' if logo_name.upper().endswith('.BMP') else 'image/png'
