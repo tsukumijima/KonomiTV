@@ -244,7 +244,7 @@ class Programs(models.Model):
                                 program.primary_audio_sampling_rate = ariblib.constants.SAMPLING_RATE.get(audio_component_info['sampling_rate'], '')
                                 # 言語コードは分からないので日本語か英語で固定
                                 if audio_component_info['component_type'] == 0x02:
-                                    program.primary_audio_language = '日本語+' + ('英語' if audio_component_info['es_multi_lingual_flag'] != 0 else '副')
+                                    program.primary_audio_language = '日本語+' + ('英語' if audio_component_info['es_multi_lingual_flag'] != 0 else '副音声')
                                 else:
                                     program.primary_audio_language = '日本語'
 
@@ -253,10 +253,10 @@ class Programs(models.Model):
                                     program.secondary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02].get(audio_component_info['component_type'], '')
                                     program.secondary_audio_sampling_rate = ariblib.constants.SAMPLING_RATE.get(audio_component_info['sampling_rate'], '')
                                     if audio_component_info['component_type'] == 0x02:
-                                        program.secondary_audio_language = '日本語+' + ('英語' if audio_component_info['es_multi_lingual_flag'] != 0 else '副')
+                                        program.secondary_audio_language = '日本語+' + ('英語' if audio_component_info['es_multi_lingual_flag'] != 0 else '副音声')
                                     else:
                                         # 英語かもしれないし解説かもしれない
-                                        program.secondary_audio_language = '副'
+                                        program.secondary_audio_language = '副音声'
 
                         program.genre = []
                         content_info = program_info.get('content_info')

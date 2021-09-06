@@ -3,6 +3,7 @@ import requests
 from tortoise import fields
 from tortoise import models
 from tortoise import timezone
+from tortoise.exceptions import IntegrityError
 from typing import Optional
 
 from app.constants import CONFIG
@@ -106,7 +107,11 @@ class Channels(models.Model):
                 else:
                     channel.is_subchannel = False
 
-                await channel.save()
+                try:
+                    await channel.save()
+                except IntegrityError:
+                    # 既に登録されているチャンネルならスキップ
+                    pass
             return
 
         # 既にデータベースにチャンネル情報が存在する場合は一旦全て削除する
