@@ -157,8 +157,8 @@ class Channels(models.Model):
             jikkyo = Jikkyo(channel.network_id, channel.service_id)
             status = await jikkyo.getStatus()
 
-            # ステータスが None（実況チャンネル自体が存在しないか、コミュニティの場合で実況枠が存在しない）でなければ
-            if status != None:
+            # ステータスが None（実況チャンネル自体が存在しないか、コミュニティの場合で実況枠が存在しない）でなく、force が -1 でなければ
+            if status != None and status['force'] != -1:
 
                 # ステータスを更新
                 channel.channel_force = status['force']

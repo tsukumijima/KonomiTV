@@ -142,6 +142,11 @@ class Jikkyo:
         if self.jikkyo_id == 'jk0':
             return None
 
+        # 実況チャンネルのステータスが存在しない場合は None を返す
+        # 主にニコ生への移行時に実況が廃止されたチャンネル向け
+        if self.jikkyo_id not in self.jikkyo_channels_status:
+            return None
+
         # このインスタンスに紐づく実況チャンネルのステータスを返す
         return self.jikkyo_channels_status[self.jikkyo_id]
 
@@ -166,16 +171,21 @@ class Jikkyo:
         # 実況チャンネルごとに
         for channel in channels:
 
-            # ステータスを更新する
-            # XML だと色々めんどくさいので、辞書にまとめ直す
+            # 実況 ID を取得
             jikkyo_id = channel.find('video').text
-            cls.jikkyo_channels_status[jikkyo_id] = {
-                'force': int(channel.find('./thread/force').text),
-                'viewers': int(channel.find('./thread/viewers').text),
-                'comments': int(channel.find('./thread/comments').text),
-            }
 
-            # viewers と comments が -1 の場合、None に設定する
-            if (cls.jikkyo_channels_status[jikkyo_id]['viewers'] == -1) and \
-               (cls.jikkyo_channels_status[jikkyo_id]['comments'] == -1):
-                cls.jikkyo_channels_status[jikkyo_id] = None
+            # 対照表に存在する実況 ID のみ
+            if jikkyo_id in cls.jikkyo_nicolive_table:
+
+                # ステータスを更新する
+                # XML だと色々めんどくさいので、辞書にまとめ直す
+                cls.jikkyo_channels_status[jikkyo_id] = {
+                    'force': int(channel.find('./thread/force').text),
+                    'viewers': int(channel.find('./thread/viewers').text),
+                    'comments': int(channel.find('./thread/comments').text),
+                }
+
+                # viewers と comments が -1 の場合、force も -1 に設定する
+                if (cls.jikkyo_channels_status[jikkyo_id]['viewers'] == -1) and \
+                (cls.jikkyo_channels_status[jikkyo_id]['comments'] == -1):
+                    cls.jikkyo_channels_status[jikkyo_id]['force'] = -1
