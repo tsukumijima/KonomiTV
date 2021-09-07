@@ -279,7 +279,7 @@ class Programs(models.Model):
                         text_han = ZenkakuToHankaku(text)
                         program.detail[head_han] = text_han
 
-                        # 番組概要が空であれば番組詳細の最初の本文を概要として使う
+                        # 番組概要が空の場合、番組詳細の最初の本文を概要として使う
                         # 空でまったく情報がないよりかは良いはず
                         if program.description == '':
                             program.description == text_han
@@ -399,10 +399,12 @@ class Programs(models.Model):
 
                             # 見出しと本文
                             head_han = ZenkakuToHankaku(head).replace('◇', '')  # ◇ を取り除く
+                            if head_han == '':  # 見出しが空の場合、固定で「番組内容」としておく
+                                head_han = '番組内容'
                             text_han = ZenkakuToHankaku(text)
                             detail[head_han] = text_han
 
-                            # 番組概要が空であれば番組詳細の最初の本文を概要として使う
+                            # 番組概要が空の場合、番組詳細の最初の本文を概要として使う
                             # 空でまったく情報がないよりかは良いはず
                             if description == '':
                                 description = text
