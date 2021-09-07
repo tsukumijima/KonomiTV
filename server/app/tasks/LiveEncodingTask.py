@@ -240,8 +240,9 @@ class LiveEncodingTask():
                 # 少し古い (2021 年 6 月以前) EDCB はパイプの待ち受け再開に時間がかかるので少し待つとよい
                 # time.sleep(2)
             if nwtv_path is None:
-                # 失敗だがこの後どうすればいいか知らないので開けなさそうな名前を入れておく
-                nwtv_path = '__error__'
+                # チューナーの起動に失敗
+                livestream.setStatus('Offline', 'チューナーの起動に失敗したため、ライブストリームを開始できません。')
+                return
 
             ast = subprocess.Popen(
                 [LIBRARY_PATH['arib-subtitle-timedmetadater'], '-i', nwtv_path],
