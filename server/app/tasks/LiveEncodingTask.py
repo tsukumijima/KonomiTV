@@ -448,8 +448,8 @@ class LiveEncodingTask():
                 livestream.setStatus('Idling', 'ライブストリームは Idling です。')
 
             # 現在 Idling でかつ最終更新から指定された秒数以上経っていたらエンコーダーを終了し、Offline 状態に移行
-            if (livestream_status['status'] == 'Idling') and \
-               (time.time() - livestream_status['updated_at'] > CONFIG['livestream']['max_alive_time']):
+            if ((livestream_status['status'] == 'Idling') and
+                (time.time() - livestream_status['updated_at'] > CONFIG['livestream']['max_alive_time'])):
                 livestream.setStatus('Offline', 'ライブストリームは Offline です。')
                 break
 

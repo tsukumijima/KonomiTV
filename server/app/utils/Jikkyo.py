@@ -186,6 +186,6 @@ class Jikkyo:
                 }
 
                 # viewers と comments が -1 の場合、force も -1 に設定する
-                if (cls.jikkyo_channels_status[jikkyo_id]['viewers'] == -1) and \
-                (cls.jikkyo_channels_status[jikkyo_id]['comments'] == -1):
+                if (cls.jikkyo_channels_status[jikkyo_id]['viewers'] == -1 and
+                    cls.jikkyo_channels_status[jikkyo_id]['comments'] == -1):
                     cls.jikkyo_channels_status[jikkyo_id]['force'] = -1

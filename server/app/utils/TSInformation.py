@@ -361,8 +361,8 @@ class TSInformation:
                         return True
 
                     # 全て取得できたら抜ける
-                    if (all_not_none(result.values()) and \
-                        all_not_none(result['video'].values()) and \
+                    if (all_not_none(result.values()) and
+                        all_not_none(result['video'].values()) and
                         all_not_none(result['audio'].values())):
                         break
 
