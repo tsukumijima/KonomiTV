@@ -192,6 +192,7 @@ class LiveEncodingTask():
         channel:Channels = RunAwait(Channels.filter(channel_id=channel_id).first())
         service_id = channel.service_id
         network_id = channel.network_id
+        transport_stream_id = channel.transport_stream_id
 
         # 現在の番組情報を取得する
         program_present:Programs = RunAwait(channel.getCurrentAndNextProgram())[0]
@@ -207,15 +208,35 @@ class LiveEncodingTask():
         if program_present.video_resolution == '480i' and int(quality[:-1]) > 480:
             quality = '480p'
 
-        if CONFIG['general']['backend'] == 'EDCB':
+        # Mirakurun バックエンド
+        if CONFIG['general']['backend'] == 'Mirakurun':
+
+            # Mirakurun 形式のサービス ID
+            # NID と SID を 5 桁でゼロ埋めした上で int に変換する
+            mirakurun_service_id = int(str(network_id).zfill(5) + str(service_id).zfill(5))
+            # Mirakurun API の URL を作成
+            mirakurun_stream_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services/{mirakurun_service_id}/stream'
+
+            # arib-subtitle-timedmetadater
+            ## プロセスを非同期で作成・実行
+            ast = subprocess.Popen(
+                [LIBRARY_PATH['arib-subtitle-timedmetadater'], '--http', mirakurun_stream_api_url],
+                stdout=subprocess.PIPE,  # FFmpeg に繋ぐ
+                creationflags=(subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # conhost を開かない
+            )
+
+        # EDCB バックエンド
+        elif CONFIG['general']['backend'] == 'EDCB':
+
             edcb = CtrlCmdUtil()
             edcb.setNWSetting(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'])
+
             set_ch_info = {}
             # これを False にすれば起動確認とプロセス ID の取得ができる
             set_ch_info['use_sid'] = True
             set_ch_info['onid'] = network_id
-            set_ch_info['tsid'] = channel.transport_stream_id
             set_ch_info['sid'] = service_id
+            set_ch_info['tsid'] = transport_stream_id
             set_ch_info['use_bon_ch'] = True
             # NetworkTV モードのチューナーを識別する任意の整数
             # ほかのロケフリ系アプリと重複しないように増分してある
@@ -225,46 +246,37 @@ class LiveEncodingTask():
             set_ch_info['ch_or_mode'] = 2
             # 起動または同一 ID のチャンネル変更
             nwtv_path = None
-            # ほかのタスクがチューナーを閉じている (Idling -> Offline) などで空きがない場合があるのでいくらかリトライする
+
+            # チューナーを起動する
+            ## ほかのタスクがチューナーを閉じている (Idling -> Offline) などで空きがない場合があるのでいくらかリトライする
             set_ch_timeout = time.monotonic() + 5
             while True:
                 nwtv_process_id = RunAwait(edcb.sendNwTVIDSetCh(set_ch_info))
                 if nwtv_process_id is not None or time.monotonic() >= set_ch_timeout:
                     break
                 time.sleep(0.5)
+
+            # チューナーの起動に失敗した
+            # 成功時は sendNwTVIDClose() するか予約などに割り込まれるまで起動しつづけるので注意
             if nwtv_process_id is None:
-                # 失敗。成功時は sendNwTVIDClose() するか予約などに割り込まれるまで起動しつづけるので注意
-                nwtv_id = None
-            else:
-                nwtv_path = RunAwait(EDCBUtil.findNwTVStreamPath(nwtv_id, nwtv_process_id))
-                # 少し古い (2021 年 6 月以前) EDCB はパイプの待ち受け再開に時間がかかるので少し待つとよい
-                # time.sleep(2)
-            if nwtv_path is None:
-                # チューナーの起動に失敗
                 livestream.setStatus('Offline', 'チューナーの起動に失敗したため、ライブストリームを開始できません。')
                 return
 
-            ast = subprocess.Popen(
-                [LIBRARY_PATH['arib-subtitle-timedmetadater'], '-i', nwtv_path],
-                stdout = subprocess.PIPE,  # FFmpeg に繋ぐ
-                creationflags = (subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # conhost を開かない
-            )
+            # チューナーに接続する（放送波が送信される名前付きパイプを見つける）
+            nwtv_path = RunAwait(EDCBUtil.findNwTVStreamPath(nwtv_id, nwtv_process_id))
 
-        else:
-            # Mirakurun 形式のサービス ID
-            # NID と SID を 5 桁でゼロ埋めした上で int に変換する
-            mirakurun_service_id = int(str(network_id).zfill(5) + str(service_id).zfill(5))
-            # Mirakurun API の URL を作成
-            mirakurun_stream_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services/{mirakurun_service_id}/stream'
-
-            # ***** arib-subtitle-timedmetadater プロセスの作成と実行 *****
+            # チューナーへの接続に失敗した
+            if nwtv_path is None:
+                RunAwait(edcb.sendNwTVIDClose(nwtv_id))  # チューナーを閉じる
+                livestream.setStatus('Offline', 'チューナーへの接続に失敗したため、ライブストリームを開始できません。')
+                return
 
             # arib-subtitle-timedmetadater
             ## プロセスを非同期で作成・実行
             ast = subprocess.Popen(
-                [LIBRARY_PATH['arib-subtitle-timedmetadater'], '--http', mirakurun_stream_api_url],
-                stdout=subprocess.PIPE,  # FFmpeg に繋ぐ
-                creationflags=(subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # conhost を開かない
+                [LIBRARY_PATH['arib-subtitle-timedmetadater'], '-i', nwtv_path],
+                stdout = subprocess.PIPE,  # FFmpeg に繋ぐ
+                creationflags = (subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # conhost を開かない
             )
 
         # ***** エンコーダープロセスの作成と実行 *****
@@ -547,6 +559,7 @@ class LiveEncodingTask():
         ast.kill()
         encoder.kill()
 
+        # EDCB バックエンドのみ
         if CONFIG['general']['backend'] == 'EDCB':
             if nwtv_id is not None:
                 # ここで閉じずに次のタスクにうまく引き継げば再利用もできるはず
