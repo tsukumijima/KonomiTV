@@ -93,7 +93,7 @@ async def ChannelsAPI():
             channel.is_display = False
 
         # 現在の視聴者数を取得
-        channel.watching = LiveStream.getWatching(channel.channel_id)
+        channel.viewers = LiveStream.getViewers(channel.channel_id)
 
         # チャンネルタイプで分類
         result[channel.channel_type].append(channel)
@@ -135,7 +135,7 @@ async def ChannelAPI(
         channel.is_display = False
 
     # 現在の視聴者数を取得
-    channel.watching = LiveStream.getWatching(channel.channel_id)
+    channel.viewers = LiveStream.getViewers(channel.channel_id)
 
     # チャンネル情報を返却
     return channel

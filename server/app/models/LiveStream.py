@@ -135,9 +135,9 @@ class LiveStream():
 
 
     @classmethod
-    def getWatching(cls, channel_id:str) -> int:
+    def getViewers(cls, channel_id:str) -> int:
         """
-        指定されたチャンネルのライブストリームの総視聴者数を取得する
+        指定されたチャンネルのライブストリームの現在の視聴者数を取得する
 
         Args:
             channel_id (str): チャンネルID
@@ -147,14 +147,14 @@ class LiveStream():
         """
 
         # 指定されたチャンネル ID が含まれるライブストリームを探す
-        watching = 0
+        viewers = 0
         for livestream in LiveStream.getAllLiveStream():
             if livestream.channel_id == channel_id:
                 # 足していく
-                watching += livestream.getStatus()['clients_count']
+                viewers += livestream.getStatus()['clients_count']
 
         # カウントした視聴者数を返す
-        return watching
+        return viewers
 
 
     def connect(self, type:str) -> int:
