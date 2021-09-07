@@ -89,7 +89,7 @@
                         <div class="program-info__next-time">{{getProgramTime(channel.program_following)}}</div>
                         <div class="program-info__status">
                             <Icon icon="fa-solid:eye" height="14px" />
-                            <span class="ml-2">{{channel.watching}}</span>
+                            <span class="ml-2">{{channel.viewers}}</span>
                             <Icon class="ml-5" icon="fa-solid:fire-alt" height="14px" />
                             <span class="ml-2">{{getAttribute(channel, 'channel_force', '-')}}</span>
                             <Icon class="ml-5" icon="bi:chat-left-text-fill" height="14px" />
@@ -189,7 +189,7 @@ export default mixins(mixin).extend({
                 'channel_comment': 0,
                 'is_subchannel': false,
                 'is_display': true,
-                'watching': 0,
+                'viewers': 0,
                 'program_present': {
                     'id': 'NID0-SID0-EID0',
                     'channel_id': 'gr000',
@@ -557,8 +557,8 @@ export default mixins(mixin).extend({
                 const event = JSON.parse(event_raw.data.replace(/'/g, '"'));
                 console.log(`Status: ${event.status} Detail:${event.detail}`);
 
-                // クライアント数を更新
-                this.channel.watching = event.clients_count;
+                // 視聴者数を更新
+                this.channel.viewers = event.clients_count;
 
                 // ステータスごとに処理を振り分け
                 switch (event.status) {
@@ -638,8 +638,8 @@ export default mixins(mixin).extend({
                 const event = JSON.parse(event_raw.data.replace(/'/g, '"'));
                 console.log(`Status: ${event.status} Detail:${event.detail}`);
 
-                // クライアント数を更新
-                this.channel.watching = event.clients_count;
+                // 視聴者数を更新
+                this.channel.viewers = event.clients_count;
 
                 // Standby のときだけプレイヤーに表示
                 if (event.status === 'Standby') {
@@ -668,8 +668,8 @@ export default mixins(mixin).extend({
                 // イベントを取得
                 const event = JSON.parse(event_raw.data.replace(/'/g, '"'));
 
-                // クライアント数を更新
-                this.channel.watching = event.clients_count;
+                // 視聴者数を更新
+                this.channel.viewers = event.clients_count;
             });
         },
 

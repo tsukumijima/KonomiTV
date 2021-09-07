@@ -16,7 +16,7 @@
                                     <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.channel_name}}</span>
                                     <div class="channel__broadcaster-status">
                                         <Icon icon="fa-solid:eye" height="12px" />
-                                        <span class="ml-1">{{channel.watching}}</span>
+                                        <span class="ml-1">{{channel.viewers}}</span>
                                         <Icon class="ml-4" icon="fa-solid:fire-alt" height="12px" />
                                         <span class="ml-1">{{getAttribute(channel, 'channel_force', '-')}}</span>
                                         <Icon class="ml-4" icon="bi:chat-left-text-fill" height="12px" />
