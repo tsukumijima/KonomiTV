@@ -183,7 +183,43 @@ async def ChannelLogoAPI(
     if pathlib.Path.exists(LOGO_DIR / f'{channel.id}.png'):
         return FileResponse(LOGO_DIR / f'{channel.id}.png', headers=header)
 
+    # 地デジでかつサブチャンネルのみ、メインチャンネルにロゴがあればそれを利用する
+    if channel.channel_type == 'GR' and channel.is_subchannel is True:
+
+        # メインチャンネルの情報
+        # ネットワーク ID が同じチャンネルのうち、一番サービス ID が若いチャンネルを探す
+        main_channel = await Channels.filter(network_id=channel.network_id).order_by('service_id').first()
+
+        # メインチャンネルが存在し、ロゴも存在する
+        if main_channel is not None and pathlib.Path.exists(LOGO_DIR / f'{main_channel.id}.png'):
+            return FileResponse(LOGO_DIR / f'{main_channel.id}.png', headers=header)
+
+    # ***** Mirakurun からロゴを取得 *****
+
+    if CONFIG['general']['backend'] == 'Mirakurun':
+
+        # Mirakurun 形式のサービス ID
+        # NID と SID を 5 桁でゼロ埋めした上で int に変換する
+        mirakurun_service_id = int(str(channel.network_id).zfill(5) + str(channel.service_id).zfill(5))
+
+        # Mirakurun の API からロゴを取得する
+        # 同梱のロゴが存在しない場合のみ
+        mirakurun_logo_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services/{mirakurun_service_id}/logo'
+        mirakurun_logo_api_response:requests.Response = await RunAsync(requests.get, mirakurun_logo_api_url)
+
+        # ステータスコードが 200 であれば
+        # ステータスコードが 503 の場合はロゴデータが存在しない
+        if mirakurun_logo_api_response.status_code == 200:
+
+            # 取得したロゴデータを返す
+            mirakurun_logo = mirakurun_logo_api_response.content
+            return Response(content=mirakurun_logo, media_type='image/png', headers=header)
+
+    # ***** EDCB からロゴを取得 *****
+
     if CONFIG['general']['backend'] == 'EDCB':
+
+        # CtrlCmdUtil を初期化
         edcb = CtrlCmdUtil()
         edcb.setNWSetting(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'])
 
@@ -205,29 +241,9 @@ async def ChannelLogoAPI(
                             logo_media_type = 'image/bmp' if logo_name.upper().endswith('.BMP') else 'image/png'
                         break
 
-        if logo is not None and len(logo) > 0:
-            return Response(content = logo, media_type = logo_media_type, headers = header)
-
-        return FileResponse(LOGO_DIR / 'default.png', headers = header)
-
-    # ***** Mirakurun からロゴを取得 *****
-
-    # Mirakurun 形式のサービス ID
-    # NID と SID を 5 桁でゼロ埋めした上で int に変換する
-    mirakurun_service_id = int(str(channel.network_id).zfill(5) + str(channel.service_id).zfill(5))
-
-    # Mirakurun の API からロゴを取得する
-    # 同梱のロゴが存在しない場合のみ
-    mirakurun_logo_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services/{mirakurun_service_id}/logo'
-    mirakurun_logo_api_response:requests.Response = await RunAsync(requests.get, mirakurun_logo_api_url)
-
-    # ステータスコードが 200 であれば
-    # ステータスコードが 503 の場合はロゴデータが存在しない
-    if mirakurun_logo_api_response.status_code == 200:
-
         # 取得したロゴデータを返す
-        mirakurun_logo = mirakurun_logo_api_response.content
-        return Response(content=mirakurun_logo, media_type='image/png', headers=header)
+        if logo is not None and len(logo) > 0:
+            return Response(content=logo, media_type=logo_media_type, headers=header)
 
     # ***** デフォルトのロゴ画像を利用 *****
 
