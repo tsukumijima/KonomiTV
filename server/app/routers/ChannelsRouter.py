@@ -196,9 +196,28 @@ async def ChannelLogoAPI(
     # 地デジでかつサブチャンネルのみ、メインチャンネルにロゴがあればそれを利用する
     if channel.channel_type == 'GR' and channel.is_subchannel is True:
 
-        # メインチャンネルの情報
+        # メインチャンネルの情報を取得
         # ネットワーク ID が同じチャンネルのうち、一番サービス ID が若いチャンネルを探す
         main_channel = await Channels.filter(network_id=channel.network_id).order_by('service_id').first()
+
+        # メインチャンネルが存在し、ロゴも存在する
+        if main_channel is not None and pathlib.Path.exists(LOGO_DIR / f'{main_channel.id}.png'):
+            return FileResponse(LOGO_DIR / f'{main_channel.id}.png', headers=header)
+
+    # BS でかつサブチャンネルのみ、メインチャンネルにロゴがあればそれを利用する
+    if channel.channel_type == 'BS' and channel.is_subchannel is True:
+
+        # メインチャンネルのサービス ID を算出
+        # NHKBS1 と NHKBSプレミアム だけ特別に、それ以外は一の位が1のサービス ID を算出
+        if channel.service_id == 102:
+            main_service_id = 101
+        elif channel.service_id == 104:
+            main_service_id = 103
+        else:
+            main_service_id = int(channel.channel_number[0:2] + '1')
+
+        # メインチャンネルの情報を取得
+        main_channel = await Channels.filter(network_id=channel.network_id, service_id=main_service_id).first()
 
         # メインチャンネルが存在し、ロゴも存在する
         if main_channel is not None and pathlib.Path.exists(LOGO_DIR / f'{main_channel.id}.png'):
