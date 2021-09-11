@@ -165,15 +165,23 @@ class Channels(models.Model):
         remocon_id_counts = {}
 
         for service in services:
+
+            # type が 1 以外のサービス（＝ワンセグやデータ放送 (type:192) など）を弾く
             if service['service_type'] != 1:
                 continue
+
             nid = service['onid']
             sid = service['sid']
+            tsid = service['tsid']
+
+            # 新しいチャンネルのレコードを作成
             channel = Channels()
+
+            # 取得してきた値を設定
             channel.id = f'NID{nid}-SID{sid:03d}'
             channel.service_id = sid
             channel.network_id = nid
-            channel.transport_stream_id = service['tsid']
+            channel.transport_stream_id = tsid
             channel.remocon_id = None
             channel.channel_name = ZenkakuToHankaku(service['service_name']).replace('：', ':')
             # TODO: TSInformation あたりの情報を使いたい
