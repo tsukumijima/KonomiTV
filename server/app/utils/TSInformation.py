@@ -97,17 +97,17 @@ class TSInformation:
         """
 
         # SDT (Service Description Table) からチャンネル情報を取得
-        sdt = tsinfo.getSDTInformation()
+        sdt = self.getSDTInformation()
 
         # EIT (Event Information Table) から現在と次の番組情報を取得
         # 「現在」は録画開始時点のものなので、録画マージンがある場合基本的には eit_current には前の番組の情報が入る
-        eit_current = tsinfo.getEITInformation(sdt['service_id'], 0)
-        eit_following = tsinfo.getEITInformation(sdt['service_id'], 1)
+        eit_current = self.getEITInformation(sdt['service_id'], 0)
+        eit_following = self.getEITInformation(sdt['service_id'], 1)
 
         # TOT (Time Offset Table) からおおよその録画開始時刻・録画終了時刻を取得
         # TOT だけだと正確でないので、PCR (Packet Clock Reference) の値で補完する
-        record_start_time = tsinfo.getRecordStartTime()
-        record_end_time = tsinfo.getRecordEndTime()
+        record_start_time = self.getRecordStartTime()
+        record_end_time = self.getRecordEndTime()
 
         # 録画時間を算出
         record_duration = record_end_time - record_start_time
@@ -131,7 +131,8 @@ class TSInformation:
             'program': eit,
         }
 
-    def getNetworkType(self, network_id:int) -> str:
+    @classmethod
+    def getNetworkType(cls, network_id:int) -> str:
         """
         ネットワーク ID からネットワークの種別を取得する
         返り値は GR・BS・CS・SKY のいずれか（ Mirakurun 互換）
