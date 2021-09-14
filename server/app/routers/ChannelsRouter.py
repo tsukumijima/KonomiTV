@@ -45,7 +45,7 @@ async def ChannelsAPI():
     tasks = list()
 
     # チャンネル情報を取得
-    tasks.append(Channels.all().order_by('channel_number'))
+    tasks.append(Channels.all().order_by('channel_number').order_by('remocon_id'))
 
     # 現在の番組情報を取得する
     ## 一度に取得した方がパフォーマンスが向上するため敢えてそうしている
@@ -260,7 +260,7 @@ async def ChannelLogoAPI(
             logo_dir_index = EDCBUtil.convertBytesToString(files[1]['data'])
             logo_id = EDCBUtil.getLogoIDFromLogoDataIni(logo_data_ini, channel.network_id, channel.service_id)
             if logo_id >= 0:
-                # なるべく良いロゴタイプのものを取得
+                # なるべく画質が良いロゴタイプのものを取得
                 for logo_type in [5, 2, 4, 1, 3, 0]:
                     logo_name = EDCBUtil.getLogoFileNameFromDirectoryIndex(logo_dir_index, channel.network_id, logo_id, logo_type)
                     if logo_name is not None:
