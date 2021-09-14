@@ -179,7 +179,7 @@ class Programs(models.Model):
 
                 # 既に同じ番組 ID の番組が DB に登録されているなら（情報の更新がない場合のみ）スキップ
                 # DB は読み取るよりも書き込みの方が負荷と時間がかかるため、不要な書き込みは極力避ける
-                duplicate_program_id = f'NID{str(program_info["networkId"])}-SID{str(program_info["serviceId"]).zfill(3)}-EID{str(program_info["eventId"])}'
+                duplicate_program_id = f'NID{program_info["networkId"]}-SID{program_info["serviceId"]:03d}-EID{program_info["eventId"]}'
                 if duplicate_program_id in duplicate_programs:
 
                     # 重複している番組のモデルを取得

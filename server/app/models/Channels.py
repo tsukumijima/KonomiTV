@@ -9,6 +9,7 @@ from typing import Optional
 from app.constants import CONFIG
 from app.utils import Jikkyo
 from app.utils import RunAsync
+from app.utils import TSInformation
 from app.utils import ZenkakuToHankaku
 from app.utils.EDCB import EDCBUtil, CtrlCmdUtil
 
@@ -68,7 +69,7 @@ class Channels(models.Model):
             channel = Channels()
 
             # 取得してきた値を設定
-            channel.id = f'NID{str(service["networkId"])}-SID{str(service["serviceId"]).zfill(3)}'
+            channel.id = f'NID{service["networkId"]}-SID{service["serviceId"]:03d}'
             channel.service_id = service['serviceId']
             channel.network_id = service['networkId']
             channel.remocon_id = service['remoteControlKeyId'] if ('remoteControlKeyId' in service) else None
@@ -84,6 +85,7 @@ class Channels(models.Model):
 
             # ***** チャンネル番号・チャンネル ID を算出 *****
 
+            # GR: リモコン番号からチャンネル番号を算出する
             if channel.channel_type == 'GR':
 
                 # 地デジ: 上2桁はリモコン番号から、下1桁は同じネットワーク内にあるサービスのカウント
@@ -107,8 +109,8 @@ class Channels(models.Model):
                         '-' + str(duplicate_channel_count)  # 枝番
                     )
 
+            # BS・CS・SKY: サービス ID をそのままチャンネル番号とする
             else:
-                # BS・CS・SKY: SID をそのままチャンネル番号とする
                 channel.channel_number = str(channel.service_id).zfill(3)
 
             # チャンネルID = チャンネルタイプ(小文字)+チャンネル番号
@@ -140,24 +142,28 @@ class Channels(models.Model):
     async def updateFromEDCB(cls) -> None:
         """EDCB バックエンドからチャンネル情報を取得し、更新する"""
 
+        # リモコン番号が取得できない場合に備えてバックアップ
+        db_remocon_ids = {channel.id: channel.remocon_id for channel in await Channels.all()}
+
+        # 既にデータベースにチャンネル情報が存在する場合は一旦全て削除する
+        await Channels.all().delete()
+
         # CtrlCmdUtil を初期化
         edcb = CtrlCmdUtil()
         edcb.setNWSetting(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'])
 
-        # リモコン番号が取得できない場合に備える
-        db_remocon_ids = {channel.id: channel.remocon_id for channel in await Channels.all()}
-        await Channels.all().delete()
-
-        # sendEnumService() の情報源は番組表。期限切れなどで番組情報が1つもないサービスについては取得できないので注意
-        # あればラッキー程度の情報と考えてほしい
-        epg_services = await edcb.sendEnumService() or []
+        # EDCB の ChSet5.txt からチャンネル情報を取得する
         services = await edcb.sendFileCopy('ChSet5.txt')
-        if services is None:
-            services = []
-        else:
+        if services is not None:
             services = EDCBUtil.parseChSet5(EDCBUtil.convertBytesToString(services))
             # 枝番処理がミスらないようソートしておく
-            services.sort(key = lambda a: (a['onid'] << 16) | a['sid'])
+            services.sort(key = lambda temp: temp['onid'] * 100000 + temp['sid'])
+        else:
+            services = []
+
+        # sendEnumService() の情報源は番組表で、期限切れなどで番組情報が1つもないサービスについては取得できない
+        # あればラッキー程度の情報と考えてほしい
+        epg_services = await edcb.sendEnumService() or []
 
         last_network_id = -1
         same_network_id_count = 0
@@ -170,34 +176,33 @@ class Channels(models.Model):
             if service['service_type'] != 1:
                 continue
 
-            nid = service['onid']
-            sid = service['sid']
-            tsid = service['tsid']
-
             # 新しいチャンネルのレコードを作成
             channel = Channels()
 
             # 取得してきた値を設定
-            channel.id = f'NID{nid}-SID{sid:03d}'
-            channel.service_id = sid
-            channel.network_id = nid
-            channel.transport_stream_id = tsid
+            channel.id = f'NID{service["onid"]}-SID{service["sid"]:03d}'
+            channel.service_id = service['sid']
+            channel.network_id = service['onid']
+            channel.transport_stream_id = service['tsid']
             channel.remocon_id = None
             channel.channel_name = ZenkakuToHankaku(service['service_name']).replace('：', ':')
-            # TODO: TSInformation あたりの情報を使いたい
-            channel.channel_type = 'BS' if nid == 4 else 'CS' if nid == 6 or nid == 7 else 'SKY' if nid == 1 or nid == 3 or nid == 10 else 'GR'
+            channel.channel_type = TSInformation.getNetworkType(channel.network_id)
             channel.channel_force = None
             channel.channel_comment = None
 
+            # ***** チャンネル番号・チャンネル ID を算出 *****
+
+            # GR: リモコン番号からチャンネル番号を算出する
             if channel.channel_type == 'GR':
-                epg_service = next(filter(lambda a: a['onid'] == nid and a['sid'] == sid, epg_services), None)
+
+                epg_service = next(filter(lambda temp: temp['onid'] == channel.network_id and temp['sid'] == channel.service_id, epg_services), None)
                 if epg_service is not None:
                     channel.remocon_id = epg_service['remote_control_key_id']
                 else:
                     channel.remocon_id = db_remocon_ids.get(channel.id)
 
-                if last_network_id != nid:
-                    last_network_id = nid
+                if last_network_id != channel.network_id:
+                    last_network_id = channel.network_id
                     same_network_id_count = 1
                     # リモコン番号が不明のときはとりあえず 0 とする
                     last_network_remocon_id = 0 if channel.remocon_id is None else channel.remocon_id
@@ -209,23 +214,39 @@ class Channels(models.Model):
                 # 枝番処理
                 if remocon_id_counts[last_network_remocon_id] > 1:
                     channel.channel_number += '-' + str(remocon_id_counts[last_network_remocon_id])
-            else:
-                channel.channel_number = str(sid).zfill(3)
 
+            # BS・CS・SKY: サービス ID をそのままチャンネル番号とする
+            else:
+                channel.channel_number = str(channel.network_id).zfill(3)
+
+            # チャンネルID = チャンネルタイプ(小文字)+チャンネル番号
             channel.channel_id = channel.channel_type.lower() + channel.channel_number
 
-            if 0x7880 <= nid <= 0x7fef:
-                channel.is_subchannel = (sid & 0x0187) != 0
-            elif nid == 4:
-                channel.is_subchannel = sid in [102, 104, 142, 143, 152, 153, 162, 163, 172, 173, 182, 183]
+            # ***** サブチャンネルかどうかを算出 *****
+
+            # 地デジ: サービス ID に 0x0187 を AND 演算した時に 0 でない場合
+            # どういう原理かよくわからないんだけど、メインチャンネルでは 0 、サブチャンネルでは 1 以上を返してくれる
+            # EDCB バックエンドでは必ずしもチャンネル番号がうまく算出できているとは限らないため、このようにしてみる
+            if channel.channel_type == 'GR':
+                channel.is_subchannel = (channel.service_id & 0x0187) != 0
+
+            # BS: EDCB から得られる情報からはサブチャンネルかを判定できないため、決め打ちで設定
+            elif channel.channel_type == 'BS':
+                # サービス ID が以下のリストに含まれるかどうか
+                if channel.service_id in [102, 104, 142, 143, 152, 153, 162, 163, 172, 173, 182, 183]:
+                    channel.is_subchannel = True
+                else:
+                    channel.is_subchannel = False
+
+            # CS・SKY: サブチャンネルという概念自体がないため一律で False に設定
             else:
                 channel.is_subchannel = False
 
             # レコードを保存する
             try:
                 await channel.save()
+            # 既に登録されているチャンネルならスキップ
             except IntegrityError:
-                # 既に登録されているチャンネルならスキップ
                 pass
 
 
