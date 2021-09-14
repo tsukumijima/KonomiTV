@@ -217,7 +217,7 @@ class Channels(models.Model):
 
             # BS・CS・SKY: サービス ID をそのままチャンネル番号とする
             else:
-                channel.channel_number = str(channel.network_id).zfill(3)
+                channel.channel_number = str(channel.service_id).zfill(3)
 
             # チャンネルID = チャンネルタイプ(小文字)+チャンネル番号
             channel.channel_id = channel.channel_type.lower() + channel.channel_number
