@@ -58,6 +58,9 @@ class Channels(models.Model):
         # 同じネットワーク ID のサービスのカウント
         same_network_id_counts = dict()
 
+        # 同じリモコン番号のサービスのカウント
+        same_remocon_id_counts = dict()
+
         # サービスごとに実行
         for service in services:
 
@@ -85,29 +88,29 @@ class Channels(models.Model):
 
             # ***** チャンネル番号・チャンネル ID を算出 *****
 
-            # GR: リモコン番号からチャンネル番号を算出する
+            # 地デジ: リモコン番号からチャンネル番号を算出する
             if channel.channel_type == 'GR':
 
-                # 地デジ: 上2桁はリモコン番号から、下1桁は同じネットワーク内にあるサービスのカウント
+                # リモコン番号が不明のときはとりあえず 0 とする
+                if channel.remocon_id is None:
+                    channel.remocon_id = 0
+
+                # 同じリモコン番号のサービスのカウントを定義
+                if channel.remocon_id not in same_remocon_id_counts:  # まだキーが存在しないとき
+                    # 011(-0), 011-1, 011-2 のように枝番をつけるため、ネットワーク ID とは異なり -1 を基点とする
+                    same_remocon_id_counts[channel.remocon_id] = -1
+
+                # 同じネットワーク内にある最初のサービスのときだけ、同じリモコン番号のサービスのカウントを追加
+                # これをやらないと、サブチャンネルまで枝番処理の対象になってしまう
+                if same_network_id_counts[channel.network_id] == 1:
+                    same_remocon_id_counts[channel.remocon_id] += 1
+
+                # 上2桁はリモコン番号から、下1桁は同じネットワーク内にあるサービスのカウント
                 channel.channel_number = str(channel.remocon_id).zfill(2) + str(same_network_id_counts[channel.network_id])
 
-                # 既に同じチャンネル番号のチャンネルが存在する場合は枝番をつける
-                while await Channels.filter(channel_number=channel.channel_number).get_or_none() is not None:
-
-                        # 既に枝番があればさらに枝番をつける
-                    if '-' in (await Channels.filter(channel_number=channel.channel_number).get()).channel_number:
-                        duplicate_channel_count = int(channel.channel_number[-1]) + 1  # チャンネル番号の最後の1文字 + 1
-
-                    # 通常
-                    else:
-                        duplicate_channel_count = 1
-
-                    # チャンネル番号を再定義
-                    channel.channel_number = (
-                        str(channel.remocon_id).zfill(2) +  # リモコン番号
-                        str(same_network_id_counts[channel.network_id]) +  # 同じネットワーク内にあるサービスのカウント
-                        '-' + str(duplicate_channel_count)  # 枝番
-                    )
+                # 同じリモコン番号のサービスが複数ある場合、枝番をつける
+                if same_remocon_id_counts[channel.remocon_id] > 0:
+                    channel.channel_number += '-' + str(same_remocon_id_counts[channel.remocon_id])
 
             # BS・CS・SKY: サービス ID をそのままチャンネル番号・リモコン番号とする
             else:
@@ -200,7 +203,7 @@ class Channels(models.Model):
 
             # ***** チャンネル番号・チャンネル ID を算出 *****
 
-            # GR: リモコン番号からチャンネル番号を算出する
+            # 地デジ: リモコン番号からチャンネル番号を算出する
             if channel.channel_type == 'GR':
 
                 # EPG 由来のチャンネル情報を取得
@@ -217,15 +220,15 @@ class Channels(models.Model):
 
                 # 同じリモコン番号のサービスのカウントを定義
                 if channel.remocon_id not in same_remocon_id_counts:  # まだキーが存在しないとき
-                    # 011(-0), 011-1, 011-2 のように枝番をつけるため、ネットワーク ID とは違い -1 を基点とする
+                    # 011(-0), 011-1, 011-2 のように枝番をつけるため、ネットワーク ID とは異なり -1 を基点とする
                     same_remocon_id_counts[channel.remocon_id] = -1
 
-                # 同じネットワーク内にあるサービスのカウントが 1 のときだけ、同じリモコン番号のサービスのカウントを追加
+                # 同じネットワーク内にある最初のサービスのときだけ、同じリモコン番号のサービスのカウントを追加
                 # これをやらないと、サブチャンネルまで枝番処理の対象になってしまう
                 if same_network_id_counts[channel.network_id] == 1:
                     same_remocon_id_counts[channel.remocon_id] += 1
 
-                # 地デジ: 上2桁はリモコン番号から、下1桁は同じネットワーク内にあるサービスのカウント
+                # 上2桁はリモコン番号から、下1桁は同じネットワーク内にあるサービスのカウント
                 channel.channel_number = str(channel.remocon_id).zfill(2) + str(same_network_id_counts[channel.network_id])
 
                 # 同じリモコン番号のサービスが複数ある場合、枝番をつける
