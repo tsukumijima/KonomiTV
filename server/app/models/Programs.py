@@ -24,6 +24,9 @@ class Programs(models.Model):
 
     # テーブル設計は Notion を参照のこと
     id:str = fields.TextField(pk=True)
+    network_id:int = fields.IntField()
+    service_id:int = fields.IntField()
+    event_id:int = fields.IntField()
     channel_id:str = fields.TextField()
     title:str = fields.TextField()
     description:str = fields.TextField()
@@ -247,6 +250,9 @@ class Programs(models.Model):
 
                 # 取得してきた値を設定
                 program.id = program_id
+                program.network_id = channel.network_id
+                program.service_id = channel.service_id
+                program.event_id = program_info['eventId']
                 program.channel_id = channel.channel_id
                 program.title = title
                 program.description = description
@@ -460,6 +466,9 @@ class Programs(models.Model):
 
                     # 取得してきた値を設定
                     program.id = program_id
+                    program.network_id = channel.network_id
+                    program.service_id = channel.service_id
+                    program.event_id = program_info['eid']
                     program.channel_id = channel.channel_id
                     program.title = title
                     program.description = description

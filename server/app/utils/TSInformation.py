@@ -320,6 +320,8 @@ class TSInformation:
         # 雛形
         result = {
             'id': None,
+            'network_id': None,
+            'service_id': None,
             'event_id': None,
             'title': None,
             'description': None,
@@ -361,9 +363,11 @@ class TSInformation:
                     # 存在するなら順に追加していく
                     # 直接取得した文字列は AribSting になっているので、str に明示的に変換する
 
-                    ## イベント ID
+                    ## ネットワーク ID・サービス ID・イベント ID
                     if hasattr(event, 'event_id'):
                         result['id'] = f'NID{event.original_network_id}-SID{event.service_id}-EID{event.event_id}'
+                        result['network_id'] = event.original_network_id
+                        result['service_id'] = event.service_id
                         result['event_id'] = event.event_id
 
                     ## 番組名

@@ -1,8 +1,8 @@
 -- upgrade --
 CREATE TABLE IF NOT EXISTS "channels" (
     "id" TEXT NOT NULL  PRIMARY KEY,
-    "service_id" INT NOT NULL,
     "network_id" INT NOT NULL,
+    "service_id" INT NOT NULL,
     "remocon_id" INT,
     "channel_id" TEXT NOT NULL,
     "channel_number" TEXT NOT NULL,

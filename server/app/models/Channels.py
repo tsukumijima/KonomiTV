@@ -18,8 +18,8 @@ class Channels(models.Model):
 
     # テーブル設計は Notion を参照のこと
     id:str = fields.TextField(pk=True)
-    service_id:int = fields.IntField()
     network_id:int = fields.IntField()
+    service_id:int = fields.IntField()
     transport_stream_id:Optional[int] = fields.IntField(null=True)
     remocon_id:Optional[int] = fields.IntField(null=True)
     channel_id:str = fields.TextField()
