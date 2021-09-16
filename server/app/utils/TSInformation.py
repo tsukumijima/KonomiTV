@@ -127,7 +127,7 @@ class TSInformation:
                 'end_margin': record_end_time - eit['end_time'],
                 'duration': record_duration,
             },
-            'service': sdt,
+            'channel': sdt,
             'program': eit,
         }
 
@@ -171,14 +171,14 @@ class TSInformation:
 
         # 雛形
         result = {
-            'type': None,
-            'network_id': None,
             'service_id': None,
+            'network_id': None,
             'transport_stream_id': None,
-            'remote_control_key_id': None,
-            'service_type': None,
-            'service_name': None,
-            'transport_stream_name': None,
+            'remocon_id': None,
+            'channel_name': None,
+            'channel_ts_name': None,
+            'channel_type': None,
+            'channel_service_type': None,
         }
 
         # 誤動作防止のため必ず最初にシークを戻す
@@ -206,7 +206,7 @@ class TSInformation:
             result['network_id'] = sdt.original_network_id
 
             # ネットワーク種別を取得
-            result['type'] = self.getNetworkType(result['network_id'])
+            result['channel_type'] = self.getNetworkType(result['network_id'])
 
             # サービスごとに
             for service in sdt.services:
@@ -219,8 +219,8 @@ class TSInformation:
 
                     # SDT から得られる ServiceDescriptor 内の情報（サービスタイプ・サービス名）を取得
                     for sd in service.descriptors[ServiceDescriptor]:
-                        result['service_type'] = ariblib.constants.SERVICE_TYPE[int(hex(sd.service_type), 16)]
-                        result['service_name'] = str(sd.service_name)
+                        result['channel_service_type'] = ariblib.constants.SERVICE_TYPE[int(hex(sd.service_type), 16)]
+                        result['channel_name'] = str(sd.service_name)
                         break
                     else:
                         continue
@@ -238,8 +238,8 @@ class TSInformation:
                 # NIT から得られる TSInformationDescriptor 内の情報（リモコンキー ID）を取得
                 # 地デジのみで、BS には ServiceDescriptor 自体が存在しない
                 for tsinformation in transport_stream.descriptors.get(TSInformationDescriptor, []):
-                    result['remote_control_key_id'] = tsinformation.remote_control_key_id
-                    result['transport_stream_name'] = str(tsinformation.ts_name_char)
+                    result['remocon_id'] = tsinformation.remote_control_key_id
+                    result['channel_ts_name'] = str(tsinformation.ts_name_char)
                     break
                 break
             else:
