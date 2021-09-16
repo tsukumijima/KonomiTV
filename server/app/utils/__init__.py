@@ -22,7 +22,8 @@ def ZenkakuToHankaku(string: str) -> str:
     """
 
     # 変換結果を返す
-    return jaconv.zenkaku2hankaku(string, '！？＊：；～', kana=False, digit=True, ascii=True)
+    # シャープ (♯) をハッシュ (#) に置換する
+    return jaconv.zenkaku2hankaku(string, '！？＊：；～', kana=False, digit=True, ascii=True).replace('♯', '#')
 
 
 def RunAwait(coro:typing.Coroutine) -> typing.Any:
