@@ -78,6 +78,7 @@ class TSInformation:
         0xF4: '180p',
     }
 
+
     def __init__(self, tspath:str):
         """
         TS ファイルから各種情報を取得する
@@ -89,6 +90,7 @@ class TSInformation:
         # TS ファイルを開く
         # チャンクは 1000（だいたい 0.1 ～ 0.2 秒間隔）に設定
         self.ts:TransportStreamFile = ariblib.tsopen(tspath, chunk=1000)
+
 
     def extract(self) -> str:
         """
@@ -133,8 +135,9 @@ class TSInformation:
             'program': eit,
         }
 
-    @classmethod
-    def getNetworkType(cls, network_id:int) -> str:
+
+    @staticmethod
+    def getNetworkType(network_id:int) -> str:
         """
         ネットワーク ID からネットワークの種別を取得する
         返り値は GR・BS・CS・SKY のいずれか（ Mirakurun 互換）
@@ -161,6 +164,51 @@ class TSInformation:
         # 124/128度CSデジタル放送（スカパー！プレミアムサービス）
         if network_id == 1 or network_id == 3 or network_id == 10:
             return 'SKY'
+
+
+    @staticmethod
+    def formatString(string:Union[str, AribString]) -> str:
+        """
+        文字列の文字を半角または全角に置換し、一律な表現に整える
+
+        Args:
+            string (Union[str, AribString]): 文字列
+
+        Returns:
+            str: 置換した文字列
+        """
+
+        # AribString になっている場合があるので str 型にキャストする
+        string = str(string)
+
+        # 全角英数を半角英数に置換する
+        # maketrans() で全角英数を半角英数に置換するテーブルを作成する
+        # ref: https://github.com/ikegami-yukino/jaconv/blob/master/jaconv/conv_table.py
+        zenkaku_table = '０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ'
+        hankaku_table = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+        string = string.translate(str.maketrans(zenkaku_table, hankaku_table))
+
+        # 変換する文字列のテーブル
+        convert_table = str.maketrans({
+            # 全角スペース → 半角スペース
+            '　': ' ',
+            # シャープ → ハッシュ
+            '♯': '#',
+            # 一部の全角記号を半角に置換
+            '＃': '#',
+            # 一部の半角記号を全角に置換
+            # 主に見栄え的な問題（全角の方が字面が良い）
+            '!': '！',
+            '?': '？',
+            '*': '＊',
+            ':': '：',
+            ';': '；',
+            '~': '～',
+        })
+
+        # 置換した文字列を返す
+        return string.translate(convert_table)
+
 
     def getSDTInformation(self) -> dict:
         """
@@ -222,7 +270,7 @@ class TSInformation:
                     # SDT から得られる ServiceDescriptor 内の情報（サービスタイプ・サービス名）を取得
                     for sd in service.descriptors[ServiceDescriptor]:
                         result['channel_service_type'] = ariblib.constants.SERVICE_TYPE[int(hex(sd.service_type), 16)]
-                        result['channel_name'] = str(sd.service_name)
+                        result['channel_name'] = self.formatString(sd.service_name)
                         break
                     else:
                         continue
@@ -241,7 +289,7 @@ class TSInformation:
                 # 地デジのみで、BS には ServiceDescriptor 自体が存在しない
                 for tsinformation in transport_stream.descriptors.get(TSInformationDescriptor, []):
                     result['remocon_id'] = tsinformation.remote_control_key_id
-                    result['channel_ts_name'] = str(tsinformation.ts_name_char)
+                    result['channel_ts_name'] = self.formatString(tsinformation.ts_name_char)
                     break
                 break
             else:
@@ -249,6 +297,7 @@ class TSInformation:
             break
 
         return result
+
 
     def getEITInformation(self, service_id:int, eit_section_number:int) -> dict:
         """
@@ -288,31 +337,6 @@ class TSInformation:
         # 誤動作防止のため必ず最初にシークを戻す
         self.ts.seek(0)
 
-        def FormatString(string:Union[str, AribString]) -> str:
-            """
-            半角になってほしくない記号や逆に半角にしたい記号を一律で置換して整えるヘルパー
-
-            Args:
-                string (Union[str, AribString]): 文字列
-
-            Returns:
-                str: 置換した文字列
-            """
-
-            # AribString になっている場合があるので str 型にキャストする
-            string = str(string)
-
-            # 全角スペース → 半角スペース
-            string = string.replace('　', ' ')
-
-            # シャープ → ハッシュ
-            string = string.replace('♯', '#')
-
-            # 半角記号を全角化
-            string = string.replace('!', '！').replace('?', '？').replace('*', '＊').replace(':', '：').replace(';', '；').replace('~', '～')
-
-            return string
-
         # TS から EIT (Event Information Table) を抽出
         for eit in self.ts.sections(ActualStreamPresentFollowingEventInformationSection):
 
@@ -332,11 +356,11 @@ class TSInformation:
 
                     ## 番組名
                     if hasattr(event, 'title'):
-                        result['title'] = FormatString(event.title)
+                        result['title'] = self.formatString(event.title)
 
                     ## 番組概要
                     if hasattr(event, 'desc'):
-                        result['description'] = FormatString(event.desc)
+                        result['description'] = self.formatString(event.desc)
 
                     ## 番組詳細
                     if hasattr(event, 'detail'):
@@ -344,12 +368,12 @@ class TSInformation:
 
                         # 見出しと本文
                         for heading, text in event.detail.items():
-                            result['detail'][heading.replace('◇', '')] = FormatString(text)  # ◇ を取り除く
+                            result['detail'][heading.replace('◇', '')] = self.formatString(text)  # ◇ を取り除く
 
                             # 番組概要が空の場合、番組詳細の最初の本文を概要として使う
                             # 空でまったく情報がないよりかは良いはず
                             if result['description'].strip() == '':
-                                result['description'] = FormatString(text)
+                                result['description'] = self.formatString(text)
 
                     ## 番組長
                     if hasattr(event, 'duration'):
@@ -411,6 +435,7 @@ class TSInformation:
 
         return result
 
+
     def getRecordStartTime(self) -> datetime:
         """
         TS 内の TOT (Time Offset Table) と PCR (Program Clock Reference) の差分から、おおよその録画開始時刻を算出する
@@ -442,6 +467,7 @@ class TSInformation:
 
         # タイムゾーンを日本時間 (+9:00) に設定
         return first_tot.astimezone(timezone(timedelta(hours=9)))
+
 
     def getRecordEndTime(self) -> datetime:
         """
@@ -492,6 +518,7 @@ class TSInformation:
 
         # タイムゾーンを日本時間 (+9:00) に設定
         return last_tot.astimezone(timezone(timedelta(hours=9)))
+
 
     def getPCRTimeDelta(self) -> timedelta:
         """
