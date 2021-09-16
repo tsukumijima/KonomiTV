@@ -291,7 +291,7 @@ async def LiveMPEGTSStreamAPI(
             await asyncio.sleep(0.01)
 
     # リクエストがキャンセルされたときに自前でライブストリームの接続を切断できるよう、モンキーパッチを当てる
-    # StreamingResponse はリクエストがキャンセルされると勝手にレスポンスを生成するジェネレータの実行自体を強制終了してしまう
+    # StreamingResponse はリクエストがキャンセルされるとレスポンスを生成するジェネレータの実行自体を勝手に強制終了してしまう
     # そうするとリクエストがキャンセルされたか判定できないし、さらに強制終了によりスレッドプールがうまく解放されずに残ってしまうようで不具合が起きる
     # これを避けるため StreamingResponse.listen_for_disconnect() を書き換えて、自前でリクエストがキャンセルされた事を検知できるようにする
     # ref: https://github.com/encode/starlette/pull/839

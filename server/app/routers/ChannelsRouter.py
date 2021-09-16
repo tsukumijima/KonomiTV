@@ -276,5 +276,5 @@ async def ChannelLogoAPI(
 
     # ***** デフォルトのロゴ画像を利用 *****
 
-    # 同梱のロゴファイルも Mirakurun のロゴもない場合のみ
+    # 同梱のロゴファイルも Mirakurun や EDCB からのロゴもない場合のみ
     return FileResponse(LOGO_DIR / 'default.png', headers=header)
