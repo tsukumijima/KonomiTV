@@ -1,12 +1,14 @@
 
-from copy import copy
-from datetime import date, datetime, timedelta, timezone
 import json
 import sys
+from copy import copy
+from datetime import date, datetime, timedelta, timezone
+from typing import Union
 
 import ariblib
 import ariblib.constants
 import ariblib.event
+from ariblib.aribstr import AribString
 from ariblib.descriptors import (
     ServiceDescriptor,
     TSInformationDescriptor,
@@ -286,6 +288,31 @@ class TSInformation:
         # 誤動作防止のため必ず最初にシークを戻す
         self.ts.seek(0)
 
+        def FormatString(string:Union[str, AribString]) -> str:
+            """
+            半角になってほしくない記号や逆に半角にしたい記号を一律で置換して整えるヘルパー
+
+            Args:
+                string (Union[str, AribString]): 文字列
+
+            Returns:
+                str: 置換した文字列
+            """
+
+            # AribString になっている場合があるので str 型にキャストする
+            string = str(string)
+
+            # 全角スペース → 半角スペース
+            string = string.replace('　', ' ')
+
+            # シャープ → ハッシュ
+            string = string.replace('♯', '#')
+
+            # 半角記号を全角化
+            string = string.replace('!', '！').replace('?', '？').replace('*', '＊').replace(':', '：').replace(';', '；').replace('~', '～')
+
+            return string
+
         # TS から EIT (Event Information Table) を抽出
         for eit in self.ts.sections(ActualStreamPresentFollowingEventInformationSection):
 
@@ -305,31 +332,43 @@ class TSInformation:
 
                     ## 番組名
                     if hasattr(event, 'title'):
-                        result['title'] = str(event.title)
+                        result['title'] = FormatString(event.title)
+
                     ## 番組概要
                     if hasattr(event, 'desc'):
-                        result['description'] = str(event.desc)
+                        result['description'] = FormatString(event.desc)
+
                     ## 番組詳細
                     if hasattr(event, 'detail'):
-                        result['detail'] = {}
-                        # 見出し, 本文
+                        result['detail'] = dict()
+
+                        # 見出しと本文
                         for heading, text in event.detail.items():
-                            result['detail'][heading] = str(text)
+                            result['detail'][heading.replace('◇', '')] = FormatString(text)  # ◇ を取り除く
+
+                            # 番組概要が空の場合、番組詳細の最初の本文を概要として使う
+                            # 空でまったく情報がないよりかは良いはず
+                            if result['description'].strip() == '':
+                                result['description'] = FormatString(text)
+
                     ## 番組長
                     if hasattr(event, 'duration'):
                         result['duration'] = event.duration
+
                     ## 番組開始時刻・番組終了時刻
                     if hasattr(event, 'start_time'):
                         # タイムゾーンを日本時間 (+9:00) に設定
                         result['start_time'] = event.start_time.astimezone(timezone(timedelta(hours=9)))
                         # 番組終了時刻を start_time と duration から算出
                         result['end_time'] = result['start_time'] + result['duration']
+
                     ## 無料放送かどうか
                     if hasattr(event, 'free_CA_mode'):
                         # ARIB TR-B15 第三分冊 (https://vs1p.manualzilla.com/store/data/006629648.pdf)
                         # free_CA_mode が 1 のとき有料番組、0 のとき無料番組だそう
                         # bool に変換した後、真偽を反転させる
                         result['is_free'] = not bool(event.free_CA_mode)
+
                     ## ジャンル
                     if hasattr(event, 'genre'):
                         result['genre'] = []
@@ -338,20 +377,19 @@ class TSInformation:
                                 'major': event.genre[index],
                                 'middle': event.subgenre[index],
                             })
-                    ## 映像種別
-                    if hasattr(event, 'video'):
+
+                    ## 映像情報
+                    if hasattr(event, 'video'):  ## 映像の種別
                         result['video']['type'] = event.video
-                    ## 映像コーデック
-                    if hasattr(event, 'video_content'):
+                    if hasattr(event, 'video_content'):  ## 映像のコーデック
                         result['video']['codec'] = self.STREAM_CONTENT[int(hex(event.video_content), 16)]
-                    ## 解像度
-                    if hasattr(event, 'video_component'):
+                    if hasattr(event, 'video_component'):  ## 映像の解像度
                         result['video']['resolution'] = self.COMPONENT_TYPE[int(hex(event.video_component), 16)]
-                    ## 音声種別
-                    if hasattr(event, 'audio'):
+
+                    ## 音声情報
+                    if hasattr(event, 'audio'):  # 音声の種別
                         result['audio']['type'] = event.audio
-                    ## サンプルレート
-                    if hasattr(event, 'sampling_rate'):
+                    if hasattr(event, 'sampling_rate'):  ## 音声のサンプルレート
                         result['audio']['sampling_rate'] = event.sampling_rate_string
 
                     def all_not_none(iterable):
