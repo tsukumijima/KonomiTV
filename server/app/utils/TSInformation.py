@@ -104,8 +104,8 @@ class TSInformation:
         sdt = self.getSDTInformation()
 
         # EIT (Event Information Table) から現在と次の番組情報を取得
-        # 「現在」は録画開始時点のものなので、録画マージンがある場合基本的には eit_current には前の番組の情報が入る
-        eit_current = self.getEITInformation(sdt['service_id'], 0)
+        # 「現在」は録画開始時点のものなので、録画マージンがある場合基本的には eit_present には前の番組の情報が入る
+        eit_present = self.getEITInformation(sdt['service_id'], 0)
         eit_following = self.getEITInformation(sdt['service_id'], 1)
 
         # TOT (Time Offset Table) からおおよその録画開始時刻・録画終了時刻を取得
@@ -116,19 +116,19 @@ class TSInformation:
         # 録画時間を算出
         record_duration = record_end_time - record_start_time
 
-        # 録画開始時刻と次の番組の開始時刻を比較して、差が1分以内（録画マージン）なら次の番組情報を利用する
+        # 録画開始時刻と次の番組の開始時刻を比較して、差が1分以内（＝録画マージン）なら次の番組情報を利用する
         # 基本的に録画マージンがあるはずなので、番組途中から録画したとかでなければ次の番組情報を使う事になるはず
-        if eit_following['start_time'] - record_start_time <= timedelta(minutes=1):
+        if eit_following['start_time'] is not None and eit_following['start_time'] - record_start_time <= timedelta(minutes=1):
             eit = copy(eit_following)
         else:
-            eit = copy(eit_current)
+            eit = copy(eit_present)
 
         return {
             'record': {
                 'start_time': record_start_time,
-                'start_margin': eit['start_time'] - record_start_time,
+                'start_margin': (eit['start_time'] or record_start_time) - record_start_time,
                 'end_time': record_end_time,
-                'end_margin': record_end_time - eit['end_time'],
+                'end_margin': record_end_time - (eit['end_time'] or record_end_time),
                 'duration': record_duration,
             },
             'channel': sdt,
@@ -221,8 +221,9 @@ class TSInformation:
 
         # 雛形
         result = {
-            'service_id': None,
+            'id': None,
             'network_id': None,
+            'service_id': None,
             'transport_stream_id': None,
             'remocon_id': None,
             'channel_name': None,
@@ -296,6 +297,9 @@ class TSInformation:
                 continue
             break
 
+        # ID を設定
+        result['id'] = f'NID{result["network_id"]}-SID{result["service_id"]:03d}'
+
         return result
 
 
@@ -315,6 +319,8 @@ class TSInformation:
 
         # 雛形
         result = {
+            'id': None,
+            'event_id': None,
             'title': None,
             'description': None,
             'detail': None,
@@ -338,6 +344,7 @@ class TSInformation:
         self.ts.seek(0)
 
         # TS から EIT (Event Information Table) を抽出
+        count = 0
         for eit in self.ts.sections(ActualStreamPresentFollowingEventInformationSection):
 
             # section_number と service_id が一致したときだけ
@@ -353,6 +360,11 @@ class TSInformation:
 
                     # 存在するなら順に追加していく
                     # 直接取得した文字列は AribSting になっているので、str に明示的に変換する
+
+                    ## イベント ID
+                    if hasattr(event, 'event_id'):
+                        result['id'] = f'NID{event.original_network_id}-SID{event.service_id}-EID{event.event_id}'
+                        result['event_id'] = event.event_id
 
                     ## 番組名
                     if hasattr(event, 'title'):
@@ -380,11 +392,14 @@ class TSInformation:
                         result['duration'] = event.duration
 
                     ## 番組開始時刻・番組終了時刻
-                    if hasattr(event, 'start_time'):
+                    if hasattr(event, 'start_time') and event.start_time is not None:
                         # タイムゾーンを日本時間 (+9:00) に設定
                         result['start_time'] = event.start_time.astimezone(timezone(timedelta(hours=9)))
                         # 番組終了時刻を start_time と duration から算出
-                        result['end_time'] = result['start_time'] + result['duration']
+                        if result['duration'] is not None:
+                            result['end_time'] = result['start_time'] + result['duration']
+                        else:
+                            result['end_time'] = None  # 放送時間未定
 
                     ## 無料放送かどうか
                     if hasattr(event, 'free_CA_mode'):
@@ -395,12 +410,27 @@ class TSInformation:
 
                     ## ジャンル
                     if hasattr(event, 'genre'):
-                        result['genre'] = []
-                        for index, _ in enumerate(event.genre):
-                            result['genre'].append({
+                        result['genre'] = list()
+                        for index, _ in enumerate(event.genre):  # ジャンルごとに
+
+                            # major … 大分類
+                            # middle … 中分類
+                            genre_dict = {
                                 'major': event.genre[index],
                                 'middle': event.subgenre[index],
-                            })
+                            }
+
+                            # BS/地上デジタル放送用番組付属情報がジャンルに含まれている場合、user_nibble から値を取得して書き換える
+                            # たとえば「中止の可能性あり」や「延長の可能性あり」といった情報が取れる
+                            if genre_dict['major'] == '拡張':
+                                if genre_dict['middle'] == 'BS/地上デジタル放送用番組付属情報':
+                                    genre_dict['middle'] = event.user_genre[index]
+                                # 「拡張」はあるがBS/地上デジタル放送用番組付属情報でない場合はなんの値なのかわからないのでパス
+                                else:
+                                    continue
+
+                            # ジャンルを追加
+                            result['genre'].append(genre_dict)
 
                     ## 映像情報
                     if hasattr(event, 'video'):  ## 映像の種別
@@ -424,6 +454,7 @@ class TSInformation:
                         return True
 
                     # 全て取得できたら抜ける
+                    # 一つの EIT に全ての情報が含まれているとは限らないため
                     if (all_not_none(result.values()) and
                         all_not_none(result['video'].values()) and
                         all_not_none(result['audio'].values())):
@@ -431,6 +462,26 @@ class TSInformation:
 
                 else: # 多重ループを抜けるトリック
                     continue
+                break
+
+            # カウントを追加
+            count += 1
+
+            # ループが 100 で割り切れるたびに現在の位置から 188MB シークする
+            # ループが 100 以上に到達しているときはおそらく放送時間が未定の番組なので、放送時間が確定するまでシークする
+            if count % 100 == 0:
+                self.ts.seek(188000000, 1)  # 188MB
+
+            # ループが 100 回を超えたら、番組詳細とジャンルの初期値を設定する
+            # 稀に番組詳細やジャンルが全く設定されていない番組があり、存在しない情報を探して延々とループするのを避けるため
+            if count > 100:
+                if result['detail'] is None:
+                    result['detail'] = dict()
+                if result['genre'] is None:
+                    result['genre'] = list()
+
+            # ループが 1000 回を超えたら（＝20回シークしても放送時間が確定しなかったら）、タイムアウトでループを抜ける
+            if count > 1000:
                 break
 
         return result
@@ -484,7 +535,7 @@ class TSInformation:
         self.ts.seek(-1880000, 2)
 
         # PCR を取得して配列に格納
-        pcrs = []
+        pcrs = list()
         for _ in self.ts:
             pcr = self.getPCRTimeDelta()
             if pcr is not None:
@@ -497,7 +548,7 @@ class TSInformation:
         self.ts.seek(-18800000, 2)
 
         # TOT を取得して配列に格納
-        tots = []
+        tots = list()
         for tot in self.ts.sections(TimeOffsetSection):
             tots.append(tot.JST_time)
             pcr = self.getPCRTimeDelta()
