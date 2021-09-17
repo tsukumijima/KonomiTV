@@ -505,12 +505,20 @@ class TSInformation:
                             ## 主音声の言語
                             result['primary_audio']['language'] = self.getISO639LanguageCodeName(acd.ISO_639_language_code)
                             ## デュアルモノのみ
-                            if bool(acd.ES_multi_lingual_flag) is True:
-                                result['primary_audio']['language'] += '+' + self.getISO639LanguageCodeName(acd.ISO_639_language_code_2)
+                            if result['primary_audio']['type'] == '1/0+1/0モード(デュアルモノ)':
+                                if bool(acd.ES_multi_lingual_flag) is True:
+                                    result['primary_audio']['language'] += '+' + self.getISO639LanguageCodeName(acd.ISO_639_language_code_2)
+                                else:
+                                    result['primary_audio']['language'] += '+副音声'  # 副音声で固定
                         else:
                             ## 副音声の言語
                             result['secondary_audio']['language'] = self.getISO639LanguageCodeName(acd.ISO_639_language_code)
-
+                            ## デュアルモノのみ
+                            if result['secondary_audio']['type'] == '1/0+1/0モード(デュアルモノ)':
+                                if bool(acd.ES_multi_lingual_flag) is True:
+                                    result['secondary_audio']['language'] += '+' + self.getISO639LanguageCodeName(acd.ISO_639_language_code_2)
+                                else:
+                                    result['secondary_audio']['language'] += '+副音声'  # 副音声で固定
 
                     def all_not_none(iterable):
                         """リスト内の要素が全て None でないなら True を返す"""
