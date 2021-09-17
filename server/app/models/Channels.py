@@ -112,10 +112,15 @@ class Channels(models.Model):
                 if same_remocon_id_counts[channel.remocon_id] > 0:
                     channel.channel_number += '-' + str(same_remocon_id_counts[channel.remocon_id])
 
-            # BS・CS・SKY: サービス ID をそのままチャンネル番号・リモコン番号とする
-            else:
+            # BS・CS: サービス ID をそのままチャンネル番号・リモコン番号とする
+            elif channel.channel_type == 'BS' or channel.channel_type == 'CS':
                 channel.remocon_id = channel.service_id  # ソートする際の便宜上設定しておく
                 channel.channel_number = str(channel.service_id).zfill(3)
+
+            # SKY: リモコン番号があればそれをチャンネル番号とする
+            elif channel.channel_type == 'SKY':
+                if channel.remocon_id is not None:
+                    channel.channel_number = str(channel.remocon_id)
 
             # チャンネルID = チャンネルタイプ(小文字)+チャンネル番号
             channel.channel_id = channel.channel_type.lower() + channel.channel_number
@@ -207,12 +212,12 @@ class Channels(models.Model):
 
             # ***** チャンネル番号・チャンネル ID を算出 *****
 
+            # EPG 由来のチャンネル情報を取得
+            # 現在のチャンネルのリモコン番号が含まれる
+            epg_service = next(filter(lambda temp: temp['onid'] == channel.network_id and temp['sid'] == channel.service_id, epg_services), None)
+
             # 地デジ: リモコン番号からチャンネル番号を算出する
             if channel.channel_type == 'GR':
-
-                # EPG 由来のチャンネル情報を取得
-                # 現在のチャンネルのリモコン番号が含まれる
-                epg_service = next(filter(lambda temp: temp['onid'] == channel.network_id and temp['sid'] == channel.service_id, epg_services), None)
 
                 if epg_service is not None:
                     # EPG 由来のチャンネル情報が取得できていればリモコン番号を取得
@@ -239,10 +244,16 @@ class Channels(models.Model):
                 if same_remocon_id_counts[channel.remocon_id] > 0:
                     channel.channel_number += '-' + str(same_remocon_id_counts[channel.remocon_id])
 
-            # BS・CS・SKY: サービス ID をそのままチャンネル番号・リモコン番号とする
-            else:
+            # BS・CS: サービス ID をそのままチャンネル番号・リモコン番号とする
+            elif channel.channel_type == 'BS' or channel.channel_type == 'CS':
                 channel.remocon_id = channel.service_id  # ソートする際の便宜上設定しておく
                 channel.channel_number = str(channel.service_id).zfill(3)
+
+            # SKY: リモコン番号があればそれをチャンネル番号とする
+            elif channel.channel_type == 'SKY':
+                if epg_service is not None:
+                    channel.remocon_id = epg_service['remote_control_key_id']
+                    channel.channel_number = str(channel.remocon_id)
 
             # チャンネルID = チャンネルタイプ(小文字)+チャンネル番号
             channel.channel_id = channel.channel_type.lower() + channel.channel_number
