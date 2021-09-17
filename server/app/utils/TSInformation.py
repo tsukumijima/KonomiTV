@@ -10,6 +10,7 @@ import ariblib.constants
 import ariblib.event
 from ariblib.aribstr import AribString
 from ariblib.descriptors import (
+    AudioComponentDescriptor,
     ServiceDescriptor,
     TSInformationDescriptor,
 )
@@ -117,7 +118,7 @@ class TSInformation:
         record_duration = record_end_time - record_start_time
 
         # 録画開始時刻と次の番組の開始時刻を比較して、差が1分以内（＝録画マージン）なら次の番組情報を利用する
-        # 基本的に録画マージンがあるはずなので、番組途中から録画したとかでなければ次の番組情報を使う事になるはず
+        # 録画マージン分おおまかにシークしてから番組情報を取得しているため、基本的には現在の番組情報を使うことになるはず
         if eit_following['start_time'] is not None and eit_following['start_time'] - record_start_time <= timedelta(minutes=1):
             eit = copy(eit_following)
         else:
@@ -134,36 +135,6 @@ class TSInformation:
             'channel': sdt,
             'program': eit,
         }
-
-
-    @staticmethod
-    def getNetworkType(network_id:int) -> str:
-        """
-        ネットワーク ID からネットワークの種別を取得する
-        返り値は GR・BS・CS・SKY のいずれか（ Mirakurun 互換）
-
-        Args:
-            network_id (int): ネットワーク ID
-
-        Returns:
-            str: GR・BS・CS・SKY のいずれか
-        """
-
-        # 以下は ARIB STD-B10 第2部 付録N より抜粋
-        # https://web.archive.org/web/2if_/http://www.arib.or.jp/english/html/overview/doc/2-STD-B10v5_3.pdf#page=256
-
-        # 地上デジタルテレビジョン放送 (0x7880 ～ 0x7FE8)
-        if network_id >= 30848 and network_id <= 32744:
-            return 'GR'
-        # BSデジタル放送
-        if network_id == 4:
-            return 'BS'
-        # 110度CSデジタル放送
-        if network_id == 6 or network_id == 7:
-            return 'CS'
-        # 124/128度CSデジタル放送（スカパー！プレミアムサービス）
-        if network_id == 1 or network_id == 3 or network_id == 10:
-            return 'SKY'
 
 
     @staticmethod
@@ -208,6 +179,70 @@ class TSInformation:
 
         # 置換した文字列を返す
         return string.translate(convert_table)
+
+
+    @staticmethod
+    def getNetworkType(network_id:int) -> str:
+        """
+        ネットワーク ID からネットワークの種別を取得する
+        返り値は GR・BS・CS・SKY のいずれか（ Mirakurun 互換）
+
+        Args:
+            network_id (int): ネットワーク ID
+
+        Returns:
+            str: GR・BS・CS・SKY のいずれか
+        """
+
+        # 以下は ARIB STD-B10 第2部 付録N より抜粋
+        # https://web.archive.org/web/2if_/http://www.arib.or.jp/english/html/overview/doc/2-STD-B10v5_3.pdf#page=256
+
+        # 地上デジタルテレビジョン放送 (0x7880 ～ 0x7FE8)
+        if network_id >= 30848 and network_id <= 32744:
+            return 'GR'
+        # BSデジタル放送
+        if network_id == 4:
+            return 'BS'
+        # 110度CSデジタル放送
+        if network_id == 6 or network_id == 7:
+            return 'CS'
+        # 124/128度CSデジタル放送（スカパー！プレミアムサービス）
+        if network_id == 1 or network_id == 3 or network_id == 10:
+            return 'SKY'
+
+
+    @staticmethod
+    def getISO639LanguageCodeName(iso639_language_code: str) -> str:
+        """
+        ISO639 形式の言語コードが示す言語の名称を取得する
+
+        Args:
+            iso639_code (str): ISO639 形式の言語コード
+
+        Returns:
+            str: ISO639 形式の言語コードが示す言語の名称
+        """
+
+        if iso639_language_code == 'jpn':
+            return '日本語'
+        elif iso639_language_code == 'eng':
+            return '英語'
+        elif iso639_language_code == 'deu':
+            return 'ドイツ語'
+        elif iso639_language_code == 'fra':
+            return 'フランス語'
+        elif iso639_language_code == 'ita':
+            return 'イタリア語'
+        elif iso639_language_code == 'rus':
+            return 'ロシア語'
+        elif iso639_language_code == 'zho':
+            return '中国語'
+        elif iso639_language_code == 'kor':
+            return '韓国語'
+        elif iso639_language_code == 'spa':
+            return 'スペイン語'
+        else:
+            return 'その他の言語'
 
 
     def getSDTInformation(self) -> dict:
@@ -336,14 +371,21 @@ class TSInformation:
                 'codec': None,
                 'resolution': None,
             },
-            'audio': {
+            'primary_audio': {
                 'type': None,
+                'language': None,
+                'sampling_rate': None,
+            },
+            'secondary_audio': {
+                'type': None,
+                'language': None,
                 'sampling_rate': None,
             },
         }
 
         # 誤動作防止のため必ず最初にシークを戻す
-        self.ts.seek(0)
+        # 録画マージンを考慮して、少し後から始める
+        self.ts.seek(18800000)  # 18MB
 
         # TS から EIT (Event Information Table) を抽出
         count = 0
@@ -444,11 +486,31 @@ class TSInformation:
                     if hasattr(event, 'video_component'):  ## 映像の解像度
                         result['video']['resolution'] = self.COMPONENT_TYPE[int(hex(event.video_component), 16)]
 
-                    ## 音声情報
-                    if hasattr(event, 'audio'):  # 音声の種別
-                        result['audio']['type'] = event.audio
-                    if hasattr(event, 'sampling_rate'):  ## 音声のサンプルレート
-                        result['audio']['sampling_rate'] = event.sampling_rate_string
+                    ## 主音声情報
+                    if hasattr(event, 'audio'):  ## 主音声の種別
+                        result['primary_audio']['type'] = event.audio
+                    if hasattr(event, 'sampling_rate_string'):  ## 主音声のサンプルレート
+                        result['primary_audio']['sampling_rate'] = event.sampling_rate_string
+
+                    ## 副音声情報
+                    if hasattr(event, 'second_audio'):  ## 副音声の種別
+                        result['secondary_audio']['type'] = event.second_audio
+                    if hasattr(event, 'second_sampling_rate_string'):  ## 副音声のサンプルレート
+                        result['secondary_audio']['sampling_rate'] = event.second_sampling_rate_string
+
+                    ## 主音声・副音声の言語
+                    ## event クラスには用意されていないので自前で取得する
+                    for acd in event_data.descriptors.get(AudioComponentDescriptor, []):
+                        if bool(acd.main_component_flag) is True:
+                            ## 主音声の言語
+                            result['primary_audio']['language'] = self.getISO639LanguageCodeName(acd.ISO_639_language_code)
+                            ## デュアルモノのみ
+                            if bool(acd.ES_multi_lingual_flag) is True:
+                                result['primary_audio']['language'] += '+' + self.getISO639LanguageCodeName(acd.ISO_639_language_code_2)
+                        else:
+                            ## 副音声の言語
+                            result['secondary_audio']['language'] = self.getISO639LanguageCodeName(acd.ISO_639_language_code)
+
 
                     def all_not_none(iterable):
                         """リスト内の要素が全て None でないなら True を返す"""
@@ -461,7 +523,7 @@ class TSInformation:
                     # 一つの EIT に全ての情報が含まれているとは限らないため
                     if (all_not_none(result.values()) and
                         all_not_none(result['video'].values()) and
-                        all_not_none(result['audio'].values())):
+                        all_not_none(result['primary_audio'].values())):
                         break
 
                 else: # 多重ループを抜けるトリック
@@ -470,11 +532,6 @@ class TSInformation:
 
             # カウントを追加
             count += 1
-
-            # ループが 100 で割り切れるたびに現在の位置から 188MB シークする
-            # ループが 100 以上に到達しているときはおそらく放送時間が未定の番組なので、放送時間が確定するまでシークする
-            if count % 100 == 0:
-                self.ts.seek(188000000, 1)  # 188MB
 
             # ループが 100 回を超えたら、番組詳細とジャンルの初期値を設定する
             # 稀に番組詳細やジャンルが全く設定されていない番組があり、存在しない情報を探して延々とループするのを避けるため
@@ -487,6 +544,11 @@ class TSInformation:
             # ループが 1000 回を超えたら（＝20回シークしても放送時間が確定しなかったら）、タイムアウトでループを抜ける
             if count > 1000:
                 break
+
+            # ループが 100 で割り切れるたびに現在の位置から 188MB シークする
+            # ループが 100 以上に到達しているときはおそらく放送時間が未定の番組なので、放送時間が確定するまでシークする
+            if count % 100 == 0:
+                self.ts.seek(188000000, 1)  # 188MB
 
         return result
 

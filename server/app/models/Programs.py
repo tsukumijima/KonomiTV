@@ -122,38 +122,6 @@ class Programs(models.Model):
                 tz = timezone.get_default_timezone(),  # タイムゾーンを UTC+9（日本時間）に指定する
             )
 
-        def ISO639CodeToJapanese(iso639_code: str) -> str:
-            """
-            ISO639 形式の言語コードを日本語に変換する
-
-            Args:
-                iso639_code (str): ISO639 形式の言語コード
-
-            Returns:
-                str: 日本語に訳した言語を示す文字列
-            """
-
-            if iso639_code == 'jpn':
-                return '日本語'
-            elif iso639_code == 'eng':
-                return '英語'
-            elif iso639_code == 'deu':
-                return 'ドイツ語'
-            elif iso639_code == 'fra':
-                return 'フランス語'
-            elif iso639_code == 'ita':
-                return 'イタリア語'
-            elif iso639_code == 'rus':
-                return 'ロシア語'
-            elif iso639_code == 'zho':
-                return '中国語'
-            elif iso639_code == 'kor':
-                return '韓国語'
-            elif iso639_code == 'spa':
-                return 'スペイン語'
-            else:
-                return 'その他の言語'
-
         # Mirakurun の API から番組情報を取得する
         mirakurun_programs_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/programs'
         programs = (await RunAsync(requests.get, mirakurun_programs_api_url)).json()
@@ -278,24 +246,24 @@ class Programs(models.Model):
 
                     ## 主音声
                     program.primary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02][program_info['audios'][0]['componentType']]
-                    program.primary_audio_language = ISO639CodeToJapanese(program_info['audios'][0]['langs'][0])
+                    program.primary_audio_language = TSInformation.getISO639LanguageCodeName(program_info['audios'][0]['langs'][0])
                     program.primary_audio_sampling_rate = str(int(program_info['audios'][0]['samplingRate'] / 1000)) + 'kHz'  # kHz に変換
                     ## デュアルモノのみ
                     if program.primary_audio_type == '1/0+1/0モード(デュアルモノ)':
                         if len(program_info['audios'][0]['langs']) == 2:  # 他言語の定義が存在すれば
-                            program.primary_audio_language += '+' + ISO639CodeToJapanese(program_info['audios'][0]['langs'][1])
+                            program.primary_audio_language += '+' + TSInformation.getISO639LanguageCodeName(program_info['audios'][0]['langs'][1])
                         else:
                             program.primary_audio_language = program.primary_audio_language + '+副音声'  # 副音声で固定
 
                     ## 副音声（存在する場合）
                     if len(program_info['audios']) == 2:
                         program.secondary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02][program_info['audios'][1]['componentType']]
-                        program.secondary_audio_language = ISO639CodeToJapanese(program_info['audios'][1]['langs'][0])
+                        program.secondary_audio_language = TSInformation.getISO639LanguageCodeName(program_info['audios'][1]['langs'][0])
                         program.secondary_audio_sampling_rate = str(int(program_info['audios'][1]['samplingRate'] / 1000)) + 'kHz'  # kHz に変換
                         ## デュアルモノのみ
                         if program.secondary_audio_type == '1/0+1/0モード(デュアルモノ)':
                             if len(program_info['audios'][1]['langs']) == 2:  # 他言語の定義が存在すれば
-                                program.secondary_audio_language += '+' + ISO639CodeToJapanese(program_info['audios'][1]['langs'][1])
+                                program.secondary_audio_language += '+' + TSInformation.getISO639LanguageCodeName(program_info['audios'][1]['langs'][1])
                             else:
                                 program.secondary_audio_language = program.secondary_audio_language + '+副音声'  # 副音声で固定
 
