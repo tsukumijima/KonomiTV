@@ -251,7 +251,7 @@ class Channels(models.Model):
 
             # SKY: リモコン番号があればそれをチャンネル番号とする
             elif channel.channel_type == 'SKY':
-                if epg_service is not None:
+                if epg_service is not None and epg_service['remote_control_key_id'] != 0:
                     channel.remocon_id = epg_service['remote_control_key_id']
                     channel.channel_number = str(channel.remocon_id)
 
