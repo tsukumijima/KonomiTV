@@ -1,7 +1,5 @@
 
-import urllib.parse
-import requests
-from pydantic import AnyHttpUrl, BaseModel, PositiveInt, validator
+from pydantic import AnyHttpUrl, BaseModel, PositiveInt
 from pydantic.networks import stricturl
 from tortoise.contrib.pydantic import pydantic_model_creator
 from typing import Dict, List, Literal, Optional
