@@ -182,6 +182,10 @@ class Channels(models.Model):
             if service['service_type'] != 1:
                 continue
 
+            # 不明なネットワーク ID のチャンネルを弾く
+            if TSInformation.getNetworkType(service['onid']) == 'OTHER':
+                continue
+
             # 新しいチャンネルのレコードを作成
             channel = Channels()
 

@@ -185,13 +185,13 @@ class TSInformation:
     def getNetworkType(network_id:int) -> str:
         """
         ネットワーク ID からネットワークの種別を取得する
-        返り値は GR・BS・CS・SKY のいずれか（ Mirakurun 互換）
+        返り値は GR・BS・CS・SKY のいずれか（Mirakurun互換）
 
         Args:
             network_id (int): ネットワーク ID
 
         Returns:
-            str: GR・BS・CS・SKY のいずれか
+            str: GR・BS・CS・SKY・OTHER のいずれか
         """
 
         # 以下は ARIB STD-B10 第2部 付録N より抜粋
@@ -209,6 +209,9 @@ class TSInformation:
         # 124/128度CSデジタル放送（スカパー！プレミアムサービス）
         if network_id == 1 or network_id == 3 or network_id == 10:
             return 'SKY'
+
+        # 不明なネットワークID
+        return 'OTHER'
 
 
     @staticmethod
@@ -549,7 +552,7 @@ class TSInformation:
                 if result['genre'] is None:
                     result['genre'] = list()
 
-            # ループが 1000 回を超えたら（＝20回シークしても放送時間が確定しなかったら）、タイムアウトでループを抜ける
+            # ループが 1000 回を超えたら（＝10回シークしても放送時間が確定しなかったら）、タイムアウトでループを抜ける
             if count > 1000:
                 break
 
