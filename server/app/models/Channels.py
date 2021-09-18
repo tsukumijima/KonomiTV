@@ -117,19 +117,27 @@ class Channels(models.Model):
                 channel.remocon_id = channel.service_id  # ソートする際の便宜上設定しておく
                 channel.channel_number = str(channel.service_id).zfill(3)
 
-            # SKY: リモコン番号があればそれをチャンネル番号とする
+            # SKY: サービス ID を 1024 で割った余りをチャンネル番号・リモコン番号とする
+            ## SPHD (network_id=10) のチャンネル番号は service_id - 32768 、
+            ## SPSD (SKYサービス系: network_id=3) のチャンネル番号は service_id - 16384 で求められる
+            ## 両者とも 1024 の倍数なので、1024 で割った余りからチャンネル番号が算出できる
             elif channel.channel_type == 'SKY':
-                if channel.remocon_id is not None:
-                    channel.channel_number = str(channel.remocon_id)
+                channel.remocon_id = channel.service_id % 1024  # ソートする際の便宜上設定しておく
+                channel.channel_number = str(channel.service_id % 1024).zfill(3)
 
             # チャンネルID = チャンネルタイプ(小文字)+チャンネル番号
             channel.channel_id = channel.channel_type.lower() + channel.channel_number
 
             # ***** サブチャンネルかどうかを算出 *****
 
-            # 地デジ: チャンネル番号の下一桁が 1 以外かどうか
+            # 地デジ: サービス ID に 0x0187 を AND 演算（ビットマスク）した時に 0 でない場合
+            ## 地デジのサービス ID は、ARIB TR-B14 第五分冊 第七編 9.1 によると
+            ## (地域種別:6bit)(県複フラグ:1bit)(サービス種別:2bit)(地域事業者識別:4bit)(サービス番号:3bit) の 16bit で構成されている
+            ## 0x0187 はビット単位に直すと 0b0000000110000111 になるので、AND 演算でビットマスク（1以外のビットを強制的に0に設定）すると、
+            ## サービス種別とサービス番号だけが取得できる  ビットマスクした値のサービス種別が 0（テレビ型）でサービス番号が 0（プライマリサービス）であれば
+            ## メインチャンネルと判定できるし、そうでなければサブチャンネルだと言える
             if channel.channel_type == 'GR':
-                channel.is_subchannel = bool(channel.channel_number[2:] != '1')
+                channel.is_subchannel = (channel.service_id & 0x0187) != 0
 
             # BS: Mirakurun から得られる情報からはサブチャンネルかを判定できないため、決め打ちで設定
             elif channel.channel_type == 'BS':
@@ -212,12 +220,12 @@ class Channels(models.Model):
 
             # ***** チャンネル番号・チャンネル ID を算出 *****
 
-            # EPG 由来のチャンネル情報を取得
-            # 現在のチャンネルのリモコン番号が含まれる
-            epg_service = next(filter(lambda temp: temp['onid'] == channel.network_id and temp['sid'] == channel.service_id, epg_services), None)
-
             # 地デジ: リモコン番号からチャンネル番号を算出する
             if channel.channel_type == 'GR':
+
+                # EPG 由来のチャンネル情報を取得
+                # 現在のチャンネルのリモコン番号が含まれる
+                epg_service = next(filter(lambda temp: temp['onid'] == channel.network_id and temp['sid'] == channel.service_id, epg_services), None)
 
                 if epg_service is not None:
                     # EPG 由来のチャンネル情報が取得できていればリモコン番号を取得
@@ -249,20 +257,25 @@ class Channels(models.Model):
                 channel.remocon_id = channel.service_id  # ソートする際の便宜上設定しておく
                 channel.channel_number = str(channel.service_id).zfill(3)
 
-            # SKY: リモコン番号があればそれをチャンネル番号とする
+            # SKY: サービス ID を 1024 で割った余りをチャンネル番号・リモコン番号とする
+            ## SPHD (network_id=10) のチャンネル番号は service_id - 32768 、
+            ## SPSD (SKYサービス系: network_id=3) のチャンネル番号は service_id - 16384 で求められる
+            ## 両者とも 1024 の倍数なので、1024 で割った余りからチャンネル番号が算出できる
             elif channel.channel_type == 'SKY':
-                if epg_service is not None and epg_service['remote_control_key_id'] != 0:
-                    channel.remocon_id = epg_service['remote_control_key_id']
-                    channel.channel_number = str(channel.remocon_id)
+                channel.remocon_id = channel.service_id % 1024  # ソートする際の便宜上設定しておく
+                channel.channel_number = str(channel.service_id % 1024).zfill(3)
 
             # チャンネルID = チャンネルタイプ(小文字)+チャンネル番号
             channel.channel_id = channel.channel_type.lower() + channel.channel_number
 
             # ***** サブチャンネルかどうかを算出 *****
 
-            # 地デジ: サービス ID に 0x0187 を AND 演算した時に 0 でない場合
-            # どういう原理かよくわからないんだけど、メインチャンネルでは 0 、サブチャンネルでは 1 以上を返してくれる
-            # EDCB バックエンドでは必ずしもチャンネル番号がうまく算出できているとは限らないため、このようにしてみる
+            # 地デジ: サービス ID に 0x0187 を AND 演算（ビットマスク）した時に 0 でない場合
+            ## 地デジのサービス ID は、ARIB TR-B14 第五分冊 第七編 9.1 によると
+            ## (地域種別:6bit)(県複フラグ:1bit)(サービス種別:2bit)(地域事業者識別:4bit)(サービス番号:3bit) の 16bit で構成されている
+            ## 0x0187 はビット単位に直すと 0b0000000110000111 になるので、AND 演算でビットマスク（1以外のビットを強制的に0に設定）すると、
+            ## サービス種別とサービス番号だけが取得できる  ビットマスクした値のサービス種別が 0（テレビ型）でサービス番号が 0（プライマリサービス）であれば
+            ## メインチャンネルと判定できるし、そうでなければサブチャンネルだと言える
             if channel.channel_type == 'GR':
                 channel.is_subchannel = (channel.service_id & 0x0187) != 0
 
