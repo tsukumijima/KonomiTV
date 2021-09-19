@@ -13,7 +13,7 @@ export default new Vuetify({
                 secondary: '#E64F97',
                 twitter: '#4F82E6',
                 gray: '#66514C',
-                black: '#110a09',
+                black: '#110A09',
                 background: {
                     base: '#1E1310',
                     lighten1: '#2F221F',

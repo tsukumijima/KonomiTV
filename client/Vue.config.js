@@ -15,16 +15,17 @@ module.exports = {
     // PWA 設定
     pwa: {
         name: 'Konomi',
-        themeColor: '#2F221F',
+        themeColor: '#0D0807',
         appleMobileWebAppCapable: 'yes',
         appleMobileWebAppStatusBarStyle: 'black',
         // アイコンのパス
         iconPaths: {
-            favicon32: 'assets/img/icons/favicon-32x32.png',
-            favicon16: 'assets/img/icons/favicon-16x16.png',
-            appleTouchIcon: 'assets/img/icons/apple-touch-icon-152x152.png',
-            maskIcon: 'assets/img/icons/safari-pinned-tab.svg',
-            msTileImage: 'assets/img/icons/msapplication-icon-144x144.png',
+            faviconSVG: 'assets/img/icons/favicon.svg',
+            favicon32: 'assets/img/icons/favicon-32px.png',
+            favicon16: 'assets/img/icons/favicon-16px.png',
+            appleTouchIcon: 'assets/img/icons/apple-touch-icon.png',
+            maskIcon: null,  // 設定しない
+            msTileImage: null,  // 設定しない
         },
         // manifest.json の内容
         manifestOptions: {
@@ -32,27 +33,27 @@ module.exports = {
             "short_name": "Konomi",
             "start_url": ".",
             "display": "standalone",
-            "theme_color": "#2F221F",
-            "background_color": "#000000",
+            "theme_color": "#0D0807",
+            "background_color": "#1E1310",
             "icons": [
                 {
-                    "src": "/assets/img/icons/android-chrome-192x192.png",
+                    "src": "/assets/img/icons/icon-192px.png",
                     "sizes": "192x192",
                     "type": "image/png",
                 },
                 {
-                    "src": "/assets/img/icons/android-chrome-512x512.png",
+                    "src": "/assets/img/icons/icon-512px.png",
                     "sizes": "512x512",
                     "type": "image/png",
                 },
                 {
-                    "src": "/assets/img/icons/android-chrome-maskable-192x192.png",
+                    "src": "/assets/img/icons/icon-maskable-192px.png",
                     "sizes": "192x192",
                     "type": "image/png",
                     "purpose": "maskable",
                 },
                 {
-                    "src": "/assets/img/icons/android-chrome-maskable-512x512.png",
+                    "src": "/assets/img/icons/icon-maskable-512px.png",
                     "sizes": "512x512",
                     "type": "image/png",
                     "purpose": "maskable",
