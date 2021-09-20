@@ -14,10 +14,10 @@
 importScripts("https://storage.googleapis.com/workbox-cdn/releases/4.3.1/workbox-sw.js");
 
 importScripts(
-  "/precache-manifest.3c258b33747c3bb2d2c704d2bc02e48a.js"
+  "/precache-manifest.8b586c6c3bbce94ee1f2a2e5f8e9058e.js"
 );
 
-workbox.core.setCacheNameDetails({prefix: "Konomi"});
+workbox.core.setCacheNameDetails({prefix: "KonomiTV"});
 
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {

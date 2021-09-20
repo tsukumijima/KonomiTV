@@ -1,5 +1,5 @@
 
-# Konomi-Client
+# KonomiTV-Client
 
 ## Project setup
 ```

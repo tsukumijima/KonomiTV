@@ -23,7 +23,7 @@ else:
     if os.path.exists(CONFIG_YAML) is False:
         logger = logging.getLogger('uvicorn')
         logger.error(
-            '設定ファイルが配置されていないため、Konomi を起動できません。\n          '
+            '設定ファイルが配置されていないため、KonomiTV を起動できません。\n          '
             'config.example.yaml を config.yaml にコピーし、お使いの環境に合わせて編集してください。'
         )
         sys.exit(1)

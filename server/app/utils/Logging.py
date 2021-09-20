@@ -7,8 +7,8 @@ from app.constants import CONFIG
 
 # Logger と Handler を定義
 ## 通常とデバッグ向けで 2 つ用意する
-logger_default = logging.getLogger('Konomi')
-logger_debug = logging.getLogger('Konomi_debug')
+logger_default = logging.getLogger('KonomiTV')
+logger_debug = logging.getLogger('KonomiTV_debug')
 handler_default = logging.StreamHandler()  # 通常
 handler_debug = logging.StreamHandler()  # デバッグ向け
 

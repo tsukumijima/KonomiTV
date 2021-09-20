@@ -37,7 +37,7 @@ try:
     Config(**CONFIG)
 except ValidationError as error:
     Logging.error(
-        '設定内容が不正なため、Konomi を起動できません。\n          '
+        '設定内容が不正なため、KonomiTV を起動できません。\n          '
         '以下のエラーメッセージを参考に、config.yaml の記述が正しいかどうか確認してください。'
     )
     Logging.error(error)
@@ -45,8 +45,8 @@ except ValidationError as error:
 
 # FastAPI を初期化
 app = FastAPI(
-    title='Konomi',
-    description='Konomi: Kind and Optimized Next brOadcast watching systeM Infrastructure',
+    title='KonomiTV',
+    description='KonomiTV: Kind and Optimized Next brOadcast watching systeM Infrastructure for TV',
     version=VERSION,
     openapi_url='/api/openapi.json',
     docs_url='/api/docs',
@@ -175,7 +175,7 @@ async def Startup():
 
         # ログ出力
         Logging.error(
-            '設定内容が不正なため、Konomi を起動できません。\n          '
+            '設定内容が不正なため、KonomiTV を起動できません。\n          '
             '以下のエラーメッセージを参考に、config.yaml の記述が正しいかどうか確認してください。'
         )
         Logging.error(exception.args[0])

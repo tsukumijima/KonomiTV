@@ -14,7 +14,7 @@ module.exports = {
     transpileDependencies: ['vuetify'],
     // PWA 設定
     pwa: {
-        name: 'Konomi',
+        name: 'KonomiTV',
         themeColor: '#0D0807',
         appleMobileWebAppCapable: 'yes',
         appleMobileWebAppStatusBarStyle: 'black',
@@ -29,8 +29,8 @@ module.exports = {
         },
         // manifest.json の内容
         manifestOptions: {
-            "name": "Konomi",
-            "short_name": "Konomi",
+            "name": "KonomiTV",
+            "short_name": "KonomiTV",
             "start_url": ".",
             "display": "standalone",
             "theme_color": "#0D0807",

@@ -1,7 +1,7 @@
 
-# Konomi
+# <img width="350" src="https://user-images.githubusercontent.com/39271166/134050201-8110f076-a939-4b62-8c86-7beaa3d4728c.png" alt="KonomiTV">
 
-<img width="100%" src="https://user-images.githubusercontent.com/39271166/131187011-a4843531-3749-4f5b-a6de-a1e47ea4d470.png"><br>
+<img width="100%" src="https://user-images.githubusercontent.com/39271166/134043865-d4551e1f-b926-4a36-8214-14c9fb7c9614.png"><br>
 
 ## 備考・注意事項
 
@@ -26,7 +26,9 @@
   - 技術スタックはサーバー側が Python + [FastAPI](https://github.com/tiangolo/fastapi) + [Tortoise ORM](https://github.com/tortoise/tortoise-orm) + [Uvicorn](https://github.com/encode/uvicorn) 、クライアント側が Vue.js + [Vuetify](https://github.com/vuetifyjs/vuetify) の SPA です。
     - Vuetify は補助的に利用しているだけで、大部分は独自で書いた SCSS スタイルを適用しています。
   - コメントを多めに書いているので、少なくとも TVRemotePlus なんかよりかは読みやすいコードになっている…はず。
-  - 他人が見るために書いたものではないのであれですが、一応自分用の[開発資料](https://mango-garlic-eff.notion.site/Konomi-90f4b25555c14b9ba0cf5498e6feb1c3)と[DB設計](https://www.notion.so/Konomi-544e02334c89420fa24804ec70f46b6d)的なメモを公開しておきます。もし PR される場合などの参考になれば。
+  - 他人が見るために書いたものではないのであれですが、一応自分用の[開発資料](https://mango-garlic-eff.notion.site/KonomiTV-90f4b25555c14b9ba0cf5498e6feb1c3)と[DB設計](https://www.notion.so/KonomiTV-544e02334c89420fa24804ec70f46b6d)的なメモを公開しておきます。もし PR される場合などの参考になれば。
+
+<img width="100%" src="https://user-images.githubusercontent.com/39271166/134045489-54476f7b-0072-48b6-b324-467974ecfc21.png"><br>
 
 ## 動作環境
 
@@ -72,7 +74,7 @@ pipenv を使えばパッケージをプロジェクトローカルにインス�
 pip install pipenv
 ```
 
-### 2. Konomi 本体のインストール
+### 2. KonomiTV 本体のインストール
 
 現時点では Git で常に最新の master ブランチを取得することを推奨します。  
 正式版になるまでは比較的頻繁に更新する予定です。不具合修正も含まれるため、定期的に `git pull` で最新化しておくことをおすすめします。
@@ -81,39 +83,39 @@ pip install pipenv
 
 ```
 cd C:\Develop
-git clone git@github.com:tsukumijima/Konomi.git
-cd C:\Develop\Konomi\server
+git clone git@github.com:tsukumijima/KonomiTV.git
+cd C:\Develop\KonomiTV\server
 ```
 
 #### Linux
 
 ```
 cd /Develop
-git clone git@github.com:tsukumijima/Konomi.git
-cd /Develop/Konomi/server
+git clone git@github.com:tsukumijima/KonomiTV.git
+cd /Develop/KonomiTV/server
 ```
 
 ### 3. サードパーティライブラリのインストール
 
-TVRemotePlus では Git の管理下に含めていましたが、Konomi ではバージョン情報のみを管理する方針としています。  
+TVRemotePlus では Git の管理下に含めていましたが、KonomiTV ではバージョン情報のみを管理する方針としています。  
 将来的にはインストーラー側で自動ダウンロード/アップデートするようにしたいところですが、現時点では手動でのダウンロードと配置が必要です。
 
 Linux 向けの実行ファイルも同梱しています（拡張子: .elf ）。Linux (Ubuntu 20.04 LTS x64) で動作することを確認しました。   
 なお、QSVEncC・NVEncC・VCEEncC を使う場合は、別途 ffmpeg (libav) ライブラリと [Intel Media Driver](https://github.com/rigaya/QSVEnc/blob/master/Install.ja.md#linux-ubuntu-2004) / [NVIDIA Graphics Driver](https://github.com/rigaya/NVEnc/blob/master/Install.ja.md#linux-ubuntu-2004) / [AMD Driver](https://github.com/rigaya/VCEEnc/blob/master/Install.ja.md#linux-ubuntu-2004) のインストールが必要です。  
 VCEEncC の Linux サポートはつい最近追加されたばかりなので、安定してエンコードできるかは微妙です（環境がない…）。
 
-[こちら](https://github.com/tsukumijima/Konomi/releases/download/v0.1.0/thirdparty.7z) からサードパーティライブラリをダウンロードし、`server/thirdparty` に配置してください。展開後サイズは 600MB あるので注意。  
+[こちら](https://github.com/tsukumijima/KonomiTV/releases/download/v0.1.0/thirdparty.7z) からサードパーティライブラリをダウンロードし、`server/thirdparty/` に配置してください。展開後サイズは 600MB あるので注意。  
 
 7z 、あるいは p7zip のコマンドライン版が利用できる場合は、コマンドラインでダウンロードと展開を行うこともできます。
 
 ```
-curl -LO https://github.com/tsukumijima/Konomi/releases/download/v0.1.0/thirdparty.7z
+curl -LO https://github.com/tsukumijima/KonomiTV/releases/download/v0.1.0/thirdparty.7z
 7z x -y thirdparty.7z
 ```
 
-Windows では、`C:\Develop\Konomi\server\thirdparty\FFmpeg` に `ffmpeg.exe` がある状態になっていれば OK です。
+Windows では、`C:\Develop\KonomiTV\server\thirdparty\FFmpeg` に `ffmpeg.exe` がある状態になっていれば OK です。
 
-Linux では、`/Develop/Konomi/server/thirdparty/FFmpeg` に `ffmpeg.elf` がある状態でかつ、実行ファイルが実行権限を持っている必要があります。  
+Linux では、`/Develop/KonomiTV/server/thirdparty/FFmpeg` に `ffmpeg.elf` がある状態でかつ、実行ファイルが実行権限を持っている必要があります。  
 以下のコマンドを実行して、実行権限を付与してください。
 
 ```
@@ -193,7 +195,7 @@ QSVEncC は Intel 製 CPU の内蔵グラフィックスに搭載されている
 
 NVEncC は Geforce などの NVIDIA 製 GPU に搭載されているハードウェアエンコード機能 (NVENC) を利用するエンコーダーです。  
 高速で画質も QSV より若干いいのですが、Geforce では同時にエンコードが可能なセッション数が 3 に限定されているため、同時に 3 チャンネル以上視聴することはできません。  
-同時に 4 チャンネル以上視聴しようとした場合、Konomi では「NVENC のエンコードセッションが不足しているため、ライブストリームを開始できません。」というエラーメッセージが表示されます。
+同時に 4 チャンネル以上視聴しようとした場合、KonomiTV では「NVENC のエンコードセッションが不足しているため、ライブストリームを開始できません。」というエラーメッセージが表示されます。
 
 VCEEncC は Radeon などの AMD 製 GPU に搭載されているハードウェアエンコード機能 (AMD VCE) を利用するエンコーダーです。  
 QSVEncC・NVEncC に比べると安定せず、利用者も少ないため安定稼働するかは微妙です。QSVEncC・NVEncC が使えるならそちらを選択することをおすすめします。
@@ -212,8 +214,8 @@ pipenv run serve
 
 開発時などでリロードモード（コードを変更すると自動でサーバーが再起動される）で起動したいときは、`pipenv run develop` を実行してください。
 
-Uvicorn はアプリケーションサーバーであり、Konomi の場合は静的ファイルの配信も兼ねています。  
-静的ファイル（ SPA クライアント）は `client/dist` にある、ビルド済みのファイルを配信するように設定されています。  
+Uvicorn はアプリケーションサーバーであり、KonomiTV の場合は静的ファイルの配信も兼ねています。  
+静的ファイル（ SPA クライアント）は `client/dist/` にある、ビルド済みのファイルを配信するように設定されています。  
 そのため、`npm run build` でクライアントのビルドを更新したのなら、サーバー側で配信されるファイルも更新されることになります。
 
 クライアントは Vue.js で構築されており、コーディングとビルドには少なくとも Node.js が必要です。  
@@ -222,7 +224,7 @@ Uvicorn はアプリケーションサーバーであり、Konomi の場合は�
 とはいえ API（サーバー）はポート 7000 にてリッスンされているので、開発時のみ API のアクセス先を同じホストのポート 7000 に固定しています。
 
 起動してみて、何もエラーなく `Application startup complete.` と表示されていれば完了です。  
-http://localhost:7000/ にアクセスすると、Konomi のホーム画面が表示されることでしょう。
+http://localhost:7000/ にアクセスすると、KonomiTV のホーム画面が表示されることでしょう。
 
 初回起動時は Mirakurun から7日間分の番組情報をすべて取得してデータベースに保存するため、起動に1分くらいかかります。  
 次回以降は差分のみをデータベースに保存・削除するので、最高でも10秒もすれば起動すると思います。  
