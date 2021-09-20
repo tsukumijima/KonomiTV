@@ -891,6 +891,11 @@ export default mixins(mixin).extend({
             visibility: hidden;
             z-index: 2;
 
+            @include tablet {
+                padding-left: calc(68px + 16px);
+                padding-right: 16px;
+            }
+
             .watch-header__broadcaster {
                 display: inline-block;
                 flex-shrink: 0;
@@ -900,6 +905,10 @@ export default mixins(mixin).extend({
                 background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
                 object-fit: cover;
                 user-select: none;
+
+                @include tablet {
+                    display: none;
+                }
             }
 
             .watch-header__program-title {
@@ -911,18 +920,30 @@ export default mixins(mixin).extend({
                 overflow: hidden;
                 white-space: nowrap;
                 text-overflow: ellipsis;
+
+                @include tablet {
+                    margin-left: 0;
+                }
             }
 
             .watch-header__program-time {
                 flex-shrink: 0;
                 margin-left: 16px;
                 font-size: 15px;
+
+                @include tablet {
+                    margin-left: 8px;
+                }
             }
 
             .watch-header__now {
                 flex-shrink: 0;
                 margin-left: 16px;
                 font-size: 13px;
+
+                @include tablet {
+                    display: none;
+                }
             }
         }
 
