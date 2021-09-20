@@ -1,6 +1,29 @@
 
-@import '~vuetify/src/styles/styles.sass';
+@import '~vuetify/src/styles/settings/_colors.scss';
+@import '~vuetify/src/styles/settings/_dark.scss';
 
+
+// メディアクエリを定義
+@mixin desktop-large {
+    @media (min-width: 1264.01px) {
+        @content;
+    }
+}
+@mixin desktop-medium {
+    @media (max-width: 1264px) {
+        @content;
+    }
+}
+@mixin tablet {
+    @media (max-width: 960px) {
+        @content;
+    }
+}
+@mixin smartphone {
+    @media (max-width: 750px) {
+        @content;
+    }
+}
 
 // 背景とテキストの色を定義
 $shades: map-merge($shades, (

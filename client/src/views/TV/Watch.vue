@@ -41,7 +41,7 @@
                 </header>
                 <div class="watch-player" :class="{'watch-player__background--visible': is_background_visible}">
                     <div class="watch-player__background" :style="{backgroundImage: `url(${background_url})`}">
-                        <div class="watch-player__background-logo">Konomi</div>
+                        <img class="watch-player__background-logo" src="/assets/img/logo.svg">
                     </div>
                     <div class="watch-player__dplayer"></div>
                     <div class="watch-player__button">
@@ -957,11 +957,24 @@ export default mixins(mixin).extend({
                 transition: opacity 0.3s, visibility 0.3s;
 
                 .watch-player__background-logo {
+                    display: inline-block;
                     position: absolute;
-                    right: 53px;
-                    bottom: 30px;
-                    font-size: 34px;
-                    text-shadow: 0px 0px 20px var(--v-black-base);
+                    height: 34px;
+                    right: 56px;
+                    bottom: 40px;
+                    filter: drop-shadow(0px 0px 4px var(--v-black-base));
+
+                    @include desktop-medium {
+                        height: 30px;
+                        right: 34px;
+                        bottom: 26px;
+                    }
+
+                    @include tablet {
+                        height: 25px;
+                        right: 30px;
+                        bottom: 22px;
+                    }
                 }
             }
 

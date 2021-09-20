@@ -24,6 +24,14 @@ body .v-main__wrap {
     padding-top: 65px !important;
 }
 
+// タッチデバイスで hover を無効にする
+// ref: https://github.com/vuetifyjs/vuetify/issues/2178
+@media (hover: none) {
+    :hover:before {
+        background-color: transparent !important;
+    }
+}
+
 // 選択時の色
 *::selection {
 	background-color: #E64F9780;
