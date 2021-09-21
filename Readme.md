@@ -111,6 +111,7 @@ VCEEncC の Linux サポートはつい最近追加されたばかりなので�
 ```
 curl -LO https://github.com/tsukumijima/KonomiTV/releases/download/v0.1.0/thirdparty.7z
 7z x -y thirdparty.7z
+rm thirdparty.7z
 ```
 
 Windows では、`C:\Develop\KonomiTV\server\thirdparty\FFmpeg` に `ffmpeg.exe` がある状態になっていれば OK です。
