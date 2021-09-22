@@ -18,7 +18,7 @@ class EDCBTuner:
     __instances:List = list()
 
 
-    def __new__(cls):
+    def __new__(cls, network_id:int, service_id:int, transport_stream_id:int):
 
         # 型アノテーションを追加（IDE用）
         ## クラス直下で自クラスを型として指定することはできないため、ここで明示的に指定する
@@ -49,6 +49,14 @@ class EDCBTuner:
         self.service_id:int = service_id
         self.transport_stream_id:int = transport_stream_id
 
+        # チューナーがロックされているかどうか
+        ## 一般に ONAir 時はロックされ、Idling 時はアンロックされる
+        self.locked:bool = False
+
+        # チューナーの制御権限を委譲している（＝チューナーが再利用されている）かどうか
+        ## このフラグが True になっているチューナーは、チューナー制御の取り合いにならないように以後何を実行してもチューナーの状態を変更できなくなる
+        self.delegated:bool = False
+
         # このチューナーインスタンス固有の NetworkTV ID を取得
         ## NetworkTV ID は NetworkTV モードの EpgDataCap_Bon を識別するために割り当てられる ID
         ## アンロック状態のチューナーがあれば、その NetworkTV ID を使い起動中の EpgDataCap_Bon を再利用する
@@ -57,14 +65,6 @@ class EDCBTuner:
         # EpgDataCap_Bon のプロセス ID
         ## プロセス ID が None のときはチューナーが起動されていないものとして扱う
         self.edcb_process_id:Optional[int] = None
-
-        # チューナーがロックされているかどうか
-        ## 一般に ONAir 時はロックされ、Idling 時はアンロックされる
-        self.locked:bool = False
-
-        # チューナーの制御権限を委譲している（＝チューナーが再利用されている）かどうか
-        ## このフラグが True になっているチューナーは、チューナー制御の取り合いにならないように以後何を実行してもチューナーの状態を変更できなくなる
-        self.delegated:bool = False
 
 
     def __getNetworkTVID(self) -> int:
@@ -90,6 +90,10 @@ class EDCBTuner:
 
             # ロックされていなければ
             if instance is not None and instance.locked is False:
+
+                # edcb_networktv_id が存在しない（初期化途中、おそらく自分自身のインスタンス）場合はスキップ
+                if not hasattr(instance, 'edcb_networktv_id'):
+                    continue
 
                 # そのインスタンスの NetworkTV ID を取得
                 edcb_networktv_id = instance.edcb_networktv_id

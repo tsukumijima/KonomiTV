@@ -230,6 +230,7 @@ class LiveEncodingTask():
 
             # チューナーを起動する
             # アンロック状態のチューナーインスタンスがあれば、自動的にそのチューナーが再利用される
+            livestream.setStatus('Standby', 'チューナーを開いています…')
             is_tuner_opened = tuner.open()
 
             # チューナーの起動に失敗した

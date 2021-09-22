@@ -27,6 +27,7 @@ from app.utils import Logging
 from app.utils import RunAsync
 from app.utils import RunAwait
 from app.utils.EDCB import CtrlCmdUtil
+from app.utils.EDCB import EDCBTuner
 
 
 # このアプリケーションのイベントループ
@@ -209,3 +210,15 @@ def UpdateProgram():
 @repeat_every(seconds=1 * 60, wait_first=True, logger=Logging.logger)
 async def UpdateJikkyoStatus():
     await Channels.updateJikkyoStatus()
+
+# サーバーの終了時に実行する
+@app.on_event('shutdown')
+async def Shutdown():
+
+    # EDCB バックエンドのみ
+    if CONFIG['general']['backend'] == 'EDCB':
+
+        # 全てのチューナーインスタンスを終了する
+        for instance in EDCBTuner.__instances:
+            if instance is not None:
+                instance.close()
