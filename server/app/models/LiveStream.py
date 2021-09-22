@@ -21,7 +21,7 @@ class LiveStreamClient():
 
 
 class LiveStream():
-    """ライブストリームを管理するクラス"""
+    """ ライブストリームを管理するクラス """
 
     # ライブストリームのインスタンスが入る、ライブストリーム ID をキーとした辞書
     # この辞書にライブストリームに関する全てのデータが格納されており、ライブストリーム機能の根幹をなす
@@ -57,17 +57,21 @@ class LiveStream():
         ## クラス直下で自クラスを型として指定することはできないため、ここで明示的に指定する
         cls.__instances:Dict[str, LiveStream]
 
-        # まだ同じライブストリーム ID のインスタンスがないときだけインスタンスを生成
+        # まだ同じライブストリーム ID のインスタンスがないときだけ、インスタンスを生成する
         livestream_id = f'{channel_id}-{quality}'
         if livestream_id not in cls.__instances:
 
-            # 生成したインスタンスを登録する
-            cls.__instances[livestream_id] = super(LiveStream, cls).__new__(cls)
+            # 新しいライブストリームのインスタンスを生成する
+            instance = super(LiveStream, cls).__new__(cls)
 
             # ライブストリームクライアントを初期化する
             # クラス直下で定義すると全てのインスタンスのライブストリームクライアントが同じ参照（同じオブジェクトID）になってしまうため、
             # 同じ参照にならないようにインスタンス生成時に実行するようにする
-            cls.__instances[livestream_id].clients = list()
+            instance.clients = list()
+
+            # 生成したインスタンスを登録する
+            # インスタンスの参照が渡されるので、オブジェクトとしては同一
+            cls.__instances[livestream_id] = instance
 
         # 登録されたインスタンスを返す
         return cls.__instances[livestream_id]
