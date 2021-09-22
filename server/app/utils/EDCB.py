@@ -4,7 +4,234 @@ import datetime
 import glob
 import re
 import time
-from typing import Callable, Optional
+from typing import Callable, List, Optional
+
+from app.constants import CONFIG
+from app.utils import RunAwait
+
+
+class EDCBTuner:
+    """ EDCB バックエンドのチューナーを制御するクラス """
+
+    # 全てのチューナーインスタンスが格納されるリスト
+    # チューナーを閉じずに再利用するため、全てのチューナーインスタンスにアクセスできるようにする
+    __instances:List = list()
+
+
+    def __new__(cls):
+
+        # 型アノテーションを追加（IDE用）
+        ## クラス直下で自クラスを型として指定することはできないため、ここで明示的に指定する
+        cls.__instances:List[EDCBTuner]
+
+        # 新しいチューナーインスタンスを生成する
+        instance = super(EDCBTuner, cls).__new__(cls)
+
+        # 生成したチューナーインスタンスを登録する
+        cls.__instances.append(instance)
+
+        # 登録されたチューナーインスタンスを返す
+        return instance
+
+
+    def __init__(self, network_id:int, service_id:int, transport_stream_id:int):
+        """
+        チューナーインスタンスを初期化する
+
+        Args:
+            network_id (int): ネットワーク ID
+            service_id (int): サービス ID
+            transport_stream_id (int): トランスポートストリーム ID
+        """
+
+        # NID・SID・TSID を設定
+        self.network_id:int = network_id
+        self.service_id:int = service_id
+        self.transport_stream_id:int = transport_stream_id
+
+        # このチューナーインスタンス固有の NetworkTV ID を取得
+        ## NetworkTV ID は NetworkTV モードの EpgDataCap_Bon を識別するために割り当てられる ID
+        ## アンロック状態のチューナーがあれば、その NetworkTV ID を使い起動中の EpgDataCap_Bon を再利用する
+        self.edcb_networktv_id:int = self.__getNetworkTVID()
+
+        # EpgDataCap_Bon のプロセス ID
+        ## プロセス ID が None のときはチューナーが起動されていないものとして扱う
+        self.edcb_process_id:Optional[int] = None
+
+        # チューナーがロックされているかどうか
+        ## 一般に ONAir 時はロックされ、Idling 時はアンロックされる
+        self.locked:bool = False
+
+        # チューナーの制御権限を委譲している（＝チューナーが再利用されている）かどうか
+        ## このフラグが True になっているチューナーは、チューナー制御の取り合いにならないように以後何を実行してもチューナーの状態を変更できなくなる
+        self.delegated:bool = False
+
+
+    def __getNetworkTVID(self) -> int:
+        """
+        EpgDataCap_Bon の NetworkTV ID を取得する
+        アンロック状態のチューナーインスタンスがあれば、それを削除した上でそのチューナーインスタンスの NetworkTV ID を返す
+
+        Returns:
+            int: 取得した EpgDataCap_Bon の NetworkTV ID
+        """
+
+        # 二重制御の防止
+        if self.delegated is True:
+            return 0
+
+        # NetworkTV モードのチューナーを識別する任意の整数
+        ## ほかのロケフリ系アプリと重複しないように 500 を増分してある
+        ## さらに登録されているチューナーインスタンスの数を足す（とりあえず被らなければいいのでこれで）
+        edcb_networktv_id = 500 + len(EDCBTuner.__instances)
+
+        # インスタンスごとに
+        for instance in EDCBTuner.__instances:
+
+            # ロックされていなければ
+            if instance is not None and instance.locked is False:
+
+                # そのインスタンスの NetworkTV ID を取得
+                edcb_networktv_id = instance.edcb_networktv_id
+
+                # そのインスタンスから今後チューナーを制御できないようにする
+                # NetworkTV ID が同じチューナーインスタンスが複数ある場合でも、制御できるインスタンスは1つに限定する
+                instance.delegated = True
+
+                # 二重にチューナーを再利用することがないよう、インスタンスの登録を削除する
+                # インデックスがずれるのを避けるため、None を入れて要素自体は削除しない
+                EDCBTuner.__instances[EDCBTuner.__instances.index(instance)] = None
+
+        # NetworkTV ID を返す
+        return edcb_networktv_id
+
+
+    def open(self) -> bool:
+        """
+        チューナーを起動する
+        すでに EpgDataCap_Bon が起動している（チューナーを再利用した）場合は、その EpgDataCap_Bon に対してチャンネル切り替えを行う
+
+        Returns:
+            bool: チューナーを起動できたかどうか
+        """
+
+        # 二重制御の防止
+        if self.delegated is True:
+            return False
+
+        # CtrlCmdUtil を初期化
+        edcb = CtrlCmdUtil()
+        edcb.setNWSetting(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'])
+
+        # edcb.sendNwTVIDSetCh() に渡す辞書
+        set_ch_info = {
+
+            # NID・SID・TSID を設定
+            'onid': self.network_id,
+            'sid': self.service_id,
+            'tsid': self.transport_stream_id,
+
+            # NetworkTV ID をセット
+            'space_or_id': self.edcb_networktv_id,
+
+            # TCP 送信を有効にする（ EpgDataCap_Bon の起動モード）
+            # 1:UDP 2:TCP 3:UDP+TCP
+            'ch_or_mode': 2,
+
+            # onid・tsid・sid の値が使用できるかどうか
+            # これを False にすれば起動確認とプロセス ID の取得ができる
+            'use_sid': True,
+
+            # space_or_id・ch_or_mode の値が使用できるかどうか
+            'use_bon_ch': True,
+        }
+
+        # チューナーを起動する
+        ## ほかのタスクがチューナーを閉じている (Idling -> Offline) などで空きがない場合があるのでいくらかリトライする
+        set_ch_timeout = time.monotonic() + 5  # 現在時刻から5秒後
+        while True:
+
+            # チューナーの起動（あるいはチャンネル変更）を試す
+            self.edcb_process_id = RunAwait(edcb.sendNwTVIDSetCh(set_ch_info))
+
+            # チューナーが起動できた、もしくはリトライ時間をタイムアウトした
+            if self.edcb_process_id is not None or time.monotonic() >= set_ch_timeout:
+                break
+
+            time.sleep(0.5)
+
+        # チューナーの起動に失敗した
+        if self.edcb_process_id is None:
+            self.close()  # チューナーを閉じる
+            return False
+
+        return True
+
+
+    def connect(self) -> Optional[str]:
+        """
+        チューナーに接続し、名前付きパイプのパスを取得する
+
+        Returns:
+            Optional[str]: 名前付きパイプのパス（取得できなかった場合は None を返す）
+        """
+
+        # プロセス ID が取得できている（チューナーが起動している）ことが前提
+        if self.edcb_process_id is None:
+            return None
+
+        # チューナーに接続する（ EpgDataCap_Bon で受信した放送波を受け取るための名前付きパイプを見つける）
+        edcb_networktv_path = RunAwait(EDCBUtil.findNwTVStreamPath(self.edcb_networktv_id, self.edcb_process_id))
+
+        # チューナーへの接続に失敗した
+        ## チューナーを閉じてからエラーを返す
+        if edcb_networktv_path is None:
+            self.close()  # チューナーを閉じる
+            return None
+
+        # 名前付きパイプのパスを返す
+        return edcb_networktv_path
+
+
+    def lock(self) -> None:
+        """
+        チューナーをロックする
+        ロックしておかないとチューナーの制御を横取りされてしまうので、基本はロック状態にする
+        """
+        self.locked = True
+
+
+    def unlock(self) -> None:
+        """
+        チューナーをアンロックする
+        チューナーがアンロックされている場合、起動中の EpgDataCap_Bon は次のチューナーインスタンスの初期化時に再利用される
+        """
+        self.locked = False
+
+
+    def close(self) -> bool:
+        """
+        チューナーを終了する
+
+        Returns:
+            bool: チューナーを終了できたかどうか
+        """
+
+        # 二重制御の防止
+        if self.delegated is True:
+            return False
+
+        # CtrlCmdUtil を初期化
+        edcb = CtrlCmdUtil()
+        edcb.setNWSetting(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'])
+
+        # チューナーを閉じ、実行結果を取得する
+        result = RunAwait(edcb.sendNwTVIDClose(self.edcb_networktv_id))
+
+        # チューナーが閉じられたので、プロセス ID を None に戻す
+        self.edcb_process_id = None
+
+        return result
 
 
 class EDCBUtil:
