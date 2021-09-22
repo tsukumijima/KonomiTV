@@ -101,6 +101,7 @@ class EDCBTuner:
                 # 二重にチューナーを再利用することがないよう、インスタンスの登録を削除する
                 # インデックスがずれるのを避けるため、None を入れて要素自体は削除しない
                 EDCBTuner.__instances[EDCBTuner.__instances.index(instance)] = None
+                break
 
         # NetworkTV ID を返す
         return edcb_networktv_id
