@@ -94,7 +94,7 @@ class EDCBTuner:
                 # そのインスタンスの NetworkTV ID を取得
                 edcb_networktv_id = instance.edcb_networktv_id
 
-                # そのインスタンスから今後チューナーを制御できないようにする
+                # そのインスタンスから今後チューナーを制御できないようにする（制御権限の委譲）
                 # NetworkTV ID が同じチューナーインスタンスが複数ある場合でも、制御できるインスタンスは1つに限定する
                 instance.delegated = True
 

@@ -250,6 +250,10 @@ class LiveEncodingTask():
                 livestream.setStatus('Offline', 'チューナーへの接続に失敗したため、ライブストリームを開始できません。')
                 return
 
+            # ライブストリームにチューナーインスタンスを設定する
+            # Idling への切り替え、ONAir への復帰時に LiveStream 側でチューナーのアンロック/ロックが行われる
+            livestream.setTunerInstance(tuner)
+
             # arib-subtitle-timedmetadater
             ## プロセスを非同期で作成・実行
             ast = subprocess.Popen(
@@ -540,7 +544,7 @@ class LiveEncodingTask():
         # エンコードタスクを再起動する（エンコーダーの再起動が必要な場合）
         if is_restart_required is True:
 
-            # チューナーインスタンスをアンロックする
+            # チューナーをアンロックする
             # 新しいエンコードタスクが今回立ち上げたチューナーを再利用できるようにする
             # エンコーダーの再起動が必要なだけでチューナー自体はそのまま使えるし、わざわざ閉じてからもう一度開くのは無駄
             tuner.unlock()
@@ -560,6 +564,10 @@ class LiveEncodingTask():
 
             # EDCB バックエンドのみ
             if CONFIG['general']['backend'] == 'EDCB':
+
+                # チャンネル切り替え時にチューナーが再利用されるように、3秒ほど待つ
+                # 3秒間の間にチューナーの制御権限が新しいエンコードタスクに委譲されれば、下記の通り実際にチューナーが閉じられることはない
+                time.sleep(3)
 
                 # チューナーを終了する（まだ制御を他のチューナーインスタンスに委譲していない場合）
                 # Idling に移行しアンロック状態になっている間にチューナーが再利用された場合、制御権限をもう持っていないため実際には何も起こらない

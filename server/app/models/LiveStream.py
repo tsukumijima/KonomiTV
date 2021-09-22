@@ -5,6 +5,7 @@ import time
 from typing import Dict, List, Optional
 
 from app.utils import Logging
+from app.utils.EDCB import EDCBTuner
 
 
 class LiveStreamClient():
@@ -94,15 +95,9 @@ class LiveStream():
         # (チャンネルID)-(映像の品質) で一意な ID になる
         self.livestream_id:str = f'{self.channel_id}-{self.quality}'
 
-        # ライブストリームの整数の ID を設定
-        self.int_id:int = 0
-        int_ids = [livestream.int_id for livestream in self.__instances.values()]
-        int_ids.sort()
-        # 自身を含むので結果は 1 以上になる
-        for i in int_ids:
-            if self.int_id != i:
-                break
-            self.int_id += 1
+        # EDCB バックエンドのチューナーインスタンス
+        # Mirakurun バックエンドを使っている場合は None のまま
+        self.tuner:EDCBTuner = None
 
 
     @classmethod
@@ -275,6 +270,28 @@ class LiveStream():
 
         # 最終更新のタイムスタンプを更新
         self.updated_at = time.time()
+
+        # チューナーインスタンスが存在する場合のみ
+        if self.tuner is not None:
+
+            # Idling への切り替え時、チューナーをアンロックして再利用できるように
+            if self.status == 'Idling':
+                self.tuner.unlock()
+
+            # ONAir への切り替え（復帰）時、再びチューナーをロックして制御を横取りされないように
+            if self.status == 'ONAir':
+                self.tuner.lock()
+
+
+    def setTunerInstance(self, tuner:EDCBTuner) -> None:
+        """
+        EDCB バックエンドのチューナーインスタンスを設定する
+        設定されたチューナーインスタンスはステータス変更時のチューナーのアンロック/ロックに利用する
+
+        Args:
+            tuner (EDCBTuner): EDCB バックエンドのチューナーインスタンス
+        """
+        self.tuner = tuner
 
 
     def read(self, client_id:int) -> bytes:
