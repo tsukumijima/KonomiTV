@@ -4,6 +4,7 @@ import threading
 import time
 from typing import Dict, List, Optional
 
+from app.constants import CONFIG
 from app.utils import Logging
 from app.utils.EDCB import EDCBTuner
 
@@ -183,7 +184,10 @@ class LiveStream():
 
             # ステータスを Standby に設定
             # タイミングの関係でこっちで明示的に設定しておく必要がある
-            self.setStatus('Standby', 'エンコーダーを起動しています…')
+            if CONFIG['general']['backend'] == 'Mirakurun':
+                self.setStatus('Standby', 'エンコーダーを起動しています…')
+            elif CONFIG['general']['backend'] == 'EDCB':
+                self.setStatus('Standby', 'チューナーを起動しています…')
 
             # エンコードタスクを非同期で実行
             def run():

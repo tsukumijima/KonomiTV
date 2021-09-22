@@ -221,4 +221,4 @@ async def Shutdown():
         # 全てのチューナーインスタンスを終了する
         for instance in EDCBTuner.__instances:
             if instance is not None:
-                instance.close()
+                await instance.close()

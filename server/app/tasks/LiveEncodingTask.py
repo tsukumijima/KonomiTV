@@ -186,7 +186,10 @@ class LiveEncodingTask():
         # まだ Standby になっていなければ、ステータスを Standby に設定
         # 基本はエンコードタスクの呼び出し元である livestream.connect() の方で Standby に設定されるが、再起動の場合はそこを経由しないため必要
         if not (livestream.getStatus()['status'] == 'Standby' and livestream.getStatus()['detail'] == 'エンコーダーを起動しています…'):
-            livestream.setStatus('Standby', 'エンコーダーを起動しています…')
+            if CONFIG['general']['backend'] == 'Mirakurun':
+                livestream.setStatus('Standby', 'エンコーダーを起動しています…')
+            elif CONFIG['general']['backend'] == 'EDCB':
+                livestream.setStatus('Standby', 'チューナーを起動しています…')
 
         # チャンネル情報からサービス ID とネットワーク ID を取得する
         channel:Channels = RunAwait(Channels.filter(channel_id=channel_id).first())
@@ -230,8 +233,7 @@ class LiveEncodingTask():
 
             # チューナーを起動する
             # アンロック状態のチューナーインスタンスがあれば、自動的にそのチューナーが再利用される
-            livestream.setStatus('Standby', 'チューナーを開いています…')
-            is_tuner_opened = tuner.open()
+            is_tuner_opened = RunAwait(tuner.open())
 
             # チューナーの起動に失敗した
             # 成功時は tuner.close() するか予約などに割り込まれるまで起動しつづけるので注意
@@ -241,10 +243,11 @@ class LiveEncodingTask():
 
             # チューナーをロックする
             # ロックしないと途中でチューナーの制御を横取りされてしまう
+            livestream.setStatus('Standby', 'エンコーダーを起動しています…')
             tuner.lock()
 
             # チューナーに接続する（放送波が送信される名前付きパイプを見つける）
-            edcb_networktv_path = tuner.connect()
+            edcb_networktv_path = RunAwait(tuner.connect())
 
             # チューナーへの接続に失敗した
             if edcb_networktv_path is None:
@@ -389,7 +392,8 @@ class LiveEncodingTask():
                         # FFmpeg
                         if encoder_type == 'FFmpeg':
                             if 'libpostproc    55.  9.100 / 55.  9.100' in line:
-                                livestream.setStatus('Standby', 'チューナーを開いています…')
+                                if CONFIG['general']['backend'] == 'Mirakurun':
+                                    livestream.setStatus('Standby', 'チューナーを起動しています…')
                             elif 'arib parser was created' in line or 'Invalid frame dimensions 0x0.' in line:
                                 livestream.setStatus('Standby', 'エンコードを開始しています…')
                             elif 'frame=    1 fps=0.0 q=0.0' in line:
@@ -399,7 +403,8 @@ class LiveEncodingTask():
                         ## HWEncC
                         elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
                             if 'input source set to stdin.' in line:
-                                livestream.setStatus('Standby', 'チューナーを開いています…')
+                                if CONFIG['general']['backend'] == 'Mirakurun':  # EDCB ではすでにチューナーを起動しているため不要
+                                    livestream.setStatus('Standby', 'チューナーを起動しています…')
                             elif 'opened file "pipe:0"' in line:
                                 livestream.setStatus('Standby', 'エンコードを開始しています…')
                             elif 'starting output thread...' in line:
@@ -572,4 +577,4 @@ class LiveEncodingTask():
 
                 # チューナーを終了する（まだ制御を他のチューナーインスタンスに委譲していない場合）
                 # Idling に移行しアンロック状態になっている間にチューナーが再利用された場合、制御権限をもう持っていないため実際には何も起こらない
-                tuner.close()
+                RunAwait(tuner.close())

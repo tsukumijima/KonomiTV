@@ -7,7 +7,6 @@ import time
 from typing import Callable, List, Optional
 
 from app.constants import CONFIG
-from app.utils import RunAwait
 
 
 class EDCBTuner:
@@ -111,7 +110,7 @@ class EDCBTuner:
         return edcb_networktv_id
 
 
-    def open(self) -> bool:
+    async def open(self) -> bool:
         """
         チューナーを起動する
         すでに EpgDataCap_Bon が起動している（チューナーを再利用した）場合は、その EpgDataCap_Bon に対してチャンネル切り替えを行う
@@ -157,23 +156,23 @@ class EDCBTuner:
         while True:
 
             # チューナーの起動（あるいはチャンネル変更）を試す
-            self.edcb_process_id = RunAwait(edcb.sendNwTVIDSetCh(set_ch_info))
+            self.edcb_process_id = await edcb.sendNwTVIDSetCh(set_ch_info)
 
             # チューナーが起動できた、もしくはリトライ時間をタイムアウトした
             if self.edcb_process_id is not None or time.monotonic() >= set_ch_timeout:
                 break
 
-            time.sleep(0.5)
+            await asyncio.sleep(0.5)
 
         # チューナーの起動に失敗した
         if self.edcb_process_id is None:
-            self.close()  # チューナーを閉じる
+            await self.close()  # チューナーを閉じる
             return False
 
         return True
 
 
-    def connect(self) -> Optional[str]:
+    async def connect(self) -> Optional[str]:
         """
         チューナーに接続し、名前付きパイプのパスを取得する
 
@@ -186,12 +185,12 @@ class EDCBTuner:
             return None
 
         # チューナーに接続する（ EpgDataCap_Bon で受信した放送波を受け取るための名前付きパイプを見つける）
-        edcb_networktv_path = RunAwait(EDCBUtil.findNwTVStreamPath(self.edcb_networktv_id, self.edcb_process_id))
+        edcb_networktv_path = await EDCBUtil.findNwTVStreamPath(self.edcb_networktv_id, self.edcb_process_id)
 
         # チューナーへの接続に失敗した
         ## チューナーを閉じてからエラーを返す
         if edcb_networktv_path is None:
-            self.close()  # チューナーを閉じる
+            await self.close()  # チューナーを閉じる
             return None
 
         # 名前付きパイプのパスを返す
@@ -214,7 +213,7 @@ class EDCBTuner:
         self.locked = False
 
 
-    def close(self) -> bool:
+    async def close(self) -> bool:
         """
         チューナーを終了する
 
@@ -231,7 +230,7 @@ class EDCBTuner:
         edcb.setNWSetting(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'])
 
         # チューナーを閉じ、実行結果を取得する
-        result = RunAwait(edcb.sendNwTVIDClose(self.edcb_networktv_id))
+        result = await edcb.sendNwTVIDClose(self.edcb_networktv_id)
 
         # チューナーが閉じられたので、プロセス ID を None に戻す
         self.edcb_process_id = None
