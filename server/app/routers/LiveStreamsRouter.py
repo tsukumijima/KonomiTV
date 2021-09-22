@@ -46,7 +46,7 @@ async def LiveStreamsAPI():
     }
 
     # 全てのストリームごとに
-    for livestream in LiveStream.getAllLiveStream():
+    for livestream in LiveStream.getAllLiveStreams():
         result[livestream.status][livestream.livestream_id] = livestream.getStatus()
 
     # データを返す

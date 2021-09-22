@@ -98,11 +98,11 @@ class LiveStream():
 
         # EDCB バックエンドのチューナーインスタンス
         # Mirakurun バックエンドを使っている場合は None のまま
-        self.tuner:EDCBTuner = None
+        self.tuner:Optional[EDCBTuner] = None
 
 
     @classmethod
-    def getAllLiveStream(cls) -> list:
+    def getAllLiveStreams(cls) -> list:
         """
         全てのライブストリームのインスタンスを取得する
 
@@ -115,7 +115,7 @@ class LiveStream():
 
 
     @classmethod
-    def getIdlingLiveStream(cls) -> list:
+    def getIdlingLiveStreams(cls) -> list:
         """
         現在 Idling なライブストリームのインスタンスを取得する
 
@@ -127,7 +127,7 @@ class LiveStream():
 
         # 現在 Idling 状態のライブストリームを探す
         # 見つかったら、そのライブストリームのインスタンスをリストに入れる
-        for livestream in LiveStream.getAllLiveStream():
+        for livestream in LiveStream.getAllLiveStreams():
             if livestream.status == 'Idling':
                 result.append(livestream)
 
@@ -148,7 +148,7 @@ class LiveStream():
 
         # 指定されたチャンネル ID が含まれるライブストリームを探す
         viewers = 0
-        for livestream in LiveStream.getAllLiveStream():
+        for livestream in LiveStream.getAllLiveStreams():
             if livestream.channel_id == channel_id:
                 # 足していく
                 viewers += livestream.getStatus()['clients_count']
@@ -178,9 +178,13 @@ class LiveStream():
             # それを Offline にしてチューナーリソースを解放し、新しいライブストリームがチューナーを使えるようにする
             # MLT 系チューナーでなければ GR → BS,CS への切り替えでも解放されるのは非効率な気もするけど、
             # ただ複数のエンコードが同時に走る状態ってのもそんなによくない気がするし、一旦仕様として保留
-            idling_livestream = self.getIdlingLiveStream()
-            if len(idling_livestream) > 0:
-                idling_livestream[0].setStatus('Offline', '新しいライブストリームが開始されたため、チューナーリソースを解放しました。')
+            idling_livestreams = self.getIdlingLiveStreams()
+            if len(idling_livestreams) > 0:
+                idling_livestream:LiveStream = idling_livestreams[0]
+                idling_livestream.setStatus('Offline', '新しいライブストリームが開始されたため、チューナーリソースを解放しました。')
+                # EDCB バックエンドの場合はチューナーをアンロックし、これから開始するエンコードタスクで再利用できるようにする
+                if idling_livestream.tuner is not None:
+                    idling_livestream.tuner.unlock()
 
             # ステータスを Standby に設定
             # タイミングの関係でこっちで明示的に設定しておく必要がある
