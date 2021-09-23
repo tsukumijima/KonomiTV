@@ -1,5 +1,6 @@
 
 import asyncio
+import atexit
 import logging
 import os
 import requests
@@ -212,13 +213,26 @@ async def UpdateJikkyoStatus():
     await Channels.updateJikkyoStatus()
 
 # サーバーの終了時に実行する
+cleanup = False
 @app.on_event('shutdown')
 async def Shutdown():
+
+    # 2度呼ばれないように
+    global cleanup
+    if cleanup is True:
+        return
+    cleanup = True
+
+    # 全てのライブストリームを終了する
+    for livestream in LiveStream.getAllLiveStreams():
+        livestream.setStatus('Offline', 'ライブストリームは Offline です。')
 
     # EDCB バックエンドのみ
     if CONFIG['general']['backend'] == 'EDCB':
 
         # 全てのチューナーインスタンスを終了する
-        for instance in EDCBTuner.__instances:
-            if instance is not None:
-                await instance.close()
+        await EDCBTuner.closeAll()
+
+# shutdown イベントが発火しない場合も想定し、アプリケーションの終了時に Shutdown() が確実に呼ばれるように
+# atexit は同期関数しか実行できないので、RunAwait でくるむ
+atexit.register(RunAwait, Shutdown())

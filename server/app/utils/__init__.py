@@ -7,6 +7,7 @@ import asyncio
 import functools
 import jaconv
 import typing
+import warnings
 
 
 def ZenkakuToHankaku(string: str) -> str:
@@ -47,10 +48,27 @@ def RunAwait(coro:typing.Coroutine) -> typing.Any:
     from app import app
     loop = app.loop
 
-    # メインスレッドのイベントループ上でコルーチンを実行し、結果が返ってくるのを待つ
-    # メインスレッドのイベントループ上でないと変なエラーが出る事がある（スレッドセーフでないため）
-    future = asyncio.run_coroutine_threadsafe(run(coro), loop)
-    result = future.result()
+    ## なぜか警告が出ることがあるが、実行できるので黙殺する
+    ## ref: https://note.nkmk.me/python-warnings-ignore-warning/
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+
+        try:
+
+            # メインスレッドのイベントループ上でコルーチンを実行し、結果が返ってくるのを待つ
+            # メインスレッドのイベントループ上でないと変なエラーが出る事がある（スレッドセーフでないため）
+            future = asyncio.run_coroutine_threadsafe(run(coro), loop)
+            result = future.result()
+
+        # メインスレッドのイベントループが使用できない状態の場合
+        except RuntimeError:
+
+            # 新しいイベントループを作成
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+            # イベントループ上でコルーチンを実行し、結果が返ってくるのを待つ
+            result = loop.run_until_complete(run(coro))
 
     # 実行結果を返す
     return result
