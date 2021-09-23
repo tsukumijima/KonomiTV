@@ -235,7 +235,22 @@ class EDCBTuner:
         # チューナーが閉じられたので、プロセス ID を None に戻す
         self.edcb_process_id = None
 
+        # インスタンスの登録を削除する
+        if self in EDCBTuner.__instances:
+            EDCBTuner.__instances[EDCBTuner.__instances.index(self)] = None
+
         return result
+
+
+    @classmethod
+    async def closeAll(cls) -> None:
+        """
+        現在起動中の全てのチューナーを終了する
+        明示的に終了しないといつまでも起動してしまうため、アプリケーション終了時に実行する
+        """
+        for instance in EDCBTuner.__instances:
+            if instance is not None:
+                await instance.close()
 
 
 class EDCBUtil:
