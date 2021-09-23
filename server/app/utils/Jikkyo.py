@@ -162,8 +162,15 @@ class Jikkyo:
         from app.utils import RunAsync
 
         # getchannels API から実況チャンネルのステータスを取得する
-        getchannels_api_url = 'https://jikkyo.tsukumijima.net/namami/api/v2/getchannels'
-        getchannels_api_result:requests.Response = await RunAsync(requests.get, getchannels_api_url)
+        try:
+            getchannels_api_url = 'https://jikkyo.tsukumijima.net/namami/api/v2/getchannels'
+            getchannels_api_result:requests.Response = await RunAsync(requests.get, getchannels_api_url)
+        except requests.exceptions.ConnectionError: # 接続エラー（サーバー再起動など）
+            return # ステータス更新を中断
+
+        # ステータスコードが 200 以外
+        if getchannels_api_result.status_code != 200:
+            return  # ステータス更新を中断
 
         # XML をパース
         channels = ET.fromstring(getchannels_api_result.text)
