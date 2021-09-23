@@ -181,10 +181,11 @@ class LiveStream():
             idling_livestreams = self.getIdlingLiveStreams()
             if len(idling_livestreams) > 0:
                 idling_livestream:LiveStream = idling_livestreams[0]
-                idling_livestream.setStatus('Offline', '新しいライブストリームが開始されたため、チューナーリソースを解放しました。')
                 # EDCB バックエンドの場合はチューナーをアンロックし、これから開始するエンコードタスクで再利用できるようにする
                 if idling_livestream.tuner is not None:
                     idling_livestream.tuner.unlock()
+                # チューナーリソースを解放する
+                idling_livestream.setStatus('Offline', '新しいライブストリームが開始されたため、チューナーリソースを解放しました。')
 
             # ステータスを Standby に設定
             # タイミングの関係でこっちで明示的に設定しておく必要がある
