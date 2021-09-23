@@ -115,6 +115,26 @@ class LiveStream():
 
 
     @classmethod
+    def getONAirLiveStreams(cls) -> list:
+        """
+        現在 ONAir なライブストリームのインスタンスを取得する
+
+        Returns:
+            list: 現在 ONAir なライブストリームのインスタンスの入ったリスト
+        """
+
+        result = []
+
+        # 現在 ONAir 状態のライブストリームを探す
+        # 見つかったら、そのライブストリームのインスタンスをリストに入れる
+        for livestream in LiveStream.getAllLiveStreams():
+            if livestream.status == 'ONAir':
+                result.append(livestream)
+
+        return result
+
+
+    @classmethod
     def getIdlingLiveStreams(cls) -> list:
         """
         現在 Idling なライブストリームのインスタンスを取得する
@@ -174,21 +194,30 @@ class LiveStream():
         if self.getStatus()['status'] == 'Offline':
 
             # 現在 Idling 状態のライブストリームがあれば、うち最初のライブストリームを Offline にする
-            # 一般にチューナーリソースは無尽蔵にあるわけではないので、現在 Idling（=つまり誰も見ていない）ライブストリームがあるのなら
-            # それを Offline にしてチューナーリソースを解放し、新しいライブストリームがチューナーを使えるようにする
-            # 通常のチューナー（マルチチューナーでない）で GR → BS,CS への切り替えでも解放されるのは非効率な気もするけど、
-            # ただチューナーはともかく複数のエンコードが同時に走る状態ってのもそんなによくない気がするし、一旦仕様として保留
-            idling_livestreams = self.getIdlingLiveStreams()
-            if len(idling_livestreams) > 0:
+            ## 一般にチューナーリソースは無尽蔵にあるわけではないので、現在 Idling（=つまり誰も見ていない）ライブストリームがあるのなら
+            ## それを Offline にしてチューナーリソースを解放し、新しいライブストリームがチューナーを使えるようにする
+            ## 通常のチューナー（マルチチューナーでない）で GR → BS,CS への切り替えでも解放されるのは非効率な気もするけど、
+            ## ただチューナーはともかく複数のエンコードが同時に走る状態ってのもそんなによくない気がするし、一旦仕様として保留
+            for count in range(8):  # 画質切り替えなどタイミングの問題で Idling なストリームがない事もあるので、8回くらいリトライする
 
-                idling_livestream:LiveStream = idling_livestreams[0]
+                # 現在 Idling 状態のライブストリームがあれば
+                idling_livestreams = self.getIdlingLiveStreams()
+                if len(idling_livestreams) > 0:
+                    idling_livestream:LiveStream = idling_livestreams[0]
 
-                # EDCB バックエンドの場合はチューナーをアンロックし、これから開始するエンコードタスクで再利用できるようにする
-                if idling_livestream.tuner is not None:
-                    idling_livestream.tuner.unlock()
+                    # EDCB バックエンドの場合はチューナーをアンロックし、これから開始するエンコードタスクで再利用できるようにする
+                    if idling_livestream.tuner is not None:
+                        idling_livestream.tuner.unlock()
 
-                # チューナーリソースを解放する
-                idling_livestream.setStatus('Offline', '新しいライブストリームが開始されたため、チューナーリソースを解放しました。')
+                    # チューナーリソースを解放する
+                    idling_livestream.setStatus('Offline', '新しいライブストリームが開始されたため、チューナーリソースを解放しました。')
+                    break
+
+                # 現在 ONAir 状態のライブストリームがなく、リトライした所で Idling なライブストリームが取得できる見込みがない
+                if len(self.getONAirLiveStreams()) == 0:
+                    break
+
+                time.sleep(0.1)
 
             # ステータスを Standby に設定
             # タイミングの関係でこっちで明示的に設定しておく必要がある
