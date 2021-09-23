@@ -176,14 +176,17 @@ class LiveStream():
             # 現在 Idling 状態のライブストリームがあれば、うち最初のライブストリームを Offline にする
             # 一般にチューナーリソースは無尽蔵にあるわけではないので、現在 Idling（=つまり誰も見ていない）ライブストリームがあるのなら
             # それを Offline にしてチューナーリソースを解放し、新しいライブストリームがチューナーを使えるようにする
-            # MLT 系チューナーでなければ GR → BS,CS への切り替えでも解放されるのは非効率な気もするけど、
-            # ただ複数のエンコードが同時に走る状態ってのもそんなによくない気がするし、一旦仕様として保留
+            # 通常のチューナー（マルチチューナーでない）で GR → BS,CS への切り替えでも解放されるのは非効率な気もするけど、
+            # ただチューナーはともかく複数のエンコードが同時に走る状態ってのもそんなによくない気がするし、一旦仕様として保留
             idling_livestreams = self.getIdlingLiveStreams()
             if len(idling_livestreams) > 0:
+
                 idling_livestream:LiveStream = idling_livestreams[0]
+
                 # EDCB バックエンドの場合はチューナーをアンロックし、これから開始するエンコードタスクで再利用できるようにする
                 if idling_livestream.tuner is not None:
                     idling_livestream.tuner.unlock()
+
                 # チューナーリソースを解放する
                 idling_livestream.setStatus('Offline', '新しいライブストリームが開始されたため、チューナーリソースを解放しました。')
 
@@ -214,6 +217,7 @@ class LiveStream():
 
         # 自分の Queue があるインデックス（リストの長さ - 1）をクライアント ID とする
         client_id = len(self.clients) - 1
+
         # Client ID は表示上 1 起点とする（その方が直感的なため）
         Logging.info(f'LiveStream:{self.livestream_id} Client Connected. Client ID: {client_id + 1}')
 
