@@ -851,7 +851,7 @@ export default mixins(mixin).extend({
             justify-content: center;
             align-items: center;
             height: 52px;
-            margin-bottom: 18px;
+            margin-bottom: 17px;
             border-radius: 11px;
             font-size: 16px;
             color: var(--v-text-base);
