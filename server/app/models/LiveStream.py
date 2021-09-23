@@ -263,7 +263,7 @@ class LiveStream():
         }
 
 
-    def setStatus(self, status:str, detail:str) -> None:
+    def setStatus(self, status:str, detail:str, quiet:bool=False) -> None:
         """
         ライブストリームのステータスを設定する
 
@@ -277,7 +277,8 @@ class LiveStream():
             return
 
         # ステータスと詳細を設定
-        Logging.info(f'LiveStream:{self.livestream_id} Status:{status.ljust(7, " ")} Detail:{detail}')
+        if quiet is False:
+            Logging.info(f'LiveStream:{self.livestream_id} Status:{status.ljust(7, " ")} Detail:{detail}')
         self.status = status
         self.detail = detail
 

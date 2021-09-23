@@ -225,7 +225,7 @@ async def Shutdown():
 
     # 全てのライブストリームを終了する
     for livestream in LiveStream.getAllLiveStreams():
-        livestream.setStatus('Offline', 'ライブストリームは Offline です。')
+        livestream.setStatus('Offline', 'ライブストリームは Offline です。', True)
 
     # EDCB バックエンドのみ
     if CONFIG['general']['backend'] == 'EDCB':
