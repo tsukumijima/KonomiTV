@@ -146,6 +146,22 @@ export default mixins(mixin).extend({
 </script>
 
 <style lang="scss">
+// 上書きしたいスタイル
+.v-tabs-bar {
+    height: 58px;
+    background: linear-gradient(to bottom, var(--v-background-base) calc(100% - 3px), var(--v-background-lighten1) 3px);  // 下線を引く
+
+    .v-tabs-slider-wrapper {
+        height: 3px !important;
+        transition: left 0.3s cubic-bezier(0.25, 0.8, 0.5, 1);
+    }
+}
+.v-window__container {
+    min-height: calc(100vh - 65px);
+}
+</style>
+
+<style lang="scss" scoped>
 .channels-container {
     display: flex;
     flex-direction: column;
@@ -168,21 +184,11 @@ export default mixins(mixin).extend({
         background:var(--v-background-base);
         z-index: 1;
 
-        .v-tabs-bar {
-            height: 58px;
-            background: linear-gradient(to bottom, var(--v-background-base) calc(100% - 3px), var(--v-background-lighten1) 3px);  // 下線を引く
-
-            .v-tabs-slider-wrapper {
-                height: 3px !important;
-                transition: left 0.3s cubic-bezier(0.25, 0.8, 0.5, 1);
-            }
-
-            .channels-tab__item {
-                width: 98px;
-                padding: 0;
-                color: var(--v-text-base) !important;
-                font-size: 16px;
-            }
+        .channels-tab__item {
+            width: 98px;
+            padding: 0;
+            color: var(--v-text-base) !important;
+            font-size: 16px;
         }
     }
 
@@ -191,9 +197,6 @@ export default mixins(mixin).extend({
         background: transparent !important;
         overflow: inherit;
 
-        .v-window__container {
-            min-height: calc(100vh - 65px);
-        }
         .channels {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(370px, 1fr));

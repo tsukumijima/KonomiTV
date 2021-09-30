@@ -74,52 +74,104 @@
                         <div class="panel-broadcaster__name">{{channel.channel_name}}</div>
                     </div>
                 </div>
-                <div class="watch-panel__content">
-                    <section class="program-info">
-                        <h1 class="program-info__title" v-html="decorateProgramInfo(channel.program_present, 'title')"></h1>
-                        <div class="program-info__time">{{getProgramTime(channel.program_present)}}</div>
-                        <div class="program-info__description" v-html="decorateProgramInfo(channel.program_present, 'description')"></div>
-                        <div class="program-info__genre-container">
-                            <div class="program-info__genre" v-for="(genre, genre_index) in getAttribute(channel.program_present, 'genre', [])" :key="genre_index">
-                                {{genre.major}} / {{genre.middle}}
+                <div class="watch-panel__content-container">
+                    <div class="watch-panel__content program-container"
+                        :class="{'watch-panel__content--active': tab_active === 'program'}">
+                        <section class="program-info">
+                            <h1 class="program-info__title" v-html="decorateProgramInfo(channel.program_present, 'title')"></h1>
+                            <div class="program-info__time">{{getProgramTime(channel.program_present)}}</div>
+                            <div class="program-info__description" v-html="decorateProgramInfo(channel.program_present, 'description')"></div>
+                            <div class="program-info__genre-container">
+                                <div class="program-info__genre" v-for="(genre, genre_index) in getAttribute(channel.program_present, 'genre', [])" :key="genre_index">
+                                    {{genre.major}} / {{genre.middle}}
+                                </div>
                             </div>
-                        </div>
-                        <div class="program-info__next">
-                            <span class="program-info__next-decorate">NEXT</span>
-                            <Icon class="program-info__next-icon" icon="fluent:fast-forward-20-filled" width="16px" />
-                        </div>
-                        <span class="program-info__next-title" v-html="decorateProgramInfo(channel.program_following, 'title')"></span>
-                        <div class="program-info__next-time">{{getProgramTime(channel.program_following)}}</div>
-                        <div class="program-info__status">
-                            <Icon icon="fa-solid:eye" height="14px" />
-                            <span class="ml-2">{{channel.viewers}}</span>
-                            <Icon class="ml-5" icon="fa-solid:fire-alt" height="14px" />
-                            <span class="ml-2">{{getAttribute(channel, 'channel_force', '-')}}</span>
-                            <Icon class="ml-5" icon="bi:chat-left-text-fill" height="14px" />
-                            <span class="ml-2">{{getAttribute(channel, 'channel_comment', '-')}}</span>
-                        </div>
-                    </section>
-                    <section class="program-detail-container">
-                        <div class="program-detail" v-for="(detail_text, detail_heading) in getAttribute(channel.program_present, 'detail', {})" :key="detail_heading">
-                            <h2 class="program-detail__heading">{{detail_heading}}</h2>
-                            <div class="program-detail__text">{{detail_text}}</div>
-                        </div>
-                    </section>
+                            <div class="program-info__next">
+                                <span class="program-info__next-decorate">NEXT</span>
+                                <Icon class="program-info__next-icon" icon="fluent:fast-forward-20-filled" width="16px" />
+                            </div>
+                            <span class="program-info__next-title" v-html="decorateProgramInfo(channel.program_following, 'title')"></span>
+                            <div class="program-info__next-time">{{getProgramTime(channel.program_following)}}</div>
+                            <div class="program-info__status">
+                                <Icon icon="fa-solid:eye" height="14px" />
+                                <span class="ml-2">{{channel.viewers}}</span>
+                                <Icon class="ml-5" icon="fa-solid:fire-alt" height="14px" />
+                                <span class="ml-2">{{getAttribute(channel, 'channel_force', '-')}}</span>
+                                <Icon class="ml-5" icon="bi:chat-left-text-fill" height="14px" />
+                                <span class="ml-2">{{getAttribute(channel, 'channel_comment', '-')}}</span>
+                            </div>
+                        </section>
+                        <section class="program-detail-container">
+                            <div class="program-detail" v-for="(detail_text, detail_heading) in getAttribute(channel.program_present, 'detail', {})" :key="detail_heading">
+                                <h2 class="program-detail__heading">{{detail_heading}}</h2>
+                                <div class="program-detail__text">{{detail_text}}</div>
+                            </div>
+                        </section>
+                    </div>
+                    <div class="watch-panel__content channels-container"
+                        :class="{'watch-panel__content--active': tab_active === 'channel'}">
+                        <v-tabs centered class="channels-tab" v-model="tab">
+                            <v-tab class="channels-tab__item" v-for="(channels, channels_type) in channels_list" :key="channels_type">{{channels_type}}</v-tab>
+                        </v-tabs>
+                        <v-tabs-items class="channels-list" v-model="tab">
+                            <v-tab-item class="channels" v-for="(channels, channels_type) in channels_list" :key="channels_type">
+                                <router-link v-ripple class="channel" v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.channel_id}`">
+                                    <div class="channel__broadcaster">
+                                        <img class="channel__broadcaster-icon" :src="`${api_base_url}/channels/${channel.channel_id}/logo`">
+                                        <div class="channel__broadcaster-content">
+                                            <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.channel_name}}</span>
+                                            <div class="channel__broadcaster-status">
+                                                <Icon icon="fa-solid:eye" height="10px" />
+                                                <span class="ml-1">{{channel.viewers}}</span>
+                                                <Icon class="ml-3" icon="fa-solid:fire-alt" height="10px" />
+                                                <span class="ml-1">{{getAttribute(channel, 'channel_force', '-')}}</span>
+                                                <Icon class="ml-3" icon="bi:chat-left-text-fill" height="10px" />
+                                                <span class="ml-1">{{getAttribute(channel, 'channel_comment', '-')}}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="channel__program-present">
+                                        <span class="channel__program-present-title" v-html="decorateProgramInfo(channel.program_present, 'title')"></span>
+                                        <span class="channel__program-present-time">{{getProgramTime(channel.program_present)}}</span>
+                                    </div>
+                                    <div class="channel__program-following">
+                                        <div class="channel__program-following-title">
+                                            <span class="channel__program-following-title-decorate">NEXT</span>
+                                            <Icon class="channel__program-following-title-icon" icon="fluent:fast-forward-20-filled" width="16px" />
+                                            <span class="channel__program-following-title-text" v-html="decorateProgramInfo(channel.program_following, 'title')"></span>
+                                        </div>
+                                        <span class="channel__program-following-time">{{getProgramTime(channel.program_following)}}</span>
+                                    </div>
+                                    <div class="channel__progressbar">
+                                        <div class="channel__progressbar-progress" :style="`width:${getProgramProgress(channel.program_present)}%;`"></div>
+                                    </div>
+                                </router-link>
+                            </v-tab-item>
+                        </v-tabs-items>
+                    </div>
                 </div>
                 <div class="watch-panel__navigation">
-                    <div v-ripple class="panel-navigation-button panel-navigation-button--active">
+                    <div v-ripple class="panel-navigation-button"
+                        :class="{'panel-navigation-button--active': tab_active === 'program'}"
+                        @click="tab_active = 'program'">
                         <Icon class="panel-navigation-button__icon" icon="fa-solid:info-circle" width="33px" />
                         <span class="panel-navigation-button__text">番組情報</span>
                     </div>
-                    <div v-ripple class="panel-navigation-button">
+                    <div v-ripple class="panel-navigation-button"
+                        :class="{'panel-navigation-button--active': tab_active === 'channel'}"
+                        @click="tab_active = 'channel'">
                         <Icon class="panel-navigation-button__icon" icon="fa-solid:broadcast-tower" width="34px" />
                         <span class="panel-navigation-button__text">チャンネル</span>
                     </div>
-                    <div v-ripple class="panel-navigation-button">
+                    <div v-ripple class="panel-navigation-button"
+                        :class="{'panel-navigation-button--active': tab_active === 'comment'}"
+                        @click="tab_active = 'comment'">
                         <Icon class="panel-navigation-button__icon" icon="bi:chat-left-text-fill" width="29px" />
                         <span class="panel-navigation-button__text">コメント</span>
                     </div>
-                    <div v-ripple class="panel-navigation-button">
+                    <div v-ripple class="panel-navigation-button"
+                        :class="{'panel-navigation-button--active': tab_active === 'twitter'}"
+                        @click="tab_active = 'twitter'">
                         <Icon class="panel-navigation-button__icon" icon="fa-brands:twitter" width="34px" />
                         <span class="panel-navigation-button__text">Twitter</span>
                     </div>
@@ -146,6 +198,12 @@ export default mixins(mixin).extend({
     },
     data() {
         return {
+
+            // タブの状態管理
+            tab: null,
+
+            // アクティブなタブ
+            tab_active: 'program',
 
             // 現在時刻
             time: dayjs().format('YYYY/MM/DD HH:mm:ss'),
@@ -785,6 +843,19 @@ export default mixins(mixin).extend({
         }
     }
 }
+// 上書きしたいスタイル
+.v-tabs-bar {
+    height: 58px;
+    background: linear-gradient(to bottom, var(--v-background-base) calc(100% - 3px), var(--v-background-lighten1) 3px);  // 下線を引く
+
+    .v-tabs-slider-wrapper {
+        height: 3px !important;
+        transition: left 0.3s cubic-bezier(0.25, 0.8, 0.5, 1);
+    }
+}
+.channels-container .v-tabs-bar {
+    height: 48px;
+}
 </style>
 
 <style lang="scss" scoped>
@@ -1140,107 +1211,298 @@ export default mixins(mixin).extend({
             }
         }
 
-        .watch-panel__content {
+        .watch-panel__content-container {
+            position: relative;
             height: 100%;
-            padding-left: 16px;
-            padding-right: 16px;
-            overflow-y: auto;
 
-            .program-info {
-                .program-info__title {
-                    font-size: 22px;
-                    font-weight: bold;
-                    line-height: 145%;
-                    font-feature-settings: "palt" 1;  // 文字詰め
-                    letter-spacing: 0.05em;  // 字間を少し空ける
+            .watch-panel__content {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                padding-left: 16px;
+                padding-right: 16px;
+                background: var(--v-background-base);
+                transition: opacity 0.3s, visibility 0.3s;
+                opacity: 0;
+                visibility: hidden;
+                overflow-y: auto;
+
+                &--active {
+                    opacity: 1;
+                    visibility: visible;
                 }
-                .program-info__time {
-                    margin-top: 8px;
-                    color: var(--v-text-darken1);
-                    font-size: 14px;
+
+                &.program-container {
+                    .program-info {
+                        .program-info__title {
+                            font-size: 22px;
+                            font-weight: bold;
+                            line-height: 145%;
+                            font-feature-settings: "palt" 1;  // 文字詰め
+                            letter-spacing: 0.05em;  // 字間を少し空ける
+                        }
+                        .program-info__time {
+                            margin-top: 8px;
+                            color: var(--v-text-darken1);
+                            font-size: 14px;
+                        }
+                        .program-info__description {
+                            margin-top: 12px;
+                            color: var(--v-text-darken1);
+                            font-size: 12px;
+                            line-height: 168%;
+                            overflow-wrap: break-word;
+                            font-feature-settings: "palt" 1;  // 文字詰め
+                            letter-spacing: 0.08em;  // 字間を少し空ける
+                        }
+                        .program-info__genre-container {
+                            display: flex;
+                            flex-wrap: wrap;
+                            margin-top: 10px;
+
+                            .program-info__genre {
+                                display: inline-block;
+                                font-size: 10.5px;
+                                padding: 3px;
+                                margin-top: 4px;
+                                margin-right: 4px;
+                                border-radius: 4px;
+                                background: var(--v-background-lighten2);
+                            }
+                        }
+                        .program-info__next {
+                            display: flex;
+                            align-items: center;
+                            margin-top: 18px;
+                            color: var(--v-text-darken1);
+                            font-size: 14px;
+                            font-weight: bold;
+                            &-decorate {
+                                flex-shrink: 0;
+                            }
+                            &-icon {
+                                flex-shrink: 0;
+                                margin-left: 3px;
+                                font-size: 15px;
+                            }
+                        }
+                        .program-info__next-title {
+                            display: -webkit-box;
+                            margin-top: 2px;
+                            color: var(--v-text-darken1);
+                            font-size: 14px;
+                            overflow: hidden;
+                            -webkit-line-clamp: 2;  // 2行までに制限
+                            -webkit-box-orient: vertical;
+                        }
+                        .program-info__next-time {
+                            margin-top: 3px;
+                            color: var(--v-text-darken1);
+                            font-size: 12px;
+                        }
+                        .program-info__status {
+                            display: flex;
+                            align-items: center;
+                            margin-top: 16px;
+                            font-size: 15px;
+                            color: var(--v-text-darken1);
+                        }
+                    }
+
+                    .program-detail-container {
+                        margin-top: 24px;
+                        margin-bottom: 24px;
+
+                        .program-detail {
+                            margin-top: 16px;
+
+                            .program-detail__heading {
+                                font-size: 18px;
+                            }
+                            .program-detail__text {
+                                margin-top: 8px;
+                                color: var(--v-text-darken1);
+                                font-size: 12px;
+                                line-height: 168%;
+                                overflow-wrap: break-word;
+                                white-space: pre-wrap;  // \n で改行する
+                                font-feature-settings: "palt" 1;  // 文字詰め
+                                letter-spacing: 0.08em;  // 字間を少し空ける
+                            }
+                        }
+                    }
                 }
-                .program-info__description {
-                    margin-top: 12px;
-                    color: var(--v-text-darken1);
-                    font-size: 12px;
-                    line-height: 168%;
-                    overflow-wrap: break-word;
-                    font-feature-settings: "palt" 1;  // 文字詰め
-                    letter-spacing: 0.08em;  // 字間を少し空ける
-                }
-                .program-info__genre-container {
+
+                &.channels-container {
                     display: flex;
-                    flex-wrap: wrap;
-                    margin-top: 10px;
+                    flex-direction: column;
 
-                    .program-info__genre {
-                        display: inline-block;
-                        font-size: 10.5px;
-                        padding: 3px;
-                        margin-top: 4px;
-                        margin-right: 4px;
-                        border-radius: 4px;
-                        background: var(--v-background-lighten2);
-                    }
-                }
-                .program-info__next {
-                    display: flex;
-                    align-items: center;
-                    margin-top: 18px;
-                    color: var(--v-text-darken1);
-                    font-size: 14px;
-                    font-weight: bold;
-                    &-decorate {
-                        flex-shrink: 0;
-                    }
-                    &-icon {
-                        flex-shrink: 0;
-                        margin-left: 3px;
-                        font-size: 15px;
-                    }
-                }
-                .program-info__next-title {
-                    display: -webkit-box;
-                    margin-top: 2px;
-                    color: var(--v-text-darken1);
-                    font-size: 14px;
-                    overflow: hidden;
-                    -webkit-line-clamp: 2;  // 2行までに制限
-                    -webkit-box-orient: vertical;
-                }
-                .program-info__next-time {
-                    margin-top: 3px;
-                    color: var(--v-text-darken1);
-                    font-size: 12px;
-                }
-                .program-info__status {
-                    display: flex;
-                    align-items: center;
-                    margin-top: 16px;
-                    font-size: 15px;
-                    color: var(--v-text-darken1);
-                }
-            }
+                    .channels-tab {
+                        position: sticky;
+                        flex: none;
+                        top: 0px;
+                        padding-bottom: 16px;
+                        background:var(--v-background-base);
+                        z-index: 1;
 
-            .program-detail-container {
-                margin-top: 24px;
-                margin-bottom: 24px;
-
-                .program-detail {
-                    margin-top: 16px;
-
-                    .program-detail__heading {
-                        font-size: 18px;
+                        .channels-tab__item {
+                            width: 88px;
+                            padding: 0;
+                            color: var(--v-text-base) !important;
+                            font-size: 15px;
+                        }
                     }
-                    .program-detail__text {
-                        margin-top: 8px;
-                        color: var(--v-text-darken1);
-                        font-size: 12px;
-                        line-height: 168%;
-                        overflow-wrap: break-word;
-                        white-space: pre-wrap;  // \n で改行する
-                        font-feature-settings: "palt" 1;  // 文字詰め
-                        letter-spacing: 0.08em;  // 字間を少し空ける
+
+                    .channels-list {
+                        padding-bottom: 16px;
+                        background: transparent !important;
+                        overflow: inherit;
+
+                        .channels {
+                            display: flex;
+                            justify-content: center;
+                            flex-direction: column;
+
+                            // 1630px 以上で幅を 445px に固定
+                            @media screen and (min-width: 1630px) {
+                                & {
+                                    grid-template-columns: repeat(auto-fit, 445px);
+                                }
+                            }
+
+                            .channel {
+                                display: flex;
+                                flex-direction: column;
+                                position: relative;
+                                margin-top: 12px;
+                                padding: 10px 12px 14px 12px;
+                                border-radius: 11px;
+                                color: var(--v-text-base);
+                                background: var(--v-background-lighten1);
+                                transition: background-color 0.15s;
+                                overflow: hidden;  // progressbar を切り抜くために必要
+                                text-decoration: none;
+                                user-select: none;
+                                cursor: pointer;
+
+                                &:hover {
+                                    background: var(--v-background-lighten2);
+                                }
+                                &:first-of-type {
+                                    margin-top: 0px;
+                                }
+
+                                .channel__broadcaster {
+                                    display: flex;
+                                    height: 38px;
+
+                                    &-icon {
+                                        display: inline-block;
+                                        flex-shrink: 0;
+                                        width: 48px;
+                                        height: 38px;
+                                        border-radius: 4px;
+                                        background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
+                                        object-fit: cover;
+                                    }
+
+                                    &-content {
+                                        display: flex;
+                                        flex-direction: column;
+                                        margin-left: 12px;
+                                        width: 100%;
+                                        min-width: 0;
+                                    }
+
+                                    &-name {
+                                        flex-shrink: 0;
+                                        font-size: 14.5px;
+                                        overflow: hidden;
+                                        white-space: nowrap;
+                                        text-overflow: ellipsis;
+                                    }
+
+                                    &-status {
+                                        display: flex;
+                                        align-items: center;
+                                        margin-top: 1px;
+                                        font-size: 8px;
+                                        color: var(--v-text-darken1);
+                                    }
+                                }
+
+                                .channel__program-present {
+                                    display: flex;
+                                    flex-direction: column;
+
+                                    &-title {
+                                        display: -webkit-box;
+                                        margin-top: 8px;
+                                        font-size: 13.5px;
+                                        font-weight: 700;
+                                        font-feature-settings: "palt" 1;  // 文字詰め
+                                        letter-spacing: 0.07em;  // 字間を少し空ける
+                                        overflow: hidden;
+                                        -webkit-line-clamp: 2;  // 2行までに制限
+                                        -webkit-box-orient: vertical;
+                                    }
+
+                                    &-time {
+                                        margin-top: 4px;
+                                        color: var(--v-text-darken1);
+                                        font-size: 11.5px;
+                                    }
+                                }
+
+                                .channel__program-following {
+                                    display: flex;
+                                    flex-direction: column;
+                                    margin-top: 4px;
+                                    color: var(--v-text-darken1);
+                                    font-size: 11.5px;
+
+                                    &-title {
+                                        display: flex;
+                                        align-items: center;
+
+                                        &-decorate {
+                                                flex-shrink: 0;
+                                        }
+                                        &-icon {
+                                                flex-shrink: 0;
+                                                margin-left: 3px;
+                                        }
+                                        &-text {
+                                                margin-left: 2px;
+                                                overflow: hidden;
+                                                white-space: nowrap;
+                                                text-overflow: ellipsis;  // はみ出た部分を … で省略
+                                        }
+                                    }
+
+                                    &-time {
+                                        margin-top: 1px;
+                                    }
+                                }
+
+                                .channel__progressbar {
+                                    position: absolute;
+                                    left: 0;
+                                    right: 0;
+                                    bottom: 0;
+                                    height: 4px;
+                                    background: var(--v-gray-base);
+
+                                    &-progress {
+                                        height: 4px;
+                                        background: var(--v-primary-base);
+                                        transition: width 0.3s;
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1265,6 +1527,7 @@ export default mixins(mixin).extend({
                 border-radius: 5px;
                 color: var(--v-text-base);
                 box-sizing: content-box;
+                transition: color 0.3s;
                 user-select: none;
                 cursor: pointer;
 
