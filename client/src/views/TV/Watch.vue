@@ -1221,8 +1221,6 @@ export default mixins(mixin).extend({
                 left: 0;
                 right: 0;
                 bottom: 0;
-                padding-left: 16px;
-                padding-right: 16px;
                 background: var(--v-background-base);
                 transition: opacity 0.3s, visibility 0.3s;
                 opacity: 0;
@@ -1235,6 +1233,9 @@ export default mixins(mixin).extend({
                 }
 
                 &.program-container {
+                    padding-left: 16px;
+                    padding-right: 16px;
+
                     .program-info {
                         .program-info__title {
                             font-size: 22px;
@@ -1343,6 +1344,8 @@ export default mixins(mixin).extend({
                         position: sticky;
                         flex: none;
                         top: 0px;
+                        padding-left: 16px;
+                        padding-right: 16px;
                         padding-bottom: 16px;
                         background:var(--v-background-base);
                         z-index: 1;
@@ -1356,6 +1359,8 @@ export default mixins(mixin).extend({
                     }
 
                     .channels-list {
+                        padding-left: 16px;
+                        padding-right: 16px;
                         padding-bottom: 16px;
                         background: transparent !important;
                         overflow: inherit;
@@ -1523,7 +1528,7 @@ export default mixins(mixin).extend({
                 flex-direction: column;
                 width: 66px;
                 height: 56px;
-                padding: 6px 4px;
+                padding: 6px 5.5px;
                 border-radius: 5px;
                 color: var(--v-text-base);
                 box-sizing: content-box;
