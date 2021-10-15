@@ -458,7 +458,7 @@ class LiveEncodingTask():
             # 現在 ONAir でかつストリームデータの最終書き込み時刻から 2 秒以上が経過しているなら、エンコーダーがフリーズしたものとみなす
             # 何らかの理由でエンコードが途中で停止した場合、livestream.write() が実行されなくなるのを利用する
             # ステータスを Restart に設定し、エンコードタスクを再起動する
-            if livestream_status['status'] == 'ONAir' and time.time() - livestream.stream_data_writed_at > 2:
+            if livestream_status['status'] == 'ONAir' and time.time() - livestream.stream_data_written_at > 2:
                 is_restart_required = True  # エンコーダーの再起動を要求
                 livestream.setStatus('Restart', 'エンコードが途中で停止しました。ライブストリームを再起動します。')
                 # 直近 30 件のログを表示

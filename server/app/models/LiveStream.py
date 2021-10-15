@@ -44,7 +44,7 @@ class LiveStream():
     # ストリームデータの最終書き込み時刻のタイムスタンプ
     # ONAir 状態にも関わらず最終書き込み時刻が 3 秒以上更新されていない場合は、
     # エンコーダーがフリーズしたものとみなしてエンコードタスクを再起動する
-    stream_data_writed_at:float = 0
+    stream_data_written_at:float = 0
 
     # ライブストリームクライアント
     # クライアントの接続が切断された場合、このリストからも削除される（正確にはインデックスを壊さないため None が入る）
@@ -377,4 +377,4 @@ class LiveStream():
 
         # ストリームデータが空でなければ、最終書き込み時刻を更新
         if stream_data != b'':
-            self.stream_data_writed_at = time.time()
+            self.stream_data_written_at = time.time()
