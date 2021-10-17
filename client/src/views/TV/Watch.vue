@@ -186,7 +186,7 @@ import Vue from 'vue';
 import mixins from 'vue-typed-mixins'
 import mixin from '@/mixins';
 import dayjs from 'dayjs';
-// @ts-ignore  JS 製なので型定義がないし、作ろうとするとまためんどいので黙殺
+// @ts-ignore  JavaScript で書かれているので型定義がなく、作ろうとするとややこしくなるので黙殺
 import DPlayer from 'dplayer';
 import mpegts from 'mpegts.js';
 import { Icon } from '@iconify/vue2';
@@ -583,6 +583,9 @@ export default mixins(mixin).extend({
                 }
             });
 
+            // デバッグ用にプレイヤーインスタンスも window 名前空間に入れる
+            (window as any).player = this.player;
+
             // 画質の切り替えが開始されたとき
             this.player.on('quality_start', () => {
 
@@ -601,8 +604,16 @@ export default mixins(mixin).extend({
 
             });
 
-            // デバッグ用にプレイヤーインスタンスも window 名前空間に入れる
-            (window as any).player = this.player;
+            // MediaSession API を使い、メディア通知の表示をカスタマイズ
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: this.channel.program_present.title,
+                    artist: this.channel.channel_name,
+                    artwork: [
+                        {src: `${this.api_base_url}/channels/${(this.channel_id)}/logo`, sizes: '256x256', type: 'image/png'},
+                    ]
+                });
+            }
         },
 
         // イベントハンドラーを初期化する
