@@ -22,10 +22,6 @@
         "strictPropertyInitialization": false,
         "noImplicitThis": false,
         // ↑↑↑
-        "types": [
-            "webpack-env",
-            "vuetify",
-        ],
         "paths": {
             "@/*": [
                 "src/*",
