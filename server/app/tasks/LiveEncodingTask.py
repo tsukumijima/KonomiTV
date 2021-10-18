@@ -1,5 +1,6 @@
 
 import os
+import requests
 import subprocess
 import threading
 import time
@@ -207,6 +208,42 @@ class LiveEncodingTask():
         ## 画質が 480i なのに 1080p にしてもしょうがないので、指定された画質が 480p 以上なら 480p に固定する
         if program_present.video_resolution == '480i' and int(quality[:-1]) > 480:
             quality = '480p'
+
+        # tsreadex
+        ## 放送波の前処理を行い、エンコードを安定させるツール
+        ## オプション内容は https://github.com/xtne6f/tsreadex を参照
+        tsreadex = subprocess.Popen(
+            [
+                ## tsreadex のパス
+                LIBRARY_PATH['tsreadex'],
+                # 取り除く TS パケットの10進数の PID
+                ## EIT の PID を指定
+                '-x', '18/38/39',
+                # 特定サービスのみを選択して出力するフィルタを有効にする
+                ## 有効にすると、特定のストリームのみ PID を固定して出力される
+                '-n', '-1',
+                # 主音声ストリームが常に存在する状態にする
+                ## ストリームが存在しない場合、無音の AAC ストリームが出力される
+                '-a', '1',
+                # 副音声ストリームが常に存在する状態にする
+                ## ストリームが存在しない場合、無音の AAC ストリームが出力される
+                '-b', '1',
+                # 字幕ストリームが常に存在する状態にする
+                ## ストリームが存在しない場合、PMT の項目が補われて出力される
+                '-c', '1',
+                # 文字スーパーストリームが常に存在する状態にする
+                ## ストリームが存在しない場合、PMT の項目が補われて出力される
+                '-u', '1',
+                # 字幕と文字スーパーを aribb24.js が解釈できる ID3 timed-metadata に変換する
+                ## FFmpeg のバグを打ち消すため、変換後のストリームに規格外の5バイトのデータを追加する
+                '-d', '5',
+                # 標準入力を設定
+                '-',
+            ],
+            stdin=subprocess.PIPE,  # 受信した放送波を書き込む
+            stdout=subprocess.PIPE,  # エンコーダーに繋ぐ
+            creationflags=(subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # conhost を開かない
+        )
 
         # Mirakurun バックエンド
         if CONFIG['general']['backend'] == 'Mirakurun':
@@ -545,8 +582,10 @@ class LiveEncodingTask():
         # ***** エンコード終了後の処理 *****
 
         # 明示的にプロセスを終了する
+        tsreadex.kill()
         ast.kill()
         encoder.kill()
+
         # エンコードタスクを再起動する（エンコーダーの再起動が必要な場合）
         if is_restart_required is True:
 
