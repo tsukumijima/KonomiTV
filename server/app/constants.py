@@ -90,7 +90,6 @@ LIBRARY_DIR = BASE_DIR / 'thirdparty'
 # サードパーティーライブラリのあるパス
 LIBRARY_EXTENSION = ('.exe' if os.name == 'nt' else '.elf')
 LIBRARY_PATH = {
-    'arib-subtitle-timedmetadater': str(LIBRARY_DIR / 'arib-subtitle-timedmetadater/arib-subtitle-timedmetadater') + LIBRARY_EXTENSION,
     'FFmpeg': str(LIBRARY_DIR / 'FFmpeg/ffmpeg') + LIBRARY_EXTENSION,
     'FFprobe': str(LIBRARY_DIR / 'FFmpeg/ffprobe') + LIBRARY_EXTENSION,
     'QSVEncC': str(LIBRARY_DIR / 'QSVEncC/QSVEncC') + LIBRARY_EXTENSION,

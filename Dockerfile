@@ -22,11 +22,11 @@ RUN ln -s /usr/lib/x86_64-linux-gnu/libnvcuvid.so.1 /usr/lib/x86_64-linux-gnu/li
 RUN ln -s /usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1 /usr/lib/x86_64-linux-gnu/libnvidia-encode.so
 
 # サードパーティライブラリに実行権限を付与
-RUN chmod 755 ./thirdparty/arib-subtitle-timedmetadater/arib-subtitle-timedmetadater.elf && \
-    chmod 755 ./thirdparty/FFmpeg/ffmpeg.elf && \
+RUN chmod 755 ./thirdparty/FFmpeg/ffmpeg.elf && \
     chmod 755 ./thirdparty/FFmpeg/ffprobe.elf && \
     chmod 755 ./thirdparty/QSVEncC/QSVEncC.elf && \
     chmod 755 ./thirdparty/NVEncC/NVEncC.elf && \
+    chmod 755 ./thirdparty/tsreadex/tsreadex.elf && \
     chmod 755 ./thirdparty/VCEEncC/VCEEncC.elf
 
 # Python 3.9 のインストール

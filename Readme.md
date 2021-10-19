@@ -135,11 +135,11 @@ Linux では、`/Develop/KonomiTV/server/thirdparty/FFmpeg` に `ffmpeg.elf` が
 以下のコマンドを実行して、実行権限を付与してください。
 
 ```
-chmod 755 ./thirdparty/arib-subtitle-timedmetadater/arib-subtitle-timedmetadater.elf
 chmod 755 ./thirdparty/FFmpeg/ffmpeg.elf
 chmod 755 ./thirdparty/FFmpeg/ffprobe.elf
 chmod 755 ./thirdparty/QSVEncC/QSVEncC.elf
 chmod 755 ./thirdparty/NVEncC/NVEncC.elf
+chmod 755 ./thirdparty/tsreadex/tsreadex.elf
 chmod 755 ./thirdparty/VCEEncC/VCEEncC.elf
 ```
 
