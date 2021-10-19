@@ -242,6 +242,9 @@ class LiveEncodingTask():
             creationflags=(subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # conhost を開かない
         )
 
+        # エンコーダーのインスタンスが入る変数
+        encoder = None
+
         # Mirakurun バックエンド
         if CONFIG['general']['backend'] == 'Mirakurun':
 
@@ -278,6 +281,21 @@ class LiveEncodingTask():
                             livestream.setStatus('Offline', 'チューナー不足のため、ライブストリームを開始できません。')
                         else:
                             livestream.setStatus('Offline', 'チューナーで不明なエラーが発生したため、ライブストリームを開始できません。')
+                        break
+
+                    # 現在 ONAir でかつストリームデータの最終書き込み時刻から 2 秒以上が経過しているなら、エンコーダーがフリーズしたものとみなす
+                    # 現在 Standby でかつストリームデータの最終書き込み時刻から 20 秒以上が経過している場合も、エンコーダーがフリーズしたものとみなす
+                    # stdout も stderr もブロッキングされてしまっている場合を想定し、このスレッドでも確認する
+                    livestream_status = livestream.getStatus()
+                    if ((livestream_status['status'] == 'ONAir' and time.time() - livestream.stream_data_written_at > 2) or
+                        (livestream_status['status'] == 'Standby' and time.time() - livestream.stream_data_written_at > 20)):
+
+                        # エンコーダーを強制終了させないと次の処理に進まない事が想定されるので、エンコーダーを強制終了
+                        if encoder is not None:
+                            encoder.kill()
+
+                        # ライブストリームを再起動
+                        livestream.setStatus('Restart', 'エンコードが途中で停止しました。ライブストリームを再起動します。')
                         break
 
                     # tsreadex が既に終了しているか、接続が切断された
@@ -342,6 +360,21 @@ class LiveEncodingTask():
                         except BrokenPipeError:
                             break
                         except OSError:
+                            break
+
+                        # 現在 ONAir でかつストリームデータの最終書き込み時刻から 2 秒以上が経過しているなら、エンコーダーがフリーズしたものとみなす
+                        # 現在 Standby でかつストリームデータの最終書き込み時刻から 20 秒以上が経過している場合も、エンコーダーがフリーズしたものとみなす
+                        # stdout も stderr もブロッキングされてしまっている場合を想定し、このスレッドでも確認する
+                        livestream_status = livestream.getStatus()
+                        if ((livestream_status['status'] == 'ONAir' and time.time() - livestream.stream_data_written_at > 2) or
+                            (livestream_status['status'] == 'Standby' and time.time() - livestream.stream_data_written_at > 20)):
+
+                            # エンコーダーを強制終了させないと次の処理に進まない事が想定されるので、エンコーダーを強制終了
+                            if encoder is not None:
+                                encoder.kill()
+
+                            # ライブストリームを再起動
+                            livestream.setStatus('Restart', 'エンコードが途中で停止しました。ライブストリームを再起動します。')
                             break
 
                         # tsreadex が既に終了しているか、接続が切断された
