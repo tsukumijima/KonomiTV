@@ -205,10 +205,6 @@ class LiveEncodingTask():
             return
         Logging.info(f'LiveStream:{livestream.livestream_id} Title:{program_present.title}')
 
-        ## 画質が 480i なのに 1080p にしてもしょうがないので、指定された画質が 480p 以上なら 480p に固定する
-        if program_present.video_resolution == '480i' and int(quality[:-1]) > 480:
-            quality = '480p'
-
         # tsreadex
         ## 放送波の前処理を行い、エンコードを安定させるツール
         ## オプション内容は https://github.com/xtne6f/tsreadex を参照
@@ -366,15 +362,21 @@ class LiveEncodingTask():
         # エンコーダーの種類を取得
         encoder_type = CONFIG['livestream']['encoder']
 
+        ## 画質が 480i なのに 1080p にしてもしょうがないので、指定された画質が 480p 以上なら 480p に固定する
+        if program_present.video_resolution == '480i' and int(quality[:-1]) > 480:
+            real_quality = '480p'
+        else:
+            real_quality = quality
+
         # FFmpeg
         if encoder_type == 'FFmpeg':
 
             # オプションを取得
             # 現在放送中の番組がデュアルモノの場合、デュアルモノ用のエンコードオプションを取得
             if program_present.primary_audio_type == '1/0+1/0モード(デュアルモノ)':
-                encoder_options = self.buildFFmpegOptions(quality, is_dualmono=True)
+                encoder_options = self.buildFFmpegOptions(real_quality, is_dualmono=True)
             else:
-                encoder_options = self.buildFFmpegOptions(quality, is_dualmono=False)
+                encoder_options = self.buildFFmpegOptions(real_quality, is_dualmono=False)
             Logging.info(f'LiveStream:{livestream.livestream_id} FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
             # プロセスを非同期で作成・実行
@@ -392,9 +394,9 @@ class LiveEncodingTask():
             # オプションを取得
             # 現在放送中の番組がデュアルモノの場合、デュアルモノ用のエンコードオプションを取得
             if program_present.primary_audio_type == '1/0+1/0モード(デュアルモノ)':
-                encoder_options = self.buildHWEncCOptions(encoder_type, quality, is_dualmono=True)
+                encoder_options = self.buildHWEncCOptions(encoder_type, real_quality, is_dualmono=True)
             else:
-                encoder_options = self.buildHWEncCOptions(encoder_type, quality, is_dualmono=False)
+                encoder_options = self.buildHWEncCOptions(encoder_type, real_quality, is_dualmono=False)
             Logging.info(f'LiveStream:{livestream.livestream_id} {encoder_type} Commands:\n{encoder_type} {" ".join(encoder_options)}')
 
             # プロセスを非同期で作成・実行
