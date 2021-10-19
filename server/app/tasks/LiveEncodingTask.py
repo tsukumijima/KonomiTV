@@ -236,7 +236,7 @@ class LiveEncodingTask():
                 '-u', '1',
                 # 字幕と文字スーパーを aribb24.js が解釈できる ID3 timed-metadata に変換する
                 ## FFmpeg のバグを打ち消すため、変換後のストリームに規格外の5バイトのデータを追加する
-                '-d', '5',
+                #'-d', '5',
                 # 標準入力を設定
                 '-',
             ],
@@ -270,6 +270,8 @@ class LiveEncodingTask():
                     try:
                         tsreadex.stdin.write(bytes(chunk))
                     except BrokenPipeError:
+                        break
+                    except OSError:
                         break
 
                     # Mirakurun からエラーが返された
