@@ -283,7 +283,7 @@ class LiveEncodingTask():
                             livestream.setStatus('Offline', 'チューナーで不明なエラーが発生したため、ライブストリームを開始できません。')
                         break
 
-                    # tsreadex が終了しているか、接続が切断された
+                    # tsreadex が既に終了しているか、接続が切断された
                     if (tsreadex.poll() is not None) or (response.raw.closed is True):
                         break
 
@@ -327,13 +327,35 @@ class LiveEncodingTask():
             # Idling への切り替え、ONAir への復帰時に LiveStream 側でチューナーのアンロック/ロックが行われる
             livestream.setTunerInstance(tuner)
 
-            # arib-subtitle-timedmetadater
-            ## プロセスを非同期で作成・実行
-            ast = subprocess.Popen(
-                [LIBRARY_PATH['arib-subtitle-timedmetadater'], '-i', edcb_networktv_path],
-                stdout = subprocess.PIPE,  # FFmpeg に繋ぐ
-                creationflags = (subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # conhost を開かない
-            )
+            # 名前付きパイプを開く
+            # R/W バッファ: 188B (TS Packet Size) * 256 = 48128B
+            pipe = open(edcb_networktv_path, mode='rb', buffering=48128)
+
+            # ***** エンコーダーへの入力の読み込み *****
+
+            def reader():
+
+                # EDCB から受信した放送波を随時 tsreadex の入力に書き込む
+                for chunk in pipe:
+
+                    # ストリームデータを tsreadex の標準入力に書き込む
+                    try:
+                        tsreadex.stdin.write(bytes(chunk))
+                    except BrokenPipeError:
+                        break
+                    except OSError:
+                        break
+
+                    # tsreadex が既に終了しているか、接続が切断された
+                    if (tsreadex.poll() is not None) or (pipe.closed is True):
+                        break
+
+                # 明示的に接続を閉じる
+                pipe.close()
+
+            # スレッドを開始
+            thread_reader = threading.Thread(target=reader, name='LiveEncodingTask-Reader')
+            thread_reader.start()
 
         # ***** エンコーダープロセスの作成と実行 *****
 
