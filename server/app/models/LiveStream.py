@@ -39,12 +39,12 @@ class LiveStream():
     detail:str = 'ライブストリームは Offline です。'
 
     # ステータスの最終更新時刻のタイムスタンプ
-    updated_at:float = time.time()
+    updated_at:float
 
     # ストリームデータの最終書き込み時刻のタイムスタンプ
     # ONAir 状態にも関わらず最終書き込み時刻が 3 秒以上更新されていない場合は、
     # エンコーダーがフリーズしたものとみなしてエンコードタスクを再起動する
-    stream_data_written_at:float = 0
+    stream_data_written_at:float
 
     # ライブストリームクライアント
     # クライアントの接続が切断された場合、このリストからも削除される（正確にはインデックスを壊さないため None が入る）
@@ -70,6 +70,10 @@ class LiveStream():
             # クラス直下で定義すると全てのインスタンスのライブストリームクライアントが同じ参照（同じオブジェクトID）になってしまうため、
             # 同じ参照にならないようにインスタンス生成時に実行するようにする
             instance.clients = list()
+
+            # タイムスタンプを設定する
+            instance.updated_at = time.time()
+            instance.stream_data_written_at = time.time()
 
             # 生成したインスタンスを登録する
             # インスタンスの参照が渡されるので、オブジェクトとしては同一
@@ -304,6 +308,10 @@ class LiveStream():
         # ステータスも詳細も現在の状態と重複しているなら、更新を行わない（同じ内容のイベントが複数発生するのを防ぐ）
         if self.status == status and self.detail == detail:
             return
+
+        # ストリーム開始時、stream_data_written_at を更新する
+        # ここで更新しておかないと、いつまで経っても初期化時の古いタイムスタンプが使われてしまう
+        self.stream_data_written_at = time.time()
 
         # ステータスと詳細を設定
         if quiet is False:
