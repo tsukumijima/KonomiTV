@@ -67,7 +67,7 @@ class LiveEncodingTask():
 
         # 映像
         options.append(f'-vcodec libx264 -flags +cgop -vb {QUALITY[quality]["video_bitrate"]} -maxrate {QUALITY[quality]["video_bitrate_max"]}')
-        options.append('-aspect 16:9 -r 30000/1001 -g 15 -preset veryfast -profile:v main -level 31')
+        options.append('-aspect 16:9 -r 30000/1001 -g 15 -preset veryfast -profile:v main')
         if is_dualmono is False:  # デュアルモノ以外
             ## 1440x1080 と 1920x1080 が混在しているので、1080p だけリサイズする解像度を特殊な設定に
             if quality == '1080p':
@@ -138,7 +138,7 @@ class LiveEncodingTask():
 
         # 映像
         options.append(f'--vbr {QUALITY[quality]["video_bitrate"]} --max-bitrate {QUALITY[quality]["video_bitrate_max"]}')
-        options.append(f'--dar 16:9 --gop-len 15 --profile main --level 3.1 --interlace tff')
+        options.append(f'--dar 16:9 --gop-len 15 --profile main --interlace tff')
         ## インターレース解除
         if encoder_type == 'QSVEncC' or encoder_type == 'NVEncC':
             options.append('--vpp-deinterlace normal')
