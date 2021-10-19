@@ -336,19 +336,22 @@ class LiveEncodingTask():
             def reader():
 
                 # EDCB から受信した放送波を随時 tsreadex の入力に書き込む
-                for chunk in pipe:
+                try:
+                    for chunk in pipe:
 
-                    # ストリームデータを tsreadex の標準入力に書き込む
-                    try:
-                        tsreadex.stdin.write(bytes(chunk))
-                    except BrokenPipeError:
-                        break
-                    except OSError:
-                        break
+                        # ストリームデータを tsreadex の標準入力に書き込む
+                        try:
+                            tsreadex.stdin.write(bytes(chunk))
+                        except BrokenPipeError:
+                            break
+                        except OSError:
+                            break
 
-                    # tsreadex が既に終了しているか、接続が切断された
-                    if (tsreadex.poll() is not None) or (pipe.closed is True):
-                        break
+                        # tsreadex が既に終了しているか、接続が切断された
+                        if (tsreadex.poll() is not None) or (pipe.closed is True):
+                            break
+                except OSError:
+                    pass
 
                 # 明示的に接続を閉じる
                 pipe.close()
