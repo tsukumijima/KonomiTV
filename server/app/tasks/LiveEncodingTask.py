@@ -258,57 +258,6 @@ class LiveEncodingTask():
             ## stream=True を設定することで、レスポンスの返却を待たずに処理を進められる
             response = requests.get(mirakurun_stream_api_url, headers={'X-Mirakurun-Priority': '0'}, stream=True)
 
-            # ***** エンコーダーへの入力の読み込み *****
-
-            def reader():
-
-                # Mirakurun から受信した放送波を随時 tsreadex の入力に書き込む
-                # R/W バッファ: 188B (TS Packet Size) * 256 = 48128B
-                for chunk in response.iter_content(chunk_size=48128):
-
-                    # ストリームデータを tsreadex の標準入力に書き込む
-                    try:
-                        tsreadex.stdin.write(bytes(chunk))
-                    except BrokenPipeError:
-                        break
-                    except OSError:
-                        break
-
-                    # Mirakurun からエラーが返された
-                    if response.status_code is not None and response.status_code != 200:
-                        # Offline にしてエンコードタスクを停止する
-                        if response.status_code == 503:
-                            livestream.setStatus('Offline', 'チューナー不足のため、ライブストリームを開始できません。')
-                        else:
-                            livestream.setStatus('Offline', 'チューナーで不明なエラーが発生したため、ライブストリームを開始できません。')
-                        break
-
-                    # 現在 ONAir でかつストリームデータの最終書き込み時刻から 2 秒以上が経過しているなら、エンコーダーがフリーズしたものとみなす
-                    # 現在 Standby でかつストリームデータの最終書き込み時刻から 20 秒以上が経過している場合も、エンコーダーがフリーズしたものとみなす
-                    # stdout も stderr もブロッキングされてしまっている場合を想定し、このスレッドでも確認する
-                    livestream_status = livestream.getStatus()
-                    if ((livestream_status['status'] == 'ONAir' and time.time() - livestream.stream_data_written_at > 2) or
-                        (livestream_status['status'] == 'Standby' and time.time() - livestream.stream_data_written_at > 20)):
-
-                        # エンコーダーを強制終了させないと次の処理に進まない事が想定されるので、エンコーダーを強制終了
-                        if encoder is not None:
-                            encoder.kill()
-
-                        # ライブストリームを再起動
-                        livestream.setStatus('Restart', 'エンコードが途中で停止しました。ライブストリームを再起動します。')
-                        break
-
-                    # tsreadex が既に終了しているか、接続が切断された
-                    if (tsreadex.poll() is not None) or (response.raw.closed is True):
-                        break
-
-                # 明示的に接続を閉じる
-                response.close()
-
-            # スレッドを開始
-            thread_reader = threading.Thread(target=reader, name='LiveEncodingTask-Reader')
-            thread_reader.start()
-
         # EDCB バックエンド
         elif CONFIG['general']['backend'] == 'EDCB':
 
@@ -346,49 +295,70 @@ class LiveEncodingTask():
             # R/W バッファ: 188B (TS Packet Size) * 256 = 48128B
             pipe = open(edcb_networktv_path, mode='rb', buffering=48128)
 
-            # ***** エンコーダーへの入力の読み込み *****
+        # ***** エンコーダーへの入力の読み込み *****
 
-            def reader():
+        def reader():
 
-                # EDCB から受信した放送波を随時 tsreadex の入力に書き込む
-                try:
-                    for chunk in pipe:
+            # 受信した放送波が入るイテレータ
+            if CONFIG['general']['backend'] == 'Mirakurun':
+                # R/W バッファ: 188B (TS Packet Size) * 256 = 48128B
+                stream_iterator = response.iter_content(chunk_size=48128)
+            elif CONFIG['general']['backend'] == 'EDCB':
+                stream_iterator = pipe
 
-                        # ストリームデータを tsreadex の標準入力に書き込む
-                        try:
-                            tsreadex.stdin.write(bytes(chunk))
-                        except BrokenPipeError:
-                            break
-                        except OSError:
-                            break
+            # Mirakurun / EDCB から受信した放送波を随時 tsreadex の入力に書き込む
+            try:
+                for chunk in stream_iterator:
 
-                        # 現在 ONAir でかつストリームデータの最終書き込み時刻から 2 秒以上が経過しているなら、エンコーダーがフリーズしたものとみなす
-                        # 現在 Standby でかつストリームデータの最終書き込み時刻から 20 秒以上が経過している場合も、エンコーダーがフリーズしたものとみなす
-                        # stdout も stderr もブロッキングされてしまっている場合を想定し、このスレッドでも確認する
-                        livestream_status = livestream.getStatus()
-                        if ((livestream_status['status'] == 'ONAir' and time.time() - livestream.stream_data_written_at > 2) or
-                            (livestream_status['status'] == 'Standby' and time.time() - livestream.stream_data_written_at > 20)):
+                    # ストリームデータを tsreadex の標準入力に書き込む
+                    try:
+                        tsreadex.stdin.write(bytes(chunk))
+                    except BrokenPipeError:
+                        break
+                    except OSError:
+                        break
 
-                            # エンコーダーを強制終了させないと次の処理に進まない事が想定されるので、エンコーダーを強制終了
-                            if encoder is not None:
-                                encoder.kill()
+                    # Mirakurun からエラーが返された
+                    if CONFIG['general']['backend'] == 'Mirakurun' and response.status_code is not None and response.status_code != 200:
+                        # Offline にしてエンコードタスクを停止する
+                        if response.status_code == 503:
+                            livestream.setStatus('Offline', 'チューナー不足のため、ライブストリームを開始できません。')
+                        else:
+                            livestream.setStatus('Offline', 'チューナーで不明なエラーが発生したため、ライブストリームを開始できません。')
+                        break
 
-                            # ライブストリームを再起動
-                            livestream.setStatus('Restart', 'エンコードが途中で停止しました。ライブストリームを再起動します。')
-                            break
+                    # 現在 ONAir でかつストリームデータの最終書き込み時刻から 2 秒以上が経過しているなら、エンコーダーがフリーズしたものとみなす
+                    # 現在 Standby でかつストリームデータの最終書き込み時刻から 20 秒以上が経過している場合も、エンコーダーがフリーズしたものとみなす
+                    # stdout も stderr もブロッキングされてしまっている場合を想定し、このスレッドでも確認する
+                    livestream_status = livestream.getStatus()
+                    if ((livestream_status['status'] == 'ONAir' and time.time() - livestream.stream_data_written_at > 2) or
+                        (livestream_status['status'] == 'Standby' and time.time() - livestream.stream_data_written_at > 20)):
 
-                        # tsreadex が既に終了しているか、接続が切断された
-                        if (tsreadex.poll() is not None) or (pipe.closed is True):
-                            break
-                except OSError:
-                    pass
+                        # エンコーダーを強制終了させないと次の処理に進まない事が想定されるので、エンコーダーを強制終了
+                        if encoder is not None:
+                            encoder.kill()
 
-                # 明示的に接続を閉じる
+                        # ライブストリームを再起動
+                        livestream.setStatus('Restart', 'エンコードが途中で停止しました。ライブストリームを再起動します。')
+                        break
+
+                    # tsreadex が既に終了しているか、接続が切断された
+                    if ((tsreadex.poll() is not None) or
+                        (CONFIG['general']['backend'] == 'Mirakurun' and response.raw.closed is True) or
+                        (CONFIG['general']['backend'] == 'EDCB' and pipe.closed is True)):
+                        break
+            except OSError:
+                pass
+
+            # 明示的に接続を閉じる
+            if CONFIG['general']['backend'] == 'Mirakurun':
+                response.close()
+            elif CONFIG['general']['backend'] == 'EDCB':
                 pipe.close()
 
-            # スレッドを開始
-            thread_reader = threading.Thread(target=reader, name='LiveEncodingTask-Reader')
-            thread_reader.start()
+        # スレッドを開始
+        thread_reader = threading.Thread(target=reader, name='LiveEncodingTask-Reader')
+        thread_reader.start()
 
         # ***** エンコーダープロセスの作成と実行 *****
 
