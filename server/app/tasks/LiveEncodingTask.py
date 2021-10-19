@@ -49,7 +49,7 @@ class LiveEncodingTask():
         ## 通常放送・音声多重放送向け
         ## 副音声が検出できない場合にエラーにならないよう、? をつけておく
         if is_dualmono is False:
-            options.append('-map 0:v:0 -map 0:a:0 -map 0:a:1? -map 0:s? -map 0:d? -scodec copy -ignore_unknown')
+            options.append('-map 0:v:0 -map 0:a:0 -map 0:a:1 -map 0:d? -ignore_unknown')
 
         ## デュアルモノ向け（Lが主音声・Rが副音声）
         else:
@@ -59,7 +59,7 @@ class LiveEncodingTask():
             # -filter_complex を使うと -vf や -af が使えなくなるため、デュアルモノのみ -filter_complex に -vf や -af の内容も入れる
             options.append(f'-filter_complex yadif=0:-1:1,{scale};volume=2.0,channelsplit[FL][FR]')
             ## Lを主音声に、Rを副音声にマッピング
-            options.append('-map 0:v:0 -map [FL] -map [FR] -map 0:s? -map 0:d? -scodec copy -ignore_unknown')
+            options.append('-map 0:v:0 -map [FL] -map [FR] -map 0:d? -ignore_unknown')
 
         # フラグ
         ## 主に FFmpeg の起動を高速化するための設定
@@ -76,7 +76,7 @@ class LiveEncodingTask():
                 options.append(f'-vf yadif=0:-1:1,scale={QUALITY[quality]["width"]}:{QUALITY[quality]["height"]}')
 
         # 音声
-        options.append(f'-acodec aac -ac 2 -ab {QUALITY[quality]["audio_bitrate"]} -ar 48000')
+        options.append(f'-acodec aac -aac_coder twoloop -ac 2 -ab {QUALITY[quality]["audio_bitrate"]} -ar 48000')
         if is_dualmono is False:  # デュアルモノ以外
             options.append('-af volume=2.0')
 
@@ -125,10 +125,10 @@ class LiveEncodingTask():
             ## 通常放送・音声多重放送向け
             ## 5.1ch 自体は再生可能だが、そのままエンコードするとコケる事があるし、
             ## 何より 5.1ch 非対応な PC だと音がシャリシャリになって聞けたものではないのでステレオで固定する
-            options.append('--audio-stream 1?:stereo --audio-stream 2?:stereo --sub-copy asdata --data-copy timed_id3')
+            options.append('--audio-stream 1:stereo --audio-stream 2:stereo --data-copy timed_id3')
         else:
             ## デュアルモノ向け（Lが主音声・Rが副音声）
-            options.append('--audio-stream FL,FR --sub-copy asdata --data-copy timed_id3')
+            options.append('--audio-stream FL,FR --data-copy timed_id3')
 
         # フラグ
         ## 主に HWEncC の起動を高速化するための設定
@@ -198,7 +198,7 @@ class LiveEncodingTask():
         # 現在の番組情報を取得する
         program_present:Programs = RunAwait(channel.getCurrentAndNextProgram())[0]
 
-        ## 番組情報が取得できなければ（放送休止中など）ここで Offline にして中断する
+        ## 番組情報が取得できなければ（放送休止中など）ここで Offline にしてエンコードタスクを停止する
         if program_present is None:
             time.sleep(0.5)  # ちょっと待つのがポイント
             livestream.setStatus('Offline', 'この時間は放送を休止しています。')
@@ -254,13 +254,43 @@ class LiveEncodingTask():
             # Mirakurun API の URL を作成
             mirakurun_stream_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services/{mirakurun_service_id}/stream'
 
-            # arib-subtitle-timedmetadater
-            ## プロセスを非同期で作成・実行
-            ast = subprocess.Popen(
-                [LIBRARY_PATH['arib-subtitle-timedmetadater'], '--http', mirakurun_stream_api_url],
-                stdout=subprocess.PIPE,  # FFmpeg に繋ぐ
-                creationflags=(subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # conhost を開かない
-            )
+            # HTTP リクエストを開始
+            ## stream=True を設定することで、レスポンスの返却を待たずに処理を進められる
+            response = requests.get(mirakurun_stream_api_url, headers={'X-Mirakurun-Priority': '0'}, stream=True)
+
+            # ***** エンコーダーへの入力の読み込み *****
+
+            def reader():
+
+                # Mirakurun から受信した放送波を随時 tsreadex の入力に書き込む
+                # R/W バッファ: 188B (TS Packet Size) * 256 = 48128B
+                for chunk in response.iter_content(chunk_size=48128):
+
+                    # ストリームデータを tsreadex の標準入力に書き込む
+                    try:
+                        tsreadex.stdin.write(bytes(chunk))
+                    except BrokenPipeError:
+                        break
+
+                    # Mirakurun からエラーが返された
+                    if response.status_code is not None and response.status_code != 200:
+                        # Offline にしてエンコードタスクを停止する
+                        if response.status_code == 503:
+                            livestream.setStatus('Offline', 'チューナー不足のため、ライブストリームを開始できません。')
+                        else:
+                            livestream.setStatus('Offline', 'チューナーで不明なエラーが発生したため、ライブストリームを開始できません。')
+                        break
+
+                    # tsreadex が終了しているか、接続が切断された
+                    if (tsreadex.poll() is not None) or (response.raw.closed is True):
+                        break
+
+                # 明示的に接続を閉じる
+                response.close()
+
+            # スレッドを開始
+            thread_reader = threading.Thread(target=reader, name='LiveEncodingTask-Reader')
+            thread_reader.start()
 
         # EDCB バックエンド
         elif CONFIG['general']['backend'] == 'EDCB':
@@ -322,7 +352,7 @@ class LiveEncodingTask():
             # プロセスを非同期で作成・実行
             encoder = subprocess.Popen(
                 [LIBRARY_PATH['FFmpeg']] + encoder_options,
-                stdin=ast.stdout,  # arib-subtitle-timedmetadater からの入力
+                stdin=tsreadex.stdout,  # tsreadex からの入力
                 stdout=subprocess.PIPE,  # ストリーム出力
                 stderr=subprocess.PIPE,  # ログ出力
                 creationflags=(subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # conhost を開かない
@@ -342,7 +372,7 @@ class LiveEncodingTask():
             # プロセスを非同期で作成・実行
             encoder = subprocess.Popen(
                 [LIBRARY_PATH[encoder_type]] + encoder_options,
-                stdin=ast.stdout,  # arib-subtitle-timedmetadater からの入力
+                stdin=tsreadex.stdout,  # tsreadex からの入力
                 stdout=subprocess.PIPE,  # ストリーム出力
                 stderr=subprocess.PIPE,  # ログ出力
                 creationflags=(subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # conhost を開かない
@@ -376,8 +406,8 @@ class LiveEncodingTask():
                     break
 
         # スレッドを開始
-        thread = threading.Thread(target=writer, name='LiveEncodingTask-Writer')
-        thread.start()
+        thread_writer = threading.Thread(target=writer, name='LiveEncodingTask-Writer')
+        thread_writer.start()
 
         # ***** エンコーダーの出力監視と制御 *****
 
@@ -503,6 +533,12 @@ class LiveEncodingTask():
                     Logging.warning(log)
                 break
 
+            # すでに Restart 状態になっている場合、エンコーダーを終了する
+            # エンコードタスク以外から Restart 状態に設定される事も考えられるため
+            if livestream_status['status'] == 'Restart':
+                is_restart_required = True  # エンコーダーの再起動を要求
+                break
+
             # すでに Offline 状態になっている場合、エンコーダーを終了する
             # エンコードタスク以外から Offline 状態に設定される事も考えられるため
             if livestream_status['status'] == 'Offline':
@@ -583,16 +619,16 @@ class LiveEncodingTask():
 
         # 明示的にプロセスを終了する
         tsreadex.kill()
-        ast.kill()
         encoder.kill()
 
         # エンコードタスクを再起動する（エンコーダーの再起動が必要な場合）
         if is_restart_required is True:
 
-            # チューナーをアンロックする
+            # チューナーをアンロックする（ EDCB バックエンドのみ）
             # 新しいエンコードタスクが今回立ち上げたチューナーを再利用できるようにする
             # エンコーダーの再起動が必要なだけでチューナー自体はそのまま使えるし、わざわざ閉じてからもう一度開くのは無駄
-            tuner.unlock()
+            if CONFIG['general']['backend'] == 'EDCB':
+                tuner.unlock()
 
             # 最大再起動回数が 0 より上であれば
             if self.max_retry_count > 0:
