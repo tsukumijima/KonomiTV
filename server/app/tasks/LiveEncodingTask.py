@@ -594,7 +594,7 @@ class LiveEncodingTask():
                     # NVEncC で、同時にエンコードできるセッション数 (Geforceだと3つ) を全て使い果たしている時のエラー
                     livestream.setStatus('Offline', 'NVENC のエンコードセッションが不足しているため、ライブストリームを開始できません。')
                     break
-                elif 'avqsv: codec h264(yuv420p) unable to decode by qsv.' in line:
+                elif 'unable to decode by qsv.' in line:
                     # QSVEncC 非対応の環境
                     livestream.setStatus('Offline', 'QSVEncC 非対応の環境のため、ライブストリームを開始できません。')
                     break
