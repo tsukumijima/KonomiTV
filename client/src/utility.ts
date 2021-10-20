@@ -8,7 +8,7 @@ export default class Utility {
     static default_settings = {
 
         // ピン留めしているチャンネルの ID (ex: gr011) が入るリスト
-        pinned_channels: [],
+        pinned_channel_ids: [],
 
     };
 

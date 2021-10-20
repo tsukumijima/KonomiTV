@@ -23,9 +23,12 @@
                                         <span class="ml-1">{{getAttribute(channel, 'channel_comment', '-')}}</span>
                                     </div>
                                 </div>
-                                <Icon class="channel__broadcaster-pin" icon="fluent:pin-20-filled" width="30px"
-                                     :class="{'channel__broadcaster-pin--pinned': isPinnedChannel(channel)}"
-                                     @click.self="isPinnedChannel(channel) ? removePinnedChannel(channel) : addPinnedChannel(channel)" />
+                                <div class="channel__broadcaster-pin"
+                                    :class="{'channel__broadcaster-pin--pinned': isPinnedChannel(channel.channel_id)}"
+                                    @click.prevent.stop="isPinnedChannel(channel.channel_id) ? removePinnedChannel(channel.channel_id) : addPinnedChannel(channel.channel_id)"
+                                    @mousedown.prevent.stop="/* 親要素の波紋が広がらないように */">
+                                    <Icon icon="fluent:pin-20-filled" width="24px" />
+                                </div>
                             </div>
                             <div class="channel__program-present">
                                 <span class="channel__program-present-title" v-html="decorateProgramInfo(channel.program_present, 'title')"></span>
@@ -56,6 +59,7 @@
 import Vue from 'vue';
 import mixins from 'vue-typed-mixins'
 import mixin from '@/mixins';
+import Utility from '@/utility';
 import { Icon } from '@iconify/vue2';
 import Header from '@/components/Header.vue';
 import Navigation from '@/components/Navigation.vue';
@@ -83,6 +87,9 @@ export default mixins(mixin).extend({
 
             // チャンネルリスト
             channels_list: null,
+
+            // ピン留めしているチャンネルの ID (ex: gr011) が入るリスト
+            pinned_channel_ids: [],
         }
     },
     // 開始時に実行
@@ -136,30 +143,106 @@ export default mixins(mixin).extend({
                 // 1つでもチャンネルが存在するチャンネルタイプのみ表示するように
                 // たとえば SKY (スカパー！プレミアムサービス) のタブは SKY に属すチャンネルが1つもない（=受信できない）なら表示されない
                 this.channels_list = {};
-                this.channels_list['ピン留め'] = {};
                 if (response.data.GR.length > 0) this.channels_list['地デジ'] = response.data.GR.filter(filter);
                 if (response.data.BS.length > 0) this.channels_list['BS'] = response.data.BS.filter(filter);
                 if (response.data.CS.length > 0) this.channels_list['CS'] = response.data.CS.filter(filter);
                 if (response.data.SKY.length > 0) this.channels_list['SKY'] = response.data.SKY.filter(filter);
+
+                // ピン留めされているチャンネルのリストを更新
+                this.updatePinnedChannelList();
 
                 // ローディング状態を解除
                 this.loading = false;
             });
         },
 
-        // チャンネルをピン留めする
-        addPinnedChannel(channel) {
+        // ピン留めされているチャンネルのリストを更新する
+        updatePinnedChannelList() {
 
+            // 現在ピン留めされているチャンネルを取得
+            this.pinned_channel_ids = Utility.getSettingsItem('pinned_channel_ids');
+
+            // 仮で保存する辞書
+            const pinned_channels = [];
+
+            // チャンネルごとに
+            for (const pinned_channel_id of this.pinned_channel_ids) {
+
+                // チャンネルタイプを取得
+                const pinned_channel_type = this.getChannelType(pinned_channel_id, true);
+
+                // チャンネル ID が一致したチャンネルの情報を入れる
+                for (const channel of this.channels_list[pinned_channel_type]) {
+                    if (pinned_channel_id === channel.channel_id) {
+                        pinned_channels.push(channel);
+                        break;
+                    }
+                }
+            }
+
+            // pinned_channels に何か入っていたらピン留めタブを表示するし、そうでなければ表示しない
+            if (pinned_channels.length > 0) {
+
+                // ピン留めタブが存在しない
+                if (!('ピン留め' in this.channels_list)) {
+
+                    // 一番左に表示するためこうしている
+                    this.channels_list = Object.assign({'ピン留め': pinned_channels}, this.channels_list);
+
+                // ピン留めタブが存在する
+                } else {
+
+                    // Vue.set() を使わないと反映されない
+                    Vue.set(this.channels_list, 'ピン留め', pinned_channels);
+                }
+
+            } else {
+                // ピン留めタブがまだ表示されていれば
+                if ('ピン留め' in this.channels_list) {
+
+                    // Vue.delete() を使わないと反映されない
+                    Vue.delete(this.channels_list, 'ピン留め');
+                }
+            }
+        },
+
+        // チャンネルをピン留めする
+        addPinnedChannel(channel_id: string) {
+
+            // 現在ピン留めされているチャンネルを取得
+            this.pinned_channel_ids = Utility.getSettingsItem('pinned_channel_ids');
+
+            // ピン留めするチャンネルの ID を追加
+            this.pinned_channel_ids.push(channel_id);
+
+            // 設定を保存
+            Utility.setSettingsItem('pinned_channel_ids', this.pinned_channel_ids);
+
+            // ピン留めされているチャンネルのリストを更新
+            this.updatePinnedChannelList();
         },
 
         // チャンネルをピン留めから外す
-        removePinnedChannel(channel) {
+        removePinnedChannel(channel_id: string) {
 
+            // 現在ピン留めされているチャンネルを取得
+            this.pinned_channel_ids = Utility.getSettingsItem('pinned_channel_ids');
+
+            // ピン留めを外すチャンネルの ID を削除
+            this.pinned_channel_ids.splice(this.pinned_channel_ids.indexOf(channel_id), 1);
+
+            // 設定を保存
+            Utility.setSettingsItem('pinned_channel_ids', this.pinned_channel_ids);
+
+            // ピン留めされているチャンネルのリストを更新
+            this.updatePinnedChannelList();
         },
 
         // チャンネルがピン留めされているか
-        isPinnedChannel(channel) {
+        isPinnedChannel(channel_id: string) {
 
+            // 引数のチャンネルがピン留めリストに存在するかを返す
+            return this.pinned_channel_ids.includes(channel_id);
         }
     }
 });
@@ -177,7 +260,8 @@ export default mixins(mixin).extend({
     }
 }
 .v-window__container {
-    min-height: calc(100vh - 65px);
+    // 1px はスクロールバーを表示させるためのもの
+    min-height: calc(100vh - 65px - 118px + 1px);
 }
 </style>
 
@@ -250,6 +334,27 @@ export default mixins(mixin).extend({
                     background: var(--v-background-lighten2);
                 }
 
+                // チャンネルリストに1つしかチャンネルが表示されていないとき
+                // カードが横いっぱいに表示されてしまうのを回避する
+                // 幅ごとに設定
+                &:first-of-type:last-of-type {
+                    @media screen and (min-width: 1018px) {
+                        & {
+                            width: calc(50% - (16px / 2));
+                        }
+                    }
+                    @media screen and (min-width: 1404px) {
+                        & {
+                            width: calc(33.33% - (16px / 2));
+                        }
+                    }
+                    @media screen and (min-width: 1630px) {
+                        & {
+                            width: 445px;
+                        }
+                    }
+                }
+
                 .channel__broadcaster {
                     display: flex;
                     height: 44px;
@@ -289,8 +394,11 @@ export default mixins(mixin).extend({
                     }
 
                     &-pin {
+                        flex-shrink: 0;
+                        height: 24px;
                         color: var(--v-text-darken1);
                         transition: color 0.15s;
+
                         &:hover{
                             color: var(--v-text-base);
                         }
@@ -347,21 +455,21 @@ export default mixins(mixin).extend({
                     font-size: 12.5px;
 
                     &-title {
-                       display: flex;
-                       align-items: center;
-                       &-decorate {
+                        display: flex;
+                        align-items: center;
+                        &-decorate {
                             flex-shrink: 0;
-                       }
-                       &-icon {
+                        }
+                        &-icon {
                             flex-shrink: 0;
                             margin-left: 3px;
-                       }
-                       &-text {
+                        }
+                        &-text {
                             margin-left: 2px;
                             overflow: hidden;
                             white-space: nowrap;
                             text-overflow: ellipsis;  // はみ出た部分を … で省略
-                       }
+                        }
                     }
                 }
 
