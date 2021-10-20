@@ -23,6 +23,9 @@
                                         <span class="ml-1">{{getAttribute(channel, 'channel_comment', '-')}}</span>
                                     </div>
                                 </div>
+                                <Icon class="channel__broadcaster-pin" icon="fluent:pin-20-filled" width="30px"
+                                     :class="{'channel__broadcaster-pin--pinned': isPinnedChannel(channel)}"
+                                     @click.self="isPinnedChannel(channel) ? removePinnedChannel(channel) : addPinnedChannel(channel)" />
                             </div>
                             <div class="channel__program-present">
                                 <span class="channel__program-present-title" v-html="decorateProgramInfo(channel.program_present, 'title')"></span>
@@ -116,6 +119,7 @@ export default mixins(mixin).extend({
         }
     },
     methods: {
+
         // チャンネル情報一覧を取得し、画面を更新する
         update() {
 
@@ -132,6 +136,7 @@ export default mixins(mixin).extend({
                 // 1つでもチャンネルが存在するチャンネルタイプのみ表示するように
                 // たとえば SKY (スカパー！プレミアムサービス) のタブは SKY に属すチャンネルが1つもない（=受信できない）なら表示されない
                 this.channels_list = {};
+                this.channels_list['ピン留め'] = {};
                 if (response.data.GR.length > 0) this.channels_list['地デジ'] = response.data.GR.filter(filter);
                 if (response.data.BS.length > 0) this.channels_list['BS'] = response.data.BS.filter(filter);
                 if (response.data.CS.length > 0) this.channels_list['CS'] = response.data.CS.filter(filter);
@@ -140,6 +145,21 @@ export default mixins(mixin).extend({
                 // ローディング状態を解除
                 this.loading = false;
             });
+        },
+
+        // チャンネルをピン留めする
+        addPinnedChannel(channel) {
+
+        },
+
+        // チャンネルをピン留めから外す
+        removePinnedChannel(channel) {
+
+        },
+
+        // チャンネルがピン留めされているか
+        isPinnedChannel(channel) {
+
         }
     }
 });
@@ -266,6 +286,20 @@ export default mixins(mixin).extend({
                         margin-top: 2px;
                         font-size: 12px;
                         color: var(--v-text-darken1);
+                    }
+
+                    &-pin {
+                        color: var(--v-text-darken1);
+                        transition: color 0.15s;
+                        &:hover{
+                            color: var(--v-text-base);
+                        }
+                        &--pinned {
+                            color: var(--v-primary-base);
+                            &:hover{
+                                color: var(--v-primary-lighten1);
+                            }
+                        }
                     }
                 }
 
