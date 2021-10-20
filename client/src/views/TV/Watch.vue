@@ -463,16 +463,6 @@ export default mixins(mixin).extend({
             }, 5 * 1000);
         },
 
-        // チャンネル ID からチャンネルタイプを取得する
-        getChannelType(channel_id: string, is_chideji: boolean = false): string {
-            const result = channel_id.match('(?<channel_type>[a-z]+)[0-9]+').groups.channel_type.toUpperCase();
-            if (result === 'GR' && is_chideji) {
-                return '地デジ';
-            } else {
-                return result;
-            }
-        },
-
         // 前・現在・次のチャンネル情報を取得する
         getPreviousAndCurrentAndNextChannel(channel_id: string, channels_list: any): Array<any> {
 
@@ -854,6 +844,7 @@ export default mixins(mixin).extend({
         }
     }
 }
+
 // 上書きしたいスタイル
 .v-tabs-bar {
     height: 58px;
