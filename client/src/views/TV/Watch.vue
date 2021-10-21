@@ -121,12 +121,8 @@
                                         <div class="channel__broadcaster-content">
                                             <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.channel_name}}</span>
                                             <div class="channel__broadcaster-status">
-                                                <Icon icon="fa-solid:eye" height="10px" />
-                                                <span class="ml-1">{{channel.viewers}}</span>
-                                                <Icon class="ml-3" icon="fa-solid:fire-alt" height="10px" />
+                                                <Icon icon="fa-solid:fire-alt" height="10px" />
                                                 <span class="ml-1">{{getAttribute(channel, 'channel_force', '-')}}</span>
-                                                <Icon class="ml-3" icon="bi:chat-left-text-fill" height="10px" />
-                                                <span class="ml-1">{{getAttribute(channel, 'channel_comment', '-')}}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -1403,13 +1399,13 @@ export default mixins(mixin).extend({
 
                                 .channel__broadcaster {
                                     display: flex;
-                                    height: 38px;
+                                    height: 28px;
 
                                     &-icon {
                                         display: inline-block;
                                         flex-shrink: 0;
                                         width: 48px;
-                                        height: 38px;
+                                        height: 100%;
                                         border-radius: 4px;
                                         background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
                                         object-fit: cover;
@@ -1417,14 +1413,13 @@ export default mixins(mixin).extend({
 
                                     &-content {
                                         display: flex;
-                                        flex-direction: column;
+                                        align-items: center;
                                         margin-left: 12px;
                                         width: 100%;
                                         min-width: 0;
                                     }
 
                                     &-name {
-                                        flex-shrink: 0;
                                         font-size: 14.5px;
                                         overflow: hidden;
                                         white-space: nowrap;
@@ -1434,7 +1429,9 @@ export default mixins(mixin).extend({
                                     &-status {
                                         display: flex;
                                         align-items: center;
+                                        flex-shrink: 0;
                                         margin-top: 1px;
+                                        margin-left: 8px;
                                         font-size: 8px;
                                         color: var(--v-text-darken1);
                                     }
