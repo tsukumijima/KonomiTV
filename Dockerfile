@@ -12,12 +12,17 @@ WORKDIR /code/server
 # Python 3.9 のインストールとロケールの日本語化
 ## DEBIAN_FRONTEND=noninteractive はダイヤログを無視するおまじない
 RUN apt-get update -y && apt-get upgrade -y
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y gpg-agent locales language-pack-ja-base language-pack-ja python3.9 python3-pip
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y curl gpg-agent language-pack-ja-base language-pack-ja locales p7zip python3.9 python3-pip
 RUN locale-gen ja_JP.UTF-8
 ENV LANG ja_JP.UTF-8
 
 # サードパーティライブラリが必要とするパッケージのインストール
 RUN apt-get install -y ffmpeg libv4l-0 libxcb1 libva2 libmfx1 intel-media-va-driver-non-free
+
+# サードパーティライブラリをダウンロード
+RUN curl -LO https://github.com/tsukumijima/KonomiTV/releases/download/v0.1.0/thirdparty.7z && \
+    7z x -y thirdparty.7z && \
+    rm thirdparty.7z
 
 # サードパーティライブラリに実行権限を付与
 RUN chmod 755 ./thirdparty/FFmpeg/ffmpeg.elf && \
