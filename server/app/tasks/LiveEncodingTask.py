@@ -673,7 +673,13 @@ class LiveEncodingTask():
 
             # 最大再起動回数を使い果たしたので、Offline にする
             else:
+
+                # Offline に設定
                 livestream.setStatus('Offline', 'ライブストリームの再起動に失敗しました。')
+
+                # チューナーを終了する（ EDCB バックエンドのみ）
+                if CONFIG['general']['backend'] == 'EDCB':
+                    RunAwait(tuner.close())
 
         # 通常終了
         else:
