@@ -309,9 +309,10 @@ class LiveStream():
         if self.status == status and self.detail == detail:
             return
 
-        # ストリーム開始時、stream_data_written_at を更新する
+        # ストリーム開始 (Offline → Standby) 時、stream_data_written_at を更新する
         # ここで更新しておかないと、いつまで経っても初期化時の古いタイムスタンプが使われてしまう
-        self.stream_data_written_at = time.time()
+        if self.status == 'Offline' and status == 'Standby':
+            self.stream_data_written_at = time.time()
 
         # ステータスと詳細を設定
         if quiet is False:
