@@ -12,7 +12,7 @@ WORKDIR /code/server
 # Python 3.9 のインストールとロケールの日本語化
 ## DEBIAN_FRONTEND=noninteractive はダイヤログを無視するおまじない
 RUN apt-get update -y && apt-get upgrade -y
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y aria2c gpg-agent language-pack-ja-base language-pack-ja locales p7zip python3.9 python3-pip
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y aria2 gpg-agent language-pack-ja-base language-pack-ja locales p7zip-full python3.9 python3-pip
 RUN locale-gen ja_JP.UTF-8
 ENV LANG ja_JP.UTF-8
 
