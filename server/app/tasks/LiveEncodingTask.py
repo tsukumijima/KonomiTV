@@ -76,6 +76,7 @@ class LiveEncodingTask():
                 options.append(f'-vf yadif=0:-1:1,scale={QUALITY[quality]["width"]}:{QUALITY[quality]["height"]}')
 
         # 音声
+        ## 音声が 5.1ch かどうかに関わらず、ステレオにダウンミックスする
         options.append(f'-acodec aac -aac_coder twoloop -ac 2 -ab {QUALITY[quality]["audio_bitrate"]} -ar 48000')
         if is_dualmono is False:  # デュアルモノ以外
             options.append('-af volume=2.0')
@@ -123,9 +124,8 @@ class LiveEncodingTask():
         # 主音声・副音声両方をエンコード後の TS に含む（将来の音声切替対応へ準備）
         if is_dualmono is False:
             ## 通常放送・音声多重放送向け
-            ## 5.1ch 自体は再生可能だが、そのままエンコードするとコケる事があるし、
-            ## 何より 5.1ch 非対応な PC だと音がシャリシャリになって聞けたものではないのでステレオで固定する
-            options.append('--audio-stream 1:stereo --audio-stream 2:stereo --data-copy timed_id3')
+            ## 音声が 5.1ch かどうかに関わらず、ステレオにダウンミックスする
+            options.append('--audio-stream 1?:stereo --audio-stream 2?:stereo --data-copy timed_id3')
         else:
             ## デュアルモノ向け（Lが主音声・Rが副音声）
             options.append('--audio-stream FL,FR --data-copy timed_id3')
