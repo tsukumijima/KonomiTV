@@ -456,6 +456,10 @@ export default mixins(mixin).extend({
             // 5秒間の間一度でもマウスが動けばタイマーが解除されてやり直しになる
             this.control_interval_id = setTimeout(() => {
                 this.is_control_visible = false;
+                // 設定パネルを隠す
+                if (this.player !== null) {
+                    this.player.setting.hide();
+                }
             }, 5 * 1000);
         },
 
