@@ -443,7 +443,7 @@ export default mixins(mixin).extend({
         },
 
         // マウスが動いた時のイベント
-        // 5秒間何も操作がなければコントロールを非表示にする
+        // 3秒間何も操作がなければコントロールを非表示にする
         controlVisibleTimer() {
 
             // 以前セットされた setTimeout() を止める
@@ -452,15 +452,19 @@ export default mixins(mixin).extend({
             // コントロールを表示する
             this.is_control_visible = true;
 
-            // 5秒間何も操作がなければコントロールを非表示にする
-            // 5秒間の間一度でもマウスが動けばタイマーが解除されてやり直しになる
+            // 3秒間何も操作がなければコントロールを非表示にする
+            // 3秒間の間一度でもマウスが動けばタイマーが解除されてやり直しになる
             this.control_interval_id = setTimeout(() => {
+
+                // コントロールを非表示にする
                 this.is_control_visible = false;
-                // 設定パネルを隠す
+
+                // プレイヤーのコントロールと設定パネルを隠す
                 if (this.player !== null) {
+                    this.player.controller.hide();
                     this.player.setting.hide();
                 }
-            }, 5 * 1000);
+            }, 3 * 1000);
         },
 
         // 前・現在・次のチャンネル情報を取得する
@@ -575,6 +579,21 @@ export default mixins(mixin).extend({
 
             // デバッグ用にプレイヤーインスタンスも window 名前空間に入れる
             (window as any).player = this.player;
+
+            // プレイヤーがタップされた時、dplayer-hide-controller がついていたらコントロールを非表示にする
+            this.player.container.addEventListener('click', () => {
+                if (this.player.container.classList.contains('dplayer-hide-controller')) {
+
+                    // 以前セットされた setTimeout() を止める
+                    clearTimeout(this.control_interval_id);
+
+                    // 明示的にプレイヤーのコントロールを非表示にする
+                    this.player.controller.hide();
+
+                    // コントロールを非表示にする
+                    this.is_control_visible = false;
+                }
+            });
 
             // 画質の切り替えが開始されたとき
             this.player.on('quality_start', () => {
