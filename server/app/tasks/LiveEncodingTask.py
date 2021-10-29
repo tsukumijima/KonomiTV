@@ -563,10 +563,17 @@ class LiveEncodingTask():
                 (livestream_status['status'] == 'Standby' and time.time() - livestream.stream_data_written_at > 20)):
                 is_restart_required = True  # エンコーダーの再起動を要求
                 livestream.setStatus('Restart', 'エンコードが途中で停止しました。ライブストリームを再起動します。')
-                # 直近 30 件のログを表示
-                for log in lines[-31:-1]:
-                    Logging.warning(log)
-                break
+                if encoder_type == 'FFmpeg':
+                    # 直近 30 件のログを表示
+                    for log in lines[-31:-1]:
+                        Logging.warning(log)
+                    break
+                # HWEncC はログを詳細にハンドリングするためにログレベルを debug に設定しているため、FFmpeg よりもログが圧倒的に多い
+                elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
+                    # 直近 130 件のログを表示
+                    for log in lines[-131:-1]:
+                        Logging.warning(log)
+                    break
 
             # すでに Restart 状態になっている場合、エンコーダーを終了する
             # エンコードタスク以外から Restart 状態に設定される事も考えられるため
@@ -626,8 +633,8 @@ class LiveEncodingTask():
                     # 捕捉されないエラー
                     is_restart_required = True  # エンコーダーの再起動を要求
                     livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。ライブストリームを再起動します。')
-                    # 直近 50 件のログを表示 (最後の方 80 件はデバッグログなので除外)
-                    for log in lines[-130:-80]:
+                    # 直近 130 件のログを表示
+                    for log in lines[-131:-1]:
                         Logging.warning(log)
                     break
 
@@ -644,8 +651,8 @@ class LiveEncodingTask():
                     break
                 # HWEncC はログを詳細にハンドリングするためにログレベルを debug に設定しているため、FFmpeg よりもログが圧倒的に多い
                 elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
-                    # 直近 50 件のログを表示 (最後の方 80 件はデバッグログなので除外)
-                    for log in lines[-130:-80]:
+                    # 直近 130 件のログを表示
+                    for log in lines[-131:-1]:
                         Logging.warning(log)
                     break
                 break
