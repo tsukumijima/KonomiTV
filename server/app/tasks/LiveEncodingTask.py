@@ -128,7 +128,7 @@ class LiveEncodingTask():
             options.append('--audio-stream 1?:stereo --audio-stream 2?:stereo --data-copy timed_id3')
         else:
             ## デュアルモノ向け（Lが主音声・Rが副音声）
-            options.append('--audio-stream FL,FR --data-copy timed_id3')
+            options.append('--audio-stream 1?FL:stereo,FR:stereo --data-copy timed_id3')
 
         # フラグ
         ## 主に HWEncC の起動を高速化するための設定
