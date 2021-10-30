@@ -1,11 +1,14 @@
 
-import Vue from 'vue';
 import axios from 'axios';
+import { Icon } from '@iconify/vue2';
+import Vue from 'vue';
 import VueAxios from 'vue-axios';
+
 import App from './App.vue';
 import vuetify from './plugins/vuetify';
 import router from './router';
 import mixin from './mixins';
+import VTabsItems from '@/components/VTabsItems.vue';
 import './registerServiceWorker';
 
 
@@ -14,6 +17,12 @@ Vue.config.productionTip = false;
 
 // Axios を使う
 Vue.use(VueAxios, axios);
+
+// Iconify（アイコン）のグローバルコンポーネント
+Vue.component('Icon', Icon);
+
+// VTabsItems の挙動を改善するグローバルコンポーネント
+Vue.component('v-tabs-items-fix', VTabsItems);
 
 // mixin を登録
 Vue.mixin(mixin);

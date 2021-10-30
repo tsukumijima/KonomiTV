@@ -7,7 +7,7 @@
                 <v-tabs centered class="channels-tab" v-model="tab">
                     <v-tab class="channels-tab__item" v-for="(channels, channels_type) in channels_list" :key="channels_type">{{channels_type}}</v-tab>
                 </v-tabs>
-                <v-tabs-items class="channels-list" v-model="tab">
+                <v-tabs-items-fix class="channels-list" v-model="tab">
                     <v-tab-item class="channels" v-for="(channels, channels_type) in channels_list" :key="channels_type"
                         :class="`channels--length-${channels.length}`">
                         <router-link v-ripple class="channel" v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.channel_id}`">
@@ -55,7 +55,7 @@
                             </div>
                         </router-link>
                     </v-tab-item>
-                </v-tabs-items>
+                </v-tabs-items-fix>
             </div>
         </v-main>
     </div>
@@ -66,7 +66,6 @@ import Vue from 'vue';
 import mixins from 'vue-typed-mixins'
 import mixin from '@/mixins';
 import Utility from '@/utility';
-import { Icon } from '@iconify/vue2';
 import Header from '@/components/Header.vue';
 import Navigation from '@/components/Navigation.vue';
 
@@ -75,7 +74,6 @@ export default mixins(mixin).extend({
     components: {
         Header,
         Navigation,
-		Icon,
     },
     data() {
         return {
