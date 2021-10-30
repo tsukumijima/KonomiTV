@@ -887,11 +887,6 @@ export default mixins(mixin).extend({
 .channels-container .v-tabs-bar {
     height: 48px;
 }
-.v-tooltip__content {
-    padding: 4px 10px !important;
-    background: #2F221FC0 !important;
-    font-size: 12px !important;
-}
 </style>
 
 <style lang="scss" scoped>

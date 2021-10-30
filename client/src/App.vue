@@ -24,6 +24,13 @@ body .v-main__wrap {
     padding-top: 65px !important;
 }
 
+// ツールチップのスタイル
+.v-tooltip__content {
+    padding: 4px 10px !important;
+    background: #2F221FC0 !important;
+    font-size: 12px !important;
+}
+
 // タッチデバイスで hover を無効にする
 // ref: https://github.com/vuetifyjs/vuetify/issues/2178
 @media (hover: none) {
