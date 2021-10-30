@@ -126,9 +126,14 @@ class LiveEncodingTask():
             ## 通常放送・音声多重放送向け
             ## 音声が 5.1ch かどうかに関わらず、ステレオにダウンミックスする
             options.append('--audio-stream 1?:stereo --audio-stream 2?:stereo --data-copy timed_id3')
+            ## 音声トラックの指定
+            audio_track = ''
         else:
             ## デュアルモノ向け（Lが主音声・Rが副音声）
             options.append('--audio-stream 1?FL:stereo,FR:stereo --data-copy timed_id3')
+            ## 音声トラックの指定
+            ## 明示的に音声トラックを指定しないと、不要な副音声ストリームがコピーされてしまう
+            audio_track = '1?'
 
         # フラグ
         ## 主に HWEncC の起動を高速化するための設定
@@ -157,8 +162,8 @@ class LiveEncodingTask():
             options.append(f'--output-res {QUALITY[quality]["width"]}x{QUALITY[quality]["height"]}')
 
         # 音声
-        options.append(f'--audio-codec aac:aac_coder=twoloop --audio-bitrate {QUALITY[quality]["audio_bitrate"]} --audio-samplerate 48000')
-        options.append('--audio-filter volume=2.0 --audio-ignore-decode-error 30')
+        options.append(f'--audio-codec {audio_track}aac:aac_coder=twoloop --audio-bitrate {audio_track}{QUALITY[quality]["audio_bitrate"]}')
+        options.append(f'--audio-samplerate {audio_track}48000 --audio-filter {audio_track}volume=2.0 --audio-ignore-decode-error 30')
 
         # 出力
         options.append('--output-format mpegts')  # MPEG-TS 出力ということを明示
