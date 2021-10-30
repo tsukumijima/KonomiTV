@@ -395,7 +395,7 @@ class CtrlCmdUtil:
         except FileNotFoundError:
             return False
         except:
-             pass
+            pass
         return True
 
     def setNWSetting(self, host: str, port: int) -> None:
@@ -494,7 +494,7 @@ class CtrlCmdUtil:
     async def sendFileCopy2(self, name_list: list) -> Optional[list]:
         """ 指定ファイルをまとめて転送する """
         buf = bytearray()
-        self.__writeInt(buf, self.__CMD2_EPG_SRV_FILE_COPY2)
+        self.__writeInt(buf, self.__CMD_EPG_SRV_FILE_COPY2)
         self.__writeInt(buf, 0)
         self.__writeUshort(buf, self.__CMD_VER)
         self.__writeVector(self.__writeString, buf, name_list)
@@ -575,7 +575,7 @@ class CtrlCmdUtil:
     __CMD_EPG_SRV_NWTV_ID_CLOSE = 1074
     __CMD_EPG_SRV_ENUM_RECINFO_BASIC2 = 2020
     __CMD_EPG_SRV_GET_RECINFO2 = 2024
-    __CMD2_EPG_SRV_FILE_COPY2 = 2060
+    __CMD_EPG_SRV_FILE_COPY2 = 2060
 
     async def __sendAndReceive(self, buf: bytearray):
         to = time.monotonic() + self.__connect_timeout_sec
