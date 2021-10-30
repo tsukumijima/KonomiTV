@@ -24,12 +24,17 @@
                                         <span class="ml-1">{{getAttribute(channel, 'channel_comment', '-')}}</span>
                                     </div>
                                 </div>
-                                <div class="channel__broadcaster-pin"
-                                    :class="{'channel__broadcaster-pin--pinned': isPinnedChannel(channel.channel_id)}"
-                                    @click.prevent.stop="isPinnedChannel(channel.channel_id) ? removePinnedChannel(channel.channel_id) : addPinnedChannel(channel.channel_id)"
-                                    @mousedown.prevent.stop="/* 親要素の波紋が広がらないように */">
-                                    <Icon icon="fluent:pin-20-filled" width="24px" />
-                                </div>
+                                <v-tooltip top transition="fade-transition">
+                                    <template v-slot:activator="{ on }">
+                                        <div v-on="on" v-ripple class="channel__broadcaster-pin"
+                                            :class="{'channel__broadcaster-pin--pinned': isPinnedChannel(channel.channel_id)}"
+                                            @click.prevent.stop="isPinnedChannel(channel.channel_id) ? removePinnedChannel(channel.channel_id) : addPinnedChannel(channel.channel_id)"
+                                            @mousedown.prevent.stop="/* 親要素の波紋が広がらないように */">
+                                            <Icon icon="fluent:pin-20-filled" width="24px" />
+                                        </div>
+                                    </template>
+                                    <span>{{isPinnedChannel(channel.channel_id) ? 'ピン留めを外す' : 'ピン留めする'}}</span>
+                                </v-tooltip>
                             </div>
                             <div class="channel__program-present">
                                 <span class="channel__program-present-title" v-html="decorateProgramInfo(channel.program_present, 'title')"></span>
@@ -419,12 +424,34 @@ export default mixins(mixin).extend({
 
                     &-pin {
                         flex-shrink: 0;
-                        height: 24px;
+                        position: relative;
+                        top: -4px;
+                        right: -4px;
+                        height: 32px;
+                        padding: 4px;
                         color: var(--v-text-darken1);
-                        transition: color 0.15s;
+                        border-radius: 50%;
+                        transition: color 0.15s ease, background-color 0.15s ease;
 
+                        &:before {
+                            background-color: currentColor;
+                            border-radius: inherit;
+                            bottom: 0;
+                            color: inherit;
+                            content: "";
+                            left: 0;
+                            opacity: 0;
+                            pointer-events: none;
+                            position: absolute;
+                            right: 0;
+                            top: 0;
+                            transition: opacity 0.2s cubic-bezier(0.4, 0, 0.6, 1);
+                        }
                         &:hover{
                             color: var(--v-text-base);
+                            &:before {
+                                opacity: 0.15;
+                            }
                         }
                         &--pinned {
                             color: var(--v-primary-base);
