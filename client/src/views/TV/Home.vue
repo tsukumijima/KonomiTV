@@ -8,7 +8,8 @@
                     <v-tab class="channels-tab__item" v-for="(channels, channels_type) in channels_list" :key="channels_type">{{channels_type}}</v-tab>
                 </v-tabs>
                 <v-tabs-items class="channels-list" v-model="tab">
-                    <v-tab-item class="channels" v-for="(channels, channels_type) in channels_list" :key="channels_type">
+                    <v-tab-item class="channels" v-for="(channels, channels_type) in channels_list" :key="channels_type"
+                        :class="`channels--length-${channels.length}`">
                         <router-link v-ripple class="channel" v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.channel_id}`">
                             <div class="channel__broadcaster">
                                 <img class="channel__broadcaster-icon" :src="`${api_base_url}/channels/${channel.channel_id}/logo`">
@@ -315,6 +316,50 @@ export default mixins(mixin).extend({
                 }
             }
 
+            // カードが横いっぱいに表示されてしまうのを回避する
+            // チャンネルリストにチャンネルが1つしか表示されていないとき
+            &.channels--length-1 {
+                // 2列
+                @media screen and (min-width: 1018px) { & {
+                    // 16px は余白の幅のこと
+                    margin-right: calc((((100% - (16px * 1)) / 2) * 1) + (16px * 1));  // もう1つ分のカード幅を埋める
+                }}
+                // 3列でカード幅が自動
+                @media screen and (min-width: 1404px) { & {
+                    margin-right: calc((((100% - (16px * 2)) / 3) * 2) + (16px * 2));  // もう2つ分のカード幅を埋める
+                }}
+                // 3列でカード幅が 445px
+                @media screen and (min-width: 1630px) { & {
+                    margin-right: calc((445px * 2) + (16px * 2));  // もう2つ分のカード幅を埋める
+                }}
+                // 4列でカード幅が 445px
+                @media screen and (min-width: 2090px) { & {
+                    margin-right: calc((445px * 3) + (16px * 3));  // もう3つ分のカード幅を埋める
+                }}
+            }
+            // チャンネルリストにチャンネルが2つしか表示されていないとき
+            &.channels--length-2 {
+                // 3列でカード幅が自動
+                @media screen and (min-width: 1404px) { & {
+                    margin-right: calc((((100% - (16px * 2)) / 3) * 1) + (16px * 1));  // もう1つ分のカード幅を埋める
+                }}
+                // 3列でカード幅が 445px
+                @media screen and (min-width: 1630px) { & {
+                    margin-right: calc(445px + 16px);  // もう1つ分のカード幅を埋める
+                }}
+                // 4列でカード幅が 445px
+                @media screen and (min-width: 2090px) { & {
+                    margin-right: calc((445px * 2) + (16px * 2));  // もう2つ分のカード幅を埋める
+                }}
+            }
+            // チャンネルリストにチャンネルが3つしか表示されていないとき
+            &.channels--length-3 {
+                // 4列でカード幅が 445px
+                @media screen and (min-width: 2090px) { & {
+                    margin-right: calc(445px + 16px);  // もう1つ分のカード幅を埋める
+                }}
+            }
+
             .channel {
                 display: flex;
                 flex-direction: column;
@@ -332,27 +377,6 @@ export default mixins(mixin).extend({
 
                 &:hover {
                     background: var(--v-background-lighten2);
-                }
-
-                // チャンネルリストに1つしかチャンネルが表示されていないとき
-                // カードが横いっぱいに表示されてしまうのを回避する
-                // 幅ごとに設定
-                &:first-of-type:last-of-type {
-                    @media screen and (min-width: 1018px) {
-                        & {
-                            width: calc(50% - (16px / 2));
-                        }
-                    }
-                    @media screen and (min-width: 1404px) {
-                        & {
-                            width: calc(33.33% - (16px / 2));
-                        }
-                    }
-                    @media screen and (min-width: 1630px) {
-                        & {
-                            width: 445px;
-                        }
-                    }
                 }
 
                 .channel__broadcaster {
