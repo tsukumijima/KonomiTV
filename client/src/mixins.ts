@@ -2,6 +2,7 @@
 import Vue from 'vue';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ja';
+import Utility from '@/utility';
 
 
 // 共通で使う computed や method を定義
@@ -132,6 +133,56 @@ export default Vue.extend({
             } else {
                 return 0;
             }
-        }
+        },
+
+        // ピン留めされているチャンネルのリストを更新する
+        updatePinnedChannelList() {
+
+            // 現在ピン留めされているチャンネルを取得
+            this.pinned_channel_ids = Utility.getSettingsItem('pinned_channel_ids');
+
+            // 仮で保存する辞書
+            const pinned_channels = [];
+
+            // チャンネルごとに
+            for (const pinned_channel_id of this.pinned_channel_ids) {
+
+                // チャンネルタイプを取得
+                const pinned_channel_type = this.getChannelType(pinned_channel_id, true);
+
+                // チャンネル ID が一致したチャンネルの情報を入れる
+                for (const channel of this.channels_list[pinned_channel_type]) {
+                    if (pinned_channel_id === channel.channel_id) {
+                        pinned_channels.push(channel);
+                        break;
+                    }
+                }
+            }
+
+            // pinned_channels に何か入っていたらピン留めタブを表示するし、そうでなければ表示しない
+            if (pinned_channels.length > 0) {
+
+                // ピン留めタブが存在しない
+                if (!('ピン留め' in this.channels_list)) {
+
+                    // 一番左に表示するためこうしている
+                    this.channels_list = Object.assign({'ピン留め': pinned_channels}, this.channels_list);
+
+                // ピン留めタブが存在する
+                } else {
+
+                    // Vue.set() を使わないと反映されない
+                    Vue.set(this.channels_list, 'ピン留め', pinned_channels);
+                }
+
+            } else {
+                // ピン留めタブがまだ表示されていれば
+                if ('ピン留め' in this.channels_list) {
+
+                    // Vue.delete() を使わないと反映されない
+                    Vue.delete(this.channels_list, 'ピン留め');
+                }
+            }
+        },
     }
 });

@@ -340,14 +340,14 @@ export default mixins(mixin).extend({
         [this.channel_previous, this.channel, this.channel_next]
             = this.getPreviousAndCurrentAndNextChannel(this.channel_id, this.channels_list);
 
-        // 0.7秒だけ待ってから
+        // 0.5秒だけ待ってから
         // 連続して押した時などにライブストリームを初期化しないように猶予を設ける
         this.interval_ids.push(setTimeout(() => {
 
             // 現在のインスタンスを初期化する
             this.init();
 
-        }, 700));
+        }, 500));
 
         next();
     },
@@ -839,6 +839,11 @@ export default mixins(mixin).extend({
 
     .dplayer-icons {
         bottom: auto !important;
+
+        // ブラウザフルスクリーンボタンを削除（実質あまり意味がないため）
+        .dplayer-icon.dplayer-full-in-icon {
+            display: none !important;
+        }
     }
 }
 .dplayer-mobile.dplayer-hide-controller .dplayer-controller {
