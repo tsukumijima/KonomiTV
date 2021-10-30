@@ -118,9 +118,9 @@
                             </div>
                         </section>
                     </div>
-                    <div class="watch-panel__content channels-container"
+                    <div class="watch-panel__content channels-container channels-container--watch"
                         :class="{'watch-panel__content--active': tab_active === 'channel'}">
-                        <v-tabs centered class="channels-tab" v-model="tab">
+                        <v-tabs centered show-arrows class="channels-tab" v-model="tab">
                             <v-tab class="channels-tab__item" v-for="(channels, channels_type) in channels_list" :key="channels_type">{{channels_type}}</v-tab>
                         </v-tabs>
                         <v-tabs-items class="channels-list" v-model="tab">
@@ -432,6 +432,9 @@ export default mixins(mixin).extend({
                     if (response.data.BS.length > 0) this.channels_list['BS'] = response.data.BS.filter(filter);
                     if (response.data.CS.length > 0) this.channels_list['CS'] = response.data.CS.filter(filter);
                     if (response.data.SKY.length > 0) this.channels_list['SKY'] = response.data.SKY.filter(filter);
+
+                    // ピン留めされているチャンネルのリストを更新
+                    this.updatePinnedChannelList();
 
                     // 前と次のチャンネル ID を取得する
                     [this.channel_previous, , this.channel_next]
@@ -880,17 +883,23 @@ export default mixins(mixin).extend({
 }
 
 // 上書きしたいスタイル
-.v-tabs-bar {
-    height: 58px;
-    background: linear-gradient(to bottom, var(--v-background-base) calc(100% - 3px), var(--v-background-lighten1) 3px);  // 下線を引く
+.channels-container.channels-container--watch {
+    .v-tabs-bar {
+        // スペースが少ないので高さを抑える
+        height: 48px;
+        // 下線を引く
+        background: linear-gradient(to bottom, var(--v-background-base) calc(100% - 3px), var(--v-background-lighten1) 3px);
 
+        // 幅を縮める
+        .v-slide-group__prev, .v-slide-group__next {
+            flex: auto !important;
+            min-width: 28px !important;
+        }
+    }
     .v-tabs-slider-wrapper {
         height: 3px !important;
         transition: left 0.3s cubic-bezier(0.25, 0.8, 0.5, 1);
     }
-}
-.channels-container .v-tabs-bar {
-    height: 48px;
 }
 </style>
 
@@ -1399,7 +1408,7 @@ export default mixins(mixin).extend({
                         padding-right: 16px;
                         padding-bottom: 16px;
                         background: transparent !important;
-                        overflow: inherit;
+                        overflow: visible !important;
 
                         .channels {
                             display: flex;

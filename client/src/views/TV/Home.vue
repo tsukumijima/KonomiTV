@@ -3,7 +3,7 @@
         <Header/>
         <v-main>
             <Navigation/>
-            <div class="channels-container" :class="{'channels-container--loading': loading}">
+            <div class="channels-container channels-container--home" :class="{'channels-container--loading': loading}">
                 <v-tabs centered class="channels-tab" v-model="tab">
                     <v-tab class="channels-tab__item" v-for="(channels, channels_type) in channels_list" :key="channels_type">{{channels_type}}</v-tab>
                 </v-tabs>
@@ -206,10 +206,12 @@ export default mixins(mixin).extend({
 
 <style lang="scss">
 // 上書きしたいスタイル
-.v-tabs-bar {
-    height: 58px;
-    background: linear-gradient(to bottom, var(--v-background-base) calc(100% - 3px), var(--v-background-lighten1) 3px);  // 下線を引く
-
+.channels-container.channels-container--home {
+    .v-tabs-bar {
+        height: 54px;
+        // 下線を引く
+        background: linear-gradient(to bottom, var(--v-background-base) calc(100% - 3px), var(--v-background-lighten1) 3px);
+    }
     .v-tabs-slider-wrapper {
         height: 3px !important;
         transition: left 0.3s cubic-bezier(0.25, 0.8, 0.5, 1);
@@ -217,7 +219,7 @@ export default mixins(mixin).extend({
 }
 .v-window__container {
     // 1px はスクロールバーを表示させるためのもの
-    min-height: calc(100vh - 65px - 118px + 1px);
+    min-height: calc(100vh - 65px - 116px + 1px);
 }
 </style>
 
@@ -239,8 +241,8 @@ export default mixins(mixin).extend({
         position: sticky;
         flex: none;
         top: 65px;  // ヘッダーの高さ分
-        padding-top: 12px;
-        padding-bottom: 26px;
+        padding-top: 10px;
+        padding-bottom: 20px;
         background:var(--v-background-base);
         z-index: 1;
 
