@@ -44,7 +44,7 @@ class LiveEncodingTask():
         options.append('-f mpegts -analyzeduration 500000 -i pipe:0')
 
         # ストリームのマッピング
-        # 主音声・副音声両方をエンコード後の TS に含む（将来の音声切替対応へ準備）
+        # 音声切り替えのため、主音声・副音声両方をエンコード後の TS に含む
 
         ## 通常放送・音声多重放送向け
         ## 副音声が検出できない場合にエラーにならないよう、? をつけておく
@@ -121,7 +121,7 @@ class LiveEncodingTask():
             options.append('--avhw')
 
         # ストリームのマッピング
-        # 主音声・副音声両方をエンコード後の TS に含む（将来の音声切替対応へ準備）
+        # 音声切り替えのため、主音声・副音声両方をエンコード後の TS に含む
         if is_dualmono is False:
             ## 通常放送・音声多重放送向け
             ## 音声が 5.1ch かどうかに関わらず、ステレオにダウンミックスする
@@ -327,11 +327,11 @@ class LiveEncodingTask():
                             livestream.setStatus('Offline', 'チューナーで不明なエラーが発生したため、ライブストリームを開始できません。')
                         break
 
-                    # 現在 ONAir でかつストリームデータの最終書き込み時刻から 2 秒以上が経過しているなら、エンコーダーがフリーズしたものとみなす
+                    # 現在 ONAir でかつストリームデータの最終書き込み時刻から 5 秒以上が経過しているなら、エンコーダーがフリーズしたものとみなす
                     # 現在 Standby でかつストリームデータの最終書き込み時刻から 20 秒以上が経過している場合も、エンコーダーがフリーズしたものとみなす
                     # stdout も stderr もブロッキングされてしまっている場合を想定し、このスレッドでも確認する
                     livestream_status = livestream.getStatus()
-                    if ((livestream_status['status'] == 'ONAir' and time.time() - livestream.stream_data_written_at > 2) or
+                    if ((livestream_status['status'] == 'ONAir' and time.time() - livestream.stream_data_written_at > 5) or
                         (livestream_status['status'] == 'Standby' and time.time() - livestream.stream_data_written_at > 20)):
 
                         # エンコーダーを強制終了させないと次の処理に進まない事が想定されるので、エンコーダーを強制終了
@@ -555,23 +555,23 @@ class LiveEncodingTask():
                 livestream.setStatus('Offline', 'ライブストリームは Offline です。')
                 break
 
-            # 現在 ONAir でかつストリームデータの最終書き込み時刻から 2 秒以上が経過しているなら、エンコーダーがフリーズしたものとみなす
+            # 現在 ONAir でかつストリームデータの最終書き込み時刻から 5 秒以上が経過しているなら、エンコーダーがフリーズしたものとみなす
             # 現在 Standby でかつストリームデータの最終書き込み時刻から 20 秒以上が経過している場合も、エンコーダーがフリーズしたものとみなす
             # 何らかの理由でエンコードが途中で停止した場合、livestream.write() が実行されなくなるのを利用する
             # ステータスを Restart に設定し、エンコードタスクを再起動する
-            if ((livestream_status['status'] == 'ONAir' and time.time() - livestream.stream_data_written_at > 2) or
+            if ((livestream_status['status'] == 'ONAir' and time.time() - livestream.stream_data_written_at > 5) or
                 (livestream_status['status'] == 'Standby' and time.time() - livestream.stream_data_written_at > 20)):
                 is_restart_required = True  # エンコーダーの再起動を要求
                 livestream.setStatus('Restart', 'エンコードが途中で停止しました。ライブストリームを再起動します。')
                 if encoder_type == 'FFmpeg':
-                    # 直近 30 件のログを表示
-                    for log in lines[-31:-1]:
+                    # 直近 50 件のログを表示
+                    for log in lines[-51:-1]:
                         Logging.warning(log)
                     break
                 # HWEncC はログを詳細にハンドリングするためにログレベルを debug に設定しているため、FFmpeg よりもログが圧倒的に多い
                 elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
-                    # 直近 130 件のログを表示
-                    for log in lines[-131:-1]:
+                    # 直近 150 件のログを表示
+                    for log in lines[-151:-1]:
                         Logging.warning(log)
                     break
 
@@ -598,8 +598,8 @@ class LiveEncodingTask():
                     # 捕捉されないエラー
                     is_restart_required = True  # エンコーダーの再起動を要求
                     livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。ライブストリームを再起動します。')
-                    # 直近 30 件のログを表示
-                    for log in lines[-31:-1]:
+                    # 直近 50 件のログを表示
+                    for log in lines[-51:-1]:
                         Logging.warning(log)
                     break
             ## HWEncC
@@ -633,8 +633,8 @@ class LiveEncodingTask():
                     # 捕捉されないエラー
                     is_restart_required = True  # エンコーダーの再起動を要求
                     livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。ライブストリームを再起動します。')
-                    # 直近 130 件のログを表示
-                    for log in lines[-131:-1]:
+                    # 直近 150 件のログを表示
+                    for log in lines[-151:-1]:
                         Logging.warning(log)
                     break
 
@@ -645,14 +645,14 @@ class LiveEncodingTask():
                 # エンコーダーの再起動前提のため、あえて Offline にはせず Restart とする
                 livestream.setStatus('Restart', 'エンコーダーが強制終了されました。ライブストリームを再起動します。')
                 if encoder_type == 'FFmpeg':
-                    # 直近 30 件のログを表示
-                    for log in lines[-31:-1]:
+                    # 直近 50 件のログを表示
+                    for log in lines[-51:-1]:
                         Logging.warning(log)
                     break
                 # HWEncC はログを詳細にハンドリングするためにログレベルを debug に設定しているため、FFmpeg よりもログが圧倒的に多い
                 elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
-                    # 直近 130 件のログを表示
-                    for log in lines[-131:-1]:
+                    # 直近 150 件のログを表示
+                    for log in lines[-151:-1]:
                         Logging.warning(log)
                     break
                 break
