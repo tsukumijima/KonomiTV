@@ -878,7 +878,7 @@ export default mixins(mixin).extend({
     opacity: 0 !important;
     visibility: hidden;
     @media screen and (max-height: 450px) {
-        padding-left: calc(50px + 18px) !important;
+        padding-left: calc(56px + 18px) !important;
     }
 
     .dplayer-icons {
@@ -930,7 +930,7 @@ export default mixins(mixin).extend({
                 left: calc(68px + 16px);
             }
             @media screen and (max-height: 450px) {
-                left: calc(50px + 16px);
+                left: calc(56px + 16px);
             }
         }
         .dplayer-info-panel {
@@ -940,7 +940,7 @@ export default mixins(mixin).extend({
                 left: calc(68px + 16px);
             }
             @media screen and (max-height: 450px) {
-                left: calc(50px + 16px);
+                left: calc(56px + 16px);
             }
         }
         .dplayer-mobile .dplayer-mobile-icon-wrap {
@@ -1012,32 +1012,21 @@ export default mixins(mixin).extend({
         display: flex;
         flex-direction: column;
         position: fixed;
-        padding: 22px 8px;
-        padding-top: 18px;
         width: 68px;
         top: 0px;
         left: 0px;
-        bottom: 0px;
+        // スマホ・タブレットのブラウザでアドレスバーが完全に引っ込むまでビューポートの高さが更新されず、
+        // その間下に何も背景がない部分ができてしまうのを防ぐ
+        bottom: -100px;
+        padding: 18px 8px 122px;
         background: #2F221F80;
         transition: opacity 0.3s, visibility 0.3s;
         opacity: 0;
         visibility: hidden;
         z-index: 2;
         @media screen and (max-height: 450px) {
-            width: 50px;
-            padding: 22px 6px;
-        }
-
-        // スマホ・タブレットのブラウザでアドレスバーが完全に引っ込むまでビューポートの高さが更新されず、
-        // その間下に何も背景がない部分ができてしまうのを防ぐ
-        &:after {
-            content: '';
-            position: absolute;
-            top: 100%;
-            left: -8px;
-            width: calc(100% + 8px);
-            height: 100px;
-            background: #2F221F80;
+            width: 56px;
+            padding: 18px 6px 122px;
         }
 
         .watch-navigation__icon {
@@ -1052,6 +1041,10 @@ export default mixins(mixin).extend({
             transition: background-color 0.15s;
             text-decoration: none;
             user-select: none;
+            @media screen and (max-height: 450px) {
+                height: 44px;
+                border-radius: 10px;
+            }
         }
 
         @media screen and (max-height: 450px) {
@@ -1072,10 +1065,9 @@ export default mixins(mixin).extend({
             transition: background-color 0.15s;
             text-decoration: none;
             user-select: none;
-
             @media screen and (max-height: 450px) {
-                height: 38px;
-                border-radius: 9px;
+                height: 44px;
+                border-radius: 10px;
                 // スペースを確保するため、設定・バージョン情報のアイコンを非表示に
                 &:nth-last-child(1), &:nth-last-child(2) {
                     display: none;
@@ -1088,8 +1080,8 @@ export default mixins(mixin).extend({
 
             @media screen and (max-height: 450px) {
                 &-icon {
-                    width: 24px;
-                    height: 24px;
+                    width: 26px;
+                    height: 26px;
                 }
             }
 
@@ -1099,6 +1091,9 @@ export default mixins(mixin).extend({
             }
             + .watch-navigation__link {
                 margin-top: 4px;
+                @media screen and (max-height: 450px) {
+                    margin-top: auto;
+                }
             }
         }
     }
@@ -1130,7 +1125,7 @@ export default mixins(mixin).extend({
                 padding-right: 16px;
             }
             @media screen and (max-height: 450px) {
-                padding-left: calc(50px + 16px);
+                padding-left: calc(56px + 16px);
             }
 
             .watch-header__broadcaster {
