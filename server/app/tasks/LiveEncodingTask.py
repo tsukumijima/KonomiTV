@@ -317,7 +317,7 @@ class LiveEncodingTask():
                 # R/W バッファ: 188B (TS Packet Size) * 256 = 48128B
                 stream_iterator = response.iter_content(chunk_size=48128)
             elif CONFIG['general']['backend'] == 'EDCB':
-                stream_iterator = pipe
+                stream_iterator = iter(lambda: pipe.read(48128), b'')
 
             # Mirakurun / EDCB から受信した放送波を随時 tsreadex の入力に書き込む
             try:
