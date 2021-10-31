@@ -3616,9 +3616,9 @@
   "resolved" "https://registry.npmjs.org/dotenv/-/dotenv-8.6.0.tgz"
   "version" "8.6.0"
 
-"dplayer@github:tsukumijima/DPlayer#739811550dab8a4305a195129b9babe2a65bb710":
-  "integrity" "sha512-f051Su0OKQRaoUcnOu3NigavkNfprTX7NtGblfydLFVmntpjyex4FiTr4pfz20zbkFj4JJfQBG+hmXa7n4fe8w=="
-  "resolved" "git+ssh://git@github.com/tsukumijima/DPlayer.git#739811550dab8a4305a195129b9babe2a65bb710"
+"dplayer@github:tsukumijima/DPlayer#3717b3d4215760c1440c0ce23dbfcd349f6170ed":
+  "integrity" "sha512-as0oQ6QQ0VbQZm++1SfW7tF7kr0OYFrWUudsZf1hj1ygFrYgVCgD9KxTnqLbrrfy1n1H5dtaQMBr1g6gnLUHPg=="
+  "resolved" "git+ssh://git@github.com/tsukumijima/DPlayer.git#3717b3d4215760c1440c0ce23dbfcd349f6170ed"
   "version" "1.26.0"
   dependencies:
     "aribb24.js" "1.7.11"
