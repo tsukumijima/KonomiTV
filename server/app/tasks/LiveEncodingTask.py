@@ -19,6 +19,9 @@ class LiveEncodingTask():
 
     def __init__(self):
 
+        # エンコーダーの再起動回数のカウント
+        self.retry_count = 0
+
         # エンコーダーの最大再起動回数
         # この数を超えた場合はエンコーダーを再起動しない（無限ループ避け）
         self.max_retry_count = 5  # 5 回まで
@@ -41,7 +44,8 @@ class LiveEncodingTask():
 
         # 入力
         ## -analyzeduration をつけることで、ストリームの分析時間を短縮できる
-        options.append('-f mpegts -analyzeduration 500000 -i pipe:0')
+        analyzeduration = round(500000 + (self.retry_count * 200000))  # リトライ数に応じて少し増やす
+        options.append(f'-f mpegts -analyzeduration {analyzeduration} -i pipe:0')
 
         # ストリームのマッピング
         # 音声切り替えのため、主音声・副音声両方をエンコード後の TS に含む
@@ -63,7 +67,8 @@ class LiveEncodingTask():
 
         # フラグ
         ## 主に FFmpeg の起動を高速化するための設定
-        options.append('-fflags nobuffer -flags low_delay -max_delay 250000 -max_interleave_delta 1 -threads auto')
+        max_interleave_delta = round(1 + self.retry_count)
+        options.append(f'-fflags nobuffer -flags low_delay -max_delay 250000 -max_interleave_delta {max_interleave_delta} -threads auto')
 
         # 映像
         options.append(f'-vcodec libx264 -flags +cgop -vb {QUALITY[quality]["video_bitrate"]} -maxrate {QUALITY[quality]["video_bitrate_max"]}')
@@ -112,7 +117,9 @@ class LiveEncodingTask():
         # 入力
         ## --input-probesize, --input-analyze をつけることで、ストリームの分析時間を短縮できる
         ## 両方つけるのが重要で、--input-analyze だけだとエンコーダーがフリーズすることがある
-        options.append('--input-format mpegts --fps 30000/1001 --input-probesize 1000K --input-analyze 0.7 --input -')
+        input_probesize = round(1000 + (self.retry_count * 500))  # リトライ数に応じて少し増やす
+        input_analyze = round(0.7 + (self.retry_count * 0.2), 1)  # リトライ数に応じて少し増やす
+        options.append(f'--input-format mpegts --fps 30000/1001 --input-probesize {input_probesize}K --input-analyze {input_analyze} --input -')
         ## VCEEncC の HW デコーダーはエラー耐性が低く TS を扱う用途では不安定なので、SW デコーダーを利用する
         if encoder_type == 'VCEEncC':
             options.append('--avsw')
@@ -137,7 +144,8 @@ class LiveEncodingTask():
 
         # フラグ
         ## 主に HWEncC の起動を高速化するための設定
-        options.append('-m fflags:nobuffer -m max_delay:250000 -m max_interleave_delta:1 --output-thread -1 --lowlatency')
+        max_interleave_delta = round(1 + self.retry_count)
+        options.append(f'-m fflags:nobuffer -m max_delay:250000 -m max_interleave_delta:{max_interleave_delta} --output-thread -1 --lowlatency')
         ## その他の設定
         options.append('--avsync forcecfr --max-procfps 60 --log-level debug')
 
@@ -678,9 +686,9 @@ class LiveEncodingTask():
                 tuner.unlock()
 
             # 最大再起動回数が 0 より上であれば
-            if self.max_retry_count > 0:
+            self.retry_count += 1  # カウントを増やす
+            if self.max_retry_count > self.retry_count:
                 time.sleep(0.1)  # 少し待つ
-                self.max_retry_count = self.max_retry_count - 1  # カウントを減らす
                 self.run(channel_id, quality)  # 新しいタスクを立ち上げる
 
             # 最大再起動回数を使い果たしたので、Offline にする
