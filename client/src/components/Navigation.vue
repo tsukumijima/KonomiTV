@@ -54,6 +54,7 @@ export default mixins(mixin).extend({
 .navigation-container {
     flex-shrink: 0;
     width: 220px;  // .navigation を fixed にするため、浮いた分の幅を確保する
+    background: var(--v-background-lighten1);
 
     .navigation {
         display: flex;
