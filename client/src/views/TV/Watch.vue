@@ -1412,6 +1412,8 @@ export default mixins(mixin).extend({
                             display: flex;
                             justify-content: center;
                             flex-direction: column;
+                            // will-change を入れておく事で、アニメーションが GPU で処理される
+                            will-change: transform;
 
                             // 1630px 以上で幅を 445px に固定
                             @media screen and (min-width: 1630px) {

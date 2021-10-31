@@ -263,6 +263,8 @@ export default mixins(mixin).extend({
             grid-row-gap: 16px;
             grid-column-gap: 16px;
             justify-content: center;
+            // will-change を入れておく事で、アニメーションが GPU で処理される
+            will-change: transform;
 
             // 1630px 以上で幅を 445px に固定
             @media screen and (min-width: 1630px) {
