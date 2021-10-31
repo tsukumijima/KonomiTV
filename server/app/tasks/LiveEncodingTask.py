@@ -695,7 +695,10 @@ class LiveEncodingTask():
             else:
 
                 # Offline に設定
-                livestream.setStatus('Offline', 'ライブストリームの再起動に失敗しました。')
+                if program_present.is_free == True:
+                    livestream.setStatus('Offline', 'ライブストリームの再起動に失敗しました。')
+                else:
+                    livestream.setStatus('Offline', 'ライブストリームの再起動に失敗しました。契約されていないため視聴できません。')
 
                 # チューナーを終了する（ EDCB バックエンドのみ）
                 if CONFIG['general']['backend'] == 'EDCB':
