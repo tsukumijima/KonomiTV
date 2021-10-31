@@ -266,11 +266,15 @@ export default mixins(mixin).extend({
                     'duration': 0,
                     'is_free': true,
                     'genre': [],
-                    'video_type': '',
-                    'video_codec': '',
-                    'video_resolution': '',
-                    'audio_type': '',
-                    'audio_sampling_rate': '',
+                    'video_type': '映像1080i(1125i)、アスペクト比16:9 パンベクトルなし',
+                    'video_codec': 'mpeg2',
+                    'video_resolution': '1080i',
+                    'primary_audio_type': '2/0モード(ステレオ)',
+                    'primary_audio_language': '日本語',
+                    'primary_audio_sampling_rate': '48kHz',
+                    'secondary_audio_type': null,
+                    'secondary_audio_language': null,
+                    'secondary_audio_sampling_rate': null,
                 },
                 'program_following': {
                     'id': 'NID0-SID0-EID0',
@@ -283,11 +287,15 @@ export default mixins(mixin).extend({
                     'duration': 0,
                     'is_free': true,
                     'genre': [],
-                    'video_type': '',
-                    'video_codec': '',
-                    'video_resolution': '',
-                    'audio_type': '',
-                    'audio_sampling_rate': '',
+                    'video_type': '映像1080i(1125i)、アスペクト比16:9 パンベクトルなし',
+                    'video_codec': 'mpeg2',
+                    'video_resolution': '1080i',
+                    'primary_audio_type': '2/0モード(ステレオ)',
+                    'primary_audio_language': '日本語',
+                    'primary_audio_sampling_rate': '48kHz',
+                    'secondary_audio_type': null,
+                    'secondary_audio_language': null,
+                    'secondary_audio_sampling_rate': null,
                 }
             },
 
@@ -409,6 +417,28 @@ export default mixins(mixin).extend({
 
                     // イベントハンドラーを初期化
                     this.initEventHandler();
+                }
+
+                // 副音声がない番組でプレイヤー上で副音声に切り替えられないように
+                // 音声多重放送でもデュアルモノでもない番組のみ
+                if ((this.channel.program_present.primary_audio_type !== '1/0+1/0モード(デュアルモノ)') &&
+                    (this.channel.program_present.secondary_audio_type === null)) {
+
+                    // クラスを付与
+                    this.player.template.audioItem[1].classList.add('dplayer-setting-audio-item--disabled');
+
+                    // 現在副音声が選択されている可能性を考慮し、明示的に主音声に切り替える
+                    if (this.player.plugins.mpegts) {
+                        setTimeout(() => {  // 初期化が終わるまで少し待つ
+                            this.player.plugins.mpegts.switchPrimaryAudio();
+                        }, 100);
+                    }
+
+                // 音声多重放送かデュアルモノなので、副音声への切り替えを有効化
+                } else {
+
+                    // クラスを削除
+                    this.player.template.audioItem[1].classList.remove('dplayer-setting-audio-item--disabled');
                 }
 
                 // チャンネル情報一覧 API にアクセス
@@ -844,6 +874,17 @@ export default mixins(mixin).extend({
         // ブラウザフルスクリーンボタンを削除（実質あまり意味がないため）
         .dplayer-icon.dplayer-full-in-icon {
             display: none !important;
+        }
+    }
+}
+.dplayer-setting-box {
+    .dplayer-setting-audio-panel {
+        // 副音声がない番組で副音声を選択できないように
+        .dplayer-setting-audio-item.dplayer-setting-audio-item--disabled {
+            pointer-events: none;  // クリックイベントを無効化
+            .dplayer-label {
+                color: #AAAAAA;  // グレーアウト
+            }
         }
     }
 }
