@@ -60,25 +60,15 @@ export default mixins(mixin).extend({
         display: flex;
         flex-direction: column;
         position: fixed;
-        padding: 22px 12px;
         width: 220px;
         top: 65px;  // ヘッダーの高さ分
         left: 0px;
-        bottom: 0px;
-        background: var(--v-background-lighten1);
-        z-index: 1;
-
         // スマホ・タブレットのブラウザでアドレスバーが完全に引っ込むまでビューポートの高さが更新されず、
         // その間下に何も背景がない部分ができてしまうのを防ぐ
-        &:after {
-            content: '';
-            position: absolute;
-            top: 100%;
-            left: -12px;
-            width: calc(100% + 12px);
-            height: 100px;
-            background: var(--v-background-lighten1);
-        }
+        bottom: -100px;
+        padding: 22px 12px 122px;
+        background: var(--v-background-lighten1);
+        z-index: 1;
 
         .navigation__link {
             display: flex;
