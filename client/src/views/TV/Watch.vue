@@ -396,7 +396,7 @@ export default mixins(mixin).extend({
         },
 
         // チャンネル情報一覧を取得し、画面を更新する
-        update() {
+        async update() {
 
             // チャンネル ID が未定義なら実行しない（フェイルセーフ）
             if (this.$route.params.channel_id === undefined) {
@@ -404,73 +404,10 @@ export default mixins(mixin).extend({
             }
 
             // チャンネル情報 API にアクセス
-            Vue.axios.get(`${this.api_base_url}/channels/${this.channel_id}`).then((response) => {
-
-                // チャンネル情報を代入
-                this.channel = response.data;
-
-                // まだ初期化されていなければ
-                if (this.player === null) {
-
-                    // プレイヤーを初期化
-                    this.initPlayer();
-
-                    // イベントハンドラーを初期化
-                    this.initEventHandler();
-                }
-
-                // 副音声がない番組でプレイヤー上で副音声に切り替えられないように
-                // 音声多重放送でもデュアルモノでもない番組のみ
-                if ((this.channel.program_present.primary_audio_type !== '1/0+1/0モード(デュアルモノ)') &&
-                    (this.channel.program_present.secondary_audio_type === null)) {
-
-                    // クラスを付与
-                    this.player.template.audioItem[1].classList.add('dplayer-setting-audio-item--disabled');
-
-                    // 現在副音声が選択されている可能性を考慮し、明示的に主音声に切り替える
-                    if (this.player.plugins.mpegts) {
-                        setTimeout(() => {  // 初期化が終わるまで少し待つ
-                            this.player.plugins.mpegts.switchPrimaryAudio();
-                        }, 100);
-                    }
-
-                // 音声多重放送かデュアルモノなので、副音声への切り替えを有効化
-                } else {
-
-                    // クラスを削除
-                    this.player.template.audioItem[1].classList.remove('dplayer-setting-audio-item--disabled');
-                }
-
-                // チャンネル情報一覧 API にアクセス
-                // チャンネル情報 API と同時にアクセスするとむしろレスポンスが遅くなるので、返ってくるのを待ってから実行
-                Vue.axios.get(`${this.api_base_url}/channels`).then((response) => {
-
-                    // is_display が true または現在表示中のチャンネルのみに絞り込むフィルタ関数
-                    // 放送していないサブチャンネルを表示から除外する
-                    const channel_id = this.channel_id;
-                    function filter(channel: any) {
-                        return channel.is_display || channel_id === channel.channel_id;
-                    }
-
-                    // チャンネルリストを再構築
-                    // 1つでもチャンネルが存在するチャンネルタイプのみ表示するように
-                    // たとえば SKY (スカパー！プレミアムサービス) のタブは SKY に属すチャンネルが1つもない（=受信できない）なら表示されない
-                    this.channels_list = {};
-                    if (response.data.GR.length > 0) this.channels_list['地デジ'] = response.data.GR.filter(filter);
-                    if (response.data.BS.length > 0) this.channels_list['BS'] = response.data.BS.filter(filter);
-                    if (response.data.CS.length > 0) this.channels_list['CS'] = response.data.CS.filter(filter);
-                    if (response.data.SKY.length > 0) this.channels_list['SKY'] = response.data.SKY.filter(filter);
-
-                    // ピン留めされているチャンネルのリストを更新
-                    this.updatePinnedChannelList();
-
-                    // 前と次のチャンネル ID を取得する
-                    [this.channel_previous, , this.channel_next]
-                        = this.getPreviousAndCurrentAndNextChannel(this.channel_id, this.channels_list);
-                });
-
-            // リクエスト失敗時
-            }).catch((error) => {
+            let channel_response;
+            try {
+                channel_response = await Vue.axios.get(`${this.api_base_url}/channels/${this.channel_id}`);
+            } catch (error) {
 
                 // エラー内容を表示
                 console.error(error);
@@ -478,9 +415,79 @@ export default mixins(mixin).extend({
                 // ステータスコードが 422（チャンネルが存在しない）なら 404 ページにリダイレクト
                 // 正確には 404 ページ自体がルートとして存在するわけじゃないけど、そもそも存在しないページなら 404 になるので
                 if (error.response && error.response.status === 422 && error.response.data.detail === 'Specified channel_id was not found') {
-                    window.location.href = '/404/';
+                    await this.$router.replace({path: '/not-found/'});
                 }
-            });
+
+                // 処理を中断
+                return;
+            }
+
+            // チャンネル情報を代入
+            this.channel = channel_response.data;
+
+            // まだ初期化されていなければ
+            if (this.player === null) {
+
+                // プレイヤーを初期化
+                this.initPlayer();
+
+                // イベントハンドラーを初期化
+                this.initEventHandler();
+            }
+
+            // 副音声がない番組でプレイヤー上で副音声に切り替えられないように
+            // 音声多重放送でもデュアルモノでもない番組のみ
+            if (this.channel.program_present === null ||
+                (this.channel.program_present.primary_audio_type !== '1/0+1/0モード(デュアルモノ)' &&
+                this.channel.program_present.secondary_audio_type === null)) {
+
+                // クラスを付与
+                this.player.template.audioItem[1].classList.add('dplayer-setting-audio-item--disabled');
+
+                // 現在副音声が選択されている可能性を考慮し、明示的に主音声に切り替える
+                if (this.player.plugins.mpegts) {
+                    setTimeout(() => {  // 初期化が終わるまで少し待つ
+                        this.player.plugins.mpegts.switchPrimaryAudio();
+                    }, 200);
+                }
+
+            // 音声多重放送かデュアルモノなので、副音声への切り替えを有効化
+            } else {
+
+                // クラスを削除
+                this.player.template.audioItem[1].classList.remove('dplayer-setting-audio-item--disabled');
+            }
+
+            // チャンネル情報一覧 API にアクセス
+            // チャンネル情報 API と同時にアクセスするとむしろレスポンスが遅くなるので、返ってくるのを待ってから実行
+            let channels_response;
+            try {
+                channels_response = await Vue.axios.get(`${this.api_base_url}/channels`);
+            } catch (error) {
+                console.error(error);   // エラー内容を表示
+            }
+
+            // is_display が true または現在表示中のチャンネルのみに絞り込むフィルタ関数
+            // 放送していないサブチャンネルを表示から除外する
+            const channel_id = this.channel_id;
+            function filter(channel: any) {
+                return channel.is_display || channel_id === channel.channel_id;
+            }
+
+            // チャンネルリストを再構築
+            // 1つでもチャンネルが存在するチャンネルタイプのみ表示するように
+            // たとえば SKY (スカパー！プレミアムサービス) のタブは SKY に属すチャンネルが1つもない（=受信できない）なら表示されない
+            this.channels_list = {};
+            if (channels_response.data.GR.length > 0) this.channels_list['地デジ'] = channels_response.data.GR.filter(filter);
+            if (channels_response.data.BS.length > 0) this.channels_list['BS'] = channels_response.data.BS.filter(filter);
+            if (channels_response.data.CS.length > 0) this.channels_list['CS'] = channels_response.data.CS.filter(filter);
+            if (channels_response.data.SKY.length > 0) this.channels_list['SKY'] = channels_response.data.SKY.filter(filter);
+
+            // ピン留めされているチャンネルのリストを更新
+            this.updatePinnedChannelList();
+
+            // 前と次のチャンネル ID を取得する
+            [this.channel_previous, , this.channel_next] = this.getPreviousAndCurrentAndNextChannel(this.channel_id, this.channels_list);
         },
 
         // マウスが動いた時のイベント
@@ -548,7 +555,7 @@ export default mixins(mixin).extend({
                 loop: true,
                 lang: 'ja-jp',
                 theme: '#E64F97',
-                // 読み込む m3u8 を指定する
+                // 読み込む URL を指定する
                 video: {
                     defaultQuality: this.default_quality,
                     quality: [
@@ -657,7 +664,7 @@ export default mixins(mixin).extend({
             // MediaSession API を使い、メディア通知の表示をカスタマイズ
             if ('mediaSession' in navigator) {
                 navigator.mediaSession.metadata = new MediaMetadata({
-                    title: this.channel.program_present.title,
+                    title: this.channel.program_present ? this.channel.program_present.title : '放送休止',
                     artist: this.channel.channel_name,
                     artwork: [
                         {src: `${this.api_base_url}/channels/${(this.channel_id)}/logo`, sizes: '256x256', type: 'image/png'},
@@ -737,10 +744,13 @@ export default mixins(mixin).extend({
                     // Status: Offline
                     case 'Offline': {
 
-                        // 少し送らせてからステータス詳細をプレイヤーに表示
-                        setTimeout(() => {
+                        // ステータス詳細をプレイヤーに表示
+                        // 動画の読み込みエラーが送出された時にメッセージを上書きする
+                        this.player.notice(event.detail, -1);
+                        this.player.video.onerror = () => {
                             this.player.notice(event.detail, -1);
-                        }, 100);
+                            this.player.video.onerror = null;
+                        }
 
                         // イベントソースを閉じる（復帰の見込みがないため）
                         this.eventsource.close();
