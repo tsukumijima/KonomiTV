@@ -267,6 +267,9 @@ export default mixins(mixin).extend({
         padding-bottom: 32px;
         background: transparent !important;
         overflow: inherit;
+        @media screen and (max-height: 450px) {
+            padding-bottom: 22px;
+        }
 
         .channels {
             display: grid;
@@ -344,7 +347,7 @@ export default mixins(mixin).extend({
                 cursor: pointer;
                 @media screen and (max-height: 450px) {
                     padding: 15px 18px;
-                    height: 205px;
+                    height: auto;
                     border-radius: 15px;
                 }
 
@@ -493,7 +496,7 @@ export default mixins(mixin).extend({
                         -webkit-line-clamp: 3;  // 3行までに制限
                         -webkit-box-orient: vertical;
                         @media screen and (max-height: 450px) {
-                            margin-top: 6px;
+                            margin-top: 8px;
                             font-size: 10px;
                             -webkit-line-clamp: 2;  // 3行までに制限
                         }
@@ -506,6 +509,7 @@ export default mixins(mixin).extend({
                     color: var(--v-text-darken1);
                     font-size: 12.5px;
                     @media screen and (max-height: 450px) {
+                        margin-top: 6px;
                         font-size: 12px;
                     }
 

@@ -82,7 +82,7 @@ export default mixins(mixin).extend({
             flex-direction: column;
             height: 100%;
             padding: 22px 12px;
-            overflow-y: scroll;
+            overflow-y: auto;
             @media screen and (max-height: 450px) {
                 padding: 20px 12px;
             }

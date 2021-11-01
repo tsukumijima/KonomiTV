@@ -68,8 +68,8 @@ body .v-main__wrap {
     scrollbar-width: thin;
 }
 ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 7px;
+    height: 7px;
 }
 ::-webkit-scrollbar-track {
     background: var(--v-background-base);
