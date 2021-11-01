@@ -955,6 +955,9 @@ export default mixins(mixin).extend({
 // 上書きしたいスタイル
 .channels-container.channels-container--watch {
     .v-tabs-bar {
+        // 見かけの余白の関係上、少し上にずらした方が自然
+        position: relative;
+        top: -9px;
         // スペースが少ないので高さを抑える
         height: 48px;
         // 下線を引く
@@ -1576,7 +1579,7 @@ export default mixins(mixin).extend({
                         top: 0px;
                         padding-left: 16px;
                         padding-right: 16px;
-                        padding-bottom: 16px;
+                        padding-bottom: 9px;
                         background:var(--v-background-base);
                         z-index: 1;
                         @media screen and (max-height: 450px) {
