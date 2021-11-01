@@ -11,7 +11,7 @@
         "axios": "^0.21.4",
         "core-js": "^3.18.0",
         "dayjs": "^1.10.7",
-        "dplayer": "github:tsukumijima/DPlayer#372e63a2b82cdbbba8277eebb35e3de5d4dba1ed",
+        "dplayer": "github:tsukumijima/DPlayer#7307f7e6b0498843576b3897c3447b1c4670f3c1",
         "mpegts.js": "github:tsukumijima/mpegts.js#33dec0952c985ba809bf8305d54ee03bc112db42",
         "register-service-worker": "^1.7.2",
         "vue": "^2.6.14",
