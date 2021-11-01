@@ -22,6 +22,9 @@ body .v-main__wrap {
     display: flex;
     min-height: 100vh;
     padding-top: 65px !important;
+    @media screen and (max-height: 450px) {
+        padding-top: 48px !important;
+    }
 }
 
 // ツールチップのスタイル
@@ -65,8 +68,8 @@ body .v-main__wrap {
     scrollbar-width: thin;
 }
 ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
 }
 ::-webkit-scrollbar-track {
     background: var(--v-background-base);

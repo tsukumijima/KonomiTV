@@ -1437,6 +1437,7 @@ export default mixins(mixin).extend({
                             font-feature-settings: "palt" 1;  // 文字詰め
                             letter-spacing: 0.05em;  // 字間を少し空ける
                             @media screen and (max-height: 450px) {
+                                margin-top: 2px;
                                 font-size: 18px;
                             }
                         }
@@ -1457,6 +1458,7 @@ export default mixins(mixin).extend({
                             font-feature-settings: "palt" 1;  // 文字詰め
                             letter-spacing: 0.08em;  // 字間を少し空ける
                             @media screen and (max-height: 450px) {
+                                margin-top: 8px;
                                 font-size: 11px;
                             }
                         }
@@ -1486,6 +1488,7 @@ export default mixins(mixin).extend({
                             font-size: 14px;
                             font-weight: bold;
                             @media screen and (max-height: 450px) {
+                                margin-top: 14px;
                                 font-size: 13px;
                             }
                             &-decorate {
@@ -1514,6 +1517,7 @@ export default mixins(mixin).extend({
                             color: var(--v-text-darken1);
                             font-size: 12px;
                         }
+
                         .program-info__status {
                             display: flex;
                             align-items: center;
@@ -1521,6 +1525,7 @@ export default mixins(mixin).extend({
                             font-size: 15px;
                             color: var(--v-text-darken1);
                             @media screen and (max-height: 450px) {
+                                margin-top: 10px;
                                 font-size: 12px;
                             }
                         }
@@ -1529,6 +1534,9 @@ export default mixins(mixin).extend({
                     .program-detail-container {
                         margin-top: 24px;
                         margin-bottom: 24px;
+                        @media screen and (max-height: 450px) {
+                            margin-top: 20px;
+                        }
 
                         .program-detail {
                             margin-top: 16px;
@@ -1617,12 +1625,18 @@ export default mixins(mixin).extend({
                                 text-decoration: none;
                                 user-select: none;
                                 cursor: pointer;
+                                &:first-of-type {
+                                    margin-top: 0px;
+                                }
 
                                 &:hover {
                                     background: var(--v-background-lighten2);
                                 }
-                                &:first-of-type {
-                                    margin-top: 0px;
+                                // タッチデバイスで hover を無効にする
+                                @media (hover: none) {
+                                    &:hover {
+                                        background: var(--v-background-lighten1);
+                                    }
                                 }
 
                                 .channel__broadcaster {
@@ -1658,9 +1672,9 @@ export default mixins(mixin).extend({
                                         display: flex;
                                         align-items: center;
                                         flex-shrink: 0;
-                                        margin-top: 1px;
-                                        margin-left: 8px;
-                                        font-size: 8px;
+                                        margin-top: 2px;
+                                        margin-left: 10px;
+                                        font-size: 11.5px;
                                         color: var(--v-text-darken1);
                                     }
                                 }

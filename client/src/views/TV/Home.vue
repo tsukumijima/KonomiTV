@@ -209,6 +209,9 @@ export default mixins(mixin).extend({
         height: 54px;
         // 下線を引く
         background: linear-gradient(to bottom, var(--v-background-base) calc(100% - 3px), var(--v-background-lighten1) 3px);
+        @media screen and (max-height: 450px) {
+            height: 46px;
+        }
     }
     .v-tabs-slider-wrapper {
         height: 3px !important;
@@ -243,12 +246,20 @@ export default mixins(mixin).extend({
         padding-bottom: 20px;
         background:var(--v-background-base);
         z-index: 1;
+        @media screen and (max-height: 450px) {
+            top: 47.9px;
+            padding-top: 2px;
+            padding-bottom: 12px;
+        }
 
         .channels-tab__item {
             width: 98px;
             padding: 0;
             color: var(--v-text-base) !important;
             font-size: 16px;
+            @media screen and (max-height: 450px) {
+                font-size: 15px;
+            }
         }
     }
 
@@ -331,14 +342,28 @@ export default mixins(mixin).extend({
                 text-decoration: none;
                 user-select: none;
                 cursor: pointer;
+                @media screen and (max-height: 450px) {
+                    padding: 15px 18px;
+                    height: 205px;
+                    border-radius: 15px;
+                }
 
                 &:hover {
                     background: var(--v-background-lighten2);
+                }
+                // タッチデバイスで hover を無効にする
+                @media (hover: none) {
+                    &:hover {
+                        background: var(--v-background-lighten1);
+                    }
                 }
 
                 .channel__broadcaster {
                     display: flex;
                     height: 44px;
+                    @media screen and (max-height: 450px) {
+                        height: 38px;
+                    }
 
                     &-icon {
                         display: inline-block;
@@ -348,6 +373,10 @@ export default mixins(mixin).extend({
                         border-radius: 5px;
                         background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
                         object-fit: cover;
+                        @media screen and (max-height: 450px) {
+                            width: 64px;
+                            height: 38px;
+                        }
                     }
 
                     &-content {
@@ -364,6 +393,9 @@ export default mixins(mixin).extend({
                         overflow: hidden;
                         white-space: nowrap;
                         text-overflow: ellipsis;
+                        @media screen and (max-height: 450px) {
+                            font-size: 15px;
+                        }
                     }
 
                     &-status {
@@ -372,6 +404,10 @@ export default mixins(mixin).extend({
                         margin-top: 2px;
                         font-size: 12px;
                         color: var(--v-text-darken1);
+                        @media screen and (max-height: 450px) {
+                            font-size: 10px;
+                            margin-top: 3px;
+                        }
                     }
 
                     &-pin {
@@ -428,12 +464,20 @@ export default mixins(mixin).extend({
                         overflow: hidden;
                         -webkit-line-clamp: 2;  // 2行までに制限
                         -webkit-box-orient: vertical;
+                        @media screen and (max-height: 450px) {
+                            margin-top: 10px;
+                            font-size: 14.5px;
+                            -webkit-line-clamp: 1;  // 1行までに制限
+                        }
                     }
 
                     &-time {
                         margin-top: 4px;
                         color: var(--v-text-darken1);
                         font-size: 13.5px;
+                        @media screen and (max-height: 450px) {
+                            font-size: 12px;
+                        }
                     }
 
                     &-description {
@@ -448,6 +492,11 @@ export default mixins(mixin).extend({
                         overflow: hidden;
                         -webkit-line-clamp: 3;  // 3行までに制限
                         -webkit-box-orient: vertical;
+                        @media screen and (max-height: 450px) {
+                            margin-top: 6px;
+                            font-size: 10px;
+                            -webkit-line-clamp: 2;  // 3行までに制限
+                        }
                     }
                 }
 
@@ -456,6 +505,9 @@ export default mixins(mixin).extend({
                     flex-direction: column;
                     color: var(--v-text-darken1);
                     font-size: 12.5px;
+                    @media screen and (max-height: 450px) {
+                        font-size: 12px;
+                    }
 
                     &-title {
                         display: flex;
@@ -472,6 +524,11 @@ export default mixins(mixin).extend({
                             overflow: hidden;
                             white-space: nowrap;
                             text-overflow: ellipsis;  // はみ出た部分を … で省略
+                        }
+                    }
+                    &-time {
+                        @media screen and (max-height: 450px) {
+                            font-size: 11.5px;
                         }
                     }
                 }
