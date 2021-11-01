@@ -1209,7 +1209,7 @@ export default mixins(mixin).extend({
                 max-height: 100%;
                 aspect-ratio: 16 / 9;
                 transform: translate(-50%,-50%);
-                background-blend-mode: color-burn;
+                background-blend-mode: darken;
                 background-color: rgba(14, 14, 18, 40%);
                 background-size: cover;
                 background-image: none;
