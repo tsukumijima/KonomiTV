@@ -512,11 +512,12 @@ export default mixins(mixin).extend({
                 // コントロールを非表示にする
                 this.is_control_visible = false;
 
-                // プレイヤーのコントロールと設定パネルを隠す
+                // プレイヤーのコントロールと設定パネルを非表示にする
                 if (this.player !== null) {
                     this.player.controller.hide();
                     this.player.setting.hide();
                 }
+
             }, 3 * 1000);
         },
 
@@ -640,13 +641,27 @@ export default mixins(mixin).extend({
                     // 以前セットされた setTimeout() を止める
                     window.clearTimeout(this.control_interval_id);
 
-                    // 明示的にプレイヤーのコントロールを非表示にする
-                    this.player.controller.hide();
-
                     // コントロールを非表示にする
                     this.is_control_visible = false;
+
+                    // プレイヤーのコントロールと設定パネルを非表示にする
+                    this.player.controller.hide();
+                    this.player.setting.hide();
                 }
             });
+
+            // 再生/停止されたとき
+            // 通知バーからの制御など、画面から以外の外的要因で再生/停止が行われる事もある
+            const on_play_or_pause = () => {
+
+                // 明示的にプレイヤーのコントロールを表示する
+                this.player.controller.show();
+
+                // コントロールを表示する
+                this.controlVisibleTimer();
+            }
+            this.player.on('play', on_play_or_pause);
+            this.player.on('pause', on_play_or_pause);
 
             // 画質の切り替えが開始されたとき
             this.player.on('quality_start', () => {
@@ -966,6 +981,7 @@ export default mixins(mixin).extend({
         // 下線を引く
         background: linear-gradient(to bottom, var(--v-background-base) calc(100% - 3px), var(--v-background-lighten1) 3px);
         @media screen and (max-height: 450px) {
+            top: -7px;
             height: 40px;
         }
 
@@ -1586,7 +1602,7 @@ export default mixins(mixin).extend({
                         background:var(--v-background-base);
                         z-index: 1;
                         @media screen and (max-height: 450px) {
-                            padding-bottom: 12px;
+                            padding-bottom: 7px;
                         }
 
                         .channels-tab__item {
