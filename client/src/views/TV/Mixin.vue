@@ -9,6 +9,7 @@ import 'dayjs/locale/ja';
 import mixins from 'vue-typed-mixins';
 import mixin from '@/mixins';
 
+import { IChannel, IProgram } from '@/interface';
 import Utility from '@/utility';
 
 // TV 内共通で使うユーティリティとプロパティを定義
@@ -18,7 +19,7 @@ export default mixins(mixin).extend({
         return {
 
             // チャンネル情報リスト
-            channels_list: {} as {[key: string]: {[key: string]: any}[]},
+            channels_list: {} as {[key: string]: IChannel[]},
 
             // ピン留めしているチャンネルの ID (ex: gr011) が入るリスト
             pinned_channel_ids: [] as string[],
@@ -27,7 +28,7 @@ export default mixins(mixin).extend({
     methods: {
 
         // 番組情報中の[字]や[解]などの記号をいい感じに装飾する
-        decorateProgramInfo(program: {[key: string]: any}, key: string): string {
+        decorateProgramInfo(program: IProgram, key: string): string {
 
             // program が空でないかつ、program[key] が存在する
             if (program !== null && key in program) {
@@ -80,7 +81,7 @@ export default mixins(mixin).extend({
         },
 
         // 前・現在・次のチャンネル情報を取得する
-        getPreviousAndCurrentAndNextChannel(channel_id: string): any[] {
+        getPreviousAndCurrentAndNextChannel(channel_id: string): IChannel[] {
 
             // 前後のチャンネルを取得
             const channels = this.channels_list[this.getChannelType(channel_id, true)];
@@ -103,7 +104,7 @@ export default mixins(mixin).extend({
         },
 
         // 番組の放送時刻を取得する
-        getProgramTime(program: {[key: string]: any}, is_short: boolean = false): string {
+        getProgramTime(program: IProgram, is_short: boolean = false): string {
 
             // program が空でなく、かつ番組時刻が初期値でない
             if (program !== null && program.start_time !== '2000-01-01T00:00:00+09:00') {
@@ -136,7 +137,7 @@ export default mixins(mixin).extend({
         },
 
         // 番組の進捗状況を取得する
-        getProgramProgress(program: {[key: string]: any}): number {
+        getProgramProgress(program: IProgram): number {
 
             // program が空でない
             if (program !== null) {

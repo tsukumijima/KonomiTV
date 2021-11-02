@@ -64,6 +64,7 @@
 
 import Vue from 'vue';
 
+import { IChannel } from '@/interface';
 import Header from '@/components/Header.vue';
 import Navigation from '@/components/Navigation.vue';
 import Mixin from '@/views/TV/Mixin.vue';
@@ -138,7 +139,7 @@ export default Mixin.extend({
 
             // is_display が true のチャンネルのみに絞り込むフィルタ関数
             // 放送していないサブチャンネルを表示から除外する
-            const filter = (channel: any) => {
+            const filter = (channel: IChannel) => {
                 return channel.is_display;
             }
 
