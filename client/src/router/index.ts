@@ -1,6 +1,7 @@
 
 import Vue from 'vue';
 import VueRouter from 'vue-router';
+
 import TVHome from '../views/TV/Home.vue';
 import TVWatch from '../views/TV/Watch.vue';
 import NotFound from '../views/NotFound.vue';

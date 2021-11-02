@@ -1,4 +1,5 @@
 <script lang="ts">
+
 import { VTabsItems } from 'vuetify/lib'
 
 export default {
@@ -26,4 +27,5 @@ export default {
         },
     }
 }
+
 </script>

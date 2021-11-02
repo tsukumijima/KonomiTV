@@ -188,17 +188,17 @@
         </main>
     </div>
 </template>
-
 <script lang="ts">
+
 import Vue from 'vue';
-import mixins from 'vue-typed-mixins'
-import mixin from '@/mixins';
 import dayjs from 'dayjs';
 // @ts-ignore  JavaScript で書かれているので型定義がなく、作ろうとするとややこしくなるので黙殺
 import DPlayer from 'dplayer';
 import mpegts from 'mpegts.js';
 
-export default mixins(mixin).extend({
+import Mixin from '@/views/TV/Mixin.vue';
+
+export default Mixin.extend({
     name: 'Home',
     components: {
     },
@@ -232,7 +232,7 @@ export default mixins(mixin).extend({
             // インターバル ID
             // ページ遷移時に setInterval(), setTimeout() の実行を止めるのに使う
             // setInterval(), setTimeout() の返り値を登録する
-            interval_ids: [],
+            interval_ids: [] as number[],
 
             // コントロール表示切り替え用のインターバル ID
             // 混ぜるとダメなので独立させる
@@ -311,9 +311,6 @@ export default mixins(mixin).extend({
                 'channel_id': 'gr000',
             },
 
-            // チャンネル情報リスト
-            channels_list: {},
-
             // プレイヤー (DPlayer) のインスタンス
             player: null,
 
@@ -346,7 +343,7 @@ export default mixins(mixin).extend({
 
         // 既に取得済みのチャンネル情報で、前・現在・次のチャンネル情報を更新する
         [this.channel_previous, this.channel, this.channel_next]
-            = this.getPreviousAndCurrentAndNextChannel(this.channel_id, this.channels_list);
+            = this.getPreviousAndCurrentAndNextChannel(this.channel_id);
 
         // 0.5秒だけ待ってから
         // 連続して押した時などにライブストリームを初期化しないように猶予を設ける
@@ -491,10 +488,10 @@ export default mixins(mixin).extend({
             this.updatePinnedChannelList();
 
             // 前と次のチャンネル ID を取得する
-            [this.channel_previous, , this.channel_next] = this.getPreviousAndCurrentAndNextChannel(this.channel_id, this.channels_list);
+            [this.channel_previous, , this.channel_next] = this.getPreviousAndCurrentAndNextChannel(this.channel_id);
         },
 
-        // マウスが動いた時のイベント
+        // マウスが動いたりタップされた時のイベント
         // 3秒間何も操作がなければコントロールを非表示にする
         controlVisibleTimer() {
 
@@ -518,29 +515,6 @@ export default mixins(mixin).extend({
                 }
 
             }, 3 * 1000);
-        },
-
-        // 前・現在・次のチャンネル情報を取得する
-        getPreviousAndCurrentAndNextChannel(channel_id: string, channels_list: any): Array<any> {
-
-            // 前後のチャンネルを取得
-            const channels = channels_list[this.getChannelType(channel_id, true)];
-            for (let index = 0; index < channels.length; index++) {
-                const element = channels[index];
-
-                // チャンネル ID が一致したときだけ
-                if (element.channel_id === channel_id) {
-
-                    // インデックスが最初か最後の時はそれぞれ最後と最初にインデックスを一周させる
-                    let previous_index = index - 1;
-                    if (previous_index === -1) previous_index = channels.length - 1;
-                    let next_index = index + 1;
-                    if (next_index === channels.length) next_index = 0;
-
-                    // 前・現在・次のチャンネル情報を返す
-                    return [channels[previous_index], channels[index], channels[next_index]];
-                }
-            }
         },
 
         // プレイヤーを初期化する
@@ -830,7 +804,7 @@ export default mixins(mixin).extend({
             // clearInterval() ですべての setInterval(), setTimeout() の実行を止める
             // clearInterval() と clearTimeout() は中身共通なので問題ない
             for (const interval_id of this.interval_ids) {
-                window.clearInterval(parseInt(interval_id));
+                window.clearInterval(interval_id);
             }
 
             // interval_ids をクリア
@@ -855,9 +829,10 @@ export default mixins(mixin).extend({
         }
     }
 });
-</script>
 
+</script>
 <style lang="scss">
+
 // DPlayer のスタイルの上書き
 .dplayer svg circle, .dplayer svg path {
     fill: var(--v-text-base) !important;
@@ -995,9 +970,10 @@ export default mixins(mixin).extend({
         transition: left 0.3s cubic-bezier(0.25, 0.8, 0.5, 1);
     }
 }
-</style>
 
+</style>
 <style lang="scss" scoped>
+
 .route-container {
     background: var(--v-black-base) !important;
     overflow: hidden;
@@ -1830,4 +1806,5 @@ export default mixins(mixin).extend({
         }
     }
 }
+
 </style>

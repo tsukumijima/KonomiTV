@@ -60,16 +60,16 @@
         </v-main>
     </div>
 </template>
-
 <script lang="ts">
+
 import Vue from 'vue';
-import mixins from 'vue-typed-mixins'
-import mixin from '@/mixins';
-import Utility from '@/utility';
+
 import Header from '@/components/Header.vue';
 import Navigation from '@/components/Navigation.vue';
+import Mixin from '@/views/TV/Mixin.vue';
+import Utility from '@/utility';
 
-export default mixins(mixin).extend({
+export default Mixin.extend({
     name: 'Home',
     components: {
         Header,
@@ -87,13 +87,7 @@ export default mixins(mixin).extend({
             // インターバル ID
             // ページ遷移時に setInterval(), setTimeout() の実行を止めるのに使う
             // setInterval(), setTimeout() の返り値を登録する
-            interval_ids: [],
-
-            // チャンネルリスト
-            channels_list: null,
-
-            // ピン留めしているチャンネルの ID (ex: gr011) が入るリスト
-            pinned_channel_ids: [],
+            interval_ids: [] as number[],
         }
     },
     // 開始時に実行
@@ -126,7 +120,7 @@ export default mixins(mixin).extend({
         // clearInterval() ですべての setInterval(), setTimeout() の実行を止める
         // clearInterval() と clearTimeout() は中身共通なので問題ない
         for (const interval_id of this.interval_ids) {
-            window.clearInterval(parseInt(interval_id));
+            window.clearInterval(interval_id);
         }
     },
     methods: {
@@ -197,16 +191,17 @@ export default mixins(mixin).extend({
         },
 
         // チャンネルがピン留めされているか
-        isPinnedChannel(channel_id: string) {
+        isPinnedChannel(channel_id: string): boolean {
 
             // 引数のチャンネルがピン留めリストに存在するかを返す
             return this.pinned_channel_ids.includes(channel_id);
         }
     }
 });
-</script>
 
+</script>
 <style lang="scss">
+
 // 上書きしたいスタイル
 .channels-container.channels-container--home {
     .v-tabs-bar {
@@ -226,9 +221,10 @@ export default mixins(mixin).extend({
     // 1px はスクロールバーを表示させるためのもの
     min-height: calc(100vh - 65px - 116px + 1px);
 }
-</style>
 
+</style>
 <style lang="scss" scoped>
+
 .channels-container {
     display: flex;
     flex-direction: column;
@@ -560,4 +556,5 @@ export default mixins(mixin).extend({
         }
     }
 }
+
 </style>

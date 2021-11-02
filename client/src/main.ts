@@ -5,10 +5,10 @@ import Vue from 'vue';
 import VueAxios from 'vue-axios';
 
 import App from './App.vue';
+import VTabsItems from '@/components/VTabsItems.vue';
 import vuetify from './plugins/vuetify';
 import router from './router';
 import mixin from './mixins';
-import VTabsItems from '@/components/VTabsItems.vue';
 import './registerServiceWorker';
 
 
@@ -24,7 +24,7 @@ Vue.component('Icon', Icon);
 // VTabsItems の挙動を改善するグローバルコンポーネント
 Vue.component('v-tabs-items-fix', VTabsItems);
 
-// mixin を登録
+// グローバル Mixin を登録
 Vue.mixin(mixin);
 
 // Vue を初期化

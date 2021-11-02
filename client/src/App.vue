@@ -5,8 +5,8 @@
         </transition>
     </v-app>
 </template>
-
 <style lang="scss">
+
 // 全体のスタイル
 html {
     overflow-y: auto !important;
@@ -120,4 +120,5 @@ body .v-main__wrap {
 .h-100 {
     height: 100%;
 }
+
 </style>

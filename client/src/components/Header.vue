@@ -12,8 +12,8 @@
         </v-btn>
     </v-toolbar>
 </template>
-
 <style lang="scss">
+
 body .v-toolbar.header {
     position: fixed;
     height: 65px !important;
@@ -40,4 +40,5 @@ body .v-toolbar.header {
         }
     }
 }
+
 </style>

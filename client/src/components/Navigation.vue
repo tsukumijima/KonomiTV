@@ -39,20 +39,8 @@
         </nav>
     </div>
 </template>
-
-<script lang="ts">
-import mixins from 'vue-typed-mixins'
-import mixin from '@/mixins';
-import { Icon } from '@iconify/vue2';
-
-export default mixins(mixin).extend({
-	components: {
-		Icon,
-	},
-});
-</script>
-
 <style lang="scss" scoped>
+
 .navigation-container {
     flex-shrink: 0;
     width: 220px;  // .navigation を fixed にするため、浮いた分の幅を確保する
@@ -132,4 +120,5 @@ export default mixins(mixin).extend({
         }
     }
 }
+
 </style>
