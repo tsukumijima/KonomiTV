@@ -474,9 +474,8 @@ export default mixins(mixin).extend({
 
             // is_display が true または現在表示中のチャンネルのみに絞り込むフィルタ関数
             // 放送していないサブチャンネルを表示から除外する
-            const channel_id = this.channel_id;
-            function filter(channel: any) {
-                return channel.is_display || channel_id === channel.channel_id;
+            const filter = (channel: any) => {
+                return channel.is_display || this.channel_id === channel.channel_id;
             }
 
             // チャンネルリストを再構築

@@ -132,32 +132,36 @@ export default mixins(mixin).extend({
     methods: {
 
         // チャンネル情報一覧を取得し、画面を更新する
-        update() {
+        async update() {
 
             // チャンネル情報一覧 API にアクセス
-            Vue.axios.get(`${this.api_base_url}/channels`).then((response) => {
+            let channels_response;
+            try {
+                channels_response = await Vue.axios.get(`${this.api_base_url}/channels`);
+            } catch (error) {
+                console.error(error);   // エラー内容を表示
+            }
 
-                // is_display が true のチャンネルのみに絞り込むフィルタ関数
-                // 放送していないサブチャンネルを表示から除外する
-                function filter(channel: any) {
-                    return channel.is_display;
-                }
+            // is_display が true のチャンネルのみに絞り込むフィルタ関数
+            // 放送していないサブチャンネルを表示から除外する
+            const filter = (channel: any) => {
+                return channel.is_display;
+            }
 
-                // チャンネルリストを再構築
-                // 1つでもチャンネルが存在するチャンネルタイプのみ表示するように
-                // たとえば SKY (スカパー！プレミアムサービス) のタブは SKY に属すチャンネルが1つもない（=受信できない）なら表示されない
-                this.channels_list = {};
-                if (response.data.GR.length > 0) this.channels_list['地デジ'] = response.data.GR.filter(filter);
-                if (response.data.BS.length > 0) this.channels_list['BS'] = response.data.BS.filter(filter);
-                if (response.data.CS.length > 0) this.channels_list['CS'] = response.data.CS.filter(filter);
-                if (response.data.SKY.length > 0) this.channels_list['SKY'] = response.data.SKY.filter(filter);
+            // チャンネルリストを再構築
+            // 1つでもチャンネルが存在するチャンネルタイプのみ表示するように
+            // たとえば SKY (スカパー！プレミアムサービス) のタブは SKY に属すチャンネルが1つもない（=受信できない）なら表示されない
+            this.channels_list = {};
+            if (channels_response.data.GR.length > 0) this.channels_list['地デジ'] = channels_response.data.GR.filter(filter);
+            if (channels_response.data.BS.length > 0) this.channels_list['BS'] = channels_response.data.BS.filter(filter);
+            if (channels_response.data.CS.length > 0) this.channels_list['CS'] = channels_response.data.CS.filter(filter);
+            if (channels_response.data.SKY.length > 0) this.channels_list['SKY'] = channels_response.data.SKY.filter(filter);
 
-                // ピン留めされているチャンネルのリストを更新
-                this.updatePinnedChannelList();
+            // ピン留めされているチャンネルのリストを更新
+            this.updatePinnedChannelList();
 
-                // ローディング状態を解除
-                this.loading = false;
-            });
+            // ローディング状態を解除
+            this.loading = false;
         },
 
         // チャンネルをピン留めする
