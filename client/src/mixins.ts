@@ -12,10 +12,6 @@ export default Vue.extend({
             api_base_url = `${window.location.protocol}//${window.location.hostname}:7000/api`;
         }
 
-        // デフォルトの映像の画質
-        // 当面は 1080p で決め打ち
-        const default_quality = '1080p';
-
         // バージョン
         const version = process.env.VUE_APP_VERSION;
 
@@ -23,7 +19,6 @@ export default Vue.extend({
 
             // 設定値
             api_base_url: api_base_url,
-            default_quality: default_quality,
             version: version,
         }
     }

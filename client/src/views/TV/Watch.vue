@@ -411,7 +411,7 @@ export default Mixin.extend({
                 theme: '#E64F97',
                 // 読み込む URL を指定する
                 video: {
-                    defaultQuality: this.default_quality,
+                    defaultQuality: '1080p',  // 当面 1080p で決め打ち
                     quality: [
                         {
                             name: '1080p',
