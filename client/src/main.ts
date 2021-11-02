@@ -9,8 +9,7 @@ import VTabsItems from '@/components/VTabsItems.vue';
 import vuetify from './plugins/vuetify';
 import router from './router';
 import mixin from './mixins';
-import './registerServiceWorker';
-
+import './service-worker';
 
 // Production Tip を非表示に
 Vue.config.productionTip = false;
