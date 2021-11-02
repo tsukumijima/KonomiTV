@@ -350,7 +350,7 @@ export default mixins(mixin).extend({
 
         // 0.5秒だけ待ってから
         // 連続して押した時などにライブストリームを初期化しないように猶予を設ける
-        this.interval_ids.push(setTimeout(() => {
+        this.interval_ids.push(window.setTimeout(() => {
 
             // 現在のインスタンスを初期化する
             this.init();
@@ -374,7 +374,7 @@ export default mixins(mixin).extend({
             this.update();
 
             // 現在時刻を1秒おきに更新
-            this.interval_ids.push(setInterval(() => {
+            this.interval_ids.push(window.setInterval(() => {
                 this.time = dayjs().format('YYYY/MM/DD HH:mm:ss');
             }, 1 * 1000));
 
@@ -384,13 +384,13 @@ export default mixins(mixin).extend({
 
             // 00秒になるまで待ってから
             // 番組は基本1分単位で組まれているため、20秒や45秒など中途半端な秒数で更新してしまうと反映が遅れてしまう
-            this.interval_ids.push(setTimeout(() => {
+            this.interval_ids.push(window.setTimeout(() => {
 
                 // チャンネル情報を更新
                 this.update();
 
                 // チャンネル情報を定期的に更新
-                this.interval_ids.push(setInterval(() => {
+                this.interval_ids.push(window.setInterval(() => {
                     this.update();
                 }, 60 * 1000));  // 1分おき
 
@@ -448,7 +448,7 @@ export default mixins(mixin).extend({
 
                 // 現在副音声が選択されている可能性を考慮し、明示的に主音声に切り替える
                 if (this.player.plugins.mpegts) {
-                    setTimeout(() => {  // 初期化が終わるまで少し待つ
+                    window.setTimeout(() => {  // 初期化が終わるまで少し待つ
                         this.player.template.audioItem[0].classList.add('dplayer-setting-audio-current');
                         this.player.template.audioItem[1].classList.remove('dplayer-setting-audio-current');
                         this.player.template.audioValue.textContent = this.player.tran('Primary audio');
@@ -500,14 +500,14 @@ export default mixins(mixin).extend({
         controlVisibleTimer() {
 
             // 以前セットされた setTimeout() を止める
-            clearTimeout(this.control_interval_id);
+            window.clearTimeout(this.control_interval_id);
 
             // コントロールを表示する
             this.is_control_visible = true;
 
             // 3秒間何も操作がなければコントロールを非表示にする
             // 3秒間の間一度でもマウスが動けばタイマーが解除されてやり直しになる
-            this.control_interval_id = setTimeout(() => {
+            this.control_interval_id = window.setTimeout(() => {
 
                 // コントロールを非表示にする
                 this.is_control_visible = false;
@@ -638,7 +638,7 @@ export default mixins(mixin).extend({
                 if (this.player.container.classList.contains('dplayer-hide-controller')) {
 
                     // 以前セットされた setTimeout() を止める
-                    clearTimeout(this.control_interval_id);
+                    window.clearTimeout(this.control_interval_id);
 
                     // 明示的にプレイヤーのコントロールを非表示にする
                     this.player.controller.hide();
@@ -816,7 +816,7 @@ export default mixins(mixin).extend({
             // clearInterval() ですべての setInterval(), setTimeout() の実行を止める
             // clearInterval() と clearTimeout() は中身共通なので問題ない
             for (const interval_id of this.interval_ids) {
-                clearInterval(parseInt(interval_id));
+                window.clearInterval(parseInt(interval_id));
             }
 
             // interval_ids をクリア

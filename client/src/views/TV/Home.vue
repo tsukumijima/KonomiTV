@@ -108,13 +108,13 @@ export default mixins(mixin).extend({
 
         // 00秒になるまで待ってから
         // 番組は基本1分単位で組まれているため、20秒や45秒など中途半端な秒数で更新してしまうと反映が遅れてしまう
-        this.interval_ids.push(setTimeout(() => {
+        this.interval_ids.push(window.setTimeout(() => {
 
             // チャンネル情報を更新
             this.update();
 
             // チャンネル情報を定期的に更新
-            this.interval_ids.push(setInterval(() => {
+            this.interval_ids.push(window.setInterval(() => {
                 this.update();
             }, 60 * 1000));  // 1分おき
 
@@ -126,7 +126,7 @@ export default mixins(mixin).extend({
         // clearInterval() ですべての setInterval(), setTimeout() の実行を止める
         // clearInterval() と clearTimeout() は中身共通なので問題ない
         for (const interval_id of this.interval_ids) {
-            clearInterval(parseInt(interval_id));
+            window.clearInterval(parseInt(interval_id));
         }
     },
     methods: {
@@ -518,6 +518,7 @@ export default mixins(mixin).extend({
                         align-items: center;
                         &-decorate {
                             flex-shrink: 0;
+                            font-weight: bold;
                         }
                         &-icon {
                             flex-shrink: 0;
