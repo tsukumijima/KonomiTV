@@ -22,6 +22,11 @@
         "strictBindCallApply": false,
         "strictPropertyInitialization": false,
         // ↑↑↑
+        "types": [
+            "wicg-mediasession",
+            "webpack-env",
+            "vuetify",
+        ],
         "paths": {
             "@/*": [
                 "src/*",
