@@ -672,7 +672,7 @@ export default mixins(mixin).extend({
                     title: this.channel.program_present ? this.channel.program_present.title : '放送休止',
                     artist: this.channel.channel_name,
                     artwork: [
-                        {src: `${this.api_base_url}/channels/${(this.channel_id)}/logo`, sizes: '256x256', type: 'image/png'},
+                        {src: '/assets/img/icons/icon-maskable-512px.png', sizes: '512x512', type: 'image/png'},
                     ]
                 });
             }
