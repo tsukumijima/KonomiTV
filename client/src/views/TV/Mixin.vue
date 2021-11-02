@@ -19,7 +19,7 @@ export default mixins(mixin).extend({
         return {
 
             // チャンネル情報リスト
-            channels_list: {} as {[key: string]: IChannel[]},
+            channels_list: new Map() as Map<string, IChannel[]>,
 
             // ピン留めしているチャンネルの ID (ex: gr011) が入るリスト
             pinned_channel_ids: [] as string[],
@@ -31,7 +31,7 @@ export default mixins(mixin).extend({
         decorateProgramInfo(program: IProgram, key: string): string {
 
             // program が空でないかつ、program[key] が存在する
-            if (program !== null && key in program) {
+            if (program !== null && program[key] !== null) {
 
                 // 本来 ARIB 外字である記号の一覧
                 // ref: https://ja.wikipedia.org/wiki/%E7%95%AA%E7%B5%84%E8%A1%A8
@@ -84,7 +84,7 @@ export default mixins(mixin).extend({
         getPreviousAndCurrentAndNextChannel(channel_id: string): IChannel[] {
 
             // 前後のチャンネルを取得
-            const channels = this.channels_list[this.getChannelType(channel_id, true)];
+            const channels = this.channels_list.get(this.getChannelType(channel_id, true));
             for (let index = 0; index < channels.length; index++) {
                 const element = channels[index];
 
@@ -161,7 +161,7 @@ export default mixins(mixin).extend({
             this.pinned_channel_ids = Utility.getSettingsItem('pinned_channel_ids');
 
             // 仮で保存する辞書
-            const pinned_channels = [];
+            const pinned_channels = [] as IChannel[];
 
             // チャンネルごとに
             for (const pinned_channel_id of this.pinned_channel_ids) {
@@ -170,7 +170,7 @@ export default mixins(mixin).extend({
                 const pinned_channel_type = this.getChannelType(pinned_channel_id, true);
 
                 // チャンネル ID が一致したチャンネルの情報を入れる
-                for (const channel of this.channels_list[pinned_channel_type]) {
+                for (const channel of this.channels_list.get(pinned_channel_type)) {
                     if (pinned_channel_id === channel.channel_id) {
                         pinned_channels.push(channel);
                         break;
@@ -182,24 +182,26 @@ export default mixins(mixin).extend({
             if (pinned_channels.length > 0) {
 
                 // ピン留めタブが存在しない
-                if (!('ピン留め' in this.channels_list)) {
+                if (!this.channels_list.has('ピン留め')) {
 
                     // 一番左に表示するためこうしている
-                    this.channels_list = Object.assign({'ピン留め': pinned_channels}, this.channels_list);
+                    this.channels_list = new Map([['ピン留め', pinned_channels], ...this.channels_list]);
+
+                    console.log(this.channels_list)
 
                 // ピン留めタブが存在する
                 } else {
 
                     // Vue.set() を使わないと反映されない
-                    Vue.set(this.channels_list, 'ピン留め', pinned_channels);
+                    this.channels_list.set('ピン留め', pinned_channels);
                 }
 
             } else {
                 // ピン留めタブがまだ表示されていれば
-                if ('ピン留め' in this.channels_list) {
+                if (this.channels_list.has('ピン留め')) {
 
                     // Vue.delete() を使わないと反映されない
-                    Vue.delete(this.channels_list, 'ピン留め');
+                    this.channels_list.delete('ピン留め');
                 }
             }
         }

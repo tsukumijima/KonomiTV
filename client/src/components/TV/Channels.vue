@@ -1,13 +1,13 @@
 <template>
     <div class="channels-container channels-container--watch">
         <v-tabs centered show-arrows class="channels-tab" v-model="tab">
-            <v-tab class="channels-tab__item" v-for="(channels, channels_type) in channels_list_props" :key="channels_type">
+            <v-tab class="channels-tab__item" v-for="[channels_type,] in Array.from(channels_list_props)" :key="channels_type">
                 {{channels_type}}
             </v-tab>
         </v-tabs>
         <div class="channels-list-container">
             <v-tabs-items-fix class="channels-list" v-model="tab">
-                <v-tab-item class="channels" v-for="(channels, channels_type) in channels_list_props" :key="channels_type">
+                <v-tab-item class="channels" v-for="[channels_type, channels] in Array.from(channels_list_props)" :key="channels_type">
                     <router-link v-ripple class="channel" v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.channel_id}`">
                         <div class="channel__broadcaster">
                             <img class="channel__broadcaster-icon" :src="`${api_base_url}/channels/${channel.channel_id}/logo`">
@@ -55,7 +55,7 @@ export default Mixin.extend({
     name: 'Channels',
     props: {
         channels_list_props: {
-            type: Object as PropType<{[key: string]: IChannel[]}>,
+            type: Map as PropType<Map<string, IChannel[]>>,
             required: true,
         }
     },

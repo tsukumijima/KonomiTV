@@ -5,10 +5,10 @@
             <Navigation/>
             <div class="channels-container channels-container--home" :class="{'channels-container--loading': loading}">
                 <v-tabs centered class="channels-tab" v-model="tab">
-                    <v-tab class="channels-tab__item" v-for="(channels, channels_type) in channels_list" :key="channels_type">{{channels_type}}</v-tab>
+                    <v-tab class="channels-tab__item" v-for="[channels_type,] in Array.from(channels_list)" :key="channels_type">{{channels_type}}</v-tab>
                 </v-tabs>
                 <v-tabs-items-fix class="channels-list" v-model="tab">
-                    <v-tab-item class="channels" v-for="(channels, channels_type) in channels_list" :key="channels_type"
+                    <v-tab-item class="channels" v-for="[channels_type, channels] in Array.from(channels_list)" :key="channels_type"
                         :class="`channels--length-${channels.length}`">
                         <router-link v-ripple class="channel" v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.channel_id}`">
                             <div class="channel__broadcaster">
@@ -146,11 +146,11 @@ export default Mixin.extend({
             // チャンネルリストを再構築
             // 1つでもチャンネルが存在するチャンネルタイプのみ表示するように
             // たとえば SKY (スカパー！プレミアムサービス) のタブは SKY に属すチャンネルが1つもない（=受信できない）なら表示されない
-            this.channels_list = {};
-            if (channels_response.data.GR.length > 0) this.channels_list['地デジ'] = channels_response.data.GR.filter(filter);
-            if (channels_response.data.BS.length > 0) this.channels_list['BS'] = channels_response.data.BS.filter(filter);
-            if (channels_response.data.CS.length > 0) this.channels_list['CS'] = channels_response.data.CS.filter(filter);
-            if (channels_response.data.SKY.length > 0) this.channels_list['SKY'] = channels_response.data.SKY.filter(filter);
+            this.channels_list = new Map();
+            if (channels_response.data.GR.length > 0) this.channels_list.set('地デジ', channels_response.data.GR.filter(filter));
+            if (channels_response.data.BS.length > 0) this.channels_list.set('BS', channels_response.data.BS.filter(filter));
+            if (channels_response.data.CS.length > 0) this.channels_list.set('CS', channels_response.data.CS.filter(filter));
+            if (channels_response.data.SKY.length > 0) this.channels_list.set('SKY', channels_response.data.SKY.filter(filter));
 
             // ピン留めされているチャンネルのリストを更新
             this.updatePinnedChannelList();

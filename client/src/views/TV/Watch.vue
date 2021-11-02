@@ -352,11 +352,11 @@ export default Mixin.extend({
             // チャンネルリストを再構築
             // 1つでもチャンネルが存在するチャンネルタイプのみ表示するように
             // たとえば SKY (スカパー！プレミアムサービス) のタブは SKY に属すチャンネルが1つもない（=受信できない）なら表示されない
-            this.channels_list = {};
-            if (channels_response.data.GR.length > 0) this.channels_list['地デジ'] = channels_response.data.GR.filter(filter);
-            if (channels_response.data.BS.length > 0) this.channels_list['BS'] = channels_response.data.BS.filter(filter);
-            if (channels_response.data.CS.length > 0) this.channels_list['CS'] = channels_response.data.CS.filter(filter);
-            if (channels_response.data.SKY.length > 0) this.channels_list['SKY'] = channels_response.data.SKY.filter(filter);
+            this.channels_list = new Map();
+            if (channels_response.data.GR.length > 0) this.channels_list.set('地デジ', channels_response.data.GR.filter(filter));
+            if (channels_response.data.BS.length > 0) this.channels_list.set('BS', channels_response.data.BS.filter(filter));
+            if (channels_response.data.CS.length > 0) this.channels_list.set('CS', channels_response.data.CS.filter(filter));
+            if (channels_response.data.SKY.length > 0) this.channels_list.set('SKY', channels_response.data.SKY.filter(filter));
 
             // ピン留めされているチャンネルのリストを更新
             this.updatePinnedChannelList();
