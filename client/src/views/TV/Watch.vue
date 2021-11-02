@@ -807,6 +807,9 @@ export default Mixin.extend({
                 window.clearInterval(interval_id);
             }
 
+            // コントロール表示制御用タイマーを止める
+            window.clearTimeout(this.control_interval_id);
+
             // interval_ids をクリア
             this.interval_ids = [];
 
