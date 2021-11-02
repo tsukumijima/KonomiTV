@@ -439,9 +439,9 @@ export default mixins(mixin).extend({
 
             // 副音声がない番組でプレイヤー上で副音声に切り替えられないように
             // 音声多重放送でもデュアルモノでもない番組のみ
-            if (this.channel.program_present === null ||
-                (this.channel.program_present.primary_audio_type !== '1/0+1/0モード(デュアルモノ)' &&
-                this.channel.program_present.secondary_audio_type === null)) {
+            if ((this.channel.program_present === null) ||
+               ((this.channel.program_present.primary_audio_type !== '1/0+1/0モード(デュアルモノ)') &&
+                (this.channel.program_present.secondary_audio_type === null))) {
 
                 // クラスを付与
                 this.player.template.audioItem[1].classList.add('dplayer-setting-audio-item--disabled');
@@ -449,6 +449,9 @@ export default mixins(mixin).extend({
                 // 現在副音声が選択されている可能性を考慮し、明示的に主音声に切り替える
                 if (this.player.plugins.mpegts) {
                     setTimeout(() => {  // 初期化が終わるまで少し待つ
+                        this.player.template.audioItem[0].classList.add('dplayer-setting-audio-current');
+                        this.player.template.audioItem[1].classList.remove('dplayer-setting-audio-current');
+                        this.player.template.audioValue.textContent = this.player.tran('Primary audio');
                         this.player.plugins.mpegts.switchPrimaryAudio();
                     }, 200);
                 }
