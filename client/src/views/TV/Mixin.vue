@@ -192,7 +192,7 @@ export default mixins(mixin).extend({
                 // ピン留めタブが存在する
                 } else {
 
-                    // Vue.set() を使わないと反映されない
+                    // 既に存在するピン留めタブに値を設定する
                     this.channels_list.set('ピン留め', pinned_channels);
                 }
 
@@ -200,8 +200,14 @@ export default mixins(mixin).extend({
                 // ピン留めタブがまだ表示されていれば
                 if (this.channels_list.has('ピン留め')) {
 
-                    // Vue.delete() を使わないと反映されない
+                    // ピン留めを削除
                     this.channels_list.delete('ピン留め');
+
+                    // タブのインデックスを 0（地デジ）に変更
+                    // 何もしないと一番最後のタブになってしまう
+                    if ((this as any).tab) {
+                        (this as any).tab = 0;
+                    }
                 }
             }
         }
