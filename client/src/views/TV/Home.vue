@@ -8,52 +8,53 @@
                     <v-tab class="channels-tab__item" v-for="[channels_type,] in Array.from(channels_list)" :key="channels_type">{{channels_type}}</v-tab>
                 </v-tabs-fix>
                 <v-tabs-items-fix class="channels-list" v-model="tab">
-                    <v-tab-item class="channels" v-for="[channels_type, channels] in Array.from(channels_list)" :key="channels_type"
-                        :class="`channels--length-${channels.length}`">
-                        <router-link v-ripple class="channel" v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.channel_id}`">
-                            <div class="channel__broadcaster">
-                                <img class="channel__broadcaster-icon" :src="`${api_base_url}/channels/${channel.channel_id}/logo`">
-                                <div class="channel__broadcaster-content">
-                                    <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.channel_name}}</span>
-                                    <div class="channel__broadcaster-status">
-                                        <Icon icon="fa-solid:eye" height="12px" />
-                                        <span class="ml-1">{{channel.viewers}}</span>
-                                        <Icon class="ml-4" icon="fa-solid:fire-alt" height="12px" />
-                                        <span class="ml-1">{{getAttribute(channel, 'channel_force', '-')}}</span>
-                                        <Icon class="ml-4" icon="bi:chat-left-text-fill" height="12px" />
-                                        <span class="ml-1">{{getAttribute(channel, 'channel_comment', '-')}}</span>
-                                    </div>
-                                </div>
-                                <v-tooltip top transition="fade-transition">
-                                    <template v-slot:activator="{ on }">
-                                        <div v-on="on" v-ripple class="channel__broadcaster-pin"
-                                            :class="{'channel__broadcaster-pin--pinned': isPinnedChannel(channel.channel_id)}"
-                                            @click.prevent.stop="isPinnedChannel(channel.channel_id) ? removePinnedChannel(channel.channel_id) : addPinnedChannel(channel.channel_id)"
-                                            @mousedown.prevent.stop="/* 親要素の波紋が広がらないように */">
-                                            <Icon icon="fluent:pin-20-filled" width="24px" />
+                    <v-tab-item class="channels-tabitem" v-for="[channels_type, channels] in Array.from(channels_list)" :key="channels_type">
+                        <div class="channels" :class="`channels--length-${channels.length}`">
+                            <router-link v-ripple class="channel" v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.channel_id}`">
+                                <div class="channel__broadcaster">
+                                    <img class="channel__broadcaster-icon" :src="`${api_base_url}/channels/${channel.channel_id}/logo`">
+                                    <div class="channel__broadcaster-content">
+                                        <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.channel_name}}</span>
+                                        <div class="channel__broadcaster-status">
+                                            <Icon icon="fa-solid:eye" height="12px" />
+                                            <span class="ml-1">{{channel.viewers}}</span>
+                                            <Icon class="ml-4" icon="fa-solid:fire-alt" height="12px" />
+                                            <span class="ml-1">{{getAttribute(channel, 'channel_force', '-')}}</span>
+                                            <Icon class="ml-4" icon="bi:chat-left-text-fill" height="12px" />
+                                            <span class="ml-1">{{getAttribute(channel, 'channel_comment', '-')}}</span>
                                         </div>
-                                    </template>
-                                    <span>{{isPinnedChannel(channel.channel_id) ? 'ピン留めを外す' : 'ピン留めする'}}</span>
-                                </v-tooltip>
-                            </div>
-                            <div class="channel__program-present">
-                                <span class="channel__program-present-title" v-html="decorateProgramInfo(channel.program_present, 'title')"></span>
-                                <span class="channel__program-present-time">{{getProgramTime(channel.program_present)}}</span>
-                                <span class="channel__program-present-description" v-html="decorateProgramInfo(channel.program_present, 'description')"></span>
-                            </div>
-                            <v-spacer></v-spacer>
-                            <div class="channel__program-following">
-                                <div class="channel__program-following-title">
-                                    <span class="channel__program-following-title-decorate">NEXT</span>
-                                    <Icon class="channel__program-following-title-icon" icon="fluent:fast-forward-20-filled" width="16px" />
-                                    <span class="channel__program-following-title-text" v-html="decorateProgramInfo(channel.program_following, 'title')"></span>
+                                    </div>
+                                    <v-tooltip top transition="fade-transition">
+                                        <template v-slot:activator="{ on }">
+                                            <div v-on="on" v-ripple class="channel__broadcaster-pin"
+                                                :class="{'channel__broadcaster-pin--pinned': isPinnedChannel(channel.channel_id)}"
+                                                @click.prevent.stop="isPinnedChannel(channel.channel_id) ? removePinnedChannel(channel.channel_id) : addPinnedChannel(channel.channel_id)"
+                                                @mousedown.prevent.stop="/* 親要素の波紋が広がらないように */">
+                                                <Icon icon="fluent:pin-20-filled" width="24px" />
+                                            </div>
+                                        </template>
+                                        <span>{{isPinnedChannel(channel.channel_id) ? 'ピン留めを外す' : 'ピン留めする'}}</span>
+                                    </v-tooltip>
                                 </div>
-                                <span class="channel__program-following-time">{{getProgramTime(channel.program_following)}}</span>
-                            </div>
-                            <div class="channel__progressbar">
-                                <div class="channel__progressbar-progress" :style="`width:${getProgramProgress(channel.program_present)}%;`"></div>
-                            </div>
-                        </router-link>
+                                <div class="channel__program-present">
+                                    <span class="channel__program-present-title" v-html="decorateProgramInfo(channel.program_present, 'title')"></span>
+                                    <span class="channel__program-present-time">{{getProgramTime(channel.program_present)}}</span>
+                                    <span class="channel__program-present-description" v-html="decorateProgramInfo(channel.program_present, 'description')"></span>
+                                </div>
+                                <v-spacer></v-spacer>
+                                <div class="channel__program-following">
+                                    <div class="channel__program-following-title">
+                                        <span class="channel__program-following-title-decorate">NEXT</span>
+                                        <Icon class="channel__program-following-title-icon" icon="fluent:fast-forward-20-filled" width="16px" />
+                                        <span class="channel__program-following-title-text" v-html="decorateProgramInfo(channel.program_following, 'title')"></span>
+                                    </div>
+                                    <span class="channel__program-following-time">{{getProgramTime(channel.program_following)}}</span>
+                                </div>
+                                <div class="channel__progressbar">
+                                    <div class="channel__progressbar-progress" :style="`width:${getProgramProgress(channel.program_present)}%;`"></div>
+                                </div>
+                            </router-link>
+                        </div>
                     </v-tab-item>
                 </v-tabs-items-fix>
             </div>
@@ -278,6 +279,8 @@ export default Mixin.extend({
             grid-row-gap: 16px;
             grid-column-gap: 16px;
             justify-content: center;
+            // 背後を通過する別のタブのアニメーションが写らないようにするのに必要
+            background: var(--v-background-base);
             // will-change を入れておく事で、アニメーションが GPU で処理される
             will-change: transform;
 
