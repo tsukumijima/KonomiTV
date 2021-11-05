@@ -187,8 +187,6 @@ export default mixins(mixin).extend({
                     // 一番左に表示するためこうしている
                     this.channels_list = new Map([['ピン留め', pinned_channels], ...this.channels_list]);
 
-                    console.log(this.channels_list)
-
                 // ピン留めタブが存在する
                 } else {
 
@@ -200,14 +198,15 @@ export default mixins(mixin).extend({
                 // ピン留めタブがまだ表示されていれば
                 if (this.channels_list.has('ピン留め')) {
 
+                    // ピン留めタブがアクティブな状態なら、タブを削除する前にタブのインデックスを 1（地デジ）に変更
+                    // 何もしないと一番最後のタブになってしまう
+                    // 本当は VTabsItems 側で制御したかったけど、なぜかインデックスが 2 のタブが選択されてしまうのでやむなくこうしている
+                    if ((this as any).tab !== undefined && (this as any).tab === 0) {
+                        (this as any).tab = 1;
+                    }
+
                     // ピン留めを削除
                     this.channels_list.delete('ピン留め');
-
-                    // タブのインデックスを 0（地デジ）に変更
-                    // 何もしないと一番最後のタブになってしまう
-                    if ((this as any).tab) {
-                        (this as any).tab = 0;
-                    }
                 }
             }
         }

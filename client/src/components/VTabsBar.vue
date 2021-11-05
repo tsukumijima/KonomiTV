@@ -3,10 +3,10 @@
 import { VueConstructor } from 'vue';
 
 import { GroupableInstance } from 'vuetify/lib/components/VItemGroup/VItemGroup';
-import VTabsItems from 'vuetify/lib/components/VTabs/VTabsItems';
+import VTabsBar from 'vuetify/lib/components/VTabs/VTabsBar';
 
-// VTabsItems は VItemGroup と VWindow を extend() して実装されている
-export default (VTabsItems as VueConstructor).extend({
+// VTabsBar は VItemGroup を extend() して実装されている
+export default (VTabsBar as VueConstructor).extend({
     data() {
         return {
             // 一応型定義をしておく
@@ -69,28 +69,6 @@ export default (VTabsItems as VueConstructor).extend({
             // 配列の末尾以外から削除された場合はインデックスが1つずつずれてしまうため、インデックスを設定し直す必要がある
             if (activeItem !== undefined) {
                 (this as any).updateInternalValue(this.items.indexOf(activeItem));
-            }
-        },
-
-        // 最初のタブから最後のタブに遷移するとアニメーションの向きが逆になるバグがあるので、VWindow 側の挙動をオーバーライドする
-        // 本来は VCarousel 用の動作だが、VTabsItems も VWindow を継承しているので、それが適用されてしまっているらしい
-        // ref: https://github.com/yuwu9145/vuetify/blob/master/packages/vuetify/src/components/VWindow/VWindow.ts#L239-L252
-        updateReverse(val: number, oldVal: number) {
-
-            const itemsLength = this.items.length;
-            const lastIndex = itemsLength - 1;
-
-            if (itemsLength <= 2) return val < oldVal;
-
-            // continuous が false の時、常に val < oldVal の結果を返す
-            if (!(this as any).continuous) return val < oldVal;
-
-            if (val === lastIndex && oldVal === 0) {
-                return true;
-            } else if (val === 0 && oldVal === lastIndex) {
-                return false;
-            } else {
-                return val < oldVal;
             }
         }
     }

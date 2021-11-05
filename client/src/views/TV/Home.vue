@@ -4,9 +4,9 @@
         <v-main>
             <Navigation/>
             <div class="channels-container channels-container--home" :class="{'channels-container--loading': loading}">
-                <v-tabs centered class="channels-tab" v-model="tab">
+                <v-tabs-fix centered class="channels-tab" v-model="tab">
                     <v-tab class="channels-tab__item" v-for="[channels_type,] in Array.from(channels_list)" :key="channels_type">{{channels_type}}</v-tab>
-                </v-tabs>
+                </v-tabs-fix>
                 <v-tabs-items-fix class="channels-list" v-model="tab">
                     <v-tab-item class="channels" v-for="[channels_type, channels] in Array.from(channels_list)" :key="channels_type"
                         :class="`channels--length-${channels.length}`">

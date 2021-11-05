@@ -1,10 +1,10 @@
 <template>
     <div class="channels-container channels-container--watch">
-        <v-tabs centered show-arrows class="channels-tab" v-model="tab">
+        <v-tabs-fix centered show-arrows class="channels-tab" v-model="tab">
             <v-tab class="channels-tab__item" v-for="[channels_type,] in Array.from(channels_list_props)" :key="channels_type">
                 {{channels_type}}
             </v-tab>
-        </v-tabs>
+        </v-tabs-fix>
         <div class="channels-list-container">
             <v-tabs-items-fix class="channels-list" v-model="tab">
                 <v-tab-item class="channels" v-for="[channels_type, channels] in Array.from(channels_list_props)" :key="channels_type">
