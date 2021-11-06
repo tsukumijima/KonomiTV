@@ -1854,10 +1854,10 @@ argparse@^1.0.7:
   dependencies:
     sprintf-js "~1.0.2"
 
-aribb24.js@1.7.12:
-  version "1.7.12"
-  resolved "https://registry.yarnpkg.com/aribb24.js/-/aribb24.js-1.7.12.tgz#9c81812496ca21d256f9bb94466db4e22792910c"
-  integrity sha512-iSdk3ryaAdE4VvsUiTilSSeKMkp+JWrEQFNSH3x0XnXMPgGzYb++cJyaKRO2wVSW768XgxKmhKNYrrCBDMia7Q==
+aribb24.js@1.7.13:
+  version "1.7.13"
+  resolved "https://registry.yarnpkg.com/aribb24.js/-/aribb24.js-1.7.13.tgz#17e8d38c84174472ffed9c30f380af42907e7162"
+  integrity sha512-2XOzy12/pRiUvetcMaNQwL+/PjDSSN5+adBEv2qDPOGsIaDffa6Oq4vFuZagWT/O9M8mLfViJ8mojSqdRojWvQ==
   dependencies:
     spark-md5 "^3.0.1"
 
@@ -3537,11 +3537,11 @@ dotenv@^8.2.0:
   resolved "https://registry.npmjs.org/dotenv/-/dotenv-8.6.0.tgz"
   integrity sha512-IrPdXQsk2BbzvCBGBOTmmSH5SodmqZNt4ERAZDmW4CT+tL8VtvinqywuANaFu4bOMWki16nqf0e4oC0QIaDr/g==
 
-"dplayer@github:tsukumijima/DPlayer#30fff3c973518e63a3aa229d347facc061a3eb38":
+"dplayer@github:tsukumijima/DPlayer#5599b72e1a65c3321970a105177b228374daea3f":
   version "1.26.0"
-  resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/30fff3c973518e63a3aa229d347facc061a3eb38"
+  resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/5599b72e1a65c3321970a105177b228374daea3f"
   dependencies:
-    aribb24.js "1.7.12"
+    aribb24.js "1.7.13"
     axios "^0.21.4"
     balloon-css "^1.0.3"
     promise-polyfill "8.2.0"
