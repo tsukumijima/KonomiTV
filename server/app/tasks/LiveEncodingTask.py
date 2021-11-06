@@ -269,7 +269,11 @@ class LiveEncodingTask():
 
             # HTTP リクエストを開始
             ## stream=True を設定することで、レスポンスの返却を待たずに処理を進められる
-            response = requests.get(mirakurun_stream_api_url, headers={'X-Mirakurun-Priority': '0'}, stream=True)
+            try:
+                response = requests.get(mirakurun_stream_api_url, headers={'X-Mirakurun-Priority': '0'}, stream=True, timeout=15)
+            except requests.exceptions.ConnectionError:
+                livestream.setStatus('Offline', 'チューナーの起動に失敗したため、ライブストリームを開始できません。')
+                return
 
         # EDCB バックエンド
         elif CONFIG['general']['backend'] == 'EDCB':
