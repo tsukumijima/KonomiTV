@@ -42,8 +42,9 @@
                     <v-spacer></v-spacer>
                     <span class="watch-header__now">{{time}}</span>
                 </header>
-                <div class="watch-player" :class="{'watch-player__background--visible': is_background_visible}">
-                    <div class="watch-player__background" :style="{backgroundImage: `url(${background_url})`}">
+                <div class="watch-player" :class="{'watch-player--loading': is_loading}">
+                    <div class="watch-player__background" :class="{'watch-player__background--visible': is_background_visible}"
+                        :style="{backgroundImage: `url(${background_url})`}">
                         <img class="watch-player__background-logo" src="/assets/img/logo.svg">
                     </div>
                     <div class="watch-player__dplayer"></div>
@@ -150,6 +151,10 @@ export default Mixin.extend({
 
             // 背景の URL
             background_url: '/assets/img/player-background1.jpg',
+
+            // プレイヤーのローディング状態
+            // 既定でローディングとする
+            is_loading: true,
 
             // プレイヤーの背景を表示するか
             // 既定で表示しない
@@ -548,6 +553,23 @@ export default Mixin.extend({
         // イベントハンドラーを初期化する
         initEventHandler() {
 
+            // 必ず最初はローディング状態とする
+            this.is_loading = true;
+
+            // プレイヤーの背景を非表示にするイベントを登録
+            // 実際に再生可能になるのを待ってから実行する
+            const on_canplay = () => {
+                // 念のためさらに少しだけ待ってから
+                window.setTimeout(() => {
+                    this.is_loading = false;
+                    this.is_background_visible = false;
+                }, 100);
+                this.player.video.oncanplay = null;
+                this.player.video.oncanplaythrough = null;
+            }
+            this.player.video.oncanplay = on_canplay;
+            this.player.video.oncanplaythrough = on_canplay;
+
             // EventSource を作成
             this.eventsource = new EventSource(`${this.api_base_url}/streams/live/${this.channel_id}/${this.player.quality.name}/events`);
 
@@ -585,9 +607,6 @@ export default Mixin.extend({
                         if (!this.player.template.notice.textContent.includes('画質を')) {  // 画質切り替えの表示を上書きしない
                             this.player.notice(this.player.template.notice.textContent, 0.000001);
                         }
-
-                        // プレイヤーの背景を非表示にする
-                        this.is_background_visible = false;
 
                         break;
                     }
@@ -652,16 +671,6 @@ export default Mixin.extend({
                     // プレイヤーの背景を表示する
                     if (!this.is_background_visible) {
                         this.is_background_visible = true;
-                    }
-
-                    // バッファリングしています…の場合
-                    if (event.detail === 'バッファリングしています…') {
-
-                        // 再生可能になったらプレイヤーの背景を非表示にする
-                        this.player.video.oncanplay = () => {
-                            this.is_background_visible = false;
-                            this.player.video.oncanplay = null;
-                        }
                     }
                 }
             });
@@ -739,7 +748,7 @@ export default Mixin.extend({
     transition: opacity 0.3s;
     opacity: 1;
 }
-.watch-player__background--visible .dplayer-video-wrap-aspect {
+.watch-player--loading .dplayer-video-wrap-aspect {
     opacity: 0;
 }
 .dplayer-controller-mask {
@@ -1059,11 +1068,6 @@ export default Mixin.extend({
             background-size: contain;
             background-position: center;
 
-            &.watch-player__background--visible > .watch-player__background {
-                opacity: 1;
-                visibility: visible;
-            }
-
             .watch-player__background {
                 position: absolute;
                 top: 50%;
@@ -1079,7 +1083,13 @@ export default Mixin.extend({
                 background-image: none;
                 opacity: 0;
                 visibility: hidden;
-                transition: opacity 0.3s, visibility 0.3s;
+                will-change: opacity;
+                transition: opacity 0.4s, visibility 0.4s;
+
+                &--visible {
+                    opacity: 1;
+                    visibility: visible;
+                }
 
                 .watch-player__background-logo {
                     display: inline-block;
