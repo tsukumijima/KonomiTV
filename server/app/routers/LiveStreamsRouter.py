@@ -149,20 +149,20 @@ async def LiveStreamEventAPI(
     # ステータスの変更を監視し、変更があればステータスをイベントストリームとして出力する
     async def generator():
         """イベントストリームを出力するジェネレーター"""
-        previous_status = livestream.getStatus()  # 初期値
+
+        # 初期値
+        previous_status = livestream.getStatus()
+
+        # 初回接続時に必ず現在のステータスを返す
+        yield {
+            'event': 'initial_update',  # initial_update イベントを設定
+            'data': previous_status,
+        }
+
         while True:
 
             # 現在のライブストリームのステータスを取得
             status = livestream.getStatus()
-
-            # 取得したステータスが Offline であれば配信を停止する
-            # 実際には JavaScript 側での対応が必要（自動で再接続してしまうため）
-            # if status['status'] == 'Offline':
-            #     yield {
-            #         'event': 'status_update',  # status_update イベントを設定
-            #         'data': status,
-            #     }
-            #     break
 
             # 以前の結果と異なっている場合のみレスポンスを返す
             if previous_status != status:
