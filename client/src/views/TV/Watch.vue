@@ -323,7 +323,11 @@ export default Mixin.extend({
                         this.player.template.audioItem[0].classList.add('dplayer-setting-audio-current');
                         this.player.template.audioItem[1].classList.remove('dplayer-setting-audio-current');
                         this.player.template.audioValue.textContent = this.player.tran('Primary audio');
-                        this.player.plugins.mpegts.switchPrimaryAudio();
+                        try {
+                            this.player.plugins.mpegts.switchPrimaryAudio();
+                        } catch (error) {
+                            // pass
+                        }
                     }, 300);
                 }
 
@@ -773,20 +777,20 @@ export default Mixin.extend({
             padding-left: calc(56px + 18px) !important;
         }
     }
-    .dplayer-setting-box {
-        .dplayer-setting-audio-panel {
-            // 副音声がない番組で副音声を選択できないように
-            .dplayer-setting-audio-item.dplayer-setting-audio-item--disabled {
-                pointer-events: none;  // クリックイベントを無効化
-                .dplayer-label {
-                    color: #AAAAAA;  // グレーアウト
-                }
-            }
-        }
-    }
 }
 .dplayer-mobile.dplayer-hide-controller .dplayer-controller {
     transform: none !important;
+}
+.dplayer-setting-box {
+    .dplayer-setting-audio-panel {
+        // 副音声がない番組で副音声を選択できないように
+        .dplayer-setting-audio-item.dplayer-setting-audio-item--disabled {
+            pointer-events: none;  // クリックイベントを無効化
+            .dplayer-label {
+                color: #AAAAAA;  // グレーアウト
+            }
+        }
+    }
 }
 .dplayer-notice {
     padding: 16px 22px !important;
