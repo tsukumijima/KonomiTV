@@ -749,12 +749,16 @@ export default Mixin.extend({
     padding-bottom: 6px !important;
     opacity: 0 !important;
     visibility: hidden;
-    @media screen and (max-height: 450px) {
-        padding-left: calc(56px + 18px) !important;
-    }
 
     .dplayer-icons {
         bottom: auto !important;
+
+        &.dplayer-icons-right {
+            right: 22px !important;
+            @media screen and (max-height: 450px) {
+                right: 11px !important;
+            }
+        }
 
         // ブラウザフルスクリーンボタンを削除（実質あまり意味がないため）
         .dplayer-icon.dplayer-full-in-icon {
@@ -762,13 +766,21 @@ export default Mixin.extend({
         }
     }
 }
-.dplayer-setting-box {
-    .dplayer-setting-audio-panel {
-        // 副音声がない番組で副音声を選択できないように
-        .dplayer-setting-audio-item.dplayer-setting-audio-item--disabled {
-            pointer-events: none;  // クリックイベントを無効化
-            .dplayer-label {
-                color: #AAAAAA;  // グレーアウト
+.dplayer-mobile {
+    .dplayer-controller {
+        padding-left: calc(68px + 30px) !important;
+        @media screen and (max-height: 450px) {
+            padding-left: calc(56px + 18px) !important;
+        }
+    }
+    .dplayer-setting-box {
+        .dplayer-setting-audio-panel {
+            // 副音声がない番組で副音声を選択できないように
+            .dplayer-setting-audio-item.dplayer-setting-audio-item--disabled {
+                pointer-events: none;  // クリックイベントを無効化
+                .dplayer-label {
+                    color: #AAAAAA;  // グレーアウト
+                }
             }
         }
     }
@@ -1097,13 +1109,14 @@ export default Mixin.extend({
                 flex-direction: column;
                 position: absolute;
                 top: 50%;
-                right: 20px;
+                right: 28px;
                 height: 190px;
                 transform: translateY(-50%);
                 opacity: 0;
                 visibility: hidden;
                 transition: opacity 0.3s, visibility 0.3s;
                 @media screen and (max-height: 450px) {
+                    right: 15px;
                     height: 155px;
                 }
 
