@@ -207,7 +207,7 @@ export default Mixin.extend({
     beforeDestroy() {
 
         // destroy() を実行
-        this.destroy();
+        this.destroy(true);
     },
     // チャンネル切り替え時に実行
     // コンポーネント（インスタンス）は再利用される
@@ -304,7 +304,7 @@ export default Mixin.extend({
             this.channel = channel_response.data;
 
             // まだ初期化されていなければ
-            if (this.player === null) {
+            if (this.player === null || this.player.KonomiTVCanDestroy === true) {
 
                 // プレイヤーを初期化
                 this.initPlayer();
@@ -406,6 +406,18 @@ export default Mixin.extend({
             // mpegts.js を window 空間に入れる
             // こうしないと DPlayer が mpegts.js を認識できない
             (window as any).mpegts = mpegts;
+
+            // すでに DPlayer が初期化されている場合は破棄する
+            // チャンネル切り替え時などが該当する
+            if (this.player !== null && this.player.KonomiTVCanDestroy === true) {
+                try {
+                    this.player.destroy();
+                } catch (error) {
+                    // mpegts.js がうまく初期化できない場合
+                    this.player.plugins.mpegts.destroy();
+                }
+                this.player = null;
+            }
 
             // DPlayer を初期化
             this.player = new DPlayer({
@@ -573,7 +585,19 @@ export default Mixin.extend({
             // EventSource を作成
             this.eventsource = new EventSource(`${this.api_base_url}/streams/live/${this.channel_id}/${this.player.quality.name}/events`);
 
-            // ステータスが更新されたとき
+            // 初回接続時のイベント
+            this.eventsource.addEventListener('initial_update', (event_raw: MessageEvent) => {
+
+                // イベントを取得
+                const event = JSON.parse(event_raw.data.replace(/'/g, '"'));
+
+                // ステータスが Standby であれば、プレイヤーの背景を表示する
+                if (event.status === 'Standby') {
+                    this.is_background_visible = true;
+                }
+            });
+
+            // ステータスが更新されたときのイベント
             this.eventsource.addEventListener('status_update', (event_raw: MessageEvent) => {
 
                 // イベントを取得
@@ -654,7 +678,7 @@ export default Mixin.extend({
                 }
             });
 
-            // ステータス詳細が更新されたとき
+            // ステータス詳細が更新されたときのイベント
             this.eventsource.addEventListener('detail_update', (event_raw: MessageEvent) => {
 
                 // イベントを取得
@@ -675,7 +699,7 @@ export default Mixin.extend({
                 }
             });
 
-            // クライアント数（だけ）が更新されたとき
+            // クライアント数（だけ）が更新されたときのイベント
             this.eventsource.addEventListener('clients_update', (event_raw: MessageEvent) => {
 
                 // イベントを取得
@@ -687,7 +711,7 @@ export default Mixin.extend({
         },
 
         // 破棄する
-        destroy() {
+        destroy(is_destroy_player = false) {
 
             // clearInterval() ですべての setInterval(), setTimeout() の実行を止める
             // clearInterval() と clearTimeout() は中身共通なので問題ない
@@ -701,15 +725,25 @@ export default Mixin.extend({
             // interval_ids をクリア
             this.interval_ids = [];
 
-            // プレイヤーを破棄する
-            if (this.player !== null) {
-                try {
-                    this.player.destroy();
-                } catch (error) {
-                    // mpegts.js がうまく初期化できない場合
-                    this.player.plugins.mpegts.destroy();
-                }
-                this.player = null;
+            // 再びローディング状態にする
+            this.is_loading = true;
+
+            // プレイヤーを停止する
+            window.setTimeout(() => this.player.video.pause(), 400);
+            this.player.KonomiTVCanDestroy = true;  // 破棄可能のフラグをつける
+
+            // is_destroy_player が true の時は、ここで DPlayer 自体を破棄する
+            // false の時は次の initPlayer() が実行されるまで破棄されない
+            if (is_destroy_player === true && this.player !== null) {
+                window.setTimeout(() => {  // アニメーション分待ってから
+                    try {
+                        this.player.destroy();
+                    } catch (error) {
+                        // mpegts.js がうまく初期化できない場合
+                        this.player.plugins.mpegts.destroy();
+                    }
+                    this.player = null;
+                }, 400);
             }
 
             // イベントソースを閉じる
@@ -743,10 +777,10 @@ export default Mixin.extend({
 }
 .dplayer-video-wrap {
     background: transparent !important;
-}
-.dplayer-video-wrap-aspect {
-    transition: opacity 0.3s;
-    opacity: 1;
+    .dplayer-video-wrap-aspect {
+        transition: opacity 0.4s cubic-bezier(0.4, 0.38, 0.49, 0.94);
+        opacity: 1;
+    }
 }
 .watch-player--loading .dplayer-video-wrap-aspect {
     opacity: 0;
@@ -1084,7 +1118,7 @@ export default Mixin.extend({
                 opacity: 0;
                 visibility: hidden;
                 will-change: opacity;
-                transition: opacity 0.4s, visibility 0.4s;
+                transition: opacity 0.4s cubic-bezier(0.4, 0.38, 0.49, 0.94), visibility 0.4s cubic-bezier(0.4, 0.38, 0.49, 0.94);
 
                 &--visible {
                     opacity: 1;
