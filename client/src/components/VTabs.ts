@@ -1,10 +1,9 @@
-<script lang="ts">
 
 import { VueConstructor, VNode } from 'vue';
 
 import { convertToUnit } from 'vuetify/lib/util/helpers'
 import VTabs from 'vuetify/lib/components/VTabs/VTabs';
-import VTabsBar from './VTabsBar.vue';
+import VTabsBar from './VTabsBar';
 
 export default (VTabs as VueConstructor).extend({
     methods: {
@@ -50,5 +49,3 @@ export default (VTabs as VueConstructor).extend({
         }
     }
 });
-
-</script>

@@ -1,4 +1,3 @@
-<script lang="ts">
 
 import { VueConstructor } from 'vue';
 
@@ -95,5 +94,3 @@ export default (VTabsItems as VueConstructor).extend({
         }
     }
 });
-
-</script>

@@ -7,7 +7,7 @@
         </v-tabs-fix>
         <div class="channels-list-container">
             <v-tabs-items-fix class="channels-list" v-model="tab">
-                <v-tab-item class="channels" v-for="[channels_type, channels] in Array.from(channels_list_props)" :key="channels_type">
+                <v-tab-item-fix class="channels" v-for="[channels_type, channels] in Array.from(channels_list_props)" :key="channels_type">
                     <router-link v-ripple class="channel" v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.channel_id}`">
                         <div class="channel__broadcaster">
                             <img class="channel__broadcaster-icon" :src="`${api_base_url}/channels/${channel.channel_id}/logo`">
@@ -39,7 +39,7 @@
                             <div class="channel__progressbar-progress" :style="`width:${getProgramProgress(channel.program_present)}%;`"></div>
                         </div>
                     </router-link>
-                </v-tab-item>
+                </v-tab-item-fix>
             </v-tabs-items-fix>
         </div>
     </div>

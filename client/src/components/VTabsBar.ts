@@ -1,4 +1,3 @@
-<script lang="ts">
 
 import { VueConstructor } from 'vue';
 
@@ -73,5 +72,3 @@ export default (VTabsBar as VueConstructor).extend({
         }
     }
 });
-
-</script>

@@ -5,8 +5,9 @@ import Vue from 'vue';
 import VueAxios from 'vue-axios';
 
 import App from './App.vue';
-import VTabs from '@/components/VTabs.vue';
-import VTabsItems from '@/components/VTabsItems.vue';
+import VTabItem from '@/components/VTabItem';
+import VTabs from '@/components/VTabs';
+import VTabsItems from '@/components/VTabsItems';
 import vuetify from './plugins/vuetify';
 import router from './router';
 import mixin from './mixins';
@@ -20,6 +21,9 @@ Vue.use(VueAxios, axios);
 
 // Iconify（アイコン）のグローバルコンポーネント
 Vue.component('Icon', Icon);
+
+// VTabItem の挙動を改善するグローバルコンポーネント
+Vue.component('v-tab-item-fix', VTabItem);
 
 // VTabs の挙動を改善するグローバルコンポーネント
 Vue.component('v-tabs-fix', VTabs);

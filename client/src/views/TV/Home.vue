@@ -8,7 +8,7 @@
                     <v-tab class="channels-tab__item" v-for="[channels_type,] in Array.from(channels_list)" :key="channels_type">{{channels_type}}</v-tab>
                 </v-tabs-fix>
                 <v-tabs-items-fix class="channels-list" v-model="tab">
-                    <v-tab-item class="channels-tabitem" v-for="[channels_type, channels] in Array.from(channels_list)" :key="channels_type">
+                    <v-tab-item-fix class="channels-tabitem" v-for="[channels_type, channels] in Array.from(channels_list)" :key="channels_type">
                         <div class="channels" :class="`channels--length-${channels.length}`">
                             <router-link v-ripple class="channel" v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.channel_id}`">
                                 <div class="channel__broadcaster">
@@ -55,7 +55,7 @@
                                 </div>
                             </router-link>
                         </div>
-                    </v-tab-item>
+                    </v-tab-item-fix>
                 </v-tabs-items-fix>
             </div>
         </v-main>
