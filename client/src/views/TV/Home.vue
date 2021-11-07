@@ -1,9 +1,9 @@
 <template>
     <div class="route-container">
         <Header/>
-        <v-main>
+        <main>
             <Navigation/>
-            <div class="channels-container channels-container--home" :class="{'channels-container--loading': loading}">
+            <div class="channels-container channels-container--home" :class="{'channels-container--loading': is_loading}">
                 <v-tabs-fix centered class="channels-tab" v-model="tab">
                     <v-tab class="channels-tab__item" v-for="[channels_type,] in Array.from(channels_list)" :key="channels_type">{{channels_type}}</v-tab>
                 </v-tabs-fix>
@@ -58,7 +58,7 @@
                     </v-tab-item-fix>
                 </v-tabs-items-fix>
             </div>
-        </v-main>
+        </main>
     </div>
 </template>
 <script lang="ts">
@@ -84,7 +84,7 @@ export default Mixin.extend({
             tab: null,
 
             // ローディング中かどうか
-            loading: true,
+            is_loading: true,
 
             // インターバル ID
             // ページ遷移時に setInterval(), setTimeout() の実行を止めるのに使う
@@ -157,7 +157,7 @@ export default Mixin.extend({
             this.updatePinnedChannelList();
 
             // ローディング状態を解除
-            this.loading = false;
+            this.is_loading = false;
         },
 
         // チャンネルをピン留めする
@@ -418,11 +418,15 @@ export default Mixin.extend({
                     }
 
                     &-pin {
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
                         flex-shrink: 0;
                         position: relative;
-                        top: -4px;
-                        right: -4px;
-                        height: 32px;
+                        top: -5px;
+                        right: -5px;
+                        width: 34px;
+                        height: 34px;
                         padding: 4px;
                         color: var(--v-text-darken1);
                         border-radius: 50%;

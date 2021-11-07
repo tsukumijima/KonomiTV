@@ -52,7 +52,11 @@ export default (VTabsItems as VueConstructor).extend({
             // ソート後の現在アクティブなタブのインデックスを取得し直し、設定する
             // 配列の末尾以外に追加された場合はインデックスが1つずつずれてしまうため、インデックスを設定し直す必要がある
             if (activeItem !== undefined) {
-                (this as any).updateInternalValue(this.items.indexOf(activeItem));
+                // 値が異なるときだけ更新する
+                // こうしないと、Safari で変なアニメーションがついてしまう
+                if (this.items.indexOf(activeItem) !== (this as any).internalValue) {
+                    (this as any).updateInternalValue(this.items.indexOf(activeItem));
+                }
             }
         },
 

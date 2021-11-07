@@ -799,19 +799,23 @@ export default Mixin.extend({
 
     .dplayer-icons {
         bottom: auto !important;
-
         &.dplayer-icons-right {
             right: 22px !important;
             @media screen and (max-height: 450px) {
                 right: 11px !important;
             }
         }
-
         // ブラウザフルスクリーンボタンを削除（実質あまり意味がないため）
         .dplayer-icon.dplayer-full-in-icon {
             display: none !important;
         }
     }
+}
+// Safari のみ、アイコンに hover しても opacity が変わらないようにする
+// hover すると 1px ずれてしまい見苦しくなる Safari の描画バグを回避するための苦肉の策
+// ref: https://qiita.com/Butterthon/items/10e6b58d883236aa3838
+_::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-content {
+    opacity: 0.8 !important;
 }
 .dplayer-mobile {
     .dplayer-controller {
@@ -837,10 +841,13 @@ export default Mixin.extend({
 }
 .dplayer-notice {
     padding: 16px 22px !important;
+    margin-right: 30px;
     border-radius: 4px !important;
     font-size: 15px !important;
+    line-height: 1.6;
     @include tablet {
         padding: 12px 16px !important;
+        margin-right: 16px;
         font-size: 13.5px !important;
     }
 }
@@ -885,12 +892,20 @@ export default Mixin.extend({
 <style lang="scss" scoped>
 
 .route-container {
+    height: 100vh !important;
     background: var(--v-black-base) !important;
     overflow: hidden;
+    // iOS Safari で 100vh にアドレスバーが含まれてしまう問題を回避する
+    @supports (-webkit-touch-callout: none) {
+        body {
+            height: -webkit-fill-available;
+        }
+    }
 }
 .watch-container {
     display: flex;
     width: calc(100% + 352px);  // パネルの幅分はみ出す
+    height: 100%;
     transition: width 0.4s cubic-bezier(0.26, 0.68, 0.55, 0.99);
     @media screen and (max-height: 450px) {
         width: calc(100% + 310px); // パネルの幅分はみ出す
@@ -1098,7 +1113,7 @@ export default Mixin.extend({
             display: flex;
             position: relative;
             width: 100%;
-            height: 100vh;
+            height: 100%;
             background-size: contain;
             background-position: center;
 
@@ -1109,12 +1124,13 @@ export default Mixin.extend({
                 width: 100%;
                 max-width: 100%;
                 max-height: 100%;
+                padding-top: min(56.25%, 100vh);
                 aspect-ratio: 16 / 9;
-                transform: translate(-50%,-50%);
                 background-blend-mode: darken;
                 background-color: rgba(14, 14, 18, 40%);
                 background-size: cover;
                 background-image: none;
+                transform: translate(-50%,-50%);
                 opacity: 0;
                 visibility: hidden;
                 will-change: opacity;
@@ -1226,7 +1242,7 @@ export default Mixin.extend({
         flex-direction: column;
         flex-shrink: 0;
         width: 352px;
-        height: 100vh;
+        height: 100%;
         background: var(--v-background-base);
         @media screen and (max-height: 450px) {
             width: 310px;

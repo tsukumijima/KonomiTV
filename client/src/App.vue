@@ -11,20 +11,34 @@
 html {
     overflow-y: auto !important;
 }
-body .v-application {
+
+body .v-application {  // アプリケーションのルート
     min-height: 100vh;
     font-family: "Open Sans", "Noto Sans JP", sans-serif;
     font-weight: 500;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+
+    .v-application--wrap {
+        min-height: 100% !important;
+    }
 }
-body .v-main__wrap {
+
+body main {  // ヘッダー以外のメインコンテンツのルート
     display: flex;
-    min-height: 100vh;
-    padding-top: 65px !important;
+    width: 100%;
+    min-height: 100%;
     @media screen and (max-height: 450px) {
         padding-top: 48px !important;
     }
+}
+body header + main {
+    // ヘッダーの高さ分
+    padding-top: 65px !important;
+}
+
+body .route-container {  // ルートコンテナ
+    height: 100%;
 }
 
 // ツールチップのスタイル

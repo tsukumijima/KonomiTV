@@ -1,7 +1,7 @@
 <template>
     <div class="route-container">
         <Header/>
-        <v-main>
+        <main>
             <Navigation/>
             <div class="d-flex justify-center align-center w-100">
                 <div class="d-flex justify-center align-center flex-column">
@@ -9,7 +9,7 @@
                     <span class="mt-2">お探しのページは存在しないか、鋭意開発中です。</span>
                 </div>
             </div>
-        </v-main>
+        </main>
     </div>
 </template>
 <script lang="ts">
