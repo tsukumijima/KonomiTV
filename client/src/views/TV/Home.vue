@@ -222,6 +222,10 @@ export default Mixin.extend({
 .v-window__container {
     // 1px はスクロールバーを表示させるためのもの
     min-height: calc(100vh - 65px - 116px + 1px);
+    // タッチデバイスではスクロールバーを気にする必要がないので無効化
+    @media (hover: none) {
+        min-height: auto;
+    }
 }
 
 </style>

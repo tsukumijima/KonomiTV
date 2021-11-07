@@ -897,9 +897,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
     overflow: hidden;
     // iOS Safari で 100vh にアドレスバーが含まれてしまう問題を回避する
     @supports (-webkit-touch-callout: none) {
-        body {
-            height: -webkit-fill-available;
-        }
+        height: -webkit-fill-available !important;
     }
 }
 .watch-container {

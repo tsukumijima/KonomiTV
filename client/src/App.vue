@@ -18,6 +18,10 @@ body .v-application {  // アプリケーションのルート
     font-weight: 500;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    // iOS Safari で 100vh にアドレスバーが含まれてしまう問題を回避する
+    @supports (-webkit-touch-callout: none) {
+        min-height: -webkit-fill-available;
+    }
 
     .v-application--wrap {
         min-height: 100% !important;
