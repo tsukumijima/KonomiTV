@@ -1,9 +1,7 @@
 <template>
     <div class="route-container">
-        <main class="watch-container" :class="{
-            'watch-container--control-visible': is_control_visible,
-            'watch-container--panel-visible': is_panel_visible,
-        }" v-on:mousemove="controlVisibleTimer" v-on:touchmove="controlVisibleTimer">
+        <main class="watch-container"
+            :class="{'watch-container--control-visible': is_control_visible, 'watch-container--panel-visible': is_panel_visible}">
             <nav class="watch-navigation">
                 <router-link v-ripple class="watch-navigation__icon" to="/tv/">
                     <img class="watch-navigation__icon-image" src="/assets/img/icon.svg" width="23px">
@@ -34,7 +32,10 @@
                     <Icon class="watch-navigation__link-icon" icon="fluent:info-16-regular" width="26px" />
                 </a>
             </nav>
-            <div class="watch-content">
+            <div class="watch-content"
+                v-on:mousemove="controlVisibleTimer('player', $event)"
+                v-on:touchmove="controlVisibleTimer('player', $event)"
+                v-on:click="controlVisibleTimer('player', $event)">
                 <header class="watch-header">
                     <img class="watch-header__broadcaster" :src="`${api_base_url}/channels/${($route.params.channel_id)}/logo`">
                     <span class="watch-header__program-title" v-html="decorateProgramInfo(channel.program_present, 'title')"></span>
@@ -48,7 +49,10 @@
                         <img class="watch-player__background-logo" src="/assets/img/logo.svg">
                     </div>
                     <div class="watch-player__dplayer"></div>
-                    <div class="watch-player__button">
+                    <div class="watch-player__button"
+                        v-on:mousemove="controlVisibleTimer('panel', $event)"
+                        v-on:touchmove="controlVisibleTimer('panel', $event)"
+                        v-on:click="controlVisibleTimer('panel', $event)">
                         <v-tooltip top transition="fade-transition">
                             <template v-slot:activator="{ on }"><div v-on="on">
                                 <router-link v-ripple class="switch-button switch-button-up" :to="`/tv/watch/${channel_previous.channel_id}`">
@@ -72,7 +76,10 @@
                     </div>
                 </div>
             </div>
-            <div class="watch-panel">
+            <div class="watch-panel"
+                v-on:mousemove="controlVisibleTimer('panel', $event)"
+                v-on:touchmove="controlVisibleTimer('panel', $event)"
+                v-on:click="controlVisibleTimer('panel', $event)">
                 <div class="watch-panel__header">
                     <div v-ripple class="panel-close-button" @click="is_panel_visible = false">
                         <Icon class="panel-close-button__icon" icon="akar-icons:chevron-right" width="25px" />
@@ -244,7 +251,7 @@ export default Mixin.extend({
             this.background_url = `/assets/img/player-background${(Math.floor(Math.random() * 8) + 1)}.jpg`;
 
             // コントロール表示タイマーを実行
-            this.controlVisibleTimer();
+            this.controlVisibleTimer('normal');
 
             // チャンネル情報を取得
             this.update();
@@ -376,17 +383,21 @@ export default Mixin.extend({
 
         // マウスが動いたりタップされた時のイベント
         // 3秒間何も操作がなければコントロールを非表示にする
-        controlVisibleTimer() {
+        controlVisibleTimer(type: string, event: Event|null = null) {
+
+            // タッチデバイスかどうか
+            // DPlayer の UA 判定コードと同一
+            const is_touch_device = /iPhone|iPad|iPod|Android|Mobile/i.test(window.navigator.userAgent);
+
+            // タッチデバイスで mousemove 、あるいはタッチデバイス以外で touchmove か click が発火した時は却下
+            if (is_touch_device == true  && event !== null && event.type === 'mousemove') return;
+            if (is_touch_device == false && event !== null && (event.type === 'touchmove' || event.type === 'click')) return;
 
             // 以前セットされた setTimeout() を止める
             window.clearTimeout(this.control_interval_id);
 
-            // コントロールを表示する
-            this.is_control_visible = true;
-
-            // 3秒間何も操作がなければコントロールを非表示にする
-            // 3秒間の間一度でもマウスが動けばタイマーが解除されてやり直しになる
-            this.control_interval_id = window.setTimeout(() => {
+            // setTimeout に渡すタイマー関数
+            const timeout = () => {
 
                 // コントロールを非表示にする
                 this.is_control_visible = false;
@@ -396,8 +407,49 @@ export default Mixin.extend({
                     this.player.controller.hide();
                     this.player.setting.hide();
                 }
+            }
 
-            }, 3 * 1000);
+            // タッチデバイスでプレイヤーがクリックされたとき
+            if (is_touch_device === true && type === 'player') {
+
+                // プレイヤーのコントロールの表示状態に合わせる
+                if (this.player.controller.isShow()) {
+
+                    // コントロールを表示する
+                    this.is_control_visible = true;
+
+                    // プレイヤーのコントロールを表示する
+                    this.player.controller.show();
+
+                    // 3秒間何も操作がなければコントロールを非表示にする
+                    // 3秒間の間一度でもマウスが動けばタイマーが解除されてやり直しになる
+                    this.control_interval_id = window.setTimeout(timeout, 3 * 1000);
+
+                } else {
+
+                    // コントロールを非表示にする
+                    this.is_control_visible = false;
+
+                    // プレイヤーのコントロールと設定パネルを非表示にする
+                    this.player.controller.hide();
+                    this.player.setting.hide();
+                }
+
+            // それ以外
+            } else {
+
+                // コントロールを表示する
+                this.is_control_visible = true;
+
+                // プレイヤーのコントロールを表示する
+                if (this.player !== null) {
+                    this.player.controller.show();
+                }
+
+                // 3秒間何も操作がなければコントロールを非表示にする
+                // 3秒間の間一度でもマウスが動けばタイマーが解除されてやり直しになる
+                this.control_interval_id = window.setTimeout(timeout, 3 * 1000);
+            }
         },
 
         // プレイヤーを初期化する
@@ -503,31 +555,15 @@ export default Mixin.extend({
             // デバッグ用にプレイヤーインスタンスも window 名前空間に入れる
             (window as any).player = this.player;
 
-            // プレイヤーがタップされた時、dplayer-hide-controller がついていたらコントロールを非表示にする
-            this.player.container.addEventListener('click', () => {
-                if (this.player.container.classList.contains('dplayer-hide-controller')) {
-
-                    // 以前セットされた setTimeout() を止める
-                    window.clearTimeout(this.control_interval_id);
-
-                    // コントロールを非表示にする
-                    this.is_control_visible = false;
-
-                    // プレイヤーのコントロールと設定パネルを非表示にする
-                    this.player.controller.hide();
-                    this.player.setting.hide();
-                }
-            });
-
             // 再生/停止されたとき
             // 通知バーからの制御など、画面から以外の外的要因で再生/停止が行われる事もある
             const on_play_or_pause = () => {
 
-                // 明示的にプレイヤーのコントロールを表示する
-                this.player.controller.show();
+                // まだ設定パネルが表示されていたら非表示にする
+                this.player.setting.hide();
 
                 // コントロールを表示する
-                this.controlVisibleTimer();
+                this.controlVisibleTimer('normal');
             }
             this.player.on('play', on_play_or_pause);
             this.player.on('pause', on_play_or_pause);
@@ -666,6 +702,9 @@ export default Mixin.extend({
                             this.player.notice(event.detail, -1);
                             this.player.video.onerror = null;
                         }
+
+                        // 動画を停止する
+                        this.player.video.pause();
 
                         // イベントソースを閉じる（復帰の見込みがないため）
                         this.eventsource.close();
@@ -1124,8 +1163,8 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 max-height: 100%;
                 padding-top: min(56.25%, 100vh);
                 aspect-ratio: 16 / 9;
-                background-blend-mode: darken;
-                background-color: rgba(14, 14, 18, 40%);
+                background-blend-mode: overlay;
+                background-color: rgba(14, 14, 18, 0.35);
                 background-size: cover;
                 background-image: none;
                 transform: translate(-50%,-50%);
@@ -1145,7 +1184,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                     height: 34px;
                     right: 56px;
                     bottom: 44px;
-                    filter: drop-shadow(0px 0px 4px var(--v-black-base));
+                    filter: drop-shadow(0px 0px 5px var(--v-black-base));
 
                     @include desktop-medium {
                         height: 30px;

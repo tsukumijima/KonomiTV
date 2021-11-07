@@ -32,13 +32,13 @@ body main {  // ヘッダー以外のメインコンテンツのルート
     display: flex;
     width: 100%;
     min-height: 100%;
-    @media screen and (max-height: 450px) {
-        padding-top: 48px !important;
-    }
 }
 body header + main {
     // ヘッダーの高さ分
     padding-top: 65px !important;
+    @media screen and (max-height: 450px) {
+        padding-top: 48px !important;
+    }
 }
 
 body .route-container {  // ルートコンテナ
