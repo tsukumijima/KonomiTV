@@ -240,8 +240,8 @@ export default Mixin.extend({
         // 初期化する
         init() {
 
-            // 背景を4種類からランダムで設定
-            this.background_url = `/assets/img/player-background${(Math.floor(Math.random() * 4) + 1)}.jpg`;
+            // 背景を8種類からランダムで設定
+            this.background_url = `/assets/img/player-background${(Math.floor(Math.random() * 8) + 1)}.jpg`;
 
             // コントロール表示タイマーを実行
             this.controlVisibleTimer();
@@ -535,8 +535,8 @@ export default Mixin.extend({
             // 画質の切り替えが開始されたとき
             this.player.on('quality_start', () => {
 
-                // 背景を4種類からランダムで設定
-                this.background_url = `/assets/img/player-background${(Math.floor(Math.random() * 4) + 1)}.jpg`;
+                // 背景を8種類からランダムで設定
+                this.background_url = `/assets/img/player-background${(Math.floor(Math.random() * 8) + 1)}.jpg`;
 
                 // イベントソースを閉じる
                 if (this.eventsource !== null) {
