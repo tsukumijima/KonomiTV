@@ -218,14 +218,41 @@ export default Mixin.extend({
         height: 3px !important;
         transition: left 0.3s cubic-bezier(0.25, 0.8, 0.5, 1);
     }
-}
-.v-window__container {
-    // 1px はスクロールバーを表示させるためのもの
-    min-height: calc(100vh - 65px - 116px + 1px);
-    // タッチデバイスではスクロールバーを気にする必要がないので無効化
-    @media (hover: none) {
-        min-height: auto;
+
+    .v-window__container {
+        // 1px はスクロールバーを表示させるためのもの
+        min-height: calc(100vh - 65px - 116px + 1px);
+        // タッチデバイスではスクロールバーを気にする必要がないので無効化
+        @media (hover: none) {
+            min-height: auto;
+        }
     }
+}
+
+// Safari のみ、チャンネルリストのスライドアニメーションを無効にする
+// Safari は大量のチャンネルをレンダリングするのが非常に遅いようで、アニメーションがもはや機能していない上に重い
+// アニメーションを無効化する事で、有効化時と比べてタブの切り替え速度が大幅に向上する（とはいえ、Chrome に比べると遅い）
+// CSS ハックでは SCSS 記法が使えない
+// ref: https://qiita.com/Butterthon/items/10e6b58d883236aa3838
+_::-webkit-full-page-media, _:future, :root
+.channels-container.channels-container--home .v-window__container {
+    height: inherit !important;
+    transition: none !important;
+}
+_::-webkit-full-page-media, _:future, :root
+.channels-container.channels-container--home .v-window__container--is-active {
+    display: none !important;
+}
+_::-webkit-full-page-media, _:future, :root
+.channels-container.channels-container--home .v-window__container .v-window-item {
+    display: none !important;
+    position: static !important;
+    transform: none !important;
+    transition: none !important;
+}
+_::-webkit-full-page-media, _:future, :root
+.channels-container.channels-container--home .v-window__container .v-window-item--active {
+    display: block !important;
 }
 
 </style>
@@ -279,7 +306,7 @@ export default Mixin.extend({
 
         .channels {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(370px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(365px, 1fr));
             grid-row-gap: 16px;
             grid-column-gap: 16px;
             justify-content: center;
@@ -290,53 +317,51 @@ export default Mixin.extend({
 
             // 1630px 以上で幅を 445px に固定
             @media screen and (min-width: 1630px) {
-                & {
-                    grid-template-columns: repeat(auto-fit, 445px);
-                }
+                grid-template-columns: repeat(auto-fit, 445px);
             }
 
             // カードが横いっぱいに表示されてしまうのを回避する
             // チャンネルリストにチャンネルが1つしか表示されていないとき
             &.channels--length-1 {
                 // 2列
-                @media screen and (min-width: 1018px) { & {
+                @media screen and (min-width: 1008px) {
                     // 16px は余白の幅のこと
                     margin-right: calc((((100% - (16px * 1)) / 2) * 1) + (16px * 1));  // もう1つ分のカード幅を埋める
-                }}
+                }
                 // 3列でカード幅が自動
-                @media screen and (min-width: 1404px) { & {
+                @media screen and (min-width: 1389px) {
                     margin-right: calc((((100% - (16px * 2)) / 3) * 2) + (16px * 2));  // もう2つ分のカード幅を埋める
-                }}
+                }
                 // 3列でカード幅が 445px
-                @media screen and (min-width: 1630px) { & {
+                @media screen and (min-width: 1630px) {
                     margin-right: calc((445px * 2) + (16px * 2));  // もう2つ分のカード幅を埋める
-                }}
+                }
                 // 4列でカード幅が 445px
-                @media screen and (min-width: 2090px) { & {
+                @media screen and (min-width: 2090px) {
                     margin-right: calc((445px * 3) + (16px * 3));  // もう3つ分のカード幅を埋める
-                }}
+                }
             }
             // チャンネルリストにチャンネルが2つしか表示されていないとき
             &.channels--length-2 {
                 // 3列でカード幅が自動
-                @media screen and (min-width: 1404px) { & {
+                @media screen and (min-width: 1389px) {
                     margin-right: calc((((100% - (16px * 2)) / 3) * 1) + (16px * 1));  // もう1つ分のカード幅を埋める
-                }}
+                }
                 // 3列でカード幅が 445px
-                @media screen and (min-width: 1630px) { & {
+                @media screen and (min-width: 1630px) {
                     margin-right: calc(445px + 16px);  // もう1つ分のカード幅を埋める
-                }}
+                }
                 // 4列でカード幅が 445px
-                @media screen and (min-width: 2090px) { & {
+                @media screen and (min-width: 2090px) {
                     margin-right: calc((445px * 2) + (16px * 2));  // もう2つ分のカード幅を埋める
-                }}
+                }
             }
             // チャンネルリストにチャンネルが3つしか表示されていないとき
             &.channels--length-3 {
                 // 4列でカード幅が 445px
-                @media screen and (min-width: 2090px) { & {
+                @media screen and (min-width: 2090px) {
                     margin-right: calc(445px + 16px);  // もう1つ分のカード幅を埋める
-                }}
+                }
             }
 
             .channel {
@@ -353,6 +378,11 @@ export default Mixin.extend({
                 text-decoration: none;
                 user-select: none;
                 cursor: pointer;
+
+                // 1列表示
+                @media screen and (max-width: 1007.9px) {
+                    height: auto;
+                }
                 @media screen and (max-height: 450px) {
                     padding: 15px 18px;
                     height: auto;
@@ -520,6 +550,10 @@ export default Mixin.extend({
                     flex-direction: column;
                     color: var(--v-text-darken1);
                     font-size: 12.5px;
+                    // 1列表示
+                    @media screen and (max-width: 1007.9px) {
+                        margin-top: 6px;
+                    }
                     @media screen and (max-height: 450px) {
                         margin-top: 6px;
                         font-size: 12px;
