@@ -20,7 +20,7 @@ ENV LANG ja_JP.UTF-8
 RUN apt-get install -y ffmpeg libv4l-0 libxcb1 libva2 libmfx1 intel-media-va-driver-non-free
 
 # サードパーティライブラリをダウンロード
-RUN aria2c -x10 https://github.com/tsukumijima/KonomiTV/releases/download/v0.1.0/thirdparty.7z
+RUN aria2c -x10 https://github.com/tsukumijima/KonomiTV/releases/download/v0.4.0/thirdparty.7z
 RUN 7z x -y thirdparty.7z && rm thirdparty.7z
 
 # サードパーティライブラリに実行権限を付与

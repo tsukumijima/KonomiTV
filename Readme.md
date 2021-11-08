@@ -1,7 +1,7 @@
 
 # <img width="350" src="https://user-images.githubusercontent.com/39271166/134050201-8110f076-a939-4b62-8c86-7beaa3d4728c.png" alt="KonomiTV">
 
-<img width="100%" src="https://user-images.githubusercontent.com/39271166/134043865-d4551e1f-b926-4a36-8214-14c9fb7c9614.png"><br>
+<img width="100%" src="https://user-images.githubusercontent.com/39271166/139624779-a986e00f-609e-4263-a465-a3b371347b43.png"><br>
 
 いろいろな場所とデバイスでテレビと録画を快適に見れる、モダンな Web ベースのソフトウェアです。
 
@@ -23,7 +23,7 @@
 
 こうした考えから、設計思想として「映像コンテンツを視聴し楽しむ」ために不要な概念や操作は極力表層から排除・隠蔽し、ユーザーが目的以外の雑念に気を取られないようなシステムを目指しています。  
 
-たとえば TVRemotePlus であった「ストリーム」の概念を KonomiTV では無くしています。チャンネルをクリックするだけですぐに視聴できるほか、裏側ではチューナーの共有、同じチャンネルを複数のデバイスで見ているなら自動的に共聴するといった高度な仕組みも備え、ユーザーがストレスなく視聴できるように設計されています。  
+たとえば TVRemotePlus であった「ストリーム」の概念を KonomiTV では排しています。チャンネルをクリックするだけですぐに視聴できるほか、裏側ではチューナーの共有、同じチャンネルを複数のデバイスで見ているなら自動的に共聴するといった高度な仕組みも備え、ユーザーがストレスなく視聴できるように設計されています。  
 画質の切り替えの UI も、KonomiTV では多くの動画サイトと同じようにプレイヤー内に統合されています。裏側では毎回エンコーダーを再起動しているのですが、表層からはあたかも事前に複数の画質が用意されているかのように見えるはずです。  
 一般的な PC で動かす以上使えるリソースには限界がありますし、全てにおいて Netflix のような機能を実装できるわけではありません。それでも使えるリソースの範囲で最大限使いやすいソフトウェアにしていければと、細部に様々な工夫を取り入れています。
 
@@ -47,14 +47,15 @@
   - スマホ（横画面）は実験的なもので、今後 UI が大幅に変更される可能性があります。
   - iPhone は Media Source Extensions API に対応していないため、現時点では動作しません。
     - 今後 HLS 再生モードを導入する予定ですが、私が iPhone を常用していない事もあり、実装時期は未定です。
+    - また、iPad でホーム画面に追加したアイコンから単独アプリのように起動した場合も (PWA)、同様に動作しません。
 - 今後、開発の過程で設定や構成が互換性なく大幅に変更される可能性があります。
 - ユーザービリティなどのフィードバック・不具合報告・Pull Requests (PR) などは歓迎します。
   - 技術スタックはサーバー側が Python + [FastAPI](https://github.com/tiangolo/fastapi) + [Tortoise ORM](https://github.com/tortoise/tortoise-orm) + [Uvicorn](https://github.com/encode/uvicorn) 、クライアント側が Vue.js + [Vuetify](https://github.com/vuetifyjs/vuetify) の SPA です。
     - Vuetify は補助的に利用しているだけで、大部分は独自で書いた SCSS スタイルを適用しています。
   - コメントを多めに書いているので、少なくとも TVRemotePlus なんかよりかは読みやすいコードになっている…はず。
-  - 他人が見るために書いたものではないのであれですが、一応自分用の[開発資料](https://mango-garlic-eff.notion.site/KonomiTV-90f4b25555c14b9ba0cf5498e6feb1c3)と[DB設計](https://www.notion.so/KonomiTV-544e02334c89420fa24804ec70f46b6d)的なメモを公開しておきます。もし PR される場合などの参考になれば。
+  - 他人が見るために書いたものではないのであれですが、一応自分用の[開発資料](https://mango-garlic-eff.notion.site/KonomiTV-90f4b25555c14b9ba0cf5498e6feb1c3)と[DB設計](https://mango-garlic-eff.notion.site/KonomiTV-544e02334c89420fa24804ec70f46b6d)的なメモを公開しておきます。もし PR される場合などの参考になれば。
 
-<img width="100%" src="https://user-images.githubusercontent.com/39271166/134045489-54476f7b-0072-48b6-b324-467974ecfc21.png"><br>
+<img width="100%" src="https://user-images.githubusercontent.com/39271166/139624783-7e130eed-c692-430c-917d-fde0649346db.png"><br>
 
 ## 動作環境
 
@@ -63,10 +64,11 @@ Python 3.8 でも動作しますが、asyncio を多用しているため、3.7 
 
 Linux (Ubuntu 20.04 LTS x64) で動作することも確認しました。  
 ただし Windows ほどあまり検証できていないので、環境によっては動かないかもしれません。  
-また、ARM 向けのサードパーティライブラリの実行ファイルを同梱していないため、ARM 版の Ubuntu では現状動作しません。
+また、ARM 向けのサードパーティライブラリの実行ファイルを同梱していないため、ARM 版の Ubuntu では今のところ動作しません。
 
 バックエンドは Mirakurun と EDCB から選べます。お使いの録画環境に合わせて選択してください。  
-仕組み上、EDCB バックエンドの方がチャンネル切り替えなどにかかる待機時間が速くなっています。EDCB 環境があれば EDCB バックエンドにした方が少し快適です。
+仕組み上、PLEX 製チューナーの場合は EDCB バックエンドの方がチャンネル切り替えなどにかかる待機時間が速くなっています。  
+なお、後述の px4_drv for WinUSB を利用している場合は Mirakurun と EDCB での差はほとんどありません。
 
 Mirakurun バックエンドを利用する場合は、Mirakurun 3.9.0 以降が必要です。3.8.0 以前でも動作しますが、おすすめはしません。  
 また、リバースプロキシを挟んでいるなどで Basic 認証が掛かっていると正常に動作しません。
@@ -90,7 +92,7 @@ EpgDataCap_Bon 側の制約の関係で、現時点では KonomiTV と EDCB が�
 以下は暫定的なインストール方法です。  
 ただし、すべての環境でこの通りに進めて動くとは限りません。保証もできないので、すべて自己責任のもとでお願いします。
 
-事前に Python 3.9 がインストールされている事を前提とします。  
+事前に Python 3.9 と pip がインストールされている事を前提とします。  
 なお、Microsoft ストアからインストールした Python では確実にまともに動作しません。
 
 Windows の場合、インストール先をデフォルトの AppData 以下にするとそのユーザーしか使えなくなってしまいますが、とはいえ `C:\Program Files` 以下にインストールするとパッケージのインストールで管理者権限が必要になるので厄介です。個人的には `C:\Applications\Python\Python3.9` あたりにインストールすることを推奨しておきます。
@@ -105,7 +107,7 @@ Windows では PowerShell にて実行してください。<s>cmd.exe? 今すぐ
 
 あまり動作確認は取れていませんが、Docker で構築することもできます。あらかじめ、Docker と docker-compose がインストールされた環境が必要です。
 
-ハードウェアエンコーダー (QSVEncC・NVEncC・VCEEncC) は Docker 上でも利用できます。ただし、ホスト OS が Linux である必要があるほか、あらかじめホスト OS に GPU ドライバがインストールされている必要があります。  
+ハードウェアエンコーダー (QSVEncC・NVEncC・VCEEncC) は Docker 上でも利用できます。ただし、ホスト OS が Linux である必要があるほか、あらかじめホスト OS に後述の GPU ドライバがインストールされている必要があります。  
 VCEEncC に関しても対応済みのつもりですが、手元に環境がないため、実際に動作するかどうかは検証できていません。
 
 事前に、後述の設定ファイルの編集を行ってください。最低でも config.yaml が存在する状態にしておく必要があります。  
@@ -153,12 +155,12 @@ Linux 向けの実行ファイルも同梱しています（拡張子: .elf ）�
 なお、QSVEncC・NVEncC・VCEEncC を使う場合は、別途 ffmpeg (libav) ライブラリと [Intel Media Driver](https://github.com/rigaya/QSVEnc/blob/master/Install.ja.md#linux-ubuntu-2004) / [NVIDIA Graphics Driver](https://github.com/rigaya/NVEnc/blob/master/Install.ja.md#linux-ubuntu-2004) / [AMD Driver](https://github.com/rigaya/VCEEnc/blob/master/Install.ja.md#linux-ubuntu-2004) のインストールが必要です。  
 VCEEncC の Linux サポートはつい最近追加されたばかりなので、安定してエンコードできるかは微妙です（環境がない…）。
 
-[こちら](https://github.com/tsukumijima/KonomiTV/releases/download/v0.1.0/thirdparty.7z) からサードパーティライブラリをダウンロードし、`server/thirdparty/` に配置してください。展開後サイズは 600MB あるので注意。  
+[こちら](https://github.com/tsukumijima/KonomiTV/releases/download/v0.4.0/thirdparty.7z) からサードパーティライブラリをダウンロードし、`server/thirdparty/` に配置してください。展開後サイズは 600MB あるので注意。  
 
 7z 、あるいは p7zip のコマンドライン版が利用できる場合は、コマンドラインでダウンロードと展開を行うこともできます。
 
 ```
-curl -LO https://github.com/tsukumijima/KonomiTV/releases/download/v0.1.0/thirdparty.7z
+curl -LO https://github.com/tsukumijima/KonomiTV/releases/download/v0.4.0/thirdparty.7z
 7z x -y thirdparty.7z
 rm thirdparty.7z
 ```
@@ -236,21 +238,21 @@ EDCB をバックエンドとして利用する場合は、EDCB (EpgTimerNW) の
 通常、TCP URL は tcp://(EDCBのあるPCのIPアドレス):4510/ になります。接続できない際はファイアウォールの設定を確認してみてください。  
 前述の通り、あらかじめ EDCB の設定で「EpgTimerNWなどからのネットワーク接続を許可する」にチェックを入れておく必要があります。
 
-他にも設定項目がありますが、おそらく変更する必要はありません。設定を反映するにはサーバーの再起動が必要です。  
+他にも設定項目がありますが、ほとんど変更する必要はありません。設定を反映するにはサーバーの再起動が必要です。  
 
 #### エンコーダーの設定
 
 このほか、エンコーダーはソフトウェアエンコーダーの FFmpeg のほか、ハードウェアエンコーダーの QSVEncC・NVEncC・VCEEncC を選択できます。  
 ハードウェアエンコーダーを選択すると、エンコードに GPU アクセラレーションを利用するため CPU の使用率を大幅に下げる事ができます。  
-エンコード速度も高速になるため、お使いの PC で利用可能であれば、できるだけハードウェアエンコーダーを選択することをおすすめします。
+エンコード速度も高速になるため、お使いの PC で利用可能であれば、できるだけハードウェアエンコーダーを選択することを推奨します。
 
 > お使いの PC で選択したハードウェアエンコーダーが利用できない場合、その旨を伝えるエラーメッセージが表示されます。  
 > まずはお使いの PC でハードウェアエンコーダーが使えるかどうか、一度試してみてください（設定ファイルの変更後はサーバーの再起動が必要です）。
 
 > 前述のとおり、Linux 環境で QSVEncC・NVEncC・VCEEncC を利用する場合は、別途 GPU ドライバのインストールが必要です。
 
-QSVEncC は Intel 製 CPU の内蔵グラフィックスに搭載されているハードウェアエンコード機能 (QSV) を利用するエンコーダーです。  
-ここ数年に発売された内蔵グラフィックス搭載の Intel 製 CPU であれば基本的に搭載されているため、一般的な PC の大半で利用できます。  
+QSVEncC は Intel 製 CPU の内蔵 GPU に搭載されているハードウェアエンコード機能 (QSV) を利用するエンコーダーです。  
+ここ数年に発売された Intel Graphics 搭載の Intel 製 CPU であれば基本的に搭載されているため、一般的な PC の大半で利用できます。  
 
 NVEncC は Geforce などの NVIDIA 製 GPU に搭載されているハードウェアエンコード機能 (NVENC) を利用するエンコーダーです。  
 高速で画質も QSV より若干いいのですが、Geforce では同時にエンコードが可能なセッション数が 3 に限定されているため、同時に 3 チャンネル以上視聴することはできません。  
