@@ -3553,7 +3553,7 @@ dotenv@^8.2.0:
   version "1.26.0"
   resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/8af3e73ca961c07e82e078c7307d797c9ba61904"
   dependencies:
-    aribb24.js "1.7.11"
+    aribb24.js "1.7.13"
     axios "^0.21.4"
     balloon-css "^1.0.3"
     promise-polyfill "8.2.0"

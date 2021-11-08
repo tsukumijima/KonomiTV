@@ -22,10 +22,13 @@ Vue.config.productionTip = false;
 Vue.use(VueAxios, axios);
 
 // VTooltip を使う
+// タッチデバイスでは無効化する
 // ref: https://v-tooltip.netlify.app/guide/config.html#default-values
-VTooltip.options.offset = [0, 7];
-VTooltip.options.themes.tooltip.hideTriggers = null;
+const trigger = window.matchMedia("(hover: none)").matches ? [] : ['hover', 'focus', 'touch'];
+VTooltip.options.themes.tooltip.showTriggers = trigger;
+VTooltip.options.themes.tooltip.hideTriggers = trigger;
 VTooltip.options.themes.tooltip.delay.show = 0;
+VTooltip.options.offset = [0, 7];
 Vue.use(VTooltip);
 
 // Iconify（アイコン）のグローバルコンポーネント

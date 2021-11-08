@@ -461,6 +461,7 @@ _::-webkit-full-page-media, _:future, :root
                         color: var(--v-text-darken1);
                         border-radius: 50%;
                         transition: color 0.15s ease, background-color 0.15s ease;
+                        user-select: none;
 
                         &:before {
                             background-color: currentColor;
