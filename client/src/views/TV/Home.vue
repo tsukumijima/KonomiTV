@@ -24,17 +24,13 @@
                                             <span class="ml-1">{{getAttribute(channel, 'channel_comment', '-')}}</span>
                                         </div>
                                     </div>
-                                    <v-tooltip top transition="fade-transition">
-                                        <template v-slot:activator="{ on }">
-                                            <div v-on="on" v-ripple class="channel__broadcaster-pin"
-                                                :class="{'channel__broadcaster-pin--pinned': isPinnedChannel(channel.channel_id)}"
-                                                @click.prevent.stop="isPinnedChannel(channel.channel_id) ? removePinnedChannel(channel.channel_id) : addPinnedChannel(channel.channel_id)"
-                                                @mousedown.prevent.stop="/* 親要素の波紋が広がらないように */">
-                                                <Icon icon="fluent:pin-20-filled" width="24px" />
-                                            </div>
-                                        </template>
-                                        <span>{{isPinnedChannel(channel.channel_id) ? 'ピン留めを外す' : 'ピン留めする'}}</span>
-                                    </v-tooltip>
+                                    <div v-ripple class="channel__broadcaster-pin"
+                                        v-tooltip="isPinnedChannel(channel.channel_id) ? 'ピン留めを外す' : 'ピン留めする'"
+                                        :class="{'channel__broadcaster-pin--pinned': isPinnedChannel(channel.channel_id)}"
+                                        @click.prevent.stop="isPinnedChannel(channel.channel_id) ? removePinnedChannel(channel.channel_id) : addPinnedChannel(channel.channel_id)"
+                                        @mousedown.prevent.stop="/* 親要素の波紋が広がらないように */">
+                                        <Icon icon="fluent:pin-20-filled" width="24px" />
+                                    </div>
                                 </div>
                                 <div class="channel__program-present">
                                     <span class="channel__program-present-title" v-html="decorateProgramInfo(channel.program_present, 'title')"></span>

@@ -14,6 +14,7 @@
         "dplayer": "github:tsukumijima/DPlayer#8af3e73ca961c07e82e078c7307d797c9ba61904",
         "mpegts.js": "github:tsukumijima/mpegts.js#33dec0952c985ba809bf8305d54ee03bc112db42",
         "register-service-worker": "^1.7.2",
+        "v-tooltip": "^3.0.0-beta.1",
         "vue": "^2.6.14",
         "vue-axios": "^3.3.7",
         "vue-router": "^3.5.2",

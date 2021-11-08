@@ -53,26 +53,18 @@
                         v-on:mousemove="controlVisibleTimer('panel', $event)"
                         v-on:touchmove="controlVisibleTimer('panel', $event)"
                         v-on:click="controlVisibleTimer('panel', $event)">
-                        <v-tooltip top transition="fade-transition">
-                            <template v-slot:activator="{ on }"><div v-on="on">
-                                <router-link v-ripple class="switch-button switch-button-up" :to="`/tv/watch/${channel_previous.channel_id}`">
-                                    <Icon class="switch-button-icon" icon="fluent:ios-arrow-left-24-filled" width="32px" rotate="1" />
-                                </router-link>
-                            </div></template>
-                            <span>前のチャンネル</span>
-                        </v-tooltip>
+                        <router-link v-ripple class="switch-button switch-button-up" :to="`/tv/watch/${channel_previous.channel_id}`"
+                            v-tooltip.top="'前のチャンネル'">
+                            <Icon class="switch-button-icon" icon="fluent:ios-arrow-left-24-filled" width="32px" rotate="1" />
+                        </router-link>
                         <div v-ripple class="switch-button switch-button-panel switch-button-panel--open"
                             @click="is_panel_visible = !is_panel_visible">
                             <Icon class="switch-button-icon" icon="fluent:navigation-16-filled" width="32px" />
                         </div>
-                        <v-tooltip bottom transition="fade-transition">
-                            <template v-slot:activator="{ on }"><div v-on="on">
-                                <router-link v-ripple class="switch-button switch-button-down" :to="`/tv/watch/${channel_next.channel_id}`">
-                                    <Icon class="switch-button-icon" icon="fluent:ios-arrow-right-24-filled" width="33px" rotate="1" />
-                                </router-link>
-                            </div></template>
-                            <span>次のチャンネル</span>
-                        </v-tooltip>
+                        <router-link v-ripple class="switch-button switch-button-down" :to="`/tv/watch/${channel_next.channel_id}`"
+                            v-tooltip.bottom="'次のチャンネル'">
+                            <Icon class="switch-button-icon" icon="fluent:ios-arrow-right-24-filled" width="33px" rotate="1" />
+                        </router-link>
                     </div>
                 </div>
             </div>

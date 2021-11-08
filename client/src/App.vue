@@ -46,10 +46,22 @@ body .route-container {  // ルートコンテナ
 }
 
 // ツールチップのスタイル
-.v-tooltip__content {
-    padding: 4px 10px !important;
-    background: #2F221FC0 !important;
-    font-size: 12px !important;
+.v-popper--theme-tooltip {
+    .v-popper__inner {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 4px;
+        background: #2F221FC0;
+        color: var(--v-text-base);
+        font-size: 12px;
+        font-family: "Open Sans", "Noto Sans JP", sans-serif;
+        font-weight: 500;
+        opacity: 0.9;
+        line-height: 22px;
+    }
+    .v-popper__arrow-container {
+        display: none;
+    }
 }
 
 // タッチデバイスで hover を無効にする
