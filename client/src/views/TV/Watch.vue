@@ -798,104 +798,105 @@ export default Mixin.extend({
 <style lang="scss">
 
 // DPlayer のスタイルの上書き
-.dplayer svg circle, .dplayer svg path {
-    fill: var(--v-text-base) !important;
-}
-.dplayer-quality-icon, .dplayer-quality-list, .dplayer-time, .dplayer-live-badge {
-    color: var(--v-text-base) !important;
-}
-.dplayer-quality-list {
-    border-radius: 4px !important;
-    .dplayer-quality-item {
-        height: 30px !important;
-        line-height: 30px !important;
+.watch-player__dplayer {
+    svg circle, svg path {
+        fill: var(--v-text-base) !important;
     }
-}
-.dplayer-volume-bar {
-    background: var(--v-text-base) !important;
-}
-.dplayer-video-wrap {
-    background: transparent !important;
-    .dplayer-video-wrap-aspect {
-        transition: opacity 0.4s cubic-bezier(0.4, 0.38, 0.49, 0.94);
-        opacity: 1;
+    .dplayer-video-wrap {
+        background: transparent !important;
+        .dplayer-video-wrap-aspect {
+            transition: opacity 0.4s cubic-bezier(0.4, 0.38, 0.49, 0.94);
+            opacity: 1;
+        }
     }
-}
-.watch-player--loading .dplayer-video-wrap-aspect {
-    opacity: 0;
-}
-.dplayer-controller-mask {
-    height: 82px !important;
-    background: linear-gradient(to bottom, transparent, var(--v-background-base)) !important;
-    opacity: 0 !important;
-    visibility: hidden;
-}
-.dplayer-controller {
-    padding-left: calc(68px + 18px) !important;
-    padding-bottom: 6px !important;
-    opacity: 0 !important;
-    visibility: hidden;
+    .dplayer-controller-mask {
+        height: 82px !important;
+        background: linear-gradient(to bottom, transparent, var(--v-background-base)) !important;
+        opacity: 0 !important;
+        visibility: hidden;
+    }
+    .dplayer-controller {
+        padding-left: calc(68px + 18px) !important;
+        padding-bottom: 6px !important;
+        opacity: 0 !important;
+        visibility: hidden;
 
-    .dplayer-icons {
-        bottom: auto !important;
-        &.dplayer-icons-right {
-            right: 22px !important;
-            @media screen and (max-height: 450px) {
-                right: 11px !important;
+        .dplayer-time, .dplayer-live-badge {
+            color: var(--v-text-base) !important;
+        }
+        .dplayer-volume-bar {
+            background: var(--v-text-base) !important;
+        }
+        .dplayer-icons {
+            bottom: auto !important;
+            &.dplayer-icons-right {
+                right: 22px !important;
+                @media screen and (max-height: 450px) {
+                    right: 11px !important;
+                }
+            }
+            // ブラウザフルスクリーンボタンを削除（実質あまり意味がないため）
+            .dplayer-icon.dplayer-full-in-icon {
+                display: none !important;
             }
         }
-        // ブラウザフルスクリーンボタンを削除（実質あまり意味がないため）
-        .dplayer-icon.dplayer-full-in-icon {
-            display: none !important;
+    }
+    .dplayer-notice {
+        padding: 16px 22px !important;
+        margin-right: 30px;
+        border-radius: 4px !important;
+        font-size: 15px !important;
+        line-height: 1.6;
+        @include tablet {
+            padding: 12px 16px !important;
+            margin-right: 16px;
+            font-size: 13.5px !important;
+        }
+    }
+    .dplayer-info-panel {
+        transition: top 0.3s, left 0.3s;
+    }
+    .dplayer-setting-box {
+        .dplayer-setting-audio-panel {
+            // 副音声がない番組で副音声を選択できないように
+            .dplayer-setting-audio-item.dplayer-setting-audio-item--disabled {
+                pointer-events: none;  // クリックイベントを無効化
+                .dplayer-label {
+                    color: #AAAAAA;  // グレーアウト
+                }
+            }
+        }
+    }
+
+    // モバイルのみ適用されるスタイル
+    &.dplayer-mobile {
+        .dplayer-controller {
+            padding-left: calc(68px + 30px) !important;
+            @media screen and (max-height: 450px) {
+                padding-left: calc(56px + 18px) !important;
+            }
+        }
+        &.dplayer-hide-controller .dplayer-controller {
+            transform: none !important;
         }
     }
 }
+
+// ロード中は動画を非表示にする
+.watch-player--loading .dplayer-video-wrap-aspect {
+    opacity: 0 !important;
+}
+
 // Safari のみ、アイコンに hover しても opacity が変わらないようにする
 // hover すると 1px ずれてしまい見苦しくなる Safari の描画バグを回避するための苦肉の策
 // ref: https://qiita.com/Butterthon/items/10e6b58d883236aa3838
 _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-content {
     opacity: 0.8 !important;
 }
-.dplayer-mobile {
-    .dplayer-controller {
-        padding-left: calc(68px + 30px) !important;
-        @media screen and (max-height: 450px) {
-            padding-left: calc(56px + 18px) !important;
-        }
-    }
-}
-.dplayer-mobile.dplayer-hide-controller .dplayer-controller {
-    transform: none !important;
-}
-.dplayer-setting-box {
-    .dplayer-setting-audio-panel {
-        // 副音声がない番組で副音声を選択できないように
-        .dplayer-setting-audio-item.dplayer-setting-audio-item--disabled {
-            pointer-events: none;  // クリックイベントを無効化
-            .dplayer-label {
-                color: #AAAAAA;  // グレーアウト
-            }
-        }
-    }
-}
-.dplayer-notice {
-    padding: 16px 22px !important;
-    margin-right: 30px;
-    border-radius: 4px !important;
-    font-size: 15px !important;
-    line-height: 1.6;
-    @include tablet {
-        padding: 12px 16px !important;
-        margin-right: 16px;
-        font-size: 13.5px !important;
-    }
-}
-.dplayer-info-panel {
-    transition: top 0.3s, left 0.3s;
-}
-.watch-container {
-    // コントロール表示時
-    &--control-visible {
+
+// コントロール表示時
+.watch-container.watch-container--control-visible {
+    .watch-player__dplayer {
         .dplayer-controller-mask, .dplayer-controller {
             opacity: 1 !important;
             visibility: visible !important;
