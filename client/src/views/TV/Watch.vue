@@ -132,6 +132,7 @@ import { IChannel, IChannelDefault } from '@/interface';
 import Channels from '@/components/TV/Channels.vue';
 import Program from '@/components/TV/Program.vue';
 import Mixin from '@/views/TV/Mixin.vue';
+import Utility from '@/utility';
 
 export default Mixin.extend({
     name: 'Watch',
@@ -239,8 +240,8 @@ export default Mixin.extend({
         // 初期化する
         init() {
 
-            // 背景を8種類からランダムで設定
-            this.background_url = `/assets/img/player-background${(Math.floor(Math.random() * 8) + 1)}.jpg`;
+            // ローディング中の背景画像をランダムで設定
+            this.background_url = Utility.generatePlayerBackgroundURL();
 
             // コントロール表示タイマーを実行
             this.controlVisibleTimer('normal');
@@ -563,8 +564,8 @@ export default Mixin.extend({
             // 画質の切り替えが開始されたとき
             this.player.on('quality_start', () => {
 
-                // 背景を8種類からランダムで設定
-                this.background_url = `/assets/img/player-background${(Math.floor(Math.random() * 8) + 1)}.jpg`;
+                // ローディング中の背景画像をランダムで設定
+                this.background_url = Utility.generatePlayerBackgroundURL();
 
                 // イベントソースを閉じる
                 if (this.eventsource !== null) {

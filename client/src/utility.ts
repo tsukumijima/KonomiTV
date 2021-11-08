@@ -13,6 +13,16 @@ export default class Utility {
     };
 
     /**
+     * プレイヤーの背景画像をランダムで取得し、その URL を返す
+     * @returns ランダムで設定されたプレイヤーの背景画像の URL
+     */
+    static generatePlayerBackgroundURL(): string {
+        const background_count = 12;  // 12種類から選択
+        const random = (Math.floor(Math.random() * background_count) + 1);
+        return `/assets/img/player-background/${random.toString().padStart(2, '0')}.jpg`;
+    }
+
+    /**
      * 設定を LocalStorage に取得する
      * @param key 設定のキー名
      * @returns 設定されている値
