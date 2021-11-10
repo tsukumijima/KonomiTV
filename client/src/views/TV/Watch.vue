@@ -372,6 +372,51 @@ export default Mixin.extend({
 
             // 前と次のチャンネル ID を取得する
             [this.channel_previous, , this.channel_next] = this.getPreviousAndCurrentAndNextChannel(this.channel_id);
+
+            // MediaSession API を使い、メディア通知の表示をカスタマイズ
+            if ('mediaSession' in navigator) {
+
+                // アートワークとして表示するアイコン
+                const artwork = [
+                    {src: '/assets/img/icons/icon-maskable-192px.png', sizes: '192x192', type: 'image/png'},
+                    {src: '/assets/img/icons/icon-maskable-512px.png', sizes: '512x512', type: 'image/png'},
+                ];
+
+                // メディア通知の表示をカスタマイズ
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: this.channel.program_present ? this.channel.program_present.title : '放送休止',
+                    artist: this.channel.channel_name,
+                    artwork: artwork,
+                });
+
+                // 再生状況のステータスを設定
+                if ('setPositionState' in navigator.mediaSession) {
+                    navigator.mediaSession.setPositionState({
+                        duration: 0,  // ライブなので0（長さなしを表すらしい）に設定
+                        playbackRate: 1,  // ライブなので再生速度は常に1になる
+                    });
+                }
+
+                // メディア通知上のボタンが押されたときのイベント
+                navigator.mediaSession.setActionHandler('play', () => { this.player.play() });  // 再生
+                navigator.mediaSession.setActionHandler('pause', () => { this.player.pause() });  // 停止
+                navigator.mediaSession.setActionHandler('previoustrack', async () => {  // 前のチャンネルに切り替え
+                    navigator.mediaSession.metadata = new MediaMetadata({
+                        title: this.channel_previous.program_present ? this.channel_previous.program_present.title : '放送休止',
+                        artist: this.channel_previous.channel_name,
+                        artwork: artwork,
+                    });
+                    await this.$router.replace({path: `/tv/watch/${this.channel_previous.channel_id}`});
+                });
+                navigator.mediaSession.setActionHandler('nexttrack', async () => {  // 次のチャンネルに切り替え
+                    navigator.mediaSession.metadata = new MediaMetadata({
+                        title: this.channel_next.program_present ? this.channel_next.program_present.title : '放送休止',
+                        artist: this.channel_next.channel_name,
+                        artwork: artwork,
+                    });
+                    await this.$router.replace({path: `/tv/watch/${this.channel_next.channel_id}`});
+                });
+            }
         },
 
         // マウスが動いたりタップされた時のイベント
@@ -578,17 +623,6 @@ export default Mixin.extend({
                 this.initEventHandler();
 
             });
-
-            // MediaSession API を使い、メディア通知の表示をカスタマイズ
-            if ('mediaSession' in navigator) {
-                navigator.mediaSession.metadata = new MediaMetadata({
-                    title: this.channel.program_present ? this.channel.program_present.title : '放送休止',
-                    artist: this.channel.channel_name,
-                    artwork: [
-                        {src: '/assets/img/icons/icon-maskable-512px.png', sizes: '512x512', type: 'image/png'},
-                    ]
-                });
-            }
         },
 
         // イベントハンドラーを初期化する
