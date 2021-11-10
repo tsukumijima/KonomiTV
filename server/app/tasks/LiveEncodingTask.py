@@ -271,8 +271,15 @@ class LiveEncodingTask():
             ## stream=True を設定することで、レスポンスの返却を待たずに処理を進められる
             try:
                 response = requests.get(mirakurun_stream_api_url, headers={'X-Mirakurun-Priority': '0'}, stream=True, timeout=15)
-            except requests.exceptions.ConnectionError:
-                livestream.setStatus('Offline', 'チューナーの起動に失敗したため、ライブストリームを開始できません。')
+            except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
+                # 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないならチューナーの起動に失敗したものとする
+                if ('放送休止' in program_present.title) or \
+                   ('放送終了' in program_present.title) or \
+                   ('休止' in program_present.title) or \
+                   ('停波' in program_present.title):
+                    livestream.setStatus('Offline', 'この時間は放送を休止しています。')
+                else:
+                    livestream.setStatus('Offline', 'チューナーの起動に失敗したため、ライブストリームを開始できません。')
                 return
 
         # EDCB バックエンド
