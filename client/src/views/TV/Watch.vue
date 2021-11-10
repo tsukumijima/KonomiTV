@@ -350,6 +350,7 @@ export default Mixin.extend({
                 channels_response = await Vue.axios.get(`${this.api_base_url}/channels`);
             } catch (error) {
                 console.error(error);   // エラー内容を表示
+                return;
             }
 
             // is_display が true または現在表示中のチャンネルのみに絞り込むフィルタ関数
