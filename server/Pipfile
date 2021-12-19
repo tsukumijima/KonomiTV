@@ -6,7 +6,7 @@ name = "pypi"
 
 [scripts]
 serve = "uvicorn app.app:app --host 0.0.0.0 --port 7000"
-develop = "uvicorn app.app:app --host 0.0.0.0 --port 7000 --reload --reload-dir app"
+dev = "uvicorn app.app:app --host 0.0.0.0 --port 7000 --reload --reload-dir app"
 
 [packages]
 aerich = "*"
