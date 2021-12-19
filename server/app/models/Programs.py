@@ -129,7 +129,7 @@ class Programs(models.Model):
         # このトランザクションは単にパフォーマンス向上のため
         async with transactions.in_transaction():
 
-            # この変数から更新or更新不要な番組情報を削除していき、残った番組情報を最後にまとめて削除する
+            # この変数から更新or更新不要な番組情報を削除していき、残った古い番組情報を最後にまとめて削除する
             duplicate_programs = {temp.id:temp for temp in await Programs.all()}
 
             # チャンネル情報を取得
@@ -314,7 +314,8 @@ class Programs(models.Model):
 
                 await program.save()
 
-            # 重複している番組をまとめて削除する
+            # この時点で残存している番組情報は放送が終わって EPG から削除された番組なので、まとめて削除する
+            # ここで削除しないと終了した番組の情報が幽霊のように残り続ける事になり、結果 DB が肥大化して遅くなってしまう
             for duplicate_program in duplicate_programs.values():
                 Logging.debug(f'Delete Program: {duplicate_program.id}')
                 await duplicate_program.delete()
@@ -334,7 +335,7 @@ class Programs(models.Model):
         # このトランザクションは単にパフォーマンス向上のため
         async with transactions.in_transaction():
 
-            # この変数から更新or更新不要な番組情報を削除していき、残った番組情報を最後にまとめて削除する
+            # この変数から更新or更新不要な番組情報を削除していき、残った古い番組情報を最後にまとめて削除する
             duplicate_programs = {temp.id:temp for temp in await Programs.all()}
 
             # チャンネルごとに
@@ -537,7 +538,8 @@ class Programs(models.Model):
 
                     await program.save()
 
-            # 重複している番組をまとめて削除する
+            # この時点で残存している番組情報は放送が終わって EPG から削除された番組なので、まとめて削除する
+            # ここで削除しないと終了した番組の情報が幽霊のように残り続ける事になり、結果 DB が肥大化して遅くなってしまう
             for duplicate_program in duplicate_programs.values():
                 Logging.debug(f'Delete Program: {duplicate_program.id}')
                 await duplicate_program.delete()
