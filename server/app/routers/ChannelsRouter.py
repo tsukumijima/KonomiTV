@@ -12,12 +12,12 @@ from fastapi.responses import FileResponse
 from fastapi.responses import Response
 from tortoise import timezone
 from tortoise import Tortoise
+from typing import Optional
 
 from app import schemas
 from app.constants import CONFIG, LOGO_DIR
 from app.models import Channels
 from app.models import LiveStream
-from app.models import Programs
 from app.utils import RunAsync
 from app.utils.EDCB import EDCBUtil, CtrlCmdUtil
 
@@ -47,6 +47,7 @@ async def ChannelsAPI():
     tasks = list()
 
     # チャンネル情報を取得
+    channels:Channels
     tasks.append(Channels.all().order_by('channel_number').order_by('remocon_id'))
 
     # データベースの生のコネクションを取得
@@ -57,6 +58,7 @@ async def ChannelsAPI():
     # 現在の番組情報を取得する
     ## 一度に取得した方がパフォーマンスが向上するため敢えてそうしている
     ## 24時間分しか取得しないのもパフォーマンスの関係で、24時間を超える番組は確認できる限り存在しないため実害はないと判断
+    programs_present:dict
     tasks.append(conn.execute_query_dict(
         'SELECT * FROM "programs" WHERE "start_time"<=(?) AND "end_time">=(?) AND "end_time"<(?) ORDER BY "start_time" DESC',
         [
@@ -67,8 +69,9 @@ async def ChannelsAPI():
     ))
 
     # 次の番組情報を取得する
+    programs_following:dict
     tasks.append(conn.execute_query_dict(
-        'SELECT * FROM "programs" WHERE "start_time">=(?) AND "end_time"<(?) ORDER BY "start_time" DESC',
+        'SELECT * FROM "programs" WHERE "start_time">=(?) AND "end_time"<(?) ORDER BY "start_time" ASC',
         [
             now,  # 番組開始時刻が現在時刻以上
             now + timedelta(hours=24) # 番組終了時刻が現在時刻から先24時間以内
@@ -89,14 +92,17 @@ async def ChannelsAPI():
     # チャンネルごとに実行
     for channel in channels:
 
+        # 番組情報のリストからチャンネル ID が合致するものを探し、最初に見つけた値を返す
+        def FilterProgram(programs, channel_id) -> Optional[dict]:
+            for program in programs:
+                if program['channel_id'] == channel_id:
+                    return program
+            return None  # 全部回したけど見つからなかった
+
         # 現在と次の番組情報をチャンネル ID で絞り込む
         # filter() はイテレータを返すので、list に変換する
-        program_present = list(filter(lambda temp: temp['channel_id'] == channel.channel_id, programs_present))
-        program_following = list(filter(lambda temp: temp['channel_id'] == channel.channel_id, programs_following))
-
-        # 要素が 0 個以上あれば内容を入れ、そうでなければ None を入れる
-        channel.program_present = program_present[0] if len(program_present) > 0 else None
-        channel.program_following = program_following[0] if len(program_following) > 0 else None
+        channel.program_present = FilterProgram(programs_present, channel.channel_id)
+        channel.program_following = FilterProgram(programs_following, channel.channel_id)
 
         # JSON データで格納されているカラムをデコードする
         if channel.program_present is not None:
