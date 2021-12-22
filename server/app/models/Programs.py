@@ -1,7 +1,6 @@
 
 import ariblib.constants
 import datetime
-import re
 import requests
 import time
 from datetime import timedelta
