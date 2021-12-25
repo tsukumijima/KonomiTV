@@ -308,20 +308,17 @@ class LiveEncodingTask():
             tuner.lock()
 
             # チューナーに接続する（放送波が送信される名前付きパイプを見つける）
-            edcb_networktv_path = RunAwait(tuner.connect())
+            # R/W バッファ: 188B (TS Packet Size) * 256 = 48128B
+            pipe = RunAwait(tuner.connect(48128))
 
             # チューナーへの接続に失敗した
-            if edcb_networktv_path is None:
+            if pipe is None:
                 livestream.setStatus('Offline', 'チューナーへの接続に失敗したため、ライブストリームを開始できません。')
                 return
 
             # ライブストリームにチューナーインスタンスを設定する
             # Idling への切り替え、ONAir への復帰時に LiveStream 側でチューナーのアンロック/ロックが行われる
             livestream.setTunerInstance(tuner)
-
-            # 名前付きパイプを開く
-            # R/W バッファ: 188B (TS Packet Size) * 256 = 48128B
-            pipe = open(edcb_networktv_path, mode='rb', buffering=48128)
 
         # ***** エンコーダーへの入力の読み込み *****
 

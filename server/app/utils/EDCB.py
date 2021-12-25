@@ -1,8 +1,6 @@
 
 import asyncio
 import datetime
-import glob
-import re
 import time
 from typing import Callable, List, Optional
 
@@ -172,12 +170,12 @@ class EDCBTuner:
         return True
 
 
-    async def connect(self) -> Optional[str]:
+    async def connect(self, buffering: int):
         """
-        チューナーに接続し、名前付きパイプのパスを取得する
+        チューナーに接続する
 
         Returns:
-            Optional[str]: 名前付きパイプのパス（取得できなかった場合は None を返す）
+            Any: ファイルオブジェクト（取得できなかった場合は None を返す）
         """
 
         # プロセス ID が取得できている（チューナーが起動している）ことが前提
@@ -185,16 +183,16 @@ class EDCBTuner:
             return None
 
         # チューナーに接続する（ EpgDataCap_Bon で受信した放送波を受け取るための名前付きパイプを見つける）
-        edcb_networktv_path = await EDCBUtil.findNwTVStreamPath(self.edcb_networktv_id, self.edcb_process_id)
+        pipe = await EDCBUtil.openPipeStream(self.edcb_process_id, buffering)
 
         # チューナーへの接続に失敗した
         ## チューナーを閉じてからエラーを返す
-        if edcb_networktv_path is None:
+        if pipe is None:
             await self.close()  # チューナーを閉じる
             return None
 
-        # 名前付きパイプのパスを返す
-        return edcb_networktv_path
+        # ファイルオブジェクトを返す
+        return pipe
 
 
     def lock(self) -> None:
@@ -342,27 +340,21 @@ class EDCBUtil:
         return v
 
     @staticmethod
-    async def findNwTVStreamPath(nwtv_id: int, process_id: int, timeout_sec: float = 10.) -> Optional[str]:
-        """ システムに存在する NetworkTV モードのストリームのパイプのパスを見つける """
-        while timeout_sec > 0.:
-            ff = glob.glob('\\\\.\\pipe\\SendTSTCP_*_' + str(process_id))
-            if len(ff) > 0:
-                path = ff[0]
-                # 安全のため検査
-                if re.fullmatch(r'\\\\\.\\PIPE\\SENDTSTCP_[0-9]+_' + str(process_id), path.upper()) is None:
-                    return None
-                return path
-            # たいてい glob() で見つかるが、環境により見つからないことがあるらしいので実際に開いて見つける
-            # ポートは 0 から 9 のあいだと仮定
-            for port in range(10):
+    async def openPipeStream(process_id: int, buffering: int, timeout_sec: float = 10.):
+        """ システムに存在する SrvPipe ストリームを開き、ファイルオブジェクトを返す """
+        to = time.monotonic() + timeout_sec
+        wait = 0.1
+        while time.monotonic() < to:
+            # ポートは必ず 0 から 29 まで
+            for port in range(30):
                 try:
                     path = '\\\\.\\pipe\\SendTSTCP_' + str(port) + '_' + str(process_id)
-                    with open(path, mode = 'rb'):
-                        return path
+                    return open(path, mode = 'rb', buffering = buffering)
                 except:
-                     pass
-            await asyncio.sleep(0.1)
-            timeout_sec -= 0.1
+                    pass
+            await asyncio.sleep(wait)
+            # 初期に成功しなければ見込みは薄いので問い合わせを疎にしていく
+            wait = min(wait + 0.1, 1.0)
         return None
 
 
