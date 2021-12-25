@@ -1,6 +1,7 @@
 
 import asyncio
 import datetime
+import socket
 import time
 from typing import Callable, List, Optional
 
@@ -175,24 +176,28 @@ class EDCBTuner:
         チューナーに接続する
 
         Returns:
-            Any: ファイルオブジェクト（取得できなかった場合は None を返す）
+            Any: ファイルオブジェクトまたはソケット（取得できなかった場合は None を返す）
         """
 
         # プロセス ID が取得できている（チューナーが起動している）ことが前提
         if self.edcb_process_id is None:
             return None
 
-        # チューナーに接続する（ EpgDataCap_Bon で受信した放送波を受け取るための名前付きパイプを見つける）
-        pipe = await EDCBUtil.openPipeStream(self.edcb_process_id, buffering)
+        if CONFIG['general']['edcb_host'] != '0.0.0.1':
+            # チューナーに接続する（ EpgTimerSrv を経由する）
+            pipe_or_socket = await EDCBUtil.openViewStream(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'], self.edcb_process_id)
+        else:
+            # チューナーに接続する（ EpgDataCap_Bon で受信した放送波を受け取るための名前付きパイプを見つける）
+            pipe_or_socket = await EDCBUtil.openPipeStream(self.edcb_process_id, buffering)
 
         # チューナーへの接続に失敗した
         ## チューナーを閉じてからエラーを返す
-        if pipe is None:
+        if pipe_or_socket is None:
             await self.close()  # チューナーを閉じる
             return None
 
-        # ファイルオブジェクトを返す
-        return pipe
+        # ファイルオブジェクトまたはソケットを返す
+        return pipe_or_socket
 
 
     def lock(self) -> None:
@@ -352,6 +357,23 @@ class EDCBUtil:
                     return open(path, mode = 'rb', buffering = buffering)
                 except:
                     pass
+            await asyncio.sleep(wait)
+            # 初期に成功しなければ見込みは薄いので問い合わせを疎にしていく
+            wait = min(wait + 0.1, 1.0)
+        return None
+
+    @staticmethod
+    async def openViewStream(host: str, port: int, process_id: int, timeout_sec: float = 10.) -> Optional[socket.socket]:
+        """ View アプリの SrvPipe ストリームの転送を開始する """
+        edcb = CtrlCmdUtil()
+        edcb.setNWSetting(host, port)
+        edcb.setConnectTimeOutSec(timeout_sec)
+        to = time.monotonic() + timeout_sec
+        wait = 0.1
+        while time.monotonic() < to:
+            sock = edcb.openViewStream(process_id)
+            if sock is not None:
+                return sock
             await asyncio.sleep(wait)
             # 初期に成功しなければ見込みは薄いので問い合わせを疎にしていく
             wait = min(wait + 0.1, 1.0)
@@ -555,6 +577,42 @@ class CtrlCmdUtil:
                 return self.__readRecFileInfo(bufview, pos, len(buf))
         return None
 
+    def openViewStream(self, process_id: int) -> Optional[socket.socket]:
+        """ View アプリの SrvPipe ストリームの転送を開始する """
+        buf = bytearray()
+        self.__writeInt(buf, self.__CMD_EPG_SRV_RELAY_VIEW_STREAM)
+        self.__writeInt(buf, 4)
+        self.__writeInt(buf, process_id)
+
+        # TCP/IP モードであること
+        if self.__host is None:
+            return None
+
+        # 利用側のロジックが今のところ同期的なので、ここでは asyncio を使わない
+        try:
+            sock = socket.create_connection((self.__host, self.__port), self.__connect_timeout_sec)
+        except:
+            return None
+        try:
+            sock.settimeout(self.__connect_timeout_sec)
+            sock.sendall(buf)
+            rbuf = bytearray()
+            while len(rbuf) < 8:
+                r = sock.recv(8 - len(rbuf))
+                if not r:
+                    break
+                rbuf.extend(r)
+        except:
+            sock.close()
+            return None
+
+        if len(rbuf) == 8:
+            ret = self.__readInt(memoryview(rbuf), [0], 8)
+            if ret == self.__CMD_SUCCESS:
+                return sock
+        sock.close()
+        return None
+
     # EDCB/EpgTimer の CtrlCmd.cs より
     __CMD_SUCCESS = 1
     __CMD_VER = 5
@@ -562,6 +620,7 @@ class CtrlCmdUtil:
     __CMD_VIEW_APP_GET_BONDRIVER = 202
     __CMD_VIEW_APP_SET_CH = 205
     __CMD_VIEW_APP_CLOSE = 208
+    __CMD_EPG_SRV_RELAY_VIEW_STREAM = 301
     __CMD_EPG_SRV_ENUM_SERVICE = 1021
     __CMD_EPG_SRV_ENUM_PG_INFO_EX = 1029
     __CMD_EPG_SRV_ENUM_PG_ARC = 1030

@@ -1,6 +1,7 @@
 
 import os
 import requests
+import socket
 import subprocess
 import threading
 import time
@@ -307,12 +308,12 @@ class LiveEncodingTask():
             livestream.setStatus('Standby', 'エンコーダーを起動しています…')
             tuner.lock()
 
-            # チューナーに接続する（放送波が送信される名前付きパイプを見つける）
+            # チューナーに接続する（放送波が送信される名前付きパイプまたはソケットが返る）
             # R/W バッファ: 188B (TS Packet Size) * 256 = 48128B
-            pipe = RunAwait(tuner.connect(48128))
+            pipe_or_socket = RunAwait(tuner.connect(48128))
 
             # チューナーへの接続に失敗した
-            if pipe is None:
+            if pipe_or_socket is None:
                 livestream.setStatus('Offline', 'チューナーへの接続に失敗したため、ライブストリームを開始できません。')
                 return
 
@@ -329,7 +330,10 @@ class LiveEncodingTask():
             if CONFIG['general']['backend'] == 'Mirakurun':
                 stream_iterator = response.iter_content(chunk_size=48128)
             elif CONFIG['general']['backend'] == 'EDCB':
-                stream_iterator = iter(lambda: pipe.read(48128), b'')
+                if type(pipe_or_socket) is socket.socket:
+                    stream_iterator = iter(lambda: pipe_or_socket.recv(48128), b'')
+                else:
+                    stream_iterator = iter(lambda: pipe_or_socket.read(48128), b'')
 
             # Mirakurun / EDCB から受信した放送波を随時 tsreadex の入力に書き込む
             try:
@@ -369,8 +373,7 @@ class LiveEncodingTask():
 
                     # tsreadex が既に終了しているか、接続が切断された
                     if ((tsreadex.poll() is not None) or
-                        (CONFIG['general']['backend'] == 'Mirakurun' and response.raw.closed is True) or
-                        (CONFIG['general']['backend'] == 'EDCB' and pipe.closed is True)):
+                        (CONFIG['general']['backend'] == 'Mirakurun' and response.raw.closed is True)):
                         break
             except OSError:
                 pass
@@ -379,7 +382,10 @@ class LiveEncodingTask():
             if CONFIG['general']['backend'] == 'Mirakurun':
                 response.close()
             elif CONFIG['general']['backend'] == 'EDCB':
-                pipe.close()
+                pipe_or_socket.close()
+
+            # TODO: チューナーから切断されるとエンコーダーが残り続けるのでここでなにかすべき。エンコーダーの入力側を閉じるとか
+            # tsreadex.stdin.close()
 
         # スレッドを開始
         thread_reader = threading.Thread(target=reader, name='LiveEncodingTask-Reader')
