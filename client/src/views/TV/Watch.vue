@@ -150,7 +150,7 @@ export default Mixin.extend({
             time: dayjs().format('YYYY/MM/DD HH:mm:ss'),
 
             // 背景の URL
-            background_url: '/assets/img/player-background1.jpg',
+            background_url: '',
 
             // プレイヤーのローディング状態
             // 既定でローディングとする
