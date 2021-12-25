@@ -394,6 +394,9 @@ class CtrlCmdUtil:
         """ TCP/IP モードにする """
         self.__host = host
         self.__port = port
+        if host == '0.0.0.1':
+            # 特別に名前付きパイプモードにする
+            self.setPipeSetting('EpgTimerSrvNoWaitPipe')
 
     def setConnectTimeOutSec(self, timeout: float) -> None:
         """ 接続処理時のタイムアウト設定 """
