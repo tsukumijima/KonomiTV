@@ -2,8 +2,8 @@
 import inspect
 import logging
 import os
-import sys
 import ruamel.yaml
+import sys
 from pathlib import Path
 
 
