@@ -1,28 +1,28 @@
 
 // 番組情報を表すインターフェイス
 export interface IProgram {
-    id: string,
-    network_id: number,
-    service_id: number,
-    event_id: number,
-    channel_id: string,
-    title: string,
-    description: string,
-    detail: {[key: string]: string},
-    start_time: string,
-    end_time: string,
-    duration: number,
-    is_free: boolean,
-    genre: {major: string, middle: string}[],
-    video_type: string,
-    video_codec: string,
-    video_resolution: string,
-    primary_audio_type: string,
-    primary_audio_language: string,
-    primary_audio_sampling_rate: string,
-    secondary_audio_type: string | null,
-    secondary_audio_language: string | null,
-    secondary_audio_sampling_rate: string | null,
+    id: string;
+    network_id: number;
+    service_id: number;
+    event_id: number;
+    channel_id: string;
+    title: string;
+    description: string;
+    detail: {[key: string]: string};
+    start_time: string;
+    end_time: string;
+    duration: number;
+    is_free: boolean;
+    genre: {major: string; middle: string}[];
+    video_type: string;
+    video_codec: string;
+    video_resolution: string;
+    primary_audio_type: string;
+    primary_audio_language: string;
+    primary_audio_sampling_rate: string;
+    secondary_audio_type: string | null;
+    secondary_audio_language: string | null;
+    secondary_audio_sampling_rate: string | null;
 }
 
 // 番組情報を表すインターフェイスのデフォルト値
@@ -53,22 +53,22 @@ export const IProgramDefault: IProgram = {
 
 // チャンネル情報を表すインターフェイス
 export interface IChannel {
-    id: string,
-    network_id: number,
-    service_id: number,
-    transport_stream_id: number | null,
-    remocon_id: number | null,
-    channel_id: string,
-    channel_number: string,
-    channel_name: string,
-    channel_type: string,
-    channel_force: number | null,
-    channel_comment: number | null,
-    is_subchannel: boolean,
-    is_display: boolean,
-    viewers: number,
-    program_present: IProgram,
-    program_following: IProgram,
+    id: string;
+    network_id: number;
+    service_id: number;
+    transport_stream_id: number | null;
+    remocon_id: number | null;
+    channel_id: string;
+    channel_number: string;
+    channel_name: string;
+    channel_type: string;
+    channel_force: number | null;
+    channel_comment: number | null;
+    is_subchannel: boolean;
+    is_display: boolean;
+    viewers: number;
+    program_present: IProgram;
+    program_following: IProgram;
 }
 
 // チャンネル情報を表すインターフェイスのデフォルト値
