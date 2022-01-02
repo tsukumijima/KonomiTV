@@ -207,6 +207,8 @@ export default Mixin.extend({
     beforeDestroy() {
 
         // destroy() を実行
+        // 別のページへ遷移するため、DPlayer のインスタンスを確実に破棄する
+        // さもなければ、ブラウザがリロードされるまでバックグラウンドで永遠に再生されてしまう
         this.destroy(true);
     },
     // チャンネル切り替え時に実行
@@ -696,6 +698,13 @@ export default Mixin.extend({
                             this.player.notice(this.player.template.notice.textContent, 0.000001);
                         }
 
+                        // 前のプレイヤーインスタンスの Picture-in-Picture ウインドウが残っている場合、終了させてからもう一度切り替える
+                        // チャンネル切り替えが完了しても前の Picture-in-Picture ウインドウは再利用されないため、一旦終了させるしかない
+                        if (document.pictureInPictureElement) {
+                            document.exitPictureInPicture();
+                            this.player.video.requestPictureInPicture();
+                        }
+
                         break;
                     }
 
@@ -795,14 +804,18 @@ export default Mixin.extend({
             // 再びローディング状態にする
             this.is_loading = true;
 
+            // プレイヤーの破棄が可能なフラグをつける
+            this.player.KonomiTVCanDestroy = true;
+
             // プレイヤーを停止する
-            window.setTimeout(() => this.player.video.pause(), 400);
-            this.player.KonomiTVCanDestroy = true;  // 破棄可能のフラグをつける
+            this.interval_ids.push(window.setTimeout(() => {
+                this.player.video.pause();
+            }, 400));  // アニメーション分待ってから実行
 
             // is_destroy_player が true の時は、ここで DPlayer 自体を破棄する
             // false の時は次の initPlayer() が実行されるまで破棄されない
             if (is_destroy_player === true && this.player !== null) {
-                window.setTimeout(() => {  // アニメーション分待ってから
+                this.interval_ids.push(window.setTimeout(() => {  // アニメーション分待ってから実行
                     try {
                         this.player.destroy();
                     } catch (error) {
@@ -810,7 +823,7 @@ export default Mixin.extend({
                         this.player.plugins.mpegts.destroy();
                     }
                     this.player = null;
-                }, 400);
+                }, 400));
             }
 
             // イベントソースを閉じる
