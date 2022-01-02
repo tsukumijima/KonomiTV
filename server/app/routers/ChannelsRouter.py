@@ -124,8 +124,6 @@ async def ChannelsAPI():
         # チャンネルタイプで分類
         result[channel.channel_type].append(channel)
 
-        print(channel.program_present)
-
     # チャンネルタイプごとに返却
     return result
 
