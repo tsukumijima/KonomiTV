@@ -32,6 +32,10 @@ class LiveStreamClient():
         # ストリームデータが入る Queue または None
         self.queue:Optional[queue.Queue] = queue.Queue() if self.client_type == 'mpegts' else None
 
+        # ストリームデータの最終読み取り時刻のタイミング
+        # 最終読み取り時刻を1秒過ぎたクライアントはタイムアウトと判断し、クライアントを削除する
+        self.stream_data_read_at:float = time.time()
+
 
 class LiveStream():
     """ ライブストリームを管理するクラス """
@@ -202,7 +206,7 @@ class LiveStream():
         # ***** ステータスの切り替え *****
 
         # ライブストリームが Offline な場合、新たにエンコードタスクを起動する
-        if self.getStatus()['status'] == 'Offline':
+        if self.status == 'Offline':
 
             # 現在 Idling 状態のライブストリームがあれば、うち最初のライブストリームを Offline にする
             ## 一般にチューナーリソースは無尽蔵にあるわけではないので、現在 Idling（=つまり誰も見ていない）ライブストリームがあるのなら
@@ -261,7 +265,7 @@ class LiveStream():
         # ***** アイドリングからの復帰 *****
 
         # ライブストリームが Idling 状態な場合、ONAir 状態に戻す（アイドリングから復帰）
-        if self.getStatus()['status'] == 'Idling':
+        if self.status == 'Idling':
             self.setStatus('ONAir', 'ライブストリームは ONAir です。')
 
         # 新たに振られたクライアント ID を返す
@@ -277,9 +281,9 @@ class LiveStream():
         """
 
         # 指定されたクライアント ID のクライアントを削除する
-        if len(self.clients) > 0:
+        # すでにタイムアウトなどで削除されていたら何もしない
+        if len(self.clients) > 0 and self.clients[client_id] is not None:
             self.clients[client_id] = None
-            # クライアント ID は表示上は 1 を起点とする（その方が直感的なため）
             Logging.info(f'LiveStream:{self.livestream_id} Client Disconnected. Client ID: {client_id + 1}')
 
 
@@ -361,11 +365,16 @@ class LiveStream():
             bytes: ストリームデータ
         """
 
-        # 登録したクライアントの Queue から読み取ったストリームデータを返す
+        # 指定されたクライアント ID のクライアントが存在する
         if len(self.clients) > 0 and self.clients[client_id] is not None:
+
+            # ストリームデータの最終読み取り時刻を更新
+            self.clients[client_id].stream_data_read_at = time.time()
+
+            # 登録したクライアントの Queue から読み取ったストリームデータを返す
             try:
                 return self.clients[client_id].queue.get_nowait()
-            except queue.Empty:
+            except queue.Empty:  # キューの中身が空
                 return b''  # None にはせず、処理を継続させる
             except TypeError:
                 return None
@@ -382,10 +391,19 @@ class LiveStream():
         """
 
         # 接続している全てのクライアントの Queue にストリームデータを書き込む
-        for client in self.clients:
+        for client_id, client in enumerate(self.clients):
 
-            # 削除されたクライアントでなければ書き込む
+            # 削除されたクライアントでなければ
             if client is not None:
+
+                # 最終読み取り時刻を1秒過ぎたクライアントはタイムアウトと判断し、クライアントを削除する
+                # 主にネットワークが切断されたなどの理由で発生する
+                # Queue の読み取りはノンブロッキングなので、Standby の際にタイムスタンプが更新されなくなる心配をする必要はない
+                if time.time() - client.stream_data_read_at > 1:
+                    self.clients[client_id] = None
+                    Logging.info(f'LiveStream:{self.livestream_id} Client Disconnected (Timeout). Client ID: {client_id + 1}')
+
+                # ストリームデータを書き込む
                 client.queue.put(stream_data)
 
         # ストリームデータが空でなければ、最終書き込み時刻を更新

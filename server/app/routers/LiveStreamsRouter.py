@@ -266,7 +266,7 @@ async def LiveMPEGTSStreamAPI(
             if livestream.getStatus()['status'] != 'Offline':
 
                 # 登録した Queue から受信したストリームデータ
-                stream_data:Optional[bytes] = await RunAsync(livestream.read, client_id)
+                stream_data:Optional[bytes] = livestream.read(client_id)
 
                 # ストリームデータが存在する
                 if stream_data is not None:
@@ -288,9 +288,9 @@ async def LiveMPEGTSStreamAPI(
                 livestream.disconnect(client_id)
                 break
 
-            # 0.01 秒待つ
+            # 0.025 秒待つ
             # Queue からの取り出しはノンブロッキングのため、ある程度待たないとループがビジーになり負荷が上がってしまう
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.025)
 
     # リクエストがキャンセルされたときに自前でライブストリームの接続を切断できるよう、モンキーパッチを当てる
     # StreamingResponse はリクエストがキャンセルされるとレスポンスを生成するジェネレータの実行自体を勝手に強制終了してしまう
