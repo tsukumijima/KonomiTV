@@ -20,6 +20,7 @@ from app.models import Channels
 from app.models import LiveStream
 from app.utils import RunAsync
 from app.utils.EDCB import EDCBUtil, CtrlCmdUtil
+from app.utils import Jikkyo
 
 
 # ルーター
@@ -304,3 +305,33 @@ async def ChannelLogoAPI(
 
     # 同梱のロゴファイルも Mirakurun や EDCB からのロゴもない場合のみ
     return FileResponse(LOGO_DIR / 'default.png', headers=header)
+
+
+@router.get(
+    '/{channel_id}/jikkyo',
+    summary = 'ニコニコ実況セッション情報 API',
+    response_description = '',
+)
+async def ChannelJikkyoAPI(
+    channel_id:str = Path(..., description='チャンネル ID 。ex:gr011'),
+):
+    """
+    チャンネルに紐づくニコニコ実況のセッション情報を取得する。
+    """
+
+    # チャンネル情報を取得
+    channel = await Channels.filter(channel_id=channel_id).get_or_none()
+
+    # 指定されたチャンネル ID が存在しない
+    if channel is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail='Specified channel_id was not found',
+        )
+
+    # ニコニコ実況クライアントを初期化する
+    jikkyo = Jikkyo(channel.network_id, channel.service_id)
+
+    # ニコ生の視聴セッション情報を取得する
+    # 今のところ値をそのまま返す
+    return await jikkyo.fetchNicoLiveSession()
