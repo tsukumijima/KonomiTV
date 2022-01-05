@@ -1,20 +1,26 @@
 
+import html
 import json
+import re
 import requests
 import xml.etree.ElementTree as ET
-from typing import Optional
+from typing import Dict, Optional, Union
 
-from app.constants import BASE_DIR
+from app.constants import BASE_DIR, VERSION
 
 
 class Jikkyo:
 
     # 実況 ID とサービス ID (SID)・ネットワーク ID (NID) の対照表
     with open(BASE_DIR / 'data/jikkyo_channels.json', encoding='utf-8') as file:
-        jikkyo_channels = json.load(file)
+        jikkyo_channels:Dict[str, Dict[str, Union[int, str]]] = json.load(file)
 
-    # 実況 ID とチャンネル/コミュニティ ID の対照表
-    jikkyo_nicolive_table = {
+    # 実況チャンネルのステータスが入る辞書
+    # getchannels API のリクエスト結果をキャッシュする
+    jikkyo_channels_status:Dict[str, Dict[str, int]] = dict()
+
+    # 実況 ID と実況チャンネル/コミュニティ ID の対照表
+    jikkyo_nicolive_id_table:Dict[str, Dict[str, str]] = {
         'jk1': {'type': 'channel', 'id': 'ch2646436', 'name': 'NHK総合'},
         'jk2': {'type': 'channel', 'id': 'ch2646437', 'name': 'NHK Eテレ'},
         'jk4': {'type': 'channel', 'id': 'ch2646438', 'name': '日本テレビ'},
@@ -42,14 +48,15 @@ class Jikkyo:
         'jk333': {'type': 'community', 'id': 'co5245469', 'name': 'AT-X'},
     }
 
-    # 実況チャンネルのステータスが入る辞書
-    # getchannels API のリクエスト結果をキャッシュする
-    jikkyo_channels_status = dict()
+    # API へのリクエストヘッダー
+    request_headers:Dict[str, str] = {
+        'User-Agent': f'KonomiTV/{VERSION}',  # ユーザーエージェントを指定
+    }
 
 
     def __init__(self, network_id:int, service_id:int):
         """
-        ニコニコ実況を初期化する
+        ニコニコ実況クライアントを初期化する
 
         Args:
             network_id (int): ネットワーク ID
@@ -57,8 +64,14 @@ class Jikkyo:
         """
 
         # NID と SID を設定
-        self.network_id = network_id
-        self.service_id = service_id
+        self.network_id:int = network_id
+        self.service_id:int = service_id
+
+        # 実況 ID
+        self.jikkyo_id:str
+
+        # ニコ生上の実況チャンネル/コミュニティ ID
+        self.jikkyo_nicolive_id:str
 
         # 実況 ID を取得する
         for jikkyo_channel in self.jikkyo_channels:
@@ -110,20 +123,78 @@ class Jikkyo:
                     self.jikkyo_id = 'jk' + str(jikkyo_channel['jikkyo_id'])
                 break
 
-        # この時点で実況 ID が存在しないなら、jk0 を設定する
+        # この時点で実況 ID を設定できていないなら (jikkyo_channels.json に未定義のチャンネル) jk0 を設定する
         if hasattr(self, 'jikkyo_id') is False:
             self.jikkyo_id = 'jk0'
 
-        # ニコ生上のチャンネル/コミュニティ ID を取得する
+        # ニコ生上の実況チャンネル/コミュニティ ID を取得する
         if self.jikkyo_id != 'jk0':
-            if self.jikkyo_id in self.jikkyo_nicolive_table:
+            if self.jikkyo_id in self.jikkyo_nicolive_id_table:
                 # 対照表に存在する実況 ID
-                self.jikkyo_nicolive_id = self.jikkyo_nicolive_table[self.jikkyo_id]['id']
+                self.jikkyo_nicolive_id = self.jikkyo_nicolive_id_table[self.jikkyo_id]['id']
             else:
                 # ニコ生への移行時に廃止されたなどの理由で対照表に存在しない実況 ID
                 self.jikkyo_nicolive_id = None
         else:
             self.jikkyo_nicolive_id = None
+
+
+    async def fetchNicoLiveSession(self) -> dict:
+        """
+        ニコ生の視聴セッション情報を取得する
+
+        Returns:
+            dict: 視聴セッション情報 or エラーメッセージが含まれる辞書
+        """
+
+        # 循環インポートを防ぐ
+        from app.utils import RunAsync
+
+        # 廃止されたなどの理由でニコ生上の実況チャンネル/コミュニティ ID が取得できていない
+        if self.jikkyo_nicolive_id is None:
+            return {'is_success': False, 'detail': 'このチャンネルのニコニコ実況はありません。'}
+
+        # ニコ生の視聴ページの HTML を取得する
+        watch_page_url = f'https://live.nicovideo.jp/watch/{self.jikkyo_nicolive_id}'
+        watch_page_result:requests.Response = await RunAsync(requests.get, watch_page_url, headers=self.request_headers)
+        watch_page_code = watch_page_result.status_code
+
+        # ステータスコードを判定
+        if watch_page_code != 200:
+            # 404: Not Found
+            if watch_page_code != 404:
+                return {'is_success': False, 'detail': '現在放送中のニコニコ実況がありません。(HTTP Error 404)'}
+            # 500: Internal Server Error
+            elif watch_page_code != 500:
+                return {'is_success': False, 'detail': '現在、ニコニコ実況で障害が発生しています。(HTTP Error 500)'}
+            # 503: Service Unavailable
+            elif watch_page_code != 500:
+                return {'is_success': False, 'detail': '現在、ニコニコ実況はメンテナンス中です。(HTTP Error 503)'}
+            # それ以外のステータスコード
+            else:
+                return {'is_success': False, 'detail': f'現在、ニコニコ実況でエラーが発生しています。(HTTP Error {watch_page_code})'}
+
+        # HTML から embedded-data を取得
+        embedded_data_raw:dict = re.search(r'<script id="embedded-data" data-props="(.*?)"><\/script>', watch_page_result.text)
+
+        # embedded-data の取得に失敗
+        if embedded_data_raw is None:
+            return {'is_success': False, 'detail': 'ニコニコ実況の番組情報の取得に失敗しました。'}
+
+        # HTML エスケープを解除してから JSON デコード
+        embedded_data = json.loads(html.unescape(embedded_data_raw[1]))
+
+        # 現在放送中 (ON_AIR) でない
+        if embedded_data['program']['status'] != 'ON_AIR':
+            return {'is_success': False, 'detail': '現在放送中のニコニコ実況がありません。'}
+
+        # 視聴セッションの WebSocket の URL
+        session = embedded_data['site']['relive']['webSocketUrl']
+        if session == '':
+            return {'is_success': False, 'detail': '視聴セッションを取得できませんでした。'}
+
+        # 視聴セッションの WebSocket の URL を返す
+        return {'is_success': True, 'session': session}
 
 
     async def getStatus(self) -> Optional[dict]:
@@ -164,7 +235,7 @@ class Jikkyo:
         # getchannels API から実況チャンネルのステータスを取得する
         try:
             getchannels_api_url = 'https://jikkyo.tsukumijima.net/namami/api/v2/getchannels'
-            getchannels_api_result:requests.Response = await RunAsync(requests.get, getchannels_api_url)
+            getchannels_api_result:requests.Response = await RunAsync(requests.get, getchannels_api_url, headers=cls.request_headers)
         except requests.exceptions.ConnectionError: # 接続エラー（サーバー再起動など）
             return # ステータス更新を中断
 
@@ -182,7 +253,7 @@ class Jikkyo:
             jikkyo_id = channel.find('video').text
 
             # 対照表に存在する実況 ID のみ
-            if jikkyo_id in cls.jikkyo_nicolive_table:
+            if jikkyo_id in cls.jikkyo_nicolive_id_table:
 
                 # ステータスを更新する
                 # XML だと色々めんどくさいので、辞書にまとめ直す
