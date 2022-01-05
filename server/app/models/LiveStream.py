@@ -1,8 +1,12 @@
 
+# 引数の戻り値などに自クラスを指定できるように
+# ref: https://stackoverflow.com/a/33533514/17124142
+from __future__ import annotations
+
 import queue
 import threading
 import time
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
 from app.constants import CONFIG
 from app.utils import Logging
@@ -10,16 +14,23 @@ from app.utils.EDCB import EDCBTuner
 
 
 class LiveStreamClient():
-    """ライブストリームクライアントの構造定義"""
+    """ ライブストリームクライアント """
 
-    # type が mpegts の場合のみ、クライアントが持つ Queue にストリームデータを入れる
-    # type が hls の場合は配信方式が異なるため Queue は使われない
-    type:str  # クライアントの種別 (mpegts or hls)
-    queue:Optional[queue.Queue]  # ストリームデータが入る Queue または None
+    def __init__(self, client_type:Literal['mpegts', 'll-hls']):
+        """
+        ライブストリーミングクライアントのインスタンスを生成する
 
-    def __init__(self, type:str, queue:Optional[queue.Queue]):
-        self.type = type
-        self.queue = queue
+        Args:
+            client_type (Literal['mpegts', 'll-hls']): クライアントの種別 (mpegts or ll-hls)
+        """
+
+        # クライアントの種別 (mpegts or ll-hls)
+        # client_type が mpegts の場合のみ、クライアントが持つ Queue にストリームデータを入れる
+        # client_type が ll-hls の場合は配信方式が異なるため Queue は使われない… はずだが、実際にどう実装するかは未定
+        self.client_type:Literal['mpegts', 'll-hls'] = client_type
+
+        # ストリームデータが入る Queue または None
+        self.queue:Optional[queue.Queue] = queue.Queue() if self.client_type == 'mpegts' else None
 
 
 class LiveStream():
@@ -27,91 +38,87 @@ class LiveStream():
 
     # ライブストリームのインスタンスが入る、ライブストリーム ID をキーとした辞書
     # この辞書にライブストリームに関する全てのデータが格納されており、ライブストリーム機能の根幹をなす
-    __instances:Dict = dict()
-
-    # ライブストリーム ID  ex:gr011-1080p
-    livestream_id:str
-
-    # ステータス
-    status:str = 'Offline'
-
-    # ステータス詳細
-    detail:str = 'ライブストリームは Offline です。'
-
-    # ステータスの最終更新時刻のタイムスタンプ
-    updated_at:float
-
-    # ストリームデータの最終書き込み時刻のタイムスタンプ
-    # ONAir 状態にも関わらず最終書き込み時刻が 3 秒以上更新されていない場合は、
-    # エンコーダーがフリーズしたものとみなしてエンコードタスクを再起動する
-    stream_data_written_at:float
-
-    # ライブストリームクライアント
-    # クライアントの接続が切断された場合、このリストからも削除される（正確にはインデックスを壊さないため None が入る）
-    # したがって、クライアントの数は（ None になってるのを除いた）このリストの長さで求められる
-    clients:List[Optional[LiveStreamClient]]
+    __instances:Dict[str, LiveStream] = dict()
 
     # 必ずライブストリーム ID ごとに1つのインスタンスになるように (Singleton)
     # ref: https://qiita.com/ttsubo/items/c4af71ceba15b5b213f8
-    def __new__(cls, channel_id:str, quality:int):
-
-        # 型アノテーションを追加（IDE用）
-        ## クラス直下で自クラスを型として指定することはできないため、ここで明示的に指定する
-        cls.__instances:Dict[str, LiveStream]
+    def __new__(cls, channel_id:str, quality:str) -> LiveStream:
 
         # まだ同じライブストリーム ID のインスタンスがないときだけ、インスタンスを生成する
+        # (チャンネルID)-(映像の品質) で一意な ID になる
         livestream_id = f'{channel_id}-{quality}'
         if livestream_id not in cls.__instances:
 
             # 新しいライブストリームのインスタンスを生成する
             instance = super(LiveStream, cls).__new__(cls)
 
-            # ライブストリームクライアントを初期化する
-            # クラス直下で定義すると全てのインスタンスのライブストリームクライアントが同じ参照（同じオブジェクトID）になってしまうため、
-            # 同じ参照にならないようにインスタンス生成時に実行するようにする
-            instance.clients = list()
+            # ライブストリーム ID を設定
+            instance.livestream_id = livestream_id
 
-            # タイムスタンプを設定する
+            # チャンネル ID と映像の品質を設定
+            instance.channel_id = channel_id
+            instance.quality = quality
+
+            # ストリームのステータス
+            # Offline, Standby, ONAir, Idling, Restart のいずれか
+            instance.status = 'Offline'
+
+            # ストリームのステータス詳細
+            instance.detail = 'ライブストリームは Offline です。'
+
+            # ストリームのステータスの最終更新時刻のタイムスタンプ
             instance.updated_at = time.time()
+
+            # ストリームデータの最終書き込み時刻のタイムスタンプ
+            # ONAir 状態にも関わらず最終書き込み時刻が 3 秒以上更新されていない場合は、
+            # エンコーダーがフリーズしたものとみなしてエンコードタスクを再起動する
             instance.stream_data_written_at = time.time()
+
+            # EDCB バックエンドのチューナーインスタンス
+            # Mirakurun バックエンドを使っている場合は None のまま
+            instance.tuner = None
+
+            # ライブストリームクライアントが入るリスト
+            # クライアントの接続が切断された場合、このリストからも削除される（正確にはインデックスを壊さないために None が入る）
+            # したがって、クライアントの数は（ None になってるのを除いた）このリストの長さで求められる
+            instance.clients = list()
 
             # 生成したインスタンスを登録する
             # インスタンスの参照が渡されるので、オブジェクトとしては同一
             cls.__instances[livestream_id] = instance
 
-        # 登録されたインスタンスを返す
+        # 登録されているインスタンスを返す
         return cls.__instances[livestream_id]
 
 
-    def __init__(self, channel_id:str, quality:int):
+    def __init__(self, channel_id:str, quality:str):
         """
         ライブストリームのインスタンスを取得する
 
         Args:
             channel_id (str): チャンネルID
-            quality (int): 映像の品質 (1080p ~ 240p)
+            quality (str): 映像の品質 (1080p ~ 240p)
         """
 
-        # チャンネル ID 、映像の品質を設定
-        self.channel_id:str = channel_id
-        self.quality:str = quality
-
-        # ライブストリーム ID を設定
-        # (チャンネルID)-(映像の品質) で一意な ID になる
-        self.livestream_id:str = f'{self.channel_id}-{self.quality}'
-
-        # EDCB バックエンドのチューナーインスタンス
-        # Mirakurun バックエンドを使っている場合は None のまま
-        self.tuner:Optional[EDCBTuner] = None
+        # インスタンス変数の型ヒントを定義
+        # Singleton のためインスタンスの生成は __new__() で行うが、__init__() も定義しておかないと補完がうまく効かない
+        self.livestream_id:str
+        self.channel_id:str
+        self.quality:str
+        self.status:Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart']
+        self.updated_at:float
+        self.stream_data_written_at:float
+        self.tuner:Optional[EDCBTuner]
+        self.clients:List[Optional[LiveStreamClient]]
 
 
     @classmethod
-    def getAllLiveStreams(cls) -> list:
+    def getAllLiveStreams(cls) -> List[LiveStream]:
         """
         全てのライブストリームのインスタンスを取得する
 
         Returns:
-            list: ライブストリームのインスタンスの入ったリスト
+            List[LiveStream]: ライブストリームのインスタンスの入ったリスト
         """
 
         # __instances 辞書を values() で値だけのリストにしたものを返す
@@ -119,15 +126,15 @@ class LiveStream():
 
 
     @classmethod
-    def getONAirLiveStreams(cls) -> list:
+    def getONAirLiveStreams(cls) -> List[LiveStream]:
         """
         現在 ONAir なライブストリームのインスタンスを取得する
 
         Returns:
-            list: 現在 ONAir なライブストリームのインスタンスの入ったリスト
+            List[LiveStream]: 現在 ONAir なライブストリームのインスタンスの入ったリスト
         """
 
-        result = []
+        result:List[LiveStream] = []
 
         # 現在 ONAir 状態のライブストリームを探す
         # 見つかったら、そのライブストリームのインスタンスをリストに入れる
@@ -139,15 +146,15 @@ class LiveStream():
 
 
     @classmethod
-    def getIdlingLiveStreams(cls) -> list:
+    def getIdlingLiveStreams(cls) -> List[LiveStream]:
         """
         現在 Idling なライブストリームのインスタンスを取得する
 
         Returns:
-            list: 現在 Idling なライブストリームのインスタンスの入ったリスト
+            List[LiveStream]: 現在 Idling なライブストリームのインスタンスの入ったリスト
         """
 
-        result = []
+        result:List[LiveStream] = []
 
         # 現在 Idling 状態のライブストリームを探す
         # 見つかったら、そのライブストリームのインスタンスをリストに入れる
@@ -181,12 +188,12 @@ class LiveStream():
         return viewers
 
 
-    def connect(self, type:str) -> int:
+    def connect(self, client_type:Literal['mpegts', 'll-hls']) -> int:
         """
         ライブストリームに接続（新しいクライアントを登録）し、クライアント ID を返す
 
         Args:
-            type (str): クライアントの種別 (mpegts or hls)
+            client_type (Literal['mpegts', 'll-hls']): クライアントの種別 (mpegts or ll-hls)
 
         Returns:
             int: クライアントID
@@ -202,12 +209,12 @@ class LiveStream():
             ## それを Offline にしてチューナーリソースを解放し、新しいライブストリームがチューナーを使えるようにする
             ## 通常のチューナー（マルチチューナーでない）で GR → BS,CS への切り替えでも解放されるのは非効率な気もするけど、
             ## ただチューナーはともかく複数のエンコードが同時に走る状態ってのもそんなによくない気がするし、一旦仕様として保留
-            for count in range(8):  # 画質切り替えなどタイミングの問題で Idling なストリームがない事もあるので、8回くらいリトライする
+            for _ in range(8):  # 画質切り替えなどタイミングの問題で Idling なストリームがない事もあるので、8回くらいリトライする
 
                 # 現在 Idling 状態のライブストリームがあれば
                 idling_livestreams = self.getIdlingLiveStreams()
                 if len(idling_livestreams) > 0:
-                    idling_livestream:LiveStream = idling_livestreams[0]
+                    idling_livestream = idling_livestreams[0]
 
                     # EDCB バックエンドの場合はチューナーをアンロックし、これから開始するエンコードタスクで再利用できるようにする
                     if idling_livestream.tuner is not None:
@@ -242,16 +249,13 @@ class LiveStream():
 
         # ***** クライアントの登録 *****
 
-        # クライアントの種別と、クライアントの種別が mpegts の場合に必要な Queue を登録する
-        self.clients.append(LiveStreamClient(
-            type = type,
-            queue = queue.Queue() if type == 'mpegts' else None,
-        ))
+        # ライブストリームクライアントのインスタンスを登録する
+        self.clients.append(LiveStreamClient(client_type))
 
-        # 自分の Queue があるインデックス（リストの長さ - 1）をクライアント ID とする
+        # 自分のライブストリームクライアントがあるインデックス（リストの長さ - 1）をクライアント ID とする
         client_id = len(self.clients) - 1
 
-        # Client ID は表示上 1 起点とする（その方が直感的なため）
+        # クライアント ID は表示上は 1 を起点とする（その方が直感的なため）
         Logging.info(f'LiveStream:{self.livestream_id} Client Connected. Client ID: {client_id + 1}')
 
         # ***** アイドリングからの復帰 *****
@@ -275,7 +279,7 @@ class LiveStream():
         # 指定されたクライアント ID のクライアントを削除する
         if len(self.clients) > 0:
             self.clients[client_id] = None
-            # Client ID は表示上 1 起点とする（その方が直感的なため）
+            # クライアント ID は表示上は 1 を起点とする（その方が直感的なため）
             Logging.info(f'LiveStream:{self.livestream_id} Client Disconnected. Client ID: {client_id + 1}')
 
 
@@ -292,16 +296,16 @@ class LiveStream():
             'status': self.status,
             'detail': self.detail,
             'updated_at': self.updated_at,
-            'clients_count': len(list(filter(None, self.clients))),
+            'clients_count': len(list(filter(None, self.clients))),  # self.clients から None の要素を除いた長さ
         }
 
 
-    def setStatus(self, status:str, detail:str, quiet:bool=False) -> None:
+    def setStatus(self, status:Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart'], detail:str, quiet:bool=False) -> None:
         """
         ライブストリームのステータスを設定する
 
         Args:
-            status (str): ステータス ( Offline, Standby, ONAir, Idling, Restart のいずれか)
+            status (Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart']): ライブストリームのステータス
             detail (str): ステータスの詳細
         """
 
@@ -380,8 +384,8 @@ class LiveStream():
         # 接続している全てのクライアントの Queue にストリームデータを書き込む
         for client in self.clients:
 
-            # 削除されたクライアントでなく、かつクライアントの種別が mpegts であれば書き込む
-            if client is not None and client.type == 'mpegts':
+            # 削除されたクライアントでなければ書き込む
+            if client is not None:
                 client.queue.put(stream_data)
 
         # ストリームデータが空でなければ、最終書き込み時刻を更新

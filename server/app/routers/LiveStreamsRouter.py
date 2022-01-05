@@ -9,6 +9,7 @@ from fastapi.requests import Request
 from fastapi.responses import Response
 from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse
+from typing import Optional
 
 from app import schemas
 from app.constants import QUALITY
@@ -114,11 +115,12 @@ async def LiveStreamEventAPI(
 
     イベントには、
 
+    - 初回接続時に現在のステータスを示す **initial_update**
     - ステータスの更新を示す **status_update**
     - ステータス詳細の更新を示す **detail_update**
     - クライアント数の更新を示す **clients_update**
 
-    の3種類がある。
+    の4種類がある。
 
     どのイベントでも配信される JSON 構造は同じ。<br>
     ステータスが Offline になった、あるいは既にそうなっている時は、status_update イベントが配信された後に接続を終了する。
@@ -264,7 +266,7 @@ async def LiveMPEGTSStreamAPI(
             if livestream.getStatus()['status'] != 'Offline':
 
                 # 登録した Queue から受信したストリームデータ
-                stream_data = await RunAsync(livestream.read, client_id)
+                stream_data:Optional[bytes] = await RunAsync(livestream.read, client_id)
 
                 # ストリームデータが存在する
                 if stream_data is not None:
