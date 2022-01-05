@@ -305,7 +305,7 @@ export default Mixin.extend({
             // チャンネル情報を代入
             this.channel = channel_response.data;
 
-            // まだ初期化されていなければ
+            // プレイヤーがまだ初期化されていない or 他のチャンネルからの切り替えですでにプレイヤーが初期化されているけど破棄が可能
             if (this.player === null || this.player.KonomiTVCanDestroy === true) {
 
                 // プレイヤーを初期化
@@ -409,6 +409,7 @@ export default Mixin.extend({
                         artist: this.channel_previous.channel_name,
                         artwork: artwork,
                     });
+                    // ルーティングを前のチャンネルに置き換える
                     await this.$router.replace({path: `/tv/watch/${this.channel_previous.channel_id}`});
                 });
                 navigator.mediaSession.setActionHandler('nexttrack', async () => {  // 次のチャンネルに切り替え
@@ -417,6 +418,7 @@ export default Mixin.extend({
                         artist: this.channel_next.channel_name,
                         artwork: artwork,
                     });
+                    // ルーティングを次のチャンネルに置き換える
                     await this.$router.replace({path: `/tv/watch/${this.channel_next.channel_id}`});
                 });
             }
@@ -804,18 +806,27 @@ export default Mixin.extend({
             // 再びローディング状態にする
             this.is_loading = true;
 
-            // プレイヤーの破棄が可能なフラグをつける
+            // プレイヤーの背景を隠す
+            this.is_background_visible = false;
+
+            // プレイヤーに破棄が可能なフラグをつける
             this.player.KonomiTVCanDestroy = true;
 
-            // プレイヤーを停止する
-            this.interval_ids.push(window.setTimeout(() => {
-                this.player.video.pause();
-            }, 400));  // アニメーション分待ってから実行
+            // イベントソースを閉じる
+            if (this.eventsource !== null) {
+                this.eventsource.close();
+                this.eventsource = null;
+            }
 
-            // is_destroy_player が true の時は、ここで DPlayer 自体を破棄する
-            // false の時は次の initPlayer() が実行されるまで破棄されない
-            if (is_destroy_player === true && this.player !== null) {
-                this.interval_ids.push(window.setTimeout(() => {  // アニメーション分待ってから実行
+            // アニメーション分待ってから実行
+            this.interval_ids.push(window.setTimeout(() => {
+
+                // プレイヤーを停止する
+                this.player.video.pause();
+
+                // is_destroy_player が true の時は、ここで DPlayer 自体を破棄する
+                // false の時は次の initPlayer() が実行されるまで破棄されない
+                if (is_destroy_player === true && this.player !== null) {
                     try {
                         this.player.destroy();
                     } catch (error) {
@@ -823,14 +834,9 @@ export default Mixin.extend({
                         this.player.plugins.mpegts.destroy();
                     }
                     this.player = null;
-                }, 400));
-            }
+                }
 
-            // イベントソースを閉じる
-            if (this.eventsource !== null) {
-                this.eventsource.close();
-                this.eventsource = null;
-            }
+            }, 400));  // 0.4 秒
         }
     }
 });
