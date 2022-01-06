@@ -89,6 +89,8 @@
                         :class="{'watch-panel__content--active': tab_active === 'program'}" :channel_props="channel" />
                     <Channels class="watch-panel__content"
                         :class="{'watch-panel__content--active': tab_active === 'channel'}" :channels_list_props="channels_list" />
+                    <Comment class="watch-panel__content"
+                        :class="{'watch-panel__content--active': tab_active === 'comment'}" />
                 </div>
                 <div class="watch-panel__navigation">
                     <div v-ripple class="panel-navigation-button"
@@ -130,6 +132,7 @@ import mpegts from 'mpegts.js';
 
 import { IChannel, IChannelDefault } from '@/interface';
 import Channels from '@/components/TV/Channels.vue';
+import Comment from '@/components/TV/Comment.vue';
 import Program from '@/components/TV/Program.vue';
 import Mixin from '@/views/TV/Mixin.vue';
 import Utility from '@/utility';
@@ -138,6 +141,7 @@ export default Mixin.extend({
     name: 'Watch',
     components: {
         Channels,
+        Comment,
         Program,
     },
     data() {

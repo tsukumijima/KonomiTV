@@ -312,7 +312,7 @@ async def ChannelLogoAPI(
     summary = 'ニコニコ実況セッション情報 API',
     response_description = '',
 )
-async def ChannelJikkyoAPI(
+async def ChannelJikkyoSessionAPI(
     channel_id:str = Path(..., description='チャンネル ID 。ex:gr011'),
 ):
     """
