@@ -3,6 +3,8 @@ import axios from 'axios';
 import { Icon } from '@iconify/vue2';
 import Vue from 'vue';
 import VueAxios from 'vue-axios';
+import VueVirtualScroller from 'vue-virtual-scroller'
+import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 import VTooltip from 'v-tooltip';
 import 'v-tooltip/dist/v-tooltip.css'
 
@@ -20,6 +22,9 @@ Vue.config.productionTip = false;
 
 // Axios を使う
 Vue.use(VueAxios, axios);
+
+// vue-virtual-scroller を使う
+Vue.use(VueVirtualScroller)
 
 // VTooltip を使う
 // タッチデバイスでは無効化する
