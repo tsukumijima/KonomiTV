@@ -18,11 +18,13 @@ export default new Vuetify({
                     base: '#1E1310',
                     lighten1: '#2F221F',
                     lighten2: '#433532',
+                    lighten3: '#4c3c38',
                 },
                 text: {
                     base: '#FFEAEA',
                     darken1: '#D9C7C7',
                     darken2: '#8E7F7E',
+                    darken3: '#786968',
                 }
             }
         },
