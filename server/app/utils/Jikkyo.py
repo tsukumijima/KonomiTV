@@ -194,7 +194,7 @@ class Jikkyo:
             return {'is_success': False, 'detail': '視聴セッションを取得できませんでした。'}
 
         # 視聴セッションの WebSocket の URL を返す
-        return {'is_success': True, 'session': session}
+        return {'is_success': True, 'audience_token': session}
 
 
     async def getStatus(self) -> Optional[dict]:
