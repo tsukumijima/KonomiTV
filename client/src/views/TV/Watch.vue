@@ -90,7 +90,7 @@
                     <Channels class="watch-panel__content"
                         :class="{'watch-panel__content--active': tab_active === 'channel'}" :channels_list_props="channels_list" />
                     <Comment class="watch-panel__content"
-                        :class="{'watch-panel__content--active': tab_active === 'comment'}" />
+                        :class="{'watch-panel__content--active': tab_active === 'comment'}" :channel_props="channel" />
                 </div>
                 <div class="watch-panel__navigation">
                     <div v-ripple class="panel-navigation-button"
@@ -125,6 +125,7 @@
 <script lang="ts">
 
 import Vue from 'vue';
+import { AxiosResponse } from 'axios';
 import dayjs from 'dayjs';
 // @ts-ignore  JavaScript で書かれているので型定義がなく、作ろうとするとややこしくなるので黙殺
 import DPlayer from 'dplayer';
@@ -288,7 +289,7 @@ export default Mixin.extend({
             }
 
             // チャンネル情報 API にアクセス
-            let channel_response;
+            let channel_response: AxiosResponse;
             try {
                 channel_response = await Vue.axios.get(`${this.api_base_url}/channels/${this.channel_id}`);
             } catch (error) {
@@ -351,7 +352,7 @@ export default Mixin.extend({
 
             // チャンネル情報一覧 API にアクセス
             // チャンネル情報 API と同時にアクセスするとむしろレスポンスが遅くなるので、返ってくるのを待ってから実行
-            let channels_response;
+            let channels_response: AxiosResponse;
             try {
                 channels_response = await Vue.axios.get(`${this.api_base_url}/channels`);
             } catch (error) {
@@ -1423,6 +1424,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         .watch-panel__content-container {
             position: relative;
             height: 100%;
+            overflow: hidden;
 
             .watch-panel__content {
                 position: absolute;
@@ -1432,7 +1434,6 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 bottom: 0;
                 background: var(--v-background-base);
                 transition: opacity 0.3s, visibility 0.3s;
-                overflow: hidden;
                 opacity: 0;
                 visibility: hidden;
 
