@@ -54,6 +54,7 @@ import Mixin from '@/views/TV/Mixin.vue';
 export default Mixin.extend({
     name: 'Channels',
     props: {
+        // チャンネル情報リスト
         channels_list_props: {
             type: Map as PropType<Map<string, IChannel[]>>,
             required: true,

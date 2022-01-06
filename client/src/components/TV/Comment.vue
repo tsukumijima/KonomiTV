@@ -35,8 +35,14 @@ import Mixin from '@/views/TV/Mixin.vue';
 export default Mixin.extend({
     name: 'Comment',
     props: {
+        // チャンネル情報
         channel_props: {
             type: Object as PropType<IChannel>,
+            required: true,
+        },
+        // プレイヤーのインスタンス
+        player: {
+            type: null as PropType<any>,  // 代入当初は null になるため苦肉の策
             required: true,
         }
     },
@@ -221,10 +227,9 @@ export default Mixin.extend({
 
                             // エラー情報を表示
                             console.log(`error occurred. code: ${message.data.code}`);
-                            console.log(error);
-                            // if (dp.danmaku.showing) {
-                            //     dp.notice(error);
-                            // }
+                            if (this.player.danmaku.showing) {
+                                this.player.notice(error);
+                            }
 
                             break;
                         }
@@ -237,9 +242,9 @@ export default Mixin.extend({
 
                             // waitTimeSec に記載の秒数だけ待ってから再接続する
                             await new Promise(resolve => setTimeout(resolve, message.data.waitTimeSec * 1000));
-                            // if (dp.danmaku.showing) {
-                            //     dp.notice('ニコニコ実況に再接続しています…');
-                            // }
+                            if (this.player.danmaku.showing) {
+                                this.player.notice('ニコニコ実況に再接続しています…');
+                            }
 
                             // 視聴セッションを再初期化
                             // ドキュメントには reconnect で送られてくる audienceToken で再接続しろと書いてあるんだけど、
@@ -297,19 +302,18 @@ export default Mixin.extend({
 
                             // 接続切断の理由を表示
                             console.log(`disconnected. reason: ${message.data.reason}`);
-                            console.log(disconnect_reason)
-                            // if (dp.danmaku.showing) {
-                            //     dp.notice(disconnect_reason);
-                            // }
+                            if (this.player.danmaku.showing) {
+                                this.player.notice(disconnect_reason);
+                            }
 
                             // 前の視聴セッション・コメントセッションを破棄
                             this.destroy();
 
                             // 5 秒ほど待ってから再接続する
                             await new Promise(resolve => setTimeout(resolve, 5 * 1000));
-                            // if (dp.danmaku.showing) {
-                            //     dp.notice('ニコニコ実況に再接続しています…');
-                            // }
+                            if (this.player.danmaku.showing) {
+                                this.player.notice('ニコニコ実況に再接続しています…');
+                            }
 
                             // 視聴セッションを再初期化
                             const comment_session_info = await this.initWatchSession();
@@ -321,6 +325,34 @@ export default Mixin.extend({
                         }
                     }
                 });
+
+
+                // 視聴セッションの接続が閉じられたとき（ネットワークが切断された場合など）
+                // イベントを無効化しやすいように敢えて onclose で実装する
+                this.watch_session.onclose = async (event) => {
+
+                    // 接続切断の理由を表示
+                    console.log(`disconnected. code: ${event.code}`);
+                    if (this.player.danmaku.showing) {
+                        this.player.notice(`ニコニコ実況との接続が切断されました。(code: ${event.code})`);
+                    }
+
+                    // 前の視聴セッション・コメントセッションを破棄
+                    this.destroy();
+
+                    // 10 秒ほど待ってから再接続する
+                    // ニコ生側から切断された場合と異なりネットワークが切断された可能性が高いので、間を多めに取る
+                    await new Promise(resolve => setTimeout(resolve, 10 * 1000));
+                    if (this.player.danmaku.showing) {
+                        this.player.notice('ニコニコ実況に再接続しています…');
+                    }
+
+                    // 視聴セッションを再初期化
+                    const comment_session_info = await this.initWatchSession();
+
+                    // コメントセッションを再初期化
+                    await this.initCommentSession(comment_session_info);
+                };
             });
         },
 
@@ -408,7 +440,7 @@ export default Mixin.extend({
                 }
 
                 // 色・位置
-                let color = '#FFFFFF';  // 色のデフォルト
+                let color = '#FFEAEA';  // 色のデフォルト
                 let position = 'right';  // 位置のデフォルト
                 if (comment.mail !== undefined && comment.mail !== null) {
                     // コマンドをスペースで区切って配列にしたもの
@@ -452,13 +484,13 @@ export default Mixin.extend({
                 // コメント描画 (再生時のみ)
                 // 最初に受信したコメントはリアルタイムなコメントではないため、描画しないように
                 if (is_received_initial_comment) {
-                    // if (!dp.video.paused){
-                    //     dp.danmaku.draw({
-                    //         text: comment.content,
-                    //         color: color,
-                    //         type: position,
-                    //     });
-                    // }
+                    if (!this.player.video.paused){
+                        this.player.danmaku.draw({
+                            text: comment.content,
+                            color: color,
+                            type: position,
+                        });
+                    }
                 }
             });
         },
@@ -478,8 +510,8 @@ export default Mixin.extend({
                 'cyan': '#39CCFF',
                 'blue': '#0000FF',
                 'purple': '#D500F9',
-                'black': '#000000',
-                'white': '#FFFFFF',
+                'black': '#1E1310',
+                'white': '#FFEAEA',
                 'white2': '#CCCC99',
                 'niconicowhite': '#CCCC99',
                 'red2': '#CC0033',
@@ -607,6 +639,7 @@ export default Mixin.extend({
             align-items: center;
             min-height: 28px;
             padding-top: 6px;
+            word-break: break-all;
 
             &__text {
                 font-size: 13px;

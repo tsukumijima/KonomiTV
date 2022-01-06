@@ -85,12 +85,13 @@
                     </div>
                 </div>
                 <div class="watch-panel__content-container">
+                    <!-- props の名前に _props を付けているのは Mixin 側の data と衝突しないようにするため -->
                     <Program class="watch-panel__content"
                         :class="{'watch-panel__content--active': tab_active === 'program'}" :channel_props="channel" />
                     <Channels class="watch-panel__content"
                         :class="{'watch-panel__content--active': tab_active === 'channel'}" :channels_list_props="channels_list" />
                     <Comment class="watch-panel__content"
-                        :class="{'watch-panel__content--active': tab_active === 'comment'}" :channel_props="channel" />
+                        :class="{'watch-panel__content--active': tab_active === 'comment'}" :channel_props="channel" :player="player" />
                 </div>
                 <div class="watch-panel__navigation">
                     <div v-ripple class="panel-navigation-button"
@@ -530,7 +531,7 @@ export default Mixin.extend({
                 loop: true,
                 lang: 'ja-jp',
                 theme: '#E64F97',
-                // 読み込む URL を指定する
+                // 映像
                 video: {
                     defaultQuality: '1080p',  // 当面 1080p で決め打ち
                     quality: [
@@ -566,15 +567,24 @@ export default Mixin.extend({
                         },
                     ],
                 },
-                // コメント設定
-                // danmaku: {
-                //     id: 'KonomiTV',
-                //     user: 'KonomiTV',
-                //     api: '',
-                //     bottom: '10%',
-                //     height: 35,
-                //     unlimited: false,
-                // },
+                // コメント
+                danmaku: {
+                    height: 35,  // コメントのフォントサイズ
+                },
+                // コメント API バックエンド
+                apiBackend: {
+                    // コメント受信時
+                    read: (options) => {
+                        // 成功したことにして通知を抑制
+                        options.success([{}]);
+                    },
+                    // コメント送信時
+                    send: (options) => {
+                        // 現在未実装
+                        options.error('現在、コメントの送信には対応していません。');
+                    },
+                },
+                // プラグイン
                 pluginOptions: {
                     // mpegts.js
                     mpegts: {
@@ -860,6 +870,11 @@ export default Mixin.extend({
             transition: opacity 0.4s cubic-bezier(0.4, 0.38, 0.49, 0.94);
             opacity: 1;
         }
+        .dplayer-danmaku {
+            top: auto;
+            bottom: auto;
+            aspect-ratio: 16 / 9;
+        }
     }
     .dplayer-controller-mask {
         height: 82px !important;
@@ -886,6 +901,9 @@ export default Mixin.extend({
                 @media screen and (max-height: 450px) {
                     right: 11px !important;
                 }
+            }
+            &.dplayer-comment-box {
+                left: calc(68px + 20px) !important;
             }
             // ブラウザフルスクリーンボタンを削除（実質あまり意味がないため）
             .dplayer-icon.dplayer-full-in-icon {
@@ -1424,7 +1442,6 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         .watch-panel__content-container {
             position: relative;
             height: 100%;
-            overflow: hidden;
 
             .watch-panel__content {
                 position: absolute;

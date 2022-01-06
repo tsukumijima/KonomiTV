@@ -44,6 +44,7 @@ import Mixin from '@/views/TV/Mixin.vue';
 export default Mixin.extend({
     name: 'Program',
     props: {
+        // チャンネル情報
         channel_props: {
             type: Object as PropType<IChannel>,
             required: true,
