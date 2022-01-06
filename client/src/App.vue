@@ -14,7 +14,7 @@ html {
 
 body .v-application {  // アプリケーションのルート
     min-height: 100vh;
-    font-family: "Open Sans", "Noto Sans JP", sans-serif;
+    font-family: 'Open Sans', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
     font-weight: 500;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
