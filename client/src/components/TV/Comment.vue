@@ -10,8 +10,8 @@
                 <span class="ml-1">コメントフィルター</span>
             </button>
         </section>
-        <DynamicScroller class="comment-list" :direction="vertical" :items="comment_list" :min-item-size="34">
-            <template v-slot="{item, _, active}">
+        <DynamicScroller class="comment-list" :direction="'vertical'" :items="comment_list" :min-item-size="34">
+            <template v-slot="{item, active}">
             <DynamicScrollerItem :item="item" :active="active"  :size-dependencies="[item.text]">
                 <div class="comment">
                     <span class="comment__text">{{item.text}}</span>
@@ -24,7 +24,10 @@
 </template>
 <script lang="ts">
 
+import Vue from 'vue';
 import { PropType } from 'vue';
+import { AxiosResponse } from 'axios';
+import dayjs from 'dayjs';
 
 import { IChannel } from '@/interface';
 import Mixin from '@/views/TV/Mixin.vue';
@@ -32,51 +35,516 @@ import Mixin from '@/views/TV/Mixin.vue';
 export default Mixin.extend({
     name: 'Comment',
     props: {
-        // channel_props: {
-        //     type: Object as PropType<IChannel>,
-        //     required: true,
-        // }
+        channel_props: {
+            type: Object as PropType<IChannel>,
+            required: true,
+        }
     },
     data() {
         return {
-            comment_list: [
-                {'id': 1, time:'12:34:56', text:'ああああああああああ'},
-                {'id': 2, time:'12:35:56', text:'いいいいいいいいいいいいいいいいいいいいい'},
-                {'id': 3, time:'12:36:56', text:'ああああああああああああああああああああああああああああああああああああああああああ'},
-                {'id': 4, time:'12:37:56', text:'ええええええええええええええええええええええええええええええええええええええええええ'},
-                {'id': 5, time:'12:38:56', text:'おおおおおおおおおおおおおおおおおおおおお'},
-                {'id': 6, time:'12:39:56', text:'かかかかかかっかかかかかかっかかかかかかか'},
-                {'id': 11, time:'12:34:56', text:'ああああああああああ'},
-                {'id': 12, time:'12:35:56', text:'いいいいいいいいいいいいいいいいいいいいい'},
-                {'id': 13, time:'12:36:56', text:'ああああああああああああああああああああああああああああああああああああああああああ'},
-                {'id': 14, time:'12:37:56', text:'ええええええええええええええええええええええええええええええええええええええええええ'},
-                {'id': 15, time:'12:38:56', text:'おおおおおおおおおおおおおおおおおおおおお'},
-                {'id': 16, time:'12:39:56', text:'かかかかかかっかかかかかかっかかかかかかか'},
-                {'id': 21, time:'12:34:56', text:'ああああああああああ'},
-                {'id': 22, time:'12:35:56', text:'いいいいいいいいいいいいいいいいいいいいい'},
-                {'id': 23, time:'12:36:56', text:'ああああああああああああああああああああああああああああああああああああああああああ'},
-                {'id': 24, time:'12:37:56', text:'ええええええええええええええええええええええええええええええええええええええええええ'},
-                {'id': 25, time:'12:38:56', text:'おおおおおおおおおおおおおおおおおおおおお'},
-                {'id': 26, time:'12:39:56', text:'かかかかかかっかかかかかかっかかかかかかか'},
-                {'id': 31, time:'12:34:56', text:'ああああああああああ'},
-                {'id': 32, time:'12:35:56', text:'いいいいいいいいいいいいいいいいいいいいい'},
-                {'id': 33, time:'12:36:56', text:'ああああああああああああああああああああああああああああああああああああああああああ'},
-                {'id': 34, time:'12:37:56', text:'ええええええええええええええええええええええええええええええええええええええええええ'},
-                {'id': 35, time:'12:38:56', text:'おおおおおおおおおおおおおおおおおおおおお'},
-                {'id': 36, time:'12:39:56', text:'かかかかかかっかかかかかかっかかかかかかか'},
-                {'id': 41, time:'12:34:56', text:'ああああああああああ'},
-                {'id': 42, time:'12:35:56', text:'いいいいいいいいいいいいいいいいいいいいい'},
-                {'id': 43, time:'12:36:56', text:'ああああああああああああああああああああああああああああああああああああああああああ'},
-                {'id': 44, time:'12:37:56', text:'ええええええええええええええええええええええええええええええええええええええええええ'},
-                {'id': 45, time:'12:38:56', text:'おおおおおおおおおおおおおおおおおおおおお'},
-                {'id': 46, time:'12:39:56', text:'かかかかかかっかかかかかかっかかかかかかか'},
-                {'id': 51, time:'12:34:56', text:'ああああああああああ'},
-                {'id': 52, time:'12:35:56', text:'いいいいいいいいいいいいいいいいいいいいい'},
-                {'id': 53, time:'12:36:56', text:'ああああああああああああああああああああああああああああああああああああああああああ'},
-                {'id': 54, time:'12:37:56', text:'ええええええええええええええええええええええええええええええええええええええええええ'},
-                {'id': 55, time:'12:38:56', text:'おおおおおおおおおおおおおおおおおおおおお'},
-                {'id': 56, time:'12:39:56', text:'かかかかかかっか'},
-            ],
+
+            // コメントリストの配列
+            comment_list: [] as {[key: string]: number | string}[],
+
+            // 視聴セッションの WebSocket のインスタンス
+            watch_session: null as WebSocket | null,
+
+            // コメントセッションの WebSocket のインスタンス
+            comment_session: null as WebSocket | null,
+
+            // 座席維持用のタイマーのインターバル ID
+            keep_seat_interval_id: 0,
+        }
+    },
+    // 終了前に実行
+    beforeDestroy() {
+
+        // destroy() を実行
+        this.destroy();
+    },
+    watch: {
+
+        // チャンネル情報が変更されたとき
+        // created() だとチャンネル情報の取得前に実行してしまう
+        // this が変わってしまうのでアロー関数は使えない
+        async channel_props(new_channel:IChannel, old_channel:IChannel) {
+
+            // 前のチャンネル情報と次のチャンネル情報で channel_id が変わってたら
+            if (new_channel.channel_id !== old_channel.channel_id) {
+
+                // 0.5秒だけ待ってから
+                // 連続してチャンネルを切り替えた時などに毎回コメントサーバーに接続しないように猶予を設ける
+                // ただし、最初 (channel_id が gr000 の初期値になっている) だけは待たずに実行する
+                if (old_channel.channel_id !== 'gr000') {
+                    await new Promise(resolve => setTimeout(resolve, 0.5 * 1000));
+                    // 0.5 秒待った結果、channel_id が既に変更されているので終了
+                    if (this.channel_props.channel_id !== new_channel.channel_id) {
+                        return;
+                    }
+                }
+
+                // 前の視聴セッション・コメントセッションを破棄
+                this.destroy();
+
+                // 視聴セッションを初期化
+                const comment_session_info = await this.initWatchSession();
+
+                // コメントセッションを初期化
+                await this.initCommentSession(comment_session_info);
+            }
+        }
+    },
+    methods: {
+
+        // 視聴セッションを初期化
+        async initWatchSession(): Promise<{[key: string]: string | null}> {
+
+            // セッション情報を取得
+            let watch_session_info: AxiosResponse;
+            try {
+                watch_session_info = await Vue.axios.get(`${this.api_base_url}/channels/${this.channel_props.channel_id}/jikkyo`);
+            } catch (error) {
+                throw new Error(error);  // エラー内容を表示
+            }
+
+            // セッション情報を取得できなかった
+            if (watch_session_info.data.is_success === false) {
+                throw new Error(watch_session_info.data.detail);  // エラー内容を表示
+            }
+
+            // イベント内で値を返すため、Promise で包む
+            return new Promise((resolve) => {
+
+                // 視聴セッション WebSocket を開く
+                this.watch_session = new WebSocket(watch_session_info.data.audience_token);
+
+                // 視聴セッション WebSocket を開いたとき
+                this.watch_session.addEventListener('open', () => {
+
+                    // 視聴セッションをリクエスト
+                    // 某所で限定公開されている公式ドキュメントいわく、stream フィールドは Optional らしい
+                    // サーバー負荷軽減のため、映像が不要な場合は必ず省略してくださいとのこと
+                    this.watch_session.send(JSON.stringify({
+                        'type': 'startWatching',
+                        'data': {
+                            'reconnect': false,
+                        },
+                    }));
+                });
+
+                // 視聴セッション WebSocket からメッセージを受信したとき
+                this.watch_session.addEventListener('message', async (event) => {
+
+                    // 受信したメッセージ
+                    const message = JSON.parse(event.data);
+
+                    switch (message.type) {
+
+                        // 部屋情報（実際には統合されていて、全てアリーナ扱いになっている）
+                        case 'room': {
+
+                            // コメントサーバーへの接続情報の入ったオブジェクトを返す
+                            // デバッグ用で実際には使わないものもある
+                            return resolve({
+                                // コメントサーバーへの接続情報
+                                'thread_id': message.data.threadId,
+                                'your_post_key': (message.data.yourPostKey ? message.data.yourPostKey : null),
+                                'message_server': message.data.messageServer.uri,
+                            });
+                        }
+
+                        // 座席情報
+                        case 'seat': {
+
+                            // keepIntervalSec の秒数ごとに keepSeat を送信して座席を維持する
+                            this.keep_seat_interval_id = window.setInterval(() => {
+                                // セッションがまだ開いていれば
+                                if (this.watch_session.readyState === 1) {
+                                    // 座席を維持
+                                    this.watch_session.send(JSON.stringify({
+                                        'type': 'keepSeat',
+                                    }));
+                                // setInterval を解除
+                                } else {
+                                    window.clearInterval(this.keep_seat_interval_id);
+                                }
+                            }, message.data.keepIntervalSec * 1000);
+                            break;
+                        }
+
+                        // ping-pong
+                        case 'ping': {
+
+                            // pong を返してセッションを維持する
+                            // 送り返さなかった場合勝手にセッションが閉じられてしまう
+                            this.watch_session.send(JSON.stringify({
+                                'type': 'pong',
+                            }));
+                            break;
+                        }
+
+                        // エラー情報
+                        case 'error': {
+
+                            // エラー情報
+                            let error:string;
+                            switch (message.data.code) {
+
+                                case 'CONNECT_ERROR':
+                                    error = 'コメントサーバーに接続できません。';
+                                break;
+                                case 'CONTENT_NOT_READY':
+                                    error = 'ニコニコ実況が配信できない状態です。';
+                                break;
+                                case 'NO_THREAD_AVAILABLE':
+                                    error = 'コメントスレッドを取得できません。';
+                                break;
+                                case 'NO_ROOM_AVAILABLE':
+                                    error = 'コメント部屋を取得できません。';
+                                break;
+                                case 'NO_PERMISSION':
+                                    error = 'API にアクセスする権限がありません。';
+                                break;
+                                case 'NOT_ON_AIR':
+                                    error = 'ニコニコ実況が放送中ではありません。';
+                                break;
+                                case 'BROADCAST_NOT_FOUND':
+                                    error = 'ニコニコ実況の配信情報を取得できません。';
+                                break;
+                                case 'INTERNAL_SERVERERROR':
+                                    error = 'ニコニコ実況でサーバーエラーが発生しています。';
+                                break;
+                                default:
+                                    error = `ニコニコ実況でエラーが発生しています。(${message.data.code})`;
+                                break;
+                            }
+
+                            // エラー情報を表示
+                            console.log(`error occurred. code: ${message.data.code}`);
+                            console.log(error);
+                            // if (dp.danmaku.showing) {
+                            //     dp.notice(error);
+                            // }
+
+                            break;
+                        }
+
+                        // 再接続を求められた
+                        case 'reconnect': {
+
+                            // 前の視聴セッション・コメントセッションを破棄
+                            this.destroy();
+
+                            // waitTimeSec に記載の秒数だけ待ってから再接続する
+                            await new Promise(resolve => setTimeout(resolve, message.data.waitTimeSec * 1000));
+                            // if (dp.danmaku.showing) {
+                            //     dp.notice('ニコニコ実況に再接続しています…');
+                            // }
+
+                            // 視聴セッションを再初期化
+                            // ドキュメントには reconnect で送られてくる audienceToken で再接続しろと書いてあるんだけど、
+                            // 確実性的な面で実装が面倒なので当面このままにしておく
+                            const comment_session_info = await this.initWatchSession();
+
+                            // コメントセッションを再初期化
+                            await this.initCommentSession(comment_session_info);
+
+                            break;
+                        }
+
+                        // 視聴セッションが閉じられた（4時のリセットなど）
+                        case 'disconnect': {
+
+                            // 実際に接続が閉じられる前に disconnect イベントが送られてきたので、onclose イベントを削除する
+                            // onclose イベントが発火するのは不意に切断されたときなど最終手段
+                            if (this.watch_session) this.watch_session.onclose = null;
+
+                            // 接続切断の理由
+                            let disconnect_reason;
+                            switch (message.data.reason) {
+
+                                case 'TAKEOVER':
+                                    disconnect_reason = 'ニコニコ実況の番組から追い出されました。';
+                                break;
+                                case 'NO_PERMISSION':
+                                    disconnect_reason = 'ニコニコ実況の番組の座席を取得できませんでした。';
+                                break;
+                                case 'END_PROGRAM':
+                                    disconnect_reason = 'ニコニコ実況がリセットされたか、コミュニティの番組が終了しました。';
+                                break;
+                                case 'PING_TIMEOUT':
+                                    disconnect_reason = 'コメントサーバーとの接続生存確認に失敗しました。';
+                                break;
+                                case 'TOO_MANY_CONNECTIONS':
+                                    disconnect_reason = 'ニコニコ実況の同一ユーザからの接続数上限を越えています。';
+                                break;
+                                case 'TOO_MANY_WATCHINGS':
+                                    disconnect_reason = 'ニコニコ実況の同一ユーザからの視聴番組数上限を越えています。';
+                                break;
+                                case 'CROWDED':
+                                    disconnect_reason = 'ニコニコ実況の番組が満席です。';
+                                break;
+                                case 'MAINTENANCE_IN':
+                                    disconnect_reason = 'ニコニコ実況はメンテナンス中です。';
+                                break;
+                                case 'SERVICE_TEMPORARILY_UNAVAILABLE':
+                                    disconnect_reason = 'ニコニコ実況で一時的にサーバーエラーが発生しています。';
+                                break;
+                                default:
+                                    disconnect_reason = `ニコニコ実況との接続が切断されました。(${message.data.reason})`;
+                                break;
+                            }
+
+                            // 接続切断の理由を表示
+                            console.log(`disconnected. reason: ${message.data.reason}`);
+                            console.log(disconnect_reason)
+                            // if (dp.danmaku.showing) {
+                            //     dp.notice(disconnect_reason);
+                            // }
+
+                            // 前の視聴セッション・コメントセッションを破棄
+                            this.destroy();
+
+                            // 5 秒ほど待ってから再接続する
+                            await new Promise(resolve => setTimeout(resolve, 5 * 1000));
+                            // if (dp.danmaku.showing) {
+                            //     dp.notice('ニコニコ実況に再接続しています…');
+                            // }
+
+                            // 視聴セッションを再初期化
+                            const comment_session_info = await this.initWatchSession();
+
+                            // コメントセッションを再初期化
+                            await this.initCommentSession(comment_session_info);
+
+                            break;
+                        }
+                    }
+                });
+            });
+        },
+
+        // コメントセッションを初期化
+        async initCommentSession(comment_session_info: {[key: string]: string | null}) {
+
+            // コメントリストの要素
+            const comment_list_element = document.querySelector('.comment-list');
+
+            // 最初に送信されてくるコメントを受信し終えたかどうかのフラグ
+            let is_received_initial_comment = false;
+
+            // コメントセッション WebSocket を開く
+            this.comment_session = new WebSocket(comment_session_info.message_server);
+
+            // コメントセッション WebSocket を開いたとき
+            this.comment_session.addEventListener('open', () => {
+
+                // コメント送信をリクエスト
+                // このコマンドを送らないとコメントが送信されてこない
+                this.comment_session.send(JSON.stringify([
+                    { 'ping': {'content': 'rs:0'} },
+                    { 'ping': {'content': 'ps:0'} },
+                    {
+                        'thread': {
+                            'version': '20061206',  // 設定必須
+                            'thread': comment_session_info.thread_id,  // スレッド ID
+                            'threadkey': comment_session_info.your_post_key,  // スレッドキー
+                            'user_id': '',  // ユーザー ID
+                            'res_from': -50,  // 最初にコメントを 50 個送信する
+                        }
+                    },
+                    { 'ping': {'content': 'pf:0'} },
+                    { 'ping': {'content': 'rf:0'} },
+                ]));
+            });
+
+            // 視聴セッション WebSocket からメッセージを受信したとき
+            this.comment_session.addEventListener('message', async (event_raw) => {
+
+                // イベントを取得
+                const event = JSON.parse(event_raw.data);
+
+                // thread メッセージのみ
+                if (event.thread !== undefined) {
+
+                    // 接続成功のコールバックを DPlayer に通知
+                    if (event.thread.resultcode === 0) {
+
+                    // 接続失敗のコールバックを DPlayer に通知
+                    } else {
+                        const message = 'コメントサーバーに接続できませんでした。';
+                        console.error('Error: ' + message);
+                    }
+                }
+
+                // ping メッセージのみ
+                // rf:0 が送られてきたら初回コメントの受信は完了
+                if (event.ping !== undefined && event.ping.content === 'rf:0') {
+
+                    // フラグを立てる
+                    is_received_initial_comment = true;
+
+                    // 0.01 秒待った上でさらに2回実行しないと完全に最下部までスクロールされない…（ブラウザの描画バグ？）
+                    // this.$nextTick() は効かなかった
+                    for (let index = 0; index < 3; index++) {
+                        await new Promise(resolve => setTimeout(resolve, 0.01 * 1000));
+                        comment_list_element.scrollTop = comment_list_element.scrollHeight;
+                    }
+                }
+
+                // コメントを取得
+                const comment = event.chat;
+
+                // コメントがない or 広告用など特殊な場合は弾く
+                if (comment === undefined ||
+                    comment.content === undefined ||
+                    comment.content.match(/\/[a-z]+ /)) {
+                    return;
+                }
+
+                // 自分のコメントも表示しない
+                if (comment.yourpost && comment.yourpost === 1) {
+                    return;
+                }
+
+                // 色・位置
+                let color = '#FFFFFF';  // 色のデフォルト
+                let position = 'right';  // 位置のデフォルト
+                if (comment.mail !== undefined && comment.mail !== null) {
+                    // コマンドをスペースで区切って配列にしたもの
+                    const command = comment.mail.replace('184', '').split(' ');
+                    for (const item of command) {  // コマンドごとに
+                        if (this.getCommentColor(item) !== null) {
+                            color = this.getCommentColor(item);
+                        }
+                        if (this.getCommentPosition(item) !== null) {
+                            position = this.getCommentPosition(item);
+                        }
+                    }
+                }
+
+                // 配信に発生する遅延分待ってから
+                // 現状だいたい1秒くらいなので暫定で決め打ち
+                // 最初に受信したコメントはリアルタイムなコメントではないため、遅らせないように
+                if (is_received_initial_comment) {
+                    await new Promise(resolve => setTimeout(resolve, 1 * 1000));
+                }
+
+                // コメントリストに追加
+                // コメント投稿時刻はフォーマットしてから
+                this.comment_list.push({
+                    id: comment.no,
+                    text: comment.content,
+                    time: dayjs(comment.date * 1000).format('HH:mm:ss'),
+                });
+
+                // コメントリストのスクロールを最下部に固定
+                // 最初に受信したコメントは上の処理で一括でスクロールさせる
+                if (is_received_initial_comment) {
+                    // 0.01 秒待った上でさらに3回実行しないと完全に最下部までスクロールされない…（ブラウザの描画バグ？）
+                    // this.$nextTick() は効かなかった
+                    for (let index = 0; index < 3; index++) {
+                        await new Promise(resolve => setTimeout(resolve, 0.01 * 1000));
+                        comment_list_element.scrollTop = comment_list_element.scrollHeight;
+                    }
+                }
+
+                // コメント描画 (再生時のみ)
+                // 最初に受信したコメントはリアルタイムなコメントではないため、描画しないように
+                if (is_received_initial_comment) {
+                    // if (!dp.video.paused){
+                    //     dp.danmaku.draw({
+                    //         text: comment.content,
+                    //         color: color,
+                    //         type: position,
+                    //     });
+                    // }
+                }
+            });
+        },
+
+        /**
+         * ニコニコの色指定を 16 進数カラーコードに置換する
+         * @param {string} color ニコニコの色指定
+         * @return {string} 16 進数カラーコード
+         */
+        getCommentColor(color: string): string {
+            const color_table = {
+                'red': '#E54256',
+                'pink': '#FF8080',
+                'orange': '#FFC000',
+                'yellow': '#FFE133',
+                'green': '#64DD17',
+                'cyan': '#39CCFF',
+                'blue': '#0000FF',
+                'purple': '#D500F9',
+                'black': '#000000',
+                'white': '#FFFFFF',
+                'white2': '#CCCC99',
+                'niconicowhite': '#CCCC99',
+                'red2': '#CC0033',
+                'truered': '#CC0033',
+                'pink2': '#FF33CC',
+                'orange2': '#FF6600',
+                'passionorange': '#FF6600',
+                'yellow2': '#999900',
+                'madyellow': '#999900',
+                'green2': '#00CC66',
+                'elementalgreen': '#00CC66',
+                'cyan2': '#00CCCC',
+                'blue2': '#3399FF',
+                'marineblue': '#3399FF',
+                'purple2': '#6633CC',
+                'nobleviolet': '#6633CC',
+                'black2': '#666666',
+            };
+            if (color_table[color] !== undefined) {
+                return color_table[color];
+            } else {
+                return null;
+            }
+        },
+
+        /**
+         * ニコニコの位置指定を DPlayer の位置指定に置換する
+         * @param {string} position ニコニコの位置指定
+         * @return {string} DPlayer の位置指定
+         */
+        getCommentPosition(position: string): string {
+            switch (position) {
+                case 'ue':
+                    return 'top';
+                case 'naka':
+                    return 'right';
+                case 'shita':
+                    return 'bottom';
+                default:
+                    return null;
+            }
+        },
+
+        // 破棄する
+        destroy() {
+
+            // コメントリストをクリア
+            this.comment_list = [];
+
+            // 視聴セッションを閉じる
+            if (this.watch_session !== null) {
+                this.watch_session.onclose = null;  // WebSocket が閉じられた際のイベントを削除
+                this.watch_session.close();  // WebSocket を閉じる
+                this.watch_session = null;  // null に戻す
+            }
+
+            // コメントセッションを閉じる
+            if (this.comment_session !== null) {
+                this.comment_session.onclose = null;  // WebSocket が閉じられた際のイベントを削除
+                this.comment_session.close();  // WebSocket を閉じる
+                this.comment_session = null;  // null に戻す
+            }
+
+            // 座席保持用のタイマーをクリア
+            window.clearInterval(this.keep_seat_interval_id);
         }
     }
 });
@@ -138,7 +606,7 @@ export default Mixin.extend({
             display: flex;
             align-items: center;
             min-height: 28px;
-            margin-top: 6px;
+            padding-top: 6px;
 
             &__text {
                 font-size: 13px;
