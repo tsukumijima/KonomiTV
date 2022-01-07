@@ -462,6 +462,12 @@ export default Mixin.extend({
                     await new Promise(resolve => setTimeout(resolve, 1 * 1000));
                 }
 
+                // コメントリストのコメントが 500 件を超えたら古いものから順に削除する
+                // 仮想スクロールとはいえ、さすがに 500 件を超えると重くなりそう
+                if (this.comment_list.length > 500) {
+                    this.comment_list.shift();
+                }
+
                 // コメントリストに追加
                 // コメント投稿時刻はフォーマットしてから
                 this.comment_list.push({
