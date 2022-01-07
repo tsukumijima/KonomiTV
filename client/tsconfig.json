@@ -23,9 +23,10 @@
         "strictPropertyInitialization": false,
         // ↑↑↑
         "types": [
-            "wicg-mediasession",
-            "webpack-env",
+            "resize-observer-browser",
             "vuetify",
+            "webpack-env",
+            "wicg-mediasession",
         ],
         "paths": {
             "@/*": [
