@@ -871,9 +871,12 @@ export default Mixin.extend({
             opacity: 1;
         }
         .dplayer-danmaku {
-            top: auto;
-            bottom: auto;
+            max-width: 100%;
+            max-height: 100%;
+            margin: auto;
             aspect-ratio: 16 / 9;
+            transition: aspect-ratio 0.5s cubic-bezier(0.42, 0.19, 0.53, 0.87);
+            will-change: aspect-ratio;
         }
         .dplayer-danloading {
             display: none !important;
@@ -1016,6 +1019,12 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             opacity: 0.7 !important;
             visibility: visible !important;
         }
+    }
+}
+// コントロール非表示時
+.watch-container:not(.watch-container--control-visible) {
+    .watch-player__dplayer .dplayer-danmaku {
+        aspect-ratio: 16 / 9 !important;
     }
 }
 

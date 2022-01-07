@@ -60,6 +60,12 @@ export default Mixin.extend({
 
             // 座席維持用のタイマーのインターバル ID
             keep_seat_interval_id: 0,
+
+            // ResizeObserver のインスタンス
+            resize_observer: null as ResizeObserver | null,
+
+            // ResizeObserver の監視対象の要素
+            resize_observer_element: null as Element | null,
         }
     },
     // 終了前に実行
@@ -67,6 +73,9 @@ export default Mixin.extend({
 
         // destroy() を実行
         this.destroy();
+
+        // ResizeObserver を終了
+        this.resize_observer.unobserve(this.resize_observer_element);
     },
     watch: {
 
@@ -97,6 +106,9 @@ export default Mixin.extend({
 
                 // コメントセッションを初期化
                 await this.initCommentSession(comment_session_info);
+
+                // リサイズ時のイベントを初期化
+                await this.initReserveObserver();
             }
         }
     },
@@ -499,6 +511,82 @@ export default Mixin.extend({
                     }
                 }
             });
+        },
+
+        // リサイズ時のイベントを初期化
+        async initReserveObserver() {
+
+            // 監視対象の要素
+            this.resize_observer_element = document.querySelector('.watch-player');
+
+            // タイムアウト ID
+            // 一時的に無効にした transition を有効化する際に利用する
+            let animation_timeout_id = null;
+
+            // プレイヤーの要素がリサイズされた際に発火するイベント
+            const Resize = () => {
+
+                // 映像の要素
+                const video_element = document.querySelector('.dplayer-video-wrap-aspect');
+
+                // コメント描画領域の要素
+                const comment_area_element = (document.querySelector('.dplayer-danmaku') as any);
+
+                // プレイヤー全体と映像の高さの差（レターボックス）から、コメント描画領域の高さを狭める必要があるかを判定する
+                // 2で割っているのは単体の差を測るため
+                const letter_box_height = (this.resize_observer_element.clientHeight - video_element.clientHeight) / 2;
+
+                // 70px or 54px (高さが 450px 以下) 以下ならヘッダー（番組名などの表示）と被るので対応する
+                const threshold = window.matchMedia('(max-height: 450px)').matches ? 54 : 70;
+                if (letter_box_height < threshold) {
+
+                    // 狭めるコメント描画領域の幅
+                    // プレイヤー全体の幅をそのまま利用する（レターボックスでコメントが切れると格好が悪い）
+                    const comment_area_width = this.resize_observer_element.clientWidth;
+
+                    // 狭めるコメント描画領域の高さを算出
+                    const comment_area_height = video_element.clientHeight - ((threshold - letter_box_height) * 2);
+
+                    // 狭めるコメント描画領域のアスペクト比を求める
+                    // https://tech.arc-one.jp/asepct-ratio/
+                    const gcd = (x: number, y: number) => {  // 最大公約数を求める関数
+                        if(y === 0) return x;
+                        return gcd(y, x % y);
+                    }
+                    // 幅と高さの最大公約数を求める
+                    const gcd_result = gcd(comment_area_width, comment_area_height);
+                    // 幅と高さをそれぞれ最大公約数で割ってアスペクト比を算出
+                    const comment_area_height_aspect = `${comment_area_width / gcd_result} / ${comment_area_height / gcd_result}`;
+
+                    // 一時的に transition を無効化する
+                    // アスペクト比の設定は連続して行われるが、その際に transition が適用されるとワンテンポ遅れたアニメーションになってしまう
+                    comment_area_element.style.transition = 'none';
+
+                    // コメント描画領域に算出したアスペクト比を設定する
+                    comment_area_element.style.aspectRatio = comment_area_height_aspect;
+
+                    // 以前セットされた setTimeout() を止める
+                    window.clearTimeout(animation_timeout_id);
+
+                    // 0.2秒後に実行する
+                    // 0.2秒より前にもう一度リサイズイベントが来た場合はタイマーがクリアされるため実行されない
+                    window.setTimeout(() => {
+
+                        // 再び transition を有効化する
+                        comment_area_element.style.transition = '';
+
+                    }, 0.2 * 1000);
+
+                } else {
+
+                    // コメント描画領域にもともとのアスペクト比を設定する（空文字を設定するとクリアされる）
+                    comment_area_element.style.aspectRatio = '';
+                }
+            }
+
+            // 要素の監視を開始
+            this.resize_observer = new ResizeObserver(Resize);
+            this.resize_observer.observe(this.resize_observer_element);
         },
 
         /**
