@@ -142,6 +142,7 @@ _::-webkit-full-page-media, _:future, :root
         z-index: 1;
         @media screen and (max-height: 450px) {
             padding-bottom: 7px;
+            margin-top: 12px;
         }
 
         .channels-tab__item {

@@ -1,5 +1,10 @@
 <template>
     <div class="program-container">
+        <section class="program-broadcaster">
+            <img class="program-broadcaster__icon" :src="`${api_base_url}/channels/${($route.params.channel_id)}/logo`">
+            <div class="program-broadcaster__number">Ch: {{channel_props.channel_number}}</div>
+            <div class="program-broadcaster__name">{{channel_props.channel_name}}</div>
+        </section>
         <section class="program-info">
             <h1 class="program-info__title" v-html="decorateProgramInfo(channel_props.program_present, 'title')"></h1>
             <div class="program-info__time">{{getProgramTime(channel_props.program_present)}}</div>
@@ -60,6 +65,45 @@ export default Mixin.extend({
     padding-right: 16px;
     overflow-y: auto;
 
+    .program-broadcaster {
+        display: none;
+        align-items: center;
+        min-width: 0;
+        @media screen and (max-height: 450px) {
+            display: flex;
+            margin-top: 16px;
+        }
+
+        &__icon {
+            display: inline-block;
+            flex-shrink: 0;
+            width: 43px;
+            height: 24px;
+            border-radius: 3px;
+            background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
+            object-fit: cover;
+            user-select: none;
+            @media screen and (max-height: 450px) {
+                width: 42px;
+                height: 23.5px;
+            }
+        }
+
+        &__number {
+            flex-shrink: 0;
+            margin-left: 12px;
+            font-size: 16.5px;
+        }
+
+        &__name {
+            margin-left: 5px;
+            font-size: 16.5px;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+    }
+
     .program-info {
         .program-info__title {
             font-size: 22px;
@@ -68,7 +112,7 @@ export default Mixin.extend({
             font-feature-settings: "palt" 1;  // 文字詰め
             letter-spacing: 0.05em;  // 字間を少し空ける
             @media screen and (max-height: 450px) {
-                margin-top: 2px;
+                margin-top: 10px;
                 font-size: 18px;
             }
         }

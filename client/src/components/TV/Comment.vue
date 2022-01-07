@@ -596,6 +596,9 @@ export default Mixin.extend({
         height: 26px;
         padding-left: 16px;
         padding-right: 16px;
+        @media screen and (max-height: 450px) {
+            margin-top: 12px;
+        }
 
         &__title {
             display: flex;
@@ -603,9 +606,15 @@ export default Mixin.extend({
             font-size: 18.5px;
             font-weight: bold;
             line-height: 145%;
+            @media screen and (max-height: 450px) {
+                font-size: 16.5px;
+            }
 
             &-icon {
                 margin-bottom: -3px;  // 高さ調整
+                @media screen and (max-height: 450px) {
+                    height: 17.5px;
+                }
             }
             &-text {
                 margin-left: 12px;
@@ -633,6 +642,9 @@ export default Mixin.extend({
         padding-right: 10px;
         padding-bottom: 12px;
         overflow-y: scroll !important;
+        @media screen and (max-height: 450px) {
+            margin-top: 12px;
+        }
 
         .comment {
             display: flex;

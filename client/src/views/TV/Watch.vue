@@ -875,12 +875,18 @@ export default Mixin.extend({
             bottom: auto;
             aspect-ratio: 16 / 9;
         }
+        .dplayer-danloading {
+            display: none !important;
+        }
     }
     .dplayer-controller-mask {
         height: 82px !important;
         background: linear-gradient(to bottom, transparent, var(--v-background-base)) !important;
         opacity: 0 !important;
         visibility: hidden;
+        @media screen and (max-height: 450px) {
+            height: 66px !important;
+        }
     }
     .dplayer-controller {
         padding-left: calc(68px + 18px) !important;
@@ -901,9 +907,6 @@ export default Mixin.extend({
                 @media screen and (max-height: 450px) {
                     right: 11px !important;
                 }
-            }
-            &.dplayer-comment-box {
-                left: calc(68px + 20px) !important;
             }
             // ブラウザフルスクリーンボタンを削除（実質あまり意味がないため）
             .dplayer-icon.dplayer-full-in-icon {
@@ -970,6 +973,15 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         .dplayer-controller-mask, .dplayer-controller {
             opacity: 1 !important;
             visibility: visible !important;
+            .dplayer-comment-box {
+                left: calc(68px + 20px);
+                @include tablet {
+                    left: calc(68px + 16px);
+                }
+                @media screen and (max-height: 450px) {
+                    left: calc(56px + 16px);
+                }
+            }
         }
         .dplayer-notice {
             left: calc(68px + 30px);
@@ -984,6 +996,15 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         .dplayer-info-panel {
             top: 82px;
             left: calc(68px + 30px);
+            @include tablet {
+                left: calc(68px + 16px);
+            }
+            @media screen and (max-height: 450px) {
+                left: calc(56px + 16px);
+            }
+        }
+        .dplayer-comment-setting-box {
+            left: calc(68px + 20px);
             @include tablet {
                 left: calc(68px + 16px);
             }
@@ -1074,7 +1095,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             text-decoration: none;
             user-select: none;
             @media screen and (max-height: 450px) {
-                height: 44px;
+                height: 32px;
                 border-radius: 10px;
             }
         }
@@ -1157,6 +1178,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 padding-right: 16px;
             }
             @media screen and (max-height: 450px) {
+                height: 66px;
                 padding-left: calc(56px + 16px);
             }
 
@@ -1171,7 +1193,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 user-select: none;
 
                 @include tablet {
-                    display: none;
+                    width: 48px;
+                    height: 28px;
+                    border-radius: 4px;
                 }
             }
 
@@ -1186,10 +1210,10 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 text-overflow: ellipsis;
 
                 @include tablet {
-                    margin-left: 0;
+                    margin-left: 12px;
                 }
-                @include smartphone {
-                    font-size: 14px;
+                @media screen and (max-height: 450px) {
+                    font-size: 16px;
                 }
             }
 
@@ -1201,8 +1225,8 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 @include tablet {
                     margin-left: 8px;
                 }
-                @include smartphone {
-                    font-size: 12px;
+                @media screen and (max-height: 450px) {
+                    font-size: 14px;
                 }
             }
 
@@ -1365,7 +1389,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             padding-left: 16px;
             padding-right: 16px;
             @media screen and (max-height: 450px) {
-                height: 42px;
+                display: none;
             }
 
             .panel-close-button {
