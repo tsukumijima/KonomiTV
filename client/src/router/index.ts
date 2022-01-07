@@ -2,9 +2,10 @@
 import Vue from 'vue';
 import VueRouter from 'vue-router';
 
-import TVHome from '../views/TV/Home.vue';
-import TVWatch from '../views/TV/Watch.vue';
-import NotFound from '../views/NotFound.vue';
+import TVHome from '@/views/TV/Home.vue';
+import TVWatch from '@/views/TV/Watch.vue';
+import SettingsGeneral from '@/views/Settings/General.vue';
+import NotFound from '@/views/NotFound.vue';
 
 Vue.use(VueRouter);
 
@@ -22,6 +23,15 @@ const routes = [
     path: '/tv/watch/:channel_id',
     name: 'TV Watch',
     component: TVWatch,
+  },
+  {
+    path: '/settings/',
+    redirect: '/settings/general',
+  },
+  {
+    path: '/settings/general',
+    name: 'Settings General',
+    component: SettingsGeneral,
   },
   {
     path: '*',
