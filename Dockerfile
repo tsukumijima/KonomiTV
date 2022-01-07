@@ -9,12 +9,10 @@ ENV TZ=Asia/Tokyo
 ADD ./ /code
 WORKDIR /code/server
 
-# Python 3.9 のインストールとロケールの日本語化
+# パッケージのインストール
 ## DEBIAN_FRONTEND=noninteractive はダイヤログを無視するおまじない
 RUN apt-get update -y && apt-get upgrade -y
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y aria2 gpg-agent language-pack-ja-base language-pack-ja locales p7zip-full python3.9 python3-pip
-RUN locale-gen ja_JP.UTF-8
-ENV LANG ja_JP.UTF-8
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y aria2 gpg-agent p7zip-full python3.9 python3-pip
 
 # サードパーティライブラリが必要とするパッケージのインストール
 RUN apt-get install -y ffmpeg libv4l-0 libxcb1 libva2 libmfx1 intel-media-va-driver-non-free
@@ -48,6 +46,13 @@ RUN ln -s /usr/lib/x86_64-linux-gnu/libamfrt64.so /usr/lib/x86_64-linux-gnu/liba
 ENV PIPENV_VENV_IN_PROJECT true
 RUN pip install pipenv
 RUN pipenv sync
+
+# 不必要なパッケージを削除
+RUN apt-get -y remove aria2 p7zip-full && \
+    apt-get -y autoremove && \
+    apt-get -y clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    rm -rf /tmp/*
 
 # データベースを必要な場合にアップグレードし、起動
 ENTRYPOINT pipenv run aerich upgrade && exec pipenv run serve
