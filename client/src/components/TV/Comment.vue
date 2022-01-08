@@ -524,28 +524,31 @@ export default Mixin.extend({
             let animation_timeout_id = null;
 
             // プレイヤーの要素がリサイズされた際に発火するイベント
-            const Resize = () => {
+            const on_resize = () => {
 
                 // 映像の要素
                 const video_element = document.querySelector('.dplayer-video-wrap-aspect');
 
                 // コメント描画領域の要素
-                const comment_area_element = (document.querySelector('.dplayer-danmaku') as any);
+                const comment_area_element = (document.querySelector('.dplayer-danmaku') as HTMLElement);
 
                 // プレイヤー全体と映像の高さの差（レターボックス）から、コメント描画領域の高さを狭める必要があるかを判定する
                 // 2で割っているのは単体の差を測るため
                 const letter_box_height = (this.resize_observer_element.clientHeight - video_element.clientHeight) / 2;
 
                 // 70px or 54px (高さが 450px 以下) 以下ならヘッダー（番組名などの表示）と被るので対応する
-                const threshold = window.matchMedia('(max-height: 450px)').matches ? 54 : 70;
+                const threshold = window.matchMedia('(max-height: 450px)').matches ? 50 : 66;
                 if (letter_box_height < threshold) {
 
-                    // 狭めるコメント描画領域の幅
-                    // プレイヤー全体の幅をそのまま利用する（レターボックスでコメントが切れると格好が悪い）
-                    const comment_area_width = this.resize_observer_element.clientWidth;
+                    // コメント描画領域に必要な上下マージン
+                    const comment_area_vertical_margin = (threshold - letter_box_height) * 2;
 
-                    // 狭めるコメント描画領域の高さを算出
-                    const comment_area_height = video_element.clientHeight - ((threshold - letter_box_height) * 2);
+                    // 狭めるコメント描画領域の幅
+                    // 映像の要素の幅をそのまま利用する
+                    const comment_area_width = video_element.clientWidth;
+
+                    // 狭めるコメント描画領域の高さ
+                    const comment_area_height = video_element.clientHeight - comment_area_vertical_margin;
 
                     // 狭めるコメント描画領域のアスペクト比を求める
                     // https://tech.arc-one.jp/asepct-ratio/
@@ -563,7 +566,10 @@ export default Mixin.extend({
                     comment_area_element.style.transition = 'none';
 
                     // コメント描画領域に算出したアスペクト比を設定する
-                    comment_area_element.style.aspectRatio = comment_area_height_aspect;
+                    comment_area_element.style.setProperty('--comment-area-aspect-ratio', comment_area_height_aspect);
+
+                    // コメント描画領域に必要な上下マージンを設定する
+                    comment_area_element.style.setProperty('--comment-area-vertical-margin', `${comment_area_vertical_margin}px`);
 
                     // 以前セットされた setTimeout() を止める
                     window.clearTimeout(animation_timeout_id);
@@ -579,13 +585,14 @@ export default Mixin.extend({
 
                 } else {
 
-                    // コメント描画領域にもともとのアスペクト比を設定する（空文字を設定するとクリアされる）
-                    comment_area_element.style.aspectRatio = '';
+                    // コメント描画領域に設定したアスペクト比・上下マージンを削除する
+                    comment_area_element.style.removeProperty('--comment-area-aspect-ratio');
+                    comment_area_element.style.removeProperty('--comment-area-vertical-margin');
                 }
             }
 
             // 要素の監視を開始
-            this.resize_observer = new ResizeObserver(Resize);
+            this.resize_observer = new ResizeObserver(on_resize);
             this.resize_observer.observe(this.resize_observer_element);
         },
 

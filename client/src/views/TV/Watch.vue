@@ -597,8 +597,8 @@ export default Mixin.extend({
                     },
                     // aribb24.js
                     aribb24: {
-                        normalFont: '"Windows TV MaruGothic","Hiragino Maru Gothic Pro","Yu Gothic Medium",sans-serif',
-                        gaijiFont: '"Windows TV MaruGothic","Hiragino Maru Gothic Pro","Yu Gothic Medium",sans-serif',
+                        normalFont: '"Windows TV MaruGothic", "Hiragino Maru Gothic Pro", "Yu Gothic Medium", sans-serif',
+                        gaijiFont: '"Windows TV MaruGothic", "Hiragino Maru Gothic Pro", "Yu Gothic Medium", sans-serif',
                         forceStrokeColor: 'black',  // 縁取りする色
                         drcsReplacement: true,  // DRCS 文字を対応する Unicode 文字に置換
                         enableRawCanvas: true,  // 高解像度の字幕 Canvas を取得できるように
@@ -872,11 +872,12 @@ export default Mixin.extend({
         }
         .dplayer-danmaku {
             max-width: 100%;
-            max-height: 100%;
+            max-height: calc(100% - var(--comment-area-vertical-margin, 0px));
+            aspect-ratio: var(--comment-area-aspect-ratio, 16 / 9);
             margin: auto;
-            aspect-ratio: 16 / 9;
-            transition: aspect-ratio 0.5s cubic-bezier(0.42, 0.19, 0.53, 0.87);
+            transition: max-height 0.5s cubic-bezier(0.42, 0.19, 0.53, 0.87), aspect-ratio 0.5s cubic-bezier(0.42, 0.19, 0.53, 0.87);
             will-change: aspect-ratio;
+            overflow: hidden;
         }
         .dplayer-danloading {
             display: none !important;
@@ -1024,6 +1025,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
 // コントロール非表示時
 .watch-container:not(.watch-container--control-visible) {
     .watch-player__dplayer .dplayer-danmaku {
+        max-height: 100% !important;
         aspect-ratio: 16 / 9 !important;
     }
 }
