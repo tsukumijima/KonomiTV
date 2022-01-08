@@ -33,7 +33,7 @@ class LiveStreamClient():
         self.queue:Optional[queue.Queue] = queue.Queue() if self.client_type == 'mpegts' else None
 
         # ストリームデータの最終読み取り時刻のタイミング
-        # 最終読み取り時刻を3秒過ぎたクライアントはタイムアウトと判断し、クライアントを削除する
+        # 最終読み取り時刻を5秒過ぎたクライアントはタイムアウトと判断し、クライアントを削除する
         self.stream_data_read_at:float = time.time()
 
 
@@ -396,10 +396,10 @@ class LiveStream():
             # 削除されたクライアントでなければ
             if client is not None:
 
-                # 最終読み取り時刻を3秒過ぎたクライアントはタイムアウトと判断し、クライアントを削除する
+                # 最終読み取り時刻を5秒過ぎたクライアントはタイムアウトと判断し、クライアントを削除する
                 # 主にネットワークが切断されたなどの理由で発生する
                 # Queue の読み取りはノンブロッキングなので、Standby の際にタイムスタンプが更新されなくなる心配をする必要はない
-                if time.time() - client.stream_data_read_at > 3:
+                if time.time() - client.stream_data_read_at > 5:
                     self.clients[client_id] = None
                     Logging.info(f'LiveStream:{self.livestream_id} Client Disconnected (Timeout). Client ID: {client_id + 1}')
 
