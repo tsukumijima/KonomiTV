@@ -523,14 +523,15 @@ export default Mixin.extend({
             // DPlayer を初期化
             this.player = new DPlayer({
                 container: document.querySelector('.watch-player__dplayer'),
-                volume: 1.0,
-                autoplay: true,
-                screenshot: true,
-                airplay: false,
-                live: true,
-                loop: true,
-                lang: 'ja-jp',
-                theme: '#E64F97',
+                theme: '#E64F97',  // テーマ
+                lang: 'ja-jp',  // 言語
+                live: true,  // ライブモード
+                loop: true,  // ループ再生
+                airplay: false,  // AirPlay 機能
+                autoplay: true,  // 自動再生
+                hotkey: false,  // ショートカットキー（こちらで制御するため無効化）
+                screenshot: true,  // スクリーンショット
+                volume: 1.0,  // 音量の初期値
                 // 映像
                 video: {
                     defaultQuality: '1080p',  // 当面 1080p で決め打ち
@@ -569,7 +570,7 @@ export default Mixin.extend({
                 },
                 // コメント
                 danmaku: {
-                    height: 35,  // コメントのフォントサイズ
+                    height: 38,  // コメントのフォントサイズ
                 },
                 // コメント API バックエンド
                 apiBackend: {
@@ -605,6 +606,7 @@ export default Mixin.extend({
                         useStrokeText: true,  // 縁取りに strokeText API を利用
                     }
                 },
+                // 字幕
                 subtitle: {
                     type: 'aribb24',
                 }
@@ -871,10 +873,15 @@ export default Mixin.extend({
             opacity: 1;
         }
         .dplayer-danmaku {
+            top: 50%;
+            left: 50%;
+            right: auto;
+            bottom: auto;
+            transform: translate(-50%, -50%);
+            width: 100%;
             max-width: 100%;
             max-height: calc(100% - var(--comment-area-vertical-margin, 0px));
             aspect-ratio: var(--comment-area-aspect-ratio, 16 / 9);
-            margin: auto;
             transition: max-height 0.5s cubic-bezier(0.42, 0.19, 0.53, 0.87), aspect-ratio 0.5s cubic-bezier(0.42, 0.19, 0.53, 0.87);
             will-change: aspect-ratio;
             overflow: hidden;
