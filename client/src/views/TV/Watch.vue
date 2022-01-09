@@ -125,12 +125,12 @@
 </template>
 <script lang="ts">
 
-import Vue from 'vue';
 import { AxiosResponse } from 'axios';
 import dayjs from 'dayjs';
 // @ts-ignore  JavaScript で書かれているので型定義がなく、作ろうとするとややこしくなるので黙殺
 import DPlayer from 'dplayer';
 import mpegts from 'mpegts.js';
+import Vue from 'vue';
 
 import { IChannel, IChannelDefault } from '@/interface';
 import Channels from '@/components/TV/Channels.vue';

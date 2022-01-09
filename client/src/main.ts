@@ -8,14 +8,14 @@ import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 import VTooltip from 'v-tooltip';
 import 'v-tooltip/dist/v-tooltip.css'
 
-import App from './App.vue';
+import App from '@/App.vue';
 import VTabItem from '@/components/VTabItem';
 import VTabs from '@/components/VTabs';
 import VTabsItems from '@/components/VTabsItems';
-import vuetify from './plugins/vuetify';
-import router from './router';
-import mixin from './mixins';
-import './service-worker';
+import mixin from '@/mixins';
+import vuetify from '@/plugins/vuetify';
+import router from '@/router';
+import '@/service-worker';
 
 // Production Tip を非表示に
 Vue.config.productionTip = false;

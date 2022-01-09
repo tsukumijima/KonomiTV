@@ -3,7 +3,7 @@ import { VueConstructor, VNode } from 'vue';
 
 import { convertToUnit } from 'vuetify/lib/util/helpers'
 import VTabs from 'vuetify/lib/components/VTabs/VTabs';
-import VTabsBar from './VTabsBar';
+import VTabsBar from '@/components/VTabsBar';
 
 export default (VTabs as VueConstructor).extend({
     methods: {

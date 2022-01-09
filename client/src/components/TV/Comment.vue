@@ -24,10 +24,9 @@
 </template>
 <script lang="ts">
 
-import Vue from 'vue';
-import { PropType } from 'vue';
 import { AxiosResponse } from 'axios';
 import dayjs from 'dayjs';
+import Vue, { PropType } from 'vue';
 
 import { IChannel } from '@/interface';
 import Mixin from '@/views/TV/Mixin.vue';
