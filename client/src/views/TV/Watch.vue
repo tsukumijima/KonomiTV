@@ -674,7 +674,7 @@ export default Mixin.extend({
             this.eventsource.addEventListener('initial_update', (event_raw: MessageEvent) => {
 
                 // イベントを取得
-                const event = JSON.parse(event_raw.data.replace(/'/g, '"'));
+                const event = JSON.parse(event_raw.data);
 
                 // ステータスが Standby であれば、プレイヤーの背景を表示する
                 if (event.status === 'Standby') {
@@ -686,7 +686,7 @@ export default Mixin.extend({
             this.eventsource.addEventListener('status_update', (event_raw: MessageEvent) => {
 
                 // イベントを取得
-                const event = JSON.parse(event_raw.data.replace(/'/g, '"'));
+                const event = JSON.parse(event_raw.data);
                 console.log(`Status: ${event.status} Detail:${event.detail}`);
 
                 // 視聴者数を更新
@@ -777,7 +777,7 @@ export default Mixin.extend({
             this.eventsource.addEventListener('detail_update', (event_raw: MessageEvent) => {
 
                 // イベントを取得
-                const event = JSON.parse(event_raw.data.replace(/'/g, '"'));
+                const event = JSON.parse(event_raw.data);
                 console.log(`Status: ${event.status} Detail:${event.detail}`);
 
                 // 視聴者数を更新
@@ -798,7 +798,7 @@ export default Mixin.extend({
             this.eventsource.addEventListener('clients_update', (event_raw: MessageEvent) => {
 
                 // イベントを取得
-                const event = JSON.parse(event_raw.data.replace(/'/g, '"'));
+                const event = JSON.parse(event_raw.data);
 
                 // 視聴者数を更新
                 this.channel.viewers = event.clients_count;

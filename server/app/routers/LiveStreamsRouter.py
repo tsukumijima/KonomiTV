@@ -1,6 +1,7 @@
 
 import asyncio
 import copy
+import json
 from fastapi import APIRouter
 from fastapi import HTTPException
 from fastapi import Path
@@ -158,7 +159,7 @@ async def LiveStreamEventAPI(
         # 初回接続時に必ず現在のステータスを返す
         yield {
             'event': 'initial_update',  # initial_update イベントを設定
-            'data': previous_status,
+            'data': json.dumps(previous_status, ensure_ascii=False),
         }
 
         while True:
@@ -173,19 +174,19 @@ async def LiveStreamEventAPI(
                 if previous_status['status'] != status['status']:
                     yield {
                         'event': 'status_update',  # status_update イベントを設定
-                        'data': status,
+                        'data': json.dumps(status, ensure_ascii=False),
                     }
                 # 詳細が以前と異なる
                 elif previous_status['detail'] != status['detail']:
                     yield {
                         'event': 'detail_update',  # detail_update イベントを設定
-                        'data': status,
+                        'data': json.dumps(status, ensure_ascii=False),
                     }
                 # クライアント数が以前と異なる
                 elif previous_status['clients_count'] != status['clients_count']:
                     yield {
                         'event': 'clients_update',  # clients_update イベントを設定
-                        'data': status,
+                        'data': json.dumps(status, ensure_ascii=False),
                     }
 
                 # 取得結果を保存
