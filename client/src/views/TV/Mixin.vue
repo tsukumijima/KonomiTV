@@ -79,6 +79,24 @@ export default mixins(mixin).extend({
             }
         },
 
+        // チャンネルの実況勢いから「多」「激多」「祭」を取得する
+        // ref: https://ja.wikipedia.org/wiki/%E3%83%8B%E3%82%B3%E3%83%8B%E3%82%B3%E5%AE%9F%E6%B3%81
+        getChannelForceType(channel_force: number | null): string {
+
+            // 実況勢いが null（=対応する実況チャンネルがない）
+            if (channel_force === null) return 'normal';
+
+            // 実況勢いが 1000 コメント以上（祭）
+            if (channel_force >= 1000) return 'festival';
+            // 実況勢いが 200 コメント以上（激多）
+            if (channel_force >= 200) return 'so-many';
+            // 実況勢いが 100 コメント以上（多）
+            if (channel_force >= 100) return 'many';
+
+            // それ以外
+            return 'normal';
+        },
+
         // 前・現在・次のチャンネル情報を取得する
         getPreviousAndCurrentAndNextChannel(channel_id: string): IChannel[] {
 

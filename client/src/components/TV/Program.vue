@@ -22,12 +22,17 @@
             <span class="program-info__next-title" v-html="decorateProgramInfo(channel_props.program_following, 'title')"></span>
             <div class="program-info__next-time">{{getProgramTime(channel_props.program_following)}}</div>
             <div class="program-info__status">
-                <Icon icon="fa-solid:fire-alt" height="14px" />
-                <span class="ml-2">勢い:</span>
-                <span class="ml-2">{{getAttribute(channel_props, 'channel_force', '--')}} コメ/分</span>
-                <Icon class="ml-5" icon="fa-solid:eye" height="14px" />
-                <span class="ml-2">視聴数:</span>
-                <span class="ml-1">{{channel_props.viewers}}</span>
+                <div class="program-info__status-force"
+                    :class="`program-info__status-force--${getChannelForceType(channel_props.channel_force)}`">
+                    <Icon icon="fa-solid:fire-alt" height="14px" />
+                    <span class="ml-2">勢い:</span>
+                    <span class="ml-2">{{getAttribute(channel_props, 'channel_force', '--')}} コメ/分</span>
+                </div>
+                <div class="program-info__status-viewers ml-5">
+                    <Icon icon="fa-solid:eye" height="14px" />
+                    <span class="ml-2">視聴数:</span>
+                    <span class="ml-1">{{channel_props.viewers}}</span>
+                </div>
             </div>
         </section>
         <section class="program-detail-container">
@@ -203,6 +208,21 @@ export default Mixin.extend({
             @media screen and (max-height: 450px) {
                 margin-top: 10px;
                 font-size: 12px;
+            }
+
+            &-force, &-viewers {
+                display: flex;
+                align-items: center;
+            }
+
+            &-force--festival {
+                color: #E7556E;
+            }
+            &-force--so-many {
+                color: #E76B55;
+            }
+            &-force--many {
+                color: #E7A355;
             }
         }
     }

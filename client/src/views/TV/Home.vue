@@ -16,12 +16,17 @@
                                     <div class="channel__broadcaster-content">
                                         <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.channel_name}}</span>
                                         <div class="channel__broadcaster-status">
-                                            <Icon icon="fa-solid:fire-alt" height="12px" />
+                                            <div class="channel__broadcaster-status-force"
+                                                :class="`channel__broadcaster-status-force--${getChannelForceType(channel.channel_force)}`">
+                                                <Icon icon="fa-solid:fire-alt" height="12px" />
                                                 <span class="ml-1">勢い:</span>
                                                 <span class="ml-1">{{getAttribute(channel, 'channel_force', '--')}} コメ/分</span>
-                                                <Icon class="ml-4" icon="fa-solid:eye" height="14px" />
+                                            </div>
+                                            <div class="channel__broadcaster-status-viewers ml-4">
+                                                <Icon icon="fa-solid:eye" height="14px" />
                                                 <span class="ml-1">視聴数:</span>
                                                 <span class="ml-1">{{channel.viewers}}</span>
+                                            </div>
                                         </div>
                                     </div>
                                     <div v-ripple class="channel__broadcaster-pin"
@@ -445,6 +450,21 @@ _::-webkit-full-page-media, _:future, :root
                         @media screen and (max-height: 450px) {
                             font-size: 10px;
                             margin-top: 3px;
+                        }
+
+                        &-force, &-viewers {
+                            display: flex;
+                            align-items: center;
+                        }
+
+                        &-force--festival {
+                            color: #E7556E;
+                        }
+                        &-force--so-many {
+                            color: #E76B55;
+                        }
+                        &-force--many {
+                            color: #E7A355;
                         }
                     }
 

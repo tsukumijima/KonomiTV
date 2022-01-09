@@ -13,7 +13,8 @@
                             <img class="channel__broadcaster-icon" :src="`${api_base_url}/channels/${channel.channel_id}/logo`">
                             <div class="channel__broadcaster-content">
                                 <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.channel_name}}</span>
-                                <div class="channel__broadcaster-status">
+                                <div class="channel__broadcaster-force"
+                                    :class="`channel__broadcaster-force--${getChannelForceType(channel.channel_force)}`">
                                     <Icon icon="fa-solid:fire-alt" height="10px" />
                                     <span class="ml-1">{{getAttribute(channel, 'channel_force', '-')}}</span>
                                 </div>
@@ -235,7 +236,7 @@ _::-webkit-full-page-media, _:future, :root
                             text-overflow: ellipsis;
                         }
 
-                        &-status {
+                        &-force {
                             display: flex;
                             align-items: center;
                             flex-shrink: 0;
@@ -243,6 +244,16 @@ _::-webkit-full-page-media, _:future, :root
                             margin-left: 10px;
                             font-size: 11.5px;
                             color: var(--v-text-darken1);
+
+                            &--festival {
+                                color: #E7556E;
+                            }
+                            &--so-many {
+                                color: #E76B55;
+                            }
+                            &--many {
+                                color: #E7A355;
+                            }
                         }
                     }
 
