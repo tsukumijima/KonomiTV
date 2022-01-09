@@ -16,12 +16,12 @@
                                     <div class="channel__broadcaster-content">
                                         <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.channel_name}}</span>
                                         <div class="channel__broadcaster-status">
-                                            <Icon icon="fa-solid:eye" height="12px" />
-                                            <span class="ml-1">{{channel.viewers}}</span>
-                                            <Icon class="ml-4" icon="fa-solid:fire-alt" height="12px" />
-                                            <span class="ml-1">{{getAttribute(channel, 'channel_force', '-')}}</span>
-                                            <Icon class="ml-4" icon="bi:chat-left-text-fill" height="12px" />
-                                            <span class="ml-1">{{getAttribute(channel, 'channel_comment', '-')}}</span>
+                                            <Icon icon="fa-solid:fire-alt" height="12px" />
+                                                <span class="ml-1">勢い:</span>
+                                                <span class="ml-1">{{getAttribute(channel, 'channel_force', '--')}} コメ/分</span>
+                                                <Icon class="ml-4" icon="fa-solid:eye" height="14px" />
+                                                <span class="ml-1">視聴数:</span>
+                                                <span class="ml-1">{{channel.viewers}}</span>
                                         </div>
                                     </div>
                                     <div v-ripple class="channel__broadcaster-pin"
@@ -546,7 +546,7 @@ _::-webkit-full-page-media, _:future, :root
                 .channel__program-following {
                     display: flex;
                     flex-direction: column;
-                    color: var(--v-text-darken1);
+                    color: var(--v-text-base);
                     font-size: 12.5px;
                     // 1列表示
                     @media screen and (max-width: 1007.9px) {
@@ -570,12 +570,13 @@ _::-webkit-full-page-media, _:future, :root
                         }
                         &-text {
                             margin-left: 2px;
-                            overflow: hidden;
                             white-space: nowrap;
                             text-overflow: ellipsis;  // はみ出た部分を … で省略
+                            overflow: hidden;
                         }
                     }
                     &-time {
+                        color: var(--v-text-darken1);
                         @media screen and (max-height: 450px) {
                             font-size: 11.5px;
                         }

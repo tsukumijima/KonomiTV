@@ -22,12 +22,12 @@
             <span class="program-info__next-title" v-html="decorateProgramInfo(channel_props.program_following, 'title')"></span>
             <div class="program-info__next-time">{{getProgramTime(channel_props.program_following)}}</div>
             <div class="program-info__status">
-                <Icon icon="fa-solid:eye" height="14px" />
-                <span class="ml-2">{{channel_props.viewers}}</span>
-                <Icon class="ml-5" icon="fa-solid:fire-alt" height="14px" />
-                <span class="ml-2">{{getAttribute(channel_props, 'channel_force', '-')}}</span>
-                <Icon class="ml-5" icon="bi:chat-left-text-fill" height="14px" />
-                <span class="ml-2">{{getAttribute(channel_props, 'channel_comment', '-')}}</span>
+                <Icon icon="fa-solid:fire-alt" height="14px" />
+                <span class="ml-2">勢い:</span>
+                <span class="ml-2">{{getAttribute(channel_props, 'channel_force', '--')}} コメ/分</span>
+                <Icon class="ml-5" icon="fa-solid:eye" height="14px" />
+                <span class="ml-2">視聴数:</span>
+                <span class="ml-1">{{channel_props.viewers}}</span>
             </div>
         </section>
         <section class="program-detail-container">
@@ -159,7 +159,7 @@ export default Mixin.extend({
             display: flex;
             align-items: center;
             margin-top: 18px;
-            color: var(--v-text-darken1);
+            color: var(--v-text-base);
             font-size: 14px;
             font-weight: bold;
             @media screen and (max-height: 450px) {
@@ -178,8 +178,9 @@ export default Mixin.extend({
         .program-info__next-title {
             display: -webkit-box;
             margin-top: 2px;
-            color: var(--v-text-darken1);
+            color: var(--v-text-base);
             font-size: 14px;
+            font-weight: bold;
             overflow: hidden;
             -webkit-line-clamp: 2;  // 2行までに制限
             -webkit-box-orient: vertical;
@@ -190,14 +191,14 @@ export default Mixin.extend({
         .program-info__next-time {
             margin-top: 3px;
             color: var(--v-text-darken1);
-            font-size: 12px;
+            font-size: 13.5px;
         }
 
         .program-info__status {
             display: flex;
             align-items: center;
             margin-top: 16px;
-            font-size: 15px;
+            font-size: 14px;
             color: var(--v-text-darken1);
             @media screen and (max-height: 450px) {
                 margin-top: 10px;
