@@ -3,7 +3,7 @@
         <Header/>
         <main class="settings-container">
             <Navigation/>
-            <v-card class="d-flex px-5 mx-auto background" width="100%" max-width="1000">
+            <v-card class="d-flex px-5 mx-auto background" elevation="0" width="100%" max-width="1000">
                 <v-navigation-drawer permanent class="flex-shrink-0 pt-4 pb-4 background" width="200" height="100%">
                     <v-list-item class="px-4">
                         <v-list-item-content>

@@ -43,6 +43,7 @@ body header + main {
 
 body .route-container {  // ルートコンテナ
     height: 100%;
+    background: var(--v-background-base);
 }
 
 // ツールチップのスタイル

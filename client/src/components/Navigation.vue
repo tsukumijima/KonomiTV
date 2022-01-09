@@ -107,7 +107,10 @@
                 }
                 &--active {
                     color: var(--v-primary-base);
-                    background: var(--v-background-lighten2);
+                    background: #5b2d3c;
+                    &:hover {
+                        background: #5b2d3c;
+                    }
                 }
 
                 .navigation__link-icon {
