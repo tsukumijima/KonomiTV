@@ -97,6 +97,25 @@ export default mixins(mixin).extend({
             return 'normal';
         },
 
+        // リモコン番号とチャンネルタイプからチャンネルを取得する
+        getChannelFromRemoconID(remocon_id: number, channel_type: string): IChannel | null {
+
+            // 指定されたチャンネルタイプのチャンネルを取得
+            channel_type = channel_type.replace('GR', '地デジ');  //「GR」は「地デジ」に置換しておく
+            const channels = this.channels_list.get(channel_type);
+
+            // リモコン番号が一致するチャンネルを見つけ、一番最初に見つかったものを返す
+            for (let index = 0; index < channels.length; index++) {
+                const channel = channels[index];
+                if (channel.remocon_id === remocon_id) {
+                    return channel;
+                }
+            }
+
+            // リモコン番号が一致するチャンネルを見つけられなかった
+            return null;
+        },
+
         // 前・現在・次のチャンネル情報を取得する
         getPreviousAndCurrentAndNextChannel(channel_id: string): IChannel[] {
 

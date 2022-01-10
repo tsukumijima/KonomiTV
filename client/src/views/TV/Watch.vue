@@ -201,6 +201,9 @@ export default Mixin.extend({
 
             // イベントソースのインスタンス
             eventsource: null,
+
+            // ショートカットキーのハンドラー
+            shortcut_key_handler: null,
         }
     },
     // 開始時に実行
@@ -319,6 +322,9 @@ export default Mixin.extend({
 
                 // イベントハンドラーを初期化
                 this.initEventHandler();
+
+                // ショートカットキーを初期化
+                this.initShortcutKeyHandler();
             }
 
             // 副音声がない番組でプレイヤー上で副音声に切り替えられないように
@@ -805,6 +811,59 @@ export default Mixin.extend({
             });
         },
 
+        // ショートカットキーを初期化する
+        initShortcutKeyHandler() {
+
+            // ショートカットキーハンドラー
+            this.shortcut_key_handler = (event: KeyboardEvent) => {
+
+                // input・textarea・contenteditable 状態の要素でなければ
+                // 文字入力中にショートカットキーが作動してしまうのはまずい
+                const tag = document.activeElement.tagName.toUpperCase();
+                const editable = document.activeElement.getAttribute('contenteditable');
+                if (tag !== 'INPUT' && tag !== 'TEXTAREA' && editable !== '' && editable !== 'true') {
+
+                    // ***** 数字キーでチャンネルを切り替える *****
+
+                    // チャンネルタイプを選択
+                    // Shift キーが押されていたらチャンネルタイプを地デジならBSに、BSなら地デジにする
+                    let switch_channel_type = this.channel.channel_type;
+                    if (event.shiftKey && this.channel.channel_type == 'GR') switch_channel_type = 'BS';
+                    if (event.shiftKey && this.channel.channel_type == 'BS') switch_channel_type = 'GR';
+
+                    // 1～9キーの場合
+                    let switch_remocon_id = null;
+                    if (event.code === 'Digit1' || event.code === 'Digit2' || event.code === 'Digit3' ||
+                        event.code === 'Digit4' || event.code === 'Digit5' || event.code === 'Digit6' ||
+                        event.code === 'Digit7' || event.code === 'Digit8' || event.code === 'Digit9') {
+                        switch_remocon_id = Number(event.code.replace('Digit', ''));
+                    }
+                    // 0キーの場合（10に割り当て）
+                    if (event.code === 'Digit0') switch_remocon_id = 10;
+                    // -キーの場合（11に割り当て）
+                    if (event.code === 'Minus') switch_remocon_id = 11;
+                    // ^キーの場合（12に割り当て）
+                    if (event.code === 'Equal') switch_remocon_id = 12;
+
+                    // この時点でリモコン番号が取得できていたら実行
+                    if (switch_remocon_id !== null) {
+
+                        // 切り替え先のチャンネルを取得する
+                        const switch_channel = this.getChannelFromRemoconID(switch_remocon_id, switch_channel_type);
+
+                        // チャンネルが取得できていれば、ルーティングをそのチャンネルに置き換える
+                        // 押されたキーに対応するリモコン番号のチャンネルがない場合は何も起こらない
+                        if (switch_channel !== null) {
+                            (async () => await this.$router.replace({path: `/tv/watch/${switch_channel.channel_id}`}))();
+                        }
+                    }
+                }
+            };
+
+            // ページ上でキーが押されたときのイベントを登録
+            document.addEventListener('keydown', this.shortcut_key_handler);
+        },
+
         // 破棄する
         destroy(is_destroy_player = false) {
 
@@ -833,6 +892,12 @@ export default Mixin.extend({
             if (this.eventsource !== null) {
                 this.eventsource.close();
                 this.eventsource = null;
+            }
+
+            // ページ上でキーが押されたときのイベントを削除
+            if (this.shortcut_key_handler !== null) {
+                document.removeEventListener('keydown', this.shortcut_key_handler);
+                this.shortcut_key_handler = null;
             }
 
             // アニメーション分待ってから実行
