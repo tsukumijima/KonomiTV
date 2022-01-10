@@ -117,6 +117,31 @@ class Channels(models.Model):
                 channel.remocon_id = channel.service_id  # ソートする際の便宜上設定しておく
                 channel.channel_number = str(channel.service_id).zfill(3)
 
+                # BS のみ、一部のチャンネルに決め打ちでチャンネル番号を割り当てる
+                if channel.channel_type == 'BS':
+                    if 101 <= channel.service_id <= 102:
+                        channel.remocon_id = 1
+                    elif 103 <= channel.service_id <= 104:
+                        channel.remocon_id = 3
+                    elif 141 <= channel.service_id <= 143:
+                        channel.remocon_id = 4
+                    elif 151 <= channel.service_id <= 153:
+                        channel.remocon_id = 5
+                    elif 161 <= channel.service_id <= 163:
+                        channel.remocon_id = 6
+                    elif 171 <= channel.service_id <= 173:
+                        channel.remocon_id = 7
+                    elif 181 <= channel.service_id <= 183:
+                        channel.remocon_id = 8
+                    elif 191 <= channel.service_id <= 193:
+                        channel.remocon_id = 9
+                    elif 200 <= channel.service_id <= 202:
+                        channel.remocon_id = 10
+                    elif channel.service_id == 211:
+                        channel.remocon_id = 11
+                    elif channel.service_id == 222:
+                        channel.remocon_id = 12
+
             # SKY: サービス ID を 1024 で割った余りをチャンネル番号・リモコン番号とする
             ## SPHD (network_id=10) のチャンネル番号は service_id - 32768 、
             ## SPSD (SKYサービス系: network_id=3) のチャンネル番号は service_id - 16384 で求められる
@@ -256,6 +281,31 @@ class Channels(models.Model):
             elif channel.channel_type == 'BS' or channel.channel_type == 'CS':
                 channel.remocon_id = channel.service_id  # ソートする際の便宜上設定しておく
                 channel.channel_number = str(channel.service_id).zfill(3)
+
+                # BS のみ、一部のチャンネルに決め打ちでチャンネル番号を割り当てる
+                if channel.channel_type == 'BS':
+                    if 101 <= channel.service_id <= 102:
+                        channel.remocon_id = 1
+                    elif 103 <= channel.service_id <= 104:
+                        channel.remocon_id = 3
+                    elif 141 <= channel.service_id <= 143:
+                        channel.remocon_id = 4
+                    elif 151 <= channel.service_id <= 153:
+                        channel.remocon_id = 5
+                    elif 161 <= channel.service_id <= 163:
+                        channel.remocon_id = 6
+                    elif 171 <= channel.service_id <= 173:
+                        channel.remocon_id = 7
+                    elif 181 <= channel.service_id <= 183:
+                        channel.remocon_id = 8
+                    elif 191 <= channel.service_id <= 193:
+                        channel.remocon_id = 9
+                    elif 200 <= channel.service_id <= 202:
+                        channel.remocon_id = 10
+                    elif channel.service_id == 211:
+                        channel.remocon_id = 11
+                    elif channel.service_id == 222:
+                        channel.remocon_id = 12
 
             # SKY: サービス ID を 1024 で割った余りをチャンネル番号・リモコン番号とする
             ## SPHD (network_id=10) のチャンネル番号は service_id - 32768 、
