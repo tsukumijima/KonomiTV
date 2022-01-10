@@ -87,34 +87,34 @@
                 <div class="watch-panel__content-container">
                     <!-- props の名前に _props を付けているのは Mixin 側の data と衝突しないようにするため -->
                     <Program class="watch-panel__content"
-                        :class="{'watch-panel__content--active': tab_active === 'program'}" :channel_props="channel" />
-                    <Channels class="watch-panel__content"
-                        :class="{'watch-panel__content--active': tab_active === 'channel'}" :channels_list_props="channels_list" />
+                        :class="{'watch-panel__content--active': active_panel_tab === 'Program'}" :channel_props="channel" />
+                    <Channel class="watch-panel__content"
+                        :class="{'watch-panel__content--active': active_panel_tab === 'Channel'}" :channels_list_props="channels_list" />
                     <Comment class="watch-panel__content"
-                        :class="{'watch-panel__content--active': tab_active === 'comment'}" :channel_props="channel" :player="player" />
+                        :class="{'watch-panel__content--active': active_panel_tab === 'Comment'}" :channel_props="channel" :player="player" />
                 </div>
                 <div class="watch-panel__navigation">
                     <div v-ripple class="panel-navigation-button"
-                        :class="{'panel-navigation-button--active': tab_active === 'program'}"
-                        @click="tab_active = 'program'">
+                        :class="{'panel-navigation-button--active': active_panel_tab === 'Program'}"
+                        @click="active_panel_tab = 'Program'">
                         <Icon class="panel-navigation-button__icon" icon="fa-solid:info-circle" width="33px" />
                         <span class="panel-navigation-button__text">番組情報</span>
                     </div>
                     <div v-ripple class="panel-navigation-button"
-                        :class="{'panel-navigation-button--active': tab_active === 'channel'}"
-                        @click="tab_active = 'channel'">
+                        :class="{'panel-navigation-button--active': active_panel_tab === 'Channel'}"
+                        @click="active_panel_tab = 'Channel'">
                         <Icon class="panel-navigation-button__icon" icon="fa-solid:broadcast-tower" width="34px" />
                         <span class="panel-navigation-button__text">チャンネル</span>
                     </div>
                     <div v-ripple class="panel-navigation-button"
-                        :class="{'panel-navigation-button--active': tab_active === 'comment'}"
-                        @click="tab_active = 'comment'">
+                        :class="{'panel-navigation-button--active': active_panel_tab === 'Comment'}"
+                        @click="active_panel_tab = 'Comment'">
                         <Icon class="panel-navigation-button__icon" icon="bi:chat-left-text-fill" width="29px" />
                         <span class="panel-navigation-button__text">コメント</span>
                     </div>
                     <div v-ripple class="panel-navigation-button"
-                        :class="{'panel-navigation-button--active': tab_active === 'twitter'}"
-                        @click="tab_active = 'twitter'">
+                        :class="{'panel-navigation-button--active': active_panel_tab === 'Twitter'}"
+                        @click="active_panel_tab = 'Twitter'">
                         <Icon class="panel-navigation-button__icon" icon="fa-brands:twitter" width="34px" />
                         <span class="panel-navigation-button__text">Twitter</span>
                     </div>
@@ -133,7 +133,7 @@ import mpegts from 'mpegts.js';
 import Vue from 'vue';
 
 import { IChannel, IChannelDefault } from '@/interface';
-import Channels from '@/components/TV/Channels.vue';
+import Channel from '@/components/TV/Channel.vue';
 import Comment from '@/components/TV/Comment.vue';
 import Program from '@/components/TV/Program.vue';
 import Mixin from '@/views/TV/Mixin.vue';
@@ -142,18 +142,18 @@ import Utility from '@/utility';
 export default Mixin.extend({
     name: 'Watch',
     components: {
-        Channels,
+        Channel,
         Comment,
         Program,
     },
     data() {
         return {
 
-            // アクティブなタブ
-            tab_active: 'program',
-
             // 現在時刻
             time: dayjs().format('YYYY/MM/DD HH:mm:ss'),
+
+            // アクティブなパネルのタブ
+            active_panel_tab: 'Program',
 
             // 背景の URL
             background_url: '',
@@ -831,18 +831,18 @@ export default Mixin.extend({
                     if (event.shiftKey && this.channel.channel_type == 'GR') switch_channel_type = 'BS';
                     if (event.shiftKey && this.channel.channel_type == 'BS') switch_channel_type = 'GR';
 
-                    // 1～9キーの場合
+                    // 1～9キー
                     let switch_remocon_id = null;
                     if (event.code === 'Digit1' || event.code === 'Digit2' || event.code === 'Digit3' ||
                         event.code === 'Digit4' || event.code === 'Digit5' || event.code === 'Digit6' ||
                         event.code === 'Digit7' || event.code === 'Digit8' || event.code === 'Digit9') {
                         switch_remocon_id = Number(event.code.replace('Digit', ''));
                     }
-                    // 0キーの場合（10に割り当て）
+                    // 0キー (10に割り当て)
                     if (event.code === 'Digit0') switch_remocon_id = 10;
-                    // -キーの場合（11に割り当て）
+                    // -キー (11に割り当て)
                     if (event.code === 'Minus') switch_remocon_id = 11;
-                    // ^キーの場合（12に割り当て）
+                    // ^キー (12に割り当て)
                     if (event.code === 'Equal') switch_remocon_id = 12;
 
                     // この時点でリモコン番号が取得できていたら実行
@@ -855,7 +855,31 @@ export default Mixin.extend({
                         // 押されたキーに対応するリモコン番号のチャンネルがない場合は何も起こらない
                         if (switch_channel !== null) {
                             (async () => await this.$router.replace({path: `/tv/watch/${switch_channel.channel_id}`}))();
+                            return;
                         }
+                    }
+
+                    // ***** パネルのタブを切り替える *****
+
+                    // Uキー: 番組情報タブ
+                    if (event.code === 'KeyU') {
+                        this.active_panel_tab = 'Program';
+                        return;
+                    }
+                    // Iキー: チャンネルタブ
+                    if (event.code === 'KeyI') {
+                        this.active_panel_tab = 'Channel';
+                        return;
+                    }
+                    // Oキー: コメントタブ
+                    if (event.code === 'KeyO') {
+                        this.active_panel_tab = 'Comment';
+                        return;
+                    }
+                    // Pキー: Twitterタブ
+                    if (event.code === 'KeyP') {
+                        this.active_panel_tab = 'Twitter';
+                        return;
                     }
                 }
             };
