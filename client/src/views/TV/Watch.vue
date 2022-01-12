@@ -219,6 +219,12 @@ export default Mixin.extend({
         // 別のページへ遷移するため、DPlayer のインスタンスを確実に破棄する
         // さもなければ、ブラウザがリロードされるまでバックグラウンドで永遠に再生されてしまう
         this.destroy(true);
+
+        // ページ上でキーが押されたときのイベントを削除
+        if (this.shortcut_key_handler !== null) {
+            document.removeEventListener('keydown', this.shortcut_key_handler);
+            this.shortcut_key_handler = null;
+        }
     },
     // チャンネル切り替え時に実行
     // コンポーネント（インスタンス）は再利用される
@@ -818,7 +824,7 @@ export default Mixin.extend({
             this.shortcut_key_handler = (event: KeyboardEvent) => {
 
                 // input・textarea・contenteditable 状態の要素でなければ
-                // 文字入力中にショートカットキーが作動してしまうのはまずい
+                // 文字入力中にショートカットキーが作動してしまわないように
                 const tag = document.activeElement.tagName.toUpperCase();
                 const editable = document.activeElement.getAttribute('contenteditable');
                 if (tag !== 'INPUT' && tag !== 'TEXTAREA' && editable !== '' && editable !== 'true') {
@@ -838,12 +844,20 @@ export default Mixin.extend({
                         event.code === 'Digit7' || event.code === 'Digit8' || event.code === 'Digit9') {
                         switch_remocon_id = Number(event.code.replace('Digit', ''));
                     }
-                    // 0キー (10に割り当て)
+                    // 0キー: 10に割り当て
                     if (event.code === 'Digit0') switch_remocon_id = 10;
-                    // -キー (11に割り当て)
+                    // -キー: 11に割り当て
                     if (event.code === 'Minus') switch_remocon_id = 11;
-                    // ^キー (12に割り当て)
+                    // ^キー: 12に割り当て
                     if (event.code === 'Equal') switch_remocon_id = 12;
+                    // 1～9キー (テンキー)
+                    if (event.code === 'Numpad1' || event.code === 'Numpad2' || event.code === 'Numpad3' ||
+                        event.code === 'Numpad4' || event.code === 'Numpad5' || event.code === 'Numpad6' ||
+                        event.code === 'Numpad7' || event.code === 'Numpad8' || event.code === 'Numpad9') {
+                        switch_remocon_id = Number(event.code.replace('Numpad', ''));
+                    }
+                    // 0キー (テンキー): 10に割り当て
+                    if (event.code === 'Numpad0') switch_remocon_id = 10;
 
                     // この時点でリモコン番号が取得できていたら実行
                     if (switch_remocon_id !== null) {
@@ -852,34 +866,113 @@ export default Mixin.extend({
                         const switch_channel = this.getChannelFromRemoconID(switch_remocon_id, switch_channel_type);
 
                         // チャンネルが取得できていれば、ルーティングをそのチャンネルに置き換える
-                        // 押されたキーに対応するリモコン番号のチャンネルがない場合は何も起こらない
-                        if (switch_channel !== null) {
+                        // 押されたキーに対応するリモコン番号のチャンネルがない場合や、現在と同じチャンネル ID の場合は何も起こらない
+                        if (switch_channel !== null && switch_channel.channel_id !== this.channel_id) {
                             (async () => await this.$router.replace({path: `/tv/watch/${switch_channel.channel_id}`}))();
                             return;
                         }
                     }
 
+                    // ***** 上下キーでチャンネルを切り替える *****
+
+                    // TODO: 連打した際に動作がおかしくなる事象を改善する
+                    // ↑キー: 前のチャンネルに切り替え
+                    if (event.code === 'ArrowUp') {
+                        (async () => await this.$router.replace({path: `/tv/watch/${this.channel_previous.channel_id}`}))();
+                        return;
+                    }
+                    // ↓キー: 次のチャンネルに切り替え
+                    if (event.code === 'ArrowDown') {
+                        (async () => await this.$router.replace({path: `/tv/watch/${this.channel_next.channel_id}`}))();
+                        return;
+                    }
+
                     // ***** パネルのタブを切り替える *****
 
-                    // Uキー: 番組情報タブ
-                    if (event.code === 'KeyU') {
+                    // Kキー: 番組情報タブ
+                    if (event.code === 'KeyK') {
                         this.active_panel_tab = 'Program';
                         return;
                     }
-                    // Iキー: チャンネルタブ
-                    if (event.code === 'KeyI') {
+                    // Lキー: チャンネルタブ
+                    if (event.code === 'KeyL') {
                         this.active_panel_tab = 'Channel';
                         return;
                     }
-                    // Oキー: コメントタブ
-                    if (event.code === 'KeyO') {
+                    // ;(+)キー: コメントタブ
+                    if (event.code === 'Semicolon') {
                         this.active_panel_tab = 'Comment';
                         return;
                     }
-                    // Pキー: Twitterタブ
-                    if (event.code === 'KeyP') {
+                    // :(*)キー: Twitterタブ
+                    if (event.code === 'Quote') {
                         this.active_panel_tab = 'Twitter';
                         return;
+                    }
+                    // Pキー: パネルの表示切り替え
+                    if (event.code === 'KeyP') {
+                        this.is_panel_visible = !this.is_panel_visible;
+                        return;
+                    }
+
+                    // ***** プレイヤーのショートカットキー *****
+
+                    // プレイヤーが初期化されていない際や Ctrl or Cmd キーが一緒に押された際に作動しないように
+                    if (this.player !== null && !event.ctrlKey && !event.metaKey) {
+                        // Wキー: ライブ再生の同期
+                        if (event.code === 'KeyW') {
+                            this.player.sync();
+                            return;
+                        }
+                        // Eキー: Picture-in-Picture の表示切り替え
+                        if (event.code === 'KeyE') {
+                            if (document.pictureInPictureEnabled) {
+                                this.player.template.pipButton.click();
+                            }
+                            return;
+                        }
+                        // Sキー: 字幕の表示切り替え
+                        if (event.code === 'KeyS') {
+                            this.player.subtitle.toggle();
+                            if (!this.player.subtitle.container.classList.contains('dplayer-subtitle-hide')) {
+                                this.player.notice(`${this.player.tran('Show subtitle')}`);
+                            } else {
+                                this.player.notice(`${this.player.tran('Hide subtitle')}`);
+                            }
+                            return;
+                        }
+                        // Dキー: コメントの表示切り替え
+                        if (event.code === 'KeyD') {
+                            this.player.template.showDanmaku.click();
+                            if (this.player.template.showDanmakuToggle.checked) {
+                                this.player.notice(`${this.player.tran('Show comment')}`);
+                            } else {
+                                this.player.notice(`${this.player.tran('Hide comment')}`);
+                            }
+                            return;
+                        }
+                        // Fキー: フルスクリーンの切り替え
+                        if (event.code === 'KeyF') {
+                            this.player.fullScreen.toggle('browser');
+                            return;
+                        }
+                        // ←キー: 停止して0.25秒巻き戻す
+                        if (event.code === 'ArrowLeft') {
+                            this.player.video.pause();
+                            this.player.seek(this.player.video.currentTime - 0.25);
+                            return;
+                        }
+                        // →キー: 停止して0.25秒早送り
+                        if (event.code === 'ArrowRight') {
+                            this.player.video.pause();
+                            this.player.seek(this.player.video.currentTime + 0.25);
+                            return;
+                        }
+                        // Spaceキー: 再生/停止
+                        if (event.code === 'Space') {
+                            this.player.toggle();
+                            return;
+                        }
                     }
                 }
             };
@@ -916,12 +1009,6 @@ export default Mixin.extend({
             if (this.eventsource !== null) {
                 this.eventsource.close();
                 this.eventsource = null;
-            }
-
-            // ページ上でキーが押されたときのイベントを削除
-            if (this.shortcut_key_handler !== null) {
-                document.removeEventListener('keydown', this.shortcut_key_handler);
-                this.shortcut_key_handler = null;
             }
 
             // アニメーション分待ってから実行
