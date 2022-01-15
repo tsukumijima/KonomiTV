@@ -324,6 +324,7 @@ export default Mixin.extend({
             this.channel = channel_response.data;
 
             // プレイヤーがまだ初期化されていない or 他のチャンネルからの切り替えですでにプレイヤーが初期化されているけど破棄が可能
+            // update() 自体は初期化時以外にも1分ごとに定期実行されるため、その際に毎回プレイヤーを再初期化しないようにする
             if (this.player === null || this.player.KonomiTVCanDestroy === true) {
 
                 // プレイヤーを初期化
@@ -347,7 +348,7 @@ export default Mixin.extend({
 
                 // 現在副音声が選択されている可能性を考慮し、明示的に主音声に切り替える
                 if (this.player.plugins.mpegts) {
-                    window.setTimeout(() => {  // 初期化が終わるまで少し待つ
+                    window.setTimeout(() => {  // プレイヤーの初期化が完了するまで少し待つ
                         this.player.template.audioItem[0].classList.add('dplayer-setting-audio-current');
                         this.player.template.audioItem[1].classList.remove('dplayer-setting-audio-current');
                         this.player.template.audioValue.textContent = this.player.tran('Primary audio');
@@ -519,7 +520,7 @@ export default Mixin.extend({
         // プレイヤーを初期化する
         initPlayer() {
 
-            // mpegts.js を window 空間に入れる
+            // mpegts.js を window 直下に入れる
             // こうしないと DPlayer が mpegts.js を認識できない
             (window as any).mpegts = mpegts;
 
@@ -538,11 +539,11 @@ export default Mixin.extend({
             // DPlayer を初期化
             this.player = new DPlayer({
                 container: document.querySelector('.watch-player__dplayer'),
-                theme: '#E64F97',  // テーマ
+                theme: '#E64F97',  // テーマカラー
                 lang: 'ja-jp',  // 言語
                 live: true,  // ライブモード
-                loop: true,  // ループ再生
-                airplay: false,  // AirPlay 機能
+                loop: false,  // ループ再生 (ライブのため無効化)
+                airplay: false,  // AirPlay 機能 (うまく動かないため無効化)
                 autoplay: true,  // 自動再生
                 hotkey: false,  // ショートカットキー（こちらで制御するため無効化）
                 screenshot: true,  // スクリーンショット
@@ -596,7 +597,7 @@ export default Mixin.extend({
                     },
                     // コメント送信時
                     send: (options) => {
-                        // 現在未実装
+                        // TODO: コメント送信は未実装
                         options.error('現在、コメントの送信には対応していません。');
                     },
                 },
@@ -605,10 +606,10 @@ export default Mixin.extend({
                     // mpegts.js
                     mpegts: {
                         config: {
-                            enableWorker: true,
-                            liveBufferLatencyChasing: true,
-                            liveBufferLatencyMaxLatency: 3.0,
-                            liveBufferLatencyMinRemain: 0.5,
+                            enableWorker: true,  // Web Worker を有効にする
+                            liveBufferLatencyChasing: true,  // HTMLMediaElement の内部バッファによるライブストリームの待機時間を追跡する
+                            liveBufferLatencyMaxLatency: 3.0,  // HTMLMediaElement で許容するバッファの最大値 (秒単位)
+                            liveBufferLatencyMinRemain: 0.5,  // HTMLMediaElement に保持されるバッファの待機時間の最小値 (秒単位)
                         }
                     },
                     // aribb24.js
@@ -623,11 +624,11 @@ export default Mixin.extend({
                 },
                 // 字幕
                 subtitle: {
-                    type: 'aribb24',
+                    type: 'aribb24',  // aribb24.js を有効化
                 }
             });
 
-            // デバッグ用にプレイヤーインスタンスも window 名前空間に入れる
+            // デバッグ用にプレイヤーインスタンスも window 直下に入れる
             (window as any).player = this.player;
 
             // 再生/停止されたとき
