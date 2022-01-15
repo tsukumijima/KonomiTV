@@ -204,6 +204,9 @@ export default Mixin.extend({
 
             // ショートカットキーのハンドラー
             shortcut_key_handler: null,
+
+            // ショートカットキーの最終押下時刻のタイムスタンプ
+            shortcut_key_pressed_at: Date.now(),
         }
     },
     // 開始時に実行
@@ -823,6 +826,16 @@ export default Mixin.extend({
             // ショートカットキーハンドラー
             this.shortcut_key_handler = (event: KeyboardEvent) => {
 
+                // キーリピート（押しっぱなし）状態の場合は実行しない
+                // 押し続けると何度も同じ動作が実行されて大変な事になる…
+                if (event.repeat) return;
+
+                // キーリピート状態は event.repeat を見る事でだいたい検知できるが、最初の何回かは検知できないこともある
+                // そこで、0.1 秒以内に連続して発火したキーイベント自体を無視するようにする
+                const now = Date.now();
+                if (now - this.shortcut_key_pressed_at < (0.1 * 1000)) return;
+                this.shortcut_key_pressed_at = now;  // 最終押下時刻を更新
+
                 // input・textarea・contenteditable 状態の要素でなければ
                 // 文字入力中にショートカットキーが作動してしまわないように
                 const tag = document.activeElement.tagName.toUpperCase();
@@ -875,7 +888,6 @@ export default Mixin.extend({
 
                     // ***** 上下キーでチャンネルを切り替える *****
 
-                    // TODO: 連打した際に動作がおかしくなる事象を改善する
                     // ↑キー: 前のチャンネルに切り替え
                     if (event.code === 'ArrowUp') {
                         (async () => await this.$router.replace({path: `/tv/watch/${this.channel_previous.channel_id}`}))();
