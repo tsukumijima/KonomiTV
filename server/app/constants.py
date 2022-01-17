@@ -41,6 +41,13 @@ QUALITY = {
         'video_bitrate_max': '9000K',  # 映像最大ビットレート
         'audio_bitrate': '192K',  # 音声ビットレート
     },
+    '810p': {
+        'width': 1440,
+        'height': 810,
+        'video_bitrate': '5500K',
+        'video_bitrate_max': '7600K',
+        'audio_bitrate': '192K',
+    },
     '720p': {
         'width': 1280,
         'height': 720,
@@ -56,24 +63,24 @@ QUALITY = {
         'audio_bitrate': '192K',
     },
     '480p': {
-        'width': 854,
+        'width': 720,
         'height': 480,
-        'video_bitrate': '2500K',
-        'video_bitrate_max': '3400K',
+        'video_bitrate': '2000K',
+        'video_bitrate_max': '2800K',
         'audio_bitrate': '192K',
     },
     '360p': {
         'width': 640,
         'height': 360,
-        'video_bitrate': '1500K',
-        'video_bitrate_max': '2000K',
+        'video_bitrate': '1100K',
+        'video_bitrate_max': '1800K',
         'audio_bitrate': '128K',
     },
     '240p': {
         'width': 426,
         'height': 240,
-        'video_bitrate': '700K',
-        'video_bitrate_max': '850K',
+        'video_bitrate': '550K',
+        'video_bitrate_max': '650K',
         'audio_bitrate': '128K',
     },
 }
