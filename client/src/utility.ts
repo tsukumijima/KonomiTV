@@ -5,11 +5,16 @@
 export default class Utility {
 
     // デフォルトの設定値
-    static default_settings = {
+    static readonly default_settings = {
 
         // ピン留めしているチャンネルの ID (ex: gr011) が入るリスト
         pinned_channel_ids: [] as string[],
 
+        // 前回視聴画面を開いた際にパネルが表示されていたかどうか
+        is_latest_panel_display: true,
+
+        // 既定のパネルの表示状態（常に表示する）
+        panel_display_state: 'always_display',
     };
 
     /**
@@ -34,11 +39,16 @@ export default class Utility {
         // キーが存在しない場合はデフォルトの設定値を使う
         const settings:object = JSON.parse(localStorage.getItem('KonomiTV-Settings')) || Utility.default_settings;
 
-        // そのキーが定義されているときだけ、設定値を返す
+        // そのキーが保存されているときだけ、設定値を返す
         if (key in settings) {
             return settings[key];
         } else {
-            return null;
+            // デフォルトの設定値にあればそれを使う
+            if (key in this.default_settings) {
+                return this.default_settings[key];
+            } else {
+                return null;
+            }
         }
     }
 
@@ -52,8 +62,9 @@ export default class Utility {
         // LocalStorage から KonomiTV-Settings を取得
         const settings:object = JSON.parse(localStorage.getItem('KonomiTV-Settings')) || Utility.default_settings;
 
-        // そのキーが定義されているときだけ
-        if (key in settings) {
+        // そのキーがデフォルトの設定値に定義されているときだけ
+        // バージョン違いなどで settings には登録されていないキーだが default_settings には登録されているケースが発生し得るため
+        if (key in this.default_settings) {
 
             // 設定値を新しい値で置き換え
             settings[key] = value;

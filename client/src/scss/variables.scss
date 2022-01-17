@@ -25,10 +25,13 @@
     }
 }
 
+// ナビゲーションドロワーの border を消す
+$navigation-drawer-border-width: 0px;
+
 // 背景とテキストの色を定義
 $shades: map-merge($shades, (
-    'black': var(--v-background-base),
-    'white': var(--v-text-base),
+    'black': #1E1310,
+    'white': #FFEAEA,
 ));
 
 // dark テーマの配色ごと上書きする
@@ -127,7 +130,7 @@ $material-dark: map-merge($material-dark, (
         'filled-hover': rgba(map-get($shades, 'white'), 0.16),
         'outlined': rgba(map-get($shades, 'white'), 0.24),
         'outlined-disabled': rgba(map-get($shades, 'white'), 0.16),
-        'outlined-hover': map-get($shades, 'white'),
+        'outlined-hover': rgba(map-get($shades, 'white'), 0.5),
     ),
     'input-bottom-line': rgba(map-get($shades, 'white'), 0.7),
     'stepper': (

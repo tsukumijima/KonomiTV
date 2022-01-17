@@ -1,7 +1,7 @@
 <template>
     <div class="route-container">
         <main class="watch-container"
-            :class="{'watch-container--control-visible': is_control_visible, 'watch-container--panel-visible': is_panel_visible}">
+            :class="{'watch-container--control-visible': is_control_display, 'watch-container--panel-visible': is_panel_display}">
             <nav class="watch-navigation">
                 <router-link v-ripple class="watch-navigation__icon" to="/tv/">
                     <img class="watch-navigation__icon-image" src="/assets/img/icon.svg" width="23px">
@@ -44,7 +44,7 @@
                     <span class="watch-header__now">{{time}}</span>
                 </header>
                 <div class="watch-player" :class="{'watch-player--loading': is_loading}">
-                    <div class="watch-player__background" :class="{'watch-player__background--visible': is_background_visible}"
+                    <div class="watch-player__background" :class="{'watch-player__background--visible': is_background_display}"
                         :style="{backgroundImage: `url(${background_url})`}">
                         <img class="watch-player__background-logo" src="/assets/img/logo.svg">
                     </div>
@@ -58,7 +58,7 @@
                             <Icon class="switch-button-icon" icon="fluent:ios-arrow-left-24-filled" width="32px" rotate="1" />
                         </router-link>
                         <div v-ripple class="switch-button switch-button-panel switch-button-panel--open"
-                            @click="is_panel_visible = !is_panel_visible">
+                            @click="is_panel_display = !is_panel_display">
                             <Icon class="switch-button-icon" icon="fluent:navigation-16-filled" width="32px" />
                         </div>
                         <router-link v-ripple class="switch-button switch-button-down" :to="`/tv/watch/${channel_next.channel_id}`"
@@ -73,7 +73,7 @@
                 v-on:touchmove="controlVisibleTimer('panel', $event)"
                 v-on:click="controlVisibleTimer('panel', $event)">
                 <div class="watch-panel__header">
-                    <div v-ripple class="panel-close-button" @click="is_panel_visible = false">
+                    <div v-ripple class="panel-close-button" @click="is_panel_display = false">
                         <Icon class="panel-close-button__icon" icon="akar-icons:chevron-right" width="25px" />
                         <span class="panel-close-button__text">閉じる</span>
                     </div>
@@ -164,15 +164,25 @@ export default Mixin.extend({
 
             // プレイヤーの背景を表示するか
             // 既定で表示しない
-            is_background_visible: false,
+            is_background_display: false,
 
             // コントロールを表示するか
             // 既定で表示する
-            is_control_visible: true,
+            is_control_display: true,
 
             // パネルを表示するか
-            // 既定で表示する
-            is_panel_visible: true,
+            // panel_display_state が 'always_display' なら常に表示し、'always_fold' なら常に折りたたむ
+            // 'restore_previous_state' なら is_latest_panel_display の値を使い､前回の状態を復元する
+            is_panel_display: (() => {
+                switch (Utility.getSettingsItem('panel_display_state')) {
+                    case 'always_display':
+                        return true;
+                    case 'always_fold':
+                        return false;
+                    case 'restore_previous_state':
+                        return Utility.getSettingsItem('is_latest_panel_display');
+                }
+            })(),
 
             // インターバル ID
             // ページ遷移時に setInterval(), setTimeout() の実行を止めるのに使う
@@ -254,6 +264,12 @@ export default Mixin.extend({
         }, 500));
 
         next();
+    },
+    watch: {
+        // 前回視聴画面を開いた際にパネルが表示されていたかどうかを保存
+        is_panel_display() {
+            Utility.setSettingsItem('is_latest_panel_display', this.is_panel_display);
+        }
     },
     methods: {
 
@@ -465,7 +481,7 @@ export default Mixin.extend({
             const timeout = () => {
 
                 // コントロールを非表示にする
-                this.is_control_visible = false;
+                this.is_control_display = false;
 
                 // プレイヤーのコントロールと設定パネルを非表示にする
                 if (this.player !== null) {
@@ -481,7 +497,7 @@ export default Mixin.extend({
                 if (this.player.controller.isShow()) {
 
                     // コントロールを表示する
-                    this.is_control_visible = true;
+                    this.is_control_display = true;
 
                     // プレイヤーのコントロールを表示する
                     this.player.controller.show();
@@ -493,7 +509,7 @@ export default Mixin.extend({
                 } else {
 
                     // コントロールを非表示にする
-                    this.is_control_visible = false;
+                    this.is_control_display = false;
 
                     // プレイヤーのコントロールと設定パネルを非表示にする
                     this.player.controller.hide();
@@ -504,7 +520,7 @@ export default Mixin.extend({
             } else {
 
                 // コントロールを表示する
-                this.is_control_visible = true;
+                this.is_control_display = true;
 
                 // プレイヤーのコントロールを表示する
                 if (this.player !== null) {
@@ -675,7 +691,7 @@ export default Mixin.extend({
                 // 念のためさらに少しだけ待ってから
                 window.setTimeout(() => {
                     this.is_loading = false;
-                    this.is_background_visible = false;
+                    this.is_background_display = false;
                 }, 100);
                 this.player.video.oncanplay = null;
                 this.player.video.oncanplaythrough = null;
@@ -694,7 +710,7 @@ export default Mixin.extend({
 
                 // ステータスが Standby であれば、プレイヤーの背景を表示する
                 if (event.status === 'Standby') {
-                    this.is_background_visible = true;
+                    this.is_background_display = true;
                 }
             });
 
@@ -720,7 +736,7 @@ export default Mixin.extend({
                         }
 
                         // プレイヤーの背景を表示する
-                        this.is_background_visible = true;
+                        this.is_background_display = true;
 
                         break;
                     }
@@ -759,7 +775,7 @@ export default Mixin.extend({
                         this.player.play();
 
                         // プレイヤーの背景を表示する
-                        this.is_background_visible = true;
+                        this.is_background_display = true;
 
                         break;
                     }
@@ -782,7 +798,7 @@ export default Mixin.extend({
                         this.eventsource.close();
 
                         // プレイヤーの背景を表示する
-                        this.is_background_visible = true;
+                        this.is_background_display = true;
 
                         break;
                     }
@@ -804,8 +820,8 @@ export default Mixin.extend({
                     this.player.notice(event.detail, -1);
 
                     // プレイヤーの背景を表示する
-                    if (!this.is_background_visible) {
-                        this.is_background_visible = true;
+                    if (!this.is_background_display) {
+                        this.is_background_display = true;
                     }
                 }
             });
@@ -924,7 +940,7 @@ export default Mixin.extend({
                     }
                     // Pキー: パネルの表示切り替え
                     if (event.code === 'KeyP') {
-                        this.is_panel_visible = !this.is_panel_visible;
+                        this.is_panel_display = !this.is_panel_display;
                         return;
                     }
 
@@ -1013,7 +1029,7 @@ export default Mixin.extend({
             this.is_loading = true;
 
             // プレイヤーの背景を隠す
-            this.is_background_visible = false;
+            this.is_background_display = false;
 
             // プレイヤーに破棄が可能なフラグをつける
             this.player.KonomiTVCanDestroy = true;
