@@ -152,7 +152,7 @@ export default Mixin.extend({
             // 現在時刻
             time: dayjs().format('YYYY/MM/DD HH:mm:ss'),
 
-            // 表示されているパネルのタブ
+            // 表示されるパネルのタブ
             panel_active_tab: Utility.getSettingsItem('panel_active_tab'),
 
             // 背景の URL
@@ -566,39 +566,20 @@ export default Mixin.extend({
                 volume: 1.0,  // 音量の初期値
                 // 映像
                 video: {
-                    defaultQuality: '1080p',  // 当面 1080p で決め打ち
-                    quality: [
-                        {
-                            name: '1080p',
-                            type: 'mpegts',
-                            url: `${this.api_base_url}/streams/live/${this.channel_id}/1080p/mpegts`,
-                        },
-                        {
-                            name: '720p',
-                            type: 'mpegts',
-                            url: `${this.api_base_url}/streams/live/${this.channel_id}/720p/mpegts`,
-                        },
-                        {
-                            name: '540p',
-                            type: 'mpegts',
-                            url: `${this.api_base_url}/streams/live/${this.channel_id}/540p/mpegts`,
-                        },
-                        {
-                            name: '480p',
-                            type: 'mpegts',
-                            url: `${this.api_base_url}/streams/live/${this.channel_id}/480p/mpegts`,
-                        },
-                        {
-                            name: '360p',
-                            type: 'mpegts',
-                            url: `${this.api_base_url}/streams/live/${this.channel_id}/360p/mpegts`,
-                        },
-                        {
-                            name: '240p',
-                            type: 'mpegts',
-                            url: `${this.api_base_url}/streams/live/${this.channel_id}/240p/mpegts`,
-                        },
-                    ],
+                    // デフォルトの画質
+                    defaultQuality: Utility.getSettingsItem('tv_streaming_quality'),
+                    // 画質リスト
+                    quality: (() => {
+                        const qualities = [];
+                        for (const quality of ['1080p', '810p', '720p', '540p', '480p', '360p', '240p']) {
+                            qualities.push({
+                                name: quality,
+                                type: 'mpegts',
+                                url: `${this.api_base_url}/streams/live/${this.channel_id}/${quality}/mpegts`,
+                            });
+                        }
+                        return qualities;
+                    })(),
                 },
                 // コメント
                 danmaku: {

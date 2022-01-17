@@ -10,13 +10,16 @@ export default class Utility {
         // ピン留めしているチャンネルの ID (ex: gr011) が入るリスト
         pinned_channel_ids: [] as string[],
 
+        // テレビのストリーミング画質（1080p）
+        tv_streaming_quality: '1080p' as ('1080p' | '810p' | '720p' | '540p' | '480p' | '360p' | '240p'),
+
         // 前回視聴画面を開いた際にパネルが表示されていたかどうか
         is_latest_panel_display: true as boolean,
 
         // 既定のパネルの表示状態（常に表示する）
         panel_display_state: 'AlwaysDisplay' as ('AlwaysDisplay' | 'AlwaysFold' | 'RestorePreviousState'),
 
-        // 既定で表示されているパネルのタブ（番組情報タブ）
+        // 既定で表示されるパネルのタブ（番組情報タブ）
         panel_active_tab: 'Program' as ('Program' | 'Channel' | 'Comment' | 'Twitter'),
     };
 

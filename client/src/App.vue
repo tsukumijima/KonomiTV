@@ -112,6 +112,20 @@ body .route-container {  // ルートコンテナ
     }
 }
 
+.v-menu__content {
+    overflow: hidden;
+    &::-webkit-scrollbar {
+        width: 12px;
+        height: 12px;
+    }
+    &::-webkit-scrollbar-track {
+        background: #1E1E1E;
+    }
+    &::-webkit-scrollbar-thumb {
+        border: solid 3.5px #1E1E1E;
+    }
+}
+
 // ページ遷移アニメーション
 .v-enter-active, .v-leave-active {
     transition: opacity 0.3s;
