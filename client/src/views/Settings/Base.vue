@@ -104,7 +104,7 @@ export default Vue.extend({
             .settings__item {
                 display: flex;
                 flex-direction: column;
-                margin-top: 20px;
+                margin-top: 24px;
 
                 &-heading {
                     color: var(--v-text-base);

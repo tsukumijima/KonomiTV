@@ -11,10 +11,13 @@ export default class Utility {
         pinned_channel_ids: [] as string[],
 
         // 前回視聴画面を開いた際にパネルが表示されていたかどうか
-        is_latest_panel_display: true,
+        is_latest_panel_display: true as boolean,
 
         // 既定のパネルの表示状態（常に表示する）
-        panel_display_state: 'always_display',
+        panel_display_state: 'AlwaysDisplay' as ('AlwaysDisplay' | 'AlwaysFold' | 'RestorePreviousState'),
+
+        // 既定で表示されているパネルのタブ（番組情報タブ）
+        panel_active_tab: 'Program' as ('Program' | 'Channel' | 'Comment' | 'Twitter'),
     };
 
     /**
@@ -28,7 +31,7 @@ export default class Utility {
     }
 
     /**
-     * 設定を LocalStorage に取得する
+     * 設定を LocalStorage から取得する
      * @param key 設定のキー名
      * @returns 設定されている値
      */

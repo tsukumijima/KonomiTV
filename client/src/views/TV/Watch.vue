@@ -87,34 +87,34 @@
                 <div class="watch-panel__content-container">
                     <!-- props の名前に _props を付けているのは Mixin 側の data と衝突しないようにするため -->
                     <Program class="watch-panel__content"
-                        :class="{'watch-panel__content--active': active_panel_tab === 'Program'}" :channel_props="channel" />
+                        :class="{'watch-panel__content--active': panel_active_tab === 'Program'}" :channel_props="channel" />
                     <Channel class="watch-panel__content"
-                        :class="{'watch-panel__content--active': active_panel_tab === 'Channel'}" :channels_list_props="channels_list" />
+                        :class="{'watch-panel__content--active': panel_active_tab === 'Channel'}" :channels_list_props="channels_list" />
                     <Comment class="watch-panel__content"
-                        :class="{'watch-panel__content--active': active_panel_tab === 'Comment'}" :channel_props="channel" :player="player" />
+                        :class="{'watch-panel__content--active': panel_active_tab === 'Comment'}" :channel_props="channel" :player="player" />
                 </div>
                 <div class="watch-panel__navigation">
                     <div v-ripple class="panel-navigation-button"
-                        :class="{'panel-navigation-button--active': active_panel_tab === 'Program'}"
-                        @click="active_panel_tab = 'Program'">
+                        :class="{'panel-navigation-button--active': panel_active_tab === 'Program'}"
+                        @click="panel_active_tab = 'Program'">
                         <Icon class="panel-navigation-button__icon" icon="fa-solid:info-circle" width="33px" />
                         <span class="panel-navigation-button__text">番組情報</span>
                     </div>
                     <div v-ripple class="panel-navigation-button"
-                        :class="{'panel-navigation-button--active': active_panel_tab === 'Channel'}"
-                        @click="active_panel_tab = 'Channel'">
+                        :class="{'panel-navigation-button--active': panel_active_tab === 'Channel'}"
+                        @click="panel_active_tab = 'Channel'">
                         <Icon class="panel-navigation-button__icon" icon="fa-solid:broadcast-tower" width="34px" />
                         <span class="panel-navigation-button__text">チャンネル</span>
                     </div>
                     <div v-ripple class="panel-navigation-button"
-                        :class="{'panel-navigation-button--active': active_panel_tab === 'Comment'}"
-                        @click="active_panel_tab = 'Comment'">
+                        :class="{'panel-navigation-button--active': panel_active_tab === 'Comment'}"
+                        @click="panel_active_tab = 'Comment'">
                         <Icon class="panel-navigation-button__icon" icon="bi:chat-left-text-fill" width="29px" />
                         <span class="panel-navigation-button__text">コメント</span>
                     </div>
                     <div v-ripple class="panel-navigation-button"
-                        :class="{'panel-navigation-button--active': active_panel_tab === 'Twitter'}"
-                        @click="active_panel_tab = 'Twitter'">
+                        :class="{'panel-navigation-button--active': panel_active_tab === 'Twitter'}"
+                        @click="panel_active_tab = 'Twitter'">
                         <Icon class="panel-navigation-button__icon" icon="fa-brands:twitter" width="34px" />
                         <span class="panel-navigation-button__text">Twitter</span>
                     </div>
@@ -152,8 +152,8 @@ export default Mixin.extend({
             // 現在時刻
             time: dayjs().format('YYYY/MM/DD HH:mm:ss'),
 
-            // アクティブなパネルのタブ
-            active_panel_tab: 'Program',
+            // 表示されているパネルのタブ
+            panel_active_tab: Utility.getSettingsItem('panel_active_tab'),
 
             // 背景の URL
             background_url: '',
@@ -171,15 +171,15 @@ export default Mixin.extend({
             is_control_display: true,
 
             // パネルを表示するか
-            // panel_display_state が 'always_display' なら常に表示し、'always_fold' なら常に折りたたむ
-            // 'restore_previous_state' なら is_latest_panel_display の値を使い､前回の状態を復元する
+            // panel_display_state が 'AlwaysDisplay' なら常に表示し、'AlwaysFold' なら常に折りたたむ
+            // 'RestorePreviousState' なら is_latest_panel_display の値を使い､前回の状態を復元する
             is_panel_display: (() => {
                 switch (Utility.getSettingsItem('panel_display_state')) {
-                    case 'always_display':
+                    case 'AlwaysDisplay':
                         return true;
-                    case 'always_fold':
+                    case 'AlwaysFold':
                         return false;
-                    case 'restore_previous_state':
+                    case 'RestorePreviousState':
                         return Utility.getSettingsItem('is_latest_panel_display');
                 }
             })(),
@@ -920,22 +920,22 @@ export default Mixin.extend({
 
                     // Kキー: 番組情報タブ
                     if (event.code === 'KeyK') {
-                        this.active_panel_tab = 'Program';
+                        this.panel_active_tab = 'Program';
                         return;
                     }
                     // Lキー: チャンネルタブ
                     if (event.code === 'KeyL') {
-                        this.active_panel_tab = 'Channel';
+                        this.panel_active_tab = 'Channel';
                         return;
                     }
                     // ;(+)キー: コメントタブ
                     if (event.code === 'Semicolon') {
-                        this.active_panel_tab = 'Comment';
+                        this.panel_active_tab = 'Comment';
                         return;
                     }
                     // :(*)キー: Twitterタブ
                     if (event.code === 'Quote') {
-                        this.active_panel_tab = 'Twitter';
+                        this.panel_active_tab = 'Twitter';
                         return;
                     }
                     // Pキー: パネルの表示切り替え
