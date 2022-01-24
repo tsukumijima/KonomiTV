@@ -296,6 +296,7 @@ class LiveEncodingTask():
             is_tuner_opened = RunAwait(tuner.open())
 
             # チューナーの起動に失敗した
+            # ほとんどがチューナー不足によるものなので、ステータス詳細でもそのように表示する
             # 成功時は tuner.close() するか予約などに割り込まれるまで起動しつづけるので注意
             if is_tuner_opened is False:
                 livestream.setStatus('Offline', 'チューナー不足のため、ライブストリームを開始できません。')
@@ -446,8 +447,9 @@ class LiveEncodingTask():
             while True:
 
                 # エンコーダーの出力をライブストリームに書き込む
-                # R/W バッファ: 188B (TS Packet Size) * 256 = 48128B
-                livestream.write(encoder.stdout.read(48128))
+                # R/W バッファ: 188B (TS Packet Size) * 128 = 24064B
+                # エンコードでかなりデータ量が減るので、reader よりもバッファを減らしてみる
+                livestream.write(encoder.stdout.read(24064))
 
                 # エンコーダープロセスが終了していたらループを抜ける
                 if encoder.poll() is not None:
