@@ -36,34 +36,34 @@ module.exports = {
         },
         // manifest.json の内容
         manifestOptions: {
-            "name": "KonomiTV",
-            "short_name": "KonomiTV",
-            "start_url": ".",
-            "display": "standalone",
-            "theme_color": "#0D0807",
-            "background_color": "#1E1310",
-            "icons": [
+            'name': 'KonomiTV',
+            'short_name': 'KonomiTV',
+            'start_url': '.',
+            'display': 'standalone',
+            'theme_color': '#0D0807',
+            'background_color': '#1E1310',
+            'icons': [
                 {
-                    "src": "/assets/img/icons/icon-192px.png",
-                    "sizes": "192x192",
-                    "type": "image/png",
+                    'src': '/assets/img/icons/icon-192px.png',
+                    'sizes': '192x192',
+                    'type': 'image/png',
                 },
                 {
-                    "src": "/assets/img/icons/icon-512px.png",
-                    "sizes": "512x512",
-                    "type": "image/png",
+                    'src': '/assets/img/icons/icon-512px.png',
+                    'sizes': '512x512',
+                    'type': 'image/png',
                 },
                 {
-                    "src": "/assets/img/icons/icon-maskable-192px.png",
-                    "sizes": "192x192",
-                    "type": "image/png",
-                    "purpose": "maskable",
+                    'src': '/assets/img/icons/icon-maskable-192px.png',
+                    'sizes': '192x192',
+                    'type': 'image/png',
+                    'purpose': 'maskable',
                 },
                 {
-                    "src": "/assets/img/icons/icon-maskable-512px.png",
-                    "sizes": "512x512",
-                    "type": "image/png",
-                    "purpose": "maskable",
+                    'src': '/assets/img/icons/icon-maskable-512px.png',
+                    'sizes': '512x512',
+                    'type': 'image/png',
+                    'purpose': 'maskable',
                 }
             ]
         }
