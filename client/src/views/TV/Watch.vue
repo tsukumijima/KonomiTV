@@ -406,7 +406,9 @@ export default Mixin.extend({
             if (channels_response.data.GR.length > 0) this.channels_list.set('地デジ', channels_response.data.GR.filter(filter));
             if (channels_response.data.BS.length > 0) this.channels_list.set('BS', channels_response.data.BS.filter(filter));
             if (channels_response.data.CS.length > 0) this.channels_list.set('CS', channels_response.data.CS.filter(filter));
+            if (channels_response.data.CATV.length > 0) this.channels_list.set('CATV', channels_response.data.CATV.filter(filter));
             if (channels_response.data.SKY.length > 0) this.channels_list.set('SKY', channels_response.data.SKY.filter(filter));
+            if (channels_response.data.STARDIGIO.length > 0) this.channels_list.set('StarDigio', channels_response.data.STARDIGIO.filter(filter));
 
             // ピン留めされているチャンネルのリストを更新
             this.updatePinnedChannelList();

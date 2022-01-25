@@ -151,6 +151,7 @@ _::-webkit-full-page-media, _:future, :root
             padding: 0;
             color: var(--v-text-base) !important;
             font-size: 15px;
+            text-transform: none;
             @media screen and (max-height: 450px) {
                 font-size: 14.5px;
             }
