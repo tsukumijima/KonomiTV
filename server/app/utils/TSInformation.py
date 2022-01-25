@@ -185,32 +185,53 @@ class TSInformation:
     def getNetworkType(network_id:int) -> str:
         """
         ネットワーク ID からネットワークの種別を取得する
-        返り値は GR・BS・CS・SKY のいずれか（Mirakurun互換）
+        種別は GR (地デジ)・BS・CS・CATV・SKY (SPHD)・STARDIGIO (スターデジオ)・OTHER (不明なネットワーク ID のチャンネル) のいずれか
 
         Args:
             network_id (int): ネットワーク ID
 
         Returns:
-            str: GR・BS・CS・SKY・OTHER のいずれか
+            str: GR・BS・CS・CATV・SKY・STARDIGIO・OTHER のいずれか
         """
 
         # 以下は ARIB STD-B10 第2部 付録N より抜粋
         # https://web.archive.org/web/2if_/http://www.arib.or.jp/english/html/overview/doc/2-STD-B10v5_3.pdf#page=256
 
-        # 地上デジタルテレビジョン放送 (0x7880 ～ 0x7FE8)
-        if network_id >= 30848 and network_id <= 32744:
+        # 地上デジタルテレビジョン放送 (network_id: 30848 ~ 32744)
+        if network_id >= 0x7880 and network_id <= 0x7FE8:
             return 'GR'
+
         # BSデジタル放送
-        if network_id == 4:
+        if network_id == 0x0004:
             return 'BS'
+
         # 110度CSデジタル放送
-        if network_id == 6 or network_id == 7:
+        # CS1: 0x0006 (旧プラット・ワン系)
+        # CS2: 0x0007 (旧スカイパーフェクTV!2系)
+        if network_id == 0x0006 or network_id == 0x0007:
             return 'CS'
-        # 124/128度CSデジタル放送（スカパー！プレミアムサービス）
-        if network_id == 1 or network_id == 3 or network_id == 10:
+
+        # ケーブルテレビ (リマックス方式・トランスモジュレーション方式)
+        # ケーブルテレビ独自のチャンネルのみで、地上波・BS の再送信は含まない
+        # デジタル放送リマックス: 0xFFFE (HD・SD チャンネル (MPEG-2))
+        # デジタル放送高度リマックス: 0xFFFA (ケーブル4Kチャンネル (H.264, H.265))
+        # JC-HITSトランスモジュレーション: 0xFFFD (HD・SD チャンネル (MPEG-2))
+        # 高度JC-HITSトランスモジュレーション: 0xFFF9 (ケーブル4Kチャンネル (H.264, H.265))
+        if network_id == 0xFFFE or network_id == 0xFFFA or network_id == 0xFFFD or network_id == 0xFFF9:
+            return 'CATV'
+
+        # 124/128度CSデジタル放送
+        # SPHD: 0x000A (スカパー！プレミアムサービス)
+        # SPSD-SKY: 0x0003 (運用終了)
+        if network_id == 0x000A or network_id == 0x0003:
             return 'SKY'
 
-        # 不明なネットワークID
+        # 124/128度CSデジタル放送
+        # SPSD-PerfecTV: 0x0001 (スターデジオ)
+        if network_id == 1:
+            return 'STARDIGIO'
+
+        # 不明なネットワーク ID のチャンネル
         return 'OTHER'
 
 

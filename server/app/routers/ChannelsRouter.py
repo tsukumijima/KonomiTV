@@ -38,7 +38,7 @@ router = APIRouter(
 )
 async def ChannelsAPI():
     """
-    地デジ (GR)・BS・CS・SKY それぞれ全てのチャンネルの情報を取得する。
+    地デジ (GR)・BS・CS・CATV・SKY (SPHD)・STARDIGIO それぞれ全てのチャンネルの情報を取得する。
     """
 
     # 現在時刻
@@ -87,7 +87,9 @@ async def ChannelsAPI():
         'GR': list(),
         'BS': list(),
         'CS': list(),
+        'CATV': list(),
         'SKY': list(),
+        'STARDIGIO': list(),
     }
 
     # チャンネルごとに実行

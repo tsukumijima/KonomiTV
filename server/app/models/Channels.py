@@ -112,8 +112,11 @@ class Channels(models.Model):
                 if same_remocon_id_counts[channel.remocon_id] > 0:
                     channel.channel_number += '-' + str(same_remocon_id_counts[channel.remocon_id])
 
-            # BS・CS: サービス ID をそのままチャンネル番号・リモコン番号とする
-            elif channel.channel_type == 'BS' or channel.channel_type == 'CS':
+            # BS・CS・CATV・STARDIGIO: サービス ID をそのままチャンネル番号・リモコン番号とする
+            elif (channel.channel_type == 'BS' or
+                  channel.channel_type == 'CS' or
+                  channel.channel_type == 'CATV' or
+                  channel.channel_type == 'STARDIGIO'):
                 channel.remocon_id = channel.service_id  # ソートする際の便宜上設定しておく
                 channel.channel_number = str(channel.service_id).zfill(3)
 
@@ -172,7 +175,7 @@ class Channels(models.Model):
                 else:
                     channel.is_subchannel = False
 
-            # CS・SKY: サブチャンネルという概念自体がないため一律で False に設定
+            # それ以外: サブチャンネルという概念自体がないため一律で False に設定
             else:
                 channel.is_subchannel = False
 
@@ -277,8 +280,11 @@ class Channels(models.Model):
                 if same_remocon_id_counts[channel.remocon_id] > 0:
                     channel.channel_number += '-' + str(same_remocon_id_counts[channel.remocon_id])
 
-            # BS・CS: サービス ID をそのままチャンネル番号・リモコン番号とする
-            elif channel.channel_type == 'BS' or channel.channel_type == 'CS':
+            # BS・CS・CATV・STARDIGIO: サービス ID をそのままチャンネル番号・リモコン番号とする
+            elif (channel.channel_type == 'BS' or
+                  channel.channel_type == 'CS' or
+                  channel.channel_type == 'CATV' or
+                  channel.channel_type == 'STARDIGIO'):
                 channel.remocon_id = channel.service_id  # ソートする際の便宜上設定しておく
                 channel.channel_number = str(channel.service_id).zfill(3)
 
@@ -337,7 +343,7 @@ class Channels(models.Model):
                 else:
                     channel.is_subchannel = False
 
-            # CS・SKY: サブチャンネルという概念自体がないため一律で False に設定
+            # それ以外: サブチャンネルという概念自体がないため一律で False に設定
             else:
                 channel.is_subchannel = False
 

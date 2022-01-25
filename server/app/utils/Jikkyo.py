@@ -84,7 +84,7 @@ class Jikkyo:
                 jikkyo_service_id = int(jikkyo_channel['service_id'], 0)  # 16進数の文字列を数値に変換
 
                 # NID と SID が一致する
-                # BS・CS・SKY の場合はこれだけで OK
+                # BS・CS の場合はこれだけで OK
                 if self.network_id == jikkyo_network_id and self.service_id == jikkyo_service_id:
                     return True
 
@@ -111,6 +111,7 @@ class Jikkyo:
                         return True
 
                 # ここまでの条件に一致しなかったら False を返す
+                # CATV・SKY・STARDIGIO は実況チャンネル/コミュニティ自体が存在しない
                 return False
 
             # 上記の条件に一致する場合のみ
@@ -209,7 +210,7 @@ class Jikkyo:
         if (self.jikkyo_channels_status == dict()):
             await self.updateStatus()
 
-        # 実況 ID が jk0 であれば None を返す
+        # 実況 ID が jk0（実況チャンネル/コミュニティが存在しない）であれば None を返す
         if self.jikkyo_id == 'jk0':
             return None
 

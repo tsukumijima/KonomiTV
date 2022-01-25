@@ -55,7 +55,9 @@ class Channels(BaseModel):
     GR: List[Channel]
     BS: List[Channel]
     CS: List[Channel]
+    CATV: List[Channel]
     SKY: List[Channel]
+    STARDIGIO: List[Channel]
 
 class LiveStreams(BaseModel):
     Restart: Dict[str, LiveStream]
