@@ -64,7 +64,7 @@ Python 3.8 でも動作しますが、asyncio を多用しているため、3.7 
 
 Linux (Ubuntu 20.04 LTS x64) で動作することも確認しました。  
 ただし Windows ほどあまり検証できていないので、環境によっては動かないかもしれません。  
-また、ARM 向けのサードパーティライブラリの実行ファイルを同梱していないため、ARM 版の Ubuntu では今のところ動作しません。
+また、ARM 向けのサードパーティーライブラリの実行ファイルを同梱していないため、ARM 版の Ubuntu では今のところ動作しません。
 
 バックエンドは Mirakurun と EDCB から選べます。お使いの録画環境に合わせて選択してください。  
 仕組み上、PLEX 製チューナーの場合は EDCB バックエンドの方がチャンネル切り替えなどにかかる待機時間が速くなっています。  
@@ -146,7 +146,7 @@ git clone git@github.com:tsukumijima/KonomiTV.git
 cd /Develop/KonomiTV/server
 ```
 
-### 3. サードパーティライブラリのインストール
+### 3. サードパーティーライブラリのインストール
 
 TVRemotePlus では Git の管理下に含めていましたが、KonomiTV ではバージョン情報のみを管理する方針としています。  
 将来的にはインストーラー側で自動ダウンロード/アップデートするようにしたいところですが、現時点では手動でのダウンロードと配置が必要です。
@@ -155,7 +155,7 @@ Linux 向けの実行ファイルも同梱しています（拡張子: .elf ）�
 なお、QSVEncC・NVEncC・VCEEncC を使う場合は、別途 ffmpeg (libav) ライブラリと [Intel Media Driver](https://github.com/rigaya/QSVEnc/blob/master/Install.ja.md#linux-ubuntu-2004) / [NVIDIA Graphics Driver](https://github.com/rigaya/NVEnc/blob/master/Install.ja.md#linux-ubuntu-2004) / [AMD Driver](https://github.com/rigaya/VCEEnc/blob/master/Install.ja.md#linux-ubuntu-2004) のインストールが必要です。  
 VCEEncC の Linux サポートはつい最近追加されたばかりなので、安定してエンコードできるかは微妙です（環境がない…）。
 
-[こちら](https://github.com/tsukumijima/KonomiTV/releases/download/v0.4.0/thirdparty.7z) からサードパーティライブラリをダウンロードし、`server/thirdparty/` に配置してください。展開後サイズは 600MB あるので注意。  
+[こちら](https://github.com/tsukumijima/KonomiTV/releases/download/v0.4.0/thirdparty.7z) からサードパーティーライブラリをダウンロードし、`server/thirdparty/` に配置してください。展開後サイズは 600MB あるので注意。  
 
 7z 、あるいは p7zip のコマンドライン版が利用できる場合は、コマンドラインでダウンロードと展開を行うこともできます。
 

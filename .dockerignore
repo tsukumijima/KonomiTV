@@ -14,5 +14,5 @@ server/data/database.sqlite*
 # ログ: コピーする必要がない
 server/logs/
 
-# サードパーティライブラリ: Docker 側でファイルを準備するため不要
+# サードパーティーライブラリ: Docker 側でファイルを準備するため不要
 server/thirdparty/

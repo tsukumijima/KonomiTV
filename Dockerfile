@@ -14,14 +14,14 @@ WORKDIR /code/server
 RUN apt-get update -y && apt-get upgrade -y
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y aria2 gpg-agent p7zip-full python3.9 python3-pip
 
-# サードパーティライブラリが必要とするパッケージのインストール
+# サードパーティーライブラリが必要とするパッケージのインストール
 RUN apt-get install -y ffmpeg libv4l-0 libxcb1 libva2 libmfx1 intel-media-va-driver-non-free
 
-# サードパーティライブラリをダウンロード
+# サードパーティーライブラリをダウンロード
 RUN aria2c -x10 https://github.com/tsukumijima/KonomiTV/releases/download/v0.4.0/thirdparty.7z
 RUN 7z x -y thirdparty.7z && rm thirdparty.7z
 
-# サードパーティライブラリに実行権限を付与
+# サードパーティーライブラリに実行権限を付与
 RUN chmod 755 ./thirdparty/FFmpeg/ffmpeg.elf && \
     chmod 755 ./thirdparty/FFmpeg/ffprobe.elf && \
     chmod 755 ./thirdparty/QSVEncC/QSVEncC.elf && \

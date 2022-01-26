@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi_utils.tasks import repeat_every
 from pydantic import ValidationError
 
-from app.constants import CONFIG, CLIENT_DIR, DATABASE_CONFIG, QUALITY, VERSION
+from app.constants import CONFIG, CLIENT_DIR, DATABASE_CONFIG, LIBRARY_PATH, QUALITY, VERSION
 from app.models import Channels
 from app.models import LiveStream
 from app.models import Programs
@@ -40,10 +40,19 @@ try:
 except ValidationError as error:
     Logging.error(
         '設定内容が不正なため、KonomiTV を起動できません。\n          '
-        '以下のエラーメッセージを参考に、config.yaml の記述が正しいかどうか確認してください。'
+        '以下のエラーメッセージを参考に、config.yaml の記述が正しいかを確認してください。'
     )
     Logging.error(error)
     sys.exit(1)
+
+# サードパーティーライブラリが配置されているかのバリデーション
+for library_name, library_path in LIBRARY_PATH.items():
+    if not os.path.isfile(library_path):
+        Logging.error(
+            f'{library_name} がサードパーティーライブラリとして配置されていないため、KonomiTV を起動できません。\n          '
+            f'{library_name} が {library_path} に配置されているかを確認してください。'
+        )
+        sys.exit(1)
 
 # FastAPI を初期化
 app = FastAPI(
@@ -178,7 +187,7 @@ async def Startup():
         # ログ出力
         Logging.error(
             '設定内容が不正なため、KonomiTV を起動できません。\n          '
-            '以下のエラーメッセージを参考に、config.yaml の記述が正しいかどうか確認してください。'
+            '以下のエラーメッセージを参考に、config.yaml の記述が正しいかを確認してください。'
         )
         Logging.error(exception.args[0])
 
