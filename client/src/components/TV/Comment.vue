@@ -533,6 +533,7 @@ export default Mixin.extend({
 
                 // プレイヤー全体と映像の高さの差（レターボックス）から、コメント描画領域の高さを狭める必要があるかを判定する
                 // 2で割っているのは単体の差を測るため
+                if (this.resize_observer_element === null || this.resize_observer_element.clientHeight === null) return;
                 const letter_box_height = (this.resize_observer_element.clientHeight - video_element.clientHeight) / 2;
 
                 // 70px or 54px (高さが 450px 以下) 以下ならヘッダー（番組名などの表示）と被るので対応する

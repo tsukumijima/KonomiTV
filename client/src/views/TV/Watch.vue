@@ -774,6 +774,9 @@ export default Mixin.extend({
                             this.player.video.onerror = null;
                         }
 
+                        // 描画されたコメントをクリア
+                        this.player.danmaku.clear()
+
                         // 動画を停止する
                         this.player.video.pause();
 

@@ -55,7 +55,7 @@ body .route-container {  // ルートコンテナ
         background: #2F221FC0;
         color: var(--v-text-base);
         font-size: 12px;
-        font-family: "Open Sans", "Noto Sans JP", sans-serif;
+        font-family: 'YakuHanJPs', 'Open Sans', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
         font-weight: 500;
         opacity: 0.9;
         line-height: 22px;
