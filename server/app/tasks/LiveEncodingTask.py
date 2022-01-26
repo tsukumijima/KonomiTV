@@ -328,8 +328,8 @@ class LiveEncodingTask():
         def reader():
 
             # 受信した放送波が入るイテレータ
+            # R/W バッファ: 188B (TS Packet Size) * 256 = 48128B
             if CONFIG['general']['backend'] == 'Mirakurun':
-                # R/W バッファ: 188B (TS Packet Size) * 256 = 48128B
                 stream_iterator = response.iter_content(chunk_size=48128)
             elif CONFIG['general']['backend'] == 'EDCB':
                 stream_iterator = iter(lambda: pipe.read(48128), b'')
@@ -443,13 +443,18 @@ class LiveEncodingTask():
 
         def writer():
 
-            # 非同期でエンコーダーから受けた出力を随時 Queue に書き込む
-            while True:
+            # R/W バッファ: 188B (TS Packet Size) * 128 = 24064B
+            # エンコードによってかなりデータ量が減るので、reader よりもバッファを減らしてみる
+            # 810p 以上ではデータ量が多くなるので、バッファを 188B (TS Packet Size) * 192 = 36096B に増やす
+            buffer = 36096 if (real_quality == '810p' or real_quality == '1080p') else 24064
 
-                # エンコーダーの出力をライブストリームに書き込む
-                # R/W バッファ: 188B (TS Packet Size) * 128 = 24064B
-                # エンコードでかなりデータ量が減るので、reader よりもバッファを減らしてみる
-                livestream.write(encoder.stdout.read(24064))
+            # エンコーダーの出力を受け取るイテレータ
+            stream_iterator = iter(lambda: encoder.stdout.read(buffer), b'')
+
+            for chunk in stream_iterator:
+
+                # エンコーダーから受けた出力を Queue に書き込む
+                livestream.write(chunk)
 
                 # エンコーダープロセスが終了していたらループを抜ける
                 if encoder.poll() is not None:
