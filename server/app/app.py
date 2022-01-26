@@ -45,6 +45,12 @@ except ValidationError as error:
     Logging.error(error)
     sys.exit(1)
 
+## EDCB のホスト名とポートを追加で設定
+## 毎回 URL を解析するのは非効率なため、ここで設定しておく
+edcb_url_parse = urllib.parse.urlparse(CONFIG['general']['edcb_url'])
+CONFIG['general']['edcb_host'] = edcb_url_parse.hostname
+CONFIG['general']['edcb_port'] = edcb_url_parse.port
+
 # サードパーティーライブラリが配置されているかのバリデーション
 for library_name, library_path in LIBRARY_PATH.items():
     if not os.path.isfile(library_path):
@@ -161,25 +167,17 @@ async def Startup():
         # EDCB バックエンドの接続確認
         elif CONFIG['general']['backend'] == 'EDCB':
 
-            # URL を解析
-            edcb_url_parse = urllib.parse.urlparse(CONFIG['general']['edcb_url'])
-
             # ホスト名またはポートが指定されていない
-            if edcb_url_parse.hostname is None or edcb_url_parse.port is None:
+            if CONFIG['general']['edcb_host'] is None or CONFIG['general']['edcb_port'] is None:
                 raise ValueError(f'URL 内にホスト名またはポートが指定されていません。EDCB の URL を間違えている可能性があります。')
 
             # サービス一覧が取得できるか試してみる
             edcb = CtrlCmdUtil()
-            edcb.setNWSetting(edcb_url_parse.hostname, edcb_url_parse.port)
+            edcb.setNWSetting(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'])
             edcb.setConnectTimeOutSec(5)  # 5秒後にタイムアウト
             result = await edcb.sendEnumService()
             if result is None:
                 raise ValueError(f'EDCB ({CONFIG["general"]["edcb_url"]}) にアクセスできませんでした。EDCB が起動していないか、URL を間違えている可能性があります。')
-
-            ## EDCB のホスト名とポートを追加で設定
-            ## 毎回 URL を解析するのは非効率なため、ここで設定しておく
-            CONFIG['general']['edcb_host'] = edcb_url_parse.hostname
-            CONFIG['general']['edcb_port'] = edcb_url_parse.port
 
     # エラー発生時
     except ValueError as exception:
@@ -216,12 +214,12 @@ async def UpdateProgram():
     await Channels.update()
     await Channels.updateJikkyoStatus()
 
-# 30分に1回、番組情報を定期的に更新する
-# 番組情報の更新処理は重く他の処理に影響してしまうため、同期関数にして外部スレッドで実行する
+# 15分に1回、番組情報を定期的に更新する
+# 番組情報の更新処理はかなり重くストリーム配信などの他の処理に影響してしまうため、マルチプロセスで実行する
 @app.on_event('startup')
-@repeat_every(seconds=30 * 60, wait_first=True, logger=Logging.logger)
-def UpdateProgram():
-    RunAwait(Programs.update())
+@repeat_every(seconds=15 * 60, wait_first=True, logger=Logging.logger)
+async def UpdateProgram():
+    await Programs.update(multiprocess=True)
 
 # 1分に1回、ニコニコ実況関連のステータスを定期的に更新する
 @app.on_event('startup')

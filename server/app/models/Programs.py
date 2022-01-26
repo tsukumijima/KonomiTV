@@ -1,16 +1,20 @@
 
 import ariblib.constants
+import asyncio
+import concurrent.futures
 import datetime
 import requests
 import time
+import urllib
 from datetime import timedelta
 from tortoise import fields
 from tortoise import models
 from tortoise import timezone
+from tortoise import Tortoise
 from tortoise import transactions
 from typing import Optional
 
-from app.constants import CONFIG
+from app.constants import CONFIG, DATABASE_CONFIG
 from app.models import Channels
 from app.utils import Logging
 from app.utils import RunAsync
@@ -47,28 +51,54 @@ class Programs(models.Model):
 
 
     @classmethod
-    async def update(cls) -> None:
-        """番組情報を更新する"""
+    async def update(cls, multiprocess:bool=False) -> None:
+        """
+        番組情報を更新する
+
+        Args:
+            multiprocess (bool, optional): マルチプロセスで実行するかどうか
+        """
 
         # 現在時刻のタイムスタンプ
         timestamp = time.time()
 
         Logging.info('Program updating...')
 
-        # Mirakurun バックエンド
-        if CONFIG['general']['backend'] == 'Mirakurun':
-            await cls.updateFromMirakurun()
+        # 番組情報をマルチプロセスで更新する
+        if multiprocess is True:
 
-        # EDCB バックエンド
-        elif CONFIG['general']['backend'] == 'EDCB':
-            await cls.updateFromEDCB()
+            # 動作中のイベントループを取得
+            loop = asyncio.get_running_loop()
+
+            # マルチプロセス実行用の Executor を初期化
+            # run_in_executor() で指定した関数をマルチプロセスで実行する
+            executor = concurrent.futures.ProcessPoolExecutor(max_workers=1)
+
+            # Mirakurun バックエンド
+            if CONFIG['general']['backend'] == 'Mirakurun':
+                await loop.run_in_executor(executor, cls.updateFromMirakurunSync)
+
+            # EDCB バックエンド
+            elif CONFIG['general']['backend'] == 'EDCB':
+                await loop.run_in_executor(executor, cls.updateFromEDCBSync)
+
+        # 番組情報をシングルプロセスで更新する
+        else:
+
+            # Mirakurun バックエンド
+            if CONFIG['general']['backend'] == 'Mirakurun':
+                await cls.updateFromMirakurun()
+
+            # EDCB バックエンド
+            elif CONFIG['general']['backend'] == 'EDCB':
+                await cls.updateFromEDCB()
 
         Logging.info(f'Program update complete. ({round(time.time() - timestamp, 3)} sec)')
 
 
     @classmethod
     async def updateFromMirakurun(cls) -> None:
-        """Mirakurun バックエンドから番組情報を取得し、更新する"""
+        """ Mirakurun バックエンドから番組情報を取得し、更新する """
 
         def IsMainProgram(program: dict) -> bool:
             """
@@ -120,6 +150,15 @@ class Programs(models.Model):
                 millisecond / 1000,  # ミリ秒なので秒に変換
                 tz = timezone.get_default_timezone(),  # タイムゾーンを UTC+9（日本時間）に指定する
             )
+
+        # マルチプロセス時は既存のコネクションが使えないため、Tortoise ORMを初期化し直す
+        # ref: https://tortoise-orm.readthedocs.io/en/latest/setup.html
+        is_running_multiprocess = False
+        try:
+            Tortoise.get_connection('default')
+        except KeyError:
+            await Tortoise.init(config=DATABASE_CONFIG)
+            is_running_multiprocess = True
 
         # Mirakurun の API から番組情報を取得する
         mirakurun_programs_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/programs'
@@ -319,10 +358,30 @@ class Programs(models.Model):
                 Logging.debug(f'Delete Program: {duplicate_program.id}')
                 await duplicate_program.delete()
 
+        # マルチプロセス実行時は、開いた Tortoise ORM のコネクションを明示的に閉じる
+        # コネクションを閉じないと Ctrl+C を押下しても終了できない
+        if is_running_multiprocess:
+            await Tortoise.close_connections()
+
 
     @classmethod
     async def updateFromEDCB(cls) -> None:
-        """EDCB バックエンドから番組情報を取得し、更新する"""
+        """ EDCB バックエンドから番組情報を取得し、更新する """
+
+        # マルチプロセス時は既存のコネクションが使えないため、Tortoise ORMを初期化し直す
+        # ref: https://tortoise-orm.readthedocs.io/en/latest/setup.html
+        is_running_multiprocess = False
+        try:
+            Tortoise.get_connection('default')
+        except KeyError:
+            await Tortoise.init(config=DATABASE_CONFIG)
+            is_running_multiprocess = True
+
+        # マルチプロセス時は起動後に動的に追加される EDCB のホスト名とポートが存在しないため、パースし直す
+        if is_running_multiprocess:
+            edcb_url_parse = urllib.parse.urlparse(CONFIG['general']['edcb_url'])
+            CONFIG['general']['edcb_host'] = edcb_url_parse.hostname
+            CONFIG['general']['edcb_port'] = edcb_url_parse.port
 
         # CtrlCmdUtil を初期化
         edcb = CtrlCmdUtil()
@@ -542,3 +601,28 @@ class Programs(models.Model):
             for duplicate_program in duplicate_programs.values():
                 Logging.debug(f'Delete Program: {duplicate_program.id}')
                 await duplicate_program.delete()
+
+        # マルチプロセス実行時は、開いた Tortoise ORM のコネクションを明示的に閉じる
+        # コネクションを閉じないと Ctrl+C を押下しても終了できない
+        if is_running_multiprocess:
+            await Tortoise.close_connections()
+
+
+    @classmethod
+    def updateFromMirakurunSync(cls) -> None:
+        """ Programs.updateFromMirakurun() の同期版 """
+        # 自前でイベントループを取得して、run_until_complete() で実行が終わるまで待つ
+        # マルチプロセスだからか、RunAwait() だとうまくイベントループが取得できずフリーズしてしまう
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(cls.updateFromMirakurun())
+        loop.close()
+
+
+    @classmethod
+    def updateFromEDCBSync(cls) -> None:
+        """ Programs.updateFromEDCB() の同期版 """
+        # 自前でイベントループを取得して、run_until_complete() で実行が終わるまで待つ
+        # マルチプロセスだからか、RunAwait() だとうまくイベントループが取得できずフリーズしてしまう
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(cls.updateFromEDCB())
+        loop.close()

@@ -33,7 +33,7 @@ class Channels(models.Model):
 
     @classmethod
     async def update(cls) -> None:
-        """チャンネル情報を更新する"""
+        """ チャンネル情報を更新する """
 
         # Mirakurun バックエンド
         if CONFIG['general']['backend'] == 'Mirakurun':
@@ -46,7 +46,7 @@ class Channels(models.Model):
 
     @classmethod
     async def updateFromMirakurun(cls) -> None:
-        """Mirakurun バックエンドからチャンネル情報を取得し、更新する"""
+        """ Mirakurun バックエンドからチャンネル情報を取得し、更新する """
 
         # 既にデータベースにチャンネル情報が存在する場合は一旦全て削除する
         await Channels.all().delete()
@@ -185,7 +185,7 @@ class Channels(models.Model):
 
     @classmethod
     async def updateFromEDCB(cls) -> None:
-        """EDCB バックエンドからチャンネル情報を取得し、更新する"""
+        """ EDCB バックエンドからチャンネル情報を取得し、更新する """
 
         # リモコン番号が取得できない場合に備えてバックアップ
         backup_remocon_ids = {channel.id: channel.remocon_id for channel in await Channels.all()}
