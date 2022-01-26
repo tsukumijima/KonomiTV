@@ -256,7 +256,7 @@ class Jikkyo:
             # 対照表に存在する実況 ID のみ
             if jikkyo_id in cls.jikkyo_nicolive_id_table:
 
-                # ステータスを更新する
+                # ステータス (force: 実況勢い, viewers: 累計視聴者数, comments: 累計コメント数) を更新
                 # XML だと色々めんどくさいので、辞書にまとめ直す
                 cls.jikkyo_channels_status[jikkyo_id] = {
                     'force': int(channel.find('./thread/force').text),

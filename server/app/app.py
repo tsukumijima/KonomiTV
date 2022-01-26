@@ -244,10 +244,8 @@ async def Shutdown():
     for livestream in LiveStream.getAllLiveStreams():
         livestream.setStatus('Offline', 'ライブストリームは Offline です。', True)
 
-    # EDCB バックエンドのみ
+    # 全てのチューナーインスタンスを終了する (EDCB バックエンドのみ)
     if CONFIG['general']['backend'] == 'EDCB':
-
-        # 全てのチューナーインスタンスを終了する
         await EDCBTuner.closeAll()
 
 # shutdown イベントが発火しない場合も想定し、アプリケーションの終了時に Shutdown() が確実に呼ばれるように

@@ -311,6 +311,7 @@ class LiveStream():
         Args:
             status (Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart']): ライブストリームのステータス
             detail (str): ステータスの詳細
+            quiet (bool): ステータス設定のログを出力するかどうか
         """
 
         # ステータスも詳細も現在の状態と重複しているなら、更新を行わない（同じ内容のイベントが複数発生するのを防ぐ）

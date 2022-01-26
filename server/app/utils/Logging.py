@@ -20,7 +20,7 @@ if os.name == 'nt':
 # Logger と Handler を定義
 ## 通常とデバッグ向けで 2 つ用意する
 logger_default = logging.getLogger('KonomiTV')
-logger_debug = logging.getLogger('KonomiTV_debug')
+logger_debug = logging.getLogger('KonomiTV-Debug')
 handler_default = logging.StreamHandler()  # 通常
 handler_debug = logging.StreamHandler()  # デバッグ向け
 
@@ -37,7 +37,7 @@ handler_debug.setFormatter(uvicorn.logging.DefaultFormatter(
 ))
 logger_debug.addHandler(handler_debug)
 
-# デバッグモードであればロギングのしきい値を DEBUG に設定
+# デバッグモードであればログ出力のしきい値を DEBUG に設定
 if CONFIG['general']['debug'] is True:
     logger_default.setLevel(logging.DEBUG)
     logger_debug.setLevel(logging.DEBUG)
@@ -49,16 +49,21 @@ else:
 
 
 def debug(message):
+    """ デバッグログを出力する """
     logger_debug.debug(message, stacklevel=2)
 
 def debug_simple(message):
+    """ デバッグログを出力する (実行時間・ファイル名・行番号を出力しない) """
     logger_default.debug(message, stacklevel=2)
 
 def info(message):
+    """ 情報ログを出力する """
     logger_default.info(message, stacklevel=2)
 
 def warning(message):
+    """ 警告ログを出力する """
     logger_default.warning(message, stacklevel=2)
 
 def error(message):
+    """ エラーログを出力する """
     logger_default.error(message, stacklevel=2)
