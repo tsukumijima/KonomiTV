@@ -279,7 +279,6 @@ async def ChannelLogoAPI(
 
         # CtrlCmdUtil を初期化
         edcb = CtrlCmdUtil()
-        edcb.setNWSetting(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'])
 
         # EDCB の LogoData フォルダからロゴを取得
         logo = None

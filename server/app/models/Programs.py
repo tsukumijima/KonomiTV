@@ -385,7 +385,6 @@ class Programs(models.Model):
 
         # CtrlCmdUtil を初期化
         edcb = CtrlCmdUtil()
-        edcb.setNWSetting(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'])
 
         # 開始時間未定をのぞく全番組を取得する (リスト引数の前2要素は全番組、残り2要素は全期間を意味)
         program_services = await edcb.sendEnumPgInfoEx([0xffffffffffff, 0xffffffffffff, 1, 0x7fffffffffffffff]) or []

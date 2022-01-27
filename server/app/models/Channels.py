@@ -195,7 +195,6 @@ class Channels(models.Model):
 
         # CtrlCmdUtil を初期化
         edcb = CtrlCmdUtil()
-        edcb.setNWSetting(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'])
 
         # EDCB の ChSet5.txt からチャンネル情報を取得する
         services = await edcb.sendFileCopy('ChSet5.txt')

@@ -173,7 +173,6 @@ async def Startup():
 
             # サービス一覧が取得できるか試してみる
             edcb = CtrlCmdUtil()
-            edcb.setNWSetting(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'])
             edcb.setConnectTimeOutSec(5)  # 5秒後にタイムアウト
             result = await edcb.sendEnumService()
             if result is None:

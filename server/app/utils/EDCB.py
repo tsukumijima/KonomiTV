@@ -3,7 +3,7 @@ import asyncio
 import datetime
 import socket
 import time
-from typing import Callable, List, Optional
+from typing import BinaryIO, Callable, List, Optional, Union
 
 from app.constants import CONFIG
 
@@ -122,10 +122,6 @@ class EDCBTuner:
         if self.delegated is True:
             return False
 
-        # CtrlCmdUtil を初期化
-        edcb = CtrlCmdUtil()
-        edcb.setNWSetting(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'])
-
         # edcb.sendNwTVIDSetCh() に渡す辞書
         set_ch_info = {
 
@@ -137,7 +133,7 @@ class EDCBTuner:
             # NetworkTV ID をセット
             'space_or_id': self.edcb_networktv_id,
 
-            # TCP 送信を有効にする（ EpgDataCap_Bon の起動モード）
+            # TCP 送信を有効にする (EpgDataCap_Bon の起動モード)
             # 1:UDP 2:TCP 3:UDP+TCP
             'ch_or_mode': 2,
 
@@ -155,6 +151,7 @@ class EDCBTuner:
         while True:
 
             # チューナーの起動（あるいはチャンネル変更）を試す
+            edcb = CtrlCmdUtil()
             self.edcb_process_id = await edcb.sendNwTVIDSetCh(set_ch_info)
 
             # チューナーが起動できた、もしくはリトライ時間をタイムアウトした
@@ -171,24 +168,27 @@ class EDCBTuner:
         return True
 
 
-    async def connect(self, buffering: int):
+    async def connect(self) -> Optional[Union[BinaryIO, socket.socket]]:
         """
-        チューナーに接続する
+        チューナーに接続し、放送波を受け取るための TCP ソケットまたは名前付きパイプを返す
 
         Returns:
-            Any: ファイルオブジェクトまたはソケット（取得できなかった場合は None を返す）
+            Optional[Union[BinaryIO, socket.socket]]: ソケットまたはファイルオブジェクト (取得できなかった場合は None を返す)
         """
 
         # プロセス ID が取得できている（チューナーが起動している）ことが前提
         if self.edcb_process_id is None:
             return None
 
-        if CONFIG['general']['edcb_host'] != '0.0.0.1':
-            # チューナーに接続する（ EpgTimerSrv を経由する）
-            pipe_or_socket = await EDCBUtil.openViewStream(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'], self.edcb_process_id)
+        # チューナーに接続する
+        if CONFIG['general']['edcb_host'] != 'edcb-namedpipe':
+            ## EpgDataCap_Bon で受信した放送波を受け取るための名前付きパイプの出力を、
+            ## EpgTimerSrv の CtrlCmd インターフェイス (TCP API) 経由で受信するための TCP ソケット
+            pipe_or_socket = await EDCBUtil.openViewStream(self.edcb_process_id)
         else:
-            # チューナーに接続する（ EpgDataCap_Bon で受信した放送波を受け取るための名前付きパイプを見つける）
-            pipe_or_socket = await EDCBUtil.openPipeStream(self.edcb_process_id, buffering)
+            ## EpgDataCap_Bon で受信した放送波を受け取るための名前付きパイプ
+            ## R/W バッファ: 188B (TS Packet Size) * 256 = 48128B
+            pipe_or_socket = await EDCBUtil.openPipeStream(self.edcb_process_id, 48128)
 
         # チューナーへの接続に失敗した
         ## チューナーを閉じてからエラーを返す
@@ -228,11 +228,8 @@ class EDCBTuner:
         if self.delegated is True:
             return False
 
-        # CtrlCmdUtil を初期化
-        edcb = CtrlCmdUtil()
-        edcb.setNWSetting(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'])
-
         # チューナーを閉じ、実行結果を取得する
+        edcb = CtrlCmdUtil()
         result = await edcb.sendNwTVIDClose(self.edcb_networktv_id)
 
         # チューナーが閉じられたので、プロセス ID を None に戻す
@@ -257,95 +254,114 @@ class EDCBTuner:
 
 
 class EDCBUtil:
-    """ EDCB に関連する雑多なユーティリティ """
+    """
+    EDCB に関連する雑多なユーティリティ
+    EDCB 自体や CtrlCmd インターフェイス絡みの独自フォーマットのパースなど
+    """
 
     @staticmethod
-    def convertBytesToString(buf) -> str:
+    def convertBytesToString(buffer:bytes) -> str:
         """ BOM に基づいて Bytes データを文字列に変換する """
-        if len(buf) == 0:
+        if len(buffer) == 0:
             return ''
-        elif len(buf) >= 2 and buf[0] == 0xff and buf[1] == 0xfe:
-            return str(memoryview(buf)[2:], 'utf_16_le', 'replace')
-        elif len(buf) >= 3 and buf[0] == 0xef and buf[1] == 0xbb and buf[2] == 0xbf:
-            return str(memoryview(buf)[3:], 'utf_8', 'replace')
+        elif len(buffer) >= 2 and buffer[0] == 0xff and buffer[1] == 0xfe:
+            return str(memoryview(buffer)[2:], 'utf_16_le', 'replace')
+        elif len(buffer) >= 3 and buffer[0] == 0xef and buffer[1] == 0xbb and buffer[2] == 0xbf:
+            return str(memoryview(buffer)[3:], 'utf_8', 'replace')
         else:
-            return str(buf, 'cp932', 'replace')
+            return str(buffer, 'cp932', 'replace')
 
     @staticmethod
-    def parseChSet5(s: str) -> list:
+    def parseChSet5(chset5_txt:str) -> list:
         """ ChSet5.txt を解析する """
-        v = []
-        for line in s.splitlines():
-            a = line.split('\t')
-            if len(a) >= 9:
-                e: dict = {}
+        result = []
+        for line in chset5_txt.splitlines():
+            field = line.split('\t')
+            if len(field) >= 9:
+                channel: dict = {}
                 try:
-                    e['service_name'] = a[0]
-                    e['network_name'] = a[1]
-                    e['onid'] = int(a[2])
-                    e['tsid'] = int(a[3])
-                    e['sid'] = int(a[4])
-                    e['service_type'] = int(a[5])
-                    e['partial_flag'] = int(a[6]) != 0
-                    e['epg_cap_flag'] = int(a[7]) != 0
-                    e['search_flag'] = int(a[8]) != 0
-                    v.append(e)
+                    channel['service_name'] = field[0]
+                    channel['network_name'] = field[1]
+                    channel['onid'] = int(field[2])
+                    channel['tsid'] = int(field[3])
+                    channel['sid'] = int(field[4])
+                    channel['service_type'] = int(field[5])
+                    channel['partial_flag'] = int(field[6]) != 0
+                    channel['epg_cap_flag'] = int(field[7]) != 0
+                    channel['search_flag'] = int(field[8]) != 0
+                    result.append(channel)
                 except:
                     pass
-        return v
+        return result
 
     @staticmethod
-    def getLogoIDFromLogoDataIni(s: str, onid: int, sid: int) -> int:
+    def getLogoIDFromLogoDataIni(logo_data_ini:str, network_id:int, service_id:int) -> int:
         """ LogoData.ini をもとにロゴ識別を取得する。失敗のとき負値を返す """
-        target = f'{onid:04X}{sid:04X}'
-        for line in s.splitlines():
-            kv = line.split('=', 1)
-            if len(kv) == 2 and kv[0].strip().upper() == target:
+        target = f'{network_id:04X}{service_id:04X}'
+        for line in logo_data_ini.splitlines():
+            key_value = line.split('=', 1)
+            if len(key_value) == 2 and key_value[0].strip().upper() == target:
                 try:
-                    return int(kv[1].strip())
+                    return int(key_value[1].strip())
                 except:
                     break
         return -1
 
     @staticmethod
-    def getLogoFileNameFromDirectoryIndex(s: str, onid: int, logo_id: int, logo_type: int) -> Optional[str]:
+    def getLogoFileNameFromDirectoryIndex(logo_dir_index:str, network_id:int, logo_id:int, logo_type:int) -> Optional[str]:
         """ ファイルリストをもとにロゴファイル名を取得する """
-        target = f'{onid:04X}_{logo_id:03X}_'
+        target = f'{network_id:04X}_{logo_id:03X}_'
         target_type = f'_{logo_type:02d}.'
-        for line in s.splitlines():
-            a = line.split(' ', 3)
-            if len(a) == 4:
-                name = a[3]
+        for line in logo_dir_index.splitlines():
+            split = line.split(' ', 3)
+            if len(split) == 4:
+                name = split[3]
                 if len(name) >= 16 and name[0:9].upper() == target and name[12:16] == target_type:
                     return name
         return None
 
     @staticmethod
-    def parseProgramExtendedText(s: str) -> dict:
+    def parseProgramExtendedText(extended_text:str) -> dict:
         """ 詳細情報テキストを解析して項目ごとの辞書を返す """
-        s = s.replace('\r', '')
-        v = {}
+        extended_text = extended_text.replace('\r', '')
+        result = {}
         head = ''
         i = 0
         while True:
-            if i == 0 and s.startswith('- '):
+            if i == 0 and extended_text.startswith('- '):
                 j = 2
-            elif (j := s.find('\n- ', i)) >= 0:
-                v[head] = s[(0 if i == 0 else i + 1):j + 1]
+            elif (j := extended_text.find('\n- ', i)) >= 0:
+                result[head] = extended_text[(0 if i == 0 else i + 1):j + 1]
                 j += 3
             else:
-                if len(s) != 0:
-                    v[head] = s[(0 if i == 0 else i + 1):]
+                if len(extended_text) != 0:
+                    result[head] = extended_text[(0 if i == 0 else i + 1):]
                 break
-            i = s.find('\n', j)
+            i = extended_text.find('\n', j)
             if i < 0:
-                v[s[j:]] = ''
+                result[extended_text[j:]] = ''
                 break
-            head = s[j:i]
-        return v
+            head = extended_text[j:i]
+        return result
 
     @staticmethod
-    async def openPipeStream(process_id: int, buffering: int, timeout_sec: float = 10.):
+    async def openViewStream(process_id:int, timeout_sec:float=10.) -> Optional[socket.socket]:
+        """ View アプリの SrvPipe ストリームの転送を開始する """
+        edcb = CtrlCmdUtil()
+        edcb.setConnectTimeOutSec(timeout_sec)
+        to = time.monotonic() + timeout_sec
+        wait = 0.1
+        while time.monotonic() < to:
+            sock = edcb.openViewStream(process_id)
+            if sock is not None:
+                return sock
+            await asyncio.sleep(wait)
+            # 初期に成功しなければ見込みは薄いので問い合わせを疎にしていく
+            wait = min(wait + 0.1, 1.0)
+        return None
+
+    @staticmethod
+    async def openPipeStream(process_id:int, buffering:int, timeout_sec:float=10.) -> Optional[BinaryIO]:
         """ システムに存在する SrvPipe ストリームを開き、ファイルオブジェクトを返す """
         to = time.monotonic() + timeout_sec
         wait = 0.1
@@ -357,23 +373,6 @@ class EDCBUtil:
                     return open(path, mode = 'rb', buffering = buffering)
                 except:
                     pass
-            await asyncio.sleep(wait)
-            # 初期に成功しなければ見込みは薄いので問い合わせを疎にしていく
-            wait = min(wait + 0.1, 1.0)
-        return None
-
-    @staticmethod
-    async def openViewStream(host: str, port: int, process_id: int, timeout_sec: float = 10.) -> Optional[socket.socket]:
-        """ View アプリの SrvPipe ストリームの転送を開始する """
-        edcb = CtrlCmdUtil()
-        edcb.setNWSetting(host, port)
-        edcb.setConnectTimeOutSec(timeout_sec)
-        to = time.monotonic() + timeout_sec
-        wait = 0.1
-        while time.monotonic() < to:
-            sock = edcb.openViewStream(process_id)
-            if sock is not None:
-                return sock
             await asyncio.sleep(wait)
             # 初期に成功しなければ見込みは薄いので問い合わせを疎にしていく
             wait = min(wait + 0.1, 1.0)
@@ -396,6 +395,18 @@ class CtrlCmdUtil:
         self.__host: Optional[str] = None
         self.__port = 0
 
+        if CONFIG['general']['edcb_host'] == 'edcb-namedpipe':
+            # 特別に名前付きパイプモードにする
+            self.setPipeSetting('EpgTimerSrvNoWaitPipe')
+        else:
+            # TCP/IP モードにする
+            self.setNWSetting(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'])
+
+    def setNWSetting(self, host: str, port: int) -> None:
+        """ TCP/IP モードにする """
+        self.__host = host
+        self.__port = port
+
     def setPipeSetting(self, name: str) -> None:
         """ 名前付きパイプモードにする """
         self.__pipe_name = name
@@ -411,14 +422,6 @@ class CtrlCmdUtil:
         except:
             pass
         return True
-
-    def setNWSetting(self, host: str, port: int) -> None:
-        """ TCP/IP モードにする """
-        self.__host = host
-        self.__port = port
-        if host == '0.0.0.1':
-            # 特別に名前付きパイプモードにする
-            self.setPipeSetting('EpgTimerSrvNoWaitPipe')
 
     def setConnectTimeOutSec(self, timeout: float) -> None:
         """ 接続処理時のタイムアウト設定 """

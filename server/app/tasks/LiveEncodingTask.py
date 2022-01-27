@@ -166,7 +166,6 @@ class LiveEncodingTask():
         elif encoder_type == 'VCEEncC':
             options.append('--preset balanced')
         ## 1440x1080 と 1920x1080 が混在しているので、1080p だけリサイズする解像度を指定しない
-        ## TODO: 本当は --output-res -2x1080 を使いたいのだが、なぜか 1080x1080 の扱いになってしまうため保留
         if quality != '1080p':
             options.append(f'--output-res {QUALITY[quality]["width"]}x{QUALITY[quality]["height"]}')
 
@@ -308,9 +307,9 @@ class LiveEncodingTask():
             livestream.setStatus('Standby', 'エンコーダーを起動しています…')
             tuner.lock()
 
-            # チューナーに接続する（放送波が送信される名前付きパイプまたはソケットが返る）
-            # R/W バッファ: 188B (TS Packet Size) * 256 = 48128B
-            pipe_or_socket = RunAwait(tuner.connect(48128))
+            # チューナーに接続する
+            # 放送波が送信される TCP ソケットまたは名前付きパイプを取得する
+            pipe_or_socket = RunAwait(tuner.connect())
 
             # チューナーへの接続に失敗した
             if pipe_or_socket is None:
@@ -328,11 +327,14 @@ class LiveEncodingTask():
             # 受信した放送波が入るイテレータ
             # R/W バッファ: 188B (TS Packet Size) * 256 = 48128B
             if CONFIG['general']['backend'] == 'Mirakurun':
+                # Mirakurun の HTTP API から受信
                 stream_iterator = response.iter_content(chunk_size=48128)
             elif CONFIG['general']['backend'] == 'EDCB':
                 if type(pipe_or_socket) is socket.socket:
+                    # EDCB の TCP ソケットから受信
                     stream_iterator = iter(lambda: pipe_or_socket.recv(48128), b'')
                 else:
+                    # EDCB の名前付きパイプから受信
                     stream_iterator = iter(lambda: pipe_or_socket.read(48128), b'')
 
             # Mirakurun / EDCB から受信した放送波を随時 tsreadex の入力に書き込む
