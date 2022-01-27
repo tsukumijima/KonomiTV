@@ -16,8 +16,8 @@ export default class Utility {
         // 前回視聴画面を開いた際にパネルが表示されていたかどうか
         is_latest_panel_display: true as boolean,
 
-        // 既定のパネルの表示状態（常に表示する）
-        panel_display_state: 'AlwaysDisplay' as ('AlwaysDisplay' | 'AlwaysFold' | 'RestorePreviousState'),
+        // 既定のパネルの表示状態（前回の状態を復元する）
+        panel_display_state: 'RestorePreviousState' as ('RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold'),
 
         // 既定で表示されるパネルのタブ（番組情報タブ）
         panel_active_tab: 'Program' as ('Program' | 'Channel' | 'Comment' | 'Twitter'),

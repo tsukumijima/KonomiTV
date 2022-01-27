@@ -62,9 +62,9 @@ export default Vue.extend({
 
             // 既定のパネルの表示状態
             panel_display_state: [
+                {'text': '前回の状態を復元する', 'value': 'RestorePreviousState'},
                 {'text': '常に表示する', 'value': 'AlwaysDisplay'},
                 {'text': '常に折りたたむ', 'value': 'AlwaysFold'},
-                {'text': '前回の状態を復元する', 'value': 'RestorePreviousState'},
             ],
 
             // 既定で表示されるパネルのタブ
