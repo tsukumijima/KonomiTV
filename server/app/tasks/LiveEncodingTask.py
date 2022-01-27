@@ -5,6 +5,7 @@ import socket
 import subprocess
 import threading
 import time
+from typing import BinaryIO, Optional, Union
 
 from app.constants import CONFIG, LIBRARY_PATH, QUALITY
 from app.models import Channels
@@ -199,11 +200,8 @@ class LiveEncodingTask():
 
         # まだ Standby になっていなければ、ステータスを Standby に設定
         # 基本はエンコードタスクの呼び出し元である livestream.connect() の方で Standby に設定されるが、再起動の場合はそこを経由しないため必要
-        if not (livestream.getStatus()['status'] == 'Standby' and livestream.getStatus()['detail'] == 'エンコーダーを起動しています…'):
-            if CONFIG['general']['backend'] == 'Mirakurun':
-                livestream.setStatus('Standby', 'エンコーダーを起動しています…')
-            elif CONFIG['general']['backend'] == 'EDCB':
-                livestream.setStatus('Standby', 'チューナーを起動しています…')
+        if not (livestream.getStatus()['status'] == 'Standby' and livestream.getStatus()['detail'] == 'エンコードタスクを起動しています…'):
+            livestream.setStatus('Standby', 'エンコードタスクを起動しています…')
 
         # チャンネル情報からサービス ID とネットワーク ID を取得する
         channel:Channels = RunAwait(Channels.filter(channel_id=channel_id).first())
@@ -218,7 +216,7 @@ class LiveEncodingTask():
             return
         Logging.info(f'LiveStream:{livestream.livestream_id} Title:{program_present.title}')
 
-        # tsreadex
+        # tsreadex の起動
         ## 放送波の前処理を行い、エンコードを安定させるツール
         ## オプション内容は https://github.com/xtne6f/tsreadex を参照
         tsreadex = subprocess.Popen(
@@ -258,142 +256,11 @@ class LiveEncodingTask():
             creationflags=(subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # conhost を開かない
         )
 
-        # エンコーダーのインスタンスが入る変数
-        encoder = None
-
-        # Mirakurun バックエンド
-        if CONFIG['general']['backend'] == 'Mirakurun':
-
-            # Mirakurun 形式のサービス ID
-            # NID と SID を 5 桁でゼロ埋めした上で int に変換する
-            mirakurun_service_id = int(str(channel.network_id).zfill(5) + str(channel.service_id).zfill(5))
-            # Mirakurun API の URL を作成
-            mirakurun_stream_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services/{mirakurun_service_id}/stream'
-
-            # HTTP リクエストを開始
-            ## stream=True を設定することで、レスポンスの返却を待たずに処理を進められる
-            try:
-                response = requests.get(mirakurun_stream_api_url, headers={'X-Mirakurun-Priority': '0'}, stream=True, timeout=15)
-            except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
-                # 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないならチューナーへの接続に失敗したものとする
-                if ('放送休止' in program_present.title) or \
-                   ('放送終了' in program_present.title) or \
-                   ('休止' in program_present.title) or \
-                   ('停波' in program_present.title):
-                    livestream.setStatus('Offline', 'この時間は放送を休止しています。')
-                else:
-                    livestream.setStatus('Offline', 'チューナーへの接続に失敗したため、ライブストリームを開始できません。')
-                return
-
-        # EDCB バックエンド
-        elif CONFIG['general']['backend'] == 'EDCB':
-
-            # チューナーインスタンスを初期化
-            tuner = EDCBTuner(channel.network_id, channel.service_id, channel.transport_stream_id)
-
-            # チューナーを起動する
-            # アンロック状態のチューナーインスタンスがあれば、自動的にそのチューナーが再利用される
-            is_tuner_opened = RunAwait(tuner.open())
-
-            # チューナーの起動に失敗した
-            # ほとんどがチューナー不足によるものなので、ステータス詳細でもそのように表示する
-            # 成功時は tuner.close() するか予約などに割り込まれるまで起動しつづけるので注意
-            if is_tuner_opened is False:
-                livestream.setStatus('Offline', 'チューナー不足のため、ライブストリームを開始できません。')
-                return
-
-            # チューナーをロックする
-            # ロックしないと途中でチューナーの制御を横取りされてしまう
-            livestream.setStatus('Standby', 'エンコーダーを起動しています…')
-            tuner.lock()
-
-            # チューナーに接続する
-            # 放送波が送信される TCP ソケットまたは名前付きパイプを取得する
-            pipe_or_socket = RunAwait(tuner.connect())
-
-            # チューナーへの接続に失敗した
-            if pipe_or_socket is None:
-                livestream.setStatus('Offline', 'チューナーへの接続に失敗したため、ライブストリームを開始できません。')
-                return
-
-            # ライブストリームにチューナーインスタンスを設定する
-            # Idling への切り替え、ONAir への復帰時に LiveStream 側でチューナーのアンロック/ロックが行われる
-            livestream.setTunerInstance(tuner)
-
-        # ***** エンコーダーへの入力の読み込み *****
-
-        def reader():
-
-            # 受信した放送波が入るイテレータ
-            # R/W バッファ: 188B (TS Packet Size) * 256 = 48128B
-            if CONFIG['general']['backend'] == 'Mirakurun':
-                # Mirakurun の HTTP API から受信
-                stream_iterator = response.iter_content(chunk_size=48128)
-            elif CONFIG['general']['backend'] == 'EDCB':
-                if type(pipe_or_socket) is socket.socket:
-                    # EDCB の TCP ソケットから受信
-                    stream_iterator = iter(lambda: pipe_or_socket.recv(48128), b'')
-                else:
-                    # EDCB の名前付きパイプから受信
-                    stream_iterator = iter(lambda: pipe_or_socket.read(48128), b'')
-
-            # Mirakurun / EDCB から受信した放送波を随時 tsreadex の入力に書き込む
-            try:
-                for chunk in stream_iterator:
-
-                    # ストリームデータを tsreadex の標準入力に書き込む
-                    try:
-                        tsreadex.stdin.write(bytes(chunk))
-                    except BrokenPipeError:
-                        break
-                    except OSError:
-                        break
-
-                    # Mirakurun からエラーが返された
-                    if CONFIG['general']['backend'] == 'Mirakurun' and response.status_code is not None and response.status_code != 200:
-                        # Offline にしてエンコードタスクを停止する
-                        if response.status_code == 503:
-                            livestream.setStatus('Offline', 'チューナー不足のため、ライブストリームを開始できません。')
-                        else:
-                            livestream.setStatus('Offline', 'チューナーで不明なエラーが発生したため、ライブストリームを開始できません。')
-                        break
-
-                    # 現在 ONAir でかつストリームデータの最終書き込み時刻から 5 秒以上が経過しているなら、エンコーダーがフリーズしたものとみなす
-                    # 現在 Standby でかつストリームデータの最終書き込み時刻から 20 秒以上が経過している場合も、エンコーダーがフリーズしたものとみなす
-                    # stdout も stderr もブロッキングされてしまっている場合を想定し、このスレッドでも確認する
-                    livestream_status = livestream.getStatus()
-                    if ((livestream_status['status'] == 'ONAir' and time.time() - livestream.stream_data_written_at > 5) or
-                        (livestream_status['status'] == 'Standby' and time.time() - livestream.stream_data_written_at > 20)):
-
-                        # エンコーダーを強制終了させないと次の処理に進まない事が想定されるので、エンコーダーを強制終了
-                        if encoder is not None:
-                            encoder.kill()
-
-                        # ライブストリームを再起動
-                        livestream.setStatus('Restart', 'エンコードが途中で停止しました。ライブストリームを再起動します。')
-                        break
-
-                    # tsreadex が既に終了しているか、接続が切断された
-                    if ((tsreadex.poll() is not None) or
-                        (CONFIG['general']['backend'] == 'Mirakurun' and response.raw.closed is True)):
-                        break
-            except OSError:
-                pass
-
-            # 明示的に接続を閉じる
-            if CONFIG['general']['backend'] == 'Mirakurun':
-                response.close()
-            elif CONFIG['general']['backend'] == 'EDCB':
-                pipe_or_socket.close()
-
-            # TODO: チューナーから切断されるとエンコーダーが残り続けるのでここでなにかすべき。エンコーダーの入力側を閉じるとか
-            # tsreadex.stdin.close()
-
-        # スレッドを開始
-        thread_reader = threading.Thread(target=reader, name='LiveEncodingTask-Reader')
-        thread_reader.start()
-
         # ***** エンコーダープロセスの作成と実行 *****
+
+        # エンコーダーの起動には時間がかかるので、先にエンコーダーを起動しておいた後、あとからチューナーを起動する
+        # チューナーの起動後にエンコーダー (正確には tsreadex) に受信した放送波が書き込まれる
+        # チューナーの起動にも時間がかかるが、エンコーダーの起動は非同期なのに対し、チューナーの起動は EDCB の場合は同期的
 
         # エンコーダーの種類を取得
         encoder_type = CONFIG['livestream']['encoder']
@@ -444,7 +311,148 @@ class LiveEncodingTask():
                 creationflags=(subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # conhost を開かない
             )
 
-        # ***** エンコーダーの出力の書き込み *****
+        # ***** チューナーの起動と接続 *****
+
+        # Mirakurun バックエンド
+        if CONFIG['general']['backend'] == 'Mirakurun':
+
+            # Mirakurun 形式のサービス ID
+            # NID と SID を 5 桁でゼロ埋めした上で int に変換する
+            mirakurun_service_id = int(str(channel.network_id).zfill(5) + str(channel.service_id).zfill(5))
+            # Mirakurun API の URL を作成
+            mirakurun_stream_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services/{mirakurun_service_id}/stream'
+
+            # HTTP リクエストを開始
+            ## stream=True を設定することで、レスポンスの返却を待たずに処理を進められる
+            try:
+                livestream.setStatus('Standby', 'チューナーを起動しています…')
+                response = requests.get(mirakurun_stream_api_url, headers={'X-Mirakurun-Priority': '0'}, stream=True, timeout=15)
+            except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
+                # 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないならチューナーへの接続に失敗したものとする
+                if ('放送休止' in program_present.title) or \
+                   ('放送終了' in program_present.title) or \
+                   ('休止' in program_present.title) or \
+                   ('停波' in program_present.title):
+                    livestream.setStatus('Offline', 'この時間は放送を休止しています。')
+                else:
+                    livestream.setStatus('Offline', 'チューナーへの接続に失敗したため、ライブストリームを開始できません。')
+                return
+
+        # EDCB バックエンド
+        elif CONFIG['general']['backend'] == 'EDCB':
+
+            # チューナーインスタンスを初期化
+            tuner = EDCBTuner(channel.network_id, channel.service_id, channel.transport_stream_id)
+
+            # チューナーを起動する
+            # アンロック状態のチューナーインスタンスがあれば、自動的にそのチューナーが再利用される
+            livestream.setStatus('Standby', 'チューナーを起動しています…')
+            is_tuner_opened = RunAwait(tuner.open())
+
+            # チューナーの起動に失敗した
+            # ほとんどがチューナー不足によるものなので、ステータス詳細でもそのように表示する
+            # 成功時は tuner.close() するか予約などに割り込まれるまで起動しつづけるので注意
+            if is_tuner_opened is False:
+                livestream.setStatus('Offline', 'チューナー不足のため、ライブストリームを開始できません。')
+                return
+
+            # チューナーをロックする
+            # ロックしないと途中でチューナーの制御を横取りされてしまう
+            tuner.lock()
+
+            # チューナーに接続する
+            # 放送波が送信される TCP ソケットまたは名前付きパイプを取得する
+            livestream.setStatus('Standby', 'チューナーに接続しています…')
+            pipe_or_socket:Optional[Union[BinaryIO, socket.socket]] = RunAwait(tuner.connect())
+
+            # チューナーへの接続に失敗した
+            if pipe_or_socket is None:
+                livestream.setStatus('Offline', 'チューナーへの接続に失敗したため、ライブストリームを開始できません。')
+                return
+
+            # ライブストリームにチューナーインスタンスを設定する
+            # Idling への切り替え、ONAir への復帰時に LiveStream 側でチューナーのアンロック/ロックが行われる
+            livestream.setTunerInstance(tuner)
+
+        # ***** エンコーダーへの入力の読み込み *****
+
+        def reader():
+
+            # 受信した放送波が入るイテレータ
+            # R/W バッファ: 188B (TS Packet Size) * 256 = 48128B
+            ## Mirakurun
+            if CONFIG['general']['backend'] == 'Mirakurun':
+                # Mirakurun の HTTP API から受信
+                stream_iterator = response.iter_content(chunk_size=48128)
+            ## EDCB
+            elif CONFIG['general']['backend'] == 'EDCB':
+                if type(pipe_or_socket) is socket.socket:
+                    # EDCB の TCP ソケットから受信
+                    stream_iterator = iter(lambda: pipe_or_socket.recv(48128), b'')
+                else:
+                    # EDCB の名前付きパイプから受信
+                    stream_iterator = iter(lambda: pipe_or_socket.read(48128), b'')
+
+            # Mirakurun / EDCB から受信した放送波を随時 tsreadex の入力に書き込む
+            try:
+                for chunk in stream_iterator:
+
+                    # ストリームデータを tsreadex の標準入力に書き込む
+                    try:
+                        tsreadex.stdin.write(bytes(chunk))
+                    except BrokenPipeError:
+                        break
+                    except OSError:
+                        break
+
+                    # Mirakurun からエラーが返された
+                    if CONFIG['general']['backend'] == 'Mirakurun' and response.status_code is not None and response.status_code != 200:
+                        # Offline にしてエンコードタスクを停止する
+                        if response.status_code == 503:
+                            livestream.setStatus('Offline', 'チューナー不足のため、ライブストリームを開始できません。')
+                        else:
+                            livestream.setStatus('Offline', 'チューナーで不明なエラーが発生したため、ライブストリームを開始できません。')
+                        break
+
+                    # 現在 ONAir でかつストリームデータの最終書き込み時刻から 5 秒以上が経過しているなら、エンコーダーがフリーズしたものとみなす
+                    # 現在 Standby でかつストリームデータの最終書き込み時刻から 20 秒以上が経過している場合も、エンコーダーがフリーズしたものとみなす
+                    # stdout も stderr もブロッキングされてしまっている場合を想定し、このスレッドでも確認する
+                    livestream_status = livestream.getStatus()
+                    if ((livestream_status['status'] == 'ONAir' and time.time() - livestream.stream_data_written_at > 5) or
+                        (livestream_status['status'] == 'Standby' and time.time() - livestream.stream_data_written_at > 20)):
+
+                        # エンコーダーを強制終了させないと次の処理に進まない事が想定されるので、エンコーダーを強制終了
+                        if encoder is not None:
+                            encoder.kill()
+
+                        # ライブストリームを再起動
+                        livestream.setStatus('Restart', 'エンコードが途中で停止しました。ライブストリームを再起動します。')
+                        break
+
+                    # tsreadex が既に終了しているか、接続が切断された
+                    if ((tsreadex.poll() is not None) or
+                        (CONFIG['general']['backend'] == 'Mirakurun' and response.raw.closed is True) or
+                        (CONFIG['general']['backend'] == 'EDCB' and type(pipe_or_socket) is socket.socket and pipe_or_socket.fileno() < 0) or
+                        (CONFIG['general']['backend'] == 'EDCB' and type(pipe_or_socket) is BinaryIO and pipe_or_socket.closed is True)):
+                        break
+            except OSError:
+                pass
+
+            # 明示的に接続を閉じる
+            try:
+                tsreadex.stdin.close()
+            except OSError:
+                pass
+            if CONFIG['general']['backend'] == 'Mirakurun':
+                response.close()
+            elif CONFIG['general']['backend'] == 'EDCB':
+                pipe_or_socket.close()
+
+        # スレッドを開始
+        thread_reader = threading.Thread(target=reader, name='LiveEncodingTask-Reader')
+        thread_reader.start()
+
+        # ***** エンコーダーからの出力の書き込み *****
 
         def writer():
 
@@ -458,7 +466,7 @@ class LiveEncodingTask():
 
             for chunk in stream_iterator:
 
-                # エンコーダーから受けた出力を Queue に書き込む
+                # エンコーダーから受けた出力をライブストリームの Queue に書き込む
                 livestream.write(chunk)
 
                 # エンコーダープロセスが終了していたらループを抜ける
@@ -530,10 +538,7 @@ class LiveEncodingTask():
                     if livestream_status['status'] == 'Standby':
                         # FFmpeg
                         if encoder_type == 'FFmpeg':
-                            if 'libpostproc    55.  9.100 / 55.  9.100' in line:
-                                if CONFIG['general']['backend'] == 'Mirakurun':
-                                    livestream.setStatus('Standby', 'チューナーを起動しています…')
-                            elif 'arib parser was created' in line or 'Invalid frame dimensions 0x0.' in line:
+                            if 'arib parser was created' in line or 'Invalid frame dimensions 0x0.' in line:
                                 livestream.setStatus('Standby', 'エンコードを開始しています…')
                             elif 'frame=    1 fps=0.0 q=0.0' in line:
                                 livestream.setStatus('Standby', 'バッファリングしています…')
@@ -541,10 +546,7 @@ class LiveEncodingTask():
                                 livestream.setStatus('ONAir', 'ライブストリームは ONAir です。')
                         ## HWEncC
                         elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
-                            if 'input source set to stdin.' in line:
-                                if CONFIG['general']['backend'] == 'Mirakurun':  # EDCB ではすでにチューナーを起動しているため不要
-                                    livestream.setStatus('Standby', 'チューナーを起動しています…')
-                            elif 'opened file "pipe:0"' in line:
+                            if 'opened file "pipe:0"' in line:
                                 livestream.setStatus('Standby', 'エンコードを開始しています…')
                             elif 'starting output thread...' in line:
                                 livestream.setStatus('Standby', 'バッファリングしています…')
