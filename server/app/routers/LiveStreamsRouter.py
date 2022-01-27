@@ -16,7 +16,6 @@ from app import schemas
 from app.constants import QUALITY
 from app.models import Channels
 from app.models import LiveStream
-from app.utils import RunAsync
 
 
 # ルーター

@@ -8,7 +8,6 @@ import threading
 import time
 from typing import Dict, List, Literal, Optional
 
-from app.constants import CONFIG
 from app.utils import Logging
 from app.utils.EDCB import EDCBTuner
 

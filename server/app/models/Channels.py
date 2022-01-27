@@ -11,7 +11,8 @@ from app.utils import Jikkyo
 from app.utils import RunAsync
 from app.utils import TSInformation
 from app.utils import ZenkakuToHankaku
-from app.utils.EDCB import EDCBUtil, CtrlCmdUtil
+from app.utils.EDCB import CtrlCmdUtil
+from app.utils.EDCB import EDCBUtil
 
 
 class Channels(models.Model):

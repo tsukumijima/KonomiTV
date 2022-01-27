@@ -19,7 +19,8 @@ from app.constants import CONFIG, LOGO_DIR
 from app.models import Channels
 from app.models import LiveStream
 from app.utils import RunAsync
-from app.utils.EDCB import EDCBUtil, CtrlCmdUtil
+from app.utils.EDCB import CtrlCmdUtil
+from app.utils.EDCB import EDCBUtil
 from app.utils import Jikkyo
 
 
