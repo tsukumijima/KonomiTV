@@ -10,15 +10,16 @@
 
         # 利用するバックエンド
         # Mirakurun・EDCB から選択
-        'backend': 'Mirakurun',
+        'backend': 'EDCB',
 
-        # Mirakurun の HTTP URL
+        # Mirakurun の HTTP API の URL
         # バックエンドに Mirakurun を選択した場合に利用される
         'mirakurun_url': 'http://192.168.1.11:40772',
 
-        # EDCB (EpgTimerNW) の TCP URL
+        # EDCB (EpgTimerNW) の TCP API の URL
         # バックエンドに EDCB を選択した場合に利用される
-        'edcb_url': 'tcp://0.0.0.1:4510',
+        # tcp://edcb-namedpipe と指定すると、TCP API の代わりに名前付きパイプで通信を行う
+        'edcb_url': 'tcp://192.168.1.11:4510',
     },
 
     # ライブストリームの設定
