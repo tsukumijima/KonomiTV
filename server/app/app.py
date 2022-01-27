@@ -168,7 +168,8 @@ async def Startup():
         elif CONFIG['general']['backend'] == 'EDCB':
 
             # ホスト名またはポートが指定されていない
-            if CONFIG['general']['edcb_host'] is None or CONFIG['general']['edcb_port'] is None:
+            if ((CONFIG['general']['edcb_host'] is None) or
+                (CONFIG['general']['edcb_port'] is None and CONFIG['general']['edcb_host'] != 'edcb-namedpipe')):
                 raise ValueError(f'URL 内にホスト名またはポートが指定されていません。EDCB の URL を間違えている可能性があります。')
 
             # サービス一覧が取得できるか試してみる
