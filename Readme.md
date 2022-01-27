@@ -59,7 +59,7 @@
 
 ## 動作環境
 
-Python 3.9 がインストールされた Windows 10 Home で開発と動作確認を行っています。  
+Python 3.9 がインストールされた Windows 10 Pro で開発と動作確認を行っています。  
 Python 3.8 でも動作しますが、asyncio を多用しているため、3.7 以前ではまともに動かない可能性が高いです。  
 
 Linux (Ubuntu 20.04 LTS x64) で動作することも確認しました。  
@@ -68,12 +68,12 @@ Linux (Ubuntu 20.04 LTS x64) で動作することも確認しました。
 
 バックエンドは Mirakurun と EDCB から選べます。お使いの録画環境に合わせて選択してください。  
 仕組み上、PLEX 製チューナーの場合は EDCB バックエンドの方がチャンネル切り替えなどにかかる待機時間が速くなっています。  
-なお、後述の px4_drv for WinUSB を利用している場合は Mirakurun と EDCB での差はほとんどありません。
+なお、後述の px4_drv for WinUSB を利用している場合は Mirakurun と EDCB での差はあまりありません。
 
 Mirakurun バックエンドを利用する場合は、Mirakurun 3.9.0 以降が必要です。3.8.0 以前でも動作しますが、おすすめはしません。  
 また、リバースプロキシを挟んでいるなどで Basic 認証が掛かっていると正常に動作しません。
 
-EDCB バックエンドを利用する場合は、最新（210828以降）の [xtne6f 版 EDCB](https://github.com/xtne6f/EDCB) 、または [tkntrec 版 EDCB](https://github.com/tkntrec/EDCB) が必要です。  
+EDCB バックエンドを利用する場合は、最新（220122以降）の [xtne6f 版 EDCB](https://github.com/xtne6f/EDCB) 、または [tkntrec 版 EDCB](https://github.com/tkntrec/EDCB) が必要です。  
 EpgDataCap_Bon 側の制約の関係で、現時点では KonomiTV と EDCB が同じ PC 上で稼働している必要があります。将来的には改善予定です。  
 このほか、EpgTimer / EpgTimerSrv にいくつか事前設定が必要です。
 
@@ -84,7 +84,7 @@ EpgDataCap_Bon 側の制約の関係で、現時点では KonomiTV と EDCB が�
 
 このほか、EpgTimerSrv.exe にファイアウォールが掛かっているとネットワーク接続ができません。適宜ファイアウォールの設定を変更してください。
 
-> 必須ではありませんが、Windows で PLEX 製チューナーを利用している場合は、事前にドライバを [px4_drv for WinUSB](https://github.com/nns779/px4_drv) に変更しておくことを推奨します。  
+> 必須ではありませんが、Windows で PLEX 製チューナーを利用している場合は、事前にドライバを [px4_drv for WinUSB](https://github.com/tsukumijima/px4_drv) に変更しておくことを推奨します。  
 > px4_drv では公式ドライバと比べてチューナーの起動時間が大幅に短縮されています。その分 KonomiTV での視聴までにかかる待機時間も短くなるため、より快適に使えます。
 
 ## インストール方法（暫定）
@@ -124,11 +124,14 @@ pip install pipenv
 
 ### 2. KonomiTV 本体のインストール
 
-現時点では Git で常に最新の master ブランチを取得することを推奨します。  
-正式版になるまでは比較的頻繁に更新する予定です。不具合修正も含まれるため、定期的に `git pull` で最新化しておくことをおすすめします。
+現時点では、Git で最新の release ブランチを取得することを推奨します。release ブランチにはリリース済みの安定した変更のみが適用されます。  
+主にリリース時に更新されるので、定期的に `git pull` で最新化しておくことをおすすめします。
 
-ただし、master ブランチは開発中の変更も多く含まれるため、安定する保証はありません。  
-release ブランチにはリリース済みの変更のみが反映されています。安定性が必要であれば、適宜 `git switch release` で release ブランチに切り替えてください。
+master ブランチは開発ブランチです。新しい機能をいち早く試せる反面、開発中の変更も多く含まれるため、安定する保証はありません。  
+また、サードパーティーライブラリの更新に依存する変更が行われることもあるため、サードパーティーライブラリを自前で更新する必要が出てくるかもしれません。
+
+クライアント側は不定期でビルド済みのファイルを `client/dist/` に配置しています。  
+まだビルド済みのファイルに反映されていない変更を試してみたいときは、`client/` フォルダで `yarn build` を実行するか、`yarn dev` で開発サーバーを起動させてください（後述）。
 
 #### Windows
 
@@ -136,6 +139,7 @@ release ブランチにはリリース済みの変更のみが反映されてい
 cd C:\Develop
 git clone git@github.com:tsukumijima/KonomiTV.git
 cd C:\Develop\KonomiTV\server
+git switch release
 ```
 
 #### Linux
@@ -144,6 +148,7 @@ cd C:\Develop\KonomiTV\server
 cd /Develop
 git clone git@github.com:tsukumijima/KonomiTV.git
 cd /Develop/KonomiTV/server
+git switch release
 ```
 
 ### 3. サードパーティーライブラリのインストール
@@ -273,13 +278,14 @@ FastAPI をホストする ASGI サーバーである Uvicorn を起動します
 pipenv run serve
 ```
 
-開発時などでリロードモード（コードを変更すると自動でサーバーが再起動される）で起動したいときは、`pipenv run dev` を実行してください。
+開発時などでリロードモード（コードを変更すると自動でサーバーが再起動される）で起動したいときは、`pipenv run dev` を実行してください。  
+コードを変更すると強制的にサーバーが再起動されるため、サーバーを終了するタイミングによっては EDCB のチューナーが終了されないままになることがあります。
 
 Uvicorn はアプリケーションサーバーであり、KonomiTV の場合は静的ファイルの配信も兼ねています。  
 静的ファイル（ SPA クライアント）は、`client/dist/` に配置されているビルド済みのファイルを配信するように設定されています。  
 そのため、`yarn build` でビルドを更新したのなら、サーバー側で配信されるファイルも同時に更新されることになります。
 
-クライアントは Vue.js で構築されており、コーディングとビルドには少なくとも Node.js が必要です。  
+クライアントは Vue.js で構築されており、コーディングとビルドには少なくとも Node.js が必要です。Node.js v14, npm v7, yarn v1 で開発しています。
 クライアント側のデバッグは `client/` フォルダにて `yarn dev` を実行し、ポート 7001 にてリッスンされるデバッグ用サーバーにて行っています。  
 
 > 事前に `yarn install` を実行して依存パッケージをインストールしておく必要があります。  
