@@ -70,6 +70,9 @@ class LiveStream():
             # ストリームのステータス詳細
             instance.detail = 'ライブストリームは Offline です。'
 
+            # ストリームの開始時刻
+            instance.started_at = time.time()
+
             # ストリームのステータスの最終更新時刻のタイムスタンプ
             instance.updated_at = time.time()
 
@@ -110,6 +113,7 @@ class LiveStream():
         self.channel_id:str
         self.quality:str
         self.status:Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart']
+        self.started_at:float
         self.updated_at:float
         self.stream_data_written_at:float
         self.tuner:Optional[EDCBTuner]
@@ -236,10 +240,7 @@ class LiveStream():
 
             # ステータスを Standby に設定
             # タイミングの関係でこっちで明示的に設定しておく必要がある
-            if CONFIG['general']['backend'] == 'Mirakurun':
-                self.setStatus('Standby', 'エンコーダーを起動しています…')
-            elif CONFIG['general']['backend'] == 'EDCB':
-                self.setStatus('Standby', 'チューナーを起動しています…')
+            self.setStatus('Standby', 'エンコードタスクを起動しています…')
 
             # エンコードタスクを非同期で実行
             def run():
@@ -321,11 +322,18 @@ class LiveStream():
         # ストリーム開始 (Offline → Standby) 時、stream_data_written_at を更新する
         # ここで更新しておかないと、いつまで経っても初期化時の古いタイムスタンプが使われてしまう
         if self.status == 'Offline' and status == 'Standby':
+            self.started_at = time.time()
             self.stream_data_written_at = time.time()
 
-        # ステータスと詳細を設定
+        # ログを表示
         if quiet is False:
             Logging.info(f'LiveStream:{self.livestream_id} Status:{status.ljust(7, " ")} Detail:{detail}')
+
+        # ストリーム起動 (Standby → ONAir) 時、起動時間のログを表示する
+        if self.status == 'Standby' and status == 'ONAir':
+            Logging.info(f'LiveStream:{self.livestream_id} Startup Time: {round(time.time() - self.started_at, 2)}s')
+
+        # ステータスと詳細を設定
         self.status = status
         self.detail = detail
 
