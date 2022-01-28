@@ -113,7 +113,7 @@ export default Mixin.extend({
             // チャンネル情報を定期的に更新
             this.interval_ids.push(window.setInterval(() => {
                 this.update();
-            }, 60 * 1000));  // 1分おき
+            }, 30 * 1000));  // 30秒おき
 
         }, residue_second * 1000));
     },
