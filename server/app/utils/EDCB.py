@@ -352,7 +352,7 @@ class EDCBUtil:
         to = time.monotonic() + timeout_sec
         wait = 0.1
         while time.monotonic() < to:
-            sock = edcb.openViewStream(process_id)
+            sock = await asyncio.to_thread(edcb.openViewStream, process_id)
             if sock is not None:
                 return sock
             await asyncio.sleep(wait)

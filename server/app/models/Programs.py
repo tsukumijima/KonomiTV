@@ -17,7 +17,6 @@ from typing import Optional
 from app.constants import CONFIG, DATABASE_CONFIG
 from app.models import Channels
 from app.utils import Logging
-from app.utils import RunAsync
 from app.utils import TSInformation
 from app.utils import ZenkakuToHankaku
 from app.utils.EDCB import CtrlCmdUtil
@@ -163,7 +162,7 @@ class Programs(models.Model):
 
         # Mirakurun の API から番組情報を取得する
         mirakurun_programs_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/programs'
-        programs = (await RunAsync(requests.get, mirakurun_programs_api_url)).json()
+        programs = (await asyncio.to_thread(requests.get, mirakurun_programs_api_url)).json()
 
         # このトランザクションは単にパフォーマンス向上のため
         async with transactions.in_transaction():
@@ -611,18 +610,12 @@ class Programs(models.Model):
     @classmethod
     def updateFromMirakurunSync(cls) -> None:
         """ Programs.updateFromMirakurun() の同期版 """
-        # 自前でイベントループを取得して、run_until_complete() で実行が終わるまで待つ
-        # マルチプロセスだからか、RunAwait() だとうまくイベントループが取得できずフリーズしてしまう
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(cls.updateFromMirakurun())
-        loop.close()
+        # asyncio.run() で非同期メソッドの実行が終わるまで待つ
+        asyncio.run(cls.updateFromMirakurun())
 
 
     @classmethod
     def updateFromEDCBSync(cls) -> None:
         """ Programs.updateFromEDCB() の同期版 """
-        # 自前でイベントループを取得して、run_until_complete() で実行が終わるまで待つ
-        # マルチプロセスだからか、RunAwait() だとうまくイベントループが取得できずフリーズしてしまう
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(cls.updateFromEDCB())
-        loop.close()
+        # asyncio.run() で非同期メソッドの実行が終わるまで待つ
+        asyncio.run(cls.updateFromEDCB())

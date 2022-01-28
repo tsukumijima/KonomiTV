@@ -245,7 +245,7 @@ async def LiveMPEGTSStreamAPI(
     # ライブストリームに接続し、クライアント ID を取得する
     # 接続時に Offline だった場合は自動的にエンコードタスクが起動される
     livestream = LiveStream(channel_id, quality)
-    client_id = livestream.connect('mpegts')
+    client_id = await livestream.connect('mpegts')
 
     # ***** ライブストリームの読み取り・出力 *****
 
@@ -259,7 +259,7 @@ async def LiveMPEGTSStreamAPI(
             if await request.is_disconnected():
 
                 # ライブストリームへの接続を切断し、ループを終了する
-                livestream.disconnect(client_id)
+                await livestream.disconnect(client_id)
                 break
 
             # ライブストリームが Offline ではない
@@ -278,14 +278,14 @@ async def LiveMPEGTSStreamAPI(
                 else:
 
                     # ライブストリームへの接続を切断し、ループを終了する
-                    livestream.disconnect(client_id)
+                    await livestream.disconnect(client_id)
                     break
 
             # ライブストリームが Offline になったのでループを終了
             else:
 
                 # ライブストリームへの接続を切断し、ループを終了する
-                livestream.disconnect(client_id)
+                await livestream.disconnect(client_id)
                 break
 
             # 0.025 秒待つ

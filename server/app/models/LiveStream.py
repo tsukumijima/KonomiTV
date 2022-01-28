@@ -3,8 +3,8 @@
 # ref: https://stackoverflow.com/a/33533514/17124142
 from __future__ import annotations
 
+import asyncio
 import queue
-import threading
 import time
 from typing import Dict, List, Literal, Optional
 
@@ -195,7 +195,7 @@ class LiveStream():
         return viewers
 
 
-    def connect(self, client_type:Literal['mpegts', 'll-hls']) -> int:
+    async def connect(self, client_type:Literal['mpegts', 'll-hls']) -> int:
         """
         ライブストリームに接続（新しいクライアントを登録）し、クライアント ID を返す
 
@@ -235,21 +235,18 @@ class LiveStream():
                 if len(self.getONAirLiveStreams()) == 0:
                     break
 
-                time.sleep(0.1)
+                await asyncio.sleep(0.1)
 
             # ステータスを Standby に設定
             # タイミングの関係でこっちで明示的に設定しておく必要がある
             self.setStatus('Standby', 'エンコードタスクを起動しています…')
 
             # エンコードタスクを非同期で実行
-            def run():
-                # 相互に依存し合っている場合、__init__.py でモジュール内の各クラスのインポートを定義している以上うまくいかないため、
-                # どちらかをモジュールの初回参照時にインポートされないようにする必要がある
-                from app.tasks import LiveEncodingTask
-                instance = LiveEncodingTask()
-                instance.run(self.channel_id, self.quality)
-            thread = threading.Thread(target=run, name='LiveEncodingTask')
-            thread.start()
+            ## 相互に依存し合っている場合、__init__.py でモジュール内の各クラスのインポートを定義している以上うまくいかないため、
+            ## どちらかをモジュールの初回参照時にインポートされないようにする必要がある
+            from app.tasks import LiveEncodingTask
+            instance = LiveEncodingTask()
+            asyncio.create_task(instance.run(self.channel_id, self.quality))
 
         # ***** クライアントの登録 *****
 
@@ -272,7 +269,7 @@ class LiveStream():
         return client_id
 
 
-    def disconnect(self, client_id:int) -> None:
+    async def disconnect(self, client_id:int) -> None:
         """
         指定されたクライアント ID のライブストリームへの接続を切断する
 

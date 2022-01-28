@@ -1,4 +1,5 @@
 
+import asyncio
 import html
 import json
 import re
@@ -148,16 +149,13 @@ class Jikkyo:
             dict: 視聴セッション情報 or エラーメッセージが含まれる辞書
         """
 
-        # 循環インポートを防ぐ
-        from app.utils import RunAsync
-
         # 廃止されたなどの理由でニコ生上の実況チャンネル/コミュニティ ID が取得できていない
         if self.jikkyo_nicolive_id is None:
             return {'is_success': False, 'detail': 'このチャンネルのニコニコ実況はありません。'}
 
         # ニコ生の視聴ページの HTML を取得する
         watch_page_url = f'https://live.nicovideo.jp/watch/{self.jikkyo_nicolive_id}'
-        watch_page_result:requests.Response = await RunAsync(requests.get, watch_page_url, headers=self.request_headers)
+        watch_page_result:requests.Response = await asyncio.to_thread(requests.get, watch_page_url, headers=self.request_headers)
         watch_page_code = watch_page_result.status_code
 
         # ステータスコードを判定
@@ -230,13 +228,10 @@ class Jikkyo:
         更新したステータスは getStatus() で取得できる
         """
 
-        # 循環インポートを防ぐ
-        from app.utils import RunAsync
-
         # getchannels API から実況チャンネルのステータスを取得する
         try:
             getchannels_api_url = 'https://jikkyo.tsukumijima.net/namami/api/v2/getchannels'
-            getchannels_api_result:requests.Response = await RunAsync(requests.get, getchannels_api_url, headers=cls.request_headers)
+            getchannels_api_result:requests.Response = await asyncio.to_thread(requests.get, getchannels_api_url, headers=cls.request_headers)
         except requests.exceptions.ConnectionError: # 接続エラー（サーバー再起動など）
             return # ステータス更新を中断
 

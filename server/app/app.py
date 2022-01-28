@@ -25,8 +25,6 @@ from app.routers import ChannelsRouter
 from app.routers import LiveStreamsRouter
 from app.schemas import Config
 from app.utils import Logging
-from app.utils import RunAsync
-from app.utils import RunAwait
 from app.utils.EDCB import CtrlCmdUtil
 from app.utils.EDCB import EDCBTuner
 
@@ -158,7 +156,7 @@ async def Startup():
 
             # 試しにリクエストを送り、200 (OK) が返ってきたときだけ有効な URL とみなす
             try:
-                response = await RunAsync(requests.get, f'{CONFIG["general"]["mirakurun_url"]}/api/version', timeout=3)
+                response = await asyncio.to_thread(requests.get, f'{CONFIG["general"]["mirakurun_url"]}/api/version', timeout=3)
             except requests.exceptions.ConnectionError:
                 raise ValueError(f'Mirakurun ({CONFIG["general"]["mirakurun_url"]}) にアクセスできませんでした。Mirakurun が起動していないか、URL を間違えている可能性があります。')
             if response.status_code != 200:
@@ -174,7 +172,7 @@ async def Startup():
 
             # サービス一覧が取得できるか試してみる
             edcb = CtrlCmdUtil()
-            edcb.setConnectTimeOutSec(5)  # 5秒後にタイムアウト
+            edcb.setConnectTimeOutSec(3)  # 3秒後にタイムアウト
             result = await edcb.sendEnumService()
             if result is None:
                 raise ValueError(f'EDCB ({CONFIG["general"]["edcb_url"]}) にアクセスできませんでした。EDCB が起動していないか、URL を間違えている可能性があります。')
@@ -247,5 +245,5 @@ async def Shutdown():
         await EDCBTuner.closeAll()
 
 # shutdown イベントが発火しない場合も想定し、アプリケーションの終了時に Shutdown() が確実に呼ばれるように
-# atexit は同期関数しか実行できないので、RunAwait でくるむ
-atexit.register(RunAwait, Shutdown())
+# atexit は同期関数しか実行できないので、asyncio.run() でくるむ
+atexit.register(asyncio.run, Shutdown())

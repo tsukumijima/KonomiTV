@@ -18,7 +18,6 @@ from app import schemas
 from app.constants import CONFIG, LOGO_DIR
 from app.models import Channels
 from app.models import LiveStream
-from app.utils import RunAsync
 from app.utils.EDCB import CtrlCmdUtil
 from app.utils.EDCB import EDCBUtil
 from app.utils import Jikkyo
@@ -264,7 +263,7 @@ async def ChannelLogoAPI(
         # Mirakurun の API からロゴを取得する
         # 同梱のロゴが存在しない場合のみ
         mirakurun_logo_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services/{mirakurun_service_id}/logo'
-        mirakurun_logo_api_response:requests.Response = await RunAsync(requests.get, mirakurun_logo_api_url)
+        mirakurun_logo_api_response:requests.Response = await asyncio.to_thread(requests.get, mirakurun_logo_api_url)
 
         # ステータスコードが 200 であれば
         # ステータスコードが 503 の場合はロゴデータが存在しない

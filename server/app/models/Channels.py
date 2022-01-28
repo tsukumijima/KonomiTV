@@ -1,4 +1,5 @@
 
+import asyncio
 import requests
 from tortoise import fields
 from tortoise import models
@@ -8,7 +9,6 @@ from typing import Optional
 
 from app.constants import CONFIG
 from app.utils import Jikkyo
-from app.utils import RunAsync
 from app.utils import TSInformation
 from app.utils import ZenkakuToHankaku
 from app.utils.EDCB import CtrlCmdUtil
@@ -54,7 +54,7 @@ class Channels(models.Model):
 
         # Mirakurun の API からチャンネル情報を取得する
         mirakurun_services_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services'
-        services = (await RunAsync(requests.get, mirakurun_services_api_url)).json()
+        services = (await asyncio.to_thread(requests.get, mirakurun_services_api_url)).json()
 
         # 同じネットワーク ID のサービスのカウント
         same_network_id_counts = dict()
