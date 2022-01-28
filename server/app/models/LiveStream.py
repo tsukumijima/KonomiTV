@@ -315,9 +315,9 @@ class LiveStream():
         if self.status == status and self.detail == detail:
             return
 
-        # ストリーム開始 (Offline → Standby) 時、stream_data_written_at を更新する
+        # ストリーム開始 (Offline or Restart → Standby) 時、started_at と stream_data_written_at を更新する
         # ここで更新しておかないと、いつまで経っても初期化時の古いタイムスタンプが使われてしまう
-        if self.status == 'Offline' and status == 'Standby':
+        if ((self.status == 'Offline' or self.status == 'Restart') and status == 'Standby'):
             self.started_at = time.time()
             self.stream_data_written_at = time.time()
 
