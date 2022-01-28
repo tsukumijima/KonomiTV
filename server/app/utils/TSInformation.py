@@ -2,7 +2,10 @@
 import json
 import sys
 from copy import copy
-from datetime import date, datetime, timedelta, timezone
+from datetime import date
+from datetime import datetime
+from datetime import timedelta
+from datetime import timezone
 from typing import Union
 
 import ariblib
@@ -140,45 +143,94 @@ class TSInformation:
     @staticmethod
     def formatString(string:Union[str, AribString]) -> str:
         """
-        文字列の文字を半角または全角に置換し、一律な表現に整える
+        文字列に含まれる英数や記号を半角に置換し、一律な表現に整える
 
         Args:
-            string (Union[str, AribString]): 文字列
+            string (Union[str, AribString]): str あるいは AribString の文字列
 
         Returns:
             str: 置換した文字列
         """
 
-        # AribString になっている場合があるので str 型にキャストする
-        string = str(string)
+        # AribString になっている事があるので明示的に str 型にキャストする
+        result = str(string)
 
-        # 全角英数を半角英数に置換する
-        # maketrans() で全角英数を半角英数に置換するテーブルを作成する
+        # 全角英数を半角英数に置換
+        # maketrans() で全角英数を半角英数に置換するテーブルを作成し、translate() で置換する
         # ref: https://github.com/ikegami-yukino/jaconv/blob/master/jaconv/conv_table.py
         zenkaku_table = '０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ'
         hankaku_table = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-        string = string.translate(str.maketrans(zenkaku_table, hankaku_table))
+        result = result.translate(str.maketrans(zenkaku_table, hankaku_table))
 
-        # 変換する文字列のテーブル
-        convert_table = str.maketrans({
-            # 全角スペース → 半角スペース
-            '　': ' ',
-            # シャープ → ハッシュ
-            '♯': '#',
-            # 一部の全角記号を半角に置換
-            '＃': '#',
+        # 全角記号を半角記号に置換
+        synbol_zenkaku_table = '＂＃＄％＆＇（）＋，－．／：；＜＝＞［＼］＾＿｀｛｜｝　'
+        synbol_hankaku_table = '"#$%&\'()+,-./:;<=>[\\]^_`{|} '
+        result = result.translate(str.maketrans(synbol_zenkaku_table, synbol_hankaku_table))
+        result = result.translate(str.maketrans({
             # 一部の半角記号を全角に置換
             # 主に見栄え的な問題（全角の方が字面が良い）
             '!': '！',
             '?': '？',
             '*': '＊',
-            ':': '：',
-            ';': '；',
             '~': '～',
-        })
+            '@': '＠',
+            # シャープ → ハッシュ
+            '♯': '#',
+            # 波ダッシュ → 全角チルダ
+            ## EDCB は ～ を全角チルダとして扱っているため、KonomiTV でもそのように統一する
+            ## TODO: 番組検索を実装する際は検索文字列の波ダッシュを全角チルダに置換する下処理が必要
+            ## ref: https://qiita.com/kasei-san/items/3ce2249f0a1c1af1cbd2
+            '〜': '～',
+        }))
+
+        # 番組表で使用される囲み文字の置換テーブル
+        # ref: https://note.nkmk.me/python-chr-ord-unicode-code-point/
+        # ref: https://github.com/l3tnun/EPGStation/blob/v2.6.17/src/util/StrUtil.ts#L7-L46
+        enclosed_characters_table = {
+            '\U0001f14a': '[HV]',
+            '\U0001f13f': '[P]',
+            '\U0001f14c': '[SD]',
+            '\U0001f146': '[W]',
+            '\U0001f14b': '[MV]',
+            '\U0001f210': '[手]',
+            '\U0001f211': '[字]',
+            '\U0001f212': '[双]',
+            '\U0001f213': '[デ]',
+            '\U0001f142': '[S]',
+            '\U0001f214': '[二]',
+            '\U0001f215': '[多]',
+            '\U0001f216': '[解]',
+            '\U0001f14d': '[SS]',
+            '\U0001f131': '[B]',
+            '\U0001f13d': '[N]',
+            '\U0001f217': '[天]',
+            '\U0001f218': '[交]',
+            '\U0001f219': '[映]',
+            '\U0001f21a': '[無]',
+            '\U0001f21b': '[料]',
+            '\U0001f21c': '[前]',
+            '\U0001f21d': '[後]',
+            '\U0001f21e': '[再]',
+            '\U0001f21f': '[新]',
+            '\U0001f220': '[初]',
+            '\U0001f221': '[終]',
+            '\U0001f222': '[生]',
+            '\U0001f223': '[販]',
+            '\U0001f224': '[声]',
+            '\U0001f225': '[吹]',
+            '\U0001f14e': '[PPV]',
+            '\U0001f200': '[ほか]',
+        }
+
+        # Unicode の囲み文字を大かっこで囲った文字に置換する
+        # EDCB で EpgDataCap3_Unicode.dll を利用している場合や、Mirakurun 3.9.0-beta.24 以降など、
+        # 番組情報取得元から Unicode の囲み文字が送られてくる場合に対応するためのもの
+        # Unicode の囲み文字はサロゲートペアなどで扱いが難しい上に KonomiTV では囲み文字を CSS でハイライトしているため、Unicode にするメリットがない
+        # ref: https://note.nkmk.me/python-str-replace-translate-re-sub/
+        result = result.translate(str.maketrans(enclosed_characters_table))
 
         # 置換した文字列を返す
-        return string.translate(convert_table)
+        return result
 
 
     @staticmethod
@@ -347,9 +399,9 @@ class TSInformation:
 
                 # NIT から得られる TSInformationDescriptor 内の情報（リモコンキー ID）を取得
                 # 地デジのみで、BS には ServiceDescriptor 自体が存在しない
-                for tsinformation in transport_stream.descriptors.get(TSInformationDescriptor, []):
-                    result['remocon_id'] = tsinformation.remote_control_key_id
-                    result['channel_ts_name'] = self.formatString(tsinformation.ts_name_char)
+                for ts_information in transport_stream.descriptors.get(TSInformationDescriptor, []):
+                    result['remocon_id'] = ts_information.remote_control_key_id
+                    result['channel_ts_name'] = self.formatString(ts_information.ts_name_char)
                     break
                 break
             else:
@@ -427,7 +479,7 @@ class TSInformation:
                     event = ariblib.event.Event(eit, event_data)
 
                     # 存在するなら順に追加していく
-                    # 直接取得した文字列は AribSting になっているので、str に明示的に変換する
+                    # 直接取得した文字列は AribSting になっているので、明示的に str 型にキャストする
 
                     ## ネットワーク ID・サービス ID・イベント ID
                     if hasattr(event, 'event_id'):
@@ -486,8 +538,8 @@ class TSInformation:
                             # major … 大分類
                             # middle … 中分類
                             genre_dict = {
-                                'major': event.genre[index],
-                                'middle': event.subgenre[index],
+                                'major': event.genre[index].replace('／', '・'),
+                                'middle': event.subgenre[index].replace('／', '・'),
                             }
 
                             # BS/地上デジタル放送用番組付属情報がジャンルに含まれている場合、user_nibble から値を取得して書き換える

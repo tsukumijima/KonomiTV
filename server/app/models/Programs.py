@@ -18,7 +18,6 @@ from app.constants import CONFIG, DATABASE_CONFIG
 from app.models import Channels
 from app.utils import Logging
 from app.utils import TSInformation
-from app.utils import ZenkakuToHankaku
 from app.utils.EDCB import CtrlCmdUtil
 from app.utils.EDCB import EDCBUtil
 
@@ -195,8 +194,8 @@ class Programs(models.Model):
                 # 重複する番組情報が登録されているかの判定に使うため、ここで先に番組情報を取得する
 
                 # 番組タイトル・番組概要
-                title = ZenkakuToHankaku(program_info['name'])
-                description = ZenkakuToHankaku(program_info['description'])
+                title = TSInformation.formatString(program_info['name'])
+                description = TSInformation.formatString(program_info['description'])
 
                 # 番組詳細
                 detail = dict()  # デフォルト値
@@ -206,8 +205,8 @@ class Programs(models.Model):
                     for head, text in program_info['extended'].items():
 
                         # 見出しと本文
-                        head_han = ZenkakuToHankaku(head).replace('◇', '')  # ◇ を取り除く
-                        text_han = ZenkakuToHankaku(text)
+                        head_han = TSInformation.formatString(head).replace('◇', '')  # ◇ を取り除く
+                        text_han = TSInformation.formatString(text)
                         detail[head_han] = text_han
 
                         # 番組概要が空の場合、番組詳細の最初の本文を概要として使う
@@ -426,8 +425,8 @@ class Programs(models.Model):
                     title = ''  # デフォルト値
                     description = ''  # デフォルト値
                     if 'short_info' in program_info:
-                        title = ZenkakuToHankaku(program_info['short_info']['event_name'])
-                        description = ZenkakuToHankaku(program_info['short_info']['text_char'])
+                        title = TSInformation.formatString(program_info['short_info']['event_name'])
+                        description = TSInformation.formatString(program_info['short_info']['text_char'])
 
                     # 番組詳細
                     detail = dict()  # デフォルト値
@@ -437,10 +436,10 @@ class Programs(models.Model):
                         for head, text in EDCBUtil.parseProgramExtendedText(program_info['ext_info']['text_char']).items():
 
                             # 見出しと本文
-                            head_han = ZenkakuToHankaku(head).replace('◇', '')  # ◇ を取り除く
+                            head_han = TSInformation.formatString(head).replace('◇', '')  # ◇ を取り除く
                             if head_han == '':  # 見出しが空の場合、固定で「番組内容」としておく
                                 head_han = '番組内容'
-                            text_han = ZenkakuToHankaku(text)
+                            text_han = TSInformation.formatString(text)
                             detail[head_han] = text_han
 
                             # 番組概要が空の場合、番組詳細の最初の本文を概要として使う

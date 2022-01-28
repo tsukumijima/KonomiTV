@@ -10,7 +10,6 @@ from typing import Optional
 from app.constants import CONFIG
 from app.utils import Jikkyo
 from app.utils import TSInformation
-from app.utils import ZenkakuToHankaku
 from app.utils.EDCB import CtrlCmdUtil
 from app.utils.EDCB import EDCBUtil
 
@@ -77,7 +76,7 @@ class Channels(models.Model):
             channel.service_id = service['serviceId']
             channel.network_id = service['networkId']
             channel.remocon_id = service['remoteControlKeyId'] if ('remoteControlKeyId' in service) else None
-            channel.channel_name = ZenkakuToHankaku(service['name']).replace('：', ':')
+            channel.channel_name = TSInformation.formatString(service['name'])
             channel.channel_type = service['channel']['type']
             channel.channel_force = None
             channel.channel_comment = None
@@ -236,7 +235,7 @@ class Channels(models.Model):
             channel.network_id = service['onid']
             channel.transport_stream_id = service['tsid']
             channel.remocon_id = None
-            channel.channel_name = ZenkakuToHankaku(service['service_name']).replace('：', ':')
+            channel.channel_name = TSInformation.formatString(service['service_name'])
             channel.channel_type = TSInformation.getNetworkType(channel.network_id)
             channel.channel_force = None
             channel.channel_comment = None
