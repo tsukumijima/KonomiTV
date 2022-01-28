@@ -221,9 +221,9 @@ async def UpdateProgram():
 async def UpdateProgram():
     await Programs.update(multiprocess=True)
 
-# 1分に1回、ニコニコ実況関連のステータスを定期的に更新する
+# 30秒に1回、ニコニコ実況関連のステータスを定期的に更新する
 @app.on_event('startup')
-@repeat_every(seconds=1 * 60, wait_first=True, logger=Logging.logger)
+@repeat_every(seconds=0.5 * 60, wait_first=True, logger=Logging.logger)
 async def UpdateJikkyoStatus():
     await Channels.updateJikkyoStatus()
 
