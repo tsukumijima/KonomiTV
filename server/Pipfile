@@ -23,3 +23,6 @@ tortoise-orm = "*"
 uvicorn = {extras = ["standard"], version = "*"}
 
 [dev-packages]
+
+[requires]
+python_version = "3.9"
