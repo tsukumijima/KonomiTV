@@ -45,7 +45,7 @@ class LiveEncodingTask():
 
         # 入力
         ## -analyzeduration をつけることで、ストリームの分析時間を短縮できる
-        analyzeduration = round(500000 + (self.retry_count * 200000))  # リトライ数に応じて少し増やす
+        analyzeduration = round(500000 + (self.retry_count * 200000))  # リトライ回数に応じて少し増やす
         options.append(f'-f mpegts -analyzeduration {analyzeduration} -i pipe:0')
 
         # ストリームのマッピング
@@ -99,6 +99,49 @@ class LiveEncodingTask():
         return result
 
 
+    def buildFFmpegOptionsForRadio(self) -> list:
+        """
+        FFmpeg に渡すオプションを組み立てる（ラジオチャンネル向け）
+        音声の品質は変えたところでほとんど差がないため、1つだけに固定されている
+        品質が固定ならコードにする必要はないんだけど、可読性を高めるために敢えてこうしてある
+
+        Returns:
+            list: FFmpeg に渡すオプションが連なる配列
+        """
+
+        # オプションの入る配列
+        options = []
+
+        # 入力
+        ## -analyzeduration をつけることで、ストリームの分析時間を短縮できる
+        analyzeduration = round(500000 + (self.retry_count * 200000))  # リトライ回数に応じて少し増やす
+        options.append(f'-f mpegts -analyzeduration {analyzeduration} -i pipe:0')
+
+        # ストリームのマッピング
+        # 音声切り替えのため、主音声・副音声両方をエンコード後の TS に含む
+        options.append('-map 0:a:0 -map 0:a:1 -map 0:d? -ignore_unknown')
+
+        # フラグ
+        ## 主に FFmpeg の起動を高速化するための設定
+        max_interleave_delta = round(1 + self.retry_count)
+        options.append(f'-fflags nobuffer -flags low_delay -max_delay 250000 -max_interleave_delta {max_interleave_delta} -threads auto')
+
+        # 音声
+        ## 音声が 5.1ch かどうかに関わらず、ステレオにダウンミックスする
+        options.append(f'-acodec aac -aac_coder twoloop -ac 2 -ab 192K -ar 48000 -af volume=2.0')
+
+        # 出力
+        options.append('-y -f mpegts')  # MPEG-TS 出力ということを明示
+        options.append('pipe:1')  # 標準入力へ出力
+
+        # オプションをスペースで区切って配列にする
+        result = []
+        for option in options:
+            result += option.split(' ')
+
+        return result
+
+
     def buildHWEncCOptions(self, encoder_type:str, quality:str, is_dualmono:bool=False) -> list:
         """
         QSVEncC・NVEncC・VCEEncC (便宜上 HWEncC と総称) に渡すオプションを組み立てる
@@ -118,8 +161,8 @@ class LiveEncodingTask():
         # 入力
         ## --input-probesize, --input-analyze をつけることで、ストリームの分析時間を短縮できる
         ## 両方つけるのが重要で、--input-analyze だけだとエンコーダーがフリーズすることがある
-        input_probesize = round(1000 + (self.retry_count * 500))  # リトライ数に応じて少し増やす
-        input_analyze = round(0.7 + (self.retry_count * 0.2), 1)  # リトライ数に応じて少し増やす
+        input_probesize = round(1000 + (self.retry_count * 500))  # リトライ回数に応じて少し増やす
+        input_analyze = round(0.7 + (self.retry_count * 0.2), 1)  # リトライ回数に応じて少し増やす
         options.append(f'--input-format mpegts --fps 30000/1001 --input-probesize {input_probesize}K --input-analyze {input_analyze} --input -')
         ## VCEEncC の HW デコーダーはエラー耐性が低く TS を扱う用途では不安定なので、SW デコーダーを利用する
         if encoder_type == 'VCEEncC':
@@ -211,7 +254,9 @@ class LiveEncodingTask():
         program_present:Programs = (await channel.getCurrentAndNextProgram())[0]
 
         ## 番組情報が取得できなければ（放送休止中など）ここで Offline にしてエンコードタスクを停止する
-        if program_present is None:
+        ## スターデジオは番組情報が取れないことが多いので(特に午後)、休止になっていても無視してストリームを開始する
+        ## 放送大学ラジオはEPGが正しく返ってくるので制御しない
+        if program_present is None and channel.channel_type != 'STARDIGIO':
             await asyncio.sleep(0.5)  # ちょっと待つのがポイント
             livestream.setStatus('Offline', 'この時間は放送を休止しています。')
             return
@@ -264,7 +309,11 @@ class LiveEncodingTask():
         # チューナーの起動にも時間がかかるが、エンコーダーの起動は非同期なのに対し、チューナーの起動は EDCB の場合は同期的
 
         # エンコーダーの種類を取得
-        encoder_type = CONFIG['livestream']['encoder']
+        ## ラジオチャンネルでは HW エンコードの意味がないため、FFmpeg に固定する
+        if channel.is_radiochannel is True:
+            encoder_type = 'FFmpeg'
+        else:
+            encoder_type = CONFIG['livestream']['encoder']
 
         ## 画質が 480i なのに 1080p にしてもしょうがないので、指定された画質が 480p 以上なら 480p に固定する
         ## TODO: 解像度が 480i → 1080i に変わった際、もしエンコーダーがクラッシュしなければ 480p のままになってしまうので微妙かも？
@@ -282,7 +331,11 @@ class LiveEncodingTask():
             #if program_present.primary_audio_type == '1/0+1/0モード(デュアルモノ)':
             #    encoder_options = self.buildFFmpegOptions(real_quality, is_dualmono=True)
             #else:
-            encoder_options = self.buildFFmpegOptions(real_quality, is_dualmono=False)
+            # ラジオチャンネルかどうかでエンコードオプションを切り替え
+            if channel.is_radiochannel is True:
+                encoder_options = self.buildFFmpegOptionsForRadio()
+            else:
+                encoder_options = self.buildFFmpegOptions(real_quality, is_dualmono=False)
             Logging.info(f'LiveStream:{livestream.livestream_id} FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
             # プロセスを非同期で作成・実行
@@ -469,7 +522,12 @@ class LiveEncodingTask():
             # R/W バッファ: 188B (TS Packet Size) * 128 = 24064B
             # エンコードによってかなりデータ量が減るので、reader よりもバッファを減らしてみる
             # 810p 以上ではデータ量が多くなるので、バッファを 188B (TS Packet Size) * 192 = 36096B に増やす
-            buffer = 36096 if (real_quality == '810p' or real_quality == '1080p') else 24064
+            # ラジオチャンネルではデータ量がかなり少なくなるので、バッファを 188B (TS Packet Size) * 64 = 12032B に減らす
+            buffer = 24064
+            if real_quality == '810p' or real_quality == '1080p':
+                buffer = 36096
+            elif channel.is_radiochannel is True:
+                buffer = 12032
 
             # エンコーダーの出力を受け取るイテレータ
             stream_iterator = iter(lambda: encoder.stdout.read(buffer), b'')
@@ -556,9 +614,9 @@ class LiveEncodingTask():
                             if encoder_type == 'FFmpeg':
                                 if 'arib parser was created' in line or 'Invalid frame dimensions 0x0.' in line:
                                     livestream.setStatus('Standby', 'エンコードを開始しています…')
-                                elif 'frame=    1 fps=0.0 q=0.0' in line:
+                                elif 'frame=    1 fps=0.0 q=0.0' in line or 'size=       0kB time=00:00' in line:
                                     livestream.setStatus('Standby', 'バッファリングしています…')
-                                elif 'frame=' in line:
+                                elif 'frame=' in line or 'bitrate=' in line:
                                     livestream.setStatus('ONAir', 'ライブストリームは ONAir です。')
                             ## HWEncC
                             elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
