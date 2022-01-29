@@ -29,6 +29,7 @@ class Channels(models.Model):
     channel_force:Optional[int] = fields.IntField(null=True)
     channel_comment:Optional[int] = fields.IntField(null=True)
     is_subchannel:bool = fields.BooleanField()
+    is_radiochannel:bool = fields.BooleanField()
 
 
     @classmethod
@@ -64,8 +65,11 @@ class Channels(models.Model):
         # サービスごとに実行
         for service in services:
 
-            # type が 1 以外のサービス（＝ワンセグやデータ放送 (type:192) など）を弾く
-            if service['type'] != 1:
+            # type が 0x01 (デジタルTVサービス) と 0x02 (デジタル音声サービス) 以外のサービスを弾く
+            ## ワンセグ・データ放送 (type:0xC0) やエンジニアリングサービス (type:0xA4) など
+            ## 詳細は ARIB STD-B10 第2部 6.2.13 に記載されている
+            ## https://web.archive.org/web/20140427183421if_/http://www.arib.or.jp/english/html/overview/doc/2-STD-B10v5_3.pdf#page=153
+            if service['type'] != 0x01 and service['type'] != 0x02:
                 continue
 
             # 新しいチャンネルのレコードを作成
@@ -80,6 +84,10 @@ class Channels(models.Model):
             channel.channel_type = service['channel']['type']
             channel.channel_force = None
             channel.channel_comment = None
+
+            # type が 0x02 のサービスのみ、ラジオチャンネルとして設定する
+            # 今のところ、ラジオに該当するチャンネルは放送大学ラジオとスターデジオのみ
+            channel.is_radiochannel = True if (service['type'] == 0x02) else False
 
             # 同じネットワーク ID のチャンネルのカウントを追加
             if channel.network_id not in same_network_id_counts:  # まだキーが存在しないとき
@@ -218,8 +226,11 @@ class Channels(models.Model):
 
         for service in services:
 
-            # type が 1 以外のサービス（＝ワンセグやデータ放送 (type:192) など）を弾く
-            if service['service_type'] != 1:
+            # type が 0x01 (デジタルTVサービス) と 0x02 (デジタル音声サービス) 以外のサービスを弾く
+            ## ワンセグ・データ放送 (type:0xC0) やエンジニアリングサービス (type:0xA4) など
+            ## 詳細は ARIB STD-B10 第2部 6.2.13 に記載されている
+            ## https://web.archive.org/web/20140427183421if_/http://www.arib.or.jp/english/html/overview/doc/2-STD-B10v5_3.pdf#page=153
+            if service['service_type'] != 0x01 and service['service_type'] != 0x02:
                 continue
 
             # 不明なネットワーク ID のチャンネルを弾く
@@ -239,6 +250,10 @@ class Channels(models.Model):
             channel.channel_type = TSInformation.getNetworkType(channel.network_id)
             channel.channel_force = None
             channel.channel_comment = None
+
+            # type が 0x02 のサービスのみ、ラジオチャンネルとして設定する
+            # 今のところ、ラジオに該当するチャンネルは放送大学ラジオとスターデジオのみ
+            channel.is_radiochannel = True if (service['service_type'] == 0x02) else False
 
             # 同じネットワーク内にあるサービスのカウントを追加
             if channel.network_id not in same_network_id_counts:  # まだキーが存在しないとき
