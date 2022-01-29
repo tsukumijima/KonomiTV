@@ -20,10 +20,10 @@ class LiveEncodingTask():
 
     def __init__(self):
 
-        # エンコーダーの再起動回数のカウント
+        # エンコーダーのリトライ回数のカウント
         self.retry_count = 0
 
-        # エンコーダーの最大再起動回数
+        # エンコーダーの最大リトライ回数
         # この数を超えた場合はエンコーダーを再起動しない（無限ループ避け）
         self.max_retry_count = 5  # 5 回まで
 
@@ -435,7 +435,8 @@ class LiveEncodingTask():
                             encoder.kill()
 
                         # ライブストリームを再起動
-                        livestream.setStatus('Restart', 'エンコードが途中で停止しました。ライブストリームを再起動します。')
+                        if self.retry_count < self.max_retry_count:  # リトライの制限内であれば
+                            livestream.setStatus('Restart', 'エンコードが途中で停止しました。ライブストリームを再起動します。')
                         break
 
                     # tsreadex が既に終了しているか、接続が切断された
@@ -584,7 +585,8 @@ class LiveEncodingTask():
                         #    (program_following.primary_audio_type == '1/0+1/0モード(デュアルモノ)'):
                         #     # エンコーダーの音声出力をデュアルモノ対応にするため、エンコーダーを再起動する
                         #     is_restart_required = True
-                        #     livestream.setStatus('Restart', '音声をデュアルモノに切り替えています…')
+                        #   　if self.retry_count < self.max_retry_count:  # リトライの制限内であれば
+                        #         livestream.setStatus('Restart', '音声をデュアルモノに切り替えています…')
                         #     break
 
                         # # 現在:デュアルモノ → 次:デュアルモノ以外
@@ -592,7 +594,8 @@ class LiveEncodingTask():
                         #    (program_following.primary_audio_type != '1/0+1/0モード(デュアルモノ)'):
                         #     # エンコーダーの音声出力をステレオ対応にするため、エンコーダーを再起動する
                         #     is_restart_required = True
-                        #     livestream.setStatus('Restart', '音声をステレオに切り替えています…')
+                        #   　if self.retry_count < self.max_retry_count:  # リトライの制限内であれば
+                        #         livestream.setStatus('Restart', '音声をステレオに切り替えています…')
                         #     break
 
                         Logging.info(f'LiveStream:{livestream.livestream_id} Title:{program_following.title}')
@@ -618,7 +621,8 @@ class LiveEncodingTask():
                 if ((livestream_status['status'] == 'ONAir' and time.time() - livestream.stream_data_written_at > 5) or
                     (livestream_status['status'] == 'Standby' and time.time() - livestream.stream_data_written_at > 20)):
                     is_restart_required = True  # エンコーダーの再起動を要求
-                    livestream.setStatus('Restart', 'エンコードが途中で停止しました。ライブストリームを再起動します。')
+                    if self.retry_count < self.max_retry_count:  # リトライの制限内であれば
+                        livestream.setStatus('Restart', 'エンコードが途中で停止しました。ライブストリームを再起動します。')
                     if encoder_type == 'FFmpeg':
                         # 直近 50 件のログを表示
                         for log in lines[-51:-1]:
@@ -632,7 +636,7 @@ class LiveEncodingTask():
                         break
 
                 # すでに Restart 状態になっている場合、エンコーダーを終了する
-                # エンコードタスク以外から Restart 状態に設定される事も考えられるため
+                # エンコードタスク以外から Restart 状態に設定される事は今のところないが、念のため
                 if livestream_status['status'] == 'Restart':
                     is_restart_required = True  # エンコーダーの再起動を要求
                     break
@@ -653,7 +657,8 @@ class LiveEncodingTask():
                     elif 'Conversion failed!' in line:
                         # 捕捉されないエラー
                         is_restart_required = True  # エンコーダーの再起動を要求
-                        livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。ライブストリームを再起動します。')
+                        if self.retry_count < self.max_retry_count:  # リトライの制限内であれば
+                            livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。ライブストリームを再起動します。')
                         # 直近 50 件のログを表示
                         for log in lines[-51:-1]:
                             Logging.warning(log)
@@ -683,12 +688,14 @@ class LiveEncodingTask():
                     elif 'Consider increasing the value for the --input-analyze and/or --input-probesize!' in line:
                         # --input-probesize or --input-analyze の期間内に入力ストリームの解析が終わらなかった
                         is_restart_required = True  # エンコーダーの再起動を要求
-                        livestream.setStatus('Restart', '入力ストリームの解析に失敗しました。ライブストリームを再起動します。')
+                        if self.retry_count < self.max_retry_count:  # リトライの制限内であれば
+                            livestream.setStatus('Restart', '入力ストリームの解析に失敗しました。ライブストリームを再起動します。')
                         break
                     elif 'finished with error!' in line:
                         # 捕捉されないエラー
                         is_restart_required = True  # エンコーダーの再起動を要求
-                        livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。ライブストリームを再起動します。')
+                        if self.retry_count < self.max_retry_count:  # リトライの制限内であれば
+                            livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。ライブストリームを再起動します。')
                         # 直近 150 件のログを表示
                         for log in lines[-151:-1]:
                             Logging.warning(log)
@@ -699,7 +706,8 @@ class LiveEncodingTask():
                     # エンコーダーの再起動を要求
                     is_restart_required = True
                     # エンコーダーの再起動前提のため、あえて Offline にはせず Restart とする
-                    livestream.setStatus('Restart', 'エンコーダーが強制終了されました。ライブストリームを再起動します。')
+                    if self.retry_count < self.max_retry_count:  # リトライの制限内であれば
+                        livestream.setStatus('Restart', 'エンコーダーが強制終了されました。ライブストリームを再起動します。')
                     if encoder_type == 'FFmpeg':
                         # 直近 50 件のログを表示
                         for log in lines[-51:-1]:
@@ -732,8 +740,8 @@ class LiveEncodingTask():
                 tuner.unlock()
 
             # 最大再起動回数が 0 より上であれば
-            self.retry_count += 1  # カウントを増やす
-            if self.max_retry_count > self.retry_count:
+            if self.retry_count < self.max_retry_count:
+                self.retry_count += 1  # カウントを増やす
                 await asyncio.sleep(0.1)  # 少し待つ
                 asyncio.create_task(self.run(channel_id, quality))  # 新しいタスクを立ち上げる
 
@@ -741,9 +749,9 @@ class LiveEncodingTask():
             else:
 
                 # Offline に設定
-                if program_present.is_free == True:
+                if program_present.is_free == True:  # 無料放送時
                     livestream.setStatus('Offline', 'ライブストリームの再起動に失敗しました。')
-                else:
+                else:  # 有料放送時（契約されていないため視聴できないことが原因の可能性が高い）
                     livestream.setStatus('Offline', 'ライブストリームの再起動に失敗しました。契約されていないため視聴できません。')
 
                 # チューナーを終了する（ EDCB バックエンドのみ）
