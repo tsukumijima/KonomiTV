@@ -277,9 +277,14 @@ class Programs(models.Model):
                 program.is_free = program_info['isFree']
 
                 # 映像情報
-                program.video_type = ariblib.constants.COMPONENT_TYPE[program_info['video']['streamContent']][program_info['video']['componentType']]
-                program.video_codec = program_info['video']['type']
-                program.video_resolution = program_info['video']['resolution']
+                program.video_type = ''  # デフォルト値
+                program.video_codec = ''  # デフォルト値
+                program.video_resolution = ''  # デフォルト値
+                if 'video' in program_info:
+                    program.video_type = ariblib.constants.COMPONENT_TYPE \
+                        [program_info['video']['streamContent']][program_info['video']['componentType']]
+                    program.video_codec = program_info['video']['type']
+                    program.video_resolution = program_info['video']['resolution']
 
                 # 音声情報
                 program.primary_audio_type = ''  # デフォルト値
