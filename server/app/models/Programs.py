@@ -7,6 +7,7 @@ import requests
 import time
 import urllib
 from datetime import timedelta
+from tortoise import exceptions
 from tortoise import fields
 from tortoise import models
 from tortoise import timezone
@@ -73,13 +74,21 @@ class Programs(models.Model):
             # run_in_executor() で指定した関数をマルチプロセスで実行する
             executor = concurrent.futures.ProcessPoolExecutor(max_workers=1)
 
-            # Mirakurun バックエンド
-            if CONFIG['general']['backend'] == 'Mirakurun':
-                await loop.run_in_executor(executor, cls.updateFromMirakurunSync)
+            try:
 
-            # EDCB バックエンド
-            elif CONFIG['general']['backend'] == 'EDCB':
-                await loop.run_in_executor(executor, cls.updateFromEDCBSync)
+                # Mirakurun バックエンド
+                if CONFIG['general']['backend'] == 'Mirakurun':
+                    await loop.run_in_executor(executor, cls.updateFromMirakurunSync)
+
+                # EDCB バックエンド
+                elif CONFIG['general']['backend'] == 'EDCB':
+                    await loop.run_in_executor(executor, cls.updateFromEDCBSync)
+
+            # データベースが他のプロセスにロックされていた場合
+            # 5秒待ってからリトライ
+            except exceptions.OperationalError:
+                await asyncio.sleep(5)
+                await cls.update(multiprocess=multiprocess)
 
         # 番組情報をシングルプロセスで更新する
         else:
