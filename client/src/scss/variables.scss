@@ -25,6 +25,9 @@
     }
 }
 
+// フォントの定義
+$body-font-family: 'YakuHanJPs', 'Open Sans', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+
 // ナビゲーションドロワーの border を消す
 $navigation-drawer-border-width: 0px;
 
@@ -34,7 +37,21 @@ $shades: map-merge($shades, (
     'white': #FFEAEA,
 ));
 
-// dark テーマの配色ごと上書きする
+// dark テーマの配色を上書き
+$material-dark-elevation-colors: (
+    '0': #110A09,
+    '1': #1E1310,
+    '2': #1E1310,
+    '3': #2F221F,
+    '4': #2F221F,
+    '6': #2F221F,
+    '8': #2F221F,
+    '12': #433532,
+    '16': #4c3c38,
+    '24': #4c3c38,
+);
+
+// dark テーマ自体を上書き
 $material-dark: map-merge($material-dark, (
     'status-bar': (
         'regular': map-get($shades, 'black'),

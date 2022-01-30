@@ -118,11 +118,8 @@ body .route-container {  // ルートコンテナ
         width: 12px;
         height: 12px;
     }
-    &::-webkit-scrollbar-track {
-        background: #1E1E1E;
-    }
     &::-webkit-scrollbar-thumb {
-        border: solid 3.5px #1E1E1E;
+        border: solid 3.5px var(--v-background-base);
     }
 }
 
