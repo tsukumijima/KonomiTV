@@ -73,8 +73,11 @@ Linux (Ubuntu 20.04 LTS x64) で動作することも確認しました。
 Mirakurun バックエンドを利用する場合は、Mirakurun 3.9.0 以降が必要です。3.8.0 以前でも動作しますが、おすすめはしません。  
 また、リバースプロキシを挟んでいるなどで Basic 認証が掛かっていると正常に動作しません。
 
-EDCB バックエンドを利用する場合は、最新（220122以降）の [xtne6f 版 EDCB](https://github.com/xtne6f/EDCB) 、または [tkntrec 版 EDCB](https://github.com/tkntrec/EDCB) が必要です。  
-EpgDataCap_Bon 側の制約の関係で、現時点では KonomiTV と EDCB が同じ PC 上で稼働している必要があります。将来的には改善予定です。  
+EDCB バックエンドを利用する場合は、最新（220122以降）の [xtne6f 版 EDCB](https://github.com/xtne6f/EDCB) 、または [tkntrec 版 EDCB](https://github.com/tkntrec/EDCB) が必要です。
+
+> EDCB 側のアップデートで、リモート PC で起動している KonomiTV から EDCB に接続できるようになりました！  
+> もう同じ PC 内で KonomiTV と EDCB が両方動いている必要はありませんし、Linux で起動した KonomiTV から EDCB に接続することもできるはずです。
+
 このほか、EpgTimer / EpgTimerSrv にいくつか事前設定が必要です。
 
 - 「視聴に使用するBonDriver」に BonDriver を追加する **（重要）**
