@@ -564,6 +564,9 @@ class LiveEncodingTask():
         # エンコーダーのログ出力が同期的なので、同期関数をマルチスレッドで実行する
         def controller():
 
+            # メインスレッドのイベントループを取得
+            from app.app import loop
+
             # 1つ上のスコープ (Enclosing Scope) の変数を書き替えるために必要
             # ref: https://excel-ubara.com/python/python014.html#sec04
             nonlocal program_present, is_restart_required
@@ -633,7 +636,8 @@ class LiveEncodingTask():
                 if program_present is not None and time.time() > program_present.end_time.timestamp():
 
                     # 次の番組情報を取得する
-                    program_following:Programs = asyncio.run(channel.getCurrentAndNextProgram())[0]
+                    # メインスレッドのイベントループで実行（そうしないとうまく動作しない）
+                    program_following:Programs = asyncio.run_coroutine_threadsafe(channel.getCurrentAndNextProgram(), loop).result()[0]
 
                     # 次の番組が None でない
                     if program_following is not None:
