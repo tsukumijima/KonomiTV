@@ -779,8 +779,15 @@ export default Mixin.extend({
                 // 新しい EventSource を作成
                 // 画質ごとにイベント API は異なるため、一度破棄してから作り直す
                 this.initEventHandler();
-
             });
+
+            // 停止状態でかつ再生時間からバッファが 30 秒以上離れていないかを1分おきに監視し、そうなっていたら強制的にシークする
+            // mpegts.js の仕様上、MSE に未再生のバッファがたまり過ぎると SourceBuffer が追加できなくなるため、強制的に接続が切断されてしまう
+            this.interval_ids.push(window.setInterval(() => {
+                if (this.player.video.paused && this.player.video.buffered.end(0) - this.player.video.currentTime > 30) {
+                    this.player.sync();
+                }
+            }, 60 * 1000));
         },
 
         // イベントハンドラーを初期化する
