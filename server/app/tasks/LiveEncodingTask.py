@@ -522,12 +522,12 @@ class LiveEncodingTask():
             # R/W バッファ: 188B (TS Packet Size) * 128 = 24064B
             # エンコードによってかなりデータ量が減るので、reader よりもバッファを減らしてみる
             # 810p 以上ではデータ量が多くなるので、バッファを 188B (TS Packet Size) * 192 = 36096B に増やす
-            # ラジオチャンネルではデータ量がかなり少なくなるので、バッファを 188B (TS Packet Size) * 32 = 6016B に減らす
+            # ラジオチャンネルではデータ量がかなり少なくなるので、バッファを 188B (TS Packet Size) * 48 = 9024B に減らす
             buffer = 24064
             if real_quality == '810p' or real_quality == '1080p':
                 buffer = 36096
             elif channel.is_radiochannel is True:
-                buffer = 6016
+                buffer = 9024
 
             # エンコーダーの出力を受け取るイテレータ
             stream_iterator = iter(lambda: encoder.stdout.read(buffer), b'')
