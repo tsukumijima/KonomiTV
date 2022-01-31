@@ -782,7 +782,12 @@ export default Mixin.extend({
                 // 念のためさらに少しだけ待ってから
                 window.setTimeout(() => {
                     this.is_loading = false;
-                    this.is_background_display = false;
+                    // ラジオチャンネルでは映像の代わりに背景画像を表示し続ける
+                    if (this.channel.is_radiochannel) {
+                        this.is_background_display = true;
+                    } else {
+                        this.is_background_display = false;
+                    }
                 }, 100);
                 this.player.video.oncanplay = null;
                 this.player.video.oncanplaythrough = null;

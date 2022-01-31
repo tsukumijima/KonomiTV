@@ -65,6 +65,7 @@ export interface IChannel {
     channel_force: number | null;
     channel_comment: number | null;
     is_subchannel: boolean;
+    is_radiochannel: boolean;
     is_display: boolean;
     viewers: number;
     program_present: IProgram;
@@ -85,6 +86,7 @@ export const IChannelDefault: IChannel = {
     channel_force: null,
     channel_comment: null,
     is_subchannel: false,
+    is_radiochannel: false,
     is_display: true,
     viewers: 0,
     program_present: IProgramDefault,
