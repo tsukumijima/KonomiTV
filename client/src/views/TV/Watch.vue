@@ -654,17 +654,30 @@ export default Mixin.extend({
                 volume: 1.0,  // 音量の初期値
                 // 映像
                 video: {
-                    // デフォルトの画質
-                    defaultQuality: Utility.getSettingsItem('tv_streaming_quality'),
-                    // 画質リスト
+                    // デフォルトの品質
+                    // ラジオチャンネルでは常に 48KHz/192kbps に固定する
+                    defaultQuality: (this.channel.is_radiochannel) ? '48kHz/192kbps' : Utility.getSettingsItem('tv_streaming_quality'),
+                    // 品質リスト
                     quality: (() => {
                         const qualities = [];
-                        for (const quality of ['1080p', '810p', '720p', '540p', '480p', '360p', '240p']) {
+                        // ラジオチャンネル
+                        // API が受け付ける品質の値は通常のチャンネルと同じだが (手抜き…)、実際の品質は 48KHz/192kbps で固定される
+                        // ラジオチャンネルの場合は、1080p と渡しても 48kHz/192kbps 固定の音声だけの MPEG-TS が配信される
+                        if (this.channel.is_radiochannel) {
                             qualities.push({
-                                name: quality,
+                                name: '48kHz/192kbps',
                                 type: 'mpegts',
-                                url: `${this.api_base_url}/streams/live/${this.channel_id}/${quality}/mpegts`,
+                                url: `${this.api_base_url}/streams/live/${this.channel_id}/1080p/mpegts`,
                             });
+                        // 通常のチャンネル
+                        } else {
+                            for (const quality of ['1080p', '810p', '720p', '540p', '480p', '360p', '240p']) {
+                                qualities.push({
+                                    name: quality,
+                                    type: 'mpegts',
+                                    url: `${this.api_base_url}/streams/live/${this.channel_id}/${quality}/mpegts`,
+                                });
+                            }
                         }
                         return qualities;
                     })(),
@@ -796,7 +809,9 @@ export default Mixin.extend({
             this.player.video.oncanplaythrough = on_canplay;
 
             // EventSource を作成
-            this.eventsource = new EventSource(`${this.api_base_url}/streams/live/${this.channel_id}/${this.player.quality.name}/events`);
+            // ラジオチャンネルの場合は見かけ上の品質と API に渡す品質が異なるので、それに合わせる
+            const quality_name = (this.channel.is_radiochannel) ? '1080p' : this.player.quality.name;
+            this.eventsource = new EventSource(`${this.api_base_url}/streams/live/${this.channel_id}/${quality_name}/events`);
 
             // 初回接続時のイベント
             this.eventsource.addEventListener('initial_update', (event_raw: MessageEvent) => {
