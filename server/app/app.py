@@ -157,7 +157,7 @@ async def Startup():
             # 試しにリクエストを送り、200 (OK) が返ってきたときだけ有効な URL とみなす
             try:
                 response = await asyncio.to_thread(requests.get, f'{CONFIG["general"]["mirakurun_url"]}/api/version', timeout=3)
-            except requests.exceptions.ConnectionError:
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
                 raise ValueError(f'Mirakurun ({CONFIG["general"]["mirakurun_url"]}) にアクセスできませんでした。Mirakurun が起動していないか、URL を間違えている可能性があります。')
             if response.status_code != 200:
                 raise ValueError(f'{CONFIG["general"]["mirakurun_url"]} は Mirakurun の URL ではありません。Mirakurun の URL を間違えている可能性があります。')

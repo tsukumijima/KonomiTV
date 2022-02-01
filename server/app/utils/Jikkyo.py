@@ -155,7 +155,12 @@ class Jikkyo:
 
         # ニコ生の視聴ページの HTML を取得する
         watch_page_url = f'https://live.nicovideo.jp/watch/{self.jikkyo_nicolive_id}'
-        watch_page_result:requests.Response = await asyncio.to_thread(requests.get, watch_page_url, headers=self.request_headers)
+        watch_page_result:requests.Response
+        try:
+            # 3秒応答がなかったらタイムアウト
+            watch_page_result = await asyncio.to_thread(requests.get, watch_page_url, headers=self.request_headers, timeout=3)
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            return {'is_success': False, 'detail': 'ニコニコ実況に接続できませんでした。'}
         watch_page_code = watch_page_result.status_code
 
         # ステータスコードを判定
@@ -231,8 +236,10 @@ class Jikkyo:
         # getchannels API から実況チャンネルのステータスを取得する
         try:
             getchannels_api_url = 'https://jikkyo.tsukumijima.net/namami/api/v2/getchannels'
-            getchannels_api_result:requests.Response = await asyncio.to_thread(requests.get, getchannels_api_url, headers=cls.request_headers)
-        except requests.exceptions.ConnectionError: # 接続エラー（サーバー再起動など）
+            # 3秒応答がなかったらタイムアウト
+            getchannels_api_result:requests.Response = \
+                await asyncio.to_thread(requests.get, getchannels_api_url, headers=cls.request_headers, timeout=3)
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):  # 接続エラー（サーバー再起動やタイムアウトなど）
             return # ステータス更新を中断
 
         # ステータスコードが 200 以外

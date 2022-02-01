@@ -388,7 +388,7 @@ class LiveEncodingTask():
                     stream=True,
                     timeout=15,
                 )
-            except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
                 # 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないならチューナーへの接続に失敗したものとする
                 if ('放送休止' in program_present.title) or \
                    ('放送終了' in program_present.title) or \
