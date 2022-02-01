@@ -1,7 +1,7 @@
 <template>
     <div class="route-container">
         <main class="watch-container"
-            :class="{'watch-container--control-visible': is_control_display, 'watch-container--panel-visible': is_panel_display}">
+            :class="{'watch-container--control-display': is_control_display, 'watch-container--panel-display': is_panel_display}">
             <nav class="watch-navigation">
                 <router-link v-ripple class="watch-navigation__icon" to="/tv/">
                     <img class="watch-navigation__icon-image" src="/assets/img/icon.svg" width="23px">
@@ -44,7 +44,7 @@
                     <span class="watch-header__now">{{time}}</span>
                 </header>
                 <div class="watch-player" :class="{'watch-player--loading': is_loading}">
-                    <div class="watch-player__background" :class="{'watch-player__background--visible': is_background_display}"
+                    <div class="watch-player__background" :class="{'watch-player__background--display': is_background_display}"
                         :style="{backgroundImage: `url(${background_url})`}">
                         <img class="watch-player__background-logo" src="/assets/img/logo.svg">
                     </div>
@@ -1348,7 +1348,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
 }
 
 // コントロール表示時
-.watch-container.watch-container--control-visible {
+.watch-container.watch-container--control-display {
     .watch-player__dplayer {
         .dplayer-controller-mask, .dplayer-controller {
             opacity: 1 !important;
@@ -1399,7 +1399,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
     }
 }
 // コントロール非表示時
-.watch-container:not(.watch-container--control-visible) {
+.watch-container:not(.watch-container--control-display) {
     .watch-player__dplayer .dplayer-danmaku {
         max-height: 100% !important;
         aspect-ratio: 16 / 9 !important;
@@ -1447,7 +1447,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
     }
 
     // コントロール表示時
-    &--control-visible {
+    &--control-display {
         .watch-content {
             cursor: auto !important;
         }
@@ -1458,7 +1458,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
     }
 
     // パネル表示時
-    &--panel-visible {
+    &--panel-display {
         width: calc(100%);  // 画面幅に収めるように
 
         // パネルアイコンをハイライト
@@ -1674,7 +1674,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 will-change: opacity;
                 transition: opacity 0.4s cubic-bezier(0.4, 0.38, 0.49, 0.94), visibility 0.4s cubic-bezier(0.4, 0.38, 0.49, 0.94);
 
-                &--visible {
+                &--display {
                     opacity: 1;
                     visibility: visible;
                 }
