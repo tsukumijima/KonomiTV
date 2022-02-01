@@ -1,17 +1,17 @@
 <template>
     <div class="program-container">
         <section class="program-broadcaster">
-            <img class="program-broadcaster__icon" :src="`${api_base_url}/channels/${($route.params.channel_id)}/logo`">
-            <div class="program-broadcaster__number">Ch: {{channel_props.channel_number}}</div>
-            <div class="program-broadcaster__name">{{channel_props.channel_name}}</div>
+            <img class="program-broadcaster__icon" :src="`${Utils.api_base_url}/channels/${($route.params.channel_id)}/logo`">
+            <div class="program-broadcaster__number">Ch: {{channel.channel_number}}</div>
+            <div class="program-broadcaster__name">{{channel.channel_name}}</div>
         </section>
         <section class="program-info">
-            <h1 class="program-info__title" v-html="decorateProgramInfo(channel_props.program_present, 'title')"></h1>
-            <div class="program-info__time">{{getProgramTime(channel_props.program_present)}}</div>
-            <div class="program-info__description" v-html="decorateProgramInfo(channel_props.program_present, 'description')"></div>
+            <h1 class="program-info__title" v-html="TVUtils.decorateProgramInfo(channel.program_present, 'title')"></h1>
+            <div class="program-info__time">{{TVUtils.getProgramTime(channel.program_present)}}</div>
+            <div class="program-info__description" v-html="TVUtils.decorateProgramInfo(channel.program_present, 'description')"></div>
             <div class="program-info__genre-container">
                 <div class="program-info__genre" :key="genre_index"
-                    v-for="(genre, genre_index) in getAttribute(channel_props.program_present, 'genre', [])">
+                    v-for="(genre, genre_index) in TVUtils.getAttribute(channel.program_present, 'genre', [])">
                     {{genre.major}} / {{genre.middle}}
                 </div>
             </div>
@@ -19,25 +19,25 @@
                 <span class="program-info__next-decorate">NEXT</span>
                 <Icon class="program-info__next-icon" icon="fluent:fast-forward-20-filled" width="16px" />
             </div>
-            <span class="program-info__next-title" v-html="decorateProgramInfo(channel_props.program_following, 'title')"></span>
-            <div class="program-info__next-time">{{getProgramTime(channel_props.program_following)}}</div>
+            <span class="program-info__next-title" v-html="TVUtils.decorateProgramInfo(channel.program_following, 'title')"></span>
+            <div class="program-info__next-time">{{TVUtils.getProgramTime(channel.program_following)}}</div>
             <div class="program-info__status">
                 <div class="program-info__status-force"
-                    :class="`program-info__status-force--${getChannelForceType(channel_props.channel_force)}`">
+                    :class="`program-info__status-force--${TVUtils.getChannelForceType(channel.channel_force)}`">
                     <Icon icon="fa-solid:fire-alt" height="14px" />
                     <span class="ml-2">勢い:</span>
-                    <span class="ml-2">{{getAttribute(channel_props, 'channel_force', '--')}} コメ/分</span>
+                    <span class="ml-2">{{TVUtils.getAttribute(channel, 'channel_force', '--')}} コメ/分</span>
                 </div>
                 <div class="program-info__status-viewers ml-5">
                     <Icon icon="fa-solid:eye" height="14px" />
                     <span class="ml-2">視聴数:</span>
-                    <span class="ml-1">{{channel_props.viewers}}</span>
+                    <span class="ml-1">{{channel.viewers}}</span>
                 </div>
             </div>
         </section>
         <section class="program-detail-container">
             <div class="program-detail" :key="detail_heading"
-                v-for="(detail_text, detail_heading) in getAttribute(channel_props.program_present, 'detail', {})">
+                v-for="(detail_text, detail_heading) in TVUtils.getAttribute(channel.program_present, 'detail', {})">
                 <h2 class="program-detail__heading">{{detail_heading}}</h2>
                 <div class="program-detail__text">{{detail_text}}</div>
             </div>
@@ -46,18 +46,25 @@
 </template>
 <script lang="ts">
 
-import { PropType } from 'vue';
+import Vue, { PropType } from 'vue';
 
 import { IChannel } from '@/interface';
-import Mixin from '@/views/TV/Mixin.vue';
+import Utils, { TVUtils } from '@/utils';
 
-export default Mixin.extend({
+export default Vue.extend({
     name: 'Program',
     props: {
         // チャンネル情報
-        channel_props: {
+        channel: {
             type: Object as PropType<IChannel>,
             required: true,
+        }
+    },
+    data() {
+        return {
+            // ユーティリティをテンプレートで使えるように
+            Utils: Utils,
+            TVUtils: TVUtils,
         }
     }
 });

@@ -37,9 +37,9 @@
                 v-on:touchmove="controlVisibleTimer('player', $event)"
                 v-on:click="controlVisibleTimer('player', $event)">
                 <header class="watch-header">
-                    <img class="watch-header__broadcaster" :src="`${api_base_url}/channels/${($route.params.channel_id)}/logo`">
-                    <span class="watch-header__program-title" v-html="decorateProgramInfo(channel.program_present, 'title')"></span>
-                    <span class="watch-header__program-time">{{getProgramTime(channel.program_present, true)}}</span>
+                    <img class="watch-header__broadcaster" :src="`${Utils.api_base_url}/channels/${($route.params.channel_id)}/logo`">
+                    <span class="watch-header__program-title" v-html="TVUtils.decorateProgramInfo(channel.program_present, 'title')"></span>
+                    <span class="watch-header__program-time">{{TVUtils.getProgramTime(channel.program_present, true)}}</span>
                     <v-spacer></v-spacer>
                     <span class="watch-header__now">{{time}}</span>
                 </header>
@@ -79,19 +79,18 @@
                     </div>
                     <v-spacer></v-spacer>
                     <div class="panel-broadcaster">
-                        <img class="panel-broadcaster__icon" :src="`${api_base_url}/channels/${($route.params.channel_id)}/logo`">
+                        <img class="panel-broadcaster__icon" :src="`${Utils.api_base_url}/channels/${($route.params.channel_id)}/logo`">
                         <div class="panel-broadcaster__number">{{channel.channel_number}}</div>
                         <div class="panel-broadcaster__name">{{channel.channel_name}}</div>
                     </div>
                 </div>
                 <div class="watch-panel__content-container">
-                    <!-- props の名前に _props を付けているのは Mixin 側の data と衝突しないようにするため -->
                     <Program class="watch-panel__content"
-                        :class="{'watch-panel__content--active': panel_active_tab === 'Program'}" :channel_props="channel" />
+                        :class="{'watch-panel__content--active': panel_active_tab === 'Program'}" :channel="channel" />
                     <Channel class="watch-panel__content"
-                        :class="{'watch-panel__content--active': panel_active_tab === 'Channel'}" :channels_list_props="channels_list" />
+                        :class="{'watch-panel__content--active': panel_active_tab === 'Channel'}" :channels_list="channels_list" />
                     <Comment class="watch-panel__content"
-                        :class="{'watch-panel__content--active': panel_active_tab === 'Comment'}" :channel_props="channel" :player="player" />
+                        :class="{'watch-panel__content--active': panel_active_tab === 'Comment'}" :channel="channel" :player="player" />
                 </div>
                 <div class="watch-panel__navigation">
                     <div v-ripple class="panel-navigation-button"
@@ -173,10 +172,9 @@ import { IChannel, IChannelDefault } from '@/interface';
 import Channel from '@/components/TV/Channel.vue';
 import Comment from '@/components/TV/Comment.vue';
 import Program from '@/components/TV/Program.vue';
-import Mixin from '@/views/TV/Mixin.vue';
-import Utility from '@/utility';
+import Utils, { TVUtils } from '@/utils';
 
-export default Mixin.extend({
+export default Vue.extend({
     name: 'Watch',
     components: {
         Channel,
@@ -186,11 +184,15 @@ export default Mixin.extend({
     data() {
         return {
 
+            // ユーティリティをテンプレートで使えるように
+            Utils: Utils,
+            TVUtils: TVUtils,
+
             // 現在時刻
             time: dayjs().format('YYYY/MM/DD HH:mm:ss'),
 
             // 表示されるパネルのタブ
-            panel_active_tab: Utility.getSettingsItem('panel_active_tab'),
+            panel_active_tab: Utils.getSettingsItem('panel_active_tab'),
 
             // 背景の URL
             background_url: '',
@@ -211,13 +213,13 @@ export default Mixin.extend({
             // panel_display_state が 'AlwaysDisplay' なら常に表示し、'AlwaysFold' なら常に折りたたむ
             // 'RestorePreviousState' なら is_latest_panel_display の値を使い､前回の状態を復元する
             is_panel_display: (() => {
-                switch (Utility.getSettingsItem('panel_display_state')) {
+                switch (Utils.getSettingsItem('panel_display_state')) {
                     case 'AlwaysDisplay':
                         return true;
                     case 'AlwaysFold':
                         return false;
                     case 'RestorePreviousState':
-                        return Utility.getSettingsItem('is_latest_panel_display');
+                        return Utils.getSettingsItem('is_latest_panel_display');
                 }
             })(),
 
@@ -242,6 +244,9 @@ export default Mixin.extend({
 
             // 次のチャンネルのチャンネル情報
             channel_next: IChannelDefault,
+
+            // チャンネル情報リスト
+            channels_list: new Map() as Map<string, IChannel[]>,
 
             // プレイヤー (DPlayer) のインスタンス
             player: null,
@@ -338,7 +343,7 @@ export default Mixin.extend({
 
         // 既に取得済みのチャンネル情報で、前・現在・次のチャンネル情報を更新する
         [this.channel_previous, this.channel, this.channel_next]
-            = this.getPreviousAndCurrentAndNextChannel(this.channel_id);
+            = TVUtils.getPreviousAndCurrentAndNextChannel(this.channels_list, this.channel_id);
 
         // 0.5秒だけ待ってから
         // 連続して押した時などにライブストリームを初期化しないように猶予を設ける
@@ -354,7 +359,7 @@ export default Mixin.extend({
     watch: {
         // 前回視聴画面を開いた際にパネルが表示されていたかどうかを保存
         is_panel_display() {
-            Utility.setSettingsItem('is_latest_panel_display', this.is_panel_display);
+            Utils.setSettingsItem('is_latest_panel_display', this.is_panel_display);
         }
     },
     methods: {
@@ -363,7 +368,7 @@ export default Mixin.extend({
         init() {
 
             // ローディング中の背景画像をランダムで設定
-            this.background_url = Utility.generatePlayerBackgroundURL();
+            this.background_url = Utils.generatePlayerBackgroundURL();
 
             // コントロール表示タイマーを実行
             this.controlVisibleTimer('normal');
@@ -406,7 +411,7 @@ export default Mixin.extend({
             // チャンネル情報 API にアクセス
             let channel_response: AxiosResponse;
             try {
-                channel_response = await Vue.axios.get(`${this.api_base_url}/channels/${this.channel_id}`);
+                channel_response = await Vue.axios.get(`${Utils.api_base_url}/channels/${this.channel_id}`);
             } catch (error) {
 
                 // エラー内容を表示
@@ -473,7 +478,7 @@ export default Mixin.extend({
             // チャンネル情報 API と同時にアクセスするとむしろレスポンスが遅くなるので、返ってくるのを待ってから実行
             let channels_response: AxiosResponse;
             try {
-                channels_response = await Vue.axios.get(`${this.api_base_url}/channels`);
+                channels_response = await Vue.axios.get(`${Utils.api_base_url}/channels`);
             } catch (error) {
                 console.error(error);   // エラー内容を表示
                 return;
@@ -489,6 +494,7 @@ export default Mixin.extend({
             // 1つでもチャンネルが存在するチャンネルタイプのみ表示するように
             // たとえば SKY (スカパー！プレミアムサービス) のタブは SKY に属すチャンネルが1つもない（=受信できない）なら表示されない
             this.channels_list = new Map();
+            this.channels_list.set('ピン留め', []);  // ピン留めタブの準備
             if (channels_response.data.GR.length > 0) this.channels_list.set('地デジ', channels_response.data.GR.filter(filter));
             if (channels_response.data.BS.length > 0) this.channels_list.set('BS', channels_response.data.BS.filter(filter));
             if (channels_response.data.CS.length > 0) this.channels_list.set('CS', channels_response.data.CS.filter(filter));
@@ -496,11 +502,29 @@ export default Mixin.extend({
             if (channels_response.data.SKY.length > 0) this.channels_list.set('SKY', channels_response.data.SKY.filter(filter));
             if (channels_response.data.STARDIGIO.length > 0) this.channels_list.set('StarDigio', channels_response.data.STARDIGIO.filter(filter));
 
-            // ピン留めされているチャンネルのリストを更新
-            this.updatePinnedChannelList();
+            // ピン留めされているチャンネルの ID を取得
+            const pinned_channel_ids = Utils.getSettingsItem('pinned_channel_ids');
+
+            // ピン留めされているチャンネル情報のリスト
+            const pinned_channels = [] as IChannel[];
+
+            // チャンネル ID が一致したチャンネルの情報を保存する
+            for (const pinned_channel_id of pinned_channel_ids) {
+                const pinned_channel_type = TVUtils.getChannelType(pinned_channel_id, true);
+                pinned_channels.push(this.channels_list.get(pinned_channel_type).find((channel) => {
+                    return channel.channel_id === pinned_channel_id;  // チャンネル ID がピン留めされているチャンネルのものと同じ
+                }));
+            }
+
+            // pinned_channels に何か入っていたらピン留めタブを表示するし、そうでなければ表示しない
+            if (pinned_channels.length > 0) {
+                this.channels_list.set('ピン留め', pinned_channels);
+            } else {
+                this.channels_list.delete('ピン留め');
+            }
 
             // 前と次のチャンネル ID を取得する
-            [this.channel_previous, , this.channel_next] = this.getPreviousAndCurrentAndNextChannel(this.channel_id);
+            [this.channel_previous, , this.channel_next] = TVUtils.getPreviousAndCurrentAndNextChannel(this.channels_list, this.channel_id);
 
             // MediaSession API を使い、メディア通知の表示をカスタマイズ
             if ('mediaSession' in navigator) {
@@ -656,7 +680,7 @@ export default Mixin.extend({
                 video: {
                     // デフォルトの品質
                     // ラジオチャンネルでは常に 48KHz/192kbps に固定する
-                    defaultQuality: (this.channel.is_radiochannel) ? '48kHz/192kbps' : Utility.getSettingsItem('tv_streaming_quality'),
+                    defaultQuality: (this.channel.is_radiochannel) ? '48kHz/192kbps' : Utils.getSettingsItem('tv_streaming_quality'),
                     // 品質リスト
                     quality: (() => {
                         const qualities = [];
@@ -667,7 +691,7 @@ export default Mixin.extend({
                             qualities.push({
                                 name: '48kHz/192kbps',
                                 type: 'mpegts',
-                                url: `${this.api_base_url}/streams/live/${this.channel_id}/1080p/mpegts`,
+                                url: `${Utils.api_base_url}/streams/live/${this.channel_id}/1080p/mpegts`,
                             });
                         // 通常のチャンネル
                         } else {
@@ -675,7 +699,7 @@ export default Mixin.extend({
                                 qualities.push({
                                     name: quality,
                                     type: 'mpegts',
-                                    url: `${this.api_base_url}/streams/live/${this.channel_id}/${quality}/mpegts`,
+                                    url: `${Utils.api_base_url}/streams/live/${this.channel_id}/${quality}/mpegts`,
                                 });
                             }
                         }
@@ -768,7 +792,7 @@ export default Mixin.extend({
             this.player.on('quality_start', () => {
 
                 // ローディング中の背景画像をランダムで設定
-                this.background_url = Utility.generatePlayerBackgroundURL();
+                this.background_url = Utils.generatePlayerBackgroundURL();
 
                 // イベントソースを閉じる
                 if (this.eventsource !== null) {
@@ -818,7 +842,7 @@ export default Mixin.extend({
             // EventSource を作成
             // ラジオチャンネルの場合は見かけ上の品質と API に渡す品質が異なるので、それに合わせる
             const quality_name = (this.channel.is_radiochannel) ? '1080p' : this.player.quality.name;
-            this.eventsource = new EventSource(`${this.api_base_url}/streams/live/${this.channel_id}/${quality_name}/events`);
+            this.eventsource = new EventSource(`${Utils.api_base_url}/streams/live/${this.channel_id}/${quality_name}/events`);
 
             // 初回接続時のイベント
             this.eventsource.addEventListener('initial_update', (event_raw: MessageEvent) => {
@@ -1018,7 +1042,7 @@ export default Mixin.extend({
                         if (switch_remocon_id !== null) {
 
                             // 切り替え先のチャンネルを取得する
-                            const switch_channel = this.getChannelFromRemoconID(switch_remocon_id, switch_channel_type);
+                            const switch_channel = TVUtils.getChannelFromRemoconID(this.channels_list, switch_channel_type, switch_remocon_id);
 
                             // チャンネルが取得できていれば、ルーティングをそのチャンネルに置き換える
                             // 押されたキーに対応するリモコン番号のチャンネルがない場合や、現在と同じチャンネル ID の場合は何も起こらない

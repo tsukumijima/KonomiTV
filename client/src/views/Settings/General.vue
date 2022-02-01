@@ -39,7 +39,7 @@
 import Vue from 'vue';
 
 import Base from '@/views/Settings/Base.vue';
-import Utility from '@/utility';
+import Utils from '@/utils';
 
 export default Vue.extend({
     name: 'Home',
@@ -81,7 +81,7 @@ export default Vue.extend({
                 // 設定の既定値を取得する
                 const settings = {}
                 for (const setting of ['tv_streaming_quality', 'panel_display_state', 'panel_active_tab']) {
-                    settings[setting] = Utility.getSettingsItem(setting);
+                    settings[setting] = Utils.getSettingsItem(setting);
                 }
                 return settings;
             })(),
@@ -94,7 +94,7 @@ export default Vue.extend({
             handler() {
                 // settings 内の値を順に LocalStorage に保存する
                 for (const [setting_key, setting_value] of Object.entries(this.settings)) {
-                    Utility.setSettingsItem(setting_key, setting_value);
+                    Utils.setSettingsItem(setting_key, setting_value);
                 }
             }
         }

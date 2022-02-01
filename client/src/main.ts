@@ -12,7 +12,6 @@ import App from '@/App.vue';
 import VTabItem from '@/components/VTabItem';
 import VTabs from '@/components/VTabs';
 import VTabsItems from '@/components/VTabsItems';
-import mixin from '@/mixins';
 import vuetify from '@/plugins/vuetify';
 import router from '@/router';
 import '@/service-worker';
@@ -47,9 +46,6 @@ Vue.component('v-tabs-fix', VTabs);
 
 // VTabsItems の挙動を改善するグローバルコンポーネント
 Vue.component('v-tabs-items-fix', VTabsItems);
-
-// グローバル Mixin を登録
-Vue.mixin(mixin);
 
 // Vue を初期化
 new Vue({

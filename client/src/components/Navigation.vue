@@ -33,12 +33,29 @@
                 </router-link>
                 <a v-ripple class="navigation__link" active-class="navigation__link--active" href="https://github.com/tsukumijima/KonomiTV">
                     <Icon class="navigation__link-icon" icon="fluent:info-16-regular" width="26px" />
-                    <span class="navigation__link-text">version {{version}}</span>
+                    <span class="navigation__link-text">version {{Utils.version}}</span>
                 </a>
             </div>
         </nav>
     </div>
 </template>
+<script lang="ts">
+
+import Vue from 'vue';
+
+import Utils from '@/utils';
+
+export default Vue.extend({
+    name: 'Navigation',
+    data() {
+        return {
+            // ユーティリティをテンプレートで使えるように
+            Utils: Utils,
+        }
+    }
+});
+
+</script>
 <style lang="scss" scoped>
 
 .navigation-container {

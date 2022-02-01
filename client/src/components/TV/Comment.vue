@@ -29,13 +29,13 @@ import dayjs from 'dayjs';
 import Vue, { PropType } from 'vue';
 
 import { IChannel } from '@/interface';
-import Mixin from '@/views/TV/Mixin.vue';
+import Utils from '@/utils';
 
-export default Mixin.extend({
+export default Vue.extend({
     name: 'Comment',
     props: {
         // チャンネル情報
-        channel_props: {
+        channel: {
             type: Object as PropType<IChannel>,
             required: true,
         },
@@ -81,7 +81,7 @@ export default Mixin.extend({
         // チャンネル情報が変更されたとき
         // created() だとチャンネル情報の取得前に実行してしまう
         // this が変わってしまうのでアロー関数は使えない
-        async channel_props(new_channel:IChannel, old_channel:IChannel) {
+        async channel(new_channel: IChannel, old_channel: IChannel) {
 
             // 前のチャンネル情報と次のチャンネル情報で channel_id が変わってたら
             if (new_channel.channel_id !== old_channel.channel_id) {
@@ -92,7 +92,7 @@ export default Mixin.extend({
                 if (old_channel.channel_id !== 'gr000') {
                     await new Promise(resolve => setTimeout(resolve, 0.5 * 1000));
                     // 0.5 秒待った結果、channel_id が既に変更されているので終了
-                    if (this.channel_props.channel_id !== new_channel.channel_id) {
+                    if (this.channel.channel_id !== new_channel.channel_id) {
                         return;
                     }
                 }
@@ -119,7 +119,7 @@ export default Mixin.extend({
             // セッション情報を取得
             let watch_session_info: AxiosResponse;
             try {
-                watch_session_info = await Vue.axios.get(`${this.api_base_url}/channels/${this.channel_props.channel_id}/jikkyo`);
+                watch_session_info = await Vue.axios.get(`${Utils.api_base_url}/channels/${this.channel.channel_id}/jikkyo`);
             } catch (error) {
                 throw new Error(error);  // エラー内容を表示
             }
@@ -534,6 +534,7 @@ export default Mixin.extend({
                 // プレイヤー全体と映像の高さの差（レターボックス）から、コメント描画領域の高さを狭める必要があるかを判定する
                 // 2で割っているのは単体の差を測るため
                 if (this.resize_observer_element === null || this.resize_observer_element.clientHeight === null) return;
+                if (video_element === null || video_element.clientHeight === null) return;
                 const letter_box_height = (this.resize_observer_element.clientHeight - video_element.clientHeight) / 2;
 
                 // 70px or 54px (高さが 450px 以下) 以下ならヘッダー（番組名などの表示）と被るので対応する

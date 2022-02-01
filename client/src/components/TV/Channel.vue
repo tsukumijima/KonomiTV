@@ -1,43 +1,44 @@
 <template>
     <div class="channels-container channels-container--watch">
         <v-tabs-fix centered show-arrows class="channels-tab" v-model="tab">
-            <v-tab class="channels-tab__item" v-for="[channels_type,] in Array.from(channels_list_props)" :key="channels_type">
+            <v-tab class="channels-tab__item" v-for="[channels_type,] in Array.from(channels_list)" :key="channels_type">
                 {{channels_type}}
             </v-tab>
         </v-tabs-fix>
         <div class="channels-list-container">
             <v-tabs-items-fix class="channels-list" v-model="tab">
-                <v-tab-item-fix class="channels" v-for="[channels_type, channels] in Array.from(channels_list_props)" :key="channels_type">
+                <v-tab-item-fix class="channels" v-for="[channels_type, channels] in Array.from(channels_list)" :key="channels_type">
                     <router-link v-ripple class="channel" v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.channel_id}`">
                         <div class="channel__broadcaster">
-                            <img class="channel__broadcaster-icon" :src="`${api_base_url}/channels/${channel.channel_id}/logo`">
+                            <img class="channel__broadcaster-icon" :src="`${Utils.api_base_url}/channels/${channel.channel_id}/logo`">
                             <div class="channel__broadcaster-content">
                                 <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.channel_name}}</span>
                                 <div class="channel__broadcaster-force"
-                                    :class="`channel__broadcaster-force--${getChannelForceType(channel.channel_force)}`">
+                                    :class="`channel__broadcaster-force--${TVUtils.getChannelForceType(channel.channel_force)}`">
                                     <Icon icon="fa-solid:fire-alt" height="10px" />
-                                    <span class="ml-1">{{getAttribute(channel, 'channel_force', '-')}}</span>
+                                    <span class="ml-1">{{TVUtils.getAttribute(channel, 'channel_force', '-')}}</span>
                                 </div>
                             </div>
                         </div>
                         <div class="channel__program-present">
                             <span class="channel__program-present-title"
-                                v-html="decorateProgramInfo(channel.program_present, 'title')">
+                                v-html="TVUtils.decorateProgramInfo(channel.program_present, 'title')">
                             </span>
-                            <span class="channel__program-present-time">{{getProgramTime(channel.program_present)}}</span>
+                            <span class="channel__program-present-time">{{TVUtils.getProgramTime(channel.program_present)}}</span>
                         </div>
                         <div class="channel__program-following">
                             <div class="channel__program-following-title">
                                 <span class="channel__program-following-title-decorate">NEXT</span>
                                 <Icon class="channel__program-following-title-icon" icon="fluent:fast-forward-20-filled" width="16px" />
                                 <span class="channel__program-following-title-text"
-                                    v-html="decorateProgramInfo(channel.program_following, 'title')">
+                                    v-html="TVUtils.decorateProgramInfo(channel.program_following, 'title')">
                                 </span>
                             </div>
-                            <span class="channel__program-following-time">{{getProgramTime(channel.program_following)}}</span>
+                            <span class="channel__program-following-time">{{TVUtils.getProgramTime(channel.program_following)}}</span>
                         </div>
                         <div class="channel__progressbar">
-                            <div class="channel__progressbar-progress" :style="`width:${getProgramProgress(channel.program_present)}%;`"></div>
+                            <div class="channel__progressbar-progress"
+                                 :style="`width:${TVUtils.getProgramProgress(channel.program_present)}%;`"></div>
                         </div>
                     </router-link>
                 </v-tab-item-fix>
@@ -47,22 +48,27 @@
 </template>
 <script lang="ts">
 
-import { PropType } from 'vue';
+import Vue, { PropType } from 'vue';
 
 import { IChannel } from '@/interface';
-import Mixin from '@/views/TV/Mixin.vue';
+import Utils, { TVUtils } from '@/utils';
 
-export default Mixin.extend({
-    name: 'Channels',
+export default Vue.extend({
+    name: 'Channel',
     props: {
         // チャンネル情報リスト
-        channels_list_props: {
+        channels_list: {
             type: Map as PropType<Map<string, IChannel[]>>,
             required: true,
         }
     },
     data() {
         return {
+
+            // ユーティリティをテンプレートで使えるように
+            Utils: Utils,
+            TVUtils: TVUtils,
+
             // タブの状態管理
             tab: null,
         }

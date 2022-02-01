@@ -1,8 +1,23 @@
 
 /**
- * ユーティリティ
+ * 共通ユーティリティ
  */
-export default class Utility {
+export default class Utils {
+
+    // バージョン情報
+    // ビルド時の環境変数 (vue.config.js に記載) から取得
+    static readonly version:string = process.env.VUE_APP_VERSION;
+
+    // バックエンドの API のベース URL
+    static readonly api_base_url = (() => {
+        if (process.env.NODE_ENV === 'development') {
+            // デバッグ時はポートを 7000 に強制する
+            return `${window.location.protocol}//${window.location.hostname}:7000/api`;
+        } else {
+            // ビルド後は同じポートを使う
+            return `${window.location.protocol}//${window.location.host}/api`;
+        }
+    })();
 
     // デフォルトの設定値
     static readonly default_settings = {
@@ -23,6 +38,7 @@ export default class Utility {
         panel_active_tab: 'Program' as ('Program' | 'Channel' | 'Comment' | 'Twitter'),
     };
 
+
     /**
      * プレイヤーの背景画像をランダムで取得し、その URL を返す
      * @returns ランダムで設定されたプレイヤーの背景画像の URL
@@ -32,6 +48,7 @@ export default class Utility {
         const random = (Math.floor(Math.random() * background_count) + 1);
         return `/assets/img/player-backgrounds/${random.toString().padStart(2, '0')}.jpg`;
     }
+
 
     /**
      * 設定を LocalStorage から取得する
@@ -43,7 +60,7 @@ export default class Utility {
         // LocalStorage から KonomiTV-Settings を取得
         // データは JSON で管理し、LocalStorage 上の一つのキーにまとめる
         // キーが存在しない場合はデフォルトの設定値を使う
-        const settings:object = JSON.parse(localStorage.getItem('KonomiTV-Settings')) || Utility.default_settings;
+        const settings:object = JSON.parse(localStorage.getItem('KonomiTV-Settings')) || Utils.default_settings;
 
         // そのキーが保存されているときだけ、設定値を返す
         if (key in settings) {
@@ -58,6 +75,7 @@ export default class Utility {
         }
     }
 
+
     /**
      * 設定を LocalStorage に保存する
      * @param key 設定のキー名
@@ -66,7 +84,7 @@ export default class Utility {
     static setSettingsItem(key: string, value: any): void {
 
         // LocalStorage から KonomiTV-Settings を取得
-        const settings:object = JSON.parse(localStorage.getItem('KonomiTV-Settings')) || Utility.default_settings;
+        const settings:object = JSON.parse(localStorage.getItem('KonomiTV-Settings')) || Utils.default_settings;
 
         // そのキーがデフォルトの設定値に定義されているときだけ
         // バージョン違いなどで settings には登録されていないキーだが default_settings には登録されているケースが発生し得るため

@@ -12,15 +12,15 @@
                         <div class="channels" :class="`channels--length-${channels.length}`">
                             <router-link v-ripple class="channel" v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.channel_id}`">
                                 <div class="channel__broadcaster">
-                                    <img class="channel__broadcaster-icon" :src="`${api_base_url}/channels/${channel.channel_id}/logo`">
+                                    <img class="channel__broadcaster-icon" :src="`${Utils.api_base_url}/channels/${channel.channel_id}/logo`">
                                     <div class="channel__broadcaster-content">
                                         <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.channel_name}}</span>
                                         <div class="channel__broadcaster-status">
                                             <div class="channel__broadcaster-status-force"
-                                                :class="`channel__broadcaster-status-force--${getChannelForceType(channel.channel_force)}`">
+                                                :class="`channel__broadcaster-status-force--${TVUtils.getChannelForceType(channel.channel_force)}`">
                                                 <Icon icon="fa-solid:fire-alt" height="12px" />
                                                 <span class="ml-1">勢い:</span>
-                                                <span class="ml-1">{{getAttribute(channel, 'channel_force', '--')}} コメ/分</span>
+                                                <span class="ml-1">{{TVUtils.getAttribute(channel, 'channel_force', '--')}} コメ/分</span>
                                             </div>
                                             <div class="channel__broadcaster-status-viewers ml-4">
                                                 <Icon icon="fa-solid:eye" height="14px" />
@@ -38,21 +38,25 @@
                                     </div>
                                 </div>
                                 <div class="channel__program-present">
-                                    <span class="channel__program-present-title" v-html="decorateProgramInfo(channel.program_present, 'title')"></span>
-                                    <span class="channel__program-present-time">{{getProgramTime(channel.program_present)}}</span>
-                                    <span class="channel__program-present-description" v-html="decorateProgramInfo(channel.program_present, 'description')"></span>
+                                    <span class="channel__program-present-title"
+                                          v-html="TVUtils.decorateProgramInfo(channel.program_present, 'title')"></span>
+                                    <span class="channel__program-present-time">{{TVUtils.getProgramTime(channel.program_present)}}</span>
+                                    <span class="channel__program-present-description"
+                                          v-html="TVUtils.decorateProgramInfo(channel.program_present, 'description')"></span>
                                 </div>
                                 <v-spacer></v-spacer>
                                 <div class="channel__program-following">
                                     <div class="channel__program-following-title">
                                         <span class="channel__program-following-title-decorate">NEXT</span>
                                         <Icon class="channel__program-following-title-icon" icon="fluent:fast-forward-20-filled" width="16px" />
-                                        <span class="channel__program-following-title-text" v-html="decorateProgramInfo(channel.program_following, 'title')"></span>
+                                        <span class="channel__program-following-title-text"
+                                              v-html="TVUtils.decorateProgramInfo(channel.program_following, 'title')"></span>
                                     </div>
-                                    <span class="channel__program-following-time">{{getProgramTime(channel.program_following)}}</span>
+                                    <span class="channel__program-following-time">{{TVUtils.getProgramTime(channel.program_following)}}</span>
                                 </div>
                                 <div class="channel__progressbar">
-                                    <div class="channel__progressbar-progress" :style="`width:${getProgramProgress(channel.program_present)}%;`"></div>
+                                    <div class="channel__progressbar-progress"
+                                         :style="`width:${TVUtils.getProgramProgress(channel.program_present)}%;`"></div>
                                 </div>
                             </router-link>
                         </div>
@@ -69,10 +73,9 @@ import Vue from 'vue';
 import { IChannel } from '@/interface';
 import Header from '@/components/Header.vue';
 import Navigation from '@/components/Navigation.vue';
-import Mixin from '@/views/TV/Mixin.vue';
-import Utility from '@/utility';
+import Utils, { TVUtils } from '@/utils';
 
-export default Mixin.extend({
+export default Vue.extend({
     name: 'Home',
     components: {
         Header,
@@ -81,8 +84,12 @@ export default Mixin.extend({
     data() {
         return {
 
+            // ユーティリティをテンプレートで使えるように
+            Utils: Utils,
+            TVUtils: TVUtils,
+
             // タブの状態管理
-            tab: null,
+            tab: null as number | null,
 
             // ローディング中かどうか
             is_loading: true,
@@ -91,6 +98,12 @@ export default Mixin.extend({
             // ページ遷移時に setInterval(), setTimeout() の実行を止めるのに使う
             // setInterval(), setTimeout() の返り値を登録する
             interval_ids: [] as number[],
+
+            // チャンネル情報リスト
+            channels_list: new Map() as Map<string, IChannel[]>,
+
+            // ピン留めしているチャンネルの ID (ex: gr011) が入るリスト
+            pinned_channel_ids: [] as string[],
         }
     },
     // 開始時に実行
@@ -134,7 +147,7 @@ export default Mixin.extend({
             // チャンネル情報一覧 API にアクセス
             let channels_response;
             try {
-                channels_response = await Vue.axios.get(`${this.api_base_url}/channels`);
+                channels_response = await Vue.axios.get(`${Utils.api_base_url}/channels`);
             } catch (error) {
                 console.error(error);   // エラー内容を表示
                 return;
@@ -168,13 +181,13 @@ export default Mixin.extend({
         addPinnedChannel(channel_id: string) {
 
             // 現在ピン留めされているチャンネルを取得
-            this.pinned_channel_ids = Utility.getSettingsItem('pinned_channel_ids');
+            this.pinned_channel_ids = Utils.getSettingsItem('pinned_channel_ids');
 
             // ピン留めするチャンネルの ID を追加
             this.pinned_channel_ids.push(channel_id);
 
             // 設定を保存
-            Utility.setSettingsItem('pinned_channel_ids', this.pinned_channel_ids);
+            Utils.setSettingsItem('pinned_channel_ids', this.pinned_channel_ids);
 
             // ピン留めされているチャンネルのリストを更新
             this.updatePinnedChannelList();
@@ -184,16 +197,58 @@ export default Mixin.extend({
         removePinnedChannel(channel_id: string) {
 
             // 現在ピン留めされているチャンネルを取得
-            this.pinned_channel_ids = Utility.getSettingsItem('pinned_channel_ids');
+            this.pinned_channel_ids = Utils.getSettingsItem('pinned_channel_ids');
 
             // ピン留めを外すチャンネルの ID を削除
             this.pinned_channel_ids.splice(this.pinned_channel_ids.indexOf(channel_id), 1);
 
             // 設定を保存
-            Utility.setSettingsItem('pinned_channel_ids', this.pinned_channel_ids);
+            Utils.setSettingsItem('pinned_channel_ids', this.pinned_channel_ids);
 
             // ピン留めされているチャンネルのリストを更新
             this.updatePinnedChannelList();
+        },
+
+        // ピン留めされているチャンネルのリストを更新する
+        updatePinnedChannelList() {
+
+            // ピン留めされているチャンネルの ID を取得
+            this.pinned_channel_ids = Utils.getSettingsItem('pinned_channel_ids');
+
+            // ピン留めされているチャンネル情報のリスト
+            const pinned_channels = [] as IChannel[];
+
+            // チャンネル ID が一致したチャンネルの情報を保存する
+            for (const pinned_channel_id of this.pinned_channel_ids) {
+                const pinned_channel_type = TVUtils.getChannelType(pinned_channel_id, true);
+                pinned_channels.push(this.channels_list.get(pinned_channel_type).find((channel) => {
+                    return channel.channel_id === pinned_channel_id;  // チャンネル ID がピン留めされているチャンネルのものと同じ
+                }));
+            }
+
+            // pinned_channels に何か入っていたらピン留めタブを表示するし、そうでなければ表示しない
+            if (pinned_channels.length > 0) {
+
+                if (!this.channels_list.has('ピン留め')) {
+                    // タブの一番左にピン留めタブを表示する
+                    this.channels_list = new Map([['ピン留め', pinned_channels], ...this.channels_list]);
+                } else {
+                    // 既に存在するピン留めタブにチャンネル情報を設定する
+                    this.channels_list.set('ピン留め', pinned_channels);
+                }
+
+            } else {
+                // ピン留めタブがまだ表示されていれば
+                if (this.channels_list.has('ピン留め')) {
+
+                    // ピン留めタブがアクティブな状態なら、タブを削除する前にタブのインデックスを 1（地デジ）に変更
+                    // 本当は VTabsItems 側で制御したかったけど、なぜかインデックスが 2 のタブが選択されてしまうのでやむを得ずこうしている
+                    if (this.tab !== undefined && this.tab === 0) this.tab = 1;
+
+                    // ピン留めタブを削除
+                    this.channels_list.delete('ピン留め');
+                }
+            }
         },
 
         // チャンネルがピン留めされているか
