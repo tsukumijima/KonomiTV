@@ -591,7 +591,8 @@ class CtrlCmdUtil:
         if self.__host is None:
             return None
 
-        # 利用側のロジックが今のところ同期的なので、ここでは asyncio を使わない
+        # 利用側のロジックが同期的なので、ここでは asyncio を使わない
+        # asyncio を使って接続すると、受信する際にも await が必要になって reader() を同期関数にできなくなる
         try:
             sock = socket.create_connection((self.__host, self.__port), self.__connect_timeout_sec)
         except:

@@ -89,6 +89,7 @@ class Programs(models.Model):
             except exceptions.OperationalError:
                 await asyncio.sleep(5)
                 await cls.update(multiprocess=multiprocess)
+                return
 
         # 番組情報をシングルプロセスで更新する
         else:

@@ -457,15 +457,23 @@ class LiveEncodingTask():
                         break
 
                     # tsreadex が既に終了しているか、接続が切断された
+                    # ref: https://stackoverflow.com/a/45251241/17124142
                     if ((tsreadex.poll() is not None) or
                         (CONFIG['general']['backend'] == 'Mirakurun' and response.raw.closed is True) or
                         (CONFIG['general']['backend'] == 'EDCB' and type(pipe_or_socket) is socket.socket and pipe_or_socket.fileno() < 0) or
                         (CONFIG['general']['backend'] == 'EDCB' and type(pipe_or_socket) is BinaryIO and pipe_or_socket.closed is True)):
+
+                        # この時点でまだ Offline 状態でなければエンコードタスクを再起動する
+                        ## 通常ここが呼ばれるのは正常に Offline に設定された後なので、Offline 状態になっていないとおかしい
+                        ## 放送休止によるストリーム出力の終了でタイムアウトしたり、バックエンドのサービスが停止されたなどの理由が考えられる
+                        if livestream.getStatus()['status'] != 'Offline':
+                            livestream.setStatus('Restart', 'チューナーとの接続が切断されました。ライブストリームを再起動します。')
                         break
+
             except OSError:
                 pass
 
-            # 明示的に接続を閉じる
+            # チューナーとの接続を明示的に閉じる
             try:
                 tsreadex.stdin.close()
             except OSError:
