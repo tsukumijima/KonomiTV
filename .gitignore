@@ -163,8 +163,9 @@ config.yaml
 
 # user files
 server/data/database*
+server/data/interlaced.dat
+server/data/rect.dat
 server/data/test*
-server/data/trec.dat
 
 # thirdparty
 server/thirdparty/*

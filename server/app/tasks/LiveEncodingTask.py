@@ -5,7 +5,7 @@ import requests
 import socket
 import subprocess
 import time
-from typing import BinaryIO, Optional, Union
+from typing import BinaryIO, Literal, Optional, Union
 
 from app.constants import CONFIG, LIBRARY_PATH, QUALITY
 from app.models import Channels
@@ -28,13 +28,12 @@ class LiveEncodingTask():
         self.max_retry_count = 5  # 5 回まで
 
 
-    def buildFFmpegOptions(self, quality:str, is_dualmono:bool=False) -> list:
+    def buildFFmpegOptions(self, quality:str) -> list:
         """
         FFmpeg に渡すオプションを組み立てる
 
         Args:
             quality (str): 映像の品質 (1080p ~ 240p)
-            is_dualmono (bool, optional): 放送がデュアルモノかどうか
 
         Returns:
             list: FFmpeg に渡すオプションが連なる配列
@@ -49,22 +48,9 @@ class LiveEncodingTask():
         options.append(f'-f mpegts -analyzeduration {analyzeduration} -i pipe:0')
 
         # ストリームのマッピング
-        # 音声切り替えのため、主音声・副音声両方をエンコード後の TS に含む
-
-        ## 通常放送・音声多重放送向け
+        ## 音声切り替えのため、主音声・副音声両方をエンコード後の TS に含む
         ## 副音声が検出できない場合にエラーにならないよう、? をつけておく
-        if is_dualmono is False:
-            options.append('-map 0:v:0 -map 0:a:0 -map 0:a:1 -map 0:d? -ignore_unknown')
-
-        ## デュアルモノ向け（Lが主音声・Rが副音声）
-        else:
-            ## 1440x1080 と 1920x1080 が混在しているので、1080p だけリサイズする解像度を特殊な設定に
-            scale = 'scale=-2:1080' if quality == '1080p' else f'scale={QUALITY[quality]["width"]}:{QUALITY[quality]["height"]}'
-            # 参考: https://github.com/l3tnun/EPGStation/blob/master/config/enc3.js
-            # -filter_complex を使うと -vf や -af が使えなくなるため、デュアルモノのみ -filter_complex に -vf や -af の内容も入れる
-            options.append(f'-filter_complex yadif=0:-1:1,{scale};volume=2.0,channelsplit[FL][FR]')
-            ## Lを主音声に、Rを副音声にマッピング
-            options.append('-map 0:v:0 -map [FL] -map [FR] -map 0:d? -ignore_unknown')
+        options.append('-map 0:v:0 -map 0:a:0 -map 0:a:1 -map 0:d? -ignore_unknown')
 
         # フラグ
         ## 主に FFmpeg の起動を高速化するための設定
@@ -74,18 +60,15 @@ class LiveEncodingTask():
         # 映像
         options.append(f'-vcodec libx264 -flags +cgop -vb {QUALITY[quality]["video_bitrate"]} -maxrate {QUALITY[quality]["video_bitrate_max"]}')
         options.append('-aspect 16:9 -r 30000/1001 -g 60 -preset veryfast -profile:v main')
-        if is_dualmono is False:  # デュアルモノ以外
-            ## 1440x1080 と 1920x1080 が混在しているので、1080p だけリサイズする解像度を特殊な設定に
-            if quality == '1080p':
-                options.append('-vf yadif=0:-1:1,scale=-2:1080')
-            else:
-                options.append(f'-vf yadif=0:-1:1,scale={QUALITY[quality]["width"]}:{QUALITY[quality]["height"]}')
+        ## 1440x1080 と 1920x1080 が混在しているので、1080p だけリサイズする解像度を特殊な設定に
+        if quality == '1080p':
+            options.append('-vf yadif=0:-1:1,scale=-2:1080')
+        else:
+            options.append(f'-vf yadif=0:-1:1,scale={QUALITY[quality]["width"]}:{QUALITY[quality]["height"]}')
 
         # 音声
         ## 音声が 5.1ch かどうかに関わらず、ステレオにダウンミックスする
-        options.append(f'-acodec aac -aac_coder twoloop -ac 2 -ab {QUALITY[quality]["audio_bitrate"]} -ar 48000')
-        if is_dualmono is False:  # デュアルモノ以外
-            options.append('-af volume=2.0')
+        options.append(f'-acodec aac -aac_coder twoloop -ac 2 -ab {QUALITY[quality]["audio_bitrate"]} -ar 48000 -af volume=2.0')
 
         # 出力
         options.append('-y -f mpegts')  # MPEG-TS 出力ということを明示
@@ -142,14 +125,13 @@ class LiveEncodingTask():
         return result
 
 
-    def buildHWEncCOptions(self, encoder_type:str, quality:str, is_dualmono:bool=False) -> list:
+    def buildHWEncCOptions(self, encoder_type:Literal['QSVEncC', 'NVEncC', 'VCEEncC'], quality:str) -> list:
         """
         QSVEncC・NVEncC・VCEEncC (便宜上 HWEncC と総称) に渡すオプションを組み立てる
 
         Args:
-            encoder_type (str): エンコーダー (QSVEncC or NVEncC or VCEEncC)
+            encoder_type (Literal['QSVEncC', 'NVEncC', 'VCEEncC']): エンコーダー (QSVEncC or NVEncC or VCEEncC)
             quality (str): 映像の品質 (1080p ~ 240p)
-            is_dualmono (bool, optional): 放送がデュアルモノかどうか
 
         Returns:
             list: HWEncC に渡すオプションが連なる配列
@@ -172,19 +154,9 @@ class LiveEncodingTask():
             options.append('--avhw')
 
         # ストリームのマッピング
-        # 音声切り替えのため、主音声・副音声両方をエンコード後の TS に含む
-        if is_dualmono is False:
-            ## 通常放送・音声多重放送向け
-            ## 音声が 5.1ch かどうかに関わらず、ステレオにダウンミックスする
-            options.append('--audio-stream 1?:stereo --audio-stream 2?:stereo --data-copy timed_id3')
-            ## 音声トラックの指定
-            audio_track = ''
-        else:
-            ## デュアルモノ向け（Lが主音声・Rが副音声）
-            options.append('--audio-stream 1?FL:stereo,FR:stereo --data-copy timed_id3')
-            ## 音声トラックの指定
-            ## 明示的に音声トラックを指定しないと、不要な副音声ストリームがコピーされてしまう
-            audio_track = '1?'
+        ## 音声切り替えのため、主音声・副音声両方をエンコード後の TS に含む
+        ## 音声が 5.1ch かどうかに関わらず、ステレオにダウンミックスする
+        options.append('--audio-stream 1?:stereo --audio-stream 2?:stereo --data-copy timed_id3')
 
         # フラグ
         ## 主に HWEncC の起動を高速化するための設定
@@ -213,8 +185,8 @@ class LiveEncodingTask():
             options.append(f'--output-res {QUALITY[quality]["width"]}x{QUALITY[quality]["height"]}')
 
         # 音声
-        options.append(f'--audio-codec {audio_track}aac:aac_coder=twoloop --audio-bitrate {audio_track}{QUALITY[quality]["audio_bitrate"]}')
-        options.append(f'--audio-samplerate {audio_track}48000 --audio-filter {audio_track}volume=2.0 --audio-ignore-decode-error 30')
+        options.append(f'--audio-codec aac:aac_coder=twoloop --audio-bitrate {QUALITY[quality]["audio_bitrate"]}')
+        options.append(f'--audio-samplerate 48000 --audio-filter volume=2.0 --audio-ignore-decode-error 30')
 
         # 出力
         options.append('--output-format mpegts')  # MPEG-TS 出力ということを明示
@@ -327,15 +299,11 @@ class LiveEncodingTask():
         if encoder_type == 'FFmpeg':
 
             # オプションを取得
-            # 現在放送中の番組がデュアルモノの場合、デュアルモノ用のエンコードオプションを取得
-            #if program_present.primary_audio_type == '1/0+1/0モード(デュアルモノ)':
-            #    encoder_options = self.buildFFmpegOptions(real_quality, is_dualmono=True)
-            #else:
             # ラジオチャンネルかどうかでエンコードオプションを切り替え
             if channel.is_radiochannel is True:
                 encoder_options = self.buildFFmpegOptionsForRadio()
             else:
-                encoder_options = self.buildFFmpegOptions(real_quality, is_dualmono=False)
+                encoder_options = self.buildFFmpegOptions(real_quality)
             Logging.info(f'LiveStream:{livestream.livestream_id} FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
             # プロセスを非同期で作成・実行
@@ -351,11 +319,7 @@ class LiveEncodingTask():
         elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
 
             # オプションを取得
-            # 現在放送中の番組がデュアルモノの場合、デュアルモノ用のエンコードオプションを取得
-            #if program_present.primary_audio_type == '1/0+1/0モード(デュアルモノ)':
-            #    encoder_options = self.buildHWEncCOptions(encoder_type, real_quality, is_dualmono=True)
-            #else:
-            encoder_options = self.buildHWEncCOptions(encoder_type, real_quality, is_dualmono=False)
+            encoder_options = self.buildHWEncCOptions(encoder_type, real_quality)
             Logging.info(f'LiveStream:{livestream.livestream_id} {encoder_type} Commands:\n{encoder_type} {" ".join(encoder_options)}')
 
             # プロセスを非同期で作成・実行
@@ -642,24 +606,9 @@ class LiveEncodingTask():
                     # 次の番組が None でない
                     if program_following is not None:
 
-                        # # 現在:デュアルモノ以外 → 次:デュアルモノ
-                        # if (program_present.primary_audio_type != '1/0+1/0モード(デュアルモノ)') and \
-                        #    (program_following.primary_audio_type == '1/0+1/0モード(デュアルモノ)'):
-                        #     # エンコーダーの音声出力をデュアルモノ対応にするため、エンコーダーを再起動する
-                        #     is_restart_required = True
-                        #   　if self.retry_count < self.max_retry_count:  # リトライの制限内であれば
-                        #         livestream.setStatus('Restart', '音声をデュアルモノに切り替えています…')
-                        #     break
-
-                        # # 現在:デュアルモノ → 次:デュアルモノ以外
-                        # if (program_present.primary_audio_type == '1/0+1/0モード(デュアルモノ)') and \
-                        #    (program_following.primary_audio_type != '1/0+1/0モード(デュアルモノ)'):
-                        #     # エンコーダーの音声出力をステレオ対応にするため、エンコーダーを再起動する
-                        #     is_restart_required = True
-                        #   　if self.retry_count < self.max_retry_count:  # リトライの制限内であれば
-                        #         livestream.setStatus('Restart', '音声をステレオに切り替えています…')
-                        #     break
-
+                        # 次の番組のタイトルを表示
+                        ## TODO: 番組の解像度が変わった際にエンコーダーがクラッシュorフリーズする可能性があるが、
+                        ## その場合はここでエンコードタスクを再起動させる必要があるかも
                         Logging.info(f'LiveStream:{livestream.livestream_id} Title:{program_following.title}')
 
                     # 次の番組情報を現在の番組情報にコピー
