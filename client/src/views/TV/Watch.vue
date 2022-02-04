@@ -33,9 +33,9 @@
                 </a>
             </nav>
             <div class="watch-content"
-                v-on:mousemove="controlVisibleTimer('player', $event)"
-                v-on:touchmove="controlVisibleTimer('player', $event)"
-                v-on:click="controlVisibleTimer('player', $event)">
+                 @mousemove="controlVisibleTimer('player', $event)"
+                 @touchmove="controlVisibleTimer('player', $event)"
+                 @click="controlVisibleTimer('player', $event)">
                 <header class="watch-header">
                     <img class="watch-header__broadcaster" :src="`${Utils.api_base_url}/channels/${($route.params.channel_id)}/logo`">
                     <span class="watch-header__program-title" v-html="TVUtils.decorateProgramInfo(channel.program_present, 'title')"></span>
@@ -50,28 +50,28 @@
                     </div>
                     <div class="watch-player__dplayer"></div>
                     <div class="watch-player__button"
-                        v-on:mousemove="controlVisibleTimer('panel', $event)"
-                        v-on:touchmove="controlVisibleTimer('panel', $event)"
-                        v-on:click="controlVisibleTimer('panel', $event)">
+                         @mousemove="controlVisibleTimer('panel', $event)"
+                         @touchmove="controlVisibleTimer('panel', $event)"
+                         @click="controlVisibleTimer('panel', $event)">
                         <router-link v-ripple class="switch-button switch-button-up" :to="`/tv/watch/${channel_previous.channel_id}`"
                             v-tooltip.top="'前のチャンネル'">
                             <Icon class="switch-button-icon" icon="fluent:ios-arrow-left-24-filled" width="32px" rotate="1" />
                         </router-link>
                         <div v-ripple class="switch-button switch-button-panel switch-button-panel--open"
-                            @click="is_panel_display = !is_panel_display">
+                             @click="is_panel_display = !is_panel_display">
                             <Icon class="switch-button-icon" icon="fluent:navigation-16-filled" width="32px" />
                         </div>
                         <router-link v-ripple class="switch-button switch-button-down" :to="`/tv/watch/${channel_next.channel_id}`"
-                            v-tooltip.bottom="'次のチャンネル'">
+                                     v-tooltip.bottom="'次のチャンネル'">
                             <Icon class="switch-button-icon" icon="fluent:ios-arrow-right-24-filled" width="33px" rotate="1" />
                         </router-link>
                     </div>
                 </div>
             </div>
             <div class="watch-panel"
-                v-on:mousemove="controlVisibleTimer('panel', $event)"
-                v-on:touchmove="controlVisibleTimer('panel', $event)"
-                v-on:click="controlVisibleTimer('panel', $event)">
+                 @mousemove="controlVisibleTimer('panel', $event)"
+                 @touchmove="controlVisibleTimer('panel', $event)"
+                 @click="controlVisibleTimer('panel', $event)">
                 <div class="watch-panel__header">
                     <div v-ripple class="panel-close-button" @click="is_panel_display = false">
                         <Icon class="panel-close-button__icon" icon="akar-icons:chevron-right" width="25px" />
@@ -94,26 +94,26 @@
                 </div>
                 <div class="watch-panel__navigation">
                     <div v-ripple class="panel-navigation-button"
-                        :class="{'panel-navigation-button--active': panel_active_tab === 'Program'}"
-                        @click="panel_active_tab = 'Program'">
+                         :class="{'panel-navigation-button--active': panel_active_tab === 'Program'}"
+                         @click="panel_active_tab = 'Program'">
                         <Icon class="panel-navigation-button__icon" icon="fa-solid:info-circle" width="33px" />
                         <span class="panel-navigation-button__text">番組情報</span>
                     </div>
                     <div v-ripple class="panel-navigation-button"
-                        :class="{'panel-navigation-button--active': panel_active_tab === 'Channel'}"
-                        @click="panel_active_tab = 'Channel'">
+                         :class="{'panel-navigation-button--active': panel_active_tab === 'Channel'}"
+                         @click="panel_active_tab = 'Channel'">
                         <Icon class="panel-navigation-button__icon" icon="fa-solid:broadcast-tower" width="34px" />
                         <span class="panel-navigation-button__text">チャンネル</span>
                     </div>
                     <div v-ripple class="panel-navigation-button"
-                        :class="{'panel-navigation-button--active': panel_active_tab === 'Comment'}"
-                        @click="panel_active_tab = 'Comment'">
+                         :class="{'panel-navigation-button--active': panel_active_tab === 'Comment'}"
+                         @click="panel_active_tab = 'Comment'">
                         <Icon class="panel-navigation-button__icon" icon="bi:chat-left-text-fill" width="29px" />
                         <span class="panel-navigation-button__text">コメント</span>
                     </div>
                     <div v-ripple class="panel-navigation-button"
-                        :class="{'panel-navigation-button--active': panel_active_tab === 'Twitter'}"
-                        @click="panel_active_tab = 'Twitter'">
+                         :class="{'panel-navigation-button--active': panel_active_tab === 'Twitter'}"
+                         @click="panel_active_tab = 'Twitter'">
                         <Icon class="panel-navigation-button__icon" icon="fa-brands:twitter" width="34px" />
                         <span class="panel-navigation-button__text">Twitter</span>
                     </div>

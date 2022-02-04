@@ -20,6 +20,10 @@
             </DynamicScrollerItem>
             </template>
         </DynamicScroller>
+        <div v-ripple class="comment-scroll-button elevation-5" @click="is_manual_scroll = false; scrollCommentList();"
+             :class="{'comment-scroll-button--display': is_manual_scroll}">
+            <Icon icon="fluent:arrow-down-12-filled" height="29px" />
+        </div>
     </div>
 </template>
 <script lang="ts">
@@ -48,8 +52,18 @@ export default Vue.extend({
     data() {
         return {
 
+            // 手動スクロール状態かどうか
+            is_manual_scroll: false,
+
+            // 自動スクロール中かどうか
+            // 自動スクロール中の場合、scroll イベントが発火しても無視する
+            is_auto_scrolling: false,
+
             // コメントリストの配列
             comment_list: [] as {[key: string]: number | string}[],
+
+            // コメントリストの要素
+            comment_list_element: null as HTMLElement | null,
 
             // 視聴セッションの WebSocket のインスタンス
             watch_session: null as WebSocket | null,
@@ -64,7 +78,7 @@ export default Vue.extend({
             resize_observer: null as ResizeObserver | null,
 
             // ResizeObserver の監視対象の要素
-            resize_observer_element: null as Element | null,
+            resize_observer_element: null as HTMLElement | null,
         }
     },
     // 終了前に実行
@@ -99,6 +113,17 @@ export default Vue.extend({
 
                 // 前の視聴セッション・コメントセッションを破棄
                 this.destroy();
+
+                // コメントリストの要素を取得
+                if (this.comment_list_element === null) {
+                    this.comment_list_element = this.$el.querySelector('.comment-list');
+                }
+
+                // コメントリストがスクロールされた際、自動スクロール中でなければ、手動スクロールモード（=自動スクロールを行わない）に設定
+                // vue-virtual-scroller は特定のイベント以外は v-on で登録できないらしい…
+                const on_scroll = () => { if (this.is_auto_scrolling === false) this.is_manual_scroll = true };
+                this.comment_list_element.removeEventListener('scroll', on_scroll);  // 重複防止で以前設定されていたイベントを削除
+                this.comment_list_element.addEventListener('scroll', on_scroll);
 
                 // 視聴セッションを初期化
                 const comment_session_info = await this.initWatchSession();
@@ -370,8 +395,9 @@ export default Vue.extend({
         // コメントセッションを初期化
         async initCommentSession(comment_session_info: {[key: string]: string | null}) {
 
-            // コメントリストの要素
-            const comment_list_element = document.querySelector('.comment-list');
+            // タブが非表示状態のときにコメントを格納する配列
+            // タブが表示状態になったらコメントリストにのみ表示する（遅れているのでプレイヤーには表示しない）
+            let comment_list_buffer = [];
 
             // 最初に送信されてくるコメントを受信し終えたかどうかのフラグ
             let is_received_initial_comment = false;
@@ -427,12 +453,9 @@ export default Vue.extend({
                     // フラグを立てる
                     is_received_initial_comment = true;
 
-                    // 0.01 秒待った上でさらに2回実行しないと完全に最下部までスクロールされない…（ブラウザの描画バグ？）
-                    // this.$nextTick() は効かなかった
-                    for (let index = 0; index < 3; index++) {
-                        await new Promise(resolve => setTimeout(resolve, 0.01 * 1000));
-                        comment_list_element.scrollTop = comment_list_element.scrollHeight;
-                    }
+                    // コメントリストを一番下にスクロール
+                    // 初回コメントは量が多いので、一括でスクロールする
+                    this.scrollCommentList();
                 }
 
                 // コメントを取得
@@ -479,23 +502,28 @@ export default Vue.extend({
                     this.comment_list.shift();
                 }
 
-                // コメントリストに追加
+                // コメントリストへ追加するオブジェクト
                 // コメント投稿時刻はフォーマットしてから
-                this.comment_list.push({
+                const comment_dict = {
                     id: comment.no,
                     text: comment.content,
                     time: dayjs(comment.date * 1000).format('HH:mm:ss'),
-                });
+                };
 
-                // コメントリストのスクロールを最下部に固定
+                // タブが非表示状態のときは、バッファにコメントを追加するだけで終了する
+                // ここで追加すると、タブが表示状態になったときに一斉に描画されて大変なことになる
+                if (document.visibilityState === 'hidden') {
+                    comment_list_buffer.push(comment_dict);
+                    return;
+                }
+
+                // コメントリストに追加
+                this.comment_list.push(comment_dict);
+
+                // // コメントリストを一番下にスクロール
                 // 最初に受信したコメントは上の処理で一括でスクロールさせる
                 if (is_received_initial_comment) {
-                    // 0.01 秒待った上でさらに3回実行しないと完全に最下部までスクロールされない…（ブラウザの描画バグ？）
-                    // this.$nextTick() は効かなかった
-                    for (let index = 0; index < 3; index++) {
-                        await new Promise(resolve => setTimeout(resolve, 0.01 * 1000));
-                        comment_list_element.scrollTop = comment_list_element.scrollHeight;
-                    }
+                    this.scrollCommentList();
                 }
 
                 // コメント描画 (再生時のみ)
@@ -510,6 +538,16 @@ export default Vue.extend({
                     }
                 }
             });
+
+            // タブの表示/非表示の状態が切り替わったときのイベント
+            // 表示状態になったときにバッファにあるコメントをコメントリストに表示する
+            document.onvisibilitychange = () => {
+                if (document.visibilityState === 'visible') {
+                    this.comment_list.push(...comment_list_buffer);  // コメントリストに一括で追加
+                    comment_list_buffer = [];  // バッファをクリア
+                    this.scrollCommentList();  // コメントリストをスクロール
+                }
+            };
         },
 
         // リサイズ時のイベントを初期化
@@ -597,6 +635,29 @@ export default Vue.extend({
             this.resize_observer.observe(this.resize_observer_element);
         },
 
+        // コメントリストを一番下までスクロールする
+        async scrollCommentList() {
+
+            // 手動スクロールモードの時は実行しない
+            if (this.is_manual_scroll === true) return;
+
+            // 自動スクロール中のフラグを立てる
+            this.is_auto_scrolling = true;
+
+            // 0.01 秒待って実行し、念押しで2回実行しないと完全に最下部までスクロールされない…（ブラウザの描画バグ？）
+            // this.$nextTick() は効かなかった
+            for (let index = 0; index < 3; index++) {
+                await new Promise(resolve => setTimeout(resolve, 0.01 * 1000));
+                this.comment_list_element.scrollTo(0, this.comment_list_element.scrollHeight);
+            }
+
+            // 0.1 秒待つ（重要）
+            await new Promise(resolve => setTimeout(resolve, 0.1 * 1000));
+
+            // 自動スクロール中のフラグを降ろす
+            this.is_auto_scrolling = false;
+        },
+
         /**
          * ニコニコの色指定を 16 進数カラーコードに置換する
          * @param {string} color ニコニコの色指定
@@ -662,6 +723,9 @@ export default Vue.extend({
 
             // コメントリストをクリア
             this.comment_list = [];
+
+            // タブの表示/非表示の状態が切り替わったときのイベントを削除
+            document.onvisibilitychange = null;
 
             // 視聴セッションを閉じる
             if (this.watch_session !== null) {
@@ -766,6 +830,31 @@ export default Vue.extend({
                 color: var(--v-text-darken1);
                 font-size: 13px;
             }
+        }
+    }
+
+    .comment-scroll-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+        left: 0px;
+        right: 0px;
+        bottom: 22px;
+        width: 42px;
+        height: 42px;
+        margin: 0 auto;
+        border-radius: 50%;
+        background: var(--v-primary-base);
+        transition: background-color 0.15s, opacity 0.3s, visibility 0.3s;
+        visibility: hidden;
+        opacity: 0;
+        user-select: none;
+        cursor: pointer;
+
+        &--display {
+            opacity: 1;
+            visibility: visible;
         }
     }
 }
