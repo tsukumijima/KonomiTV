@@ -197,7 +197,7 @@ class LiveStream():
 
     async def connect(self, client_type:Literal['mpegts', 'll-hls']) -> int:
         """
-        ライブストリームに接続（新しいクライアントを登録）し、クライアント ID を返す
+        ライブストリームに接続して、新しく登録されたクライアント ID を返す
 
         Args:
             client_type (Literal['mpegts', 'll-hls']): クライアントの種別 (mpegts or ll-hls)

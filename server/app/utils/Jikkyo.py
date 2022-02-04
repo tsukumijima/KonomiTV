@@ -141,9 +141,9 @@ class Jikkyo:
             self.jikkyo_nicolive_id = None
 
 
-    async def fetchNicoLiveSession(self) -> dict:
+    async def fetchJikkyoSession(self) -> dict:
         """
-        ニコ生の視聴セッション情報を取得する
+        ニコニコ実況（ニコ生）の視聴セッション情報を取得する
 
         Returns:
             dict: 視聴セッション情報 or エラーメッセージが含まれる辞書
@@ -198,7 +198,7 @@ class Jikkyo:
             return {'is_success': False, 'detail': '視聴セッションを取得できませんでした。'}
 
         # 視聴セッションの WebSocket の URL を返す
-        return {'is_success': True, 'audience_token': session}
+        return {'is_success': True, 'audience_token': session, 'detail': '視聴セッションを取得しました。'}
 
 
     async def getStatus(self) -> Optional[dict]:

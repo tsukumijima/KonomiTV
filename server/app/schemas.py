@@ -65,3 +65,8 @@ class LiveStreams(BaseModel):
     ONAir: Dict[str, LiveStream]
     Standby: Dict[str, LiveStream]
     Offline: Dict[str, LiveStream]
+
+class JikkyoSession(BaseModel):
+    is_success: bool
+    audience_token: Optional[str]
+    detail: str

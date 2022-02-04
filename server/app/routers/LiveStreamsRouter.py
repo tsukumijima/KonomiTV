@@ -28,16 +28,16 @@ router = APIRouter(
 @router.get(
     '',
     summary = 'ライブストリーム一覧 API',
-    response_description = 'ステータスごとに分類された、全てのライブストリームの状態。',
-    response_model = schemas.LiveStreams,  # Response の構造を明示
+    response_description = 'ステータスごとに分類された、すべてのライブストリームの状態。',
+    response_model = schemas.LiveStreams,
 )
 async def LiveStreamsAPI():
     """
-    全てのライブストリームの状態を Offline・Standby・ONAir・Idling・Restart の各ステータスごとに取得する。
+    すべてのライブストリームの状態を Offline・Standby・ONAir・Idling・Restart の各ステータスごとに取得する。
     """
 
     # 返却するデータ
-    # 逆順なのは大半を占める Offline なストリームを最初に見ることになるのを避けるため
+    # 逆順になっているのは、デバッグ時に全体の大半を占める Offline なストリームが邪魔なため
     result = {
         'Restart': dict(),
         'Idling' : dict(),
@@ -46,11 +46,11 @@ async def LiveStreamsAPI():
         'Offline': dict(),
     }
 
-    # 全てのストリームごとに
+    # すべてのストリームごとに
     for livestream in LiveStream.getAllLiveStreams():
         result[livestream.status][livestream.livestream_id] = livestream.getStatus()
 
-    # データを返す
+    # すべてのライブストリームの状態を返す
     return result
 
 
@@ -58,7 +58,7 @@ async def LiveStreamsAPI():
     '/{channel_id}/{quality}',
     summary = 'ライブストリーム API',
     response_description = 'ライブストリームの状態。',
-    response_model = schemas.LiveStream,  # Response の構造を明示
+    response_model = schemas.LiveStream,
 )
 async def LiveStreamAPI(
     channel_id:str = Path(..., description='チャンネル ID 。ex:gr011'),
@@ -91,7 +91,7 @@ async def LiveStreamAPI(
     # ステータスを取得したいだけなので、接続はしない
     livestream = LiveStream(channel_id, quality)
 
-    # そのまま返す
+    # 取得してきた値をそのまま返す
     return livestream.getStatus()
 
 
@@ -102,7 +102,7 @@ async def LiveStreamAPI(
     responses = {
         status.HTTP_200_OK: {
             'description': 'ライブストリームのイベントが随時配信されるイベントストリーム。',
-            'content': {'text/event-stream': {}}
+            'content': {'text/event-stream': {}},
         }
     }
 )
@@ -205,7 +205,7 @@ async def LiveStreamEventAPI(
     responses = {
         status.HTTP_200_OK: {
             'description': 'ライブ MPEGTS ストリーム。',
-            'content': {'video/mp2t': {}}
+            'content': {'video/mp2t': {}},
         }
     }
 )
@@ -219,7 +219,7 @@ async def LiveMPEGTSStreamAPI(
 
     同じチャンネル ID 、同じ画質のライブストリームが Offline 状態のときは、新たにエンコードタスクを立ち上げて、
     ONAir 状態になるのを待機してからストリームデータを配信する。<br>
-    同じチャンネル ID 、同じ画質のライブストリームが ONAir 状態のときは、新たにエンコードタスクを立ち上げることなく、他のクライアントとストリームデータを共有して配信する。
+    同じチャンネル ID 、同じ画質のライブストリームが ONAir や Idling 状態のときは、新たにエンコードタスクを立ち上げることなく、他のクライアントとストリームデータを共有して配信する。
 
     何らかの理由でライブストリームが終了しない限り、継続的にレスポンスが出力される（ストリーミング）。
     """
@@ -243,7 +243,7 @@ async def LiveMPEGTSStreamAPI(
     # ***** エンコードタスクの開始 *****
 
     # ライブストリームに接続し、クライアント ID を取得する
-    # 接続時に Offline だった場合は自動的にエンコードタスクが起動される
+    ## 接続時に Offline だった場合は自動的にエンコードタスクが起動される
     livestream = LiveStream(channel_id, quality)
     client_id = await livestream.connect('mpegts')
 

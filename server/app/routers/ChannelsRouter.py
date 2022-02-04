@@ -177,7 +177,7 @@ async def ChannelAPI(
     responses = {
         status.HTTP_200_OK: {
             'description': 'チャンネルロゴ。',
-            'content': {'image/png': {}}
+            'content': {'image/png': {}},
         }
     }
 )
@@ -311,7 +311,7 @@ async def ChannelLogoAPI(
 @router.get(
     '/{channel_id}/jikkyo',
     summary = 'ニコニコ実況セッション情報 API',
-    response_description = '',
+    response_model = schemas.JikkyoSession,
 )
 async def ChannelJikkyoSessionAPI(
     channel_id:str = Path(..., description='チャンネル ID 。ex:gr011'),
@@ -333,6 +333,6 @@ async def ChannelJikkyoSessionAPI(
     # ニコニコ実況クライアントを初期化する
     jikkyo = Jikkyo(channel.network_id, channel.service_id)
 
-    # ニコ生の視聴セッション情報を取得する
-    # 今のところ値をそのまま返す
-    return await jikkyo.fetchNicoLiveSession()
+    # ニコニコ実況（ニコ生）のセッション情報を取得する
+    # 取得してきた値をそのまま返す
+    return await jikkyo.fetchJikkyoSession()
