@@ -327,7 +327,7 @@ class LiveStream():
 
         # ストリーム起動 (Standby → ONAir) 時、起動時間のログを表示する
         if self.status == 'Standby' and status == 'ONAir':
-            Logging.info(f'LiveStream:{self.livestream_id} Startup:{round(time.time() - self.started_at, 2)}s')
+            Logging.info(f'LiveStream:{self.livestream_id} Startup complete. ({round(time.time() - self.started_at, 2)} sec)')
 
         # ステータスと詳細を設定
         self.status = status
