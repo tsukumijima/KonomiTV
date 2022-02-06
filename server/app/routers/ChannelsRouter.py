@@ -212,15 +212,32 @@ async def ChannelLogoAPI(
     if pathlib.Path.exists(LOGO_DIR / f'{channel.id}.png'):
         return FileResponse(LOGO_DIR / f'{channel.id}.png', headers=header)
 
-    # NHK総合
-    # ロゴが全国共通なので、チャンネル名の前方一致で決め打ち
+    # ***** ロゴが全国共通なので、チャンネル名の前方一致で決め打ち *****
+
+    ## NHK総合
     if channel.channel_type == 'GR' and channel.channel_name.startswith('NHK総合'):
         return FileResponse(LOGO_DIR / 'NID32736-SID1024.png', headers=header)
 
-    # NHKEテレ
-    # ロゴが全国共通なので、チャンネル名の前方一致で決め打ち
+    ## NHKEテレ
     if channel.channel_type == 'GR' and channel.channel_name.startswith('NHKEテレ'):
         return FileResponse(LOGO_DIR / 'NID32737-SID1032.png', headers=header)
+
+    # 複数の地域で放送しているケーブルテレビの場合、コミュニティチャンネルの NID と SID は地域ごとに異なる
+    # ref: https://youzaka.hatenablog.com/entry/2013/06/30/154243
+
+    # J:COMテレビ
+    if channel.channel_type == 'GR' and channel.channel_name.startswith('J:COMテレビ'):
+        return FileResponse(LOGO_DIR / 'NID32397-SID23656.png', headers=header)
+
+    # J:COMチャンネル
+    if channel.channel_type == 'GR' and channel.channel_name.startswith('J:COMチャンネル'):
+        return FileResponse(LOGO_DIR / 'NID32399-SID23672.png', headers=header)
+
+    # eo光チャンネル
+    if channel.channel_type == 'GR' and channel.channel_name.startswith('eo光チャンネル'):
+        return FileResponse(LOGO_DIR / 'NID32127-SID41080.png', headers=header)
+
+    # ***** サブチャンネルのロゴを取得 *****
 
     # 地デジでかつサブチャンネルのみ、メインチャンネルにロゴがあればそれを利用する
     if channel.channel_type == 'GR' and channel.is_subchannel is True:
