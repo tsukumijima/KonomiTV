@@ -237,6 +237,10 @@ async def ChannelLogoAPI(
     if channel.channel_type == 'GR' and channel.channel_name.startswith('eo光チャンネル'):
         return FileResponse(LOGO_DIR / 'NID32127-SID41080.png', headers=header)
 
+    # ZTV
+    if channel.channel_type == 'GR' and channel.channel_name.startswith('ZTV'):
+        return FileResponse(LOGO_DIR / 'NID32047-SID46200.png', headers=header)
+
     # ***** サブチャンネルのロゴを取得 *****
 
     # 地デジでかつサブチャンネルのみ、メインチャンネルにロゴがあればそれを利用する
