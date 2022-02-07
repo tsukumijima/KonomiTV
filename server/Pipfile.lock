@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "bcc1fde8a73a17a205f135bb13aaec08dcfb96b60fa3fa249d367cae962c5b0d"
+            "sha256": "1dc886c088def458338ed2d2c22c4fc0d20cf454f8e82811c49f6430efe67c25"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -345,6 +345,24 @@
             ],
             "version": "==2021.3"
         },
+        "pywin32": {
+            "hashes": [
+                "sha256:2a09632916b6bb231ba49983fe989f2f625cea237219530e81a69239cd0c4559",
+                "sha256:51cb52c5ec6709f96c3f26e7795b0bf169ee0d8395b2c1d7eb2c029a5008ed51",
+                "sha256:5f9ec054f5a46a0f4dfd72af2ce1372f3d5a6e4052af20b858aa7df2df7d355b",
+                "sha256:6fed4af057039f309263fd3285d7b8042d41507343cd5fa781d98fcc5b90e8bb",
+                "sha256:793bf74fce164bcffd9d57bb13c2c15d56e43c9542a7b9687b4fccf8f8a41aba",
+                "sha256:79cbb862c11b9af19bcb682891c1b91942ec2ff7de8151e2aea2e175899cda34",
+                "sha256:7d3271c98434617a11921c5ccf74615794d97b079e22ed7773790822735cc352",
+                "sha256:aad484d52ec58008ca36bd4ad14a71d7dd0a99db1a4ca71072213f63bf49c7d9",
+                "sha256:b1675d82bcf6dbc96363fca747bac8bff6f6e4a447a4287ac652aa4b9adc796e",
+                "sha256:c268040769b48a13367221fced6d4232ed52f044ffafeda247bd9d2c6bdc29ca",
+                "sha256:d9b5d87ca944eb3aa4cd45516203ead4b37ab06b8b777c54aedc35975dec0dee",
+                "sha256:fcf44032f5b14fcda86028cdf49b6ebdaea091230eb0a757282aa656e4732439"
+            ],
+            "index": "pypi",
+            "version": "==303"
+        },
         "pyyaml": {
             "hashes": [
                 "sha256:0283c35a6a9fbf047493e3a0ce8d79ef5030852c51e9d911a27badfde0605293",
@@ -498,11 +516,11 @@
         },
         "tomlkit": {
             "hashes": [
-                "sha256:5a83672c565f78f5fc8f1e44e5f2726446cc6b765113efd21d03e9331747d9ab",
-                "sha256:c1b0fc73abd4f1e77c29ea4061ca0f2e11cbfb77342e17df3d3fdd496fc3f899"
+                "sha256:01407892165b513969231085a33d4be2cb41f186d9fd072c975b6bd1435371b0",
+                "sha256:3bdbfffc3ae6c8628b5fb6ed7b459edb8476472eae15033b705bc7d1380b3e3d"
             ],
             "markers": "python_version >= '3.6' and python_version < '4.0'",
-            "version": "==0.9.0"
+            "version": "==0.9.1"
         },
         "tortoise-orm": {
             "hashes": [
