@@ -6,29 +6,37 @@
                 <router-link v-ripple class="watch-navigation__icon" to="/tv/">
                     <img class="watch-navigation__icon-image" src="/assets/img/icon.svg" width="23px">
                 </router-link>
-                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/tv/">
+                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
+                             v-tooltip.right="'テレビをみる'" to="/tv/">
                     <Icon class="watch-navigation__link-icon" icon="fluent:tv-20-regular" width="26px" />
                 </router-link>
-                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/videos/">
+                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
+                             v-tooltip.right="'ビデオをみる'"  to="/videos/">
                     <Icon class="watch-navigation__link-icon" icon="fluent:movies-and-tv-20-regular" width="26px" />
                 </router-link>
-                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/schedules/">
+                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
+                             v-tooltip.right="'番組表'" to="/schedules/">
                     <Icon class="watch-navigation__link-icon" icon="fluent:calendar-ltr-20-regular" width="26px" />
                 </router-link>
-                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/captures/">
+                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
+                             v-tooltip.right="'キャプチャ'" to="/captures/">
                     <Icon class="watch-navigation__link-icon" icon="fluent:image-multiple-24-regular" width="26px" />
                 </router-link>
-                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/watchlists/">
+                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
+                             v-tooltip.right="'ウォッチリスト'" to="/watchlists/">
                     <Icon class="watch-navigation__link-icon" icon="ic:round-playlist-play" width="26px" />
                 </router-link>
-                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/histories/">
+                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
+                             v-tooltip.right="'視聴履歴'" to="/histories/">
                     <Icon class="watch-navigation__link-icon" icon="fluent:history-16-regular" width="26px" />
                 </router-link>
                 <v-spacer></v-spacer>
-                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" to="/settings/">
+                <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
+                             v-tooltip.right="'設定'" to="/settings/">
                     <Icon class="watch-navigation__link-icon" icon="fluent:settings-20-regular" width="26px" />
                 </router-link>
-                <a v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" href="https://github.com/tsukumijima/KonomiTV">
+                <a v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
+                   v-tooltip.right="`version ${Utils.version}`" href="https://github.com/tsukumijima/KonomiTV">
                     <Icon class="watch-navigation__link-icon" icon="fluent:info-16-regular" width="26px" />
                 </a>
             </nav>
@@ -54,7 +62,7 @@
                          @touchmove="controlVisibleTimer('panel', $event)"
                          @click="controlVisibleTimer('panel', $event)">
                         <router-link v-ripple class="switch-button switch-button-up" :to="`/tv/watch/${channel_previous.channel_id}`"
-                            v-tooltip.top="'前のチャンネル'">
+                                     v-tooltip.top="'前のチャンネル'">
                             <Icon class="switch-button-icon" icon="fluent:ios-arrow-left-24-filled" width="32px" rotate="1" />
                         </router-link>
                         <div v-ripple class="switch-button switch-button-panel switch-button-panel--open"
