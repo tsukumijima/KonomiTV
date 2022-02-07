@@ -9,7 +9,7 @@
                 </v-tabs-fix>
                 <v-tabs-items-fix class="channels-list" v-model="tab">
                     <v-tab-item-fix class="channels-tabitem" v-for="[channels_type, channels] in Array.from(channels_list)" :key="channels_type">
-                        <div class="channels" :class="`channels--length-${channels.length}`">
+                        <div class="channels" :class="`channels--tab-${channels_type} channels--length-${channels.length}`">
                             <router-link v-ripple class="channel" v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.channel_id}`">
                                 <div class="channel__broadcaster">
                                     <img class="channel__broadcaster-icon" :src="`${Utils.api_base_url}/channels/${channel.channel_id}/logo`">
@@ -59,6 +59,13 @@
                                          :style="`width:${TVUtils.getProgramProgress(channel.program_present)}%;`"></div>
                                 </div>
                             </router-link>
+                            <div class="d-flex justify-center align-center w-100" v-if="channels_type === 'ピン留め' && channels.length === 0">
+                                <div class="d-flex justify-center align-center flex-column">
+                                    <h2>ピン留めされているチャンネルがありません。</h2>
+                                    <div class="mt-4 text--text text--darken-1">各チャンネルの <Icon style="position:relative;bottom:-5px;" icon="fluent:pin-20-filled" width="22px" /> アイコンから、よくみるチャンネルをこのタブにピン留めできます。</div>
+                                    <div class="mt-2 text--text text--darken-1">チャンネルをピン留めすると、このタブが最初に表示されます。</div>
+                                </div>
+                            </div>
                         </div>
                     </v-tab-item-fix>
                 </v-tabs-items-fix>
@@ -171,7 +178,7 @@ export default Vue.extend({
             if (channels_response.data.STARDIGIO.length > 0) this.channels_list.set('StarDigio', channels_response.data.STARDIGIO.filter(filter));
 
             // ピン留めされているチャンネルのリストを更新
-            this.updatePinnedChannelList();
+            this.updatePinnedChannelList(this.is_loading ? true : false);
 
             // ローディング状態を解除
             this.is_loading = false;
@@ -210,7 +217,7 @@ export default Vue.extend({
         },
 
         // ピン留めされているチャンネルのリストを更新する
-        updatePinnedChannelList() {
+        updatePinnedChannelList(is_update_tab: boolean = true) {
 
             // ピン留めされているチャンネルの ID を取得
             this.pinned_channel_ids = Utils.getSettingsItem('pinned_channel_ids');
@@ -226,28 +233,18 @@ export default Vue.extend({
                 }));
             }
 
-            // pinned_channels に何か入っていたらピン留めタブを表示するし、そうでなければ表示しない
-            if (pinned_channels.length > 0) {
-
-                if (!this.channels_list.has('ピン留め')) {
-                    // タブの一番左にピン留めタブを表示する
-                    this.channels_list = new Map([['ピン留め', pinned_channels], ...this.channels_list]);
-                } else {
-                    // 既に存在するピン留めタブにチャンネル情報を設定する
-                    this.channels_list.set('ピン留め', pinned_channels);
-                }
-
+            if (!this.channels_list.has('ピン留め')) {
+                // タブの一番左にピン留めタブを表示する
+                this.channels_list = new Map([['ピン留め', pinned_channels], ...this.channels_list]);
             } else {
-                // ピン留めタブがまだ表示されていれば
-                if (this.channels_list.has('ピン留め')) {
+                // 既に存在するピン留めタブにチャンネル情報を設定する
+                this.channels_list.set('ピン留め', pinned_channels);
+            }
 
-                    // ピン留めタブがアクティブな状態なら、タブを削除する前にタブのインデックスを 1（地デジ）に変更
-                    // 本当は VTabsItems 側で制御したかったけど、なぜかインデックスが 2 のタブが選択されてしまうのでやむを得ずこうしている
-                    if (this.tab !== undefined && this.tab === 0) this.tab = 1;
-
-                    // ピン留めタブを削除
-                    this.channels_list.delete('ピン留め');
-                }
+            // pinned_channels が空の場合は、タブを地デジタブに変更
+            // ピン留めができる事を示唆するためにピン留めタブ自体は残す
+            if (pinned_channels.length === 0 && is_update_tab === true) {
+                this.tab = 1;
             }
         },
 
@@ -378,6 +375,12 @@ _::-webkit-full-page-media, _:future, :root
             // 1630px 以上で幅を 445px に固定
             @media screen and (min-width: 1630px) {
                 grid-template-columns: repeat(auto-fit, 445px);
+            }
+
+            // ピン留めされているチャンネルがないとき
+            &.channels--length-0.channels--tab-ピン留め {
+                display: flex;
+                min-height: calc(100vh - 65px - 116px + 1px);
             }
 
             // カードが横いっぱいに表示されてしまうのを回避する
