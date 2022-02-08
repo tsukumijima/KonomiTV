@@ -1,7 +1,10 @@
 <template>
     <div class="route-container">
-        <main class="watch-container"
-            :class="{'watch-container--control-display': is_control_display, 'watch-container--panel-display': is_panel_display}">
+        <main class="watch-container" :class="{
+                'watch-container--control-display': is_control_display,
+                'watch-container--panel-display': is_panel_display,
+                'watch-container--fullscreen': is_fullscreen,
+            }">
             <nav class="watch-navigation">
                 <router-link v-ripple class="watch-navigation__icon" to="/tv/">
                     <img class="watch-navigation__icon-image" src="/assets/img/icon.svg" width="23px">
@@ -229,7 +232,10 @@ export default Vue.extend({
                     case 'RestorePreviousState':
                         return Utils.getSettingsItem('is_latest_panel_display');
                 }
-            })(),
+            })() as boolean,
+
+            // フルスクリーン状態かどうか
+            is_fullscreen: false,
 
             // インターバル ID
             // ページ遷移時に setInterval(), setTimeout() の実行を止めるのに使う
@@ -260,10 +266,13 @@ export default Vue.extend({
             player: null,
 
             // イベントソースのインスタンス
-            eventsource: null,
+            eventsource: null as EventSource | null,
+
+            // フルスクリーン状態が切り替わったときのハンドラー
+            fullscreen_handler: null as () => void | null,
 
             // ショートカットキーのハンドラー
-            shortcut_key_handler: null,
+            shortcut_key_handler: null as (event: KeyboardEvent) => void | null,
 
             // ショートカットキーの最終押下時刻のタイムスタンプ
             shortcut_key_pressed_at: Date.now(),
@@ -666,15 +675,17 @@ export default Vue.extend({
                 try {
                     this.player.destroy();
                 } catch (error) {
-                    // mpegts.js がうまく初期化できない場合
-                    this.player.plugins.mpegts.destroy();
+                    // mpegts.js をうまく破棄できない場合
+                    if (this.player.plugins.mpegts !== undefined) {
+                        this.player.plugins.mpegts.destroy();
+                    }
                 }
                 this.player = null;
             }
 
             // DPlayer を初期化
             this.player = new DPlayer({
-                container: document.querySelector('.watch-player__dplayer'),
+                container: this.$el.querySelector('.watch-player__dplayer'),
                 theme: '#E64F97',  // テーマカラー
                 lang: 'ja-jp',  // 言語
                 live: true,  // ライブモード
@@ -780,7 +791,7 @@ export default Vue.extend({
 
             // 設定パネルのショートカット一覧を表示するリンクがクリックされたときのイベント
             // リアクティブではないので、手動でやらないといけない…
-            document.querySelector('.dplayer-setting-keyboard-shortcut').addEventListener('click', () => {
+            this.$el.querySelector('.dplayer-setting-keyboard-shortcut').addEventListener('click', () => {
                 this.player.setting.hide();  // 設定パネルを閉じる
                 this.shortcut_key_modal = true;
             });
@@ -828,6 +839,57 @@ export default Vue.extend({
                     this.player.sync();
                 }
             }, 60 * 1000));
+
+            // フルスクリーンにするコンテナ要素（コンポーネント全体）
+            const fullscreen_container = this.$el;
+            this.fullscreen_handler = () => this.is_fullscreen = this.player.fullScreen.isFullScreen();
+            if (fullscreen_container.onfullscreenchange !== undefined) {
+                fullscreen_container.addEventListener('fullscreenchange', this.fullscreen_handler);
+            } else {
+                fullscreen_container.addEventListener('webkitfullscreenchange', this.fullscreen_handler);
+            }
+
+            // DPlayer のフルスクリーン関係のメソッドを無理やり上書きし、KonomiTV の UI と統合する
+            // フルスクリーンかどうか
+            this.player.fullScreen.isFullScreen = (type: string) => {
+                return !!(document.fullscreenElement || document.webkitFullscreenElement);
+            }
+            // フルスクリーンをリクエスト
+            this.player.fullScreen.request = (type: string) => {
+
+                // すでにフルスクリーンだったらキャンセルする
+                if (this.player.fullScreen.isFullScreen()) {
+                    this.player.fullScreen.cancel();
+                    return;
+                }
+
+                // フルスクリーンをリクエスト
+                // Safari は webkit のベンダープレフィックスが必要
+                fullscreen_container.requestFullscreen = fullscreen_container.requestFullscreen || fullscreen_container.webkitRequestFullscreen;
+                if (fullscreen_container.requestFullscreen) {
+                    fullscreen_container.requestFullscreen();
+                }
+
+                // 画面の向きを横に固定 (Screen Orientation API がサポートされている場合)
+                if (screen.orientation) {
+                    screen.orientation.lock('landscape').catch(() => {});
+                }
+            }
+            // フルスクリーンをキャンセル
+            this.player.fullScreen.cancel = (type: string) => {
+
+                // フルスクリーンを終了
+                // Safari は webkit のベンダープレフィックスが必要
+                document.exitFullscreen = document.exitFullscreen || document.webkitExitFullscreen;
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+
+                // 画面の向きの固定を解除
+                if (screen.orientation) {
+                    screen.orientation.unlock();
+                }
+            }
         },
 
         // イベントハンドラーを初期化する
@@ -1287,6 +1349,7 @@ export default Vue.extend({
     .dplayer-controller {
         padding-left: calc(68px + 18px) !important;
         padding-bottom: 6px !important;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
         opacity: 0 !important;
         visibility: hidden;
 
@@ -1308,6 +1371,9 @@ export default Vue.extend({
             .dplayer-icon.dplayer-full-in-icon {
                 display: none !important;
             }
+        }
+        .dplayer-comment-box {
+            transition: opacity 0.3s ease, visibility 0.3s ease;
         }
     }
     .dplayer-notice {
@@ -1333,6 +1399,19 @@ export default Vue.extend({
                 .dplayer-label {
                     color: #AAAAAA;  // グレーアウト
                 }
+            }
+        }
+    }
+    .dplayer-comment-setting-box {
+        .dplayer-comment-setting-title {
+            color: var(--v-text-base);
+        }
+        .dplayer-comment-setting-type {
+            span {
+                border: 1px solid (--v-text-base);
+            }
+            input:checked + span {
+                background: var(--v-text-base);
             }
         }
     }
@@ -1421,6 +1500,37 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         aspect-ratio: 16 / 9 !important;
     }
 }
+// フルスクリーン時
+.watch-container.watch-container--fullscreen {
+    .watch-player__dplayer {
+        .dplayer-controller {
+            padding-left: 20px !important;
+        }
+        .dplayer-comment-box, .dplayer-comment-setting-box {
+            left: 20px !important;
+            @include tablet {
+                left: 16px !important;
+            }
+            @media screen and (max-height: 450px) {
+                left: 16px !important;
+            }
+        }
+    }
+}
+// フルスクリーン+コントロール表示時
+.watch-container.watch-container--fullscreen.watch-container--control-display {
+    .watch-player__dplayer {
+        .dplayer-notice, .dplayer-info-panel {
+            left: 30px !important;
+            @include tablet {
+                left: 16px !important;
+            }
+            @media screen and (max-height: 450px) {
+                left: 16px !important;
+            }
+        }
+    }
+}
 
 </style>
 <style lang="scss" scoped>
@@ -1463,7 +1573,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
     }
 
     // コントロール表示時
-    &--control-display {
+    &.watch-container--control-display {
         .watch-content {
             cursor: auto !important;
         }
@@ -1474,12 +1584,33 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
     }
 
     // パネル表示時
-    &--panel-display {
+    &.watch-container--panel-display {
         width: calc(100%);  // 画面幅に収めるように
 
         // パネルアイコンをハイライト
         .switch-button-panel .switch-button-icon {
             color: var(--v-primary-base);
+        }
+    }
+
+    // フルスクリーン時
+    &.watch-container--fullscreen {
+
+        // ナビゲーションを非表示
+        .watch-navigation {
+            display: none;
+        }
+        // ナビゲーションの分の余白を削除
+        .watch-content {
+            .watch-header {
+                padding-left: 30px;
+                @include tablet {
+                    padding-left: 16px;
+                }
+                @media screen and (max-height: 450px) {
+                    padding-left: 16px;
+                }
+            }
         }
     }
 

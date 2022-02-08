@@ -38,11 +38,18 @@ interface HTMLVideoElement {
     onleavepictureinpicture: PictureInPictureEventListener;
 }
 
+interface Element {
+    webkitRequestFullscreen(): Promise<void>;
+}
+
 interface Document {
     readonly pictureInPictureEnabled: boolean;
+    webkitFullscreenElement: Element;
     exitPictureInPicture(): Promise<void>;
+    webkitExitFullscreen(): Promise<void>;
 }
 
 interface DocumentOrShadowRoot {
     readonly pictureInPictureElement: HTMLVideoElement | null;
+    webkitFullscreenElement: Element;
 }
