@@ -321,6 +321,7 @@ export default Vue.extend({
                             { name: 'Picture-in-Picture の表示切り替え', keys: [{name: 'E', icon: false}] },
                             { name: '字幕の表示切り替え', keys: [{name: 'S', icon: false}] },
                             { name: 'コメントの表示切り替え', keys: [{name: 'D', icon: false}] },
+                            { name: 'フルスクリーンの表示切り替え', keys: [{name: 'F', icon: false}] },
                         ]
                     }
                 ]
@@ -1241,6 +1242,11 @@ export default Vue.extend({
                                 } else {
                                     this.player.notice(`${this.player.tran('Hide comment')}`);
                                 }
+                                return;
+                            }
+                            // Fキー: フルスクリーンの表示切り替え
+                            if (event.code === 'KeyF') {
+                                this.player.fullScreen.toggle();
                                 return;
                             }
                         }
