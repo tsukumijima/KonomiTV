@@ -9,19 +9,19 @@ serve = "uvicorn app.app:app --host 0.0.0.0 --port 7000"
 dev = "uvicorn app.app:app --host 0.0.0.0 --port 7000 --reload --reload-dir app"
 
 [packages]
-aerich = "*"
+aerich = "==0.6.2"
 aiofiles = "*"
 aiosqlite = "*"
 ariblib = "*"
-fastapi = "*"
-fastapi-utils = "*"
+fastapi = "==0.73.0"
+fastapi-utils = "==0.2.1"
 psutil = "*"
-pywin32 = "*"
+pywin32 = "==303"
 requests = "*"
 "ruamel.yaml" = "*"
-sse-starlette = "*"
-tortoise-orm = "*"
-uvicorn = {extras = ["standard"], version = "*"}
+sse-starlette = "==0.10.3"
+tortoise-orm = "==0.18.1"
+uvicorn = {extras = ["standard"], version = "==0.17.4"}
 
 [dev-packages]
 
