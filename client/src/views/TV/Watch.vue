@@ -683,6 +683,7 @@ export default Vue.extend({
                 autoplay: true,  // 自動再生
                 hotkey: false,  // ショートカットキー（こちらで制御するため無効化）
                 screenshot: true,  // スクリーンショット
+                // screenshotOfEventTriggerOnly: true,  // スクリーンショットボタンが押された際、イベントと Blob URL のみ受け取る
                 volume: 1.0,  // 音量の初期値
                 // 映像
                 video: {
@@ -716,7 +717,8 @@ export default Vue.extend({
                 },
                 // コメント
                 danmaku: {
-                    height: 38,  // コメントのフォントサイズ
+                    fontSize: 34,  // コメントのフォントサイズ
+                    speedRate: 1,  // コメントの流れる速度
                 },
                 // コメント API バックエンド
                 apiBackend: {
@@ -811,6 +813,12 @@ export default Vue.extend({
                 // 新しい EventSource を作成
                 // 画質ごとにイベント API は異なるため、一度破棄してから作り直す
                 this.initEventHandler();
+            });
+
+            // 字幕が非表示の場合でも、文字スーパーは表示する
+            this.player.plugins.aribb24Superimpose.show();
+            this.player.on('subtitle_hide', () => {
+                this.player.plugins.aribb24Superimpose.show();
             });
 
             // 停止状態でかつ再生時間からバッファが 30 秒以上離れていないかを1分おきに監視し、そうなっていたら強制的にシークする

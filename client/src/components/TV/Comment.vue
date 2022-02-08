@@ -88,7 +88,9 @@ export default Vue.extend({
         this.destroy();
 
         // ResizeObserver を終了
-        this.resize_observer.unobserve(this.resize_observer_element);
+        if (this.resize_observer !== null) {
+            this.resize_observer.unobserve(this.resize_observer_element);
+        }
     },
     watch: {
 
