@@ -126,7 +126,7 @@ class Programs(models.Model):
 
             for item in program['relatedItems']:
 
-                # Mirakurun 3.8 以下では type が存在しない && relatedItems が機能していないので true を返す
+                # Mirakurun 3.8 以下では type が存在しない & relatedItems が機能していないので true を返す
                 if 'type' not in item:
                     return True
 
@@ -134,12 +134,16 @@ class Programs(models.Model):
                 if item['type'] == 'movement':
                     return True
 
-                # リレーの場合は無視
-                if item['type'] == 'relay':
-                    continue
+                # type が shared でメインサービスか？
+                if item['type'] == 'shared':
+                    # サービス ID とイベント ID が一致すればメインサービスだし、そうでないならメインサービスとイベントを共有している
+                    if item['serviceId'] == program['serviceId'] and item['eventId'] == program['eventId']:
+                        return True
+                    else:
+                        return False
 
-                # type が shared でメインの放送か？
-                if item['eventId'] == program['eventId'] and item['serviceId'] == program['serviceId']:
+                # イベントリレーされてきた番組か？
+                if item['type'] == 'relay':
                     return True
 
             return False
