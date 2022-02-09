@@ -287,14 +287,6 @@ class LiveEncodingTask():
         else:
             encoder_type = CONFIG['livestream']['encoder']
 
-        ## 画質が 480i なのに 1080p にしてもしょうがないので、指定された画質が 480p 以上なら 480p に固定する
-        ## TODO: 解像度が 480i → 1080i に変わった際、もしエンコーダーがクラッシュしなければ 480p のままになってしまうので微妙かも？
-        ## そもそも HWEncC が 1080p の解像度を固定できてないって問題もあるから、悩ましい
-        if program_present.video_resolution == '480i' and int(quality[:-1]) > 480:
-            real_quality = '480p'
-        else:
-            real_quality = quality
-
         # FFmpeg
         if encoder_type == 'FFmpeg':
 
@@ -303,7 +295,7 @@ class LiveEncodingTask():
             if channel.is_radiochannel is True:
                 encoder_options = self.buildFFmpegOptionsForRadio()
             else:
-                encoder_options = self.buildFFmpegOptions(real_quality)
+                encoder_options = self.buildFFmpegOptions(quality)
             Logging.info(f'LiveStream:{livestream.livestream_id} FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
             # プロセスを非同期で作成・実行
@@ -319,7 +311,7 @@ class LiveEncodingTask():
         elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
 
             # オプションを取得
-            encoder_options = self.buildHWEncCOptions(encoder_type, real_quality)
+            encoder_options = self.buildHWEncCOptions(encoder_type, quality)
             Logging.info(f'LiveStream:{livestream.livestream_id} {encoder_type} Commands:\n{encoder_type} {" ".join(encoder_options)}')
 
             # プロセスを非同期で作成・実行
@@ -497,7 +489,7 @@ class LiveEncodingTask():
             # 810p 以上ではデータ量が多くなるので、バッファを 188B (TS Packet Size) * 192 = 36096B に増やす
             # ラジオチャンネルではデータ量がかなり少なくなるので、バッファを 188B (TS Packet Size) * 48 = 9024B に減らす
             buffer = 24064
-            if real_quality == '810p' or real_quality == '1080p':
+            if quality == '810p' or quality == '1080p':
                 buffer = 36096
             elif channel.is_radiochannel is True:
                 buffer = 9024
@@ -579,8 +571,9 @@ class LiveEncodingTask():
                             pass
 
                         # リストに追加
-                        # 山ほど出力される "Delay between the first packet and last packet in the muxing queue" は除外
-                        if 'Delay between the first packet and last packet in the muxing queue' not in line:
+                        # 山ほど出力されるメッセージは除外
+                        if ('Delay between the first packet and last packet in the muxing queue' not in line and
+                            'removing 2 bytes from input bitstream not read by decoder.' not in line):
                             lines.append(line)
 
                         # 行バッファを消去
