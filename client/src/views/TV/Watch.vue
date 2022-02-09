@@ -5,7 +5,10 @@
                 'watch-container--panel-display': is_panel_display,
                 'watch-container--fullscreen': is_fullscreen,
             }">
-            <nav class="watch-navigation">
+            <nav class="watch-navigation"
+                 @mousemove="controlDisplayTimer($event)"
+                 @touchmove="controlDisplayTimer($event)"
+                 @click="controlDisplayTimer($event)">
                 <router-link v-ripple class="watch-navigation__icon" to="/tv/">
                     <img class="watch-navigation__icon-image" src="/assets/img/icon.svg" width="23px">
                 </router-link>
@@ -44,9 +47,9 @@
                 </a>
             </nav>
             <div class="watch-content"
-                 @mousemove="controlVisibleTimer('player', $event)"
-                 @touchmove="controlVisibleTimer('player', $event)"
-                 @click="controlVisibleTimer('player', $event)">
+                 @mousemove="controlDisplayTimer($event, true)"
+                 @touchmove="controlDisplayTimer($event, true)"
+                 @click="controlDisplayTimer($event, true)">
                 <header class="watch-header">
                     <img class="watch-header__broadcaster" :src="`${Utils.api_base_url}/channels/${($route.params.channel_id)}/logo`">
                     <span class="watch-header__program-title" v-html="TVUtils.decorateProgramInfo(channel.program_present, 'title')"></span>
@@ -61,9 +64,9 @@
                     </div>
                     <div class="watch-player__dplayer"></div>
                     <div class="watch-player__button"
-                         @mousemove="controlVisibleTimer('panel', $event)"
-                         @touchmove="controlVisibleTimer('panel', $event)"
-                         @click="controlVisibleTimer('panel', $event)">
+                         @mousemove="controlDisplayTimer($event)"
+                         @touchmove="controlDisplayTimer($event)"
+                         @click="controlDisplayTimer($event)">
                         <router-link v-ripple class="switch-button switch-button-up" :to="`/tv/watch/${channel_previous.channel_id}`"
                                      v-tooltip.top="'前のチャンネル'">
                             <Icon class="switch-button-icon" icon="fluent:ios-arrow-left-24-filled" width="32px" rotate="1" />
@@ -80,9 +83,9 @@
                 </div>
             </div>
             <div class="watch-panel"
-                 @mousemove="controlVisibleTimer('panel', $event)"
-                 @touchmove="controlVisibleTimer('panel', $event)"
-                 @click="controlVisibleTimer('panel', $event)">
+                 @mousemove="controlDisplayTimer($event)"
+                 @touchmove="controlDisplayTimer($event)"
+                 @click="controlDisplayTimer($event)">
                 <div class="watch-panel__header">
                     <div v-ripple class="panel-close-button" @click="is_panel_display = false">
                         <Icon class="panel-close-button__icon" icon="akar-icons:chevron-right" width="25px" />
@@ -131,7 +134,7 @@
                 </div>
             </div>
         </main>
-        <v-dialog max-width="950" transition="slide-y-transition" v-model="shortcut_key_modal">
+        <v-dialog max-width="980" transition="slide-y-transition" v-model="shortcut_key_modal">
             <v-card>
                 <v-card-title class="px-5 pt-4 pb-3 d-flex align-center font-weight-bold">
                     <Icon icon="fluent:keyboard-20-filled" height="28px" />
@@ -147,7 +150,7 @@
                                 </div>
                                 <div class="mt-3" v-for="shortcut in shortcut_keys.shortcuts" :key="shortcut.name">
                                     <div class="text-subtitle-2 mt-2 d-flex align-center font-weight-medium">
-                                        <span class="mr-2">{{shortcut.name}}</span>
+                                        <span class="mr-2" v-html="shortcut.name"></span>
                                         <div class="ml-auto d-flex align-center flex-shrink-0">
                                             <div class="ml-auto d-flex align-center" v-for="(key, index) in shortcut.keys" :key="key.name">
                                                 <Icon class="shortcut-key" v-if="key.icon === true" :icon="key.name" height="18px" />
@@ -277,10 +280,10 @@ export default Vue.extend({
             // ショートカットキーの最終押下時刻のタイムスタンプ
             shortcut_key_pressed_at: Date.now(),
 
-            // ショートカットキー一覧のモーダルを表示するか
+            // キーボードショートカットの一覧のモーダルを表示するか
             shortcut_key_modal: false,
 
-            // ショートカットキー一覧に表示するリスト
+            // キーボードショートカットの一覧に表示するショートカットキーのリスト
             shortcut_key_list: {
                 left_column: [
                     {
@@ -288,10 +291,10 @@ export default Vue.extend({
                         icon: 'fluent:home-20-filled',
                         icon_height: '22px',
                         shortcuts: [
-                            { name: '数字キー・テンキーに対応するリモコン番号 (1~12) のチャンネルに切り替える', keys: [{name: '1~9, 0, -(=), ^(~)', icon: false}] },
+                            { name: '数字キー・テンキーに対応するリモコン番号 (1~12) のチャンネルに切り替える<br style="display:block;content:\'\';margin:5px 0;">（同時に Shift キーを押すと、地デジならBS、BSなら地デジのチャンネルを選局する）', keys: [{name: '1~9, 0, -(=), ^(~)', icon: false}] },
                             { name: '前のチャンネルに切り替える', keys: [{name: 'fluent:arrow-up-12-filled', icon: true}] },
                             { name: '次のチャンネルに切り替える', keys: [{name: 'fluent:arrow-down-12-filled', icon: true}] },
-                            { name: 'ショートカットキーの一覧を表示する', keys: [{name: '／(？)', icon: false}] },
+                            { name: 'キーボードショートカットの一覧を表示する', keys: [{name: '／(？)', icon: false}] },
                         ]
                     },
                     {
@@ -314,14 +317,14 @@ export default Vue.extend({
                         icon_height: '20px',
                         shortcuts: [
                             { name: '再生 / 一時停止の切り替え', keys: [{name: 'Space', icon: false}] },
-                            { name: '停止して0.25秒巻き戻し', keys: [{name: 'fluent:arrow-left-12-filled', icon: true}] },
+                            { name: '停止して0.25秒早戻し', keys: [{name: 'fluent:arrow-left-12-filled', icon: true}] },
                             { name: '停止して0.25秒早送り', keys: [{name: 'fluent:arrow-right-12-filled', icon: true}] },
                             { name: 'フルスクリーンの切り替え', keys: [{name: 'F', icon: false}] },
                             { name: 'ライブストリームの同期', keys: [{name: 'W', icon: false}] },
                             { name: 'Picture-in-Picture の表示切り替え', keys: [{name: 'E', icon: false}] },
                             { name: '字幕の表示切り替え', keys: [{name: 'S', icon: false}] },
                             { name: 'コメントの表示切り替え', keys: [{name: 'D', icon: false}] },
-                            { name: 'フルスクリーンの表示切り替え', keys: [{name: 'F', icon: false}] },
+                            { name: 'コメント入力フォームにフォーカスする', keys: [{name: 'M', icon: false}] },
                         ]
                     }
                 ]
@@ -389,7 +392,7 @@ export default Vue.extend({
             this.background_url = Utils.generatePlayerBackgroundURL();
 
             // コントロール表示タイマーを実行
-            this.controlVisibleTimer('normal');
+            this.controlDisplayTimer();
 
             // チャンネル情報を取得
             this.update();
@@ -594,21 +597,28 @@ export default Vue.extend({
 
         // マウスが動いたりタップされた時のイベント
         // 3秒間何も操作がなければコントロールを非表示にする
-        controlVisibleTimer(type: string, event: Event|null = null) {
+        controlDisplayTimer(event: Event | null = null, is_player_event: boolean = false) {
 
             // タッチデバイスかどうか
             // DPlayer の UA 判定コードと同一
-            const is_touch_device = /iPhone|iPad|iPod|Android|Mobile/i.test(window.navigator.userAgent);
+            const is_touch_device = /iPhone|iPad|iPod|Macintosh|Android|Mobile/i.test(navigator.userAgent) && 'ontouchend' in document;
 
-            // タッチデバイスで mousemove 、あるいはタッチデバイス以外で touchmove か click が発火した時は却下
+            // タッチデバイスで mousemove 、あるいはタッチデバイス以外で touchmove か click が発火した時は実行じない
             if (is_touch_device == true  && event !== null && event.type === 'mousemove') return;
             if (is_touch_device == false && event !== null && (event.type === 'touchmove' || event.type === 'click')) return;
 
-            // 以前セットされた setTimeout() を止める
+            // 以前セットされたタイマーを止める
             window.clearTimeout(this.control_interval_id);
 
             // setTimeout に渡すタイマー関数
             const timeout = () => {
+
+                // コメント入力フォームにフォーカスされているときは実行しない
+                // タイマーを掛け直してから抜ける
+                if (document.activeElement === this.player.template.commentInput) {
+                    this.control_interval_id = window.setTimeout(timeout, 3 * 1000);
+                    return;
+                }
 
                 // コントロールを非表示にする
                 this.is_control_display = false;
@@ -620,8 +630,8 @@ export default Vue.extend({
                 }
             }
 
-            // タッチデバイスでプレイヤーがクリックされたとき
-            if (is_touch_device === true && type === 'player') {
+            // タッチデバイスでプレイヤー画面がクリックされたとき
+            if (is_touch_device === true && is_player_event === true) {
 
                 // プレイヤーのコントロールの表示状態に合わせる
                 if (this.player.controller.isShow()) {
@@ -646,7 +656,7 @@ export default Vue.extend({
                     this.player.setting.hide();
                 }
 
-            // それ以外
+            // それ以外の画面がクリックされたとき
             } else {
 
                 // コントロールを表示する
@@ -775,27 +785,36 @@ export default Vue.extend({
             // デバッグ用にプレイヤーインスタンスも window 直下に入れる
             (window as any).player = this.player;
 
+            // プレイヤー側のコントロール非表示タイマーを無効化（上書き）
+            // 無効化しておかないと、controlDisplayTimer() と競合してしまう
+            // 上書き元のコードは https://github.com/tsukumijima/DPlayer/blob/master/src/js/controller.js#L387-L395 にある
+            this.player.controller.setAutoHide = (time: number) => {};
+
             // 設定パネルにショートカット一覧を表示するリンクを動的に追加する
-            this.player.template.settingOriginPanel.insertAdjacentHTML('beforeend', `
-            <div class="dplayer-setting-item dplayer-setting-keyboard-shortcut">
-                <span class="dplayer-label">キーボードショートカット</span>
-                <div class="dplayer-toggle">
-                    <svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 32 32">
-                        <path d="M22 16l-10.105-10.6-1.895 1.987 8.211 8.613-8.211 8.612 1.895 1.988 8.211-8.613z"></path>
-                    </svg>
-                </div>
-            </div>`)
+            // タッチデバイスでは実行しない
+            const is_touch_device = /iPhone|iPad|iPod|Macintosh|Android|Mobile/i.test(navigator.userAgent) && 'ontouchend' in document;
+            if (is_touch_device === false) {
+                this.player.template.settingOriginPanel.insertAdjacentHTML('beforeend', `
+                <div class="dplayer-setting-item dplayer-setting-keyboard-shortcut">
+                    <span class="dplayer-label">キーボードショートカット</span>
+                    <div class="dplayer-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 32 32">
+                            <path d="M22 16l-10.105-10.6-1.895 1.987 8.211 8.613-8.211 8.612 1.895 1.988 8.211-8.613z"></path>
+                        </svg>
+                    </div>
+                </div>`)
 
-            // 設定パネルの高さを再設定
-            const settingOriginPanelHeight = this.player.template.settingOriginPanel.scrollHeight;
-            this.player.template.settingBox.style.clipPath = `inset(calc(100% - ${settingOriginPanelHeight}px) 0 0 round 7px)`;
+                // 設定パネルの高さを再設定
+                const settingOriginPanelHeight = this.player.template.settingOriginPanel.scrollHeight;
+                this.player.template.settingBox.style.clipPath = `inset(calc(100% - ${settingOriginPanelHeight}px) 0 0 round 7px)`;
 
-            // 設定パネルのショートカット一覧を表示するリンクがクリックされたときのイベント
-            // リアクティブではないので、手動でやらないといけない…
-            this.$el.querySelector('.dplayer-setting-keyboard-shortcut').addEventListener('click', () => {
-                this.player.setting.hide();  // 設定パネルを閉じる
-                this.shortcut_key_modal = true;
-            });
+                // 設定パネルのショートカット一覧を表示するリンクがクリックされたときのイベント
+                // リアクティブではないので、手動でやらないといけない…
+                this.$el.querySelector('.dplayer-setting-keyboard-shortcut').addEventListener('click', () => {
+                    this.player.setting.hide();  // 設定パネルを閉じる
+                    this.shortcut_key_modal = true;
+                });
+            }
 
             // 再生/停止されたとき
             // 通知バーからの制御など、画面から以外の外的要因で再生/停止が行われる事もある
@@ -805,7 +824,7 @@ export default Vue.extend({
                 this.player.setting.hide();
 
                 // コントロールを表示する
-                this.controlVisibleTimer('normal');
+                this.controlDisplayTimer();
             }
             this.player.on('play', on_play_or_pause);
             this.player.on('pause', on_play_or_pause);
@@ -851,6 +870,7 @@ export default Vue.extend({
             }
 
             // DPlayer のフルスクリーン関係のメソッドを無理やり上書きし、KonomiTV の UI と統合する
+            // 上書き元のコードは https://github.com/tsukumijima/DPlayer/blob/master/src/js/fullscreen.js にある
             // フルスクリーンかどうか
             this.player.fullScreen.isFullScreen = (type: string) => {
                 return !!(document.fullscreenElement || document.webkitFullscreenElement);
@@ -1136,18 +1156,20 @@ export default Vue.extend({
 
                     // ↑キー: 前のチャンネルに切り替え
                     if (event.code === 'ArrowUp' && is_repeat === false) {
+                        event.preventDefault();  // デフォルトのイベントを無効化
                         (async () => await this.$router.replace({path: `/tv/watch/${this.channel_previous.channel_id}`}))();
                         return;
                     }
                     // ↓キー: 次のチャンネルに切り替え
                     if (event.code === 'ArrowDown' && is_repeat === false) {
+                        event.preventDefault();  // デフォルトのイベントを無効化
                         (async () => await this.$router.replace({path: `/tv/watch/${this.channel_next.channel_id}`}))();
                         return;
                     }
 
-                    // ***** ショートカットキー一覧を表示する *****
+                    // ***** キーボードショートカットの一覧を表示する *****
 
-                    // /(?)キー: ショートカットキー一覧を表示する
+                    // /(?)キー: キーボードショートカットの一覧を表示する
                     if (event.code === 'Slash' && is_repeat === false) {
                         this.shortcut_key_modal = !this.shortcut_key_modal;
                         return;
@@ -1190,6 +1212,7 @@ export default Vue.extend({
                         // ←キー: 停止して0.25秒巻き戻し
                         // ここだけキーリピートを許可する
                         if (event.code === 'ArrowLeft') {
+                            event.preventDefault();  // デフォルトのイベントを無効化
                             if (this.player.video.paused === false) this.player.video.pause();
                             this.player.video.currentTime = this.player.video.currentTime - 0.25;
                             return;
@@ -1197,6 +1220,7 @@ export default Vue.extend({
                         // →キー: 停止して0.25秒早送り
                         // ここだけキーリピートを許可する
                         if (event.code === 'ArrowRight') {
+                            event.preventDefault();  // デフォルトのイベントを無効化
                             if (this.player.video.paused === false) this.player.video.pause();
                             this.player.video.currentTime = this.player.video.currentTime + 0.25;
                             return;
@@ -1209,7 +1233,7 @@ export default Vue.extend({
                             }
                             // Fキー: フルスクリーンの切り替え
                             if (event.code === 'KeyF') {
-                                this.player.fullScreen.toggle('browser');
+                                this.player.fullScreen.toggle();
                                 return;
                             }
                             // Wキー: ライブストリームの同期
@@ -1244,9 +1268,13 @@ export default Vue.extend({
                                 }
                                 return;
                             }
-                            // Fキー: フルスクリーンの表示切り替え
-                            if (event.code === 'KeyF') {
-                                this.player.fullScreen.toggle();
+                            // Mキー: コメント入力フォームにフォーカス
+                            if (event.code === 'KeyM') {
+                                event.preventDefault();  // デフォルトのイベントを無効化
+                                this.player.controller.show();
+                                this.player.comment.show();
+                                this.controlDisplayTimer();
+                                window.setTimeout(() => this.player.template.commentInput.focus(), 100);
                                 return;
                             }
                         }
@@ -1300,8 +1328,10 @@ export default Vue.extend({
                     try {
                         this.player.destroy();
                     } catch (error) {
-                        // mpegts.js がうまく初期化できない場合
-                        this.player.plugins.mpegts.destroy();
+                        // mpegts.js をうまく破棄できない場合
+                        if (this.player.plugins.mpegts !== undefined) {
+                            this.player.plugins.mpegts.destroy();
+                        }
                     }
                     this.player = null;
                 }
@@ -1511,6 +1541,12 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
     .watch-player__dplayer {
         .dplayer-controller {
             padding-left: 20px !important;
+        }
+        &.dplayer-mobile .dplayer-controller {
+            padding-left: 30px !important;
+            @media screen and (max-height: 450px) {
+                padding-left: 16px !important;
+            }
         }
         .dplayer-comment-box, .dplayer-comment-setting-box {
             left: 20px !important;
