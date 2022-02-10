@@ -36,6 +36,12 @@ export default class Utils {
 
         // 既定で表示されるパネルのタブ（番組情報タブ）
         panel_active_tab: 'Program' as ('Program' | 'Channel' | 'Comment' | 'Twitter'),
+
+        // コメントの速さ (1倍)
+        comment_speed_rate: 1 as number,
+
+        // コメントのフォントサイズ (34px)
+        comment_font_size: 34 as number,
     };
 
 

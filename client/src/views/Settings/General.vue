@@ -42,14 +42,14 @@ import Base from '@/views/Settings/Base.vue';
 import Utils from '@/utils';
 
 export default Vue.extend({
-    name: 'Home',
+    name: 'SettingsGeneral',
     components: {
         Base,
     },
     data() {
         return {
 
-            // テレビのストリーミング画質
+            // テレビのストリーミング画質の選択肢
             tv_streaming_quality: [
                 {'text': '1080p （1時間あたり約2.31GB / 5.1Mbps）', 'value': '1080p'},
                 {'text': '810p （1時間あたり約1.92GB / 4.2Mbps）', 'value': '810p'},
@@ -60,14 +60,14 @@ export default Vue.extend({
                 {'text': '240p （1時間あたり約0.23GB / 0.5Mbps）', 'value': '240p'},
             ],
 
-            // 既定のパネルの表示状態
+            // 既定のパネルの表示状態の選択肢
             panel_display_state: [
                 {'text': '前回の状態を復元する', 'value': 'RestorePreviousState'},
                 {'text': '常に表示する', 'value': 'AlwaysDisplay'},
                 {'text': '常に折りたたむ', 'value': 'AlwaysFold'},
             ],
 
-            // 既定で表示されるパネルのタブ
+            // 既定で表示されるパネルのタブの選択肢
             panel_active_tab: [
                 {'text': '番組情報タブ', 'value': 'Program'},
                 {'text': 'チャンネルタブ', 'value': 'Channel'},

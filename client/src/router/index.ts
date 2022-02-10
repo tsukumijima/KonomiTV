@@ -5,6 +5,9 @@ import VueRouter from 'vue-router';
 import TVHome from '@/views/TV/Home.vue';
 import TVWatch from '@/views/TV/Watch.vue';
 import SettingsGeneral from '@/views/Settings/General.vue';
+import SettingsAccount from '@/views/Settings/Account.vue';
+import SettingsJikkyo from '@/views/Settings/Jikkyo.vue';
+import SettingsTwitter from '@/views/Settings/Twitter.vue';
 import NotFound from '@/views/NotFound.vue';
 
 Vue.use(VueRouter);
@@ -32,6 +35,21 @@ const routes = [
     path: '/settings/general',
     name: 'Settings General',
     component: SettingsGeneral,
+  },
+  {
+    path: '/settings/account',
+    name: 'Settings Account',
+    component: SettingsAccount,
+  },
+  {
+    path: '/settings/jikkyo',
+    name: 'Settings Jikkyo',
+    component: SettingsJikkyo,
+  },
+  {
+    path: '/settings/twitter',
+    name: 'Settings Twitter',
+    component: SettingsTwitter,
   },
   {
     path: '*',

@@ -15,7 +15,7 @@
                                 <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.channel_name}}</span>
                                 <div class="channel__broadcaster-force"
                                     :class="`channel__broadcaster-force--${TVUtils.getChannelForceType(channel.channel_force)}`">
-                                    <Icon icon="fa-solid:fire-alt" height="10px" />
+                                    <Icon icon="fa-solid:fire-alt" height="11px" />
                                     <span class="ml-1">{{TVUtils.getAttribute(channel, 'channel_force', '-')}}</span>
                                 </div>
                             </div>
@@ -248,8 +248,9 @@ _::-webkit-full-page-media, _:future, :root
                             align-items: center;
                             flex-shrink: 0;
                             margin-top: 2px;
-                            margin-left: 10px;
-                            font-size: 11.5px;
+                            margin-left: auto;
+                            padding-left: 6px;
+                            font-size: 12px;
                             color: var(--v-text-darken1);
 
                             &--festival {

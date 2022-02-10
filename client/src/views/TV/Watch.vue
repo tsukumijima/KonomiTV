@@ -739,8 +739,8 @@ export default Vue.extend({
                 },
                 // コメント
                 danmaku: {
-                    fontSize: 34,  // コメントのフォントサイズ
-                    speedRate: 1,  // コメントの流れる速度
+                    speedRate: Utils.getSettingsItem('comment_speed_rate'),  // コメントの流れる速度
+                    fontSize: Utils.getSettingsItem('comment_font_size'),  // コメントのフォントサイズ
                 },
                 // コメント API バックエンド
                 apiBackend: {
