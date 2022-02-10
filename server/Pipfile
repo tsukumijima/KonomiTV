@@ -13,15 +13,17 @@ aerich = "==0.6.2"
 aiofiles = "*"
 aiosqlite = "*"
 ariblib = "*"
+colorama = ">=0.4"
 fastapi = "==0.73.0"
 fastapi-utils = "==0.2.1"
 psutil = "*"
-pywin32 = "==303"
+pywin32 = {version = "==303", sys_platform = "== 'win32'"}
 requests = "*"
 "ruamel.yaml" = "*"
 sse-starlette = "==0.10.3"
 tortoise-orm = "==0.18.1"
 uvicorn = {extras = ["standard"], version = "==0.17.4"}
+uvloop = {version = ">=0.14.0,!=0.15.0,!=0.15.1", sys_platform = "!= 'win32'"}
 
 [dev-packages]
 
