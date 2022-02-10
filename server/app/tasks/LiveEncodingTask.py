@@ -28,12 +28,41 @@ class LiveEncodingTask():
         self.max_retry_count = 5  # 5 回まで
 
 
-    def buildFFmpegOptions(self, quality:str) -> list:
+    def isFullHDChannel(self, network_id:int, service_id:int) -> bool:
+        """
+        ネットワーク ID とサービス ID から、そのチャンネルでフル HD 放送が行われているかを返す
+        放送波の PSI/SI から映像の横解像度を取得する手段がないので、現状 ID 決め打ちになっている
+        ref: https://twitter.com/highwaymovies/status/1201282179390562305
+        ref: https://scrapbox.io/ci7lus/%E5%9C%B0%E4%B8%8A%E6%B3%A2%E3%81%AA%E3%81%AE%E3%81%ABFHD%E3%81%AE%E6%94%BE%E9%80%81%E5%B1%80%E6%83%85%E5%A0%B1
+
+        Args:
+            network_id (int): ネットワーク ID
+            service_id (int): サービス ID
+
+        Returns:
+            bool: フル HD 放送が行われているチャンネルかどうか
+        """
+
+        # 地デジでフル HD 放送を行っているチャンネルのネットワーク ID と一致する
+        ## あいテレビ, びわ湖放送, 奈良テレビ, KBS京都, KNB北日本放送
+        if network_id in [31940, 32038, 32054, 32102, 32162]:
+            return True
+
+        # BS でフル HD 放送を行っているチャンネルのサービス ID と一致する
+        ## NHK BSプレミアム・WOWOWプライム・WOWOWライブ・WOWOWシネマ・BS11
+        if network_id == 4 and service_id in [103, 191, 192, 193, 211]:
+            return True
+
+        return False
+
+
+    def buildFFmpegOptions(self, quality:str, is_fullhd_channel:bool = False) -> list:
         """
         FFmpeg に渡すオプションを組み立てる
 
         Args:
             quality (str): 映像の品質 (1080p ~ 240p)
+            is_fullhd_channel (bool): フル HD 放送が実施されているチャンネルかどうか
 
         Returns:
             list: FFmpeg に渡すオプションが連なる配列
@@ -60,9 +89,9 @@ class LiveEncodingTask():
         # 映像
         options.append(f'-vcodec libx264 -flags +cgop -vb {QUALITY[quality]["video_bitrate"]} -maxrate {QUALITY[quality]["video_bitrate_max"]}')
         options.append('-aspect 16:9 -r 30000/1001 -g 60 -preset veryfast -profile:v main')
-        ## 1440x1080 と 1920x1080 が混在しているので、1080p だけリサイズする解像度を特殊な設定に
-        if quality == '1080p':
-            options.append('-vf yadif=0:-1:1,scale=-2:1080')
+        ## フル HD 放送が行われているチャンネルのみ、指定された品質が 1080p であればフル HD でエンコードする
+        if quality == '1080p' and is_fullhd_channel is True:
+            options.append('-vf yadif=0:-1:1,scale=1920:1080')
         else:
             options.append(f'-vf yadif=0:-1:1,scale={QUALITY[quality]["width"]}:{QUALITY[quality]["height"]}')
 
@@ -125,13 +154,14 @@ class LiveEncodingTask():
         return result
 
 
-    def buildHWEncCOptions(self, encoder_type:Literal['QSVEncC', 'NVEncC', 'VCEEncC'], quality:str) -> list:
+    def buildHWEncCOptions(self, quality:str, encoder_type:Literal['QSVEncC', 'NVEncC', 'VCEEncC'], is_fullhd_channel:bool = False) -> list:
         """
         QSVEncC・NVEncC・VCEEncC (便宜上 HWEncC と総称) に渡すオプションを組み立てる
 
         Args:
-            encoder_type (Literal['QSVEncC', 'NVEncC', 'VCEEncC']): エンコーダー (QSVEncC or NVEncC or VCEEncC)
             quality (str): 映像の品質 (1080p ~ 240p)
+            encoder_type (Literal['QSVEncC', 'NVEncC', 'VCEEncC']): エンコーダー (QSVEncC or NVEncC or VCEEncC)
+            is_fullhd_channel (bool): フル HD 放送が実施されているチャンネルかどうか
 
         Returns:
             list: HWEncC に渡すオプションが連なる配列
@@ -180,8 +210,10 @@ class LiveEncodingTask():
             options.append('--preset default')
         elif encoder_type == 'VCEEncC':
             options.append('--preset balanced')
-        ## 1440x1080 と 1920x1080 が混在しているので、1080p だけリサイズする解像度を指定しない
-        if quality != '1080p':
+        ## フル HD 放送が行われているチャンネルのみ、指定された品質が 1080p であればフル HD でエンコードする
+        if quality == '1080p' and is_fullhd_channel is True:
+            options.append('--output-res 1920x1080')
+        else:
             options.append(f'--output-res {QUALITY[quality]["width"]}x{QUALITY[quality]["height"]}')
 
         # 音声
@@ -280,6 +312,9 @@ class LiveEncodingTask():
         # チューナーの起動後にエンコーダー (正確には tsreadex) に受信した放送波が書き込まれる
         # チューナーの起動にも時間がかかるが、エンコーダーの起動は非同期なのに対し、チューナーの起動は EDCB の場合は同期的
 
+        # フル HD 放送が行われているチャンネルかを取得
+        is_fullhd_channel = self.isFullHDChannel(channel.network_id, channel.service_id)
+
         # エンコーダーの種類を取得
         ## ラジオチャンネルでは HW エンコードの意味がないため、FFmpeg に固定する
         if channel.is_radiochannel is True:
@@ -295,7 +330,7 @@ class LiveEncodingTask():
             if channel.is_radiochannel is True:
                 encoder_options = self.buildFFmpegOptionsForRadio()
             else:
-                encoder_options = self.buildFFmpegOptions(quality)
+                encoder_options = self.buildFFmpegOptions(quality, is_fullhd_channel)
             Logging.info(f'LiveStream:{livestream.livestream_id} FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
             # プロセスを非同期で作成・実行
@@ -311,7 +346,7 @@ class LiveEncodingTask():
         elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
 
             # オプションを取得
-            encoder_options = self.buildHWEncCOptions(encoder_type, quality)
+            encoder_options = self.buildHWEncCOptions(quality, encoder_type, is_fullhd_channel)
             Logging.info(f'LiveStream:{livestream.livestream_id} {encoder_type} Commands:\n{encoder_type} {" ".join(encoder_options)}')
 
             # プロセスを非同期で作成・実行
