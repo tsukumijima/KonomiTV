@@ -142,7 +142,7 @@ class Channels(models.Model):
                         channel.remocon_id = 6
                     elif 171 <= channel.service_id <= 173:
                         channel.remocon_id = 7
-                    elif 181 <= channel.service_id <= 183:
+                    elif 181 <= channel.service_id <= 188:
                         channel.remocon_id = 8
                     elif 191 <= channel.service_id <= 193:
                         channel.remocon_id = 9
@@ -178,7 +178,7 @@ class Channels(models.Model):
             # BS: Mirakurun から得られる情報からはサブチャンネルかを判定できないため、決め打ちで設定
             elif channel.channel_type == 'BS':
                 # サービス ID が以下のリストに含まれるかどうか
-                if channel.service_id in [102, 104, 142, 143, 152, 153, 162, 163, 172, 173, 182, 183]:
+                if channel.service_id in [102, 104, 142, 143, 152, 153, 162, 163, 172, 173, 182, 183, 188]:
                     channel.is_subchannel = True
                 else:
                     channel.is_subchannel = False
@@ -316,7 +316,7 @@ class Channels(models.Model):
                         channel.remocon_id = 6
                     elif 171 <= channel.service_id <= 173:
                         channel.remocon_id = 7
-                    elif 181 <= channel.service_id <= 183:
+                    elif 181 <= channel.service_id <= 188:
                         channel.remocon_id = 8
                     elif 191 <= channel.service_id <= 193:
                         channel.remocon_id = 9
@@ -352,7 +352,7 @@ class Channels(models.Model):
             # BS: EDCB から得られる情報からはサブチャンネルかを判定できないため、決め打ちで設定
             elif channel.channel_type == 'BS':
                 # サービス ID が以下のリストに含まれるかどうか
-                if channel.service_id in [102, 104, 142, 143, 152, 153, 162, 163, 172, 173, 182, 183]:
+                if channel.service_id in [102, 104, 142, 143, 152, 153, 162, 163, 172, 173, 182, 183, 188]:
                     channel.is_subchannel = True
                 else:
                     channel.is_subchannel = False
