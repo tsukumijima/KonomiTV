@@ -495,7 +495,8 @@ class LiveEncodingTask():
                         ## 通常ここが呼ばれるのは正常に Offline に設定された後なので、Offline 状態になっていないとおかしい
                         ## 放送休止によるストリーム出力の終了でタイムアウトしたり、バックエンドのサービスが停止されたなどの理由が考えられる
                         if livestream.getStatus()['status'] != 'Offline':
-                            livestream.setStatus('Restart', 'チューナーとの接続が切断されました。エンコードタスクを再起動します。')
+                            if self.retry_count < self.max_retry_count:  # リトライの制限内であれば
+                                livestream.setStatus('Restart', 'チューナーとの接続が切断されました。エンコードタスクを再起動します。')
                         break
 
             except OSError:
