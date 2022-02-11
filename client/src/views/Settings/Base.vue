@@ -111,9 +111,10 @@ export default Vue.extend({
                     font-size: 16.5px;
                 }
                 &-label {
-                    margin-top: 4px;
+                    margin-top: 6px;
                     color: var(--v-text-darken1);
                     font-size: 13.5px;
+                    line-height: 1.6;
                 }
                 &-form {
                     margin-top: 12px;

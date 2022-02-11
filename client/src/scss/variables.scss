@@ -31,6 +31,11 @@ $body-font-family: 'YakuHanJPs', 'Open Sans', 'Hiragino Sans', 'Noto Sans JP', s
 // ナビゲーションドロワーの border を消す
 $navigation-drawer-border-width: 0px;
 
+// スライダーの左右の margin と高さの調整
+$slider-horizontal-min-height: 22px;
+$slider-horizontal-left: 0px;
+$slider-horizontal-right: 0px;
+
 // 背景とテキストの色を定義
 $shades: map-merge($shades, (
     'black': #1E1310,

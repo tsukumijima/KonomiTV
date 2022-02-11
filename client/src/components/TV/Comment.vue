@@ -495,7 +495,8 @@ export default Vue.extend({
                 // 現状だいたい1秒くらいなので暫定で決め打ち
                 // 最初に受信したコメントはリアルタイムなコメントではないため、遅らせないように
                 if (is_received_initial_comment) {
-                    await new Promise(resolve => setTimeout(resolve, 1 * 1000));
+                    const comment_delay_time = Utils.getSettingsItem('comment_delay_time');
+                    await new Promise(resolve => setTimeout(resolve, comment_delay_time * 1000));
                 }
 
                 // コメントリストのコメントが 500 件を超えたら古いものから順に削除する

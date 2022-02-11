@@ -24,6 +24,15 @@
                 <v-slider class="settings__item-form" ticks="always" thumb-label hide-details
                           :min="20" :max="60" v-model="settings.comment_font_size"></v-slider>
             </div>
+            <div class="settings__item">
+                <div class="settings__item-heading">コメントの遅延時間</div>
+                <div class="settings__item-label">
+                    プレイヤーやコメントリストに表示されるコメントをどれだけ遅らせて反映するかを設定します。<br>
+                    テレビのストリーミングは低遅延で配信されているため、通常は 1 秒程度の遅延で十分です。ネットワークが遅いなどでストリーミングの遅延が大きいときだけ、映像の遅延に合わせて調整してください。<br>
+                </div>
+                <v-slider class="settings__item-form" ticks="always" thumb-label hide-details
+                          :step="0.5" :min="0" :max="5"  v-model="settings.comment_delay_time"></v-slider>
+            </div>
         </div>
     </Base>
 </template>
@@ -47,7 +56,7 @@ export default Vue.extend({
             settings: (() => {
                 // 設定の既定値を取得する
                 const settings = {}
-                for (const setting of ['comment_speed_rate', 'comment_font_size']) {
+                for (const setting of ['comment_speed_rate', 'comment_font_size', 'comment_delay_time']) {
                     settings[setting] = Utils.getSettingsItem(setting);
                 }
                 return settings;
