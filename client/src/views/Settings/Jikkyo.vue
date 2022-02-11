@@ -27,8 +27,8 @@
             <div class="settings__item">
                 <div class="settings__item-heading">コメントの遅延時間</div>
                 <div class="settings__item-label">
-                    プレイヤーやコメントリストに表示されるコメントをどれだけ遅らせて反映するかを設定します。<br>
-                    テレビのストリーミングは低遅延で配信されているため、通常は 1 秒程度の遅延で十分です。ネットワークが遅いなどでストリーミングの遅延が大きいときだけ、映像の遅延に合わせて調整してください。<br>
+                    プレイヤーやコメントリストに表示されるコメントを何秒遅らせて反映するかを設定します。<br>
+                    通常は 1 秒程度で大丈夫です。ネットワークが遅いなどでタイムラグが大きいときだけ、映像の遅延に合わせて調整してください。<br>
                 </div>
                 <v-slider class="settings__item-form" ticks="always" thumb-label hide-details
                           :step="0.5" :min="0" :max="5"  v-model="settings.comment_delay_time"></v-slider>
