@@ -154,6 +154,9 @@ async def Startup():
         # Mirakurun バックエンドの接続確認
         if CONFIG['general']['backend'] == 'Mirakurun':
 
+            # 末尾の / を削除
+            CONFIG['general']['mirakurun_url'] = CONFIG['general']['mirakurun_url'].rstrip('/')
+
             # 試しにリクエストを送り、200 (OK) が返ってきたときだけ有効な URL とみなす
             try:
                 response = await asyncio.to_thread(requests.get, f'{CONFIG["general"]["mirakurun_url"]}/api/version', timeout=3)
