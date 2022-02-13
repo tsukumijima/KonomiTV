@@ -1,7 +1,7 @@
 self.__precacheManifest = (self.__precacheManifest || []).concat([
   {
-    "revision": "24fe3c50086cb698c6dc",
-    "url": "/assets/css/app.7dbdd8c6.css"
+    "revision": "d94fc954ab79c4550321",
+    "url": "/assets/css/app.7b2ec17c.css"
   },
   {
     "revision": "0b61f582b43cdaaab9bd",
@@ -64,15 +64,15 @@ self.__precacheManifest = (self.__precacheManifest || []).concat([
     "url": "/assets/img/player-backgrounds/12.jpg"
   },
   {
-    "revision": "24fe3c50086cb698c6dc",
-    "url": "/assets/js/app.d1a5668b.js"
+    "revision": "d94fc954ab79c4550321",
+    "url": "/assets/js/app.bf991577.js"
   },
   {
     "revision": "0b61f582b43cdaaab9bd",
     "url": "/assets/js/chunk-vendors.9091e8fb.js"
   },
   {
-    "revision": "0479e88a7d36cca8c779538c788448a8",
+    "revision": "939007b574fc4fc94248207e7a13b9d1",
     "url": "/index.html"
   },
   {

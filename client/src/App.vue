@@ -113,7 +113,6 @@ body .route-container {  // ルートコンテナ
 }
 
 .v-menu__content {
-    overflow: hidden;
     &::-webkit-scrollbar {
         width: 12px;
         height: 12px;

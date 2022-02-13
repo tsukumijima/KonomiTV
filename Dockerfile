@@ -1,3 +1,4 @@
+
 # サードパーティーライブラリのダウンロードを行うステージ
 # 念のため最終イメージに合わせて ubuntu20.04 にしておく
 # 中間イメージなので、サイズは（ビルドするマシンのディスク容量以外は）気にしなくて良い
@@ -28,7 +29,7 @@ RUN ln -s /usr/lib/x86_64-linux-gnu/libamfrt64.so /usr/lib/x86_64-linux-gnu/liba
 
 # サードパーティーライブラリをダウンロード
 WORKDIR /thirdparty
-RUN aria2c -x10 https://github.com/tsukumijima/KonomiTV/releases/download/v0.4.0/thirdparty.7z
+RUN aria2c -x10 https://github.com/tsukumijima/KonomiTV/releases/download/v0.5.0/thirdparty.7z
 RUN 7z x -y thirdparty.7z
 
 # サードパーティーライブラリに実行権限を付与
@@ -103,7 +104,7 @@ COPY ./server /code/server
 # ダウンロードしておいたサードパーティライブラリをコピー
 COPY --from=thirdparty-downloader /thirdparty/thirdparty /code/server/thirdparty
 
-# client の成果物をコピー（dist だけで良い）
+# client の成果物をコピー (dist だけで良い)
 COPY --from=client-builder /code/client/dist /code/client/dist
 
 # データベースを必要な場合にアップグレードし、起動
