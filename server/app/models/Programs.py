@@ -71,18 +71,18 @@ class Programs(models.Model):
             loop = asyncio.get_running_loop()
 
             # マルチプロセス実行用の Executor を初期化
-            # run_in_executor() で指定した関数をマルチプロセスで実行する
-            executor = concurrent.futures.ProcessPoolExecutor(max_workers=1)
-
+            ## with 文で括ることで、with 文を抜けたときに Executor がクリーンアップされるようにする
+            ## さもなければプロセスが残り続けてゾンビプロセス化し、メモリリークを引き起こしてしまう
             try:
+                with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
 
-                # Mirakurun バックエンド
-                if CONFIG['general']['backend'] == 'Mirakurun':
-                    await loop.run_in_executor(executor, cls.updateFromMirakurunSync)
+                    # Mirakurun バックエンド
+                    if CONFIG['general']['backend'] == 'Mirakurun':
+                        await loop.run_in_executor(executor, cls.updateFromMirakurunSync)
 
-                # EDCB バックエンド
-                elif CONFIG['general']['backend'] == 'EDCB':
-                    await loop.run_in_executor(executor, cls.updateFromEDCBSync)
+                    # EDCB バックエンド
+                    elif CONFIG['general']['backend'] == 'EDCB':
+                        await loop.run_in_executor(executor, cls.updateFromEDCBSync)
 
             # データベースが他のプロセスにロックされていた場合
             # 5秒待ってからリトライ
