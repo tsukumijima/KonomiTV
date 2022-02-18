@@ -397,7 +397,15 @@ class Programs(models.Model):
                 # ここで削除しないと終了した番組の情報が幽霊のように残り続ける事になり、結果 DB が肥大化して遅くなってしまう
                 for duplicate_program in duplicate_programs.values():
                     Logging.debug_simple(f'Delete Program: {duplicate_program.id}')
-                    await duplicate_program.delete()
+                    try:
+                        await duplicate_program.delete()
+                    except exceptions.OperationalError:
+                        try:
+                            await asyncio.sleep(3)
+                            await duplicate_program.delete()
+                        except exceptions.OperationalError:
+                            pass
+
 
         # マルチプロセス実行時は、明示的に例外を拾わないとなぜかメインプロセスも含め全体がフリーズしてしまう
         except Exception:
@@ -659,7 +667,14 @@ class Programs(models.Model):
                 # ここで削除しないと終了した番組の情報が幽霊のように残り続ける事になり、結果 DB が肥大化して遅くなってしまう
                 for duplicate_program in duplicate_programs.values():
                     Logging.debug_simple(f'Delete Program: {duplicate_program.id}')
-                    await duplicate_program.delete()
+                    try:
+                        await duplicate_program.delete()
+                    except exceptions.OperationalError:
+                        try:
+                            await asyncio.sleep(3)
+                            await duplicate_program.delete()
+                        except exceptions.OperationalError:
+                            pass
 
         # マルチプロセス実行時は、明示的に例外を拾わないとなぜかメインプロセスも含め全体がフリーズしてしまう
         except Exception:
