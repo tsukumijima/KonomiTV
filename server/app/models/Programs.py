@@ -59,10 +59,8 @@ class Programs(models.Model):
             multiprocess (bool, optional): マルチプロセスで実行するかどうか
         """
 
-        # 現在時刻のタイムスタンプ
         timestamp = time.time()
-
-        Logging.info('Program updating...')
+        Logging.info('Programs updating...')
 
         # 番組情報をマルチプロセスで更新する
         if multiprocess is True:
@@ -102,7 +100,7 @@ class Programs(models.Model):
             elif CONFIG['general']['backend'] == 'EDCB':
                 await cls.updateFromEDCB()
 
-        Logging.info(f'Program update complete. ({round(time.time() - timestamp, 3)} sec)')
+        Logging.info(f'Programs update complete. ({round(time.time() - timestamp, 3)} sec)')
 
 
     @classmethod
@@ -180,8 +178,16 @@ class Programs(models.Model):
             CONFIG['general']['mirakurun_url'] = CONFIG['general']['mirakurun_url'].rstrip('/')
 
         # Mirakurun の API から番組情報を取得する
-        mirakurun_programs_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/programs'
-        programs = (await asyncio.to_thread(requests.get, mirakurun_programs_api_url)).json()
+        try:
+            mirakurun_programs_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/programs'
+            mirakurun_programs_api_response = await asyncio.to_thread(requests.get, mirakurun_programs_api_url, timeout=3)
+            if mirakurun_programs_api_response.status_code != 200:  # Mirakurun からエラーが返ってきた
+                Logging.error(f'Failed to get programs from Mirakurun. (HTTP Error {mirakurun_programs_api_response.status_code})')
+                return
+            programs = mirakurun_programs_api_response.json()
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            Logging.error(f'Failed to get programs from Mirakurun. (Connection Timeout)')
+            return
 
         # このトランザクションは単にパフォーマンス向上のため
         async with transactions.in_transaction():
@@ -370,16 +376,16 @@ class Programs(models.Model):
 
                 # 番組情報をデータベースに保存する
                 if duplicate_program is None:
-                    Logging.debug(f'Add Program: {program.id}')
+                    Logging.debug_simple(f'Add Program: {program.id}')
                 else:
-                    Logging.debug(f'Update Program: {program.id}')
+                    Logging.debug_simple(f'Update Program: {program.id}')
 
                 await program.save()
 
             # この時点で残存している番組情報は放送が終わって EPG から削除された番組なので、まとめて削除する
             # ここで削除しないと終了した番組の情報が幽霊のように残り続ける事になり、結果 DB が肥大化して遅くなってしまう
             for duplicate_program in duplicate_programs.values():
-                Logging.debug(f'Delete Program: {duplicate_program.id}')
+                Logging.debug_simple(f'Delete Program: {duplicate_program.id}')
                 await duplicate_program.delete()
 
         # マルチプロセス実行時は、開いた Tortoise ORM のコネクションを明示的に閉じる
@@ -613,16 +619,16 @@ class Programs(models.Model):
 
                     # 番組情報をデータベースに保存する
                     if duplicate_program is None:
-                        Logging.debug(f'Add Program: {program.id}')
+                        Logging.debug_simple(f'Add Program: {program.id}')
                     else:
-                        Logging.debug(f'Update Program: {program.id}')
+                        Logging.debug_simple(f'Update Program: {program.id}')
 
                     await program.save()
 
             # この時点で残存している番組情報は放送が終わって EPG から削除された番組なので、まとめて削除する
             # ここで削除しないと終了した番組の情報が幽霊のように残り続ける事になり、結果 DB が肥大化して遅くなってしまう
             for duplicate_program in duplicate_programs.values():
-                Logging.debug(f'Delete Program: {duplicate_program.id}')
+                Logging.debug_simple(f'Delete Program: {duplicate_program.id}')
                 await duplicate_program.delete()
 
         # マルチプロセス実行時は、開いた Tortoise ORM のコネクションを明示的に閉じる

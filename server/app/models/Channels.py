@@ -1,6 +1,7 @@
 
 import asyncio
 import requests
+import time
 from tortoise import fields
 from tortoise import models
 from tortoise import timezone
@@ -9,6 +10,7 @@ from typing import Optional
 
 from app.constants import CONFIG
 from app.utils import Jikkyo
+from app.utils import Logging
 from app.utils import TSInformation
 from app.utils.EDCB import CtrlCmdUtil
 from app.utils.EDCB import EDCBUtil
@@ -36,6 +38,8 @@ class Channels(models.Model):
     async def update(cls) -> None:
         """ チャンネル情報を更新する """
 
+        timestamp = time.time()
+
         # Mirakurun バックエンド
         if CONFIG['general']['backend'] == 'Mirakurun':
             await cls.updateFromMirakurun()
@@ -43,6 +47,8 @@ class Channels(models.Model):
         # EDCB バックエンド
         elif CONFIG['general']['backend'] == 'EDCB':
             await cls.updateFromEDCB()
+
+        Logging.info(f'Channels update complete. ({round(time.time() - timestamp, 3)} sec)')
 
 
     @classmethod
@@ -53,8 +59,16 @@ class Channels(models.Model):
         await Channels.all().delete()
 
         # Mirakurun の API からチャンネル情報を取得する
-        mirakurun_services_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services'
-        services = (await asyncio.to_thread(requests.get, mirakurun_services_api_url)).json()
+        try:
+            mirakurun_services_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services'
+            mirakurun_services_api_response = await asyncio.to_thread(requests.get, mirakurun_services_api_url, timeout=3)
+            if mirakurun_services_api_response.status_code != 200:  # Mirakurun からエラーが返ってきた
+                Logging.error(f'Failed to get channels from Mirakurun. (HTTP Error {mirakurun_services_api_response.status_code})')
+                return
+            services = mirakurun_services_api_response.json()
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            Logging.error(f'Failed to get channels from Mirakurun. (Connection Timeout)')
+            return
 
         # 同じネットワーク ID のサービスのカウント
         same_network_id_counts = dict()

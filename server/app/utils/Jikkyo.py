@@ -155,13 +155,13 @@ class Jikkyo:
 
         # ニコ生の視聴ページの HTML を取得する
         watch_page_url = f'https://live.nicovideo.jp/watch/{self.jikkyo_nicolive_id}'
-        watch_page_result:requests.Response
+        watch_page_response:requests.Response
         try:
             # 3秒応答がなかったらタイムアウト
-            watch_page_result = await asyncio.to_thread(requests.get, watch_page_url, headers=self.request_headers, timeout=3)
+            watch_page_response = await asyncio.to_thread(requests.get, watch_page_url, headers=self.request_headers, timeout=3)
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
             return {'is_success': False, 'detail': 'ニコニコ実況に接続できませんでした。'}
-        watch_page_code = watch_page_result.status_code
+        watch_page_code = watch_page_response.status_code
 
         # ステータスコードを判定
         if watch_page_code != 200:
@@ -179,7 +179,7 @@ class Jikkyo:
                 return {'is_success': False, 'detail': f'現在、ニコニコ実況でエラーが発生しています。(HTTP Error {watch_page_code})'}
 
         # HTML から embedded-data を取得
-        embedded_data_raw:dict = re.search(r'<script id="embedded-data" data-props="(.*?)"><\/script>', watch_page_result.text)
+        embedded_data_raw:dict = re.search(r'<script id="embedded-data" data-props="(.*?)"><\/script>', watch_page_response.text)
 
         # embedded-data の取得に失敗
         if embedded_data_raw is None:
@@ -237,17 +237,17 @@ class Jikkyo:
         try:
             getchannels_api_url = 'https://jikkyo.tsukumijima.net/namami/api/v2/getchannels'
             # 3秒応答がなかったらタイムアウト
-            getchannels_api_result:requests.Response = \
+            getchannels_api_response:requests.Response = \
                 await asyncio.to_thread(requests.get, getchannels_api_url, headers=cls.request_headers, timeout=3)
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):  # 接続エラー（サーバー再起動やタイムアウトなど）
             return # ステータス更新を中断
 
         # ステータスコードが 200 以外
-        if getchannels_api_result.status_code != 200:
+        if getchannels_api_response.status_code != 200:
             return  # ステータス更新を中断
 
         # XML をパース
-        channels = ET.fromstring(getchannels_api_result.text)
+        channels = ET.fromstring(getchannels_api_response.text)
 
         # 実況チャンネルごとに
         for channel in channels:

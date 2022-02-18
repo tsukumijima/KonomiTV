@@ -283,16 +283,20 @@ async def ChannelLogoAPI(
 
         # Mirakurun の API からロゴを取得する
         # 同梱のロゴが存在しない場合のみ
-        mirakurun_logo_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services/{mirakurun_service_id}/logo'
-        mirakurun_logo_api_response:requests.Response = await asyncio.to_thread(requests.get, mirakurun_logo_api_url)
+        try:
+            mirakurun_logo_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services/{mirakurun_service_id}/logo'
+            mirakurun_logo_api_response:requests.Response = await asyncio.to_thread(requests.get, mirakurun_logo_api_url, timeout=3)
 
-        # ステータスコードが 200 であれば
-        # ステータスコードが 503 の場合はロゴデータが存在しない
-        if mirakurun_logo_api_response.status_code == 200:
+            # ステータスコードが 200 であれば
+            # ステータスコードが 503 の場合はロゴデータが存在しない
+            if mirakurun_logo_api_response.status_code == 200:
 
-            # 取得したロゴデータを返す
-            mirakurun_logo = mirakurun_logo_api_response.content
-            return Response(content=mirakurun_logo, media_type='image/png', headers=header)
+                # 取得したロゴデータを返す
+                mirakurun_logo = mirakurun_logo_api_response.content
+                return Response(content=mirakurun_logo, media_type='image/png', headers=header)
+
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            pass  # 特にエラーは吐かず、デフォルトのロゴ画像を利用させる
 
     # ***** EDCB からロゴを取得 *****
 
