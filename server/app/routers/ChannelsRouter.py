@@ -304,6 +304,7 @@ async def ChannelLogoAPI(
 
         # CtrlCmdUtil を初期化
         edcb = CtrlCmdUtil()
+        edcb.setConnectTimeOutSec(3)  # 3秒後にタイムアウト
 
         # EDCB の LogoData フォルダからロゴを取得
         logo = None

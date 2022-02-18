@@ -217,6 +217,7 @@ class Channels(models.Model):
 
         # CtrlCmdUtil を初期化
         edcb = CtrlCmdUtil()
+        edcb.setConnectTimeOutSec(3)  # 3秒後にタイムアウト
 
         # EDCB の ChSet5.txt からチャンネル情報を取得する
         services = await edcb.sendFileCopy('ChSet5.txt')
@@ -225,7 +226,8 @@ class Channels(models.Model):
             # 枝番処理がミスらないようソートしておく
             services.sort(key = lambda temp: temp['onid'] * 100000 + temp['sid'])
         else:
-            services = []
+            Logging.error(f'Failed to get channels from EDCB.')
+            return
 
         # EDCB から EPG 由来のチャンネル情報を取得する
         # sendEnumService() の情報源は番組表で、期限切れなどで番組情報が1つもないサービスについては取得できない
