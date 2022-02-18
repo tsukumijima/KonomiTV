@@ -43,6 +43,9 @@ except ValidationError as error:
     Logging.error(error)
     sys.exit(1)
 
+## Mirakurun の URL の末尾のスラッシュを削除
+CONFIG['general']['mirakurun_url'] = CONFIG['general']['mirakurun_url'].rstrip('/')
+
 ## EDCB のホスト名とポートを追加で設定
 ## 毎回 URL を解析するのは非効率なため、ここで設定しておく
 edcb_url_parse = urllib.parse.urlparse(CONFIG['general']['edcb_url'])
@@ -153,9 +156,6 @@ async def Startup():
 
         # Mirakurun バックエンドの接続確認
         if CONFIG['general']['backend'] == 'Mirakurun':
-
-            # 末尾の / を削除
-            CONFIG['general']['mirakurun_url'] = CONFIG['general']['mirakurun_url'].rstrip('/')
 
             # 試しにリクエストを送り、200 (OK) が返ってきたときだけ有効な URL とみなす
             try:

@@ -173,6 +173,12 @@ class Programs(models.Model):
             await Tortoise.init(config=DATABASE_CONFIG)
             is_running_multiprocess = True
 
+        # Mirakurun の URL の末尾のスラッシュを削除
+        ## 多重のスラッシュは Mirakurun だと 404 になってしまう
+        ## マルチプロセス時は起動後に動的に調整される Mirakurun の URL が元に戻ってしまうため、再度実行する
+        if is_running_multiprocess:
+            CONFIG['general']['mirakurun_url'] = CONFIG['general']['mirakurun_url'].rstrip('/')
+
         # Mirakurun の API から番組情報を取得する
         mirakurun_programs_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/programs'
         programs = (await asyncio.to_thread(requests.get, mirakurun_programs_api_url)).json()
