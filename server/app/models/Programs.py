@@ -382,7 +382,16 @@ class Programs(models.Model):
                     else:
                         Logging.debug_simple(f'Update Program: {program.id}')
 
-                    await program.save()
+                    ## マルチプロセス実行時は、まれに保存する際にメインプロセスにデータベースがロックされている事がある
+                    ## 3秒待ってから再試行し、それでも失敗した場合はスキップ
+                    try:
+                        await program.save()
+                    except exceptions.OperationalError:
+                        try:
+                            await asyncio.sleep(3)
+                            await program.save()
+                        except exceptions.OperationalError:
+                            pass
 
                 # この時点で残存している番組情報は放送が終わって EPG から削除された番組なので、まとめて削除する
                 # ここで削除しないと終了した番組の情報が幽霊のように残り続ける事になり、結果 DB が肥大化して遅くなってしまう
@@ -635,7 +644,16 @@ class Programs(models.Model):
                         else:
                             Logging.debug_simple(f'Update Program: {program.id}')
 
-                        await program.save()
+                        ## マルチプロセス実行時は、まれに保存する際にメインプロセスにデータベースがロックされている事がある
+                        ## 3秒待ってから再試行し、それでも失敗した場合はスキップ
+                        try:
+                            await program.save()
+                        except exceptions.OperationalError:
+                            try:
+                                await asyncio.sleep(3)
+                                await program.save()
+                            except exceptions.OperationalError:
+                                pass
 
                 # この時点で残存している番組情報は放送が終わって EPG から削除された番組なので、まとめて削除する
                 # ここで削除しないと終了した番組の情報が幽霊のように残り続ける事になり、結果 DB が肥大化して遅くなってしまう
