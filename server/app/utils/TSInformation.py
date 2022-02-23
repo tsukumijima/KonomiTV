@@ -82,6 +82,9 @@ class TSInformation:
         0xF4: '180p',
     }
 
+    # formatString() で使用する変換マップ
+    __format_string_translation_map = None
+
 
     def __init__(self, tspath:str):
         """
@@ -141,32 +144,25 @@ class TSInformation:
 
 
     @staticmethod
-    def formatString(string:Union[str, AribString]) -> str:
+    def __getFormatStringTranslationTable() -> dict:
         """
-        文字列に含まれる英数や記号を半角に置換し、一律な表現に整える
-
-        Args:
-            string (Union[str, AribString]): str あるいは AribString の文字列
+        formatString() で使用する変換テーブルを取得する
 
         Returns:
-            str: 置換した文字列
+            dict: 変換テーブル
         """
 
-        # AribString になっている事があるので明示的に str 型にキャストする
-        result = str(string)
-
         # 全角英数を半角英数に置換
-        # maketrans() で全角英数を半角英数に置換するテーブルを作成し、translate() で置換する
         # ref: https://github.com/ikegami-yukino/jaconv/blob/master/jaconv/conv_table.py
         zenkaku_table = '０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ'
         hankaku_table = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-        result = result.translate(str.maketrans(zenkaku_table, hankaku_table))
+        merged_table = dict(zip(list(zenkaku_table), list(hankaku_table)))
 
         # 全角記号を半角記号に置換
         synbol_zenkaku_table = '＂＃＄％＆＇（）＋，－．／：；＜＝＞［＼］＾＿｀｛｜｝　'
         synbol_hankaku_table = '"#$%&\'()+,-./:;<=>[\\]^_`{|} '
-        result = result.translate(str.maketrans(synbol_zenkaku_table, synbol_hankaku_table))
-        result = result.translate(str.maketrans({
+        merged_table.update(zip(list(synbol_zenkaku_table), list(synbol_hankaku_table)))
+        merged_table.update({
             # 一部の半角記号を全角に置換
             # 主に見栄え的な問題（全角の方が字面が良い）
             '!': '！',
@@ -181,7 +177,7 @@ class TSInformation:
             ## TODO: 番組検索を実装する際は検索文字列の波ダッシュを全角チルダに置換する下処理が必要
             ## ref: https://qiita.com/kasei-san/items/3ce2249f0a1c1af1cbd2
             '〜': '～',
-        }))
+        })
 
         # 番組表で使用される囲み文字の置換テーブル
         # ref: https://note.nkmk.me/python-chr-ord-unicode-code-point/
@@ -227,7 +223,31 @@ class TSInformation:
         # 番組情報取得元から Unicode の囲み文字が送られてくる場合に対応するためのもの
         # Unicode の囲み文字はサロゲートペアなどで扱いが難しい上に KonomiTV では囲み文字を CSS でハイライトしているため、Unicode にするメリットがない
         # ref: https://note.nkmk.me/python-str-replace-translate-re-sub/
-        result = result.translate(str.maketrans(enclosed_characters_table))
+        merged_table.update(enclosed_characters_table)
+
+        return merged_table
+
+
+    @classmethod
+    def formatString(cls, string:Union[str, AribString]) -> str:
+        """
+        文字列に含まれる英数や記号を半角に置換し、一律な表現に整える
+
+        Args:
+            string (Union[str, AribString]): str あるいは AribString の文字列
+
+        Returns:
+            str: 置換した文字列
+        """
+
+        # AribString になっている事があるので明示的に str 型にキャストする
+        result = str(string)
+
+        # 変換マップを構築
+        if cls.__format_string_translation_map is None:
+            cls.__format_string_translation_map = str.maketrans(cls.__getFormatStringTranslationTable())
+
+        result = result.translate(cls.__format_string_translation_map)
 
         # 置換した文字列を返す
         return result
