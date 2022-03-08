@@ -222,8 +222,12 @@ class Programs(models.Model):
                     # 重複する番組情報が登録されているかの判定に使うため、ここで先に番組情報を取得する
 
                     # 番組タイトル・番組概要
-                    title = TSInformation.formatString(program_info['name'])
-                    description = TSInformation.formatString(program_info['description'])
+                    title = ''  # デフォルト値
+                    description = ''  # デフォルト値
+                    if 'name' in program_info:
+                        title = TSInformation.formatString(program_info['name'])
+                    if 'description' in program_info:
+                        description = TSInformation.formatString(program_info['description'])
 
                     # 番組詳細
                     detail = dict()  # デフォルト値
