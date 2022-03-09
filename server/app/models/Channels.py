@@ -79,11 +79,12 @@ class Channels(models.Model):
         # サービスごとに実行
         for service in services:
 
-            # type が 0x01 (デジタルTVサービス) と 0x02 (デジタル音声サービス) 以外のサービスを弾く
+            # type が 0x01 (デジタルTVサービス) / 0x02 (デジタル音声サービス) / 0xa1 (161: 臨時映像サービス) /
+            # 0xa2 (162: 臨時音声サービス) / 0xad (173: 超高精細度4K専用TVサービス) 以外のサービスを弾く
             ## ワンセグ・データ放送 (type:0xC0) やエンジニアリングサービス (type:0xA4) など
             ## 詳細は ARIB STD-B10 第2部 6.2.13 に記載されている
             ## https://web.archive.org/web/20140427183421if_/http://www.arib.or.jp/english/html/overview/doc/2-STD-B10v5_3.pdf#page=153
-            if service['type'] != 0x01 and service['type'] != 0x02:
+            if service['type'] not in [0x01, 0x02, 0xa1, 0xa2, 0xad]:
                 continue
 
             # 新しいチャンネルのレコードを作成
@@ -148,15 +149,15 @@ class Channels(models.Model):
                         channel.remocon_id = 1
                     elif 103 <= channel.service_id <= 104:
                         channel.remocon_id = 3
-                    elif 141 <= channel.service_id <= 143:
+                    elif 141 <= channel.service_id <= 149:
                         channel.remocon_id = 4
-                    elif 151 <= channel.service_id <= 153:
+                    elif 151 <= channel.service_id <= 159:
                         channel.remocon_id = 5
-                    elif 161 <= channel.service_id <= 163:
+                    elif 161 <= channel.service_id <= 169:
                         channel.remocon_id = 6
-                    elif 171 <= channel.service_id <= 173:
+                    elif 171 <= channel.service_id <= 179:
                         channel.remocon_id = 7
-                    elif 181 <= channel.service_id <= 188:
+                    elif 181 <= channel.service_id <= 189:
                         channel.remocon_id = 8
                     elif 191 <= channel.service_id <= 193:
                         channel.remocon_id = 9
@@ -192,7 +193,12 @@ class Channels(models.Model):
             # BS: Mirakurun から得られる情報からはサブチャンネルかを判定できないため、決め打ちで設定
             elif channel.channel_type == 'BS':
                 # サービス ID が以下のリストに含まれるかどうか
-                if channel.service_id in [102, 104, 142, 143, 152, 153, 162, 163, 172, 173, 182, 183, 188]:
+                if ((channel.service_id in [102, 104]) or
+                    (142 <= channel.service_id <= 149) or
+                    (152 <= channel.service_id <= 159) or
+                    (162 <= channel.service_id <= 169) or
+                    (172 <= channel.service_id <= 179) or
+                    (182 <= channel.service_id <= 189)):
                     channel.is_subchannel = True
                 else:
                     channel.is_subchannel = False
@@ -242,11 +248,12 @@ class Channels(models.Model):
 
         for service in services:
 
-            # type が 0x01 (デジタルTVサービス) と 0x02 (デジタル音声サービス) 以外のサービスを弾く
+            # type が 0x01 (デジタルTVサービス) / 0x02 (デジタル音声サービス) / 0xa1 (161: 臨時映像サービス) /
+            # 0xa2 (162: 臨時音声サービス) / 0xad (173: 超高精細度4K専用TVサービス) 以外のサービスを弾く
             ## ワンセグ・データ放送 (type:0xC0) やエンジニアリングサービス (type:0xA4) など
             ## 詳細は ARIB STD-B10 第2部 6.2.13 に記載されている
             ## https://web.archive.org/web/20140427183421if_/http://www.arib.or.jp/english/html/overview/doc/2-STD-B10v5_3.pdf#page=153
-            if service['service_type'] != 0x01 and service['service_type'] != 0x02:
+            if service['service_type'] not in [0x01, 0x02, 0xa1, 0xa2, 0xad]:
                 continue
 
             # 不明なネットワーク ID のチャンネルを弾く
@@ -324,15 +331,15 @@ class Channels(models.Model):
                         channel.remocon_id = 1
                     elif 103 <= channel.service_id <= 104:
                         channel.remocon_id = 3
-                    elif 141 <= channel.service_id <= 143:
+                    elif 141 <= channel.service_id <= 149:
                         channel.remocon_id = 4
-                    elif 151 <= channel.service_id <= 153:
+                    elif 151 <= channel.service_id <= 159:
                         channel.remocon_id = 5
-                    elif 161 <= channel.service_id <= 163:
+                    elif 161 <= channel.service_id <= 169:
                         channel.remocon_id = 6
-                    elif 171 <= channel.service_id <= 173:
+                    elif 171 <= channel.service_id <= 179:
                         channel.remocon_id = 7
-                    elif 181 <= channel.service_id <= 188:
+                    elif 181 <= channel.service_id <= 189:
                         channel.remocon_id = 8
                     elif 191 <= channel.service_id <= 193:
                         channel.remocon_id = 9
@@ -368,7 +375,12 @@ class Channels(models.Model):
             # BS: EDCB から得られる情報からはサブチャンネルかを判定できないため、決め打ちで設定
             elif channel.channel_type == 'BS':
                 # サービス ID が以下のリストに含まれるかどうか
-                if channel.service_id in [102, 104, 142, 143, 152, 153, 162, 163, 172, 173, 182, 183, 188]:
+                if ((channel.service_id in [102, 104]) or
+                    (142 <= channel.service_id <= 149) or
+                    (152 <= channel.service_id <= 159) or
+                    (162 <= channel.service_id <= 169) or
+                    (172 <= channel.service_id <= 179) or
+                    (182 <= channel.service_id <= 189)):
                     channel.is_subchannel = True
                 else:
                     channel.is_subchannel = False
