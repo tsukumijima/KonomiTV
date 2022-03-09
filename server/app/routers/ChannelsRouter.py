@@ -61,7 +61,7 @@ async def ChannelsAPI():
     ## 24時間分しか取得しないのもパフォーマンスの関係で、24時間を超える番組は確認できる限り存在しないため実害はないと判断
     programs_present:dict
     tasks.append(conn.execute_query_dict(
-        'SELECT * FROM "programs" WHERE "start_time"<=(?) AND "end_time">=(?) AND "end_time"<(?) ORDER BY "start_time" DESC',
+        'SELECT * FROM "programs" WHERE "start_time"<=(?) AND "end_time">=(?) AND "end_time"<=(?) ORDER BY "start_time" DESC',
         [
             now,  # 番組開始時刻が現在時刻以下
             now,  # 番組終了時刻が現在時刻以上
@@ -70,9 +70,11 @@ async def ChannelsAPI():
     ))
 
     # 次の番組情報を取得する
+    ## 本来は次の番組情報の取得条件は48時間分にしなければならないが、
+    ## そうすると API レスポンスが 150ms も遅くなってしまうため、やむなく24時間分のみ取得している
     programs_following:dict
     tasks.append(conn.execute_query_dict(
-        'SELECT * FROM "programs" WHERE "start_time">=(?) AND "end_time"<(?) ORDER BY "start_time" ASC',
+        'SELECT * FROM "programs" WHERE "start_time">=(?) AND "end_time"<=(?) ORDER BY "start_time" ASC',
         [
             now,  # 番組開始時刻が現在時刻以上
             now + timedelta(hours=24) # 番組終了時刻が現在時刻から先24時間以内
