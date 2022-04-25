@@ -26,6 +26,10 @@ from app.utils.EDCB import EDCBUtil
 
 class Program(models.Model):
 
+    # データベース上のテーブル名
+    class Meta:
+        table:str = 'programs'
+
     # テーブル設計は Notion を参照のこと
     id:str = fields.TextField(pk=True)
     network_id:int = fields.IntField()
