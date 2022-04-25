@@ -14,17 +14,17 @@ from tortoise import models
 from tortoise import timezone
 from tortoise import Tortoise
 from tortoise import transactions
-from typing import Optional
+from typing import List, Optional
 
 from app.constants import CONFIG, DATABASE_CONFIG
-from app.models import Channels
+from app.models import Channel
 from app.utils import Logging
 from app.utils import TSInformation
 from app.utils.EDCB import CtrlCmdUtil
 from app.utils.EDCB import EDCBUtil
 
 
-class Programs(models.Model):
+class Program(models.Model):
 
     # テーブル設計は Notion を参照のこと
     id:str = fields.TextField(pk=True)
@@ -186,7 +186,7 @@ class Programs(models.Model):
                 if mirakurun_programs_api_response.status_code != 200:  # Mirakurun からエラーが返ってきた
                     Logging.error(f'Failed to get programs from Mirakurun. (HTTP Error {mirakurun_programs_api_response.status_code})')
                     return
-                programs = mirakurun_programs_api_response.json()
+                programs:List[dict] = mirakurun_programs_api_response.json()
             except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
                 Logging.error(f'Failed to get programs from Mirakurun. (Connection Timeout)')
                 return
@@ -195,11 +195,11 @@ class Programs(models.Model):
             async with transactions.in_transaction():
 
                 # この変数から更新or更新不要な番組情報を削除していき、残った古い番組情報を最後にまとめて削除する
-                duplicate_programs = {temp.id:temp for temp in await Programs.all()}
+                duplicate_programs = {temp.id:temp for temp in await Program.all()}
 
                 # チャンネル情報を取得
                 # NID32736-SID1024 形式の ID をキーにした辞書にまとめる
-                channels = {temp.id:temp for temp in await Channels.all()}
+                channels = {temp.id:temp for temp in await Channel.all()}
 
                 # 番組情報ごとに
                 for program_info in programs:
@@ -278,7 +278,7 @@ class Programs(models.Model):
 
                     # 重複する番組情報が存在しない（追加）
                     if duplicate_program is None:
-                        program = Programs()
+                        program = Program()
 
                     # 重複する番組情報が存在する（更新）
                     else:
@@ -456,7 +456,7 @@ class Programs(models.Model):
             async with transactions.in_transaction():
 
                 # この変数から更新or更新不要な番組情報を削除していき、残った古い番組情報を最後にまとめて削除する
-                duplicate_programs = {temp.id:temp for temp in await Programs.all()}
+                duplicate_programs = {temp.id:temp for temp in await Program.all()}
 
                 # チャンネルごとに
                 for program_service in program_services:
@@ -467,7 +467,7 @@ class Programs(models.Model):
                     tsid = program_service['service_info']['tsid']
 
                     # チャンネル情報を取得
-                    channel = await Channels.filter(network_id = nid, service_id = sid).first()
+                    channel = await Channel.filter(network_id = nid, service_id = sid).first()
                     if channel is None:  # 登録されていないチャンネルの番組を弾く（ワンセグやデータ放送など）
                         continue
 
@@ -546,7 +546,7 @@ class Programs(models.Model):
 
                         # 重複する番組情報が存在しない（追加）
                         if duplicate_program is None:
-                            program = Programs()
+                            program = Program()
 
                         # 重複する番組情報が存在する（更新）
                         else:

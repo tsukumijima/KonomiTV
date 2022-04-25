@@ -8,9 +8,9 @@ import time
 from typing import BinaryIO, Literal, Optional, Union
 
 from app.constants import CONFIG, LIBRARY_PATH, QUALITY
-from app.models import Channels
+from app.models import Channel
 from app.models import LiveStream
-from app.models import Programs
+from app.models import Program
 from app.utils import Logging
 from app.utils.EDCB import EDCBTuner
 
@@ -252,10 +252,10 @@ class LiveEncodingTask():
             livestream.setStatus('Standby', 'エンコードタスクを起動しています…')
 
         # チャンネル情報からサービス ID とネットワーク ID を取得する
-        channel:Channels = await Channels.filter(channel_id=channel_id).first()
+        channel:Channel = await Channel.filter(channel_id=channel_id).first()
 
         # 現在の番組情報を取得する
-        program_present:Programs = (await channel.getCurrentAndNextProgram())[0]
+        program_present:Program = (await channel.getCurrentAndNextProgram())[0]
 
         ## 番組情報が取得できなければ（放送休止中など）ここで Offline にしてエンコードタスクを停止する
         ## スターデジオは番組情報が取れないことが多いので(特に午後)、休止になっていても無視してストリームを開始する
@@ -715,7 +715,7 @@ class LiveEncodingTask():
 
                     # 次の番組情報を取得する
                     # メインスレッドのイベントループで実行（そうしないとうまく動作しない）
-                    program_following:Programs = asyncio.run_coroutine_threadsafe(channel.getCurrentAndNextProgram(), loop).result()[0]
+                    program_following:Program = asyncio.run_coroutine_threadsafe(channel.getCurrentAndNextProgram(), loop).result()[0]
 
                     # 次の番組が None でない
                     if program_following is not None:

@@ -16,7 +16,7 @@ from app.utils.EDCB import CtrlCmdUtil
 from app.utils.EDCB import EDCBUtil
 
 
-class Channels(models.Model):
+class Channel(models.Model):
 
     # テーブル設計は Notion を参照のこと
     id:str = fields.TextField(pk=True)
@@ -56,7 +56,7 @@ class Channels(models.Model):
         """ Mirakurun バックエンドからチャンネル情報を取得し、更新する """
 
         # 既にデータベースにチャンネル情報が存在する場合は一旦全て削除する
-        await Channels.all().delete()
+        await Channel.all().delete()
 
         # Mirakurun の API からチャンネル情報を取得する
         try:
@@ -88,7 +88,7 @@ class Channels(models.Model):
                 continue
 
             # 新しいチャンネルのレコードを作成
-            channel = Channels()
+            channel = Channel()
 
             # 取得してきた値を設定
             channel.id = f'NID{service["networkId"]}-SID{service["serviceId"]:03d}'
@@ -216,10 +216,10 @@ class Channels(models.Model):
         """ EDCB バックエンドからチャンネル情報を取得し、更新する """
 
         # リモコン番号が取得できない場合に備えてバックアップ
-        backup_remocon_ids = {channel.id: channel.remocon_id for channel in await Channels.all()}
+        backup_remocon_ids = {channel.id: channel.remocon_id for channel in await Channel.all()}
 
         # 既にデータベースにチャンネル情報が存在する場合は一旦全て削除する
-        await Channels.all().delete()
+        await Channel.all().delete()
 
         # CtrlCmdUtil を初期化
         edcb = CtrlCmdUtil()
@@ -261,7 +261,7 @@ class Channels(models.Model):
                 continue
 
             # 新しいチャンネルのレコードを作成
-            channel = Channels()
+            channel = Channel()
 
             # 取得してきた値を設定
             channel.id = f'NID{service["onid"]}-SID{service["sid"]:03d}'
@@ -405,7 +405,7 @@ class Channels(models.Model):
         await Jikkyo.updateStatus()
 
         # 全てのチャンネル情報を取得
-        channels = await Channels.all()
+        channels = await Channel.all()
 
         # チャンネル情報ごとに
         for channel in channels:
@@ -431,20 +431,20 @@ class Channels(models.Model):
         """
 
         # モジュール扱いになるのを避けるためここでインポート
-        from app.models import Programs
+        from app.models import Program
 
         # 現在時刻
         now = timezone.now()
 
         # 現在の番組情報を取得する
-        program_present = await Programs.filter(
+        program_present = await Program.filter(
             channel_id = self.channel_id,  # 同じチャンネルID
             start_time__lte = now,  # 番組開始時刻が現在時刻以下
             end_time__gte = now,  # 番組終了時刻が現在時刻以上
         ).order_by('-start_time').first()
 
         # 次の番組情報を取得する
-        program_following = await Programs.filter(
+        program_following = await Program.filter(
             channel_id = self.channel_id,  # 同じチャンネルID
             start_time__gte = now,  # 番組開始時刻が現在時刻以上
         ).order_by('start_time').first()

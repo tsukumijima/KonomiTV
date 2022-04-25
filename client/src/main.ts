@@ -3,10 +3,10 @@ import axios from 'axios';
 import { Icon } from '@iconify/vue2';
 import Vue from 'vue';
 import VueAxios from 'vue-axios';
-import VueVirtualScroller from 'vue-virtual-scroller'
-import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
+import VueVirtualScroller from 'vue-virtual-scroller';
+import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
 import VTooltip from 'v-tooltip';
-import 'v-tooltip/dist/v-tooltip.css'
+import 'v-tooltip/dist/v-tooltip.css';
 
 import App from '@/App.vue';
 import VTabItem from '@/components/VTabItem';

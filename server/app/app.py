@@ -18,9 +18,9 @@ from fastapi_utils.tasks import repeat_every
 from pydantic import ValidationError
 
 from app.constants import CONFIG, CLIENT_DIR, DATABASE_CONFIG, LIBRARY_PATH, QUALITY, VERSION
-from app.models import Channels
+from app.models import Channel
 from app.models import LiveStream
-from app.models import Programs
+from app.models import Program
 from app.routers import ChannelsRouter
 from app.routers import LiveStreamsRouter
 from app.schemas import Config
@@ -194,16 +194,16 @@ async def Startup():
         os._exit(1)
 
     # チャンネル情報を更新
-    await Channels.update()
+    await Channel.update()
 
     # ニコニコ実況関連のステータスを更新
-    await Channels.updateJikkyoStatus()
+    await Channel.updateJikkyoStatus()
 
     # 番組情報を更新
-    await Programs.update()
+    await Program.update()
 
     # 全てのチャンネル&品質のライブストリームを初期化する
-    for channel in await Channels.all().order_by('channel_number').values():
+    for channel in await Channel.all().order_by('channel_number').values():
         for quality in QUALITY:
             LiveStream(channel['channel_id'], quality)
 
@@ -212,21 +212,21 @@ async def Startup():
 @app.on_event('startup')
 @repeat_every(seconds=60 * 60, wait_first=True, logger=Logging.logger)
 async def UpdateProgram():
-    await Channels.update()
-    await Channels.updateJikkyoStatus()
+    await Channel.update()
+    await Channel.updateJikkyoStatus()
 
 # 15分に1回、番組情報を定期的に更新する
 # 番組情報の更新処理はかなり重くストリーム配信などの他の処理に影響してしまうため、マルチプロセスで実行する
 @app.on_event('startup')
 @repeat_every(seconds=15 * 60, wait_first=True, logger=Logging.logger)
 async def UpdateProgram():
-    await Programs.update(multiprocess=True)
+    await Program.update(multiprocess=True)
 
 # 30秒に1回、ニコニコ実況関連のステータスを定期的に更新する
 @app.on_event('startup')
 @repeat_every(seconds=0.5 * 60, wait_first=True, logger=Logging.logger)
 async def UpdateJikkyoStatus():
-    await Channels.updateJikkyoStatus()
+    await Channel.updateJikkyoStatus()
 
 # サーバーの終了時に実行する
 cleanup = False

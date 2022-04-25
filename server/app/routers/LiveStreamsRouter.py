@@ -14,7 +14,7 @@ from typing import Optional
 
 from app import schemas
 from app.constants import QUALITY
-from app.models import Channels
+from app.models import Channel
 from app.models import LiveStream
 
 
@@ -72,7 +72,7 @@ async def LiveStreamAPI(
     # ***** バリデーション *****
 
     # 指定されたチャンネル ID が存在しない
-    if await Channels.filter(channel_id=channel_id).get_or_none() is None:
+    if await Channel.filter(channel_id=channel_id).get_or_none() is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail='Specified channel_id was not found',
@@ -129,7 +129,7 @@ async def LiveStreamEventAPI(
     # ***** バリデーション *****
 
     # 指定されたチャンネル ID が存在しない
-    if await Channels.filter(channel_id=channel_id).get_or_none() is None:
+    if await Channel.filter(channel_id=channel_id).get_or_none() is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail='Specified channel_id was not found',
@@ -227,7 +227,7 @@ async def LiveMPEGTSStreamAPI(
     # ***** バリデーション *****
 
     # 指定されたチャンネル ID が存在しない
-    if await Channels.filter(channel_id=channel_id).get_or_none() is None:
+    if await Channel.filter(channel_id=channel_id).get_or_none() is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail='Specified channel_id was not found',

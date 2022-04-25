@@ -1,5 +1,5 @@
 
 # モデルをモジュールとして登録
-from .Channels import Channels
+from .Channel import Channel
 from .LiveStream import LiveStream
-from .Programs import Programs
+from .Program import Program

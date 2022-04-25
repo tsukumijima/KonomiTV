@@ -28,14 +28,14 @@ class Config(BaseModel):
 # 基本的には pydantic_model_creator() で Tortoise ORM モデルから変換したものを継承
 # JSONField など変換だけでは補いきれない部分や、新しく追加したいカラムなどを追加で定義する
 
-class Program(pydantic_model_creator(models.Programs, name='Program')):
+class Program(pydantic_model_creator(models.Program, name='Program')):
     class Genre(BaseModel):
         major:str
         middle:str
     detail: Dict[str, str]
     genre: List[Genre]
 
-class Channel(pydantic_model_creator(models.Channels, name='Channel')):
+class Channel(pydantic_model_creator(models.Channel, name='Channel')):
     is_display: bool = True  # 追加カラム
     viewers: int
     program_present: Optional[Program]  # 追加カラム

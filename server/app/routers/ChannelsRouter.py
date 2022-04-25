@@ -12,11 +12,11 @@ from fastapi.responses import FileResponse
 from fastapi.responses import Response
 from tortoise import timezone
 from tortoise import Tortoise
-from typing import Optional
+from typing import List, Optional
 
 from app import schemas
 from app.constants import CONFIG, LOGO_DIR
-from app.models import Channels
+from app.models import Channel
 from app.models import LiveStream
 from app.utils.EDCB import CtrlCmdUtil
 from app.utils.EDCB import EDCBUtil
@@ -48,8 +48,8 @@ async def ChannelsAPI():
     tasks = list()
 
     # チャンネル情報を取得
-    channels:Channels
-    tasks.append(Channels.all().order_by('channel_number').order_by('remocon_id'))
+    channels:List[Channel]
+    tasks.append(Channel.all().order_by('channel_number').order_by('remocon_id'))
 
     # データベースの生のコネクションを取得
     # 地デジ・BS・CS を合わせると 18000 件近くになる番組情報を SQLite かつ ORM で絞り込んで素早く取得するのは無理があるらしい
@@ -98,7 +98,7 @@ async def ChannelsAPI():
     for channel in channels:
 
         # 番組情報のリストからチャンネル ID が合致するものを探し、最初に見つけた値を返す
-        def FilterProgram(programs, channel_id) -> Optional[dict]:
+        def FilterProgram(programs:dict, channel_id:str) -> Optional[dict]:
             for program in programs:
                 if program['channel_id'] == channel_id:
                     return program
@@ -147,7 +147,7 @@ async def ChannelAPI(
     """
 
     # チャンネル情報を取得
-    channel = await Channels.filter(channel_id=channel_id).get_or_none()
+    channel = await Channel.filter(channel_id=channel_id).get_or_none()
 
     # 指定されたチャンネル ID が存在しない
     if channel is None:
@@ -191,7 +191,7 @@ async def ChannelLogoAPI(
     """
 
     # チャンネル情報を取得
-    channel = await Channels.filter(channel_id=channel_id).get_or_none()
+    channel = await Channel.filter(channel_id=channel_id).get_or_none()
 
     # 指定されたチャンネル ID が存在しない
     if channel is None:
@@ -250,7 +250,7 @@ async def ChannelLogoAPI(
 
         # メインチャンネルの情報を取得
         # ネットワーク ID が同じチャンネルのうち、一番サービス ID が若いチャンネルを探す
-        main_channel = await Channels.filter(network_id=channel.network_id).order_by('service_id').first()
+        main_channel = await Channel.filter(network_id=channel.network_id).order_by('service_id').first()
 
         # メインチャンネルが存在し、ロゴも存在する
         if main_channel is not None and pathlib.Path.exists(LOGO_DIR / f'{main_channel.id}.png'):
@@ -269,7 +269,7 @@ async def ChannelLogoAPI(
             main_service_id = int(channel.channel_number[0:2] + '1')
 
         # メインチャンネルの情報を取得
-        main_channel = await Channels.filter(network_id=channel.network_id, service_id=main_service_id).first()
+        main_channel = await Channel.filter(network_id=channel.network_id, service_id=main_service_id).first()
 
         # メインチャンネルが存在し、ロゴも存在する
         if main_channel is not None and pathlib.Path.exists(LOGO_DIR / f'{main_channel.id}.png'):
@@ -349,7 +349,7 @@ async def ChannelJikkyoSessionAPI(
     """
 
     # チャンネル情報を取得
-    channel = await Channels.filter(channel_id=channel_id).get_or_none()
+    channel = await Channel.filter(channel_id=channel_id).get_or_none()
 
     # 指定されたチャンネル ID が存在しない
     if channel is None:
