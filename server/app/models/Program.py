@@ -8,6 +8,7 @@ import time
 import traceback
 import urllib
 from datetime import timedelta
+from tortoise import connections
 from tortoise import exceptions
 from tortoise import fields
 from tortoise import models
@@ -171,8 +172,8 @@ class Program(models.Model):
         # ref: https://tortoise-orm.readthedocs.io/en/latest/setup.html
         is_running_multiprocess = False
         try:
-            Tortoise.get_connection('default')
-        except KeyError:
+            connections.get('default')
+        except exceptions.ConfigurationError:
             await Tortoise.init(config=DATABASE_CONFIG)
             is_running_multiprocess = True
         try:
@@ -423,7 +424,7 @@ class Program(models.Model):
         # コネクションを閉じないと Ctrl+C を押下しても終了できない
         finally:
             if is_running_multiprocess:
-                await Tortoise.close_connections()
+                await connections.close_all()
 
 
     @classmethod
@@ -434,8 +435,8 @@ class Program(models.Model):
         # ref: https://tortoise-orm.readthedocs.io/en/latest/setup.html
         is_running_multiprocess = False
         try:
-            Tortoise.get_connection('default')
-        except KeyError:
+            connections.get('default')
+        except exceptions.ConfigurationError:
             await Tortoise.init(config=DATABASE_CONFIG)
             is_running_multiprocess = True
         try:
@@ -692,7 +693,7 @@ class Program(models.Model):
         # コネクションを閉じないと Ctrl+C を押下しても終了できない
         finally:
             if is_running_multiprocess:
-                await Tortoise.close_connections()
+                await connections.close_all()
 
 
     @classmethod

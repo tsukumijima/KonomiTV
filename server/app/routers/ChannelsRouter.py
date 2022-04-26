@@ -10,8 +10,8 @@ from fastapi import Path
 from fastapi import status
 from fastapi.responses import FileResponse
 from fastapi.responses import Response
+from tortoise import connections
 from tortoise import timezone
-from tortoise import Tortoise
 from typing import List, Optional
 
 from app import schemas
@@ -54,13 +54,13 @@ async def ChannelsAPI():
     # データベースの生のコネクションを取得
     # 地デジ・BS・CS を合わせると 18000 件近くになる番組情報を SQLite かつ ORM で絞り込んで素早く取得するのは無理があるらしい
     # そこで、この部分だけは ORM の機能を使わず、直接クエリを叩いて取得する
-    conn = Tortoise.get_connection('default')
+    connection = connections.get('default')
 
     # 現在の番組情報を取得する
     ## 一度に取得した方がパフォーマンスが向上するため敢えてそうしている
     ## 24時間分しか取得しないのもパフォーマンスの関係で、24時間を超える番組は確認できる限り存在しないため実害はないと判断
     programs_present:dict
-    tasks.append(conn.execute_query_dict(
+    tasks.append(connection.execute_query_dict(
         'SELECT * FROM "programs" WHERE "start_time"<=(?) AND "end_time">=(?) AND "end_time"<=(?) ORDER BY "start_time" DESC',
         [
             now,  # 番組開始時刻が現在時刻以下
@@ -73,7 +73,7 @@ async def ChannelsAPI():
     ## 本来は次の番組情報の取得条件は48時間分にしなければならないが、
     ## そうすると API レスポンスが 150ms も遅くなってしまうため、やむなく24時間分のみ取得している
     programs_following:dict
-    tasks.append(conn.execute_query_dict(
+    tasks.append(connection.execute_query_dict(
         'SELECT * FROM "programs" WHERE "start_time">=(?) AND "end_time"<=(?) ORDER BY "start_time" ASC',
         [
             now,  # 番組開始時刻が現在時刻以上
