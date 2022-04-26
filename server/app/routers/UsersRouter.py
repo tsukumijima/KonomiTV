@@ -167,6 +167,63 @@ async def UserMeAPI(
     return current_user
 
 
+@router.put(
+    '/me',
+    summary = 'アカウント情報更新 API (ログイン中のユーザー)',
+    status_code = status.HTTP_204_NO_CONTENT,
+)
+async def UserUpdateMeAPI(
+    user_update_request: schemas.UserUpdateRequest = Body(..., description='更新するユーザーアカウントの情報。'),
+    current_user:User = Depends(User.getCurrentUser),
+):
+    """
+    現在ログイン中のユーザーアカウントの情報を更新する。<br>
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
+    """
+
+    # Passlib のコンテキストを作成
+    passlib_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
+
+    # ユーザー名を更新（存在する場合）
+    if user_update_request.username is not None:
+
+        # 同じユーザー名のアカウントがあったら 422 を返す
+        # ユーザー名がそのままログイン ID になるので、同じユーザー名のアカウントがあると重複する
+        if await User.filter(name=user_update_request.username).get_or_none() is not None:
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'Specified username is duplicated',
+            )
+
+        # 新しいユーザー名を設定
+        current_user.name = user_update_request.username
+
+    # パスワードを更新（存在する場合）
+    if user_update_request.password is not None:
+        current_user.password = passlib_context.hash(user_update_request.password)  # ハッシュ化されたパスワード
+
+    # レコードを保存する
+    await current_user.save()
+
+
+@router.delete(
+    '/me',
+    summary = 'アカウント削除 API (ログイン中のユーザー)',
+    status_code = status.HTTP_204_NO_CONTENT,
+)
+async def UserDeleteMeAPI(
+    current_user:User = Depends(User.getCurrentUser),
+):
+    """
+    現在ログイン中のユーザーアカウントを削除する。<br>
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
+    """
+
+    # 現在ログイン中のユーザーアカウント（自分自身）を削除
+    # アカウントを削除すると、それ以降は（当然ながら）ログインを要求する API へアクセスできなくなる
+    await current_user.delete()
+
+
 @router.get(
     '/{username}',
     summary = 'アカウント情報 API',
@@ -193,3 +250,85 @@ async def UserAPI(
         )
 
     return user
+
+
+@router.put(
+    '/{username}',
+    summary = 'アカウント情報更新 API',
+    status_code = status.HTTP_204_NO_CONTENT,
+)
+async def UserUpdateAPI(
+    username:str = Path(..., description='アカウントのユーザー名。'),
+    user_update_request: schemas.UserUpdateRequestForAdmin = Body(..., description='更新するユーザーアカウントの情報。'),
+    current_user:User = Depends(User.getCurrentAdminUser),
+):
+    """
+    指定されたユーザーアカウントの情報を更新する。管理者権限を付与/剥奪できるのが /api/users/me との最大の違い。<br>
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
+    """
+
+    # 指定されたユーザー名のユーザーを取得
+    user = await User.filter(name=username).get_or_none()
+
+    # 指定されたユーザー名のユーザーが存在しない
+    if not user:
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Specified user was not found',
+        )
+
+    # Passlib のコンテキストを作成
+    passlib_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
+
+    # ユーザー名を更新
+    if user_update_request.username is not None:
+
+        # 同じユーザー名のアカウントがあったら 422 を返す
+        # ユーザー名がそのままログイン ID になるので、同じユーザー名のアカウントがあると重複する
+        if await User.filter(name=user_update_request.username).get_or_none() is not None:
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'Specified username is duplicated',
+            )
+
+        # 新しいユーザー名を設定
+        user.name = user_update_request.username
+
+    # パスワードを更新
+    if user_update_request.password is not None:
+        user.password = passlib_context.hash(user_update_request.password)  # ハッシュ化されたパスワード
+
+    # 管理者権限を付与/剥奪
+    if user_update_request.is_admin is not None:
+        user.is_admin = user_update_request.is_admin
+
+    # レコードを保存する
+    await user.save()
+
+
+@router.delete(
+    '/{username}',
+    summary = 'アカウント削除 API',
+    status_code = status.HTTP_204_NO_CONTENT,
+)
+async def UserDeleteAPI(
+    username:str = Path(..., description='アカウントのユーザー名。'),
+    current_user:User = Depends(User.getCurrentAdminUser),
+):
+    """
+    現在ログイン中のユーザーアカウントを削除する。<br>
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
+    """
+
+    # 指定されたユーザー名のユーザーを取得
+    user = await User.filter(name=username).get_or_none()
+
+    # 指定されたユーザー名のユーザーが存在しない
+    if not user:
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Specified user was not found',
+        )
+
+    # 指定されたユーザーを削除
+    await user.delete()
