@@ -3,3 +3,4 @@
 from .Channel import Channel
 from .LiveStream import LiveStream
 from .Program import Program
+from .User import User
