@@ -63,6 +63,11 @@ class UserUpdateRequest(BaseModel):
     username: Optional[str]
     password: Optional[str]
 
+class UserUpdateRequestForAdmin(BaseModel):
+    username: Optional[str]
+    password: Optional[str]
+    is_admin: Optional[bool]
+
 # API レスポンスに利用する Pydantic モデル
 # モデルを List や Dict でまとめたものが中心
 

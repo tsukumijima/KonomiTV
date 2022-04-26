@@ -40,7 +40,7 @@ async def UserCreateAPI(
     新しいユーザーアカウントを作成する。
 
     指定されたユーザー名のアカウントがすでに存在する場合は 422 エラーが返される。<br>
-    また、最初に作成されたアカウントのみ、特別に管理者権限 (is_admin: True) が付与される。
+    また、最初に作成されたアカウントのみ、特別に管理者権限 (is_admin: true) が付与される。
     """
 
     # Passlib のコンテキストを作成
@@ -133,3 +133,63 @@ async def UserAccessTokenAPI(
         'access_token': access_token,
         'token_type': 'bearer',
     }
+
+
+@router.get(
+    '',
+    summary = 'アカウント一覧 API',
+    response_description = 'すべてのユーザーアカウントの情報。',
+    response_model = schemas.Users,
+)
+async def UsersAPI(
+    current_user:User = Depends(User.getCurrentAdminUser),
+):
+    """
+    すべてのユーザーアカウントのリストを取得する。<br>
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
+    """
+    return await User.all()
+
+
+@router.get(
+    '/me',
+    summary = 'アカウント情報 API (ログイン中のユーザー)',
+    response_description = 'ログイン中のユーザーアカウントの情報。',
+    response_model = schemas.User,
+)
+async def UserMeAPI(
+    current_user:User = Depends(User.getCurrentUser),
+):
+    """
+    現在ログイン中のユーザーアカウントの情報を取得する。<br>
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
+    """
+    return current_user
+
+
+@router.get(
+    '/{username}',
+    summary = 'アカウント情報 API',
+    response_description = 'ユーザーアカウントの情報。',
+    response_model = schemas.User,
+)
+async def UserAPI(
+    username:str = Path(..., description='アカウントのユーザー名。'),
+    current_user:User = Depends(User.getCurrentAdminUser),
+):
+    """
+    指定されたユーザーアカウントの情報を取得する。<br>
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
+    """
+
+    # 指定されたユーザー名のユーザーを取得
+    user = await User.filter(name=username).get_or_none()
+
+    # 指定されたユーザー名のユーザーが存在しない
+    if not user:
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Specified user was not found',
+        )
+
+    return user
