@@ -1,4 +1,3 @@
-
 [[source]]
 url = "https://pypi.org/simple"
 verify_ssl = true
@@ -16,7 +15,10 @@ ariblib = "*"
 colorama = ">=0.4"
 fastapi = "==0.73.0"
 fastapi-utils = "==0.2.1"
+passlib = {extras = ["bcrypt"], version = "*"}
 psutil = "*"
+python-jose = {extras = ["cryptography"], version = "*"}
+python-multipart = "*"
 pywin32 = {version = "==303", sys_platform = "== 'win32'"}
 requests = "*"
 "ruamel.yaml" = "*"
