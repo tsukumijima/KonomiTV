@@ -23,6 +23,7 @@ from app.models import LiveStream
 from app.models import Program
 from app.routers import ChannelsRouter
 from app.routers import LiveStreamsRouter
+from app.routers import UsersRouter
 from app.schemas import Config
 from app.utils import Logging
 from app.utils.EDCB import CtrlCmdUtil
@@ -85,6 +86,7 @@ app.add_middleware(
 # ルーターの追加
 app.include_router(ChannelsRouter.router)
 app.include_router(LiveStreamsRouter.router)
+app.include_router(UsersRouter.router)
 
 # 静的ファイルの配信
 app.mount('/assets', StaticFiles(directory=CLIENT_DIR / 'assets', html=True))
@@ -122,7 +124,7 @@ async def Root(file:str):
     else:
         if file.startswith('api/'):
             # パスに api/ が前方一致で含まれているなら、404 Not Found を返す
-            return JSONResponse({'detail': 'Not Found'}, status_code=status.HTTP_404_NOT_FOUND)
+            return JSONResponse({'detail': 'Not Found'}, status_code = status.HTTP_404_NOT_FOUND)
         else:
             # パスに api/ が前方一致で含まれていなければ、index.html を返す
             return FileResponse(CLIENT_DIR / 'index.html', media_type='text/html')
@@ -132,7 +134,7 @@ async def Root(file:str):
 async def ExceptionHandler(request:Request, exc: Exception):
     return JSONResponse(
         {'detail': f'Oops! {type(exc).__name__} did something. There goes a rainbow...'},
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
     )
 
 # Tortoise ORM の初期化

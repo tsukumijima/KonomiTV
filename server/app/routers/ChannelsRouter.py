@@ -152,8 +152,8 @@ async def ChannelAPI(
     # 指定されたチャンネル ID が存在しない
     if channel is None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail='Specified channel_id was not found',
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Specified channel_id was not found',
         )
 
     # 現在と次の番組情報を取得
@@ -196,8 +196,8 @@ async def ChannelLogoAPI(
     # 指定されたチャンネル ID が存在しない
     if channel is None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail='Specified channel_id was not found',
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Specified channel_id was not found',
         )
 
     # ブラウザにキャッシュしてもらえるようにヘッダーを設定
@@ -339,6 +339,7 @@ async def ChannelLogoAPI(
 @router.get(
     '/{channel_id}/jikkyo',
     summary = 'ニコニコ実況セッション情報 API',
+    response_description = 'ニコニコ実況のセッション情報。',
     response_model = schemas.JikkyoSession,
 )
 async def ChannelJikkyoSessionAPI(
@@ -354,8 +355,8 @@ async def ChannelJikkyoSessionAPI(
     # 指定されたチャンネル ID が存在しない
     if channel is None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail='Specified channel_id was not found',
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Specified channel_id was not found',
         )
 
     # ニコニコ実況クライアントを初期化する

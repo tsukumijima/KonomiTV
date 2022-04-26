@@ -119,5 +119,8 @@ DATABASE_CONFIG = {
     }
 }
 
+# JWT のエンコード/デコードに使うシークレットキー
+JWT_SECRET_KEY = 'ef26a7905a115787d0fe9a807b7fdc8feb5caf6182ffb9f98ff2c1bb3b448a81'
+
 # バージョン
 VERSION = '0.5.2'

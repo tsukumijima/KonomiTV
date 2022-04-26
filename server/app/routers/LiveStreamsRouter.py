@@ -74,15 +74,15 @@ async def LiveStreamAPI(
     # 指定されたチャンネル ID が存在しない
     if await Channel.filter(channel_id=channel_id).get_or_none() is None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail='Specified channel_id was not found',
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Specified channel_id was not found',
         )
 
     # 指定された映像の品質が存在しない
     if quality not in QUALITY:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail='Specified quality was not found',
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Specified quality was not found',
         )
 
     # ***** ライブストリームの状態を返却する *****
@@ -131,15 +131,15 @@ async def LiveStreamEventAPI(
     # 指定されたチャンネル ID が存在しない
     if await Channel.filter(channel_id=channel_id).get_or_none() is None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail='Specified channel_id was not found',
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Specified channel_id was not found',
         )
 
     # 指定された映像の品質が存在しない
     if quality not in QUALITY:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail='Specified quality was not found',
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Specified quality was not found',
         )
 
     # ***** イベントの配信 *****
@@ -229,15 +229,15 @@ async def LiveMPEGTSStreamAPI(
     # 指定されたチャンネル ID が存在しない
     if await Channel.filter(channel_id=channel_id).get_or_none() is None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail='Specified channel_id was not found',
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Specified channel_id was not found',
         )
 
     # 指定された映像の品質が存在しない
     if quality not in QUALITY:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail='Specified quality was not found',
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Specified quality was not found',
         )
 
     # ***** エンコードタスクの開始 *****

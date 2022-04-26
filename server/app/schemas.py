@@ -2,7 +2,7 @@
 from pydantic import AnyHttpUrl, BaseModel, PositiveInt
 from pydantic.networks import stricturl
 from tortoise.contrib.pydantic import pydantic_model_creator
-from typing import Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from app import models
 
@@ -28,6 +28,7 @@ class Config(BaseModel):
 # 基本的には pydantic_model_creator() で Tortoise ORM モデルから変換したものを継承
 # JSONField など変換だけでは補いきれない部分や、新しく追加したいカラムなどを追加で定義する
 
+# Channel モデルで Program モデルを使っているため、先に定義する
 class Program(pydantic_model_creator(models.Program, name='Program')):
     class Genre(BaseModel):
         major:str
@@ -48,6 +49,20 @@ class LiveStream(BaseModel):
     updated_at: float
     clients_count: int
 
+class User(pydantic_model_creator(models.User, name='User',
+    exclude=('password', 'niconico_access_token', 'niconico_refresh_token'))):
+    client_settings: Dict[str, Any]
+
+# API リクエストに利用する Pydantic モデル
+# リクエストボティの JSON の構造を表す
+class UserCreateRequest(BaseModel):
+    username: str
+    password: str
+
+class UserUpdateRequest(BaseModel):
+    username: Optional[str]
+    password: Optional[str]
+
 # API レスポンスに利用する Pydantic モデル
 # モデルを List や Dict でまとめたものが中心
 
@@ -59,6 +74,11 @@ class Channels(BaseModel):
     SKY: List[Channel]
     STARDIGIO: List[Channel]
 
+class JikkyoSession(BaseModel):
+    is_success: bool
+    audience_token: Optional[str]
+    detail: str
+
 class LiveStreams(BaseModel):
     Restart: Dict[str, LiveStream]
     Idling: Dict[str, LiveStream]
@@ -66,7 +86,9 @@ class LiveStreams(BaseModel):
     Standby: Dict[str, LiveStream]
     Offline: Dict[str, LiveStream]
 
-class JikkyoSession(BaseModel):
-    is_success: bool
-    audience_token: Optional[str]
-    detail: str
+class Users(BaseModel):
+    __root__: List[User]
+
+class UserAccessToken(BaseModel):
+    access_token: str
+    token_type: str

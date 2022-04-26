@@ -108,15 +108,15 @@ class LiveStream():
 
         # インスタンス変数の型ヒントを定義
         # Singleton のためインスタンスの生成は __new__() で行うが、__init__() も定義しておかないと補完がうまく効かない
-        self.livestream_id:str
-        self.channel_id:str
-        self.quality:str
-        self.status:Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart']
-        self.started_at:float
-        self.updated_at:float
-        self.stream_data_written_at:float
-        self.tuner:Optional[EDCBTuner]
-        self.clients:List[Optional[LiveStreamClient]]
+        self.livestream_id: str
+        self.channel_id: str
+        self.quality: str
+        self.status: Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart']
+        self.started_at: float
+        self.updated_at: float
+        self.stream_data_written_at: float
+        self.tuner: Optional[EDCBTuner]
+        self.clients: List[Optional[LiveStreamClient]]
 
 
     @classmethod

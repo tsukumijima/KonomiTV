@@ -23,19 +23,19 @@ class Channel(models.Model):
         table:str = 'channels'
 
     # テーブル設計は Notion を参照のこと
-    id:str = fields.TextField(pk=True)
-    network_id:int = fields.IntField()
-    service_id:int = fields.IntField()
-    transport_stream_id:Optional[int] = fields.IntField(null=True)
-    remocon_id:Optional[int] = fields.IntField(null=True)
-    channel_id:str = fields.TextField()
-    channel_number:str = fields.TextField()
-    channel_name:str = fields.TextField()
-    channel_type:str = fields.TextField()
-    channel_force:Optional[int] = fields.IntField(null=True)
-    channel_comment:Optional[int] = fields.IntField(null=True)
-    is_subchannel:bool = fields.BooleanField()
-    is_radiochannel:bool = fields.BooleanField()
+    id: str = fields.TextField(pk=True)
+    network_id: int = fields.IntField()
+    service_id: int = fields.IntField()
+    transport_stream_id: Optional[int] = fields.IntField(null=True)
+    remocon_id: Optional[int] = fields.IntField(null=True)
+    channel_id: str = fields.TextField()
+    channel_number: str = fields.TextField()
+    channel_name: str = fields.TextField()
+    channel_type: str = fields.TextField()
+    channel_force: Optional[int] = fields.IntField(null=True)
+    channel_comment: Optional[int] = fields.IntField(null=True)
+    is_subchannel: bool = fields.BooleanField()
+    is_radiochannel: bool = fields.BooleanField()
 
 
     @classmethod
