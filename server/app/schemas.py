@@ -1,4 +1,5 @@
 
+from datetime import datetime
 from pydantic import AnyHttpUrl, BaseModel, PositiveInt
 from pydantic.networks import stricturl
 from tortoise.contrib.pydantic import pydantic_model_creator
@@ -49,9 +50,16 @@ class LiveStream(BaseModel):
     updated_at: float
     clients_count: int
 
+class TwitterAccount(pydantic_model_creator(models.TwitterAccount, name='TwitterAccount',
+    exclude=('access_token', 'access_token_secret'))):
+    pass
+
 class User(pydantic_model_creator(models.User, name='User',
-    exclude=('password', 'niconico_access_token', 'niconico_refresh_token'))):
+    exclude=('password', 'niconico_access_token', 'niconico_refresh_token', 'created_at', 'updated_at'))):
     client_settings: Dict[str, Any]
+    twitter_accounts: List[TwitterAccount]  # 追加カラム
+    created_at: datetime  # twitter_accounts の下に配置するために、一旦 exclude した上で再度定義する
+    updated_at: datetime  # twitter_accounts の下に配置するために、一旦 exclude した上で再度定義する
 
 # API リクエストに利用する Pydantic モデル
 # リクエストボティの JSON の構造を表す

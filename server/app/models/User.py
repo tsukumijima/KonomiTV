@@ -3,8 +3,8 @@
 # ref: https://stackoverflow.com/a/33533514/17124142
 from __future__ import annotations
 
-import datetime
 import json
+from datetime import datetime
 from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import status
@@ -16,6 +16,7 @@ from tortoise import models
 from typing import Optional
 
 from app.constants import JWT_SECRET_KEY
+from app.models import TwitterAccount
 
 
 class User(models.Model):
@@ -34,8 +35,10 @@ class User(models.Model):
     niconico_user_name: Optional[str] = fields.TextField(null=True)
     niconico_access_token: Optional[str] = fields.TextField(null=True)
     niconico_refresh_token: Optional[str] = fields.TextField(null=True)
-    created_at: datetime.datetime = fields.DatetimeField(auto_now_add=True)
-    updated_at: datetime.datetime = fields.DatetimeField(auto_now=True)
+    ## クラスが読み込まれる前なので、TwitterAccount(モジュール).TwitterAccount(クラス) のようにしないと参照できない
+    twitter_accounts: fields.ReverseRelation['TwitterAccount.TwitterAccount']
+    created_at: datetime = fields.DatetimeField(auto_now_add=True)
+    updated_at: datetime = fields.DatetimeField(auto_now=True)
 
 
     @classmethod
@@ -88,6 +91,9 @@ class User(models.Model):
                 headers = {'WWW-Authenticate': 'Bearer'},
             )
 
+        # 外部テーブルのデータを取得してから返す
+        # 明示的に fetch_related() しないと取得されない仕様になっているらしい
+        await user.fetch_related('twitter_accounts')
         return user
 
 
@@ -117,4 +123,7 @@ class User(models.Model):
                 headers = {'WWW-Authenticate': 'Bearer'},
             )
 
+        # 外部テーブルのデータを取得してから返す
+        # 明示的に fetch_related() しないと取得されない仕様になっているらしい
+        await user.fetch_related('twitter_accounts')
         return user

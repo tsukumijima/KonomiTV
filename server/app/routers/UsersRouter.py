@@ -12,7 +12,6 @@ from fastapi.security import OAuth2PasswordRequestForm
 from jose import jwt
 from passlib.context import CryptContext
 from tortoise import timezone
-from typing import List
 
 from app import schemas
 from app.constants import JWT_SECRET_KEY
