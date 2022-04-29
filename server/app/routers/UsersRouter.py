@@ -147,7 +147,13 @@ async def UsersAPI(
     すべてのユーザーアカウントのリストを取得する。<br>
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
     """
-    return await User.all()
+
+    # 外部テーブルのデータを取得してから返す
+    # 明示的に fetch_related() しないと取得されない仕様になっているらしい
+    users = await User.all()
+    for user in users:
+        await user.fetch_related('twitter_accounts')
+    return users
 
 
 @router.get(
