@@ -24,6 +24,7 @@ requests = "*"
 "ruamel.yaml" = "*"
 sse-starlette = "==0.10.3"
 tortoise-orm = "==0.19.0"
+tweepy = "*"
 uvicorn = {extras = ["standard"], version = "==0.17.6"}
 uvloop = {version = ">=0.14.0,!=0.15.0,!=0.15.1", sys_platform = "!= 'win32'"}
 
