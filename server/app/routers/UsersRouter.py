@@ -141,7 +141,7 @@ async def UserAccessTokenAPI(
     response_model = schemas.Users,
 )
 async def UsersAPI(
-    current_user:User = Depends(User.getCurrentAdminUser),
+    current_user: User = Depends(User.getCurrentAdminUser),
 ):
     """
     すべてのユーザーアカウントのリストを取得する。<br>
@@ -173,7 +173,7 @@ async def UserMeAPI(
 )
 async def UserUpdateMeAPI(
     user_update_request: schemas.UserUpdateRequest = Body(..., description='更新するユーザーアカウントの情報。'),
-    current_user:User = Depends(User.getCurrentUser),
+    current_user: User = Depends(User.getCurrentUser),
 ):
     """
     現在ログイン中のユーザーアカウントの情報を更新する。<br>
@@ -211,7 +211,7 @@ async def UserUpdateMeAPI(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def UserDeleteMeAPI(
-    current_user:User = Depends(User.getCurrentUser),
+    current_user: User = Depends(User.getCurrentUser),
 ):
     """
     現在ログイン中のユーザーアカウントを削除する。<br>
@@ -230,8 +230,8 @@ async def UserDeleteMeAPI(
     response_model = schemas.User,
 )
 async def UserAPI(
-    username:str = Path(..., description='アカウントのユーザー名。'),
-    current_user:User = Depends(User.getCurrentAdminUser),
+    username: str = Path(..., description='アカウントのユーザー名。'),
+    current_user: User = Depends(User.getCurrentAdminUser),
 ):
     """
     指定されたユーザーアカウントの情報を取得する。<br>
@@ -257,9 +257,9 @@ async def UserAPI(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def UserUpdateAPI(
-    username:str = Path(..., description='アカウントのユーザー名。'),
+    username: str = Path(..., description='アカウントのユーザー名。'),
     user_update_request: schemas.UserUpdateRequestForAdmin = Body(..., description='更新するユーザーアカウントの情報。'),
-    current_user:User = Depends(User.getCurrentAdminUser),
+    current_user: User = Depends(User.getCurrentAdminUser),
 ):
     """
     指定されたユーザーアカウントの情報を更新する。管理者権限を付与/剥奪できるのが /api/users/me との最大の違い。<br>
@@ -311,8 +311,8 @@ async def UserUpdateAPI(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def UserDeleteAPI(
-    username:str = Path(..., description='アカウントのユーザー名。'),
-    current_user:User = Depends(User.getCurrentAdminUser),
+    username: str = Path(..., description='アカウントのユーザー名。'),
+    current_user: User = Depends(User.getCurrentAdminUser),
 ):
     """
     現在ログイン中のユーザーアカウントを削除する。<br>

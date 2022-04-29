@@ -99,6 +99,12 @@ class LiveStreams(BaseModel):
     Standby: Dict[str, LiveStream]
     Offline: Dict[str, LiveStream]
 
+class TwitterAuthURL(BaseModel):
+    authorization_url: Optional[str]
+
+class TwitterAuthCallbackSuccess(BaseModel):
+    detail: Literal['Success']
+
 class Users(BaseModel):
     __root__: List[User]
 

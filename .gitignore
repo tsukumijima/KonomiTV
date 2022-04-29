@@ -143,9 +143,7 @@ config.yaml
 
 # user files
 server/data/database*
-server/data/interlaced.dat
-server/data/rect.dat
-server/data/test*
+server/data/interlaced_*
 
 # thirdparty
 server/thirdparty/*
