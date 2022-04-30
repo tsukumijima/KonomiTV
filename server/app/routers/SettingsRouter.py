@@ -123,7 +123,7 @@ async def TwitterAuthCallbackAPI(
 
     # OAuth1UserHandler を初期化
     ## ref: https://docs.tweepy.org/en/latest/authentication.html#legged-oauth
-    oauth_handler = tweepy.OAuth1UserHandler(Interlaced(1), Interlaced(2), callback='')
+    oauth_handler = tweepy.OAuth1UserHandler(Interlaced(1), Interlaced(2))
     oauth_handler.request_token = {
         'oauth_token': twitter_account.access_token,
         'oauth_token_secret': twitter_account.access_token_secret,
@@ -141,6 +141,9 @@ async def TwitterAuthCallbackAPI(
 
     # アクセストークン・アクセストークンシークレットを保存
     await twitter_account.save()
+
+    # アカウント情報を更新
+    await TwitterAccount.updateAccountInformation()
 
     # 完了を確認できるように、適当に何か返しておく
     ## 204 No Content だと画面遷移が発生しない

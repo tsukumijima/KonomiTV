@@ -47,7 +47,8 @@ class TwitterAccount(models.Model):
                 continue
             twitter_account.name = verify_credentials.name
             twitter_account.screen_name = verify_credentials.screen_name
-            twitter_account.icon_url = verify_credentials.profile_image_url_https
+            ## (ランダムな文字列)_normal.jpg だと画像サイズが小さいので、(ランダムな文字列).jpg に置換
+            twitter_account.icon_url = verify_credentials.profile_image_url_https.replace('_normal', '')
 
             # 更新したアカウント情報を保存
             await twitter_account.save()
