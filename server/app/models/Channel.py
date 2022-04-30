@@ -403,7 +403,7 @@ class Channel(models.Model):
 
     @classmethod
     async def updateJikkyoStatus(cls) -> None:
-        """チャンネル情報のうち、ニコニコ実況関連のステータスを更新する"""
+        """ チャンネル情報のうち、ニコニコ実況関連のステータスを更新する """
 
         # 全ての実況チャンネルのステータスを更新
         await Jikkyo.updateStatus()
@@ -428,7 +428,8 @@ class Channel(models.Model):
 
 
     async def getCurrentAndNextProgram(self) -> tuple:
-        """現在と次の番組情報を取得する
+        """
+        現在と次の番組情報を取得する
 
         Returns:
             tuple: 現在と次の番組情報が入ったタプル
