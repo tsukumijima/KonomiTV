@@ -46,11 +46,20 @@ async def UserCreateAPI(
     passlib_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 
     # 同じユーザー名のアカウントがあったら 422 を返す
-    # ユーザー名がそのままログイン ID になるので、同じユーザー名のアカウントがあると重複する
+    ## ユーザー名がそのままログイン ID になるので、同じユーザー名のアカウントがあると重複する
     if await User.filter(name=user_create_request.username).get_or_none() is not None:
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified username is duplicated',
+        )
+
+    # ユーザー名が token or me だったら 422 を返す
+    ## /api/users/me と /api/users/token があるので、もしその名前で登録できてしまうと重複して面倒なことになる
+    ## そんな名前で登録する人はいないとは思うけど、念のため…。
+    if user_create_request.username.lower() == 'me' or user_create_request.username.lower() == 'token':
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Specified username is not accepted due to system limitations',
         )
 
     # 新しいユーザーアカウントのモデルを作成
@@ -67,6 +76,10 @@ async def UserCreateAPI(
 
     # レコードを保存する
     await user.save()
+
+    # 外部テーブルのデータを取得してから返す
+    # Twitter アカウントが登録されているかに関わらず、こうしないとユーザーデータを返せない
+    await user.fetch_related('twitter_accounts')
 
     return user
 
@@ -194,7 +207,8 @@ async def UserUpdateMeAPI(
 
         # 同じユーザー名のアカウントがあったら 422 を返す
         # ユーザー名がそのままログイン ID になるので、同じユーザー名のアカウントがあると重複する
-        if await User.filter(name=user_update_request.username).get_or_none() is not None:
+        if ((await User.filter(name=user_update_request.username).get_or_none() is not None) and
+            (user_update_request.username !=current_user.name)):  # ログイン中のユーザーと同じなら問題ないので除外
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = 'Specified username is duplicated',
@@ -254,6 +268,10 @@ async def UserAPI(
             detail = 'Specified user was not found',
         )
 
+    # 外部テーブルのデータを取得してから返す
+    # Twitter アカウントが登録されているかに関わらず、こうしないとユーザーデータを返せない
+    await user.fetch_related('twitter_accounts')
+
     return user
 
 
@@ -290,7 +308,8 @@ async def UserUpdateAPI(
 
         # 同じユーザー名のアカウントがあったら 422 を返す
         # ユーザー名がそのままログイン ID になるので、同じユーザー名のアカウントがあると重複する
-        if await User.filter(name=user_update_request.username).get_or_none() is not None:
+        if ((await User.filter(name=user_update_request.username).get_or_none() is not None) and
+            (user_update_request.username !=current_user.name)):  # ログイン中のユーザーと同じなら問題ないので除外
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = 'Specified username is duplicated',
