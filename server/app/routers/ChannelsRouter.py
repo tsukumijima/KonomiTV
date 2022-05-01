@@ -211,7 +211,7 @@ async def ChannelLogoAPI(
     # 放送波から取得できるロゴはどっちみち画質が悪いし、取得できていないケースもありうる
     # そのため、同梱されているロゴがあればそれを返すようにする
     # ロゴは NID32736-SID1024.png のようなファイル名の PNG ファイル (256x256) を想定
-    if pathlib.Path.exists(LOGO_DIR / f'{channel.id}.png'):
+    if await asyncio.to_thread(pathlib.Path.exists, LOGO_DIR / f'{channel.id}.png'):
         return FileResponse(LOGO_DIR / f'{channel.id}.png', headers=header)
 
     # ***** ロゴが全国共通なので、チャンネル名の前方一致で決め打ち *****
@@ -258,7 +258,7 @@ async def ChannelLogoAPI(
         main_channel = await Channel.filter(network_id=channel.network_id).order_by('service_id').first()
 
         # メインチャンネルが存在し、ロゴも存在する
-        if main_channel is not None and pathlib.Path.exists(LOGO_DIR / f'{main_channel.id}.png'):
+        if main_channel is not None and await asyncio.to_thread(pathlib.Path.exists, LOGO_DIR / f'{main_channel.id}.png'):
             return FileResponse(LOGO_DIR / f'{main_channel.id}.png', headers=header)
 
     # BS でかつサブチャンネルのみ、メインチャンネルにロゴがあればそれを利用する
@@ -277,7 +277,7 @@ async def ChannelLogoAPI(
         main_channel = await Channel.filter(network_id=channel.network_id, service_id=main_service_id).first()
 
         # メインチャンネルが存在し、ロゴも存在する
-        if main_channel is not None and pathlib.Path.exists(LOGO_DIR / f'{main_channel.id}.png'):
+        if main_channel is not None and await asyncio.to_thread(pathlib.Path.exists, LOGO_DIR / f'{main_channel.id}.png'):
             return FileResponse(LOGO_DIR / f'{main_channel.id}.png', headers=header)
 
     # ***** Mirakurun からロゴを取得 *****
