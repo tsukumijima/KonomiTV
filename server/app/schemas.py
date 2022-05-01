@@ -114,6 +114,11 @@ class TwitterAuthURL(BaseModel):
 class TwitterAuthCallbackSuccess(BaseModel):
     detail: Literal['Success']
 
+class TweetResult(BaseModel):
+    is_success: bool
+    tweet_url: Optional[str]
+    detail: str
+
 class Users(BaseModel):
     __root__: List[User]
 

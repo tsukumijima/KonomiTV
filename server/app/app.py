@@ -25,6 +25,7 @@ from app.models import TwitterAccount
 from app.routers import ChannelsRouter
 from app.routers import LiveStreamsRouter
 from app.routers import SettingsRouter
+from app.routers import TwitterRouter
 from app.routers import UsersRouter
 from app.schemas import Config
 from app.utils import Logging
@@ -89,6 +90,7 @@ app.add_middleware(
 app.include_router(ChannelsRouter.router)
 app.include_router(LiveStreamsRouter.router)
 app.include_router(SettingsRouter.router)
+app.include_router(TwitterRouter.router)
 app.include_router(UsersRouter.router)
 
 # 静的ファイルの配信
@@ -212,6 +214,7 @@ async def Startup():
         for quality in QUALITY:
             LiveStream(channel['channel_id'], quality)
 
+
 # 1時間に1回、チャンネル情報を更新する
 # チャンネル情報は頻繁に変わるわけではないけど、手動で再起動しなくても自動で変更が適用されてほしい
 @app.on_event('startup')
@@ -238,6 +241,7 @@ async def UpdateProgram():
 @repeat_every(seconds=60 * 60, wait_first=True, logger=Logging.logger)
 async def UpdateTwitterAccountInformation():
     await TwitterAccount.updateAccountInformation()
+
 
 # サーバーの終了時に実行する
 cleanup = False

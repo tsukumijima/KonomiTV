@@ -176,7 +176,7 @@ async def UsersAPI(
     response_model = schemas.User,
 )
 async def UserMeAPI(
-    current_user:User = Depends(User.getCurrentUser),
+    current_user: User = Depends(User.getCurrentUser),
 ):
     """
     現在ログイン中のユーザーアカウントの情報を取得する。<br>
@@ -348,7 +348,7 @@ async def UserDeleteAPI(
 ):
     """
     指定されたユーザーアカウントを削除する。<br>
-    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
     """
 
     # 指定されたユーザー名のユーザーを取得
