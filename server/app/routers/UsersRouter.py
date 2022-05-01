@@ -208,7 +208,7 @@ async def UserUpdateMeAPI(
         # 同じユーザー名のアカウントがあったら 422 を返す
         # ユーザー名がそのままログイン ID になるので、同じユーザー名のアカウントがあると重複する
         if ((await User.filter(name=user_update_request.username).get_or_none() is not None) and
-            (user_update_request.username !=current_user.name)):  # ログイン中のユーザーと同じなら問題ないので除外
+            (user_update_request.username != current_user.name)):  # ログイン中のユーザーと同じなら問題ないので除外
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = 'Specified username is duplicated',
@@ -241,6 +241,13 @@ async def UserDeleteMeAPI(
     # 現在ログイン中のユーザーアカウント（自分自身）を削除
     # アカウントを削除すると、それ以降は（当然ながら）ログインを要求する API へアクセスできなくなる
     await current_user.delete()
+
+    # ユーザーを削除した結果、管理者アカウントがいなくなってしまった場合
+    ## ID が一番若いアカウントに管理者権限を付与する（そうしないと誰も管理者権限を行使できないし付与できない）
+    if await User.filter(is_admin=True).get_or_none() is None:
+        id_young_user = await User.all().order_by('id').first()
+        id_young_user.is_admin = True
+        await id_young_user.save()
 
 
 @router.get(
@@ -309,7 +316,7 @@ async def UserUpdateAPI(
         # 同じユーザー名のアカウントがあったら 422 を返す
         # ユーザー名がそのままログイン ID になるので、同じユーザー名のアカウントがあると重複する
         if ((await User.filter(name=user_update_request.username).get_or_none() is not None) and
-            (user_update_request.username !=current_user.name)):  # ログイン中のユーザーと同じなら問題ないので除外
+            (user_update_request.username != user.name)):  # ログイン中のユーザーと同じなら問題ないので除外
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = 'Specified username is duplicated',
@@ -340,7 +347,7 @@ async def UserDeleteAPI(
     current_user: User = Depends(User.getCurrentAdminUser),
 ):
     """
-    現在ログイン中のユーザーアカウントを削除する。<br>
+    指定されたユーザーアカウントを削除する。<br>
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
 
@@ -356,3 +363,10 @@ async def UserDeleteAPI(
 
     # 指定されたユーザーを削除
     await user.delete()
+
+    # ユーザーを削除した結果、管理者アカウントがいなくなってしまった場合
+    ## ID が一番若いアカウントに管理者権限を付与する（そうしないと誰も管理者権限を行使できないし付与できない）
+    if await User.filter(is_admin=True).get_or_none() is None:
+        id_young_user = await User.all().order_by('id').first()
+        id_young_user.is_admin = True
+        await id_young_user.save()
