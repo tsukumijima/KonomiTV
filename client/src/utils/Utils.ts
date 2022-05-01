@@ -6,7 +6,7 @@ export default class Utils {
 
     // バージョン情報
     // ビルド時の環境変数 (vue.config.js に記載) から取得
-    static readonly version:string = process.env.VUE_APP_VERSION;
+    static readonly version: string = process.env.VUE_APP_VERSION;
 
     // バックエンドの API のベース URL
     static readonly api_base_url = (() => {
@@ -20,6 +20,7 @@ export default class Utils {
     })();
 
     // デフォルトの設定値
+    // ここを変えたときはサーバー側の app.schemas も変更すること
     static readonly default_settings = {
 
         // ピン留めしているチャンネルの ID (ex: gr011) が入るリスト
@@ -69,7 +70,7 @@ export default class Utils {
         // LocalStorage から KonomiTV-Settings を取得
         // データは JSON で管理し、LocalStorage 上の一つのキーにまとめる
         // キーが存在しない場合はデフォルトの設定値を使う
-        const settings:object = JSON.parse(localStorage.getItem('KonomiTV-Settings')) || Utils.default_settings;
+        const settings: object = JSON.parse(localStorage.getItem('KonomiTV-Settings')) || Utils.default_settings;
 
         // そのキーが保存されているときだけ、設定値を返す
         if (key in settings) {
@@ -93,10 +94,10 @@ export default class Utils {
     static setSettingsItem(key: string, value: any): void {
 
         // LocalStorage から KonomiTV-Settings を取得
-        const settings:object = JSON.parse(localStorage.getItem('KonomiTV-Settings')) || Utils.default_settings;
+        const settings: object = JSON.parse(localStorage.getItem('KonomiTV-Settings')) || Utils.default_settings;
 
-        // そのキーがデフォルトの設定値に定義されているときだけ
-        // バージョン違いなどで settings には登録されていないキーだが default_settings には登録されているケースが発生し得るため
+        // そのキーが default_settings に定義されているときだけ
+        // バージョン違いなどで LocalStorage には登録されていないキーだが default_settings には登録されているケースが発生し得るため
         if (key in this.default_settings) {
 
             // 設定値を新しい値で置き換え

@@ -1,6 +1,6 @@
 
 from datetime import datetime
-from pydantic import AnyHttpUrl, BaseModel, PositiveInt
+from pydantic import AnyHttpUrl, BaseModel, Field, PositiveInt
 from pydantic.networks import stricturl
 from tortoise.contrib.pydantic import pydantic_model_creator
 from typing import Any, Dict, List, Literal, Optional
@@ -55,8 +55,7 @@ class TwitterAccount(pydantic_model_creator(models.TwitterAccount, name='Twitter
     pass
 
 class User(pydantic_model_creator(models.User, name='User',
-    exclude=('password', 'niconico_access_token', 'niconico_refresh_token', 'created_at', 'updated_at'))):
-    client_settings: Dict[str, Any]
+    exclude=('password', 'client_settings', 'niconico_access_token', 'niconico_refresh_token', 'created_at', 'updated_at'))):
     twitter_accounts: List[TwitterAccount]  # 追加カラム
     created_at: datetime  # twitter_accounts の下に配置するために、一旦 exclude した上で再度定義する
     updated_at: datetime  # twitter_accounts の下に配置するために、一旦 exclude した上で再度定義する
@@ -98,6 +97,16 @@ class LiveStreams(BaseModel):
     ONAir: Dict[str, LiveStream]
     Standby: Dict[str, LiveStream]
     Offline: Dict[str, LiveStream]
+
+class ClientSettings(BaseModel):
+    # 詳細は client/src/utils/Utils.ts を参照
+    # デバイス間で同期するとかえって面倒なことになるものは除外している
+    pinned_channel_ids: List[str] = Field([])
+    panel_display_state: Literal['RestorePreviousState', 'AlwaysDisplay', 'AlwaysFold'] = Field('RestorePreviousState')
+    panel_active_tab: Literal['Program', 'Channel', 'Comment', 'Twitter'] = Field('Program')
+    comment_speed_rate: float = Field(1)
+    comment_font_size: int = Field(34)
+    comment_delay_time: float = Field(1)
 
 class TwitterAuthURL(BaseModel):
     authorization_url: Optional[str]
