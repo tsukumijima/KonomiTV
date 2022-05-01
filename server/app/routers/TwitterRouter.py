@@ -211,6 +211,37 @@ async def TwitterAuthCallbackAPI(
     return {'detail': 'Success'}
 
 
+@router.delete(
+    '/accounts/{screen_name}',
+    summary = 'Twitter アカウント連携解除 API',
+    status_code = status.HTTP_204_NO_CONTENT,
+)
+async def TwitterAccountDeleteAPI(
+    screen_name: str = Path(..., description='連携を解除する Twitter アカウントのスクリーンネーム。'),
+    current_user: User = Depends(User.getCurrentUser),
+):
+    """
+    指定された Twitter アカウントの連携を解除する。<br>
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
+    """
+
+    # 指定されたスクリーンネームに紐づく Twitter アカウントを取得
+    # 自分が所有していない Twitter アカウントでツイートできないよう、ログイン中のユーザーに限って絞り込む
+    twitter_account = await TwitterAccount.filter(user_id=current_user.id, screen_name=screen_name).get_or_none()
+
+    # 指定された Twitter アカウントがユーザーアカウントに紐付けられていない or 登録されていない
+    ## 実際に Twitter にそのスクリーンネームのアカウントが登録されているかとは無関係
+    if not twitter_account:
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'TwitterAccount associated with screen_name does not exist',
+        )
+
+    # 指定された Twitter アカウントのレコードを削除
+    ## アクセストークンなどが保持されたレコードを削除することで連携解除とする
+    await twitter_account.delete()
+
+
 @router.post(
     '/accounts/{screen_name}/tweets',
     summary = 'ツイート送信 API',
