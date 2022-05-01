@@ -320,7 +320,7 @@ async def TwitterTweetAPI(
         # 定義されていないエラーコードの時は Twitter API から返ってきたエラーをそのまま返す
         return {
             'is_success': False,
-            'detail': error_messages.get(1, f'Code: {ex.api_codes[0]}, Message: {ex.api_messages[0]}'),
+            'detail': error_messages.get(ex.api_codes[0], f'Code: {ex.api_codes[0]}, Message: {ex.api_messages[0]}'),
         }
 
     return {
