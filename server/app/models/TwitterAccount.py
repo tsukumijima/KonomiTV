@@ -45,8 +45,11 @@ class TwitterAccount(models.Model):
                 verify_credentials = await asyncio.to_thread(api.verify_credentials)
             except tweepy.TweepyException:
                 continue
+            # アカウント名
             twitter_account.name = verify_credentials.name
+            # スクリーンネーム
             twitter_account.screen_name = verify_credentials.screen_name
+            # アイコン URL
             ## (ランダムな文字列)_normal.jpg だと画像サイズが小さいので、(ランダムな文字列).jpg に置換
             twitter_account.icon_url = verify_credentials.profile_image_url_https.replace('_normal', '')
 

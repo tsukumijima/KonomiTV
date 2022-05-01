@@ -29,7 +29,7 @@ router = APIRouter(
     response_model = schemas.ClientSettings,
 )
 async def ClientSettingsAPI(
-    current_user:User = Depends(User.getCurrentUser),
+    current_user: User = Depends(User.getCurrentUser),
 ):
     """
     現在ログイン中のユーザーアカウントのクライアント設定を取得する。<br>
@@ -175,14 +175,45 @@ async def TwitterAuthCallbackAPI(
     except tweepy.TweepyException:
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Failed to get Twitter access token',
+            detail = 'Failed to get access token',
         )
 
-    # アクセストークン・アクセストークンシークレットを保存
-    await twitter_account.save()
+    # tweepy を初期化
+    api = tweepy.API(tweepy.OAuth1UserHandler(
+        Interlaced(1), Interlaced(2), twitter_account.access_token, twitter_account.access_token_secret,
+    ))
 
     # アカウント情報を更新
-    await TwitterAccount.updateAccountInformation()
+    try:
+        verify_credentials = await asyncio.to_thread(api.verify_credentials)
+    except tweepy.TweepyException:
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Failed to get account information',
+        )
+    # アカウント名
+    twitter_account.name = verify_credentials.name
+    # スクリーンネーム
+    twitter_account.screen_name = verify_credentials.screen_name
+    # アイコン URL
+    ## (ランダムな文字列)_normal.jpg だと画像サイズが小さいので、(ランダムな文字列).jpg に置換
+    twitter_account.icon_url = verify_credentials.profile_image_url_https.replace('_normal', '')
+
+    # 同じスクリーンネームを持つアカウントが重複している場合、古い方のレコードのデータを更新する
+    # すでに作成されている新しいレコード（まだ save() していないので仮の情報しか入っていない）は削除される
+    twitter_account_existing = await TwitterAccount.filter(user_id=twitter_account.user_id, screen_name=twitter_account.screen_name).get_or_none()
+    if twitter_account_existing is not None:
+        twitter_account_existing.name = twitter_account.name  # アカウント名
+        twitter_account_existing.icon_url = twitter_account.icon_url  # アイコン URL
+        twitter_account_existing.access_token = twitter_account.access_token  # アクセストークン
+        twitter_account_existing.access_token_secret = twitter_account.access_token_secret  # アクセストークンシークレット
+        await twitter_account_existing.save()
+        await twitter_account.delete()
+
+        return {'detail': 'Success'}
+
+    # アクセストークンとアカウント情報を保存
+    await twitter_account.save()
 
     # 完了を確認できるように、適当に何か返しておく
     ## 204 No Content だと画面遷移が発生しない
