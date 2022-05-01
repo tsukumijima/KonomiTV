@@ -216,11 +216,11 @@ async def ChannelLogoAPI(
 
     # ***** ロゴが全国共通なので、チャンネル名の前方一致で決め打ち *****
 
-    ## NHK総合
+    # NHK総合
     if channel.channel_type == 'GR' and channel.channel_name.startswith('NHK総合'):
         return FileResponse(LOGO_DIR / 'NID32736-SID1024.png', headers=header)
 
-    ## NHKEテレ
+    # NHKEテレ
     if channel.channel_type == 'GR' and channel.channel_name.startswith('NHKEテレ'):
         return FileResponse(LOGO_DIR / 'NID32737-SID1032.png', headers=header)
 
@@ -242,6 +242,11 @@ async def ChannelLogoAPI(
     # ZTV
     if channel.channel_type == 'GR' and channel.channel_name.startswith('ZTV'):
         return FileResponse(LOGO_DIR / 'NID32047-SID46200.png', headers=header)
+
+    # スターデジオ
+    # 本来は局ロゴは存在しないが、見栄えが悪いので 100 チャンネルすべてで同じ局ロゴを表示する
+    if channel.channel_type == 'STARDIGIO':
+        return FileResponse(LOGO_DIR / 'NID1-SID400.png', headers=header)
 
     # ***** サブチャンネルのロゴを取得 *****
 
