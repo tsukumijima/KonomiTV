@@ -64,7 +64,7 @@ async def TwitterAuthURLAPI(
 ):
     """
     Twitter アカウントと連携するための認証 URL を取得する。<br>
-    認証 URL をブラウザで開くとアプリ連携の許可を求められ、ユーザーが許可すると TwitterAuthCallbackAPI に戻ってくる。
+    認証 URL をブラウザで開くとアプリ連携の許可を求められ、ユーザーが許可すると /api/twitter/callback に戻ってくる。
 
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。<br>
     """
@@ -328,3 +328,76 @@ async def TwitterTweetAPI(
         'tweet_url': f'https://twitter.com/{result.user.screen_name}/status/{result.id}',
         'detail': 'ツイートを送信しました。',
     }
+
+
+@router.get(
+    '/accounts/{screen_name}/tweets/search',
+    summary = 'ツイート検索 API',
+)
+async def TwitterSearchAPI(
+    current_user: User = Depends(User.getCurrentUser),
+):
+    """
+    API 実装中…（モックアップ）<br>
+    実装上 screen_name は使わない予定だが、リソース階層上この方が自然
+    """
+
+
+@router.put(
+    '/accounts/{screen_name}/tweets/{tweet_id}/retweet',
+    summary = 'リツイート実行 API',
+)
+async def TwitterRetweetAPI(
+    current_user: User = Depends(User.getCurrentUser),
+):
+    """
+    API 実装中…（モックアップ）
+    """
+
+
+@router.delete(
+    '/accounts/{screen_name}/tweets/{tweet_id}/retweet',
+    summary = 'リツイート取り消し API',
+)
+async def TwitterRetweetCancelAPI(
+    current_user: User = Depends(User.getCurrentUser),
+):
+    """
+    API 実装中…（モックアップ）
+    """
+
+
+@router.put(
+    '/accounts/{screen_name}/tweets/{tweet_id}/favorite',
+    summary = 'いいね実行 API',
+)
+async def TwitterFavoriteAPI(
+    current_user: User = Depends(User.getCurrentUser),
+):
+    """
+    API 実装中…（モックアップ）
+    """
+
+
+@router.delete(
+    '/accounts/{screen_name}/tweets/{tweet_id}/favorite',
+    summary = 'いいね取り消し API',
+)
+async def TwitterFavoriteCancelAPI(
+    current_user: User = Depends(User.getCurrentUser),
+):
+    """
+    API 実装中…（モックアップ）
+    """
+
+
+@router.get(
+    '/accounts/{screen_name}/timeline',
+    summary = 'ホームタイムライン取得 API',
+)
+async def TwitterTimelineAPI(
+    current_user: User = Depends(User.getCurrentUser),
+):
+    """
+    API 実装中…（モックアップ）
+    """
