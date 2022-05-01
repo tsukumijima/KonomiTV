@@ -35,6 +35,11 @@ class TwitterAccount(models.Model):
         # 登録されているすべての Twitter アカウントの情報を更新する
         for twitter_account in await TwitterAccount.all():
 
+            # アイコン URL が Temporary になってる仮のアカウント情報が何らかの理由で残っていたら、ここで削除する
+            if twitter_account.icon_url == 'Temporary':
+                await twitter_account.delete()
+                continue
+
             # tweepy を初期化
             api = tweepy.API(tweepy.OAuth1UserHandler(
                 Interlaced(1), Interlaced(2), twitter_account.access_token, twitter_account.access_token_secret,

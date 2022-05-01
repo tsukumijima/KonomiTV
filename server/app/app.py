@@ -209,6 +209,9 @@ async def Startup():
     # 番組情報を更新
     await Program.update()
 
+    # 登録されている Twitter アカウントの情報を更新
+    await TwitterAccount.updateAccountInformation()
+
     # 全てのチャンネル&品質のライブストリームを初期化する
     for channel in await Channel.all().order_by('channel_number').values():
         for quality in QUALITY:
