@@ -16,6 +16,7 @@ colorama = ">=0.4"
 fastapi = "==0.75.2"
 fastapi-utils = "==0.2.1"
 passlib = {extras = ["bcrypt"], version = "*"}
+pillow = "*"
 psutil = "*"
 python-jose = {extras = ["cryptography"], version = "*"}
 python-multipart = "*"
