@@ -268,6 +268,12 @@ export default Vue.extend({
             // プレイヤー (DPlayer) のインスタンス
             player: null,
 
+            // RomSound の AudioContext
+            romsounds_context: null as AudioContext | null,
+
+            // RomSound の AudioBuffer（音声データ）が入るリスト
+            romsounds_buffers: [] as AudioBuffer[] | null,
+
             // イベントソースのインスタンス
             eventsource: null as EventSource | null,
 
@@ -334,8 +340,26 @@ export default Vue.extend({
     // 開始時に実行
     created() {
 
-        // init() を実行
+        // 初期化
         this.init();
+
+        (async () => {
+
+            // RomSound を鳴らすための AudioContext を生成
+            this.romsounds_context = new AudioContext();
+
+            for (let index = 1; index <= 14; index++) {
+
+                // ArrayBuffer として RomSound を取得
+                const url = `/assets/romsounds/${index.toString().padStart(2, '0')}.wav`;
+                const audio_data = await Vue.axios.get(url, {responseType: 'arraybuffer'});
+
+                // ArrayBuffer をデコードして AudioBuffer にし、すぐ呼び出せるように貯めておく
+                // ref: https://ics.media/entry/200427/
+                this.romsounds_buffers.push(await this.romsounds_context.decodeAudioData(audio_data.data));
+            }
+
+        })();
     },
     // 終了前に実行
     beforeDestroy() {
@@ -350,6 +374,9 @@ export default Vue.extend({
             document.removeEventListener('keydown', this.shortcut_key_handler);
             this.shortcut_key_handler = null;
         }
+
+        // AudioContext のリソースを解放
+        this.romsounds_context.close();
     },
     // チャンネル切り替え時に実行
     // コンポーネント（インスタンス）は再利用される
@@ -774,6 +801,14 @@ export default Vue.extend({
                         drcsReplacement: true,  // DRCS 文字を対応する Unicode 文字に置換
                         enableRawCanvas: true,  // 高解像度の字幕 Canvas を取得できるように
                         useStrokeText: true,  // 縁取りに strokeText API を利用
+                        PRACallback: (index: number) => {  // 文字スーパーの PRA (内蔵音再生コマンド) のコールバックを指定
+                            // AudioContext に接続し、最初までシークしてから index に応じた内蔵音を鳴らす
+                            // ref: https://ics.media/entry/200427/
+                            const buffer_source = this.romsounds_context.createBufferSource();
+                            buffer_source.buffer = this.romsounds_buffers[index];
+                            buffer_source.connect(this.romsounds_context.destination);
+                            buffer_source.start(0);
+                        },
                     }
                 },
                 // 字幕
