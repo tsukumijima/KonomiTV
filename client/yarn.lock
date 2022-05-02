@@ -1999,10 +1999,10 @@ argparse@^2.0.1:
   resolved "https://registry.yarnpkg.com/argparse/-/argparse-2.0.1.tgz#246f50f3ca78a3240f6c997e8a9bd1eac49e4b38"
   integrity sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==
 
-aribb24.js@1.9.7:
-  version "1.9.7"
-  resolved "https://registry.yarnpkg.com/aribb24.js/-/aribb24.js-1.9.7.tgz#cbacc84f2ff1170b46640b85f8e7a1c9fa294e9f"
-  integrity sha512-mbt0A+N97667D0T4EIoQHN8fTtrROXlJK2j80zPEWUAGOgIAmgM4styqTxRUp5ZSmeXMXbp1xOEZlTTn4kSIew==
+aribb24.js@1.9.9:
+  version "1.9.9"
+  resolved "https://registry.yarnpkg.com/aribb24.js/-/aribb24.js-1.9.9.tgz#b4bbb2e7a869b1c54c8ba1416dcec35dddcf3c36"
+  integrity sha512-Ptq7TVFpDBJXbUVShPwe4mVQ4aj+8PiaXO6cLPWcidh49NFM8n+yOMqhozw8lEYeozawPXtKbyC2zd4rKrw+rA==
 
 arr-diff@^4.0.0:
   version "4.0.0"
@@ -3741,11 +3741,11 @@ dotenv@^8.2.0:
   resolved "https://registry.yarnpkg.com/dotenv/-/dotenv-8.6.0.tgz#061af664d19f7f4d8fc6e4ff9b584ce237adcb8b"
   integrity sha512-IrPdXQsk2BbzvCBGBOTmmSH5SodmqZNt4ERAZDmW4CT+tL8VtvinqywuANaFu4bOMWki16nqf0e4oC0QIaDr/g==
 
-"dplayer@github:tsukumijima/DPlayer#ef5d93d31bf4f0acc6f4f5248cb86a10ab630c96":
+"dplayer@github:tsukumijima/DPlayer#20a726ed4ad99ec7f986f42c93b8b6ca7cee0bda":
   version "1.26.0"
-  resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/ef5d93d31bf4f0acc6f4f5248cb86a10ab630c96"
+  resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/20a726ed4ad99ec7f986f42c93b8b6ca7cee0bda"
   dependencies:
-    aribb24.js "1.9.7"
+    aribb24.js "1.9.9"
     axios "^0.21.4"
     balloon-css "^1.0.3"
     promise-polyfill "8.2.0"

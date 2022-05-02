@@ -801,13 +801,18 @@ export default Vue.extend({
                         drcsReplacement: true,  // DRCS 文字を対応する Unicode 文字に置換
                         enableRawCanvas: true,  // 高解像度の字幕 Canvas を取得できるように
                         useStrokeText: true,  // 縁取りに strokeText API を利用
+                        usePUA: true,  // Unicode 領域の代わりに私用面の領域を利用
                         PRACallback: (index: number) => {  // 文字スーパーの PRA (内蔵音再生コマンド) のコールバックを指定
-                            // AudioContext に接続し、最初までシークしてから index に応じた内蔵音を鳴らす
+                            // index に応じた内蔵音を鳴らす
                             // ref: https://ics.media/entry/200427/
-                            const buffer_source = this.romsounds_context.createBufferSource();
-                            buffer_source.buffer = this.romsounds_buffers[index];
-                            buffer_source.connect(this.romsounds_context.destination);
-                            buffer_source.start(0);
+                            // ref: https://www.ipentec.com/document/javascript-web-audio-api-change-volume
+                            const gain_node = this.romsounds_context.createGain();
+                            const buffer_source_node = this.romsounds_context.createBufferSource();
+                            buffer_source_node.buffer = this.romsounds_buffers[index];  // 音声データを読み込み
+                            buffer_source_node.connect(gain_node);  // GainNode につなげる
+                            gain_node.connect(this.romsounds_context.destination);  // 出力につなげる
+                            gain_node.gain.value = 3;  // 音量を3倍にする（1倍だと結構小さめ）
+                            buffer_source_node.start(0);  // 再生開始
                         },
                     }
                 },
