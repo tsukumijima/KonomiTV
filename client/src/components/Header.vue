@@ -4,7 +4,7 @@
         elevation="8"
         width="100%">
         <router-link v-ripple class="logo ml-3 ml-md-6" to="/tv/">
-            <img class="logo__image" src="/assets/img/logo.svg" height="21">
+            <img class="logo__image" src="/assets/images/logo.svg" height="21">
         </router-link>
         <v-spacer></v-spacer>
         <v-btn icon class="mr-3 mr-md-6">

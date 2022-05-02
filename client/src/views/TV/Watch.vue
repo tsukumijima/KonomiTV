@@ -10,7 +10,7 @@
                  @touchmove="controlDisplayTimer($event)"
                  @click="controlDisplayTimer($event)">
                 <router-link v-ripple class="watch-navigation__icon" to="/tv/">
-                    <img class="watch-navigation__icon-image" src="/assets/img/icon.svg" width="23px">
+                    <img class="watch-navigation__icon-image" src="/assets/images/icon.svg" width="23px">
                 </router-link>
                 <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
                              v-tooltip.right="'テレビをみる'" to="/tv/">
@@ -60,7 +60,7 @@
                 <div class="watch-player" :class="{'watch-player--loading': is_loading}">
                     <div class="watch-player__background" :class="{'watch-player__background--display': is_background_display}"
                         :style="{backgroundImage: `url(${background_url})`}">
-                        <img class="watch-player__background-logo" src="/assets/img/logo.svg">
+                        <img class="watch-player__background-logo" src="/assets/images/logo.svg">
                     </div>
                     <div class="watch-player__dplayer"></div>
                     <div class="watch-player__button"
@@ -552,8 +552,8 @@ export default Vue.extend({
 
                 // アートワークとして表示するアイコン
                 const artwork = [
-                    {src: '/assets/img/icons/icon-maskable-192px.png', sizes: '192x192', type: 'image/png'},
-                    {src: '/assets/img/icons/icon-maskable-512px.png', sizes: '512x512', type: 'image/png'},
+                    {src: '/assets/images/icons/icon-maskable-192px.png', sizes: '192x192', type: 'image/png'},
+                    {src: '/assets/images/icons/icon-maskable-512px.png', sizes: '512x512', type: 'image/png'},
                 ];
 
                 // メディア通知の表示をカスタマイズ

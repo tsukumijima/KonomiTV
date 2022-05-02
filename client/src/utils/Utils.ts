@@ -56,7 +56,7 @@ export default class Utils {
     static generatePlayerBackgroundURL(): string {
         const background_count = 12;  // 12種類から選択
         const random = (Math.floor(Math.random() * background_count) + 1);
-        return `/assets/img/player-backgrounds/${random.toString().padStart(2, '0')}.jpg`;
+        return `/assets/images/player-backgrounds/${random.toString().padStart(2, '0')}.jpg`;
     }
 
 

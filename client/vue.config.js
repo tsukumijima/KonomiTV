@@ -27,10 +27,10 @@ module.exports = {
         appleMobileWebAppStatusBarStyle: 'black',
         // アイコンのパス
         iconPaths: {
-            faviconSVG: 'assets/img/icons/favicon.svg',
-            favicon32: 'assets/img/icons/favicon-32px.png',
-            favicon16: 'assets/img/icons/favicon-16px.png',
-            appleTouchIcon: 'assets/img/icons/apple-touch-icon.png',
+            faviconSVG: 'assets/images/icons/favicon.svg',
+            favicon32: 'assets/images/icons/favicon-32px.png',
+            favicon16: 'assets/images/icons/favicon-16px.png',
+            appleTouchIcon: 'assets/images/icons/apple-touch-icon.png',
             maskIcon: null,  // 設定しない
             msTileImage: null,  // 設定しない
         },
@@ -44,23 +44,23 @@ module.exports = {
             'background_color': '#1E1310',
             'icons': [
                 {
-                    'src': '/assets/img/icons/icon-192px.png',
+                    'src': '/assets/images/icons/icon-192px.png',
                     'sizes': '192x192',
                     'type': 'image/png',
                 },
                 {
-                    'src': '/assets/img/icons/icon-512px.png',
+                    'src': '/assets/images/icons/icon-512px.png',
                     'sizes': '512x512',
                     'type': 'image/png',
                 },
                 {
-                    'src': '/assets/img/icons/icon-maskable-192px.png',
+                    'src': '/assets/images/icons/icon-maskable-192px.png',
                     'sizes': '192x192',
                     'type': 'image/png',
                     'purpose': 'maskable',
                 },
                 {
-                    'src': '/assets/img/icons/icon-maskable-512px.png',
+                    'src': '/assets/images/icons/icon-maskable-512px.png',
                     'sizes': '512x512',
                     'type': 'image/png',
                     'purpose': 'maskable',
