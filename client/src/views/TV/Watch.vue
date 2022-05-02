@@ -900,8 +900,8 @@ export default Vue.extend({
                 }
             }, 60 * 1000));
 
-            // フルスクリーンにするコンテナ要素（コンポーネント全体）
-            const fullscreen_container = this.$el;
+            // フルスクリーンにするコンテナ要素（ページ全体）
+            const fullscreen_container = document.querySelector('.v-application');
             this.fullscreen_handler = () => this.is_fullscreen = this.player.fullScreen.isFullScreen();
             if (fullscreen_container.onfullscreenchange !== undefined) {
                 fullscreen_container.addEventListener('fullscreenchange', this.fullscreen_handler);
