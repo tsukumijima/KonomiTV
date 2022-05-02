@@ -3,6 +3,7 @@ import inspect
 import logging
 import os
 import ruamel.yaml
+import secrets
 import sys
 from pathlib import Path
 
@@ -20,7 +21,7 @@ else:
 
     # 設定ファイルのパス
     CONFIG_YAML = BASE_DIR.parent / 'config.yaml'
-    if os.path.exists(CONFIG_YAML) is False:
+    if Path.exists(CONFIG_YAML) is False:
         logger = logging.getLogger('uvicorn')
         logger.error(
             '設定ファイルが配置されていないため、KonomiTV を起動できません。\n          '
@@ -90,12 +91,17 @@ CLIENT_DIR = BASE_DIR.parent / 'client/dist'
 
 # データディレクトリ
 DATA_DIR = BASE_DIR / 'data'
+## アカウントのアイコン画像のあるディレクトリ
+ACCOUNT_ICON_DIR = DATA_DIR / 'account-icons'
+## サムネイル画像のあるディレクトリ
+THUMBNAIL_DIR = DATA_DIR / 'thumbnails'
 
 # スタティックディレクトリ
 STATIC_DIR = BASE_DIR / 'static'
-
-# ロゴファイルのあるディレクトリ
+## ロゴファイルのあるディレクトリ
 LOGO_DIR = STATIC_DIR / 'logos'
+## jikkyo_channels.json のあるパス
+JIKKYO_CHANNELS_PATH = STATIC_DIR / 'jikkyo_channels.json'
 
 # サードパーティーライブラリのあるディレクトリ
 LIBRARY_DIR = BASE_DIR / 'thirdparty'
@@ -126,7 +132,14 @@ DATABASE_CONFIG = {
 }
 
 # JWT のエンコード/デコードに使うシークレットキー
-JWT_SECRET_KEY = 'ef26a7905a115787d0fe9a807b7fdc8feb5caf6182ffb9f98ff2c1bb3b448a81'
+## jwt_secret.dat がない場合は自動生成する
+JWT_SECRET_KEY_PATH = DATA_DIR / 'jwt_secret.dat'
+if Path.exists(JWT_SECRET_KEY_PATH) is False:
+    with open(JWT_SECRET_KEY_PATH, mode='w', encoding='utf-8') as fp:
+        fp.write(secrets.token_hex(32))  # 32ビット (256文字) の乱数を書き込む
+## jwt_secret.dat からシークレットキーを読み込む
+with open(JWT_SECRET_KEY_PATH, encoding='utf-8') as fp:
+    JWT_SECRET_KEY = fp.read().strip()
 
 # バージョン
 VERSION = '0.5.2'

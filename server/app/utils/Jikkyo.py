@@ -7,13 +7,13 @@ import requests
 import xml.etree.ElementTree as ET
 from typing import Dict, Optional, Union
 
-from app.constants import STATIC_DIR, VERSION
+from app.constants import JIKKYO_CHANNELS_PATH, VERSION
 
 
 class Jikkyo:
 
     # 実況 ID とサービス ID (SID)・ネットワーク ID (NID) の対照表
-    with open(STATIC_DIR / 'jikkyo_channels.json', encoding='utf-8') as file:
+    with open(JIKKYO_CHANNELS_PATH, encoding='utf-8') as file:
         jikkyo_channels:Dict[str, Dict[str, Union[int, str]]] = json.load(file)
 
     # 実況チャンネルのステータスが入る辞書
