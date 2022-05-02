@@ -6,7 +6,7 @@ from tortoise import fields
 from tortoise import models
 from tortoise import timezone
 from tortoise.exceptions import IntegrityError
-from typing import Optional
+from typing import Literal, Optional
 
 from app.constants import CONFIG
 from app.utils import Jikkyo
@@ -31,7 +31,7 @@ class Channel(models.Model):
     channel_id: str = fields.TextField()
     channel_number: str = fields.TextField()
     channel_name: str = fields.TextField()
-    channel_type: str = fields.TextField()
+    channel_type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO'] = fields.TextField()
     channel_force: Optional[int] = fields.IntField(null=True)
     channel_comment: Optional[int] = fields.IntField(null=True)
     is_subchannel: bool = fields.BooleanField()
@@ -91,6 +91,10 @@ class Channel(models.Model):
             if service['type'] not in [0x01, 0x02, 0xa1, 0xa2, 0xad]:
                 continue
 
+            # 不明なネットワーク ID のチャンネルを弾く
+            if TSInformation.getNetworkType(service['networkId']) == 'OTHER':
+                continue
+
             # 新しいチャンネルのレコードを作成
             channel = Channel()
 
@@ -100,9 +104,19 @@ class Channel(models.Model):
             channel.network_id = service['networkId']
             channel.remocon_id = service['remoteControlKeyId'] if ('remoteControlKeyId' in service) else None
             channel.channel_name = TSInformation.formatString(service['name'])
-            channel.channel_type = service['channel']['type']
+            channel.channel_type = TSInformation.getNetworkType(channel.network_id)
             channel.channel_force = None
             channel.channel_comment = None
+
+            # チャンネルタイプが STARDIGIO でサービス ID が 400 ～ 499 以外のチャンネルを除外
+            # だいたい謎の試験チャンネルとかで見るに耐えない
+            if channel.channel_type == 'STARDIGIO' and not 400 <= channel.service_id <= 499:
+                continue
+
+            # 「試験チャンネル」という名前（前方一致）のチャンネルを除外
+            # CATV や SKY に存在するが、だいたいどれもやってないし表示されてるだけ邪魔
+            if channel.channel_name.startswith('試験チャンネル'):
+                continue
 
             # type が 0x02 のサービスのみ、ラジオチャンネルとして設定する
             # 今のところ、ラジオに該当するチャンネルは放送大学ラジオとスターデジオのみ
@@ -277,6 +291,16 @@ class Channel(models.Model):
             channel.channel_type = TSInformation.getNetworkType(channel.network_id)
             channel.channel_force = None
             channel.channel_comment = None
+
+            # チャンネルタイプが STARDIGIO でサービス ID が 400 ～ 499 以外のチャンネルを除外
+            # だいたい謎の試験チャンネルとかで見るに耐えない
+            if channel.channel_type == 'STARDIGIO' and not 400 <= channel.service_id <= 499:
+                continue
+
+            # 「試験チャンネル」という名前（前方一致）のチャンネルを除外
+            # CATV や SKY に存在するが、だいたいどれもやってないし表示されてるだけ邪魔
+            if channel.channel_name.startswith('試験チャンネル'):
+                continue
 
             # type が 0x02 のサービスのみ、ラジオチャンネルとして設定する
             # 今のところ、ラジオに該当するチャンネルは放送大学ラジオとスターデジオのみ

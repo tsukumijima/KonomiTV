@@ -86,7 +86,7 @@ class TSInformation:
     __format_string_translation_map = None
 
 
-    def __init__(self, tspath:str):
+    def __init__(self, tspath: str):
         """
         TS ファイルから各種情報を取得する
 
@@ -229,7 +229,7 @@ class TSInformation:
 
 
     @classmethod
-    def formatString(cls, string:Union[str, AribString]) -> str:
+    def formatString(cls, string: Union[str, AribString]) -> str:
         """
         文字列に含まれる英数や記号を半角に置換し、一律な表現に整える
 
@@ -254,7 +254,7 @@ class TSInformation:
 
 
     @staticmethod
-    def getNetworkType(network_id:int) -> str:
+    def getNetworkType(network_id: int) -> str:
         """
         ネットワーク ID からネットワークの種別を取得する
         種別は GR (地デジ)・BS・CS・CATV・SKY (SPHD)・STARDIGIO (スターデジオ)・OTHER (不明なネットワーク ID のチャンネル) のいずれか
@@ -434,7 +434,7 @@ class TSInformation:
         return result
 
 
-    def getEITInformation(self, service_id:int, eit_section_number:int) -> dict:
+    def getEITInformation(self, service_id: int, eit_section_number: int) -> dict:
         """
         TS内の EIT (Event Information Table) から番組情報を取得する
         サービス ID が必要な理由は、CS などで別のチャンネルの番組情報が取得されるのを防ぐため
@@ -790,7 +790,7 @@ if __name__ == '__main__':
     extract = tsinfo.extract()
 
     # 参考: https://www.yoheim.net/blog.php?q=20170703
-    def json_serial(obj:object):
+    def json_serial(obj: object):
         if isinstance(obj, (datetime, date)):
             return obj.isoformat()
         if isinstance(obj, (timedelta)):
