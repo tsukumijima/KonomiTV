@@ -86,21 +86,23 @@ QUALITY = {
     },
 }
 
-# クライアントの静的ファイルのあるディレクトリ
+# クライアントの静的ファイルがあるディレクトリ
 CLIENT_DIR = BASE_DIR.parent / 'client/dist'
 
 # データディレクトリ
 DATA_DIR = BASE_DIR / 'data'
-## アカウントのアイコン画像のあるディレクトリ
+## アカウントのアイコン画像があるディレクトリ
 ACCOUNT_ICON_DIR = DATA_DIR / 'account-icons'
-## サムネイル画像のあるディレクトリ
+## サムネイル画像があるディレクトリ
 THUMBNAIL_DIR = DATA_DIR / 'thumbnails'
 
 # スタティックディレクトリ
 STATIC_DIR = BASE_DIR / 'static'
-## ロゴファイルのあるディレクトリ
+## ロゴファイルがあるディレクトリ
 LOGO_DIR = STATIC_DIR / 'logos'
-## jikkyo_channels.json のあるパス
+## デフォルトのアイコン画像があるディレクトリ
+ACCOUNT_ICON_DEFAULT_DIR = STATIC_DIR / 'account-icons'
+## jikkyo_channels.json があるパス
 JIKKYO_CHANNELS_PATH = STATIC_DIR / 'jikkyo_channels.json'
 
 # サードパーティーライブラリのあるディレクトリ

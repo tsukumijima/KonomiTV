@@ -1,20 +1,28 @@
 
+import asyncio
+import io
+import pathlib
 import json
 from datetime import datetime
 from datetime import timedelta
 from fastapi import APIRouter
 from fastapi import Body
 from fastapi import Depends
+from fastapi import File
 from fastapi import HTTPException
 from fastapi import Path
+from fastapi import Response
 from fastapi import status
+from fastapi import UploadFile
+from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import jwt
 from passlib.context import CryptContext
+from PIL import Image
 from tortoise import timezone
 
 from app import schemas
-from app.constants import JWT_SECRET_KEY
+from app.constants import ACCOUNT_ICON_DIR, ACCOUNT_ICON_DEFAULT_DIR, JWT_SECRET_KEY
 from app.models import User
 
 
@@ -23,6 +31,36 @@ router = APIRouter(
     tags=['Users'],
     prefix='/api/users',
 )
+
+
+# 正方形の 400×400 の PNG にトリミング&リサイズして保存する関数
+async def TrimSquareAndResize(file: io.BytesIO, save_path: pathlib.Path, resize_width_and_height: int = 400):
+    """
+    正方形の 400×400 の PNG にトリミング&リサイズして保存する関数
+    ref: https://note.nkmk.me/python-pillow-basic/
+    ref: https://note.nkmk.me/python-pillow-image-resize/
+    ref: https://note.nkmk.me/python-pillow-image-crop-trimming/
+
+    Args:
+        file (io.BytesIO): 入力元のファイルオブジェクト。
+        save_path (pathlib.Path): トリミング&リサイズしたファイルの保存先のパス
+        resize_width_and_height (int, optional): リサイズする幅と高さ. Defaults to 400.
+    """
+
+    ## 画像を開く
+    pillow_image = await asyncio.to_thread(Image.open, file)
+
+    ## 縦横どちらか長さが短い方に合わせて正方形にクロップ
+    pillow_image_crop = await asyncio.to_thread(pillow_image.crop, (
+        (pillow_image.size[0] - min(pillow_image.size)) // 2,
+        (pillow_image.size[1] - min(pillow_image.size)) // 2,
+        (pillow_image.size[0] + min(pillow_image.size)) // 2,
+        (pillow_image.size[1] + min(pillow_image.size)) // 2,
+    ))
+
+    ## 400×400 にリサイズして保存
+    pillow_image_resize = await asyncio.to_thread(pillow_image_crop.resize, (resize_width_and_height, resize_width_and_height))
+    await asyncio.to_thread(pillow_image_resize.save, save_path)
 
 
 @router.post(
@@ -225,6 +263,60 @@ async def UserUpdateMeAPI(
     await current_user.save()
 
 
+@router.get(
+    '/me/icon',
+    summary = 'アカウントアイコン画像 API (ログイン中のユーザー)',
+    response_class = Response,
+    responses = {
+        status.HTTP_200_OK: {
+            'description': 'ユーザーアカウントのアイコン画像。',
+            'content': {'image/png': {}},
+        }
+    }
+)
+async def UserIconMeAPI(
+    current_user: User = Depends(User.getCurrentUser),
+):
+    """
+    現在ログイン中のユーザーアカウントのアイコン画像を取得する。<br>
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
+    """
+
+    # アイコン画像が保存されていればそれを返す
+    save_path = ACCOUNT_ICON_DIR / f'{current_user.id:02}.png'
+    if await asyncio.to_thread(pathlib.Path.exists, save_path):
+        return FileResponse(save_path)
+
+    # デフォルトのアイコン画像を返す
+    return FileResponse(ACCOUNT_ICON_DEFAULT_DIR / 'default.png')
+
+
+@router.put(
+    '/me/icon',
+    summary = 'アカウントアイコン画像更新 API (ログイン中のユーザー)',
+    status_code = status.HTTP_204_NO_CONTENT,
+)
+async def UserUpdateIconMeAPI(
+    image: UploadFile = File(None, description='アカウントのアイコン画像 (JPEG or PNG)。'),
+    current_user: User = Depends(User.getCurrentUser),
+):
+    """
+    現在ログイン中のユーザーアカウントのアイコン画像を更新する。<br>
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
+    """
+
+    # MIME タイプが image/jpeg or image/png 以外
+    if image.content_type != 'image/jpeg' and image.content_type != 'image/png':
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Please upload JPEG or PNG image',
+        )
+
+    # 正方形の 400×400 の PNG にリサイズして保存
+    # 保存するファイルパス: (ユーザー ID を0埋めしたもの).png
+    await TrimSquareAndResize(image.file, ACCOUNT_ICON_DIR / f'{current_user.id:02}.png', resize_width_and_height=400)
+
+
 @router.delete(
     '/me',
     summary = 'アカウント削除 API (ログイン中のユーザー)',
@@ -335,6 +427,82 @@ async def UserUpdateAPI(
 
     # レコードを保存する
     await user.save()
+
+
+@router.get(
+    '/{username}/icon',
+    summary = 'アカウントアイコン画像 API',
+    response_class = Response,
+    responses = {
+        status.HTTP_200_OK: {
+            'description': 'ユーザーアカウントのアイコン画像。',
+            'content': {'image/png': {}},
+        }
+    }
+)
+async def UserIconMeAPI(
+    username: str = Path(..., description='アカウントのユーザー名。'),
+    current_user: User = Depends(User.getCurrentUser),
+):
+    """
+    指定されたユーザーアカウントのユーザーアカウントのアイコン画像を取得する。<br>
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
+    """
+
+    # 指定されたユーザー名のユーザーを取得
+    user = await User.filter(name=username).get_or_none()
+
+    # 指定されたユーザー名のユーザーが存在しない
+    if not user:
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Specified user was not found',
+        )
+
+    # アイコン画像が保存されていればそれを返す
+    save_path = ACCOUNT_ICON_DIR / f'{user.id:02}.png'
+    if await asyncio.to_thread(pathlib.Path.exists, save_path):
+        return FileResponse(save_path)
+
+    # デフォルトのアイコン画像を返す
+    return FileResponse(ACCOUNT_ICON_DEFAULT_DIR / 'default.png')
+
+
+@router.put(
+    '/{username}/icon',
+    summary = 'アカウントアイコン画像更新 API',
+    status_code = status.HTTP_204_NO_CONTENT,
+)
+async def UserUpdateIconAPI(
+    username: str = Path(..., description='アカウントのユーザー名。'),
+    image: UploadFile = File(None, description='アカウントのアイコン画像 (JPEG or PNG)。'),
+    current_user: User = Depends(User.getCurrentUser),
+):
+    """
+    指定されたユーザーアカウントのアイコン画像を更新する。<br>
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
+    """
+
+    # 指定されたユーザー名のユーザーを取得
+    user = await User.filter(name=username).get_or_none()
+
+    # 指定されたユーザー名のユーザーが存在しない
+    if not user:
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Specified user was not found',
+        )
+
+    # MIME タイプが image/jpeg or image/png 以外
+    if image.content_type != 'image/jpeg' and image.content_type != 'image/png':
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Please upload JPEG or PNG image',
+        )
+
+    # 正方形の 400×400 の PNG にリサイズして保存
+    # 保存するファイルパス: (ユーザー ID を0埋めしたもの).png
+    await TrimSquareAndResize(image.file, ACCOUNT_ICON_DIR / f'{user.id:02}.png', resize_width_and_height=400)
 
 
 @router.delete(
