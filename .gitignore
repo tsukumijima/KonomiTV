@@ -142,8 +142,8 @@ cython_debug/
 config.yaml
 
 # user files
-server/data/database*
-server/data/interlaced_*
+server/data/*.*
+server/static/interlaced_*
 
 # thirdparty
 server/thirdparty/*

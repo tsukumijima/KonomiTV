@@ -88,8 +88,14 @@ QUALITY = {
 # クライアントの静的ファイルのあるディレクトリ
 CLIENT_DIR = BASE_DIR.parent / 'client/dist'
 
+# データディレクトリ
+DATA_DIR = BASE_DIR / 'data'
+
+# スタティックディレクトリ
+STATIC_DIR = BASE_DIR / 'static'
+
 # ロゴファイルのあるディレクトリ
-LOGO_DIR = BASE_DIR / 'data/logo'
+LOGO_DIR = STATIC_DIR / 'logos'
 
 # サードパーティーライブラリのあるディレクトリ
 LIBRARY_DIR = BASE_DIR / 'thirdparty'
@@ -109,7 +115,7 @@ LIBRARY_PATH = {
 DATABASE_CONFIG = {
     'timezone': 'Asia/Tokyo',
     'connections': {
-        'default': f'sqlite://{str(BASE_DIR / "data/database.sqlite")}',
+        'default': f'sqlite://{str(DATA_DIR / "database.sqlite")}',
     },
     'apps': {
         'models': {

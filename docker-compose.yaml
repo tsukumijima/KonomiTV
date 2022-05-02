@@ -29,7 +29,7 @@ services:
               source: './server/data/'
               target: '/code/server/data/'
             - type: bind
-              source: './server/logs/'
-              target: '/code/server/logs/'
+              source: './server/static/'
+              target: '/code/server/static/'
         ports:
             - '7000:7000'

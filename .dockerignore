@@ -9,10 +9,7 @@ client/node_modules/
 server/.venv/
 
 # データベース: マイグレーションに失敗するのを防ぐ
-server/data/database.sqlite*
-
-# ログ: コピーする必要がない
-server/logs/
+server/data/*
 
 # サードパーティーライブラリ: Docker 側でファイルを準備するため不要
 server/thirdparty/
