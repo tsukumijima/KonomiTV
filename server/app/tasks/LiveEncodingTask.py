@@ -266,41 +266,54 @@ class LiveEncodingTask():
             return
         Logging.info(f'LiveStream:{livestream.livestream_id} Title:{program_present.title}')
 
-        # tsreadex の起動
+        # tsreadex のオプション
         ## 放送波の前処理を行い、エンコードを安定させるツール
         ## オプション内容は https://github.com/xtne6f/tsreadex を参照
+        tsreadex_options = [
+            ## tsreadex のパス
+            LIBRARY_PATH['tsreadex'],
+            # 取り除く TS パケットの10進数の PID
+            ## EIT の PID を指定
+            '-x', '18/38/39',
+            # 特定サービスのみを選択して出力するフィルタを有効にする
+            ## 有効にすると、特定のストリームのみ PID を固定して出力される
+            '-n', '-1',
+            # 主音声ストリームが常に存在する状態にする
+            ## ストリームが存在しない場合、無音の AAC ストリームが出力される
+            ## 音声がモノラルであればステレオにする
+            ## デュアルモノを2つのモノラル音声に分離し、右チャンネルを副音声として扱う
+            '-a', '13',
+            # 副音声ストリームが常に存在する状態にする
+            ## ストリームが存在しない場合、無音の AAC ストリームが出力される
+            ## 音声がモノラルであればステレオにする
+            '-b', '5',
+            # 字幕ストリームが常に存在する状態にする
+            ## ストリームが存在しない場合、PMT の項目が補われて出力される
+            '-c', '1',
+            # 文字スーパーストリームが常に存在する状態にする
+            ## ストリームが存在しない場合、PMT の項目が補われて出力される
+            '-u', '1',
+            # 字幕と文字スーパーを aribb24.js が解釈できる ID3 timed-metadata に変換する
+            ## +4: FFmpeg のバグを打ち消すため、変換後のストリームに規格外の5バイトのデータを追加する
+            ## +8: FFmpeg のエラーを防ぐため、変換後のストリームの PTS が単調増加となるように調整する
+            '-d', '13',
+        ]
+
+        if CONFIG['livestream']['debug_mode_ts_path'] is None:
+            # 通常は標準入力を指定
+            tsreadex_options.append('-')
+        else:
+            # デバッグモード: 指定された TS ファイルを読み込む
+            ## 読み込み速度を 2350KB/s に制限
+            ## 1倍速に近い値だが、TS のビットレートはチャンネルや番組、シーンによって変動するため完全な1倍速にはならない
+            tsreadex_options += [
+                '-l', '2350',
+                CONFIG['livestream']['debug_mode_ts_path']
+            ]
+
+        # tsreadex の起動
         tsreadex:subprocess.Popen = await asyncio.to_thread(subprocess.Popen,
-            [
-                ## tsreadex のパス
-                LIBRARY_PATH['tsreadex'],
-                # 取り除く TS パケットの10進数の PID
-                ## EIT の PID を指定
-                '-x', '18/38/39',
-                # 特定サービスのみを選択して出力するフィルタを有効にする
-                ## 有効にすると、特定のストリームのみ PID を固定して出力される
-                '-n', '-1',
-                # 主音声ストリームが常に存在する状態にする
-                ## ストリームが存在しない場合、無音の AAC ストリームが出力される
-                ## 音声がモノラルであればステレオにする
-                ## デュアルモノを2つのモノラル音声に分離し、右チャンネルを副音声として扱う
-                '-a', '13',
-                # 副音声ストリームが常に存在する状態にする
-                ## ストリームが存在しない場合、無音の AAC ストリームが出力される
-                ## 音声がモノラルであればステレオにする
-                '-b', '5',
-                # 字幕ストリームが常に存在する状態にする
-                ## ストリームが存在しない場合、PMT の項目が補われて出力される
-                '-c', '1',
-                # 文字スーパーストリームが常に存在する状態にする
-                ## ストリームが存在しない場合、PMT の項目が補われて出力される
-                '-u', '1',
-                # 字幕と文字スーパーを aribb24.js が解釈できる ID3 timed-metadata に変換する
-                ## +4: FFmpeg のバグを打ち消すため、変換後のストリームに規格外の5バイトのデータを追加する
-                ## +8: FFmpeg のエラーを防ぐため、変換後のストリームの PTS が単調増加となるように調整する
-                '-d', '13',
-                # 標準入力を設定
-                '-',
-            ],
+            tsreadex_options,
             stdin=subprocess.PIPE,  # 受信した放送波を書き込む
             stdout=subprocess.PIPE,  # エンコーダーに繋ぐ
             creationflags=(subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # conhost を開かない

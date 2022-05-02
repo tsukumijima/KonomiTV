@@ -1,6 +1,6 @@
 
 from datetime import datetime
-from pydantic import AnyHttpUrl, BaseModel, Field, PositiveInt
+from pydantic import AnyHttpUrl, BaseModel, Field, FilePath, PositiveInt
 from pydantic.networks import stricturl
 from tortoise.contrib.pydantic import pydantic_model_creator
 from typing import Any, Dict, List, Literal, Optional
@@ -21,6 +21,7 @@ class Config(BaseModel):
     class LiveStream(BaseModel):
         encoder: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC']
         max_alive_time: PositiveInt
+        debug_mode_ts_path: Optional[FilePath]
 
     general: General
     livestream: LiveStream
@@ -32,8 +33,8 @@ class Config(BaseModel):
 # Channel モデルで Program モデルを使っているため、先に定義する
 class Program(pydantic_model_creator(models.Program, name='Program')):
     class Genre(BaseModel):
-        major:str
-        middle:str
+        major: str
+        middle: str
     detail: Dict[str, str]
     genre: List[Genre]
 

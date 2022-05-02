@@ -30,8 +30,8 @@ else:
         sys.exit(1)
 
     # 環境設定を読み込む
-    with open(CONFIG_YAML, encoding='utf-8') as stream:
-        CONFIG = ruamel.yaml.YAML().load(stream)
+    with open(CONFIG_YAML, encoding='utf-8') as file:
+        CONFIG = ruamel.yaml.YAML().load(file)
 
 # 映像と音声の品質
 QUALITY = {
