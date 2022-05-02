@@ -222,7 +222,7 @@ async def TwitterAccountDeleteAPI(
 ):
     """
     指定された Twitter アカウントの連携を解除する。<br>
-    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
 
     # 指定されたスクリーンネームに紐づく Twitter アカウントを取得

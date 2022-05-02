@@ -330,6 +330,11 @@ async def UserDeleteMeAPI(
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
 
+    # アイコン画像が保存されていれば削除する
+    save_path = ACCOUNT_ICON_DIR / f'{current_user.id:02}.png'
+    if await asyncio.to_thread(pathlib.Path.exists, save_path):
+        await asyncio.to_thread(save_path.unlink)
+
     # 現在ログイン中のユーザーアカウント（自分自身）を削除
     # アカウントを削除すると、それ以降は（当然ながら）ログインを要求する API へアクセスできなくなる
     await current_user.delete()
@@ -528,6 +533,11 @@ async def UserDeleteAPI(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified user was not found',
         )
+
+    # アイコン画像が保存されていれば削除する
+    save_path = ACCOUNT_ICON_DIR / f'{user.id:02}.png'
+    if await asyncio.to_thread(pathlib.Path.exists, save_path):
+        await asyncio.to_thread(save_path.unlink)
 
     # 指定されたユーザーを削除
     await user.delete()
