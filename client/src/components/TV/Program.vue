@@ -39,7 +39,7 @@
             <div class="program-detail" :key="detail_heading"
                 v-for="(detail_text, detail_heading) in TVUtils.getAttribute(channel.program_present, 'detail', {})">
                 <h2 class="program-detail__heading">{{detail_heading}}</h2>
-                <div class="program-detail__text">{{detail_text}}</div>
+                <div class="program-detail__text" v-html="Utils.URLtoLink(detail_text)"></div>
             </div>
         </section>
     </div>

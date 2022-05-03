@@ -61,6 +61,18 @@ export default class Utils {
 
 
     /**
+     * 文字列中に含まれる URL をリンクの HTML に置き換える
+     * ref: https://www.softel.co.jp/blogs/tech/archives/6099
+     * @param text 置換対象の文字列
+     * @returns URL をリンクに置換した文字列
+     */
+    static URLtoLink(text: string): string {
+        const pattern = /(https?:\/\/[-A-Z0-9+&@#/%?=~_|!:,.;]*[-A-Z0-9+&@#/%=~_|])/ig;
+        return text.replace(pattern, '<a href="$1" target="_blank">$1</a>');
+    }
+
+
+    /**
      * 設定を LocalStorage から取得する
      * @param key 設定のキー名
      * @returns 設定されている値

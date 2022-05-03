@@ -93,6 +93,12 @@ body .route-container {  // ルートコンテナ
     font-size: 0.94em;
 }
 
+// リンクの色
+.v-application a:link {
+    color: var(--v-primary-lighten1);
+    text-underline-offset: 3px;  // 下線と字の間隔を空ける
+}
+
 // スクロールバー
 * {
     scrollbar-color: var(--v-gray-base) var(--v-background-base);
