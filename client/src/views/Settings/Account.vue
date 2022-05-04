@@ -19,7 +19,10 @@
             <div class="account" v-if="user !== null">
                 <img class="account__icon" :src="user_icon_blob">
                 <div class="account__info">
-                    <span class="account__info-name">{{user.name}}</span>
+                    <div class="account__info-name">
+                        {{user.name}}
+                        <span class="account__info-admin" v-if="user.is_admin">管理者</span>
+                    </div>
                     <span class="account__info-id">User ID: {{user.id}}</span>
                 </div>
                 <v-btn class="account__login ml-auto" color="secondary" width="140" height="60" depressed @click="logout()">
@@ -105,6 +108,18 @@ export default Vue.extend({
     },
     async created() {
 
+        // ロード時のちらつきを抑えるために、とりあえず値を入れておく
+        this.user = {
+            id: 0,
+            name: '',
+            is_admin: true,
+            niconico_user_id: 0,
+            niconico_user_name: '',
+            twitter_accounts: [],
+            created_at: '',
+            updated_at: '',
+        }
+
         try {
 
             // ユーザーアカウントの情報を取得する
@@ -172,10 +187,25 @@ export default Vue.extend({
         margin-left: 20px;
 
         &-name {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            height: 33px;
             color: var(--v-text-base);
-            font-size: 22px;
+            font-size: 23px;
             font-weight: bold;
+        }
+
+        &-admin {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 52px;
+            height: 28px;
+            margin-left: 12px;
+            border-radius: 5px;
+            background: var(--v-secondary-base);
+            font-size: 14px;
+            font-weight: 500;
         }
 
         &-id {
