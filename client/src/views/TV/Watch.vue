@@ -21,7 +21,7 @@
                     <Icon class="watch-navigation__link-icon" icon="fluent:movies-and-tv-20-regular" width="26px" />
                 </router-link>
                 <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
-                             v-tooltip.right="'番組表'" to="/schedules/">
+                             v-tooltip.right="'番組表'" to="/timetable/">
                     <Icon class="watch-navigation__link-icon" icon="fluent:calendar-ltr-20-regular" width="26px" />
                 </router-link>
                 <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"

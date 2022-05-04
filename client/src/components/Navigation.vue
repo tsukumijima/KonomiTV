@@ -10,7 +10,7 @@
                     <Icon class="navigation__link-icon" icon="fluent:movies-and-tv-20-regular" width="26px" />
                     <span class="navigation__link-text">ビデオをみる</span>
                 </router-link>
-                <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/schedules/">
+                <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/timetable/">
                     <Icon class="navigation__link-icon" icon="fluent:calendar-ltr-20-regular" width="26px" />
                     <span class="navigation__link-text">番組表</span>
                 </router-link>

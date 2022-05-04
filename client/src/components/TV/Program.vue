@@ -262,6 +262,12 @@ export default Vue.extend({
                 @media screen and (max-height: 450px) {
                     font-size: 11px;
                 }
+
+                // リンクの色
+                ::v-deep a:link {
+                    color: var(--v-primary-lighten1);
+                    text-underline-offset: 3px;  // 下線と字の間隔を空ける
+                }
             }
         }
     }

@@ -13,7 +13,8 @@
                     ストリーミング画質はプレイヤーの設定からいつでも切り替えられます。<br>
                 </div>
                 <v-select class="settings__item-form" outlined hide-details
-                    :items="tv_streaming_quality" v-model="settings.tv_streaming_quality"></v-select>
+                    :items="tv_streaming_quality" v-model="settings.tv_streaming_quality">
+                </v-select>
             </div>
             <div class="settings__item">
                 <div class="settings__item-heading">既定のパネルの表示状態</div>
@@ -21,7 +22,8 @@
                     視聴画面を開いたときに、右側のパネルをどう表示するかを設定します。<br>
                 </div>
                 <v-select class="settings__item-form" outlined hide-details
-                    :items="panel_display_state" v-model="settings.panel_display_state"></v-select>
+                    :items="panel_display_state" v-model="settings.panel_display_state">
+                </v-select>
             </div>
             <div class="settings__item">
                 <div class="settings__item-heading">既定で表示されるパネルのタブ</div>
@@ -29,7 +31,8 @@
                     視聴画面を開いたときに、右側のパネルで最初に表示されるタブを設定します。<br>
                 </div>
                 <v-select class="settings__item-form" outlined hide-details
-                    :items="panel_active_tab" v-model="settings.panel_active_tab"></v-select>
+                    :items="panel_active_tab" v-model="settings.panel_active_tab">
+                </v-select>
             </div>
         </div>
     </Base>

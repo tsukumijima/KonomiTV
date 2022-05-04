@@ -13,7 +13,8 @@
                     たとえば 1.2 に設定すると、コメントが 1.2 倍速く流れます。<br>
                 </div>
                 <v-slider class="settings__item-form" ticks="always" thumb-label hide-details
-                         :step="0.1" :min="0.5" :max="2" v-model="settings.comment_speed_rate"></v-slider>
+                    :step="0.1" :min="0.5" :max="2" v-model="settings.comment_speed_rate">
+                </v-slider>
             </div>
             <div class="settings__item">
                 <div class="settings__item-heading">コメントの文字サイズ</div>
@@ -22,7 +23,8 @@
                     実際の文字サイズは画面の大きさに合わせて調整されます。既定の文字サイズは 34px です。<br>
                 </div>
                 <v-slider class="settings__item-form" ticks="always" thumb-label hide-details
-                          :min="20" :max="60" v-model="settings.comment_font_size"></v-slider>
+                    :min="20" :max="60" v-model="settings.comment_font_size">
+                </v-slider>
             </div>
             <div class="settings__item">
                 <div class="settings__item-heading">コメントの遅延時間</div>
@@ -31,7 +33,8 @@
                     通常は 1 秒程度で大丈夫です。ネットワークが遅いなどでタイムラグが大きいときだけ、映像の遅延に合わせて調整してください。<br>
                 </div>
                 <v-slider class="settings__item-form" ticks="always" thumb-label hide-details
-                          :step="0.5" :min="0" :max="5"  v-model="settings.comment_delay_time"></v-slider>
+                    :step="0.5" :min="0" :max="5"  v-model="settings.comment_delay_time">
+                </v-slider>
             </div>
         </div>
     </Base>
