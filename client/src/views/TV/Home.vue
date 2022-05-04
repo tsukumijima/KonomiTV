@@ -154,7 +154,7 @@ export default Vue.extend({
             // チャンネル情報一覧 API にアクセス
             let channels_response;
             try {
-                channels_response = await Vue.axios.get(`${Utils.api_base_url}/channels`);
+                channels_response = await Vue.axios.get('/channels');
             } catch (error) {
                 console.error(error);   // エラー内容を表示
                 return;

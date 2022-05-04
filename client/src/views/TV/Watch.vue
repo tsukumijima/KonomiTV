@@ -459,7 +459,7 @@ export default Vue.extend({
             // チャンネル情報 API にアクセス
             let channel_response: AxiosResponse;
             try {
-                channel_response = await Vue.axios.get(`${Utils.api_base_url}/channels/${this.channel_id}`);
+                channel_response = await Vue.axios.get(`/channels/${this.channel_id}`);
             } catch (error) {
 
                 // エラー内容を表示
@@ -526,7 +526,7 @@ export default Vue.extend({
             // チャンネル情報 API と同時にアクセスするとむしろレスポンスが遅くなるので、返ってくるのを待ってから実行
             let channels_response: AxiosResponse;
             try {
-                channels_response = await Vue.axios.get(`${Utils.api_base_url}/channels`);
+                channels_response = await Vue.axios.get('/channels');
             } catch (error) {
                 console.error(error);   // エラー内容を表示
                 return;

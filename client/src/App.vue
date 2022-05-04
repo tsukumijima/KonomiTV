@@ -12,7 +12,8 @@ html {
     overflow-y: auto !important;
 }
 
-body .v-application {  // アプリケーションのルート
+// アプリケーションのルート
+body .v-application {
     min-height: 100vh;
     font-family: 'YakuHanJPs', 'Open Sans', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
     font-weight: 500;
@@ -28,7 +29,8 @@ body .v-application {  // アプリケーションのルート
     }
 }
 
-body main {  // ヘッダー以外のメインコンテンツのルート
+// ヘッダー以外のメインコンテンツのルート
+body main {
     display: flex;
     width: 100%;
     min-height: 100%;
@@ -41,9 +43,19 @@ body header + main {
     }
 }
 
-body .route-container {  // ルートコンテナ
+// ルートコンテナ
+body .route-container {
     height: 100%;
     background: var(--v-background-base);
+}
+
+// スナックバーの表示時にナビゲーションバーの分だけ表示位置をずらす
+// 揃えないと見栄えが悪い
+.v-snack {
+    left: calc(220px / 2) !important;
+    @media screen and (max-height: 450px) {
+        left: calc(210px / 2) !important;
+    }
 }
 
 // ツールチップのスタイル

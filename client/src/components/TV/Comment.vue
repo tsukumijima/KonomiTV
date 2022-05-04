@@ -199,7 +199,7 @@ export default Vue.extend({
             // セッション情報を取得
             let watch_session_info: AxiosResponse;
             try {
-                watch_session_info = await Vue.axios.get(`${Utils.api_base_url}/channels/${this.channel.channel_id}/jikkyo`);
+                watch_session_info = await Vue.axios.get(`/channels/${this.channel.channel_id}/jikkyo`);
             } catch (error) {
                 throw new Error(error);  // エラー内容を表示
             }

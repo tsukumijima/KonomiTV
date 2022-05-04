@@ -3745,7 +3745,7 @@ dotenv@^8.2.0:
   version "1.26.0"
   resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/20a726ed4ad99ec7f986f42c93b8b6ca7cee0bda"
   dependencies:
-    aribb24.js "1.9.9"
+    aribb24.js "1.7.13"
     axios "^0.21.4"
     balloon-css "^1.0.3"
     promise-polyfill "8.2.0"
@@ -9286,6 +9286,11 @@ vuetify-loader@^1.7.3:
     decache "^4.6.0"
     file-loader "^6.2.0"
     loader-utils "^2.0.0"
+
+vuetify-message-snackbar@^0.2.7:
+  version "0.2.7"
+  resolved "https://registry.yarnpkg.com/vuetify-message-snackbar/-/vuetify-message-snackbar-0.2.7.tgz#82d89add0830627a13982dd736ccaef05a3b59ab"
+  integrity sha512-RwBbSIx1/7fN/ZTXj1IspQeVWSJHuWI3p7KU29/CgW3Z8TFUPEITz+2zu+Fp5TWInKSPCXG3eMivkjNCa5BLqQ==
 
 vuetify@^2.5.8:
   version "2.6.4"

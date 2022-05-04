@@ -119,4 +119,41 @@ export default class Utils {
             localStorage.setItem('KonomiTV-Settings', JSON.stringify(settings));
         }
     }
+
+
+    /**
+     * アクセストークンを LocalStorage から取得する
+     * @returns JWT アクセストークン（ログインしていない場合は null が返る）
+     */
+    static getAccessToken(): string | null {
+
+        // LocalStorage の取得結果をそのまま返す
+        // LocalStorage.getItem() はキーが存在しなければ（=ログインしていなければ）null を返す
+        return localStorage.getItem('KonomiTV-AccessToken');
+    }
+
+
+    /**
+     * アクセストークンを LocalStorage に保存する
+     * @param access_token 発行された JWT アクセストークン
+     */
+    static saveAccessToken(access_token: string): void {
+
+        // そのまま LocalStorage に保存
+        localStorage.setItem('KonomiTV-AccessToken', access_token);
+    }
+
+
+    /**
+     * アクセストークンを LocalStorage から削除する
+     * アクセストークンを削除することで、ログアウト相当になる
+     */
+    static deleteAccessToken(): void {
+
+        // LocalStorage に KonomiTV-AccessToken キーが存在しない
+        if (localStorage.getItem('KonomiTV-AccessToken') === null) return;
+
+        // KonomiTV-AccessToken キーを削除
+        localStorage.removeItem('KonomiTV-AccessToken');
+    }
 }
