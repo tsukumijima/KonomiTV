@@ -10,7 +10,7 @@
                 <img class="account__icon" src="/assets/images/account-icon-default.png">
                 <div class="account__info">
                     <span class="account__info-name">ログインしていません</span>
-                    <span class="account__info-id">Not Login</span>
+                    <span class="account__info-id">Not logged in</span>
                 </div>
                 <v-btn class="account__login ml-auto" color="secondary" width="140" height="60" depressed to="/login/">
                     <Icon icon="fa:sign-in" class="mr-2" />ログイン
@@ -108,6 +108,9 @@ export default Vue.extend({
     },
     async created() {
 
+        // 未ログイン時は実行しない
+        if (this.is_logged_in === false) return;
+
         // ロード時のちらつきを抑えるために、とりあえず値を入れておく
         this.user = {
             id: 0,
@@ -138,9 +141,13 @@ export default Vue.extend({
         } catch (error) {
 
             // ログインされていない
-            // user が null になったままなので、自動的に未ログイン時向けの画面が表示される
             if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
                 console.log('Not logged in.');
+
+                // 未ログイン状態に設定
+                this.is_logged_in = false;
+                this.user = null;
+                this.user_icon_blob = '';
             }
         }
     },
@@ -218,7 +225,7 @@ export default Vue.extend({
 
     &__login {
         border-radius: 7px;
-        font-size: 17px;
+        font-size: 16.5px;
         letter-spacing: 0;
     }
 }
