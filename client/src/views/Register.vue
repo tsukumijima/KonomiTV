@@ -35,10 +35,12 @@
 </template>
 <script lang="ts">
 
+import axios from 'axios';
 import Vue from 'vue';
 
 import Header from '@/components/Header.vue';
 import Navigation from '@/components/Navigation.vue';
+import Utils from '@/utils';
 
 export default Vue.extend({
     name: 'Register',
@@ -65,12 +67,94 @@ export default Vue.extend({
         }
     },
     methods: {
-        register() {
+        async register() {
+
             // すべてのバリデーションが通過したときのみ
             // ref: https://qiita.com/Hijiri_Ishi/items/56cac99c8f3806a6fa24
-            if ((this.$refs.register as any).validate()) {
-                console.log(this.username, this.password);
-                // TODO
+            if ((this.$refs.register as any).validate() === false) return;
+
+            try {
+
+                // アカウント作成 API にリクエスト
+                const response = await Vue.axios.post('/users', {
+                    username: this.username,
+                    password: this.password,
+                });
+
+                console.log('Account created.')
+                console.log(response.data);
+
+            } catch (error) {
+                    console.log()
+
+                // アカウントの作成に失敗
+                // ref: https://dev.classmethod.jp/articles/typescript-typing-exception-objects-in-axios-trycatch/
+                if (axios.isAxiosError(error) && error.response && error.response.status === 422) {
+
+                    console.log('Failed to create account.');
+                    console.log(error.response.data);
+
+                    // エラーメッセージごとに Snackbar に表示
+                    switch (error.response.data.detail) {
+                        case 'Specified username is duplicated': {
+                            this.$message.error('ユーザー名が重複しています。');
+                            break;
+                        }
+                        case 'Specified username is not accepted due to system limitations': {
+                            this.$message.error('ユーザー名に token と me は使えません。');
+                            break;
+                        }
+                        default: {
+                            this.$message.error(`アカウントを作成できませんでした。(HTTP Error ${error.response.status})`);
+                            break;
+                        }
+                    }
+                }
+                return;  // 処理を中断
+            }
+
+            // ここから先の処理はログイン画面とほぼ同じ
+            try {
+
+                // アカウントを作成できたので、ログインしてアクセストークンを取得する
+                const response = await Vue.axios.post('/users/token', new URLSearchParams({
+                    username: this.username,
+                    password: this.password,
+                }));
+
+                // 取得したアクセストークンを保存
+                console.log('Login successful.');
+                console.log(response.data);
+                Utils.saveAccessToken(response.data.access_token);
+
+                // アカウントページに遷移
+                this.$message.success('アカウントを作成しました。');
+                await this.$router.replace({path: '/settings/account'});
+
+            } catch (error) {
+
+                // ログインに失敗
+                if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
+
+                    console.log('Failed to login.');
+                    console.log(error.response.data);
+
+                    // エラーメッセージごとに Snackbar に表示
+                    switch (error.response.data.detail) {
+                        case 'Incorrect username': {
+                            this.$message.error('ログインできませんでした。そのユーザー名のアカウントは存在しません。');
+                            break;
+                        }
+                        case 'Incorrect password': {
+                            this.$message.error('ログインできませんでした。パスワードを間違えていませんか？');
+                            break;
+                        }
+                        default: {
+                            this.$message.error(`ログインできませんでした。(HTTP Error ${error.response.status})`);
+                            break;
+                        }
+                    }
+                }
             }
         }
     }
