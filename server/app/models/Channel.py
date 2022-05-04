@@ -75,10 +75,10 @@ class Channel(models.Model):
             return
 
         # 同じネットワーク ID のサービスのカウント
-        same_network_id_counts = dict()
+        same_network_id_counts = {}
 
         # 同じリモコン番号のサービスのカウント
-        same_remocon_id_counts = dict()
+        same_remocon_id_counts = {}
 
         # サービスごとに実行
         for service in services:
@@ -259,10 +259,10 @@ class Channel(models.Model):
         epg_services = await edcb.sendEnumService() or []
 
         # 同じネットワーク ID のサービスのカウント
-        same_network_id_counts = dict()
+        same_network_id_counts = {}
 
         # 同じリモコン番号のサービスのカウント
-        same_remocon_id_counts = dict()
+        same_remocon_id_counts = {}
 
         for service in services:
 

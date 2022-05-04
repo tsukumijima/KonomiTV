@@ -57,7 +57,7 @@ class Program(models.Model):
 
 
     @classmethod
-    async def update(cls, multiprocess:bool=False) -> None:
+    async def update(cls, multiprocess: bool=False) -> None:
         """
         番組情報を更新する
 
@@ -235,7 +235,7 @@ class Program(models.Model):
                         description = TSInformation.formatString(program_info['description'])
 
                     # 番組詳細
-                    detail = dict()  # デフォルト値
+                    detail = {}  # デフォルト値
                     if 'extended' in program_info:
 
                         # 番組詳細の見出しと本文の辞書ごとに
@@ -361,7 +361,7 @@ class Program(models.Model):
 
                     # ジャンル
                     ## 数字だけでは開発中の視認性が低いのでテキストに変換する
-                    program.genre = list()  # デフォルト値
+                    program.genre = []  # デフォルト値
                     if 'genres' in program_info:
                         for genre in program_info['genres']:  # ジャンルごとに
 
@@ -498,7 +498,7 @@ class Program(models.Model):
                             description = TSInformation.formatString(program_info['short_info']['text_char'])
 
                         # 番組詳細
-                        detail = dict()  # デフォルト値
+                        detail = {}  # デフォルト値
                         if 'ext_info' in program_info:
 
                             # 番組詳細テキストから取得した、見出しと本文の辞書ごとに
@@ -626,7 +626,7 @@ class Program(models.Model):
 
                         # ジャンル
                         ## 数字だけでは開発中の視認性が低いのでテキストに変換する
-                        program.genre = list()  # デフォルト値
+                        program.genre = []  # デフォルト値
                         content_info = program_info.get('content_info')
                         if content_info is not None:
                             for content_data in content_info['nibble_list']:  # ジャンルごとに

@@ -15,7 +15,7 @@ from app.utils.EDCB import EDCBTuner
 class LiveStreamClient():
     """ ライブストリームクライアント """
 
-    def __init__(self, client_type:Literal['mpegts', 'll-hls']):
+    def __init__(self, client_type: Literal['mpegts', 'll-hls']):
         """
         ライブストリーミングクライアントのインスタンスを生成する
 
@@ -26,26 +26,26 @@ class LiveStreamClient():
         # クライアントの種別 (mpegts or ll-hls)
         # client_type が mpegts の場合のみ、クライアントが持つ Queue にストリームデータを入れる
         # client_type が ll-hls の場合は配信方式が異なるため Queue は使われない… はずだが、実際にどう実装するかは未定
-        self.client_type:Literal['mpegts', 'll-hls'] = client_type
+        self.client_type: Literal['mpegts', 'll-hls'] = client_type
 
         # ストリームデータが入る Queue または None
-        self.queue:Optional[queue.Queue] = queue.Queue() if self.client_type == 'mpegts' else None
+        self.queue: Optional[queue.Queue] = queue.Queue() if self.client_type == 'mpegts' else None
 
         # ストリームデータの最終読み取り時刻のタイミング
         # 最終読み取り時刻を5秒過ぎたクライアントはタイムアウトと判断し、クライアントを削除する
-        self.stream_data_read_at:float = time.time()
+        self.stream_data_read_at: float = time.time()
 
 
 class LiveStream():
     """ ライブストリームを管理するクラス """
 
     # ライブストリームのインスタンスが入る、ライブストリーム ID をキーとした辞書
-    # この辞書にライブストリームに関する全てのデータが格納されており、ライブストリーム機能の根幹をなす
-    __instances:Dict[str, LiveStream] = dict()
+    # この辞書にライブストリームに関する全てのデータが格納されている
+    __instances: Dict[str, LiveStream] = {}
 
     # 必ずライブストリーム ID ごとに1つのインスタンスになるように (Singleton)
     # ref: https://qiita.com/ttsubo/items/c4af71ceba15b5b213f8
-    def __new__(cls, channel_id:str, quality:str) -> LiveStream:
+    def __new__(cls, channel_id: str, quality: str) -> LiveStream:
 
         # まだ同じライブストリーム ID のインスタンスがないときだけ、インスタンスを生成する
         # (チャンネルID)-(映像の品質) で一意な ID になる
@@ -87,7 +87,7 @@ class LiveStream():
             # ライブストリームクライアントが入るリスト
             # クライアントの接続が切断された場合、このリストからも削除される（正確にはインデックスを壊さないために None が入る）
             # したがって、クライアントの数は（ None になってるのを除いた）このリストの長さで求められる
-            instance.clients = list()
+            instance.clients = []
 
             # 生成したインスタンスを登録する
             # インスタンスの参照が渡されるので、オブジェクトとしては同一
@@ -97,7 +97,7 @@ class LiveStream():
         return cls.__instances[livestream_id]
 
 
-    def __init__(self, channel_id:str, quality:str):
+    def __init__(self, channel_id: str, quality: str):
         """
         ライブストリームのインスタンスを取得する
 
@@ -195,7 +195,7 @@ class LiveStream():
         return viewers
 
 
-    async def connect(self, client_type:Literal['mpegts', 'll-hls']) -> int:
+    async def connect(self, client_type: Literal['mpegts', 'll-hls']) -> int:
         """
         ライブストリームに接続して、新しく登録されたクライアント ID を返す
 
@@ -214,8 +214,6 @@ class LiveStream():
             # 現在 Idling 状態のライブストリームがあれば、うち最初のライブストリームを Offline にする
             ## 一般にチューナーリソースは無尽蔵にあるわけではないので、現在 Idling（=つまり誰も見ていない）ライブストリームがあるのなら
             ## それを Offline にしてチューナーリソースを解放し、新しいライブストリームがチューナーを使えるようにする
-            ## 通常のチューナー（マルチチューナーでない）で GR → BS,CS への切り替えでも解放されるのは非効率な気もするけど、
-            ## ただチューナーはともかく複数のエンコードが同時に走る状態ってのもそんなによくない気がするし、一旦仕様として保留
             for _ in range(8):  # 画質切り替えなどタイミングの問題で Idling なストリームがない事もあるので、8回くらいリトライする
 
                 # 現在 Idling 状態のライブストリームがあれば
@@ -269,7 +267,7 @@ class LiveStream():
         return client_id
 
 
-    async def disconnect(self, client_id:int) -> None:
+    async def disconnect(self, client_id: int) -> None:
         """
         指定されたクライアント ID のライブストリームへの接続を切断する
 
@@ -301,7 +299,7 @@ class LiveStream():
         }
 
 
-    def setStatus(self, status:Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart'], detail:str, quiet:bool=False) -> None:
+    def setStatus(self, status: Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart'], detail: str, quiet: bool=False) -> None:
         """
         ライブストリームのステータスを設定する
 
@@ -348,7 +346,7 @@ class LiveStream():
                 self.tuner.lock()
 
 
-    def setTunerInstance(self, tuner:EDCBTuner) -> None:
+    def setTunerInstance(self, tuner: EDCBTuner) -> None:
         """
         EDCB バックエンドのチューナーインスタンスを設定する
         設定されたチューナーインスタンスはステータス変更時のチューナーのアンロック/ロックに利用する
@@ -359,7 +357,7 @@ class LiveStream():
         self.tuner = tuner
 
 
-    def read(self, client_id:int) -> bytes:
+    def read(self, client_id: int) -> bytes:
         """
         指定されたクライアント ID の Queue からストリームデータを読み取る
 
@@ -387,7 +385,7 @@ class LiveStream():
             return None
 
 
-    def write(self, stream_data:bytes) -> None:
+    def write(self, stream_data: bytes) -> None:
         """
         接続している全てのクライアントの Queue にストリームデータを書き込む
 

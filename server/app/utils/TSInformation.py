@@ -518,7 +518,7 @@ class TSInformation:
 
                     ## 番組詳細
                     if hasattr(event, 'detail'):
-                        result['detail'] = dict()
+                        result['detail'] = {}
 
                         # 見出しと本文
                         for heading, text in event.detail.items():
@@ -552,7 +552,7 @@ class TSInformation:
 
                     ## ジャンル
                     if hasattr(event, 'genre'):
-                        result['genre'] = list()
+                        result['genre'] = []
                         for index, _ in enumerate(event.genre):  # ジャンルごとに
 
                             # major … 大分類
@@ -641,9 +641,9 @@ class TSInformation:
             # 稀に番組詳細やジャンルが全く設定されていない番組があり、存在しない情報を探して延々とループするのを避けるため
             if count > 100:
                 if result['detail'] is None:
-                    result['detail'] = dict()
+                    result['detail'] = {}
                 if result['genre'] is None:
-                    result['genre'] = list()
+                    result['genre'] = []
 
             # ループが 1000 回を超えたら（＝10回シークしても放送時間が確定しなかったら）、タイムアウトでループを抜ける
             if count > 1000:
@@ -705,7 +705,7 @@ class TSInformation:
         self.ts.seek(-1880000, 2)
 
         # PCR を取得して配列に格納
-        pcrs = list()
+        pcrs = []
         for _ in self.ts:
             pcr = self.getPCRTimeDelta()
             if pcr is not None:
@@ -718,7 +718,7 @@ class TSInformation:
         self.ts.seek(-18800000, 2)
 
         # TOT を取得して配列に格納
-        tots = list()
+        tots = []
         for tot in self.ts.sections(TimeOffsetSection):
             tots.append(tot.JST_time)
             pcr = self.getPCRTimeDelta()

@@ -28,7 +28,7 @@ class LiveEncodingTask():
         self.max_retry_count = 5  # 5 回まで
 
 
-    def isFullHDChannel(self, network_id:int, service_id:int) -> bool:
+    def isFullHDChannel(self, network_id: int, service_id: int) -> bool:
         """
         ネットワーク ID とサービス ID から、そのチャンネルでフル HD 放送が行われているかを返す
         放送波の PSI/SI から映像の横解像度を取得する手段がないので、現状 ID 決め打ちになっている
@@ -56,7 +56,7 @@ class LiveEncodingTask():
         return False
 
 
-    def buildFFmpegOptions(self, quality:str, is_fullhd_channel:bool = False) -> list:
+    def buildFFmpegOptions(self, quality: str, is_fullhd_channel: bool = False) -> list:
         """
         FFmpeg に渡すオプションを組み立てる
 
@@ -154,7 +154,7 @@ class LiveEncodingTask():
         return result
 
 
-    def buildHWEncCOptions(self, quality:str, encoder_type:Literal['QSVEncC', 'NVEncC', 'VCEEncC'], is_fullhd_channel:bool = False) -> list:
+    def buildHWEncCOptions(self, quality: str, encoder_type: Literal['QSVEncC', 'NVEncC', 'VCEEncC'], is_fullhd_channel: bool = False) -> list:
         """
         QSVEncC・NVEncC・VCEEncC (便宜上 HWEncC と総称) に渡すオプションを組み立てる
 
@@ -232,7 +232,7 @@ class LiveEncodingTask():
         return result
 
 
-    async def run(self, channel_id:str, quality:str) -> None:
+    async def run(self, channel_id: str, quality: str) -> None:
         """
         エンコードタスクを実行する
         プロセス実行なども含めてすべて非同期にしようとすると収拾がつかない上に性能上の不安があるため、開始時・終了時の処理は非同期化した上で、
@@ -562,7 +562,7 @@ class LiveEncodingTask():
                             client.queue.put(None)
 
                     # この時点で全てのクライアントの接続が切断されているので、クライアントが入るリストをクリア
-                    livestream.clients = list()
+                    livestream.clients = []
 
                     # ループを抜ける
                     break
@@ -591,9 +591,9 @@ class LiveEncodingTask():
             encoder_terminated_at = None
 
             # エンコーダーの出力結果を取得
-            line:str = str()  # 出力行
-            lines:list = list()  # 出力行のリスト
-            linebuffer:bytes = bytes()  # 出力行のバッファ
+            line: str = ''  # 出力行
+            lines: list = []  # 出力行のリスト
+            linebuffer: bytes = b''  # 出力行のバッファ
             while True:
 
                 # ライブストリームのステータスを取得

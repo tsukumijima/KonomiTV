@@ -45,7 +45,7 @@ async def ChannelsAPI():
     now = timezone.now()
 
     # タスク
-    tasks = list()
+    tasks = []
 
     # チャンネル情報を取得
     channels:List[Channel]
@@ -86,12 +86,12 @@ async def ChannelsAPI():
 
     # レスポンスの雛形
     result = {
-        'GR': list(),
-        'BS': list(),
-        'CS': list(),
-        'CATV': list(),
-        'SKY': list(),
-        'STARDIGIO': list(),
+        'GR': [],
+        'BS': [],
+        'CS': [],
+        'CATV': [],
+        'SKY': [],
+        'STARDIGIO': [],
     }
 
     # チャンネルごとに実行

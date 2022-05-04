@@ -13,14 +13,14 @@ class EDCBTuner:
 
     # 全てのチューナーインスタンスが格納されるリスト
     # チューナーを閉じずに再利用するため、全てのチューナーインスタンスにアクセスできるようにする
-    __instances:List = list()
+    __instances:List = []
 
 
-    def __new__(cls, network_id:int, service_id:int, transport_stream_id:int):
+    def __new__(cls, network_id: int, service_id: int, transport_stream_id: int):
 
         # 型アノテーションを追加（IDE用）
         ## クラス直下で自クラスを型として指定することはできないため、ここで明示的に指定する
-        cls.__instances:List[EDCBTuner]
+        cls.__instances: List[EDCBTuner]
 
         # 新しいチューナーインスタンスを生成する
         instance = super(EDCBTuner, cls).__new__(cls)
@@ -32,7 +32,7 @@ class EDCBTuner:
         return instance
 
 
-    def __init__(self, network_id:int, service_id:int, transport_stream_id:int):
+    def __init__(self, network_id: int, service_id: int, transport_stream_id: int):
         """
         チューナーインスタンスを初期化する
 
@@ -43,26 +43,26 @@ class EDCBTuner:
         """
 
         # NID・SID・TSID を設定
-        self.network_id:int = network_id
-        self.service_id:int = service_id
-        self.transport_stream_id:int = transport_stream_id
+        self.network_id: int = network_id
+        self.service_id: int = service_id
+        self.transport_stream_id: int = transport_stream_id
 
         # チューナーがロックされているかどうか
         ## 一般に ONAir 時はロックされ、Idling 時はアンロックされる
-        self.locked:bool = False
+        self.locked: bool = False
 
         # チューナーの制御権限を委譲している（＝チューナーが再利用されている）かどうか
         ## このフラグが True になっているチューナーは、チューナー制御の取り合いにならないように以後何を実行してもチューナーの状態を変更できなくなる
-        self.delegated:bool = False
+        self.delegated: bool = False
 
         # このチューナーインスタンス固有の NetworkTV ID を取得
         ## NetworkTV ID は NetworkTV モードの EpgDataCap_Bon を識別するために割り当てられる ID
         ## アンロック状態のチューナーがあれば、その NetworkTV ID を使い起動中の EpgDataCap_Bon を再利用する
-        self.edcb_networktv_id:int = self.__getNetworkTVID()
+        self.edcb_networktv_id: int = self.__getNetworkTVID()
 
         # EpgDataCap_Bon のプロセス ID
         ## プロセス ID が None のときはチューナーが起動されていないものとして扱う
-        self.edcb_process_id:Optional[int] = None
+        self.edcb_process_id: Optional[int] = None
 
 
     def __getNetworkTVID(self) -> int:
@@ -260,7 +260,7 @@ class EDCBUtil:
     """
 
     @staticmethod
-    def convertBytesToString(buffer:bytes) -> str:
+    def convertBytesToString(buffer: bytes) -> str:
         """ BOM に基づいて Bytes データを文字列に変換する """
         if len(buffer) == 0:
             return ''
@@ -272,7 +272,7 @@ class EDCBUtil:
             return str(buffer, 'cp932', 'replace')
 
     @staticmethod
-    def parseChSet5(chset5_txt:str) -> list:
+    def parseChSet5(chset5_txt: str) -> list:
         """ ChSet5.txt を解析する """
         result = []
         for line in chset5_txt.splitlines():
@@ -295,7 +295,7 @@ class EDCBUtil:
         return result
 
     @staticmethod
-    def getLogoIDFromLogoDataIni(logo_data_ini:str, network_id:int, service_id:int) -> int:
+    def getLogoIDFromLogoDataIni(logo_data_ini: str, network_id: int, service_id: int) -> int:
         """ LogoData.ini をもとにロゴ識別を取得する。失敗のとき負値を返す """
         target = f'{network_id:04X}{service_id:04X}'
         for line in logo_data_ini.splitlines():
@@ -308,7 +308,7 @@ class EDCBUtil:
         return -1
 
     @staticmethod
-    def getLogoFileNameFromDirectoryIndex(logo_dir_index:str, network_id:int, logo_id:int, logo_type:int) -> Optional[str]:
+    def getLogoFileNameFromDirectoryIndex(logo_dir_index: str, network_id: int, logo_id: int, logo_type: int) -> Optional[str]:
         """ ファイルリストをもとにロゴファイル名を取得する """
         target = f'{network_id:04X}_{logo_id:03X}_'
         target_type = f'_{logo_type:02d}.'
@@ -321,7 +321,7 @@ class EDCBUtil:
         return None
 
     @staticmethod
-    def parseProgramExtendedText(extended_text:str) -> dict:
+    def parseProgramExtendedText(extended_text: str) -> dict:
         """ 詳細情報テキストを解析して項目ごとの辞書を返す """
         extended_text = extended_text.replace('\r', '')
         result = {}
@@ -345,7 +345,7 @@ class EDCBUtil:
         return result
 
     @staticmethod
-    async def openViewStream(process_id:int, timeout_sec:float=10.) -> Optional[socket.socket]:
+    async def openViewStream(process_id: int, timeout_sec: float=10.) -> Optional[socket.socket]:
         """ View アプリの SrvPipe ストリームの転送を開始する """
         edcb = CtrlCmdUtil()
         edcb.setConnectTimeOutSec(timeout_sec)
@@ -361,7 +361,7 @@ class EDCBUtil:
         return None
 
     @staticmethod
-    async def openPipeStream(process_id:int, buffering:int, timeout_sec:float=10.) -> Optional[BinaryIO]:
+    async def openPipeStream(process_id: int, buffering: int, timeout_sec: float=10.) -> Optional[BinaryIO]:
         """ システムに存在する SrvPipe ストリームを開き、ファイルオブジェクトを返す """
         to = time.monotonic() + timeout_sec
         wait = 0.1

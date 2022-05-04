@@ -14,14 +14,14 @@ class Jikkyo:
 
     # 実況 ID とサービス ID (SID)・ネットワーク ID (NID) の対照表
     with open(JIKKYO_CHANNELS_PATH, encoding='utf-8') as file:
-        jikkyo_channels:Dict[str, Dict[str, Union[int, str]]] = json.load(file)
+        jikkyo_channels: Dict[str, Dict[str, Union[int, str]]] = json.load(file)
 
     # 実況チャンネルのステータスが入る辞書
     # getchannels API のリクエスト結果をキャッシュする
-    jikkyo_channels_status:Dict[str, Dict[str, int]] = dict()
+    jikkyo_channels_status: Dict[str, Dict[str, int]] = {}
 
     # 実況 ID と実況チャンネル/コミュニティ ID の対照表
-    jikkyo_nicolive_id_table:Dict[str, Dict[str, str]] = {
+    jikkyo_nicolive_id_table: Dict[str, Dict[str, str]] = {
         'jk1': {'type': 'channel', 'id': 'ch2646436', 'name': 'NHK総合'},
         'jk2': {'type': 'channel', 'id': 'ch2646437', 'name': 'NHK Eテレ'},
         'jk4': {'type': 'channel', 'id': 'ch2646438', 'name': '日本テレビ'},
@@ -54,12 +54,12 @@ class Jikkyo:
     }
 
     # API へのリクエストヘッダー
-    request_headers:Dict[str, str] = {
+    request_headers: Dict[str, str] = {
         'User-Agent': f'KonomiTV/{VERSION}',  # ユーザーエージェントを指定
     }
 
 
-    def __init__(self, network_id:int, service_id:int):
+    def __init__(self, network_id: int, service_id: int):
         """
         ニコニコ実況クライアントを初期化する
 
@@ -69,14 +69,14 @@ class Jikkyo:
         """
 
         # NID と SID を設定
-        self.network_id:int = network_id
-        self.service_id:int = service_id
+        self.network_id: int = network_id
+        self.service_id: int = service_id
 
         # 実況 ID
-        self.jikkyo_id:str
+        self.jikkyo_id: str
 
         # ニコ生上の実況チャンネル/コミュニティ ID
-        self.jikkyo_nicolive_id:str
+        self.jikkyo_nicolive_id: str
 
         # 実況 ID を取得する
         for jikkyo_channel in self.jikkyo_channels:
@@ -214,7 +214,7 @@ class Jikkyo:
         """
 
         # まだ実況チャンネルのステータスが更新されていなければ更新する
-        if (self.jikkyo_channels_status == dict()):
+        if self.jikkyo_channels_status == {}:
             await self.updateStatus()
 
         # 実況 ID が jk0（実況チャンネル/コミュニティが存在しない）であれば None を返す

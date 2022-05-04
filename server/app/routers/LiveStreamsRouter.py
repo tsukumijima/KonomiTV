@@ -39,11 +39,11 @@ async def LiveStreamsAPI():
     # 返却するデータ
     # 逆順になっているのは、デバッグ時に全体の大半を占める Offline なストリームが邪魔なため
     result = {
-        'Restart': dict(),
-        'Idling' : dict(),
-        'ONAir'  : dict(),
-        'Standby': dict(),
-        'Offline': dict(),
+        'Restart': {},
+        'Idling' : {},
+        'ONAir'  : {},
+        'Standby': {},
+        'Offline': {},
     }
 
     # すべてのストリームごとに
