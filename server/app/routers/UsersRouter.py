@@ -282,13 +282,19 @@ async def UserIconMeAPI(
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
 
+    # ブラウザにキャッシュさせないようにヘッダーを設定
+    # ref: https://developer.mozilla.org/ja/docs/Web/HTTP/Headers/Cache-Control
+    header = {
+        'Cache-Control': 'no-store',
+    }
+
     # アイコン画像が保存されていればそれを返す
     save_path = ACCOUNT_ICON_DIR / f'{current_user.id:02}.png'
     if await asyncio.to_thread(pathlib.Path.exists, save_path):
-        return FileResponse(save_path)
+        return FileResponse(save_path, headers=header)
 
     # デフォルトのアイコン画像を返す
-    return FileResponse(ACCOUNT_ICON_DEFAULT_DIR / 'default.png')
+    return FileResponse(ACCOUNT_ICON_DEFAULT_DIR / 'default.png', headers=header)
 
 
 @router.put(
@@ -445,7 +451,7 @@ async def UserUpdateAPI(
         }
     }
 )
-async def UserIconMeAPI(
+async def UserIconAPI(
     username: str = Path(..., description='アカウントのユーザー名。'),
     current_user: User = Depends(User.getCurrentUser),
 ):
@@ -453,6 +459,12 @@ async def UserIconMeAPI(
     指定されたユーザーアカウントのユーザーアカウントのアイコン画像を取得する。<br>
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
+
+    # ブラウザにキャッシュさせないようにヘッダーを設定
+    # ref: https://developer.mozilla.org/ja/docs/Web/HTTP/Headers/Cache-Control
+    header = {
+        'Cache-Control': 'no-store',
+    }
 
     # 指定されたユーザー名のユーザーを取得
     user = await User.filter(name=username).get_or_none()
@@ -467,10 +479,10 @@ async def UserIconMeAPI(
     # アイコン画像が保存されていればそれを返す
     save_path = ACCOUNT_ICON_DIR / f'{user.id:02}.png'
     if await asyncio.to_thread(pathlib.Path.exists, save_path):
-        return FileResponse(save_path)
+        return FileResponse(save_path, headers=header)
 
     # デフォルトのアイコン画像を返す
-    return FileResponse(ACCOUNT_ICON_DEFAULT_DIR / 'default.png')
+    return FileResponse(ACCOUNT_ICON_DEFAULT_DIR / 'default.png', headers=header)
 
 
 @router.put(
