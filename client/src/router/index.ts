@@ -8,6 +8,8 @@ import SettingsGeneral from '@/views/Settings/General.vue';
 import SettingsAccount from '@/views/Settings/Account.vue';
 import SettingsJikkyo from '@/views/Settings/Jikkyo.vue';
 import SettingsTwitter from '@/views/Settings/Twitter.vue';
+import Login from '@/views/Login.vue';
+import Register from '@/views/Register.vue';
 import NotFound from '@/views/NotFound.vue';
 
 Vue.use(VueRouter);
@@ -50,6 +52,16 @@ const routes = [
     path: '/settings/twitter',
     name: 'Settings Twitter',
     component: SettingsTwitter,
+  },
+  {
+    path: '/login/',
+    name: 'Login',
+    component: Login,
+  },
+  {
+    path: '/register/',
+    name: 'Register',
+    component: Register,
   },
   {
     path: '*',
