@@ -475,6 +475,7 @@ _::-webkit-full-page-media, _:future, :root
                         width: 80px;
                         height: 44px;
                         border-radius: 5px;
+                        // 読み込まれるまでのアイコンの背景
                         background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
                         object-fit: cover;
                         @media screen and (max-height: 450px) {

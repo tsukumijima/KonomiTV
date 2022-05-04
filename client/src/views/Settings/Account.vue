@@ -6,7 +6,7 @@
             <span class="ml-2">アカウント</span>
         </h2>
         <div class="settings__content">
-            <div class="account">
+            <div class="account" v-if="user === null">
                 <img class="account__icon" src="/assets/images/account-icon-default.png">
                 <div class="account__info">
                     <span class="account__info-name">ログインしていません</span>
@@ -16,7 +16,17 @@
                     <Icon icon="fa:sign-in" class="mr-2" />ログイン
                 </v-btn>
             </div>
-            <div class="account-register">
+            <div class="account" v-if="user !== null">
+                <img class="account__icon" :src="user_icon_blob">
+                <div class="account__info">
+                    <span class="account__info-name">{{user.name}}</span>
+                    <span class="account__info-id">User ID: {{user.id}}</span>
+                </div>
+                <v-btn class="account__login ml-auto" color="secondary" width="140" height="60" depressed @click="logout()">
+                    <Icon icon="fa:sign-out" class="mr-2" />ログアウト
+                </v-btn>
+            </div>
+            <div class="account-register" v-if="is_logged_in === false">
                 <div class="account-register__heading">
                     KonomiTV アカウントにログインすると、<br>より便利な機能が使えます！
                 </div>
@@ -64,8 +74,10 @@
 </template>
 <script lang="ts">
 
+import axios from 'axios';
 import Vue from 'vue';
 
+import { IUser } from '@/interface';
 import Base from '@/views/Settings/Base.vue';
 import Utils from '@/utils';
 
@@ -77,28 +89,59 @@ export default Vue.extend({
     data() {
         return {
 
-            // 設定値が保存されるオブジェクト
-            // ここの値とフォームを v-model で binding する
-            settings: (() => {
-                // 設定の既定値を取得する
-                const settings = {}
-                for (const setting of []) {
-                    settings[setting] = Utils.getSettingsItem(setting);
-                }
-                return settings;
-            })(),
+            // ユーティリティをテンプレートで使えるように
+            Utils: Utils,
+
+            // ログイン中かどうか
+            is_logged_in: Utils.getAccessToken() !== null,
+
+            // ユーザーアカウントの情報
+            // ログインしていない場合は null になる
+            user: null as IUser | null,
+
+            // ユーザーアカウントのアイコンの Blob URL
+            user_icon_blob: '',
         }
     },
-    watch: {
-        // settings 内の値の変更を監視する
-        settings: {
-            deep: true,
-            handler() {
-                // settings 内の値を順に LocalStorage に保存する
-                for (const [setting_key, setting_value] of Object.entries(this.settings)) {
-                    Utils.setSettingsItem(setting_key, setting_value);
-                }
+    async created() {
+
+        try {
+
+            // ユーザーアカウントの情報を取得する
+            const response = await Vue.axios.get('/users/me');
+            this.user = response.data;
+
+            // ユーザーアカウントのアイコンを取得する
+            // 認証が必要な URL は img タグからは直で読み込めないため
+            const icon_response = await Vue.axios.get('/users/me/icon', {
+                responseType: 'arraybuffer',
+            });
+
+            // Blob URL を生成
+            this.user_icon_blob = URL.createObjectURL(new Blob([icon_response.data], {type: 'image/png'}));
+
+        } catch (error) {
+
+            // ログインされていない
+            // user が null になったままなので、自動的に未ログイン時向けの画面が表示される
+            if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
+                console.log('Not logged in.');
             }
+        }
+    },
+    methods: {
+        logout() {
+
+            // ブラウザからアクセストークンを削除
+            // これをもってログアウトしたことになる（それ以降の Axios のリクエストにはアクセストークンが含まれなくなる）
+            Utils.deleteAccessToken();
+
+            // 未ログイン状態に設定
+            this.is_logged_in = false;
+            this.user = null;
+            this.user_icon_blob = '';
+
+            this.$message.success('ログアウトしました。');
         }
     }
 });
@@ -115,8 +158,12 @@ export default Vue.extend({
     background: var(--v-background-lighten2);
 
     &__icon {
+        min-width: 82px;
         height: 100%;
         border-radius: 50%;
+        // 読み込まれるまでのアイコンの背景
+        background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
+        object-fit: cover;
     }
 
     &__info {

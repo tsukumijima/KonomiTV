@@ -92,3 +92,25 @@ export const IChannelDefault: IChannel = {
     program_present: IProgramDefault,
     program_following: IProgramDefault,
 }
+
+// ユーザーアカウントに紐づく Twitter アカウントの情報を表すインターフェイス
+export interface ITwitterAccount {
+    id: number;
+    name: string;
+    screen_name: string;
+    icon_url: string;
+    created_at: string;
+    updated_at: string;
+}
+
+// ユーザーアカウントの情報を表すインターフェイス
+export interface IUser {
+    id: number;
+    name: string;
+    is_admin: boolean;
+    niconico_user_id: number;
+    niconico_user_name: string;
+    twitter_accounts: ITwitterAccount[];
+    created_at: string;
+    updated_at: string;
+}
