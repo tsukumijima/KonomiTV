@@ -10,7 +10,7 @@ export default new Vuetify({
         themes: {
             dark: {
                 primary: '#E64F97',
-                secondary: '#E64F97',
+                secondary: '#E33157',
                 twitter: '#4F82E6',
                 gray: '#66514C',
                 black: '#110A09',
