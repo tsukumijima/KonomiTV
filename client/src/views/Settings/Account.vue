@@ -20,7 +20,7 @@
                 <img class="account__icon" :src="user_icon_blob">
                 <div class="account__info">
                     <div class="account__info-name">
-                        {{user.name}}
+                        <span class="account__info-name-text">{{user.name}}</span>
                         <span class="account__info-admin" v-if="user.is_admin">管理者</span>
                     </div>
                     <span class="account__info-id">User ID: {{user.id}}</span>
@@ -119,6 +119,33 @@
                 <v-btn class="settings__save-button" depressed @click="updateAccountInfo('password')">
                     <Icon icon="fluent:save-16-filled" class="mr-2" height="24px" />パスワードを更新
                 </v-btn>
+                <v-divider class="mt-6"></v-divider>
+                <div class="settings__item mt-6">
+                    <div class="settings__item-heading error--text text--lighten-1">アカウントを削除</div>
+                    <div class="settings__item-label">
+                        現在ログインしている KonomiTV アカウントを削除します。<br>
+                        アカウントに紐づくすべてのデータが削除されます。元に戻すことはできません。<br>
+                    </div>
+                </div>
+                <v-dialog max-width="385" v-model="account_delete_confirm_dialog">
+                    <template v-slot:activator="{ on, attrs }">
+                        <v-btn class="settings__save-button error mt-5" depressed v-bind="attrs" v-on="on">
+                            <Icon icon="fluent:delete-16-filled" class="mr-2" height="24px" />アカウントを削除
+                        </v-btn>
+                    </template>
+                    <v-card>
+                        <v-card-title class="justify-center">本当にアカウントを削除しますか？</v-card-title>
+                        <v-card-text>
+                            アカウントに紐づくすべてのデータが削除されます。元に戻すことはできません。<br>
+                            本当にアカウントを削除しますか？
+                        </v-card-text>
+                        <v-card-actions>
+                            <v-spacer></v-spacer>
+                            <v-btn color="text" text @click="account_delete_confirm_dialog = false">キャンセル</v-btn>
+                            <v-btn color="error" text @click="deleteAccount()">削除</v-btn>
+                        </v-card-actions>
+                    </v-card>
+                </v-dialog>
             </div>
         </div>
     </Base>
@@ -172,6 +199,9 @@ export default Vue.extend({
 
             // アイコン画像
             settings_icon: null as File | null,
+
+            // アカウント削除確認ダイヤログ
+            account_delete_confirm_dialog: null,
         }
     },
     async created() {
@@ -324,6 +354,25 @@ export default Vue.extend({
             }
         },
 
+        async deleteAccount() {
+
+            // ダイヤログを閉じる
+            this.account_delete_confirm_dialog = false;
+
+            // アカウント削除 API にリクエスト
+            await Vue.axios.delete('/users/me');
+
+            // ブラウザからアクセストークンを削除
+            Utils.deleteAccessToken();
+
+            // 未ログイン状態に設定
+            this.is_logged_in = false;
+            this.user = null;
+            this.user_icon_blob = '';
+
+            this.$message.show('アカウントを削除しました。');
+        },
+
         logout() {
 
             // ブラウザからアクセストークンを削除
@@ -372,27 +421,34 @@ export default Vue.extend({
         margin-right: 12px;
 
         &-name {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
             height: 33px;
-            color: var(--v-text-base);
-            font-size: 23px;
-            font-weight: bold;
-            overflow: hidden;
-            white-space: nowrap;
-            text-overflow: ellipsis;  // はみ出た部分を … で省略
+
+            &-text {
+                display: inline-block;
+                font-size: 23px;
+                color: var(--v-text-base);
+                font-weight: bold;
+                overflow: hidden;
+                white-space: nowrap;
+                text-overflow: ellipsis;  // はみ出た部分を … で省略
+            }
         }
 
         &-admin {
             display: flex;
             align-items: center;
             justify-content: center;
+            flex-shrink: 0;
             width: 52px;
             height: 28px;
-            margin-left: 12px;
+            margin-left: 10px;
             border-radius: 5px;
             background: var(--v-secondary-base);
             font-size: 14px;
             font-weight: 500;
+            line-height: 2;
         }
 
         &-id {
