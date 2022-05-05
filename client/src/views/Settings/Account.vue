@@ -12,7 +12,7 @@
                     <span class="account__info-name">ログインしていません</span>
                     <span class="account__info-id">Not logged in</span>
                 </div>
-                <v-btn class="account__login ml-auto" color="secondary" width="140" height="60" depressed to="/login/">
+                <v-btn class="account__login ml-auto" color="secondary" width="140" height="56" depressed to="/login/">
                     <Icon icon="fa:sign-in" class="mr-2" />ログイン
                 </v-btn>
             </div>
@@ -25,7 +25,7 @@
                     </div>
                     <span class="account__info-id">User ID: {{user.id}}</span>
                 </div>
-                <v-btn class="account__login ml-auto" color="secondary" width="140" height="60" depressed @click="logout()">
+                <v-btn class="account__login ml-auto" color="secondary" width="140" height="56" depressed @click="logout()">
                     <Icon icon="fa:sign-out" class="mr-2" />ログアウト
                 </v-btn>
             </div>
@@ -72,6 +72,38 @@
                     <Icon icon="fluent:person-add-20-filled" class="mr-2" height="24" />アカウントを作成
                 </v-btn>
             </div>
+            <div class="settings__content" v-if="is_logged_in === true">
+                <v-form class="settings__item" ref="settings_username">
+                    <div class="settings__item-heading">ユーザー名</div>
+                    <div class="settings__item-label">
+                        KonomiTV アカウントのユーザー名を設定します。アルファベットだけでなく日本語も使えます。<br>
+                        同じ KonomiTV サーバー上の他のアカウントと同じユーザー名には変更できません。<br>
+                    </div>
+                    <v-text-field class="settings__item-form" outlined placeholder="ユーザー名"
+                        v-model="settings_username"
+                        :rules="[settings_username_validation]">
+                    </v-text-field>
+                </v-form>
+                <v-btn class="settings__save-button" depressed @click="updateAccountInfo('username')">
+                    <Icon icon="fluent:save-16-filled" class="mr-2" height="24px" />ユーザー名を保存
+                </v-btn>
+                <v-form class="settings__item" ref="settings_password">
+                    <div class="settings__item-heading">新しいパスワード</div>
+                    <div class="settings__item-label">
+                        KonomiTV アカウントの新しいパスワードを設定します。<br>
+                    </div>
+                    <v-text-field class="settings__item-form" outlined placeholder="新しいパスワード"
+                        v-model="settings_password"
+                        :type="settings_password_showing ? 'text' : 'password'"
+                        :append-icon="settings_password_showing ? 'mdi-eye' : 'mdi-eye-off'"
+                        :rules="[settings_password_validation]"
+                        @click:append="settings_password_showing = !settings_password_showing">
+                    </v-text-field>
+                </v-form>
+                <v-btn class="settings__save-button" depressed @click="updateAccountInfo('password')">
+                    <Icon icon="fluent:save-16-filled" class="mr-2" height="24px" />パスワードを保存
+                </v-btn>
+            </div>
         </div>
     </Base>
 </template>
@@ -104,6 +136,23 @@ export default Vue.extend({
 
             // ユーザーアカウントのアイコンの Blob URL
             user_icon_blob: '',
+
+            // ユーザー名とパスワード
+            // ログイン画面やアカウント作成画面の data と同一のもの
+            settings_username: null as string | null,
+            settings_username_validation: (value: string | null) => {
+                if (value === '' || value === null) return 'ユーザー名を入力してください。';
+                if (/^.{2,}$/.test(value) === false) return 'ユーザー名は2文字以上で入力してください。';
+                return true;
+            },
+            settings_password: null as string | null,
+            settings_password_showing: true,  // アカウント情報変更時は既定でパスワードを表示する
+            settings_password_validation: (value: string | null) => {
+                if (value === '' || value === null) return 'パスワードを入力してください。';
+                // 正規表現の参考: https://qiita.com/grrrr/items/0b35b5c1c98eebfa5128
+                if (/^[a-zA-Z0-9!-/:-@¥[-`{-~]{4,}$/.test(value) === false) return 'パスワードは4文字以上の半角英数記号を入力してください。';
+                return true;
+            },
         }
     },
     async created() {
@@ -123,35 +172,91 @@ export default Vue.extend({
             updated_at: '',
         }
 
-        try {
-
-            // ユーザーアカウントの情報を取得する
-            const response = await Vue.axios.get('/users/me');
-            this.user = response.data;
-
-            // ユーザーアカウントのアイコンを取得する
-            // 認証が必要な URL は img タグからは直で読み込めないため
-            const icon_response = await Vue.axios.get('/users/me/icon', {
-                responseType: 'arraybuffer',
-            });
-
-            // Blob URL を生成
-            this.user_icon_blob = URL.createObjectURL(new Blob([icon_response.data], {type: 'image/png'}));
-
-        } catch (error) {
-
-            // ログインされていない
-            if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
-                console.log('Not logged in.');
-
-                // 未ログイン状態に設定
-                this.is_logged_in = false;
-                this.user = null;
-                this.user_icon_blob = '';
-            }
-        }
+        // 表示されているアカウント情報を更新
+        await this.syncAccountInfo();
     },
     methods: {
+        async syncAccountInfo() {
+
+            try {
+
+                // ユーザーアカウントの情報を取得する
+                const response = await Vue.axios.get('/users/me');
+                this.user = response.data;
+                this.settings_username = this.user.name;
+
+                // ユーザーアカウントのアイコンを取得する
+                // 認証が必要な URL は img タグからは直で読み込めないため
+                const icon_response = await Vue.axios.get('/users/me/icon', {
+                    responseType: 'arraybuffer',
+                });
+
+                // Blob URL を生成
+                this.user_icon_blob = URL.createObjectURL(new Blob([icon_response.data], {type: 'image/png'}));
+
+            } catch (error) {
+
+                // ログインされていない
+                if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
+                    console.log('Not logged in.');
+
+                    // 未ログイン状態に設定
+                    this.is_logged_in = false;
+                    this.user = null;
+                    this.user_icon_blob = '';
+                }
+            }
+        },
+
+        async updateAccountInfo(update_type: 'username' | 'password') {
+
+            // すべてのバリデーションが通過したときのみ
+            // ref: https://qiita.com/Hijiri_Ishi/items/56cac99c8f3806a6fa24
+            if (update_type === 'username') {
+                if ((this.$refs.settings_username as any).validate() === false) return;
+            } else {
+                if ((this.$refs.settings_password as any).validate() === false) return;
+            }
+
+            try {
+
+                // アカウント情報更新 API にリクエスト
+                // レスポンスは 204 No Content なので不要
+                if (update_type === 'username') {
+                    await Vue.axios.put('/users/me', {username: this.settings_username});
+                    this.$message.show('ユーザー名を更新しました。');
+                } else {
+                    await Vue.axios.put('/users/me', {password: this.settings_password});
+                    this.$message.show('パスワードを更新しました。');
+                }
+
+                // 表示中のアカウント情報を更新
+                await this.syncAccountInfo();
+
+            } catch (error) {
+
+                // アカウント情報の更新に失敗
+                // ref: https://dev.classmethod.jp/articles/typescript-typing-exception-objects-in-axios-trycatch/
+                if (axios.isAxiosError(error) && error.response && error.response.status === 422) {
+                    // エラーメッセージごとに Snackbar に表示
+                    switch (error.response.data.detail) {
+                        case 'Specified username is duplicated': {
+                            this.$message.error('ユーザー名が重複しています。');
+                            break;
+                        }
+                        case 'Specified username is not accepted due to system limitations': {
+                            this.$message.error('ユーザー名に token と me は使えません。');
+                            break;
+                        }
+                        default: {
+                            this.$message.error(`アカウント情報を更新できませんでした。(HTTP Error ${error.response.status})`);
+                            break;
+                        }
+                    }
+                }
+            }
+        },
+
         logout() {
 
             // ブラウザからアクセストークンを削除
@@ -164,7 +269,7 @@ export default Vue.extend({
             this.user_icon_blob = '';
 
             this.$message.success('ログアウトしました。');
-        }
+        },
     }
 });
 
@@ -225,7 +330,7 @@ export default Vue.extend({
 
     &__login {
         border-radius: 7px;
-        font-size: 16.5px;
+        font-size: 16px;
         letter-spacing: 0;
     }
 }

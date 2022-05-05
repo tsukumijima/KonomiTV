@@ -56,6 +56,16 @@ body .route-container {
     @media screen and (max-height: 450px) {
         left: calc(210px / 2) !important;
     }
+    .v-btn__content {
+        color: var(--v-primary-lighten1);
+        letter-spacing: 0.3;
+    }
+    .success, .info, .warning, .error {
+        .v-btn__content {
+            color: var(--v-text-base);
+            letter-spacing: 0.3;
+        }
+    }
 }
 
 // ツールチップのスタイル

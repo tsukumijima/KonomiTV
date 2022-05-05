@@ -120,6 +120,13 @@ export default Vue.extend({
                     margin-top: 12px;
                 }
             }
+
+            .settings__save-button {
+                height: 45px;
+                background: var(--v-background-lighten2);
+                font-size: 15.5px;
+                letter-spacing: 0;
+            }
         }
     }
 }

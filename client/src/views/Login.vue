@@ -49,12 +49,13 @@ export default Vue.extend({
     },
     data() {
         return {
-            username: null,
+            username: null as string | null,
             username_validation: (value: string | null) => {
                 if (value === '' || value === null) return 'ユーザー名を入力してください。';
+                if (/^.{2,}$/.test(value) === false) return 'ユーザー名は2文字以上で入力してください。';
                 return true;
             },
-            password: null,
+            password: null as string | null,
             password_showing: false,
             password_validation: (value: string | null) => {
                 if (value === '' || value === null) return 'パスワードを入力してください。';

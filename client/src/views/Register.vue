@@ -57,7 +57,7 @@ export default Vue.extend({
                 return true;
             },
             password: null as string | null,
-            password_showing: false,
+            password_showing: true,  // アカウント作成時は既定でパスワードを表示する
             password_validation: (value: string | null) => {
                 if (value === '' || value === null) return 'パスワードを入力してください。';
                 // 正規表現の参考: https://qiita.com/grrrr/items/0b35b5c1c98eebfa5128
@@ -85,7 +85,6 @@ export default Vue.extend({
                 console.log(response.data);
 
             } catch (error) {
-                    console.log()
 
                 // アカウントの作成に失敗
                 // ref: https://dev.classmethod.jp/articles/typescript-typing-exception-objects-in-axios-trycatch/

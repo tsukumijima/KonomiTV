@@ -34,6 +34,8 @@ Vue.use(VuetifyMessageSnackbar, {
     top: false,
     // 画面下に配置する
     bottom: true,
+    // デフォルトの背景色
+    color: '#433532',
     // ダークテーマを適用する
     dark: true,
     // 影 (Elevation) の設定
