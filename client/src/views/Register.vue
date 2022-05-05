@@ -11,7 +11,7 @@
                         <h4 class="mt-10">アカウントを作成</h4>
                     </v-card-title>
                     <v-divider></v-divider>
-                    <v-form ref="register">
+                    <v-form ref="register" @submit.prevent>
                         <v-text-field class="mt-10" autofocus outlined placeholder="ユーザー名"
                             v-model="username"
                             :rules="[username_validation]">

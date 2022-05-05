@@ -73,7 +73,7 @@
                 </v-btn>
             </div>
             <div class="settings__content" v-if="is_logged_in === true">
-                <v-form class="settings__item" ref="settings_username">
+                <v-form class="settings__item" ref="settings_username" @submit.prevent>
                     <div class="settings__item-heading">ユーザー名</div>
                     <div class="settings__item-label">
                         KonomiTV アカウントのユーザー名を設定します。アルファベットだけでなく日本語も使えます。<br>
@@ -87,7 +87,7 @@
                 <v-btn class="settings__save-button" depressed @click="updateAccountInfo('username')">
                     <Icon icon="fluent:save-16-filled" class="mr-2" height="24px" />ユーザー名を更新
                 </v-btn>
-                <v-form class="settings__item" ref="settings_username">
+                <v-form class="settings__item" ref="settings_username" @submit.prevent>
                     <div class="settings__item-heading">アイコン画像</div>
                     <div class="settings__item-label">
                         KonomiTV アカウントのアイコン画像を設定します。<br>
@@ -103,7 +103,7 @@
                 <v-btn class="settings__save-button mt-5" depressed @click="updateAccountIcon()">
                     <Icon icon="fluent:save-16-filled" class="mr-2" height="24px" />アイコン画像を更新
                 </v-btn>
-                <v-form class="settings__item" ref="settings_password">
+                <v-form class="settings__item" ref="settings_password" @submit.prevent>
                     <div class="settings__item-heading">新しいパスワード</div>
                     <div class="settings__item-label">
                         KonomiTV アカウントの新しいパスワードを設定します。<br>
@@ -352,6 +352,7 @@ export default Vue.extend({
     background: var(--v-background-lighten2);
 
     &__icon {
+        flex-shrink: 0;
         min-width: 94px;
         height: 100%;
         border-radius: 50%;
@@ -366,15 +367,19 @@ export default Vue.extend({
     &__info {
         display: flex;
         flex-direction: column;
+        min-width: 0;
         margin-left: 20px;
+        margin-right: 12px;
 
         &-name {
-            display: inline-flex;
-            align-items: center;
+            display: inline-block;
             height: 33px;
             color: var(--v-text-base);
             font-size: 23px;
             font-weight: bold;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;  // はみ出た部分を … で省略
         }
 
         &-admin {
@@ -465,7 +470,7 @@ export default Vue.extend({
         margin-left: auto;
         margin-right: auto;
         border-radius: 7px;
-        font-size: 17px;
+        font-size: 16px;
         letter-spacing: 0;
     }
 }

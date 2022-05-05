@@ -10,7 +10,7 @@
                         <v-img max-width="250" src="/assets/images/logo.svg"></v-img>
                     </v-card-title>
                     <v-divider></v-divider>
-                    <v-form ref="login">
+                    <v-form ref="login" @submit.prevent>
                         <v-text-field class="mt-12" autofocus outlined placeholder="ユーザー名"
                             v-model="username"
                             :rules="[username_validation]">

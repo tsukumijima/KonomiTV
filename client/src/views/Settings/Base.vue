@@ -76,6 +76,7 @@ export default Vue.extend({
 
 .settings-container {
     width: 100%;
+    min-width: 0;
 
     .settings-navigation {
         position: sticky;
@@ -90,6 +91,7 @@ export default Vue.extend({
     // ref: https://qiita.com/buntafujikawa/items/b1703a2a4344fd326fe0
     .settings ::v-deep {
         width: 100%;
+        min-width: 0;
         border-radius: 11px !important;
 
         .settings__heading {
