@@ -85,7 +85,23 @@
                     </v-text-field>
                 </v-form>
                 <v-btn class="settings__save-button" depressed @click="updateAccountInfo('username')">
-                    <Icon icon="fluent:save-16-filled" class="mr-2" height="24px" />ユーザー名を保存
+                    <Icon icon="fluent:save-16-filled" class="mr-2" height="24px" />ユーザー名を更新
+                </v-btn>
+                <v-form class="settings__item" ref="settings_username">
+                    <div class="settings__item-heading">アイコン画像</div>
+                    <div class="settings__item-label">
+                        KonomiTV アカウントのアイコン画像を設定します。<br>
+                        アップロードされた画像は自動的に 400×400 の正方形にリサイズされます。<br>
+                    </div>
+                    <v-file-input class="settings__item-form" outlined hide-details placeholder="アイコン画像を選択"
+                        accept="image/jpeg, image/png"
+                        prepend-icon=""
+                        prepend-inner-icon="mdi-paperclip"
+                        v-model="settings_icon">
+                    </v-file-input>
+                </v-form>
+                <v-btn class="settings__save-button mt-5" depressed @click="updateAccountIcon()">
+                    <Icon icon="fluent:save-16-filled" class="mr-2" height="24px" />アイコン画像を更新
                 </v-btn>
                 <v-form class="settings__item" ref="settings_password">
                     <div class="settings__item-heading">新しいパスワード</div>
@@ -101,7 +117,7 @@
                     </v-text-field>
                 </v-form>
                 <v-btn class="settings__save-button" depressed @click="updateAccountInfo('password')">
-                    <Icon icon="fluent:save-16-filled" class="mr-2" height="24px" />パスワードを保存
+                    <Icon icon="fluent:save-16-filled" class="mr-2" height="24px" />パスワードを更新
                 </v-btn>
             </div>
         </div>
@@ -153,6 +169,9 @@ export default Vue.extend({
                 if (/^[a-zA-Z0-9!-/:-@¥[-`{-~]{4,}$/.test(value) === false) return 'パスワードは4文字以上の半角英数記号を入力してください。';
                 return true;
             },
+
+            // アイコン画像
+            settings_icon: null as File | null,
         }
     },
     async created() {
@@ -185,14 +204,8 @@ export default Vue.extend({
                 this.user = response.data;
                 this.settings_username = this.user.name;
 
-                // ユーザーアカウントのアイコンを取得する
-                // 認証が必要な URL は img タグからは直で読み込めないため
-                const icon_response = await Vue.axios.get('/users/me/icon', {
-                    responseType: 'arraybuffer',
-                });
-
-                // Blob URL を生成
-                this.user_icon_blob = URL.createObjectURL(new Blob([icon_response.data], {type: 'image/png'}));
+                // 表示中のアイコン画像を更新
+                await this.syncAccountIcon();
 
             } catch (error) {
 
@@ -206,6 +219,18 @@ export default Vue.extend({
                     this.user_icon_blob = '';
                 }
             }
+        },
+
+        async syncAccountIcon() {
+
+            // ユーザーアカウントのアイコンを取得する
+            // 認証が必要な URL は img タグからは直で読み込めないため
+            const icon_response = await Vue.axios.get('/users/me/icon', {
+                responseType: 'arraybuffer',
+            });
+
+            // Blob URL を生成
+            this.user_icon_blob = URL.createObjectURL(new Blob([icon_response.data], {type: 'image/png'}));
         },
 
         async updateAccountInfo(update_type: 'username' | 'password') {
@@ -257,6 +282,48 @@ export default Vue.extend({
             }
         },
 
+        async updateAccountIcon() {
+
+            // アイコン画像が選択されていないなら更新しない
+            if (this.settings_icon === null) {
+                this.$message.error('アップロードする画像を選択してください！');
+                return;
+            }
+
+            // アイコン画像の File オブジェクト（=Blob）を FormData に入れる
+            // multipart/form-data で送るために必要
+            // ref: https://r17n.page/2020/02/04/nodejs-axios-file-upload-api/
+            const form_data = new FormData();
+            form_data.append('image', this.settings_icon);
+
+            try {
+
+                // アカウントアイコン画像更新 API にリクエスト
+                await Vue.axios.put('/users/me/icon', form_data, {headers: {'Content-Type': 'multipart/form-data'}});
+
+                // 表示中のアイコン画像を更新
+                await this.syncAccountIcon();
+
+            } catch (error) {
+
+                // アカウント情報の更新に失敗
+                // ref: https://dev.classmethod.jp/articles/typescript-typing-exception-objects-in-axios-trycatch/
+                if (axios.isAxiosError(error) && error.response && error.response.status === 422) {
+                    // エラーメッセージごとに Snackbar に表示
+                    switch (error.response.data.detail) {
+                        case 'Please upload JPEG or PNG image': {
+                            this.$message.error('JPEG または PNG 画像をアップロードしてください。');
+                            break;
+                        }
+                        default: {
+                            this.$message.error(`アイコン画像を更新できませんでした。(HTTP Error ${error.response.status})`);
+                            break;
+                        }
+                    }
+                }
+            }
+        },
+
         logout() {
 
             // ブラウザからアクセストークンを削除
@@ -280,17 +347,20 @@ export default Vue.extend({
     display: flex;
     align-items: center;
     height: 130px;
-    padding: 24px;
+    padding: 18px 20px;
     border-radius: 15px;
     background: var(--v-background-lighten2);
 
     &__icon {
-        min-width: 82px;
+        min-width: 94px;
         height: 100%;
         border-radius: 50%;
+        object-fit: cover;
         // 読み込まれるまでのアイコンの背景
         background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
-        object-fit: cover;
+        // 低解像度で表示する画像がぼやけないようにする
+        // ref: https://sho-log.com/chrome-image-blurred/
+        image-rendering: -webkit-optimize-contrast;
     }
 
     &__info {

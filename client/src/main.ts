@@ -40,8 +40,8 @@ Vue.use(VuetifyMessageSnackbar, {
     dark: true,
     // 影 (Elevation) の設定
     elevation: 8,
-    // 3秒でタイムアウト
-    timeout: 3000,
+    // 2.5秒でタイムアウト
+    timeout: 2500,
     // 要素が非表示になった後に DOM から要素を削除する
 	autoRemove: true,
     // 閉じるボタンのテキスト
