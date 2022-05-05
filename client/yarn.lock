@@ -1999,6 +1999,13 @@ argparse@^2.0.1:
   resolved "https://registry.yarnpkg.com/argparse/-/argparse-2.0.1.tgz#246f50f3ca78a3240f6c997e8a9bd1eac49e4b38"
   integrity sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==
 
+aribb24.js@1.7.13:
+  version "1.7.13"
+  resolved "https://registry.yarnpkg.com/aribb24.js/-/aribb24.js-1.7.13.tgz#17e8d38c84174472ffed9c30f380af42907e7162"
+  integrity sha512-2XOzy12/pRiUvetcMaNQwL+/PjDSSN5+adBEv2qDPOGsIaDffa6Oq4vFuZagWT/O9M8mLfViJ8mojSqdRojWvQ==
+  dependencies:
+    spark-md5 "^3.0.1"
+
 aribb24.js@1.9.9:
   version "1.9.9"
   resolved "https://registry.yarnpkg.com/aribb24.js/-/aribb24.js-1.9.9.tgz#b4bbb2e7a869b1c54c8ba1416dcec35dddcf3c36"
@@ -3745,7 +3752,7 @@ dotenv@^8.2.0:
   version "1.26.0"
   resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/20a726ed4ad99ec7f986f42c93b8b6ca7cee0bda"
   dependencies:
-    aribb24.js "1.7.13"
+    aribb24.js "1.9.9"
     axios "^0.21.4"
     balloon-css "^1.0.3"
     promise-polyfill "8.2.0"
@@ -8286,6 +8293,11 @@ source-map@^0.7.3:
   version "0.7.3"
   resolved "https://registry.yarnpkg.com/source-map/-/source-map-0.7.3.tgz#5302f8169031735226544092e64981f751750383"
   integrity sha512-CkCj6giN3S+n9qrYiBTX5gystlENnRW5jZeNLHpe6aue+SrHcG5VYwujhW9s4dY31mEGsxBDrHR6oI69fTXsaQ==
+
+spark-md5@^3.0.1:
+  version "3.0.2"
+  resolved "https://registry.yarnpkg.com/spark-md5/-/spark-md5-3.0.2.tgz#7952c4a30784347abcee73268e473b9c0167e3fc"
+  integrity sha512-wcFzz9cDfbuqe0FZzfi2or1sgyIrsDwmPwfZC4hiNidPdPINjeUwNfv5kldczoEAcjl9Y1L3SM7Uz2PUEQzxQw==
 
 spdx-correct@^3.0.0:
   version "3.1.1"

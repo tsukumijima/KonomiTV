@@ -11,7 +11,10 @@ const axios_instance = axios.create();
 axios_instance.interceptors.request.use(config => {
 
     // API のベース URL を設定
-    config.baseURL = Utils.api_base_url;
+    // BaseURL が明示的に指定されているときは設定しない
+    if (config.baseURL === undefined) {
+        config.baseURL = Utils.api_base_url;
+    }
 
     // アクセストークンが取得できたら（=ログインされていれば）
     // 取得したアクセストークンを Authorization ヘッダーに Bearer トークンとしてセット

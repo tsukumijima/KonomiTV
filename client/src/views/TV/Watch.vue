@@ -352,7 +352,10 @@ export default Vue.extend({
 
                 // ArrayBuffer として RomSound を取得
                 const url = `/assets/romsounds/${index.toString().padStart(2, '0')}.wav`;
-                const audio_data = await Vue.axios.get(url, {responseType: 'arraybuffer'});
+                const audio_data = await Vue.axios.get(url, {
+                    baseURL: '',  // BaseURL を明示的にクライアントのルートに設定
+                    responseType: 'arraybuffer',
+                });
 
                 // ArrayBuffer をデコードして AudioBuffer にし、すぐ呼び出せるように貯めておく
                 // ref: https://ics.media/entry/200427/

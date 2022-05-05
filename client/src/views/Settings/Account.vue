@@ -9,7 +9,9 @@
             <div class="account" v-if="user === null">
                 <img class="account__icon" src="/assets/images/account-icon-default.png">
                 <div class="account__info">
-                    <span class="account__info-name">ログインしていません</span>
+                    <div class="account__info-name">
+                        <span class="account__info-name-text">ログインしていません</span>
+                    </div>
                     <span class="account__info-id">Not logged in</span>
                 </div>
                 <v-btn class="account__login ml-auto" color="secondary" width="140" height="56" depressed to="/login/">
@@ -76,7 +78,7 @@
                 <v-form class="settings__item" ref="settings_username" @submit.prevent>
                     <div class="settings__item-heading">ユーザー名</div>
                     <div class="settings__item-label">
-                        KonomiTV アカウントのユーザー名を設定します。アルファベットだけでなく日本語も使えます。<br>
+                        KonomiTV アカウントのユーザー名を設定します。アルファベットだけでなく日本語や記号も使えます。<br>
                         同じ KonomiTV サーバー上の他のアカウントと同じユーザー名には変更できません。<br>
                     </div>
                     <v-text-field class="settings__item-form" outlined placeholder="ユーザー名"
