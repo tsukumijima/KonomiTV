@@ -252,6 +252,15 @@ async def UserUpdateMeAPI(
                 detail = 'Specified username is duplicated',
             )
 
+        # ユーザー名が token or me だったら 422 を返す
+        ## /api/users/me と /api/users/token があるので、もしその名前で登録できてしまうと重複して面倒なことになる
+        ## そんな名前で登録する人はいないとは思うけど、念のため…。
+        if user_update_request.username.lower() == 'me' or user_update_request.username.lower() == 'token':
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'Specified username is not accepted due to system limitations',
+            )
+
         # 新しいユーザー名を設定
         current_user.name = user_update_request.username
 
@@ -423,6 +432,15 @@ async def UserUpdateAPI(
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = 'Specified username is duplicated',
+            )
+
+        # ユーザー名が token or me だったら 422 を返す
+        ## /api/users/me と /api/users/token があるので、もしその名前で登録できてしまうと重複して面倒なことになる
+        ## そんな名前で登録する人はいないとは思うけど、念のため…。
+        if user_update_request.username.lower() == 'me' or user_update_request.username.lower() == 'token':
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'Specified username is not accepted due to system limitations',
             )
 
         # 新しいユーザー名を設定
