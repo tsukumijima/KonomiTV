@@ -55,7 +55,7 @@ error_messages = {
 @router.get(
     '/auth',
     summary = 'Twitter OAuth 認証 URL 発行 API',
-    response_model = schemas.TwitterAuthURL,
+    response_model = schemas.ThirdpartyAuthURL,
     response_description = 'ユーザーにアプリ連携してもらうための認証 URL。',
 )
 async def TwitterAuthURLAPI(
@@ -109,7 +109,7 @@ async def TwitterAuthURLAPI(
 @router.get(
     '/callback',
     summary = 'Twitter OAuth コールバック API',
-    response_model = schemas.TwitterAuthCallbackSuccess,
+    response_model = schemas.ThirdpartyAuthCallbackSuccess,
     response_description = 'ユーザーアカウントに Twitter アカウントのアクセストークン・アクセストークンシークレットが登録できたことを示す。',
 )
 async def TwitterAuthCallbackAPI(

@@ -292,7 +292,7 @@ async def ChannelLogoAPI(
         # 同梱のロゴが存在しない場合のみ
         try:
             mirakurun_logo_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services/{mirakurun_service_id}/logo'
-            mirakurun_logo_api_response:requests.Response = await asyncio.to_thread(requests.get, mirakurun_logo_api_url, timeout=3)
+            mirakurun_logo_api_response = await asyncio.to_thread(requests.get, mirakurun_logo_api_url, timeout=3)
 
             # ステータスコードが 200 であれば
             # ステータスコードが 503 の場合はロゴデータが存在しない

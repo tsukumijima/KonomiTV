@@ -386,7 +386,7 @@ class LiveEncodingTask():
             ## stream=True を設定することで、レスポンスの返却を待たずに処理を進められる
             try:
                 livestream.setStatus('Standby', 'チューナーを起動しています…')
-                response:requests.Response = await asyncio.to_thread(requests.get,
+                response = await asyncio.to_thread(requests.get,
                     url=mirakurun_stream_api_url,
                     headers={'X-Mirakurun-Priority': '0'},
                     stream=True,

@@ -109,10 +109,10 @@ class ClientSettings(BaseModel):
     comment_font_size: int = Field(34)
     comment_delay_time: float = Field(1)
 
-class TwitterAuthURL(BaseModel):
+class ThirdpartyAuthURL(BaseModel):
     authorization_url: Optional[str]
 
-class TwitterAuthCallbackSuccess(BaseModel):
+class ThirdpartyAuthCallbackSuccess(BaseModel):
     detail: Literal['Success']
 
 class TweetResult(BaseModel):

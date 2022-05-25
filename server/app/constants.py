@@ -6,7 +6,11 @@ import ruamel.yaml
 import secrets
 import sys
 from pathlib import Path
+from typing import Dict
 
+
+# バージョン
+VERSION = '0.5.2'
 
 # ベースディレクトリ
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -133,6 +137,15 @@ DATABASE_CONFIG = {
     }
 }
 
+# 外部 API に送信するリクエストヘッダー
+## KonomiTV のユーザーエージェントを指定
+API_REQUEST_HEADERS: Dict[str, str] = {
+    'User-Agent': f'KonomiTV/{VERSION}',
+}
+
+# ニコニコ OAuth の Client ID
+NICONICO_OAUTH_CLIENT_ID = '4JTJdyBZLwMJwaI7'
+
 # JWT のエンコード/デコードに使うシークレットキー
 ## jwt_secret.dat がない場合は自動生成する
 JWT_SECRET_KEY_PATH = DATA_DIR / 'jwt_secret.dat'
@@ -142,6 +155,3 @@ if Path.exists(JWT_SECRET_KEY_PATH) is False:
 ## jwt_secret.dat からシークレットキーを読み込む
 with open(JWT_SECRET_KEY_PATH, encoding='utf-8') as fp:
     JWT_SECRET_KEY = fp.read().strip()
-
-# バージョン
-VERSION = '0.5.2'

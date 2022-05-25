@@ -7,7 +7,7 @@ import requests
 import xml.etree.ElementTree as ET
 from typing import Dict, Optional, Union
 
-from app.constants import JIKKYO_CHANNELS_PATH, VERSION
+from app.constants import API_REQUEST_HEADERS, JIKKYO_CHANNELS_PATH
 
 
 class Jikkyo:
@@ -51,11 +51,6 @@ class Jikkyo:
         'jk263': {'type': 'community', 'id': 'co5682551', 'name': 'BSJapanext'},
         'jk265': {'type': 'community', 'id': 'co5682548', 'name': 'BSよしもと'},
         'jk333': {'type': 'community', 'id': 'co5245469', 'name': 'AT-X'},
-    }
-
-    # API へのリクエストヘッダー
-    request_headers: Dict[str, str] = {
-        'User-Agent': f'KonomiTV/{VERSION}',  # ユーザーエージェントを指定
     }
 
 
@@ -158,11 +153,10 @@ class Jikkyo:
             return {'is_success': False, 'detail': 'このチャンネルのニコニコ実況はありません。'}
 
         # ニコ生の視聴ページの HTML を取得する
+        ## 3秒応答がなかったらタイムアウト
         watch_page_url = f'https://live.nicovideo.jp/watch/{self.jikkyo_nicolive_id}'
-        watch_page_response:requests.Response
         try:
-            # 3秒応答がなかったらタイムアウト
-            watch_page_response = await asyncio.to_thread(requests.get, watch_page_url, headers=self.request_headers, timeout=3)
+            watch_page_response = await asyncio.to_thread(requests.get, watch_page_url, headers=API_REQUEST_HEADERS, timeout=3)
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
             return {'is_success': False, 'detail': 'ニコニコ実況に接続できませんでした。'}
         watch_page_code = watch_page_response.status_code
@@ -238,11 +232,10 @@ class Jikkyo:
         """
 
         # getchannels API から実況チャンネルのステータスを取得する
+        ## 3秒応答がなかったらタイムアウト
         try:
             getchannels_api_url = 'https://jikkyo.tsukumijima.net/namami/api/v2/getchannels'
-            # 3秒応答がなかったらタイムアウト
-            getchannels_api_response:requests.Response = \
-                await asyncio.to_thread(requests.get, getchannels_api_url, headers=cls.request_headers, timeout=3)
+            getchannels_api_response = await asyncio.to_thread(requests.get, getchannels_api_url, headers=API_REQUEST_HEADERS, timeout=3)
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):  # 接続エラー（サーバー再起動やタイムアウトなど）
             return # ステータス更新を中断
 
