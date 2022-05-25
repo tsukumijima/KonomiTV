@@ -20,7 +20,7 @@ import Header from '@/components/Header.vue';
 import Navigation from '@/components/Navigation.vue';
 
 export default Vue.extend({
-    name: 'Home',
+    name: 'NotFound',
     components: {
         Header,
         Navigation,
