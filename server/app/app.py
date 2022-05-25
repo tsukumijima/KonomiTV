@@ -24,6 +24,7 @@ from app.models import Program
 from app.models import TwitterAccount
 from app.routers import ChannelsRouter
 from app.routers import LiveStreamsRouter
+from app.routers import NiconicoRouter
 from app.routers import SettingsRouter
 from app.routers import TwitterRouter
 from app.routers import UsersRouter
@@ -90,6 +91,7 @@ app.add_middleware(
 app.include_router(ChannelsRouter.router)
 app.include_router(LiveStreamsRouter.router)
 app.include_router(SettingsRouter.router)
+app.include_router(NiconicoRouter.router)
 app.include_router(TwitterRouter.router)
 app.include_router(UsersRouter.router)
 
