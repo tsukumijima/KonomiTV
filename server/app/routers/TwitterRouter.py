@@ -54,7 +54,7 @@ error_messages = {
 
 @router.get(
     '/auth',
-    summary = 'Twitter 認証 URL 発行 API',
+    summary = 'Twitter OAuth 認証 URL 発行 API',
     response_model = schemas.TwitterAuthURL,
     response_description = 'ユーザーにアプリ連携してもらうための認証 URL。',
 )
@@ -70,10 +70,11 @@ async def TwitterAuthURLAPI(
     """
 
     # コールバック URL を設定
-    ## Twitter API では事前にコールバック先の URL をデベロッパーダッシュボードから設定しておく必要がある
-    ## 一方 KonomiTV サーバーの URL は当然ながら環境によってバラバラなため、コールバック URL を https://app.konomi.tv/api/redirect/twitter に集約する
-    ## この API はリクエストをそっくりそのまま ?server= で指定された KonomiTV サーバーの TwitterAuthCallbackAPI にリダイレクトする
-    ## こうすることで、コールバック URL が1つに定まらなくても、コールバック結果 (oauth_verifier) を KonomiTV サーバーに返せるようになる
+    ## Twitter API の OAuth 連携では、事前にコールバック先の URL をデベロッパーダッシュボードから設定しておく必要がある
+    ## 一方 KonomiTV サーバーの URL はまちまちなので、コールバック先の URL を一旦 https://app.konomi.tv/api/redirect/twitter に集約する
+    ## この API は、リクエストを "server" パラメーターで指定された KonomiTV サーバーの TwitterAuthCallbackAPI にリダイレクトする
+    ## 最後に KonomiTV サーバーがリダイレクトを受け取ることで、コールバック対象の URL が定まらなくても OAuth 連携ができるようになる
+    ## Twitter だけ他のサービスと違い OAuth 1.0a なので、フローがかなり異なる
     ## ref: https://github.com/tsukumijima/KonomiTV-API
     callback_url = f'https://app.konomi.tv/api/redirect/twitter?server={request.url.scheme}://{request.url.netloc}/'
 
@@ -107,17 +108,17 @@ async def TwitterAuthURLAPI(
 
 @router.get(
     '/callback',
-    summary = 'Twitter 認証コールバック API',
+    summary = 'Twitter OAuth コールバック API',
     response_model = schemas.TwitterAuthCallbackSuccess,
-    response_description = 'ユーザーアカウントに Twitter アカウントのアクセストークン・アクセストークンが登録できたことを示す。',
+    response_description = 'ユーザーアカウントに Twitter アカウントのアクセストークン・アクセストークンシークレットが登録できたことを示す。',
 )
 async def TwitterAuthCallbackAPI(
-    oauth_token: Optional[str] = Query(None, description='コールバック URL から渡された oauth_token。OAuth 認証が成功したときのみセットされる。'),
-    oauth_verifier: Optional[str] = Query(None, description='コールバック URL から渡された oauth_verifier。OAuth 認証が成功したときのみセットされる。'),
+    oauth_token: Optional[str] = Query(None, description='コールバック元から渡された oauth_token。OAuth 認証が成功したときのみセットされる。'),
+    oauth_verifier: Optional[str] = Query(None, description='コールバック元から渡された oauth_verifier。OAuth 認証が成功したときのみセットされる。'),
     denied: Optional[str] = Query(None, description='このパラメーターがセットされているとき、OAuth 認証がユーザーによって拒否されたことを示す。'),
 ):
     """
-    Twitter の認証のコールバックを受け取り、ログイン中のユーザーアカウントに Twitter アカウントを連携する。
+    Twitter の OAuth 認証のコールバックを受け取り、ログイン中のユーザーアカウントと Twitter アカウントを紐づける。
     """
 
     # "denied" パラメーターがセットされている
