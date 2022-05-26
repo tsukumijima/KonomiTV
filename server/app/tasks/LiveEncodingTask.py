@@ -299,7 +299,7 @@ class LiveEncodingTask():
             '-d', '13',
         ]
 
-        if CONFIG['livestream']['debug_mode_ts_path'] is None:
+        if 'debug_mode_ts_path' not in CONFIG['livestream'] or CONFIG['livestream']['debug_mode_ts_path'] is None:
             # 通常は標準入力を指定
             tsreadex_options.append('-')
         else:
