@@ -1,6 +1,6 @@
 self.__precacheManifest = (self.__precacheManifest || []).concat([
   {
-    "revision": "f1c6a7eb61d110238924",
+    "revision": "99011052d86c4ead3eac",
     "url": "/assets/css/app.09c4e24d.css"
   },
   {
@@ -16,35 +16,35 @@ self.__precacheManifest = (self.__precacheManifest || []).concat([
     "url": "/assets/images/icon.svg"
   },
   {
-    "revision": "2653f3e7ee137c943c9088bac5cfbe99",
+    "revision": "a1ff224fdbecfd10c117cd6172799b94",
     "url": "/assets/images/icons/apple-touch-icon.png"
   },
   {
-    "revision": "a81cd13a1f210009f1193fea236d72e0",
+    "revision": "66d1179e73198777a49235a76619a093",
     "url": "/assets/images/icons/favicon-16px.png"
   },
   {
-    "revision": "f2254b7bb446cc62fee9da77cb770764",
+    "revision": "85e6e77bb3362197cf564bf9b21ebe12",
     "url": "/assets/images/icons/favicon-32px.png"
   },
   {
-    "revision": "f234612b21e09b7cb591b712007f12a8",
+    "revision": "1bf40917c217fd567119c219ebabe4b9",
     "url": "/assets/images/icons/favicon.svg"
   },
   {
-    "revision": "2289430360c3e058f9fa7dcb183de80f",
+    "revision": "cc3f0142a77651214f66f0a725253521",
     "url": "/assets/images/icons/icon-192px.png"
   },
   {
-    "revision": "484cb5aee87d103269fd93b7756b1d72",
+    "revision": "37175521e6de680e90740ead2506f9fd",
     "url": "/assets/images/icons/icon-512px.png"
   },
   {
-    "revision": "f21ee6f608b16a5303f1f9b1c86da910",
+    "revision": "291866775902df321181d8dbc66c0d22",
     "url": "/assets/images/icons/icon-maskable-192px.png"
   },
   {
-    "revision": "320cc7dd0d0bc7cf31d8c94a93d3811e",
+    "revision": "d105aac16603bc9e5349fba31bf71cfd",
     "url": "/assets/images/icons/icon-maskable-512px.png"
   },
   {
@@ -100,8 +100,8 @@ self.__precacheManifest = (self.__precacheManifest || []).concat([
     "url": "/assets/images/player-backgrounds/12.jpg"
   },
   {
-    "revision": "f1c6a7eb61d110238924",
-    "url": "/assets/js/app.213c8ff6.js"
+    "revision": "99011052d86c4ead3eac",
+    "url": "/assets/js/app.3e69cc8c.js"
   },
   {
     "revision": "b457b7470a1afdd79bf4",
@@ -164,7 +164,7 @@ self.__precacheManifest = (self.__precacheManifest || []).concat([
     "url": "/assets/romsounds/14.wav"
   },
   {
-    "revision": "1e0aa53105dfb4e864c50f8732f7ede3",
+    "revision": "351ec065d5cc76ea1ce4c6ae346abe31",
     "url": "/index.html"
   },
   {
