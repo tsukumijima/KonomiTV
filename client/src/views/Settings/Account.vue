@@ -74,7 +74,7 @@
                     <Icon icon="fluent:person-add-20-filled" class="mr-2" height="24" />アカウントを作成
                 </v-btn>
             </div>
-            <div class="settings__content" v-if="is_logged_in === true">
+            <div v-if="is_logged_in === true">
                 <v-form class="settings__item" ref="settings_username" @submit.prevent>
                     <div class="settings__item-heading">ユーザー名</div>
                     <div class="settings__item-label">
@@ -216,8 +216,8 @@ export default Vue.extend({
             id: 0,
             name: '',
             is_admin: true,
-            niconico_user_id: 0,
-            niconico_user_name: '',
+            niconico_user_id: null,
+            niconico_user_name: null,
             twitter_accounts: [],
             created_at: '',
             updated_at: '',

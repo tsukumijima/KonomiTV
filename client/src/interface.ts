@@ -108,8 +108,8 @@ export interface IUser {
     id: number;
     name: string;
     is_admin: boolean;
-    niconico_user_id: number;
-    niconico_user_name: string;
+    niconico_user_id: number | null;
+    niconico_user_name: string | null;
     twitter_accounts: ITwitterAccount[];
     created_at: string;
     updated_at: string;

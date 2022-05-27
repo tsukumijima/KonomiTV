@@ -6,7 +6,38 @@
             <span class="ml-3">ニコニコ実況</span>
         </h2>
         <div class="settings__content">
-            <div class="settings__item">
+            <div class="niconico-account" v-if="user.niconico_user_id === null">
+                <Icon icon="bi:chat-left-text-fill" width="64px" />
+                <div class="niconico-account__info ml-4">
+                    <div class="niconico-account__info-name">
+                        <span class="niconico-account__info-name-text">ニコニコアカウントと連携していません</span>
+                    </div>
+                    <span class="niconico-account__info-description">
+                        ニコニコアカウントと連携すると、テレビを見ながらニコニコ実況にコメントできるようになります。
+                    </span>
+                </div>
+                <v-btn class="niconico-account__login ml-auto" color="secondary" width="130" height="56" depressed
+                    @click="loginNiconicoAccount()">
+                    <Icon icon="fluent:plug-disconnected-20-filled" class="mr-2" height="26" />連携する
+                </v-btn>
+            </div>
+            <div class="niconico-account" v-if="user.niconico_user_id !== null">
+                <img class="niconico-account__icon" :src="this.niconico_user_icon_url">
+                <div class="niconico-account__info">
+                    <div class="niconico-account__info-name">
+                        <span class="niconico-account__info-name-text">{{user.niconico_user_name}} と連携しています</span>
+                    </div>
+                    <span class="niconico-account__info-description">
+                        <span class="mr-2">Niconico User ID:</span>
+                        <a :href="`https://www.nicovideo.jp/user/${user.niconico_user_id}`" target="_blank">{{user.niconico_user_id}}</a>
+                    </span>
+                </div>
+                <v-btn class="niconico-account__login ml-auto" color="secondary" width="130" height="56" depressed
+                    @click="logoutNiconicoAccount()">
+                    <Icon icon="fluent:plug-disconnected-20-filled" class="mr-2" height="26" />連携解除
+                </v-btn>
+            </div>
+            <div class="settings__item mt-7">
                 <div class="settings__item-heading">コメントの速さ</div>
                 <div class="settings__item-label">
                     プレイヤーに流れるコメントの速さを設定します。<br>
@@ -41,8 +72,10 @@
 </template>
 <script lang="ts">
 
+import axios from 'axios';
 import Vue from 'vue';
 
+import { IUser } from '@/interface';
 import Base from '@/views/Settings/Base.vue';
 import Utils from '@/utils';
 
@@ -53,6 +86,19 @@ export default Vue.extend({
     },
     data() {
         return {
+
+            // ユーティリティをテンプレートで使えるように
+            Utils: Utils,
+
+            // ログイン中かどうか
+            is_logged_in: Utils.getAccessToken() !== null,
+
+            // ユーザーアカウントの情報
+            // ログインしていない場合は null になる
+            user: null as IUser | null,
+
+            // ニコニコアカウントのユーザーアイコンの URL
+            niconico_user_icon_url: '',
 
             // 設定値が保存されるオブジェクト
             // ここの値とフォームを v-model で binding する
@@ -65,6 +111,128 @@ export default Vue.extend({
                 return settings;
             })(),
         }
+    },
+    async created() {
+
+        // ロード時のちらつきを抑えるために、とりあえず値を入れておく
+        this.user = {
+            id: 0,
+            name: '',
+            is_admin: true,
+            niconico_user_id: null,
+            niconico_user_name: null,
+            twitter_accounts: [],
+            created_at: '',
+            updated_at: '',
+        }
+
+        // 表示されているアカウント情報を更新 (ログイン時のみ)
+        if (this.is_logged_in === true) {
+            await this.syncAccountInfo();
+        }
+    },
+    methods: {
+        async syncAccountInfo() {
+
+            try {
+
+                // ユーザーアカウントの情報を取得する
+                const response = await Vue.axios.get('/users/me');
+                this.user = response.data;
+
+                // ニコニコアカウントのユーザーアイコンの URL を生成
+                if (this.user.niconico_user_id !== null) {
+                    const user_id_slice = this.user.niconico_user_id.toString().slice(0, 4);
+                    this.niconico_user_icon_url =
+                        `https://secure-dcdn.cdn.nimg.jp/nicoaccount/usericon/${user_id_slice}/${this.user.niconico_user_id}.jpg`;
+                }
+
+            } catch (error) {
+
+                // ログインされていない
+                if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
+                    console.log('Not logged in.');
+
+                    // 未ログイン状態に設定
+                    this.is_logged_in = false;
+                    this.user = null;
+                }
+            }
+        },
+
+        async loginNiconicoAccount() {
+
+            // ログインしていない場合はエラーにする
+            if (this.is_logged_in === false) {
+                this.$message.warning('連携をはじめるには、KonomiTV アカウントにログインしてください。');
+                return;
+            }
+
+            // ニコニコアカウントと連携するための認証 URL を取得
+            const authorization_url = (await Vue.axios.get('/niconico/auth')).data.authorization_url;
+
+            // OAuth 連携のため、認証 URL をポップアップウインドウで開く
+            // window.open() の第2引数はユニークなものにしておくと良いらしい
+            // ref: https://qiita.com/catatsuy/items/babce8726ea78f5d25b1 (大変参考になりました)
+            const popup_window = window.open(authorization_url, 'KonomiTV-OAuthPopup', Utils.getWindowFeatures());
+
+            // 認証完了 or 失敗後、ポップアップウインドウから送信される文字列を受信
+            const onMessage = async (event) => {
+
+                // 受け取ったオブジェクトに KonomiTV-OAuthPopup キーがない or そもそもオブジェクトではない際は実行しない
+                // ブラウザの拡張機能から結構余計な message が飛んでくるっぽい…。
+                if (Utils.typeof(event.data) !== 'object') return;
+                if (('KonomiTV-OAuthPopup' in event.data) === false) return;
+
+                // 認証は完了したので、ポップアップウインドウを閉じ、リスナーを解除する
+                if (popup_window) popup_window.close();
+                window.removeEventListener('message', onMessage);
+
+                // ステータスコードと詳細メッセージを取得
+                const authorization_status = event.data['KonomiTV-OAuthPopup']['status'] as number;
+                const authorization_detail = event.data['KonomiTV-OAuthPopup']['detail'] as string;
+                console.log(`NiconicoAuthCallbackAPI: Status: ${authorization_status} / Detail: ${authorization_detail}`);
+
+                // OAuth 連携に失敗した
+                if (authorization_status !== 200) {
+                    if (authorization_detail.startsWith('Authorization was denied (access_denied)')) {
+                        this.$message.error('ニコニコアカウントとの連携がキャンセルされました。');
+                    } else if (authorization_detail.startsWith('Failed to get access token (HTTP Error ')) {
+                        const error = authorization_detail.replace('Failed to get access token ', '');
+                        this.$message.error(`アクセストークンの取得に失敗しました。${error}`);
+                    } else if (authorization_detail.startsWith('Failed to get access token')) {
+                        this.$message.error('アクセストークンの取得に失敗しました。ニコニコで障害が発生している可能性があります。');
+                    } else if (authorization_detail.startsWith('Failed to get user nickname (HTTP Error ')) {
+                        const error = authorization_detail.replace('Failed to get user nickname ', '');
+                        this.$message.error(`ニコニコアカウントのユーザー名の取得に失敗しました。${error}`);
+                    } else if (authorization_detail.startsWith('Failed to get user nickname')) {
+                        this.$message.error('ニコニコアカウントのユーザー名の取得に失敗しました。ニコニコで障害が発生している可能性があります。');
+                    } else {
+                        this.$message.error(`ニコニコアカウントとの連携に失敗しました。(${authorization_detail})`);
+                    }
+                    return;
+                }
+
+                // 表示されているアカウント情報を更新
+                await this.syncAccountInfo();
+
+                this.$message.success('ニコニコアカウントと連携しました。');
+            };
+
+            // postMessage() を受信するリスナーを登録
+            window.addEventListener('message', onMessage);
+        },
+
+        async logoutNiconicoAccount() {
+
+            // ニコニコアカウント連携解除 API にリクエスト
+            await Vue.axios.delete('/niconico/logout');
+
+            // 表示されているアカウント情報を更新
+            await this.syncAccountInfo();
+
+            this.$message.success('ニコニコアカウントとの連携を解除しました。');
+        },
     },
     watch: {
         // settings 内の値の変更を監視する
@@ -81,3 +249,65 @@ export default Vue.extend({
 });
 
 </script>
+<style lang="scss" scoped>
+
+.niconico-account {
+    display: flex;
+    align-items: center;
+    height: 120px;
+    padding: 20px 20px;
+    border-radius: 15px;
+    background: var(--v-background-lighten2);
+
+    &__icon {
+        flex-shrink: 0;
+        min-width: 80px;
+        height: 100%;
+        border-radius: 50%;
+        object-fit: cover;
+        // 読み込まれるまでのアイコンの背景
+        background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
+        // 低解像度で表示する画像がぼやけないようにする
+        // ref: https://sho-log.com/chrome-image-blurred/
+        image-rendering: -webkit-optimize-contrast;
+    }
+
+    &__info {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        margin-left: 20px;
+        margin-right: 16px;
+
+        &-name {
+            display: inline-flex;
+            align-items: center;
+            height: 33px;
+
+            &-text {
+                display: inline-block;
+                font-size: 20px;
+                color: var(--v-text-base);
+                font-weight: bold;
+                overflow: hidden;
+                white-space: nowrap;
+                text-overflow: ellipsis;  // はみ出た部分を … で省略
+            }
+        }
+
+        &-description {
+            display: inline-block;
+            margin-top: 4px;
+            color: var(--v-text-darken1);
+            font-size: 14px;
+        }
+    }
+
+    &__login {
+        border-radius: 7px;
+        font-size: 16px;
+        letter-spacing: 0;
+    }
+}
+
+</style>
