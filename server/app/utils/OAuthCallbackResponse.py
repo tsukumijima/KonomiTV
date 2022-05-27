@@ -42,8 +42,10 @@ class OAuthCallbackResponse(HTMLResponse):
                 window.onload = () => {
                     if (window.opener) {
                         window.opener.postMessage({
-                            'status': $status$,
-                            'detail': '$detail$',
+                            'KonomiTV-OAuthPopup': {
+                                'status': $status$,
+                                'detail': '$detail$',
+                            }
                         }, '*');
                     }
                 };
@@ -54,7 +56,7 @@ class OAuthCallbackResponse(HTMLResponse):
         </html>
         """
 
-        # ステータスと詳細メッセージを置換して入れる
+        # ステータスコードと詳細メッセージを置換して入れる
         ## f-string も format() も中括弧のエスケープが必要で面倒なので、自前でやる
         html = html.replace('$status$', str(self.status_code))
         html = html.replace('$detail$', self.detail)
