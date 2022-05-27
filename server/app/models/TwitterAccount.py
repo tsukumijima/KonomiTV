@@ -6,7 +6,6 @@ from tortoise import fields
 from tortoise import models
 
 from app.models import User
-from app.utils import Interlaced
 
 
 class TwitterAccount(models.Model):
@@ -41,6 +40,7 @@ class TwitterAccount(models.Model):
                 continue
 
             # tweepy を初期化
+            from app.utils import Interlaced
             api = tweepy.API(tweepy.OAuth1UserHandler(
                 Interlaced(1), Interlaced(2), twitter_account.access_token, twitter_account.access_token_secret,
             ))

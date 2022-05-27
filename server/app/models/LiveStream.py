@@ -1,5 +1,5 @@
 
-# 引数の戻り値などに自クラスを指定できるように
+# Type Hints を指定できるように
 # ref: https://stackoverflow.com/a/33533514/17124142
 from __future__ import annotations
 

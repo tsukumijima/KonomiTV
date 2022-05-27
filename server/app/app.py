@@ -138,7 +138,7 @@ async def Root(file:str):
 
 # Internal Server Error のハンドリング
 @app.exception_handler(Exception)
-async def ExceptionHandler(request:Request, exc: Exception):
+async def ExceptionHandler(request: Request, exc: Exception):
     return JSONResponse(
         {'detail': f'Oops! {type(exc).__name__} did something. There goes a rainbow...'},
         status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,

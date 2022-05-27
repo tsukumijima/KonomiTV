@@ -139,7 +139,7 @@ async def NiconicoAuthCallbackAPI(
                 'code': code,
                 'redirect_uri': 'https://app.konomi.tv/api/redirect/niconico',
             },
-            headers = API_REQUEST_HEADERS.update({'Content-Type': 'application/x-www-form-urlencoded'}),
+            headers = {**API_REQUEST_HEADERS, **{'Content-Type': 'application/x-www-form-urlencoded'}},
             timeout = 3,  # 3秒応答がなかったらタイムアウト
         )
 
@@ -152,7 +152,7 @@ async def NiconicoAuthCallbackAPI(
 
         token_api_response_json = token_api_response.json()
 
-    # 接続エラー（サーバー再起動やタイムアウトなど）
+    # 接続エラー（サーバーメンテナンスやタイムアウトなど）
     except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,

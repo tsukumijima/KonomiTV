@@ -210,9 +210,9 @@ async def LiveStreamEventAPI(
     }
 )
 async def LiveMPEGTSStreamAPI(
-    channel_id:str = Path(..., description='チャンネル ID 。ex:gr011'),
-    quality:str = Path(..., description='映像の品質。ex:1080p'),
-    request:Request = Request,
+    channel_id: str = Path(..., description='チャンネル ID 。ex:gr011'),
+    quality: str = Path(..., description='映像の品質。ex:1080p'),
+    request: Request = Request,
 ):
     """
     ライブ MPEGTS ストリームを配信する。

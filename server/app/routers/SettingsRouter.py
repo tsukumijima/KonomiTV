@@ -6,7 +6,6 @@ from fastapi import status
 
 from app import schemas
 from app.models import User
-from app.utils import Interlaced
 
 # ルーター
 router = APIRouter(
