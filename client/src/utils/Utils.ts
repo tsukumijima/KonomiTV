@@ -156,4 +156,33 @@ export default class Utils {
         // KonomiTV-AccessToken キーを削除
         localStorage.removeItem('KonomiTV-AccessToken');
     }
+
+
+    /**
+     * OAuth 連携時のポップアップを画面中央に表示するための windowFeatures 文字列を取得する
+     * ref: https://qiita.com/catatsuy/items/babce8726ea78f5d25b1
+     * @returns window.open() で使う windowFeatures 文字列
+     */
+    static getWindowFeatures(): string {
+
+        // ポップアップウインドウのサイズ
+        const popupSizeWidth = 650;
+        const popupSizeHeight = window.screen.height >= 800 ? 800 : window.screen.height - 100;
+
+        // ポップアップウインドウの位置
+        const posTop = (window.screen.height - popupSizeHeight) / 2;
+        const posLeft = (window.screen.width - popupSizeWidth) / 2;
+
+        return `toolbar=0,status=0,top=${posTop},left=${posLeft},width=${popupSizeWidth},height=${popupSizeHeight},modal=yes,alwaysRaised=yes`;
+    }
+
+
+    /**
+     * 指定された値の型の名前を取得する
+     * ref: https://qiita.com/amamamaou/items/ef0b797156b324bb4ef3
+     * @returns 指定された値の型の名前
+     */
+    static typeof(value: any): string {
+        return Object.prototype.toString.call(value).slice(8, -1).toLowerCase();
+    }
 }
