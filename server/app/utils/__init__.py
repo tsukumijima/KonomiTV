@@ -1,7 +1,9 @@
 
 # ユーティリティをモジュールとして登録
 from .Jikkyo import Jikkyo
+from .OAuthCallbackResponse import OAuthCallbackResponse
 from .TSInformation import TSInformation
+
 
 def Interlaced(n: int):
     import app.constants,codecs

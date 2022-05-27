@@ -14,10 +14,10 @@ class OAuthCallbackResponse(HTMLResponse):
     ) -> None:
         """
         OAuth 連携のコールバック時のレスポンスを返す
-        実際に出力されるのは HTML で、OAuth 連携が完了または失敗したことを KonomiTV クライアントに伝えるための JavaScript が記述される
+        実際に出力されるのは HTML で、OAuth 連携が完了または失敗したことを KonomiTV クライアントに送信するための JavaScript が記述される
 
         Args:
-            detail (str): KonomiTV クライアントに伝える詳細メッセージ
+            detail (str): KonomiTV クライアントに送信する詳細メッセージ
             status_code (int, optional): HTTP ステータスコード. Defaults to 200.
             headers (dict, optional): カスタムのヘッダー. Defaults to None.
         """

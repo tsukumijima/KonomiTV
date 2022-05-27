@@ -17,6 +17,7 @@ from app import schemas
 from app.models import TwitterAccount
 from app.models import User
 from app.utils import Interlaced
+from app.utils import OAuthCallbackResponse
 
 
 # ルーター
@@ -109,7 +110,7 @@ async def TwitterAuthURLAPI(
 @router.get(
     '/callback',
     summary = 'Twitter OAuth コールバック API',
-    response_model = schemas.ThirdpartyAuthCallbackSuccess,
+    response_class = OAuthCallbackResponse,
     response_description = 'ユーザーアカウントに Twitter アカウントのアクセストークン・アクセストークンシークレットが登録できたことを示す。',
 )
 async def TwitterAuthCallbackAPI(
@@ -132,14 +133,14 @@ async def TwitterAuthCallbackAPI(
             await twitter_account.delete()
 
         # 401 エラーを送出
-        raise HTTPException(
+        return OAuthCallbackResponse(
             status_code = status.HTTP_401_UNAUTHORIZED,
             detail = 'Authorization was denied by user',
         )
 
     # なぜか oauth_token も oauth_verifier もない
     if oauth_token is None or oauth_verifier is None:
-        raise HTTPException(
+        return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'oauth_token or oauth_verifier does not exist',
         )
@@ -147,7 +148,7 @@ async def TwitterAuthCallbackAPI(
     # oauth_token に紐づく Twitter アカウントを取得
     twitter_account = await TwitterAccount.filter(access_token=oauth_token).get_or_none()
     if not twitter_account:
-        raise HTTPException(
+        return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'TwitterAccount associated with oauth_token does not exist',
         )
@@ -165,7 +166,7 @@ async def TwitterAuthCallbackAPI(
     try:
         twitter_account.access_token, twitter_account.access_token_secret = await asyncio.to_thread(oauth_handler.get_access_token, oauth_verifier)
     except tweepy.TweepyException:
-        raise HTTPException(
+        return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Failed to get access token',
         )
@@ -179,7 +180,7 @@ async def TwitterAuthCallbackAPI(
     try:
         verify_credentials = await asyncio.to_thread(api.verify_credentials)
     except tweepy.TweepyException:
-        raise HTTPException(
+        return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Failed to get account information',
         )
@@ -202,14 +203,19 @@ async def TwitterAuthCallbackAPI(
         await twitter_account_existing.save()
         await twitter_account.delete()
 
-        return {'detail': 'Success'}
+        return OAuthCallbackResponse(
+            status_code = status.HTTP_200_OK,
+            detail = 'Success',
+        )
 
     # アクセストークンとアカウント情報を保存
     await twitter_account.save()
 
-    # 完了を確認できるように、適当に何か返しておく
-    ## 204 No Content だと画面遷移が発生しない
-    return {'detail': 'Success'}
+    # OAuth 連携が正常に完了したことを伝える
+    return OAuthCallbackResponse(
+        status_code = status.HTTP_200_OK,
+        detail = 'Success',
+    )
 
 
 @router.delete(

@@ -112,9 +112,6 @@ class ClientSettings(BaseModel):
 class ThirdpartyAuthURL(BaseModel):
     authorization_url: Optional[str]
 
-class ThirdpartyAuthCallbackSuccess(BaseModel):
-    detail: Literal['Success']
-
 class TweetResult(BaseModel):
     is_success: bool
     tweet_url: Optional[str]

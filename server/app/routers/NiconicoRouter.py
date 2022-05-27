@@ -17,6 +17,7 @@ from app import schemas
 from app.constants import API_REQUEST_HEADERS, NICONICO_OAUTH_CLIENT_ID
 from app.models import User
 from app.utils import Interlaced
+from app.utils import OAuthCallbackResponse
 
 
 # ルーター
@@ -91,7 +92,7 @@ async def NiconicoAuthURLAPI(
 @router.get(
     '/callback',
     summary = 'ニコニコ OAuth コールバック API',
-    response_model = schemas.ThirdpartyAuthCallbackSuccess,
+    response_class = OAuthCallbackResponse,
     response_description = 'ユーザーアカウントにニコニコアカウントのアクセストークン・リフレッシュトークンが登録できたことを示す。',
 )
 async def NiconicoAuthCallbackAPI(
@@ -109,21 +110,24 @@ async def NiconicoAuthCallbackAPI(
 
         # 401 エラーを送出
         ## コールバック元から渡されたエラーメッセージをそのまま表示する
-        raise HTTPException(
+        return OAuthCallbackResponse(
             status_code = status.HTTP_401_UNAUTHORIZED,
             detail = f'Authorization was denied ({error})',
         )
 
     # なぜか code がない
     if code is None:
-        raise HTTPException(
+        return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'authorization code does not exist',
         )
 
     # JWT アクセストークンに基づくユーザーアカウントを取得
     # この時点でユーザーアカウントが取得できなければ 401 エラーが送出される
-    current_user = await User.getCurrentUser(token=user_access_token)
+    try:
+        current_user = await User.getCurrentUser(token=user_access_token)
+    except HTTPException as ex:
+        return OAuthCallbackResponse(status_code = ex.status_code, detail = ex.message)
 
     try:
 
@@ -145,7 +149,7 @@ async def NiconicoAuthCallbackAPI(
 
         # ステータスコードが 200 以外
         if token_api_response.status_code != 200:
-            raise HTTPException(
+            return OAuthCallbackResponse(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = f'Failed to get access token (HTTP Error {token_api_response.status_code})',
             )
@@ -154,7 +158,7 @@ async def NiconicoAuthCallbackAPI(
 
     # 接続エラー（サーバーメンテナンスやタイムアウトなど）
     except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-        raise HTTPException(
+        return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Failed to get access token',
         )
@@ -178,7 +182,7 @@ async def NiconicoAuthCallbackAPI(
 
         # ステータスコードが 200 以外
         if nickname_api_response.status_code != 200:
-            raise HTTPException(
+            return OAuthCallbackResponse(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = f'Failed to get user nickname (HTTP Error {nickname_api_response.status_code})',
             )
@@ -187,7 +191,7 @@ async def NiconicoAuthCallbackAPI(
 
     # 接続エラー（サーバー再起動やタイムアウトなど）
     except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-        raise HTTPException(
+        return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Failed to get user nickname',
         )
@@ -195,17 +199,19 @@ async def NiconicoAuthCallbackAPI(
     # 変更をデータベースに保存
     await current_user.save()
 
-    # 完了を確認できるように、適当に何か返しておく
-    ## 204 No Content だと画面遷移が発生しない
-    return {'detail': 'Success'}
+    # OAuth 連携が正常に完了したことを伝える
+    return OAuthCallbackResponse(
+        status_code = status.HTTP_200_OK,
+        detail = 'Success',
+    )
 
 
 @router.delete(
-    '/account',
+    '/logout',
     summary = 'ニコニコアカウント連携解除 API',
     status_code = status.HTTP_204_NO_CONTENT,
 )
-async def NiconicoAccountDeleteAPI(
+async def NiconicoAccountLogoutAPI(
     current_user: User = Depends(User.getCurrentUser),
 ):
     """
