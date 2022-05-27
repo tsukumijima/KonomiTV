@@ -7,9 +7,11 @@ from datetime import timedelta
 from fastapi import APIRouter
 from fastapi import HTTPException
 from fastapi import Path
+from fastapi import Request
 from fastapi import status
 from fastapi.responses import FileResponse
 from fastapi.responses import Response
+from fastapi.security.utils import get_authorization_scheme_param
 from tortoise import connections
 from tortoise import timezone
 from typing import List, Optional
@@ -18,6 +20,7 @@ from app import schemas
 from app.constants import CONFIG, LOGO_DIR
 from app.models import Channel
 from app.models import LiveStream
+from app.models import User
 from app.utils.EDCB import CtrlCmdUtil
 from app.utils.EDCB import EDCBUtil
 from app.utils import Jikkyo
@@ -98,7 +101,7 @@ async def ChannelsAPI():
     for channel in channels:
 
         # 番組情報のリストからチャンネル ID が合致するものを探し、最初に見つけた値を返す
-        def FilterProgram(programs:dict, channel_id:str) -> Optional[dict]:
+        def FilterProgram(programs:dict, channel_id: str) -> Optional[dict]:
             for program in programs:
                 if program['channel_id'] == channel_id:
                     return program
@@ -140,7 +143,7 @@ async def ChannelsAPI():
     response_model = schemas.Channel,
 )
 async def ChannelAPI(
-    channel_id:str = Path(..., description='チャンネル ID 。ex:gr011'),
+    channel_id: str = Path(..., description='チャンネル ID 。ex:gr011'),
 ):
     """
     チャンネルの情報を取得する。
@@ -184,7 +187,7 @@ async def ChannelAPI(
     }
 )
 async def ChannelLogoAPI(
-    channel_id:str = Path(..., description='チャンネル ID 。ex:gr011'),
+    channel_id: str = Path(..., description='チャンネル ID 。ex:gr011'),
 ):
     """
     チャンネルのロゴを取得する。
@@ -348,7 +351,8 @@ async def ChannelLogoAPI(
     response_model = schemas.JikkyoSession,
 )
 async def ChannelJikkyoSessionAPI(
-    channel_id:str = Path(..., description='チャンネル ID 。ex:gr011'),
+    channel_id: str = Path(..., description='チャンネル ID 。ex:gr011'),
+    request: Request = Request,
 ):
     """
     チャンネルに紐づくニコニコ実況のセッション情報を取得する。
@@ -364,9 +368,24 @@ async def ChannelJikkyoSessionAPI(
             detail = 'Specified channel_id was not found',
         )
 
+    current_user = None
+
+    # もし Authorization ヘッダーがあるなら、ログイン中のユーザーアカウントを取得する
+    if request.headers.get('Authorization') is not None:
+
+        # JWT アクセストークンを取得
+        _, user_access_token = get_authorization_scheme_param(request.headers.get('Authorization'))
+
+        # アクセストークンに紐づくユーザーアカウントを取得
+        ## もともとバリデーション用なので HTTPException が送出されるが、ここではエラーにする必要はないのでパス
+        try:
+            current_user = await User.getCurrentUser(token=user_access_token)
+        except HTTPException:
+            pass
+
     # ニコニコ実況クライアントを初期化する
     jikkyo = Jikkyo(channel.network_id, channel.service_id)
 
     # ニコニコ実況（ニコ生）のセッション情報を取得する
     # 取得してきた値をそのまま返す
-    return await jikkyo.fetchJikkyoSession()
+    return await jikkyo.fetchJikkyoSession(current_user)

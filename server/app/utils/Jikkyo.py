@@ -1,4 +1,8 @@
 
+# Type Hints を指定できるように
+# ref: https://stackoverflow.com/a/33533514/17124142
+from __future__ import annotations
+
 import asyncio
 import html
 import json
@@ -7,7 +11,8 @@ import requests
 import xml.etree.ElementTree as ET
 from typing import Dict, Optional, Union
 
-from app.constants import API_REQUEST_HEADERS, JIKKYO_CHANNELS_PATH
+from app.constants import API_REQUEST_HEADERS, JIKKYO_CHANNELS_PATH, NICONICO_OAUTH_CLIENT_ID
+from app.models import User
 
 
 class Jikkyo:
@@ -140,9 +145,79 @@ class Jikkyo:
             self.jikkyo_nicolive_id = None
 
 
-    async def fetchJikkyoSession(self) -> dict:
+    async def refreshNiconicoAccessToken(self, current_user: User) -> None:
+        """
+        指定されたユーザーに紐づくニコニコアカウントのアクセストークンを、リフレッシュトークンで更新する
+
+        Args:
+            user (User): ログイン中のユーザーのモデルオブジェクト
+        """
+
+        try:
+
+            # リフレッシュトークンを使い、ニコニコ OAuth のアクセストークンとリフレッシュトークンを更新
+            from app.utils import Interlaced
+            token_api_url = 'https://oauth.nicovideo.jp/oauth2/token'
+            token_api_response = await asyncio.to_thread(
+                requests.post,
+                url = token_api_url,
+                data = {
+                    'grant_type': 'refresh_token',
+                    'client_id': NICONICO_OAUTH_CLIENT_ID,
+                    'client_secret': Interlaced(3),
+                    'refresh_token': current_user.niconico_refresh_token,
+                },
+                headers = {**API_REQUEST_HEADERS, **{'Content-Type': 'application/x-www-form-urlencoded'}},
+                timeout = 3,  # 3秒応答がなかったらタイムアウト
+            )
+
+            # ステータスコードが 200 以外
+            if token_api_response.status_code != 200:
+
+                # エラーコードがあれば取得
+                error_code = ''
+                try:
+                    error_code = f' ({token_api_response.json()["error"]})'
+                except requests.JSONDecodeError:
+                    pass
+
+                raise Exception(f'アクセストークンの更新に失敗しました。(HTTP Error {token_api_response.status_code}{error_code})')
+
+            token_api_response_json = token_api_response.json()
+
+        # 接続エラー（サーバーメンテナンスやタイムアウトなど）
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            raise Exception('アクセストークンの更新に失敗しました。')
+
+        # 取得したアクセストークンとリフレッシュトークンをユーザーアカウントに設定
+        ## 仕様上リフレッシュトークンに有効期限はないが、一応このタイミングでリフレッシュトークンも更新することが推奨されている
+        current_user.niconico_access_token = token_api_response_json['access_token']
+        current_user.niconico_refresh_token = token_api_response_json['refresh_token']
+
+        try:
+
+            # ついでなので、このタイミングでニックネームを取得し直す
+            ## 頻繁に変わるものでもないとは思うけど、一応再ログインせずとも同期されるようにしておきたい
+            ## 3秒応答がなかったらタイムアウト
+            nickname_api_url = f'https://api.live2.nicovideo.jp/api/v1/user/nickname?userId={current_user.niconico_user_id}'
+            nickname_api_response = await asyncio.to_thread(requests.get, nickname_api_url, headers=API_REQUEST_HEADERS, timeout=3)
+            if nickname_api_response.status_code == 200:
+                current_user.niconico_user_name = nickname_api_response.json()['data']['nickname']
+
+        # 接続エラー（サーバー再起動やタイムアウトなど）
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            pass  # 取れなくてもセッション取得に支障はないのでパス
+
+        # 変更をデータベースに保存
+        await current_user.save()
+
+
+    async def fetchJikkyoSession(self, current_user: Optional[User] = None) -> dict:
         """
         ニコニコ実況（ニコ生）の視聴セッション情報を取得する
+
+        Args:
+            current_user (Optional[User]): ログイン中のユーザーのモデルオブジェクト or None
 
         Returns:
             dict: 視聴セッション情報 or エラーメッセージが含まれる辞書
@@ -153,6 +228,7 @@ class Jikkyo:
             return {'is_success': False, 'detail': 'このチャンネルのニコニコ実況はありません。'}
 
         # ニコ生の視聴ページの HTML を取得する
+        ## 結構重いんだけど、ログインなしで視聴セッションを取るには視聴ページのスクレイピングしかない（はず）
         ## 3秒応答がなかったらタイムアウト
         watch_page_url = f'https://live.nicovideo.jp/watch/{self.jikkyo_nicolive_id}'
         try:
@@ -190,12 +266,77 @@ class Jikkyo:
         if embedded_data['program']['status'] != 'ON_AIR':
             return {'is_success': False, 'detail': '現在放送中のニコニコ実況がありません。'}
 
-        # 視聴セッションの WebSocket の URL
+
+        # 視聴セッションの WebSocket URL
         session = embedded_data['site']['relive']['webSocketUrl']
         if session == '':
             return {'is_success': False, 'detail': '視聴セッションを取得できませんでした。'}
 
-        # 視聴セッションの WebSocket の URL を返す
+        # ログイン中でかつニコニコアカウントと連携している場合のみ、OAuth API (wsendpoint) を利用して視聴セッションを取得する
+        # wsendpoint を利用して視聴セッションを取得すると、アクセストークンに紐づくユーザーとしてコメントを投稿できる
+        ## wsendpoint はニコニコチャンネルやニコニコミュニティの ID を直接指定できず、事前に放送中の番組 ID を取得しておく必要がある
+        ## 現在放送中の番組があるかの判定 & 番組 ID の取得がめんどくさいのと、wsendpoint の API レスポンスが早いため、
+        ## wsendpoint から視聴セッションを取得するときも視聴ページから番組 ID を取得する
+        if current_user is not None and all([
+            current_user.niconico_user_id,
+            current_user.niconico_user_name,
+            current_user.niconico_access_token,
+            current_user.niconico_refresh_token,
+        ]):
+            try:
+
+                # 視聴セッションの WebSocket URL を取得する
+                ## ここで取得できる WebSocket では、ログイン中のユーザーに紐づくニコニコアカウントでコメントを投稿できる
+                session_api_url = (
+                    'https://api.live2.nicovideo.jp/api/v1/wsendpoint?'
+                    f'nicoliveProgramId={embedded_data["program"]["nicoliveProgramId"]}&userId={current_user.niconico_user_id}'
+                )
+
+                # 使い回せるように関数化
+                async def getSession():
+                    return await asyncio.to_thread(
+                        requests.get,
+                        session_api_url,
+                        headers = {**API_REQUEST_HEADERS, **{'Authorization': f'Bearer {current_user.niconico_access_token}'}},
+                        timeout = 3,  # 3秒応答がなかったらタイムアウト
+                    )
+                session_api_response = await getSession()
+
+                # ステータスコードが 401 (Unauthorized)
+                ## アクセストークンの有効期限が切れているため、リフレッシュトークンでアクセストークンを更新してからやり直す
+                if session_api_response.status_code == 401:
+                    try:
+                        await self.refreshNiconicoAccessToken(current_user)
+                    except Exception as ex:
+                        return {'is_success': False, 'detail': ex.args[0]}
+                    session_api_response = await getSession()
+
+                # ステータスコードが 200 以外
+                if session_api_response.status_code != 200:
+
+                    # エラーコードがあれば取得
+                    error_code = ''
+                    try:
+                        error_code = f' ({session_api_response.json()["meta"]["errorCode"]})'
+                    except requests.JSONDecodeError:
+                        pass
+
+                    return {
+                        'is_success': False,
+                        'detail': (
+                            '現在、ニコニコ実況でエラーが発生しています。'
+                            f'(HTTP Error {session_api_response.status_code}{error_code})'
+                        ),
+                    }
+
+                # 視聴セッションの WebSocket URL を OAuth API から取得したものに置き換える
+                session = session_api_response.json()['data']['url']
+
+            # 接続エラー（サーバー再起動やタイムアウトなど）
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+                return {'is_success': False, 'detail': 'ニコニコ実況に接続できませんでした。'}
+
+        # 視聴セッションの WebSocket URL を返す
         return {'is_success': True, 'audience_token': session, 'detail': '視聴セッションを取得しました。'}
 
 
