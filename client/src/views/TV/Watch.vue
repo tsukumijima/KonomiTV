@@ -103,7 +103,7 @@
                         :class="{'watch-panel__content--active': panel_active_tab === 'Program'}" :channel="channel" />
                     <Channel class="watch-panel__content"
                         :class="{'watch-panel__content--active': panel_active_tab === 'Channel'}" :channels_list="channels_list" />
-                    <Comment class="watch-panel__content"
+                    <Comment class="watch-panel__content" ref="Comment"
                         :class="{'watch-panel__content--active': panel_active_tab === 'Comment'}" :channel="channel" :player="player" />
                 </div>
                 <div class="watch-panel__navigation">
@@ -769,6 +769,7 @@ export default Vue.extend({
                 },
                 // コメント
                 danmaku: {
+                    user: 'KonomiTV',  // 便宜上 KonomiTV に固定
                     speedRate: Utils.getSettingsItem('comment_speed_rate'),  // コメントの流れる速度
                     fontSize: Utils.getSettingsItem('comment_font_size'),  // コメントのフォントサイズ
                 },
@@ -780,9 +781,10 @@ export default Vue.extend({
                         options.success([{}]);
                     },
                     // コメント送信時
-                    send: (options) => {
-                        // TODO: コメント送信は未実装
-                        options.error('現在、コメントの送信には対応していません。');
+                    send: async (options) => {
+                        // Comment コンポーネント内のコメント送信メソッドを呼び出す
+                        // ref: https://stackoverflow.com/a/65729556/17124142 ($refs への型設定)
+                        await (this.$refs.Comment as InstanceType<typeof Comment>).sendComment(options);
                     },
                 },
                 // プラグイン

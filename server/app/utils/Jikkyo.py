@@ -266,7 +266,6 @@ class Jikkyo:
         if embedded_data['program']['status'] != 'ON_AIR':
             return {'is_success': False, 'detail': '現在放送中のニコニコ実況がありません。'}
 
-
         # 視聴セッションの WebSocket URL
         session = embedded_data['site']['relive']['webSocketUrl']
         if session == '':

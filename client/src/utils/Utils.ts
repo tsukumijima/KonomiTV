@@ -44,8 +44,8 @@ export default class Utils {
         // コメントのフォントサイズ (34px)
         comment_font_size: 34 as number,
 
-        // コメントの遅延時間 (1秒)
-        comment_delay_time: 1 as number,
+        // コメントの遅延時間 (1.5秒)
+        comment_delay_time: 1.5 as number,
     };
 
 

@@ -32,7 +32,7 @@ import { AxiosResponse } from 'axios';
 import dayjs from 'dayjs';
 import Vue, { PropType } from 'vue';
 
-import { IChannel } from '@/interface';
+import { IChannel, IDPlayerDanmakuSendOptions } from '@/interface';
 import Utils from '@/utils';
 
 export default Vue.extend({
@@ -70,6 +70,9 @@ export default Vue.extend({
 
             // コメントセッションの WebSocket のインスタンス
             comment_session: null as WebSocket | null,
+
+            // vpos を計算する基準となる時刻のタイムスタンプ
+            vpos_base_timestamp: 0,
 
             // 座席維持用のタイマーのインターバル ID
             keep_seat_interval_id: 0,
@@ -183,6 +186,10 @@ export default Vue.extend({
                 // 視聴セッションを初期化
                 const comment_session_info = await this.initWatchSession();
 
+                // vpos の基準時刻のタイムスタンプを取得
+                // vpos は番組開始時間からの累計秒（10ミリ秒単位）
+                this.vpos_base_timestamp = dayjs(comment_session_info['vpos_base_time']).unix() * 100;
+
                 // コメントセッションを初期化
                 await this.initCommentSession(comment_session_info);
 
@@ -201,12 +208,19 @@ export default Vue.extend({
             try {
                 watch_session_info = await Vue.axios.get(`/channels/${this.channel.channel_id}/jikkyo`);
             } catch (error) {
-                throw new Error(error);  // エラー内容を表示
+                throw new Error(error);  // エラー内容をコンソールに表示
             }
 
             // セッション情報を取得できなかった
             if (watch_session_info.data.is_success === false) {
-                throw new Error(watch_session_info.data.detail);  // エラー内容を表示
+
+                // 一部を除くエラーメッセージはプレイヤーにも通知する
+                if ((watch_session_info.data.detail !== 'このチャンネルのニコニコ実況はありません。') &&
+                    (watch_session_info.data.detail !== '現在放送中のニコニコ実況がありません。')) {
+                    this.player.notice(watch_session_info.data.detail);
+                }
+
+                throw new Error(watch_session_info.data.detail);  // エラー内容をコンソールに表示
             }
 
             // イベント内で値を返すため、Promise で包む
@@ -244,9 +258,13 @@ export default Vue.extend({
                             // デバッグ用で実際には使わないものもある
                             return resolve({
                                 // コメントサーバーへの接続情報
-                                'thread_id': message.data.threadId,
-                                'your_post_key': (message.data.yourPostKey ? message.data.yourPostKey : null),
                                 'message_server': message.data.messageServer.uri,
+                                // コメントサーバー上のスレッド ID
+                                'thread_id': message.data.threadId,
+                                // vpos を計算する基準となる時刻 (ISO8601形式)
+                                'vpos_base_time': message.data.vposBaseTime,
+                                // メッセージサーバーから受信するコメント (chat メッセージ) に yourpost フラグを付けるためのキー
+                                'your_post_key': (message.data.yourPostKey ? message.data.yourPostKey : null),
                             });
                         }
 
@@ -602,6 +620,95 @@ export default Vue.extend({
                     this.comment_list.push(...comment_list_buffer);  // コメントリストに一括で追加
                     comment_list_buffer = [];  // バッファをクリア
                     this.scrollCommentList();  // コメントリストをスクロール
+                }
+            };
+        },
+
+        // コメントを送信する
+        async sendComment(options: IDPlayerDanmakuSendOptions) {
+
+            // DPlayer 上のコメント色（カラーコード）とニコニコの色コマンド定義のマッピング
+            const color_table = {
+                0xFFFFFF: 'white',
+                0xE54256: 'red',
+                0xFFE133: 'yellow',
+                0x64DD17: 'green',
+                0x39CCFF: 'cyan',
+                0xD500F9: 'purple',
+            };
+
+            // DPlayer 上の位置を表す数値とニコニコの位置コマンド定義のマッピング
+            const position_table = {
+                0: 'naka',
+                1: 'ue',
+                2: 'shita',
+            };
+
+            // vpos を計算 (10ミリ秒単位)
+            // 番組開始時間からの累計秒らしいけど、なぜ指定しないといけないのかは不明
+            const vpos = Math.floor(new Date().getTime() / 10) - this.vpos_base_timestamp;
+
+            // コメントを送信
+            this.watch_session.send(JSON.stringify({
+                'type': 'postComment',
+                'data': {
+                    'text': options.data.text,  // コメント本文
+                    'color': color_table[options.data.color],  // コメントの色
+                    'position': position_table[options.data.type],  // コメントの位置
+                    'vpos': vpos,  // 番組開始時間からの累計秒（10ミリ秒単位）
+                    'isAnonymous': true,  // 匿名コメント (184)
+                }
+            }));
+
+            // コメント送信のレスポンスを取得
+            // 簡単にイベントリスナーを削除できるため、あえて onmessage で実装している
+            this.watch_session.onmessage = (event) => {
+
+                // 受信したメッセージ
+                const message = JSON.parse(event.data);
+
+                switch (message.type) {
+
+                    // postCommentResult
+                    // これが送られてくる → コメント送信に成功している
+                    case 'postCommentResult': {
+
+                        // コメント成功のコールバックを DPlayer に通知
+                        options.success();
+
+                        // イベントリスナーを削除
+                        this.watch_session.onmessage = null;
+                        break;
+                    }
+
+                    // error
+                    // コメント送信直後に error が送られてきた → コメント送信に失敗している
+                    case 'error': {
+
+                        // エラーメッセージ
+                        let error = `コメントの送信に失敗しました。(${message.data.code})`;
+                        switch (message.data.code) {
+                            case 'INVALID_MESSAGE': {
+                                error = 'コメント内容が無効です。';
+                                break;
+                            }
+                            case 'COMMENT_POST_NOT_ALLOWED': {
+                                error = 'コメントするにはニコニコアカウントと連携してください。';
+                                break;
+                            }
+                            case 'COMMENT_LOCKED': {
+                                error = 'コメントがロックされています。';
+                                break;
+                            }
+                        }
+
+                        // コメント失敗のコールバックを DPlayer に通知
+                        options.error(error);
+
+                        // イベントを解除
+                        this.watch_session.onmessage = null;
+                        break;
+                    }
                 }
             };
         },

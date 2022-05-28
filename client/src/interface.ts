@@ -114,3 +114,23 @@ export interface IUser {
     created_at: string;
     updated_at: string;
 }
+
+// DPlayer のコメントデータの型
+// KonomiTV で使うプロパティのみ定義している
+// ref: https://github.com/tsukumijima/DPlayer/blob/master/src/js/danmaku.js#L87-L95
+export interface IDPlayerDanmaku {
+    time: number;
+    author: string;
+    type: number;
+    color: number;
+    text: string;
+}
+
+// コメントを送信する際に DPlayer から受け取るオプションの型
+// KonomiTV で使うプロパティのみ定義している
+// ref: https://github.com/tsukumijima/DPlayer/blob/master/src/js/danmaku.js#L96-L106
+export interface IDPlayerDanmakuSendOptions {
+    data: IDPlayerDanmaku;
+    success: () => void;
+    error: (message: string | undefined) => void;
+}
