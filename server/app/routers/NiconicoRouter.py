@@ -143,7 +143,7 @@ async def NiconicoAuthCallbackAPI(
                 'code': code,
                 'redirect_uri': 'https://app.konomi.tv/api/redirect/niconico',
             },
-            headers = {**API_REQUEST_HEADERS, **{'Content-Type': 'application/x-www-form-urlencoded'}},
+            headers = {**API_REQUEST_HEADERS, 'Content-Type': 'application/x-www-form-urlencoded'},
             timeout = 3,  # 3秒応答がなかったらタイムアウト
         )
 
@@ -165,8 +165,8 @@ async def NiconicoAuthCallbackAPI(
 
     # 取得したアクセストークンとリフレッシュトークンをユーザーアカウントに設定
     ## アクセストークンは1時間で有効期限が切れるので、適宜リフレッシュトークンで再取得する
-    current_user.niconico_access_token = token_api_response_json['access_token']
-    current_user.niconico_refresh_token = token_api_response_json['refresh_token']
+    current_user.niconico_access_token = str(token_api_response_json['access_token'])
+    current_user.niconico_refresh_token = str(token_api_response_json['refresh_token'])
 
     # ニコニコアカウントのユーザー ID を取得
     # ユーザー ID は id_token の JWT の中に含まれている
@@ -175,25 +175,29 @@ async def NiconicoAuthCallbackAPI(
 
     try:
 
-        # ニコニコアカウントのニックネームを取得
+        # ニコニコアカウントのユーザー情報を取得
         ## 3秒応答がなかったらタイムアウト
-        nickname_api_url = f'https://api.live2.nicovideo.jp/api/v1/user/nickname?userId={current_user.niconico_user_id}'
-        nickname_api_response = await asyncio.to_thread(requests.get, nickname_api_url, headers=API_REQUEST_HEADERS, timeout=3)
+        user_api_url = f'https://nvapi.nicovideo.jp/v1/users/{current_user.niconico_user_id}'
+        user_api_headers = {**API_REQUEST_HEADERS, 'X-Frontend-Id': '6'}  # X-Frontend-Id がないと INVALID_PARAMETER になる
+        user_api_response = await asyncio.to_thread(requests.get, user_api_url, headers=user_api_headers, timeout=3)
 
         # ステータスコードが 200 以外
-        if nickname_api_response.status_code != 200:
+        if user_api_response.status_code != 200:
             return OAuthCallbackResponse(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail = f'Failed to get user nickname (HTTP Error {nickname_api_response.status_code})',
+                detail = f'Failed to get user information (HTTP Error {user_api_response.status_code})',
             )
 
-        current_user.niconico_user_name = nickname_api_response.json()['data']['nickname']
+        # ユーザー名
+        current_user.niconico_user_name = str(user_api_response.json()['data']['user']['nickname'])
+        # プレミアム会員かどうか
+        current_user.niconico_user_premium = bool(user_api_response.json()['data']['user']['isPremium'])
 
     # 接続エラー（サーバー再起動やタイムアウトなど）
     except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
         return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Failed to get user nickname',
+            detail = 'Failed to get user information',
         )
 
     # 変更をデータベースに保存
@@ -222,6 +226,7 @@ async def NiconicoAccountLogoutAPI(
     # ニコニコ関連のフィールドをすべて None (null) にすることで連携解除とする
     current_user.niconico_user_id = None
     current_user.niconico_user_name = None
+    current_user.niconico_user_premium = None
     current_user.niconico_access_token = None
     current_user.niconico_refresh_token = None
     await current_user.save()

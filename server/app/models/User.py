@@ -33,6 +33,7 @@ class User(models.Model):
     client_settings: dict = fields.JSONField()
     niconico_user_id: Optional[int] = fields.IntField(null=True)
     niconico_user_name: Optional[str] = fields.TextField(null=True)
+    niconico_user_premium: Optional[bool] = fields.BooleanField(null=True)
     niconico_access_token: Optional[str] = fields.TextField(null=True)
     niconico_refresh_token: Optional[str] = fields.TextField(null=True)
     ## クラスが読み込まれる前なので、TwitterAccount(モジュール).TwitterAccount(クラス) のようにしないと参照できない

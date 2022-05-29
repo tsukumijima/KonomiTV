@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS "users" (
     "client_settings" JSON NOT NULL,
     "niconico_user_id" INT,
     "niconico_user_name" TEXT,
+    "niconico_user_premium" INT,
     "niconico_access_token" TEXT,
     "niconico_refresh_token" TEXT,
     "created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
