@@ -5,7 +5,7 @@
             <Icon icon="fluent:person-20-filled" width="24px" />
             <span class="ml-2">アカウント</span>
         </h2>
-        <div class="settings__content">
+        <div class="settings__content" :class="{'settings__content--loading': is_loading}">
             <div class="account" v-if="user === null">
                 <img class="account__icon" src="/assets/images/account-icon-default.png">
                 <div class="account__info">
@@ -172,6 +172,9 @@ export default Vue.extend({
             // ユーティリティをテンプレートで使えるように
             Utils: Utils,
 
+            // ローディング中かどうか
+            is_loading: true,
+
             // ログイン中かどうか
             is_logged_in: Utils.getAccessToken() !== null,
 
@@ -208,23 +211,12 @@ export default Vue.extend({
     },
     async created() {
 
-        // 未ログイン時は実行しない
-        if (this.is_logged_in === false) return;
-
-        // ロード時のちらつきを抑えるために、とりあえず値を入れておく
-        this.user = {
-            id: 0,
-            name: '',
-            is_admin: true,
-            niconico_user_id: null,
-            niconico_user_name: null,
-            twitter_accounts: [],
-            created_at: '',
-            updated_at: '',
-        }
-
         // 表示されているアカウント情報を更新
+        // アクセストークンが無効化されている可能性もあるので、アクセストークンの有無に関わらず実行する
         await this.syncAccountInfo();
+
+        // ローディング状態を解除
+        this.is_loading = false;
     },
     methods: {
         async syncAccountInfo() {
@@ -249,6 +241,9 @@ export default Vue.extend({
                     this.is_logged_in = false;
                     this.user = null;
                     this.user_icon_blob = '';
+
+                    // まだアクセストークンが残っているかもしれないので、明示的にログアウト
+                    Utils.deleteAccessToken();
                 }
             }
         },
@@ -393,6 +388,15 @@ export default Vue.extend({
 
 </script>
 <style lang="scss" scoped>
+
+.settings__content {
+    opacity: 1;
+    transition: opacity 0.4s;
+
+    &--loading {
+        opacity: 0;
+    }
+}
 
 .account {
     display: flex;

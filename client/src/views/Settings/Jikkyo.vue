@@ -5,7 +5,7 @@
             <Icon icon="bi:chat-left-text-fill" width="18px" />
             <span class="ml-3">ニコニコ実況</span>
         </h2>
-        <div class="settings__content">
+        <div class="settings__content" :class="{'settings__content--loading': is_loading}">
             <div class="niconico-account" v-if="user.niconico_user_id === null">
                 <Icon icon="bi:chat-left-text-fill" width="64px" />
                 <div class="niconico-account__info ml-4">
@@ -90,6 +90,9 @@ export default Vue.extend({
             // ユーティリティをテンプレートで使えるように
             Utils: Utils,
 
+            // ローディング中かどうか
+            is_loading: true,
+
             // ログイン中かどうか
             is_logged_in: Utils.getAccessToken() !== null,
 
@@ -114,7 +117,8 @@ export default Vue.extend({
     },
     async created() {
 
-        // ロード時のちらつきを抑えるために、とりあえず値を入れておく
+        // ユーザーモデルの初期値
+        // 初回描画で niconico_user_id が null かを判定するだけのためにセットしている
         this.user = {
             id: 0,
             name: '',
@@ -130,6 +134,9 @@ export default Vue.extend({
         if (this.is_logged_in === true) {
             await this.syncAccountInfo();
         }
+
+        // ローディング状態を解除
+        this.is_loading = false;
     },
     methods: {
         async syncAccountInfo() {
@@ -140,7 +147,7 @@ export default Vue.extend({
                 const response = await Vue.axios.get('/users/me');
                 this.user = response.data;
 
-                // ニコニコアカウントのユーザーアイコンの URL を生成
+                // ニコニコアカウントのユーザーアイコンの URL を生成 (ニコニコアカウントと連携されている場合のみ)
                 if (this.user.niconico_user_id !== null) {
                     const user_id_slice = this.user.niconico_user_id.toString().slice(0, 4);
                     this.niconico_user_icon_url =
@@ -156,6 +163,9 @@ export default Vue.extend({
                     // 未ログイン状態に設定
                     this.is_logged_in = false;
                     this.user = null;
+
+                    // まだアクセストークンが残っているかもしれないので、明示的にログアウト
+                    Utils.deleteAccessToken();
                 }
             }
         },
@@ -250,6 +260,15 @@ export default Vue.extend({
 
 </script>
 <style lang="scss" scoped>
+
+.settings__content {
+    opacity: 1;
+    transition: opacity 0.4s;
+
+    &--loading {
+        opacity: 0;
+    }
+}
 
 .niconico-account {
     display: flex;
