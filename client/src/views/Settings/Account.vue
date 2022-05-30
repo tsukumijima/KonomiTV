@@ -2,7 +2,7 @@
     <!-- ベース画面の中にそれぞれの設定画面で異なる部分を記述する -->
     <Base>
         <h2 class="settings__heading">
-            <Icon icon="fluent:person-20-filled" width="24px" />
+            <Icon icon="fluent:person-20-filled" width="25px" />
             <span class="ml-2">アカウント</span>
         </h2>
         <div class="settings__content" :class="{'settings__content--loading': is_loading}">

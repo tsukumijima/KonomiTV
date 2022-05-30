@@ -8,6 +8,7 @@ import SettingsGeneral from '@/views/Settings/General.vue';
 import SettingsAccount from '@/views/Settings/Account.vue';
 import SettingsJikkyo from '@/views/Settings/Jikkyo.vue';
 import SettingsTwitter from '@/views/Settings/Twitter.vue';
+import SettingsEnvironment from '@/views/Settings/Environment.vue';
 import Login from '@/views/Login.vue';
 import Register from '@/views/Register.vue';
 import NotFound from '@/views/NotFound.vue';
@@ -52,6 +53,11 @@ const routes = [
     path: '/settings/twitter',
     name: 'Settings Twitter',
     component: SettingsTwitter,
+  },
+  {
+    path: '/settings/environment',
+    name: 'Settings Environment',
+    component: SettingsEnvironment,
   },
   {
     path: '/login/',

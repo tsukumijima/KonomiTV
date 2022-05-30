@@ -2,7 +2,7 @@
     <!-- ベース画面の中にそれぞれの設定画面で異なる部分を記述する -->
     <Base>
         <h2 class="settings__heading">
-            <Icon icon="fa-solid:sliders-h" width="18px" />
+            <Icon icon="fa-solid:sliders-h" width="19px" />
             <span class="ml-3">全般</span>
         </h2>
         <div class="settings__content">

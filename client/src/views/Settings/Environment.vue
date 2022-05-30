@@ -2,8 +2,8 @@
     <!-- ベース画面の中にそれぞれの設定画面で異なる部分を記述する -->
     <Base>
         <h2 class="settings__heading">
-            <Icon icon="fa-brands:twitter" width="22px" />
-            <span class="ml-3">Twitter</span>
+            <Icon icon="fluent:toolbox-20-filled" width="22px" />
+            <span class="ml-3">環境設定</span>
         </h2>
         <div class="settings__content">
             <div class="settings__item">
@@ -20,7 +20,7 @@ import Base from '@/views/Settings/Base.vue';
 import Utils from '@/utils';
 
 export default Vue.extend({
-    name: 'SettingsTwitter',
+    name: 'SettingsEnvironment',
     components: {
         Base,
     },

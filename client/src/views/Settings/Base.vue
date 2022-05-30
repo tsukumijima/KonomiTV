@@ -44,6 +44,14 @@
                                     <v-list-item-title>Twitter</v-list-item-title>
                                 </v-list-item-content>
                             </v-list-item>
+                            <v-list-item link color="primary" class="px-4" to="/settings/environment">
+                                <v-list-item-icon class="mr-4">
+                                    <Icon icon="fluent:toolbox-20-filled" width="26px" />
+                                </v-list-item-icon>
+                                <v-list-item-content>
+                                    <v-list-item-title>環境設定</v-list-item-title>
+                                </v-list-item-content>
+                            </v-list-item>
                         </v-list>
                     </v-navigation-drawer>
                 </div>

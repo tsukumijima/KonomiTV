@@ -2,7 +2,7 @@
     <!-- ベース画面の中にそれぞれの設定画面で異なる部分を記述する -->
     <Base>
         <h2 class="settings__heading">
-            <Icon icon="bi:chat-left-text-fill" width="18px" />
+            <Icon icon="bi:chat-left-text-fill" width="19px" />
             <span class="ml-3">ニコニコ実況</span>
         </h2>
         <div class="settings__content" :class="{'settings__content--loading': is_loading}">
