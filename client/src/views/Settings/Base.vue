@@ -113,8 +113,13 @@ export default Vue.extend({
 
             .settings__item {
                 display: flex;
+                position: relative;
                 flex-direction: column;
                 margin-top: 24px;
+
+                &--switch {
+                    margin-right: 62px;
+                }
 
                 &-heading {
                     color: var(--v-text-base);
@@ -128,6 +133,14 @@ export default Vue.extend({
                 }
                 &-form {
                     margin-top: 12px;
+                }
+                &-switch {
+                    align-items: center;
+                    position: absolute;
+                    top: 0;
+                    right: -74px;
+                    bottom: 0;
+                    margin-top: 0;
                 }
             }
 

@@ -16,6 +16,16 @@
                     :items="tv_streaming_quality" v-model="settings.tv_streaming_quality">
                 </v-select>
             </div>
+            <div class="settings__item settings__item--switch">
+                <label class="settings__item-heading" for="is_display_superimpose_tv">テレビをみるときに文字スーパーを表示する</label>
+                <label class="settings__item-label" for="is_display_superimpose_tv">
+                    テレビをライブストリーミングする際に、文字スーパーを表示するかを設定します。<br>
+                    文字スーパーは、緊急地震速報の赤テロップや、NHK BS のニュース速報のテロップなどで利用されています。とくに理由がなければ、オンのままにしておくことをおすすめします。<br>
+                </label>
+                <v-switch class="settings__item-switch" id="is_display_superimpose_tv" inset hide-details
+                    v-model="settings.is_display_superimpose_tv">
+                </v-switch>
+            </div>
             <div class="settings__item">
                 <div class="settings__item-heading">既定のパネルの表示状態</div>
                 <div class="settings__item-label">
@@ -83,7 +93,7 @@ export default Vue.extend({
             settings: (() => {
                 // 設定の既定値を取得する
                 const settings = {}
-                for (const setting of ['tv_streaming_quality', 'panel_display_state', 'panel_active_tab']) {
+                for (const setting of ['tv_streaming_quality', 'is_display_superimpose_tv', 'panel_display_state', 'panel_active_tab']) {
                     settings[setting] = Utils.getSettingsItem(setting);
                 }
                 return settings;

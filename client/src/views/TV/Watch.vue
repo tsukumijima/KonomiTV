@@ -225,7 +225,7 @@ export default Vue.extend({
 
             // パネルを表示するか
             // panel_display_state が 'AlwaysDisplay' なら常に表示し、'AlwaysFold' なら常に折りたたむ
-            // 'RestorePreviousState' なら is_latest_panel_display の値を使い､前回の状態を復元する
+            // 'RestorePreviousState' なら is_display_latest_panel の値を使い､前回の状態を復元する
             is_panel_display: (() => {
                 switch (Utils.getSettingsItem('panel_display_state')) {
                     case 'AlwaysDisplay':
@@ -233,7 +233,7 @@ export default Vue.extend({
                     case 'AlwaysFold':
                         return false;
                     case 'RestorePreviousState':
-                        return Utils.getSettingsItem('is_latest_panel_display');
+                        return Utils.getSettingsItem('is_display_latest_panel');
                 }
             })() as boolean,
 
@@ -410,7 +410,7 @@ export default Vue.extend({
     watch: {
         // 前回視聴画面を開いた際にパネルが表示されていたかどうかを保存
         is_panel_display() {
-            Utils.setSettingsItem('is_latest_panel_display', this.is_panel_display);
+            Utils.setSettingsItem('is_display_latest_panel', this.is_panel_display);
         }
     },
     methods: {
@@ -808,6 +808,8 @@ export default Vue.extend({
                         useStrokeText: true,  // 縁取りに strokeText API を利用
                         usePUA: true,  // Unicode 領域の代わりに私用面の領域を利用
                         PRACallback: (index: number) => {  // 文字スーパーの PRA (内蔵音再生コマンド) のコールバックを指定
+                            // 設定で文字スーパーが無効なら実行しない
+                            if (Utils.getSettingsItem('is_display_superimpose_tv') === false) return;
                             // index に応じた内蔵音を鳴らす
                             // ref: https://ics.media/entry/200427/
                             // ref: https://www.ipentec.com/document/javascript-web-audio-api-change-volume
@@ -891,11 +893,20 @@ export default Vue.extend({
                 this.initEventHandler();
             });
 
+            // 設定で文字スーパーが有効
             // 字幕が非表示の場合でも、文字スーパーは表示する
-            this.player.plugins.aribb24Superimpose.show();
-            this.player.on('subtitle_hide', () => {
+            if (Utils.getSettingsItem('is_display_superimpose_tv') === true) {
                 this.player.plugins.aribb24Superimpose.show();
-            });
+                this.player.on('subtitle_hide', () => {
+                    this.player.plugins.aribb24Superimpose.show();
+                });
+            // 設定で文字スーパーが無効
+            } else {
+                this.player.plugins.aribb24Superimpose.hide();
+                this.player.on('subtitle_show', () => {
+                    this.player.plugins.aribb24Superimpose.hide();
+                });
+            }
 
             // 停止状態でかつ再生時間からバッファが 30 秒以上離れていないかを1分おきに監視し、そうなっていたら強制的にシークする
             // mpegts.js の仕様上、MSE に未再生のバッファがたまり過ぎると SourceBuffer が追加できなくなるため、強制的に接続が切断されてしまう

@@ -23,20 +23,29 @@ export default class Utils {
     // ここを変えたときはサーバー側の app.schemas も変更すること
     static readonly default_settings = {
 
+        // ***** 設定画面から直接変更できない設定値 *****
+
         // ピン留めしているチャンネルの ID (ex: gr011) が入るリスト
         pinned_channel_ids: [] as string[],
+
+        // 前回視聴画面を開いた際にパネルが表示されていたかどうか
+        is_display_latest_panel: true as boolean,
+
+        // ***** 設定 → 全般 *****
 
         // テレビのストリーミング画質（1080p）
         tv_streaming_quality: '1080p' as ('1080p' | '810p' | '720p' | '540p' | '480p' | '360p' | '240p'),
 
-        // 前回視聴画面を開いた際にパネルが表示されていたかどうか
-        is_latest_panel_display: true as boolean,
+        // テレビをみるときに文字スーパーを表示する
+        is_display_superimpose_tv: true as boolean,
 
         // 既定のパネルの表示状態（前回の状態を復元する）
         panel_display_state: 'RestorePreviousState' as ('RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold'),
 
         // 既定で表示されるパネルのタブ（番組情報タブ）
         panel_active_tab: 'Program' as ('Program' | 'Channel' | 'Comment' | 'Twitter'),
+
+        // ***** 設定 → ニコニコ実況 *****
 
         // コメントの速さ (1倍)
         comment_speed_rate: 1 as number,
