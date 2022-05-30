@@ -75,6 +75,10 @@ export default Vue.extend({
             // コメントセッションの WebSocket のインスタンス
             comment_session: null as WebSocket | null,
 
+            // 視聴セッション・コメントセッションの初期化に失敗した際のエラーメッセージ
+            // 視聴中チャンネルのニコニコ実況がないときなどに発生する
+            initialize_failed_message: null as string | null,
+
             // vpos を計算する基準となる時刻のタイムスタンプ
             vpos_base_timestamp: 0,
 
@@ -187,12 +191,8 @@ export default Vue.extend({
                     }
                 }
 
-                // 視聴セッションを初期化
-                const comment_session_info = await this.initWatchSession();
-
-                // vpos の基準時刻のタイムスタンプを取得
-                // vpos は番組開始時間からの累計秒（10ミリ秒単位）
-                this.vpos_base_timestamp = dayjs(comment_session_info['vpos_base_time']).unix() * 100;
+                // リサイズ時のイベントを初期化
+                await this.initReserveObserver();
 
                 // ユーザーアカウントの情報を取得
                 try {
@@ -201,11 +201,25 @@ export default Vue.extend({
                     this.user = null;
                 }
 
-                // コメントセッションを初期化
-                await this.initCommentSession(comment_session_info);
+                try {
 
-                // リサイズ時のイベントを初期化
-                await this.initReserveObserver();
+                    // 視聴セッションを初期化
+                    const comment_session_info = await this.initWatchSession();
+
+                    // vpos の基準時刻のタイムスタンプを取得
+                    // vpos は番組開始時間からの累計秒（10ミリ秒単位）
+                    this.vpos_base_timestamp = dayjs(comment_session_info['vpos_base_time']).unix() * 100;
+
+                    // コメントセッションを初期化
+                    await this.initCommentSession(comment_session_info);
+
+                } catch (error) {
+
+                    // 初期化に失敗した場合のエラーメッセージを保存しておく
+                    // 初期化に失敗したのにコメントを送信しようとした際に表示するもの
+                    this.initialize_failed_message = error.message;
+                    console.error(error.toString());
+                }
             }
         }
     },
@@ -219,7 +233,7 @@ export default Vue.extend({
             try {
                 watch_session_info = await Vue.axios.get(`/channels/${this.channel.channel_id}/jikkyo`);
             } catch (error) {
-                throw new Error(error);  // エラー内容をコンソールに表示
+                throw new Error(error);  // エラー内容をコンソールに表示して終了
             }
 
             // セッション情報を取得できなかった
@@ -231,7 +245,7 @@ export default Vue.extend({
                     this.player.notice(watch_session_info.data.detail);
                 }
 
-                throw new Error(watch_session_info.data.detail);  // エラー内容をコンソールに表示
+                throw new Error(watch_session_info.data.detail);  // エラー内容をコンソールに表示して終了
             }
 
             // イベント内で値を返すため、Promise で包む
@@ -637,6 +651,12 @@ export default Vue.extend({
 
         // コメントを送信する
         async sendComment(options: IDPlayerDanmakuSendOptions) {
+
+            // 初期化に失敗しているときは実行せず、保存しておいたエラーメッセージを表示する
+            if (this.initialize_failed_message !== null) {
+                options.error(this.initialize_failed_message);
+                return;
+            }
 
             // DPlayer 上のコメント色（カラーコード）とニコニコの色コマンド定義のマッピング
             const color_table = {
