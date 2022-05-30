@@ -182,7 +182,7 @@ async def TwitterAuthCallbackAPI(
     except tweepy.TweepyException:
         return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Failed to get account information',
+            detail = 'Failed to get user information',
         )
     # アカウント名
     twitter_account.name = verify_credentials.name

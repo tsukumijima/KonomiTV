@@ -23,6 +23,7 @@ from tortoise import timezone
 
 from app import schemas
 from app.constants import ACCOUNT_ICON_DIR, ACCOUNT_ICON_DEFAULT_DIR, JWT_SECRET_KEY
+from app.models import TwitterAccount
 from app.models import User
 
 
@@ -220,6 +221,14 @@ async def UserMeAPI(
     現在ログイン中のユーザーアカウントの情報を取得する。<br>
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
+
+    # 一番よく使う API なので、リクエスト時に twitter_accounts テーブルに仮のアカウントデータが残っていたらすべて消しておく
+    ## Twitter 連携では途中で連携をキャンセルした場合に仮のアカウントデータが残置されてしまうので、それを取り除く
+    if await TwitterAccount.filter(icon_url='Temporary').count() > 0:
+        await TwitterAccount.filter(icon_url='Temporary').delete()
+        current_user = await User.filter(id=current_user.id).get()  # current_user のデータを更新
+        await current_user.fetch_related('twitter_accounts')
+
     return current_user
 
 
