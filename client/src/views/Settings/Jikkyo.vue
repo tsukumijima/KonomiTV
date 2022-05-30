@@ -18,7 +18,7 @@
                 </div>
                 <v-btn class="niconico-account__login ml-auto" color="secondary" width="130" height="56" depressed
                     @click="loginNiconicoAccount()">
-                    <Icon icon="fluent:plug-disconnected-20-filled" class="mr-2" height="26" />連携する
+                    <Icon icon="fluent:plug-connected-20-filled" class="mr-2" height="26" />連携する
                 </v-btn>
             </div>
             <div class="niconico-account" v-if="user.niconico_user_id !== null">
@@ -161,14 +161,10 @@ export default Vue.extend({
 
                 // ログインされていない
                 if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
-                    console.log('Not logged in.');
 
                     // 未ログイン状態に設定
                     this.is_logged_in = false;
                     this.user = null;
-
-                    // まだアクセストークンが残っているかもしれないので、明示的にログアウト
-                    Utils.deleteAccessToken();
                 }
             }
         },
@@ -191,6 +187,9 @@ export default Vue.extend({
 
             // 認証完了 or 失敗後、ポップアップウインドウから送信される文字列を受信
             const onMessage = async (event) => {
+
+                // すでにウインドウが閉じている場合は実行しない
+                if (popup_window.closed) return;
 
                 // 受け取ったオブジェクトに KonomiTV-OAuthPopup キーがない or そもそもオブジェクトではない際は実行しない
                 // ブラウザの拡張機能から結構余計な message が飛んでくるっぽい…。
