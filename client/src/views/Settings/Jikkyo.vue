@@ -29,7 +29,9 @@
                     </div>
                     <span class="niconico-account__info-description">
                         <span class="mr-2">Niconico User ID:</span>
-                        <a :href="`https://www.nicovideo.jp/user/${user.niconico_user_id}`" target="_blank">{{user.niconico_user_id}}</a>
+                        <a class="mr-2" :href="`https://www.nicovideo.jp/user/${user.niconico_user_id}`"
+                            target="_blank">{{user.niconico_user_id}}</a>
+                        <span class="secondary--text" v-if="user.niconico_user_premium == true">(Premium)</span>
                     </span>
                 </div>
                 <v-btn class="niconico-account__login ml-auto" color="secondary" width="130" height="56" depressed
@@ -125,6 +127,7 @@ export default Vue.extend({
             is_admin: true,
             niconico_user_id: null,
             niconico_user_name: null,
+            niconico_user_premium: null,
             twitter_accounts: [],
             created_at: '',
             updated_at: '',
@@ -212,11 +215,11 @@ export default Vue.extend({
                         this.$message.error(`アクセストークンの取得に失敗しました。${error}`);
                     } else if (authorization_detail.startsWith('Failed to get access token')) {
                         this.$message.error('アクセストークンの取得に失敗しました。ニコニコで障害が発生している可能性があります。');
-                    } else if (authorization_detail.startsWith('Failed to get user nickname (HTTP Error ')) {
-                        const error = authorization_detail.replace('Failed to get user nickname ', '');
-                        this.$message.error(`ニコニコアカウントのユーザー名の取得に失敗しました。${error}`);
-                    } else if (authorization_detail.startsWith('Failed to get user nickname')) {
-                        this.$message.error('ニコニコアカウントのユーザー名の取得に失敗しました。ニコニコで障害が発生している可能性があります。');
+                    } else if (authorization_detail.startsWith('Failed to get user information (HTTP Error ')) {
+                        const error = authorization_detail.replace('Failed to get user information ', '');
+                        this.$message.error(`ニコニコアカウントのユーザー情報の取得に失敗しました。${error}`);
+                    } else if (authorization_detail.startsWith('Failed to get user information')) {
+                        this.$message.error('ニコニコアカウントのユーザー情報の取得に失敗しました。ニコニコで障害が発生している可能性があります。');
                     } else {
                         this.$message.error(`ニコニコアカウントとの連携に失敗しました。(${authorization_detail})`);
                     }

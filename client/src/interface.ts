@@ -110,6 +110,7 @@ export interface IUser {
     is_admin: boolean;
     niconico_user_id: number | null;
     niconico_user_name: string | null;
+    niconico_user_premium: boolean | null;
     twitter_accounts: ITwitterAccount[];
     created_at: string;
     updated_at: string;
