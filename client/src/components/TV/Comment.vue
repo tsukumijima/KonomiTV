@@ -32,7 +32,7 @@ import { AxiosResponse } from 'axios';
 import dayjs from 'dayjs';
 import Vue, { PropType } from 'vue';
 
-import { IChannel, IDPlayerDanmakuSendOptions } from '@/interface';
+import { IChannel, IDPlayerDanmakuSendOptions, IUser } from '@/interface';
 import Utils from '@/utils';
 
 export default Vue.extend({
@@ -58,6 +58,10 @@ export default Vue.extend({
             // 自動スクロール中かどうか
             // 自動スクロール中の場合、scroll イベントが発火しても無視する
             is_auto_scrolling: false,
+
+            // ユーザーアカウントの情報
+            // ログインしていない場合は null になる
+            user: null as IUser | null,
 
             // コメントリストの配列
             comment_list: [] as {[key: string]: number | string}[],
@@ -189,6 +193,13 @@ export default Vue.extend({
                 // vpos の基準時刻のタイムスタンプを取得
                 // vpos は番組開始時間からの累計秒（10ミリ秒単位）
                 this.vpos_base_timestamp = dayjs(comment_session_info['vpos_base_time']).unix() * 100;
+
+                // ユーザーアカウントの情報を取得
+                try {
+                    this.user = (await Vue.axios.get('/users/me')).data;
+                } catch (error) {
+                    this.user = null;
+                }
 
                 // コメントセッションを初期化
                 await this.initCommentSession(comment_session_info);
@@ -637,7 +648,7 @@ export default Vue.extend({
                 0xD500F9: 'purple',
             };
 
-            // DPlayer 上の位置を表す数値とニコニコの位置コマンド定義のマッピング
+            // DPlayer 上のコメント位置を表す数値とニコニコの位置コマンド定義のマッピング
             const position_table = {
                 0: 'naka',
                 1: 'ue',
@@ -647,6 +658,12 @@ export default Vue.extend({
             // vpos を計算 (10ミリ秒単位)
             // 番組開始時間からの累計秒らしいけど、なぜ指定しないといけないのかは不明
             const vpos = Math.floor(new Date().getTime() / 10) - this.vpos_base_timestamp;
+
+            // 一般会員ではコメント位置の指定 (ue, shita) が無視されるので、事前にエラーにしておく
+            if (this.user.niconico_user_premium === false && (options.data.type == 1 || options.data.type == 2)) {
+                options.error('コメントを上下に固定するには、ニコニコアカウントのプレミアム会員登録が必要です。');
+                return;
+            }
 
             // コメントを送信
             this.watch_session.send(JSON.stringify({
@@ -688,12 +705,12 @@ export default Vue.extend({
                         // エラーメッセージ
                         let error = `コメントの送信に失敗しました。(${message.data.code})`;
                         switch (message.data.code) {
-                            case 'INVALID_MESSAGE': {
-                                error = 'コメント内容が無効です。';
-                                break;
-                            }
                             case 'COMMENT_POST_NOT_ALLOWED': {
                                 error = 'コメントするにはニコニコアカウントと連携してください。';
+                                break;
+                            }
+                            case 'INVALID_MESSAGE': {
+                                error = 'コメント内容が無効です。';
                                 break;
                             }
                             case 'COMMENT_LOCKED': {
@@ -705,7 +722,7 @@ export default Vue.extend({
                         // コメント失敗のコールバックを DPlayer に通知
                         options.error(error);
 
-                        // イベントを解除
+                        // イベントリスナーを解除
                         this.watch_session.onmessage = null;
                         break;
                     }
