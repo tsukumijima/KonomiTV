@@ -323,8 +323,10 @@ export default Vue.extend({
                         icon_height: '20px',
                         shortcuts: [
                             { name: '再生 / 一時停止の切り替え', keys: [{name: 'Space', icon: false}] },
-                            { name: '停止して0.25秒早戻し', keys: [{name: 'fluent:arrow-left-12-filled', icon: true}] },
-                            { name: '停止して0.25秒早送り', keys: [{name: 'fluent:arrow-right-12-filled', icon: true}] },
+                            { name: 'プレイヤーの音量を上げる', keys: [{name: 'Shift', icon: false}, {name: 'fluent:arrow-up-12-filled', icon: true}] },
+                            { name: 'プレイヤーの音量を下げる', keys: [{name: 'Shift', icon: false}, {name: 'fluent:arrow-down-12-filled', icon: true}] },
+                            { name: '停止して0.5秒早戻し', keys: [{name: 'fluent:arrow-left-12-filled', icon: true}] },
+                            { name: '停止して0.5秒早送り', keys: [{name: 'fluent:arrow-right-12-filled', icon: true}] },
                             { name: 'フルスクリーンの切り替え', keys: [{name: 'F', icon: false}] },
                             { name: 'ライブストリームの同期', keys: [{name: 'W', icon: false}] },
                             { name: 'Picture-in-Picture の表示切り替え', keys: [{name: 'E', icon: false}] },
@@ -1210,17 +1212,19 @@ export default Vue.extend({
 
                     // ***** 上下キーでチャンネルを切り替える *****
 
-                    // ↑キー: 前のチャンネルに切り替え
-                    if (event.code === 'ArrowUp' && is_repeat === false) {
-                        event.preventDefault();  // デフォルトのイベントを無効化
-                        (async () => await this.$router.replace({path: `/tv/watch/${this.channel_previous.channel_id}`}))();
-                        return;
-                    }
-                    // ↓キー: 次のチャンネルに切り替え
-                    if (event.code === 'ArrowDown' && is_repeat === false) {
-                        event.preventDefault();  // デフォルトのイベントを無効化
-                        (async () => await this.$router.replace({path: `/tv/watch/${this.channel_next.channel_id}`}))();
-                        return;
+                    if (is_repeat === false && event.shiftKey === false) {
+                        // ↑キー: 前のチャンネルに切り替え
+                        if (event.code === 'ArrowUp') {
+                            event.preventDefault();  // デフォルトのイベントを無効化
+                            (async () => await this.$router.replace({path: `/tv/watch/${this.channel_previous.channel_id}`}))();
+                            return;
+                        }
+                        // ↓キー: 次のチャンネルに切り替え
+                        if (event.code === 'ArrowDown') {
+                            event.preventDefault();  // デフォルトのイベントを無効化
+                            (async () => await this.$router.replace({path: `/tv/watch/${this.channel_next.channel_id}`}))();
+                            return;
+                        }
                     }
 
                     // ***** キーボードショートカットの一覧を表示する *****
@@ -1265,22 +1269,31 @@ export default Vue.extend({
 
                     // プレイヤーが初期化されていない際や Ctrl or Cmd キーが一緒に押された際に作動しないように
                     if (this.player !== null && !event.ctrlKey && !event.metaKey) {
-                        // ←キー: 停止して0.25秒巻き戻し
-                        // ここだけキーリピートを許可する
+
+                        // ←キー: 停止して0.5秒巻き戻し
                         if (event.code === 'ArrowLeft') {
                             event.preventDefault();  // デフォルトのイベントを無効化
                             if (this.player.video.paused === false) this.player.video.pause();
-                            this.player.video.currentTime = this.player.video.currentTime - 0.25;
+                            this.player.video.currentTime = this.player.video.currentTime - 0.5;
                             return;
                         }
-                        // →キー: 停止して0.25秒早送り
-                        // ここだけキーリピートを許可する
+                        // →キー: 停止して0.5秒早送り
                         if (event.code === 'ArrowRight') {
                             event.preventDefault();  // デフォルトのイベントを無効化
                             if (this.player.video.paused === false) this.player.video.pause();
-                            this.player.video.currentTime = this.player.video.currentTime + 0.25;
+                            this.player.video.currentTime = this.player.video.currentTime + 0.5;
                             return;
                         }
+                        // Shift + ↑キー: プレイヤーの音量を上げる
+                        if (event.shiftKey === true && event.code === 'ArrowUp') {
+                            this.player.volume(this.player.volume() + 0.05);
+                        }
+                        // Shift + ↓キー: プレイヤーの音量を下げる
+                        if (event.shiftKey === true && event.code === 'ArrowDown') {
+                            this.player.volume(this.player.volume() - 0.05);
+                        }
+
+                        // キーリピートでは実行しないショートカット
                         if (is_repeat === false) {
                             // Spaceキー: 再生/停止
                             if (event.code === 'Space') {
