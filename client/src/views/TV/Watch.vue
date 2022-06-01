@@ -633,7 +633,7 @@ export default Vue.extend({
 
             // タッチデバイスかどうか
             // DPlayer の UA 判定コードと同一
-            const is_touch_device = /iPhone|iPad|iPod|Macintosh|Android|Mobile/i.test(navigator.userAgent) && 'ontouchend' in document;
+            const is_touch_device = /iPhone|iPad|iPod|Windows|Macintosh|Android|Mobile/i.test(navigator.userAgent) && 'ontouchend' in document;
 
             // タッチデバイスで mousemove 、あるいはタッチデバイス以外で touchmove か click が発火した時は実行じない
             if (is_touch_device == true  && event !== null && event.type === 'mousemove') return;

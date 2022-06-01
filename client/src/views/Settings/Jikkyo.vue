@@ -63,7 +63,7 @@
                 <div class="settings__item-heading">コメントの遅延時間</div>
                 <div class="settings__item-label">
                     プレイヤーやコメントリストに表示されるコメントを何秒遅らせて反映するかを設定します。<br>
-                    通常は 1 秒程度で大丈夫です。ネットワークが遅いなどでタイムラグが大きいときだけ、映像の遅延に合わせて調整してください。<br>
+                    通常は 1.5 秒程度で大丈夫です。ネットワークが遅いなどでタイムラグが大きいときだけ、映像の遅延に合わせて調整してください。<br>
                 </div>
                 <v-slider class="settings__item-form" ticks="always" thumb-label hide-details
                     :step="0.5" :min="0" :max="5"  v-model="settings.comment_delay_time">
