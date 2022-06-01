@@ -401,7 +401,7 @@ API ドキュメントは FastAPI によって自動生成されたものです�
 ### クライアント
 
 クライアントは Vue.js の SPA (Single Page Application) で構築されており、コーディングとビルドには少なくとも Node.js が必要です。  
-Node.js v14, npm v7, yarn v1 で開発しています。
+Node.js v16, npm v8, yarn v1 で開発しています。
 
 クライアントのデバッグは `client/` フォルダにて `yarn dev` または `npm run dev` を実行し、http://localhost:7001/ にてリッスンされる開発用サーバーにて行っています。  
 
