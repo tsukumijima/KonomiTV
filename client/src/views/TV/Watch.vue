@@ -249,6 +249,8 @@ export default Vue.extend({
             // 混ぜるとダメなので独立させる
             control_interval_id: 0,
 
+            // ***** チャンネル *****
+
             // チャンネル ID
             channel_id: this.$route.params.channel_id,
 
@@ -265,6 +267,8 @@ export default Vue.extend({
             // チャンネル情報リスト
             channels_list: new Map() as Map<string, IChannel[]>,
 
+            // ***** プレイヤー *****
+
             // プレイヤー (DPlayer) のインスタンス
             player: null,
 
@@ -279,6 +283,22 @@ export default Vue.extend({
 
             // フルスクリーン状態が切り替わったときのハンドラー
             fullscreen_handler: null as () => void | null,
+
+            // ***** キャプチャ *****
+
+            // キャプチャボタンの要素
+            capture_button: null as HTMLDivElement | null,
+
+            // コメント付きキャプチャボタンの要素
+            comment_capture_button: null as HTMLDivElement | null,
+
+            // キャプチャ用の Canvas
+            canvas: null as HTMLCanvasElement | null,
+
+            // キャプチャ用の Canvas のコンテキスト
+            canvas_context: null as CanvasRenderingContext2D | null,
+
+            // ***** キーボードショートカット *****
 
             // ショートカットキーのハンドラー
             shortcut_key_handler: null as (event: KeyboardEvent) => void | null,
@@ -332,6 +352,8 @@ export default Vue.extend({
                             { name: 'Picture-in-Picture の表示切り替え', keys: [{name: 'E', icon: false}] },
                             { name: '字幕の表示切り替え', keys: [{name: 'S', icon: false}] },
                             { name: 'コメントの表示切り替え', keys: [{name: 'D', icon: false}] },
+                            { name: '映像をキャプチャする', keys: [{name: 'C', icon: false}] },
+                            { name: '映像をコメントを付けてキャプチャする', keys: [{name: 'V', icon: false}] },
                             { name: 'コメント入力フォームにフォーカスする', keys: [{name: 'M', icon: false}] },
                         ]
                     }
@@ -487,13 +509,16 @@ export default Vue.extend({
             // update() 自体は初期化時以外にも1分ごとに定期実行されるため、その際に毎回プレイヤーを再初期化しないようにする
             if (this.player === null || this.player.KonomiTVCanDestroy === true) {
 
-                // プレイヤーを初期化
+                // プレイヤー (DPlayer) 周りのセットアップ
                 this.initPlayer();
 
-                // イベントハンドラーを初期化
+                // サーバーから送られてくるメッセージのイベントハンドラーを初期化
                 this.initEventHandler();
 
-                // ショートカットキーを初期化
+                // キャプチャのイベントハンドラーを初期化
+                this.initCaptureHandler();
+
+                // ショートカットキーのイベントハンドラーを初期化
                 this.initShortcutKeyHandler();
             }
 
@@ -736,8 +761,7 @@ export default Vue.extend({
                 airplay: false,  // AirPlay 機能 (うまく動かないため無効化)
                 autoplay: true,  // 自動再生
                 hotkey: false,  // ショートカットキー（こちらで制御するため無効化）
-                screenshot: true,  // スクリーンショット
-                // screenshotOfEventTriggerOnly: true,  // スクリーンショットボタンが押された際、イベントと Blob URL のみ受け取る
+                screenshot: false,  // スクリーンショット (こちらで制御するため無効化)
                 volume: 1.0,  // 音量の初期値
                 // 映像
                 video: {
@@ -1139,6 +1163,164 @@ export default Vue.extend({
             });
         },
 
+        // キャプチャ関連のイベントを初期化する
+        initCaptureHandler() {
+
+            // コメント付きキャプチャボタンの HTML を追加
+            // insertAdjacentHTML で .dplayer-icons-right の一番左側に配置する
+            // この後に通常のキャプチャボタンが insert されるので、実際は左から2番目
+            this.$el.querySelector('.dplayer-icons.dplayer-icons-right').insertAdjacentHTML('afterbegin', `
+                <div class="dplayer-icon dplayer-comment-capture-icon" aria-label="コメントを付けてキャプチャ"
+                    data-balloon-nofocus="" data-balloon-pos="up">
+                    <span class="dplayer-icon-content">
+                        <svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 32 32"><path d="M16 23c-3.309 0-6-2.691-6-6s2.691-6 6-6 6 2.691 6 6-2.691 6-6 6zM16 13c-2.206 0-4 1.794-4 4s1.794 4 4 4c2.206 0 4-1.794 4-4s-1.794-4-4-4zM27 28h-22c-1.654 0-3-1.346-3-3v-16c0-1.654 1.346-3 3-3h3c0.552 0 1 0.448 1 1s-0.448 1-1 1h-3c-0.551 0-1 0.449-1 1v16c0 0.552 0.449 1 1 1h22c0.552 0 1-0.448 1-1v-16c0-0.551-0.448-1-1-1h-11c-0.552 0-1-0.448-1-1s0.448-1 1-1h11c1.654 0 3 1.346 3 3v16c0 1.654-1.346 3-3 3zM24 10.5c0 0.828 0.672 1.5 1.5 1.5s1.5-0.672 1.5-1.5c0-0.828-0.672-1.5-1.5-1.5s-1.5 0.672-1.5 1.5zM15 4c0 0.552-0.448 1-1 1h-4c-0.552 0-1-0.448-1-1v0c0-0.552 0.448-1 1-1h4c0.552 0 1 0.448 1 1v0z"></path></svg>
+                    </span>
+                </div>
+            `);
+
+            // キャプチャボタンの HTML を追加
+            // 標準のスクリーンショット機能は貧弱なので、あえて独自に実装している（そのほうが自由度も高くてやりやすい）
+            // insertAdjacentHTML で .dplayer-icons-right の一番左側に配置する
+            this.$el.querySelector('.dplayer-icons.dplayer-icons-right').insertAdjacentHTML('afterbegin', `
+                <div class="dplayer-icon dplayer-capture-icon" aria-label="キャプチャ"
+                    data-balloon-nofocus="" data-balloon-pos="up">
+                    <span class="dplayer-icon-content">
+                        <svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 32 32"><path d="M16 23c-3.309 0-6-2.691-6-6s2.691-6 6-6 6 2.691 6 6-2.691 6-6 6zM16 13c-2.206 0-4 1.794-4 4s1.794 4 4 4c2.206 0 4-1.794 4-4s-1.794-4-4-4zM27 28h-22c-1.654 0-3-1.346-3-3v-16c0-1.654 1.346-3 3-3h3c0.552 0 1 0.448 1 1s-0.448 1-1 1h-3c-0.551 0-1 0.449-1 1v16c0 0.552 0.449 1 1 1h22c0.552 0 1-0.448 1-1v-16c0-0.551-0.448-1-1-1h-11c-0.552 0-1-0.448-1-1s0.448-1 1-1h11c1.654 0 3 1.346 3 3v16c0 1.654-1.346 3-3 3zM24 10.5c0 0.828 0.672 1.5 1.5 1.5s1.5-0.672 1.5-1.5c0-0.828-0.672-1.5-1.5-1.5s-1.5 0.672-1.5 1.5zM15 4c0 0.552-0.448 1-1 1h-4c-0.552 0-1-0.448-1-1v0c0-0.552 0.448-1 1-1h4c0.552 0 1 0.448 1 1v0z"></path></svg>
+                    </span>
+                </div>
+            `);
+
+            // キャプチャ用の Canvas を初期化
+            // パフォーマンス向上のため、一度作成した Canvas は使い回す
+            this.canvas = document.createElement('canvas');
+            this.canvas_context = this.canvas.getContext('2d');
+
+            // 映像の解像度を Canvas サイズとして設定
+            // 映像が読み込まれた / 画質が変わったときに映像側に Canvas サイズを合わせる
+            this.canvas.width = 0;
+            this.canvas.height = 0;
+            this.player.on('loadedmetadata', () => {
+                this.canvas.width = this.player.video.videoWidth;
+                this.canvas.height = this.player.video.videoHeight;
+            });
+
+            this.capture_button = this.$el.querySelector('.dplayer-icon.dplayer-capture-icon');
+            this.comment_capture_button = this.$el.querySelector('.dplayer-icon.dplayer-comment-capture-icon');
+
+            // 表示されているニコニコ実況のコメントを Canvas に描画する関数
+            const DrawComments = () => {
+
+                // TODO: 描画処理は未実装
+            };
+
+            // キャプチャして保存する関数
+            // 通常のキャプチャもコメント付きキャプチャも途中まで処理は同じなので、共通化する
+            // 映像のみと字幕付き (字幕表示時のみ) の両方のキャプチャを生成する
+            const CaptureAndSave = (with_comments: boolean = false) => {
+
+                // まだ映像の表示準備が終わっていない (Canvas の幅/高さが 0 のまま)
+                if (this.canvas.width === 0 && this.canvas.height === 0) {
+                    this.player.notice('読み込み中はキャプチャできません。');
+                    return;
+                }
+
+                // コメントが表示されていないのにコメント付きキャプチャしようとした
+                if (this.player.danmaku.showing === false) {
+                    this.player.notice('コメントを付けてキャプチャするには、コメント表示をオンにしてください。');
+                    return;
+                }
+
+                // ファイル名（拡張子なし）
+                const filename = `Capture_${dayjs().format('YYYYMMDD-HHmmss')}`;
+
+                // Canvas に映像を描画
+                this.canvas_context.drawImage(this.player.video, 0, 0, this.canvas.width, this.canvas.height);
+
+                // 文字スーパーが表示されているなら、それも描画
+                // 文字スーパーを消してキャプチャ撮りたいユースケースはない…はず
+                // getRawCanvas() で映像と同じ解像度の Canvas が取得できる
+                if (this.player.plugins.aribb24Superimpose.isPresent()) {
+                    const superimpose_canvas: HTMLCanvasElement = this.player.plugins.aribb24Superimpose.getRawCanvas();
+                    this.canvas_context.drawImage(superimpose_canvas, 0, 0, this.canvas.width, this.canvas.height);
+                }
+
+                // コメント付きキャプチャ: 追加でニコニコ実況のコメントを描画
+                if (with_comments === true) {
+                    DrawComments();
+                }
+
+                // 通常のキャプチャ:  Canvas (映像のみ) を画像にエクスポート
+                // コメント付きキャプチャ:  Canvas (映像 + コメント) を画像にエクスポート
+                this.canvas.toBlob((blob) => {
+
+                    // Blob 化に失敗
+                    if (blob === null) {
+                        this.player.notice('キャプチャの保存に失敗しました…')
+                        return;
+                    }
+
+                    // キャプチャをダウンロード
+                    // TODO: キャプチャを KonomiTV サーバーにアップロードする
+                    // TODO: キャプチャを Twitter タブ側に引き渡す
+                    Utils.downloadBlobImage(blob, `${filename}.jpg`);
+
+                // 保存する画像の品質
+                }, 'image/jpeg', 1);
+
+                // 字幕が表示されているときのみ実行（字幕が表示されていないのにやっても意味がない）
+                if (this.player.plugins.aribb24Caption.isPresent()) {
+
+                    // コメント付きキャプチャ: 映像と文字スーパーの描画をやり直す
+                    // すでに字幕なしキャプチャを生成する過程でコメントを描画してしまっているため、コメントの描画前の状態に戻す必要がある
+                    if (with_comments === true) {
+                        this.canvas_context.drawImage(this.player.video, 0, 0, this.canvas.width, this.canvas.height);
+                        const superimpose_canvas: HTMLCanvasElement = this.player.plugins.aribb24Superimpose.getRawCanvas();
+                        this.canvas_context.drawImage(superimpose_canvas, 0, 0, this.canvas.width, this.canvas.height);
+                    }
+
+                    // 字幕を重ねて描画
+                    // getRawCanvas() で映像と同じ解像度の Canvas が取得できる
+                    const caption_canvas: HTMLCanvasElement = this.player.plugins.aribb24Caption.getRawCanvas();
+                    this.canvas_context.drawImage(caption_canvas, 0, 0, this.canvas.width, this.canvas.height);
+
+                    // コメント付きキャプチャ: 追加でニコニコ実況のコメントを描画
+                    if (with_comments === true) {
+                        DrawComments();
+                    }
+
+                    // 通常のキャプチャ:  Canvas (映像 + 字幕) を画像にエクスポート
+                    // コメント付きキャプチャ:  Canvas (映像 + 字幕 + コメント) を画像にエクスポート
+                    this.canvas.toBlob((blob) => {
+
+                        // Blob 化に失敗
+                        if (blob === null) {
+                            this.player.notice('キャプチャの保存に失敗しました…')
+                            return;
+                        }
+
+                        // キャプチャをダウンロード
+                        // TODO: キャプチャを KonomiTV サーバーにアップロードする
+                        // TODO: キャプチャを Twitter タブ側に引き渡す
+                        Utils.downloadBlobImage(blob, `${filename}_caption.jpg`);
+
+                    // 保存する画像の品質
+                    }, 'image/jpeg', 1);
+                }
+            };
+
+            // キャプチャボタンがクリックされたときのイベント
+            // ショートカットからのキャプチャでも同じイベントがトリガーされる
+            this.capture_button.addEventListener('click',  (event) => {
+                CaptureAndSave();
+            });
+
+            // コメント付きキャプチャボタンがクリックされたときのイベント
+            // ショートカットからのキャプチャでも同じイベントがトリガーされる
+            this.comment_capture_button.addEventListener('click',  (event) => {
+                CaptureAndSave(true);
+            });
+        },
+
         // ショートカットキーを初期化する
         initShortcutKeyHandler() {
 
@@ -1336,6 +1518,16 @@ export default Vue.extend({
                                     this.player.notice(`${this.player.tran('Hide comment')}`);
                                 }
                                 return;
+                            }
+                            // Cキー: 映像をキャプチャ
+                            // キャプチャボタンのクリックイベントを発火させる
+                            if (event.code === 'KeyC') {
+                                this.capture_button.click();
+                            }
+                            // Vキー: 映像を実況コメントを付けてキャプチャ
+                            // コメント付きキャプチャボタンのクリックイベントを発火させる
+                            if (event.code === 'KeyV') {
+                                this.comment_capture_button.click();
                             }
                             // Mキー: コメント入力フォームにフォーカス
                             if (event.code === 'KeyM') {

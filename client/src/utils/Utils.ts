@@ -204,4 +204,25 @@ export default class Utils {
     static async sleep(seconds: number): Promise<number> {
         return await new Promise(resolve => setTimeout(resolve, seconds * 1000));
     }
+
+
+    /**
+     * Blob に格納されている画像をブラウザにダウンロードさせる
+     * @param blob HTMLCanvasElement.toBlob() で取得した Blob オブジェクト
+     * @param filename 保存するファイル名
+     */
+    static downloadBlobImage(blob: Blob, filename: string): void {
+
+        // Blob URL を発行
+        const blob_url = URL.createObjectURL(blob);
+
+        // 画像をダウンロード
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = blob_url;
+        link.click();
+
+        // Blob URL を破棄
+        URL.revokeObjectURL(blob_url);
+    }
 }
