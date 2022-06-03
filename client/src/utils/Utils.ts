@@ -194,4 +194,14 @@ export default class Utils {
     static typeof(value: any): string {
         return Object.prototype.toString.call(value).slice(8, -1).toLowerCase();
     }
+
+
+    /**
+     * async/await でスリープ的なもの
+     * @param seconds 待機する秒数
+     * @returns Promise を返すので、await sleep(1); のように使う
+     */
+    static async sleep(seconds: number): Promise<number> {
+        return await new Promise(resolve => setTimeout(resolve, seconds * 1000));
+    }
 }
