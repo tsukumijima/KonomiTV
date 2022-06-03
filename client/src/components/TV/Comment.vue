@@ -117,7 +117,7 @@ export default Vue.extend({
                 // 連続してチャンネルを切り替えた時などに毎回コメントサーバーに接続しないように猶予を設ける
                 // ただし、最初 (channel_id が gr000 の初期値になっている) だけは待たずに実行する
                 if (old_channel.channel_id !== 'gr000') {
-                    await new Promise(resolve => setTimeout(resolve, 0.5 * 1000));
+                    await Utils.sleep(0.5);
                     // 0.5 秒待った結果、channel_id が既に変更されているので終了
                     if (this.channel.channel_id !== new_channel.channel_id) {
                         return;
@@ -181,7 +181,7 @@ export default Vue.extend({
                         this.is_manual_scroll = true;
 
                         // イベント発火時点では scrollTop の値が完全に下にスクロールされていない場合があるため、0.1秒だけ待つ
-                        await new Promise(resolve => setTimeout(resolve, 100));
+                        await Utils.sleep(0.1);
 
                         // 一番下までスクロールしていたら自動スクロールに戻す
                         if ((this.comment_list_element.scrollTop + this.comment_list_element.offsetHeight) >
@@ -375,7 +375,7 @@ export default Vue.extend({
                             this.destroy();
 
                             // waitTimeSec に記載の秒数だけ待ってから再接続する
-                            await new Promise(resolve => setTimeout(resolve, message.data.waitTimeSec * 1000));
+                            await Utils.sleep(message.data.waitTimeSec);
                             if (this.player.danmaku.showing) {
                                 this.player.notice('ニコニコ実況に再接続しています…');
                             }
@@ -444,7 +444,7 @@ export default Vue.extend({
                             this.destroy();
 
                             // 5 秒ほど待ってから再接続する
-                            await new Promise(resolve => setTimeout(resolve, 5 * 1000));
+                            await Utils.sleep(5);
                             if (this.player.danmaku.showing) {
                                 this.player.notice('ニコニコ実況に再接続しています…');
                             }
@@ -476,7 +476,7 @@ export default Vue.extend({
 
                     // 10 秒ほど待ってから再接続する
                     // ニコ生側から切断された場合と異なりネットワークが切断された可能性が高いので、間を多めに取る
-                    await new Promise(resolve => setTimeout(resolve, 10 * 1000));
+                    await Utils.sleep(10);
                     if (this.player.danmaku.showing) {
                         this.player.notice('ニコニコ実況に再接続しています…');
                     }
@@ -571,18 +571,28 @@ export default Vue.extend({
                     return;
                 }
 
-                // 色・位置
-                let color = '#FFEAEA';  // 色のデフォルト
-                let position = 'right';  // 位置のデフォルト
+                // 色・位置・サイズ
+                let color = '#FFEAEA';  // コメント色のデフォルト
+                let position = 'right'; // コメント位置のデフォルト
+                let size = 'medium';    // コメントサイズのデフォルト
                 if (comment.mail !== undefined && comment.mail !== null) {
-                    // コマンドをスペースで区切って配列にしたもの
-                    const command = comment.mail.replace('184', '').split(' ');
-                    for (const item of command) {  // コマンドごとに
-                        if (this.getCommentColor(item) !== null) {
-                            color = this.getCommentColor(item);
+
+                    // コマンドをスペースで区切って配列にしたもの (184 は事前に除外)
+                    const commands = comment.mail.replace('184', '').split(' ');
+
+                    for (const command of commands) {  // コマンドごとに
+                        // コメント色指定コマンドがあれば取得
+                        if (this.getCommentColor(command) !== null) {
+                            color = this.getCommentColor(command);
                         }
-                        if (this.getCommentPosition(item) !== null) {
-                            position = this.getCommentPosition(item);
+                        // コメント位置指定コマンドがあれば取得
+                        if (this.getCommentPosition(command) !== null) {
+                            position = this.getCommentPosition(command);
+                        }
+                        // コメントサイズ指定コマンドがあれば取得
+                        // コメントサイズのコマンドは DPlayer とニコニコで共通なので、変換の必要はない
+                        if (command === 'big' || command === 'medium' || command === 'small') {
+                            size = command;
                         }
                     }
                 }
@@ -592,7 +602,7 @@ export default Vue.extend({
                 // 最初に受信したコメントはリアルタイムなコメントではないため、遅らせないように
                 if (is_received_initial_comment) {
                     const comment_delay_time = Utils.getSettingsItem('comment_delay_time');
-                    await new Promise(resolve => setTimeout(resolve, comment_delay_time * 1000));
+                    await Utils.sleep(comment_delay_time);
                 }
 
                 // コメントリストのコメントが 500 件を超えたら古いものから順に削除する
@@ -633,6 +643,7 @@ export default Vue.extend({
                             text: comment.content,
                             color: color,
                             type: position,
+                            size: size,
                         });
                     }
                 }
@@ -658,40 +669,61 @@ export default Vue.extend({
                 return;
             }
 
+            // 未ログイン時
+            if (this.user === null) {
+                options.error('コメントするには、KonomiTV アカウントにログインしてください。');
+                return;
+            }
+
+            // ニコニコアカウント未連携時
+            if (this.user.niconico_user_id === null) {
+                options.error('コメントするには、ニコニコアカウントと連携してください。');
+                return;
+            }
+
+            // 一般会員ではコメント位置の指定 (ue, shita) が無視されるので、事前にエラーにしておく
+            if (this.user.niconico_user_premium === false && (options.data.type === 'top' || options.data.type === 'bottom')) {
+                options.error('コメントを上下に固定するには、ニコニコアカウントのプレミアム会員登録が必要です。');
+                return;
+            }
+
+            // 一般会員ではコメントサイズ大きめの指定 (big) が無視されるので、事前にエラーにしておく
+            if (this.user.niconico_user_premium === false && options.data.size === 'big') {
+                options.error('コメントサイズを大きめに設定するには、ニコニコアカウントのプレミアム会員登録が必要です。');
+                return;
+            }
+
             // DPlayer 上のコメント色（カラーコード）とニコニコの色コマンド定義のマッピング
             const color_table = {
-                0xFFFFFF: 'white',
-                0xE54256: 'red',
-                0xFFE133: 'yellow',
-                0x64DD17: 'green',
-                0x39CCFF: 'cyan',
-                0xD500F9: 'purple',
+                '#FFEAEA': 'white',
+                '#F02840': 'red',
+                '#FD7E80': 'pink',
+                '#FDA708': 'orange',
+                '#FFE133': 'yellow',
+                '#64DD17': 'green',
+                '#00D4F5': 'cyan',
+                '#4763FF': 'blue',
             };
 
             // DPlayer 上のコメント位置を表す数値とニコニコの位置コマンド定義のマッピング
             const position_table = {
-                0: 'naka',
-                1: 'ue',
-                2: 'shita',
+                'top': 'ue',
+                'right': 'naka',
+                'bottom': 'shita',
             };
 
             // vpos を計算 (10ミリ秒単位)
             // 番組開始時間からの累計秒らしいけど、なぜ指定しないといけないのかは不明
             const vpos = Math.floor(new Date().getTime() / 10) - this.vpos_base_timestamp;
 
-            // 一般会員ではコメント位置の指定 (ue, shita) が無視されるので、事前にエラーにしておく
-            if (this.user.niconico_user_premium === false && (options.data.type == 1 || options.data.type == 2)) {
-                options.error('コメントを上下に固定するには、ニコニコアカウントのプレミアム会員登録が必要です。');
-                return;
-            }
-
             // コメントを送信
             this.watch_session.send(JSON.stringify({
                 'type': 'postComment',
                 'data': {
                     'text': options.data.text,  // コメント本文
-                    'color': color_table[options.data.color],  // コメントの色
-                    'position': position_table[options.data.type],  // コメントの位置
+                    'color': color_table[options.data.color.toUpperCase()],  // コメントの色
+                    'position': position_table[options.data.type],  // コメント位置
+                    'size': options.data.size,  // コメントサイズ (DPlayer とニコニコで表現が共通)
                     'vpos': vpos,  // 番組開始時間からの累計秒（10ミリ秒単位）
                     'isAnonymous': true,  // 匿名コメント (184)
                 }
@@ -726,15 +758,11 @@ export default Vue.extend({
                         let error = `コメントの送信に失敗しました。(${message.data.code})`;
                         switch (message.data.code) {
                             case 'COMMENT_POST_NOT_ALLOWED': {
-                                error = 'コメントするにはニコニコアカウントと連携してください。';
+                                error = 'コメントが許可されていません。';
                                 break;
                             }
                             case 'INVALID_MESSAGE': {
                                 error = 'コメント内容が無効です。';
-                                break;
-                            }
-                            case 'COMMENT_LOCKED': {
-                                error = 'コメントがロックされています。';
                                 break;
                             }
                         }
@@ -847,7 +875,7 @@ export default Vue.extend({
             // 0.01 秒待って実行し、念押しで2回実行しないと完全に最下部までスクロールされない…（ブラウザの描画バグ？）
             // this.$nextTick() は効かなかった
             for (let index = 0; index < 3; index++) {
-                await new Promise(resolve => setTimeout(resolve, 0.01 * 1000));
+                await Utils.sleep(0.01);
                 if (smooth === true) {  // スムーズスクロール
                     this.comment_list_element.scrollTo({top: this.comment_list_element.scrollHeight, left: 0, behavior: 'smooth'});
                 } else {
@@ -856,7 +884,7 @@ export default Vue.extend({
             }
 
             // 0.1 秒待つ（重要）
-            await new Promise(resolve => setTimeout(resolve, 0.1 * 1000));
+            await Utils.sleep(0.1);
 
             // 自動スクロール中のフラグを降ろす
             this.is_auto_scrolling = false;
@@ -869,16 +897,16 @@ export default Vue.extend({
          */
         getCommentColor(color: string): string {
             const color_table = {
-                'red': '#E54256',
-                'pink': '#FF8080',
-                'orange': '#FFC000',
+                'white': '#FFEAEA',
+                'red': '#F02840',
+                'pink': '#FD7E80',
+                'orange': '#FDA708',
                 'yellow': '#FFE133',
                 'green': '#64DD17',
-                'cyan': '#39CCFF',
-                'blue': '#0000FF',
+                'cyan': '#00D4F5',
+                'blue': '#4763FF',
                 'purple': '#D500F9',
                 'black': '#1E1310',
-                'white': '#FFEAEA',
                 'white2': '#CCCC99',
                 'niconicowhite': '#CCCC99',
                 'red2': '#CC0033',
