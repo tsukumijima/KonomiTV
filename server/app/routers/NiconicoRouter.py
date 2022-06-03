@@ -160,7 +160,7 @@ async def NiconicoAuthCallbackAPI(
     except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
         return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Failed to get access token',
+            detail = 'Failed to get access token (Connection Timeout)',
         )
 
     # 取得したアクセストークンとリフレッシュトークンをユーザーアカウントに設定
@@ -197,7 +197,7 @@ async def NiconicoAuthCallbackAPI(
     except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
         return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Failed to get user information',
+            detail = 'Failed to get user information (Connection Timeout)',
         )
 
     # 変更をデータベースに保存

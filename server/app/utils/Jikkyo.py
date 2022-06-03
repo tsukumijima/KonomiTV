@@ -184,7 +184,7 @@ class Jikkyo:
 
         # 接続エラー（サーバーメンテナンスやタイムアウトなど）
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-            raise Exception('アクセストークンの更新に失敗しました。')
+            raise Exception('アクセストークンの更新リクエストがタイムアウトしました。')
 
         # 取得したアクセストークンとリフレッシュトークンをユーザーアカウントに設定
         ## 仕様上リフレッシュトークンに有効期限はないが、一応このタイミングでリフレッシュトークンも更新することが推奨されている
@@ -236,7 +236,7 @@ class Jikkyo:
         try:
             watch_page_response = await asyncio.to_thread(requests.get, watch_page_url, headers=API_REQUEST_HEADERS, timeout=3)
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-            return {'is_success': False, 'detail': 'ニコニコ実況に接続できませんでした。'}
+            return {'is_success': False, 'detail': 'ニコニコ実況に接続できませんでした。ニコニコで障害が発生している可能性があります。'}
         watch_page_code = watch_page_response.status_code
 
         # ステータスコードを判定
@@ -331,7 +331,7 @@ class Jikkyo:
 
             # 接続エラー（サーバー再起動やタイムアウトなど）
             except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-                return {'is_success': False, 'detail': 'ニコニコ実況に接続できませんでした。'}
+                return {'is_success': False, 'detail': 'ニコニコ実況に接続できませんでした。ニコニコで障害が発生している可能性があります。'}
 
         # 視聴セッションの WebSocket URL を返す
         return {'is_success': True, 'audience_token': session, 'detail': '視聴セッションを取得しました。'}
