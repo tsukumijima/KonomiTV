@@ -11,7 +11,7 @@
                     <Icon icon="fluent:person-board-20-filled" class="mr-2" height="30" />連携中のアカウント
                 </div>
                 <div class="twitter-accounts__guide" v-if="user.twitter_accounts.length === 0">
-                    <Icon icon="fa-brands:twitter" width="82px" />
+                    <Icon class="flex-shrink-0" icon="fa-brands:twitter" width="45px" />
                     <div class="ml-4">
                         <div class="font-weight-bold text-h6">Twitter アカウントと連携していません</div>
                         <div class="text--text text--darken-1 text-subtitle-2 mt-1">

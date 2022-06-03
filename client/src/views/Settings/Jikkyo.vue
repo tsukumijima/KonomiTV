@@ -7,7 +7,7 @@
         </h2>
         <div class="settings__content" :class="{'settings__content--loading': is_loading}">
             <div class="niconico-account" v-if="user.niconico_user_id === null">
-                <Icon icon="bi:chat-left-text-fill" width="64px" />
+                <Icon class="flex-shrink-0" icon="bi:chat-left-text-fill" width="45px" />
                 <div class="niconico-account__info ml-4">
                     <div class="niconico-account__info-name">
                         <span class="niconico-account__info-name-text">ニコニコアカウントと連携していません</span>
@@ -212,12 +212,12 @@ export default Vue.extend({
                     } else if (authorization_detail.startsWith('Failed to get access token (HTTP Error ')) {
                         const error = authorization_detail.replace('Failed to get access token ', '');
                         this.$message.error(`アクセストークンの取得に失敗しました。${error}`);
-                    } else if (authorization_detail.startsWith('Failed to get access token')) {
+                    } else if (authorization_detail.startsWith('Failed to get access token (Connection Timeout)')) {
                         this.$message.error('アクセストークンの取得に失敗しました。ニコニコで障害が発生している可能性があります。');
                     } else if (authorization_detail.startsWith('Failed to get user information (HTTP Error ')) {
                         const error = authorization_detail.replace('Failed to get user information ', '');
                         this.$message.error(`ニコニコアカウントのユーザー情報の取得に失敗しました。${error}`);
-                    } else if (authorization_detail.startsWith('Failed to get user information')) {
+                    } else if (authorization_detail.startsWith('Failed to get user information (Connection Timeout)')) {
                         this.$message.error('ニコニコアカウントのユーザー情報の取得に失敗しました。ニコニコで障害が発生している可能性があります。');
                     } else {
                         this.$message.error(`ニコニコアカウントとの連携に失敗しました。(${authorization_detail})`);
