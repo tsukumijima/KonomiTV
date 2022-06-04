@@ -101,13 +101,15 @@ class LiveStreams(BaseModel):
 
 class ClientSettings(BaseModel):
     # 詳細は client/src/utils/Utils.ts を参照
-    # デバイス間で同期するとかえって面倒なことになるものは除外している
+    # デバイス間で同期するとかえって面倒なことになりそうな設定は除外している
     pinned_channel_ids: List[str] = Field([])
+    is_display_superimpose_tv: bool = Field(True)
     panel_display_state: Literal['RestorePreviousState', 'AlwaysDisplay', 'AlwaysFold'] = Field('RestorePreviousState')
     panel_active_tab: Literal['Program', 'Channel', 'Comment', 'Twitter'] = Field('Program')
+    capture_save_mode: Literal['Browser', 'UploadServer', 'Both'] = Field('Browser')
+    capture_caption_mode: Literal['VideoOnly', 'CompositingCaption', 'Both'] = Field('Both')
     comment_speed_rate: float = Field(1)
     comment_font_size: int = Field(34)
-    comment_delay_time: float = Field(1)
 
 class ThirdpartyAuthURL(BaseModel):
     authorization_url: Optional[str]

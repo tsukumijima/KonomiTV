@@ -20,6 +20,7 @@ export default class Utils {
     })();
 
     // デフォルトの設定値
+    // (同期無効) とある項目は、デバイス間で同期するとかえって面倒なことになりそうなため同期されない設定
     // ここを変えたときはサーバー側の app.schemas も変更すること
     static readonly default_settings = {
 
@@ -28,27 +29,27 @@ export default class Utils {
         // ピン留めしているチャンネルの ID (ex: gr011) が入るリスト
         pinned_channel_ids: [] as string[],
 
-        // 前回視聴画面を開いた際にパネルが表示されていたかどうか
+        // 前回視聴画面を開いた際にパネルが表示されていたかどうか (同期無効)
         is_display_latest_panel: true as boolean,
 
         // ***** 設定 → 全般 *****
 
-        // テレビのストリーミング画質（1080p）
+        // テレビのストリーミング画質 (Default: 1080p) (同期無効)
         tv_streaming_quality: '1080p' as ('1080p' | '810p' | '720p' | '540p' | '480p' | '360p' | '240p'),
 
-        // テレビをみるときに文字スーパーを表示する
+        // テレビをみるときに文字スーパーを表示する (Default: 表示する)
         is_display_superimpose_tv: true as boolean,
 
-        // 既定のパネルの表示状態（前回の状態を復元する）
+        // 既定のパネルの表示状態 (Default: 前回の状態を復元する)
         panel_display_state: 'RestorePreviousState' as ('RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold'),
 
-        // 既定で表示されるパネルのタブ（番組情報タブ）
+        // 既定で表示されるパネルのタブ (Default: 番組情報タブ)
         panel_active_tab: 'Program' as ('Program' | 'Channel' | 'Comment' | 'Twitter'),
 
-        // キャプチャの保存先 (ブラウザでダウンロード)
+        // キャプチャの保存先 (Default: ブラウザでダウンロード)
         capture_save_mode: 'Browser' as ('Browser' | 'UploadServer' | 'Both'),
 
-        // 字幕が表示されているときのキャプチャの保存モード (映像のみのキャプチャと、字幕を合成したキャプチャを両方保存する)
+        // 字幕が表示されているときのキャプチャの保存モード (Default: 映像のみのキャプチャと、字幕を合成したキャプチャを両方保存する)
         capture_caption_mode: 'Both' as ('VideoOnly' | 'CompositingCaption' | 'Both'),
 
         // ***** 設定 → ニコニコ実況 *****
@@ -59,7 +60,7 @@ export default class Utils {
         // コメントのフォントサイズ (34px)
         comment_font_size: 34 as number,
 
-        // コメントの遅延時間 (1.5秒)
+        // コメントの遅延時間 (1.5秒) (同期無効)
         comment_delay_time: 1.5 as number,
     };
 
