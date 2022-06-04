@@ -126,13 +126,13 @@ export default Vue.extend({
                     font-size: 16.5px;
                 }
                 &-label {
-                    margin-top: 6px;
+                    margin-top: 8px;
                     color: var(--v-text-darken1);
                     font-size: 13.5px;
                     line-height: 1.6;
                 }
                 &-form {
-                    margin-top: 12px;
+                    margin-top: 14px;
                 }
                 &-switch {
                     align-items: center;
@@ -141,6 +141,13 @@ export default Vue.extend({
                     right: -74px;
                     bottom: 0;
                     margin-top: 0;
+                }
+
+                p {
+                    margin-bottom: 8px;
+                    &:last-of-type {
+                        margin-bottom: 0px;
+                    }
                 }
             }
 

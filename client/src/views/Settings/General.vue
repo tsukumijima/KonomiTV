@@ -44,6 +44,35 @@
                     :items="panel_active_tab" v-model="settings.panel_active_tab">
                 </v-select>
             </div>
+            <div class="settings__item">
+                <div class="settings__item-heading">キャプチャの保存先</div>
+                <div class="settings__item-label">
+                    <p>
+                        キャプチャした画像をブラウザでダウンロードするか、KonomiTV サーバーにアップロードするかを設定します。<br>
+                        ブラウザでのダウンロードと、KonomiTV サーバーへのアップロードを両方同時に行うこともできます。<br>
+                    </p>
+                    <p>
+                        ブラウザでダウンロードすると、視聴中のデバイスのダウンロードフォルダに保存されます。視聴中のデバイスにそのまま保存されるためシンプルですが、保存先のフォルダを変更できないこと、PC 版 Chrome では毎回ダウンロードバーが表示されてしまうことがデメリットです。<br>
+                    </p>
+                    <p>
+                        KonomiTV サーバーにアップロードすると、環境設定で指定されたキャプチャ用フォルダに保存されます。視聴したデバイスにかかわらず、今までに撮ったキャプチャをひとつのフォルダにまとめて保存できます。<br>
+                        他のデバイスでキャプチャを見るにはキャプチャフォルダをネットワークに共有する必要があること、スマホ・タブレットではネットワーク上のフォルダへのアクセスがやや面倒なことがデメリットです。<br>
+                    </p>
+                </div>
+                <v-select class="settings__item-form" outlined hide-details
+                    :items="capture_save_mode" v-model="settings.capture_save_mode">
+                </v-select>
+            </div>
+            <div class="settings__item">
+                <div class="settings__item-heading">字幕が表示されているときのキャプチャの保存モード</div>
+                <div class="settings__item-label">
+                    字幕が表示されているときに、キャプチャした画像に字幕を合成するかを設定します。<br>
+                    映像のみのキャプチャと、字幕を合成したキャプチャを両方同時に保存することもできます。<br>
+                </div>
+                <v-select class="settings__item-form" outlined hide-details
+                    :items="capture_caption_mode" v-model="settings.capture_caption_mode">
+                </v-select>
+            </div>
         </div>
     </Base>
 </template>
@@ -88,13 +117,35 @@ export default Vue.extend({
                 {'text': 'Twitter タブ', 'value': 'Twitter'},
             ],
 
+            // キャプチャの保存先
+            capture_save_mode: [
+                {'text': 'ブラウザでダウンロード', 'value': 'Browser'},
+                {'text': 'KonomiTV サーバーにアップロード', 'value': 'UploadServer'},
+                {'text': 'ブラウザでのダウンロードと、KonomiTV サーバーへのアップロードを両方行う', 'value': 'Both'},
+            ],
+
+            // 字幕が表示されているときのキャプチャの保存モードの選択肢
+            capture_caption_mode: [
+                {'text': '映像のみのキャプチャを保存する', 'value': 'VideoOnly'},
+                {'text': '字幕を合成したキャプチャを保存する', 'value': 'CompositingCaption'},
+                {'text': '映像のみのキャプチャと、字幕を合成したキャプチャを両方保存する', 'value': 'Both'},
+            ],
+
             // 設定値が保存されるオブジェクト
             // ここの値とフォームを v-model で binding する
             settings: (() => {
                 // 設定の既定値を取得する
                 const settings = {}
-                for (const setting of ['tv_streaming_quality', 'is_display_superimpose_tv', 'panel_display_state', 'panel_active_tab']) {
-                    settings[setting] = Utils.getSettingsItem(setting);
+                const settings_keys = [
+                    'tv_streaming_quality',
+                    'is_display_superimpose_tv',
+                    'panel_display_state',
+                    'panel_active_tab',
+                    'capture_save_mode',
+                    'capture_caption_mode',
+                ];
+                for (const setting_key of settings_keys) {
+                    settings[setting_key] = Utils.getSettingsItem(setting_key);
                 }
                 return settings;
             })(),

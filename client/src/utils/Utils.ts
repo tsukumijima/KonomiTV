@@ -45,6 +45,12 @@ export default class Utils {
         // 既定で表示されるパネルのタブ（番組情報タブ）
         panel_active_tab: 'Program' as ('Program' | 'Channel' | 'Comment' | 'Twitter'),
 
+        // キャプチャの保存先 (ブラウザでダウンロード)
+        capture_save_mode: 'Browser' as ('Browser' | 'UploadServer' | 'Both'),
+
+        // 字幕が表示されているときのキャプチャの保存モード (映像のみのキャプチャと、字幕を合成したキャプチャを両方保存する)
+        capture_caption_mode: 'Both' as ('VideoOnly' | 'CompositingCaption' | 'Both'),
+
         // ***** 設定 → ニコニコ実況 *****
 
         // コメントの速さ (1倍)

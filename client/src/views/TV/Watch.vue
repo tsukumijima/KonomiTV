@@ -1304,10 +1304,10 @@ export default Vue.extend({
                 );
 
                 // コメント描画領域がコントロールの表示によりリサイズされている (=16:9でない) 場合も考慮して、コメント要素の offsetWidth から高さを求める
-                // 映像の幅がコメント描画領域の幅の何倍かを示す値
+                // 映像の幅 (ex: 1920) がコメント描画領域の幅 (ex: 1280) の何倍かの割合 (ex: 1.5 (150%))
                 const draw_scale_ratio = this.canvas.width / (this.player.template.danmaku as HTMLDivElement).offsetWidth;
-                // コメント描画領域の高さをベースに、映像の幅に合わせて（アスペクト比を維持して）拡大した値
-                // 映像の縦解像度が 1080 のとき、コントロールがコメント領域と被っていない or 表示されていないなら、この値は 1080 に近くなる
+                // コメント描画領域の高さを映像の幅に合わせて（コメント描画領域のアスペクト比を維持したまま）拡大した値
+                // 映像の高さが 1080 のとき、コントロールがコメント領域と被っていない or 表示されていないなら、この値は 1080 に近くなる
                 // 0.5625 (56.25%) = 16:9 の幅を 1 としたときの高さの割合
                 const draw_height = (this.player.template.danmaku as HTMLDivElement).offsetHeight * draw_scale_ratio;
 
