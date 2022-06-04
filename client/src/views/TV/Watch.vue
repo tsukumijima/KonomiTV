@@ -1353,23 +1353,38 @@ export default Vue.extend({
                     await DrawComments();
                 }
 
-                // 通常のキャプチャ:  Canvas (映像のみ) を画像にエクスポート
-                // コメント付きキャプチャ:  Canvas (映像 + コメント) を画像にエクスポート
-                this.canvas.toBlob((blob) => {
+                // 字幕表示時のキャプチャの保存モード: 映像のみ or 両方
+                if (['VideoOnly', 'Both'].includes(Utils.getSettingsItem('capture_caption_mode'))) {
 
-                    // Blob 化に失敗
-                    if (blob === null) {
-                        this.player.notice('キャプチャの保存に失敗しました…')
-                        return;
-                    }
+                    // 通常のキャプチャ:  Canvas (映像のみ) を画像にエクスポート
+                    // コメント付きキャプチャ:  Canvas (映像 + コメント) を画像にエクスポート
+                    this.canvas.toBlob((blob) => {
 
-                    // キャプチャをダウンロード
-                    // TODO: キャプチャを KonomiTV サーバーにアップロードする
-                    // TODO: キャプチャを Twitter タブ側に引き渡す
-                    Utils.downloadBlobImage(blob, `${filename}.jpg`);
+                        // Blob 化に失敗
+                        if (blob === null) {
+                            this.player.notice('キャプチャの保存に失敗しました…')
+                            return;
+                        }
 
-                // 保存する画像の品質
-                }, 'image/jpeg', 1);
+                        // キャプチャの保存先: ブラウザ or 両方
+                        if (['Browser', 'Both'].includes(Utils.getSettingsItem('capture_save_mode'))) {
+
+                            // キャプチャをダウンロード
+                            // TODO: キャプチャを KonomiTV サーバーにアップロードする
+                            // TODO: キャプチャを Twitter タブ側に引き渡す
+                            Utils.downloadBlobImage(blob, `${filename}.jpg`);
+                        }
+
+                        // キャプチャの保存先: KonomiTV サーバーにアップロード or 両方
+                        if (['UploadServer', 'Both'].includes(Utils.getSettingsItem('capture_save_mode'))) {
+
+                            // TODO: 未実装
+                            this.player.notice('キャプチャの KonomiTV サーバーへのアップロードは未実装です。');
+                        }
+
+                    // 保存する画像の品質
+                    }, 'image/jpeg', 1);
+                }
 
                 // 字幕が表示されているときのみ実行（字幕が表示されていないのにやっても意味がない）
                 if (this.player.plugins.aribb24Caption.isShowing === true && this.player.plugins.aribb24Caption.isPresent()) {
@@ -1389,23 +1404,38 @@ export default Vue.extend({
                         await DrawComments();
                     }
 
-                    // 通常のキャプチャ:  Canvas (映像 + 字幕) を画像にエクスポート
-                    // コメント付きキャプチャ:  Canvas (映像 + 字幕 + コメント) を画像にエクスポート
-                    this.canvas.toBlob((blob) => {
+                    // 字幕表示時のキャプチャの保存モード: 字幕キャプチャのみ or 両方
+                    if (['CompositingCaption', 'Both'].includes(Utils.getSettingsItem('capture_caption_mode'))) {
 
-                        // Blob 化に失敗
-                        if (blob === null) {
-                            this.player.notice('キャプチャの保存に失敗しました…')
-                            return;
-                        }
+                        // 通常のキャプチャ:  Canvas (映像 + 字幕) を画像にエクスポート
+                        // コメント付きキャプチャ:  Canvas (映像 + 字幕 + コメント) を画像にエクスポート
+                        this.canvas.toBlob((blob) => {
 
-                        // キャプチャをダウンロード
-                        // TODO: キャプチャを KonomiTV サーバーにアップロードする
-                        // TODO: キャプチャを Twitter タブ側に引き渡す
-                        Utils.downloadBlobImage(blob, `${filename}_caption.jpg`);
+                            // Blob 化に失敗
+                            if (blob === null) {
+                                this.player.notice('キャプチャの保存に失敗しました…')
+                                return;
+                            }
 
-                    // 保存する画像の品質
-                    }, 'image/jpeg', 1);
+                            // キャプチャの保存先: ブラウザ or 両方
+                            if (['Browser', 'Both'].includes(Utils.getSettingsItem('capture_save_mode'))) {
+
+                                // キャプチャをダウンロード
+                                // TODO: キャプチャを KonomiTV サーバーにアップロードする
+                                // TODO: キャプチャを Twitter タブ側に引き渡す
+                                Utils.downloadBlobImage(blob, `${filename}_caption.jpg`);
+                            }
+
+                            // キャプチャの保存先: KonomiTV サーバーにアップロード or 両方
+                            if (['UploadServer', 'Both'].includes(Utils.getSettingsItem('capture_save_mode'))) {
+
+                                // TODO: 未実装
+                                this.player.notice('キャプチャの KonomiTV サーバーへのアップロードは未実装です。');
+                            }
+
+                        // 保存する画像の品質
+                        }, 'image/jpeg', 1);
+                    }
                 }
             };
 
