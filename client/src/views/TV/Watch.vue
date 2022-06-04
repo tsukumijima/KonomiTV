@@ -1208,15 +1208,116 @@ export default Vue.extend({
             this.comment_capture_button = this.$el.querySelector('.dplayer-icon.dplayer-comment-capture-icon');
 
             // 表示されているニコニコ実況のコメントを Canvas に描画する関数
-            const DrawComments = () => {
+            // ZenzaWatch のコードを参考にさせていただいています
+            // ref: https://github.com/segabito/ZenzaWatch/blob/master/packages/lib/src/dom/VideoCaptureUtil.js
+            const DrawComments = async () => {
 
-                // TODO: 描画処理は未実装
+                // HTML を SVG 画像の Image に変換する
+                // ref: https://web.archive.org/web/2/https://developer.mozilla.org/ja/docs/Web/HTML/Canvas/Drawing_DOM_objects_into_a_canvas
+                const HTMLtoSVGImage = async (html: string, width: number, height: number): Promise<HTMLImageElement> => {
+
+                    // SVG の foreignObject を使い、HTML をそのまま SVG に埋め込む
+                    // SVG なので、CSS はインラインでないと適用されない…
+                    // DPlayer の danmaku.scss の内容のうち、描画に必要なプロパティのみを列挙 (追加変更したものもある)
+                    // ref: https://github.com/tsukumijima/DPlayer/blob/master/src/css/danmaku.scss
+                    const svg = (`
+                        <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+                            <foreignObject width="100%" height="100%">
+                                <div xmlns="http://www.w3.org/1999/xhtml">
+                                    <style>
+                                    .dplayer-danmaku {
+                                        position: absolute;
+                                        top: 0;
+                                        left: 0;
+                                        right: 0;
+                                        bottom: 0;
+                                        color: #fff;
+                                        font-size: 29px;
+                                        font-family: 'YakuHanJPs', 'Open Sans', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+                                    }
+                                    .dplayer-danmaku .dplayer-danmaku-item {
+                                        display: inline-block;
+                                        line-height: 1;
+                                        font-weight: bold;
+                                        font-size: var(--dplayer-danmaku-font-size);
+                                        opacity: var(--dplayer-danmaku-opacity);
+                                        text-shadow: 1.2px 1.2px 4px rgba(0, 0, 0, 0.9);
+                                        white-space: nowrap;
+                                    }
+                                    .dplayer-danmaku .dplayer-danmaku-item--demo {
+                                        position: absolute;
+                                        visibility: hidden;
+                                    }
+                                    .dplayer-danmaku .dplayer-danmaku-item span {
+                                        box-decoration-break: clone;
+                                        -webkit-box-decoration-break: clone;
+                                    }
+                                    .dplayer-danmaku .dplayer-danmaku-item.dplayer-danmaku-size-big {
+                                        font-size: calc(var(--dplayer-danmaku-font-size) * 1.25);
+                                    }
+                                    .dplayer-danmaku .dplayer-danmaku-item.dplayer-danmaku-size-small {
+                                        font-size: calc(var(--dplayer-danmaku-font-size) * 0.8);
+                                    }
+                                    .dplayer-danmaku .dplayer-danmaku-right {
+                                        position: absolute;
+                                        right: 0;
+                                    }
+                                    .dplayer-danmaku .dplayer-danmaku-top, .dplayer-danmaku .dplayer-danmaku-bottom {
+                                        position: absolute;
+                                        left: 50%;
+                                        transform: translateX(-50%);
+                                    }
+                                    </style>
+                                    ${html}
+                                </div>
+                            </foreignObject>
+                        </svg>
+                    `).trim();
+
+                    // Data URL 化して Image オブジェクトにする
+                    // わざわざ Blob にするよりこっちのほうが楽
+                    const image = new Image();
+                    image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+
+                    // Image は onload を使わなくても await Image.decode() でロードできる
+                    await image.decode();
+                    return image;
+                };
+
+                // コメントが表示されている要素の HTML
+                let comments_html = (this.player.template.danmaku as HTMLDivElement).outerHTML;
+
+                // スクロール中のコメントは HTML だけでは現在の表示位置が特定できないため、HTML を修正する
+                for (const comment of this.$el.querySelectorAll('.dplayer-danmaku-move')) { // コメントの数だけ置換
+                    // スクロール中のコメントの表示座標を計算
+                    const position = comment.getBoundingClientRect().left - this.player.video.getBoundingClientRect().left;
+                    comments_html = comments_html.replace(/transform: translateX\(.*?\);/, `left: ${position}px;`);
+                }
+
+                // HTML を画像として取得
+                // SVG のサイズはコメントが表示されている要素に合わせる (そうしないとプレイヤー側と一致しない)
+                // SVG はベクター画像なので、リサイズしても画質が変わらないはず
+                const comments_image = await HTMLtoSVGImage(
+                    comments_html,
+                    (this.player.template.danmaku as HTMLDivElement).offsetWidth,
+                    (this.player.template.danmaku as HTMLDivElement).offsetHeight,
+                );
+
+                // コメント描画領域がコントロールの表示によりリサイズされている (=16:9でない) 場合も考慮して、コメント要素の offsetWidth から高さを求める
+                // 映像の幅がコメント描画領域の幅の何倍かを示す値
+                const draw_scale_ratio = this.canvas.width / (this.player.template.danmaku as HTMLDivElement).offsetWidth;
+                // コメント描画領域の高さをベースに、映像の幅に合わせて（アスペクト比を維持して）拡大した値
+                // 映像の縦解像度が 1080 のとき、コントロールがコメント領域と被っていない or 表示されていないなら、この値は 1080 に近くなる
+                // 0.5625 (56.25%) = 16:9 の幅を 1 としたときの高さの割合
+                const draw_height = (this.player.template.danmaku as HTMLDivElement).offsetHeight * draw_scale_ratio;
+
+                this.canvas_context.drawImage(comments_image, 0, 0, this.canvas.width, draw_height);
             };
 
             // キャプチャして保存する関数
             // 通常のキャプチャもコメント付きキャプチャも途中まで処理は同じなので、共通化する
             // 映像のみと字幕付き (字幕表示時のみ) の両方のキャプチャを生成する
-            const CaptureAndSave = (with_comments: boolean = false) => {
+            const CaptureAndSave = async (with_comments: boolean = false) => {
 
                 // まだ映像の表示準備が終わっていない (Canvas の幅/高さが 0 のまま)
                 if (this.canvas.width === 0 && this.canvas.height === 0) {
@@ -1233,20 +1334,23 @@ export default Vue.extend({
                 // ファイル名（拡張子なし）
                 const filename = `Capture_${dayjs().format('YYYYMMDD-HHmmss')}`;
 
+                // 字幕・文字スーパーの Canvas を取得
+                // getRawCanvas() で映像と同じ解像度の Canvas が取得できる
+                const caption_canvas: HTMLCanvasElement = this.player.plugins.aribb24Caption.getRawCanvas();
+                const superimpose_canvas: HTMLCanvasElement = this.player.plugins.aribb24Superimpose.getRawCanvas();
+
                 // Canvas に映像を描画
                 this.canvas_context.drawImage(this.player.video, 0, 0, this.canvas.width, this.canvas.height);
 
-                // 文字スーパーが表示されているなら、それも描画
-                // 文字スーパーを消してキャプチャ撮りたいユースケースはない…はず
-                // getRawCanvas() で映像と同じ解像度の Canvas が取得できる
-                if (this.player.plugins.aribb24Superimpose.isPresent()) {
-                    const superimpose_canvas: HTMLCanvasElement = this.player.plugins.aribb24Superimpose.getRawCanvas();
+                // 文字スーパーを描画 (表示されている場合)
+                // 文字スーパー自体が稀だし、文字スーパーなしでキャプチャ撮りたいユースケースはない…はず
+                if (this.player.plugins.aribb24Superimpose.isShowing === true && this.player.plugins.aribb24Superimpose.isPresent()) {
                     this.canvas_context.drawImage(superimpose_canvas, 0, 0, this.canvas.width, this.canvas.height);
                 }
 
                 // コメント付きキャプチャ: 追加でニコニコ実況のコメントを描画
                 if (with_comments === true) {
-                    DrawComments();
+                    await DrawComments();
                 }
 
                 // 通常のキャプチャ:  Canvas (映像のみ) を画像にエクスポート
@@ -1268,24 +1372,21 @@ export default Vue.extend({
                 }, 'image/jpeg', 1);
 
                 // 字幕が表示されているときのみ実行（字幕が表示されていないのにやっても意味がない）
-                if (this.player.plugins.aribb24Caption.isPresent()) {
+                if (this.player.plugins.aribb24Caption.isShowing === true && this.player.plugins.aribb24Caption.isPresent()) {
 
                     // コメント付きキャプチャ: 映像と文字スーパーの描画をやり直す
-                    // すでに字幕なしキャプチャを生成する過程でコメントを描画してしまっているため、コメントの描画前の状態に戻す必要がある
+                    // すでに字幕なしキャプチャを生成する過程でコメントを描画してしまっているため、映像描画からやり直す必要がある
                     if (with_comments === true) {
                         this.canvas_context.drawImage(this.player.video, 0, 0, this.canvas.width, this.canvas.height);
-                        const superimpose_canvas: HTMLCanvasElement = this.player.plugins.aribb24Superimpose.getRawCanvas();
                         this.canvas_context.drawImage(superimpose_canvas, 0, 0, this.canvas.width, this.canvas.height);
                     }
 
                     // 字幕を重ねて描画
-                    // getRawCanvas() で映像と同じ解像度の Canvas が取得できる
-                    const caption_canvas: HTMLCanvasElement = this.player.plugins.aribb24Caption.getRawCanvas();
                     this.canvas_context.drawImage(caption_canvas, 0, 0, this.canvas.width, this.canvas.height);
 
                     // コメント付きキャプチャ: 追加でニコニコ実況のコメントを描画
                     if (with_comments === true) {
-                        DrawComments();
+                        await DrawComments();
                     }
 
                     // 通常のキャプチャ:  Canvas (映像 + 字幕) を画像にエクスポート
@@ -1310,14 +1411,14 @@ export default Vue.extend({
 
             // キャプチャボタンがクリックされたときのイベント
             // ショートカットからのキャプチャでも同じイベントがトリガーされる
-            this.capture_button.addEventListener('click',  (event) => {
-                CaptureAndSave();
+            this.capture_button.addEventListener('click', async () => {
+                await CaptureAndSave();
             });
 
             // コメント付きキャプチャボタンがクリックされたときのイベント
             // ショートカットからのキャプチャでも同じイベントがトリガーされる
-            this.comment_capture_button.addEventListener('click',  (event) => {
-                CaptureAndSave(true);
+            this.comment_capture_button.addEventListener('click', async () => {
+                await CaptureAndSave(true);
             });
         },
 
