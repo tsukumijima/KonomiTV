@@ -1748,12 +1748,6 @@ export default Vue.extend({
             opacity: 1;
         }
         .dplayer-danmaku {
-            top: 50%;
-            left: 50%;
-            right: auto;
-            bottom: auto;
-            transform: translate(-50%, -50%);
-            width: 100%;
             max-width: 100%;
             max-height: calc(100% - var(--comment-area-vertical-margin, 0px));
             aspect-ratio: var(--comment-area-aspect-ratio, 16 / 9);
@@ -2240,7 +2234,6 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 position: absolute;
                 top: 50%;
                 left: 50%;
-                width: 100%;
                 max-width: 100%;
                 max-height: 100%;
                 padding-top: min(56.25%, 100vh);
@@ -2249,7 +2242,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 background-color: rgba(14, 14, 18, 0.35);
                 background-size: cover;
                 background-image: none;
-                transform: translate(-50%,-50%);
+                transform: translate(-50%, -50%);
                 opacity: 0;
                 visibility: hidden;
                 will-change: opacity;
