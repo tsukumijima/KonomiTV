@@ -1,6 +1,10 @@
 
+# ----------------------------------------------------------------------------------------------------
 # サードパーティーライブラリのダウンロードを行うステージ
-# 念のため最終イメージに合わせて ubuntu20.04 にしておく
+# Docker のマルチステージビルドを使い、最終的な Docker イメージのサイズを抑え、ビルドキャッシュを効かせる
+# ----------------------------------------------------------------------------------------------------
+
+# 念のため最終イメージに合わせて Ubuntu 20.04 LTS にしておく
 # 中間イメージなので、サイズは（ビルドするマシンのディスク容量以外は）気にしなくて良い
 FROM ubuntu:20.04 AS thirdparty-downloader
 
@@ -40,7 +44,11 @@ RUN chmod 755 ./thirdparty/FFmpeg/ffmpeg.elf && \
     chmod 755 ./thirdparty/tsreadex/tsreadex.elf && \
     chmod 755 ./thirdparty/VCEEncC/VCEEncC.elf
 
-# client のビルド
+# ----------------------------------------------------------------------------------------------------
+# client をビルドするステージ
+# client 自体は Git に含まれているが、万が一ビルドし忘れたりや開発ブランチでの利便性を考慮してビルドしておく
+# ----------------------------------------------------------------------------------------------------
+
 FROM node:16 AS client-builder
 
 # 依存パッケージリストをコピー
@@ -54,9 +62,14 @@ COPY ./client /code/client
 # クライアントをビルド、/code/client/dist に成果物が作成される
 RUN yarn build
 
-# server のセットアップ兼実行時のイメージ
-# Ubuntu 20.04 LTS をベースイメージとして利用
-FROM nvidia/cuda:11.4.1-runtime-ubuntu20.04
+# ----------------------------------------------------------------------------------------------------
+# メインのステージ
+# ここで作成された最終イメージが docker-compose up -d で起動される
+# ----------------------------------------------------------------------------------------------------
+
+# Ubuntu 20.04 LTS (with CUDA) をベースイメージとして利用
+# CUDA 付きなのは NVEncC を動かせるようにするため
+FROM nvidia/cuda:11.7.0-runtime-ubuntu20.04
 
 # タイムゾーンを東京に設定
 ENV TZ=Asia/Tokyo
@@ -65,15 +78,17 @@ ENV TZ=Asia/Tokyo
 ENV DEBIAN_FRONTEND=noninteractive
 
 # パッケージのインストール（実行時イメージなのでRUNの最後に掃除する）
-RUN apt-get update -y && apt-get upgrade -y && apt-get install -y --no-install-recommends \
-    python3.9 \
-    python3-pip \
-    ffmpeg \
-    libv4l-0 \
-    libxcb1 \
-    libva2 \
-    libmfx1 \
-    intel-media-va-driver-non-free && \
+RUN add-apt-repository ppa:deadsnakes/ppa -y && \
+    apt-get update -y && apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends \
+        python3.10 \
+        python3-pip \
+        ffmpeg \
+        libv4l-0 \
+        libxcb1 \
+        libva2 \
+        libmfx1 \
+        intel-media-va-driver-non-free && \
     apt-get -y autoremove && \
     apt-get -y clean && \
     rm -rf /var/lib/apt/lists/* && \
