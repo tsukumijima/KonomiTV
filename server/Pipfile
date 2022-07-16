@@ -13,20 +13,20 @@ aiofiles = "*"
 aiosqlite = "*"
 ariblib = "*"
 colorama = ">=0.4"
-fastapi = "==0.75.2"
+fastapi = "==0.79.0"
 fastapi-utils = "==0.2.1"
 passlib = {extras = ["bcrypt"], version = "*"}
 pillow = "*"
 psutil = "*"
 python-jose = {extras = ["cryptography"], version = "*"}
 python-multipart = "*"
-pywin32 = {version = "==303", sys_platform = "== 'win32'"}
+pywin32 = {version = "==304", sys_platform = "== 'win32'"}
 requests = "*"
 "ruamel.yaml" = "*"
 sse-starlette = "==0.10.3"
-tortoise-orm = "==0.19.0"
+tortoise-orm = "==0.19.2"
 tweepy = "*"
-uvicorn = {extras = ["standard"], version = "==0.17.6"}
+uvicorn = {extras = ["standard"], version = "==0.18.2"}
 uvloop = {version = ">=0.14.0,!=0.15.0,!=0.15.1", sys_platform = "!= 'win32'"}
 
 [dev-packages]
