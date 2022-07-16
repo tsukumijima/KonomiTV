@@ -64,7 +64,7 @@ RUN yarn build
 
 # ----------------------------------------------------------------------------------------------------
 # メインのステージ
-# ここで作成された最終イメージが docker-compose up -d で起動される
+# ここで作成された実行時イメージが docker-compose up -d で起動される
 # ----------------------------------------------------------------------------------------------------
 
 # Ubuntu 20.04 LTS (with CUDA) をベースイメージとして利用
@@ -77,11 +77,13 @@ ENV TZ=Asia/Tokyo
 # apt-get に対話的に設定確認されないための設定
 ENV DEBIAN_FRONTEND=noninteractive
 
-# パッケージのインストール（実行時イメージなのでRUNの最後に掃除する）
-RUN add-apt-repository ppa:deadsnakes/ppa -y && \
-    apt-get update -y && apt-get upgrade -y && \
+# パッケージのインストール（実行時イメージなので RUN の最後に掃除する）
+RUN apt-get update -y && apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends software-properties-common && \
+    add-apt-repository ppa:deadsnakes/ppa -y && \
     apt-get install -y --no-install-recommends \
         python3.10 \
+        python3.10-distutils \
         python3-pip \
         ffmpeg \
         libv4l-0 \
