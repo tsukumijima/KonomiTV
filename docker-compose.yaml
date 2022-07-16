@@ -1,5 +1,5 @@
 
-version: '3'
+version: '3.8'
 services:
     konomitv:
         image: konomitv
@@ -20,16 +20,7 @@ services:
               source: './config.yaml'
               target: '/code/config.yaml'
             - type: bind
-              source: './client/'
-              target: '/code/client/'
-            - type: bind
-              source: './server/app/'
-              target: '/code/server/app/'
-            - type: bind
               source: './server/data/'
               target: '/code/server/data/'
-            - type: bind
-              source: './server/static/'
-              target: '/code/server/static/'
         ports:
             - '7000:7000'
