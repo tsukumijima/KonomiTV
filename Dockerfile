@@ -74,7 +74,7 @@ FROM nvidia/cuda:11.7.0-runtime-ubuntu20.04
 # タイムゾーンを東京に設定
 ENV TZ=Asia/Tokyo
 
-# apt-get に対話的に設定確認されないための設定
+# apt-get に対話的に設定を確認されないための設定
 ENV DEBIAN_FRONTEND=noninteractive
 
 # パッケージのインストール（実行時イメージなので RUN の最後に掃除する）
@@ -82,9 +82,10 @@ RUN apt-get update -y && apt-get upgrade -y && \
     apt-get install -y --no-install-recommends software-properties-common && \
     add-apt-repository ppa:deadsnakes/ppa -y && \
     apt-get install -y --no-install-recommends \
+        curl \
         python3.10 \
         python3.10-distutils \
-        python3-pip \
+        python3.10-venv \
         ffmpeg \
         libv4l-0 \
         libxcb1 \
@@ -95,6 +96,10 @@ RUN apt-get update -y && apt-get upgrade -y && \
     apt-get -y clean && \
     rm -rf /var/lib/apt/lists/* && \
     rm -rf /tmp/*
+
+# pip をインストール
+## python3-pip だと Python 3.8 ベースの pip がインストールされるため、get-pip.py でインストールする
+RUN curl https://bootstrap.pypa.io/get-pip.py | python3.10
 
 # pipenv をインストール
 RUN pip install pipenv
