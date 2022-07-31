@@ -1728,7 +1728,7 @@ export default Vue.extend({
                     this.player = null;
                 }
 
-            }, 400));  // 0.4 秒
+            }, 0.4 * 1000));  // 0.4 秒
         }
     }
 });

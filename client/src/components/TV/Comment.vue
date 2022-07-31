@@ -371,14 +371,14 @@ export default Vue.extend({
                         // 再接続を求められた
                         case 'reconnect': {
 
-                            // 前の視聴セッション・コメントセッションを破棄
-                            this.destroy();
-
                             // waitTimeSec に記載の秒数だけ待ってから再接続する
                             await Utils.sleep(message.data.waitTimeSec);
                             if (this.player.danmaku.showing) {
                                 this.player.notice('ニコニコ実況に再接続しています…');
                             }
+
+                            // 前の視聴セッション・コメントセッションを破棄
+                            this.destroy();
 
                             // 視聴セッションを再初期化
                             // ドキュメントには reconnect で送られてくる audienceToken で再接続しろと書いてあるんだけど、
@@ -440,14 +440,14 @@ export default Vue.extend({
                                 this.player.notice(disconnect_reason);
                             }
 
-                            // 前の視聴セッション・コメントセッションを破棄
-                            this.destroy();
-
                             // 5 秒ほど待ってから再接続する
                             await Utils.sleep(5);
                             if (this.player.danmaku.showing) {
                                 this.player.notice('ニコニコ実況に再接続しています…');
                             }
+
+                            // 前の視聴セッション・コメントセッションを破棄
+                            this.destroy();
 
                             // 視聴セッションを再初期化
                             const comment_session_info = await this.initWatchSession();
@@ -471,15 +471,15 @@ export default Vue.extend({
                         this.player.notice(`ニコニコ実況との接続が切断されました。(code: ${event.code})`);
                     }
 
-                    // 前の視聴セッション・コメントセッションを破棄
-                    this.destroy();
-
                     // 10 秒ほど待ってから再接続する
                     // ニコ生側から切断された場合と異なりネットワークが切断された可能性が高いので、間を多めに取る
                     await Utils.sleep(10);
                     if (this.player.danmaku.showing) {
                         this.player.notice('ニコニコ実況に再接続しています…');
                     }
+
+                    // 前の視聴セッション・コメントセッションを破棄
+                    this.destroy();
 
                     // 視聴セッションを再初期化
                     const comment_session_info = await this.initWatchSession();
@@ -861,6 +861,10 @@ export default Vue.extend({
             // 要素の監視を開始
             this.resize_observer = new ResizeObserver(on_resize);
             this.resize_observer.observe(this.resize_observer_element);
+
+            // 0.4 秒待ってから初回実行
+            // チャンネル切り替え後、再初期化されたプレイヤーに適用するため（早いと再初期化前のプレイヤーに適用されてしまう）
+            window.setTimeout(on_resize, 0.4 * 1000);
         },
 
         // コメントリストを一番下までスクロールする
