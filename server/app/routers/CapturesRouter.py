@@ -64,7 +64,7 @@ async def CaptureUploadAPI(
     ## ref: https://note.nkmk.me/python-pathlib-name-suffix-parent/
     count = 1
     while filepath.exists():
-        filepath = Path(CONFIG['capture']['upload_folder']) / f'{Path(image.filename).stem} ({count}){Path(image.filename).suffix}'
+        filepath = Path(CONFIG['capture']['upload_folder']) / f'{Path(image.filename).stem}-{count}{Path(image.filename).suffix}'
         count += 1
 
     # キャプチャを保存
