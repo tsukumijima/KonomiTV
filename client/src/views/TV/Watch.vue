@@ -1351,6 +1351,7 @@ export default Vue.extend({
                 }
 
                 // ファイル名（拡張子なし）
+                // TODO: ファイル名パターンを変更できるようにする
                 const filename = `Capture_${dayjs().format('YYYYMMDD-HHmmss')}`;
 
                 // 字幕・文字スーパーの Canvas を取得
@@ -1373,7 +1374,10 @@ export default Vue.extend({
                 }
 
                 // 字幕表示時のキャプチャの保存モード: 映像のみ or 両方
-                if (['VideoOnly', 'Both'].includes(Utils.getSettingsItem('capture_caption_mode'))) {
+                // 保存モードが「字幕キャプチャのみ」になっているが字幕が表示されていない場合も実行する
+                if (['VideoOnly', 'Both'].includes(Utils.getSettingsItem('capture_caption_mode')) ||
+                    this.player.plugins.aribb24Caption.isShowing === false ||
+                    this.player.plugins.aribb24Caption.isPresent() === false) {
 
                     // 通常のキャプチャ:  Canvas (映像のみ) を画像にエクスポート
                     // コメント付きキャプチャ:  Canvas (映像 + コメント) を画像にエクスポート
@@ -1384,17 +1388,24 @@ export default Vue.extend({
                             return;
                         }
 
+                        // ファイル名 (拡張子あり)
+                        // 保存モードが「字幕キャプチャのみ」のときは便宜上 _caption のサフィックスをつける
+                        let filename_ext = `${filename}.jpg`;
+                        if (Utils.getSettingsItem('capture_caption_mode') === 'CompositingCaption') {
+                            filename_ext = `${filename}_caption.jpg`;
+                        }
+
                         // キャプチャの保存先: ブラウザ or 両方
                         if (['Browser', 'Both'].includes(Utils.getSettingsItem('capture_save_mode'))) {
 
                             // キャプチャをダウンロード
                             // TODO: 撮ったキャプチャを Twitter タブ側に引き渡す
-                            Utils.downloadBlobImage(blob, `${filename}.jpg`);
+                            Utils.downloadBlobImage(blob, filename_ext);
                         }
 
                         // キャプチャの保存先: KonomiTV サーバーにアップロード or 両方
                         if (['UploadServer', 'Both'].includes(Utils.getSettingsItem('capture_save_mode'))) {
-                            await UploadCaptureToServer(blob, `${filename}.jpg`);
+                            await UploadCaptureToServer(blob, filename_ext);
                         }
 
                     }, 'image/jpeg', 1);
