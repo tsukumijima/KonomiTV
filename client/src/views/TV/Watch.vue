@@ -443,7 +443,7 @@ export default Vue.extend({
         init() {
 
             // ローディング中の背景画像をランダムで設定
-            this.background_url = Utils.generatePlayerBackgroundURL();
+            this.background_url = TVUtils.generatePlayerBackgroundURL();
 
             // コントロール表示タイマーを実行
             this.controlDisplayTimer();
@@ -906,7 +906,7 @@ export default Vue.extend({
             this.player.on('quality_start', () => {
 
                 // ローディング中の背景画像をランダムで設定
-                this.background_url = Utils.generatePlayerBackgroundURL();
+                this.background_url = TVUtils.generatePlayerBackgroundURL();
 
                 // イベントソースを閉じる
                 if (this.eventsource !== null) {

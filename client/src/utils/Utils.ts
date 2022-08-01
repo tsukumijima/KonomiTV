@@ -66,29 +66,6 @@ export default class Utils {
 
 
     /**
-     * プレイヤーの背景画像をランダムで取得し、その URL を返す
-     * @returns ランダムで設定されたプレイヤーの背景画像の URL
-     */
-    static generatePlayerBackgroundURL(): string {
-        const background_count = 12;  // 12種類から選択
-        const random = (Math.floor(Math.random() * background_count) + 1);
-        return `/assets/images/player-backgrounds/${random.toString().padStart(2, '0')}.jpg`;
-    }
-
-
-    /**
-     * 文字列中に含まれる URL をリンクの HTML に置き換える
-     * ref: https://www.softel.co.jp/blogs/tech/archives/6099
-     * @param text 置換対象の文字列
-     * @returns URL をリンクに置換した文字列
-     */
-    static URLtoLink(text: string): string {
-        const pattern = /(https?:\/\/[-A-Z0-9+&@#/%?=~_|!:,.;]*[-A-Z0-9+&@#/%=~_|])/ig;
-        return text.replace(pattern, '<a href="$1" target="_blank">$1</a>');
-    }
-
-
-    /**
      * 設定を LocalStorage から取得する
      * @param key 設定のキー名
      * @returns 設定されている値
@@ -175,6 +152,52 @@ export default class Utils {
 
 
     /**
+     * Blob に格納されている画像をブラウザにダウンロードさせる
+     * @param blob HTMLCanvasElement.toBlob() で取得した Blob オブジェクト
+     * @param filename 保存するファイル名
+     */
+    static downloadBlobImage(blob: Blob, filename: string): void {
+
+        // Blob URL を発行
+        const blob_url = URL.createObjectURL(blob);
+
+        // 画像をダウンロード
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = blob_url;
+        link.click();
+
+        // Blob URL を破棄
+        URL.revokeObjectURL(blob_url);
+    }
+
+
+    /**
+     * innerHTML しても問題ないように HTML の特殊文字をエスケープする
+     * PHP の htmlspecialchars() と似たようなもの
+     * @param content HTML エスケープされてないテキスト
+     * @returns HTML エスケープされたテキスト
+     */
+    static escapeHTML(content: string): string {
+
+        // HTML エスケープが必要な文字
+        // ref: https://www.php.net/manual/ja/function.htmlspecialchars.php
+        const html_escape_table = {
+            '&': '&amp;',
+            '"': '&quot;',
+            '\'': '&apos;',
+            '<': '&lt;',
+            '>': '&gt;',
+        };
+
+        // ref: https://qiita.com/noriaki/items/4bfef8d7cf85dc1035b3
+        return content.replace(/[&"'<>]/g, (match) => {
+            return html_escape_table[match];
+        });
+    }
+
+
+    /**
      * OAuth 連携時のポップアップを画面中央に表示するための windowFeatures 文字列を取得する
      * ref: https://qiita.com/catatsuy/items/babce8726ea78f5d25b1
      * @returns window.open() で使う windowFeatures 文字列
@@ -194,16 +217,6 @@ export default class Utils {
 
 
     /**
-     * 指定された値の型の名前を取得する
-     * ref: https://qiita.com/amamamaou/items/ef0b797156b324bb4ef3
-     * @returns 指定された値の型の名前
-     */
-    static typeof(value: any): string {
-        return Object.prototype.toString.call(value).slice(8, -1).toLowerCase();
-    }
-
-
-    /**
      * async/await でスリープ的なもの
      * @param seconds 待機する秒数
      * @returns Promise を返すので、await sleep(1); のように使う
@@ -214,22 +227,27 @@ export default class Utils {
 
 
     /**
-     * Blob に格納されている画像をブラウザにダウンロードさせる
-     * @param blob HTMLCanvasElement.toBlob() で取得した Blob オブジェクト
-     * @param filename 保存するファイル名
+     * 指定された値の型の名前を取得する
+     * ref: https://qiita.com/amamamaou/items/ef0b797156b324bb4ef3
+     * @returns 指定された値の型の名前
      */
-    static downloadBlobImage(blob: Blob, filename: string): void {
+    static typeof(value: any): string {
+        return Object.prototype.toString.call(value).slice(8, -1).toLowerCase();
+    }
 
-        // Blob URL を発行
-        const blob_url = URL.createObjectURL(blob);
 
-        // 画像をダウンロード
-        const link = document.createElement('a');
-        link.download = filename;
-        link.href = blob_url;
-        link.click();
+    /**
+     * 文字列中に含まれる URL をリンクの HTML に置き換える
+     * @param text 置換対象の文字列
+     * @returns URL をリンクに置換した文字列
+     */
+    static URLtoLink(text: string): string {
 
-        // Blob URL を破棄
-        URL.revokeObjectURL(blob_url);
+        // HTML の特殊文字で表示がバグらないように、事前に HTML エスケープしておく
+        text = Utils.escapeHTML(text);
+
+        // ref: https://www.softel.co.jp/blogs/tech/archives/6099
+        const pattern = /(https?:\/\/[-A-Z0-9+&@#/%?=~_|!:,.;]*[-A-Z0-9+&@#/%=~_|])/ig;
+        return text.replace(pattern, '<a href="$1" target="_blank">$1</a>');
     }
 }

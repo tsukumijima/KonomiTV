@@ -3,6 +3,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/ja';
 
 import { IChannel, IProgram } from '@/interface';
+import Utils from './Utils';
 
 /**
  * TV 機能のユーティリティ
@@ -20,6 +21,9 @@ export class TVUtils {
         // program が空でないかつ、program[key] が存在する
         if (program !== null && program[key] !== null) {
 
+            // 番組情報に含まれる HTML の特殊文字で表示がバグらないように、事前に HTML エスケープしておく
+            const text = Utils.escapeHTML(program[key]);
+
             // 本来 ARIB 外字である記号の一覧
             // ref: https://ja.wikipedia.org/wiki/%E7%95%AA%E7%B5%84%E8%A1%A8
             // ref: https://github.com/xtne6f/EDCB/blob/work-plus-s/EpgDataCap3/EpgDataCap3/ARIB8CharDecode.cpp#L1319
@@ -32,14 +36,24 @@ export class TVUtils {
             const pattern2 = new RegExp(`\\[(${mark})\\]`, 'g');
 
             // 正規表現で置換した結果を返す
-            let replaced = program[key].replace(pattern1, '<span class="decorate-symbol">$1</span>');
-            replaced = replaced.replace(pattern2, '<span class="decorate-symbol">$1</span>');
-            return replaced;
+            return text.replace(pattern1, '<span class="decorate-symbol">$1</span>')
+                       .replace(pattern2, '<span class="decorate-symbol">$1</span>');
 
         // 放送休止中
         } else {
             return key == 'title' ? '放送休止': 'この時間は放送を休止しています。';
         }
+    }
+
+
+    /**
+     * プレイヤーの背景画像をランダムで取得し、その URL を返す
+     * @returns ランダムで設定されたプレイヤーの背景画像の URL
+     */
+    static generatePlayerBackgroundURL(): string {
+        const background_count = 12;  // 12種類から選択
+        const random = (Math.floor(Math.random() * background_count) + 1);
+        return `/assets/images/player-backgrounds/${random.toString().padStart(2, '0')}.jpg`;
     }
 
 
@@ -160,6 +174,29 @@ export class TVUtils {
 
 
     /**
+     * 番組の進捗状況を取得する
+     * @param program 番組情報
+     * @returns 番組の進捗状況（%単位）
+     */
+    static getProgramProgress(program: IProgram): number {
+
+        // program が空でない
+        if (program !== null) {
+
+            // 番組開始時刻から何秒進んだか
+            const progress = dayjs(dayjs()).diff(program.start_time, 'second');
+
+            // %単位の割合を算出して返す
+            return progress / program.duration * 100;
+
+        // 放送休止中
+        } else {
+            return 0;
+        }
+    }
+
+
+    /**
      * 番組の放送時刻を取得する
      * @param program 番組情報
      * @param is_short 時刻のみ返すかどうか
@@ -194,29 +231,6 @@ export class TVUtils {
             } else {
                 return '----/--/-- (-) --:-- ～ --:-- (--分)';
             }
-        }
-    }
-
-
-    /**
-     * 番組の進捗状況を取得する
-     * @param program 番組情報
-     * @returns 番組の進捗状況（%単位）
-     */
-    static getProgramProgress(program: IProgram): number {
-
-        // program が空でない
-        if (program !== null) {
-
-            // 番組開始時刻から何秒進んだか
-            const progress = dayjs(dayjs()).diff(program.start_time, 'second');
-
-            // %単位の割合を算出して返す
-            return progress / program.duration * 100;
-
-        // 放送休止中
-        } else {
-            return 0;
         }
     }
 }

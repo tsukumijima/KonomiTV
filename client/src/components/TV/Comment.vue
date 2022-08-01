@@ -862,9 +862,9 @@ export default Vue.extend({
             this.resize_observer = new ResizeObserver(on_resize);
             this.resize_observer.observe(this.resize_observer_element);
 
-            // 0.4 秒待ってから初回実行
+            // 0.6 秒待ってから初回実行
             // チャンネル切り替え後、再初期化されたプレイヤーに適用するため（早いと再初期化前のプレイヤーに適用されてしまう）
-            window.setTimeout(on_resize, 0.4 * 1000);
+            window.setTimeout(on_resize, 0.6 * 1000);
         },
 
         // コメントリストを一番下までスクロールする
