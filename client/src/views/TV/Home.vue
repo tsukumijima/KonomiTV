@@ -547,20 +547,20 @@ _::-webkit-full-page-media, _:future, :root
                         user-select: none;
 
                         &:before {
-                            background-color: currentColor;
-                            border-radius: inherit;
-                            bottom: 0;
-                            color: inherit;
                             content: "";
-                            left: 0;
-                            opacity: 0;
-                            pointer-events: none;
                             position: absolute;
-                            right: 0;
                             top: 0;
+                            left: 0;
+                            right: 0;
+                            bottom: 0;
+                            border-radius: inherit;
+                            background-color: currentColor;
+                            color: inherit;
+                            opacity: 0;
                             transition: opacity 0.2s cubic-bezier(0.4, 0, 0.6, 1);
+                            pointer-events: none;
                         }
-                        &:hover{
+                        &:hover {
                             color: var(--v-text-base);
                             &:before {
                                 opacity: 0.15;
