@@ -317,7 +317,7 @@ export default Vue.extend({
                 return;
             }
 
-            // アイコン画像の File オブジェクト（=Blob）を FormData に入れる
+            // アイコン画像の File オブジェクト (= Blob) を FormData に入れる
             // multipart/form-data で送るために必要
             // ref: https://r17n.page/2020/02/04/nodejs-axios-file-upload-api/
             const form_data = new FormData();

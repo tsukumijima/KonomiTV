@@ -1169,6 +1169,7 @@ export default Vue.extend({
             // コメント付きキャプチャボタンの HTML を追加
             // insertAdjacentHTML で .dplayer-icons-right の一番左側に配置する
             // この後に通常のキャプチャボタンが insert されるので、実際は左から2番目
+            // TODO: ボタンのデザインをコメント付きだと分かるようなものに変更する
             this.$el.querySelector('.dplayer-icons.dplayer-icons-right').insertAdjacentHTML('afterbegin', `
                 <div class="dplayer-icon dplayer-comment-capture-icon" aria-label="コメントを付けてキャプチャ"
                     data-balloon-nofocus="" data-balloon-pos="up">
@@ -1208,7 +1209,7 @@ export default Vue.extend({
             this.comment_capture_button = this.$el.querySelector('.dplayer-icon.dplayer-comment-capture-icon');
 
             // 表示されているニコニコ実況のコメントを Canvas に描画する関数
-            // ZenzaWatch のコードを参考にさせていただいています
+            // ZenzaWatch のコードを参考にしている
             // ref: https://github.com/segabito/ZenzaWatch/blob/master/packages/lib/src/dom/VideoCaptureUtil.js
             const DrawComments = async () => {
 
@@ -1314,6 +1315,24 @@ export default Vue.extend({
                 this.canvas_context.drawImage(comments_image, 0, 0, this.canvas.width, draw_height);
             };
 
+            // KonomiTV サーバーにキャプチャ画像をアップロードする関数
+            const UploadCaptureToServer = async (blob: Blob, filename: string) => {
+
+                // キャプチャ画像の File オブジェクト (= Blob) を FormData に入れる
+                // multipart/form-data で送るために必要
+                // ref: https://r17n.page/2020/02/04/nodejs-axios-file-upload-api/
+                const form_data = new FormData();
+                form_data.append('image', blob, filename);
+
+                // キャプチャ画像アップロード API にリクエスト
+                try {
+                    await Vue.axios.post('/captures', form_data, {headers: {'Content-Type': 'multipart/form-data'}});
+                } catch (error) {
+                    console.error(error);
+                    this.player.notice('キャプチャのアップロードに失敗しました。');
+                }
+            };
+
             // キャプチャして保存する関数
             // 通常のキャプチャもコメント付きキャプチャも途中まで処理は同じなので、共通化する
             // 映像のみと字幕付き (字幕表示時のみ) の両方のキャプチャを生成する
@@ -1358,11 +1377,10 @@ export default Vue.extend({
 
                     // 通常のキャプチャ:  Canvas (映像のみ) を画像にエクスポート
                     // コメント付きキャプチャ:  Canvas (映像 + コメント) を画像にエクスポート
-                    this.canvas.toBlob((blob) => {
+                    this.canvas.toBlob(async (blob) => {
 
-                        // Blob 化に失敗
                         if (blob === null) {
-                            this.player.notice('キャプチャの保存に失敗しました…')
+                            this.player.notice('キャプチャの保存に失敗しました…');
                             return;
                         }
 
@@ -1370,19 +1388,15 @@ export default Vue.extend({
                         if (['Browser', 'Both'].includes(Utils.getSettingsItem('capture_save_mode'))) {
 
                             // キャプチャをダウンロード
-                            // TODO: キャプチャを KonomiTV サーバーにアップロードする
-                            // TODO: キャプチャを Twitter タブ側に引き渡す
+                            // TODO: 撮ったキャプチャを Twitter タブ側に引き渡す
                             Utils.downloadBlobImage(blob, `${filename}.jpg`);
                         }
 
                         // キャプチャの保存先: KonomiTV サーバーにアップロード or 両方
                         if (['UploadServer', 'Both'].includes(Utils.getSettingsItem('capture_save_mode'))) {
-
-                            // TODO: 未実装
-                            this.player.notice('キャプチャの KonomiTV サーバーへのアップロードは未実装です。');
+                            await UploadCaptureToServer(blob, `${filename}.jpg`);
                         }
 
-                    // 保存する画像の品質
                     }, 'image/jpeg', 1);
                 }
 
@@ -1409,11 +1423,10 @@ export default Vue.extend({
 
                         // 通常のキャプチャ:  Canvas (映像 + 字幕) を画像にエクスポート
                         // コメント付きキャプチャ:  Canvas (映像 + 字幕 + コメント) を画像にエクスポート
-                        this.canvas.toBlob((blob) => {
+                        this.canvas.toBlob(async (blob) => {
 
-                            // Blob 化に失敗
                             if (blob === null) {
-                                this.player.notice('キャプチャの保存に失敗しました…')
+                                this.player.notice('キャプチャの保存に失敗しました…');
                                 return;
                             }
 
@@ -1421,19 +1434,15 @@ export default Vue.extend({
                             if (['Browser', 'Both'].includes(Utils.getSettingsItem('capture_save_mode'))) {
 
                                 // キャプチャをダウンロード
-                                // TODO: キャプチャを KonomiTV サーバーにアップロードする
                                 // TODO: キャプチャを Twitter タブ側に引き渡す
                                 Utils.downloadBlobImage(blob, `${filename}_caption.jpg`);
                             }
 
                             // キャプチャの保存先: KonomiTV サーバーにアップロード or 両方
                             if (['UploadServer', 'Both'].includes(Utils.getSettingsItem('capture_save_mode'))) {
-
-                                // TODO: 未実装
-                                this.player.notice('キャプチャの KonomiTV サーバーへのアップロードは未実装です。');
+                                await UploadCaptureToServer(blob, `${filename}_caption.jpg`);
                             }
 
-                        // 保存する画像の品質
                         }, 'image/jpeg', 1);
                     }
                 }
