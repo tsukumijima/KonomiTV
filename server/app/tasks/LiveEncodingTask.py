@@ -299,7 +299,7 @@ class LiveEncodingTask():
             '-d', '13',
         ]
 
-        if 'debug_mode_ts_path' not in CONFIG['livestream'] or CONFIG['livestream']['debug_mode_ts_path'] is None:
+        if 'debug_mode_ts_path' not in CONFIG['tv'] or CONFIG['tv']['debug_mode_ts_path'] is None:
             # 通常は標準入力を指定
             tsreadex_options.append('-')
         else:
@@ -308,7 +308,7 @@ class LiveEncodingTask():
             ## 1倍速に近い値だが、TS のビットレートはチャンネルや番組、シーンによって変動するため完全な1倍速にはならない
             tsreadex_options += [
                 '-l', '2350',
-                CONFIG['livestream']['debug_mode_ts_path']
+                CONFIG['tv']['debug_mode_ts_path']
             ]
 
         # tsreadex の起動
@@ -333,7 +333,7 @@ class LiveEncodingTask():
         if channel.is_radiochannel is True:
             encoder_type = 'FFmpeg'
         else:
-            encoder_type = CONFIG['livestream']['encoder']
+            encoder_type = CONFIG['tv']['encoder']
 
         # FFmpeg
         if encoder_type == 'FFmpeg':
@@ -748,7 +748,7 @@ class LiveEncodingTask():
 
                 # 現在 Idling でかつ最終更新から指定された秒数以上経っていたらエンコーダーを終了し、Offline 状態に移行
                 if ((livestream_status['status'] == 'Idling') and
-                    (time.time() - livestream_status['updated_at'] > CONFIG['livestream']['max_alive_time'])):
+                    (time.time() - livestream_status['updated_at'] > CONFIG['tv']['max_alive_time'])):
                     livestream.setStatus('Offline', 'ライブストリームは Offline です。')
                     break
 

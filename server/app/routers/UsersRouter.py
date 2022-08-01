@@ -35,7 +35,7 @@ router = APIRouter(
 
 
 # 正方形の 400×400 の PNG にトリミング&リサイズして保存する関数
-async def TrimSquareAndResize(file: io.BytesIO, save_path: pathlib.Path, resize_width_and_height: int = 400):
+async def TrimSquareAndResizeAndSave(file: io.BytesIO, save_path: pathlib.Path, resize_width_and_height: int = 400):
     """
     正方形の 400×400 の PNG にトリミング&リサイズして保存する関数
     ref: https://note.nkmk.me/python-pillow-basic/
@@ -321,7 +321,7 @@ async def UserIconMeAPI(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def UserUpdateIconMeAPI(
-    image: UploadFile = File(None, description='アカウントのアイコン画像 (JPEG or PNG)。'),
+    image: UploadFile = File(description='アカウントのアイコン画像 (JPEG or PNG)。'),
     current_user: User = Depends(User.getCurrentUser),
 ):
     """
@@ -338,7 +338,7 @@ async def UserUpdateIconMeAPI(
 
     # 正方形の 400×400 の PNG にリサイズして保存
     # 保存するファイルパス: (ユーザー ID を0埋めしたもの).png
-    await TrimSquareAndResize(image.file, ACCOUNT_ICON_DIR / f'{current_user.id:02}.png', resize_width_and_height=400)
+    await TrimSquareAndResizeAndSave(image.file, ACCOUNT_ICON_DIR / f'{current_user.id:02}.png', resize_width_and_height=400)
 
 
 @router.delete(
@@ -519,7 +519,7 @@ async def UserIconAPI(
 )
 async def UserUpdateIconAPI(
     username: str = Path(..., description='アカウントのユーザー名。'),
-    image: UploadFile = File(None, description='アカウントのアイコン画像 (JPEG or PNG)。'),
+    image: UploadFile = File(description='アカウントのアイコン画像 (JPEG or PNG)。'),
     current_user: User = Depends(User.getCurrentUser),
 ):
     """
@@ -546,7 +546,7 @@ async def UserUpdateIconAPI(
 
     # 正方形の 400×400 の PNG にリサイズして保存
     # 保存するファイルパス: (ユーザー ID を0埋めしたもの).png
-    await TrimSquareAndResize(image.file, ACCOUNT_ICON_DIR / f'{user.id:02}.png', resize_width_and_height=400)
+    await TrimSquareAndResizeAndSave(image.file, ACCOUNT_ICON_DIR / f'{user.id:02}.png', resize_width_and_height=400)
 
 
 @router.delete(

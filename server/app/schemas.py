@@ -1,9 +1,9 @@
 
 from datetime import datetime
-from pydantic import AnyHttpUrl, BaseModel, Field, FilePath, PositiveInt
+from pydantic import AnyHttpUrl, BaseModel, DirectoryPath, Field, FilePath, PositiveInt
 from pydantic.networks import stricturl
 from tortoise.contrib.pydantic import pydantic_model_creator
-from typing import Any, Dict, List, Literal, Optional
+from typing import Dict, List, Literal, Optional
 
 from app import models
 
@@ -18,13 +18,17 @@ class Config(BaseModel):
         mirakurun_url: AnyHttpUrl
         edcb_url: stricturl(allowed_schemes={'tcp'}, tld_required=False)
 
-    class LiveStream(BaseModel):
+    class TV(BaseModel):
         encoder: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC']
         max_alive_time: PositiveInt
         debug_mode_ts_path: Optional[FilePath]
 
+    class Capture(BaseModel):
+        upload_folder: DirectoryPath
+
     general: General
-    livestream: LiveStream
+    tv: TV
+    capture: Capture
 
 # モデルを表す Pydantic モデル
 # 基本的には pydantic_model_creator() で Tortoise ORM モデルから変換したものを継承
