@@ -1631,6 +1631,9 @@ export default Vue.extend({
                         return;
                     }
 
+                    // キャプチャに番組情報と撮影時刻のメタデータ (EXIF) をセット
+                    blob = await TVUtils.setEXIFDataToCapture(blob, this.channel.program_present);
+
                     // ファイル名 (拡張子あり)
                     // 保存モードが「字幕キャプチャのみ」のときは便宜上 _caption のサフィックスをつける
                     let filename_ext = `${filename}.jpg`;
@@ -1686,6 +1689,9 @@ export default Vue.extend({
                         this.player.notice('キャプチャの保存に失敗しました…');
                         return;
                     }
+
+                    // キャプチャに番組情報と撮影時刻のメタデータ (EXIF) をセット
+                    blob = await TVUtils.setEXIFDataToCapture(blob, this.channel.program_present);
 
                     // キャプチャの保存先: ブラウザ or 両方
                     if (['Browser', 'Both'].includes(Utils.getSettingsItem('capture_save_mode'))) {
