@@ -31,11 +31,11 @@
             </textarea>
             <div class="tweet-form__control">
                 <div v-ripple class="account-button" :class="{'account-button--no-login': !this.is_logged_in_twitter}"
-                    @click="is_twitter_account_list_display = !is_twitter_account_list_display">
+                    @click="clickAccountButton()">
                     <img class="account-button__icon"
                         :src="this.is_logged_in_twitter ? this.selected_twitter_account.icon_url : '/assets/images/account-icon-default.png'">
                     <span class="account-button__screen-name">
-                        {{this.is_logged_in_twitter ? `@${this.selected_twitter_account.screen_name}` : 'ログインしていません'}}
+                        {{this.is_logged_in_twitter ? `@${this.selected_twitter_account.screen_name}` : '連携されていません'}}
                     </span>
                     <Icon class="account-button__menu" icon="fluent:more-circle-20-regular" width="22px" />
                 </div>
@@ -192,6 +192,16 @@ export default Vue.extend({
             // サロゲートペアを考慮し、スプレッド演算子で一度配列化してから数えている
             // ref: https://qiita.com/suin/items/3da4fb016728c024eaca
             this.tweet_letter_count = 140 - [...this.tweet_hashtag].length - [...this.tweet_text].length;
+        },
+
+        // アカウントボタンが押されたときのイベントハンドラー
+        clickAccountButton() {
+            // Twitter アカウントが連携されていない場合は Twitter 設定画面に飛ばす
+            if (!this.is_logged_in_twitter) {
+                this.$router.push({path: '/settings/twitter'});
+                return;
+            }
+            this.is_twitter_account_list_display = !this.is_twitter_account_list_display;
         },
 
         // 選択されている Twitter アカウントを更新する
@@ -365,6 +375,9 @@ export default Vue.extend({
                 user-select: none;
                 cursor: pointer;
                 &--no-login {
+                    .account-button__screen-name {
+                        font-weight: 500;
+                    }
                     .account-button__menu {
                         display: none;
                     }

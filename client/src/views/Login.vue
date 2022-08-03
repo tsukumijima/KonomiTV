@@ -87,7 +87,7 @@ export default Vue.extend({
 
                 // アカウントページに遷移
                 this.$message.success('ログインしました。');
-                await this.$router.replace({path: '/settings/account'});
+                await this.$router.push({path: '/settings/account'});
 
             } catch (error) {
 

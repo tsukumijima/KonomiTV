@@ -499,7 +499,7 @@ export default Vue.extend({
                 // ステータスコードが 422（チャンネルが存在しない）なら 404 ページにリダイレクト
                 // 正確には 404 ページ自体がルートとして存在するわけじゃないけど、そもそも存在しないページなら 404 になるので
                 if (error.response && error.response.status === 422 && error.response.data.detail === 'Specified channel_id was not found') {
-                    await this.$router.replace({path: '/not-found/'});
+                    await this.$router.push({path: '/not-found/'});
                 }
 
                 // 処理を中断
@@ -642,7 +642,7 @@ export default Vue.extend({
                         artwork: artwork,
                     });
                     // ルーティングを前のチャンネルに置き換える
-                    await this.$router.replace({path: `/tv/watch/${this.channel_previous.channel_id}`});
+                    await this.$router.push({path: `/tv/watch/${this.channel_previous.channel_id}`});
                 });
                 navigator.mediaSession.setActionHandler('nexttrack', async () => {  // 次のチャンネルに切り替え
                     navigator.mediaSession.metadata = new MediaMetadata({
@@ -651,7 +651,7 @@ export default Vue.extend({
                         artwork: artwork,
                     });
                     // ルーティングを次のチャンネルに置き換える
-                    await this.$router.replace({path: `/tv/watch/${this.channel_next.channel_id}`});
+                    await this.$router.push({path: `/tv/watch/${this.channel_next.channel_id}`});
                 });
             }
         },
@@ -1232,7 +1232,7 @@ export default Vue.extend({
                             // チャンネルが取得できていれば、ルーティングをそのチャンネルに置き換える
                             // 押されたキーに対応するリモコン番号のチャンネルがない場合や、現在と同じチャンネル ID の場合は何も起こらない
                             if (switch_channel !== null && switch_channel.channel_id !== this.channel_id) {
-                                (async () => await this.$router.replace({path: `/tv/watch/${switch_channel.channel_id}`}))();
+                                (async () => await this.$router.push({path: `/tv/watch/${switch_channel.channel_id}`}))();
                                 return;
                             }
                         }
@@ -1244,13 +1244,13 @@ export default Vue.extend({
                         // ↑キー: 前のチャンネルに切り替え
                         if (event.code === 'ArrowUp') {
                             event.preventDefault();  // デフォルトのイベントを無効化
-                            (async () => await this.$router.replace({path: `/tv/watch/${this.channel_previous.channel_id}`}))();
+                            (async () => await this.$router.push({path: `/tv/watch/${this.channel_previous.channel_id}`}))();
                             return;
                         }
                         // ↓キー: 次のチャンネルに切り替え
                         if (event.code === 'ArrowDown') {
                             event.preventDefault();  // デフォルトのイベントを無効化
-                            (async () => await this.$router.replace({path: `/tv/watch/${this.channel_next.channel_id}`}))();
+                            (async () => await this.$router.push({path: `/tv/watch/${this.channel_next.channel_id}`}))();
                             return;
                         }
                     }
