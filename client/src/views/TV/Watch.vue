@@ -105,6 +105,8 @@
                         :class="{'watch-panel__content--active': panel_active_tab === 'Channel'}" :channels_list="channels_list" />
                     <Comment class="watch-panel__content" ref="Comment"
                         :class="{'watch-panel__content--active': panel_active_tab === 'Comment'}" :channel="channel" :player="player" />
+                    <Twitter class="watch-panel__content"
+                        :class="{'watch-panel__content--active': panel_active_tab === 'Twitter'}" :channel="channel" :player="player" />
                 </div>
                 <div class="watch-panel__navigation">
                     <div v-ripple class="panel-navigation-button"
@@ -186,6 +188,7 @@ import { IChannel, IChannelDefault } from '@/interface';
 import Channel from '@/components/TV/Channel.vue';
 import Comment from '@/components/TV/Comment.vue';
 import Program from '@/components/TV/Program.vue';
+import Twitter from '@/components/TV/Twitter.vue';
 import Utils, { TVUtils } from '@/utils';
 
 export default Vue.extend({
@@ -194,6 +197,7 @@ export default Vue.extend({
         Channel,
         Comment,
         Program,
+        Twitter,
     },
     data() {
         return {

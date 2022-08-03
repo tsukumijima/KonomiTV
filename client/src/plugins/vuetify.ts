@@ -17,7 +17,11 @@ export default new Vuetify({
             dark: {
                 primary: '#E64F97',
                 secondary: '#E33157',
-                twitter: '#4F82E6',
+                twitter: {
+                    base: '#4F82E6',
+                    lighten1: '#799FEC',
+                    lighten2: '#41A5F1',
+                },
                 gray: '#66514C',
                 black: '#110A09',
                 background: {

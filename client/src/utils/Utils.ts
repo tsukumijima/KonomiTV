@@ -32,6 +32,9 @@ export default class Utils {
         // 前回視聴画面を開いた際にパネルが表示されていたかどうか (同期無効)
         is_display_latest_panel: true as boolean,
 
+        // 現在ツイート対象として選択されている Twitter アカウントの ID
+        selected_twitter_account_id: null as number | null,
+
         // ***** 設定 → 全般 *****
 
         // テレビのストリーミング画質 (Default: 1080p) (同期無効)
