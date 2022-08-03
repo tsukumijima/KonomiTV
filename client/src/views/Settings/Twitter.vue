@@ -37,6 +37,15 @@
                     <Icon icon="fluent:plug-connected-20-filled" class="mr-2" height="24" />連携するアカウントを追加
                 </v-btn>
             </div>
+            <div class="settings__item">
+                <div class="settings__item-heading">ツイートにつけるハッシュタグの位置</div>
+                <div class="settings__item-label">
+                    ツイート本文から見て、ハッシュタグをどの位置につけてツイートするかを設定します。<br>
+                </div>
+                <v-select class="settings__item-form" outlined hide-details
+                    :items="tweet_hashtag_position" v-model="settings.tweet_hashtag_position">
+                </v-select>
+            </div>
         </div>
     </Base>
 </template>
@@ -57,6 +66,14 @@ export default Vue.extend({
     data() {
         return {
 
+            // ツイートにつけるハッシュタグの位置の選択肢
+            tweet_hashtag_position: [
+                {'text': 'ツイート本文の前に追加する', 'value': 'Prepend'},
+                {'text': 'ツイート本文の後に追加する', 'value': 'Append'},
+                {'text': 'ツイート本文の前に追加してから改行する', 'value': 'PrependWithLineBreak'},
+                {'text': 'ツイート本文の後に改行してから追加する', 'value': 'AppendWithLineBreak'},
+            ],
+
             // ローディング中かどうか
             is_loading: true,
 
@@ -72,7 +89,7 @@ export default Vue.extend({
             settings: (() => {
                 // 設定の既定値を取得する
                 const settings = {}
-                for (const setting of []) {
+                for (const setting of ['tweet_hashtag_position']) {
                     settings[setting] = Utils.getSettingsItem(setting);
                 }
                 return settings;

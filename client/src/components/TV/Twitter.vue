@@ -156,14 +156,14 @@ export default Vue.extend({
 
                 // 現在ツイート対象として選択されている Twitter アカウントの ID が設定されていない or ID に紐づく Twitter アカウントがない
                 // 連携している Twitter アカウントのうち、一番最初のものを自動選択する
-                // ここで言う Twitter アカウントの ID は KonomiTV 内部で連番で振られるもので、Twitter アカウントそのものの固有 ID ではない
+                // ここで言う Twitter アカウントの ID は DB 上で連番で振られるもので、Twitter アカウントそのものの固有 ID ではない
                 if (this.selected_twitter_account_id === null ||
                     !this.user.twitter_accounts.some((twitter_account) => twitter_account.id === this.selected_twitter_account_id)) {
                     this.selected_twitter_account_id = this.user.twitter_accounts[0].id;
                     Utils.setSettingsItem('selected_twitter_account_id', this.selected_twitter_account_id);
                 }
 
-                // 現在ツイート対象として選択されている Twitter アカウントを設定
+                // 現在ツイート対象として選択されている Twitter アカウントを取得・設定
                 const twitter_account_index = this.user.twitter_accounts.findIndex((twitter_account) => {
                     return twitter_account.id === this.selected_twitter_account_id;  // Twitter アカウントの ID が選択されているものと一致する
                 });
@@ -198,6 +198,10 @@ export default Vue.extend({
         clickAccountButton() {
             // Twitter アカウントが連携されていない場合は Twitter 設定画面に飛ばす
             if (!this.is_logged_in_twitter) {
+                // 視聴ページ以外に遷移するため、フルスクリーンを解除しないと画面が崩れる
+                if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                }
                 this.$router.push({path: '/settings/twitter'});
                 return;
             }
@@ -227,8 +231,29 @@ export default Vue.extend({
             const tweet_hashtag = tweet_hashtag_array.join(' ');
 
             // 実際に送るツイート本文を作成
-            // TODO: ハッシュタグを先頭につけるか末尾につけるか選べるようにする
-            const tweet_text = `${this.tweet_text} ${tweet_hashtag}`;
+            let tweet_text;
+            switch (Utils.getSettingsItem('tweet_hashtag_position')) {
+                // ツイート本文の前に追加する
+                case 'Prepend': {
+                    tweet_text = `${tweet_hashtag} ${this.tweet_text}`;
+                    break;
+                }
+                // ツイート本文の後に追加する
+                case 'Append': {
+                    tweet_text = `${this.tweet_text} ${tweet_hashtag}`;
+                    break;
+                }
+                // ツイート本文の前に追加してから改行する
+                case 'PrependWithLineBreak': {
+                    tweet_text = `${tweet_hashtag}\n${this.tweet_text}`;
+                    break;
+                }
+                // ツイート本文の後に改行してから追加する
+                case 'AppendWithLineBreak': {
+                    tweet_text = `${this.tweet_text}\n${tweet_hashtag}`;
+                    break;
+                }
+            }
 
             // multipart/form-data でツイート本文と画像（選択されている場合）を送る
             const form_data = new FormData();

@@ -223,7 +223,7 @@ export class TVUtils {
                 return `${start_time.format('YYYY/MM/DD (dd) HH:mm')} ～ ${end_time.format('HH:mm')} (${duration}分)`;
             }
 
-            // 放送休止中
+        // 放送休止中
         } else {
 
             // 時刻のみ返す

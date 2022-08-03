@@ -65,6 +65,11 @@ export default class Utils {
 
         // コメントの遅延時間 (1.5秒) (同期無効)
         comment_delay_time: 1.5 as number,
+
+        // ***** 設定 → Twitter *****
+
+        // ツイートにつけるハッシュタグの位置（ツイート本文の後に追加する）
+        tweet_hashtag_position: 'Append' as ('Prepend' | 'Append' | 'PrependWithLineBreak' | 'AppendWithLineBreak'),
     };
 
 
