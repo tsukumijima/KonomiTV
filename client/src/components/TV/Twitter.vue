@@ -9,33 +9,35 @@
                 </a>
             </div>
         </v-dialog>
-        <div class="capture-container">
-            <div class="captures">
-                <div class="capture" :class="{
-                        'capture--selected': capture.selected,
-                        'capture--focused': capture.focused,
-                        'capture--disabled': !capture.selected && tweet_captures.length >= 4,
-                    }"
-                    v-for="capture in captures" :key="capture.image_url"
-                    @click="clickCapture(capture)">
-                    <img class="capture__image" :src="capture.image_url">
-                    <div class="capture__disabled-cover"></div>
-                    <div class="capture__selected-number">{{tweet_captures.findIndex(blob => blob === capture.blob) + 1}}</div>
-                    <Icon class="capture__selected-checkmark" icon="fluent:checkmark-circle-16-filled" />
-                    <div class="capture__focused-border"></div>
-                    <div class="capture__selected-border"></div>
-                    <div v-ripple class="capture__zoom"
-                        @click.prevent.stop="zoom_capture_modal = true; zoom_capture = capture"
-                        @mousedown.prevent.stop="/* 親要素の波紋が広がらないように */">
-                        <Icon icon="fluent:zoom-in-16-regular" width="32px" />
+        <div class="tab-container">
+            <div class="tab-content" :class="{'tab-content--active': active_tab === 'Capture'}">
+                <div class="captures">
+                    <div class="capture" :class="{
+                            'capture--selected': capture.selected,
+                            'capture--focused': capture.focused,
+                            'capture--disabled': !capture.selected && tweet_captures.length >= 4,
+                        }"
+                        v-for="capture in captures" :key="capture.image_url"
+                        @click="clickCapture(capture)">
+                        <img class="capture__image" :src="capture.image_url">
+                        <div class="capture__disabled-cover"></div>
+                        <div class="capture__selected-number">{{tweet_captures.findIndex(blob => blob === capture.blob) + 1}}</div>
+                        <Icon class="capture__selected-checkmark" icon="fluent:checkmark-circle-16-filled" />
+                        <div class="capture__selected-border"></div>
+                        <div class="capture__focused-border"></div>
+                        <div v-ripple class="capture__zoom"
+                            @click.prevent.stop="zoom_capture_modal = true; zoom_capture = capture"
+                            @mousedown.prevent.stop="/* 親要素の波紋が広がらないように */">
+                            <Icon icon="fluent:zoom-in-16-regular" width="32px" />
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div class="capture-announce" v-show="captures.length === 0">
-                <div class="capture-announce__heading">まだキャプチャがありません。</div>
-                <div class="capture-announce__text">
-                    <p class="mt-0 mb-0">プレイヤーのキャプチャボタンやショートカットキーでキャプチャを撮ると、ここに表示されます。</p>
-                    <p class="mt-2 mb-0">表示されたキャプチャを選択してからツイートすると、キャプチャを付けてツイートできます。</p>
+                <div class="capture-announce" v-show="captures.length === 0">
+                    <div class="capture-announce__heading">まだキャプチャがありません。</div>
+                    <div class="capture-announce__text">
+                        <p class="mt-0 mb-0">プレイヤーのキャプチャボタンやショートカットキーでキャプチャを撮ると、ここに表示されます。</p>
+                        <p class="mt-2 mb-0">表示されたキャプチャを選択してからツイートすると、キャプチャを付けてツイートできます。</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -309,7 +311,7 @@ export default Vue.extend({
         async addCaptureList(blob: Blob, filename: string) {
 
             if (this.captures_element === null) {
-                this.captures_element = this.$el.querySelector('.capture-container');
+                this.captures_element = this.$el.querySelector('.tab-container');
             }
 
             // 撮ったキャプチャが50件を超えていたら、重くなるので古いものから削除する
@@ -385,9 +387,12 @@ export default Vue.extend({
                 form_data.append('images', tweet_capture);
             }
 
-            // 連投防止のため、フォーム上のツイート本文・選択されているキャプチャを消去
+            // 連投防止のため、フォーム上のツイート本文・キャプチャの選択・キャプチャのフォーカスを消去
             // 送信した感を出す意味合いもある
-            for (const capture of this.captures) capture.selected = false;
+            for (const capture of this.captures) {
+                capture.selected = false;
+                capture.focused = false;
+            }
             this.tweet_captures = [];
             this.tweet_text = '';
 
@@ -442,142 +447,155 @@ export default Vue.extend({
     position: relative;
     padding-bottom: 8px;
 
-    .capture-container {
-        position: relative;
+    &.watch-panel__content--active .tab-container .tab-content--active {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .tab-container {
         flex-grow: 1;
-        padding-left: 12px;
-        padding-right: 6px;
         overflow-y: scroll;
 
-        .captures {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            grid-row-gap: 12px;
-            grid-column-gap: 12px;
-            max-height: 100%;
-
-            .capture {
-                position: relative;
-                height: 82px;
-                border-radius: 11px;
-                // 読み込まれるまでのキャプチャの背景
-                background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
-                overflow: hidden;
-                user-select: none;
-                cursor: pointer;
-
-                &__image {
-                    display: block;
-                    width: 100%;
-                    height: 100%;
-                }
-
-                &__zoom {
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    position: absolute;
-                    top: 1px;
-                    right: 3px;
-                    width: 38px;
-                    height: 38px;
-                    border-radius: 50%;
-                    filter: drop-shadow(0px 0px 2.5px rgba(0, 0, 0, 90%));
-                    cursor: pointer;
-                }
-
-                &__disabled-cover {
-                    display: none;
-                    align-items: center;
-                    justify-content: center;
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    background: rgba(30, 19, 16, 50%);
-                }
-
-                &__selected-number {
-                    display: none;
-                    align-items: center;
-                    justify-content: center;
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    background: rgba(30, 19, 16, 50%);
-                    font-size: 38px;
-                }
-
-                &__selected-checkmark {
-                    display: none;
-                    position: absolute;
-                    top: 6px;
-                    left: 7px;
-                    width: 20px;
-                    height: 20px;
-                    color: var(--v-primary-base);
-                }
-
-                &__selected-border {
-                    display: none;
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    border-radius: 11px;
-                    border: 4px solid var(--v-primary-base);
-                }
-
-                &__focused-border {
-                    display: none;
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    border-radius: 11px;
-                    border: 4px solid var(--v-twitter-base);
-                }
-
-                &--selected {
-                    .capture__selected-number, .capture__selected-checkmark, .capture__selected-border {
-                        display: flex;
-                    }
-                }
-                &--focused {
-                    .capture__focused-border {
-                        display: block;
-                    }
-                }
-                &--disabled {
-                    cursor: auto;
-                    .capture__disabled-cover {
-                        display: block;
-                    }
-                }
-            }
-        }
-
-        .capture-announce {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
+        .tab-content {
+            position: relative;
+            padding-left: 12px;
+            padding-right: 6px;
             height: 100%;
+            transition: opacity 0.2s, visibility 0.2s;
+            opacity: 0;
+            visibility: hidden;
 
-            &__heading {
-                font-size: 20px;
-                font-weight: bold;
+            .captures {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                grid-row-gap: 12px;
+                grid-column-gap: 12px;
+                max-height: 100%;
+
+                .capture {
+                    position: relative;
+                    height: 82px;
+                    border-radius: 11px;
+                    // 読み込まれるまでのキャプチャの背景
+                    background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
+                    overflow: hidden;
+                    user-select: none;
+                    cursor: pointer;
+
+                    &__image {
+                        display: block;
+                        width: 100%;
+                        height: 100%;
+                    }
+
+                    &__zoom {
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        position: absolute;
+                        top: 1px;
+                        right: 3px;
+                        width: 38px;
+                        height: 38px;
+                        border-radius: 50%;
+                        filter: drop-shadow(0px 0px 2.5px rgba(0, 0, 0, 90%));
+                        cursor: pointer;
+                    }
+
+                    &__disabled-cover {
+                        display: none;
+                        align-items: center;
+                        justify-content: center;
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        bottom: 0;
+                        background: rgba(30, 19, 16, 50%);
+                    }
+
+                    &__selected-number {
+                        display: none;
+                        align-items: center;
+                        justify-content: center;
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        bottom: 0;
+                        background: rgba(30, 19, 16, 50%);
+                        font-size: 38px;
+                        text-shadow: 0px 0px 2.5px rgba(0, 0, 0, 90%)
+                    }
+
+                    &__selected-checkmark {
+                        display: none;
+                        position: absolute;
+                        top: 6px;
+                        left: 7px;
+                        width: 20px;
+                        height: 20px;
+                        color: var(--v-primary-base);
+                    }
+
+                    &__selected-border {
+                        display: none;
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        bottom: 0;
+                        border-radius: 11px;
+                        border: 4px solid var(--v-primary-base);
+                    }
+
+                    &__focused-border {
+                        display: none;
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        bottom: 0;
+                        border-radius: 11px;
+                        border: 4px solid var(--v-secondary-base);
+                    }
+
+                    &--selected {
+                        .capture__selected-number, .capture__selected-checkmark, .capture__selected-border {
+                            display: flex;
+                        }
+                    }
+                    &--focused {
+                        .capture__focused-border {
+                            display: block;
+                        }
+                    }
+                    &--disabled {
+                        cursor: auto;
+                        .capture__disabled-cover {
+                            display: block;
+                        }
+                    }
+                }
             }
-            &__text {
-                margin-top: 12px;
-                color: var(--v-text-darken1);
-                font-size: 13.5px;
-                text-align: center;
+
+            .capture-announce {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-direction: column;
+                height: 100%;
+
+                &__heading {
+                    font-size: 20px;
+                    font-weight: bold;
+                }
+                &__text {
+                    margin-top: 12px;
+                    color: var(--v-text-darken1);
+                    font-size: 13.5px;
+                    text-align: center;
+                }
             }
         }
     }

@@ -16,6 +16,7 @@
         "mpegts.js": "github:tsukumijima/mpegts.js#f9589187fc84e7e18363398ce5815307c52a6898",
         "piexifjs": "^2.0.0-beta.9",
         "register-service-worker": "^1.7.2",
+        "seamless-scroll-polyfill": "^2.2.0",
         "v-tooltip": "^3.0.0-beta.1",
         "vue": "^2.6.14",
         "vue-axios": "^3.3.7",

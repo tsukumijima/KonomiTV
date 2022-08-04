@@ -136,7 +136,7 @@
                 </div>
             </div>
         </main>
-        <v-dialog max-width="980" transition="slide-y-transition" v-model="shortcut_key_modal">
+        <v-dialog max-width="1000" transition="slide-y-transition" v-model="shortcut_key_modal">
             <v-card>
                 <v-card-title class="px-5 pt-4 pb-3 d-flex align-center font-weight-bold">
                     <Icon icon="fluent:keyboard-20-filled" height="28px" />
@@ -155,8 +155,11 @@
                                         <span class="mr-2" v-html="shortcut.name"></span>
                                         <div class="ml-auto d-flex align-center flex-shrink-0">
                                             <div class="ml-auto d-flex align-center" v-for="(key, index) in shortcut.keys" :key="key.name">
-                                                <Icon class="shortcut-key" v-if="key.icon === true" :icon="key.name" height="18px" />
-                                                <span class="shortcut-key" v-if="key.icon === false">{{key.name}}</span>
+                                                <span class="shortcut-key">
+                                                    <Icon v-show="key.icon === true" :icon="key_name" height="18px"
+                                                        v-for="key_name in key.name.split(';')" :key="key_name" />
+                                                    <span v-if="key.icon === false" v-html="key.name"></span>
+                                                </span>
                                                 <span class="shortcut-key-plus" v-if="index < (shortcut.keys.length - 1)">+</span>
                                             </div>
                                         </div>
@@ -244,6 +247,12 @@ export default Vue.extend({
             // フルスクリーン状態かどうか
             is_fullscreen: false,
 
+            // IME 変換中かどうか
+            is_ime_composing: false,
+
+            // プレイヤーからのコメント送信から間もないかどうか
+            is_comment_send_just_did: false,
+
             // インターバル ID
             // ページ遷移時に setInterval(), setTimeout() の実行を止めるのに使う
             // setInterval(), setTimeout() の返り値を登録する
@@ -328,20 +337,6 @@ export default Vue.extend({
                         ]
                     },
                     {
-                        name: 'パネル',
-                        icon: 'fluent:panel-right-20-filled',
-                        icon_height: '24px',
-                        shortcuts: [
-                            { name: 'パネルの表示切り替え', keys: [{name: 'P', icon: false}] },
-                            { name: '番組情報タブを表示する', keys: [{name: 'K', icon: false}] },
-                            { name: 'チャンネルタブを表示する', keys: [{name: 'L', icon: false}] },
-                            { name: 'コメントタブを表示する', keys: [{name: '；(＋)', icon: false}] },
-                            { name: 'Twitter タブを表示する', keys: [{name: '：(＊)', icon: false}] },
-                        ]
-                    }
-                ],
-                right_column: [
-                    {
                         name: 'プレイヤー',
                         icon: 'fluent:play-20-filled',
                         icon_height: '20px',
@@ -360,7 +355,36 @@ export default Vue.extend({
                             { name: '映像をコメントを付けてキャプチャする', keys: [{name: 'V', icon: false}] },
                             { name: 'コメント入力フォームにフォーカスする', keys: [{name: 'M', icon: false}] },
                         ]
-                    }
+                    },
+                ],
+                right_column: [
+                    {
+                        name: 'パネル',
+                        icon: 'fluent:panel-right-20-filled',
+                        icon_height: '24px',
+                        shortcuts: [
+                            { name: 'パネルの表示切り替え', keys: [{name: 'P', icon: false}] },
+                            { name: '番組情報タブを表示する', keys: [{name: 'K', icon: false}] },
+                            { name: 'チャンネルタブを表示する', keys: [{name: 'L', icon: false}] },
+                            { name: 'コメントタブを表示する', keys: [{name: '；(＋)', icon: false}] },
+                            { name: 'Twitter タブを表示する', keys: [{name: '：(＊)', icon: false}] },
+                        ]
+                    },
+                    {
+                        name: 'Twitter',
+                        icon: 'fa-brands:twitter',
+                        icon_height: '22px',
+                        shortcuts: [
+                            { name: 'ツイート検索タブを表示する', keys: [{name: '［ (「)', icon: false}] },
+                            { name: 'タイムラインタブを表示する', keys: [{name: '］ (」)', icon: false}] },
+                            { name: 'キャプチャタブを表示する', keys: [{name: '＼(￥)', icon: false}] },
+                            { name: 'ツイート入力フォームにフォーカスを当てる/フォーカスを外す', keys: [{name: 'Tab', icon: false}] },
+                            { name: 'キャプチャにフォーカスする', keys: [{name: 'キャプチャタブを表示', icon: false}, {name: 'fluent:arrow-up-12-filled;fluent:arrow-down-12-filled;fluent:arrow-left-12-filled;fluent:arrow-right-12-filled', icon: true}] },
+                            { name: 'キャプチャを拡大表示する/<br>キャプチャの拡大表示を閉じる', keys: [{name: 'キャプチャにフォーカス', icon: false}, {name: 'Enter', icon: false}] },
+                            { name: 'キャプチャを選択する/<br>キャプチャの選択を解除する', keys: [{name: 'キャプチャにフォーカス', icon: false}, {name: 'Space', icon: false}] },
+                            { name: 'ツイートを送信する', keys: [{name: 'ツイート入力フォームに<br>フォーカス', icon: false}, {name: 'Ctrl', icon: false}, {name: 'Enter', icon: false}] },
+                        ]
+                    },
                 ]
             }
         }
@@ -862,6 +886,18 @@ export default Vue.extend({
             // デバッグ用にプレイヤーインスタンスも window 直下に入れる
             (window as any).player = this.player;
 
+            // コメントが送信されたときに、プレイヤーからのコメント送信から間もないかどうかのフラグを立てる (0.1秒後に解除する)
+            // コメントを送信するとコメント入力フォームへのフォーカスが外れるため、ページ全体の keydown イベントでは
+            // Enter キーの押下がコメント送信由来のイベントかキャプチャ拡大表示由来のイベントかを判断できない
+            // そこで、コメント入力フォームフォーカス中に Enter キーが押された場合（=コメント送信時）に 0.1 秒間フラグを立てることで、
+            // ショートカットキーハンドラーがコメント送信由来のイベントであることを判定できるようにしている
+            this.player.template.commentInput.addEventListener('keydown', (event) => {
+                if (event.code === 'Enter') {
+                    this.is_comment_send_just_did = true;
+                    setTimeout(() => this.is_comment_send_just_did = false, 100);
+                }
+            });
+
             // プレイヤー側のコントロール非表示タイマーを無効化（上書き）
             // 無効化しておかないと、controlDisplayTimer() と競合してしまう
             // 上書き元のコードは https://github.com/tsukumijima/DPlayer/blob/master/src/js/controller.js#L387-L395 にある
@@ -1170,6 +1206,15 @@ export default Vue.extend({
         // ショートカットキーを初期化する
         initShortcutKeyHandler() {
 
+            const twitter_component = (this.$refs.Twitter as InstanceType<typeof Twitter>);
+            const tweet_form_element = twitter_component.$el.querySelector('.tweet-form__textarea') as HTMLDivElement;
+
+            // IME 変換中の状態を保存する
+            for (const element of document.querySelectorAll('input[type=text],textarea')) {
+                element.addEventListener('compositionstart', () => this.is_ime_composing = true);
+                element.addEventListener('compositionend', () => this.is_ime_composing = false);
+            }
+
             // ショートカットキーハンドラー
             this.shortcut_key_handler = (event: KeyboardEvent) => {
 
@@ -1180,20 +1225,62 @@ export default Vue.extend({
                 if (event.repeat) is_repeat = true;
 
                 // キーリピート状態は event.repeat を見る事でだいたい検知できるが、最初の何回かは検知できないこともある
-                // そこで、0.1 秒以内に連続して発火したキーイベントは間引きも兼ねて実行しない
+                // そこで、0.05 秒以内に連続して発火したキーイベントは間引きも兼ねて実行しない
                 const now = Date.now();
-                if (now - this.shortcut_key_pressed_at < (0.1 * 1000)) return;
+                if (now - this.shortcut_key_pressed_at < (0.05 * 1000)) return;
                 this.shortcut_key_pressed_at = now;  // 最終押下時刻を更新
+
+                const tag = document.activeElement.tagName.toUpperCase();
+                const editable = document.activeElement.getAttribute('contenteditable');
+
+                // ***** ツイート入力フォームにフォーカスを当てる/フォーカスを外す *****
+
+                // ツイート入力フォームにフォーカスしているときもこのショートカットが動くようにする
+                // 以降の if 文で textarea フォーカス時のイベントをすべて弾いてしまっているため、前に持ってきている
+                // Tab キーに割り当てている関係で、IME 変換中は実行しない（IME 変換中に実行すると文字変換ができなくなる）
+                if (((tag !== 'INPUT' && tag !== 'TEXTAREA' && editable !== '' && editable !== 'true') ||
+                     (document.activeElement === tweet_form_element)) && this.is_ime_composing === false) {
+                    if (event.code === 'Tab') {
+
+                        // Tab キーのデフォルトの挙動を封じる
+                        event.preventDefault();
+
+                        // どのタブを開いていたかに関係なく Twitter タブに切り替える
+                        this.panel_active_tab = 'Twitter';
+
+                        // ツイート入力フォームにフォーカスがすでに当たっていたら、フォーカスを外して終了
+                        if (document.activeElement === tweet_form_element) {
+                            tweet_form_element.blur();
+                            return;
+                        }
+
+                        // ツイート入力フォームの textarea 要素にフォーカスを当てる
+                        tweet_form_element.focus();
+
+                        // 他のタブから切り替えると一発でフォーカスが当たらないことがあるので、ちょっとだけ待ってから念押し
+                        // $nextTick() だと上手くいかなかった…
+                        window.setTimeout(() => tweet_form_element.focus(), 100);  // 0.1秒
+                        return;
+                    }
+                }
+
+                // ***** ツイートを送信する *****
+
+                // ツイート入力フォームにフォーカスしているときだけこのショートカットが動くようにする
+                if (document.activeElement === tweet_form_element) {
+                    if (event.ctrlKey && event.code === 'Enter') {
+                        (twitter_component.$el.querySelector('.tweet-button') as HTMLDivElement).click();
+                    }
+                }
 
                 // input・textarea・contenteditable 状態の要素でなければ
                 // 文字入力中にショートカットキーが作動してしまわないように
-                const tag = document.activeElement.tagName.toUpperCase();
-                const editable = document.activeElement.getAttribute('contenteditable');
                 if (tag !== 'INPUT' && tag !== 'TEXTAREA' && editable !== '' && editable !== 'true') {
 
-                    // ***** 数字キーでチャンネルを切り替える *****
-
+                    // キーリピート状態で動作させないショートカット群
                     if (is_repeat === false) {
+
+                        // ***** 数字キーでチャンネルを切り替える *****
 
                         // チャンネルタイプを選択
                         // Shift キーが押されていたらチャンネルタイプを地デジならBSに、BSなら地デジにする
@@ -1236,36 +1323,17 @@ export default Vue.extend({
                                 return;
                             }
                         }
-                    }
 
-                    // ***** 上下キーでチャンネルを切り替える *****
+                        // ***** キーボードショートカットの一覧を表示する *****
 
-                    if (is_repeat === false && event.shiftKey === false) {
-                        // ↑キー: 前のチャンネルに切り替え
-                        if (event.code === 'ArrowUp') {
-                            event.preventDefault();  // デフォルトのイベントを無効化
-                            (async () => await this.$router.push({path: `/tv/watch/${this.channel_previous.channel_id}`}))();
+                        // /(?)キー: キーボードショートカットの一覧を表示する
+                        if (event.code === 'Slash') {
+                            this.shortcut_key_modal = !this.shortcut_key_modal;
                             return;
                         }
-                        // ↓キー: 次のチャンネルに切り替え
-                        if (event.code === 'ArrowDown') {
-                            event.preventDefault();  // デフォルトのイベントを無効化
-                            (async () => await this.$router.push({path: `/tv/watch/${this.channel_next.channel_id}`}))();
-                            return;
-                        }
-                    }
 
-                    // ***** キーボードショートカットの一覧を表示する *****
+                        // ***** パネルのタブを切り替える *****
 
-                    // /(?)キー: キーボードショートカットの一覧を表示する
-                    if (event.code === 'Slash' && is_repeat === false) {
-                        this.shortcut_key_modal = !this.shortcut_key_modal;
-                        return;
-                    }
-
-                    // ***** パネルのタブを切り替える *****
-
-                    if (is_repeat === false) {
                         // Pキー: パネルの表示切り替え
                         if (event.code === 'KeyP') {
                             this.is_panel_display = !this.is_panel_display;
@@ -1289,6 +1357,156 @@ export default Vue.extend({
                         // :(*)キー: Twitterタブ
                         if (event.code === 'Quote') {
                             this.panel_active_tab = 'Twitter';
+                            return;
+                        }
+
+                        // ***** Twitter タブ内のタブを切り替える *****
+
+                        // [(「): ツイート検索タブ
+                        if (event.code === 'BracketRight') {
+                            twitter_component.active_tab = 'Search';
+                            return;
+                        }
+                        // ](」): タイムラインタブ
+                        if (event.code === 'Backslash') {
+                            twitter_component.active_tab = 'Timeline';
+                            return;
+                        }
+                        // \(￥)キー: キャプチャタブ
+                        if (event.code === 'IntlRo') {
+                            twitter_component.active_tab = 'Capture';
+                            return;
+                        }
+                    }
+
+                    // Twitter タブ内のキャプチャタブが表示されているときだけ
+                    // キャプチャタブが表示されている時は、プレイヤー操作側の矢印キー/スペースキーのショートカットは動作しない（キーが重複するため）
+                    if (this.panel_active_tab === 'Twitter' && twitter_component.active_tab === 'Capture') {
+
+                        // ***** キャプチャにフォーカスする *****
+
+                        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) {
+                            event.preventDefault();
+
+                            // まだどのキャプチャにもフォーカスされていない場合は、一番新しいキャプチャにフォーカスして終了
+                            if (twitter_component.captures.some(capture => capture.focused === true) === false) {
+                                twitter_component.captures[twitter_component.captures.length - 1].focused = true;
+                                return;
+                            }
+
+                            // 現在フォーカスされているキャプチャのインデックスを取得
+                            const focused_capture_index = twitter_component.captures.findIndex(capture => capture.focused === true);
+
+                            // ↑キー: 2つ前のキャプチャにフォーカスする
+                            // キャプチャリストは2列で並んでいるので、2つ後のキャプチャが現在フォーカスされているキャプチャの直上になる
+                            if (event.code === 'ArrowUp') {
+                                // 2つ前のキャプチャがないなら実行しない
+                                if (focused_capture_index - 2 < 0) return;
+                                twitter_component.captures[focused_capture_index - 2].focused = true;
+                            }
+
+                            // ↓キー: 2つ後のキャプチャにフォーカスする
+                            // キャプチャリストは2列で並んでいるので、2つ後のキャプチャが現在フォーカスされているキャプチャの直下になる
+                            if (event.code === 'ArrowDown') {
+                                // 2つ後のキャプチャがないなら実行しない
+                                if (focused_capture_index + 2 > (twitter_component.captures.length - 1)) return;
+                                twitter_component.captures[focused_capture_index + 2].focused = true;
+                            }
+
+                            // ←キー: 1つ前のキャプチャにフォーカスする
+                            if (event.code === 'ArrowLeft') {
+                                // 1つ前のキャプチャがないなら実行しない
+                                if (focused_capture_index - 1 < 0) return;
+                                twitter_component.captures[focused_capture_index - 1].focused = true;
+                            }
+
+                            // ←キー: 1つ後のキャプチャにフォーカスする
+                            if (event.code === 'ArrowRight') {
+                                // 1つ後のキャプチャがないなら実行しない
+                                if (focused_capture_index + 1 > (twitter_component.captures.length - 1)) return;
+                                twitter_component.captures[focused_capture_index + 1].focused = true;
+                            }
+
+                            // 現在フォーカスされているキャプチャのフォーカスを外す
+                            twitter_component.captures[focused_capture_index].focused = false;
+
+                            // 拡大表示のモーダルが開かれている場合は、フォーカスしたキャプチャをモーダルにセット
+                            // こうすることで、QuickLook みたいな挙動になる
+                            const focused_capture = twitter_component.captures.find(capture => capture.focused === true);
+                            if (twitter_component.zoom_capture_modal === true) {
+                                twitter_component.zoom_capture = focused_capture;
+                            }
+
+                            // 現在フォーカスされているキャプチャが見える位置までスクロール
+                            // block: 'nearest' の指定で、上下どちらにスクロールしてもフォーカスされているキャプチャが常に表示されるようになる
+                            const focused_capture_element =
+                                twitter_component.$el.querySelector(`img[src="${focused_capture.image_url}"]`).parentElement;
+                            if (is_repeat) {
+                                // キーリピート状態ではスムーズスクロールがフォーカスの移動に追いつけずスクロールの挙動がおかしくなるため、
+                                // スムーズスクロールは無効にしてある
+                                focused_capture_element.scrollIntoView({block: 'nearest', inline: 'nearest', behavior: 'auto'});
+                            } else {
+                                focused_capture_element.scrollIntoView({block: 'nearest', inline: 'nearest', behavior: 'smooth'});
+                            }
+                            return;
+                        }
+
+                        // ***** キャプチャを拡大表示する/拡大表示を閉じる *****
+
+                        if (event.code === 'Enter') {
+                            event.preventDefault();
+
+                            // Enter キーの押下がプレイヤー側のコメント送信由来のイベントの場合は実行しない
+                            if (this.is_comment_send_just_did) return;
+
+                            // すでにモーダルが開かれている場合は、どのキャプチャが拡大表示されているかに関わらず閉じる
+                            if (twitter_component.zoom_capture_modal === true) {
+                                twitter_component.zoom_capture_modal = false;
+                                return;
+                            }
+
+                            // 現在フォーカスされているキャプチャを取得
+                            // まだどのキャプチャにもフォーカスされていない場合は実行しない
+                            const focused_capture = twitter_component.captures.find(capture => capture.focused === true);
+                            if (focused_capture === undefined) return;
+
+                            // モーダルを開き、モーダルで拡大表示するキャプチャとしてセット
+                            twitter_component.zoom_capture = focused_capture;
+                            twitter_component.zoom_capture_modal = true;
+                            return;
+                        }
+
+                        // ***** キャプチャを選択する/選択を解除する *****
+
+                        if (event.code === 'Space') {
+                            event.preventDefault();
+
+                            // 現在フォーカスされているキャプチャを取得
+                            // まだどのキャプチャにもフォーカスされていない場合は実行しない
+                            const focused_capture = twitter_component.captures.find(capture => capture.focused === true);
+                            if (focused_capture === undefined) return;
+
+                            // 「キャプチャリスト内のキャプチャがクリックされたときのイベント」を呼ぶ
+                            // 選択されていなければ選択され、選択されていれば選択が解除される
+                            // キャプチャの枚数制限などはすべて clickCapture() の中で処理される
+                            twitter_component.clickCapture(focused_capture);
+                            return;
+                        }
+                    }
+
+                    // ***** 上下キーでチャンネルを切り替える *****
+
+                    if (is_repeat === false && event.shiftKey === false) {
+                        // ↑キー: 前のチャンネルに切り替え
+                        if (event.code === 'ArrowUp') {
+                            event.preventDefault();  // デフォルトのイベントを無効化
+                            (async () => await this.$router.push({path: `/tv/watch/${this.channel_previous.channel_id}`}))();
+                            return;
+                        }
+                        // ↓キー: 次のチャンネルに切り替え
+                        if (event.code === 'ArrowDown') {
+                            event.preventDefault();  // デフォルトのイベントを無効化
+                            (async () => await this.$router.push({path: `/tv/watch/${this.channel_next.channel_id}`}))();
                             return;
                         }
                     }
@@ -1315,10 +1533,12 @@ export default Vue.extend({
                         // Shift + ↑キー: プレイヤーの音量を上げる
                         if (event.shiftKey === true && event.code === 'ArrowUp') {
                             this.player.volume(this.player.volume() + 0.05);
+                            return;
                         }
                         // Shift + ↓キー: プレイヤーの音量を下げる
                         if (event.shiftKey === true && event.code === 'ArrowDown') {
                             this.player.volume(this.player.volume() - 0.05);
+                            return;
                         }
 
                         // キーリピートでは実行しないショートカット
@@ -2023,11 +2243,12 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
     justify-content: center;
     flex-shrink: 0;
     min-width: 32px;
-    height: 28px;
-    padding: 0px 8px;
+    min-height: 28px;
+    padding: 3px 8px;
     border-radius: 5px;
     background-color: var(--v-background-lighten2);
     font-size: 14.5px;
+    text-align: center;
 }
 .shortcut-key-plus {
     display: inline-block;

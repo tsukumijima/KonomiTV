@@ -7,7 +7,7 @@
             </h2>
             <button v-ripple class="comment-header__button ml-auto">
                 <Icon icon="heroicons-solid:filter" height="11px" />
-                <span class="ml-1">コメントフィルター</span>
+                <span class="ml-1">ミュート設定</span>
             </button>
         </section>
         <DynamicScroller class="comment-list" :direction="'vertical'" :items="comment_list" :min-item-size="34">

@@ -1,5 +1,6 @@
 
 import { Icon } from '@iconify/vue2';
+import { polyfill as SeamlessScrollPolyfill } from "seamless-scroll-polyfill";
 import Vue from 'vue';
 import VueAxios from 'vue-axios';
 import VueVirtualScroller from 'vue-virtual-scroller';
@@ -16,6 +17,10 @@ import axios from '@/plugins/axios';
 import vuetify from '@/plugins/vuetify';
 import router from '@/router';
 import '@/service-worker';
+
+// スムーズスクロール周りの API の polyfill を適用
+// Element.scrollInfoView() のオプション指定を使うために必要
+SeamlessScrollPolyfill();
 
 // Production Tip を非表示に
 Vue.config.productionTip = false;
