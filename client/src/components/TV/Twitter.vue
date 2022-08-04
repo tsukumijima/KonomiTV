@@ -1,6 +1,44 @@
 <template>
     <div class="twitter-container">
-        <div class="tab-container"></div>
+        <v-dialog max-width="980" transition="slide-y-transition" v-model="zoom_capture_modal">
+            <div class="zoom-capture-modal">
+                <img class="zoom-capture-modal__image" :src="zoom_capture ? zoom_capture.image_url: ''">
+                <a v-ripple class="zoom-capture-modal__download"
+                    :href="zoom_capture ? zoom_capture.image_url : ''" :download="zoom_capture ? zoom_capture.filename : ''">
+                    <Icon icon="fa6-solid:download" width="45px" />
+                </a>
+            </div>
+        </v-dialog>
+        <div class="capture-container">
+            <div class="captures">
+                <div class="capture" :class="{
+                        'capture--selected': capture.selected,
+                        'capture--focused': capture.focused,
+                        'capture--disabled': !capture.selected && tweet_captures.length >= 4,
+                    }"
+                    v-for="capture in captures" :key="capture.image_url"
+                    @click="clickCapture(capture)">
+                    <img class="capture__image" :src="capture.image_url">
+                    <div class="capture__disabled-cover"></div>
+                    <div class="capture__selected-number">{{tweet_captures.findIndex(blob => blob === capture.blob) + 1}}</div>
+                    <Icon class="capture__selected-checkmark" icon="fluent:checkmark-circle-16-filled" />
+                    <div class="capture__focused-border"></div>
+                    <div class="capture__selected-border"></div>
+                    <div v-ripple class="capture__zoom"
+                        @click.prevent.stop="zoom_capture_modal = true; zoom_capture = capture"
+                        @mousedown.prevent.stop="/* 親要素の波紋が広がらないように */">
+                        <Icon icon="fluent:zoom-in-16-regular" width="32px" />
+                    </div>
+                </div>
+            </div>
+            <div class="capture-announce" v-show="captures.length === 0">
+                <div class="capture-announce__heading">まだキャプチャがありません。</div>
+                <div class="capture-announce__text">
+                    <p class="mt-0 mb-0">プレイヤーのキャプチャボタンやショートカットキーでキャプチャを撮ると、ここに表示されます。</p>
+                    <p class="mt-2 mb-0">表示されたキャプチャを選択してからツイートすると、キャプチャを付けてツイートできます。</p>
+                </div>
+            </div>
+        </div>
         <div class="tab-button-container">
             <div v-ripple class="tab-button" :class="{'tab-button--active': active_tab === 'Search'}"
                 @click="active_tab = 'Search'">
@@ -49,11 +87,12 @@
                     </div>
                     <div class="limit-meter__content">
                         <Icon icon="fluent:image-16-filled" width="14px" />
-                        <span>0/4</span>
+                        <span>{{tweet_captures.length}}/4</span>
                     </div>
                 </div>
                 <button v-ripple class="tweet-button"
-                    :disabled="!this.is_logged_in_twitter || this.tweet_letter_count === 140 || this.tweet_letter_count < 0"
+                    :disabled="!this.is_logged_in_twitter || this.tweet_letter_count < 0 ||
+                        (this.tweet_letter_count === 140 && this.tweet_captures.length === 0)"
                     @click="sendTweet()">
                     <Icon icon="fa-brands:twitter" height="16px" />
                     <span class="ml-1">ツイート</span>
@@ -81,6 +120,15 @@ import Vue, { PropType } from 'vue';
 
 import { IChannel, ITwitterAccount, IUser } from '@/interface';
 import Utils, { TVUtils } from '@/utils';
+
+// このコンポーネント内でのキャプチャのインターフェイス
+interface ITweetCapture {
+    blob: Blob,
+    filename: string,
+    image_url: string,
+    selected: boolean,
+    focused: boolean,
+}
 
 export default Vue.extend({
     name: 'Twitter',
@@ -121,11 +169,26 @@ export default Vue.extend({
             // アクティブなタブ
             active_tab: 'Capture' as ('Search' | 'Timeline' | 'Capture'),
 
+            // キャプチャを拡大表示するモーダルの表示状態
+            zoom_capture_modal: false,
+
+            // 現在モーダルで拡大表示中のキャプチャのオブジェクト
+            zoom_capture: null as ITweetCapture | null,
+
+            // キャプチャリスト
+            captures: [] as ITweetCapture[],
+
+            // キャプチャリストの要素
+            captures_element: null as HTMLDivElement | null,
+
             // ツイートのハッシュタグ
             tweet_hashtag: '',
 
             // ツイート本文
             tweet_text: '',
+
+            // ツイートに添付するキャプチャの Blob のリスト
+            tweet_captures: [] as Blob[],
 
             // 文字数カウント
             tweet_letter_count: 140,
@@ -171,6 +234,12 @@ export default Vue.extend({
             }
         }
     },
+    beforeDestroy() {
+        // 終了前にすべてのキャプチャの Blob URL を revoke してリソースを解放する
+        for (const capture of this.captures) {
+            URL.revokeObjectURL(capture.image_url);
+        }
+    },
     methods: {
 
         // ユーザーアカウントの情報を取得する
@@ -186,7 +255,7 @@ export default Vue.extend({
             }
         },
 
-        // 文字数カウントを変更するイベントハンドラー
+        // 文字数カウントを変更するイベント
         changeTweetLetterCount() {
 
             // サロゲートペアを考慮し、スプレッド演算子で一度配列化してから数えている
@@ -194,7 +263,7 @@ export default Vue.extend({
             this.tweet_letter_count = 140 - [...this.tweet_hashtag].length - [...this.tweet_text].length;
         },
 
-        // アカウントボタンが押されたときのイベントハンドラー
+        // アカウントボタンが押されたときのイベント
         clickAccountButton() {
             // Twitter アカウントが連携されていない場合は Twitter 設定画面に飛ばす
             if (!this.is_logged_in_twitter) {
@@ -218,6 +287,58 @@ export default Vue.extend({
             window.setTimeout(() => this.is_twitter_account_list_display = false, 150);
         },
 
+        // キャプチャリスト内のキャプチャがクリックされたときのイベント
+        clickCapture(capture: ITweetCapture) {
+
+            // 選択されたキャプチャが3枚まで & まだ選択されていないならキャプチャをツイート対象に追加する
+            if (this.tweet_captures.length < 4 && capture.selected === false) {
+                capture.selected = true;
+                this.tweet_captures.push(capture.blob);
+            } else {
+                // ツイート対象のキャプチャになっていたら取り除く
+                const index = this.tweet_captures.findIndex(blob => blob === capture.blob);
+                if (index > -1) {
+                    this.tweet_captures.splice(index, 1);
+                }
+                // キャプチャの選択を解除
+                capture.selected = false;
+            }
+        },
+
+        // 撮ったキャプチャを親コンポーネントから受け取り、キャプチャリストに追加する
+        async addCaptureList(blob: Blob, filename: string) {
+
+            if (this.captures_element === null) {
+                this.captures_element = this.$el.querySelector('.capture-container');
+            }
+
+            // 撮ったキャプチャが50件を超えていたら、重くなるので古いものから削除する
+            // 削除する前に Blob URL を revoke してリソースを解放するのがポイント
+            if (this.captures.length > 50) {
+                URL.revokeObjectURL(this.captures[0].image_url);
+                this.captures.shift();
+            }
+
+            // キャプチャリストにキャプチャを追加[
+            const u = URL.createObjectURL(blob);
+            this.captures.push({
+                blob: blob,
+                filename: filename,
+                image_url: u,
+                selected: false,
+                focused: false,
+            });
+
+            // キャプチャリストを下にスクロール
+            // this.$nextTick() のコールバックで DOM の更新を待つ
+            this.$nextTick(() => {
+                this.captures_element.scrollTo({
+                    top: this.captures_element.scrollHeight,
+                    behavior: 'smooth',
+                });
+            });
+        },
+
         // ツイートを送信する
         async sendTweet() {
 
@@ -228,38 +349,46 @@ export default Vue.extend({
                 // ハッシュタグがついてない場合にハッシュタグを付与
                 if (!tweet_hashtag_array[index].startsWith('#')) tweet_hashtag_array[index] = `#${tweet_hashtag_array[index]}`;
             }
-            const tweet_hashtag = tweet_hashtag_array.join(' ');
+            const tweet_hashtag = this.tweet_hashtag !== '' ? tweet_hashtag_array.join(' ') : '';
 
             // 実際に送るツイート本文を作成
-            let tweet_text;
-            switch (Utils.getSettingsItem('tweet_hashtag_position')) {
-                // ツイート本文の前に追加する
-                case 'Prepend': {
-                    tweet_text = `${tweet_hashtag} ${this.tweet_text}`;
-                    break;
-                }
-                // ツイート本文の後に追加する
-                case 'Append': {
-                    tweet_text = `${this.tweet_text} ${tweet_hashtag}`;
-                    break;
-                }
-                // ツイート本文の前に追加してから改行する
-                case 'PrependWithLineBreak': {
-                    tweet_text = `${tweet_hashtag}\n${this.tweet_text}`;
-                    break;
-                }
-                // ツイート本文の後に改行してから追加する
-                case 'AppendWithLineBreak': {
-                    tweet_text = `${this.tweet_text}\n${tweet_hashtag}`;
-                    break;
+            let tweet_text = this.tweet_text;
+            if (tweet_hashtag !== '') {  // ハッシュタグが入力されているときのみ
+                switch (Utils.getSettingsItem('tweet_hashtag_position')) {
+                    // ツイート本文の前に追加する
+                    case 'Prepend': {
+                        tweet_text = `${tweet_hashtag} ${this.tweet_text}`;
+                        break;
+                    }
+                    // ツイート本文の後に追加する
+                    case 'Append': {
+                        tweet_text = `${this.tweet_text} ${tweet_hashtag}`;
+                        break;
+                    }
+                    // ツイート本文の前に追加してから改行する
+                    case 'PrependWithLineBreak': {
+                        tweet_text = `${tweet_hashtag}\n${this.tweet_text}`;
+                        break;
+                    }
+                    // ツイート本文の後に改行してから追加する
+                    case 'AppendWithLineBreak': {
+                        tweet_text = `${this.tweet_text}\n${tweet_hashtag}`;
+                        break;
+                    }
                 }
             }
 
             // multipart/form-data でツイート本文と画像（選択されている場合）を送る
             const form_data = new FormData();
             form_data.append('tweet', tweet_text);
+            for (const tweet_capture of this.tweet_captures) {
+                form_data.append('images', tweet_capture);
+            }
 
-            // 連投防止のため、フォーム上のツイート本文を消去
+            // 連投防止のため、フォーム上のツイート本文・選択されているキャプチャを消去
+            // 送信した感を出す意味合いもある
+            for (const capture of this.captures) capture.selected = false;
+            this.tweet_captures = [];
             this.tweet_text = '';
 
             try {
@@ -283,22 +412,183 @@ export default Vue.extend({
 </script>
 <style lang="scss" scoped>
 
+.zoom-capture-modal {
+    position: relative;
+
+    &__image {
+        display: block;
+        width: 100%;
+        border-radius: 11px;
+    }
+
+    &__download {
+        display: flex;
+        position: absolute;
+        align-items: center;
+        justify-content: center;
+        right: 22px;
+        bottom: 20px;
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        color: var(--v-text-base);
+        filter: drop-shadow(0px 0px 4.5px rgba(0, 0, 0, 90%));
+    }
+}
+
 .twitter-container {
     display: flex;
     flex-direction: column;
     position: relative;
-    padding-left: 12px;
-    padding-right: 12px;
     padding-bottom: 8px;
 
-    .tab-container {
+    .capture-container {
+        position: relative;
         flex-grow: 1;
+        padding-left: 12px;
+        padding-right: 6px;
+        overflow-y: scroll;
+
+        .captures {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-row-gap: 12px;
+            grid-column-gap: 12px;
+            max-height: 100%;
+
+            .capture {
+                position: relative;
+                height: 82px;
+                border-radius: 11px;
+                // 読み込まれるまでのキャプチャの背景
+                background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
+                overflow: hidden;
+                user-select: none;
+                cursor: pointer;
+
+                &__image {
+                    display: block;
+                    width: 100%;
+                    height: 100%;
+                }
+
+                &__zoom {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    position: absolute;
+                    top: 1px;
+                    right: 3px;
+                    width: 38px;
+                    height: 38px;
+                    border-radius: 50%;
+                    filter: drop-shadow(0px 0px 2.5px rgba(0, 0, 0, 90%));
+                    cursor: pointer;
+                }
+
+                &__disabled-cover {
+                    display: none;
+                    align-items: center;
+                    justify-content: center;
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(30, 19, 16, 50%);
+                }
+
+                &__selected-number {
+                    display: none;
+                    align-items: center;
+                    justify-content: center;
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(30, 19, 16, 50%);
+                    font-size: 38px;
+                }
+
+                &__selected-checkmark {
+                    display: none;
+                    position: absolute;
+                    top: 6px;
+                    left: 7px;
+                    width: 20px;
+                    height: 20px;
+                    color: var(--v-primary-base);
+                }
+
+                &__selected-border {
+                    display: none;
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    border-radius: 11px;
+                    border: 4px solid var(--v-primary-base);
+                }
+
+                &__focused-border {
+                    display: none;
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    border-radius: 11px;
+                    border: 4px solid var(--v-twitter-base);
+                }
+
+                &--selected {
+                    .capture__selected-number, .capture__selected-checkmark, .capture__selected-border {
+                        display: flex;
+                    }
+                }
+                &--focused {
+                    .capture__focused-border {
+                        display: block;
+                    }
+                }
+                &--disabled {
+                    cursor: auto;
+                    .capture__disabled-cover {
+                        display: block;
+                    }
+                }
+            }
+        }
+
+        .capture-announce {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            height: 100%;
+
+            &__heading {
+                font-size: 20px;
+                font-weight: bold;
+            }
+            &__text {
+                margin-top: 12px;
+                color: var(--v-text-darken1);
+                font-size: 13.5px;
+                text-align: center;
+            }
+        }
     }
 
     .tab-button-container {
         display: flex;
+        flex-shrink: 0;
         column-gap: 7px;
         height: 40px;
+        margin-left: 12px;
+        margin-right: 12px;
         padding-top: 8px;
         padding-bottom: 6px;
 
@@ -328,7 +618,10 @@ export default Vue.extend({
     .tweet-form {
         display: flex;
         flex-direction: column;
+        flex-shrink: 0;
         height: 130px;
+        margin-left: 12px;
+        margin-right: 12px;
         border-radius: 12px;
         background: var(--v-background-lighten1);
 

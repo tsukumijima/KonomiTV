@@ -105,7 +105,7 @@
                         :class="{'watch-panel__content--active': panel_active_tab === 'Channel'}" :channels_list="channels_list" />
                     <Comment class="watch-panel__content" ref="Comment"
                         :class="{'watch-panel__content--active': panel_active_tab === 'Comment'}" :channel="channel" :player="player" />
-                    <Twitter class="watch-panel__content"
+                    <Twitter class="watch-panel__content" ref="Twitter"
                         :class="{'watch-panel__content--active': panel_active_tab === 'Twitter'}" :channel="channel" :player="player" />
                 </div>
                 <div class="watch-panel__navigation">
@@ -1635,9 +1635,6 @@ export default Vue.extend({
                         return;
                     }
 
-                    // キャプチャに番組情報と撮影時刻のメタデータ (EXIF) をセット
-                    blob = await TVUtils.setEXIFDataToCapture(blob, this.channel.program_present);
-
                     // ファイル名 (拡張子あり)
                     // 保存モードが「字幕キャプチャのみ」のときは便宜上 _caption のサフィックスをつける
                     let filename_ext = `${filename}.jpg`;
@@ -1645,11 +1642,14 @@ export default Vue.extend({
                         filename_ext = `${filename}_caption.jpg`;
                     }
 
-                    // キャプチャの保存先: ブラウザ or 両方
-                    if (['Browser', 'Both'].includes(Utils.getSettingsItem('capture_save_mode'))) {
+                    // 撮ったキャプチャを Twitter タブのキャプチャリストに送る
+                    (this.$refs.Twitter as InstanceType<typeof Twitter>).addCaptureList(blob, filename_ext);
 
-                        // キャプチャをダウンロード
-                        // TODO: 撮ったキャプチャを Twitter タブ側に引き渡す
+                    // キャプチャに番組情報と撮影時刻のメタデータ (EXIF) をセット
+                    blob = await TVUtils.setEXIFDataToCapture(blob, this.channel.program_present);
+
+                    // キャプチャの保存先: ブラウザでダウンロード or 両方
+                    if (['Browser', 'Both'].includes(Utils.getSettingsItem('capture_save_mode'))) {
                         Utils.downloadBlobImage(blob, filename_ext);
                     }
 
@@ -1694,20 +1694,22 @@ export default Vue.extend({
                         return;
                     }
 
+                    const filename_ext = `${filename}_caption.jpg`;
+
+                    // 撮ったキャプチャを Twitter タブのキャプチャリストに送る
+                    (this.$refs.Twitter as InstanceType<typeof Twitter>).addCaptureList(blob, filename_ext);
+
                     // キャプチャに番組情報と撮影時刻のメタデータ (EXIF) をセット
                     blob = await TVUtils.setEXIFDataToCapture(blob, this.channel.program_present);
 
-                    // キャプチャの保存先: ブラウザ or 両方
+                    // キャプチャの保存先: ブラウザでダウンロード or 両方
                     if (['Browser', 'Both'].includes(Utils.getSettingsItem('capture_save_mode'))) {
-
-                        // キャプチャをダウンロード
-                        // TODO: キャプチャを Twitter タブ側に引き渡す
-                        Utils.downloadBlobImage(blob, `${filename}_caption.jpg`);
+                        Utils.downloadBlobImage(blob, filename_ext);
                     }
 
                     // キャプチャの保存先: KonomiTV サーバーにアップロード or 両方
                     if (['UploadServer', 'Both'].includes(Utils.getSettingsItem('capture_save_mode'))) {
-                        await UploadCaptureToServer(blob, `${filename}_caption.jpg`);
+                        await UploadCaptureToServer(blob, filename_ext);
                     }
 
                     // キャプチャボタンのハイライトを削除する

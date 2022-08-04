@@ -257,7 +257,7 @@ async def TwitterAccountDeleteAPI(
 )
 async def TwitterTweetAPI(
     screen_name: str = Path(..., description='ツイートする Twitter アカウントのスクリーンネーム。'),
-    tweet: str = Form(..., description='ツイートの本文（基本的には140文字まで）。'),
+    tweet: str = Form('', description='ツイートの本文（基本的には140文字まで）。'),
     images: Optional[List[UploadFile]] = File(None, description='ツイートに添付する画像（4枚まで）。'),
     current_user: User = Depends(User.getCurrentUser),
 ):
