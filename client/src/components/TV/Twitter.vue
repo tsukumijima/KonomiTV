@@ -58,16 +58,18 @@
                 <span class="tab-button__text">キャプチャ</span>
             </div>
         </div>
-        <div class="tweet-form">
+        <div class="tweet-form" :class="{'tweet-form--focused': is_tweet_hashtag_form_focused || is_tweet_text_form_focused}">
             <div class="tweet-form__hashtag">
                 <input class="tweet-form__hashtag-form" type="text" placeholder="#ハッシュタグ"
-                    v-model="tweet_hashtag" @input="changeTweetLetterCount()">
+                    v-model="tweet_hashtag" @input="changeTweetLetterCount()"
+                    @focus="is_tweet_hashtag_form_focused = true" @blur="is_tweet_hashtag_form_focused = false">
                 <div v-ripple class="tweet-form__hashtag-memory-button">
                     <Icon icon="fluent:clipboard-text-ltr-32-regular" height="22px" />
                 </div>
             </div>
             <textarea class="tweet-form__textarea" placeholder="ツイート"
-                v-model="tweet_text" @input="changeTweetLetterCount()">
+                v-model="tweet_text" @input="changeTweetLetterCount()"
+                @focus="is_tweet_text_form_focused = true" @blur="is_tweet_text_form_focused = false">
             </textarea>
             <div class="tweet-form__control">
                 <div v-ripple class="account-button" :class="{'account-button--no-login': !this.is_logged_in_twitter}"
@@ -182,6 +184,12 @@ export default Vue.extend({
 
             // キャプチャリストの要素
             captures_element: null as HTMLDivElement | null,
+
+            // ツイートハッシュタグフォームにフォーカスしているか
+            is_tweet_hashtag_form_focused: false,
+
+            // ツイート本文フォームにフォーカスしているか
+            is_tweet_text_form_focused: false,
 
             // ツイートのハッシュタグ
             tweet_hashtag: '',
@@ -679,11 +687,18 @@ export default Vue.extend({
         margin-left: 12px;
         margin-right: 12px;
         border-radius: 12px;
+        border-bottom-left-radius: 7px;
+        border-bottom-right-radius: 7px;
         background: var(--v-background-lighten1);
+        transition: box-shadow 0.09s ease;
         @include tablet {
             height: 96px;
             margin-left: 8px;
             margin-right: 8px;
+        }
+
+        &--focused {
+            box-shadow: rgba(79, 130, 230, 60%) 0 0 0 3.5px;
         }
 
         &__hashtag {
