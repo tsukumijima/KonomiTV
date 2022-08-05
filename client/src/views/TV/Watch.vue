@@ -1218,6 +1218,18 @@ export default Vue.extend({
             // ショートカットキーハンドラー
             this.shortcut_key_handler = (event: KeyboardEvent) => {
 
+                const tag = document.activeElement.tagName.toUpperCase();
+                const editable = document.activeElement.getAttribute('contenteditable');
+
+                // 矢印キーのデフォルトの挙動（スクロール）を抑制
+                // キーリピート周りで間引かれるイベントでも event.preventDefault() しないとスクロールしてしまうため、
+                // 一番最初のタイミングでやっておく
+                // input・textarea・contenteditable 状態の要素では実行しない
+                if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code) &&
+                    (tag !== 'INPUT' && tag !== 'TEXTAREA' && editable !== '' && editable !== 'true')) {
+                    event.preventDefault();
+                }
+
                 // キーリピート（押しっぱなし）状態の場合は基本実行しない
                 // 押し続けると何度も同じ動作が実行されて大変な事になる…
                 // ただ、キーリピートを使いたい場合もあるので、リピート状態をフラグとして保存する
@@ -1229,9 +1241,6 @@ export default Vue.extend({
                 const now = Date.now();
                 if (now - this.shortcut_key_pressed_at < (0.05 * 1000)) return;
                 this.shortcut_key_pressed_at = now;  // 最終押下時刻を更新
-
-                const tag = document.activeElement.tagName.toUpperCase();
-                const editable = document.activeElement.getAttribute('contenteditable');
 
                 // ***** ツイート入力フォームにフォーカスを当てる/フォーカスを外す *****
 
@@ -1267,6 +1276,7 @@ export default Vue.extend({
                 // ***** ツイートを送信する *****
 
                 // ツイート入力フォームにフォーカスしているときだけこのショートカットが動くようにする
+                // 以降の if 文で textarea フォーカス時のイベントをすべて弾いてしまっているため、前に持ってきている
                 if (document.activeElement === tweet_form_element) {
                     // (Ctrl or Cmd or Shift) + Enter
                     // Shift + Enter は隠し機能（間違えたとき用）
@@ -1389,7 +1399,6 @@ export default Vue.extend({
                         // ***** キャプチャにフォーカスする *****
 
                         if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) {
-                            event.preventDefault();
 
                             // キャプチャリストに一枚もキャプチャがない
                             if (twitter_component.captures.length === 0) return;
