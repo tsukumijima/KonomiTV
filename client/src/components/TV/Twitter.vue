@@ -311,7 +311,7 @@ export default Vue.extend({
         async addCaptureList(blob: Blob, filename: string) {
 
             if (this.captures_element === null) {
-                this.captures_element = this.$el.querySelector('.tab-container');
+                this.captures_element = this.$el.querySelector('.tab-content');
             }
 
             // 撮ったキャプチャが50件を超えていたら、重くなるので古いものから削除する
@@ -465,16 +465,15 @@ export default Vue.extend({
 
     .tab-container {
         flex-grow: 1;
-        overflow-y: scroll;
+        min-height: 0;  // magic!
 
         .tab-content {
             position: relative;
-            padding-left: 12px;
-            padding-right: 5px;
             height: 100%;
             transition: opacity 0.2s, visibility 0.2s;
             opacity: 0;
             visibility: hidden;
+            overflow-y: scroll;
             @include tablet {
                 padding-top: 8px;
             }
@@ -484,6 +483,8 @@ export default Vue.extend({
                 grid-template-columns: 1fr 1fr;
                 grid-row-gap: 12px;
                 grid-column-gap: 12px;
+                padding-left: 12px;
+                padding-right: 5px;
                 max-height: 100%;
                 @include tablet {
                     grid-row-gap: 8px;
@@ -606,6 +607,8 @@ export default Vue.extend({
                 justify-content: center;
                 flex-direction: column;
                 height: 100%;
+                padding-left: 12px;
+                padding-right: 5px;
 
                 &__heading {
                     font-size: 20px;
@@ -672,7 +675,7 @@ export default Vue.extend({
         display: flex;
         flex-direction: column;
         flex-shrink: 0;
-        height: 130px;
+        height: 136px;
         margin-left: 12px;
         margin-right: 12px;
         border-radius: 12px;
