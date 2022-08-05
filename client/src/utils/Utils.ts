@@ -146,6 +146,17 @@ export default class Utils {
 
 
     /**
+     * ブラウザが実行されている OS に応じて、"Ctrl" または "Cmd" を返す
+     * キーボードショートカットのコンビネーションキーの説明を OS によって分けるために使う
+     * @returns ブラウザが実行されている OS が Mac なら Cmd を、それ以外なら Ctrl を返す
+     */
+    static CtrlOrCmd(): 'Ctrl' | 'Cmd' {
+        // iPhone・iPad で純正キーボードを接続した場合も一応想定して、iPhone・iPad も含める（動くかは未検証）
+        return /iPhone|iPad|Macintosh/i.test(navigator.userAgent) ? 'Cmd' : 'Ctrl';
+    }
+
+
+    /**
      * アクセストークンを LocalStorage から削除する
      * アクセストークンを削除することで、ログアウト相当になる
      */

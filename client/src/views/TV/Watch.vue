@@ -382,7 +382,7 @@ export default Vue.extend({
                             { name: 'キャプチャにフォーカスする', keys: [{name: 'キャプチャタブを表示', icon: false}, {name: 'fluent:arrow-up-12-filled;fluent:arrow-down-12-filled;fluent:arrow-left-12-filled;fluent:arrow-right-12-filled', icon: true}] },
                             { name: 'キャプチャを拡大表示する/<br>キャプチャの拡大表示を閉じる', keys: [{name: 'キャプチャにフォーカス', icon: false}, {name: 'Enter', icon: false}] },
                             { name: 'キャプチャを選択する/<br>キャプチャの選択を解除する', keys: [{name: 'キャプチャにフォーカス', icon: false}, {name: 'Space', icon: false}] },
-                            { name: 'ツイートを送信する', keys: [{name: 'ツイート入力フォームに<br>フォーカス', icon: false}, {name: 'Ctrl', icon: false}, {name: 'Enter', icon: false}] },
+                            { name: 'ツイートを送信する', keys: [{name: 'ツイート入力フォームに<br>フォーカス', icon: false}, {name: Utils.CtrlOrCmd(), icon: false}, {name: 'Enter', icon: false}] },
                         ]
                     },
                 ]
@@ -1268,7 +1268,9 @@ export default Vue.extend({
 
                 // ツイート入力フォームにフォーカスしているときだけこのショートカットが動くようにする
                 if (document.activeElement === tweet_form_element) {
-                    if (event.ctrlKey && event.code === 'Enter') {
+                    // (Ctrl or Cmd or Shift) + Enter
+                    // Shift + Enter は隠し機能（間違えたとき用）
+                    if ((event.ctrlKey || event.metaKey || event.shiftKey) && event.code === 'Enter') {
                         (twitter_component.$el.querySelector('.tweet-button') as HTMLDivElement).click();
                     }
                 }
@@ -1379,14 +1381,18 @@ export default Vue.extend({
                         }
                     }
 
-                    // Twitter タブ内のキャプチャタブが表示されているときだけ
+                    // Twitter タブ内のキャプチャタブが表示されている & Ctrl / Cmd / Shift / Alt のいずれも押されていないときだけ
                     // キャプチャタブが表示されている時は、プレイヤー操作側の矢印キー/スペースキーのショートカットは動作しない（キーが重複するため）
-                    if (this.panel_active_tab === 'Twitter' && twitter_component.active_tab === 'Capture') {
+                    if (this.panel_active_tab === 'Twitter' && twitter_component.active_tab === 'Capture' &&
+                        (!event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey)) {
 
                         // ***** キャプチャにフォーカスする *****
 
                         if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) {
                             event.preventDefault();
+
+                            // キャプチャリストに一枚もキャプチャがない
+                            if (twitter_component.captures.length === 0) return;
 
                             // まだどのキャプチャにもフォーカスされていない場合は、一番新しいキャプチャにフォーカスして終了
                             if (twitter_component.captures.some(capture => capture.focused === true) === false) {
@@ -1513,7 +1519,21 @@ export default Vue.extend({
 
                     // ***** プレイヤーのショートカットキー *****
 
-                    // プレイヤーが初期化されていない際や Ctrl or Cmd キーが一緒に押された際に作動しないように
+                    // プレイヤーが初期化されていない際や Ctrl / Cmd / Alt キーが一緒に押された際に作動しないように
+                    if (this.player !== null && !event.ctrlKey && !event.metaKey) {
+                        // Shift + ↑キー: プレイヤーの音量を上げる
+                        if (event.shiftKey === true && event.code === 'ArrowUp') {
+                            this.player.volume(this.player.volume() + 0.05);
+                            return;
+                        }
+                        // Shift + ↓キー: プレイヤーの音量を下げる
+                        if (event.shiftKey === true && event.code === 'ArrowDown') {
+                            this.player.volume(this.player.volume() - 0.05);
+                            return;
+                        }
+                    }
+
+                    // プレイヤーが初期化されていない際や Ctrl / Cmd / Shift / Alt キーが一緒に押された際に作動しないように
                     if (this.player !== null && !event.ctrlKey && !event.metaKey) {
 
                         // ←キー: 停止して0.5秒巻き戻し
@@ -1530,17 +1550,6 @@ export default Vue.extend({
                             this.player.video.currentTime = this.player.video.currentTime + 0.5;
                             return;
                         }
-                        // Shift + ↑キー: プレイヤーの音量を上げる
-                        if (event.shiftKey === true && event.code === 'ArrowUp') {
-                            this.player.volume(this.player.volume() + 0.05);
-                            return;
-                        }
-                        // Shift + ↓キー: プレイヤーの音量を下げる
-                        if (event.shiftKey === true && event.code === 'ArrowDown') {
-                            this.player.volume(this.player.volume() - 0.05);
-                            return;
-                        }
-
                         // キーリピートでは実行しないショートカット
                         if (is_repeat === false) {
                             // Spaceキー: 再生/停止
