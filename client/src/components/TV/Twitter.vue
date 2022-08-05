@@ -1,6 +1,6 @@
 <template>
     <div class="twitter-container">
-        <v-dialog max-width="980" transition="slide-y-transition" v-model="zoom_capture_modal">
+        <v-dialog content-class="zoom-capture-modal-container" max-width="980" transition="slide-y-transition" v-model="zoom_capture_modal">
             <div class="zoom-capture-modal">
                 <img class="zoom-capture-modal__image" :src="zoom_capture ? zoom_capture.image_url: ''">
                 <a v-ripple class="zoom-capture-modal__download"
@@ -415,6 +415,17 @@ export default Vue.extend({
 });
 
 </script>
+<style lang="scss">
+
+@include tablet {
+    .zoom-capture-modal-container.v-dialog {
+        width: auto !important;
+        max-width: auto !important;
+        aspect-ratio: 16 / 9;
+    }
+}
+
+</style>
 <style lang="scss" scoped>
 
 .zoom-capture-modal {
@@ -459,11 +470,14 @@ export default Vue.extend({
         .tab-content {
             position: relative;
             padding-left: 12px;
-            padding-right: 6px;
+            padding-right: 5px;
             height: 100%;
             transition: opacity 0.2s, visibility 0.2s;
             opacity: 0;
             visibility: hidden;
+            @include tablet {
+                padding-top: 8px;
+            }
 
             .captures {
                 display: grid;
@@ -471,6 +485,10 @@ export default Vue.extend({
                 grid-row-gap: 12px;
                 grid-column-gap: 12px;
                 max-height: 100%;
+                @include tablet {
+                    grid-row-gap: 8px;
+                    grid-column-gap: 8px;
+                }
 
                 .capture {
                     position: relative;
@@ -481,6 +499,9 @@ export default Vue.extend({
                     overflow: hidden;
                     user-select: none;
                     cursor: pointer;
+                    @include tablet {
+                        height: 74px;
+                    }
 
                     &__image {
                         display: block;
@@ -589,12 +610,18 @@ export default Vue.extend({
                 &__heading {
                     font-size: 20px;
                     font-weight: bold;
+                    @include tablet {
+                        font-size: 16px;
+                    }
                 }
                 &__text {
                     margin-top: 12px;
                     color: var(--v-text-darken1);
                     font-size: 13.5px;
                     text-align: center;
+                    @include tablet {
+                        font-size: 12px;
+                    }
                 }
             }
         }
@@ -609,6 +636,11 @@ export default Vue.extend({
         margin-right: 12px;
         padding-top: 8px;
         padding-bottom: 6px;
+        @include tablet {
+            height: 38px;
+            margin-left: 8px;
+            margin-right: 8px;
+        }
 
         .tab-button {
             display: flex;
@@ -621,6 +653,9 @@ export default Vue.extend({
             transition: background-color 0.15s ease;
             user-select: none;
             cursor: pointer;
+            @include tablet {
+                font-size: 10.5px;
+            }
             &--active {
                 background: var(--v-twitter-base);
             }
@@ -642,6 +677,11 @@ export default Vue.extend({
         margin-right: 12px;
         border-radius: 12px;
         background: var(--v-background-lighten1);
+        @include tablet {
+            height: 96px;
+            margin-left: 8px;
+            margin-right: 8px;
+        }
 
         &__hashtag {
             display: flex;
@@ -650,6 +690,10 @@ export default Vue.extend({
             margin-top: 12px;
             margin-left: 12px;
             margin-right: 12px;
+            @include tablet {
+                height: 16px;
+                margin-top: 8px;
+            }
 
             &-form {
                 display: block;
@@ -658,6 +702,9 @@ export default Vue.extend({
                 font-size: 12.5px;
                 color: var(--v-twitter-lighten2);
                 outline: none;
+                @include tablet {
+                    font-size: 12px;
+                }
                 &::placeholder {
                     color: rgba(65, 165, 241, 60%);
                 }
@@ -688,6 +735,10 @@ export default Vue.extend({
             word-break: break-all;
             resize: none;
             outline: none;
+            @include tablet {
+                margin-top: 6px;
+                font-size: 12px;
+            }
             &::placeholder {
                 color: var(--v-text-darken2);
             }
@@ -698,6 +749,9 @@ export default Vue.extend({
             align-items: center;
             height: 32px;
             margin-top: 6px;
+            @include tablet {
+                height: 26px;
+            }
 
             .account-button {
                 display: flex;
@@ -710,6 +764,11 @@ export default Vue.extend({
                 background: var(--v-background-lighten2);
                 user-select: none;
                 cursor: pointer;
+                @include tablet {
+                    width: 156px;
+                    border-radius: 5px;
+                    font-size: 11px;
+                }
                 &--no-login {
                     .account-button__screen-name {
                         font-weight: 500;
@@ -726,6 +785,9 @@ export default Vue.extend({
                     border-radius: 7px;
                     // 読み込まれるまでのアイコンの背景
                     background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
+                    @include tablet {
+                        width: 26px;
+                    }
                 }
                 &__screen-name {
                     flex-grow: 1;
@@ -748,11 +810,19 @@ export default Vue.extend({
                 font-size: 10px;
                 color: var(--v-text-darken1);
                 user-select: none;
+                @include tablet {
+                    font-size: 9px;
+                }
 
                 &__content {
                     display: flex;
                     align-items: center;
                     justify-content: center;
+                    &:nth-child(2) {
+                        @include tablet {
+                            margin-top: -2.5px;
+                        }
+                    }
                     svg {
                         width: 14px;
                     }
@@ -785,6 +855,11 @@ export default Vue.extend({
                 user-select: none;
                 outline: none;
                 cursor: pointer;
+                @include tablet {
+                    width: 86px;
+                    border-radius: 5px;
+                    font-size: 11.8px;
+                }
 
                 &[disabled] {
                     opacity: 0.7;
@@ -817,12 +892,19 @@ export default Vue.extend({
             border-radius: 7px;
             user-select: none;
             cursor: pointer;
+            @include tablet {
+                padding: 8px 12px;
+            }
 
             &__icon {
                 display: block;
                 width: 50px;
                 height: 50px;
                 border-radius: 50%;
+                @include tablet {
+                    width: 36px;
+                    height: 36px;
+                }
             }
             &__info {
                 display: flex;
@@ -837,10 +919,17 @@ export default Vue.extend({
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
+                @include tablet {
+                    font-size: 14px;
+                    line-height: 1.3;
+                }
             }
             &__screen-name {
                 color: var(--v-text-darken1);
                 font-size: 14px;
+                @include tablet {
+                    font-size: 13px;
+                }
             }
             &__check {
                 flex-shrink: 0;
