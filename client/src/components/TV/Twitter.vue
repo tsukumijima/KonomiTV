@@ -63,7 +63,7 @@
                 <input class="tweet-form__hashtag-form" type="text" placeholder="#ハッシュタグ"
                     v-model="tweet_hashtag" @input="changeTweetLetterCount()"
                     @focus="is_tweet_hashtag_form_focused = true" @blur="is_tweet_hashtag_form_focused = false">
-                <div v-ripple class="tweet-form__hashtag-memory-button">
+                <div v-ripple class="tweet-form__hashtag-memory-button" @click="is_hashtag_list_display = !is_hashtag_list_display">
                     <Icon icon="fluent:clipboard-text-ltr-32-regular" height="22px" />
                 </div>
             </div>
@@ -169,6 +169,9 @@ export default Vue.extend({
 
             // 連携している Twitter アカウントリストを表示しているか
             is_twitter_account_list_display: false,
+
+            // ハッシュタグリストを表示しているか
+            is_hashtag_list_display: false,
 
             // アクティブなタブ
             active_tab: 'Capture' as ('Search' | 'Timeline' | 'Capture'),

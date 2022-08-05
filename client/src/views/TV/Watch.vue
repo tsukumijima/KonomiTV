@@ -382,7 +382,7 @@ export default Vue.extend({
                             { name: 'キャプチャにフォーカスする', keys: [{name: 'キャプチャタブを表示', icon: false}, {name: 'fluent:arrow-up-12-filled;fluent:arrow-down-12-filled;fluent:arrow-left-12-filled;fluent:arrow-right-12-filled', icon: true}] },
                             { name: 'キャプチャを拡大表示する/<br>キャプチャの拡大表示を閉じる', keys: [{name: 'キャプチャにフォーカス', icon: false}, {name: 'Enter', icon: false}] },
                             { name: 'キャプチャを選択する/<br>キャプチャの選択を解除する', keys: [{name: 'キャプチャにフォーカス', icon: false}, {name: 'Space', icon: false}] },
-                            { name: 'ツイートを送信する', keys: [{name: 'ツイート入力フォームに<br>フォーカス', icon: false}, {name: Utils.CtrlOrCmd(), icon: false}, {name: 'Enter', icon: false}] },
+                            { name: 'ツイートを送信する', keys: [{name: 'Twitter タブを表示', icon: false}, {name: Utils.CtrlOrCmd(), icon: false}, {name: 'Enter', icon: false}] },
                         ]
                     },
                 ]
@@ -1275,9 +1275,13 @@ export default Vue.extend({
 
                 // ***** ツイートを送信する *****
 
-                // ツイート入力フォームにフォーカスしているときだけこのショートカットが動くようにする
+                // ツイート入力フォームにフォーカスしているときもこのショートカットが動くようにする
+                // Twitter タブ以外を開いているときは実行しない
                 // 以降の if 文で textarea フォーカス時のイベントをすべて弾いてしまっているため、前に持ってきている
-                if (document.activeElement === tweet_form_element) {
+                if (((tag !== 'INPUT' && tag !== 'TEXTAREA' && editable !== '' && editable !== 'true') ||
+                     (document.activeElement === tweet_form_element)) &&
+                     this.panel_active_tab === 'Twitter' &&
+                     this.is_ime_composing === false) {
                     // (Ctrl or Cmd or Shift) + Enter
                     // Shift + Enter は隠し機能（間違えたとき用）
                     if ((event.ctrlKey || event.metaKey || event.shiftKey) && event.code === 'Enter') {
