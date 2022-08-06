@@ -228,9 +228,15 @@ export default Vue.extend({
             // チャンネル ID が一致したチャンネルの情報を保存する
             for (const pinned_channel_id of this.pinned_channel_ids) {
                 const pinned_channel_type = TVUtils.getChannelType(pinned_channel_id, true);
-                pinned_channels.push(this.channels_list.get(pinned_channel_type).find((channel) => {
+                const pinned_channel = this.channels_list.get(pinned_channel_type).find((channel) => {
                     return channel.channel_id === pinned_channel_id;  // チャンネル ID がピン留めされているチャンネルのものと同じ
-                }));
+                });
+                // チャンネル情報を取得できているときだけ
+                // サブチャンネルをピン留めしたが、マルチ編成が終了して現在は放送していない場合などに備える (BS142 など)
+                // 現在放送していないチャンネルは this.channels_list に入れた段階で弾いているため、チャンネル情報を取得できない
+                if (pinned_channel !== undefined) {
+                    pinned_channels.push(pinned_channel);
+                }
             }
 
             if (!this.channels_list.has('ピン留め')) {
