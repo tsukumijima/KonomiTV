@@ -38,6 +38,15 @@
                 </v-btn>
             </div>
             <div class="settings__item">
+                <div class="settings__item-heading">既定で表示される Twitter タブ内のタブ</div>
+                <div class="settings__item-label">
+                    視聴画面を開いたときに、パネルの Twitter タブの中で最初に表示されるタブを設定します。<br>
+                </div>
+                <v-select class="settings__item-form" outlined hide-details
+                    :items="twitter_active_tab" v-model="settings.twitter_active_tab">
+                </v-select>
+            </div>
+            <div class="settings__item">
                 <div class="settings__item-heading">ツイートにつけるハッシュタグの位置</div>
                 <div class="settings__item-label">
                     ツイート本文から見て、ハッシュタグをどの位置につけてツイートするかを設定します。<br>
@@ -66,6 +75,13 @@ export default Vue.extend({
     data() {
         return {
 
+            // 既定で表示されるパネルのタブの選択肢
+            twitter_active_tab: [
+                {'text': 'ツイート検索タブ', 'value': 'Search'},
+                {'text': 'タイムラインタブ', 'value': 'Timeline'},
+                {'text': 'キャプチャタブ', 'value': 'Capture'},
+            ],
+
             // ツイートにつけるハッシュタグの位置の選択肢
             tweet_hashtag_position: [
                 {'text': 'ツイート本文の前に追加する', 'value': 'Prepend'},
@@ -89,7 +105,7 @@ export default Vue.extend({
             settings: (() => {
                 // 設定の既定値を取得する
                 const settings = {}
-                for (const setting of ['tweet_hashtag_position']) {
+                for (const setting of ['twitter_active_tab', 'tweet_hashtag_position']) {
                     settings[setting] = Utils.getSettingsItem(setting);
                 }
                 return settings;

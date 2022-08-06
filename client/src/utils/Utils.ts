@@ -71,6 +71,9 @@ export default class Utils {
 
         // ***** 設定 → Twitter *****
 
+        // 既定で表示される Twitter タブ内のタブ (Default: キャプチャタブ)
+        twitter_active_tab: 'Capture' as ('Search' | 'Timeline' | 'Capture'),
+
         // ツイートにつけるハッシュタグの位置 (Default: ツイート本文の後に追加する)
         tweet_hashtag_position: 'Append' as ('Prepend' | 'Append' | 'PrependWithLineBreak' | 'AppendWithLineBreak'),
     };

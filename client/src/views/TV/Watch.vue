@@ -1380,24 +1380,24 @@ export default Vue.extend({
 
                         // [(「): ツイート検索タブ
                         if (event.code === 'BracketRight') {
-                            twitter_component.active_tab = 'Search';
+                            twitter_component.twitter_active_tab = 'Search';
                             return;
                         }
                         // ](」): タイムラインタブ
                         if (event.code === 'Backslash') {
-                            twitter_component.active_tab = 'Timeline';
+                            twitter_component.twitter_active_tab = 'Timeline';
                             return;
                         }
                         // \(￥)キー: キャプチャタブ
                         if (event.code === 'IntlRo') {
-                            twitter_component.active_tab = 'Capture';
+                            twitter_component.twitter_active_tab = 'Capture';
                             return;
                         }
                     }
 
                     // Twitter タブ内のキャプチャタブが表示されている & Ctrl / Cmd / Shift / Alt のいずれも押されていないときだけ
                     // キャプチャタブが表示されている時は、プレイヤー操作側の矢印キー/スペースキーのショートカットは動作しない（キーが重複するため）
-                    if (this.panel_active_tab === 'Twitter' && twitter_component.active_tab === 'Capture' &&
+                    if (this.panel_active_tab === 'Twitter' && twitter_component.twitter_active_tab === 'Capture' &&
                         (!event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey)) {
 
                         // ***** キャプチャにフォーカスする *****

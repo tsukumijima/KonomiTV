@@ -10,7 +10,7 @@
             </div>
         </v-dialog>
         <div class="tab-container">
-            <div class="tab-content" :class="{'tab-content--active': active_tab === 'Capture'}">
+            <div class="tab-content" :class="{'tab-content--active': twitter_active_tab === 'Capture'}">
                 <div class="captures">
                     <div class="capture" :class="{
                             'capture--selected': capture.selected,
@@ -42,18 +42,18 @@
             </div>
         </div>
         <div class="tab-button-container">
-            <div v-ripple class="tab-button" :class="{'tab-button--active': active_tab === 'Search'}"
-                @click="active_tab = 'Search'">
+            <div v-ripple class="tab-button" :class="{'tab-button--active': twitter_active_tab === 'Search'}"
+                @click="twitter_active_tab = 'Search'">
                 <Icon icon="fluent:search-16-filled" height="18px" />
                 <span class="tab-button__text">ツイート検索</span>
             </div>
-            <div v-ripple class="tab-button" :class="{'tab-button--active': active_tab === 'Timeline'}"
-                @click="active_tab = 'Timeline'">
+            <div v-ripple class="tab-button" :class="{'tab-button--active': twitter_active_tab === 'Timeline'}"
+                @click="twitter_active_tab = 'Timeline'">
                 <Icon icon="fluent:home-16-regular" height="18px" />
                 <span class="tab-button__text">タイムライン</span>
             </div>
-            <div v-ripple class="tab-button" :class="{'tab-button--active': active_tab === 'Capture'}"
-                @click="active_tab = 'Capture'">
+            <div v-ripple class="tab-button" :class="{'tab-button--active': twitter_active_tab === 'Capture'}"
+                @click="twitter_active_tab = 'Capture'">
                 <Icon icon="fluent:image-copy-20-regular" height="18px" />
                 <span class="tab-button__text">キャプチャ</span>
             </div>
@@ -214,8 +214,8 @@ export default Vue.extend({
             // ハッシュタグリストを表示しているか
             is_hashtag_list_display: false,
 
-            // アクティブなタブ
-            active_tab: 'Capture' as ('Search' | 'Timeline' | 'Capture'),
+            // 既定で表示される Twitter タブ内のタブ
+            twitter_active_tab: Utils.getSettingsItem('twitter_active_tab') as ('Search' | 'Timeline' | 'Capture'),
 
             // キャプチャを拡大表示するモーダルの表示状態
             zoom_capture_modal: false,
