@@ -141,6 +141,18 @@ export default Vue.extend({
         // ローディング状態を解除
         this.is_loading = false;
     },
+    watch: {
+        // settings 内の値の変更を監視する
+        settings: {
+            deep: true,
+            handler() {
+                // settings 内の値を順に LocalStorage に保存する
+                for (const [setting_key, setting_value] of Object.entries(this.settings)) {
+                    Utils.setSettingsItem(setting_key, setting_value);
+                }
+            }
+        }
+    },
     methods: {
         async syncAccountInfo() {
 
@@ -245,18 +257,6 @@ export default Vue.extend({
 
             this.$message.success('ニコニコアカウントとの連携を解除しました。');
         },
-    },
-    watch: {
-        // settings 内の値の変更を監視する
-        settings: {
-            deep: true,
-            handler() {
-                // settings 内の値を順に LocalStorage に保存する
-                for (const [setting_key, setting_value] of Object.entries(this.settings)) {
-                    Utils.setSettingsItem(setting_key, setting_value);
-                }
-            }
-        }
     }
 });
 

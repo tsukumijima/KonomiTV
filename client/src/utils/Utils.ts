@@ -32,8 +32,11 @@ export default class Utils {
         // 前回視聴画面を開いた際にパネルが表示されていたかどうか (同期無効)
         is_display_latest_panel: true as boolean,
 
-        // 現在ツイート対象として選択されている Twitter アカウントの ID
+        // 現在ツイート対象として選択されている Twitter アカウントの ID (同期無効)
         selected_twitter_account_id: null as number | null,
+
+        // 保存している Twitter のハッシュタグが入るリスト
+        saved_twitter_hashtags: [] as string[],
 
         // ***** 設定 → 全般 *****
 
@@ -57,18 +60,18 @@ export default class Utils {
 
         // ***** 設定 → ニコニコ実況 *****
 
-        // コメントの速さ (1倍)
+        // コメントの速さ (Default: 1倍)
         comment_speed_rate: 1 as number,
 
-        // コメントのフォントサイズ (34px)
+        // コメントのフォントサイズ (Default: 34px)
         comment_font_size: 34 as number,
 
-        // コメントの遅延時間 (1.5秒) (同期無効)
+        // コメントの遅延時間 (Default: 1.5秒) (同期無効)
         comment_delay_time: 1.5 as number,
 
         // ***** 設定 → Twitter *****
 
-        // ツイートにつけるハッシュタグの位置（ツイート本文の後に追加する）
+        // ツイートにつけるハッシュタグの位置 (Default: ツイート本文の後に追加する)
         tweet_hashtag_position: 'Append' as ('Prepend' | 'Append' | 'PrependWithLineBreak' | 'AppendWithLineBreak'),
     };
 

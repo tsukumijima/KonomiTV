@@ -61,14 +61,14 @@
         <div class="tweet-form" :class="{'tweet-form--focused': is_tweet_hashtag_form_focused || is_tweet_text_form_focused}">
             <div class="tweet-form__hashtag">
                 <input class="tweet-form__hashtag-form" type="text" placeholder="#ハッシュタグ"
-                    v-model="tweet_hashtag" @input="changeTweetLetterCount()"
+                    v-model="tweet_hashtag" @input="updateTweetLetterCount()"
                     @focus="is_tweet_hashtag_form_focused = true" @blur="is_tweet_hashtag_form_focused = false">
                 <div v-ripple class="tweet-form__hashtag-memory-button" @click="is_hashtag_list_display = !is_hashtag_list_display">
                     <Icon icon="fluent:clipboard-text-ltr-32-regular" height="22px" />
                 </div>
             </div>
             <textarea class="tweet-form__textarea" placeholder="ツイート"
-                v-model="tweet_text" @input="changeTweetLetterCount()"
+                v-model="tweet_text" @input="updateTweetLetterCount()"
                 @focus="is_tweet_text_form_focused = true" @blur="is_tweet_text_form_focused = false">
             </textarea>
             <div class="tweet-form__control">
@@ -115,6 +115,34 @@
                     v-show="twitter_account.id === selected_twitter_account_id" />
             </div>
         </div>
+        <div class="hashtag-list" :class="{'hashtag-list--display': is_hashtag_list_display}">
+            <div class="hashtag-heading">
+                <div class="hashtag-heading__text">
+                    <Icon icon="charm:hash" width="17px" />
+                    <span class="ml-1">ハッシュタグリスト</span>
+                </div>
+                <button v-ripple class="hashtag-heading__add-button"
+                    @click="saved_twitter_hashtags.push({id: Date.now(), text: '#ここにハッシュタグを入力', editing: false})">
+                    <Icon icon="fluent:add-12-filled" width="17px" />
+                    <span class="ml-1">追加</span>
+                </button>
+            </div>
+            <div class="hashtag-container">
+                <div v-ripple="!hashtag.editing" class="hashtag" :class="{'hashtag--editing': hashtag.editing}"
+                    v-for="hashtag in saved_twitter_hashtags" :key="hashtag.id"
+                    @click="tweet_hashtag = hashtag.text; updateTweetLetterCount()">
+                    <input type="text" class="hashtag__input" v-model="hashtag.text" :disabled="!hashtag.editing" @click.stop="">
+                    <button v-ripple class="hashtag__edit-button"
+                        @click.prevent.stop="hashtag.editing = !hashtag.editing">
+                        <Icon :icon="hashtag.editing ? 'fluent:checkmark-16-filled': 'fluent:edit-16-filled'" width="19px" />
+                    </button>
+                    <button v-ripple class="hashtag__delete-button"
+                        @click.prevent.stop="saved_twitter_hashtags.splice(saved_twitter_hashtags.indexOf(hashtag), 1)">
+                        <Icon  icon="fluent:delete-16-filled" width="19px" />
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 <script lang="ts">
@@ -123,15 +151,22 @@ import axios from 'axios';
 import Vue, { PropType } from 'vue';
 
 import { IChannel, ITwitterAccount, IUser } from '@/interface';
-import Utils, { TVUtils } from '@/utils';
+import Utils from '@/utils';
 
 // このコンポーネント内でのキャプチャのインターフェイス
 interface ITweetCapture {
-    blob: Blob,
-    filename: string,
-    image_url: string,
-    selected: boolean,
-    focused: boolean,
+    blob: Blob;
+    filename: string;
+    image_url: string;
+    selected: boolean;
+    focused: boolean;
+}
+
+// このコンポーネント内でのハッシュタグのインターフェイス
+interface IHashtag {
+    id: number;
+    text: string;
+    editing: boolean;
 }
 
 export default Vue.extend({
@@ -169,6 +204,12 @@ export default Vue.extend({
 
             // 連携している Twitter アカウントリストを表示しているか
             is_twitter_account_list_display: false,
+
+            // 保存している Twitter のハッシュタグが入るリスト
+            saved_twitter_hashtags: (Utils.getSettingsItem('saved_twitter_hashtags') as string[]).map((hashtag, index) => {
+                // id プロパティは :key="" に指定するためにつける ID (ミリ秒単位のタイムスタンプ + index で適当に一意になるように)
+                return {id: Date.now() + index, text: hashtag, editing: false} as IHashtag;
+            }),
 
             // ハッシュタグリストを表示しているか
             is_hashtag_list_display: false,
@@ -253,6 +294,15 @@ export default Vue.extend({
             URL.revokeObjectURL(capture.image_url);
         }
     },
+    watch: {
+        // 保存しているハッシュタグが変更されたら随時 LocalStorage に保存する
+        saved_twitter_hashtags: {
+            deep: true,
+            handler() {
+                Utils.setSettingsItem('saved_twitter_hashtags', this.saved_twitter_hashtags.map(hashtag => hashtag.text));
+            }
+        }
+    },
     methods: {
 
         // ユーザーアカウントの情報を取得する
@@ -269,7 +319,7 @@ export default Vue.extend({
         },
 
         // 文字数カウントを変更するイベント
-        changeTweetLetterCount() {
+        updateTweetLetterCount() {
 
             // サロゲートペアを考慮し、スプレッド演算子で一度配列化してから数えている
             // ref: https://qiita.com/suin/items/3da4fb016728c024eaca
@@ -698,6 +748,8 @@ export default Vue.extend({
             height: 96px;
             margin-left: 8px;
             margin-right: 8px;
+            border-bottom-left-radius: 5px;
+            border-bottom-right-radius: 5px;
         }
 
         &--focused {
@@ -895,15 +947,35 @@ export default Vue.extend({
         left: 12px;
         right: 12px;
         bottom: 48px;
+        max-height: calc(100vh - 137px);
         border-radius: 7px;
+        // スクロールバーが表示されると角が丸くなくなる問題への対処
+        clip-path: inset(0% 0% 0% 0% round 7px);
         background: var(--v-background-lighten2);
         box-shadow: 0px 3px 4px rgba(0, 0, 0, 53%);
         transition: opacity 0.2s ease, visibility 0.2s ease;
         opacity: 0;
         visibility: hidden;
+        overflow-y: auto;
+        z-index: 3;
+        @include tablet {
+            left: 8px;
+            right: 8px;
+            bottom: 40px;
+            max-height: calc(100vh - 104px);
+        }
         &--display {
             opacity: 1;
             visibility: visible;
+        }
+        &::-webkit-scrollbar-track {
+            background: var(--v-background-lighten2);
+        }
+        &::-webkit-scrollbar-thumb {
+                background: var(--v-gray-base);
+            &:hover {
+                background: var(--v-gray-base);
+            }
         }
 
         .twitter-account {
@@ -955,6 +1027,138 @@ export default Vue.extend({
             &__check {
                 flex-shrink: 0;
                 color: var(--v-twitter-lighten1);
+            }
+        }
+    }
+
+    .hashtag-list {
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        bottom: 149px;
+        max-height: calc(100vh - 239px);
+        padding: 12px 4px;
+        border-radius: 7px;
+        // スクロールバーが表示されると角が丸くなくなる問題への対処
+        clip-path: inset(0% 0% 0% 0% round 7px);
+        background: var(--v-background-lighten2);
+        box-shadow: 0px 3px 4px rgba(0, 0, 0, 53%);
+        transition: opacity 0.2s ease, visibility 0.2s ease;
+        opacity: 0;
+        visibility: hidden;
+        overflow-y: auto;
+        z-index: 2;
+        @include tablet {
+            left: 8px;
+            right: 8px;
+            bottom: 110px;
+            max-height: calc(100vh - 174px);
+            padding: 8px 4px;
+        }
+        &--display {
+            opacity: 1;
+            visibility: visible;
+        }
+        &::-webkit-scrollbar-track {
+            background: var(--v-background-lighten2);
+        }
+        &::-webkit-scrollbar-thumb {
+                background: var(--v-gray-base);
+            &:hover {
+                background: var(--v-gray-base);
+            }
+        }
+
+        .hashtag-heading {
+            display: flex;
+            align-items: center;
+            font-weight: bold;
+            padding-left: 8px;
+            padding-right: 4px;
+
+            &__text {
+                display: flex;
+                align-items: center;
+                flex-grow: 1;
+                font-size: 14px;
+            }
+
+            &__add-button {
+                display: flex;
+                align-items: center;
+                font-size: 13px;
+                padding: 4px 8px;
+                border-radius: 5px;
+                outline: none;
+                cursor: pointer;
+            }
+        }
+
+        .hashtag-container {
+            display: flex;
+            flex-direction: column;
+
+            .hashtag {
+                display: flex;
+                align-items: center;
+                padding-top: 1.5px;
+                padding-bottom: 1.5px;
+                padding-left: 8px;
+                padding-right: 4px;
+                border-radius: 7px;
+                transition: background-color 0.15s ease;
+                cursor: pointer;
+                @include tablet {
+                    padding-top: 0px;
+                    padding-bottom: 0px;
+                }
+                &:first-of-type {
+                    margin-top: 6px;
+                }
+                &:hover {
+                    background: rgba(255, 255, 255, 10%);
+                }
+                // タッチデバイスで hover を無効にする
+                @media (hover: none) {
+                    &:hover {
+                        background: transparent;
+                    }
+                }
+
+                &--editing {
+                    &:hover {
+                        background: transparent;
+                    }
+                    .hashtag__input {
+                        box-shadow: rgba(79, 130, 230, 60%) 0 0 0 3.5px;
+                        cursor: text;
+                    }
+                }
+
+                &__input {
+                    display: block;
+                    flex-grow: 1;
+                    border-radius: 2px;
+                    color: var(--v-twitter-lighten2);
+                    font-size: 12.5px;
+                    outline: none;
+                    cursor: pointer;
+                    transition: box-shadow 0.09s ease;
+                }
+
+                &__edit-button {
+                    margin-left: 4px;
+                }
+                &__edit-button, &__delete-button {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 27px;
+                    height: 27px;
+                    border-radius: 5px;
+                    outline: none;
+                    cursor: pointer;
+                }
             }
         }
     }
