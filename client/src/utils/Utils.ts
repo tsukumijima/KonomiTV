@@ -76,6 +76,9 @@ export default class Utils {
 
         // ツイートにつけるハッシュタグの位置 (Default: ツイート本文の後に追加する)
         tweet_hashtag_position: 'Append' as ('Prepend' | 'Append' | 'PrependWithLineBreak' | 'AppendWithLineBreak'),
+
+        // ツイートするキャプチャに番組名の透かしを描画する (Default: 透かしを描画しない)
+        tweet_capture_watermark_position: 'None' as ('None' | 'TopLeft' | 'TopRight' | 'BottomLeft' | 'BottomRight'),
     };
 
 

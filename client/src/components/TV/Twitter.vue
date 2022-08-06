@@ -402,6 +402,66 @@ export default Vue.extend({
             });
         },
 
+        // 撮ったキャプチャに番組タイトルの透かしを描画する
+        async drawProgramTitleOnCapture(capture: Blob): Promise<Blob> {
+
+            // キャプチャの Blob を createImageBitmap() で Canvas に描ける ImageBitmap に変換
+            const image_bitmap = await createImageBitmap(capture);
+
+            // OffscreenCanvas が使えるなら使う (OffscreenCanvas の方がパフォーマンスが良い)
+            const canvas = ('OffscreenCanvas' in window) ?
+                new OffscreenCanvas(image_bitmap.width, image_bitmap.height) :
+                document.createElement('canvas');
+
+            // Canvas にキャプチャを描画
+            const context = canvas.getContext('2d');
+            context.drawImage(image_bitmap, 0, 0);
+            image_bitmap.close();
+
+            // 描画設定
+            context.font = `bold 22px 'YakuHanJPs', 'Open Sans', 'Hiragino Sans', 'Noto Sans JP', sans-serif`; // フォント
+            context.fillStyle = 'rgba(255, 255, 255, 70%)';  // 半透明の白
+            context.shadowColor = 'rgba(0, 0, 0, 100%)'  // 影の色
+            context.shadowBlur = 4;  // 影をぼかすしきい値
+            context.shadowOffsetX = 0;  // 影のX座標
+            context.shadowOffsetY = 0;  // 影のY座標
+
+            // 番組タイトルの透かしを描画
+            switch (Utils.getSettingsItem('tweet_capture_watermark_position')) {
+                case 'TopLeft': {
+                    context.textAlign = 'left'; // 左寄せ
+                    context.textBaseline = 'top'; // ベースラインを上寄せ
+                    context.fillText(this.channel.program_present.title, 16, 12);
+                    break;
+                }
+                case 'TopRight': {
+                    context.textAlign = 'right'; // 右寄せ
+                    context.textBaseline = 'top'; // ベースラインを上寄せ
+                    context.fillText(this.channel.program_present.title, canvas.width - 16, 12);
+                    break;
+                }
+                case 'BottomLeft': {
+                    context.textAlign = 'left'; // 左寄せ
+                    context.textBaseline = 'bottom'; // ベースラインを下寄せ
+                    context.fillText(this.channel.program_present.title, 16, canvas.height - 12);
+                    break;
+                }
+                case 'BottomRight': {
+                    context.textAlign = 'right'; // 右寄せ
+                    context.textBaseline = 'bottom'; // ベースラインを下寄せ
+                    context.fillText(this.channel.program_present.title, canvas.width - 16, canvas.height - 12);
+                    break;
+                }
+            }
+
+            // Blob にして返す
+            if ('OffscreenCanvas' in window) {
+                return await (canvas as OffscreenCanvas).convertToBlob({type: 'image/jpeg', quality: 1});
+            } else {
+                return new Promise(resolve => (canvas as HTMLCanvasElement).toBlob(blob => resolve(blob), 'image/jpeg', 1));
+            }
+        },
+
         // ツイートを送信する
         async sendTweet() {
 
@@ -444,7 +504,11 @@ export default Vue.extend({
             // multipart/form-data でツイート本文と画像（選択されている場合）を送る
             const form_data = new FormData();
             form_data.append('tweet', tweet_text);
-            for (const tweet_capture of this.tweet_captures) {
+            for (let tweet_capture of this.tweet_captures) {
+                // キャプチャへの透かしの描画がオンの場合、キャプチャの Blob を透かし付きのものに差し替える
+                if (Utils.getSettingsItem('tweet_capture_watermark_position') !== 'None') {
+                    tweet_capture = await this.drawProgramTitleOnCapture(tweet_capture);
+                }
                 form_data.append('images', tweet_capture);
             }
 
