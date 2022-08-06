@@ -183,7 +183,7 @@ export default Vue.extend({
                         // イベント発火時点では scrollTop の値が完全に下にスクロールされていない場合があるため、0.1秒だけ待つ
                         await Utils.sleep(0.1);
 
-                        // 一番下までスクロールしていたら自動スクロールに戻す
+                        // 一番下までスクロールされていたら自動スクロールに戻す
                         if ((this.comment_list_element.scrollTop + this.comment_list_element.offsetHeight) >
                             (this.comment_list_element.scrollHeight - 10)) {  // 一番下から 10px 以内
                             this.is_manual_scroll = false;  // 手動スクロールを無効化
@@ -258,7 +258,7 @@ export default Vue.extend({
                 this.watch_session.addEventListener('open', () => {
 
                     // 視聴セッションをリクエスト
-                    // 某所で限定公開されている公式ドキュメントいわく、stream フィールドは Optional らしい
+                    // 公式ドキュメントいわく、stream フィールドは Optional らしい
                     // サーバー負荷軽減のため、映像が不要な場合は必ず省略してくださいとのこと
                     this.watch_session.send(JSON.stringify({
                         'type': 'startWatching',
@@ -280,7 +280,6 @@ export default Vue.extend({
                         case 'room': {
 
                             // コメントサーバーへの接続情報の入ったオブジェクトを返す
-                            // デバッグ用で実際には使わないものもある
                             return resolve({
                                 // コメントサーバーへの接続情報
                                 'message_server': message.data.messageServer.uri,
@@ -316,7 +315,7 @@ export default Vue.extend({
                         case 'ping': {
 
                             // pong を返してセッションを維持する
-                            // 送り返さなかった場合勝手にセッションが閉じられてしまう
+                            // 送り返さなかった場合、勝手にセッションが閉じられてしまう
                             this.watch_session.send(JSON.stringify({
                                 'type': 'pong',
                             }));
@@ -381,7 +380,7 @@ export default Vue.extend({
                             this.destroy();
 
                             // 視聴セッションを再初期化
-                            // ドキュメントには reconnect で送られてくる audienceToken で再接続しろと書いてあるんだけど、
+                            // 公式ドキュメントには reconnect で送られてくる audienceToken で再接続しろと書いてあるんだけど、
                             // 確実性的な面で実装が面倒なので当面このままにしておく
                             const comment_session_info = await this.initWatchSession();
 
@@ -516,7 +515,7 @@ export default Vue.extend({
                             'version': '20061206',  // 設定必須
                             'thread': comment_session_info.thread_id,  // スレッド ID
                             'threadkey': comment_session_info.your_post_key,  // スレッドキー
-                            'user_id': '',  // ユーザー ID
+                            'user_id': '',  // ユーザー ID（設定不要らしい）
                             'res_from': -50,  // 最初にコメントを 50 個送信する
                         }
                     },
@@ -548,7 +547,7 @@ export default Vue.extend({
                 // rf:0 が送られてきたら初回コメントの受信は完了
                 if (event.ping !== undefined && event.ping.content === 'rf:0') {
 
-                    // フラグを立てる
+                    // 最初に送信されてくるコメントを受信し終えたフラグを立てる
                     is_received_initial_comment = true;
 
                     // コメントリストを一番下にスクロール
@@ -556,7 +555,7 @@ export default Vue.extend({
                     this.scrollCommentList();
                 }
 
-                // コメントを取得
+                // コメントデータを取得
                 const comment = event.chat;
 
                 // コメントがない or 広告用など特殊な場合は弾く
@@ -598,8 +597,7 @@ export default Vue.extend({
                 }
 
                 // 配信に発生する遅延分待ってから
-                // 現状だいたい1秒くらいなので暫定で決め打ち
-                // 最初に受信したコメントはリアルタイムなコメントではないため、遅らせないように
+                // 最初にドカッと送信されてくる初回コメントは少し前に投稿されたコメント群なので、遅らせずに表示させる
                 if (is_received_initial_comment) {
                     const comment_delay_time = Utils.getSettingsItem('comment_delay_time');
                     await Utils.sleep(comment_delay_time);

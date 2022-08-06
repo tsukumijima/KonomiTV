@@ -1828,7 +1828,7 @@ export default Vue.extend({
             }
 
             // コメントが表示されていないのにコメント付きキャプチャしようとした
-            if (this.player.danmaku.showing === false) {
+            if (with_comments === true && this.player.danmaku.showing === false) {
                 this.player.notice('コメントを付けてキャプチャするには、コメント表示をオンにしてください。');
                 return;
             }
