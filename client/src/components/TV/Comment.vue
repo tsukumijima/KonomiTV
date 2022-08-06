@@ -607,8 +607,11 @@ export default Vue.extend({
 
                 // コメントリストのコメントが 500 件を超えたら古いものから順に削除する
                 // 仮想スクロールとはいえ、さすがに 500 件を超えると重くなりそう
-                if (this.comment_list.length > 500) {
-                    this.comment_list.shift();
+                // 手動スクロール時は実行しない
+                if (this.comment_list.length >= 500 && this.is_manual_scroll === false) {
+                    while (this.comment_list.length >= 500) {
+                        this.comment_list.shift();
+                    }
                 }
 
                 // コメントリストへ追加するオブジェクト
