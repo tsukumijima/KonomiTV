@@ -300,9 +300,23 @@ class Program(models.Model):
                     program.description = description
                     program.detail = detail
                     program.start_time = start_time
-                    program.end_time = end_time
-                    program.duration = (end_time - start_time).total_seconds()
                     program.is_free = program_info['isFree']
+
+                    # 番組終了時刻・番組時間
+                    # 終了時間未定 (Mirakurun から duration == 1 で示される) の場合、まだ番組情報を取得していないならとりあえず5分とする
+                    # すでに番組情報を取得している（番組情報更新）なら以前取得した値をそのまま使う
+                    ## Mirakurun の /api/programs API のレスポンスには EIT[schedule] 由来の情報と EIT[p/f] 由来の情報が混ざっている
+                    ## さらに EIT[p/f] には番組が延長されたなどの理由で稀に番組時間が「終了時間未定」になることがある
+                    ## 基本的には EIT[p/f] 由来の「終了時間未定」が降ってくる前に EIT[schedule] 由来の番組時間を取得しているはず
+                    ## 「終了時間未定」だと番組表の整合性が壊れるので、実態と一致しないとしても EIT[schedule] 由来の番組時間を優先したい
+                    if program_info['duration'] == 1:
+                        if program.duration is None:  # 番組情報をまだ取得していない
+                            program.end_time = start_time + timedelta(minutes = 5)
+                        else:  # すでに番組情報を取得しているので以前取得した値をそのまま使う
+                            pass
+                    else:
+                        program.end_time = end_time
+                    program.duration = (end_time - start_time).total_seconds()
 
                     # 映像情報
                     program.video_type = ''  # デフォルト値
@@ -517,11 +531,11 @@ class Program(models.Model):
                                     description = text_han
 
                         # 番組開始時刻
-                        start_time:datetime.datetime = program_info['start_time']
+                        start_time: datetime.datetime = program_info['start_time']
 
                         # 番組終了時刻
                         ## 終了時間未定の場合、とりあえず5分とする
-                        end_time:datetime.datetime = start_time + timedelta(seconds = program_info.get('duration_sec', 300))
+                        end_time: datetime.datetime = start_time + timedelta(seconds = program_info.get('duration_sec', 300))
 
                         # 番組終了時刻が現在時刻より1時間以上前な番組を弾く
                         if datetime.datetime.now(CtrlCmdUtil.TZ) - end_time > timedelta(hours = 1):
