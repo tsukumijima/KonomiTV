@@ -61,30 +61,35 @@ async def ChannelsAPI():
 
     # 現在と次の番組情報を取得する
     ## 一度に取得した方がパフォーマンスが向上するため敢えてそうしている
+    ## SQL 文の時間比較は、左にいくほど時刻が小さく、右にいくほど時刻が大きくなるように統一している
+    ## 番組時間は EPG の仕様上必ず24時間以下に収まるので、パフォーマンスを考慮して24時間以内に放送開始予定の番組のみに絞り込む
     pf_programs: List[Dict]
     tasks.append(connection.execute_query_dict(
         """
         SELECT *
         FROM (
             SELECT
+                -- チャンネル ID ごとに番組開始時刻が小さい順でランクを付け、program_order フィールドにセット
                 DENSE_RANK() OVER (PARTITION BY channel_id ORDER BY start_time ASC) program_order,
+                -- 番組開始時刻が現在時刻よりも前（=放送中）なら true 、そうでないなら false を is_present フィールドにセット
                 CASE WHEN "start_time" <= (?) THEN true ELSE false END AS is_present,
                 *
             FROM
                 "programs"
             WHERE
-                -- 現在放送中の番組
-                ("start_time" <= (?) AND "end_time" >= (?))
+                -- 現在放送中の番組 (start_time <= now <= end_time)
+                ("start_time" <= (?) AND (?) <= "end_time")
                 OR
-                -- 48時間以内に放送予定の番組
-                ("start_time" >= (?) AND "end_time" <= (?))
+                -- 24時間以内に放送開始予定の番組 (now <= start_time <= (now + 24h))
+                ((?) <= "start_time" AND "start_time" <= (?))
         ) WHERE
+            -- program_order が 1,2 の番組情報だけを取得
             program_order <= 2
         """,
         [
             now,
             now, now,  # 現在放送中の番組
-            now, now + timedelta(hours=48),  # 48時間以内に放送予定の番組
+            now, now + timedelta(hours=24),  # 24時間以内に放送開始予定の番組
         ],
     ))
 
@@ -105,8 +110,8 @@ async def ChannelsAPI():
     for channel in channels:
 
         # チャンネル情報の辞書を作成
-        ## クラスそのままだとシリアライズ処理が入る関係でパフォーマンスが悪い
-        channel_dict: dict = {
+        ## クラスそのままだとレスポンスを返す際にシリアライズ処理が入る関係でパフォーマンスが悪い
+        channel_dict = {
             'id': channel.id,
             'network_id': channel.network_id,
             'service_id': channel.service_id,
@@ -179,7 +184,8 @@ async def ChannelsAPI():
                     channel_dict['program_following'] = pf_program[1]
 
             # JSON データで格納されているカラムをデコードする
-            ## ついでに現在か次かの判定用の is_present と program_order も削除
+            ## ついでに SQL 文で設定した is_present / program_order フィールドを削除
+            ## 現在の番組か次の番組かを判定するために使っているフィールドだが、もう判定は終わったので必要ない
             if channel_dict['program_present'] is not None:
                 channel_dict['program_present']['detail'] = json.loads(channel_dict['program_present']['detail'])
                 channel_dict['program_present']['genre'] = json.loads(channel_dict['program_present']['genre'])
