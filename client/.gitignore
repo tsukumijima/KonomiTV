@@ -1,6 +1,6 @@
 .DS_Store
 node_modules
-
+tsconfig.tsbuildinfo
 
 # local env files
 .env.local
