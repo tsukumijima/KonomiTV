@@ -264,7 +264,7 @@ export default Vue.extend({
                 }
 
                 // リンクの色
-                ::v-deep a:link {
+                :deep(a:link) {
                     color: var(--v-primary-lighten1);
                     text-underline-offset: 3px;  // 下線と字の間隔を空ける
                 }

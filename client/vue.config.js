@@ -4,13 +4,13 @@ module.exports = {
     // 開発用サーバー
     devServer: {
         port: 7001,
-        disableHostCheck: true,
+        allowedHosts: 'all',
     },
     // Safari でホットリロードが機能しない問題の回避策
     // ref: https://github.com/vuejs/vue-cli/issues/1132#issuecomment-409916879
     chainWebpack: config => {
         if (process.env.NODE_ENV === 'development') {
-          config.output.filename('[name].[hash].js').end();
+            config.output.filename('[name].[contenthash].js').end();
         }
     },
     // 出力フォルダ
