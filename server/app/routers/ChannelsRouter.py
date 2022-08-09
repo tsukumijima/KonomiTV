@@ -14,7 +14,7 @@ from fastapi.responses import Response
 from fastapi.security.utils import get_authorization_scheme_param
 from tortoise import connections
 from tortoise import timezone
-from typing import List, Optional
+from typing import Dict, List
 
 from app import schemas
 from app.constants import CONFIG, LOGO_DIR
@@ -37,11 +37,11 @@ router = APIRouter(
     '',
     summary = 'チャンネル情報一覧 API',
     response_description = 'チャンネル情報。',
-    response_model = schemas.Channels,
 )
 async def ChannelsAPI():
     """
-    地デジ (GR)・BS・CS・CATV・SKY (SPHD)・STARDIGIO それぞれ全てのチャンネルの情報を取得する。
+    地デジ (GR)・BS・CS・CATV・SKY (SPHD)・STARDIGIO それぞれ全てのチャンネルの情報を取得する。<br>
+    パフォーマンス向上のために response_model はあえて設定していないが（設定すると 100~300ms ほど遅くなる）、Channel レスポンスを返す。
     """
 
     # 現在時刻
@@ -51,7 +51,7 @@ async def ChannelsAPI():
     tasks = []
 
     # チャンネル情報を取得
-    channels:List[Channel]
+    channels: List[Channel]
     tasks.append(Channel.all().order_by('channel_number').order_by('remocon_id'))
 
     # データベースの生のコネクションを取得
@@ -59,33 +59,37 @@ async def ChannelsAPI():
     # そこで、この部分だけは ORM の機能を使わず、直接クエリを叩いて取得する
     connection = connections.get('default')
 
-    # 現在の番組情報を取得する
+    # 現在と次の番組情報を取得する
     ## 一度に取得した方がパフォーマンスが向上するため敢えてそうしている
-    ## 24時間分しか取得しないのもパフォーマンスの関係で、24時間を超える番組は確認できる限り存在しないため実害はないと判断
-    programs_present:dict
+    pf_programs: List[Dict]
     tasks.append(connection.execute_query_dict(
-        'SELECT * FROM "programs" WHERE "start_time"<=(?) AND "end_time">=(?) AND "end_time"<=(?) ORDER BY "start_time" DESC',
+        """
+        SELECT *
+        FROM (
+            SELECT
+                DENSE_RANK() OVER (PARTITION BY channel_id ORDER BY start_time ASC) program_order,
+                CASE WHEN "start_time" <= (?) THEN true ELSE false END AS is_present,
+                *
+            FROM
+                "programs"
+            WHERE
+                -- 現在放送中の番組
+                ("start_time" <= (?) AND "end_time" >= (?))
+                OR
+                -- 48時間以内に放送予定の番組
+                ("start_time" >= (?) AND "end_time" <= (?))
+        ) WHERE
+            program_order <= 2
+        """,
         [
-            now,  # 番組開始時刻が現在時刻以下
-            now,  # 番組終了時刻が現在時刻以上
-            now + timedelta(hours=24)  # 番組終了時刻が現在時刻から先24時間以内
-        ]
-    ))
-
-    # 次の番組情報を取得する
-    ## 本来は次の番組情報の取得条件は48時間分にしなければならないが、
-    ## そうすると API レスポンスが 150ms も遅くなってしまうため、やむなく24時間分のみ取得している
-    programs_following:dict
-    tasks.append(connection.execute_query_dict(
-        'SELECT * FROM "programs" WHERE "start_time">=(?) AND "end_time"<=(?) ORDER BY "start_time" ASC',
-        [
-            now,  # 番組開始時刻が現在時刻以上
-            now + timedelta(hours=24) # 番組終了時刻が現在時刻から先24時間以内
-        ]
+            now,
+            now, now,  # 現在放送中の番組
+            now, now + timedelta(hours=48),  # 48時間以内に放送予定の番組
+        ],
     ))
 
     # 並行して実行
-    channels, programs_present, programs_following = await asyncio.gather(*tasks)
+    channels, pf_programs = await asyncio.gather(*tasks)
 
     # レスポンスの雛形
     result = {
@@ -100,39 +104,106 @@ async def ChannelsAPI():
     # チャンネルごとに実行
     for channel in channels:
 
-        # 番組情報のリストからチャンネル ID が合致するものを探し、最初に見つけた値を返す
-        def FilterProgram(programs:dict, channel_id: str) -> Optional[dict]:
-            for program in programs:
-                if program['channel_id'] == channel_id:
-                    return program
-            return None  # 全部回したけど見つからなかった
+        # チャンネル情報の辞書を作成
+        ## クラスそのままだとシリアライズ処理が入る関係でパフォーマンスが悪い
+        channel_dict: dict = {
+            'id': channel.id,
+            'network_id': channel.network_id,
+            'service_id': channel.service_id,
+            'transport_stream_id': channel.transport_stream_id,
+            'remocon_id': channel.remocon_id,
+            'channel_id': channel.channel_id,
+            'channel_number': channel.channel_number,
+            'channel_name': channel.channel_name,
+            'channel_type': channel.channel_type,
+            'channel_force': channel.channel_force,
+            'channel_comment': channel.channel_comment,
+            'is_subchannel': channel.is_subchannel,
+            'is_radiochannel': channel.is_radiochannel,
+            'is_display': True,
+            'viewers': 0,
+            'program_present': None,
+            'program_following': None,
+        }
 
-        # 現在と次の番組情報をチャンネル ID で絞り込む
-        # filter() はイテレータを返すので、list に変換する
-        channel.program_present = FilterProgram(programs_present, channel.channel_id)
-        channel.program_following = FilterProgram(programs_following, channel.channel_id)
+        # チャンネルに紐づく現在と次の番組情報を取得
+        pf_program: List[Dict] = list(filter(lambda pf_program: pf_program['channel_id'] == channel_dict['channel_id'], pf_programs))
 
-        # JSON データで格納されているカラムをデコードする
-        if channel.program_present is not None:
-            channel.program_present['detail'] = json.loads(channel.program_present['detail'])
-            channel.program_present['genre'] = json.loads(channel.program_present['genre'])
-        if channel.program_following is not None:
-            channel.program_following['detail'] = json.loads(channel.program_following['detail'])
-            channel.program_following['genre'] = json.loads(channel.program_following['genre'])
+        # 番組情報が1つ以上取得できていれば
+        if len(pf_program) >= 1:
 
-        # サブチャンネルでかつ現在の番組情報が両方存在しないなら、表示フラグを False に設定
-        # 現在放送されているサブチャンネルのみをチャンネルリストに表示するような挙動とする
-        # 一般的にサブチャンネルは常に放送されているわけではないため、放送されていない時にチャンネルリストに表示する必要はない
-        if channel.is_subchannel is True and channel.program_present is None:
-            channel.is_display = False
+            # 番組情報が1つしか取得できておらず、現在放送中の番組情報のみの場合
+            ## 基本的にはまず起こり得ないと思うけど…（そのチャンネルが放送終了とかでもないかぎり）
+            if len(pf_program) == 1 and bool(pf_program[0]['is_present']) is True:
+
+                # program_present には取れた現在放送中の番組情報をそのままセットし、program_following には何もセットしない
+                channel_dict['program_present'] = pf_program[0]
+
+            # 番組情報が1つしか取得できておらず、次以降の番組情報のみの場合
+            ## たまにしか運用されないサブチャンネルで発生しやすい
+            elif len(pf_program) == 1 and bool(pf_program[0]['is_present']) is False:
+
+                # program_present には何もセットせず、program_following には取れた次の番組情報をそのままセットする
+                channel_dict['program_following'] = pf_program[0]
+
+            # 番組情報が2つ取得できているが、いずれも現在放送中の番組情報の場合
+            ## 万が一 DB に放送時刻が重複する番組が登録されていた場合に発生する
+            elif len(pf_program) == 2 and bool(pf_program[0]['is_present']) is True and bool(pf_program[1]['is_present']) is True:
+
+                # program_present にはとりあえず最初の番組情報をセットし、program_following には何もセットしない
+                channel_dict['program_present'] = pf_program[0]
+
+            # 番組情報が2つ取得できているが、いずれも次以降の番組情報の場合
+            ## 放送休止中やサブチャンネルなどで発生する
+            elif len(pf_program) == 2 and bool(pf_program[0]['is_present']) is False and bool(pf_program[1]['is_present']) is False:
+
+                # program_present には何もセットせず、program_following には program_order が 1 になっている方 (=より現在時刻に近い) をセットする
+                if bool(pf_program[0]['program_order']) == 1:
+                    channel_dict['program_following'] = pf_program[0]
+                elif bool(pf_program[1]['program_order']) == 1:
+                    channel_dict['program_following'] = pf_program[1]
+
+            # それ以外 (番組情報が2つ取得できていて、どちらかが現在放送中でどちらかが次の番組情報の場合)
+            else:
+
+                # 現在放送中の番組情報を program_present にセット
+                if bool(pf_program[0]['is_present']) is True:
+                    channel_dict['program_present'] = pf_program[0]
+                elif bool(pf_program[1]['is_present']) is True:
+                    channel_dict['program_present'] = pf_program[1]
+
+                # 次の番組情報を program_following にセット
+                if bool(pf_program[0]['is_present']) is False:
+                    channel_dict['program_following'] = pf_program[0]
+                elif bool(pf_program[1]['is_present']) is False:
+                    channel_dict['program_following'] = pf_program[1]
+
+            # JSON データで格納されているカラムをデコードする
+            ## ついでに現在か次かの判定用の is_present と program_order も削除
+            if channel_dict['program_present'] is not None:
+                channel_dict['program_present']['detail'] = json.loads(channel_dict['program_present']['detail'])
+                channel_dict['program_present']['genre'] = json.loads(channel_dict['program_present']['genre'])
+                channel_dict['program_present'].pop('is_present')
+                channel_dict['program_present'].pop('program_order')
+            if channel_dict['program_following'] is not None:
+                channel_dict['program_following']['detail'] = json.loads(channel_dict['program_following']['detail'])
+                channel_dict['program_following']['genre'] = json.loads(channel_dict['program_following']['genre'])
+                channel_dict['program_following'].pop('is_present')
+                channel_dict['program_following'].pop('program_order')
+
+        # サブチャンネル & 現在の番組情報が存在しないなら、表示フラグを False に設定
+        ## 現在放送中のサブチャンネルのみをチャンネルリストに表示するような挙動とする
+        ## 一般的にサブチャンネルは常に放送されているわけではないため、放送されていない時にチャンネルリストに表示する必要はない
+        if channel_dict['is_subchannel'] is True and channel_dict['program_present'] is None:
+            channel_dict['is_display'] = False
 
         # 現在の視聴者数を取得
-        channel.viewers = LiveStream.getViewers(channel.channel_id)
+        channel_dict['viewers'] = LiveStream.getViewers(channel_dict['channel_id'])
 
-        # チャンネルタイプで分類
-        result[channel.channel_type].append(channel)
+        # せっかくチャンネルごとにループで回しているので、ここでチャンネルタイプごとの分類もやっておく
+        ## 後から filter() で絞り込むのだと効率が悪い
+        result[channel_dict['channel_type']].append(channel_dict)
 
-    # チャンネルタイプごとに返却
     return result
 
 
