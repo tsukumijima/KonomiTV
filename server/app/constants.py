@@ -155,3 +155,9 @@ if Path.exists(JWT_SECRET_KEY_PATH) is False:
 ## jwt_secret.dat からシークレットキーを読み込む
 with open(JWT_SECRET_KEY_PATH, encoding='utf-8') as fp:
     JWT_SECRET_KEY = fp.read().strip()
+
+# Docker 上で実行されているとき、ファイルシステムの Prefix を定義
+## /host-rootfs (docker-compose.yaml で定義) を通してホストマシンのファイルシステムにアクセスできる
+DOCKER_FS_PREFIX = Path('')
+if Path.exists(Path('/.dockerenv')) is True:
+    DOCKER_FS_PREFIX = Path('/host-rootfs')

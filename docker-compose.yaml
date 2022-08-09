@@ -22,5 +22,8 @@ services:
             - type: bind
               source: './server/data/'
               target: '/code/server/data/'
+            - type: bind
+              source: '/'
+              target: '/host-rootfs'
         ports:
             - '7000:7000'
