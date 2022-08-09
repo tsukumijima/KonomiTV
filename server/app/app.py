@@ -15,9 +15,10 @@ from fastapi.responses import FileResponse
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi_utils.tasks import repeat_every
+from pathlib import Path
 from pydantic import ValidationError
 
-from app.constants import CONFIG, CLIENT_DIR, DATABASE_CONFIG, LIBRARY_PATH, QUALITY, VERSION
+from app.constants import CONFIG, CLIENT_DIR, DATABASE_CONFIG, DOCKER_FS_PREFIX, LIBRARY_PATH, QUALITY, VERSION
 from app.models import Channel
 from app.models import LiveStream
 from app.models import Program
@@ -37,6 +38,10 @@ from app.utils.EDCB import EDCBTuner
 
 # このアプリケーションのイベントループ
 loop = asyncio.get_event_loop()
+
+# 環境設定のうち、パス指定の項目に Docker 環境向けの Prefix (/host-rootfs) を付ける
+## 非 Docker 環境では Prefix は付かない
+CONFIG['capture']['upload_folder'] = DOCKER_FS_PREFIX + CONFIG['capture']['upload_folder']
 
 # 環境設定のバリデーション
 try:

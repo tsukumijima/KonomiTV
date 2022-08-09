@@ -10,7 +10,7 @@ from fastapi import status
 from fastapi import UploadFile
 from pathlib import Path
 
-from app.constants import CONFIG, DOCKER_FS_PREFIX
+from app.constants import CONFIG
 
 
 # ルーター
@@ -46,11 +46,9 @@ async def CaptureUploadAPI(
     ## puremagic を使った時点でファイルはシークされているため、戻さないと 0 バイトになる
     image.file.seek(0)
 
-    # Docker 環境向けの Prefix を付ける (非 Docker 環境ではそのまま)
-    upload_folder = DOCKER_FS_PREFIX / Path(CONFIG['capture']['upload_folder'])
-
     # ディレクトリトラバーサル対策のためのチェック
     ## ref: https://stackoverflow.com/a/45190125/17124142
+    upload_folder = Path(CONFIG['capture']['upload_folder'])
     try:
         upload_folder.joinpath(Path(image.filename)).resolve().relative_to(upload_folder.resolve())
     except ValueError:
