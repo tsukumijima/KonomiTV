@@ -4,8 +4,8 @@ verify_ssl = true
 name = "pypi"
 
 [scripts]
-serve = "uvicorn app.app:app --host 0.0.0.0 --port 7000"
-dev = "uvicorn app.app:app --host 0.0.0.0 --port 7000 --reload --reload-dir app"
+serve = "python KonomiTV.py"
+dev = "python KonomiTV.py --reload"
 
 [packages]
 aerich = "==0.6.3"
