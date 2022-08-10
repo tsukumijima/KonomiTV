@@ -29,7 +29,7 @@ class Program(models.Model):
 
     # データベース上のテーブル名
     class Meta:
-        table:str = 'programs'
+        table: str = 'programs'
 
     # テーブル設計は Notion を参照のこと
     id: str = fields.TextField(pk=True)
@@ -316,7 +316,7 @@ class Program(models.Model):
                             pass
                     else:
                         program.end_time = end_time
-                    program.duration = (end_time - start_time).total_seconds()
+                    program.duration = (program.end_time - program.start_time).total_seconds()
 
                     # 映像情報
                     program.video_type = ''  # デフォルト値
@@ -583,7 +583,7 @@ class Program(models.Model):
                         program.detail = detail
                         program.start_time = start_time
                         program.end_time = end_time
-                        program.duration = (end_time - start_time).total_seconds()
+                        program.duration = (program.end_time - program.start_time).total_seconds()
                         program.is_free = program_info['free_ca_flag'] == 0  # free_ca_flag が 0 であれば無料放送
 
                         # 映像情報

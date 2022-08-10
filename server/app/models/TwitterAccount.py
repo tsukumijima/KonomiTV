@@ -12,7 +12,7 @@ class TwitterAccount(models.Model):
 
     # データベース上のテーブル名
     class Meta:
-        table:str = 'twitter_accounts'
+        table: str = 'twitter_accounts'
 
     # テーブル設計は Notion を参照のこと
     id: int = fields.IntField(pk=True)

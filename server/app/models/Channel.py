@@ -20,7 +20,7 @@ class Channel(models.Model):
 
     # データベース上のテーブル名
     class Meta:
-        table:str = 'channels'
+        table: str = 'channels'
 
     # テーブル設計は Notion を参照のこと
     id: str = fields.TextField(pk=True)

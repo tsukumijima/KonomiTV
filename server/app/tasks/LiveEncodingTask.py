@@ -252,10 +252,10 @@ class LiveEncodingTask():
             livestream.setStatus('Standby', 'エンコードタスクを起動しています…')
 
         # チャンネル情報からサービス ID とネットワーク ID を取得する
-        channel:Channel = await Channel.filter(channel_id=channel_id).first()
+        channel: Channel = await Channel.filter(channel_id=channel_id).first()
 
         # 現在の番組情報を取得する
-        program_present:Program = (await channel.getCurrentAndNextProgram())[0]
+        program_present: Program = (await channel.getCurrentAndNextProgram())[0]
 
         ## 番組情報が取得できなければ（放送休止中など）ここで Offline にしてエンコードタスクを停止する
         ## スターデジオは番組情報が取れないことが多いので(特に午後)、休止になっていても無視してストリームを開始する
@@ -312,11 +312,11 @@ class LiveEncodingTask():
             ]
 
         # tsreadex の起動
-        tsreadex:subprocess.Popen = await asyncio.to_thread(subprocess.Popen,
+        tsreadex: subprocess.Popen = await asyncio.to_thread(subprocess.Popen,
             tsreadex_options,
-            stdin=subprocess.PIPE,  # 受信した放送波を書き込む
-            stdout=subprocess.PIPE,  # エンコーダーに繋ぐ
-            creationflags=(subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # conhost を開かない
+            stdin = subprocess.PIPE,  # 受信した放送波を書き込む
+            stdout = subprocess.PIPE,  # エンコーダーに繋ぐ
+            creationflags = (subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # コンソールなしで実行 (Windows)
         )
 
         # ***** エンコーダープロセスの作成と実行 *****
@@ -347,12 +347,12 @@ class LiveEncodingTask():
             Logging.info(f'LiveStream:{livestream.livestream_id} FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
             # プロセスを非同期で作成・実行
-            encoder:subprocess.Popen = await asyncio.to_thread(subprocess.Popen,
+            encoder: subprocess.Popen = await asyncio.to_thread(subprocess.Popen,
                 [LIBRARY_PATH['FFmpeg']] + encoder_options,
-                stdin=tsreadex.stdout,  # tsreadex からの入力
-                stdout=subprocess.PIPE,  # ストリーム出力
-                stderr=subprocess.PIPE,  # ログ出力
-                creationflags=(subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # conhost を開かない
+                stdin = tsreadex.stdout,  # tsreadex からの入力
+                stdout = subprocess.PIPE,  # ストリーム出力
+                stderr = subprocess.PIPE,  # ログ出力
+                creationflags = (subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # コンソールなしで実行 (Windows)
             )
 
         # HWEncC
@@ -363,12 +363,12 @@ class LiveEncodingTask():
             Logging.info(f'LiveStream:{livestream.livestream_id} {encoder_type} Commands:\n{encoder_type} {" ".join(encoder_options)}')
 
             # プロセスを非同期で作成・実行
-            encoder:subprocess.Popen = await asyncio.to_thread(subprocess.Popen,
+            encoder: subprocess.Popen = await asyncio.to_thread(subprocess.Popen,
                 [LIBRARY_PATH[encoder_type]] + encoder_options,
-                stdin=tsreadex.stdout,  # tsreadex からの入力
-                stdout=subprocess.PIPE,  # ストリーム出力
-                stderr=subprocess.PIPE,  # ログ出力
-                creationflags=(subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # conhost を開かない
+                stdin = tsreadex.stdout,  # tsreadex からの入力
+                stdout = subprocess.PIPE,  # ストリーム出力
+                stderr = subprocess.PIPE,  # ログ出力
+                creationflags = (subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # コンソールなしで実行 (Windows)
             )
 
         # ***** チューナーの起動と接続 *****
@@ -387,10 +387,10 @@ class LiveEncodingTask():
             try:
                 livestream.setStatus('Standby', 'チューナーを起動しています…')
                 response = await asyncio.to_thread(requests.get,
-                    url=mirakurun_stream_api_url,
-                    headers={'X-Mirakurun-Priority': '0'},
-                    stream=True,
-                    timeout=15,
+                    url = mirakurun_stream_api_url,
+                    headers = {'X-Mirakurun-Priority': '0'},
+                    stream = True,
+                    timeout = 15,
                 )
             except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
                 # 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないならチューナーへの接続に失敗したものとする
@@ -428,7 +428,7 @@ class LiveEncodingTask():
             # チューナーに接続する
             # 放送波が送信される TCP ソケットまたは名前付きパイプを取得する
             livestream.setStatus('Standby', 'チューナーに接続しています…')
-            pipe_or_socket:Optional[Union[BinaryIO, socket.socket]] = await tuner.connect()
+            pipe_or_socket: Optional[Union[BinaryIO, socket.socket]] = await tuner.connect()
 
             # チューナーへの接続に失敗した
             if pipe_or_socket is None:
@@ -573,7 +573,7 @@ class LiveEncodingTask():
         # ***** エンコーダーの出力監視と制御 *****
 
         # エンコード終了後にエンコードタスクを再起動すべきかのフラグ
-        is_restart_required:bool = False
+        is_restart_required: bool = False
 
         # エンコーダーのログ出力が同期的なので、同期関数をマルチスレッドで実行する
         def controller():
@@ -600,7 +600,7 @@ class LiveEncodingTask():
                 livestream_status = livestream.getStatus()
 
                 # 1バイトずつ読み込む
-                buffer:bytes = encoder.stderr.read(1)
+                buffer: bytes = encoder.stderr.read(1)
                 if buffer:  # データがあれば
 
                     # 行バッファに追加
@@ -728,7 +728,7 @@ class LiveEncodingTask():
 
                     # 次の番組情報を取得する
                     # メインスレッドのイベントループで実行（そうしないとうまく動作しない）
-                    program_following:Program = asyncio.run_coroutine_threadsafe(channel.getCurrentAndNextProgram(), loop).result()[0]
+                    program_following: Program = asyncio.run_coroutine_threadsafe(channel.getCurrentAndNextProgram(), loop).result()[0]
 
                     # 次の番組が None でない
                     if program_following is not None:

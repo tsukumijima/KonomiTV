@@ -23,7 +23,7 @@ class User(models.Model):
 
     # データベース上のテーブル名
     class Meta:
-        table:str = 'users'
+        table: str = 'users'
 
     # テーブル設計は Notion を参照のこと
     id: int = fields.IntField(pk=True)
