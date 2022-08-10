@@ -3,8 +3,12 @@ process.env.VUE_APP_VERSION = process.env.npm_package_version
 module.exports = {
     // 開発用サーバー
     devServer: {
-        port: 7001,
+        host: '127.0.0.77',
+        port: 7101,
         allowedHosts: 'all',
+        client: {
+            webSocketURL: 'wss://0.0.0.0:7001/ws',
+        },
     },
     // Safari でホットリロードが機能しない問題の回避策
     // ref: https://github.com/vuejs/vue-cli/issues/1132#issuecomment-409916879
