@@ -4,7 +4,7 @@ module.exports = {
     // 開発用サーバー
     devServer: {
         host: '127.0.0.77',
-        port: 7101,
+        port: 7011,
         allowedHosts: 'all',
         client: {
             webSocketURL: 'wss://0.0.0.0:7001/ws',

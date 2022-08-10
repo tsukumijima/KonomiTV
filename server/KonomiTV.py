@@ -10,12 +10,10 @@ import sys
 import uvicorn
 from uvicorn.supervisors import ChangeReload
 
-from app.constants import AKEBI_LOG_PATH, BASE_DIR, KONOMITV_ACCESS_LOG_PATH, KONOMITV_SERVER_LOG_PATH, LIBRARY_PATH, VERSION
+from app.constants import AKEBI_LOG_PATH, BASE_DIR, CONFIG, KONOMITV_ACCESS_LOG_PATH, KONOMITV_SERVER_LOG_PATH, LIBRARY_PATH, VERSION
 
 
 def main():
-
-    PORT = 7000
 
     # 引数解析
     parser = argparse.ArgumentParser(
@@ -41,25 +39,36 @@ def main():
     except PermissionError:
         pass
 
+    # ランチャー上で Logging モジュールをインポートするといろいろこじれるので、独自にロギングを設定
+    logger = logging.getLogger('KonomiTV-Launcher')
+    handler = logging.StreamHandler()
+    handler.setFormatter(uvicorn.logging.DefaultFormatter(
+        fmt = '[%(asctime)s] %(levelprefix)s %(message)s',
+        datefmt = '%Y/%m/%d %H:%M:%S',
+        use_colors = sys.stderr.isatty(),
+    ))
+    logger.addHandler(handler)
+
+    # リッスンするポート番号
+    port = CONFIG['server']['port']
+    if type(port) is not int or port < 1024 or port > 65525:
+        logger.error(
+            f'ポート番号の設定が不正なため、KonomiTV を起動できません。\n'
+            '                                '  # インデント用
+            f'設定したポート番号が 1024 ~ 65525 (65535 ではない) の間に収まっているかを確認してください。'
+        )
+        sys.exit(1)
+
     # 使用中のポートを取得
     # ref: https://qiita.com/skokado/items/6e76762c68866d73570b
     used_ports = [conn.laddr.port for conn in psutil.net_connections() if conn.status == 'LISTEN']
 
     # リッスンするポートと同じポートが使われていたら、エラーを表示する
-    if PORT in used_ports:
-        # ここで Logging モジュールをインポートするといろいろこじれるので、独自にロギング設定をする
-        logger = logging.getLogger()
-        handler = logging.StreamHandler()
-        handler.setFormatter(uvicorn.logging.DefaultFormatter(
-            fmt = '[%(asctime)s] %(levelprefix)s %(message)s',
-            datefmt = '%Y/%m/%d %H:%M:%S',
-            use_colors = sys.stderr.isatty(),
-        ))
-        logger.addHandler(handler)
+    if port in used_ports:
         logger.error(
-            f'ポート {PORT} は他のプロセスで使われているため、KonomiTV を起動できません。\n'
+            f'ポート {port} は他のプロセスで使われているため、KonomiTV を起動できません。\n'
             '                                '  # インデント用
-            f'重複して KonomiTV を起動していないか、他のソフトでポート {PORT} を使っていないかを確認してください。'
+            f'重複して KonomiTV を起動していないか、他のソフトでポート {port} を使っていないかを確認してください。'
         )
         sys.exit(1)
 
@@ -71,8 +80,8 @@ def main():
         reverse_proxy_process = subprocess.Popen(
             [
                 LIBRARY_PATH['Akebi'],
-                '--listen-address', f'0.0.0.0:{PORT}',
-                '--proxy-pass-url', f'http://127.0.0.77:{PORT + 100}/',
+                '--listen-address', f'0.0.0.0:{port}',
+                '--proxy-pass-url', f'http://127.0.0.77:{port + 10}/',
                 '--keyless-server-url', 'https://akebi.konomi.tv/',
             ],
             stdout = file,
@@ -99,9 +108,9 @@ def main():
         ## サーバーへのすべてのアクセスには一度 Akebi のリバースプロキシを通す
         ## 混乱を避けるため、容易にアクセスされないだろう 127.0.0.77 のみでリッスンしている
         host = '127.0.0.77',
-        # リッスンするポート
-        ## 指定されたポートに 100 を足したもの
-        port = PORT + 100,
+        # リッスンするポート番号
+        ## 指定されたポートに 10 を足したもの
+        port = port + 10,
         # 自動リロードモードモードで起動するか
         reload = is_reload,
         # リロードするフォルダ

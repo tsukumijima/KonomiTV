@@ -13,10 +13,13 @@ from app import models
 class Config(BaseModel):
 
     class General(BaseModel):
-        debug: bool
         backend: Literal['Mirakurun', 'EDCB']
         mirakurun_url: AnyHttpUrl
         edcb_url: stricturl(allowed_schemes={'tcp'}, tld_required=False)
+        debug: bool
+
+    class Server(BaseModel):
+        port: PositiveInt
 
     class TV(BaseModel):
         encoder: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC']
@@ -27,6 +30,7 @@ class Config(BaseModel):
         upload_folder: DirectoryPath
 
     general: General
+    server: Server
     tv: TV
     capture: Capture
 
