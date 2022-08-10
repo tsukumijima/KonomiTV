@@ -5,6 +5,7 @@ import os
 import ruamel.yaml
 import secrets
 import sys
+import uvicorn.logging
 from pathlib import Path
 from typing import Dict
 
@@ -26,9 +27,18 @@ else:
     # 設定ファイルのパス
     CONFIG_YAML = BASE_DIR.parent / 'config.yaml'
     if Path.exists(CONFIG_YAML) is False:
-        logger = logging.getLogger('uvicorn')
+        # ここで Logging モジュールをインポートするといろいろこじれるので、独自にロギング設定をする
+        logger = logging.getLogger()
+        handler = logging.StreamHandler()
+        handler.setFormatter(uvicorn.logging.DefaultFormatter(
+            fmt = '[%(asctime)s] %(levelprefix)s %(message)s',
+            datefmt = '%Y/%m/%d %H:%M:%S',
+            use_colors = sys.stderr.isatty(),
+        ))
+        logger.addHandler(handler)
         logger.error(
-            '設定ファイルが配置されていないため、KonomiTV を起動できません。\n          '
+            '設定ファイルが配置されていないため、KonomiTV を起動できません。\n'
+            '                                '  # インデント用
             'config.example.yaml を config.yaml にコピーし、お使いの環境に合わせて編集してください。'
         )
         sys.exit(1)
@@ -109,12 +119,22 @@ ACCOUNT_ICON_DEFAULT_DIR = STATIC_DIR / 'account-icons'
 ## jikkyo_channels.json があるパス
 JIKKYO_CHANNELS_PATH = STATIC_DIR / 'jikkyo_channels.json'
 
+# ログディレクトリ
+LOGS_DIR = BASE_DIR / 'logs'
+## KonomiTV のサーバーログのパス
+KONOMITV_SERVER_LOG_PATH = LOGS_DIR / 'KonomiTV-Server.log'
+## KonomiTV のアクセスログのパス
+KONOMITV_ACCESS_LOG_PATH = LOGS_DIR / 'KonomiTV-Access.log'
+## Akebi (HTTPS リバースプロキシ) のログファイルのパス
+AKEBI_LOG_PATH = LOGS_DIR / 'Akebi-HTTPS-Server.log'
+
 # サードパーティーライブラリのあるディレクトリ
 LIBRARY_DIR = BASE_DIR / 'thirdparty'
 
 # サードパーティーライブラリのあるパス
 LIBRARY_EXTENSION = ('.exe' if os.name == 'nt' else '.elf')
 LIBRARY_PATH = {
+    'Akebi': str(LIBRARY_DIR / 'Akebi/akebi-https-server') + LIBRARY_EXTENSION,
     'FFmpeg': str(LIBRARY_DIR / 'FFmpeg/ffmpeg') + LIBRARY_EXTENSION,
     'FFprobe': str(LIBRARY_DIR / 'FFmpeg/ffprobe') + LIBRARY_EXTENSION,
     'QSVEncC': str(LIBRARY_DIR / 'QSVEncC/QSVEncC') + LIBRARY_EXTENSION,

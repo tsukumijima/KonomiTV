@@ -15,7 +15,6 @@ from fastapi.responses import FileResponse
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi_utils.tasks import repeat_every
-from pathlib import Path
 from pydantic import ValidationError
 
 from app.constants import CONFIG, CLIENT_DIR, DATABASE_CONFIG, DOCKER_FS_PREFIX, LIBRARY_PATH, QUALITY, VERSION
@@ -48,7 +47,8 @@ try:
     Config(**CONFIG)
 except ValidationError as error:
     Logging.error(
-        '設定内容が不正なため、KonomiTV を起動できません。\n          '
+        '設定内容が不正なため、KonomiTV を起動できません。\n'
+            '                                '  # インデント用
         '以下のエラーメッセージを参考に、config.yaml の記述が正しいかを確認してください。'
     )
     Logging.error(error)
@@ -67,19 +67,20 @@ CONFIG['general']['edcb_port'] = edcb_url_parse.port
 for library_name, library_path in LIBRARY_PATH.items():
     if not os.path.isfile(library_path):
         Logging.error(
-            f'{library_name} がサードパーティーライブラリとして配置されていないため、KonomiTV を起動できません。\n          '
+            f'{library_name} がサードパーティーライブラリとして配置されていないため、KonomiTV を起動できません。\n'
+            '                                '  # インデント用
             f'{library_name} が {library_path} に配置されているかを確認してください。'
         )
         sys.exit(1)
 
 # FastAPI を初期化
 app = FastAPI(
-    title='KonomiTV',
-    description='KonomiTV: Kind and Optimized Next On-broadcasting watching and Management Infrastructure for TV',
-    version=VERSION,
-    openapi_url='/api/openapi.json',
-    docs_url='/api/docs',
-    redoc_url='/api/redoc',
+    title = 'KonomiTV',
+    description = 'KonomiTV: Kind and Optimized Next On-broadcasting watching and Management Infrastructure for TV',
+    openapi_url = '/api/openapi.json',
+    docs_url = '/api/docs',
+    redoc_url = '/api/redoc',
+    version = VERSION,
 )
 
 # CORS の設定
@@ -201,7 +202,8 @@ async def Startup():
 
         # ログ出力
         Logging.error(
-            '設定内容が不正なため、KonomiTV を起動できません。\n          '
+            '設定内容が不正なため、KonomiTV を起動できません。\n'
+            '                                '  # インデント用
             '以下のエラーメッセージを参考に、config.yaml の記述が正しいかを確認してください。'
         )
         Logging.error(exception.args[0])
