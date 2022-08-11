@@ -20,6 +20,8 @@ class Config(BaseModel):
 
     class Server(BaseModel):
         port: PositiveInt
+        custom_https_certificate: Optional[FilePath]
+        custom_https_private_key: Optional[FilePath]
 
     class TV(BaseModel):
         encoder: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC']

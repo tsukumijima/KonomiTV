@@ -72,6 +72,23 @@ def main():
         )
         sys.exit(1)
 
+    # カスタム HTTPS 証明書/秘密鍵が指定されているとき
+    custom_https_certificate = []
+    if CONFIG['server']['custom_https_certificate'] is not None and CONFIG['server']['custom_https_private_key'] is not None:
+        if (os.path.exists(CONFIG['server']['custom_https_certificate']) is False or
+            os.path.exists(CONFIG['server']['custom_https_private_key']) is False):
+            logger.error(
+                f'指定されたカスタム HTTPS 証明書/秘密鍵が存在しないため、KonomiTV を起動できません。\n'
+                '                                '  # インデント用
+                f'正しいカスタム HTTPS 証明書/秘密鍵のパスを指定しているかを確認してください。'
+            )
+            sys.exit(1)
+        # 追加の引数リスト
+        custom_https_certificate = [
+            '--custom-certificate', CONFIG['server']['custom_https_certificate'],
+            '--custom-private-key', CONFIG['server']['custom_https_private_key'],
+        ]
+
     # Akebi HTTPS Server (HTTPS リバースプロキシ) を起動
     ## HTTP/2 対応と HTTPS 化を一手に行う Golang 製の特殊なリバースプロキシサーバー
     ## ログは server/logs/Akebi-HTTPS-Server.log に出力する
@@ -83,6 +100,7 @@ def main():
                 '--listen-address', f'0.0.0.0:{port}',
                 '--proxy-pass-url', f'http://127.0.0.77:{port + 10}/',
                 '--keyless-server-url', 'https://akebi.konomi.tv/',
+                *custom_https_certificate,  # カスタム HTTPS 証明書/秘密鍵を指定する引数を追加（指定されているときのみ）
             ],
             stdout = file,
             stderr = file,

@@ -14,3 +14,6 @@ trim_trailing_whitespace = false
 
 [*.vue]
 insert_final_newline = false
+
+[*.yaml]
+insert_final_newline = false
