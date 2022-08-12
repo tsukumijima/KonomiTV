@@ -762,6 +762,7 @@ class LiveEncodingTask():
                 ## サーバー終了時のクリーンアップなど、エンコードタスク以外から Offline 状態に設定される事も考えられるため
                 ## ここでプロセスを強制終了するのが重要（ストリーム配信中など、場合によってはメインスレッド側の処理が実行されないことがある）
                 if livestream_status['status'] == 'Offline':
+                    time.sleep(1)  # タイミングの関係で数秒待ってから実行
                     tsreadex.kill()
                     encoder.kill()
                     break
