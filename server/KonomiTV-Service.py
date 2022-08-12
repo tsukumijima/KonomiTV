@@ -154,6 +154,20 @@ def init():
 
     else:
 
+        # 引数設定
+        ## "install" と "uninstall" の2つのサブコマンドを実装している
+        ## ref: https://sig9.org/archives/4478
+        parser = argparse.ArgumentParser(
+            formatter_class = argparse.RawTextHelpFormatter,
+            description = 'KonomiTV Windows Service Launcher.',
+        )
+        subparsers = parser.add_subparsers()
+        parser_install = subparsers.add_parser('install', help='install KonomiTV service')
+        parser_install.add_argument('--username', help='username under which KonomiTV service runs', required=True)
+        parser_install.add_argument('--password', help='password of the user under which KonomiTV service runs', required=True)
+        parser_uninstall = subparsers.add_parser('uninstall', help='uninstall KonomiTV service')
+        args = parser.parse_args()
+
         # サービスインストール時のイベント
         def Install(args):
 
@@ -187,21 +201,10 @@ def init():
                 argv = [sys.argv[0], 'remove'],
             )
 
-        # 引数解析
-        ## "install" と "uninstall" の2つのサブコマンドを実装している
-        ## ref: https://sig9.org/archives/4478
-        parser = argparse.ArgumentParser(
-            formatter_class = argparse.RawTextHelpFormatter,
-            description = 'KonomiTV Windows Service Launcher.',
-        )
-        subparsers = parser.add_subparsers()
-        parser_install = subparsers.add_parser('install', help='install KonomiTV service')
-        parser_install.add_argument('--username', help='username under which KonomiTV service runs', required=True)
-        parser_install.add_argument('--password', help='password of the user under which KonomiTV service runs', required=True)
+        # サブコマンドのイベントを登録
         parser_install.set_defaults(handler=Install)
-        parser_uninstall = subparsers.add_parser('uninstall', help='uninstall KonomiTV service')
         parser_uninstall.set_defaults(handler=Uninstall)
-        args = parser.parse_args()
+
         if hasattr(args, 'handler'):
             args.handler(args)
         else:
