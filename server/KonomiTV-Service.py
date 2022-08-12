@@ -4,6 +4,7 @@
 
 import argparse
 import ctypes
+import os
 import pathlib
 import shutil
 import site
@@ -155,7 +156,6 @@ def init():
     else:
 
         # 引数設定
-        ## "install" と "uninstall" の2つのサブコマンドを実装している
         ## ref: https://sig9.org/archives/4478
         parser = argparse.ArgumentParser(
             formatter_class = argparse.RawTextHelpFormatter,
@@ -166,21 +166,25 @@ def init():
         parser_install.add_argument('--username', help='username under which KonomiTV service runs', required=True)
         parser_install.add_argument('--password', help='password of the user under which KonomiTV service runs', required=True)
         parser_uninstall = subparsers.add_parser('uninstall', help='uninstall KonomiTV service')
-        args = parser.parse_args()
+        parser_start = subparsers.add_parser('start', help='start KonomiTV service')
+        parser_restart = subparsers.add_parser('restart', help='restart KonomiTV service')
+        parser_stop = subparsers.add_parser('stop', help='stop KonomiTV service')
 
         # サービスインストール時のイベント
-        def Install(args):
+        def install_handler(args):
 
             # インストールする前に、.venv/Lib/site-packages 以下の pywin32_system32 フォルダから必要な DLL を win32 フォルダにコピーする
             # これをやっておかないとサービスが起動できない
-            shutil.copy(
-                base_dir / '.venv/Lib/site-packages/pywin32_system32/pythoncom310.dll',
-                base_dir / '.venv/Lib/site-packages/win32/pythoncom310.dll',
-            )
-            shutil.copy(
-                base_dir / '.venv/Lib/site-packages/pywin32_system32/pywintypes310.dll',
-                base_dir / '.venv/Lib/site-packages/win32/pywintypes310.dll',
-            )
+            if os.path.exists(base_dir / '.venv/Lib/site-packages/win32/pythoncom310.dll') is False:
+                shutil.copy(
+                    base_dir / '.venv/Lib/site-packages/pywin32_system32/pythoncom310.dll',
+                    base_dir / '.venv/Lib/site-packages/win32/pythoncom310.dll',
+                )
+            if os.path.exists(base_dir / '.venv/Lib/site-packages/win32/pywintypes310.dll') is False:
+                shutil.copy(
+                    base_dir / '.venv/Lib/site-packages/pywin32_system32/pywintypes310.dll',
+                    base_dir / '.venv/Lib/site-packages/win32/pywintypes310.dll',
+                )
 
             # ユーザー名とパスワードを取得
             username: str = args.username
@@ -192,19 +196,23 @@ def init():
                 argv = [sys.argv[0], '--startup', 'auto', '--username', f'.\{username}', '--password', password, 'install'],
             )
 
-        # サービスアンインストール時のイベント
-        def Uninstall(args):
-
-            # HandleCommandLine に直接引数を指定して、サービスのアンインストールを実行
-            win32serviceutil.HandleCommandLine(
-                cls = KonomiTVServiceFramework,
-                argv = [sys.argv[0], 'remove'],
-            )
-
         # サブコマンドのイベントを登録
-        parser_install.set_defaults(handler=Install)
-        parser_uninstall.set_defaults(handler=Uninstall)
+        # install コマンド以外は HandleCommandLine() のサブコマンドのエイリアス
+        parser_install.set_defaults(handler=install_handler)
+        parser_uninstall.set_defaults(handler=lambda args: win32serviceutil.HandleCommandLine(
+            cls = KonomiTVServiceFramework, argv = [sys.argv[0], 'remove'],
+        ))
+        parser_start.set_defaults(handler=lambda args: win32serviceutil.HandleCommandLine(
+            cls = KonomiTVServiceFramework, argv = [sys.argv[0], 'start'],
+        ))
+        parser_restart.set_defaults(handler=lambda args: win32serviceutil.HandleCommandLine(
+            cls = KonomiTVServiceFramework, argv = [sys.argv[0], 'restart'],
+        ))
+        parser_stop.set_defaults(handler=lambda args: win32serviceutil.HandleCommandLine(
+            cls = KonomiTVServiceFramework, argv = [sys.argv[0], 'stop'],
+        ))
 
+        args = parser.parse_args()
         if hasattr(args, 'handler'):
             args.handler(args)
         else:
