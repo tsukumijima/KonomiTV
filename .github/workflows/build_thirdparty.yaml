@@ -1,0 +1,256 @@
+
+name: Build Thirdparty Libraries
+
+# 手動実行
+on: [workflow_dispatch]
+
+# ジョブの定義
+jobs:
+
+  # Windows 向けのサードパーティーライブラリのビルド
+  build_windows:
+    runs-on: windows-latest
+
+    steps:
+
+      # MSBuild を PATH に追加
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v1.0.2
+
+      # サードパーティーライブラリの配置フォルダを作成
+      - name: Create Thirdparty Folder
+        run: mkdir thirdparty/
+
+      # tsreadex のビルド
+      - name: Build tsreadex
+        run: |
+          git clone https://github.com/xtne6f/tsreadex
+          cd tsreadex/
+          msbuild tsreadex.sln /t:Build /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v142
+          mkdir ../thirdparty/tsreadex/
+          cp x64/Release/tsreadex.exe ../thirdparty/tsreadex/tsreadex.exe
+          cp License.txt ../thirdparty/tsreadex/
+
+      # psisiarc のビルド
+      - name: Build psisiarc
+        run: |
+          git clone https://github.com/xtne6f/psisiarc
+          cd psisiarc/
+          msbuild psisiarc.sln /t:Build /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v142
+          mkdir ../thirdparty/psisiarc/
+          cp x64/Release/psisiarc.exe ../thirdparty/psisiarc/psisiarc.exe
+          cp License.txt ../thirdparty/psisiarc/
+
+      # Golang 環境のセットアップ
+      - name: Setup Golang Environment
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.18.1'
+
+      # Akebi HTTPS Server のビルド
+      - name: Build Akebi HTTPS Server
+        run: |
+          git clone https://github.com/tsukumijima/Akebi
+          cd Akebi/
+          go build -ldflags="-s -w" -a -o "akebi-https-server.exe" "./https-server/"
+          mkdir ../thirdparty/Akebi/
+          cp akebi-https-server.exe ../thirdparty/Akebi/akebi-https-server.exe
+          cp License.txt ../thirdparty/Akebi/
+
+      # FFmpeg・QSVEncC・NVEncC・VCEEncC のアーカイブのダウンロード
+      # 実際にビルドすると時間がかかりすぎるので、アーカイブをダウンロードして配置する
+      - name: Download and Deploy Encoder Archives
+        run: |
+
+          # FFmpeg のアーカイブのダウンロード
+          curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2022-07-31-12-37/ffmpeg-n5.1-2-g915ef932a3-win64-gpl-shared-5.1.zip
+          7z x -y ffmpeg-n5.1-2-g915ef932a3-win64-gpl-shared-5.1.zip
+          mkdir thirdparty/FFmpeg/
+          cp ffmpeg-n5.1-2-g915ef932a3-win64-gpl-shared-5.1/bin/* thirdparty/FFmpeg/
+          cp ffmpeg-n5.1-2-g915ef932a3-win64-gpl-shared-5.1/LICENSE.txt thirdparty/FFmpeg/License.txt
+          rm thirdparty/FFmpeg/ffplay.exe
+
+          # QSVEncC のアーカイブのダウンロード
+          ## 2022/08 時点で Windows 版の QSVEncC 7.07 以降には一部環境 (Intel HD Graphics 3000) でエンコードに失敗する問題がある
+          curl -LO https://github.com/rigaya/QSVEnc/releases/download/7.06/QSVEncC_7.06_x64.7z
+          7z x -y -o"thirdparty/QSVEncC" QSVEncC_7.06_x64.7z
+          rm thirdparty/QSVEncC/hdr10plus_gen.exe
+          mv thirdparty/QSVEncC/QSVEncC64.exe thirdparty/QSVEncC/QSVEncC.exe
+          curl -L -o thirdparty/QSVEncC/License.txt https://raw.githubusercontent.com/rigaya/QSVEnc/master/license.txt
+
+          # NVEncC のアーカイブのダウンロード
+          curl -LO https://github.com/rigaya/NVEnc/releases/download/6.07/NVEncC_6.07_x64.7z
+          7z x -y -o"thirdparty/NVEncC" NVEncC_6.07_x64.7z
+          rm thirdparty/NVEncC/hdr10plus_gen.exe
+          mv thirdparty/NVEncC/NVEncC64.exe thirdparty/NVEncC/NVEncC.exe
+          curl -L -o thirdparty/NVEncC/License.txt https://raw.githubusercontent.com/rigaya/NVEnc/master/NVEnc_license.txt
+
+          # VCEEncC のアーカイブのダウンロード
+          curl -LO https://github.com/rigaya/VCEEnc/releases/download/7.03/VCEEncC_7.03_x64.7z
+          7z x -y -o"thirdparty/VCEEncC" VCEEncC_7.03_x64.7z
+          rm thirdparty/VCEEncC/hdr10plus_gen.exe
+          mv thirdparty/VCEEncC/VCEEncC64.exe thirdparty/VCEEncC/VCEEncC.exe
+          curl -L -o thirdparty/VCEEncC/License.txt https://raw.githubusercontent.com/rigaya/VCEEnc/master/VCEEnc_license.txt
+
+      # Python Embeddable Package のダウンロードと pip / pipenv のインストール
+      - name: Install Python Embeddable Package & pip & pipenv
+        run: |
+
+          # Python 本体のダウンロード
+          curl -LO https://www.python.org/ftp/python/3.10.6/python-3.10.6-embed-amd64.zip
+          7z x -y -o"thirdparty/Python" python-3.10.6-embed-amd64.zip
+          C:/"Program Files"/Git/bin/bash.exe -c "sed -i -e 's/#import/import/' thirdparty/Python/python310._pth"
+
+          # pip のインストール
+          curl -LO https://bootstrap.pypa.io/get-pip.py
+          thirdparty/Python/python.exe get-pip.py
+
+          # pipenv のインストール
+          thirdparty/Python/Scripts/pip.exe install pipenv
+
+      # サードパーティーライブラリを 7z で圧縮
+      # ref: https://axelstudios.github.io/7z/#!/
+      - name: Compress Thirdparty Libraries
+        run: |
+          7z a -m0=LZMA2 -mx=9 -md=128m -mfb=128 -ms=16g -mmt=on thirdparty-windows.7z thirdparty
+
+      # 7z で圧縮したサードパーティーライブラリを Artifact としてアップロード
+      - name: Upload Thirdparty Libraries as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: thirdparty-windows.7z
+          path: thirdparty-windows.7z
+
+  # Linux 向けのサードパーティーライブラリのビルド
+  build_linux:
+    runs-on: ubuntu-20.04
+
+    steps:
+
+      # サードパーティーライブラリの配置フォルダを作成
+      - name: Create Thirdparty Folder
+        run: mkdir thirdparty/
+
+      # tsreadex のビルド
+      - name: Build tsreadex
+        run: |
+          git clone https://github.com/xtne6f/tsreadex
+          cd tsreadex/
+          make
+          mkdir ../thirdparty/tsreadex/
+          cp tsreadex ../thirdparty/tsreadex/tsreadex.elf
+          chmod a+x ../thirdparty/tsreadex/tsreadex.elf
+          cp License.txt ../thirdparty/tsreadex/
+
+      # psisiarc のビルド
+      - name: Build psisiarc
+        run: |
+          git clone https://github.com/xtne6f/psisiarc
+          cd psisiarc/
+          make
+          mkdir ../thirdparty/psisiarc/
+          cp psisiarc ../thirdparty/psisiarc/psisiarc.elf
+          chmod a+x ../thirdparty/psisiarc/psisiarc.elf
+          cp License.txt ../thirdparty/psisiarc/
+
+      # Golang 環境のセットアップ
+      - name: Setup Golang Environment
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.18.1'
+
+      # Akebi HTTPS Server のビルド
+      - name: Build Akebi HTTPS Server
+        run: |
+          git clone https://github.com/tsukumijima/Akebi
+          cd Akebi/
+          go build -ldflags="-s -w" -a -o "akebi-https-server.elf" "./https-server/"
+          mkdir ../thirdparty/Akebi/
+          cp akebi-https-server.elf ../thirdparty/Akebi/akebi-https-server.elf
+          chmod a+x ../thirdparty/Akebi/akebi-https-server.elf
+          cp License.txt ../thirdparty/Akebi/
+
+      # FFmpeg・QSVEncC・NVEncC・VCEEncC のアーカイブのダウンロードと配置
+      # ドライバさえ入っていればスタンドアローンで実行できるように構成を工夫している
+      - name: Download and Deploy Encoder Archives
+        run: |
+
+          # p7zip のインストール
+          sudo apt-get install -y p7zip-full
+
+          # FFmpeg のアーカイブのダウンロード
+          curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2022-07-31-12-37/ffmpeg-n5.1-2-g915ef932a3-linux64-gpl-shared-5.1.tar.xz
+          tar xvf ffmpeg-n5.1-2-g915ef932a3-linux64-gpl-shared-5.1.tar.xz
+          mkdir thirdparty/FFmpeg/
+          cp ffmpeg-n5.1-2-g915ef932a3-linux64-gpl-shared-5.1/bin/* thirdparty/FFmpeg/
+          cp -r ffmpeg-n5.1-2-g915ef932a3-linux64-gpl-shared-5.1/lib/* thirdparty/FFmpeg/
+          cp ffmpeg-n5.1-2-g915ef932a3-linux64-gpl-shared-5.1/LICENSE.txt thirdparty/FFmpeg/License.txt
+          rm -rf thirdparty/FFmpeg/pkgconfig
+          mv thirdparty/FFmpeg/ffmpeg thirdparty/FFmpeg/ffmpeg.elf
+          mv thirdparty/FFmpeg/ffprobe thirdparty/FFmpeg/ffprobe.elf
+          rm thirdparty/FFmpeg/ffplay
+          chmod a+x thirdparty/FFmpeg/ffmpeg.elf
+          chmod a+x thirdparty/FFmpeg/ffprobe.elf
+
+          # patchelf のインストール
+          ## ELF バイナリに埋め込まれている rpath (動的ライブラリの検索パス) を変更するツールで、QSV/NV/VCEEncC に rpath を追加するために使う
+          ## ref: https://stackoverflow.com/questions/13769141/can-i-change-rpath-in-an-already-compiled-binary
+          sudo apt-get install -y patchelf
+
+          # QSV/NV/VCEEncC が依存しているライブラリをダウンロードしてまとめる
+          ## ref: https://stackoverflow.com/questions/13756800/how-to-download-all-dependencies-and-packages-to-directory
+          ## ref: https://askubuntu.com/questions/1260559/how-to-install-deb-packages-in-a-custom-folder-different-from-root-using-dp
+          mkdir thirdparty/Library/
+          curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2022-07-31-12-37/ffmpeg-n4.4.2-2-g7ffb7d4b04-linux64-gpl-shared-4.4.tar.xz
+          tar xvf ffmpeg-n4.4.2-2-g7ffb7d4b04-linux64-gpl-shared-4.4.tar.xz
+          cp -ar ffmpeg-n4.4.2-2-g7ffb7d4b04-linux64-gpl-shared-4.4/lib/* thirdparty/Library/
+          apt-get download libass9 libglib2.0-0 libgraphite2-3 libharfbuzz0b
+          ls -1 | grep [.]deb >> all_debs.txt && cat all_debs.txt | while read fn; do dpkg-deb -x $fn `pwd`/thirdparty/Library; done && rm all_debs.txt
+          cp -ar thirdparty/Library/usr/lib/x86_64-linux-gnu/* thirdparty/Library/
+          rm -rf thirdparty/Library/usr/
+          rm -rf thirdparty/Library/pkgconfig
+          find thirdparty/Library/*.so* -not -type l -not -type d | while read fn; do patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../Library' $fn; done
+          find thirdparty/Library/*.so* -not -type l -not -type d | xargs chmod a+x
+
+          # QSVEncC のアーカイブのダウンロード
+          ## 2022/08 時点で Linux 版の QSVEncC 7.02 以降にはエンコードに失敗する問題がある
+          curl -LO https://github.com/rigaya/QSVEnc/releases/download/7.01/qsvencc_7.01_Ubuntu20.04_amd64.deb
+          7z x -y qsvencc_7.01_Ubuntu20.04_amd64.deb && tar xvf data.tar
+          mkdir thirdparty/QSVEncC/
+          cp usr/bin/qsvencc thirdparty/QSVEncC/QSVEncC.elf
+          chmod a+x thirdparty/QSVEncC/QSVEncC.elf
+          patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../Library' thirdparty/QSVEncC/QSVEncC.elf
+          curl -L -o thirdparty/QSVEncC/License.txt https://raw.githubusercontent.com/rigaya/QSVEnc/master/license.txt
+
+          # NVEncC のアーカイブのダウンロード
+          ## 2022/08 現時点で Linux 版の NVEncC 6.02 以降にはエンコードが安定しない問題がある
+          curl -LO https://github.com/rigaya/NVEnc/releases/download/6.01/nvencc_6.01_Ubuntu20.04_amd64.deb
+          7z x -y nvencc_6.01_Ubuntu20.04_amd64.deb && tar xvf data.tar
+          mkdir thirdparty/NVEncC/
+          cp usr/bin/nvencc thirdparty/NVEncC/NVEncC.elf
+          chmod a+x thirdparty/NVEncC/NVEncC.elf
+          patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../Library' thirdparty/NVEncC/NVEncC.elf
+          curl -L -o thirdparty/NVEncC/License.txt https://raw.githubusercontent.com/rigaya/NVEnc/master/NVEnc_license.txt
+
+          # VCEEncC のアーカイブのダウンロード
+          curl -LO https://github.com/rigaya/VCEEnc/releases/download/7.03/vceencc_7.03_Ubuntu20.04_amd64.deb
+          7z x -y vceencc_7.03_Ubuntu20.04_amd64.deb && tar xvf data.tar
+          mkdir thirdparty/VCEEncC/
+          cp usr/bin/vceencc thirdparty/VCEEncC/VCEEncC.elf
+          chmod a+x thirdparty/VCEEncC/VCEEncC.elf
+          patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../Library' thirdparty/VCEEncC/VCEEncC.elf
+          curl -L -o thirdparty/VCEEncC/License.txt https://raw.githubusercontent.com/rigaya/VCEEnc/master/VCEEnc_license.txt
+
+      # サードパーティーライブラリを 7z で圧縮
+      # ref: https://axelstudios.github.io/7z/#!/
+      - name: Compress Thirdparty Libraries
+        run: |
+          tar -cvf thirdparty-linux.tar thirdparty
+          7z a -txz -m0=LZMA2 -mx=9 -md=128m -mfb=128 -mmt=on thirdparty-linux.tar.xz thirdparty-linux.tar
+
+      # 7z で圧縮したサードパーティーライブラリを Artifact としてアップロード
+      - name: Upload Thirdparty Libraries as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: thirdparty-linux.tar.xz
+          path: thirdparty-linux.tar.xz
