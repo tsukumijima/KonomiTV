@@ -1,6 +1,7 @@
 
 import asyncio
 import os
+import re
 import requests
 import socket
 import subprocess
@@ -636,7 +637,20 @@ class LiveEncodingTask():
                         # 行バッファを消去
                         linebuffer = bytes()
 
-                        # 山ほど出力されるメッセージを除外
+                        # エンコード進捗のログだったら、正規表現で余計なゴミを取り除く
+                        ## HWEncC は内部で使われている FFmpeg 側の大量に出るデバッグログと衝突してログがごちゃまぜになりがち…
+                        ## FFmpeg 側のデバッグログ（ゴミ）と完全に混ざっている場合は frames: の数値がごちゃまぜになってしまうけどご愛嬌…
+                        match = re.fullmatch(r'^.*?([1-9][0-9]+ frames: [0-9\.]+ fps, [0-9]+ kb/s, GPU [0-9]+%, VE [0-9]+%, VD [0-9]+%)$', line)
+                        if match is not None:
+                            line = match.groups()[0]
+                        match = re.fullmatch(r'^.*?([1-9][0-9]+ frames: [0-9\.]+ fps, [0-9]+ kb/s, GPU [0-9]+%, VD [0-9]+%)$', line)
+                        if match is not None:
+                            line = match.groups()[0]
+                        match = re.fullmatch(r'^.*?([1-9][0-9]+ frames: [0-9\.]+ fps, [0-9]+ kb/s)$', line)
+                        if match is not None:
+                            line = match.groups()[0]
+
+                        # 山ほど出力されるメッセージと空行を除外
                         ## 元は "Delay between the first packet and last packet in the muxing queue is xxxxxx > 1: forcing output" と
                         ## "removing 2 bytes from input bitstream not read by decoder." という2つのメッセージで、実害はない
                         ## FFmpeg と HWEncC のログが衝突して行の先頭が欠けることがあるので、できるだけ多く弾けるように部分一致にしている
@@ -644,7 +658,8 @@ class LiveEncodingTask():
                             ('Delay between the' not in line) and
                             ('packet in the muxing queue' not in line) and ('ing output' not in line) and
                             ('ng output' != line) and ('g output' != line) and (' output' != line) and ('output' != line) and
-                            ('utput' != line) and ('tput' != line) and ('put' != line) and ('ut' != line) and ('t' != line)):
+                            ('utput' != line) and ('tput' != line) and ('put' != line) and ('ut' != line) and ('t' != line) and
+                            ('' != line)):
 
                             # ログリストに行単位で追加
                             lines.append(line)
