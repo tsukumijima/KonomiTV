@@ -639,16 +639,16 @@ class LiveEncodingTask():
 
                         # エンコード進捗のログだったら、正規表現で余計なゴミを取り除く
                         ## HWEncC は内部で使われている FFmpeg 側の大量に出るデバッグログと衝突してログがごちゃまぜになりがち…
-                        ## FFmpeg 側のデバッグログ（ゴミ）と完全に混ざっている場合は frames: の数値がごちゃまぜになってしまうけどご愛嬌…
-                        match = re.fullmatch(r'^.*?([1-9][0-9]+ frames: [0-9\.]+ fps, [0-9]+ kb/s, GPU [0-9]+%, VE [0-9]+%, VD [0-9]+%)$', line)
-                        if match is not None:
-                            line = match.groups()[0]
-                        match = re.fullmatch(r'^.*?([1-9][0-9]+ frames: [0-9\.]+ fps, [0-9]+ kb/s, GPU [0-9]+%, VD [0-9]+%)$', line)
-                        if match is not None:
-                            line = match.groups()[0]
-                        match = re.fullmatch(r'^.*?([1-9][0-9]+ frames: [0-9\.]+ fps, [0-9]+ kb/s)$', line)
-                        if match is not None:
-                            line = match.groups()[0]
+                        ## FFmpeg 側のログ（ゴミ）と完全に混ざっていると完全に除去できずに frames: の数値が桁が飛んだような出力になるけどご愛嬌…
+                        match1 = re.fullmatch(r'^.*?([1-9][0-9]+ frames: [0-9\.]+ fps, [0-9]+ kb/s, GPU [0-9]+%, VE [0-9]+%, VD [0-9]+%)$', line)
+                        match2 = re.fullmatch(r'^.*?([1-9][0-9]+ frames: [0-9\.]+ fps, [0-9]+ kb/s, GPU [0-9]+%, VD [0-9]+%)$', line)
+                        match3 = re.fullmatch(r'^.*?([1-9][0-9]+ frames: [0-9\.]+ fps, [0-9]+ kb/s)$', line)
+                        if match1 is not None:
+                            line = match1.groups()[0]
+                        elif match2 is not None:
+                            line = match2.groups()[0]
+                        elif match3 is not None:
+                            line = match3.groups()[0]
 
                         # 山ほど出力されるメッセージと空行を除外
                         ## 元は "Delay between the first packet and last packet in the muxing queue is xxxxxx > 1: forcing output" と
