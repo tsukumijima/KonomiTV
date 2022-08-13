@@ -17,6 +17,7 @@ class Config(BaseModel):
         mirakurun_url: AnyHttpUrl
         edcb_url: stricturl(allowed_schemes={'tcp'}, tld_required=False)
         debug: bool
+        debug_encoder: bool
 
     class Server(BaseModel):
         port: PositiveInt

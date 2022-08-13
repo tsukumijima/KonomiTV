@@ -19,7 +19,12 @@
 
         # デバッグモードを有効にするか
         # 有効にすると、デバッグログも出力されるようになります。
-        'debug': true,
+        'debug': false,
+
+        # エンコーダーのログを有効にするか
+        # 有効にすると、エンコーダーのログが server/logs/KonomiTV-Encoder-(ストリームID).log に保存されます。
+        # さらにデバッグモードが有効のときは、デバッグログとしてリアルタイムにエンコーダーのログが出力されます。
+        'debug_encoder': false,
     },
 
     # Web サーバーの設定
@@ -46,8 +51,8 @@
         # FFmpeg はソフトウェアエンコーダーです。すべての PC で利用できますが、CPU に多大な負荷がかかり、パフォーマンスが悪いです。
         # QSVEncC・NVEncC・VCEEncC はハードウェアエンコーダーです。CPU 負荷が低く、パフォーマンスがとても高いです（おすすめ）。
         # Intel Graphics 搭載の Intel CPU をお使いなら、QSVEncC が使えます。
-        # Geforce などの NVIDIA 製 GPU をお使いなら、NVEncC が使えます。
-        # Radeon などの AMD 製 GPU をお使いなら、VCEEncC が使えます。
+        # Geforce などの NVIDIA GPU をお使いなら、NVEncC が使えます。
+        # Radeon などの AMD GPU をお使いなら、VCEEncC が使えます。
         'encoder': 'QSVEncC',
 
         # 誰も見ていないチャンネルのエンコードタスクを何秒まで維持するか

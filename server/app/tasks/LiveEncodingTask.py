@@ -5,9 +5,10 @@ import requests
 import socket
 import subprocess
 import time
+from io import TextIOWrapper
 from typing import BinaryIO, Literal, Optional, Union
 
-from app.constants import CONFIG, LIBRARY_PATH, QUALITY
+from app.constants import CONFIG, LIBRARY_PATH, LOGS_DIR, QUALITY
 from app.models import Channel
 from app.models import LiveStream
 from app.models import Program
@@ -264,7 +265,7 @@ class LiveEncodingTask():
             await asyncio.sleep(0.5)  # ちょっと待つのがポイント
             livestream.setStatus('Offline', 'この時間は放送を休止しています。')
             return
-        Logging.info(f'LiveStream:{livestream.livestream_id} Title:{program_present.title}')
+        Logging.info(f'[LiveStream {livestream.livestream_id}] Title:{program_present.title}')
 
         # tsreadex のオプション
         ## 放送波の前処理を行い、エンコードを安定させるツール
@@ -344,7 +345,7 @@ class LiveEncodingTask():
                 encoder_options = self.buildFFmpegOptionsForRadio()
             else:
                 encoder_options = self.buildFFmpegOptions(quality, is_fullhd_channel)
-            Logging.info(f'LiveStream:{livestream.livestream_id} FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
+            Logging.info(f'[LiveStream {livestream.livestream_id}] FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
             # プロセスを非同期で作成・実行
             encoder: subprocess.Popen = await asyncio.to_thread(subprocess.Popen,
@@ -360,7 +361,7 @@ class LiveEncodingTask():
 
             # オプションを取得
             encoder_options = self.buildHWEncCOptions(quality, encoder_type, is_fullhd_channel)
-            Logging.info(f'LiveStream:{livestream.livestream_id} {encoder_type} Commands:\n{encoder_type} {" ".join(encoder_options)}')
+            Logging.info(f'[LiveStream {livestream.livestream_id}] {encoder_type} Commands:\n{encoder_type} {" ".join(encoder_options)}')
 
             # プロセスを非同期で作成・実行
             encoder: subprocess.Popen = await asyncio.to_thread(subprocess.Popen,
@@ -575,6 +576,19 @@ class LiveEncodingTask():
         # エンコード終了後にエンコードタスクを再起動すべきかのフラグ
         is_restart_required: bool = False
 
+        # 既にエンコーダーのログファイルが存在していた場合は上書きしないようにリネーム
+        ## ref: https://note.nkmk.me/python-pathlib-name-suffix-parent/
+        count = 1
+        encoder_log_path = LOGS_DIR / f'KonomiTV-Encoder-{livestream.livestream_id}.log'
+        while encoder_log_path.exists():
+            encoder_log_path = LOGS_DIR / f'KonomiTV-Encoder-{livestream.livestream_id}-{count}.log'
+            count += 1
+
+        # エンコーダーのログファイルを開く (エンコーダーログ有効時のみ)
+        encoder_log: TextIOWrapper | None = None
+        if CONFIG['general']['debug_encoder'] is True:
+            encoder_log = open(encoder_log_path, mode='w', encoding='utf-8')
+
         # エンコーダーのログ出力が同期的なので、同期関数をマルチスレッドで実行する
         def controller():
 
@@ -619,18 +633,30 @@ class LiveEncodingTask():
                         except UnicodeDecodeError:
                             pass
 
-                        # リストに追加
-                        # 山ほど出力されるメッセージは除外
-                        if ('Delay between the first packet and last packet in the muxing queue' not in line and
-                            'removing 2 bytes from input bitstream not read by decoder.' not in line):
-                            lines.append(line)
-
                         # 行バッファを消去
                         linebuffer = bytes()
 
-                        # ストリーム関連のログを表示
-                        if 'Stream #0:' in line:
-                            Logging.debug_simple(line)
+                        # 山ほど出力されるメッセージを除外
+                        ## 元は "Delay between the first packet and last packet in the muxing queue is xxxxxx > 1: forcing output" と
+                        ## "removing 2 bytes from input bitstream not read by decoder." という2つのメッセージで、実害はない
+                        ## FFmpeg と HWEncC のログが衝突して行の先頭が欠けることがあるので、できるだけ多く弾けるように部分一致にしている
+                        if (('removing 2 bytes from input bitstream not read by decoder.' not in line) and
+                            ('Delay between the' not in line) and
+                            ('packet in the muxing queue' not in line) and ('ing output' not in line) and
+                            ('ng output' != line) and ('g output' != line) and (' output' != line) and ('output' != line) and
+                            ('utput' != line) and ('tput' != line) and ('put' != line) and ('ut' != line) and ('t' != line)):
+
+                            # ログリストに行単位で追加
+                            lines.append(line)
+
+                            # ストリーム関連のログを表示
+                            ## エンコーダーのログ出力が有効なら、ストリーム関連に限らずすべての行を出力する
+                            if 'Stream #0:' in line or CONFIG['general']['debug_encoder'] is True:
+                                Logging.debug_simple(f'[LiveStream {livestream.livestream_id}] ' + line)
+
+                            # エンコーダーのログ出力が有効なら、エンコーダーのログファイルに書き込む
+                            if CONFIG['general']['debug_encoder'] is True:
+                                encoder_log.write(line + '\n')
 
                         # エンコードの進捗を判定し、ステータスを更新する
                         # 誤作動防止のため、ステータスが Standby の間のみ更新できるようにする
@@ -736,7 +762,7 @@ class LiveEncodingTask():
                         # 次の番組のタイトルを表示
                         ## TODO: 番組の解像度が変わった際にエンコーダーがクラッシュorフリーズする可能性があるが、
                         ## その場合はここでエンコードタスクを再起動させる必要があるかも
-                        Logging.info(f'LiveStream:{livestream.livestream_id} Title:{program_following.title}')
+                        Logging.info(f'[LiveStream {livestream.livestream_id}] Title:{program_following.title}')
 
                     # 次の番組情報を現在の番組情報にコピー
                     program_present = program_following
@@ -819,6 +845,10 @@ class LiveEncodingTask():
         await asyncio.to_thread(controller)
 
         # ***** エンコード終了後の処理 *****
+
+        # エンコーダーのログファイルを閉じる
+        if CONFIG['general']['debug_encoder'] is True:
+            encoder_log.close()
 
         # 明示的にプロセスを終了する
         tsreadex.kill()
