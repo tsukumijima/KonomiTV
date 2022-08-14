@@ -71,9 +71,8 @@ jobs:
           rm thirdparty/FFmpeg/ffplay.exe
 
           # QSVEncC のアーカイブのダウンロード
-          ## 2022/08 時点で Windows 版の QSVEncC 7.07 以降には一部環境 (Intel HD Graphics 3000) でエンコードに失敗する問題がある
-          curl -LO https://github.com/rigaya/QSVEnc/releases/download/7.06/QSVEncC_7.06_x64.7z
-          7z x -y -o"thirdparty/QSVEncC" QSVEncC_7.06_x64.7z
+          curl -LO https://github.com/rigaya/QSVEnc/releases/download/7.09/QSVEncC_7.09_x64.7z
+          7z x -y -o"thirdparty/QSVEncC" QSVEncC_7.09_x64.7z
           rm thirdparty/QSVEncC/hdr10plus_gen.exe
           mv thirdparty/QSVEncC/QSVEncC64.exe thirdparty/QSVEncC/QSVEncC.exe
           curl -L -o thirdparty/QSVEncC/License.txt https://raw.githubusercontent.com/rigaya/QSVEnc/master/license.txt
@@ -213,9 +212,8 @@ jobs:
           find thirdparty/Library/*.so* -not -type l -not -type d | xargs chmod a+x
 
           # QSVEncC のアーカイブのダウンロード
-          ## 2022/08 時点で Linux 版の QSVEncC 7.02 以降にはエンコードに失敗する問題がある
-          curl -LO https://github.com/rigaya/QSVEnc/releases/download/7.01/qsvencc_7.01_Ubuntu20.04_amd64.deb
-          7z x -y qsvencc_7.01_Ubuntu20.04_amd64.deb && tar xvf data.tar
+          curl -LO https://github.com/rigaya/QSVEnc/releases/download/7.09/qsvencc_7.09_Ubuntu20.04_amd64.deb
+          7z x -y qsvencc_7.09_Ubuntu20.04_amd64.deb && tar xvf data.tar
           mkdir thirdparty/QSVEncC/
           cp usr/bin/qsvencc thirdparty/QSVEncC/QSVEncC.elf
           chmod a+x thirdparty/QSVEncC/QSVEncC.elf
