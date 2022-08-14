@@ -23,6 +23,7 @@
         "strictPropertyInitialization": false,
         // ↑↑↑
         "types": [
+            "offscreencanvas",
             "resize-observer-browser",
             "vuetify",
             "webpack-env",
