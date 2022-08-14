@@ -59,7 +59,7 @@ async def NiconicoAuthURLAPI(
     # コールバック後の NiconicoAuthCallbackAPI に渡す state の値
     state = {
         # リダイレクト先の KonomiTV サーバー
-        'server': f'{request.url.scheme}://{request.url.netloc}/',
+        'server': f'https://{request.url.netloc}/',
         # ログイン中ユーザーの JWT アクセストークン
         'user_access_token': user_access_token,
     }

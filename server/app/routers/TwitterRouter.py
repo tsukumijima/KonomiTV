@@ -77,7 +77,7 @@ async def TwitterAuthURLAPI(
     ## 最後に KonomiTV サーバーがリダイレクトを受け取ることで、コールバック対象の URL が定まらなくても OAuth 連携ができるようになる
     ## Twitter だけ他のサービスと違い OAuth 1.0a なので、フローがかなり異なる
     ## ref: https://github.com/tsukumijima/KonomiTV-API
-    callback_url = f'https://app.konomi.tv/api/redirect/twitter?server={request.url.scheme}://{request.url.netloc}/'
+    callback_url = f'https://app.konomi.tv/api/redirect/twitter?server=https://{request.url.netloc}/'
 
     # OAuth1UserHandler を初期化し、認証 URL を取得
     ## signin_with_twitter を True に設定すると、oauth/authenticate の認証 URL が生成される
