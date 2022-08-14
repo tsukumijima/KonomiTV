@@ -63,7 +63,7 @@
                 <input class="tweet-form__hashtag-form" type="text" placeholder="#ハッシュタグ"
                     v-model="tweet_hashtag" @input="updateTweetLetterCount()"
                     @focus="is_tweet_hashtag_form_focused = true" @blur="is_tweet_hashtag_form_focused = false">
-                <div v-ripple class="tweet-form__hashtag-memory-button" @click="is_hashtag_list_display = !is_hashtag_list_display">
+                <div v-ripple class="tweet-form__hashtag-list-button" @click="is_hashtag_list_display = !is_hashtag_list_display">
                     <Icon icon="fluent:clipboard-text-ltr-32-regular" height="22px" />
                 </div>
             </div>
@@ -130,7 +130,7 @@
             <div class="hashtag-container">
                 <div v-ripple="!hashtag.editing" class="hashtag" :class="{'hashtag--editing': hashtag.editing}"
                     v-for="hashtag in saved_twitter_hashtags" :key="hashtag.id"
-                    @click="tweet_hashtag = hashtag.text; updateTweetLetterCount()">
+                    @click="tweet_hashtag = hashtag.text; updateTweetLetterCount(); window.setTimeout(() => is_hashtag_list_display = false, 150)">
                     <input type="text" class="hashtag__input" v-model="hashtag.text" :disabled="!hashtag.editing" @click.stop="">
                     <button v-ripple class="hashtag__edit-button"
                         @click.prevent.stop="hashtag.editing = !hashtag.editing">
@@ -185,6 +185,9 @@ export default Vue.extend({
     },
     data() {
         return {
+
+            // window.setTimeout() にアクセスできるように
+            window: window,
 
             // ログイン中かどうか
             is_logged_in: Utils.getAccessToken() !== null,
@@ -846,7 +849,7 @@ export default Vue.extend({
                     color: rgba(65, 165, 241, 60%);
                 }
             }
-            &-memory-button {
+            &-list-button {
                 display: flex;
                 position: relative;
                 align-items: center;
