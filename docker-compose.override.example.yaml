@@ -1,0 +1,19 @@
+
+version: '3.8'
+services:
+  konomitv:
+
+    # リッスンポートの設定
+    # ポートを変更するときは、コロン (:) 左側のホスト側のリッスンポートだけを変更してください。
+    ports:
+      - '7000:7000'
+
+    # NVEncC を動作させる (NVIDIA GPU にアクセスする) ために必要な設定
+    # NVEncC を動作させるには、別途 NVIDIA GPU ドライバと NVIDIA Container Toolkit (nvidia-docker2) のインストールが必要です。
+    # この設定を有効にすると、NVIDIA GPU が搭載されていない環境ではコンテナを起動できなくなります。
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [compute, utility, video]

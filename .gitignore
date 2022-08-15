@@ -141,6 +141,9 @@ cython_debug/
 # config.yaml
 config.yaml
 
+# docker-compose.override.yaml
+docker-compose.override.yaml
+
 # user files
 server/data/*.*
 server/data/account-icons/*.*

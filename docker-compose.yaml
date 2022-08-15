@@ -1,29 +1,29 @@
 
 version: '3.8'
 services:
-    konomitv:
-        image: konomitv
-        container_name: KonomiTV
-        restart: always
-        build:
-            context: .
-        deploy:
-            resources:
-                reservations:
-                    devices:
-                        - driver: nvidia
-                          capabilities: [compute, utility, video]
-        devices:
-            - '/dev/dri:/dev/dri'
-        volumes:
-            - type: bind
-              source: './config.yaml'
-              target: '/code/config.yaml'
-            - type: bind
-              source: './server/data/'
-              target: '/code/server/data/'
-            - type: bind
-              source: '/'
-              target: '/host-rootfs'
-        ports:
-            - '7000:7000'
+  konomitv:
+    image: konomitv
+    container_name: KonomiTV
+    build:
+      context: .
+    # OS 起動時にコンテナを自動起動
+    restart: always
+    # リッスンポートの設定
+    ports:
+      - '7000:7000'
+    # ボリュームのマウント設定
+    # /host-rootfs はコンテナ内の KonomiTV からホストマシンのファイルを読み書きするために必要
+    volumes:
+      - type: bind
+        source: './config.yaml'
+        target: '/code/config.yaml'
+      - type: bind
+        source: './server/data/'
+        target: '/code/server/data/'
+      - type: bind
+        source: '/'
+        target: '/host-rootfs'
+    # QSVEncC / VCEEncC を動作させる (Intel Graphics / AMD GPU にアクセスする) ために必要な設定
+    # ホストマシン側のデバイスファイルをコンテナ側にマウントする
+    devices:
+      - '/dev/dri:/dev/dri'
