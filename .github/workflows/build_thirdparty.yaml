@@ -9,7 +9,7 @@ jobs:
 
   # Windows 向けのサードパーティーライブラリのビルド
   build_windows:
-    runs-on: windows-latest
+    runs-on: windows-2022
 
     steps:
 
@@ -26,6 +26,7 @@ jobs:
         run: |
           git clone https://github.com/xtne6f/tsreadex
           cd tsreadex/
+          git checkout bf0ca4f0b0459b9986296b0d2559794663b283ce
           msbuild tsreadex.sln /t:Build /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v142
           mkdir ../thirdparty/tsreadex/
           cp x64/Release/tsreadex.exe ../thirdparty/tsreadex/tsreadex.exe
@@ -36,6 +37,7 @@ jobs:
         run: |
           git clone https://github.com/xtne6f/psisiarc
           cd psisiarc/
+          git checkout 88409792191017abfd2861fdd2aacf12d207f7b5
           msbuild psisiarc.sln /t:Build /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v142
           mkdir ../thirdparty/psisiarc/
           cp x64/Release/psisiarc.exe ../thirdparty/psisiarc/psisiarc.exe
@@ -52,6 +54,7 @@ jobs:
         run: |
           git clone https://github.com/tsukumijima/Akebi
           cd Akebi/
+          git checkout 2757f136dda4f3c1d5b8baa433c1b52bb8526a0c
           go build -ldflags="-s -w" -a -o "akebi-https-server.exe" "./https-server/"
           mkdir ../thirdparty/Akebi/
           cp akebi-https-server.exe ../thirdparty/Akebi/akebi-https-server.exe
@@ -78,36 +81,34 @@ jobs:
           curl -L -o thirdparty/QSVEncC/License.txt https://raw.githubusercontent.com/rigaya/QSVEnc/master/license.txt
 
           # NVEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/NVEnc/releases/download/6.07/NVEncC_6.07_x64.7z
-          7z x -y -o"thirdparty/NVEncC" NVEncC_6.07_x64.7z
+          curl -LO https://github.com/rigaya/NVEnc/releases/download/6.08/NVEncC_6.08_x64.7z
+          7z x -y -o"thirdparty/NVEncC" NVEncC_6.08_x64.7z
           rm thirdparty/NVEncC/hdr10plus_gen.exe
           mv thirdparty/NVEncC/NVEncC64.exe thirdparty/NVEncC/NVEncC.exe
           curl -L -o thirdparty/NVEncC/License.txt https://raw.githubusercontent.com/rigaya/NVEnc/master/NVEnc_license.txt
 
           # VCEEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/VCEEnc/releases/download/7.03/VCEEncC_7.03_x64.7z
-          7z x -y -o"thirdparty/VCEEncC" VCEEncC_7.03_x64.7z
+          curl -LO https://github.com/rigaya/VCEEnc/releases/download/7.04/VCEEncC_7.04_x64.7z
+          7z x -y -o"thirdparty/VCEEncC" VCEEncC_7.04_x64.7z
           rm thirdparty/VCEEncC/hdr10plus_gen.exe
           mv thirdparty/VCEEncC/VCEEncC64.exe thirdparty/VCEEncC/VCEEncC.exe
           curl -L -o thirdparty/VCEEncC/License.txt https://raw.githubusercontent.com/rigaya/VCEEnc/master/VCEEnc_license.txt
 
-      # Python Embeddable Package のダウンロードと pip / pipenv のインストール
-      - name: Install Python Embeddable Package & pip & pipenv
+      # Python Standalone Builds のダウンロードと pipenv のインストール
+      - name: Install Python Standalone Builds & pip & pipenv
         run: |
 
           # Python 本体のダウンロード
-          curl -LO https://www.python.org/ftp/python/3.10.6/python-3.10.6-embed-amd64.zip
-          7z x -y -o"thirdparty/Python" python-3.10.6-embed-amd64.zip
-          C:/"Program Files"/Git/bin/bash.exe -c "sed -i -e 's/#import/import/' thirdparty/Python/python310._pth"
-
-          # pip のインストール
-          curl -LO https://bootstrap.pypa.io/get-pip.py
-          thirdparty/Python/python.exe get-pip.py
+          curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/20220802/cpython-3.10.6+20220802-x86_64-pc-windows-msvc-shared-install_only.tar.gz
+          tar xvf python.tar.gz
+          mv python/ thirdparty/Python/
+          Rename-Item thirdparty/Python/LICENSE.txt License.txt
 
           # pipenv のインストール
-          thirdparty/Python/Scripts/pip.exe install pipenv
+          thirdparty/Python/python.exe -m pip install pipenv==2022.8.15
 
       # サードパーティーライブラリを 7z で圧縮
+      # ファイルサイズ縮減のため、圧縮をかなり強めに掛けている
       # ref: https://axelstudios.github.io/7z/#!/
       - name: Compress Thirdparty Libraries
         run: |
@@ -135,6 +136,7 @@ jobs:
         run: |
           git clone https://github.com/xtne6f/tsreadex
           cd tsreadex/
+          git checkout bf0ca4f0b0459b9986296b0d2559794663b283ce
           make
           mkdir ../thirdparty/tsreadex/
           cp tsreadex ../thirdparty/tsreadex/tsreadex.elf
@@ -146,6 +148,7 @@ jobs:
         run: |
           git clone https://github.com/xtne6f/psisiarc
           cd psisiarc/
+          git checkout 88409792191017abfd2861fdd2aacf12d207f7b5
           make
           mkdir ../thirdparty/psisiarc/
           cp psisiarc ../thirdparty/psisiarc/psisiarc.elf
@@ -163,6 +166,7 @@ jobs:
         run: |
           git clone https://github.com/tsukumijima/Akebi
           cd Akebi/
+          git checkout 2757f136dda4f3c1d5b8baa433c1b52bb8526a0c
           go build -ldflags="-s -w" -a -o "akebi-https-server.elf" "./https-server/"
           mkdir ../thirdparty/Akebi/
           cp akebi-https-server.elf ../thirdparty/Akebi/akebi-https-server.elf
@@ -221,9 +225,8 @@ jobs:
           curl -L -o thirdparty/QSVEncC/License.txt https://raw.githubusercontent.com/rigaya/QSVEnc/master/license.txt
 
           # NVEncC のアーカイブのダウンロード
-          ## 2022/08 現時点で Linux 版の NVEncC 6.02 以降にはエンコードが安定しない問題がある
-          curl -LO https://github.com/rigaya/NVEnc/releases/download/6.01/nvencc_6.01_Ubuntu20.04_amd64.deb
-          7z x -y nvencc_6.01_Ubuntu20.04_amd64.deb && tar xvf data.tar
+          curl -LO https://github.com/rigaya/NVEnc/releases/download/6.08/nvencc_6.08_Ubuntu20.04_amd64.deb
+          7z x -y nvencc_6.08_Ubuntu20.04_amd64.deb && tar xvf data.tar
           mkdir thirdparty/NVEncC/
           cp usr/bin/nvencc thirdparty/NVEncC/NVEncC.elf
           chmod a+x thirdparty/NVEncC/NVEncC.elf
@@ -231,19 +234,33 @@ jobs:
           curl -L -o thirdparty/NVEncC/License.txt https://raw.githubusercontent.com/rigaya/NVEnc/master/NVEnc_license.txt
 
           # VCEEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/VCEEnc/releases/download/7.03/vceencc_7.03_Ubuntu20.04_amd64.deb
-          7z x -y vceencc_7.03_Ubuntu20.04_amd64.deb && tar xvf data.tar
+          curl -LO https://github.com/rigaya/VCEEnc/releases/download/7.04/vceencc_7.04_Ubuntu20.04_amd64.deb
+          7z x -y vceencc_7.04_Ubuntu20.04_amd64.deb && tar xvf data.tar
           mkdir thirdparty/VCEEncC/
           cp usr/bin/vceencc thirdparty/VCEEncC/VCEEncC.elf
           chmod a+x thirdparty/VCEEncC/VCEEncC.elf
           patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../Library' thirdparty/VCEEncC/VCEEncC.elf
           curl -L -o thirdparty/VCEEncC/License.txt https://raw.githubusercontent.com/rigaya/VCEEnc/master/VCEEnc_license.txt
 
+      # Python Standalone Builds のダウンロードと pipenv のインストール
+      - name: Install Python Standalone Builds & pip & pipenv
+        run: |
+
+          # Python 本体のダウンロード
+          curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/20220802/cpython-3.10.6+20220802-x86_64-unknown-linux-gnu-install_only.tar.gz
+          tar xvf python.tar.gz
+          mv python/ thirdparty/Python/
+          ln -s python3.10 thirdparty/Python/bin/python
+
+          # pipenv のインストール
+          thirdparty/Python/bin/python -m pip install pipenv==2022.8.15
+
       # サードパーティーライブラリを 7z で圧縮
+      # ファイルサイズ縮減のため、圧縮をかなり強めに掛けている
       # ref: https://axelstudios.github.io/7z/#!/
       - name: Compress Thirdparty Libraries
         run: |
-          tar -cvf thirdparty-linux.tar thirdparty
+          tar cvf thirdparty-linux.tar thirdparty
           7z a -txz -m0=LZMA2 -mx=9 -md=128m -mfb=128 -mmt=on thirdparty-linux.tar.xz thirdparty-linux.tar
 
       # 7z で圧縮したサードパーティーライブラリを Artifact としてアップロード
