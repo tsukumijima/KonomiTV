@@ -4,17 +4,17 @@
     'general': {
 
         # 利用するバックエンド
-        # Mirakurun・EDCB から選択してください。
-        'backend': 'EDCB',
-
-        # Mirakurun の HTTP API の URL
-        # バックエンドに Mirakurun を選択したときに利用されます。
-        'mirakurun_url': 'http://192.168.1.11:40772/',
+        # EDCB・Mirakurun のいずれかを選択してください。
+        'backend': 'Mirakurun',
 
         # EDCB (EpgTimerNW) の TCP API の URL
         # バックエンドに EDCB を選択したときに利用されます。
         # tcp://edcb-namedpipe/ と指定すると、TCP API の代わりに名前付きパイプを使って通信します (ローカルのみ)。
         'edcb_url': 'tcp://192.168.1.11:4510/',
+
+        # Mirakurun の HTTP API の URL
+        # バックエンドに Mirakurun を選択したときに利用されます。
+        'mirakurun_url': 'http://192.168.1.11:40772/',
 
         # デバッグモードを有効にするか
         # 有効にすると、デバッグログも出力されるようになります。
@@ -77,5 +77,5 @@
         # [ブラウザでのダウンロードと、KonomiTV サーバーへのアップロードを両方行う] を選択したときに利用されます。
         # Docker でインストールした場合も、ホストマシン側のフォルダの絶対パスを指定してください。
         'upload_folder': 'E:\TV-Capture',
-    },
+    }
 }
