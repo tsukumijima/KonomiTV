@@ -344,8 +344,8 @@ export default Vue.extend({
                             { name: '再生 / 一時停止の切り替え', keys: [{name: 'Space', icon: false}] },
                             { name: 'プレイヤーの音量を上げる', keys: [{name: 'Shift', icon: false}, {name: 'fluent:arrow-up-12-filled', icon: true}] },
                             { name: 'プレイヤーの音量を下げる', keys: [{name: 'Shift', icon: false}, {name: 'fluent:arrow-down-12-filled', icon: true}] },
-                            { name: '停止して0.5秒早戻し', keys: [{name: 'fluent:arrow-left-12-filled', icon: true}] },
-                            { name: '停止して0.5秒早送り', keys: [{name: 'fluent:arrow-right-12-filled', icon: true}] },
+                            { name: '停止して0.5秒早戻し', keys: [{name: 'Shift', icon: false}, {name: 'fluent:arrow-left-12-filled', icon: true}] },
+                            { name: '停止して0.5秒早送り', keys: [{name: 'Shift', icon: false}, {name: 'fluent:arrow-right-12-filled', icon: true}] },
                             { name: 'フルスクリーンの切り替え', keys: [{name: 'F', icon: false}] },
                             { name: 'ライブストリームの同期', keys: [{name: 'W', icon: false}] },
                             { name: 'Picture-in-Picture の表示切り替え', keys: [{name: 'E', icon: false}] },
@@ -1560,25 +1560,25 @@ export default Vue.extend({
                             this.player.volume(this.player.volume() - 0.05);
                             return;
                         }
-                    }
-
-                    // プレイヤーが初期化されていない際や Ctrl / Cmd / Shift / Alt キーが一緒に押された際に作動しないように
-                    if (this.player !== null && !event.ctrlKey && !event.metaKey) {
-
-                        // ←キー: 停止して0.5秒巻き戻し
-                        if (event.code === 'ArrowLeft') {
+                        // Shift + ←キー: 停止して0.5秒巻き戻し
+                        if (event.shiftKey === true && event.code === 'ArrowLeft') {
                             event.preventDefault();  // デフォルトのイベントを無効化
                             if (this.player.video.paused === false) this.player.video.pause();
                             this.player.video.currentTime = this.player.video.currentTime - 0.5;
                             return;
                         }
-                        // →キー: 停止して0.5秒早送り
-                        if (event.code === 'ArrowRight') {
+                        // Shift + →キー: 停止して0.5秒早送り
+                        if (event.shiftKey === true && event.code === 'ArrowRight') {
                             event.preventDefault();  // デフォルトのイベントを無効化
                             if (this.player.video.paused === false) this.player.video.pause();
                             this.player.video.currentTime = this.player.video.currentTime + 0.5;
                             return;
                         }
+                    }
+
+                    // プレイヤーが初期化されていない際や Ctrl / Cmd / Shift / Alt キーが一緒に押された際に作動しないように
+                    if (this.player !== null && !event.ctrlKey && !event.metaKey) {
+
                         // キーリピートでは実行しないショートカット
                         if (is_repeat === false) {
                             // Spaceキー: 再生/停止
