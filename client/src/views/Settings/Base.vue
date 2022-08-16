@@ -90,7 +90,7 @@ export default Vue.extend({
         position: sticky;
         top: calc(65px + 20px) !important;  // ヘッダー+余白の高さ
 
-        .v-list-item--link:before {
+        .v-list-item--link, .v-list-item--link:before {
             border-radius: 11px !important;
         }
     }

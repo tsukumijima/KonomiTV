@@ -43,6 +43,9 @@ export default class Utils {
         // テレビのストリーミング画質 (Default: 1080p) (同期無効)
         tv_streaming_quality: '1080p' as ('1080p' | '810p' | '720p' | '540p' | '480p' | '360p' | '240p'),
 
+        // テレビを低遅延で視聴する (Default: 低遅延で視聴する) (同期無効)
+        is_low_latency_mode: true as boolean,
+
         // テレビをみるときに文字スーパーを表示する (Default: 表示する)
         is_display_superimpose_tv: true as boolean,
 

@@ -859,7 +859,7 @@ export default Vue.extend({
                             // HTMLMediaElement の内部バッファによるライブストリームの遅延を追跡する
                             // liveBufferLatencyChasing と異なり、いきなり再生時間をスキップするのではなく、
                             // 再生速度を少しだけ上げることで再生を止めることなく遅延を追跡する
-                            liveSync: true,
+                            liveSync: Utils.getSettingsItem('is_low_latency_mode'),
                             // 許容する HTMLMediaElement の内部バッファの最大値 (秒単位, 1.8秒)
                             liveSyncMaxLatency: 1.8,
                             // ライブストリームの遅延の追跡に利用する再生速度 (x1.15)
