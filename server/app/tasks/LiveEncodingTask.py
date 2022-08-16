@@ -6,6 +6,7 @@ import requests
 import socket
 import subprocess
 import time
+from datetime import datetime
 from io import TextIOWrapper
 from typing import BinaryIO, Literal, Optional, Union
 
@@ -257,15 +258,25 @@ class LiveEncodingTask():
         channel: Channel = await Channel.filter(channel_id=channel_id).first()
 
         # 現在の番組情報を取得する
-        program_present: Program = (await channel.getCurrentAndNextProgram())[0]
+        program_present: Program | None = (await channel.getCurrentAndNextProgram())[0]
 
-        ## 番組情報が取得できなければ（放送休止中など）ここで Offline にしてエンコードタスクを停止する
-        ## スターデジオは番組情報が取れないことが多いので(特に午後)、休止になっていても無視してストリームを開始する
-        ## 放送大学ラジオは正しい番組情報が取得できるので制御しない
-        if program_present is None and channel.channel_type != 'STARDIGIO':
-            await asyncio.sleep(0.5)  # ちょっと待つのがポイント
-            livestream.setStatus('Offline', 'この時間は放送を休止しています。')
-            return
+        # 現在の番組情報が取得できなかった場合、「番組情報がありません」という仮の番組情報を入れておく（実装上の都合）
+        ## このデータは UI 上には表示されないし、データベースにも保存されない
+        if program_present is None:
+            program_present = Program()
+            program_present.id = f'NID{channel.network_id}-SID{channel.service_id}-EID99999'
+            program_present.network_id = channel.network_id
+            program_present.service_id = channel.service_id
+            program_present.event_id = 99999  # 適当に 99999 に設定
+            program_present.channel_id = channel.channel_id
+            program_present.title = '番組情報がありません'
+            program_present.description = ''
+            program_present.start_time = datetime(2000, 1, 1, 0, 0, 0)
+            program_present.end_time = datetime(2099, 1, 1, 0, 0, 0)
+            program_present.duration = (program_present.end_time - program_present.start_time).total_seconds()
+            program_present.is_free = True
+            program_present.genre = []
+
         Logging.info(f'[LiveStream {livestream.livestream_id}] Title:{program_present.title}')
 
         # tsreadex のオプション
@@ -396,7 +407,8 @@ class LiveEncodingTask():
                 )
             except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
                 # 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないならチューナーへの接続に失敗したものとする
-                if (('放送休止' in program_present.title) or
+                if (('番組情報がありません' == program_present.title) or
+                    ('放送休止' in program_present.title) or
                     ('放送終了' in program_present.title) or
                     ('休止' in program_present.title) or
                     ('停波' in program_present.title)):
@@ -702,7 +714,8 @@ class LiveEncodingTask():
                             if 'Stream map \'0:v:0\' matches no streams.' in line:
                                 # 何らかの要因で tsreadex から放送波が受信できなかったことによるエラーのため、エンコーダーの再起動は行わない
                                 ## 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないなら放送波の受信に失敗したものとする
-                                if (('放送休止' in program_present.title) or
+                                if (('番組情報がありません' == program_present.title) or
+                                    ('放送休止' in program_present.title) or
                                     ('放送終了' in program_present.title) or
                                     ('休止' in program_present.title) or
                                     ('停波' in program_present.title)):
@@ -724,7 +737,8 @@ class LiveEncodingTask():
                             if 'error finding stream information.' in line:
                                 # 何らかの要因で tsreadex から放送波が受信できなかったことによるエラーのため、エンコーダーの再起動は行わない
                                 ## 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないなら放送波の受信に失敗したものとする
-                                if (('放送休止' in program_present.title) or
+                                if (('番組情報がありません' == program_present.title) or
+                                    ('放送休止' in program_present.title) or
                                     ('放送終了' in program_present.title) or
                                     ('休止' in program_present.title) or
                                     ('停波' in program_present.title)):
