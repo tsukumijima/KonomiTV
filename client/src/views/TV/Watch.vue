@@ -1796,7 +1796,8 @@ export default Vue.extend({
                 for (const comment of this.$el.querySelectorAll('.dplayer-danmaku-move')) { // コメントの数だけ置換
                     // スクロール中のコメントの表示座標を計算
                     const position = comment.getBoundingClientRect().left - this.player.video.getBoundingClientRect().left;
-                    comments_html = comments_html.replace(/transform: translateX\(.*?\);/, `left: ${position}px;`);
+                    comments_html = comments_html.replace(/transform: translateX\(.*?\);/, `left: ${position}px;`)
+                                                 .replaceAll('border: 2px solid #E64F97;', '');
                 }
 
                 // HTML を画像として取得

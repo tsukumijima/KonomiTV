@@ -21,6 +21,7 @@
         "strictFunctionTypes": false,
         "strictBindCallApply": false,
         "strictPropertyInitialization": false,
+        "useUnknownInCatchVariables": false,
         // ↑↑↑
         "types": [
             "offscreencanvas",
