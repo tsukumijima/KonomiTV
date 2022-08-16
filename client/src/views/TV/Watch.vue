@@ -342,6 +342,7 @@ export default Vue.extend({
                         icon_height: '20px',
                         shortcuts: [
                             { name: '再生 / 一時停止の切り替え', keys: [{name: 'Space', icon: false}] },
+                            { name: '再生 / 一時停止の切り替え (キャプチャタブ表示時)', keys: [{name: 'Shift', icon: false}, {name: 'Space', icon: false}] },
                             { name: 'プレイヤーの音量を上げる', keys: [{name: 'Shift', icon: false}, {name: 'fluent:arrow-up-12-filled', icon: true}] },
                             { name: 'プレイヤーの音量を下げる', keys: [{name: 'Shift', icon: false}, {name: 'fluent:arrow-down-12-filled', icon: true}] },
                             { name: '停止して0.5秒早戻し', keys: [{name: 'Shift', icon: false}, {name: 'fluent:arrow-left-12-filled', icon: true}] },
@@ -1549,7 +1550,7 @@ export default Vue.extend({
                     // ***** プレイヤーのショートカットキー *****
 
                     // プレイヤーが初期化されていない際や Ctrl / Cmd / Alt キーが一緒に押された際に作動しないように
-                    if (this.player !== null && !event.ctrlKey && !event.metaKey) {
+                    if (this.player !== null && !event.ctrlKey && !event.metaKey && !event.altKey) {
                         // Shift + ↑キー: プレイヤーの音量を上げる
                         if (event.shiftKey === true && event.code === 'ArrowUp') {
                             this.player.volume(this.player.volume() + 0.05);
@@ -1574,10 +1575,16 @@ export default Vue.extend({
                             this.player.video.currentTime = this.player.video.currentTime + 0.5;
                             return;
                         }
+                        // Shift + Spaceキー + Twitter タブ表示時: 再生/停止
+                        if (event.shiftKey === true && event.code === 'Space' &&
+                            this.panel_active_tab === 'Twitter' && twitter_component.twitter_active_tab === 'Capture') {
+                            this.player.toggle();
+                            return;
+                        }
                     }
 
                     // プレイヤーが初期化されていない際や Ctrl / Cmd / Shift / Alt キーが一緒に押された際に作動しないように
-                    if (this.player !== null && !event.ctrlKey && !event.metaKey) {
+                    if (this.player !== null && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
 
                         // キーリピートでは実行しないショートカット
                         if (is_repeat === false) {
