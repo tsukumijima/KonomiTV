@@ -2,6 +2,9 @@
 import { Buffer } from 'buffer';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ja';
+import isBetween from 'dayjs/plugin/isBetween';
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore'
 import * as piexif from 'piexifjs';
 
 import { IChannel, IProgram } from '@/interface';
@@ -18,7 +21,7 @@ export class TVUtils {
      * @param key 番組情報のオブジェクトから取り出すプロパティのキー
      * @returns 装飾した文字列
      */
-    static decorateProgramInfo(program: IProgram, key: string): string {
+    static decorateProgramInfo(program: IProgram | null, key: string): string {
 
         // program が空でないかつ、program[key] が存在する
         if (program !== null && program[key] !== null) {
@@ -41,9 +44,38 @@ export class TVUtils {
             return text.replace(pattern1, '<span class="decorate-symbol">$1</span>')
                        .replace(pattern2, '<span class="decorate-symbol">$1</span>');
 
-        // 放送休止中
+        // 番組情報がない時間帯
         } else {
-            return key == 'title' ? '放送休止': 'この時間は放送を休止しています。';
+
+            dayjs.extend(isSameOrAfter);
+            dayjs.extend(isSameOrBefore);
+            dayjs.extend(isBetween);
+
+            // 23時～翌7時 (0:00 ~ 06:59 or 23:00 ~ 23:59) の間なら放送を休止している可能性が高いので、放送休止と表示する
+            const now = dayjs();
+            const pause_time_start = dayjs().hour(0).minute(0).second(0);
+            const pause_time_end = dayjs().hour(6).minute(59).second(59);
+            const pause_time_start_23 = dayjs().hour(23).minute(0).second(0);
+            const pause_time_end_23 = dayjs().hour(23).minute(59).second(59);
+            if ((now.isSameOrAfter(pause_time_start) && now.isSameOrBefore(pause_time_end)) ||
+                (now.isSameOrAfter(pause_time_start_23) && now.isSameOrBefore(pause_time_end_23))) {
+                if (key === 'title') {
+                    return '放送休止';  // タイトル
+                } else {
+                    return 'この時間は放送を休止しています。';  // 番組概要
+                }
+
+            // それ以外の時間帯では、「番組情報がありません」と表示する
+            // 急な番組変更の影響で、一時的にその時間帯に対応する番組情報が消えることがある
+            // 特に Mirakurun バックエンドでは高頻度で収集した EIT[p/f] が比較的すぐ反映されるため、この現象が起こりやすい
+            // 日中に放送休止（停波）になることはまずあり得ないので、番組情報が取得できてないだけで視聴できるかも？というニュアンスを与える
+            } else {
+                if (key === 'title') {
+                    return '番組情報がありません';  // タイトル
+                } else {
+                    return 'この時間の番組情報を取得できませんでした。';  // 番組概要
+                }
+            }
         }
     }
 
