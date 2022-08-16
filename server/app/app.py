@@ -41,6 +41,8 @@ loop = asyncio.get_event_loop()
 # 環境設定のうち、パス指定の項目に Docker 環境向けの Prefix (/host-rootfs) を付ける
 ## 非 Docker 環境では Prefix は付かない
 CONFIG['capture']['upload_folder'] = DOCKER_FS_PREFIX + CONFIG['capture']['upload_folder']
+if CONFIG['tv']['debug_mode_ts_path'] is not None:
+    CONFIG['tv']['debug_mode_ts_path'] = DOCKER_FS_PREFIX + CONFIG['tv']['debug_mode_ts_path']
 
 # 環境設定のバリデーション
 try:
