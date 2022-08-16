@@ -854,10 +854,17 @@ export default Vue.extend({
                     // mpegts.js
                     mpegts: {
                         config: {
-                            enableWorker: true,  // Web Worker を有効にする
-                            liveBufferLatencyChasing: true,  // HTMLMediaElement の内部バッファによるライブストリームの待機時間を追跡する
-                            liveBufferLatencyMaxLatency: 3.0,  // HTMLMediaElement で許容するバッファの最大値 (秒単位)
-                            liveBufferLatencyMinRemain: 0.5,  // HTMLMediaElement に保持されるバッファの待機時間の最小値 (秒単位)
+                            // Web Worker を有効にする
+                            enableWorker: true,
+                            // HTMLMediaElement の内部バッファによるライブストリームの遅延を追跡する
+                            // liveBufferLatencyChasing と異なり、いきなり再生時間をスキップするのではなく、
+                            // 再生速度を少しだけ上げることで再生を止めることなく遅延を追跡する
+                            liveSync: true,
+                            // 許容する HTMLMediaElement の内部バッファの最大値 (秒単位, 1.8秒)
+                            liveSyncMaxLatency: 1.8,
+                            // ライブストリームの遅延の追跡に利用する再生速度 (x1.15)
+                            // HTMLMediaElement の内部バッファが1.8秒を超えたとき、再生速度が内部バッファが 1.8 秒を下回るまで x1.15 に設定される
+                            liveSyncPlaybackRate: 1.15,
                         }
                     },
                     // aribb24.js
