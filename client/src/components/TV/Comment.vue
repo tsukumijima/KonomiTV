@@ -12,8 +12,8 @@
         </section>
         <DynamicScroller class="comment-list" :direction="'vertical'" :items="comment_list" :min-item-size="34">
             <template v-slot="{item, active}">
-            <DynamicScrollerItem :item="item" :active="active"  :size-dependencies="[item.text]">
-                <div class="comment">
+            <DynamicScrollerItem :item="item" :active="active" :size-dependencies="[item.text]">
+                <div class="comment" :class="{'comment--my-post': item.my_post}">
                     <span class="comment__text">{{item.text}}</span>
                     <span class="comment__time">{{item.time}}</span>
                 </div>
@@ -34,6 +34,14 @@ import Vue, { PropType } from 'vue';
 
 import { IChannel, IDPlayerDanmakuSendOptions, IUser } from '@/interface';
 import Utils from '@/utils';
+
+// このコンポーネント内でのコメントのインターフェイス
+interface IComment {
+    id: number;
+    text: string;
+    time: string;
+    my_post: boolean;
+}
 
 export default Vue.extend({
     name: 'Comment',
@@ -64,7 +72,7 @@ export default Vue.extend({
             user: null as IUser | null,
 
             // コメントリストの配列
-            comment_list: [] as {[key: string]: number | string}[],
+            comment_list: [] as IComment[],
 
             // コメントリストの要素
             comment_list_element: null as HTMLElement | null,
@@ -494,7 +502,7 @@ export default Vue.extend({
 
             // タブが非表示状態のときにコメントを格納する配列
             // タブが表示状態になったらコメントリストにのみ表示する（遅れているのでプレイヤーには表示しない）
-            let comment_list_buffer = [];
+            let comment_list_buffer: IComment[] = [];
 
             // 最初に送信されてくるコメントを受信し終えたかどうかのフラグ
             let is_received_initial_comment = false;
@@ -614,10 +622,11 @@ export default Vue.extend({
 
                 // コメントリストへ追加するオブジェクト
                 // コメント投稿時刻はフォーマットしてから
-                const comment_dict = {
+                const comment_dict: IComment = {
                     id: comment.no,
                     text: comment.content,
                     time: dayjs(comment.date * 1000).format('HH:mm:ss'),
+                    my_post: false,
                 };
 
                 // タブが非表示状態のときは、バッファにコメントを追加するだけで終了する
@@ -729,6 +738,14 @@ export default Vue.extend({
                     'isAnonymous': true,  // 匿名コメント (184)
                 }
             }));
+
+            // 自分のコメントをコメントリストに追加
+            this.comment_list.push({
+                id: new Date().getTime(),
+                text: options.data.text,
+                time: dayjs().format('HH:mm:ss'),
+                my_post: true,  // コメントリスト上でハイライトする
+            });
 
             // コメント送信のレスポンスを取得
             // 簡単にイベントリスナーを削除できるため、あえて onmessage で実装している
@@ -1055,6 +1072,9 @@ export default Vue.extend({
             min-height: 28px;
             padding-top: 6px;
             word-break: break-all;
+            &--my-post {
+                color: var(--v-secondary-lighten2);
+            }
 
             &__text {
                 font-size: 13px;
