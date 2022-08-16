@@ -11,6 +11,10 @@ services:
     # リッスンポートの設定
     ports:
       - '7000:7000'
+    # 別の Docker コンテナで稼働中のサービスに host.docker.internal のホスト名でアクセスできるように
+    # ref: https://qiita.com/skobaken/items/03a8b9d0e443745862ac
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     # ボリュームのマウント設定
     # /host-rootfs はコンテナ内の KonomiTV からホストマシンのファイルを読み書きするために必要
     volumes:
@@ -20,6 +24,9 @@ services:
       - type: bind
         source: './server/data/'
         target: '/code/server/data/'
+      - type: bind
+        source: './server/logs/'
+        target: '/code/server/logs/'
       - type: bind
         source: '/'
         target: '/host-rootfs'
