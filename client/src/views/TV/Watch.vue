@@ -354,6 +354,7 @@ export default Vue.extend({
                             { name: '映像をキャプチャする', keys: [{name: 'C', icon: false}] },
                             { name: '映像をコメントを付けてキャプチャする', keys: [{name: 'V', icon: false}] },
                             { name: 'コメント入力フォームにフォーカスする', keys: [{name: 'M', icon: false}] },
+                            { name: 'コメント入力フォームを閉じる', keys: [{name: 'Esc', icon: false}] },
                         ]
                     },
                 ],
@@ -1295,6 +1296,15 @@ export default Vue.extend({
                     }
                 }
 
+                // ***** コメント入力フォームを閉じる *****
+
+                // コメント入力フォームが表示されているときのみ
+                if (this.player.template.controller.classList.contains('dplayer-controller-comment')) {
+                    if (event.code === 'Escape') {
+                        this.player.comment.hide();
+                    }
+                }
+
                 // input・textarea・contenteditable 状態の要素でなければ
                 // 文字入力中にショートカットキーが作動してしまわないように
                 if (tag !== 'INPUT' && tag !== 'TEXTAREA' && editable !== '' && editable !== 'true') {
@@ -2096,7 +2106,7 @@ export default Vue.extend({
             }
         }
         .dplayer-comment-box {
-            transition: opacity 0.3s ease, visibility 0.3s ease;
+            transition: opacity 0.3s ease, visibility 0.3s ease !important;
         }
     }
     .dplayer-notice {
