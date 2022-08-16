@@ -3400,9 +3400,9 @@ dotenv@^10.0.0:
   resolved "https://registry.npmmirror.com/dotenv/-/dotenv-10.0.0.tgz#3d4227b8fb95f81096cdd2b66653fb2c7085ba81"
   integrity sha512-rlBi9d8jpv9Sf1klPjNfFAuWDjKLwTIJJ/VxtoTwIR6hnZxcEOQCZg2oIL3MWBYw5GpUDKOEnND7LXTbIpQ03Q==
 
-"dplayer@github:tsukumijima/DPlayer#f7440bfb490a87bf881e43bb183c7cc5665afc88":
-  version "1.27.2"
-  resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/f7440bfb490a87bf881e43bb183c7cc5665afc88"
+"dplayer@github:tsukumijima/DPlayer#9474f81999e6bb85cde4c262bea6cb6b448dba3a":
+  version "1.27.3"
+  resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/9474f81999e6bb85cde4c262bea6cb6b448dba3a"
   dependencies:
     aribb24.js "1.9.16"
     axios "^0.27.2"
@@ -5253,9 +5253,9 @@ module-alias@^2.2.2:
   resolved "https://registry.npmmirror.com/module-alias/-/module-alias-2.2.2.tgz#151cdcecc24e25739ff0aa6e51e1c5716974c0e0"
   integrity sha512-A/78XjoX2EmNvppVWEhM2oGk3x4lLxnkEA4jTbaK97QKSDjkIoOsKQlfylt/d3kKKi596Qy3NP5XrXJ6fZIC9Q==
 
-"mpegts.js@github:tsukumijima/mpegts.js#f9589187fc84e7e18363398ce5815307c52a6898":
+"mpegts.js@github:tsukumijima/mpegts.js#20e5c86a20506dcab93e5c2258add1169367d265":
   version "1.6.10"
-  resolved "https://codeload.github.com/tsukumijima/mpegts.js/tar.gz/f9589187fc84e7e18363398ce5815307c52a6898"
+  resolved "https://codeload.github.com/tsukumijima/mpegts.js/tar.gz/20e5c86a20506dcab93e5c2258add1169367d265"
   dependencies:
     es6-promise "^4.2.5"
     webworkify-webpack "^2.1.5"
