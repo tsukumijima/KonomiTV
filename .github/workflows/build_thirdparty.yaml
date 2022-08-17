@@ -74,8 +74,8 @@ jobs:
           rm thirdparty/FFmpeg/ffplay.exe
 
           # QSVEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/QSVEnc/releases/download/7.09/QSVEncC_7.09_x64.7z
-          7z x -y -o"thirdparty/QSVEncC" QSVEncC_7.09_x64.7z
+          curl -LO https://github.com/rigaya/QSVEnc/releases/download/7.10/QSVEncC_7.10_x64.7z
+          7z x -y -o"thirdparty/QSVEncC" QSVEncC_7.10_x64.7z
           rm thirdparty/QSVEncC/hdr10plus_gen.exe
           mv thirdparty/QSVEncC/QSVEncC64.exe thirdparty/QSVEncC/QSVEncC.exe
           curl -L -o thirdparty/QSVEncC/License.txt https://raw.githubusercontent.com/rigaya/QSVEnc/master/license.txt
@@ -216,8 +216,8 @@ jobs:
           find thirdparty/Library/*.so* -not -type l -not -type d | xargs chmod a+x
 
           # QSVEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/QSVEnc/releases/download/7.09/qsvencc_7.09_Ubuntu20.04_amd64.deb
-          7z x -y qsvencc_7.09_Ubuntu20.04_amd64.deb && tar xvf data.tar
+          curl -LO https://github.com/rigaya/QSVEnc/releases/download/7.10/qsvencc_7.10_Ubuntu20.04_amd64.deb
+          7z x -y qsvencc_7.10_Ubuntu20.04_amd64.deb && tar xvf data.tar
           mkdir thirdparty/QSVEncC/
           cp usr/bin/qsvencc thirdparty/QSVEncC/QSVEncC.elf
           chmod a+x thirdparty/QSVEncC/QSVEncC.elf
