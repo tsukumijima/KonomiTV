@@ -392,45 +392,36 @@ export default Vue.extend({
         }
     },
     // 開始時に実行
-    created() {
+    async created() {
 
-        // 初期化
+        // 再生セッションを初期化
         this.init();
 
-        (async () => {
+        // RomSound を鳴らすための AudioContext を生成
+        this.romsounds_context = new AudioContext();
 
-            // RomSound を鳴らすための AudioContext を生成
-            this.romsounds_context = new AudioContext();
+        // 01 ~ 14 まですべての RomSound を読み込む
+        for (let index = 1; index <= 14; index++) {
 
-            for (let index = 1; index <= 14; index++) {
+            // ArrayBuffer として RomSound を取得
+            const url = `/assets/romsounds/${index.toString().padStart(2, '0')}.wav`;
+            const audio_data = await Vue.axios.get(url, {
+                baseURL: '',  // BaseURL を明示的にクライアントのルートに設定
+                responseType: 'arraybuffer',
+            });
 
-                // ArrayBuffer として RomSound を取得
-                const url = `/assets/romsounds/${index.toString().padStart(2, '0')}.wav`;
-                const audio_data = await Vue.axios.get(url, {
-                    baseURL: '',  // BaseURL を明示的にクライアントのルートに設定
-                    responseType: 'arraybuffer',
-                });
-
-                // ArrayBuffer をデコードして AudioBuffer にし、すぐ呼び出せるように貯めておく
-                // ref: https://ics.media/entry/200427/
-                this.romsounds_buffers.push(await this.romsounds_context.decodeAudioData(audio_data.data));
-            }
-
-        })();
+            // ArrayBuffer をデコードして AudioBuffer にし、すぐ呼び出せるように貯めておく
+            // ref: https://ics.media/entry/200427/
+            this.romsounds_buffers.push(await this.romsounds_context.decodeAudioData(audio_data.data));
+        }
     },
     // 終了前に実行
     beforeDestroy() {
 
         // destroy() を実行
         // 別のページへ遷移するため、DPlayer のインスタンスを確実に破棄する
-        // さもなければ、ブラウザがリロードされるまでバックグラウンドで永遠に再生されてしまう
+        // さもなければ、ブラウザがリロードされるまでバックグラウンドで永遠に再生され続けてしまう
         this.destroy(true);
-
-        // ページ上でキーが押されたときのイベントを削除
-        if (this.shortcut_key_handler !== null) {
-            document.removeEventListener('keydown', this.shortcut_key_handler);
-            this.shortcut_key_handler = null;
-        }
 
         // AudioContext のリソースを解放
         this.romsounds_context.close();
@@ -440,7 +431,7 @@ export default Vue.extend({
     // ref: https://router.vuejs.org/ja/guide/advanced/navigation-guards.html#%E3%83%AB%E3%83%BC%E3%83%88%E5%8D%98%E4%BD%8D%E3%82%AB%E3%82%99%E3%83%BC%E3%83%88%E3%82%99
     beforeRouteUpdate(to, from, next) {
 
-        // 前のインスタンスを破棄して終了する
+        // 前の再生セッションを破棄して終了する
         this.destroy();
 
         // チャンネル ID を次のチャンネルのものに切り替える
@@ -450,14 +441,9 @@ export default Vue.extend({
         [this.channel_previous, this.channel, this.channel_next]
             = TVUtils.getPreviousAndCurrentAndNextChannel(this.channels_list, this.channel_id);
 
-        // 0.5秒だけ待ってから
-        // 連続して押した時などにライブストリームを初期化しないように猶予を設ける
-        this.interval_ids.push(window.setTimeout(() => {
-
-            // 現在のインスタンスを初期化する
-            this.init();
-
-        }, 500));
+        // 0.5秒だけ待ってから、新しい再生セッションを初期化する
+        // 連続して押した時などに毎回再生処理を開始しないように猶予を設ける
+        this.interval_ids.push(window.setTimeout(() => this.init(), 500));
 
         next();
     },
@@ -469,7 +455,7 @@ export default Vue.extend({
     },
     methods: {
 
-        // 初期化する
+        // 再生セッションを初期化する
         init() {
 
             // ローディング中の背景画像をランダムで設定
@@ -2011,7 +1997,8 @@ export default Vue.extend({
             }
         },
 
-        // 破棄する
+        // 再生セッションを破棄する
+        // チャンネルを切り替える際に実行される
         destroy(is_destroy_player = false) {
 
             // clearInterval() ですべての setInterval(), setTimeout() の実行を止める
@@ -2039,6 +2026,13 @@ export default Vue.extend({
             if (this.eventsource !== null) {
                 this.eventsource.close();
                 this.eventsource = null;
+            }
+
+            // ページ上でキーが押されたときのイベントを削除
+            // これをやっておかないとチャンネルを切り替えるたびにイベントハンドラーが重複して登録される…
+            if (this.shortcut_key_handler !== null) {
+                document.removeEventListener('keydown', this.shortcut_key_handler);
+                this.shortcut_key_handler = null;
             }
 
             // アニメーション分待ってから実行
