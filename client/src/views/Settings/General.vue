@@ -17,13 +17,13 @@
                 </v-select>
             </div>
             <div class="settings__item settings__item--switch">
-                <label class="settings__item-heading" for="is_display_superimpose_tv">テレビを低遅延で視聴する</label>
-                <label class="settings__item-label" for="is_display_superimpose_tv">
+                <label class="settings__item-heading" for="is_low_latency_mode">テレビを低遅延で視聴する</label>
+                <label class="settings__item-label" for="is_low_latency_mode">
                     テレビをライブストリーミングする際に、低遅延で視聴するかを設定します。<br>
-                    低遅延ストリーミングがオンのときは、約 2 秒以上遅延したときに少しだけ再生速度を早めることで、滑らかにストリーミングの遅れを取り戻します。<br>
+                    低遅延ストリーミングがオンのときは、約 2 秒以上遅延したときに少しだけ再生速度を早める (1.15x) ことで、滑らかにストリーミングの遅れを取り戻します。<br>
                     宅外視聴などのネットワークが不安定になりがちな環境では、一度低遅延ストリーミングをオフにしてみると、映像のカクつきを改善できるかもしれません。<br>
                 </label>
-                <v-switch class="settings__item-switch" id="is_display_superimpose_tv" inset hide-details
+                <v-switch class="settings__item-switch" id="is_low_latency_mode" inset hide-details
                     v-model="settings.is_low_latency_mode">
                 </v-switch>
             </div>
