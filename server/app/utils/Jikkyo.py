@@ -227,7 +227,7 @@ class Jikkyo:
 
         # 廃止されたなどの理由でニコ生上の実況チャンネル/コミュニティ ID が取得できていない
         if self.jikkyo_nicolive_id is None:
-            return {'is_success': False, 'detail': 'このチャンネルのニコニコ実況はありません。'}
+            return {'is_success': False, 'detail': 'このチャンネルはニコニコ実況に対応していません。'}
 
         # ニコ生の視聴ページの HTML を取得する
         ## 結構重いんだけど、ログインなしで視聴セッションを取るには視聴ページのスクレイピングしかない（はず）

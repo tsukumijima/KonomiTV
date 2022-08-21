@@ -10,16 +10,30 @@
                 <span class="ml-1">ミュート設定</span>
             </button>
         </section>
-        <DynamicScroller class="comment-list" :direction="'vertical'" :items="comment_list" :min-item-size="34">
-            <template v-slot="{item, active}">
-            <DynamicScrollerItem :item="item" :active="active" :size-dependencies="[item.text]">
-                <div class="comment" :class="{'comment--my-post': item.my_post}">
-                    <span class="comment__text">{{item.text}}</span>
-                    <span class="comment__time">{{item.time}}</span>
+        <section class="comment-list-wrapper">
+            <DynamicScroller class="comment-list" :direction="'vertical'" :items="comment_list" :min-item-size="34">
+                <template v-slot="{item, active}">
+                <DynamicScrollerItem :item="item" :active="active" :size-dependencies="[item.text]">
+                    <div class="comment" :class="{'comment--my-post': item.my_post}">
+                        <span class="comment__text">{{item.text}}</span>
+                        <span class="comment__time">{{item.time}}</span>
+                    </div>
+                </DynamicScrollerItem>
+                </template>
+            </DynamicScroller>
+            <div class="comment-announce" v-if="initialize_failed_message === null && comment_list.length === 0">
+                <div class="comment-announce__heading">まだコメントがありません。</div>
+                <div class="comment-announce__text">
+                    <p class="mt-0 mb-0">このチャンネルに対応するニコニコ実況のコメントが、リアルタイムで表示されます。</p>
                 </div>
-            </DynamicScrollerItem>
-            </template>
-        </DynamicScroller>
+            </div>
+            <div class="comment-announce" v-if="initialize_failed_message !== null && comment_list.length === 0">
+                <div class="comment-announce__heading">コメントがありません。</div>
+                <div class="comment-announce__text">
+                    <p class="mt-0 mb-0">{{initialize_failed_message}}</p>
+                </div>
+            </div>
+        </section>
         <div v-ripple class="comment-scroll-button elevation-5" @click="is_manual_scroll = false; scrollCommentList(true);"
              :class="{'comment-scroll-button--display': is_manual_scroll}">
             <Icon icon="fluent:arrow-down-12-filled" height="29px" />
@@ -248,7 +262,7 @@ export default Vue.extend({
             if (watch_session_info.data.is_success === false) {
 
                 // 一部を除くエラーメッセージはプレイヤーにも通知する
-                if ((watch_session_info.data.detail !== 'このチャンネルのニコニコ実況はありません。') &&
+                if ((watch_session_info.data.detail !== 'このチャンネルはニコニコ実況に対応していません。') &&
                     (watch_session_info.data.detail !== '現在放送中のニコニコ実況がありません。')) {
                     this.player.notice(watch_session_info.data.detail);
                 }
@@ -975,6 +989,9 @@ export default Vue.extend({
         // 破棄する
         destroy() {
 
+            // 初期化失敗時のメッセージをクリア
+            this.initialize_failed_message = null;
+
             // コメントリストをクリア
             this.comment_list = [];
 
@@ -1054,38 +1071,76 @@ export default Vue.extend({
         }
     }
 
-    .comment-list {
+    .comment-list-wrapper {
+        position: relative;
         width: 100%;
         height: 100%;
+        min-height: 0;
         margin-top: 16px;
-        padding-left: 16px;
-        padding-right: 10px;
-        padding-bottom: 12px;
-        overflow-y: scroll !important;
         @media screen and (max-height: 450px) {
             margin-top: 12px;
         }
 
-        .comment {
+        .comment-list {
+            width: 100%;
+            height: 100%;
+            padding-left: 16px;
+            padding-right: 10px;
+            padding-bottom: 12px;
+            overflow-y: scroll !important;
+
+            .comment {
+                display: flex;
+                align-items: center;
+                min-height: 28px;
+                padding-top: 6px;
+                word-break: break-all;
+                &--my-post {
+                    color: var(--v-secondary-lighten2);
+                }
+
+                &__text {
+                    font-size: 13px;
+                }
+
+                &__time {
+                    flex-shrink: 0;
+                    margin-left: auto;
+                    padding-left: 8px;
+                    color: var(--v-text-darken1);
+                    font-size: 13px;
+                }
+            }
+        }
+
+        .comment-announce {
             display: flex;
             align-items: center;
-            min-height: 28px;
-            padding-top: 6px;
-            word-break: break-all;
-            &--my-post {
-                color: var(--v-secondary-lighten2);
-            }
+            justify-content: center;
+            flex-direction: column;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding-left: 12px;
+            padding-right: 5px;
 
+            &__heading {
+                font-size: 20px;
+                font-weight: bold;
+                @include tablet {
+                    font-size: 16px;
+                }
+            }
             &__text {
-                font-size: 13px;
-            }
-
-            &__time {
-                flex-shrink: 0;
-                margin-left: auto;
-                padding-left: 8px;
+                margin-top: 12px;
                 color: var(--v-text-darken1);
-                font-size: 13px;
+                font-size: 13.5px;
+                text-align: center;
+                @include tablet {
+                    font-size: 12px;
+                }
             }
         }
     }
