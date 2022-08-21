@@ -88,8 +88,8 @@ jobs:
           curl -L -o thirdparty/NVEncC/License.txt https://raw.githubusercontent.com/rigaya/NVEnc/master/NVEnc_license.txt
 
           # VCEEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/VCEEnc/releases/download/7.04/VCEEncC_7.04_x64.7z
-          7z x -y -o"thirdparty/VCEEncC" VCEEncC_7.04_x64.7z
+          curl -LO https://github.com/rigaya/VCEEnc/releases/download/7.05/VCEEncC_7.05_x64.7z
+          7z x -y -o"thirdparty/VCEEncC" VCEEncC_7.05_x64.7z
           rm thirdparty/VCEEncC/hdr10plus_gen.exe
           mv thirdparty/VCEEncC/VCEEncC64.exe thirdparty/VCEEncC/VCEEncC.exe
           curl -L -o thirdparty/VCEEncC/License.txt https://raw.githubusercontent.com/rigaya/VCEEnc/master/VCEEnc_license.txt
@@ -234,8 +234,8 @@ jobs:
           curl -L -o thirdparty/NVEncC/License.txt https://raw.githubusercontent.com/rigaya/NVEnc/master/NVEnc_license.txt
 
           # VCEEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/VCEEnc/releases/download/7.04/vceencc_7.04_Ubuntu20.04_amd64.deb
-          7z x -y vceencc_7.04_Ubuntu20.04_amd64.deb && tar xvf data.tar
+          curl -LO https://github.com/rigaya/VCEEnc/releases/download/7.05/vceencc_7.05_Ubuntu20.04_amd64.deb
+          7z x -y vceencc_7.05_Ubuntu20.04_amd64.deb && tar xvf data.tar
           mkdir thirdparty/VCEEncC/
           cp usr/bin/vceencc thirdparty/VCEEncC/VCEEncC.elf
           chmod a+x thirdparty/VCEEncC/VCEEncC.elf
