@@ -535,6 +535,9 @@ export default Vue.extend({
                 this.initCaptureHandler();
 
                 // ショートカットキーのイベントハンドラーを初期化
+                // 事前に前のイベントハンドラーを削除しておかないと、重複してキー操作が実行されてしまう
+                // 直前で実行しないと上下キーでのチャンネル操作が動かなくなる
+                document.removeEventListener('keydown', this.shortcut_key_handler);
                 this.initShortcutKeyHandler();
             }
 
@@ -1236,7 +1239,7 @@ export default Vue.extend({
             }
 
             // ショートカットキーハンドラー
-            this.shortcut_key_handler = (event: KeyboardEvent) => {
+            this.shortcut_key_handler = async (event: KeyboardEvent) => {
 
                 const tag = document.activeElement.tagName.toUpperCase();
                 const editable = document.activeElement.getAttribute('contenteditable');
@@ -1262,365 +1265,369 @@ export default Vue.extend({
                 if (now - this.shortcut_key_pressed_at < (0.05 * 1000)) return;
                 this.shortcut_key_pressed_at = now;  // 最終押下時刻を更新
 
-                // ***** ツイート入力フォームにフォーカスを当てる/フォーカスを外す *****
+                // 無名関数の中で実行する
+                const result = await (async (): Promise<boolean> => {
 
-                // ツイート入力フォームにフォーカスしているときもこのショートカットが動くようにする
-                // 以降の if 文で textarea フォーカス時のイベントをすべて弾いてしまっているため、前に持ってきている
-                // Tab キーに割り当てている関係で、IME 変換中は実行しない（IME 変換中に実行すると文字変換ができなくなる）
-                if (((tag !== 'INPUT' && tag !== 'TEXTAREA' && editable !== '' && editable !== 'true') ||
-                     (document.activeElement === tweet_form_element)) && this.is_ime_composing === false) {
-                    if (event.code === 'Tab') {
+                    // ***** ツイート入力フォームにフォーカスを当てる/フォーカスを外す *****
 
-                        // Tab キーのデフォルトの挙動を封じる
-                        event.preventDefault();
+                    // ツイート入力フォームにフォーカスしているときもこのショートカットが動くようにする
+                    // 以降の if 文で textarea フォーカス時のイベントをすべて弾いてしまっているため、前に持ってきている
+                    // Tab キーに割り当てている関係で、IME 変換中は実行しない（IME 変換中に実行すると文字変換ができなくなる）
+                    if (((tag !== 'INPUT' && tag !== 'TEXTAREA' && editable !== '' && editable !== 'true') ||
+                        (document.activeElement === tweet_form_element)) && this.is_ime_composing === false) {
+                        if (event.code === 'Tab') {
 
-                        // どのタブを開いていたかに関係なく Twitter タブに切り替える
-                        this.panel_active_tab = 'Twitter';
-
-                        // ツイート入力フォームにフォーカスがすでに当たっていたら、フォーカスを外して終了
-                        if (document.activeElement === tweet_form_element) {
-                            tweet_form_element.blur();
-                            return;
-                        }
-
-                        // ツイート入力フォームの textarea 要素にフォーカスを当てる
-                        tweet_form_element.focus();
-
-                        // 他のタブから切り替えると一発でフォーカスが当たらないことがあるので、ちょっとだけ待ってから念押し
-                        // $nextTick() だと上手くいかなかった…
-                        window.setTimeout(() => tweet_form_element.focus(), 100);  // 0.1秒
-                        return;
-                    }
-                }
-
-                // ***** ツイートを送信する *****
-
-                // ツイート入力フォームにフォーカスしているときもこのショートカットが動くようにする
-                // Twitter タブ以外を開いているときは実行しない
-                // 以降の if 文で textarea フォーカス時のイベントをすべて弾いてしまっているため、前に持ってきている
-                if (((tag !== 'INPUT' && tag !== 'TEXTAREA' && editable !== '' && editable !== 'true') ||
-                     (document.activeElement === tweet_form_element)) &&
-                     this.panel_active_tab === 'Twitter' &&
-                     this.is_ime_composing === false) {
-                    // (Ctrl or Cmd or Shift) + Enter
-                    // Shift + Enter は隠し機能（間違えたとき用）
-                    if ((event.ctrlKey || event.metaKey || event.shiftKey) && event.code === 'Enter') {
-                        (twitter_component.$el.querySelector('.tweet-button') as HTMLDivElement).click();
-                    }
-                }
-
-                // ***** コメント入力フォームを閉じる *****
-
-                // コメント入力フォームが表示されているときのみ
-                if (this.player.template.controller.classList.contains('dplayer-controller-comment')) {
-                    if (event.code === 'Escape') {
-                        this.player.comment.hide();
-                    }
-                }
-
-                // input・textarea・contenteditable 状態の要素でなければ
-                // 文字入力中にショートカットキーが作動してしまわないように
-                if (tag !== 'INPUT' && tag !== 'TEXTAREA' && editable !== '' && editable !== 'true') {
-
-                    // キーリピート状態で動作させないショートカット群
-                    if (is_repeat === false) {
-
-                        // ***** 数字キーでチャンネルを切り替える *****
-
-                        // チャンネルタイプを選択
-                        // Shift キーが押されていたらチャンネルタイプを地デジならBSに、BSなら地デジにする
-                        let switch_channel_type = this.channel.channel_type;
-                        if (event.shiftKey && this.channel.channel_type == 'GR') switch_channel_type = 'BS';
-                        if (event.shiftKey && this.channel.channel_type == 'BS') switch_channel_type = 'GR';
-
-                        // 1～9キー
-                        let switch_remocon_id = null;
-                        if (event.code === 'Digit1' || event.code === 'Digit2' || event.code === 'Digit3' ||
-                            event.code === 'Digit4' || event.code === 'Digit5' || event.code === 'Digit6' ||
-                            event.code === 'Digit7' || event.code === 'Digit8' || event.code === 'Digit9') {
-                            switch_remocon_id = Number(event.code.replace('Digit', ''));
-                        }
-                        // 0キー: 10に割り当て
-                        if (event.code === 'Digit0') switch_remocon_id = 10;
-                        // -キー: 11に割り当て
-                        if (event.code === 'Minus') switch_remocon_id = 11;
-                        // ^キー: 12に割り当て
-                        if (event.code === 'Equal') switch_remocon_id = 12;
-                        // 1～9キー (テンキー)
-                        if (event.code === 'Numpad1' || event.code === 'Numpad2' || event.code === 'Numpad3' ||
-                            event.code === 'Numpad4' || event.code === 'Numpad5' || event.code === 'Numpad6' ||
-                            event.code === 'Numpad7' || event.code === 'Numpad8' || event.code === 'Numpad9') {
-                            switch_remocon_id = Number(event.code.replace('Numpad', ''));
-                        }
-                        // 0キー (テンキー): 10に割り当て
-                        if (event.code === 'Numpad0') switch_remocon_id = 10;
-
-                        // この時点でリモコン番号が取得できていたら実行
-                        if (switch_remocon_id !== null) {
-
-                            // 切り替え先のチャンネルを取得する
-                            const switch_channel = TVUtils.getChannelFromRemoconID(this.channels_list, switch_channel_type, switch_remocon_id);
-
-                            // チャンネルが取得できていれば、ルーティングをそのチャンネルに置き換える
-                            // 押されたキーに対応するリモコン番号のチャンネルがない場合や、現在と同じチャンネル ID の場合は何も起こらない
-                            if (switch_channel !== null && switch_channel.channel_id !== this.channel_id) {
-                                (async () => await this.$router.push({path: `/tv/watch/${switch_channel.channel_id}`}))();
-                                return;
+                            // ツイート入力フォームにフォーカスがすでに当たっていたら、フォーカスを外して終了
+                            if (document.activeElement === tweet_form_element) {
+                                tweet_form_element.blur();
+                                return false;
                             }
-                        }
 
-                        // ***** キーボードショートカットの一覧を表示する *****
+                            // パネルを開く
+                            this.is_panel_display = true;
 
-                        // /(?)キー: キーボードショートカットの一覧を表示する
-                        if (event.code === 'Slash') {
-                            this.shortcut_key_modal = !this.shortcut_key_modal;
-                            return;
-                        }
-
-                        // ***** パネルのタブを切り替える *****
-
-                        // Pキー: パネルの表示切り替え
-                        if (event.code === 'KeyP') {
-                            this.is_panel_display = !this.is_panel_display;
-                            return;
-                        }
-                        // Kキー: 番組情報タブ
-                        if (event.code === 'KeyK') {
-                            this.panel_active_tab = 'Program';
-                            return;
-                        }
-                        // Lキー: チャンネルタブ
-                        if (event.code === 'KeyL') {
-                            this.panel_active_tab = 'Channel';
-                            return;
-                        }
-                        // ;(+)キー: コメントタブ
-                        if (event.code === 'Semicolon') {
-                            this.panel_active_tab = 'Comment';
-                            return;
-                        }
-                        // :(*)キー: Twitterタブ
-                        if (event.code === 'Quote') {
+                            // どのタブを開いていたかに関係なく Twitter タブに切り替える
                             this.panel_active_tab = 'Twitter';
-                            return;
-                        }
 
-                        // ***** Twitter タブ内のタブを切り替える *****
+                            // ツイート入力フォームの textarea 要素にフォーカスを当てる
+                            tweet_form_element.focus();
 
-                        // [(「): ツイート検索タブ
-                        if (event.code === 'BracketRight') {
-                            twitter_component.twitter_active_tab = 'Search';
-                            return;
-                        }
-                        // ](」): タイムラインタブ
-                        if (event.code === 'Backslash') {
-                            twitter_component.twitter_active_tab = 'Timeline';
-                            return;
-                        }
-                        // \(￥)キー: キャプチャタブ
-                        if (event.code === 'IntlRo') {
-                            twitter_component.twitter_active_tab = 'Capture';
-                            return;
+                            // 他のタブから切り替えると一発でフォーカスが当たらないことがあるので、ちょっとだけ待ってから念押し
+                            // $nextTick() だと上手くいかなかった…
+                            window.setTimeout(() => tweet_form_element.focus(), 100);  // 0.1秒
+                            return true;
                         }
                     }
 
-                    // Twitter タブ内のキャプチャタブが表示されている & Ctrl / Cmd / Shift / Alt のいずれも押されていないときだけ
-                    // キャプチャタブが表示されている時は、プレイヤー操作側の矢印キー/スペースキーのショートカットは動作しない（キーが重複するため）
-                    if (this.panel_active_tab === 'Twitter' && twitter_component.twitter_active_tab === 'Capture' &&
-                        (!event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey)) {
+                    // ***** ツイートを送信する *****
 
-                        // ***** キャプチャにフォーカスする *****
+                    // ツイート入力フォームにフォーカスしているときもこのショートカットが動くようにする
+                    // Twitter タブ以外を開いているときは実行しない
+                    // 以降の if 文で textarea フォーカス時のイベントをすべて弾いてしまっているため、前に持ってきている
+                    if (((tag !== 'INPUT' && tag !== 'TEXTAREA' && editable !== '' && editable !== 'true') ||
+                        (document.activeElement === tweet_form_element)) &&
+                        this.panel_active_tab === 'Twitter' &&
+                        this.is_ime_composing === false) {
+                        // (Ctrl or Cmd or Shift) + Enter
+                        // Shift + Enter は隠し機能（間違えたとき用）
+                        if ((event.ctrlKey || event.metaKey || event.shiftKey) && event.code === 'Enter') {
+                            (twitter_component.$el.querySelector('.tweet-button') as HTMLDivElement).click();
+                            return true;
+                        }
+                    }
 
-                        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) {
+                    // ***** コメント入力フォームを閉じる *****
 
-                            // キャプチャリストに一枚もキャプチャがない
-                            if (twitter_component.captures.length === 0) return;
+                    // コメント入力フォームが表示されているときのみ
+                    if (this.player.template.controller.classList.contains('dplayer-controller-comment')) {
+                        if (event.code === 'Escape') {
+                            this.player.comment.hide();
+                            return true;
+                        }
+                    }
 
-                            // まだどのキャプチャにもフォーカスされていない場合は、一番新しいキャプチャにフォーカスして終了
-                            if (twitter_component.captures.some(capture => capture.focused === true) === false) {
-                                twitter_component.captures[twitter_component.captures.length - 1].focused = true;
-                                return;
+                    // input・textarea・contenteditable 状態の要素でなければ
+                    // 文字入力中にショートカットキーが作動してしまわないように
+                    if (tag !== 'INPUT' && tag !== 'TEXTAREA' && editable !== '' && editable !== 'true') {
+
+                        // キーリピートでない時・Ctrl / Cmd / Alt キーが一緒に押された時に作動しないように
+                        if (is_repeat === false && !event.ctrlKey && !event.metaKey && !event.altKey) {
+
+                            // ***** 数字キーでチャンネルを切り替える *****
+
+                            // チャンネルタイプを選択
+                            // Shift キーが押されていたらチャンネルタイプを地デジならBSに、BSなら地デジにする
+                            let switch_channel_type = this.channel.channel_type;
+                            if (event.shiftKey && this.channel.channel_type == 'GR') switch_channel_type = 'BS';
+                            if (event.shiftKey && this.channel.channel_type == 'BS') switch_channel_type = 'GR';
+
+                            // 1～9キー
+                            let switch_remocon_id = null;
+                            if (event.code === 'Digit1' || event.code === 'Digit2' || event.code === 'Digit3' ||
+                                event.code === 'Digit4' || event.code === 'Digit5' || event.code === 'Digit6' ||
+                                event.code === 'Digit7' || event.code === 'Digit8' || event.code === 'Digit9') {
+                                switch_remocon_id = Number(event.code.replace('Digit', ''));
+                            }
+                            // 0キー: 10に割り当て
+                            if (event.code === 'Digit0') switch_remocon_id = 10;
+                            // -キー: 11に割り当て
+                            if (event.code === 'Minus') switch_remocon_id = 11;
+                            // ^キー: 12に割り当て
+                            if (event.code === 'Equal') switch_remocon_id = 12;
+                            // 1～9キー (テンキー)
+                            if (event.code === 'Numpad1' || event.code === 'Numpad2' || event.code === 'Numpad3' ||
+                                event.code === 'Numpad4' || event.code === 'Numpad5' || event.code === 'Numpad6' ||
+                                event.code === 'Numpad7' || event.code === 'Numpad8' || event.code === 'Numpad9') {
+                                switch_remocon_id = Number(event.code.replace('Numpad', ''));
+                            }
+                            // 0キー (テンキー): 10に割り当て
+                            if (event.code === 'Numpad0') switch_remocon_id = 10;
+
+                            // この時点でリモコン番号が取得できていたら実行
+                            if (switch_remocon_id !== null) {
+
+                                // 切り替え先のチャンネルを取得する
+                                const switch_channel = TVUtils.getChannelFromRemoconID(this.channels_list, switch_channel_type, switch_remocon_id);
+
+                                // チャンネルが取得できていれば、ルーティングをそのチャンネルに置き換える
+                                // 押されたキーに対応するリモコン番号のチャンネルがない場合や、現在と同じチャンネル ID の場合は何も起こらない
+                                if (switch_channel !== null && switch_channel.channel_id !== this.channel_id) {
+                                    await this.$router.push({path: `/tv/watch/${switch_channel.channel_id}`});
+                                    return true;
+                                }
+                            }
+                        }
+
+                        // キーリピートでない時・Ctrl / Cmd / Shift / Alt キーが一緒に押された時に作動しないように
+                        if (is_repeat === false && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
+
+                            // ***** キーボードショートカットの一覧を表示する *****
+
+                            // /(?)キー: キーボードショートカットの一覧を表示する
+                            if (event.code === 'Slash') {
+                                this.shortcut_key_modal = !this.shortcut_key_modal;
+                                return true;
                             }
 
-                            // 現在フォーカスされているキャプチャのインデックスを取得
-                            const focused_capture_index = twitter_component.captures.findIndex(capture => capture.focused === true);
+                            // ***** パネルのタブを切り替える *****
 
-                            // ↑キー: 2つ前のキャプチャにフォーカスする
-                            // キャプチャリストは2列で並んでいるので、2つ後のキャプチャが現在フォーカスされているキャプチャの直上になる
-                            if (event.code === 'ArrowUp') {
-                                // 2つ前のキャプチャがないなら実行しない
-                                if (focused_capture_index - 2 < 0) return;
-                                twitter_component.captures[focused_capture_index - 2].focused = true;
+                            // Pキー: パネルの表示切り替え
+                            if (event.code === 'KeyP') {
+                                this.is_panel_display = !this.is_panel_display;
+                                return true;
+                            }
+                            // Kキー: 番組情報タブ
+                            if (event.code === 'KeyK') {
+                                this.panel_active_tab = 'Program';
+                                return true;
+                            }
+                            // Lキー: チャンネルタブ
+                            if (event.code === 'KeyL') {
+                                this.panel_active_tab = 'Channel';
+                                return true;
+                            }
+                            // ;(+)キー: コメントタブ
+                            if (event.code === 'Semicolon') {
+                                this.panel_active_tab = 'Comment';
+                                return true;
+                            }
+                            // :(*)キー: Twitterタブ
+                            if (event.code === 'Quote') {
+                                this.panel_active_tab = 'Twitter';
+                                return true;
                             }
 
-                            // ↓キー: 2つ後のキャプチャにフォーカスする
-                            // キャプチャリストは2列で並んでいるので、2つ後のキャプチャが現在フォーカスされているキャプチャの直下になる
-                            if (event.code === 'ArrowDown') {
-                                // 2つ後のキャプチャがないなら実行しない
-                                if (focused_capture_index + 2 > (twitter_component.captures.length - 1)) return;
-                                twitter_component.captures[focused_capture_index + 2].focused = true;
+                            // ***** Twitter タブ内のタブを切り替える *****
+
+                            // [(「): ツイート検索タブ
+                            if (event.code === 'BracketRight') {
+                                twitter_component.twitter_active_tab = 'Search';
+                                return true;
+                            }
+                            // ](」): タイムラインタブ
+                            if (event.code === 'Backslash') {
+                                twitter_component.twitter_active_tab = 'Timeline';
+                                return true;
+                            }
+                            // \(￥)キー: キャプチャタブ
+                            if (event.code === 'IntlRo') {
+                                twitter_component.twitter_active_tab = 'Capture';
+                                return true;
+                            }
+                        }
+
+                        // Twitter タブ内のキャプチャタブが表示されている & Ctrl / Cmd / Shift / Alt のいずれも押されていないときだけ
+                        // キャプチャタブが表示されている時は、プレイヤー操作側の矢印キー/スペースキーのショートカットは動作しない（キーが重複するため）
+                        if (this.panel_active_tab === 'Twitter' && twitter_component.twitter_active_tab === 'Capture' &&
+                            (!event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey)) {
+
+                            // ***** キャプチャにフォーカスする *****
+
+                            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) {
+
+                                // キャプチャリストに一枚もキャプチャがない
+                                if (twitter_component.captures.length === 0) return false;
+
+                                // まだどのキャプチャにもフォーカスされていない場合は、一番新しいキャプチャにフォーカスして終了
+                                if (twitter_component.captures.some(capture => capture.focused === true) === false) {
+                                    twitter_component.captures[twitter_component.captures.length - 1].focused = true;
+                                    return true;
+                                }
+
+                                // 現在フォーカスされているキャプチャのインデックスを取得
+                                const focused_capture_index = twitter_component.captures.findIndex(capture => capture.focused === true);
+
+                                // ↑キー: 2つ前のキャプチャにフォーカスする
+                                // キャプチャリストは2列で並んでいるので、2つ後のキャプチャが現在フォーカスされているキャプチャの直上になる
+                                if (event.code === 'ArrowUp') {
+                                    // 2つ前のキャプチャがないなら実行しない
+                                    if (focused_capture_index - 2 < 0) return false;
+                                    twitter_component.captures[focused_capture_index - 2].focused = true;
+                                }
+
+                                // ↓キー: 2つ後のキャプチャにフォーカスする
+                                // キャプチャリストは2列で並んでいるので、2つ後のキャプチャが現在フォーカスされているキャプチャの直下になる
+                                if (event.code === 'ArrowDown') {
+                                    // 2つ後のキャプチャがないなら実行しない
+                                    if (focused_capture_index + 2 > (twitter_component.captures.length - 1)) return false;
+                                    twitter_component.captures[focused_capture_index + 2].focused = true;
+                                }
+
+                                // ←キー: 1つ前のキャプチャにフォーカスする
+                                if (event.code === 'ArrowLeft') {
+                                    // 1つ前のキャプチャがないなら実行しない
+                                    if (focused_capture_index - 1 < 0) return false;
+                                    twitter_component.captures[focused_capture_index - 1].focused = true;
+                                }
+
+                                // ←キー: 1つ後のキャプチャにフォーカスする
+                                if (event.code === 'ArrowRight') {
+                                    // 1つ後のキャプチャがないなら実行しない
+                                    if (focused_capture_index + 1 > (twitter_component.captures.length - 1)) return false;
+                                    twitter_component.captures[focused_capture_index + 1].focused = true;
+                                }
+
+                                // 現在フォーカスされているキャプチャのフォーカスを外す
+                                twitter_component.captures[focused_capture_index].focused = false;
+
+                                // 拡大表示のモーダルが開かれている場合は、フォーカスしたキャプチャをモーダルにセット
+                                // こうすることで、QuickLook みたいな挙動になる
+                                const focused_capture = twitter_component.captures.find(capture => capture.focused === true);
+                                if (twitter_component.zoom_capture_modal === true) {
+                                    twitter_component.zoom_capture = focused_capture;
+                                }
+
+                                // 現在フォーカスされているキャプチャが見える位置までスクロール
+                                // block: 'nearest' の指定で、上下どちらにスクロールしてもフォーカスされているキャプチャが常に表示されるようになる
+                                const focused_capture_element =
+                                    twitter_component.$el.querySelector(`img[src="${focused_capture.image_url}"]`).parentElement;
+                                if (is_repeat) {
+                                    // キーリピート状態ではスムーズスクロールがフォーカスの移動に追いつけずスクロールの挙動がおかしくなるため、
+                                    // スムーズスクロールは無効にしてある
+                                    focused_capture_element.scrollIntoView({block: 'nearest', inline: 'nearest', behavior: 'auto'});
+                                } else {
+                                    focused_capture_element.scrollIntoView({block: 'nearest', inline: 'nearest', behavior: 'smooth'});
+                                }
+                                return true;
                             }
 
-                            // ←キー: 1つ前のキャプチャにフォーカスする
-                            if (event.code === 'ArrowLeft') {
-                                // 1つ前のキャプチャがないなら実行しない
-                                if (focused_capture_index - 1 < 0) return;
-                                twitter_component.captures[focused_capture_index - 1].focused = true;
-                            }
+                            // ***** キャプチャを拡大表示する/拡大表示を閉じる *****
 
-                            // ←キー: 1つ後のキャプチャにフォーカスする
-                            if (event.code === 'ArrowRight') {
-                                // 1つ後のキャプチャがないなら実行しない
-                                if (focused_capture_index + 1 > (twitter_component.captures.length - 1)) return;
-                                twitter_component.captures[focused_capture_index + 1].focused = true;
-                            }
+                            if (event.code === 'Enter') {
 
-                            // 現在フォーカスされているキャプチャのフォーカスを外す
-                            twitter_component.captures[focused_capture_index].focused = false;
+                                // Enter キーの押下がプレイヤー側のコメント送信由来のイベントの場合は実行しない
+                                if (this.is_comment_send_just_did) return false;
 
-                            // 拡大表示のモーダルが開かれている場合は、フォーカスしたキャプチャをモーダルにセット
-                            // こうすることで、QuickLook みたいな挙動になる
-                            const focused_capture = twitter_component.captures.find(capture => capture.focused === true);
-                            if (twitter_component.zoom_capture_modal === true) {
+                                // すでにモーダルが開かれている場合は、どのキャプチャが拡大表示されているかに関わらず閉じる
+                                if (twitter_component.zoom_capture_modal === true) {
+                                    twitter_component.zoom_capture_modal = false;
+                                    return true;
+                                }
+
+                                // 現在フォーカスされているキャプチャを取得
+                                // まだどのキャプチャにもフォーカスされていない場合は実行しない
+                                const focused_capture = twitter_component.captures.find(capture => capture.focused === true);
+                                if (focused_capture === undefined) return false;
+
+                                // モーダルを開き、モーダルで拡大表示するキャプチャとしてセット
                                 twitter_component.zoom_capture = focused_capture;
+                                twitter_component.zoom_capture_modal = true;
+                                return true;
                             }
 
-                            // 現在フォーカスされているキャプチャが見える位置までスクロール
-                            // block: 'nearest' の指定で、上下どちらにスクロールしてもフォーカスされているキャプチャが常に表示されるようになる
-                            const focused_capture_element =
-                                twitter_component.$el.querySelector(`img[src="${focused_capture.image_url}"]`).parentElement;
-                            if (is_repeat) {
-                                // キーリピート状態ではスムーズスクロールがフォーカスの移動に追いつけずスクロールの挙動がおかしくなるため、
-                                // スムーズスクロールは無効にしてある
-                                focused_capture_element.scrollIntoView({block: 'nearest', inline: 'nearest', behavior: 'auto'});
-                            } else {
-                                focused_capture_element.scrollIntoView({block: 'nearest', inline: 'nearest', behavior: 'smooth'});
+                            // ***** キャプチャを選択する/選択を解除する *****
+
+                            if (event.code === 'Space') {
+
+                                // 現在フォーカスされているキャプチャを取得
+                                // まだどのキャプチャにもフォーカスされていない場合は実行しない
+                                const focused_capture = twitter_component.captures.find(capture => capture.focused === true);
+                                if (focused_capture === undefined) return false;
+
+                                // 「キャプチャリスト内のキャプチャがクリックされたときのイベント」を呼ぶ
+                                // 選択されていなければ選択され、選択されていれば選択が解除される
+                                // キャプチャの枚数制限などはすべて clickCapture() の中で処理される
+                                twitter_component.clickCapture(focused_capture);
+                                return true;
                             }
-                            return;
                         }
 
-                        // ***** キャプチャを拡大表示する/拡大表示を閉じる *****
+                        // ***** 上下キーでチャンネルを切り替える *****
 
-                        if (event.code === 'Enter') {
-                            event.preventDefault();
+                        // キーリピートでない時・Ctrl / Cmd / Shift / Alt キーが一緒に押された時に作動しないように
+                        if (is_repeat === false && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
 
-                            // Enter キーの押下がプレイヤー側のコメント送信由来のイベントの場合は実行しない
-                            if (this.is_comment_send_just_did) return;
-
-                            // すでにモーダルが開かれている場合は、どのキャプチャが拡大表示されているかに関わらず閉じる
-                            if (twitter_component.zoom_capture_modal === true) {
-                                twitter_component.zoom_capture_modal = false;
-                                return;
+                            // ↑キー: 前のチャンネルに切り替え
+                            if (event.code === 'ArrowUp') {
+                                await this.$router.push({path: `/tv/watch/${this.channel_previous.channel_id}`});
+                                return true;
                             }
-
-                            // 現在フォーカスされているキャプチャを取得
-                            // まだどのキャプチャにもフォーカスされていない場合は実行しない
-                            const focused_capture = twitter_component.captures.find(capture => capture.focused === true);
-                            if (focused_capture === undefined) return;
-
-                            // モーダルを開き、モーダルで拡大表示するキャプチャとしてセット
-                            twitter_component.zoom_capture = focused_capture;
-                            twitter_component.zoom_capture_modal = true;
-                            return;
+                            // ↓キー: 次のチャンネルに切り替え
+                            if (event.code === 'ArrowDown') {
+                                await this.$router.push({path: `/tv/watch/${this.channel_next.channel_id}`});
+                                return true;
+                            }
                         }
 
-                        // ***** キャプチャを選択する/選択を解除する *****
+                        // ***** プレイヤーのショートカットキー *****
 
-                        if (event.code === 'Space') {
-                            event.preventDefault();
+                        // プレイヤーが初期化されていない時・Ctrl / Cmd / Alt キーが一緒に押された時に作動しないように
+                        if (this.player !== null && !event.ctrlKey && !event.metaKey && !event.altKey) {
 
-                            // 現在フォーカスされているキャプチャを取得
-                            // まだどのキャプチャにもフォーカスされていない場合は実行しない
-                            const focused_capture = twitter_component.captures.find(capture => capture.focused === true);
-                            if (focused_capture === undefined) return;
-
-                            // 「キャプチャリスト内のキャプチャがクリックされたときのイベント」を呼ぶ
-                            // 選択されていなければ選択され、選択されていれば選択が解除される
-                            // キャプチャの枚数制限などはすべて clickCapture() の中で処理される
-                            twitter_component.clickCapture(focused_capture);
-                            return;
+                            // Shift + ↑キー: プレイヤーの音量を上げる
+                            if (event.shiftKey === true && event.code === 'ArrowUp') {
+                                this.player.volume(this.player.volume() + 0.05);
+                                return true;
+                            }
+                            // Shift + ↓キー: プレイヤーの音量を下げる
+                            if (event.shiftKey === true && event.code === 'ArrowDown') {
+                                this.player.volume(this.player.volume() - 0.05);
+                                return true;
+                            }
+                            // Shift + ←キー: 停止して0.5秒巻き戻し
+                            if (event.shiftKey === true && event.code === 'ArrowLeft') {
+                                if (this.player.video.paused === false) this.player.video.pause();
+                                this.player.video.currentTime = this.player.video.currentTime - 0.5;
+                                return true;
+                            }
+                            // Shift + →キー: 停止して0.5秒早送り
+                            if (event.shiftKey === true && event.code === 'ArrowRight') {
+                                if (this.player.video.paused === false) this.player.video.pause();
+                                this.player.video.currentTime = this.player.video.currentTime + 0.5;
+                                return true;
+                            }
+                            // Shift + Spaceキー + キーリピートでない時 + Twitter タブ表示時: 再生/停止
+                            if (event.shiftKey === true && event.code === 'Space' && is_repeat === false &&
+                                this.panel_active_tab === 'Twitter' && twitter_component.twitter_active_tab === 'Capture') {
+                                this.player.toggle();
+                                return true;
+                            }
                         }
-                    }
 
-                    // ***** 上下キーでチャンネルを切り替える *****
+                        // プレイヤーが初期化されていない時・キーリピートでない時・Ctrl / Cmd / Shift / Alt キーが一緒に押された時に作動しないように
+                        if (this.player !== null && is_repeat === false && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
 
-                    if (is_repeat === false && event.shiftKey === false) {
-                        // ↑キー: 前のチャンネルに切り替え
-                        if (event.code === 'ArrowUp') {
-                            event.preventDefault();  // デフォルトのイベントを無効化
-                            (async () => await this.$router.push({path: `/tv/watch/${this.channel_previous.channel_id}`}))();
-                            return;
-                        }
-                        // ↓キー: 次のチャンネルに切り替え
-                        if (event.code === 'ArrowDown') {
-                            event.preventDefault();  // デフォルトのイベントを無効化
-                            (async () => await this.$router.push({path: `/tv/watch/${this.channel_next.channel_id}`}))();
-                            return;
-                        }
-                    }
-
-                    // ***** プレイヤーのショートカットキー *****
-
-                    // プレイヤーが初期化されていない際や Ctrl / Cmd / Alt キーが一緒に押された際に作動しないように
-                    if (this.player !== null && !event.ctrlKey && !event.metaKey && !event.altKey) {
-                        // Shift + ↑キー: プレイヤーの音量を上げる
-                        if (event.shiftKey === true && event.code === 'ArrowUp') {
-                            this.player.volume(this.player.volume() + 0.05);
-                            return;
-                        }
-                        // Shift + ↓キー: プレイヤーの音量を下げる
-                        if (event.shiftKey === true && event.code === 'ArrowDown') {
-                            this.player.volume(this.player.volume() - 0.05);
-                            return;
-                        }
-                        // Shift + ←キー: 停止して0.5秒巻き戻し
-                        if (event.shiftKey === true && event.code === 'ArrowLeft') {
-                            event.preventDefault();  // デフォルトのイベントを無効化
-                            if (this.player.video.paused === false) this.player.video.pause();
-                            this.player.video.currentTime = this.player.video.currentTime - 0.5;
-                            return;
-                        }
-                        // Shift + →キー: 停止して0.5秒早送り
-                        if (event.shiftKey === true && event.code === 'ArrowRight') {
-                            event.preventDefault();  // デフォルトのイベントを無効化
-                            if (this.player.video.paused === false) this.player.video.pause();
-                            this.player.video.currentTime = this.player.video.currentTime + 0.5;
-                            return;
-                        }
-                        // Shift + Spaceキー + Twitter タブ表示時: 再生/停止
-                        if (event.shiftKey === true && event.code === 'Space' &&
-                            this.panel_active_tab === 'Twitter' && twitter_component.twitter_active_tab === 'Capture') {
-                            this.player.toggle();
-                            return;
-                        }
-                    }
-
-                    // プレイヤーが初期化されていない際や Ctrl / Cmd / Shift / Alt キーが一緒に押された際に作動しないように
-                    if (this.player !== null && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
-
-                        // キーリピートでは実行しないショートカット
-                        if (is_repeat === false) {
                             // Spaceキー: 再生/停止
                             if (event.code === 'Space') {
                                 this.player.toggle();
-                                return;
+                                return true;
                             }
                             // Fキー: フルスクリーンの切り替え
                             if (event.code === 'KeyF') {
                                 this.player.fullScreen.toggle();
-                                return;
+                                return true;
                             }
                             // Wキー: ライブストリームの同期
                             if (event.code === 'KeyW') {
                                 this.player.sync();
-                                return;
+                                return true;
                             }
                             // Eキー: Picture-in-Picture の表示切り替え
                             if (event.code === 'KeyE') {
                                 if (document.pictureInPictureEnabled) {
                                     this.player.template.pipButton.click();
                                 }
-                                return;
+                                return true;
                             }
                             // Sキー: 字幕の表示切り替え
                             if (event.code === 'KeyS') {
@@ -1630,7 +1637,7 @@ export default Vue.extend({
                                 } else {
                                     this.player.notice(`${this.player.tran('Hide subtitle')}`);
                                 }
-                                return;
+                                return true;
                             }
                             // Dキー: コメントの表示切り替え
                             if (event.code === 'KeyD') {
@@ -1640,27 +1647,33 @@ export default Vue.extend({
                                 } else {
                                     this.player.notice(`${this.player.tran('Hide comment')}`);
                                 }
-                                return;
+                                return true;
                             }
                             // Cキー: 映像をキャプチャ
                             if (event.code === 'KeyC') {
                                 this.captureAndSave();
+                                return true;
                             }
                             // Vキー: 映像を実況コメントを付けてキャプチャ
                             if (event.code === 'KeyV') {
                                 this.captureAndSave(true);
+                                return true;
                             }
                             // Mキー: コメント入力フォームにフォーカス
                             if (event.code === 'KeyM') {
-                                event.preventDefault();  // デフォルトのイベントを無効化
                                 this.player.controller.show();
                                 this.player.comment.show();
                                 this.controlDisplayTimer();
                                 window.setTimeout(() => this.player.template.commentInput.focus(), 100);
-                                return;
+                                return true;
                             }
                         }
                     }
+                })();
+
+                // 無名関数を実行した後の戻り値が true ならショートカットキーの操作を実行したことになるので、デフォルトのキー操作を封じる
+                if (result === true) {
+                    event.preventDefault();
                 }
             };
 
@@ -2026,13 +2039,6 @@ export default Vue.extend({
             if (this.eventsource !== null) {
                 this.eventsource.close();
                 this.eventsource = null;
-            }
-
-            // ページ上でキーが押されたときのイベントを削除
-            // これをやっておかないとチャンネルを切り替えるたびにイベントハンドラーが重複して登録される…
-            if (this.shortcut_key_handler !== null) {
-                document.removeEventListener('keydown', this.shortcut_key_handler);
-                this.shortcut_key_handler = null;
             }
 
             // アニメーション分待ってから実行
