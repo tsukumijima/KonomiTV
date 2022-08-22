@@ -73,9 +73,6 @@ RUN apt-get update -y && apt-get install -y curl gpg-agent && \
     rm -rf /var/lib/apt/lists/* && \
     rm -rf /tmp/*
 
-# AMD VCE 関連のライブラリは /opt/amdgpu-pro/lib/x86_64-linux-gnu/ 以下にインストールされるので、/usr/lib/x86_64-linux-gnu/ へコピー
-RUN cp -a /opt/amdgpu-pro/lib/x86_64-linux-gnu/* /usr/lib/x86_64-linux-gnu/
-
 # ダウンロードしておいたサードパーティライブラリをコピー
 COPY --from=thirdparty-downloader /thirdparty /code/server/thirdparty
 
