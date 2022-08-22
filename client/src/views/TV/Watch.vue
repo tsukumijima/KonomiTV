@@ -1280,7 +1280,7 @@ export default Vue.extend({
                             // ツイート入力フォームにフォーカスがすでに当たっていたら、フォーカスを外して終了
                             if (document.activeElement === tweet_form_element) {
                                 tweet_form_element.blur();
-                                return false;
+                                return true;
                             }
 
                             // パネルを開く
@@ -1292,9 +1292,20 @@ export default Vue.extend({
                             // ツイート入力フォームの textarea 要素にフォーカスを当てる
                             tweet_form_element.focus();
 
-                            // 他のタブから切り替えると一発でフォーカスが当たらないことがあるので、ちょっとだけ待ってから念押し
-                            // $nextTick() だと上手くいかなかった…
-                            window.setTimeout(() => tweet_form_element.focus(), 100);  // 0.1秒
+                            // フォーカスを当てると勝手に横方向にスクロールされてしまうので、元に戻す
+                            this.$el.scrollLeft = 0;
+
+                            window.setTimeout(() => {
+
+                                // 他のタブから切り替えると一発でフォーカスが当たらないことがあるので、ちょっとだけ待ってから念押し
+                                // $nextTick() だと上手くいかなかった…
+                                tweet_form_element.focus();
+
+                                // フォーカスを当てると勝手に横方向にスクロールされてしまうので、元に戻す
+                                this.$el.scrollLeft = 0;
+
+                            }, 100);  // 0.1秒
+
                             return true;
                         }
                     }
@@ -1669,6 +1680,7 @@ export default Vue.extend({
                             }
                         }
                     }
+                    return false;
                 })();
 
                 // 無名関数を実行した後の戻り値が true ならショートカットキーの操作を実行したことになるので、デフォルトのキー操作を封じる
