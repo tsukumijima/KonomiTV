@@ -15,71 +15,87 @@ import NotFound from '@/views/NotFound.vue';
 
 Vue.use(VueRouter);
 
-const routes = [
-  {
-    path: '/',
-    redirect: '/tv/',
-  },
-  {
-    path: '/tv/',
-    name: 'TV Home',
-    component: TVHome,
-  },
-  {
-    path: '/tv/watch/:channel_id',
-    name: 'TV Watch',
-    component: TVWatch,
-  },
-  {
-    path: '/settings/',
-    redirect: '/settings/general',
-  },
-  {
-    path: '/settings/general',
-    name: 'Settings General',
-    component: SettingsGeneral,
-  },
-  {
-    path: '/settings/account',
-    name: 'Settings Account',
-    component: SettingsAccount,
-  },
-  {
-    path: '/settings/jikkyo',
-    name: 'Settings Jikkyo',
-    component: SettingsJikkyo,
-  },
-  {
-    path: '/settings/twitter',
-    name: 'Settings Twitter',
-    component: SettingsTwitter,
-  },
-  {
-    path: '/settings/environment',
-    name: 'Settings Environment',
-    component: SettingsEnvironment,
-  },
-  {
-    path: '/login/',
-    name: 'Login',
-    component: Login,
-  },
-  {
-    path: '/register/',
-    name: 'Register',
-    component: Register,
-  },
-  {
-    path: '*',
-    name: 'NotFound',
-    component: NotFound,
-  },
-];
-
 const router = new VueRouter({
-  mode: 'history',
-  base: process.env.BASE_URL,
-  routes,
+
+    // History API モード
+    mode: 'history',
+
+    // ルーティングのベース URL
+    base: process.env.BASE_URL,
+
+    // ルーティング設定
+    routes: [
+        {
+            path: '/',
+            redirect: '/tv/',
+        },
+        {
+            path: '/tv/',
+            name: 'TV Home',
+            component: TVHome,
+        },
+        {
+            path: '/tv/watch/:channel_id',
+            name: 'TV Watch',
+            component: TVWatch,
+        },
+        {
+            path: '/settings/',
+            redirect: '/settings/general',
+        },
+        {
+            path: '/settings/general',
+            name: 'Settings General',
+            component: SettingsGeneral,
+        },
+        {
+            path: '/settings/account',
+            name: 'Settings Account',
+            component: SettingsAccount,
+        },
+        {
+            path: '/settings/jikkyo',
+            name: 'Settings Jikkyo',
+            component: SettingsJikkyo,
+        },
+        {
+            path: '/settings/twitter',
+            name: 'Settings Twitter',
+            component: SettingsTwitter,
+        },
+        {
+            path: '/settings/environment',
+            name: 'Settings Environment',
+            component: SettingsEnvironment,
+        },
+        {
+            path: '/login/',
+            name: 'Login',
+            component: Login,
+        },
+        {
+            path: '/register/',
+            name: 'Register',
+            component: Register,
+        },
+        {
+            path: '*',
+            name: 'NotFound',
+            component: NotFound,
+        },
+    ],
+
+    // ページ遷移時のスクロールの挙動の設定
+    // ref: https://v3.router.vuejs.org/ja/guide/advanced/scroll-behavior.html
+    scrollBehavior (to, from, savedPosition) {
+        if (savedPosition) {
+            // 戻る/進むボタンが押されたときは保存されたスクロール位置を使う
+            return savedPosition;
+        } else {
+            // それ以外は常に先頭にスクロールする
+            return {x: 0, y: 0};
+        }
+    }
 });
 
 export default router;
