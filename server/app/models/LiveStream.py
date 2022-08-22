@@ -103,7 +103,7 @@ class LiveStream():
 
         Args:
             channel_id (str): チャンネルID
-            quality (str): 映像の品質 (1080p ~ 240p)
+            quality (str): 映像の品質 (1080p-60fps ~ 240p)
         """
 
         # インスタンス変数の型ヒントを定義

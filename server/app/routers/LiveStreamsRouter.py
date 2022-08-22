@@ -10,10 +10,9 @@ from fastapi.requests import Request
 from fastapi.responses import Response
 from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse
-from typing import Optional
 
 from app import schemas
-from app.constants import QUALITY
+from app.constants import QUALITY, QUALITY_TYPES
 from app.models import Channel
 from app.models import LiveStream
 
@@ -61,8 +60,8 @@ async def LiveStreamsAPI():
     response_model = schemas.LiveStream,
 )
 async def LiveStreamAPI(
-    channel_id:str = Path(..., description='チャンネル ID 。ex:gr011'),
-    quality:str = Path(..., description='映像の品質。ex:1080p'),
+    channel_id: str = Path(..., description='チャンネル ID 。ex:gr011'),
+    quality: QUALITY_TYPES = Path(..., description='映像の品質。ex:1080p'),
 ):
     """
     ライブストリームの状態を取得する。<br>
@@ -107,8 +106,8 @@ async def LiveStreamAPI(
     }
 )
 async def LiveStreamEventAPI(
-    channel_id:str = Path(..., description='チャンネル ID 。ex:gr011'),
-    quality:str = Path(..., description='映像の品質。ex:1080p'),
+    channel_id: str = Path(..., description='チャンネル ID 。ex:gr011'),
+    quality: QUALITY_TYPES = Path(..., description='映像の品質。ex:1080p'),
 ):
     """
     ライブストリームのイベントを Server-Sent Events で随時配信する。
@@ -210,9 +209,9 @@ async def LiveStreamEventAPI(
     }
 )
 async def LiveMPEGTSStreamAPI(
+    request: Request,
     channel_id: str = Path(..., description='チャンネル ID 。ex:gr011'),
-    quality: str = Path(..., description='映像の品質。ex:1080p'),
-    request: Request = Request,
+    quality: QUALITY_TYPES = Path(..., description='映像の品質。ex:1080p'),
 ):
     """
     ライブ MPEGTS ストリームを配信する。
@@ -266,7 +265,7 @@ async def LiveMPEGTSStreamAPI(
             if livestream.getStatus()['status'] != 'Offline':
 
                 # 登録した Queue から受信したストリームデータ
-                stream_data:Optional[bytes] = livestream.read(client_id)
+                stream_data: bytes | None = livestream.read(client_id)
 
                 # ストリームデータが存在する
                 if stream_data is not None:

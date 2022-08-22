@@ -7,7 +7,7 @@ import secrets
 import sys
 import uvicorn.logging
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Literal
 
 
 # バージョン
@@ -47,14 +47,24 @@ else:
     with open(CONFIG_YAML, encoding='utf-8') as file:
         CONFIG = ruamel.yaml.YAML().load(file)
 
+# 品質の種類の型定義
+QUALITY_TYPES = Literal['1080p-60fps', '1080p', '810p', '720p', '540p', '480p', '360p', '240p']
+
 # 映像と音声の品質
-QUALITY = {
-    '1080p': {
+QUALITY: Dict[QUALITY_TYPES, Dict[str, int | str]] = {
+    '1080p-60fps': {
         'width': 1440,  # 縦解像度 (フル HD で放送されているチャンネルでは 1920 に設定される)
         'height': 1080,  # 横解像度
         'video_bitrate': '6500K',  # 映像ビットレート
         'video_bitrate_max': '9000K',  # 映像最大ビットレート
         'audio_bitrate': '192K',  # 音声ビットレート
+    },
+    '1080p': {
+        'width': 1440,
+        'height': 1080,
+        'video_bitrate': '6500K',
+        'video_bitrate_max': '9000K',
+        'audio_bitrate': '192K',
     },
     '810p': {
         'width': 1440,

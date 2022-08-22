@@ -428,8 +428,8 @@ async def ChannelLogoAPI(
     response_model = schemas.JikkyoSession,
 )
 async def ChannelJikkyoSessionAPI(
+    request: Request,
     channel_id: str = Path(..., description='チャンネル ID 。ex:gr011'),
-    request: Request = Request,
 ):
     """
     チャンネルに紐づくニコニコ実況のセッション情報を取得する。
