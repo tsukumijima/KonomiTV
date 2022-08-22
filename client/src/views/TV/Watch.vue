@@ -807,9 +807,9 @@ export default Vue.extend({
                             });
                         // 通常のチャンネル
                         } else {
-                            for (const quality of ['1080p', '810p', '720p', '540p', '480p', '360p', '240p']) {
+                            for (const quality of ['1080p-60fps', '1080p', '810p', '720p', '540p', '480p', '360p', '240p']) {
                                 qualities.push({
-                                    name: quality,
+                                    name: quality === '1080p-60fps' ? '1080p (60fps)' : quality,
                                     type: 'mpegts',
                                     url: `${Utils.api_base_url}/streams/live/${this.channel_id}/${quality}/mpegts`,
                                 });
@@ -1084,8 +1084,10 @@ export default Vue.extend({
             this.player.video.oncanplaythrough = on_canplay;
 
             // EventSource を作成
-            // ラジオチャンネルの場合は見かけ上の品質と API に渡す品質が異なるので、それに合わせる
-            const quality_name = (this.channel.is_radiochannel) ? '1080p' : this.player.quality.name;
+            // 1080p (60fps) とラジオチャンネルの場合は見かけ上の品質と API に渡す品質が異なるので、それに合わせる
+            let quality_name = this.player.quality.name;
+            if (quality_name === '1080p (60fps)') quality_name = '1080p-60fps';
+            if (this.channel.is_radiochannel) quality_name = '1080p';
             this.eventsource = new EventSource(`${Utils.api_base_url}/streams/live/${this.channel_id}/${quality_name}/events`);
 
             // 初回接続時のイベント

@@ -12,6 +12,11 @@
                     テレビをライブストリーミングする際の既定の画質を設定します。<br>
                     ストリーミング画質はプレイヤーの設定からいつでも切り替えられます。<br>
                 </div>
+                <div class="settings__item-label">
+                    [1080p (60fps)] は、通常は 30fps のところ、映像を補間することで 60fps で視聴できる画質です。ほかの画質よりも映像の動きが滑らか（ぬるぬる）ですが、再生負荷が少し高くなります。<br>
+                    FFmpeg エンコーダー利用時は、CPU 使用率が 100% に張り付くほど高負荷になり、スペック次第では映像がカクつきます。[1080p (60fps)] で視聴するときは、QSVEncC / NVEncC エンコーダーの利用をおすすめします。<br>
+                    なお、VCEEncC エンコーダー利用時は、画質にかかわらず常に 30fps で再生されます。VCEEncC がインターレース解除での映像の補間に対応していないためです。<br>
+                </div>
                 <v-select class="settings__item-form" outlined hide-details
                     :items="tv_streaming_quality" v-model="settings.tv_streaming_quality">
                 </v-select>
@@ -104,6 +109,7 @@ export default Vue.extend({
 
             // テレビのストリーミング画質の選択肢
             tv_streaming_quality: [
+                {'text': '1080p (60fps) （1時間あたり約3.24GB / 7.2Mbps）', 'value': '1080p-60fps'},
                 {'text': '1080p （1時間あたり約2.31GB / 5.1Mbps）', 'value': '1080p'},
                 {'text': '810p （1時間あたり約1.92GB / 4.2Mbps）', 'value': '810p'},
                 {'text': '720p （1時間あたり約1.33GB / 3.0Mbps）', 'value': '720p'},
