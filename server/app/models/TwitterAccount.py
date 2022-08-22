@@ -16,8 +16,7 @@ class TwitterAccount(models.Model):
 
     # テーブル設計は Notion を参照のこと
     id: int = fields.IntField(pk=True)
-    ## クラスが読み込まれる前なので、User(モジュール).User(クラス) のようにしないと参照できない
-    user: fields.ForeignKeyRelation['User.User'] = fields.ForeignKeyField('models.User', related_name='twitter_accounts')
+    user: User = fields.ForeignKeyField('models.User', related_name='twitter_accounts')  # type: ignore
     name: str = fields.TextField()
     screen_name: str = fields.TextField()
     icon_url: str = fields.TextField()

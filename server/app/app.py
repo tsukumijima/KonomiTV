@@ -157,7 +157,7 @@ async def ExceptionHandler(request: Request, exc: Exception):
 # Tortoise ORM の初期化
 ## ロガーを Uvicorn に統合する
 ## ref: https://github.com/tortoise/tortoise-orm/issues/529
-tortoise.contrib.fastapi.logging = logging.getLogger('uvicorn')
+tortoise.contrib.fastapi.logging = logging.getLogger('uvicorn')  # type: ignore
 ## Tortoise ORM を登録する
 ## ref: https://tortoise-orm.readthedocs.io/en/latest/contrib/fastapi.html
 tortoise.contrib.fastapi.register_tortoise(

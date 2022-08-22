@@ -1,6 +1,5 @@
 
 import asyncio
-import io
 import pathlib
 import json
 from datetime import datetime
@@ -20,6 +19,7 @@ from jose import jwt
 from passlib.context import CryptContext
 from PIL import Image
 from tortoise import timezone
+from typing import BinaryIO
 
 from app import schemas
 from app.constants import ACCOUNT_ICON_DIR, ACCOUNT_ICON_DEFAULT_DIR, JWT_SECRET_KEY
@@ -35,7 +35,7 @@ router = APIRouter(
 
 
 # 正方形の 400×400 の PNG にトリミング&リサイズして保存する関数
-async def TrimSquareAndResizeAndSave(file: io.BytesIO, save_path: pathlib.Path, resize_width_and_height: int = 400):
+async def TrimSquareAndResizeAndSave(file: BinaryIO, save_path: pathlib.Path, resize_width_and_height: int = 400):
     """
     正方形の 400×400 の PNG にトリミング&リサイズして保存する関数
     ref: https://note.nkmk.me/python-pillow-basic/

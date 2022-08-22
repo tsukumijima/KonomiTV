@@ -13,7 +13,6 @@ from jose import jwt
 from jose import JWTError
 from tortoise import fields
 from tortoise import models
-from typing import Optional
 
 from app.constants import JWT_SECRET_KEY
 from app.models import TwitterAccount
@@ -29,15 +28,15 @@ class User(models.Model):
     id: int = fields.IntField(pk=True)
     name: str = fields.TextField()
     password: str = fields.TextField()
-    is_admin: bool = fields.BooleanField()
+    is_admin: bool = fields.BooleanField()  # type: ignore
     client_settings: dict = fields.JSONField()
-    niconico_user_id: Optional[int] = fields.IntField(null=True)
-    niconico_user_name: Optional[str] = fields.TextField(null=True)
-    niconico_user_premium: Optional[bool] = fields.BooleanField(null=True)
-    niconico_access_token: Optional[str] = fields.TextField(null=True)
-    niconico_refresh_token: Optional[str] = fields.TextField(null=True)
+    niconico_user_id: int | None = fields.IntField(null=True)
+    niconico_user_name: str | None = fields.TextField(null=True)
+    niconico_user_premium: bool | None = fields.BooleanField(null=True)  # type: ignore
+    niconico_access_token: str | None = fields.TextField(null=True)
+    niconico_refresh_token: str | None = fields.TextField(null=True)
     ## クラスが読み込まれる前なので、TwitterAccount(モジュール).TwitterAccount(クラス) のようにしないと参照できない
-    twitter_accounts: fields.ReverseRelation['TwitterAccount.TwitterAccount']
+    twitter_accounts: fields.ReverseRelation['TwitterAccount.TwitterAccount']  # type: ignore
     created_at: datetime = fields.DatetimeField(auto_now_add=True)
     updated_at: datetime = fields.DatetimeField(auto_now=True)
 
@@ -71,7 +70,7 @@ class User(models.Model):
                 )
 
             # ペイロード内のユーザー ID（ユーザー名ではなく、ユーザーごとに一意な数値）を取得
-            user_id: str = json.loads(jwt_payload.get('sub'))['user_id']
+            user_id: str = json.loads(jwt_payload.get('sub', {}))['user_id']
 
         # JWT トークンが不正
         except JWTError:

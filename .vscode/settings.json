@@ -2,5 +2,14 @@
     // pipenv の仮想環境のあるフォルダを指定（指定しないと認識しない）
     "python.defaultInterpreterPath": "${workspaceFolder}/server/.venv/Scripts/python.exe",
     // 相対インポートが解決されるようにする
-    "python.analysis.extraPaths": ["./server"]
+    "python.analysis.extraPaths": [
+        "./server"
+    ],
+    // Pylance の Type Checking を有効化
+    "python.analysis.typeCheckingMode": "basic",
+    // Pylance の Type Checking のうち、いくつかのエラー報告を抑制する
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportOptionalMemberAccess": "none",
+        "reportPrivateImportUsage": "none"
+    }
 }

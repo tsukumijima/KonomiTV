@@ -9,7 +9,7 @@ import json
 import re
 import requests
 import xml.etree.ElementTree as ET
-from typing import Dict, Optional, Union
+from typing import Any, Dict, List, cast
 
 from app.constants import API_REQUEST_HEADERS, JIKKYO_CHANNELS_PATH, NICONICO_OAUTH_CLIENT_ID
 from app.models import User
@@ -19,7 +19,7 @@ class Jikkyo:
 
     # 実況 ID とサービス ID (SID)・ネットワーク ID (NID) の対照表
     with open(JIKKYO_CHANNELS_PATH, encoding='utf-8') as file:
-        jikkyo_channels: Dict[str, Dict[str, Union[int, str]]] = json.load(file)
+        jikkyo_channels: List[Dict[str, Any]] = json.load(file)
 
     # 実況チャンネルのステータスが入る辞書
     # getchannels API のリクエスト結果をキャッシュする
@@ -76,7 +76,7 @@ class Jikkyo:
         self.jikkyo_id: str
 
         # ニコ生上の実況チャンネル/コミュニティ ID
-        self.jikkyo_nicolive_id: str
+        self.jikkyo_nicolive_id: str | None
 
         # 実況 ID を取得する
         for jikkyo_channel in self.jikkyo_channels:
@@ -214,12 +214,12 @@ class Jikkyo:
         await current_user.save()
 
 
-    async def fetchJikkyoSession(self, current_user: Optional[User] = None) -> dict:
+    async def fetchJikkyoSession(self, current_user: User | None = None) -> dict:
         """
         ニコニコ実況（ニコ生）の視聴セッション情報を取得する
 
         Args:
-            current_user (Optional[User]): ログイン中のユーザーのモデルオブジェクト or None
+            current_user (User | None): ログイン中のユーザーのモデルオブジェクト or None
 
         Returns:
             dict: 視聴セッション情報 or エラーメッセージが含まれる辞書
@@ -255,7 +255,7 @@ class Jikkyo:
                 return {'is_success': False, 'detail': f'現在、ニコニコ実況でエラーが発生しています。(HTTP Error {watch_page_code})'}
 
         # HTML から embedded-data を取得
-        embedded_data_raw:dict = re.search(r'<script id="embedded-data" data-props="(.*?)"><\/script>', watch_page_response.text)
+        embedded_data_raw = re.search(r'<script id="embedded-data" data-props="(.*?)"><\/script>', watch_page_response.text)
 
         # embedded-data の取得に失敗
         if embedded_data_raw is None:
@@ -337,12 +337,12 @@ class Jikkyo:
         return {'is_success': True, 'audience_token': session, 'detail': '視聴セッションを取得しました。'}
 
 
-    async def getStatus(self) -> Optional[dict]:
+    async def getStatus(self) -> Dict[str, int] | None:
         """
         実況チャンネルのステータスを取得する
 
         Returns:
-            Optional[dict]: 実況チャンネルのステータス
+            Dict[str, int] | None: 実況チャンネルのステータス
         """
 
         # まだ実況チャンネルのステータスが更新されていなければ更新する
@@ -396,9 +396,9 @@ class Jikkyo:
                 # ステータス (force: 実況勢い, viewers: 累計視聴者数, comments: 累計コメント数) を更新
                 # XML だと色々めんどくさいので、辞書にまとめ直す
                 cls.jikkyo_channels_status[jikkyo_id] = {
-                    'force': int(channel.find('./thread/force').text),
-                    'viewers': int(channel.find('./thread/viewers').text),
-                    'comments': int(channel.find('./thread/comments').text),
+                    'force': int(cast(Any, channel.find('./thread/force')).text),
+                    'viewers': int(cast(Any, channel.find('./thread/viewers')).text),
+                    'comments': int(cast(Any, channel.find('./thread/comments')).text),
                 }
 
                 # viewers と comments が -1 の場合、force も -1 に設定する

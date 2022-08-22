@@ -11,7 +11,7 @@ from fastapi import Query
 from fastapi import Request
 from fastapi import status
 from fastapi import UploadFile
-from typing import Coroutine, List, Optional
+from typing import Any, Coroutine, List, cast
 
 from app import schemas
 from app.models import TwitterAccount
@@ -114,9 +114,9 @@ async def TwitterAuthURLAPI(
     response_description = 'ユーザーアカウントに Twitter アカウントのアクセストークン・アクセストークンシークレットが登録できたことを示す。',
 )
 async def TwitterAuthCallbackAPI(
-    oauth_token: Optional[str] = Query(None, description='コールバック元から渡された oauth_token。OAuth 認証が成功したときのみセットされる。'),
-    oauth_verifier: Optional[str] = Query(None, description='コールバック元から渡された oauth_verifier。OAuth 認証が成功したときのみセットされる。'),
-    denied: Optional[str] = Query(None, description='このパラメーターがセットされているとき、OAuth 認証がユーザーによって拒否されたことを示す。'),
+    oauth_token: str | None = Query(None, description='コールバック元から渡された oauth_token。OAuth 認証が成功したときのみセットされる。'),
+    oauth_verifier: str | None = Query(None, description='コールバック元から渡された oauth_verifier。OAuth 認証が成功したときのみセットされる。'),
+    denied: str | None = Query(None, description='このパラメーターがセットされているとき、OAuth 認証がユーザーによって拒否されたことを示す。'),
 ):
     """
     Twitter の OAuth 認証のコールバックを受け取り、ログイン中のユーザーアカウントと Twitter アカウントを紐づける。
@@ -194,7 +194,10 @@ async def TwitterAuthCallbackAPI(
 
     # 同じスクリーンネームを持つアカウントが重複している場合、古い方のレコードのデータを更新する
     # すでに作成されている新しいレコード（まだ save() していないので仮の情報しか入っていない）は削除される
-    twitter_account_existing = await TwitterAccount.filter(user_id=twitter_account.user_id, screen_name=twitter_account.screen_name).get_or_none()
+    twitter_account_existing = await TwitterAccount.filter(
+        user_id = cast(Any, twitter_account).user_id,
+        screen_name = twitter_account.screen_name,
+    ).get_or_none()
     if twitter_account_existing is not None:
         twitter_account_existing.name = twitter_account.name  # アカウント名
         twitter_account_existing.icon_url = twitter_account.icon_url  # アイコン URL
@@ -258,7 +261,7 @@ async def TwitterAccountDeleteAPI(
 async def TwitterTweetAPI(
     screen_name: str = Path(..., description='ツイートする Twitter アカウントのスクリーンネーム。'),
     tweet: str = Form('', description='ツイートの本文（基本的には140文字まで）。'),
-    images: Optional[List[UploadFile]] = File(None, description='ツイートに添付する画像（4枚まで）。'),
+    images: List[UploadFile] | None = File(None, description='ツイートに添付する画像（4枚まで）。'),
     current_user: User = Depends(User.getCurrentUser),
 ):
     """

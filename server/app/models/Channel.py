@@ -6,7 +6,7 @@ from tortoise import fields
 from tortoise import models
 from tortoise import timezone
 from tortoise.exceptions import IntegrityError
-from typing import Literal, Optional
+from typing import Any, Literal
 
 from app.constants import CONFIG
 from app.utils import Jikkyo
@@ -26,16 +26,20 @@ class Channel(models.Model):
     id: str = fields.TextField(pk=True)
     network_id: int = fields.IntField()
     service_id: int = fields.IntField()
-    transport_stream_id: Optional[int] = fields.IntField(null=True)
-    remocon_id: Optional[int] = fields.IntField(null=True)
+    transport_stream_id: int | None = fields.IntField(null=True)
+    remocon_id: int | None = fields.IntField(null=True)
     channel_id: str = fields.TextField()
     channel_number: str = fields.TextField()
     channel_name: str = fields.TextField()
-    channel_type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO'] = fields.TextField()
-    channel_force: Optional[int] = fields.IntField(null=True)
-    channel_comment: Optional[int] = fields.IntField(null=True)
-    is_subchannel: bool = fields.BooleanField()
-    is_radiochannel: bool = fields.BooleanField()
+    channel_type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO', 'OTHER'] = fields.TextField()  # type: ignore
+    channel_force: int | None = fields.IntField(null=True)
+    channel_comment: int | None = fields.IntField(null=True)
+    is_subchannel: bool = fields.BooleanField()  # type: ignore
+    is_radiochannel: bool = fields.BooleanField()  # type: ignore
+    is_display: bool
+    viewers: int
+    program_present: Any
+    program_following: Any
 
 
     @classmethod

@@ -3,7 +3,7 @@ from datetime import datetime
 from pydantic import AnyHttpUrl, BaseModel, DirectoryPath, Field, FilePath, PositiveInt
 from pydantic.networks import stricturl
 from tortoise.contrib.pydantic import pydantic_model_creator
-from typing import Dict, List, Literal, Optional
+from typing import Dict, List, Literal
 
 from app import models
 
@@ -15,19 +15,19 @@ class Config(BaseModel):
     class General(BaseModel):
         backend: Literal['Mirakurun', 'EDCB']
         mirakurun_url: AnyHttpUrl
-        edcb_url: stricturl(allowed_schemes={'tcp'}, tld_required=False)
+        edcb_url: stricturl(allowed_schemes={'tcp'}, tld_required=False)  # type: ignore
         debug: bool
         debug_encoder: bool
 
     class Server(BaseModel):
         port: PositiveInt
-        custom_https_certificate: Optional[FilePath]
-        custom_https_private_key: Optional[FilePath]
+        custom_https_certificate: FilePath | None
+        custom_https_private_key: FilePath | None
 
     class TV(BaseModel):
         encoder: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC']
         max_alive_time: PositiveInt
-        debug_mode_ts_path: Optional[FilePath]
+        debug_mode_ts_path: FilePath | None
 
     class Capture(BaseModel):
         upload_folder: DirectoryPath
@@ -52,8 +52,8 @@ class Program(pydantic_model_creator(models.Program, name='Program')):
 class Channel(pydantic_model_creator(models.Channel, name='Channel')):
     is_display: bool = True  # 追加カラム
     viewers: int
-    program_present: Optional[Program]  # 追加カラム
-    program_following: Optional[Program]  # 追加カラム
+    program_present: Program | None  # 追加カラム
+    program_following: Program | None  # 追加カラム
 
 class LiveStream(BaseModel):
     # LiveStream は特殊なモデルのため、ここで全て定義する
@@ -79,13 +79,13 @@ class UserCreateRequest(BaseModel):
     password: str
 
 class UserUpdateRequest(BaseModel):
-    username: Optional[str]
-    password: Optional[str]
+    username: str | None
+    password: str | None
 
 class UserUpdateRequestForAdmin(BaseModel):
-    username: Optional[str]
-    password: Optional[str]
-    is_admin: Optional[bool]
+    username: str | None
+    password: str | None
+    is_admin: bool | None
 
 # API レスポンスに利用する Pydantic モデル
 # モデルを List や Dict でまとめたものが中心
@@ -100,7 +100,7 @@ class Channels(BaseModel):
 
 class JikkyoSession(BaseModel):
     is_success: bool
-    audience_token: Optional[str]
+    audience_token: str | None
     detail: str
 
 class LiveStreams(BaseModel):
@@ -123,11 +123,11 @@ class ClientSettings(BaseModel):
     comment_font_size: int = Field(34)
 
 class ThirdpartyAuthURL(BaseModel):
-    authorization_url: Optional[str]
+    authorization_url: str | None
 
 class TweetResult(BaseModel):
     is_success: bool
-    tweet_url: Optional[str]
+    tweet_url: str | None
     detail: str
 
 class Users(BaseModel):

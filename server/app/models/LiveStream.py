@@ -6,8 +6,9 @@ from __future__ import annotations
 import asyncio
 import queue
 import time
-from typing import Dict, List, Literal, Optional
+from typing import ClassVar, Dict, List, Literal
 
+from app.constants import QUALITY_TYPES
 from app.utils import Logging
 from app.utils.EDCB import EDCBTuner
 
@@ -28,8 +29,8 @@ class LiveStreamClient():
         # client_type が ll-hls の場合は配信方式が異なるため Queue は使われない… はずだが、実際にどう実装するかは未定
         self.client_type: Literal['mpegts', 'll-hls'] = client_type
 
-        # ストリームデータが入る Queue または None
-        self.queue: Optional[queue.Queue] = queue.Queue() if self.client_type == 'mpegts' else None
+        # ストリームデータが入る Queue
+        self.queue: queue.Queue[bytes | None] = queue.Queue()
 
         # ストリームデータの最終読み取り時刻のタイミング
         # 最終読み取り時刻を5秒過ぎたクライアントはタイムアウトと判断し、クライアントを削除する
@@ -41,11 +42,12 @@ class LiveStream():
 
     # ライブストリームのインスタンスが入る、ライブストリーム ID をキーとした辞書
     # この辞書にライブストリームに関する全てのデータが格納されている
-    __instances: Dict[str, LiveStream] = {}
+    __instances: ClassVar[Dict[str, LiveStream]] = {}
+
 
     # 必ずライブストリーム ID ごとに1つのインスタンスになるように (Singleton)
     # ref: https://qiita.com/ttsubo/items/c4af71ceba15b5b213f8
-    def __new__(cls, channel_id: str, quality: str) -> LiveStream:
+    def __new__(cls, channel_id: str, quality: QUALITY_TYPES) -> LiveStream:
 
         # まだ同じライブストリーム ID のインスタンスがないときだけ、インスタンスを生成する
         # (チャンネルID)-(映像の品質) で一意な ID になる
@@ -110,13 +112,13 @@ class LiveStream():
         # Singleton のためインスタンスの生成は __new__() で行うが、__init__() も定義しておかないと補完がうまく効かない
         self.livestream_id: str
         self.channel_id: str
-        self.quality: str
+        self.quality: QUALITY_TYPES
         self.status: Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart']
         self.started_at: float
         self.updated_at: float
         self.stream_data_written_at: float
-        self.tuner: Optional[EDCBTuner]
-        self.clients: List[Optional[LiveStreamClient]]
+        self.tuner: EDCBTuner | None
+        self.clients: List[LiveStreamClient | None]
 
 
     @classmethod
@@ -357,7 +359,7 @@ class LiveStream():
         self.tuner = tuner
 
 
-    def read(self, client_id: int) -> bytes:
+    def read(self, client_id: int) -> bytes | None:
         """
         指定されたクライアント ID の Queue からストリームデータを読み取る
 

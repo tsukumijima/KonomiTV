@@ -6,7 +6,7 @@ from datetime import date
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
-from typing import Union
+from typing import Any, Dict, Literal
 
 import ariblib
 import ariblib.constants
@@ -96,15 +96,15 @@ class TSInformation:
 
         # TS ファイルを開く
         # チャンクは 1000（だいたい 0.1 ～ 0.2 秒間隔）に設定
-        self.ts:TransportStreamFile = ariblib.tsopen(tspath, chunk=1000)
+        self.ts: TransportStreamFile = ariblib.tsopen(tspath, chunk=1000)
 
 
-    def extract(self) -> str:
+    def extract(self) -> Dict[str, Any]:
         """
         TS 内から得られる各種番組情報などを抽出して辞書にまとめる
 
         Returns:
-            str: TS の各種情報をまとめた辞書
+            Dict[str, Any]: TS の各種情報をまとめた辞書
         """
 
         # SDT (Service Description Table) からチャンネル情報を取得
@@ -144,12 +144,12 @@ class TSInformation:
 
 
     @staticmethod
-    def __getFormatStringTranslationTable() -> dict:
+    def __getFormatStringTranslationTable() -> Dict[str, str]:
         """
         formatString() で使用する変換テーブルを取得する
 
         Returns:
-            dict: 変換テーブル
+            Dict[str, str]: 変換テーブル
         """
 
         # 全角英数を半角英数に置換
@@ -229,12 +229,12 @@ class TSInformation:
 
 
     @classmethod
-    def formatString(cls, string: Union[str, AribString]) -> str:
+    def formatString(cls, string: str | AribString) -> str:
         """
         文字列に含まれる英数や記号を半角に置換し、一律な表現に整える
 
         Args:
-            string (Union[str, AribString]): str あるいは AribString の文字列
+            string (str | AribString): str あるいは AribString の文字列
 
         Returns:
             str: 置換した文字列
@@ -254,7 +254,7 @@ class TSInformation:
 
 
     @staticmethod
-    def getNetworkType(network_id: int) -> str:
+    def getNetworkType(network_id: int) -> Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO', 'OTHER']:
         """
         ネットワーク ID からネットワークの種別を取得する
         種別は GR (地デジ)・BS・CS・CATV・SKY (SPHD)・STARDIGIO (スターデジオ)・OTHER (不明なネットワーク ID のチャンネル) のいずれか
@@ -351,7 +351,7 @@ class TSInformation:
         """
 
         # 雛形
-        result = {
+        result: Dict[str, Any] = {
             'id': None,
             'network_id': None,
             'service_id': None,
@@ -496,7 +496,7 @@ class TSInformation:
                 for event_data in eit.events:
 
                     # EIT 内のイベントを取得
-                    event = ariblib.event.Event(eit, event_data)
+                    event: Any = ariblib.event.Event(eit, event_data)
 
                     # 存在するなら順に追加していく
                     # 直接取得した文字列は AribSting になっているので、明示的に str 型にキャストする
@@ -669,17 +669,17 @@ class TSInformation:
         self.ts.seek(0)
 
         # TS 内最初の PCR (Packet Clock Reference)
-        first_pcr:timedelta = self.getPCRTimeDelta()
+        first_pcr = self.getPCRTimeDelta()
 
         # TS 内最初の TOT (Time Offset Table)
-        current_tot:datetime = next(self.ts.sections(TimeOffsetSection)).JST_time
+        current_tot: datetime = next(self.ts.sections(TimeOffsetSection)).JST_time
 
         # TOT 取得直後の PCR (Packet Clock Reference)
-        current_pcr:timedelta = self.getPCRTimeDelta()
+        current_pcr: timedelta = self.getPCRTimeDelta()
 
         # TOT は 5 秒間隔で送出されているため、そのままでは誤差が生じる
         # current_pcr と first_pcr の差分で TOT を取得するまでの時間を推測し、それを current_tot から引くことで、推定録画開始時刻を算出する
-        first_tot:datetime = current_tot - (current_pcr - first_pcr)
+        first_tot: datetime = current_tot - (current_pcr - first_pcr)
 
         # なぜかここで取得した推定録画開始時刻は実際の時刻より少し早くなっている
         # （おおよその実測値で、録画時間や録画マージン→切り替わりと比較するとよくわかる）
@@ -719,19 +719,20 @@ class TSInformation:
 
         # TOT を取得して配列に格納
         tots = []
+        current_pcr = timedelta()
         for tot in self.ts.sections(TimeOffsetSection):
             tots.append(tot.JST_time)
             pcr = self.getPCRTimeDelta()
             if pcr is not None:
                 # 次の TOT 取得直前の PCR (Packet Clock Reference)
-                current_pcr:timedelta = copy(pcr)
+                current_pcr: timedelta = copy(pcr)
 
         # TS 内最後の TOT (Time Offset Table)
-        current_tot:datetime = tots[-1]  # 配列の最後の要素
+        current_tot: datetime = tots[-1]  # 配列の最後の要素
 
         # TOT は 5 秒間隔で送出されているため、そのままでは誤差が生じる
         # last_pcr と current_pcr の差分で TOT を取得した後 EOF までの時間を推測し、それを current_tot に足すことで、推定録画終了時刻を算出する
-        last_tot:datetime = current_tot + (last_pcr - current_pcr)
+        last_tot: datetime = current_tot + (last_pcr - current_pcr)
 
         # なぜかここで取得した推定録画終了時刻は実際の時刻より少し速くなっている
         # 仕方がないので（どうにかできそうだけど）、実測値から一律で0.5秒足す
@@ -768,11 +769,11 @@ class TSInformation:
                     return pcr
 
             # PCR が存在しない
-            return None
+            return timedelta()
 
-        # IndexError が発生したら None を返す
+        # IndexError が発生したらとりあえず空の timedelta を返す
         except IndexError:
-            return None
+            return timedelta()
 
 
 if __name__ == '__main__':

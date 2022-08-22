@@ -6,7 +6,7 @@ import datetime
 import requests
 import time
 import traceback
-import urllib
+import urllib.parse
 from datetime import timedelta
 from tortoise import connections
 from tortoise import exceptions
@@ -15,7 +15,7 @@ from tortoise import models
 from tortoise import timezone
 from tortoise import Tortoise
 from tortoise import transactions
-from typing import List, Optional
+from typing import List
 
 from app.constants import CONFIG, DATABASE_CONFIG
 from app.models import Channel
@@ -43,7 +43,7 @@ class Program(models.Model):
     start_time: datetime.datetime = fields.DatetimeField()
     end_time: datetime.datetime = fields.DatetimeField()
     duration: float = fields.FloatField()
-    is_free: bool = fields.BooleanField()
+    is_free: bool = fields.BooleanField()  # type: ignore
     genre: list = fields.JSONField()
     video_type: str = fields.TextField()
     video_codec: str = fields.TextField()
@@ -51,9 +51,9 @@ class Program(models.Model):
     primary_audio_type: str = fields.TextField()
     primary_audio_language: str = fields.TextField()
     primary_audio_sampling_rate: str = fields.TextField()
-    secondary_audio_type: Optional[str] = fields.TextField(null=True)
-    secondary_audio_language: Optional[str] = fields.TextField(null=True)
-    secondary_audio_sampling_rate: Optional[str] = fields.TextField(null=True)
+    secondary_audio_type: str | None = fields.TextField(null=True)
+    secondary_audio_language: str | None = fields.TextField(null=True)
+    secondary_audio_sampling_rate: str | None = fields.TextField(null=True)
 
 
     @classmethod

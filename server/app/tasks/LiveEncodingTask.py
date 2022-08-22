@@ -8,7 +8,7 @@ import subprocess
 import time
 from datetime import datetime
 from io import TextIOWrapper
-from typing import BinaryIO, Literal, Optional, Union
+from typing import BinaryIO, Iterator, Literal, cast
 
 from app.constants import CONFIG, LIBRARY_PATH, LOGS_DIR, QUALITY, QUALITY_TYPES
 from app.models import Channel
@@ -275,7 +275,7 @@ class LiveEncodingTask():
             livestream.setStatus('Standby', 'エンコードタスクを起動しています…')
 
         # チャンネル情報からサービス ID とネットワーク ID を取得する
-        channel: Channel = await Channel.filter(channel_id=channel_id).first()
+        channel = await Channel.filter(channel_id=channel_id).first()
 
         # 現在の番組情報を取得する
         program_present: Program | None = (await channel.getCurrentAndNextProgram())[0]
@@ -345,8 +345,8 @@ class LiveEncodingTask():
             ]
 
         # tsreadex の起動
-        tsreadex: subprocess.Popen = await asyncio.to_thread(subprocess.Popen,
-            tsreadex_options,
+        tsreadex: subprocess.Popen = await asyncio.to_thread(subprocess.Popen,  # type: ignore
+            tsreadex_options,  # type: ignore
             stdin = subprocess.PIPE,  # 受信した放送波を書き込む
             stdout = subprocess.PIPE,  # エンコーダーに繋ぐ
             creationflags = (subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # コンソールなしで実行 (Windows)
@@ -362,7 +362,7 @@ class LiveEncodingTask():
         is_fullhd_channel = self.isFullHDChannel(channel.network_id, channel.service_id)
 
         # エンコーダーの種類を取得
-        encoder_type: QUALITY_TYPES = CONFIG['tv']['encoder']
+        encoder_type: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC'] = CONFIG['tv']['encoder']
         ## ラジオチャンネルでは HW エンコードの意味がないため、FFmpeg に固定する
         if channel.is_radiochannel is True:
             encoder_type = 'FFmpeg'
@@ -379,8 +379,8 @@ class LiveEncodingTask():
             Logging.info(f'[LiveStream {livestream.livestream_id}] FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
             # プロセスを非同期で作成・実行
-            encoder: subprocess.Popen = await asyncio.to_thread(subprocess.Popen,
-                [LIBRARY_PATH['FFmpeg']] + encoder_options,
+            encoder: subprocess.Popen = await asyncio.to_thread(subprocess.Popen,  # type: ignore
+                [LIBRARY_PATH['FFmpeg']] + encoder_options,  # type: ignore
                 stdin = tsreadex.stdout,  # tsreadex からの入力
                 stdout = subprocess.PIPE,  # ストリーム出力
                 stderr = subprocess.PIPE,  # ログ出力
@@ -395,8 +395,8 @@ class LiveEncodingTask():
             Logging.info(f'[LiveStream {livestream.livestream_id}] {encoder_type} Commands:\n{encoder_type} {" ".join(encoder_options)}')
 
             # プロセスを非同期で作成・実行
-            encoder: subprocess.Popen = await asyncio.to_thread(subprocess.Popen,
-                [LIBRARY_PATH[encoder_type]] + encoder_options,
+            encoder: subprocess.Popen = await asyncio.to_thread(subprocess.Popen,  # type: ignore
+                [LIBRARY_PATH[encoder_type]] + encoder_options,  # type: ignore
                 stdin = tsreadex.stdout,  # tsreadex からの入力
                 stdout = subprocess.PIPE,  # ストリーム出力
                 stderr = subprocess.PIPE,  # ログ出力
@@ -404,6 +404,9 @@ class LiveEncodingTask():
             )
 
         # ***** チューナーの起動と接続 *****
+
+        # 何かしら定義しておかないと Pylance がエラーを吐く…
+        tuner = None
 
         # Mirakurun バックエンド
         if CONFIG['general']['backend'] == 'Mirakurun':
@@ -440,7 +443,7 @@ class LiveEncodingTask():
         elif CONFIG['general']['backend'] == 'EDCB':
 
             # チューナーインスタンスを初期化
-            tuner = EDCBTuner(channel.network_id, channel.service_id, channel.transport_stream_id)
+            tuner = EDCBTuner(channel.network_id, channel.service_id, cast(int, channel.transport_stream_id))
 
             # チューナーを起動する
             # アンロック状態のチューナーインスタンスがあれば、自動的にそのチューナーが再利用される
@@ -461,7 +464,7 @@ class LiveEncodingTask():
             # チューナーに接続する
             # 放送波が送信される TCP ソケットまたは名前付きパイプを取得する
             livestream.setStatus('Standby', 'チューナーに接続しています…')
-            pipe_or_socket: Optional[Union[BinaryIO, socket.socket]] = await tuner.connect()
+            pipe_or_socket: BinaryIO | socket.socket | None = await tuner.connect()
 
             # チューナーへの接続に失敗した
             if pipe_or_socket is None:
@@ -482,19 +485,19 @@ class LiveEncodingTask():
             ## Mirakurun
             if CONFIG['general']['backend'] == 'Mirakurun':
                 # Mirakurun の HTTP API から受信
-                stream_iterator = response.iter_content(chunk_size=48128)
+                stream_iterator: Iterator[bytes] = response.iter_content(chunk_size=48128)
             ## EDCB
             elif CONFIG['general']['backend'] == 'EDCB':
                 if type(pipe_or_socket) is socket.socket:
                     # EDCB の TCP ソケットから受信
-                    stream_iterator = iter(lambda: pipe_or_socket.recv(48128), b'')
+                    stream_iterator = iter(lambda: cast(socket.socket, pipe_or_socket).recv(48128), b'')
                 else:
                     # EDCB の名前付きパイプから受信
-                    stream_iterator = iter(lambda: pipe_or_socket.read(48128), b'')
+                    stream_iterator = iter(lambda: cast(BinaryIO, pipe_or_socket).read(48128), b'')
 
             # Mirakurun / EDCB から受信した放送波を随時 tsreadex の入力に書き込む
             try:
-                for chunk in stream_iterator:
+                for chunk in stream_iterator:  # type: ignore
 
                     # ストリームデータを tsreadex の標準入力に書き込む
                     try:

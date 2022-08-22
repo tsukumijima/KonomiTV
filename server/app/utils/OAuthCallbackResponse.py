@@ -1,6 +1,6 @@
 
-from typing import Any, Dict
 from fastapi.responses import HTMLResponse
+from typing import Any, Dict
 
 
 class OAuthCallbackResponse(HTMLResponse):
@@ -10,7 +10,7 @@ class OAuthCallbackResponse(HTMLResponse):
         self,
         detail: str,
         status_code: int = 200,
-        headers: Dict[str, Any] = None,
+        headers: Dict[str, Any] = {},
     ) -> None:
         """
         OAuth 連携のコールバック時のレスポンスを返す

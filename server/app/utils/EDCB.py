@@ -1,9 +1,13 @@
 
+# Type Hints を指定できるように
+# ref: https://stackoverflow.com/a/33533514/17124142
+from __future__ import annotations
+
 import asyncio
 import datetime
 import socket
 import time
-from typing import BinaryIO, Callable, List, Optional, Union
+from typing import BinaryIO, Callable, ClassVar, List, cast
 
 from app.constants import CONFIG
 
@@ -13,14 +17,10 @@ class EDCBTuner:
 
     # 全てのチューナーインスタンスが格納されるリスト
     # チューナーを閉じずに再利用するため、全てのチューナーインスタンスにアクセスできるようにする
-    __instances:List = []
+    __instances: ClassVar[List[EDCBTuner | None]] = []
 
 
     def __new__(cls, network_id: int, service_id: int, transport_stream_id: int):
-
-        # 型アノテーションを追加（IDE用）
-        ## クラス直下で自クラスを型として指定することはできないため、ここで明示的に指定する
-        cls.__instances: List[EDCBTuner]
 
         # 新しいチューナーインスタンスを生成する
         instance = super(EDCBTuner, cls).__new__(cls)
@@ -62,7 +62,7 @@ class EDCBTuner:
 
         # EpgDataCap_Bon のプロセス ID
         ## プロセス ID が None のときはチューナーが起動されていないものとして扱う
-        self.edcb_process_id: Optional[int] = None
+        self.edcb_process_id: int | None = None
 
 
     def __getNetworkTVID(self) -> int:
@@ -168,12 +168,12 @@ class EDCBTuner:
         return True
 
 
-    async def connect(self) -> Optional[Union[BinaryIO, socket.socket]]:
+    async def connect(self) -> BinaryIO | socket.socket | None:
         """
         チューナーに接続し、放送波を受け取るための TCP ソケットまたは名前付きパイプを返す
 
         Returns:
-            Optional[Union[BinaryIO, socket.socket]]: ソケットまたはファイルオブジェクト (取得できなかった場合は None を返す)
+            BinaryIO | socket.socket | None: ソケットまたはファイルオブジェクト (取得できなかった場合は None を返す)
         """
 
         # プロセス ID が取得できている（チューナーが起動している）ことが前提
@@ -308,7 +308,7 @@ class EDCBUtil:
         return -1
 
     @staticmethod
-    def getLogoFileNameFromDirectoryIndex(logo_dir_index: str, network_id: int, logo_id: int, logo_type: int) -> Optional[str]:
+    def getLogoFileNameFromDirectoryIndex(logo_dir_index: str, network_id: int, logo_id: int, logo_type: int) -> str | None:
         """ ファイルリストをもとにロゴファイル名を取得する """
         target = f'{network_id:04X}_{logo_id:03X}_'
         target_type = f'_{logo_type:02d}.'
@@ -345,7 +345,7 @@ class EDCBUtil:
         return result
 
     @staticmethod
-    async def openViewStream(process_id: int, timeout_sec: float=10.) -> Optional[socket.socket]:
+    async def openViewStream(process_id: int, timeout_sec: float=10.) -> socket.socket | None:
         """ View アプリの SrvPipe ストリームの転送を開始する """
         edcb = CtrlCmdUtil()
         edcb.setConnectTimeOutSec(timeout_sec)
@@ -361,7 +361,7 @@ class EDCBUtil:
         return None
 
     @staticmethod
-    async def openPipeStream(process_id: int, buffering: int, timeout_sec: float=10.) -> Optional[BinaryIO]:
+    async def openPipeStream(process_id: int, buffering: int, timeout_sec: float=10.) -> BinaryIO | None:
         """ システムに存在する SrvPipe ストリームを開き、ファイルオブジェクトを返す """
         to = time.monotonic() + timeout_sec
         wait = 0.1
@@ -392,7 +392,7 @@ class CtrlCmdUtil:
     def __init__(self) -> None:
         self.__connect_timeout_sec = 15.
         self.__pipe_name = 'EpgTimerSrvNoWaitPipe'
-        self.__host: Optional[str] = None
+        self.__host: str | None = None
         self.__port = 0
 
         if CONFIG['general']['edcb_host'] == 'edcb-namedpipe':
@@ -437,14 +437,14 @@ class CtrlCmdUtil:
         ret, buf = await self.__sendAndReceive(buf)
         return ret == self.__CMD_SUCCESS
 
-    async def sendViewGetBonDriver(self) -> Optional[str]:
+    async def sendViewGetBonDriver(self) -> str | None:
         """ 使用中の BonDriver のファイル名を取得 """
         buf = bytearray()
         self.__writeInt(buf, self.__CMD_VIEW_APP_GET_BONDRIVER)
         self.__writeInt(buf, 0)
         ret, buf = await self.__sendAndReceive(buf)
         if ret == self.__CMD_SUCCESS:
-            return self.__readString(memoryview(buf), [0], len(buf))
+            return self.__readString(memoryview(buf), [0], len(buf))  # type: ignore
         return None
 
     async def sendViewSetCh(self, set_ch_info: dict) -> bool:
@@ -465,17 +465,17 @@ class CtrlCmdUtil:
         ret, buf = await self.__sendAndReceive(buf)
         return ret == self.__CMD_SUCCESS
 
-    async def sendEnumService(self) -> Optional[list]:
+    async def sendEnumService(self) -> list | None:
         """ サービス一覧を取得する """
         buf = bytearray()
         self.__writeInt(buf, self.__CMD_EPG_SRV_ENUM_SERVICE)
         self.__writeInt(buf, 0)
         ret, buf = await self.__sendAndReceive(buf)
         if ret == self.__CMD_SUCCESS:
-            return self.__readVector(self.__readServiceInfo, memoryview(buf), [0], len(buf))
+            return self.__readVector(self.__readServiceInfo, memoryview(buf), [0], len(buf))  # type: ignore
         return None
 
-    async def sendEnumPgInfoEx(self, service_time_list: list) -> Optional[list]:
+    async def sendEnumPgInfoEx(self, service_time_list: list) -> list | None:
         """ サービス指定と時間指定で番組情報一覧を取得する """
         buf = bytearray()
         self.__writeInt(buf, self.__CMD_EPG_SRV_ENUM_PG_INFO_EX)
@@ -484,10 +484,10 @@ class CtrlCmdUtil:
         self.__writeIntInplace(buf, 4, len(buf) - 8)
         ret, buf = await self.__sendAndReceive(buf)
         if ret == self.__CMD_SUCCESS:
-            return self.__readVector(self.__readServiceEventInfo, memoryview(buf), [0], len(buf))
+            return self.__readVector(self.__readServiceEventInfo, memoryview(buf), [0], len(buf))  # type: ignore
         return None
 
-    async def sendEnumPgArc(self, service_time_list: list) -> Optional[list]:
+    async def sendEnumPgArc(self, service_time_list: list) -> list | None:
         """ サービス指定と時間指定で過去番組情報一覧を取得する """
         buf = bytearray()
         self.__writeInt(buf, self.__CMD_EPG_SRV_ENUM_PG_ARC)
@@ -496,10 +496,10 @@ class CtrlCmdUtil:
         self.__writeIntInplace(buf, 4, len(buf) - 8)
         ret, buf = await self.__sendAndReceive(buf)
         if ret == self.__CMD_SUCCESS:
-            return self.__readVector(self.__readServiceEventInfo, memoryview(buf), [0], len(buf))
+            return self.__readVector(self.__readServiceEventInfo, memoryview(buf), [0], len(buf))  # type: ignore
         return None
 
-    async def sendFileCopy(self, name: str) -> Optional[bytes]:
+    async def sendFileCopy(self, name: str) -> bytes | None:
         """ 指定ファイルを転送する """
         buf = bytearray()
         self.__writeInt(buf, self.__CMD_EPG_SRV_FILE_COPY)
@@ -511,7 +511,7 @@ class CtrlCmdUtil:
             return buf
         return None
 
-    async def sendFileCopy2(self, name_list: list) -> Optional[list]:
+    async def sendFileCopy2(self, name_list: list) -> list | None:
         """ 指定ファイルをまとめて転送する """
         buf = bytearray()
         self.__writeInt(buf, self.__CMD_EPG_SRV_FILE_COPY2)
@@ -521,13 +521,13 @@ class CtrlCmdUtil:
         self.__writeIntInplace(buf, 4, len(buf) - 8)
         ret, buf = await self.__sendAndReceive(buf)
         if ret == self.__CMD_SUCCESS:
-            bufview = memoryview(buf)
+            bufview = memoryview(buf)  # type: ignore
             pos = [0]
-            if (ver := self.__readUshort(bufview, pos, len(buf))) is not None and ver >= self.__CMD_VER:
-                return self.__readVector(self.__readFileData, bufview, pos, len(buf))
+            if (ver := self.__readUshort(bufview, pos, len(buf))) is not None and ver >= self.__CMD_VER:  # type: ignore
+                return self.__readVector(self.__readFileData, bufview, pos, len(buf))  # type: ignore
         return None
 
-    async def sendNwTVIDSetCh(self, set_ch_info: dict) -> Optional[int]:
+    async def sendNwTVIDSetCh(self, set_ch_info: dict) -> int | None:
         """ NetworkTV モードの View アプリのチャンネルを切り替え、または起動の確認 (ID 指定) """
         buf = bytearray()
         self.__writeInt(buf, self.__CMD_EPG_SRV_NWTV_ID_SET_CH)
@@ -536,7 +536,7 @@ class CtrlCmdUtil:
         self.__writeIntInplace(buf, 4, len(buf) - 8)
         ret, buf = await self.__sendAndReceive(buf)
         if ret == self.__CMD_SUCCESS:
-            return self.__readInt(memoryview(buf), [0], len(buf))
+            return self.__readInt(memoryview(buf), [0], len(buf))  # type: ignore
         return None
 
     async def sendNwTVIDClose(self, nwtv_id: int) -> bool:
@@ -549,7 +549,7 @@ class CtrlCmdUtil:
         ret, buf = await self.__sendAndReceive(buf)
         return ret == self.__CMD_SUCCESS
 
-    async def sendEnumRecInfoBasic2(self) -> Optional[list]:
+    async def sendEnumRecInfoBasic2(self) -> list | None:
         """ 録画済み情報一覧取得 (programInfo と errInfo を除く) """
         buf = bytearray()
         self.__writeInt(buf, self.__CMD_EPG_SRV_ENUM_RECINFO_BASIC2)
@@ -558,13 +558,13 @@ class CtrlCmdUtil:
         self.__writeIntInplace(buf, 4, len(buf) - 8)
         ret, buf = await self.__sendAndReceive(buf)
         if ret == self.__CMD_SUCCESS:
-            bufview = memoryview(buf)
+            bufview = memoryview(buf)  # type: ignore
             pos = [0]
-            if (ver := self.__readUshort(bufview, pos, len(buf))) is not None and ver >= self.__CMD_VER:
-                return self.__readVector(self.__readRecFileInfo, bufview, pos, len(buf))
+            if (ver := self.__readUshort(bufview, pos, len(buf))) is not None and ver >= self.__CMD_VER:  # type: ignore
+                return self.__readVector(self.__readRecFileInfo, bufview, pos, len(buf))  # type: ignore
         return None
 
-    async def sendGetRecInfo2(self, info_id: int) -> Optional[dict]:
+    async def sendGetRecInfo2(self, info_id: int) -> dict | None:
         """ 録画済み情報取得 """
         buf = bytearray()
         self.__writeInt(buf, self.__CMD_EPG_SRV_GET_RECINFO2)
@@ -574,13 +574,13 @@ class CtrlCmdUtil:
         self.__writeIntInplace(buf, 4, len(buf) - 8)
         ret, buf = await self.__sendAndReceive(buf)
         if ret == self.__CMD_SUCCESS:
-            bufview = memoryview(buf)
+            bufview = memoryview(buf)  # type: ignore
             pos = [0]
-            if (ver := self.__readUshort(bufview, pos, len(buf))) is not None and ver >= self.__CMD_VER:
-                return self.__readRecFileInfo(bufview, pos, len(buf))
+            if (ver := self.__readUshort(bufview, pos, len(buf))) is not None and ver >= self.__CMD_VER:  # type: ignore
+                return self.__readRecFileInfo(bufview, pos, len(buf))  # type: ignore
         return None
 
-    def openViewStream(self, process_id: int) -> Optional[socket.socket]:
+    def openViewStream(self, process_id: int) -> socket.socket | None:
         """ View アプリの SrvPipe ストリームの転送を開始する """
         buf = bytearray()
         self.__writeInt(buf, self.__CMD_EPG_SRV_RELAY_VIEW_STREAM)
@@ -637,6 +637,8 @@ class CtrlCmdUtil:
 
     async def __sendAndReceive(self, buf: bytearray):
         to = time.monotonic() + self.__connect_timeout_sec
+        ret: int | bool | None = 0
+        size: int = 0
         if self.__host is None:
             # 名前付きパイプモード
             while True:
@@ -649,7 +651,7 @@ class CtrlCmdUtil:
                             bufview = memoryview(rbuf)
                             pos = [0]
                             ret = self.__readInt(bufview, pos, 8)
-                            size = self.__readInt(bufview, pos, 8)
+                            size = cast(int, self.__readInt(bufview, pos, 8))
                             rbuf = f.read(size)
                             if len(rbuf) == size:
                                     return ret, rbuf
@@ -676,7 +678,7 @@ class CtrlCmdUtil:
                 bufview = memoryview(rbuf)
                 pos = [0]
                 ret = self.__readInt(bufview, pos, 8)
-                size = self.__readInt(bufview, pos, 8)
+                size = cast(int, self.__readInt(bufview, pos, 8))
                 rbuf = await asyncio.wait_for(r.readexactly(size), max(to - time.monotonic(), 0.))
         except:
             w.close()
@@ -743,7 +745,7 @@ class CtrlCmdUtil:
         cls.__writeIntInplace(buf, pos, len(buf) - pos)
 
     @staticmethod
-    def __readByte(buf: memoryview, pos: list, size: int, dest: Optional[dict] = None, key: Optional[str] = None):
+    def __readByte(buf: memoryview, pos: list, size: int, dest: dict | None = None, key: str | None = None):
         if size - pos[0] < 1:
             return None if dest is None else False
         v = int.from_bytes(buf[pos[0]:pos[0] + 1], 'little')
@@ -754,7 +756,7 @@ class CtrlCmdUtil:
         return True
 
     @staticmethod
-    def __readUshort(buf: memoryview, pos: list, size: int, dest: Optional[dict] = None, key: Optional[str] = None):
+    def __readUshort(buf: memoryview, pos: list, size: int, dest: dict | None = None, key: str | None = None):
         if size - pos[0] < 2:
             return None if dest is None else False
         v = int.from_bytes(buf[pos[0]:pos[0] + 2], 'little')
@@ -765,7 +767,7 @@ class CtrlCmdUtil:
         return True
 
     @staticmethod
-    def __readInt(buf: memoryview, pos: list, size: int, dest: Optional[dict] = None, key: Optional[str] = None):
+    def __readInt(buf: memoryview, pos: list, size: int, dest: dict | None = None, key: str | None = None):
         if size - pos[0] < 4:
             return None if dest is None else False
         v = int.from_bytes(buf[pos[0]:pos[0] + 4], 'little', signed = True)
@@ -776,7 +778,7 @@ class CtrlCmdUtil:
         return True
 
     @staticmethod
-    def __readLong(buf: memoryview, pos: list, size: int, dest: Optional[dict] = None, key: Optional[str] = None):
+    def __readLong(buf: memoryview, pos: list, size: int, dest: dict | None = None, key: str | None = None):
         if size - pos[0] < 8:
             return None if dest is None else False
         v = int.from_bytes(buf[pos[0]:pos[0] + 8], 'little', signed = True)
@@ -787,7 +789,7 @@ class CtrlCmdUtil:
         return True
 
     @classmethod
-    def __readSystemTime(cls, buf: memoryview, pos: list, size: int, dest: Optional[dict] = None, key: Optional[str] = None):
+    def __readSystemTime(cls, buf: memoryview, pos: list, size: int, dest: dict | None = None, key: str | None = None):
         if size - pos[0] < 16:
             return None if dest is None else False
         try:
@@ -807,7 +809,7 @@ class CtrlCmdUtil:
         return True
 
     @classmethod
-    def __readString(cls, buf: memoryview, pos: list, size: int, dest: Optional[dict] = None, key: Optional[str] = None):
+    def __readString(cls, buf: memoryview, pos: list, size: int, dest: dict | None = None, key: str | None = None):
         vs = cls.__readInt(buf, pos, size)
         if vs is None or vs < 6 or size - pos[0] < vs - 4:
             return None if dest is None else False
@@ -819,7 +821,7 @@ class CtrlCmdUtil:
         return True
 
     @classmethod
-    def __readVector(cls, read_func: Callable, buf: memoryview, pos: list, size: int, dest: Optional[dict] = None, key: Optional[str] = None):
+    def __readVector(cls, read_func: Callable, buf: memoryview, pos: list, size: int, dest: dict | None = None, key: str | None = None):
         if ((vs := cls.__readInt(buf, pos, size)) is None or
             (vc := cls.__readInt(buf, pos, size)) is None or
             vs < 8 or vc < 0 or size - pos[0] < vs - 8):
@@ -848,7 +850,7 @@ class CtrlCmdUtil:
     # 各キーの意味は CtrlCmdDef.cs のクラス定義を参照のこと
 
     @classmethod
-    def __readFileData(cls, buf: memoryview, pos: list, size: int) -> Optional[dict]:
+    def __readFileData(cls, buf: memoryview, pos: list, size: int) -> dict | None:
         v, size = cls.__readStructIntro(buf, pos, size)
         if (v is None or
             not cls.__readString(buf, pos, size, v, 'name') or
@@ -861,7 +863,7 @@ class CtrlCmdUtil:
         return v
 
     @classmethod
-    def __readRecFileInfo(cls, buf: memoryview, pos: list, size: int) -> Optional[dict]:
+    def __readRecFileInfo(cls, buf: memoryview, pos: list, size: int) -> dict | None:
         v, size = cls.__readStructIntro(buf, pos, size)
         if (v is None or
             not cls.__readInt(buf, pos, size, v, 'id') or
@@ -887,7 +889,7 @@ class CtrlCmdUtil:
         return v
 
     @classmethod
-    def __readServiceEventInfo(cls, buf: memoryview, pos: list, size: int) -> Optional[dict]:
+    def __readServiceEventInfo(cls, buf: memoryview, pos: list, size: int) -> dict | None:
         v, size = cls.__readStructIntro(buf, pos, size)
         if v is None:
             return None
@@ -899,7 +901,7 @@ class CtrlCmdUtil:
         return v
 
     @classmethod
-    def __readServiceInfo(cls, buf: memoryview, pos: list, size: int) -> Optional[dict]:
+    def __readServiceInfo(cls, buf: memoryview, pos: list, size: int) -> dict | None:
         v, size = cls.__readStructIntro(buf, pos, size)
         if (v is None or
             not cls.__readUshort(buf, pos, size, v, 'onid') or
@@ -917,7 +919,7 @@ class CtrlCmdUtil:
         return v
 
     @classmethod
-    def __readEventInfo(cls, buf: memoryview, pos: list, size: int) -> Optional[dict]:
+    def __readEventInfo(cls, buf: memoryview, pos: list, size: int) -> dict | None:
         v, size = cls.__readStructIntro(buf, pos, size)
         if (v is None or
             not cls.__readUshort(buf, pos, size, v, 'onid') or
@@ -997,7 +999,7 @@ class CtrlCmdUtil:
         return v
 
     @classmethod
-    def __readShortEventInfo(cls, buf: memoryview, pos: list, size: int) -> Optional[dict]:
+    def __readShortEventInfo(cls, buf: memoryview, pos: list, size: int) -> dict | None:
         v, size = cls.__readStructIntro(buf, pos, size)
         if (v is None or
             not cls.__readString(buf, pos, size, v, 'event_name') or
@@ -1007,7 +1009,7 @@ class CtrlCmdUtil:
         return v
 
     @classmethod
-    def __readExtendedEventInfo(cls, buf: memoryview, pos: list, size: int) -> Optional[dict]:
+    def __readExtendedEventInfo(cls, buf: memoryview, pos: list, size: int) -> dict | None:
         v, size = cls.__readStructIntro(buf, pos, size)
         if (v is None or
             not cls.__readString(buf, pos, size, v, 'text_char')):
@@ -1016,7 +1018,7 @@ class CtrlCmdUtil:
         return v
 
     @classmethod
-    def __readContentInfo(cls, buf: memoryview, pos: list, size: int) -> Optional[dict]:
+    def __readContentInfo(cls, buf: memoryview, pos: list, size: int) -> dict | None:
         v, size = cls.__readStructIntro(buf, pos, size)
         if (v is None or
             not cls.__readVector(cls.__readContentData, buf, pos, size, v, 'nibble_list')):
@@ -1025,7 +1027,7 @@ class CtrlCmdUtil:
         return v
 
     @classmethod
-    def __readContentData(cls, buf: memoryview, pos: list, size: int) -> Optional[dict]:
+    def __readContentData(cls, buf: memoryview, pos: list, size: int) -> dict | None:
         v, size = cls.__readStructIntro(buf, pos, size)
         if (v is None or
             (cn := cls.__readUshort(buf, pos, size)) is None or
@@ -1037,7 +1039,7 @@ class CtrlCmdUtil:
         return v
 
     @classmethod
-    def __readComponentInfo(cls, buf: memoryview, pos: list, size: int) -> Optional[dict]:
+    def __readComponentInfo(cls, buf: memoryview, pos: list, size: int) -> dict | None:
         v, size = cls.__readStructIntro(buf, pos, size)
         if (v is None or
             not cls.__readByte(buf, pos, size, v, 'stream_content') or
@@ -1049,7 +1051,7 @@ class CtrlCmdUtil:
         return v
 
     @classmethod
-    def __readAudioComponentInfo(cls, buf: memoryview, pos: list, size: int) -> Optional[dict]:
+    def __readAudioComponentInfo(cls, buf: memoryview, pos: list, size: int) -> dict | None:
         v, size = cls.__readStructIntro(buf, pos, size)
         if (v is None or
             not cls.__readVector(cls.__readAudioComponentInfoData, buf, pos, size, v, 'component_list')):
@@ -1058,7 +1060,7 @@ class CtrlCmdUtil:
         return v
 
     @classmethod
-    def __readAudioComponentInfoData(cls, buf: memoryview, pos: list, size: int) -> Optional[dict]:
+    def __readAudioComponentInfoData(cls, buf: memoryview, pos: list, size: int) -> dict | None:
         v, size = cls.__readStructIntro(buf, pos, size)
         if (v is None or
             not cls.__readByte(buf, pos, size, v, 'stream_content') or
@@ -1076,7 +1078,7 @@ class CtrlCmdUtil:
         return v
 
     @classmethod
-    def __readEventGroupInfo(cls, buf: memoryview, pos: list, size: int) -> Optional[dict]:
+    def __readEventGroupInfo(cls, buf: memoryview, pos: list, size: int) -> dict | None:
         v, size = cls.__readStructIntro(buf, pos, size)
         if (v is None or
             not cls.__readByte(buf, pos, size, v, 'group_type') or
@@ -1086,7 +1088,7 @@ class CtrlCmdUtil:
         return v
 
     @classmethod
-    def __readEventData(cls, buf: memoryview, pos: list, size: int) -> Optional[dict]:
+    def __readEventData(cls, buf: memoryview, pos: list, size: int) -> dict | None:
         v, size = cls.__readStructIntro(buf, pos, size)
         if (v is None or
             not cls.__readUshort(buf, pos, size, v, 'onid') or

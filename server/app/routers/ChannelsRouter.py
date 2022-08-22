@@ -395,6 +395,7 @@ async def ChannelLogoAPI(
 
         # EDCB の LogoData フォルダからロゴを取得
         logo = None
+        logo_media_type = 'image/png'
         files = await edcb.sendFileCopy2(['LogoData.ini', 'LogoData\\*.*']) or []
         if len(files) == 2:
             logo_data_ini = EDCBUtil.convertBytesToString(files[0]['data'])

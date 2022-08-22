@@ -8,6 +8,8 @@ import psutil
 import subprocess
 import sys
 import uvicorn
+import uvicorn.logging
+from typing import Any, cast
 from uvicorn.supervisors import ChangeReload
 
 from app.constants import AKEBI_LOG_PATH, BASE_DIR, CONFIG, KONOMITV_ACCESS_LOG_PATH, KONOMITV_SERVER_LOG_PATH, LIBRARY_PATH, VERSION
@@ -61,7 +63,7 @@ def main():
 
     # 使用中のポートを取得
     # ref: https://qiita.com/skokado/items/6e76762c68866d73570b
-    used_ports = [conn.laddr.port for conn in psutil.net_connections() if conn.status == 'LISTEN']
+    used_ports = [cast(Any, conn.laddr).port for conn in psutil.net_connections() if conn.status == 'LISTEN']
 
     # リッスンするポートと同じポートが使われていたら、エラーを表示する
     if port in used_ports:

@@ -11,7 +11,7 @@ from fastapi import Request
 from fastapi import status
 from fastapi.security.utils import get_authorization_scheme_param
 from jose import jwt
-from typing import Optional
+from typing import Any, cast
 
 from app import schemas
 from app.constants import API_REQUEST_HEADERS, NICONICO_OAUTH_CLIENT_ID
@@ -97,8 +97,8 @@ async def NiconicoAuthURLAPI(
 )
 async def NiconicoAuthCallbackAPI(
     user_access_token: str = Query(None, description='コールバック元から渡された、ユーザーの JWT アクセストークン。'),
-    code: Optional[str] = Query(None, description='コールバック元から渡された認証コード。OAuth 認証が成功したときのみセットされる。'),
-    error: Optional[str] = Query(None, description='このパラメーターがセットされているとき、OAuth 認証がユーザーによって拒否されたことを示す。'),
+    code: str | None = Query(None, description='コールバック元から渡された認証コード。OAuth 認証が成功したときのみセットされる。'),
+    error: str | None = Query(None, description='このパラメーターがセットされているとき、OAuth 認証がユーザーによって拒否されたことを示す。'),
 ):
     """
     ニコニコの OAuth 認証のコールバックを受け取り、ログイン中のユーザーアカウントとニコニコアカウントを紐づける。
@@ -127,7 +127,7 @@ async def NiconicoAuthCallbackAPI(
     try:
         current_user = await User.getCurrentUser(token=user_access_token)
     except HTTPException as ex:
-        return OAuthCallbackResponse(status_code = ex.status_code, detail = ex.message)
+        return OAuthCallbackResponse(status_code = ex.status_code, detail = cast(Any, ex).message)
 
     try:
 
@@ -171,7 +171,7 @@ async def NiconicoAuthCallbackAPI(
     # ニコニコアカウントのユーザー ID を取得
     # ユーザー ID は id_token の JWT の中に含まれている
     id_token_jwt = jwt.get_unverified_claims(token_api_response_json['id_token'])
-    current_user.niconico_user_id = int(id_token_jwt.get('sub'))
+    current_user.niconico_user_id = int(id_token_jwt.get('sub', 0))
 
     try:
 

@@ -48,7 +48,7 @@ def GetNetworkDriveList() -> List[Dict[str, str]]:
             drive_letter = winreg.EnumKey(root_key, key)
 
             # HKEY_CURRENT_USER\Network 以下のキーをそれぞれ開く
-            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, f'Network\{drive_letter}') as key:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, f'Network\\{drive_letter}') as key:
                 for sub_key in range(winreg.QueryInfoKey(key)[1]):
 
                     # 値の名前、データ、データ型を取得
@@ -150,7 +150,7 @@ def init():
 
         # サービスを起動
         servicemanager.Initialize()
-        servicemanager.PrepareToHostSingle(KonomiTVServiceFramework)
+        servicemanager.PrepareToHostSingle(KonomiTVServiceFramework)  # type: ignore
         servicemanager.StartServiceCtrlDispatcher()
 
     else:
@@ -193,7 +193,7 @@ def init():
             # HandleCommandLine に直接引数を指定して、サービスのインストールを実行
             win32serviceutil.HandleCommandLine(
                 cls = KonomiTVServiceFramework,
-                argv = [sys.argv[0], '--startup', 'auto', '--username', f'.\{username}', '--password', password, 'install'],
+                argv = [sys.argv[0], '--startup', 'auto', '--username', f'.\\{username}', '--password', password, 'install'],
             )
 
         # サブコマンドのイベントを登録
