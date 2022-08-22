@@ -7,9 +7,9 @@
             <img class="logo__image" src="/assets/images/logo.svg" height="21">
         </router-link>
         <v-spacer></v-spacer>
-        <v-btn icon class="mr-3 mr-md-6">
+        <!-- <v-btn icon class="mr-3 mr-md-6">
             <v-icon>mdi-dots-vertical</v-icon>
-        </v-btn>
+        </v-btn> -->
     </v-toolbar>
 </template>
 <style lang="scss">

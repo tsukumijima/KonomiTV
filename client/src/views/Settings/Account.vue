@@ -89,7 +89,7 @@
                 <v-btn class="settings__save-button" depressed @click="updateAccountInfo('username')">
                     <Icon icon="fluent:save-16-filled" class="mr-2" height="24px" />ユーザー名を更新
                 </v-btn>
-                <v-form class="settings__item" ref="settings_username" @submit.prevent>
+                <v-form class="settings__item" @submit.prevent>
                     <div class="settings__item-heading">アイコン画像</div>
                     <div class="settings__item-label">
                         KonomiTV アカウントのアイコン画像を設定します。<br>

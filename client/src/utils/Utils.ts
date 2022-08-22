@@ -183,11 +183,11 @@ export default class Utils {
 
 
     /**
-     * Blob に格納されている画像をブラウザにダウンロードさせる
-     * @param blob HTMLCanvasElement.toBlob() で取得した Blob オブジェクト
+     * Blob に格納されているデータをブラウザにダウンロードさせる
+     * @param blob Blob オブジェクト
      * @param filename 保存するファイル名
      */
-    static downloadBlobImage(blob: Blob, filename: string): void {
+    static downloadBlobData(blob: Blob, filename: string): void {
 
         // Blob URL を発行
         const blob_url = URL.createObjectURL(blob);

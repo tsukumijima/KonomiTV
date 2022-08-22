@@ -1955,7 +1955,7 @@ export default Vue.extend({
 
                     // キャプチャの保存先: ブラウザでダウンロード or 両方
                     if (['Browser', 'Both'].includes(Utils.getSettingsItem('capture_save_mode'))) {
-                        Utils.downloadBlobImage(blob, filename_ext);
+                        Utils.downloadBlobData(blob, filename_ext);
                     }
 
                     // キャプチャの保存先: KonomiTV サーバーにアップロード or 両方
@@ -2009,7 +2009,7 @@ export default Vue.extend({
 
                     // キャプチャの保存先: ブラウザでダウンロード or 両方
                     if (['Browser', 'Both'].includes(Utils.getSettingsItem('capture_save_mode'))) {
-                        Utils.downloadBlobImage(blob, filename_ext);
+                        Utils.downloadBlobData(blob, filename_ext);
                     }
 
                     // キャプチャの保存先: KonomiTV サーバーにアップロード or 両方
