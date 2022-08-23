@@ -100,36 +100,36 @@
                 </div>
                 <div class="watch-panel__content-container">
                     <Program class="watch-panel__content"
-                        :class="{'watch-panel__content--active': panel_active_tab === 'Program'}" :channel="channel" />
+                        :class="{'watch-panel__content--active': tv_panel_active_tab === 'Program'}" :channel="channel" />
                     <Channel class="watch-panel__content"
-                        :class="{'watch-panel__content--active': panel_active_tab === 'Channel'}" :channels_list="channels_list" />
+                        :class="{'watch-panel__content--active': tv_panel_active_tab === 'Channel'}" :channels_list="channels_list" />
                     <Comment class="watch-panel__content" ref="Comment"
-                        :class="{'watch-panel__content--active': panel_active_tab === 'Comment'}" :channel="channel" :player="player" />
+                        :class="{'watch-panel__content--active': tv_panel_active_tab === 'Comment'}" :channel="channel" :player="player" />
                     <Twitter class="watch-panel__content" ref="Twitter"
-                        :class="{'watch-panel__content--active': panel_active_tab === 'Twitter'}" :channel="channel" :player="player" />
+                        :class="{'watch-panel__content--active': tv_panel_active_tab === 'Twitter'}" :channel="channel" :player="player" />
                 </div>
                 <div class="watch-panel__navigation">
                     <div v-ripple class="panel-navigation-button"
-                         :class="{'panel-navigation-button--active': panel_active_tab === 'Program'}"
-                         @click="panel_active_tab = 'Program'">
+                         :class="{'panel-navigation-button--active': tv_panel_active_tab === 'Program'}"
+                         @click="tv_panel_active_tab = 'Program'">
                         <Icon class="panel-navigation-button__icon" icon="fa-solid:info-circle" width="33px" />
                         <span class="panel-navigation-button__text">番組情報</span>
                     </div>
                     <div v-ripple class="panel-navigation-button"
-                         :class="{'panel-navigation-button--active': panel_active_tab === 'Channel'}"
-                         @click="panel_active_tab = 'Channel'">
+                         :class="{'panel-navigation-button--active': tv_panel_active_tab === 'Channel'}"
+                         @click="tv_panel_active_tab = 'Channel'">
                         <Icon class="panel-navigation-button__icon" icon="fa-solid:broadcast-tower" width="34px" />
                         <span class="panel-navigation-button__text">チャンネル</span>
                     </div>
                     <div v-ripple class="panel-navigation-button"
-                         :class="{'panel-navigation-button--active': panel_active_tab === 'Comment'}"
-                         @click="panel_active_tab = 'Comment'">
+                         :class="{'panel-navigation-button--active': tv_panel_active_tab === 'Comment'}"
+                         @click="tv_panel_active_tab = 'Comment'">
                         <Icon class="panel-navigation-button__icon" icon="bi:chat-left-text-fill" width="29px" />
                         <span class="panel-navigation-button__text">コメント</span>
                     </div>
                     <div v-ripple class="panel-navigation-button"
-                         :class="{'panel-navigation-button--active': panel_active_tab === 'Twitter'}"
-                         @click="panel_active_tab = 'Twitter'">
+                         :class="{'panel-navigation-button--active': tv_panel_active_tab === 'Twitter'}"
+                         @click="tv_panel_active_tab = 'Twitter'">
                         <Icon class="panel-navigation-button__icon" icon="fa-brands:twitter" width="34px" />
                         <span class="panel-navigation-button__text">Twitter</span>
                     </div>
@@ -213,7 +213,7 @@ export default Vue.extend({
             time: dayjs().format('YYYY/MM/DD HH:mm:ss'),
 
             // 表示されるパネルのタブ
-            panel_active_tab: Utils.getSettingsItem('panel_active_tab'),
+            tv_panel_active_tab: Utils.getSettingsItem('tv_panel_active_tab'),
 
             // 背景の URL
             background_url: '',
@@ -232,7 +232,7 @@ export default Vue.extend({
 
             // パネルを表示するか
             // panel_display_state が 'AlwaysDisplay' なら常に表示し、'AlwaysFold' なら常に折りたたむ
-            // 'RestorePreviousState' なら is_display_latest_panel の値を使い､前回の状態を復元する
+            // 'RestorePreviousState' なら showed_panel_last_time の値を使い､前回の状態を復元する
             is_panel_display: (() => {
                 switch (Utils.getSettingsItem('panel_display_state')) {
                     case 'AlwaysDisplay':
@@ -240,7 +240,7 @@ export default Vue.extend({
                     case 'AlwaysFold':
                         return false;
                     case 'RestorePreviousState':
-                        return Utils.getSettingsItem('is_display_latest_panel');
+                        return Utils.getSettingsItem('showed_panel_last_time');
                 }
             })() as boolean,
 
@@ -450,7 +450,7 @@ export default Vue.extend({
     watch: {
         // 前回視聴画面を開いた際にパネルが表示されていたかどうかを保存
         is_panel_display() {
-            Utils.setSettingsItem('is_display_latest_panel', this.is_panel_display);
+            Utils.setSettingsItem('showed_panel_last_time', this.is_panel_display);
         }
     },
     methods: {
@@ -848,7 +848,7 @@ export default Vue.extend({
                             // HTMLMediaElement の内部バッファによるライブストリームの遅延を追跡する
                             // liveBufferLatencyChasing と異なり、いきなり再生時間をスキップするのではなく、
                             // 再生速度を少しだけ上げることで再生を止めることなく遅延を追跡する
-                            liveSync: Utils.getSettingsItem('is_low_latency_mode'),
+                            liveSync: Utils.getSettingsItem('low_latency_mode'),
                             // 許容する HTMLMediaElement の内部バッファの最大値 (秒単位, 1.8秒)
                             liveSyncMaxLatency: 1.8,
                             // ライブストリームの遅延の追跡に利用する再生速度 (x1.15)
@@ -868,7 +868,7 @@ export default Vue.extend({
                         PRACallback: async (index: number) => {  // 文字スーパーの PRA (内蔵音再生コマンド) のコールバックを指定
 
                             // 設定で文字スーパーが無効なら実行しない
-                            if (Utils.getSettingsItem('is_display_superimpose_tv') === false) return;
+                            if (Utils.getSettingsItem('show_superimpose_tv') === false) return;
 
                             // index に応じた内蔵音を鳴らす
                             // ref: https://ics.media/entry/200427/
@@ -984,7 +984,7 @@ export default Vue.extend({
 
             // 設定で文字スーパーが有効
             // 字幕が非表示の場合でも、文字スーパーは表示する
-            if (Utils.getSettingsItem('is_display_superimpose_tv') === true) {
+            if (Utils.getSettingsItem('show_superimpose_tv') === true) {
                 this.player.plugins.aribb24Superimpose.show();
                 this.player.on('subtitle_hide', () => {
                     this.player.plugins.aribb24Superimpose.show();
@@ -1289,7 +1289,7 @@ export default Vue.extend({
                             this.is_panel_display = true;
 
                             // どのタブを開いていたかに関係なく Twitter タブに切り替える
-                            this.panel_active_tab = 'Twitter';
+                            this.tv_panel_active_tab = 'Twitter';
 
                             // ツイート入力フォームの textarea 要素にフォーカスを当てる
                             tweet_form_element.focus();
@@ -1319,7 +1319,7 @@ export default Vue.extend({
                     // 以降の if 文で textarea フォーカス時のイベントをすべて弾いてしまっているため、前に持ってきている
                     if (((tag !== 'INPUT' && tag !== 'TEXTAREA' && editable !== '' && editable !== 'true') ||
                         (document.activeElement === tweet_form_element)) &&
-                        this.panel_active_tab === 'Twitter' &&
+                        this.tv_panel_active_tab === 'Twitter' &&
                         this.is_ime_composing === false) {
                         // (Ctrl or Cmd or Shift) + Enter
                         // Shift + Enter は隠し機能（間違えたとき用）
@@ -1411,22 +1411,22 @@ export default Vue.extend({
                             }
                             // Kキー: 番組情報タブ
                             if (event.code === 'KeyK') {
-                                this.panel_active_tab = 'Program';
+                                this.tv_panel_active_tab = 'Program';
                                 return true;
                             }
                             // Lキー: チャンネルタブ
                             if (event.code === 'KeyL') {
-                                this.panel_active_tab = 'Channel';
+                                this.tv_panel_active_tab = 'Channel';
                                 return true;
                             }
                             // ;(+)キー: コメントタブ
                             if (event.code === 'Semicolon') {
-                                this.panel_active_tab = 'Comment';
+                                this.tv_panel_active_tab = 'Comment';
                                 return true;
                             }
                             // :(*)キー: Twitterタブ
                             if (event.code === 'Quote') {
-                                this.panel_active_tab = 'Twitter';
+                                this.tv_panel_active_tab = 'Twitter';
                                 return true;
                             }
 
@@ -1451,7 +1451,7 @@ export default Vue.extend({
 
                         // Twitter タブ内のキャプチャタブが表示されている & Ctrl / Cmd / Shift / Alt のいずれも押されていないときだけ
                         // キャプチャタブが表示されている時は、プレイヤー操作側の矢印キー/スペースキーのショートカットは動作しない（キーが重複するため）
-                        if (this.panel_active_tab === 'Twitter' && twitter_component.twitter_active_tab === 'Capture' &&
+                        if (this.tv_panel_active_tab === 'Twitter' && twitter_component.twitter_active_tab === 'Capture' &&
                             (!event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey)) {
 
                             // ***** キャプチャにフォーカスする *****
@@ -1611,7 +1611,7 @@ export default Vue.extend({
                             }
                             // Shift + Spaceキー + キーリピートでない時 + Twitter タブ表示時: 再生/停止
                             if (event.shiftKey === true && event.code === 'Space' && is_repeat === false &&
-                                this.panel_active_tab === 'Twitter' && twitter_component.twitter_active_tab === 'Capture') {
+                                this.tv_panel_active_tab === 'Twitter' && twitter_component.twitter_active_tab === 'Capture') {
                                 this.player.toggle();
                                 return true;
                             }

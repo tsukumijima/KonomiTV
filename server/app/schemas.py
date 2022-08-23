@@ -114,13 +114,22 @@ class ClientSettings(BaseModel):
     # 詳細は client/src/utils/Utils.ts を参照
     # デバイス間で同期するとかえって面倒なことになりそうな設定は除外している
     pinned_channel_ids: List[str] = Field([])
-    is_display_superimpose_tv: bool = Field(True)
+    # showed_panel_last_time: 同期無効
+    # selected_twitter_account_id: 同期無効
+    saved_twitter_hashtags: List[str] = Field([])
+    # tv_streaming_quality: 同期無効
+    # low_latency_mode: 同期無効
+    show_superimpose_tv: bool = Field(True)
     panel_display_state: Literal['RestorePreviousState', 'AlwaysDisplay', 'AlwaysFold'] = Field('RestorePreviousState')
-    panel_active_tab: Literal['Program', 'Channel', 'Comment', 'Twitter'] = Field('Program')
+    tv_panel_active_tab: Literal['Program', 'Channel', 'Comment', 'Twitter'] = Field('Program')
     capture_save_mode: Literal['Browser', 'UploadServer', 'Both'] = Field('Browser')
     capture_caption_mode: Literal['VideoOnly', 'CompositingCaption', 'Both'] = Field('Both')
     comment_speed_rate: float = Field(1)
     comment_font_size: int = Field(34)
+    # comment_delay_time: 同期無効
+    twitter_active_tab: Literal['Search', 'Timeline', 'Capture'] = Field('Capture')
+    tweet_hashtag_position: Literal['Prepend', 'Append', 'PrependWithLineBreak', 'AppendWithLineBreak'] = Field('Append')
+    tweet_capture_watermark_position: Literal['None', 'TopLeft', 'TopRight', 'BottomLeft', 'BottomRight'] = Field('None')
 
 class ThirdpartyAuthURL(BaseModel):
     authorization_url: str | None

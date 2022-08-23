@@ -21,24 +21,24 @@
                 </v-select>
             </div>
             <div class="settings__item settings__item--switch">
-                <label class="settings__item-heading" for="is_low_latency_mode">テレビを低遅延で視聴する</label>
-                <label class="settings__item-label" for="is_low_latency_mode">
+                <label class="settings__item-heading" for="low_latency_mode">テレビを低遅延で視聴する</label>
+                <label class="settings__item-label" for="low_latency_mode">
                     テレビをライブストリーミングする際に、低遅延で視聴するかを設定します。<br>
                     低遅延ストリーミングがオンのときは、約 2 秒以上遅延したときに少しだけ再生速度を早める (1.15x) ことで、滑らかにストリーミングの遅れを取り戻します。<br>
                     宅外視聴などのネットワークが不安定になりがちな環境では、一度低遅延ストリーミングをオフにしてみると、映像のカクつきを改善できるかもしれません。<br>
                 </label>
-                <v-switch class="settings__item-switch" id="is_low_latency_mode" inset hide-details
-                    v-model="settings.is_low_latency_mode">
+                <v-switch class="settings__item-switch" id="low_latency_mode" inset hide-details
+                    v-model="settings.low_latency_mode">
                 </v-switch>
             </div>
             <div class="settings__item settings__item--switch">
-                <label class="settings__item-heading" for="is_display_superimpose_tv">テレビをみるときに文字スーパーを表示する</label>
-                <label class="settings__item-label" for="is_display_superimpose_tv">
+                <label class="settings__item-heading" for="show_superimpose_tv">テレビをみるときに文字スーパーを表示する</label>
+                <label class="settings__item-label" for="show_superimpose_tv">
                     テレビをライブストリーミングする際に、文字スーパーを表示するかを設定します。<br>
                     文字スーパーは、緊急地震速報の赤テロップや、NHK BS のニュース速報のテロップなどで利用されています。とくに理由がなければ、オンのままにしておくことをおすすめします。<br>
                 </label>
-                <v-switch class="settings__item-switch" id="is_display_superimpose_tv" inset hide-details
-                    v-model="settings.is_display_superimpose_tv">
+                <v-switch class="settings__item-switch" id="show_superimpose_tv" inset hide-details
+                    v-model="settings.show_superimpose_tv">
                 </v-switch>
             </div>
             <v-divider class="mt-6"></v-divider>
@@ -52,12 +52,12 @@
                 </v-select>
             </div>
             <div class="settings__item">
-                <div class="settings__item-heading">既定で表示されるパネルのタブ</div>
+                <div class="settings__item-heading">テレビをみるときに既定で表示されるパネルのタブ</div>
                 <div class="settings__item-label">
-                    視聴画面を開いたときに、右側のパネルで最初に表示されるタブを設定します。<br>
+                    テレビの視聴画面を開いたときに、右側のパネルで最初に表示されるタブを設定します。<br>
                 </div>
                 <v-select class="settings__item-form" outlined hide-details
-                    :items="panel_active_tab" v-model="settings.panel_active_tab">
+                    :items="tv_panel_active_tab" v-model="settings.tv_panel_active_tab">
                 </v-select>
             </div>
             <v-divider class="mt-6"></v-divider>
@@ -99,7 +99,7 @@
                     ダウンロードした設定データ (KonomiTV-Settings.json) は、[設定をインポート] からインポートできます。複数の KonomiTV を同じ設定で使いたいときなどに使ってください。<br>
                 </div>
             </div>
-            <v-btn class="settings__save-button mt-6" depressed @click="exportSettings()">
+            <v-btn class="settings__save-button mt-4" depressed @click="exportSettings()">
                 <Icon icon="fa6-solid:download" class="mr-3" height="19px" />設定をエクスポート
             </v-btn>
             <div class="settings__item mt-6">
@@ -115,7 +115,7 @@
                     v-model="import_settings_file">
                 </v-file-input>
             </div>
-            <v-btn class="settings__save-button error mt-4" depressed @click="importSettings()">
+            <v-btn class="settings__save-button error mt-5" depressed @click="importSettings()">
                 <Icon icon="fa6-solid:upload" class="mr-3" height="19px" />設定をインポート
             </v-btn>
         </div>
@@ -155,8 +155,8 @@ export default Vue.extend({
                 {'text': '常に折りたたむ', 'value': 'AlwaysFold'},
             ],
 
-            // 既定で表示されるパネルのタブの選択肢
-            panel_active_tab: [
+            // テレビをみるときに既定で表示されるパネルのタブの選択肢
+            tv_panel_active_tab: [
                 {'text': '番組情報タブ', 'value': 'Program'},
                 {'text': 'チャンネルタブ', 'value': 'Channel'},
                 {'text': 'コメントタブ', 'value': 'Comment'},
@@ -177,7 +177,7 @@ export default Vue.extend({
                 {'text': '映像のみのキャプチャと、字幕を合成したキャプチャを両方保存する', 'value': 'Both'},
             ],
 
-            // 選択された設定データファイル (KonomiTV-Settings.json)
+            // 選択された設定データ (KonomiTV-Settings.json) が入る
             import_settings_file: null as File | null,
 
             // 設定値が保存されるオブジェクト
@@ -187,10 +187,10 @@ export default Vue.extend({
                 const settings = {}
                 const settings_keys = [
                     'tv_streaming_quality',
-                    'is_low_latency_mode',
-                    'is_display_superimpose_tv',
+                    'low_latency_mode',
+                    'show_superimpose_tv',
                     'panel_display_state',
-                    'panel_active_tab',
+                    'tv_panel_active_tab',
                     'capture_save_mode',
                     'capture_caption_mode',
                 ];

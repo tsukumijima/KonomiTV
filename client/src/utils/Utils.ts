@@ -30,7 +30,7 @@ export default class Utils {
         pinned_channel_ids: [] as string[],
 
         // 前回視聴画面を開いた際にパネルが表示されていたかどうか (同期無効)
-        is_display_latest_panel: true as boolean,
+        showed_panel_last_time: true as boolean,
 
         // 現在ツイート対象として選択されている Twitter アカウントの ID (同期無効)
         selected_twitter_account_id: null as number | null,
@@ -44,16 +44,16 @@ export default class Utils {
         tv_streaming_quality: '1080p' as ('1080p-60fps' | '1080p' | '810p' | '720p' | '540p' | '480p' | '360p' | '240p'),
 
         // テレビを低遅延で視聴する (Default: 低遅延で視聴する) (同期無効)
-        is_low_latency_mode: true as boolean,
+        low_latency_mode: true as boolean,
 
         // テレビをみるときに文字スーパーを表示する (Default: 表示する)
-        is_display_superimpose_tv: true as boolean,
+        show_superimpose_tv: true as boolean,
 
         // 既定のパネルの表示状態 (Default: 前回の状態を復元する)
         panel_display_state: 'RestorePreviousState' as ('RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold'),
 
-        // 既定で表示されるパネルのタブ (Default: 番組情報タブ)
-        panel_active_tab: 'Program' as ('Program' | 'Channel' | 'Comment' | 'Twitter'),
+        // テレビをみるときに既定で表示されるパネルのタブ (Default: 番組情報タブ)
+        tv_panel_active_tab: 'Program' as ('Program' | 'Channel' | 'Comment' | 'Twitter'),
 
         // キャプチャの保存先 (Default: ブラウザでダウンロード)
         capture_save_mode: 'Browser' as ('Browser' | 'UploadServer' | 'Both'),
