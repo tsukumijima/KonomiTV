@@ -1331,11 +1331,15 @@ export default Vue.extend({
 
                     // ***** コメント入力フォームを閉じる *****
 
-                    // コメント入力フォームが表示されているときのみ
-                    if (this.player.template.controller.classList.contains('dplayer-controller-comment')) {
-                        if (event.code === 'Escape') {
-                            this.player.comment.hide();
-                            return true;
+                    // プレイヤーが初期化されていない時・Ctrl / Cmd / Shift / Alt キーが一緒に押された時に作動しないように
+                    if (this.player !== null && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
+
+                        // コメント入力フォームが表示されているときのみ
+                        if ( this.player.template.controller.classList.contains('dplayer-controller-comment')) {
+                            if (event.code === 'Escape') {
+                                this.player.comment.hide();
+                                return true;
+                            }
                         }
                     }
 
