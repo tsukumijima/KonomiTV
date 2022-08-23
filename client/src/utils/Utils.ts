@@ -79,6 +79,9 @@ export default class Utils {
         // コメントの遅延時間 (Default: 1.5秒) (同期無効)
         comment_delay_time: 1.5 as number,
 
+        // コメント送信後にコメント入力フォームを閉じる (Default: オン)
+        close_comment_form_after_send: true as boolean,
+
         // ***** 設定 → Twitter *****
 
         // 既定で表示される Twitter タブ内のタブ (Default: キャプチャタブ)
@@ -103,6 +106,7 @@ export default class Utils {
         'capture_caption_mode',
         'comment_speed_rate',
         'comment_font_size',
+        'close_comment_form_after_send',
         'twitter_active_tab',
         'tweet_hashtag_position',
         'tweet_capture_watermark_position',

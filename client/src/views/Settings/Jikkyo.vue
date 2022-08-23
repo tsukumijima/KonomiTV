@@ -66,8 +66,18 @@
                     通常は 1.5 秒程度で大丈夫です。ネットワークが遅いなどでタイムラグが大きいときだけ、映像の遅延に合わせて調整してください。<br>
                 </div>
                 <v-slider class="settings__item-form" ticks="always" thumb-label hide-details
-                    :step="0.5" :min="0" :max="5"  v-model="settings.comment_delay_time">
+                    :step="0.25" :min="0" :max="5"  v-model="settings.comment_delay_time">
                 </v-slider>
+            </div>
+            <div class="settings__item settings__item--switch">
+                <label class="settings__item-heading" for="close_comment_form_after_send">コメント送信後にコメント入力フォームを閉じる</label>
+                <label class="settings__item-label" for="close_comment_form_after_send">
+                    コメントを送信したあとに、コメント入力フォームを自動的に閉じるかを設定します。<br>
+                    基本的にはオンのままにしておくことをおすすめします。コメント入力フォームが表示されたままだと、大部分のショートカットキーが文字入力と競合して使えないためです。<br>
+                </label>
+                <v-switch class="settings__item-switch" id="close_comment_form_after_send" inset hide-details
+                    v-model="settings.close_comment_form_after_send">
+                </v-switch>
             </div>
         </div>
     </Base>
@@ -110,7 +120,12 @@ export default Vue.extend({
             settings: (() => {
                 // 現在の設定値を取得する
                 const settings = {}
-                for (const setting of ['comment_speed_rate', 'comment_font_size', 'comment_delay_time']) {
+                for (const setting of [
+                        'comment_speed_rate',
+                        'comment_font_size',
+                        'comment_delay_time',
+                        'close_comment_form_after_send',
+                    ]) {
                     settings[setting] = Utils.getSettingsItem(setting);
                 }
                 return settings;

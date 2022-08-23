@@ -355,7 +355,7 @@ export default Vue.extend({
                             { name: '映像をキャプチャする', keys: [{name: 'C', icon: false}] },
                             { name: '映像をコメントを付けてキャプチャする', keys: [{name: 'V', icon: false}] },
                             { name: 'コメント入力フォームにフォーカスする', keys: [{name: 'M', icon: false}] },
-                            { name: 'コメント入力フォームを閉じる', keys: [{name: 'Esc', icon: false}] },
+                            { name: 'コメント入力フォームを閉じる', keys: [{name: Utils.CtrlOrCmd(), icon: false}, {name: 'M', icon: false}] },
                         ]
                     },
                 ],
@@ -695,9 +695,9 @@ export default Vue.extend({
             // setTimeout に渡すタイマー関数
             const timeout = () => {
 
-                // コメント入力フォームにフォーカスされているときは実行しない
+                // コメント入力フォームが表示されているときは実行しない
                 // タイマーを掛け直してから抜ける
-                if (document.activeElement === this.player.template.commentInput) {
+                if (this.player.template.controller.classList.contains('dplayer-controller-comment')) {
                     this.control_interval_id = window.setTimeout(timeout, 3 * 1000);
                     return;
                 }
@@ -925,6 +925,42 @@ export default Vue.extend({
             // 無効化しておかないと、controlDisplayTimer() と競合してしまう
             // 上書き元のコードは https://github.com/tsukumijima/DPlayer/blob/master/src/js/controller.js#L387-L395 にある
             this.player.controller.setAutoHide = (time: number) => {};
+
+            // 「コメント送信後にコメント入力フォームを閉じる」がオフになっている場合のために、プレイヤー側のコメント送信関数を上書き
+            // 上書き部分以外の処理内容は概ね https://github.com/tsukumijima/DPlayer/blob/master/src/js/comment.js に準じる
+            this.player.comment.send = () => {
+
+                // コメント入力フォームへのフォーカスを外す (「コメント送信後にコメント入力フォームを閉じる」がオンのときだけ)
+                if (Utils.getSettingsItem('close_comment_form_after_send') === true) {
+                this.player.template.commentInput.blur();
+                }
+
+                // 空コメントを弾く
+                if (!this.player.template.commentInput.value.replace(/^\s+|\s+$/g, '')) {
+                    this.player.notice(this.player.tran('Please input danmaku content!'));
+                    return;
+                }
+
+                // コメントを送信
+                this.player.danmaku.send(
+                    {
+                        text: this.player.template.commentInput.value,
+                        color: this.player.container.querySelector('.dplayer-comment-setting-color input:checked').value,
+                        type: this.player.container.querySelector('.dplayer-comment-setting-type input:checked').value,
+                        size: this.player.container.querySelector('.dplayer-comment-setting-size input:checked').value,
+                    },
+                    // 送信完了後にコメント入力フォームを閉じる (「コメント送信後にコメント入力フォームを閉じる」がオンのときだけ)
+                    () => {
+                        if (Utils.getSettingsItem('close_comment_form_after_send') === true) {
+                            this.player.comment.hide();
+                        }
+                    },
+                    true,
+                );
+
+                // 重複送信を防ぐ
+                this.player.template.commentInput.value = '';
+            };
 
             // 設定パネルにショートカット一覧を表示するリンクを動的に追加する
             // タッチデバイスでは実行しない
@@ -1331,12 +1367,13 @@ export default Vue.extend({
 
                     // ***** コメント入力フォームを閉じる *****
 
-                    // プレイヤーが初期化されていない時・Ctrl / Cmd / Shift / Alt キーが一緒に押された時に作動しないように
-                    if (this.player !== null && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
+                    // プレイヤーが初期化されていない時・Shift / Alt キーが一緒に押された時に作動しないように
+                    if (this.player !== null && !event.shiftKey && !event.altKey) {
 
                         // コメント入力フォームが表示されているときのみ
-                        if ( this.player.template.controller.classList.contains('dplayer-controller-comment')) {
-                            if (event.code === 'Escape') {
+                        if (this.player.template.controller.classList.contains('dplayer-controller-comment')) {
+                            // Ctrl or Cmd + M
+                            if ((event.ctrlKey || event.metaKey) && event.code === 'KeyM') {
                                 this.player.comment.hide();
                                 return true;
                             }

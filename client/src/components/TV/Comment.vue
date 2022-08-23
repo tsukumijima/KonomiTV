@@ -1124,7 +1124,7 @@ export default Vue.extend({
             width: 100%;
             height: 100%;
             padding-left: 12px;
-            padding-right: 5px;
+            padding-right: 12px;
 
             &__heading {
                 font-size: 20px;
