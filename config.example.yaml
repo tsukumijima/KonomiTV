@@ -5,7 +5,7 @@
 
         # 利用するバックエンド
         # EDCB・Mirakurun のいずれかを選択してください。
-        'backend': 'Mirakurun',
+        'backend': 'EDCB',
 
         # EDCB (EpgTimerNW) の TCP API の URL
         # バックエンドに EDCB を選択したときに利用されます。
@@ -15,6 +15,10 @@
         # Mirakurun の HTTP API の URL
         # バックエンドに Mirakurun を選択したときに利用されます。
         'mirakurun_url': 'http://192.168.1.11:40772/',
+
+        # 番組情報の更新間隔 (分)
+        # 番組情報を EDCB または Mirakurun から取得する間隔を設定します。デフォルトは 15 (分) です。
+        'program_update_interval': 15,
 
         # デバッグモードを有効にするか
         # 有効にすると、デバッグログも出力されるようになります。

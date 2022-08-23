@@ -231,26 +231,26 @@ async def Startup():
             LiveStream(channel['channel_id'], quality)
 
 
-# 1時間に1回、チャンネル情報を更新する
+# 環境設定で指定された時間 (デフォルト: 15分) ごとに1回、チャンネル情報を更新する
 # チャンネル情報は頻繁に変わるわけではないけど、手動で再起動しなくても自動で変更が適用されてほしい
 @app.on_event('startup')
-@repeat_every(seconds=60 * 60, wait_first=True, logger=Logging.logger)
+@repeat_every(seconds=CONFIG['general']['program_update_interval'] * 60, wait_first=True, logger=Logging.logger)
 async def UpdateChannel():
     await Channel.update()
     await Channel.updateJikkyoStatus()
+
+# 環境設定で指定された時間 (デフォルト: 15分) ごとに1回、番組情報を更新する
+# 番組情報の更新処理はかなり重くストリーム配信などの他の処理に影響してしまうため、マルチプロセスで実行する
+@app.on_event('startup')
+@repeat_every(seconds=CONFIG['general']['program_update_interval'] * 60, wait_first=True, logger=Logging.logger)
+async def UpdateProgram():
+    await Program.update(multiprocess=True)
 
 # 30秒に1回、ニコニコ実況関連のステータスを更新する
 @app.on_event('startup')
 @repeat_every(seconds=0.5 * 60, wait_first=True, logger=Logging.logger)
 async def UpdateChannelJikkyoStatus():
     await Channel.updateJikkyoStatus()
-
-# 15分に1回、番組情報を更新する
-# 番組情報の更新処理はかなり重くストリーム配信などの他の処理に影響してしまうため、マルチプロセスで実行する
-@app.on_event('startup')
-@repeat_every(seconds=15 * 60, wait_first=True, logger=Logging.logger)
-async def UpdateProgram():
-    await Program.update(multiprocess=True)
 
 # 1時間に1回、登録されている Twitter アカウントの情報を更新する
 @app.on_event('startup')

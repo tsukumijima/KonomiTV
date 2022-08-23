@@ -16,6 +16,7 @@ class Config(BaseModel):
         backend: Literal['Mirakurun', 'EDCB']
         mirakurun_url: AnyHttpUrl
         edcb_url: stricturl(allowed_schemes={'tcp'}, tld_required=False)  # type: ignore
+        program_update_interval: PositiveInt
         debug: bool
         debug_encoder: bool
 
