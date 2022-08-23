@@ -96,7 +96,7 @@
                 <div class="settings__item-heading">設定をエクスポート</div>
                 <div class="settings__item-label">
                     このデバイス（ブラウザ）に保存されている設定データをエクスポート（ダウンロード）できます。<br>
-                    ダウンロードした設定データ (KonomiTV-Settings.json) は、[設定をインポート] からインポートできます。複数の KonomiTV を同じ設定で使いたいときなどに使ってください。<br>
+                    ダウンロードした設定データ (KonomiTV-Settings.json) は、[設定をインポート] からインポートできます。異なるサーバーの KonomiTV を同じ設定で使いたいときなどに使ってください。<br>
                 </div>
             </div>
             <v-btn class="settings__save-button mt-4" depressed @click="exportSettings()">
@@ -183,7 +183,7 @@ export default Vue.extend({
             // 設定値が保存されるオブジェクト
             // ここの値とフォームを v-model で binding する
             settings: (() => {
-                // 設定の既定値を取得する
+                // 現在の設定値を取得する
                 const settings = {}
                 const settings_keys = [
                     'tv_streaming_quality',

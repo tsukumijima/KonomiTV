@@ -75,6 +75,39 @@
                 </v-btn>
             </div>
             <div v-if="is_logged_in === true">
+                <div class="settings__item settings__item--switch">
+                    <label class="settings__item-heading" for="sync_settings">設定をデバイス間で同期する</label>
+                    <label class="settings__item-label" for="sync_settings">
+                        KonomiTV の設定を、同じアカウントにログインしているデバイス同士で同期するかを設定します。<br>
+                        同期を有効にすると、同期が有効なデバイスすべてで同じ設定が使えます。ピン留めしたチャンネルやハッシュタグリストなども同期されます。<br>
+                        ストリーミング画質やコメントの遅延時間など、デバイスごとに最適な設定が異なるものは、同期を有効にしたあとも引き続きこのデバイス（ブラウザ）のみに反映されます。<br>
+                    </label>
+                    <v-switch class="settings__item-switch" id="sync_settings" inset hide-details
+                        v-model="sync_settings">
+                    </v-switch>
+                </div>
+                <v-dialog max-width="430" v-model="sync_settings_dialog">
+                    <v-card>
+                        <v-card-title class="justify-center">設定データの競合</v-card-title>
+                        <v-card-text>
+                            このデバイスの設定と、サーバーに保存されている設定データが競合しています。<br>
+                        </v-card-text>
+                        <div class="d-flex flex-column px-4 pb-4">
+                            <v-btn class="settings__save-button" depressed @click="overrideServerSettingsFromClient()">
+                                <Icon icon="fluent:document-arrow-up-16-filled" class="mr-2" height="22px" />
+                                このデバイスの設定でサーバーの設定データを上書き
+                            </v-btn>
+                            <v-btn class="settings__save-button mt-3" depressed @click="overrideClientSettingsFromServer()">
+                                <Icon icon="fluent:document-arrow-down-16-filled" class="mr-2" height="22px" />
+                                サーバーの設定データでこのデバイスの設定を上書き
+                            </v-btn>
+                            <v-btn class="settings__save-button mt-3" depressed @click="sync_settings_dialog = false">
+                                <Icon icon="fluent:dismiss-16-filled" class="mr-2" height="22px" />
+                                キャンセル
+                            </v-btn>
+                        </div>
+                    </v-card>
+                </v-dialog>
                 <v-form class="settings__item" ref="settings_username" @submit.prevent>
                     <div class="settings__item-heading">ユーザー名</div>
                     <div class="settings__item-label">
@@ -207,6 +240,12 @@ export default Vue.extend({
 
             // アカウント削除確認ダイヤログ
             account_delete_confirm_dialog: null,
+
+            // 設定を同期するかの設定値
+            sync_settings: Utils.getSettingsItem('sync_settings') as boolean,
+
+            // 設定を同期するときのダイヤログ
+            sync_settings_dialog: false,
         }
     },
     async created() {
@@ -218,7 +257,98 @@ export default Vue.extend({
         // ローディング状態を解除
         this.is_loading = false;
     },
+    watch: {
+        // sync_settings の値の変更を監視する
+        async sync_settings() {
+
+            // 同期がオンになった & ダイヤログが表示されていない
+            if (this.sync_settings === true && this.sync_settings_dialog === false) {
+
+                try {
+
+                    // もし KonomiTV-Settings キーがまだない場合、あらかじめデフォルトの設定値を保存しておく
+                    if (localStorage.getItem('KonomiTV-Settings') === null) {
+                        localStorage.setItem('KonomiTV-Settings', JSON.stringify(Utils.default_settings));
+                    }
+
+                    // LocalStorage から KonomiTV-Settings を取得
+                    const settings: {[key: string]: any} = JSON.parse(localStorage.getItem('KonomiTV-Settings'));
+
+                    // 同期対象の設定キーのみで設定データをまとめ直す
+                    // sync_settings には同期対象外の設定は含まれない
+                    const sync_settings: {[key: string]: any} = {};
+                    for (const sync_settings_key of Utils.sync_settings_keys) {
+                        if (sync_settings_key in settings) {
+                            sync_settings[sync_settings_key] = settings[sync_settings_key];
+                        } else {
+                            // 後から追加された設定キーなどの理由で設定キーが現状の KonomiTV-Settings に存在しない場合
+                            // その設定キーのデフォルト値を取得する
+                            sync_settings[sync_settings_key] = Utils.default_settings[sync_settings_key];
+                        }
+                    }
+
+                    // 同期対象のこのクライアントの設定を再度 JSON にする（文字列比較のため）
+                    const sync_settings_json = JSON.stringify(sync_settings);
+
+                    // サーバーから設定データ (生の JSON) をダウンロード
+                    // 一度オブジェクトにしたものを再度 JSON にする（文字列比較のため）
+                    const server_sync_settings_json: string = JSON.stringify((await Vue.axios.get('/settings/client')).data);
+
+                    // このクライアントの設定とサーバーに保存されている設定が一致しない（=競合している）
+                    if (sync_settings_json !== server_sync_settings_json) {
+
+                        // 一度同期をオフにして、クライアントとサーバーどちらの設定を使うのかを選択させるダイヤログを表示
+                        this.sync_settings_dialog = true;
+                        this.sync_settings = false;
+
+                    // このクライアントの設定とサーバーに保存されている設定が一致する
+                    } else {
+
+                        // 特に設定の同期をオンにしても問題ないので、そのまま有効にする
+                        Utils.setSettingsItem('sync_settings', true);
+                    }
+
+                } catch (error) {
+                    // 何らかの理由でエラーになったとき
+                    this.$message.error(`サーバーから設定データを取得できませんでした。(HTTP Error ${error.response.status})`);
+                }
+
+            // 同期がオフになった & ダイヤログが表示されていない
+            } else if (this.sync_settings === false && this.sync_settings_dialog === false) {
+                Utils.setSettingsItem('sync_settings', false);
+            }
+        }
+    },
     methods: {
+
+        // このクライアントの設定でサーバー上の設定を上書きする
+        async overrideServerSettingsFromClient() {
+
+            // 設定の同期を有効化
+            this.sync_settings = true;
+            Utils.setSettingsItem('sync_settings', true);
+
+            // 強制的にこのクライアントの設定をサーバーに同期
+            await Utils.syncClientSettingsToServer();
+
+            // ダイヤログを閉じる
+            this.sync_settings_dialog = false;
+        },
+
+        // サーバー上の設定でこのクライアントの設定を上書きする
+        async overrideClientSettingsFromServer() {
+
+            // 設定の同期を有効化
+            this.sync_settings = true;
+            Utils.setSettingsItem('sync_settings', true);
+
+            // 強制的にサーバーに保存されている設定データをこのクライアントに同期する
+            await Utils.syncServerSettingsToClient();
+
+            // ダイヤログを閉じる
+            this.sync_settings_dialog = false;
+        },
+
         async syncAccountInfo() {
 
             try {
@@ -291,7 +421,7 @@ export default Vue.extend({
                 // ref: https://dev.classmethod.jp/articles/typescript-typing-exception-objects-in-axios-trycatch/
                 if (axios.isAxiosError(error) && error.response && error.response.status === 422) {
                     // エラーメッセージごとに Snackbar に表示
-                    switch (error.response.data.detail) {
+                    switch ((error.response.data as any).detail) {
                         case 'Specified username is duplicated': {
                             this.$message.error('ユーザー名が重複しています。');
                             break;
@@ -337,7 +467,7 @@ export default Vue.extend({
                 // ref: https://dev.classmethod.jp/articles/typescript-typing-exception-objects-in-axios-trycatch/
                 if (axios.isAxiosError(error) && error.response && error.response.status === 422) {
                     // エラーメッセージごとに Snackbar に表示
-                    switch (error.response.data.detail) {
+                    switch ((error.response.data as any).detail) {
                         case 'Please upload JPEG or PNG image': {
                             this.$message.error('JPEG または PNG 画像をアップロードしてください。');
                             break;

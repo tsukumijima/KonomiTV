@@ -49,6 +49,11 @@ body .route-container {
     background: var(--v-background-base);
 }
 
+// ボタン内のテキストの字間をオフ
+.v-btn {
+    letter-spacing: 0 !important;
+}
+
 // スナックバーの表示時にナビゲーションバーの分だけ表示位置をずらす
 // 揃えないと見栄えが悪い
 .v-snack {

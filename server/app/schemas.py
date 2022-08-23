@@ -124,6 +124,7 @@ class ClientSettings(BaseModel):
     tv_panel_active_tab: Literal['Program', 'Channel', 'Comment', 'Twitter'] = Field('Program')
     capture_save_mode: Literal['Browser', 'UploadServer', 'Both'] = Field('Browser')
     capture_caption_mode: Literal['VideoOnly', 'CompositingCaption', 'Both'] = Field('Both')
+    # sync_settings: 同期無効
     comment_speed_rate: float = Field(1)
     comment_font_size: int = Field(34)
     # comment_delay_time: 同期無効

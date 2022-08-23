@@ -17,6 +17,7 @@ import axios from '@/plugins/axios';
 import vuetify from '@/plugins/vuetify';
 import router from '@/router';
 import '@/service-worker';
+import Utils from './utils';
 
 // スムーズスクロール周りの API の polyfill を適用
 // Element.scrollInfoView() のオプション指定を使うために必要
@@ -83,3 +84,9 @@ new Vue({
     vuetify,
     render: h => h(App),
 }).$mount('#app');
+
+// 設定の同期が有効なとき、ページ遷移に関わらず、常に3秒おきにサーバーから設定を取得する
+if (Utils.getSettingsItem('sync_settings') === true) {
+    Utils.syncServerSettingsToClient();
+    window.setInterval(async () => await Utils.syncServerSettingsToClient(), 3 * 1000);
+}

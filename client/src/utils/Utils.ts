@@ -1,4 +1,6 @@
 
+import Vue from 'vue';
+
 /**
  * 共通ユーティリティ
  */
@@ -21,7 +23,7 @@ export default class Utils {
 
     // デフォルトの設定値
     // (同期無効) とある項目は、デバイス間で同期するとかえって面倒なことになりそうなため同期されない設定
-    // ここを変えたときはサーバー側の app.schemas も変更すること
+    // ここを変えたときはサーバー側の app.schemas.ClientSettings も変更すること
     static readonly default_settings = {
 
         // ***** 設定画面から直接変更できない設定値 *****
@@ -61,6 +63,11 @@ export default class Utils {
         // 字幕が表示されているときのキャプチャの保存モード (Default: 映像のみのキャプチャと、字幕を合成したキャプチャを両方保存する)
         capture_caption_mode: 'Both' as ('VideoOnly' | 'CompositingCaption' | 'Both'),
 
+        // ***** 設定 → アカウント *****
+
+        // 設定を同期する (Default: 同期しない) (同期無効)
+        sync_settings: false as boolean,
+
         // ***** 設定 → ニコニコ実況 *****
 
         // コメントの速さ (Default: 1倍)
@@ -84,6 +91,23 @@ export default class Utils {
         tweet_capture_watermark_position: 'None' as ('None' | 'TopLeft' | 'TopRight' | 'BottomLeft' | 'BottomRight'),
     };
 
+    // 同期対象の設定キー
+    // サーバー側の app.schemas.ClientSettings に定義されているものと同じ
+    static readonly sync_settings_keys = [
+        'pinned_channel_ids',
+        'saved_twitter_hashtags',
+        'show_superimpose_tv',
+        'panel_display_state',
+        'tv_panel_active_tab',
+        'capture_save_mode',
+        'capture_caption_mode',
+        'comment_speed_rate',
+        'comment_font_size',
+        'twitter_active_tab',
+        'tweet_hashtag_position',
+        'tweet_capture_watermark_position',
+    ];
+
 
     /**
      * 設定を LocalStorage から取得する
@@ -92,18 +116,22 @@ export default class Utils {
      */
     static getSettingsItem(key: string): any | null {
 
+        // もし KonomiTV-Settings キーがまだない場合、あらかじめデフォルトの設定値を保存しておく
+        if (localStorage.getItem('KonomiTV-Settings') === null) {
+            localStorage.setItem('KonomiTV-Settings', JSON.stringify(Utils.default_settings));
+        }
+
         // LocalStorage から KonomiTV-Settings を取得
         // データは JSON で管理し、LocalStorage 上の一つのキーにまとめる
-        // キーが存在しない場合はデフォルトの設定値を使う
-        const settings: object = JSON.parse(localStorage.getItem('KonomiTV-Settings')) || Utils.default_settings;
+        const settings: {[key: string]: any} = JSON.parse(localStorage.getItem('KonomiTV-Settings'));
 
         // そのキーが保存されているときだけ、設定値を返す
         if (key in settings) {
             return settings[key];
         } else {
             // デフォルトの設定値にあればそれを使う
-            if (key in this.default_settings) {
-                return this.default_settings[key];
+            if (key in Utils.default_settings) {
+                return Utils.default_settings[key];
             } else {
                 return null;
             }
@@ -118,19 +146,98 @@ export default class Utils {
      */
     static setSettingsItem(key: string, value: any): void {
 
+        // もし KonomiTV-Settings キーがまだない場合、あらかじめデフォルトの設定値を保存しておく
+        if (localStorage.getItem('KonomiTV-Settings') === null) {
+            localStorage.setItem('KonomiTV-Settings', JSON.stringify(Utils.default_settings));
+        }
+
         // LocalStorage から KonomiTV-Settings を取得
-        const settings: object = JSON.parse(localStorage.getItem('KonomiTV-Settings')) || Utils.default_settings;
+        const settings: {[key: string]: any} = JSON.parse(localStorage.getItem('KonomiTV-Settings'));
 
-        // そのキーが default_settings に定義されているときだけ
-        // バージョン違いなどで LocalStorage には登録されていないキーだが default_settings には登録されているケースが発生し得るため
-        if (key in this.default_settings) {
+        // 設定値を新しい値で置き換え
+        settings[key] = value;
 
-            // 設定値を新しい値で置き換え
-            settings[key] = value;
+        // (名前が変わった、廃止されたなどの理由で) 現在の default_settings に存在しない設定キーを排除した上で並び替え
+        // 並び替えられていないと設定データの比較がうまくいかない
+        const new_settings: {[key: string]: any} = {};
+        for (const default_settings_key of Object.keys(Utils.default_settings)) {
+            if (default_settings_key in settings) {
+                new_settings[default_settings_key] = settings[default_settings_key];
+            } else {
+                // 後から追加された設定キーなどの理由で設定キーが現状の KonomiTV-Settings に存在しない場合
+                // その設定キーのデフォルト値を取得する
+                new_settings[default_settings_key] = Utils.default_settings[default_settings_key];
+            }
+        }
+
+        // LocalStorage に保存
+        localStorage.setItem('KonomiTV-Settings', JSON.stringify(new_settings));
+
+        // 更新された設定をサーバーに同期 (同期有効時のみ)
+        Utils.syncClientSettingsToServer();
+    }
+
+
+    /**
+     * ログイン時かつ同期が有効な場合、サーバーに保存されている設定データをこのクライアントに同期する
+     */
+    static async syncServerSettingsToClient(): Promise<void> {
+
+        // LocalStorage から KonomiTV-Settings を取得
+        const settings: {[key: string]: any} = JSON.parse(localStorage.getItem('KonomiTV-Settings'));
+
+        // ログインしていない時、同期が無効なときは実行しない
+        if (Utils.getAccessToken() === null || settings.sync_settings === false) {
+            return;
+        }
+
+        try {
+
+            // サーバーから設定データをダウンロード
+            const server_settings: {[key: string]: any} = (await Vue.axios.get('/settings/client')).data;
+
+            // クライアントの設定値をサーバーからの設定値で上書き
+            for (const [server_settings_key, server_settings_value] of Object.entries(server_settings)) {
+                settings[server_settings_key] = server_settings_value;
+            }
 
             // LocalStorage に保存
             localStorage.setItem('KonomiTV-Settings', JSON.stringify(settings));
+
+        } catch (error) {
+            // 何らかの理由でエラーになったときは何もしない
         }
+    }
+
+
+    /**
+     * ログイン時かつ同期が有効な場合、このクライアントの設定をサーバーに同期する
+     */
+    static async syncClientSettingsToServer(): Promise<void> {
+
+        // LocalStorage から KonomiTV-Settings を取得
+        const settings: {[key: string]: any} = JSON.parse(localStorage.getItem('KonomiTV-Settings'));
+
+        // ログインしていない時、同期が無効なときは実行しない
+        if (Utils.getAccessToken() === null || settings.sync_settings === false) {
+            return;
+        }
+
+        // 同期対象の設定キーのみで設定データをまとめ直す
+        // sync_settings には同期対象外の設定は含まれない
+        const sync_settings: {[key: string]: any} = {};
+        for (const sync_settings_key of Utils.sync_settings_keys) {
+            if (sync_settings_key in settings) {
+                sync_settings[sync_settings_key] = settings[sync_settings_key];
+            } else {
+                // 後から追加された設定キーなどの理由で設定キーが現状の KonomiTV-Settings に存在しない場合
+                // その設定キーのデフォルト値を取得する
+                sync_settings[sync_settings_key] = Utils.default_settings[sync_settings_key];
+            }
+        }
+
+        // サーバーに設定データをアップロード
+        await Vue.axios.put('/settings/client', sync_settings);
     }
 
 

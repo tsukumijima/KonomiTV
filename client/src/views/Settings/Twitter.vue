@@ -121,7 +121,7 @@ export default Vue.extend({
             // 設定値が保存されるオブジェクト
             // ここの値とフォームを v-model で binding する
             settings: (() => {
-                // 設定の既定値を取得する
+                // 現在の設定値を取得する
                 const settings = {}
                 for (const setting of ['twitter_active_tab', 'tweet_hashtag_position', 'tweet_capture_watermark_position']) {
                     settings[setting] = Utils.getSettingsItem(setting);
