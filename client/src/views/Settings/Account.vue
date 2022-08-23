@@ -86,7 +86,7 @@
                         v-model="sync_settings">
                     </v-switch>
                 </div>
-                <v-dialog max-width="430" v-model="sync_settings_dialog">
+                <v-dialog max-width="440" v-model="sync_settings_dialog">
                     <v-card>
                         <v-card-title class="justify-center">設定データの競合</v-card-title>
                         <v-card-text>
@@ -95,11 +95,11 @@
                         <div class="d-flex flex-column px-4 pb-4">
                             <v-btn class="settings__save-button" depressed @click="overrideServerSettingsFromClient()">
                                 <Icon icon="fluent:document-arrow-up-16-filled" class="mr-2" height="22px" />
-                                このデバイスの設定でサーバーの設定データを上書き
+                                このデバイスの設定でサーバー上の設定データを上書き
                             </v-btn>
                             <v-btn class="settings__save-button mt-3" depressed @click="overrideClientSettingsFromServer()">
                                 <Icon icon="fluent:document-arrow-down-16-filled" class="mr-2" height="22px" />
-                                サーバーの設定データでこのデバイスの設定を上書き
+                                サーバー上の設定データでこのデバイスの設定を上書き
                             </v-btn>
                             <v-btn class="settings__save-button mt-3" depressed @click="sync_settings_dialog = false">
                                 <Icon icon="fluent:dismiss-16-filled" class="mr-2" height="22px" />
@@ -324,12 +324,12 @@ export default Vue.extend({
         // このクライアントの設定でサーバー上の設定を上書きする
         async overrideServerSettingsFromClient() {
 
+            // 強制的にこのクライアントの設定をサーバーに同期
+            await Utils.syncClientSettingsToServer(true);
+
             // 設定の同期を有効化
             this.sync_settings = true;
             Utils.setSettingsItem('sync_settings', true);
-
-            // 強制的にこのクライアントの設定をサーバーに同期
-            await Utils.syncClientSettingsToServer();
 
             // ダイヤログを閉じる
             this.sync_settings_dialog = false;
@@ -338,12 +338,16 @@ export default Vue.extend({
         // サーバー上の設定でこのクライアントの設定を上書きする
         async overrideClientSettingsFromServer() {
 
+            // 強制的にサーバーに保存されている設定データをこのクライアントに同期する
+            // 設定の同期を有効化する前に実行しておくのが重要
+            await Utils.syncServerSettingsToClient(true);
+
             // 設定の同期を有効化
+            // Utils.setSettingsItem() した段階で設定データがサーバーにアップロードされてしまうので、
+            // それよりも前に Utils.syncServerSettingsToClient(true) でサーバー上の設定データを同期させておく必要がある
+            // さもなければ、サーバー上の設定データがこのクライアントの設定で上書きされてしまい、overrideServerSettingsFromClient() と同じ挙動になってしまう
             this.sync_settings = true;
             Utils.setSettingsItem('sync_settings', true);
-
-            // 強制的にサーバーに保存されている設定データをこのクライアントに同期する
-            await Utils.syncServerSettingsToClient();
 
             // ダイヤログを閉じる
             this.sync_settings_dialog = false;

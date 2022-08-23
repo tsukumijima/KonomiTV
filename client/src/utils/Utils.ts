@@ -108,6 +108,10 @@ export default class Utils {
         'tweet_capture_watermark_position',
     ];
 
+    // 設定をサーバーにアップロード中かどうか
+    // これが true のときは、定期的なサーバーからの設定ダウンロードを行わない
+    static uploading_settings: boolean = false;
+
 
     /**
      * 設定を LocalStorage から取得する
@@ -180,15 +184,21 @@ export default class Utils {
 
     /**
      * ログイン時かつ同期が有効な場合、サーバーに保存されている設定データをこのクライアントに同期する
+     * @param force ログイン中なら同期が有効かに関わらず実行する (デフォルト: false)
      */
-    static async syncServerSettingsToClient(): Promise<void> {
+    static async syncServerSettingsToClient(force = false): Promise<void> {
 
         // LocalStorage から KonomiTV-Settings を取得
         const settings: {[key: string]: any} = JSON.parse(localStorage.getItem('KonomiTV-Settings'));
 
         // ログインしていない時、同期が無効なときは実行しない
-        if (Utils.getAccessToken() === null || settings.sync_settings === false) {
+        if (Utils.getAccessToken() === null || (settings.sync_settings === false && force === false)) {
             return;
+        }
+
+        // 設定データをアップロード中のときは、動作が競合しないように終わるまで待つ
+        while (Utils.uploading_settings === true) {
+            await Utils.sleep(0.1);
         }
 
         try {
@@ -212,16 +222,20 @@ export default class Utils {
 
     /**
      * ログイン時かつ同期が有効な場合、このクライアントの設定をサーバーに同期する
+     * @param force ログイン中なら同期が有効かに関わらず実行する (デフォルト: false)
      */
-    static async syncClientSettingsToServer(): Promise<void> {
+    static async syncClientSettingsToServer(force = false): Promise<void> {
 
         // LocalStorage から KonomiTV-Settings を取得
         const settings: {[key: string]: any} = JSON.parse(localStorage.getItem('KonomiTV-Settings'));
 
         // ログインしていない時、同期が無効なときは実行しない
-        if (Utils.getAccessToken() === null || settings.sync_settings === false) {
+        if (Utils.getAccessToken() === null || (settings.sync_settings === false && force === false)) {
             return;
         }
+
+        // 設定データのアップロード開始
+        Utils.uploading_settings = true;
 
         // 同期対象の設定キーのみで設定データをまとめ直す
         // sync_settings には同期対象外の設定は含まれない
@@ -237,7 +251,14 @@ export default class Utils {
         }
 
         // サーバーに設定データをアップロード
-        await Vue.axios.put('/settings/client', sync_settings);
+        try {
+            await Vue.axios.put('/settings/client', sync_settings);
+        } catch (error) {
+            // 何もしない
+        }
+
+        // 設定データのアップロード終了
+        Utils.uploading_settings = false;
     }
 
 

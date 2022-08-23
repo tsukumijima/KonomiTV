@@ -85,8 +85,10 @@ new Vue({
     render: h => h(App),
 }).$mount('#app');
 
-// 設定の同期が有効なとき、ページ遷移に関わらず、常に3秒おきにサーバーから設定を取得する
-if (Utils.getSettingsItem('sync_settings') === true) {
-    Utils.syncServerSettingsToClient();
-    window.setInterval(async () => await Utils.syncServerSettingsToClient(), 3 * 1000);
-}
+// ログイン時かつ設定の同期が有効なとき、ページ遷移に関わらず、常に3秒おきにサーバーから設定を取得する
+// 初回のページレンダリングに間に合わないのは想定内（同期の完了を待つこともできるが、それだと表示速度が遅くなるのでしょうがない）
+window.setInterval(async () => {
+    if (Utils.getAccessToken() !== null && Utils.getSettingsItem('sync_settings') === true) {
+        Utils.syncServerSettingsToClient();
+    }
+}, 3 * 1000);  // 3秒おき

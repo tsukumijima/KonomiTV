@@ -11,15 +11,12 @@
                     </v-card-title>
                     <v-divider></v-divider>
                     <v-form ref="login" @submit.prevent>
-                        <v-text-field class="mt-12" autofocus outlined placeholder="ユーザー名"
-                            v-model="username"
-                            :rules="[username_validation]">
+                        <v-text-field class="mt-12" autofocus outlined placeholder="ユーザー名" v-model="username">
                         </v-text-field>
                         <v-text-field class="mt-2" outlined placeholder="パスワード"
                             v-model="password"
                             :type="password_showing ? 'text' : 'password'"
                             :append-icon="password_showing ? 'mdi-eye' : 'mdi-eye-off'"
-                            :rules="[password_validation]"
                             @click:append="password_showing = !password_showing">
                         </v-text-field>
                         <v-btn class="login-button mt-5" color="secondary" depressed width="100%" height="56"
@@ -49,28 +46,16 @@ export default Vue.extend({
     },
     data() {
         return {
-            username: null as string | null,
-            username_validation: (value: string | null) => {
-                if (value === '' || value === null) return 'ユーザー名を入力してください。';
-                if (/^.{2,}$/.test(value) === false) return 'ユーザー名は2文字以上で入力してください。';
-                return true;
-            },
-            password: null as string | null,
+            username: '' as string,
+            password: '' as string,
             password_showing: false,
-            password_validation: (value: string | null) => {
-                if (value === '' || value === null) return 'パスワードを入力してください。';
-                // 正規表現の参考: https://qiita.com/grrrr/items/0b35b5c1c98eebfa5128
-                if (/^[a-zA-Z0-9!-/:-@¥[-`{-~]{4,}$/.test(value) === false) return 'パスワードは4文字以上の半角英数記号を入力してください。';
-                return true;
-            },
         }
     },
     methods: {
         async login() {
 
-            // すべてのバリデーションが通過したときのみ
-            // ref: https://qiita.com/Hijiri_Ishi/items/56cac99c8f3806a6fa24
-            if ((this.$refs.login as any).validate() === false) return;
+            // ユーザー名またはパスワードが空
+            if (this.username === '' || this.password === '') return;
 
             try {
 
@@ -98,7 +83,7 @@ export default Vue.extend({
                     console.log(error.response.data);
 
                     // エラーメッセージごとに Snackbar に表示
-                    switch (error.response.data.detail) {
+                    switch ((error.response.data as any).detail) {
                         case 'Incorrect username': {
                             this.$message.error('ログインできませんでした。そのユーザー名のアカウントは存在しません。');
                             break;

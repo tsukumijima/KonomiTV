@@ -247,6 +247,9 @@ export default Vue.extend({
                 // このとき、既存の設定データはすべて上書きされる
                 localStorage.setItem('KonomiTV-Settings', JSON.stringify(settings));
 
+                // 設定データをサーバーに同期する
+                await Utils.syncClientSettingsToServer();
+
                 // 設定を適用するためリロード
                 this.$message.success('設定をインポートしました。');
                 window.setTimeout(() => this.$router.go(0), 300);
