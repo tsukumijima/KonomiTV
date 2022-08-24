@@ -2,14 +2,19 @@
 # Windows サービスを実装するコード
 # ref: https://metallapan.se/post/windows-service-pywin32-pyinstaller/
 
+# Windows 以外では動作しないので終了
+import os
+import sys
+if os.name != 'nt':
+    print('KonomiTV-Service.py is for Windows only. Doesn\'t work on Linux.')
+    sys.exit(1)
+
 import argparse
 import ctypes
-import os
 import pathlib
 import shutil
 import site
 import subprocess
-import sys
 import time
 import threading
 import winreg
@@ -173,8 +178,17 @@ def init():
         # サービスインストール時のイベント
         def install_handler(args):
 
-            # インストールする前に、.venv/Lib/site-packages 以下の pywin32_system32 フォルダから必要な DLL を win32 フォルダにコピーする
-            # これをやっておかないとサービスが起動できない
+            # インストールする前に、python310.dll を pythonservice.exe のある .venv/Lib/site-packages/win32/ フォルダにコピーする
+            # python310.dll がないと pythonservice.exe が Python を実行できず、サービスの起動に失敗する
+            if os.path.exists(base_dir / '.venv/Lib/site-packages/win32/python310.dll') is False:
+                shutil.copy(
+                    base_dir / 'thirdparty/Python/python310.dll',
+                    base_dir / '.venv/Lib/site-packages/win32/python310.dll',
+                )
+
+            # インストールする前に、.venv/Lib/site-packages/ 以下の pywin32_system32 フォルダから必要な DLL を
+            # pythonservice.exe のある .venv/Lib/site-packages/win32/ フォルダにコピーする
+            # pythoncom310.dll / pywintypes310.dll がないと pythonservice.exe が Python を実行できず、サービスの起動に失敗する
             if os.path.exists(base_dir / '.venv/Lib/site-packages/win32/pythoncom310.dll') is False:
                 shutil.copy(
                     base_dir / '.venv/Lib/site-packages/pywin32_system32/pythoncom310.dll',
