@@ -224,8 +224,12 @@ class LiveEncodingTask():
                 # インターレース解除 (60i → 30p (30fps))
                 options.append('--vpp-deinterlace normal --avsync forcecfr --gop-len 60')
         elif encoder_type == 'VCEEncC':
-            # VCEEncC では --vpp-deinterlace が使えないため、60i → 60p (60fps) へのインターレース解除ができない
-            options.append('--vpp-afs preset=default --avsync forcecfr --gop-len 60')
+            if quality == '1080p-60fps':
+                # インターレース解除 (60i → 60p (60fps))
+                options.append('--vpp-yadif mode=bob --avsync cfr --gop-len 120')
+            else:
+                # インターレース解除 (60i → 30p (30fps))
+                options.append('--vpp-afs preset=default --avsync forcecfr --gop-len 60')
         ## プリセット
         if encoder_type == 'QSVEncC':
             options.append('--quality balanced')
