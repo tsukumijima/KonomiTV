@@ -9,6 +9,7 @@ if os.name != 'nt':
     print('KonomiTV-Service.py is for Windows only. Doesn\'t work on Linux.')
     sys.exit(1)
 
+# 標準パッケージ
 import argparse
 import ctypes
 import pathlib
@@ -18,13 +19,17 @@ import subprocess
 import time
 import threading
 import winreg
-from typing import Dict, List
+from typing import Any, Dict, List, cast
 
 # サービスからの起動では、pipenv (venv) の仮想環境にあるパッケージが読み込めない
 # そのため、手動で venv の site-packages のパスを追加する
 # ref: https://github.com/mhammond/pywin32/issues/1450#issuecomment-564717340
 base_dir = pathlib.Path(__file__).parent
 site.addsitedir(str(base_dir / '.venv/Lib/site-packages'))
+
+# psutil をインポート
+# psutil は外部ライブラリなので、パスを追加した後でないと動かない
+import psutil
 
 # pywin32 のライブラリ群をインポート
 # site-packages のパスを修正した後にインポートしないとサービスが起動できない
@@ -95,6 +100,15 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
             thread.start()
         for thread in threads:
             thread.join()
+
+        # 万が一ポートが衝突する Akebi HTTPS Server があったら終了させる
+        # ポートが衝突する Akebi HTTPS Server があると KonomiTV サーバーの起動に失敗するため
+        from app.constants import CONFIG
+        for process in psutil.process_iter(attrs=('name', 'pid', 'cmdline')):
+            process_info: Dict[str, Any] = cast(Any, process).info
+            if ('akebi-https-server.exe' == process_info['name'] and
+                f'--listen-address 0.0.0.0:{CONFIG["server"]["port"]}' in ' '.join(process_info['cmdline'])):
+                process.kill()
 
         # 仮想環境上の Python から KonomiTV のサーバープロセス (Uvicorn) を起動
         self.process = subprocess.Popen(
@@ -207,7 +221,10 @@ def init():
             # HandleCommandLine に直接引数を指定して、サービスのインストールを実行
             win32serviceutil.HandleCommandLine(
                 cls = KonomiTVServiceFramework,
-                argv = [sys.argv[0], '--startup', 'auto', '--username', f'.\\{username}', '--password', password, 'install'],
+                # 「自動 (遅延開始)」(delayed) でインストールする
+                ## 「自動」(auto) だと EDCB や Mirakurun のサービスが起動していない段階で実行されてしまい、EDCB または Mirakurun にアクセスできず起動に失敗する
+                ## 「自動 (遅延開始)」だとシステム起動から2分ほど遅れて実行されるが、上記の問題があるため致し方ない
+                argv = [sys.argv[0], '--startup', 'delayed', '--username', f'.\\{username}', '--password', password, 'install'],
             )
 
         # サブコマンドのイベントを登録
