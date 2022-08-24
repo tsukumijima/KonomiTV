@@ -92,6 +92,10 @@ async def TwitterAuthURLAPI(
             detail = 'Failed to get Twitter authorization URL',
         )
 
+    # 認証 URL に force_login=true をつけることで、Twitter にログイン中でも強制的にログインフォームを表示できる
+    # KonomiTV アカウントに複数の Twitter アカウントを登録する場合、毎回一旦 Twitter を開いてアカウントを切り替えるのは（特にスマホの場合）かなり面倒
+    authorization_url = f'{authorization_url}&force_login=true'
+
     # 仮で TwitterAccount のレコードを作成
     ## 戻ってきたときに oauth_token がどのユーザーに紐づいているのかを判断するため
     ## TwitterAuthCallbackAPI は仕組み上認証をかけられないので、勝手に任意のアカウントを紐付けられないためにはこうせざるを得ない
