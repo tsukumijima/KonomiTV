@@ -47,6 +47,7 @@ class Channel(models.Model):
         """ チャンネル情報を更新する """
 
         timestamp = time.time()
+        Logging.info('Channels updating...')
 
         # Mirakurun バックエンド
         if CONFIG['general']['backend'] == 'Mirakurun':

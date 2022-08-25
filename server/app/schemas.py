@@ -1,6 +1,6 @@
 
 from datetime import datetime
-from pydantic import AnyHttpUrl, BaseModel, DirectoryPath, Field, FilePath, PositiveInt
+from pydantic import AnyHttpUrl, BaseModel, confloat, DirectoryPath, Field, FilePath, PositiveInt
 from pydantic.networks import stricturl
 from tortoise.contrib.pydantic import pydantic_model_creator
 from typing import Dict, List, Literal
@@ -16,7 +16,7 @@ class Config(BaseModel):
         backend: Literal['Mirakurun', 'EDCB']
         mirakurun_url: AnyHttpUrl
         edcb_url: stricturl(allowed_schemes={'tcp'}, tld_required=False)  # type: ignore
-        program_update_interval: PositiveInt
+        program_update_interval: confloat(ge=0.1)  # type: ignore
         debug: bool
         debug_encoder: bool
 

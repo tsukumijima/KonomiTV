@@ -341,7 +341,7 @@ class LiveEncodingTask():
             tsreadex_options.append('-')
         else:
             # デバッグモード: 指定された TS ファイルを読み込む
-            ## 読み込み速度を 2350KB/s に制限
+            ## 読み込み速度を 2350KB/s (18.8Mbps) に制限
             ## 1倍速に近い値だが、TS のビットレートはチャンネルや番組、シーンによって変動するため完全な1倍速にはならない
             tsreadex_options += [
                 '-l', '2350',
