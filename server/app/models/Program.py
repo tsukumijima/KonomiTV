@@ -57,7 +57,7 @@ class Program(models.Model):
 
 
     @classmethod
-    async def update(cls, multiprocess: bool=False) -> None:
+    async def update(cls, multiprocess: bool = False) -> None:
         """
         番組情報を更新する
 
@@ -82,11 +82,11 @@ class Program(models.Model):
 
                     # Mirakurun バックエンド
                     if CONFIG['general']['backend'] == 'Mirakurun':
-                        await loop.run_in_executor(executor, cls.updateFromMirakurunSync)
+                        await loop.run_in_executor(executor, cls.updateFromMirakurunSync, True)
 
                     # EDCB バックエンド
                     elif CONFIG['general']['backend'] == 'EDCB':
-                        await loop.run_in_executor(executor, cls.updateFromEDCBSync)
+                        await loop.run_in_executor(executor, cls.updateFromEDCBSync, True)
 
             # データベースが他のプロセスにロックされていた場合
             # 5秒待ってからリトライ
@@ -110,8 +110,13 @@ class Program(models.Model):
 
 
     @classmethod
-    async def updateFromMirakurun(cls) -> None:
-        """ Mirakurun バックエンドから番組情報を取得し、更新する """
+    async def updateFromMirakurun(cls, is_running_multiprocess: bool = False) -> None:
+        """
+        Mirakurun バックエンドから番組情報を取得し、更新する
+
+        Args:
+            is_running_multiprocess (bool, optional): マルチプロセスで実行されているかどうか
+        """
 
         def IsMainProgram(program: dict) -> bool:
             """
@@ -168,14 +173,18 @@ class Program(models.Model):
                 tz = timezone.get_default_timezone(),  # タイムゾーンを UTC+9（日本時間）に指定する
             )
 
-        # マルチプロセス時は既存のコネクションが使えないため、Tortoise ORMを初期化し直す
+        # マルチプロセス時は既存のコネクションが使えないため、Tortoise ORM を初期化し直す
         # ref: https://tortoise-orm.readthedocs.io/en/latest/setup.html
-        is_running_multiprocess = False
-        try:
-            connections.get('default')
-        except exceptions.ConfigurationError:
+        if is_running_multiprocess is True:
+
+            # Tortoise ORM を再初期化する前に、既存のコネクションを破棄
+            ## これをやっておかないとなぜか正常に初期化できず、DB 操作でフリーズする…
+            ## Windows だとこれをやらなくても問題ないが、Linux だと必要 (Tortoise ORM あるいは aiosqlite のマルチプロセス時のバグ？)
+            connections.discard('default')
+
+            # Tortoise ORM を再初期化
             await Tortoise.init(config=DATABASE_CONFIG)
-            is_running_multiprocess = True
+
         try:
 
             # Mirakurun の URL の末尾のスラッシュを削除
@@ -442,17 +451,26 @@ class Program(models.Model):
 
 
     @classmethod
-    async def updateFromEDCB(cls) -> None:
-        """ EDCB バックエンドから番組情報を取得し、更新する """
+    async def updateFromEDCB(cls, is_running_multiprocess: bool = False) -> None:
+        """
+        EDCB バックエンドから番組情報を取得し、更新する
 
-        # マルチプロセス時は既存のコネクションが使えないため、Tortoise ORMを初期化し直す
+        Args:
+            is_running_multiprocess (bool, optional): マルチプロセスで実行されているかどうか
+        """
+
+        # マルチプロセス時は既存のコネクションが使えないため、Tortoise ORM を初期化し直す
         # ref: https://tortoise-orm.readthedocs.io/en/latest/setup.html
-        is_running_multiprocess = False
-        try:
-            connections.get('default')
-        except exceptions.ConfigurationError:
+        if is_running_multiprocess is True:
+
+            # Tortoise ORM を再初期化する前に、既存のコネクションを破棄
+            ## これをやっておかないとなぜか正常に初期化できず、DB 操作でフリーズする…
+            ## Windows だとこれをやらなくても問題ないが、Linux だと必要 (Tortoise ORM あるいは aiosqlite のマルチプロセス時のバグ？)
+            connections.discard('default')
+
+            # Tortoise ORM を再初期化
             await Tortoise.init(config=DATABASE_CONFIG)
-            is_running_multiprocess = True
+
         try:
 
             # マルチプロセス時は起動後に動的に追加される EDCB のホスト名とポートが存在しないため、パースし直す
@@ -711,14 +729,24 @@ class Program(models.Model):
 
 
     @classmethod
-    def updateFromMirakurunSync(cls) -> None:
-        """ Programs.updateFromMirakurun() の同期版 """
+    def updateFromMirakurunSync(cls, is_running_multiprocess: bool = False) -> None:
+        """
+        Programs.updateFromMirakurun() の同期版
+
+        Args:
+            is_running_multiprocess (bool, optional): マルチプロセスで実行されているかどうか
+        """
         # asyncio.run() で非同期メソッドの実行が終わるまで待つ
-        asyncio.run(cls.updateFromMirakurun())
+        asyncio.run(cls.updateFromMirakurun(is_running_multiprocess))
 
 
     @classmethod
-    def updateFromEDCBSync(cls) -> None:
-        """ Programs.updateFromEDCB() の同期版 """
+    def updateFromEDCBSync(cls, is_running_multiprocess: bool = False) -> None:
+        """
+        Programs.updateFromEDCB() の同期版
+
+        Args:
+            is_running_multiprocess (bool, optional): マルチプロセスで実行されているかどうか
+        """
         # asyncio.run() で非同期メソッドの実行が終わるまで待つ
-        asyncio.run(cls.updateFromEDCB())
+        asyncio.run(cls.updateFromEDCB(is_running_multiprocess))
