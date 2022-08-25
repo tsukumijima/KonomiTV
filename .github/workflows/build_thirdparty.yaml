@@ -26,7 +26,7 @@ jobs:
         run: |
           git clone https://github.com/xtne6f/tsreadex
           cd tsreadex/
-          git checkout bf0ca4f0b0459b9986296b0d2559794663b283ce
+          git checkout 11235d37202ae5af4ab50311e9cc8b691d809cc4
           msbuild tsreadex.sln /t:Build /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v142
           mkdir ../thirdparty/tsreadex/
           cp x64/Release/tsreadex.exe ../thirdparty/tsreadex/tsreadex.exe
@@ -37,7 +37,7 @@ jobs:
         run: |
           git clone https://github.com/xtne6f/psisiarc
           cd psisiarc/
-          git checkout 88409792191017abfd2861fdd2aacf12d207f7b5
+          git checkout 75b89410561627bb11f0e5b13c00d030120c88b0
           msbuild psisiarc.sln /t:Build /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v142
           mkdir ../thirdparty/psisiarc/
           cp x64/Release/psisiarc.exe ../thirdparty/psisiarc/psisiarc.exe
@@ -136,7 +136,7 @@ jobs:
         run: |
           git clone https://github.com/xtne6f/tsreadex
           cd tsreadex/
-          git checkout bf0ca4f0b0459b9986296b0d2559794663b283ce
+          git checkout 11235d37202ae5af4ab50311e9cc8b691d809cc4
           make
           mkdir ../thirdparty/tsreadex/
           cp tsreadex ../thirdparty/tsreadex/tsreadex.elf
@@ -148,7 +148,7 @@ jobs:
         run: |
           git clone https://github.com/xtne6f/psisiarc
           cd psisiarc/
-          git checkout 88409792191017abfd2861fdd2aacf12d207f7b5
+          git checkout 75b89410561627bb11f0e5b13c00d030120c88b0
           make
           mkdir ../thirdparty/psisiarc/
           cp psisiarc ../thirdparty/psisiarc/psisiarc.elf
