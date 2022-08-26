@@ -92,7 +92,7 @@ import Base from '@/views/Settings/Base.vue';
 import Utils from '@/utils';
 
 export default Vue.extend({
-    name: 'SettingsJikkyo',
+    name: 'Settings-Jikkyo',
     components: {
         Base,
     },

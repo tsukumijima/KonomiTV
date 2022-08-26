@@ -77,7 +77,7 @@ import Base from '@/views/Settings/Base.vue';
 import Utils from '@/utils';
 
 export default Vue.extend({
-    name: 'SettingsTwitter',
+    name: 'Settings-Twitter',
     components: {
         Base,
     },

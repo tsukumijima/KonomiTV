@@ -72,7 +72,7 @@ import Navigation from '@/components/Navigation.vue';
 
 // 設定のベース画面なので、ロジックは基本置かない
 export default Vue.extend({
-    name: 'SettingsBase',
+    name: 'Settings-Base',
     components: {
         Header,
         Navigation,

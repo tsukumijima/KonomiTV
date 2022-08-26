@@ -195,7 +195,7 @@ import Base from '@/views/Settings/Base.vue';
 import Utils from '@/utils';
 
 export default Vue.extend({
-    name: 'SettingsAccount',
+    name: 'Settings-Account',
     components: {
         Base,
     },
