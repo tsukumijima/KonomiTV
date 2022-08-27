@@ -1270,7 +1270,7 @@ export default Vue.extend({
         initShortcutKeyHandler() {
 
             const twitter_component = (this.$refs.Twitter as InstanceType<typeof Twitter>);
-            const tweet_form_element = twitter_component.$el.querySelector('.tweet-form__textarea') as HTMLDivElement;
+            const tweet_form_element = twitter_component.$el.querySelector<HTMLDivElement>('.tweet-form__textarea');
 
             // IME 変換中の状態を保存する
             for (const element of document.querySelectorAll('input[type=text],input[type=search],textarea')) {
@@ -1362,7 +1362,7 @@ export default Vue.extend({
                         // (Ctrl or Cmd or Shift) + Enter
                         // Shift + Enter は隠し機能（間違えたとき用）
                         if ((event.ctrlKey || event.metaKey || event.shiftKey) && event.code === 'Enter') {
-                            (twitter_component.$el.querySelector('.tweet-button') as HTMLDivElement).click();
+                            twitter_component.$el.querySelector<HTMLDivElement>('.tweet-button').click();
                             return true;
                         }
                     }
