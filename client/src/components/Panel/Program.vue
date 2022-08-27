@@ -52,7 +52,7 @@ import { IChannel } from '@/interface';
 import Utils, { TVUtils } from '@/utils';
 
 export default Vue.extend({
-    name: 'Program',
+    name: 'Panel-ProgramTab',
     props: {
         // チャンネル情報
         channel: {

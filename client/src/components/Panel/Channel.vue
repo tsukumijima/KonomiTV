@@ -54,7 +54,7 @@ import { IChannel } from '@/interface';
 import Utils, { TVUtils } from '@/utils';
 
 export default Vue.extend({
-    name: 'Channel',
+    name: 'Panel-ChannelTab',
     props: {
         // チャンネル情報リスト
         channels_list: {

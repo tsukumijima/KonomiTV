@@ -188,14 +188,14 @@ import mpegts from 'mpegts.js';
 import Vue from 'vue';
 
 import { IChannel, IChannelDefault } from '@/interface';
-import Channel from '@/components/TV/Channel.vue';
-import Comment from '@/components/TV/Comment.vue';
-import Program from '@/components/TV/Program.vue';
-import Twitter from '@/components/TV/Twitter.vue';
+import Channel from '@/components/Panel/Channel.vue';
+import Comment from '@/components/Panel/Comment.vue';
+import Program from '@/components/Panel/Program.vue';
+import Twitter from '@/components/Panel/Twitter.vue';
 import Utils, { TVUtils } from '@/utils';
 
 export default Vue.extend({
-    name: 'Watch',
+    name: 'TV-Watch',
     components: {
         Channel,
         Comment,
@@ -847,13 +847,15 @@ export default Vue.extend({
                             enableWorker: true,
                             // HTMLMediaElement の内部バッファによるライブストリームの遅延を追跡する
                             // liveBufferLatencyChasing と異なり、いきなり再生時間をスキップするのではなく、
-                            // 再生速度を少しだけ上げることで再生を止めることなく遅延を追跡する
+                            // 再生速度を少しだけ上げることで再生を途切れさせることなく遅延を追跡する
                             liveSync: Utils.getSettingsItem('low_latency_mode'),
-                            // 許容する HTMLMediaElement の内部バッファの最大値 (秒単位, 1.8秒)
-                            liveSyncMaxLatency: 1.8,
-                            // ライブストリームの遅延の追跡に利用する再生速度 (x1.15)
-                            // HTMLMediaElement の内部バッファが1.8秒を超えたとき、再生速度が内部バッファが 1.8 秒を下回るまで x1.15 に設定される
-                            liveSyncPlaybackRate: 1.15,
+                            // 許容する HTMLMediaElement の内部バッファの最大値 (秒単位, 2.5秒)
+                            liveSyncMaxLatency: 2.5,
+                            // HTMLMediaElement の内部バッファ (遅延) が liveSyncMaxLatency を超えたとき、ターゲットとする遅延時間 (秒単位, 1.25秒)
+                            liveSyncTargetLatency: 1.25,
+                            // ライブストリームの遅延の追跡に利用する再生速度 (x1.1)
+                            // 遅延が 2.5 秒を超えたとき、遅延が 1.25 秒を下回るまで再生速度が x1.1 に設定される
+                            liveSyncPlaybackRate: 1.1,
                         }
                     },
                     // aribb24.js
@@ -1271,7 +1273,7 @@ export default Vue.extend({
             const tweet_form_element = twitter_component.$el.querySelector('.tweet-form__textarea') as HTMLDivElement;
 
             // IME 変換中の状態を保存する
-            for (const element of document.querySelectorAll('input[type=text],textarea')) {
+            for (const element of document.querySelectorAll('input[type=text],input[type=search],textarea')) {
                 element.addEventListener('compositionstart', () => this.is_ime_composing = true);
                 element.addEventListener('compositionend', () => this.is_ime_composing = false);
             }

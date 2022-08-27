@@ -60,7 +60,7 @@
         </div>
         <div class="tweet-form" :class="{'tweet-form--focused': is_tweet_hashtag_form_focused || is_tweet_text_form_focused}">
             <div class="tweet-form__hashtag">
-                <input class="tweet-form__hashtag-form" type="text" placeholder="#ハッシュタグ"
+                <input class="tweet-form__hashtag-form" type="search" placeholder="#ハッシュタグ"
                     v-model="tweet_hashtag" @input="updateTweetLetterCount()"
                     @focus="is_tweet_hashtag_form_focused = true" @blur="is_tweet_hashtag_form_focused = false">
                 <div v-ripple class="tweet-form__hashtag-list-button" @click="is_hashtag_list_display = !is_hashtag_list_display">
@@ -131,7 +131,7 @@
                 <div v-ripple="!hashtag.editing" class="hashtag" :class="{'hashtag--editing': hashtag.editing}"
                     v-for="hashtag in saved_twitter_hashtags" :key="hashtag.id"
                     @click="tweet_hashtag = hashtag.text; updateTweetLetterCount(); window.setTimeout(() => is_hashtag_list_display = false, 150)">
-                    <input type="text" class="hashtag__input" v-model="hashtag.text" :disabled="!hashtag.editing" @click.stop="">
+                    <input type="search" class="hashtag__input" v-model="hashtag.text" :disabled="!hashtag.editing" @click.stop="">
                     <button v-ripple class="hashtag__edit-button"
                         @click.prevent.stop="hashtag.editing = !hashtag.editing">
                         <Icon :icon="hashtag.editing ? 'fluent:checkmark-16-filled': 'fluent:edit-16-filled'" width="19px" />
@@ -170,7 +170,7 @@ interface IHashtag {
 }
 
 export default Vue.extend({
-    name: 'Twitter',
+    name: 'Panel-TwitterTab',
     props: {
         // チャンネル情報
         channel: {

@@ -83,7 +83,7 @@ import Navigation from '@/components/Navigation.vue';
 import Utils, { TVUtils } from '@/utils';
 
 export default Vue.extend({
-    name: 'Home',
+    name: 'TV-Home',
     components: {
         Header,
         Navigation,

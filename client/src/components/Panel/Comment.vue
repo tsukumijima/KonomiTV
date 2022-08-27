@@ -5,7 +5,7 @@
                 <Icon class="comment-header__title-icon" icon="bi:chat-left-text-fill" height="18.5px" />
                 <span class="comment-header__title-text">コメント</span>
             </h2>
-            <button v-ripple class="comment-header__button ml-auto">
+            <button v-ripple class="comment-header__button ml-auto" @click="comment_mute_settings_modal = !comment_mute_settings_modal">
                 <Icon icon="heroicons-solid:filter" height="11px" />
                 <span class="ml-1">ミュート設定</span>
             </button>
@@ -58,7 +58,7 @@ interface IComment {
 }
 
 export default Vue.extend({
-    name: 'Comment',
+    name: 'Panel-CommentTab',
     props: {
         // チャンネル情報
         channel: {
@@ -112,6 +112,9 @@ export default Vue.extend({
 
             // ResizeObserver の監視対象の要素
             resize_observer_element: null as HTMLElement | null,
+
+            // コメントのミュート設定のモーダルを表示するか
+            comment_mute_settings_modal: false,
         }
     },
     // 終了前に実行
