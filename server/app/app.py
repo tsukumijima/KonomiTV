@@ -67,7 +67,7 @@ CONFIG['general']['edcb_port'] = edcb_url_parse.port
 
 # サードパーティーライブラリが配置されているかのバリデーション
 for library_name, library_path in LIBRARY_PATH.items():
-    if not os.path.isfile(library_path):
+    if os.path.isfile(library_path) is False:
         Logging.error(
             f'{library_name} がサードパーティーライブラリとして配置されていないため、KonomiTV を起動できません。\n'
             '                                '  # インデント用

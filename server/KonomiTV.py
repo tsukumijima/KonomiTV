@@ -77,8 +77,8 @@ def main():
     # カスタム HTTPS 証明書/秘密鍵が指定されているとき
     custom_https_certificate = []
     if CONFIG['server']['custom_https_certificate'] is not None and CONFIG['server']['custom_https_private_key'] is not None:
-        if (os.path.exists(CONFIG['server']['custom_https_certificate']) is False or
-            os.path.exists(CONFIG['server']['custom_https_private_key']) is False):
+        if (os.path.isfile(CONFIG['server']['custom_https_certificate']) is False or
+            os.path.isfile(CONFIG['server']['custom_https_private_key']) is False):
             logger.error(
                 f'指定されたカスタム HTTPS 証明書/秘密鍵が存在しないため、KonomiTV を起動できません。\n'
                 '                                '  # インデント用
@@ -90,6 +90,15 @@ def main():
             '--custom-certificate', CONFIG['server']['custom_https_certificate'],
             '--custom-private-key', CONFIG['server']['custom_https_private_key'],
         ]
+
+    # Akebi HTTPS Serverが配置されているかのバリデーション
+    if os.path.isfile(LIBRARY_PATH['Akebi']) is False:
+        logger.error(
+            f'Akebi HTTPS Server がサードパーティーライブラリとして配置されていないため、KonomiTV を起動できません。\n'
+            '                                '  # インデント用
+            f'Akebi HTTPS Server が {LIBRARY_PATH["Akebi"]} に配置されているかを確認してください。'
+        )
+        sys.exit(1)
 
     # Akebi HTTPS Server (HTTPS リバースプロキシ) を起動
     ## HTTP/2 対応と HTTPS 化を一手に行う Golang 製の特殊なリバースプロキシサーバー
