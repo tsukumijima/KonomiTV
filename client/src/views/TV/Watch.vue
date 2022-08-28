@@ -1019,6 +1019,9 @@ export default Vue.extend({
                     this.eventsource = null;
                 }
 
+                // 同期が完了するまで音声をミュートしておく
+                this.player.video.muted = true;
+
                 // 新しい EventSource を作成
                 // 画質ごとにイベント API は異なるため、一度破棄してから作り直す
                 this.initEventHandler();
