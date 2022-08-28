@@ -5,6 +5,7 @@ import re
 import requests
 import socket
 import subprocess
+import threading
 import time
 from datetime import datetime
 from io import TextIOWrapper
@@ -578,31 +579,40 @@ class LiveEncodingTask():
         ## Unix Time とかではないので注意
         chunk_written_at: float = 0
 
+        # Writer の排他ロック
+        ## スレッド間共有の変数を Writer() スレッドと SubWriter() スレッドの両方から読み書きするため、
+        ## chunk_buffer / chunk_written_at にアクセスする際は排他ロックを掛けておく必要がある
+        ## そうしないと稀にパケロスするらしく、ブラウザ側で突如再生できなくなることがある
+        writer_lock = threading.Lock()
+
         # CPU バウンドな部分なので、同期関数をマルチスレッドで実行する
         def Writer():
 
-            nonlocal chunk_buffer, chunk_written_at
+            nonlocal chunk_buffer, chunk_written_at, writer_lock
 
             # エンコーダーからの出力を受け取るイテレータ
             stream_iterator: Iterator[bytes] = iter(lambda: encoder.stdout.read(512), b'')
 
             for chunk in stream_iterator:
 
-                # 512 bytes ごとに区切られた、エンコーダーの出力のチャンクをバッファに貯める
-                chunk_buffer += chunk
+                # 同時に chunk_buffer / chunk_written_at にアクセスするスレッドが1つだけであることを保証する (排他ロック)
+                with writer_lock:
 
-                # チャンクバッファが 65536 bytes (64KB) 以上になった時のみ
-                if len(chunk_buffer) >= 65536:
+                    # 512 bytes ごとに区切られた、エンコーダーの出力のチャンクをバッファに貯める
+                    chunk_buffer += chunk
 
-                    # エンコーダーからの出力をライブストリームの Queue に書き込む
-                    # print(f'Writer: Chunk size: {len(chunk_buffer):05} / Time: {time.time()}')
-                    livestream.write(chunk_buffer)
+                    # チャンクバッファが 65536 bytes (64KB) 以上になった時のみ
+                    if len(chunk_buffer) >= 65536:
 
-                    # チャンクバッファを空にする（重要）
-                    chunk_buffer = b''
+                        # エンコーダーからの出力をライブストリームの Queue に書き込む
+                        # print(f'Writer:    Chunk size: {len(chunk_buffer):05} / Time: {time.time()}')
+                        livestream.write(chunk_buffer)
 
-                    # チャンクの最終書き込み時刻を更新
-                    chunk_written_at = time.monotonic()
+                        # チャンクバッファを空にする（重要）
+                        chunk_buffer = b''
+
+                        # チャンクの最終書き込み時刻を更新
+                        chunk_written_at = time.monotonic()
 
                 # エンコーダープロセスが終了していたらループを抜ける
                 if encoder.poll() is not None:
@@ -626,23 +636,26 @@ class LiveEncodingTask():
         ## ラジオチャンネルは通常のチャンネルと比べてデータ量が圧倒的に少ないため、64KB に達することは稀で SubWriter でのチャンク書き込みがメインになる
         def SubWriter():
 
-            nonlocal chunk_buffer, chunk_written_at
+            nonlocal chunk_buffer, chunk_written_at, writer_lock
 
             while True:
 
-                # 前回チャンクを書き込んでから 0.025 秒以上経過している & チャンクバッファに何かしらデータが入っている時のみ
-                # チャンクをできるだけ等間隔でクライアントに送信するために、バッファが 64KB 分溜まるのを待たずに送信する
-                if (time.monotonic() - chunk_written_at) > 0.025 and (len(chunk_buffer) > 0):
+                # 同時に chunk_buffer / chunk_written_at にアクセスするスレッドが1つだけであることを保証する (排他ロック)
+                with writer_lock:
 
-                    # エンコーダーからの出力をライブストリームの Queue に書き込む
-                    # print(f'SubWriter: Chunk size: {len(chunk_buffer):05} / Time: {time.time()}')
-                    livestream.write(chunk_buffer)
+                    # 前回チャンクを書き込んでから 0.025 秒以上経過している & チャンクバッファに何かしらデータが入っている時のみ
+                    # チャンクをできるだけ等間隔でクライアントに送信するために、バッファが 64KB 分溜まるのを待たずに送信する
+                    if (time.monotonic() - chunk_written_at) > 0.025 and (len(chunk_buffer) > 0):
 
-                    # チャンクバッファを空にする（重要）
-                    chunk_buffer = b''
+                        # エンコーダーからの出力をライブストリームの Queue に書き込む
+                        # print(f'SubWriter: Chunk size: {len(chunk_buffer):05} / Time: {time.time()}')
+                        livestream.write(chunk_buffer)
 
-                    # チャンクの最終書き込み時刻を更新
-                    chunk_written_at = time.monotonic()
+                        # チャンクバッファを空にする（重要）
+                        chunk_buffer = b''
+
+                        # チャンクの最終書き込み時刻を更新
+                        chunk_written_at = time.monotonic()
 
                 # エンコーダープロセスが終了していたらループを抜ける
                 if encoder.poll() is not None:
