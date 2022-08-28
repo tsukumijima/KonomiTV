@@ -287,9 +287,9 @@ async def LiveMPEGTSStreamAPI(
                 await livestream.disconnect(client_id)
                 break
 
-            # 0.025 秒待つ
+            # 0.001 秒待つ
             # Queue からの取り出しはノンブロッキングのため、ある程度待たないとループがビジーになり負荷が上がってしまう
-            await asyncio.sleep(0.025)
+            await asyncio.sleep(0.001)
 
     # リクエストがキャンセルされたときに自前でライブストリームの接続を切断できるよう、モンキーパッチを当てる
     # StreamingResponse はリクエストがキャンセルされるとレスポンスを生成するジェネレータの実行自体を勝手に強制終了してしまう

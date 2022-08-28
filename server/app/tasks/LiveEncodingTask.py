@@ -263,7 +263,7 @@ class LiveEncodingTask():
         """
         エンコードタスクを実行する
         プロセス実行なども含めてすべて非同期にしようとすると収拾がつかない上に性能上の不安があるため、開始時・終了時の処理は非同期化した上で、
-        役割の異なる reader()・writer()・controller() の3つの同期関数をスレッドプール上で同時に実行する構成になっている
+        役割の異なる Reader()・Writer() / SubWriter()・Controller() の4つの同期関数をスレッドプール上で同時に実行する構成になっている
 
         Args:
             channel_id (str): チャンネルID
@@ -482,7 +482,7 @@ class LiveEncodingTask():
         # ***** エンコーダーへの入力の読み込み *****
 
         # CPU バウンドな部分なので、同期関数をマルチスレッドで実行する
-        def reader():
+        def Reader():
 
             # 受信した放送波が入るイテレータ
             # R/W バッファ: 188B (TS Packet Size) * 256 = 48128B
@@ -566,30 +566,43 @@ class LiveEncodingTask():
                 pipe_or_socket.close()
 
         # スレッドプール上で非同期に実行する
-        asyncio.create_task(asyncio.to_thread(reader))
+        asyncio.create_task(asyncio.to_thread(Reader))
 
         # ***** エンコーダーからの出力の書き込み *****
 
+        # エンコーダーの出力のチャンクが積み増されていくバッファ
+        chunk_buffer: bytes = b''
+
+        # チャンクの最終書き込み時刻 (単調増加時間)
+        ## 単に時刻を比較する用途でしか使わないので、time.monotonic() から取得した単調増加時間が入る
+        ## Unix Time とかではないので注意
+        chunk_written_at: float = 0
+
         # CPU バウンドな部分なので、同期関数をマルチスレッドで実行する
-        def writer():
+        def Writer():
 
-            # R/W バッファ: 188B (TS Packet Size) * 128 = 24064B
-            # エンコードによってかなりデータ量が減るので、reader よりもバッファを減らしてみる
-            # 810p 以上ではデータ量が多くなるので、バッファを 188B (TS Packet Size) * 192 = 36096B に増やす
-            # ラジオチャンネルではデータ量がかなり少なくなるので、バッファを 188B (TS Packet Size) * 48 = 9024B に減らす
-            buffer = 24064
-            if quality == '810p' or quality == '1080p' or quality == '1080p-60fps':
-                buffer = 36096
-            elif channel.is_radiochannel is True:
-                buffer = 9024
+            nonlocal chunk_buffer, chunk_written_at
 
-            # エンコーダーの出力を受け取るイテレータ
-            stream_iterator = iter(lambda: encoder.stdout.read(buffer), b'')
+            # エンコーダーからの出力を受け取るイテレータ
+            stream_iterator: Iterator[bytes] = iter(lambda: encoder.stdout.read(512), b'')
 
             for chunk in stream_iterator:
 
-                # エンコーダーから受けた出力をライブストリームの Queue に書き込む
-                livestream.write(chunk)
+                # 512 bytes ごとに区切られた、エンコーダーの出力のチャンクをバッファに貯める
+                chunk_buffer += chunk
+
+                # チャンクバッファが 65536 bytes (64KB) 以上になった時のみ
+                if len(chunk_buffer) >= 65536:
+
+                    # エンコーダーからの出力をライブストリームの Queue に書き込む
+                    # print(f'Writer: Chunk size: {len(chunk_buffer):05} / Time: {time.time()}')
+                    livestream.write(chunk_buffer)
+
+                    # チャンクバッファを空にする（重要）
+                    chunk_buffer = b''
+
+                    # チャンクの最終書き込み時刻を更新
+                    chunk_written_at = time.monotonic()
 
                 # エンコーダープロセスが終了していたらループを抜ける
                 if encoder.poll() is not None:
@@ -607,8 +620,40 @@ class LiveEncodingTask():
                     # ループを抜ける
                     break
 
+        # CPU バウンドな部分なので、同期関数をマルチスレッドで実行する
+        ## 通常の Writer ではカバーできない、encoder.stdout.read(512) でブロッキングされている際のチャンク書き込みを担う
+        ## 前回のチャンク書き込みから 0.025 秒以上経ったもののチャンクが 64KB に達していない際に実行するチャンク書き込みも SubWriter の方で行う
+        ## ラジオチャンネルは通常のチャンネルと比べてデータ量が圧倒的に少ないため、64KB に達することは稀で SubWriter でのチャンク書き込みがメインになる
+        def SubWriter():
+
+            nonlocal chunk_buffer, chunk_written_at
+
+            while True:
+
+                # 前回チャンクを書き込んでから 0.025 秒以上経過している & チャンクバッファに何かしらデータが入っている時のみ
+                # チャンクをできるだけ等間隔でクライアントに送信するために、バッファが 64KB 分溜まるのを待たずに送信する
+                if (time.monotonic() - chunk_written_at) > 0.025 and (len(chunk_buffer) > 0):
+
+                    # エンコーダーからの出力をライブストリームの Queue に書き込む
+                    # print(f'SubWriter: Chunk size: {len(chunk_buffer):05} / Time: {time.time()}')
+                    livestream.write(chunk_buffer)
+
+                    # チャンクバッファを空にする（重要）
+                    chunk_buffer = b''
+
+                    # チャンクの最終書き込み時刻を更新
+                    chunk_written_at = time.monotonic()
+
+                # エンコーダープロセスが終了していたらループを抜ける
+                if encoder.poll() is not None:
+                    break
+
+                # チャンクバッファを 0.025 秒間隔でチェックする
+                time.sleep(0.025)
+
         # スレッドプール上で非同期に実行する
-        asyncio.create_task(asyncio.to_thread(writer))
+        asyncio.create_task(asyncio.to_thread(Writer))
+        asyncio.create_task(asyncio.to_thread(SubWriter))
 
         # ***** エンコーダーの出力監視と制御 *****
 
@@ -629,7 +674,7 @@ class LiveEncodingTask():
             encoder_log = open(encoder_log_path, mode='w', encoding='utf-8')
 
         # エンコーダーのログ出力が同期的なので、同期関数をマルチスレッドで実行する
-        def controller():
+        def Controller():
 
             # メインスレッドのイベントループを取得
             from app.app import loop
@@ -897,7 +942,7 @@ class LiveEncodingTask():
                     break
 
         # スレッドプール上で実行し、終了するのを待つ
-        await asyncio.to_thread(controller)
+        await asyncio.to_thread(Controller)
 
         # ***** エンコード終了後の処理 *****
 
