@@ -15,7 +15,7 @@
         "buffer": "^6.0.3",
         "core-js": "^3.25.0",
         "dayjs": "^1.11.5",
-        "dplayer": "github:tsukumijima/DPlayer#59189f4b519086d28c9159a0e4394053372384be",
+        "dplayer": "github:tsukumijima/DPlayer#3d419bd7d3f3b9945f325c38ef4ae1353a800c79",
         "mpegts.js": "github:tsukumijima/mpegts.js#dec277df61e9e904b84d89c155ebd02963da3e12",
         "piexifjs": "^2.0.0-beta.9",
         "register-service-worker": "^1.7.2",

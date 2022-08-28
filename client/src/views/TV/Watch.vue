@@ -782,6 +782,7 @@ export default Vue.extend({
                 theme: '#E64F97',  // テーマカラー
                 lang: 'ja-jp',  // 言語
                 live: true,  // ライブモード
+                liveSyncMinBufferSize: 0.8,  // ライブモードで同期する際の最小バッファサイズ (0.8秒)
                 loop: false,  // ループ再生 (ライブのため無効化)
                 airplay: false,  // AirPlay 機能 (うまく動かないため無効化)
                 autoplay: true,  // 自動再生
