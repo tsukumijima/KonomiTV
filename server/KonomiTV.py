@@ -65,12 +65,20 @@ def main():
     # ref: https://qiita.com/skokado/items/6e76762c68866d73570b
     used_ports = [cast(Any, conn.laddr).port for conn in psutil.net_connections() if conn.status == 'LISTEN']
 
-    # リッスンするポートと同じポートが使われていたら、エラーを表示する
+    # リッスンポートと同じポートが使われていたら、エラーを表示する
+    # Akebi HTTPS Server のリッスンポートと Uvicorn のリッスンポートの両方をチェック
     if port in used_ports:
         logger.error(
             f'ポート {port} は他のプロセスで使われているため、KonomiTV を起動できません。\n'
             '                                '  # インデント用
             f'重複して KonomiTV を起動していないか、他のソフトでポート {port} を使っていないかを確認してください。'
+        )
+        sys.exit(1)
+    if (port + 10) in used_ports:
+        logger.error(
+            f'ポート {port + 10} は他のプロセスで使われているため、KonomiTV を起動できません。\n'
+            '                                '  # インデント用
+            f'重複して KonomiTV を起動していないか、他のソフトでポート {port + 10} を使っていないかを確認してください。'
         )
         sys.exit(1)
 
