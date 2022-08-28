@@ -331,16 +331,26 @@ export default Vue.extend({
 
         // アカウントボタンが押されたときのイベント
         clickAccountButton() {
+
             // Twitter アカウントが連携されていない場合は Twitter 設定画面に飛ばす
             if (!this.is_logged_in_twitter) {
+
                 // 視聴ページ以外に遷移するため、フルスクリーンを解除しないと画面が崩れる
                 if (document.fullscreenElement) {
                     document.exitFullscreen();
                 }
+
                 this.$router.push({path: '/settings/twitter'});
                 return;
             }
+
+            // アカウントリストの表示/非表示を切り替え
             this.is_twitter_account_list_display = !this.is_twitter_account_list_display;
+
+            // アカウントリストが表示されているなら、ハッシュタグリストを非表示にする
+            if (this.is_twitter_account_list_display === true) {
+                this.is_hashtag_list_display = false;
+            }
         },
 
         // 選択されている Twitter アカウントを更新する
