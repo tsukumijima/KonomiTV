@@ -62,6 +62,9 @@
                         :style="{backgroundImage: `url(${background_url})`}">
                         <img class="watch-player__background-logo" src="/assets/images/logo.svg">
                     </div>
+                    <v-progress-circular indeterminate size="60" width="6" color="secondary" class="watch-player__buffering"
+                        :class="{'watch-player__buffering--display': is_video_buffering && (is_loading || (player !== null && !player.video.paused))}">
+                    </v-progress-circular>
                     <div class="watch-player__dplayer"></div>
                     <div class="watch-player__button"
                          @mousemove="controlDisplayTimer($event)"
@@ -221,6 +224,11 @@ export default Vue.extend({
             // プレイヤーのローディング状態
             // 既定でローディングとする
             is_loading: true,
+
+            // プレイヤーが映像の再生をバッファリングしているか
+            // 視聴開始時以外にも、ネットワークが遅くて再生が一時的に途切れたときなどで表示される
+            // 既定でバッファリング中とする
+            is_video_buffering: true,
 
             // プレイヤーの背景を表示するか
             // 既定で表示しない
@@ -1007,7 +1015,7 @@ export default Vue.extend({
             this.player.on('play', on_play_or_pause);
             this.player.on('pause', on_play_or_pause);
 
-            // 画質の切り替えが開始されたとき
+            // 画質の切り替えが開始されたときのイベント
             this.player.on('quality_start', () => {
 
                 // ローディング中の背景画像をランダムで設定
@@ -1130,8 +1138,17 @@ export default Vue.extend({
                     // 同期が終わったのでミュートを解除
                     this.player.video.muted = false;
 
+                    // 再生が一時的に止まってバッファリングしているとき/再び再生されはじめたときのイベント
+                    // バッファリングの Progress Circular の表示を制御する
+                    // 同期が終わってからの方が都合が良い
+                    this.player.video.addEventListener('waiting', () => this.is_video_buffering = true);
+                    this.player.video.addEventListener('playing', () => this.is_video_buffering = false);
+
                     // ローディング状態を解除し、映像を表示する
                     this.is_loading = false;
+
+                    // バッファリング中の Progress Circular を非表示にする
+                    this.is_video_buffering = false;
 
                     if (this.channel.is_radiochannel) {
                         // ラジオチャンネルでは引き続き映像の代わりとして背景画像を表示し続ける
@@ -1163,8 +1180,13 @@ export default Vue.extend({
                 // イベントを取得
                 const event = JSON.parse(event_raw.data);
 
-                // ステータスが Standby であれば、プレイヤーの背景を表示する
+                // ステータスが Standby であれば
                 if (event.status === 'Standby') {
+
+                    // バッファリング中の Progress Circular を表示
+                    this.is_video_buffering = true;
+
+                    // プレイヤーの背景を表示する
                     this.is_background_display = true;
                 }
             });
@@ -1189,6 +1211,9 @@ export default Vue.extend({
                         if (!this.player.template.notice.textContent.includes('画質を')) {  // 画質切り替えの表示を上書きしない
                             this.player.notice(event.detail, -1);
                         }
+
+                        // バッファリング中の Progress Circular を表示
+                        this.is_video_buffering = true;
 
                         // プレイヤーの背景を表示する
                         this.is_background_display = true;
@@ -1229,6 +1254,9 @@ export default Vue.extend({
                         // 再起動しただけでは自動再生されないので、明示的に
                         this.player.play();
 
+                        // バッファリング中の Progress Circular を表示
+                        this.is_video_buffering = true;
+
                         // プレイヤーの背景を表示する
                         this.is_background_display = true;
 
@@ -1237,6 +1265,8 @@ export default Vue.extend({
 
                     // Status: Offline
                     case 'Offline': {
+
+                        // 基本的に Offline は放送休止中やエラーなどで復帰の見込みがない状態
 
                         // ステータス詳細をプレイヤーに表示
                         // 動画の読み込みエラーが送出された時にメッセージを上書きする
@@ -1257,6 +1287,10 @@ export default Vue.extend({
 
                         // プレイヤーの背景を表示する
                         this.is_background_display = true;
+
+                        // バッファリング中の Progress Circular を非表示にする
+                        this.is_loading = false;
+                        this.is_video_buffering = false;
 
                         break;
                     }
@@ -2177,6 +2211,10 @@ export default Vue.extend({
         .dplayer-danloading {
             display: none !important;
         }
+        .dplayer-loading-icon {
+            // ローディング表示は自前でやるため不要
+            display: none !important;
+        }
     }
     .dplayer-controller-mask {
         height: 82px !important;
@@ -2677,8 +2715,8 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 transform: translate(-50%, -50%);
                 opacity: 0;
                 visibility: hidden;
-                will-change: opacity;
                 transition: opacity 0.4s cubic-bezier(0.4, 0.38, 0.49, 0.94), visibility 0.4s cubic-bezier(0.4, 0.38, 0.49, 0.94);
+                will-change: opacity;
 
                 &--display {
                     opacity: 1;
@@ -2704,6 +2742,24 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                         right: 30px;
                         bottom: 24px;
                     }
+                }
+            }
+
+            .watch-player__buffering {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                filter: drop-shadow(0px 0px 4px rgba(0, 0, 0, 0.2));
+                opacity: 0;
+                visibility: hidden;
+                transition: opacity 0.2s cubic-bezier(0.4, 0.38, 0.49, 0.94), visibility 0.2s cubic-bezier(0.4, 0.38, 0.49, 0.94);
+                will-change: opacity;
+                z-index: 3;
+
+                &--display {
+                    opacity: 1;
+                    visibility: visible;
                 }
             }
 
