@@ -76,8 +76,8 @@ export default class Utils {
         // コメントのフォントサイズ (Default: 34px)
         comment_font_size: 34 as number,
 
-        // コメントの遅延時間 (Default: 1.5秒) (同期無効)
-        comment_delay_time: 1.5 as number,
+        // コメントの遅延時間 (Default: 1.75秒) (同期無効)
+        comment_delay_time: 1.75 as number,
 
         // コメント送信後にコメント入力フォームを閉じる (Default: オン)
         close_comment_form_after_send: true as boolean,

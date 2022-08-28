@@ -782,7 +782,7 @@ export default Vue.extend({
                 theme: '#E64F97',  // テーマカラー
                 lang: 'ja-jp',  // 言語
                 live: true,  // ライブモード
-                liveSyncMinBufferSize: 0.8,  // ライブモードで同期する際の最小バッファサイズ (0.8秒)
+                liveSyncMinBufferSize: 1.1,  // ライブモードで同期する際の最小バッファサイズ (1.1秒)
                 loop: false,  // ループ再生 (ライブのため無効化)
                 airplay: false,  // AirPlay 機能 (うまく動かないため無効化)
                 autoplay: true,  // 自動再生
@@ -852,10 +852,10 @@ export default Vue.extend({
                             liveSync: Utils.getSettingsItem('low_latency_mode'),
                             // 許容する HTMLMediaElement の内部バッファの最大値 (秒単位, 2.5秒)
                             liveSyncMaxLatency: 2.5,
-                            // HTMLMediaElement の内部バッファ (遅延) が liveSyncMaxLatency を超えたとき、ターゲットとする遅延時間 (秒単位, 1.25秒)
-                            liveSyncTargetLatency: 1.25,
+                            // HTMLMediaElement の内部バッファ (遅延) が liveSyncMaxLatency を超えたとき、ターゲットとする遅延時間 (秒単位, 1.3秒)
+                            liveSyncTargetLatency: 1.3,
                             // ライブストリームの遅延の追跡に利用する再生速度 (x1.1)
-                            // 遅延が 2.5 秒を超えたとき、遅延が 1.25 秒を下回るまで再生速度が x1.1 に設定される
+                            // 遅延が 2.5 秒を超えたとき、遅延が 1.3 秒を下回るまで再生速度が x1.1 に設定される
                             liveSyncPlaybackRate: 1.1,
                         }
                     },
@@ -908,6 +908,9 @@ export default Vue.extend({
                     type: 'aribb24',  // aribb24.js を有効化
                 }
             });
+
+            // 同期が完了するまで音声をミュートしておく
+            this.player.video.muted = true;
 
             // デバッグ用にプレイヤーインスタンスも window 直下に入れる
             (window as any).player = this.player;
@@ -1106,16 +1109,38 @@ export default Vue.extend({
             // プレイヤーの背景を非表示にするイベントを登録
             // 実際に再生可能になるのを待ってから実行する
             const on_canplay = () => {
+
                 // 念のためさらに少しだけ待ってから
-                window.setTimeout(() => {
+                window.setTimeout(async () => {
+
+                    // 最初に同期しておく
+                    // 再生バッファが 1.1 秒を超えるまで 0.1 秒おきに実行する
+                    // 再生バッファが 1.1 秒を切ると再生が途切れやすくなるので (特に動きの激しい映像)、再生開始までの時間を若干犠牲にしてここの調整に時間を割く
+                    this.player.sync(true);
+                    let buffer = (Math.round((this.player.video.buffered.end(0) - this.player.video.currentTime) * 1000) / 1000);
+                    while (buffer < 1.1) {
+                        await Utils.sleep(0.1);
+                        this.player.sync(true);
+                        buffer = (Math.round((this.player.video.buffered.end(0) - this.player.video.currentTime) * 1000) / 1000);
+                    }
+
+                    // 同期が終わったのでミュートを解除
+                    this.player.video.muted = false;
+
+                    // ローディング状態を解除し、映像を表示する
                     this.is_loading = false;
-                    // ラジオチャンネルでは映像の代わりに背景画像を表示し続ける
+
                     if (this.channel.is_radiochannel) {
+                        // ラジオチャンネルでは引き続き映像の代わりとして背景画像を表示し続ける
                         this.is_background_display = true;
                     } else {
+                        // 背景画像をフェードアウト
                         this.is_background_display = false;
                     }
+
                 }, 100);
+
+                // イベントを登録解除
                 this.player.video.oncanplay = null;
                 this.player.video.oncanplaythrough = null;
             }
