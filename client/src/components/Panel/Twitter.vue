@@ -67,8 +67,9 @@
                     <Icon icon="fluent:clipboard-text-ltr-32-regular" height="22px" />
                 </div>
             </div>
-            <textarea class="tweet-form__textarea" placeholder="ツイート"
-                v-model="tweet_text" @input="updateTweetLetterCount()"
+            <textarea class="tweet-form__textarea" placeholder="ツイート" v-model="tweet_text"
+                @input="updateTweetLetterCount()"
+                @paste="pasteClipboardData($event)"
                 @focus="is_tweet_text_form_focused = true" @blur="is_tweet_text_form_focused = false">
             </textarea>
             <div class="tweet-form__control">
@@ -353,6 +354,22 @@ export default Vue.extend({
             }
         },
 
+        // クリップボード内のデータがペーストされたときのイベント
+        pasteClipboardData(event: ClipboardEvent) {
+
+            // 一応配列になっているので回しているが、基本1回のペーストにつき DataTransferItem は1個しか入らない
+            for (const clipboard_item of event.clipboardData.items) {
+
+                // 画像のみを対象にする (DataTransferItem.type には MIME タイプが入る)
+                if (clipboard_item.type.startsWith('image/')) {
+
+                    // クリップボード内の画像データを File オブジェクトとして取得し、キャプチャリストに追加
+                    const file = clipboard_item.getAsFile();
+                    this.addCaptureList(file, file.name);
+                }
+            }
+        },
+
         // 選択されている Twitter アカウントを更新する
         updateSelectedTwitterAccount(twitter_account: ITwitterAccount) {
             this.selected_twitter_account_id = twitter_account.id;
@@ -395,12 +412,12 @@ export default Vue.extend({
                 this.captures.shift();
             }
 
-            // キャプチャリストにキャプチャを追加[
-            const u = URL.createObjectURL(blob);
+            // キャプチャリストにキャプチャを追加
+            const blob_url = URL.createObjectURL(blob);
             this.captures.push({
                 blob: blob,
                 filename: filename,
-                image_url: u,
+                image_url: blob_url,
                 selected: false,
                 focused: false,
             });
