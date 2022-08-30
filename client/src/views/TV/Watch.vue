@@ -2970,9 +2970,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 justify-content: center;
                 align-items: center;
                 flex-direction: column;
-                width: 66px;
+                width: 77px;
                 height: 56px;
-                padding: 6px 5.5px;
+                padding: 6px 0px;
                 border-radius: 5px;
                 color: var(--v-text-base);
                 box-sizing: content-box;
@@ -2981,7 +2981,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 cursor: pointer;
                 @media screen and (max-height: 450px) {
                     height: 42px;
-                    padding: 6px 5.5px 4px;
+                    padding: 6px 0px 4px;
                 }
 
                 &--active {
