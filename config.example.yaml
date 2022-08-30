@@ -81,5 +81,17 @@
         # [ブラウザでのダウンロードと、KonomiTV サーバーへのアップロードを両方行う] を選択したときに利用されます。
         # Docker でインストールした場合も、ホストマシン側のフォルダの絶対パスを指定してください。
         'upload_folder': 'E:\TV-Capture',
+    },
+
+    # Twitter 連携の設定
+    'twitter': {
+
+        # Twitter API の Consumer Key (CK) / Consumer Secret (CS)
+        # 設定すると、デフォルトの CK/CS の代わりに、カスタム CK/CS を使って Twitter アカウントとの連携を行います。
+        # KonomiTV でカスタム CK/CS を使うには、別途カスタム CK/CS に紐づく Twitter API アプリケーションの設定で、
+        # Callback URI / Redirect URL に https://app.konomi.tv/api/redirect/twitter を追加する必要があります。
+        # 基本的に変更する必要はありません。Twitter API について詳細に理解している方のみ設定してください。
+        'consumer_key': null,
+        'consumer_secret': null,
     }
 }

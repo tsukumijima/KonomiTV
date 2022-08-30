@@ -16,7 +16,6 @@ from typing import Any, Coroutine, List, cast
 from app import schemas
 from app.models import TwitterAccount
 from app.models import User
-from app.utils import Interlaced
 from app.utils import OAuthCallbackResponse
 
 
@@ -84,7 +83,8 @@ async def TwitterAuthURLAPI(
     ## oauth/authorize と異なり、すでにアプリ連携している場合は再承認することなくコールバック URL にリダイレクトされる
     ## ref: https://developer.twitter.com/ja/docs/authentication/api-reference/authenticate
     try:
-        oauth_handler = tweepy.OAuth1UserHandler(Interlaced(1), Interlaced(2), callback=callback_url)
+        from app.app import consumer_key, consumer_secret
+        oauth_handler = tweepy.OAuth1UserHandler(consumer_key, consumer_secret, callback=callback_url)
         authorization_url = await asyncio.to_thread(oauth_handler.get_authorization_url, signin_with_twitter=True)  # 同期関数なのでスレッド上で実行
     except tweepy.TweepyException:
         raise HTTPException(
@@ -159,7 +159,8 @@ async def TwitterAuthCallbackAPI(
 
     # OAuth1UserHandler を初期化
     ## ref: https://docs.tweepy.org/en/latest/authentication.html#legged-oauth
-    oauth_handler = tweepy.OAuth1UserHandler(Interlaced(1), Interlaced(2))
+    from app.app import consumer_key, consumer_secret
+    oauth_handler = tweepy.OAuth1UserHandler(consumer_key, consumer_secret)
     oauth_handler.request_token = {
         'oauth_token': twitter_account.access_token,
         'oauth_token_secret': twitter_account.access_token_secret,
@@ -177,7 +178,7 @@ async def TwitterAuthCallbackAPI(
 
     # tweepy を初期化
     api = tweepy.API(tweepy.OAuth1UserHandler(
-        Interlaced(1), Interlaced(2), twitter_account.access_token, twitter_account.access_token_secret,
+        consumer_key, consumer_secret, twitter_account.access_token, twitter_account.access_token_secret,
     ))
 
     # アカウント情報を更新
@@ -297,8 +298,9 @@ async def TwitterTweetAPI(
         )
 
     # tweepy を初期化
+    from app.app import consumer_key, consumer_secret
     api = tweepy.API(tweepy.OAuth1UserHandler(
-        Interlaced(1), Interlaced(2), twitter_account.access_token, twitter_account.access_token_secret,
+        consumer_key, consumer_secret, twitter_account.access_token, twitter_account.access_token_secret,
     ))
 
     # アップロードした画像の media_id のリスト

@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi_utils.tasks import repeat_every
 from pydantic import ValidationError
+from typing import Any, cast
 
 from app.constants import CONFIG, CLIENT_DIR, DATABASE_CONFIG, DOCKER_FS_PREFIX, LIBRARY_PATH, QUALITY, VERSION
 from app.models import Channel
@@ -30,6 +31,7 @@ from app.routers import SettingsRouter
 from app.routers import TwitterRouter
 from app.routers import UsersRouter
 from app.schemas import Config
+from app.utils import Interlaced
 from app.utils import Logging
 from app.utils.EDCB import CtrlCmdUtil
 from app.utils.EDCB import EDCBTuner
@@ -46,7 +48,7 @@ if CONFIG['tv']['debug_mode_ts_path'] is not None:
 
 # 環境設定のバリデーション
 try:
-    Config(**CONFIG)
+    Config(**cast(Any, CONFIG))
 except ValidationError as error:
     Logging.error(
         '設定内容が不正なため、KonomiTV を起動できません。\n'
@@ -64,6 +66,10 @@ CONFIG['general']['mirakurun_url'] = CONFIG['general']['mirakurun_url'].rstrip('
 edcb_url_parse = urllib.parse.urlparse(CONFIG['general']['edcb_url'])
 CONFIG['general']['edcb_host'] = edcb_url_parse.hostname
 CONFIG['general']['edcb_port'] = edcb_url_parse.port
+
+# Twitter の CK/CS
+consumer_key: str = CONFIG['twitter']['consumer_key'] if CONFIG['twitter']['consumer_key'] is not None else Interlaced(1)
+consumer_secret: str = CONFIG['twitter']['consumer_secret'] if CONFIG['twitter']['consumer_secret'] is not None else Interlaced(2)
 
 # サードパーティーライブラリが配置されているかのバリデーション
 for library_name, library_path in LIBRARY_PATH.items():
@@ -180,9 +186,15 @@ async def Startup():
             try:
                 response = await asyncio.to_thread(requests.get, f'{CONFIG["general"]["mirakurun_url"]}/api/version', timeout=3)
             except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-                raise ValueError(f'Mirakurun ({CONFIG["general"]["mirakurun_url"]}) にアクセスできませんでした。Mirakurun が起動していないか、URL を間違えている可能性があります。')
+                raise ValueError(
+                    f'Mirakurun ({CONFIG["general"]["mirakurun_url"]}) にアクセスできませんでした。'
+                    'Mirakurun が起動していないか、URL を間違えている可能性があります。'
+                )
             if response.status_code != 200:
-                raise ValueError(f'{CONFIG["general"]["mirakurun_url"]} は Mirakurun の URL ではありません。Mirakurun の URL を間違えている可能性があります。')
+                raise ValueError(
+                    f'{CONFIG["general"]["mirakurun_url"]} は Mirakurun の URL ではありません。'
+                    'Mirakurun の URL を間違えている可能性があります。'
+                )
 
         # EDCB バックエンドの接続確認
         elif CONFIG['general']['backend'] == 'EDCB':
@@ -197,7 +209,10 @@ async def Startup():
             edcb.setConnectTimeOutSec(3)  # 3秒後にタイムアウト
             result = await edcb.sendEnumService()
             if result is None:
-                raise ValueError(f'EDCB ({CONFIG["general"]["edcb_url"]}) にアクセスできませんでした。EDCB が起動していないか、URL を間違えている可能性があります。')
+                raise ValueError(
+                    f'EDCB ({CONFIG["general"]["edcb_url"]}) にアクセスできませんでした。'
+                    'EDCB が起動していないか、URL を間違えている可能性があります。'
+                )
 
     # エラー発生時
     except ValueError as exception:

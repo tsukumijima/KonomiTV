@@ -9,7 +9,7 @@ from app import models
 
 
 # 環境設定を表す Pydantic モデル
-# バリデーションは環境設定をこの Pydantic モデルに通して行う
+# バリデーションは環境設定をこの Pydantic モデルに通すことで行う
 class Config(BaseModel):
 
     class General(BaseModel):
@@ -33,10 +33,15 @@ class Config(BaseModel):
     class Capture(BaseModel):
         upload_folder: DirectoryPath
 
+    class Twitter(BaseModel):
+        consumer_key: str | None
+        consumer_secret: str | None
+
     general: General
     server: Server
     tv: TV
     capture: Capture
+    twitter: Twitter
 
 # モデルを表す Pydantic モデル
 # 基本的には pydantic_model_creator() で Tortoise ORM モデルから変換したものを継承

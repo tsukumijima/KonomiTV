@@ -7,7 +7,7 @@ import secrets
 import sys
 import uvicorn.logging
 from pathlib import Path
-from typing import Dict, Literal
+from typing import Any, Dict, Literal
 
 
 # バージョン
@@ -20,7 +20,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 if len(inspect.stack()) > 8 and inspect.stack()[8].function == 'get_tortoise_config':
 
     # ダミーの CONFIG を用意（インポートエラーの回避のため）
-    CONFIG = {'general': {'debug': True}}  # Logging モジュールの初期化に必要
+    CONFIG: Dict[str, Dict[str, Any]] = {'general': {'debug': True}}  # Logging モジュールの初期化に必要
 
 else:
 
@@ -45,7 +45,7 @@ else:
 
     # 環境設定を読み込む
     with open(CONFIG_YAML, encoding='utf-8') as file:
-        CONFIG = ruamel.yaml.YAML().load(file)
+        CONFIG: Dict[str, Dict[str, Any]] = ruamel.yaml.YAML().load(file)
 
 # 品質の種類の型定義
 QUALITY_TYPES = Literal['1080p-60fps', '1080p', '810p', '720p', '540p', '480p', '360p', '240p']

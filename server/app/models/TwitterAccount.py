@@ -39,9 +39,9 @@ class TwitterAccount(models.Model):
                 continue
 
             # tweepy を初期化
-            from app.utils import Interlaced
+            from app.app import consumer_key, consumer_secret
             api = tweepy.API(tweepy.OAuth1UserHandler(
-                Interlaced(1), Interlaced(2), twitter_account.access_token, twitter_account.access_token_secret,
+                consumer_key, consumer_secret, twitter_account.access_token, twitter_account.access_token_secret,
             ))
 
             # アカウント情報を更新
