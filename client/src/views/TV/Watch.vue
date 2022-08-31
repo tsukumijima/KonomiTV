@@ -62,7 +62,7 @@
                         :style="{backgroundImage: `url(${background_url})`}">
                         <img class="watch-player__background-logo" src="/assets/images/logo.svg">
                     </div>
-                    <v-progress-circular indeterminate size="60" width="6" color="secondary" class="watch-player__buffering"
+                    <v-progress-circular indeterminate size="60" width="6" class="watch-player__buffering"
                         :class="{'watch-player__buffering--display': is_video_buffering && (is_loading || (player !== null && !player.video.paused))}">
                     </v-progress-circular>
                     <div class="watch-player__dplayer"></div>
@@ -791,7 +791,7 @@ export default Vue.extend({
                 theme: '#E64F97',  // テーマカラー
                 lang: 'ja-jp',  // 言語
                 live: true,  // ライブモード
-                liveSyncMinBufferSize: 1.1,  // ライブモードで同期する際の最小バッファサイズ (1.1秒)
+                liveSyncMinBufferSize: 1.3,  // ライブモードで同期する際の最小バッファサイズ (1.3秒)
                 loop: false,  // ループ再生 (ライブのため無効化)
                 airplay: false,  // AirPlay 機能 (うまく動かないため無効化)
                 autoplay: true,  // 自動再生
@@ -1125,12 +1125,25 @@ export default Vue.extend({
                 // 念のためさらに少しだけ待ってから
                 window.setTimeout(async () => {
 
+                    // this.player.video.buffered.end(0) が取得できるようになるまで待機
+                    let wait = true;
+                    while (wait === true) {
+                        try {
+                            this.player.video.buffered.end(0);
+                            wait = false;
+                        } catch (error) {
+                            // 何もしない
+                        }
+                        await Utils.sleep(0.1);
+                    }
+
                     // 最初に同期しておく
-                    // 再生バッファが 1.1 秒を超えるまで 0.1 秒おきに実行する
-                    // 再生バッファが 1.1 秒を切ると再生が途切れやすくなるので (特に動きの激しい映像)、再生開始までの時間を若干犠牲にしてここの調整に時間を割く
                     this.player.sync(true);
+
+                    // 再生バッファが 1.3 秒を超えるまで 0.1 秒おきに実行する
+                    // 再生バッファが 1.3 秒を切ると再生が途切れやすくなるので (特に動きの激しい映像)、再生開始までの時間を若干犠牲にしてここの調整に時間を割く
                     let buffer = (Math.round((this.player.video.buffered.end(0) - this.player.video.currentTime) * 1000) / 1000);
-                    while (buffer < 1.1) {
+                    while (buffer < 1.3) {
                         await Utils.sleep(0.1);
                         this.player.sync(true);
                         buffer = (Math.round((this.player.video.buffered.end(0) - this.player.video.currentTime) * 1000) / 1000);
@@ -2751,7 +2764,8 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 top: 50%;
                 left: 50%;
                 transform: translate(-50%, -50%);
-                filter: drop-shadow(0px 0px 4px rgba(0, 0, 0, 0.2));
+                color: var(--v-background-lighten3);
+                filter: drop-shadow(0px 0px 3px rgba(0, 0, 0, 0.3));
                 opacity: 0;
                 visibility: hidden;
                 transition: opacity 0.2s cubic-bezier(0.4, 0.38, 0.49, 0.94), visibility 0.2s cubic-bezier(0.4, 0.38, 0.49, 0.94);
