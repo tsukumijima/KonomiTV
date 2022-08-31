@@ -9,8 +9,8 @@ from app.models import User
 
 # ルーター
 router = APIRouter(
-    tags=['Settings'],
-    prefix='/api/settings',
+    tags = ['Settings'],
+    prefix = '/api/settings',
 )
 
 

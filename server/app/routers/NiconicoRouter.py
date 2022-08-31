@@ -22,8 +22,8 @@ from app.utils import OAuthCallbackResponse
 
 # ルーター
 router = APIRouter(
-    tags=['Niconico'],
-    prefix='/api/niconico',
+    tags = ['Niconico'],
+    prefix = '/api/niconico',
 )
 
 

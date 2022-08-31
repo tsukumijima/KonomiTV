@@ -15,8 +15,8 @@ from app.constants import CONFIG
 
 # ルーター
 router = APIRouter(
-    tags=['Captures'],
-    prefix='/api/captures',
+    tags = ['Captures'],
+    prefix = '/api/captures',
 )
 
 

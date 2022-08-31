@@ -29,8 +29,8 @@ from app.models import User
 
 # ルーター
 router = APIRouter(
-    tags=['Users'],
-    prefix='/api/users',
+    tags = ['Users'],
+    prefix = '/api/users',
 )
 
 

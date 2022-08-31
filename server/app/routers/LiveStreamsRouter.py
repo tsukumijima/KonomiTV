@@ -19,8 +19,8 @@ from app.models import LiveStream
 
 # ルーター
 router = APIRouter(
-    tags=['Streams'],
-    prefix='/api/streams/live',
+    tags = ['Streams'],
+    prefix = '/api/streams/live',
 )
 
 

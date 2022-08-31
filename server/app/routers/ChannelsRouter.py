@@ -28,8 +28,8 @@ from app.utils import Jikkyo
 
 # ルーター
 router = APIRouter(
-    tags=['Channels'],
-    prefix='/api/channels',
+    tags = ['Channels'],
+    prefix = '/api/channels',
 )
 
 

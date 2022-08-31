@@ -30,6 +30,7 @@ from app.routers import NiconicoRouter
 from app.routers import SettingsRouter
 from app.routers import TwitterRouter
 from app.routers import UsersRouter
+from app.routers import VersionRouter
 from app.schemas import Config
 from app.utils import Interlaced
 from app.utils import Logging
@@ -110,6 +111,7 @@ app.include_router(SettingsRouter.router)
 app.include_router(NiconicoRouter.router)
 app.include_router(TwitterRouter.router)
 app.include_router(UsersRouter.router)
+app.include_router(VersionRouter.router)
 
 # 静的ファイルの配信
 app.mount('/assets', StaticFiles(directory=CLIENT_DIR / 'assets', html=True))
@@ -178,7 +180,6 @@ tortoise.contrib.fastapi.register_tortoise(
 async def Startup():
 
     try:
-
         # Mirakurun バックエンドの接続確認
         if CONFIG['general']['backend'] == 'Mirakurun':
 

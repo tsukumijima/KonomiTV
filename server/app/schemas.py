@@ -13,7 +13,7 @@ from app import models
 class Config(BaseModel):
 
     class General(BaseModel):
-        backend: Literal['Mirakurun', 'EDCB']
+        backend: Literal['EDCB', 'Mirakurun']
         mirakurun_url: AnyHttpUrl
         edcb_url: stricturl(allowed_schemes={'tcp'}, tld_required=False)  # type: ignore
         program_update_interval: confloat(ge=0.1)  # type: ignore
@@ -153,3 +153,9 @@ class Users(BaseModel):
 class UserAccessToken(BaseModel):
     access_token: str
     token_type: str
+
+class VersionInformation(BaseModel):
+    version: str
+    latest_version: str
+    backend: Literal['EDCB', 'Mirakurun']
+    environment: Literal['Windows', 'Linux', 'Linux (Docker)']

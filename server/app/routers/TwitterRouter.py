@@ -21,8 +21,8 @@ from app.utils import OAuthCallbackResponse
 
 # ルーター
 router = APIRouter(
-    tags=['Twitter'],
-    prefix='/api/twitter',
+    tags = ['Twitter'],
+    prefix = '/api/twitter',
 )
 
 
