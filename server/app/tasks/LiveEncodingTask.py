@@ -11,7 +11,7 @@ from datetime import datetime
 from io import TextIOWrapper
 from typing import BinaryIO, Iterator, Literal, cast
 
-from app.constants import CONFIG, LIBRARY_PATH, LOGS_DIR, QUALITY, QUALITY_TYPES
+from app.constants import API_REQUEST_HEADERS, CONFIG, LIBRARY_PATH, LOGS_DIR, QUALITY, QUALITY_TYPES
 from app.models import Channel
 from app.models import LiveStream
 from app.models import Program
@@ -428,7 +428,7 @@ class LiveEncodingTask():
                 livestream.setStatus('Standby', 'チューナーを起動しています…')
                 response = await asyncio.to_thread(requests.get,
                     url = mirakurun_stream_api_url,
-                    headers = {'X-Mirakurun-Priority': '0'},
+                    headers = {**API_REQUEST_HEADERS, 'X-Mirakurun-Priority': '0'},
                     stream = True,
                     timeout = 15,
                 )

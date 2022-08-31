@@ -17,7 +17,7 @@ from tortoise import Tortoise
 from tortoise import transactions
 from typing import List
 
-from app.constants import CONFIG, DATABASE_CONFIG
+from app.constants import API_REQUEST_HEADERS, CONFIG, DATABASE_CONFIG
 from app.models import Channel
 from app.utils import Logging
 from app.utils import TSInformation
@@ -196,7 +196,11 @@ class Program(models.Model):
             # Mirakurun の API から番組情報を取得する
             try:
                 mirakurun_programs_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/programs'
-                mirakurun_programs_api_response = await asyncio.to_thread(requests.get, mirakurun_programs_api_url, timeout=3)
+                mirakurun_programs_api_response = await asyncio.to_thread(requests.get,
+                    url = mirakurun_programs_api_url,
+                    headers = API_REQUEST_HEADERS,
+                    timeout = 3,
+                )
                 if mirakurun_programs_api_response.status_code != 200:  # Mirakurun からエラーが返ってきた
                     Logging.error(f'Failed to get programs from Mirakurun. (HTTP Error {mirakurun_programs_api_response.status_code})')
                     return

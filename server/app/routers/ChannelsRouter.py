@@ -17,7 +17,7 @@ from tortoise import timezone
 from typing import Dict, List
 
 from app import schemas
-from app.constants import CONFIG, LOGO_DIR
+from app.constants import API_REQUEST_HEADERS, CONFIG, LOGO_DIR
 from app.models import Channel
 from app.models import LiveStream
 from app.models import User
@@ -372,7 +372,11 @@ async def ChannelLogoAPI(
         # 同梱のロゴが存在しない場合のみ
         try:
             mirakurun_logo_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services/{mirakurun_service_id}/logo'
-            mirakurun_logo_api_response = await asyncio.to_thread(requests.get, mirakurun_logo_api_url, timeout=3)
+            mirakurun_logo_api_response = await asyncio.to_thread(requests.get,
+                url = mirakurun_logo_api_url,
+                headers = API_REQUEST_HEADERS,
+                timeout = 3,
+            )
 
             # ステータスコードが 200 であれば
             # ステータスコードが 503 の場合はロゴデータが存在しない

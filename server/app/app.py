@@ -18,7 +18,7 @@ from fastapi_utils.tasks import repeat_every
 from pydantic import ValidationError
 from typing import Any, cast
 
-from app.constants import CONFIG, CLIENT_DIR, DATABASE_CONFIG, DOCKER_FS_PREFIX, LIBRARY_PATH, QUALITY, VERSION
+from app.constants import API_REQUEST_HEADERS, CONFIG, CLIENT_DIR, DATABASE_CONFIG, DOCKER_FS_PREFIX, LIBRARY_PATH, QUALITY, VERSION
 from app.models import Channel
 from app.models import LiveStream
 from app.models import Program
@@ -184,7 +184,11 @@ async def Startup():
 
             # 試しにリクエストを送り、200 (OK) が返ってきたときだけ有効な URL とみなす
             try:
-                response = await asyncio.to_thread(requests.get, f'{CONFIG["general"]["mirakurun_url"]}/api/version', timeout=3)
+                response = await asyncio.to_thread(requests.get,
+                    url = f'{CONFIG["general"]["mirakurun_url"]}/api/version',
+                    headers = API_REQUEST_HEADERS,
+                    timeout = 3,
+                )
             except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
                 raise ValueError(
                     f'Mirakurun ({CONFIG["general"]["mirakurun_url"]}) にアクセスできませんでした。'

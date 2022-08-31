@@ -8,7 +8,7 @@ from tortoise import timezone
 from tortoise.exceptions import IntegrityError
 from typing import Any, Literal
 
-from app.constants import CONFIG
+from app.constants import API_REQUEST_HEADERS, CONFIG
 from app.utils import Jikkyo
 from app.utils import Logging
 from app.utils import TSInformation
@@ -70,7 +70,11 @@ class Channel(models.Model):
         # Mirakurun の API からチャンネル情報を取得する
         try:
             mirakurun_services_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services'
-            mirakurun_services_api_response = await asyncio.to_thread(requests.get, mirakurun_services_api_url, timeout=3)
+            mirakurun_services_api_response = await asyncio.to_thread(requests.get,
+                url = mirakurun_services_api_url,
+                headers = API_REQUEST_HEADERS,
+                timeout = 3,
+            )
             if mirakurun_services_api_response.status_code != 200:  # Mirakurun からエラーが返ってきた
                 Logging.error(f'Failed to get channels from Mirakurun. (HTTP Error {mirakurun_services_api_response.status_code})')
                 return
