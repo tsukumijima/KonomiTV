@@ -94,6 +94,9 @@ export default Vue.extend({
     background: var(--v-background-lighten1);
     @media screen and (max-height: 450px) {
         width: 210px;
+        @media screen and (max-width: 700px) {
+            width: 190px;
+        }
     }
 
     .navigation {
@@ -110,6 +113,9 @@ export default Vue.extend({
         @media screen and (max-height: 450px) {
             top: 48px;
             width: 210px;
+            @media screen and (max-width: 700px) {
+                width: 190px;
+            }
         }
 
         .navigation-scroll {
@@ -120,6 +126,9 @@ export default Vue.extend({
             overflow-y: auto;
             @media screen and (max-height: 450px) {
                 padding: 10px 12px;
+                @media screen and (max-width: 700px) {
+                    padding: 10px 8px;
+                }
             }
             &::-webkit-scrollbar-track {
                 background: var(--v-background-lighten1);

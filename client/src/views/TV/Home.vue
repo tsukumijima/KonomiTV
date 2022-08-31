@@ -20,7 +20,8 @@
                                                 :class="`channel__broadcaster-status-force--${TVUtils.getChannelForceType(channel.channel_force)}`">
                                                 <Icon icon="fa-solid:fire-alt" height="12px" />
                                                 <span class="ml-1">勢い:</span>
-                                                <span class="ml-1">{{TVUtils.getAttribute(channel, 'channel_force', '--')}} コメ/分</span>
+                                                <span class="ml-1">{{TVUtils.getAttribute(channel, 'channel_force', '--')}}</span>
+                                                <span style="margin-left: 3px;"> コメ/分</span>
                                             </div>
                                             <div class="channel__broadcaster-status-viewers ml-4">
                                                 <Icon icon="fa-solid:eye" height="14px" />
@@ -38,9 +39,11 @@
                                     </div>
                                 </div>
                                 <div class="channel__program-present">
-                                    <span class="channel__program-present-title"
-                                          v-html="TVUtils.decorateProgramInfo(channel.program_present, 'title')"></span>
-                                    <span class="channel__program-present-time">{{TVUtils.getProgramTime(channel.program_present)}}</span>
+                                    <div class="channel__program-present-title-wrapper">
+                                        <span class="channel__program-present-title"
+                                            v-html="TVUtils.decorateProgramInfo(channel.program_present, 'title')"></span>
+                                        <span class="channel__program-present-time">{{TVUtils.getProgramTime(channel.program_present)}}</span>
+                                    </div>
                                     <span class="channel__program-present-description"
                                           v-html="TVUtils.decorateProgramInfo(channel.program_present, 'description')"></span>
                                 </div>
@@ -364,7 +367,7 @@ _::-webkit-full-page-media, _:future, :root
         background: transparent !important;
         overflow: inherit;
         @media screen and (max-height: 450px) {
-            padding-bottom: 22px;
+            padding-bottom: 12px;
         }
 
         .channels {
@@ -377,6 +380,9 @@ _::-webkit-full-page-media, _:future, :root
             background: var(--v-background-base);
             // will-change を入れておく事で、アニメーションが GPU で処理される
             will-change: transform;
+            @media screen and (max-height: 450px) {
+                grid-row-gap: 8px;
+            }
 
             // 1630px 以上で幅を 445px に固定
             @media screen and (min-width: 1630px) {
@@ -453,9 +459,10 @@ _::-webkit-full-page-media, _:future, :root
                     height: auto;
                 }
                 @media screen and (max-height: 450px) {
-                    padding: 15px 18px;
+                    padding: 12px 14px;
+                    padding-top: 10px;
                     height: auto;
-                    border-radius: 15px;
+                    border-radius: 11px;
                 }
 
                 &:hover {
@@ -472,7 +479,7 @@ _::-webkit-full-page-media, _:future, :root
                     display: flex;
                     height: 44px;
                     @media screen and (max-height: 450px) {
-                        height: 38px;
+                        height: 29px;
                     }
 
                     &-icon {
@@ -485,8 +492,9 @@ _::-webkit-full-page-media, _:future, :root
                         background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
                         object-fit: cover;
                         @media screen and (max-height: 450px) {
-                            width: 64px;
-                            height: 38px;
+                            width: 54px;
+                            height: 29px;
+                            border-radius: 4px;
                         }
                     }
 
@@ -496,6 +504,12 @@ _::-webkit-full-page-media, _:future, :root
                         margin-left: 16px;
                         width: 100%;
                         min-width: 0;
+                        @media screen and (max-height: 450px) {
+                            align-items: center;
+                            flex-direction: row;
+                            margin-left: 12px;
+                            margin-right: 6px;
+                        }
                     }
 
                     &-name {
@@ -511,18 +525,33 @@ _::-webkit-full-page-media, _:future, :root
 
                     &-status {
                         display: flex;
+                        flex-shrink: 0;
                         align-items: center;
                         margin-top: 2px;
                         font-size: 12px;
                         color: var(--v-text-darken1);
                         @media screen and (max-height: 450px) {
-                            font-size: 10px;
                             margin-top: 3px;
+                            margin-left: auto;
+                            font-size: 12px;
                         }
 
                         &-force, &-viewers {
                             display: flex;
                             align-items: center;
+                            @media screen and (max-height: 450px) {
+                                @media screen and (max-width: 700px) {
+                                    span:nth-child(2), span:nth-child(4) {
+                                        display: none;
+                                    }
+                                }
+                            }
+                        }
+
+                        @media screen and (max-height: 450px) {
+                            &-viewers {
+                                margin-left: 8px !important;
+                            }
                         }
 
                         &-force--festival {
@@ -551,6 +580,9 @@ _::-webkit-full-page-media, _:future, :root
                         border-radius: 50%;
                         transition: color 0.15s ease, background-color 0.15s ease;
                         user-select: none;
+                        @media screen and (max-height: 450px) {
+                            top: -1px;
+                        }
 
                         &:before {
                             content: "";
@@ -585,9 +617,19 @@ _::-webkit-full-page-media, _:future, :root
                     display: flex;
                     flex-direction: column;
 
+                    &-title-wrapper {
+                        display: block;
+                        margin-top: 14px;
+
+                        @media screen and (max-height: 450px) {
+                            display: flex;
+                            align-items: center;
+                            margin-top: 10px;
+                        }
+                    }
+
                     &-title {
                         display: -webkit-box;
-                        margin-top: 14px;
                         font-size: 16px;
                         font-weight: 700;
                         font-feature-settings: "palt" 1;  // 文字詰め
@@ -596,7 +638,6 @@ _::-webkit-full-page-media, _:future, :root
                         -webkit-line-clamp: 2;  // 2行までに制限
                         -webkit-box-orient: vertical;
                         @media screen and (max-height: 450px) {
-                            margin-top: 10px;
                             font-size: 14.5px;
                             -webkit-line-clamp: 1;  // 1行までに制限
                         }
@@ -607,7 +648,15 @@ _::-webkit-full-page-media, _:future, :root
                         color: var(--v-text-darken1);
                         font-size: 13.5px;
                         @media screen and (max-height: 450px) {
+                            flex-shrink: 0;
+                            margin-top: 0px;
+                            margin-left: auto;
+                            padding-left: 10px;
                             font-size: 12px;
+                            @media screen and (max-width: 700px) {
+                                font-size: 11px;
+                                padding-left: 6px;
+                            }
                         }
                     }
 
@@ -624,7 +673,7 @@ _::-webkit-full-page-media, _:future, :root
                         -webkit-line-clamp: 3;  // 3行までに制限
                         -webkit-box-orient: vertical;
                         @media screen and (max-height: 450px) {
-                            margin-top: 8px;
+                            margin-top: 6px;
                             font-size: 10px;
                             -webkit-line-clamp: 2;  // 3行までに制限
                         }
@@ -641,6 +690,7 @@ _::-webkit-full-page-media, _:future, :root
                         margin-top: 6px;
                     }
                     @media screen and (max-height: 450px) {
+                        flex-direction: row;
                         margin-top: 6px;
                         font-size: 12px;
                     }
@@ -648,6 +698,8 @@ _::-webkit-full-page-media, _:future, :root
                     &-title {
                         display: flex;
                         align-items: center;
+                        min-width: 0;  // magic!
+
                         &-decorate {
                             flex-shrink: 0;
                             font-weight: bold;
@@ -666,7 +718,14 @@ _::-webkit-full-page-media, _:future, :root
                     &-time {
                         color: var(--v-text-darken1);
                         @media screen and (max-height: 450px) {
+                            flex-shrink: 0;
+                            margin-left: auto;
+                            padding-left: 8px;
                             font-size: 11.5px;
+                            @media screen and (max-width: 700px) {
+                                font-size: 11px;
+                                padding-left: 6px;
+                            }
                         }
                     }
                 }

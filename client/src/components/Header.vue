@@ -22,9 +22,12 @@
     z-index: 10;
 
     @media screen and (max-height: 450px) {
-        width: 210px !important;
-        height: 48px !important;
+        width: 210px;
+        height: 48px;
         justify-content: center;
+        @media screen and (max-width: 700px) {
+            width: 190px;
+        }
     }
 
     @media screen and (max-height: 450px) {
