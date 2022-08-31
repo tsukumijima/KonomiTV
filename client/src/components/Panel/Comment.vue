@@ -38,6 +38,7 @@
              :class="{'comment-scroll-button--display': is_manual_scroll}">
             <Icon icon="fluent:arrow-down-12-filled" height="29px" />
         </div>
+        <CommentMuteSettings v-model="comment_mute_settings_modal" />
     </div>
 </template>
 <script lang="ts">
@@ -47,6 +48,7 @@ import dayjs from 'dayjs';
 import Vue, { PropType } from 'vue';
 
 import { IChannel, IDPlayerDanmakuSendOptions, IUser } from '@/interface';
+import CommentMuteSettings from '@/components/Settings/CommentMuteSettings.vue';
 import Utils from '@/utils';
 
 // このコンポーネント内でのコメントのインターフェイス
@@ -60,6 +62,7 @@ interface IComment {
 export default Vue.extend({
     name: 'Panel-CommentTab',
     components: {
+        CommentMuteSettings,
     },
     props: {
         // チャンネル情報
