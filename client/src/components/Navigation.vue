@@ -31,8 +31,11 @@
                     <Icon class="navigation__link-icon" icon="fluent:settings-20-regular" width="26px" />
                     <span class="navigation__link-text">設定</span>
                 </router-link>
-                <a v-ripple class="navigation__link" active-class="navigation__link--active" href="https://github.com/tsukumijima/KonomiTV">
-                    <Icon class="navigation__link-icon" icon="fluent:info-16-regular" width="26px" />
+                <a v-ripple class="navigation__link" active-class="navigation__link--active" href="https://github.com/tsukumijima/KonomiTV"
+                    :class="{'navigation__link--version': Utils.version.includes('-dev')}"
+                    v-tooltip.top="is_update_available ? `アップデートがあります (version ${latest_version})` : ''">
+                    <Icon class="navigation__link-icon" icon="fluent:info-16-regular" width="26px"
+                        :class="{'navigation__link-icon--highlight': is_update_available}" />
                     <span class="navigation__link-text">version {{Utils.version}}</span>
                 </a>
             </div>
@@ -43,14 +46,41 @@
 
 import Vue from 'vue';
 
+import { IVersionInformation } from '@/interface';
 import Utils from '@/utils';
 
 export default Vue.extend({
     name: 'Navigation',
     data() {
         return {
+
             // ユーティリティをテンプレートで使えるように
             Utils: Utils,
+
+            // 最新のバージョン
+            latest_version: '' as string,
+
+            // アップデートが利用可能か
+            is_update_available: false as boolean,
+        }
+    },
+    async created() {
+        try {
+
+            // バージョン情報を取得
+            const version_info: IVersionInformation = (await Vue.axios.get(`/version`)).data;
+            this.latest_version = version_info.latest_version;
+
+            // もし現在のサーバーバージョン (-dev を除く) と最新のサーバーバージョンが異なるなら、アップデートが利用できる旨を表示する
+            // 現在のサーバーバージョンが -dev 付きで、かつ最新のサーバーバージョンが -dev なし の場合 (リリース版がリリースされたとき) も同様に表示する
+            // つまり開発版だと同じバージョンのリリース版がリリースされたときにしかアップデート通知が表示されない事になるが、ひとまずこれで…
+            if ((version_info.version.includes('-dev') === false && version_info.version !== version_info.latest_version) ||
+                (version_info.version.includes('-dev') === true && version_info.version.replace('-dev', '') === version_info.latest_version)) {
+                this.is_update_available = true;
+            }
+
+        } catch (error) {
+            throw new Error(error);  // エラー内容をコンソールに表示して終了
         }
     }
 });
@@ -101,7 +131,6 @@ export default Vue.extend({
                 flex-shrink: 0;
                 height: 52px;
                 padding-left: 16px;
-                padding-right: 16px;
                 margin-top: 4px;
                 border-radius: 11px;
                 font-size: 16px;
@@ -112,7 +141,6 @@ export default Vue.extend({
                 @media screen and (max-height: 450px) {
                     height: 44px;
                     padding-left: 12px;
-                    padding-right: 12px;
                     font-size: 15px;
                 }
 
@@ -129,11 +157,21 @@ export default Vue.extend({
                         background: #5b2d3c;
                     }
                 }
+                &--version {
+                    font-size: 15px;
+                    @media screen and (max-height: 450px) {
+                        font-size: 14.5px;
+                    }
+                }
 
                 .navigation__link-icon {
                     margin-right: 14px;
                     @media screen and (max-height: 450px) {
                         margin-right: 10px;
+                    }
+
+                    &--highlight {
+                        color: var(--v-secondary-base);
                     }
                 }
             }

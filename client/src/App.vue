@@ -79,7 +79,7 @@ body .route-container {
         display: inline-block;
         padding: 4px 10px;
         border-radius: 4px;
-        background: #2F221FC0;
+        background: var(--v-background-lighten1);
         color: var(--v-text-base);
         font-size: 12px;
         font-family: 'YakuHanJPs', 'Open Sans', 'Hiragino Sans', 'Noto Sans JP', sans-serif;

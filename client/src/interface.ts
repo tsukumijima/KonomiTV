@@ -116,6 +116,14 @@ export interface IUser {
     updated_at: string;
 }
 
+// バージョン情報を表すインターフェイス
+export interface IVersionInformation {
+    version: string;
+    latest_version: string;
+    backend: 'EDCB' | 'Mirakurun';
+    environment: 'Windows' | 'Linux' | 'Linux (Docker)';
+}
+
 // DPlayer のコメントデータの型
 // KonomiTV で使うプロパティのみ定義している
 // ref: https://github.com/tsukumijima/DPlayer/blob/master/src/js/danmaku.js#L86-L96
