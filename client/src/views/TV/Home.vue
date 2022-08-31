@@ -275,7 +275,7 @@ export default Vue.extend({
         height: 54px;
         // 下線を引く
         background: linear-gradient(to bottom, var(--v-background-base) calc(100% - 3px), var(--v-background-lighten1) 3px);
-        @media screen and (max-height: 450px) {
+        @include smartphone-horizontal {
             height: 46px;
         }
     }
@@ -344,7 +344,7 @@ _::-webkit-full-page-media, _:future, :root
         padding-bottom: 20px;
         background:var(--v-background-base);
         z-index: 1;
-        @media screen and (max-height: 450px) {
+        @include smartphone-horizontal {
             top: 0px;
             padding-top: 0px;
             padding-bottom: 8px;
@@ -356,7 +356,7 @@ _::-webkit-full-page-media, _:future, :root
             color: var(--v-text-base) !important;
             font-size: 16px;
             text-transform: none;
-            @media screen and (max-height: 450px) {
+            @include smartphone-horizontal {
                 font-size: 15px;
             }
         }
@@ -366,7 +366,7 @@ _::-webkit-full-page-media, _:future, :root
         padding-bottom: 32px;
         background: transparent !important;
         overflow: inherit;
-        @media screen and (max-height: 450px) {
+        @include smartphone-horizontal {
             padding-bottom: 12px;
         }
 
@@ -380,12 +380,12 @@ _::-webkit-full-page-media, _:future, :root
             background: var(--v-background-base);
             // will-change を入れておく事で、アニメーションが GPU で処理される
             will-change: transform;
-            @media screen and (max-height: 450px) {
+            @include smartphone-horizontal {
                 grid-row-gap: 8px;
             }
 
             // 1630px 以上で幅を 445px に固定
-            @media screen and (min-width: 1630px) {
+            @media (min-width: 1630px) {
                 grid-template-columns: repeat(auto-fit, 445px);
             }
 
@@ -399,42 +399,42 @@ _::-webkit-full-page-media, _:future, :root
             // チャンネルリストにチャンネルが1つしか表示されていないとき
             &.channels--length-1 {
                 // 2列
-                @media screen and (min-width: 1008px) {
+                @media (min-width: 1008px) {
                     // 16px は余白の幅のこと
                     margin-right: calc((((100% - (16px * 1)) / 2) * 1) + (16px * 1));  // もう1つ分のカード幅を埋める
                 }
                 // 3列でカード幅が自動
-                @media screen and (min-width: 1389px) {
+                @media (min-width: 1389px) {
                     margin-right: calc((((100% - (16px * 2)) / 3) * 2) + (16px * 2));  // もう2つ分のカード幅を埋める
                 }
                 // 3列でカード幅が 445px
-                @media screen and (min-width: 1630px) {
+                @media (min-width: 1630px) {
                     margin-right: calc((445px * 2) + (16px * 2));  // もう2つ分のカード幅を埋める
                 }
                 // 4列でカード幅が 445px
-                @media screen and (min-width: 2090px) {
+                @media (min-width: 2090px) {
                     margin-right: calc((445px * 3) + (16px * 3));  // もう3つ分のカード幅を埋める
                 }
             }
             // チャンネルリストにチャンネルが2つしか表示されていないとき
             &.channels--length-2 {
                 // 3列でカード幅が自動
-                @media screen and (min-width: 1389px) {
+                @media (min-width: 1389px) {
                     margin-right: calc((((100% - (16px * 2)) / 3) * 1) + (16px * 1));  // もう1つ分のカード幅を埋める
                 }
                 // 3列でカード幅が 445px
-                @media screen and (min-width: 1630px) {
+                @media (min-width: 1630px) {
                     margin-right: calc(445px + 16px);  // もう1つ分のカード幅を埋める
                 }
                 // 4列でカード幅が 445px
-                @media screen and (min-width: 2090px) {
+                @media (min-width: 2090px) {
                     margin-right: calc((445px * 2) + (16px * 2));  // もう2つ分のカード幅を埋める
                 }
             }
             // チャンネルリストにチャンネルが3つしか表示されていないとき
             &.channels--length-3 {
                 // 4列でカード幅が 445px
-                @media screen and (min-width: 2090px) {
+                @media (min-width: 2090px) {
                     margin-right: calc(445px + 16px);  // もう1つ分のカード幅を埋める
                 }
             }
@@ -455,10 +455,10 @@ _::-webkit-full-page-media, _:future, :root
                 cursor: pointer;
 
                 // 1列表示
-                @media screen and (max-width: 1007.9px) {
+                @media (max-width: 1007.9px) {
                     height: auto;
                 }
-                @media screen and (max-height: 450px) {
+                @include smartphone-horizontal {
                     padding: 12px 14px;
                     padding-top: 10px;
                     height: auto;
@@ -478,7 +478,7 @@ _::-webkit-full-page-media, _:future, :root
                 .channel__broadcaster {
                     display: flex;
                     height: 44px;
-                    @media screen and (max-height: 450px) {
+                    @include smartphone-horizontal {
                         height: 29px;
                     }
 
@@ -491,7 +491,7 @@ _::-webkit-full-page-media, _:future, :root
                         // 読み込まれるまでのアイコンの背景
                         background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
                         object-fit: cover;
-                        @media screen and (max-height: 450px) {
+                        @include smartphone-horizontal {
                             width: 54px;
                             height: 29px;
                             border-radius: 4px;
@@ -504,7 +504,7 @@ _::-webkit-full-page-media, _:future, :root
                         margin-left: 16px;
                         width: 100%;
                         min-width: 0;
-                        @media screen and (max-height: 450px) {
+                        @include smartphone-horizontal {
                             align-items: center;
                             flex-direction: row;
                             margin-left: 12px;
@@ -518,7 +518,7 @@ _::-webkit-full-page-media, _:future, :root
                         overflow: hidden;
                         white-space: nowrap;
                         text-overflow: ellipsis;
-                        @media screen and (max-height: 450px) {
+                        @include smartphone-horizontal {
                             font-size: 15px;
                         }
                     }
@@ -530,7 +530,7 @@ _::-webkit-full-page-media, _:future, :root
                         margin-top: 2px;
                         font-size: 12px;
                         color: var(--v-text-darken1);
-                        @media screen and (max-height: 450px) {
+                        @include smartphone-horizontal {
                             margin-top: 3px;
                             margin-left: auto;
                             font-size: 12px;
@@ -539,16 +539,14 @@ _::-webkit-full-page-media, _:future, :root
                         &-force, &-viewers {
                             display: flex;
                             align-items: center;
-                            @media screen and (max-height: 450px) {
-                                @media screen and (max-width: 700px) {
-                                    span:nth-child(2), span:nth-child(4) {
-                                        display: none;
-                                    }
+                            @include smartphone-horizontal-short {
+                                span:nth-child(2), span:nth-child(4) {
+                                    display: none;
                                 }
                             }
                         }
 
-                        @media screen and (max-height: 450px) {
+                        @include smartphone-horizontal {
                             &-viewers {
                                 margin-left: 8px !important;
                             }
@@ -580,7 +578,7 @@ _::-webkit-full-page-media, _:future, :root
                         border-radius: 50%;
                         transition: color 0.15s ease, background-color 0.15s ease;
                         user-select: none;
-                        @media screen and (max-height: 450px) {
+                        @include smartphone-horizontal {
                             top: -1px;
                         }
 
@@ -621,7 +619,7 @@ _::-webkit-full-page-media, _:future, :root
                         display: block;
                         margin-top: 14px;
 
-                        @media screen and (max-height: 450px) {
+                        @include smartphone-horizontal {
                             display: flex;
                             align-items: center;
                             margin-top: 10px;
@@ -637,7 +635,7 @@ _::-webkit-full-page-media, _:future, :root
                         overflow: hidden;
                         -webkit-line-clamp: 2;  // 2行までに制限
                         -webkit-box-orient: vertical;
-                        @media screen and (max-height: 450px) {
+                        @include smartphone-horizontal {
                             font-size: 14.5px;
                             -webkit-line-clamp: 1;  // 1行までに制限
                         }
@@ -647,16 +645,16 @@ _::-webkit-full-page-media, _:future, :root
                         margin-top: 4px;
                         color: var(--v-text-darken1);
                         font-size: 13.5px;
-                        @media screen and (max-height: 450px) {
+                        @include smartphone-horizontal {
                             flex-shrink: 0;
                             margin-top: 0px;
                             margin-left: auto;
                             padding-left: 10px;
                             font-size: 12px;
-                            @media screen and (max-width: 700px) {
-                                font-size: 11px;
-                                padding-left: 6px;
-                            }
+                        }
+                        @include smartphone-horizontal-short {
+                            font-size: 11px;
+                            padding-left: 6px;
                         }
                     }
 
@@ -672,7 +670,7 @@ _::-webkit-full-page-media, _:future, :root
                         overflow: hidden;
                         -webkit-line-clamp: 3;  // 3行までに制限
                         -webkit-box-orient: vertical;
-                        @media screen and (max-height: 450px) {
+                        @include smartphone-horizontal {
                             margin-top: 6px;
                             font-size: 10px;
                             -webkit-line-clamp: 2;  // 3行までに制限
@@ -686,10 +684,10 @@ _::-webkit-full-page-media, _:future, :root
                     color: var(--v-text-base);
                     font-size: 12.5px;
                     // 1列表示
-                    @media screen and (max-width: 1007.9px) {
+                    @media (max-width: 1007.9px) {
                         margin-top: 6px;
                     }
-                    @media screen and (max-height: 450px) {
+                    @include smartphone-horizontal {
                         flex-direction: row;
                         margin-top: 6px;
                         font-size: 12px;
@@ -717,15 +715,15 @@ _::-webkit-full-page-media, _:future, :root
                     }
                     &-time {
                         color: var(--v-text-darken1);
-                        @media screen and (max-height: 450px) {
+                        @include smartphone-horizontal {
                             flex-shrink: 0;
                             margin-left: auto;
                             padding-left: 8px;
                             font-size: 11.5px;
-                            @media screen and (max-width: 700px) {
-                                font-size: 11px;
-                                padding-left: 6px;
-                            }
+                        }
+                        @include smartphone-horizontal-short {
+                            font-size: 11px;
+                            padding-left: 6px;
                         }
                     }
                 }

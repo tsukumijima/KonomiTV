@@ -3,27 +3,56 @@
 @import '~vuetify/src/styles/settings/_dark.scss';
 
 
-// メディアクエリを定義
-@mixin desktop-large {
+// ***** メディアクエリの定義 *****
+
+// デスクトップ
+@mixin desktop {
     @media (min-width: 1264.01px) {
         @content;
     }
 }
-@mixin desktop-medium {
-    @media (max-width: 1264px) {
+
+// タブレット横画面
+@mixin tablet-horizontal {
+    @media (max-width: 1264px) and (max-height: 850px) {
         @content;
     }
 }
-@mixin tablet {
-    @media (max-width: 960px) {
+
+// タブレット縦画面
+@mixin tablet-vertical {
+    @media (max-width: 850px) and (min-height: 850.01px) {
         @content;
     }
 }
-@mixin smartphone {
-    @media (max-width: 750px) {
+
+// スマホ横画面
+@mixin smartphone-horizontal {
+    @media (max-width: 1000px) and (max-height: 450px) {
         @content;
     }
 }
+// スマホ横画面 (iPhone SE2 などの縦に短いサイズのスマホ)
+@mixin smartphone-horizontal-short {
+    @media (max-width: 680px) and (max-height: 450px) {
+        @content;
+    }
+}
+
+// スマホ縦画面
+@mixin smartphone-vertical {
+    @media (max-width: 600px) and (min-height: 450.01px) {
+        @content;
+    }
+}
+// スマホ縦画面 (iPhone SE2 などの縦に短いサイズのスマホ)
+@mixin smartphone-vertical-short {
+    @media (max-width: 380px) and (min-height: 450.01px) {
+        @content;
+    }
+}
+
+// ***** Vuetify の SASS 変数の上書き *****
 
 // フォントの定義
 $body-font-family: 'YakuHanJPs', 'Open Sans', 'Hiragino Sans', 'Noto Sans JP', sans-serif;

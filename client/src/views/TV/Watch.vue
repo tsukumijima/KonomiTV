@@ -2235,7 +2235,7 @@ export default Vue.extend({
         background: linear-gradient(to bottom, transparent, var(--v-background-base)) !important;
         opacity: 0 !important;
         visibility: hidden;
-        @media screen and (max-height: 450px) {
+        @include smartphone-horizontal {
             height: 66px !important;
         }
     }
@@ -2256,7 +2256,7 @@ export default Vue.extend({
             bottom: auto !important;
             &.dplayer-icons-right {
                 right: 22px !important;
-                @media screen and (max-height: 450px) {
+                @include smartphone-horizontal {
                     right: 11px !important;
                 }
             }
@@ -2287,7 +2287,7 @@ export default Vue.extend({
         border-radius: 4px !important;
         font-size: 15px !important;
         line-height: 1.6;
-        @include tablet {
+        @include smartphone-horizontal {
             padding: 12px 16px !important;
             margin-right: 16px;
             font-size: 13.5px !important;
@@ -2325,7 +2325,7 @@ export default Vue.extend({
     &.dplayer-mobile {
         .dplayer-controller {
             padding-left: calc(68px + 30px) !important;
-            @media screen and (max-height: 450px) {
+            @include smartphone-horizontal {
                 padding-left: calc(56px + 18px) !important;
             }
         }
@@ -2355,10 +2355,10 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             visibility: visible !important;
             .dplayer-comment-box {
                 left: calc(68px + 20px);
-                @include tablet {
+                @include smartphone-horizontal {
                     left: calc(68px + 16px);
                 }
-                @media screen and (max-height: 450px) {
+                @include smartphone-horizontal {
                     left: calc(56px + 16px);
                 }
             }
@@ -2366,29 +2366,29 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         .dplayer-notice {
             left: calc(68px + 30px);
             bottom: 62px;
-            @include tablet {
+            @include smartphone-horizontal {
                 left: calc(68px + 16px);
             }
-            @media screen and (max-height: 450px) {
+            @include smartphone-horizontal {
                 left: calc(56px + 16px);
             }
         }
         .dplayer-info-panel {
             top: 82px;
             left: calc(68px + 30px);
-            @include tablet {
+            @include smartphone-horizontal {
                 left: calc(68px + 16px);
             }
-            @media screen and (max-height: 450px) {
+            @include smartphone-horizontal {
                 left: calc(56px + 16px);
             }
         }
         .dplayer-comment-setting-box {
             left: calc(68px + 20px);
-            @include tablet {
+            @include smartphone-horizontal {
                 left: calc(68px + 16px);
             }
-            @media screen and (max-height: 450px) {
+            @include smartphone-horizontal {
                 left: calc(56px + 16px);
             }
         }
@@ -2413,16 +2413,16 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         }
         &.dplayer-mobile .dplayer-controller {
             padding-left: 30px !important;
-            @media screen and (max-height: 450px) {
+            @include smartphone-horizontal {
                 padding-left: 16px !important;
             }
         }
         .dplayer-comment-box, .dplayer-comment-setting-box {
             left: 20px !important;
-            @include tablet {
+            @include smartphone-horizontal {
                 left: 16px !important;
             }
-            @media screen and (max-height: 450px) {
+            @include smartphone-horizontal {
                 left: 16px !important;
             }
         }
@@ -2433,10 +2433,10 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
     .watch-player__dplayer {
         .dplayer-notice, .dplayer-info-panel {
             left: 30px !important;
-            @include tablet {
+            @include smartphone-horizontal {
                 left: 16px !important;
             }
-            @media screen and (max-height: 450px) {
+            @include smartphone-horizontal {
                 left: 16px !important;
             }
         }
@@ -2480,7 +2480,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
     width: calc(100% + 352px);  // パネルの幅分はみ出す
     height: 100%;
     transition: width 0.4s cubic-bezier(0.26, 0.68, 0.55, 0.99);
-    @media screen and (max-height: 450px) {
+    @include smartphone-horizontal {
         width: calc(100% + 310px); // パネルの幅分はみ出す
     }
 
@@ -2516,10 +2516,10 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         .watch-content {
             .watch-header {
                 padding-left: 30px;
-                @include tablet {
+                @include smartphone-horizontal {
                     padding-left: 16px;
                 }
-                @media screen and (max-height: 450px) {
+                @include smartphone-horizontal {
                     padding-left: 16px;
                 }
             }
@@ -2542,7 +2542,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         opacity: 0;
         visibility: hidden;
         z-index: 2;
-        @media screen and (max-height: 450px) {
+        @include smartphone-horizontal {
             width: 56px;
             padding: 18px 6px 122px;
         }
@@ -2559,13 +2559,13 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             transition: background-color 0.15s;
             text-decoration: none;
             user-select: none;
-            @media screen and (max-height: 450px) {
+            @include smartphone-horizontal {
                 height: 32px;
                 border-radius: 10px;
             }
         }
 
-        @media screen and (max-height: 450px) {
+        @include smartphone-horizontal {
             // スペースを確保するため、スペーサーを非表示に
             div.spacer {
                 display: none;
@@ -2583,7 +2583,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             transition: background-color 0.15s;
             text-decoration: none;
             user-select: none;
-            @media screen and (max-height: 450px) {
+            @include smartphone-horizontal {
                 height: 44px;
                 border-radius: 10px;
                 // スペースを確保するため、設定・バージョン情報のアイコンを非表示に
@@ -2596,7 +2596,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 background: #433532A0;
             }
 
-            @media screen and (max-height: 450px) {
+            @include smartphone-horizontal {
                 &-icon {
                     width: 26px;
                     height: 26px;
@@ -2609,7 +2609,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             }
             + .watch-navigation__link {
                 margin-top: 4px;
-                @media screen and (max-height: 450px) {
+                @include smartphone-horizontal {
                     margin-top: auto;
                 }
             }
@@ -2638,11 +2638,11 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             visibility: hidden;
             z-index: 1;
 
-            @include tablet {
+            @include smartphone-horizontal {
                 padding-left: calc(68px + 16px);
                 padding-right: 16px;
             }
-            @media screen and (max-height: 450px) {
+            @include smartphone-horizontal {
                 height: 66px;
                 padding-left: calc(56px + 16px);
             }
@@ -2657,7 +2657,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 object-fit: cover;
                 user-select: none;
 
-                @include tablet {
+                @include smartphone-horizontal {
                     width: 48px;
                     height: 28px;
                     border-radius: 4px;
@@ -2674,10 +2674,10 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 white-space: nowrap;
                 text-overflow: ellipsis;
 
-                @include tablet {
+                @include smartphone-horizontal {
                     margin-left: 12px;
                 }
-                @media screen and (max-height: 450px) {
+                @include smartphone-horizontal {
                     font-size: 16px;
                 }
             }
@@ -2687,10 +2687,10 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 margin-left: 16px;
                 font-size: 15px;
 
-                @include tablet {
+                @include smartphone-horizontal {
                     margin-left: 8px;
                 }
-                @media screen and (max-height: 450px) {
+                @include smartphone-horizontal {
                     font-size: 14px;
                 }
             }
@@ -2700,7 +2700,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 margin-left: 16px;
                 font-size: 13px;
 
-                @include tablet {
+                @include smartphone-horizontal {
                     display: none;
                 }
             }
@@ -2745,13 +2745,13 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                     bottom: 44px;
                     filter: drop-shadow(0px 0px 5px var(--v-black-base));
 
-                    @include desktop-medium {
+                    @include tablet-horizontal {
                         height: 30px;
                         right: 34px;
                         bottom: 30px;
                     }
 
-                    @include tablet {
+                    @include smartphone-horizontal {
                         height: 25px;
                         right: 30px;
                         bottom: 24px;
@@ -2794,7 +2794,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 opacity: 0;
                 visibility: hidden;
                 transition: opacity 0.3s, visibility 0.3s;
-                @media screen and (max-height: 450px) {
+                @include smartphone-horizontal {
                     right: 15px;
                     height: 155px;
                 }
@@ -2811,7 +2811,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                     transition: background-color 0.15s;
                     user-select: none;
                     cursor: pointer;
-                    @media screen and (max-height: 450px) {
+                    @include smartphone-horizontal {
                         width: 38px;
                         height: 38px;
                         border-radius: 5px;
@@ -2828,7 +2828,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                     }
 
                     svg {
-                        @media screen and (max-height: 450px) {
+                        @include smartphone-horizontal {
                             height: 27px;
                         }
                     }
@@ -2859,7 +2859,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         width: 352px;
         height: 100%;
         background: var(--v-background-base);
-        @media screen and (max-height: 450px) {
+        @include smartphone-horizontal {
             width: 310px;
         }
 
@@ -2871,7 +2871,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             height: 70px;
             padding-left: 16px;
             padding-right: 16px;
-            @media screen and (max-height: 450px) {
+            @include smartphone-horizontal {
                 display: none;
             }
 
@@ -2887,14 +2887,14 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 font-size: 16px;
                 user-select: none;
                 cursor: pointer;
-                @media screen and (max-height: 450px) {
+                @include smartphone-horizontal {
                     font-size: 14px;
                 }
 
                 &__icon {
                     position: relative;
                     left: -4px;
-                    @media screen and (max-height: 450px) {
+                    @include smartphone-horizontal {
                         height: 22px;
                     }
                 }
@@ -2918,7 +2918,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                     background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
                     object-fit: cover;
                     user-select: none;
-                    @media screen and (max-height: 450px) {
+                    @include smartphone-horizontal {
                         width: 38px;
                         height: 22px;
                     }
@@ -2928,7 +2928,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                     flex-shrink: 0;
                     margin-left: 8px;
                     font-size: 16px;
-                    @media screen and (max-height: 450px) {
+                    @include smartphone-horizontal {
                         font-size: 14px;
                     }
                 }
@@ -2939,7 +2939,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                     overflow: hidden;
                     white-space: nowrap;
                     text-overflow: ellipsis;
-                    @media screen and (max-height: 450px) {
+                    @include smartphone-horizontal {
                         font-size: 14px;
                     }
                 }
@@ -2975,7 +2975,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             flex-shrink: 0;
             height: 77px;
             background: var(--v-background-lighten1);
-            @media screen and (max-height: 450px) {
+            @include smartphone-horizontal {
                 height: 56px;
             }
 
@@ -2993,7 +2993,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 transition: color 0.3s;
                 user-select: none;
                 cursor: pointer;
-                @media screen and (max-height: 450px) {
+                @include smartphone-horizontal {
                     height: 42px;
                     padding: 6px 0px 4px;
                 }
@@ -3008,7 +3008,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 &__text {
                     margin-top: 5px;
                     font-size: 13px;
-                    @media screen and (max-height: 450px) {
+                    @include smartphone-horizontal {
                         margin-top: 2px;
                         font-size: 12px;
                     }

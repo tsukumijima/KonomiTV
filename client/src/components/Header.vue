@@ -21,17 +21,17 @@
                 0px 3px 14px 2px rgb(0 0 0 / 12%);
     z-index: 10;
 
-    @media screen and (max-height: 450px) {
+    @include smartphone-horizontal {
         width: 210px;
         height: 48px;
         justify-content: center;
-        @media screen and (max-width: 700px) {
-            width: 190px;
-        }
+    }
+    @include smartphone-horizontal-short {
+        width: 190px;
     }
 
-    @media screen and (max-height: 450px) {
-        .spacer {
+    .spacer {
+        @include smartphone-horizontal {
             display: none;
         }
     }
@@ -40,13 +40,13 @@
         display: block;
         padding: 12px 8px;
         border-radius: 8px;
-        @media screen and (max-height: 450px) {
+        @include smartphone-horizontal {
             margin: 0 !important;
         }
 
         &__image {
             display: block;
-            @media screen and (max-height: 450px) {
+            @include smartphone-horizontal {
                 height: 19.5px;
             }
         }

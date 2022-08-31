@@ -38,7 +38,7 @@ body main {
 body header + main {
     // ヘッダーの高さ分
     padding-top: 65px !important;
-    @media screen and (max-height: 450px) {
+    @include smartphone-horizontal {
         padding-top: 0px !important;
     }
 }
@@ -58,7 +58,7 @@ body .route-container {
 // 揃えないと見栄えが悪い
 .v-snack {
     left: calc(220px / 2) !important;
-    @media screen and (max-height: 450px) {
+    @include smartphone-horizontal {
         left: calc(210px / 2) !important;
     }
     .v-btn__content {

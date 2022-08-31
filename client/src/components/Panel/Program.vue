@@ -81,7 +81,7 @@ export default Vue.extend({
         display: none;
         align-items: center;
         min-width: 0;
-        @media screen and (max-height: 450px) {
+        @include smartphone-horizontal {
             display: flex;
             margin-top: 16px;
         }
@@ -95,7 +95,7 @@ export default Vue.extend({
             background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
             object-fit: cover;
             user-select: none;
-            @media screen and (max-height: 450px) {
+            @include smartphone-horizontal {
                 width: 42px;
                 height: 23.5px;
             }
@@ -123,7 +123,7 @@ export default Vue.extend({
             line-height: 145%;
             font-feature-settings: "palt" 1;  // 文字詰め
             letter-spacing: 0.05em;  // 字間を少し空ける
-            @media screen and (max-height: 450px) {
+            @include smartphone-horizontal {
                 margin-top: 10px;
                 font-size: 18px;
             }
@@ -132,7 +132,7 @@ export default Vue.extend({
             margin-top: 8px;
             color: var(--v-text-darken1);
             font-size: 14px;
-            @media screen and (max-height: 450px) {
+            @include smartphone-horizontal {
                 font-size: 13px;
             }
         }
@@ -144,7 +144,7 @@ export default Vue.extend({
             overflow-wrap: break-word;
             font-feature-settings: "palt" 1;  // 文字詰め
             letter-spacing: 0.08em;  // 字間を少し空ける
-            @media screen and (max-height: 450px) {
+            @include smartphone-horizontal {
                 margin-top: 8px;
                 font-size: 11px;
             }
@@ -162,7 +162,7 @@ export default Vue.extend({
                 margin-right: 4px;
                 border-radius: 4px;
                 background: var(--v-background-lighten2);
-                @media screen and (max-height: 450px) {
+                @include smartphone-horizontal {
                     font-size: 9px;
                 }
             }
@@ -174,7 +174,7 @@ export default Vue.extend({
             color: var(--v-text-base);
             font-size: 14px;
             font-weight: bold;
-            @media screen and (max-height: 450px) {
+            @include smartphone-horizontal {
                 margin-top: 14px;
                 font-size: 13px;
             }
@@ -196,7 +196,7 @@ export default Vue.extend({
             overflow: hidden;
             -webkit-line-clamp: 2;  // 2行までに制限
             -webkit-box-orient: vertical;
-            @media screen and (max-height: 450px) {
+            @include smartphone-horizontal {
                 font-size: 13px;
             }
         }
@@ -212,7 +212,7 @@ export default Vue.extend({
             margin-top: 16px;
             font-size: 14px;
             color: var(--v-text-darken1);
-            @media screen and (max-height: 450px) {
+            @include smartphone-horizontal {
                 margin-top: 10px;
                 font-size: 12px;
             }
@@ -237,7 +237,7 @@ export default Vue.extend({
     .program-detail-container {
         margin-top: 24px;
         margin-bottom: 24px;
-        @media screen and (max-height: 450px) {
+        @include smartphone-horizontal {
             margin-top: 20px;
             margin-bottom: 16px;
         }
@@ -247,7 +247,7 @@ export default Vue.extend({
 
             .program-detail__heading {
                 font-size: 18px;
-                @media screen and (max-height: 450px) {
+                @include smartphone-horizontal {
                     font-size: 16px;
                 }
             }
@@ -260,7 +260,7 @@ export default Vue.extend({
                 white-space: pre-wrap;  // \n で改行する
                 font-feature-settings: "palt" 1;  // 文字詰め
                 letter-spacing: 0.08em;  // 字間を少し空ける
-                @media screen and (max-height: 450px) {
+                @include smartphone-horizontal {
                     font-size: 11px;
                 }
 

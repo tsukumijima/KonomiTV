@@ -88,7 +88,7 @@ export default Vue.extend({
         height: 48px;
         // 下線を引く
         background: linear-gradient(to bottom, var(--v-background-base) calc(100% - 3px), var(--v-background-lighten1) 3px);
-        @media screen and (max-height: 450px) {
+        @include smartphone-horizontal {
             height: 40px;
         }
 
@@ -146,7 +146,7 @@ _::-webkit-full-page-media, _:future, :root
         padding-bottom: 9px;
         background:var(--v-background-base);
         z-index: 1;
-        @media screen and (max-height: 450px) {
+        @include smartphone-horizontal {
             padding-bottom: 0px;
             margin-top: 12px;
         }
@@ -157,7 +157,7 @@ _::-webkit-full-page-media, _:future, :root
             color: var(--v-text-base) !important;
             font-size: 15px;
             text-transform: none;
-            @media screen and (max-height: 450px) {
+            @include smartphone-horizontal {
                 font-size: 14.5px;
             }
         }
@@ -172,6 +172,9 @@ _::-webkit-full-page-media, _:future, :root
             padding-bottom: 16px;
             background: transparent !important;
             overflow: visible !important;
+            @include smartphone-horizontal {
+                padding-bottom: 12px;
+            }
 
             .channels {
                 display: flex;
@@ -181,7 +184,7 @@ _::-webkit-full-page-media, _:future, :root
                 will-change: transform;
 
                 // 1630px 以上で幅を 445px に固定
-                @media screen and (min-width: 1630px) {
+                @media (min-width: 1630px) {
                     grid-template-columns: repeat(auto-fit, 445px);
                 }
 
@@ -191,7 +194,7 @@ _::-webkit-full-page-media, _:future, :root
                     position: relative;
                     margin-top: 12px;
                     padding: 10px 12px 14px 12px;
-                    border-radius: 11px;
+                    border-radius: 10px;
                     color: var(--v-text-base);
                     background: var(--v-background-lighten1);
                     transition: background-color 0.15s;
@@ -201,6 +204,10 @@ _::-webkit-full-page-media, _:future, :root
                     cursor: pointer;
                     &:first-of-type {
                         margin-top: 0px;
+                    }
+                    @include smartphone-horizontal {
+                        margin-top: 8px;
+                        padding: 8px 12px 12px 12px;
                     }
 
                     &:hover {
@@ -216,7 +223,7 @@ _::-webkit-full-page-media, _:future, :root
                     .channel__broadcaster {
                         display: flex;
                         height: 28px;
-                        @media screen and (max-height: 450px) {
+                        @include smartphone-horizontal {
                             height: 24px;
                         }
 
@@ -228,7 +235,7 @@ _::-webkit-full-page-media, _:future, :root
                             border-radius: 4px;
                             background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
                             object-fit: cover;
-                            @media screen and (max-height: 450px) {
+                            @include smartphone-horizontal {
                                 width: 46px;
                             }
                         }
@@ -284,7 +291,7 @@ _::-webkit-full-page-media, _:future, :root
                             overflow: hidden;
                             -webkit-line-clamp: 2;  // 2行までに制限
                             -webkit-box-orient: vertical;
-                            @media screen and (max-height: 450px) {
+                            @include smartphone-horizontal {
                                 margin-top: 6px;
                                 font-size: 13px;
                                 -webkit-line-clamp: 1;  // 2行までに制限
@@ -295,7 +302,7 @@ _::-webkit-full-page-media, _:future, :root
                             margin-top: 4px;
                             color: var(--v-text-darken1);
                             font-size: 11.5px;
-                            @media screen and (max-height: 450px) {
+                            @include smartphone-horizontal {
                                 font-size: 11px;
                             }
                         }
@@ -329,7 +336,7 @@ _::-webkit-full-page-media, _:future, :root
 
                         &-time {
                             margin-top: 1px;
-                            @media screen and (max-height: 450px) {
+                            @include smartphone-horizontal {
                                 font-size: 10px;
                             }
                         }

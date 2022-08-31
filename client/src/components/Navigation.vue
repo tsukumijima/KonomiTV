@@ -92,11 +92,11 @@ export default Vue.extend({
     flex-shrink: 0;
     width: 220px;  // .navigation を fixed にするため、浮いた分の幅を確保する
     background: var(--v-background-lighten1);
-    @media screen and (max-height: 450px) {
+    @include smartphone-horizontal {
         width: 210px;
-        @media screen and (max-width: 700px) {
-            width: 190px;
-        }
+    }
+    @include smartphone-horizontal-short {
+        width: 190px;
     }
 
     .navigation {
@@ -110,12 +110,12 @@ export default Vue.extend({
         padding-bottom: 100px;
         background: var(--v-background-lighten1);
         z-index: 1;
-        @media screen and (max-height: 450px) {
+        @include smartphone-horizontal {
             top: 48px;
             width: 210px;
-            @media screen and (max-width: 700px) {
-                width: 190px;
-            }
+        }
+        @include smartphone-horizontal-short {
+            width: 190px;
         }
 
         .navigation-scroll {
@@ -124,11 +124,11 @@ export default Vue.extend({
             height: 100%;
             padding: 22px 12px;
             overflow-y: auto;
-            @media screen and (max-height: 450px) {
+            @include smartphone-horizontal {
                 padding: 10px 12px;
-                @media screen and (max-width: 700px) {
-                    padding: 10px 8px;
-                }
+            }
+            @include smartphone-horizontal-short {
+                padding: 10px 8px;
             }
             &::-webkit-scrollbar-track {
                 background: var(--v-background-lighten1);
@@ -147,7 +147,7 @@ export default Vue.extend({
                 transition: background-color 0.15s;
                 text-decoration: none;
                 user-select: none;
-                @media screen and (max-height: 450px) {
+                @include smartphone-horizontal {
                     height: 40px;
                     padding-left: 12px;
                     border-radius: 9px;
@@ -169,14 +169,14 @@ export default Vue.extend({
                 }
                 &--version {
                     font-size: 15px;
-                    @media screen and (max-height: 450px) {
+                    @include smartphone-horizontal {
                         font-size: 14.5px;
                     }
                 }
 
                 .navigation__link-icon {
                     margin-right: 14px;
-                    @media screen and (max-height: 450px) {
+                    @include smartphone-horizontal {
                         margin-right: 10px;
                     }
 

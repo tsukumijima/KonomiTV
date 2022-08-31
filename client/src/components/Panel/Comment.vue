@@ -59,6 +59,8 @@ interface IComment {
 
 export default Vue.extend({
     name: 'Panel-CommentTab',
+    components: {
+    },
     props: {
         // チャンネル情報
         channel: {
@@ -830,7 +832,7 @@ export default Vue.extend({
                 const video_element = document.querySelector('.dplayer-video-wrap-aspect');
 
                 // コメント描画領域の要素
-                const comment_area_element = (document.querySelector('.dplayer-danmaku') as HTMLElement);
+                const comment_area_element = document.querySelector<HTMLElement>('.dplayer-danmaku');
 
                 // プレイヤー全体と映像の高さの差（レターボックス）から、コメント描画領域の高さを狭める必要があるかを判定する
                 // 2で割っているのは単体の差を測るため
@@ -1036,7 +1038,7 @@ export default Vue.extend({
         height: 26px;
         padding-left: 16px;
         padding-right: 16px;
-        @media screen and (max-height: 450px) {
+        @include smartphone-horizontal {
             margin-top: 12px;
         }
 
@@ -1046,13 +1048,13 @@ export default Vue.extend({
             font-size: 18.5px;
             font-weight: bold;
             line-height: 145%;
-            @media screen and (max-height: 450px) {
+            @include smartphone-horizontal {
                 font-size: 16.5px;
             }
 
             &-icon {
                 margin-bottom: -3px;  // 高さ調整
-                @media screen and (max-height: 450px) {
+                @include smartphone-horizontal {
                     height: 17.5px;
                 }
             }
@@ -1080,7 +1082,7 @@ export default Vue.extend({
         height: 100%;
         min-height: 0;
         margin-top: 16px;
-        @media screen and (max-height: 450px) {
+        @include smartphone-horizontal {
             margin-top: 12px;
         }
 
@@ -1132,7 +1134,7 @@ export default Vue.extend({
             &__heading {
                 font-size: 20px;
                 font-weight: bold;
-                @include tablet {
+                @include smartphone-horizontal {
                     font-size: 16px;
                 }
             }
@@ -1141,7 +1143,7 @@ export default Vue.extend({
                 color: var(--v-text-darken1);
                 font-size: 13.5px;
                 text-align: center;
-                @include tablet {
+                @include smartphone-horizontal {
                     font-size: 12px;
                 }
             }
