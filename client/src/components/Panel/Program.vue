@@ -239,6 +239,7 @@ export default Vue.extend({
         margin-bottom: 24px;
         @media screen and (max-height: 450px) {
             margin-top: 20px;
+            margin-bottom: 16px;
         }
 
         .program-detail {

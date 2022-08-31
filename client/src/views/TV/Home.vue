@@ -342,9 +342,9 @@ _::-webkit-full-page-media, _:future, :root
         background:var(--v-background-base);
         z-index: 1;
         @media screen and (max-height: 450px) {
-            top: 47.9px;
-            padding-top: 2px;
-            padding-bottom: 12px;
+            top: 0px;
+            padding-top: 0px;
+            padding-bottom: 8px;
         }
 
         .channels-tab__item {

@@ -39,7 +39,7 @@ body header + main {
     // ヘッダーの高さ分
     padding-top: 65px !important;
     @media screen and (max-height: 450px) {
-        padding-top: 48px !important;
+        padding-top: 0px !important;
     }
 }
 

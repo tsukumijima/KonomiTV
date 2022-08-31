@@ -89,7 +89,6 @@ export default Vue.extend({
         // 下線を引く
         background: linear-gradient(to bottom, var(--v-background-base) calc(100% - 3px), var(--v-background-lighten1) 3px);
         @media screen and (max-height: 450px) {
-            top: -7px;
             height: 40px;
         }
 
@@ -148,13 +147,13 @@ _::-webkit-full-page-media, _:future, :root
         background:var(--v-background-base);
         z-index: 1;
         @media screen and (max-height: 450px) {
-            padding-bottom: 7px;
+            padding-bottom: 0px;
             margin-top: 12px;
         }
 
         .channels-tab__item {
-            width: 88px;
-            padding: 0;
+            min-width: 72px !important;
+            padding: 0 8px;
             color: var(--v-text-base) !important;
             font-size: 15px;
             text-transform: none;
@@ -217,6 +216,9 @@ _::-webkit-full-page-media, _:future, :root
                     .channel__broadcaster {
                         display: flex;
                         height: 28px;
+                        @media screen and (max-height: 450px) {
+                            height: 24px;
+                        }
 
                         &-icon {
                             display: inline-block;
@@ -226,6 +228,9 @@ _::-webkit-full-page-media, _:future, :root
                             border-radius: 4px;
                             background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
                             object-fit: cover;
+                            @media screen and (max-height: 450px) {
+                                width: 46px;
+                            }
                         }
 
                         &-content {
@@ -279,12 +284,20 @@ _::-webkit-full-page-media, _:future, :root
                             overflow: hidden;
                             -webkit-line-clamp: 2;  // 2行までに制限
                             -webkit-box-orient: vertical;
+                            @media screen and (max-height: 450px) {
+                                margin-top: 6px;
+                                font-size: 13px;
+                                -webkit-line-clamp: 1;  // 2行までに制限
+                            }
                         }
 
                         &-time {
                             margin-top: 4px;
                             color: var(--v-text-darken1);
                             font-size: 11.5px;
+                            @media screen and (max-height: 450px) {
+                                font-size: 11px;
+                            }
                         }
                     }
 
@@ -316,6 +329,9 @@ _::-webkit-full-page-media, _:future, :root
 
                         &-time {
                             margin-top: 1px;
+                            @media screen and (max-height: 450px) {
+                                font-size: 10px;
+                            }
                         }
                     }
 

@@ -119,7 +119,7 @@ export default Vue.extend({
             padding: 22px 12px;
             overflow-y: auto;
             @media screen and (max-height: 450px) {
-                padding: 20px 12px;
+                padding: 10px 12px;
             }
             &::-webkit-scrollbar-track {
                 background: var(--v-background-lighten1);
@@ -139,8 +139,9 @@ export default Vue.extend({
                 text-decoration: none;
                 user-select: none;
                 @media screen and (max-height: 450px) {
-                    height: 44px;
+                    height: 40px;
                     padding-left: 12px;
+                    border-radius: 9px;
                     font-size: 15px;
                 }
 
