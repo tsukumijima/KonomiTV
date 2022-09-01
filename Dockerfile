@@ -12,7 +12,7 @@ FROM ubuntu:22.04 AS thirdparty-downloader
 ENV DEBIAN_FRONTEND=noninteractive
 
 # ダウンロード・展開に必要なパッケージのインストール
-RUN apt-get update -y && apt-get upgrade -y && \
+RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y --no-install-recommends aria2 ca-certificates xz-utils
 
 # サードパーティーライブラリをダウンロード
@@ -57,14 +57,14 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Intel QSV と AMD VCE 関連のライブラリのインストール（実行時イメージなので RUN の最後に掃除する）
 ## Intel Graphics の apt リポジトリはまだ jammy (Ubuntu 22.04 LTS) に対応していないので、当面 focal (Ubuntu 20.04 LTS) 向けのを使う
 ## amdgpu 周りのインストール方法は amdgpu-install パッケージに同梱されているファイル群を参考にした
-RUN apt-get update -y && apt-get install -y curl gpg-agent && \
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gpg && \
     curl -fsSL https://repositories.intel.com/graphics/intel-graphics.key | gpg --dearmor -o /usr/share/keyrings/intel-graphics-keyring.gpg && \
     curl -fsSL https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor -o /usr/share/keyrings/rocm-keyring.gpg && \
     echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/graphics/ubuntu focal main' > /etc/apt/sources.list.d/intel-graphics.list && \
     echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/rocm-keyring.gpg] https://repo.radeon.com/amdgpu/22.20.1/ubuntu jammy main' > /etc/apt/sources.list.d/amdgpu.list && \
     echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/rocm-keyring.gpg] https://repo.radeon.com/amdgpu/22.20.1/ubuntu jammy proprietary' > /etc/apt/sources.list.d/amdgpu-proprietary.list && \
     echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/rocm-keyring.gpg] https://repo.radeon.com/rocm/apt/5.2 ubuntu main' > /etc/apt/sources.list.d/rocm.list && \
-    apt-get update -y && apt-get upgrade -y && \
+    apt-get update && apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
         libfontconfig1 libfreetype6 libfribidi0 \
         intel-media-va-driver-non-free intel-opencl-icd libigfxcmrt7 libmfx1 libmfx-gen1.2 libva-drm2 libva-x11-2 ocl-icd-opencl-dev \
