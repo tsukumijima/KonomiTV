@@ -1,0 +1,6 @@
+
+# Nuitka によるビルドキャッシュや成果物
+KonomiTV-Installer.build/
+KonomiTV-Installer.dist/
+KonomiTV-Installer.onefile-build/
+KonomiTV-Installer.exe

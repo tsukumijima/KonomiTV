@@ -40,7 +40,7 @@ import win32serviceutil
 
 def GetNetworkDriveList() -> List[Dict[str, str]]:
     """
-    レジストリからログイン中のユーザーがマウントしているネットワークドライブのリストを取得する
+    レジストリからログオン中のユーザーがマウントしているネットワークドライブのリストを取得する
 
     Returns:
         List[Dict[str, str]]: ネットワークドライブのドライブレターとパスのリスト
