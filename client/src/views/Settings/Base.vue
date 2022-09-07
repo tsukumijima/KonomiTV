@@ -272,6 +272,10 @@ export default Vue.extend({
                     .settings__item-heading {
                         width: calc(100% + 62px);
                     }
+
+                    .settings__item-heading, .settings__item-label {
+                        cursor: pointer;
+                    }
                 }
 
                 &--disabled {
