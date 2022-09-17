@@ -4,8 +4,8 @@ import elevate
 import os
 import subprocess
 import threading
-from rich import print
 from rich import box
+from rich import print
 from rich.padding import Padding
 from rich.panel import Panel
 from rich.prompt import Prompt
@@ -70,15 +70,13 @@ def main():
         align = 'center',
     ), (1, 2, 0, 2)))
 
-    print(Padding(Text(
-        'KonomiTV のインストール/アップデート/アンインストールを行うインストーラーです。'
-    ), (1, 2, 0, 2)))
+    print(Padding('KonomiTV のインストール/アップデート/アンインストールを行うインストーラーです。', (1, 2, 0, 2)))
 
     print(Padding(Panel(
         '01. KonomiTV をインストールするときは 1 を、アップデートするときは 2 を、\n'
         '    アンインストールするときは 3 を入力してください。',
         box = box.SQUARE,
-        border_style = Style(color='#E33157')
+        border_style = Style(color='#E33157'),
     ), (1, 2, 1, 2)))
 
     # 実行タイプ (インストール or アップデート or アンインストール)
@@ -109,7 +107,8 @@ if __name__ == "__main__":
     except OSError:
 
         print(Padding(Rule(
-            title = f'KonomiTV version {INSTALLER_VERSION} Installer', characters='─',
+            title = f'KonomiTV version {INSTALLER_VERSION} Installer',
+            characters='─',
             style = Style(color='#E33157'),
             align = 'center',
         ), (1, 2, 0, 2)))
