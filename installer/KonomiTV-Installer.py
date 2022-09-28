@@ -101,9 +101,6 @@ if __name__ == "__main__":
         ## Windows 向けに配布する .exe では既に Nuitka 側の機能 (--windows-uac-admin) を使い管理者に昇格しているため、何も行われない
         elevate.elevate()
 
-        # main() を実行
-        main()
-
     # UAC がキャンセルされるなどして管理者権限が得られなかったとき
     except OSError:
 
@@ -123,6 +120,10 @@ if __name__ == "__main__":
             print(Padding(Text(
                 f'KonomiTV のインストール/アップデート/アンインストールには root 権限が必要です。'
             ), (1, 2, 0, 2)))
+
+    # main() を実行
+    else:
+        main()
 
     print(Padding(Rule(
         style = Style(color='#E33157'),

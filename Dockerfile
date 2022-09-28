@@ -74,7 +74,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
     rm -rf /var/lib/apt/lists/* && \
     rm -rf /tmp/*
 
-# ダウンロードしておいたサードパーティライブラリをコピー
+# ダウンロードしておいたサードパーティーライブラリをコピー
 COPY --from=thirdparty-downloader /thirdparty /code/server/thirdparty
 
 # パッケージリスト (Pipfile / Pipfile.lock) だけをコピー

@@ -2,13 +2,18 @@
 import asyncio
 import json
 import os
+import py7zr
 import requests
+import shutil
 import subprocess
+import tempfile
 import urllib.parse
 from pathlib import Path
 from rich import box
 from rich import print
 from rich.padding import Padding
+from rich.progress import Progress
+from rich.progress import BarColumn, DownloadColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn, TransferSpeedColumn
 from rich.rule import Rule
 from rich.style import Style
 from rich.table import Table
@@ -52,13 +57,14 @@ def Install(version: str) -> None:
             print(Padding('[red]インストール先のフォルダがすでに存在します。', (0, 2, 0, 2)))
             continue
 
-        # インストール先のフォルダを作成
+        # インストール先のフォルダを作成できるかテスト
         try:
             install_path.mkdir(parents=True, exist_ok=False)
         except Exception as ex:
             print(ex)
             print(Padding('[red]インストール先のフォルダを作成できませんでした。', (0, 2, 0, 2)))
             continue
+        install_path.rmdir()  # フォルダを作成できるか試すだけなので一旦消す
 
         # すべてのバリデーションを通過したのでループを抜ける
         break
@@ -137,7 +143,7 @@ def Install(version: str) -> None:
             # バリデーション
             ## 試しにリクエストを送り、200 (OK) が返ってきたときだけ有効な URL とみなす
             try:
-                response = requests.get(f'{mirakurun_url}/api/version', timeout = 3)
+                response = requests.get(f'{mirakurun_url}/api/version', timeout=3)
             except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as ex:
                 print(Padding(
                     f'[red]Mirakurun ({mirakurun_url}) にアクセスできませんでした。'
@@ -248,7 +254,7 @@ def Install(version: str) -> None:
     capture_upload_folder: Path
     while True:
         # 入力プロンプト (バリデーションに失敗し続ける限り何度でも表示される)
-        capture_upload_folder = Path(CustomPrompt.ask(' アップロードしたキャプチャ画像の保存先フォルダのパス'))
+        capture_upload_folder = Path(CustomPrompt.ask('アップロードしたキャプチャ画像の保存先フォルダのパス'))
 
         # バリデーション
         if capture_upload_folder.is_absolute() is False:
@@ -261,3 +267,72 @@ def Install(version: str) -> None:
         # すべてのバリデーションを通過したのでループを抜ける
         break
 
+    # ***** ソースコードのダウンロード *****
+
+    # ソースコードを随時ダウンロードし、進捗を表示
+    # ref: https://github.com/Textualize/rich/blob/master/examples/downloader.py
+    print(Padding('KonomiTV のソースコードをダウンロードしています…', (1, 2, 0, 2)))
+    progress = Progress(
+        TextColumn(' '),
+        BarColumn(bar_width=9999),
+        DownloadColumn(),
+        '•',
+        TimeElapsedColumn(),
+        TextColumn(' '),
+    )
+
+    # GitHub からソースコードをダウンロード
+    # source_code_response = requests.get(f'https://codeload.github.com/tsukumijima/KonomiTV/zip/refs/tags/{version}')
+    source_code_response = requests.get('https://github.com/tsukumijima/KonomiTV/archive/refs/heads/master.zip')
+    task_id = progress.add_task('', total=None)
+
+    # ダウンロードしたデータを随時一時ファイルに書き込む
+    source_code_file = tempfile.NamedTemporaryFile(mode='wb', delete=False)
+    with progress:
+        for chunk in source_code_response.iter_content(chunk_size=1024):
+            source_code_file.write(chunk)
+            progress.update(task_id, advance=len(chunk))
+    source_code_file.close()  # 解凍する前に close() してすべて書き込ませておくのが重要
+
+    # ソースコードを解凍して展開
+    shutil.unpack_archive(source_code_file.name, install_path.parent, format='zip')
+    # shutil.move(install_path.parent / f'KonomiTV-{version}', install_path)
+    shutil.move(install_path.parent / 'KonomiTV-master', install_path)
+    Path(source_code_file.name).unlink()
+
+    # ***** サードパーティーライブラリのダウンロード *****
+
+    # サードパーティーライブラリを随時ダウンロードし、進捗を表示
+    # ref: https://github.com/Textualize/rich/blob/master/examples/downloader.py
+    print(Padding('サードパーティーライブラリをダウンロードしています…', (1, 2, 0, 2)))
+    progress = Progress(
+        TextColumn(' '),
+        BarColumn(bar_width=None),
+        '[progress.percentage]{task.percentage:>3.1f}%',
+        '•',
+        DownloadColumn(),
+        '•',
+        TransferSpeedColumn(),
+        '•',
+        TimeRemainingColumn(),
+        TextColumn(' '),
+    )
+
+    # GitHub からサードパーティーライブラリをダウンロード
+    thirdparty_base_url = 'https://github.com/tsukumijima/Storehouse/releases/download/KonomiTV-Thirdparty-Libraries-Prerelease/'
+    thirdparty_url = thirdparty_base_url + 'thirdparty-windows.7z' if os.name == 'nt' else 'thirdparty-linux.7z'
+    thirdparty_response = requests.get(thirdparty_url, stream=True)
+    task_id = progress.add_task('', total=float(thirdparty_response.headers['Content-length']))
+
+    # ダウンロードしたデータを随時一時ファイルに書き込む
+    thirdparty_file = tempfile.NamedTemporaryFile(mode='wb', delete=False)
+    with progress:
+        for chunk in thirdparty_response.iter_content(chunk_size=1048576):  # サイズが大きいので1MBごとに読み込み
+            thirdparty_file.write(chunk)
+            progress.update(task_id, advance=len(chunk))
+    thirdparty_file.close()  # 解凍する前に close() してすべて書き込ませておくのが重要
+
+    # サードパーティライブラリを解凍して展開
+    with py7zr.SevenZipFile(thirdparty_file.name, mode='r') as seven_zip:
+        seven_zip.extractall(install_path / 'server/')
+        Path(thirdparty_file.name).unlink()

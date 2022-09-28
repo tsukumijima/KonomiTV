@@ -8,10 +8,11 @@ dev = "python KonomiTV-Installer.py"
 build-windows = "nuitka --mingw64 --follow-imports --onefile --windows-uac-admin --windows-icon-from-ico='KonomiTV-Installer.ico' KonomiTV-Installer.py"
 
 [packages]
-rich = "*"
-nuitka = "*"
-requests = "*"
 elevate = "*"
+nuitka = "*"
+py7zr = "*"
+requests = "*"
+rich = "*"
 zstandard = "*"
 
 [dev-packages]
