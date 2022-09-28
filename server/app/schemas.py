@@ -16,6 +16,7 @@ class Config(BaseModel):
         backend: Literal['EDCB', 'Mirakurun']
         mirakurun_url: AnyHttpUrl
         edcb_url: stricturl(allowed_schemes={'tcp'}, tld_required=False)  # type: ignore
+        encoder: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC']
         program_update_interval: confloat(ge=0.1)  # type: ignore
         debug: bool
         debug_encoder: bool
@@ -26,7 +27,6 @@ class Config(BaseModel):
         custom_https_private_key: FilePath | None
 
     class TV(BaseModel):
-        encoder: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC']
         max_alive_time: PositiveInt
         debug_mode_ts_path: FilePath | None
 

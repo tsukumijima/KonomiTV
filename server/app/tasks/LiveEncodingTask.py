@@ -367,7 +367,7 @@ class LiveEncodingTask():
         is_fullhd_channel = self.isFullHDChannel(channel.network_id, channel.service_id)
 
         # エンコーダーの種類を取得
-        encoder_type: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC'] = CONFIG['tv']['encoder']
+        encoder_type: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC'] = CONFIG['general']['encoder']
         ## ラジオチャンネルでは HW エンコードの意味がないため、FFmpeg に固定する
         if channel.is_radiochannel is True:
             encoder_type = 'FFmpeg'
