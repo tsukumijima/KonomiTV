@@ -6,19 +6,21 @@ import py7zr
 import requests
 import shutil
 import subprocess
+import tarfile
 import tempfile
 import urllib.parse
 from pathlib import Path
 from rich import box
 from rich import print
 from rich.padding import Padding
-from rich.progress import Progress
-from rich.progress import BarColumn, DownloadColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn, TransferSpeedColumn
 from rich.rule import Rule
 from rich.style import Style
 from rich.table import Table
 from typing import Any, cast, Literal
 
+from Utils import CreateBasicInfiniteProgress
+from Utils import CreateDownloadProgress
+from Utils import CreateDownloadInfiniteProgress
 from Utils import CustomPrompt
 from Utils import CtrlCmdConnectionCheckUtil
 
@@ -272,14 +274,7 @@ def Install(version: str) -> None:
     # ソースコードを随時ダウンロードし、進捗を表示
     # ref: https://github.com/Textualize/rich/blob/master/examples/downloader.py
     print(Padding('KonomiTV のソースコードをダウンロードしています…', (1, 2, 0, 2)))
-    progress = Progress(
-        TextColumn(' '),
-        BarColumn(bar_width=9999),
-        DownloadColumn(),
-        '•',
-        TimeElapsedColumn(),
-        TextColumn(' '),
-    )
+    progress = CreateDownloadInfiniteProgress()
 
     # GitHub からソースコードをダウンロード
     # source_code_response = requests.get(f'https://codeload.github.com/tsukumijima/KonomiTV/zip/refs/tags/{version}')
@@ -305,22 +300,11 @@ def Install(version: str) -> None:
     # サードパーティーライブラリを随時ダウンロードし、進捗を表示
     # ref: https://github.com/Textualize/rich/blob/master/examples/downloader.py
     print(Padding('サードパーティーライブラリをダウンロードしています…', (1, 2, 0, 2)))
-    progress = Progress(
-        TextColumn(' '),
-        BarColumn(bar_width=None),
-        '[progress.percentage]{task.percentage:>3.1f}%',
-        '•',
-        DownloadColumn(),
-        '•',
-        TransferSpeedColumn(),
-        '•',
-        TimeRemainingColumn(),
-        TextColumn(' '),
-    )
+    progress = CreateDownloadProgress()
 
     # GitHub からサードパーティーライブラリをダウンロード
     thirdparty_base_url = 'https://github.com/tsukumijima/Storehouse/releases/download/KonomiTV-Thirdparty-Libraries-Prerelease/'
-    thirdparty_url = thirdparty_base_url + 'thirdparty-windows.7z' if os.name == 'nt' else 'thirdparty-linux.7z'
+    thirdparty_url = thirdparty_base_url + ('thirdparty-windows.7z' if os.name == 'nt' else 'thirdparty-linux.7z')
     thirdparty_response = requests.get(thirdparty_url, stream=True)
     task_id = progress.add_task('', total=float(thirdparty_response.headers['Content-length']))
 
@@ -333,6 +317,51 @@ def Install(version: str) -> None:
     thirdparty_file.close()  # 解凍する前に close() してすべて書き込ませておくのが重要
 
     # サードパーティライブラリを解凍して展開
-    with py7zr.SevenZipFile(thirdparty_file.name, mode='r') as seven_zip:
-        seven_zip.extractall(install_path / 'server/')
+    print(Padding('サードパーティーライブラリを解凍しています… (数十秒かかります)', (1, 2, 0, 2)))
+    progress = CreateBasicInfiniteProgress()
+    progress.add_task('', total=None)
+    with progress:
+        if os.name == 'nt':
+            # Windows: 7-Zip 形式のアーカイブを解凍
+            with py7zr.SevenZipFile(thirdparty_file.name, mode='r') as seven_zip:
+                seven_zip.extractall(install_path / 'server/')
+        else:
+            # Linux: tar.xz 形式のアーカイブを解凍
+            # 7-Zip だと (おそらく) ファイルパーミッションを保持したまま圧縮することができない？ため、あえて tar.xz を使っている
+            with tarfile.open(thirdparty_file.name, mode='r:xz') as tar_xz:
+                tar_xz.extractall(install_path / 'server/')
         Path(thirdparty_file.name).unlink()
+
+    # ***** pipenv 環境の構築 (依存パッケージのインストール) *****
+
+    # Python の実行ファイルのパス (Windows と Linux で異なる)
+    if os.name == 'nt':
+        python_executable_path = install_path / 'server/thirdparty/Python/python.exe'
+    else:
+        python_executable_path = install_path / 'server/thirdparty/Python/bin/python'
+
+    # pipenv sync を実行
+    ## server/.venv/ に pipenv の仮想環境を構築するため、PIPENV_VENV_IN_PROJECT 環境変数をセットした状態で実行している
+    print(Padding('依存パッケージをインストールしています…', (1, 2, 1, 2)))
+    print(Rule(style=Style(color='#E33157'), align='center'))
+    environment = os.environ.copy()
+    environment['PIPENV_VENV_IN_PROJECT'] = 'true'
+    subprocess.run(
+        args = [python_executable_path, '-m', 'pipenv', 'sync', f'--python={python_executable_path}'],
+        cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+        env = environment,  # 環境変数を設定
+    )
+    print(Rule(style=Style(color='#E33157'), align='center'))
+
+    # ***** データベースのアップグレード *****
+
+    print(Padding('データベースをアップグレードしています…', (1, 2, 0, 2)))
+    progress = CreateBasicInfiniteProgress()
+    progress.add_task('', total=None)
+    with progress:
+        subprocess.run(
+            args = [python_executable_path, '-m', 'pipenv', 'run' 'aerich' 'upgrade'],
+            cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+            stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+            stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+        )

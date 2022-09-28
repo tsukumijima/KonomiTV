@@ -5,6 +5,15 @@ import os
 import time
 from rich.console import Console
 from rich.padding import Padding
+from rich.progress import Progress
+from rich.progress import (
+    BarColumn,
+    DownloadColumn,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+    TransferSpeedColumn,
+)
 from rich.prompt import Prompt
 from rich.text import TextType
 from typing import Callable, cast, Dict, List, Optional
@@ -267,3 +276,56 @@ def GetNetworkDriveList() -> List[Dict[str, str]]:
                         })
 
     return network_drives
+
+
+def CreateBasicInfiniteProgress() -> Progress:
+    """
+    シンプルな完了未定状態向けの Progress インスタンスを新しく生成して返す
+
+    Returns:
+        Progress: 進捗表示に使うProgress インスタンス
+    """
+    return Progress(
+        TextColumn(' '),
+        BarColumn(bar_width=9999),
+        TimeElapsedColumn(),
+        TextColumn(' '),
+    )
+
+
+def CreateDownloadProgress() -> Progress:
+    """
+    ダウンロード時向けの Progress インスタンスを新しく生成して返す
+
+    Returns:
+        Progress: 進捗表示に使うProgress インスタンス
+    """
+    return Progress(
+        TextColumn(' '),
+        BarColumn(bar_width=None),
+        '[progress.percentage]{task.percentage:>3.1f}%',
+        '•',
+        DownloadColumn(),
+        '•',
+        TransferSpeedColumn(),
+        '•',
+        TimeRemainingColumn(),
+        TextColumn(' '),
+    )
+
+
+def CreateDownloadInfiniteProgress() -> Progress:
+    """
+    ダウンロード時 (完了未定) 向けの Progress インスタンスを新しく生成して返す
+
+    Returns:
+        Progress: 進捗表示に使うProgress インスタンス
+    """
+    return Progress(
+        TextColumn(' '),
+        BarColumn(bar_width=9999),
+        DownloadColumn(),
+        '•',
+        TimeElapsedColumn(),
+        TextColumn(' '),
+    )
