@@ -109,10 +109,11 @@ jobs:
 
       # サードパーティーライブラリを 7z で圧縮
       # ファイルサイズ縮減のため、圧縮をかなり強めに掛けている
+      # バイナリ圧縮アルゴリズムの BCJ2 はインストーラーで使っている py7zr (liblzma) だとサポートされていないので、代わりに BCJ を使う
       # ref: https://axelstudios.github.io/7z/#!/
       - name: Compress Thirdparty Libraries
         run: |
-          7z a -m0=LZMA2 -mx=9 -md=128m -mfb=128 -ms=16g -mmt=on thirdparty-windows.7z thirdparty
+          7z a -m0=LZMA2 -mx=9 -md=128m -mfb=128 -ms=16g -mmt=on -mf=BCJ thirdparty-windows.7z thirdparty
 
       # 7z で圧縮したサードパーティーライブラリを Artifact としてアップロード
       - name: Upload Thirdparty Libraries as Artifact
