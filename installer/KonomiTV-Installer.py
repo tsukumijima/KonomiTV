@@ -65,7 +65,8 @@ def main():
                 thread.join()
 
     print(Padding(Rule(
-        title = f'KonomiTV version {INSTALLER_VERSION} Installer', characters='─',
+        title = f'KonomiTV version {INSTALLER_VERSION} Installer',
+        characters = '─',
         style = Style(color='#E33157'),
         align = 'center',
     ), (1, 2, 0, 2)))

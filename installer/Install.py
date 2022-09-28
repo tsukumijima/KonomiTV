@@ -1,15 +1,21 @@
 
+import asyncio
+import json
 import os
+import requests
+import subprocess
+import urllib.parse
 from pathlib import Path
 from rich import box
 from rich import print
 from rich.padding import Padding
+from rich.rule import Rule
 from rich.style import Style
 from rich.table import Table
-from typing import Literal, cast
+from typing import Any, cast, Literal
 
 from Utils import CustomPrompt
-
+from Utils import CtrlCmdConnectionCheckUtil
 
 def Install(version: str) -> None:
     """
@@ -33,25 +39,29 @@ def Install(version: str) -> None:
     print(Padding(table_02, (1, 2, 1, 2)))
 
     # インストール先のフォルダを取得
-    install_path = Path(CustomPrompt.ask('KonomiTV をインストールするフォルダのパス'))
-    while install_path.is_absolute() is False or install_path.exists():
+    install_path: Path
+    while True:
+        # 入力プロンプト (バリデーションに失敗し続ける限り何度でも表示される)
+        install_path = Path(CustomPrompt.ask('KonomiTV をインストールするフォルダのパス'))
+
+        # バリデーション
         if install_path.is_absolute() is False:
             print(Padding('[red]インストール先のフォルダは絶対パスで入力してください。', (0, 2, 0, 2)))
-            install_path = Path(CustomPrompt.ask('KonomiTV をインストールするフォルダのパス'))
-        elif install_path.exists():
+            continue
+        if install_path.exists():
             print(Padding('[red]インストール先のフォルダがすでに存在します。', (0, 2, 0, 2)))
-            install_path = Path(CustomPrompt.ask('KonomiTV をインストールするフォルダのパス'))
+            continue
 
-    # インストール先のフォルダを作成
-    is_mkdir_success = False
-    while is_mkdir_success is False:
+        # インストール先のフォルダを作成
         try:
             install_path.mkdir(parents=True, exist_ok=False)
-            is_mkdir_success = True
-        except Exception as e:
-            print(e)
+        except Exception as ex:
+            print(ex)
             print(Padding('[red]インストール先のフォルダを作成できませんでした。', (0, 2, 0, 2)))
-            install_path = Path(CustomPrompt.ask('KonomiTV をインストールするフォルダのパス'))
+            continue
+
+        # すべてのバリデーションを通過したのでループを抜ける
+        break
 
     # ***** 利用するバックエンド *****
 
@@ -64,7 +74,7 @@ def Install(version: str) -> None:
     print(Padding(table_03, (1, 2, 1, 2)))
 
     # 利用するバックエンドを取得
-    backend = cast(Literal['EDCB'] | Literal['Mirakurun'], CustomPrompt.ask('利用するバックエンド', default='EDCB', choices=['EDCB', 'Mirakurun']))
+    backend = cast(Literal['EDCB', 'Mirakurun'], CustomPrompt.ask('利用するバックエンド', default='EDCB', choices=['EDCB', 'Mirakurun']))
 
     # ***** EDCB (EpgTimerNW) の TCP API の URL *****
 
@@ -78,7 +88,35 @@ def Install(version: str) -> None:
         print(Padding(table_04, (1, 2, 1, 2)))
 
         # EDCB (EpgTimerNW) の TCP API の URL を取得
-        edcb_url = Path(CustomPrompt.ask('EDCB (EpgTimerNW) の TCP API の URL'))
+        edcb_url: str
+        while True:
+            # 入力プロンプト (バリデーションに失敗し続ける限り何度でも表示される)
+            edcb_url: str = CustomPrompt.ask('EDCB (EpgTimerNW) の TCP API の URL')
+
+            # バリデーション
+            ## 入力された URL がちゃんとパースできるかを確認
+            edcb_url_parse = urllib.parse.urlparse(edcb_url)
+            if edcb_url_parse.scheme != 'tcp':
+                print(Padding('[red]URL が不正です。EDCB の URL を間違えている可能性があります。', (0, 2, 0, 2)))
+                continue
+            if ((edcb_url_parse.hostname is None) or
+                (edcb_url_parse.port is None and edcb_url_parse.hostname != 'edcb-namedpipe')):
+                print(Padding('[red]URL 内にホスト名またはポートが指定されていません。EDCB の URL を間違えている可能性があります。', (0, 2, 0, 2)))
+                continue
+            edcb_host = edcb_url_parse.hostname
+            edcb_port = edcb_url_parse.port
+            ## 接続できたかの確認として、サービス一覧が取得できるか試してみる
+            edcb = CtrlCmdConnectionCheckUtil(edcb_host, edcb_port)
+            result = asyncio.run(edcb.sendEnumService())
+            if result is None:
+                print(Padding(
+                    f'[red]EDCB ({edcb_url}) にアクセスできませんでした。EDCB が起動していないか、URL を間違えている可能性があります。',
+                    pad = (0, 2, 0, 2),
+                ))
+                continue
+
+            # すべてのバリデーションを通過したのでループを抜ける
+            break
 
     # ***** Mirakurun の HTTP API の URL *****
 
@@ -86,18 +124,140 @@ def Install(version: str) -> None:
 
         table_04 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
         table_04.add_column('04. Mirakurun の HTTP API の URL を入力してください。')
-        table_04.add_row('http://192.168.1.28:40772/ のような形式の URL で指定します。')
+        table_04.add_row('http://192.168.1.11:40772/ のような形式の URL で指定します。')
         print(Padding(table_04, (1, 2, 1, 2)))
 
         # Mirakurun の HTTP API の URL を取得
-        mirakurun_url = Path(CustomPrompt.ask('Mirakurun の HTTP API の URL'))
+        mirakurun_url: str
+        while True:
+            # 入力プロンプト (バリデーションに失敗し続ける限り何度でも表示される)
+            ## 末尾のスラッシュは除去した上で取得する
+            mirakurun_url = CustomPrompt.ask('Mirakurun の HTTP API の URL').rstrip('/')
 
+            # バリデーション
+            ## 試しにリクエストを送り、200 (OK) が返ってきたときだけ有効な URL とみなす
+            try:
+                response = requests.get(f'{mirakurun_url}/api/version', timeout = 3)
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as ex:
+                print(Padding(
+                    f'[red]Mirakurun ({mirakurun_url}) にアクセスできませんでした。'
+                    'Mirakurun が起動していないか、URL を間違えている可能性があります。',
+                    pad = (0, 2, 0, 2),
+                ))
+                continue
+            if response.status_code != 200:
+                print(Padding(
+                    f'[red]{mirakurun_url} は Mirakurun の URL ではありません。'
+                    'Mirakurun の URL を間違えている可能性があります。',
+                    pad = (0, 2, 0, 2),
+                ))
+                continue
 
+            # すべてのバリデーションを通過したのでループを抜ける
+            break
 
+    # ***** 利用するエンコーダー *****
 
+    # PC に接続されている GPU の型番を取得し、そこから QSVEncC / NVEncC / VCEEncC の利用可否を大まかに判断する
+    gpu_names: list[str] = []
+    qsvencc_available: str = '❌利用できません'
+    nvencc_available: str = '❌利用できません'
+    vceencc_available: str = '❌利用できません'
 
+    # Windows: PowerShell の Get-WmiObject と ConvertTo-Json の合わせ技で取得できる
+    if os.name == 'nt':
+        gpu_info_json = subprocess.run(
+            args = ['powershell', '-Command', 'Get-WmiObject Win32_VideoController | ConvertTo-Json'],
+            stdout = subprocess.PIPE,  # 標準出力をキャプチャする
+            stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+            text = True,  # 出力をテキストとして取得する
+        )
+        # コマンド成功時のみ
+        if gpu_info_json.returncode == 0:
+            # GPU が1個しか接続されないときは直接 dict[str, Any] に、2個以上あるときは list[dict[str, Any]] で出力されるので、場合分け
+            gpu_info_data = json.loads(gpu_info_json.stdout)
+            gpu_infos: list[dict[str, Any]]
+            if type(gpu_info_data is dict):
+                gpu_infos = [gpu_info_data]
+            else:
+                gpu_infos = gpu_info_data
+            # 接続されている GPU 名を取得してリストに追加
+            for gpu_info in gpu_infos:
+                gpu_names.append(gpu_info['Name'])
 
+    # Linux: lshw コマンドを使って取得できる
+    else:
+        gpu_info_json = subprocess.run(
+            args = ['lshw', '-class', 'display', '-json'],
+            stdout = subprocess.PIPE,  # 標準出力をキャプチャする
+            stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+            text = True,  # 出力をテキストとして取得する
+        )
+        # コマンド成功時のみ
+        if gpu_info_json.returncode == 0:
+            # 接続されている GPU 名を取得してリストに追加
+            for gpu_info in json.loads(gpu_info_json.stdout):
+                gpu_names.append(f'{gpu_info["vendor"]} {gpu_info["product"]}')
 
+    # Intel 製 GPU なら QSVEncC が、NVIDIA 製 GPU (Geforce) なら NVEncC が、AMD 製 GPU (Radeon) なら VCEEncC が使える
+    ## もちろん機種によって例外はあるけど、ダウンロード前だとこれくらいの大雑把な判定しかできない…
+    ## VCEEncC は安定性があまり良くなく、NVEncC は性能は良いが同時エンコード本数の制限があるので、QSVEncC が一番優先されるようにする
+    default_encoder: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC'] = 'FFmpeg'
+    for gpu_name in gpu_names:
+        if 'AMD' in gpu_name or 'Radeon' in gpu_name:
+            vceencc_available = f'✅利用できます (AMD GPU: {gpu_name})'
+            default_encoder = 'VCEEncC'
+        elif 'NVIDIA' in gpu_name or 'Geforce' in gpu_name:
+            nvencc_available = f'✅利用できます (NVIDIA GPU: {gpu_name})'
+            default_encoder = 'NVEncC'
+        elif 'Intel' in gpu_name:
+            qsvencc_available = f'✅利用できます (Intel GPU: {gpu_name})'
+            default_encoder = 'QSVEncC'
 
+    table_05 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
+    table_05.add_column('05. 利用するエンコーダーを FFmpeg・QSVEncC・NVEncC・VCEEncC から選択してください。')
+    table_05.add_row('FFmpeg はソフトウェアエンコーダーです。')
+    table_05.add_row('すべての PC で利用できますが、CPU に多大な負荷がかかり、パフォーマンスが悪いです。')
+    table_05.add_row('QSVEncC・NVEncC・VCEEncC はハードウェアエンコーダーです。')
+    table_05.add_row('FFmpeg と比較して CPU 負荷が低く、パフォーマンスがとても高いです（おすすめ）。')
+    table_05.add_row(Rule(characters='─', style=Style(color='#E33157')))
+    table_05.add_row(f'QSVEncC: {qsvencc_available}')
+    table_05.add_row(f'NVEncC : {nvencc_available}')
+    table_05.add_row(f'VCEEncC: {vceencc_available}')
+    print(Padding(table_05, (1, 2, 1, 2)))
 
+    # 利用するエンコーダーを取得
+    encoder = cast(
+        Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC'],
+        CustomPrompt.ask('利用するエンコーダー', default=default_encoder, choices=['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC']),
+    )
+
+    # ***** アップロードしたキャプチャ画像の保存先フォルダのパス *****
+
+    table_06 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
+    table_06.add_column('06.  アップロードしたキャプチャ画像の保存先フォルダのパスを入力してください。')
+    table_06.add_row('クライアントの [キャプチャの保存先] 設定で [KonomiTV サーバーにアップロード] または')
+    table_06.add_row('[ブラウザでのダウンロードと、KonomiTV サーバーへのアップロードを両方行う] を選択したときに利用されます。')
+    if os.name == 'nt':
+        table_06.add_row('例: E:\\TV-Capture')
+    else:
+        table_06.add_row('例: /mnt/hdd/TV-Capture')
+    print(Padding(table_06, (1, 2, 1, 2)))
+
+    # キャプチャ画像の保存先フォルダのパスを取得
+    capture_upload_folder: Path
+    while True:
+        # 入力プロンプト (バリデーションに失敗し続ける限り何度でも表示される)
+        capture_upload_folder = Path(CustomPrompt.ask(' アップロードしたキャプチャ画像の保存先フォルダのパス'))
+
+        # バリデーション
+        if capture_upload_folder.is_absolute() is False:
+            print(Padding('[red]アップロードしたキャプチャ画像の保存先フォルダは絶対パスで入力してください。', (0, 2, 0, 2)))
+            continue
+        if capture_upload_folder.exists() is False:
+            print(Padding('[red]アップロードしたキャプチャ画像の保存先フォルダが存在しません。', (0, 2, 0, 2)))
+            continue
+
+        # すべてのバリデーションを通過したのでループを抜ける
+        break
 
