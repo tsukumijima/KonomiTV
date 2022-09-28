@@ -559,7 +559,11 @@ export default Vue.extend({
                 });
 
                 // 成功 or 失敗に関わらず detail の内容をそのまま通知する
-                this.player.notice(result.data.detail);
+                if (result.data.is_success === true) {
+                    this.player.notice(result.data.detail);
+                } else {
+                    this.player.notice('エラー: ' + result.data.detail);
+                }
 
             } catch (error) {
                 console.error(error);
