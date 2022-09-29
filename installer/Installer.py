@@ -1,5 +1,6 @@
 
 import asyncio
+import getpass
 import json
 import os
 import py7zr
@@ -51,6 +52,7 @@ def Installer(version: str) -> None:
     # インストール先のフォルダを取得
     install_path: Path
     while True:
+
         # 入力プロンプト (バリデーションに失敗し続ける限り何度でも表示される)
         install_path = Path(CustomPrompt.ask('KonomiTV をインストールするフォルダのパス'))
 
@@ -102,6 +104,7 @@ def Installer(version: str) -> None:
 
         # EDCB (EpgTimerNW) の TCP API の URL を取得
         while True:
+
             # 入力プロンプト (バリデーションに失敗し続ける限り何度でも表示される)
             ## 末尾のスラッシュは常に付与する
             edcb_url: str = CustomPrompt.ask('EDCB (EpgTimerNW) の TCP API の URL').rstrip('/') + '/'
@@ -114,7 +117,7 @@ def Installer(version: str) -> None:
                 continue
             if ((edcb_url_parse.hostname is None) or
                 (edcb_url_parse.port is None and edcb_url_parse.hostname != 'edcb-namedpipe')):
-                print(Padding('[red]URL 内にホスト名またはポートが指定されていません。EDCB の URL を間違えている可能性があります。', (0, 2, 0, 2)))
+                print(Padding('[red]URL 内にホスト名またはポートが指定されていません。\nEDCB の URL を間違えている可能性があります。', (0, 2, 0, 2)))
                 continue
             edcb_host = edcb_url_parse.hostname
             edcb_port = edcb_url_parse.port
@@ -123,7 +126,7 @@ def Installer(version: str) -> None:
             result = asyncio.run(edcb.sendEnumService())
             if result is None:
                 print(Padding(
-                    f'[red]EDCB ({edcb_url}) にアクセスできませんでした。EDCB が起動していないか、URL を間違えている可能性があります。',
+                    f'[red]EDCB ({edcb_url}) にアクセスできませんでした。\nEDCB が起動していないか、URL を間違えている可能性があります。',
                     pad = (0, 2, 0, 2),
                 ))
                 continue
@@ -142,6 +145,7 @@ def Installer(version: str) -> None:
 
         # Mirakurun の HTTP API の URL を取得
         while True:
+
             # 入力プロンプト (バリデーションに失敗し続ける限り何度でも表示される)
             ## 末尾のスラッシュは常に付与する
             mirakurun_url = CustomPrompt.ask('Mirakurun の HTTP API の URL').rstrip('/') + '/'
@@ -152,14 +156,14 @@ def Installer(version: str) -> None:
                 response = requests.get(f'{mirakurun_url.rstrip("/")}/api/version', timeout=3)
             except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as ex:
                 print(Padding(
-                    f'[red]Mirakurun ({mirakurun_url}) にアクセスできませんでした。'
+                    f'[red]Mirakurun ({mirakurun_url}) にアクセスできませんでした。\n'
                     'Mirakurun が起動していないか、URL を間違えている可能性があります。',
                     pad = (0, 2, 0, 2),
                 ))
                 continue
             if response.status_code != 200:
                 print(Padding(
-                    f'[red]{mirakurun_url} は Mirakurun の URL ではありません。'
+                    f'[red]{mirakurun_url} は Mirakurun の URL ではありません。\n'
                     'Mirakurun の URL を間違えている可能性があります。',
                     pad = (0, 2, 0, 2),
                 ))
@@ -260,6 +264,7 @@ def Installer(version: str) -> None:
     # キャプチャ画像の保存先フォルダのパスを取得
     capture_upload_folder: Path
     while True:
+
         # 入力プロンプト (バリデーションに失敗し続ける限り何度でも表示される)
         capture_upload_folder = Path(CustomPrompt.ask('アップロードしたキャプチャ画像の保存先フォルダのパス'))
 
@@ -398,3 +403,112 @@ def Installer(version: str) -> None:
 
         # 環境設定データを保存
         SaveConfigYaml(install_path / 'config.yaml', config_data)
+
+    # ***** Windows: Windows サービスのインストール *****
+
+    if os.name == 'nt':
+
+        # 現在ログオン中のユーザー名を取得
+        current_user_name = getpass.getuser()
+
+        table_07 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
+        table_07.add_column(f'07. ログオン中のユーザー ({current_user_name}) のパスワードを入力してください。')
+        table_07.add_row('KonomiTV の Windows サービスをユーザー権限で起動するために利用します。')
+        table_07.add_row('入力されたパスワードがそれ以外の用途に利用されることはありません。')
+        table_07.add_row('間違ったパスワードを入力すると、KonomiTV が起動できなくなります。')
+        table_07.add_row('Enter キーを押す前に、正しいパスワードかどうか今一度確認してください。')
+        print(Padding(table_02, (1, 2, 1, 2)))
+
+        # 現在ログオン中のユーザーのパスワードを取得
+        while True:
+
+            # 入力プロンプト (サービスのインストールに失敗し続ける限り何度でも表示される)
+            ## バリデーションのしようがないので、バリデーションは行わない
+            current_user_password = CustomPrompt.ask(f'ログオン中のユーザー ({current_user_name}) のパスワード')
+
+            # 入力された資格情報をもとに、Windows サービスをインストール
+            ## すでに KonomiTV Service がインストールされている場合は上書きされる
+            print(Padding('Windows サービスをインストールしています…', (1, 2, 0, 2)))
+            progress = CreateBasicInfiniteProgress()
+            progress.add_task('', total=None)
+            with progress:
+                service_install_result = subprocess.run(
+                    args = [
+                        python_executable_path, '-m', 'pipenv', 'run' 'python' 'KonomiTV-Service.py',
+                        '--install', current_user_name, '--password', current_user_password,
+                    ],
+                    cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+                    stdout = subprocess.PIPE,  # 標準出力をキャプチャする
+                    stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+                    text = True,  # 出力をテキストとして取得する
+                )
+
+            # Windows サービスのインストールに失敗
+            if 'Error installing service' in service_install_result.stdout:
+                print(Padding(
+                    '[red]Windows サービスのインストールに失敗しました。'
+                    '入力されたログオン中ユーザーのパスワードが間違っている可能性があります。',
+                    pad = (1, 2, 1, 2),
+                ))
+                continue
+
+            # Windows サービスを起動
+            print(Padding('Windows サービスを起動しています…', (1, 2, 0, 2)))
+            progress = CreateBasicInfiniteProgress()
+            progress.add_task('', total=None)
+            with progress:
+                service_start_result = subprocess.run(
+                    args = [python_executable_path, '-m', 'pipenv', 'run' 'python' 'KonomiTV-Service.py', 'start'],
+                    cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+                    stdout = subprocess.PIPE,  # 標準出力をキャプチャする
+                    stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+                    text = True,  # 出力をテキストとして取得する
+                )
+
+            # Windows サービスの起動に失敗
+            if 'Error starting service' in service_start_result.stdout:
+                print(Padding(
+                    '[red]Windows サービスの起動に失敗しました。'
+                    '入力されたログオン中ユーザーのパスワードが間違っている可能性があります。',
+                    pad = (0, 2, 0, 2),
+                ))
+                continue
+
+            # エラーが出ていなければおそらく正常にサービスがインストールできているはずなので、ループを抜ける
+            break
+
+    # ***** Linux: PM2 サービスのインストール *****
+
+    else:
+
+        # PM2 サービスをインストール
+        ## インストーラーは強制的に root 権限で実行されるので、ここで実行する PM2 も root ユーザーとして動いているものになる
+        ## Mirakurun や EPGStation 同様、PM2 はユーザー権限よりも root 権限で動かしたほうが何かとよさそう
+        print(Padding('PM2 サービスをインストールしています…', (1, 2, 0, 2)))
+        progress = CreateBasicInfiniteProgress()
+        progress.add_task('', total=None)
+        with progress:
+            subprocess.run(
+                args = ['/usr/bin/env', 'pm2', 'start', '.venv/bin/python', '--name' 'KonomiTV' '--' 'KonomiTV.py'],
+                cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+            )
+            subprocess.run(
+                args = ['/usr/bin/env', 'pm2', 'save'],
+                cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+            )
+
+        # PM2 サービスを起動
+        print(Padding('PM2 サービスを起動しています…', (1, 2, 0, 2)))
+        progress = CreateBasicInfiniteProgress()
+        progress.add_task('', total=None)
+        with progress:
+            subprocess.run(
+                args = ['/usr/bin/env', 'pm2', 'start', 'KonomiTV'],
+                cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+            )
