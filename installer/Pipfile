@@ -13,6 +13,7 @@ nuitka = "*"
 py7zr = "*"
 requests = "*"
 rich = "*"
+"ruamel.yaml" = "*"
 zstandard = "*"
 
 [dev-packages]

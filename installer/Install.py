@@ -4,6 +4,7 @@ import json
 import os
 import py7zr
 import requests
+import ruamel.yaml
 import shutil
 import subprocess
 import tarfile
@@ -21,8 +22,9 @@ from typing import Any, cast, Literal
 from Utils import CreateBasicInfiniteProgress
 from Utils import CreateDownloadProgress
 from Utils import CreateDownloadInfiniteProgress
-from Utils import CustomPrompt
 from Utils import CtrlCmdConnectionCheckUtil
+from Utils import CustomPrompt
+from Utils import SaveConfigYaml
 
 def Install(version: str) -> None:
     """
@@ -86,6 +88,8 @@ def Install(version: str) -> None:
 
     # ***** EDCB (EpgTimerNW) の TCP API の URL *****
 
+    edcb_url: str = ''
+    mirakurun_url: str = ''
     if backend == 'EDCB':
 
         table_04 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
@@ -96,10 +100,10 @@ def Install(version: str) -> None:
         print(Padding(table_04, (1, 2, 1, 2)))
 
         # EDCB (EpgTimerNW) の TCP API の URL を取得
-        edcb_url: str
         while True:
             # 入力プロンプト (バリデーションに失敗し続ける限り何度でも表示される)
-            edcb_url: str = CustomPrompt.ask('EDCB (EpgTimerNW) の TCP API の URL')
+            ## 末尾のスラッシュは常に付与する
+            edcb_url: str = CustomPrompt.ask('EDCB (EpgTimerNW) の TCP API の URL').rstrip('/') + '/'
 
             # バリデーション
             ## 入力された URL がちゃんとパースできるかを確認
@@ -128,7 +132,7 @@ def Install(version: str) -> None:
 
     # ***** Mirakurun の HTTP API の URL *****
 
-    if backend == 'Mirakurun':
+    elif backend == 'Mirakurun':
 
         table_04 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
         table_04.add_column('04. Mirakurun の HTTP API の URL を入力してください。')
@@ -136,16 +140,15 @@ def Install(version: str) -> None:
         print(Padding(table_04, (1, 2, 1, 2)))
 
         # Mirakurun の HTTP API の URL を取得
-        mirakurun_url: str
         while True:
             # 入力プロンプト (バリデーションに失敗し続ける限り何度でも表示される)
-            ## 末尾のスラッシュは除去した上で取得する
-            mirakurun_url = CustomPrompt.ask('Mirakurun の HTTP API の URL').rstrip('/')
+            ## 末尾のスラッシュは常に付与する
+            mirakurun_url = CustomPrompt.ask('Mirakurun の HTTP API の URL').rstrip('/') + '/'
 
             # バリデーション
             ## 試しにリクエストを送り、200 (OK) が返ってきたときだけ有効な URL とみなす
             try:
-                response = requests.get(f'{mirakurun_url}/api/version', timeout=3)
+                response = requests.get(f'{mirakurun_url.rstrip("/")}/api/version', timeout=3)
             except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as ex:
                 print(Padding(
                     f'[red]Mirakurun ({mirakurun_url}) にアクセスできませんでした。'
@@ -343,7 +346,7 @@ def Install(version: str) -> None:
     # pipenv sync を実行
     ## server/.venv/ に pipenv の仮想環境を構築するため、PIPENV_VENV_IN_PROJECT 環境変数をセットした状態で実行している
     print(Padding('依存パッケージをインストールしています…', (1, 2, 1, 2)))
-    print(Rule(style=Style(color='#E33157'), align='center'))
+    print(Rule(style=Style(color='cyan'), align='center'))
     environment = os.environ.copy()
     environment['PIPENV_VENV_IN_PROJECT'] = 'true'
     subprocess.run(
@@ -351,7 +354,7 @@ def Install(version: str) -> None:
         cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
         env = environment,  # 環境変数を設定
     )
-    print(Rule(style=Style(color='#E33157'), align='center'))
+    print(Rule(style=Style(color='cyan'), align='center'))
 
     # ***** データベースのアップグレード *****
 
@@ -365,3 +368,31 @@ def Install(version: str) -> None:
             stdout = subprocess.DEVNULL,  # 標準出力を表示しない
             stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
         )
+
+    # ***** 環境設定ファイルの生成 *****
+
+    print(Padding('環境設定ファイルを生成しています…', (1, 2, 0, 2)))
+    progress = CreateBasicInfiniteProgress()
+    progress.add_task('', total=None)
+    with progress:
+
+        # config.example.yaml を config.yaml にコピー
+        shutil.copyfile(install_path / 'config.example.yaml', install_path / 'config.yaml')
+
+        # config.yaml から既定の設定値を取得
+        config_data: dict[str, dict[str, int | float | bool | str | None]]
+        with open(install_path / 'config.yaml', mode='r', encoding='utf-8') as fp:
+            config_data = dict(ruamel.yaml.YAML().load(fp))
+
+        # 環境設定データの一部を事前に取得しておいた値で置き換え
+        ## インストーラーで置換するのはバックエンドや EDCB / Mirakurun の URL など、サーバーの起動に不可欠な値のみ
+        config_data['general']['backend'] = backend
+        if backend == 'EDCB':
+            config_data['general']['edcb_url'] = edcb_url
+        elif backend == 'Mirakurun':
+            config_data['general']['mirakurun_url'] = mirakurun_url
+        config_data['general']['encoder'] = encoder
+        config_data['capture']['upload_folder'] = str(capture_upload_folder)
+
+        # 環境設定データを保存
+        SaveConfigYaml(install_path / 'config.yaml', config_data)
