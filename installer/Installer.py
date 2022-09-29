@@ -26,9 +26,10 @@ from Utils import CtrlCmdConnectionCheckUtil
 from Utils import CustomPrompt
 from Utils import SaveConfigYaml
 
-def Install(version: str) -> None:
+
+def Installer(version: str) -> None:
     """
-    KonomiTV をインストールする (インストーラーの実装)
+    KonomiTV のインストーラーの実装
 
     Args:
         version (str): KonomiTV をインストールするバージョン
@@ -212,7 +213,8 @@ def Install(version: str) -> None:
 
     # Intel 製 GPU なら QSVEncC が、NVIDIA 製 GPU (Geforce) なら NVEncC が、AMD 製 GPU (Radeon) なら VCEEncC が使える
     ## もちろん機種によって例外はあるけど、ダウンロード前だとこれくらいの大雑把な判定しかできない…
-    ## VCEEncC は安定性があまり良くなく、NVEncC は性能は良いが同時エンコード本数の制限があるので、QSVEncC が一番優先されるようにする
+    ## VCEEncC は安定性があまり良くなく、NVEncC は性能は良いものの Geforce だと同時エンコード本数の制限があるので、
+    ## 複数の GPU が接続されている場合は QSVEncC が一番優先されるようにする
     default_encoder: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC'] = 'FFmpeg'
     for gpu_name in gpu_names:
         if 'AMD' in gpu_name or 'Radeon' in gpu_name:

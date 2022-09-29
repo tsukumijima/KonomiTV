@@ -14,9 +14,9 @@ from rich.style import Style
 from rich.text import Text
 from typing import List
 
-from Install import Install
-from Uninstall import Uninstall
-from Update import Update
+from Installer import Installer
+from Uninstaller import Uninstaller
+from Updater import Updater
 from Utils import CustomPrompt
 from Utils import GetNetworkDriveList
 
@@ -86,11 +86,11 @@ def main():
 
     # 実行タイプごとにそれぞれの実装を呼び出す
     if run_type == 1:
-        Install(INSTALLER_VERSION)
+        Installer(INSTALLER_VERSION)
     elif run_type == 2:
-        Update(INSTALLER_VERSION)
+        Updater(INSTALLER_VERSION)
     elif run_type == 3:
-        Uninstall()
+        Uninstaller()
 
 
 if __name__ == "__main__":

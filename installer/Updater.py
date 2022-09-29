@@ -4,9 +4,9 @@ from rich.padding import Padding
 from rich.text import Text
 
 
-def Update(version: str) -> None:
+def Updater(version: str) -> None:
     """
-    KonomiTV をアップデートする (アップデーターの実装)
+    KonomiTV のアップデーターの実装
 
     Args:
         version (str): KonomiTV をアップデートするバージョン

@@ -4,9 +4,9 @@ from rich.padding import Padding
 from rich.text import Text
 
 
-def Uninstall() -> None:
+def Uninstaller() -> None:
     """
-    KonomiTV をアンインストールする (アンインストーラーの実装)
+    KonomiTV のアンインストーラーの実装
     """
 
     print(Padding(Text(
