@@ -1,6 +1,7 @@
 
 import asyncio
 import getpass
+import ifaddr
 import json
 import os
 import py7zr
@@ -417,7 +418,7 @@ def Installer(version: str) -> None:
         table_07.add_row('入力されたパスワードがそれ以外の用途に利用されることはありません。')
         table_07.add_row('間違ったパスワードを入力すると、KonomiTV が起動できなくなります。')
         table_07.add_row('Enter キーを押す前に、正しいパスワードかどうか今一度確認してください。')
-        print(Padding(table_02, (1, 2, 1, 2)))
+        print(Padding(table_07, (1, 2, 1, 2)))
 
         # 現在ログオン中のユーザーのパスワードを取得
         while True:
@@ -512,3 +513,33 @@ def Installer(version: str) -> None:
                 stdout = subprocess.DEVNULL,  # 標準出力を表示しない
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
             )
+
+    # IPv4 かつループバックアドレスとリンクローカルアドレスでない IP アドレスを取得
+    ip_addresses: list[tuple[str, str]] = []
+    for nic in ifaddr.get_adapters():
+        for ip in nic.ips:
+            if ip.is_IPv4:
+                # ループバック (127.x.x.x) とリンクローカル (169.254.x.x) を除外
+                if cast(str, ip.ip).startswith('127.') is False and cast(str, ip.ip).startswith('169.254.') is False:
+                    ip_addresses.append((cast(str, ip.ip), ip.nice_name))  # IP アドレスとインターフェイス名
+
+    # IP アドレス昇順でソート
+    ip_addresses.sort(key=lambda key: key[0])
+
+    # インストール完了メッセージを表示
+    table_07 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
+    table_07.add_column(
+        'インストールが完了しました！🎉🎊 すぐに使いはじめられます！🎈\n'
+        '下記の URL から、KonomiTV の Web UI にアクセスしてみましょう！\n'
+        'ブラウザで [アプリをインストール] または [ホーム画面に追加] を押すと、\n'
+        'ショートカットやホーム画面からすぐに KonomiTV にアクセスできます！',
+    )
+
+    # アクセス可能な URL のリストを IP アドレスごとに表示
+    ## ローカルホスト (127.0.0.1) だけは https://my.local.konomi.tv:7000/ というエイリアスが使える
+    urls = [f'https://{ip_address[0].replace(".", "-")}.local.konomi.tv:7000/' for ip_address in ip_addresses]
+    table_07.add_row(f'{"https://my.local.konomi.tv:7000/": <{max([len(url) for url in urls])}} (ローカルホスト)')
+    for index, url in enumerate(urls):
+        table_07.add_row(f'{url: <{max([len(url) for url in urls])}} ({ip_addresses[index][1]})')
+
+    print(Padding(table_07, (1, 2, 0, 2)))

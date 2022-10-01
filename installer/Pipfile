@@ -9,6 +9,7 @@ build-windows = "nuitka --mingw64 --follow-imports --onefile --windows-uac-admin
 
 [packages]
 elevate = "*"
+ifaddr = "*"
 nuitka = "*"
 py7zr = "*"
 requests = "*"
