@@ -292,7 +292,6 @@ def CreateBasicInfiniteProgress() -> Progress:
         BarColumn(bar_width=9999),
         TimeElapsedColumn(),
         TextColumn(' '),
-        expand = True,
     )
 
 
@@ -305,16 +304,12 @@ def CreateDownloadProgress() -> Progress:
     """
     return Progress(
         TextColumn(' '),
-        BarColumn(bar_width=None),
+        BarColumn(bar_width=9999),
         '[progress.percentage]{task.percentage:>3.1f}%',
-        '•',
         DownloadColumn(),
-        '•',
         TransferSpeedColumn(),
-        '•',
         TimeRemainingColumn(),
         TextColumn(' '),
-        expand = True,
     )
 
 
@@ -329,10 +324,8 @@ def CreateDownloadInfiniteProgress() -> Progress:
         TextColumn(' '),
         BarColumn(bar_width=9999),
         DownloadColumn(),
-        '•',
         TimeElapsedColumn(),
         TextColumn(' '),
-        expand = True,
     )
 
 

@@ -298,6 +298,8 @@ def Installer(version: str) -> None:
         for chunk in source_code_response.iter_content(chunk_size=1024):
             source_code_file.write(chunk)
             progress.update(task_id, advance=len(chunk))
+        source_code_file.seek(0, os.SEEK_END)
+        progress.update(task_id, total=source_code_file.tell())
     source_code_file.close()  # 解凍する前に close() してすべて書き込ませておくのが重要
 
     # ソースコードを解凍して展開
@@ -371,7 +373,7 @@ def Installer(version: str) -> None:
     progress.add_task('', total=None)
     with progress:
         subprocess.run(
-            args = [python_executable_path, '-m', 'pipenv', 'run' 'aerich' 'upgrade'],
+            args = [python_executable_path, '-m', 'pipenv', 'run', 'aerich', 'upgrade'],
             cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
             stdout = subprocess.DEVNULL,  # 標準出力を表示しない
             stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
@@ -427,6 +429,10 @@ def Installer(version: str) -> None:
             ## バリデーションのしようがないので、バリデーションは行わない
             current_user_password = CustomPrompt.ask(f'ログオン中のユーザー ({current_user_name}) のパスワード')
 
+            if current_user_password == '':
+                print(Padding(f'[red]ログオン中のユーザー ({current_user_name}) のパスワードが空です。', (0, 2, 0, 2)))
+                continue
+
             # 入力された資格情報をもとに、Windows サービスをインストール
             ## すでに KonomiTV Service がインストールされている場合は上書きされる
             print(Padding('Windows サービスをインストールしています…', (1, 2, 0, 2)))
@@ -435,8 +441,8 @@ def Installer(version: str) -> None:
             with progress:
                 service_install_result = subprocess.run(
                     args = [
-                        python_executable_path, '-m', 'pipenv', 'run' 'python' 'KonomiTV-Service.py',
-                        '--install', current_user_name, '--password', current_user_password,
+                        python_executable_path, '-m', 'pipenv', 'run', 'python', 'KonomiTV-Service.py', 'install',
+                        '--username', current_user_name, '--password', current_user_password,
                     ],
                     cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
                     stdout = subprocess.PIPE,  # 標準出力をキャプチャする
@@ -447,7 +453,7 @@ def Installer(version: str) -> None:
             # Windows サービスのインストールに失敗
             if 'Error installing service' in service_install_result.stdout:
                 print(Padding(
-                    '[red]Windows サービスのインストールに失敗しました。'
+                    '[red]Windows サービスのインストールに失敗しました。\n'
                     '入力されたログオン中ユーザーのパスワードが間違っている可能性があります。',
                     pad = (1, 2, 1, 2),
                 ))
@@ -459,7 +465,7 @@ def Installer(version: str) -> None:
             progress.add_task('', total=None)
             with progress:
                 service_start_result = subprocess.run(
-                    args = [python_executable_path, '-m', 'pipenv', 'run' 'python' 'KonomiTV-Service.py', 'start'],
+                    args = [python_executable_path, '-m', 'pipenv', 'run', 'python', 'KonomiTV-Service.py', 'start'],
                     cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
                     stdout = subprocess.PIPE,  # 標準出力をキャプチャする
                     stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
@@ -469,9 +475,9 @@ def Installer(version: str) -> None:
             # Windows サービスの起動に失敗
             if 'Error starting service' in service_start_result.stdout:
                 print(Padding(
-                    '[red]Windows サービスの起動に失敗しました。'
+                    '[red]Windows サービスの起動に失敗しました。\n'
                     '入力されたログオン中ユーザーのパスワードが間違っている可能性があります。',
-                    pad = (0, 2, 0, 2),
+                    pad = (1, 2, 1, 2),
                 ))
                 continue
 
@@ -490,7 +496,7 @@ def Installer(version: str) -> None:
         progress.add_task('', total=None)
         with progress:
             subprocess.run(
-                args = ['/usr/bin/env', 'pm2', 'start', '.venv/bin/python', '--name' 'KonomiTV' '--' 'KonomiTV.py'],
+                args = ['/usr/bin/env', 'pm2', 'start', '.venv/bin/python', '--name', 'KonomiTV', '--', 'KonomiTV.py'],
                 cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
                 stdout = subprocess.DEVNULL,  # 標準出力を表示しない
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
