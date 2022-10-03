@@ -342,7 +342,7 @@ def RemoveEmojiIfLegacyTerminal(text: str) -> str:
         str: レガシーターミナル以外ではそのまま、レガシーターミナルでは絵文字が除去された文字列
     """
 
-    if rich.console.console.legacy_windows is True:
+    if rich.console.detect_legacy_windows() is True:
         # emoji パッケージを使って絵文字を除去する
         # ref: https://stackoverflow.com/a/51785357/17124142
         # ref: https://carpedm20.github.io/emoji/docs/

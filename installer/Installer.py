@@ -558,7 +558,7 @@ def Installer(version: str) -> None:
     observer.start()
 
     # サービスが起動するまで待つ
-    print(Padding('サービスの起動を待っています…', (1, 2, 0, 2)))
+    print(Padding('サービスの起動を待っています… (時間がかかることがあります)', (1, 2, 0, 2)))
     progress = CreateBasicInfiniteProgress()
     progress.add_task('', total=None)
     with progress:
