@@ -9,12 +9,14 @@ build-windows = "nuitka --mingw64 --follow-imports --onefile --windows-uac-admin
 
 [packages]
 elevate = "*"
+emoji = "*"
 ifaddr = "*"
 nuitka = "*"
 py7zr = "*"
 requests = "*"
 rich = "*"
 "ruamel.yaml" = "*"
+watchdog = "*"
 zstandard = "*"
 
 [dev-packages]

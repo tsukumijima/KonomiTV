@@ -1,8 +1,10 @@
 
 import asyncio
+import emoji
 import datetime
 import os
 import re
+import rich
 import time
 from pathlib import Path
 from rich.console import Console
@@ -327,6 +329,26 @@ def CreateDownloadInfiniteProgress() -> Progress:
         TimeElapsedColumn(),
         TextColumn(' '),
     )
+
+
+def RemoveEmojiIfLegacyTerminal(text: str) -> str:
+    """
+    絵文字が表示できない Windows のレガシーターミナル (conhost.exe) のときのみ絵文字を除去する
+
+    Args:
+        text (str): 絵文字の含まれた文字列
+
+    Returns:
+        str: レガシーターミナル以外ではそのまま、レガシーターミナルでは絵文字が除去された文字列
+    """
+
+    if rich.console.console.legacy_windows is True:
+        # emoji パッケージを使って絵文字を除去する
+        # ref: https://stackoverflow.com/a/51785357/17124142
+        # ref: https://carpedm20.github.io/emoji/docs/
+        return emoji.replace_emoji(text, '')
+    else:
+        return text
 
 
 def SaveConfigYaml(config_yaml_path: Path, config_data: dict[str, dict[str, int |float | bool | str | None]]) -> None:

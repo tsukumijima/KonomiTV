@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
+import time
 import urllib.parse
 from pathlib import Path
 from rich import box
@@ -20,12 +21,17 @@ from rich.rule import Rule
 from rich.style import Style
 from rich.table import Table
 from typing import Any, cast, Literal
+from watchdog.events import FileCreatedEvent
+from watchdog.events import FileModifiedEvent
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
 
 from Utils import CreateBasicInfiniteProgress
 from Utils import CreateDownloadProgress
 from Utils import CreateDownloadInfiniteProgress
 from Utils import CtrlCmdConnectionCheckUtil
 from Utils import CustomPrompt
+from Utils import RemoveEmojiIfLegacyTerminal
 from Utils import SaveConfigYaml
 
 
@@ -239,9 +245,9 @@ def Installer(version: str) -> None:
     table_05.add_row('QSVEncC・NVEncC・VCEEncC はハードウェアエンコーダーです。')
     table_05.add_row('FFmpeg と比較して CPU 負荷が低く、パフォーマンスがとても高いです（おすすめ）。')
     table_05.add_row(Rule(characters='─', style=Style(color='#E33157')))
-    table_05.add_row(f'QSVEncC: {qsvencc_available}')
-    table_05.add_row(f'NVEncC : {nvencc_available}')
-    table_05.add_row(f'VCEEncC: {vceencc_available}')
+    table_05.add_row(RemoveEmojiIfLegacyTerminal(f'QSVEncC: {qsvencc_available}'))
+    table_05.add_row(RemoveEmojiIfLegacyTerminal(f'NVEncC : {nvencc_available}'))
+    table_05.add_row(RemoveEmojiIfLegacyTerminal(f'VCEEncC: {vceencc_available}'))
     print(Padding(table_05, (1, 2, 1, 2)))
 
     # 利用するエンコーダーを取得
@@ -416,7 +422,7 @@ def Installer(version: str) -> None:
 
         table_07 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
         table_07.add_column(f'07. ログオン中のユーザー ({current_user_name}) のパスワードを入力してください。')
-        table_07.add_row('KonomiTV の Windows サービスをユーザー権限で起動するために利用します。')
+        table_07.add_row('KonomiTV の Windows サービスを一般ユーザーの権限で起動するために利用します。')
         table_07.add_row('入力されたパスワードがそれ以外の用途に利用されることはありません。')
         table_07.add_row('間違ったパスワードを入力すると、KonomiTV が起動できなくなります。')
         table_07.add_row('Enter キーを押す前に、正しいパスワードかどうか今一度確認してください。')
@@ -477,8 +483,9 @@ def Installer(version: str) -> None:
                 print(Padding(
                     '[red]Windows サービスの起動に失敗しました。\n'
                     '入力されたログオン中ユーザーのパスワードが間違っている可能性があります。',
-                    pad = (1, 2, 1, 2),
+                    pad = (1, 2, 0, 2),
                 ))
+                print(Padding('[red]エラーログ:\n' + service_start_result.stdout.strip(), pad=(1, 2, 1, 2)))
                 continue
 
             # エラーが出ていなければおそらく正常にサービスがインストールできているはずなので、ループを抜ける
@@ -520,6 +527,54 @@ def Installer(version: str) -> None:
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
             )
 
+    # ***** サービスの起動を待機 *****
+
+    # サービスが起動したかのフラグ
+    is_service_started = False
+
+    # KonomiTV サーバーが（番組情報更新などを終えて）起動したかのフラグ
+    is_server_started = False
+
+    # ログフォルダ以下のファイルに変更があったときのイベントハンドラー
+    class LogFolderWatchHandler(FileSystemEventHandler):
+
+        # 何かしらログフォルダに新しいファイルが作成されたら、サービスが起動したものとみなす
+        def on_created(self, event: FileCreatedEvent) -> None:
+            nonlocal is_service_started
+            is_service_started = True
+
+        # ログファイルが更新されたら、ログの中に Application startup complete. という文字列が含まれていないかを探す
+        # ログの中に Application startup complete. という文字列が含まれていたら、KonomiTV サーバーの起動が完了したとみなす
+        def on_modified(self, event: FileModifiedEvent) -> None:
+            with open(event.src_path, mode='r', encoding='utf-8') as log:
+                text = log.read()
+                if 'Application startup complete.' in text:
+                    nonlocal is_server_started
+                    is_server_started = True
+
+    # Watchdog を起動
+    observer = Observer()
+    observer.schedule(LogFolderWatchHandler(), str(install_path / 'server/logs/'), recursive=True)
+    observer.start()
+
+    # サービスが起動するまで待つ
+    print(Padding('サービスの起動を待っています…', (1, 2, 0, 2)))
+    progress = CreateBasicInfiniteProgress()
+    progress.add_task('', total=None)
+    with progress:
+        while is_service_started is False:
+            time.sleep(0.1)
+
+    # KonomiTV サーバーが起動するまで待つ
+    print(Padding('KonomiTV サーバーの起動を待っています… (数十秒～数分かかります)', (1, 2, 0, 2)))
+    progress = CreateBasicInfiniteProgress()
+    progress.add_task('', total=None)
+    with progress:
+        while is_server_started is False:
+            time.sleep(0.1)
+
+    # ***** インストール完了 *****
+
     # IPv4 かつループバックアドレスとリンクローカルアドレスでない IP アドレスを取得
     ip_addresses: list[tuple[str, str]] = []
     for nic in ifaddr.get_adapters():
@@ -534,12 +589,12 @@ def Installer(version: str) -> None:
 
     # インストール完了メッセージを表示
     table_07 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
-    table_07.add_column(
+    table_07.add_column(RemoveEmojiIfLegacyTerminal(
         'インストールが完了しました！🎉🎊 すぐに使いはじめられます！🎈\n'
         '下記の URL から、KonomiTV の Web UI にアクセスしてみましょう！\n'
         'ブラウザで [アプリをインストール] または [ホーム画面に追加] を押すと、\n'
         'ショートカットやホーム画面からすぐに KonomiTV にアクセスできます！',
-    )
+    ))
 
     # アクセス可能な URL のリストを IP アドレスごとに表示
     ## ローカルホスト (127.0.0.1) だけは https://my.local.konomi.tv:7000/ というエイリアスが使える
