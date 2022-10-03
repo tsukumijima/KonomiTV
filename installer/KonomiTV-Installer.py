@@ -113,17 +113,34 @@ if __name__ == "__main__":
 
         if os.name == 'nt':
             print(Padding(Text(
-                f'KonomiTV のインストール/アップデート/アンインストールには管理者権限が必要です。\n'
+                'KonomiTV のインストール/アップデート/アンインストールには管理者権限が必要です。\n'
                 '「このアプリがデバイスに変更を加えることを許可しますか？」のダイヤログで [はい] をクリックしてください。'
             ), (1, 2, 0, 2)))
         else:
             print(Padding(Text(
-                f'KonomiTV のインストール/アップデート/アンインストールには root 権限が必要です。'
+                'KonomiTV のインストール/アップデート/アンインストールには root 権限が必要です。'
             ), (1, 2, 0, 2)))
 
-    # main() を実行
     else:
-        main()
+
+        # Linux: pm2 コマンドがインストールされていなければここで終了する
+        ## type コマンドで指定したコマンドが見つからなければ終了コードとして1を返すのを利用している
+        result = subprocess.run(
+            args = ['/usr/bin/bash', '-c', 'type pm2'],
+            stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+            stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+        )
+        ## pm2 コマンドが見つからなかった場合
+        if result.returncode != 0:
+            print(Padding(Text(
+                'KonomiTV のインストール/アップデート/アンインストールには PM2 が必要です。\n'
+                'PM2 は、KonomiTV サービスのプロセスマネージャーとして利用しています。\n'
+                '"sudo npm install -g pm2" のコマンドでインストールできます。'
+            ), (1, 2, 0, 2)))
+
+        # main() を実行
+        else:
+            main()
 
     print(Padding(Rule(
         style = Style(color='#E33157'),
