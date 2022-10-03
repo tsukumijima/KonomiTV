@@ -413,6 +413,91 @@ def Installer(version: str) -> None:
         # 環境設定データを保存
         SaveConfigYaml(install_path / 'config.yaml', config_data)
 
+    # ***** Linux: QSVEncC / NVEncC / VCEEncC の動作チェック *****
+
+    if os.name != 'nt':
+
+        # エンコーダーに QSVEncC が選択されているとき
+        if encoder == 'QSVEncC':
+
+            # QSVEncC の --check-hw オプションの終了コードが 0 なら利用可能、それ以外なら利用不可
+            result = subprocess.run(
+                args = [install_path / 'server/thirdparty/QSVEncC/QSVEncC.elf', '--check-hw'],
+                stdout = subprocess.PIPE,  # 標準出力をキャプチャする
+                stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
+                text = True,  # 出力をテキストとして取得する
+            )
+
+            # QSVEncC が利用できない結果になった場合は Intel Media Driver がインストールされていない可能性が高いので、
+            # 適宜 Intel Media Driver をインストールするように催促する
+            ## Intel Media Driver は iGPU 本体のものとは切り離されているので、インストールが比較的容易
+            ## インストールコマンドが複雑なので、コマンド例を明示する
+            if result.returncode != 0:
+                print(Padding(
+                    '[yellow]注意: この PC では QSVEncC が利用できない状態です。[/yellow]\n'
+                    'Intel QSV の利用に必要な Intel Media Driver が、\n'
+                    'インストールされていない可能性があります。',
+                pad=(1, 2, 0, 2)))
+                print(Padding('QSVEncC のログ:\n' + result.stdout.strip(), pad=(1, 2, 0, 2)))
+                print(Padding(
+                    'Intel Media Driver は以下のコマンドでインストールできます。\n'
+                    'curl -fsSL https://repositories.intel.com/graphics/intel-graphics.key | gpg --dearmor -o /usr/share/keyrings/intel-graphics-keyring.gpg && echo \'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/graphics/ubuntu focal main\' > /etc/apt/sources.list.d/intel-graphics.list && sudo apt update -y && sudo apt install -y intel-media-va-driver-non-free intel-opencl-icd',
+                pad=(1, 2, 0, 2)))
+                print(Padding(
+                    'Alder Lake (第12世代) 以降の CPU では、追加で以下のコマンドを実行してください。\n'
+                    'なお、libmfx-gen1.2 パッケージは Ubuntu 22.04 LTS にしか存在しないため、 \n'
+                    'Ubuntu 20.04 LTS では、Alder Lake 以降の CPU の Intel QSV を利用できません。\n'
+                    'sudo apt install -y libmfx-gen1.2',
+                pad=(1, 2, 0, 2)))
+
+        # エンコーダーに NVEncC が選択されているとき
+        elif encoder == 'NVEncC':
+
+            # NVEncC の --check-hw オプションの終了コードが 0 なら利用可能、それ以外なら利用不可
+            result = subprocess.run(
+                args = [install_path / 'server/thirdparty/NVEncC/NVEncC.elf', '--check-hw'],
+                stdout = subprocess.PIPE,  # 標準出力をキャプチャする
+                stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
+                text = True,  # 出力をテキストとして取得する
+            )
+
+            # NVEncC が利用できない結果になった場合はドライバーがインストールされていない or 古い可能性が高いので、
+            # 適宜ドライバーをインストール/アップデートするように催促する
+            ## NVEncC は NVIDIA Graphics Driver さえインストールされていれば動作する
+            if result.returncode != 0:
+                print(Padding(
+                    '[yellow]注意: この PC では NVEncC が利用できない状態です。[/yellow]\n'
+                    'NVENC の利用に必要な NVIDIA Graphics Driver がインストールされていないか、\n'
+                    'NVIDIA Graphics Driver のバージョンが古い可能性があります。\n'
+                    'NVIDIA Graphics Driver をインストール/最新バージョンに更新してください。',
+                pad=(1, 2, 0, 2)))
+                print(Padding('NVEncC のログ:\n' + result.stdout.strip(), pad=(1, 2, 0, 2)))
+
+        # エンコーダーに VCEEncC が選択されているとき
+        elif encoder == 'VCEEncC':
+
+            # VCEEncC の --check-hw オプションの終了コードが 0 なら利用可能、それ以外なら利用不可
+            result = subprocess.run(
+                args = [install_path / 'server/thirdparty/VCEEncC/VCEEncC.elf', '--check-hw'],
+                stdout = subprocess.PIPE,  # 標準出力をキャプチャする
+                stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
+                text = True,  # 出力をテキストとして取得する
+            )
+
+            # VCEEncC が利用できない結果になった場合はドライバーがインストールされていない or 古い可能性が高いので、
+            # 適宜ドライバーをインストール/アップデートするように催促する
+            ## VCEEncC は AMDGPU-PRO Driver さえインストールされていれば動作する
+            if result.returncode != 0:
+                print(Padding(
+                    '[yellow]注意: この PC では VCEEncC が利用できない状態です。[/yellow]\n'
+                    'AMD VCE の利用に必要な AMDGPU-PRO Driver がインストールされていないか、\n'
+                    'AMDGPU-PRO Driver のバージョンが古い可能性があります。\n'
+                    'AMDGPU-PRO Driver をインストール/最新バージョンに更新してください。\n'
+                    'AMDGPU-PRO Driver のインストール方法は以下のページに記載されています。\n'
+                    'https://github.com/rigaya/VCEEnc/blob/master/Install.ja.md#linux-ubuntu-2004',
+                pad=(1, 2, 0, 2)))
+                print(Padding('VCEEncC のログ:\n' + result.stdout.strip(), pad=(1, 2, 0, 2)))
+
     # ***** Windows: Windows サービスのインストール *****
 
     if os.name == 'nt':
