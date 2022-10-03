@@ -206,8 +206,8 @@ jobs:
           ## ref: https://askubuntu.com/questions/1260559/how-to-install-deb-packages-in-a-custom-folder-different-from-root-using-dp
           mkdir thirdparty/Library/
           curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2022-09-30-12-41/ffmpeg-n4.4.2-95-ga8f16d4eb4-linux64-gpl-shared-4.4.tar.xz
-          tar xvf fmpeg-n4.4.2-95-ga8f16d4eb4-linux64-gpl-shared-4.4.tar.xz
-          cp -ar fmpeg-n4.4.2-95-ga8f16d4eb4-linux64-gpl-shared-4.4/lib/* thirdparty/Library/
+          tar xvf ffmpeg-n4.4.2-95-ga8f16d4eb4-linux64-gpl-shared-4.4.tar.xz
+          cp -ar ffmpeg-n4.4.2-95-ga8f16d4eb4-linux64-gpl-shared-4.4/lib/* thirdparty/Library/
           apt-get download libass9 libglib2.0-0 libgraphite2-3 libharfbuzz0b
           ls -1 | grep [.]deb >> all_debs.txt && cat all_debs.txt | while read fn; do dpkg-deb -x $fn `pwd`/thirdparty/Library; done && rm all_debs.txt
           cp -ar thirdparty/Library/usr/lib/x86_64-linux-gnu/* thirdparty/Library/
