@@ -4,6 +4,7 @@ import getpass
 import ifaddr
 import json
 import os
+import psutil
 import py7zr
 import requests
 import ruamel.yaml
@@ -386,6 +387,34 @@ def Installer(version: str) -> None:
             stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
         )
 
+    # ***** リッスンポートの重複チェック *****
+
+    # 使用中のポートを取得
+    # ref: https://qiita.com/skokado/items/6e76762c68866d73570b
+    used_ports = [cast(Any, conn.laddr).port for conn in psutil.net_connections() if conn.status == 'LISTEN']
+
+    # 空いてるリッスンポートを探す
+    ## 7000 ポートが空いていたら、それがそのまま使われる
+    server_port: int = 7000
+    while True:
+
+        # ポート 7000 (Akebi HTTPS Server) または 7010 (Uvicorn) が既に使われている場合
+        ## リッスンポートを +100 して次のループへ
+        if server_port in used_ports or (server_port + 10) in used_ports:
+            server_port += 100  # +100 ずつ足していく
+            continue
+
+        # server_port が未使用のポートになったタイミングでループを抜ける
+        break
+
+    # 結果的にデフォルトのリッスンポートが 7000 以外になった場合の注意メッセージ
+    if server_port != 7000:
+        print(Padding(
+            '[yellow]注意: デフォルトのリッスンポート (7000) がほかのサーバーソフトと重複しています。[/yellow]\n'
+            f'代わりのリッスンポートとして、ポート {server_port} を選択します。\n'
+            'リッスンポートは、config.yaml を編集すると変更できます。',
+        pad = (1, 2, 0, 2)))
+
     # ***** 環境設定ファイルの生成 *****
 
     print(Padding('環境設定ファイルを生成しています…', (1, 2, 0, 2)))
@@ -409,6 +438,7 @@ def Installer(version: str) -> None:
         elif backend == 'Mirakurun':
             config_data['general']['mirakurun_url'] = mirakurun_url
         config_data['general']['encoder'] = encoder
+        config_data['server']['port'] = server_port
         config_data['capture']['upload_folder'] = str(capture_upload_folder)
 
         # 環境設定データを保存
@@ -438,18 +468,18 @@ def Installer(version: str) -> None:
                     '[yellow]注意: この PC では QSVEncC が利用できない状態です。[/yellow]\n'
                     'Intel QSV の利用に必要な Intel Media Driver が、\n'
                     'インストールされていない可能性があります。',
-                pad=(1, 2, 0, 2)))
+                pad = (1, 2, 0, 2)))
                 print(Padding('QSVEncC のログ:\n' + result.stdout.strip(), pad=(1, 2, 0, 2)))
                 print(Padding(
                     'Intel Media Driver は以下のコマンドでインストールできます。\n'
                     'curl -fsSL https://repositories.intel.com/graphics/intel-graphics.key | gpg --dearmor -o /usr/share/keyrings/intel-graphics-keyring.gpg && echo \'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/graphics/ubuntu focal main\' > /etc/apt/sources.list.d/intel-graphics.list && sudo apt update -y && sudo apt install -y intel-media-va-driver-non-free intel-opencl-icd',
-                pad=(1, 2, 0, 2)))
+                pad = (1, 2, 0, 2)))
                 print(Padding(
                     'Alder Lake (第12世代) 以降の CPU では、追加で以下のコマンドを実行してください。\n'
                     'なお、libmfx-gen1.2 パッケージは Ubuntu 22.04 LTS にしか存在しないため、 \n'
                     'Ubuntu 20.04 LTS では、Alder Lake 以降の CPU の Intel QSV を利用できません。\n'
                     'sudo apt install -y libmfx-gen1.2',
-                pad=(1, 2, 0, 2)))
+                pad = (1, 2, 0, 2)))
 
         # エンコーダーに NVEncC が選択されているとき
         elif encoder == 'NVEncC':
@@ -471,7 +501,7 @@ def Installer(version: str) -> None:
                     'NVENC の利用に必要な NVIDIA Graphics Driver がインストールされていないか、\n'
                     'NVIDIA Graphics Driver のバージョンが古い可能性があります。\n'
                     'NVIDIA Graphics Driver をインストール/最新バージョンに更新してください。',
-                pad=(1, 2, 0, 2)))
+                pad = (1, 2, 0, 2)))
                 print(Padding('NVEncC のログ:\n' + result.stdout.strip(), pad=(1, 2, 0, 2)))
 
         # エンコーダーに VCEEncC が選択されているとき
@@ -496,7 +526,7 @@ def Installer(version: str) -> None:
                     'AMDGPU-PRO Driver をインストール/最新バージョンに更新してください。\n'
                     'AMDGPU-PRO Driver のインストール方法は以下のページに記載されています。\n'
                     'https://github.com/rigaya/VCEEnc/blob/master/Install.ja.md#linux-ubuntu-2004',
-                pad=(1, 2, 0, 2)))
+                pad = (1, 2, 0, 2)))
                 print(Padding('VCEEncC のログ:\n' + result.stdout.strip(), pad=(1, 2, 0, 2)))
 
     # ***** Windows: Windows サービスのインストール *****
@@ -689,8 +719,8 @@ def Installer(version: str) -> None:
 
     # アクセス可能な URL のリストを IP アドレスごとに表示
     ## ローカルホスト (127.0.0.1) だけは https://my.local.konomi.tv:7000/ というエイリアスが使える
-    urls = [f'https://{ip_address[0].replace(".", "-")}.local.konomi.tv:7000/' for ip_address in ip_addresses]
-    table_07.add_row(f'{"https://my.local.konomi.tv:7000/": <{max([len(url) for url in urls])}} (ローカルホスト)')
+    urls = [f'https://{ip_address[0].replace(".", "-")}.local.konomi.tv:{server_port}/' for ip_address in ip_addresses]
+    table_07.add_row(f'{f"https://my.local.konomi.tv:{server_port}/": <{max([len(url) for url in urls])}} (ローカルホスト)')
     for index, url in enumerate(urls):
         table_07.add_row(f'{url: <{max([len(url) for url in urls])}} ({ip_addresses[index][1]})')
 
