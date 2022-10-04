@@ -259,7 +259,7 @@ def Installer(version: str) -> None:
     # ***** アップロードしたキャプチャ画像の保存先フォルダのパス *****
 
     table_06 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
-    table_06.add_column('06.  アップロードしたキャプチャ画像の保存先フォルダのパスを入力してください。')
+    table_06.add_column('06. アップロードしたキャプチャ画像の保存先フォルダのパスを入力してください。')
     table_06.add_row('クライアントの [キャプチャの保存先] 設定で [KonomiTV サーバーにアップロード] または')
     table_06.add_row('[ブラウザでのダウンロードと、KonomiTV サーバーへのアップロードを両方行う] を選択したときに利用されます。')
     if os.name == 'nt':
@@ -324,7 +324,7 @@ def Installer(version: str) -> None:
     # GitHub からサードパーティーライブラリをダウンロード
     #thirdparty_base_url = f'https://github.com/tsukumijima/KonomiTV/releases/download/v{version}/'  # TODO: v0.6.0 リリース前に変更必須
     thirdparty_base_url = 'https://github.com/tsukumijima/Storehouse/releases/download/KonomiTV-Thirdparty-Libraries-Prerelease/'
-    thirdparty_url = thirdparty_base_url + ('thirdparty-windows.7z' if os.name == 'nt' else 'thirdparty-linux.7z')
+    thirdparty_url = thirdparty_base_url + ('thirdparty-windows.7z' if os.name == 'nt' else 'thirdparty-linux.tar.xz')
     thirdparty_response = requests.get(thirdparty_url, stream=True)
     task_id = progress.add_task('', total=float(thirdparty_response.headers['Content-length']))
 
@@ -347,7 +347,7 @@ def Installer(version: str) -> None:
                 seven_zip.extractall(install_path / 'server/')
         else:
             # Linux: tar.xz 形式のアーカイブを解凍
-            # 7-Zip だと (おそらく) ファイルパーミッションを保持したまま圧縮することができない？ため、あえて tar.xz を使っている
+            ## 7-Zip だと (おそらく) ファイルパーミッションを保持したまま圧縮することができない？ため、あえて tar.xz を使っている
             with tarfile.open(thirdparty_file.name, mode='r:xz') as tar_xz:
                 tar_xz.extractall(install_path / 'server/')
         Path(thirdparty_file.name).unlink()
@@ -632,11 +632,16 @@ def Installer(version: str) -> None:
         # ログファイルが更新されたら、ログの中に Application startup complete. という文字列が含まれていないかを探す
         # ログの中に Application startup complete. という文字列が含まれていたら、KonomiTV サーバーの起動が完了したとみなす
         def on_modified(self, event: FileModifiedEvent) -> None:
-            with open(event.src_path, mode='r', encoding='utf-8') as log:
-                text = log.read()
-                if 'Application startup complete.' in text:
-                    nonlocal is_server_started
-                    is_server_started = True
+            # もし on_created をハンドリングできなかった場合に備え、on_modified でもサービス起動フラグを立てる
+            nonlocal is_service_started, is_server_started
+            is_service_started = True
+            # ファイルのみに限定（フォルダの変更も検知されることがあるが、当然フォルダは開けないのでエラーになる）
+            if Path(event.src_path).is_file() is True:
+                with open(event.src_path, mode='r', encoding='utf-8') as log:
+                    text = log.read()
+                    if 'Application startup complete.' in text:
+                        # このログが出力されているということはサーバーの起動が完了した事が想定されるので、サーバー起動フラグを立てる
+                        is_server_started = True
 
     # Watchdog を起動
     observer = Observer()
