@@ -141,8 +141,8 @@ cython_debug/
 # config.yaml
 config.yaml
 
-# docker-compose.override.yaml
-docker-compose.override.yaml
+# docker-compose.yaml
+/docker-compose.yaml
 
 # user files
 server/data/*.*
