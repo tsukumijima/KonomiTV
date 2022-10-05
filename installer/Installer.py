@@ -18,6 +18,7 @@ from pathlib import Path
 from rich import box
 from rich import print
 from rich.padding import Padding
+from rich.panel import Panel
 from rich.rule import Rule
 from rich.style import Style
 from rich.table import Table
@@ -409,11 +410,13 @@ def Installer(version: str) -> None:
 
     # 結果的にデフォルトのリッスンポートが 7000 以外になった場合の注意メッセージ
     if server_port != 7000:
-        print(Padding(
+        print(Padding(Panel(
             '[yellow]注意: デフォルトのリッスンポート (7000) がほかのサーバーソフトと重複しています。[/yellow]\n'
             f'代わりのリッスンポートとして、ポート {server_port} を選択します。\n'
             'リッスンポートは、config.yaml を編集すると変更できます。',
-        pad = (1, 2, 0, 2)))
+            box = box.SQUARE,
+            border_style = Style(color='#E33157'),
+        ), (1, 2, 0, 2)))
 
     # ***** 環境設定ファイルの生成 *****
 
@@ -464,22 +467,32 @@ def Installer(version: str) -> None:
             ## Intel Media Driver は iGPU 本体のものとは切り離されているので、インストールが比較的容易
             ## インストールコマンドが複雑なので、コマンド例を明示する
             if result.returncode != 0:
-                print(Padding(
+                print(Padding(Panel(
                     '[yellow]注意: この PC では QSVEncC が利用できない状態です。[/yellow]\n'
-                    'Intel QSV の利用に必要な Intel Media Driver が、\n'
+                    'Intel QSV の利用に必要な Intel Media Driver が\n'
                     'インストールされていない可能性があります。',
-                pad = (1, 2, 0, 2)))
-                print(Padding('QSVEncC のログ:\n' + result.stdout.strip(), pad=(1, 2, 0, 2)))
-                print(Padding(
+                    box = box.SQUARE,
+                    border_style = Style(color='#E33157'),
+                ), (1, 2, 0, 2)))
+                print(Padding(Panel(
                     'Intel Media Driver は以下のコマンドでインストールできます。\n'
-                    'curl -fsSL https://repositories.intel.com/graphics/intel-graphics.key | gpg --dearmor -o /usr/share/keyrings/intel-graphics-keyring.gpg && echo \'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/graphics/ubuntu focal main\' > /etc/apt/sources.list.d/intel-graphics.list && sudo apt update -y && sudo apt install -y intel-media-va-driver-non-free intel-opencl-icd',
-                pad = (1, 2, 0, 2)))
-                print(Padding(
+                    '[cyan]curl -fsSL https://repositories.intel.com/graphics/intel-graphics.key | gpg --dearmor -o /usr/share/keyrings/intel-graphics-keyring.gpg && echo \'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/graphics/ubuntu focal main\' > /etc/apt/sources.list.d/intel-graphics.list && sudo apt update -y && sudo apt install -y intel-media-va-driver-non-free intel-opencl-icd[/cyan]',
+                    box = box.SQUARE,
+                    border_style = Style(color='#E33157'),
+                ), (0, 2, 0, 2)))
+                print(Padding(Panel(
                     'Alder Lake (第12世代) 以降の CPU では、追加で以下のコマンドを実行してください。\n'
                     'なお、libmfx-gen1.2 パッケージは Ubuntu 22.04 LTS にしか存在しないため、 \n'
                     'Ubuntu 20.04 LTS では、Alder Lake 以降の CPU の Intel QSV を利用できません。\n'
-                    'sudo apt install -y libmfx-gen1.2',
-                pad = (1, 2, 0, 2)))
+                    '[cyan]sudo apt install -y libmfx-gen1.2[/cyan]',
+                    box = box.SQUARE,
+                    border_style = Style(color='#E33157'),
+                ), (0, 2, 0, 2)))
+                print(Padding(Panel(
+                    'QSVEncC のログ:\n' + result.stdout.strip(),
+                    box = box.SQUARE,
+                    border_style = Style(color='#E33157'),
+                ), (0, 2, 0, 2)))
 
         # エンコーダーに NVEncC が選択されているとき
         elif encoder == 'NVEncC':
@@ -496,13 +509,19 @@ def Installer(version: str) -> None:
             # 適宜ドライバーをインストール/アップデートするように催促する
             ## NVEncC は NVIDIA Graphics Driver さえインストールされていれば動作する
             if result.returncode != 0:
-                print(Padding(
+                print(Padding(Panel(
                     '[yellow]注意: この PC では NVEncC が利用できない状態です。[/yellow]\n'
                     'NVENC の利用に必要な NVIDIA Graphics Driver がインストールされていないか、\n'
                     'NVIDIA Graphics Driver のバージョンが古い可能性があります。\n'
                     'NVIDIA Graphics Driver をインストール/最新バージョンに更新してください。',
-                pad = (1, 2, 0, 2)))
-                print(Padding('NVEncC のログ:\n' + result.stdout.strip(), pad=(1, 2, 0, 2)))
+                    box = box.SQUARE,
+                    border_style = Style(color='#E33157'),
+                ), (1, 2, 0, 2)))
+                print(Padding(Panel(
+                    'NVEncC のログ:\n' + result.stdout.strip(),
+                    box = box.SQUARE,
+                    border_style = Style(color='#E33157'),
+                ), (0, 2, 0, 2)))
 
         # エンコーダーに VCEEncC が選択されているとき
         elif encoder == 'VCEEncC':
@@ -519,15 +538,21 @@ def Installer(version: str) -> None:
             # 適宜ドライバーをインストール/アップデートするように催促する
             ## VCEEncC は AMDGPU-PRO Driver さえインストールされていれば動作する
             if result.returncode != 0:
-                print(Padding(
+                print(Padding(Panel(
                     '[yellow]注意: この PC では VCEEncC が利用できない状態です。[/yellow]\n'
                     'AMD VCE の利用に必要な AMDGPU-PRO Driver がインストールされていないか、\n'
                     'AMDGPU-PRO Driver のバージョンが古い可能性があります。\n'
                     'AMDGPU-PRO Driver をインストール/最新バージョンに更新してください。\n'
                     'AMDGPU-PRO Driver のインストール方法は以下のページに記載されています。\n'
                     'https://github.com/rigaya/VCEEnc/blob/master/Install.ja.md#linux-ubuntu-2004',
-                pad = (1, 2, 0, 2)))
-                print(Padding('VCEEncC のログ:\n' + result.stdout.strip(), pad=(1, 2, 0, 2)))
+                    box = box.SQUARE,
+                    border_style = Style(color='#E33157'),
+                ), (1, 2, 0, 2)))
+                print(Padding(Panel(
+                    'VCEEncC のログ:\n' + result.stdout.strip(),
+                    box = box.SQUARE,
+                    border_style = Style(color='#E33157'),
+                ), (0, 2, 0, 2)))
 
     # ***** Windows: Windows サービスのインストール *****
 
