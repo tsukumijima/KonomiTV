@@ -5,13 +5,15 @@ name = "pypi"
 
 [scripts]
 dev = "python KonomiTV-Installer.py"
-build-windows = "nuitka --mingw64 --follow-imports --onefile --windows-uac-admin --windows-icon-from-ico='KonomiTV-Installer.ico' KonomiTV-Installer.py"
+build-windows = "nuitka --onefile --mingw64 --follow-imports --assume-yes-for-downloads --windows-uac-admin --windows-icon-from-ico='KonomiTV-Installer.ico' KonomiTV-Installer.py"
+build-linux = "nuitka3 --onefile --follow-imports --assume-yes-for-downloads --output-filename='KonomiTV-Installer.elf' KonomiTV-Installer.py"
 
 [packages]
 elevate = "*"
 emoji = "*"
 ifaddr = "*"
-nuitka = "*"
+nuitka = {ref = "develop", git = "https://github.com/Nuitka/Nuitka.git"}
+ordered-set = "*"
 psutil = "*"
 py7zr = "*"
 requests = "*"
