@@ -5,7 +5,7 @@ name = "pypi"
 
 [scripts]
 dev = "python KonomiTV-Installer.py"
-build-windows = "nuitka --onefile --mingw64 --follow-imports --assume-yes-for-downloads --windows-uac-admin --windows-icon-from-ico='KonomiTV-Installer.ico' KonomiTV-Installer.py"
+build-windows = "nuitka --onefile --msvc='latest' --follow-imports --assume-yes-for-downloads --windows-uac-admin --windows-icon-from-ico='KonomiTV-Installer.ico' KonomiTV-Installer.py"
 build-linux = "nuitka3 --onefile --follow-imports --assume-yes-for-downloads --output-filename='KonomiTV-Installer.elf' KonomiTV-Installer.py"
 
 [packages]
