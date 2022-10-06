@@ -1,0 +1,78 @@
+
+name: Build Installer
+
+# 手動実行
+on: [workflow_dispatch]
+
+# ジョブの定義
+jobs:
+
+  # Windows 向けのインストーラーのビルド
+  build-windows:
+    runs-on: windows-2022
+
+    steps:
+
+      # KonomiTV のソースコードをチェックアウト
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      # Python 3.10 環境をセットアップ
+      - name: Setup Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      # インストーラーの依存関係をインストール
+      - name: Install Dependencies
+        working-directory: installer/
+        run: |
+          pip install pipenv
+          pipenv sync
+
+      # インストーラーを Nuitka でビルド
+      - name: Build Installer with Nuitka
+        working-directory: installer/
+        run: pipenv run build-windows
+
+      # 単一実行ファイルにビルドされたインストーラーを Artifact としてアップロード
+      - name: Upload Installer Executable as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: KonomiTV-Installer.exe
+          path: installer/KonomiTV-Installer.exe
+
+  # Linux 向けのインストーラーのビルド
+  build-linux:
+    runs-on: ubuntu-22.04
+
+    steps:
+
+      # KonomiTV のソースコードをチェックアウト
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      # Python 3.10 環境をセットアップ
+      - name: Setup Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      # インストーラーの依存関係をインストール
+      - name: Install Dependencies
+        working-directory: installer/
+        run: |
+          pip install pipenv
+          pipenv sync
+
+      # インストーラーを Nuitka でビルド
+      - name: Build Installer with Nuitka
+        working-directory: installer/
+        run: pipenv run build-linux
+
+      # 単一実行ファイルにビルドされたインストーラーを Artifact としてアップロード
+      - name: Upload Installer Executable as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: KonomiTV-Installer.elf
+          path: installer/KonomiTV-Installer.elf
