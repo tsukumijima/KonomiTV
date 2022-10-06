@@ -87,17 +87,31 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
         # Windows サービスのステータスを起動待機中に設定
         self.ReportServiceStatus(win32service.SERVICE_START_PENDING)
 
-        # 取得したすべてのネットワークドライブのマウントを試みる
-        ## Windows サービスは異なるセッションで実行されるため、既定では（ユーザー権限で動作していても）ネットワークドライブはマウントされない
+        # ログオン中ユーザーのすべてのネットワークドライブのマウントを試みる
+        ## Windows サービスは異なるセッションで実行されるため、既定では（ユーザー権限で動作していても）ネットワークドライブはマウントされていない
         ## そこで、レジストリから取得したネットワークドライブのリストからネットワークドライブをマウントする
         ## マウントには時間がかかることがあるため、threading で並列に実行する (ThreadPoolExecutor はなぜか動かなかった)
         threads: List[threading.Thread] = []
         for network_drive in GetNetworkDriveList():
-            thread = threading.Thread(target=lambda: subprocess.run([
-                'net', 'use', f'{network_drive["drive_letter"]}:', network_drive['remote_path'],
-            ]))
+
+            # net use コマンドでネットワークドライブをマウントするスレッドを作成し、リストに追加
+            def run():
+                try:
+                    subprocess.run(
+                        ['net', 'use', f'{network_drive["drive_letter"]}:', network_drive['remote_path']],
+                        stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+                        stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+                        timeout = 3,  # マウントできたかに関わらず、3秒でタイムアウト
+                    )
+                except subprocess.TimeoutExpired:
+                    pass  # タイムアウトになっても何もしない
+            thread = threading.Thread(target=run)
             threads.append(thread)
+
+            # スレッドを実行開始
             thread.start()
+
+        # すべてのスレッドの実行を待機する
         for thread in threads:
             thread.join()
 

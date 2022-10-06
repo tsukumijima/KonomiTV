@@ -40,29 +40,29 @@ def main():
     if os.name == 'nt':
 
         # ログオン中ユーザーがマウントしているネットワークドライブごとに実行
-            threads: List[threading.Thread] = []
-            for network_drive in GetNetworkDriveList():
+        threads: List[threading.Thread] = []
+        for network_drive in GetNetworkDriveList():
 
-                # net use コマンドでネットワークドライブをマウントするスレッドを作成し、リストに追加
-                def run():
-                    try:
-                        subprocess.run(
-                            ['net', 'use', f'{network_drive["drive_letter"]}:', network_drive['remote_path']],
-                            stdout = subprocess.DEVNULL,  # 標準出力を表示しない
-                            stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-                            timeout = 2,  # マウントできたかに関わらず、2秒でタイムアウト
-                        )
-                    except subprocess.TimeoutExpired:
-                        pass  # タイムアウトになっても何もしない
-                thread = threading.Thread(target=run)
-                threads.append(thread)
+            # net use コマンドでネットワークドライブをマウントするスレッドを作成し、リストに追加
+            def run():
+                try:
+                    subprocess.run(
+                        ['net', 'use', f'{network_drive["drive_letter"]}:', network_drive['remote_path']],
+                        stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+                        stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+                        timeout = 3,  # マウントできたかに関わらず、3秒でタイムアウト
+                    )
+                except subprocess.TimeoutExpired:
+                    pass  # タイムアウトになっても何もしない
+            thread = threading.Thread(target=run)
+            threads.append(thread)
 
-                # スレッドを実行開始
-                thread.start()
+            # スレッドを実行開始
+            thread.start()
 
-            # すべてのスレッドの実行を待機する
-            for thread in threads:
-                thread.join()
+        # すべてのスレッドの実行を待機する
+        for thread in threads:
+            thread.join()
 
     print(Padding(Rule(
         title = f'KonomiTV version {INSTALLER_VERSION} Installer',
