@@ -10,7 +10,6 @@ jobs:
   # Windows 向けのインストーラーのビルド
   build-windows:
     runs-on: windows-2022
-
     steps:
 
       # KonomiTV のソースコードをチェックアウト
@@ -45,7 +44,6 @@ jobs:
   # Linux 向けのインストーラーのビルド
   build-linux:
     runs-on: ubuntu-20.04
-
     steps:
 
       # KonomiTV のソースコードをチェックアウト

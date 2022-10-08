@@ -10,7 +10,6 @@ jobs:
   # Windows 向けのサードパーティーライブラリのビルド
   build-windows:
     runs-on: windows-2022
-
     steps:
 
       # MSBuild を PATH に追加
@@ -125,7 +124,6 @@ jobs:
   # Linux 向けのサードパーティーライブラリのビルド
   build-linux:
     runs-on: ubuntu-20.04
-
     steps:
 
       # サードパーティーライブラリの配置フォルダを作成
