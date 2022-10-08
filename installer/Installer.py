@@ -34,6 +34,7 @@ from Utils import CreateDownloadInfiniteProgress
 from Utils import CtrlCmdConnectionCheckUtil
 from Utils import CustomConfirm
 from Utils import CustomPrompt
+from Utils import IsDockerComposeV2
 from Utils import IsDockerInstalled
 from Utils import IsGitInstalled
 from Utils import RemoveEmojiIfLegacyTerminal
@@ -383,78 +384,6 @@ def Installer(version: str) -> None:
         shutil.move(install_path.parent / 'KonomiTV-master', install_path)
         Path(source_code_file.name).unlink()
 
-    # ***** サードパーティーライブラリのダウンロード *****
-
-    # サードパーティーライブラリを随時ダウンロードし、進捗を表示
-    # ref: https://github.com/Textualize/rich/blob/master/examples/downloader.py
-    print(Padding('サードパーティーライブラリをダウンロードしています…', (1, 2, 0, 2)))
-    progress = CreateDownloadProgress()
-
-    # GitHub からサードパーティーライブラリをダウンロード
-    #thirdparty_base_url = f'https://github.com/tsukumijima/KonomiTV/releases/download/v{version}/'  # TODO: v0.6.0 リリース前に変更必須
-    thirdparty_base_url = 'https://github.com/tsukumijima/Storehouse/releases/download/KonomiTV-Thirdparty-Libraries-Prerelease/'
-    thirdparty_url = thirdparty_base_url + ('thirdparty-windows.7z' if platform_type == 'Windows' else 'thirdparty-linux.tar.xz')
-    thirdparty_response = requests.get(thirdparty_url, stream=True)
-    task_id = progress.add_task('', total=float(thirdparty_response.headers['Content-length']))
-
-    # ダウンロードしたデータを随時一時ファイルに書き込む
-    thirdparty_file = tempfile.NamedTemporaryFile(mode='wb', delete=False)
-    with progress:
-        for chunk in thirdparty_response.iter_content(chunk_size=1048576):  # サイズが大きいので1MBごとに読み込み
-            thirdparty_file.write(chunk)
-            progress.update(task_id, advance=len(chunk))
-    thirdparty_file.close()  # 解凍する前に close() してすべて書き込ませておくのが重要
-
-    # サードパーティライブラリを解凍して展開
-    print(Padding('サードパーティーライブラリを解凍しています… (数十秒かかります)', (1, 2, 0, 2)))
-    progress = CreateBasicInfiniteProgress()
-    progress.add_task('', total=None)
-    with progress:
-        if platform_type == 'Windows':
-            # Windows: 7-Zip 形式のアーカイブを解凍
-            with py7zr.SevenZipFile(thirdparty_file.name, mode='r') as seven_zip:
-                seven_zip.extractall(install_path / 'server/')
-        elif platform_type == 'Linux':
-            # Linux: tar.xz 形式のアーカイブを解凍
-            ## 7-Zip だと (おそらく) ファイルパーミッションを保持したまま圧縮することができない？ため、あえて tar.xz を使っている
-            with tarfile.open(thirdparty_file.name, mode='r:xz') as tar_xz:
-                tar_xz.extractall(install_path / 'server/')
-        Path(thirdparty_file.name).unlink()
-
-    # ***** pipenv 環境の構築 (依存パッケージのインストール) *****
-
-    # Python の実行ファイルのパス (Windows と Linux で異なる)
-    if platform_type == 'Windows':
-        python_executable_path = install_path / 'server/thirdparty/Python/python.exe'
-    else:
-        python_executable_path = install_path / 'server/thirdparty/Python/bin/python'
-
-    # pipenv sync を実行
-    ## server/.venv/ に pipenv の仮想環境を構築するため、PIPENV_VENV_IN_PROJECT 環境変数をセットした状態で実行している
-    print(Padding('依存パッケージをインストールしています…', (1, 2, 1, 2)))
-    print(Rule(style=Style(color='cyan'), align='center'))
-    environment = os.environ.copy()
-    environment['PIPENV_VENV_IN_PROJECT'] = 'true'
-    subprocess.run(
-        args = [python_executable_path, '-m', 'pipenv', 'sync', f'--python={python_executable_path}'],
-        cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-        env = environment,  # 環境変数を設定
-    )
-    print(Rule(style=Style(color='cyan'), align='center'))
-
-    # ***** データベースのアップグレード *****
-
-    print(Padding('データベースをアップグレードしています…', (1, 2, 0, 2)))
-    progress = CreateBasicInfiniteProgress()
-    progress.add_task('', total=None)
-    with progress:
-        subprocess.run(
-            args = [python_executable_path, '-m', 'pipenv', 'run', 'aerich', 'upgrade'],
-            cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-            stdout = subprocess.DEVNULL,  # 標準出力を表示しない
-            stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-        )
-
     # ***** リッスンポートの重複チェック *****
 
     # 使用中のポートを取得
@@ -508,13 +437,119 @@ def Installer(version: str) -> None:
         elif backend == 'Mirakurun':
             config_data['general']['mirakurun_url'] = mirakurun_url
         config_data['general']['encoder'] = encoder
-        config_data['server']['port'] = server_port
         config_data['capture']['upload_folder'] = str(capture_upload_folder)
+        ## リッスンポートは Linux-Docker のときは書き換えない
+        if platform_type != 'Linux-Docker':
+            config_data['server']['port'] = server_port
 
         # 環境設定データを保存
         SaveConfigYaml(install_path / 'config.yaml', config_data)
 
-    # ***** Linux: QSVEncC / NVEncC / VCEEncC の動作チェック *****
+    # Windows・Linux: KonomiTV のインストール処理
+    ## Linux-Docker では Docker イメージの構築時に各種インストール処理も行われるため、実行の必要がない
+    python_executable_path = ''
+    if platform_type == 'Windows' or platform_type == 'Linux':
+
+        # ***** サードパーティーライブラリのダウンロード *****
+
+        # サードパーティーライブラリを随時ダウンロードし、進捗を表示
+        # ref: https://github.com/Textualize/rich/blob/master/examples/downloader.py
+        print(Padding('サードパーティーライブラリをダウンロードしています…', (1, 2, 0, 2)))
+        progress = CreateDownloadProgress()
+
+        # GitHub からサードパーティーライブラリをダウンロード
+        #thirdparty_base_url = f'https://github.com/tsukumijima/KonomiTV/releases/download/v{version}/'  # TODO: v0.6.0 リリース前に変更必須
+        thirdparty_base_url = 'https://github.com/tsukumijima/Storehouse/releases/download/KonomiTV-Thirdparty-Libraries-Prerelease/'
+        thirdparty_url = thirdparty_base_url + ('thirdparty-windows.7z' if platform_type == 'Windows' else 'thirdparty-linux.tar.xz')
+        thirdparty_response = requests.get(thirdparty_url, stream=True)
+        task_id = progress.add_task('', total=float(thirdparty_response.headers['Content-length']))
+
+        # ダウンロードしたデータを随時一時ファイルに書き込む
+        thirdparty_file = tempfile.NamedTemporaryFile(mode='wb', delete=False)
+        with progress:
+            for chunk in thirdparty_response.iter_content(chunk_size=1048576):  # サイズが大きいので1MBごとに読み込み
+                thirdparty_file.write(chunk)
+                progress.update(task_id, advance=len(chunk))
+        thirdparty_file.close()  # 解凍する前に close() してすべて書き込ませておくのが重要
+
+        # サードパーティライブラリを解凍して展開
+        print(Padding('サードパーティーライブラリを解凍しています… (数十秒かかります)', (1, 2, 0, 2)))
+        progress = CreateBasicInfiniteProgress()
+        progress.add_task('', total=None)
+        with progress:
+            if platform_type == 'Windows':
+                # Windows: 7-Zip 形式のアーカイブを解凍
+                with py7zr.SevenZipFile(thirdparty_file.name, mode='r') as seven_zip:
+                    seven_zip.extractall(install_path / 'server/')
+            elif platform_type == 'Linux':
+                # Linux: tar.xz 形式のアーカイブを解凍
+                ## 7-Zip だと (おそらく) ファイルパーミッションを保持したまま圧縮することができない？ため、あえて tar.xz を使っている
+                with tarfile.open(thirdparty_file.name, mode='r:xz') as tar_xz:
+                    tar_xz.extractall(install_path / 'server/')
+            Path(thirdparty_file.name).unlink()
+
+        # ***** pipenv 環境の構築 (依存パッケージのインストール) *****
+
+        # Python の実行ファイルのパス (Windows と Linux で異なる)
+        if platform_type == 'Windows':
+            python_executable_path = install_path / 'server/thirdparty/Python/python.exe'
+        elif platform_type == 'Linux':
+            python_executable_path = install_path / 'server/thirdparty/Python/bin/python'
+
+        # pipenv sync を実行
+        ## server/.venv/ に pipenv の仮想環境を構築するため、PIPENV_VENV_IN_PROJECT 環境変数をセットした状態で実行している
+        print(Padding('依存パッケージをインストールしています…', (1, 2, 1, 2)))
+        print(Rule(style=Style(color='cyan'), align='center'))
+        environment = os.environ.copy()
+        environment['PIPENV_VENV_IN_PROJECT'] = 'true'
+        subprocess.run(
+            args = [python_executable_path, '-m', 'pipenv', 'sync', f'--python={python_executable_path}'],
+            cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+            env = environment,  # 環境変数を設定
+        )
+        print(Rule(style=Style(color='cyan'), align='center'))
+
+        # ***** データベースのアップグレード *****
+
+        print(Padding('データベースをアップグレードしています…', (1, 2, 0, 2)))
+        progress = CreateBasicInfiniteProgress()
+        progress.add_task('', total=None)
+        with progress:
+            subprocess.run(
+                args = [python_executable_path, '-m', 'pipenv', 'run', 'aerich', 'upgrade'],
+                cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+            )
+
+    # Linux-Docker: docker-compose.yaml を生成し、Docker イメージをビルド
+    elif platform_type == 'Linux-Docker':
+
+        # ***** docker-compose.yaml の生成 *****
+
+        print(Padding('docker-compose.yaml を生成しています…', (1, 2, 0, 2)))
+        progress = CreateBasicInfiniteProgress()
+        progress.add_task('', total=None)
+        with progress:
+            pass  # TODO:
+
+        # ***** Docker イメージのビルド *****
+
+        # Docker Compose V2 かどうかでコマンド名を変える
+        ## Docker Compose V1 は docker-compose 、V2 は docker compose という違いがある
+        docker_compose_command = ['docker-compose'] if IsDockerComposeV2() else ['docker', 'compose']
+
+        # docker compose build --no-cache で Docker イメージをビルド
+        ## 万が一以前ビルドしたキャッシュが残っていたときに備え、キャッシュを使わずにビルドさせる
+        print(Padding('Docker イメージをビルドしています… (数分～数十分かかります)', (1, 2, 1, 2)))
+        print(Rule(style=Style(color='cyan'), align='center'))
+        subprocess.run(
+            args = [*docker_compose_command, 'build', '--no-cache'],
+            cwd = install_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
+        )
+        print(Rule(style=Style(color='cyan'), align='center'))
+
+    # ***** Linux: PM2 サービスのインストール・起動前に QSVEncC / NVEncC / VCEEncC の動作チェック *****
 
     if platform_type == 'Linux':
 
@@ -532,6 +567,7 @@ def Installer(version: str) -> None:
             # QSVEncC が利用できない結果になった場合は Intel Media Driver がインストールされていない可能性が高いので、
             # 適宜 Intel Media Driver をインストールするように催促する
             ## Intel Media Driver は iGPU 本体のものとは切り離されているので、インストールが比較的容易
+            ## Intel Graphics そのもののドライバーは Linux カーネルに組み込まれている
             ## インストールコマンドが複雑なので、コマンド例を明示する
             if result.returncode != 0:
                 print(Padding(Panel(
@@ -621,7 +657,7 @@ def Installer(version: str) -> None:
                     border_style = Style(color='#E33157'),
                 ), (0, 2, 0, 2)))
 
-    # ***** Windows: Windows サービスのインストール *****
+    # ***** Windows: Windows サービスのインストール・起動 *****
 
     if platform_type == 'Windows':
 
@@ -699,7 +735,7 @@ def Installer(version: str) -> None:
             # エラーが出ていなければおそらく正常にサービスがインストールできているはずなので、ループを抜ける
             break
 
-    # ***** Linux: PM2 サービスのインストール *****
+    # ***** Linux: PM2 サービスのインストール・起動 *****
 
     elif platform_type == 'Linux':
 
@@ -731,6 +767,28 @@ def Installer(version: str) -> None:
             subprocess.run(
                 args = ['/usr/bin/env', 'pm2', 'start', 'KonomiTV'],
                 cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+            )
+
+    # ***** Linux-Docker: Docker コンテナの起動 *****
+
+    elif platform_type == 'Linux-Docker':
+
+        print(Padding('Docker コンテナを起動しています…', (1, 2, 0, 2)))
+        progress = CreateBasicInfiniteProgress()
+        progress.add_task('', total=None)
+        with progress:
+
+            # Docker Compose V2 かどうかでコマンド名を変える
+            ## Docker Compose V1 は docker-compose 、V2 は docker compose という違いがある
+            docker_compose_command = ['docker-compose'] if IsDockerComposeV2() else ['docker', 'compose']
+
+            # docker compose up -d --force-recreate で Docker コンテナを起動
+            ## 念のためコンテナを強制的に再作成させる
+            subprocess.run(
+                args = [*docker_compose_command, 'up', '-d', '--force-recreate'],
+                cwd = install_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
                 stdout = subprocess.DEVNULL,  # 標準出力を表示しない
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
             )

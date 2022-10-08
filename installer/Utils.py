@@ -338,6 +338,28 @@ def CreateDownloadInfiniteProgress() -> Progress:
     )
 
 
+def IsDockerComposeV2() -> bool:
+    """
+    インストールされている Docker Compose が V2 かどうか
+
+    Returns:
+        bool: Docker Compose V2 なら True 、V1 なら False
+    """
+
+    # Docker Compose V2 の存在確認
+    docker_compose_v2_result = subprocess.run(
+        args = ['docker', 'compose', 'version'],
+        stdout = subprocess.PIPE,  # 標準出力をキャプチャする
+        stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+        text = True,  # 出力をテキストとして取得する
+    )
+    if docker_compose_v2_result.returncode != 0 and 'Docker Compose version v2' in docker_compose_v2_result.stdout:
+        return True  #  Docker Compose V2 がインストールされている
+
+    # Docker Compose V2 がインストールされていないので消去法で V1 だと確定する
+    return False
+
+
 def IsDockerInstalled() -> bool:
     """
     Linux に Docker + Docker Compose (V1, V2 は不問) がインストールされているかどうか
