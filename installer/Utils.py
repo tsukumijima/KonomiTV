@@ -5,6 +5,7 @@ import datetime
 import os
 import re
 import rich
+import subprocess
 import time
 from pathlib import Path
 from rich.console import Console
@@ -329,6 +330,37 @@ def CreateDownloadInfiniteProgress() -> Progress:
         TimeElapsedColumn(),
         TextColumn(' '),
     )
+
+
+def IsGitInstalled() -> bool:
+    """
+    Git コマンドがインストールされているかどうか
+
+    Returns:
+        bool: Git コマンドがインストールされていれば True 、インストールされていなければ False
+    """
+    is_git_installed = False
+
+    ## Windows
+    if os.name == 'nt':
+        result = subprocess.run(
+            args = ['C:/Windows/System32/where.exe', 'git'],
+            stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+            stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+        )
+        if result.returncode == 0:
+            is_git_installed = True
+    ## Linux
+    else:
+        result = subprocess.run(
+            args = ['/usr/bin/bash', '-c', 'type git'],
+            stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+            stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+        )
+        if result.returncode == 0:
+            is_git_installed = True
+
+    return is_git_installed
 
 
 def RemoveEmojiIfLegacyTerminal(text: str) -> str:

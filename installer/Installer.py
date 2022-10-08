@@ -33,6 +33,7 @@ from Utils import CreateDownloadProgress
 from Utils import CreateDownloadInfiniteProgress
 from Utils import CtrlCmdConnectionCheckUtil
 from Utils import CustomPrompt
+from Utils import IsGitInstalled
 from Utils import RemoveEmojiIfLegacyTerminal
 from Utils import SaveConfigYaml
 
@@ -290,31 +291,54 @@ def Installer(version: str) -> None:
 
     # ***** ソースコードのダウンロード *****
 
-    # ソースコードを随時ダウンロードし、進捗を表示
-    # ref: https://github.com/Textualize/rich/blob/master/examples/downloader.py
-    print(Padding('KonomiTV のソースコードをダウンロードしています…', (1, 2, 0, 2)))
-    progress = CreateDownloadInfiniteProgress()
+    # Git コマンドがインストールされているかどうか
+    is_git_installed = IsGitInstalled()
 
-    # GitHub からソースコードをダウンロード
-    #source_code_response = requests.get(f'https://codeload.github.com/tsukumijima/KonomiTV/zip/refs/tags/v{version}')  # TODO: v0.6.0 リリース前に変更必須
-    source_code_response = requests.get('https://github.com/tsukumijima/KonomiTV/archive/refs/heads/master.zip')
-    task_id = progress.add_task('', total=None)
+    # Git コマンドがインストールされている場合: git clone でダウンロード
+    if is_git_installed is True:
 
-    # ダウンロードしたデータを随時一時ファイルに書き込む
-    source_code_file = tempfile.NamedTemporaryFile(mode='wb', delete=False)
-    with progress:
-        for chunk in source_code_response.iter_content(chunk_size=1024):
-            source_code_file.write(chunk)
-            progress.update(task_id, advance=len(chunk))
-        source_code_file.seek(0, os.SEEK_END)
-        progress.update(task_id, total=source_code_file.tell())
-    source_code_file.close()  # 解凍する前に close() してすべて書き込ませておくのが重要
+        # git clone でソースコードをダウンロード
+        print(Padding('KonomiTV のソースコードを Git でダウンロードしています…', (1, 2, 0, 2)))
+        progress = CreateBasicInfiniteProgress()
+        progress.add_task('', total=None)
+        with progress:
+            subprocess.run(
+                # TODO: v0.6.0 リリース前に master から変更必須
+                args = ['git', 'clone', '-b', 'master', 'https://github.com/tsukumijima/KonomiTV.git', install_path.name],
+                cwd = install_path.parent,
+                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+            )
 
-    # ソースコードを解凍して展開
-    shutil.unpack_archive(source_code_file.name, install_path.parent, format='zip')
-    #shutil.move(install_path.parent / f'KonomiTV-{version}', install_path)  # TODO: v0.6.0 リリース前に変更必須
-    shutil.move(install_path.parent / 'KonomiTV-master', install_path)
-    Path(source_code_file.name).unlink()
+    # Git コマンドがインストールされていない場合: zip でダウンロード
+    else:
+
+        # ソースコードを随時ダウンロードし、進捗を表示
+        # ref: https://github.com/Textualize/rich/blob/master/examples/downloader.py
+        print(Padding('KonomiTV のソースコードをダウンロードしています…', (1, 2, 0, 2)))
+        progress = CreateDownloadInfiniteProgress()
+
+        # GitHub からソースコードをダウンロード
+        # TODO: v0.6.0 リリース前に変更必須
+        #source_code_response = requests.get(f'https://codeload.github.com/tsukumijima/KonomiTV/zip/refs/tags/v{version}')
+        source_code_response = requests.get('https://github.com/tsukumijima/KonomiTV/archive/refs/heads/master.zip')
+        task_id = progress.add_task('', total=None)
+
+        # ダウンロードしたデータを随時一時ファイルに書き込む
+        source_code_file = tempfile.NamedTemporaryFile(mode='wb', delete=False)
+        with progress:
+            for chunk in source_code_response.iter_content(chunk_size=1024):
+                source_code_file.write(chunk)
+                progress.update(task_id, advance=len(chunk))
+            source_code_file.seek(0, os.SEEK_END)
+            progress.update(task_id, total=source_code_file.tell())
+        source_code_file.close()  # 解凍する前に close() してすべて書き込ませておくのが重要
+
+        # ソースコードを解凍して展開
+        shutil.unpack_archive(source_code_file.name, install_path.parent, format='zip')
+        #shutil.move(install_path.parent / f'KonomiTV-{version}', install_path)  # TODO: v0.6.0 リリース前に変更必須
+        shutil.move(install_path.parent / 'KonomiTV-master', install_path)
+        Path(source_code_file.name).unlink()
 
     # ***** サードパーティーライブラリのダウンロード *****
 
