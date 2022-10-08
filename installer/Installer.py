@@ -32,7 +32,9 @@ from Utils import CreateBasicInfiniteProgress
 from Utils import CreateDownloadProgress
 from Utils import CreateDownloadInfiniteProgress
 from Utils import CtrlCmdConnectionCheckUtil
+from Utils import CustomConfirm
 from Utils import CustomPrompt
+from Utils import IsDockerInstalled
 from Utils import IsGitInstalled
 from Utils import RemoveEmojiIfLegacyTerminal
 from Utils import SaveConfigYaml
@@ -46,15 +48,56 @@ def Installer(version: str) -> None:
         version (str): KonomiTV をインストールするバージョン
     """
 
+    # プラットフォームタイプ
+    ## Windows・Linux・Linux (Docker)
+    platform_type: Literal['Windows', 'Linux', 'Linux-Docker'] = 'Windows' if os.name == 'nt' else 'Linux'
+
+    # Linux: Docker がインストールされている場合、Docker + Docker Compose を使ってインストールするかを訊く
+    if platform_type == 'Linux':
+
+        is_install_with_docker: bool = False
+
+        # Docker + Docker Compose がインストールされているかを検出
+        is_docker_installed = IsDockerInstalled()
+        if is_docker_installed is True:
+            print(Padding(Panel(
+                'お使いの PC には Docker と Docker Compose がインストールされています。\n'
+                'Docker + Docker Compose を使ってインストールしますか？',
+                box = box.SQUARE,
+                border_style = Style(color='#E33157'),
+            ), (1, 2, 1, 2)))
+
+            # Docker を使ってインストールするかを訊く (Y/N)
+            is_install_with_docker = bool(CustomConfirm.ask('Docker + Docker Compose でインストールする', default='Y'))
+            if is_install_with_docker is True:
+                platform_type = 'Linux-Docker'  # プラットフォームタイプを Linux-Docker にセット
+
+        # Docker 使ってインストールしない場合、pm2 コマンドがインストールされていなければここで終了する
+        ## PM2 がインストールされていないと PM2 サービスでの自動起動ができないため
+        if is_install_with_docker is False:
+            result = subprocess.run(
+                args = ['/usr/bin/bash', '-c', 'type pm2'],
+                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+            )
+            if result.returncode != 0:
+                print(Padding(
+                    'KonomiTV のインストール/アップデート/アンインストールには PM2 が必要です。\n'
+                    'PM2 は、KonomiTV サービスのプロセスマネージャーとして利用しています。\n'
+                    '"sudo npm install -g pm2" のコマンドでインストールできます。',
+                    pad = (1, 2, 0, 2),
+                ))
+                return  # 処理中断
+
     # ***** KonomiTV をインストールするフォルダのパス *****
 
     table_02 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
     table_02.add_column('02. KonomiTV をインストールするフォルダのパスを入力してください。')
-    if os.name == 'nt':
+    if platform_type == 'Windows':
         table_02.add_row('なお、C:\\Users・C:\\Program Files 以下と、日本語(全角)が含まれるパス、')
         table_02.add_row('半角スペースを含むパスは不具合の原因となるため、避けてください。')
         table_02.add_row('例: C:\\DTV\\KonomiTV')
-    else:
+    elif platform_type == 'Linux' or platform_type == 'Linux-Docker':
         table_02.add_row('なお、日本語(全角)が含まれるパス、半角スペースを含むパスは不具合の原因となるため、避けてください。')
         table_02.add_row('例: /opt/KonomiTV')
     print(Padding(table_02, (1, 2, 1, 2)))
@@ -191,7 +234,7 @@ def Installer(version: str) -> None:
     vceencc_available: str = '❌利用できません'
 
     # Windows: PowerShell の Get-WmiObject と ConvertTo-Json の合わせ技で取得できる
-    if os.name == 'nt':
+    if platform_type == 'Windows':
         gpu_info_json = subprocess.run(
             args = ['powershell', '-Command', 'Get-WmiObject Win32_VideoController | ConvertTo-Json'],
             stdout = subprocess.PIPE,  # 標準出力をキャプチャする
@@ -211,8 +254,8 @@ def Installer(version: str) -> None:
             for gpu_info in gpu_infos:
                 gpu_names.append(gpu_info['Name'])
 
-    # Linux: lshw コマンドを使って取得できる
-    else:
+    # Linux / Linux-Docker: lshw コマンドを使って取得できる
+    elif platform_type == 'Linux' or platform_type == 'Linux-Docker':
         gpu_info_json = subprocess.run(
             args = ['lshw', '-class', 'display', '-json'],
             stdout = subprocess.PIPE,  # 標準出力をキャプチャする
@@ -265,9 +308,9 @@ def Installer(version: str) -> None:
     table_06.add_column('06. アップロードしたキャプチャ画像の保存先フォルダのパスを入力してください。')
     table_06.add_row('クライアントの [キャプチャの保存先] 設定で [KonomiTV サーバーにアップロード] または')
     table_06.add_row('[ブラウザでのダウンロードと、KonomiTV サーバーへのアップロードを両方行う] を選択したときに利用されます。')
-    if os.name == 'nt':
+    if platform_type == 'Windows':
         table_06.add_row('例: E:\\TV-Capture')
-    else:
+    elif platform_type == 'Linux' or platform_type == 'Linux-Docker':
         table_06.add_row('例: /mnt/hdd/TV-Capture')
     print(Padding(table_06, (1, 2, 1, 2)))
 
@@ -350,7 +393,7 @@ def Installer(version: str) -> None:
     # GitHub からサードパーティーライブラリをダウンロード
     #thirdparty_base_url = f'https://github.com/tsukumijima/KonomiTV/releases/download/v{version}/'  # TODO: v0.6.0 リリース前に変更必須
     thirdparty_base_url = 'https://github.com/tsukumijima/Storehouse/releases/download/KonomiTV-Thirdparty-Libraries-Prerelease/'
-    thirdparty_url = thirdparty_base_url + ('thirdparty-windows.7z' if os.name == 'nt' else 'thirdparty-linux.tar.xz')
+    thirdparty_url = thirdparty_base_url + ('thirdparty-windows.7z' if platform_type == 'Windows' else 'thirdparty-linux.tar.xz')
     thirdparty_response = requests.get(thirdparty_url, stream=True)
     task_id = progress.add_task('', total=float(thirdparty_response.headers['Content-length']))
 
@@ -367,11 +410,11 @@ def Installer(version: str) -> None:
     progress = CreateBasicInfiniteProgress()
     progress.add_task('', total=None)
     with progress:
-        if os.name == 'nt':
+        if platform_type == 'Windows':
             # Windows: 7-Zip 形式のアーカイブを解凍
             with py7zr.SevenZipFile(thirdparty_file.name, mode='r') as seven_zip:
                 seven_zip.extractall(install_path / 'server/')
-        else:
+        elif platform_type == 'Linux':
             # Linux: tar.xz 形式のアーカイブを解凍
             ## 7-Zip だと (おそらく) ファイルパーミッションを保持したまま圧縮することができない？ため、あえて tar.xz を使っている
             with tarfile.open(thirdparty_file.name, mode='r:xz') as tar_xz:
@@ -381,7 +424,7 @@ def Installer(version: str) -> None:
     # ***** pipenv 環境の構築 (依存パッケージのインストール) *****
 
     # Python の実行ファイルのパス (Windows と Linux で異なる)
-    if os.name == 'nt':
+    if platform_type == 'Windows':
         python_executable_path = install_path / 'server/thirdparty/Python/python.exe'
     else:
         python_executable_path = install_path / 'server/thirdparty/Python/bin/python'
@@ -473,7 +516,7 @@ def Installer(version: str) -> None:
 
     # ***** Linux: QSVEncC / NVEncC / VCEEncC の動作チェック *****
 
-    if os.name != 'nt':
+    if platform_type == 'Linux':
 
         # エンコーダーに QSVEncC が選択されているとき
         if encoder == 'QSVEncC':
@@ -580,7 +623,7 @@ def Installer(version: str) -> None:
 
     # ***** Windows: Windows サービスのインストール *****
 
-    if os.name == 'nt':
+    if platform_type == 'Windows':
 
         # 現在ログオン中のユーザー名を取得
         current_user_name = getpass.getuser()
@@ -658,7 +701,7 @@ def Installer(version: str) -> None:
 
     # ***** Linux: PM2 サービスのインストール *****
 
-    else:
+    elif platform_type == 'Linux':
 
         # PM2 サービスをインストール
         ## インストーラーは強制的に root 権限で実行されるので、ここで実行する PM2 も root ユーザーとして動いているものになる

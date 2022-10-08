@@ -19,6 +19,7 @@ from rich.progress import (
     TimeRemainingColumn,
     TransferSpeedColumn,
 )
+from rich.prompt import Confirm
 from rich.prompt import Prompt
 from rich.text import TextType
 from typing import Callable, cast, Dict, List, Optional
@@ -46,6 +47,11 @@ class CustomPrompt(Prompt):
 
         if self.choices is not None:
             self.illegal_choice_message = Padding(f'[prompt.invalid.choice][{"/".join(self.choices)}] のいずれかを選択してください！', (0, 2, 0, 2))
+
+
+class CustomConfirm(Confirm):
+    """ カスタムの Rich コンファームの実装 """
+    validate_error_message = "[prompt.invalid]Y or N のいずれかを入力してください！"
 
 
 class CtrlCmdConnectionCheckUtil:
@@ -330,6 +336,50 @@ def CreateDownloadInfiniteProgress() -> Progress:
         TimeElapsedColumn(),
         TextColumn(' '),
     )
+
+
+def IsDockerInstalled() -> bool:
+    """
+    Linux に Docker + Docker Compose (V1, V2 は不問) がインストールされているかどうか
+    Windows では Docker での構築はサポートしていない
+
+    Returns:
+        bool: Docker + Docker Compose がインストールされていれば True 、インストールされていなければ False
+    """
+
+    # Windows では常に False (サポートしていないため)
+    if os.name == 'nt': return False
+
+    # Docker コマンドの存在確認
+    docker_result = subprocess.run(
+        args = ['/usr/bin/bash', '-c', 'type docker'],
+        stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+        stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+    )
+    if docker_result.returncode != 0:
+        return False  # Docker がインストールされていない
+
+    # Docker Compose V2 の存在確認
+    docker_compose_v2_result = subprocess.run(
+        args = ['docker', 'compose', 'version'],
+        stdout = subprocess.PIPE,  # 標準出力をキャプチャする
+        stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+        text = True,  # 出力をテキストとして取得する
+    )
+    if docker_compose_v2_result.returncode != 0 and 'Docker Compose version v2' in docker_compose_v2_result.stdout:
+        return True  # Docker と Docker Compose V2 がインストールされている
+
+    # Docker Compose V1 の存在確認
+    docker_compose_v1_result = subprocess.run(
+        args = ['docker-compose', 'version'],
+        stdout = subprocess.PIPE,  # 標準出力をキャプチャする
+        stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+        text = True,  # 出力をテキストとして取得する
+    )
+    if docker_compose_v1_result.returncode != 0 and 'docker-compose version 1' in docker_compose_v1_result.stdout:
+        return True  # Docker と Docker Compose V1 がインストールされている
+
+    return False  # Docker はインストールされているが、Docker Compose がインストールされていない
 
 
 def IsGitInstalled() -> bool:

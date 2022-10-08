@@ -562,7 +562,7 @@ class TSInformation:
                                 'middle': event.subgenre[index].replace('／', '・'),
                             }
 
-                            # BS/地上デジタル放送用番組付属情報がジャンルに含まれている場合、user_nibble から値を取得して書き換える
+                            # BS/地上デジタル放送用番組付属情報がジャンルに含まれている場合、user_genre から拡張情報を取得する
                             # たとえば「中止の可能性あり」や「延長の可能性あり」といった情報が取れる
                             if genre_dict['major'] == '拡張':
                                 if genre_dict['middle'] == 'BS/地上デジタル放送用番組付属情報':
