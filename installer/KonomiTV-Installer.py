@@ -11,7 +11,6 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.rule import Rule
 from rich.style import Style
-from rich.text import Text
 from typing import List
 
 from Installer import Installer
@@ -112,13 +111,17 @@ if __name__ == '__main__':
         ), (1, 2, 0, 2)))
 
         if os.name == 'nt':
-            print(Padding(Text(
-                'KonomiTV のインストール/アップデート/アンインストールには管理者権限が必要です。\n'
-                '「このアプリがデバイスに変更を加えることを許可しますか？」のダイヤログで [はい] をクリックしてください。'
+            print(Padding(Panel(
+                '[yellow]KonomiTV のインストール/アップデート/アンインストールには管理者権限が必要です。[/yellow]\n'
+                '「このアプリがデバイスに変更を加えることを許可しますか？」のダイヤログで [はい] をクリックしてください。',
+                box = box.SQUARE,
+                border_style = Style(color='#E33157'),
             ), (1, 2, 0, 2)))
         else:
-            print(Padding(Text(
-                'KonomiTV のインストール/アップデート/アンインストールには root 権限が必要です。'
+            print(Padding(Panel(
+                '[yellow]KonomiTV のインストール/アップデート/アンインストールには root 権限が必要です。[/yellow]',
+                box = box.SQUARE,
+                border_style = Style(color='#E33157'),
             ), (1, 2, 0, 2)))
 
     # main() を実行

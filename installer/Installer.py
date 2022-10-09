@@ -23,6 +23,7 @@ from rich.panel import Panel
 from rich.rule import Rule
 from rich.style import Style
 from rich.table import Table
+from rich.text import Text
 from typing import Any, cast, Literal
 from watchdog.events import FileCreatedEvent
 from watchdog.events import FileModifiedEvent
@@ -83,12 +84,13 @@ def Installer(version: str) -> None:
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
             )
             if result.returncode != 0:
-                print(Padding(
-                    'KonomiTV のインストール/アップデート/アンインストールには PM2 が必要です。\n'
+                print(Padding(Panel(
+                    '[yellow]KonomiTV を Docker を使わずにインストールするには PM2 が必要です。[/yellow]\n'
                     'PM2 は、KonomiTV サービスのプロセスマネージャーとして利用しています。\n'
-                    '"sudo npm install -g pm2" のコマンドでインストールできます。',
-                    pad = (1, 2, 0, 2),
-                ))
+                    'Node.js が導入されていれば、[cyan]sudo npm install -g pm2[/cyan] でインストールできます。',
+                    box = box.SQUARE,
+                    border_style = Style(color='#E33157'),
+                ), (1, 2, 0, 2)))
                 return  # 処理中断
 
     # ***** KonomiTV をインストールするフォルダのパス *****
@@ -180,10 +182,9 @@ def Installer(version: str) -> None:
             edcb = CtrlCmdConnectionCheckUtil(edcb_host, edcb_port)
             result = asyncio.run(edcb.sendEnumService())
             if result is None:
-                print(Padding(
+                print(Padding(Text(
                     f'[red]EDCB ({edcb_url}) にアクセスできませんでした。\nEDCB が起動していないか、URL を間違えている可能性があります。',
-                    pad = (0, 2, 0, 2),
-                ))
+                ), (0, 2, 0, 2)))
                 continue
 
             # すべてのバリデーションを通過したのでループを抜ける
@@ -210,18 +211,16 @@ def Installer(version: str) -> None:
             try:
                 response = requests.get(f'{mirakurun_url.rstrip("/")}/api/version', timeout=3)
             except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as ex:
-                print(Padding(
+                print(Padding(Text(
                     f'[red]Mirakurun ({mirakurun_url}) にアクセスできませんでした。\n'
                     'Mirakurun が起動していないか、URL を間違えている可能性があります。',
-                    pad = (0, 2, 0, 2),
-                ))
+                ), (0, 2, 0, 2)))
                 continue
             if response.status_code != 200:
-                print(Padding(
+                print(Padding(Text(
                     f'[red]{mirakurun_url} は Mirakurun の URL ではありません。\n'
                     'Mirakurun の URL を間違えている可能性があります。',
-                    pad = (0, 2, 0, 2),
-                ))
+                ), (0, 2, 0, 2)))
                 continue
 
             # すべてのバリデーションを通過したのでループを抜ける
@@ -716,11 +715,10 @@ def Installer(version: str) -> None:
 
             # Windows サービスのインストールに失敗
             if 'Error installing service' in service_install_result.stdout:
-                print(Padding(
+                print(Padding(Text(
                     '[red]Windows サービスのインストールに失敗しました。\n'
                     '入力されたログオン中ユーザーのパスワードが間違っている可能性があります。',
-                    pad = (1, 2, 1, 2),
-                ))
+                ), (1, 2, 1, 2)))
                 continue
 
             # Windows サービスを起動
@@ -738,12 +736,11 @@ def Installer(version: str) -> None:
 
             # Windows サービスの起動に失敗
             if 'Error starting service' in service_start_result.stdout:
-                print(Padding(
+                print(Padding(Text(
                     '[red]Windows サービスの起動に失敗しました。\n'
                     '入力されたログオン中ユーザーのパスワードが間違っている可能性があります。',
-                    pad = (1, 2, 0, 2),
-                ))
-                print(Padding('[red]エラーログ:\n' + service_start_result.stdout.strip(), pad=(1, 2, 1, 2)))
+                ), (1, 2, 0, 2)))
+                print(Padding('[red]エラーログ:\n' + service_start_result.stdout.strip(), (1, 2, 1, 2)))
                 continue
 
             # エラーが出ていなければおそらく正常にサービスがインストールできているはずなので、ループを抜ける
