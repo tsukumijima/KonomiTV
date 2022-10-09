@@ -6,6 +6,7 @@ import json
 import os
 import psutil
 import py7zr
+import re
 import requests
 import ruamel.yaml
 import shutil
@@ -437,10 +438,8 @@ def Installer(version: str) -> None:
         elif backend == 'Mirakurun':
             config_data['general']['mirakurun_url'] = mirakurun_url
         config_data['general']['encoder'] = encoder
+        config_data['server']['port'] = server_port
         config_data['capture']['upload_folder'] = str(capture_upload_folder)
-        ## リッスンポートは Linux-Docker のときは書き換えない
-        if platform_type != 'Linux-Docker':
-            config_data['server']['port'] = server_port
 
         # 環境設定データを保存
         SaveConfigYaml(install_path / 'config.yaml', config_data)
@@ -531,7 +530,22 @@ def Installer(version: str) -> None:
         progress = CreateBasicInfiniteProgress()
         progress.add_task('', total=None)
         with progress:
-            pass  # TODO:
+
+            # docker-compose.example.yaml を docker-compose.yaml にコピー
+            shutil.copyfile(install_path / 'docker-compose.example.yaml', install_path / 'docker-compose.yaml')
+
+            # NVEncC が利用できそうな場合、NVIDIA GPU が Docker コンテナ内で使えるように docker-compose.yaml の当該記述をコメントアウト
+            ## NVIDIA GPU が使える環境以外でコメントアウトすると
+            ## 正攻法で YAML でコメントアウトする方法が思いつかなかったので、正規表現でゴリ押し……
+            if '✅利用できます' in nvencc_available:
+                with open(install_path / 'docker-compose.yaml', mode='r', encoding='utf-8') as file:
+                    text = file.read()
+                replaced_text_1 = '            - driver: nvidia'
+                replaced_text_2 = '              capabilities: [compute, utility, video]'
+                text = re.sub(r'.*?#.*?- driver: nvidia', replaced_text_1, text)
+                text = re.sub(r'.*?#.*?  capabilities: \[compute, utility, video\]', replaced_text_2, text)
+                with open(install_path / 'docker-compose.yaml', mode='w', encoding='utf-8') as file:
+                    file.write(text)
 
         # ***** Docker イメージのビルド *****
 

@@ -1,5 +1,5 @@
 
-version: '3.8'
+version: '3.9'
 services:
   konomitv:
     image: konomitv
@@ -8,10 +8,10 @@ services:
       context: .
     # OS 起動時にコンテナを自動起動
     restart: always
-    # 別の Docker コンテナで稼働中のサービスに host.docker.internal のホスト名でアクセスできるように
-    # ref: https://qiita.com/skobaken/items/03a8b9d0e443745862ac
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    # ネットワークをホスト側と共有する
+    # 標準の bridge モード (仮想ネットワーク) だと、ローカルホストとの通信が面倒
+    # ref: https://inocop.hatenablog.com/entry/2018/12/18/131526
+    network_mode: host
     # ボリュームのマウント設定
     # /host-rootfs はコンテナ内の KonomiTV からホストマシンのファイルを読み書きするために必要
     volumes:
@@ -32,23 +32,16 @@ services:
     devices:
       - '/dev/dri:/dev/dri'
 
-    # ******************** ↓↓↓↓↓ ここからユーザー設定 ↓↓↓↓↓ ********************
-
-    # リッスンポートの設定
-    # ポートを変更するときは、コロン (:) 左側のホスト側のリッスンポートだけを変更してください。
-    # Docker でインストールした場合は、config.yaml 内のリッスンポート設定と、
-    # コロン (:) 右側のコンテナ側のリッスンポートは変更しないでください。変更すると KonomiTV にアクセスできなくなります。
-    ports:
-      - '7000:7000'
+    # ==================== ↓↓↓↓↓ ここからユーザー設定 ↓↓↓↓↓ ====================
 
     # NVEncC を動作させる (NVIDIA GPU にアクセスする) ために必要な設定
     # NVEncC を動作させるには、別途 NVIDIA Graphics Driver と NVIDIA Container Toolkit (nvidia-docker2) のインストールが必要です。
-    # コメントを解除してこの設定を有効にすると、NVIDIA GPU が搭載されていない環境ではコンテナを起動できなくなります。
+    # コメントを解除してこの設定を有効にすると、NVIDIA GPU が搭載されていない環境では KonomiTV サーバーを起動できなくなります。
     deploy:
       resources:
         reservations:
           devices:
-    #        - driver: nvidia
-    #          capabilities: [compute, utility, video]
+            # - driver: nvidia
+            #   capabilities: [compute, utility, video]
 
-    # ******************** ↑↑↑↑↑ ここまでユーザー設定　↑↑↑↑↑ ********************
+    # ==================== ↑↑↑↑↑ ここまでユーザー設定 ↑↑↑↑↑ ====================

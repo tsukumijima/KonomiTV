@@ -53,6 +53,23 @@ class CustomConfirm(Confirm):
     """ カスタムの Rich コンファームの実装 """
     validate_error_message = "[prompt.invalid]Y or N のいずれかを入力してください！"
 
+    def __init__(
+        self,
+        prompt: TextType = "",
+        *,
+        console: Optional[Console] = None,
+        password: bool = False,
+        choices: Optional[List[str]] = None,
+        show_default: bool = True,
+        show_choices: bool = True,
+    ) -> None:
+
+        if type(prompt) is str:
+            prompt = f'  {prompt}'  # 左に半角スペース2つ分余白を空ける
+
+        # 親クラスのコンストラクタを実行
+        super().__init__(prompt, console=console, password=password, choices=choices, show_default=show_default, show_choices=show_choices)
+
 
 class CtrlCmdConnectionCheckUtil:
     """ server/app/utils/EDCB.py の CtrlCmdUtil クラスのうち、接続確認に必要なロジックだけを抜き出したもの"""
@@ -353,7 +370,7 @@ def IsDockerComposeV2() -> bool:
         stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
         text = True,  # 出力をテキストとして取得する
     )
-    if docker_compose_v2_result.returncode != 0 and 'Docker Compose version v2' in docker_compose_v2_result.stdout:
+    if docker_compose_v2_result.returncode == 0 and 'Docker Compose version v2' in docker_compose_v2_result.stdout:
         return True  #  Docker Compose V2 がインストールされている
 
     # Docker Compose V2 がインストールされていないので消去法で V1 だと確定する
@@ -388,7 +405,7 @@ def IsDockerInstalled() -> bool:
         stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
         text = True,  # 出力をテキストとして取得する
     )
-    if docker_compose_v2_result.returncode != 0 and 'Docker Compose version v2' in docker_compose_v2_result.stdout:
+    if docker_compose_v2_result.returncode == 0 and 'Docker Compose version v2' in docker_compose_v2_result.stdout:
         return True  # Docker と Docker Compose V2 がインストールされている
 
     # Docker Compose V1 の存在確認
@@ -398,7 +415,7 @@ def IsDockerInstalled() -> bool:
         stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
         text = True,  # 出力をテキストとして取得する
     )
-    if docker_compose_v1_result.returncode != 0 and 'docker-compose version 1' in docker_compose_v1_result.stdout:
+    if docker_compose_v1_result.returncode == 0 and 'docker-compose version 1' in docker_compose_v1_result.stdout:
         return True  # Docker と Docker Compose V1 がインストールされている
 
     return False  # Docker はインストールされているが、Docker Compose がインストールされていない
@@ -411,7 +428,6 @@ def IsGitInstalled() -> bool:
     Returns:
         bool: Git コマンドがインストールされていれば True 、インストールされていなければ False
     """
-    is_git_installed = False
 
     ## Windows
     if os.name == 'nt':
@@ -421,7 +437,7 @@ def IsGitInstalled() -> bool:
             stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
         )
         if result.returncode == 0:
-            is_git_installed = True
+            return True
     ## Linux
     else:
         result = subprocess.run(
@@ -430,9 +446,9 @@ def IsGitInstalled() -> bool:
             stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
         )
         if result.returncode == 0:
-            is_git_installed = True
+            return True
 
-    return is_git_installed
+    return False
 
 
 def RemoveEmojiIfLegacyTerminal(text: str) -> str:
