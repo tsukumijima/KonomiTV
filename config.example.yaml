@@ -45,8 +45,7 @@
         # KonomiTV サーバーのリッスンポート
         # デフォルトのリッスンポートは 7000 です。
         # Docker でインストールした場合は、この設定でリッスンポートを変更すると KonomiTV にアクセスできなくなります。
-        # Docker でインストールした場合でリッスンポートを変更したいときは、適宜 docker-compose.override.yaml を編集して、
-        # services.konomitv.ports にあるリッスンポートの設定を変更してください（上級者向け）。
+        # Docker でインストールした場合でリッスンポートを変更したいときは、docker-compose.yaml 内の設定を編集してください。
         'port': 7000,
 
         # HTTPS リバースプロキシのカスタム HTTPS 証明書/秘密鍵ファイルへの絶対パス
