@@ -1,5 +1,6 @@
 
 import ctypes
+import distro
 import elevate
 import os
 import platform
@@ -12,6 +13,7 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.rule import Rule
 from rich.style import Style
+from rich.table import Table
 from typing import List
 
 from Installer import Installer
@@ -89,6 +91,24 @@ def main():
             border_style = Style(color='#E33157'),
         ), (1, 2, 0, 2)))
         return  # 処理中断
+
+    # Ubuntu 20.04 LTS 以降以外の Linux ディストリビューションの場合
+    ## Ubuntu 20.04 LTS 以降以外の Linux ディストリビューションは正式にサポートされていない旨を表示する
+    ## Linux ディストリビューションは数が多すぎるので、すべて動作確認なんてやってられない……
+    if not (distro.id() == 'ubuntu' and int(distro.major_version()) >= 20):
+        table = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
+        table.add_column(
+            f'[yellow]注意: KonomiTV は {distro.name(pretty=True)} を正式にサポートしていません。[/yellow]\n'
+            '動作する可能性はありますが、動作しない場合もサポートは一切できません。\n'
+            '特に glibc 2.31 未満の OS では、サードパーティーライブラリの関係で動作しません。\n'
+            '対応コストを鑑み、Ubuntu 以外のサポート予定はありません。予めご了承ください。'
+        )
+        table.add_row(
+            'なお、Docker でインストールする場合の OS は Ubuntu 22.04 LTS ベースのため、\n'
+            'ホスト OS が Ubuntu 以外でも動作することが期待されます。\n'
+            'Ubuntu 以外の OS にインストールする際は、Docker でのインストールを推奨します。'
+        )
+        print(Padding(table, (1, 2, 0, 2)))
 
     print(Padding(Panel(
         '01. KonomiTV をインストールするときは 1 を、アップデートするときは 2 を、\n'

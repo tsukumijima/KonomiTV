@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "e9debcd0d97ffd7f6c90c92d9ec7917ab097f90ef2eeb39063286607f871e2fa"
+            "sha256": "0a943d1bbe032a9ffd78f359bbf13e44613b208f08f13db06d66ee276dfef5fb"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -107,6 +107,14 @@
             ],
             "version": "==0.9.1"
         },
+        "distro": {
+            "hashes": [
+                "sha256:02e111d1dc6a50abb8eed6bf31c3e48ed8b0830d1ea2a1b78c61765c2513fdd8",
+                "sha256:99522ca3e365cac527b44bde033f64c6945d90eb9f769703caaec52b09bbd3ff"
+            ],
+            "index": "pypi",
+            "version": "==1.8.0"
+        },
         "elevate": {
             "hashes": [
                 "sha256:53ad19fa1de301fb1de3f8768fb3a5894215716fd96a475690c4d0ff3b1de209"
@@ -209,7 +217,7 @@
                 "sha256:fd39e54e3cdacf7a9e5c8a22c078ce0c4e767e1f7e87d7d549a18de2fa07d57f",
                 "sha256:fe5f3efc675a598f972d69fb0e2cbb4c0b54f8e0974d1702c2ddaa8ac24eba10"
             ],
-            "markers": "python_version >= '3.7'",
+            "markers": "python_version > '3.6'",
             "version": "==0.3.0"
         },
         "multivolumefile": {
@@ -222,7 +230,7 @@
         },
         "nuitka": {
             "git": "https://github.com/Nuitka/Nuitka.git",
-            "ref": "f026b6c8f199a35dfdd4a8ab7156113f4777eb10"
+            "ref": "f1988c0ada2d383a4b4ae67eb387834eadfb40d9"
         },
         "ordered-set": {
             "hashes": [
@@ -656,7 +664,7 @@
                 "sha256:dc6a613d6c74eef5a14a214d433d06291526145431c3b964f5e16529b1842bed",
                 "sha256:de9c6b8a1ba52919ae919f3ae96abb72b994dd0350226e28f3686cb4f142165c"
             ],
-            "markers": "python_version < '3.11' and platform_python_implementation == 'CPython'",
+            "markers": "platform_python_implementation == 'CPython' and python_version < '3.11'",
             "version": "==0.2.6"
         },
         "texttable": {

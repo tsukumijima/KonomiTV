@@ -9,6 +9,7 @@ build-windows = "nuitka --onefile --msvc='latest' --follow-imports --assume-yes-
 build-linux = "nuitka3 --onefile --follow-imports --assume-yes-for-downloads --output-filename='KonomiTV-Installer.elf' KonomiTV-Installer.py"
 
 [packages]
+distro = "*"
 elevate = "*"
 emoji = "*"
 ifaddr = "*"
