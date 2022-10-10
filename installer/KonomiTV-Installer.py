@@ -2,6 +2,7 @@
 import ctypes
 import elevate
 import os
+import platform
 import subprocess
 import threading
 from rich import box
@@ -71,6 +72,23 @@ def main():
     ), (1, 2, 0, 2)))
 
     print(Padding('KonomiTV のインストール/アップデート/アンインストールを行うインストーラーです。', (1, 2, 0, 2)))
+
+    # サポートされているアーキテクチャ
+    ## AMD64 : Windows (x64)
+    ## x86_64: Linux (x64)
+    supported_arch = ['AMD64', 'x86_64']
+
+    # CPU のアーキテクチャから実行可否を判定
+    # arm64 で実行できないようにする
+    if platform.machine() not in supported_arch:
+        print(Padding(Panel(
+            f'[red]KonomiTV は {platform.machine()} アーキテクチャに対応していません。[/red]\n'
+            f'Linux (arm64) には今後のアップデートで対応予定ですが、現時点では arm64 向けの\n'
+            'サードパーティーライブラリを用意できていないため、正常に動作しません。',
+            box = box.SQUARE,
+            border_style = Style(color='#E33157'),
+        ), (1, 2, 0, 2)))
+        return  # 処理中断
 
     print(Padding(Panel(
         '01. KonomiTV をインストールするときは 1 を、アップデートするときは 2 を、\n'
