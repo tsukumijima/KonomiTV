@@ -93,6 +93,11 @@ def Installer(version: str) -> None:
                 ), (1, 2, 0, 2)))
                 return  # 処理中断
 
+    # Docker Compose V2 かどうかでコマンド名を変える
+    ## Docker Compose V1 は docker-compose 、V2 は docker compose という違いがある
+    ## Docker がインストールされていない場合は V1 のコマンドが代入されるが、そもそも非 Docker インストールでは参照されない
+    docker_compose_command = ['docker-compose'] if IsDockerComposeV2() else ['docker', 'compose']
+
     # ***** KonomiTV をインストールするフォルダのパス *****
 
     table_02 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
@@ -102,7 +107,8 @@ def Installer(version: str) -> None:
         table_02.add_row('半角スペースを含むパスは不具合の原因となるため、避けてください。')
         table_02.add_row('例: C:\\DTV\\KonomiTV')
     elif platform_type == 'Linux' or platform_type == 'Linux-Docker':
-        table_02.add_row('なお、日本語(全角)が含まれるパス、半角スペースを含むパスは不具合の原因となるため、避けてください。')
+        table_02.add_row('なお、日本語(全角)が含まれるパス、半角スペースを含むパスは')
+        table_02.add_row('不具合の原因となるため、避けてください。')
         table_02.add_row('例: /opt/KonomiTV')
     print(Padding(table_02, (1, 2, 1, 2)))
 
@@ -138,9 +144,10 @@ def Installer(version: str) -> None:
     table_03 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
     table_03.add_column('03. 利用するバックエンドを EDCB・Mirakurun から選択してください。')
     table_03.add_row('バックエンドは、テレビチューナーへのアクセスや番組情報の取得などに利用します。')
-    table_03.add_row('EDCB は、220122 以降のバージョンの xtne6f 版または tkntrec 版の EDCB にのみ対応しています。')
+    table_03.add_row('EDCB は、220122 以降のバージョンの xtne6f / tkntrec 版の EDCB にのみ対応しています。')
     table_03.add_row('KonomiTV と連携するには、別途 EDCB に事前の設定が必要です。')
-    table_03.add_row('Mirakurun は、3.9.0 以降のバージョンを推奨します。3.8.0 以前でも動作しますが、非推奨です。')
+    table_03.add_row('Mirakurun は、3.9.0 以降のバージョンを推奨します。')
+    table_03.add_row('3.8.0 以下のバージョンでも動作しますが、諸問題で推奨しません。')
     print(Padding(table_03, (1, 2, 1, 2)))
 
     # 利用するバックエンドを取得
@@ -155,6 +162,8 @@ def Installer(version: str) -> None:
         table_04 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
         table_04.add_column('04. EDCB (EpgTimerNW) の TCP API の URL を入力してください。')
         table_04.add_row('tcp://192.168.1.11:4510/ のような形式の URL で指定します。')
+        table_04.add_row('EDCB と同じ PC に KonomiTV をインストールしようとしている場合は、')
+        table_04.add_row('tcp://localhost:4510/ または tcp://127.0.0.1:4510/ と入力してください。')
         table_04.add_row('tcp://edcb-namedpipe/ と指定すると、TCP API の代わりに')
         table_04.add_row('名前付きパイプを使って通信します(同じ PC で EDCB が稼働している場合のみ)。')
         print(Padding(table_04, (1, 2, 1, 2)))
@@ -182,7 +191,7 @@ def Installer(version: str) -> None:
             edcb = CtrlCmdConnectionCheckUtil(edcb_host, edcb_port)
             result = asyncio.run(edcb.sendEnumService())
             if result is None:
-                print(Padding(Text(
+                print(Padding(str(
                     f'[red]EDCB ({edcb_url}) にアクセスできませんでした。\nEDCB が起動していないか、URL を間違えている可能性があります。',
                 ), (0, 2, 0, 2)))
                 continue
@@ -197,6 +206,8 @@ def Installer(version: str) -> None:
         table_04 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
         table_04.add_column('04. Mirakurun の HTTP API の URL を入力してください。')
         table_04.add_row('http://192.168.1.11:40772/ のような形式の URL で指定します。')
+        table_04.add_row('Mirakurun と同じ PC に KonomiTV をインストールしようとしている場合は、')
+        table_04.add_row('http://localhost:40772/ または http://127.0.0.1:40772/ と入力してください。')
         print(Padding(table_04, (1, 2, 1, 2)))
 
         # Mirakurun の HTTP API の URL を取得
@@ -210,14 +221,19 @@ def Installer(version: str) -> None:
             ## 試しにリクエストを送り、200 (OK) が返ってきたときだけ有効な URL とみなす
             try:
                 response = requests.get(f'{mirakurun_url.rstrip("/")}/api/version', timeout=3)
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as ex:
-                print(Padding(Text(
+            except (
+                requests.exceptions.ConnectionError,
+                requests.exceptions.InvalidURL,
+                requests.exceptions.MissingSchema,
+                requests.exceptions.Timeout,
+            ) as ex:
+                print(Padding(str(
                     f'[red]Mirakurun ({mirakurun_url}) にアクセスできませんでした。\n'
                     'Mirakurun が起動していないか、URL を間違えている可能性があります。',
                 ), (0, 2, 0, 2)))
                 continue
             if response.status_code != 200:
-                print(Padding(Text(
+                print(Padding(str(
                     f'[red]{mirakurun_url} は Mirakurun の URL ではありません。\n'
                     'Mirakurun の URL を間違えている可能性があります。',
                 ), (0, 2, 0, 2)))
@@ -548,10 +564,6 @@ def Installer(version: str) -> None:
 
         # ***** Docker イメージのビルド *****
 
-        # Docker Compose V2 かどうかでコマンド名を変える
-        ## Docker Compose V1 は docker-compose 、V2 は docker compose という違いがある
-        docker_compose_command = ['docker-compose'] if IsDockerComposeV2() else ['docker', 'compose']
-
         # docker compose build --no-cache で Docker イメージをビルド
         ## 万が一以前ビルドしたキャッシュが残っていたときに備え、キャッシュを使わずにビルドさせる
         print(Padding('Docker イメージをビルドしています… (数分～数十分かかります)', (1, 2, 1, 2)))
@@ -562,12 +574,14 @@ def Installer(version: str) -> None:
         )
         print(Rule(style=Style(color='cyan'), align='center'))
 
-    # ***** Linux: PM2 サービスのインストール・起動前に QSVEncC / NVEncC / VCEEncC の動作チェック *****
+    # ***** Linux / Linux-Docker: QSVEncC / NVEncC / VCEEncC の動作チェック *****
 
-    if platform_type == 'Linux':
+    if platform_type == 'Linux' or platform_type == 'Linux-Docker':
 
         # エンコーダーに QSVEncC が選択されているとき
-        if encoder == 'QSVEncC':
+        ## Linux-Docker では Docker イメージの中に Intel Media Driver が含まれているため、
+        ## QSV が使える CPU であれば基本的に動作するはず (動作チェックはしない)
+        if encoder == 'QSVEncC' and platform_type == 'Linux':
 
             # QSVEncC の --check-hw オプションの終了コードが 0 なら利用可能、それ以外なら利用不可
             result = subprocess.run(
@@ -613,9 +627,15 @@ def Installer(version: str) -> None:
         # エンコーダーに NVEncC が選択されているとき
         elif encoder == 'NVEncC':
 
+            # 実行コマンド (Linux-Docker では docker-compose run を介して実行する)
+            command = [install_path / 'server/thirdparty/NVEncC/NVEncC.elf', '--check-hw']
+            if platform_type == 'Linux-Docker':
+                command = [*docker_compose_command, 'run', '--rm',
+                    '--entrypoint', '/bin/bash -c "/code/server/thirdparty/NVEncC/NVEncC.elf --check-hw"', 'konomitv']
+
             # NVEncC の --check-hw オプションの終了コードが 0 なら利用可能、それ以外なら利用不可
             result = subprocess.run(
-                args = [install_path / 'server/thirdparty/NVEncC/NVEncC.elf', '--check-hw'],
+                args = command,
                 stdout = subprocess.PIPE,  # 標準出力をキャプチャする
                 stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
                 text = True,  # 出力をテキストとして取得する
@@ -642,9 +662,15 @@ def Installer(version: str) -> None:
         # エンコーダーに VCEEncC が選択されているとき
         elif encoder == 'VCEEncC':
 
+            # 実行コマンド (Linux-Docker では docker-compose run を介して実行する)
+            command = [install_path / 'server/thirdparty/VCEEncC/VCEEncC.elf', '--check-hw']
+            if platform_type == 'Linux-Docker':
+                command = [*docker_compose_command, 'run', '--rm',
+                    '--entrypoint', '/bin/bash -c "/code/server/thirdparty/VCEEncC/VCEEncC.elf --check-hw"', 'konomitv']
+
             # VCEEncC の --check-hw オプションの終了コードが 0 なら利用可能、それ以外なら利用不可
             result = subprocess.run(
-                args = [install_path / 'server/thirdparty/VCEEncC/VCEEncC.elf', '--check-hw'],
+                args = command,
                 stdout = subprocess.PIPE,  # 標準出力をキャプチャする
                 stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
                 text = True,  # 出力をテキストとして取得する
@@ -660,7 +686,7 @@ def Installer(version: str) -> None:
                     'AMDGPU-PRO Driver のバージョンが古い可能性があります。\n'
                     'AMDGPU-PRO Driver をインストール/最新バージョンに更新してください。\n'
                     'AMDGPU-PRO Driver のインストール方法は以下のページに記載されています。\n'
-                    'https://github.com/rigaya/VCEEnc/blob/master/Install.ja.md#linux-ubuntu-2004',
+                    '[blue]https://github.com/rigaya/VCEEnc/blob/master/Install.ja.md#linux-ubuntu-2004[/blue]',
                     box = box.SQUARE,
                     border_style = Style(color='#E33157'),
                 ), (1, 2, 0, 2)))
@@ -715,7 +741,7 @@ def Installer(version: str) -> None:
 
             # Windows サービスのインストールに失敗
             if 'Error installing service' in service_install_result.stdout:
-                print(Padding(Text(
+                print(Padding(str(
                     '[red]Windows サービスのインストールに失敗しました。\n'
                     '入力されたログオン中ユーザーのパスワードが間違っている可能性があります。',
                 ), (1, 2, 1, 2)))
@@ -736,7 +762,7 @@ def Installer(version: str) -> None:
 
             # Windows サービスの起動に失敗
             if 'Error starting service' in service_start_result.stdout:
-                print(Padding(Text(
+                print(Padding(str(
                     '[red]Windows サービスの起動に失敗しました。\n'
                     '入力されたログオン中ユーザーのパスワードが間違っている可能性があります。',
                 ), (1, 2, 0, 2)))
@@ -790,10 +816,6 @@ def Installer(version: str) -> None:
         progress = CreateBasicInfiniteProgress()
         progress.add_task('', total=None)
         with progress:
-
-            # Docker Compose V2 かどうかでコマンド名を変える
-            ## Docker Compose V1 は docker-compose 、V2 は docker compose という違いがある
-            docker_compose_command = ['docker-compose'] if IsDockerComposeV2() else ['docker', 'compose']
 
             # docker compose up -d --force-recreate で Docker コンテナを起動
             ## 念のためコンテナを強制的に再作成させる
@@ -875,7 +897,8 @@ def Installer(version: str) -> None:
         'インストールが完了しました！🎉🎊 すぐに使いはじめられます！🎈\n'
         '下記の URL から、KonomiTV の Web UI にアクセスしてみましょう！\n'
         'ブラウザで [アプリをインストール] または [ホーム画面に追加] を押すと、\n'
-        'ショートカットやホーム画面からすぐに KonomiTV にアクセスできます！',
+        'ショートカットやホーム画面からすぐに KonomiTV にアクセスできます！\n'
+        'もし KonomiTV にアクセスできない場合は、ファイアウォールの設定を確認してみてください。',
     ))
 
     # アクセス可能な URL のリストを IP アドレスごとに表示

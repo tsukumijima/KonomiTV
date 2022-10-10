@@ -360,8 +360,11 @@ def IsDockerComposeV2() -> bool:
     インストールされている Docker Compose が V2 かどうか
 
     Returns:
-        bool: Docker Compose V2 なら True 、V1 なら False
+        bool: Docker Compose V2 なら True 、V1 (またはインストールされていない) なら False
     """
+
+    # Windows では常に False (サポートしていないため)
+    if os.name == 'nt': return False
 
     # Docker Compose V2 の存在確認
     docker_compose_v2_result = subprocess.run(
