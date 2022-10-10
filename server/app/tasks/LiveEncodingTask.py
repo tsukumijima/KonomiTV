@@ -842,7 +842,7 @@ class LiveEncodingTask():
                                 # NVEncC 非対応の環境
                                 livestream.setStatus('Offline', 'NVEncC 非対応の環境のため、エンコードを開始できません。')
                                 break
-                            elif 'Failed to initalize VCE factory:' in line:
+                            elif 'Failed to initalize VCE factory:' in line or 'Assertion failed:Init() failed to vkCreateInstance' in line:
                                 # VCEEncC 非対応の環境
                                 livestream.setStatus('Offline', 'VCEEncC 非対応の環境のため、エンコードを開始できません。')
                                 break
