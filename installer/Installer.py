@@ -23,7 +23,6 @@ from rich.panel import Panel
 from rich.rule import Rule
 from rich.style import Style
 from rich.table import Table
-from rich.text import Text
 from typing import Any, cast, Literal
 from watchdog.events import FileCreatedEvent
 from watchdog.events import FileModifiedEvent
@@ -71,7 +70,7 @@ def Installer(version: str) -> None:
             ), (1, 2, 1, 2)))
 
             # Docker を使ってインストールするかを訊く (Y/N)
-            is_install_with_docker = bool(CustomConfirm.ask('Docker + Docker Compose でインストールする', default='Y'))
+            is_install_with_docker = bool(CustomConfirm.ask('Docker + Docker Compose でインストールする', default=True))
             if is_install_with_docker is True:
                 platform_type = 'Linux-Docker'  # プラットフォームタイプを Linux-Docker にセット
 
@@ -487,7 +486,7 @@ def Installer(version: str) -> None:
         thirdparty_file.close()  # 解凍する前に close() してすべて書き込ませておくのが重要
 
         # サードパーティライブラリを解凍して展開
-        print(Padding('サードパーティーライブラリを解凍しています… (数十秒かかります)', (1, 2, 0, 2)))
+        print(Padding('サードパーティーライブラリを解凍しています… (数秒～数十秒かかります)', (1, 2, 0, 2)))
         progress = CreateBasicInfiniteProgress()
         progress.add_task('', total=None)
         with progress:
@@ -870,7 +869,7 @@ def Installer(version: str) -> None:
             time.sleep(0.1)
 
     # KonomiTV サーバーが起動するまで待つ
-    print(Padding('KonomiTV サーバーの起動を待っています… (数十秒～数分かかります)', (1, 2, 0, 2)))
+    print(Padding('KonomiTV サーバーの起動を待っています… (数秒～数分かかります)', (1, 2, 0, 2)))
     progress = CreateBasicInfiniteProgress()
     progress.add_task('', total=None)
     with progress:
