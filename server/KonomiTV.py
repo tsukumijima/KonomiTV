@@ -20,7 +20,7 @@ def main():
     # 引数解析
     parser = argparse.ArgumentParser(
         formatter_class = argparse.RawTextHelpFormatter,
-        description = 'KonomiTV: Kind and Optimized Next On-broadcasting watching and Management Infrastructure for TV',
+        description = 'KonomiTV: Kept Organized, Notably Optimized, Modern Interface TV media server',
     )
     parser.add_argument('--reload', action='store_true', help='start uvicorn in auto-reload mode')
     parser.add_argument('--version', action='version', help='show version information', version=f'KonomiTV version {VERSION}')

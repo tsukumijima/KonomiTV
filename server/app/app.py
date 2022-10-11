@@ -85,7 +85,7 @@ for library_name, library_path in LIBRARY_PATH.items():
 # FastAPI を初期化
 app = FastAPI(
     title = 'KonomiTV',
-    description = 'KonomiTV: Kind and Optimized Next On-broadcasting watching and Management Infrastructure for TV',
+    description = 'KonomiTV: Kept Organized, Notably Optimized, Modern Interface TV media server',
     openapi_url = '/api/openapi.json',
     docs_url = '/api/docs',
     redoc_url = '/api/redoc',
