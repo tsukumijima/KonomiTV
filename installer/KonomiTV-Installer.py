@@ -95,7 +95,7 @@ def main():
     # Ubuntu 20.04 LTS 以降以外の Linux ディストリビューションの場合
     ## Ubuntu 20.04 LTS 以降以外の Linux ディストリビューションは正式にサポートされていない旨を表示する
     ## Linux ディストリビューションは数が多すぎるので、すべて動作確認なんてやってられない……
-    if not (distro.id() == 'ubuntu' and int(distro.major_version()) >= 20):
+    if os.name != 'nt' and not (distro.id() == 'ubuntu' and int(distro.major_version()) >= 20):
         table = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
         table.add_column(
             f'[yellow]注意: KonomiTV は {distro.name(pretty=True)} を正式にサポートしていません。[/yellow]\n'
