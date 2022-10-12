@@ -28,12 +28,12 @@ RUN tar xvf thirdparty-linux.tar.xz
 FROM node:16 AS client-builder
 
 # 依存パッケージリストをコピー
-COPY ./client/package.json ./client/yarn.lock /code/client/
 WORKDIR /code/client
+COPY ./client/package.json ./client/yarn.lock .
 RUN yarn
 
 # アプリケーションをコピー
-COPY ./client /code/client
+COPY ./client .
 
 # クライアントをビルド
 # /code/client/dist に成果物が作成される
@@ -74,12 +74,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
     rm -rf /var/lib/apt/lists/* && \
     rm -rf /tmp/*
 
+WORKDIR /code/server
 # ダウンロードしておいたサードパーティーライブラリをコピー
-COPY --from=thirdparty-downloader /thirdparty /code/server/thirdparty
+COPY --from=thirdparty-downloader /thirdparty ./thirdparty
 
 # パッケージリスト (Pipfile / Pipfile.lock) だけをコピー
-COPY ./server/Pipfile* /code/server/
-WORKDIR /code/server
+COPY ./server/Pipfile* .
 
 # 依存パッケージのインストール
 ## 仮想環境 (.venv) をプロジェクト直下に作成する
@@ -87,10 +87,13 @@ ENV PIPENV_VENV_IN_PROJECT true
 RUN ./thirdparty/Python/bin/python -m pipenv sync --python="/code/server/thirdparty/Python/bin/python"
 
 # 残りのアプリケーションをコピー
-COPY ./server /code/server
+COPY ./server .
 
 # client の成果物をコピー (dist だけで良い)
 COPY --from=client-builder /code/client/dist /code/client/dist
+
+# 設定ファイルをコピー
+COPY config.example.yaml ..
 
 # データベースを必要な場合にアップグレードし、起動
 ENTRYPOINT ./thirdparty/Python/bin/python -m pipenv run aerich upgrade && exec ./.venv/bin/python KonomiTV.py
