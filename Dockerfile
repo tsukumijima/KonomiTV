@@ -12,36 +12,38 @@ FROM ubuntu:22.04 AS thirdparty-downloader
 ENV DEBIAN_FRONTEND=noninteractive
 
 # ダウンロード・展開に必要なパッケージのインストール
-RUN apt-get update && apt-get upgrade -y && \
-    apt-get install -y --no-install-recommends aria2 ca-certificates xz-utils
+RUN apt-get update && apt-get install -y --no-install-recommends aria2 ca-certificates xz-utils
 
 # サードパーティーライブラリをダウンロード
+## サードパーティーライブラリは変更が少ないので、先にダウンロード処理を実行してビルドキャッシュを効かせる
 WORKDIR /
 RUN aria2c -x10 https://github.com/tsukumijima/Storehouse/releases/download/KonomiTV-Thirdparty-Libraries-Prerelease/thirdparty-linux.tar.xz
 RUN tar xvf thirdparty-linux.tar.xz
 
 # --------------------------------------------------------------------------------------------------------------
-# client をビルドするステージ
-# client の dist 自体は Git に含まれているが、万が一ビルドし忘れたりや開発ブランチでの利便性を考慮してビルドしておく
+# クライアントをビルドするステージ
+# クライアントのビルド成果物 (dist) は Git に含まれているが、万が一ビルドし忘れたりや開発ブランチでの利便性を考慮してビルドしておく
 # --------------------------------------------------------------------------------------------------------------
 
 FROM node:16 AS client-builder
 
-# 依存パッケージリストをコピー
+# 依存パッケージリスト (package.json/yarn.lock) だけをコピー
+WORKDIR /code/client/
 COPY ./client/package.json ./client/yarn.lock /code/client/
-WORKDIR /code/client
-RUN yarn
 
-# アプリケーションをコピー
-COPY ./client /code/client
+# 依存パッケージを yarn でインストール
+RUN yarn install
+
+# クライアントのソースコードをコピー
+COPY ./client/ /code/client/
 
 # クライアントをビルド
-# /code/client/dist に成果物が作成される
+# /code/client/dist/ に成果物が作成される
 RUN yarn build
 
 # --------------------------------------------------------------------------------------------------------------
 # メインのステージ
-# ここで作成された実行時イメージが docker-compose up -d で起動される
+# ここで作成された実行時イメージが docker compose up -d で起動される
 # --------------------------------------------------------------------------------------------------------------
 
 # Ubuntu 22.04 LTS (with CUDA) をベースイメージとして利用
@@ -75,22 +77,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
     rm -rf /tmp/*
 
 # ダウンロードしておいたサードパーティーライブラリをコピー
-COPY --from=thirdparty-downloader /thirdparty /code/server/thirdparty
+WORKDIR /code/server/
+COPY --from=thirdparty-downloader /thirdparty/ /code/server/thirdparty/
 
-# パッケージリスト (Pipfile / Pipfile.lock) だけをコピー
-COPY ./server/Pipfile* /code/server/
-WORKDIR /code/server
+# 依存パッケージリスト (Pipfile/Pipfile.lock) だけをコピー
+COPY ./server/Pipfile ./server/Pipfile.lock /code/server/
 
-# 依存パッケージのインストール
+# 依存パッケージを pipenv でインストール
 ## 仮想環境 (.venv) をプロジェクト直下に作成する
 ENV PIPENV_VENV_IN_PROJECT true
-RUN ./thirdparty/Python/bin/python -m pipenv sync --python="/code/server/thirdparty/Python/bin/python"
+RUN /code/server/thirdparty/Python/bin/python -m pipenv sync --python="/code/server/thirdparty/Python/bin/python"
 
-# 残りのアプリケーションをコピー
-COPY ./server /code/server
+# サーバーのソースコードをコピー
+COPY ./server/ /code/server/
 
-# client の成果物をコピー (dist だけで良い)
-COPY --from=client-builder /code/client/dist /code/client/dist
+# クライアントのビルド成果物 (dist) だけをコピー
+COPY --from=client-builder /code/client/dist/ /code/client/dist/
+
+# config.example.yaml をコピー
+COPY ./config.example.yaml /code/config.example.yaml
 
 # データベースを必要な場合にアップグレードし、起動
-ENTRYPOINT ./thirdparty/Python/bin/python -m pipenv run aerich upgrade && exec ./.venv/bin/python KonomiTV.py
+ENTRYPOINT /code/server/thirdparty/Python/bin/python -m pipenv run aerich upgrade && exec /code/server/.venv/bin/python KonomiTV.py
