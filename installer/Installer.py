@@ -550,14 +550,29 @@ def Installer(version: str) -> None:
 
             # NVEncC が利用できそうな場合、NVIDIA GPU が Docker コンテナ内で使えるように docker-compose.yaml の当該記述をコメントアウト
             ## NVIDIA GPU が使える環境以外でコメントアウトすると
-            ## 正攻法で YAML でコメントアウトする方法が思いつかなかったので、正規表現でゴリ押し……
+            ## 正攻法で YAML でコメントアウトする方法が思いつかなかったので、ゴリ押しで置換……
             if '✅利用できます' in nvencc_available:
                 with open(install_path / 'docker-compose.yaml', mode='r', encoding='utf-8') as file:
                     text = file.read()
-                replaced_text_1 = '            - driver: nvidia'
-                replaced_text_2 = '              capabilities: [compute, utility, video]'
-                text = re.sub(r'.*?#.*?- driver: nvidia', replaced_text_1, text)
-                text = re.sub(r'.*?#.*?  capabilities: \[compute, utility, video\]', replaced_text_2, text)
+                # デフォルト (置換元) の config.yaml の記述
+                old_text = (
+                    '    # deploy:\n'
+                    '    #   resources:\n'
+                    '    #     reservations:\n'
+                    '    #       devices:\n'
+                    '    #         - driver: nvidia\n'
+                    '    #           capabilities: [compute, utility, video]'
+                )
+                # 置換後の config.yaml の記述
+                new_text = (
+                    '    deploy:\n'
+                    '      resources:\n'
+                    '        reservations:\n'
+                    '          devices:\n'
+                    '            - driver: nvidia\n'
+                    '              capabilities: [compute, utility, video]'
+                )
+                text = text.replace(old_text, new_text)
                 with open(install_path / 'docker-compose.yaml', mode='w', encoding='utf-8') as file:
                     file.write(text)
 

@@ -37,11 +37,11 @@ services:
     # NVEncC を動作させる (NVIDIA GPU にアクセスする) ために必要な設定
     # NVEncC を動作させるには、別途 NVIDIA Graphics Driver と NVIDIA Container Toolkit (nvidia-docker2) のインストールが必要です。
     # コメントを解除してこの設定を有効にすると、NVIDIA GPU が搭載されていない環境では KonomiTV サーバーを起動できなくなります。
-    deploy:
-      resources:
-        reservations:
-          devices:
-            # - driver: nvidia
-            #   capabilities: [compute, utility, video]
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           capabilities: [compute, utility, video]
 
     # ==================== ↑↑↑↑↑ ここまでユーザー設定 ↑↑↑↑↑ ====================
