@@ -1,8 +1,12 @@
 
 name: Build Thirdparty Libraries
 
-# 手動実行
-on: [workflow_dispatch]
+# .github/workflows/build_thirdparty.yaml (このファイル) に変更があったとき or 手動実行
+on:
+  push:
+    paths:
+      - '.github/workflows/build_thirdparty.yaml'
+  workflow_dispatch:
 
 # ジョブの定義
 jobs:

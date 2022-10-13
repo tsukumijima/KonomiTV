@@ -1,13 +1,14 @@
 
 name: Publish Docker Image
 
-# [master ブランチへのコミット] or [バージョンタグ] が Push されたときに実行
+# master ブランチに変更があったとき or タグが作成されたとき or 手動実行
 on:
   push:
     branches:
       - master
     tags:
       - '*'
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io

@@ -1,8 +1,14 @@
 
 name: Build Installer
 
-# 手動実行
-on: [workflow_dispatch]
+# installer/ 以下のファイルに変更があったとき or
+# .github/workflows/build_installer.yaml (このファイル) に変更があったとき or 手動実行
+on:
+  push:
+    paths:
+      - 'installer/**'
+      - '.github/workflows/build_installer.yaml'
+  workflow_dispatch:
 
 # ジョブの定義
 jobs:
