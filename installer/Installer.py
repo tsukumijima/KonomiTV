@@ -101,14 +101,15 @@ def Installer(version: str) -> None:
 
     table_02 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
     table_02.add_column('02. KonomiTV をインストールするフォルダのパスを入力してください。')
+    table_02.add_row('インストール先のフォルダは、インストール時に自動で作成されます。')
     if platform_type == 'Windows':
         table_02.add_row('なお、C:\\Users・C:\\Program Files 以下と、日本語(全角)が含まれるパス、')
         table_02.add_row('半角スペースを含むパスは不具合の原因となるため、避けてください。')
-        table_02.add_row('例: C:\\DTV\\KonomiTV')
+        table_02.add_row('パスの入力例: C:\\DTV\\KonomiTV')
     elif platform_type == 'Linux' or platform_type == 'Linux-Docker':
         table_02.add_row('なお、日本語(全角)が含まれるパス、半角スペースを含むパスは')
         table_02.add_row('不具合の原因となるため、避けてください。')
-        table_02.add_row('例: /opt/KonomiTV')
+        table_02.add_row('パスの入力例: /opt/KonomiTV')
     print(Padding(table_02, (1, 2, 1, 2)))
 
     # インストール先のフォルダを取得
@@ -123,8 +124,19 @@ def Installer(version: str) -> None:
             print(Padding('[red]インストール先のフォルダは絶対パスで入力してください。', (0, 2, 0, 2)))
             continue
         if install_path.exists():
-            print(Padding('[red]インストール先のフォルダがすでに存在します。', (0, 2, 0, 2)))
-            continue
+            # 指定されたフォルダが空フォルダだったときは、ユーザーがわざわざ手動でインストール先のフォルダを
+            # 作成してくれている可能性があるので、実装の都合上一度削除しつつ、バリデーションには引っかからないようにする
+            ## rmdir() が中身が空のフォルダしか削除できず、中身が空でないフォルダを削除しようとすると
+            ## OSError が発生するのを利用している
+            try:
+                # ここで削除が成功すれば空のフォルダだったことが確定するので、処理を続行
+                install_path.rmdir()
+            except OSError:
+                # 削除に失敗した場合は中身が空でないフォルダ (=インストールしてはいけないフォルダ) という事が
+                # 確定するので、もう一度パスを入力させる
+                ## 中身が空でないフォルダにインストールしようとすると、当然ながら大変なことになる
+                print(Padding('[red]インストール先のフォルダがすでに存在します。', (0, 2, 0, 2)))
+                continue
 
         # インストール先のフォルダを作成できるかテスト
         try:
@@ -143,8 +155,11 @@ def Installer(version: str) -> None:
     table_03 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
     table_03.add_column('03. 利用するバックエンドを EDCB・Mirakurun から選択してください。')
     table_03.add_row('バックエンドは、テレビチューナーへのアクセスや番組情報の取得などに利用します。')
+    table_03.add_row(Rule(characters='─', style=Style(color='#E33157')))
     table_03.add_row('EDCB は、220122 以降のバージョンの xtne6f / tkntrec 版の EDCB にのみ対応しています。')
-    table_03.add_row('KonomiTV と連携するには、別途 EDCB に事前の設定が必要です。')
+    table_03.add_row('「人柱版10.66」などの古いバージョンをお使いの場合は、EDCB のアップグレードが必要です。')
+    table_03.add_row('KonomiTV と連携するには、さらに EDCB に事前の設定が必要になります。')
+    table_03.add_row(Rule(characters='─', style=Style(color='#E33157')))
     table_03.add_row('Mirakurun は、3.9.0 以降のバージョンを推奨します。')
     table_03.add_row('3.8.0 以下のバージョンでも動作しますが、諸問題で推奨しません。')
     print(Padding(table_03, (1, 2, 1, 2)))
@@ -327,9 +342,9 @@ def Installer(version: str) -> None:
     table_06.add_row('クライアントの [キャプチャの保存先] 設定で [KonomiTV サーバーにアップロード] または')
     table_06.add_row('[ブラウザでのダウンロードと、KonomiTV サーバーへのアップロードを両方行う] を選択したときに利用されます。')
     if platform_type == 'Windows':
-        table_06.add_row('例: E:\\TV-Capture')
+        table_06.add_row('パスの入力例: E:\\TV-Capture')
     elif platform_type == 'Linux' or platform_type == 'Linux-Docker':
-        table_06.add_row('例: /mnt/hdd/TV-Capture')
+        table_06.add_row('パスの入力例: /mnt/hdd/TV-Capture')
     print(Padding(table_06, (1, 2, 1, 2)))
 
     # キャプチャ画像の保存先フォルダのパスを取得
