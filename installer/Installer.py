@@ -235,12 +235,7 @@ def Installer(version: str) -> None:
             ## 試しにリクエストを送り、200 (OK) が返ってきたときだけ有効な URL とみなす
             try:
                 response = requests.get(f'{mirakurun_url.rstrip("/")}/api/version', timeout=3)
-            except (
-                requests.exceptions.ConnectionError,
-                requests.exceptions.InvalidURL,
-                requests.exceptions.MissingSchema,
-                requests.exceptions.Timeout,
-            ) as ex:
+            except Exception:
                 print(Padding(str(
                     f'[red]Mirakurun ({mirakurun_url}) にアクセスできませんでした。\n'
                     'Mirakurun が起動していないか、URL を間違えている可能性があります。',

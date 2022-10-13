@@ -166,13 +166,13 @@ if __name__ == '__main__':
     else:
         main()
 
+    # 終了時のプロンプト (Windows のみ)
+    ## 処理がなくなると conhost.exe のウインドウも消滅し、メッセージが読めなくなるため
+    if os.name == 'nt':
+        print()  # 改行
+        Prompt.ask('  終了するには何かキーを押してください')
+
     print(Padding(Rule(
         style = Style(color='#E33157'),
         align = 'center',
     ), (1, 2, 1, 2)))
-
-    # 終了時のプロンプト (Windows のみ)
-    ## 処理がなくなると conhost.exe のウインドウも消滅し、メッセージが読めなくなるため
-    if os.name == 'nt':
-        Prompt.ask('  終了するには何かキーを押してください')
-        print()  # 改行
