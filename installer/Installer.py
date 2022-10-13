@@ -259,14 +259,16 @@ def Installer(version: str) -> None:
         )
         # コマンド成功時のみ
         if gpu_info_json.returncode == 0:
-            # GPU が1個しか接続されないときは直接 dict[str, Any] に、2個以上あるときは list[dict[str, Any]] で出力されるので、場合分け
+            # GPU が1個だけ搭載されている環境では直接 dict[str, Any] 、2個以上搭載されている環境は list[dict[str, Any]] の形で出力される
             gpu_info_data = json.loads(gpu_info_json.stdout)
             gpu_infos: list[dict[str, Any]]
-            if type(gpu_info_data is dict):
+            if type(gpu_info_data) is dict:
+                # GPU が1個だけ搭載されている環境
                 gpu_infos = [gpu_info_data]
             else:
+                # GPU が2個以上搭載されている環境
                 gpu_infos = gpu_info_data
-            # 接続されている GPU 名を取得してリストに追加
+            # 搭載されている GPU 名を取得してリストに追加
             for gpu_info in gpu_infos:
                 gpu_names.append(gpu_info['Name'])
 
