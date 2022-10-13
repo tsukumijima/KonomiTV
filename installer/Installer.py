@@ -954,8 +954,8 @@ def Installer(version: str) -> None:
     # アクセス可能な URL のリストを IP アドレスごとに表示
     ## ローカルホスト (127.0.0.1) だけは https://my.local.konomi.tv:7000/ というエイリアスが使える
     urls = [f'https://{ip_address[0].replace(".", "-")}.local.konomi.tv:{server_port}/' for ip_address in ip_addresses]
-    table_07.add_row(f'{f"https://my.local.konomi.tv:{server_port}/": <{max([len(url) for url in urls])}} (ローカルホスト)')
+    table_07.add_row(f'[blue]{f"https://my.local.konomi.tv:{server_port}/": <{max([len(url) for url in urls])}}[/blue] (ローカルホスト)')
     for index, url in enumerate(urls):
-        table_07.add_row(f'{url: <{max([len(url) for url in urls])}} ({ip_addresses[index][1]})')
+        table_07.add_row(f'[blue]{url: <{max([len(url) for url in urls])}}[/blue] ({ip_addresses[index][1]})')
 
     print(Padding(table_07, (1, 2, 0, 2)))

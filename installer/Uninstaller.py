@@ -2,6 +2,7 @@
 import os
 import subprocess
 import shutil
+import stat
 from pathlib import Path
 from rich import box
 from rich import print
@@ -201,7 +202,12 @@ def Uninstaller() -> None:
     progress = CreateBasicInfiniteProgress()
     progress.add_task('', total=None)
     with progress:
-        shutil.rmtree(uninstall_path, ignore_errors=True)
+        # .git/ 以下の読み取り専用ファイルを削除できるようにする
+        # ref: https://stackoverflow.com/a/4829285/17124142
+        def on_rm_error(func, path, exc_info):
+            os.chmod(path, stat.S_IWRITE)
+            os.unlink(path)
+        shutil.rmtree(uninstall_path, onerror=on_rm_error)
 
     # アンインストール完了
     print(Padding(Panel(
