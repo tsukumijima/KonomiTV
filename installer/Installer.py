@@ -550,12 +550,29 @@ def Installer(version: str) -> None:
             # docker-compose.example.yaml を docker-compose.yaml にコピー
             shutil.copyfile(install_path / 'docker-compose.example.yaml', install_path / 'docker-compose.yaml')
 
+            # docker-compose.yaml の内容を読み込む
+            with open(install_path / 'docker-compose.yaml', mode='r', encoding='utf-8') as file:
+                text = file.read()
+
+            # GPU が1個も搭載されていない特殊な環境の場合
+            ## /dev/dri/ 以下のデバイスファイルが存在しないので、デバイスのマウント設定をコメントアウトしないとコンテナが起動できない
+            if Path('/dev/dri/').is_dir() is False:
+                # デフォルト (置換元) の config.yaml の記述
+                old_text = (
+                    '    devices:\n'
+                    '      - \'/dev/dri/:/dev/dri/\''
+                )
+                # 置換後の config.yaml の記述
+                new_text = (
+                    '    # devices:\n'
+                    '    #   - \'/dev/dri/:/dev/dri/\''
+                )
+                text = text.replace(old_text, new_text)
+
             # NVEncC が利用できそうな場合、NVIDIA GPU が Docker コンテナ内で使えるように docker-compose.yaml の当該記述をコメントアウト
             ## NVIDIA GPU が使える環境以外でコメントアウトすると
             ## 正攻法で YAML でコメントアウトする方法が思いつかなかったので、ゴリ押しで置換……
             if '✅利用できます' in nvencc_available:
-                with open(install_path / 'docker-compose.yaml', mode='r', encoding='utf-8') as file:
-                    text = file.read()
                 # デフォルト (置換元) の config.yaml の記述
                 old_text = (
                     '    # deploy:\n'
@@ -575,8 +592,10 @@ def Installer(version: str) -> None:
                     '              capabilities: [compute, utility, video]'
                 )
                 text = text.replace(old_text, new_text)
-                with open(install_path / 'docker-compose.yaml', mode='w', encoding='utf-8') as file:
-                    file.write(text)
+
+            # docker-compose.yaml を書き換え
+            with open(install_path / 'docker-compose.yaml', mode='w', encoding='utf-8') as file:
+                file.write(text)
 
         # ***** Docker イメージのビルド *****
 

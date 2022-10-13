@@ -13,7 +13,7 @@ services:
     # ref: https://inocop.hatenablog.com/entry/2018/12/18/131526
     network_mode: host
     # ボリュームのマウント設定
-    # /host-rootfs はコンテナ内の KonomiTV からホストマシンのファイルを読み書きするために必要
+    # /host-rootfs/ はコンテナ内の KonomiTV からホストマシンのファイルを読み書きするために必要
     volumes:
       - type: bind
         source: './config.yaml'
@@ -26,17 +26,21 @@ services:
         target: '/code/server/logs/'
       - type: bind
         source: '/'
-        target: '/host-rootfs'
-    # QSVEncC / VCEEncC を動作させる (Intel Graphics / AMD GPU にアクセスする) ために必要な設定
-    # ホストマシン側のデバイスファイルをコンテナ側にマウントする
-    devices:
-      - '/dev/dri:/dev/dri'
+        target: '/host-rootfs/'
 
     # ==================== ↓↓↓↓↓ ここからユーザー設定 ↓↓↓↓↓ ====================
 
-    # NVEncC を動作させる (NVIDIA GPU にアクセスする) ために必要な設定
-    # NVEncC を動作させるには、別途 NVIDIA Graphics Driver と NVIDIA Container Toolkit (nvidia-docker2) のインストールが必要です。
-    # コメントを解除してこの設定を有効にすると、NVIDIA GPU が搭載されていない環境では KonomiTV サーバーを起動できなくなります。
+    # QSVEncC / VCEEncC を利用する (Intel Graphics / AMD GPU にアクセスする) ために必要な設定
+    # VCEEncC (AMD GPU) を利用するには、別途 AMDGPU-PRO Driver のインストールが必要です。
+    # GPU が1個も搭載されていない (/dev/dri/ 以下のデバイスファイルが存在しない) 特殊な環境では、
+    # コメントアウトしてこの設定を無効にしないと、KonomiTV サーバーを起動できなくなります。
+    devices:
+      - '/dev/dri/:/dev/dri/'
+
+    # NVEncC を利用する (NVIDIA GPU にアクセスする) ために必要な設定
+    # NVEncC (NVIDIA GPU) を利用するには、別途 NVIDIA Graphics Driver と
+    # NVIDIA Container Toolkit (nvidia-docker2) のインストールが必要です。
+    # コメントアウトを解除してこの設定を有効にすると、NVIDIA GPU が搭載されていない環境では KonomiTV サーバーを起動できなくなります。
     # deploy:
     #   resources:
     #     reservations:
