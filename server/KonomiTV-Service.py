@@ -9,33 +9,24 @@ if os.name != 'nt':
     print('KonomiTV-Service.py is for Windows only. Doesn\'t work on Linux.')
     sys.exit(1)
 
-# 標準パッケージ
+# 標準モジュール
 import argparse
 import ctypes
-import pathlib
-import shutil
-import site
+import psutil
 import subprocess
 import time
 import threading
 import winreg
+from pathlib import Path
 from typing import Any, Dict, List, cast
 
-# サービスからの起動では、pipenv (venv) の仮想環境にあるパッケージが読み込めない
-# そのため、手動で venv の site-packages のパスを追加する
-# ref: https://github.com/mhammond/pywin32/issues/1450#issuecomment-564717340
-base_dir = pathlib.Path(__file__).parent
-site.addsitedir(str(base_dir / '.venv/Lib/site-packages'))
-
-# psutil をインポート
-# psutil は外部ライブラリなので、パスを追加した後でないと動かない
-import psutil
-
-# pywin32 のライブラリ群をインポート
-# site-packages のパスを修正した後にインポートしないとサービスが起動できない
+# pywin32 モジュール
 import servicemanager
 import win32service
 import win32serviceutil
+
+# KonomiTV サーバーのベースディレクトリ
+base_dir = Path(__file__).parent
 
 
 def GetNetworkDriveList() -> List[Dict[str, str]]:
@@ -79,6 +70,15 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
     _svc_name_ = 'KonomiTV Service'
     _svc_display_name_ = 'KonomiTV Service'
     _svc_description_ = 'KonomiTV Windows Service.'
+
+    # pythonservice.exe を使わずに Windows サービスを起動する
+    ## pythonservice.exe には、環境変数 PATH に Python が登録されている or
+    ## DLL を特定フォルダにコピーしないと動作しないなどの問題があり、venv の仮想環境下で動かすのが難しい
+    ## そこで、pythonservice.exe は使わず、代わりに venv の仮想環境下の python.exe で直接 Windows サービスを起動する
+    ## 公式ドキュメントには何も記述がないが、なぜか動く…
+    ## ref: https://stackoverflow.com/a/72134400/17124142
+    _exe_name_ = f'{base_dir / ".venv/Scripts/python.exe"}'  # 実行ファイルのパス (venv の仮想環境下の python.exe への絶対パス)
+    _exe_args_ = f'-u -E "{base_dir / "KonomiTV-Service.py"}"'  # サービス起動時の引数 (この KonomiTV-Service.py への絶対パス)
 
 
     def SvcDoRun(self):
@@ -126,7 +126,7 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
 
         # 仮想環境上の Python から KonomiTV のサーバープロセス (Uvicorn) を起動
         self.process = subprocess.Popen(
-            [base_dir / ".venv/Scripts/python.exe", '-X', 'utf8', base_dir / 'KonomiTV.py'],
+            [base_dir / '.venv/Scripts/python.exe', '-X', 'utf8', base_dir / 'KonomiTV.py'],
             cwd = base_dir,  # カレントディレクトリを指定
         )
 
@@ -205,28 +205,6 @@ def init():
 
         # サービスインストール時のイベント
         def install_handler(args):
-
-            # インストールする前に、python310.dll を pythonservice.exe のある .venv/Lib/site-packages/win32/ フォルダにコピーする
-            # python310.dll がないと pythonservice.exe が Python を実行できず、サービスの起動に失敗する
-            if os.path.exists(base_dir / '.venv/Lib/site-packages/win32/python310.dll') is False:
-                shutil.copy(
-                    base_dir / 'thirdparty/Python/python310.dll',
-                    base_dir / '.venv/Lib/site-packages/win32/python310.dll',
-                )
-
-            # インストールする前に、.venv/Lib/site-packages/ 以下の pywin32_system32 フォルダから必要な DLL を
-            # pythonservice.exe のある .venv/Lib/site-packages/win32/ フォルダにコピーする
-            # pythoncom310.dll / pywintypes310.dll がないと pythonservice.exe が Python を実行できず、サービスの起動に失敗する
-            if os.path.exists(base_dir / '.venv/Lib/site-packages/win32/pythoncom310.dll') is False:
-                shutil.copy(
-                    base_dir / '.venv/Lib/site-packages/pywin32_system32/pythoncom310.dll',
-                    base_dir / '.venv/Lib/site-packages/win32/pythoncom310.dll',
-                )
-            if os.path.exists(base_dir / '.venv/Lib/site-packages/win32/pywintypes310.dll') is False:
-                shutil.copy(
-                    base_dir / '.venv/Lib/site-packages/pywin32_system32/pywintypes310.dll',
-                    base_dir / '.venv/Lib/site-packages/win32/pywintypes310.dll',
-                )
 
             # ユーザー名とパスワードを取得
             username: str = args.username
