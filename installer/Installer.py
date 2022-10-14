@@ -731,7 +731,7 @@ def Installer(version: str) -> None:
                     'AMDGPU-PRO Driver のバージョンが古い可能性があります。\n'
                     'AMDGPU-PRO Driver をインストール/最新バージョンに更新してください。\n'
                     'AMDGPU-PRO Driver のインストール方法は以下のページに記載されています。\n'
-                    '[blue]https://github.com/rigaya/VCEEnc/blob/master/Install.ja.md#linux-ubuntu-2004[/blue]',
+                    '[bright_blue]https://github.com/rigaya/VCEEnc/blob/master/Install.ja.md#linux-ubuntu-2004[/bright_blue]',
                     box = box.SQUARE,
                     border_style = Style(color='#E33157'),
                 ), (1, 2, 0, 2)))
@@ -949,8 +949,8 @@ def Installer(version: str) -> None:
     # アクセス可能な URL のリストを IP アドレスごとに表示
     ## ローカルホスト (127.0.0.1) だけは https://my.local.konomi.tv:7000/ というエイリアスが使える
     urls = [f'https://{ip_address[0].replace(".", "-")}.local.konomi.tv:{server_port}/' for ip_address in ip_addresses]
-    table_07.add_row(f'[blue]{f"https://my.local.konomi.tv:{server_port}/": <{max([len(url) for url in urls])}}[/blue] (ローカルホスト)')
+    table_07.add_row(f'[bright_blue]{f"https://my.local.konomi.tv:{server_port}/": <{max([len(url) for url in urls])}}[/bright_blue] (ローカルホスト)')
     for index, url in enumerate(urls):
-        table_07.add_row(f'[blue]{url: <{max([len(url) for url in urls])}}[/blue] ({ip_addresses[index][1]})')
+        table_07.add_row(f'[bright_blue]{url: <{max([len(url) for url in urls])}}[/bright_blue] ({ip_addresses[index][1]})')
 
     print(Padding(table_07, (1, 2, 0, 2)))

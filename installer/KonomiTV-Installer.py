@@ -164,7 +164,14 @@ if __name__ == '__main__':
 
     # main() を実行
     else:
-        main()
+        try:
+            main()
+        except KeyboardInterrupt:
+            print(Padding(Panel(
+                '[yellow]Ctrl+C が押されたため、処理を中断しました。[/yellow]',
+                box = box.SQUARE,
+                border_style = Style(color='#E33157'),
+            ), (1, 2, 0, 2)))
 
     # 終了時のプロンプト (Windows のみ)
     ## 処理がなくなると conhost.exe のウインドウも消滅し、メッセージが読めなくなるため
