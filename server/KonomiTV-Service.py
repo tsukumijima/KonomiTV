@@ -69,8 +69,8 @@ def GetNetworkDriveList() -> List[Dict[str, str]]:
 
 def AddLogOnAsAServicePrivilege(account_name: str) -> None:
     """
-    "サービスとしてログイン" (SeServiceLogonRight) 権限をユーザーアカウントに付与する
-    "サービスとしてログイン" 権限が付与されていないと、ユーザー権限で Windows サービスを起動することができない
+    "サービスとしてログオン" (SeServiceLogonRight) 権限をユーザーアカウントに付与する
+    "サービスとしてログオン" 権限が付与されていないと、ユーザー権限で Windows サービスを起動することができない
     サービスのインストール/アンインストール同様に、実行には管理者権限が必要
     Python での実装例を見つけるのが大変だった……
     ref: https://github.com/project-renard-survey/xerox-parc-uplib-mirror/blob/master/win32/install-script.py#L445-L461
@@ -242,8 +242,8 @@ def init():
             username: str = args.username
             password: str = args.password
 
-            # 指定されたユーザーアカウントに "サービスとしてログイン" (SeServiceLogonRight) 権限を付与する
-            ## "サービスとしてログイン" 権限が付与されていないと、ユーザー権限で Windows サービスを起動することができない
+            # 指定されたユーザーアカウントに "サービスとしてログオン" (SeServiceLogonRight) 権限を付与する
+            ## "サービスとしてログオン" 権限が付与されていないと、ユーザー権限で Windows サービスを起動することができない
             ## 手動でサービス管理ツールから操作すると自動的に付与されるらしく、気づくのに時間が掛かった…
             AddLogOnAsAServicePrivilege(username)
 
