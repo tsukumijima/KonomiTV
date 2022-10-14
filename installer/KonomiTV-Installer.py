@@ -4,6 +4,7 @@ import distro
 import elevate
 import os
 import platform
+import signal
 import subprocess
 import threading
 from rich import box
@@ -132,6 +133,17 @@ def main():
 
 if __name__ == '__main__':
 
+    # Nuitka の onefile モードでビルドした実行ファイルだと Windows でうまく Ctrl+C がキャッチできない問題の回避策
+    ## KeyboardInterrupt が複数回送出されないようにする
+    ## ref: https://github.com/Nuitka/Nuitka/issues/1477
+    keyboard_interrupted = False
+    def keyboard_interrupt_handler(signal_number, frame):
+        global keyboard_interrupted
+        if keyboard_interrupted is False:
+            keyboard_interrupted = True
+            raise KeyboardInterrupt()
+    signal.signal(signal.SIGINT, keyboard_interrupt_handler)
+
     try:
 
         # 管理者権限 (Windows) / root 権限 (Linux) に昇格
@@ -177,7 +189,10 @@ if __name__ == '__main__':
     ## 処理がなくなると conhost.exe のウインドウも消滅し、メッセージが読めなくなるため
     if os.name == 'nt':
         print()  # 改行
-        Prompt.ask('  終了するには何かキーを押してください')
+        try:
+            Prompt.ask('  終了するには何かキーを押してください')
+        except:
+            pass
 
     print(Padding(Rule(
         style = Style(color='#E33157'),
