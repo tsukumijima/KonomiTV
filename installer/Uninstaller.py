@@ -121,7 +121,7 @@ def Uninstaller() -> None:
         with progress:
             python_executable_path = uninstall_path / 'server/thirdparty/Python/python.exe'
             subprocess.run(
-                args = [python_executable_path, '-m', 'pipenv', 'run', 'python', 'KonomiTV-Service.py', 'remove'],
+                args = [python_executable_path, '-m', 'pipenv', 'run', 'python', 'KonomiTV-Service.py', 'uninstall'],
                 cwd = uninstall_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
                 stdout = subprocess.DEVNULL,  # 標準出力を表示しない
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
