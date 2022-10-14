@@ -22,6 +22,8 @@ from typing import Any, Dict, List, cast
 
 # pywin32 モジュール
 import servicemanager
+import win32api
+import win32security
 import win32service
 import win32serviceutil
 
@@ -63,6 +65,36 @@ def GetNetworkDriveList() -> List[Dict[str, str]]:
                         })
 
     return network_drives
+
+
+def AddLogOnAsAServicePrivilege(account_name: str) -> None:
+    """
+    "サービスとしてログイン" (SeServiceLogonRight) 権限をユーザーアカウントに付与する
+    "サービスとしてログイン" 権限が付与されていないと、ユーザー権限で Windows サービスを起動することができない
+    サービスのインストール/アンインストール同様に、実行には管理者権限が必要
+    Python での実装例を見つけるのが大変だった……
+    ref: https://github.com/project-renard-survey/xerox-parc-uplib-mirror/blob/master/win32/install-script.py#L445-L461
+    ref: https://github.com/flathub/buildbot/blob/flathub/worker/buildbot_worker/scripts/windows_service.py#L480-L508
+
+    Args:
+        account_name (str): accountName(str): Windows ユーザーアカウントの名前
+    """
+
+    # コンピューター名とユーザーアカウント名から SID を取得
+    if '\\' not in account_name or account_name.startswith('.\\'):
+        computer_name = os.environ['COMPUTERNAME']
+        if not computer_name:
+            computer_name: str = win32api.GetComputerName()
+            if not computer_name:
+                print('Error: Cannot determine computer name.')
+                return
+        account_name = computer_name + '\\' + account_name.lstrip('.\\')
+    account_sid = win32security.LookupAccountName(None, account_name)[0]  # type: ignore
+
+    # ユーザーアカウントに SeServiceLogonRight 権限を付与
+    policy_handle = win32security.GetPolicyHandle('', win32security.POLICY_ALL_ACCESS)  # type: ignore
+    win32security.LsaAddAccountRights(policy_handle, account_sid, ['SeServiceLogonRight'])  # type: ignore
+    win32security.LsaClose(policy_handle)  # type: ignore
 
 
 class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
@@ -209,6 +241,11 @@ def init():
             # ユーザー名とパスワードを取得
             username: str = args.username
             password: str = args.password
+
+            # 指定されたユーザーアカウントに "サービスとしてログイン" (SeServiceLogonRight) 権限を付与する
+            ## "サービスとしてログイン" 権限が付与されていないと、ユーザー権限で Windows サービスを起動することができない
+            ## 手動でサービス管理ツールから操作すると自動的に付与されるらしく、気づくのに時間が掛かった…
+            AddLogOnAsAServicePrivilege(username)
 
             # HandleCommandLine に直接引数を指定して、サービスのインストールを実行
             win32serviceutil.HandleCommandLine(
