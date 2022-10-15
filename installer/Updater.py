@@ -162,11 +162,12 @@ def Updater(version: str) -> None:
 
     # ***** ソースコードの更新 *****
 
-    # Git コマンドがインストールされているかどうか
-    is_git_installed = IsGitInstalled()
+    # Git を使ってインストールされているか
+    ## Git のインストール状況に関わらず、.git フォルダが存在する場合は Git を使ってインストールされていると判断する
+    is_installed_by_git = Path(update_path / '.git').exists()
 
-    # Git コマンドがインストールされている場合: git fetch & git checkout でソースコードを更新
-    if is_git_installed is True:
+    # Git を使ってインストールされている場合: git fetch & git checkout でソースコードを更新
+    if is_installed_by_git is True:
 
         # git clone でソースコードをダウンロード
         print(Padding('KonomiTV のソースコードを Git で更新しています…', (1, 2, 0, 2)))
@@ -192,13 +193,13 @@ def Updater(version: str) -> None:
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
             )
 
-    # Git コマンドがインストールされていない場合: zip からソースコードを更新
+    # Git を使ってインストールされていない場合: zip からソースコードを更新
     else:
 
-        # 以前のバージョンに存在したものの、現在のバージョンには存在しないソースコードが出てくる可能性がある
-        # そのため、ソースコードの上書き更新前に config.yaml・venv の仮想環境・ユーザーデータ・ログ以外のファイル/フォルダをすべて削除する
-        ## サードパーティーライブラリはあとで更新する
-        ## Git で更新する場合は、そのあたりを Git がよしなにやってくれるため不要
+        # 以前のバージョンにはあったものの、現在のバージョンにはないファイルを削除する
+        ## 事前に config.yaml・venv の仮想環境・ユーザーデータ・ログ以外のファイル/フォルダをすべて削除してから、
+        ## ダウンロードした新しいソースコードで上書き更新する
+        ## Git でインストールされている場合は、作業ツリーの更新を Git がよしなにやってくれるため不要
         shutil.rmtree(update_path / '.github/', ignore_errors=True)
         shutil.rmtree(update_path / '.vscode/', ignore_errors=True)
         shutil.rmtree(update_path / 'client/', ignore_errors=True)
