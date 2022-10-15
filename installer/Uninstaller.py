@@ -76,7 +76,7 @@ def Uninstaller() -> None:
 
     # Linux: Docker + Docker Compose がインストールされている & アンインストールフォルダに docker-compose.yaml があれば
     # Docker でインストールしたことが推測されるので、プラットフォームタイプを Linux-Docker に切り替える
-    ## インストーラーで Docker を使わずにインストールした場合は docker-compose.yaml は生成されない
+    ## インストーラーで Docker を使わずにインストールした場合は docker-compose.yaml は生成されないことを利用している
     if platform_type == 'Linux' and IsDockerInstalled() and Path(uninstall_path / 'docker-compose.yaml').exists():
         platform_type = 'Linux-Docker'
 

@@ -2,6 +2,7 @@
 import asyncio
 import emoji
 import datetime
+import ifaddr
 import os
 import re
 import rich
@@ -263,49 +264,6 @@ class CtrlCmdConnectionCheckUtil:
         return v
 
 
-def GetNetworkDriveList() -> List[Dict[str, str]]:
-    """
-    レジストリからログオン中のユーザーがマウントしているネットワークドライブのリストを取得する
-    KonomiTV-Service.py で利用されているものと基本同じ
-
-    Returns:
-        List[Dict[str, str]]: ネットワークドライブのドライブレターとパスのリスト
-    """
-
-    # Windows 以外では実行しない
-    if os.name != 'nt': return []
-
-    # winreg (レジストリを操作するための標準ライブラリ (Windows 限定) をインポート)
-    import winreg
-
-    # ネットワークドライブの情報が入る辞書のリスト
-    network_drives: List[Dict[str, str]] = []
-
-    # ネットワークドライブの情報が格納されているレジストリの HKEY_CURRENT_USER\Network を開く
-    # ref: https://itasuke.hatenablog.com/entry/2018/01/08/133510
-    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, 'Network') as root_key:
-
-        # HKEY_CURRENT_USER\Network 以下のキーを列挙
-        for key in range(winreg.QueryInfoKey(root_key)[0]):
-            drive_letter = winreg.EnumKey(root_key, key)
-
-            # HKEY_CURRENT_USER\Network 以下のキーをそれぞれ開く
-            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, f'Network\\{drive_letter}') as key:
-                for sub_key in range(winreg.QueryInfoKey(key)[1]):
-
-                    # 値の名前、データ、データ型を取得
-                    name, data, regtype = winreg.EnumValue(key, sub_key)
-
-                    # リストに追加
-                    if name == 'RemotePath':
-                        network_drives.append({
-                            'drive_letter': drive_letter,
-                            'remote_path': data,
-                        })
-
-    return network_drives
-
-
 def CreateBasicInfiniteProgress() -> Progress:
     """
     シンプルな完了未定状態向けの Progress インスタンスを新しく生成して返す
@@ -353,6 +311,72 @@ def CreateDownloadInfiniteProgress() -> Progress:
         TimeElapsedColumn(),
         TextColumn(' '),
     )
+
+
+def GetNetworkDriveList() -> List[Dict[str, str]]:
+    """
+    レジストリからログオン中のユーザーがマウントしているネットワークドライブのリストを取得する
+    KonomiTV-Service.py で利用されているものと基本同じ
+
+    Returns:
+        List[Dict[str, str]]: ネットワークドライブのドライブレターとパスのリスト
+    """
+
+    # Windows 以外では実行しない
+    if os.name != 'nt': return []
+
+    # winreg (レジストリを操作するための標準ライブラリ (Windows 限定) をインポート)
+    import winreg
+
+    # ネットワークドライブの情報が入る辞書のリスト
+    network_drives: List[Dict[str, str]] = []
+
+    # ネットワークドライブの情報が格納されているレジストリの HKEY_CURRENT_USER\Network を開く
+    # ref: https://itasuke.hatenablog.com/entry/2018/01/08/133510
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, 'Network') as root_key:
+
+        # HKEY_CURRENT_USER\Network 以下のキーを列挙
+        for key in range(winreg.QueryInfoKey(root_key)[0]):
+            drive_letter = winreg.EnumKey(root_key, key)
+
+            # HKEY_CURRENT_USER\Network 以下のキーをそれぞれ開く
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, f'Network\\{drive_letter}') as key:
+                for sub_key in range(winreg.QueryInfoKey(key)[1]):
+
+                    # 値の名前、データ、データ型を取得
+                    name, data, regtype = winreg.EnumValue(key, sub_key)
+
+                    # リストに追加
+                    if name == 'RemotePath':
+                        network_drives.append({
+                            'drive_letter': drive_letter,
+                            'remote_path': data,
+                        })
+
+    return network_drives
+
+
+def GetNetworkInterfaceInformation() -> list[tuple[str, str]]:
+    """
+    ループバックアドレスまたはリンクローカルアドレスでない IPv4 アドレスとインターフェイス名を取得する
+
+    Returns:
+        list[tuple[str, str]]: IPv4 アドレスとインターフェイス名のタプルのリスト
+    """
+
+    # ループバックアドレスまたはリンクローカルアドレスでない IPv4 アドレスを取得
+    ip_addresses: list[tuple[str, str]] = []
+    for nic in ifaddr.get_adapters():
+        for ip in nic.ips:
+            if ip.is_IPv4:
+                # ループバック (127.x.x.x) とリンクローカル (169.254.x.x) を除外
+                if cast(str, ip.ip).startswith('127.') is False and cast(str, ip.ip).startswith('169.254.') is False:
+                    ip_addresses.append((cast(str, ip.ip), ip.nice_name))  # IP アドレスとインターフェイス名
+
+    # IP アドレス昇順でソート
+    ip_addresses.sort(key=lambda key: key[0])
+
+    return ip_addresses
 
 
 def IsDockerComposeV2() -> bool:
@@ -497,14 +521,14 @@ def SaveConfigYaml(config_yaml_path: Path, config_data: dict[str, dict[str, int 
     ## 以下の実装は、キーが必ずシングルクオートかダブルクオートで囲われている事、1階層目に直接バリューが入らない事、
     ## 親キーが半角スペース4つ、その配下にあるキーが半角スペース8つでインデントされている事などを前提としたもの
     ## KonomiTV の config.yaml のフォーマットにのみ適合するもので、汎用性はない
-    current_parent_key: str = ''
+    current_parent_key: str = ''  # 現在処理中の親キー
     for current_line in current_lines:
 
         # 'general': { のような記述にマッチする正規表現を実行
         parent_key_match_pattern = r'^ {4}(?P<key>\'.*?\'|\".*?\"): \{$'
         parent_key_match = re.match(parent_key_match_pattern, current_line)
 
-        # マッチした場合、現在の親キー (general, server, tv など) を更新する
+        # マッチした場合、現在処理中の親キー (general, server, tv など) を更新する
         if parent_key_match is not None:
 
             # 親キーの値を取得し、更新する

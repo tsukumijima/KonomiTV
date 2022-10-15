@@ -1,12 +1,10 @@
 
 import asyncio
 import getpass
-import ifaddr
 import json
 import os
 import psutil
 import py7zr
-import re
 import requests
 import ruamel.yaml
 import shutil
@@ -35,6 +33,7 @@ from Utils import CreateDownloadInfiniteProgress
 from Utils import CtrlCmdConnectionCheckUtil
 from Utils import CustomConfirm
 from Utils import CustomPrompt
+from Utils import GetNetworkInterfaceInformation
 from Utils import IsDockerComposeV2
 from Utils import IsDockerInstalled
 from Utils import IsGitInstalled
@@ -375,6 +374,7 @@ def Installer(version: str) -> None:
         with progress:
             subprocess.run(
                 # TODO: v0.6.0 リリース前に master から変更必須
+                #args = ['git', 'clone', '-b', f'v{version}', 'https://github.com/tsukumijima/KonomiTV.git', install_path.name],
                 args = ['git', 'clone', '-b', 'master', 'https://github.com/tsukumijima/KonomiTV.git', install_path.name],
                 cwd = install_path.parent,
                 stdout = subprocess.DEVNULL,  # 標準出力を表示しない
@@ -407,8 +407,8 @@ def Installer(version: str) -> None:
 
         # ソースコードを解凍して展開
         shutil.unpack_archive(source_code_file.name, install_path.parent, format='zip')
-        #shutil.move(install_path.parent / f'KonomiTV-{version}', install_path)  # TODO: v0.6.0 リリース前に変更必須
-        shutil.move(install_path.parent / 'KonomiTV-master', install_path)
+        #shutil.move(install_path.parent / f'KonomiTV-{version}/', install_path)  # TODO: v0.6.0 リリース前に変更必須
+        shutil.move(install_path.parent / 'KonomiTV-master/', install_path)
         Path(source_code_file.name).unlink()
 
     # ***** リッスンポートの重複チェック *****
@@ -497,8 +497,8 @@ def Installer(version: str) -> None:
                 progress.update(task_id, advance=len(chunk))
         thirdparty_file.close()  # 解凍する前に close() してすべて書き込ませておくのが重要
 
-        # サードパーティライブラリを解凍して展開
-        print(Padding('サードパーティーライブラリを解凍しています… (数秒～数十秒かかります)', (1, 2, 0, 2)))
+        # サードパーティーライブラリを解凍して展開
+        print(Padding('サードパーティーライブラリを展開しています… (数秒～数十秒かかります)', (1, 2, 0, 2)))
         progress = CreateBasicInfiniteProgress()
         progress.add_task('', total=None)
         with progress:
@@ -614,7 +614,7 @@ def Installer(version: str) -> None:
         print(Padding('Docker イメージをビルドしています… (数分～数十分かかります)', (1, 2, 1, 2)))
         print(Rule(style=Style(color='cyan'), align='center'))
         subprocess.run(
-            args = [*docker_compose_command, 'build', '--no-cache'],
+            args = [*docker_compose_command, 'build', '--no-cache', '--pull'],
             cwd = install_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
         )
         print(Rule(style=Style(color='cyan'), align='center'))
@@ -924,21 +924,12 @@ def Installer(version: str) -> None:
 
     # ***** インストール完了 *****
 
-    # IPv4 かつループバックアドレスとリンクローカルアドレスでない IP アドレスを取得
-    ip_addresses: list[tuple[str, str]] = []
-    for nic in ifaddr.get_adapters():
-        for ip in nic.ips:
-            if ip.is_IPv4:
-                # ループバック (127.x.x.x) とリンクローカル (169.254.x.x) を除外
-                if cast(str, ip.ip).startswith('127.') is False and cast(str, ip.ip).startswith('169.254.') is False:
-                    ip_addresses.append((cast(str, ip.ip), ip.nice_name))  # IP アドレスとインターフェイス名
-
-    # IP アドレス昇順でソート
-    ip_addresses.sort(key=lambda key: key[0])
+    # ループバックアドレスまたはリンクローカルアドレスでない IPv4 アドレスとインターフェイス名を取得
+    nic_infos = GetNetworkInterfaceInformation()
 
     # インストール完了メッセージを表示
-    table_07 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
-    table_07.add_column(RemoveEmojiIfLegacyTerminal(
+    table_done = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
+    table_done.add_column(RemoveEmojiIfLegacyTerminal(
         'インストールが完了しました！🎉🎊 すぐに使いはじめられます！🎈\n'
         '下記の URL から、KonomiTV の Web UI にアクセスしてみましょう！\n'
         'ブラウザで [アプリをインストール] または [ホーム画面に追加] を押すと、\n'
@@ -948,9 +939,10 @@ def Installer(version: str) -> None:
 
     # アクセス可能な URL のリストを IP アドレスごとに表示
     ## ローカルホスト (127.0.0.1) だけは https://my.local.konomi.tv:7000/ というエイリアスが使える
-    urls = [f'https://{ip_address[0].replace(".", "-")}.local.konomi.tv:{server_port}/' for ip_address in ip_addresses]
-    table_07.add_row(f'[bright_blue]{f"https://my.local.konomi.tv:{server_port}/": <{max([len(url) for url in urls])}}[/bright_blue] (ローカルホスト)')
+    urls = [f'https://{nic_info[0].replace(".", "-")}.local.konomi.tv:{server_port}/' for nic_info in nic_infos]
+    urls_max_length = max([len(url) for url in urls])  # URL の最大文字長を取得
+    table_done.add_row(f'[bright_blue]{f"https://my.local.konomi.tv:{server_port}/": <{urls_max_length}}[/bright_blue] (ローカルホスト)')
     for index, url in enumerate(urls):
-        table_07.add_row(f'[bright_blue]{url: <{max([len(url) for url in urls])}}[/bright_blue] ({ip_addresses[index][1]})')
+        table_done.add_row(f'[bright_blue]{url: <{urls_max_length}}[/bright_blue] ({nic_infos[index][1]})')
 
-    print(Padding(table_07, (1, 2, 0, 2)))
+    print(Padding(table_done, (1, 2, 0, 2)))
