@@ -173,16 +173,20 @@ def Updater(version: str) -> None:
         progress = CreateBasicInfiniteProgress()
         progress.add_task('', total=None)
         with progress:
+
+            # リモートの変更内容とタグを取得
             subprocess.run(
-                args = ['git', 'fetch'],
+                args = ['git', 'fetch', 'origin', '--tags'],
                 cwd = update_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
                 stdout = subprocess.DEVNULL,  # 標準出力を表示しない
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
             )
+
+            # 新しいバージョンのコードをチェックアウト
             subprocess.run(
                 # TODO: v0.6.0 リリース前に master から変更必須
                 #args = ['git', 'checkout', '--force', f'v{version}'],
-                args = ['git', 'checkout', '--force', 'master'],
+                args = ['git', 'checkout', '--force', 'origin/master'],
                 cwd = update_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
                 stdout = subprocess.DEVNULL,  # 標準出力を表示しない
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
