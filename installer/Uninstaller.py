@@ -195,6 +195,22 @@ def Uninstaller() -> None:
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
             )
 
+    # ***** Windows: Windows Defender ファイアウォールから受信規則を削除 *****
+
+    if platform_type == 'Windows':
+
+        print(Padding('Windows Defender ファイアウォールから受信規則を削除しています…', (1, 2, 0, 2)))
+        progress = CreateBasicInfiniteProgress()
+        progress.add_task('', total=None)
+        with progress:
+
+            # 既存の受信規則を削除
+            subprocess.run(
+                args = ['netsh', 'advfirewall', 'firewall', 'delete', 'rule', 'name=KonomiTV Service'],
+                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+            )
+
     # アンインストール対象の KonomiTV のフォルダを削除
     ## サービスを終了・アンインストールしたあとなので、心置きなく削除できる
     ## TODO: Windows で Git インストールすると一部の Git ファイルが削除できないっぽい…？

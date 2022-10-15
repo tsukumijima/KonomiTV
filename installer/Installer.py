@@ -436,14 +436,14 @@ def Installer(version: str) -> None:
         print(Padding(Panel(
             '[yellow]注意: デフォルトのリッスンポート (7000) がほかのサーバーソフトと重複しています。[/yellow]\n'
             f'代わりのリッスンポートとして、ポート {server_port} を選択します。\n'
-            'リッスンポートは、config.yaml を編集すると変更できます。',
+            'リッスンポートは、環境設定ファイル (config.yaml) を編集すると変更できます。',
             box = box.SQUARE,
             border_style = Style(color='#E33157'),
         ), (1, 2, 0, 2)))
 
-    # ***** 環境設定ファイルの生成 *****
+    # ***** 環境設定ファイル (config.yaml) の生成 *****
 
-    print(Padding('環境設定ファイルを生成しています…', (1, 2, 0, 2)))
+    print(Padding('環境設定ファイル (config.yaml) を生成しています…', (1, 2, 0, 2)))
     progress = CreateBasicInfiniteProgress()
     progress.add_task('', total=None)
     with progress:
@@ -740,6 +740,33 @@ def Installer(version: str) -> None:
                     box = box.SQUARE,
                     border_style = Style(color='#E33157'),
                 ), (0, 2, 0, 2)))
+
+    # ***** Windows: Windows Defender ファイアウォールに受信規則を追加 *****
+
+    if platform_type == 'Windows':
+
+        print(Padding('Windows Defender ファイアウォールに受信規則を追加しています…', (1, 2, 0, 2)))
+        progress = CreateBasicInfiniteProgress()
+        progress.add_task('', total=None)
+        with progress:
+
+            # 一旦既存の受信規則を削除
+            subprocess.run(
+                args = ['netsh', 'advfirewall', 'firewall', 'delete', 'rule', 'name=KonomiTV Service'],
+                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+            )
+
+            # "プライベート" と "パブリック" で有効な受信規則を追加
+            subprocess.run(
+                args = [
+                    'netsh', 'advfirewall', 'firewall', 'add', 'rule', 'name=KonomiTV Service', 'description=KonomiTV Windows Service.',
+                    'enable=yes', 'profile=private,public', 'dir=in', 'action=allow',
+                    f'program={install_path / "server/thirdparty/Akebi/akebi-https-server.exe"}',
+                ],
+                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+            )
 
     # ***** Windows: Windows サービスのインストール・起動 *****
 
