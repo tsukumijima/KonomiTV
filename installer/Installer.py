@@ -761,7 +761,7 @@ def Installer(version: str) -> None:
             subprocess.run(
                 args = [
                     'netsh', 'advfirewall', 'firewall', 'add', 'rule', 'name=KonomiTV Service', 'description=KonomiTV Windows Service.',
-                    'enable=yes', 'profile=private,public', 'dir=in', 'action=allow',
+                    'profile=private,public', 'enable=yes', 'action=allow', 'dir=in', 'protocol=TCP',
                     f'program={install_path / "server/thirdparty/Akebi/akebi-https-server.exe"}',
                 ],
                 stdout = subprocess.DEVNULL,  # 標準出力を表示しない
