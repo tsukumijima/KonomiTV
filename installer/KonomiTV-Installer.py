@@ -122,6 +122,18 @@ def main():
     ## choices を指定することで、自動的にバリデーションが行われる（超便利）
     run_type = int(CustomPrompt.ask('インストール(1) / アップデート(2) / アンインストール(3)', default='1', choices=['1', '2', '3']))
 
+    # Windows: コンソール出力前のおまじないとして、適当な PowerShell コマンドを実行する
+    ## なぜ直るのかは全くもって謎だが、一度 PowerShell コマンドを実行しておくことで、print(Padding('Test', (1, 2, 0, 2)) のように
+    ## Padding ありで print() した際に余計な改行が入る問題 (Rich または conhost.exe のバグ？) を回避することができる
+    ## なお、Python 側から何か出力する前に下記のコマンドを実行すると効果がない（ただしなぜか Rich からレガシーコンソール扱いされなくなる）
+    ## conhost.exe、早く絶滅してくれ……
+    if os.name == 'nt':
+        subprocess.run(
+            args = ['powershell', '-Command', 'echo $PSVersionTable'],
+            stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+            stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+        )
+
     # 実行タイプごとにそれぞれの実装を呼び出す
     if run_type == 1:
         Installer(INSTALLER_VERSION)
