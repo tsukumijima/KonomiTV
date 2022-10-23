@@ -812,6 +812,10 @@ def Installer(version: str) -> None:
         table_07.add_row('入力されたパスワードがそれ以外の用途に利用されることはありません。')
         table_07.add_row('間違ったパスワードを入力すると、KonomiTV が起動できなくなります。')
         table_07.add_row('Enter キーを押す前に、正しいパスワードかどうか今一度確認してください。')
+        table_07.add_row(Rule(characters='─', style=Style(color='#E33157')))
+        table_07.add_row('ログオン中のユーザーにパスワードを設定していない場合は、簡単なものでいいので')
+        table_07.add_row('何かパスワードを設定してから、その設定したパスワードを入力してください。')
+        table_07.add_row('なお、パスワードの設定後にインストーラーを起動し直す必要はありません。')
         print(Padding(table_07, (1, 2, 1, 2)))
 
         # 現在ログオン中のユーザーのパスワードを取得
