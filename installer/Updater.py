@@ -28,7 +28,6 @@ from Utils import CustomPrompt
 from Utils import GetNetworkInterfaceInformation
 from Utils import IsDockerComposeV2
 from Utils import IsDockerInstalled
-from Utils import IsGitInstalled
 from Utils import RemoveEmojiIfLegacyTerminal
 from Utils import SaveConfigYaml
 
@@ -97,7 +96,17 @@ def Updater(version: str) -> None:
     # Docker でインストールしたことが推測されるので、プラットフォームタイプを Linux-Docker に切り替える
     ## インストーラーで Docker を使わずにインストールした場合は docker-compose.yaml は生成されないことを利用している
     if platform_type == 'Linux' and IsDockerInstalled() and Path(update_path / 'docker-compose.yaml').exists():
+
+        # プラットフォームタイプを Linux-Docker にセット
         platform_type = 'Linux-Docker'
+
+        # Docker がインストールされているものの Docker サービスが停止している場合に備え、Docker サービスを起動しておく
+        ## すでに起動している場合は何も起こらない
+        subprocess.run(
+            args = ['systemctl', 'start', 'docker'],
+            stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+            stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+        )
 
     # Docker Compose V2 かどうかでコマンド名を変える
     ## Docker Compose V1 は docker-compose 、V2 は docker compose という違いがある

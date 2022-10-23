@@ -71,7 +71,17 @@ def Installer(version: str) -> None:
             # Docker を使ってインストールするかを訊く (Y/N)
             is_install_with_docker = bool(CustomConfirm.ask('Docker + Docker Compose でインストールする', default=True))
             if is_install_with_docker is True:
-                platform_type = 'Linux-Docker'  # プラットフォームタイプを Linux-Docker にセット
+
+                # プラットフォームタイプを Linux-Docker にセット
+                platform_type = 'Linux-Docker'
+
+                # Docker がインストールされているものの Docker サービスが停止している場合に備え、Docker サービスを起動しておく
+                ## すでに起動している場合は何も起こらない
+                subprocess.run(
+                    args = ['systemctl', 'start', 'docker'],
+                    stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+                    stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+                )
 
         # Docker 使ってインストールしない場合、pm2 コマンドがインストールされていなければここで終了する
         ## PM2 がインストールされていないと PM2 サービスでの自動起動ができないため
