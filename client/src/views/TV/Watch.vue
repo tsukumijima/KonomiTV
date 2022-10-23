@@ -872,7 +872,7 @@ export default Vue.extend({
                     aribb24: {
                         normalFont: '"Windows TV MaruGothic", "Hiragino Maru Gothic Pro", "Yu Gothic Medium", sans-serif',
                         gaijiFont: '"Windows TV MaruGothic", "Hiragino Maru Gothic Pro", "Yu Gothic Medium", sans-serif',
-                        forceStrokeColor: 'black',  // 縁取りする色
+                        forceStrokeColor: (Utils.getSettingsItem('always_border_caption_text')) ? true : false,  // 縁取りする色
                         drcsReplacement: true,  // DRCS 文字を対応する Unicode 文字に置換
                         enableRawCanvas: true,  // 高解像度の字幕 Canvas を取得できるように
                         useStrokeText: true,  // 縁取りに strokeText API を利用

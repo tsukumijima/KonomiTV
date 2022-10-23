@@ -9,7 +9,7 @@
             <div class="settings__item">
                 <div class="settings__item-heading">テレビのストリーミング画質</div>
                 <div class="settings__item-label">
-                    テレビをライブストリーミングする際の既定の画質を設定します。<br>
+                    テレビをライブストリーミングするときの既定の画質を設定します。<br>
                     ストリーミング画質はプレイヤーの設定からいつでも切り替えられます。<br>
                 </div>
                 <div class="settings__item-label">
@@ -23,7 +23,7 @@
             <div class="settings__item settings__item--switch">
                 <label class="settings__item-heading" for="low_latency_mode">テレビを低遅延で視聴する</label>
                 <label class="settings__item-label" for="low_latency_mode">
-                    テレビをライブストリーミングする際に、低遅延で視聴するかを設定します。<br>
+                    テレビをライブストリーミングするときに、低遅延で視聴するかを設定します。<br>
                     低遅延ストリーミングがオンのときは、約 2.5 秒以上遅延したときに少しだけ再生速度を早める (1.1x) ことで、滑らかにストリーミングの遅れを取り戻します。<br>
                     宅外視聴などのネットワークが不安定になりがちな環境では、一度低遅延ストリーミングをオフにしてみると、映像のカクつきを改善できるかもしれません。<br>
                 </label>
@@ -34,7 +34,7 @@
             <div class="settings__item settings__item--switch">
                 <label class="settings__item-heading" for="show_superimpose_tv">テレビをみるときに文字スーパーを表示する</label>
                 <label class="settings__item-label" for="show_superimpose_tv">
-                    テレビをライブストリーミングする際に、文字スーパーを表示するかを設定します。<br>
+                    テレビをライブストリーミングするときに、文字スーパーを表示するかを設定します。<br>
                     文字スーパーは、緊急地震速報の赤テロップや、NHK BS のニュース速報のテロップなどで利用されています。とくに理由がなければ、オンのままにしておくことをおすすめします。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="show_superimpose_tv" inset hide-details
@@ -59,6 +59,18 @@
                 <v-select class="settings__item-form" outlined hide-details
                     :items="tv_panel_active_tab" v-model="settings.tv_panel_active_tab">
                 </v-select>
+            </div>
+            <v-divider class="mt-6"></v-divider>
+            <div class="settings__item settings__item--switch">
+                <label class="settings__item-heading" for="always_border_caption_text">字幕の文字を常に縁取って描画する</label>
+                <label class="settings__item-label" for="always_border_caption_text">
+                    プレイヤーで字幕表示をオンにしているときに、字幕の文字を常に縁取って描画するかを設定します。<br>
+                    字幕は縁取られていた方が視認性が良く、見た目的にもきれいです。とくに理由がなければ、オンのままにしておくことをおすすめします。<br>
+                    この設定がオフになっているときも、字幕データ側で明示的に縁取りするように指定されているときは、文字が縁取られた状態で描画されます。<br>
+                </label>
+                <v-switch class="settings__item-switch" id="always_border_caption_text" inset hide-details
+                    v-model="settings.always_border_caption_text">
+                </v-switch>
             </div>
             <v-divider class="mt-6"></v-divider>
             <div class="settings__item">
@@ -191,6 +203,7 @@ export default Vue.extend({
                     'show_superimpose_tv',
                     'panel_display_state',
                     'tv_panel_active_tab',
+                    'always_border_caption_text',
                     'capture_save_mode',
                     'capture_caption_mode',
                 ];

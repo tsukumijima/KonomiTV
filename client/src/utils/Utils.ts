@@ -57,6 +57,9 @@ export default class Utils {
         // テレビをみるときに既定で表示されるパネルのタブ (Default: 番組情報タブ)
         tv_panel_active_tab: 'Program' as ('Program' | 'Channel' | 'Comment' | 'Twitter'),
 
+        // 字幕の文字を常に縁取って描画する (Default: 常に縁取る)
+        always_border_caption_text: true as boolean,
+
         // キャプチャの保存先 (Default: ブラウザでダウンロード)
         capture_save_mode: 'Browser' as ('Browser' | 'UploadServer' | 'Both'),
 
@@ -102,6 +105,7 @@ export default class Utils {
         'show_superimpose_tv',
         'panel_display_state',
         'tv_panel_active_tab',
+        'always_border_caption_text',
         'capture_save_mode',
         'capture_caption_mode',
         'comment_speed_rate',
