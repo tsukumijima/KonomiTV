@@ -629,19 +629,35 @@ def Installer(version: str) -> None:
         if encoder == 'QSVEncC' and platform_type == 'Linux':
 
             # QSVEncC の --check-hw オプションの終了コードが 0 なら利用可能、それ以外なら利用不可
-            result = subprocess.run(
+            result1 = subprocess.run(
                 args = [install_path / 'server/thirdparty/QSVEncC/QSVEncC.elf', '--check-hw'],
                 stdout = subprocess.PIPE,  # 標準出力をキャプチャする
                 stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
                 text = True,  # 出力をテキストとして取得する
             )
 
+            # QSVEncC の --check-clinfo オプションの終了コードが 0 なら利用可能、それ以外なら利用不可
+            ## libva-intel-driver (i965-va-driver) はインストールされているが、
+            ## QSVEncC の動作に必要な intel-media-driver はインストールされていないケースを弾く (--check-hw では弾けない)
+            result2 = subprocess.run(
+                args = [install_path / 'server/thirdparty/QSVEncC/QSVEncC.elf', '--check-clinfo'],
+                stdout = subprocess.PIPE,  # 標準出力をキャプチャする
+                stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
+                text = True,  # 出力をテキストとして取得する
+            )
+
+            # Intel Media Driver が /usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so に配置されているか
+            ## Intel Media Driver がインストールされていればここに配置されるはずなので、配置されていないということは
+            ## おそらくインストールされていないと考えられる
+            ## ref: https://packages.ubuntu.com/ja/focal/amd64/intel-media-va-driver-non-free/filelist
+            is_intel_media_driver_installed = Path('/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so').exists()
+
             # QSVEncC が利用できない結果になった場合は Intel Media Driver がインストールされていない可能性が高いので、
             # 適宜 Intel Media Driver をインストールするように催促する
             ## Intel Media Driver は iGPU 本体のものとは切り離されているので、インストールが比較的容易
             ## Intel Graphics そのもののドライバーは Linux カーネルに組み込まれている
             ## インストールコマンドが複雑なので、コマンド例を明示する
-            if result.returncode != 0:
+            if result1.returncode != 0 or result2.returncode != 0 or is_intel_media_driver_installed is False:
                 print(Padding(Panel(
                     '[yellow]注意: この PC では QSVEncC が利用できない状態です。[/yellow]\n'
                     'Intel QSV の利用に必要な Intel Media Driver が\n'
@@ -664,7 +680,12 @@ def Installer(version: str) -> None:
                     border_style = Style(color='#E33157'),
                 ), (0, 2, 0, 2)))
                 print(Padding(Panel(
-                    'QSVEncC のログ:\n' + result.stdout.strip(),
+                    'QSVEncC (--check-hw) のログ:\n' + result1.stdout.strip(),
+                    box = box.SQUARE,
+                    border_style = Style(color='#E33157'),
+                ), (0, 2, 0, 2)))
+                print(Padding(Panel(
+                    'QSVEncC (--check-clinfo) のログ:\n' + result2.stdout.strip(),
                     box = box.SQUARE,
                     border_style = Style(color='#E33157'),
                 ), (0, 2, 0, 2)))
