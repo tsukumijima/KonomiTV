@@ -25,7 +25,7 @@ from typing import Any, cast, Literal
 from watchdog.events import FileCreatedEvent
 from watchdog.events import FileModifiedEvent
 from watchdog.events import FileSystemEventHandler
-from watchdog.observers import Observer
+from watchdog.observers.polling import PollingObserver
 
 from Utils import CreateBasicInfiniteProgress
 from Utils import CreateDownloadProgress
@@ -960,7 +960,9 @@ def Installer(version: str) -> None:
                         is_server_started = True
 
     # Watchdog を起動
-    observer = Observer()
+    ## 通常の OS のファイルシステム変更通知 API を使う Observer だとなかなか検知できないことがあるみたいなので、
+    ## 代わりに PollingObserver を使う
+    observer = PollingObserver()
     observer.schedule(LogFolderWatchHandler(), str(install_path / 'server/logs/'), recursive=True)
     observer.start()
 
