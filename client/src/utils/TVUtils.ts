@@ -270,12 +270,19 @@ export class TVUtils {
 
 
     /**
-     * キャプチャ画像に番組情報と撮影時刻のメタデータ (EXIF) をセットする
+     * キャプチャ画像に番組情報と撮影時刻、字幕やコメントが合成されているかどうかのメタデータ (EXIF) をセットする
      * @param blob キャプチャ画像の Blob オブジェクト
      * @param program EXIF にセットする番組情報オブジェクト
+     * @param is_caption_composited 字幕が合成されているか
+     * @param is_comment_composited コメントが合成されているか
      * @returns EXIF が追加されたキャプチャ画像の Blob オブジェクト
      */
-    static async setEXIFDataToCapture(blob: Blob, program: IProgram): Promise<Blob> {
+    static async setEXIFDataToCapture(
+        blob: Blob,
+        program: IProgram,
+        is_caption_composited: boolean,
+        is_comment_composited: boolean,
+    ): Promise<Blob> {
 
         // EXIF の XPComment 領域に入れるメタデータの JSON オブジェクト
         // 撮影時刻とチャンネル・番組を一意に特定できる情報を入れる
@@ -289,6 +296,8 @@ export class TVUtils {
             'start_time': program.start_time,
             'end_time': program.end_time,
             'duration': program.duration,
+            'is_caption_composited': is_caption_composited,
+            'is_comment_composited': is_comment_composited,
         }
 
         // 保存する EXIF メタデータを構築

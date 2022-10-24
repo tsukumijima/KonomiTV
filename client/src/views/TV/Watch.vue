@@ -2091,8 +2091,8 @@ export default Vue.extend({
                     // 撮ったキャプチャを Twitter タブのキャプチャリストに送る
                     (this.$refs.Twitter as InstanceType<typeof Twitter>).addCaptureList(blob, filename_ext);
 
-                    // キャプチャに番組情報と撮影時刻のメタデータ (EXIF) をセット
-                    blob = await TVUtils.setEXIFDataToCapture(blob, this.channel.program_present);
+                    // キャプチャに番組情報などのメタデータ (EXIF) をセット
+                    blob = await TVUtils.setEXIFDataToCapture(blob, this.channel.program_present, false, with_comments);
 
                     // キャプチャの保存先: ブラウザでダウンロード or 両方
                     if (['Browser', 'Both'].includes(Utils.getSettingsItem('capture_save_mode'))) {
@@ -2145,8 +2145,8 @@ export default Vue.extend({
                     // 撮ったキャプチャを Twitter タブのキャプチャリストに送る
                     (this.$refs.Twitter as InstanceType<typeof Twitter>).addCaptureList(blob, filename_ext);
 
-                    // キャプチャに番組情報と撮影時刻のメタデータ (EXIF) をセット
-                    blob = await TVUtils.setEXIFDataToCapture(blob, this.channel.program_present);
+                    // キャプチャに番組情報などのメタデータ (EXIF) をセット
+                    blob = await TVUtils.setEXIFDataToCapture(blob, this.channel.program_present, true, with_comments);
 
                     // キャプチャの保存先: ブラウザでダウンロード or 両方
                     if (['Browser', 'Both'].includes(Utils.getSettingsItem('capture_save_mode'))) {
