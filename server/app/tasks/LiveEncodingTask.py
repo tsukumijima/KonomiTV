@@ -93,24 +93,25 @@ class LiveEncodingTask():
         # 映像
         options.append(f'-vcodec libx264 -flags +cgop -vb {QUALITY[quality]["video_bitrate"]} -maxrate {QUALITY[quality]["video_bitrate_max"]}')
         options.append('-aspect 16:9 -preset veryfast -profile:v main')
-        ## フル HD 放送が行われているチャンネルのみ、指定された品質が 1080p であればフル HD でエンコードする
+        ## フル HD 放送が行われているチャンネルのみ、指定された品質が 1080p or 1080p-60fps であればフル HD でエンコードする
         if (quality == '1080p' or quality == '1080p-60fps') and is_fullhd_channel is True:
             if quality == '1080p-60fps':
                 # インターレース解除 (60i → 60p (60fps))
-                options.append('-r 60000/1001 -g 120')
+                options.append('-r 60000/1001 -g 60')
                 options.append('-vf yadif=mode=1:parity=-1:deint=1,scale=1920:1080')
             else:
                 # インターレース解除 (60i → 30p (30fps))
-                options.append('-r 30000/1001 -g 60')
+                options.append('-r 30000/1001 -g 30')
                 options.append('-vf yadif=mode=0:parity=-1:deint=1,scale=1920:1080')
+        ## フル HD ではないチャンネル
         else:
             if quality == '1080p-60fps':
                 # インターレース解除 (60i → 60p (60fps))
-                options.append('-r 60000/1001 -g 120')
+                options.append('-r 60000/1001 -g 60')
                 options.append(f'-vf yadif=mode=1:parity=-1:deint=1,scale={QUALITY[quality]["width"]}:{QUALITY[quality]["height"]}')
             else:
                 # インターレース解除 (60i → 30p (30fps))
-                options.append('-r 30000/1001 -g 60')
+                options.append('-r 30000/1001 -g 30')
                 options.append(f'-vf yadif=mode=0:parity=-1:deint=1,scale={QUALITY[quality]["width"]}:{QUALITY[quality]["height"]}')
 
         # 音声
@@ -220,17 +221,17 @@ class LiveEncodingTask():
         if encoder_type == 'QSVEncC' or encoder_type == 'NVEncC':
             if quality == '1080p-60fps':
                 # インターレース解除 (60i → 60p (60fps))
-                options.append('--vpp-deinterlace bob --avsync cfr --gop-len 120')
+                options.append('--vpp-deinterlace bob --avsync cfr --gop-len 60')
             else:
                 # インターレース解除 (60i → 30p (30fps))
-                options.append('--vpp-deinterlace normal --avsync forcecfr --gop-len 60')
+                options.append('--vpp-deinterlace normal --avsync forcecfr --gop-len 30')
         elif encoder_type == 'VCEEncC':
             if quality == '1080p-60fps':
                 # インターレース解除 (60i → 60p (60fps))
-                options.append('--vpp-yadif mode=bob --avsync cfr --gop-len 120')
+                options.append('--vpp-yadif mode=bob --avsync cfr --gop-len 60')
             else:
                 # インターレース解除 (60i → 30p (30fps))
-                options.append('--vpp-afs preset=default --avsync forcecfr --gop-len 60')
+                options.append('--vpp-afs preset=default --avsync forcecfr --gop-len 30')
         ## プリセット
         if encoder_type == 'QSVEncC':
             options.append('--quality balanced')
