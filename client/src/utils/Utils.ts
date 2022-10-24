@@ -60,6 +60,12 @@ export default class Utils {
         // 字幕の文字を常に縁取って描画する (Default: 常に縁取る)
         always_border_caption_text: true as boolean,
 
+        // 字幕の背景色を指定する (Default: 指定しない)
+        specify_caption_background_color: false as boolean,
+
+        // 字幕の背景色 (Default: 不透明度が 50% の黒)
+        caption_background_color: '#00000080' as string,
+
         // キャプチャの保存先 (Default: ブラウザでダウンロード)
         capture_save_mode: 'Browser' as ('Browser' | 'UploadServer' | 'Both'),
 
@@ -106,6 +112,8 @@ export default class Utils {
         'panel_display_state',
         'tv_panel_active_tab',
         'always_border_caption_text',
+        'specify_caption_background_color',
+        'caption_background_color',
         'capture_save_mode',
         'capture_caption_mode',
         'comment_speed_rate',

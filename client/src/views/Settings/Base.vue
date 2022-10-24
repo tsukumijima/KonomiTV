@@ -121,6 +121,10 @@ export default Vue.extend({
                     margin-right: 62px;
                 }
 
+                &--disabled {
+                    opacity: 0.5;
+                }
+
                 &-heading {
                     color: var(--v-text-base);
                     font-size: 16.5px;

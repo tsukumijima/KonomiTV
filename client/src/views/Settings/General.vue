@@ -66,11 +66,34 @@
                 <label class="settings__item-label" for="always_border_caption_text">
                     プレイヤーで字幕表示をオンにしているときに、字幕の文字を常に縁取って描画するかを設定します。<br>
                     字幕は縁取られていた方が視認性が良く、見た目的にもきれいです。とくに理由がなければ、オンのままにしておくことをおすすめします。<br>
-                    この設定がオフになっているときも、字幕データ側で明示的に縁取りするように指定されているときは、文字が縁取られた状態で描画されます。<br>
+                    この設定をオフにしているときも、字幕データ側で明示的に縁取りするように指定されていれば、文字が縁取られた状態で描画されます。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="always_border_caption_text" inset hide-details
                     v-model="settings.always_border_caption_text">
                 </v-switch>
+            </div>
+            <div class="settings__item settings__item--switch">
+                <label class="settings__item-heading" for="specify_caption_background_color">字幕の背景色を指定する</label>
+                <label class="settings__item-label" for="specify_caption_background_color">
+                    プレイヤーで字幕表示をオンにしているときに、字幕の背景色を明示的に指定するかを設定します。<br>
+                    この設定をオフにしているときは、字幕データ側で指定されている背景色で描画されます。とくに理由がなければ、オフのままにしておくことをおすすめします。<br>
+                </label>
+                <v-switch class="settings__item-switch" id="specify_caption_background_color" inset hide-details
+                    v-model="settings.specify_caption_background_color">
+                </v-switch>
+            </div>
+            <div class="settings__item" :class="{'settings__item--disabled': settings.specify_caption_background_color === false}">
+                <label class="settings__item-heading">字幕の背景色</label>
+                <label class="settings__item-label">
+                    プレイヤーで字幕表示をオンにしているときの字幕の背景色を設定します。<br>
+                    上の [字幕の背景色を指定する] をオフにしているときのみ有効です。透明度 (アルファチャンネル) を 0 に設定すれば、字幕の背景を非表示にできます。<br>
+                </label>
+                <div class="settings__item-label" ref="caption_background_color">
+                    <v-color-picker class="settings__item-form" hide-details v-model="settings.caption_background_color"
+                        :flat="true" :show-alpha="true" :show-swatches="false" :hide-inputs="false" :width="690" :canvas-height="80"
+                        :disabled="settings.specify_caption_background_color === false">
+                    </v-color-picker>
+                </div>
             </div>
             <v-divider class="mt-6"></v-divider>
             <div class="settings__item">
@@ -204,6 +227,8 @@ export default Vue.extend({
                     'panel_display_state',
                     'tv_panel_active_tab',
                     'always_border_caption_text',
+                    'specify_caption_background_color',
+                    'caption_background_color',
                     'capture_save_mode',
                     'capture_caption_mode',
                 ];
