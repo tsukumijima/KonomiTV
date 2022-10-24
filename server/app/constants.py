@@ -7,6 +7,7 @@ import secrets
 import sys
 import uvicorn.logging
 from pathlib import Path
+from pydantic import BaseModel, PositiveInt
 from typing import Any, Dict, Literal
 
 
@@ -47,67 +48,182 @@ else:
     with open(CONFIG_YAML, encoding='utf-8') as file:
         CONFIG: Dict[str, Dict[str, Any]] = ruamel.yaml.YAML().load(file)
 
-# 品質の種類の型定義
-QUALITY_TYPES = Literal['1080p-60fps', '1080p', '810p', '720p', '540p', '480p', '360p', '240p']
+# 品質を表す Pydantic モデル
+class Quality(BaseModel):
+    is_hevc: bool  # 映像コーデックが HEVC かどうか
+    is_60fps: bool  # フレームレートが 60fps かどうか
+    width: PositiveInt  # 縦解像度
+    height: PositiveInt  # 横解像度
+    video_bitrate: str  # 映像のビットレート
+    video_bitrate_max: str  # 映像の最大ビットレート
+    audio_bitrate: str  # 音声のビットレート
+
+# 品質の種類 (型定義)
+QUALITY_TYPES = Literal[
+    '1080p-60fps',
+    '1080p-60fps-hevc',
+    '1080p',
+    '1080p-hevc',
+    '810p',
+    '810p-hevc',
+    '720p',
+    '720p-hevc',
+    '540p',
+    '540p-hevc',
+    '480p',
+    '480p-hevc',
+    '360p',
+    '360p-hevc',
+    '240p',
+    '240p-hevc',
+]
 
 # 映像と音声の品質
-QUALITY: Dict[QUALITY_TYPES, Dict[str, int | str]] = {
-    '1080p-60fps': {
-        'width': 1440,  # 縦解像度 (フル HD で放送されているチャンネルでは 1920 に設定される)
-        'height': 1080,  # 横解像度
-        'video_bitrate': '6500K',  # 映像ビットレート
-        'video_bitrate_max': '9000K',  # 映像最大ビットレート
-        'audio_bitrate': '192K',  # 音声ビットレート
-    },
-    '1080p': {
-        'width': 1440,
-        'height': 1080,
-        'video_bitrate': '6500K',
-        'video_bitrate_max': '9000K',
-        'audio_bitrate': '192K',
-    },
-    '810p': {
-        'width': 1440,
-        'height': 810,
-        'video_bitrate': '5500K',
-        'video_bitrate_max': '7600K',
-        'audio_bitrate': '192K',
-    },
-    '720p': {
-        'width': 1280,
-        'height': 720,
-        'video_bitrate': '4500K',
-        'video_bitrate_max': '6200K',
-        'audio_bitrate': '192K',
-    },
-    '540p': {
-        'width': 940,
-        'height': 540,
-        'video_bitrate': '3000K',
-        'video_bitrate_max': '4100K',
-        'audio_bitrate': '192K',
-    },
-    '480p': {
-        'width': 720,
-        'height': 480,
-        'video_bitrate': '2000K',
-        'video_bitrate_max': '2800K',
-        'audio_bitrate': '192K',
-    },
-    '360p': {
-        'width': 640,
-        'height': 360,
-        'video_bitrate': '1100K',
-        'video_bitrate_max': '1800K',
-        'audio_bitrate': '128K',
-    },
-    '240p': {
-        'width': 426,
-        'height': 240,
-        'video_bitrate': '550K',
-        'video_bitrate_max': '650K',
-        'audio_bitrate': '128K',
-    },
+QUALITY: Dict[QUALITY_TYPES, Quality] = {
+    '1080p-60fps': Quality(
+        is_hevc = False,
+        is_60fps = True,
+        width = 1440,
+        height = 1080,
+        video_bitrate = '6500K',
+        video_bitrate_max = '9000K',
+        audio_bitrate = '192K',
+    ),
+    '1080p-60fps-hevc': Quality(
+        is_hevc = True,
+        is_60fps = True,
+        width = 1440,
+        height = 1080,
+        video_bitrate = '3250K',
+        video_bitrate_max = '4500K',
+        audio_bitrate = '192K',
+    ),
+    '1080p': Quality(
+        is_hevc = False,
+        is_60fps = False,
+        width = 1440,
+        height = 1080,
+        video_bitrate = '6500K',
+        video_bitrate_max = '9000K',
+        audio_bitrate = '192K',
+    ),
+    '1080p-hevc': Quality(
+        is_hevc = True,
+        is_60fps = False,
+        width = 1440,
+        height = 1080,
+        video_bitrate = '3250K',
+        video_bitrate_max = '4500K',
+        audio_bitrate = '192K',
+    ),
+    '810p': Quality(
+        is_hevc = False,
+        is_60fps = False,
+        width = 1440,
+        height = 810,
+        video_bitrate = '5500K',
+        video_bitrate_max = '7600K',
+        audio_bitrate = '192K',
+    ),
+    '810p-hevc': Quality(
+        is_hevc = True,
+        is_60fps = False,
+        width = 1440,
+        height = 810,
+        video_bitrate = '2750K',
+        video_bitrate_max = '3800K',
+        audio_bitrate = '192K',
+    ),
+    '720p': Quality(
+        is_hevc = False,
+        is_60fps = False,
+        width = 1280,
+        height = 720,
+        video_bitrate = '4500K',
+        video_bitrate_max = '6200K',
+        audio_bitrate = '192K',
+    ),
+    '720p-hevc': Quality(
+        is_hevc = True,
+        is_60fps = False,
+        width = 1280,
+        height = 720,
+        video_bitrate = '2250K',
+        video_bitrate_max = '3100K',
+        audio_bitrate = '192K',
+    ),
+    '540p': Quality(
+        is_hevc = False,
+        is_60fps = False,
+        width = 960,
+        height = 540,
+        video_bitrate = '3000K',
+        video_bitrate_max = '4100K',
+        audio_bitrate = '192K',
+    ),
+    '540p-hevc': Quality(
+        is_hevc = True,
+        is_60fps = False,
+        width = 960,
+        height = 540,
+        video_bitrate = '1500K',
+        video_bitrate_max = '2050K',
+        audio_bitrate = '192K',
+    ),
+    '480p': Quality(
+        is_hevc = False,
+        is_60fps = False,
+        width = 854,
+        height = 480,
+        video_bitrate = '2000K',
+        video_bitrate_max = '2800K',
+        audio_bitrate = '192K',
+    ),
+    '480p-hevc': Quality(
+        is_hevc = True,
+        is_60fps = False,
+        width = 854,
+        height = 480,
+        video_bitrate = '1000K',
+        video_bitrate_max = '1400K',
+        audio_bitrate = '192K',
+    ),
+    '360p': Quality(
+        is_hevc = False,
+        is_60fps = False,
+        width = 640,
+        height = 360,
+        video_bitrate = '1100K',
+        video_bitrate_max = '1800K',
+        audio_bitrate = '128K',
+    ),
+    '360p-hevc': Quality(
+        is_hevc = True,
+        is_60fps = False,
+        width = 640,
+        height = 360,
+        video_bitrate = '550K',
+        video_bitrate_max = '900K',
+        audio_bitrate = '128K',
+    ),
+    '240p': Quality(
+        is_hevc = False,
+        is_60fps = False,
+        width = 426,
+        height = 240,
+        video_bitrate = '550K',
+        video_bitrate_max = '650K',
+        audio_bitrate = '128K',
+    ),
+    '240p-hevc': Quality(
+        is_hevc = True,
+        is_60fps = False,
+        width = 426,
+        height = 240,
+        video_bitrate = '275K',
+        video_bitrate_max = '325K',
+        audio_bitrate = '128K',
+    ),
 }
 
 # クライアントの静的ファイルがあるディレクトリ

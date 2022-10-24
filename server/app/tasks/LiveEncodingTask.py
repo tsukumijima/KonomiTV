@@ -65,7 +65,7 @@ class LiveEncodingTask():
         FFmpeg に渡すオプションを組み立てる
 
         Args:
-            quality (QUALITY_TYPES): 映像の品質 (1080p-60fps ~ 240p)
+            quality (QUALITY_TYPES): 映像の品質
             is_fullhd_channel (bool): フル HD 放送が実施されているチャンネルかどうか
 
         Returns:
@@ -91,32 +91,32 @@ class LiveEncodingTask():
         options.append(f'-fflags nobuffer -flags low_delay -max_delay 250000 -max_interleave_delta {max_interleave_delta} -threads auto')
 
         # 映像
-        options.append(f'-vcodec libx264 -flags +cgop -vb {QUALITY[quality]["video_bitrate"]} -maxrate {QUALITY[quality]["video_bitrate_max"]}')
-        options.append('-aspect 16:9 -preset veryfast -profile:v main')
-        ## フル HD 放送が行われているチャンネルのみ、指定された品質が 1080p or 1080p-60fps であればフル HD でエンコードする
-        if (quality == '1080p' or quality == '1080p-60fps') and is_fullhd_channel is True:
-            if quality == '1080p-60fps':
-                # インターレース解除 (60i → 60p (60fps))
-                options.append('-r 60000/1001 -g 60')
-                options.append('-vf yadif=mode=1:parity=-1:deint=1,scale=1920:1080')
-            else:
-                # インターレース解除 (60i → 30p (30fps))
-                options.append('-r 30000/1001 -g 30')
-                options.append('-vf yadif=mode=0:parity=-1:deint=1,scale=1920:1080')
-        ## フル HD ではないチャンネル
+        if QUALITY[quality].is_hevc is True:
+            options.append('-vcodec libx265')
         else:
-            if quality == '1080p-60fps':
-                # インターレース解除 (60i → 60p (60fps))
-                options.append('-r 60000/1001 -g 60')
-                options.append(f'-vf yadif=mode=1:parity=-1:deint=1,scale={QUALITY[quality]["width"]}:{QUALITY[quality]["height"]}')
-            else:
-                # インターレース解除 (60i → 30p (30fps))
-                options.append('-r 30000/1001 -g 30')
-                options.append(f'-vf yadif=mode=0:parity=-1:deint=1,scale={QUALITY[quality]["width"]}:{QUALITY[quality]["height"]}')
+            options.append('-vcodec libx264')
+        options.append(f'-flags +cgop -vb {QUALITY[quality].video_bitrate} -maxrate {QUALITY[quality].video_bitrate_max}')
+        options.append('-aspect 16:9 -preset veryfast -profile:v main')
+
+        ## フル HD 放送が行われているチャンネルかつ、指定された品質の解像度が 1440×1080 (1080p) の場合のみ、
+        ## 特別に縦解像度を 1920 に変更してフル HD (1920×1080) でエンコードする
+        video_width = QUALITY[quality].width
+        video_height = QUALITY[quality].height
+        if video_width == 1440 and video_height == 1080 and is_fullhd_channel is True:
+            video_width = 1920
+
+        ## インターレース解除 (60i → 60p (フレームレート: 60fps))
+        if QUALITY[quality].is_60fps is True:
+            options.append('-r 60000/1001 -g 60')
+            options.append(f'-vf yadif=mode=1:parity=-1:deint=1,scale={video_width}:{video_height}')
+        ## インターレース解除 (60i → 30p (フレームレート: 30fps))
+        else:
+            options.append('-r 30000/1001 -g 30')
+            options.append(f'-vf yadif=mode=0:parity=-1:deint=1,scale={video_width}:{video_height}')
 
         # 音声
         ## 音声が 5.1ch かどうかに関わらず、ステレオにダウンミックスする
-        options.append(f'-acodec aac -aac_coder twoloop -ac 2 -ab {QUALITY[quality]["audio_bitrate"]} -ar 48000 -af volume=2.0')
+        options.append(f'-acodec aac -aac_coder twoloop -ac 2 -ab {QUALITY[quality].audio_bitrate} -ar 48000 -af volume=2.0')
 
         # 出力
         options.append('-y -f mpegts')  # MPEG-TS 出力ということを明示
@@ -178,7 +178,7 @@ class LiveEncodingTask():
         QSVEncC・NVEncC・VCEEncC (便宜上 HWEncC と総称) に渡すオプションを組み立てる
 
         Args:
-            quality (QUALITY_TYPES): 映像の品質 (1080p-60fps ~ 240p)
+            quality (QUALITY_TYPES): 映像の品質
             encoder_type (Literal['QSVEncC', 'NVEncC', 'VCEEncC']): エンコーダー (QSVEncC or NVEncC or VCEEncC)
             is_fullhd_channel (bool): フル HD 放送が実施されているチャンネルかどうか
 
@@ -215,23 +215,26 @@ class LiveEncodingTask():
         options.append('--max-procfps 60 --log-level debug')
 
         # 映像
-        options.append(f'--vbr {QUALITY[quality]["video_bitrate"]} --max-bitrate {QUALITY[quality]["video_bitrate_max"]}')
+        if QUALITY[quality].is_hevc is True:
+            options.append('--codec hevc')
+        else:
+            options.append('--codec h264')
+        options.append(f'--vbr {QUALITY[quality].video_bitrate} --max-bitrate {QUALITY[quality].video_bitrate_max}')
         options.append(f'--dar 16:9 --profile main --interlace tff')
-        ## インターレース解除
-        if encoder_type == 'QSVEncC' or encoder_type == 'NVEncC':
-            if quality == '1080p-60fps':
-                # インターレース解除 (60i → 60p (60fps))
+
+        ## インターレース解除 (60i → 60p (フレームレート: 60fps))
+        if QUALITY[quality].is_60fps is True:
+            if encoder_type == 'QSVEncC' or encoder_type == 'NVEncC':
                 options.append('--vpp-deinterlace bob --avsync cfr --gop-len 60')
-            else:
-                # インターレース解除 (60i → 30p (30fps))
-                options.append('--vpp-deinterlace normal --avsync forcecfr --gop-len 30')
-        elif encoder_type == 'VCEEncC':
-            if quality == '1080p-60fps':
-                # インターレース解除 (60i → 60p (60fps))
+            elif encoder_type == 'VCEEncC':
                 options.append('--vpp-yadif mode=bob --avsync cfr --gop-len 60')
-            else:
-                # インターレース解除 (60i → 30p (30fps))
+        ## インターレース解除 (60i → 30p (フレームレート: 30fps))
+        else:
+            if encoder_type == 'QSVEncC' or encoder_type == 'NVEncC':
+                options.append('--vpp-deinterlace normal --avsync forcecfr --gop-len 30')
+            elif encoder_type == 'VCEEncC':
                 options.append('--vpp-afs preset=default --avsync forcecfr --gop-len 30')
+
         ## プリセット
         if encoder_type == 'QSVEncC':
             options.append('--quality balanced')
@@ -239,14 +242,17 @@ class LiveEncodingTask():
             options.append('--preset default')
         elif encoder_type == 'VCEEncC':
             options.append('--preset balanced')
-        ## フル HD 放送が行われているチャンネルのみ、指定された品質が 1080p であればフル HD でエンコードする
-        if (quality == '1080p' or quality == '1080p-60fps') and is_fullhd_channel is True:
-            options.append('--output-res 1920x1080')
-        else:
-            options.append(f'--output-res {QUALITY[quality]["width"]}x{QUALITY[quality]["height"]}')
+
+        ## フル HD 放送が行われているチャンネルかつ、指定された品質の解像度が 1440×1080 (1080p) の場合のみ、
+        ## 特別に縦解像度を 1920 に変更してフル HD (1920×1080) でエンコードする
+        video_width = QUALITY[quality].width
+        video_height = QUALITY[quality].height
+        if video_width == 1440 and video_height == 1080 and is_fullhd_channel is True:
+            video_width = 1920
+        options.append(f'--output-res {video_width}x{video_height}')
 
         # 音声
-        options.append(f'--audio-codec aac:aac_coder=twoloop --audio-bitrate {QUALITY[quality]["audio_bitrate"]}')
+        options.append(f'--audio-codec aac:aac_coder=twoloop --audio-bitrate {QUALITY[quality].audio_bitrate}')
         options.append(f'--audio-samplerate 48000 --audio-filter volume=2.0 --audio-ignore-decode-error 30')
 
         # 出力
@@ -269,7 +275,7 @@ class LiveEncodingTask():
 
         Args:
             channel_id (str): チャンネルID
-            quality (QUALITY_TYPES): 映像の品質 (1080p-60fps ~ 240p)
+            quality (QUALITY_TYPES): 映像の品質
         """
 
         # ライブストリームのインスタンスを取得する
