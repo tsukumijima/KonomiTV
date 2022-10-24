@@ -16,7 +16,7 @@
         "core-js": "^3.25.0",
         "dayjs": "^1.11.5",
         "dplayer": "github:tsukumijima/DPlayer#v1.27.6",
-        "mpegts.js": "github:tsukumijima/mpegts.js#dec277df61e9e904b84d89c155ebd02963da3e12",
+        "mpegts.js": "github:tsukumijima/mpegts.js#fd7e1696419e7848554de7c2dd68b8ae1a108bad",
         "piexifjs": "^2.0.0-beta.9",
         "register-service-worker": "^1.7.2",
         "seamless-scroll-polyfill": "^2.2.0",
