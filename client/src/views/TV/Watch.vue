@@ -817,11 +817,17 @@ export default Vue.extend({
                             });
                         // 通常のチャンネル
                         } else {
+                            // ブラウザが H.265 / HEVC の再生に対応していて、かつ通信節約モードが有効なとき
+                            // API に渡す画質に -hevc のプレフィックスをつける
+                            let hevc_prefix = '';
+                            if (Utils.isHEVCVideoSupported() && Utils.getSettingsItem('tv_data_saver_mode') === true) {
+                                hevc_prefix = '-hevc';
+                            }
                             for (const quality of ['1080p-60fps', '1080p', '810p', '720p', '540p', '480p', '360p', '240p']) {
                                 qualities.push({
                                     name: quality === '1080p-60fps' ? '1080p (60fps)' : quality,
                                     type: 'mpegts',
-                                    url: `${Utils.api_base_url}/streams/live/${this.channel_id}/${quality}/mpegts`,
+                                    url: `${Utils.api_base_url}/streams/live/${this.channel_id}/${quality}${hevc_prefix}/mpegts`,
                                 });
                             }
                         }
@@ -1201,11 +1207,7 @@ export default Vue.extend({
             this.player.video.oncanplaythrough = on_canplay;
 
             // EventSource を作成
-            // 1080p (60fps) とラジオチャンネルの場合は見かけ上の品質と API に渡す品質が異なるので、それに合わせる
-            let quality_name = this.player.quality.name;
-            if (quality_name === '1080p (60fps)') quality_name = '1080p-60fps';
-            if (this.channel.is_radiochannel) quality_name = '1080p';
-            this.eventsource = new EventSource(`${Utils.api_base_url}/streams/live/${this.channel_id}/${quality_name}/events`);
+            this.eventsource = new EventSource((this.player.quality.url as string).replace('/mpegts', '/events'));
 
             // 初回接続時のイベント
             this.eventsource.addEventListener('initial_update', (event_raw: MessageEvent) => {
@@ -2737,7 +2739,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 position: absolute;
                 top: 50%;
                 left: 50%;
-                max-width: 100%;
+                width: 100%;
                 max-height: 100%;
                 padding-top: min(56.25%, 100vh);
                 aspect-ratio: 16 / 9;

@@ -45,6 +45,9 @@ export default class Utils {
         // テレビのストリーミング画質 (Default: 1080p) (同期無効)
         tv_streaming_quality: '1080p' as ('1080p-60fps' | '1080p' | '810p' | '720p' | '540p' | '480p' | '360p' | '240p'),
 
+        // テレビを通信節約モードで視聴する (Default: オフ) (同期無効)
+        tv_data_saver_mode: false as boolean,
+
         // テレビを低遅延で視聴する (Default: 低遅延で視聴する) (同期無効)
         low_latency_mode: true as boolean,
 
@@ -392,6 +395,16 @@ export default class Utils {
         const posLeft = (window.screen.width - popupSizeWidth) / 2;
 
         return `toolbar=0,status=0,top=${posTop},left=${posLeft},width=${popupSizeWidth},height=${popupSizeHeight},modal=yes,alwaysRaised=yes`;
+    }
+
+
+    /**
+     * 現在のブラウザで H.265 / HEVC 映像が再生できるかどうかを取得する
+     * @returns 再生できるなら true、できないなら false
+     */
+    static isHEVCVideoSupported(): boolean {
+        // avc1.4d0028 の部分は呪文 (HEVC であることと、そのプロファイルを示す値らしい)
+        return document.createElement('video').canPlayType('video/mp4;codecs=hvc1.1.1.L123.B0') === 'probably';
     }
 
 

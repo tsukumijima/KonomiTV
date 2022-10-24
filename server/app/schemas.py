@@ -124,6 +124,7 @@ class ClientSettings(BaseModel):
     # selected_twitter_account_id: 同期無効
     saved_twitter_hashtags: List[str] = Field([])
     # tv_streaming_quality: 同期無効
+    # tv_data_saver_mode: 同期無効
     # low_latency_mode: 同期無効
     show_superimpose_tv: bool = Field(True)
     panel_display_state: Literal['RestorePreviousState', 'AlwaysDisplay', 'AlwaysFold'] = Field('RestorePreviousState')

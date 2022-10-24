@@ -86,20 +86,23 @@
                         v-model="sync_settings">
                     </v-switch>
                 </div>
-                <v-dialog max-width="440" v-model="sync_settings_dialog">
+                <v-dialog max-width="530" v-model="sync_settings_dialog">
                     <v-card>
                         <v-card-title class="justify-center">設定データの競合</v-card-title>
                         <v-card-text>
-                            このデバイスの設定と、サーバーに保存されている設定データが競合しています。<br>
+                            このデバイスの設定と、サーバーに保存されている設定が競合しています。<br>
+                            一度上書きすると、元に戻すことはできません。慎重に選択してください。<br>
                         </v-card-text>
                         <div class="d-flex flex-column px-4 pb-4">
-                            <v-btn class="settings__save-button" depressed @click="overrideServerSettingsFromClient()">
+                            <v-btn class="settings__save-button error--text text--lighten-1" depressed
+                                @click="overrideServerSettingsFromClient()">
                                 <Icon icon="fluent:document-arrow-up-16-filled" class="mr-2" height="22px" />
-                                このデバイスの設定でサーバー上の設定データを上書き
+                                サーバーに保存されている設定を、このデバイスの設定で上書きする
                             </v-btn>
-                            <v-btn class="settings__save-button mt-3" depressed @click="overrideClientSettingsFromServer()">
+                            <v-btn class="settings__save-button error--text text--lighten-1 mt-3" depressed
+                                @click="overrideClientSettingsFromServer()">
                                 <Icon icon="fluent:document-arrow-down-16-filled" class="mr-2" height="22px" />
-                                サーバー上の設定データでこのデバイスの設定を上書き
+                                このデバイスの設定を、サーバーに保存されている設定で上書きする
                             </v-btn>
                             <v-btn class="settings__save-button mt-3" depressed @click="sync_settings_dialog = false">
                                 <Icon icon="fluent:dismiss-16-filled" class="mr-2" height="22px" />

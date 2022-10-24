@@ -20,6 +20,18 @@
                     :items="tv_streaming_quality" v-model="settings.tv_streaming_quality">
                 </v-select>
             </div>
+            <div class="settings__item settings__item--switch"
+                :class="{'settings__item--disabled': Utils.isHEVCVideoSupported() === false}">
+                <label class="settings__item-heading" for="tv_data_saver_mode">テレビを通信節約モードで視聴する</label>
+                <label class="settings__item-label" for="tv_data_saver_mode">
+                    テレビをライブストリーミングするときに、通信節約モードで視聴するかを設定します。<br>
+                    通信節約モードでは、H.265 / HEVC という圧縮率の高いコーデックを使い、画質はほぼそのまま、通信量を通常の 2/3 程度に抑えながら視聴できます。ただし、再生負荷が高くなります。<br>
+                    通信節約モードで視聴するときは、QSVEncC / NVEncC / VCEEncC エンコーダーの利用をおすすめします。FFmpeg エンコーダーではまともに再生できない可能性が高いです。<br>
+                </label>
+                <v-switch class="settings__item-switch" id="tv_data_saver_mode" inset hide-details
+                    v-model="settings.tv_data_saver_mode" :disabled="Utils.isHEVCVideoSupported() === false">
+                </v-switch>
+            </div>
             <div class="settings__item settings__item--switch">
                 <label class="settings__item-heading" for="low_latency_mode">テレビを低遅延で視聴する</label>
                 <label class="settings__item-label" for="low_latency_mode">
@@ -180,6 +192,9 @@ export default Vue.extend({
     data() {
         return {
 
+            // ユーティリティをテンプレートで使えるように
+            Utils: Utils,
+
             // テレビのストリーミング画質の選択肢
             tv_streaming_quality: [
                 {'text': '1080p (60fps) （1時間あたり約3.24GB / 7.2Mbps）', 'value': '1080p-60fps'},
@@ -243,6 +258,7 @@ export default Vue.extend({
                 const settings = {}
                 const settings_keys = [
                     'tv_streaming_quality',
+                    'tv_data_saver_mode',
                     'low_latency_mode',
                     'show_superimpose_tv',
                     'panel_display_state',
