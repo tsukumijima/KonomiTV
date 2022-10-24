@@ -125,8 +125,8 @@ class ClientSettings(BaseModel):
     saved_twitter_hashtags: List[str] = Field([])
     # tv_streaming_quality: 同期無効
     # tv_data_saver_mode: 同期無効
-    # low_latency_mode: 同期無効
-    show_superimpose_tv: bool = Field(True)
+    # tv_low_latency_mode: 同期無効
+    tv_show_superimpose: bool = Field(True)
     panel_display_state: Literal['RestorePreviousState', 'AlwaysDisplay', 'AlwaysFold'] = Field('RestorePreviousState')
     tv_panel_active_tab: Literal['Program', 'Channel', 'Comment', 'Twitter'] = Field('Program')
     caption_font: str = Field('Windows TV MaruGothic')

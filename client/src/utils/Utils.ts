@@ -49,10 +49,10 @@ export default class Utils {
         tv_data_saver_mode: false as boolean,
 
         // テレビを低遅延で視聴する (Default: 低遅延で視聴する) (同期無効)
-        low_latency_mode: true as boolean,
+        tv_low_latency_mode: true as boolean,
 
         // テレビをみるときに文字スーパーを表示する (Default: 表示する)
-        show_superimpose_tv: true as boolean,
+        tv_show_superimpose: true as boolean,
 
         // 既定のパネルの表示状態 (Default: 前回の状態を復元する)
         panel_display_state: 'RestorePreviousState' as ('RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold'),
@@ -114,7 +114,7 @@ export default class Utils {
     static readonly sync_settings_keys = [
         'pinned_channel_ids',
         'saved_twitter_hashtags',
-        'show_superimpose_tv',
+        'tv_show_superimpose',
         'panel_display_state',
         'tv_panel_active_tab',
         'caption_font',

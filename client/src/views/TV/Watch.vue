@@ -864,7 +864,7 @@ export default Vue.extend({
                             // HTMLMediaElement の内部バッファによるライブストリームの遅延を追跡する
                             // liveBufferLatencyChasing と異なり、いきなり再生時間をスキップするのではなく、
                             // 再生速度を少しだけ上げることで再生を途切れさせることなく遅延を追跡する
-                            liveSync: Utils.getSettingsItem('low_latency_mode'),
+                            liveSync: Utils.getSettingsItem('tv_low_latency_mode'),
                             // 許容する HTMLMediaElement の内部バッファの最大値 (秒単位, 2.5秒)
                             liveSyncMaxLatency: 2.5,
                             // HTMLMediaElement の内部バッファ (遅延) が liveSyncMaxLatency を超えたとき、ターゲットとする遅延時間 (秒単位, 1.3秒)
@@ -905,7 +905,7 @@ export default Vue.extend({
                         PRACallback: async (index: number) => {
 
                             // 設定で文字スーパーが無効なら実行しない
-                            if (Utils.getSettingsItem('show_superimpose_tv') === false) return;
+                            if (Utils.getSettingsItem('tv_show_superimpose') === false) return;
 
                             // index に応じた内蔵音を鳴らす
                             // ref: https://ics.media/entry/200427/
@@ -1063,7 +1063,7 @@ export default Vue.extend({
 
             // 設定で文字スーパーが有効
             // 字幕が非表示の場合でも、文字スーパーは表示する
-            if (Utils.getSettingsItem('show_superimpose_tv') === true) {
+            if (Utils.getSettingsItem('tv_show_superimpose') === true) {
                 this.player.plugins.aribb24Superimpose.show();
                 this.player.on('subtitle_hide', () => {
                     this.player.plugins.aribb24Superimpose.show();
