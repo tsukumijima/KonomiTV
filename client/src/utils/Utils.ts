@@ -57,6 +57,9 @@ export default class Utils {
         // テレビをみるときに既定で表示されるパネルのタブ (Default: 番組情報タブ)
         tv_panel_active_tab: 'Program' as ('Program' | 'Channel' | 'Comment' | 'Twitter'),
 
+        // 字幕のフォント (Default: Windows TV 丸ゴシック)
+        caption_font: 'Windows TV MaruGothic' as string,
+
         // 字幕の文字を常に縁取って描画する (Default: 常に縁取る)
         always_border_caption_text: true as boolean,
 
@@ -111,6 +114,7 @@ export default class Utils {
         'show_superimpose_tv',
         'panel_display_state',
         'tv_panel_active_tab',
+        'caption_font',
         'always_border_caption_text',
         'specify_caption_background_color',
         'caption_background_color',

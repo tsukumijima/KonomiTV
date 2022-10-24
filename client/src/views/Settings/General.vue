@@ -61,12 +61,21 @@
                 </v-select>
             </div>
             <v-divider class="mt-6"></v-divider>
+            <div class="settings__item">
+                <label class="settings__item-heading">字幕のフォント</label>
+                <label class="settings__item-label">
+                    プレイヤーで字幕表示をオンにしているときの、字幕のフォントを設定します。<br>
+                </label>
+                <v-select class="settings__item-form" outlined hide-details
+                    :items="caption_font" v-model="settings.caption_font">
+                </v-select>
+            </div>
             <div class="settings__item settings__item--switch">
                 <label class="settings__item-heading" for="always_border_caption_text">字幕の文字を常に縁取って描画する</label>
                 <label class="settings__item-label" for="always_border_caption_text">
                     プレイヤーで字幕表示をオンにしているときに、字幕の文字を常に縁取って描画するかを設定します。<br>
                     字幕は縁取られていた方が視認性が良く、見た目的にもきれいです。とくに理由がなければ、オンのままにしておくことをおすすめします。<br>
-                    この設定をオフにしているときも、字幕データ側で明示的に縁取りするように指定されていれば、文字が縁取られた状態で描画されます。<br>
+                    この設定をオフにしているときも、字幕データ側で明示的に縁取りするように指定されていれば、オンにしているとき同様に文字が縁取られて描画されます。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="always_border_caption_text" inset hide-details
                     v-model="settings.always_border_caption_text">
@@ -76,7 +85,7 @@
                 <label class="settings__item-heading" for="specify_caption_background_color">字幕の背景色を指定する</label>
                 <label class="settings__item-label" for="specify_caption_background_color">
                     プレイヤーで字幕表示をオンにしているときに、字幕の背景色を明示的に指定するかを設定します。<br>
-                    この設定をオフにしているときは、字幕データ側で指定されている背景色で描画されます。とくに理由がなければ、オフのままにしておくことをおすすめします。<br>
+                    この設定をオフにしているときは、字幕データ側で指定されている背景色で描画します。とくに理由がなければ、オフのままにしておくことをおすすめします。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="specify_caption_background_color" inset hide-details
                     v-model="settings.specify_caption_background_color">
@@ -85,8 +94,8 @@
             <div class="settings__item" :class="{'settings__item--disabled': settings.specify_caption_background_color === false}">
                 <label class="settings__item-heading">字幕の背景色</label>
                 <label class="settings__item-label">
-                    プレイヤーで字幕表示をオンにしているときの字幕の背景色を設定します。<br>
-                    上の [字幕の背景色を指定する] をオフにしているときのみ有効です。透明度 (アルファチャンネル) を 0 に設定すれば、字幕の背景を非表示にできます。<br>
+                    プレイヤーで字幕表示をオンにしているときの、字幕の背景色を設定します。<br>
+                    上の [字幕の背景色を指定する] をオンにしているときのみ有効です。透明度 (アルファチャンネル) を 0 に設定すれば、字幕の背景を非表示にできます。<br>
                 </label>
                 <div class="settings__item-label" ref="caption_background_color">
                     <v-color-picker class="settings__item-form" hide-details v-model="settings.caption_background_color"
@@ -198,6 +207,18 @@ export default Vue.extend({
                 {'text': 'Twitter タブ', 'value': 'Twitter'},
             ],
 
+            // 字幕のフォント
+            caption_font: [
+                {'text': 'Windows TV ゴシック', 'value': 'Windows TV Gothic'},
+                {'text': 'Windows TV 丸ゴシック', 'value': 'Windows TV MaruGothic'},
+                {'text': 'Windows TV 太丸ゴシック', 'value': 'Windows TV FutoMaruGothic'},
+                {'text': 'ヒラギノTV丸ゴ', 'value': 'Hiragino TV Sans Rd S'},
+                {'text': '新丸ゴ ARIB', 'value': 'TT-ShinMGo-regular'},
+                {'text': 'Rounded M+ 1m for ARIB', 'value': 'Rounded M+ 1m for ARIB'},
+                {'text': 'Noto Sans JP', 'value': 'Noto Sans JP Caption'},
+                {'text': 'デフォルトのフォント', 'value': 'sans-serif'},
+            ],
+
             // キャプチャの保存先
             capture_save_mode: [
                 {'text': 'ブラウザでダウンロード', 'value': 'Browser'},
@@ -226,6 +247,7 @@ export default Vue.extend({
                     'show_superimpose_tv',
                     'panel_display_state',
                     'tv_panel_active_tab',
+                    'caption_font',
                     'always_border_caption_text',
                     'specify_caption_background_color',
                     'caption_background_color',

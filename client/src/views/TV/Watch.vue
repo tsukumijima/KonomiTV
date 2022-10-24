@@ -870,16 +870,33 @@ export default Vue.extend({
                     },
                     // aribb24.js
                     aribb24: {
-                        normalFont: '"Windows TV MaruGothic", "Hiragino Maru Gothic Pro", "Yu Gothic Medium", sans-serif',
-                        gaijiFont: '"Windows TV MaruGothic", "Hiragino Maru Gothic Pro", "Yu Gothic Medium", sans-serif',
-                        forceStrokeColor: Utils.getSettingsItem('always_border_caption_text') ? true : false,  // 縁取りする色
-                        forceBackgroundColor:  Utils.getSettingsItem('specify_caption_background_color') ?
-                            Utils.getSettingsItem('caption_background_color') : null,  // 背景色
-                        drcsReplacement: true,  // DRCS 文字を対応する Unicode 文字に置換
-                        enableRawCanvas: true,  // 高解像度の字幕 Canvas を取得できるように
-                        useStrokeText: true,  // 縁取りに strokeText API を利用
-                        usePUA: true,  // Unicode 領域の代わりに私用面の領域を利用
-                        PRACallback: async (index: number) => {  // 文字スーパーの PRA (内蔵音再生コマンド) のコールバックを指定
+                        // 描画フォント
+                        normalFont: `"${Utils.getSettingsItem('caption_font')}", sans-serif`,
+                        // 縁取りする色
+                        forceStrokeColor: Utils.getSettingsItem('always_border_caption_text') ? true : false,
+                        // 背景色
+                        forceBackgroundColor: Utils.getSettingsItem('specify_caption_background_color') ?
+                            Utils.getSettingsItem('caption_background_color') : null,
+                        // DRCS 文字を対応する Unicode 文字に置換
+                        drcsReplacement: true,
+                        // 高解像度の字幕 Canvas を取得できるように
+                        enableRawCanvas: true,
+                        // 縁取りに strokeText API を利用
+                        useStrokeText: true,
+                        // Unicode 領域の代わりに私用面の領域を利用 (Windows TV 系フォントのみ)
+                        usePUA: (() => {
+                            const font = Utils.getSettingsItem('caption_font') as string;
+                            const context = document.createElement('canvas').getContext('2d');
+                            context.font = `10px ${font}`;
+                            context.fillText('Test', 0, 0);
+                            if (font.startsWith('Windows TV')) {
+                                return true;
+                            } else {
+                                return false;
+                            }
+                        })(),
+                        // 文字スーパーの PRA (内蔵音再生コマンド) のコールバックを指定
+                        PRACallback: async (index: number) => {
 
                             // 設定で文字スーパーが無効なら実行しない
                             if (Utils.getSettingsItem('show_superimpose_tv') === false) return;

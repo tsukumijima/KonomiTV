@@ -128,7 +128,10 @@ class ClientSettings(BaseModel):
     show_superimpose_tv: bool = Field(True)
     panel_display_state: Literal['RestorePreviousState', 'AlwaysDisplay', 'AlwaysFold'] = Field('RestorePreviousState')
     tv_panel_active_tab: Literal['Program', 'Channel', 'Comment', 'Twitter'] = Field('Program')
+    caption_font: str = Field('Windows TV MaruGothic')
     always_border_caption_text: bool = Field(True)
+    specify_caption_background_color: bool = Field(False)
+    caption_background_color: str = Field('#00000080')
     capture_save_mode: Literal['Browser', 'UploadServer', 'Both'] = Field('Browser')
     capture_caption_mode: Literal['VideoOnly', 'CompositingCaption', 'Both'] = Field('Both')
     # sync_settings: 同期無効
@@ -136,8 +139,6 @@ class ClientSettings(BaseModel):
     comment_font_size: int = Field(34)
     # comment_delay_time: 同期無効
     close_comment_form_after_send: bool = Field(True)
-    specify_caption_background_color: bool = Field(False)
-    caption_background_color: str = Field('#00000080')
     twitter_active_tab: Literal['Search', 'Timeline', 'Capture'] = Field('Capture')
     tweet_hashtag_position: Literal['Prepend', 'Append', 'PrependWithLineBreak', 'AppendWithLineBreak'] = Field('Append')
     tweet_capture_watermark_position: Literal['None', 'TopLeft', 'TopRight', 'BottomLeft', 'BottomRight'] = Field('None')

@@ -7,6 +7,12 @@
 </template>
 <style lang="scss">
 
+@font-face {
+    font-family: 'Noto Sans JP Caption';
+    font-weight: normal;
+    src: url('https://cdn.jsdelivr.net/npm/noto-sans-japanese@1.0.0/fonts/NotoSansJP-Medium.woff2') format('woff2');
+}
+
 // 全体のスタイル
 html {
     overflow-y: auto !important;
