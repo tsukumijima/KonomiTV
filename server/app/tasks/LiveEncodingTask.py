@@ -853,6 +853,18 @@ class LiveEncodingTask():
                                 # VCEEncC 非対応の環境
                                 livestream.setStatus('Offline', 'VCEEncC 非対応の環境のため、エンコードを開始できません。')
                                 break
+                            elif encoder_type == 'QSVEncC' and 'HEVC encoding is not supported on current platform.' in line:
+                                # QSVEncC: H.265 / HEVC でのエンコードに非対応の環境
+                                livestream.setStatus('Offline', 'お使いの Intel GPU は H.265 / HEVC でのエンコードに対応していません。')
+                                break
+                            elif encoder_type == 'NVEncC' and 'does not support H.265/HEVC encoding.' in line:
+                                # NVEncC: H.265 / HEVC でのエンコードに非対応の環境
+                                livestream.setStatus('Offline', 'お使いの NVIDIA GPU は H.265 / HEVC でのエンコードに対応していません。')
+                                break
+                            elif encoder_type == 'VCEEncC' and 'HW Acceleration of H.265/HEVC is not supported on this platform.' in line:
+                                # VCEEncC: H.265 / HEVC でのエンコードに非対応の環境
+                                livestream.setStatus('Offline', 'お使いの AMD GPU は H.265 / HEVC でのエンコードに対応していません。')
+                                break
                             elif 'Consider increasing the value for the --input-analyze and/or --input-probesize!' in line:
                                 # --input-probesize or --input-analyze の期間内に入力ストリームの解析が終わらなかった
                                 is_restart_required = True  # エンコーダーの再起動を要求
