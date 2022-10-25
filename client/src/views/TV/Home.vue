@@ -444,7 +444,7 @@ _::-webkit-full-page-media, _:future, :root
                 flex-direction: column;
                 position: relative;
                 height: 275px;
-                padding: 19px 22px;
+                padding: 20px 20px;
                 border-radius: 16px;
                 color: var(--v-text-base);
                 background: var(--v-background-lighten1);

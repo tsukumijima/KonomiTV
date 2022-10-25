@@ -1150,29 +1150,31 @@ export default Vue.extend({
                 // 念のためさらに少しだけ待ってから
                 window.setTimeout(async () => {
 
-                    // this.player.video.buffered.end(0) が取得できるようになるまで待機
-                    let wait = true;
-                    while (wait === true) {
+                    // 再生バッファを取得する (取得に失敗した場合は 0 を返す)
+                    const get_buffer = (): number => {
                         try {
-                            this.player.video.buffered.end(0);
-                            wait = false;
+                            return (Math.round((this.player.video.buffered.end(0) - this.player.video.currentTime) * 1000) / 1000);
                         } catch (error) {
-                            // 何もしない
+                            // まだ再生準備が整っていないなどの理由で、再生バッファの取得に失敗した場合
+                            return 0;
                         }
-                        await Utils.sleep(0.1);
                     }
 
-                    // 最初に同期しておく
-                    this.player.sync(true);
+                    // 再生バッファ調整のため、一旦停止させる
+                    this.player.video.pause();
 
-                    // 再生バッファが 1.3 秒を超えるまで 0.1 秒おきに実行する
-                    // 再生バッファが 1.3 秒を切ると再生が途切れやすくなるので (特に動きの激しい映像)、再生開始までの時間を若干犠牲にしてここの調整に時間を割く
-                    let buffer = (Math.round((this.player.video.buffered.end(0) - this.player.video.currentTime) * 1000) / 1000);
+                    // 再生バッファが 1.3 秒を超えるまで 0.1 秒おきに再生バッファをチェックする
+                    // 再生バッファが 1.3 秒を切ると再生が途切れやすくなるので (特に動きの激しい映像)、
+                    // 再生開始までの時間を若干犠牲にしてここの調整に時間を割く
+                    let buffer = get_buffer();
                     while (buffer < 1.3) {
                         await Utils.sleep(0.1);
-                        this.player.sync(true);
-                        buffer = (Math.round((this.player.video.buffered.end(0) - this.player.video.currentTime) * 1000) / 1000);
+                        buffer = get_buffer();
                     }
+
+                    // 再生開始
+                    this.player.video.pause();  // 念のためもう一度停止しておく
+                    this.player.video.play();
 
                     // 同期が終わったのでミュートを解除
                     this.player.video.muted = false;
@@ -1873,9 +1875,15 @@ export default Vue.extend({
             // 映像が読み込まれた / 画質が変わったときに映像側に Canvas サイズを合わせる
             this.canvas.width = 0;
             this.canvas.height = 0;
-            this.player.on('loadedmetadata', () => {
+            this.player.on('loadedmetadata', async () => {
                 this.canvas.width = this.player.video.videoWidth;
                 this.canvas.height = this.player.video.videoHeight;
+                // 映像サイズがちゃんと設定されるまで繰り返す (Safari 対策)
+                while (this.canvas.width === 0 && this.canvas.height === 0) {
+                    await Utils.sleep(0.1);
+                    this.canvas.width = this.player.video.videoWidth;
+                    this.canvas.height = this.player.video.videoHeight;
+                }
             });
 
             this.capture_button = this.$el.querySelector('.dplayer-icon.dplayer-capture-icon');
