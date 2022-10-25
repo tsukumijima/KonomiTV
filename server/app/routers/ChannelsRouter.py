@@ -186,12 +186,17 @@ async def ChannelsAPI():
             # JSON データで格納されているカラムをデコードする
             ## ついでに SQL 文で設定した is_present / program_order フィールドを削除
             ## 現在の番組か次の番組かを判定するために使っているフィールドだが、もう判定は終わったので必要ない
+            ## あとなぜか DateTime 型の文字列値が正しい ISO8601 フォーマットになっていないので、ここで整形する
             if channel_dict['program_present'] is not None:
+                channel_dict['program_present']['start_time'] = channel_dict['program_present']['start_time'].replace(' ', 'T')
+                channel_dict['program_present']['end_time'] = channel_dict['program_present']['end_time'].replace(' ', 'T')
                 channel_dict['program_present']['detail'] = json.loads(channel_dict['program_present']['detail'])
                 channel_dict['program_present']['genre'] = json.loads(channel_dict['program_present']['genre'])
                 channel_dict['program_present'].pop('is_present')
                 channel_dict['program_present'].pop('program_order')
             if channel_dict['program_following'] is not None:
+                channel_dict['program_following']['start_time'] = channel_dict['program_following']['start_time'].replace(' ', 'T')
+                channel_dict['program_following']['end_time'] = channel_dict['program_following']['end_time'].replace(' ', 'T')
                 channel_dict['program_following']['detail'] = json.loads(channel_dict['program_following']['detail'])
                 channel_dict['program_following']['genre'] = json.loads(channel_dict['program_following']['genre'])
                 channel_dict['program_following'].pop('is_present')
