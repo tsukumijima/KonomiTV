@@ -522,6 +522,9 @@ def Installer(version: str) -> None:
                 with tarfile.open(thirdparty_file.name, mode='r:xz') as tar_xz:
                     tar_xz.extractall(install_path / 'server/')
             Path(thirdparty_file.name).unlink()
+            # server/thirdparty/.gitkeep が消えてたらもう一度作成しておく
+            if Path(install_path / 'server/thirdparty/.gitkeep').exists() is False:
+                Path(install_path / 'server/thirdparty/.gitkeep').touch()
 
         # ***** pipenv 環境の構築 (依存パッケージのインストール) *****
 
