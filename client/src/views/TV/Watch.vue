@@ -52,8 +52,8 @@
                  @click="controlDisplayTimer($event, true)">
                 <header class="watch-header">
                     <img class="watch-header__broadcaster" :src="`${Utils.api_base_url}/channels/${($route.params.channel_id)}/logo`">
-                    <span class="watch-header__program-title" v-html="TVUtils.decorateProgramInfo(channel.program_present, 'title')"></span>
-                    <span class="watch-header__program-time">{{TVUtils.getProgramTime(channel.program_present, true)}}</span>
+                    <span class="watch-header__program-title" v-html="ProgramUtils.decorateProgramInfo(channel.program_present, 'title')"></span>
+                    <span class="watch-header__program-time">{{ProgramUtils.getProgramTime(channel.program_present, true)}}</span>
                     <v-spacer></v-spacer>
                     <span class="watch-header__now">{{time}}</span>
                 </header>
@@ -195,7 +195,7 @@ import Channel from '@/components/Panel/Channel.vue';
 import Comment from '@/components/Panel/Comment.vue';
 import Program from '@/components/Panel/Program.vue';
 import Twitter from '@/components/Panel/Twitter.vue';
-import Utils, { TVUtils } from '@/utils';
+import Utils, { ChannelUtils, PlayerUtils, ProgramUtils } from '@/utils';
 
 export default Vue.extend({
     name: 'TV-Watch',
@@ -210,7 +210,7 @@ export default Vue.extend({
 
             // ユーティリティをテンプレートで使えるように
             Utils: Utils,
-            TVUtils: TVUtils,
+            ProgramUtils: ProgramUtils,
 
             // 現在時刻
             time: dayjs().format('YYYY/MM/DD HH:mm:ss'),
@@ -448,7 +448,7 @@ export default Vue.extend({
 
         // 既に取得済みのチャンネル情報で、前・現在・次のチャンネル情報を更新する
         [this.channel_previous, this.channel, this.channel_next]
-            = TVUtils.getPreviousAndCurrentAndNextChannel(this.channels_list, this.channel_id);
+            = ChannelUtils.getPreviousAndCurrentAndNextChannel(this.channels_list, this.channel_id);
 
         // 0.5秒だけ待ってから、新しい再生セッションを初期化する
         // 連続して押した時などに毎回再生処理を開始しないように猶予を設ける
@@ -468,7 +468,7 @@ export default Vue.extend({
         init() {
 
             // ローディング中の背景画像をランダムで設定
-            this.background_url = TVUtils.generatePlayerBackgroundURL();
+            this.background_url = PlayerUtils.generatePlayerBackgroundURL();
 
             // コントロール表示タイマーを実行
             this.controlDisplayTimer();
@@ -616,7 +616,7 @@ export default Vue.extend({
 
             // チャンネル ID が一致したチャンネルの情報を保存する
             for (const pinned_channel_id of pinned_channel_ids) {
-                const pinned_channel_type = TVUtils.getChannelType(pinned_channel_id, true);
+                const pinned_channel_type = ChannelUtils.getChannelType(pinned_channel_id, true);
                 const pinned_channel = this.channels_list.get(pinned_channel_type).find((channel) => {
                     return channel.channel_id === pinned_channel_id;  // チャンネル ID がピン留めされているチャンネルのものと同じ
                 });
@@ -636,7 +636,7 @@ export default Vue.extend({
             }
 
             // 前と次のチャンネル ID を取得する
-            [this.channel_previous, , this.channel_next] = TVUtils.getPreviousAndCurrentAndNextChannel(this.channels_list, this.channel_id);
+            [this.channel_previous, , this.channel_next] = ChannelUtils.getPreviousAndCurrentAndNextChannel(this.channels_list, this.channel_id);
 
             // MediaSession API を使い、メディア通知の表示をカスタマイズ
             if ('mediaSession' in navigator) {
@@ -820,7 +820,7 @@ export default Vue.extend({
                             // ブラウザが H.265 / HEVC の再生に対応していて、かつ通信節約モードが有効なとき
                             // API に渡す画質に -hevc のプレフィックスをつける
                             let hevc_prefix = '';
-                            if (Utils.isHEVCVideoSupported() && Utils.getSettingsItem('tv_data_saver_mode') === true) {
+                            if (PlayerUtils.isHEVCVideoSupported() && Utils.getSettingsItem('tv_data_saver_mode') === true) {
                                 hevc_prefix = '-hevc';
                             }
                             for (const quality of ['1080p-60fps', '1080p', '810p', '720p', '540p', '480p', '360p', '240p']) {
@@ -1045,7 +1045,7 @@ export default Vue.extend({
             this.player.on('quality_start', () => {
 
                 // ローディング中の背景画像をランダムで設定
-                this.background_url = TVUtils.generatePlayerBackgroundURL();
+                this.background_url = PlayerUtils.generatePlayerBackgroundURL();
 
                 // イベントソースを閉じる
                 if (this.eventsource !== null) {
@@ -1523,7 +1523,7 @@ export default Vue.extend({
                             if (switch_remocon_id !== null) {
 
                                 // 切り替え先のチャンネルを取得する
-                                const switch_channel = TVUtils.getChannelFromRemoconID(this.channels_list, switch_channel_type, switch_remocon_id);
+                                const switch_channel = ChannelUtils.getChannelFromRemoconID(this.channels_list, switch_channel_type, switch_remocon_id);
 
                                 // チャンネルが取得できていれば、ルーティングをそのチャンネルに置き換える
                                 // 押されたキーに対応するリモコン番号のチャンネルがない場合や、現在と同じチャンネル ID の場合は何も起こらない
@@ -2100,7 +2100,7 @@ export default Vue.extend({
                     (this.$refs.Twitter as InstanceType<typeof Twitter>).addCaptureList(blob, filename_ext);
 
                     // キャプチャに番組情報などのメタデータ (EXIF) をセット
-                    blob = await TVUtils.setEXIFDataToCapture(blob, this.channel.program_present, false, with_comments);
+                    blob = await PlayerUtils.setEXIFDataToCapture(blob, this.channel.program_present, false, with_comments);
 
                     // キャプチャの保存先: ブラウザでダウンロード or 両方
                     if (['Browser', 'Both'].includes(Utils.getSettingsItem('capture_save_mode'))) {
@@ -2154,7 +2154,7 @@ export default Vue.extend({
                     (this.$refs.Twitter as InstanceType<typeof Twitter>).addCaptureList(blob, filename_ext);
 
                     // キャプチャに番組情報などのメタデータ (EXIF) をセット
-                    blob = await TVUtils.setEXIFDataToCapture(blob, this.channel.program_present, true, with_comments);
+                    blob = await PlayerUtils.setEXIFDataToCapture(blob, this.channel.program_present, true, with_comments);
 
                     // キャプチャの保存先: ブラウザでダウンロード or 両方
                     if (['Browser', 'Both'].includes(Utils.getSettingsItem('capture_save_mode'))) {

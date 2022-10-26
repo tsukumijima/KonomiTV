@@ -21,7 +21,7 @@
                 </v-select>
             </div>
             <div class="settings__item settings__item--switch"
-                :class="{'settings__item--disabled': Utils.isHEVCVideoSupported() === false}">
+                :class="{'settings__item--disabled': PlayerUtils.isHEVCVideoSupported() === false}">
                 <label class="settings__item-heading" for="tv_data_saver_mode">テレビを通信節約モードで視聴する</label>
                 <label class="settings__item-label" for="tv_data_saver_mode">
                     テレビをライブストリーミングするときに、通信節約モードで視聴するかを設定します。<br>
@@ -29,7 +29,7 @@
                     通信節約モードで視聴するときは、QSVEncC / NVEncC / VCEEncC エンコーダーの利用をおすすめします。FFmpeg エンコーダーではまともに再生できない可能性が高いです。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="tv_data_saver_mode" inset hide-details
-                    v-model="settings.tv_data_saver_mode" :disabled="Utils.isHEVCVideoSupported() === false">
+                    v-model="settings.tv_data_saver_mode" :disabled="PlayerUtils.isHEVCVideoSupported() === false">
                 </v-switch>
             </div>
             <div class="settings__item settings__item--switch">
@@ -182,7 +182,7 @@
 import Vue from 'vue';
 
 import Base from '@/views/Settings/Base.vue';
-import Utils from '@/utils';
+import Utils, { PlayerUtils } from '@/utils';
 
 export default Vue.extend({
     name: 'Settings-General',
@@ -193,7 +193,7 @@ export default Vue.extend({
         return {
 
             // ユーティリティをテンプレートで使えるように
-            Utils: Utils,
+            PlayerUtils: PlayerUtils,
 
             // テレビのストリーミング画質の選択肢
             tv_streaming_quality: [

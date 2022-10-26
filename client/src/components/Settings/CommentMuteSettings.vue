@@ -87,8 +87,6 @@
 
 import Vue, { PropType } from 'vue';
 
-import Utils, { TVUtils } from '@/utils';
-
 export default Vue.extend({
     name: 'CommentMuteSettings',
     // カスタム v-model を実装する
@@ -106,10 +104,6 @@ export default Vue.extend({
     },
     data() {
         return {
-
-            // ユーティリティをテンプレートで使えるように
-            Utils: Utils,
-            TVUtils: TVUtils,
 
             // コメントのミュート設定のモーダルを表示するか
             comment_mute_settings_modal: false,

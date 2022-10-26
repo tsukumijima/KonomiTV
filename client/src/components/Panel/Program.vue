@@ -6,12 +6,12 @@
             <div class="program-broadcaster__name">{{channel.channel_name}}</div>
         </section>
         <section class="program-info">
-            <h1 class="program-info__title" v-html="TVUtils.decorateProgramInfo(channel.program_present, 'title')"></h1>
-            <div class="program-info__time">{{TVUtils.getProgramTime(channel.program_present)}}</div>
-            <div class="program-info__description" v-html="TVUtils.decorateProgramInfo(channel.program_present, 'description')"></div>
+            <h1 class="program-info__title" v-html="ProgramUtils.decorateProgramInfo(channel.program_present, 'title')"></h1>
+            <div class="program-info__time">{{ProgramUtils.getProgramTime(channel.program_present)}}</div>
+            <div class="program-info__description" v-html="ProgramUtils.decorateProgramInfo(channel.program_present, 'description')"></div>
             <div class="program-info__genre-container">
                 <div class="program-info__genre" :key="genre_index"
-                    v-for="(genre, genre_index) in TVUtils.getAttribute(channel.program_present, 'genre', [])">
+                    v-for="(genre, genre_index) in ProgramUtils.getAttribute(channel.program_present, 'genre', [])">
                     {{genre.major}} / {{genre.middle}}
                 </div>
             </div>
@@ -19,14 +19,14 @@
                 <span class="program-info__next-decorate">NEXT</span>
                 <Icon class="program-info__next-icon" icon="fluent:fast-forward-20-filled" width="16px" />
             </div>
-            <span class="program-info__next-title" v-html="TVUtils.decorateProgramInfo(channel.program_following, 'title')"></span>
-            <div class="program-info__next-time">{{TVUtils.getProgramTime(channel.program_following)}}</div>
+            <span class="program-info__next-title" v-html="ProgramUtils.decorateProgramInfo(channel.program_following, 'title')"></span>
+            <div class="program-info__next-time">{{ProgramUtils.getProgramTime(channel.program_following)}}</div>
             <div class="program-info__status">
                 <div class="program-info__status-force"
-                    :class="`program-info__status-force--${TVUtils.getChannelForceType(channel.channel_force)}`">
+                    :class="`program-info__status-force--${ChannelUtils.getChannelForceType(channel.channel_force)}`">
                     <Icon icon="fa-solid:fire-alt" height="14px" />
                     <span class="ml-2">勢い:</span>
-                    <span class="ml-2">{{TVUtils.getAttribute(channel, 'channel_force', '--')}} コメ/分</span>
+                    <span class="ml-2">{{ProgramUtils.getAttribute(channel, 'channel_force', '--')}} コメ/分</span>
                 </div>
                 <div class="program-info__status-viewers ml-5">
                     <Icon icon="fa-solid:eye" height="14px" />
@@ -37,7 +37,7 @@
         </section>
         <section class="program-detail-container">
             <div class="program-detail" :key="detail_heading"
-                v-for="(detail_text, detail_heading) in TVUtils.getAttribute(channel.program_present, 'detail', {})">
+                v-for="(detail_text, detail_heading) in ProgramUtils.getAttribute(channel.program_present, 'detail', {})">
                 <h2 class="program-detail__heading">{{detail_heading}}</h2>
                 <div class="program-detail__text" v-html="Utils.URLtoLink(detail_text)"></div>
             </div>
@@ -49,7 +49,7 @@
 import Vue, { PropType } from 'vue';
 
 import { IChannel } from '@/interface';
-import Utils, { TVUtils } from '@/utils';
+import Utils, { ChannelUtils, ProgramUtils } from '@/utils';
 
 export default Vue.extend({
     name: 'Panel-ProgramTab',
@@ -64,7 +64,8 @@ export default Vue.extend({
         return {
             // ユーティリティをテンプレートで使えるように
             Utils: Utils,
-            TVUtils: TVUtils,
+            ChannelUtils: ChannelUtils,
+            ProgramUtils: ProgramUtils,
         }
     }
 });

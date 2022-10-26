@@ -17,10 +17,10 @@
                                         <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.channel_name}}</span>
                                         <div class="channel__broadcaster-status">
                                             <div class="channel__broadcaster-status-force"
-                                                :class="`channel__broadcaster-status-force--${TVUtils.getChannelForceType(channel.channel_force)}`">
+                                                :class="`channel__broadcaster-status-force--${ChannelUtils.getChannelForceType(channel.channel_force)}`">
                                                 <Icon icon="fa-solid:fire-alt" height="12px" />
                                                 <span class="ml-1">勢い:</span>
-                                                <span class="ml-1">{{TVUtils.getAttribute(channel, 'channel_force', '--')}}</span>
+                                                <span class="ml-1">{{ProgramUtils.getAttribute(channel, 'channel_force', '--')}}</span>
                                                 <span style="margin-left: 3px;"> コメ/分</span>
                                             </div>
                                             <div class="channel__broadcaster-status-viewers ml-4">
@@ -41,11 +41,11 @@
                                 <div class="channel__program-present">
                                     <div class="channel__program-present-title-wrapper">
                                         <span class="channel__program-present-title"
-                                            v-html="TVUtils.decorateProgramInfo(channel.program_present, 'title')"></span>
-                                        <span class="channel__program-present-time">{{TVUtils.getProgramTime(channel.program_present)}}</span>
+                                            v-html="ProgramUtils.decorateProgramInfo(channel.program_present, 'title')"></span>
+                                        <span class="channel__program-present-time">{{ProgramUtils.getProgramTime(channel.program_present)}}</span>
                                     </div>
                                     <span class="channel__program-present-description"
-                                          v-html="TVUtils.decorateProgramInfo(channel.program_present, 'description')"></span>
+                                          v-html="ProgramUtils.decorateProgramInfo(channel.program_present, 'description')"></span>
                                 </div>
                                 <v-spacer></v-spacer>
                                 <div class="channel__program-following">
@@ -53,13 +53,13 @@
                                         <span class="channel__program-following-title-decorate">NEXT</span>
                                         <Icon class="channel__program-following-title-icon" icon="fluent:fast-forward-20-filled" width="16px" />
                                         <span class="channel__program-following-title-text"
-                                              v-html="TVUtils.decorateProgramInfo(channel.program_following, 'title')"></span>
+                                              v-html="ProgramUtils.decorateProgramInfo(channel.program_following, 'title')"></span>
                                     </div>
-                                    <span class="channel__program-following-time">{{TVUtils.getProgramTime(channel.program_following)}}</span>
+                                    <span class="channel__program-following-time">{{ProgramUtils.getProgramTime(channel.program_following)}}</span>
                                 </div>
                                 <div class="channel__progressbar">
                                     <div class="channel__progressbar-progress"
-                                         :style="`width:${TVUtils.getProgramProgress(channel.program_present)}%;`"></div>
+                                         :style="`width:${ProgramUtils.getProgramProgress(channel.program_present)}%;`"></div>
                                 </div>
                             </router-link>
                             <div class="d-flex justify-center align-center w-100" v-if="channels_type === 'ピン留め' && channels.length === 0">
@@ -83,7 +83,7 @@ import Vue from 'vue';
 import { IChannel } from '@/interface';
 import Header from '@/components/Header.vue';
 import Navigation from '@/components/Navigation.vue';
-import Utils, { TVUtils } from '@/utils';
+import Utils, { ChannelUtils, ProgramUtils } from '@/utils';
 
 export default Vue.extend({
     name: 'TV-Home',
@@ -96,7 +96,8 @@ export default Vue.extend({
 
             // ユーティリティをテンプレートで使えるように
             Utils: Utils,
-            TVUtils: TVUtils,
+            ChannelUtils: ChannelUtils,
+            ProgramUtils: ProgramUtils,
 
             // タブの状態管理
             tab: null as number | null,
@@ -230,7 +231,7 @@ export default Vue.extend({
 
             // チャンネル ID が一致したチャンネルの情報を保存する
             for (const pinned_channel_id of this.pinned_channel_ids) {
-                const pinned_channel_type = TVUtils.getChannelType(pinned_channel_id, true);
+                const pinned_channel_type = ChannelUtils.getChannelType(pinned_channel_id, true);
                 const pinned_channel = this.channels_list.get(pinned_channel_type).find((channel) => {
                     return channel.channel_id === pinned_channel_id;  // チャンネル ID がピン留めされているチャンネルのものと同じ
                 });

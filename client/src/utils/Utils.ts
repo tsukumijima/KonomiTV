@@ -309,17 +309,6 @@ export default class Utils {
 
 
     /**
-     * ブラウザが実行されている OS に応じて、"Ctrl" または "Cmd" を返す
-     * キーボードショートカットのコンビネーションキーの説明を OS によって分けるために使う
-     * @returns ブラウザが実行されている OS が Mac なら Cmd を、それ以外なら Ctrl を返す
-     */
-    static CtrlOrCmd(): 'Ctrl' | 'Cmd' {
-        // iPhone・iPad で純正キーボードを接続した場合も一応想定して、iPhone・iPad も含める（動くかは未検証）
-        return /iPhone|iPad|Macintosh/i.test(navigator.userAgent) ? 'Cmd' : 'Ctrl';
-    }
-
-
-    /**
      * アクセストークンを LocalStorage から削除する
      * アクセストークンを削除することで、ログアウト相当になる
      */
@@ -330,6 +319,17 @@ export default class Utils {
 
         // KonomiTV-AccessToken キーを削除
         localStorage.removeItem('KonomiTV-AccessToken');
+    }
+
+
+    /**
+     * ブラウザが実行されている OS に応じて、"Ctrl" または "Cmd" を返す
+     * キーボードショートカットのコンビネーションキーの説明を OS によって分けるために使う
+     * @returns ブラウザが実行されている OS が Mac なら Cmd を、それ以外なら Ctrl を返す
+     */
+    static CtrlOrCmd(): 'Ctrl' | 'Cmd' {
+        // iPhone・iPad で純正キーボードを接続した場合も一応想定して、iPhone・iPad も含める（動くかは未検証）
+        return /iPhone|iPad|Macintosh/i.test(navigator.userAgent) ? 'Cmd' : 'Ctrl';
     }
 
 
@@ -395,16 +395,6 @@ export default class Utils {
         const posLeft = (window.screen.width - popupSizeWidth) / 2;
 
         return `toolbar=0,status=0,top=${posTop},left=${posLeft},width=${popupSizeWidth},height=${popupSizeHeight},modal=yes,alwaysRaised=yes`;
-    }
-
-
-    /**
-     * 現在のブラウザで H.265 / HEVC 映像が再生できるかどうかを取得する
-     * @returns 再生できるなら true、できないなら false
-     */
-    static isHEVCVideoSupported(): boolean {
-        // hvc1.1.1.L123.B0 の部分は呪文 (HEVC であることと、そのプロファイルを示す値らしい)
-        return document.createElement('video').canPlayType('video/mp4;codecs=hvc1.1.1.L123.B0') === 'probably';
     }
 
 
