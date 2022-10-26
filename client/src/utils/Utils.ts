@@ -403,7 +403,7 @@ export default class Utils {
      * @returns 再生できるなら true、できないなら false
      */
     static isHEVCVideoSupported(): boolean {
-        // avc1.4d0028 の部分は呪文 (HEVC であることと、そのプロファイルを示す値らしい)
+        // hvc1.1.1.L123.B0 の部分は呪文 (HEVC であることと、そのプロファイルを示す値らしい)
         return document.createElement('video').canPlayType('video/mp4;codecs=hvc1.1.1.L123.B0') === 'probably';
     }
 
