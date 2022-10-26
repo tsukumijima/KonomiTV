@@ -62,7 +62,7 @@ def Installer(version: str) -> None:
         is_docker_installed = IsDockerInstalled()
         if is_docker_installed is True:
             print(Padding(Panel(
-                'お使いの PC には Docker と Docker Compose がインストールされています。\n'
+                f'お使いの PC には Docker と Docker Compose {"V2" if IsDockerComposeV2() else "V1"} がインストールされています。\n'
                 'Docker + Docker Compose を使ってインストールしますか？',
                 box = box.SQUARE,
                 border_style = Style(color='#E33157'),
@@ -104,7 +104,7 @@ def Installer(version: str) -> None:
     # Docker Compose V2 かどうかでコマンド名を変える
     ## Docker Compose V1 は docker-compose 、V2 は docker compose という違いがある
     ## Docker がインストールされていない場合は V1 のコマンドが代入されるが、そもそも非 Docker インストールでは参照されない
-    docker_compose_command = ['docker-compose'] if IsDockerComposeV2() else ['docker', 'compose']
+    docker_compose_command = ['docker', 'compose'] if IsDockerComposeV2() else ['docker-compose']
 
     # ***** KonomiTV をインストールするフォルダのパス *****
 

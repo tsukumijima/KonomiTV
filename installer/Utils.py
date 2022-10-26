@@ -390,16 +390,18 @@ def IsDockerComposeV2() -> bool:
     # Windows では常に False (サポートしていないため)
     if os.name == 'nt': return False
 
-    # Docker Compose V2 の存在確認
-    docker_compose_v2_result = subprocess.run(
-        args = ['docker', 'compose', 'version'],
-        stdout = subprocess.PIPE,  # 標準出力をキャプチャする
-        stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-        text = True,  # 出力をテキストとして取得する
-        shell = True,  # シェルとして実行する
-    )
-    if docker_compose_v2_result.returncode == 0 and 'Docker Compose version v2' in docker_compose_v2_result.stdout:
-        return True  #  Docker Compose V2 がインストールされている
+    try:
+        # Docker Compose V2 の存在確認
+        docker_compose_v2_result = subprocess.run(
+            args = ['docker', 'compose', 'version'],
+            stdout = subprocess.PIPE,  # 標準出力をキャプチャする
+            stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+            text = True,  # 出力をテキストとして取得する
+        )
+        if docker_compose_v2_result.returncode == 0 and 'Docker Compose version v2' in docker_compose_v2_result.stdout:
+            return True  #  Docker Compose V2 がインストールされている
+    except FileNotFoundError:
+        pass
 
     # Docker Compose V2 がインストールされていないので消去法で V1 だと確定する
     return False
@@ -417,38 +419,43 @@ def IsDockerInstalled() -> bool:
     # Windows では常に False (サポートしていないため)
     if os.name == 'nt': return False
 
-    # Docker コマンドの存在確認
-    docker_result = subprocess.run(
-        args = ['/usr/bin/bash', '-c', 'type docker'],
-        stdout = subprocess.DEVNULL,  # 標準出力を表示しない
-        stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-    )
-    if docker_result.returncode != 0:
-        return False  # Docker がインストールされていない
+    try:
 
-    # Docker Compose V2 の存在確認
-    docker_compose_v2_result = subprocess.run(
-        args = ['docker', 'compose', 'version'],
-        stdout = subprocess.PIPE,  # 標準出力をキャプチャする
-        stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-        text = True,  # 出力をテキストとして取得する
-        shell = True,  # シェルとして実行する
-    )
-    if docker_compose_v2_result.returncode == 0 and 'Docker Compose version v2' in docker_compose_v2_result.stdout:
-        return True  # Docker と Docker Compose V2 がインストールされている
+        # Docker コマンドの存在確認
+        docker_result = subprocess.run(
+            args = ['/usr/bin/bash', '-c', 'type docker'],
+            stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+            stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+        )
+        if docker_result.returncode != 0:
+            return False  # Docker がインストールされていない
 
-    # Docker Compose V1 の存在確認
-    docker_compose_v1_result = subprocess.run(
-        args = ['docker-compose', 'version'],
-        stdout = subprocess.PIPE,  # 標準出力をキャプチャする
-        stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-        text = True,  # 出力をテキストとして取得する
-        shell = True,  # シェルとして実行する
-    )
-    if docker_compose_v1_result.returncode == 0 and 'docker-compose version 1' in docker_compose_v1_result.stdout:
-        return True  # Docker と Docker Compose V1 がインストールされている
+        # Docker Compose V2 の存在確認
+        docker_compose_v2_result = subprocess.run(
+            args = ['docker', 'compose', 'version'],
+            stdout = subprocess.PIPE,  # 標準出力をキャプチャする
+            stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+            text = True,  # 出力をテキストとして取得する
+        )
+        if docker_compose_v2_result.returncode == 0 and 'Docker Compose version v2' in docker_compose_v2_result.stdout:
+            return True  # Docker と Docker Compose V2 がインストールされている
 
-    return False  # Docker はインストールされているが、Docker Compose がインストールされていない
+        # Docker Compose V1 の存在確認
+        docker_compose_v1_result = subprocess.run(
+            args = ['docker-compose', 'version'],
+            stdout = subprocess.PIPE,  # 標準出力をキャプチャする
+            stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+            text = True,  # 出力をテキストとして取得する
+        )
+        if docker_compose_v1_result.returncode == 0 and 'docker-compose version 1' in docker_compose_v1_result.stdout:
+            return True  # Docker と Docker Compose V1 がインストールされている
+
+        return False  # Docker はインストールされているが、Docker Compose がインストールされていない
+
+    # subprocess.run() で万が一 FileNotFoundError が送出された場合、
+    # コマンドが存在しないことによる例外のため、インストールされていないものと判断する
+    except FileNotFoundError:
+        return False
 
 
 def IsGitInstalled() -> bool:

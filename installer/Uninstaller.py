@@ -178,7 +178,7 @@ def Uninstaller() -> None:
         # Docker Compose V2 かどうかでコマンド名を変える
         ## Docker Compose V1 は docker-compose 、V2 は docker compose という違いがある
         ## Docker がインストールされていない場合は V1 のコマンドが代入されるが、そもそも非 Docker インストールでは参照されない
-        docker_compose_command = ['docker-compose'] if IsDockerComposeV2() else ['docker', 'compose']
+        docker_compose_command = ['docker', 'compose'] if IsDockerComposeV2() else ['docker-compose']
 
         # docker compose stop で Docker コンテナを終了
         print(Padding('Docker コンテナを終了しています…', (1, 2, 0, 2)))
