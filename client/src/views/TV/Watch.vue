@@ -197,6 +197,14 @@ import Program from '@/components/Panel/Program.vue';
 import Twitter from '@/components/Panel/Twitter.vue';
 import Utils, { ChannelUtils, PlayerUtils, ProgramUtils } from '@/utils';
 
+// 低遅延モードオン時の再生バッファ (秒単位)
+// これ以上小さくすると再生が詰まりやすくなる印象
+const PLAYBACK_BUFFER_SEC_LOW_LATENCY = 1.5;
+
+// 低遅延モードオフ時の再生バッファ (秒単位)
+// 3秒程度の遅延を許容する
+const PLAYBACK_BUFFER_SEC = 3.0;
+
 export default Vue.extend({
     name: 'TV-Watch',
     components: {
@@ -706,7 +714,7 @@ export default Vue.extend({
 
                 // コメント入力フォームが表示されているときは実行しない
                 // タイマーを掛け直してから抜ける
-                if (this.player.template.controller.classList.contains('dplayer-controller-comment')) {
+                if (this.player !== null && this.player.template.controller.classList.contains('dplayer-controller-comment')) {
                     this.control_interval_id = window.setTimeout(timeout, 3 * 1000);
                     return;
                 }
@@ -785,13 +793,17 @@ export default Vue.extend({
                 this.player = null;
             }
 
+            // 低遅延モードであれば低遅延向けの再生バッファを、そうでなければ通常の再生バッファをセット (秒単位)
+            const playback_buffer_sec = Utils.getSettingsItem('tv_low_latency_mode') ?
+                PLAYBACK_BUFFER_SEC_LOW_LATENCY : PLAYBACK_BUFFER_SEC;
+
             // DPlayer を初期化
             this.player = new DPlayer({
                 container: this.$el.querySelector('.watch-player__dplayer'),
                 theme: '#E64F97',  // テーマカラー
                 lang: 'ja-jp',  // 言語
                 live: true,  // ライブモード
-                liveSyncMinBufferSize: 1.3,  // ライブモードで同期する際の最小バッファサイズ (1.3秒)
+                liveSyncMinBufferSize: playback_buffer_sec,  // ライブモードで同期する際の最小バッファサイズ
                 loop: false,  // ループ再生 (ライブのため無効化)
                 airplay: false,  // AirPlay 機能 (うまく動かないため無効化)
                 autoplay: true,  // 自動再生
@@ -865,12 +877,12 @@ export default Vue.extend({
                             // liveBufferLatencyChasing と異なり、いきなり再生時間をスキップするのではなく、
                             // 再生速度を少しだけ上げることで再生を途切れさせることなく遅延を追跡する
                             liveSync: Utils.getSettingsItem('tv_low_latency_mode'),
-                            // 許容する HTMLMediaElement の内部バッファの最大値 (秒単位, 2.5秒)
-                            liveSyncMaxLatency: 2.5,
-                            // HTMLMediaElement の内部バッファ (遅延) が liveSyncMaxLatency を超えたとき、ターゲットとする遅延時間 (秒単位, 1.3秒)
-                            liveSyncTargetLatency: 1.3,
+                            // 許容する HTMLMediaElement の内部バッファの最大値 (秒単位, 3秒)
+                            liveSyncMaxLatency: 3,
+                            // HTMLMediaElement の内部バッファ (遅延) が liveSyncMaxLatency を超えたとき、ターゲットとする遅延時間 (秒単位)
+                            liveSyncTargetLatency: playback_buffer_sec,
                             // ライブストリームの遅延の追跡に利用する再生速度 (x1.1)
-                            // 遅延が 2.5 秒を超えたとき、遅延が 1.3 秒を下回るまで再生速度が x1.1 に設定される
+                            // 遅延が 3 秒を超えたとき、遅延が playback_buffer_sec を下回るまで再生速度が x1.1 に設定される
                             liveSyncPlaybackRate: 1.1,
                         }
                     },
@@ -943,11 +955,15 @@ export default Vue.extend({
                 }
             });
 
-            // 同期が完了するまで音声をミュートしておく
-            this.player.video.muted = true;
-
             // デバッグ用にプレイヤーインスタンスも window 直下に入れる
             (window as any).player = this.player;
+
+            // プレイヤー側のコントロール非表示タイマーを無効化（上書き）
+            // 無効化しておかないと、controlDisplayTimer() と競合してしまう
+            // 上書き元のコードは https://github.com/tsukumijima/DPlayer/blob/master/src/js/controller.js#L387-L395 にある
+            this.player.controller.setAutoHide = (time: number) => {};
+
+            // ***** コメント送信時のイベントハンドラー *****
 
             // コメントが送信されたときに、プレイヤーからのコメント送信から間もないかどうかのフラグを立てる (0.1秒後に解除する)
             // コメントを送信するとコメント入力フォームへのフォーカスが外れるため、ページ全体の keydown イベントでは
@@ -961,12 +977,7 @@ export default Vue.extend({
                 }
             });
 
-            // プレイヤー側のコントロール非表示タイマーを無効化（上書き）
-            // 無効化しておかないと、controlDisplayTimer() と競合してしまう
-            // 上書き元のコードは https://github.com/tsukumijima/DPlayer/blob/master/src/js/controller.js#L387-L395 にある
-            this.player.controller.setAutoHide = (time: number) => {};
-
-            // 「コメント送信後にコメント入力フォームを閉じる」がオフになっている場合のために、プレイヤー側のコメント送信関数を上書き
+            // 「コメント送信後にコメント入力フォームを閉じる」がオフになっている時のために、プレイヤー側のコメント送信関数を上書き
             // 上書き部分以外の処理内容は概ね https://github.com/tsukumijima/DPlayer/blob/master/src/js/comment.js に準じる
             this.player.comment.send = () => {
 
@@ -989,7 +1000,7 @@ export default Vue.extend({
                         type: this.player.container.querySelector('.dplayer-comment-setting-type input:checked').value,
                         size: this.player.container.querySelector('.dplayer-comment-setting-size input:checked').value,
                     },
-                    // 送信完了後にコメント入力フォームを閉じる (「コメント送信後にコメント入力フォームを閉じる」がオンのときだけ)
+                    // 送信完了後にコメント入力フォームを閉じる ([コメント送信後にコメント入力フォームを閉じる] がオンのときだけ)
                     () => {
                         if (Utils.getSettingsItem('close_comment_form_after_send') === true) {
                             this.player.comment.hide();
@@ -1001,6 +1012,8 @@ export default Vue.extend({
                 // 重複送信を防ぐ
                 this.player.template.commentInput.value = '';
             };
+
+            // ***** 設定パネルのショートカット一覧へのリンクのイベントハンドラー *****
 
             // 設定パネルにショートカット一覧を表示するリンクを動的に追加する
             // タッチデバイスでは実行しない
@@ -1028,61 +1041,7 @@ export default Vue.extend({
                 });
             }
 
-            // 再生/停止されたとき
-            // 通知バーからの制御など、画面から以外の外的要因で再生/停止が行われる事もある
-            const on_play_or_pause = () => {
-
-                // まだ設定パネルが表示されていたら非表示にする
-                this.player.setting.hide();
-
-                // コントロールを表示する
-                this.controlDisplayTimer();
-            }
-            this.player.on('play', on_play_or_pause);
-            this.player.on('pause', on_play_or_pause);
-
-            // 画質の切り替えが開始されたときのイベント
-            this.player.on('quality_start', () => {
-
-                // ローディング中の背景画像をランダムで設定
-                this.background_url = PlayerUtils.generatePlayerBackgroundURL();
-
-                // イベントソースを閉じる
-                if (this.eventsource !== null) {
-                    this.eventsource.close();
-                    this.eventsource = null;
-                }
-
-                // 同期が完了するまで音声をミュートしておく
-                this.player.video.muted = true;
-
-                // 新しい EventSource を作成
-                // 画質ごとにイベント API は異なるため、一度破棄してから作り直す
-                this.initEventHandler();
-            });
-
-            // 設定で文字スーパーが有効
-            // 字幕が非表示の場合でも、文字スーパーは表示する
-            if (Utils.getSettingsItem('tv_show_superimpose') === true) {
-                this.player.plugins.aribb24Superimpose.show();
-                this.player.on('subtitle_hide', () => {
-                    this.player.plugins.aribb24Superimpose.show();
-                });
-            // 設定で文字スーパーが無効
-            } else {
-                this.player.plugins.aribb24Superimpose.hide();
-                this.player.on('subtitle_show', () => {
-                    this.player.plugins.aribb24Superimpose.hide();
-                });
-            }
-
-            // 停止状態でかつ再生時間からバッファが 30 秒以上離れていないかを1分おきに監視し、そうなっていたら強制的にシークする
-            // mpegts.js の仕様上、MSE に未再生のバッファがたまり過ぎると SourceBuffer が追加できなくなるため、強制的に接続が切断されてしまう
-            this.interval_ids.push(window.setInterval(() => {
-                if (this.player.video.paused && this.player.video.buffered.end(0) - this.player.video.currentTime > 30) {
-                    this.player.sync();
-                }
-            }, 60 * 1000));
+            // ***** フルスクリーンのイベントハンドラー *****
 
             // フルスクリーンにするコンテナ要素（ページ全体）
             const fullscreen_container = document.querySelector('.v-application');
@@ -1135,23 +1094,95 @@ export default Vue.extend({
                     screen.orientation.unlock();
                 }
             }
+
+            // ***** 再生/停止/画質切り替え時のイベントハンドラー *****
+
+            // 再生/停止されたとき
+            // 通知バーからの制御など、画面から以外の外的要因で再生/停止が行われる事もある
+            const on_play_or_pause = () => {
+
+                // まだ設定パネルが表示されていたら非表示にする
+                this.player.setting.hide();
+
+                // コントロールを表示する
+                this.controlDisplayTimer();
+            }
+            this.player.on('play', on_play_or_pause);
+            this.player.on('pause', on_play_or_pause);
+
+            // 画質の切り替えが開始されたときのイベント
+            this.player.on('quality_start', () => {
+
+                // ローディング中の背景画像をランダムで設定
+                this.background_url = PlayerUtils.generatePlayerBackgroundURL();
+
+                // イベントソースを閉じる
+                if (this.eventsource !== null) {
+                    this.eventsource.close();
+                    this.eventsource = null;
+                }
+
+                // 新しい EventSource を作成
+                // 画質ごとにイベント API は異なるため、一度破棄してから作り直す
+                this.initEventHandler();
+            });
+
+            // 停止状態でかつ再生時間からバッファが 30 秒以上離れていないかを1分おきに監視し、そうなっていたら強制的にシークする
+            // mpegts.js の仕様上、MSE に未再生のバッファがたまり過ぎると SourceBuffer が追加できなくなるため、強制的に接続が切断されてしまう
+            this.interval_ids.push(window.setInterval(() => {
+                if (this.player.video.paused && this.player.video.buffered.end(0) - this.player.video.currentTime > 30) {
+                    this.player.sync();
+                }
+            }, 60 * 1000));
+
+            // ***** 文字スーパーのイベントハンドラー *****
+
+            // 設定で文字スーパーが有効
+            // 字幕が非表示の場合でも、文字スーパーは表示する
+            if (Utils.getSettingsItem('tv_show_superimpose') === true) {
+                this.player.plugins.aribb24Superimpose.show();
+                this.player.on('subtitle_hide', () => {
+                    this.player.plugins.aribb24Superimpose.show();
+                });
+            // 設定で文字スーパーが無効
+            } else {
+                this.player.plugins.aribb24Superimpose.hide();
+                this.player.on('subtitle_show', () => {
+                    this.player.plugins.aribb24Superimpose.hide();
+                });
+            }
         },
 
         // イベントハンドラーを初期化する
         initEventHandler() {
 
+            // ***** プレイヤー再生開始時のイベントハンドラー *****
+
             // 必ず最初はローディング状態とする
             this.is_loading = true;
 
-            // プレイヤーの背景を非表示にするイベントを登録
+            // 音量を 0 に設定
+            this.player.video.volume = 0;
+
+            // 再生バッファを調整し、再生準備ができた段階でプレイヤーの背景を非表示にするイベントを登録
             // 実際に再生可能になるのを待ってから実行する
+            // 画質切り替え時にも実行する必要があるので、あえてこの位置に記述している
             const on_canplay = () => {
 
+                // 自分自身のイベントを登録解除 (重複実行を避ける)
+                this.player.video.oncanplay = null;
+                this.player.video.oncanplaythrough = null;
+
+                // 再生バッファ調整のため、一旦停止させる
+                // this.player.video.pause() を使うとプレイヤーの UI アイコンが停止してしまうので、代わりに playbackRate を使う
+                this.player.video.playbackRate = 0;
+
                 // 念のためさらに少しだけ待ってから
+                // あえて await で待たずに非同期コールバックで実行している
                 window.setTimeout(async () => {
 
                     // 再生バッファを取得する (取得に失敗した場合は 0 を返す)
-                    const get_buffer = (): number => {
+                    const get_playback_buffer_sec = (): number => {
                         try {
                             return (Math.round((this.player.video.buffered.end(0) - this.player.video.currentTime) * 1000) / 1000);
                         } catch (error) {
@@ -1160,24 +1191,22 @@ export default Vue.extend({
                         }
                     }
 
-                    // 再生バッファ調整のため、一旦停止させる
-                    this.player.video.pause();
+                    // 低遅延モードであれば低遅延向けの再生バッファを、そうでなければ通常の再生バッファをセット (秒単位)
+                    const playback_buffer_sec = Utils.getSettingsItem('tv_low_latency_mode') ?
+                        PLAYBACK_BUFFER_SEC_LOW_LATENCY : PLAYBACK_BUFFER_SEC;
 
-                    // 再生バッファが 1.3 秒を超えるまで 0.1 秒おきに再生バッファをチェックする
-                    // 再生バッファが 1.3 秒を切ると再生が途切れやすくなるので (特に動きの激しい映像)、
-                    // 再生開始までの時間を若干犠牲にしてここの調整に時間を割く
-                    let buffer = get_buffer();
-                    while (buffer < 1.3) {
+                    // 再生バッファが playback_buffer_sec を超えるまで 0.1 秒おきに再生バッファをチェックする
+                    // 再生バッファが playback_buffer_sec を切ると再生が途切れやすくなるので (特に動きの激しい映像)、
+                    // 再生開始までの時間を若干犠牲にして、再生バッファの調整と同期に時間を割く
+                    // playback_buffer_sec の値は mpegts.js に渡す liveSyncTargetLatency プロパティに渡す値と共通
+                    let current_playback_buffer_sec = get_playback_buffer_sec();
+                    while (current_playback_buffer_sec < playback_buffer_sec) {
                         await Utils.sleep(0.1);
-                        buffer = get_buffer();
+                        current_playback_buffer_sec = get_playback_buffer_sec();
                     }
 
                     // 再生開始
-                    this.player.video.pause();  // 念のためもう一度停止しておく
-                    this.player.video.play();
-
-                    // 同期が終わったのでミュートを解除
-                    this.player.video.muted = false;
+                    this.player.video.playbackRate = 1;
 
                     // 再生が一時的に止まってバッファリングしているとき/再び再生されはじめたときのイベント
                     // バッファリングの Progress Circular の表示を制御する
@@ -1199,14 +1228,19 @@ export default Vue.extend({
                         this.is_background_display = false;
                     }
 
-                }, 100);
+                    // 再生開始時に音量を徐々に上げる
+                    // いきなり音量を上げるよりも体験が良い
+                    for (let i = 0; i <= 20; i++) {
+                        this.player.video.volume = i / 20;
+                        await Utils.sleep(0.02);
+                    }
 
-                // イベントを登録解除
-                this.player.video.oncanplay = null;
-                this.player.video.oncanplaythrough = null;
+                }, 100);
             }
             this.player.video.oncanplay = on_canplay;
             this.player.video.oncanplaythrough = on_canplay;
+
+            // ***** KonomiTV サーバーのイベント API のイベントハンドラー *****
 
             // EventSource を作成
             this.eventsource = new EventSource((this.player.quality.url as string).replace('/mpegts', '/events'));
