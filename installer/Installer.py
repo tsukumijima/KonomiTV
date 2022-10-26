@@ -289,7 +289,8 @@ def Installer(version: str) -> None:
                 gpu_infos = gpu_info_data
             # 搭載されている GPU 名を取得してリストに追加
             for gpu_info in gpu_infos:
-                gpu_names.append(gpu_info['Name'])
+                if 'Name' in gpu_info:
+                    gpu_names.append(gpu_info['Name'])
 
     # Linux / Linux-Docker: lshw コマンドを使って取得できる
     elif platform_type == 'Linux' or platform_type == 'Linux-Docker':
@@ -303,7 +304,8 @@ def Installer(version: str) -> None:
         if gpu_info_json.returncode == 0:
             # 接続されている GPU 名を取得してリストに追加
             for gpu_info in json.loads(gpu_info_json.stdout):
-                gpu_names.append(f'{gpu_info["vendor"]} {gpu_info["product"]}')
+                if 'vendor' in gpu_info and 'product' in gpu_info:
+                    gpu_names.append(f'{gpu_info["vendor"]} {gpu_info["product"]}')
 
     # Intel 製 GPU なら QSVEncC が、NVIDIA 製 GPU (Geforce) なら NVEncC が、AMD 製 GPU (Radeon) なら VCEEncC が使える
     ## もちろん機種によって例外はあるけど、ダウンロード前だとこれくらいの大雑把な判定しかできない…
