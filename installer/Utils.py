@@ -396,6 +396,7 @@ def IsDockerComposeV2() -> bool:
         stdout = subprocess.PIPE,  # 標準出力をキャプチャする
         stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
         text = True,  # 出力をテキストとして取得する
+        shell = True,  # シェルとして実行する
     )
     if docker_compose_v2_result.returncode == 0 and 'Docker Compose version v2' in docker_compose_v2_result.stdout:
         return True  #  Docker Compose V2 がインストールされている
@@ -431,6 +432,7 @@ def IsDockerInstalled() -> bool:
         stdout = subprocess.PIPE,  # 標準出力をキャプチャする
         stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
         text = True,  # 出力をテキストとして取得する
+        shell = True,  # シェルとして実行する
     )
     if docker_compose_v2_result.returncode == 0 and 'Docker Compose version v2' in docker_compose_v2_result.stdout:
         return True  # Docker と Docker Compose V2 がインストールされている
@@ -441,6 +443,7 @@ def IsDockerInstalled() -> bool:
         stdout = subprocess.PIPE,  # 標準出力をキャプチャする
         stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
         text = True,  # 出力をテキストとして取得する
+        shell = True,  # シェルとして実行する
     )
     if docker_compose_v1_result.returncode == 0 and 'docker-compose version 1' in docker_compose_v1_result.stdout:
         return True  # Docker と Docker Compose V1 がインストールされている
