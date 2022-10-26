@@ -242,6 +242,13 @@ class LiveEncodingTask():
             options.append('--preset default')
         elif encoder_type == 'VCEEncC':
             options.append('--preset balanced')
+            
+        # 高圧縮向け調整
+        if QUALITY[quality].is_hevc is True:
+            if encoder_type == 'QSVEncC':
+                options.append('--open-gop')
+            elif encoder_type == 'NVEncC':
+                options.append('--qp-min 23:26:30 --multipass 2pass-full --weightp --bref-mode middle --aq --aq-temporal')
 
         ## フル HD 放送が行われているチャンネルかつ、指定された品質の解像度が 1440×1080 (1080p) の場合のみ、
         ## 特別に縦解像度を 1920 に変更してフル HD (1920×1080) でエンコードする
