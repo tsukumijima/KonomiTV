@@ -219,7 +219,13 @@ class LiveEncodingTask():
             options.append('--codec hevc')
         else:
             options.append('--codec h264')
-        options.append(f'--vbr {QUALITY[quality].video_bitrate} --max-bitrate {QUALITY[quality].video_bitrate_max}')
+
+        if QUALITY[quality].is_hevc is True and encoder_type == 'QSVEncC':
+            options.append(f'--qvbr {QUALITY[quality].video_bitrate} --fallback-rc')
+        else:
+            options.append(f'--vbr {QUALITY[quality].video_bitrate}')
+
+        options.append(f'--max-bitrate {QUALITY[quality].video_bitrate_max}')
         options.append(f'--dar 16:9 --profile main --interlace tff')
 
         ## インターレース解除 (60i → 60p (フレームレート: 60fps))
@@ -246,9 +252,9 @@ class LiveEncodingTask():
         # 高圧縮向け調整
         if QUALITY[quality].is_hevc is True:
             if encoder_type == 'QSVEncC':
-                options.append('--open-gop')
+                options.append('--qvbr-quality 30')
             elif encoder_type == 'NVEncC':
-                options.append('--qp-min 23:26:30 --multipass 2pass-full --weightp --bref-mode middle --aq --aq-temporal')
+                options.append('--qp-min 23:26:30 --lookahead 16 --multipass 2pass-full --weightp --bref-mode middle --aq --aq-temporal')
 
         ## フル HD 放送が行われているチャンネルかつ、指定された品質の解像度が 1440×1080 (1080p) の場合のみ、
         ## 特別に縦解像度を 1920 に変更してフル HD (1920×1080) でエンコードする

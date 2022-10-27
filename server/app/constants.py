@@ -95,7 +95,7 @@ QUALITY: Dict[QUALITY_TYPES, Quality] = {
         width = 1440,
         height = 1080,
         video_bitrate = '3500K',
-        video_bitrate_max = '5400K',
+        video_bitrate_max = '5200K',
         audio_bitrate = '192K',
     ),
     '1080p': Quality(
@@ -113,7 +113,7 @@ QUALITY: Dict[QUALITY_TYPES, Quality] = {
         width = 1440,
         height = 1080,
         video_bitrate = '3000K',
-        video_bitrate_max = '5400K',
+        video_bitrate_max = '4500K',
         audio_bitrate = '192K',
     ),
     '810p': Quality(
@@ -131,7 +131,7 @@ QUALITY: Dict[QUALITY_TYPES, Quality] = {
         width = 1440,
         height = 810,
         video_bitrate = '2500K',
-        video_bitrate_max = '4560K',
+        video_bitrate_max = '3700K',
         audio_bitrate = '192K',
     ),
     '720p': Quality(
@@ -149,7 +149,7 @@ QUALITY: Dict[QUALITY_TYPES, Quality] = {
         width = 1280,
         height = 720,
         video_bitrate = '2000K',
-        video_bitrate_max = '3720K',
+        video_bitrate_max = '3000K',
         audio_bitrate = '192K',
     ),
     '540p': Quality(
@@ -167,7 +167,7 @@ QUALITY: Dict[QUALITY_TYPES, Quality] = {
         width = 960,
         height = 540,
         video_bitrate = '1400K',
-        video_bitrate_max = '2460K',
+        video_bitrate_max = '2100K',
         audio_bitrate = '192K',
     ),
     '480p': Quality(
@@ -185,7 +185,7 @@ QUALITY: Dict[QUALITY_TYPES, Quality] = {
         width = 854,
         height = 480,
         video_bitrate = '1050K',
-        video_bitrate_max = '2100K',
+        video_bitrate_max = '1750K',
         audio_bitrate = '192K',
     ),
     '360p': Quality(
@@ -203,7 +203,7 @@ QUALITY: Dict[QUALITY_TYPES, Quality] = {
         width = 640,
         height = 360,
         video_bitrate = '750K',
-        video_bitrate_max = '1350K',
+        video_bitrate_max = '1250K',
         audio_bitrate = '128K',
     ),
     '240p': Quality(
