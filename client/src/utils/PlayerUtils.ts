@@ -37,6 +37,7 @@ export class PlayerUtils {
      * キャプチャ画像に番組情報と撮影時刻、字幕やコメントが合成されているかどうかのメタデータ (EXIF) をセットする
      * @param blob キャプチャ画像の Blob オブジェクト
      * @param program EXIF にセットする番組情報オブジェクト
+     * @param caption_text 字幕のテキスト (キャプチャしたときに字幕が表示されていなければ null)
      * @param is_caption_composited 字幕が合成されているか
      * @param is_comment_composited コメントが合成されているか
      * @returns EXIF が追加されたキャプチャ画像の Blob オブジェクト
@@ -44,6 +45,7 @@ export class PlayerUtils {
     static async setEXIFDataToCapture(
         blob: Blob,
         program: IProgram,
+        caption_text: string | null,
         is_caption_composited: boolean,
         is_comment_composited: boolean,
     ): Promise<Blob> {
@@ -64,7 +66,7 @@ export class PlayerUtils {
             start_time: program.start_time,    // 番組開始時刻 (ISO8601 フォーマット)
             end_time: program.end_time,        // 番組終了時刻 (ISO8601 フォーマット)
             duration: program.duration,        // 番組長 (秒)
-            caption_text: null,                // 字幕のテキスト (キャプチャした瞬間に字幕が表示されていなかったときは null)
+            caption_text: caption_text,        // 字幕のテキスト (キャプチャした瞬間に字幕が表示されていなかったときは null)
             is_caption_composited: is_caption_composited,  // 字幕が合成されているか
             is_comment_composited: is_comment_composited,  // コメントが合成されているか
         }

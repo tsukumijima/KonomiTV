@@ -313,6 +313,9 @@ export default Vue.extend({
             // フルスクリーン状態が切り替わったときのハンドラー
             fullscreen_handler: null as () => void | null,
 
+            // 最後に描画された字幕のテキスト
+            last_drawn_caption_text: '' as string,
+
             // ***** キャプチャ *****
 
             // キャプチャボタンの要素
@@ -913,6 +916,10 @@ export default Vue.extend({
                                 return false;
                             }
                         })(),
+                        // 描画されたテキストを受け取るコールバックを指定
+                        renderedTextCallback: (renderedText: string) => {
+                            this.last_drawn_caption_text = renderedText;
+                        },
                         // 文字スーパーの PRA (内蔵音再生コマンド) のコールバックを指定
                         PRACallback: async (index: number) => {
 
@@ -2110,6 +2117,12 @@ export default Vue.extend({
             const is_caption_showing = this.player.plugins.aribb24Caption.isShowing === true &&
                                         this.player.plugins.aribb24Caption.isPresent();
 
+            // 字幕が表示されている場合、最後に描画された字幕のテキストを取得
+            // 取得した字幕のテキストは、キャプチャに字幕が合成されているかに関わらず、常に EXIF メタデータに書き込まれる
+            // last_drawn_caption_text は字幕が描画されたタイミングで更新されるので、字幕表示中であれば最新のテキストが取得できる
+            // 字幕が表示されていない場合は null を入れ、キャプチャしたシーンで字幕が表示されていなかったことを明示する
+            const caption_text = is_caption_showing ? this.last_drawn_caption_text : null;
+
             // 字幕表示時のキャプチャの保存モード: 映像のみ or 両方
             // 保存モードが「字幕キャプチャのみ」になっているが字幕が表示されていない場合も実行する
             if (['VideoOnly', 'Both'].includes(Utils.getSettingsItem('capture_caption_mode')) || !is_caption_showing) {
@@ -2134,7 +2147,7 @@ export default Vue.extend({
                     (this.$refs.Twitter as InstanceType<typeof Twitter>).addCaptureList(blob, filename_ext);
 
                     // キャプチャに番組情報などのメタデータ (EXIF) をセット
-                    blob = await PlayerUtils.setEXIFDataToCapture(blob, this.channel.program_present, false, with_comments);
+                    blob = await PlayerUtils.setEXIFDataToCapture(blob, this.channel.program_present, caption_text, false, with_comments);
 
                     // キャプチャの保存先: ブラウザでダウンロード or 両方
                     if (['Browser', 'Both'].includes(Utils.getSettingsItem('capture_save_mode'))) {
@@ -2188,7 +2201,7 @@ export default Vue.extend({
                     (this.$refs.Twitter as InstanceType<typeof Twitter>).addCaptureList(blob, filename_ext);
 
                     // キャプチャに番組情報などのメタデータ (EXIF) をセット
-                    blob = await PlayerUtils.setEXIFDataToCapture(blob, this.channel.program_present, true, with_comments);
+                    blob = await PlayerUtils.setEXIFDataToCapture(blob, this.channel.program_present, caption_text, true, with_comments);
 
                     // キャプチャの保存先: ブラウザでダウンロード or 両方
                     if (['Browser', 'Both'].includes(Utils.getSettingsItem('capture_save_mode'))) {
