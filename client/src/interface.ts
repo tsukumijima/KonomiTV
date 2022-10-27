@@ -28,8 +28,8 @@ export interface IProgram {
 // 番組情報を表すインターフェイスのデフォルト値
 export const IProgramDefault: IProgram = {
     id: 'NID0-SID0',
-    service_id: 0,
     network_id: 0,
+    service_id: 0,
     event_id: 0,
     channel_id: 'gr000',
     title: '取得中…',
@@ -75,8 +75,8 @@ export interface IChannel {
 // チャンネル情報を表すインターフェイスのデフォルト値
 export const IChannelDefault: IChannel = {
     id: 'NID0-SID0',
-    service_id: 0,
     network_id: 0,
+    service_id: 0,
     transport_stream_id: null,
     remocon_id: null,
     channel_id: 'gr000',
@@ -143,4 +143,21 @@ export interface IDPlayerDanmakuSendOptions {
     data: IDPlayerDanmaku;
     success: () => void;
     error: (message: string | undefined) => void;
+}
+
+// キャプチャに書き込む EXIF メタデータの型
+export interface ICaptureExifData {
+    captured_at: string;
+    captured_playback_position: number;
+    network_id: number;
+    service_id: number;
+    event_id: number;
+    title: string;
+    description: string;
+    start_time: string;
+    end_time: string;
+    duration: number;
+    caption_text: string | null;
+    is_caption_composited: boolean;
+    is_comment_composited: boolean;
 }

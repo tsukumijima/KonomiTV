@@ -4,7 +4,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/ja';
 import * as piexif from 'piexifjs';
 
-import { IProgram } from '@/interface';
+import { ICaptureExifData, IProgram } from '@/interface';
 import Utils from './Utils';
 
 /**
@@ -48,20 +48,25 @@ export class PlayerUtils {
         is_comment_composited: boolean,
     ): Promise<Blob> {
 
+        // 番組開始時刻換算のキャプチャ時刻 (秒)
+        const captured_playback_position = dayjs().diff(dayjs(program.start_time), 'second', true);
+
         // EXIF の XPComment 領域に入れるメタデータの JSON オブジェクト
         // 撮影時刻とチャンネル・番組を一意に特定できる情報を入れる
-        const json = {
-            'capture_time': dayjs().format('YYYY-MM-DDTHH:mm:ss+09:00'),  // ISO8601 フォーマット
-            'network_id': program.network_id,
-            'service_id': program.service_id,
-            'event_id': program.event_id,
-            'title': program.title,
-            'description': program.description,
-            'start_time': program.start_time,
-            'end_time': program.end_time,
-            'duration': program.duration,
-            'is_caption_composited': is_caption_composited,
-            'is_comment_composited': is_comment_composited,
+        const json: ICaptureExifData = {
+            captured_at: dayjs().format('YYYY-MM-DDTHH:mm:ss+09:00'),  // ISO8601 フォーマットのキャプチャ時刻
+            captured_playback_position: captured_playback_position,  // 番組開始時刻換算のキャプチャ時刻 (秒)
+            network_id: program.network_id,    // 番組が放送されたチャンネルのネットワーク ID
+            service_id: program.service_id,    // 番組が放送されたチャンネルのサービス ID
+            event_id: program.event_id,        // 番組のイベント ID
+            title: program.title,              // 番組タイトル
+            description: program.description,  // 番組概要
+            start_time: program.start_time,    // 番組開始時刻 (ISO8601 フォーマット)
+            end_time: program.end_time,        // 番組終了時刻 (ISO8601 フォーマット)
+            duration: program.duration,        // 番組長 (秒)
+            caption_text: null,                // 字幕のテキスト (キャプチャした瞬間に字幕が表示されていなかったときは null)
+            is_caption_composited: is_caption_composited,  // 字幕が合成されているか
+            is_comment_composited: is_comment_composited,  // コメントが合成されているか
         }
 
         // 保存する EXIF メタデータを構築
