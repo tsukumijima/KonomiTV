@@ -91,12 +91,15 @@ class LiveEncodingTask():
         options.append(f'-fflags nobuffer -flags low_delay -max_delay 250000 -max_interleave_delta {max_interleave_delta} -threads auto')
 
         # 映像
+        ## コーデック
         if QUALITY[quality].is_hevc is True:
-            options.append('-vcodec libx265')
+            options.append('-vcodec libx265')  # H.265/HEVC (通信節約モード)
         else:
-            options.append('-vcodec libx264')
+            options.append('-vcodec libx264')  # H.264
+
+        ## ビットレートと品質
         options.append(f'-flags +cgop -vb {QUALITY[quality].video_bitrate} -maxrate {QUALITY[quality].video_bitrate_max}')
-        options.append('-aspect 16:9 -preset veryfast -profile:v main')
+        options.append('-profile:v main -preset veryfast -aspect 16:9')
 
         ## フル HD 放送が行われているチャンネルかつ、指定された品質の解像度が 1440×1080 (1080p) の場合のみ、
         ## 特別に縦解像度を 1920 に変更してフル HD (1920×1080) でエンコードする
@@ -215,46 +218,58 @@ class LiveEncodingTask():
         options.append('--max-procfps 60 --log-level debug')
 
         # 映像
+        ## コーデック
         if QUALITY[quality].is_hevc is True:
-            options.append('--codec hevc')
+            options.append('--codec hevc')  # H.265/HEVC (通信節約モード)
         else:
-            options.append('--codec h264')
+            options.append('--codec h264')  # H.264
 
+        ## ビットレート
+        ## H.265/HEVC かつ QSVEncC の場合のみ、--qvbr (品質ベース可変ビットレート) モードでエンコードする
+        ## それ以外は --vbr (可変ビットレート) モードでエンコードする
         if QUALITY[quality].is_hevc is True and encoder_type == 'QSVEncC':
             options.append(f'--qvbr {QUALITY[quality].video_bitrate} --fallback-rc')
         else:
             options.append(f'--vbr {QUALITY[quality].video_bitrate}')
-
         options.append(f'--max-bitrate {QUALITY[quality].video_bitrate_max}')
-        options.append(f'--dar 16:9 --profile main --interlace tff')
 
-        ## インターレース解除 (60i → 60p (フレームレート: 60fps))
-        if QUALITY[quality].is_60fps is True:
-            if encoder_type == 'QSVEncC' or encoder_type == 'NVEncC':
-                options.append('--vpp-deinterlace bob --avsync cfr --gop-len 60')
-            elif encoder_type == 'VCEEncC':
-                options.append('--vpp-yadif mode=bob --avsync cfr --gop-len 60')
-        ## インターレース解除 (60i → 30p (フレームレート: 30fps))
-        else:
-            if encoder_type == 'QSVEncC' or encoder_type == 'NVEncC':
-                options.append('--vpp-deinterlace normal --avsync forcecfr --gop-len 30')
-            elif encoder_type == 'VCEEncC':
-                options.append('--vpp-afs preset=default --avsync forcecfr --gop-len 30')
+        ## H.265/HEVC の高圧縮化調整
+        if QUALITY[quality].is_hevc is True:
+            if encoder_type == 'QSVEncC':
+                options.append('--qvbr-quality 30')
+            elif encoder_type == 'NVEncC':
+                options.append('--qp-min 23:26:30 --lookahead 16 --multipass 2pass-full --weightp --bref-mode middle --aq --aq-temporal')
 
-        ## プリセット
+        ## 品質
         if encoder_type == 'QSVEncC':
             options.append('--quality balanced')
         elif encoder_type == 'NVEncC':
             options.append('--preset default')
         elif encoder_type == 'VCEEncC':
             options.append('--preset balanced')
-            
-        # 高圧縮向け調整
+        options.append(f'--profile main --interlace tff --dar 16:9')
+
+        ## 最大 GOP 長 (秒)
+        ## 30fps なら ×30 、 60fps なら ×60 された値が --gop-len で使われる
+        gop_len_second = 1  # 1秒
         if QUALITY[quality].is_hevc is True:
-            if encoder_type == 'QSVEncC':
-                options.append('--qvbr-quality 30')
-            elif encoder_type == 'NVEncC':
-                options.append('--qp-min 23:26:30 --lookahead 16 --multipass 2pass-full --weightp --bref-mode middle --aq --aq-temporal')
+            ## H.265/HEVC では高圧縮化のため、最大 GOP 長を長くする
+            gop_len_second = 2  # 2秒
+
+        ## インターレース解除 (60i → 60p (フレームレート: 60fps))
+        if QUALITY[quality].is_60fps is True:
+            if encoder_type == 'QSVEncC' or encoder_type == 'NVEncC':
+                options.append('--vpp-deinterlace bob')
+            elif encoder_type == 'VCEEncC':
+                options.append('--vpp-yadif mode=bob')
+            options.append(f'--avsync cfr --gop-len {gop_len_second * 60}')
+        ## インターレース解除 (60i → 30p (フレームレート: 30fps))
+        else:
+            if encoder_type == 'QSVEncC' or encoder_type == 'NVEncC':
+                options.append(f'--vpp-deinterlace normal')
+            elif encoder_type == 'VCEEncC':
+                options.append(f'--vpp-afs preset=default')
+            options.append(f'--avsync forcecfr --gop-len {gop_len_second * 30}')
 
         ## フル HD 放送が行われているチャンネルかつ、指定された品質の解像度が 1440×1080 (1080p) の場合のみ、
         ## 特別に縦解像度を 1920 に変更してフル HD (1920×1080) でエンコードする
@@ -867,16 +882,16 @@ class LiveEncodingTask():
                                 livestream.setStatus('Offline', 'VCEEncC 非対応の環境のため、エンコードを開始できません。')
                                 break
                             elif encoder_type == 'QSVEncC' and 'HEVC encoding is not supported on current platform.' in line:
-                                # QSVEncC: H.265 / HEVC でのエンコードに非対応の環境
-                                livestream.setStatus('Offline', 'お使いの Intel GPU は H.265 / HEVC でのエンコードに対応していません。')
+                                # QSVEncC: H.265/HEVC でのエンコードに非対応の環境
+                                livestream.setStatus('Offline', 'お使いの Intel GPU は H.265/HEVC でのエンコードに対応していません。')
                                 break
                             elif encoder_type == 'NVEncC' and 'does not support H.265/HEVC encoding.' in line:
-                                # NVEncC: H.265 / HEVC でのエンコードに非対応の環境
-                                livestream.setStatus('Offline', 'お使いの NVIDIA GPU は H.265 / HEVC でのエンコードに対応していません。')
+                                # NVEncC: H.265/HEVC でのエンコードに非対応の環境
+                                livestream.setStatus('Offline', 'お使いの NVIDIA GPU は H.265/HEVC でのエンコードに対応していません。')
                                 break
                             elif encoder_type == 'VCEEncC' and 'HW Acceleration of H.265/HEVC is not supported on this platform.' in line:
-                                # VCEEncC: H.265 / HEVC でのエンコードに非対応の環境
-                                livestream.setStatus('Offline', 'お使いの AMD GPU は H.265 / HEVC でのエンコードに対応していません。')
+                                # VCEEncC: H.265/HEVC でのエンコードに非対応の環境
+                                livestream.setStatus('Offline', 'お使いの AMD GPU は H.265/HEVC でのエンコードに対応していません。')
                                 break
                             elif 'Consider increasing the value for the --input-analyze and/or --input-probesize!' in line:
                                 # --input-probesize or --input-analyze の期間内に入力ストリームの解析が終わらなかった
