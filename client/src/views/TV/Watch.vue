@@ -2074,6 +2074,12 @@ export default Vue.extend({
                 }
             };
 
+            // ラジオチャンネルを視聴している場合 (当然映像がないのでキャプチャできない)
+            if (this.channel.is_radiochannel === true) {
+                this.player.notice('ラジオチャンネルはキャプチャできません。');
+                return;
+            }
+
             // まだ映像の表示準備が終わっていない (Canvas の幅/高さが 0 のまま)
             if (this.canvas.width === 0 && this.canvas.height === 0) {
                 this.player.notice('読み込み中はキャプチャできません。');
