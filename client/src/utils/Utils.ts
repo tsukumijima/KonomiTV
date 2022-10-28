@@ -399,6 +399,18 @@ export default class Utils {
 
 
     /**
+     * 任意の桁で切り捨てする
+     * ref: https://qiita.com/nagito25/items/0293bc317067d9e6c560#comment-87f0855f388953843037
+     * @param value 切り捨てする数値
+     * @param base どの桁で切り捨てするか (-1 → 10の位 / 3 → 小数第3位）
+     * @return 切り捨てした値
+     */
+    static mathFloor(value: number, base: number = 0): number {
+        return Math.floor(value * (10**base)) / (10**base);
+      }
+
+
+    /**
      * async/await でスリープ的なもの
      * @param seconds 待機する秒数
      * @returns Promise を返すので、await sleep(1); のように使う

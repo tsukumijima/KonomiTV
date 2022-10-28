@@ -1236,11 +1236,14 @@ export default Vue.extend({
                     }
 
                     // 再生開始時に音量を徐々に上げる
-                    // いきなり音量を上げるよりも体験が良い
-                    for (let i = 0; i <= 20; i++) {
-                        this.player.video.volume = i / 20;
+                    // いきなり再生されるよりも体験が良い
+                    const current_volume: number = this.player.user.get('volume');
+                    while ((this.player.video.volume + 0.05) < current_volume) {
+                        // 小数第2位以下を切り捨てて、浮動小数の誤差で 1 (100%) を微妙に超えてしまいエラーになるのを避ける
+                        this.player.video.volume = Utils.mathFloor(this.player.video.volume + 0.05, 2);
                         await Utils.sleep(0.02);
                     }
+                    this.player.video.volume = current_volume;
 
                 }, 100);
             }
