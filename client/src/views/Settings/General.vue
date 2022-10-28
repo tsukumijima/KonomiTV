@@ -118,6 +118,16 @@
                 </div>
             </div>
             <v-divider class="mt-6"></v-divider>
+            <div class="settings__item settings__item--switch">
+                <label class="settings__item-heading" for="capture_copy_to_clipboard">キャプチャをクリップボードにコピーする</label>
+                <label class="settings__item-label" for="capture_copy_to_clipboard">
+                    プレイヤーでキャプチャを撮ったときに、撮ったキャプチャをクリップボードにもコピーするかを設定します。<br>
+                    クリップボードの履歴をサポートしていない OS では、この設定をオンにした状態でキャプチャを撮ると、以前のクリップボードが上書きされます。注意してください。<br>
+                </label>
+                <v-switch class="settings__item-switch" id="capture_copy_to_clipboard" inset hide-details
+                    v-model="settings.capture_copy_to_clipboard">
+                </v-switch>
+            </div>
             <div class="settings__item">
                 <div class="settings__item-heading">キャプチャの保存先</div>
                 <div class="settings__item-label">
@@ -268,6 +278,7 @@ export default Vue.extend({
                     'always_border_caption_text',
                     'specify_caption_background_color',
                     'caption_background_color',
+                    'capture_copy_to_clipboard',
                     'capture_save_mode',
                     'capture_caption_mode',
                 ];

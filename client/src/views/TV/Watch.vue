@@ -184,6 +184,7 @@
 <script lang="ts">
 
 import { AxiosResponse } from 'axios';
+import { convertBlobToPng, copyBlobToClipboard, isJpegBlob, isPngBlob } from 'copy-image-clipboard';
 import dayjs from 'dayjs';
 // @ts-ignore  JavaScript で書かれているので型定義がなく、作ろうとするとややこしくなるので黙殺
 import DPlayer from 'dplayer';
@@ -2173,6 +2174,16 @@ export default Vue.extend({
                         button_elem.classList.remove('dplayer-capturing');
                     }
 
+                    // クリップボードへのコピーが有効なら、キャプチャをクリップボードにコピー
+                    if (Utils.getSettingsItem('capture_copy_to_clipboard')) {
+                        try {
+                            await copyBlobToClipboard(await convertBlobToPng(blob));
+                        } catch (error) {
+                            this.player.notice('クリップボードへのキャプチャのコピーに失敗しました…');
+                            console.error(error);
+                        }
+                    }
+
                 }, 'image/jpeg', 1);
             }
 
@@ -2224,6 +2235,16 @@ export default Vue.extend({
 
                     // キャプチャボタンのハイライトを削除する
                     button_elem.classList.remove('dplayer-capturing');
+
+                    // クリップボードへのコピーが有効なら、キャプチャをクリップボードにコピー
+                    if (Utils.getSettingsItem('capture_copy_to_clipboard')) {
+                        try {
+                            await copyBlobToClipboard(await convertBlobToPng(blob));
+                        } catch (error) {
+                            this.player.notice('クリップボードへのキャプチャのコピーに失敗しました…');
+                            console.error(error);
+                        }
+                    }
 
                 }, 'image/jpeg', 1);
             }

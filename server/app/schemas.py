@@ -133,6 +133,7 @@ class ClientSettings(BaseModel):
     always_border_caption_text: bool = Field(True)
     specify_caption_background_color: bool = Field(False)
     caption_background_color: str = Field('#00000080')
+    # capture_copy_to_clipboard: 同期無効
     capture_save_mode: Literal['Browser', 'UploadServer', 'Both'] = Field('Browser')
     capture_caption_mode: Literal['VideoOnly', 'CompositingCaption', 'Both'] = Field('Both')
     # sync_settings: 同期無効
