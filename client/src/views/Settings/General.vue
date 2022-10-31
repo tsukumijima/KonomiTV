@@ -153,6 +153,7 @@
                 <div class="settings__item-label">
                     字幕が表示されているときに、キャプチャした画像に字幕を合成するかを設定します。<br>
                     映像のみのキャプチャと、字幕を合成したキャプチャを両方同時に保存することもできます。<br>
+                    なお、字幕が表示されていない場合は、常に映像のみ (+コメント付きキャプチャではコメントを合成して) 保存されます。<br>
                 </div>
                 <v-select class="settings__item-form" outlined hide-details
                     :items="capture_caption_mode" v-model="settings.capture_caption_mode">

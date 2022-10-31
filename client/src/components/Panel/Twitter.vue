@@ -440,8 +440,7 @@ export default Vue.extend({
 
             // OffscreenCanvas が使えるなら使う (OffscreenCanvas の方がパフォーマンスが良い)
             const canvas = ('OffscreenCanvas' in window) ?
-                new OffscreenCanvas(image_bitmap.width, image_bitmap.height) :
-                document.createElement('canvas');
+                new OffscreenCanvas(image_bitmap.width, image_bitmap.height) : document.createElement('canvas');
 
             // Canvas にキャプチャを描画
             const context = canvas.getContext('2d');

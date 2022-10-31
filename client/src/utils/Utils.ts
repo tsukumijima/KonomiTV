@@ -424,6 +424,15 @@ export default class Utils {
 
 
     /**
+     * 現在時刻の UNIX タイムスタンプを取得する (デバッグ用)
+     * @returns 現在時刻の UNIX タイムスタンプ
+     */
+    static time(): number {
+        return Date.now() / 1000;
+    }
+
+
+    /**
      * 指定された値の型の名前を取得する
      * ref: https://qiita.com/amamamaou/items/ef0b797156b324bb4ef3
      * @returns 指定された値の型の名前
