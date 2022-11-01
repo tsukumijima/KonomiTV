@@ -140,7 +140,8 @@ class ClientSettings(BaseModel):
     comment_speed_rate: float = Field(1)
     comment_font_size: int = Field(34)
     # comment_delay_time: 同期無効
-    close_comment_form_after_send: bool = Field(True)
+    close_comment_form_after_sending: bool = Field(True)
+    fold_panel_after_sending_tweet: bool = Field(False)
     twitter_active_tab: Literal['Search', 'Timeline', 'Capture'] = Field('Capture')
     tweet_hashtag_position: Literal['Prepend', 'Append', 'PrependWithLineBreak', 'AppendWithLineBreak'] = Field('Append')
     tweet_capture_watermark_position: Literal['None', 'TopLeft', 'TopRight', 'BottomLeft', 'BottomRight'] = Field('None')

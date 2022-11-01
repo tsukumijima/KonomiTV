@@ -70,13 +70,13 @@
                 </v-slider>
             </div>
             <div class="settings__item settings__item--switch">
-                <label class="settings__item-heading" for="close_comment_form_after_send">コメント送信後にコメント入力フォームを閉じる</label>
-                <label class="settings__item-label" for="close_comment_form_after_send">
+                <label class="settings__item-heading" for="close_comment_form_after_sending">コメント送信後にコメント入力フォームを閉じる</label>
+                <label class="settings__item-label" for="close_comment_form_after_sending">
                     コメントを送信したあとに、コメント入力フォームを自動的に閉じるかを設定します。<br>
                     基本的にはオンのままにしておくことをおすすめします。コメント入力フォームが表示されたままだと、大部分のショートカットキーが文字入力と競合して使えないためです。<br>
                 </label>
-                <v-switch class="settings__item-switch" id="close_comment_form_after_send" inset hide-details
-                    v-model="settings.close_comment_form_after_send">
+                <v-switch class="settings__item-switch" id="close_comment_form_after_sending" inset hide-details
+                    v-model="settings.close_comment_form_after_sending">
                 </v-switch>
             </div>
         </div>
@@ -119,14 +119,15 @@ export default Vue.extend({
             // ここの値とフォームを v-model で binding する
             settings: (() => {
                 // 現在の設定値を取得する
-                const settings = {}
-                for (const setting of [
-                        'comment_speed_rate',
-                        'comment_font_size',
-                        'comment_delay_time',
-                        'close_comment_form_after_send',
-                    ]) {
-                    settings[setting] = Utils.getSettingsItem(setting);
+                const settings = {};
+                const setting_keys = [
+                    'comment_speed_rate',
+                    'comment_font_size',
+                    'comment_delay_time',
+                    'close_comment_form_after_sending',
+                ];
+                for (const setting_key of setting_keys) {
+                    settings[setting_key] = Utils.getSettingsItem(setting_key);
                 }
                 return settings;
             })(),

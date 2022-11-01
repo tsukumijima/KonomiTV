@@ -268,7 +268,7 @@ export default Vue.extend({
             settings: (() => {
                 // 現在の設定値を取得する
                 const settings = {}
-                const settings_keys = [
+                const setting_keys = [
                     'tv_streaming_quality',
                     'tv_data_saver_mode',
                     'tv_low_latency_mode',
@@ -283,7 +283,7 @@ export default Vue.extend({
                     'capture_save_mode',
                     'capture_caption_mode',
                 ];
-                for (const setting_key of settings_keys) {
+                for (const setting_key of setting_keys) {
                     settings[setting_key] = Utils.getSettingsItem(setting_key);
                 }
                 return settings;

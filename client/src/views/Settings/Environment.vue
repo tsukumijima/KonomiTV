@@ -31,9 +31,10 @@ export default Vue.extend({
             // ここの値とフォームを v-model で binding する
             settings: (() => {
                 // 現在の設定値を取得する
-                const settings = {}
-                for (const setting of []) {
-                    settings[setting] = Utils.getSettingsItem(setting);
+                const settings = {};
+                const setting_keys = [];
+                for (const setting_key of setting_keys) {
+                    settings[setting_key] = Utils.getSettingsItem(setting_key);
                 }
                 return settings;
             })(),

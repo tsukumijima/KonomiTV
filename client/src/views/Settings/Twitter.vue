@@ -37,6 +37,15 @@
                     <Icon icon="fluent:plug-connected-20-filled" class="mr-2" height="24" />連携するアカウントを追加
                 </v-btn>
             </div>
+            <div class="settings__item settings__item--switch">
+                <label class="settings__item-heading" for="fold_panel_after_sending_tweet">ツイート送信後にパネルを閉じる</label>
+                <label class="settings__item-label" for="fold_panel_after_sending_tweet">
+                    ツイートを送信した後に、表示中のパネルを閉じる（折りたたむ）かを設定します。<br>
+                </label>
+                <v-switch class="settings__item-switch" id="fold_panel_after_sending_tweet" inset hide-details
+                    v-model="settings.fold_panel_after_sending_tweet">
+                </v-switch>
+            </div>
             <div class="settings__item">
                 <div class="settings__item-heading">既定で表示される Twitter タブ内のタブ</div>
                 <div class="settings__item-label">
@@ -122,9 +131,15 @@ export default Vue.extend({
             // ここの値とフォームを v-model で binding する
             settings: (() => {
                 // 現在の設定値を取得する
-                const settings = {}
-                for (const setting of ['twitter_active_tab', 'tweet_hashtag_position', 'tweet_capture_watermark_position']) {
-                    settings[setting] = Utils.getSettingsItem(setting);
+                const settings = {};
+                const setting_keys = [
+                    'fold_panel_after_sending_tweet',
+                    'twitter_active_tab',
+                    'tweet_hashtag_position',
+                    'tweet_capture_watermark_position',
+                ];
+                for (const setting_key of setting_keys) {
+                    settings[setting_key] = Utils.getSettingsItem(setting_key);
                 }
                 return settings;
             })(),

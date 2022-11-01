@@ -108,7 +108,7 @@
                         :class="{'watch-panel__content--active': tv_panel_active_tab === 'Channel'}" :channels_list="channels_list" />
                     <Comment class="watch-panel__content" ref="Comment"
                         :class="{'watch-panel__content--active': tv_panel_active_tab === 'Comment'}" :channel="channel" :player="player" />
-                    <Twitter class="watch-panel__content" ref="Twitter"
+                    <Twitter class="watch-panel__content" ref="Twitter" @panel_folding_requested="is_panel_display = false"
                         :class="{'watch-panel__content--active': tv_panel_active_tab === 'Twitter'}" :channel="channel" :player="player" />
                 </div>
                 <div class="watch-panel__navigation">
@@ -972,7 +972,7 @@ export default Vue.extend({
             this.player.comment.send = () => {
 
                 // コメント入力フォームへのフォーカスを外す (「コメント送信後にコメント入力フォームを閉じる」がオンのときだけ)
-                if (Utils.getSettingsItem('close_comment_form_after_send') === true) {
+                if (Utils.getSettingsItem('close_comment_form_after_sending') === true) {
                 this.player.template.commentInput.blur();
                 }
 
@@ -992,7 +992,7 @@ export default Vue.extend({
                     },
                     // 送信完了後にコメント入力フォームを閉じる ([コメント送信後にコメント入力フォームを閉じる] がオンのときだけ)
                     () => {
-                        if (Utils.getSettingsItem('close_comment_form_after_send') === true) {
+                        if (Utils.getSettingsItem('close_comment_form_after_sending') === true) {
                             this.player.comment.hide();
                         }
                     },

@@ -98,9 +98,12 @@ export default class Utils {
         comment_delay_time: 1.75 as number,
 
         // コメント送信後にコメント入力フォームを閉じる (Default: オン)
-        close_comment_form_after_send: true as boolean,
+        close_comment_form_after_sending: true as boolean,
 
         // ***** 設定 → Twitter *****
+
+        // ツイート送信後にパネルを閉じる (Default: オフ)
+        fold_panel_after_sending_tweet: false as boolean,
 
         // 既定で表示される Twitter タブ内のタブ (Default: キャプチャタブ)
         twitter_active_tab: 'Capture' as ('Search' | 'Timeline' | 'Capture'),
@@ -128,7 +131,8 @@ export default class Utils {
         'capture_caption_mode',
         'comment_speed_rate',
         'comment_font_size',
-        'close_comment_form_after_send',
+        'close_comment_form_after_sending',
+        'fold_panel_after_sending_tweet',
         'twitter_active_tab',
         'tweet_hashtag_position',
         'tweet_capture_watermark_position',

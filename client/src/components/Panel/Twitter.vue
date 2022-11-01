@@ -67,10 +67,11 @@
                     <Icon icon="fluent:clipboard-text-ltr-32-regular" height="22px" />
                 </div>
             </div>
-            <textarea class="tweet-form__textarea" placeholder="ツイート" v-model="tweet_text"
+            <textarea class="tweet-form__textarea" placeholder="ツイート" v-model="tweet_text" ref="tweet_text"
                 @input="updateTweetLetterCount()"
                 @paste="pasteClipboardData($event)"
-                @focus="is_tweet_text_form_focused = true" @blur="is_tweet_text_form_focused = false">
+                @focus="is_tweet_text_form_focused = true"
+                @blur="is_tweet_text_form_focused = false">
             </textarea>
             <div class="tweet-form__control">
                 <div v-ripple class="account-button" :class="{'account-button--no-login': !this.is_logged_in_twitter}"
@@ -496,10 +497,12 @@ export default Vue.extend({
 
             // ハッシュタグを整形（余計なスペースなどを削り、全角ハッシュを半角ハッシュへ、全角スペースを半角スペースに置換）
             const tweet_hashtag_array = this.tweet_hashtag.trim()
-                .replaceAll('♯', '#').replaceAll('＃', '#').replaceAll('　', '').replaceAll(/ +/g,' ').split(' ');
+                .replaceAll('♯', '#').replaceAll('＃', '#').replaceAll('　', ' ').replaceAll(/ +/g,' ').split(' ');
             for (let index in tweet_hashtag_array) {
                 // ハッシュタグがついてない場合にハッシュタグを付与
-                if (!tweet_hashtag_array[index].startsWith('#')) tweet_hashtag_array[index] = `#${tweet_hashtag_array[index]}`;
+                if (!tweet_hashtag_array[index].startsWith('#')) {
+                    tweet_hashtag_array[index] = `#${tweet_hashtag_array[index]}`;
+                }
             }
             const tweet_hashtag = this.tweet_hashtag !== '' ? tweet_hashtag_array.join(' ') : '';
 
@@ -550,6 +553,12 @@ export default Vue.extend({
             this.tweet_captures = [];
             this.tweet_text = '';
 
+            // パネルを閉じるように親コンポーネントに伝える
+            if (true) {
+                this.$emit('panel_folding_requested');
+                (this.$refs.tweet_text as HTMLTextAreaElement).blur();  // フォーカスを外す
+            }
+
             try {
 
                 // ツイート送信 API にリクエスト
@@ -566,7 +575,7 @@ export default Vue.extend({
 
             } catch (error) {
                 console.error(error);
-                this.player.notice('ツイートの送信に失敗しました。');
+                this.player.notice('エラー: ツイートの送信に失敗しました。');
             }
         },
     }
