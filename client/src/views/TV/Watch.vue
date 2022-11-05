@@ -336,7 +336,8 @@ export default Vue.extend({
                         icon: 'fluent:home-20-filled',
                         icon_height: '22px',
                         shortcuts: [
-                            { name: '数字キー・テンキーに対応するリモコン番号 (1~12) のチャンネルに切り替える<br style="display:block;content:\'\';margin:5px 0;">（同時に Shift キーを押すと、地デジならBS、BSなら地デジのチャンネルを選局する）', keys: [{name: '1~9, 0, -(=), ^(~)', icon: false}] },
+                            { name: '数字キー・テンキーに対応するリモコン番号 (1~12) の地デジチャンネルに切り替える', keys: [{name: '1~9, 0, -(=), ^(~)', icon: false}] },
+                            { name: '数字キー・テンキーに対応するリモコン番号 (1~12) の BS チャンネルに切り替える', keys: [{name: 'Shift', icon: false}, {name: '1~9, 0, -(=), ^(~)', icon: false}] },
                             { name: '前のチャンネルに切り替える', keys: [{name: 'fluent:arrow-up-12-filled', icon: true}] },
                             { name: '次のチャンネルに切り替える', keys: [{name: 'fluent:arrow-down-12-filled', icon: true}] },
                             { name: 'キーボードショートカットの一覧を表示する', keys: [{name: '／(？)', icon: false}] },
@@ -349,10 +350,10 @@ export default Vue.extend({
                         shortcuts: [
                             { name: '再生 / 一時停止の切り替え', keys: [{name: 'Space', icon: false}] },
                             { name: '再生 / 一時停止の切り替え (キャプチャタブ表示時)', keys: [{name: 'Shift', icon: false}, {name: 'Space', icon: false}] },
-                            { name: 'プレイヤーの音量を上げる', keys: [{name: 'Shift', icon: false}, {name: 'fluent:arrow-up-12-filled', icon: true}] },
-                            { name: 'プレイヤーの音量を下げる', keys: [{name: 'Shift', icon: false}, {name: 'fluent:arrow-down-12-filled', icon: true}] },
-                            { name: '停止して0.5秒早戻し', keys: [{name: 'Shift', icon: false}, {name: 'fluent:arrow-left-12-filled', icon: true}] },
-                            { name: '停止して0.5秒早送り', keys: [{name: 'Shift', icon: false}, {name: 'fluent:arrow-right-12-filled', icon: true}] },
+                            { name: 'プレイヤーの音量を上げる', keys: [{name: Utils.CtrlOrCmd(), icon: false}, {name: 'fluent:arrow-up-12-filled', icon: true}] },
+                            { name: 'プレイヤーの音量を下げる', keys: [{name: Utils.CtrlOrCmd(), icon: false}, {name: 'fluent:arrow-down-12-filled', icon: true}] },
+                            { name: '停止して0.5秒早戻し', keys: [{name: Utils.CtrlOrCmd(), icon: false}, {name: 'fluent:arrow-left-12-filled', icon: true}] },
+                            { name: '停止して0.5秒早送り', keys: [{name: Utils.CtrlOrCmd(), icon: false}, {name: 'fluent:arrow-right-12-filled', icon: true}] },
                             { name: 'フルスクリーンの切り替え', keys: [{name: 'F', icon: false}] },
                             { name: 'ライブストリームの同期', keys: [{name: 'W', icon: false}] },
                             { name: 'Picture-in-Picture の表示切り替え', keys: [{name: 'E', icon: false}] },
@@ -1512,11 +1513,8 @@ export default Vue.extend({
 
                             // ***** 数字キーでチャンネルを切り替える *****
 
-                            // チャンネルタイプを選択
-                            // Shift キーが押されていたらチャンネルタイプを地デジならBSに、BSなら地デジにする
-                            let switch_channel_type = this.channel.channel_type;
-                            if (event.shiftKey && this.channel.channel_type === 'GR') switch_channel_type = 'BS';
-                            if (event.shiftKey && this.channel.channel_type === 'BS') switch_channel_type = 'GR';
+                            // Ctrl / Cmd キーが同時押しされていたら BS チャンネルの方を選局する
+                            const switch_channel_type = (event.shiftKey) ? 'BS' : 'GR';
 
                             // 1～9キー
                             let switch_remocon_id = null;
@@ -1749,32 +1747,37 @@ export default Vue.extend({
 
                         // ***** プレイヤーのショートカットキー *****
 
-                        // プレイヤーが初期化されていない時・Ctrl / Cmd / Alt キーが一緒に押された時に作動しないように
-                        if (this.player !== null && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                        // プレイヤーが初期化されていない時・Shift / Alt キーが一緒に押された時に作動しないように
+                        if (this.player !== null && !event.shiftKey && !event.altKey) {
 
-                            // Shift + ↑キー: プレイヤーの音量を上げる
-                            if (event.shiftKey === true && event.code === 'ArrowUp') {
+                            // Ctrl / Cmd + ↑キー: プレイヤーの音量を上げる
+                            if ((event.ctrlKey || event.metaKey) && event.code === 'ArrowUp') {
                                 this.player.volume(this.player.volume() + 0.05);
                                 return true;
                             }
-                            // Shift + ↓キー: プレイヤーの音量を下げる
-                            if (event.shiftKey === true && event.code === 'ArrowDown') {
+                            // Ctrl / Cmd + ↓キー: プレイヤーの音量を下げる
+                            if ((event.ctrlKey || event.metaKey) && event.code === 'ArrowDown') {
                                 this.player.volume(this.player.volume() - 0.05);
                                 return true;
                             }
-                            // Shift + ←キー: 停止して0.5秒巻き戻し
-                            if (event.shiftKey === true && event.code === 'ArrowLeft') {
+                            // Ctrl / Cmd + ←キー: 停止して0.5秒巻き戻し
+                            if ((event.ctrlKey || event.metaKey) && event.code === 'ArrowLeft') {
                                 if (this.player.video.paused === false) this.player.video.pause();
                                 this.player.video.currentTime = this.player.video.currentTime - 0.5;
                                 return true;
                             }
-                            // Shift + →キー: 停止して0.5秒早送り
-                            if (event.shiftKey === true && event.code === 'ArrowRight') {
+                            // Ctrl / Cmd + →キー: 停止して0.5秒早送り
+                            if ((event.ctrlKey || event.metaKey) && event.code === 'ArrowRight') {
                                 if (this.player.video.paused === false) this.player.video.pause();
                                 this.player.video.currentTime = this.player.video.currentTime + 0.5;
                                 return true;
                             }
-                            // Shift + Spaceキー + キーリピートでない時 + Twitter タブ表示時: 再生/停止
+                        }
+
+                        // プレイヤーが初期化されていない時・Ctrl / Cmd / Alt キーが一緒に押された時に作動しないように
+                        if (this.player !== null && !event.ctrlKey && !event.metaKey && !event.altKey) {
+
+                            // Shift + Spaceキー + キーリピートでない時 + Twitter タブ表示時 + キャプチャタブ表示時: 再生/停止
                             if (event.shiftKey === true && event.code === 'Space' && is_repeat === false &&
                                 this.tv_panel_active_tab === 'Twitter' && twitter_component.twitter_active_tab === 'Capture') {
                                 this.player.toggle();

@@ -860,7 +860,7 @@ export default Vue.extend({
                     // 狭めるコメント描画領域のアスペクト比を求める
                     // https://tech.arc-one.jp/asepct-ratio/
                     const gcd = (x: number, y: number) => {  // 最大公約数を求める関数
-                        if(y === 0) return x;
+                        if (y === 0) return x;
                         return gcd(y, x % y);
                     }
                     // 幅と高さの最大公約数を求める
