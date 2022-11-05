@@ -80,7 +80,7 @@
 
 import Vue from 'vue';
 
-import { IChannel } from '@/interface';
+import { ChannelTypePretty, IChannel } from '@/interface';
 import Header from '@/components/Header.vue';
 import Navigation from '@/components/Navigation.vue';
 import Utils, { ChannelUtils, ProgramUtils } from '@/utils';
@@ -111,7 +111,7 @@ export default Vue.extend({
             interval_ids: [] as number[],
 
             // チャンネル情報リスト
-            channels_list: new Map() as Map<string, IChannel[]>,
+            channels_list: new Map() as Map<ChannelTypePretty, IChannel[]>,
 
             // ピン留めしているチャンネルの ID (ex: gr011) が入るリスト
             pinned_channel_ids: [] as string[],
@@ -231,7 +231,7 @@ export default Vue.extend({
 
             // チャンネル ID が一致したチャンネルの情報を保存する
             for (const pinned_channel_id of this.pinned_channel_ids) {
-                const pinned_channel_type = ChannelUtils.getChannelType(pinned_channel_id, true);
+                const pinned_channel_type = ChannelUtils.getChannelType(pinned_channel_id, true) as ChannelTypePretty;
                 const pinned_channel = this.channels_list.get(pinned_channel_type).find((channel) => {
                     return channel.channel_id === pinned_channel_id;  // チャンネル ID がピン留めされているチャンネルのものと同じ
                 });

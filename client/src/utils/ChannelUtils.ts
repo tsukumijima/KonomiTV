@@ -1,5 +1,5 @@
 
-import { IChannel } from '@/interface';
+import { ChannelType, ChannelTypePretty, IChannel } from '@/interface';
 
 /**
  * チャンネル周りのユーティリティ
@@ -9,15 +9,22 @@ export class ChannelUtils {
     /**
      * チャンネル ID からチャンネルタイプを取得する
      * @param channel_id チャンネル ID
-     * @param is_chideji GR を「地デジ」と表記するかどうか
+     * @param is_pretty ChannelTypePretty 型で返すかどうか
      * @returns チャンネルタイプ
      */
-    static getChannelType(channel_id: string, is_chideji: boolean = false): string {
+    static getChannelType(channel_id: string, is_pretty: boolean = false): ChannelType | ChannelTypePretty {
         const result = channel_id.match('(?<channel_type>[a-z]+)[0-9]+').groups.channel_type.toUpperCase();
-        if (result === 'GR' && is_chideji) {
-            return '地デジ';
+        if (is_pretty === true) {
+            switch (result) {
+                case 'GR':
+                    return '地デジ';
+                case 'STARDIGIO':
+                    return 'StarDigio';
+                default:
+                    return result as ChannelTypePretty;
+            }
         } else {
-            return result;
+            return result as ChannelType;
         }
     }
 
@@ -52,11 +59,13 @@ export class ChannelUtils {
      * @param remocon_id リモコン番号
      * @returns チャンネル情報
      */
-    static getChannelFromRemoconID(channels_list: Map<string, IChannel[]>, channel_type: string, remocon_id: number): IChannel | null {
+    static getChannelFromRemoconID(channels_list: Map<ChannelTypePretty, IChannel[]>, channel_type: ChannelType, remocon_id: number): IChannel | null {
+
+        // ChannelTypePretty 型に変換する
+        const channel_type_pretty = channel_type.replace('GR', '地デジ').replace('STARDIGIO', 'StarDigio') as ChannelTypePretty;
 
         // 指定されたチャンネルタイプのチャンネルを取得
-        channel_type = channel_type.replace('GR', '地デジ');  //「GR」は「地デジ」に置換しておく
-        const channels = channels_list.get(channel_type);
+        const channels = channels_list.get(channel_type_pretty);  //「GR」は「地デジ」に置換してから取得
 
         // リモコン番号が一致するチャンネルを見つけ、一番最初に見つかったものを返す
         for (let index = 0; index < channels.length; index++) {
@@ -77,10 +86,10 @@ export class ChannelUtils {
      * @param channel_id 起点にする現在のチャンネル ID
      * @returns 前・現在・次のチャンネル情報
      */
-    static getPreviousAndCurrentAndNextChannel(channels_list: Map<string, IChannel[]>, channel_id: string): IChannel[] {
+    static getPreviousAndCurrentAndNextChannel(channels_list: Map<ChannelTypePretty, IChannel[]>, channel_id: string): IChannel[] {
 
         // 前後のチャンネルを取得
-        const channels = channels_list.get(this.getChannelType(channel_id, true));
+        const channels = channels_list.get(this.getChannelType(channel_id, true) as ChannelTypePretty);
         for (let index = 0; index < channels.length; index++) {
             const element = channels[index];
 

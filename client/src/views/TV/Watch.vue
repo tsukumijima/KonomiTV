@@ -184,14 +184,13 @@
 <script lang="ts">
 
 import { AxiosResponse } from 'axios';
-import { convertBlobToPng, copyBlobToClipboard } from 'copy-image-clipboard';
 import dayjs from 'dayjs';
 // @ts-ignore  JavaScript で書かれているので型定義がなく、作ろうとするとややこしくなるので黙殺
 import DPlayer from 'dplayer';
 import mpegts from 'mpegts.js';
 import Vue from 'vue';
 
-import { IChannel, IChannelDefault } from '@/interface';
+import { ChannelTypePretty, IChannel, IChannelDefault } from '@/interface';
 import Channel from '@/components/Panel/Channel.vue';
 import Comment from '@/components/Panel/Comment.vue';
 import Program from '@/components/Panel/Program.vue';
@@ -295,7 +294,7 @@ export default Vue.extend({
             channel_next: IChannelDefault,
 
             // チャンネル情報リスト
-            channels_list: new Map() as Map<string, IChannel[]>,
+            channels_list: new Map() as Map<ChannelTypePretty, IChannel[]>,
 
             // ***** プレイヤー *****
 
@@ -615,7 +614,7 @@ export default Vue.extend({
 
             // チャンネル ID が一致したチャンネルの情報を保存する
             for (const pinned_channel_id of pinned_channel_ids) {
-                const pinned_channel_type = ChannelUtils.getChannelType(pinned_channel_id, true);
+                const pinned_channel_type = ChannelUtils.getChannelType(pinned_channel_id, true) as ChannelTypePretty;
                 const pinned_channel = this.channels_list.get(pinned_channel_type).find((channel) => {
                     return channel.channel_id === pinned_channel_id;  // チャンネル ID がピン留めされているチャンネルのものと同じ
                 });

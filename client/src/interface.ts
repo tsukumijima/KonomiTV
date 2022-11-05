@@ -51,6 +51,12 @@ export const IProgramDefault: IProgram = {
     secondary_audio_sampling_rate: null,
 }
 
+// チャンネルタイプの型
+export type ChannelType = 'GR' | 'BS' | 'CS' | 'CATV' | 'SKY' | 'STARDIGIO';
+
+// チャンネルタイプの型 (実際のチャンネルリストに表示される表現)
+export type ChannelTypePretty = 'ピン留め' | '地デジ' | 'BS' | 'CS' | 'CATV' | 'SKY' | 'StarDigio';
+
 // チャンネル情報を表すインターフェイス
 export interface IChannel {
     id: string;
@@ -61,7 +67,7 @@ export interface IChannel {
     channel_id: string;
     channel_number: string;
     channel_name: string;
-    channel_type: string;
+    channel_type: ChannelType;
     channel_force: number | null;
     channel_comment: number | null;
     is_subchannel: boolean;

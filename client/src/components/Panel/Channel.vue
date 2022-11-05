@@ -50,7 +50,7 @@
 
 import Vue, { PropType } from 'vue';
 
-import { IChannel } from '@/interface';
+import { ChannelTypePretty, IChannel } from '@/interface';
 import Utils, { ChannelUtils, ProgramUtils } from '@/utils';
 
 export default Vue.extend({
@@ -58,7 +58,7 @@ export default Vue.extend({
     props: {
         // チャンネル情報リスト
         channels_list: {
-            type: Map as PropType<Map<string, IChannel[]>>,
+            type: Map as PropType<Map<ChannelTypePretty, IChannel[]>>,
             required: true,
         }
     },
