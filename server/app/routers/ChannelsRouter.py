@@ -41,7 +41,7 @@ router = APIRouter(
 async def ChannelsAPI():
     """
     地デジ (GR)・BS・CS・CATV・SKY (SPHD)・STARDIGIO それぞれ全てのチャンネルの情報を取得する。<br>
-    パフォーマンス向上のために response_model はあえて設定していないが（設定すると 100~300ms ほど遅くなる）、Channel レスポンスを返す。
+    パフォーマンス向上のために response_model はあえて設定していないが（設定すると検証処理が入る関係で 100~300ms ほど遅くなる）、Channel レスポンスを返す。
     """
 
     # 現在時刻

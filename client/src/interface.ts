@@ -121,7 +121,7 @@ export interface IVersionInformation {
     version: string;
     latest_version: string;
     backend: 'EDCB' | 'Mirakurun';
-    environment: 'Windows' | 'Linux' | 'Linux (Docker)';
+    environment: 'Windows' | 'Linux' | 'Linux-Docker';
 }
 
 // DPlayer のコメントデータの型

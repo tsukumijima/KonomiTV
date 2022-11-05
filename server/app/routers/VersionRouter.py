@@ -43,7 +43,7 @@ async def VersionInformationAPI():
     environment = 'Windows' if os.name else 'Linux'
     if environment == 'Linux' and Path.exists(Path('/.dockerenv')) is True:
         # Linux かつ Docker 環境
-        environment = 'Linux (Docker)'
+        environment = 'Linux-Docker'
 
     return {
         'version': VERSION,

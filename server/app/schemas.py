@@ -165,4 +165,4 @@ class VersionInformation(BaseModel):
     version: str
     latest_version: str
     backend: Literal['EDCB', 'Mirakurun']
-    environment: Literal['Windows', 'Linux', 'Linux (Docker)']
+    environment: Literal['Windows', 'Linux', 'Linux-Docker']
