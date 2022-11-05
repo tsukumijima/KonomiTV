@@ -117,8 +117,27 @@ export default Vue.extend({
                 flex-direction: column;
                 margin-top: 24px;
 
+                &--sync-disabled {
+                    .settings__item-heading:after {
+                        content: 'デバイス間同期無効';
+                        display: flex;
+                        flex-shrink: 0;
+                        position: relative;
+                        align-items: center;
+                        padding: 2px 4px;
+                        margin-left: auto;
+                        border-radius: 4px;
+                        background: var(--v-background-lighten2);
+                        font-size: 11px;
+                    }
+                }
+
                 &--switch {
                     margin-right: 62px;
+
+                    .settings__item-heading:after {
+                        right: -62px;
+                    }
                 }
 
                 &--disabled {
@@ -126,6 +145,8 @@ export default Vue.extend({
                 }
 
                 &-heading {
+                    display: flex;
+                    align-items: center;
                     color: var(--v-text-base);
                     font-size: 16.5px;
                 }

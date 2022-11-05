@@ -59,7 +59,7 @@
                     :min="20" :max="60" v-model="settings.comment_font_size">
                 </v-slider>
             </div>
-            <div class="settings__item">
+            <div class="settings__item settings__item--sync-disabled">
                 <div class="settings__item-heading">コメントの遅延時間</div>
                 <div class="settings__item-label">
                     プレイヤーやコメントリストに表示されるコメントを何秒遅らせて反映するかを設定します。<br>

@@ -6,7 +6,7 @@
             <span class="ml-3">全般</span>
         </h2>
         <div class="settings__content">
-            <div class="settings__item">
+            <div class="settings__item settings__item--sync-disabled">
                 <div class="settings__item-heading">テレビのストリーミング画質</div>
                 <div class="settings__item-label">
                     テレビをライブストリーミングするときの既定の画質を設定します。<br>
@@ -20,7 +20,7 @@
                     :items="tv_streaming_quality" v-model="settings.tv_streaming_quality">
                 </v-select>
             </div>
-            <div class="settings__item settings__item--switch"
+            <div class="settings__item settings__item--switch settings__item--sync-disabled"
                 :class="{'settings__item--disabled': PlayerUtils.isHEVCVideoSupported() === false}">
                 <label class="settings__item-heading" for="tv_data_saver_mode">テレビを通信節約モードで視聴する</label>
                 <label class="settings__item-label" for="tv_data_saver_mode">
@@ -32,7 +32,7 @@
                     v-model="settings.tv_data_saver_mode" :disabled="PlayerUtils.isHEVCVideoSupported() === false">
                 </v-switch>
             </div>
-            <div class="settings__item settings__item--switch">
+            <div class="settings__item settings__item--switch settings__item--sync-disabled">
                 <label class="settings__item-heading" for="tv_low_latency_mode">テレビを低遅延で視聴する</label>
                 <label class="settings__item-label" for="tv_low_latency_mode">
                     テレビをライブストリーミングするときに、低遅延で視聴するかを設定します。<br>
@@ -118,7 +118,7 @@
                 </div>
             </div>
             <v-divider class="mt-6"></v-divider>
-            <div class="settings__item settings__item--switch">
+            <div class="settings__item settings__item--switch settings__item--sync-disabled">
                 <label class="settings__item-heading" for="capture_copy_to_clipboard">キャプチャをクリップボードにコピーする</label>
                 <label class="settings__item-label" for="capture_copy_to_clipboard">
                     プレイヤーでキャプチャを撮ったときに、撮ったキャプチャをクリップボードにもコピーするかを設定します。<br>
@@ -234,7 +234,7 @@ export default Vue.extend({
                 {'text': 'Twitter タブ', 'value': 'Twitter'},
             ],
 
-            // 字幕のフォント
+            // 字幕のフォントの選択肢
             caption_font: [
                 {'text': 'Windows TV ゴシック', 'value': 'Windows TV Gothic'},
                 {'text': 'Windows TV 丸ゴシック', 'value': 'Windows TV MaruGothic'},
@@ -246,7 +246,7 @@ export default Vue.extend({
                 {'text': 'デフォルトのフォント', 'value': 'sans-serif'},
             ],
 
-            // キャプチャの保存先
+            // キャプチャの保存先の選択肢
             capture_save_mode: [
                 {'text': 'ブラウザでダウンロード', 'value': 'Browser'},
                 {'text': 'KonomiTV サーバーにアップロード', 'value': 'UploadServer'},
