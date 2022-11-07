@@ -2251,6 +2251,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
 
 .route-container {
     height: 100vh !important;
+    height: 100dvh !important;
     background: var(--v-black-base) !important;
     overflow: hidden;
     // iOS Safari で 100vh にアドレスバーが含まれてしまう問題を回避する
@@ -2504,6 +2505,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 width: 100%;
                 max-height: 100%;
                 padding-top: min(56.25%, 100vh);
+                padding-top: min(56.25%, 100dvh);
                 aspect-ratio: 16 / 9;
                 background-blend-mode: overlay;
                 background-color: rgba(14, 14, 18, 0.35);

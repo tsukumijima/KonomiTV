@@ -1078,6 +1078,7 @@ export default Vue.extend({
         right: 12px;
         bottom: 48px;
         max-height: calc(100vh - 137px);
+        max-height: calc(100dvh - 137px);
         border-radius: 7px;
         // スクロールバーが表示されると角が丸くなくなる問題への対処
         clip-path: inset(0% 0% 0% 0% round 7px);
@@ -1093,6 +1094,7 @@ export default Vue.extend({
             right: 8px;
             bottom: 40px;
             max-height: calc(100vh - 104px);
+            max-height: calc(100dvh - 104px);
         }
         &--display {
             opacity: 1;
@@ -1167,6 +1169,7 @@ export default Vue.extend({
         right: 12px;
         bottom: 149px;
         max-height: calc(100vh - 239px);
+        max-height: calc(100dvh - 239px);
         padding: 12px 4px;
         border-radius: 7px;
         // スクロールバーが表示されると角が丸くなくなる問題への対処
@@ -1183,6 +1186,7 @@ export default Vue.extend({
             right: 8px;
             bottom: 110px;
             max-height: calc(100vh - 174px);
+            max-height: calc(100dvh - 174px);
             padding: 8px 4px;
         }
         &--display {
@@ -1192,6 +1196,7 @@ export default Vue.extend({
         &--virtual-keyboard-display {
             bottom: calc(env(keyboard-inset-height, 0px) - 74px) !important;
             max-height: calc(100vh - calc(env(keyboard-inset-height, 0px) + 16px)) !important;
+            max-height: calc(100dvh - calc(env(keyboard-inset-height, 0px) + 16px)) !important;
             @include smartphone-horizontal {
                 bottom: calc(env(keyboard-inset-height, 0px) - 48px) !important;
             }

@@ -21,6 +21,7 @@ html {
 // アプリケーションのルート
 body .v-application {
     min-height: 100vh;
+    min-height: 100dvh;
     font-family: 'YakuHanJPs', 'Open Sans', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
     font-weight: 500;
     -webkit-font-smoothing: antialiased;

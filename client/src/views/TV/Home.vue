@@ -288,6 +288,7 @@ export default Vue.extend({
     .v-window__container {
         // 1px はスクロールバーを表示させるためのもの
         min-height: calc(100vh - 65px - 116px + 1px);
+        min-height: calc(100dvh - 65px - 116px + 1px);
         // タッチデバイスではスクロールバーを気にする必要がないので無効化
         @media (hover: none) {
             min-height: auto;
@@ -394,6 +395,7 @@ _::-webkit-full-page-media, _:future, :root
             &.channels--length-0.channels--tab-ピン留め {
                 display: flex;
                 min-height: calc(100vh - 65px - 116px + 1px);
+                min-height: calc(100dvh - 65px - 116px + 1px);
             }
 
             // カードが横いっぱいに表示されてしまうのを回避する
