@@ -3,17 +3,20 @@
         <Header/>
         <main>
             <Navigation/>
-            <div class="d-flex align-center w-100 mb-13">
+            <div class="login-container-wrapper d-flex align-center w-100 mb-13">
                 <v-card class="login-container px-10 pt-8 pb-11 mx-auto background lighten-1" elevation="10"
                     width="100%" max-width="450">
-                    <v-card-title class="justify-center pb-7">
+                    <v-card-title class="login__logo justify-center pb-7">
                         <v-img max-width="250" src="/assets/images/logo.svg"></v-img>
                     </v-card-title>
                     <v-divider></v-divider>
                     <v-form ref="login" @submit.prevent>
-                        <v-text-field class="mt-12" autofocus outlined placeholder="ユーザー名" v-model="username">
+                        <v-text-field class="mt-12" outlined placeholder="ユーザー名" hide-details autofocus
+                            :dense="is_form_dense"
+                            v-model="username">
                         </v-text-field>
-                        <v-text-field class="mt-2" outlined placeholder="パスワード"
+                        <v-text-field class="mt-8" outlined placeholder="パスワード" hide-details
+                            :dense="is_form_dense"
                             v-model="password"
                             :type="password_showing ? 'text' : 'password'"
                             :append-icon="password_showing ? 'mdi-eye' : 'mdi-eye-off'"
@@ -46,6 +49,10 @@ export default Vue.extend({
     },
     data() {
         return {
+
+            // フォームを小さくするかどうか
+            is_form_dense: Utils.isSmartphoneHorizontal(),
+
             username: '' as string,
             password: '' as string,
             password_showing: false,
@@ -106,13 +113,46 @@ export default Vue.extend({
 </script>
 <style lang="scss" scoped>
 
-.login-container {
-    border-radius: 11px;
+.login-container-wrapper {
+    @include smartphone-horizontal {
+        padding: 20px !important;
+        margin-bottom: 0px !important;
+    }
 
-    .login-button {
-        border-radius: 7px;
-        font-size: 18px;
-        letter-spacing: 0px;
+    .login-container {
+        border-radius: 11px;
+        @include smartphone-horizontal {
+            padding: 24px !important;
+        }
+
+        .login__logo {
+            @include smartphone-horizontal {
+                padding-top: 4px !important;
+                padding-bottom: 20px !important;
+                .v-image {
+                    max-width: 200px !important;
+                }
+            }
+        }
+
+        .v-input {
+            @include smartphone-horizontal {
+                margin-top: 24px !important;
+                font-size: 14px !important;
+            }
+        }
+
+        .login-button {
+            border-radius: 7px;
+            margin-top: 48px !important;
+            font-size: 18px;
+            letter-spacing: 0px;
+            @include smartphone-horizontal {
+                height: 44px !important;
+                margin-top: 24px !important;
+                font-size: 16px;
+            }
+        }
     }
 }
 

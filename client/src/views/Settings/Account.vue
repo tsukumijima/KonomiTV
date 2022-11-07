@@ -2,30 +2,37 @@
     <!-- ベース画面の中にそれぞれの設定画面で異なる部分を記述する -->
     <Base>
         <h2 class="settings__heading">
+            <router-link v-ripple class="settings__back-button" to="/settings/">
+                <Icon icon="fluent:arrow-left-12-filled" width="25px" />
+            </router-link>
             <Icon icon="fluent:person-20-filled" width="25px" />
             <span class="ml-2">アカウント</span>
         </h2>
         <div class="settings__content" :class="{'settings__content--loading': is_loading}">
             <div class="account" v-if="user === null">
-                <img class="account__icon" src="/assets/images/account-icon-default.png">
-                <div class="account__info">
-                    <div class="account__info-name">
-                        <span class="account__info-name-text">ログインしていません</span>
+                <div class="account-wrapper">
+                    <img class="account__icon" src="/assets/images/account-icon-default.png">
+                    <div class="account__info">
+                        <div class="account__info-name">
+                            <span class="account__info-name-text">ログインしていません</span>
+                        </div>
+                        <span class="account__info-id">Not logged in</span>
                     </div>
-                    <span class="account__info-id">Not logged in</span>
                 </div>
                 <v-btn class="account__login ml-auto" color="secondary" width="140" height="56" depressed to="/login/">
                     <Icon icon="fa:sign-in" class="mr-2" />ログイン
                 </v-btn>
             </div>
             <div class="account" v-if="user !== null">
-                <img class="account__icon" :src="user_icon_blob">
-                <div class="account__info">
-                    <div class="account__info-name">
-                        <span class="account__info-name-text">{{user.name}}</span>
-                        <span class="account__info-admin" v-if="user.is_admin">管理者</span>
+                <div class="account-wrapper">
+                    <img class="account__icon" :src="user_icon_blob">
+                    <div class="account__info">
+                        <div class="account__info-name">
+                            <span class="account__info-name-text">{{user.name}}</span>
+                            <span class="account__info-admin" v-if="user.is_admin">管理者</span>
+                        </div>
+                        <span class="account__info-id">User ID: {{user.id}}</span>
                     </div>
-                    <span class="account__info-id">User ID: {{user.id}}</span>
                 </div>
                 <v-btn class="account__login ml-auto" color="secondary" width="140" height="56" depressed @click="logout()">
                     <Icon icon="fa:sign-out" class="mr-2" />ログアウト
@@ -118,6 +125,7 @@
                         同じ KonomiTV サーバー上の他のアカウントと同じユーザー名には変更できません。<br>
                     </div>
                     <v-text-field class="settings__item-form" outlined placeholder="ユーザー名"
+                        :dense="is_form_dense"
                         v-model="settings_username"
                         :rules="[settings_username_validation]">
                     </v-text-field>
@@ -132,6 +140,7 @@
                         アップロードされた画像は自動的に 400×400 の正方形にリサイズされます。<br>
                     </div>
                     <v-file-input class="settings__item-form" outlined hide-details placeholder="アイコン画像を選択"
+                        :dense="is_form_dense"
                         accept="image/jpeg, image/png"
                         prepend-icon=""
                         prepend-inner-icon="mdi-paperclip"
@@ -147,6 +156,7 @@
                         KonomiTV アカウントの新しいパスワードを設定します。<br>
                     </div>
                     <v-text-field class="settings__item-form" outlined placeholder="新しいパスワード"
+                        :dense="is_form_dense"
                         v-model="settings_password"
                         :type="settings_password_showing ? 'text' : 'password'"
                         :append-icon="settings_password_showing ? 'mdi-eye' : 'mdi-eye-off'"
@@ -207,6 +217,9 @@ export default Vue.extend({
 
             // ユーティリティをテンプレートで使えるように
             Utils: Utils,
+
+            // フォームを小さくするかどうか
+            is_form_dense: Utils.isSmartphoneHorizontal(),
 
             // ローディング中かどうか
             is_loading: true,
@@ -496,6 +509,9 @@ export default Vue.extend({
             // アカウント削除 API にリクエスト
             await Vue.axios.delete('/users/me');
 
+            // 設定の同期を無効化
+            Utils.setSettingsItem('sync_settings', false);
+
             // ブラウザからアクセストークンを削除
             Utils.deleteAccessToken();
 
@@ -508,6 +524,9 @@ export default Vue.extend({
         },
 
         logout() {
+
+            // 設定の同期を無効化
+            Utils.setSettingsItem('sync_settings', false);
 
             // ブラウザからアクセストークンを削除
             // これをもってログアウトしたことになる（それ以降の Axios のリクエストにはアクセストークンが含まれなくなる）
@@ -542,6 +561,34 @@ export default Vue.extend({
     padding: 18px 20px;
     border-radius: 15px;
     background: var(--v-background-lighten2);
+    @include tablet-horizontal {
+        align-items: normal;
+        flex-direction: column;
+        height: auto;
+        padding: 16px;
+    }
+    @include tablet-vertical {
+        align-items: normal;
+        flex-direction: column;
+        height: auto;
+        padding: 16px;
+    }
+    @include smartphone-horizontal {
+        align-items: normal;
+        flex-direction: column;
+        height: auto;
+        padding: 16px;
+    }
+
+    &-wrapper {
+        display: flex;
+        align-items: center;
+        min-width: 0;
+        height: 94px;
+        @include smartphone-horizontal {
+            height: 80px;
+        }
+    }
 
     &__icon {
         flex-shrink: 0;
@@ -554,6 +601,9 @@ export default Vue.extend({
         // 低解像度で表示する画像がぼやけないようにする
         // ref: https://sho-log.com/chrome-image-blurred/
         image-rendering: -webkit-optimize-contrast;
+        @include smartphone-horizontal {
+            min-width: 80px;
+        }
     }
 
     &__info {
@@ -576,6 +626,9 @@ export default Vue.extend({
                 overflow: hidden;
                 white-space: nowrap;
                 text-overflow: ellipsis;  // はみ出た部分を … で省略
+                @include smartphone-horizontal {
+                    font-size: 21px;
+                }
             }
         }
 
@@ -592,6 +645,12 @@ export default Vue.extend({
             font-size: 14px;
             font-weight: 500;
             line-height: 2;
+            @include smartphone-horizontal {
+                width: 45px;
+                height: 24px;
+                border-radius: 4px;
+                font-size: 11.5px;
+            }
         }
 
         &-id {
@@ -599,6 +658,9 @@ export default Vue.extend({
             margin-top: 2px;
             color: var(--v-text-darken1);
             font-size: 16px;
+            @include smartphone-horizontal {
+                font-size: 14.5px;
+            }
         }
     }
 
@@ -606,6 +668,24 @@ export default Vue.extend({
         border-radius: 7px;
         font-size: 16px;
         letter-spacing: 0;
+        @include tablet-horizontal {
+            height: 50px !important;
+            margin-top: 8px;
+            margin-right: auto;
+            font-size: 14.5px;
+        }
+        @include tablet-vertical {
+            height: 42px !important;
+            margin-top: 8px;
+            margin-right: auto;
+            font-size: 14.5px;
+        }
+        @include smartphone-horizontal {
+            height: 42px !important;
+            margin-top: 8px;
+            margin-right: auto;
+            font-size: 14.5px;
+        }
     }
 }
 
@@ -620,6 +700,9 @@ export default Vue.extend({
         text-align: center;
         font-feature-settings: "palt" 1;  // 文字詰め
         letter-spacing: 0.04em;  // 字間を少し空ける
+        @include smartphone-horizontal {
+            font-size: 19px;
+        }
     }
 
     &__feature {
@@ -628,6 +711,15 @@ export default Vue.extend({
         grid-row-gap: 18px;
         grid-column-gap: 16px;
         margin-top: 28px;
+        @include tablet-horizontal {
+            grid-template-columns: 1fr;
+        }
+        @include tablet-vertical {
+            grid-template-columns: 1fr;
+        }
+        @include smartphone-horizontal {
+            grid-template-columns: 1fr;
+        }
 
         .account-feature {
             display: flex;
@@ -662,6 +754,18 @@ export default Vue.extend({
         font-size: 15px;
         line-height: 1.7;
         text-align: center;
+        @include tablet-horizontal {
+            font-size: 12.5px;
+        }
+        @include tablet-vertical {
+            font-size: 10.5px;
+        }
+        @include smartphone-horizontal {
+            font-size: 12.5px;
+        }
+        @include smartphone-horizontal-short {
+            font-size: 10.5px;
+        }
     }
 
     &__button {
@@ -671,6 +775,14 @@ export default Vue.extend({
         border-radius: 7px;
         font-size: 16px;
         letter-spacing: 0;
+        @include tablet-vertical {
+            height: 42px !important;
+            font-size: 14.5px;
+        }
+        @include smartphone-horizontal {
+            height: 42px !important;
+            font-size: 14.5px;
+        }
     }
 }
 

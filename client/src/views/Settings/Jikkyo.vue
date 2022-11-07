@@ -2,19 +2,24 @@
     <!-- ベース画面の中にそれぞれの設定画面で異なる部分を記述する -->
     <Base>
         <h2 class="settings__heading">
+            <router-link v-ripple class="settings__back-button" to="/settings/">
+                <Icon icon="fluent:arrow-left-12-filled" width="25px" />
+            </router-link>
             <Icon icon="bi:chat-left-text-fill" width="19px" />
             <span class="ml-3">ニコニコ実況</span>
         </h2>
         <div class="settings__content" :class="{'settings__content--loading': is_loading}">
-            <div class="niconico-account" v-if="user.niconico_user_id === null">
-                <Icon class="flex-shrink-0" icon="bi:chat-left-text-fill" width="45px" />
-                <div class="niconico-account__info ml-4">
-                    <div class="niconico-account__info-name">
-                        <span class="niconico-account__info-name-text">ニコニコアカウントと連携していません</span>
+            <div class="niconico-account niconico-account--anonymous" v-if="user.niconico_user_id === null">
+                <div class="niconico-account-wrapper">
+                    <Icon class="flex-shrink-0" icon="bi:chat-left-text-fill" width="45px" />
+                    <div class="niconico-account__info ml-4">
+                        <div class="niconico-account__info-name">
+                            <span class="niconico-account__info-name-text">ニコニコアカウントと連携していません</span>
+                        </div>
+                        <span class="niconico-account__info-description">
+                            ニコニコアカウントと連携すると、テレビを見ながらニコニコ実況にコメントできるようになります。
+                        </span>
                     </div>
-                    <span class="niconico-account__info-description">
-                        ニコニコアカウントと連携すると、テレビを見ながらニコニコ実況にコメントできるようになります。
-                    </span>
                 </div>
                 <v-btn class="niconico-account__login ml-auto" color="secondary" width="130" height="56" depressed
                     @click="loginNiconicoAccount()">
@@ -22,17 +27,19 @@
                 </v-btn>
             </div>
             <div class="niconico-account" v-if="user.niconico_user_id !== null">
-                <img class="niconico-account__icon" :src="this.niconico_user_icon_url">
-                <div class="niconico-account__info">
-                    <div class="niconico-account__info-name">
-                        <span class="niconico-account__info-name-text">{{user.niconico_user_name}} と連携しています</span>
+                <div class="niconico-account-wrapper">
+                    <img class="niconico-account__icon" :src="this.niconico_user_icon_url">
+                    <div class="niconico-account__info">
+                        <div class="niconico-account__info-name">
+                            <span class="niconico-account__info-name-text">{{user.niconico_user_name}} と連携しています</span>
+                        </div>
+                        <span class="niconico-account__info-description">
+                            <span class="mr-2">Niconico User ID:</span>
+                            <a class="mr-2" :href="`https://www.nicovideo.jp/user/${user.niconico_user_id}`"
+                                target="_blank">{{user.niconico_user_id}}</a>
+                            <span class="secondary--text" v-if="user.niconico_user_premium == true">(Premium)</span>
+                        </span>
                     </div>
-                    <span class="niconico-account__info-description">
-                        <span class="mr-2">Niconico User ID:</span>
-                        <a class="mr-2" :href="`https://www.nicovideo.jp/user/${user.niconico_user_id}`"
-                            target="_blank">{{user.niconico_user_id}}</a>
-                        <span class="secondary--text" v-if="user.niconico_user_premium == true">(Premium)</span>
-                    </span>
                 </div>
                 <v-btn class="niconico-account__login ml-auto" color="secondary" width="130" height="56" depressed
                     @click="logoutNiconicoAccount()">
@@ -292,9 +299,87 @@ export default Vue.extend({
     display: flex;
     align-items: center;
     height: 120px;
-    padding: 20px 20px;
+    padding: 20px;
     border-radius: 15px;
     background: var(--v-background-lighten2);
+    @include tablet-horizontal {
+        align-items: normal;
+        flex-direction: column;
+        height: auto;
+        padding: 16px;
+    }
+    @include tablet-vertical {
+        align-items: normal;
+        flex-direction: column;
+        height: auto;
+        padding: 16px;
+        .niconico-account-wrapper {
+            .niconico-account__info {
+                margin-left: 16px !important;
+                margin-right: 0 !important;
+                &-name-text {
+                    font-size: 18.5px;
+                }
+                &-description {
+                    font-size: 13.5px;
+                }
+            }
+        }
+    }
+    @include smartphone-horizontal {
+        align-items: normal;
+        flex-direction: column;
+        height: auto;
+        padding: 16px;
+        .niconico-account-wrapper {
+            .niconico-account__info {
+                margin-right: 0 !important;
+            }
+        }
+    }
+    @include smartphone-horizontal-short {
+        .niconico-account-wrapper {
+            .niconico-account__info {
+                margin-left: 16px !important;
+                &-name-text {
+                    font-size: 18px;
+                }
+                &-description {
+                    font-size: 13px;
+                }
+            }
+        }
+    }
+
+    &--anonymous {
+        @include tablet-vertical {
+            .niconico-account__login {
+                margin-top: 12px;
+            }
+        }
+        @include smartphone-horizontal {
+            .niconico-account__login {
+                margin-top: 12px;
+            }
+        }
+        @include smartphone-horizontal-short {
+            .niconico-account-wrapper {
+                svg {
+                    display: none;
+                }
+                .niconico-account__info {
+                    margin-left: 0 !important;
+                }
+            }
+        }
+    }
+
+    &-wrapper {
+        display: flex;
+        align-items: center;
+        min-width: 0;
+        height: 80px;
+    }
 
     &__icon {
         flex-shrink: 0;
@@ -344,6 +429,23 @@ export default Vue.extend({
         border-radius: 7px;
         font-size: 16px;
         letter-spacing: 0;
+        @include tablet-horizontal {
+            height: 50px !important;
+            margin-top: 8px;
+            margin-right: auto;
+        }
+        @include tablet-vertical {
+            height: 42px !important;
+            margin-top: 8px;
+            margin-right: auto;
+            font-size: 14.5px;
+        }
+        @include smartphone-horizontal {
+            height: 42px !important;
+            margin-top: 8px;
+            margin-right: auto;
+            font-size: 14.5px;
+        }
     }
 }
 

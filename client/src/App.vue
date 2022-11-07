@@ -64,8 +64,14 @@ body .route-container {
 // 揃えないと見栄えが悪い
 .v-snack {
     left: calc(220px / 2) !important;
+    @include tablet-vertical {
+        left: 0 !important;
+    }
     @include smartphone-horizontal {
-        left: calc(210px / 2) !important;
+        left: 0 !important;
+    }
+    @include smartphone-vertical {
+        left: 0 !important;
     }
     .v-btn__content {
         color: var(--v-primary-lighten1);

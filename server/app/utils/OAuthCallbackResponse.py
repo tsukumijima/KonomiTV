@@ -48,6 +48,11 @@ class OAuthCallbackResponse(HTMLResponse):
                             }
                         }, '*');
                     }
+                    // Android Chrome の PWA でリダイレクトが PWA アプリ (WebAPK) 側の Intent Filter に取られてしまい、
+                    // postMessage() で送っても親ウインドウ側で受け取れない問題があるため、正しく送信できたかに関わらずポップアップを閉じる
+                    // OAuth の連携結果を伝えることはできないが、サーバーでの連携処理はこのページが表示された時点で終わっているため問題ない
+                    // ref: https://github.com/w3c/manifest/issues/989
+                    setTimeout(() => window.close(), 100);  // postMessage() を確実に送信できるように少し遅らせてから実行
                 };
             </script>
         </head>

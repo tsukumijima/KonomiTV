@@ -2,6 +2,9 @@
     <!-- ベース画面の中にそれぞれの設定画面で異なる部分を記述する -->
     <Base>
         <h2 class="settings__heading">
+            <router-link v-ripple class="settings__back-button" to="/settings/">
+                <Icon icon="fluent:arrow-left-12-filled" width="25px" />
+            </router-link>
             <Icon icon="fluent:toolbox-20-filled" width="22px" />
             <span class="ml-3">環境設定</span>
         </h2>

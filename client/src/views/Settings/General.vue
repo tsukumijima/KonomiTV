@@ -2,6 +2,9 @@
     <!-- ベース画面の中にそれぞれの設定画面で異なる部分を記述する -->
     <Base>
         <h2 class="settings__heading">
+            <router-link v-ripple class="settings__back-button" to="/settings/">
+                <Icon icon="fluent:arrow-left-12-filled" width="25px" />
+            </router-link>
             <Icon icon="fa-solid:sliders-h" width="19px" />
             <span class="ml-3">全般</span>
         </h2>
@@ -16,7 +19,7 @@
                     [1080p (60fps)] は、通常 30fps (60i) の映像を補間することで、ほかの画質よりも滑らか（ぬるぬる）な映像で再生できます。ただし、再生負荷が少し高くなります。<br>
                     [1080p (60fps)] で視聴するときは、QSVEncC / NVEncC / VCEEncC エンコーダーの利用をおすすめします。FFmpeg エンコーダーでは CPU 使用率が高くなり、再生に支障が出ることがあります。<br>
                 </div>
-                <v-select class="settings__item-form" outlined hide-details
+                <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
                     :items="tv_streaming_quality" v-model="settings.tv_streaming_quality">
                 </v-select>
             </div>
@@ -60,7 +63,7 @@
                 <div class="settings__item-label">
                     視聴画面を開いたときに、右側のパネルをどう表示するかを設定します。<br>
                 </div>
-                <v-select class="settings__item-form" outlined hide-details
+                <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
                     :items="panel_display_state" v-model="settings.panel_display_state">
                 </v-select>
             </div>
@@ -69,7 +72,7 @@
                 <div class="settings__item-label">
                     テレビの視聴画面を開いたときに、右側のパネルで最初に表示されるタブを設定します。<br>
                 </div>
-                <v-select class="settings__item-form" outlined hide-details
+                <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
                     :items="tv_panel_active_tab" v-model="settings.tv_panel_active_tab">
                 </v-select>
             </div>
@@ -79,7 +82,7 @@
                 <label class="settings__item-label">
                     プレイヤーで字幕表示をオンにしているときの、字幕のフォントを設定します。<br>
                 </label>
-                <v-select class="settings__item-form" outlined hide-details
+                <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
                     :items="caption_font" v-model="settings.caption_font">
                 </v-select>
             </div>
@@ -144,7 +147,7 @@
                         他のデバイスでキャプチャを見るにはキャプチャ保存フォルダをネットワークに共有する必要があること、スマホ・タブレットではネットワーク上のフォルダへのアクセスがやや面倒なことがデメリットです。<br>
                     </p>
                 </div>
-                <v-select class="settings__item-form" outlined hide-details
+                <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
                     :items="capture_save_mode" v-model="settings.capture_save_mode">
                 </v-select>
             </div>
@@ -155,12 +158,12 @@
                     映像のみのキャプチャと、字幕を合成したキャプチャを両方同時に保存することもできます。<br>
                     なお、字幕が表示されていない場合は、常に映像のみ (+コメント付きキャプチャではコメントを合成して) 保存されます。<br>
                 </div>
-                <v-select class="settings__item-form" outlined hide-details
+                <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
                     :items="capture_caption_mode" v-model="settings.capture_caption_mode">
                 </v-select>
             </div>
             <v-divider class="mt-6"></v-divider>
-            <div class="settings__item mt-6">
+            <div class="settings__item">
                 <div class="settings__item-heading">設定をエクスポート</div>
                 <div class="settings__item-label">
                     このデバイス（ブラウザ）に保存されている設定データをエクスポート（ダウンロード）できます。<br>
@@ -170,13 +173,14 @@
             <v-btn class="settings__save-button mt-4" depressed @click="exportSettings()">
                 <Icon icon="fa6-solid:download" class="mr-3" height="19px" />設定をエクスポート
             </v-btn>
-            <div class="settings__item mt-6">
+            <div class="settings__item">
                 <div class="settings__item-heading error--text text--lighten-1">設定をインポート</div>
                 <div class="settings__item-label">
                     [設定をエクスポート] でダウンロードした設定データを、このデバイス（ブラウザ）にインポートできます。<br>
                     設定をインポートすると、それまでこのデバイス（ブラウザ）に保存されていた設定が、すべてインポート先の設定データで上書きされます。元に戻すことはできません。
                 </div>
                 <v-file-input class="settings__item-form" outlined hide-details placeholder="設定データ (KonomiTV-Settings.json) を選択"
+                    :dense="is_form_dense"
                     accept="application/json"
                     prepend-icon=""
                     prepend-inner-icon="mdi-paperclip"
@@ -206,6 +210,9 @@ export default Vue.extend({
 
             // ユーティリティをテンプレートで使えるように
             PlayerUtils: PlayerUtils,
+
+            // フォームを小さくするかどうか
+            is_form_dense: Utils.isSmartphoneHorizontal(),
 
             // テレビのストリーミング画質の選択肢
             tv_streaming_quality: [

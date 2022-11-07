@@ -406,6 +406,42 @@ export default class Utils {
 
 
     /**
+     * 表示画面がスマホ横画面かどうか
+     * @returns スマホ横画面なら true を返す
+     */
+    static isSmartphoneHorizontal(): boolean {
+        return window.matchMedia('(max-width: 1000px) and (max-height: 450px)').matches;
+    }
+
+
+    /**
+     * 表示画面がスマホ縦画面かどうか
+     * @returns スマホ縦画面なら true を返す
+     */
+    static isSmartphoneVertical(): boolean {
+        return window.matchMedia('(max-width: 600px) and (min-height: 450.01px)').matches;
+    }
+
+
+    /**
+     * 表示画面がタブレット横画面かどうか
+     * @returns タブレット横画面なら true を返す
+     */
+    static isTabletHorizontal(): boolean {
+        return window.matchMedia('(max-width: 1264px) and (max-height: 850px)').matches;
+    }
+
+
+    /**
+     * 表示画面がタブレット縦画面かどうか
+     * @returns タブレット縦画面なら true を返す
+     */
+    static isTabletVertical(): boolean {
+        return window.matchMedia('(max-width: 850px) and (min-height: 850.01px)').matches;
+    }
+
+
+    /**
      * 任意の桁で切り捨てする
      * ref: https://qiita.com/nagito25/items/0293bc317067d9e6c560#comment-87f0855f388953843037
      * @param value 切り捨てする数値

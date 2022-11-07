@@ -4,6 +4,7 @@ import VueRouter from 'vue-router';
 
 import TVHome from '@/views/TV/Home.vue';
 import TVWatch from '@/views/TV/Watch.vue';
+import SettingsIndex from '@/views/Settings/Index.vue';
 import SettingsGeneral from '@/views/Settings/General.vue';
 import SettingsAccount from '@/views/Settings/Account.vue';
 import SettingsJikkyo from '@/views/Settings/Jikkyo.vue';
@@ -12,6 +13,7 @@ import SettingsEnvironment from '@/views/Settings/Environment.vue';
 import Login from '@/views/Login.vue';
 import Register from '@/views/Register.vue';
 import NotFound from '@/views/NotFound.vue';
+import Utils from '@/utils';
 
 Vue.use(VueRouter);
 
@@ -41,7 +43,19 @@ const router = new VueRouter({
         },
         {
             path: '/settings/',
-            redirect: '/settings/general',
+            name: 'Settings Index',
+            component: SettingsIndex,
+            beforeEnter: (to, from, next) => {
+
+                // スマホ縦画面・スマホ横画面・タブレット縦画面では設定一覧画面を表示する（画面サイズの関係）
+                if (Utils.isSmartphoneVertical() || Utils.isSmartphoneHorizontal() || Utils.isTabletVertical()) {
+                    next();  // 通常通り遷移
+                    return;
+                }
+
+                // それ以外の画面サイズでは全般設定にリダイレクト
+                next({path: '/settings/general/'});
+            }
         },
         {
             path: '/settings/general',

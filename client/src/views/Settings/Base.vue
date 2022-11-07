@@ -85,10 +85,27 @@ export default Vue.extend({
 .settings-container {
     width: 100%;
     min-width: 0;
+    @include smartphone-horizontal {
+        padding: 16px 20px !important;
+    }
+    @include smartphone-horizontal-short {
+        padding: 16px 16px !important;
+    }
 
     .settings-navigation {
         position: sticky;
         top: calc(65px + 20px) !important;  // ヘッダー+余白の高さ
+
+        // タブレット縦画面・スマホ横画面・スマホ縦画面では表示しない
+        @include tablet-vertical {
+            display: none;
+        }
+        @include smartphone-horizontal {
+            display: none;
+        }
+        @include smartphone-vertical {
+            display: none;
+        }
 
         .v-list-item--link, .v-list-item--link:before {
             border-radius: 11px !important;
@@ -101,21 +118,82 @@ export default Vue.extend({
         width: 100%;
         min-width: 0;
         border-radius: 11px !important;
+        @include tablet-vertical {
+            margin-left: 0 !important;
+        }
+        @include smartphone-horizontal {
+            padding: 20px !important;
+            margin-left: 0 !important;
+        }
+        @include smartphone-vertical {
+            margin-left: 0 !important;
+        }
 
         .settings__heading {
             display: flex;
             align-items: center;
             font-size: 22px;
+            @include smartphone-horizontal {
+                font-size: 20px;
+            }
+
+            .settings__back-button {
+                display: none;
+                position: relative;
+                left: -6px;
+                padding: 6px;
+                border-radius: 50%;
+                color: var(--v-text-base);
+                @include tablet-vertical {
+                    display: flex;
+                }
+                @include smartphone-horizontal {
+                    display: flex;
+                }
+                @include smartphone-vertical {
+                    display: flex;
+                }
+            }
+
+            .settings__back-button + svg {
+                @include tablet-vertical {
+                    display: none;
+                }
+                @include smartphone-horizontal {
+                    display: none;
+                }
+                @include smartphone-vertical {
+                    display: none;
+                }
+            }
+
+            .settings__back-button + svg + span {
+                @include tablet-vertical {
+                    margin-left: 0px !important;
+                }
+                @include smartphone-horizontal {
+                    margin-left: 0px !important;
+                }
+                @include smartphone-vertical {
+                    margin-left: 0px !important;
+                }
+            }
         }
 
         .settings__content {
             margin-top: 24px;
+            @include smartphone-horizontal {
+                margin-top: 16px;
+            }
 
             .settings__item {
                 display: flex;
                 position: relative;
                 flex-direction: column;
                 margin-top: 24px;
+                @include smartphone-horizontal {
+                    margin-top: 16px;
+                }
 
                 &--sync-disabled {
                     .settings__item-heading:after {
@@ -135,8 +213,8 @@ export default Vue.extend({
                 &--switch {
                     margin-right: 62px;
 
-                    .settings__item-heading:after {
-                        right: -62px;
+                    .settings__item-heading {
+                        width: calc(100% + 62px);
                     }
                 }
 
@@ -149,15 +227,25 @@ export default Vue.extend({
                     align-items: center;
                     color: var(--v-text-base);
                     font-size: 16.5px;
+                    @include smartphone-horizontal {
+                        font-size: 15px;
+                    }
                 }
                 &-label {
                     margin-top: 8px;
                     color: var(--v-text-darken1);
                     font-size: 13.5px;
                     line-height: 1.6;
+                    @include smartphone-horizontal {
+                        font-size: 11px;
+                        line-height: 1.7;
+                    }
                 }
                 &-form {
                     margin-top: 14px;
+                    @include smartphone-horizontal {
+                        font-size: 13.5px;
+                    }
                 }
                 &-switch {
                     align-items: center;
@@ -181,6 +269,11 @@ export default Vue.extend({
                 background: var(--v-background-lighten2);
                 font-size: 15.5px;
                 letter-spacing: 0;
+                @include smartphone-horizontal {
+                    height: 40px;
+                    padding: 0 12px;
+                    font-size: 14px;
+                }
             }
         }
     }

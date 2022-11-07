@@ -3,20 +3,22 @@
         <Header/>
         <main>
             <Navigation/>
-            <div class="d-flex align-center w-100 mb-13">
+            <div class="register-container-wrapper d-flex align-center w-100 mb-13">
                 <v-card class="register-container px-10 pt-8 pb-11 mx-auto background lighten-1" elevation="10"
                     width="100%" max-width="450">
-                    <v-card-title class="flex-column justify-center">
+                    <v-card-title class="register__logo flex-column justify-center">
                         <v-img max-width="250" src="/assets/images/logo.svg"></v-img>
                         <h4 class="mt-10">アカウントを作成</h4>
                     </v-card-title>
                     <v-divider></v-divider>
                     <v-form ref="register" @submit.prevent>
-                        <v-text-field class="mt-10" autofocus outlined placeholder="ユーザー名"
+                        <v-text-field class="mt-10" outlined placeholder="ユーザー名" autofocus
+                            :dense="is_form_dense"
                             v-model="username"
                             :rules="[username_validation]">
                         </v-text-field>
                         <v-text-field class="mt-2" outlined placeholder="パスワード"
+                            :dense="is_form_dense"
                             v-model="password"
                             :type="password_showing ? 'text' : 'password'"
                             :append-icon="password_showing ? 'mdi-eye' : 'mdi-eye-off'"
@@ -50,6 +52,10 @@ export default Vue.extend({
     },
     data() {
         return {
+
+            // フォームを小さくするかどうか
+            is_form_dense: Utils.isSmartphoneHorizontal(),
+
             username: null as string | null,
             username_validation: (value: string | null) => {
                 if (value === '' || value === null) return 'ユーザー名を入力してください。';
@@ -94,7 +100,7 @@ export default Vue.extend({
                     console.log(error.response.data);
 
                     // エラーメッセージごとに Snackbar に表示
-                    switch (error.response.data.detail) {
+                    switch ((error.response.data as any).detail) {
                         case 'Specified username is duplicated': {
                             this.$message.error('ユーザー名が重複しています。');
                             break;
@@ -139,7 +145,7 @@ export default Vue.extend({
                     console.log(error.response.data);
 
                     // エラーメッセージごとに Snackbar に表示
-                    switch (error.response.data.detail) {
+                    switch ((error.response.data as any).detail) {
                         case 'Incorrect username': {
                             this.$message.error('ログインできませんでした。そのユーザー名のアカウントは存在しません。');
                             break;
@@ -162,14 +168,57 @@ export default Vue.extend({
 </script>
 <style lang="scss" scoped>
 
-.register-container {
-    border-radius: 11px;
+.register-container-wrapper {
+    @include smartphone-horizontal {
+        padding: 20px !important;
+        margin-bottom: 0px !important;
+    }
 
-    .register-button {
-        border-radius: 7px;
-        font-size: 18px;
-        letter-spacing: 0px;
+    .register-container {
+        border-radius: 11px;
+        @include smartphone-horizontal {
+            padding: 24px !important;
+        }
+
+        .register__logo {
+            @include smartphone-horizontal {
+                padding-top: 4px !important;
+                padding-bottom: 8px !important;
+                .v-image {
+                    max-width: 200px !important;
+                }
+                h4 {
+                    margin-top: 16px !important;
+                    font-size: 19px !important;
+                }
+            }
+        }
+
+        .v-input {
+            @include smartphone-horizontal {
+                margin-top: 0px !important;
+                font-size: 14px !important;
+            }
+        }
+        .v-input:nth-child(1) {
+            @include smartphone-horizontal {
+                margin-top: 24px !important;
+            }
+        }
+
+        .register-button {
+            border-radius: 7px;
+            margin-top: 48px !important;
+            font-size: 18px;
+            letter-spacing: 0px;
+            @include smartphone-horizontal {
+                height: 44px !important;
+                margin-top: 0px !important;
+                font-size: 16px;
+            }
+        }
     }
 }
+
 
 </style>

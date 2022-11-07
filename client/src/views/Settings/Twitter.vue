@@ -2,6 +2,9 @@
     <!-- ベース画面の中にそれぞれの設定画面で異なる部分を記述する -->
     <Base>
         <h2 class="settings__heading">
+            <router-link v-ripple class="settings__back-button" to="/settings/">
+                <Icon icon="fluent:arrow-left-12-filled" width="25px" />
+            </router-link>
             <Icon icon="fa-brands:twitter" width="22px" />
             <span class="ml-3">Twitter</span>
         </h2>
@@ -51,7 +54,7 @@
                 <div class="settings__item-label">
                     視聴画面を開いたときに、パネルの Twitter タブの中で最初に表示されるタブを設定します。<br>
                 </div>
-                <v-select class="settings__item-form" outlined hide-details
+                <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
                     :items="twitter_active_tab" v-model="settings.twitter_active_tab">
                 </v-select>
             </div>
@@ -60,7 +63,7 @@
                 <div class="settings__item-label">
                     ツイート本文から見て、ハッシュタグをどの位置につけてツイートするかを設定します。<br>
                 </div>
-                <v-select class="settings__item-form" outlined hide-details
+                <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
                     :items="tweet_hashtag_position" v-model="settings.tweet_hashtag_position">
                 </v-select>
             </div>
@@ -69,7 +72,7 @@
                 <div class="settings__item-label">
                     ツイートするキャプチャに、視聴中の番組タイトルの透かしを描画するかを設定します。<br>
                 </div>
-                <v-select class="settings__item-form" outlined hide-details
+                <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
                     :items="tweet_capture_watermark_position" v-model="settings.tweet_capture_watermark_position">
                 </v-select>
             </div>
@@ -92,6 +95,9 @@ export default Vue.extend({
     },
     data() {
         return {
+
+            // フォームを小さくするかどうか
+            is_form_dense: Utils.isSmartphoneHorizontal(),
 
             // 既定で表示されるパネルのタブの選択肢
             twitter_active_tab: [
@@ -298,6 +304,9 @@ export default Vue.extend({
     padding: 20px 20px;
     border-radius: 15px;
     background: var(--v-background-lighten2);
+    @include smartphone-horizontal {
+        padding: 16px 20px;
+    }
 
     &__heading {
         display: flex;
@@ -309,12 +318,32 @@ export default Vue.extend({
     &__guide {
         display: flex;
         align-items: center;
+
+        .text-h6 {
+            @include tablet-vertical {
+                font-size: 19px !important;
+            }
+        }
+
+        svg {
+            @include smartphone-horizontal-short {
+                display: none;
+            }
+        }
+        svg + div {
+            @include smartphone-horizontal-short {
+                margin-left: 0px !important;
+            }
+        }
     }
 
     .twitter-account {
         display: flex;
         align-items: center;
         margin-top: 20px;
+        @include smartphone-horizontal {
+            margin-top: 16px;
+        }
 
         &__icon {
             flex-shrink: 0;
@@ -328,6 +357,10 @@ export default Vue.extend({
             // 低解像度で表示する画像がぼやけないようにする
             // ref: https://sho-log.com/chrome-image-blurred/
             image-rendering: -webkit-optimize-contrast;
+            @include smartphone-horizontal {
+                width: 52px;
+                height: 52px;
+            }
         }
 
         &__info {
@@ -348,6 +381,9 @@ export default Vue.extend({
                     overflow: hidden;
                     white-space: nowrap;
                     text-overflow: ellipsis;  // はみ出た部分を … で省略
+                    @include smartphone-horizontal {
+                        font-size: 18px;
+                    }
                 }
             }
 
@@ -355,6 +391,9 @@ export default Vue.extend({
                 display: inline-block;
                 color: var(--v-text-darken1);
                 font-size: 16px;
+                @include smartphone-horizontal {
+                    font-size: 14px;
+                }
             }
         }
 
@@ -365,6 +404,14 @@ export default Vue.extend({
             border-radius: 7px;
             font-size: 15px;
             letter-spacing: 0;
+            @include tablet-vertical {
+                height: 42px !important;
+                font-size: 14.5px;
+            }
+            @include smartphone-horizontal {
+                height: 42px !important;
+                font-size: 14.5px;
+            }
         }
 
         &__logout {
@@ -372,6 +419,9 @@ export default Vue.extend({
             border-radius: 7px;
             font-size: 15px;
             letter-spacing: 0;
+            @include smartphone-horizontal {
+                width: 116px !important;
+            }
         }
     }
 }
