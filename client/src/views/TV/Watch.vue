@@ -57,7 +57,10 @@
                     <v-spacer></v-spacer>
                     <span class="watch-header__now">{{time}}</span>
                 </header>
-                <div class="watch-player" :class="{'watch-player--loading': is_loading}">
+                <div class="watch-player" :class="{
+                    'watch-player--loading': is_loading,
+                    'watch-player--virtual-keyboard-display': is_virtual_keyboard_display && Utils.hasActiveElementClass('dplayer-comment-input'),
+                }">
                     <div class="watch-player__background" :class="{'watch-player__background--display': is_background_display}"
                         :style="{backgroundImage: `url(${background_url})`}">
                         <img class="watch-player__background-logo" src="/assets/images/logo.svg">
@@ -109,7 +112,8 @@
                     <Comment class="watch-panel__content" ref="Comment"
                         :class="{'watch-panel__content--active': tv_panel_active_tab === 'Comment'}" :channel="channel" :player="player" />
                     <Twitter class="watch-panel__content" ref="Twitter" @panel_folding_requested="is_panel_display = false"
-                        :class="{'watch-panel__content--active': tv_panel_active_tab === 'Twitter'}" :channel="channel" :player="player" />
+                        :class="{'watch-panel__content--active': tv_panel_active_tab === 'Twitter'}" :channel="channel" :player="player"
+                        :is_virtual_keyboard_display="is_virtual_keyboard_display" />
                 </div>
                 <div class="watch-panel__navigation">
                     <div v-ripple class="panel-navigation-button"
@@ -266,6 +270,9 @@ export default Vue.extend({
             // IME 変換中かどうか
             is_ime_composing: false,
 
+            // 仮想キーボードが表示されているか
+            is_virtual_keyboard_display: false,
+
             // プレイヤーからのコメント送信から間もないかどうか
             is_comment_send_just_did: false,
 
@@ -401,6 +408,20 @@ export default Vue.extend({
     // 開始時に実行
     async created() {
 
+        // Virtual Keyboard API に対応している場合は、仮想キーボード周りの操作を自力で行うことをブラウザに伝える
+        // この視聴画面のみ
+        if ('virtualKeyboard' in navigator) {
+            navigator.virtualKeyboard.overlaysContent = true;
+            // 仮想キーボードが表示されたり閉じられたときのイベント
+            navigator.virtualKeyboard.ongeometrychange = (event) => {
+                if (event.target.boundingRect.width === 0 && event.target.boundingRect.height === 0) {
+                    this.is_virtual_keyboard_display = false;
+                } else {
+                    this.is_virtual_keyboard_display = true;
+                }
+            }
+        }
+
         // 再生セッションを初期化
         this.init();
 
@@ -424,6 +445,11 @@ export default Vue.extend({
     },
     // 終了前に実行
     beforeDestroy() {
+
+        // 仮想キーボード周りの操作をブラウザに戻す
+        if ('virtualKeyboard' in navigator) {
+            navigator.virtualKeyboard.overlaysContent = false;
+        }
 
         // destroy() を実行
         // 別のページへ遷移するため、DPlayer のインスタンスを確実に破棄する
@@ -1977,6 +2003,7 @@ export default Vue.extend({
         background: linear-gradient(to bottom, transparent, var(--v-background-base)) !important;
         opacity: 0 !important;
         visibility: hidden;
+        transition: opacity 0.3s ease, visibility 0.3s ease !important;
         @include smartphone-horizontal {
             height: 66px !important;
         }
@@ -2181,6 +2208,20 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             @include smartphone-horizontal {
                 left: 16px !important;
             }
+        }
+    }
+}
+
+// 仮想キーボード表示時
+.watch-player.watch-player--virtual-keyboard-display {
+    .watch-player__dplayer {
+        .dplayer-controller-mask {
+            position: absolute;
+            bottom: env(keyboard-inset-height, 0px) !important;
+        }
+        .dplayer-icons.dplayer-comment-box {
+            position: absolute;
+            bottom: env(keyboard-inset-height, 0px) !important;
         }
     }
 }

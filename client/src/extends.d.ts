@@ -1,10 +1,45 @@
 
 // ブラウザの JavaScript API のうち、開発時点でマイナーすぎて @types が定義されていない API の型を定義
 
+// Virtual Keyboard API
+// ref: https://www.w3.org/TR/virtual-keyboard/
+
+interface Navigator {
+    readonly virtualKeyboard: VirtualKeyboard;
+}
+
+interface VirtualKeyboard {
+    show(): undefined;
+    hide(): undefined;
+    readonly boundingRect: DOMRectReadOnly;
+    overlaysContent: boolean;
+    ongeometrychange: VirtualKeyboardGeometryChangeEventListener;
+    addEventListener(
+        type: 'geometrychange',
+        listener: VirtualKeyboardGeometryChangeEventListener,
+        options?: boolean | AddEventListenerOptions
+    ): void;
+    removeEventListener(
+        type: 'geometrychange',
+        listener: VirtualKeyboardGeometryChangeEventListener,
+        options?: boolean | EventListenerOptions
+    ): void;
+}
+
+interface VirtualKeyboardGeometryChangeEvent extends Event {
+    readonly currentTarget: VirtualKeyboard;
+    readonly srcElement: VirtualKeyboard;
+    readonly target: VirtualKeyboard;
+}
+
+type VirtualKeyboardGeometryChangeEventListener = ((ev: VirtualKeyboardGeometryChangeEvent) => any) | null;
+
 // TypeScript types for the Picture-in-Picture API
 // ref: https://gist.github.com/Rendez/6e088e8713f47e87ab04efcc22f365b1
 
 interface PictureInPictureResizeEvent extends Event {
+    readonly currentTarget: PictureInPictureWindow;
+    readonly srcElement: PictureInPictureWindow;
     readonly target: PictureInPictureWindow;
 }
 

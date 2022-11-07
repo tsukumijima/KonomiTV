@@ -406,6 +406,17 @@ export default class Utils {
 
 
     /**
+     * 現在フォーカスを持っている要素に指定された CSS クラスが付与されているか
+     * @param class_name 存在を確認する CSS クラス名
+     * @returns document.activeElement が class_name で指定したクラスを持っているかどうか
+     */
+    static hasActiveElementClass(class_name: string): boolean {
+        if (document.activeElement === null) return false;
+        return document.activeElement.classList.contains(class_name);
+    }
+
+
+    /**
      * 表示画面がスマホ横画面かどうか
      * @returns スマホ横画面なら true を返す
      */

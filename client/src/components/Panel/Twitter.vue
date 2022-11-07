@@ -58,7 +58,12 @@
                 <span class="tab-button__text">キャプチャ</span>
             </div>
         </div>
-        <div class="tweet-form" :class="{'tweet-form--focused': is_tweet_hashtag_form_focused || is_tweet_text_form_focused}">
+        <div class="tweet-form" :class="{
+            'tweet-form--focused': is_tweet_hashtag_form_focused || is_tweet_text_form_focused,
+            'tweet-form--virtual-keyboard-display': is_virtual_keyboard_display &&
+                (Utils.hasActiveElementClass('tweet-form__hashtag-form') || Utils.hasActiveElementClass('tweet-form__textarea')) &&
+                (() => {is_hashtag_list_display = false; return true;})(),
+        }">
             <div class="tweet-form__hashtag">
                 <input class="tweet-form__hashtag-form" type="search" placeholder="#ハッシュタグ"
                     v-model="tweet_hashtag" @input="updateTweetLetterCount()"
@@ -117,7 +122,10 @@
                     v-show="twitter_account.id === selected_twitter_account_id" />
             </div>
         </div>
-        <div class="hashtag-list" :class="{'hashtag-list--display': is_hashtag_list_display}">
+        <div class="hashtag-list" :class="{
+            'hashtag-list--display': is_hashtag_list_display,
+            'hashtag-list--virtual-keyboard-display': is_virtual_keyboard_display && Utils.hasActiveElementClass('hashtag__input'),
+        }">
             <div class="hashtag-heading">
                 <div class="hashtag-heading__text">
                     <Icon icon="charm:hash" width="17px" />
@@ -183,10 +191,18 @@ export default Vue.extend({
         player: {
             type: null as PropType<any>,  // 代入当初は null になるため苦肉の策
             required: true,
-        }
+        },
+        // 仮想キーボードが表示されているかどうか
+        is_virtual_keyboard_display: {
+            type: Boolean as PropType<boolean>,
+            required: true,
+        },
     },
     data() {
         return {
+
+            // ユーティリティをテンプレートで使えるように
+            Utils: Utils,
 
             // window.setTimeout() にアクセスできるように
             window: window,
@@ -862,6 +878,14 @@ export default Vue.extend({
             box-shadow: rgba(79, 130, 230, 60%) 0 0 0 3.5px;
         }
 
+        &--virtual-keyboard-display {
+            position: relative;
+            bottom: calc(env(keyboard-inset-height, 0px) - 77px);
+            @include smartphone-horizontal {
+                bottom: calc(env(keyboard-inset-height, 0px) - 56px);
+            }
+        }
+
         &__hashtag {
             display: flex;
             align-items: center;
@@ -1164,6 +1188,13 @@ export default Vue.extend({
         &--display {
             opacity: 1;
             visibility: visible;
+        }
+        &--virtual-keyboard-display {
+            bottom: calc(env(keyboard-inset-height, 0px) - 74px) !important;
+            max-height: calc(100vh - calc(env(keyboard-inset-height, 0px) + 16px)) !important;
+            @include smartphone-horizontal {
+                bottom: calc(env(keyboard-inset-height, 0px) - 48px) !important;
+            }
         }
         &::-webkit-scrollbar-track {
             background: var(--v-background-lighten2);
