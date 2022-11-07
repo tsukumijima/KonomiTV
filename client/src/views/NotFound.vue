@@ -28,3 +28,20 @@ export default Vue.extend({
 });
 
 </script>
+<style lang="scss" scoped>
+
+h1 {
+    @include tablet-vertical {
+        font-size: 24px !important;
+    }
+    @include smartphone-horizontal {
+        font-size: 24px !important;
+    }
+}
+span {
+    @include smartphone-horizontal {
+        font-size: 15px !important;
+    }
+}
+
+</style>
