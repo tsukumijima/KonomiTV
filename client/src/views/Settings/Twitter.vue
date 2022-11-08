@@ -49,6 +49,16 @@
                     v-model="settings.fold_panel_after_sending_tweet">
                 </v-switch>
             </div>
+            <div class="settings__item settings__item--switch">
+                <label class="settings__item-heading" for="reset_hashtag_when_program_switches">番組が切り替わったときにハッシュタグフォームをリセットする</label>
+                <label class="settings__item-label" for="reset_hashtag_when_program_switches">
+                    チャンネルを切り替えたときや、視聴中の番組が終了し次の番組の放送が開始されたときに、ハッシュタグフォームをリセットするかを設定します。<br>
+                    この設定をオンにすると、「誤って前番組のハッシュタグをつけたまま次番組の実況ツイートをしてしまう」といったミスを回避できます。<br>
+                </label>
+                <v-switch class="settings__item-switch" id="reset_hashtag_when_program_switches" inset hide-details
+                    v-model="settings.reset_hashtag_when_program_switches">
+                </v-switch>
+            </div>
             <div class="settings__item">
                 <div class="settings__item-heading">既定で表示される Twitter タブ内のタブ</div>
                 <div class="settings__item-label">
@@ -140,6 +150,7 @@ export default Vue.extend({
                 const settings = {};
                 const setting_keys = [
                     'fold_panel_after_sending_tweet',
+                    'reset_hashtag_when_program_switches',
                     'twitter_active_tab',
                     'tweet_hashtag_position',
                     'tweet_capture_watermark_position',

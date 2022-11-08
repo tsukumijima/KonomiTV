@@ -105,6 +105,9 @@ export default class Utils {
         // ツイート送信後にパネルを閉じる (Default: オフ)
         fold_panel_after_sending_tweet: false as boolean,
 
+        // 番組が切り替わったときにハッシュタグフォームをリセットする (Default: オン)
+        reset_hashtag_when_program_switches: true as boolean,
+
         // 既定で表示される Twitter タブ内のタブ (Default: キャプチャタブ)
         twitter_active_tab: 'Capture' as ('Search' | 'Timeline' | 'Capture'),
 
@@ -133,6 +136,7 @@ export default class Utils {
         'comment_font_size',
         'close_comment_form_after_sending',
         'fold_panel_after_sending_tweet',
+        'reset_hashtag_when_program_switches',
         'twitter_active_tab',
         'tweet_hashtag_position',
         'tweet_capture_watermark_position',

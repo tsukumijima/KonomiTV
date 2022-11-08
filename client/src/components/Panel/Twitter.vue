@@ -570,7 +570,7 @@ export default Vue.extend({
             this.tweet_text = '';
 
             // パネルを閉じるように親コンポーネントに伝える
-            if (true) {
+            if (Utils.getSettingsItem('fold_panel_after_sending_tweet') === true) {
                 this.$emit('panel_folding_requested');
                 (this.$refs.tweet_text as HTMLTextAreaElement).blur();  // フォーカスを外す
             }

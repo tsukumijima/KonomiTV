@@ -473,6 +473,11 @@ export default Vue.extend({
         [this.channel_previous, this.channel, this.channel_next]
             = ChannelUtils.getPreviousAndCurrentAndNextChannel(this.channels_list, this.channel_id);
 
+        // ハッシュタグフォームのリセットがオンなら、ハッシュタグフォームを空にする
+        if (Utils.getSettingsItem('reset_hashtag_when_program_switches') === true) {
+            (this.$refs.Twitter as InstanceType<typeof Twitter>).tweet_hashtag = '';
+        }
+
         // 0.5秒だけ待ってから、新しい再生セッションを初期化する
         // 連続して押した時などに毎回再生処理を開始しないように猶予を設ける
         this.interval_ids.push(window.setTimeout(() => this.init(), 500));
@@ -550,8 +555,20 @@ export default Vue.extend({
                 return;
             }
 
+            // 取得したチャンネル情報と現在のチャンネル情報の NID-SID-EID の組み合わせが異なる場合
+            // ハッシュタグフォームのリセットがオンなら、ハッシュタグフォームを空にする
+            const channel_response_data = channel_response.data as IChannel;
+            if ((this.channel.id !== channel_response_data.id) ||  // チャンネルが異なる
+                (this.channel.program_present !== null && channel_response_data.program_present === null) ||  // 番組情報あり→番組情報なし
+                (this.channel.program_present === null && channel_response_data.program_present !== null) ||  // 番組情報なし→番組情報あり
+                (this.channel.program_present.id !== channel_response_data.program_present.id)) {  // 番組が異なる
+                if (Utils.getSettingsItem('reset_hashtag_when_program_switches') === true) {
+                    (this.$refs.Twitter as InstanceType<typeof Twitter>).tweet_hashtag = '';
+                }
+            }
+
             // チャンネル情報を代入
-            this.channel = channel_response.data;
+            this.channel = channel_response_data;
 
             // プレイヤーがまだ初期化されていない or 他のチャンネルからの切り替えですでにプレイヤーが初期化されているけど破棄が可能
             // update() 自体は初期化時以外にも1分ごとに定期実行されるため、その際に毎回プレイヤーを再初期化しないようにする

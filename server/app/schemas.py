@@ -142,6 +142,7 @@ class ClientSettings(BaseModel):
     # comment_delay_time: 同期無効
     close_comment_form_after_sending: bool = Field(True)
     fold_panel_after_sending_tweet: bool = Field(False)
+    reset_hashtag_when_program_switches: bool = Field(True)
     twitter_active_tab: Literal['Search', 'Timeline', 'Capture'] = Field('Capture')
     tweet_hashtag_position: Literal['Prepend', 'Append', 'PrependWithLineBreak', 'AppendWithLineBreak'] = Field('Append')
     tweet_capture_watermark_position: Literal['None', 'TopLeft', 'TopRight', 'BottomLeft', 'BottomRight'] = Field('None')
