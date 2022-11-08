@@ -62,7 +62,8 @@
                                          :style="`width:${ProgramUtils.getProgramProgress(channel.program_present)}%;`"></div>
                                 </div>
                             </router-link>
-                            <div class="d-flex justify-center align-center w-100" v-if="channels_type === 'ピン留め' && channels.length === 0">
+                            <div class="pinned-container d-flex justify-center align-center w-100"
+                                v-if="channels_type === 'ピン留め' && channels.length === 0">
                                 <div class="d-flex justify-center align-center flex-column">
                                     <h2>ピン留めされているチャンネルがありません。</h2>
                                     <div class="mt-4 text--text text--darken-1">各チャンネルの <Icon style="position:relative;bottom:-5px;" icon="fluent:pin-20-filled" width="22px" /> アイコンから、よくみるチャンネルをこのタブにピン留めできます。</div>
@@ -396,6 +397,10 @@ _::-webkit-full-page-media, _:future, :root
                 display: flex;
                 min-height: calc(100vh - 65px - 116px + 1px);
                 min-height: calc(100dvh - 65px - 116px + 1px);
+                @include smartphone-horizontal {
+                    min-height: calc(100vh - 54px - 12px);
+                    min-height: calc(100dvh - 54px - 12px);
+                }
             }
 
             // カードが横いっぱいに表示されてしまうのを回避する
@@ -744,6 +749,41 @@ _::-webkit-full-page-media, _:future, :root
                         background: var(--v-primary-base);
                         transition: width 0.3s;
                     }
+                }
+            }
+        }
+    }
+
+    .pinned-container {
+        @include tablet-vertical {
+            h2 {
+                font-size: 21px !important;
+            }
+            div {
+                font-size: 12.5px !important;
+                text-align: center;
+            }
+        }
+        @include smartphone-horizontal {
+            h2 {
+                font-size: 21px !important;
+            }
+            div {
+                font-size: 13px !important;
+                text-align: center;
+                .mt-4 {
+                    margin-top: 12px !important;
+                }
+            }
+        }
+        @include smartphone-horizontal-short {
+            h2 {
+                font-size: 16px !important;
+            }
+            div {
+                font-size: 10.5px !important;
+                .mt-4 {
+                    margin-top: 8px !important;
                 }
             }
         }

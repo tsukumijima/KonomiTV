@@ -2168,9 +2168,14 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
 }
 // コントロール非表示時
 .watch-container:not(.watch-container--control-display) {
-    .watch-player__dplayer .dplayer-danmaku {
-        max-height: 100% !important;
-        aspect-ratio: 16 / 9 !important;
+    .watch-player__dplayer {
+        .dplayer-danmaku {
+            max-height: 100% !important;
+            aspect-ratio: 16 / 9 !important;
+        }
+        .dplayer-notice {
+            bottom: 20px !important;
+        }
     }
 }
 // フルスクリーン時
