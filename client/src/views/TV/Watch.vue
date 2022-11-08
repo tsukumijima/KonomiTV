@@ -2047,6 +2047,12 @@ export default Vue.extend({
         }
         .dplayer-comment-box {
             transition: opacity 0.3s ease, visibility 0.3s ease !important;
+            .dplayer-comment-input {
+                transition: box-shadow 0.09s ease;
+                &:focus {
+                    box-shadow: rgba(79, 130, 230, 60%) 0 0 0 3.5px;
+                }
+            }
         }
     }
     .dplayer-notice {
