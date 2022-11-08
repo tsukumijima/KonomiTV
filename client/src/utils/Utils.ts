@@ -1,6 +1,8 @@
 
 import Vue from 'vue';
 
+import { IMutedCommentKeywords } from '@/interface';
+
 /**
  * 共通ユーティリティ
  */
@@ -100,6 +102,14 @@ export default class Utils {
         // コメント送信後にコメント入力フォームを閉じる (Default: オン)
         close_comment_form_after_sending: true as boolean,
 
+        // ***** 設定 → ニコニコ実況 (ミュート設定) *****
+
+        // ミュート済みのコメントのキーワードが入るリスト
+        muted_comment_keywords: [] as IMutedCommentKeywords[],
+
+        // ミュート済みのニコニコユーザー ID が入るリスト
+        muted_niconico_user_ids: [] as string[],
+
         // ***** 設定 → Twitter *****
 
         // ツイート送信後にパネルを閉じる (Default: オフ)
@@ -135,6 +145,8 @@ export default class Utils {
         'comment_speed_rate',
         'comment_font_size',
         'close_comment_form_after_sending',
+        'muted_comment_keywords',
+        'muted_niconico_user_ids',
         'fold_panel_after_sending_tweet',
         'reset_hashtag_when_program_switches',
         'twitter_active_tab',

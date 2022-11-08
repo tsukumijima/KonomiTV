@@ -167,3 +167,9 @@ export interface ICaptureExifData {
     is_caption_composited: boolean;
     is_comment_composited: boolean;
 }
+
+// ミュート済みのコメントのキーワードが入るリスト
+export interface IMutedCommentKeywords {
+    match: 'partial' | 'forward' | 'backward' | 'exact' | 'regex';
+    pattern: string;
+}
