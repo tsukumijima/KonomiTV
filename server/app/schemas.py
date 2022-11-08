@@ -3,7 +3,7 @@ from datetime import datetime
 from pydantic import AnyHttpUrl, BaseModel, confloat, DirectoryPath, Field, FilePath, PositiveInt
 from pydantic.networks import stricturl
 from tortoise.contrib.pydantic import pydantic_model_creator
-from typing import Dict, List, Literal
+from typing import Literal
 
 from app import models
 
@@ -52,8 +52,8 @@ class Program(pydantic_model_creator(models.Program, name='Program')):
     class Genre(BaseModel):
         major: str
         middle: str
-    detail: Dict[str, str]
-    genre: List[Genre]
+    detail: dict[str, str]
+    genre: list[Genre]
 
 class Channel(pydantic_model_creator(models.Channel, name='Channel')):
     is_display: bool = True  # 追加カラム
@@ -74,7 +74,7 @@ class TwitterAccount(pydantic_model_creator(models.TwitterAccount, name='Twitter
 
 class User(pydantic_model_creator(models.User, name='User',
     exclude=('password', 'client_settings', 'niconico_access_token', 'niconico_refresh_token', 'created_at', 'updated_at'))):
-    twitter_accounts: List[TwitterAccount]  # 追加カラム
+    twitter_accounts: list[TwitterAccount]  # 追加カラム
     created_at: datetime  # twitter_accounts の下に配置するために、一旦 exclude した上で再度定義する
     updated_at: datetime  # twitter_accounts の下に配置するために、一旦 exclude した上で再度定義する
 
@@ -97,12 +97,12 @@ class UserUpdateRequestForAdmin(BaseModel):
 # モデルを List や Dict でまとめたものが中心
 
 class Channels(BaseModel):
-    GR: List[Channel]
-    BS: List[Channel]
-    CS: List[Channel]
-    CATV: List[Channel]
-    SKY: List[Channel]
-    STARDIGIO: List[Channel]
+    GR: list[Channel]
+    BS: list[Channel]
+    CS: list[Channel]
+    CATV: list[Channel]
+    SKY: list[Channel]
+    STARDIGIO: list[Channel]
 
 class JikkyoSession(BaseModel):
     is_success: bool
@@ -110,19 +110,19 @@ class JikkyoSession(BaseModel):
     detail: str
 
 class LiveStreams(BaseModel):
-    Restart: Dict[str, LiveStream]
-    Idling: Dict[str, LiveStream]
-    ONAir: Dict[str, LiveStream]
-    Standby: Dict[str, LiveStream]
-    Offline: Dict[str, LiveStream]
+    Restart: dict[str, LiveStream]
+    Idling: dict[str, LiveStream]
+    ONAir: dict[str, LiveStream]
+    Standby: dict[str, LiveStream]
+    Offline: dict[str, LiveStream]
 
 class ClientSettings(BaseModel):
     # 詳細は client/src/utils/Utils.ts を参照
     # デバイス間で同期するとかえって面倒なことになりそうな設定は除外している
-    pinned_channel_ids: List[str] = Field([])
+    pinned_channel_ids: list[str] = Field([])
     # showed_panel_last_time: 同期無効
     # selected_twitter_account_id: 同期無効
-    saved_twitter_hashtags: List[str] = Field([])
+    saved_twitter_hashtags: list[str] = Field([])
     # tv_streaming_quality: 同期無効
     # tv_data_saver_mode: 同期無効
     # tv_low_latency_mode: 同期無効
@@ -141,6 +141,8 @@ class ClientSettings(BaseModel):
     comment_font_size: int = Field(34)
     # comment_delay_time: 同期無効
     close_comment_form_after_sending: bool = Field(True)
+    muted_comment_keywords: list[dict[str, str]] = Field([])
+    muted_niconico_user_ids: list[str] = Field([])
     fold_panel_after_sending_tweet: bool = Field(False)
     reset_hashtag_when_program_switches: bool = Field(True)
     twitter_active_tab: Literal['Search', 'Timeline', 'Capture'] = Field('Capture')
@@ -156,7 +158,7 @@ class TweetResult(BaseModel):
     detail: str
 
 class Users(BaseModel):
-    __root__: List[User]
+    __root__: list[User]
 
 class UserAccessToken(BaseModel):
     access_token: str
