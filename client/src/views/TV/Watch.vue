@@ -148,6 +148,10 @@
                 <v-card-title class="px-5 pt-4 pb-3 d-flex align-center font-weight-bold">
                     <Icon icon="fluent:keyboard-20-filled" height="28px" />
                     <span class="ml-3">キーボードショートカット</span>
+                    <v-spacer></v-spacer>
+                    <div v-ripple class="d-flex align-center rounded-circle cursor-pointer px-2 py-2" @click="shortcut_key_modal = false">
+                        <Icon icon="fluent:dismiss-12-filled" width="23px" height="23px" />
+                    </div>
                 </v-card-title>
                 <div class="px-5 pb-4">
                     <v-row>
@@ -176,11 +180,6 @@
                         </v-col>
                     </v-row>
                 </div>
-                <v-divider></v-divider>
-                <v-card-actions class="px-5 py-3">
-                    <v-spacer></v-spacer>
-                    <v-btn color="background lighten-2 px-3" elevation="0" @click="shortcut_key_modal = false">閉じる</v-btn>
-                </v-card-actions>
             </v-card>
         </v-dialog>
     </div>

@@ -176,6 +176,11 @@ body .route-container {
     right: 0;
 }
 
+// カーソルをポインターにするやつ
+.cursor-pointer {
+    cursor: pointer;
+}
+
 // ユーティリティ
 .w-25 {
     width: 25%;
