@@ -346,19 +346,6 @@ async def TwitterTweetAPI(
     }
 
 
-@router.get(
-    '/accounts/{screen_name}/tweets/search',
-    summary = 'ツイート検索 API',
-)
-async def TwitterSearchAPI(
-    current_user: User = Depends(User.getCurrentUser),
-):
-    """
-    API 実装中…（モックアップ）<br>
-    実装上 screen_name は使わない予定だが、リソース階層上この方が自然
-    """
-
-
 @router.put(
     '/accounts/{screen_name}/tweets/{tweet_id}/retweet',
     summary = 'リツイート実行 API',
@@ -412,6 +399,18 @@ async def TwitterFavoriteCancelAPI(
     summary = 'ホームタイムライン取得 API',
 )
 async def TwitterTimelineAPI(
+    current_user: User = Depends(User.getCurrentUser),
+):
+    """
+    API 実装中…（モックアップ）
+    """
+
+
+@router.get(
+    '/search',
+    summary = 'ツイート検索 API',
+)
+async def TwitterSearchAPI(
     current_user: User = Depends(User.getCurrentUser),
 ):
     """

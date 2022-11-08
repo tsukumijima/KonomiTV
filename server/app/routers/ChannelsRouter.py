@@ -295,7 +295,7 @@ async def ChannelLogoAPI(
 
     # 放送波から取得できるロゴはどっちみち画質が悪いし、取得できていないケースもありうる
     # そのため、同梱されているロゴがあればそれを返すようにする
-    # ロゴは NID32736-SID1024.png のようなファイル名の PNG ファイル (256x256) を想定
+    ## ロゴは NID32736-SID1024.png のようなファイル名の PNG ファイル (256x256) を想定
     if await asyncio.to_thread(pathlib.Path.exists, LOGO_DIR / f'{channel.id}.png'):
         return FileResponse(LOGO_DIR / f'{channel.id}.png', headers=header)
 
@@ -309,27 +309,44 @@ async def ChannelLogoAPI(
     if channel.channel_type == 'GR' and channel.channel_name.startswith('NHKEテレ'):
         return FileResponse(LOGO_DIR / 'NID32737-SID1032.png', headers=header)
 
-    # 複数の地域で放送しているケーブルテレビの場合、コミュニティチャンネルの NID と SID は地域ごとに異なる
-    # ref: https://youzaka.hatenablog.com/entry/2013/06/30/154243
+    # 複数の地域で放送しているケーブルテレビの場合、コミュニティチャンネル (自主放送) の NID と SID は地域ごとに異なる
+    # さらにコミュニティチャンネルの NID-SID は CATV 間で稀に重複していることがあるため、チャンネル名から決め打ちで判定する
+    ## ref: https://youzaka.hatenablog.com/entry/2013/06/30/154243
 
     # J:COMテレビ
     if channel.channel_type == 'GR' and channel.channel_name.startswith('J:COMテレビ'):
-        return FileResponse(LOGO_DIR / 'NID32397-SID23656.png', headers=header)
+        return FileResponse(LOGO_DIR / 'community-channels/J：COMテレビ.png', headers=header)
 
     # J:COMチャンネル
     if channel.channel_type == 'GR' and channel.channel_name.startswith('J:COMチャンネル'):
-        return FileResponse(LOGO_DIR / 'NID32399-SID23672.png', headers=header)
+        return FileResponse(LOGO_DIR / 'community-channels/J：COMチャンネル.png', headers=header)
+
+    # イッツコムch10
+    if channel.channel_type == 'GR' and channel.channel_name.startswith('イッツコムch10'):
+        return FileResponse(LOGO_DIR / 'community-channels/イッツコムch10.png', headers=header)
+
+    # イッツコムch11
+    if channel.channel_type == 'GR' and channel.channel_name.startswith('イッツコムch11'):
+        return FileResponse(LOGO_DIR / 'community-channels/イッツコムch11.png', headers=header)
 
     # eo光チャンネル
     if channel.channel_type == 'GR' and channel.channel_name.startswith('eo光チャンネル'):
-        return FileResponse(LOGO_DIR / 'NID32127-SID41080.png', headers=header)
+        return FileResponse(LOGO_DIR / 'community-channels/eo光チャンネル.png', headers=header)
 
     # ZTV
     if channel.channel_type == 'GR' and channel.channel_name.startswith('ZTV'):
-        return FileResponse(LOGO_DIR / 'NID32047-SID46200.png', headers=header)
+        return FileResponse(LOGO_DIR / 'community-channels/ZTV.png', headers=header)
+
+    # BaycomCH
+    if channel.channel_type == 'GR' and channel.channel_name.startswith('BaycomCH'):
+        return FileResponse(LOGO_DIR / 'community-channels/BaycomCH.png', headers=header)
+
+    # ベイコム12CH
+    if channel.channel_type == 'GR' and channel.channel_name.startswith('ベイコム12CH'):
+        return FileResponse(LOGO_DIR / 'community-channels/ベイコム12CH.png', headers=header)
 
     # スターデジオ
-    # 本来は局ロゴは存在しないが、見栄えが悪いので 100 チャンネルすべてで同じ局ロゴを表示する
+    ## 本来は局ロゴは存在しないが、見栄えが悪いので 100 チャンネルすべてで同じ局ロゴを表示する
     if channel.channel_type == 'STARDIGIO':
         return FileResponse(LOGO_DIR / 'NID1-SID400.png', headers=header)
 
