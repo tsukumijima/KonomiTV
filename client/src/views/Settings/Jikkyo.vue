@@ -47,6 +47,16 @@
                 </v-btn>
             </div>
             <div class="settings__item mt-7">
+                <div class="settings__item-heading">コメントのミュート設定</div>
+                <div class="settings__item-label">
+                    表示したくないコメントを、画面やコメントリストに表示しないようにミュートできます。<br>
+                </div>
+            </div>
+            <v-btn class="settings__save-button mt-4" depressed @click="comment_mute_settings_modal = !comment_mute_settings_modal">
+                <Icon icon="heroicons-solid:filter" height="19px" />
+                <span class="ml-1">コメントのミュート設定を開く</span>
+            </v-btn>
+            <div class="settings__item">
                 <div class="settings__item-heading">コメントの速さ</div>
                 <div class="settings__item-label">
                     プレイヤーに流れるコメントの速さを設定します。<br>
@@ -87,6 +97,7 @@
                 </v-switch>
             </div>
         </div>
+        <CommentMuteSettings v-model="comment_mute_settings_modal" />
     </Base>
 </template>
 <script lang="ts">
@@ -95,6 +106,7 @@ import axios from 'axios';
 import Vue from 'vue';
 
 import { IUser } from '@/interface';
+import CommentMuteSettings from '@/components/Settings/CommentMuteSettings.vue';
 import Base from '@/views/Settings/Base.vue';
 import Utils from '@/utils';
 
@@ -102,12 +114,16 @@ export default Vue.extend({
     name: 'Settings-Jikkyo',
     components: {
         Base,
+        CommentMuteSettings,
     },
     data() {
         return {
 
             // ユーティリティをテンプレートで使えるように
             Utils: Utils,
+
+            // コメントのミュート設定のモーダルを表示するか
+            comment_mute_settings_modal: false,
 
             // ローディング中かどうか
             is_loading: true,
