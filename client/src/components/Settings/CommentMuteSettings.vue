@@ -126,6 +126,9 @@ export default Vue.extend({
     data() {
         return {
 
+            // インターバルのタイマー ID
+            interval_timer_id: 0,
+
             // コメントのミュート設定のモーダルを表示するか
             comment_mute_settings_modal: false,
 
@@ -170,6 +173,35 @@ export default Vue.extend({
                 return settings;
             })(),
         }
+    },
+    created() {
+        // 1秒に1回、muted_comment_keywords と muted_niconico_user_ids の変更内容を同期する
+        // コメントリストからのミュート設定の変更を反映するために必要
+        this.interval_timer_id = window.setInterval(() => {
+            const new_muted_comment_keywords = Utils.getSettingsItem('muted_comment_keywords') as IMutedCommentKeywords[];
+            if (JSON.stringify(this.muted_comment_keywords) !== JSON.stringify(new_muted_comment_keywords)) {
+                this.muted_comment_keywords = (new_muted_comment_keywords).map((keyword, index) => {
+                    return {
+                        id: Date.now() + index,
+                        match: keyword.match as ('partial' | 'forward' | 'backward' | 'exact' | 'regex'),
+                        pattern: keyword.pattern as string,
+                    };
+                });
+            }
+            const new_muted_niconico_user_ids = Utils.getSettingsItem('muted_niconico_user_ids') as string[];
+            if (JSON.stringify(this.muted_niconico_user_ids) !== JSON.stringify(new_muted_niconico_user_ids)) {
+                this.muted_niconico_user_ids = (new_muted_niconico_user_ids).map((user_id, index) => {
+                    return {
+                        id: Date.now() + index,
+                        user_id: user_id,
+                    };
+                });
+            }
+        }, 1000);
+    },
+    beforeDestroy() {
+        // インスタンスの破棄前にタイマーを解除する
+        window.clearInterval(this.interval_timer_id);
     },
     watch: {
 

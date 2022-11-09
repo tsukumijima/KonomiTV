@@ -17,6 +17,27 @@
                     <div class="comment" :class="{'comment--my-post': item.my_post}">
                         <span class="comment__text">{{item.text}}</span>
                         <span class="comment__time">{{item.time}}</span>
+                        <v-menu left bottom>
+                            <template v-slot:activator="{ on }">
+                                <v-btn class="comment__icon" icon v-on="on">
+                                    <Icon icon="fluent:more-vertical-20-filled" width="20px" />
+                                </v-btn>
+                            </template>
+                            <v-list style="background: var(--v-background-lighten1)">
+                                <v-list-item dense style="min-height: 30px" @click="addMutedKeywords(item.text)">
+                                    <v-list-item-title class="d-flex align-center">
+                                        <Icon icon="fluent:comment-dismiss-20-filled" width="20px" />
+                                        <span class="ml-2">このコメントをミュート</span>
+                                    </v-list-item-title>
+                                </v-list-item>
+                                <v-list-item dense style="min-height: 30px" @click="addMutedNiconicoUserIDs(item.user_id)">
+                                    <v-list-item-title class="d-flex align-center" >
+                                        <Icon icon="fluent:person-prohibited-20-filled" width="20px" />
+                                        <span class="ml-2">このコメントの投稿者をミュート</span>
+                                    </v-list-item-title>
+                                </v-list-item>
+                            </v-list>
+                        </v-menu>
                     </div>
                 </DynamicScrollerItem>
                 </template>
@@ -47,7 +68,7 @@ import { AxiosResponse } from 'axios';
 import dayjs from 'dayjs';
 import Vue, { PropType } from 'vue';
 
-import { IChannel, IDPlayerDanmakuSendOptions, IUser } from '@/interface';
+import { IChannel, IDPlayerDanmakuSendOptions, IMutedCommentKeywords, IUser } from '@/interface';
 import CommentMuteSettings from '@/components/Settings/CommentMuteSettings.vue';
 import Utils from '@/utils';
 
@@ -56,6 +77,7 @@ interface IComment {
     id: number;
     text: string;
     time: string;
+    user_id: string;
     my_post: boolean;
 }
 
@@ -554,7 +576,7 @@ export default Vue.extend({
                 ]));
             });
 
-            // 視聴セッション WebSocket からメッセージを受信したとき
+            // コメントセッション WebSocket からメッセージを受信したとき
             this.comment_session.addEventListener('message', async (event_raw) => {
 
                 // イベントを取得
@@ -597,6 +619,12 @@ export default Vue.extend({
 
                 // 自分のコメントも表示しない
                 if (comment.yourpost && comment.yourpost === 1) {
+                    return;
+                }
+
+                // ミュート対象のコメントかどうかを判定し、もしそうならここで弾く
+                if (this.isMutedComment(comment.content as string, comment.user_id as string)) {
+                    console.log('Muted comment: ' + comment.content);
                     return;
                 }
 
@@ -648,6 +676,7 @@ export default Vue.extend({
                     id: comment.no,
                     text: comment.content,
                     time: dayjs(comment.date * 1000).format('HH:mm:ss'),
+                    user_id: comment.user_id,
                     my_post: false,
                 };
 
@@ -766,6 +795,7 @@ export default Vue.extend({
                 id: new Date().getTime(),
                 text: options.data.text,
                 time: dayjs().format('HH:mm:ss'),
+                user_id: `${this.user.niconico_user_id}`,
                 my_post: true,  // コメントリスト上でハイライトする
             });
 
@@ -936,8 +966,8 @@ export default Vue.extend({
 
         /**
          * ニコニコの色指定を 16 進数カラーコードに置換する
-         * @param {string} color ニコニコの色指定
-         * @return {string} 16 進数カラーコード
+         * @param color ニコニコの色指定
+         * @return 16 進数カラーコード
          */
         getCommentColor(color: string): string {
             const color_table = {
@@ -978,8 +1008,8 @@ export default Vue.extend({
 
         /**
          * ニコニコの位置指定を DPlayer の位置指定に置換する
-         * @param {string} position ニコニコの位置指定
-         * @return {string} DPlayer の位置指定
+         * @param position ニコニコの位置指定
+         * @return DPlayer の位置指定
          */
         getCommentPosition(position: string): string {
             switch (position) {
@@ -992,6 +1022,69 @@ export default Vue.extend({
                 default:
                     return null;
             }
+        },
+
+        /**
+         * ミュート対象のコメントかどうかを判断する
+         * @param comment コメント
+         * @param user_id コメントを投稿したユーザーの ID
+         * @return ミュート対象のコメントなら true を返す
+         */
+        isMutedComment(comment: string, user_id: string): boolean {
+
+            // キーワードミュート処理
+            const muted_comment_keywords = Utils.getSettingsItem('muted_comment_keywords') as IMutedCommentKeywords[];
+            for (const muted_comment_keyword of muted_comment_keywords) {
+                if (muted_comment_keyword.pattern === '') continue;  // キーワードが空文字のときは無視
+                switch (muted_comment_keyword.match) {
+                    // 部分一致
+                    case 'partial':
+                        if (comment.includes(muted_comment_keyword.pattern)) return true;
+                        break;
+                    // 前方一致
+                    case 'forward':
+                        if (comment.startsWith(muted_comment_keyword.pattern)) return true;
+                        break;
+                    // 後方一致
+                    case 'backward':
+                        if (comment.endsWith(muted_comment_keyword.pattern)) return true;
+                        break;
+                    // 完全一致
+                    case 'exact':
+                        if (comment === muted_comment_keyword.pattern) return true;
+                        break;
+                    // 正規表現
+                    case 'regex':
+                        if (new RegExp(muted_comment_keyword.pattern).test(comment)) return true;
+                        break;
+                }
+            }
+
+            // ユーザー ID ミュート処理
+            const muted_niconico_user_ids = Utils.getSettingsItem('muted_niconico_user_ids') as string[];
+            for (const muted_niconico_user_id of muted_niconico_user_ids) {
+                if (user_id === muted_niconico_user_id) return true;
+            }
+
+            // いずれのミュート処理にも引っかからなかった (ミュート対象ではない)
+            return false;
+        },
+
+        // ミュート済みキーワードリストに追加する (完全一致)
+        addMutedKeywords(comment: string) {
+            const muted_comment_keywords = Utils.getSettingsItem('muted_comment_keywords') as IMutedCommentKeywords[];
+            muted_comment_keywords.push({
+                match: 'exact',
+                pattern: comment,
+            });
+            Utils.setSettingsItem('muted_comment_keywords', muted_comment_keywords);
+        },
+
+        // ミュート済みニコニコユーザー ID リストに追加する
+        addMutedNiconicoUserIDs(user_id: string) {
+            const muted_niconico_user_ids = Utils.getSettingsItem('muted_niconico_user_ids') as string[];
+            muted_niconico_user_ids.push(user_id);
+            Utils.setSettingsItem('muted_niconico_user_ids', muted_niconico_user_ids);
         },
 
         // 破棄する
@@ -1117,6 +1210,12 @@ export default Vue.extend({
                     padding-left: 8px;
                     color: var(--v-text-darken1);
                     font-size: 13px;
+                }
+
+                &__icon {
+                    width: 20px;
+                    height: 20px;
+                    margin-left: 8px;
                 }
             }
         }
