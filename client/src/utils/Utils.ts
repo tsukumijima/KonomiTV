@@ -110,6 +110,15 @@ export default class Utils {
         // ミュート済みのニコニコユーザー ID が入るリスト
         muted_niconico_user_ids: [] as string[],
 
+        // 露骨な表現を含むコメントをミュートする (Default: ミュートする)
+        mute_vulgar_comments: true as boolean,
+
+        // 罵倒や誹謗中傷、差別的な表現、政治的に偏った表現を含むコメントをミュートする (Default: ミュートする)
+        mute_abusive_discriminatory_prejudiced_comments: true as boolean,
+
+        // 文字サイズが大きいコメントをミュートする (Default: ミュートする)
+        mute_big_size_comments: true as boolean,
+
         // 映像の上下に固定表示されるコメントをミュートする (Default: ミュートしない)
         mute_fixed_comments: false as boolean,
 
@@ -156,6 +165,9 @@ export default class Utils {
         'close_comment_form_after_sending',
         'muted_comment_keywords',
         'muted_niconico_user_ids',
+        'mute_vulgar_comments',
+        'mute_abusive_discriminatory_prejudiced_comments',
+        'mute_big_size_comments',
         'mute_fixed_comments',
         'mute_colored_comments',
         'mute_consecutive_same_characters_comments',

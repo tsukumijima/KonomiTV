@@ -10,34 +10,38 @@
                 <span class="ml-1">ミュート設定</span>
             </button>
         </section>
-        <section class="comment-list-wrapper">
+        <section class="comment-list-wrapper" ref="comment_list_wrapper">
+            <div class="comment-list-dropdown" :class="{'comment-list-dropdown--display': is_comment_list_dropdown_display}"
+                :style="{'--comment-list-dropdown-top': `${comment_list_dropdown_top}px`}">
+                <v-list style="background: var(--v-background-lighten1)">
+                    <v-list-item dense style="min-height: 30px"
+                        @click="addMutedKeywords(comment_list_dropdown_comment.text); is_comment_list_dropdown_display = false">
+                        <v-list-item-title class="d-flex align-center">
+                            <Icon icon="fluent:comment-dismiss-20-filled" width="20px" />
+                            <span class="ml-2">このコメントをミュート</span>
+                        </v-list-item-title>
+                    </v-list-item>
+                    <v-list-item dense style="min-height: 30px"
+                        @click="addMutedNiconicoUserIDs(comment_list_dropdown_comment.user_id); is_comment_list_dropdown_display = false">
+                        <v-list-item-title class="d-flex align-center" >
+                            <Icon icon="fluent:person-prohibited-20-filled" width="20px" />
+                            <span class="ml-2">このコメントの投稿者をミュート</span>
+                        </v-list-item-title>
+                    </v-list-item>
+                </v-list>
+            </div>
+            <div class="comment-list-cover" :class="{'comment-list-cover--display': is_comment_list_dropdown_display}"
+                @click="is_comment_list_dropdown_display = false"></div>
             <DynamicScroller class="comment-list" :direction="'vertical'" :items="comment_list" :min-item-size="34">
                 <template v-slot="{item, active}">
                 <DynamicScrollerItem :item="item" :active="active" :size-dependencies="[item.text]">
                     <div class="comment" :class="{'comment--my-post': item.my_post}">
                         <span class="comment__text">{{item.text}}</span>
                         <span class="comment__time">{{item.time}}</span>
-                        <v-menu left bottom>
-                            <template v-slot:activator="{ on }">
-                                <v-btn class="comment__icon" icon v-on="on">
-                                    <Icon icon="fluent:more-vertical-20-filled" width="20px" />
-                                </v-btn>
-                            </template>
-                            <v-list style="background: var(--v-background-lighten1)">
-                                <v-list-item dense style="min-height: 30px" @click="addMutedKeywords(item.text)">
-                                    <v-list-item-title class="d-flex align-center">
-                                        <Icon icon="fluent:comment-dismiss-20-filled" width="20px" />
-                                        <span class="ml-2">このコメントをミュート</span>
-                                    </v-list-item-title>
-                                </v-list-item>
-                                <v-list-item dense style="min-height: 30px" @click="addMutedNiconicoUserIDs(item.user_id)">
-                                    <v-list-item-title class="d-flex align-center" >
-                                        <Icon icon="fluent:person-prohibited-20-filled" width="20px" />
-                                        <span class="ml-2">このコメントの投稿者をミュート</span>
-                                    </v-list-item-title>
-                                </v-list-item>
-                            </v-list>
-                        </v-menu>
+                        <v-btn class="comment__icon" icon
+                            @click="displayCommentListDropdown($event, item)">
+                            <Icon icon="fluent:more-vertical-20-filled" width="20px" />
+                        </v-btn>
                     </div>
                 </DynamicScrollerItem>
                 </template>
@@ -65,6 +69,7 @@
 <script lang="ts">
 
 import { AxiosResponse } from 'axios';
+import { Buffer } from 'buffer';
 import dayjs from 'dayjs';
 import Vue, { PropType } from 'vue';
 
@@ -80,6 +85,12 @@ interface IComment {
     user_id: string;
     my_post: boolean;
 }
+
+// 「露骨な表現を含むコメントをミュートする」のフィルタ正規表現
+const mute_vulgar_comments_pattern = new RegExp(Buffer.from('cHJwcnzvvZDvvZLvvZDvvZJ8U0VYfFPjgIdYfFPil69YfFPil4tYfFPil49YfO+8s++8pe+8uHzvvLPjgIfvvLh877yz4pev77y4fO+8s+KXi++8uHzvvLPil4/vvLh844Ki44OA44Or44OIfOOCouODiuOCpXzjgqLjg4rjg6t844Kk44Kr6IetfOOCpOOBj3zjgYbjgpPjgZN844Km44Oz44KzfOOBhuOCk+OBoXzjgqbjg7Pjg4F844Ko44Kt44ObfOOBiOOBo+OBoXzjgqjjg4Pjg4F844GI44Gj44KNfOOCqOODg+ODrXzjgYjjgo1844Ko44OtfOW3peWPo3zjgYrjgZXjgo/jgorjgb7jgpN844GK44GX44Gj44GTfOOCquOCt+ODg+OCs3zjgqrjg4PjgrXjg7N844GK44Gj44Gx44GEfOOCquODg+ODkeOCpHzjgqrjg4rjg4vjg7x844Kq44OK44ObfOOBiuOBseOBhHzjgqrjg5HjgqR844GKcHzjgYrvvZB844Kq44OV44OR44KzfOOCrOOCpOOCuOODs3zjgq3jg7Pjgr/jg55844GP44Gx44GCfOOBj+OBseOBgXzjgq/jg6p844Kv44Oz44OLfOOBkeOBpHzjgrHjg4R844GU44GP44GU44GP44GU44GP44GU44GPfOOCs+ODs+ODieODvOODoHzjgrbjg7zjg6Hjg7N844K344KzfOOBl+OBk+OBl+OBk3zjgrfjgrPjgrfjgrN844GZ44GR44GZ44GRfOOBm+OBhOOBiOOBjXzjgZnjgYXjgYXjgYXjgYXjgYV844GZ44GG44GG44GG44GG44GGfOOCu+OCr+ODreOCuXzjgrvjg4Pjgq/jgrl844K744OV44OsfOOBoeOBo+OBseOBhHzjgaHjgaPjg5HjgqR844OB44OD44OR44KkfOOBoeOCk+OBk3zjgaHjgIfjgZN844Gh4pev44GTfOOBoeKXi+OBk3zjgaHil4/jgZN844OB44Oz44KzfOODgeOAh+OCs3zjg4Hil6/jgrN844OB4peL44KzfOODgeKXj+OCs3zjgaHjgpPjgb1844Gh44CH44G9fOOBoeKXr+OBvXzjgaHil4vjgb1844Gh4peP44G9fOODgeODs+ODnXzjg4HjgIfjg51844OB4pev44OdfOODgeKXi+ODnXzjg4Hil4/jg51844Gh44KT44Gh44KTfOODgeODs+ODgeODs3zjgabjgYPjgpPjgabjgYPjgpN844OG44Kj44Oz44OG44Kj44OzfOODhuOCo+ODs+ODnXzjg4fjgqvjgYR844OH44Oq44OY44OrfOiEseOBknzjgbHjgYR844OR44OR5rS7fOOBteOBhuODu3zjgbXjgYbigKZ844G144GFfO++jO+9qXzjgbXjgY/jgonjgb/jgYvjgZF844G144GP44KJ44KT44GnfOOBuuOBo+OBn3zjgbrjgo3jgbrjgo1844Oa44Ot44Oa44OtfO++je++n+++m+++je++n+++m3zjg5Xjgqfjg6l844G844Gj44GNfOODneODq+ODjnzjgbzjgo3jgpN844Oc44Ot44OzfO++ju++nu++m+++nXzjgb3jgo3jgop844Od44Ot44OqfO++ju++n+++m+++mHzjg57jg7PjgY3jgaR844Oe44Oz44Kt44OEfOOBvuOCk+OBk3zjgb7jgIfjgZN844G+4pev44GTfOOBvuKXi+OBk3zjgb7il4/jgZN844Oe44Oz44KzfOODnuOAh+OCs3zjg57il6/jgrN844Oe4peL44KzfOODnuKXj+OCs3zjgb7jgpPjgZXjgpN844KC44Gj44GT44KKfOODouODg+OCs+ODqnzjgoLjgb/jgoLjgb9844Oi44Of44Oi44OffOODpOOBo+OBpnzjg6Tjgol844KE44KJ44Gb44KNfOODpOOCinzjg6Tjgot844Ok44KMfOODpOOCjXzjg6njg5bjg5t844Ov44Os44OhfOWWmHzpmbDmoLh86Zmw6IyOfOmZsOWUh3zmt6vlpKJ86Zmw5q+bfOeUo+OCgeOCi3zlpbPjga7lrZDjga7ml6V85rGa44Gj44GV44KTfOWkluS6unzlp6Z86aiO5LmX5L2NfOmHkeeOiXzmnIjntYx85b6M6IOM5L2NfOWtkOS9nOOCinzlsITnsr585L+h6ICFfOeyvua2snzpgI/jgZF85oCn5LqkfOeyvuWtkHzmraPluLjkvY185oCn5b60fOaAp+eahHznlJ/nkIZ85a+45q2i44KBfOe0oOadkHzmirHjgYR85oqx44GLfOaKseOBjXzmirHjgY985oqx44GRfOaKseOBk3zkubPpppZ85oGl5Z6ifOS4reOBoOOBl3zkuK3lh7rjgZd85bC/fOaKnOOBhHzmipzjgZHjgarjgYR85oqc44GR44KLfOaKnOOBkeOCjHzohqjjgol85YuD6LW3fOaPieOBvnzmj4njgb985o+J44KAfOaPieOCgXzmvKvmuZZ844CH772efOKXr++9nnzil4vvvZ584peP772efOOAh+ODg+OCr+OCuXzil6/jg4Pjgq/jgrl84peL44OD44Kv44K5fOKXj+ODg+OCr+OCuQ==', 'base64').toString());
+
+// 「罵倒や差別的な表現を含むコメントをミュートする」のフィルタ正規表現
+const mute_abusive_discriminatory_prejudiced_comments_pattern = new RegExp(Buffer.from('44CCfOOCouOCueODmnzjgqLjg7Pjg4F844Kk44Kr44KMfOOCpOODqeOBpOOBj3zjgqbjgrh844Km44O844OofOOCpuODqHzjgqbjg6jjgq9844GN44KC44GEfOOCreODouOCpHzjgq3jg6LjgYR844KtL+ODoC/jg4F844Ks44Kk44K4fO+9tu++nu+9su+9vO++nnzjgqzjgq1844Kr44K5fOOCreODg+OCunzjgY3jgaHjgYzjgYR844Kt44OB44Ks44KkfOOCreODoOODgXzjgZTjgb9844K044OffOODgeODp+ODs3zljYPjg6fjg7N844Gk44KT44G8fOODhOODs+ODnHzjg4vjgqt844ON44OI44Km44OofOODi+ODgHzvvobvvoDvvp5844OR44O844OofOODkeODqHzjg5Hjg6jjgq9844G244Gj44GVfOODluODg+OCtXzjgbbjgZXjgYR844OW44K144KkfOOBvuOBrOOBkXzjg6Hjgq/jg6l844OQ44KrfOODoOOCq+OBpOOBj3zmhbDlronlqaZ85a6z5YWQfOWkluWtl3zlp6blm7186Z+T5Zu9fOWfuuWcsOWklnzmsJfmjIHjgaHmgqp85q66fOmgg+OBmXzlnKjml6V85q2744GtfOawj+OBrXzvvoDvvot85q255YyVfOatueODknzpmpzlrrN85pyd6a6ufOeymOedgHzlj43ml6V86aas6bm/fOeZuumBlHzmnLR85LiN5b+rfOmWk+aKnOOBkXzpnZblm70=', 'base64').toString());
 
 export default Vue.extend({
     name: 'Panel-CommentTab',
@@ -117,6 +128,11 @@ export default Vue.extend({
 
             // コメントリストの要素
             comment_list_element: null as HTMLElement | null,
+
+            // コメントリストのドロップダウン関連
+            is_comment_list_dropdown_display: false as boolean,
+            comment_list_dropdown_top: 0 as number,
+            comment_list_dropdown_comment: null as IComment | null,
 
             // 視聴セッションの WebSocket のインスタンス
             watch_session: null as WebSocket | null,
@@ -668,6 +684,13 @@ export default Vue.extend({
                     return;
                 }
 
+                // 「文字サイズが大きいコメントをミュートする」がオンの場合
+                // コメントのサイズが big のときは弾く
+                if (Utils.getSettingsItem('mute_big_size_comments') === true && size === 'big') {
+                    console.log('Muted comment (Big): ' + comment.content);
+                    return;
+                }
+
                 // 配信に発生する遅延分待ってから
                 // 最初にドカッと送信されてくる初回コメントは少し前に投稿されたコメント群なので、遅らせずに表示させる
                 if (is_received_initial_comment) {
@@ -1074,10 +1097,24 @@ export default Vue.extend({
                 }
             }
 
+            // 「露骨な表現を含むコメントをミュートする」がオンの場合
+            if (Utils.getSettingsItem('mute_vulgar_comments') === true) {
+                if (mute_vulgar_comments_pattern.test(comment)) return true;
+            }
+
+            // 「罵倒や差別的な表現を含むコメントをミュートする」がオンの場合
+            if (Utils.getSettingsItem('mute_abusive_discriminatory_prejudiced_comments') === true) {
+                if (mute_abusive_discriminatory_prejudiced_comments_pattern.test(comment)) return true;
+            }
+
             // 「8文字以上同じ文字が連続しているコメントをミュートする」がオンの場合
             if (Utils.getSettingsItem('mute_consecutive_same_characters_comments') === true) {
                 if (/(.)\1{7,}/.test(comment)) return true;
             }
+
+            // 「ＮHK→計1447ＩＤ／内プレ425ＩＤ／総33372米 ◆ Ｅﾃﾚ → 計73ＩＤ／内プレ19ＩＤ／総941米」のような
+            // 迷惑コメントを一括で弾く (あえてミュートしたくないユースケースが思い浮かばないのでデフォルトで弾く)
+            if (/最高\d+米\/|計\d+ＩＤ|総\d+米/.test(comment)) return true;
 
             // ユーザー ID ミュート処理
             const muted_niconico_user_ids = Utils.getSettingsItem('muted_niconico_user_ids') as string[];
@@ -1104,6 +1141,14 @@ export default Vue.extend({
             const muted_niconico_user_ids = Utils.getSettingsItem('muted_niconico_user_ids') as string[];
             muted_niconico_user_ids.push(user_id);
             Utils.setSettingsItem('muted_niconico_user_ids', muted_niconico_user_ids);
+        },
+
+        // ドロップダウンメニューを表示する
+        displayCommentListDropdown(event: Event, comment: IComment) {
+            this.is_comment_list_dropdown_display = true;
+            this.comment_list_dropdown_top = (event.currentTarget as HTMLElement).getBoundingClientRect().top -
+                (this.$refs.comment_list_wrapper as HTMLDivElement).getBoundingClientRect().top;
+            this.comment_list_dropdown_comment = comment;
         },
 
         // 破棄する
@@ -1201,6 +1246,40 @@ export default Vue.extend({
             margin-top: 12px;
         }
 
+        .comment-list-dropdown {
+            display: inline-block;
+            position: absolute;
+            top: var(--comment-list-dropdown-top, 0px);
+            right: 16px;
+            border-radius: 4px;
+            overflow-x: hidden;
+            overflow-y: auto;
+            box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 20%),
+                        0px 8px 10px 1px rgb(0 0 0 / 14%),
+                        0px 3px 14px 2px rgb(0 0 0 / 12%);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.15s ease, visibility 0.15s ease;
+            z-index: 8;
+            &--display {
+                opacity: 1;
+                visibility: visible;
+            }
+        }
+
+        .comment-list-cover {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 7;
+            &--display {
+                display: block;
+            }
+        }
+
         .comment-list {
             width: 100%;
             height: 100%;
@@ -1211,6 +1290,7 @@ export default Vue.extend({
 
             .comment {
                 display: flex;
+                position: relative;
                 align-items: center;
                 min-height: 28px;
                 padding-top: 6px;

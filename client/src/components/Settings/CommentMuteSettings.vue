@@ -1,5 +1,5 @@
 <template>
-    <v-dialog max-width="700" transition="slide-y-transition" v-model="comment_mute_settings_modal">
+    <v-dialog max-width="740" transition="slide-y-transition" v-model="comment_mute_settings_modal">
         <v-card>
             <v-card-title class="px-5 pt-5 pb-3 d-flex align-center font-weight-bold" style="height: 60px;">
                 <Icon icon="heroicons-solid:filter" height="26px" />
@@ -58,11 +58,46 @@
                     <span class="ml-2">クイック設定</span>
                 </div>
                 <div class="settings__item settings__item--switch">
+                    <label class="settings__item-heading" for="mute_vulgar_comments">
+                        露骨な表現を含むコメントをミュートする
+                    </label>
+                    <label class="settings__item-label" for="mute_vulgar_comments">
+                        性的な単語などの露骨・下品な表現を含むコメントを、一括でミュートするかを設定します。<br>
+                    </label>
+                    <v-switch class="settings__item-switch" id="mute_vulgar_comments" inset hide-details
+                        v-model="settings.mute_vulgar_comments">
+                    </v-switch>
+                </div>
+                <div class="settings__item settings__item--switch">
+                    <label class="settings__item-heading" for="mute_abusive_discriminatory_prejudiced_comments">
+                        罵倒や誹謗中傷、差別的な表現、政治的に偏った表現を含むコメントをミュートする
+                    </label>
+                    <label class="settings__item-label" for="mute_abusive_discriminatory_prejudiced_comments">
+                        『死ね』『殺す』などの罵倒や誹謗中傷、特定の国や人々への差別的な表現、政治的に偏った表現を含むコメントを、一括でミュートするかを設定します。<br>
+                    </label>
+                    <v-switch class="settings__item-switch" id="mute_abusive_discriminatory_prejudiced_comments" inset hide-details
+                        v-model="settings.mute_abusive_discriminatory_prejudiced_comments">
+                    </v-switch>
+                </div>
+                <div class="settings__item settings__item--switch">
+                    <label class="settings__item-heading" for="mute_big_size_comments">
+                        文字サイズが大きいコメントをミュートする
+                    </label>
+                    <label class="settings__item-label" for="mute_big_size_comments">
+                        通常より大きい文字サイズで表示されるコメントを、一括でミュートするかを設定します。<br>
+                        文字サイズが大きいコメントには迷惑なコメントが多いです。基本的にはオンにしておくことをおすすめします。<br>
+                    </label>
+                    <v-switch class="settings__item-switch" id="mute_big_size_comments" inset hide-details
+                        v-model="settings.mute_big_size_comments">
+                    </v-switch>
+                </div>
+                <div class="settings__item settings__item--switch">
                     <label class="settings__item-heading" for="mute_fixed_comments">
                         映像の上下に固定表示されるコメントをミュートする
                     </label>
                     <label class="settings__item-label" for="mute_fixed_comments">
                         映像の上下に固定された状態で表示されるコメントを、一括でミュートするかを設定します。<br>
+                        固定表示されるコメントが煩わしいと感じる方は、オンにしておくことをおすすめします。<br>
                     </label>
                     <v-switch class="settings__item-switch" id="mute_fixed_comments" inset hide-details
                         v-model="settings.mute_fixed_comments">
@@ -73,7 +108,8 @@
                        色付きのコメントをミュートする
                     </label>
                     <label class="settings__item-label" for="mute_colored_comments">
-                        白以外の色で表示されるコメントを、一括でミュートするかを設定します。<br>
+                        白以外の色で表示される色付きのコメントを、一括でミュートするかを設定します。<br>
+                        この設定をオンにしておくと、目立つ色のコメントを一掃できます。<br>
                     </label>
                     <v-switch class="settings__item-switch" id="mute_colored_comments" inset hide-details
                         v-model="settings.mute_colored_comments">
@@ -85,41 +121,12 @@
                     </label>
                     <label class="settings__item-label" for="mute_consecutive_same_characters_comments">
                         『wwwwwwwwwww』『あばばばばばばばばば』など、8文字以上同じ文字が連続しているコメントを、一括でミュートするかを設定します。<br>
+                        しばしばあるテンプレコメントが煩わしいと感じる方は、オンにしておくことをおすすめします。<br>
                     </label>
                     <v-switch class="settings__item-switch" id="mute_consecutive_same_characters_comments" inset hide-details
                         v-model="settings.mute_consecutive_same_characters_comments">
                     </v-switch>
                 </div>
-                <!-- <div class="settings__item settings__item--switch">
-                    <label class="settings__item-heading" for="mute_abusive_discriminatory_comments">
-                        罵倒や差別的な表現を含むコメントをミュートする
-                    </label>
-                    <label class="settings__item-label" for="mute_abusive_discriminatory_comments">
-                        『死ね』『殺す』などの罵倒や、特定の人々への差別的な表現を含むコメントを、一括でミュートするかを設定します。<br>
-                    </label>
-                    <v-switch class="settings__item-switch" id="mute_abusive_discriminatory_comments" inset hide-details>
-                    </v-switch>
-                </div>
-                <div class="settings__item settings__item--switch">
-                    <label class="settings__item-heading" for="mute_politically_biased_comments">
-                        政治的に偏った表現を含むコメントをミュートする
-                    </label>
-                    <label class="settings__item-label" for="mute_politically_biased_comments">
-                        『ネトウヨ』『パヨク』などの政治的に偏った表現を含むコメントを、一括でミュートするかを設定します。<br>
-                    </label>
-                    <v-switch class="settings__item-switch" id="mute_politically_biased_comments" inset hide-details>
-                    </v-switch>
-                </div>
-                <div class="settings__item settings__item--switch">
-                    <label class="settings__item-heading" for="mute_vulgar_comments">
-                        露骨な表現を含むコメントをミュートする
-                    </label>
-                    <label class="settings__item-label" for="mute_vulgar_comments">
-                        性的な単語などの露骨・下品な表現を含むコメントを、一括でミュートするかを設定します。<br>
-                    </label>
-                    <v-switch class="settings__item-switch" id="mute_vulgar_comments" inset hide-details>
-                    </v-switch>
-                </div> -->
             </div>
         </v-card>
     </v-dialog>
@@ -189,6 +196,9 @@ export default Vue.extend({
                 // 現在の設定値を取得する
                 const settings = {}
                 const setting_keys = [
+                    'mute_vulgar_comments',
+                    'mute_abusive_discriminatory_prejudiced_comments',
+                    'mute_big_size_comments',
                     'mute_fixed_comments',
                     'mute_colored_comments',
                     'mute_consecutive_same_characters_comments',
@@ -283,21 +293,39 @@ export default Vue.extend({
     display: flex;
     position: relative;
     flex-direction: column;
-    margin-top: 16px;
+    margin-top: 24px;
+    @include smartphone-horizontal {
+        margin-top: 16px;
+    }
 
     &--switch {
         margin-right: 62px;
     }
 
     &-heading {
+        display: flex;
+        align-items: center;
         color: var(--v-text-base);
         font-size: 16.5px;
+        @include smartphone-horizontal {
+            font-size: 15px;
+        }
     }
     &-label {
         margin-top: 8px;
         color: var(--v-text-darken1);
         font-size: 13.5px;
         line-height: 1.6;
+        @include smartphone-horizontal {
+            font-size: 11px;
+            line-height: 1.7;
+        }
+    }
+    &-form {
+        margin-top: 14px;
+        @include smartphone-horizontal {
+            font-size: 13.5px;
+        }
     }
     &-switch {
         align-items: center;
@@ -326,16 +354,6 @@ export default Vue.extend({
         padding: 6px 0px;
         border-bottom: 1px solid var(--v-background-lighten2);
         transition: background-color 0.15s ease;
-        @include smartphone-horizontal {
-            padding-top: 0px;
-            padding-bottom: 0px;
-        }
-        // タッチデバイスで hover を無効にする
-        @media (hover: none) {
-            &:hover {
-                background: transparent;
-            }
-        }
 
         &:last-of-type {
             border-bottom: none;
