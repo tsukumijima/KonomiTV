@@ -59,6 +59,16 @@
                     v-model="settings.reset_hashtag_when_program_switches">
                 </v-switch>
             </div>
+            <div class="settings__item settings__item--switch">
+                <label class="settings__item-heading" for="auto_add_watching_channel_hashtag">視聴中のチャンネルに対応する局タグを自動的に追加する</label>
+                <label class="settings__item-label" for="auto_add_watching_channel_hashtag">
+                    ハッシュタグフォームに、常に視聴中のチャンネルに対応する局タグ (#nhk, #tokyomx など) を自動的に追加するかを設定します。<br>
+                    なお、局タグは現時点で三大首都圏の地上波と BS の一部チャンネルと AT-X にのみ対応しています。<br>
+                </label>
+                <v-switch class="settings__item-switch" id="auto_add_watching_channel_hashtag" inset hide-details
+                    v-model="settings.auto_add_watching_channel_hashtag">
+                </v-switch>
+            </div>
             <div class="settings__item">
                 <div class="settings__item-heading">既定で表示される Twitter タブ内のタブ</div>
                 <div class="settings__item-label">
@@ -151,6 +161,7 @@ export default Vue.extend({
                 const setting_keys = [
                     'fold_panel_after_sending_tweet',
                     'reset_hashtag_when_program_switches',
+                    'auto_add_watching_channel_hashtag',
                     'twitter_active_tab',
                     'tweet_hashtag_position',
                     'tweet_capture_watermark_position',

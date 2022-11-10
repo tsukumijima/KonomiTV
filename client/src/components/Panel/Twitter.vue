@@ -67,7 +67,8 @@
             <div class="tweet-form__hashtag">
                 <input class="tweet-form__hashtag-form" type="search" placeholder="#ハッシュタグ"
                     v-model="tweet_hashtag" @input="updateTweetLetterCount()"
-                    @focus="is_tweet_hashtag_form_focused = true" @blur="is_tweet_hashtag_form_focused = false">
+                    @focus="is_tweet_hashtag_form_focused = true" @blur="is_tweet_hashtag_form_focused = false"
+                    @change="tweet_hashtag = formatHashtag(tweet_hashtag)">
                 <div v-ripple class="tweet-form__hashtag-list-button" @click="is_hashtag_list_display = !is_hashtag_list_display">
                     <Icon icon="fluent:clipboard-text-ltr-32-regular" height="22px" />
                 </div>
@@ -79,19 +80,19 @@
                 @blur="is_tweet_text_form_focused = false">
             </textarea>
             <div class="tweet-form__control">
-                <div v-ripple class="account-button" :class="{'account-button--no-login': !this.is_logged_in_twitter}"
+                <div v-ripple class="account-button" :class="{'account-button--no-login': !is_logged_in_twitter}"
                     @click="clickAccountButton()">
                     <img class="account-button__icon"
-                        :src="this.is_logged_in_twitter ? this.selected_twitter_account.icon_url : '/assets/images/account-icon-default.png'">
+                        :src="is_logged_in_twitter ? selected_twitter_account.icon_url : '/assets/images/account-icon-default.png'">
                     <span class="account-button__screen-name">
-                        {{this.is_logged_in_twitter ? `@${this.selected_twitter_account.screen_name}` : '連携されていません'}}
+                        {{is_logged_in_twitter ? `@${selected_twitter_account.screen_name}` : '連携されていません'}}
                     </span>
                     <Icon class="account-button__menu" icon="fluent:more-circle-20-regular" width="22px" />
                 </div>
                 <div class="limit-meter">
                     <div class="limit-meter__content" :class="{
-                        'limit-meter__content--yellow': this.tweet_letter_count <= 20,
-                        'limit-meter__content--red': this.tweet_letter_count <= 0,
+                        'limit-meter__content--yellow': tweet_letter_count <= 20,
+                        'limit-meter__content--red': tweet_letter_count <= 0,
                     }">
                         <Icon icon="fa-brands:twitter" width="12px" style="margin-right: -2px;" />
                         <span>{{tweet_letter_count}}</span>
@@ -102,8 +103,8 @@
                     </div>
                 </div>
                 <button v-ripple class="tweet-button"
-                    :disabled="!this.is_logged_in_twitter || this.tweet_letter_count < 0 ||
-                        (this.tweet_letter_count === 140 && this.tweet_captures.length === 0)"
+                    :disabled="!is_logged_in_twitter || tweet_letter_count < 0 ||
+                        (tweet_letter_count === 140 && tweet_captures.length === 0)"
                     @click="sendTweet()">
                     <Icon icon="fa-brands:twitter" height="16px" />
                     <span class="ml-1">ツイート</span>
@@ -140,10 +141,11 @@
             <draggable class="hashtag-container" v-model="saved_twitter_hashtags" handle=".hashtag__sort-handle">
                 <div v-ripple="!hashtag.editing" class="hashtag" :class="{'hashtag--editing': hashtag.editing}"
                     v-for="hashtag in saved_twitter_hashtags" :key="hashtag.id"
-                    @click="tweet_hashtag = hashtag.text; updateTweetLetterCount(); window.setTimeout(() => is_hashtag_list_display = false, 150)">
+                    @click="tweet_hashtag = hashtag.text; tweet_hashtag = formatHashtag(tweet_hashtag);
+                        updateTweetLetterCount(); window.setTimeout(() => is_hashtag_list_display = false, 150)">
                     <input type="search" class="hashtag__input" v-model="hashtag.text" :disabled="!hashtag.editing" @click.stop="">
                     <button v-ripple class="hashtag__edit-button"
-                        @click.prevent.stop="hashtag.editing = !hashtag.editing">
+                        @click.prevent.stop="hashtag.editing = !hashtag.editing; hashtag.text = formatHashtag(hashtag.text, true)">
                         <Icon :icon="hashtag.editing ? 'fluent:checkmark-16-filled': 'fluent:edit-16-filled'" width="17px" />
                     </button>
                     <button v-ripple class="hashtag__delete-button"
@@ -315,6 +317,9 @@ export default Vue.extend({
                 this.selected_twitter_account = this.user.twitter_accounts[twitter_account_index];
             }
         }
+
+        // 局タグ追加処理を走らせる (ハッシュタグフォームのフォーマット処理も同時に行われるが、元々空なので無意味)
+        this.tweet_hashtag = this.formatHashtag(this.tweet_hashtag);
     },
     beforeDestroy() {
         // 終了前にすべてのキャプチャの Blob URL を revoke してリソースを解放する
@@ -323,6 +328,16 @@ export default Vue.extend({
         }
     },
     watch: {
+
+        // チャンネル情報が変更されたとき
+        // 前のチャンネル情報と次のチャンネル情報で channel_id が変わってたら局タグ追加処理を走らせる
+        async channel(new_channel: IChannel, old_channel: IChannel) {
+            if (new_channel.channel_id !== old_channel.channel_id) {
+                const old_channel_hashtag = this.getChannelHashtag(old_channel.channel_name) ?? '';
+                this.tweet_hashtag = this.formatHashtag(this.tweet_hashtag.replaceAll(old_channel_hashtag, ''));
+            }
+        },
+
         // 保存しているハッシュタグが変更されたら随時 LocalStorage に保存する
         saved_twitter_hashtags: {
             deep: true,
@@ -515,19 +530,118 @@ export default Vue.extend({
             }
         },
 
-        // ツイートを送信する
-        async sendTweet() {
+        // チャンネル名から対応する局タグを取得する
+        // とりあえず三大首都圏 + BS のみ対応
+        getChannelHashtag(channel_name: string): string | null {
+            // NHK
+            if (channel_name.startsWith('NHK総合')) {
+                return '#nhk';
+            } else if (channel_name.startsWith('NHKEテレ')) {
+                return '#etv';
+            // 民放
+            } else if (channel_name.startsWith('日テレ')) {
+                return '#ntv';
+            } else if (channel_name.startsWith('読売テレビ')) {
+                return '#ytv';
+            } else if (channel_name.startsWith('中京テレビ')) {
+                return '#chukyotv';
+            } else if (channel_name.startsWith('テレビ朝日')) {
+                return '#tvasahi';
+            } else if (channel_name.startsWith('ABCテレビ')) {
+                return '#abc';
+            } else if (channel_name.startsWith('メ~テレ')) {
+                return '#nagoyatv';
+            } else if (channel_name.startsWith('TBS')) {
+                return '#tbs';
+            } else if (channel_name.startsWith('MBS')) {
+                return '#mbs';
+            } else if (channel_name.startsWith('CBC')) {
+                return '#cbc';
+            } else if (channel_name.startsWith('テレビ東京')) {
+                return '#tvtokyo';
+            } else if (channel_name.startsWith('テレビ大阪')) {
+                return '#tvo';
+            } else if (channel_name.startsWith('テレビ愛知')) {
+                return '#tva';
+            } else if (channel_name.startsWith('フジテレビ')) {
+                return '#fujitv';
+            } else if (channel_name.startsWith('関西テレビ')) {
+                return '#kantele';
+            } else if (channel_name.startsWith('東海テレビ')) {
+                return '#tokaitv';
+            // 独立局
+            } else if (channel_name.startsWith('TOKYO MX')) {
+                return '#tokyomx';
+            } else if (channel_name.startsWith('tvk')) {
+                return '#tvk';
+            } else if (channel_name.startsWith('チバテレ')) {
+                return '#chibatv';
+            } else if (channel_name.startsWith('テレ玉')) {
+                return '#teletama';
+            } else if (channel_name.startsWith('サンテレビ')) {
+                return '#suntv';
+            } else if (channel_name.startsWith('KBS京都')) {
+                return '#kbs';
+            // BS・CS
+            } else if (channel_name.startsWith('NHKBS1')) {
+                return '#nhkbs1';
+            } else if (channel_name.startsWith('NHKBSプレミアム')) {
+                return '#nhkbsp';
+            } else if (channel_name.startsWith('BS日テレ')) {
+                return '#bsntv';
+            } else if (channel_name.startsWith('BS朝日')) {
+                return '#bsasahi';
+            } else if (channel_name.startsWith('BS-TBS')) {
+                return '#bstbs';
+            } else if (channel_name.startsWith('BSテレ東')) {
+                return '#bstvtokyo';
+            } else if (channel_name.startsWith('BSフジ')) {
+                return '#bsfuji';
+            } else if (channel_name.startsWith('BS11イレブン')) {
+                return '#bs11';
+            } else if (channel_name.startsWith('BS12トゥエルビ')) {
+                return '#bs12';
+            } else if (channel_name.startsWith('AT-X')) {
+                return '#at_x';
+            }
 
-            // ハッシュタグを整形（余計なスペースなどを削り、全角ハッシュを半角ハッシュへ、全角スペースを半角スペースに置換）
-            const tweet_hashtag_array = this.tweet_hashtag.trim()
-                .replaceAll('♯', '#').replaceAll('＃', '#').replaceAll('　', ' ').replaceAll(/ +/g,' ').split(' ');
+            return null;
+        },
+
+        // ハッシュタグを整形（余計なスペースなどを削り、全角ハッシュを半角ハッシュへ、全角スペースを半角スペースに置換）
+        formatHashtag(tweet_hashtag: string, from_hashtag_list: boolean = false): string {
+
+            // ハッシュとスペースの表記ゆれを統一し、連続するハッシュやスペースを1つにする
+            const tweet_hashtag_array = tweet_hashtag.trim()
+                .replaceAll('♯', '#').replaceAll('＃', '#').replace(/#{2,}/g, '#').replaceAll('　', ' ').replaceAll(/ +/g,' ').split(' ')
+                .filter(hashtag => hashtag !== '');
+
+            // ハッシュタグがついてない場合にハッシュタグを付与
             for (let index in tweet_hashtag_array) {
-                // ハッシュタグがついてない場合にハッシュタグを付与
                 if (!tweet_hashtag_array[index].startsWith('#')) {
                     tweet_hashtag_array[index] = `#${tweet_hashtag_array[index]}`;
                 }
             }
-            const tweet_hashtag = this.tweet_hashtag !== '' ? tweet_hashtag_array.join(' ') : '';
+
+            // 設定でオンになっている場合のみ、視聴中チャンネルの局タグを自動的に追加する (ハッシュタグリスト内のハッシュタグは除外)
+            if (Utils.getSettingsItem('auto_add_watching_channel_hashtag') === true && from_hashtag_list === false) {
+                const channel_hashtag = this.getChannelHashtag(this.channel.channel_name);
+                if (channel_hashtag !== null) {
+                    if (tweet_hashtag_array.includes(channel_hashtag) === false) {
+                        tweet_hashtag_array.push(channel_hashtag);
+                    }
+                }
+            }
+
+            return tweet_hashtag_array.join(' ');
+        },
+
+        // ツイートを送信する
+        async sendTweet() {
+
+            // ハッシュタグを整形
+            this.tweet_hashtag = this.formatHashtag(this.tweet_hashtag);
+            const tweet_hashtag = this.tweet_hashtag;
 
             // 実際に送るツイート本文を作成
             let tweet_text = this.tweet_text;

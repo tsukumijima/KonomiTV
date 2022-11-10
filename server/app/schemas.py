@@ -151,6 +151,7 @@ class ClientSettings(BaseModel):
     mute_consecutive_same_characters_comments: bool = Field(False)
     fold_panel_after_sending_tweet: bool = Field(False)
     reset_hashtag_when_program_switches: bool = Field(True)
+    auto_add_watching_channel_hashtag: bool = Field(True)
     twitter_active_tab: Literal['Search', 'Timeline', 'Capture'] = Field('Capture')
     tweet_hashtag_position: Literal['Prepend', 'Append', 'PrependWithLineBreak', 'AppendWithLineBreak'] = Field('Append')
     tweet_capture_watermark_position: Literal['None', 'TopLeft', 'TopRight', 'BottomLeft', 'BottomRight'] = Field('None')

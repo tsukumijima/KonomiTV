@@ -136,6 +136,9 @@ export default class Utils {
         // 番組が切り替わったときにハッシュタグフォームをリセットする (Default: オン)
         reset_hashtag_when_program_switches: true as boolean,
 
+        // 視聴中のチャンネルに対応する局タグを自動的に追加する (Default: オン)
+        auto_add_watching_channel_hashtag: true as boolean,
+
         // 既定で表示される Twitter タブ内のタブ (Default: キャプチャタブ)
         twitter_active_tab: 'Capture' as ('Search' | 'Timeline' | 'Capture'),
 
@@ -173,6 +176,7 @@ export default class Utils {
         'mute_consecutive_same_characters_comments',
         'fold_panel_after_sending_tweet',
         'reset_hashtag_when_program_switches',
+        'auto_add_watching_channel_hashtag',
         'twitter_active_tab',
         'tweet_hashtag_position',
         'tweet_capture_watermark_position',
