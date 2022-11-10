@@ -630,8 +630,8 @@ export default Vue.extend({
 
                 // 色・位置・サイズ
                 let color = '#FFEAEA';  // コメント色のデフォルト
-                let position = 'right'; // コメント位置のデフォルト
-                let size = 'medium';    // コメントサイズのデフォルト
+                let position: 'top' | 'right' | 'bottom' = 'right'; // コメント位置のデフォルト
+                let size: 'big' | 'medium' | 'small' = 'medium';    // コメントサイズのデフォルト
                 if (comment.mail !== undefined && comment.mail !== null) {
 
                     // コマンドをスペースで区切って配列にしたもの (184 は事前に除外)
@@ -652,6 +652,20 @@ export default Vue.extend({
                             size = command;
                         }
                     }
+                }
+
+                // 「映像の上下に固定表示されるコメントをミュートする」がオンの場合
+                // コメントの位置が top (上固定) もしくは bottom (下固定) のときは弾く
+                if (Utils.getSettingsItem('mute_fixed_comments') === true && (position === 'top' || position === 'bottom')) {
+                    console.log('Muted comment (Fixed): ' + comment.content);
+                    return;
+                }
+
+                // 「色付きのコメントをミュートする」がオンの場合
+                // コメントの色が #FFEAEA (デフォルト) 以外のときは弾く
+                if (Utils.getSettingsItem('mute_colored_comments') === true && color !== '#FFEAEA') {
+                    console.log('Muted comment (Colored): ' + comment.content);
+                    return;
                 }
 
                 // 配信に発生する遅延分待ってから
@@ -1011,7 +1025,7 @@ export default Vue.extend({
          * @param position ニコニコの位置指定
          * @return DPlayer の位置指定
          */
-        getCommentPosition(position: string): string {
+        getCommentPosition(position: string): 'top' | 'right' | 'bottom' {
             switch (position) {
                 case 'ue':
                     return 'top';
@@ -1058,6 +1072,11 @@ export default Vue.extend({
                         if (new RegExp(muted_comment_keyword.pattern).test(comment)) return true;
                         break;
                 }
+            }
+
+            // 「8文字以上同じ文字が連続しているコメントをミュートする」がオンの場合
+            if (Utils.getSettingsItem('mute_consecutive_same_characters_comments') === true) {
+                if (/(.)\1{7,}/.test(comment)) return true;
             }
 
             // ユーザー ID ミュート処理

@@ -110,6 +110,15 @@ export default class Utils {
         // ミュート済みのニコニコユーザー ID が入るリスト
         muted_niconico_user_ids: [] as string[],
 
+        // 映像の上下に固定表示されるコメントをミュートする (Default: ミュートしない)
+        mute_fixed_comments: false as boolean,
+
+        // 色付きのコメントをミュートする (Default: ミュートしない)
+        mute_colored_comments: false as boolean,
+
+        // 8文字以上同じ文字が連続しているコメントをミュートする (Default: ミュートしない)
+        mute_consecutive_same_characters_comments: false as boolean,
+
         // ***** 設定 → Twitter *****
 
         // ツイート送信後にパネルを閉じる (Default: オフ)
@@ -147,6 +156,9 @@ export default class Utils {
         'close_comment_form_after_sending',
         'muted_comment_keywords',
         'muted_niconico_user_ids',
+        'mute_fixed_comments',
+        'mute_colored_comments',
+        'mute_consecutive_same_characters_comments',
         'fold_panel_after_sending_tweet',
         'reset_hashtag_when_program_switches',
         'twitter_active_tab',
