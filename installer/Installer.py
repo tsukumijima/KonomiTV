@@ -162,12 +162,13 @@ def Installer(version: str) -> None:
     # ***** 利用するバックエンド *****
 
     table_03 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
-    table_03.add_column('03. 利用するバックエンドを EDCB・Mirakurun から選択してください。')
+    table_03.add_column('03. 利用するバックエンドを EDCB・Mirakurun から選んで入力してください。')
     table_03.add_row('バックエンドは、テレビチューナーへのアクセスや番組情報の取得などに利用します。')
     table_03.add_row(Rule(characters='─', style=Style(color='#E33157')))
     table_03.add_row('EDCB は、220122 以降のバージョンの xtne6f / tkntrec 版の EDCB にのみ対応しています。')
     table_03.add_row('「人柱版10.66」などの古いバージョンをお使いの場合は、EDCB のアップグレードが必要です。')
     table_03.add_row('KonomiTV と連携するには、さらに EDCB に事前の設定が必要になります。')
+    table_03.add_row('詳しくは [bright_blue]https://github.com/tsukumijima/KonomiTV[/bright_blue] をご覧ください。')
     table_03.add_row(Rule(characters='─', style=Style(color='#E33157')))
     table_03.add_row('Mirakurun は、3.9.0 以降のバージョンを推奨します。')
     table_03.add_row('3.8.0 以下のバージョンでも動作しますが、諸問題で推奨しません。')
@@ -215,7 +216,10 @@ def Installer(version: str) -> None:
             result = asyncio.run(edcb.sendEnumService())
             if result is None:
                 print(Padding(str(
-                    f'[red]EDCB ({edcb_url}) にアクセスできませんでした。\nEDCB が起動していないか、URL を間違えている可能性があります。',
+                    f'[red]EDCB ({edcb_url}) にアクセスできませんでした。\n'
+                    'EDCB が起動していないか、URL を間違えている可能性があります。\n'
+                    'また、EDCB の設定で [ネットワーク接続を許可する (EpgTimerNW 用)] に\n'
+                    'チェックが入っているか確認してください。',
                 ), (0, 2, 0, 2)))
                 continue
 
@@ -324,7 +328,7 @@ def Installer(version: str) -> None:
             default_encoder = 'QSVEncC'
 
     table_05 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
-    table_05.add_column('05. 利用するエンコーダーを FFmpeg・QSVEncC・NVEncC・VCEEncC から選択してください。')
+    table_05.add_column('05. 利用するエンコーダーを FFmpeg・QSVEncC・NVEncC・VCEEncC から選んで入力してください。')
     table_05.add_row('FFmpeg はソフトウェアエンコーダーです。')
     table_05.add_row('すべての PC で利用できますが、CPU に多大な負荷がかかり、パフォーマンスが悪いです。')
     table_05.add_row('QSVEncC・NVEncC・VCEEncC はハードウェアエンコーダーです。')
@@ -943,8 +947,14 @@ def Installer(version: str) -> None:
     # サービスが起動したかのフラグ
     is_service_started = False
 
-    # KonomiTV サーバーが（番組情報更新などを終えて）起動したかのフラグ
+    # KonomiTV サーバーが起動したかのフラグ
     is_server_started = False
+
+    # 番組情報更新が完了して起動したかのフラグ
+    is_programs_update_completed = False
+
+    # 起動中にエラーが発生した場合のフラグ
+    is_error_occurred = False
 
     # ログフォルダ以下のファイルに変更があったときのイベントハンドラー
     class LogFolderWatchHandler(FileSystemEventHandler):
@@ -958,15 +968,21 @@ def Installer(version: str) -> None:
         # ログの中に Application startup complete. という文字列が含まれていたら、KonomiTV サーバーの起動が完了したとみなす
         def on_modified(self, event: FileModifiedEvent) -> None:
             # もし on_created をハンドリングできなかった場合に備え、on_modified でもサービス起動フラグを立てる
-            nonlocal is_service_started, is_server_started
+            nonlocal is_service_started, is_server_started, is_programs_update_completed, is_error_occurred
             is_service_started = True
             # ファイルのみに限定（フォルダの変更も検知されることがあるが、当然フォルダは開けないのでエラーになる）
             if Path(event.src_path).is_file() is True:
                 with open(event.src_path, mode='r', encoding='utf-8') as log:
                     text = log.read()
-                    if 'Application startup complete.' in text:
-                        # このログが出力されているということはサーバーの起動が完了した事が想定されるので、サーバー起動フラグを立てる
+                    if 'ERROR:' in text or 'Traceback (most recent call last):' in text:
+                        # 何らかのエラーが発生したことが想定されるので、エラーフラグを立てる
+                        is_error_occurred = True
+                    if 'Waiting for application startup.' in text:
+                        # サーバーの起動が完了した事が想定されるので、サーバー起動フラグを立てる
                         is_server_started = True
+                    if 'Application startup complete.' in text:
+                        # 番組情報の更新が完了した事が想定されるので、番組情報更新完了フラグを立てる
+                        is_programs_update_completed = True
 
     # Watchdog を起動
     ## 通常の OS のファイルシステム変更通知 API を使う Observer だとなかなか検知できないことがあるみたいなので、
@@ -984,11 +1000,47 @@ def Installer(version: str) -> None:
             time.sleep(0.1)
 
     # KonomiTV サーバーが起動するまで待つ
-    print(Padding('KonomiTV サーバーの起動を待っています… (数秒～数分かかります)', (1, 2, 0, 2)))
+    print(Padding('KonomiTV サーバーの起動を待っています… (時間がかかることがあります)', (1, 2, 0, 2)))
     progress = CreateBasicInfiniteProgress()
     progress.add_task('', total=None)
     with progress:
         while is_server_started is False:
+            if is_error_occurred is True:
+                print(Padding(Panel(
+                    '[red]KonomiTV サーバーの起動中に予期しないエラーが発生しました。[/red]\n'
+                    'お手数をおかけしますが、下記のログを開発者に報告してください。',
+                    box = box.SQUARE,
+                    border_style = Style(color='#E33157'),
+                ), (1, 2, 0, 2)))
+                with open(install_path / 'server/logs/KonomiTV-Server.log', mode='r', encoding='utf-8') as log:
+                    print(Padding(Panel(
+                        'KonomiTV サーバーのログ:\n' + log.read(),
+                        box = box.SQUARE,
+                        border_style = Style(color='#E33157'),
+                    ), (0, 2, 0, 2)))
+                    return  # 処理中断
+            time.sleep(0.1)
+
+    # 番組情報更新が完了するまで待つ
+    print(Padding('すべてのチャンネルの番組情報を取得しています… (数秒～数分かかります)', (1, 2, 0, 2)))
+    progress = CreateBasicInfiniteProgress()
+    progress.add_task('', total=None)
+    with progress:
+        while is_programs_update_completed is False:
+            if is_error_occurred is True:
+                print(Padding(Panel(
+                    '[red]番組情報の取得中に予期しないエラーが発生しました。[/red]\n'
+                    'お手数をおかけしますが、下記のログを開発者に報告してください。',
+                    box = box.SQUARE,
+                    border_style = Style(color='#E33157'),
+                ), (1, 2, 0, 2)))
+                with open(install_path / 'server/logs/KonomiTV-Server.log', mode='r', encoding='utf-8') as log:
+                    print(Padding(Panel(
+                        'KonomiTV サーバーのログ:\n' + log.read(),
+                        box = box.SQUARE,
+                        border_style = Style(color='#E33157'),
+                    ), (0, 2, 0, 2)))
+                    return  # 処理中断
             time.sleep(0.1)
 
     # ***** インストール完了 *****

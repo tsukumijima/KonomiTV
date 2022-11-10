@@ -74,10 +74,21 @@ def Uninstaller() -> None:
         # すべてのバリデーションを通過したのでループを抜ける
         break
 
-    # Linux: Docker + Docker Compose がインストールされている & アンインストールフォルダに docker-compose.yaml があれば
+    # Linux: インストールフォルダに docker-compose.yaml があれば
     # Docker でインストールしたことが推測されるので、プラットフォームタイプを Linux-Docker に切り替える
     ## インストーラーで Docker を使わずにインストールした場合は docker-compose.yaml は生成されないことを利用している
-    if platform_type == 'Linux' and IsDockerInstalled() and Path(uninstall_path / 'docker-compose.yaml').exists():
+    if platform_type == 'Linux' and Path(uninstall_path / 'docker-compose.yaml').exists():
+
+        # 前回 Docker を使ってインストールされているが、今 Docker がインストールされていない
+        if IsDockerInstalled() is False:
+            print(Padding(Panel(
+                '[yellow]この KonomiTV をアンインストールするには、Docker のインストールが必要です。[/yellow]\n'
+                'この KonomiTV は Docker を使ってインストールされていますが、現在 Docker が\n'
+                'インストールされていないため、アンインストールすることができません。',
+                box = box.SQUARE,
+                border_style = Style(color='#E33157'),
+            ), (1, 2, 0, 2)))
+            return  # 処理中断
 
         # プラットフォームタイプを Linux-Docker にセット
         platform_type = 'Linux-Docker'

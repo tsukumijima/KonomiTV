@@ -12,6 +12,7 @@ from pathlib import Path
 from rich import box
 from rich import print
 from rich.padding import Padding
+from rich.panel import Panel
 from rich.rule import Rule
 from rich.style import Style
 from rich.table import Table
@@ -19,7 +20,7 @@ from typing import cast, Literal
 from watchdog.events import FileCreatedEvent
 from watchdog.events import FileModifiedEvent
 from watchdog.events import FileSystemEventHandler
-from watchdog.observers import Observer
+from watchdog.observers.polling import PollingObserver
 
 from Utils import CreateBasicInfiniteProgress
 from Utils import CreateDownloadProgress
@@ -28,6 +29,7 @@ from Utils import CustomPrompt
 from Utils import GetNetworkInterfaceInformation
 from Utils import IsDockerComposeV2
 from Utils import IsDockerInstalled
+from Utils import IsGitInstalled
 from Utils import RemoveEmojiIfLegacyTerminal
 from Utils import SaveConfigYaml
 
@@ -92,10 +94,21 @@ def Updater(version: str) -> None:
         # すべてのバリデーションを通過したのでループを抜ける
         break
 
-    # Linux: Docker + Docker Compose がインストールされている & インストールフォルダに docker-compose.yaml があれば
+    # Linux: インストールフォルダに docker-compose.yaml があれば
     # Docker でインストールしたことが推測されるので、プラットフォームタイプを Linux-Docker に切り替える
     ## インストーラーで Docker を使わずにインストールした場合は docker-compose.yaml は生成されないことを利用している
-    if platform_type == 'Linux' and IsDockerInstalled() and Path(update_path / 'docker-compose.yaml').exists():
+    if platform_type == 'Linux' and Path(update_path / 'docker-compose.yaml').exists():
+
+        # 前回 Docker を使ってインストールされているが、今 Docker がインストールされていない
+        if IsDockerInstalled() is False:
+            print(Padding(Panel(
+                '[yellow]この KonomiTV をアップデートするには、Docker のインストールが必要です。[/yellow]\n'
+                'この KonomiTV は Docker を使ってインストールされていますが、現在 Docker が\n'
+                'インストールされていないため、アップデートすることができません。',
+                box = box.SQUARE,
+                border_style = Style(color='#E33157'),
+            ), (1, 2, 0, 2)))
+            return  # 処理中断
 
         # プラットフォームタイプを Linux-Docker にセット
         platform_type = 'Linux-Docker'
@@ -177,6 +190,19 @@ def Updater(version: str) -> None:
 
     # Git を使ってインストールされている場合: git fetch & git checkout でソースコードを更新
     if is_installed_by_git is True:
+
+        # 前回 Git を使ってインストールされているが、今 Git がインストールされていない
+        if IsGitInstalled() is False:
+            print(Padding(Panel(
+                '[yellow]この KonomiTV をアップデートするには、Git のインストールが必要です。[/yellow]\n'
+                'KonomiTV は初回インストール時に Git がインストールされている場合は、\n'
+                '自動的に Git を使ってインストールされます。\n'
+                'この KonomiTV は Git を使ってインストールされていますが、現在 Git が\n'
+                'インストールされていないため、アップデートすることができません。',
+                box = box.SQUARE,
+                border_style = Style(color='#E33157'),
+            ), (1, 2, 0, 2)))
+            return  # 処理中断
 
         # git clone でソースコードをダウンロード
         print(Padding('KonomiTV のソースコードを Git で更新しています…', (1, 2, 0, 2)))
@@ -274,7 +300,7 @@ def Updater(version: str) -> None:
         with open(update_path / 'config.yaml', mode='r', encoding='utf-8') as fp:
             config_data = dict(ruamel.yaml.YAML().load(fp))
 
-        # サーバーのリッスンポートを設定値を取得
+        # サーバーのリッスンポートの設定値を取得
         server_port = cast(int, config_data['server']['port'])
 
         # 新しい config.example.yaml を config.yaml に上書きコピーし、新しいフォーマットに更新
@@ -328,6 +354,9 @@ def Updater(version: str) -> None:
                 with tarfile.open(thirdparty_file.name, mode='r:xz') as tar_xz:
                     tar_xz.extractall(update_path / 'server/')
             Path(thirdparty_file.name).unlink()
+            # server/thirdparty/.gitkeep が消えてたらもう一度作成しておく
+            if Path(update_path / 'server/thirdparty/.gitkeep').exists() is False:
+                Path(update_path / 'server/thirdparty/.gitkeep').touch()
 
         # ***** 依存パッケージの更新 *****
 
@@ -426,8 +455,14 @@ def Updater(version: str) -> None:
     # サービスが起動したかのフラグ
     is_service_started = False
 
-    # KonomiTV サーバーが（番組情報更新などを終えて）起動したかのフラグ
+    # KonomiTV サーバーが起動したかのフラグ
     is_server_started = False
+
+    # 番組情報更新が完了して起動したかのフラグ
+    is_programs_update_completed = False
+
+    # 起動中にエラーが発生した場合のフラグ
+    is_error_occurred = False
 
     # ログフォルダ以下のファイルに変更があったときのイベントハンドラー
     class LogFolderWatchHandler(FileSystemEventHandler):
@@ -441,18 +476,26 @@ def Updater(version: str) -> None:
         # ログの中に Application startup complete. という文字列が含まれていたら、KonomiTV サーバーの起動が完了したとみなす
         def on_modified(self, event: FileModifiedEvent) -> None:
             # もし on_created をハンドリングできなかった場合に備え、on_modified でもサービス起動フラグを立てる
-            nonlocal is_service_started, is_server_started
+            nonlocal is_service_started, is_server_started, is_programs_update_completed, is_error_occurred
             is_service_started = True
             # ファイルのみに限定（フォルダの変更も検知されることがあるが、当然フォルダは開けないのでエラーになる）
             if Path(event.src_path).is_file() is True:
                 with open(event.src_path, mode='r', encoding='utf-8') as log:
                     text = log.read()
-                    if 'Application startup complete.' in text:
-                        # このログが出力されているということはサーバーの起動が完了した事が想定されるので、サーバー起動フラグを立てる
+                    if 'ERROR:' in text or 'Traceback (most recent call last):' in text:
+                        # 何らかのエラーが発生したことが想定されるので、エラーフラグを立てる
+                        is_error_occurred = True
+                    if 'Waiting for application startup.' in text:
+                        # サーバーの起動が完了した事が想定されるので、サーバー起動フラグを立てる
                         is_server_started = True
+                    if 'Application startup complete.' in text:
+                        # 番組情報の更新が完了した事が想定されるので、番組情報更新完了フラグを立てる
+                        is_programs_update_completed = True
 
     # Watchdog を起動
-    observer = Observer()
+    ## 通常の OS のファイルシステム変更通知 API を使う Observer だとなかなか検知できないことがあるみたいなので、
+    ## 代わりに PollingObserver を使う
+    observer = PollingObserver()
     observer.schedule(LogFolderWatchHandler(), str(update_path / 'server/logs/'), recursive=True)
     observer.start()
 
@@ -465,11 +508,47 @@ def Updater(version: str) -> None:
             time.sleep(0.1)
 
     # KonomiTV サーバーが起動するまで待つ
-    print(Padding('KonomiTV サーバーの起動を待っています… (数秒～数分かかります)', (1, 2, 0, 2)))
+    print(Padding('KonomiTV サーバーの起動を待っています… (時間がかかることがあります)', (1, 2, 0, 2)))
     progress = CreateBasicInfiniteProgress()
     progress.add_task('', total=None)
     with progress:
         while is_server_started is False:
+            if is_error_occurred is True:
+                print(Padding(Panel(
+                    '[red]KonomiTV サーバーの起動中に予期しないエラーが発生しました。[/red]\n'
+                    'お手数をおかけしますが、下記のログを開発者に報告してください。',
+                    box = box.SQUARE,
+                    border_style = Style(color='#E33157'),
+                ), (1, 2, 0, 2)))
+                with open(update_path / 'server/logs/KonomiTV-Server.log', mode='r', encoding='utf-8') as log:
+                    print(Padding(Panel(
+                        'KonomiTV サーバーのログ:\n' + log.read(),
+                        box = box.SQUARE,
+                        border_style = Style(color='#E33157'),
+                    ), (0, 2, 0, 2)))
+                    return  # 処理中断
+            time.sleep(0.1)
+
+    # 番組情報更新が完了するまで待つ
+    print(Padding('すべてのチャンネルの番組情報を取得しています… (数秒～数分かかります)', (1, 2, 0, 2)))
+    progress = CreateBasicInfiniteProgress()
+    progress.add_task('', total=None)
+    with progress:
+        while is_programs_update_completed is False:
+            if is_error_occurred is True:
+                print(Padding(Panel(
+                    '[red]番組情報の取得中に予期しないエラーが発生しました。[/red]\n'
+                    'お手数をおかけしますが、下記のログを開発者に報告してください。',
+                    box = box.SQUARE,
+                    border_style = Style(color='#E33157'),
+                ), (1, 2, 0, 2)))
+                with open(update_path / 'server/logs/KonomiTV-Server.log', mode='r', encoding='utf-8') as log:
+                    print(Padding(Panel(
+                        'KonomiTV サーバーのログ:\n' + log.read(),
+                        box = box.SQUARE,
+                        border_style = Style(color='#E33157'),
+                    ), (0, 2, 0, 2)))
+                    return  # 処理中断
             time.sleep(0.1)
 
     # ***** アップデート完了 *****
