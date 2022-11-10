@@ -3,6 +3,7 @@ import argparse
 import asyncio
 import atexit
 import logging
+import logging.config
 import os
 import psutil
 import subprocess
@@ -41,15 +42,77 @@ def main():
     except PermissionError:
         pass
 
-    # ランチャー上で Logging モジュールをインポートするといろいろこじれるので、独自にロギングを設定
-    logger = logging.getLogger('KonomiTV-Launcher')
-    handler = logging.StreamHandler()
-    handler.setFormatter(uvicorn.logging.DefaultFormatter(
-        fmt = '[%(asctime)s] %(levelprefix)s %(message)s',
-        datefmt = '%Y/%m/%d %H:%M:%S',
-        use_colors = sys.stderr.isatty(),
-    ))
-    logger.addHandler(handler)
+    # ロギング用の DictConfig
+    ## この DictConfig を Uvicorn に渡す
+    ## Uvicorn のもとの DictConfig を参考にして作成した
+    ## ref: https://github.com/encode/uvicorn/blob/0.18.2/uvicorn/config.py#L95-L126
+    dict_config = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'formatters': {
+            # サーバーログ用のログフォーマッター
+            'default': {
+                '()': 'uvicorn.logging.DefaultFormatter',
+                'datefmt': '%Y/%m/%d %H:%M:%S',
+                'format': '[%(asctime)s] %(levelprefix)s %(message)s',
+            },
+            'default_file': {
+                '()': 'uvicorn.logging.DefaultFormatter',
+                'datefmt': '%Y/%m/%d %H:%M:%S',
+                'format': '[%(asctime)s] %(levelprefix)s %(message)s',
+                'use_colors': False,  # ANSI エスケープシーケンスを出力しない
+            },
+            # アクセスログ用のログフォーマッター
+            'access': {
+                '()': 'uvicorn.logging.AccessFormatter',
+                'datefmt': '%Y/%m/%d %H:%M:%S',
+                'format': '[%(asctime)s] %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s',
+            },
+            'access_file': {
+                '()': 'uvicorn.logging.AccessFormatter',
+                'datefmt': '%Y/%m/%d %H:%M:%S',
+                'format': '[%(asctime)s] %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s',
+                'use_colors': False,  # ANSI エスケープシーケンスを出力しない
+            },
+        },
+        'handlers': {
+            ## サーバーログは標準エラー出力と server/logs/KonomiTV-Server.log の両方に出力する
+            'default': {
+                'formatter': 'default',
+                'class': 'logging.StreamHandler',
+                'stream': 'ext://sys.stderr',
+            },
+            'default_file': {
+                'formatter': 'default_file',
+                'class': 'logging.FileHandler',
+                'filename': KONOMITV_SERVER_LOG_PATH,
+                'mode': 'a',
+                'encoding': 'utf-8',
+            },
+            ## アクセスログは標準出力と server/logs/KonomiTV-Access.log の両方に出力する
+            'access': {
+                'formatter': 'access',
+                'class': 'logging.StreamHandler',
+                'stream': 'ext://sys.stdout',
+            },
+            'access_file': {
+                'formatter': 'access_file',
+                'class': 'logging.FileHandler',
+                'filename': KONOMITV_ACCESS_LOG_PATH,
+                'mode': 'a',
+                'encoding': 'utf-8',
+            },
+        },
+        'loggers': {
+            'uvicorn': {'handlers': ['default', 'default_file'], 'level': 'INFO'},
+            'uvicorn.error': {'level': 'INFO'},
+            'uvicorn.access': {'handlers': ['access', 'access_file'], 'level': 'INFO', 'propagate': False},
+        },
+    }
+
+    # Uvicorn を起動する前に Uvicorn のロガーを使えるようにする
+    logging.config.dictConfig(dict_config)
+    logger = logging.getLogger('uvicorn')
 
     # リッスンするポート番号
     port = CONFIG['server']['port']
@@ -153,71 +216,7 @@ def main():
         # リロードするフォルダ
         reload_dirs = str(BASE_DIR / 'app') if is_reload else None,
         # ロギングフォーマットの設定
-        ## Uvicorn のもとの DictConfig を参考にして作成した
-        ## ref: https://github.com/encode/uvicorn/blob/0.18.2/uvicorn/config.py#L95-L126
-        log_config = {
-            'version': 1,
-            'disable_existing_loggers': False,
-            'formatters': {
-                # サーバーログ用のログフォーマッター
-                'default': {
-                    '()': 'uvicorn.logging.DefaultFormatter',
-                    'datefmt': '%Y/%m/%d %H:%M:%S',
-                    'format': '[%(asctime)s] %(levelprefix)s %(message)s',
-                },
-                'default_file': {
-                    '()': 'uvicorn.logging.DefaultFormatter',
-                    'datefmt': '%Y/%m/%d %H:%M:%S',
-                    'format': '[%(asctime)s] %(levelprefix)s %(message)s',
-                    'use_colors': False,  # ANSI エスケープシーケンスを出力しない
-                },
-                # アクセスログ用のログフォーマッター
-                'access': {
-                    '()': 'uvicorn.logging.AccessFormatter',
-                    'datefmt': '%Y/%m/%d %H:%M:%S',
-                    'format': '[%(asctime)s] %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s',
-                },
-                'access_file': {
-                    '()': 'uvicorn.logging.AccessFormatter',
-                    'datefmt': '%Y/%m/%d %H:%M:%S',
-                    'format': '[%(asctime)s] %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s',
-                    'use_colors': False,  # ANSI エスケープシーケンスを出力しない
-                },
-            },
-            'handlers': {
-                ## サーバーログは標準エラー出力と server/logs/KonomiTV-Server.log の両方に出力する
-                'default': {
-                    'formatter': 'default',
-                    'class': 'logging.StreamHandler',
-                    'stream': 'ext://sys.stderr',
-                },
-                'default_file': {
-                    'formatter': 'default_file',
-                    'class': 'logging.FileHandler',
-                    'filename': KONOMITV_SERVER_LOG_PATH,
-                    'mode': 'a',
-                    'encoding': 'utf-8',
-                },
-                ## アクセスログは標準出力と server/logs/KonomiTV-Access.log の両方に出力する
-                'access': {
-                    'formatter': 'access',
-                    'class': 'logging.StreamHandler',
-                    'stream': 'ext://sys.stdout',
-                },
-                'access_file': {
-                    'formatter': 'access_file',
-                    'class': 'logging.FileHandler',
-                    'filename': KONOMITV_ACCESS_LOG_PATH,
-                    'mode': 'a',
-                    'encoding': 'utf-8',
-                },
-            },
-            'loggers': {
-                'uvicorn': {'handlers': ['default', 'default_file'], 'level': 'INFO'},
-                'uvicorn.error': {'level': 'INFO'},
-                'uvicorn.access': {'handlers': ['access', 'access_file'], 'level': 'INFO', 'propagate': False},
-            },
-        },
+        log_config = dict_config,
         # インターフェイスとして ASGI3 を選択
         interface = 'asgi3',
         # HTTP プロトコルの実装として httptools を選択
