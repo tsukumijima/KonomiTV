@@ -551,7 +551,7 @@ export default Vue.extend({
                 return '#abc';
             } else if (channel_name.startsWith('メ~テレ')) {
                 return '#nagoyatv';
-            } else if (channel_name.startsWith('TBS')) {
+            } else if (channel_name.startsWith('TBS') && !channel_name.includes('TBSチャンネル')) {
                 return '#tbs';
             } else if (channel_name.startsWith('MBS')) {
                 return '#mbs';

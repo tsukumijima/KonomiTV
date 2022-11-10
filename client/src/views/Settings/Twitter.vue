@@ -53,7 +53,7 @@
                 <label class="settings__item-heading" for="reset_hashtag_when_program_switches">番組が切り替わったときにハッシュタグフォームをリセットする</label>
                 <label class="settings__item-label" for="reset_hashtag_when_program_switches">
                     チャンネルを切り替えたときや、視聴中の番組が終了し次の番組の放送が開始されたときに、ハッシュタグフォームをリセットするかを設定します。<br>
-                    この設定をオンにすると、「誤って前番組のハッシュタグをつけたまま次番組の実況ツイートをしてしまう」といったミスを回避できます。<br>
+                    この設定をオンにしておけば、「誤って前番組のハッシュタグをつけたまま次番組の実況ツイートをしてしまう」といったミスを回避できます。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="reset_hashtag_when_program_switches" inset hide-details
                     v-model="settings.reset_hashtag_when_program_switches">
@@ -62,8 +62,8 @@
             <div class="settings__item settings__item--switch">
                 <label class="settings__item-heading" for="auto_add_watching_channel_hashtag">視聴中のチャンネルに対応する局タグを自動的に追加する</label>
                 <label class="settings__item-label" for="auto_add_watching_channel_hashtag">
-                    ハッシュタグフォームに、常に視聴中のチャンネルに対応する局タグ (#nhk, #tokyomx など) を自動的に追加するかを設定します。<br>
-                    なお、局タグは現時点で三大首都圏の地上波と BS の一部チャンネルと AT-X にのみ対応しています。<br>
+                    ハッシュタグフォームに、視聴中のチャンネルに対応する局タグ (#nhk, #tokyomx など) を自動的に追加するかを設定します。<br>
+                    現時点で、局タグは三大首都圏の地上波・BS の一部チャンネル・AT-X にのみ対応しています。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="auto_add_watching_channel_hashtag" inset hide-details
                     v-model="settings.auto_add_watching_channel_hashtag">
