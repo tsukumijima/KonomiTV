@@ -137,21 +137,24 @@
                     <span class="ml-1">追加</span>
                 </button>
             </div>
-            <div class="hashtag-container">
+            <draggable class="hashtag-container" v-model="saved_twitter_hashtags" handle=".hashtag__sort-handle">
                 <div v-ripple="!hashtag.editing" class="hashtag" :class="{'hashtag--editing': hashtag.editing}"
                     v-for="hashtag in saved_twitter_hashtags" :key="hashtag.id"
                     @click="tweet_hashtag = hashtag.text; updateTweetLetterCount(); window.setTimeout(() => is_hashtag_list_display = false, 150)">
                     <input type="search" class="hashtag__input" v-model="hashtag.text" :disabled="!hashtag.editing" @click.stop="">
                     <button v-ripple class="hashtag__edit-button"
                         @click.prevent.stop="hashtag.editing = !hashtag.editing">
-                        <Icon :icon="hashtag.editing ? 'fluent:checkmark-16-filled': 'fluent:edit-16-filled'" width="19px" />
+                        <Icon :icon="hashtag.editing ? 'fluent:checkmark-16-filled': 'fluent:edit-16-filled'" width="17px" />
                     </button>
                     <button v-ripple class="hashtag__delete-button"
                         @click.prevent.stop="saved_twitter_hashtags.splice(saved_twitter_hashtags.indexOf(hashtag), 1)">
-                        <Icon  icon="fluent:delete-16-filled" width="19px" />
+                        <Icon  icon="fluent:delete-16-filled" width="17px" />
                     </button>
+                    <div class="hashtag__sort-handle">
+                        <Icon icon="material-symbols:drag-handle-rounded" width="17px" />
+                    </div>
                 </div>
-            </div>
+            </draggable>
         </div>
     </div>
 </template>
@@ -159,6 +162,7 @@
 
 import axios from 'axios';
 import Vue, { PropType } from 'vue';
+import draggable from 'vuedraggable'
 
 import { IChannel, ITwitterAccount, IUser } from '@/interface';
 import Utils from '@/utils';
@@ -181,6 +185,9 @@ interface IHashtag {
 
 export default Vue.extend({
     name: 'Panel-TwitterTab',
+    components: {
+        draggable,
+    },
     props: {
         // チャンネル情報
         channel: {
@@ -1291,15 +1298,18 @@ export default Vue.extend({
                 &__edit-button {
                     margin-left: 4px;
                 }
-                &__edit-button, &__delete-button {
+                &__edit-button, &__delete-button, &__sort-handle {
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    width: 27px;
+                    width: 19px;
                     height: 27px;
                     border-radius: 5px;
                     outline: none;
                     cursor: pointer;
+                }
+                &__sort-handle {
+                    cursor: move;
                 }
             }
         }
