@@ -6,6 +6,7 @@ on:
   push:
     paths:
       - '.github/workflows/build_thirdparty.yaml'
+  workflow_call:
   workflow_dispatch:
 
 # ジョブの定義

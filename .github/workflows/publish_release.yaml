@@ -1,0 +1,75 @@
+
+name: Publish Release
+
+# 手動実行
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        type: string
+        description: 'リリースするバージョン (例: 0.6.0, v はつけない)'
+        required: true
+        default: ''
+
+# ジョブの定義
+jobs:
+
+  # インストーラーのビルド
+  build_installer:
+    uses: tsukumijima/KonomiTV/.github/workflows/build_installer.yaml@master
+
+  # サードパーティーライブラリのビルド
+  build_thirdparty:
+    uses: tsukumijima/KonomiTV/.github/workflows/build_thirdparty.yaml@master
+
+  # 両方のビルドが終わったら、タグ付けしてリリースを公開
+  publish_release:
+    needs:
+      - build_installer
+      - build_thirdparty
+    runs-on: ubuntu-22.04
+    steps:
+
+      # KonomiTV のソースコードをチェックアウト
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          path: KonomiTV
+
+      # release ブランチを現在の master ブランチの最新コミットに更新し、push する
+      ## release ブランチはリリースしたときのみ更新される
+      - name: Update Release Branch
+        working-directory: KonomiTV
+        run: |
+          git switch release
+          git merge master
+          git push
+
+      # 新しいバージョンのタグを作成
+      - name: Create New Version Tag
+        working-directory: KonomiTV
+        run: |
+          git tag v${{ github.event.inputs.version }} release
+          git push origin --tags
+
+      # ビルドしたインストーラーとサードパーティライブラリをダウンロード
+      - name: Download Installer and Thirdparty Libraries
+        run: |
+          curl -LO https://nightly.link/tsukumijima/KonomiTV/workflows/build_installer.yaml/master/KonomiTV-Installer.exe.zip
+          unzip KonomiTV-Installer.exe.zip && KonomiTV-Installer.exe.zip
+          curl -LO https://nightly.link/tsukumijima/KonomiTV/workflows/build_installer.yaml/master/KonomiTV-Installer.elf.zip
+          unzip KonomiTV-Installer.elf.zip && KonomiTV-Installer.elf.zip
+          curl -LO https://nightly.link/tsukumijima/KonomiTV/workflows/build_thirdparty.yaml/master/thirdparty-windows.7z.zip
+          unzip thirdparty-windows.7z.zip && rm thirdparty-windows.7z.zip
+          curl -LO https://nightly.link/tsukumijima/KonomiTV/workflows/build_thirdparty.yaml/master/thirdparty-linux.tar.xz.zip
+          unzip thirdparty-linux.tar.xz.zip && rm thirdparty-linux.tar.xz.zip
+
+      # リリースを作成
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "KonomiTV-Installer.exe,KonomiTV-Installer.elf,thirdparty-windows.7z,thirdparty-linux.tar.xz"
+          draft: true
+          generateReleaseNotes: true
+          name: KonomiTV (β) ${{ github.event.inputs.version }}
+          tag: v${{ github.event.inputs.version }}
