@@ -360,10 +360,16 @@ def Updater(version: str) -> None:
 
         # ***** 依存パッケージの更新 *****
 
-        # pipenv sync を実行
-        ## server/.venv/ に pipenv の仮想環境を構築するため、PIPENV_VENV_IN_PROJECT 環境変数をセットした状態で実行している
         print(Padding('依存パッケージを更新しています…', (1, 2, 1, 2)))
         print(Rule(style=Style(color='cyan'), align='center'))
+        # pipenv --rm を実行
+        ## すでに仮想環境があると稀に更新がうまく行かないことがあるため、アップデート毎に作り直す
+        subprocess.run(
+            args = [python_executable_path, '-m', 'pipenv', '--rm'],
+            cwd = update_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+        )
+        # pipenv sync を実行
+        ## server/.venv/ に pipenv の仮想環境を構築するため、PIPENV_VENV_IN_PROJECT 環境変数をセットした状態で実行している
         environment = os.environ.copy()
         environment['PIPENV_VENV_IN_PROJECT'] = 'true'
         subprocess.run(

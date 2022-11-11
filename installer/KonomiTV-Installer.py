@@ -7,6 +7,7 @@ import platform
 import signal
 import subprocess
 import threading
+import traceback
 from rich import box
 from rich import print
 from rich.padding import Padding
@@ -196,6 +197,18 @@ if __name__ == '__main__':
                 box = box.SQUARE,
                 border_style = Style(color='#E33157'),
             ), (1, 2, 0, 2)))
+        except:
+            print(Padding(Panel(
+                '[red]インストーラーの処理中に予期しないエラーが発生しました。[/red]\n'
+                'お手数をおかけしますが、下記のログを開発者に報告してください。',
+                box = box.SQUARE,
+                border_style = Style(color='#E33157'),
+            ), (1, 2, 0, 2)))
+            print(Padding(Panel(
+                traceback.format_exc(),
+                box = box.SQUARE,
+                border_style = Style(color='#E33157'),
+            ), (0, 2, 0, 2)))
 
     # 終了時のプロンプト (Windows のみ)
     ## 処理がなくなると conhost.exe のウインドウも消滅し、メッセージが読めなくなるため
