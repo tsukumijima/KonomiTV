@@ -511,6 +511,23 @@ def Updater(version: str) -> None:
     progress.add_task('', total=None)
     with progress:
         while is_service_started is False:
+            if platform_type == 'Windows':
+                # 起動したはずの Windows サービスが停止してしまっている場合はエラーとする
+                service_status_result = subprocess.run(
+                    args = ['sc', 'query', 'KonomiTV Service'],
+                    stdout = subprocess.PIPE,  # 標準出力をキャプチャする
+                    stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+                    text = True,  # 出力をテキストとして取得する
+                )
+                if 'STOPPED' in service_status_result.stdout:
+                    print(Padding(Panel(
+                        '[red]KonomiTV サーバーの起動に失敗しました。[/red]\n'
+                        'お手数をおかけしますが、イベントビューアーにエラーログが\n'
+                        '出力されている場合は、そのログを開発者に報告してください。',
+                        box = box.SQUARE,
+                        border_style = Style(color='#E33157'),
+                    ), (1, 2, 0, 2)))
+                    return  # 処理中断
             time.sleep(0.1)
 
     # KonomiTV サーバーが起動するまで待つ
