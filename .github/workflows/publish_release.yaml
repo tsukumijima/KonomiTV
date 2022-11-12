@@ -30,17 +30,12 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
 
-      # KonomiTV のソースコードをチェックアウト
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-        with:
-          path: KonomiTV
-
       # release ブランチを現在の master ブランチの最新コミットに更新し、push する
       ## release ブランチはリリースしたときのみ更新される
       - name: Update Release Branch
-        working-directory: KonomiTV
         run: |
+          git clone https://github.com/tsukumijima/KonomiTV.git
+          cd KonomiTV
           git switch release
           git merge master
           git push
@@ -56,9 +51,9 @@ jobs:
       - name: Download Installer and Thirdparty Libraries
         run: |
           curl -LO https://nightly.link/tsukumijima/KonomiTV/workflows/build_installer.yaml/master/KonomiTV-Installer.exe.zip
-          unzip KonomiTV-Installer.exe.zip && KonomiTV-Installer.exe.zip
+          unzip KonomiTV-Installer.exe.zip && rm KonomiTV-Installer.exe.zip
           curl -LO https://nightly.link/tsukumijima/KonomiTV/workflows/build_installer.yaml/master/KonomiTV-Installer.elf.zip
-          unzip KonomiTV-Installer.elf.zip && KonomiTV-Installer.elf.zip
+          unzip KonomiTV-Installer.elf.zip && rm KonomiTV-Installer.elf.zip
           curl -LO https://nightly.link/tsukumijima/KonomiTV/workflows/build_thirdparty.yaml/master/thirdparty-windows.7z.zip
           unzip thirdparty-windows.7z.zip && rm thirdparty-windows.7z.zip
           curl -LO https://nightly.link/tsukumijima/KonomiTV/workflows/build_thirdparty.yaml/master/thirdparty-linux.tar.xz.zip
