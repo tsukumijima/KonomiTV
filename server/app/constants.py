@@ -12,7 +12,7 @@ from typing import Any, Dict, Literal
 
 
 # バージョン
-VERSION = '0.6.0-dev'
+VERSION = '0.6.0'
 
 # ベースディレクトリ
 BASE_DIR = Path(__file__).resolve().parent.parent

@@ -234,7 +234,6 @@ def Uninstaller() -> None:
 
     # アンインストール対象の KonomiTV のフォルダを削除
     ## サービスを終了・アンインストールしたあとなので、心置きなく削除できる
-    ## TODO: Windows で Git インストールすると一部の Git ファイルが削除できないっぽい…？
     print(Padding('インストールされているファイルを削除しています…', (1, 2, 0, 2)))
     progress = CreateBasicInfiniteProgress()
     progress.add_task('', total=None)
