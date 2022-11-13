@@ -113,7 +113,7 @@ px4_drv では、公式ドライバーとの比較で、チューナーの起動
 
 ### EDCB の事前設定
 
-<img height="500" src="https://user-images.githubusercontent.com/39271166/201383288-7bcda592-bffd-4a15-b975-ced2b66e4289.png"><br>
+<img width="613" src="https://user-images.githubusercontent.com/39271166/201383288-7bcda592-bffd-4a15-b975-ced2b66e4289.png"><br>
 
 **EDCB バックエンドでは、いくつか EDCB に事前の設定が必要です。**  
 **<ins>この事前設定を行わないと KonomiTV は正常に動作しません。</ins> 必ず下記のとおりに設定してください。**
@@ -127,7 +127,7 @@ px4_drv では、公式ドライバーとの比較で、チューナーの起動
 
 -----
 
-<img height="500" src="https://user-images.githubusercontent.com/39271166/201383475-7d5f6077-fb9a-452d-87a0-38c448a5e744.png"><br>
+<img width="664" src="https://user-images.githubusercontent.com/39271166/201383475-7d5f6077-fb9a-452d-87a0-38c448a5e744.png"><br>
 
 **EpgTimer を開き、[設定] → [動作設定] → [全般] から、[EpgTimerSrv の設定画面を開く] をクリックして、EpgTimerSrv の設定画面を開きます。**  
 さらに [その他] タブに切り替え、以下のとおりに設定してください。
@@ -150,7 +150,7 @@ px4_drv では、公式ドライバーとの比較で、チューナーの起動
 
 -----
 
-<img height="500" src="https://user-images.githubusercontent.com/39271166/201386157-451f84cb-38a2-44dd-b8e7-4c2b461c90ed.png"><br>
+<img height="570" src="https://user-images.githubusercontent.com/39271166/201386157-451f84cb-38a2-44dd-b8e7-4c2b461c90ed.png"><br>
 
 **また、EpgDataCap_Bon にも設定が必要です。**  
 **EpgDataCap_Bon を開き、[設定] → [ネットワーク設定] → [TCP送信] から、[SrvPipe] を選択して [追加] ボタンをクリックしてください。**
@@ -248,7 +248,7 @@ KonomiTV を共有したい家族や親戚に Tailscale アカウントを作成
 **Tailscale の詳細や導入方法は、以前私が執筆した **[こちら](https://blog.tsukumijima.net/article/tailscale-vpn/)** の記事をご覧ください。**  
 この記事のとおりにセットアップすれば、あとは各デバイスで Tailscale での VPN 接続をオンにしておくだけです。
 
-**KonomiTV での利用以外にも、EDCB Material WebUI や EPGStation などの、ローカルネットワーク上の Web サーバーにアクセスする際にとても便利なサービスです。**  
+**KonomiTV での利用以外にも、EDCB Material WebUI や EPGStation などの、ローカルネットワーク上の Web サーバーに家の外からアクセスするときにとても便利なサービスです。**  
 20台までは無料ですし (逸般の誤家庭でなければ十分すぎる)、この機会に導入しておくことをおすすめします。
 
 ## サーバーのインストール
