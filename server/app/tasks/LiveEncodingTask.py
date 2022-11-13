@@ -869,17 +869,17 @@ class LiveEncodingTask():
                                 # NVEncC で、同時にエンコードできるセッション数 (Geforceだと3つ) を全て使い果たしている時のエラー
                                 livestream.setStatus('Offline', 'NVENC のエンコードセッションが不足しているため、エンコードを開始できません。')
                                 break
-                            elif 'unable to decode by qsv.' in line:
+                            elif 'unable to decode by qsv.' in line or 'No device found for QSV encoding!' in line:
                                 # QSVEncC 非対応の環境
-                                livestream.setStatus('Offline', 'QSVEncC 非対応の環境のため、エンコードを開始できません。')
+                                livestream.setStatus('Offline', 'お使いの PC 環境は QSVEncC エンコーダーに対応していません。')
                                 break
                             elif 'CUDA not available.' in line:
                                 # NVEncC 非対応の環境
-                                livestream.setStatus('Offline', 'NVEncC 非対応の環境のため、エンコードを開始できません。')
+                                livestream.setStatus('Offline', 'お使いの PC 環境は NVEncC エンコーダーに対応していません。')
                                 break
                             elif 'Failed to initalize VCE factory:' in line or 'Assertion failed:Init() failed to vkCreateInstance' in line:
                                 # VCEEncC 非対応の環境
-                                livestream.setStatus('Offline', 'VCEEncC 非対応の環境のため、エンコードを開始できません。')
+                                livestream.setStatus('Offline', 'お使いの PC 環境は VCEEncC エンコーダーに対応していません。')
                                 break
                             elif encoder_type == 'QSVEncC' and 'HEVC encoding is not supported on current platform.' in line:
                                 # QSVEncC: H.265/HEVC でのエンコードに非対応の環境
