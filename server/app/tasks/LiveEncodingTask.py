@@ -337,7 +337,7 @@ class LiveEncodingTask():
             program_present.is_free = True
             program_present.genre = []
 
-        Logging.info(f'[LiveStream {livestream.livestream_id}] Title:{program_present.title}')
+        Logging.info(f'[Live: {livestream.livestream_id}] Title:{program_present.title}')
 
         # tsreadex のオプション
         ## 放送波の前処理を行い、エンコードを安定させるツール
@@ -416,7 +416,7 @@ class LiveEncodingTask():
                 encoder_options = self.buildFFmpegOptionsForRadio()
             else:
                 encoder_options = self.buildFFmpegOptions(quality, is_fullhd_channel)
-            Logging.info(f'[LiveStream {livestream.livestream_id}] FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
+            Logging.info(f'[Live: {livestream.livestream_id}] FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
             # プロセスを非同期で作成・実行
             encoder: subprocess.Popen = await asyncio.to_thread(subprocess.Popen,  # type: ignore
@@ -432,7 +432,7 @@ class LiveEncodingTask():
 
             # オプションを取得
             encoder_options = self.buildHWEncCOptions(quality, encoder_type, is_fullhd_channel)
-            Logging.info(f'[LiveStream {livestream.livestream_id}] {encoder_type} Commands:\n{encoder_type} {" ".join(encoder_options)}')
+            Logging.info(f'[Live: {livestream.livestream_id}] {encoder_type} Commands:\n{encoder_type} {" ".join(encoder_options)}')
 
             # プロセスを非同期で作成・実行
             encoder: subprocess.Popen = await asyncio.to_thread(subprocess.Popen,  # type: ignore
@@ -798,11 +798,13 @@ class LiveEncodingTask():
                             # ストリーム関連のログを表示
                             ## エンコーダーのログ出力が有効なら、ストリーム関連に限らずすべての行を出力する
                             if 'Stream #0:' in line or CONFIG['general']['debug_encoder'] is True:
-                                Logging.debug_simple(f'[LiveStream {livestream.livestream_id}] ' + line)
+                                Logging.debug_simple(f'[Live: {livestream.livestream_id}] [{encoder_type}] ' + line)
 
                             # エンコーダーのログ出力が有効なら、エンコーダーのログファイルに書き込む
+                            ## strip() したログではなく、エンコーダーから取得したそのままのログを出力する
                             if CONFIG['general']['debug_encoder'] is True:
-                                encoder_log.write(line + '\n')
+                                encoder_log.write(line.strip('\r\n') + '\n')
+                                encoder_log.flush()
 
                         # エンコードの進捗を判定し、ステータスを更新する
                         # 誤作動防止のため、ステータスが Standby の間のみ更新できるようにする
@@ -865,19 +867,20 @@ class LiveEncodingTask():
                                 else:
                                     livestream.setStatus('Offline', 'チューナーからの放送波の受信に失敗したため、エンコードを開始できません。')
                                 break
-                            elif 'due to the NVIDIA\'s driver limitation.' in line:
+                            elif encoder_type == 'NVEncC' and 'due to the NVIDIA\'s driver limitation.' in line:
                                 # NVEncC で、同時にエンコードできるセッション数 (Geforceだと3つ) を全て使い果たしている時のエラー
                                 livestream.setStatus('Offline', 'NVENC のエンコードセッションが不足しているため、エンコードを開始できません。')
                                 break
-                            elif 'unable to decode by qsv.' in line or 'No device found for QSV encoding!' in line:
+                            elif encoder_type == 'QSVEncC' and ('unable to decode by qsv.' in line or 'No device found for QSV encoding!' in line):
                                 # QSVEncC 非対応の環境
                                 livestream.setStatus('Offline', 'お使いの PC 環境は QSVEncC エンコーダーに対応していません。')
                                 break
-                            elif 'CUDA not available.' in line:
+                            elif encoder_type == 'NVEncC' and 'CUDA not available.' in line:
                                 # NVEncC 非対応の環境
                                 livestream.setStatus('Offline', 'お使いの PC 環境は NVEncC エンコーダーに対応していません。')
                                 break
-                            elif 'Failed to initalize VCE factory:' in line or 'Assertion failed:Init() failed to vkCreateInstance' in line:
+                            elif encoder_type == 'VCEEncC' and \
+                                ('Failed to initalize VCE factory:' in line or 'Assertion failed:Init() failed to vkCreateInstance' in line):
                                 # VCEEncC 非対応の環境
                                 livestream.setStatus('Offline', 'お使いの PC 環境は VCEEncC エンコーダーに対応していません。')
                                 break
@@ -922,7 +925,7 @@ class LiveEncodingTask():
                         # 次の番組のタイトルを表示
                         ## TODO: 番組の解像度が変わった際にエンコーダーがクラッシュorフリーズする可能性があるが、
                         ## その場合はここでエンコードタスクを再起動させる必要があるかも
-                        Logging.info(f'[LiveStream {livestream.livestream_id}] Title:{program_following.title}')
+                        Logging.info(f'[Live: {livestream.livestream_id}] Title:{program_following.title}')
 
                     # 次の番組情報を現在の番組情報にコピー
                     program_present = program_following

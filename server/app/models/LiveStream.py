@@ -257,7 +257,7 @@ class LiveStream():
         client_id = len(self.clients) - 1
 
         # クライアント ID は表示上は 1 を起点とする（その方が直感的なため）
-        Logging.info(f'[LiveStream {self.livestream_id}] Client Connected. Client ID: {client_id + 1}')
+        Logging.info(f'[Live: {self.livestream_id}] Client Connected. Client ID: {client_id + 1}')
 
         # ***** アイドリングからの復帰 *****
 
@@ -281,7 +281,7 @@ class LiveStream():
         # すでにタイムアウトなどで削除されていたら何もしない
         if len(self.clients) > 0 and self.clients[client_id] is not None:
             self.clients[client_id] = None
-            Logging.info(f'[LiveStream {self.livestream_id}] Client Disconnected. Client ID: {client_id + 1}')
+            Logging.info(f'[Live: {self.livestream_id}] Client Disconnected. Client ID: {client_id + 1}')
 
 
     def getStatus(self) -> dict:
@@ -323,11 +323,11 @@ class LiveStream():
 
         # ログを表示
         if quiet is False:
-            Logging.info(f'[LiveStream {self.livestream_id}] Status:{status.ljust(7, " ")} Detail:{detail}')
+            Logging.info(f'[Live: {self.livestream_id}] [Status: {status}] {detail}')
 
         # ストリーム起動 (Standby → ONAir) 時、起動時間のログを表示する
         if self.status == 'Standby' and status == 'ONAir':
-            Logging.info(f'[LiveStream {self.livestream_id}] Startup complete. ({round(time.time() - self.started_at, 2)} sec)')
+            Logging.info(f'[Live: {self.livestream_id}] Startup complete. ({round(time.time() - self.started_at, 2)} sec)')
 
         # ステータスと詳細を設定
         self.status = status
@@ -409,7 +409,7 @@ class LiveStream():
                 # Queue の読み取りはノンブロッキングなので、Standby の際にタイムスタンプが更新されなくなる心配をする必要はない
                 if now - client.stream_data_read_at > 5:
                     self.clients[client_id] = None
-                    Logging.info(f'[LiveStream {self.livestream_id}] Client Disconnected (Timeout). Client ID: {client_id + 1}')
+                    Logging.info(f'[Live: {self.livestream_id}] Client Disconnected (Timeout). Client ID: {client_id + 1}')
 
                 # ストリームデータを書き込む
                 client.queue.put(stream_data)
