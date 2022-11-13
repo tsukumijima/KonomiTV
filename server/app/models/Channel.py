@@ -117,6 +117,11 @@ class Channel(models.Model):
             channel.channel_force = None
             channel.channel_comment = None
 
+            # すでに放送が終了した「FOXスポーツ＆エンターテインメント」「BSスカパー」「Dlife」を除外
+            ## 放送終了後にチャンネルスキャンしていないなどの理由で Mirakurun 側にチャンネル情報が残っている場合がある
+            if channel.channel_type == 'BS' and channel.service_id in [238, 241, 258]:
+                continue
+
             # チャンネルタイプが STARDIGIO でサービス ID が 400 ～ 499 以外のチャンネルを除外
             # だいたい謎の試験チャンネルとかで見るに耐えない
             if channel.channel_type == 'STARDIGIO' and not 400 <= channel.service_id <= 499:
@@ -300,6 +305,11 @@ class Channel(models.Model):
             channel.channel_type = TSInformation.getNetworkType(channel.network_id)
             channel.channel_force = None
             channel.channel_comment = None
+
+            # すでに放送が終了した「FOXスポーツ＆エンターテインメント」「BSスカパー」「Dlife」を除外
+            ## 放送終了後にチャンネルスキャンしていないなどの理由で EDCB 側にチャンネル情報が残っている場合がある
+            if channel.channel_type == 'BS' and channel.service_id in [238, 241, 258]:
+                continue
 
             # チャンネルタイプが STARDIGIO でサービス ID が 400 ～ 499 以外のチャンネルを除外
             # だいたい謎の試験チャンネルとかで見るに耐えない
