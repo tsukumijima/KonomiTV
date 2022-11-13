@@ -51,7 +51,7 @@
 - **EDCB または Mirakurun**
   - KonomiTV のバックエンドは、EDCB または Mirakurun のいずれかを選択できます。
   - **EDCB は、220122 以降のバージョンの [xtne6f 版 EDCB](https://github.com/xtne6f/EDCB) / [tkntrec 版 EDCB](https://github.com/tkntrec/EDCB) にのみ対応しています。**
-    - **220122 以前のバージョンの EDCB では正常に動作しません。<u>「人柱版10.66」などの古いバージョンをお使いの場合は、EDCB のアップグレードが必要です。</u>**
+    - **220122 以前のバージョンの EDCB では正常に動作しません。<ins>「人柱版10.66」などの古いバージョンをお使いの場合は、EDCB のアップグレードが必要です。</ins>**
     - **最新の EDCB のビルド済みアーカイブは [tsukumijima/DTV-Builds](https://github.com/tsukumijima/DTV-Builds) にて配布しています。** こだわりがなければ、DTV-Builds で配布しているアーカイブの利用を強くおすすめします (動作確認も DTV-Builds で配布しているアーカイブで行っています)。
     - **KonomiTV と連携するには、さらに EDCB に事前の設定が必要になります（後述）。**
   - **Mirakurun は 3.9.0 以降を推奨します。**
@@ -116,12 +116,12 @@ px4_drv では、公式ドライバーとの比較で、チューナーの起動
 <img height="500" src="https://user-images.githubusercontent.com/39271166/201383288-7bcda592-bffd-4a15-b975-ced2b66e4289.png"><br>
 
 **EDCB バックエンドでは、いくつか EDCB に事前の設定が必要です。**  
-**<u>この事前設定を行わないと KonomiTV は正常に動作しません。</u> 必ず下記のとおりに設定してください。**
+**<ins>この事前設定を行わないと KonomiTV は正常に動作しません。</ins> 必ず下記のとおりに設定してください。**
 
 **また、必ず 220122 以降のバージョンの [xtne6f 版 EDCB](https://github.com/xtne6f/EDCB) / [tkntrec 版 EDCB](https://github.com/tkntrec/EDCB) を利用していることを確認してください。**  
 現在利用している EDCB のバージョンは、EpgTimer の設定ウインドウの下に表示されています。**KonomiTV でサポートしていない古い EDCB では、このバージョン表示自体がありません。**
 
-**[動作環境] に記載のとおり、<u>220122 以前や「人柱版10.66」などの古いバージョンをお使いの場合は、EDCB のアップグレードが必要になります。</u>**  
+**[動作環境] に記載のとおり、<ins>220122 以前や「人柱版10.66」などの古いバージョンをお使いの場合は、EDCB のアップグレードが必要になります。</ins>**  
 **最新版の EDCB のビルド済みアーカイブは [tsukumijima/DTV-Builds](https://github.com/tsukumijima/DTV-Builds) にて配布しています。**  
 特にこだわりがなければ、このビルド済みアーカイブで事前に EDCB を最新版にアップグレードしておいてください。
 
