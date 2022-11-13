@@ -561,7 +561,8 @@ export default Vue.extend({
             if ((this.channel.id !== channel_response_data.id) ||  // チャンネルが異なる
                 (this.channel.program_present !== null && channel_response_data.program_present === null) ||  // 番組情報あり→番組情報なし
                 (this.channel.program_present === null && channel_response_data.program_present !== null) ||  // 番組情報なし→番組情報あり
-                (this.channel.program_present.id !== channel_response_data.program_present.id)) {  // 番組が異なる
+                ((this.channel.program_present !== null && channel_response_data.program_present !== null) &&
+                 (this.channel.program_present.id !== channel_response_data.program_present.id))) {  // 番組情報あり→番組情報あり & 番組が異なる
                 if (Utils.getSettingsItem('reset_hashtag_when_program_switches') === true) {
                     (this.$refs.Twitter as InstanceType<typeof Twitter>).tweet_hashtag = '';
                 }
