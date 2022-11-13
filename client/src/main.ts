@@ -23,8 +23,11 @@ import Utils from './utils';
 // Element.scrollInfoView() のオプション指定を使うために必要
 SeamlessScrollPolyfill();
 
-// Production Tip を非表示に
+// Production Tip を非表示にする
 Vue.config.productionTip = false;
+
+// 常に Vue.js devtools を有効にする
+Vue.config.devtools = true;
 
 // Axios を使う
 Vue.use(VueAxios, axios);
