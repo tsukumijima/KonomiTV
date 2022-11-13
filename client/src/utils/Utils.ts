@@ -74,8 +74,8 @@ export default class Utils {
         // 字幕の背景色 (Default: 不透明度が 50% の黒)
         caption_background_color: '#00000080' as string,
 
-        // キャプチャをクリップボードにコピーする (Default: 有効) (同期無効)
-        capture_copy_to_clipboard: true as boolean,
+        // キャプチャをクリップボードにコピーする (Default: 無効) (同期無効)
+        capture_copy_to_clipboard: false as boolean,
 
         // キャプチャの保存先 (Default: ブラウザでダウンロード)
         capture_save_mode: 'Browser' as ('Browser' | 'UploadServer' | 'Both'),
