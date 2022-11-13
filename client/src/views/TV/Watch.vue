@@ -564,7 +564,8 @@ export default Vue.extend({
                 ((this.channel.program_present !== null && channel_response_data.program_present !== null) &&
                  (this.channel.program_present.id !== channel_response_data.program_present.id))) {  // 番組情報あり→番組情報あり & 番組が異なる
                 if (Utils.getSettingsItem('reset_hashtag_when_program_switches') === true) {
-                    (this.$refs.Twitter as InstanceType<typeof Twitter>).tweet_hashtag = '';
+                    const twitter_component = this.$refs.Twitter as InstanceType<typeof Twitter>;
+                    twitter_component.tweet_hashtag = twitter_component.formatHashtag('');
                 }
             }
 
