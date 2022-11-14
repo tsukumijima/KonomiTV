@@ -38,10 +38,12 @@
                     <div class="comment" :class="{'comment--my-post': item.my_post}">
                         <span class="comment__text">{{item.text}}</span>
                         <span class="comment__time">{{item.time}}</span>
-                        <v-btn class="comment__icon" icon
-                            @click="displayCommentListDropdown($event, item)">
+                        <!-- なぜか @click だとスマホで発火しないので @touchend にしている -->
+                        <div class="comment__icon" v-ripple="!Utils.isTouchDevice()"
+                            @mouseup="displayCommentListDropdown($event, item)"
+                            @touchend="displayCommentListDropdown($event, item)">
                             <Icon icon="fluent:more-vertical-20-filled" width="20px" />
-                        </v-btn>
+                        </div>
                     </div>
                 </DynamicScrollerItem>
                 </template>
@@ -111,6 +113,9 @@ export default Vue.extend({
     },
     data() {
         return {
+
+            // ユーティリティをテンプレートで使えるように
+            Utils: Utils,
 
             // 手動スクロール状態かどうか
             is_manual_scroll: false,
@@ -1145,10 +1150,18 @@ export default Vue.extend({
 
         // ドロップダウンメニューを表示する
         displayCommentListDropdown(event: Event, comment: IComment) {
-            this.is_comment_list_dropdown_display = true;
-            this.comment_list_dropdown_top = (event.currentTarget as HTMLElement).getBoundingClientRect().top -
-                (this.$refs.comment_list_wrapper as HTMLDivElement).getBoundingClientRect().top;
+            const comment_list_wrapper_rect = (this.$refs.comment_list_wrapper as HTMLDivElement).getBoundingClientRect();
+            const comment_list_dropdown_height = 76;  // 76px はドロップダウンメニューの高さ
+            const comment_button_rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+            // メニューの表示位置をクリックされたコメントに合わせる
+            this.comment_list_dropdown_top = comment_button_rect.top - comment_list_wrapper_rect.top;
+            // メニューがコメントリストからはみ出るときだけ、表示位置を上側に調整
+            if ((this.comment_list_dropdown_top + comment_list_dropdown_height) > comment_list_wrapper_rect.height) {
+                this.comment_list_dropdown_top = this.comment_list_dropdown_top - comment_list_dropdown_height + comment_button_rect.height;
+            }
+            // 表示位置を調整できたので、メニューを表示
             this.comment_list_dropdown_comment = comment;
+            this.is_comment_list_dropdown_display = true;
         },
 
         // 破棄する
@@ -1315,6 +1328,8 @@ export default Vue.extend({
                     width: 20px;
                     height: 20px;
                     margin-left: 8px;
+                    border-radius: 5px;
+                    cursor: pointer;
                 }
             }
         }

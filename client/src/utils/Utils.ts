@@ -497,6 +497,15 @@ export default class Utils {
 
 
     /**
+     * 表示端末がタッチデバイスかどうか
+     * @returns タッチデバイスなら true を返す
+     */
+    static isTouchDevice(): boolean {
+        return window.matchMedia('(hover: none)').matches;
+    }
+
+
+    /**
      * 任意の桁で切り捨てする
      * ref: https://qiita.com/nagito25/items/0293bc317067d9e6c560#comment-87f0855f388953843037
      * @param value 切り捨てする数値

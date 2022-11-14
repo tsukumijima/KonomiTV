@@ -62,7 +62,7 @@ Vue.use(VuetifyMessageSnackbar, {
 // VTooltip を使う
 // タッチデバイスでは無効化する
 // ref: https://v-tooltip.netlify.app/guide/config.html#default-values
-const trigger = window.matchMedia('(hover: none)').matches ? [] : ['hover', 'focus', 'touch'];
+const trigger = Utils.isTouchDevice() ? [] : ['hover', 'focus', 'touch'];
 VTooltip.options.themes.tooltip.showTriggers = trigger;
 VTooltip.options.themes.tooltip.hideTriggers = trigger;
 VTooltip.options.themes.tooltip.delay.show = 0;
