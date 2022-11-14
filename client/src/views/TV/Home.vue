@@ -387,6 +387,13 @@ _::-webkit-full-page-media, _:future, :root
                 grid-row-gap: 8px;
             }
 
+            // チャンネルリストでの content-visibility: auto; はちょっと描画上の副作用もあるので、
+            // パフォーマンス向上が顕著なスマホ・タブレット (タッチデバイス) のみに適用する
+            @media (hover: none) {
+                content-visibility: auto;
+                contain-intrinsic-height: 2000px;  // だいたい 2000px 分の高さを確保
+            }
+
             // 1630px 以上で幅を 445px に固定
             @media (min-width: 1630px) {
                 grid-template-columns: repeat(auto-fit, 445px);
@@ -461,6 +468,9 @@ _::-webkit-full-page-media, _:future, :root
                 text-decoration: none;
                 user-select: none;
                 cursor: pointer;
+                // content-visibility: auto; を付与するだけでスマホでの描画パフォーマンスが大幅に向上する
+                content-visibility: auto;
+                contain-intrinsic-height: 235px;
 
                 // 1列表示
                 @media (max-width: 1007.9px) {
@@ -471,6 +481,7 @@ _::-webkit-full-page-media, _:future, :root
                     padding-top: 10px;
                     height: auto;
                     border-radius: 11px;
+                    contain-intrinsic-height: 125px;
                 }
 
                 &:hover {

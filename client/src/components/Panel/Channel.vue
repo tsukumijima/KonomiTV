@@ -184,6 +184,16 @@ _::-webkit-full-page-media, _:future, :root
                 // will-change を入れておく事で、アニメーションが GPU で処理される
                 will-change: transform;
 
+                // チャンネルリストでの content-visibility: auto; はちょっと描画上の副作用もあるので、
+                // パフォーマンス向上が顕著なスマホ・タブレット (タッチデバイス) のみに適用する
+                @media (hover: none) {
+                    content-visibility: auto;
+                    contain-intrinsic-size: 319.3px 2000px;  // だいたい 2000px 分の高さを確保
+                    @include smartphone-horizontal {
+                        contain-intrinsic-size: 277.3px 2000px;
+                    }
+                }
+
                 // 1630px 以上で幅を 445px に固定
                 @media (min-width: 1630px) {
                     grid-template-columns: repeat(auto-fit, 445px);
@@ -203,12 +213,17 @@ _::-webkit-full-page-media, _:future, :root
                     text-decoration: none;
                     user-select: none;
                     cursor: pointer;
+                    // content-visibility: auto; を付与するだけでスマホでの描画パフォーマンスが大幅に向上する
+                    content-visibility: auto;
+                    contain-intrinsic-size: 295.3px 137.3px;
+
                     &:first-of-type {
                         margin-top: 0px;
                     }
                     @include smartphone-horizontal {
                         margin-top: 8px;
                         padding: 8px 12px 12px 12px;
+                        contain-intrinsic-size: 253.3px 107.2px;
                     }
 
                     &:hover {

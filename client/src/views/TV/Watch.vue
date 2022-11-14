@@ -1911,6 +1911,7 @@ export default Vue.extend({
 
             // キャプチャハンドラーを初期化
             this.capture_handler = new PlayerCaptureHandler(this.player, (blob: Blob, filename: string) => {
+                // キャプチャが撮られたら、随時 Twitter タブのキャプチャリストに追加する
                 (this.$refs.Twitter as InstanceType<typeof Twitter>).addCaptureList(blob, filename);
             });
 
@@ -2250,7 +2251,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         }
         .dplayer-icons.dplayer-comment-box {
             position: absolute;
-            bottom: env(keyboard-inset-height, 0px) !important;
+            bottom: calc(env(keyboard-inset-height, 0px) + 4px) !important;
         }
     }
 }
@@ -2315,6 +2316,13 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         // パネルアイコンをハイライト
         .switch-button-panel .switch-button-icon {
             color: var(--v-primary-base);
+        }
+
+        // タッチデバイスのみ、content-visibility: visible で明示的にパネルを描画する
+        .watch-panel {
+            @media (hover: none) {
+                content-visibility: auto;
+            }
         }
     }
 
@@ -2677,6 +2685,11 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             width: 310px;
         }
 
+        // タッチデバイスのみ、content-visibility: hidden でパネルを折り畳んでいるときの描画パフォーマンスを上げる
+        @media (hover: none) {
+            content-visibility: hidden;
+        }
+
         .watch-panel__header {
             display: flex;
             align-items: center;
@@ -2775,9 +2788,16 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 opacity: 0;
                 visibility: hidden;
 
+                // スマホ・タブレット (タッチデバイス) ではアニメーションが重めなので、アニメーションを無効化
+                // アクティブなタブ以外は明示的に描画しない
+                @media (hover: none) {
+                    transition: none;
+                    content-visibility: hidden;
+                }
                 &--active {
                     opacity: 1;
                     visibility: visible;
+                    content-visibility: auto;
                 }
             }
         }

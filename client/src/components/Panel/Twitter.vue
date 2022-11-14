@@ -765,6 +765,9 @@ export default Vue.extend({
     &.watch-panel__content--active .tab-container .tab-content--active {
         opacity: 1;
         visibility: visible;
+        @media (hover: none) {
+            content-visibility: auto;
+        }
     }
 
     .tab-container {
@@ -780,6 +783,13 @@ export default Vue.extend({
             overflow-y: scroll;
             @include smartphone-horizontal {
                 padding-top: 8px;
+            }
+
+            // スマホ・タブレット (タッチデバイス) ではアニメーションが重めなので、アニメーションを無効化
+            // アクティブなタブ以外は明示的に描画しない
+            @media (hover: none) {
+                transition: none;
+                content-visibility: hidden;
             }
 
             .captures {
@@ -804,6 +814,7 @@ export default Vue.extend({
                     overflow: hidden;
                     user-select: none;
                     cursor: pointer;
+                    content-visibility: auto;
                     @include smartphone-horizontal {
                         height: 74px;
                     }
