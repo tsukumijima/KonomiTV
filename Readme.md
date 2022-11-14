@@ -150,7 +150,7 @@ px4_drv では、公式ドライバーとの比較で、チューナーの起動
 
 -----
 
-<img height="570" src="https://user-images.githubusercontent.com/39271166/201386157-451f84cb-38a2-44dd-b8e7-4c2b461c90ed.png"><br>
+<img width="570" src="https://user-images.githubusercontent.com/39271166/201386157-451f84cb-38a2-44dd-b8e7-4c2b461c90ed.png"><br>
 
 **また、EpgDataCap_Bon にも設定が必要です。**  
 **EpgDataCap_Bon を開き、[設定] → [ネットワーク設定] → [TCP送信] から、[SrvPipe] を選択して [追加] ボタンをクリックしてください。**
@@ -220,12 +220,7 @@ sudo amdgpu-install -y --accept-eula --usecase=graphics,amf,opencl --opencl=rocr
 sudo reboot
 ```
 
-以上のコマンドを実行して、AMDGPU-PRO Driver をインストールしてください (Ubuntu 20.04 LTS 以降向け) 。  
-
-
-
-
-
+以上のコマンドを実行して、AMDGPU-PRO Driver をインストールしてください (Ubuntu 20.04 LTS 以降向け) 。
 
 ### Tailscale の導入
 
