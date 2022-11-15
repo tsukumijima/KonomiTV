@@ -199,7 +199,7 @@ class Program(models.Model):
                 mirakurun_programs_api_response = await asyncio.to_thread(requests.get,
                     url = mirakurun_programs_api_url,
                     headers = API_REQUEST_HEADERS,
-                    timeout = 3,
+                    timeout = 10,  # 10秒後にタイムアウト (SPHD や CATV も映る環境だと時間がかかるので、少し伸ばす)
                 )
                 if mirakurun_programs_api_response.status_code != 200:  # Mirakurun からエラーが返ってきた
                     Logging.error(f'Failed to get programs from Mirakurun. (HTTP Error {mirakurun_programs_api_response.status_code})')
@@ -479,7 +479,7 @@ class Program(models.Model):
 
             # CtrlCmdUtil を初期化
             edcb = CtrlCmdUtil()
-            edcb.setConnectTimeOutSec(3)  # 3秒後にタイムアウト
+            edcb.setConnectTimeOutSec(10)  # 10秒後にタイムアウト (SPHD や CATV も映る環境だと時間がかかるので、少し伸ばす)
 
             # 開始時間未定をのぞく全番組を取得する (リスト引数の前2要素は全番組、残り2要素は全期間を意味)
             program_services = await edcb.sendEnumPgInfoEx([0xffffffffffff, 0xffffffffffff, 1, 0x7fffffffffffffff])
