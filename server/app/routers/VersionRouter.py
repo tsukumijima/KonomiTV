@@ -48,6 +48,7 @@ async def VersionInformationAPI():
     return {
         'version': VERSION,
         'latest_version': latest_version,
-        'backend': CONFIG['general']['backend'],
         'environment': environment,
+        'backend': CONFIG['general']['backend'],
+        'encoder': CONFIG['general']['encoder'],
     }

@@ -126,8 +126,9 @@ export interface IUser {
 export interface IVersionInformation {
     version: string;
     latest_version: string;
-    backend: 'EDCB' | 'Mirakurun';
     environment: 'Windows' | 'Linux' | 'Linux-Docker';
+    backend: 'EDCB' | 'Mirakurun';
+    encoder: 'FFmpeg' | 'QSVEncC' | 'NVEncC' | 'VCEEncC';
 }
 
 // DPlayer のコメントデータの型
