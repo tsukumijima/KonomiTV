@@ -477,12 +477,6 @@ class Program(models.Model):
 
         try:
 
-            # マルチプロセス時は起動後に動的に追加される EDCB のホスト名とポートが存在しないため、パースし直す
-            if is_running_multiprocess:
-                edcb_url_parse = urllib.parse.urlparse(CONFIG['general']['edcb_url'])
-                CONFIG['general']['edcb_host'] = edcb_url_parse.hostname
-                CONFIG['general']['edcb_port'] = edcb_url_parse.port
-
             # CtrlCmdUtil を初期化
             edcb = CtrlCmdUtil()
             edcb.setConnectTimeOutSec(3)  # 3秒後にタイムアウト

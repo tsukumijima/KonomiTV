@@ -7,7 +7,8 @@ import asyncio
 import datetime
 import socket
 import time
-from typing import BinaryIO, Callable, ClassVar, List, cast
+import urllib.parse
+from typing import BinaryIO, Callable, cast, ClassVar, List
 
 from app.constants import CONFIG
 
@@ -181,7 +182,7 @@ class EDCBTuner:
             return None
 
         # チューナーに接続する
-        if CONFIG['general']['edcb_host'] != 'edcb-namedpipe':
+        if EDCBUtil.getEDCBHost() != 'edcb-namedpipe':
             ## EpgDataCap_Bon で受信した放送波を受け取るための名前付きパイプの出力を、
             ## EpgTimerSrv の CtrlCmd インターフェイス (TCP API) 経由で受信するための TCP ソケット
             pipe_or_socket = await EDCBUtil.openViewStream(self.edcb_process_id)
@@ -258,6 +259,28 @@ class EDCBUtil:
     EDCB に関連する雑多なユーティリティ
     EDCB 自体や CtrlCmd インターフェイス絡みの独自フォーマットのパースなど
     """
+
+    @staticmethod
+    def getEDCBHost() -> str | None:
+        """
+        バックエンドとして指定された EDCB の接続先ホスト名を取得する
+
+        Returns:
+            str: バックエンドとして指定された EDCB の接続先ホスト名 (取得できなかった場合は None を返す)
+        """
+        edcb_url_parse = urllib.parse.urlparse(CONFIG['general']['edcb_url'])
+        return edcb_url_parse.hostname
+
+    @staticmethod
+    def getEDCBPort() -> int | None:
+        """
+        バックエンドとして指定された EDCB の接続先ポートを取得する
+
+        Returns:
+            str: バックエンドとして指定された EDCB の接続先ポート (取得できなかった場合は None を返す)
+        """
+        edcb_url_parse = urllib.parse.urlparse(CONFIG['general']['edcb_url'])
+        return edcb_url_parse.port
 
     @staticmethod
     def convertBytesToString(buffer: bytes) -> str:
@@ -395,12 +418,12 @@ class CtrlCmdUtil:
         self.__host: str | None = None
         self.__port = 0
 
-        if CONFIG['general']['edcb_host'] == 'edcb-namedpipe':
+        if EDCBUtil.getEDCBHost() == 'edcb-namedpipe':
             # 特別に名前付きパイプモードにする
             self.setPipeSetting('EpgTimerSrvNoWaitPipe')
         else:
             # TCP/IP モードにする
-            self.setNWSetting(CONFIG['general']['edcb_host'], CONFIG['general']['edcb_port'])
+            self.setNWSetting(cast(str, EDCBUtil.getEDCBHost()), cast(int, EDCBUtil.getEDCBPort()))
 
     def setNWSetting(self, host: str, port: int) -> None:
         """ TCP/IP モードにする """
