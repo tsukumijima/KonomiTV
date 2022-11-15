@@ -329,6 +329,14 @@ async def ChannelLogoAPI(
     if channel.channel_type == 'GR' and channel.channel_name.startswith('イッツコムch11'):
         return FileResponse(LOGO_DIR / 'community-channels/イッツコムch11.png', headers=header)
 
+    # スカパー！ナビ1
+    if channel.channel_type == 'GR' and channel.channel_name.startswith('スカパー！ナビ1'):
+        return FileResponse(LOGO_DIR / 'community-channels/スカパー！ナビ1.png', headers=header)
+
+    # スカパー！ナビ2
+    if channel.channel_type == 'GR' and channel.channel_name.startswith('スカパー！ナビ2'):
+        return FileResponse(LOGO_DIR / 'community-channels/スカパー！ナビ2.png', headers=header)
+
     # eo光チャンネル
     if channel.channel_type == 'GR' and channel.channel_name.startswith('eo光チャンネル'):
         return FileResponse(LOGO_DIR / 'community-channels/eo光チャンネル.png', headers=header)
