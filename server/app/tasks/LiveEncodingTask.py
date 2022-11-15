@@ -60,13 +60,18 @@ class LiveEncodingTask():
         return False
 
 
-    def buildFFmpegOptions(self, quality: QUALITY_TYPES, is_fullhd_channel: bool = False) -> list:
+    def buildFFmpegOptions(self,
+        quality: QUALITY_TYPES,
+        is_fullhd_channel: bool = False,
+        is_sphd_channel: bool = False,
+    ) -> list:
         """
         FFmpeg に渡すオプションを組み立てる
 
         Args:
             quality (QUALITY_TYPES): 映像の品質
             is_fullhd_channel (bool): フル HD 放送が実施されているチャンネルかどうか
+            is_sphd_channel (bool): スカパー！プレミアムサービスのチャンネルかどうか
 
         Returns:
             list: FFmpeg に渡すオプションが連なる配列
@@ -75,9 +80,15 @@ class LiveEncodingTask():
         # オプションの入る配列
         options = []
 
+        # 入力ストリームの解析時間
+        analyzeduration = round(500000 + (self.retry_count * 200000))  # リトライ回数に応じて少し増やす
+        if is_sphd_channel is True:
+            # スカパー！プレミアムサービスのチャンネルは入力ストリームの解析時間を長めにする (その方がうまくいく)
+            ## ほかと違い H.264 コーデックが採用されていることが影響しているのかも
+            analyzeduration += 200000
+
         # 入力
         ## -analyzeduration をつけることで、ストリームの分析時間を短縮できる
-        analyzeduration = round(500000 + (self.retry_count * 200000))  # リトライ回数に応じて少し増やす
         options.append(f'-f mpegts -analyzeduration {analyzeduration} -i pipe:0')
 
         # ストリームのマッピング
@@ -176,7 +187,12 @@ class LiveEncodingTask():
         return result
 
 
-    def buildHWEncCOptions(self, quality: QUALITY_TYPES, encoder_type: Literal['QSVEncC', 'NVEncC', 'VCEEncC'], is_fullhd_channel: bool = False) -> list:
+    def buildHWEncCOptions(self,
+        quality: QUALITY_TYPES,
+        encoder_type: Literal['QSVEncC', 'NVEncC', 'VCEEncC'],
+        is_fullhd_channel: bool = False,
+        is_sphd_channel: bool = False,
+    ) -> list:
         """
         QSVEncC・NVEncC・VCEEncC (便宜上 HWEncC と総称) に渡すオプションを組み立てる
 
@@ -184,6 +200,7 @@ class LiveEncodingTask():
             quality (QUALITY_TYPES): 映像の品質
             encoder_type (Literal['QSVEncC', 'NVEncC', 'VCEEncC']): エンコーダー (QSVEncC or NVEncC or VCEEncC)
             is_fullhd_channel (bool): フル HD 放送が実施されているチャンネルかどうか
+            is_sphd_channel (bool): スカパー！プレミアムサービスのチャンネルかどうか
 
         Returns:
             list: HWEncC に渡すオプションが連なる配列
@@ -192,11 +209,18 @@ class LiveEncodingTask():
         # オプションの入る配列
         options = []
 
+        # 入力ストリームの解析時間
+        input_probesize = round(1000 + (self.retry_count * 500))  # リトライ回数に応じて少し増やす
+        input_analyze = round(0.7 + (self.retry_count * 0.2), 1)  # リトライ回数に応じて少し増やす
+        if is_sphd_channel is True:
+            # スカパー！プレミアムサービスのチャンネルは入力ストリームの解析時間を長めにする (その方がうまくいく)
+            ## ほかと違い H.264 コーデックが採用されていることが影響しているのかも
+            input_probesize += 500
+            input_analyze += 0.2
+
         # 入力
         ## --input-probesize, --input-analyze をつけることで、ストリームの分析時間を短縮できる
         ## 両方つけるのが重要で、--input-analyze だけだとエンコーダーがフリーズすることがある
-        input_probesize = round(1000 + (self.retry_count * 500))  # リトライ回数に応じて少し増やす
-        input_analyze = round(0.7 + (self.retry_count * 0.2), 1)  # リトライ回数に応じて少し増やす
         options.append(f'--input-format mpegts --fps 30000/1001 --input-probesize {input_probesize}K --input-analyze {input_analyze} --input -')
         ## VCEEncC の HW デコーダーはエラー耐性が低く TS を扱う用途では不安定なので、SW デコーダーを利用する
         if encoder_type == 'VCEEncC':
@@ -415,7 +439,7 @@ class LiveEncodingTask():
             if channel.is_radiochannel is True:
                 encoder_options = self.buildFFmpegOptionsForRadio()
             else:
-                encoder_options = self.buildFFmpegOptions(quality, is_fullhd_channel)
+                encoder_options = self.buildFFmpegOptions(quality, is_fullhd_channel, channel.channel_type == 'SKY')
             Logging.info(f'[Live: {livestream.livestream_id}] FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
             # プロセスを非同期で作成・実行
@@ -431,7 +455,7 @@ class LiveEncodingTask():
         elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
 
             # オプションを取得
-            encoder_options = self.buildHWEncCOptions(quality, encoder_type, is_fullhd_channel)
+            encoder_options = self.buildHWEncCOptions(quality, encoder_type, is_fullhd_channel, channel.channel_type == 'SKY')
             Logging.info(f'[Live: {livestream.livestream_id}] {encoder_type} Commands:\n{encoder_type} {" ".join(encoder_options)}')
 
             # プロセスを非同期で作成・実行
