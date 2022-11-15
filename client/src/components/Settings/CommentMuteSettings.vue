@@ -225,7 +225,8 @@ export default Vue.extend({
                 });
             }
             const new_muted_niconico_user_ids = Utils.getSettingsItem('muted_niconico_user_ids') as string[];
-            if (JSON.stringify(this.muted_niconico_user_ids) !== JSON.stringify(new_muted_niconico_user_ids)) {
+            if (JSON.stringify(this.muted_niconico_user_ids.map((muted_niconico_user_id) => muted_niconico_user_id.user_id)) !==
+                JSON.stringify(new_muted_niconico_user_ids)) {
                 this.muted_niconico_user_ids = (new_muted_niconico_user_ids).map((user_id, index) => {
                     return {
                         id: Date.now() + index,
