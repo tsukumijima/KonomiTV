@@ -595,7 +595,7 @@ def Installer(version: str) -> None:
             # NVEncC が利用できそうな場合、NVIDIA GPU が Docker コンテナ内で使えるように docker-compose.yaml の当該記述をコメントアウト
             ## NVIDIA GPU が使える環境以外でコメントアウトすると
             ## 正攻法で YAML でコメントアウトする方法が思いつかなかったので、ゴリ押しで置換……
-            if '✅利用できます' in nvencc_available:
+            if '利用できます' in nvencc_available:
                 # デフォルト (置換元) の config.yaml の記述
                 old_text = (
                     '    # deploy:\n'
@@ -626,11 +626,19 @@ def Installer(version: str) -> None:
         ## 万が一以前ビルドしたキャッシュが残っていたときに備え、キャッシュを使わずにビルドさせる
         print(Padding('Docker イメージをビルドしています… (数分～数十分かかります)', (1, 2, 1, 2)))
         print(Rule(style=Style(color='cyan'), align='center'))
-        subprocess.run(
+        docker_compose_build_result = subprocess.run(
             args = [*docker_compose_command, 'build', '--no-cache', '--pull'],
             cwd = install_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
         )
         print(Rule(style=Style(color='cyan'), align='center'))
+        if docker_compose_build_result.returncode != 0:
+            print(Padding(Panel(
+                '[red]Docker イメージのビルド中に予期しないエラーが発生しました。[/red]\n'
+                'お手数をおかけしますが、上記のログを開発者に報告してください。',
+                box = box.SQUARE,
+                border_style = Style(color='#E33157'),
+            ), (1, 2, 0, 2)))
+            return  # 処理中断
 
     # ***** Linux / Linux-Docker: QSVEncC / NVEncC / VCEEncC の動作チェック *****
 
@@ -893,30 +901,79 @@ def Installer(version: str) -> None:
         progress = CreateBasicInfiniteProgress()
         progress.add_task('', total=None)
         with progress:
-            subprocess.run(
+
+            # PM2 サービスをインストール
+            pm2_install_result = subprocess.run(
                 args = ['/usr/bin/env', 'pm2', 'start', '.venv/bin/python', '--name', 'KonomiTV', '--', 'KonomiTV.py'],
                 cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
-                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+                stdout = subprocess.PIPE,  # 標準出力をキャプチャする
+                stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
+                text = True,  # 出力をテキストとして取得する
             )
-            subprocess.run(
+
+            # PM2 への変更を保存
+            pm2_save_result = subprocess.run(
                 args = ['/usr/bin/env', 'pm2', 'save'],
                 cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
-                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+                stdout = subprocess.PIPE,  # 標準出力をキャプチャする
+                stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
+                text = True,  # 出力をテキストとして取得する
             )
+
+        if pm2_install_result.returncode != 0:
+            print(Padding(Panel(
+                '[red]PM2 サービスのインストール中に予期しないエラーが発生しました。[/red]\n'
+                'お手数をおかけしますが、下記のログを開発者に報告してください。',
+                box = box.SQUARE,
+                border_style = Style(color='#E33157'),
+            ), (1, 2, 0, 2)))
+            print(Padding(Panel(
+                'PM2 のエラーログ:\n' + pm2_install_result.stdout.strip(),
+                box = box.SQUARE,
+                border_style = Style(color='#E33157'),
+            ), (0, 2, 0, 2)))
+            return  # 処理中断
+
+        if pm2_save_result.returncode != 0:
+            print(Padding(Panel(
+                '[red]PM2 サービスのインストール中に予期しないエラーが発生しました。[/red]\n'
+                'お手数をおかけしますが、下記のログを開発者に報告してください。',
+                box = box.SQUARE,
+                border_style = Style(color='#E33157'),
+            ), (1, 2, 0, 2)))
+            print(Padding(Panel(
+                'PM2 のエラーログ:\n' + pm2_save_result.stdout.strip(),
+                box = box.SQUARE,
+                border_style = Style(color='#E33157'),
+            ), (0, 2, 0, 2)))
+            return  # 処理中断
 
         # PM2 サービスを起動
         print(Padding('PM2 サービスを起動しています…', (1, 2, 0, 2)))
         progress = CreateBasicInfiniteProgress()
         progress.add_task('', total=None)
         with progress:
-            subprocess.run(
+            pm2_start_result = subprocess.run(
                 args = ['/usr/bin/env', 'pm2', 'start', 'KonomiTV'],
                 cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
-                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+                stdout = subprocess.PIPE,  # 標準出力をキャプチャする
+                stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
+                text = True,  # 出力をテキストとして取得する
             )
+
+        if pm2_start_result.returncode != 0:
+            print(Padding(Panel(
+                '[red]PM2 サービスの起動中に予期しないエラーが発生しました。[/red]\n'
+                'お手数をおかけしますが、下記のログを開発者に報告してください。',
+                box = box.SQUARE,
+                border_style = Style(color='#E33157'),
+            ), (1, 2, 0, 2)))
+            print(Padding(Panel(
+                'PM2 のエラーログ:\n' + pm2_start_result.stdout.strip(),
+                box = box.SQUARE,
+                border_style = Style(color='#E33157'),
+            ), (0, 2, 0, 2)))
+            return  # 処理中断
 
     # ***** Linux-Docker: Docker コンテナの起動 *****
 
@@ -929,12 +986,27 @@ def Installer(version: str) -> None:
 
             # docker compose up -d --force-recreate で Docker コンテナを起動
             ## 念のためコンテナを強制的に再作成させる
-            subprocess.run(
+            docker_compose_up_result = subprocess.run(
                 args = [*docker_compose_command, 'up', '-d', '--force-recreate'],
                 cwd = install_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
-                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
-                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+                stdout = subprocess.PIPE,  # 標準出力をキャプチャする
+                stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
+                text = True,  # 出力をテキストとして取得する
             )
+
+        if docker_compose_up_result.returncode != 0:
+            print(Padding(Panel(
+                '[red]Docker コンテナの起動中に予期しないエラーが発生しました。[/red]\n'
+                'お手数をおかけしますが、下記のログを開発者に報告してください。',
+                box = box.SQUARE,
+                border_style = Style(color='#E33157'),
+            ), (1, 2, 0, 2)))
+            print(Padding(Panel(
+                'Docker Compose のエラーログ:\n' + docker_compose_up_result.stdout.strip(),
+                box = box.SQUARE,
+                border_style = Style(color='#E33157'),
+            ), (0, 2, 0, 2)))
+            return  # 処理中断
 
     # ***** サービスの起動を待機 *****
 
@@ -1025,7 +1097,7 @@ def Installer(version: str) -> None:
                 ), (1, 2, 0, 2)))
                 with open(install_path / 'server/logs/KonomiTV-Server.log', mode='r', encoding='utf-8') as log:
                     print(Padding(Panel(
-                        'KonomiTV サーバーのログ:\n' + log.read(),
+                        'KonomiTV サーバーのログ:\n' + log.read().strip(),
                         box = box.SQUARE,
                         border_style = Style(color='#E33157'),
                     ), (0, 2, 0, 2)))
@@ -1047,7 +1119,7 @@ def Installer(version: str) -> None:
                 ), (1, 2, 0, 2)))
                 with open(install_path / 'server/logs/KonomiTV-Server.log', mode='r', encoding='utf-8') as log:
                     print(Padding(Panel(
-                        'KonomiTV サーバーのログ:\n' + log.read(),
+                        'KonomiTV サーバーのログ:\n' + log.read().strip(),
                         box = box.SQUARE,
                         border_style = Style(color='#E33157'),
                     ), (0, 2, 0, 2)))

@@ -111,7 +111,6 @@ def Uninstaller() -> None:
         border_style = Style(color='#E33157'),
     ), (1, 2, 1, 2)))
 
-    # Docker を使ってインストールするかを訊く (Y/N)
     ## 誤実行防止のため、デフォルトは N にしておく
     confirm_uninstall = bool(CustomConfirm.ask('KonomiTV のアンインストール', default=False))
     if confirm_uninstall is False:
