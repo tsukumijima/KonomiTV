@@ -82,15 +82,12 @@ export default Vue.extend({
 // 上書きしたいスタイル
 .channels-container.channels-container--watch {
     .v-tabs-bar {
-        // 見かけの余白の関係上、少し上にずらした方が自然
-        position: relative;
-        top: -9px;
         // スペースが少ないので高さを抑える
-        height: 48px;
+        height: 42px;
         // 下線を引く
         background: linear-gradient(to bottom, var(--v-background-base) calc(100% - 3px), var(--v-background-lighten1) 3px);
         @include smartphone-horizontal {
-            height: 40px;
+            height: 44px;
         }
 
         // 幅を縮める
@@ -144,7 +141,7 @@ _::-webkit-full-page-media, _:future, :root
         top: 0px;
         padding-left: 16px;
         padding-right: 16px;
-        padding-bottom: 9px;
+        padding-bottom: 14px;
         background:var(--v-background-base);
         z-index: 1;
         @include smartphone-horizontal {
