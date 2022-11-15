@@ -19,7 +19,7 @@ jobs:
 
       # MSBuild を PATH に追加
       - name: Add MSBuild to PATH
-        uses: microsoft/setup-msbuild@v1.0.2
+        uses: microsoft/setup-msbuild@v1.1
 
       # サードパーティーライブラリの配置フォルダを作成
       - name: Create Thirdparty Folder
