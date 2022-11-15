@@ -652,6 +652,7 @@ def Installer(version: str) -> None:
             # QSVEncC の --check-hw オプションの終了コードが 0 なら利用可能、それ以外なら利用不可
             result1 = subprocess.run(
                 args = [install_path / 'server/thirdparty/QSVEncC/QSVEncC.elf', '--check-hw'],
+                cwd = install_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
                 stdout = subprocess.PIPE,  # 標準出力をキャプチャする
                 stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
                 text = True,  # 出力をテキストとして取得する
@@ -662,6 +663,7 @@ def Installer(version: str) -> None:
             ## QSVEncC の動作に必要な intel-media-driver はインストールされていないケースを弾く (--check-hw では弾けない)
             result2 = subprocess.run(
                 args = [install_path / 'server/thirdparty/QSVEncC/QSVEncC.elf', '--check-clinfo'],
+                cwd = install_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
                 stdout = subprocess.PIPE,  # 標準出力をキャプチャする
                 stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
                 text = True,  # 出力をテキストとして取得する
@@ -675,8 +677,8 @@ def Installer(version: str) -> None:
 
             # QSVEncC が利用できない結果になった場合は Intel Media Driver がインストールされていない可能性が高いので、
             # 適宜 Intel Media Driver をインストールするように催促する
-            ## Intel Media Driver は iGPU 本体のものとは切り離されているので、インストールが比較的容易
-            ## Intel Graphics そのもののドライバーは Linux カーネルに組み込まれている
+            ## Intel Media Driver は Intel Graphics 本体のドライバーとは切り離されているので、インストールが比較的容易
+            ## Intel Graphics 本体のドライバーは Linux カーネルに組み込まれている
             ## インストールコマンドが複雑なので、コマンド例を明示する
             if result1.returncode != 0 or result2.returncode != 0 or is_intel_media_driver_installed is False:
                 print(Padding(Panel(
@@ -723,6 +725,7 @@ def Installer(version: str) -> None:
             # NVEncC の --check-hw オプションの終了コードが 0 なら利用可能、それ以外なら利用不可
             result = subprocess.run(
                 args = command,
+                cwd = install_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
                 stdout = subprocess.PIPE,  # 標準出力をキャプチャする
                 stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
                 text = True,  # 出力をテキストとして取得する
@@ -758,6 +761,7 @@ def Installer(version: str) -> None:
             # VCEEncC の --check-hw オプションの終了コードが 0 なら利用可能、それ以外なら利用不可
             result = subprocess.run(
                 args = command,
+                cwd = install_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
                 stdout = subprocess.PIPE,  # 標準出力をキャプチャする
                 stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
                 text = True,  # 出力をテキストとして取得する
