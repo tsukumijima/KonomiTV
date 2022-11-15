@@ -17,9 +17,6 @@ VERSION = '0.6.0'
 # ベースディレクトリ
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# 設定ファイルのパス
-CONFIG_YAML = BASE_DIR.parent / 'config.yaml'
-
 # クライアントの静的ファイルがあるディレクトリ
 CLIENT_DIR = BASE_DIR.parent / 'client/dist'
 
@@ -97,6 +94,20 @@ LOGGING_CONFIG: dict[str, Any] ={
             'format': '[%(asctime)s] %(levelprefix)s %(message)s',
             'use_colors': False,  # ANSI エスケープシーケンスを出力しない
         },
+        # サーバーログ (デバッグ) 用のログフォーマッター
+        'debug': {
+            '()': 'uvicorn.logging.DefaultFormatter',
+            'datefmt': '%Y/%m/%d %H:%M:%S',
+            'format': '[%(asctime)s] %(levelprefix)s %(pathname)s:%(lineno)s:\n'
+                '                                %(message)s',
+        },
+        'debug_file': {
+            '()': 'uvicorn.logging.DefaultFormatter',
+            'datefmt': '%Y/%m/%d %H:%M:%S',
+            'format': '[%(asctime)s] %(levelprefix)s %(pathname)s:%(lineno)s:\n'
+                '                                %(message)s',
+            'use_colors': False,  # ANSI エスケープシーケンスを出力しない
+        },
         # アクセスログ用のログフォーマッター
         'access': {
             '()': 'uvicorn.logging.AccessFormatter',
@@ -124,6 +135,19 @@ LOGGING_CONFIG: dict[str, Any] ={
             'mode': 'a',
             'encoding': 'utf-8',
         },
+        ## サーバーログ (デバッグ) は標準エラー出力と server/logs/KonomiTV-Server.log の両方に出力する
+        'debug': {
+            'formatter': 'debug',
+            'class': 'logging.StreamHandler',
+            'stream': 'ext://sys.stderr',
+        },
+        'debug_file': {
+            'formatter': 'debug_file',
+            'class': 'logging.FileHandler',
+            'filename': KONOMITV_SERVER_LOG_PATH,
+            'mode': 'a',
+            'encoding': 'utf-8',
+        },
         ## アクセスログは標準出力と server/logs/KonomiTV-Access.log の両方に出力する
         'access': {
             'formatter': 'access',
@@ -139,61 +163,57 @@ LOGGING_CONFIG: dict[str, Any] ={
         },
     },
     'loggers': {
-        'uvicorn': {'handlers': ['default', 'default_file'], 'level': 'INFO'},
+        'uvicorn': {'level': 'INFO', 'handlers': ['default', 'default_file']},
+        'uvicorn.debug': {'level': 'DEBUG', 'handlers': ['debug', 'debug_file'], 'propagate': False},
+        'uvicorn.access': {'level': 'INFO', 'handlers': ['access', 'access_file'], 'propagate': False},
         'uvicorn.error': {'level': 'INFO'},
-        'uvicorn.access': {'handlers': ['access', 'access_file'], 'level': 'INFO', 'propagate': False},
     },
 }
 
-# Aerich（マイグレーションツール）からのインポート時に設定ファイルのロードをスキップ
-if len(inspect.stack()) > 8 and inspect.stack()[8].function == 'get_tortoise_config':
+# 設定ファイルのパス
+CONFIG_YAML = BASE_DIR.parent / 'config.yaml'
 
-    # ダミーの CONFIG を用意（インポートエラーの回避のため）
-    CONFIG: dict[str, dict[str, Any]] = {'general': {'debug': True}}  # Logging モジュールの初期化に必要
+# 設定ファイルが配置されていない場合
+if Path.exists(CONFIG_YAML) is False:
 
-else:
+    # 前回のログをすべて削除
+    try:
+        if KONOMITV_SERVER_LOG_PATH.exists():
+            KONOMITV_SERVER_LOG_PATH.unlink()
+        if KONOMITV_ACCESS_LOG_PATH.exists():
+            KONOMITV_ACCESS_LOG_PATH.unlink()
+        if AKEBI_LOG_PATH.exists():
+            AKEBI_LOG_PATH.unlink()
+    except PermissionError:
+        pass
 
-    # 設定ファイルが配置されていない場合
-    if Path.exists(CONFIG_YAML) is False:
+    # Uvicorn を起動する前に Uvicorn のロガーを使えるようにする
+    logging.config.dictConfig(LOGGING_CONFIG)
+    logger = logging.getLogger('uvicorn')
 
-        # 前回のログをすべて削除
-        try:
-            if KONOMITV_SERVER_LOG_PATH.exists():
-                KONOMITV_SERVER_LOG_PATH.unlink()
-            if KONOMITV_ACCESS_LOG_PATH.exists():
-                KONOMITV_ACCESS_LOG_PATH.unlink()
-            if AKEBI_LOG_PATH.exists():
-                AKEBI_LOG_PATH.unlink()
-        except PermissionError:
-            pass
+    # 処理を続行できないのでここで終了する
+    logger.error(
+        '設定ファイルが配置されていないため、KonomiTV を起動できません。\n'
+        '                                '  # インデント用
+        'config.example.yaml を config.yaml にコピーし、お使いの環境に合わせて編集してください。'
+    )
+    sys.exit(1)
 
-        # Uvicorn を起動する前に Uvicorn のロガーを使えるようにする
-        logging.config.dictConfig(LOGGING_CONFIG)
-        logger = logging.getLogger('uvicorn')
+# 設定ファイルから環境設定を読み込む
+with open(CONFIG_YAML, encoding='utf-8') as file:
+    CONFIG: dict[str, dict[str, Any]] = dict(ruamel.yaml.YAML().load(file))
 
-        # 処理を続行できないのでここで終了する
-        logger.error(
-            '設定ファイルが配置されていないため、KonomiTV を起動できません。\n'
-            '                                '  # インデント用
-            'config.example.yaml を config.yaml にコピーし、お使いの環境に合わせて編集してください。'
-        )
-        sys.exit(1)
+    # Mirakurun の URL の末尾のスラッシュをなしに統一
+    ## これをやっておかないと Mirakurun の URL の末尾にスラッシュが入ってきた場合に接続に失敗する
+    CONFIG['general']['mirakurun_url'] = CONFIG['general']['mirakurun_url'].rstrip('/')
 
-    # 設定ファイルから環境設定を読み込む
-    with open(CONFIG_YAML, encoding='utf-8') as file:
-        CONFIG: dict[str, dict[str, Any]] = dict(ruamel.yaml.YAML().load(file))
-
-        # Mirakurun の URL の末尾のスラッシュをなしに統一
-        ## これをやっておかないと Mirakurun の URL の末尾にスラッシュが入ってきた場合に接続に失敗する
-        CONFIG['general']['mirakurun_url'] = CONFIG['general']['mirakurun_url'].rstrip('/')
-
-        # Docker 上で実行されているとき、環境設定のうち、パス指定の項目に Docker 環境向けの Prefix (/host-rootfs) を付ける
-        ## /host-rootfs (docker-compose.yaml で定義) を通してホストマシンのファイルシステムにアクセスできる
-        if Path.exists(Path('/.dockerenv')) is True:
-            docker_fs_prefix = '/host-rootfs'
-            CONFIG['capture']['upload_folder'] = docker_fs_prefix + CONFIG['capture']['upload_folder']
-            if type(CONFIG['tv']['debug_mode_ts_path']) is str:
-                CONFIG['tv']['debug_mode_ts_path'] = docker_fs_prefix + CONFIG['tv']['debug_mode_ts_path']
+    # Docker 上で実行されているとき、環境設定のうち、パス指定の項目に Docker 環境向けの Prefix (/host-rootfs) を付ける
+    ## /host-rootfs (docker-compose.yaml で定義) を通してホストマシンのファイルシステムにアクセスできる
+    if Path.exists(Path('/.dockerenv')) is True:
+        docker_fs_prefix = '/host-rootfs'
+        CONFIG['capture']['upload_folder'] = docker_fs_prefix + CONFIG['capture']['upload_folder']
+        if type(CONFIG['tv']['debug_mode_ts_path']) is str:
+            CONFIG['tv']['debug_mode_ts_path'] = docker_fs_prefix + CONFIG['tv']['debug_mode_ts_path']
 
 # 品質を表す Pydantic モデル
 class Quality(BaseModel):
