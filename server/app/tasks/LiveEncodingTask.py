@@ -539,10 +539,18 @@ class LiveEncodingTask():
             # Idling への切り替え、ONAir への復帰時に LiveStream 側でチューナーのアンロック/ロックが行われる
             livestream.setTunerInstance(tuner)
 
-        # ***** エンコーダーへの入力の読み込み *****
+        # ***** チューナーからの出力の読み込み → tsreadex・エンコーダーへの書き込み *****
+
+        # チューナーからの放送波 TS の最終読み取り時刻 (単調増加時間)
+        ## 単に時刻を比較する用途でしか使わないので、time.monotonic() から取得した単調増加時間が入る
+        ## Unix Time とかではないので注意
+        tuner_ts_read_at: float = time.monotonic()
+        tuner_ts_read_at_lock = threading.Lock()
 
         # CPU バウンドな部分なので、同期関数をマルチスレッドで実行する
         def Reader():
+
+            nonlocal tuner_ts_read_at
 
             # 受信した放送波が入るイテレータ
             # R/W バッファ: 188B (TS Packet Size) * 256 = 48128B
@@ -562,6 +570,10 @@ class LiveEncodingTask():
             # Mirakurun / EDCB から受信した放送波を随時 tsreadex の入力に書き込む
             try:
                 for chunk in stream_iterator:  # type: ignore
+
+                    # チューナーからの放送波 TS の最終読み取り時刻を更新
+                    with tuner_ts_read_at_lock:
+                        tuner_ts_read_at = time.monotonic()
 
                     # ストリームデータを tsreadex の標準入力に書き込む
                     try:
@@ -591,10 +603,21 @@ class LiveEncodingTask():
                         if encoder is not None:
                             encoder.kill()
 
+                        # 番組名に「放送休止」などが入っている場合、チューナーから出力された放送波 TS に映像/音声ストリームが
+                        # 含まれていない可能性が高いので、ここでエンコードタスクを停止する
+                        ## 完全に停波している場合はここの処理には辿り着かないので、SubWriter の方で放送波 TS の出力停止をチェックすることになる
+                        if (('番組情報がありません' == program_present.title) or
+                            ('放送休止' in program_present.title) or
+                            ('放送終了' in program_present.title) or
+                            ('休止' in program_present.title) or
+                            ('停波' in program_present.title)):
+                            livestream.setStatus('Offline', 'この時間は放送を休止しています。')
+
                         # エンコードタスクを再起動
-                        if self.retry_count < self.max_retry_count:  # リトライの制限内であれば
-                            Logging.debug('Detects encoder termination (Reader thread).')
-                            livestream.setStatus('Restart', 'エンコードが途中で停止しました。エンコードタスクを再起動します。')
+                        else:
+                            if self.retry_count < self.max_retry_count:  # リトライの制限内であれば
+                                Logging.debug('Detects encoder termination (Reader thread).')
+                                livestream.setStatus('Restart', 'エンコードが途中で停止しました。エンコードタスクを再起動します。')
                         break
 
                     # tsreadex が既に終了しているか、接続が切断された
@@ -628,7 +651,7 @@ class LiveEncodingTask():
         # スレッドプール上で非同期に実行する
         asyncio.create_task(asyncio.to_thread(Reader))
 
-        # ***** エンコーダーからの出力の書き込み *****
+        # ***** tsreadex・エンコーダーからの出力の読み込み → ライブストリームへの書き込み *****
 
         # エンコーダーの出力のチャンクが積み増されていくバッファ
         chunk_buffer: bytes = b''
@@ -695,7 +718,7 @@ class LiveEncodingTask():
         ## ラジオチャンネルは通常のチャンネルと比べてデータ量が圧倒的に少ないため、64KB に達することは稀で SubWriter でのチャンク書き込みがメインになる
         def SubWriter():
 
-            nonlocal chunk_buffer, chunk_written_at, writer_lock
+            nonlocal tuner_ts_read_at, tuner_ts_read_at_lock, chunk_buffer, chunk_written_at, writer_lock
 
             while True:
 
@@ -715,6 +738,25 @@ class LiveEncodingTask():
 
                         # チャンクの最終書き込み時刻を更新
                         chunk_written_at = time.monotonic()
+
+                # 同時に tuner_ts_read_at にアクセスするスレッドが1つだけであることを保証する (排他ロック)
+                with tuner_ts_read_at_lock:
+
+                    # 前回チューナーからの放送波 TS を読み取ってから 15 秒以上経過していたら、停波中もしくはチューナー側の問題と判断してループを抜ける
+                    ## EDCB バックエンドかつチューナーからの放送波 TS の出力が完全に停止している場合、Reader スレッドは TCP ソケットまたは
+                    ## 名前付きパイプからの読み取り部分でブロッキングしてしまうので、このスレッドで放送波 TS の出力が停止していないかをチェックする
+                    if (time.monotonic() - tuner_ts_read_at) > 15:
+
+                        # 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないならチューナーへの接続に失敗したものとする
+                        if (('番組情報がありません' == program_present.title) or
+                            ('放送休止' in program_present.title) or
+                            ('放送終了' in program_present.title) or
+                            ('休止' in program_present.title) or
+                            ('停波' in program_present.title)):
+                            livestream.setStatus('Offline', 'この時間は放送を休止しています。')
+                        else:
+                            livestream.setStatus('Offline', 'チューナーへの接続に失敗しました。チューナー側に何らかの問題があるかもしれません。')
+                        break
 
                 # エンコーダープロセスが終了していたらループを抜ける
                 if encoder.poll() is not None:
