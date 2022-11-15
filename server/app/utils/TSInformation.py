@@ -6,7 +6,7 @@ from datetime import date
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
-from typing import Any, Dict, Literal
+from typing import Any, Literal
 
 import ariblib
 import ariblib.constants
@@ -99,12 +99,12 @@ class TSInformation:
         self.ts: TransportStreamFile = ariblib.tsopen(tspath, chunk=1000)
 
 
-    def extract(self) -> Dict[str, Any]:
+    def extract(self) -> dict[str, Any]:
         """
         TS 内から得られる各種番組情報などを抽出して辞書にまとめる
 
         Returns:
-            Dict[str, Any]: TS の各種情報をまとめた辞書
+            dict[str, Any]: TS の各種情報をまとめた辞書
         """
 
         # SDT (Service Description Table) からチャンネル情報を取得
@@ -144,12 +144,12 @@ class TSInformation:
 
 
     @staticmethod
-    def __getFormatStringTranslationTable() -> Dict[str, str]:
+    def __getFormatStringTranslationTable() -> dict[str, str]:
         """
         formatString() で使用する変換テーブルを取得する
 
         Returns:
-            Dict[str, str]: 変換テーブル
+            dict[str, str]: 変換テーブル
         """
 
         # 全角英数を半角英数に置換
@@ -351,7 +351,7 @@ class TSInformation:
         """
 
         # 雛形
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             'id': None,
             'network_id': None,
             'service_id': None,

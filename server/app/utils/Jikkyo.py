@@ -9,7 +9,7 @@ import json
 import re
 import requests
 import xml.etree.ElementTree as ET
-from typing import Any, Dict, List, cast
+from typing import Any, cast, ClassVar
 
 from app.constants import API_REQUEST_HEADERS, JIKKYO_CHANNELS_PATH, NICONICO_OAUTH_CLIENT_ID
 from app.models import User
@@ -19,14 +19,14 @@ class Jikkyo:
 
     # 実況 ID とサービス ID (SID)・ネットワーク ID (NID) の対照表
     with open(JIKKYO_CHANNELS_PATH, encoding='utf-8') as file:
-        jikkyo_channels: List[Dict[str, Any]] = json.load(file)
+        jikkyo_channels: ClassVar[list[dict[str, Any]]] = json.load(file)
 
     # 実況チャンネルのステータスが入る辞書
     # getchannels API のリクエスト結果をキャッシュする
-    jikkyo_channels_status: Dict[str, Dict[str, int]] = {}
+    jikkyo_channels_status: ClassVar[dict[str, dict[str, int]]] = {}
 
     # 実況 ID と実況チャンネル/コミュニティ ID の対照表
-    jikkyo_nicolive_id_table: Dict[str, Dict[str, str]] = {
+    jikkyo_nicolive_id_table: ClassVar[dict[str, dict[str, str]]] = {
         'jk1': {'type': 'channel', 'id': 'ch2646436', 'name': 'NHK総合'},
         'jk2': {'type': 'channel', 'id': 'ch2646437', 'name': 'NHK Eテレ'},
         'jk4': {'type': 'channel', 'id': 'ch2646438', 'name': '日本テレビ'},
@@ -79,7 +79,7 @@ class Jikkyo:
         self.jikkyo_nicolive_id: str | None
 
         # 実況 ID を取得する
-        for jikkyo_channel in self.jikkyo_channels:
+        for jikkyo_channel in Jikkyo.jikkyo_channels:
 
             # マッチ条件が複雑すぎるので、絞り込みのための関数を定義する
             def match() -> bool:
@@ -135,9 +135,9 @@ class Jikkyo:
 
         # ニコ生上の実況チャンネル/コミュニティ ID を取得する
         if self.jikkyo_id != 'jk0':
-            if self.jikkyo_id in self.jikkyo_nicolive_id_table:
+            if self.jikkyo_id in Jikkyo.jikkyo_nicolive_id_table:
                 # 対照表に存在する実況 ID
-                self.jikkyo_nicolive_id = self.jikkyo_nicolive_id_table[self.jikkyo_id]['id']
+                self.jikkyo_nicolive_id = Jikkyo.jikkyo_nicolive_id_table[self.jikkyo_id]['id']
             else:
                 # ニコ生への移行時に廃止されたなどの理由で対照表に存在しない実況 ID
                 self.jikkyo_nicolive_id = None
@@ -337,16 +337,16 @@ class Jikkyo:
         return {'is_success': True, 'audience_token': session, 'detail': '視聴セッションを取得しました。'}
 
 
-    async def getStatus(self) -> Dict[str, int] | None:
+    async def getStatus(self) -> dict[str, int] | None:
         """
         実況チャンネルのステータスを取得する
 
         Returns:
-            Dict[str, int] | None: 実況チャンネルのステータス
+            dict[str, int] | None: 実況チャンネルのステータス
         """
 
         # まだ実況チャンネルのステータスが更新されていなければ更新する
-        if self.jikkyo_channels_status == {}:
+        if Jikkyo.jikkyo_channels_status == {}:
             await self.updateStatus()
 
         # 実況 ID が jk0（実況チャンネル/コミュニティが存在しない）であれば None を返す
@@ -355,11 +355,11 @@ class Jikkyo:
 
         # 実況チャンネルのステータスが存在しない場合は None を返す
         # 主にニコ生への移行時に実況が廃止されたチャンネル向け
-        if self.jikkyo_id not in self.jikkyo_channels_status:
+        if self.jikkyo_id not in Jikkyo.jikkyo_channels_status:
             return None
 
         # このインスタンスに紐づく実況チャンネルのステータスを返す
-        return self.jikkyo_channels_status[self.jikkyo_id]
+        return Jikkyo.jikkyo_channels_status[self.jikkyo_id]
 
 
     @classmethod

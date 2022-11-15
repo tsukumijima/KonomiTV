@@ -1086,7 +1086,7 @@ class LiveEncodingTask():
         # エンコードタスクを再起動する（エンコーダーの再起動が必要な場合）
         if is_restart_required is True:
 
-            # チューナーをアンロックする（ EDCB バックエンドのみ）
+            # チューナーをアンロックする (EDCB バックエンドのみ)
             # 新しいエンコードタスクが今回立ち上げたチューナーを再利用できるようにする
             # エンコーダーの再起動が必要なだけでチューナー自体はそのまま使えるし、わざわざ閉じてからもう一度開くのは無駄
             if CONFIG['general']['backend'] == 'EDCB':
@@ -1107,7 +1107,7 @@ class LiveEncodingTask():
                 else:  # 有料放送時（契約されていないため視聴できないことが原因の可能性が高い）
                     livestream.setStatus('Offline', 'ライブストリームの再起動に失敗しました。契約されていないため視聴できません。')
 
-                # チューナーを終了する（ EDCB バックエンドのみ）
+                # チューナーを終了する (EDCB バックエンドのみ)
                 if CONFIG['general']['backend'] == 'EDCB':
                     await tuner.close()
 

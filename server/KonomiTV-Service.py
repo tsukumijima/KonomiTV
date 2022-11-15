@@ -18,7 +18,7 @@ import time
 import threading
 import winreg
 from pathlib import Path
-from typing import Any, Dict, List, cast
+from typing import Any, cast
 
 # pywin32 モジュール
 import servicemanager
@@ -31,16 +31,16 @@ import win32serviceutil
 base_dir = Path(__file__).parent
 
 
-def GetNetworkDriveList() -> List[Dict[str, str]]:
+def GetNetworkDriveList() -> list[dict[str, str]]:
     """
     レジストリからログオン中のユーザーがマウントしているネットワークドライブのリストを取得する
 
     Returns:
-        List[Dict[str, str]]: ネットワークドライブのドライブレターとパスのリスト
+        list[dict[str, str]]: ネットワークドライブのドライブレターとパスのリスト
     """
 
     # ネットワークドライブの情報が入る辞書のリスト
-    network_drives: List[Dict[str, str]] = []
+    network_drives: list[dict[str, str]] = []
 
     # ネットワークドライブの情報が格納されているレジストリの HKEY_CURRENT_USER\Network を開く
     # ref: https://itasuke.hatenablog.com/entry/2018/01/08/133510
@@ -123,7 +123,7 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
         ## Windows サービスは異なるセッションで実行されるため、既定では（ユーザー権限で動作していても）ネットワークドライブはマウントされていない
         ## そこで、レジストリから取得したネットワークドライブのリストからネットワークドライブをマウントする
         ## マウントには時間がかかることがあるため、threading で並列に実行する (ThreadPoolExecutor はなぜか動かなかった)
-        threads: List[threading.Thread] = []
+        threads: list[threading.Thread] = []
         for network_drive in GetNetworkDriveList():
 
             # net use コマンドでネットワークドライブをマウントするスレッドを作成し、リストに追加
@@ -151,7 +151,7 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
         # ポートが衝突する Akebi HTTPS Server があると KonomiTV サーバーの起動に失敗するため
         from app.constants import CONFIG
         for process in psutil.process_iter(attrs=('name', 'pid', 'cmdline')):
-            process_info: Dict[str, Any] = cast(Any, process).info
+            process_info: dict[str, Any] = cast(Any, process).info
             if ('akebi-https-server.exe' == process_info['name'] and
                 f'--listen-address 0.0.0.0:{CONFIG["server"]["port"]}' in ' '.join(process_info['cmdline'])):
                 process.kill()

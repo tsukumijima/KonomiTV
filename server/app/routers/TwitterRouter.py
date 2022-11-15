@@ -11,7 +11,7 @@ from fastapi import Query
 from fastapi import Request
 from fastapi import status
 from fastapi import UploadFile
-from typing import Any, Coroutine, List, cast
+from typing import Any, cast, Coroutine
 
 from app import schemas
 from app.models import TwitterAccount
@@ -266,7 +266,7 @@ async def TwitterAccountDeleteAPI(
 async def TwitterTweetAPI(
     screen_name: str = Path(..., description='ツイートする Twitter アカウントのスクリーンネーム。'),
     tweet: str = Form('', description='ツイートの本文（基本的には140文字まで）。'),
-    images: List[UploadFile] | None = File(None, description='ツイートに添付する画像（4枚まで）。'),
+    images: list[UploadFile] | None = File(None, description='ツイートに添付する画像（4枚まで）。'),
     current_user: User = Depends(User.getCurrentUser),
 ):
     """
@@ -304,12 +304,12 @@ async def TwitterTweetAPI(
     ))
 
     # アップロードした画像の media_id のリスト
-    media_ids: List[str] = []
+    media_ids: list[str] = []
 
     try:
 
         # 画像をアップロードするタスク
-        image_upload_task: List[Coroutine] = []
+        image_upload_task: list[Coroutine] = []
         for image in images:
             image_upload_task.append(asyncio.to_thread(api.media_upload, filename=image.filename, file=image.file))
 

@@ -8,7 +8,7 @@ import datetime
 import socket
 import time
 import urllib.parse
-from typing import BinaryIO, Callable, cast, ClassVar, List
+from typing import BinaryIO, Callable, cast, ClassVar
 
 from app.constants import CONFIG
 
@@ -18,7 +18,7 @@ class EDCBTuner:
 
     # 全てのチューナーインスタンスが格納されるリスト
     # チューナーを閉じずに再利用するため、全てのチューナーインスタンスにアクセスできるようにする
-    __instances: ClassVar[List[EDCBTuner | None]] = []
+    __instances: ClassVar[list[EDCBTuner | None]] = []
 
 
     def __new__(cls, network_id: int, service_id: int, transport_stream_id: int):

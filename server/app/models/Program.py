@@ -6,7 +6,6 @@ import datetime
 import requests
 import time
 import traceback
-import urllib.parse
 from datetime import timedelta
 from tortoise import connections
 from tortoise import exceptions
@@ -15,7 +14,7 @@ from tortoise import models
 from tortoise import timezone
 from tortoise import Tortoise
 from tortoise import transactions
-from typing import List
+from typing import Any
 
 from app.constants import API_REQUEST_HEADERS, CONFIG, DATABASE_CONFIG
 from app.models import Channel
@@ -204,7 +203,7 @@ class Program(models.Model):
                 if mirakurun_programs_api_response.status_code != 200:  # Mirakurun からエラーが返ってきた
                     Logging.error(f'Failed to get programs from Mirakurun. (HTTP Error {mirakurun_programs_api_response.status_code})')
                     return
-                programs:List[dict] = mirakurun_programs_api_response.json()
+                programs: list[dict[str, Any]] = mirakurun_programs_api_response.json()
             except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
                 Logging.error(f'Failed to get programs from Mirakurun. (Connection Timeout)')
                 return

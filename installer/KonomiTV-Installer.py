@@ -16,7 +16,6 @@ from rich.prompt import Prompt
 from rich.rule import Rule
 from rich.style import Style
 from rich.table import Table
-from typing import List
 
 from Installer import Installer
 from Uninstaller import Uninstaller
@@ -44,7 +43,7 @@ def main():
     if os.name == 'nt':
 
         # ログオン中ユーザーがマウントしているネットワークドライブごとに実行
-        threads: List[threading.Thread] = []
+        threads: list[threading.Thread] = []
         for network_drive in GetNetworkDriveList():
 
             # net use コマンドでネットワークドライブをマウントするスレッドを作成し、リストに追加

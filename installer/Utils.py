@@ -23,7 +23,7 @@ from rich.progress import (
 from rich.prompt import Confirm
 from rich.prompt import Prompt
 from rich.text import TextType
-from typing import Callable, cast, Dict, List, Optional
+from typing import Callable, cast, Optional
 
 
 class CustomPrompt(Prompt):
@@ -35,7 +35,7 @@ class CustomPrompt(Prompt):
         *,
         console: Optional[Console] = None,
         password: bool = False,
-        choices: Optional[List[str]] = None,
+        choices: Optional[list[str]] = None,
         show_default: bool = True,
         show_choices: bool = True,
     ) -> None:
@@ -60,7 +60,7 @@ class CustomConfirm(Confirm):
         *,
         console: Optional[Console] = None,
         password: bool = False,
-        choices: Optional[List[str]] = None,
+        choices: Optional[list[str]] = None,
         show_default: bool = True,
         show_choices: bool = True,
     ) -> None:
@@ -313,13 +313,13 @@ def CreateDownloadInfiniteProgress() -> Progress:
     )
 
 
-def GetNetworkDriveList() -> List[Dict[str, str]]:
+def GetNetworkDriveList() -> list[dict[str, str]]:
     """
     レジストリからログオン中のユーザーがマウントしているネットワークドライブのリストを取得する
     KonomiTV-Service.py で利用されているものと基本同じ
 
     Returns:
-        List[Dict[str, str]]: ネットワークドライブのドライブレターとパスのリスト
+        list[dict[str, str]]: ネットワークドライブのドライブレターとパスのリスト
     """
 
     # Windows 以外では実行しない
@@ -329,7 +329,7 @@ def GetNetworkDriveList() -> List[Dict[str, str]]:
     import winreg
 
     # ネットワークドライブの情報が入る辞書のリスト
-    network_drives: List[Dict[str, str]] = []
+    network_drives: list[dict[str, str]] = []
 
     # ネットワークドライブの情報が格納されているレジストリの HKEY_CURRENT_USER\Network を開く
     # ref: https://itasuke.hatenablog.com/entry/2018/01/08/133510

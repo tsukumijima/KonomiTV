@@ -14,7 +14,7 @@ from fastapi.responses import Response
 from fastapi.security.utils import get_authorization_scheme_param
 from tortoise import connections
 from tortoise import timezone
-from typing import Dict, List
+from typing import Any
 
 from app import schemas
 from app.constants import API_REQUEST_HEADERS, CONFIG, LOGO_DIR
@@ -51,7 +51,7 @@ async def ChannelsAPI():
     tasks = []
 
     # チャンネル情報を取得
-    channels: List[Channel]
+    channels: list[Channel]
     tasks.append(Channel.all().order_by('channel_number').order_by('remocon_id'))
 
     # データベースの生のコネクションを取得
@@ -63,7 +63,7 @@ async def ChannelsAPI():
     ## 一度に取得した方がパフォーマンスが向上するため敢えてそうしている
     ## SQL 文の時間比較は、左にいくほど時刻が小さく、右にいくほど時刻が大きくなるように統一している
     ## 番組時間は EPG の仕様上必ず24時間以下に収まるので、パフォーマンスを考慮して24時間以内に放送開始予定の番組のみに絞り込む
-    pf_programs: List[Dict]
+    pf_programs: list[dict[str, Any]]
     tasks.append(connection.execute_query_dict(
         """
         SELECT *
@@ -132,7 +132,7 @@ async def ChannelsAPI():
         }
 
         # チャンネルに紐づく現在と次の番組情報を取得
-        pf_program: List[Dict] = list(filter(lambda pf_program: pf_program['channel_id'] == channel_dict['channel_id'], pf_programs))
+        pf_program: list[dict[str, Any]] = list(filter(lambda pf_program: pf_program['channel_id'] == channel_dict['channel_id'], pf_programs))
 
         # 番組情報が1つ以上取得できていれば
         if len(pf_program) >= 1:

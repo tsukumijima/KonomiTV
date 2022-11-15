@@ -6,7 +6,7 @@ from __future__ import annotations
 import asyncio
 import queue
 import time
-from typing import ClassVar, Dict, List, Literal
+from typing import ClassVar, Literal
 
 from app.constants import QUALITY_TYPES
 from app.utils import Logging
@@ -42,7 +42,7 @@ class LiveStream():
 
     # ライブストリームのインスタンスが入る、ライブストリーム ID をキーとした辞書
     # この辞書にライブストリームに関する全てのデータが格納されている
-    __instances: ClassVar[Dict[str, LiveStream]] = {}
+    __instances: ClassVar[dict[str, LiveStream]] = {}
 
 
     # 必ずライブストリーム ID ごとに1つのインスタンスになるように (Singleton)
@@ -118,16 +118,16 @@ class LiveStream():
         self.updated_at: float
         self.stream_data_written_at: float
         self.tuner: EDCBTuner | None
-        self.clients: List[LiveStreamClient | None]
+        self.clients: list[LiveStreamClient | None]
 
 
     @classmethod
-    def getAllLiveStreams(cls) -> List[LiveStream]:
+    def getAllLiveStreams(cls) -> list[LiveStream]:
         """
         全てのライブストリームのインスタンスを取得する
 
         Returns:
-            List[LiveStream]: ライブストリームのインスタンスの入ったリスト
+            list[LiveStream]: ライブストリームのインスタンスの入ったリスト
         """
 
         # __instances 辞書を values() で値だけのリストにしたものを返す
@@ -135,15 +135,15 @@ class LiveStream():
 
 
     @classmethod
-    def getONAirLiveStreams(cls) -> List[LiveStream]:
+    def getONAirLiveStreams(cls) -> list[LiveStream]:
         """
         現在 ONAir なライブストリームのインスタンスを取得する
 
         Returns:
-            List[LiveStream]: 現在 ONAir なライブストリームのインスタンスの入ったリスト
+            list[LiveStream]: 現在 ONAir なライブストリームのインスタンスの入ったリスト
         """
 
-        result:List[LiveStream] = []
+        result: list[LiveStream] = []
 
         # 現在 ONAir 状態のライブストリームを探す
         # 見つかったら、そのライブストリームのインスタンスをリストに入れる
@@ -155,15 +155,15 @@ class LiveStream():
 
 
     @classmethod
-    def getIdlingLiveStreams(cls) -> List[LiveStream]:
+    def getIdlingLiveStreams(cls) -> list[LiveStream]:
         """
         現在 Idling なライブストリームのインスタンスを取得する
 
         Returns:
-            List[LiveStream]: 現在 Idling なライブストリームのインスタンスの入ったリスト
+            list[LiveStream]: 現在 Idling なライブストリームのインスタンスの入ったリスト
         """
 
-        result:List[LiveStream] = []
+        result: list[LiveStream] = []
 
         # 現在 Idling 状態のライブストリームを探す
         # 見つかったら、そのライブストリームのインスタンスをリストに入れる
