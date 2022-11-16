@@ -58,7 +58,7 @@ export default Vue.extend({
             Utils: Utils,
 
             // 最新のバージョン
-            latest_version: '' as string,
+            latest_version: null as string | null,
 
             // アップデートが利用可能か
             is_update_available: false as boolean,
@@ -70,6 +70,11 @@ export default Vue.extend({
             // バージョン情報を取得
             const version_info: IVersionInformation = (await Vue.axios.get(`/version`)).data;
             this.latest_version = version_info.latest_version;
+
+            // 最新のサーバーバージョンが取得できなかった場合は中断
+            if (this.latest_version === null) {
+                return;
+            }
 
             // もし現在のサーバーバージョン (-dev を除く) と最新のサーバーバージョンが異なるなら、アップデートが利用できる旨を表示する
             // 現在のサーバーバージョンが -dev 付きで、かつ最新のサーバーバージョンが -dev なし の場合 (リリース版がリリースされたとき) も同様に表示する

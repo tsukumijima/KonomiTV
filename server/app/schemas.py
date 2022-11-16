@@ -173,7 +173,7 @@ class UserAccessToken(BaseModel):
 
 class VersionInformation(BaseModel):
     version: str
-    latest_version: str
+    latest_version: str | None
     environment: Literal['Windows', 'Linux', 'Linux-Docker']
     backend: Literal['EDCB', 'Mirakurun']
     encoder: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC']

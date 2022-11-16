@@ -2,6 +2,7 @@
 import asyncio
 import os
 import requests
+import time
 from fastapi import APIRouter
 from pathlib import Path
 
@@ -15,6 +16,11 @@ router = APIRouter(
 )
 
 
+# GitHub API から取得した KonomiTV の最新バージョン (と最終更新日時)
+latest_version: str | None = None
+latest_version_updated_at: float = 0
+
+
 @router.get(
     '',
     summary = 'バージョン情報取得 API',
@@ -26,18 +32,22 @@ async def VersionInformationAPI():
     KonomiTV サーバーのバージョン情報と、バックエンドの種類、稼働環境などを取得する。
     """
 
+    global latest_version, latest_version_updated_at
+
     # GitHub API で KonomiTV の最新のタグ (=最新バージョン) を取得
-    latest_version = ''
-    try:
-        response = await asyncio.to_thread(requests.get,
-            url = 'https://api.github.com/repos/tsukumijima/KonomiTV/tags',
-            headers = API_REQUEST_HEADERS,
-            timeout = 3,
-        )
-        if response.status_code == 200:
-            latest_version = response.json()[0]['name'].replace('v', '')  # 先頭の v を取り除く
-    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-        pass
+    ## GitHub API は無認証だと60回/1時間までしかリクエストできないので、リクエスト結果を10分ほどキャッシュする
+    if latest_version is None or (time.time() - latest_version_updated_at) > 60 * 10:
+        try:
+            response = await asyncio.to_thread(requests.get,
+                url = 'https://api.github.com/repos/tsukumijima/KonomiTV/tags',
+                headers = API_REQUEST_HEADERS,
+                timeout = 3,
+            )
+            if response.status_code == 200:
+                latest_version = response.json()[0]['name'].replace('v', '')  # 先頭の v を取り除く
+                latest_version_updated_at = time.time()
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            pass
 
     # サーバーが稼働している環境を取得
     environment = 'Windows' if os.name else 'Linux'
