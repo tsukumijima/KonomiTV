@@ -5,6 +5,8 @@ name: Build Installer
 # .github/workflows/build_installer.yaml (このファイル) に変更があったとき or 手動実行
 on:
   push:
+    branches:
+      - master
     paths:
       - 'installer/**'
       - '.github/workflows/build_installer.yaml'

@@ -90,6 +90,8 @@ export default Vue.extend({
     }
 
     .settings-navigation {
+        transform: none !important;
+        visibility: visible !important;
 
         h1 {
             @include smartphone-horizontal {

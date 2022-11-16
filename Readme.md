@@ -310,7 +310,7 @@ Docker Compose は V1 と V2 の両方に対応していますが、できれば
 <img width="100%" src="https://user-images.githubusercontent.com/39271166/201463450-96bb686e-c5bb-493d-b907-57b5f51ac986.png"><br>
 
 ```bash
-curl -LO https://github.com/tsukumijima/KonomiTV/releases/download/v0.6.0/KonomiTV-Installer.elf
+curl -LO https://github.com/tsukumijima/KonomiTV/releases/download/v0.6.1/KonomiTV-Installer.elf
 chmod a+x KonomiTV-Installer.elf
 ./KonomiTV-Installer.elf
 ```
@@ -389,7 +389,7 @@ KonomiTV の環境設定は、config.yaml に保存されています。
 
 > 設定ファイルは YAML 形式ですが、JSON のようなスタイルで書いています。括弧がないとわかりにくいと思うので… (JSON は YAML のサブセットなので、実は JSON は YAML として解釈可能です)
 
-config.yaml は、インストーラーでインストールした際に自動的に生成されます。将来的には GUI からの環境設定の変更をサポート予定ですが、0.6.0 時点では config.yaml を手動で編集する必要があります。
+config.yaml は、インストーラーでインストールした際に自動的に生成されます。将来的には GUI からの環境設定の変更をサポート予定ですが、現時点では config.yaml を手動で編集する必要があります。
 
 #### バックエンドの設定
 

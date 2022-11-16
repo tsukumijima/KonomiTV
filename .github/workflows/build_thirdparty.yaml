@@ -4,6 +4,8 @@ name: Build Thirdparty Libraries
 # .github/workflows/build_thirdparty.yaml (このファイル) に変更があったとき or 手動実行
 on:
   push:
+    branches:
+      - master
     paths:
       - '.github/workflows/build_thirdparty.yaml'
   workflow_call:

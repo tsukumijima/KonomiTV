@@ -756,6 +756,10 @@ class LiveEncodingTask():
                             livestream.setStatus('Offline', 'この時間は放送を休止しています。')
                         else:
                             livestream.setStatus('Offline', 'チューナーへの接続に失敗しました。チューナー側に何らかの問題があるかもしれません。')
+                        if tsreadex is not None:
+                            tsreadex.kill()
+                        if encoder is not None:
+                            encoder.kill()
                         break
 
                 # エンコーダープロセスが終了していたらループを抜ける

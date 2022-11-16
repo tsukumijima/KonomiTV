@@ -25,7 +25,7 @@ from Utils import GetNetworkDriveList
 
 
 # インストール or アップデート対象の KonomiTV バージョン
-INSTALLER_VERSION = '0.6.0'
+INSTALLER_VERSION = '0.6.1'
 
 # main() 関数内のすべての処理は管理者権限 (Windows) / root 権限 (Linux) で実行される
 def main():

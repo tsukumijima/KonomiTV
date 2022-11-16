@@ -18,15 +18,22 @@ env:
 jobs:
   build-and-push-image:
     runs-on: ubuntu-latest
+    if: (startsWith(github.ref, 'refs/tags/v')) || (contains(github.event.head_commit.message, 'Release:') == false)
     permissions:
       contents: read
       packages: write
     steps:
+
       - name: Checkout Repository
         uses: actions/checkout@v3
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v2
+
+      - name: Wait for Release to be Created
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          sleep 180s
 
       # GitHub Container Registry (ghcr.io) にログイン
       - name: Login to the Container Registry

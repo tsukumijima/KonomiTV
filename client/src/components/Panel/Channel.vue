@@ -145,8 +145,8 @@ _::-webkit-full-page-media, _:future, :root
         background:var(--v-background-base);
         z-index: 1;
         @include smartphone-horizontal {
-            padding-bottom: 0px;
-            margin-top: 12px;
+            padding-bottom: 8px;
+            margin-top: 0px;
         }
 
         .channels-tab__item {
