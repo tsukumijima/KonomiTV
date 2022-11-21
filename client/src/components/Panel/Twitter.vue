@@ -482,7 +482,11 @@ export default Vue.extend({
                 new OffscreenCanvas(image_bitmap.width, image_bitmap.height) : document.createElement('canvas');
 
             // Canvas にキャプチャを描画
-            const context = canvas.getContext('2d');
+            const context = canvas.getContext('2d', {
+                alpha: false,
+                desynchronized: true,
+                willReadFrequently: false,
+            }) as OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
             context.drawImage(image_bitmap, 0, 0);
             image_bitmap.close();
 

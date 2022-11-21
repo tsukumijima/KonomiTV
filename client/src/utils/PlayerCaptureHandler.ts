@@ -57,7 +57,11 @@ export class PlayerCaptureHandler {
         // パフォーマンス向上のため、一度作成した Canvas は使い回す
         // OffscreenCanvas が使えるなら使う (OffscreenCanvas の方がパフォーマンスが良い)
         this.canvas = ('OffscreenCanvas' in window) ? new OffscreenCanvas(0, 0) : document.createElement('canvas');
-        this.canvas_context = this.canvas.getContext('2d', {alpha: false, desynchronized: true, willReadFrequently: false});
+        this.canvas_context = this.canvas.getContext('2d', {
+            alpha: false,
+            desynchronized: true,
+            willReadFrequently: false,
+        }) as OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
 
         // 映像の解像度を Canvas サイズとして設定
         // 映像が読み込まれた / 画質が変わった際に Canvas のサイズを映像のサイズに合わせる
@@ -194,7 +198,7 @@ export class PlayerCaptureHandler {
                 new OffscreenCanvas(image_bitmap.width, image_bitmap.height) : document.createElement('canvas');
             bitmap_canvas.width = image_bitmap.width;
             bitmap_canvas.height = image_bitmap.height;
-            const canvas_context = bitmap_canvas.getContext('bitmaprenderer', {alpha: false});
+            const canvas_context = bitmap_canvas.getContext('bitmaprenderer', {alpha: false}) as ImageBitmapRenderingContext;
 
             // Canvas に映像がキャプチャされた ImageBitmap を転送
             // 描画ではなくゼロコピーで転送しているらしい…？
