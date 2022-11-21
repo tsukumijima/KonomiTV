@@ -13,7 +13,7 @@ distro = "*"
 elevate = "*"
 emoji = "*"
 ifaddr = "*"
-nuitka = {ref = "develop", git = "https://github.com/Nuitka/Nuitka.git"}
+nuitka = "*"
 ordered-set = "*"
 psutil = "*"
 py7zr = "*"
