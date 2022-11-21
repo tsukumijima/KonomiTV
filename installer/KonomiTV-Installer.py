@@ -25,7 +25,7 @@ from Utils import GetNetworkDriveList
 
 
 # インストール or アップデート対象の KonomiTV バージョン
-INSTALLER_VERSION = '0.6.1'
+TARGET_VERSION = '0.6.1'
 
 # main() 関数内のすべての処理は管理者権限 (Windows) / root 権限 (Linux) で実行される
 def main():
@@ -34,7 +34,7 @@ def main():
     ## 基本的には UAC で昇格した時点で conhost.exe が起動されるため、タイトルが設定されていないとみすぼらしい
     # ref: https://stackoverflow.com/a/20864842/17124142
     if os.name == 'nt':
-        ctypes.windll.kernel32.SetConsoleTitleW(f'KonomiTV version {INSTALLER_VERSION} Installer')
+        ctypes.windll.kernel32.SetConsoleTitleW(f'KonomiTV version {TARGET_VERSION} Installer')
 
     # Windows のみ、ログオン中ユーザーのすべてのネットワークドライブのマウントを試みる
     ## UAC で昇格した環境では、ログオン中ユーザーのネットワークドライブはマウントされていない (Windows の制限)
@@ -68,7 +68,7 @@ def main():
             thread.join()
 
     print(Padding(Rule(
-        title = f'KonomiTV version {INSTALLER_VERSION} Installer',
+        title = f'KonomiTV version {TARGET_VERSION} Installer',
         characters = '─',
         style = Style(color='#E33157'),
         align = 'center',
@@ -136,9 +136,9 @@ def main():
 
     # 実行タイプごとにそれぞれの実装を呼び出す
     if run_type == 1:
-        Installer(INSTALLER_VERSION)
+        Installer(TARGET_VERSION)
     elif run_type == 2:
-        Updater(INSTALLER_VERSION)
+        Updater(TARGET_VERSION)
     elif run_type == 3:
         Uninstaller()
 
@@ -166,7 +166,7 @@ if __name__ == '__main__':
     except OSError:
 
         print(Padding(Rule(
-            title = f'KonomiTV version {INSTALLER_VERSION} Installer',
+            title = f'KonomiTV version {TARGET_VERSION} Installer',
             characters='─',
             style = Style(color='#E33157'),
             align = 'center',

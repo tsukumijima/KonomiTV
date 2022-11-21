@@ -30,6 +30,12 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
 
+      # Node.js 16 のセットアップ
+      - name: Setup Node.js 16
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+
       # KonomiTV のソースコードをチェックアウト
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -38,18 +44,39 @@ jobs:
           path: KonomiTV
           token: ${{ secrets.GIT_PUSH_TOKEN }}
 
-      # release ブランチを現在の master ブランチの最新コミットに更新し、push する
-      ## release ブランチはリリースしたときのみ更新される
-      - name: Update Release Branch
+      # リリースコミットを作成
+      - name: Create Release Commit
         working-directory: KonomiTV
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
+          git switch master
+          # ソースコードやドキュメントのバージョンを更新
+          sed -i -e 's|"version": ".*",|"version": "${{ github.event.inputs.version }}",|' client/package.json
+          sed -i -e "s|TARGET_VERSION = '.*'|TARGET_VERSION = '${{ github.event.inputs.version }}'|" installer/KonomiTV-Installer.py
+          sed -i -e "s|VERSION = '.*'|VERSION = '${{ github.event.inputs.version }}'|" server/app/constants.py
+          sed -i -e 's|download/v.*/thirdparty-linux\.tar\.xz|download/v${{ github.event.inputs.version }}/thirdparty-linux\.tar\.xz|' Dockerfile
+          sed -i -e 's|download/v.*/KonomiTV-Installer\.elf|download/v${{ github.event.inputs.version }}/KonomiTV-Installer\.elf|' Readme.md
+          # クライアントをビルド
+          cd client/
+          yarn install
+          yarn build
+          cd ../
+          # リリースコミットを作成
+          git add .
+          git commit -m 'Release: version ${{ github.event.inputs.version }}'
+          git push
+
+      # release ブランチを現在の master ブランチの最新コミット (リリースコミット) に更新する
+      ## release ブランチはリリースしたときのみ更新される
+      - name: Update Release Branch
+        working-directory: KonomiTV
+        run: |
           git switch release
           git merge master
           git push
 
-      # 新しいバージョンのタグを作成
+      # リリースコミットに対応する新バージョンのタグを release ブランチで作成
       - name: Create New Version Tag
         working-directory: KonomiTV
         run: |
