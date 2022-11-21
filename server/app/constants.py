@@ -203,8 +203,10 @@ if Path.exists(CONFIG_YAML) is False:
 with open(CONFIG_YAML, encoding='utf-8') as file:
     CONFIG: dict[str, dict[str, Any]] = dict(ruamel.yaml.YAML().load(file))
 
-    # Mirakurun の URL の末尾のスラッシュをなしに統一
+    # EDCB / Mirakurun の URL の末尾のスラッシュをなしに統一
     ## これをやっておかないと Mirakurun の URL の末尾にスラッシュが入ってきた場合に接続に失敗する
+    ## EDCB に関しては統一する必要はないが、念のため
+    CONFIG['general']['edcb_url'] = CONFIG['general']['edcb_url'].rstrip('/')
     CONFIG['general']['mirakurun_url'] = CONFIG['general']['mirakurun_url'].rstrip('/')
 
     # Docker 上で実行されているとき、環境設定のうち、パス指定の項目に Docker 環境向けの Prefix (/host-rootfs) を付ける

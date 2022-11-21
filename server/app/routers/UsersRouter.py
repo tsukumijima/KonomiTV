@@ -288,7 +288,7 @@ async def UserUpdateMeAPI(
     responses = {
         status.HTTP_200_OK: {
             'description': 'ユーザーアカウントのアイコン画像。',
-            'content': {'image/png': {}},
+            'content': {'image/jpeg': {}, 'image/png': {}},
         }
     }
 )
@@ -474,7 +474,7 @@ async def UserUpdateAPI(
     responses = {
         status.HTTP_200_OK: {
             'description': 'ユーザーアカウントのアイコン画像。',
-            'content': {'image/png': {}},
+            'content': {'image/jpeg': {}, 'image/png': {}},
         }
     }
 )

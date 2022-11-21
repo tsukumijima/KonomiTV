@@ -9,6 +9,7 @@ import threading
 import time
 from datetime import datetime
 from io import TextIOWrapper
+from tortoise import timezone
 from typing import BinaryIO, Iterator, Literal, cast
 
 from app.constants import API_REQUEST_HEADERS, CONFIG, LIBRARY_PATH, LOGS_DIR, QUALITY, QUALITY_TYPES
@@ -355,8 +356,8 @@ class LiveEncodingTask():
             program_present.channel_id = channel.channel_id
             program_present.title = '番組情報がありません'
             program_present.description = ''
-            program_present.start_time = datetime(2000, 1, 1, 0, 0, 0)
-            program_present.end_time = datetime(2099, 1, 1, 0, 0, 0)
+            program_present.start_time = datetime(2000, 1, 1, 0, 0, 0, tzinfo=timezone.get_default_timezone())
+            program_present.end_time = datetime(2099, 1, 1, 0, 0, 0, tzinfo=timezone.get_default_timezone())
             program_present.duration = (program_present.end_time - program_present.start_time).total_seconds()
             program_present.is_free = True
             program_present.genre = []

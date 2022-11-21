@@ -152,35 +152,10 @@ def main():
         logger.error(error)
         sys.exit(1)
 
-    # ***** Mirakurun / EDCB バックエンドへの接続確認 *****
-
-    # Mirakurun バックエンドの接続確認
-    if CONFIG['general']['backend'] == 'Mirakurun':
-
-        # 試しにリクエストを送り、200 (OK) が返ってきたときだけ有効な URL とみなす
-        try:
-            response = requests.get(
-                url = f'{CONFIG["general"]["mirakurun_url"]}/api/version',
-                headers = API_REQUEST_HEADERS,
-                timeout = 3,
-            )
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-            logger.error(
-                f'Mirakurun ({CONFIG["general"]["mirakurun_url"]}) にアクセスできませんでした。\n'
-                '                                '  # インデント用
-                'Mirakurun が起動していないか、URL を間違えている可能性があります。'
-            )
-            sys.exit(1)
-        if response.status_code != 200:
-            logger.error(
-                f'{CONFIG["general"]["mirakurun_url"]} は Mirakurun の URL ではありません。\n'
-                '                                '  # インデント用
-                'Mirakurun の URL を間違えている可能性があります。'
-            )
-            sys.exit(1)
+    # ***** EDCB / Mirakurun バックエンドへの接続確認 *****
 
     # EDCB バックエンドの接続確認
-    elif CONFIG['general']['backend'] == 'EDCB':
+    if CONFIG['general']['backend'] == 'EDCB':
 
         # ここでインポートしないと諸々インポート周りがこじれてしまう
         from app.utils.EDCB import CtrlCmdUtil
@@ -202,9 +177,34 @@ def main():
         result = asyncio.run(edcb.sendEnumService())
         if result is None:
             logger.error(
-                f'EDCB ({CONFIG["general"]["edcb_url"]}) にアクセスできませんでした。\n'
+                f'EDCB ({CONFIG["general"]["edcb_url"]}/) にアクセスできませんでした。\n'
                 '                                '  # インデント用
                 'EDCB が起動していないか、URL を間違えている可能性があります。'
+            )
+            sys.exit(1)
+
+    # Mirakurun バックエンドの接続確認
+    elif CONFIG['general']['backend'] == 'Mirakurun':
+
+        # 試しにリクエストを送り、200 (OK) が返ってきたときだけ有効な URL とみなす
+        try:
+            response = requests.get(
+                url = f'{CONFIG["general"]["mirakurun_url"]}/api/version',
+                headers = API_REQUEST_HEADERS,
+                timeout = 3,
+            )
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            logger.error(
+                f'Mirakurun ({CONFIG["general"]["mirakurun_url"]}/) にアクセスできませんでした。\n'
+                '                                '  # インデント用
+                'Mirakurun が起動していないか、URL を間違えている可能性があります。'
+            )
+            sys.exit(1)
+        if response.status_code != 200:
+            logger.error(
+                f'{CONFIG["general"]["mirakurun_url"]}/ は Mirakurun の URL ではありません。\n'
+                '                                '  # インデント用
+                'Mirakurun の URL を間違えている可能性があります。'
             )
             sys.exit(1)
 

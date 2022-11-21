@@ -11,6 +11,7 @@ from fastapi.responses import FileResponse
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi_utils.tasks import repeat_every
+from pathlib import Path
 
 from app.constants import CONFIG, CLIENT_DIR, DATABASE_CONFIG, QUALITY, VERSION
 from app.models import Channel
@@ -72,8 +73,17 @@ app.mount('/assets', StaticFiles(directory=CLIENT_DIR / 'assets', html=True))
 @app.get('/{file:path}', include_in_schema=False)
 async def Root(file: str):
 
+    # ディレクトリトラバーサル対策のためのチェック
+    ## ref: https://stackoverflow.com/a/45190125/17124142
+    try:
+        CLIENT_DIR.joinpath(Path(file)).resolve().relative_to(CLIENT_DIR.resolve())
+    except ValueError:
+        # URL に指定されたファイルパスが CLIENT_DIR の外側のフォルダを指している場合は、
+        # ファイルが存在するかに関わらず一律で index.html を返す
+        return FileResponse(CLIENT_DIR / 'index.html', media_type='text/html')
+
     # ファイルが存在する場合のみそのまま配信
-    filepath = CLIENT_DIR / f'{file}'
+    filepath = CLIENT_DIR / file
     if filepath.is_file():
         # 拡張子から MIME タイプを判定
         if filepath.suffix == '.css':

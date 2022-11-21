@@ -214,7 +214,7 @@ class Jikkyo:
         await current_user.save()
 
 
-    async def fetchJikkyoSession(self, current_user: User | None = None) -> dict:
+    async def fetchJikkyoSession(self, current_user: User | None = None) -> dict[str, bool | str]:
         """
         ニコニコ実況（ニコ生）の視聴セッション情報を取得する
 
@@ -222,7 +222,7 @@ class Jikkyo:
             current_user (User | None): ログイン中のユーザーのモデルオブジェクト or None
 
         Returns:
-            dict: 視聴セッション情報 or エラーメッセージが含まれる辞書
+            dict[str, bool | str]: 視聴セッション情報 or エラーメッセージが含まれる辞書
         """
 
         # 廃止されたなどの理由でニコ生上の実況チャンネル/コミュニティ ID が取得できていない

@@ -10,8 +10,8 @@ from app import models
 
 # 環境設定を表す Pydantic モデル
 # バリデーションは環境設定をこの Pydantic モデルに通すことで行う
-class Config(BaseModel):
 
+class Config(BaseModel):
     class General(BaseModel):
         backend: Literal['EDCB', 'Mirakurun']
         mirakurun_url: AnyHttpUrl
@@ -20,23 +20,18 @@ class Config(BaseModel):
         program_update_interval: confloat(ge=0.1)  # type: ignore
         debug: bool
         debug_encoder: bool
-
     class Server(BaseModel):
         port: PositiveInt
         custom_https_certificate: FilePath | None
         custom_https_private_key: FilePath | None
-
     class TV(BaseModel):
         max_alive_time: PositiveInt
         debug_mode_ts_path: FilePath | None
-
     class Capture(BaseModel):
         upload_folder: DirectoryPath
-
     class Twitter(BaseModel):
         consumer_key: str | None
         consumer_secret: str | None
-
     general: General
     server: Server
     tv: TV
@@ -80,6 +75,7 @@ class User(pydantic_model_creator(models.User, name='User',
 
 # API リクエストに利用する Pydantic モデル
 # リクエストボティの JSON の構造を表す
+
 class UserCreateRequest(BaseModel):
     username: str
     password: str
