@@ -49,7 +49,7 @@
       - KonomiTV はその性質上ハードウェアエンコーダーに強く依存していますが、ARM SoC のハードウェアエンコーダーは SoC メーカーごとにまちまちで、サポート状況もかなり厳しいと言わざるを得ません…。
       - 将来的には、メジャーで比較的サポート状況の良い、ラズパイ4 (Broadcom BCM2711) と Rockchip RK3568 / RK3588 SoC のハードウェアエンコーダーにのみ対応する予定です。
 - **EDCB または Mirakurun**
-  - KonomiTV のバックエンドは、EDCB または Mirakurun のいずれかを選択できます。
+  - KonomiTV のバックエンドには、EDCB または Mirakurun のいずれかを選択できます。
   - **EDCB は、220122 以降のバージョンの [xtne6f 版 EDCB](https://github.com/xtne6f/EDCB) / [tkntrec 版 EDCB](https://github.com/tkntrec/EDCB) にのみ対応しています。**
     - **220122 以前のバージョンの EDCB では正常に動作しません。<ins>「人柱版10.66」などの古いバージョンをお使いの場合は、EDCB のアップグレードが必要です。</ins>**
     - **最新の EDCB のビルド済みアーカイブは [tsukumijima/DTV-Builds](https://github.com/tsukumijima/DTV-Builds) にて配布しています。** こだわりがなければ、DTV-Builds で配布しているアーカイブの利用を強くおすすめします (動作確認も DTV-Builds で配布しているアーカイブで行っています)。
@@ -183,9 +183,8 @@ KonomiTV は、[QSVEncC](https://github.com/rigaya/QSVEnc) (Intel QSV)・[NVEncC
 
 QSVEncC では、別途 Intel Media Driver のインストールが必要です。
 
-> Linux 向けの Intel QSV は Broadwell (第5世代) 以上の Intel CPU でのみ利用できます。  
-> Haswell (第4世代) 以下の CPU では、Intel Media Driver がインストールされていても、Intel QSV は利用できません。  
-> なお、Windows 向けの Intel QSV は、Haswell (第4世代) 以下の CPU でも利用できます。
+> Linux 版の Intel QSV は、Broadwell (第5世代) 以上の Intel CPU でのみ利用できます。そのため、Haswell (第4世代) 以下の CPU では、Intel Media Driver のインストール有無にかかわらず、QSVEncC を利用できません。  
+> なお、Windows 版の Intel QSV は、Haswell (第4世代) 以下の CPU でも利用できます。
 
 ```bash
 curl -fsSL https://repositories.intel.com/graphics/intel-graphics.key | sudo gpg --dearmor --yes -o /usr/share/keyrings/intel-graphics-keyring.gpg
@@ -388,30 +387,43 @@ aa-bb-cc-dd の部分には、ローカル IP アドレスのうち、. (ドッ�
 
 ### 設定ファイルの編集
 
-KonomiTV の環境設定は、config.yaml に保存されています。  
+**KonomiTV の環境設定は、KonomiTV をインストールしたフォルダにある config.yaml に保存されています。**  
 
 > config.example.yaml は、config.yaml のデフォルトの設定を記載した、config.yaml のひな形となるファイルです。アップデート時に上書きされるため、config.example.yaml は編集しないでください。  
 
 > 設定ファイルは YAML 形式ですが、JSON のようなスタイルで書いています。括弧がないとわかりにくいと思うので… (JSON は YAML のサブセットなので、実は JSON は YAML として解釈可能です)
 
-config.yaml は、インストーラーでインストールした際に自動的に生成されます。将来的には GUI からの環境設定の変更をサポート予定ですが、現時点では config.yaml を手動で編集する必要があります。
+**config.yaml は、インストーラーでインストールした際に自動的に生成されます。**  
+環境設定を変更するときは、config.yaml 内の設定を手動で編集する必要があります。将来的には GUI から環境設定を変更できるようにする予定です。
+
+以下は主要な設定項目の説明です。  
+ほかにも設定項目はありますが、基本的に変更の必要はありません。
 
 #### バックエンドの設定
 
-Mirakurun をバックエンドとして利用する場合は、Mirakurun の HTTP API の URL をお使いの録画環境に合わせて編集してください。
+KonomiTV のバックエンドには、EDCB または Mirakurun のいずれかを選択できます。  
+`general.backend` に `EDCB` または `Mirakurun` を指定してください。
 
-通常、HTTP API の URL は `http://(MirakurunのあるPCのIPアドレス):40772/` になります。接続できない際は、Mirakurun が起動しているかを確認してみてください。
+-----
 
-EDCB をバックエンドとして利用する場合は、EDCB (EpgTimerNW) の TCP API の URL をお使いの録画環境に合わせて編集してください。
+EDCB をバックエンドとして利用する場合は、EDCB (EpgTimerNW) の TCP API の URL (`general.edcb_url`) をお使いの録画環境に合わせて編集してください。
 
 通常、TCP API の URL は `tcp://(EDCBのあるPCのIPアドレス):4510/` になります。接続できない際は、ファイアウォールの設定や EpgTimer Service が起動しているかを確認してみてください。  
 前述のとおり、あらかじめ EDCB の事前設定を済ませておく必要があります。
 
 > TCP API の URL として `tcp://edcb-namedpipe/` と指定すると、TCP API の代わりに名前付きパイプで通信を行います（KonomiTV と EDCB が同じ PC で起動している場合のみ）。
 
+-----
+
+Mirakurun をバックエンドとして利用する場合は、Mirakurun の HTTP API の URL (`general.mirakurun_url`) をお使いの録画環境に合わせて編集してください。
+
+通常、HTTP API の URL は `http://(MirakurunのあるPCのIPアドレス):40772/` になります。接続できない際は、Mirakurun が起動しているかを確認してみてください。
+
 #### エンコーダーの設定
 
 エンコーダーには、ソフトウェアエンコーダーの FFmpeg のほか、ハードウェアエンコーダーの QSVEncC・NVEncC・VCEEncC を選択できます。  
+`general.encoder` に `FFmpeg` / `QSVEncC` / `NVEncC` / `VCEEncC` のいずれかを指定してください。
+
 **ハードウェアエンコーダーを選択すると、エンコードに GPU アクセラレーションを利用するため、CPU 使用率を大幅に下げる事ができます。**  
 エンコード速度も高速になるため、お使いの PC で利用可能であれば、できるだけハードウェアエンコーダーを選択することを推奨します。
 
@@ -419,8 +431,11 @@ EDCB をバックエンドとして利用する場合は、EDCB (EpgTimerNW) の
 
 > 前述のとおり、Linux 環境で QSVEncC・NVEncC・VCEEncC を利用する場合は、別途 GPU ドライバーのインストールが必要です。
 
-**QSVEncC は、Intel 製 CPU の内蔵 GPU に搭載されているハードウェアエンコード機能 (QSV) を利用するエンコーダーです。**  
+**QSVEncC は、Intel 製 CPU の内蔵 GPU に搭載されているハードウェアエンコード機能 (Intel QSV) を利用するエンコーダーです。**  
 ここ数年に発売された Intel Graphics 搭載の Intel 製 CPU であれば基本的に搭載されているため、一般的な PC の大半で利用できます。内蔵 GPU にも関わらず高速で、画質も良好です。  
+
+> Linux 版の Intel QSV は、Broadwell (第5世代) 以上の Intel CPU でのみ利用できます。そのため、Haswell (第4世代) 以下の CPU では、QSVEncC を利用できません。  
+> なお、Windows 版の Intel QSV は、Haswell (第4世代) 以下の CPU でも利用できます。
 
 **NVEncC は、Geforce などの NVIDIA 製 GPU に搭載されているハードウェアエンコード機能 (NVENC) を利用するエンコーダーです。**  
 高速で画質も QSV より若干いいのですが、Geforce では同時にエンコードが可能なセッション数が 3 に限定されているため、同時に 3 チャンネル以上視聴することはできません。  
@@ -428,6 +443,24 @@ EDCB をバックエンドとして利用する場合は、EDCB (EpgTimerNW) の
 
 **VCEEncC は、Radeon などの AMD 製 GPU に搭載されているハードウェアエンコード機能 (AMD VCE) を利用するエンコーダーです。**  
 QSVEncC・NVEncC に比べると安定せず、利用者も少ないため安定稼働するかは微妙です。QSVEncC・NVEncC が使えるならそちらを選択することをおすすめします。
+
+#### リッスンポートの設定
+
+`server.port` に、KonomiTV サーバーのリッスンポートを指定してください。  
+デフォルトのリッスンポートは `7000` です。  
+
+> インストーラーでのインストール時にポート 7000 がほかのサーバーソフトと重複している場合は、代わりのポートとして 7100 (7100 も利用できない場合は、さらに +100 される) が自動的にデフォルトのリッスンポートに設定されます。
+
+基本的に変更の必要はありません。変更したい方のみ変更してください。
+
+#### アップロードしたキャプチャ画像の保存先フォルダの設定
+
+`capture.upload_folder` に、アップロードしたキャプチャ画像の保存先フォルダを指定してください。
+
+クライアントの [キャプチャの保存先] 設定で [KonomiTV サーバーにアップロード] または [ブラウザでのダウンロードと、KonomiTV サーバーへのアップロードを両方行う] を選択したときに利用されます。
+
+デフォルトの保存先フォルダは、インストーラーで入力したフォルダが自動的に設定されています。  
+保存先フォルダを変更したくなったときは、この設定を変更してください。
 
 -----
 
