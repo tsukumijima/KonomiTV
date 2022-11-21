@@ -183,10 +183,14 @@ KonomiTV は、[QSVEncC](https://github.com/rigaya/QSVEnc) (Intel QSV)・[NVEncC
 
 QSVEncC では、別途 Intel Media Driver のインストールが必要です。
 
+> Linux 向けの Intel QSV は Broadwell (第5世代) 以上の Intel CPU でのみ利用できます。  
+> Haswell (第4世代) 以下の CPU では、Intel Media Driver がインストールされていても、Intel QSV は利用できません。  
+> なお、Windows 向けの Intel QSV は、Haswell (第4世代) 以下の CPU でも利用できます。
+
 ```bash
-curl -fsSL https://repositories.intel.com/graphics/intel-graphics.key | sudo gpg --dearmor -o /usr/share/keyrings/intel-graphics-keyring.gpg
+curl -fsSL https://repositories.intel.com/graphics/intel-graphics.key | sudo gpg --dearmor --yes -o /usr/share/keyrings/intel-graphics-keyring.gpg
 echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/graphics/ubuntu focal main' | sudo tee /etc/apt/sources.list.d/intel-graphics.list > /dev/null
-sudo apt update -y && sudo apt install -y intel-media-va-driver-non-free intel-opencl-icd
+sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-opencl-icd
 ```
 
 以上のコマンドを実行して、Intel Media Driver をインストールしてください (Ubuntu 20.04 LTS 以降向け) 。  
@@ -215,8 +219,9 @@ curl -LO https://repo.radeon.com/amdgpu-install/22.20/ubuntu/jammy/amdgpu-instal
 
 # AMDGPU-PRO Driver のインストール
 sudo apt install -y ./amdgpu-install_22.20.50200-1_all.deb
-sudo apt update
-sudo amdgpu-install -y --accept-eula --usecase=graphics,amf,opencl --opencl=rocr,legacy --no-32
+sudo apt update && sudo amdgpu-install -y --accept-eula --usecase=graphics,amf,opencl --opencl=rocr,legacy --no-32
+
+# 再起動
 sudo reboot
 ```
 
