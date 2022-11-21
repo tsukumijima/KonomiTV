@@ -247,7 +247,7 @@ KonomiTV を共有したい家族や親戚に Tailscale アカウントを作成
 **Tailscale の詳細や導入方法は、以前私が執筆した **[こちら](https://blog.tsukumijima.net/article/tailscale-vpn/)** の記事をご覧ください。**  
 この記事のとおりにセットアップすれば、あとは各デバイスで Tailscale での VPN 接続をオンにしておくだけです。
 
-**KonomiTV での利用以外にも、EDCB Material WebUI や EPGStation などの、ローカルネットワーク上の Web サーバーに家の外からアクセスするときにとても便利なサービスです。**  
+**KonomiTV での利用以外にも、EDCB Material WebUI や EPGStation などの、プライベートネットワーク上の Web サーバーに家の外からアクセスするときにとても便利なサービスです。**  
 20台までは無料ですし (逸般の誤家庭でなければ十分すぎる)、この機会に導入しておくことをおすすめします。
 
 ## サーバーのインストール
@@ -375,7 +375,7 @@ aa-bb-cc-dd の部分には、ローカル IP アドレスのうち、. (ドッ�
 …ところが、最近のブラウザはインターネット上に公開されている Web サイトのみならず、盗聴のリスクが著しく低いローカル LAN 上の Web サイトにも、HTTPS を要求するようになってきました。  
 すでに PWA の主要機能である [Service Worker](https://developer.mozilla.org/ja/docs/Web/API/Service_Worker_API) などをはじめ、近年追加された多くの Web API の利用に HTTPS が必須になってしまっています。こうした強力な API が HTTP アクセスでは使えないことが、KonomiTV を開発する上で大きな制約になっていました。
 
-**そこで KonomiTV では、過去に例のない非常に特殊な仕組みを使い、ローカルネットワーク上の Web サービスにも [自己署名証明書](https://wa3.i-3-i.info/word18213.html) のインストールなしで HTTPS でアクセスできるようにしました。**  
+**そこで KonomiTV では、過去に例のない非常に特殊な仕組みを使い、プライベートネットワーク上の Web サービスにも関わらず [自己署名証明書](https://wa3.i-3-i.info/word18213.html) のインストールなしで HTTPS でアクセスできるようにしました。**  
 具体的には、Let's Encrypt の DNS 認証 / ワイルドカード証明書・ワイルドカード DNS・Keyless SSL の3つの技術を組み合わせています。**[tsukumijima/Akebi](https://github.com/tsukumijima/Akebi)** に技術解説とソースコードを載せていますので、よろしければご覧ください。
 
 **この仕組み (Akebi) を使うには、`https://192-168-1-11.local.konomi.tv:7000/` のような HTTPS URL でアクセスする必要があります。** 当然ですが、プライベート IP アドレス単体では正式な証明書を取得できないためです。
@@ -466,8 +466,11 @@ QSVEncC・NVEncC に比べると安定せず、利用者も少ないため安定
 
 <img width="100%" src="https://user-images.githubusercontent.com/39271166/201438534-10a19a9e-56ef-4c9e-88c2-2198de76979d.png"><br>
 
-**環境設定の変更を反映するには、KonomiTV サーバー (KonomiTV Service) の再起動が必要です。**  
-「サービス」アプリから KonomiTV Service を探して、右クリックメニューから [再起動] をクリックしてください。 
+**環境設定の変更を反映するには、KonomiTV サーバー (KonomiTV Service) の再起動が必要です。**
+
+- Windows:「サービス」アプリを開いた後、サービス一覧の中から KonomiTV Service を探して、右クリックメニューから [再起動] をクリックしてください。   
+- Linux: `sudo pm2 restart konomitv` を実行してください。  
+- Linux (Docker): KonomiTV をインストールしたフォルダで `docker compose restart konomitv` を実行してください。
 
 なお、config.yaml が存在しなかったり、設定項目が誤っているとサーバーの起動の時点でエラーが発生します。  
 その際は `server/logs/KonomiTV-Server.log` に出力されているエラーメッセージに従い、config.yaml の内容を確認してみてください。
@@ -492,6 +495,29 @@ KonomiTV には、放送波から取得できるものよりも遥かに高画�
 
 > 同梱されているロゴは `server/static/logos/` に `NID(ネットワークID)-SID(サービスID).png` (解像度: 256×256) のフォーマットで保存されています。  
 > チャンネルのネットワーク ID とサービス ID がわかっていれば、自分で局ロゴ画像を作ることも可能です。
+
+## FAQ
+
+### Web UI にアクセスすると 502 Bad Gateway エラーが表示される
+
+KonomiTV サーバーの起動中と考えられます。しばらく待ってから再度アクセスしてみてください。
+
+数分待ってもアクセスできない場合は、KonomiTV サーバーがエラー終了している可能性があります。`server/logs/KonomiTV-Server.log` に出力されているエラーログを確認してみてください。
+
+### Web UI にアクセスすると「Client sent an HTTP request to an HTTPS server.」と表示される
+
+エラーメッセージの通り、`http://` でアクセスしてしまっているときに表示されます。  
+KonomiTV サーバーは HTTPS で起動しているため、Web UI には `https://` で始まる URL でアクセスする必要があります。
+
+### Web UI にアクセスすると「このサイトは安全に接続できません」「～から無効な応答が送信されました。」(ERR_SSL_PROTOCOL_ERROR) と表示される
+
+[`https://aa-bb-cc-dd.local.konomi.tv:7000/` の URL について](#httpsaa-bb-cc-ddlocalkonomitv7000-の-url-について) の項目で説明した通り、KonomiTV では過去に例のない非常に特殊な仕組みを使い、[自己署名証明書](https://wa3.i-3-i.info/word18213.html) のインストールなしで HTTPS でアクセスできるようにしています。
+
+Web UI には `https://(IPアドレス(.を-にしたもの)).local.konomi.tv:7000/` のフォーマットの HTTPS URL (例: `https://192-168-1-11.local.konomi.tv:7000/`) でアクセスしてください。  
+URL が少し長いので、適宜ブックマークやホーム画面に追加しておくと便利です。
+
+> 上記のフォーマット以外の URL (例: `https://localhost:7000/`・`https://192.168.1.11:7000/`) では証明書や HTTPS の通信エラーが発生し、Web UI にアクセスできない仕様になっています。  
+> 当然ですが、プライベート IP アドレス単体では正式な証明書を取得できないためです。  
 
 ## 開発者向け情報
 
