@@ -645,73 +645,112 @@ def Installer(version: str) -> None:
     if platform_type == 'Linux' or platform_type == 'Linux-Docker':
 
         # エンコーダーに QSVEncC が選択されているとき
-        ## Linux-Docker では Docker イメージの中に Intel Media Driver が含まれているため、
-        ## QSV が使える CPU であれば基本的に動作するはず (動作チェックはしない)
-        if encoder == 'QSVEncC' and platform_type == 'Linux':
+        if encoder == 'QSVEncC':
+
+            # 実行コマンド1 (Linux-Docker では docker-compose run を介して実行する)
+            command1 = [install_path / 'server/thirdparty/QSVEncC/QSVEncC.elf', '--check-hw']
+            if platform_type == 'Linux-Docker':
+                command1 = [*docker_compose_command, 'run', '--rm',
+                    '--entrypoint', '/bin/bash -c "/code/server/thirdparty/QSVEncC/QSVEncC.elf --check-hw"', 'konomitv']
 
             # QSVEncC の --check-hw オプションの終了コードが 0 なら利用可能、それ以外なら利用不可
             result1 = subprocess.run(
-                args = [install_path / 'server/thirdparty/QSVEncC/QSVEncC.elf', '--check-hw'],
+                args = command1,
                 cwd = install_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
                 stdout = subprocess.PIPE,  # 標準出力をキャプチャする
                 stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
                 text = True,  # 出力をテキストとして取得する
             )
+
+            # 実行コマンド2 (Linux-Docker では docker-compose run を介して実行する)
+            command2 = [install_path / 'server/thirdparty/QSVEncC/QSVEncC.elf', '--check-clinfo']
+            if platform_type == 'Linux-Docker':
+                command2 = [*docker_compose_command, 'run', '--rm',
+                    '--entrypoint', '/bin/bash -c "/code/server/thirdparty/QSVEncC/QSVEncC.elf --check-clinfo"', 'konomitv']
 
             # QSVEncC の --check-clinfo オプションの終了コードが 0 なら利用可能、それ以外なら利用不可
             ## libva-intel-driver (i965-va-driver) はインストールされているが、
             ## QSVEncC の動作に必要な intel-media-driver はインストールされていないケースを弾く (--check-hw では弾けない)
             result2 = subprocess.run(
-                args = [install_path / 'server/thirdparty/QSVEncC/QSVEncC.elf', '--check-clinfo'],
+                args = command2,
                 cwd = install_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
                 stdout = subprocess.PIPE,  # 標準出力をキャプチャする
                 stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
                 text = True,  # 出力をテキストとして取得する
             )
 
-            # Intel Media Driver が /usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so に配置されているか
-            ## Intel Media Driver がインストールされていればここに配置されるはずなので、配置されていないということは
-            ## おそらくインストールされていないと考えられる
-            ## ref: https://packages.ubuntu.com/ja/focal/amd64/intel-media-va-driver-non-free/filelist
-            is_intel_media_driver_installed = Path('/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so').exists()
+            # Linux のみ
+            if platform_type == 'Linux':
 
-            # QSVEncC が利用できない結果になった場合は Intel Media Driver がインストールされていない可能性が高いので、
-            # 適宜 Intel Media Driver をインストールするように催促する
-            ## Intel Media Driver は Intel Graphics 本体のドライバーとは切り離されているので、インストールが比較的容易
-            ## Intel Graphics 本体のドライバーは Linux カーネルに組み込まれている
-            ## インストールコマンドが複雑なので、コマンド例を明示する
-            if result1.returncode != 0 or result2.returncode != 0 or is_intel_media_driver_installed is False:
-                print(Padding(Panel(
-                    '[yellow]注意: この PC では QSVEncC が利用できない状態です。[/yellow]\n'
-                    'Intel QSV の利用に必要な Intel Media Driver が\n'
-                    'インストールされていない可能性があります。',
-                    box = box.SQUARE,
-                    border_style = Style(color='#E33157'),
-                ), (1, 2, 0, 2)))
-                print(Padding(Panel(
-                    'Intel Media Driver は以下のコマンドでインストールできます。\n'
-                    '[cyan]curl -fsSL https://repositories.intel.com/graphics/intel-graphics.key | gpg --dearmor -o /usr/share/keyrings/intel-graphics-keyring.gpg && echo \'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/graphics/ubuntu focal main\' > /etc/apt/sources.list.d/intel-graphics.list && sudo apt update -y && sudo apt install -y intel-media-va-driver-non-free intel-opencl-icd[/cyan]',
-                    box = box.SQUARE,
-                    border_style = Style(color='#E33157'),
-                ), (0, 2, 0, 2)))
-                print(Padding(Panel(
-                    'Alder Lake (第12世代) 以降の CPU では、追加で以下のコマンドを実行してください。\n'
-                    'なお、libmfx-gen1.2 パッケージは Ubuntu 22.04 LTS にしか存在しないため、 \n'
-                    'Ubuntu 20.04 LTS では、Alder Lake 以降の CPU の Intel QSV を利用できません。\n'
-                    '[cyan]sudo apt install -y libmfx-gen1.2[/cyan]',
-                    box = box.SQUARE,
-                    border_style = Style(color='#E33157'),
-                ), (0, 2, 0, 2)))
-                print(Padding(Panel(
-                    'QSVEncC (--check-hw) のログ:\n' + result1.stdout.strip(),
-                    box = box.SQUARE,
-                    border_style = Style(color='#E33157'),
-                ), (0, 2, 0, 2)))
-                print(Padding(Panel(
-                    'QSVEncC (--check-clinfo) のログ:\n' + result2.stdout.strip(),
-                    box = box.SQUARE,
-                    border_style = Style(color='#E33157'),
-                ), (0, 2, 0, 2)))
+                # Intel Media Driver が /usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so に配置されているか
+                ## Intel Media Driver がインストールされていればここに配置されるはずなので、配置されていないということは
+                ## おそらくインストールされていないと考えられる
+                ## ref: https://packages.ubuntu.com/ja/focal/amd64/intel-media-va-driver-non-free/filelist
+                is_intel_media_driver_installed = Path('/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so').exists()
+
+                # QSVEncC が利用できない結果になった場合は Intel Media Driver がインストールされていない可能性が高いので、
+                # 適宜 Intel Media Driver をインストールするように催促する
+                ## Intel Media Driver は Intel Graphics 本体のドライバーとは切り離されているので、インストールが比較的容易
+                ## Intel Graphics 本体のドライバーは Linux カーネルに組み込まれている
+                ## インストールコマンドが複雑なので、コマンド例を明示する
+                if result1.returncode != 0 or result2.returncode != 0 or is_intel_media_driver_installed is False:
+                    print(Padding(Panel(
+                        '[yellow]注意: この PC では QSVEncC が利用できない状態です。[/yellow]\n'
+                        'Intel QSV の利用に必要な Intel Media Driver が\n'
+                        'インストールされていない可能性があります。',
+                        box = box.SQUARE,
+                        border_style = Style(color='#E33157'),
+                    ), (1, 2, 0, 2)))
+                    print(Padding(Panel(
+                        'Intel Media Driver は以下のコマンドでインストールできます。\n'
+                        '[cyan]curl -fsSL https://repositories.intel.com/graphics/intel-graphics.key | sudo gpg --dearmor --yes -o /usr/share/keyrings/intel-graphics-keyring.gpg && echo \'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/graphics/ubuntu focal main\' | sudo tee /etc/apt/sources.list.d/intel-graphics.list > /dev/null && sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-opencl-icd[/cyan]',
+                        box = box.SQUARE,
+                        border_style = Style(color='#E33157'),
+                    ), (0, 2, 0, 2)))
+                    print(Padding(Panel(
+                        'Alder Lake (第12世代) 以降の CPU では、追加で以下のコマンドを実行してください。\n'
+                        'なお、libmfx-gen1.2 パッケージは Ubuntu 22.04 LTS にしか存在しないため、 \n'
+                        'Ubuntu 20.04 LTS では、Alder Lake 以降の CPU の Intel QSV を利用できません。\n'
+                        '[cyan]sudo apt install -y libmfx-gen1.2[/cyan]',
+                        box = box.SQUARE,
+                        border_style = Style(color='#E33157'),
+                    ), (0, 2, 0, 2)))
+                    print(Padding(Panel(
+                        'QSVEncC (--check-hw) のログ:\n' + result1.stdout.strip(),
+                        box = box.SQUARE,
+                        border_style = Style(color='#E33157'),
+                    ), (0, 2, 0, 2)))
+                    print(Padding(Panel(
+                        'QSVEncC (--check-clinfo) のログ:\n' + result2.stdout.strip(),
+                        box = box.SQUARE,
+                        border_style = Style(color='#E33157'),
+                    ), (0, 2, 0, 2)))
+
+            # Linux-Docker のみ
+            elif platform_type == 'Linux-Docker':
+
+                # Linux-Docker では Docker イメージの中に Intel Media Driver が含まれているため、基本的には動作するはず
+                ## もしそれでも動作しない場合は、Intel QSV に対応していない古い Intel CPU である可能性が高い
+                if result1.returncode != 0 or result2.returncode != 0:
+                    print(Padding(Panel(
+                        '[yellow]注意: この PC では QSVEncC が利用できない状態です。[/yellow]\n'
+                        'お使いの CPU が古く、Intel QSV に対応していない可能性があります。\n'
+                        'Linux 版の Intel QSV は、Broadwell (第5世代) 以上の Intel CPU でのみ利用できます。\n'
+                        'そのため、Haswell (第4世代) 以下の CPU では、QSVEncC を利用できません。\n'
+                        'なお、Windows 版の Intel QSV は、Haswell (第4世代) 以下の CPU でも利用できます。',
+                        box = box.SQUARE,
+                        border_style = Style(color='#E33157'),
+                    ), (1, 2, 0, 2)))
+                    print(Padding(Panel(
+                        'QSVEncC (--check-hw) のログ:\n' + result1.stdout.strip(),
+                        box = box.SQUARE,
+                        border_style = Style(color='#E33157'),
+                    ), (0, 2, 0, 2)))
+                    print(Padding(Panel(
+                        'QSVEncC (--check-clinfo) のログ:\n' + result2.stdout.strip(),
+                        box = box.SQUARE,
+                        border_style = Style(color='#E33157'),
+                    ), (0, 2, 0, 2)))
 
         # エンコーダーに NVEncC が選択されているとき
         elif encoder == 'NVEncC':
@@ -739,7 +778,8 @@ def Installer(version: str) -> None:
                     '[yellow]注意: この PC では NVEncC が利用できない状態です。[/yellow]\n'
                     'NVENC の利用に必要な NVIDIA Graphics Driver がインストールされていないか、\n'
                     'NVIDIA Graphics Driver のバージョンが古い可能性があります。\n'
-                    'NVIDIA Graphics Driver をインストール/最新バージョンに更新してください。',
+                    'NVIDIA Graphics Driver をインストール/最新バージョンに更新してください。\n'
+                    'インストール/アップデート完了後は、システムの再起動が必要です。',
                     box = box.SQUARE,
                     border_style = Style(color='#E33157'),
                 ), (1, 2, 0, 2)))
@@ -775,12 +815,25 @@ def Installer(version: str) -> None:
                     '[yellow]注意: この PC では VCEEncC が利用できない状態です。[/yellow]\n'
                     'AMD VCE の利用に必要な AMDGPU-PRO Driver がインストールされていないか、\n'
                     'AMDGPU-PRO Driver のバージョンが古い可能性があります。\n'
-                    'AMDGPU-PRO Driver をインストール/最新バージョンに更新してください。\n'
-                    'AMDGPU-PRO Driver のインストール方法は以下のページに記載されています。\n'
-                    '[bright_blue]https://github.com/rigaya/VCEEnc/blob/master/Install.ja.md#linux-ubuntu-2004[/bright_blue]',
+                    'AMDGPU-PRO Driver をインストール/最新バージョンに更新してください。',
                     box = box.SQUARE,
                     border_style = Style(color='#E33157'),
                 ), (1, 2, 0, 2)))
+                print(Padding(Panel(
+                    'AMDGPU-PRO Driver のインストーラーは以下のコマンドでダウンロードできます。\n'
+                    'Ubuntu 20.04 LTS: [cyan]curl -LO https://repo.radeon.com/amdgpu-install/22.20/ubuntu/focal/amdgpu-install_22.20.50200-1_all.deb[/cyan]\n'
+                    'Ubuntu 22.04 LTS: [cyan]curl -LO https://repo.radeon.com/amdgpu-install/22.20/ubuntu/jammy/amdgpu-install_22.20.50200-1_all.deb[/cyan]',
+                    box = box.SQUARE,
+                    border_style = Style(color='#E33157'),
+                ), (0, 2, 0, 2)))
+                print(Padding(Panel(
+                    'AMDGPU-PRO Driver は以下のコマンドでインストール/アップデートできます。\n'
+                    '事前に AMDGPU-PRO Driver のインストーラーをダウンロードしてから実行してください。\n'
+                    'インストール/アップデート完了後は、システムの再起動が必要です。\n'
+                    '[cyan]sudo apt install -y ./amdgpu-install_22.20.50200-1_all.deb && sudo apt update && sudo amdgpu-install -y --accept-eula --usecase=graphics,amf,opencl --opencl=rocr,legacy --no-32[/cyan]',
+                    box = box.SQUARE,
+                    border_style = Style(color='#E33157'),
+                ), (0, 2, 0, 2)))
                 print(Padding(Panel(
                     'VCEEncC のログ:\n' + result.stdout.strip(),
                     box = box.SQUARE,
