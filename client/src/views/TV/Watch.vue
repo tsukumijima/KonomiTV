@@ -205,8 +205,8 @@ import Utils, { ChannelUtils, PlayerCaptureHandler, PlayerUtils, ProgramUtils } 
 const PLAYBACK_BUFFER_SEC_LOW_LATENCY = 1.5;
 
 // 低遅延モードオフ時の再生バッファ (秒単位)
-// 3秒程度の遅延を許容する
-const PLAYBACK_BUFFER_SEC = 3.0;
+// 5秒程度の遅延を許容する
+const PLAYBACK_BUFFER_SEC = 5.0;
 
 export default Vue.extend({
     name: 'TV-Watch',
