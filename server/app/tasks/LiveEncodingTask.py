@@ -946,6 +946,10 @@ class LiveEncodingTask():
                                 # QSVEncC 非対応の環境
                                 livestream.setStatus('Offline', 'お使いの PC 環境は QSVEncC エンコーダーに対応していません。')
                                 break
+                            elif encoder_type == 'QSVEncC' and 'iHD_drv_video.so init failed' in line:
+                                # QSVEncC 非対応の環境 (Linux かつ第5世代以前の Intel CPU)
+                                livestream.setStatus('Offline', 'お使いの PC 環境は Linux 版 QSVEncC エンコーダーに対応していません。第5世代以前の古い CPU をお使いの可能性があります。')
+                                break
                             elif encoder_type == 'NVEncC' and 'CUDA not available.' in line:
                                 # NVEncC 非対応の環境
                                 livestream.setStatus('Offline', 'お使いの PC 環境は NVEncC エンコーダーに対応していません。')
