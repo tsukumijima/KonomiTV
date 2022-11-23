@@ -58,8 +58,9 @@ jobs:
           sed -i -e 's|download/v.*/thirdparty-linux\.tar\.xz|download/v${{ github.event.inputs.version }}/thirdparty-linux\.tar\.xz|' Dockerfile
           sed -i -e 's|download/v.*/KonomiTV-Installer\.elf|download/v${{ github.event.inputs.version }}/KonomiTV-Installer\.elf|' Readme.md
           # クライアントをビルド
+          # GitHub Actions 環境ではなぜか --ignore-scripts をつけないと patch-package の実行エラーでそのままエラー終了してしまう
           cd client/
-          yarn install
+          yarn install --ignore-scripts
           yarn build
           cd ../
           # リリースコミットを作成
