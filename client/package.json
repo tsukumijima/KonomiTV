@@ -1,6 +1,6 @@
 {
     "name": "KonomiTV",
-    "version": "0.6.1",
+    "version": "0.6.2",
     "private": true,
     "scripts": {
         "dev": "concurrently --raw \"npm:dev-https\" \"vue-cli-service serve\"",
