@@ -18,6 +18,8 @@ env:
 jobs:
   build-and-push-image:
     runs-on: ubuntu-latest
+    # 最新コミットがリリースコミットのときは、タグの push がトリガーのとき以外は実行しない
+    ## タグが push された後でないと Releases からサードパーティーライブラリをダウンロードできず失敗する
     if: (startsWith(github.ref, 'refs/tags/v')) || (contains(github.event.head_commit.message, 'Release:') == false)
     permissions:
       contents: read
@@ -30,11 +32,11 @@ jobs:
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      # タグの push がトリガーのときだけ、Release のサードパーティーライブラリが確実にアップロードされるまで3分ほど待つ
+      # タグの push がトリガーのときだけ、Release のサードパーティーライブラリが確実にアップロードされるまで1分ほど待つ
       - name: Wait for Release to be Created
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          sleep 180s
+          sleep 60s
 
       # GitHub Container Registry (ghcr.io) にログイン
       - name: Login to the Container Registry

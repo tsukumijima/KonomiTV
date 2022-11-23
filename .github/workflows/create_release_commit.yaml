@@ -1,0 +1,69 @@
+
+name: Create Release Commit
+
+# 手動実行
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        type: string
+        description: 'リリースするバージョン (例: 0.6.0, v はつけない)'
+        required: true
+        default: ''
+
+# ジョブの定義
+jobs:
+
+  # リリースコミットの作成
+  create_release_commit:
+    runs-on: ubuntu-22.04
+    steps:
+
+      # KonomiTV のソースコードをチェックアウト
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GIT_PUSH_TOKEN }}
+
+      # Node.js 16 環境をセットアップ
+      - name: Setup Node.js 16
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          cache: 'yarn'
+          cache-dependency-path: '${{ github.workspace }}/client/yarn.lock'
+
+      # リリースコミットを作成
+      - name: Create Release Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git switch master
+
+          # ソースコードやドキュメント内のバージョンを更新
+          sed -i -e 's|"version": ".*",|"version": "${{ github.event.inputs.version }}",|' client/package.json
+          sed -i -e "s|TARGET_VERSION = '.*'|TARGET_VERSION = '${{ github.event.inputs.version }}'|" installer/KonomiTV-Installer.py
+          sed -i -e "s|VERSION = '.*'|VERSION = '${{ github.event.inputs.version }}'|" server/app/constants.py
+          sed -i -e 's|download/v.*/thirdparty-linux\.tar\.xz|download/v${{ github.event.inputs.version }}/thirdparty-linux\.tar\.xz|' Dockerfile
+          sed -i -e 's|download/v.*/KonomiTV-Installer\.elf|download/v${{ github.event.inputs.version }}/KonomiTV-Installer\.elf|' Readme.md
+
+          # クライアントをビルド
+          # GitHub Actions 環境ではなぜか --ignore-scripts をつけないと patch-package の実行エラーでそのままエラー終了してしまう
+          cd client/
+          yarn install --ignore-scripts
+          yarn build
+          cd ../
+
+          # リリースコミットを作成
+          git add .
+          git commit -m 'Release: version ${{ github.event.inputs.version }}'
+          git push -u origin master
+
+      # release ブランチを現在の master ブランチの最新コミット (リリースコミット) に更新する
+      ## release ブランチはリリースしたときのみ更新される
+      - name: Update Release Branch
+        run: |
+          git switch release
+          git merge master
+          git push -u origin release

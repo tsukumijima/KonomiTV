@@ -1,7 +1,7 @@
 
 name: Build Thirdparty Libraries
 
-# .github/workflows/build_thirdparty.yaml (このファイル) に変更があったとき or 手動実行
+# .github/workflows/build_thirdparty.yaml (このファイル) に変更があったとき or 他のワークフローからの呼び出し or 手動実行
 on:
   push:
     branches:
