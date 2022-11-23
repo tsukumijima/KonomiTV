@@ -14,19 +14,8 @@ on:
 # ジョブの定義
 jobs:
 
-  # インストーラーのビルド
-  build_installer:
-    uses: tsukumijima/KonomiTV/.github/workflows/build_installer.yaml@master
-
-  # サードパーティーライブラリのビルド
-  build_thirdparty:
-    uses: tsukumijima/KonomiTV/.github/workflows/build_thirdparty.yaml@master
-
-  # 両方のビルドが終わったら、タグ付けしてリリースを公開
-  publish_release:
-    needs:
-      - build_installer
-      - build_thirdparty
+  # リリースコミットの作成
+  create_release_commit:
     runs-on: ubuntu-22.04
     steps:
 
@@ -48,10 +37,10 @@ jobs:
       - name: Create Release Commit
         working-directory: KonomiTV
         run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
           git switch master
-          # ソースコードやドキュメントのバージョンを更新
+          # ソースコードやドキュメント内のバージョンを更新
           sed -i -e 's|"version": ".*",|"version": "${{ github.event.inputs.version }}",|' client/package.json
           sed -i -e "s|TARGET_VERSION = '.*'|TARGET_VERSION = '${{ github.event.inputs.version }}'|" installer/KonomiTV-Installer.py
           sed -i -e "s|VERSION = '.*'|VERSION = '${{ github.event.inputs.version }}'|" server/app/constants.py
@@ -68,23 +57,30 @@ jobs:
           git commit -m 'Release: version ${{ github.event.inputs.version }}'
           git push
 
-      # release ブランチを現在の master ブランチの最新コミット (リリースコミット) に更新する
-      ## release ブランチはリリースしたときのみ更新される
-      - name: Update Release Branch
-        working-directory: KonomiTV
-        run: |
-          git switch release
-          git merge master
-          git push
+  # インストーラーのビルド
+  ## リリースコミットが作成されてからビルドしないと旧バージョンのインストーラーになってしまう
+  build_installer:
+    needs:
+      - create_release_commit
+    uses: tsukumijima/KonomiTV/.github/workflows/build_installer.yaml@master
 
-      # リリースコミットに対応する新バージョンのタグを release ブランチで作成
-      - name: Create New Version Tag
-        working-directory: KonomiTV
-        run: |
-          git tag v${{ github.event.inputs.version }} release
-          git push origin --tags
+  # サードパーティーライブラリのビルド
+  ## サードパーティーライブラリにはバージョン依存はないが、念のためリリースコミットの作成を待つ
+  build_thirdparty:
+    needs:
+      - create_release_commit
+    uses: tsukumijima/KonomiTV/.github/workflows/build_thirdparty.yaml@master
 
-      # ビルドしたインストーラーとサードパーティライブラリをダウンロード
+  # 両方のビルドが終わったら、タグ付けしてリリースを公開
+  publish_release:
+    needs:
+      - create_release_commit
+      - build_installer
+      - build_thirdparty
+    runs-on: ubuntu-22.04
+    steps:
+
+      # ビルド済みのインストーラーとサードパーティライブラリをダウンロード
       - name: Download Installer and Thirdparty Libraries
         run: |
           curl -LO https://nightly.link/tsukumijima/KonomiTV/workflows/build_installer.yaml/master/KonomiTV-Installer.exe.zip
@@ -95,6 +91,35 @@ jobs:
           unzip thirdparty-windows.7z.zip && rm thirdparty-windows.7z.zip
           curl -LO https://nightly.link/tsukumijima/KonomiTV/workflows/build_thirdparty.yaml/master/thirdparty-linux.tar.xz.zip
           unzip thirdparty-linux.tar.xz.zip && rm thirdparty-linux.tar.xz.zip
+
+      # KonomiTV のソースコードをチェックアウト
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          path: KonomiTV
+          token: ${{ secrets.GIT_PUSH_TOKEN }}
+
+      # release ブランチを現在の master ブランチの最新コミット (リリースコミット) に更新する
+      ## release ブランチはリリースしたときのみ更新される
+      - name: Update Release Branch
+        working-directory: KonomiTV
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git switch release
+          git merge master
+          git push
+
+      # リリースコミットに対応する新バージョンのタグを release ブランチで作成
+      ## この git push origin --tags をトリガーに Docker イメージを公開するワークフローが実行される
+      ## Docker イメージのビルドには新バージョンのサードパーティーライブラリが必要なため、リリースを作成する直前に行う必要がある
+      ## Docker イメージを公開するワークフロー側でも、サードパーティーライブラリが確実にアップロードされるまで3分ほど待つようにしている
+      - name: Create New Version Tag
+        working-directory: KonomiTV
+        run: |
+          git tag v${{ github.event.inputs.version }} release
+          git push origin --tags
 
       # リリースを作成
       - name: Create Release
