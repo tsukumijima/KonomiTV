@@ -204,7 +204,7 @@ if __name__ == '__main__':
                 border_style = Style(color='#E33157'),
             ), (1, 2, 0, 2)))
             print(Padding(Panel(
-                traceback.format_exc(),
+                traceback.format_exc().rstrip(),
                 box = box.SQUARE,
                 border_style = Style(color='#E33157'),
             ), (0, 2, 0, 2)))

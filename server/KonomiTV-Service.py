@@ -44,25 +44,30 @@ def GetNetworkDriveList() -> list[dict[str, str]]:
 
     # ネットワークドライブの情報が格納されているレジストリの HKEY_CURRENT_USER\Network を開く
     # ref: https://itasuke.hatenablog.com/entry/2018/01/08/133510
-    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, 'Network') as root_key:
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, 'Network') as root_key:
 
-        # HKEY_CURRENT_USER\Network 以下のキーを列挙
-        for key in range(winreg.QueryInfoKey(root_key)[0]):
-            drive_letter = winreg.EnumKey(root_key, key)
+            # HKEY_CURRENT_USER\Network 以下のキーを列挙
+            for key in range(winreg.QueryInfoKey(root_key)[0]):
+                drive_letter = winreg.EnumKey(root_key, key)
 
-            # HKEY_CURRENT_USER\Network 以下のキーをそれぞれ開く
-            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, f'Network\\{drive_letter}') as key:
-                for sub_key in range(winreg.QueryInfoKey(key)[1]):
+                # HKEY_CURRENT_USER\Network 以下のキーをそれぞれ開く
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, f'Network\\{drive_letter}') as key:
+                    for sub_key in range(winreg.QueryInfoKey(key)[1]):
 
-                    # 値の名前、データ、データ型を取得
-                    name, data, regtype = winreg.EnumValue(key, sub_key)
+                        # 値の名前、データ、データ型を取得
+                        name, data, regtype = winreg.EnumValue(key, sub_key)
 
-                    # リストに追加
-                    if name == 'RemotePath':
-                        network_drives.append({
-                            'drive_letter': drive_letter,
-                            'remote_path': data,
-                        })
+                        # リストに追加
+                        if name == 'RemotePath':
+                            network_drives.append({
+                                'drive_letter': drive_letter,
+                                'remote_path': data,
+                            })
+
+    # なぜかエラーが出ることがあるが、その際は無視する
+    except FileNotFoundError:
+        pass
 
     return network_drives
 
