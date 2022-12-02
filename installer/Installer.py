@@ -132,6 +132,9 @@ def Installer(version: str) -> None:
         if install_path.is_absolute() is False:
             print(Padding('[red]インストール先のフォルダは絶対パスで入力してください。', (0, 2, 0, 2)))
             continue
+        if '#' in str(install_path):
+            print(Padding('[red]インストール先のパスには # を含めないでください。', (0, 2, 0, 2)))
+            continue
         if install_path.exists():
             # 指定されたフォルダが空フォルダだったときは、ユーザーがわざわざ手動でインストール先のフォルダを
             # 作成してくれている可能性があるので、実装の都合上一度削除しつつ、バリデーションには引っかからないようにする
