@@ -160,7 +160,8 @@ if __name__ == '__main__':
 
         # 管理者権限 (Windows) / root 権限 (Linux) に昇格
         ## Windows 向けに配布する .exe では既に Nuitka 側の機能 (--windows-uac-admin) を使い管理者に昇格しているため、何も行われない
-        elevate.elevate()
+        ## graphical=False で pkexec を使わずに sudo コマンドで root 権限に昇格するようにしている (pkexec だと諸々問題がある)
+        elevate.elevate(graphical=False)
 
     # UAC がキャンセルされるなどして管理者権限が得られなかったとき
     except OSError:
