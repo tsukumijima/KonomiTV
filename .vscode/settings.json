@@ -10,6 +10,7 @@
     // Pylance の Type Checking のうち、いくつかのエラー報告を抑制する
     "python.analysis.diagnosticSeverityOverrides": {
         "reportOptionalMemberAccess": "none",
-        "reportPrivateImportUsage": "none"
+        "reportPrivateImportUsage": "none",
+        "reportShadowedImports": "none"
     }
 }
