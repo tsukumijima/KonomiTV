@@ -38,7 +38,7 @@ jobs:
         working-directory: installer/
         run: |
           pip install pipenv
-          $env:PIPENV_VENV_IN_PROJECT="true"; pipenv sync
+          pipenv sync
 
       # インストーラーの Nuitka のビルドキャッシュを保存/リストア
       - name: Restore Build Cache
@@ -84,7 +84,7 @@ jobs:
         working-directory: installer/
         run: |
           pip install pipenv
-          PIPENV_VENV_IN_PROJECT="true" pipenv sync
+          pipenv sync
 
       # インストーラーの Nuitka のビルドキャッシュを保存/リストア
       - name: Restore Build Cache
