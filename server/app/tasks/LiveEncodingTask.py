@@ -122,7 +122,7 @@ class LiveEncodingTask():
 
         ## 最大 GOP 長 (秒)
         ## 30fps なら ×30 、 60fps なら ×60 された値が --gop-len で使われる
-        gop_len_second = 1  # 1秒
+        gop_len_second = 0.5  # 0.5秒
         if QUALITY[quality].is_hevc is True:
             ## H.265/HEVC では高圧縮化のため、最大 GOP 長を長くする
             gop_len_second = 2  # 2秒
@@ -283,7 +283,7 @@ class LiveEncodingTask():
 
         ## 最大 GOP 長 (秒)
         ## 30fps なら ×30 、 60fps なら ×60 された値が --gop-len で使われる
-        gop_len_second = 1  # 1秒
+        gop_len_second = 0.5  # 0.5秒
         if QUALITY[quality].is_hevc is True:
             ## H.265/HEVC では高圧縮化のため、最大 GOP 長を長くする
             gop_len_second = 2  # 2秒
