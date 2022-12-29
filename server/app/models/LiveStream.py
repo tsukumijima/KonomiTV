@@ -90,9 +90,20 @@ class LiveStreamClient():
             return None
 
 
-    async def __commonForLLHLSClient(self, callback: Coroutine[Any, Any, Response | StreamingResponse]) -> Response | StreamingResponse:
+    async def __commonForLLHLSClient(self,
+        response_type: Literal['Playlist', 'Segment', 'PartialSegment', 'InitializationSegment'],
+        msn: int | None,
+        part: int | None,
+        secondary_audio: bool = False
+    ) -> Response | StreamingResponse:
         """
         LL-HLS クライアント向け API の共通処理 (バリデーションと最終読み取り時刻の更新)
+
+        Args:
+            response_type (Literal['Playlist', 'Segment', 'PartialSegment', 'InitializationSegment']): レスポンスの種別
+            msn (int | None): LL-HLS プレイリストの msn (Media Sequence Number) インデックス
+            part (int | None): LL-HLS プレイリストの part (部分セグメント) インデックス
+            secondary_audio (bool, optional): 副音声用セグメントを取得するかどうか. Defaults to False.
 
         Returns:
             Response | StreamingResponse: FastAPI のレスポンス
@@ -112,8 +123,15 @@ class LiveStreamClient():
                 detail = 'LL-HLS Segmenter is not running',
             )
 
-        # 指定された非同期コールバック関数からレスポンスを取得
-        response = await callback
+        # 指定されたデータのレスポンスを取得
+        if response_type == 'Playlist':
+            response = await self._livestream.segmenter.getPlaylist(msn, part, secondary_audio)
+        elif response_type == 'Segment':
+            response = await self._livestream.segmenter.getSegment(msn, secondary_audio)
+        elif response_type == 'PartialSegment':
+            response = await self._livestream.segmenter.getPartialSegment(msn, part, secondary_audio)
+        elif response_type == 'InitializationSegment':
+            response = await self._livestream.segmenter.getInitializationSegment(secondary_audio)
 
         # ストリームデータの最終読み取り時刻を更新
         ## LL-HLS Segmenter からのレスポンス取得後に更新しないとタイムアウト判定が正しく行われない
@@ -135,9 +153,7 @@ class LiveStreamClient():
         Returns:
             Response: プレイリストデータ (m3u8) の FastAPI レスポンス
         """
-
-        # バリデーションと最終読み取り時刻の更新を行った上で、LL-HLS Segmenter からプレイリストを取得してそのまま返す
-        return await self.__commonForLLHLSClient(self._livestream.segmenter.getPlaylist(msn, part, secondary_audio))
+        return await self.__commonForLLHLSClient('Playlist', msn, part, secondary_audio)
 
 
     async def getSegment(self, msn: int | None, secondary_audio: bool = False) -> Response | StreamingResponse:
@@ -152,9 +168,7 @@ class LiveStreamClient():
         Returns:
             Response | StreamingResponse: セグメントデータ (m4s) の FastAPI レスポンス (StreamingResponse)
         """
-
-        # バリデーションと最終読み取り時刻の更新を行った上で、LL-HLS Segmenter からセグメントデータを取得してそのまま返す
-        return await self.__commonForLLHLSClient(self._livestream.segmenter.getSegment(msn, secondary_audio))
+        return await self.__commonForLLHLSClient('Segment', msn, None, secondary_audio)
 
 
     async def getPartialSegment(self, msn: int | None, part: int | None, secondary_audio: bool = False) -> Response | StreamingResponse:
@@ -170,9 +184,7 @@ class LiveStreamClient():
         Returns:
             Response | StreamingResponse: 部分セグメントデータ (m4s) の FastAPI レスポンス (StreamingResponse)
         """
-
-        # バリデーションと最終読み取り時刻の更新を行った上で、LL-HLS Segmenter から部分セグメントデータを取得してそのまま返す
-        return await self.__commonForLLHLSClient(self._livestream.segmenter.getPartialSegment(msn, part, secondary_audio))
+        return await self.__commonForLLHLSClient('PartialSegment', msn, part, secondary_audio)
 
 
     async def getInitializationSegment(self, secondary_audio: bool = False) -> Response:
@@ -186,9 +198,7 @@ class LiveStreamClient():
         Returns:
             Response: 初期セグメントデータ (m4s) の FastAPI レスポンス
         """
-
-        # バリデーションと最終読み取り時刻の更新を行った上で、LL-HLS Segmenter から初期セグメントデータを取得してそのまま返す
-        return await self.__commonForLLHLSClient(self._livestream.segmenter.getInitializationSegment(secondary_audio))
+        return await self.__commonForLLHLSClient('InitializationSegment', None, None, secondary_audio)
 
 
 class LiveStream():
