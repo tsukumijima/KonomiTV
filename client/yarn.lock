@@ -3430,9 +3430,9 @@ dotenv@^10.0.0:
   resolved "https://registry.npmmirror.com/dotenv/-/dotenv-10.0.0.tgz#3d4227b8fb95f81096cdd2b66653fb2c7085ba81"
   integrity sha512-rlBi9d8jpv9Sf1klPjNfFAuWDjKLwTIJJ/VxtoTwIR6hnZxcEOQCZg2oIL3MWBYw5GpUDKOEnND7LXTbIpQ03Q==
 
-"dplayer@github:tsukumijima/DPlayer#v1.27.9":
-  version "1.27.9"
-  resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/03c3483fbc52b69dffd43d19d33c6f630c40df16"
+"dplayer@github:tsukumijima/DPlayer#v1.27.10":
+  version "1.27.10"
+  resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/434524e63b8ad021b8f5602744d1f5a0482d7b31"
   dependencies:
     aribb24.js "1.11.0"
     axios "^1.2.1"
