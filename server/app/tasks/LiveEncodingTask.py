@@ -681,14 +681,15 @@ class LiveEncodingTask():
             nonlocal chunk_buffer, chunk_written_at, writer_lock
 
             # エンコーダーからの出力を受け取るイテレータ
-            stream_iterator: Iterator[bytes] = iter(lambda: encoder.stdout.read(512), b'')
+            ## TS パケットのサイズが 188 bytes なので、1回の read() で 188 bytes ずつ読み込む
+            stream_iterator: Iterator[bytes] = iter(lambda: encoder.stdout.read(188), b'')
 
             for chunk in stream_iterator:
 
                 # 同時に chunk_buffer / chunk_written_at にアクセスするスレッドが1つだけであることを保証する (排他ロック)
                 with writer_lock:
 
-                    # 512 bytes ごとに区切られた、エンコーダーの出力のチャンクをバッファに貯める
+                    # 188 bytes ごとに区切られた、エンコーダーの出力のチャンクをバッファに貯める
                     chunk_buffer += chunk
 
                     # チャンクバッファが 65536 bytes (64KB) 以上になった時のみ
