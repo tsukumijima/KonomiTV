@@ -58,7 +58,7 @@ class Channel(pydantic_model_creator(models.Channel, name='Channel')):
 
 class LiveStream(BaseModel):
     # LiveStream は特殊なモデルのため、ここで全て定義する
-    status: str
+    status: Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart']
     detail: str
     updated_at: float
     clients_count: int
@@ -111,6 +111,9 @@ class LiveStreams(BaseModel):
     ONAir: dict[str, LiveStream]
     Standby: dict[str, LiveStream]
     Offline: dict[str, LiveStream]
+
+class LiveStreamLLHLSClientID(BaseModel):
+    client_id: str
 
 class ClientSettings(BaseModel):
     # 詳細は client/src/utils/Utils.ts を参照

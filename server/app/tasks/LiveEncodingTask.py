@@ -18,19 +18,30 @@ from app.models import LiveStream
 from app.models import Program
 from app.utils import Logging
 from app.utils.EDCB import EDCBTuner
+from app.utils.hls import LiveLLHLSSegmenter
 
 
-class LiveEncodingTask():
+class LiveEncodingTask:
 
 
-    def __init__(self):
+    def __init__(self, livestream: LiveStream):
+        """
+        LiveStream のインスタンスに基づくライブエンコードタスクを初期化する
+        このエンコードタスクが LiveStream を実質的に制御する形になる
+
+        Args:
+            livestream (LiveStream): LiveStream のインスタンス
+        """
+
+        # ライブストリームのインスタンスをセット
+        self.livestream = livestream
 
         # エンコードタスクのリトライ回数のカウント
-        self.retry_count = 0
+        self._retry_count = 0
 
         # エンコードタスクの最大リトライ回数
         # この数を超えた場合はエンコードタスクを再起動しない（無限ループ避け）
-        self.max_retry_count = 5  # 5 回まで
+        self._max_retry_count = 5  # 5 回まで
 
 
     def isFullHDChannel(self, network_id: int, service_id: int) -> bool:
@@ -49,8 +60,8 @@ class LiveEncodingTask():
         """
 
         # 地デジでフル HD 放送を行っているチャンネルのネットワーク ID と一致する
-        ## あいテレビ, びわ湖放送, 奈良テレビ, KBS京都, KNB北日本放送, ABS秋田放送
-        if network_id in [31940, 32038, 32054, 32102, 32162, 32466]:
+        ## テレビ宮崎, あいテレビ, びわ湖放送, 奈良テレビ, KBS京都, KNB北日本放送, ABS秋田放送
+        if network_id in [31811, 31940, 32038, 32054, 32102, 32162, 32466]:
             return True
 
         # BS でフル HD 放送を行っているチャンネルのサービス ID と一致する
@@ -82,7 +93,7 @@ class LiveEncodingTask():
         options = []
 
         # 入力ストリームの解析時間
-        analyzeduration = round(500000 + (self.retry_count * 200000))  # リトライ回数に応じて少し増やす
+        analyzeduration = round(500000 + (self._retry_count * 200000))  # リトライ回数に応じて少し増やす
         if is_sphd_channel is True:
             # スカパー！プレミアムサービスのチャンネルは入力ストリームの解析時間を長めにする (その方がうまくいく)
             ## ほかと違い H.264 コーデックが採用されていることが影響しているのかも
@@ -99,7 +110,7 @@ class LiveEncodingTask():
 
         # フラグ
         ## 主に FFmpeg の起動を高速化するための設定
-        max_interleave_delta = round(1 + self.retry_count)
+        max_interleave_delta = round(1 + self._retry_count)
         options.append(f'-fflags nobuffer -flags low_delay -max_delay 250000 -max_interleave_delta {max_interleave_delta} -threads auto')
 
         # 映像
@@ -167,7 +178,7 @@ class LiveEncodingTask():
 
         # 入力
         ## -analyzeduration をつけることで、ストリームの分析時間を短縮できる
-        analyzeduration = round(500000 + (self.retry_count * 200000))  # リトライ回数に応じて少し増やす
+        analyzeduration = round(500000 + (self._retry_count * 200000))  # リトライ回数に応じて少し増やす
         options.append(f'-f mpegts -analyzeduration {analyzeduration} -i pipe:0')
 
         # ストリームのマッピング
@@ -176,7 +187,7 @@ class LiveEncodingTask():
 
         # フラグ
         ## 主に FFmpeg の起動を高速化するための設定
-        max_interleave_delta = round(1 + self.retry_count)
+        max_interleave_delta = round(1 + self._retry_count)
         options.append(f'-fflags nobuffer -flags low_delay -max_delay 250000 -max_interleave_delta {max_interleave_delta} -threads auto')
 
         # 音声
@@ -218,8 +229,8 @@ class LiveEncodingTask():
         options = []
 
         # 入力ストリームの解析時間
-        input_probesize = round(1000 + (self.retry_count * 500))  # リトライ回数に応じて少し増やす
-        input_analyze = round(0.7 + (self.retry_count * 0.2), 1)  # リトライ回数に応じて少し増やす
+        input_probesize = round(1000 + (self._retry_count * 500))  # リトライ回数に応じて少し増やす
+        input_analyze = round(0.7 + (self._retry_count * 0.2), 1)  # リトライ回数に応じて少し増やす
         if is_sphd_channel is True:
             # スカパー！プレミアムサービスのチャンネルは入力ストリームの解析時間を長めにする (その方がうまくいく)
             ## ほかと違い H.264 コーデックが採用されていることが影響しているのかも
@@ -244,7 +255,7 @@ class LiveEncodingTask():
 
         # フラグ
         ## 主に HWEncC の起動を高速化するための設定
-        max_interleave_delta = round(1 + self.retry_count)
+        max_interleave_delta = round(1 + self._retry_count)
         options.append(f'-m fflags:nobuffer -m max_delay:250000 -m max_interleave_delta:{max_interleave_delta} --output-thread -1 --lowlatency')
         ## その他の設定
         options.append('--max-procfps 60 --log-level debug')
@@ -327,27 +338,20 @@ class LiveEncodingTask():
         return result
 
 
-    async def run(self, channel_id: str, quality: QUALITY_TYPES) -> None:
+    async def run(self) -> None:
         """
         エンコードタスクを実行する
         プロセス実行なども含めてすべて非同期にしようとすると収拾がつかない上に性能上の不安があるため、開始時・終了時の処理は非同期化した上で、
         役割の異なる Reader()・Writer() / SubWriter()・Controller() の4つの同期関数をスレッドプール上で同時に実行する構成になっている
-
-        Args:
-            channel_id (str): チャンネルID
-            quality (QUALITY_TYPES): 映像の品質
         """
 
-        # ライブストリームのインスタンスを取得する
-        livestream = LiveStream(channel_id, quality)
-
         # まだ Standby になっていなければ、ステータスを Standby に設定
-        # 基本はエンコードタスクの呼び出し元である livestream.connect() の方で Standby に設定されるが、再起動の場合はそこを経由しないため必要
-        if not (livestream.getStatus()['status'] == 'Standby' and livestream.getStatus()['detail'] == 'エンコードタスクを起動しています…'):
-            livestream.setStatus('Standby', 'エンコードタスクを起動しています…')
+        # 基本はエンコードタスクの呼び出し元である self.livestream.connect() の方で Standby に設定されるが、再起動の場合はそこを経由しないため必要
+        if not (self.livestream.getStatus()['status'] == 'Standby' and self.livestream.getStatus()['detail'] == 'エンコードタスクを起動しています…'):
+            self.livestream.setStatus('Standby', 'エンコードタスクを起動しています…')
 
         # チャンネル情報からサービス ID とネットワーク ID を取得する
-        channel = await Channel.filter(channel_id=channel_id).first()
+        channel = await Channel.filter(channel_id=self.livestream.channel_id).first()
 
         # 現在の番組情報を取得する
         program_present: Program | None = (await channel.getCurrentAndNextProgram())[0]
@@ -369,7 +373,7 @@ class LiveEncodingTask():
             program_present.is_free = True
             program_present.genre = []
 
-        Logging.info(f'[Live: {livestream.livestream_id}] Title:{program_present.title}')
+        Logging.info(f'[Live: {self.livestream.livestream_id}] Title:{program_present.title}')
 
         # tsreadex のオプション
         ## 放送波の前処理を行い、エンコードを安定させるツール
@@ -447,8 +451,8 @@ class LiveEncodingTask():
             if channel.is_radiochannel is True:
                 encoder_options = self.buildFFmpegOptionsForRadio()
             else:
-                encoder_options = self.buildFFmpegOptions(quality, is_fullhd_channel, channel.channel_type == 'SKY')
-            Logging.info(f'[Live: {livestream.livestream_id}] FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
+                encoder_options = self.buildFFmpegOptions(self.livestream.quality, is_fullhd_channel, channel.channel_type == 'SKY')
+            Logging.info(f'[Live: {self.livestream.livestream_id}] FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
             # プロセスを非同期で作成・実行
             encoder: subprocess.Popen = await asyncio.to_thread(subprocess.Popen,  # type: ignore
@@ -463,8 +467,8 @@ class LiveEncodingTask():
         elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
 
             # オプションを取得
-            encoder_options = self.buildHWEncCOptions(quality, encoder_type, is_fullhd_channel, channel.channel_type == 'SKY')
-            Logging.info(f'[Live: {livestream.livestream_id}] {encoder_type} Commands:\n{encoder_type} {" ".join(encoder_options)}')
+            encoder_options = self.buildHWEncCOptions(self.livestream.quality, encoder_type, is_fullhd_channel, channel.channel_type == 'SKY')
+            Logging.info(f'[Live: {self.livestream.livestream_id}] {encoder_type} Commands:\n{encoder_type} {" ".join(encoder_options)}')
 
             # プロセスを非同期で作成・実行
             encoder: subprocess.Popen = await asyncio.to_thread(subprocess.Popen,  # type: ignore
@@ -477,8 +481,12 @@ class LiveEncodingTask():
 
         # ***** チューナーの起動と接続 *****
 
-        # 何かしら定義しておかないと Pylance がエラーを吐く…
-        tuner = None
+        # LL-HLS Segmenter を初期化
+        ## iPhone Safari は mpegts.js でのストリーミングに対応していないため、フォールバックとして LL-HLS で配信する必要がある
+        self.livestream.segmenter = LiveLLHLSSegmenter()
+
+        # EDCB のチューナーインスタンス (Mirakurun バックエンド利用時は常に None)
+        tuner: EDCBTuner | None = None
 
         # Mirakurun バックエンド
         if CONFIG['general']['backend'] == 'Mirakurun':
@@ -492,7 +500,7 @@ class LiveEncodingTask():
             # HTTP リクエストを開始
             ## stream=True を設定することで、レスポンスの返却を待たずに処理を進められる
             try:
-                livestream.setStatus('Standby', 'チューナーを起動しています…')
+                self.livestream.setStatus('Standby', 'チューナーを起動しています…')
                 response = await asyncio.to_thread(requests.get,
                     url = mirakurun_stream_api_url,
                     headers = {**API_REQUEST_HEADERS, 'X-Mirakurun-Priority': '0'},
@@ -506,9 +514,9 @@ class LiveEncodingTask():
                     ('放送終了' in program_present.title) or
                     ('休止' in program_present.title) or
                     ('停波' in program_present.title)):
-                    livestream.setStatus('Offline', 'この時間は放送を休止しています。')
+                    self.livestream.setStatus('Offline', 'この時間は放送を休止しています。')
                 else:
-                    livestream.setStatus('Offline', 'チューナーへの接続に失敗しました。チューナー側に何らかの問題があるかもしれません。')
+                    self.livestream.setStatus('Offline', 'チューナーへの接続に失敗しました。チューナー側に何らかの問題があるかもしれません。')
                 return
 
         # EDCB バックエンド
@@ -519,14 +527,14 @@ class LiveEncodingTask():
 
             # チューナーを起動する
             # アンロック状態のチューナーインスタンスがあれば、自動的にそのチューナーが再利用される
-            livestream.setStatus('Standby', 'チューナーを起動しています…')
+            self.livestream.setStatus('Standby', 'チューナーを起動しています…')
             is_tuner_opened = await tuner.open()
 
             # チューナーの起動に失敗した
             # ほとんどがチューナー不足によるものなので、ステータス詳細でもそのように表示する
             # 成功時は tuner.close() するか予約などに割り込まれるまで起動しつづけるので注意
             if is_tuner_opened is False:
-                livestream.setStatus('Offline', 'チューナーの起動に失敗しました。チューナー不足が原因かもしれません。')
+                self.livestream.setStatus('Offline', 'チューナーの起動に失敗しました。チューナー不足が原因かもしれません。')
                 return
 
             # チューナーをロックする
@@ -535,17 +543,17 @@ class LiveEncodingTask():
 
             # チューナーに接続する
             # 放送波が送信される TCP ソケットまたは名前付きパイプを取得する
-            livestream.setStatus('Standby', 'チューナーに接続しています…')
+            self.livestream.setStatus('Standby', 'チューナーに接続しています…')
             pipe_or_socket: BinaryIO | socket.socket | None = await tuner.connect()
 
             # チューナーへの接続に失敗した
             if pipe_or_socket is None:
-                livestream.setStatus('Offline', 'チューナーへの接続に失敗しました。チューナー側に何らかの問題があるかもしれません。')
+                self.livestream.setStatus('Offline', 'チューナーへの接続に失敗しました。チューナー側に何らかの問題があるかもしれません。')
                 return
 
             # ライブストリームにチューナーインスタンスを設定する
             # Idling への切り替え、ONAir への復帰時に LiveStream 側でチューナーのアンロック/ロックが行われる
-            livestream.setTunerInstance(tuner)
+            self.livestream.tuner = tuner
 
         # ***** チューナーからの出力の読み込み → tsreadex・エンコーダーへの書き込み *****
 
@@ -595,17 +603,17 @@ class LiveEncodingTask():
                     if CONFIG['general']['backend'] == 'Mirakurun' and response.status_code is not None and response.status_code != 200:
                         # Offline にしてエンコードタスクを停止する
                         if response.status_code == 503:
-                            livestream.setStatus('Offline', 'チューナーの起動に失敗しました。チューナー不足が原因かもしれません。')
+                            self.livestream.setStatus('Offline', 'チューナーの起動に失敗しました。チューナー不足が原因かもしれません。')
                         else:
-                            livestream.setStatus('Offline', 'チューナーで不明なエラーが発生しました。Mirakurun 側に問題があるかもしれません。')
+                            self.livestream.setStatus('Offline', 'チューナーで不明なエラーが発生しました。Mirakurun 側に問題があるかもしれません。')
                         break
 
                     # 現在 ONAir でかつストリームデータの最終書き込み時刻から 5 秒以上が経過しているなら、エンコーダーがフリーズしたものとみなす
                     # 現在 Standby でかつストリームデータの最終書き込み時刻から 20 秒以上が経過している場合も、エンコーダーがフリーズしたものとみなす
                     # stdout も stderr もブロッキングされてしまっている場合を想定し、このスレッドでも確認する
-                    livestream_status = livestream.getStatus()
-                    if ((livestream_status['status'] == 'ONAir' and time.time() - livestream.stream_data_written_at > 5) or
-                        (livestream_status['status'] == 'Standby' and time.time() - livestream.stream_data_written_at > 20)):
+                    livestream_status = self.livestream.getStatus()
+                    if ((livestream_status['status'] == 'ONAir' and time.time() - self.livestream.stream_data_written_at > 5) or
+                        (livestream_status['status'] == 'Standby' and time.time() - self.livestream.stream_data_written_at > 20)):
 
                         # エンコーダーを強制終了させないと次の処理に進まない事が想定されるので、エンコーダーを強制終了
                         if encoder is not None:
@@ -619,13 +627,13 @@ class LiveEncodingTask():
                             ('放送終了' in program_present.title) or
                             ('休止' in program_present.title) or
                             ('停波' in program_present.title)):
-                            livestream.setStatus('Offline', 'この時間は放送を休止しています。')
+                            self.livestream.setStatus('Offline', 'この時間は放送を休止しています。')
 
                         # エンコードタスクを再起動
                         else:
-                            if self.retry_count < self.max_retry_count:  # リトライの制限内であれば
+                            if self._retry_count < self._max_retry_count:  # リトライの制限内であれば
                                 Logging.debug('Detects encoder termination (Reader thread).')
-                                livestream.setStatus('Restart', 'エンコードが途中で停止しました。エンコードタスクを再起動します。')
+                                self.livestream.setStatus('Restart', 'エンコードが途中で停止しました。エンコードタスクを再起動します。')
                         break
 
                     # tsreadex が既に終了しているか、接続が切断された
@@ -638,9 +646,9 @@ class LiveEncodingTask():
                         # この時点でまだ Offline 状態でなければエンコードタスクを再起動する
                         ## 通常ここが呼ばれるのは正常に Offline に設定された後なので、Offline 状態になっていないとおかしい
                         ## 放送休止によるストリーム出力の終了でタイムアウトしたり、バックエンドのサービスが停止されたなどの理由が考えられる
-                        if livestream.getStatus()['status'] != 'Offline':
-                            if self.retry_count < self.max_retry_count:  # リトライの制限内であれば
-                                livestream.setStatus('Restart', 'チューナーとの接続が切断されました。エンコードタスクを再起動します。')
+                        if self.livestream.getStatus()['status'] != 'Offline':
+                            if self._retry_count < self._max_retry_count:  # リトライの制限内であれば
+                                self.livestream.setStatus('Restart', 'チューナーとの接続が切断されました。エンコードタスクを再起動します。')
                         break
 
             except OSError:
@@ -686,6 +694,10 @@ class LiveEncodingTask():
 
             for chunk in stream_iterator:
 
+                # 受け取った TS パケットを LL-HLS Segmenter に渡す
+                if self.livestream.segmenter is not None:
+                    self.livestream.segmenter.pushTSPacketData(chunk)
+
                 # 同時に chunk_buffer / chunk_written_at にアクセスするスレッドが1つだけであることを保証する (排他ロック)
                 with writer_lock:
 
@@ -697,7 +709,7 @@ class LiveEncodingTask():
 
                         # エンコーダーからの出力をライブストリームの Queue に書き込む
                         # print(f'Writer:    Chunk size: {len(chunk_buffer):05} / Time: {time.time()}')
-                        livestream.write(chunk_buffer)
+                        self.livestream.writeStreamData(chunk_buffer)
 
                         # チャンクバッファを空にする（重要）
                         chunk_buffer = b''
@@ -711,12 +723,11 @@ class LiveEncodingTask():
                     # ループを抜ける前に、接続している全てのクライアントの Queue にライブストリームの終了を知らせる None を書き込む
                     # クライアントは None を受信した場合、ストリーミングを終了するようになっている
                     # これがないとクライアントはライブストリームが終了した事に気づかず、無限ループになってしまう
-                    for client in livestream.clients:
-                        if client is not None:
-                            client.queue.put(None)
+                    for client in self.livestream.clients:
+                        client.queue.put(None)
 
                     # この時点で全てのクライアントの接続が切断されているので、クライアントが入るリストをクリア
-                    livestream.clients = []
+                    self.livestream.clients = []
 
                     # ループを抜ける
                     break
@@ -740,7 +751,7 @@ class LiveEncodingTask():
 
                         # エンコーダーからの出力をライブストリームの Queue に書き込む
                         # print(f'SubWriter: Chunk size: {len(chunk_buffer):05} / Time: {time.time()}')
-                        livestream.write(chunk_buffer)
+                        self.livestream.writeStreamData(chunk_buffer)
 
                         # チャンクバッファを空にする（重要）
                         chunk_buffer = b''
@@ -762,9 +773,9 @@ class LiveEncodingTask():
                             ('放送終了' in program_present.title) or
                             ('休止' in program_present.title) or
                             ('停波' in program_present.title)):
-                            livestream.setStatus('Offline', 'この時間は放送を休止しています。')
+                            self.livestream.setStatus('Offline', 'この時間は放送を休止しています。')
                         else:
-                            livestream.setStatus('Offline', 'チューナーへの接続に失敗しました。チューナー側に何らかの問題があるかもしれません。')
+                            self.livestream.setStatus('Offline', 'チューナーへの接続に失敗しました。チューナー側に何らかの問題があるかもしれません。')
                         if tsreadex is not None:
                             tsreadex.kill()
                         if encoder is not None:
@@ -790,9 +801,9 @@ class LiveEncodingTask():
         # 既にエンコーダーのログファイルが存在していた場合は上書きしないようにリネーム
         ## ref: https://note.nkmk.me/python-pathlib-name-suffix-parent/
         count = 1
-        encoder_log_path = LOGS_DIR / f'KonomiTV-Encoder-{livestream.livestream_id}.log'
+        encoder_log_path = LOGS_DIR / f'KonomiTV-Encoder-{self.livestream.livestream_id}.log'
         while encoder_log_path.exists():
-            encoder_log_path = LOGS_DIR / f'KonomiTV-Encoder-{livestream.livestream_id}-{count}.log'
+            encoder_log_path = LOGS_DIR / f'KonomiTV-Encoder-{self.livestream.livestream_id}-{count}.log'
             count += 1
 
         # エンコーダーのログファイルを開く (エンコーダーログ有効時のみ)
@@ -822,7 +833,7 @@ class LiveEncodingTask():
             while True:
 
                 # ライブストリームのステータスを取得
-                livestream_status = livestream.getStatus()
+                livestream_status = self.livestream.getStatus()
 
                 # 1バイトずつ読み込む
                 buffer: bytes = encoder.stderr.read(1)
@@ -877,7 +888,7 @@ class LiveEncodingTask():
                             # ストリーム関連のログを表示
                             ## エンコーダーのログ出力が有効なら、ストリーム関連に限らずすべての行を出力する
                             if 'Stream #0:' in line or CONFIG['general']['debug_encoder'] is True:
-                                Logging.debug_simple(f'[Live: {livestream.livestream_id}] [{encoder_type}] ' + line)
+                                Logging.debug_simple(f'[Live: {self.livestream.livestream_id}] [{encoder_type}] ' + line)
 
                             # エンコーダーのログ出力が有効なら、エンコーダーのログファイルに書き込む
                             ## strip() したログではなく、エンコーダーから取得したそのままのログを出力する
@@ -891,21 +902,21 @@ class LiveEncodingTask():
                             # FFmpeg
                             if encoder_type == 'FFmpeg':
                                 if 'arib parser was created' in line or 'Invalid frame dimensions 0x0.' in line:
-                                    livestream.setStatus('Standby', 'エンコードを開始しています…')
+                                    self.livestream.setStatus('Standby', 'エンコードを開始しています…')
                                 elif 'frame=    1 fps=0.0 q=0.0' in line or 'size=       0kB time=00:00' in line:
-                                    livestream.setStatus('Standby', 'バッファリングしています…')
+                                    self.livestream.setStatus('Standby', 'バッファリングしています…')
                                 elif 'frame=' in line or 'bitrate=' in line:
-                                    livestream.setStatus('ONAir', 'ライブストリームは ONAir です。')
+                                    self.livestream.setStatus('ONAir', 'ライブストリームは ONAir です。')
                             ## HWEncC
                             elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
                                 if 'opened file "pipe:0"' in line:
-                                    livestream.setStatus('Standby', 'エンコードを開始しています…')
+                                    self.livestream.setStatus('Standby', 'エンコードを開始しています…')
                                 elif 'starting output thread...' in line:
-                                    livestream.setStatus('Standby', 'バッファリングしています…')
+                                    self.livestream.setStatus('Standby', 'バッファリングしています…')
                                 elif 'Encode Thread:' in line:
-                                    livestream.setStatus('Standby', 'バッファリングしています…')
+                                    self.livestream.setStatus('Standby', 'バッファリングしています…')
                                 elif ' frames: ' in line:
-                                    livestream.setStatus('ONAir', 'ライブストリームは ONAir です。')
+                                    self.livestream.setStatus('ONAir', 'ライブストリームは ONAir です。')
 
                         # 特定のエラーログが出力されている場合は回復が見込めないため、エンコーダーを終了する
                         # エンコーダーを再起動することで回復が期待できる場合は、ステータスを Restart に設定しエンコードタスクを再起動する
@@ -919,15 +930,15 @@ class LiveEncodingTask():
                                     ('放送終了' in program_present.title) or
                                     ('休止' in program_present.title) or
                                     ('停波' in program_present.title)):
-                                    livestream.setStatus('Offline', 'この時間は放送を休止しています。')
+                                    self.livestream.setStatus('Offline', 'この時間は放送を休止しています。')
                                 else:
-                                    livestream.setStatus('Offline', 'チューナーからの放送波の受信に失敗したため、エンコードを開始できません。')
+                                    self.livestream.setStatus('Offline', 'チューナーからの放送波の受信に失敗したため、エンコードを開始できません。')
                                 break
                             elif 'Conversion failed!' in line:
                                 # 捕捉されないエラー
                                 is_restart_required = True  # エンコーダーの再起動を要求
-                                if self.retry_count < self.max_retry_count:  # リトライの制限内であれば
-                                    livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。エンコードタスクを再起動します。')
+                                if self._retry_count < self._max_retry_count:  # リトライの制限内であれば
+                                    self.livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。エンコードタスクを再起動します。')
                                 # 直近 50 件のログを表示
                                 for log in lines[-51:-1]:
                                     Logging.warning(log)
@@ -942,54 +953,54 @@ class LiveEncodingTask():
                                     ('放送終了' in program_present.title) or
                                     ('休止' in program_present.title) or
                                     ('停波' in program_present.title)):
-                                    livestream.setStatus('Offline', 'この時間は放送を休止しています。')
+                                    self.livestream.setStatus('Offline', 'この時間は放送を休止しています。')
                                 else:
-                                    livestream.setStatus('Offline', 'チューナーからの放送波の受信に失敗したため、エンコードを開始できません。')
+                                    self.livestream.setStatus('Offline', 'チューナーからの放送波の受信に失敗したため、エンコードを開始できません。')
                                 break
                             elif encoder_type == 'NVEncC' and 'due to the NVIDIA\'s driver limitation.' in line:
                                 # NVEncC で、同時にエンコードできるセッション数 (Geforceだと3つ) を全て使い果たしている時のエラー
-                                livestream.setStatus('Offline', 'NVENC のエンコードセッションが不足しているため、エンコードを開始できません。')
+                                self.livestream.setStatus('Offline', 'NVENC のエンコードセッションが不足しているため、エンコードを開始できません。')
                                 break
                             elif encoder_type == 'QSVEncC' and ('unable to decode by qsv.' in line or 'No device found for QSV encoding!' in line):
                                 # QSVEncC 非対応の環境
-                                livestream.setStatus('Offline', 'お使いの PC 環境は QSVEncC エンコーダーに対応していません。')
+                                self.livestream.setStatus('Offline', 'お使いの PC 環境は QSVEncC エンコーダーに対応していません。')
                                 break
                             elif encoder_type == 'QSVEncC' and 'iHD_drv_video.so init failed' in line:
                                 # QSVEncC 非対応の環境 (Linux かつ第5世代以前の Intel CPU)
-                                livestream.setStatus('Offline', 'お使いの PC 環境は Linux 版 QSVEncC エンコーダーに対応していません。第5世代以前の古い CPU をお使いの可能性があります。')
+                                self.livestream.setStatus('Offline', 'お使いの PC 環境は Linux 版 QSVEncC エンコーダーに対応していません。第5世代以前の古い CPU をお使いの可能性があります。')
                                 break
                             elif encoder_type == 'NVEncC' and 'CUDA not available.' in line:
                                 # NVEncC 非対応の環境
-                                livestream.setStatus('Offline', 'お使いの PC 環境は NVEncC エンコーダーに対応していません。')
+                                self.livestream.setStatus('Offline', 'お使いの PC 環境は NVEncC エンコーダーに対応していません。')
                                 break
                             elif encoder_type == 'VCEEncC' and \
                                 ('Failed to initalize VCE factory:' in line or 'Assertion failed:Init() failed to vkCreateInstance' in line):
                                 # VCEEncC 非対応の環境
-                                livestream.setStatus('Offline', 'お使いの PC 環境は VCEEncC エンコーダーに対応していません。')
+                                self.livestream.setStatus('Offline', 'お使いの PC 環境は VCEEncC エンコーダーに対応していません。')
                                 break
                             elif encoder_type == 'QSVEncC' and 'HEVC encoding is not supported on current platform.' in line:
                                 # QSVEncC: H.265/HEVC でのエンコードに非対応の環境
-                                livestream.setStatus('Offline', 'お使いの Intel GPU は H.265/HEVC でのエンコードに対応していません。')
+                                self.livestream.setStatus('Offline', 'お使いの Intel GPU は H.265/HEVC でのエンコードに対応していません。')
                                 break
                             elif encoder_type == 'NVEncC' and 'does not support H.265/HEVC encoding.' in line:
                                 # NVEncC: H.265/HEVC でのエンコードに非対応の環境
-                                livestream.setStatus('Offline', 'お使いの NVIDIA GPU は H.265/HEVC でのエンコードに対応していません。')
+                                self.livestream.setStatus('Offline', 'お使いの NVIDIA GPU は H.265/HEVC でのエンコードに対応していません。')
                                 break
                             elif encoder_type == 'VCEEncC' and 'HW Acceleration of H.265/HEVC is not supported on this platform.' in line:
                                 # VCEEncC: H.265/HEVC でのエンコードに非対応の環境
-                                livestream.setStatus('Offline', 'お使いの AMD GPU は H.265/HEVC でのエンコードに対応していません。')
+                                self.livestream.setStatus('Offline', 'お使いの AMD GPU は H.265/HEVC でのエンコードに対応していません。')
                                 break
                             elif 'Consider increasing the value for the --input-analyze and/or --input-probesize!' in line:
                                 # --input-probesize or --input-analyze の期間内に入力ストリームの解析が終わらなかった
                                 is_restart_required = True  # エンコーダーの再起動を要求
-                                if self.retry_count < self.max_retry_count:  # リトライの制限内であれば
-                                    livestream.setStatus('Restart', '入力ストリームの解析に失敗しました。エンコードタスクを再起動します。')
+                                if self._retry_count < self._max_retry_count:  # リトライの制限内であれば
+                                    self.livestream.setStatus('Restart', '入力ストリームの解析に失敗しました。エンコードタスクを再起動します。')
                                 break
                             elif 'finished with error!' in line:
                                 # 捕捉されないエラー
                                 is_restart_required = True  # エンコーダーの再起動を要求
-                                if self.retry_count < self.max_retry_count:  # リトライの制限内であれば
-                                    livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。エンコードタスクを再起動します。')
+                                if self._retry_count < self._max_retry_count:  # リトライの制限内であれば
+                                    self.livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。エンコードタスクを再起動します。')
                                 # 直近 150 件のログを表示
                                 for log in lines[-151:-1]:
                                     Logging.warning(log)
@@ -1008,7 +1019,7 @@ class LiveEncodingTask():
                         # 次の番組のタイトルを表示
                         ## TODO: 番組の解像度が変わった際にエンコーダーがクラッシュorフリーズする可能性があるが、
                         ## その場合はここでエンコードタスクを再起動させる必要があるかも
-                        Logging.info(f'[Live: {livestream.livestream_id}] Title:{program_following.title}')
+                        Logging.info(f'[Live: {self.livestream.livestream_id}] Title:{program_following.title}')
 
                     # 次の番組情報を現在の番組情報にコピー
                     program_present = program_following
@@ -1016,12 +1027,12 @@ class LiveEncodingTask():
 
                 # 現在 ONAir でかつクライアント数が 0 なら Idling（アイドリング状態）に移行
                 if livestream_status['status'] == 'ONAir' and livestream_status['clients_count'] == 0:
-                    livestream.setStatus('Idling', 'ライブストリームは Idling です。')
+                    self.livestream.setStatus('Idling', 'ライブストリームは Idling です。')
 
                 # 現在 Idling でかつ最終更新から指定された秒数以上経っていたらエンコーダーを終了し、Offline 状態に移行
                 if ((livestream_status['status'] == 'Idling') and
                     (time.time() - livestream_status['updated_at'] > CONFIG['tv']['max_alive_time'])):
-                    livestream.setStatus('Offline', 'ライブストリームは Offline です。')
+                    self.livestream.setStatus('Offline', 'ライブストリームは Offline です。')
                     break
 
                 # すでに Restart 状態になっている場合、エンコーダーを終了する
@@ -1042,8 +1053,8 @@ class LiveEncodingTask():
                 # 現在 ONAir でかつストリームデータの最終書き込み時刻から 5 秒以上が経過しているなら、エンコーダーがフリーズしたものとみなす
                 # 現在 Standby でかつストリームデータの最終書き込み時刻から 20 秒以上が経過している場合も、エンコーダーがフリーズしたものとみなす
                 ## 何らかの理由でエンコードが途中で停止した場合、livestream.write() が実行されなくなるのを利用する
-                if ((livestream_status['status'] == 'ONAir' and time.time() - livestream.stream_data_written_at > 5) or
-                    (livestream_status['status'] == 'Standby' and time.time() - livestream.stream_data_written_at > 20)):
+                if ((livestream_status['status'] == 'ONAir' and time.time() - self.livestream.stream_data_written_at > 5) or
+                    (livestream_status['status'] == 'Standby' and time.time() - self.livestream.stream_data_written_at > 20)):
                     ## できるだけエンコーダーのエラーメッセージを拾ってエラー表示したいので、1秒間実行を待機する
                     ## その間にエラーメッセージが終了判定に引っかかった場合はそのまま終了する
                     encoder_terminated_at = time.time()
@@ -1052,9 +1063,9 @@ class LiveEncodingTask():
                 ## ステータスを Restart に設定し、エンコードタスクを再起動する
                 if encoder_terminated_at is not None and time.time() - encoder_terminated_at > 1:
                     is_restart_required = True  # エンコーダーの再起動を要求
-                    if self.retry_count < self.max_retry_count:  # リトライの制限内であれば
+                    if self._retry_count < self._max_retry_count:  # リトライの制限内であれば
                         Logging.debug('Detects encoder termination (Controller thread).')
-                        livestream.setStatus('Restart', 'エンコードが途中で停止しました。エンコードタスクを再起動します。')
+                        self.livestream.setStatus('Restart', 'エンコードが途中で停止しました。エンコードタスクを再起動します。')
                     if encoder_type == 'FFmpeg':
                         # 直近 50 件のログを表示
                         for log in lines[-51:-1]:
@@ -1072,8 +1083,8 @@ class LiveEncodingTask():
                     # エンコーダーの再起動を要求
                     is_restart_required = True
                     # エンコーダーの再起動前提のため、あえて Offline にはせず Restart とする
-                    if self.retry_count < self.max_retry_count:  # リトライの制限内であれば
-                        livestream.setStatus('Restart', 'エンコーダーが強制終了されました。エンコードタスクを再起動します。')
+                    if self._retry_count < self._max_retry_count:  # リトライの制限内であれば
+                        self.livestream.setStatus('Restart', 'エンコーダーが強制終了されました。エンコードタスクを再起動します。')
                     if encoder_type == 'FFmpeg':
                         # 直近 50 件のログを表示
                         for log in lines[-51:-1]:
@@ -1110,26 +1121,38 @@ class LiveEncodingTask():
                 tuner.unlock()
 
             # 最大再起動回数が 0 より上であれば
-            if self.retry_count < self.max_retry_count:
-                self.retry_count += 1  # カウントを増やす
+            if self._retry_count < self._max_retry_count:
+                self._retry_count += 1  # カウントを増やす
                 await asyncio.sleep(0.1)  # 少し待つ
-                asyncio.create_task(self.run(channel_id, quality))  # 新しいタスクを立ち上げる
+                asyncio.create_task(self.run())  # 新しいタスクを立ち上げる
 
             # 最大再起動回数を使い果たしたので、Offline にする
             else:
 
                 # Offline に設定
                 if program_present.is_free == True:  # 無料放送時
-                    livestream.setStatus('Offline', 'ライブストリームの再起動に失敗しました。')
+                    self.livestream.setStatus('Offline', 'ライブストリームの再起動に失敗しました。')
                 else:  # 有料放送時（契約されていないため視聴できないことが原因の可能性が高い）
-                    livestream.setStatus('Offline', 'ライブストリームの再起動に失敗しました。契約されていないため視聴できません。')
+                    self.livestream.setStatus('Offline', 'ライブストリームの再起動に失敗しました。契約されていないため視聴できません。')
+
+                # LL-HLS Segmenter を破棄する
+                if self.livestream.segmenter is not None:
+                    self.livestream.segmenter.destroy()
+                    self.livestream.segmenter = None
 
                 # チューナーを終了する (EDCB バックエンドのみ)
+                ## tuner.close() した時点でそのチューナーインスタンスは意味をなさなくなるので、LiveStream インスタンスのプロパティからも削除する
                 if CONFIG['general']['backend'] == 'EDCB':
                     await tuner.close()
+                    self.livestream.tuner = None
 
         # 通常終了
         else:
+
+            # LL-HLS Segmenter を破棄する
+            if self.livestream.segmenter is not None:
+                self.livestream.segmenter.destroy()
+                self.livestream.segmenter = None
 
             # EDCB バックエンドのみ
             if CONFIG['general']['backend'] == 'EDCB':
@@ -1140,4 +1163,6 @@ class LiveEncodingTask():
 
                 # チューナーを終了する（まだ制御を他のチューナーインスタンスに委譲していない場合）
                 # Idling に移行しアンロック状態になっている間にチューナーが再利用された場合、制御権限をもう持っていないため実際には何も起こらない
+                ## tuner.close() した時点でそのチューナーインスタンスは意味をなさなくなるので、LiveStream インスタンスのプロパティからも削除する
                 await tuner.close()
+                self.livestream.tuner = None
