@@ -15,6 +15,7 @@ ariblib = "*"
 colorama = ">=0.4"
 fastapi = "==0.86.0"
 fastapi-utils = "==0.2.1"
+hashids = "*"
 passlib = {extras = ["bcrypt"], version = "*"}
 pillow = "*"
 psutil = "*"
