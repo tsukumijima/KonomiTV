@@ -1,6 +1,6 @@
 
 """
-https://github.com/monyone/biim の一部を変更して利用しています。
+https://github.com/monyone/biim の一部を改変して利用しています。
 
 Copyright (c) 2022 もにょ～ん
 Released under the MIT license
@@ -13,7 +13,7 @@ from collections import deque
 from datetime import timedelta
 from typing import cast
 
-from hls.segment import Segment
+from app.utils.hls.segment import Segment
 
 
 class M3U8:

@@ -1,6 +1,6 @@
 
 """
-https://github.com/monyone/biim の一部を変更して利用しています。
+https://github.com/monyone/biim の一部を改変して利用しています。
 
 Copyright (c) 2022 もにょ～ん
 Released under the MIT license
@@ -11,7 +11,7 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import Iterator
 
-from mpeg2ts import ts
+from app.utils.mpeg2ts import ts
 
 
 class PartialSegment:

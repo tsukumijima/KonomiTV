@@ -1,6 +1,6 @@
 
 """
-https://github.com/monyone/biim の一部を変更して利用しています。
+https://github.com/monyone/biim の一部を改変して利用しています。
 
 Copyright (c) 2022 もにょ～ん
 Released under the MIT license
@@ -9,7 +9,7 @@ https://opensource.org/licenses/MIT
 
 from typing import Iterator
 
-from mpeg2ts.section import Section
+from app.utils.mpeg2ts.section import Section
 
 
 class PATSection(Section):

@@ -1,6 +1,6 @@
 
 """
-https://github.com/monyone/biim の一部を変更して利用しています。
+https://github.com/monyone/biim の一部を改変して利用しています。
 
 Copyright (c) 2022 もにょ～ん
 Released under the MIT license
@@ -10,13 +10,13 @@ https://opensource.org/licenses/MIT
 from collections import deque
 from typing import cast
 
-from mpeg2ts import ts
-from mpeg2ts.pes import PES
-from mpeg2ts.pes import H264PES
-from mpeg2ts.pes import H265PES
-from mpeg2ts.section import Section
-from mpeg2ts.pat import PATSection
-from mpeg2ts.pmt import PMTSection
+from app.utils.mpeg2ts import ts
+from app.utils.mpeg2ts.pes import PES
+from app.utils.mpeg2ts.pes import H264PES
+from app.utils.mpeg2ts.pes import H265PES
+from app.utils.mpeg2ts.section import Section
+from app.utils.mpeg2ts.pat import PATSection
+from app.utils.mpeg2ts.pmt import PMTSection
 
 
 class SectionParser:

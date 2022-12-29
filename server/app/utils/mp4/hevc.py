@@ -1,6 +1,6 @@
 
 """
-https://github.com/monyone/biim の一部を変更して利用しています。
+https://github.com/monyone/biim の一部を改変して利用しています。
 
 Copyright (c) 2022 もにょ～ん
 Released under the MIT license
@@ -9,8 +9,8 @@ https://opensource.org/licenses/MIT
 
 from typing import cast
 
-from mp4.bitstream import BitStream
-from mp4.box import trak, tkhd, mdia, mdhd, hdlr, minf, vmhd, dinf, stbl, stsd, hvc1
+from app.utils.mp4.bitstream import BitStream
+from app.utils.mp4.box import trak, tkhd, mdia, mdhd, hdlr, minf, vmhd, dinf, stbl, stsd, hvc1
 
 
 escapes = set([0x00, 0x01, 0x02, 0x03])
