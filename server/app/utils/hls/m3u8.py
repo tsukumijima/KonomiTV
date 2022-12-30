@@ -79,18 +79,21 @@ class M3U8:
 
         if not self.segments: return
         self.segments[-1].complete(endPTS)
-        for m3u8 in self.segments[-1].partials[-1].m3u8s:
-            if not m3u8.done(): m3u8.set_result(self.manifest())
-        for m3u8 in self.segments[-1].m3u8s:
-            if not m3u8.done(): m3u8.set_result(self.manifest())
-        for future in self.futures: future.set_result(self.manifest())
+        for m in self.segments[-1].partials[-1].m3u8s:
+            if not m.done(): m.set_result(self.manifest())
+        self.segments[-1].partials[-1].m3u8s = []
+        for m in self.segments[-1].m3u8s:
+            if not m.done(): m.set_result(self.manifest())
+        self.segments[-1].m3u8s = []
+        for f in self.futures: f.set_result(self.manifest())
         self.futures = []
 
     def completePartial(self, endPTS: int) -> None:
         if not self.segments: return
         self.segments[-1].completePartial(endPTS)
-        for m3u8 in self.segments[-1].partials[-1].m3u8s:
-            if not m3u8.done(): m3u8.set_result(self.manifest())
+        for m in self.segments[-1].partials[-1].m3u8s:
+            if not m.done(): m.set_result(self.manifest())
+        self.segments[-1].partials[-1].m3u8s
 
     def continuousSegment(self, endPTS: int, isIFrame: bool = False) -> None:
         lastSegment = self.segments[-1] if self.segments else None
@@ -99,11 +102,13 @@ class M3U8:
         self.published = True
         if lastSegment:
             lastSegment.complete(endPTS)
-            for m3u8 in lastSegment.partials[-1].m3u8s:
-                if not m3u8.done(): m3u8.set_result(self.manifest())
-            for m3u8 in lastSegment.m3u8s:
-                if not m3u8.done(): m3u8.set_result(self.manifest())
-        for future in self.futures: future.set_result(self.manifest())
+            for m in lastSegment.partials[-1].m3u8s:
+                if not m.done(): m.set_result(self.manifest())
+            lastSegment.partials[-1].m3u8s = []
+            for m in lastSegment.m3u8s:
+                if not m.done(): m.set_result(self.manifest())
+            lastSegment.m3u8s = []
+        for f in self.futures: f.set_result(self.manifest())
         self.futures = []
 
     def continuousPartial(self, endPTS: int, isIFrame: bool = False) -> None:
@@ -113,8 +118,9 @@ class M3U8:
 
         if not lastPartial: return
         lastPartial.complete(endPTS)
-        for m3u8 in lastPartial.m3u8s:
-            if not m3u8.done(): m3u8.set_result(self.manifest())
+        for m in lastPartial.m3u8s:
+            if not m.done(): m.set_result(self.manifest())
+        lastPartial.m3u8s = []
 
     async def segment(self, msn: int) -> asyncio.Queue[bytearray | None] | None:
         if not self.in_range(msn): return None
