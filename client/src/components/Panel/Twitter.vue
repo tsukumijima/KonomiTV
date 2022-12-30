@@ -141,8 +141,7 @@
             <draggable class="hashtag-container" v-model="saved_twitter_hashtags" handle=".hashtag__sort-handle">
                 <div v-ripple="!hashtag.editing" class="hashtag" :class="{'hashtag--editing': hashtag.editing}"
                     v-for="hashtag in saved_twitter_hashtags" :key="hashtag.id"
-                    @click="tweet_hashtag = hashtag.text; tweet_hashtag = formatHashtag(tweet_hashtag);
-                        updateTweetLetterCount(); window.setTimeout(() => is_hashtag_list_display = false, 150)">
+                    @click="clickHashtag(hashtag)">
                     <input type="search" class="hashtag__input" spellcheck="false" v-model="hashtag.text" :disabled="!hashtag.editing" @click.stop="">
                     <button v-ripple class="hashtag__edit-button"
                         @click.prevent.stop="hashtag.editing = !hashtag.editing; hashtag.text = formatHashtag(hashtag.text, true)">
@@ -610,6 +609,14 @@ export default Vue.extend({
             }
 
             return null;
+        },
+
+        // ハッシュタグがクリックされたときのイベント
+        clickHashtag(hashtag: IHashtag) {
+            this.tweet_hashtag = hashtag.text;
+            this.tweet_hashtag = this.formatHashtag(this.tweet_hashtag);
+            this.updateTweetLetterCount();
+            window.setTimeout(() => this.is_hashtag_list_display = false, 150);
         },
 
         // ハッシュタグを整形（余計なスペースなどを削り、全角ハッシュを半角ハッシュへ、全角スペースを半角スペースに置換）
