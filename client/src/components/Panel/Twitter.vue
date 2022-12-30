@@ -65,7 +65,7 @@
                 (() => {is_hashtag_list_display = false; return true;})(),
         }">
             <div class="tweet-form__hashtag">
-                <input class="tweet-form__hashtag-form" type="search" placeholder="#ハッシュタグ"
+                <input class="tweet-form__hashtag-form" type="search" placeholder="#ハッシュタグ" spellcheck="false"
                     v-model="tweet_hashtag" @input="updateTweetLetterCount()"
                     @focus="is_tweet_hashtag_form_focused = true" @blur="is_tweet_hashtag_form_focused = false"
                     @change="tweet_hashtag = formatHashtag(tweet_hashtag)">
@@ -73,7 +73,7 @@
                     <Icon icon="fluent:clipboard-text-ltr-32-regular" height="22px" />
                 </div>
             </div>
-            <textarea class="tweet-form__textarea" placeholder="ツイート" v-model="tweet_text" ref="tweet_text"
+            <textarea class="tweet-form__textarea" placeholder="ツイート" spellcheck="false" v-model="tweet_text" ref="tweet_text"
                 @input="updateTweetLetterCount()"
                 @paste="pasteClipboardData($event)"
                 @focus="is_tweet_text_form_focused = true"
@@ -143,7 +143,7 @@
                     v-for="hashtag in saved_twitter_hashtags" :key="hashtag.id"
                     @click="tweet_hashtag = hashtag.text; tweet_hashtag = formatHashtag(tweet_hashtag);
                         updateTweetLetterCount(); window.setTimeout(() => is_hashtag_list_display = false, 150)">
-                    <input type="search" class="hashtag__input" v-model="hashtag.text" :disabled="!hashtag.editing" @click.stop="">
+                    <input type="search" class="hashtag__input" spellcheck="false" v-model="hashtag.text" :disabled="!hashtag.editing" @click.stop="">
                     <button v-ripple class="hashtag__edit-button"
                         @click.prevent.stop="hashtag.editing = !hashtag.editing; hashtag.text = formatHashtag(hashtag.text, true)">
                         <Icon :icon="hashtag.editing ? 'fluent:checkmark-16-filled': 'fluent:edit-16-filled'" width="17px" />
@@ -1419,6 +1419,7 @@ export default Vue.extend({
                     border-radius: 2px;
                     color: var(--v-twitter-lighten2);
                     font-size: 12.5px;
+                    opacity: 1;
                     outline: none;
                     cursor: pointer;
                     transition: box-shadow 0.09s ease;
