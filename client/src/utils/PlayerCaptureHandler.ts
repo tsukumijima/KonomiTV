@@ -155,6 +155,7 @@ export class PlayerCaptureHandler {
             try {
                 blob = await this.exportToBlob(canvas);
             } catch (error) {
+                console.log(error);
                 this.player.notice('キャプチャの保存に失敗しました…');
                 return false;
             }
@@ -519,9 +520,9 @@ export class PlayerCaptureHandler {
      * @returns Blob 化した画像
      */
     private async exportToBlob(canvas: HTMLCanvasElement | OffscreenCanvas): Promise<Blob> {
-        if (canvas instanceof OffscreenCanvas) {
+        if ('OffscreenCanvas' in window && canvas instanceof OffscreenCanvas) {
             return await canvas.convertToBlob({type: 'image/jpeg', quality: 0.99});
-        } else {
+        } else if (canvas instanceof HTMLCanvasElement) {
             return new Promise((resolve, reject) => {
                 canvas.toBlob((blob) => {
                     if (blob !== null) {
