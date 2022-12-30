@@ -1249,6 +1249,27 @@ export default Vue.extend({
             // 音量を 0 に設定
             this.player.video.volume = 0;
 
+            // LL-HLS 再生時のみ、ローディングが終わるまでは pause イベントが起きても強制的にアイコンなどを再生表示に戻す
+            if (this.is_mpegts_supported === false) {
+                // 0.01 秒ごとに監視
+                const timer = window.setInterval(async () => {
+                    const pause_icon = '<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 17 32"><path d="M14.080 4.8q2.88 0 2.88 2.048v18.24q0 2.112-2.88 2.112t-2.88-2.112v-18.24q0-2.048 2.88-2.048zM2.88 4.8q2.88 0 2.88 2.048v18.24q0 2.112-2.88 2.112t-2.88-2.112v-18.24q0-2.048 2.88-2.048z"></path></svg>';
+                    this.player.template.playButton.innerHTML = pause_icon;
+                    this.player.template.mobilePlayButton.innerHTML = pause_icon;
+                    this.player.container.classList.remove('dplayer-paused');
+                    this.player.container.classList.add('dplayer-playing');
+                    this.player.danmaku.play();
+                    // ローディング表示が消えたタイミングで上記のイベントを登録解除
+                    if (this.is_loading === false) {
+                        window.clearInterval(timer);
+                        // この時点で動画が停止している場合、おそらく自動再生がブロックされたことによるものなので正式に停止状態にする
+                        if (this.player.video.paused === true) {
+                            this.player.pause();
+                        }
+                    }
+                }, 0.01 * 1000);
+            }
+
             // 再生バッファを調整し、再生準備ができた段階でプレイヤーの背景を非表示にするイベントを登録
             // 実際に再生可能になるのを待ってから実行する
             // 画質切り替え時にも実行する必要があるので、あえてこの位置に記述している
