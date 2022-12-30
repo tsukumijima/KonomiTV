@@ -13,6 +13,7 @@ from fastapi.responses import Response
 from fastapi.responses import StreamingResponse
 from typing import cast
 
+from app.constants import CONFIG
 from app.utils import Logging
 
 from app.utils.hls.m3u8 import M3U8
@@ -53,6 +54,15 @@ class LiveLLHLSSegmenter:
         # init: 最初の初期セグメントを格納するための Future オブジェクト
         self._primary_audio_init: asyncio.Future[bytes] = asyncio.Future()
         self._secondary_audio_init: asyncio.Future[bytes] = asyncio.Future()
+
+        # デバッグ時のみ CORS ヘッダーを有効化
+        if CONFIG['general']['debug'] is True:
+            self.cors_headers = {
+                'Access-Control-Allow-Credentials': 'true',
+                'Access-Control-Allow-Origin': '*',
+            }
+        else:
+            self.cors_headers = {}
 
         # MPEG2-TS の各セクションのパーサーを初期化
         self._pat_parser = SectionParser(PATSection)
@@ -121,19 +131,19 @@ class LiveLLHLSSegmenter:
             # 通常モードで m3u8 プレイリストを生成
             future = m3u8.plain()
             if future is None:
-                return Response(status_code=422, media_type='application/x-mpegURL')
+                return Response(status_code=422, media_type='application/x-mpegURL', headers=self.cors_headers)
 
             # m3u8 プレイリストが生成されるまで待ってから返す
             ## m3u8 プレイリストは m3u8.continuousSegment() または m3u8.completeSegment() が呼ばれた段階で生成される
             playlist: str = await future
-            return Response(content=playlist, media_type='application/x-mpegURL')
+            return Response(content=playlist, media_type='application/x-mpegURL', headers=self.cors_headers)
 
         # 少なくとも _HLS_msn が指定されているので、次のセグメントが生成されるまで待ってからプレイリストを返す
         else:
 
             # _HLS_part だけ指定されていることはありえない
             if msn is None:
-                return Response(status_code=422, media_type='application/x-mpegURL')
+                return Response(status_code=422, media_type='application/x-mpegURL', headers=self.cors_headers)
 
             # _HLS_part が指定されていなければ、0 に設定
             if part is None:
@@ -142,13 +152,13 @@ class LiveLLHLSSegmenter:
             # ブロッキングモードで m3u8 プレイリストを生成
             future = m3u8.blocking(msn, part)
             if future is None:
-                return Response(status_code=422, media_type='application/x-mpegURL')
+                return Response(status_code=422, media_type='application/x-mpegURL', headers=self.cors_headers)
 
             # m3u8 プレイリストが生成されるまで待ってから返す
             ## m3u8 プレイリストは指定された msn と part に紐づくセグメント/部分セグメントの生成が完了した段階で生成される
             ## 正直どう動いているのかあまり理解できていない…
             playlist: str = await future
-            return Response(content=playlist, media_type='application/x-mpegURL')
+            return Response(content=playlist, media_type='application/x-mpegURL', headers=self.cors_headers)
 
 
     async def getSegment(self, msn: int | None, secondary_audio: bool = False) -> Response | StreamingResponse:
@@ -174,7 +184,7 @@ class LiveLLHLSSegmenter:
         # 完全なセグメントを Queue の形で取得する
         queue = await m3u8.segment(msn)
         if queue is None:
-            return Response(status_code=422, media_type='video/mp4')
+            return Response(status_code=422, media_type='video/mp4', headers=self.cors_headers)
 
         # Queue からセグメントデータを取得して StreamingResponse で返す
         async def generator():
@@ -184,7 +194,7 @@ class LiveLLHLSSegmenter:
                     break
                 yield bytes(stream)
 
-        return StreamingResponse(generator(), media_type='video/mp4')
+        return StreamingResponse(generator(), media_type='video/mp4', headers=self.cors_headers)
 
 
     async def getPartialSegment(self, msn: int | None, part: int | None, secondary_audio: bool = False) -> Response | StreamingResponse:
@@ -215,7 +225,7 @@ class LiveLLHLSSegmenter:
         # 部分セグメントを Queue の形で取得する
         queue = await m3u8.partial(msn, part)
         if queue is None:
-            return Response(status_code=422, media_type='video/mp4')
+            return Response(status_code=422, media_type='video/mp4', headers=self.cors_headers)
 
         # Queue からセグメントデータを取得して StreamingResponse で返す
         async def generator():
@@ -225,7 +235,7 @@ class LiveLLHLSSegmenter:
                     break
                 yield bytes(stream)
 
-        return StreamingResponse(generator(), media_type='video/mp4')
+        return StreamingResponse(generator(), media_type='video/mp4', headers=self.cors_headers)
 
 
     async def getInitializationSegment(self, secondary_audio: bool = False) -> Response:
@@ -247,7 +257,7 @@ class LiveLLHLSSegmenter:
         init_segment: bytes = await init
 
         # 初期セグメントデータを返す
-        return Response(init_segment, media_type='video/mp4')
+        return Response(init_segment, media_type='video/mp4', headers=self.cors_headers)
 
 
     def pushTSPacketData(self, packet: bytes) -> None:

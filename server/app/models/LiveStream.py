@@ -11,7 +11,7 @@ from fastapi import status
 from fastapi.responses import Response
 from fastapi.responses import StreamingResponse
 from hashids import Hashids
-from typing import Any, Coroutine, ClassVar, Literal, TypedDict
+from typing import ClassVar, Literal, TypedDict
 
 from app.constants import QUALITY_TYPES
 from app.utils import Logging
