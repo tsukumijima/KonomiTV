@@ -307,6 +307,10 @@ export default Vue.extend({
             // プレイヤー (DPlayer) のインスタンス
             player: null,
 
+            // mpegts.js がサポートされているかどうか
+            // mpegts.js がサポートされていない場合は LL-HLS にフォールバックする (基本 iPhone Safari 向け)
+            is_mpegts_supported: mpegts.isSupported() === true,
+
             // RomSound の AudioContext
             romsounds_context: null as AudioContext | null,
 
@@ -608,7 +612,11 @@ export default Vue.extend({
                         this.player.template.audioItem[1].classList.remove('dplayer-setting-audio-current');
                         this.player.template.audioValue.textContent = this.player.tran('Primary audio');
                         try {
-                            this.player.plugins.mpegts.switchPrimaryAudio();
+                            if (this.is_mpegts_supported === true) {
+                                this.player.plugins.mpegts.switchPrimaryAudio();
+                            } else {
+                                this.player.plugins.liveLLHLSForKonomiTV.switchPrimaryAudio();
+                            }
                         } catch (error) {
                             // pass
                         }
@@ -852,29 +860,54 @@ export default Vue.extend({
                     // 品質リスト
                     quality: (() => {
                         const qualities = [];
+
                         // ラジオチャンネル
                         // API が受け付ける品質の値は通常のチャンネルと同じだが (手抜き…)、実際の品質は 48KHz/192kbps で固定される
                         // ラジオチャンネルの場合は、1080p と渡しても 48kHz/192kbps 固定の音声だけの MPEG-TS が配信される
                         if (this.channel.is_radiochannel) {
-                            qualities.push({
-                                name: '48kHz/192kbps',
-                                type: 'mpegts',
-                                url: `${Utils.api_base_url}/streams/live/${this.channel_id}/1080p/mpegts`,
-                            });
+                            // mpegts.js
+                            if (this.is_mpegts_supported === true) {
+                                qualities.push({
+                                    name: '48kHz/192kbps',
+                                    type: 'mpegts',
+                                    url: `${Utils.api_base_url}/streams/live/${this.channel_id}/1080p/mpegts`,
+                                });
+                            // LL-HLS (mpegts.js がサポートされていない場合)
+                            } else {
+                                qualities.push({
+                                    name: '48kHz/192kbps',
+                                    type: 'live-llhls-for-KonomiTV',
+                                    url: `${Utils.api_base_url}/streams/live/${this.channel_id}/1080p/ll-hls`,
+                                });
+                            }
+
                         // 通常のチャンネル
                         } else {
+
                             // ブラウザが H.265 / HEVC の再生に対応していて、かつ通信節約モードが有効なとき
                             // API に渡す画質に -hevc のプレフィックスをつける
                             let hevc_prefix = '';
                             if (PlayerUtils.isHEVCVideoSupported() && Utils.getSettingsItem('tv_data_saver_mode') === true) {
                                 hevc_prefix = '-hevc';
                             }
+
+                            // 品質リストを作成
                             for (const quality of ['1080p-60fps', '1080p', '810p', '720p', '540p', '480p', '360p', '240p']) {
-                                qualities.push({
-                                    name: quality === '1080p-60fps' ? '1080p (60fps)' : quality,
-                                    type: 'mpegts',
-                                    url: `${Utils.api_base_url}/streams/live/${this.channel_id}/${quality}${hevc_prefix}/mpegts`,
-                                });
+                                // mpegts.js
+                                if (this.is_mpegts_supported === true) {
+                                    qualities.push({
+                                        name: quality === '1080p-60fps' ? '1080p (60fps)' : quality,
+                                        type: 'mpegts',
+                                        url: `${Utils.api_base_url}/streams/live/${this.channel_id}/${quality}${hevc_prefix}/mpegts`,
+                                    });
+                                // LL-HLS (mpegts.js がサポートされていない場合)
+                                } else {
+                                    qualities.push({
+                                        name: quality === '1080p-60fps' ? '1080p (60fps)' : quality,
+                                        type: 'live-llhls-for-KonomiTV',
+                                        url: `${Utils.api_base_url}/streams/live/${this.channel_id}/${quality}${hevc_prefix}/ll-hls`,
+                                    });
+                                }
                             }
                         }
                         return qualities;
@@ -1106,6 +1139,10 @@ export default Vue.extend({
                 fullscreen_container.requestFullscreen = fullscreen_container.requestFullscreen || fullscreen_container.webkitRequestFullscreen;
                 if (fullscreen_container.requestFullscreen) {
                     fullscreen_container.requestFullscreen();
+                } else {
+                    // フルスクリーンがサポートされていない場合はエラーを表示
+                    this.player.notice('iPhone Safari は動画のフルスクリーン表示に対応していません。');
+                    return;
                 }
 
                 // 画面の向きを横に固定 (Screen Orientation API がサポートされている場合)
@@ -1161,30 +1198,41 @@ export default Vue.extend({
                 this.initEventHandler();
             });
 
-            // 停止状態でかつ再生時間からバッファが 30 秒以上離れていないかを1分おきに監視し、そうなっていたら強制的にシークする
+            // mpegts.js 利用時のみ、停止状態でかつ再生時間からバッファが 30 秒以上離れていないかを1分おきに監視し、そうなっていたら強制的にシークする
             // mpegts.js の仕様上、MSE に未再生のバッファがたまり過ぎると SourceBuffer が追加できなくなるため、強制的に接続が切断されてしまう
-            this.interval_ids.push(window.setInterval(() => {
-                if (this.player.video.paused && this.player.video.buffered.end(0) - this.player.video.currentTime > 30) {
-                    this.player.sync();
-                }
-            }, 60 * 1000));
+            if (this.is_mpegts_supported === true) {
+                this.interval_ids.push(window.setInterval(() => {
+                    if (this.player.video.paused && this.player.video.buffered.end(0) - this.player.video.currentTime > 30) {
+                        this.player.sync();
+                    }
+                }, 60 * 1000));
+            }
 
             // ***** 文字スーパーのイベントハンドラー *****
 
-            // 設定で文字スーパーが有効
-            // 字幕が非表示の場合でも、文字スーパーは表示する
-            if (Utils.getSettingsItem('tv_show_superimpose') === true) {
-                this.player.plugins.aribb24Superimpose.show();
-                this.player.on('subtitle_hide', () => {
+            (async () => {
+
+                // 文字スーパーが初期化されるまで待つ
+                while (this.player.plugins.aribb24Superimpose === undefined) {
+                    await Utils.sleep(0.1);  // 0.1 秒待つ
+                }
+
+                // 設定で文字スーパーが有効
+                // 字幕が非表示の場合でも、文字スーパーは表示する
+                if (Utils.getSettingsItem('tv_show_superimpose') === true) {
                     this.player.plugins.aribb24Superimpose.show();
-                });
-            // 設定で文字スーパーが無効
-            } else {
-                this.player.plugins.aribb24Superimpose.hide();
-                this.player.on('subtitle_show', () => {
+                    this.player.on('subtitle_hide', () => {
+                        this.player.plugins.aribb24Superimpose.show();
+                    });
+                // 設定で文字スーパーが無効
+                } else {
                     this.player.plugins.aribb24Superimpose.hide();
-                });
-            }
+                    this.player.on('subtitle_show', () => {
+                        this.player.plugins.aribb24Superimpose.hide();
+                    });
+                }
+
+            })();
         },
 
         // イベントハンドラーを初期化する
@@ -1201,19 +1249,21 @@ export default Vue.extend({
             // 再生バッファを調整し、再生準備ができた段階でプレイヤーの背景を非表示にするイベントを登録
             // 実際に再生可能になるのを待ってから実行する
             // 画質切り替え時にも実行する必要があるので、あえてこの位置に記述している
-            const on_canplay = () => {
+            const on_canplay = async () => {
 
                 // 自分自身のイベントを登録解除 (重複実行を避ける)
                 this.player.video.oncanplay = null;
                 this.player.video.oncanplaythrough = null;
 
-                // 再生バッファ調整のため、一旦停止させる
-                // this.player.video.pause() を使うとプレイヤーの UI アイコンが停止してしまうので、代わりに playbackRate を使う
-                this.player.video.playbackRate = 0;
+                // mpegts.js 利用時のみ実行
+                if (this.is_mpegts_supported === true) {
 
-                // 念のためさらに少しだけ待ってから
-                // あえて await で待たずに非同期コールバックで実行している
-                window.setTimeout(async () => {
+                    // 再生バッファ調整のため、一旦停止させる
+                    // this.player.video.pause() を使うとプレイヤーの UI アイコンが停止してしまうので、代わりに playbackRate を使う
+                    this.player.video.playbackRate = 0;
+
+                    // 念のためさらに少しだけ待ってから
+                    await Utils.sleep(0.1);
 
                     // 再生バッファを取得する (取得に失敗した場合は 0 を返す)
                     const get_playback_buffer_sec = (): number => {
@@ -1241,38 +1291,37 @@ export default Vue.extend({
 
                     // 再生開始
                     this.player.video.playbackRate = 1;
+                }
 
-                    // 再生が一時的に止まってバッファリングしているとき/再び再生されはじめたときのイベント
-                    // バッファリングの Progress Circular の表示を制御する
-                    // 同期が終わってからの方が都合が良い
-                    this.player.video.addEventListener('waiting', () => this.is_video_buffering = true);
-                    this.player.video.addEventListener('playing', () => this.is_video_buffering = false);
+                // 再生が一時的に止まってバッファリングしているとき/再び再生されはじめたときのイベント
+                // バッファリングの Progress Circular の表示を制御する
+                // 同期が終わってからの方が都合が良い
+                this.player.video.addEventListener('waiting', () => this.is_video_buffering = true);
+                this.player.video.addEventListener('playing', () => this.is_video_buffering = false);
 
-                    // ローディング状態を解除し、映像を表示する
-                    this.is_loading = false;
+                // ローディング状態を解除し、映像を表示する
+                this.is_loading = false;
 
-                    // バッファリング中の Progress Circular を非表示にする
-                    this.is_video_buffering = false;
+                // バッファリング中の Progress Circular を非表示にする
+                this.is_video_buffering = false;
 
-                    if (this.channel.is_radiochannel) {
-                        // ラジオチャンネルでは引き続き映像の代わりとして背景画像を表示し続ける
-                        this.is_background_display = true;
-                    } else {
-                        // 背景画像をフェードアウト
-                        this.is_background_display = false;
-                    }
+                if (this.channel.is_radiochannel) {
+                    // ラジオチャンネルでは引き続き映像の代わりとして背景画像を表示し続ける
+                    this.is_background_display = true;
+                } else {
+                    // 背景画像をフェードアウト
+                    this.is_background_display = false;
+                }
 
-                    // 再生開始時に音量を徐々に上げる
-                    // いきなり再生されるよりも体験が良い
-                    const current_volume: number = this.player.user.get('volume');
-                    while ((this.player.video.volume + 0.05) < current_volume) {
-                        // 小数第2位以下を切り捨てて、浮動小数の誤差で 1 (100%) を微妙に超えてしまいエラーになるのを避ける
-                        this.player.video.volume = Utils.mathFloor(this.player.video.volume + 0.05, 2);
-                        await Utils.sleep(0.02);
-                    }
-                    this.player.video.volume = current_volume;
-
-                }, 100);
+                // 再生開始時に音量を徐々に上げる
+                // いきなり再生されるよりも体験が良い
+                const current_volume: number = this.player.user.get('volume');
+                while ((this.player.video.volume + 0.05) < current_volume) {
+                    // 小数第2位以下を切り捨てて、浮動小数の誤差で 1 (100%) を微妙に超えてしまいエラーになるのを避ける
+                    this.player.video.volume = Utils.mathFloor(this.player.video.volume + 0.05, 2);
+                    await Utils.sleep(0.02);
+                }
+                this.player.video.volume = current_volume;
             }
             this.player.video.oncanplay = on_canplay;
             this.player.video.oncanplaythrough = on_canplay;
@@ -1280,20 +1329,29 @@ export default Vue.extend({
             // ***** KonomiTV サーバーのイベント API のイベントハンドラー *****
 
             // EventSource を作成
-            this.eventsource = new EventSource((this.player.quality.url as string).replace('/mpegts', '/events'));
+            const eventsource_url = (this.player.quality.url as string).replace('/mpegts', '/events').replace(/\/ll-hls.*/, '/events');
+            this.eventsource = new EventSource(eventsource_url);
 
             // 初回接続時のイベント
             this.eventsource.addEventListener('initial_update', (event_raw: MessageEvent) => {
 
-                // ステータスが Standby であれば
+                // イベントを取得
                 const event = JSON.parse(event_raw.data);
-                if (event.status === 'Standby') {
+                console.log(`[initial_update] Status: ${event.status} / Detail: ${event.detail}`);
 
-                    // バッファリング中の Progress Circular を表示
-                    this.is_video_buffering = true;
+                // ステータスごとに処理を振り分け
+                switch (event.status) {
 
-                    // プレイヤーの背景を表示する
-                    this.is_background_display = true;
+                    // Status: Standby
+                    case 'Standby': {
+
+                        // バッファリング中の Progress Circular を表示
+                        this.is_video_buffering = true;
+
+                        // プレイヤーの背景を表示する
+                        this.is_background_display = true;
+                        break;
+                    }
                 }
             });
 
@@ -1302,7 +1360,7 @@ export default Vue.extend({
 
                 // イベントを取得
                 const event = JSON.parse(event_raw.data);
-                console.log(`Status: ${event.status} / Detail: ${event.detail}`);
+                console.log(`[status_update] Status: ${event.status} / Detail: ${event.detail}`);
 
                 // 視聴者数を更新
                 this.channel.viewers = event.clients_count;
@@ -1332,6 +1390,13 @@ export default Vue.extend({
                         // ステータス詳細をプレイヤーから削除
                         if (!this.player.template.notice.textContent.includes('画質を')) {  // 画質切り替えの表示を上書きしない
                             this.player.notice(this.player.template.notice.textContent, 0.000001);
+                        }
+
+                        // LL-HLS ストリーミング時のみ、このタイミングで映像をロードして再生を開始する
+                        if (this.is_mpegts_supported === false) {
+                            this.player.video.load();
+                            this.player.video.play();
+                            on_canplay();
                         }
 
                         // 前のプレイヤーインスタンスの Picture-in-Picture ウインドウが残っている場合、終了させてからもう一度切り替える
@@ -1404,18 +1469,25 @@ export default Vue.extend({
 
                 // イベントを取得
                 const event = JSON.parse(event_raw.data);
-                console.log(`Status: ${event.status} Detail:${event.detail}`);
+                console.log(`[detail_update] Status: ${event.status} Detail:${event.detail}`);
 
                 // 視聴者数を更新
                 this.channel.viewers = event.clients_count;
 
-                // Standby のときだけプレイヤーに表示
-                if (event.status === 'Standby') {
-                    this.player.notice(event.detail, -1);
+                // ステータスごとに処理を振り分け
+                switch (event.status) {
 
-                    // プレイヤーの背景を表示する
-                    if (!this.is_background_display) {
-                        this.is_background_display = true;
+                    // Status: Standby
+                    case 'Standby': {
+
+                        // ステータス詳細をプレイヤーに表示
+                        this.player.notice(event.detail, -1);
+
+                        // プレイヤーの背景を表示する
+                        if (!this.is_background_display) {
+                            this.is_background_display = true;
+                        }
+                        break;
                     }
                 }
             });
