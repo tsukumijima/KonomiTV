@@ -51,6 +51,9 @@
                  @touchmove="controlDisplayTimer($event, true)"
                  @click="controlDisplayTimer($event, true)">
                 <header class="watch-header">
+                    <router-link class="watch-header__back-icon" v-ripple to="/tv/">
+                        <Icon icon="fluent:arrow-left-12-filled" width="25px" />
+                    </router-link>
                     <img class="watch-header__broadcaster" :src="`${Utils.api_base_url}/channels/${($route.params.channel_id)}/logo`">
                     <span class="watch-header__program-title" v-html="ProgramUtils.decorateProgramInfo(channel.program_present, 'title')"></span>
                     <span class="watch-header__program-time">{{ProgramUtils.getProgramTime(channel.program_present, true)}}</span>
@@ -845,7 +848,7 @@ export default Vue.extend({
                 theme: '#E64F97',  // テーマカラー
                 lang: 'ja-jp',  // 言語
                 live: true,  // ライブモード
-                liveSyncMinBufferSize: playback_buffer_sec,  // ライブモードで同期する際の最小バッファサイズ
+                liveSyncMinBufferSize: this.is_mpegts_supported ? playback_buffer_sec : 0,  // ライブモードで同期する際の最小バッファサイズ
                 loop: false,  // ループ再生 (ライブのため無効化)
                 airplay: false,  // AirPlay 機能 (うまく動かないため無効化)
                 autoplay: true,  // 自動再生
@@ -2192,7 +2195,7 @@ export default Vue.extend({
         .dplayer-controller {
             padding-left: calc(68px + 30px) !important;
             @include smartphone-horizontal {
-                padding-left: calc(56px + 18px) !important;
+                padding-left: calc(0px + 18px) !important;
             }
         }
         &.dplayer-hide-controller .dplayer-controller {
@@ -2222,10 +2225,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             .dplayer-comment-box {
                 left: calc(68px + 20px);
                 @include smartphone-horizontal {
-                    left: calc(68px + 16px);
-                }
-                @include smartphone-horizontal {
-                    left: calc(56px + 16px);
+                    left: calc(0px + 16px);
                 }
             }
         }
@@ -2233,29 +2233,20 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             left: calc(68px + 30px);
             bottom: 62px;
             @include smartphone-horizontal {
-                left: calc(68px + 16px);
-            }
-            @include smartphone-horizontal {
-                left: calc(56px + 16px);
+                left: calc(0px + 16px);
             }
         }
         .dplayer-info-panel {
             top: 82px;
             left: calc(68px + 30px);
             @include smartphone-horizontal {
-                left: calc(68px + 16px);
-            }
-            @include smartphone-horizontal {
-                left: calc(56px + 16px);
+                left: calc(0px + 16px);
             }
         }
         .dplayer-comment-setting-box {
             left: calc(68px + 20px);
             @include smartphone-horizontal {
-                left: calc(68px + 16px);
-            }
-            @include smartphone-horizontal {
-                left: calc(56px + 16px);
+                left: calc(0px + 16px);
             }
         }
         .dplayer-mobile .dplayer-mobile-icon-wrap {
@@ -2297,6 +2288,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 left: 16px !important;
             }
         }
+    }
+    .watch-header__back-icon {
+        display: none !important;
     }
 }
 // フルスクリーン+コントロール表示時
@@ -2436,8 +2430,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         visibility: hidden;
         z-index: 2;
         @include smartphone-horizontal {
-            width: 56px;
-            padding: 18px 6px 122px;
+            display: none;
         }
 
         .watch-navigation__icon {
@@ -2537,7 +2530,25 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             }
             @include smartphone-horizontal {
                 height: 66px;
-                padding-left: calc(56px + 16px);
+                padding-left: calc(0px + 16px);
+            }
+
+            .watch-header__back-icon {
+                display: none;
+                @include smartphone-horizontal {
+                    display: flex;
+                    position: relative !important;
+                    align-items: center;
+                    justify-content: center;
+                    flex-shrink: 0;
+                    width: 36px;
+                    height: 36px;
+                    left: -6px;
+                    padding: 6px;
+                    margin-right: 2px;
+                    border-radius: 50%;
+                    color: var(--v-text-base);
+                }
             }
 
             .watch-header__broadcaster {
@@ -2882,7 +2893,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             height: 77px;
             background: var(--v-background-lighten1);
             @include smartphone-horizontal {
-                height: 56px;
+                height: 34px;
             }
 
             .panel-navigation-button {
@@ -2900,8 +2911,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 user-select: none;
                 cursor: pointer;
                 @include smartphone-horizontal {
-                    height: 42px;
-                    padding: 6px 0px 4px;
+                    height: 34px;
+                    padding: 5px 0px;
+                    box-sizing: border-box;
                 }
 
                 &--active {
@@ -2915,8 +2927,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                     margin-top: 5px;
                     font-size: 13px;
                     @include smartphone-horizontal {
-                        margin-top: 2px;
-                        font-size: 12px;
+                        display: none;
                     }
                 }
             }

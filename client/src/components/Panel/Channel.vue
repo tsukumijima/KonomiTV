@@ -220,6 +220,7 @@ _::-webkit-full-page-media, _:future, :root
                     @include smartphone-horizontal {
                         margin-top: 8px;
                         padding: 8px 12px 12px 12px;
+                        border-radius: 8px;
                         contain-intrinsic-size: 253.3px 107.2px;
                     }
 
@@ -259,6 +260,9 @@ _::-webkit-full-page-media, _:future, :root
                             margin-left: 12px;
                             width: 100%;
                             min-width: 0;
+                            @include smartphone-horizontal {
+                                margin-left: 8px;
+                            }
                         }
 
                         &-name {
@@ -266,6 +270,9 @@ _::-webkit-full-page-media, _:future, :root
                             overflow: hidden;
                             white-space: nowrap;
                             text-overflow: ellipsis;
+                            @include smartphone-horizontal {
+                                font-size: 13.5px;
+                            }
                         }
 
                         &-force {
@@ -305,8 +312,8 @@ _::-webkit-full-page-media, _:future, :root
                             -webkit-line-clamp: 2;  // 2行までに制限
                             -webkit-box-orient: vertical;
                             @include smartphone-horizontal {
-                                margin-top: 6px;
-                                font-size: 13px;
+                                margin-top: 5px;
+                                font-size: 12.5px;
                                 -webkit-line-clamp: 1;  // 2行までに制限
                             }
                         }
@@ -316,7 +323,8 @@ _::-webkit-full-page-media, _:future, :root
                             color: var(--v-text-darken1);
                             font-size: 11.5px;
                             @include smartphone-horizontal {
-                                font-size: 11px;
+                                margin-top: 1px;
+                                font-size: 10px;
                             }
                         }
                     }
@@ -327,23 +335,26 @@ _::-webkit-full-page-media, _:future, :root
                         margin-top: 4px;
                         color: var(--v-text-darken1);
                         font-size: 11.5px;
+                        @include smartphone-horizontal {
+                            margin-top: 2px;
+                        }
 
                         &-title {
                             display: flex;
                             align-items: center;
 
                             &-decorate {
-                                    flex-shrink: 0;
+                                flex-shrink: 0;
                             }
                             &-icon {
-                                    flex-shrink: 0;
-                                    margin-left: 3px;
+                                flex-shrink: 0;
+                                margin-left: 3px;
                             }
                             &-text {
-                                    margin-left: 2px;
-                                    overflow: hidden;
-                                    white-space: nowrap;
-                                    text-overflow: ellipsis;  // はみ出た部分を … で省略
+                                margin-left: 2px;
+                                overflow: hidden;
+                                white-space: nowrap;
+                                text-overflow: ellipsis;  // はみ出た部分を … で省略
                             }
                         }
 

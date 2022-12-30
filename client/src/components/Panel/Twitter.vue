@@ -1025,7 +1025,7 @@ export default Vue.extend({
             position: relative;
             bottom: calc(env(keyboard-inset-height, 0px) - 77px);
             @include smartphone-horizontal {
-                bottom: calc(env(keyboard-inset-height, 0px) - 56px);
+                bottom: calc(env(keyboard-inset-height, 0px) - 34px);
             }
         }
 
@@ -1328,8 +1328,8 @@ export default Vue.extend({
             left: 8px;
             right: 8px;
             bottom: 110px;
-            max-height: calc(100vh - 174px);
-            max-height: calc(100dvh - 174px);
+            max-height: calc(100vh - 152px);
+            max-height: calc(100dvh - 152px);
             padding: 8px 4px;
         }
         &--display {
@@ -1341,7 +1341,7 @@ export default Vue.extend({
             max-height: calc(100vh - calc(env(keyboard-inset-height, 0px) + 16px)) !important;
             max-height: calc(100dvh - calc(env(keyboard-inset-height, 0px) + 16px)) !important;
             @include smartphone-horizontal {
-                bottom: calc(env(keyboard-inset-height, 0px) - 48px) !important;
+                bottom: calc(env(keyboard-inset-height, 0px) - 26px) !important;
             }
         }
         &::-webkit-scrollbar-track {
