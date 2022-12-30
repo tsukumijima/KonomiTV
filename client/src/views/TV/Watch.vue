@@ -202,7 +202,7 @@ import Utils, { ChannelUtils, PlayerCaptureHandler, PlayerUtils, ProgramUtils } 
 
 // 低遅延モードオン時の再生バッファ (秒単位)
 // これ以上小さくすると再生が詰まりやすくなる印象
-const PLAYBACK_BUFFER_SEC_LOW_LATENCY = 1.5;
+const PLAYBACK_BUFFER_SEC_LOW_LATENCY = 1.1;
 
 // 低遅延モードオフ時の再生バッファ (秒単位)
 // 5秒程度の遅延を許容する
