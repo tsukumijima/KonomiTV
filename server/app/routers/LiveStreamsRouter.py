@@ -12,6 +12,7 @@ from fastapi.requests import Request
 from fastapi.responses import Response
 from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse
+from typing import cast
 
 from app import schemas
 from app.constants import QUALITY, QUALITY_TYPES
@@ -204,6 +205,9 @@ async def LiveStreamEventAPI(
     return EventSourceResponse(generator())
 
 
+# ***** MPEG-TS ストリーミング API *****
+
+
 @router.get(
     '/{channel_id}/{quality}/mpegts',
     summary = 'ライブ MPEGTS ストリーム API',
@@ -297,6 +301,9 @@ async def LiveMPEGTSStreamAPI(
     return StreamingResponse(generator(), media_type='video/mp2t')
 
 
+# ***** LL-HLS ストリーミング開始/終了 API *****
+
+
 @router.post(
     '/{channel_id}/{quality}/ll-hls',
     summary = 'ライブ LL-HLS クライアント接続 API',
@@ -328,6 +335,9 @@ async def LiveLLHLSClientDisconnectAPI(
     # ライブストリームへの接続を切断する
     livestream = LiveStream(channel_id, quality)
     await livestream.disconnect(livestream_client)
+
+
+# ***** LL-HLS ストリーミング API (主音声) *****
 
 
 @router.get(
@@ -383,8 +393,13 @@ async def LiveLLHLSPrimaryAudioSegmentAPI(
 async def LiveLLHLSPrimaryAudioPartialSegmentAPI(
     livestream_client: LiveStreamClient = Depends(GetLiveStreamClient),
     msn: int | None = Query(None, description='LL-HLS セグメントの msn (Media Sequence Number) インデックス。'),
-    part: int | None = Query(None, description='LL-HLS セグメントの part (部分セグメント) インデックス。'),
+    part: int | str | None = Query(None, description='LL-HLS セグメントの part (部分セグメント) インデックス。'),
 ):
+    # part が空文字列の場合は 0 に変換する
+    if part == '':
+        part = 0
+    part = cast(int | None, part)
+
     # クライアントから LL-HLS 部分セグメントデータのレスポンスを取得してそのまま返す
     return await livestream_client.getPartialSegment(msn, part, secondary_audio=False)
 
@@ -405,6 +420,9 @@ async def LiveLLHLSPrimaryAudioInitializationSegmentAPI(
 ):
     # クライアントから LL-HLS 初期セグメントデータのレスポンスを取得してそのまま返す
     return await livestream_client.getInitializationSegment(secondary_audio=False)
+
+
+# ***** LL-HLS ストリーミング API (副音声) *****
 
 
 @router.get(
@@ -462,6 +480,11 @@ async def LiveLLHLSSecondaryAudioPartialSegmentAPI(
     msn: int | None = Query(None, description='LL-HLS セグメントの msn (Media Sequence Number) インデックス。'),
     part: int | None = Query(None, description='LL-HLS セグメントの part (部分セグメント) インデックス。'),
 ):
+    # part が空文字列の場合は 0 に変換する
+    if part == '':
+        part = 0
+    part = cast(int | None, part)
+
     # クライアントから LL-HLS 部分セグメントデータのレスポンスを取得してそのまま返す
     return await livestream_client.getPartialSegment(msn, part, secondary_audio=True)
 
