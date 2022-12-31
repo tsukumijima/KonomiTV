@@ -11,7 +11,7 @@ PACKET_SIZE = 188
 HEADER_SIZE = 4
 SYNC_BYTE = b'\x47'
 STUFFING_BYTE = b'\xff'
-PCR_CYCLE = 2 ** 33
+PCR_CYCLE: int = 2 ** 33
 HZ = 90000
 
 def transport_error_indicator(packet: bytes) -> bool:

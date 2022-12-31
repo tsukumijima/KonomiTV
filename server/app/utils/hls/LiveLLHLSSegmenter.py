@@ -35,9 +35,13 @@ from app.utils.mpeg2ts.parser import SectionParser
 
 class LiveLLHLSSegmenter:
 
-    # TODO: 暫定値
+    # ターゲットとする LL-HLS セグメント (m4s) の再生時間 (秒)
     TARGET_DURATION = 1
-    PART_DURATION = 0.1
+
+    # ターゲットとする LL-HLS 部分セグメント (m4s) の再生時間 (秒)
+    PART_DURATION = 0.15
+
+    # m3u8 プレイリストに含めるセグメントの最大数
     LIST_SIZE = 10
 
 
@@ -379,8 +383,8 @@ class LiveLLHLSSegmenter:
                     self._secondary_audio_m3u8.continuousSegment(self._partial_begin_timestamp, True)
                 elif self._partial_begin_timestamp is not None:
                     PART_DIFF = (timestamp - self._partial_begin_timestamp + ts.PCR_CYCLE) % ts.PCR_CYCLE
-                    if self.PART_DURATION * ts.HZ < PART_DIFF:
-                        self._partial_begin_timestamp = timestamp
+                    if self.PART_DURATION * ts.HZ <= PART_DIFF:
+                        self._partial_begin_timestamp = (timestamp - max(0, PART_DIFF - (self.PART_DURATION * ts.HZ)) + ts.PCR_CYCLE) % ts.PCR_CYCLE
                         self._primary_audio_m3u8.continuousPartial(self._partial_begin_timestamp)
                         self._secondary_audio_m3u8.continuousPartial(self._partial_begin_timestamp)
 
@@ -484,8 +488,8 @@ class LiveLLHLSSegmenter:
                     self._secondary_audio_m3u8.continuousSegment(self._partial_begin_timestamp, True)
                 elif self._partial_begin_timestamp is not None:
                     PART_DIFF = (timestamp - self._partial_begin_timestamp + ts.PCR_CYCLE) % ts.PCR_CYCLE
-                    if self.PART_DURATION * ts.HZ < PART_DIFF:
-                        self._partial_begin_timestamp = timestamp
+                    if self.PART_DURATION * ts.HZ <= PART_DIFF:
+                        self._partial_begin_timestamp = (timestamp - max(0, PART_DIFF - (self.PART_DURATION * ts.HZ)) + ts.PCR_CYCLE) % ts.PCR_CYCLE
                         self._primary_audio_m3u8.continuousPartial(self._partial_begin_timestamp)
                         self._secondary_audio_m3u8.continuousPartial(self._partial_begin_timestamp)
 

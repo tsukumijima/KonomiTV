@@ -8,7 +8,6 @@ https://opensource.org/licenses/MIT
 """
 
 import asyncio
-import math
 from collections import deque
 from datetime import timedelta
 from typing import cast
@@ -18,10 +17,10 @@ from app.utils.hls.segment import Segment
 
 class M3U8:
 
-    def __init__(self, target_duration: int, part_duration: float, list_size: int | None, hasInit: bool = False, prefix: str = '') -> None:
+    def __init__(self, target_duration: int, part_target: float, list_size: int | None, hasInit: bool = False, prefix: str = '') -> None:
         self.media_sequence: int = 0
-        self.target_duration_sec: int = target_duration
-        self.part_duration_sec: float = part_duration
+        self.target_duration: int = target_duration
+        self.part_target: float = part_target
         self.list_size: int | None = list_size
         self.hasInit: bool = hasInit
         self.prefix: str = prefix
@@ -133,26 +132,13 @@ class M3U8:
         if part > len(self.segments[index].partials): return None
         return await self.segments[index].partials[part].response()
 
-    def target_duration(self) -> int:
-        target_duration = self.target_duration_sec
-        for segment in self.segments:
-            if segment.isCompleted(): target_duration = max(target_duration, math.ceil(cast(timedelta, segment.extinf()).total_seconds()))
-        return target_duration
-
-    def part_target(self) -> float:
-        part_duration = self.part_duration_sec
-        for segment in self.segments:
-            for partial in segment:
-                if partial.isCompleted(): part_duration = max(part_duration, cast(timedelta, partial.extinf()).total_seconds())
-        return part_duration
-
     def manifest(self) -> str:
         m3u8 = ''
         m3u8 += f'#EXTM3U\n'
         m3u8 += f'#EXT-X-VERSION:6\n'
-        m3u8 += f'#EXT-X-TARGETDURATION:{self.target_duration()}\n'
-        m3u8 += f'#EXT-X-PART-INF:PART-TARGET={self.part_target():.06f}\n'
-        m3u8 += f'#EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD=YES,PART-HOLD-BACK={(self.part_target() * 3.5):.06f}\n'
+        m3u8 += f'#EXT-X-TARGETDURATION:{self.target_duration}\n'
+        m3u8 += f'#EXT-X-PART-INF:PART-TARGET={self.part_target:.06f}\n'
+        m3u8 += f'#EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD=YES,PART-HOLD-BACK={(self.part_target * 3):.06f}\n'
         m3u8 += f'#EXT-X-MEDIA-SEQUENCE:{self.media_sequence}\n'
 
         if self.hasInit:
@@ -167,7 +153,7 @@ class M3U8:
                 if not partial.isCompleted():
                     m3u8 += f'#EXT-X-PRELOAD-HINT:TYPE=PART,URI="{self.prefix}part?msn={msn}&part={part_index}"{hasIFrame}\n'
                 else:
-                    m3u8 += f'#EXT-X-PART:DURATION={cast(timedelta, partial.extinf()).total_seconds()},URI="{self.prefix}part?msn={msn}&part={part_index}"{hasIFrame}\n'
+                    m3u8 += f'#EXT-X-PART:DURATION={cast(timedelta, partial.extinf()).total_seconds():.06f},URI="{self.prefix}part?msn={msn}&part={part_index}"{hasIFrame}\n'
 
             if segment.isCompleted():
                 m3u8 += f'#EXTINF:{cast(timedelta, segment.extinf()).total_seconds():.06f}\n'
