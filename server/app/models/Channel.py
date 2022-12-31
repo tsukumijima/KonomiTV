@@ -7,7 +7,7 @@ from tortoise import models
 from tortoise import timezone
 from tortoise import transactions
 from tortoise.exceptions import IntegrityError
-from typing import Any, Literal
+from typing import Any, cast, Literal
 
 from app.constants import API_REQUEST_HEADERS, CONFIG
 from app.utils import Jikkyo
@@ -65,33 +65,34 @@ class Channel(models.Model):
     async def updateFromMirakurun(cls) -> None:
         """ Mirakurun バックエンドからチャンネル情報を取得し、更新する """
 
-        # 既にデータベースにチャンネル情報が存在する場合は一旦全て削除する
-        await Channel.all().delete()
-
-        # Mirakurun の API からチャンネル情報を取得する
-        try:
-            mirakurun_services_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services'
-            mirakurun_services_api_response = await asyncio.to_thread(requests.get,
-                url = mirakurun_services_api_url,
-                headers = API_REQUEST_HEADERS,
-                timeout = 3,
-            )
-            if mirakurun_services_api_response.status_code != 200:  # Mirakurun からエラーが返ってきた
-                Logging.error(f'Failed to get channels from Mirakurun. (HTTP Error {mirakurun_services_api_response.status_code})')
-                return
-            services = mirakurun_services_api_response.json()
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-            Logging.error(f'Failed to get channels from Mirakurun. (Connection Timeout)')
-            return
-
-        # 同じネットワーク ID のサービスのカウント
-        same_network_id_counts = {}
-
-        # 同じリモコン番号のサービスのカウント
-        same_remocon_id_counts = {}
-
-        # このトランザクションは単にパフォーマンス向上のため
+        # このトランザクションはパフォーマンス向上と、チャンネル情報を一時的に削除してから再生成するまでの間に API リクエストが来た場合に
+        # "Specified channel_id was not found" エラーでフロントエンドを誤動作させるのを防ぐためのもの
         async with transactions.in_transaction():
+
+            # 既にデータベースにチャンネル情報が存在する場合は一旦全て削除する
+            await Channel.all().delete()
+
+            # Mirakurun の API からチャンネル情報を取得する
+            try:
+                mirakurun_services_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services'
+                mirakurun_services_api_response = await asyncio.to_thread(requests.get,
+                    url = mirakurun_services_api_url,
+                    headers = API_REQUEST_HEADERS,
+                    timeout = 3,
+                )
+                if mirakurun_services_api_response.status_code != 200:  # Mirakurun からエラーが返ってきた
+                    Logging.error(f'Failed to get channels from Mirakurun. (HTTP Error {mirakurun_services_api_response.status_code})')
+                    return
+                services = mirakurun_services_api_response.json()
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+                Logging.error(f'Failed to get channels from Mirakurun. (Connection Timeout)')
+                return
+
+            # 同じネットワーク ID のサービスのカウント
+            same_network_id_counts: dict[int, int] = {}
+
+            # 同じリモコン番号のサービスのカウント
+            same_remocon_id_counts: dict[int, int] = {}
 
             # サービスごとに実行
             for service in services:
@@ -113,9 +114,9 @@ class Channel(models.Model):
 
                 # 取得してきた値を設定
                 channel.id = f'NID{service["networkId"]}-SID{service["serviceId"]:03d}'
-                channel.service_id = service['serviceId']
-                channel.network_id = service['networkId']
-                channel.remocon_id = service['remoteControlKeyId'] if ('remoteControlKeyId' in service) else None
+                channel.service_id = int(service['serviceId'])
+                channel.network_id = int(service['networkId'])
+                channel.remocon_id = int(service['remoteControlKeyId']) if ('remoteControlKeyId' in service) else None
                 channel.channel_name = TSInformation.formatString(service['name'])
                 channel.channel_type = TSInformation.getNetworkType(channel.network_id)
                 channel.channel_force = None
@@ -251,39 +252,40 @@ class Channel(models.Model):
     async def updateFromEDCB(cls) -> None:
         """ EDCB バックエンドからチャンネル情報を取得し、更新する """
 
-        # リモコン番号が取得できない場合に備えてバックアップ
-        backup_remocon_ids = {channel.id: channel.remocon_id for channel in await Channel.all()}
-
-        # 既にデータベースにチャンネル情報が存在する場合は一旦全て削除する
-        await Channel.all().delete()
-
-        # CtrlCmdUtil を初期化
-        edcb = CtrlCmdUtil()
-        edcb.setConnectTimeOutSec(3)  # 3秒後にタイムアウト
-
-        # EDCB の ChSet5.txt からチャンネル情報を取得する
-        services = await edcb.sendFileCopy('ChSet5.txt')
-        if services is not None:
-            services = EDCBUtil.parseChSet5(EDCBUtil.convertBytesToString(services))
-            # 枝番処理がミスらないようソートしておく
-            services.sort(key = lambda temp: temp['onid'] * 100000 + temp['sid'])
-        else:
-            Logging.error(f'Failed to get channels from EDCB.')
-            return
-
-        # EDCB から EPG 由来のチャンネル情報を取得する
-        # sendEnumService() の情報源は番組表で、期限切れなどで番組情報が1つもないサービスについては取得できない
-        # あればラッキー程度の情報と考えてほしい
-        epg_services = await edcb.sendEnumService() or []
-
-        # 同じネットワーク ID のサービスのカウント
-        same_network_id_counts = {}
-
-        # 同じリモコン番号のサービスのカウント
-        same_remocon_id_counts = {}
-
-        # このトランザクションは単にパフォーマンス向上のため
+        # このトランザクションはパフォーマンス向上と、チャンネル情報を一時的に削除してから再生成するまでの間に API リクエストが来た場合に
+        # "Specified channel_id was not found" エラーでフロントエンドを誤動作させるのを防ぐためのもの
         async with transactions.in_transaction():
+
+            # リモコン番号が取得できない場合に備えてバックアップ
+            backup_remocon_ids = {channel.id: channel.remocon_id for channel in await Channel.all()}
+
+            # 既にデータベースにチャンネル情報が存在する場合は一旦全て削除する
+            await Channel.all().delete()
+
+            # CtrlCmdUtil を初期化
+            edcb = CtrlCmdUtil()
+            edcb.setConnectTimeOutSec(3)  # 3秒後にタイムアウト
+
+            # EDCB の ChSet5.txt からチャンネル情報を取得する
+            services = await edcb.sendFileCopy('ChSet5.txt')
+            if services is not None:
+                services = EDCBUtil.parseChSet5(EDCBUtil.convertBytesToString(services))
+                # 枝番処理がミスらないようソートしておく
+                services.sort(key = lambda temp: temp['onid'] * 100000 + temp['sid'])
+            else:
+                Logging.error(f'Failed to get channels from EDCB.')
+                return
+
+            # EDCB から EPG 由来のチャンネル情報を取得する
+            ## sendEnumService() の情報源は番組表で、期限切れなどで番組情報が1つもないサービスについては取得できない
+            ## あればラッキー程度の情報と考えてほしい
+            epg_services: list[dict[str, Any]] = await edcb.sendEnumService() or []
+
+            # 同じネットワーク ID のサービスのカウント
+            same_network_id_counts: dict[int, int] = {}
+
+            # 同じリモコン番号のサービスのカウント
+            same_remocon_id_counts: dict[int, int] = {}
 
             for service in services:
 
@@ -304,9 +306,9 @@ class Channel(models.Model):
 
                 # 取得してきた値を設定
                 channel.id = f'NID{service["onid"]}-SID{service["sid"]:03d}'
-                channel.service_id = service['sid']
-                channel.network_id = service['onid']
-                channel.transport_stream_id = service['tsid']
+                channel.service_id = int(service['sid'])
+                channel.network_id = int(service['onid'])
+                channel.transport_stream_id = int(service['tsid'])
                 channel.remocon_id = None
                 channel.channel_name = TSInformation.formatString(service['service_name'])
                 channel.channel_type = TSInformation.getNetworkType(channel.network_id)
@@ -348,11 +350,11 @@ class Channel(models.Model):
 
                     if epg_service is not None:
                         # EPG 由来のチャンネル情報が取得できていればリモコン番号を取得
-                        channel.remocon_id = epg_service['remote_control_key_id']
+                        channel.remocon_id = int(epg_service['remote_control_key_id'])
                     else:
                         # 取得できなかったので、あれば以前のバックアップからリモコン番号を取得
                         # それでもリモコン番号が不明のときはとりあえず 0 とする
-                        channel.remocon_id = backup_remocon_ids.get(channel.id, 0)
+                        channel.remocon_id = cast(int, backup_remocon_ids.get(channel.id, 0))
 
                     # 同じリモコン番号のサービスのカウントを定義
                     if channel.remocon_id not in same_remocon_id_counts:  # まだキーが存在しないとき

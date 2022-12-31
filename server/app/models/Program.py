@@ -38,12 +38,12 @@ class Program(models.Model):
     channel_id: str = fields.TextField()
     title: str = fields.TextField()
     description: str = fields.TextField()
-    detail: dict = fields.JSONField()
+    detail: dict[str, str] = fields.JSONField()
     start_time: datetime.datetime = fields.DatetimeField()
     end_time: datetime.datetime = fields.DatetimeField()
     duration: float = fields.FloatField()
     is_free: bool = fields.BooleanField()  # type: ignore
-    genre: list = fields.JSONField()
+    genre: list[dict[str, str]] = fields.JSONField()
     video_type: str = fields.TextField()
     video_codec: str = fields.TextField()
     video_resolution: str = fields.TextField()
@@ -117,14 +117,14 @@ class Program(models.Model):
             is_running_multiprocess (bool, optional): マルチプロセスで実行されているかどうか
         """
 
-        def IsMainProgram(program: dict) -> bool:
+        def IsMainProgram(program: dict[str, Any]) -> bool:
             """
             relatedItems からメインの番組情報か判定する
             EIT[p/f] 対応により増えた番組情報から必要なものだけを取得する
             ref: https://github.com/l3tnun/EPGStation/blob/master/src/model/epgUpdater/EPGUpdateManageModel.ts#L103-L136
 
             Args:
-                program (dict): 番組情報の辞書
+                program (dict[str, Any]): 番組情報の辞書
             Returns:
                 bool: メインの番組情報かどうか
             """
@@ -247,7 +247,7 @@ class Program(models.Model):
                         description = TSInformation.formatString(program_info['description'])
 
                     # 番組詳細
-                    detail = {}  # デフォルト値
+                    detail: dict[str, str] = {}  # デフォルト値
                     if 'extended' in program_info:
 
                         # 番組詳細の見出しと本文の辞書ごとに
@@ -304,15 +304,15 @@ class Program(models.Model):
 
                     # 取得してきた値を設定
                     program.id = program_id
-                    program.network_id = channel.network_id
-                    program.service_id = channel.service_id
-                    program.event_id = program_info['eventId']
+                    program.network_id = int(channel.network_id)
+                    program.service_id = int(channel.service_id)
+                    program.event_id = int(program_info['eventId'])
                     program.channel_id = channel.channel_id
                     program.title = title
                     program.description = description
                     program.detail = detail
                     program.start_time = start_time
-                    program.is_free = program_info['isFree']
+                    program.is_free = bool(program_info['isFree'])
 
                     # 番組終了時刻・番組時間
                     # 終了時間未定 (Mirakurun から duration == 1 で示される) の場合、まだ番組情報を取得していないならとりあえず5分とする
@@ -393,7 +393,7 @@ class Program(models.Model):
 
                             # major … 大分類
                             # middle … 中分類
-                            genre_dict = {
+                            genre_dict: dict[str, str] = {
                                 'major': ariblib.constants.CONTENT_TYPE[genre['lv1']][0].replace('／', '・'),
                                 'middle': ariblib.constants.CONTENT_TYPE[genre['lv1']][1][genre['lv2']].replace('／', '・'),
                             }
@@ -481,7 +481,7 @@ class Program(models.Model):
             edcb.setConnectTimeOutSec(10)  # 10秒後にタイムアウト (SPHD や CATV も映る環境だと時間がかかるので、少し伸ばす)
 
             # 開始時間未定をのぞく全番組を取得する (リスト引数の前2要素は全番組、残り2要素は全期間を意味)
-            program_services = await edcb.sendEnumPgInfoEx([0xffffffffffff, 0xffffffffffff, 1, 0x7fffffffffffffff])
+            program_services: list[dict[str, Any]] | None = await edcb.sendEnumPgInfoEx([0xffffffffffff, 0xffffffffffff, 1, 0x7fffffffffffffff])
             if program_services is None:
                 Logging.error(f'Failed to get programs from EDCB.')
                 return
@@ -496,9 +496,9 @@ class Program(models.Model):
                 for program_service in program_services:
 
                     # NID・SID・TSID を取得
-                    nid = program_service['service_info']['onid']
-                    sid = program_service['service_info']['sid']
-                    tsid = program_service['service_info']['tsid']
+                    nid = int(program_service['service_info']['onid'])
+                    sid = int(program_service['service_info']['sid'])
+                    tsid = int(program_service['service_info']['tsid'])
 
                     # チャンネル情報を取得
                     channel = await Channel.filter(network_id = nid, service_id = sid).first()
@@ -527,7 +527,7 @@ class Program(models.Model):
                             description = TSInformation.formatString(program_info['short_info']['text_char'])
 
                         # 番組詳細
-                        detail = {}  # デフォルト値
+                        detail: dict[str, str] = {}  # デフォルト値
                         if 'ext_info' in program_info:
 
                             # 番組詳細テキストから取得した、見出しと本文の辞書ごとに
@@ -591,7 +591,7 @@ class Program(models.Model):
                         program.id = program_id
                         program.network_id = channel.network_id
                         program.service_id = channel.service_id
-                        program.event_id = program_info['eid']
+                        program.event_id = int(program_info['eid'])
                         program.channel_id = channel.channel_id
                         program.title = title
                         program.description = description
@@ -599,7 +599,7 @@ class Program(models.Model):
                         program.start_time = start_time
                         program.end_time = end_time
                         program.duration = (program.end_time - program.start_time).total_seconds()
-                        program.is_free = program_info['free_ca_flag'] == 0  # free_ca_flag が 0 であれば無料放送
+                        program.is_free = bool(program_info['free_ca_flag'] == 0)  # free_ca_flag が 0 であれば無料放送
 
                         # 映像情報
                         ## テキストにするために ariblib.constants や TSInformation の値を使う
@@ -666,7 +666,7 @@ class Program(models.Model):
 
                                     # major … 大分類
                                     # middle … 中分類
-                                    genre_dict = {
+                                    genre_dict: dict[str, str] = {
                                         'major': genre_tuple[0].replace('／', '・'),
                                         'middle': genre_tuple[1].get(content_data['content_nibble'] & 0xf, '').replace('／', '・'),
                                     }
