@@ -670,7 +670,7 @@ class LiveEncodingTask:
         # ***** tsreadex・エンコーダーからの出力の読み込み → ライブストリームへの書き込み *****
 
         # エンコーダーの出力のチャンクが積み増されていくバッファ
-        chunk_buffer: bytes = b''
+        chunk_buffer: bytearray = bytearray()
 
         # チャンクの最終書き込み時刻 (単調増加時間)
         ## 単に時刻を比較する用途でしか使わないので、time.monotonic() から取得した単調増加時間が入る
@@ -702,17 +702,17 @@ class LiveEncodingTask:
                 with writer_lock:
 
                     # 188 bytes ごとに区切られた、エンコーダーの出力のチャンクをバッファに貯める
-                    chunk_buffer += chunk
+                    chunk_buffer.extend(chunk)
 
                     # チャンクバッファが 65536 bytes (64KB) 以上になった時のみ
                     if len(chunk_buffer) >= 65536:
 
                         # エンコーダーからの出力をライブストリームの Queue に書き込む
                         # print(f'Writer:    Chunk size: {len(chunk_buffer):05} / Time: {time.time()}')
-                        self.livestream.writeStreamData(chunk_buffer)
+                        self.livestream.writeStreamData(bytes(chunk_buffer))
 
                         # チャンクバッファを空にする（重要）
-                        chunk_buffer = b''
+                        chunk_buffer = bytearray()
 
                         # チャンクの最終書き込み時刻を更新
                         chunk_written_at = time.monotonic()
@@ -751,10 +751,10 @@ class LiveEncodingTask:
 
                         # エンコーダーからの出力をライブストリームの Queue に書き込む
                         # print(f'SubWriter: Chunk size: {len(chunk_buffer):05} / Time: {time.time()}')
-                        self.livestream.writeStreamData(chunk_buffer)
+                        self.livestream.writeStreamData(bytes(chunk_buffer))
 
                         # チャンクバッファを空にする（重要）
-                        chunk_buffer = b''
+                        chunk_buffer = bytearray()
 
                         # チャンクの最終書き込み時刻を更新
                         chunk_written_at = time.monotonic()

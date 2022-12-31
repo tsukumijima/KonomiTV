@@ -18,11 +18,12 @@ from app.models import User
 class Jikkyo:
 
     # 実況 ID とサービス ID (SID)・ネットワーク ID (NID) の対照表
+    ## NicoJK の jkch.sh.txt (https://github.com/xtne6f/NicoJK/blob/master/jkch.sh.txt) を情報を更新の上で JSON に変換したもの
     with open(JIKKYO_CHANNELS_PATH, encoding='utf-8') as file:
         jikkyo_channels: ClassVar[list[dict[str, Any]]] = json.load(file)
 
     # 実況チャンネルのステータスが入る辞書
-    # getchannels API のリクエスト結果をキャッシュする
+    ## getchannels API のリクエスト結果をキャッシュする
     jikkyo_channels_status: ClassVar[dict[str, dict[str, int]]] = {}
 
     # 実況 ID と実況チャンネル/コミュニティ ID の対照表
