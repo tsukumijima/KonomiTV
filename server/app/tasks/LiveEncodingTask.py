@@ -23,6 +23,12 @@ from app.utils.hls import LiveLLHLSSegmenter
 
 class LiveEncodingTask:
 
+    # H.264 再生時のエンコード後のストリームの GOP 長
+    GOP_LENGTH_SECOND_H264 = 0.5  # 0.5 秒
+
+    # H.265 再生時のエンコード後のストリームの GOP 長
+    GOP_LENGTH_SECOND_H265 = 2  # 2 秒
+
 
     def __init__(self, livestream: LiveStream):
         """
@@ -133,18 +139,18 @@ class LiveEncodingTask:
 
         ## 最大 GOP 長 (秒)
         ## 30fps なら ×30 、 60fps なら ×60 された値が --gop-len で使われる
-        gop_len_second = 0.5  # 0.5秒
+        gop_length_second = self.GOP_LENGTH_SECOND_H264
         if QUALITY[quality].is_hevc is True:
             ## H.265/HEVC では高圧縮化のため、最大 GOP 長を長くする
-            gop_len_second = 2  # 2秒
+            gop_length_second = self.GOP_LENGTH_SECOND_H265
 
         ## インターレース解除 (60i → 60p (フレームレート: 60fps))
         if QUALITY[quality].is_60fps is True:
-            options.append(f'-r 60000/1001 -g {int(gop_len_second * 60)}')
+            options.append(f'-r 60000/1001 -g {int(gop_length_second * 60)}')
             options.append(f'-vf yadif=mode=1:parity=-1:deint=1,scale={video_width}:{video_height}')
         ## インターレース解除 (60i → 30p (フレームレート: 30fps))
         else:
-            options.append(f'-r 30000/1001 -g {int(gop_len_second * 30)}')
+            options.append(f'-r 30000/1001 -g {int(gop_length_second * 30)}')
             options.append(f'-vf yadif=mode=0:parity=-1:deint=1,scale={video_width}:{video_height}')
 
         # 音声
@@ -167,7 +173,7 @@ class LiveEncodingTask:
         """
         FFmpeg に渡すオプションを組み立てる（ラジオチャンネル向け）
         音声の品質は変えたところでほとんど差がないため、1つだけに固定されている
-        品質が固定ならコードにする必要はないんだけど、可読性を高めるために敢えてこうしてある
+        品質が固定ならコードにする必要は基本ないんだけど、可読性を高めるために敢えてこうしてある
 
         Returns:
             list: FFmpeg に渡すオプションが連なる配列
@@ -294,10 +300,10 @@ class LiveEncodingTask:
 
         ## 最大 GOP 長 (秒)
         ## 30fps なら ×30 、 60fps なら ×60 された値が --gop-len で使われる
-        gop_len_second = 0.5  # 0.5秒
+        gop_length_second = self.GOP_LENGTH_SECOND_H264
         if QUALITY[quality].is_hevc is True:
             ## H.265/HEVC では高圧縮化のため、最大 GOP 長を長くする
-            gop_len_second = 2  # 2秒
+            gop_length_second = self.GOP_LENGTH_SECOND_H265
 
         ## インターレース解除 (60i → 60p (フレームレート: 60fps))
         if QUALITY[quality].is_60fps is True:
@@ -305,14 +311,14 @@ class LiveEncodingTask:
                 options.append('--vpp-deinterlace bob')
             elif encoder_type == 'VCEEncC':
                 options.append('--vpp-yadif mode=bob')
-            options.append(f'--avsync cfr --gop-len {int(gop_len_second * 60)}')
+            options.append(f'--avsync cfr --gop-len {int(gop_length_second * 60)}')
         ## インターレース解除 (60i → 30p (フレームレート: 30fps))
         else:
             if encoder_type == 'QSVEncC' or encoder_type == 'NVEncC':
                 options.append(f'--vpp-deinterlace normal')
             elif encoder_type == 'VCEEncC':
                 options.append(f'--vpp-afs preset=default')
-            options.append(f'--avsync forcecfr --gop-len {int(gop_len_second * 30)}')
+            options.append(f'--avsync forcecfr --gop-len {int(gop_length_second * 30)}')
 
         ## フル HD 放送が行われているチャンネルかつ、指定された品質の解像度が 1440×1080 (1080p) の場合のみ、
         ## 特別に縦解像度を 1920 に変更してフル HD (1920×1080) でエンコードする
@@ -483,7 +489,8 @@ class LiveEncodingTask:
 
         # LL-HLS Segmenter を初期化
         ## iPhone Safari は mpegts.js でのストリーミングに対応していないため、フォールバックとして LL-HLS で配信する必要がある
-        self.livestream.segmenter = LiveLLHLSSegmenter()
+        gop_length_second = self.GOP_LENGTH_SECOND_H265 if QUALITY[self.livestream.quality].is_hevc is True else self.GOP_LENGTH_SECOND_H264
+        self.livestream.segmenter = LiveLLHLSSegmenter(gop_length_second)
 
         # EDCB のチューナーインスタンス (Mirakurun バックエンド利用時は常に None)
         tuner: EDCBTuner | None = None

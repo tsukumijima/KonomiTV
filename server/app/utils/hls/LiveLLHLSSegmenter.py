@@ -35,9 +35,6 @@ from app.utils.mpeg2ts.parser import SectionParser
 
 class LiveLLHLSSegmenter:
 
-    # ターゲットとする LL-HLS セグメント (m4s) の再生時間 (秒)
-    TARGET_DURATION = 1
-
     # ターゲットとする LL-HLS 部分セグメント (m4s) の再生時間 (秒)
     PART_DURATION = 0.15
 
@@ -45,15 +42,21 @@ class LiveLLHLSSegmenter:
     LIST_SIZE = 10
 
 
-    def __init__(self) -> None:
+    def __init__(self, gop_length_second: float) -> None:
         """
         ライブストリーミング用 LL-HLS Segmenter を初期化する
+
+        Args:
+            gop_length_second (float): エンコード後のストリームの GOP 長
         """
+
+        # 必ず 1 以上の値を設定する
+        gop_length_second = max(gop_length_second, 1.0)
 
         # M3U8 プレイリストのインスタンスを初期化
         ## 映像+主音声と映像+副音声のプレイリストは別々に管理する
-        self._primary_audio_m3u8 = M3U8(self.TARGET_DURATION, self.PART_DURATION, self.LIST_SIZE, True, '')
-        self._secondary_audio_m3u8 = M3U8(self.TARGET_DURATION, self.PART_DURATION, self.LIST_SIZE, True, '')
+        self._primary_audio_m3u8 = M3U8(gop_length_second, self.PART_DURATION, self.LIST_SIZE, True, '')
+        self._secondary_audio_m3u8 = M3U8(gop_length_second, self.PART_DURATION, self.LIST_SIZE, True, '')
 
         # init: 最初の初期セグメントを格納するための Future オブジェクト
         self._primary_audio_init: asyncio.Future[bytes] = asyncio.Future()
@@ -384,7 +387,7 @@ class LiveLLHLSSegmenter:
                 elif self._partial_begin_timestamp is not None:
                     PART_DIFF = (timestamp - self._partial_begin_timestamp + ts.PCR_CYCLE) % ts.PCR_CYCLE
                     if self.PART_DURATION * ts.HZ <= PART_DIFF:
-                        self._partial_begin_timestamp = (timestamp - max(0, PART_DIFF - (self.PART_DURATION * ts.HZ)) + ts.PCR_CYCLE) % ts.PCR_CYCLE
+                        self._partial_begin_timestamp = int(timestamp - max(0, PART_DIFF - (self.PART_DURATION * ts.HZ)) + ts.PCR_CYCLE) % ts.PCR_CYCLE
                         self._primary_audio_m3u8.continuousPartial(self._partial_begin_timestamp)
                         self._secondary_audio_m3u8.continuousPartial(self._partial_begin_timestamp)
 
@@ -489,7 +492,7 @@ class LiveLLHLSSegmenter:
                 elif self._partial_begin_timestamp is not None:
                     PART_DIFF = (timestamp - self._partial_begin_timestamp + ts.PCR_CYCLE) % ts.PCR_CYCLE
                     if self.PART_DURATION * ts.HZ <= PART_DIFF:
-                        self._partial_begin_timestamp = (timestamp - max(0, PART_DIFF - (self.PART_DURATION * ts.HZ)) + ts.PCR_CYCLE) % ts.PCR_CYCLE
+                        self._partial_begin_timestamp = int(timestamp - max(0, PART_DIFF - (self.PART_DURATION * ts.HZ)) + ts.PCR_CYCLE) % ts.PCR_CYCLE
                         self._primary_audio_m3u8.continuousPartial(self._partial_begin_timestamp)
                         self._secondary_audio_m3u8.continuousPartial(self._partial_begin_timestamp)
 

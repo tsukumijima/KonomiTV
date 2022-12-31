@@ -17,9 +17,9 @@ from app.utils.hls.segment import Segment
 
 class M3U8:
 
-    def __init__(self, target_duration: int, part_target: float, list_size: int | None, hasInit: bool = False, prefix: str = '') -> None:
+    def __init__(self, target_duration: float, part_target: float, list_size: int | None, hasInit: bool = False, prefix: str = '') -> None:
         self.media_sequence: int = 0
-        self.target_duration: int = target_duration
+        self.target_duration: float = target_duration
         self.part_target: float = part_target
         self.list_size: int | None = list_size
         self.hasInit: bool = hasInit
