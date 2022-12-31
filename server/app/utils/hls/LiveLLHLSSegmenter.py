@@ -8,6 +8,7 @@ https://opensource.org/licenses/MIT
 """
 
 import asyncio
+import math
 from collections import deque
 from fastapi.responses import Response
 from fastapi.responses import StreamingResponse
@@ -50,13 +51,13 @@ class LiveLLHLSSegmenter:
             gop_length_second (float): エンコード後のストリームの GOP 長
         """
 
-        # 必ず 1 以上の値を設定する
-        gop_length_second = max(gop_length_second, 1.0)
+        # EXT-X-TARGETDURATION に小数を与えると再生されないので、小数点以下は切り上げ
+        gop_length_second_int: int = math.ceil(gop_length_second)
 
         # M3U8 プレイリストのインスタンスを初期化
         ## 映像+主音声と映像+副音声のプレイリストは別々に管理する
-        self._primary_audio_m3u8 = M3U8(gop_length_second, self.PART_DURATION, self.LIST_SIZE, True, '')
-        self._secondary_audio_m3u8 = M3U8(gop_length_second, self.PART_DURATION, self.LIST_SIZE, True, '')
+        self._primary_audio_m3u8 = M3U8(gop_length_second_int, self.PART_DURATION, self.LIST_SIZE, True, '')
+        self._secondary_audio_m3u8 = M3U8(gop_length_second_int, self.PART_DURATION, self.LIST_SIZE, True, '')
 
         # init: 最初の初期セグメントを格納するための Future オブジェクト
         self._primary_audio_init: asyncio.Future[bytes] = asyncio.Future()
