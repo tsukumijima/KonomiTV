@@ -40,8 +40,8 @@ export class ChannelUtils {
         // 実況勢いが null（=対応する実況チャンネルがない）
         if (channel_force === null) return 'normal';
 
-        // 実況勢いが 1000 コメント以上（祭）
-        if (channel_force >= 1000) return 'festival';
+        // 実況勢いが 500 コメント以上（祭）
+        if (channel_force >= 500) return 'festival';
         // 実況勢いが 200 コメント以上（激多）
         if (channel_force >= 200) return 'so-many';
         // 実況勢いが 100 コメント以上（多）
