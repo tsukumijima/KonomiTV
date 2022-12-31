@@ -131,19 +131,19 @@ class LiveLLHLSSegmenter:
             # 通常モードで m3u8 プレイリストを生成
             future = m3u8.plain()
             if future is None:
-                return Response(status_code=422, media_type='application/x-mpegURL', headers=self.cors_headers)
+                return Response(status_code=422, media_type='application/vnd.apple.mpegurl', headers=self.cors_headers)
 
             # m3u8 プレイリストが生成されるまで待ってから返す
             ## m3u8 プレイリストは m3u8.continuousSegment() または m3u8.completeSegment() が呼ばれた段階で生成される
             playlist: str = await future
-            return Response(content=playlist, media_type='application/x-mpegURL', headers=self.cors_headers)
+            return Response(content=playlist, media_type='application/vnd.apple.mpegurl', headers=self.cors_headers)
 
         # 少なくとも _HLS_msn が指定されているので、次のセグメントが生成されるまで待ってからプレイリストを返す
         else:
 
             # _HLS_part だけ指定されていることはありえない
             if msn is None:
-                return Response(status_code=422, media_type='application/x-mpegURL', headers=self.cors_headers)
+                return Response(status_code=422, media_type='application/vnd.apple.mpegurl', headers=self.cors_headers)
 
             # _HLS_part が指定されていなければ、0 に設定
             if part is None:
@@ -152,13 +152,13 @@ class LiveLLHLSSegmenter:
             # ブロッキングモードで m3u8 プレイリストを生成
             future = m3u8.blocking(msn, part)
             if future is None:
-                return Response(status_code=422, media_type='application/x-mpegURL', headers=self.cors_headers)
+                return Response(status_code=422, media_type='application/vnd.apple.mpegurl', headers=self.cors_headers)
 
             # m3u8 プレイリストが生成されるまで待ってから返す
             ## m3u8 プレイリストは指定された msn と part に紐づくセグメント/部分セグメントの生成が完了した段階で生成される
             ## 正直どう動いているのかあまり理解できていない…
             playlist: str = await future
-            return Response(content=playlist, media_type='application/x-mpegURL', headers=self.cors_headers)
+            return Response(content=playlist, media_type='application/vnd.apple.mpegurl', headers=self.cors_headers)
 
 
     async def getSegment(self, msn: int | None, secondary_audio: bool = False) -> Response | StreamingResponse:

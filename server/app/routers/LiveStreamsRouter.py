@@ -347,7 +347,7 @@ async def LiveLLHLSClientDisconnectAPI(
     responses = {
         status.HTTP_200_OK: {
             'description': 'LL-HLS の M3U8 プレイリスト。',
-            'content': {'application/x-mpegURL': {}},
+            'content': {'application/vnd.apple.mpegurl': {}},
         }
     }
 )
@@ -432,7 +432,7 @@ async def LiveLLHLSPrimaryAudioInitializationSegmentAPI(
     responses = {
         status.HTTP_200_OK: {
             'description': 'LL-HLS の M3U8 プレイリスト。',
-            'content': {'application/x-mpegURL': {}},
+            'content': {'application/vnd.apple.mpegurl': {}},
         }
     }
 )
