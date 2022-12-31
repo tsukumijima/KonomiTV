@@ -16,6 +16,7 @@ from tortoise import models
 
 from app.constants import JWT_SECRET_KEY
 from app.models import TwitterAccount
+from app.utils import Logging
 
 
 class User(models.Model):
@@ -63,6 +64,7 @@ class User(models.Model):
 
             # ユーザー ID が JWT に含まれていない (JWT トークンが不正)
             if jwt_payload.get('sub') is None:
+                Logging.error('[User][getCurrentUser] Access token data is invalid')
                 raise HTTPException(
                     status_code = status.HTTP_401_UNAUTHORIZED,
                     detail = 'Access token data is invalid',
@@ -74,6 +76,7 @@ class User(models.Model):
 
         # JWT トークンが不正
         except JWTError:
+            Logging.error('[User][getCurrentUser] Access token is invalid')
             raise HTTPException(
                 status_code = status.HTTP_401_UNAUTHORIZED,
                 detail = 'Access token is invalid',
@@ -85,6 +88,7 @@ class User(models.Model):
 
         # そのユーザー ID のユーザーが存在しない
         if not user:
+            Logging.error(f'[User][getCurrentUser] User associated with access token does not exist [user_id: {user_id}]')
             raise HTTPException(
                 status_code = status.HTTP_401_UNAUTHORIZED,
                 detail = 'User associated with access token does not exist',
@@ -117,6 +121,7 @@ class User(models.Model):
 
         # 取得したユーザーが管理者ではない
         if user.is_admin is False:
+            Logging.error(f'[User][getCurrentAdminUser] Don\'t have permission to access this resource [user_id: {user.id}]')
             raise HTTPException(
                 status_code = status.HTTP_403_FORBIDDEN,
                 detail = 'Don\'t have permission to access this resource',

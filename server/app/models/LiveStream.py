@@ -111,6 +111,7 @@ class LiveStreamClient():
 
         # mpegts.js クライアントの場合は実行しない
         if self.client_type == 'mpegts':
+            Logging.error('[LiveStreamClient] This API is only for LL-HLS client')
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = 'This API is only for LL-HLS client',
@@ -118,6 +119,7 @@ class LiveStreamClient():
 
         # LL-HLS Segmenter が None (=Offline) の場合は実行しない
         if self._livestream.segmenter is None:
+            Logging.error('[LiveStreamClient] LL-HLS Segmenter is not running')
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = 'LL-HLS Segmenter is not running',

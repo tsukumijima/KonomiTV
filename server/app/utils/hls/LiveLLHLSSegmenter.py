@@ -131,6 +131,7 @@ class LiveLLHLSSegmenter:
             # 通常モードで m3u8 プレイリストを生成
             future = m3u8.plain()
             if future is None:
+                Logging.error('[LiveLLHLSSegmenter][getPlaylist] m3u8.plain() returned None')
                 return Response(status_code=422, media_type='application/vnd.apple.mpegurl', headers=self.cors_headers)
 
             # m3u8 プレイリストが生成されるまで待ってから返す
@@ -143,6 +144,7 @@ class LiveLLHLSSegmenter:
 
             # _HLS_part だけ指定されていることはありえない
             if msn is None:
+                Logging.error('[LiveLLHLSSegmenter][getPlaylist] msn is None')
                 return Response(status_code=422, media_type='application/vnd.apple.mpegurl', headers=self.cors_headers)
 
             # _HLS_part が指定されていなければ、0 に設定
@@ -152,6 +154,7 @@ class LiveLLHLSSegmenter:
             # ブロッキングモードで m3u8 プレイリストを生成
             future = m3u8.blocking(msn, part)
             if future is None:
+                Logging.error('[LiveLLHLSSegmenter][getPlaylist] m3u8.blocking() returned None')
                 return Response(status_code=422, media_type='application/vnd.apple.mpegurl', headers=self.cors_headers)
 
             # m3u8 プレイリストが生成されるまで待ってから返す
@@ -184,6 +187,7 @@ class LiveLLHLSSegmenter:
         # 完全なセグメントを Queue の形で取得する
         queue = await m3u8.segment(msn)
         if queue is None:
+            Logging.error('[LiveLLHLSSegmenter][getSegment] m3u8.segment() returned None')
             return Response(status_code=422, media_type='video/mp4', headers=self.cors_headers)
 
         # Queue からセグメントデータを取得して StreamingResponse で返す
@@ -225,6 +229,7 @@ class LiveLLHLSSegmenter:
         # 部分セグメントを Queue の形で取得する
         queue = await m3u8.partial(msn, part)
         if queue is None:
+            Logging.error('[LiveLLHLSSegmenter][getPartialSegment] m3u8.partial() returned None')
             return Response(status_code=422, media_type='video/mp4', headers=self.cors_headers)
 
         # Queue からセグメントデータを取得して StreamingResponse で返す

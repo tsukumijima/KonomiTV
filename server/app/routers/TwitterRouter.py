@@ -16,6 +16,7 @@ from typing import Any, cast, Coroutine
 from app import schemas
 from app.models import TwitterAccount
 from app.models import User
+from app.utils import Logging
 from app.utils import OAuthCallbackResponse
 
 
@@ -87,6 +88,7 @@ async def TwitterAuthURLAPI(
         oauth_handler = tweepy.OAuth1UserHandler(consumer_key, consumer_secret, callback=callback_url)
         authorization_url = await asyncio.to_thread(oauth_handler.get_authorization_url, signin_with_twitter=True)  # 同期関数なのでスレッド上で実行
     except tweepy.TweepyException:
+        Logging.error('[TwitterRouter][TwitterAuthURLAPI] Failed to get Twitter authorization URL')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Failed to get Twitter authorization URL',
@@ -137,6 +139,7 @@ async def TwitterAuthCallbackAPI(
             await twitter_account.delete()
 
         # 401 エラーを送出
+        Logging.error('[TwitterRouter][TwitterAuthCallbackAPI] Authorization was denied by user')
         return OAuthCallbackResponse(
             status_code = status.HTTP_401_UNAUTHORIZED,
             detail = 'Authorization was denied by user',
@@ -144,6 +147,7 @@ async def TwitterAuthCallbackAPI(
 
     # なぜか oauth_token も oauth_verifier もない
     if oauth_token is None or oauth_verifier is None:
+        Logging.error('[TwitterRouter][TwitterAuthCallbackAPI] oauth_token or oauth_verifier does not exist')
         return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'oauth_token or oauth_verifier does not exist',
@@ -152,6 +156,7 @@ async def TwitterAuthCallbackAPI(
     # oauth_token に紐づく Twitter アカウントを取得
     twitter_account = await TwitterAccount.filter(access_token=oauth_token).get_or_none()
     if not twitter_account:
+        Logging.error(f'[TwitterRouter][TwitterAuthCallbackAPI] TwitterAccount associated with oauth_token does not exist [oauth_token: {oauth_token}]')
         return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'TwitterAccount associated with oauth_token does not exist',
@@ -171,6 +176,7 @@ async def TwitterAuthCallbackAPI(
     try:
         twitter_account.access_token, twitter_account.access_token_secret = await asyncio.to_thread(oauth_handler.get_access_token, oauth_verifier)
     except tweepy.TweepyException:
+        Logging.error('[TwitterRouter][TwitterAuthCallbackAPI] Failed to get access token')
         return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Failed to get access token',
@@ -185,6 +191,7 @@ async def TwitterAuthCallbackAPI(
     try:
         verify_credentials = await asyncio.to_thread(api.verify_credentials)
     except tweepy.TweepyException:
+        Logging.error('[TwitterRouter][TwitterAuthCallbackAPI] Failed to get user information')
         return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Failed to get user information',
@@ -247,6 +254,7 @@ async def TwitterAccountDeleteAPI(
     # 指定された Twitter アカウントがユーザーアカウントに紐付けられていない or 登録されていない
     ## 実際に Twitter にそのスクリーンネームのアカウントが登録されているかとは無関係
     if not twitter_account:
+        Logging.error(f'[TwitterRouter][TwitterAccountDeleteAPI] TwitterAccount associated with screen_name does not exist [screen_name: {screen_name}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'TwitterAccount associated with screen_name does not exist',
@@ -283,6 +291,7 @@ async def TwitterTweetAPI(
     # 指定された Twitter アカウントがユーザーアカウントに紐付けられていない or 登録されていない
     ## 実際に Twitter にそのスクリーンネームのアカウントが登録されているかとは無関係
     if not twitter_account:
+        Logging.error(f'[TwitterRouter][TwitterTweetAPI] TwitterAccount associated with screen_name does not exist [screen_name: {screen_name}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'TwitterAccount associated with screen_name does not exist',
@@ -292,6 +301,7 @@ async def TwitterTweetAPI(
     if images is None:
         images = []
     if len(images) > 4:
+        Logging.error(f'[TwitterRouter][TwitterTweetAPI] Can tweet up to 4 images [image length: {len(images)}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Can tweet up to 4 images',

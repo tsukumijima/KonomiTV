@@ -19,6 +19,7 @@ from app.constants import QUALITY, QUALITY_TYPES
 from app.models import Channel
 from app.models import LiveStream
 from app.models import LiveStreamClient
+from app.utils import Logging
 
 
 # ルーター
@@ -31,6 +32,7 @@ router = APIRouter(
 # チャンネル ID のバリデーション
 async def ValidateChannelID(channel_id: str = Path(..., description='チャンネル ID 。ex:gr011')) -> str:
     if await Channel.filter(channel_id=channel_id).get_or_none() is None:
+        Logging.error(f'[LiveStreamsRouter] Specified channel_id was not found [channel_id: {channel_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified channel_id was not found',
@@ -40,6 +42,7 @@ async def ValidateChannelID(channel_id: str = Path(..., description='チャン�
 # 品質のバリデーション
 async def ValidateQuality(quality: str = Path(..., description='映像の品質。ex:1080p')) -> QUALITY_TYPES:
     if quality not in QUALITY:
+        Logging.error(f'[LiveStreamsRouter] Specified quality was not found [quality: {quality}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified quality was not found',
@@ -59,6 +62,7 @@ async def GetLiveStreamClient(
 
     # 指定されたクライアント ID が存在しない
     if livestream_client is None:
+        Logging.error(f'[LiveStreamsRouter] Specified client_id was not found [client_id: {client_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified client_id was not found',

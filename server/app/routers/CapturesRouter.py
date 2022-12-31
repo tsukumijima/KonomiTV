@@ -11,6 +11,7 @@ from fastapi import UploadFile
 from pathlib import Path
 
 from app.constants import CONFIG
+from app.utils import Logging
 
 
 # ルーター
@@ -37,6 +38,7 @@ async def CaptureUploadAPI(
     ## 万が一悪意ある攻撃者から危険なファイルを送り込まれないように
     mimetype: str = puremagic.magic_stream(image.file)[0].mime_type
     if mimetype != 'image/jpeg' and mimetype != 'image/png':
+        Logging.error('[CapturesRouter][CaptureUploadAPI] Invalid image file was uploaded.')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Please upload JPEG or PNG image',
@@ -52,6 +54,7 @@ async def CaptureUploadAPI(
     try:
         upload_folder.joinpath(Path(image.filename)).resolve().relative_to(upload_folder.resolve())
     except ValueError:
+        Logging.error('[CapturesRouter][CaptureUploadAPI] Invalid filename was specified.')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified filename is invalid.',

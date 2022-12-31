@@ -21,9 +21,10 @@ from app.constants import API_REQUEST_HEADERS, CONFIG, LOGO_DIR
 from app.models import Channel
 from app.models import LiveStream
 from app.models import User
+from app.utils import Jikkyo
+from app.utils import Logging
 from app.utils.EDCB import CtrlCmdUtil
 from app.utils.EDCB import EDCBUtil
-from app.utils import Jikkyo
 
 
 # ルーター
@@ -236,6 +237,7 @@ async def ChannelAPI(
 
     # 指定されたチャンネル ID が存在しない
     if channel is None:
+        Logging.error(f'[ChannelsRouter][ChannelAPI] Specified channel_id was not found [channel_id: {channel_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified channel_id was not found',
@@ -280,6 +282,7 @@ async def ChannelLogoAPI(
 
     # 指定されたチャンネル ID が存在しない
     if channel is None:
+        Logging.error(f'[ChannelsRouter][ChannelLogoAPI] Specified channel_id was not found [channel_id: {channel_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified channel_id was not found',
@@ -475,6 +478,7 @@ async def ChannelJikkyoSessionAPI(
 
     # 指定されたチャンネル ID が存在しない
     if channel is None:
+        Logging.error(f'[ChannelsRouter][ChannelJikkyoSessionAPI] Specified channel_id was not found [channel_id: {channel_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified channel_id was not found',
