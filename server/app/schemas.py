@@ -60,6 +60,7 @@ class LiveStream(BaseModel):
     # LiveStream は特殊なモデルのため、ここで全て定義する
     status: Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart']
     detail: str
+    started_at: float
     updated_at: float
     clients_count: int
 

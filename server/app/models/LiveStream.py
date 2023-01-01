@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 import time
 from fastapi import HTTPException
 from fastapi import status
@@ -22,6 +23,7 @@ class LiveStreamStatus(TypedDict):
     """ ライブストリームのステータスを表す辞書の型定義 """
     status: Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart']
     detail: str
+    started_at: float
     updated_at: float
     clients_count: int
 
@@ -232,6 +234,9 @@ class LiveStream():
             ## したがって、クライアントの数はこのリストの長さで求められる
             instance._clients = []
 
+            # ライブストリームクライアントの排他ロック (複数スレッドからアクセスするため)
+            instance._clients_lock = threading.Lock()
+
             # ストリームのステータス
             ## Offline, Standby, ONAir, Idling, Restart のいずれか
             instance._status = 'Offline'
@@ -240,15 +245,21 @@ class LiveStream():
             instance._detail = 'ライブストリームは Offline です。'
 
             # ストリームの開始時刻
-            instance._started_at = time.time()
+            instance._started_at = 0
 
             # ストリームのステータスの最終更新時刻のタイムスタンプ
-            instance._updated_at = time.time()
+            instance._updated_at = 0
+
+            # ライブストリームのステータスを示す変数群の排他ロック (複数スレッドからアクセスするため)
+            instance._status_lock = threading.Lock()
 
             # ストリームデータの最終書き込み時刻のタイムスタンプ
             ## 最終書き込み時刻が 5 秒 (ONAir 時) 20 秒 (Standby 時) 以上更新されていない場合は、
             ## エンコーダーがフリーズしたものとみなしてエンコードタスクを再起動する
-            instance.stream_data_written_at = time.time()
+            instance._stream_data_written_at = 0
+
+            # ストリームデータの最終書き込み時刻のタイムスタンプの排他ロック (複数スレッドからアクセスするため)
+            instance._stream_data_written_at_lock = threading.Lock()
 
             # LL-HLS Segmenter のインスタンス
             ## iPhone Safari は mpegts.js でのストリーミングに対応していないため、フォールバックとして LL-HLS で配信する必要がある
@@ -282,11 +293,14 @@ class LiveStream():
         self.channel_id: str
         self.quality: QUALITY_TYPES
         self._clients: list[LiveStreamClient]
+        self._clients_lock: threading.Lock
         self._status: Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart']
         self._detail: str
         self._started_at: float
         self._updated_at: float
-        self.stream_data_written_at: float
+        self._status_lock: threading.Lock
+        self._stream_data_written_at: float
+        self._stream_data_written_at_lock: threading.Lock
         self.segmenter: LiveLLHLSSegmenter | None
         self.tuner: EDCBTuner | None
 
@@ -377,8 +391,11 @@ class LiveStream():
 
         # ***** ステータスの切り替え *****
 
+        with self._status_lock:
+            current_status = self._status
+
         # ライブストリームが Offline な場合、新たにエンコードタスクを起動する
-        if self._status == 'Offline':
+        if current_status == 'Offline':
 
             # 現在 Idling 状態のライブストリームがあれば、うち最初のライブストリームを Offline にする
             ## 一般にチューナーリソースは無尽蔵にあるわけではないので、現在 Idling（=つまり誰も見ていない）ライブストリームがあるのなら
@@ -419,13 +436,14 @@ class LiveStream():
 
         # ライブストリームクライアントのインスタンスを生成・登録する
         client = LiveStreamClient(self, client_type)
-        self._clients.append(client)
+        with self._clients_lock:
+            self._clients.append(client)
         Logging.info(f'[Live: {self.livestream_id}] Client Connected. Client ID: {client.client_id}')
 
         # ***** アイドリングからの復帰 *****
 
         # ライブストリームが Idling 状態な場合、ONAir 状態に戻す（アイドリングから復帰）
-        if self._status == 'Idling':
+        if current_status == 'Idling':
             self.setStatus('ONAir', 'ライブストリームは ONAir です。')
 
         # ライブストリームクライアントのインスタンスを返す
@@ -444,9 +462,10 @@ class LiveStream():
         """
 
         # 指定されたクライアント ID のクライアントを取得する
-        for client in self._clients:
-            if client.client_id == client_id:
-                return client
+        with self._clients_lock:
+            for client in self._clients:
+                if client.client_id == client_id:
+                    return client
 
         # 見つからなかった場合は None を返す
         return None
@@ -468,7 +487,8 @@ class LiveStream():
         # 指定されたライブストリームクライアントを削除する
         ## すでにタイムアウトなどで削除されていたら何もしない
         try:
-            self._clients.remove(client)
+            with self._clients_lock:
+                self._clients.remove(client)
             Logging.info(f'[Live: {self.livestream_id}] Client Disconnected. Client ID: {client.client_id}')
         except ValueError:
             return
@@ -479,12 +499,14 @@ class LiveStream():
         すべてのクライアントのライブストリームへの接続を切断する
         """
 
-        # すべてのクライアントの接続を切断する
-        for client in self._clients:
-            self.disconnect(client)
+        with self._clients_lock:
 
-        # 念のためクライアントが入るリストを空にする
-        self._clients = []
+            # すべてのクライアントの接続を切断する
+            for client in self._clients:
+                self.disconnect(client)
+
+            # 念のためクライアントが入るリストを空にする
+            self._clients = []
 
 
     def getStatus(self) -> LiveStreamStatus:
@@ -492,16 +514,20 @@ class LiveStream():
         ライブストリームのステータスを取得する
 
         Returns:
-            LiveStreamStatus: ライブストリームのステータスが入った辞書
+            LiveStreamStatus: ライブストリームのステータス
         """
 
-        # ステータス・詳細・最終更新時刻・クライアント数を返す
-        return {
-            'status': self._status,
-            'detail': self._detail,
-            'updated_at': self._updated_at,
-            'clients_count': len(self._clients),
-        }
+        with self._clients_lock:
+            clients_count = len(self._clients)
+
+        with self._status_lock:
+            return {
+                'status': self._status,  # ライブストリームの現在のステータス
+                'detail': self._detail,  # ライブストリームの現在のステータスの詳細情報
+                'started_at': self._started_at,  # ライブストリームが開始された (ステータスが Offline or Restart → Standby に移行した) 時刻
+                'updated_at': self._updated_at,  # ライブストリームのステータスが最後に更新された時刻
+                'clients_count': clients_count,  # ライブストリームに接続中のクライアント数
+            }
 
 
     def setStatus(self, status: Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart'], detail: str, quiet: bool = False) -> None:
@@ -514,41 +540,56 @@ class LiveStream():
             quiet (bool): ステータス設定のログを出力するかどうか
         """
 
-        # ステータスも詳細も現在の状態と重複しているなら、更新を行わない（同じ内容のイベントが複数発生するのを防ぐ）
-        if self._status == status and self._detail == detail:
-            return
+        with self._status_lock:
 
-        # ストリーム開始 (Offline or Restart → Standby) 時、started_at と stream_data_written_at を更新する
-        # ここで更新しておかないと、いつまで経っても初期化時の古いタイムスタンプが使われてしまう
-        if ((self._status == 'Offline' or self._status == 'Restart') and status == 'Standby'):
-            self._started_at = time.time()
-            self.stream_data_written_at = time.time()
+            # ステータスも詳細も現在の状態と重複しているなら、更新を行わない（同じ内容のイベントが複数発生するのを防ぐ）
+            if self._status == status and self._detail == detail:
+                return
 
-        # ログを表示
-        if quiet is False:
-            Logging.info(f'[Live: {self.livestream_id}] [Status: {status}] {detail}')
+            # ストリーム開始 (Offline or Restart → Standby) 時、started_at と stream_data_written_at を更新する
+            # ここで更新しておかないと、いつまで経っても初期化時の古いタイムスタンプが使われてしまう
+            if ((self._status == 'Offline' or self._status == 'Restart') and status == 'Standby'):
+                self._started_at = time.time()
+                with self._stream_data_written_at_lock:
+                    self._stream_data_written_at = time.time()
 
-        # ストリーム起動 (Standby → ONAir) 時、起動時間のログを表示する
-        if self._status == 'Standby' and status == 'ONAir':
-            Logging.info(f'[Live: {self.livestream_id}] Startup complete. ({round(time.time() - self._started_at, 2)} sec)')
+            # ログを表示
+            if quiet is False:
+                Logging.info(f'[Live: {self.livestream_id}] [Status: {status}] {detail}')
 
-        # ステータスと詳細を設定
-        self._status = status
-        self._detail = detail
+            # ストリーム起動 (Standby → ONAir) 時、起動時間のログを表示する
+            if self._status == 'Standby' and status == 'ONAir':
+                Logging.info(f'[Live: {self.livestream_id}] Startup complete. ({round(time.time() - self._started_at, 2)} sec)')
 
-        # 最終更新のタイムスタンプを更新
-        self._updated_at = time.time()
+            # ステータスと詳細を設定
+            self._status = status
+            self._detail = detail
 
-        # チューナーインスタンスが存在する場合のみ
-        if self.tuner is not None:
+            # 最終更新のタイムスタンプを更新
+            self._updated_at = time.time()
 
-            # Idling への切り替え時、チューナーをアンロックして再利用できるように
-            if self._status == 'Idling':
-                self.tuner.unlock()
+            # チューナーインスタンスが存在する場合のみ
+            if self.tuner is not None:
 
-            # ONAir への切り替え（復帰）時、再びチューナーをロックして制御を横取りされないように
-            if self._status == 'ONAir':
-                self.tuner.lock()
+                # Idling への切り替え時、チューナーをアンロックして再利用できるように
+                if self._status == 'Idling':
+                    self.tuner.unlock()
+
+                # ONAir への切り替え（復帰）時、再びチューナーをロックして制御を横取りされないように
+                if self._status == 'ONAir':
+                    self.tuner.lock()
+
+
+    def getStreamDataWrittenAt(self) -> float:
+        """
+        ストリームデータの最終書き込み時刻を取得する
+
+        Returns:
+            float: ストリームデータの最終書き込み時刻
+        """
+
+        with self._stream_data_written_at_lock:
+            return self._stream_data_written_at
 
 
     async def writeStreamData(self, stream_data: bytes) -> None:
@@ -564,19 +605,21 @@ class LiveStream():
         now = time.time()
 
         # 接続している全てのクライアントの Queue にストリームデータを書き込む
-        for client in self._clients:
+        with self._clients_lock:
+            for client in self._clients:
 
-            # 最終読み取り時刻を10秒過ぎたクライアントはタイムアウトと判断し、クライアントを削除する
-            # 主にネットワークが切断されたなどの理由で発生する
-            # Queue の読み取りはノンブロッキングなので、Standby の際にタイムスタンプが更新されなくなる心配をする必要はない
-            if now - client.stream_data_read_at > 10:
-                self._clients.remove(client)
-                Logging.info(f'[Live: {self.livestream_id}] Client Disconnected (Timeout). Client ID: {client.client_id}')
+                # 最終読み取り時刻を10秒過ぎたクライアントはタイムアウトと判断し、クライアントを削除する
+                # 主にネットワークが切断されたなどの理由で発生する
+                # Queue の読み取りはノンブロッキングなので、Standby の際にタイムスタンプが更新されなくなる心配をする必要はない
+                if now - client.stream_data_read_at > 10:
+                    self._clients.remove(client)
+                    Logging.info(f'[Live: {self.livestream_id}] Client Disconnected (Timeout). Client ID: {client.client_id}')
 
-            # ストリームデータを書き込む (クライアント種別が mpegts の場合のみ)
-            if client.client_type == 'mpegts':
-                await client.queue.put(stream_data)
+                # ストリームデータを書き込む (クライアント種別が mpegts の場合のみ)
+                if client.client_type == 'mpegts':
+                    await client.queue.put(stream_data)
 
         # ストリームデータが空でなければ、最終書き込み時刻を更新
         if stream_data != b'':
-            self.stream_data_written_at = now
+            with self._stream_data_written_at_lock:
+                self._stream_data_written_at = now

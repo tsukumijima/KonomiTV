@@ -620,8 +620,8 @@ class LiveEncodingTask:
                     # 現在 Standby でかつストリームデータの最終書き込み時刻から 20 秒以上が経過している場合も、エンコーダーがフリーズしたものとみなす
                     # stdout も stderr もブロッキングされてしまっている場合を想定し、このスレッドでも確認する
                     livestream_status = self.livestream.getStatus()
-                    if ((livestream_status['status'] == 'ONAir' and time.time() - self.livestream.stream_data_written_at > 5) or
-                        (livestream_status['status'] == 'Standby' and time.time() - self.livestream.stream_data_written_at > 20)):
+                    if ((livestream_status['status'] == 'ONAir' and time.time() - self.livestream.getStreamDataWrittenAt() > 5) or
+                        (livestream_status['status'] == 'Standby' and time.time() - self.livestream.getStreamDataWrittenAt() > 20)):
 
                         # エンコーダーを強制終了させないと次の処理に進まない事が想定されるので、エンコーダーを強制終了
                         if encoder is not None:
@@ -1065,8 +1065,8 @@ class LiveEncodingTask:
                 # 現在 ONAir でかつストリームデータの最終書き込み時刻から 5 秒以上が経過しているなら、エンコーダーがフリーズしたものとみなす
                 # 現在 Standby でかつストリームデータの最終書き込み時刻から 20 秒以上が経過している場合も、エンコーダーがフリーズしたものとみなす
                 ## 何らかの理由でエンコードが途中で停止した場合、livestream.write() が実行されなくなるのを利用する
-                if ((livestream_status['status'] == 'ONAir' and time.time() - self.livestream.stream_data_written_at > 5) or
-                    (livestream_status['status'] == 'Standby' and time.time() - self.livestream.stream_data_written_at > 20)):
+                if ((livestream_status['status'] == 'ONAir' and time.time() - self.livestream.getStreamDataWrittenAt() > 5) or
+                    (livestream_status['status'] == 'Standby' and time.time() - self.livestream.getStreamDataWrittenAt() > 20)):
                     ## できるだけエンコーダーのエラーメッセージを拾ってエラー表示したいので、1秒間実行を待機する
                     ## その間にエラーメッセージが終了判定に引っかかった場合はそのまま終了する
                     encoder_terminated_at = time.time()
