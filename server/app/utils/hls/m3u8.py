@@ -59,7 +59,7 @@ class M3U8:
                 self.segments[index].partials[part].m3u8s.append(future)
         return future
 
-    def push(self, packet: bytes) -> None:
+    async def push(self, packet: bytes) -> None:
         if not self.segments: return
         self.segments[-1].push(packet)
 
@@ -94,7 +94,7 @@ class M3U8:
             if not m.done(): m.set_result(self.manifest())
         self.segments[-1].partials[-1].m3u8s
 
-    def continuousSegment(self, endPTS: int, isIFrame: bool = False) -> None:
+    async def continuousSegment(self, endPTS: int, isIFrame: bool = False) -> None:
         lastSegment = self.segments[-1] if self.segments else None
         self.newSegment(endPTS, isIFrame)
 
@@ -110,7 +110,7 @@ class M3U8:
         for f in self.futures: f.set_result(self.manifest())
         self.futures = []
 
-    def continuousPartial(self, endPTS: int, isIFrame: bool = False) -> None:
+    async def continuousPartial(self, endPTS: int, isIFrame: bool = False) -> None:
         lastSegment = self.segments[-1] if self.segments else None
         lastPartial = lastSegment.partials[-1] if lastSegment else None
         self.newPartial(endPTS, isIFrame)

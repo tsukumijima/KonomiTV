@@ -610,8 +610,7 @@ class LiveStream():
             for client in self._clients:
 
                 # 最終読み取り時刻を10秒過ぎたクライアントはタイムアウトと判断し、クライアントを削除する
-                # 主にネットワークが切断されたなどの理由で発生する
-                # Queue の読み取りはノンブロッキングなので、Standby の際にタイムスタンプが更新されなくなる心配をする必要はない
+                ## 主にネットワークが切断されたなどの理由で発生する
                 if now - client.stream_data_read_at > 10:
                     self._clients.remove(client)
                     Logging.info(f'[Live: {self.livestream_id}] Client Disconnected (Timeout). Client ID: {client.client_id}')
