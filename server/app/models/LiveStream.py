@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import asyncio
-import queue
 import time
 from fastapi import HTTPException
 from fastapi import status
@@ -31,7 +30,7 @@ class LiveStreamClient():
     """ ライブストリームのクライアントを表すクラス """
 
 
-    def __init__(self, livestream: LiveStream, client_type: Literal['mpegts', 'll-hls']):
+    def __init__(self, livestream: LiveStream, client_type: Literal['mpegts', 'll-hls']) -> None:
         """
         ライブストリーミングクライアントのインスタンスを初期化する
         なお、LiveStreamClient は LiveStream クラス外から初期化してはいけない
@@ -55,14 +54,14 @@ class LiveStreamClient():
         # ストリームデータが入る Queue
         ## client_type が mpegts の場合のみ、クライアントが持つ Queue にストリームデータが入る
         ## client_type が ll-hls の場合は配信方式が異なるため Queue は使われない
-        self.queue: queue.Queue[bytes | None] = queue.Queue()
+        self.queue: asyncio.Queue[bytes | None] = asyncio.Queue()
 
         # ストリームデータの最終読み取り時刻のタイミング
         ## 最終読み取り時刻を10秒過ぎたクライアントは LiveStream.writeStreamData() でタイムアウトと判断され、削除される
         self.stream_data_read_at: float = time.time()
 
 
-    def readStreamData(self) -> bytes | None:
+    async def readStreamData(self) -> bytes | None:
         """
         自分自身の Queue からストリームデータを読み取って返す
         Queue 内のストリームデータは LiveStream.writeStreamData() で書き込まれたもの
@@ -83,9 +82,7 @@ class LiveStreamClient():
 
         # Queue から読み取ったストリームデータを返す
         try:
-            return self.queue.get_nowait()
-        except queue.Empty:  # キューの中身が空
-            return b''  # None にはせず、処理を継続させる
+            return await self.queue.get()
         except TypeError:
             return None
 
@@ -109,7 +106,7 @@ class LiveStreamClient():
             Response | StreamingResponse: FastAPI のレスポンス
         """
 
-        # mpegts.js クライアントの場合は実行しない
+        # mpegts クライアントの場合は実行しない
         if self.client_type == 'mpegts':
             Logging.error('[LiveStreamClient] This API is only for LL-HLS client')
             raise HTTPException(
@@ -230,6 +227,11 @@ class LiveStream():
             instance.channel_id = channel_id
             instance.quality = quality
 
+            # ライブストリームクライアントが入るリスト
+            ## クライアントの接続が切断された場合、このリストからも削除される
+            ## したがって、クライアントの数はこのリストの長さで求められる
+            instance._clients = []
+
             # ストリームのステータス
             ## Offline, Standby, ONAir, Idling, Restart のいずれか
             instance._status = 'Offline'
@@ -257,11 +259,6 @@ class LiveStream():
             ## Mirakurun バックエンドを使っている場合は None のまま
             instance.tuner = None
 
-            # ライブストリームクライアントが入るリスト
-            ## クライアントの接続が切断された場合、このリストからも削除される
-            ## したがって、クライアントの数はこのリストの長さで求められる
-            instance.clients = []
-
             # 生成したインスタンスを登録する
             ## インスタンスの参照が渡されるので、オブジェクトとしては同一
             cls.__instances[livestream_id] = instance
@@ -270,7 +267,7 @@ class LiveStream():
         return cls.__instances[livestream_id]
 
 
-    def __init__(self, channel_id: str, quality: str):
+    def __init__(self, channel_id: str, quality: str) -> None:
         """
         ライブストリームのインスタンスを取得する
 
@@ -284,6 +281,7 @@ class LiveStream():
         self.livestream_id: str
         self.channel_id: str
         self.quality: QUALITY_TYPES
+        self._clients: list[LiveStreamClient]
         self._status: Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart']
         self._detail: str
         self._started_at: float
@@ -291,7 +289,6 @@ class LiveStream():
         self.stream_data_written_at: float
         self.segmenter: LiveLLHLSSegmenter | None
         self.tuner: EDCBTuner | None
-        self.clients: list[LiveStreamClient]
 
 
     @classmethod
@@ -310,16 +307,15 @@ class LiveStream():
     @classmethod
     def getONAirLiveStreams(cls) -> list[LiveStream]:
         """
-        現在 ONAir なライブストリームのインスタンスを取得する
+        現在 ONAir 状態のライブストリームのインスタンスを取得する
 
         Returns:
-            list[LiveStream]: 現在 ONAir なライブストリームのインスタンスの入ったリスト
+            list[LiveStream]: 現在 ONAir 状態のライブストリームのインスタンスのリスト
         """
 
         result: list[LiveStream] = []
 
-        # 現在 ONAir 状態のライブストリームを探す
-        # 見つかったら、そのライブストリームのインスタンスをリストに入れる
+        # 現在 ONAir 状態のライブストリームを探してリストに追加
         for livestream in LiveStream.getAllLiveStreams():
             if livestream.getStatus()['status'] == 'ONAir':
                 result.append(livestream)
@@ -330,16 +326,15 @@ class LiveStream():
     @classmethod
     def getIdlingLiveStreams(cls) -> list[LiveStream]:
         """
-        現在 Idling なライブストリームのインスタンスを取得する
+        現在 Idling 状態のライブストリームのインスタンスを取得する
 
         Returns:
-            list[LiveStream]: 現在 Idling なライブストリームのインスタンスの入ったリスト
+            list[LiveStream]: 現在 Idling 状態のライブストリームのインスタンスのリスト
         """
 
         result: list[LiveStream] = []
 
-        # 現在 Idling 状態のライブストリームを探す
-        # 見つかったら、そのライブストリームのインスタンスをリストに入れる
+        # 現在 Idling 状態のライブストリームを探してリストに追加
         for livestream in LiveStream.getAllLiveStreams():
             if livestream.getStatus()['status'] == 'Idling':
                 result.append(livestream)
@@ -348,7 +343,7 @@ class LiveStream():
 
 
     @classmethod
-    def getViewers(cls, channel_id:str) -> int:
+    def getViewers(cls, channel_id: str) -> int:
         """
         指定されたチャンネルのライブストリームの現在の視聴者数を取得する
 
@@ -359,14 +354,12 @@ class LiveStream():
             int: 視聴者数
         """
 
-        # 指定されたチャンネル ID が含まれるライブストリームを探す
+        # 指定されたチャンネル ID に紐づくライブストリームを探して視聴者数を集計
         viewers = 0
         for livestream in LiveStream.getAllLiveStreams():
             if livestream.channel_id == channel_id:
-                # 足していく
                 viewers += livestream.getStatus()['clients_count']
 
-        # カウントした視聴者数を返す
         return viewers
 
 
@@ -426,7 +419,7 @@ class LiveStream():
 
         # ライブストリームクライアントのインスタンスを生成・登録する
         client = LiveStreamClient(self, client_type)
-        self.clients.append(client)
+        self._clients.append(client)
         Logging.info(f'[Live: {self.livestream_id}] Client Connected. Client ID: {client.client_id}')
 
         # ***** アイドリングからの復帰 *****
@@ -439,7 +432,7 @@ class LiveStream():
         return client
 
 
-    async def connectToExistingClient(self, client_id: str) -> LiveStreamClient | None:
+    def connectToExistingClient(self, client_id: str) -> LiveStreamClient | None:
         """
         指定されたクライアント ID に紐づく、ライブストリームに接続済みのクライアントを取得する
 
@@ -451,7 +444,7 @@ class LiveStream():
         """
 
         # 指定されたクライアント ID のクライアントを取得する
-        for client in self.clients:
+        for client in self._clients:
             if client.client_id == client_id:
                 return client
 
@@ -459,7 +452,7 @@ class LiveStream():
         return None
 
 
-    async def disconnect(self, client: LiveStreamClient) -> None:
+    def disconnect(self, client: LiveStreamClient) -> None:
         """
         指定されたクライアントのライブストリームへの接続を切断する
         LiveStreamClient を使い終わったら必ず呼び出すこと (さもなければ誰も見てないのにエンコードタスクがずっと実行され続けてしまう)
@@ -468,13 +461,30 @@ class LiveStream():
             client (LiveStreamClient): ライブストリームクライアントのインスタンス
         """
 
+        # mpegts クライアントのみ、Queue に None を追加して接続切断を通知する
+        if client.client_type == 'mpegts':
+            client.queue.put_nowait(None)
+
         # 指定されたライブストリームクライアントを削除する
         ## すでにタイムアウトなどで削除されていたら何もしない
         try:
-            self.clients.remove(client)
+            self._clients.remove(client)
             Logging.info(f'[Live: {self.livestream_id}] Client Disconnected. Client ID: {client.client_id}')
         except ValueError:
             return
+
+
+    def disconnectAll(self) -> None:
+        """
+        すべてのクライアントのライブストリームへの接続を切断する
+        """
+
+        # すべてのクライアントの接続を切断する
+        for client in self._clients:
+            self.disconnect(client)
+
+        # 念のためクライアントが入るリストを空にする
+        self._clients = []
 
 
     def getStatus(self) -> LiveStreamStatus:
@@ -490,7 +500,7 @@ class LiveStream():
             'status': self._status,
             'detail': self._detail,
             'updated_at': self._updated_at,
-            'clients_count': len(self.clients),
+            'clients_count': len(self._clients),
         }
 
 
@@ -541,7 +551,7 @@ class LiveStream():
                 self.tuner.lock()
 
 
-    def writeStreamData(self, stream_data: bytes) -> None:
+    async def writeStreamData(self, stream_data: bytes) -> None:
         """
         接続している全ての mpegts クライアントの Queue にストリームデータを書き込む
         同時にストリームデータの最終書き込み時刻を更新し、クライアントがタイムアウトしていたら削除する
@@ -554,18 +564,18 @@ class LiveStream():
         now = time.time()
 
         # 接続している全てのクライアントの Queue にストリームデータを書き込む
-        for client in self.clients:
+        for client in self._clients:
 
             # 最終読み取り時刻を10秒過ぎたクライアントはタイムアウトと判断し、クライアントを削除する
             # 主にネットワークが切断されたなどの理由で発生する
             # Queue の読み取りはノンブロッキングなので、Standby の際にタイムスタンプが更新されなくなる心配をする必要はない
             if now - client.stream_data_read_at > 10:
-                self.clients.remove(client)
+                self._clients.remove(client)
                 Logging.info(f'[Live: {self.livestream_id}] Client Disconnected (Timeout). Client ID: {client.client_id}')
 
             # ストリームデータを書き込む (クライアント種別が mpegts の場合のみ)
             if client.client_type == 'mpegts':
-                client.queue.put(stream_data)
+                await client.queue.put(stream_data)
 
         # ストリームデータが空でなければ、最終書き込み時刻を更新
         if stream_data != b'':

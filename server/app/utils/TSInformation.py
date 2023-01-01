@@ -86,7 +86,7 @@ class TSInformation:
     __format_string_translation_map = None
 
 
-    def __init__(self, tspath: str):
+    def __init__(self, tspath: str) -> None:
         """
         TS ファイルから各種情報を取得する
 

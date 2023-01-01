@@ -21,7 +21,7 @@ class EDCBTuner:
     __instances: ClassVar[list[EDCBTuner | None]] = []
 
 
-    def __new__(cls, network_id: int, service_id: int, transport_stream_id: int):
+    def __new__(cls, network_id: int, service_id: int, transport_stream_id: int) -> EDCBTuner:
 
         # 新しいチューナーインスタンスを生成する
         instance = super(EDCBTuner, cls).__new__(cls)
@@ -33,7 +33,7 @@ class EDCBTuner:
         return instance
 
 
-    def __init__(self, network_id: int, service_id: int, transport_stream_id: int):
+    def __init__(self, network_id: int, service_id: int, transport_stream_id: int) -> None:
         """
         チューナーインスタンスを初期化する
 

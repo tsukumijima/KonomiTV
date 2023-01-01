@@ -17,7 +17,7 @@ class PES:
 
     HEADER_SIZE = 6
 
-    def __init__(self, payload: bytes = b''):
+    def __init__(self, payload: bytes = b'') -> None:
         self.payload = memoryview(payload)
 
     def __getitem__(self, item: Any) -> int:

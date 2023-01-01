@@ -63,7 +63,7 @@ class PartialSegment:
 
 class Segment(PartialSegment):
 
-    def __init__(self, beginPTS: int, isIFrame: bool = False):
+    def __init__(self, beginPTS: int, isIFrame: bool = False) -> None:
         super().__init__(beginPTS, isIFrame = False)
         self.partials = [PartialSegment(beginPTS, isIFrame)]
         self.program_date_time = datetime.now()

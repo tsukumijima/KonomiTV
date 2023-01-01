@@ -30,7 +30,7 @@ class LiveEncodingTask:
     GOP_LENGTH_SECOND_H265 = 2  # 2 秒
 
 
-    def __init__(self, livestream: LiveStream):
+    def __init__(self, livestream: LiveStream) -> None:
         """
         LiveStream のインスタンスに基づくライブエンコードタスクを初期化する
         このエンコードタスクが LiveStream を実質的に制御する形になる
@@ -694,6 +694,9 @@ class LiveEncodingTask:
         # CPU バウンドな部分なので、同期関数をマルチスレッドで実行する
         def Writer():
 
+            # メインスレッドのイベントループを取得
+            from app.app import loop
+
             nonlocal chunk_buffer, chunk_written_at, writer_lock
 
             # エンコーダーからの出力を受け取るイテレータ
@@ -716,8 +719,10 @@ class LiveEncodingTask:
                     if len(chunk_buffer) >= 65536:
 
                         # エンコーダーからの出力をライブストリームの Queue に書き込む
+                        ## メインスレッド側に値を渡すため、asyncio.run_coroutine_threadsafe() を使う
+                        ## LiveStream.writeStreamData() で asyncio.Queue (非スレッドセーフ) を使っているため、メインスレッドで実行させる必要がある
+                        asyncio.run_coroutine_threadsafe(self.livestream.writeStreamData(bytes(chunk_buffer)), loop)
                         # print(f'Writer:    Chunk size: {len(chunk_buffer):05} / Time: {time.time()}')
-                        self.livestream.writeStreamData(bytes(chunk_buffer))
 
                         # チャンクバッファを空にする（重要）
                         chunk_buffer = bytearray()
@@ -728,14 +733,8 @@ class LiveEncodingTask:
                 # エンコーダープロセスが終了していたらループを抜ける
                 if encoder.poll() is not None:
 
-                    # ループを抜ける前に、接続している全てのクライアントの Queue にライブストリームの終了を知らせる None を書き込む
-                    # クライアントは None を受信した場合、ストリーミングを終了するようになっている
-                    # これがないとクライアントはライブストリームが終了した事に気づかず、無限ループになってしまう
-                    for client in self.livestream.clients:
-                        client.queue.put(None)
-
-                    # この時点で全てのクライアントの接続が切断されているので、クライアントが入るリストをクリア
-                    self.livestream.clients = []
+                    # すべてのクライアントのライブストリームへの接続を切断する
+                    self.livestream.disconnectAll()
 
                     # ループを抜ける
                     break
@@ -745,6 +744,9 @@ class LiveEncodingTask:
         ## 前回のチャンク書き込みから 0.025 秒以上経ったもののチャンクが 64KB に達していない際に実行するチャンク書き込みも SubWriter の方で行う
         ## ラジオチャンネルは通常のチャンネルと比べてデータ量が圧倒的に少ないため、64KB に達することは稀で SubWriter でのチャンク書き込みがメインになる
         def SubWriter():
+
+            # メインスレッドのイベントループを取得
+            from app.app import loop
 
             nonlocal tuner_ts_read_at, tuner_ts_read_at_lock, chunk_buffer, chunk_written_at, writer_lock
 
@@ -758,8 +760,10 @@ class LiveEncodingTask:
                     if (time.monotonic() - chunk_written_at) > 0.025 and (len(chunk_buffer) > 0):
 
                         # エンコーダーからの出力をライブストリームの Queue に書き込む
+                        ## メインスレッド側に値を渡すため、asyncio.run_coroutine_threadsafe() を使う
+                        ## LiveStream.writeStreamData() で asyncio.Queue (非スレッドセーフ) を使っているため、メインスレッドで実行させる必要がある
+                        asyncio.run_coroutine_threadsafe(self.livestream.writeStreamData(bytes(chunk_buffer)), loop)
                         # print(f'SubWriter: Chunk size: {len(chunk_buffer):05} / Time: {time.time()}')
-                        self.livestream.writeStreamData(bytes(chunk_buffer))
 
                         # チャンクバッファを空にする（重要）
                         chunk_buffer = bytearray()

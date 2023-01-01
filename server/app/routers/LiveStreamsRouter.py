@@ -58,7 +58,7 @@ async def GetLiveStreamClient(
 
     # 既に接続済みのクライアントのインスタンスを取得
     livestream = LiveStream(channel_id, quality)
-    livestream_client = await livestream.connectToExistingClient(client_id)
+    livestream_client = livestream.connectToExistingClient(client_id)
 
     # 指定されたクライアント ID が存在しない
     if livestream_client is None:
@@ -253,14 +253,14 @@ async def LiveMPEGTSStreamAPI(
             if await request.is_disconnected():
 
                 # ライブストリームへの接続を切断し、ループを終了する
-                await livestream.disconnect(livestream_client)
+                livestream.disconnect(livestream_client)
                 break
 
             # ライブストリームが Offline ではない
             if livestream.getStatus()['status'] != 'Offline':
 
                 # クライアントが持つ Queue から読み取ったストリームデータ
-                stream_data: bytes | None = livestream_client.readStreamData()
+                stream_data: bytes | None = await livestream_client.readStreamData()
 
                 # ストリームデータが存在する
                 if stream_data is not None:
@@ -272,19 +272,15 @@ async def LiveMPEGTSStreamAPI(
                 else:
 
                     # ライブストリームへの接続を切断し、ループを終了する
-                    await livestream.disconnect(livestream_client)
+                    livestream.disconnect(livestream_client)
                     break
 
             # ライブストリームが Offline になったのでループを終了
             else:
 
                 # ライブストリームへの接続を切断し、ループを終了する
-                await livestream.disconnect(livestream_client)
+                livestream.disconnect(livestream_client)
                 break
-
-            # 0.001 秒待つ
-            # ストリームデータの読み取りはノンブロッキングのため、ある程度待たないとループがビジーになり負荷が上がってしまう
-            await asyncio.sleep(0.001)
 
     # リクエストがキャンセルされたときに自前でライブストリームの接続を切断できるよう、モンキーパッチを当てる
     # StreamingResponse はリクエストがキャンセルされるとレスポンスを生成するジェネレータの実行自体を勝手に強制終了してしまう
@@ -338,7 +334,7 @@ async def LiveLLHLSClientDisconnectAPI(
 ):
     # ライブストリームへの接続を切断する
     livestream = LiveStream(channel_id, quality)
-    await livestream.disconnect(livestream_client)
+    livestream.disconnect(livestream_client)
 
 
 # ***** LL-HLS ストリーミング API (主音声) *****

@@ -60,7 +60,7 @@ class Jikkyo:
     }
 
 
-    def __init__(self, network_id: int, service_id: int):
+    def __init__(self, network_id: int, service_id: int) -> None:
         """
         ニコニコ実況クライアントを初期化する
 
