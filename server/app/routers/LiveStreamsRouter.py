@@ -282,18 +282,18 @@ async def LiveMPEGTSStreamAPI(
                 livestream.disconnect(livestream_client)
                 break
 
-    # リクエストがキャンセルされたときに自前でライブストリームの接続を切断できるよう、モンキーパッチを当てる
-    # StreamingResponse はリクエストがキャンセルされるとレスポンスを生成するジェネレータの実行自体を勝手に強制終了してしまう
-    # そうするとリクエストがキャンセルされたか判定できないし、さらに強制終了によりスレッドプールがうまく解放されずに残ってしまうようで不具合が起きる
-    # これを避けるため StreamingResponse.listen_for_disconnect() を書き換えて、自前でリクエストがキャンセルされた事を検知できるようにする
+    # HTTP リクエストがキャンセルされたときに自前でライブストリームの接続を切断できるよう、モンキーパッチを当てる
+    ## StreamingResponse はリクエストがキャンセルされるとレスポンスを生成するジェネレータの実行自体を勝手に強制終了してしまう
+    ## そうするとリクエストがキャンセルされたか判定できず、クライアントがタイムアウトするまで接続切断がライブストリームに反映されない
+    ## これを避けるため StreamingResponse.listen_for_disconnect() を書き換えて、自前でライブストリームの接続を切断するようにする
     # ref: https://github.com/encode/starlette/pull/839
     from starlette.types import Receive
     async def listen_for_disconnect_monkeypatch(self, receive: Receive) -> None:
         while True:
             message = await receive()
             if message['type'] == 'http.disconnect':
-                # 自前でリクエストがキャンセルされた事を検知できるように、1 秒待機する
-                await asyncio.sleep(1)
+                # ライブストリームへの接続を切断する
+                livestream.disconnect(livestream_client)
                 break
     StreamingResponse.listen_for_disconnect = listen_for_disconnect_monkeypatch
 

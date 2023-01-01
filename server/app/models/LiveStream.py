@@ -474,7 +474,8 @@ class LiveStream():
     def disconnect(self, client: LiveStreamClient) -> None:
         """
         指定されたクライアントのライブストリームへの接続を切断する
-        LiveStreamClient を使い終わったら必ず呼び出すこと (さもなければ誰も見てないのにエンコードタスクがずっと実行され続けてしまう)
+        このメソッドを実行すると LiveStreamClient インスタンスはライブストリームのクライアントリストから削除され、それ以降機能しなくなる
+        LiveStreamClient を使い終わったら必ず呼び出すこと (さもなければ誰も見てないのに視聴中扱いでエンコードタスクが実行され続けてしまう)
 
         Args:
             client (LiveStreamClient): ライブストリームクライアントのインスタンス
