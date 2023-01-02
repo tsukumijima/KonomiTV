@@ -488,11 +488,6 @@ class LiveEncodingTask:
 
         # ***** チューナーの起動と接続 *****
 
-        # LL-HLS Segmenter を初期化
-        ## iPhone Safari は mpegts.js でのストリーミングに対応していないため、フォールバックとして LL-HLS で配信する必要がある
-        gop_length_second = self.GOP_LENGTH_SECOND_H265 if QUALITY[self.livestream.quality].is_hevc is True else self.GOP_LENGTH_SECOND_H264
-        self.livestream.segmenter = LiveLLHLSSegmenter(gop_length_second)
-
         # EDCB のチューナーインスタンス (Mirakurun バックエンド利用時は常に None)
         tuner: EDCBTuner | None = None
 
@@ -676,6 +671,11 @@ class LiveEncodingTask:
         asyncio.create_task(asyncio.to_thread(Reader))
 
         # ***** tsreadex・エンコーダーからの出力の読み込み → ライブストリームへの書き込み *****
+
+        # LL-HLS Segmenter を初期化
+        ## iPhone Safari は mpegts.js でのストリーミングに対応していないため、フォールバックとして LL-HLS で配信する必要がある
+        gop_length_second = self.GOP_LENGTH_SECOND_H265 if QUALITY[self.livestream.quality].is_hevc is True else self.GOP_LENGTH_SECOND_H264
+        self.livestream.segmenter = LiveLLHLSSegmenter(gop_length_second)
 
         # エンコーダーの出力のチャンクが積み増されていくバッファ
         chunk_buffer: bytearray = bytearray()
@@ -1123,6 +1123,11 @@ class LiveEncodingTask:
         tsreadex.kill()
         encoder.kill()
 
+        # LL-HLS Segmenter を破棄する
+        if self.livestream.segmenter is not None:
+            self.livestream.segmenter.destroy()
+            self.livestream.segmenter = None
+
         # エンコードタスクを再起動する（エンコーダーの再起動が必要な場合）
         if is_restart_required is True:
 
@@ -1147,11 +1152,6 @@ class LiveEncodingTask:
                 else:  # 有料放送時（契約されていないため視聴できないことが原因の可能性が高い）
                     self.livestream.setStatus('Offline', 'ライブストリームの再起動に失敗しました。契約されていないため視聴できません。')
 
-                # LL-HLS Segmenter を破棄する
-                if self.livestream.segmenter is not None:
-                    self.livestream.segmenter.destroy()
-                    self.livestream.segmenter = None
-
                 # チューナーを終了する (EDCB バックエンドのみ)
                 ## tuner.close() した時点でそのチューナーインスタンスは意味をなさなくなるので、LiveStream インスタンスのプロパティからも削除する
                 if CONFIG['general']['backend'] == 'EDCB':
@@ -1160,11 +1160,6 @@ class LiveEncodingTask:
 
         # 通常終了
         else:
-
-            # LL-HLS Segmenter を破棄する
-            if self.livestream.segmenter is not None:
-                self.livestream.segmenter.destroy()
-                self.livestream.segmenter = None
 
             # EDCB バックエンドのみ
             if CONFIG['general']['backend'] == 'EDCB':
