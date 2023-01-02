@@ -31,8 +31,8 @@ from app.utils import Logging
 from app.utils.EDCB import EDCBTuner
 
 
-# このアプリケーションのイベントループ
-loop = asyncio.get_event_loop()
+# このアプリケーションの実行中のイベントループ
+loop = asyncio.get_running_loop()
 
 # FastAPI を初期化
 app = FastAPI(
