@@ -166,6 +166,10 @@ async def LiveStreamEventAPI(
         # 初期値
         previous_status = livestream.getStatus()
 
+        # 取得できたクライアント数はあくまで同じチャンネル+同じ画質で視聴中のクライアントをカウントしたものなので、
+        # 同じチャンネル+すべての画質で視聴中のクライアント数を別途取得して上書きする
+        previous_status['clients_count'] = LiveStream.getViewers(channel_id)
+
         # 初回接続時に必ず現在のステータスを返す
         yield {
             'event': 'initial_update',  # initial_update イベントを設定
@@ -176,6 +180,10 @@ async def LiveStreamEventAPI(
 
             # 現在のライブストリームのステータスを取得
             status = livestream.getStatus()
+
+            # 取得できたクライアント数はあくまで同じチャンネル+同じ画質で視聴中のクライアントをカウントしたものなので、
+            # 同じチャンネル+すべての画質で視聴中のクライアント数を別途取得して上書きする
+            status['clients_count'] = LiveStream.getViewers(channel_id)
 
             # 以前の結果と異なっている場合のみレスポンスを返す
             if previous_status != status:
