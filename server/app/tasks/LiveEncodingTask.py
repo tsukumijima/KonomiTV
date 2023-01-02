@@ -10,7 +10,7 @@ import time
 from datetime import datetime
 from io import TextIOWrapper
 from tortoise import timezone
-from typing import BinaryIO, Iterator, Literal, cast
+from typing import BinaryIO, cast, IO, Iterator, Literal
 
 from app.constants import API_REQUEST_HEADERS, CONFIG, LIBRARY_PATH, LOGS_DIR, QUALITY, QUALITY_TYPES
 from app.models import Channel
@@ -838,185 +838,166 @@ class LiveEncodingTask:
             ## すぐにはエンコードタスクを再起動せずに1秒待つためのもの
             encoder_terminated_at = None
 
+            # エンコーダーの stderr を TextIOWrapper でラップ
+            encoder_stderr = TextIOWrapper(cast(IO[bytes], encoder.stderr), encoding='utf-8', errors='ignore', newline=None)
+
             # エンコーダーの出力結果を取得
-            line: str = ''  # 出力行
             lines: list = []  # 出力行のリスト
-            linebuffer: bytes = b''  # 出力行のバッファ
             while True:
+
+                # 行ごとに随時読み込む
+                line = encoder_stderr.readline().strip()
+
+                # エンコード進捗のログだったら、正規表現で余計なゴミを取り除く
+                ## HWEncC は内部で使われている FFmpeg 側の大量に出るデバッグログと衝突してログがごちゃまぜになりがち…
+                ## FFmpeg 側のログ（ゴミ）と完全に混ざっていると完全に除去できずに frames: の数値が桁が飛んだような出力になるけどご愛嬌…
+                match1 = re.fullmatch(r'^.*?([1-9][0-9]+ frames: [0-9\.]+ fps, [0-9]+ kb/s, GPU [0-9]+%, VE [0-9]+%, VD [0-9]+%)$', line)
+                match2 = re.fullmatch(r'^.*?([1-9][0-9]+ frames: [0-9\.]+ fps, [0-9]+ kb/s, GPU [0-9]+%, VD [0-9]+%)$', line)
+                match3 = re.fullmatch(r'^.*?([1-9][0-9]+ frames: [0-9\.]+ fps, [0-9]+ kb/s)$', line)
+                if match1 is not None:
+                    line = match1.groups()[0]
+                elif match2 is not None:
+                    line = match2.groups()[0]
+                elif match3 is not None:
+                    line = match3.groups()[0]
+
+                # 山ほど出力されるメッセージと空行を除外
+                ## 元は "Delay between the first packet and last packet in the muxing queue is xxxxxx > 1: forcing output" と
+                ## "removing 2 bytes from input bitstream not read by decoder." という2つのメッセージで、実害はない
+                ## FFmpeg と HWEncC のログが衝突して行の先頭が欠けることがあるので、できるだけ多く弾けるように部分一致にしている
+                if (('removing 2 bytes from input bitstream not read by decoder.' not in line) and
+                    ('Delay between the' not in line) and
+                    ('packet in the muxing queue' not in line) and ('ing output' not in line) and
+                    ('ng output' != line) and ('g output' != line) and (' output' != line) and ('output' != line) and
+                    ('utput' != line) and ('tput' != line) and ('put' != line) and ('ut' != line) and ('t' != line) and
+                    ('' != line)):
+
+                    # ログリストに行単位で追加
+                    lines.append(line)
+
+                    # ストリーム関連のログを表示
+                    ## エンコーダーのログ出力が有効なら、ストリーム関連に限らずすべての行を出力する
+                    if 'Stream #0:' in line or CONFIG['general']['debug_encoder'] is True:
+                        Logging.debug_simple(f'[Live: {self.livestream.livestream_id}] [{encoder_type}] ' + line)
+
+                    # エンコーダーのログ出力が有効なら、エンコーダーのログファイルに書き込む
+                    ## strip() したログではなく、エンコーダーから取得したそのままのログを出力する
+                    if CONFIG['general']['debug_encoder'] is True:
+                        encoder_log.write(line.strip('\r\n') + '\n')
+                        encoder_log.flush()
 
                 # ライブストリームのステータスを取得
                 livestream_status = self.livestream.getStatus()
 
-                # 1バイトずつ読み込む
-                buffer: bytes = encoder.stderr.read(1)
-                if buffer:  # データがあれば
+                # エンコードの進捗を判定し、ステータスを更新する
+                # 誤作動防止のため、ステータスが Standby の間のみ更新できるようにする
+                if livestream_status['status'] == 'Standby':
+                    # FFmpeg
+                    if encoder_type == 'FFmpeg':
+                        if 'arib parser was created' in line or 'Invalid frame dimensions 0x0.' in line:
+                            self.livestream.setStatus('Standby', 'エンコードを開始しています…')
+                        elif 'frame=    1 fps=0.0 q=0.0' in line or 'size=       0kB time=00:00' in line:
+                            self.livestream.setStatus('Standby', 'バッファリングしています…')
+                        elif 'frame=' in line or 'bitrate=' in line:
+                            self.livestream.setStatus('ONAir', 'ライブストリームは ONAir です。')
+                    ## HWEncC
+                    elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
+                        if 'opened file "pipe:0"' in line:
+                            self.livestream.setStatus('Standby', 'エンコードを開始しています…')
+                        elif 'starting output thread...' in line:
+                            self.livestream.setStatus('Standby', 'バッファリングしています…')
+                        elif 'Encode Thread:' in line:
+                            self.livestream.setStatus('Standby', 'バッファリングしています…')
+                        elif ' frames: ' in line:
+                            self.livestream.setStatus('ONAir', 'ライブストリームは ONAir です。')
 
-                    # 行バッファに追加
-                    linebuffer = linebuffer + buffer
-
-                    # 画面更新 or 改行があれば
-                    linebreak = b'\r' if os.name == 'nt' else b'\n'
-                    if (b'\r' in buffer) or (linebreak in buffer):
-
-                        # 行（文字列）を取得
-                        try:
-                            # 余計な改行や空白を削除
-                            # インデントが消えるので見栄えは悪いけど、プログラムで扱う分にはちょうどいい
-                            line = linebuffer.decode('utf-8').strip()
-                        # UnicodeDecodeError は握りつぶす（どっちみちチャンネル名とか解読できないし）
-                        except UnicodeDecodeError:
-                            pass
-
-                        # 行バッファを消去
-                        linebuffer = bytes()
-
-                        # エンコード進捗のログだったら、正規表現で余計なゴミを取り除く
-                        ## HWEncC は内部で使われている FFmpeg 側の大量に出るデバッグログと衝突してログがごちゃまぜになりがち…
-                        ## FFmpeg 側のログ（ゴミ）と完全に混ざっていると完全に除去できずに frames: の数値が桁が飛んだような出力になるけどご愛嬌…
-                        match1 = re.fullmatch(r'^.*?([1-9][0-9]+ frames: [0-9\.]+ fps, [0-9]+ kb/s, GPU [0-9]+%, VE [0-9]+%, VD [0-9]+%)$', line)
-                        match2 = re.fullmatch(r'^.*?([1-9][0-9]+ frames: [0-9\.]+ fps, [0-9]+ kb/s, GPU [0-9]+%, VD [0-9]+%)$', line)
-                        match3 = re.fullmatch(r'^.*?([1-9][0-9]+ frames: [0-9\.]+ fps, [0-9]+ kb/s)$', line)
-                        if match1 is not None:
-                            line = match1.groups()[0]
-                        elif match2 is not None:
-                            line = match2.groups()[0]
-                        elif match3 is not None:
-                            line = match3.groups()[0]
-
-                        # 山ほど出力されるメッセージと空行を除外
-                        ## 元は "Delay between the first packet and last packet in the muxing queue is xxxxxx > 1: forcing output" と
-                        ## "removing 2 bytes from input bitstream not read by decoder." という2つのメッセージで、実害はない
-                        ## FFmpeg と HWEncC のログが衝突して行の先頭が欠けることがあるので、できるだけ多く弾けるように部分一致にしている
-                        if (('removing 2 bytes from input bitstream not read by decoder.' not in line) and
-                            ('Delay between the' not in line) and
-                            ('packet in the muxing queue' not in line) and ('ing output' not in line) and
-                            ('ng output' != line) and ('g output' != line) and (' output' != line) and ('output' != line) and
-                            ('utput' != line) and ('tput' != line) and ('put' != line) and ('ut' != line) and ('t' != line) and
-                            ('' != line)):
-
-                            # ログリストに行単位で追加
-                            lines.append(line)
-
-                            # ストリーム関連のログを表示
-                            ## エンコーダーのログ出力が有効なら、ストリーム関連に限らずすべての行を出力する
-                            if 'Stream #0:' in line or CONFIG['general']['debug_encoder'] is True:
-                                Logging.debug_simple(f'[Live: {self.livestream.livestream_id}] [{encoder_type}] ' + line)
-
-                            # エンコーダーのログ出力が有効なら、エンコーダーのログファイルに書き込む
-                            ## strip() したログではなく、エンコーダーから取得したそのままのログを出力する
-                            if CONFIG['general']['debug_encoder'] is True:
-                                encoder_log.write(line.strip('\r\n') + '\n')
-                                encoder_log.flush()
-
-                        # エンコードの進捗を判定し、ステータスを更新する
-                        # 誤作動防止のため、ステータスが Standby の間のみ更新できるようにする
-                        if livestream_status['status'] == 'Standby':
-                            # FFmpeg
-                            if encoder_type == 'FFmpeg':
-                                if 'arib parser was created' in line or 'Invalid frame dimensions 0x0.' in line:
-                                    self.livestream.setStatus('Standby', 'エンコードを開始しています…')
-                                elif 'frame=    1 fps=0.0 q=0.0' in line or 'size=       0kB time=00:00' in line:
-                                    self.livestream.setStatus('Standby', 'バッファリングしています…')
-                                elif 'frame=' in line or 'bitrate=' in line:
-                                    self.livestream.setStatus('ONAir', 'ライブストリームは ONAir です。')
-                            ## HWEncC
-                            elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
-                                if 'opened file "pipe:0"' in line:
-                                    self.livestream.setStatus('Standby', 'エンコードを開始しています…')
-                                elif 'starting output thread...' in line:
-                                    self.livestream.setStatus('Standby', 'バッファリングしています…')
-                                elif 'Encode Thread:' in line:
-                                    self.livestream.setStatus('Standby', 'バッファリングしています…')
-                                elif ' frames: ' in line:
-                                    self.livestream.setStatus('ONAir', 'ライブストリームは ONAir です。')
-
-                        # 特定のエラーログが出力されている場合は回復が見込めないため、エンコーダーを終了する
-                        # エンコーダーを再起動することで回復が期待できる場合は、ステータスを Restart に設定しエンコードタスクを再起動する
-                        ## FFmpeg
-                        if encoder_type == 'FFmpeg':
-                            if 'Stream map \'0:v:0\' matches no streams.' in line:
-                                # 何らかの要因で tsreadex から放送波が受信できなかったことによるエラーのため、エンコーダーの再起動は行わない
-                                ## 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないなら放送波の受信に失敗したものとする
-                                if (('番組情報がありません' == program_present.title) or
-                                    ('放送休止' in program_present.title) or
-                                    ('放送終了' in program_present.title) or
-                                    ('休止' in program_present.title) or
-                                    ('停波' in program_present.title)):
-                                    self.livestream.setStatus('Offline', 'この時間は放送を休止しています。')
-                                else:
-                                    self.livestream.setStatus('Offline', 'チューナーからの放送波の受信に失敗したため、エンコードを開始できません。')
-                                break
-                            elif 'Conversion failed!' in line:
-                                # 捕捉されないエラー
-                                is_restart_required = True  # エンコーダーの再起動を要求
-                                if self._retry_count < self._max_retry_count:  # リトライの制限内であれば
-                                    self.livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。エンコードタスクを再起動します。')
-                                # 直近 50 件のログを表示
-                                for log in lines[-51:-1]:
-                                    Logging.warning(log)
-                                break
-                        ## HWEncC
-                        elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
-                            if 'error finding stream information.' in line:
-                                # 何らかの要因で tsreadex から放送波が受信できなかったことによるエラーのため、エンコーダーの再起動は行わない
-                                ## 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないなら放送波の受信に失敗したものとする
-                                if (('番組情報がありません' == program_present.title) or
-                                    ('放送休止' in program_present.title) or
-                                    ('放送終了' in program_present.title) or
-                                    ('休止' in program_present.title) or
-                                    ('停波' in program_present.title)):
-                                    self.livestream.setStatus('Offline', 'この時間は放送を休止しています。')
-                                else:
-                                    self.livestream.setStatus('Offline', 'チューナーからの放送波の受信に失敗したため、エンコードを開始できません。')
-                                break
-                            elif encoder_type == 'NVEncC' and 'due to the NVIDIA\'s driver limitation.' in line:
-                                # NVEncC で、同時にエンコードできるセッション数 (Geforceだと3つ) を全て使い果たしている時のエラー
-                                self.livestream.setStatus('Offline', 'NVENC のエンコードセッションが不足しているため、エンコードを開始できません。')
-                                break
-                            elif encoder_type == 'QSVEncC' and ('unable to decode by qsv.' in line or 'No device found for QSV encoding!' in line):
-                                # QSVEncC 非対応の環境
-                                self.livestream.setStatus('Offline', 'お使いの PC 環境は QSVEncC エンコーダーに対応していません。')
-                                break
-                            elif encoder_type == 'QSVEncC' and 'iHD_drv_video.so init failed' in line:
-                                # QSVEncC 非対応の環境 (Linux かつ第5世代以前の Intel CPU)
-                                self.livestream.setStatus('Offline', 'お使いの PC 環境は Linux 版 QSVEncC エンコーダーに対応していません。第5世代以前の古い CPU をお使いの可能性があります。')
-                                break
-                            elif encoder_type == 'NVEncC' and 'CUDA not available.' in line:
-                                # NVEncC 非対応の環境
-                                self.livestream.setStatus('Offline', 'お使いの PC 環境は NVEncC エンコーダーに対応していません。')
-                                break
-                            elif encoder_type == 'VCEEncC' and \
-                                ('Failed to initalize VCE factory:' in line or 'Assertion failed:Init() failed to vkCreateInstance' in line):
-                                # VCEEncC 非対応の環境
-                                self.livestream.setStatus('Offline', 'お使いの PC 環境は VCEEncC エンコーダーに対応していません。')
-                                break
-                            elif encoder_type == 'QSVEncC' and 'HEVC encoding is not supported on current platform.' in line:
-                                # QSVEncC: H.265/HEVC でのエンコードに非対応の環境
-                                self.livestream.setStatus('Offline', 'お使いの Intel GPU は H.265/HEVC でのエンコードに対応していません。')
-                                break
-                            elif encoder_type == 'NVEncC' and 'does not support H.265/HEVC encoding.' in line:
-                                # NVEncC: H.265/HEVC でのエンコードに非対応の環境
-                                self.livestream.setStatus('Offline', 'お使いの NVIDIA GPU は H.265/HEVC でのエンコードに対応していません。')
-                                break
-                            elif encoder_type == 'VCEEncC' and 'HW Acceleration of H.265/HEVC is not supported on this platform.' in line:
-                                # VCEEncC: H.265/HEVC でのエンコードに非対応の環境
-                                self.livestream.setStatus('Offline', 'お使いの AMD GPU は H.265/HEVC でのエンコードに対応していません。')
-                                break
-                            elif 'Consider increasing the value for the --input-analyze and/or --input-probesize!' in line:
-                                # --input-probesize or --input-analyze の期間内に入力ストリームの解析が終わらなかった
-                                is_restart_required = True  # エンコーダーの再起動を要求
-                                if self._retry_count < self._max_retry_count:  # リトライの制限内であれば
-                                    self.livestream.setStatus('Restart', '入力ストリームの解析に失敗しました。エンコードタスクを再起動します。')
-                                break
-                            elif 'finished with error!' in line:
-                                # 捕捉されないエラー
-                                is_restart_required = True  # エンコーダーの再起動を要求
-                                if self._retry_count < self._max_retry_count:  # リトライの制限内であれば
-                                    self.livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。エンコードタスクを再起動します。')
-                                # 直近 150 件のログを表示
-                                for log in lines[-151:-1]:
-                                    Logging.warning(log)
-                                break
+                # 特定のエラーログが出力されている場合は回復が見込めないため、エンコーダーを終了する
+                # エンコーダーを再起動することで回復が期待できる場合は、ステータスを Restart に設定しエンコードタスクを再起動する
+                ## FFmpeg
+                if encoder_type == 'FFmpeg':
+                    if 'Stream map \'0:v:0\' matches no streams.' in line:
+                        # 何らかの要因で tsreadex から放送波が受信できなかったことによるエラーのため、エンコーダーの再起動は行わない
+                        ## 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないなら放送波の受信に失敗したものとする
+                        if (('番組情報がありません' == program_present.title) or
+                            ('放送休止' in program_present.title) or
+                            ('放送終了' in program_present.title) or
+                            ('休止' in program_present.title) or
+                            ('停波' in program_present.title)):
+                            self.livestream.setStatus('Offline', 'この時間は放送を休止しています。')
+                        else:
+                            self.livestream.setStatus('Offline', 'チューナーからの放送波の受信に失敗したため、エンコードを開始できません。')
+                        break
+                    elif 'Conversion failed!' in line:
+                        # 捕捉されないエラー
+                        is_restart_required = True  # エンコーダーの再起動を要求
+                        if self._retry_count < self._max_retry_count:  # リトライの制限内であれば
+                            self.livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。エンコードタスクを再起動します。')
+                        # 直近 50 件のログを表示
+                        for log in lines[-51:-1]:
+                            Logging.warning(log)
+                        break
+                ## HWEncC
+                elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
+                    if 'error finding stream information.' in line:
+                        # 何らかの要因で tsreadex から放送波が受信できなかったことによるエラーのため、エンコーダーの再起動は行わない
+                        ## 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないなら放送波の受信に失敗したものとする
+                        if (('番組情報がありません' == program_present.title) or
+                            ('放送休止' in program_present.title) or
+                            ('放送終了' in program_present.title) or
+                            ('休止' in program_present.title) or
+                            ('停波' in program_present.title)):
+                            self.livestream.setStatus('Offline', 'この時間は放送を休止しています。')
+                        else:
+                            self.livestream.setStatus('Offline', 'チューナーからの放送波の受信に失敗したため、エンコードを開始できません。')
+                        break
+                    elif encoder_type == 'NVEncC' and 'due to the NVIDIA\'s driver limitation.' in line:
+                        # NVEncC で、同時にエンコードできるセッション数 (Geforceだと3つ) を全て使い果たしている時のエラー
+                        self.livestream.setStatus('Offline', 'NVENC のエンコードセッションが不足しているため、エンコードを開始できません。')
+                        break
+                    elif encoder_type == 'QSVEncC' and ('unable to decode by qsv.' in line or 'No device found for QSV encoding!' in line):
+                        # QSVEncC 非対応の環境
+                        self.livestream.setStatus('Offline', 'お使いの PC 環境は QSVEncC エンコーダーに対応していません。')
+                        break
+                    elif encoder_type == 'QSVEncC' and 'iHD_drv_video.so init failed' in line:
+                        # QSVEncC 非対応の環境 (Linux かつ第5世代以前の Intel CPU)
+                        self.livestream.setStatus('Offline', 'お使いの PC 環境は Linux 版 QSVEncC エンコーダーに対応していません。第5世代以前の古い CPU をお使いの可能性があります。')
+                        break
+                    elif encoder_type == 'NVEncC' and 'CUDA not available.' in line:
+                        # NVEncC 非対応の環境
+                        self.livestream.setStatus('Offline', 'お使いの PC 環境は NVEncC エンコーダーに対応していません。')
+                        break
+                    elif encoder_type == 'VCEEncC' and \
+                        ('Failed to initalize VCE factory:' in line or 'Assertion failed:Init() failed to vkCreateInstance' in line):
+                        # VCEEncC 非対応の環境
+                        self.livestream.setStatus('Offline', 'お使いの PC 環境は VCEEncC エンコーダーに対応していません。')
+                        break
+                    elif encoder_type == 'QSVEncC' and 'HEVC encoding is not supported on current platform.' in line:
+                        # QSVEncC: H.265/HEVC でのエンコードに非対応の環境
+                        self.livestream.setStatus('Offline', 'お使いの Intel GPU は H.265/HEVC でのエンコードに対応していません。')
+                        break
+                    elif encoder_type == 'NVEncC' and 'does not support H.265/HEVC encoding.' in line:
+                        # NVEncC: H.265/HEVC でのエンコードに非対応の環境
+                        self.livestream.setStatus('Offline', 'お使いの NVIDIA GPU は H.265/HEVC でのエンコードに対応していません。')
+                        break
+                    elif encoder_type == 'VCEEncC' and 'HW Acceleration of H.265/HEVC is not supported on this platform.' in line:
+                        # VCEEncC: H.265/HEVC でのエンコードに非対応の環境
+                        self.livestream.setStatus('Offline', 'お使いの AMD GPU は H.265/HEVC でのエンコードに対応していません。')
+                        break
+                    elif 'Consider increasing the value for the --input-analyze and/or --input-probesize!' in line:
+                        # --input-probesize or --input-analyze の期間内に入力ストリームの解析が終わらなかった
+                        is_restart_required = True  # エンコーダーの再起動を要求
+                        if self._retry_count < self._max_retry_count:  # リトライの制限内であれば
+                            self.livestream.setStatus('Restart', '入力ストリームの解析に失敗しました。エンコードタスクを再起動します。')
+                        break
+                    elif 'finished with error!' in line:
+                        # 捕捉されないエラー
+                        is_restart_required = True  # エンコーダーの再起動を要求
+                        if self._retry_count < self._max_retry_count:  # リトライの制限内であれば
+                            self.livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。エンコードタスクを再起動します。')
+                        # 直近 150 件のログを表示
+                        for log in lines[-151:-1]:
+                            Logging.warning(log)
+                        break
 
                 # 現在放送中の番組が終了した時
                 if program_present is not None and time.time() > program_present.end_time.timestamp():
@@ -1091,7 +1072,7 @@ class LiveEncodingTask:
                         break
 
                 # エンコーダーが意図せず終了した場合、エンコーダーを（明示的に）終了する
-                if not buffer and encoder.poll() is not None:
+                if encoder.poll() is not None:
                     # エンコーダーの再起動を要求
                     is_restart_required = True
                     # エンコーダーの再起動前提のため、あえて Offline にはせず Restart とする
