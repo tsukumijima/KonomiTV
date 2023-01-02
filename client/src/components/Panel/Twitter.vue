@@ -999,6 +999,7 @@ export default Vue.extend({
 
     .tweet-form {
         display: flex;
+        position: relative;
         flex-direction: column;
         flex-shrink: 0;
         height: 136px;
@@ -1030,8 +1031,8 @@ export default Vue.extend({
         }
 
         &__hashtag {
-            display: flex;
-            align-items: center;
+            display: block;
+            position: relative;
             height: 19px;
             margin-top: 12px;
             margin-left: 12px;
@@ -1043,13 +1044,25 @@ export default Vue.extend({
 
             &-form {
                 display: block;
+                width: calc(100% - 24px);
                 height: 100%;
                 flex-grow: 1;
                 font-size: 12.5px;
                 color: var(--v-twitter-lighten2);
                 outline: none;
                 @include smartphone-horizontal {
+                    width: calc(100% - 22px);
                     font-size: 12px;
+                }
+                // iOS Safari でフォーカス時にズームされる問題への対処
+                @supports (-webkit-touch-callout: none) {
+                    @include smartphone-horizontal {
+                        width: calc(100% * 1.333 - 32px);
+                        height: calc(16px * 1.333 + 4px);
+                        font-size: 16px;
+                        transform: scale(0.75);
+                        transform-origin: 0 0;
+                    }
                 }
                 &::placeholder {
                     color: rgba(65, 165, 241, 60%);
@@ -1057,9 +1070,10 @@ export default Vue.extend({
             }
             &-list-button {
                 display: flex;
-                position: relative;
+                position: absolute;
                 align-items: center;
                 justify-content: center;
+                top: -8px;
                 right: -8px;
                 width: 34px;
                 height: 34px;
@@ -1067,6 +1081,9 @@ export default Vue.extend({
                 border-radius: 50%;
                 color: var(--v-twitter-lighten2);
                 cursor: pointer;
+                @include smartphone-horizontal {
+                    right: -11px;
+                }
             }
         }
 
@@ -1085,6 +1102,19 @@ export default Vue.extend({
                 margin-top: 6px;
                 font-size: 12px;
             }
+            // iOS Safari でフォーカス時にズームされる問題への対処
+            @supports (-webkit-touch-callout: none) {
+                @include smartphone-horizontal {
+                    position: absolute;
+                    top: 24px;
+                    left: -2px;
+                    min-width: calc(100% * 1.28 - 25px);
+                    min-height: 34px;
+                    font-size: 16px;
+                    transform: scale(0.78125);
+                    transform-origin: 0 0;
+                }
+            }
             &::placeholder {
                 color: var(--v-text-darken2);
             }
@@ -1097,6 +1127,12 @@ export default Vue.extend({
             margin-top: 6px;
             @include smartphone-horizontal {
                 height: 26px;
+            }
+            // iOS Safari でフォーカス時にズームされる問題への対処…の副作用の対処
+            @supports (-webkit-touch-callout: none) {
+                @include smartphone-horizontal {
+                    margin-top: auto;
+                }
             }
 
             .account-button {
@@ -1236,8 +1272,8 @@ export default Vue.extend({
             left: 8px;
             right: 8px;
             bottom: 40px;
-            max-height: calc(100vh - 104px);
-            max-height: calc(100dvh - 104px);
+            max-height: calc(100vh - 82px);
+            max-height: calc(100dvh - 82px);
         }
         &--display {
             opacity: 1;
@@ -1344,6 +1380,11 @@ export default Vue.extend({
                 bottom: calc(env(keyboard-inset-height, 0px) - 26px) !important;
             }
         }
+        @include smartphone-horizontal {
+            &::-webkit-scrollbar {
+                width: 4px;
+            }
+        }
         &::-webkit-scrollbar-track {
             background: var(--v-background-lighten2);
         }
@@ -1353,6 +1394,15 @@ export default Vue.extend({
                 background: var(--v-gray-base);
             }
         }
+        // iOS Safari 向け
+        @supports (-webkit-touch-callout: none) {
+            @include smartphone-horizontal {
+                &::-webkit-scrollbar {
+                    width: 0.1px;
+                    -webkit-appearance: none;
+                }
+            }
+        }
 
         .hashtag-heading {
             display: flex;
@@ -1360,6 +1410,10 @@ export default Vue.extend({
             font-weight: bold;
             padding-left: 8px;
             padding-right: 4px;
+            @include smartphone-horizontal {
+                padding-left: 4px;
+                padding-right: 2px;
+            }
 
             &__text {
                 display: flex;
@@ -1385,6 +1439,7 @@ export default Vue.extend({
 
             .hashtag {
                 display: flex;
+                position: relative !important;
                 align-items: center;
                 padding-top: 1.5px;
                 padding-bottom: 1.5px;
@@ -1396,6 +1451,8 @@ export default Vue.extend({
                 @include smartphone-horizontal {
                     padding-top: 0px;
                     padding-bottom: 0px;
+                    padding-left: 4px;
+                    padding-right: 2px;
                 }
                 &:first-of-type {
                     margin-top: 6px;
@@ -1425,15 +1482,27 @@ export default Vue.extend({
                     flex-grow: 1;
                     border-radius: 2px;
                     color: var(--v-twitter-lighten2);
-                    font-size: 12.5px;
                     opacity: 1;
                     outline: none;
                     cursor: pointer;
                     transition: box-shadow 0.09s ease;
+                    margin-right: 4px;
+                    font-size: 12.5px;
+                    // iOS Safari でフォーカス時にズームされる問題への対処
+                    @supports (-webkit-touch-callout: none) {
+                        @include smartphone-horizontal {
+                            position: absolute !important;
+                            left: -26px !important;
+                            width: calc(100% - 6px);
+                            margin-right: 0px;
+                            font-size: 16px;
+                            transform: scale(0.78125);
+                        }
+                    }
                 }
 
                 &__edit-button {
-                    margin-left: 4px;
+                    margin-left: auto;
                 }
                 &__edit-button, &__delete-button, &__sort-handle {
                     display: flex;

@@ -16,6 +16,7 @@
 // 全体のスタイル
 html {
     overflow-y: auto !important;
+    touch-action: manipulation;
 }
 
 // アプリケーションのルート

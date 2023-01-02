@@ -2129,6 +2129,9 @@ export default Vue.extend({
         transition: opacity 0.3s ease, visibility 0.3s ease;
         opacity: 0 !important;
         visibility: hidden;
+        @include smartphone-horizontal {
+            padding-left: calc(0px + 18px) !important;
+        }
 
         .dplayer-time, .dplayer-live-badge {
             color: var(--v-text-base) !important;
@@ -2165,8 +2168,19 @@ export default Vue.extend({
             transition: opacity 0.3s ease, visibility 0.3s ease !important;
             .dplayer-comment-input {
                 transition: box-shadow 0.09s ease;
+                -webkit-appearance: none;
                 &:focus {
                     box-shadow: rgba(79, 130, 230, 60%) 0 0 0 3.5px;
+                }
+                // iOS Safari でフォーカス時にズームされる問題への対処
+                @supports (-webkit-touch-callout: none) {
+                    @include smartphone-horizontal {
+                        width: calc(100% * 1.142857);
+                        height: calc(100% * 1.142857);
+                        font-size: 16px;
+                        transform: scale(0.875);
+                        transform-origin: 0 0;
+                    }
                 }
             }
         }
