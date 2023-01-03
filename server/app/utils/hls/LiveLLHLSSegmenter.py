@@ -614,6 +614,7 @@ class LiveLLHLSSegmenter:
                 if PMT.CRC32() != 0: continue
 
                 PMT = cast(PMTSection, PMT)
+                self._PCR_PID = PMT.PCR_PID
                 for stream_type, elementary_PID in PMT:
                     if stream_type == 0x1b:
                         self._H264_PID = elementary_PID
