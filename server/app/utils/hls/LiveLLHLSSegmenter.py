@@ -72,12 +72,6 @@ class LiveLLHLSSegmenter:
         self._primary_audio_init: asyncio.Future[bytes] = asyncio.Future()
         self._secondary_audio_init: asyncio.Future[bytes] = asyncio.Future()
 
-        # メインスレッドのイベントループを取得
-        ## LiveLLHLSSegmenter.pushTSPacketData() は LiveEncodingTask の Writer スレッドから呼び出されるため、
-        ## M3U8 インスタンスにデータを渡すにはメインスレッドのイベントループを使う必要がある (さもないと asyncio.Queue が誤動作する)
-        from app.app import loop
-        self.loop = loop
-
         # MPEG2-TS の各セクションのパーサーを初期化
         self._pat_parser = SectionParser(PATSection)
         self._pmt_parser = SectionParser(PMTSection)
@@ -389,27 +383,27 @@ class LiveLLHLSSegmenter:
 
                 if hasIDR:
                     self._partial_begin_timestamp = timestamp
-                    asyncio.run_coroutine_threadsafe(self._primary_audio_m3u8.continuousSegment(self._partial_begin_timestamp, True), self.loop)
-                    asyncio.run_coroutine_threadsafe(self._secondary_audio_m3u8.continuousSegment(self._partial_begin_timestamp, True), self.loop)
+                    self._primary_audio_m3u8.continuousSegment(self._partial_begin_timestamp, True)
+                    self._secondary_audio_m3u8.continuousSegment(self._partial_begin_timestamp, True)
                 elif self._partial_begin_timestamp is not None:
                     PART_DIFF = (timestamp - self._partial_begin_timestamp + ts.PCR_CYCLE) % ts.PCR_CYCLE
                     if self.PART_DURATION * ts.HZ <= PART_DIFF:
                         self._partial_begin_timestamp = int(timestamp - max(0, PART_DIFF - (self.PART_DURATION * ts.HZ)) + ts.PCR_CYCLE) % ts.PCR_CYCLE
-                        asyncio.run_coroutine_threadsafe(self._primary_audio_m3u8.continuousPartial(self._partial_begin_timestamp), self.loop)
-                        asyncio.run_coroutine_threadsafe(self._secondary_audio_m3u8.continuousPartial(self._partial_begin_timestamp), self.loop)
+                        self._primary_audio_m3u8.continuousPartial(self._partial_begin_timestamp)
+                        self._secondary_audio_m3u8.continuousPartial(self._partial_begin_timestamp)
 
                 while self._emsg_fragments:
                     data = self._emsg_fragments.popleft()
-                    asyncio.run_coroutine_threadsafe(self._primary_audio_m3u8.push(data), self.loop)
-                    asyncio.run_coroutine_threadsafe(self._secondary_audio_m3u8.push(data), self.loop)
+                    self._primary_audio_m3u8.push(data)
+                    self._secondary_audio_m3u8.push(data)
                 while self._h264_fragments:
                     data = self._h264_fragments.popleft()
-                    asyncio.run_coroutine_threadsafe(self._primary_audio_m3u8.push(data), self.loop)
-                    asyncio.run_coroutine_threadsafe(self._secondary_audio_m3u8.push(data), self.loop)
+                    self._primary_audio_m3u8.push(data)
+                    self._secondary_audio_m3u8.push(data)
                 while self._aac_fragments_PA:
-                    asyncio.run_coroutine_threadsafe(self._primary_audio_m3u8.push(self._aac_fragments_PA.popleft()), self.loop)
+                    self._primary_audio_m3u8.push(self._aac_fragments_PA.popleft())
                 while self._aac_fragments_SA:
-                    asyncio.run_coroutine_threadsafe(self._secondary_audio_m3u8.push(self._aac_fragments_SA.popleft()), self.loop)
+                    self._secondary_audio_m3u8.push(self._aac_fragments_SA.popleft())
 
         # H.265 映像トラック
         elif PID == self._H265_PID:
@@ -494,27 +488,27 @@ class LiveLLHLSSegmenter:
 
                 if hasIDR:
                     self._partial_begin_timestamp = timestamp
-                    asyncio.run_coroutine_threadsafe(self._primary_audio_m3u8.continuousSegment(self._partial_begin_timestamp, True), self.loop)
-                    asyncio.run_coroutine_threadsafe(self._secondary_audio_m3u8.continuousSegment(self._partial_begin_timestamp, True), self.loop)
+                    self._primary_audio_m3u8.continuousSegment(self._partial_begin_timestamp, True)
+                    self._secondary_audio_m3u8.continuousSegment(self._partial_begin_timestamp, True)
                 elif self._partial_begin_timestamp is not None:
                     PART_DIFF = (timestamp - self._partial_begin_timestamp + ts.PCR_CYCLE) % ts.PCR_CYCLE
                     if self.PART_DURATION * ts.HZ <= PART_DIFF:
                         self._partial_begin_timestamp = int(timestamp - max(0, PART_DIFF - (self.PART_DURATION * ts.HZ)) + ts.PCR_CYCLE) % ts.PCR_CYCLE
-                        asyncio.run_coroutine_threadsafe(self._primary_audio_m3u8.continuousPartial(self._partial_begin_timestamp), self.loop)
-                        asyncio.run_coroutine_threadsafe(self._secondary_audio_m3u8.continuousPartial(self._partial_begin_timestamp), self.loop)
+                        self._primary_audio_m3u8.continuousPartial(self._partial_begin_timestamp)
+                        self._secondary_audio_m3u8.continuousPartial(self._partial_begin_timestamp)
 
                 while self._emsg_fragments:
                     data = self._emsg_fragments.popleft()
-                    asyncio.run_coroutine_threadsafe(self._primary_audio_m3u8.push(data), self.loop)
-                    asyncio.run_coroutine_threadsafe(self._secondary_audio_m3u8.push(data), self.loop)
+                    self._primary_audio_m3u8.push(data)
+                    self._secondary_audio_m3u8.push(data)
                 while self._h265_fragments:
                     data = self._h265_fragments.popleft()
-                    asyncio.run_coroutine_threadsafe(self._primary_audio_m3u8.push(data), self.loop)
-                    asyncio.run_coroutine_threadsafe(self._secondary_audio_m3u8.push(data), self.loop)
+                    self._primary_audio_m3u8.push(data)
+                    self._secondary_audio_m3u8.push(data)
                 while self._aac_fragments_PA:
-                    asyncio.run_coroutine_threadsafe(self._primary_audio_m3u8.push(self._aac_fragments_PA.popleft()), self.loop)
+                    self._primary_audio_m3u8.push(self._aac_fragments_PA.popleft())
                 while self._aac_fragments_SA:
-                    asyncio.run_coroutine_threadsafe(self._secondary_audio_m3u8.push(self._aac_fragments_SA.popleft()), self.loop)
+                    self._secondary_audio_m3u8.push(self._aac_fragments_SA.popleft())
 
         # AAC 音声トラック (主音声)
         elif PID == self._AAC_PID_PA:
