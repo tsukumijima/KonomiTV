@@ -2152,6 +2152,14 @@ export default Vue.extend({
                 display: none !important;
             }
             .dplayer-icon {
+                @include smartphone-horizontal {
+                    &.dplayer-pip-icon:after {
+                        left: 25%;
+                    }
+                    &.dplayer-full-icon:after {
+                        left: -20%;
+                    }
+                }
                 &.dplayer-capture-icon, &.dplayer-comment-capture-icon {
                     transition: background-color 0.08s ease;
                     border-radius: 6px;
@@ -2657,8 +2665,6 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 position: absolute;
                 top: 50%;
                 left: 50%;
-                width: 100%;
-                max-height: 100%;
                 padding-top: min(56.25%, 100vh);
                 padding-top: min(56.25%, 100dvh);
                 aspect-ratio: 16 / 9;

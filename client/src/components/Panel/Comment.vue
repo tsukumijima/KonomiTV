@@ -1329,6 +1329,7 @@ export default Vue.extend({
                     height: 20px;
                     margin-left: 8px;
                     border-radius: 5px;
+                    color: var(--v-text-base);
                     cursor: pointer;
                 }
             }
