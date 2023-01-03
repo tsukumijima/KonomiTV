@@ -261,6 +261,7 @@ async def LiveMPEGTSStreamAPI(
             if await request.is_disconnected():
 
                 # ライブストリームへの接続を切断し、ループを終了する
+                Logging.debug_simple('[LiveStreamsRouter][LiveMPEGTSStreamAPI] Request is disconnected')
                 livestream.disconnect(livestream_client)
                 break
 
@@ -276,17 +277,19 @@ async def LiveMPEGTSStreamAPI(
                     # 読み取ったストリームデータを yield で返す
                     yield stream_data
 
-                # stream_data に None が入った場合はエンコードタスクが終了したものとみなす
+                # stream_data に None が入った場合はエンコードタスクが終了し、接続が切断されたものとみなす
                 else:
 
                     # ライブストリームへの接続を切断し、ループを終了する
-                    livestream.disconnect(livestream_client)
+                    Logging.debug_simple('[LiveStreamsRouter][LiveMPEGTSStreamAPI] Encode task is finished')
+                    livestream.disconnect(livestream_client)  # 念のため
                     break
 
             # ライブストリームが Offline になったのでループを終了
             else:
 
                 # ライブストリームへの接続を切断し、ループを終了する
+                Logging.debug_simple('[LiveStreamsRouter][LiveMPEGTSStreamAPI] LiveStream is currently Offline')
                 livestream.disconnect(livestream_client)
                 break
 
@@ -301,6 +304,7 @@ async def LiveMPEGTSStreamAPI(
             message = await receive()
             if message['type'] == 'http.disconnect':
                 # ライブストリームへの接続を切断する
+                Logging.debug_simple('[LiveStreamsRouter][LiveMPEGTSStreamAPI] Request is disconnected (from monkeypatch)')
                 livestream.disconnect(livestream_client)
                 break
     StreamingResponse.listen_for_disconnect = listen_for_disconnect_monkeypatch

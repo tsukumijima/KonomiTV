@@ -747,3 +747,22 @@ class Program(models.Model):
         """
         # asyncio.run() で非同期メソッドの実行が終わるまで待つ
         asyncio.run(cls.updateFromEDCB(is_running_multiprocess))
+
+
+    def isOffTheAirProgram(self) -> bool:
+        """
+        この番組が停波中の番組かを返す
+        この番組自身の番組名から判定しているだけで、実際に停波中かを保証するものではない
+
+        Returns:
+            bool: 停波中の番組かどうか
+        """
+
+        if (('番組情報がありません' == self.title) or
+            ('放送休止' in self.title) or
+            ('放送終了' in self.title) or
+            ('休止' in self.title) or
+            ('停波' in self.title)):
+            return True
+
+        return False
