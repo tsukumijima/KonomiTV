@@ -315,7 +315,7 @@ async def UserIconMeAPI(
 
     # アイコン画像が保存されていればそれを返す
     save_path = ACCOUNT_ICON_DIR / f'{current_user.id:02}.png'
-    if await asyncio.to_thread(pathlib.Path.exists, save_path):
+    if pathlib.Path.exists(save_path):
         return FileResponse(save_path, headers=header)
 
     # デフォルトのアイコン画像を返す
@@ -364,8 +364,8 @@ async def UserDeleteMeAPI(
 
     # アイコン画像が保存されていれば削除する
     save_path = ACCOUNT_ICON_DIR / f'{current_user.id:02}.png'
-    if await asyncio.to_thread(pathlib.Path.exists, save_path):
-        await asyncio.to_thread(save_path.unlink)
+    if pathlib.Path.exists(save_path):
+        save_path.unlink()
 
     # 現在ログイン中のユーザーアカウント（自分自身）を削除
     # アカウントを削除すると、それ以降は（当然ながら）ログインを要求する API へアクセスできなくなる
@@ -518,7 +518,7 @@ async def UserIconAPI(
 
     # アイコン画像が保存されていればそれを返す
     save_path = ACCOUNT_ICON_DIR / f'{user.id:02}.png'
-    if await asyncio.to_thread(pathlib.Path.exists, save_path):
+    if pathlib.Path.exists(save_path):
         return FileResponse(save_path, headers=header)
 
     # デフォルトのアイコン画像を返す
@@ -591,8 +591,8 @@ async def UserDeleteAPI(
 
     # アイコン画像が保存されていれば削除する
     save_path = ACCOUNT_ICON_DIR / f'{user.id:02}.png'
-    if await asyncio.to_thread(pathlib.Path.exists, save_path):
-        await asyncio.to_thread(save_path.unlink)
+    if pathlib.Path.exists(save_path):
+        save_path.unlink()
 
     # 指定されたユーザーを削除
     await user.delete()
