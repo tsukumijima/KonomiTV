@@ -668,7 +668,7 @@ class LiveEncodingTask:
                 pipe_or_socket.close()
 
         # スレッドプール上で非同期に実行する
-        asyncio.create_task(asyncio.to_thread(Reader))
+        threading.Thread(target=Reader).start()
 
         # ***** tsreadex・エンコーダーからの出力の読み込み → ライブストリームへの書き込み *****
 
@@ -802,8 +802,8 @@ class LiveEncodingTask:
                 time.sleep(0.025)
 
         # スレッドプール上で非同期に実行する
-        asyncio.create_task(asyncio.to_thread(Writer))
-        asyncio.create_task(asyncio.to_thread(SubWriter))
+        threading.Thread(target=Writer).start()
+        threading.Thread(target=SubWriter).start()
 
         # ***** エンコーダーの出力監視と制御 *****
 
