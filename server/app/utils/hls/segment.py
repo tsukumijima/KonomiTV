@@ -30,6 +30,7 @@ class PartialSegment:
 
     async def response(self) -> asyncio.Queue[bytearray | None]:
         queue = asyncio.Queue()
+
         queue.put_nowait(self.buffer)
         if (self.isCompleted()):
             queue.put_nowait(None)

@@ -81,6 +81,11 @@ class LiveLLHLSSegmenter:
         self._aac_pes_parser_SA = PESParser(PES)
         self._id3_pes_parser = PESParser(PES)
 
+        # PCR (Program Clock Reference)
+        self._PCR_PID: int | None = None
+        self._LATEST_PCR_VALUE: int | None = None
+        self._LATEST_PCR_TIMESTAMP_90KHZ: int = 0
+
         # エンコーダーから送られてきた MPEG2-TS 内の各トラックの PID
         self._PMT_PID: int | None = None
         self._H264_PID: int | None = None
@@ -306,11 +311,12 @@ class LiveLLHLSSegmenter:
         if PID == self._H264_PID:
             self._h264_pes_parser.push(packet)
             for H264 in self._h264_pes_parser:
+                if self._LATEST_PCR_VALUE is None: continue
                 H264 = cast(H264PES, H264)
-                timestamp = cast(int, H264.dts() or H264.pts())
-                cts = cast(int, H264.pts()) - timestamp
-                keyInSamples: bool = False
-                samples: deque[bytes] = deque()
+                timestamp = (((cast(int, H264.dts()) or cast(int, H264.pts())) - self._LATEST_PCR_VALUE + ts.PCR_CYCLE) % ts.PCR_CYCLE) + self._LATEST_PCR_TIMESTAMP_90KHZ
+                cts = (cast(int, H264.pts()) - (cast(int, H264.dts()) or cast(int, H264.pts())) + ts.PCR_CYCLE) % ts.PCR_CYCLE
+                keyInSamples = False
+                samples = deque()
 
                 for ebsp in H264:
                     nal_unit_type = ebsp[0] & 0x1f
@@ -332,7 +338,7 @@ class LiveLLHLSSegmenter:
                 if self._curr_h264_data:
                     isKeyframe, samples, dts, cts = self._curr_h264_data
                     hasIDR = isKeyframe
-                    duration = (timestamp - dts + ts.HZ) % ts.HZ
+                    duration = timestamp - dts
                     content = bytearray()
                     while samples:
                         ebsp = samples.popleft()
@@ -382,13 +388,19 @@ class LiveLLHLSSegmenter:
                     self._initialization_segment_dispatched = True
 
                 if hasIDR:
+                    if self._partial_begin_timestamp is not None:
+                        PART_DIFF = timestamp - self._partial_begin_timestamp
+                        if self.PART_DURATION * ts.HZ < PART_DIFF:
+                            self._partial_begin_timestamp = int(timestamp - max(0, PART_DIFF - self.PART_DURATION * ts.HZ))
+                            self._primary_audio_m3u8.continuousPartial(self._partial_begin_timestamp, False)
+                            self._secondary_audio_m3u8.continuousPartial(self._partial_begin_timestamp, False)
                     self._partial_begin_timestamp = timestamp
                     self._primary_audio_m3u8.continuousSegment(self._partial_begin_timestamp, True)
                     self._secondary_audio_m3u8.continuousSegment(self._partial_begin_timestamp, True)
                 elif self._partial_begin_timestamp is not None:
-                    PART_DIFF = (timestamp - self._partial_begin_timestamp + ts.PCR_CYCLE) % ts.PCR_CYCLE
+                    PART_DIFF = timestamp - self._partial_begin_timestamp
                     if self.PART_DURATION * ts.HZ <= PART_DIFF:
-                        self._partial_begin_timestamp = int(timestamp - max(0, PART_DIFF - (self.PART_DURATION * ts.HZ)) + ts.PCR_CYCLE) % ts.PCR_CYCLE
+                        self._partial_begin_timestamp = int(timestamp - max(0, PART_DIFF - self.PART_DURATION * ts.HZ))
                         self._primary_audio_m3u8.continuousPartial(self._partial_begin_timestamp)
                         self._secondary_audio_m3u8.continuousPartial(self._partial_begin_timestamp)
 
@@ -409,11 +421,12 @@ class LiveLLHLSSegmenter:
         elif PID == self._H265_PID:
             self._h265_pes_parser.push(packet)
             for H265 in self._h265_pes_parser:
+                if self._LATEST_PCR_VALUE is None: continue
                 H265 = cast(H265PES, H265)
-                timestamp = cast(int, H265.dts() or H265.pts())
-                cts = cast(int, H265.pts()) - timestamp
-                keyInSamples: bool = False
-                samples: deque[bytes] = deque()
+                timestamp = (((cast(int, H265.dts()) or cast(int, H265.pts())) - self._LATEST_PCR_VALUE + ts.PCR_CYCLE) % ts.PCR_CYCLE) + self._LATEST_PCR_TIMESTAMP_90KHZ
+                cts = (cast(int, H265.pts()) - (cast(int, H265.dts()) or cast(int, H265.pts())) + ts.PCR_CYCLE) % ts.PCR_CYCLE
+                keyInSamples = False
+                samples = deque()
 
                 for ebsp in H265:
                     nal_unit_type = (ebsp[0] >> 1) & 0x3f
@@ -437,7 +450,7 @@ class LiveLLHLSSegmenter:
                 if self._curr_h265_data:
                     isKeyframe, samples, dts, cts = self._curr_h265_data
                     hasIDR = isKeyframe
-                    duration = (timestamp - dts + ts.HZ) % ts.HZ
+                    duration = timestamp - dts
                     content = bytearray()
                     while samples:
                         ebsp = samples.popleft()
@@ -487,13 +500,19 @@ class LiveLLHLSSegmenter:
                     self._initialization_segment_dispatched = True
 
                 if hasIDR:
+                    if self._partial_begin_timestamp is not None:
+                        PART_DIFF = timestamp - self._partial_begin_timestamp
+                        if self.PART_DURATION * ts.HZ < PART_DIFF:
+                            self._partial_begin_timestamp = int(timestamp - max(0, PART_DIFF - self.PART_DURATION * ts.HZ))
+                            self._primary_audio_m3u8.continuousPartial(self._partial_begin_timestamp, False)
+                            self._secondary_audio_m3u8.continuousPartial(self._partial_begin_timestamp, False)
                     self._partial_begin_timestamp = timestamp
                     self._primary_audio_m3u8.continuousSegment(self._partial_begin_timestamp, True)
                     self._secondary_audio_m3u8.continuousSegment(self._partial_begin_timestamp, True)
                 elif self._partial_begin_timestamp is not None:
-                    PART_DIFF = (timestamp - self._partial_begin_timestamp + ts.PCR_CYCLE) % ts.PCR_CYCLE
+                    PART_DIFF = timestamp - self._partial_begin_timestamp
                     if self.PART_DURATION * ts.HZ <= PART_DIFF:
-                        self._partial_begin_timestamp = int(timestamp - max(0, PART_DIFF - (self.PART_DURATION * ts.HZ)) + ts.PCR_CYCLE) % ts.PCR_CYCLE
+                        self._partial_begin_timestamp = int(timestamp - max(0, PART_DIFF - self.PART_DURATION * ts.HZ))
                         self._primary_audio_m3u8.continuousPartial(self._partial_begin_timestamp)
                         self._secondary_audio_m3u8.continuousPartial(self._partial_begin_timestamp)
 
@@ -514,7 +533,8 @@ class LiveLLHLSSegmenter:
         elif PID == self._AAC_PID_PA:
             self._aac_pes_parser_PA.push(packet)
             for AAC_PES in self._aac_pes_parser_PA:
-                timestamp = cast(int, AAC_PES.pts())
+                if self._LATEST_PCR_VALUE is None: continue
+                timestamp = ((cast(int, AAC_PES.pts()) - self._LATEST_PCR_VALUE + ts.PCR_CYCLE) % ts.PCR_CYCLE) + self._LATEST_PCR_TIMESTAMP_90KHZ
                 begin, ADTS_AAC = 0, AAC_PES.PES_packet_data()
                 length = len(ADTS_AAC)
                 while begin < length:
@@ -545,7 +565,8 @@ class LiveLLHLSSegmenter:
         elif PID == self._AAC_PID_SA:
             self._aac_pes_parser_SA.push(packet)
             for AAC_PES in self._aac_pes_parser_SA:
-                timestamp = cast(int, AAC_PES.pts())
+                if self._LATEST_PCR_VALUE is None: continue
+                timestamp = ((cast(int, AAC_PES.pts()) - self._LATEST_PCR_VALUE + ts.PCR_CYCLE) % ts.PCR_CYCLE) + self._LATEST_PCR_TIMESTAMP_90KHZ
                 begin, ADTS_AAC = 0, AAC_PES.PES_packet_data()
                 length = len(ADTS_AAC)
                 while begin < length:
@@ -616,12 +637,20 @@ class LiveLLHLSSegmenter:
         elif PID == self._ID3_PID:
             self._id3_pes_parser.push(packet)
             for ID3_PES in self._id3_pes_parser:
-                timestamp = cast(int, ID3_PES.pts())
+                if self._LATEST_PCR_VALUE is None: continue
+                timestamp = ((cast(int, ID3_PES.pts()) - self._LATEST_PCR_VALUE + ts.PCR_CYCLE) % ts.PCR_CYCLE) + self._LATEST_PCR_TIMESTAMP_90KHZ
                 ID3 = ID3_PES.PES_packet_data()
                 self._emsg_fragments.append(emsg(ts.HZ, timestamp, None, 'https://aomedia.org/emsg/ID3', ID3))
 
         else:
             pass
+
+        # PCR (Program Clock Reference)
+        if PID == self._PCR_PID and ts.has_pcr(packet):
+            PCR_VALUE = ts.pcr(packet)
+            if self._LATEST_PCR_VALUE is not None:
+                self._LATEST_PCR_TIMESTAMP_90KHZ += (cast(int, PCR_VALUE) - self._LATEST_PCR_VALUE + ts.PCR_CYCLE) % ts.PCR_CYCLE
+            self._LATEST_PCR_VALUE = PCR_VALUE
 
 
     def destroy(self) -> None:

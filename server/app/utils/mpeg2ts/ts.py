@@ -45,7 +45,7 @@ def pointer_field(packet: bytes) -> int:
     return packet[HEADER_SIZE + (1 + adaptation_field_length(packet) if has_adaptation_field(packet) else 0)]
 
 def has_pcr(packet: bytes) -> bool:
-    return has_adaptation_field(packet) and (packet[HEADER_SIZE + 1] & 0x10) != 0
+    return has_adaptation_field(packet) and adaptation_field_length(packet) > 0 and (packet[HEADER_SIZE + 1] & 0x10) != 0
 
 def pcr(packet: bytes) -> int | None:
     if not has_pcr(packet): return None

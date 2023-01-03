@@ -25,11 +25,15 @@ class M3U8:
         self.hasInit: bool = hasInit
         self.prefix: str = prefix
         self.segments: deque[Segment] = deque()
+        self.outdated: deque[Segment] = deque()
         self.published: bool = False
         self.futures: list[asyncio.Future[str]] = []
 
     def in_range(self, msn: int) -> bool:
         return self.media_sequence <= msn and msn < self.media_sequence + len(self.segments)
+
+    def in_outdated(self, msn: int) -> bool:
+        return self.media_sequence > msn and msn >= self.media_sequence - len(self.outdated)
 
     def plain(self) -> asyncio.Future[str]:
         future: asyncio.Future[str] = asyncio.Future()
@@ -66,8 +70,10 @@ class M3U8:
     def newSegment(self, beginPTS: int, isIFrame: bool = False) -> None:
         self.segments.append(Segment(beginPTS, isIFrame))
         while self.list_size is not None and self.list_size < len(self.segments):
-            self.segments.popleft()
+            self.outdated.appendleft(self.segments.popleft())
             self.media_sequence += 1
+        while self.list_size is not None and self.list_size < len(self.outdated):
+            self.outdated.pop()
 
     def newPartial(self, beginPTS: int, isIFrame: bool = False) -> None:
         if not self.segments: return
@@ -84,7 +90,8 @@ class M3U8:
         for m in self.segments[-1].m3u8s:
             if not m.done(): m.set_result(self.manifest())
         self.segments[-1].m3u8s = []
-        for f in self.futures: f.set_result(self.manifest())
+        for f in self.futures:
+            if not f.done(): f.set_result(self.manifest())
         self.futures = []
 
     def completePartial(self, endPTS: int) -> None:
@@ -98,16 +105,17 @@ class M3U8:
         lastSegment = self.segments[-1] if self.segments else None
         self.newSegment(endPTS, isIFrame)
 
+        if not lastSegment: return
         self.published = True
-        if lastSegment:
-            lastSegment.complete(endPTS)
-            for m in lastSegment.partials[-1].m3u8s:
-                if not m.done(): m.set_result(self.manifest())
-            lastSegment.partials[-1].m3u8s = []
-            for m in lastSegment.m3u8s:
-                if not m.done(): m.set_result(self.manifest())
-            lastSegment.m3u8s = []
-        for f in self.futures: f.set_result(self.manifest())
+        lastSegment.complete(endPTS)
+        for m in lastSegment.partials[-1].m3u8s:
+            if not m.done(): m.set_result(self.manifest())
+        lastSegment.partials[-1].m3u8s = []
+        for m in lastSegment.m3u8s:
+            if not m.done(): m.set_result(self.manifest())
+        lastSegment.m3u8s = []
+        for f in self.futures:
+            if not f.done(): f.set_result(self.manifest())
         self.futures = []
 
     def continuousPartial(self, endPTS: int, isIFrame: bool = False) -> None:
@@ -122,12 +130,19 @@ class M3U8:
         lastPartial.m3u8s = []
 
     async def segment(self, msn: int) -> asyncio.Queue[bytearray | None] | None:
-        if not self.in_range(msn): return None
+        if not self.in_range(msn):
+            if not self.in_outdated(msn): return None
+            index = (self.media_sequence - msn) - 1
+            return await self.outdated[index].response()
         index = msn - self.media_sequence
         return await self.segments[index].response()
 
     async def partial(self, msn: int, part: int) -> asyncio.Queue[bytearray | None] | None:
-        if not self.in_range(msn): return None
+        if not self.in_range(msn):
+            if not self.in_outdated(msn): return None
+            index = (self.media_sequence - msn) - 1
+            if part > len(self.outdated[index].partials): return None
+            return await self.outdated[index].partials[part].response()
         index = msn - self.media_sequence
         if part > len(self.segments[index].partials): return None
         return await self.segments[index].partials[part].response()
@@ -138,7 +153,7 @@ class M3U8:
         m3u8 += f'#EXT-X-VERSION:6\n'
         m3u8 += f'#EXT-X-TARGETDURATION:{self.target_duration}\n'
         m3u8 += f'#EXT-X-PART-INF:PART-TARGET={self.part_target:.06f}\n'
-        m3u8 += f'#EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD=YES,PART-HOLD-BACK={(self.part_target * 3):.06f}\n'
+        m3u8 += f'#EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD=YES,PART-HOLD-BACK={(self.part_target * 3.001):.06f}\n'
         m3u8 += f'#EXT-X-MEDIA-SEQUENCE:{self.media_sequence}\n'
 
         if self.hasInit:
