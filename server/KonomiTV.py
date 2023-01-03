@@ -36,7 +36,7 @@ def main():
         formatter_class = argparse.RawTextHelpFormatter,
         description = 'KonomiTV: Kept Organized, Notably Optimized, Modern Interface TV media server',
     )
-    parser.add_argument('--reload', action='store_true', help='start uvicorn in auto-reload mode')
+    parser.add_argument('--reload', action='store_true', help='start uvicorn in auto-reload mode (Linux only)')
     parser.add_argument('--version', action='version', help='show version information', version=f'KonomiTV version {VERSION}')
     args = parser.parse_args()
 
@@ -58,6 +58,9 @@ def main():
     # Uvicorn を起動する前に Uvicorn のロガーを使えるようにする
     logging.config.dictConfig(LOGGING_CONFIG)
     logger = logging.getLogger('uvicorn')
+
+    # バージョン情報をログに出力
+    logger.info(f'KonomiTV version {VERSION}')
 
     # 最低限のバリデーション (万が一 config.yaml 内のキーが抜けていても KeyError で落ちないように)
     try:
@@ -231,14 +234,6 @@ def main():
     # このプロセスが終了されたときに、HTTPS リバースプロキシも一緒に終了する
     atexit.register(lambda: reverse_proxy_process.terminate())
 
-    # Windows でもイベントループに SelectorEventLoop を利用する
-    ## Python 3.8 以降で Windows での既定のイベントループとなっている ProactorEventLoop は不具合が多いらしく、
-    ## subprocess 周りの一部のメソッドが使えない事を除くと（今のところ使っていないので問題ない）、SelectorEventLoop の方が安定している印象
-    ## ref: https://github.com/aio-libs/aiohttp/issues/4324
-    ## ref: https://github.com/encode/uvicorn/pull/1257
-    if os.name == 'nt':
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
     # Uvicorn の設定
     config = uvicorn.Config(
         # 起動するアプリケーション
@@ -272,7 +267,10 @@ def main():
     ## ここで終了までブロッキングされる（非同期 I/O のエントリーポイント）
     ## ref: https://github.com/encode/uvicorn/blob/0.18.2/uvicorn/main.py#L568-L575
     if config.should_reload:
-        # 自動リロードモード
+        # 自動リロードモード (Linux 専用)
+        ## Windows で自動リロードモードを機能させるには SelectorEventLoop が必要だが、外部プロセス実行に利用している
+        ## asyncio.subprocess.create_subprocess_exec() は ProactorEventLoop でないと動作しないため、Windows では事実上利用できない
+        ## 外部プロセス実行を伴うストリーミング視聴を行わなければ一応 Windows でも機能する
         sock = config.bind_socket()
         ChangeReload(config, target=server.run, sockets=[sock]).run()
     else:

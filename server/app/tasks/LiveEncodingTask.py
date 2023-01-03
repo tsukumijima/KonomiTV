@@ -10,7 +10,7 @@ import time
 from datetime import datetime
 from io import TextIOWrapper
 from tortoise import timezone
-from typing import BinaryIO, cast, IO, Iterator, Literal
+from typing import BinaryIO, cast, Iterator, Literal
 
 from app.constants import API_REQUEST_HEADERS, CONFIG, LIBRARY_PATH, LOGS_DIR, QUALITY, QUALITY_TYPES
 from app.models import Channel
@@ -347,8 +347,6 @@ class LiveEncodingTask:
     async def run(self) -> None:
         """
         エンコードタスクを実行する
-        プロセス実行なども含めてすべて非同期にしようとすると収拾がつかない上に性能上の不安があるため、開始時・終了時の処理は非同期化した上で、
-        役割の異なる Reader()・Writer() / SubWriter()・Controller() の4つの同期関数をスレッドプール上で同時に実行する構成になっている
         """
 
         # まだ Standby になっていなければ、ステータスを Standby に設定
@@ -385,8 +383,6 @@ class LiveEncodingTask:
         ## 放送波の前処理を行い、エンコードを安定させるツール
         ## オプション内容は https://github.com/xtne6f/tsreadex を参照
         tsreadex_options = [
-            ## tsreadex のパス
-            LIBRARY_PATH['tsreadex'],
             # 取り除く TS パケットの10進数の PID
             ## EIT の PID を指定
             '-x', '18/38/39',
@@ -427,13 +423,19 @@ class LiveEncodingTask:
                 CONFIG['tv']['debug_mode_ts_path']
             ]
 
+        # tsreadex の読み込み用パイプと書き込み用パイプを作成
+        tsreadex_read_pipe, tsreadex_write_pipe = os.pipe()
+
         # tsreadex の起動
-        tsreadex: subprocess.Popen = await asyncio.to_thread(subprocess.Popen,  # type: ignore
-            tsreadex_options,  # type: ignore
-            stdin = subprocess.PIPE,  # 受信した放送波を書き込む
-            stdout = subprocess.PIPE,  # エンコーダーに繋ぐ
-            creationflags = (subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # コンソールなしで実行 (Windows)
+        ## Reader だけ同期関数なので、asyncio.subprocess ではなく通常の subprocess を使っている (苦肉の策)
+        tsreadex: subprocess.Popen = subprocess.Popen(
+            [LIBRARY_PATH['tsreadex'], *tsreadex_options],
+            stdin = asyncio.subprocess.PIPE,  # 受信した放送波を書き込む
+            stdout = tsreadex_write_pipe,  # エンコーダーに繋ぐ
         )
+
+        # tsreadex の書き込み用パイプを閉じる
+        os.close(tsreadex_write_pipe)
 
         # ***** エンコーダープロセスの作成と実行 *****
 
@@ -462,12 +464,11 @@ class LiveEncodingTask:
             Logging.info(f'[Live: {self.livestream.livestream_id}] FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
             # プロセスを非同期で作成・実行
-            encoder: subprocess.Popen = await asyncio.to_thread(subprocess.Popen,  # type: ignore
-                [LIBRARY_PATH['FFmpeg']] + encoder_options,  # type: ignore
-                stdin = tsreadex.stdout,  # tsreadex からの入力
-                stdout = subprocess.PIPE,  # ストリーム出力
-                stderr = subprocess.PIPE,  # ログ出力
-                creationflags = (subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # コンソールなしで実行 (Windows)
+            encoder: asyncio.subprocess.Process = await asyncio.subprocess.create_subprocess_exec(
+                *[LIBRARY_PATH['FFmpeg'], *encoder_options],
+                stdin = tsreadex_read_pipe,  # tsreadex からの入力
+                stdout = asyncio.subprocess.PIPE,  # ストリーム出力
+                stderr = asyncio.subprocess.PIPE,  # ログ出力
             )
 
         # HWEncC
@@ -478,13 +479,15 @@ class LiveEncodingTask:
             Logging.info(f'[Live: {self.livestream.livestream_id}] {encoder_type} Commands:\n{encoder_type} {" ".join(encoder_options)}')
 
             # プロセスを非同期で作成・実行
-            encoder: subprocess.Popen = await asyncio.to_thread(subprocess.Popen,  # type: ignore
-                [LIBRARY_PATH[encoder_type]] + encoder_options,  # type: ignore
-                stdin = tsreadex.stdout,  # tsreadex からの入力
-                stdout = subprocess.PIPE,  # ストリーム出力
-                stderr = subprocess.PIPE,  # ログ出力
-                creationflags = (subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # コンソールなしで実行 (Windows)
+            encoder: asyncio.subprocess.Process = await asyncio.subprocess.create_subprocess_exec(
+                *[LIBRARY_PATH[encoder_type], *encoder_options],
+                stdin = tsreadex_read_pipe,  # tsreadex からの入力
+                stdout = asyncio.subprocess.PIPE,  # ストリーム出力
+                stderr = asyncio.subprocess.PIPE,  # ログ出力
             )
+
+        # tsreadex の読み込み用パイプを閉じる
+        os.close(tsreadex_read_pipe)
 
         # ***** チューナーの起動と接続 *****
 
@@ -566,7 +569,7 @@ class LiveEncodingTask:
         tuner_ts_read_at: float = time.monotonic()
         tuner_ts_read_at_lock = threading.Lock()
 
-        # CPU バウンドな部分なので、同期関数をマルチスレッドで実行する
+        # Reader だけ同期関数に依存しているので、別スレッドで実行する
         def Reader():
 
             nonlocal tuner_ts_read_at
@@ -613,7 +616,7 @@ class LiveEncodingTask:
 
                     # 現在 ONAir でかつストリームデータの最終書き込み時刻から 5 秒以上が経過しているなら、エンコーダーがフリーズしたものとみなす
                     # 現在 Standby でかつストリームデータの最終書き込み時刻から 20 秒以上が経過している場合も、エンコーダーがフリーズしたものとみなす
-                    # stdout も stderr もブロッキングされてしまっている場合を想定し、このスレッドでも確認する
+                    # stdout も stderr もブロッキングされてしまっている場合を想定し、このタスクでも確認する
                     livestream_status = self.livestream.getStatus()
                     if ((livestream_status['status'] == 'ONAir' and time.time() - self.livestream.getStreamDataWrittenAt() > 5) or
                         (livestream_status['status'] == 'Standby' and time.time() - self.livestream.getStreamDataWrittenAt() > 20)):
@@ -641,7 +644,7 @@ class LiveEncodingTask:
 
                     # tsreadex が既に終了しているか、接続が切断された
                     # ref: https://stackoverflow.com/a/45251241/17124142
-                    if ((tsreadex.poll() is not None) or
+                    if ((tsreadex.returncode is not None) or
                         (CONFIG['general']['backend'] == 'Mirakurun' and response.raw.closed is True) or
                         (CONFIG['general']['backend'] == 'EDCB' and type(pipe_or_socket) is socket.socket and pipe_or_socket.fileno() < 0) or
                         (CONFIG['general']['backend'] == 'EDCB' and type(pipe_or_socket) is BinaryIO and pipe_or_socket.closed is True)):
@@ -667,7 +670,7 @@ class LiveEncodingTask:
             elif CONFIG['general']['backend'] == 'EDCB':
                 pipe_or_socket.close()
 
-        # スレッドプール上で非同期に実行する
+        # threading を使うのが重要、asyncio.to_thread() を使うとボトルネックになる
         threading.Thread(target=Reader).start()
 
         # ***** tsreadex・エンコーダーからの出力の読み込み → ライブストリームへの書き込み *****
@@ -686,31 +689,37 @@ class LiveEncodingTask:
         chunk_written_at: float = 0
 
         # Writer の排他ロック
-        ## スレッド間共有の変数を Writer() スレッドと SubWriter() スレッドの両方から読み書きするため、
+        ## タスク間共有の変数を Writer() タスクと SubWriter() タスクの両方から読み書きするため、
         ## chunk_buffer / chunk_written_at にアクセスする際は排他ロックを掛けておく必要がある
         ## そうしないと稀にパケロスするらしく、ブラウザ側で突如再生できなくなることがある
-        writer_lock = threading.Lock()
+        writer_lock = asyncio.Lock()
 
-        # CPU バウンドな部分なので、同期関数をマルチスレッドで実行する
-        def Writer():
-
-            # メインスレッドのイベントループを取得
-            from app.app import loop
+        async def Writer():
 
             nonlocal chunk_buffer, chunk_written_at, writer_lock
 
-            # エンコーダーからの出力を受け取るイテレータ
-            ## TS パケットのサイズが 188 bytes なので、1回の read() で 188 bytes ずつ読み込む
-            stream_iterator: Iterator[bytes] = iter(lambda: encoder.stdout.read(188), b'')
+            while True:
 
-            for chunk in stream_iterator:
+                # TS パケットのサイズが 188 bytes なので、1回の readexactly() で 188 bytes ずつ読み込む
+                ## read() ではなく厳密な readexactly() を使うのが重要
+                try:
+                    chunk = await cast(asyncio.StreamReader, encoder.stdout).readexactly(188)
+
+                # エンコーダーの出力が終了した場合
+                except asyncio.IncompleteReadError:
+
+                    # すべてのクライアントのライブストリームへの接続を切断する
+                    self.livestream.disconnectAll()
+
+                    # ループを抜ける
+                    break
 
                 # 受け取った TS パケットを LL-HLS Segmenter に渡す
                 if self.livestream.segmenter is not None:
                     self.livestream.segmenter.pushTSPacketData(chunk)
 
-                # 同時に chunk_buffer / chunk_written_at にアクセスするスレッドが1つだけであることを保証する (排他ロック)
-                with writer_lock:
+                # 同時に chunk_buffer / chunk_written_at にアクセスするタスクが1つだけであることを保証する (排他ロック)
+                async with writer_lock:
 
                     # 188 bytes ごとに区切られた、エンコーダーの出力のチャンクをバッファに貯める
                     chunk_buffer.extend(chunk)
@@ -719,9 +728,7 @@ class LiveEncodingTask:
                     if len(chunk_buffer) >= 65536:
 
                         # エンコーダーからの出力をライブストリームの Queue に書き込む
-                        ## メインスレッド側に値を渡すため、asyncio.run_coroutine_threadsafe() を使う
-                        ## LiveStream.writeStreamData() で asyncio.Queue (非スレッドセーフ) を使っているため、メインスレッドで実行させる必要がある
-                        asyncio.run_coroutine_threadsafe(self.livestream.writeStreamData(bytes(chunk_buffer)), loop)
+                        await self.livestream.writeStreamData(bytes(chunk_buffer))
                         # print(f'Writer:    Chunk size: {len(chunk_buffer):05} / Time: {time.time()}')
 
                         # チャンクバッファを空にする（重要）
@@ -731,7 +738,7 @@ class LiveEncodingTask:
                         chunk_written_at = time.monotonic()
 
                 # エンコーダープロセスが終了していたらループを抜ける
-                if encoder.poll() is not None:
+                if encoder.returncode is not None:
 
                     # すべてのクライアントのライブストリームへの接続を切断する
                     self.livestream.disconnectAll()
@@ -739,30 +746,24 @@ class LiveEncodingTask:
                     # ループを抜ける
                     break
 
-        # CPU バウンドな部分なので、同期関数をマルチスレッドで実行する
-        ## 通常の Writer ではカバーできない、encoder.stdout.read(512) でブロッキングされている際のチャンク書き込みを担う
+        ## 通常の Writer ではカバーできない、readexactly(188) でブロッキングされている際のチャンク書き込みを担う
         ## 前回のチャンク書き込みから 0.025 秒以上経ったもののチャンクが 64KB に達していない際に実行するチャンク書き込みも SubWriter の方で行う
         ## ラジオチャンネルは通常のチャンネルと比べてデータ量が圧倒的に少ないため、64KB に達することは稀で SubWriter でのチャンク書き込みがメインになる
-        def SubWriter():
-
-            # メインスレッドのイベントループを取得
-            from app.app import loop
+        async def SubWriter():
 
             nonlocal tuner_ts_read_at, tuner_ts_read_at_lock, chunk_buffer, chunk_written_at, writer_lock
 
             while True:
 
-                # 同時に chunk_buffer / chunk_written_at にアクセスするスレッドが1つだけであることを保証する (排他ロック)
-                with writer_lock:
+                # 同時に chunk_buffer / chunk_written_at にアクセスするタスクが1つだけであることを保証する (排他ロック)
+                async with writer_lock:
 
                     # 前回チャンクを書き込んでから 0.025 秒以上経過している & チャンクバッファに何かしらデータが入っている時のみ
                     # チャンクをできるだけ等間隔でクライアントに送信するために、バッファが 64KB 分溜まるのを待たずに送信する
                     if (time.monotonic() - chunk_written_at) > 0.025 and (len(chunk_buffer) > 0):
 
                         # エンコーダーからの出力をライブストリームの Queue に書き込む
-                        ## メインスレッド側に値を渡すため、asyncio.run_coroutine_threadsafe() を使う
-                        ## LiveStream.writeStreamData() で asyncio.Queue (非スレッドセーフ) を使っているため、メインスレッドで実行させる必要がある
-                        asyncio.run_coroutine_threadsafe(self.livestream.writeStreamData(bytes(chunk_buffer)), loop)
+                        await self.livestream.writeStreamData(bytes(chunk_buffer))
                         # print(f'SubWriter: Chunk size: {len(chunk_buffer):05} / Time: {time.time()}')
 
                         # チャンクバッファを空にする（重要）
@@ -775,8 +776,8 @@ class LiveEncodingTask:
                 with tuner_ts_read_at_lock:
 
                     # 前回チューナーからの放送波 TS を読み取ってから 15 秒以上経過していたら、停波中もしくはチューナー側の問題と判断してループを抜ける
-                    ## EDCB バックエンドかつチューナーからの放送波 TS の出力が完全に停止している場合、Reader スレッドは TCP ソケットまたは
-                    ## 名前付きパイプからの読み取り部分でブロッキングしてしまうので、このスレッドで放送波 TS の出力が停止していないかをチェックする
+                    ## EDCB バックエンドかつチューナーからの放送波 TS の出力が完全に停止している場合、Reader タスクは TCP ソケットまたは
+                    ## 名前付きパイプからの読み取り部分でブロッキングしてしまうので、このタスクで放送波 TS の出力が停止していないかをチェックする
                     if (time.monotonic() - tuner_ts_read_at) > 15:
 
                         # 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないならチューナーへの接続に失敗したものとする
@@ -795,15 +796,15 @@ class LiveEncodingTask:
                         break
 
                 # エンコーダープロセスが終了していたらループを抜ける
-                if encoder.poll() is not None:
+                if encoder.returncode is not None:
                     break
 
                 # チャンクバッファを 0.025 秒間隔でチェックする
-                time.sleep(0.025)
+                await asyncio.sleep(0.025)
 
-        # スレッドプール上で非同期に実行する
-        threading.Thread(target=Writer).start()
-        threading.Thread(target=SubWriter).start()
+        # タスクを非同期で実行
+        asyncio.create_task(Writer())
+        asyncio.create_task(SubWriter())
 
         # ***** エンコーダーの出力監視と制御 *****
 
@@ -823,11 +824,7 @@ class LiveEncodingTask:
         if CONFIG['general']['debug_encoder'] is True:
             encoder_log = open(encoder_log_path, mode='w', encoding='utf-8')
 
-        # エンコーダーのログ出力が同期的なので、同期関数をマルチスレッドで実行する
-        def Controller():
-
-            # メインスレッドのイベントループを取得
-            from app.app import loop
+        async def Controller():
 
             # 1つ上のスコープ (Enclosing Scope) の変数を書き替えるために必要
             # ref: https://excel-ubara.com/python/python014.html#sec04
@@ -838,15 +835,16 @@ class LiveEncodingTask:
             ## すぐにはエンコードタスクを再起動せずに1秒待つためのもの
             encoder_terminated_at = None
 
-            # エンコーダーの stderr を TextIOWrapper でラップ
-            encoder_stderr = TextIOWrapper(cast(IO[bytes], encoder.stderr), encoding='utf-8', errors='ignore', newline=None)
-
             # エンコーダーの出力結果を取得
             lines: list = []  # 出力行のリスト
             while True:
 
-                # 行ごとに随時読み込む
-                line = encoder_stderr.readline().strip()
+                # 行ごとに随時読み込む (UnicodeDecodeError は無視)
+                line_raw = await encoder.stderr.readline()
+                try:
+                    line = line_raw.decode('utf-8').strip()
+                except UnicodeDecodeError:
+                    continue
 
                 # エンコード進捗のログだったら、正規表現で余計なゴミを取り除く
                 ## HWEncC は内部で使われている FFmpeg 側の大量に出るデバッグログと衝突してログがごちゃまぜになりがち…
@@ -1003,8 +1001,8 @@ class LiveEncodingTask:
                 if program_present is not None and time.time() > program_present.end_time.timestamp():
 
                     # 次の番組情報を取得する
-                    # メインスレッドのイベントループで実行（そうしないとうまく動作しない）
-                    program_following: Program = asyncio.run_coroutine_threadsafe(channel.getCurrentAndNextProgram(), loop).result()[0]
+                    ## 現在放送中の番組が終了した時なので、[0] が次の番組 (=現在放送中の番組) 、[1] がさらに次の番組になる
+                    program_following: Program = (await channel.getCurrentAndNextProgram())[0]
 
                     # 次の番組が None でない
                     if program_following is not None:
@@ -1036,9 +1034,9 @@ class LiveEncodingTask:
 
                 # すでに Offline 状態になっている場合、エンコーダーを終了する
                 ## サーバー終了時のクリーンアップなど、エンコードタスク以外から Offline 状態に設定される事も考えられるため
-                ## ここでプロセスを強制終了するのが重要（ストリーム配信中など、場合によってはメインスレッド側の処理が実行されないことがある）
+                ## ここでプロセスを強制終了するのが重要
                 if livestream_status['status'] == 'Offline':
-                    time.sleep(1)  # タイミングの関係で数秒待ってから実行
+                    await asyncio.sleep(1)  # タイミングの関係で数秒待ってから実行
                     tsreadex.kill()
                     encoder.kill()
                     break
@@ -1072,7 +1070,7 @@ class LiveEncodingTask:
                         break
 
                 # エンコーダーが意図せず終了した場合、エンコーダーを（明示的に）終了する
-                if encoder.poll() is not None:
+                if encoder.returncode is not None:
                     # エンコーダーの再起動を要求
                     is_restart_required = True
                     # エンコーダーの再起動前提のため、あえて Offline にはせず Restart とする
@@ -1091,8 +1089,8 @@ class LiveEncodingTask:
                         break
                     break
 
-        # スレッドプール上で実行し、終了するのを待つ
-        await asyncio.to_thread(Controller)
+        # エンコードタスクの終了を待機する
+        await Controller()
 
         # ***** エンコード終了後の処理 *****
 
