@@ -1216,14 +1216,22 @@ export default Vue.extend({
                 this.initEventHandler();
             });
 
-            // mpegts.js 利用時のみ、停止状態でかつ再生時間からバッファが 30 秒以上離れていないかを1分おきに監視し、そうなっていたら強制的にシークする
+            // 停止状態でかつ再生時間からバッファが 30 秒以上離れていないかを監視し、そうなっていたら強制的にシークする
             // mpegts.js の仕様上、MSE に未再生のバッファがたまり過ぎると SourceBuffer が追加できなくなるため、強制的に接続が切断されてしまう
+            // LL-HLS 再生時も、ずっと停止したままだとプレイリストやセグメントに HTTP リクエストされなくなり、サーバー側でタイムアウトさせられてしまう
+            // mpegts.js 再生時は 60 秒、LL-HLS 再生時は 30 秒おきに監視する (LL-HLS 再生時はバッファの状態に関わらずシークする)
             if (this.is_mpegts_supported === true) {
                 this.interval_ids.push(window.setInterval(() => {
                     if (this.player.video.paused && this.player.video.buffered.end(0) - this.player.video.currentTime > 30) {
                         this.player.sync();
                     }
                 }, 60 * 1000));
+            } else {
+                this.interval_ids.push(window.setInterval(() => {
+                    if (this.player.video.paused) {
+                        this.player.sync();
+                    }
+                }, 30 * 1000));
             }
 
             // ***** 文字スーパーのイベントハンドラー *****
