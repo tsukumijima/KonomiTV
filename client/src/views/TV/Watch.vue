@@ -2212,9 +2212,9 @@ export default Vue.extend({
                 // iOS Safari でフォーカス時にズームされる問題への対処
                 @supports (-webkit-touch-callout: none) {
                     @include smartphone-horizontal {
-                        width: calc(100% * 1.142857);
-                        height: calc(100% * 1.142857);
-                        font-size: 16px;
+                        width: calc(100% * 1.142857) !important;
+                        height: calc(100% * 1.142857) !important;
+                        font-size: 16px !important;
                         transform: scale(0.875);
                         transform-origin: 0 0;
                     }
