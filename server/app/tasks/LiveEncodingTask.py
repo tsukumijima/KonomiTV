@@ -354,6 +354,17 @@ class LiveEncodingTask:
         if not (self.livestream.getStatus()['status'] == 'Standby' and self.livestream.getStatus()['detail'] == 'エンコードタスクを起動しています…'):
             self.livestream.setStatus('Standby', 'エンコードタスクを起動しています…')
 
+        # LL-HLS Segmenter に渡す今回のエンコードタスクの GOP 長 (H.264 と H.265 で異なる)
+        gop_length_second = self.GOP_LENGTH_SECOND_H264
+        if QUALITY[self.livestream.quality].is_hevc is True:
+            gop_length_second = self.GOP_LENGTH_SECOND_H265
+
+        # LL-HLS Segmenter を初期化
+        ## iPhone Safari は mpegts.js でのストリーミングに対応していないため、フォールバックとして LL-HLS で配信する必要がある
+        ## できるだけ早い段階で初期化しておかないと、初期化より前に iOS Safari からプレイリストにアクセスが来てしまい
+        ## LL-HLS Segmenter is not running エラーが発生してしまう
+        self.livestream.segmenter = LiveLLHLSSegmenter(gop_length_second)
+
         # チャンネル情報からサービス ID とネットワーク ID を取得する
         channel = await Channel.filter(channel_id=self.livestream.channel_id).first()
 
@@ -522,6 +533,16 @@ class LiveEncodingTask:
                     self.livestream.setStatus('Offline', 'この時間は放送を休止しています。')
                 else:
                     self.livestream.setStatus('Offline', 'チューナーへの接続に失敗しました。チューナー側に何らかの問題があるかもしれません。')
+
+                # すべての視聴中クライアントのライブストリームへの接続を切断する
+                self.livestream.disconnectAll()
+
+                # LL-HLS Segmenter を破棄する
+                if self.livestream.segmenter is not None:
+                    self.livestream.segmenter.destroy()
+                    self.livestream.segmenter = None
+
+                # エンコードタスクを停止する
                 return
 
         # EDCB バックエンド
@@ -540,6 +561,19 @@ class LiveEncodingTask:
             # 成功時は tuner.close() するか予約などに割り込まれるまで起動しつづけるので注意
             if is_tuner_opened is False:
                 self.livestream.setStatus('Offline', 'チューナーの起動に失敗しました。チューナー不足が原因かもしれません。')
+
+                # チューナーを閉じる
+                await tuner.close()
+
+                # すべての視聴中クライアントのライブストリームへの接続を切断する
+                self.livestream.disconnectAll()
+
+                # LL-HLS Segmenter を破棄する
+                if self.livestream.segmenter is not None:
+                    self.livestream.segmenter.destroy()
+                    self.livestream.segmenter = None
+
+                # エンコードタスクを停止する
                 return
 
             # チューナーをロックする
@@ -554,6 +588,19 @@ class LiveEncodingTask:
             # チューナーへの接続に失敗した
             if pipe_or_socket is None:
                 self.livestream.setStatus('Offline', 'チューナーへの接続に失敗しました。チューナー側に何らかの問題があるかもしれません。')
+
+                # チューナーを閉じる
+                await tuner.close()
+
+                # すべての視聴中クライアントのライブストリームへの接続を切断する
+                self.livestream.disconnectAll()
+
+                # LL-HLS Segmenter を破棄する
+                if self.livestream.segmenter is not None:
+                    self.livestream.segmenter.destroy()
+                    self.livestream.segmenter = None
+
+                # エンコードタスクを停止する
                 return
 
             # ライブストリームにチューナーインスタンスを設定する
@@ -626,15 +673,6 @@ class LiveEncodingTask:
         threading.Thread(target=Reader).start()
 
         # ***** tsreadex・エンコーダーからの出力の読み込み → ライブストリームへの書き込み *****
-
-        # LL-HLS Segmenter に渡す今回のエンコードタスクの GOP 長 (H.264 と H.265 で異なる)
-        gop_length_second = self.GOP_LENGTH_SECOND_H264
-        if QUALITY[self.livestream.quality].is_hevc is True:
-            gop_length_second = self.GOP_LENGTH_SECOND_H265
-
-        # LL-HLS Segmenter を初期化
-        ## iPhone Safari は mpegts.js でのストリーミングに対応していないため、フォールバックとして LL-HLS で配信する必要がある
-        self.livestream.segmenter = LiveLLHLSSegmenter(gop_length_second)
 
         # エンコーダーの出力のチャンクが積み増されていくバッファ
         chunk_buffer: bytearray = bytearray()
