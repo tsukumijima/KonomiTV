@@ -265,16 +265,13 @@ async def LiveMPEGTSStreamAPI(
                 livestream.disconnect(livestream_client)
                 break
 
-            # ライブストリームが Offline ではない
             if livestream.getStatus()['status'] != 'Offline':
 
                 # クライアントが持つ Queue から読み取ったストリームデータ
                 stream_data: bytes | None = await livestream_client.readStreamData()
 
-                # ストリームデータが存在する
+                # 読み取ったストリームデータを yield で随時出力する
                 if stream_data is not None:
-
-                    # 読み取ったストリームデータを yield で返す
                     yield stream_data
 
                 # stream_data に None が入った場合はエンコードタスクが終了し、接続が切断されたものとみなす
@@ -282,35 +279,37 @@ async def LiveMPEGTSStreamAPI(
 
                     # ライブストリームへの接続を切断し、ループを終了する
                     Logging.debug_simple('[LiveStreamsRouter][LiveMPEGTSStreamAPI] Encode task is finished')
-                    livestream.disconnect(livestream_client)  # 念のため
+                    livestream.disconnect(livestream_client)  # 必要ないとは思うけど念のため
                     break
 
-            # ライブストリームが Offline になったのでループを終了
+            # ライブストリームが Offline になった場合もエンコードタスクが終了し、接続が切断されたものとみなす
             else:
 
                 # ライブストリームへの接続を切断し、ループを終了する
                 Logging.debug_simple('[LiveStreamsRouter][LiveMPEGTSStreamAPI] LiveStream is currently Offline')
-                livestream.disconnect(livestream_client)
+                livestream.disconnect(livestream_client)  # 必要ないとは思うけど念のため
                 break
 
-    # HTTP リクエストがキャンセルされたときに自前でライブストリームの接続を切断できるよう、モンキーパッチを当てる
-    ## StreamingResponse はリクエストがキャンセルされるとレスポンスを生成するジェネレータの実行自体を勝手に強制終了してしまう
+    # StreamingResponse で読み取ったストリームデータをストリーミングする
+    response = StreamingResponse(generator(), media_type='video/mp2t')
+
+    # HTTP リクエストがキャンセルされたときに自前でライブストリームの接続を切断できるよう、StreamingResponse のインスタンスにモンキーパッチを当てる
+    ## StreamingResponse はリクエストがキャンセルされるとレスポンスを生成するジェネレーターの実行自体を勝手に強制終了してしまう
     ## そうするとリクエストがキャンセルされたか判定できず、クライアントがタイムアウトするまで接続切断がライブストリームに反映されない
-    ## これを避けるため StreamingResponse.listen_for_disconnect() を書き換えて、自前でライブストリームの接続を切断するようにする
+    ## これを避けるため StreamingResponse.listen_for_disconnect() を書き換えて、自前でライブストリームの接続を切断できるようにする
     # ref: https://github.com/encode/starlette/pull/839
     from starlette.types import Receive
-    async def listen_for_disconnect_monkeypatch(self, receive: Receive) -> None:
+    async def listen_for_disconnect_monkeypatch(receive: Receive) -> None:
         while True:
             message = await receive()
             if message['type'] == 'http.disconnect':
-                # ライブストリームへの接続を切断する
+                # 上のループでライブストリームへの接続を切断できるようにしばらく待つ
                 Logging.debug_simple('[LiveStreamsRouter][LiveMPEGTSStreamAPI] Request is disconnected (from monkeypatch)')
-                livestream.disconnect(livestream_client)
+                await asyncio.sleep(5)
                 break
-    StreamingResponse.listen_for_disconnect = listen_for_disconnect_monkeypatch
+    response.listen_for_disconnect = listen_for_disconnect_monkeypatch
 
-    # StreamingResponse で読み取ったストリームデータをストリーミングする
-    return StreamingResponse(generator(), media_type='video/mp2t')
+    return response
 
 
 # ***** LL-HLS ストリーミング開始/終了 API *****

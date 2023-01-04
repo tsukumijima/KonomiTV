@@ -466,10 +466,6 @@ class LiveStream():
             client (LiveStreamClient): ライブストリームクライアントのインスタンス
         """
 
-        # mpegts クライアントのみ、Queue に None を追加して接続切断を通知する
-        if client.client_type == 'mpegts':
-            client.queue.put_nowait(None)
-
         # 指定されたライブストリームクライアントを削除する
         ## すでにタイムアウトなどで削除されていたら何もしない
         try:
@@ -482,10 +478,14 @@ class LiveStream():
     def disconnectAll(self) -> None:
         """
         すべてのクライアントのライブストリームへの接続を切断する
+        disconnect() とは違い、LiveStreamClient の操作元ではなくエンコードタスク側から操作することを想定している
         """
 
         # すべてのクライアントの接続を切断する
         for client in self._clients:
+            # mpegts クライアントのみ、Queue に None を追加して接続切断を通知する
+            if client.client_type == 'mpegts':
+                client.queue.put_nowait(None)
             self.disconnect(client)
 
         # 念のためクライアントが入るリストを空にする
