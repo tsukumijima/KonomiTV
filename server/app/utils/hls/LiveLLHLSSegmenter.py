@@ -36,9 +36,6 @@ from app.utils.mpeg2ts.parser import SectionParser
 
 class LiveLLHLSSegmenter:
 
-    # PCR (Program Clock Reference) のオフセット
-    PCR_OFFSET = ts.HZ
-
     # ターゲットとする LL-HLS 部分セグメント (m4s) の再生時間 (秒)
     PART_DURATION = 0.15
 
@@ -316,8 +313,8 @@ class LiveLLHLSSegmenter:
             for H264 in self._h264_pes_parser:
                 if self._LATEST_PCR_VALUE is None: continue
                 H264 = cast(H264PES, H264)
-                timestamp = (((cast(int, H264.dts()) or cast(int, H264.pts())) - self._LATEST_PCR_VALUE + ts.PCR_CYCLE) % ts.PCR_CYCLE) + self._LATEST_PCR_TIMESTAMP_90KHZ
-                cts = (cast(int, H264.pts()) - (cast(int, H264.dts()) or cast(int, H264.pts())) + ts.PCR_CYCLE) % ts.PCR_CYCLE
+                timestamp = (((H264.dts() if H264.has_dts() else H264.pts()) - self._LATEST_PCR_VALUE + ts.PCR_CYCLE) % ts.PCR_CYCLE) + self._LATEST_PCR_TIMESTAMP_90KHZ  # type: ignore
+                cts = (H264.pts() - (H264.dts() if H264.has_dts() else H264.pts()) + ts.PCR_CYCLE) % ts.PCR_CYCLE  # type: ignore
                 keyInSamples = False
                 samples = deque()
 
@@ -426,8 +423,8 @@ class LiveLLHLSSegmenter:
             for H265 in self._h265_pes_parser:
                 if self._LATEST_PCR_VALUE is None: continue
                 H265 = cast(H265PES, H265)
-                timestamp = (((cast(int, H265.dts()) or cast(int, H265.pts())) - self._LATEST_PCR_VALUE + ts.PCR_CYCLE) % ts.PCR_CYCLE) + self._LATEST_PCR_TIMESTAMP_90KHZ
-                cts = (cast(int, H265.pts()) - (cast(int, H265.dts()) or cast(int, H265.pts())) + ts.PCR_CYCLE) % ts.PCR_CYCLE
+                timestamp = (((H265.dts() if H265.has_dts() else  H265.pts()) - self._LATEST_PCR_VALUE + ts.PCR_CYCLE) % ts.PCR_CYCLE) + self._LATEST_PCR_TIMESTAMP_90KHZ  # type: ignore
+                cts = (H265.pts() - (H265.dts() if H265.has_dts() else  H265.pts()) + ts.PCR_CYCLE) % ts.PCR_CYCLE  # type: ignore
                 keyInSamples = False
                 samples = deque()
 
@@ -651,7 +648,7 @@ class LiveLLHLSSegmenter:
 
         # PCR (Program Clock Reference)
         if PID == self._PCR_PID and ts.has_pcr(packet):
-            PCR_VALUE = (cast(int, ts.pcr(packet)) - self.PCR_OFFSET + ts.PCR_CYCLE) % ts.PCR_CYCLE
+            PCR_VALUE = (cast(int, ts.pcr(packet)) - ts.HZ + ts.PCR_CYCLE) % ts.PCR_CYCLE
             if self._LATEST_PCR_VALUE is not None:
                 self._LATEST_PCR_TIMESTAMP_90KHZ += (cast(int, PCR_VALUE) - self._LATEST_PCR_VALUE + ts.PCR_CYCLE) % ts.PCR_CYCLE
             self._LATEST_PCR_VALUE = PCR_VALUE
