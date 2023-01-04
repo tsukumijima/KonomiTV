@@ -69,7 +69,7 @@
                     v-model="tweet_hashtag" @input="updateTweetLetterCount()"
                     @focus="is_tweet_hashtag_form_focused = true" @blur="is_tweet_hashtag_form_focused = false"
                     @change="tweet_hashtag = formatHashtag(tweet_hashtag)">
-                <div v-ripple class="tweet-form__hashtag-list-button" @click="is_hashtag_list_display = !is_hashtag_list_display">
+                <div v-ripple class="tweet-form__hashtag-list-button" @click="clickHashtagListButton()">
                     <Icon icon="fluent:clipboard-text-ltr-32-regular" height="22px" />
                 </div>
             </div>
@@ -211,9 +211,6 @@ export default Vue.extend({
 
             // ユーティリティをテンプレートで使えるように
             Utils: Utils,
-
-            // window.setTimeout() にアクセスできるように
-            window: window,
 
             // ログイン中かどうか
             is_logged_in: Utils.getAccessToken() !== null,
@@ -368,6 +365,39 @@ export default Vue.extend({
             this.tweet_letter_count = 140 - [...this.tweet_hashtag].length - [...this.tweet_text].length;
         },
 
+        // クリップボード内のデータがペーストされたときのイベント
+        pasteClipboardData(event: ClipboardEvent) {
+
+            // 一応配列になっているので回しているが、基本1回のペーストにつき DataTransferItem は1個しか入らない
+            for (const clipboard_item of event.clipboardData.items) {
+
+                // 画像のみを対象にする (DataTransferItem.type には MIME タイプが入る)
+                if (clipboard_item.type.startsWith('image/')) {
+
+                    // クリップボード内の画像データを File オブジェクトとして取得し、キャプチャリストに追加
+                    const file = clipboard_item.getAsFile();
+                    this.addCaptureList(file, file.name);
+                }
+            }
+        },
+
+        // ハッシュタグリストボタンが押されたときのイベント
+        clickHashtagListButton() {
+            this.is_hashtag_list_display = !this.is_hashtag_list_display;
+            // すべてのハッシュタグの編集状態を解除する
+            for (const hashtag of this.saved_twitter_hashtags) {
+                hashtag.editing = false;
+            }
+        },
+
+        // ハッシュタグがクリックされたときのイベント
+        clickHashtag(hashtag: IHashtag) {
+            this.tweet_hashtag = hashtag.text;
+            this.tweet_hashtag = this.formatHashtag(this.tweet_hashtag);
+            this.updateTweetLetterCount();
+            window.setTimeout(() => this.is_hashtag_list_display = false, 150);
+        },
+
         // アカウントボタンが押されたときのイベント
         clickAccountButton() {
 
@@ -389,22 +419,6 @@ export default Vue.extend({
             // アカウントリストが表示されているなら、ハッシュタグリストを非表示にする
             if (this.is_twitter_account_list_display === true) {
                 this.is_hashtag_list_display = false;
-            }
-        },
-
-        // クリップボード内のデータがペーストされたときのイベント
-        pasteClipboardData(event: ClipboardEvent) {
-
-            // 一応配列になっているので回しているが、基本1回のペーストにつき DataTransferItem は1個しか入らない
-            for (const clipboard_item of event.clipboardData.items) {
-
-                // 画像のみを対象にする (DataTransferItem.type には MIME タイプが入る)
-                if (clipboard_item.type.startsWith('image/')) {
-
-                    // クリップボード内の画像データを File オブジェクトとして取得し、キャプチャリストに追加
-                    const file = clipboard_item.getAsFile();
-                    this.addCaptureList(file, file.name);
-                }
             }
         },
 
@@ -609,14 +623,6 @@ export default Vue.extend({
             }
 
             return null;
-        },
-
-        // ハッシュタグがクリックされたときのイベント
-        clickHashtag(hashtag: IHashtag) {
-            this.tweet_hashtag = hashtag.text;
-            this.tweet_hashtag = this.formatHashtag(this.tweet_hashtag);
-            this.updateTweetLetterCount();
-            window.setTimeout(() => this.is_hashtag_list_display = false, 150);
         },
 
         // ハッシュタグを整形（余計なスペースなどを削り、全角ハッシュを半角ハッシュへ、全角スペースを半角スペースに置換）
