@@ -24,12 +24,14 @@ body .v-application {
     min-height: 100vh;
     min-height: 100dvh;
     font-family: 'YakuHanJPs', 'Open Sans', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
-    font-weight: 500;
+    font-weight: 501;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     // iOS Safari で 100vh にアドレスバーが含まれてしまう問題を回避する
+    // iOS のヒラギノには Medium が搭載されていないため、font-weight を調整
     @supports (-webkit-touch-callout: none) {
         min-height: -webkit-fill-available;
+        font-weight: 400;
     }
 
     .v-application--wrap {
