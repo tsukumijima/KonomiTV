@@ -76,18 +76,18 @@
                          @mousemove="controlDisplayTimer($event)"
                          @touchmove="controlDisplayTimer($event)"
                          @click="controlDisplayTimer($event)">
-                        <router-link v-ripple class="switch-button switch-button-up" :to="`/tv/watch/${channel_previous.channel_id}`"
-                                     v-tooltip.top="'前のチャンネル'">
+                        <div v-ripple class="switch-button switch-button-up" v-tooltip.top="'前のチャンネル'"
+                            @click="is_zapping = true; $router.push({path: `/tv/watch/${channel_previous.channel_id}`})">
                             <Icon class="switch-button-icon" icon="fluent:ios-arrow-left-24-filled" width="32px" rotate="1" />
-                        </router-link>
+                        </div>
                         <div v-ripple class="switch-button switch-button-panel switch-button-panel--open"
-                             @click="is_panel_display = !is_panel_display">
+                            @click="is_panel_display = !is_panel_display">
                             <Icon class="switch-button-icon" icon="fluent:navigation-16-filled" width="32px" />
                         </div>
-                        <router-link v-ripple class="switch-button switch-button-down" :to="`/tv/watch/${channel_next.channel_id}`"
-                                     v-tooltip.bottom="'次のチャンネル'">
+                        <div v-ripple class="switch-button switch-button-down" v-tooltip.bottom="'次のチャンネル'"
+                             @click="is_zapping = true; $router.push({path: `/tv/watch/${channel_next.channel_id}`})">
                             <Icon class="switch-button-icon" icon="fluent:ios-arrow-right-24-filled" width="33px" rotate="1" />
-                        </router-link>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -305,6 +305,9 @@ export default Vue.extend({
             // チャンネル情報リスト
             channels_list: new Map() as Map<ChannelTypePretty, IChannel[]>,
 
+            // ザッピング（「前/次のチャンネル」ボタン or 上下キーショートカット）によるチャンネル移動かどうか
+            is_zapping: false,
+
             // ***** プレイヤー *****
 
             // プレイヤー (DPlayer) のインスタンス
@@ -467,7 +470,7 @@ export default Vue.extend({
     },
     // チャンネル切り替え時に実行
     // コンポーネント（インスタンス）は再利用される
-    // ref: https://router.vuejs.org/ja/guide/advanced/navigation-guards.html#%E3%83%AB%E3%83%BC%E3%83%88%E5%8D%98%E4%BD%8D%E3%82%AB%E3%82%99%E3%83%BC%E3%83%88%E3%82%99
+    // ref: https://v3.router.vuejs.org/ja/guide/advanced/navigation-guards.html#%E3%83%AB%E3%83%BC%E3%83%88%E5%8D%98%E4%BD%8D%E3%82%AB%E3%82%99%E3%83%BC%E3%83%88%E3%82%99
     beforeRouteUpdate(to, from, next) {
 
         // 前の再生セッションを破棄して終了する
@@ -485,9 +488,20 @@ export default Vue.extend({
             (this.$refs.Twitter as InstanceType<typeof Twitter>).tweet_hashtag = '';
         }
 
-        // 0.5秒だけ待ってから、新しい再生セッションを初期化する
-        // 連続して押した時などに毎回再生処理を開始しないように猶予を設ける
-        this.interval_ids.push(window.setTimeout(() => this.init(), 500));
+        (async () => {
+
+            // ザッピング（「前/次のチャンネル」ボタン or 上下キーショートカット）によるチャンネル移動時のみ、
+            // 0.5秒だけ待ってから新しい再生セッションを初期化する
+            // 連続してチャンネルを切り替えた際に毎回再生処理を開始しないように猶予を設ける
+            if (this.is_zapping === true) {
+                this.is_zapping = false;
+                this.interval_ids.push(window.setTimeout(() => this.init(), 500));
+
+            // 通常のチャンネル移動時は、すぐに再生セッションを初期化する
+            } else {
+                this.init();
+            }
+        })();
 
         next();
     },
@@ -1250,6 +1264,22 @@ export default Vue.extend({
             // 音量を 0 に設定
             this.player.video.volume = 0;
 
+            // mpegts.js 再生時かつローディング中 & バッファリング中のみ、
+            // 1秒間、0.01 秒ごとに繰り返し this.player.play() を繰り返す (ゴリ押し)
+            // なぜかこれをやらないと音声の自動再生が有効になっていても自動再生できなかったりする
+            // 1秒間に100回も繰り返している理由は再生ボタンのちらつきを防ぐため
+            if (this.is_mpegts_supported === true) {
+                (async () => {
+                    for (let i = 0; i < 100; i++) {
+                        if (this.is_loading === false) {
+                            break;
+                        }
+                        this.player.play();
+                        await Utils.sleep(0.01);
+                    }
+                })();
+            }
+
             // LL-HLS 再生時のみ、ローディングが終わるまでは pause イベントが起きても強制的にアイコンなどを再生表示に戻す
             if (this.is_mpegts_supported === false) {
                 // 0.01 秒ごとに監視
@@ -1697,6 +1727,21 @@ export default Vue.extend({
                         // キーリピートでない時・Ctrl / Cmd / Shift / Alt キーが一緒に押された時に作動しないように
                         if (is_repeat === false && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
 
+                            // ***** 上下キーでチャンネルを切り替える *****
+
+                            // ↑キー: 前のチャンネルに切り替え
+                            if (event.code === 'ArrowUp') {
+                                this.is_zapping = true;
+                                await this.$router.push({path: `/tv/watch/${this.channel_previous.channel_id}`});
+                                return true;
+                            }
+                            // ↓キー: 次のチャンネルに切り替え
+                            if (event.code === 'ArrowDown') {
+                                this.is_zapping = true;
+                                await this.$router.push({path: `/tv/watch/${this.channel_next.channel_id}`});
+                                return true;
+                            }
+
                             // ***** キーボードショートカットの一覧を表示する *****
 
                             // /(?)キー: キーボードショートカットの一覧を表示する
@@ -1864,23 +1909,6 @@ export default Vue.extend({
                                 // 選択されていなければ選択され、選択されていれば選択が解除される
                                 // キャプチャの枚数制限などはすべて clickCapture() の中で処理される
                                 twitter_component.clickCapture(focused_capture);
-                                return true;
-                            }
-                        }
-
-                        // ***** 上下キーでチャンネルを切り替える *****
-
-                        // キーリピートでない時・Ctrl / Cmd / Shift / Alt キーが一緒に押された時に作動しないように
-                        if (is_repeat === false && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
-
-                            // ↑キー: 前のチャンネルに切り替え
-                            if (event.code === 'ArrowUp') {
-                                await this.$router.push({path: `/tv/watch/${this.channel_previous.channel_id}`});
-                                return true;
-                            }
-                            // ↓キー: 次のチャンネルに切り替え
-                            if (event.code === 'ArrowDown') {
-                                await this.$router.push({path: `/tv/watch/${this.channel_next.channel_id}`});
                                 return true;
                             }
                         }
