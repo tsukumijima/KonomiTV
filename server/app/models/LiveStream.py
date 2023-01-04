@@ -584,9 +584,12 @@ class LiveStream():
         # 接続している全てのクライアントの Queue にストリームデータを書き込む
         for client in self._clients:
 
-            # 最終読み取り時刻を10秒過ぎたクライアントはタイムアウトと判断し、クライアントを削除する
+            # タイムアウト秒数は mpegts クライアントなら 10 秒、LL-HLS クライアントは 20 秒
+            timeout = 10 if client.client_type == 'mpegts' else 20
+
+            # 最終読み取り時刻を指定秒数過ぎたクライアントはタイムアウトと判断し、クライアントを削除する
             ## 主にネットワークが切断されたなどの理由で発生する
-            if now - client.stream_data_read_at > 10:
+            if now - client.stream_data_read_at > timeout:
                 self._clients.remove(client)
                 Logging.info(f'[Live: {self.livestream_id}] Client Disconnected (Timeout). Client ID: {client.client_id}')
 
