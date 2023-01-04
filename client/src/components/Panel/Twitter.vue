@@ -111,18 +111,6 @@
                 </button>
             </div>
         </div>
-        <div class="twitter-account-list" :class="{'twitter-account-list--display': is_twitter_account_list_display}">
-            <div v-ripple class="twitter-account" v-for="twitter_account in user.twitter_accounts" :key="twitter_account.id"
-                @click="updateSelectedTwitterAccount(twitter_account)">
-                <img class="twitter-account__icon" :src="twitter_account.icon_url">
-                <div class="twitter-account__info">
-                    <div class="twitter-account__name">{{twitter_account.name}}</div>
-                    <div class="twitter-account__screen-name">@{{twitter_account.screen_name}}</div>
-                </div>
-                <Icon class="twitter-account__check" icon="fluent:checkmark-16-filled" width="24px"
-                    v-show="twitter_account.id === selected_twitter_account_id" />
-            </div>
-        </div>
         <div class="hashtag-list" :class="{
             'hashtag-list--display': is_hashtag_list_display,
             'hashtag-list--virtual-keyboard-display': is_virtual_keyboard_display && Utils.hasActiveElementClass('hashtag__input'),
@@ -156,6 +144,18 @@
                     </div>
                 </div>
             </draggable>
+        </div>
+        <div class="twitter-account-list" :class="{'twitter-account-list--display': is_twitter_account_list_display}">
+            <div v-ripple class="twitter-account" v-for="twitter_account in user.twitter_accounts" :key="twitter_account.id"
+                @click="updateSelectedTwitterAccount(twitter_account)">
+                <img class="twitter-account__icon" :src="twitter_account.icon_url">
+                <div class="twitter-account__info">
+                    <div class="twitter-account__name">{{twitter_account.name}}</div>
+                    <div class="twitter-account__screen-name">@{{twitter_account.screen_name}}</div>
+                </div>
+                <Icon class="twitter-account__check" icon="fluent:checkmark-16-filled" width="24px"
+                    v-show="twitter_account.id === selected_twitter_account_id" />
+            </div>
         </div>
     </div>
 </template>
@@ -772,7 +772,9 @@ export default Vue.extend({
     flex-direction: column;
     position: relative;
     padding-bottom: 8px;
-
+    &.watch-panel__content--active {
+        content-visibility: visible !important;
+    }
     &.watch-panel__content--active .tab-container .tab-content--active {
         opacity: 1;
         visibility: visible;
@@ -1251,97 +1253,6 @@ export default Vue.extend({
         }
     }
 
-    .twitter-account-list {
-        position: absolute;
-        left: 12px;
-        right: 12px;
-        bottom: 48px;
-        max-height: calc(100vh - 137px);
-        max-height: calc(100dvh - 137px);
-        border-radius: 7px;
-        // スクロールバーが表示されると角が丸くなくなる問題への対処
-        clip-path: inset(0% 0% 0% 0% round 7px);
-        background: var(--v-background-lighten2);
-        box-shadow: 0px 3px 4px rgba(0, 0, 0, 53%);
-        transition: opacity 0.2s ease, visibility 0.2s ease;
-        opacity: 0;
-        visibility: hidden;
-        overflow-y: auto;
-        z-index: 3;
-        @include smartphone-horizontal {
-            left: 8px;
-            right: 8px;
-            bottom: 40px;
-            max-height: calc(100vh - 82px);
-            max-height: calc(100dvh - 82px);
-        }
-        &--display {
-            opacity: 1;
-            visibility: visible;
-        }
-        &::-webkit-scrollbar-track {
-            background: var(--v-background-lighten2);
-        }
-        &::-webkit-scrollbar-thumb {
-                background: var(--v-gray-base);
-            &:hover {
-                background: var(--v-gray-base);
-            }
-        }
-
-        .twitter-account {
-            display: flex;
-            align-items: center;
-            padding: 12px 12px;
-            border-radius: 7px;
-            user-select: none;
-            cursor: pointer;
-            @include smartphone-horizontal {
-                padding: 8px 12px;
-            }
-
-            &__icon {
-                display: block;
-                width: 50px;
-                height: 50px;
-                border-radius: 50%;
-                @include smartphone-horizontal {
-                    width: 36px;
-                    height: 36px;
-                }
-            }
-            &__info {
-                display: flex;
-                flex-direction: column;
-                flex-grow: 1;
-                min-width: 0;
-                margin-left: 12px;
-            }
-            &__name {
-                font-size: 17px;
-                font-weight: bold;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                @include smartphone-horizontal {
-                    font-size: 14px;
-                    line-height: 1.3;
-                }
-            }
-            &__screen-name {
-                color: var(--v-text-darken1);
-                font-size: 14px;
-                @include smartphone-horizontal {
-                    font-size: 13px;
-                }
-            }
-            &__check {
-                flex-shrink: 0;
-                color: var(--v-twitter-lighten1);
-            }
-        }
-    }
-
     .hashtag-list {
         position: absolute;
         left: 12px;
@@ -1350,6 +1261,7 @@ export default Vue.extend({
         max-height: calc(100vh - 239px);
         max-height: calc(100dvh - 239px);
         padding: 12px 4px;
+        padding-bottom: 10px;
         border-radius: 7px;
         // スクロールバーが表示されると角が丸くなくなる問題への対処
         clip-path: inset(0% 0% 0% 0% round 7px);
@@ -1517,6 +1429,97 @@ export default Vue.extend({
                 &__sort-handle {
                     cursor: move;
                 }
+            }
+        }
+    }
+
+    .twitter-account-list {
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        bottom: 48px;
+        max-height: calc(100vh - 137px);
+        max-height: calc(100dvh - 137px);
+        border-radius: 7px;
+        // スクロールバーが表示されると角が丸くなくなる問題への対処
+        clip-path: inset(0% 0% 0% 0% round 7px);
+        background: var(--v-background-lighten2);
+        box-shadow: 0px 3px 4px rgba(0, 0, 0, 53%);
+        transition: opacity 0.2s ease, visibility 0.2s ease;
+        opacity: 0;
+        visibility: hidden;
+        overflow-y: auto;
+        z-index: 3;
+        @include smartphone-horizontal {
+            left: 8px;
+            right: 8px;
+            bottom: 40px;
+            max-height: calc(100vh - 82px);
+            max-height: calc(100dvh - 82px);
+        }
+        &--display {
+            opacity: 1;
+            visibility: visible;
+        }
+        &::-webkit-scrollbar-track {
+            background: var(--v-background-lighten2);
+        }
+        &::-webkit-scrollbar-thumb {
+                background: var(--v-gray-base);
+            &:hover {
+                background: var(--v-gray-base);
+            }
+        }
+
+        .twitter-account {
+            display: flex;
+            align-items: center;
+            padding: 12px 12px;
+            border-radius: 7px;
+            user-select: none;
+            cursor: pointer;
+            @include smartphone-horizontal {
+                padding: 8px 12px;
+            }
+
+            &__icon {
+                display: block;
+                width: 50px;
+                height: 50px;
+                border-radius: 50%;
+                @include smartphone-horizontal {
+                    width: 36px;
+                    height: 36px;
+                }
+            }
+            &__info {
+                display: flex;
+                flex-direction: column;
+                flex-grow: 1;
+                min-width: 0;
+                margin-left: 12px;
+            }
+            &__name {
+                font-size: 17px;
+                font-weight: bold;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                @include smartphone-horizontal {
+                    font-size: 14px;
+                    line-height: 1.3;
+                }
+            }
+            &__screen-name {
+                color: var(--v-text-darken1);
+                font-size: 14px;
+                @include smartphone-horizontal {
+                    font-size: 13px;
+                }
+            }
+            &__check {
+                flex-shrink: 0;
+                color: var(--v-twitter-lighten1);
             }
         }
     }
