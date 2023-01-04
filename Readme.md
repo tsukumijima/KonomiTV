@@ -625,12 +625,13 @@ API サーバーは別のポート (7000) でリッスンされているので�
 
 ## Special Thanks
 
-- [xtne6f](https://github.com/xtne6f) さん： KonomiTV と EDCB を連携するための実装や、[tsreadex](https://github.com/xtne6f/tsreadex) の実装の依頼・開発などで多大なご協力をいただきました。
+- [xtne6f](https://github.com/xtne6f) さん： KonomiTV と EDCB を連携させるための実装や、[tsreadex](https://github.com/xtne6f/tsreadex) の実装の依頼・開発などで多大なご協力をいただきました。
 - [rigaya](https://github.com/rigaya) さん： QSVEncC・NVEncC・VCEEncC での動作オプションや不具合の対応、エンコードパラメーターのアドバイスなどを支援していただきました。
 - [xqq](https://github.com/xqq) さん： [mpegts.js](https://github.com/xqq/mpegts.js) で MPEG-TS をダイレクトストリーミングできるようになり、わずか最短 1.5 秒の低遅延でテレビを視聴することができるようになりました。mpegts.js のヘルプやプレイヤーへの導入のサポートなども支援していただきました。
-- [monyone](https://github.com/monyone) さん：[aribb24.js](https://github.com/monyone/aribb24.js) のおかげで、ARIB 字幕や文字スーパーを完璧に表示できるようになりました。また、字幕関連の実装で多くのご協力をいただきました。
+- [monyone](https://github.com/monyone) さん：[aribb24.js](https://github.com/monyone/aribb24.js) のおかげで、ARIB 字幕や文字スーパーを完璧に表示できるようになりました。また、字幕関連のほか、iPhone 向けの [LL-HLS ライブストリーミングの実装](https://github.com/monyone/biim) やトラブルシューティング、導入のサポートなどで多大なご協力をいただきました。
 
-KonomiTV の開発にあたり、ほかにも多くの方からサポートやフィードバックをいただきました。この場をお借りして厚く感謝を申し上げます。
+KonomiTV の開発にあたり、ほかにも沢山の方からサポートやフィードバックをいただきました。  
+この場をお借りして厚く感謝を申し上げます。 本当にありがとうございました！
 
 ## License
 
