@@ -609,15 +609,16 @@ export default Vue.extend({
                 this.player.template.audioItem[1].classList.add('dplayer-setting-audio-item--disabled');
 
                 // 現在副音声が選択されている可能性を考慮し、明示的に主音声に切り替える
-                if (this.player.plugins.mpegts) {
+                if (this.player.plugins.mpegts !== undefined || this.player.plugins.liveLLHLSForKonomiTV !== undefined) {
                     window.setTimeout(() => {  // プレイヤーの初期化が完了するまで少し待つ
                         this.player.template.audioItem[0].classList.add('dplayer-setting-audio-current');
                         this.player.template.audioItem[1].classList.remove('dplayer-setting-audio-current');
                         this.player.template.audioValue.textContent = this.player.tran('Primary audio');
                         try {
-                            if (this.is_mpegts_supported === true) {
+                            if (this.player.plugins.mpegts !== undefined) {
                                 this.player.plugins.mpegts.switchPrimaryAudio();
-                            } else {
+                            }
+                            if (this.player.plugins.liveLLHLSForKonomiTV !== undefined) {
                                 this.player.plugins.liveLLHLSForKonomiTV.switchPrimaryAudio();
                             }
                         } catch (error) {
