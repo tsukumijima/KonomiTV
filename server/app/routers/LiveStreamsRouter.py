@@ -450,8 +450,8 @@ async def LiveLLHLSPrimaryAudioInitializationSegmentAPI(
 )
 async def LiveLLHLSSecondaryAudioPlaylistAPI(
     livestream_client: LiveStreamClient = Depends(GetLiveStreamClient),
-    _HLS_msn: int | None = Query(None, description='LL-HLS M3U8 プレイリストの msn (Media Sequence Number) インデックス。'),
-    _HLS_part: int | None = Query(None, description='LL-HLS M3U8 プレイリストの part (部分セグメント) インデックス。'),
+    _HLS_msn: int | None = Query(None, description='LL-HLS プレイリストの msn (Media Sequence Number) インデックス。'),
+    _HLS_part: int | None = Query(None, description='LL-HLS プレイリストの part (部分セグメント) インデックス。'),
 ):
     # クライアントから LL-HLS プレイリストのレスポンスを取得してそのまま返す
     return await livestream_client.getPlaylist(_HLS_msn, _HLS_part, secondary_audio=True)
@@ -490,7 +490,7 @@ async def LiveLLHLSSecondaryAudioSegmentAPI(
 async def LiveLLHLSSecondaryAudioPartialSegmentAPI(
     livestream_client: LiveStreamClient = Depends(GetLiveStreamClient),
     msn: int | None = Query(None, description='LL-HLS セグメントの msn (Media Sequence Number) インデックス。'),
-    part: int | None = Query(None, description='LL-HLS セグメントの part (部分セグメント) インデックス。'),
+    part: int | str | None = Query(None, description='LL-HLS セグメントの part (部分セグメント) インデックス。'),
 ):
     # part が空文字列の場合は 0 に変換する
     if part == '':

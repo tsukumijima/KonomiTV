@@ -36,6 +36,9 @@ from app.utils.mpeg2ts.parser import SectionParser
 
 class LiveLLHLSSegmenter:
 
+    # PCR (Program Clock Reference) のオフセット
+    PCR_OFFSET = ts.HZ
+
     # ターゲットとする LL-HLS 部分セグメント (m4s) の再生時間 (秒)
     PART_DURATION = 0.15
 
@@ -648,7 +651,7 @@ class LiveLLHLSSegmenter:
 
         # PCR (Program Clock Reference)
         if PID == self._PCR_PID and ts.has_pcr(packet):
-            PCR_VALUE = ts.pcr(packet)
+            PCR_VALUE = (cast(int, ts.pcr(packet)) - self.PCR_OFFSET + ts.PCR_CYCLE) % ts.PCR_CYCLE
             if self._LATEST_PCR_VALUE is not None:
                 self._LATEST_PCR_TIMESTAMP_90KHZ += (cast(int, PCR_VALUE) - self._LATEST_PCR_VALUE + ts.PCR_CYCLE) % ts.PCR_CYCLE
             self._LATEST_PCR_VALUE = PCR_VALUE
