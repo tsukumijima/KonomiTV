@@ -795,13 +795,24 @@ class LiveEncodingTask:
             while True:
 
                 # 行ごとに随時読み込む
-                ## 空のデータが返ってきたら、エンコーダーが終了したと判断してタスクを終了
-                line_raw = await encoder.stderr.readline()
-                if line_raw == b'':
+                ## 1バイトずつ読み込み、\r か \n が来たら行としてデコード
+                ## FFmpeg はコンソールの行を上書きするために frame= の進捗ログで \r しか出力しないため、readline() を使うと
+                ## 進捗ログを取得できずに永遠に Standby から ONAir に移行しない不具合が発生する
+                buffer = bytearray()
+                while True:
+                    byte = await encoder.stderr.read(1)
+                    buffer += byte
+                    if byte == b'\r' or byte == b'\n':
+                        break
+                    if byte == b'':
+                        break
+
+                # 空のデータが返ってきたら、エンコーダーが終了したと判断してタスクを終了
+                if len(buffer) == 0:
                     break
 
                 try:
-                    line = line_raw.decode('utf-8').strip()
+                    line = buffer.decode('utf-8').strip()
                 except UnicodeDecodeError:
                     continue
 
