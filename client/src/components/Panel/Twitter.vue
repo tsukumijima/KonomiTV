@@ -800,6 +800,9 @@ export default Vue.extend({
             opacity: 0;
             visibility: hidden;
             overflow-y: scroll;
+            &::-webkit-scrollbar {
+                width: 6px;
+            }
             @include smartphone-horizontal {
                 padding-top: 8px;
             }
@@ -817,8 +820,12 @@ export default Vue.extend({
                 grid-row-gap: 12px;
                 grid-column-gap: 12px;
                 padding-left: 12px;
-                padding-right: 5px;
+                padding-right: 6px;
                 max-height: 100%;
+                // iOS Safari のみ
+                @supports (-webkit-touch-callout: none) {
+                    padding-right: 12px;
+                }
                 @include smartphone-horizontal {
                     grid-row-gap: 8px;
                     grid-column-gap: 8px;
