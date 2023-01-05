@@ -1272,6 +1272,10 @@ export default Vue.extend({
             // 音量を 0 に設定
             this.player.video.volume = 0;
 
+            // video 要素の crossOrigin 属性を 'anonymous' に設定
+            // これを設定しないと、クロスオリジンの場合にキャプチャができない
+            this.player.video.crossOrigin = 'anonymous';
+
             // mpegts.js 再生時かつローディング中 & バッファリング中のみ、
             // 1秒間、0.01 秒ごとに繰り返し this.player.play() を繰り返す (ゴリ押し)
             // なぜかこれをやらないと音声の自動再生が有効になっていても自動再生できなかったりする
