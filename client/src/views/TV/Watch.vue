@@ -1739,21 +1739,6 @@ export default Vue.extend({
                         // キーリピートでない時・Ctrl / Cmd / Shift / Alt キーが一緒に押された時に作動しないように
                         if (is_repeat === false && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
 
-                            // ***** 上下キーでチャンネルを切り替える *****
-
-                            // ↑キー: 前のチャンネルに切り替え
-                            if (event.code === 'ArrowUp') {
-                                this.is_zapping = true;
-                                await this.$router.push({path: `/tv/watch/${this.channel_previous.channel_id}`});
-                                return true;
-                            }
-                            // ↓キー: 次のチャンネルに切り替え
-                            if (event.code === 'ArrowDown') {
-                                this.is_zapping = true;
-                                await this.$router.push({path: `/tv/watch/${this.channel_next.channel_id}`});
-                                return true;
-                            }
-
                             // ***** キーボードショートカットの一覧を表示する *****
 
                             // /(?)キー: キーボードショートカットの一覧を表示する
@@ -1921,6 +1906,26 @@ export default Vue.extend({
                                 // 選択されていなければ選択され、選択されていれば選択が解除される
                                 // キャプチャの枚数制限などはすべて clickCapture() の中で処理される
                                 twitter_component.clickCapture(focused_capture);
+                                return true;
+                            }
+                        }
+
+                        // ***** 上下キーでチャンネルを切り替える *****
+
+                        // キーリピートでない時・Ctrl / Cmd / Shift / Alt キーが一緒に押された時に作動しないように
+                        // キャプチャ関連のショートカットの後に持ってこないとキャプチャ関連のショートカットが動作しなくなる
+                        if (is_repeat === false && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
+
+                            // ↑キー: 前のチャンネルに切り替え
+                            if (event.code === 'ArrowUp') {
+                                this.is_zapping = true;
+                                await this.$router.push({path: `/tv/watch/${this.channel_previous.channel_id}`});
+                                return true;
+                            }
+                            // ↓キー: 次のチャンネルに切り替え
+                            if (event.code === 'ArrowDown') {
+                                this.is_zapping = true;
+                                await this.$router.push({path: `/tv/watch/${this.channel_next.channel_id}`});
                                 return true;
                             }
                         }
