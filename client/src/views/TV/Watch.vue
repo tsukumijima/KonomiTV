@@ -2215,6 +2215,9 @@ export default Vue.extend({
         }
         .dplayer-comment-box {
             transition: opacity 0.3s ease, visibility 0.3s ease !important;
+            .dplayer-comment-setting-icon {
+                z-index: 5;
+            }
             .dplayer-comment-input {
                 transition: box-shadow 0.09s ease;
                 -webkit-appearance: none;
