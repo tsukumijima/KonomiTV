@@ -915,8 +915,7 @@ export default Vue.extend({
                 if (video_element === null || video_element.clientHeight === null) return;
                 const letter_box_height = (this.resize_observer_element.clientHeight - video_element.clientHeight) / 2;
 
-                // 70px or 54px (高さが 450px 以下) 以下ならヘッダー（番組名などの表示）と被るので対応する
-                const threshold = window.matchMedia('(max-height: 450px)').matches ? 50 : 66;
+                const threshold = Utils.isSmartphoneVertical() ? 0 : window.matchMedia('(max-height: 450px)').matches ? 50 : 66;
                 if (letter_box_height < threshold) {
 
                     // コメント描画領域に必要な上下マージン
@@ -1214,6 +1213,9 @@ export default Vue.extend({
         @include smartphone-horizontal {
             margin-top: 12px;
         }
+        @include smartphone-vertical {
+            margin-top: 12px;
+        }
 
         &__title {
             display: flex;
@@ -1224,10 +1226,16 @@ export default Vue.extend({
             @include smartphone-horizontal {
                 font-size: 16.5px;
             }
+            @include smartphone-vertical {
+                font-size: 16.5px;
+            }
 
             &-icon {
                 margin-bottom: -3px;  // 高さ調整
                 @include smartphone-horizontal {
+                    height: 17.5px;
+                }
+                @include smartphone-vertical {
                     height: 17.5px;
                 }
             }
@@ -1256,6 +1264,9 @@ export default Vue.extend({
         min-height: 0;
         margin-top: 16px;
         @include smartphone-horizontal {
+            margin-top: 12px;
+        }
+        @include smartphone-vertical {
             margin-top: 12px;
         }
 

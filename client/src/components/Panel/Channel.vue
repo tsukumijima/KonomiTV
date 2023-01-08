@@ -89,6 +89,9 @@ export default Vue.extend({
         @include smartphone-horizontal {
             height: 44px;
         }
+        @include smartphone-vertical {
+            height: 46px;
+        }
 
         // 幅を縮める
         .v-slide-group__prev, .v-slide-group__next {
@@ -145,6 +148,10 @@ export default Vue.extend({
         background:var(--v-background-base);
         z-index: 1;
         @include smartphone-horizontal {
+            padding-bottom: 8px;
+            margin-top: 0px;
+        }
+        @include smartphone-vertical {
             padding-bottom: 8px;
             margin-top: 0px;
         }

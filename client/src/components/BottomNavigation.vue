@@ -24,6 +24,9 @@
     @include smartphone-vertical {
         display: flex;
     }
+    .v-btn span {
+        font-weight: bold;
+    }
 }
 
 </style>

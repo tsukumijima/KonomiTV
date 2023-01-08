@@ -86,6 +86,10 @@ export default Vue.extend({
             display: flex;
             margin-top: 16px;
         }
+        @include smartphone-vertical {
+            display: flex;
+            margin-top: 16px;
+        }
 
         &__icon {
             display: inline-block;
@@ -99,6 +103,10 @@ export default Vue.extend({
             @include smartphone-horizontal {
                 width: 42px;
                 height: 23.5px;
+            }
+            @include smartphone-vertical {
+                width: 58px;
+                height: 32px;
             }
         }
 
@@ -114,6 +122,9 @@ export default Vue.extend({
             overflow: hidden;
             white-space: nowrap;
             text-overflow: ellipsis;
+            @include smartphone-vertical {
+                font-size: 18px;
+            }
         }
     }
 
@@ -127,6 +138,10 @@ export default Vue.extend({
             @include smartphone-horizontal {
                 margin-top: 10px;
                 font-size: 18px;
+            }
+            @include smartphone-vertical {
+                margin-top: 12px;
+                font-size: 19px;
             }
         }
         .program-info__time {

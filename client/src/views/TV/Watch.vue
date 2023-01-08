@@ -2,7 +2,7 @@
     <div class="route-container">
         <main class="watch-container" :class="{
                 'watch-container--control-display': is_control_display,
-                'watch-container--panel-display': is_panel_display,
+                'watch-container--panel-display': Utils.isSmartphoneVertical() ? true : is_panel_display,
                 'watch-container--fullscreen': is_fullscreen,
             }">
             <nav class="watch-navigation"
@@ -92,9 +92,7 @@
                 </div>
             </div>
             <div class="watch-panel"
-                 @mousemove="controlDisplayTimer($event)"
-                 @touchmove="controlDisplayTimer($event)"
-                 @click="controlDisplayTimer($event)">
+                 @mousemove="controlDisplayTimer($event)">
                 <div class="watch-panel__header">
                     <div v-ripple class="panel-close-button" @click="is_panel_display = false">
                         <Icon class="panel-close-button__icon" icon="akar-icons:chevron-right" width="25px" />
@@ -185,6 +183,7 @@
                 </div>
             </v-card>
         </v-dialog>
+        <BottomNavigation />
     </div>
 </template>
 <script lang="ts">
@@ -197,6 +196,7 @@ import mpegts from 'mpegts.js';
 import Vue from 'vue';
 
 import { ChannelTypePretty, IChannel, IChannelDefault } from '@/interface';
+import BottomNavigation from '@/components/BottomNavigation.vue';
 import Channel from '@/components/Panel/Channel.vue';
 import Comment from '@/components/Panel/Comment.vue';
 import Program from '@/components/Panel/Program.vue';
@@ -214,6 +214,7 @@ const PLAYBACK_BUFFER_SEC = 5.0;
 export default Vue.extend({
     name: 'TV-Watch',
     components: {
+        BottomNavigation,
         Channel,
         Comment,
         Program,
@@ -2168,6 +2169,9 @@ export default Vue.extend({
         @include smartphone-horizontal {
             height: 66px !important;
         }
+        @include smartphone-vertical {
+            height: 66px !important;
+        }
     }
     .dplayer-controller {
         padding-left: calc(68px + 18px) !important;
@@ -2176,6 +2180,9 @@ export default Vue.extend({
         opacity: 0 !important;
         visibility: hidden;
         @include smartphone-horizontal {
+            padding-left: calc(0px + 18px) !important;
+        }
+        @include smartphone-vertical {
             padding-left: calc(0px + 18px) !important;
         }
 
@@ -2190,6 +2197,9 @@ export default Vue.extend({
             &.dplayer-icons-right {
                 right: 22px !important;
                 @include smartphone-horizontal {
+                    right: 11px !important;
+                }
+                @include smartphone-vertical {
                     right: 11px !important;
                 }
             }
@@ -2253,6 +2263,12 @@ export default Vue.extend({
             margin-right: 16px;
             font-size: 13.5px !important;
         }
+        @include smartphone-vertical {
+            top: auto;
+            padding: 12px 16px !important;
+            margin-right: 16px;
+            font-size: 13.5px !important;
+        }
     }
     .dplayer-info-panel {
         transition: top 0.3s, left 0.3s;
@@ -2289,6 +2305,9 @@ export default Vue.extend({
             @include smartphone-horizontal {
                 padding-left: calc(0px + 18px) !important;
             }
+            @include smartphone-vertical {
+                padding-left: calc(0px + 18px) !important;
+            }
         }
         &.dplayer-hide-controller .dplayer-controller {
             transform: none !important;
@@ -2319,6 +2338,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 @include smartphone-horizontal {
                     left: calc(0px + 16px);
                 }
+                @include smartphone-vertical {
+                    left: calc(0px + 16px);
+                }
             }
         }
         .dplayer-notice {
@@ -2327,6 +2349,10 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             @include smartphone-horizontal {
                 left: calc(0px + 16px);
             }
+            @include smartphone-vertical {
+                left: calc(0px + 16px);
+                bottom: 62px !important;
+            }
         }
         .dplayer-info-panel {
             top: 82px;
@@ -2334,10 +2360,16 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             @include smartphone-horizontal {
                 left: calc(0px + 16px);
             }
+            @include smartphone-vertical {
+                left: calc(0px + 16px);
+            }
         }
         .dplayer-comment-setting-box {
             left: calc(68px + 20px);
             @include smartphone-horizontal {
+                left: calc(0px + 16px);
+            }
+            @include smartphone-vertical {
                 left: calc(0px + 16px);
             }
         }
@@ -2370,13 +2402,16 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             @include smartphone-horizontal {
                 padding-left: 16px !important;
             }
+            @include smartphone-vertical {
+                padding-left: 16px !important;
+            }
         }
         .dplayer-comment-box, .dplayer-comment-setting-box {
             left: 20px !important;
             @include smartphone-horizontal {
                 left: 16px !important;
             }
-            @include smartphone-horizontal {
+            @include smartphone-vertical {
                 left: 16px !important;
             }
         }
@@ -2393,7 +2428,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             @include smartphone-horizontal {
                 left: 16px !important;
             }
-            @include smartphone-horizontal {
+            @include smartphone-vertical {
                 left: 16px !important;
             }
         }
@@ -2406,10 +2441,16 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         .dplayer-controller-mask {
             position: absolute;
             bottom: env(keyboard-inset-height, 0px) !important;
+            @include smartphone-vertical {
+                bottom: 0px !important;
+            }
         }
         .dplayer-icons.dplayer-comment-box {
             position: absolute;
             bottom: calc(env(keyboard-inset-height, 0px) + 4px) !important;
+            @include smartphone-vertical {
+                bottom: 6px !important;
+            }
         }
     }
 }
@@ -2455,6 +2496,11 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
     @include smartphone-horizontal {
         width: calc(100% + 310px); // パネルの幅分はみ出す
     }
+    @include smartphone-vertical {
+        flex-direction: column;
+        width: 100%;
+        padding-bottom: 56px;
+    }
 
     // コントロール表示時
     &.watch-container--control-display {
@@ -2469,7 +2515,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
 
     // パネル表示時
     &.watch-container--panel-display {
-        width: calc(100%);  // 画面幅に収めるように
+        width: 100%;  // 画面幅に収めるように
 
         // パネルアイコンをハイライト
         .switch-button-panel .switch-button-icon {
@@ -2477,6 +2523,14 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         }
 
         // タッチデバイスのみ、content-visibility: visible で明示的にパネルを描画する
+        .watch-panel {
+            @media (hover: none) {
+                content-visibility: auto;
+            }
+        }
+    }
+    @include smartphone-vertical {
+        width: 100%;
         .watch-panel {
             @media (hover: none) {
                 content-visibility: auto;
@@ -2522,6 +2576,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         visibility: hidden;
         z-index: 2;
         @include smartphone-horizontal {
+            display: none;
+        }
+        @include smartphone-vertical {
             display: none;
         }
 
@@ -2624,10 +2681,30 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 height: 66px;
                 padding-left: calc(0px + 16px);
             }
+            @include smartphone-vertical {
+                display: none;
+                height: 50px;
+                padding-left: 16px;
+                padding-right: 16px;
+            }
 
             .watch-header__back-icon {
                 display: none;
                 @include smartphone-horizontal {
+                    display: flex;
+                    position: relative !important;
+                    align-items: center;
+                    justify-content: center;
+                    flex-shrink: 0;
+                    width: 36px;
+                    height: 36px;
+                    left: -6px;
+                    padding: 6px;
+                    margin-right: 2px;
+                    border-radius: 50%;
+                    color: var(--v-text-base);
+                }
+                @include smartphone-vertical {
                     display: flex;
                     position: relative !important;
                     align-items: center;
@@ -2658,6 +2735,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                     height: 28px;
                     border-radius: 4px;
                 }
+                @include smartphone-vertical {
+                    display: none;
+                }
             }
 
             .watch-header__program-title {
@@ -2672,8 +2752,10 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
 
                 @include smartphone-horizontal {
                     margin-left: 12px;
+                    font-size: 16px;
                 }
-                @include smartphone-horizontal {
+                @include smartphone-vertical {
+                    margin-left: 0px;
                     font-size: 16px;
                 }
             }
@@ -2686,8 +2768,10 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
 
                 @include smartphone-horizontal {
                     margin-left: 8px;
+                    font-size: 14px;
                 }
-                @include smartphone-horizontal {
+                @include smartphone-vertical {
+                    margin-left: 8px;
                     font-size: 14px;
                 }
             }
@@ -2701,6 +2785,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 @include smartphone-horizontal {
                     display: none;
                 }
+                @include smartphone-vertical {
+                    display: none;
+                }
             }
         }
 
@@ -2711,6 +2798,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             height: 100%;
             background-size: contain;
             background-position: center;
+            @include smartphone-vertical {
+                aspect-ratio: 16 / 9;
+            }
 
             .watch-player__background {
                 position: absolute;
@@ -2795,6 +2885,10 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                     right: 15px;
                     height: 155px;
                 }
+                @include smartphone-vertical {
+                    right: 15px;
+                    height: 100px;
+                }
 
                 .switch-button {
                     display: flex;
@@ -2809,6 +2903,11 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                     user-select: none;
                     cursor: pointer;
                     @include smartphone-horizontal {
+                        width: 38px;
+                        height: 38px;
+                        border-radius: 5px;
+                    }
+                    @include smartphone-vertical {
                         width: 38px;
                         height: 38px;
                         border-radius: 5px;
@@ -2828,6 +2927,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                         @include smartphone-horizontal {
                             height: 27px;
                         }
+                        @include smartphone-vertical {
+                            height: 27px;
+                        }
                     }
 
                     .switch-button-icon {
@@ -2836,6 +2938,11 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
 
                     &-up > .switch-button-icon {
                         top: 6px;
+                    }
+                    &-panel {
+                        @include smartphone-vertical {
+                            display: none;
+                        }
                     }
                     &-panel > .switch-button-icon {
                         top: 1.5px;
@@ -2859,6 +2966,11 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         @include smartphone-horizontal {
             width: 310px;
         }
+        @include smartphone-vertical {
+            width: 100%;
+            height: auto;
+            flex-grow: 1;
+        }
 
         // タッチデバイスのみ、content-visibility: hidden でパネルを折り畳んでいるときの描画パフォーマンスを上げる
         @media (hover: none) {
@@ -2876,6 +2988,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             @include smartphone-horizontal {
                 display: none;
             }
+            @include smartphone-vertical {
+                display: none;
+            }
 
             .panel-close-button {
                 display: flex;
@@ -2889,16 +3004,10 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 font-size: 16px;
                 user-select: none;
                 cursor: pointer;
-                @include smartphone-horizontal {
-                    font-size: 14px;
-                }
 
                 &__icon {
                     position: relative;
                     left: -4px;
-                    @include smartphone-horizontal {
-                        height: 22px;
-                    }
                 }
                 &__text {
                     font-weight: bold;
@@ -2920,19 +3029,12 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                     background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
                     object-fit: cover;
                     user-select: none;
-                    @include smartphone-horizontal {
-                        width: 38px;
-                        height: 22px;
-                    }
                 }
 
                 &__number {
                     flex-shrink: 0;
                     margin-left: 8px;
                     font-size: 16px;
-                    @include smartphone-horizontal {
-                        font-size: 14px;
-                    }
                 }
 
                 &__name {

@@ -806,6 +806,9 @@ export default Vue.extend({
             @include smartphone-horizontal {
                 padding-top: 8px;
             }
+            @include smartphone-vertical {
+                padding-top: 8px;
+            }
 
             // スマホ・タブレット (タッチデバイス) ではアニメーションが重めなので、アニメーションを無効化
             // アクティブなタブ以外は明示的に描画しない
