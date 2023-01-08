@@ -778,6 +778,9 @@ export default Vue.extend({
     flex-direction: column;
     position: relative;
     padding-bottom: 8px;
+    @include smartphone-vertical {
+        padding-bottom: 0px;
+    }
     &.watch-panel__content--active {
         content-visibility: visible !important;
     }
@@ -833,6 +836,12 @@ export default Vue.extend({
                     grid-row-gap: 8px;
                     grid-column-gap: 8px;
                 }
+                @include smartphone-vertical {
+                    padding-left: 24px;
+                    padding-right: 18px;
+                    grid-row-gap: 8px;
+                    grid-column-gap: 16px;
+                }
 
                 .capture {
                     position: relative;
@@ -846,6 +855,17 @@ export default Vue.extend({
                     content-visibility: auto;
                     @include smartphone-horizontal {
                         height: 74px;
+                        border-radius: 9px;
+                        .capture__image {
+                            object-fit: cover;
+                        }
+                    }
+                    @include smartphone-vertical {
+                        height: 82px;
+                        border-radius: 9px;
+                        .capture__image {
+                            object-fit: cover;
+                        }
                     }
 
                     &__image {
@@ -988,6 +1008,9 @@ export default Vue.extend({
             margin-left: 8px;
             margin-right: 8px;
         }
+        @include smartphone-vertical {
+            height: 38px;
+        }
 
         .tab-button {
             display: flex;
@@ -1002,6 +1025,11 @@ export default Vue.extend({
             cursor: pointer;
             @include smartphone-horizontal {
                 font-size: 10.5px;
+                border-radius: 6px;
+            }
+            @include smartphone-vertical {
+                font-size: 10.5px;
+                border-radius: 6px;
             }
             &--active {
                 background: var(--v-twitter-base);
@@ -1032,6 +1060,13 @@ export default Vue.extend({
             height: 96px;
             margin-left: 8px;
             margin-right: 8px;
+            border-radius: 6px;
+            border-bottom-left-radius: 5px;
+            border-bottom-right-radius: 5px;
+        }
+        @include smartphone-vertical {
+            height: 96px;
+            border-radius: 6px;
             border-bottom-left-radius: 5px;
             border-bottom-right-radius: 5px;
         }
@@ -1046,6 +1081,9 @@ export default Vue.extend({
             @include smartphone-horizontal {
                 bottom: calc(env(keyboard-inset-height, 0px) - 34px);
             }
+            @include smartphone-vertical {
+                bottom: calc(env(keyboard-inset-height, 0px) - 90px) !important;
+            }
         }
 
         &__hashtag {
@@ -1056,6 +1094,10 @@ export default Vue.extend({
             margin-left: 12px;
             margin-right: 12px;
             @include smartphone-horizontal {
+                height: 16px;
+                margin-top: 8px;
+            }
+            @include smartphone-vertical {
                 height: 16px;
                 margin-top: 8px;
             }
@@ -1072,9 +1114,20 @@ export default Vue.extend({
                     width: calc(100% - 22px);
                     font-size: 12px;
                 }
+                @include smartphone-vertical {
+                    width: calc(100% - 22px);
+                    font-size: 12px;
+                }
                 // iOS Safari でフォーカス時にズームされる問題への対処
                 @supports (-webkit-touch-callout: none) {
                     @include smartphone-horizontal {
+                        width: calc(100% * 1.333 - 32px);
+                        height: calc(16px * 1.333 + 4px);
+                        font-size: 16px;
+                        transform: scale(0.75);
+                        transform-origin: 0 0;
+                    }
+                    @include smartphone-vertical {
                         width: calc(100% * 1.333 - 32px);
                         height: calc(16px * 1.333 + 4px);
                         font-size: 16px;
@@ -1102,6 +1155,9 @@ export default Vue.extend({
                 @include smartphone-horizontal {
                     right: -11px;
                 }
+                @include smartphone-vertical {
+                    right: -11px;
+                }
             }
         }
 
@@ -1120,9 +1176,23 @@ export default Vue.extend({
                 margin-top: 6px;
                 font-size: 12px;
             }
+            @include smartphone-vertical {
+                margin-top: 6px;
+                font-size: 12px;
+            }
             // iOS Safari でフォーカス時にズームされる問題への対処
             @supports (-webkit-touch-callout: none) {
                 @include smartphone-horizontal {
+                    position: absolute;
+                    top: 24px;
+                    left: -2px;
+                    min-width: calc(100% * 1.28 - 25px);
+                    min-height: 34px;
+                    font-size: 16px;
+                    transform: scale(0.78125);
+                    transform-origin: 0 0;
+                }
+                @include smartphone-vertical {
                     position: absolute;
                     top: 24px;
                     left: -2px;
@@ -1146,9 +1216,15 @@ export default Vue.extend({
             @include smartphone-horizontal {
                 height: 26px;
             }
+            @include smartphone-vertical {
+                height: 26px;
+            }
             // iOS Safari でフォーカス時にズームされる問題への対処…の副作用の対処
             @supports (-webkit-touch-callout: none) {
                 @include smartphone-horizontal {
+                    margin-top: auto;
+                }
+                @include smartphone-vertical {
                     margin-top: auto;
                 }
             }
@@ -1169,6 +1245,12 @@ export default Vue.extend({
                     border-radius: 5px;
                     font-size: 11px;
                 }
+                @include smartphone-vertical {
+                    width: auto;
+                    flex-grow: 1;
+                    border-radius: 5px;
+                    font-size: 11.5px;
+                }
                 &--no-login {
                     .account-button__screen-name {
                         font-weight: 500;
@@ -1186,6 +1268,9 @@ export default Vue.extend({
                     // 読み込まれるまでのアイコンの背景
                     background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
                     @include smartphone-horizontal {
+                        width: 26px;
+                    }
+                    @include smartphone-vertical {
                         width: 26px;
                     }
                 }
@@ -1213,6 +1298,11 @@ export default Vue.extend({
                 @include smartphone-horizontal {
                     font-size: 9px;
                 }
+                @include smartphone-vertical {
+                    flex-grow: unset;
+                    flex-direction: row;
+                    width: 88px;
+                }
 
                 &__content {
                     display: flex;
@@ -1221,6 +1311,9 @@ export default Vue.extend({
                     &:nth-child(2) {
                         @include smartphone-horizontal {
                             margin-top: -2.5px;
+                        }
+                        @include smartphone-vertical {
+                            margin-left: 6px;
                         }
                     }
                     svg {
@@ -1260,6 +1353,11 @@ export default Vue.extend({
                     border-radius: 5px;
                     font-size: 11.8px;
                 }
+                @include smartphone-vertical {
+                    width: 100px;
+                    border-radius: 5px;
+                    font-size: 11.8px;
+                }
 
                 &[disabled] {
                     opacity: 0.7;
@@ -1294,7 +1392,16 @@ export default Vue.extend({
             bottom: 110px;
             max-height: calc(100vh - 152px);
             max-height: calc(100dvh - 152px);
+            padding: 6px 4px;
+            border-radius: 6px;
+            clip-path: inset(0% 0% 0% 0% round 6px);
+        }
+        @include smartphone-vertical {
+            bottom: 102px;
+            max-height: calc(100% - 110px);
             padding: 8px 4px;
+            border-radius: 6px;
+            clip-path: inset(0% 0% 0% 0% round 6px);
         }
         &--display {
             opacity: 1;
@@ -1306,6 +1413,10 @@ export default Vue.extend({
             max-height: calc(100dvh - calc(env(keyboard-inset-height, 0px) + 16px)) !important;
             @include smartphone-horizontal {
                 bottom: calc(env(keyboard-inset-height, 0px) - 26px) !important;
+            }
+            @include smartphone-vertical {
+                bottom: calc(env(keyboard-inset-height, 0px) - 90px) !important;
+                max-height: calc(100% - env(keyboard-inset-height, 0px) + 82px) !important;
             }
         }
         @include smartphone-horizontal {
@@ -1325,6 +1436,12 @@ export default Vue.extend({
         // iOS Safari 向け
         @supports (-webkit-touch-callout: none) {
             @include smartphone-horizontal {
+                &::-webkit-scrollbar {
+                    width: 0.1px;
+                    -webkit-appearance: none;
+                }
+            }
+            @include smartphone-vertical {
                 &::-webkit-scrollbar {
                     width: 0.1px;
                     -webkit-appearance: none;
@@ -1382,8 +1499,15 @@ export default Vue.extend({
                     padding-left: 4px;
                     padding-right: 2px;
                 }
+                @include smartphone-vertical {
+                    padding-top: 0px;
+                    padding-bottom: 0px;
+                }
                 &:first-of-type {
                     margin-top: 6px;
+                    @include smartphone-vertical {
+                        margin-top: 0px;
+                    }
                 }
                 &:hover {
                     background: rgba(255, 255, 255, 10%);
@@ -1426,6 +1550,14 @@ export default Vue.extend({
                             font-size: 16px;
                             transform: scale(0.78125);
                         }
+                        @include smartphone-vertical {
+                            position: absolute !important;
+                            left: -26px !important;
+                            width: calc(100% - 21px);
+                            margin-right: 0px;
+                            font-size: 16px;
+                            transform: scale(0.78125);
+                        }
                     }
                 }
 
@@ -1441,6 +1573,9 @@ export default Vue.extend({
                     border-radius: 5px;
                     outline: none;
                     cursor: pointer;
+                    @include smartphone-vertical {
+                        width: 25px;
+                    }
                 }
                 &__sort-handle {
                     cursor: move;
@@ -1472,6 +1607,14 @@ export default Vue.extend({
             bottom: 40px;
             max-height: calc(100vh - 82px);
             max-height: calc(100dvh - 82px);
+            border-radius: 6px;
+            clip-path: inset(0% 0% 0% 0% round 6px);
+        }
+        @include smartphone-vertical {
+            bottom: 32px;
+            max-height: calc(100% - 40px);
+            border-radius: 6px;
+            clip-path: inset(0% 0% 0% 0% round 6px);
         }
         &--display {
             opacity: 1;
@@ -1497,6 +1640,9 @@ export default Vue.extend({
             @include smartphone-horizontal {
                 padding: 8px 12px;
             }
+            @include smartphone-vertical {
+                padding: 8px 12px;
+            }
 
             &__icon {
                 display: block;
@@ -1504,6 +1650,10 @@ export default Vue.extend({
                 height: 50px;
                 border-radius: 50%;
                 @include smartphone-horizontal {
+                    width: 36px;
+                    height: 36px;
+                }
+                @include smartphone-vertical {
                     width: 36px;
                     height: 36px;
                 }
@@ -1525,11 +1675,18 @@ export default Vue.extend({
                     font-size: 14px;
                     line-height: 1.3;
                 }
+                @include smartphone-vertical {
+                    font-size: 14px;
+                    line-height: 1.3;
+                }
             }
             &__screen-name {
                 color: var(--v-text-darken1);
                 font-size: 14px;
                 @include smartphone-horizontal {
+                    font-size: 13px;
+                }
+                @include smartphone-vertical {
                     font-size: 13px;
                 }
             }

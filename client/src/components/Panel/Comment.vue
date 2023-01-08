@@ -1311,6 +1311,9 @@ export default Vue.extend({
             padding-right: 10px;
             padding-bottom: 12px;
             overflow-y: scroll !important;
+            @include smartphone-vertical {
+                padding-bottom: 0px;
+            }
 
             .comment {
                 display: flex;

@@ -65,9 +65,9 @@
                             <div class="pinned-container d-flex justify-center align-center w-100"
                                 v-if="channels_type === 'ピン留め' && channels.length === 0">
                                 <div class="d-flex justify-center align-center flex-column">
-                                    <h2>ピン留めされているチャンネルがありません。</h2>
-                                    <div class="mt-4 text--text text--darken-1">各チャンネルの <Icon style="position:relative;bottom:-5px;" icon="fluent:pin-20-filled" width="22px" /> アイコンから、よくみるチャンネルをこのタブにピン留めできます。</div>
-                                    <div class="mt-2 text--text text--darken-1">チャンネルをピン留めすると、このタブが最初に表示されます。</div>
+                                    <h2>ピン留めされているチャンネルが<br>ありません。</h2>
+                                    <div class="mt-4 text--text text--darken-1">各チャンネルの <Icon style="position:relative;bottom:-5px;" icon="fluent:pin-20-filled" width="22px" /> アイコンから、よくみる<br>チャンネルをこのタブにピン留めできます。</div>
+                                    <div class="mt-2 text--text text--darken-1">チャンネルをピン留めすると、<br>このタブが最初に表示されます。</div>
                                 </div>
                             </div>
                         </div>
@@ -403,9 +403,11 @@ export default Vue.extend({
             will-change: transform;
             @include smartphone-horizontal {
                 grid-row-gap: 8px;
+                grid-template-columns: 1fr;
             }
             @include smartphone-vertical {
                 grid-row-gap: 10px;
+                grid-template-columns: 1fr;
             }
 
             // チャンネルリストでの content-visibility: auto; はちょっと描画上の副作用もあるので、
@@ -854,6 +856,9 @@ export default Vue.extend({
     }
 
     .pinned-container {
+        br {
+            display: none;
+        }
         @include tablet-vertical {
             h2 {
                 font-size: 21px !important;
@@ -864,6 +869,7 @@ export default Vue.extend({
             }
         }
         @include smartphone-horizontal {
+            padding-top: 12px;
             h2 {
                 font-size: 21px !important;
             }
@@ -872,6 +878,9 @@ export default Vue.extend({
                 text-align: center;
                 .mt-4 {
                     margin-top: 12px !important;
+                }
+                svg {
+                    width: 16px;
                 }
             }
         }
@@ -883,6 +892,28 @@ export default Vue.extend({
                 font-size: 10.5px !important;
                 .mt-4 {
                     margin-top: 8px !important;
+                }
+            }
+        }
+        @include smartphone-vertical {
+            min-height: calc(100vh - 56px - 64px - 12px);
+            min-height: calc(100dvh - 56px - 64px - 12px);
+            padding-top: 12px;
+            br {
+                display: inline;
+            }
+            h2 {
+                font-size: 22px !important;
+                text-align: center;
+            }
+            div {
+                font-size: 15px !important;
+                text-align: center;
+                .mt-4 {
+                    margin-top: 8px !important;
+                }
+                svg {
+                    width: 20px;
                 }
             }
         }

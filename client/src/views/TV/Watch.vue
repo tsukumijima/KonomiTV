@@ -2097,7 +2097,9 @@ export default Vue.extend({
             this.is_background_display = false;
 
             // プレイヤーに破棄が可能なフラグをつける
-            this.player.KonomiTVCanDestroy = true;
+            if (this.player !== null) {
+                this.player.KonomiTVCanDestroy = true;
+            }
 
             // イベントソースを閉じる
             if (this.eventsource !== null) {
@@ -2217,6 +2219,14 @@ export default Vue.extend({
                         left: -20%;
                     }
                 }
+                @include smartphone-vertical {
+                    &.dplayer-pip-icon:after {
+                        left: 25%;
+                    }
+                    &.dplayer-full-icon:after {
+                        left: -20%;
+                    }
+                }
                 &.dplayer-capture-icon, &.dplayer-comment-capture-icon {
                     transition: background-color 0.08s ease;
                     border-radius: 6px;
@@ -2249,6 +2259,13 @@ export default Vue.extend({
                         transform: scale(0.875);
                         transform-origin: 0 0;
                     }
+                    @include smartphone-vertical {
+                        width: calc(100% * 1.142857) !important;
+                        height: calc(100% * 1.142857) !important;
+                        font-size: 16px !important;
+                        transform: scale(0.875);
+                        transform-origin: 0 0;
+                    }
                 }
             }
         }
@@ -2266,6 +2283,7 @@ export default Vue.extend({
         }
         @include smartphone-vertical {
             top: auto;
+            left: 16px !important;
             padding: 12px 16px !important;
             margin-right: 16px;
             font-size: 13.5px !important;
@@ -2275,6 +2293,9 @@ export default Vue.extend({
         transition: top 0.3s, left 0.3s;
     }
     .dplayer-setting-box {
+        @include smartphone-vertical {
+            height: calc(100% - 60px) !important;
+        }
         .dplayer-setting-audio-panel {
             // 副音声がない番組で副音声を選択できないように
             .dplayer-setting-audio-item.dplayer-setting-audio-item--disabled {
@@ -2838,9 +2859,13 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                         right: 34px;
                         bottom: 30px;
                     }
-
                     @include smartphone-horizontal {
                         height: 25px;
+                        right: 30px;
+                        bottom: 24px;
+                    }
+                    @include smartphone-vertical {
+                        height: 22px;
                         right: 30px;
                         bottom: 24px;
                     }
@@ -3091,7 +3116,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 height: 34px;
             }
             @include smartphone-vertical {
-                height: 40px;
+                height: 44px;
                 background: var(--v-background-base);
             }
 
@@ -3131,7 +3156,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 }
 
                 &__icon {
-                    height: 30px;
+                    height: 34px;
                     @include smartphone-vertical {
                         color: var(--v-text-base);
                     }

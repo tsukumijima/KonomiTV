@@ -230,6 +230,12 @@ export default Vue.extend({
                         border-radius: 8px;
                         contain-intrinsic-size: 253.3px 107.2px;
                     }
+                    @include smartphone-vertical {
+                        margin-top: 8px;
+                        padding: 8px 12px 12px 12px;
+                        border-radius: 8px;
+                        contain-intrinsic-size: 253.3px 107.2px;
+                    }
 
                     &:hover {
                         background: var(--v-background-lighten2);
@@ -280,6 +286,9 @@ export default Vue.extend({
                             @include smartphone-horizontal {
                                 font-size: 13.5px;
                             }
+                            @include smartphone-vertical {
+                                font-size: 13.5px;
+                            }
                         }
 
                         &-force {
@@ -323,6 +332,11 @@ export default Vue.extend({
                                 font-size: 12.5px;
                                 -webkit-line-clamp: 1;  // 2行までに制限
                             }
+                            @include smartphone-vertical {
+                                margin-top: 5px;
+                                font-size: 12.5px;
+                                -webkit-line-clamp: 1;  // 2行までに制限
+                            }
                         }
 
                         &-time {
@@ -330,6 +344,10 @@ export default Vue.extend({
                             color: var(--v-text-darken1);
                             font-size: 11.5px;
                             @include smartphone-horizontal {
+                                margin-top: 1px;
+                                font-size: 10px;
+                            }
+                            @include smartphone-vertical {
                                 margin-top: 1px;
                                 font-size: 10px;
                             }
@@ -343,6 +361,9 @@ export default Vue.extend({
                         color: var(--v-text-darken1);
                         font-size: 11.5px;
                         @include smartphone-horizontal {
+                            margin-top: 2px;
+                        }
+                        @include smartphone-vertical {
                             margin-top: 2px;
                         }
 
@@ -368,6 +389,9 @@ export default Vue.extend({
                         &-time {
                             margin-top: 1px;
                             @include smartphone-horizontal {
+                                font-size: 10px;
+                            }
+                            @include smartphone-vertical {
                                 font-size: 10px;
                             }
                         }
