@@ -146,6 +146,9 @@ body .route-container {
             letter-spacing: 0.3;
         }
     }
+    &:not(.v-snack--absolute) {
+        height: 100dvh !important;
+    }
 }
 
 // ダイヤログ

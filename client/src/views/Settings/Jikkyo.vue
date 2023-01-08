@@ -231,6 +231,12 @@ export default Vue.extend({
             // ニコニコアカウントと連携するための認証 URL を取得
             const authorization_url = (await Vue.axios.get('/niconico/auth')).data.authorization_url;
 
+            // モバイルデバイスではポップアップが事実上使えない (特に Safari ではブロックされてしまう) ので、素直にリダイレクトで実装する
+            if (Utils.isMobileDevice() === true) {
+                location.href = authorization_url;
+                return;
+            }
+
             // OAuth 連携のため、認証 URL をポップアップウインドウで開く
             // window.open() の第2引数はユニークなものにしておくと良いらしい
             // ref: https://qiita.com/catatsuy/items/babce8726ea78f5d25b1 (大変参考になりました)

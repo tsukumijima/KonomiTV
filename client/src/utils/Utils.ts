@@ -461,6 +461,17 @@ export default class Utils {
 
 
     /**
+     * モバイルデバイス（スマホ・タブレット）かどうか
+     * @returns モバイルデバイス (スマホ・タブレット) なら true を返す
+     */
+    static isMobileDevice(): boolean {
+        // Macintosh が入っているのは、iPadOS は既定でデスクトップ表示モードが有効になっていて、UA だけでは Mac と判別できないため
+        // Mac にタッチパネル付きの機種は存在しないので、'ontouchend' in document で判定できる
+        return /iPhone|iPad|iPod|Macintosh|Android|Mobile/i.test(navigator.userAgent) && 'ontouchend' in document;
+    }
+
+
+    /**
      * 表示画面がスマホ横画面かどうか
      * @returns スマホ横画面なら true を返す
      */
