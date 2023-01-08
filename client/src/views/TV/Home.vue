@@ -509,7 +509,7 @@ export default Vue.extend({
                     padding-top: 10px;
                     height: auto;
                     border-radius: 11px;
-                    contain-intrinsic-height: 125px;
+                    contain-intrinsic-height: 162.25px;
                 }
 
                 &:hover {
@@ -673,6 +673,18 @@ export default Vue.extend({
                             color: var(--v-primary-base);
                             &:hover{
                                 color: var(--v-primary-lighten1);
+                            }
+                            @include smartphone-horizontal {
+                                color: var(--v-secondary-lighten2);
+                                &:hover{
+                                    color: var(--v-secondary-lighten3);
+                                }
+                            }
+                            @include smartphone-vertical {
+                                color: var(--v-secondary-lighten2);
+                                &:hover{
+                                    color: var(--v-secondary-lighten3);
+                                }
                             }
                         }
                     }

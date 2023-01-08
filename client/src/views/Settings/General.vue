@@ -216,14 +216,14 @@ export default Vue.extend({
 
             // テレビのストリーミング画質の選択肢
             tv_streaming_quality: [
-                {'text': '1080p (60fps) （1時間あたり約3.24GB / 7.2Mbps）', 'value': '1080p-60fps'},
-                {'text': '1080p （1時間あたり約2.31GB / 5.1Mbps）', 'value': '1080p'},
-                {'text': '810p （1時間あたり約1.92GB / 4.2Mbps）', 'value': '810p'},
-                {'text': '720p （1時間あたり約1.33GB / 3.0Mbps）', 'value': '720p'},
-                {'text': '540p （1時間あたり約1.00GB / 2.2Mbps）', 'value': '540p'},
-                {'text': '480p （1時間あたり約0.74GB / 1.6Mbps）', 'value': '480p'},
-                {'text': '360p （1時間あたり約0.40GB / 0.9Mbps）', 'value': '360p'},
-                {'text': '240p （1時間あたり約0.23GB / 0.5Mbps）', 'value': '240p'},
+                {'text': '1080p (60fps) （約3.24GB/h / 平均7.2Mbps）', 'value': '1080p-60fps'},
+                {'text': '1080p （約2.31GB/h / 平均5.1Mbps）', 'value': '1080p'},
+                {'text': '810p （約1.92GB/h / 平均4.2Mbps）', 'value': '810p'},
+                {'text': '720p （約1.33GB/h / 平均3.0Mbps）', 'value': '720p'},
+                {'text': '540p （約1.00GB/h / 平均2.2Mbps）', 'value': '540p'},
+                {'text': '480p （約0.74GB/h / 平均1.6Mbps）', 'value': '480p'},
+                {'text': '360p （約0.40GB/h / 平均0.9Mbps）', 'value': '360p'},
+                {'text': '240p （約0.23GB/h / 平均0.5Mbps）', 'value': '240p'},
             ],
 
             // 既定のパネルの表示状態の選択肢

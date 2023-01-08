@@ -1214,7 +1214,7 @@ export default Vue.extend({
             margin-top: 12px;
         }
         @include smartphone-vertical {
-            margin-top: 12px;
+            margin-top: 14px;
         }
 
         &__title {
@@ -1227,7 +1227,7 @@ export default Vue.extend({
                 font-size: 16.5px;
             }
             @include smartphone-vertical {
-                font-size: 16.5px;
+                font-size: 17px;
             }
 
             &-icon {
@@ -1236,7 +1236,7 @@ export default Vue.extend({
                     height: 17.5px;
                 }
                 @include smartphone-vertical {
-                    height: 17.5px;
+                    height: 18px;
                 }
             }
             &-text {
@@ -1267,7 +1267,7 @@ export default Vue.extend({
             margin-top: 12px;
         }
         @include smartphone-vertical {
-            margin-top: 12px;
+            margin-top: 14px;
         }
 
         .comment-list-dropdown {

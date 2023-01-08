@@ -2173,6 +2173,7 @@ export default Vue.extend({
             height: 66px !important;
         }
     }
+
     .dplayer-controller {
         padding-left: calc(68px + 18px) !important;
         padding-bottom: 6px !important;
@@ -3089,6 +3090,10 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             @include smartphone-horizontal {
                 height: 34px;
             }
+            @include smartphone-vertical {
+                height: 40px;
+                background: var(--v-background-base);
+            }
 
             .panel-navigation-button {
                 display: flex;
@@ -3109,18 +3114,35 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                     padding: 5px 0px;
                     box-sizing: border-box;
                 }
+                @include smartphone-vertical {
+                    height: 34px;
+                    padding: 5px 0px;
+                    box-sizing: border-box;
+                }
 
                 &--active {
                     color: var(--v-primary-base);
+                    .panel-navigation-button__icon {
+                        color: var(--v-primary-base);
+                    }
+                    @include smartphone-vertical {
+                        background: #5b2d3c;
+                    }
                 }
 
                 &__icon {
                     height: 30px;
+                    @include smartphone-vertical {
+                        color: var(--v-text-base);
+                    }
                 }
                 &__text {
                     margin-top: 5px;
                     font-size: 13px;
                     @include smartphone-horizontal {
+                        display: none;
+                    }
+                    @include smartphone-vertical {
                         display: none;
                     }
                 }
