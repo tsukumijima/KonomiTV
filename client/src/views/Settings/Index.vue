@@ -5,7 +5,7 @@
             <Navigation/>
             <v-card class="settings-container d-flex px-5 py-5 mx-auto background" elevation="0" width="100%" max-width="1000">
                 <v-navigation-drawer permanent class="settings-navigation flex-shrink-0 background" width="100%" height="auto">
-                    <v-list-item class="px-4">
+                    <v-list-item class="px-1">
                         <v-list-item-content>
                             <h1>設定</h1>
                         </v-list-item-content>
@@ -19,7 +19,6 @@
                                 <v-list-item-title>全般</v-list-item-title>
                             </v-list-item-content>
                         </v-list-item>
-                        <v-divider></v-divider>
                         <v-list-item link color="primary" class="px-4" to="/settings/account">
                             <v-list-item-icon class="mr-4">
                                 <Icon icon="fluent:person-20-filled" width="26px" />
@@ -28,7 +27,6 @@
                                 <v-list-item-title>アカウント</v-list-item-title>
                             </v-list-item-content>
                         </v-list-item>
-                        <v-divider></v-divider>
                         <v-list-item link color="primary" class="px-4" to="/settings/jikkyo">
                             <v-list-item-icon class="mr-4">
                                 <Icon icon="bi:chat-left-text-fill" width="26px" style="padding: 0 2px;" />
@@ -37,7 +35,6 @@
                                 <v-list-item-title>ニコニコ実況</v-list-item-title>
                             </v-list-item-content>
                         </v-list-item>
-                        <v-divider></v-divider>
                         <v-list-item link color="primary" class="px-4" to="/settings/twitter">
                             <v-list-item-icon class="mr-4">
                                 <Icon icon="fa-brands:twitter" width="26px" style="padding: 0 1px;" />
@@ -46,7 +43,6 @@
                                 <v-list-item-title>Twitter</v-list-item-title>
                             </v-list-item-content>
                         </v-list-item>
-                        <v-divider></v-divider>
                         <v-list-item link color="primary" class="px-4" to="/settings/environment">
                             <v-list-item-icon class="mr-4">
                                 <Icon icon="fluent:toolbox-20-filled" width="26px" />
@@ -88,6 +84,9 @@ export default Vue.extend({
     @include smartphone-horizontal-short {
         padding: 16px 16px !important;
     }
+    @include smartphone-vertical {
+        padding: 16px 16px !important;
+    }
 
     .settings-navigation {
         transform: none !important;
@@ -101,17 +100,25 @@ export default Vue.extend({
 
         .v-navigation-drawer__content .v-list {
             @include smartphone-horizontal {
-                margin-top: 4px !important;
+                margin-top: 12px !important;
                 padding: 0 !important;
-            }
-            @include smartphone-horizontal-short {
-                margin-top: 0 !important;
             }
         }
 
         .v-list-item--link, .v-list-item--link:before {
-            border-radius: 11px !important;
+            background: var(--v-background-lighten1);
+            border-radius: 6px !important;
+            margin-top: 6px !important;
             margin-bottom: 0px !important;
+        }
+        .v-list-item--link {
+            &:first-of-type {
+                margin-top: 0 !important;
+            }
+        }
+        .v-list-item__icon {
+            margin: 14px 0 !important;
+            margin-right: 16px !important;
         }
     }
 }

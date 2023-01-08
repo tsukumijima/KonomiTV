@@ -1,45 +1,48 @@
 <template>
-    <div class="navigation-container elevation-8">
-        <nav class="navigation">
-            <div class="navigation-scroll">
-                <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/tv/">
-                    <Icon class="navigation__link-icon" icon="fluent:tv-20-regular" width="26px" />
-                    <span class="navigation__link-text">テレビをみる</span>
-                </router-link>
-                <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/videos/">
-                    <Icon class="navigation__link-icon" icon="fluent:movies-and-tv-20-regular" width="26px" />
-                    <span class="navigation__link-text">ビデオをみる</span>
-                </router-link>
-                <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/timetable/">
-                    <Icon class="navigation__link-icon" icon="fluent:calendar-ltr-20-regular" width="26px" />
-                    <span class="navigation__link-text">番組表</span>
-                </router-link>
-                <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/captures/">
-                    <Icon class="navigation__link-icon" icon="fluent:image-multiple-24-regular" width="26px" />
-                    <span class="navigation__link-text">キャプチャ</span>
-                </router-link>
-                <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/watchlists/">
-                    <Icon class="navigation__link-icon" icon="ic:round-playlist-play" width="26px" />
-                    <span class="navigation__link-text">ウォッチリスト</span>
-                </router-link>
-                <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/histories/">
-                    <Icon class="navigation__link-icon" icon="fluent:history-16-regular" width="26px" />
-                    <span class="navigation__link-text">視聴履歴</span>
-                </router-link>
-                <v-spacer></v-spacer>
-                <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/settings/">
-                    <Icon class="navigation__link-icon" icon="fluent:settings-20-regular" width="26px" />
-                    <span class="navigation__link-text">設定</span>
-                </router-link>
-                <a v-ripple class="navigation__link" active-class="navigation__link--active" href="https://github.com/tsukumijima/KonomiTV"
-                    :class="{'navigation__link--version': Utils.version.includes('-dev')}"
-                    v-tooltip.top="is_update_available ? `アップデートがあります (version ${latest_version})` : ''">
-                    <Icon class="navigation__link-icon" icon="fluent:info-16-regular" width="26px"
-                        :class="{'navigation__link-icon--highlight': is_update_available}" />
-                    <span class="navigation__link-text">version {{Utils.version}}</span>
-                </a>
-            </div>
-        </nav>
+    <div>
+        <div class="navigation-container elevation-8">
+            <nav class="navigation">
+                <div class="navigation-scroll">
+                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/tv/">
+                        <Icon class="navigation__link-icon" icon="fluent:tv-20-regular" width="26px" />
+                        <span class="navigation__link-text">テレビをみる</span>
+                    </router-link>
+                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/videos/">
+                        <Icon class="navigation__link-icon" icon="fluent:movies-and-tv-20-regular" width="26px" />
+                        <span class="navigation__link-text">ビデオをみる</span>
+                    </router-link>
+                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/timetable/">
+                        <Icon class="navigation__link-icon" icon="fluent:calendar-ltr-20-regular" width="26px" />
+                        <span class="navigation__link-text">番組表</span>
+                    </router-link>
+                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/captures/">
+                        <Icon class="navigation__link-icon" icon="fluent:image-multiple-24-regular" width="26px" />
+                        <span class="navigation__link-text">キャプチャ</span>
+                    </router-link>
+                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/watchlists/">
+                        <Icon class="navigation__link-icon" icon="ic:round-playlist-play" width="26px" />
+                        <span class="navigation__link-text">ウォッチリスト</span>
+                    </router-link>
+                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/histories/">
+                        <Icon class="navigation__link-icon" icon="fluent:history-16-regular" width="26px" />
+                        <span class="navigation__link-text">視聴履歴</span>
+                    </router-link>
+                    <v-spacer></v-spacer>
+                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/settings/">
+                        <Icon class="navigation__link-icon" icon="fluent:settings-20-regular" width="26px" />
+                        <span class="navigation__link-text">設定</span>
+                    </router-link>
+                    <a v-ripple class="navigation__link" active-class="navigation__link--active" href="https://github.com/tsukumijima/KonomiTV"
+                        :class="{'navigation__link--version': Utils.version.includes('-dev')}"
+                        v-tooltip.top="is_update_available ? `アップデートがあります (version ${latest_version})` : ''">
+                        <Icon class="navigation__link-icon" icon="fluent:info-16-regular" width="26px"
+                            :class="{'navigation__link-icon--highlight': is_update_available}" />
+                        <span class="navigation__link-text">version {{Utils.version}}</span>
+                    </a>
+                </div>
+            </nav>
+        </div>
+        <BottomNavigation />
     </div>
 </template>
 <script lang="ts">
@@ -47,10 +50,14 @@
 import Vue from 'vue';
 
 import { IVersionInformation } from '@/interface';
+import BottomNavigation from '@/components/BottomNavigation.vue';
 import Utils from '@/utils';
 
 export default Vue.extend({
     name: 'Navigation',
+    components: {
+        BottomNavigation,
+    },
     data() {
         return {
 
@@ -102,6 +109,9 @@ export default Vue.extend({
     }
     @include smartphone-horizontal-short {
         width: 190px;
+    }
+    @include smartphone-vertical {
+        display: none;
     }
 
     .navigation {

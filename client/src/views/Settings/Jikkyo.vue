@@ -34,7 +34,7 @@
                             <span class="niconico-account__info-name-text">{{user.niconico_user_name}} と連携しています</span>
                         </div>
                         <span class="niconico-account__info-description">
-                            <span class="mr-2">Niconico User ID:</span>
+                            <span class="mr-2" style="white-space: nowrap;">Niconico User ID:</span>
                             <a class="mr-2" :href="`https://www.nicovideo.jp/user/${user.niconico_user_id}`"
                                 target="_blank">{{user.niconico_user_id}}</a>
                             <span class="secondary--text" v-if="user.niconico_user_premium == true">(Premium)</span>
@@ -347,6 +347,7 @@ export default Vue.extend({
         flex-direction: column;
         height: auto;
         padding: 16px;
+        border-radius: 10px;
         .niconico-account-wrapper {
             .niconico-account__info {
                 margin-right: 0 !important;
@@ -359,6 +360,25 @@ export default Vue.extend({
                 margin-left: 16px !important;
                 &-name-text {
                     font-size: 18px;
+                }
+                &-description {
+                    font-size: 13px;
+                }
+            }
+        }
+    }
+    @include smartphone-vertical {
+        align-items: normal;
+        flex-direction: column;
+        height: auto;
+        padding: 16px 12px;
+        border-radius: 10px;
+        .niconico-account-wrapper {
+            .niconico-account__info {
+                margin-left: 12px !important;
+                margin-right: 0px !important;
+                &-name-text {
+                    font-size: 17px;
                 }
                 &-description {
                     font-size: 13px;
@@ -388,6 +408,21 @@ export default Vue.extend({
                 }
             }
         }
+        @include smartphone-vertical {
+            padding-top: 20px;
+            .niconico-account__login {
+                margin-top: 16px;
+            }
+            .niconico-account-wrapper {
+                svg {
+                    display: none;
+                }
+                .niconico-account__info {
+                    margin-left: 0 !important;
+                    margin-right: 0 !important;
+                }
+            }
+        }
     }
 
     &-wrapper {
@@ -395,6 +430,9 @@ export default Vue.extend({
         align-items: center;
         min-width: 0;
         height: 80px;
+        @include smartphone-vertical {
+            height: 60px;
+        }
     }
 
     &__icon {
@@ -408,6 +446,11 @@ export default Vue.extend({
         // 低解像度で表示する画像がぼやけないようにする
         // ref: https://sho-log.com/chrome-image-blurred/
         image-rendering: -webkit-optimize-contrast;
+        @include smartphone-vertical {
+            width: 60px;
+            min-width: 60px;
+            height: 60px;
+        }
     }
 
     &__info {
@@ -421,6 +464,9 @@ export default Vue.extend({
             display: inline-flex;
             align-items: center;
             height: 33px;
+            @include smartphone-vertical {
+                height: auto;
+            }
 
             &-text {
                 display: inline-block;
@@ -459,6 +505,12 @@ export default Vue.extend({
         @include smartphone-horizontal {
             height: 42px !important;
             margin-top: 8px;
+            margin-right: auto;
+            font-size: 14.5px;
+        }
+        @include smartphone-vertical {
+            height: 42px !important;
+            margin-top: 16px;
             margin-right: auto;
             font-size: 14.5px;
         }

@@ -297,31 +297,31 @@ export default Vue.extend({
     }
 }
 
-// Safari のみ、チャンネルリストのスライドアニメーションを無効にする
+// Safari のみ、チャンネルリストのスライドアニメーションを無効にする (iOS 16.2 の iPhone SE2 では無効化しても問題なさそうなので無効化中)
 // Safari は大量のチャンネルをレンダリングするのが非常に遅いようで、アニメーションがもはや機能していない上に重い
 // アニメーションを無効化する事で、有効化時と比べてタブの切り替え速度が大幅に向上する（とはいえ、Chrome に比べると遅い）
 // CSS ハックでは SCSS 記法が使えない
 // ref: https://qiita.com/Butterthon/items/10e6b58d883236aa3838
-_::-webkit-full-page-media, _:future, :root
-.channels-container.channels-container--home .v-window__container {
-    height: inherit !important;
-    transition: none !important;
-}
-_::-webkit-full-page-media, _:future, :root
-.channels-container.channels-container--home .v-window__container--is-active {
-    display: none !important;
-}
-_::-webkit-full-page-media, _:future, :root
-.channels-container.channels-container--home .v-window__container .v-window-item {
-    display: none !important;
-    position: static !important;
-    transform: none !important;
-    transition: none !important;
-}
-_::-webkit-full-page-media, _:future, :root
-.channels-container.channels-container--home .v-window__container .v-window-item--active {
-    display: block !important;
-}
+// _::-webkit-full-page-media, _:future, :root
+// .channels-container.channels-container--home .v-window__container {
+//     height: inherit !important;
+//     transition: none !important;
+// }
+// _::-webkit-full-page-media, _:future, :root
+// .channels-container.channels-container--home .v-window__container--is-active {
+//     display: none !important;
+// }
+// _::-webkit-full-page-media, _:future, :root
+// .channels-container.channels-container--home .v-window__container .v-window-item {
+//     display: none !important;
+//     position: static !important;
+//     transform: none !important;
+//     transition: none !important;
+// }
+// _::-webkit-full-page-media, _:future, :root
+// .channels-container.channels-container--home .v-window__container .v-window-item--active {
+//     display: block !important;
+// }
 
 </style>
 <style lang="scss" scoped>
@@ -334,6 +334,10 @@ _::-webkit-full-page-media, _:future, :root
     margin-right: 21px;
     opacity: 1;
     transition: opacity 0.4s;
+    @include smartphone-vertical {
+        margin-left: 0px;
+        margin-right: 0px;
+    }
 
     &--loading {
         opacity: 0;
@@ -352,6 +356,11 @@ _::-webkit-full-page-media, _:future, :root
             padding-top: 0px;
             padding-bottom: 8px;
         }
+        @include smartphone-vertical {
+            top: 0px;
+            padding-top: 0px;
+            padding-bottom: 10px;
+        }
 
         .channels-tab__item {
             width: 98px;
@@ -362,6 +371,10 @@ _::-webkit-full-page-media, _:future, :root
             @include smartphone-horizontal {
                 font-size: 15px;
             }
+            @include smartphone-vertical {
+                width: auto;
+                font-size: 15px;
+            }
         }
     }
 
@@ -370,6 +383,11 @@ _::-webkit-full-page-media, _:future, :root
         background: transparent !important;
         overflow: inherit;
         @include smartphone-horizontal {
+            padding-bottom: 12px;
+        }
+        @include smartphone-vertical {
+            padding-left: 8px;
+            padding-right: 8px;
             padding-bottom: 12px;
         }
 
@@ -385,6 +403,9 @@ _::-webkit-full-page-media, _:future, :root
             will-change: transform;
             @include smartphone-horizontal {
                 grid-row-gap: 8px;
+            }
+            @include smartphone-vertical {
+                grid-row-gap: 10px;
             }
 
             // チャンネルリストでの content-visibility: auto; はちょっと描画上の副作用もあるので、
@@ -483,6 +504,13 @@ _::-webkit-full-page-media, _:future, :root
                     border-radius: 11px;
                     contain-intrinsic-height: 125px;
                 }
+                @include smartphone-vertical {
+                    padding: 12px 14px;
+                    padding-top: 10px;
+                    height: auto;
+                    border-radius: 11px;
+                    contain-intrinsic-height: 125px;
+                }
 
                 &:hover {
                     background: var(--v-background-lighten2);
@@ -500,6 +528,9 @@ _::-webkit-full-page-media, _:future, :root
                     @include smartphone-horizontal {
                         height: 29px;
                     }
+                    @include smartphone-vertical {
+                        height: 40px;
+                    }
 
                     &-icon {
                         display: inline-block;
@@ -513,6 +544,11 @@ _::-webkit-full-page-media, _:future, :root
                         @include smartphone-horizontal {
                             width: 54px;
                             height: 29px;
+                            border-radius: 4px;
+                        }
+                        @include smartphone-vertical {
+                            width: 69px;
+                            height: 40px;
                             border-radius: 4px;
                         }
                     }
@@ -529,6 +565,9 @@ _::-webkit-full-page-media, _:future, :root
                             margin-left: 12px;
                             margin-right: 6px;
                         }
+                        @include smartphone-vertical {
+                            margin-left: 14px;
+                        }
                     }
 
                     &-name {
@@ -540,10 +579,15 @@ _::-webkit-full-page-media, _:future, :root
                         @include smartphone-horizontal {
                             font-size: 15px;
                         }
+                        @include smartphone-vertical {
+                            font-size: 15.5px;
+                        }
                     }
 
                     &-status {
                         display: flex;
+                        position: relative;
+                        top: -1.5px;
                         flex-shrink: 0;
                         align-items: center;
                         margin-top: 2px;
@@ -553,6 +597,10 @@ _::-webkit-full-page-media, _:future, :root
                             margin-top: 3px;
                             margin-left: auto;
                             font-size: 12px;
+                        }
+                        @include smartphone-vertical {
+                            margin-top: 2px;
+                            font-size: 11px;
                         }
 
                         &-force, &-viewers {
@@ -635,13 +683,17 @@ _::-webkit-full-page-media, _:future, :root
                     flex-direction: column;
 
                     &-title-wrapper {
-                        display: block;
                         margin-top: 14px;
 
                         @include smartphone-horizontal {
                             display: flex;
                             align-items: center;
-                            margin-top: 10px;
+                            margin-top: 8px;
+                        }
+                        @include smartphone-vertical {
+                            display: flex;
+                            flex-direction: column;
+                            margin-top: 8px;
                         }
                     }
 
@@ -655,7 +707,11 @@ _::-webkit-full-page-media, _:future, :root
                         -webkit-line-clamp: 2;  // 2行までに制限
                         -webkit-box-orient: vertical;
                         @include smartphone-horizontal {
-                            font-size: 14.5px;
+                            font-size: 14px;
+                            -webkit-line-clamp: 1;  // 1行までに制限
+                        }
+                        @include smartphone-vertical {
+                            font-size: 14px;
                             -webkit-line-clamp: 1;  // 1行までに制限
                         }
                     }
@@ -675,6 +731,11 @@ _::-webkit-full-page-media, _:future, :root
                             font-size: 11px;
                             padding-left: 6px;
                         }
+                        @include smartphone-vertical {
+                            flex-shrink: 0;
+                            margin-top: 1px;
+                            font-size: 12px;
+                        }
                     }
 
                     &-description {
@@ -690,8 +751,15 @@ _::-webkit-full-page-media, _:future, :root
                         -webkit-line-clamp: 3;  // 3行までに制限
                         -webkit-box-orient: vertical;
                         @include smartphone-horizontal {
-                            margin-top: 6px;
+                            margin-top: 3px;
                             font-size: 10px;
+                            line-height: 160%;
+                            -webkit-line-clamp: 2;  // 3行までに制限
+                        }
+                        @include smartphone-vertical {
+                            margin-top: 4px;
+                            font-size: 10px;
+                            line-height: 155%;
                             -webkit-line-clamp: 2;  // 3行までに制限
                         }
                     }
@@ -708,7 +776,11 @@ _::-webkit-full-page-media, _:future, :root
                     }
                     @include smartphone-horizontal {
                         flex-direction: row;
-                        margin-top: 6px;
+                        margin-top: 4px;
+                        font-size: 12px;
+                    }
+                    @include smartphone-vertical {
+                        margin-top: 4px;
                         font-size: 12px;
                     }
 
@@ -743,6 +815,10 @@ _::-webkit-full-page-media, _:future, :root
                         @include smartphone-horizontal-short {
                             font-size: 11px;
                             padding-left: 6px;
+                        }
+                        @include smartphone-vertical {
+                            flex-shrink: 0;
+                            font-size: 11.5px;
                         }
                     }
                 }

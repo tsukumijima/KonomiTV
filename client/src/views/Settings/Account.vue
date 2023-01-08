@@ -73,8 +73,8 @@
                     </div>
                 </div>
                 <div class="account-register__description">
-                    KonomiTV アカウントの作成に必要なものはユーザー名とパスワードだけです。<br>
-                    アカウントはローカルにインストールした KonomiTV サーバーごとに保存されます。<br>
+                    KonomiTV アカウントの作成に必要なものは<br class="smartphone-vertical-only">ユーザー名とパスワードだけです。<br>
+                    アカウントはローカルにインストールした<br class="smartphone-vertical-only"> KonomiTV サーバーごとに保存されます。<br>
                     外部のサービスには保存されませんので、ご安心ください。<br>
                 </div>
                 <v-btn class="account-register__button" color="secondary" width="100%" max-width="250" height="50" depressed to="/register/">
@@ -100,16 +100,16 @@
                             このデバイスの設定と、サーバーに保存されている設定が競合しています。<br>
                             一度上書きすると、元に戻すことはできません。慎重に選択してください。<br>
                         </v-card-text>
-                        <div class="d-flex flex-column px-4 pb-4">
+                        <div class="d-flex flex-column px-4 pb-4 settings__conflict-dialog">
                             <v-btn class="settings__save-button error--text text--lighten-1" depressed
                                 @click="overrideServerSettingsFromClient()">
                                 <Icon icon="fluent:document-arrow-up-16-filled" class="mr-2" height="22px" />
-                                サーバーに保存されている設定を、このデバイスの設定で上書きする
+                                サーバーに保存されている設定を、<br class="smartphone-vertical-only">このデバイスの設定で上書きする
                             </v-btn>
                             <v-btn class="settings__save-button error--text text--lighten-1 mt-3" depressed
                                 @click="overrideClientSettingsFromServer()">
                                 <Icon icon="fluent:document-arrow-down-16-filled" class="mr-2" height="22px" />
-                                このデバイスの設定を、サーバーに保存されている設定で上書きする
+                                このデバイスの設定を、<br class="smartphone-vertical-only">サーバーに保存されている設定で上書きする
                             </v-btn>
                             <v-btn class="settings__save-button mt-3" depressed @click="sync_settings_dialog = false">
                                 <Icon icon="fluent:dismiss-16-filled" class="mr-2" height="22px" />
@@ -554,6 +554,21 @@ export default Vue.extend({
     }
 }
 
+.settings__conflict-dialog {
+    .v-btn {
+        @include smartphone-vertical {
+            height: 50px !important;
+            text-align: left;
+        }
+        br.smartphone-vertical-only {
+            display: none;
+            @include smartphone-vertical {
+                display: inline;
+            }
+        }
+    }
+}
+
 .account {
     display: flex;
     align-items: center;
@@ -578,6 +593,14 @@ export default Vue.extend({
         flex-direction: column;
         height: auto;
         padding: 16px;
+        border-radius: 10px;
+    }
+    @include smartphone-vertical {
+        align-items: normal;
+        flex-direction: column;
+        height: auto;
+        padding: 16px 12px;
+        border-radius: 10px;
     }
 
     &-wrapper {
@@ -587,6 +610,9 @@ export default Vue.extend({
         height: 94px;
         @include smartphone-horizontal {
             height: 80px;
+        }
+        @include smartphone-vertical {
+            height: 70px;
         }
     }
 
@@ -604,6 +630,9 @@ export default Vue.extend({
         @include smartphone-horizontal {
             min-width: 80px;
         }
+        @include smartphone-vertical {
+            min-width: 70px;
+        }
     }
 
     &__info {
@@ -612,6 +641,10 @@ export default Vue.extend({
         min-width: 0;
         margin-left: 20px;
         margin-right: 12px;
+        @include smartphone-vertical {
+            margin-left: 12px !important;
+            margin-right: 0 !important;
+        }
 
         &-name {
             display: inline-flex;
@@ -628,6 +661,9 @@ export default Vue.extend({
                 text-overflow: ellipsis;  // はみ出た部分を … で省略
                 @include smartphone-horizontal {
                     font-size: 21px;
+                }
+                @include smartphone-vertical {
+                    font-size: 20px;
                 }
             }
         }
@@ -651,6 +687,12 @@ export default Vue.extend({
                 border-radius: 4px;
                 font-size: 11.5px;
             }
+            @include smartphone-vertical {
+                width: 45px;
+                height: 24px;
+                border-radius: 4px;
+                font-size: 11.5px;
+            }
         }
 
         &-id {
@@ -659,6 +701,9 @@ export default Vue.extend({
             color: var(--v-text-darken1);
             font-size: 16px;
             @include smartphone-horizontal {
+                font-size: 14.5px;
+            }
+            @include smartphone-vertical {
                 font-size: 14.5px;
             }
         }
@@ -686,6 +731,11 @@ export default Vue.extend({
             margin-right: auto;
             font-size: 14.5px;
         }
+        @include smartphone-vertical {
+            height: 42px !important;
+            margin-right: auto;
+            font-size: 14.5px;
+        }
     }
 }
 
@@ -703,6 +753,9 @@ export default Vue.extend({
         @include smartphone-horizontal {
             font-size: 19px;
         }
+        @include smartphone-vertical {
+            font-size: 18px;
+        }
     }
 
     &__feature {
@@ -718,6 +771,9 @@ export default Vue.extend({
             grid-template-columns: 1fr;
         }
         @include smartphone-horizontal {
+            grid-template-columns: 1fr;
+        }
+        @include smartphone-vertical {
             grid-template-columns: 1fr;
         }
 
@@ -754,6 +810,9 @@ export default Vue.extend({
         font-size: 15px;
         line-height: 1.7;
         text-align: center;
+        br.smartphone-vertical-only {
+            display: none;
+        }
         @include tablet-horizontal {
             font-size: 12.5px;
         }
@@ -765,6 +824,12 @@ export default Vue.extend({
         }
         @include smartphone-horizontal-short {
             font-size: 10.5px;
+        }
+        @include smartphone-vertical {
+            font-size: 12.5px;
+            br.smartphone-vertical-only {
+                display: inline;
+            }
         }
     }
 
@@ -782,6 +847,11 @@ export default Vue.extend({
         @include smartphone-horizontal {
             height: 42px !important;
             font-size: 14.5px;
+        }
+        @include smartphone-vertical {
+            max-width: 210px !important;
+            height: 42px !important;
+            font-size: 15px;
         }
     }
 }

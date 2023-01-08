@@ -328,6 +328,11 @@ export default Vue.extend({
     background: var(--v-background-lighten2);
     @include smartphone-horizontal {
         padding: 16px 20px;
+        border-radius: 10px;
+    }
+    @include smartphone-vertical {
+        padding: 16px 12px;
+        border-radius: 10px;
     }
 
     &__heading {
@@ -345,15 +350,24 @@ export default Vue.extend({
             @include tablet-vertical {
                 font-size: 19px !important;
             }
+            @include smartphone-vertical {
+                font-size: 17px !important;
+            }
         }
 
         svg {
             @include smartphone-horizontal-short {
                 display: none;
             }
+            @include smartphone-vertical {
+                display: none;
+            }
         }
         svg + div {
             @include smartphone-horizontal-short {
+                margin-left: 0px !important;
+            }
+            @include smartphone-vertical {
                 margin-left: 0px !important;
             }
         }
@@ -383,6 +397,11 @@ export default Vue.extend({
                 width: 52px;
                 height: 52px;
             }
+            @include smartphone-vertical {
+                width: 48px;
+                height: 48px;
+                margin-right: 10px;
+            }
         }
 
         &__info {
@@ -390,6 +409,9 @@ export default Vue.extend({
             flex-direction: column;
             min-width: 0;
             margin-right: 16px;
+            @include smartphone-vertical {
+                margin-right: 10px;
+            }
 
             &-name {
                 display: inline-flex;
@@ -406,6 +428,9 @@ export default Vue.extend({
                     @include smartphone-horizontal {
                         font-size: 18px;
                     }
+                    @include smartphone-vertical {
+                        font-size: 16px;
+                    }
                 }
             }
 
@@ -415,6 +440,9 @@ export default Vue.extend({
                 font-size: 16px;
                 @include smartphone-horizontal {
                     font-size: 14px;
+                }
+                @include smartphone-vertical {
+                    font-size: 13.5px;
                 }
             }
         }
@@ -434,6 +462,10 @@ export default Vue.extend({
                 height: 42px !important;
                 font-size: 14.5px;
             }
+            @include smartphone-vertical {
+                height: 42px !important;
+                font-size: 14.5px;
+            }
         }
 
         &__logout {
@@ -443,6 +475,16 @@ export default Vue.extend({
             letter-spacing: 0;
             @include smartphone-horizontal {
                 width: 116px !important;
+            }
+            @include smartphone-vertical {
+                width: 100px !important;
+                height: 48px !important;
+                border-radius: 5px;
+                font-size: 14px;
+                svg {
+                    width: 20px;
+                    margin-right: 4px !important;
+                }
             }
         }
     }

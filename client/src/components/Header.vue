@@ -29,6 +29,9 @@
     @include smartphone-horizontal-short {
         width: 190px;
     }
+    @include smartphone-vertical {
+        display: none;
+    }
 
     .spacer {
         @include smartphone-horizontal {

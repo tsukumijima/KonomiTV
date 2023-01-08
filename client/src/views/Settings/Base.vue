@@ -55,7 +55,7 @@
                         </v-list>
                     </v-navigation-drawer>
                 </div>
-                <v-card class="settings ml-5 px-7 py-7 background lighten-1" width="100%">
+                <v-card class="settings ml-5 px-7 py-7 lighten-1" width="100%">
                     <!-- この slot にそれぞれの設定画面の内容が入る -->
                     <slot></slot>
                 </v-card>
@@ -91,6 +91,9 @@ export default Vue.extend({
     @include smartphone-horizontal-short {
         padding: 16px 16px !important;
     }
+    @include smartphone-vertical {
+        padding: 0px 0px !important;
+    }
 
     .settings-navigation {
         position: sticky;
@@ -118,6 +121,7 @@ export default Vue.extend({
         width: 100%;
         min-width: 0;
         border-radius: 11px !important;
+        background-color: var(--v-background-lighten1);
         @include tablet-vertical {
             margin-left: 0 !important;
         }
@@ -128,6 +132,13 @@ export default Vue.extend({
         @include smartphone-vertical {
             margin-left: 0 !important;
         }
+        @include smartphone-vertical {
+            padding-top: 60px !important;
+            padding-left: 16px !important;
+            padding-right: 16px !important;
+            border-radius: 0 !important;
+            background-color: var(--v-background-base);
+        }
 
         .settings__heading {
             display: flex;
@@ -135,6 +146,18 @@ export default Vue.extend({
             font-size: 22px;
             @include smartphone-horizontal {
                 font-size: 20px;
+            }
+            @include smartphone-vertical {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 60px;
+                padding: 16px;
+                border-radius: 0;
+                background: var(--v-background-lighten1);
+                box-shadow: 0px 3px 14px 2px rgb(0 0 0 / 12%);
+                z-index: 5;
             }
 
             .settings__back-button {
@@ -196,17 +219,21 @@ export default Vue.extend({
                 }
 
                 &--sync-disabled {
-                    .settings__item-heading:after {
-                        content: 'デバイス間同期無効';
-                        display: flex;
-                        flex-shrink: 0;
-                        position: relative;
-                        align-items: center;
-                        padding: 2px 4px;
-                        margin-left: auto;
-                        border-radius: 4px;
-                        background: var(--v-background-lighten2);
-                        font-size: 11px;
+                    .settings__item-heading {
+                        padding-right: 8px;
+                        &:after {
+                            content: 'デバイス間同期無効';
+                            display: flex;
+                            align-items: center;
+                            flex-shrink: 0;
+                            position: relative;
+                            right: -8px;
+                            padding: 2px 4px;
+                            margin-left: auto;
+                            border-radius: 4px;
+                            background: var(--v-background-lighten2);
+                            font-size: 11px;
+                        }
                     }
                 }
 

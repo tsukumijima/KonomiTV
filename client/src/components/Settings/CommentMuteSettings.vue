@@ -1,6 +1,6 @@
 <template>
     <v-dialog max-width="740" transition="slide-y-transition" v-model="comment_mute_settings_modal">
-        <v-card>
+        <v-card class="comment-mute-settings">
             <v-card-title class="px-5 pt-5 pb-3 d-flex align-center font-weight-bold" style="height: 60px;">
                 <Icon icon="heroicons-solid:filter" height="26px" />
                 <span class="ml-3">コメントのミュート設定</span>
@@ -12,7 +12,7 @@
             <div class="px-5 pb-5">
                 <div class="text-subtitle-1 d-flex align-center font-weight-bold mt-4">
                     <Icon icon="fluent:comment-dismiss-20-filled" width="24px" />
-                    <span class="ml-2">ミュート済みのキーワード</span>
+                    <span class="ml-2 mr-2">ミュート済みのキーワード</span>
                     <v-btn class="ml-auto" depressed
                         @click="muted_comment_keywords.push({id: Date.now(), match: 'partial', pattern: ''})">
                         <Icon icon="fluent:add-12-filled" height="17px" />
@@ -35,7 +35,7 @@
                 </div>
                 <div class="text-subtitle-1 d-flex align-center font-weight-bold mt-4">
                     <Icon icon="fluent:person-prohibited-20-filled" width="24px" />
-                    <span class="ml-2">ミュート済みのニコニコユーザー ID</span>
+                    <span class="ml-2 mr-2">ミュート済みのニコニコユーザー ID</span>
                     <v-btn class="ml-auto" depressed
                         @click="muted_niconico_user_ids.push({id: Date.now(), user_id: ''})">
                         <Icon icon="fluent:add-12-filled" height="17px" />
@@ -289,6 +289,15 @@ export default Vue.extend({
 </script>
 <style lang="scss" scoped>
 
+.comment-mute-settings {
+    .v-card__title, & > div {
+        @include smartphone-vertical {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+        }
+    }
+}
+
 // views/Settings/Base.vue から抜粋して一部編集
 .settings__item {
     display: flex;
@@ -368,6 +377,9 @@ export default Vue.extend({
             max-width: 150px;
             margin-left: 12px;
             font-size: 14px;
+            @include smartphone-vertical {
+                max-width: 115px;
+            }
         }
 
         &__delete-button {

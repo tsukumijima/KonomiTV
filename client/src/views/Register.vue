@@ -173,17 +173,36 @@ export default Vue.extend({
         padding: 20px !important;
         margin-bottom: 0px !important;
     }
+    @include smartphone-vertical {
+        margin-bottom: 0px !important;
+    }
 
     .register-container {
         border-radius: 11px;
         @include smartphone-horizontal {
             padding: 24px !important;
         }
+        @include smartphone-vertical {
+            padding: 32px 20px !important;
+            margin-left: 12px !important;
+            margin-right: 12px !important;
+        }
 
         .register__logo {
             @include smartphone-horizontal {
                 padding-top: 4px !important;
                 padding-bottom: 8px !important;
+                .v-image {
+                    max-width: 200px !important;
+                }
+                h4 {
+                    margin-top: 16px !important;
+                    font-size: 19px !important;
+                }
+            }
+            @include smartphone-vertical {
+                padding-top: 4px !important;
+                padding-bottom: 20px !important;
                 .v-image {
                     max-width: 200px !important;
                 }
@@ -199,10 +218,17 @@ export default Vue.extend({
                 margin-top: 0px !important;
                 font-size: 14px !important;
             }
+            @include smartphone-vertical {
+                margin-top: 2px !important;
+                font-size: 16px !important;
+            }
         }
         .v-input:nth-child(1) {
             @include smartphone-horizontal {
                 margin-top: 24px !important;
+            }
+            @include smartphone-vertical {
+                margin-top: 32px !important;
             }
         }
 
@@ -215,6 +241,11 @@ export default Vue.extend({
                 height: 44px !important;
                 margin-top: 0px !important;
                 font-size: 16px;
+            }
+            @include smartphone-vertical {
+                height: 50px !important;
+                margin-top: 2px !important;
+                font-size: 15.5px;
             }
         }
     }

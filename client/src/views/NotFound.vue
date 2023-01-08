@@ -37,10 +37,17 @@ h1 {
     @include smartphone-horizontal {
         font-size: 24px !important;
     }
+    @include smartphone-vertical {
+        font-size: 24px !important;
+        text-align: center;
+    }
 }
 span {
     @include smartphone-horizontal {
         font-size: 15px !important;
+    }
+    @include smartphone-vertical {
+        font-size: 14px !important;
     }
 }
 

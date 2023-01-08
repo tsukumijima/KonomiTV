@@ -118,15 +118,30 @@ export default Vue.extend({
         padding: 20px !important;
         margin-bottom: 0px !important;
     }
+    @include smartphone-vertical {
+        margin-bottom: 0px !important;
+    }
 
     .login-container {
         border-radius: 11px;
         @include smartphone-horizontal {
             padding: 24px !important;
         }
+        @include smartphone-vertical {
+            padding: 32px 20px !important;
+            margin-left: 12px !important;
+            margin-right: 12px !important;
+        }
 
         .login__logo {
             @include smartphone-horizontal {
+                padding-top: 4px !important;
+                padding-bottom: 20px !important;
+                .v-image {
+                    max-width: 200px !important;
+                }
+            }
+            @include smartphone-vertical {
                 padding-top: 4px !important;
                 padding-bottom: 20px !important;
                 .v-image {
@@ -140,6 +155,10 @@ export default Vue.extend({
                 margin-top: 24px !important;
                 font-size: 14px !important;
             }
+            @include smartphone-vertical {
+                margin-top: 32px !important;
+                font-size: 16px !important;
+            }
         }
 
         .login-button {
@@ -151,6 +170,11 @@ export default Vue.extend({
                 height: 44px !important;
                 margin-top: 24px !important;
                 font-size: 16px;
+            }
+            @include smartphone-vertical {
+                height: 50px !important;
+                margin-top: 32px !important;
+                font-size: 15.5px;
             }
         }
     }

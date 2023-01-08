@@ -105,6 +105,11 @@ body header + main {
     @include smartphone-horizontal {
         padding-top: 0px !important;
     }
+    // ボトムナビゲーションバーの高さ分
+    @include smartphone-vertical {
+        padding-top: 0px !important;
+        padding-bottom: 56px !important;
+    }
 }
 
 // ルートコンテナ
@@ -139,6 +144,16 @@ body .route-container {
         .v-btn__content {
             color: var(--v-text-base);
             letter-spacing: 0.3;
+        }
+    }
+}
+
+// ダイヤログ
+.v-dialog {
+    @include smartphone-vertical {
+        margin: 24px 6px !important;
+        &--fullscreen {
+            margin: 0 !important;
         }
     }
 }
