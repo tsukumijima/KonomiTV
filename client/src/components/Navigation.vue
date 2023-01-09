@@ -33,10 +33,12 @@
                         <span class="navigation__link-text">設定</span>
                     </router-link>
                     <a v-ripple class="navigation__link" active-class="navigation__link--active" href="https://github.com/tsukumijima/KonomiTV"
-                        :class="{'navigation__link--version': Utils.version.includes('-dev')}"
+                        :class="{
+                            'navigation__link--version': Utils.version.includes('-dev'),
+                            'navigation__link--highlight': is_update_available,
+                        }"
                         v-tooltip.top="is_update_available ? `アップデートがあります (version ${latest_version})` : ''">
-                        <Icon class="navigation__link-icon" icon="fluent:info-16-regular" width="26px"
-                            :class="{'navigation__link-icon--highlight': is_update_available}" />
+                        <Icon class="navigation__link-icon" icon="fluent:info-16-regular" width="26px" />
                         <span class="navigation__link-text">version {{Utils.version}}</span>
                     </a>
                 </div>
@@ -182,6 +184,9 @@ export default Vue.extend({
                         background: #5b2d3c;
                     }
                 }
+                &--highlight {
+                    color: var(--v-secondary-lighten1);
+                }
                 &--version {
                     font-size: 15px;
                     @include smartphone-horizontal {
@@ -193,10 +198,6 @@ export default Vue.extend({
                     margin-right: 14px;
                     @include smartphone-horizontal {
                         margin-right: 10px;
-                    }
-
-                    &--highlight {
-                        color: var(--v-secondary-base);
                     }
                 }
             }
