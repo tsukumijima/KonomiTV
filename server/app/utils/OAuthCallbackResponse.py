@@ -9,6 +9,7 @@ class OAuthCallbackResponse(HTMLResponse):
     def __init__(
         self,
         detail: str,
+        redirect_to: str,
         status_code: int = 200,
         headers: dict[str, Any] = {},
     ) -> None:
@@ -18,11 +19,13 @@ class OAuthCallbackResponse(HTMLResponse):
 
         Args:
             detail (str): KonomiTV クライアントに送信する詳細メッセージ
+            redirect_to (str): リダイレクト先の KonomiTV クライアントのルーティングのパス (モバイルデバイスのみ利用)
             status_code (int, optional): HTTP ステータスコード. Defaults to 200.
             headers (dict, optional): カスタムのヘッダー. Defaults to None.
         """
         self.status_code = status_code
         self.detail = detail
+        self.redirect_to = redirect_to
         self.background = None
         self.body = self.render()
         self.init_headers(headers)
@@ -40,6 +43,7 @@ class OAuthCallbackResponse(HTMLResponse):
             <meta name="viewport" content="width=device-width,initial-scale=1.0">
             <script>
                 window.onload = () => {
+                    // (PC) ポップアップ経由で OAuth 連携を行った場合
                     if (window.opener) {
                         window.opener.postMessage({
                             'KonomiTV-OAuthPopup': {
@@ -47,12 +51,10 @@ class OAuthCallbackResponse(HTMLResponse):
                                 'detail': '$detail$',
                             }
                         }, '*');
+                    // (スマホ・タブレット) リダイレクト経由で OAuth 連携を行った場合
+                    } else {
+                        location.href = location.href.replace(/\\/api\\/.*/, '$redirect_to$');
                     }
-                    // Android Chrome の PWA でリダイレクトが PWA アプリ (WebAPK) 側の Intent Filter に取られてしまい、
-                    // postMessage() で送っても親ウインドウ側で受け取れない問題があるため、正しく送信できたかに関わらずポップアップを閉じる
-                    // OAuth の連携結果を伝えることはできないが、サーバーでの連携処理はこのページが表示された時点で終わっているため問題ない
-                    // ref: https://github.com/w3c/manifest/issues/989
-                    setTimeout(() => window.close(), 100);  // postMessage() を確実に送信できるように少し遅らせてから実行
                 };
             </script>
         </head>
@@ -65,6 +67,7 @@ class OAuthCallbackResponse(HTMLResponse):
         ## f-string も format() も中括弧のエスケープが必要で面倒なので、自前でやる
         html = html.replace('$status$', str(self.status_code))
         html = html.replace('$detail$', self.detail)
+        html = html.replace('$redirect_to$', self.redirect_to)
 
         # バイト列で返す必要があるらしい
         return html.encode('utf-8')

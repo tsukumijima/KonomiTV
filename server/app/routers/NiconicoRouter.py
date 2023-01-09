@@ -115,6 +115,7 @@ async def NiconicoAuthCallbackAPI(
         return OAuthCallbackResponse(
             status_code = status.HTTP_401_UNAUTHORIZED,
             detail = f'Authorization was denied ({error})',
+            redirect_to = '/settings/jikkyo',
         )
 
     # なぜか code がない
@@ -123,6 +124,7 @@ async def NiconicoAuthCallbackAPI(
         return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Authorization code does not exist',
+            redirect_to = '/settings/jikkyo',
         )
 
     # JWT アクセストークンに基づくユーザーアカウントを取得
@@ -130,7 +132,11 @@ async def NiconicoAuthCallbackAPI(
     try:
         current_user = await User.getCurrentUser(token=user_access_token)
     except HTTPException as ex:
-        return OAuthCallbackResponse(status_code = ex.status_code, detail = cast(Any, ex).message)
+        return OAuthCallbackResponse(
+            status_code = ex.status_code,
+            detail = cast(Any, ex).message,
+            redirect_to = '/settings/jikkyo',
+        )
 
     try:
 
@@ -156,6 +162,7 @@ async def NiconicoAuthCallbackAPI(
             return OAuthCallbackResponse(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = f'Failed to get access token (HTTP Error {token_api_response.status_code})',
+                redirect_to = '/settings/jikkyo',
             )
 
         token_api_response_json = token_api_response.json()
@@ -166,6 +173,7 @@ async def NiconicoAuthCallbackAPI(
         return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Failed to get access token (Connection Timeout)',
+            redirect_to = '/settings/jikkyo',
         )
 
     # 取得したアクセストークンとリフレッシュトークンをユーザーアカウントに設定
@@ -192,6 +200,7 @@ async def NiconicoAuthCallbackAPI(
             return OAuthCallbackResponse(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = f'Failed to get user information (HTTP Error {user_api_response.status_code})',
+                redirect_to = '/settings/jikkyo',
             )
 
         # ユーザー名
@@ -205,6 +214,7 @@ async def NiconicoAuthCallbackAPI(
         return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Failed to get user information (Connection Timeout)',
+            redirect_to = '/settings/jikkyo',
         )
 
     # 変更をデータベースに保存
@@ -214,6 +224,7 @@ async def NiconicoAuthCallbackAPI(
     return OAuthCallbackResponse(
         status_code = status.HTTP_200_OK,
         detail = 'Success',
+        redirect_to = '/settings/jikkyo',
     )
 
 

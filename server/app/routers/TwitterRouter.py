@@ -143,6 +143,7 @@ async def TwitterAuthCallbackAPI(
         return OAuthCallbackResponse(
             status_code = status.HTTP_401_UNAUTHORIZED,
             detail = 'Authorization was denied by user',
+            redirect_to = '/settings/twitter',
         )
 
     # なぜか oauth_token も oauth_verifier もない
@@ -151,6 +152,7 @@ async def TwitterAuthCallbackAPI(
         return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'oauth_token or oauth_verifier does not exist',
+            redirect_to = '/settings/twitter',
         )
 
     # oauth_token に紐づく Twitter アカウントを取得
@@ -160,6 +162,7 @@ async def TwitterAuthCallbackAPI(
         return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'TwitterAccount associated with oauth_token does not exist',
+            redirect_to = '/settings/twitter',
         )
 
     # OAuth1UserHandler を初期化
@@ -180,6 +183,7 @@ async def TwitterAuthCallbackAPI(
         return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Failed to get access token',
+            redirect_to = '/settings/twitter',
         )
 
     # tweepy を初期化
@@ -195,6 +199,7 @@ async def TwitterAuthCallbackAPI(
         return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Failed to get user information',
+            redirect_to = '/settings/twitter',
         )
     # アカウント名
     twitter_account.name = verify_credentials.name
@@ -221,6 +226,7 @@ async def TwitterAuthCallbackAPI(
         return OAuthCallbackResponse(
             status_code = status.HTTP_200_OK,
             detail = 'Success',
+            redirect_to = '/settings/twitter',
         )
 
     # アクセストークンとアカウント情報を保存
@@ -230,6 +236,7 @@ async def TwitterAuthCallbackAPI(
     return OAuthCallbackResponse(
         status_code = status.HTTP_200_OK,
         detail = 'Success',
+        redirect_to = '/settings/twitter',
     )
 
 
