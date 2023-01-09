@@ -19,7 +19,7 @@ class OAuthCallbackResponse(HTMLResponse):
 
         Args:
             detail (str): KonomiTV クライアントに送信する詳細メッセージ
-            redirect_to (str): リダイレクト先の KonomiTV クライアントのルーティングのパス (モバイルデバイスのみ利用)
+            redirect_to (str): リダイレクト先の KonomiTV クライアントの URL (モバイルデバイスのみ利用)
             status_code (int, optional): HTTP ステータスコード. Defaults to 200.
             headers (dict, optional): カスタムのヘッダー. Defaults to None.
         """
@@ -53,7 +53,7 @@ class OAuthCallbackResponse(HTMLResponse):
                         }, '*');
                     // (スマホ・タブレット) リダイレクト経由で OAuth 連携を行った場合
                     } else {
-                        location.href = location.href.replace(/\\/api\\/.*/, '$redirect_to$');
+                        location.href = `$redirect_to$#status=$status$&detail=${encodeURIComponent('$detail$')}`;
                     }
                 };
             </script>

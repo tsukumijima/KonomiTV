@@ -70,14 +70,19 @@ async def TwitterAuthURLAPI(
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。<br>
     """
 
+    # クライアント (フロントエンド) の URL を Origin ヘッダーから取得
+    ## Origin ヘッダーがリクエストに含まれていない場合はこの API サーバーの URL を使う
+    client_url = cast(str, request.headers.get('Origin', f'https://{request.url.netloc}')).rstrip('/') + '/'
+
     # コールバック URL を設定
     ## Twitter API の OAuth 連携では、事前にコールバック先の URL をデベロッパーダッシュボードから設定しておく必要がある
     ## 一方 KonomiTV サーバーの URL はまちまちなので、コールバック先の URL を一旦 https://app.konomi.tv/api/redirect/twitter に集約する
     ## この API は、リクエストを "server" パラメーターで指定された KonomiTV サーバーの TwitterAuthCallbackAPI にリダイレクトする
     ## 最後に KonomiTV サーバーがリダイレクトを受け取ることで、コールバック対象の URL が定まらなくても OAuth 連携ができるようになる
+    ## "client" パラメーターはスマホ・タブレットでの TwitterAuthCallbackAPI のリダイレクト先 URL として使われる
     ## Twitter だけ他のサービスと違い OAuth 1.0a なので、フローがかなり異なる
     ## ref: https://github.com/tsukumijima/KonomiTV-API
-    callback_url = f'https://app.konomi.tv/api/redirect/twitter?server=https://{request.url.netloc}/'
+    callback_url = f'https://app.konomi.tv/api/redirect/twitter?server=https://{request.url.netloc}/&client={client_url}'
 
     # OAuth1UserHandler を初期化し、認証 URL を取得
     ## signin_with_twitter を True に設定すると、oauth/authenticate の認証 URL が生成される
@@ -120,6 +125,7 @@ async def TwitterAuthURLAPI(
     response_description = 'ユーザーアカウントに Twitter アカウントのアクセストークン・アクセストークンシークレットが登録できたことを示す。',
 )
 async def TwitterAuthCallbackAPI(
+    client: str = Query(..., description='OAuth 連携元の KonomiTV クライアントの URL 。'),
     oauth_token: str | None = Query(None, description='コールバック元から渡された oauth_token。OAuth 認証が成功したときのみセットされる。'),
     oauth_verifier: str | None = Query(None, description='コールバック元から渡された oauth_verifier。OAuth 認証が成功したときのみセットされる。'),
     denied: str | None = Query(None, description='このパラメーターがセットされているとき、OAuth 認証がユーザーによって拒否されたことを示す。'),
@@ -127,6 +133,9 @@ async def TwitterAuthCallbackAPI(
     """
     Twitter の OAuth 認証のコールバックを受け取り、ログイン中のユーザーアカウントと Twitter アカウントを紐づける。
     """
+
+    # スマホ・タブレット向けのリダイレクト先 URL を生成
+    redirect_url = f'{client.rstrip("/")}/settings/twitter'
 
     # "denied" パラメーターがセットされている
     # OAuth 認証がユーザーによって拒否されたことを示しているので、401 エラーにする
@@ -143,7 +152,7 @@ async def TwitterAuthCallbackAPI(
         return OAuthCallbackResponse(
             status_code = status.HTTP_401_UNAUTHORIZED,
             detail = 'Authorization was denied by user',
-            redirect_to = '/settings/twitter',
+            redirect_to = redirect_url,
         )
 
     # なぜか oauth_token も oauth_verifier もない
@@ -152,7 +161,7 @@ async def TwitterAuthCallbackAPI(
         return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'oauth_token or oauth_verifier does not exist',
-            redirect_to = '/settings/twitter',
+            redirect_to = redirect_url,
         )
 
     # oauth_token に紐づく Twitter アカウントを取得
@@ -162,7 +171,7 @@ async def TwitterAuthCallbackAPI(
         return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'TwitterAccount associated with oauth_token does not exist',
-            redirect_to = '/settings/twitter',
+            redirect_to = redirect_url,
         )
 
     # OAuth1UserHandler を初期化
@@ -183,7 +192,7 @@ async def TwitterAuthCallbackAPI(
         return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Failed to get access token',
-            redirect_to = '/settings/twitter',
+            redirect_to = redirect_url,
         )
 
     # tweepy を初期化
@@ -199,7 +208,7 @@ async def TwitterAuthCallbackAPI(
         return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Failed to get user information',
-            redirect_to = '/settings/twitter',
+            redirect_to = redirect_url,
         )
     # アカウント名
     twitter_account.name = verify_credentials.name
@@ -226,7 +235,7 @@ async def TwitterAuthCallbackAPI(
         return OAuthCallbackResponse(
             status_code = status.HTTP_200_OK,
             detail = 'Success',
-            redirect_to = '/settings/twitter',
+            redirect_to = redirect_url,
         )
 
     # アクセストークンとアカウント情報を保存
@@ -236,7 +245,7 @@ async def TwitterAuthCallbackAPI(
     return OAuthCallbackResponse(
         status_code = status.HTTP_200_OK,
         detail = 'Success',
-        redirect_to = '/settings/twitter',
+        redirect_to = redirect_url,
     )
 
 
