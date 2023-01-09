@@ -179,6 +179,22 @@ export default Vue.extend({
 
         // ローディング状態を解除
         this.is_loading = false;
+
+        // もしハッシュ (# から始まるフラグメント) に何か指定されていたら、
+        // OAuth 連携のコールバックの結果が入っている可能性が高いので、パースを試みる
+        // アカウント情報更新より後にしないと Snackbar がうまく表示されない
+        if (location.hash !== '') {
+            const params = new URLSearchParams(location.hash.replace('#', ''));
+            if (params.get('status') !== null && params.get('detail') !== null) {
+                // コールバックの結果を取得できたので、OAuth 連携の結果を画面に通知する
+                const authorization_status = parseInt(params.get('status'));
+                const authorization_detail = params.get('detail');
+                this.onOAuthCallbackReceived(authorization_status, authorization_detail);
+                // URL からフラグメントを削除
+                // ref: https://stackoverflow.com/a/49373716/17124142
+                history.replaceState(null, null, ' ');
+            }
+        }
     },
     watch: {
         // settings 内の値の変更を監視する
@@ -260,36 +276,40 @@ export default Vue.extend({
                 // ステータスコードと詳細メッセージを取得
                 const authorization_status = event.data['KonomiTV-OAuthPopup']['status'] as number;
                 const authorization_detail = event.data['KonomiTV-OAuthPopup']['detail'] as string;
-                console.log(`NiconicoAuthCallbackAPI: Status: ${authorization_status} / Detail: ${authorization_detail}`);
-
-                // OAuth 連携に失敗した
-                if (authorization_status !== 200) {
-                    if (authorization_detail.startsWith('Authorization was denied (access_denied)')) {
-                        this.$message.error('ニコニコアカウントとの連携がキャンセルされました。');
-                    } else if (authorization_detail.startsWith('Failed to get access token (HTTP Error ')) {
-                        const error = authorization_detail.replace('Failed to get access token ', '');
-                        this.$message.error(`アクセストークンの取得に失敗しました。${error}`);
-                    } else if (authorization_detail.startsWith('Failed to get access token (Connection Timeout)')) {
-                        this.$message.error('アクセストークンの取得に失敗しました。ニコニコで障害が発生している可能性があります。');
-                    } else if (authorization_detail.startsWith('Failed to get user information (HTTP Error ')) {
-                        const error = authorization_detail.replace('Failed to get user information ', '');
-                        this.$message.error(`ニコニコアカウントのユーザー情報の取得に失敗しました。${error}`);
-                    } else if (authorization_detail.startsWith('Failed to get user information (Connection Timeout)')) {
-                        this.$message.error('ニコニコアカウントのユーザー情報の取得に失敗しました。ニコニコで障害が発生している可能性があります。');
-                    } else {
-                        this.$message.error(`ニコニコアカウントとの連携に失敗しました。(${authorization_detail})`);
-                    }
-                    return;
-                }
-
-                // 表示されているアカウント情報を更新
-                await this.syncAccountInfo();
-
-                this.$message.success('ニコニコアカウントと連携しました。');
+                this.onOAuthCallbackReceived(authorization_status, authorization_detail);
             };
 
             // postMessage() を受信するリスナーを登録
             window.addEventListener('message', onMessage);
+        },
+
+        async onOAuthCallbackReceived(authorization_status: number, authorization_detail: string) {
+            console.log(`NiconicoAuthCallbackAPI: Status: ${authorization_status} / Detail: ${authorization_detail}`);
+
+            // OAuth 連携に失敗した
+            if (authorization_status !== 200) {
+                if (authorization_detail.startsWith('Authorization was denied (access_denied)')) {
+                    this.$message.error('ニコニコアカウントとの連携がキャンセルされました。');
+                } else if (authorization_detail.startsWith('Failed to get access token (HTTP Error ')) {
+                    const error = authorization_detail.replace('Failed to get access token ', '');
+                    this.$message.error(`アクセストークンの取得に失敗しました。${error}`);
+                } else if (authorization_detail.startsWith('Failed to get access token (Connection Timeout)')) {
+                    this.$message.error('アクセストークンの取得に失敗しました。ニコニコで障害が発生している可能性があります。');
+                } else if (authorization_detail.startsWith('Failed to get user information (HTTP Error ')) {
+                    const error = authorization_detail.replace('Failed to get user information ', '');
+                    this.$message.error(`ニコニコアカウントのユーザー情報の取得に失敗しました。${error}`);
+                } else if (authorization_detail.startsWith('Failed to get user information (Connection Timeout)')) {
+                    this.$message.error('ニコニコアカウントのユーザー情報の取得に失敗しました。ニコニコで障害が発生している可能性があります。');
+                } else {
+                    this.$message.error(`ニコニコアカウントとの連携に失敗しました。(${authorization_detail})`);
+                }
+                return;
+            }
+
+            // 表示されているアカウント情報を更新
+            await this.syncAccountInfo();
+
+            this.$message.success('ニコニコアカウントと連携しました。');
         },
 
         async logoutNiconicoAccount() {

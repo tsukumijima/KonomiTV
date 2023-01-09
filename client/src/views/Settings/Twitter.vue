@@ -195,6 +195,22 @@ export default Vue.extend({
 
         // ローディング状態を解除
         this.is_loading = false;
+
+        // もしハッシュ (# から始まるフラグメント) に何か指定されていたら、
+        // OAuth 連携のコールバックの結果が入っている可能性が高いので、パースを試みる
+        // アカウント情報更新より後にしないと Snackbar がうまく表示されない
+        if (location.hash !== '') {
+            const params = new URLSearchParams(location.hash.replace('#', ''));
+            if (params.get('status') !== null && params.get('detail') !== null) {
+                // コールバックの結果を取得できたので、OAuth 連携の結果を画面に通知する
+                const authorization_status = parseInt(params.get('status'));
+                const authorization_detail = params.get('detail');
+                this.onOAuthCallbackReceived(authorization_status, authorization_detail);
+                // URL からフラグメントを削除
+                // ref: https://stackoverflow.com/a/49373716/17124142
+                history.replaceState(null, null, ' ');
+            }
+        }
     },
     watch: {
         // settings 内の値の変更を監視する
@@ -268,37 +284,41 @@ export default Vue.extend({
                 // ステータスコードと詳細メッセージを取得
                 const authorization_status = event.data['KonomiTV-OAuthPopup']['status'] as number;
                 const authorization_detail = event.data['KonomiTV-OAuthPopup']['detail'] as string;
-                console.log(`TwitterAuthCallbackAPI: Status: ${authorization_status} / Detail: ${authorization_detail}`);
-
-                // OAuth 連携に失敗した
-                if (authorization_status !== 200) {
-                    if (authorization_detail.startsWith('Authorization was denied by user')) {
-                        this.$message.error('Twitter アカウントとの連携がキャンセルされました。');
-                    } else if (authorization_detail.startsWith('Failed to get access token')) {
-                        this.$message.error('アクセストークンの取得に失敗しました。');
-                    } else if (authorization_detail.startsWith('Failed to get user information')) {
-                        this.$message.error('Twitter アカウントのユーザー情報の取得に失敗しました。');
-                    } else {
-                        this.$message.error(`Twitter アカウントとの連携に失敗しました。(${authorization_detail})`);
-                    }
-                    return;
-                }
-
-                // 表示されているアカウント情報を更新
-                await this.syncAccountInfo();
-
-                // ログイン中のユーザーに紐づく Twitter アカウントのうち、一番 updated_at が新しいものを取得
-                // ログインすると updated_at が更新されるため、この時点で一番 updated_at が新しいアカウントが今回連携したものだと判断できる
-                // ref: https://stackoverflow.com/a/12192544/17124142 (ISO8601 のソートアルゴリズム)
-                const current_twitter_account = [...this.user.twitter_accounts].sort((a, b) => {
-                    return (a.updated_at < b.updated_at) ? 1 : ((a.updated_at > b.updated_at) ? -1 : 0);
-                })[0];
-
-                this.$message.success(`Twitter @${current_twitter_account.screen_name} と連携しました。`);
+                this.onOAuthCallbackReceived(authorization_status, authorization_detail);
             };
 
             // postMessage() を受信するリスナーを登録
             window.addEventListener('message', onMessage);
+        },
+
+        async onOAuthCallbackReceived(authorization_status: number, authorization_detail: string) {
+            console.log(`TwitterAuthCallbackAPI: Status: ${authorization_status} / Detail: ${authorization_detail}`);
+
+            // OAuth 連携に失敗した
+            if (authorization_status !== 200) {
+                if (authorization_detail.startsWith('Authorization was denied by user')) {
+                    this.$message.error('Twitter アカウントとの連携がキャンセルされました。');
+                } else if (authorization_detail.startsWith('Failed to get access token')) {
+                    this.$message.error('アクセストークンの取得に失敗しました。');
+                } else if (authorization_detail.startsWith('Failed to get user information')) {
+                    this.$message.error('Twitter アカウントのユーザー情報の取得に失敗しました。');
+                } else {
+                    this.$message.error(`Twitter アカウントとの連携に失敗しました。(${authorization_detail})`);
+                }
+                return;
+            }
+
+            // 表示されているアカウント情報を更新
+            await this.syncAccountInfo();
+
+            // ログイン中のユーザーに紐づく Twitter アカウントのうち、一番 updated_at が新しいものを取得
+            // ログインすると updated_at が更新されるため、この時点で一番 updated_at が新しいアカウントが今回連携したものだと判断できる
+            // ref: https://stackoverflow.com/a/12192544/17124142 (ISO8601 のソートアルゴリズム)
+            const current_twitter_account = [...this.user.twitter_accounts].sort((a, b) => {
+                return (a.updated_at < b.updated_at) ? 1 : ((a.updated_at > b.updated_at) ? -1 : 0);
+            })[0];
+
+            this.$message.success(`Twitter @${current_twitter_account.screen_name} と連携しました。`);
         },
 
         async logoutTwitterAccount(screen_name: string) {
