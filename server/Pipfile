@@ -11,7 +11,7 @@ dev = "python KonomiTV.py --reload"
 aerich = "==0.6.3"
 aiofiles = "*"
 aiosqlite = "*"
-ariblib = "*"
+ariblib = {ref = "67390414cfe54cbab1d601afc8f134bb4edbf268", git = "https://github.com/tsukumijima/ariblib.git"}
 colorama = ">=0.4"
 fastapi = "==0.86.0"
 fastapi-utils = "==0.2.1"
