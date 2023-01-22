@@ -177,8 +177,8 @@ async def UserAccessTokenAPI(
         'sub': json.dumps({'user_id': user.id}),
         # JWT の発行時間
         'iat': datetime.now(timezone.get_default_timezone()),
-        # JWT の有効期限 (JWT の発行から 30 日間)
-        'exp': datetime.now(timezone.get_default_timezone()) + timedelta(days=30),
+        # JWT の有効期限 (JWT の発行から 180 日間)
+        'exp': datetime.now(timezone.get_default_timezone()) + timedelta(days=180),
     }
 
     # JWT エンコードを行い、アクセストークンを生成
