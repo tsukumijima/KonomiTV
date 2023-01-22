@@ -25,11 +25,11 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      # Python 3.10 環境をセットアップ
-      - name: Setup Python 3.10
+      # Python 3.11 環境をセットアップ
+      - name: Setup Python 3.11
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.11'
           cache: 'pipenv'
           cache-dependency-path: '${{ github.workspace }}/installer/Pipfile.lock'
 
@@ -71,11 +71,11 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      # Python 3.10 環境をセットアップ
-      - name: Setup Python 3.10
+      # Python 3.11 環境をセットアップ
+      - name: Setup Python 3.11
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.11'
           cache: 'pipenv'
           cache-dependency-path: '${{ github.workspace }}/installer/Pipfile.lock'
 

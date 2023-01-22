@@ -105,13 +105,13 @@ jobs:
         run: |
 
           # Python 本体のダウンロード
-          curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/20221106/cpython-3.10.8+20221106-x86_64-pc-windows-msvc-shared-install_only.tar.gz
+          curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/20230116/cpython-3.11.1+20230116-x86_64-pc-windows-msvc-shared-install_only.tar.gz
           tar xvf python.tar.gz
           mv python/ thirdparty/Python/
           Rename-Item thirdparty/Python/LICENSE.txt License.txt
 
           # pipenv のインストール
-          thirdparty/Python/python.exe -m pip install pipenv==2022.11.11
+          thirdparty/Python/python.exe -m pip install pipenv==2022.12.19
 
       # サードパーティーライブラリを 7z で圧縮
       # ファイルサイズ縮減のため、圧縮をかなり強めに掛けている
@@ -253,13 +253,13 @@ jobs:
         run: |
 
           # Python 本体のダウンロード
-          curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/20221106/cpython-3.10.8+20221106-x86_64-unknown-linux-gnu-install_only.tar.gz
+          curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/20230116/cpython-3.11.1+20230116-x86_64-unknown-linux-gnu-install_only.tar.gz
           tar xvf python.tar.gz
           mv python/ thirdparty/Python/
-          ln -s python3.10 thirdparty/Python/bin/python
+          ln -s python3.11 thirdparty/Python/bin/python
 
           # pipenv のインストール
-          thirdparty/Python/bin/python -m pip install pipenv==2022.11.11
+          thirdparty/Python/bin/python -m pip install pipenv==2022.12.19
 
       # サードパーティーライブラリを tar.xz で圧縮
       # ファイルサイズ縮減のため、圧縮をかなり強めに掛けている
