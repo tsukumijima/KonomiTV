@@ -72,11 +72,11 @@ jobs:
         run: |
 
           # FFmpeg のアーカイブのダウンロード
-          curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2022-09-30-12-41/ffmpeg-n5.1.2-1-g05d6157aab-win64-gpl-shared-5.1.zip
-          7z x -y ffmpeg-n5.1.2-1-g05d6157aab-win64-gpl-shared-5.1.zip
+          curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2022-12-31-12-36/ffmpeg-n5.1.2-9-g807afa59cc-win64-gpl-shared-5.1.zip
+          7z x -y ffmpeg-n5.1.2-9-g807afa59cc-win64-gpl-shared-5.1.zip
           mkdir thirdparty/FFmpeg/
-          cp ffmpeg-n5.1.2-1-g05d6157aab-win64-gpl-shared-5.1/bin/* thirdparty/FFmpeg/
-          cp ffmpeg-n5.1.2-1-g05d6157aab-win64-gpl-shared-5.1/LICENSE.txt thirdparty/FFmpeg/License.txt
+          cp ffmpeg-n5.1.2-9-g807afa59cc-win64-gpl-shared-5.1/bin/* thirdparty/FFmpeg/
+          cp ffmpeg-n5.1.2-9-g807afa59cc-win64-gpl-shared-5.1/LICENSE.txt thirdparty/FFmpeg/License.txt
           rm thirdparty/FFmpeg/ffplay.exe
 
           # QSVEncC のアーカイブのダウンロード
@@ -188,12 +188,12 @@ jobs:
           sudo apt-get install -y p7zip-full
 
           # FFmpeg のアーカイブのダウンロード
-          curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2022-09-30-12-41/ffmpeg-n5.1.2-1-g05d6157aab-linux64-gpl-shared-5.1.tar.xz
-          tar xvf ffmpeg-n5.1.2-1-g05d6157aab-linux64-gpl-shared-5.1.tar.xz
+          curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2022-12-31-12-36/ffmpeg-n5.1.2-9-g807afa59cc-linux64-gpl-shared-5.1.tar.xz
+          tar xvf ffmpeg-n5.1.2-9-g807afa59cc-linux64-gpl-shared-5.1.tar.xz
           mkdir thirdparty/FFmpeg/
-          cp ffmpeg-n5.1.2-1-g05d6157aab-linux64-gpl-shared-5.1/bin/* thirdparty/FFmpeg/
-          cp -r ffmpeg-n5.1.2-1-g05d6157aab-linux64-gpl-shared-5.1/lib/* thirdparty/FFmpeg/
-          cp ffmpeg-n5.1.2-1-g05d6157aab-linux64-gpl-shared-5.1/LICENSE.txt thirdparty/FFmpeg/License.txt
+          cp ffmpeg-n5.1.2-9-g807afa59cc-linux64-gpl-shared-5.1/bin/* thirdparty/FFmpeg/
+          cp -r ffmpeg-n5.1.2-9-g807afa59cc-linux64-gpl-shared-5.1/lib/* thirdparty/FFmpeg/
+          cp ffmpeg-n5.1.2-9-g807afa59cc-linux64-gpl-shared-5.1/LICENSE.txt thirdparty/FFmpeg/License.txt
           rm -rf thirdparty/FFmpeg/pkgconfig
           mv thirdparty/FFmpeg/ffmpeg thirdparty/FFmpeg/ffmpeg.elf
           mv thirdparty/FFmpeg/ffprobe thirdparty/FFmpeg/ffprobe.elf
@@ -210,9 +210,9 @@ jobs:
           ## ref: https://stackoverflow.com/questions/13756800/how-to-download-all-dependencies-and-packages-to-directory
           ## ref: https://askubuntu.com/questions/1260559/how-to-install-deb-packages-in-a-custom-folder-different-from-root-using-dp
           mkdir thirdparty/Library/
-          curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2022-09-30-12-41/ffmpeg-n4.4.2-95-ga8f16d4eb4-linux64-gpl-shared-4.4.tar.xz
-          tar xvf ffmpeg-n4.4.2-95-ga8f16d4eb4-linux64-gpl-shared-4.4.tar.xz
-          cp -ar ffmpeg-n4.4.2-95-ga8f16d4eb4-linux64-gpl-shared-4.4/lib/* thirdparty/Library/
+          curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2022-12-31-12-36/ffmpeg-n4.4.3-3-gb48951bd29-linux64-gpl-shared-4.4.tar.xz
+          tar xvf ffmpeg-n4.4.3-3-gb48951bd29-linux64-gpl-shared-4.4.tar.xz
+          cp -ar ffmpeg-n4.4.3-3-gb48951bd29-linux64-gpl-shared-4.4/lib/* thirdparty/Library/
           apt-get download libass9 libglib2.0-0 libgraphite2-3 libharfbuzz0b
           ls -1 | grep [.]deb >> all_debs.txt && cat all_debs.txt | while read fn; do dpkg-deb -x $fn `pwd`/thirdparty/Library; done && rm all_debs.txt
           cp -ar thirdparty/Library/usr/lib/x86_64-linux-gnu/* thirdparty/Library/
