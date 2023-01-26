@@ -201,7 +201,7 @@ if Path.exists(CONFIG_YAML) is False:
 
 # 設定ファイルから環境設定を読み込む
 with open(CONFIG_YAML, encoding='utf-8') as file:
-    CONFIG: dict[str, dict[str, Any]] = dict(ruamel.yaml.YAML().load(file))
+    CONFIG: dict[str, dict[str, Any]] = dict(ruamel.yaml.YAML().load(file))  # type: ignore
 
     # EDCB / Mirakurun の URL の末尾のスラッシュをなしに統一
     ## これをやっておかないと Mirakurun の URL の末尾にスラッシュが入ってきた場合に接続に失敗する
@@ -254,9 +254,9 @@ QUALITY: dict[QUALITY_TYPES, Quality] = {
         is_60fps = True,
         width = 1440,
         height = 1080,
-        video_bitrate = '6500K',
-        video_bitrate_max = '9000K',
-        audio_bitrate = '192K',
+        video_bitrate = '9500K',
+        video_bitrate_max = '13000K',
+        audio_bitrate = '256K',
     ),
     '1080p-60fps-hevc': Quality(
         is_hevc = True,
@@ -272,9 +272,9 @@ QUALITY: dict[QUALITY_TYPES, Quality] = {
         is_60fps = False,
         width = 1440,
         height = 1080,
-        video_bitrate = '6500K',
-        video_bitrate_max = '9000K',
-        audio_bitrate = '192K',
+        video_bitrate = '9500K',
+        video_bitrate_max = '13000K',
+        audio_bitrate = '256K',
     ),
     '1080p-hevc': Quality(
         is_hevc = True,
