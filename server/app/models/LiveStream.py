@@ -317,7 +317,7 @@ class LiveStream():
 
         result: list[LiveStream] = []
 
-        # 現在 ONAir 状態のライブストリームを探してリストに追加
+        # 現在 ONAir 状態のライブストリームに絞り込む
         for livestream in LiveStream.getAllLiveStreams():
             if livestream.getStatus()['status'] == 'ONAir':
                 result.append(livestream)
@@ -336,7 +336,7 @@ class LiveStream():
 
         result: list[LiveStream] = []
 
-        # 現在 Idling 状態のライブストリームを探してリストに追加
+        # 現在 Idling 状態のライブストリームに絞り込む
         for livestream in LiveStream.getAllLiveStreams():
             if livestream.getStatus()['status'] == 'Idling':
                 result.append(livestream)
@@ -525,28 +525,35 @@ class LiveStream():
         if self._status == status and self._detail == detail:
             return
 
+        # ステータスが Offline or Restart かつ現在の状態と重複している場合は、更新を行わない
+        ## Offline や Restart は Standby に移行しない限り同じステータスで詳細が変化することはありえないので、
+        ## ステータス詳細が上書きできてしまう状態は不適切
+        ## ただ LiveEncodingTask で非同期的にステータスをセットしている関係で上書きしてしまう可能性があるため、ここで上書きを防ぐ
+        if (status == 'Offline' or status == 'Restart') and status == self._status:
+            return
+
         # ストリーム開始 (Offline or Restart → Standby) 時、started_at と stream_data_written_at を更新する
         # ここで更新しておかないと、いつまで経っても初期化時の古いタイムスタンプが使われてしまう
         if ((self._status == 'Offline' or self._status == 'Restart') and status == 'Standby'):
             self._started_at = time.time()
             self._stream_data_written_at = time.time()
 
-        # ログを表示
+        # ステータス変更のログを出力
         if quiet is False:
             Logging.info(f'[Live: {self.livestream_id}] [Status: {status}] {detail}')
 
-        # ストリーム起動 (Standby → ONAir) 時、起動時間のログを表示する
+        # ストリーム起動完了時 (Standby → ONAir) 時のみ、ストリームの起動にかかった時間も出力
         if self._status == 'Standby' and status == 'ONAir':
             Logging.info(f'[Live: {self.livestream_id}] Startup complete. ({round(time.time() - self._started_at, 2)} sec)')
 
-        # ステータスと詳細を設定
+        # ログ出力を待ってからステータスと詳細をライブストリームにセット
         self._status = status
         self._detail = detail
 
         # 最終更新のタイムスタンプを更新
         self._updated_at = time.time()
 
-        # チューナーインスタンスが存在する場合のみ
+        # チューナーインスタンスが存在する場合 (= EDCB バックエンド利用時) のみ
         if self.tuner is not None:
 
             # Idling への切り替え時、チューナーをアンロックして再利用できるように
@@ -578,7 +585,7 @@ class LiveStream():
             stream_data (bytes): 書き込むストリームデータ
         """
 
-        # 書き込み時刻
+        # ストリームデータの書き込み時刻
         now = time.time()
 
         # 接続している全てのクライアントの Queue にストリームデータを書き込む

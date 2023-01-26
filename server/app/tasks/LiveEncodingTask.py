@@ -1031,16 +1031,6 @@ class LiveEncodingTask:
 
                 # ***** 異常処理 (エンコードタスク再起動による回復が可能) *****
 
-                # tsreadex が意図せず終了したか、チューナーとの接続が切断された場合
-                # ref: https://stackoverflow.com/a/45251241/17124142
-                if ((tsreadex.returncode is not None) or
-                    (CONFIG['general']['backend'] == 'Mirakurun' and response.raw.closed is True) or
-                    (CONFIG['general']['backend'] == 'EDCB' and type(pipe_or_socket) is socket.socket and pipe_or_socket.fileno() < 0) or
-                    (CONFIG['general']['backend'] == 'EDCB' and type(pipe_or_socket) is BinaryIO and pipe_or_socket.closed is True)):
-
-                    # エンコードタスクを再起動
-                    self.livestream.setStatus('Restart', 'チューナーとの接続が切断されました。エンコードタスクを再起動します。')
-
                 # 現在 ONAir でかつストリームデータの最終書き込み時刻から 5 秒以上が経過しているなら、エンコーダーがフリーズしたものとみなす
                 # 現在 Standby でかつストリームデータの最終書き込み時刻から 20 秒以上が経過している場合も、エンコーダーがフリーズしたものとみなす
                 ## 何らかの理由でエンコードが途中で停止した場合、livestream.write() が実行されなくなるのを利用する
@@ -1083,6 +1073,18 @@ class LiveEncodingTask:
                     elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
                         for log in lines[-151:-1]:
                             Logging.warning(log)
+
+                # tsreadex が意図せず終了したか、チューナーとの接続が切断された場合
+                ## エンコーダーが異常終了した場合、パイプが閉じられることで tsreadex も同時に終了してしまうため、
+                ## エンコーダーの異常終了判定を終えた後にチェックする必要がある
+                ## ref: https://stackoverflow.com/a/45251241/17124142
+                if ((tsreadex.returncode is not None) or
+                    (CONFIG['general']['backend'] == 'Mirakurun' and response.raw.closed is True) or
+                    (CONFIG['general']['backend'] == 'EDCB' and type(pipe_or_socket) is socket.socket and pipe_or_socket.fileno() < 0) or
+                    (CONFIG['general']['backend'] == 'EDCB' and type(pipe_or_socket) is BinaryIO and pipe_or_socket.closed is True)):
+
+                    # エンコードタスクを再起動
+                    self.livestream.setStatus('Restart', 'チューナーとの接続が切断されました。エンコードタスクを再起動します。')
 
                 # この時点で最新のライブストリームのステータスが Offline か Restart に変更されていたら、エンコードタスクの終了処理に移る
                 livestream_status = self.livestream.getStatus()  # 更新されているかもしれないので再取得
