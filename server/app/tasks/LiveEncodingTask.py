@@ -315,13 +315,16 @@ class LiveEncodingTask:
             gop_length_second = self.GOP_LENGTH_SECOND_H265
 
         ## インターレース解除 (60i → 60p (フレームレート: 60fps))
+        ## NVEncC の --vpp-deinterlace bob は品質が悪いので、代わりに --vpp-yadif を使う
+        ## VCEEncC では --vpp-deinterlace 自体が使えないので、代わりに --vpp-yadif を使う
         if QUALITY[quality].is_60fps is True:
-            if encoder_type == 'QSVEncC' or encoder_type == 'NVEncC':
+            if encoder_type == 'QSVEncC':
                 options.append('--vpp-deinterlace bob')
-            elif encoder_type == 'VCEEncC':
+            elif encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
                 options.append('--vpp-yadif mode=bob')
             options.append(f'--avsync cfr --gop-len {int(gop_length_second * 60)}')
         ## インターレース解除 (60i → 30p (フレームレート: 30fps))
+        ## VCEEncC では --vpp-deinterlace 自体が使えないので、代わりに --vpp-afs を使う
         else:
             if encoder_type == 'QSVEncC' or encoder_type == 'NVEncC':
                 options.append(f'--vpp-deinterlace normal')
