@@ -302,7 +302,7 @@ class LiveEncodingTask:
             if encoder_type == 'QSVEncC':
                 options.append('--quality faster')
             elif encoder_type == 'NVEncC':
-                options.append('--preset P6')
+                options.append('--preset P2')
             elif encoder_type == 'VCEEncC':
                 options.append('--preset fast')
         options.append(f'--profile main --interlace tff --dar 16:9')
