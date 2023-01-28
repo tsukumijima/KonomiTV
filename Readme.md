@@ -205,6 +205,13 @@ sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-open
 NVEncC では、[NVIDIA Graphics Driver](https://www.nvidia.co.jp/Download/index.aspx) のインストールが必要です。  
 基本的にはすでにインストールされていると思います。個人的には `ubuntu-drivers` コマンドを使って apt でインストールするのがおすすめです。
 
+**Docker を使って KonomiTV をインストールする場合は (後述) 、さらに NVIDIA Container Toolkit のインストールが必要です。**
+
+```bash
+# Ubuntu では nvidia-docker2 パッケージをインストールするだけ
+sudo apt install -y nvidia-docker2
+```
+
 -----
 
 VCEEncC では、[AMDGPU-PRO Driver](https://www.amd.com/ja/support/linux-drivers) のインストールが必要です。  
@@ -234,7 +241,8 @@ sudo reboot
 
 > KonomiTV を家の中だけで使う分には必須ではありませんが、セットアップがとっても簡単で時間もそこまでかからないので、この機会にインストールしておくことをおすすめします。
 
-> 厳密にはほかの方法 (OpenVPN・SoftEther・リバースプロキシなど) でもリモート視聴は可能ですが、技術的に難易度がかなり高くネットワークエンジニア以外には難しいこと、Tailscale を使った方法が一番手軽でセキュアなことから、KonomiTV では Tailscale を使う方法のみ公式にサポートしています。
+> 厳密にはほかの方法 (OpenVPN・SoftEther・リバースプロキシなど) でもリモート視聴は可能ですが、技術的に難易度がかなり高くネットワークエンジニア以外には難しいこと、Tailscale を使った方法が一番手軽でセキュアなことから、**<ins>KonomiTV では Tailscale を使ったリモート視聴方法のみ公式にサポートしています。</ins>**  
+> **特にリバースプロキシ経由でのアクセスでは<ins>一部機能が正常に動作しなくなる</ins>ほか、セキュリティ上の問題もあるため、非推奨です。**
 
 Tailscale は、デバイスが接続されているネットワークや物理的距離に関係なく、**同じアカウントにログインしている Tailscale クライアント (デバイス) 同士で直接通信できる、次世代型のメッシュ VPN です。**
 
@@ -310,6 +318,16 @@ Assets の下にある `KonomiTV-Installer.exe` をダウンロードしてく�
 
 **Docker を使ったインストール方法では、事前に [Docker](https://docs.docker.com/engine/install/) と [Docker Compose](https://docs.docker.com/compose/install/) のインストールが必要です。**  
 Docker Compose は V1 と V2 の両方に対応していますが、できれば V2 (ハイフンなしの `docker compose` コマンド) が使えるようにしておくことをおすすめします。
+
+> **Docker Compose V1 は最終版の 1.29.2 でのみ動作を確認しています。古いバージョンでは正常に動作しない可能性が高いです。**  
+> もし Docker Compose V1 が 1.29.2 よりも古い場合は、この機会に V2 への更新をおすすめします。以前よりもグラフィカルに進捗が表示されたりなどのメリットもあります。
+
+> [QSVEncC・NVEncC・VCEEncC に対応した GPU ドライバーのインストール] に記載のとおり、**NVIDIA GPU が搭載されている PC に Docker を使ってインストールする場合は、必ず事前に NVIDIA Container Toolkit をインストールしておいてください。**  
+> NVIDIA Container Toolkit がインストールされていない場合、KonomiTV のインストールにも失敗する可能性が高いです。
+
+> Docker を使ってインストールする場合、動作環境によっては `getaddrinfo EAI_AGAIN registry.yarnpkg.com` といったエラーで Docker イメージのビルドに失敗することがあります。  
+> Docker の DNS 設定がおかしかったり、Docker が書き換える iptables の定義が壊れてしまっていることが原因のようで、解決方法は千差万別です。  
+> KonomiTV は通常のインストール方法でも極力環境を汚さないように開発されています。Docker を使わずに通常通りインストールしたほうが早いかもしれません。
 
 <img width="100%" src="https://user-images.githubusercontent.com/39271166/201463450-96bb686e-c5bb-493d-b907-57b5f51ac986.png"><br>
 
@@ -432,17 +450,17 @@ Mirakurun をバックエンドとして利用する場合は、Mirakurun の HT
 > 前述のとおり、Linux 環境で QSVEncC・NVEncC・VCEEncC を利用する場合は、別途 GPU ドライバーのインストールが必要です。
 
 **QSVEncC は、Intel 製 CPU の内蔵 GPU に搭載されているハードウェアエンコード機能 (Intel QSV) を利用するエンコーダーです。**  
-ここ数年に発売された Intel Graphics 搭載の Intel 製 CPU であれば基本的に搭載されているため、一般的な PC の大半で利用できます。内蔵 GPU にも関わらず高速で、画質も良好です。  
+ここ数年に発売された Intel Graphics 搭載の Intel 製 CPU であれば基本的に搭載されているため、一般的な PC の大半で利用できます。内蔵 GPU なのにもかかわらず高速で、画質も良好です。  
 
 > Linux 版の Intel QSV は、Broadwell (第5世代) 以上の Intel CPU でのみ利用できます。そのため、Haswell (第4世代) 以下の CPU では、QSVEncC を利用できません。  
 > なお、Windows 版の Intel QSV は、Haswell (第4世代) 以下の CPU でも利用できます。
 
 **NVEncC は、Geforce などの NVIDIA 製 GPU に搭載されているハードウェアエンコード機能 (NVENC) を利用するエンコーダーです。**  
-高速で画質も QSV より若干いいのですが、Geforce では同時にエンコードが可能なセッション数が 3 に限定されているため、同時に 3 チャンネル以上視聴することはできません。  
+高速で画質も QSV より若干良いのですが、Geforce シリーズでは同時にエンコードが可能なセッション数が 3 に限定されているため、同時に 3 チャンネル以上視聴することはできません。  
 同時に 4 チャンネル以上視聴しようとした場合、KonomiTV では「NVENC のエンコードセッションが不足しているため、ライブストリームを開始できません。」というエラーメッセージが表示されます。
 
 **VCEEncC は、Radeon などの AMD 製 GPU に搭載されているハードウェアエンコード機能 (AMD VCE) を利用するエンコーダーです。**  
-QSVEncC・NVEncC に比べると安定せず、利用者も少ないため安定稼働するかは微妙です。QSVEncC・NVEncC が使えるならそちらを選択することをおすすめします。
+QSVEncC・NVEncC に比べると安定しない上に、画質や性能もあまり良くありません。もし QSVEncC・NVEncC が使えるならそちらを使うことをおすすめします。
 
 #### リッスンポートの設定
 
@@ -469,8 +487,10 @@ QSVEncC・NVEncC に比べると安定せず、利用者も少ないため安定
 **環境設定の変更を反映するには、KonomiTV サーバー (KonomiTV Service) の再起動が必要です。**
 
 - Windows:「サービス」アプリを開いた後、サービス一覧の中から KonomiTV Service を探して、右クリックメニューから [再起動] をクリックしてください。   
-- Linux: `sudo pm2 restart konomitv` を実行してください。  
-- Linux (Docker): KonomiTV をインストールしたフォルダで `docker compose restart konomitv` を実行してください。
+  - または、管理者権限のコマンドラインから `sc stop "KonomiTV Service"; sc start "KonomiTV Service"` を実行してください。
+- Linux: `sudo pm2 restart KonomiTV` を実行してください。
+  - `sudo` をつけないと正しく実行できません (KonomiTV は root ユーザーの PM2 プロファイルに登録されているため) 。
+- Linux (Docker): KonomiTV をインストールしたフォルダで `docker compose restart` を実行してください。
 
 なお、config.yaml が存在しなかったり、設定項目が誤っているとサーバーの起動の時点でエラーが発生します。  
 その際は `server/logs/KonomiTV-Server.log` に出力されているエラーメッセージに従い、config.yaml の内容を確認してみてください。
