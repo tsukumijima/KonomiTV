@@ -91,7 +91,7 @@ async def TwitterAuthURLAPI(
     try:
         from app.app import consumer_key, consumer_secret
         oauth_handler = tweepy.OAuth1UserHandler(consumer_key, consumer_secret, callback=callback_url)
-        authorization_url = await asyncio.to_thread(oauth_handler.get_authorization_url, signin_with_twitter=True)  # 同期関数なのでスレッド上で実行
+        authorization_url = await asyncio.to_thread(oauth_handler.get_authorization_url, signin_with_twitter=False)  # 同期関数なのでスレッド上で実行
     except tweepy.TweepyException:
         Logging.error('[TwitterRouter][TwitterAuthURLAPI] Failed to get Twitter authorization URL')
         raise HTTPException(
