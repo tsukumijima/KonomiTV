@@ -290,21 +290,12 @@ class LiveEncodingTask:
                 options.append('--qp-min 23:26:30 --lookahead 16 --multipass 2pass-full --weightp --bref-mode middle --aq --aq-temporal')
 
         ## 品質
-        ### H.265/HEVC では中間、H.264 ではより速いプリセットを選択
-        if QUALITY[quality].is_hevc is True:
-            if encoder_type == 'QSVEncC':
-                options.append('--quality balanced')
-            elif encoder_type == 'NVEncC':
-                options.append('--preset default')
-            elif encoder_type == 'VCEEncC':
-                options.append('--preset balanced')
-        else:
-            if encoder_type == 'QSVEncC':
-                options.append('--quality faster')
-            elif encoder_type == 'NVEncC':
-                options.append('--preset P2')
-            elif encoder_type == 'VCEEncC':
-                options.append('--preset fast')
+        if encoder_type == 'QSVEncC':
+            options.append('--quality balanced')
+        elif encoder_type == 'NVEncC':
+            options.append('--preset default')
+        elif encoder_type == 'VCEEncC':
+            options.append('--preset balanced')
         options.append(f'--profile main --interlace tff --dar 16:9')
 
         ## 最大 GOP 長 (秒)
