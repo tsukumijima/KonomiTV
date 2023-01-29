@@ -159,6 +159,79 @@ export default Vue.extend({
             comment_mute_settings_modal: false,
         }
     },
+    async mounted() {
+
+        // コメントリストの要素を取得
+        if (this.comment_list_element === null) {
+            this.comment_list_element = this.$el.querySelector('.comment-list');
+        }
+
+        // 現在コメントリストがユーザーイベントでスクロールされているかどうか
+        let is_user_scrolling = false;
+
+        // mousedown → mouseup 中: スクロールバーをマウスでドラッグ
+        // 残念ながらスクロールバーのドラッグ中は mousemove のイベントが発火しないため、直接 is_user_scrolling を設定する
+        this.comment_list_element.onmousedown = (event: MouseEvent) => {
+            // コメントリストの要素の左上を起点としたカーソルのX座標を求める
+            const x = event.clientX - this.comment_list_element.getBoundingClientRect().left;
+            // 座標が clientWidth 以上であれば、スクロールバー上で mousedown されたものとする
+            if (x > this.comment_list_element.clientWidth) is_user_scrolling = true;
+        }
+        this.comment_list_element.onmouseup = (event: MouseEvent) => {
+            // コメントリストの要素の左上を起点としたカーソルのX座標を求める
+            const x = event.clientX - this.comment_list_element.getBoundingClientRect().left;
+            // 座標が clientWidth 以上であれば、スクロールバー上で mouseup されたものとする
+            if (x > this.comment_list_element.clientWidth) is_user_scrolling = false;
+        }
+
+        // ユーザーによるスクロールイベントで is_user_scrolling を true にする
+        // 0.1 秒後に false にする（継続してイベントが発火すれば再び true になる）
+        const on_user_scrolling = () => {
+            is_user_scrolling = true;
+            window.setTimeout(() => is_user_scrolling = false, 100);
+        }
+
+        // 現在コメントリストがドラッグされているかどうか
+        let is_dragging = false;
+        // touchstart → touchend 中: スクロールバーをタップでドラッグ
+        this.comment_list_element.ontouchstart = () => is_dragging = true;
+        this.comment_list_element.ontouchend = () => is_dragging = false;
+        // touchmove + is_dragging 中: コメントリストをタップでドラッグしてスクロール
+        this.comment_list_element.ontouchmove = () => is_dragging === true ? on_user_scrolling(): '';
+
+        // wheel 中: マウスホイールの回転
+        this.comment_list_element.onwheel = on_user_scrolling;
+
+        // コメントリストがスクロールされた際、自動スクロール中でない&ユーザーイベントで操作されていれば、手動スクロールモードに設定
+        // 手動スクロールモードでは自動スクロールを行わず、ユーザーがコメントリストをスクロールできるようにする
+        this.comment_list_element.onscroll = async () => {
+
+            // scroll イベントは自動スクロールでも発火してしまうので、ユーザーイベントによるスクロールかを確認しないといけない
+            // 自動スクロール中かどうかは is_auto_scrolling が true のときで判定できるはずだが、
+            // コメントが多くなると is_auto_scrolling が false なのに scroll イベントが遅れて発火してしまうことがある
+            if (this.is_auto_scrolling === false && is_user_scrolling === true) {
+
+                // 手動スクロールを有効化
+                this.is_manual_scroll = true;
+
+                // イベント発火時点では scrollTop の値が完全に下にスクロールされていない場合があるため、0.1秒だけ待つ
+                await Utils.sleep(0.1);
+
+                // 一番下までスクロールされていたら自動スクロールに戻す
+                if ((this.comment_list_element.scrollTop + this.comment_list_element.offsetHeight) >
+                    (this.comment_list_element.scrollHeight - 10)) {  // 一番下から 10px 以内
+                    this.is_manual_scroll = false;  // 手動スクロールを無効化
+                }
+            }
+        }
+
+        // ユーザーアカウントの情報を取得
+        try {
+            this.user = (await Vue.axios.get('/users/me')).data;
+        } catch (error) {
+            this.user = null;
+        }
+    },
     // 終了前に実行
     beforeDestroy() {
 
@@ -194,103 +267,40 @@ export default Vue.extend({
                 // 前の視聴セッション・コメントセッションを破棄
                 this.destroy();
 
-                // コメントリストの要素を取得
-                if (this.comment_list_element === null) {
-                    this.comment_list_element = this.$el.querySelector('.comment-list');
-                }
-
-                // 現在コメントリストがユーザーイベントでスクロールされているかどうか
-                let is_user_scrolling = false;
-
-                // mousedown → mouseup 中: スクロールバーをマウスでドラッグ
-                // 残念ながらスクロールバーのドラッグ中は mousemove のイベントが発火しないため、直接 is_user_scrolling を設定する
-                this.comment_list_element.onmousedown = (event: MouseEvent) => {
-                    // コメントリストの要素の左上を起点としたカーソルのX座標を求める
-                    const x = event.clientX - this.comment_list_element.getBoundingClientRect().left;
-                    // 座標が clientWidth 以上であれば、スクロールバー上で mousedown されたものとする
-                    if (x > this.comment_list_element.clientWidth) is_user_scrolling = true;
-                }
-                this.comment_list_element.onmouseup = (event: MouseEvent) => {
-                    // コメントリストの要素の左上を起点としたカーソルのX座標を求める
-                    const x = event.clientX - this.comment_list_element.getBoundingClientRect().left;
-                    // 座標が clientWidth 以上であれば、スクロールバー上で mouseup されたものとする
-                    if (x > this.comment_list_element.clientWidth) is_user_scrolling = false;
-                }
-
-                // ユーザーによるスクロールイベントで is_user_scrolling を true にする
-                // 0.1 秒後に false にする（継続してイベントが発火すれば再び true になる）
-                const on_user_scrolling = () => {
-                    is_user_scrolling = true;
-                    window.setTimeout(() => is_user_scrolling = false, 100);
-                }
-
-                // 現在コメントリストがドラッグされているかどうか
-                let is_dragging = false;
-                // touchstart → touchend 中: スクロールバーをタップでドラッグ
-                this.comment_list_element.ontouchstart = () => is_dragging = true;
-                this.comment_list_element.ontouchend = () => is_dragging = false;
-                // touchmove + is_dragging 中: コメントリストをタップでドラッグしてスクロール
-                this.comment_list_element.ontouchmove = () => is_dragging === true ? on_user_scrolling(): '';
-
-                // wheel 中: マウスホイールの回転
-                this.comment_list_element.onwheel = on_user_scrolling;
-
-                // コメントリストがスクロールされた際、自動スクロール中でない&ユーザーイベントで操作されていれば、手動スクロールモードに設定
-                // 手動スクロールモードでは自動スクロールを行わず、ユーザーがコメントリストをスクロールできるようにする
-                this.comment_list_element.onscroll = async () => {
-
-                    // scroll イベントは自動スクロールでも発火してしまうので、ユーザーイベントによるスクロールかを確認しないといけない
-                    // 自動スクロール中かどうかは is_auto_scrolling が true のときで判定できるはずだが、
-                    // コメントが多くなると is_auto_scrolling が false なのに scroll イベントが遅れて発火してしまうことがある
-                    if (this.is_auto_scrolling === false && is_user_scrolling === true) {
-
-                        // 手動スクロールを有効化
-                        this.is_manual_scroll = true;
-
-                        // イベント発火時点では scrollTop の値が完全に下にスクロールされていない場合があるため、0.1秒だけ待つ
-                        await Utils.sleep(0.1);
-
-                        // 一番下までスクロールされていたら自動スクロールに戻す
-                        if ((this.comment_list_element.scrollTop + this.comment_list_element.offsetHeight) >
-                            (this.comment_list_element.scrollHeight - 10)) {  // 一番下から 10px 以内
-                            this.is_manual_scroll = false;  // 手動スクロールを無効化
-                        }
-                    }
-                }
-
                 // リサイズ時のイベントを初期化
+                // イベントはプレイヤーの DOM に紐づいているため、プレイヤーが破棄→再初期化される毎に実行する必要がある
                 await this.initReserveObserver();
 
-                // ユーザーアカウントの情報を取得
-                try {
-                    this.user = (await Vue.axios.get('/users/me')).data;
-                } catch (error) {
-                    this.user = null;
-                }
-
-                try {
-
-                    // 視聴セッションを初期化
-                    const comment_session_info = await this.initWatchSession();
-
-                    // vpos の基準時刻のタイムスタンプを取得
-                    // vpos は番組開始時間からの累計秒（10ミリ秒単位）
-                    this.vpos_base_timestamp = dayjs(comment_session_info['vpos_base_time']).unix() * 100;
-
-                    // コメントセッションを初期化
-                    await this.initCommentSession(comment_session_info);
-
-                } catch (error) {
-
-                    // 初期化に失敗した場合のエラーメッセージを保存しておく
-                    // 初期化に失敗したのにコメントを送信しようとした際に表示するもの
-                    this.initialize_failed_message = error.message;
-                    console.error(error.toString());
-                }
+                // 現在のチャンネル情報で視聴セッション・コメントセッションを初期化
+                await this.init();
             }
         }
     },
     methods: {
+
+        // 視聴セッション・コメントセッションを初期化する
+        async init() {
+
+            try {
+
+                // 視聴セッションを初期化
+                const comment_session_info = await this.initWatchSession();
+
+                // vpos の基準時刻のタイムスタンプを取得
+                // vpos は番組開始時間からの累計秒（10ミリ秒単位）
+                this.vpos_base_timestamp = dayjs(comment_session_info['vpos_base_time']).unix() * 100;
+
+                // コメントセッションを初期化
+                await this.initCommentSession(comment_session_info);
+
+            } catch (error) {
+
+                // 初期化に失敗した場合のエラーメッセージを保存しておく
+                // 初期化に失敗したのにコメントを送信しようとした際に表示するもの
+                this.initialize_failed_message = error.message;
+                console.error(error.toString());
+            }
+        },
 
         // 視聴セッションを初期化
         async initWatchSession(): Promise<{[key: string]: string | null}> {
@@ -885,6 +895,7 @@ export default Vue.extend({
         },
 
         // リサイズ時のイベントを初期化
+        // プレイヤーが初期化される毎に実行する必要がある
         async initReserveObserver() {
 
             // 監視対象の要素
@@ -961,6 +972,11 @@ export default Vue.extend({
                     comment_area_element.style.removeProperty('--comment-area-aspect-ratio');
                     comment_area_element.style.removeProperty('--comment-area-vertical-margin');
                 }
+            }
+
+            // 以前に初期化された ResizeObserver を終了
+            if (this.resize_observer !== null) {
+                this.resize_observer.unobserve(this.resize_observer_element);
             }
 
             // 要素の監視を開始
