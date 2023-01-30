@@ -204,8 +204,8 @@ import Twitter from '@/components/Panel/Twitter.vue';
 import Utils, { ChannelUtils, PlayerCaptureHandler, PlayerUtils, ProgramUtils } from '@/utils';
 
 // 低遅延モードオン時の再生バッファ (秒単位)
-// これ以上小さくすると再生が詰まりやすくなる印象
-const PLAYBACK_BUFFER_SEC_LOW_LATENCY = 1.1;
+// 0.4 秒程度余裕を持たせる
+const PLAYBACK_BUFFER_SEC_LOW_LATENCY = 0.4;
 
 // 低遅延モードオフ時の再生バッファ (秒単位)
 // 5秒程度の遅延を許容する
@@ -1510,19 +1510,22 @@ export default Vue.extend({
 
                         // 基本的に Offline は放送休止中やエラーなどで復帰の見込みがない状態
 
-                        // ステータス詳細をプレイヤーに表示
-                        // 動画の読み込みエラーが送出された時にメッセージを上書きする
-                        this.player.notice(event.detail, -1);
-                        this.player.video.onerror = () => {
+                        if (this.player !== null) {
+
+                            // ステータス詳細をプレイヤーに表示
+                            // 動画の読み込みエラーが送出された時にメッセージを上書きする
                             this.player.notice(event.detail, -1);
-                            this.player.video.onerror = null;
+                            this.player.video.onerror = () => {
+                                this.player.notice(event.detail, -1);
+                                this.player.video.onerror = null;
+                            }
+
+                            // 描画されたコメントをクリア
+                            this.player.danmaku.clear()
+
+                            // 動画を停止する
+                            this.player.video.pause();
                         }
-
-                        // 描画されたコメントをクリア
-                        this.player.danmaku.clear()
-
-                        // 動画を停止する
-                        this.player.video.pause();
 
                         // イベントソースを閉じる（復帰の見込みがないため）
                         this.eventsource.close();
