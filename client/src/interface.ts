@@ -131,7 +131,7 @@ export interface IVersionInformation {
     encoder: 'FFmpeg' | 'QSVEncC' | 'NVEncC' | 'VCEEncC';
 }
 
-// DPlayer のコメントデータの型
+// DPlayer のコメントデータのインターフェイス
 // KonomiTV で使うプロパティのみ定義している
 // ref: https://github.com/tsukumijima/DPlayer/blob/master/src/js/danmaku.js#L86-L96
 export interface IDPlayerDanmaku {
@@ -143,7 +143,7 @@ export interface IDPlayerDanmaku {
     size: 'big' | 'medium' | 'small';
 }
 
-// コメントを送信する際に DPlayer から受け取るオプションの型
+// コメントを送信する際に DPlayer から受け取るオプションのインターフェイス
 // KonomiTV で使うプロパティのみ定義している
 // ref: https://github.com/tsukumijima/DPlayer/blob/master/src/js/danmaku.js#L98-L121
 export interface IDPlayerDanmakuSendOptions {
@@ -152,7 +152,7 @@ export interface IDPlayerDanmakuSendOptions {
     error: (message: string | undefined) => void;
 }
 
-// キャプチャに書き込む EXIF メタデータの型
+// キャプチャに書き込む EXIF メタデータのインターフェイス
 export interface ICaptureExifData {
     captured_at: string;
     captured_playback_position: number;
@@ -169,7 +169,7 @@ export interface ICaptureExifData {
     is_comment_composited: boolean;
 }
 
-// ミュート済みのコメントのキーワードが入るリスト
+// ミュート対象のコメントのキーワードのインターフェイス
 export interface IMutedCommentKeywords {
     match: 'partial' | 'forward' | 'backward' | 'exact' | 'regex';
     pattern: string;

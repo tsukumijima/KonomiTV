@@ -235,7 +235,7 @@ export default Vue.extend({
     // 終了前に実行
     beforeDestroy() {
 
-        // destroy() を実行
+        // 視聴セッション・コメントセッションを破棄
         this.destroy();
 
         // ResizeObserver を終了
@@ -403,7 +403,7 @@ export default Vue.extend({
                         case 'error': {
 
                             // エラー情報
-                            let error:string;
+                            let error: string;
                             switch (message.data.code) {
 
                                 case 'CONNECT_ERROR':
