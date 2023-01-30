@@ -80,22 +80,22 @@ jobs:
           rm thirdparty/FFmpeg/ffplay.exe
 
           # QSVEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/QSVEnc/releases/download/7.28/QSVEncC_7.28_x64.7z
-          7z x -y -o"thirdparty/QSVEncC" QSVEncC_7.28_x64.7z
+          curl -LO https://github.com/rigaya/QSVEnc/releases/download/7.29/QSVEncC_7.29_x64.7z
+          7z x -y -o"thirdparty/QSVEncC" QSVEncC_7.29_x64.7z
           rm thirdparty/QSVEncC/hdr10plus_gen.exe
           mv thirdparty/QSVEncC/QSVEncC64.exe thirdparty/QSVEncC/QSVEncC.exe
           curl -L -o thirdparty/QSVEncC/License.txt https://raw.githubusercontent.com/rigaya/QSVEnc/master/license.txt
 
           # NVEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/NVEnc/releases/download/7.13/NVEncC_7.13_x64.7z
-          7z x -y -o"thirdparty/NVEncC" NVEncC_7.13_x64.7z
+          curl -LO https://github.com/rigaya/NVEnc/releases/download/7.14/NVEncC_7.14_x64.7z
+          7z x -y -o"thirdparty/NVEncC" NVEncC_7.14_x64.7z
           rm thirdparty/NVEncC/hdr10plus_gen.exe
           mv thirdparty/NVEncC/NVEncC64.exe thirdparty/NVEncC/NVEncC.exe
           curl -L -o thirdparty/NVEncC/License.txt https://raw.githubusercontent.com/rigaya/NVEnc/master/NVEnc_license.txt
 
           # VCEEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/VCEEnc/releases/download/7.18/VCEEncC_7.18_x64.7z
-          7z x -y -o"thirdparty/VCEEncC" VCEEncC_7.18_x64.7z
+          curl -LO https://github.com/rigaya/VCEEnc/releases/download/8.01/VCEEncC_8.01_x64.7z
+          7z x -y -o"thirdparty/VCEEncC" VCEEncC_8.01_x64.7z
           rm thirdparty/VCEEncC/hdr10plus_gen.exe
           mv thirdparty/VCEEncC/VCEEncC64.exe thirdparty/VCEEncC/VCEEncC.exe
           curl -L -o thirdparty/VCEEncC/License.txt https://raw.githubusercontent.com/rigaya/VCEEnc/master/VCEEnc_license.txt
@@ -222,8 +222,8 @@ jobs:
           find thirdparty/Library/*.so* -not -type l -not -type d | xargs chmod a+x
 
           # QSVEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/QSVEnc/releases/download/7.28/qsvencc_7.28_Ubuntu20.04_amd64.deb
-          7z x -y qsvencc_7.28_Ubuntu20.04_amd64.deb && tar xvf data.tar
+          curl -LO https://github.com/rigaya/QSVEnc/releases/download/7.29/qsvencc_7.29_Ubuntu20.04_amd64.deb
+          7z x -y qsvencc_7.29_Ubuntu20.04_amd64.deb && tar xvf data.tar
           mkdir thirdparty/QSVEncC/
           cp usr/bin/qsvencc thirdparty/QSVEncC/QSVEncC.elf
           chmod a+x thirdparty/QSVEncC/QSVEncC.elf
@@ -231,8 +231,8 @@ jobs:
           curl -L -o thirdparty/QSVEncC/License.txt https://raw.githubusercontent.com/rigaya/QSVEnc/master/license.txt
 
           # NVEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/NVEnc/releases/download/7.13/nvencc_7.13_Ubuntu20.04_amd64.deb
-          7z x -y nvencc_7.13_Ubuntu20.04_amd64.deb && tar xvf data.tar
+          curl -LO https://github.com/rigaya/NVEnc/releases/download/7.14/nvencc_7.14_Ubuntu20.04_amd64.deb
+          7z x -y nvencc_7.14_Ubuntu20.04_amd64.deb && tar xvf data.tar
           mkdir thirdparty/NVEncC/
           cp usr/bin/nvencc thirdparty/NVEncC/NVEncC.elf
           chmod a+x thirdparty/NVEncC/NVEncC.elf
@@ -240,8 +240,8 @@ jobs:
           curl -L -o thirdparty/NVEncC/License.txt https://raw.githubusercontent.com/rigaya/NVEnc/master/NVEnc_license.txt
 
           # VCEEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/VCEEnc/releases/download/7.18/vceencc_7.18_Ubuntu20.04_amd64.deb
-          7z x -y vceencc_7.18_Ubuntu20.04_amd64.deb && tar xvf data.tar
+          curl -LO https://github.com/rigaya/VCEEnc/releases/download/8.01/vceencc_8.01_Ubuntu20.04_amd64.deb
+          7z x -y vceencc_8.01_Ubuntu20.04_amd64.deb && tar xvf data.tar
           mkdir thirdparty/VCEEncC/
           cp usr/bin/vceencc thirdparty/VCEEncC/VCEEncC.elf
           chmod a+x thirdparty/VCEEncC/VCEEncC.elf
