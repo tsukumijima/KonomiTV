@@ -131,27 +131,6 @@ export interface IVersionInformation {
     encoder: 'FFmpeg' | 'QSVEncC' | 'NVEncC' | 'VCEEncC';
 }
 
-// DPlayer のコメントデータのインターフェイス
-// KonomiTV で使うプロパティのみ定義している
-// ref: https://github.com/tsukumijima/DPlayer/blob/master/src/js/danmaku.js#L86-L96
-export interface IDPlayerDanmaku {
-    author: string;
-    time: number;
-    text: string;
-    color: string;
-    type: 'top' | 'right' | 'bottom';
-    size: 'big' | 'medium' | 'small';
-}
-
-// コメントを送信する際に DPlayer から受け取るオプションのインターフェイス
-// KonomiTV で使うプロパティのみ定義している
-// ref: https://github.com/tsukumijima/DPlayer/blob/master/src/js/danmaku.js#L98-L121
-export interface IDPlayerDanmakuSendOptions {
-    data: IDPlayerDanmaku;
-    success: () => void;
-    error: (message: string | undefined) => void;
-}
-
 // キャプチャに書き込む EXIF メタデータのインターフェイス
 export interface ICaptureExifData {
     captured_at: string;

@@ -190,7 +190,6 @@
 
 import { AxiosResponse } from 'axios';
 import dayjs from 'dayjs';
-// @ts-ignore  JavaScript で書かれているので型定義がなく、作ろうとするとややこしくなるので黙殺
 import DPlayer from 'dplayer';
 import mpegts from 'mpegts.js';
 import Vue from 'vue';
@@ -940,10 +939,10 @@ export default Vue.extend({
                 },
                 // コメント API バックエンド
                 apiBackend: {
-                    // コメント受信時
+                    // コメント取得時
                     read: (options) => {
-                        // 成功したことにして通知を抑制
-                        options.success([{}]);
+                        // 空の配列を返す (こうするとコメント0件と認識される)
+                        options.success([]);
                     },
                     // コメント送信時
                     send: async (options) => {
@@ -986,7 +985,7 @@ export default Vue.extend({
                         // 高解像度の字幕 Canvas を取得できるように
                         enableRawCanvas: true,
                         // 縁取りに strokeText API を利用
-                        useStrokeText: true,
+                        useStroke: true,
                         // Unicode 領域の代わりに私用面の領域を利用 (Windows TV 系フォントのみ)
                         usePUA: (() => {
                             const font = Utils.getSettingsItem('caption_font') as string;

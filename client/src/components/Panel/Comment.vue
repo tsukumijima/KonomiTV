@@ -72,9 +72,10 @@
 
 import { AxiosResponse } from 'axios';
 import dayjs from 'dayjs';
+import * as DPlayerType from 'dplayer/src/types/DPlayer';
 import Vue, { PropType } from 'vue';
 
-import { IChannel, IDPlayerDanmakuSendOptions, IUser } from '@/interface';
+import { IChannel, IUser } from '@/interface';
 import CommentMuteSettings from '@/components/Settings/CommentMuteSettings.vue';
 import Utils, { CommentUtils } from '@/utils';
 
@@ -768,7 +769,7 @@ export default Vue.extend({
         },
 
         // コメントを送信する
-        async sendComment(options: IDPlayerDanmakuSendOptions) {
+        async sendComment(options: DPlayerType.APIBackendSendOptions) {
 
             // 初期化に失敗しているときは実行せず、保存しておいたエラーメッセージを表示する
             if (this.initialize_failed_message !== null) {
