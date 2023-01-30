@@ -5291,9 +5291,9 @@ module-alias@^2.2.2:
   resolved "https://registry.npmmirror.com/module-alias/-/module-alias-2.2.2.tgz#151cdcecc24e25739ff0aa6e51e1c5716974c0e0"
   integrity sha512-A/78XjoX2EmNvppVWEhM2oGk3x4lLxnkEA4jTbaK97QKSDjkIoOsKQlfylt/d3kKKi596Qy3NP5XrXJ6fZIC9Q==
 
-"mpegts.js@github:tsukumijima/mpegts.js#0e4d13a532a51c4d553a63aaecc827897e58dd21":
+"mpegts.js@github:tsukumijima/mpegts.js#9d6af4fae722a334e907712c384b23e53bebcce6":
   version "1.7.2"
-  resolved "https://codeload.github.com/tsukumijima/mpegts.js/tar.gz/0e4d13a532a51c4d553a63aaecc827897e58dd21"
+  resolved "https://codeload.github.com/tsukumijima/mpegts.js/tar.gz/9d6af4fae722a334e907712c384b23e53bebcce6"
   dependencies:
     es6-promise "^4.2.5"
     webworkify-webpack "^2.1.5"

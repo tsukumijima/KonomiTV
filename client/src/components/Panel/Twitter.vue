@@ -162,6 +162,7 @@
 <script lang="ts">
 
 import axios from 'axios';
+import DPlayer from 'dplayer';
 import Vue, { PropType } from 'vue';
 import draggable from 'vuedraggable'
 
@@ -197,7 +198,7 @@ export default Vue.extend({
         },
         // プレイヤーのインスタンス
         player: {
-            type: null as PropType<any>,  // 代入当初は null になるため苦肉の策
+            type: null as PropType<DPlayer>,  // 代入当初は null になるため苦肉の策
             required: true,
         },
         // 仮想キーボードが表示されているかどうか

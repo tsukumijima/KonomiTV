@@ -191,6 +191,7 @@
 import { AxiosResponse } from 'axios';
 import dayjs from 'dayjs';
 import DPlayer from 'dplayer';
+import * as DPlayerType from 'dplayer/dist/d.ts/types/DPlayer';
 import mpegts from 'mpegts.js';
 import Vue from 'vue';
 
@@ -311,7 +312,10 @@ export default Vue.extend({
             // ***** プレイヤー *****
 
             // プレイヤー (DPlayer) のインスタンス
-            player: null,
+            player: null as DPlayer | null,
+
+            // プレイヤーの破棄を許可するかどうか
+            player_can_be_destroyed: false,
 
             // mpegts.js がサポートされているかどうか
             // mpegts.js がサポートされていない場合は LL-HLS にフォールバックする (基本 iPhone Safari 向け)
@@ -595,7 +599,7 @@ export default Vue.extend({
 
             // プレイヤーがまだ初期化されていない or 他のチャンネルからの切り替えですでにプレイヤーが初期化されているけど破棄が可能
             // update() 自体は初期化時以外にも1分ごとに定期実行されるため、その際に毎回プレイヤーを再初期化しないようにする
-            if (this.player === null || this.player.KonomiTVCanDestroy === true) {
+            if (this.player === null || this.player_can_be_destroyed === true) {
 
                 // プレイヤー (DPlayer) 周りのセットアップ
                 this.initPlayer();
@@ -629,7 +633,7 @@ export default Vue.extend({
                         this.player.template.audioItem[1].classList.remove('dplayer-setting-audio-current');
                         this.player.template.audioValue.textContent = this.player.tran('Primary audio');
                         try {
-                            if (this.player.plugins.mpegts !== undefined) {
+                            if (this.player.plugins.mpegts !== undefined && this.player.plugins.mpegts instanceof mpegts.MSEPlayer) {
                                 this.player.plugins.mpegts.switchPrimaryAudio();
                             }
                             if (this.player.plugins.liveLLHLSForKonomiTV !== undefined) {
@@ -841,7 +845,7 @@ export default Vue.extend({
 
             // すでに DPlayer が初期化されている場合は破棄する
             // チャンネル切り替え時などが該当する
-            if (this.player !== null && this.player.KonomiTVCanDestroy === true) {
+            if (this.player !== null && this.player_can_be_destroyed === true) {
                 try {
                     this.player.destroy();
                 } catch (error) {
@@ -877,7 +881,7 @@ export default Vue.extend({
                     defaultQuality: (this.channel.is_radiochannel) ? '48kHz/192kbps' : Utils.getSettingsItem('tv_streaming_quality'),
                     // 品質リスト
                     quality: (() => {
-                        const qualities = [];
+                        const qualities: DPlayerType.VideoQuality[] = [];
 
                         // ラジオチャンネル
                         // API が受け付ける品質の値は通常のチャンネルと同じだが (手抜き…)、実際の品質は 48KHz/192kbps で固定される
@@ -1081,9 +1085,12 @@ export default Vue.extend({
                 this.player.danmaku.send(
                     {
                         text: this.player.template.commentInput.value,
-                        color: this.player.container.querySelector('.dplayer-comment-setting-color input:checked').value,
-                        type: this.player.container.querySelector('.dplayer-comment-setting-type input:checked').value,
-                        size: this.player.container.querySelector('.dplayer-comment-setting-size input:checked').value,
+                        color: this.player.container.
+                            querySelector<HTMLInputElement>('.dplayer-comment-setting-color input:checked').value,
+                        type: this.player.container.
+                            querySelector<HTMLInputElement>('.dplayer-comment-setting-type input:checked').value as DPlayerType.DanmakuType,
+                        size: this.player.container.
+                            querySelector<HTMLInputElement>('.dplayer-comment-setting-size input:checked').value as DPlayerType.DanmakuSize,
                     },
                     // 送信完了後にコメント入力フォームを閉じる ([コメント送信後にコメント入力フォームを閉じる] がオンのときだけ)
                     () => {
@@ -2095,9 +2102,9 @@ export default Vue.extend({
             // プレイヤーの背景を隠す
             this.is_background_display = false;
 
-            // プレイヤーに破棄が可能なフラグをつける
+            // プレイヤーの破棄を許可する
             if (this.player !== null) {
-                this.player.KonomiTVCanDestroy = true;
+                this.player_can_be_destroyed = true;
             }
 
             // イベントソースを閉じる

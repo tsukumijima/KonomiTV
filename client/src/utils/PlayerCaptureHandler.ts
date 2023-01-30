@@ -1,6 +1,7 @@
 
 import { Buffer } from 'buffer';
 import { convertBlobToPng, copyBlobToClipboard } from 'copy-image-clipboard';
+import DPlayer from 'dplayer';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ja';
 import * as piexif from 'piexifjs';
@@ -11,15 +12,15 @@ import Utils from './Utils';
 
 export class PlayerCaptureHandler {
 
-    private player: any;
-    private player_container: HTMLDivElement;
+    private player: DPlayer;
+    private player_container: HTMLElement;
     private captured_callback: (blob: Blob, filename: string) => void;
     private capture_button: HTMLDivElement;
     private comment_capture_button: HTMLDivElement;
     private canvas: OffscreenCanvas | HTMLCanvasElement;
     private canvas_context: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
 
-    constructor(player: any, captured_callback: (blob: Blob, filename: string) => void) {
+    constructor(player: DPlayer, captured_callback: (blob: Blob, filename: string) => void) {
 
         this.player = player;
         this.player_container = this.player.container;
@@ -127,17 +128,19 @@ export class PlayerCaptureHandler {
         const superimpose_canvas: HTMLCanvasElement = this.player.plugins.aribb24Superimpose.getRawCanvas();
 
         // 字幕が表示されているか
+        // @ts-ignore
         const is_caption_showing = (this.player.plugins.aribb24Caption.isShowing === true &&
                                     this.player.plugins.aribb24Caption.isPresent());
 
         // 文字スーパーが表示されているか
+        // @ts-ignore
         const is_superimpose_showing = (this.player.plugins.aribb24Superimpose.isShowing === true &&
                                         this.player.plugins.aribb24Superimpose.isPresent());
 
         // 字幕が表示されている場合、表示中の字幕のテキストを取得
         // 取得した字幕のテキストは、キャプチャに字幕が合成されているかに関わらず、常に EXIF メタデータに書き込まれる
         // 字幕が表示されていない場合は null を入れ、キャプチャしたシーンで字幕が表示されていなかったことを明示する
-        const caption_text = is_caption_showing ? (this.player.plugins.aribb24Caption.getTextContent() as string) : null;
+        const caption_text = is_caption_showing ? this.player.plugins.aribb24Caption.getTextContent() : null;
 
         // エクスポートして保存する共通処理
         const export_and_save = async (
@@ -475,7 +478,7 @@ export class PlayerCaptureHandler {
     private async createCommentsImage(): Promise<HTMLImageElement> {
 
         // コメントが表示されている要素の HTML を取得する
-        let comments_html = (this.player.template.danmaku as HTMLDivElement).outerHTML;
+        let comments_html = this.player.template.danmaku.outerHTML;
 
         // HTML を取得するだけではスクロール中コメントの表示位置が特定できないため、HTML を修正する
         for (const comment of this.player_container.querySelectorAll('.dplayer-danmaku-move')) { // コメントの数だけ置換
@@ -490,8 +493,8 @@ export class PlayerCaptureHandler {
         // SVG はベクター画像なので、リサイズしても画質が変わらないはず
         return await this.commentsHTMLtoSVGImage(
             comments_html,
-            (this.player.template.danmaku as HTMLDivElement).offsetWidth,
-            (this.player.template.danmaku as HTMLDivElement).offsetHeight,
+            this.player.template.danmaku.offsetWidth,
+            this.player.template.danmaku.offsetHeight,
         );
     }
 
@@ -503,11 +506,11 @@ export class PlayerCaptureHandler {
 
         // コメント描画領域がコントロールの表示によりリサイズされている (=16:9でない) 場合も考慮して、コメント要素の offsetWidth から高さを求める
         // 映像の横解像度 (ex: 1920) がコメント描画領域の幅 (ex: 1280) の何倍かの割合 (ex: 1.5 (150%))
-        const draw_scale_ratio = this.canvas.width / (this.player.template.danmaku as HTMLDivElement).offsetWidth;
+        const draw_scale_ratio = this.canvas.width / this.player.template.danmaku.offsetWidth;
 
         // コメント描画領域の高さを映像の横解像度に合わせて（コメント描画領域のアスペクト比を維持したまま）拡大した値
         // 映像の縦解像度が 1080 のとき、コントロールがコメント領域と被っていない or 表示されていないなら、この値は 1080 に近くなる
-        const draw_height = (this.player.template.danmaku as HTMLDivElement).offsetHeight * draw_scale_ratio;
+        const draw_height = this.player.template.danmaku.offsetHeight * draw_scale_ratio;
 
         this.canvas_context.drawImage(comments_image, 0, 0, this.canvas.width, draw_height);
     }

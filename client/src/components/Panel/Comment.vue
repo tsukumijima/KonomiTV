@@ -72,7 +72,8 @@
 
 import { AxiosResponse } from 'axios';
 import dayjs from 'dayjs';
-import * as DPlayerType from 'dplayer/src/types/DPlayer';
+import DPlayer from 'dplayer';
+import * as DPlayerType from 'dplayer/dist/d.ts/types/DPlayer';
 import Vue, { PropType } from 'vue';
 
 import { IChannel, IUser } from '@/interface';
@@ -101,7 +102,7 @@ export default Vue.extend({
         },
         // プレイヤーのインスタンス
         player: {
-            type: null as PropType<any>,  // 代入当初は null になるため苦肉の策
+            type: null as PropType<DPlayer>,  // 代入当初は null になるため苦肉の策
             required: true,
         }
     },
