@@ -1506,9 +1506,8 @@ export default Vue.extend({
                     }
 
                     // Status: Offline
+                    // 基本的に Offline は放送休止中やエラーなどで復帰の見込みがない状態
                     case 'Offline': {
-
-                        // 基本的に Offline は放送休止中やエラーなどで復帰の見込みがない状態
 
                         if (this.player !== null) {
 
@@ -1528,7 +1527,10 @@ export default Vue.extend({
                         }
 
                         // イベントソースを閉じる（復帰の見込みがないため）
-                        this.eventsource.close();
+                        if (this.eventsource !== null) {
+                            this.eventsource.close();
+                            this.eventsource = null;
+                        }
 
                         // プレイヤーの背景を表示する
                         this.is_background_display = true;
