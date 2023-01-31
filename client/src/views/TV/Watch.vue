@@ -309,6 +309,10 @@ export default Vue.extend({
             // ザッピング（「前/次のチャンネル」ボタン or 上下キーショートカット）によるチャンネル移動かどうか
             is_zapping: false,
 
+            // ザッピングで連続してチャンネルを切り替えている最中かどうか
+            // 「連続して」とは、切り替える間隔が 0.5 秒以下で、再生セッションが初期化される前に次のチャンネルに切り替えたときのこと
+            is_zapping_continuously: false,
+
             // ***** プレイヤー *****
 
             // プレイヤー (DPlayer) のインスタンス
@@ -478,7 +482,11 @@ export default Vue.extend({
     beforeRouteUpdate(to, from, next) {
 
         // 前の再生セッションを破棄して終了する
-        this.destroy();
+        const destroy_promise = this.destroy(false, this.is_zapping_continuously);
+
+        // 連続してチャンネルを切り替えていることを示すフラグを立てる
+        // このフラグは再生セッションが初期化されるタイミングで必ず降ろされる
+        this.is_zapping_continuously = true;
 
         // チャンネル ID を次のチャンネルのものに切り替える
         this.channel_id = to.params.channel_id;
@@ -499,14 +507,19 @@ export default Vue.extend({
             // 連続してチャンネルを切り替えた際に毎回再生処理を開始しないように猶予を設ける
             if (this.is_zapping === true) {
                 this.is_zapping = false;
-                this.interval_ids.push(window.setTimeout(() => this.init(), 500));
+                this.interval_ids.push(window.setTimeout(() => {
+                    this.is_zapping_continuously = false;  // 新しいセッションを初期化するので、フラグを下ろす
+                    destroy_promise.then(() => this.init());  // destroy() の実行完了を待ってから初期化する
+                }, 0.5 * 1000));
 
             // 通常のチャンネル移動時は、すぐに再生セッションを初期化する
             } else {
-                this.init();
+                this.is_zapping_continuously = false;  // 新しいセッションを初期化するので、フラグを下ろす
+                destroy_promise.then(() => this.init());  // destroy() の実行完了を待ってから初期化する
             }
         })();
 
+        // 次のルートに置き換え
         next();
     },
     watch: {
@@ -1283,41 +1296,27 @@ export default Vue.extend({
             // これを設定しないと、クロスオリジンの場合にキャプチャができない
             this.player.video.crossOrigin = 'anonymous';
 
-            // mpegts.js 再生時かつローディング中 & バッファリング中のみ、
-            // 1秒間、0.01 秒ごとに繰り返し this.player.play() を繰り返す (ゴリ押し)
-            // なぜかこれをやらないと音声の自動再生が有効になっていても自動再生できなかったりする
-            // 1秒間に100回も繰り返している理由は再生ボタンのちらつきを防ぐため
-            if (this.is_mpegts_supported === true) {
-                (async () => {
-                    for (let i = 0; i < 100; i++) {
-                        if (this.is_loading === false) {
-                            break;
-                        }
-                        this.player.play();
-                        await Utils.sleep(0.01);
-                    }
-                })();
-            }
-
-            // LL-HLS 再生時のみ、ローディングが終わるまでは pause イベントが起きても強制的にアイコンなどを再生表示に戻す
+            // LL-HLS 再生時のみ、ローディングが終わるまでは表示上再生状態を維持する
+            // play() が正常に実行できればいいのだが、Safari の自動再生制限により失敗することがあるので、
+            // その際はアイコンの HTML を書き換えたりして強制的に再生状態にする (苦肉の策)
             if (this.is_mpegts_supported === false) {
-                // 0.01 秒ごとに監視
-                const timer = window.setInterval(async () => {
-                    const pause_icon = '<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 17 32"><path d="M14.080 4.8q2.88 0 2.88 2.048v18.24q0 2.112-2.88 2.112t-2.88-2.112v-18.24q0-2.048 2.88-2.048zM2.88 4.8q2.88 0 2.88 2.048v18.24q0 2.112-2.88 2.112t-2.88-2.112v-18.24q0-2.048 2.88-2.048z"></path></svg>';
-                    this.player.template.playButton.innerHTML = pause_icon;
-                    this.player.template.mobilePlayButton.innerHTML = pause_icon;
-                    this.player.container.classList.remove('dplayer-paused');
-                    this.player.container.classList.add('dplayer-playing');
-                    this.player.danmaku.play();
-                    // ローディング表示が消えたタイミングで上記のイベントを登録解除
+                const force_play = () => {
+                    this.player.video.play().catch(() => {
+                        console.warn('HTMLVideoElement.play() rejected. run fallback.');
+                        const pause_icon = '<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 17 32"><path d="M14.080 4.8q2.88 0 2.88 2.048v18.24q0 2.112-2.88 2.112t-2.88-2.112v-18.24q0-2.048 2.88-2.048zM2.88 4.8q2.88 0 2.88 2.048v18.24q0 2.112-2.88 2.112t-2.88-2.112v-18.24q0-2.048 2.88-2.048z"></path></svg>';
+                        this.player.template.playButton.innerHTML = pause_icon;
+                        this.player.template.mobilePlayButton.innerHTML = pause_icon;
+                        this.player.container.classList.remove('dplayer-paused');
+                        this.player.container.classList.add('dplayer-playing');
+                        this.player.danmaku.play();
+                    });
+                    // ローディング表示が消えたタイミングでイベントを登録解除
                     if (this.is_loading === false) {
-                        window.clearInterval(timer);
-                        // この時点で動画が停止している場合、おそらく自動再生がブロックされたことによるものなので正式に停止状態にする
-                        if (this.player.video.paused === true) {
-                            this.player.pause();
-                        }
+                        this.player.video.removeEventListener('pause', force_play);
+                        return;
                     }
-                }, 0.01 * 1000);
+                };
+                this.player.video.addEventListener('pause', force_play);
             }
 
             // 再生バッファを調整し、再生準備ができた段階でプレイヤーの背景を非表示にするイベントを登録
@@ -1335,9 +1334,6 @@ export default Vue.extend({
                     // 再生バッファ調整のため、一旦停止させる
                     // this.player.video.pause() を使うとプレイヤーの UI アイコンが停止してしまうので、代わりに playbackRate を使う
                     this.player.video.playbackRate = 0;
-
-                    // 念のためさらに少しだけ待ってから
-                    await Utils.sleep(0.1);
 
                     // 再生バッファを取得する (取得に失敗した場合は 0 を返す)
                     const get_playback_buffer_sec = (): number => {
@@ -1389,7 +1385,7 @@ export default Vue.extend({
 
                 // 再生開始時に音量を徐々に上げる
                 // いきなり再生されるよりも体験が良い
-                const current_volume: number = this.player.user.get('volume');
+                const current_volume = this.player.user.get('volume');
                 while ((this.player.video.volume + 0.05) < current_volume) {
                     // 小数第2位以下を切り捨てて、浮動小数の誤差で 1 (100%) を微妙に超えてしまいエラーになるのを避ける
                     this.player.video.volume = Utils.mathFloor(this.player.video.volume + 0.05, 2);
@@ -2087,7 +2083,7 @@ export default Vue.extend({
 
         // 再生セッションを破棄する
         // チャンネルを切り替える際に実行される
-        destroy(is_destroy_player = false) {
+        async destroy(is_destroy_player = false, is_zapping_continuously = false) {
 
             // clearInterval() ですべての setInterval(), setTimeout() の実行を止める
             // clearInterval() と clearTimeout() は中身共通なので問題ない
@@ -2118,27 +2114,32 @@ export default Vue.extend({
                 this.eventsource = null;
             }
 
-            // アニメーション分待ってから実行
-            this.interval_ids.push(window.setTimeout(() => {
-
-                // プレイヤーを停止する
-                this.player.video.pause();
-
-                // is_destroy_player が true の時は、ここで DPlayer 自体を破棄する
-                // false の時は次の initPlayer() が実行されるまで破棄されない
-                if (is_destroy_player === true && this.player !== null) {
-                    try {
-                        this.player.destroy();
-                    } catch (error) {
-                        // mpegts.js をうまく破棄できない場合
-                        if (this.player.plugins.mpegts !== undefined) {
-                            this.player.plugins.mpegts.destroy();
-                        }
-                    }
-                    this.player = null;
+            // 映像がフェードアウトするアニメーション (0.2秒) 分待ってから実行
+            // この 0.2 秒の間に音量をフェードアウトさせる
+            // なお、ザッピングでチャンネルを連続で切り替えている場合は実行しない (実行しても意味がないため)
+            if (is_zapping_continuously === false) {
+                const current_volume = this.player.user.get('volume');
+                // 20回 (0.01秒おき) に分けて音量を下げる
+                for (let i = 0; i < 20; i++) {
+                    await Utils.sleep(0.01);
+                    this.player.video.volume = current_volume * (1 - (i + 1) / 20);
                 }
+            }
 
-            }, 0.4 * 1000));  // 0.4 秒
+            // is_destroy_player が true の時は、ここで DPlayer 自体を破棄する
+            // false の時は次の initPlayer() が実行されるまで破棄されない
+            // 次のプレイヤーの初期化の直前に前のプレイヤーを破棄することで、プレイヤーの HTML が消えることによるちらつきを防ぐ
+            if (is_destroy_player === true && this.player !== null) {
+                try {
+                    this.player.destroy();
+                } catch (error) {
+                    // mpegts.js をうまく破棄できない場合
+                    if (this.player.plugins.mpegts !== undefined) {
+                        this.player.plugins.mpegts.destroy();
+                    }
+                }
+                this.player = null;
+            }
         }
     }
 });
@@ -2154,7 +2155,7 @@ export default Vue.extend({
     .dplayer-video-wrap {
         background: transparent !important;
         .dplayer-video-wrap-aspect {
-            transition: opacity 0.4s cubic-bezier(0.4, 0.38, 0.49, 0.94);
+            transition: opacity 0.2s cubic-bezier(0.4, 0.38, 0.49, 0.94);
             opacity: 1;
         }
         .dplayer-danmaku {
