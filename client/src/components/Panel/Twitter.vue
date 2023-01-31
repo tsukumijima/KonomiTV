@@ -353,7 +353,6 @@ export default Vue.extend({
                 // ログインされていないので未ログイン状態に設定
                 if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
                     this.is_logged_in = false;
-                    this.user = null;
                 }
             }
         },
