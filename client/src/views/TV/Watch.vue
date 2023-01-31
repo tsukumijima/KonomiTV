@@ -867,6 +867,7 @@ export default Vue.extend({
                         this.player.plugins.mpegts.destroy();
                     }
                 }
+                this.player_can_be_destroyed = false;
                 this.player = null;
             }
 
@@ -975,6 +976,8 @@ export default Vue.extend({
                         config: {
                             // Web Worker を有効にする
                             enableWorker: true,
+                            // IO 層のバッファを禁止する
+                            enableStashBuffer: false,
                             // HTMLMediaElement の内部バッファによるライブストリームの遅延を追跡する
                             // liveBufferLatencyChasing と異なり、いきなり再生時間をスキップするのではなく、
                             // 再生速度を少しだけ上げることで再生を途切れさせることなく遅延を追跡する
@@ -2138,6 +2141,7 @@ export default Vue.extend({
                         this.player.plugins.mpegts.destroy();
                     }
                 }
+                this.player_can_be_destroyed = false;
                 this.player = null;
             }
         }
