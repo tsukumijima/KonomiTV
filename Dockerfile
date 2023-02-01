@@ -57,12 +57,11 @@ ENV TZ=Asia/Tokyo
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Intel QSV と AMD VCE 関連のライブラリのインストール（実行時イメージなので RUN の最後に掃除する）
-## Intel Graphics の apt リポジトリはまだ jammy (Ubuntu 22.04 LTS) に対応していないので、当面 focal (Ubuntu 20.04 LTS) 向けのを使う
 ## amdgpu 周りのインストール方法は amdgpu-install パッケージに同梱されているファイル群を参考にした
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl git gpg tzdata && \
     curl -fsSL https://repositories.intel.com/graphics/intel-graphics.key | gpg --dearmor -o /usr/share/keyrings/intel-graphics-keyring.gpg && \
     curl -fsSL https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor -o /usr/share/keyrings/rocm-keyring.gpg && \
-    echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/graphics/ubuntu focal main' > /etc/apt/sources.list.d/intel-graphics.list && \
+    echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/graphics/ubuntu jammy main' > /etc/apt/sources.list.d/intel-graphics.list && \
     echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/rocm-keyring.gpg] https://repo.radeon.com/amdgpu/22.20.1/ubuntu jammy main' > /etc/apt/sources.list.d/amdgpu.list && \
     echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/rocm-keyring.gpg] https://repo.radeon.com/amdgpu/22.20.1/ubuntu jammy proprietary' > /etc/apt/sources.list.d/amdgpu-proprietary.list && \
     echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/rocm-keyring.gpg] https://repo.radeon.com/rocm/apt/5.2 ubuntu main' > /etc/apt/sources.list.d/rocm.list && \
