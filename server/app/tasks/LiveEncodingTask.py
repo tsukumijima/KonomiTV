@@ -262,7 +262,7 @@ class LiveEncodingTask:
         # フラグ
         ## 主に HWEncC の起動を高速化するための設定
         max_interleave_delta = round(1 + self._retry_count) * 100
-        options.append(f'-m fflags:nobuffer -m max_delay:250000 -m max_interleave_delta:{max_interleave_delta}K --output-thread 0 --lowlatency')
+        options.append(f'-m avioflags:direct -m fflags:nobuffer+flush_packets -m flush_packets:1 -m max_delay:250000 -m max_interleave_delta:{max_interleave_delta}K --output-thread 0 --lowlatency')
         ## その他の設定
         options.append('--log-level debug')
 
