@@ -203,6 +203,7 @@ export default Vue.extend({
 
             // ピン留めされているチャンネルのリストを更新
             this.updatePinnedChannelList();
+            this.$message.show('ピン留めしました。')
         },
 
         // チャンネルをピン留めから外す
@@ -219,6 +220,7 @@ export default Vue.extend({
 
             // ピン留めされているチャンネルのリストを更新
             this.updatePinnedChannelList();
+            this.$message.show('ピン留めを外しました。')
         },
 
         // ピン留めされているチャンネルのリストを更新する
@@ -296,32 +298,6 @@ export default Vue.extend({
         }
     }
 }
-
-// Safari のみ、チャンネルリストのスライドアニメーションを無効にする (iOS 16.2 の iPhone SE2 では無効化しても問題なさそうなので無効化中)
-// Safari は大量のチャンネルをレンダリングするのが非常に遅いようで、アニメーションがもはや機能していない上に重い
-// アニメーションを無効化する事で、有効化時と比べてタブの切り替え速度が大幅に向上する（とはいえ、Chrome に比べると遅い）
-// CSS ハックでは SCSS 記法が使えない
-// ref: https://qiita.com/Butterthon/items/10e6b58d883236aa3838
-// _::-webkit-full-page-media, _:future, :root
-// .channels-container.channels-container--home .v-window__container {
-//     height: inherit !important;
-//     transition: none !important;
-// }
-// _::-webkit-full-page-media, _:future, :root
-// .channels-container.channels-container--home .v-window__container--is-active {
-//     display: none !important;
-// }
-// _::-webkit-full-page-media, _:future, :root
-// .channels-container.channels-container--home .v-window__container .v-window-item {
-//     display: none !important;
-//     position: static !important;
-//     transform: none !important;
-//     transition: none !important;
-// }
-// _::-webkit-full-page-media, _:future, :root
-// .channels-container.channels-container--home .v-window__container .v-window-item--active {
-//     display: block !important;
-// }
 
 </style>
 <style lang="scss" scoped>
