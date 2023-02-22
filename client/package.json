@@ -5,8 +5,8 @@
     "scripts": {
         "dev": "concurrently --raw \"npm:dev-https\" \"vue-cli-service serve\"",
         "dev-https": "run-script-os",
-        "dev-https:windows": "..\\server\\thirdparty\\Akebi\\akebi-https-server --listen-address 0.0.0.0:7001 --proxy-pass-url http://127.0.0.77:7011/ --keyless-server-url https://akebi.konomi.tv/ > nul",
-        "dev-https:nix": "../server/thirdparty/Akebi/akebi-https-server --listen-address 0.0.0.0:7001 --proxy-pass-url http://127.0.0.77:7011/ --keyless-server-url https://akebi.konomi.tv/ > /dev/null",
+        "dev-https:windows": "..\\server\\thirdparty\\Akebi\\akebi-https-server.exe --listen-address 0.0.0.0:7001 --proxy-pass-url http://127.0.0.77:7011/ --keyless-server-url https://akebi.konomi.tv/ > nul",
+        "dev-https:nix": "../server/thirdparty/Akebi/akebi-https-server.elf --listen-address 0.0.0.0:7001 --proxy-pass-url http://127.0.0.77:7011/ --keyless-server-url https://akebi.konomi.tv/ > /dev/null",
         "build": "vue-cli-service build",
         "lint": "vue-cli-service lint"
     },
