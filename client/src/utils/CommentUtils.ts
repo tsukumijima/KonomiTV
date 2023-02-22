@@ -132,9 +132,7 @@ export class CommentUtils {
 
         // ユーザー ID ミュート処理
         const muted_niconico_user_ids = Utils.getSettingsItem('muted_niconico_user_ids') as string[];
-        for (const muted_niconico_user_id of muted_niconico_user_ids) {
-            if (user_id === muted_niconico_user_id) return true;
-        }
+        if (muted_niconico_user_ids.includes(user_id)) return true;
 
         // いずれのミュート処理にも引っかからなかった (ミュート対象ではない)
         return false;
