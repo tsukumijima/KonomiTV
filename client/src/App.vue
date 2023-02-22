@@ -125,6 +125,9 @@ body .route-container {
 }
 
 .v-snack {
+    @include smartphone-vertical {
+        padding-bottom: 56px !important;
+    }
     .v-btn__content {
         color: var(--v-primary-lighten1);
         letter-spacing: 0.3;

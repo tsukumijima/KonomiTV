@@ -37,17 +37,15 @@ axios_instance.interceptors.response.use(
     (response) => response,
     (error) => {
 
-        // /users/token エンドポイントの 401 は無視する
-        if (axios.isAxiosError(error) && error.response && error.response.config.url === '/users/token') {
-            return Promise.reject(error);
-        }
-
         // 401 Unauthorized が返ってきたら、アクセストークンを削除してログアウト状態にする
         // JWT の有効期限が切れたときに発生する
         // アクセストークンが削除されていないと、余計なリクエストが発生してしまう
         if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
             Utils.deleteAccessToken();
         }
+
+        // エラーをそのまま返す
+        return Promise.reject(error);
     }
 );
 

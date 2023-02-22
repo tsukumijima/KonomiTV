@@ -6,8 +6,9 @@
             <div class="login-container-wrapper d-flex align-center w-100 mb-13">
                 <v-card class="login-container px-10 pt-8 pb-11 mx-auto background lighten-1" elevation="10"
                     width="100%" max-width="450">
-                    <v-card-title class="login__logo justify-center pb-7">
+                    <v-card-title class="login__logo flex-column justify-center">
                         <v-img max-width="250" src="/assets/images/logo.svg"></v-img>
+                        <h4 class="mt-10">ログイン</h4>
                     </v-card-title>
                     <v-divider></v-divider>
                     <v-form ref="login" @submit.prevent>
@@ -136,16 +137,24 @@ export default Vue.extend({
         .login__logo {
             @include smartphone-horizontal {
                 padding-top: 4px !important;
-                padding-bottom: 20px !important;
+                padding-bottom: 8px !important;
                 .v-image {
                     max-width: 200px !important;
+                }
+                h4 {
+                    margin-top: 16px !important;
+                    font-size: 19px !important;
                 }
             }
             @include smartphone-vertical {
                 padding-top: 4px !important;
-                padding-bottom: 20px !important;
+                padding-bottom: 12px !important;
                 .v-image {
                     max-width: 200px !important;
+                }
+                h4 {
+                    margin-top: 24px !important;
+                    font-size: 19px !important;
                 }
             }
         }

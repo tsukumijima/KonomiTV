@@ -12,12 +12,12 @@
                     </v-card-title>
                     <v-divider></v-divider>
                     <v-form ref="register" @submit.prevent>
-                        <v-text-field class="mt-10" outlined placeholder="ユーザー名" autofocus
+                        <v-text-field class="mt-12" outlined placeholder="ユーザー名" autofocus
                             :dense="is_form_dense"
                             v-model="username"
                             :rules="[username_validation]">
                         </v-text-field>
-                        <v-text-field class="mt-2" outlined placeholder="パスワード"
+                        <v-text-field style="margin-top: 2px;" outlined placeholder="パスワード"
                             :dense="is_form_dense"
                             v-model="password"
                             :type="password_showing ? 'text' : 'password'"
@@ -202,12 +202,12 @@ export default Vue.extend({
             }
             @include smartphone-vertical {
                 padding-top: 4px !important;
-                padding-bottom: 20px !important;
+                padding-bottom: 12px !important;
                 .v-image {
                     max-width: 200px !important;
                 }
                 h4 {
-                    margin-top: 16px !important;
+                    margin-top: 24px !important;
                     font-size: 19px !important;
                 }
             }
@@ -234,7 +234,7 @@ export default Vue.extend({
 
         .register-button {
             border-radius: 7px;
-            margin-top: 48px !important;
+            margin-top: 18px !important;
             font-size: 18px;
             letter-spacing: 0px;
             @include smartphone-horizontal {
