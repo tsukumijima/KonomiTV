@@ -143,6 +143,13 @@ export class CommentUtils {
     // ミュート済みキーワードリストに追加する (完全一致)
     static addMutedKeywords(comment: string): void {
         const muted_comment_keywords = Utils.getSettingsItem('muted_comment_keywords') as IMutedCommentKeywords[];
+        // すでにまったく同じミュート済みキーワードが追加済みの場合は何もしない
+        for (const muted_comment_keyword of muted_comment_keywords) {
+            if (muted_comment_keyword.match === 'exact' && muted_comment_keyword.pattern === comment) {
+                return;
+            }
+        }
+        // ミュート済みキーワードリストに追加
         muted_comment_keywords.push({
             match: 'exact',
             pattern: comment,
@@ -153,6 +160,11 @@ export class CommentUtils {
     // ミュート済みニコニコユーザー ID リストに追加する
     static addMutedNiconicoUserIDs(user_id: string): void {
         const muted_niconico_user_ids = Utils.getSettingsItem('muted_niconico_user_ids') as string[];
+        // すでに追加済みの場合は何もしない
+        if (muted_niconico_user_ids.includes(user_id)) {
+            return;
+        }
+        // ミュート済みニコニコユーザー ID リストに追加
         muted_niconico_user_ids.push(user_id);
         Utils.setSettingsItem('muted_niconico_user_ids', muted_niconico_user_ids);
     }
