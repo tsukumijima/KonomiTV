@@ -204,8 +204,8 @@ import Twitter from '@/components/Panel/Twitter.vue';
 import Utils, { ChannelUtils, PlayerCaptureHandler, PlayerUtils, ProgramUtils } from '@/utils';
 
 // 低遅延モードオン時の再生バッファ (秒単位)
-// 0.4 秒程度余裕を持たせる
-const PLAYBACK_BUFFER_SEC_LOW_LATENCY = 0.4;
+// 0.6 秒程度余裕を持たせる
+const PLAYBACK_BUFFER_SEC_LOW_LATENCY = 0.6;
 
 // 低遅延モードオフ時の再生バッファ (秒単位)
 // 5秒程度の遅延を許容する
