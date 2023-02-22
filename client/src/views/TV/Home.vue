@@ -183,6 +183,7 @@ export default Vue.extend({
             if (channels_response.data.STARDIGIO.length > 0) this.channels_list.set('StarDigio', channels_response.data.STARDIGIO.filter(filter));
 
             // ピン留めされているチャンネルのリストを更新
+            // ローディング中のみ、もしピン留めされているチャンネルが空の時は、タブを地デジタブに切り替える
             this.updatePinnedChannelList(this.is_loading ? true : false);
 
             // ローディング状態を解除
@@ -235,6 +236,9 @@ export default Vue.extend({
             // チャンネル ID が一致したチャンネルの情報を保存する
             for (const pinned_channel_id of this.pinned_channel_ids) {
                 const pinned_channel_type = ChannelUtils.getChannelType(pinned_channel_id, true) as ChannelTypePretty;
+                if (this.channels_list.has(pinned_channel_type) === false) {
+                    continue;  // チャンネルタイプが存在しない
+                }
                 const pinned_channel = this.channels_list.get(pinned_channel_type).find((channel) => {
                     return channel.channel_id === pinned_channel_id;  // チャンネル ID がピン留めされているチャンネルのものと同じ
                 });
@@ -254,7 +258,7 @@ export default Vue.extend({
                 this.channels_list.set('ピン留め', pinned_channels);
             }
 
-            // pinned_channels が空の場合は、タブを地デジタブに変更
+            // pinned_channels が空の場合は、タブを地デジタブに切り替える
             // ピン留めができる事を示唆するためにピン留めタブ自体は残す
             if (pinned_channels.length === 0 && is_update_tab === true) {
                 this.tab = 1;

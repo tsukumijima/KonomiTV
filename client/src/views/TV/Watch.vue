@@ -702,6 +702,9 @@ export default Vue.extend({
             // チャンネル ID が一致したチャンネルの情報を保存する
             for (const pinned_channel_id of pinned_channel_ids) {
                 const pinned_channel_type = ChannelUtils.getChannelType(pinned_channel_id, true) as ChannelTypePretty;
+                if (this.channels_list.has(pinned_channel_type) === false) {
+                    continue;  // チャンネルタイプが存在しない
+                }
                 const pinned_channel = this.channels_list.get(pinned_channel_type).find((channel) => {
                     return channel.channel_id === pinned_channel_id;  // チャンネル ID がピン留めされているチャンネルのものと同じ
                 });
