@@ -106,5 +106,9 @@ export class ChannelUtils {
                 return [channels[previous_index], channels[index], channels[next_index]];
             }
         }
+
+        // チャンネル ID が一致するチャンネルが見つからなかった
+        // そもそもここの処理に入る時点で何かがおかしい
+        return [null, null, null];
     }
 }
