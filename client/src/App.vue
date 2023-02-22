@@ -124,19 +124,7 @@ body .route-container {
     letter-spacing: 0 !important;
 }
 
-// スナックバーの表示時にナビゲーションバーの分だけ表示位置をずらす
-// 揃えないと見栄えが悪い
 .v-snack {
-    left: calc(220px / 2) !important;
-    @include tablet-vertical {
-        left: 0 !important;
-    }
-    @include smartphone-horizontal {
-        left: 0 !important;
-    }
-    @include smartphone-vertical {
-        left: 0 !important;
-    }
     .v-btn__content {
         color: var(--v-primary-lighten1);
         letter-spacing: 0.3;
