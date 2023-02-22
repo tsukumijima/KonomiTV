@@ -78,7 +78,7 @@ body .v-application {
     min-height: 100dvh;
     font-family: 'YakuHanJPs', 'Open Sans', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
     font-weight: 500;
-    overflow-x: hidden;
+    overflow-x: clip;  // clip なら position: sticky; が効く
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     // iOS Safari で 100vh にアドレスバーが含まれてしまう問題を回避する
