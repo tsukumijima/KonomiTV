@@ -133,8 +133,9 @@ export default Vue.extend({
                 Utils.saveAccessToken(response.data.access_token);
 
                 // アカウントページに遷移
+                // ブラウザバックでアカウント作成画面に戻れないようにする
                 this.$message.success('アカウントを作成しました。');
-                await this.$router.push({path: '/settings/account'});
+                await this.$router.replace({path: '/settings/account'});
 
             } catch (error) {
 
