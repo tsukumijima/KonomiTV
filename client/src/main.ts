@@ -1,5 +1,6 @@
 
 import { Icon } from '@iconify/vue2';
+import { createPinia, PiniaVuePlugin } from 'pinia';
 import { polyfill as SeamlessScrollPolyfill } from "seamless-scroll-polyfill";
 import Vue from 'vue';
 import VueAxios from 'vue-axios';
@@ -31,6 +32,10 @@ Vue.config.devtools = true;
 
 // Axios を使う
 Vue.use(VueAxios, axios);
+
+// Pinia を使う
+Vue.use(PiniaVuePlugin);
+const pinia = createPinia();
 
 // vue-virtual-scroller を使う
 Vue.use(VueVirtualScroller);
@@ -83,6 +88,7 @@ Vue.component('v-tabs-items-fix', VTabsItems);
 
 // Vue を初期化
 new Vue({
+    pinia,
     router,
     vuetify,
     render: h => h(App),
