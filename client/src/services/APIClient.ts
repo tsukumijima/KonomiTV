@@ -1,6 +1,7 @@
 
 import { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
 
+import Message from '@/message';
 import axios from '@/plugins/axios';
 
 
@@ -137,6 +138,38 @@ class APIClient {
             ...config,
         };
         return await APIClient.request<T>(request);
+    }
+
+
+    /**
+     * 一般的なエラーメッセージの共通処理
+     * エラーメッセージを SnackBar で表示する
+     * @param response API から返されたエラーレスポンス
+     * @param template エラーメッセージのテンプレート（「アカウント情報を取得できませんでした。」など)
+     */
+    static showGenericError(response: ErrorResponse, template: string): void {
+        switch (response.error.message) {
+            case 'Access token data is invalid': {
+                Message.error(`${template}\nログインセッションが不正です。もう一度ログインしてください。`);
+                return;
+            }
+            case 'Access token is invalid': {
+                Message.error(`${template}\nログインセッションの有効期限が切れています。もう一度ログインしてください。`);
+                return;
+            }
+            case 'User associated with access token does not exist': {
+                Message.error(`${template}\nログインセッションに紐づくユーザーが存在しないか、削除されています。`);
+                return;
+            }
+            default: {
+                if (response.error.message) {
+                    Message.error(`${template}(HTTP Error ${response.status} / ${response.error.message})`);
+                } else {
+                    Message.error(`${template}(HTTP Error ${response.status})`);
+                }
+                return;
+            }
+        }
     }
 }
 

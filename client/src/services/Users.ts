@@ -1,6 +1,6 @@
 
 import Message from '@/message';
-import APIClient, { ErrorResponse } from '@/services/APIClient';
+import APIClient from '@/services/APIClient';
 
 
 // ユーザーアカウントの情報を表すインターフェイス
@@ -72,7 +72,7 @@ class Users {
                     break;
                 }
                 default: {
-                    Users.showGenericError(response, 'アカウントを作成できませんでした。');
+                    APIClient.showGenericError(response, 'アカウントを作成できませんでした。');
                     break;
                 }
             }
@@ -106,7 +106,7 @@ class Users {
                     break;
                 }
                 default: {
-                    Users.showGenericError(response, 'ログインできませんでした。');
+                    APIClient.showGenericError(response, 'ログインできませんでした。');
                     break;
                 }
             }
@@ -128,7 +128,7 @@ class Users {
 
         // エラー処理
         if ('is_error' in response) {
-            Users.showGenericError(response, 'アカウント情報を取得できませんでした。');
+            APIClient.showGenericError(response, 'アカウント情報を取得できませんでした。');
             return null;
         }
 
@@ -147,7 +147,7 @@ class Users {
 
         // エラー処理
         if ('is_error' in response) {
-            Users.showGenericError(response, 'アイコン画像を取得できませんでした。');
+            APIClient.showGenericError(response, 'アイコン画像を取得できませんでした。');
             return null;
         }
 
@@ -176,7 +176,7 @@ class Users {
                     break;
                 }
                 default: {
-                    Users.showGenericError(response, 'アカウント情報を更新できませんでした。');
+                    APIClient.showGenericError(response, 'アカウント情報を更新できませんでした。');
                     break;
                 }
             }
@@ -208,7 +208,7 @@ class Users {
                     break;
                 }
                 default: {
-                    Users.showGenericError(response, 'アイコン画像を更新できませんでした。');
+                    APIClient.showGenericError(response, 'アイコン画像を更新できませんでした。');
                     break;
                 }
             }
@@ -227,31 +227,8 @@ class Users {
 
         // エラー処理
         if ('is_error' in response) {
-            Users.showGenericError(response, 'アカウントを削除できませんでした。');
+            APIClient.showGenericError(response, 'アカウントを削除できませんでした。');
             return;
-        }
-    }
-
-
-    /**
-     * 一般的なエラーメッセージの共通処理
-     * @param response API から返されたエラーレスポンス
-     * @param template エラーメッセージのテンプレート（「アカウント情報を取得できませんでした。」など)
-     */
-    private static showGenericError(response: ErrorResponse, template: string): void {
-        switch (response.error.message) {
-            case 'Access token data is invalid':
-                Message.error(`${template}\nログインセッションが不正です。もう一度ログインしてください。`);
-                return;
-            case 'Access token is invalid':
-                Message.error(`${template}\nログインセッションの有効期限が切れています。もう一度ログインしてください。`);
-                return;
-            case 'User associated with access token does not exist':
-                Message.error(`${template}\nログインセッションに紐づくユーザーが存在しないか、削除されています。`);
-                return;
-            default:
-                Message.error(`${template}(HTTP Error ${response.status})`);
-                return;
         }
     }
 }
