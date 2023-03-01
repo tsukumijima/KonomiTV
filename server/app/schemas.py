@@ -157,7 +157,7 @@ class ClientSettings(BaseModel):
     tweet_capture_watermark_position: Literal['None', 'TopLeft', 'TopRight', 'BottomLeft', 'BottomRight'] = Field('None')
 
 class ThirdpartyAuthURL(BaseModel):
-    authorization_url: str | None
+    authorization_url: str
 
 class TweetResult(BaseModel):
     is_success: bool

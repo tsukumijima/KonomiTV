@@ -106,6 +106,7 @@ import { mapStores } from 'pinia';
 import Vue from 'vue';
 
 import CommentMuteSettings from '@/components/Settings/CommentMuteSettings.vue';
+import Niconico from '@/services/Niconico';
 import useSettingsStore from '@/store/SettingsStore';
 import useUserStore from '@/store/UserStore';
 import Base from '@/views/Settings/Base.vue';
@@ -166,7 +167,10 @@ export default Vue.extend({
             }
 
             // ニコニコアカウントと連携するための認証 URL を取得
-            const authorization_url = (await Vue.axios.get('/niconico/auth')).data.authorization_url;
+            const authorization_url = await Niconico.getAuthorizationUrl();
+            if (authorization_url === null) {
+                return;
+            }
 
             // モバイルデバイスではポップアップが事実上使えない (特に Safari ではブロックされてしまう) ので、素直にリダイレクトで実装する
             if (Utils.isMobileDevice() === true) {
@@ -240,7 +244,10 @@ export default Vue.extend({
         async logoutNiconicoAccount() {
 
             // ニコニコアカウント連携解除 API にリクエスト
-            await Vue.axios.delete('/niconico/logout');
+            const result = await Niconico.logoutAccount();
+            if (result === false) {
+                return;
+            }
 
             // アカウント情報を強制的に更新
             await this.userStore.fetchUser(true);
