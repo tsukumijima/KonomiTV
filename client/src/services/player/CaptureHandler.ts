@@ -8,6 +8,7 @@ import * as piexif from 'piexifjs';
 import Vue from 'vue';
 
 import { IChannel, ICaptureExifData, IProgram } from '@/interface';
+import Captures from '@/services/Captures';
 import useSettingsStore from '@/store/SettingsStore';
 import Utils from '@/utils';
 
@@ -178,7 +179,7 @@ class CaptureHandler {
             // キャプチャの保存先: KonomiTV サーバーにアップロード or 両方
             // 時間がかかるし完了を待つ必要がないので非同期
             if (['UploadServer', 'Both'].includes(this.settings_store.settings.capture_save_mode)) {
-                this.uploadCaptureToServer(blob, filename);
+                Captures.uploadCapture(blob, filename);
             }
 
             return blob;
@@ -634,29 +635,6 @@ class CaptureHandler {
 
         // 新しい Blob を返す
         return new Blob([buffer], {type: blob.type});
-    }
-
-
-    /**
-     * KonomiTV サーバーにキャプチャ画像をアップロードする関数
-     * @param blob キャプチャ画像の Blob
-     * @param filename サーバーに保存するときのファイル名
-     */
-    private async uploadCaptureToServer(blob: Blob, filename: string): Promise<void> {
-
-        // キャプチャ画像の File オブジェクト (= Blob) を FormData に入れる
-        // multipart/form-data で送るために必要
-        // ref: https://r17n.page/2020/02/04/nodejs-axios-file-upload-api/
-        const form_data = new FormData();
-        form_data.append('image', blob, filename);
-
-        // キャプチャ画像アップロード API にリクエスト
-        try {
-            await Vue.axios.post('/captures', form_data, {headers: {'Content-Type': 'multipart/form-data'}});
-        } catch (error) {
-            console.error(error);
-            this.player.notice('キャプチャのアップロードに失敗しました。');
-        }
     }
 }
 
