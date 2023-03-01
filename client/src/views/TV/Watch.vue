@@ -107,13 +107,17 @@
                 </div>
                 <div class="watch-panel__content-container">
                     <Program class="watch-panel__content"
-                        :class="{'watch-panel__content--active': tv_panel_active_tab === 'Program'}" :channel="channel" />
+                        :class="{'watch-panel__content--active': tv_panel_active_tab === 'Program'}"
+                        :channel="channel" />
                     <Channel class="watch-panel__content"
-                        :class="{'watch-panel__content--active': tv_panel_active_tab === 'Channel'}" :channels_list="channels_list" />
+                        :class="{'watch-panel__content--active': tv_panel_active_tab === 'Channel'}"
+                        :channels_list="channels_list" />
                     <Comment class="watch-panel__content" ref="Comment"
-                        :class="{'watch-panel__content--active': tv_panel_active_tab === 'Comment'}" :channel="channel" :player="player" />
+                        :class="{'watch-panel__content--active': tv_panel_active_tab === 'Comment'}"
+                        :channel="channel" :player="player" />
                     <Twitter class="watch-panel__content" ref="Twitter" @panel_folding_requested="is_panel_display = false"
-                        :class="{'watch-panel__content--active': tv_panel_active_tab === 'Twitter'}" :channel="channel" :player="player"
+                        :class="{'watch-panel__content--active': tv_panel_active_tab === 'Twitter'}"
+                        :channel="channel" :player="player"
                         :is_virtual_keyboard_display="is_virtual_keyboard_display" />
                 </div>
                 <div class="watch-panel__navigation">
@@ -193,6 +197,7 @@ import dayjs from 'dayjs';
 import DPlayer from 'dplayer';
 import * as DPlayerType from 'dplayer/dist/d.ts/types/DPlayer';
 import mpegts from 'mpegts.js';
+import { mapStores } from 'pinia';
 import Vue from 'vue';
 
 import { ChannelTypePretty, IChannel, IChannelDefault } from '@/interface';
@@ -201,6 +206,7 @@ import Channel from '@/components/Panel/Channel.vue';
 import Comment from '@/components/Panel/Comment.vue';
 import Program from '@/components/Panel/Program.vue';
 import Twitter from '@/components/Panel/Twitter.vue';
+import useSettingsStore from '@/store/SettingsStore';
 import Utils, { ChannelUtils, PlayerCaptureHandler, PlayerUtils, ProgramUtils } from '@/utils';
 
 // 低遅延モードオン時の再生バッファ (秒単位)
@@ -231,7 +237,7 @@ export default Vue.extend({
             time: dayjs().format('YYYY/MM/DD HH:mm:ss'),
 
             // 表示されるパネルのタブ
-            tv_panel_active_tab: Utils.getSettingsItem('tv_panel_active_tab'),
+            tv_panel_active_tab: useSettingsStore().settings.tv_panel_active_tab,
 
             // 背景の URL
             background_url: '',
@@ -257,13 +263,14 @@ export default Vue.extend({
             // panel_display_state が 'AlwaysDisplay' なら常に表示し、'AlwaysFold' なら常に折りたたむ
             // 'RestorePreviousState' なら showed_panel_last_time の値を使い､前回の状態を復元する
             is_panel_display: (() => {
-                switch (Utils.getSettingsItem('panel_display_state')) {
+                const settings_store = useSettingsStore();
+                switch (settings_store.settings.panel_display_state) {
                     case 'AlwaysDisplay':
                         return true;
                     case 'AlwaysFold':
                         return false;
                     case 'RestorePreviousState':
-                        return Utils.getSettingsItem('showed_panel_last_time');
+                        return settings_store.settings.showed_panel_last_time;
                 }
             })() as boolean,
 
@@ -329,7 +336,7 @@ export default Vue.extend({
             romsounds_context: null as AudioContext | null,
 
             // RomSound の AudioBuffer（音声データ）が入るリスト
-            romsounds_buffers: [] as AudioBuffer[] | null,
+            romsounds_buffers: [] as AudioBuffer[],
 
             // イベントソースのインスタンス
             eventsource: null as EventSource | null,
@@ -422,6 +429,11 @@ export default Vue.extend({
             }
         }
     },
+    computed: {
+        // SettingsStore に this.settingsStore でアクセスできるようにする
+        // ref: https://pinia.vuejs.org/cookbook/options-api.html
+        ...mapStores(useSettingsStore),
+    },
     // 開始時に実行
     async created() {
 
@@ -474,7 +486,9 @@ export default Vue.extend({
         this.destroy(true);
 
         // AudioContext のリソースを解放
-        this.romsounds_context.close();
+        if (this.romsounds_context !== null) {
+            this.romsounds_context.close();
+        }
     },
     // チャンネル切り替え時に実行
     // コンポーネント（インスタンス）は再利用される
@@ -496,7 +510,7 @@ export default Vue.extend({
             = ChannelUtils.getPreviousAndCurrentAndNextChannel(this.channels_list, this.channel_id);
 
         // ハッシュタグフォームのリセットがオンなら、ハッシュタグフォームを空にする
-        if (Utils.getSettingsItem('reset_hashtag_when_program_switches') === true) {
+        if (this.settingsStore.settings.reset_hashtag_when_program_switches === true) {
             (this.$refs.Twitter as InstanceType<typeof Twitter>).tweet_hashtag = '';
         }
 
@@ -525,7 +539,7 @@ export default Vue.extend({
     watch: {
         // 前回視聴画面を開いた際にパネルが表示されていたかどうかを保存
         is_panel_display() {
-            Utils.setSettingsItem('showed_panel_last_time', this.is_panel_display);
+            this.settingsStore.settings.showed_panel_last_time = this.is_panel_display;
         }
     },
     methods: {
@@ -601,7 +615,7 @@ export default Vue.extend({
                 (this.channel.program_present === null && channel_response_data.program_present !== null) ||  // 番組情報なし→番組情報あり
                 ((this.channel.program_present !== null && channel_response_data.program_present !== null) &&
                  (this.channel.program_present.id !== channel_response_data.program_present.id))) {  // 番組情報あり→番組情報あり & 番組が異なる
-                if (Utils.getSettingsItem('reset_hashtag_when_program_switches') === true) {
+                if (this.settingsStore.settings.reset_hashtag_when_program_switches === true) {
                     const twitter_component = this.$refs.Twitter as InstanceType<typeof Twitter>;
                     twitter_component.tweet_hashtag = twitter_component.formatHashtag('');
                 }
@@ -630,6 +644,10 @@ export default Vue.extend({
                 this.initShortcutKeyHandler();
             }
 
+            if (this.player === null) {
+                return;  // 復旧不可能 (発生しないはずだが、書いとかないと TypeScript に怒られる)
+            }
+
             // 副音声がない番組でプレイヤー上で副音声に切り替えられないように
             // 音声多重放送でもデュアルモノでもない番組のみ
             if ((this.channel.program_present === null) ||
@@ -642,6 +660,9 @@ export default Vue.extend({
                 // 現在副音声が選択されている可能性を考慮し、明示的に主音声に切り替える
                 if (this.player.plugins.mpegts !== undefined || this.player.plugins.liveLLHLSForKonomiTV !== undefined) {
                     window.setTimeout(() => {  // プレイヤーの初期化が完了するまで少し待つ
+                        if (this.player === null) {
+                            return;
+                        }
                         this.player.template.audioItem[0].classList.add('dplayer-setting-audio-current');
                         this.player.template.audioItem[1].classList.remove('dplayer-setting-audio-current');
                         this.player.template.audioValue.textContent = this.player.tran('Primary audio');
@@ -694,7 +715,7 @@ export default Vue.extend({
             if (channels_response.data.STARDIGIO.length > 0) this.channels_list.set('StarDigio', channels_response.data.STARDIGIO.filter(filter));
 
             // ピン留めされているチャンネルの ID を取得
-            const pinned_channel_ids = Utils.getSettingsItem('pinned_channel_ids');
+            const pinned_channel_ids = this.settingsStore.settings.pinned_channel_ids;
 
             // ピン留めされているチャンネル情報のリスト
             const pinned_channels = [] as IChannel[];
@@ -751,8 +772,8 @@ export default Vue.extend({
                 }
 
                 // メディア通知上のボタンが押されたときのイベント
-                navigator.mediaSession.setActionHandler('play', () => { this.player.play() });  // 再生
-                navigator.mediaSession.setActionHandler('pause', () => { this.player.pause() });  // 停止
+                navigator.mediaSession.setActionHandler('play', () => this.player?.play());  // 再生
+                navigator.mediaSession.setActionHandler('pause', () => this.player?.pause());  // 停止
                 navigator.mediaSession.setActionHandler('previoustrack', async () => {  // 前のチャンネルに切り替え
                     navigator.mediaSession.metadata = new MediaMetadata({
                         title: this.channel_previous.program_present ? this.channel_previous.program_present.title : '放送休止',
@@ -813,7 +834,7 @@ export default Vue.extend({
             if (is_touch_device === true && is_player_event === true) {
 
                 // プレイヤーのコントロールの表示状態に合わせる
-                if (this.player.controller.isShow()) {
+                if (this.player?.controller.isShow()) {
 
                     // コントロールを表示する
                     this.is_control_display = true;
@@ -831,8 +852,8 @@ export default Vue.extend({
                     this.is_control_display = false;
 
                     // プレイヤーのコントロールと設定パネルを非表示にする
-                    this.player.controller.hide();
-                    this.player.setting.hide();
+                    this.player?.controller.hide();
+                    this.player?.setting.hide();
                 }
 
             // それ以外の画面がクリックされたとき
@@ -875,12 +896,12 @@ export default Vue.extend({
             }
 
             // 低遅延モードであれば低遅延向けの再生バッファを、そうでなければ通常の再生バッファをセット (秒単位)
-            const playback_buffer_sec = Utils.getSettingsItem('tv_low_latency_mode') ?
+            const playback_buffer_sec = this.settingsStore.settings.tv_low_latency_mode ?
                 PLAYBACK_BUFFER_SEC_LOW_LATENCY : PLAYBACK_BUFFER_SEC;
 
             // DPlayer を初期化
             this.player = new DPlayer({
-                container: this.$el.querySelector('.watch-player__dplayer'),
+                container: this.$el.querySelector<HTMLElement>('.watch-player__dplayer')!,
                 theme: '#E64F97',  // テーマカラー
                 lang: 'ja-jp',  // 言語
                 live: true,  // ライブモード
@@ -895,7 +916,7 @@ export default Vue.extend({
                 video: {
                     // デフォルトの品質
                     // ラジオチャンネルでは常に 48KHz/192kbps に固定する
-                    defaultQuality: (this.channel.is_radiochannel) ? '48kHz/192kbps' : Utils.getSettingsItem('tv_streaming_quality'),
+                    defaultQuality: (this.channel.is_radiochannel) ? '48kHz/192kbps' : this.settingsStore.settings.tv_streaming_quality,
                     // 品質リスト
                     quality: (() => {
                         const qualities: DPlayerType.VideoQuality[] = [];
@@ -926,7 +947,7 @@ export default Vue.extend({
                             // ブラウザが H.265 / HEVC の再生に対応していて、かつ通信節約モードが有効なとき
                             // API に渡す画質に -hevc のプレフィックスをつける
                             let hevc_prefix = '';
-                            if (PlayerUtils.isHEVCVideoSupported() && Utils.getSettingsItem('tv_data_saver_mode') === true) {
+                            if (PlayerUtils.isHEVCVideoSupported() && this.settingsStore.settings.tv_data_saver_mode === true) {
                                 hevc_prefix = '-hevc';
                             }
 
@@ -955,8 +976,8 @@ export default Vue.extend({
                 // コメント
                 danmaku: {
                     user: 'KonomiTV',  // 便宜上 KonomiTV に固定
-                    speedRate: Utils.getSettingsItem('comment_speed_rate'),  // コメントの流れる速度
-                    fontSize: Utils.getSettingsItem('comment_font_size'),  // コメントのフォントサイズ
+                    speedRate: this.settingsStore.settings.comment_speed_rate,  // コメントの流れる速度
+                    fontSize: this.settingsStore.settings.comment_font_size,  // コメントのフォントサイズ
                 },
                 // コメント API バックエンド
                 apiBackend: {
@@ -984,7 +1005,7 @@ export default Vue.extend({
                             // HTMLMediaElement の内部バッファによるライブストリームの遅延を追跡する
                             // liveBufferLatencyChasing と異なり、いきなり再生時間をスキップするのではなく、
                             // 再生速度を少しだけ上げることで再生を途切れさせることなく遅延を追跡する
-                            liveSync: Utils.getSettingsItem('tv_low_latency_mode'),
+                            liveSync: this.settingsStore.settings.tv_low_latency_mode,
                             // 許容する HTMLMediaElement の内部バッファの最大値 (秒単位, 3秒)
                             liveSyncMaxLatency: 3,
                             // HTMLMediaElement の内部バッファ (遅延) が liveSyncMaxLatency を超えたとき、ターゲットとする遅延時間 (秒単位)
@@ -997,12 +1018,12 @@ export default Vue.extend({
                     // aribb24.js
                     aribb24: {
                         // 描画フォント
-                        normalFont: `"${Utils.getSettingsItem('caption_font')}", sans-serif`,
+                        normalFont: `"${this.settingsStore.settings.caption_font}", sans-serif`,
                         // 縁取りする色
-                        forceStrokeColor: Utils.getSettingsItem('always_border_caption_text') ? true : false,
+                        forceStrokeColor: this.settingsStore.settings.always_border_caption_text ? true : false,
                         // 背景色
-                        forceBackgroundColor: Utils.getSettingsItem('specify_caption_background_color') ?
-                            Utils.getSettingsItem('caption_background_color') : null,
+                        forceBackgroundColor: this.settingsStore.settings.specify_caption_background_color ?
+                            this.settingsStore.settings.caption_background_color : null,
                         // DRCS 文字を対応する Unicode 文字に置換
                         drcsReplacement: true,
                         // 高解像度の字幕 Canvas を取得できるように
@@ -1011,8 +1032,8 @@ export default Vue.extend({
                         useStroke: true,
                         // Unicode 領域の代わりに私用面の領域を利用 (Windows TV 系フォントのみ)
                         usePUA: (() => {
-                            const font = Utils.getSettingsItem('caption_font') as string;
-                            const context = document.createElement('canvas').getContext('2d');
+                            const font = this.settingsStore.settings.caption_font as string;
+                            const context = document.createElement('canvas').getContext('2d')!;
                             context.font = `10px ${font}`;
                             context.fillText('Test', 0, 0);
                             if (font.startsWith('Windows TV')) {
@@ -1025,7 +1046,7 @@ export default Vue.extend({
                         PRACallback: async (index: number) => {
 
                             // 設定で文字スーパーが無効なら実行しない
-                            if (Utils.getSettingsItem('tv_show_superimpose') === false) return;
+                            if (this.settingsStore.settings.tv_show_superimpose === false) return;
 
                             // index に応じた内蔵音を鳴らす
                             // ref: https://ics.media/entry/200427/
@@ -1087,11 +1108,15 @@ export default Vue.extend({
 
             // 「コメント送信後にコメント入力フォームを閉じる」がオフになっている時のために、プレイヤー側のコメント送信関数を上書き
             // 上書き部分以外の処理内容は概ね https://github.com/tsukumijima/DPlayer/blob/master/src/js/comment.js に準じる
-            this.player.comment.send = () => {
+            this.player.comment!.send = () => {
+
+                if (this.player === null) {
+                    return;  // 復旧不可能 (発生しないはずだが、書いとかないと TypeScript に怒られる)
+                }
 
                 // コメント入力フォームへのフォーカスを外す (「コメント送信後にコメント入力フォームを閉じる」がオンのときだけ)
-                if (Utils.getSettingsItem('close_comment_form_after_sending') === true) {
-                this.player.template.commentInput.blur();
+                if (this.settingsStore.settings.close_comment_form_after_sending === true) {
+                    this.player.template.commentInput.blur();
                 }
 
                 // 空コメントを弾く
@@ -1101,20 +1126,20 @@ export default Vue.extend({
                 }
 
                 // コメントを送信
-                this.player.danmaku.send(
+                this.player.danmaku!.send(
                     {
                         text: this.player.template.commentInput.value,
                         color: this.player.container.
-                            querySelector<HTMLInputElement>('.dplayer-comment-setting-color input:checked').value,
+                            querySelector<HTMLInputElement>('.dplayer-comment-setting-color input:checked')!.value,
                         type: this.player.container.
-                            querySelector<HTMLInputElement>('.dplayer-comment-setting-type input:checked').value as DPlayerType.DanmakuType,
+                            querySelector<HTMLInputElement>('.dplayer-comment-setting-type input:checked')!.value as DPlayerType.DanmakuType,
                         size: this.player.container.
-                            querySelector<HTMLInputElement>('.dplayer-comment-setting-size input:checked').value as DPlayerType.DanmakuSize,
+                            querySelector<HTMLInputElement>('.dplayer-comment-setting-size input:checked')!.value as DPlayerType.DanmakuSize,
                     },
                     // 送信完了後にコメント入力フォームを閉じる ([コメント送信後にコメント入力フォームを閉じる] がオンのときだけ)
                     () => {
-                        if (Utils.getSettingsItem('close_comment_form_after_sending') === true) {
-                            this.player.comment.hide();
+                        if (this.settingsStore.settings.close_comment_form_after_sending === true) {
+                            this.player !== null && this.player.comment!.hide();
                         }
                     },
                     true,
@@ -1146,8 +1171,8 @@ export default Vue.extend({
 
                 // 設定パネルのショートカット一覧を表示するリンクがクリックされたときのイベント
                 // リアクティブではないので、手動でやらないといけない…
-                this.$el.querySelector('.dplayer-setting-keyboard-shortcut').addEventListener('click', () => {
-                    this.player.setting.hide();  // 設定パネルを閉じる
+                this.$el.querySelector('.dplayer-setting-keyboard-shortcut')!.addEventListener('click', () => {
+                    this.player?.setting.hide();  // 設定パネルを閉じる
                     this.shortcut_key_modal = true;
                 });
             }
@@ -1155,8 +1180,10 @@ export default Vue.extend({
             // ***** フルスクリーンのイベントハンドラー *****
 
             // フルスクリーンにするコンテナ要素（ページ全体）
-            const fullscreen_container = document.querySelector('.v-application');
-            this.fullscreen_handler = () => this.is_fullscreen = this.player.fullScreen.isFullScreen();
+            const fullscreen_container = document.querySelector('.v-application')!;
+            this.fullscreen_handler = () => {
+                this.is_fullscreen = this.player?.fullScreen.isFullScreen() === true;
+            }
             if (fullscreen_container.onfullscreenchange !== undefined) {
                 fullscreen_container.addEventListener('fullscreenchange', this.fullscreen_handler);
             } else {
@@ -1166,11 +1193,12 @@ export default Vue.extend({
             // DPlayer のフルスクリーン関係のメソッドを無理やり上書きし、KonomiTV の UI と統合する
             // 上書き元のコードは https://github.com/tsukumijima/DPlayer/blob/master/src/js/fullscreen.js にある
             // フルスクリーンかどうか
-            this.player.fullScreen.isFullScreen = (type: string) => {
+            this.player.fullScreen.isFullScreen = (type?: DPlayerType.FullscreenType) => {
                 return !!(document.fullscreenElement || document.webkitFullscreenElement);
             }
             // フルスクリーンをリクエスト
-            this.player.fullScreen.request = (type: string) => {
+            this.player.fullScreen.request = (type?: DPlayerType.FullscreenType) => {
+                if (this.player === null) return;
 
                 // すでにフルスクリーンだったらキャンセルする
                 if (this.player.fullScreen.isFullScreen()) {
@@ -1195,7 +1223,7 @@ export default Vue.extend({
                 }
             }
             // フルスクリーンをキャンセル
-            this.player.fullScreen.cancel = (type: string) => {
+            this.player.fullScreen.cancel = (type?: DPlayerType.FullscreenType) => {
 
                 // フルスクリーンを終了
                 // Safari は webkit のベンダープレフィックスが必要
@@ -1217,7 +1245,7 @@ export default Vue.extend({
             const on_play_or_pause = () => {
 
                 // まだ設定パネルが表示されていたら非表示にする
-                this.player.setting.hide();
+                this.player?.setting.hide();
 
                 // コントロールを表示する
                 this.controlDisplayTimer();
@@ -1248,13 +1276,13 @@ export default Vue.extend({
             // mpegts.js 再生時は 60 秒、LL-HLS 再生時は 30 秒おきに監視する (LL-HLS 再生時はバッファの状態に関わらずシークする)
             if (this.is_mpegts_supported === true) {
                 this.interval_ids.push(window.setInterval(() => {
-                    if (this.player.video.paused && this.player.video.buffered.end(0) - this.player.video.currentTime > 30) {
+                    if (this.player?.video.paused && this.player.video.buffered.end(0) - this.player.video.currentTime > 30) {
                         this.player.sync();
                     }
                 }, 60 * 1000));
             } else {
                 this.interval_ids.push(window.setInterval(() => {
-                    if (this.player.video.paused) {
+                    if (this.player?.video.paused) {
                         this.player.sync();
                     }
                 }, 30 * 1000));
@@ -1265,22 +1293,23 @@ export default Vue.extend({
             (async () => {
 
                 // 文字スーパーが初期化されるまで待つ
+                if (this.player === null) return;
                 while (this.player.plugins.aribb24Superimpose === undefined) {
                     await Utils.sleep(0.1);  // 0.1 秒待つ
                 }
 
                 // 設定で文字スーパーが有効
                 // 字幕が非表示の場合でも、文字スーパーは表示する
-                if (Utils.getSettingsItem('tv_show_superimpose') === true) {
+                if (this.settingsStore.settings.tv_show_superimpose === true) {
                     this.player.plugins.aribb24Superimpose.show();
                     this.player.on('subtitle_hide', () => {
-                        this.player.plugins.aribb24Superimpose.show();
+                        this.player?.plugins.aribb24Superimpose!.show();
                     });
                 // 設定で文字スーパーが無効
                 } else {
                     this.player.plugins.aribb24Superimpose.hide();
                     this.player.on('subtitle_show', () => {
-                        this.player.plugins.aribb24Superimpose.hide();
+                        this.player?.plugins.aribb24Superimpose!.hide();
                     });
                 }
 
@@ -1291,6 +1320,8 @@ export default Vue.extend({
         initEventHandler() {
 
             // ***** プレイヤー再生開始時のイベントハンドラー *****
+
+            if (this.player === null) return;
 
             // 必ず最初はローディング状態とする
             this.is_loading = true;
@@ -1307,18 +1338,18 @@ export default Vue.extend({
             // その際はアイコンの HTML を書き換えたりして強制的に再生状態にする (苦肉の策)
             if (this.is_mpegts_supported === false) {
                 const force_play = () => {
-                    this.player.video.play().catch(() => {
+                    this.player?.video.play().catch(() => {
                         console.warn('HTMLVideoElement.play() rejected. run fallback.');
                         const pause_icon = '<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 17 32"><path d="M14.080 4.8q2.88 0 2.88 2.048v18.24q0 2.112-2.88 2.112t-2.88-2.112v-18.24q0-2.048 2.88-2.048zM2.88 4.8q2.88 0 2.88 2.048v18.24q0 2.112-2.88 2.112t-2.88-2.112v-18.24q0-2.048 2.88-2.048z"></path></svg>';
-                        this.player.template.playButton.innerHTML = pause_icon;
-                        this.player.template.mobilePlayButton.innerHTML = pause_icon;
-                        this.player.container.classList.remove('dplayer-paused');
-                        this.player.container.classList.add('dplayer-playing');
-                        this.player.danmaku.play();
+                        this.player!.template.playButton.innerHTML = pause_icon;
+                        this.player!.template.mobilePlayButton.innerHTML = pause_icon;
+                        this.player!.container.classList.remove('dplayer-paused');
+                        this.player!.container.classList.add('dplayer-playing');
+                        this.player!.danmaku!.play();
                     });
                     // ローディング表示が消えたタイミングでイベントを登録解除
                     if (this.is_loading === false) {
-                        this.player.video.removeEventListener('pause', force_play);
+                        this.player?.video.removeEventListener('pause', force_play);
                         return;
                     }
                 };
@@ -1331,6 +1362,7 @@ export default Vue.extend({
             const on_canplay = async () => {
 
                 // 自分自身のイベントを登録解除 (重複実行を避ける)
+                if (this.player === null) return;
                 this.player.video.oncanplay = null;
                 this.player.video.oncanplaythrough = null;
 
@@ -1344,7 +1376,7 @@ export default Vue.extend({
                     // 再生バッファを取得する (取得に失敗した場合は 0 を返す)
                     const get_playback_buffer_sec = (): number => {
                         try {
-                            return (Math.round((this.player.video.buffered.end(0) - this.player.video.currentTime) * 1000) / 1000);
+                            return (Math.round((this.player!.video.buffered.end(0) - this.player!.video.currentTime) * 1000) / 1000);
                         } catch (error) {
                             // まだ再生準備が整っていないなどの理由で、再生バッファの取得に失敗した場合
                             return 0;
@@ -1352,7 +1384,7 @@ export default Vue.extend({
                     }
 
                     // 低遅延モードであれば低遅延向けの再生バッファを、そうでなければ通常の再生バッファをセット (秒単位)
-                    const playback_buffer_sec = Utils.getSettingsItem('tv_low_latency_mode') ?
+                    const playback_buffer_sec = this.settingsStore.settings.tv_low_latency_mode ?
                         PLAYBACK_BUFFER_SEC_LOW_LATENCY : PLAYBACK_BUFFER_SEC;
 
                     // 再生バッファが playback_buffer_sec を超えるまで 0.1 秒おきに再生バッファをチェックする
@@ -1405,7 +1437,7 @@ export default Vue.extend({
             // ***** KonomiTV サーバーのイベント API のイベントハンドラー *****
 
             // EventSource を作成
-            const eventsource_url = (this.player.quality.url as string).replace('/mpegts', '/events').replace(/\/ll-hls.*/, '/events');
+            const eventsource_url = (this.player!.quality!.url as string).replace('/mpegts', '/events').replace(/\/ll-hls.*/, '/events');
             this.eventsource = new EventSource(eventsource_url);
 
             // 初回接続時のイベント
@@ -1435,6 +1467,7 @@ export default Vue.extend({
             this.eventsource.addEventListener('status_update', (event_raw: MessageEvent) => {
 
                 // イベントを取得
+                if (this.player === null) return;
                 const event = JSON.parse(event_raw.data);
                 console.log(`[status_update] Status: ${event.status} / Detail: ${event.detail}`);
 
@@ -1448,7 +1481,7 @@ export default Vue.extend({
                     case 'Standby': {
 
                         // ステータス詳細をプレイヤーに表示
-                        if (!this.player.template.notice.textContent.includes('画質を')) {  // 画質切り替えの表示を上書きしない
+                        if (!this.player.template.notice.textContent!.includes('画質を')) {  // 画質切り替えの表示を上書きしない
                             this.player.notice(event.detail, -1);
                         }
 
@@ -1464,8 +1497,8 @@ export default Vue.extend({
                     case 'ONAir': {
 
                         // ステータス詳細をプレイヤーから削除
-                        if (!this.player.template.notice.textContent.includes('画質を')) {  // 画質切り替えの表示を上書きしない
-                            this.player.notice(this.player.template.notice.textContent, 0.000001);
+                        if (!this.player.template.notice.textContent!.includes('画質を')) {  // 画質切り替えの表示を上書きしない
+                            this.player.notice(this.player.template.notice.textContent!, 0.000001);
                         }
 
                         // LL-HLS ストリーミング時のみ、このタイミングで映像をロードして再生を開始する
@@ -1492,8 +1525,8 @@ export default Vue.extend({
 
                         // プレイヤーを再起動する
                         this.player.switchVideo({
-                            url: this.player.quality.url,
-                            type: this.player.quality.type,
+                            url: this.player.quality!.url,
+                            type: this.player.quality!.type,
                         });
 
                         // 再起動しただけでは自動再生されないので、明示的に
@@ -1517,12 +1550,12 @@ export default Vue.extend({
                             // 動画の読み込みエラーが送出された時にメッセージを上書きする
                             this.player.notice(event.detail, -1);
                             this.player.video.onerror = () => {
-                                this.player.notice(event.detail, -1);
-                                this.player.video.onerror = null;
+                                this.player!.notice(event.detail, -1);
+                                this.player!.video.onerror = null;
                             }
 
                             // 描画されたコメントをクリア
-                            this.player.danmaku.clear()
+                            this.player?.danmaku?.clear()
 
                             // 動画を停止する
                             this.player.video.pause();
@@ -1549,6 +1582,7 @@ export default Vue.extend({
             this.eventsource.addEventListener('detail_update', (event_raw: MessageEvent) => {
 
                 // イベントを取得
+                if (this.player === null) return;
                 const event = JSON.parse(event_raw.data);
                 console.log(`[detail_update] Status: ${event.status} Detail:${event.detail}`);
 
@@ -1645,7 +1679,7 @@ export default Vue.extend({
                             this.is_panel_display = true;
 
                             // どのタブを開いていたかに関係なく Twitter タブに切り替える
-                            this.tv_panel_active_tab = 'Twitter';
+                            this.settingsStore.settings.tv_panel_active_tab = 'Twitter';
 
                             // ツイート入力フォームの textarea 要素にフォーカスを当てる
                             tweet_form_element.focus();
@@ -1675,12 +1709,12 @@ export default Vue.extend({
                     // 以降の if 文で textarea フォーカス時のイベントをすべて弾いてしまっているため、前に持ってきている
                     if (((tag !== 'INPUT' && tag !== 'TEXTAREA' && editable !== '' && editable !== 'true') ||
                         (document.activeElement === tweet_form_element)) &&
-                        this.tv_panel_active_tab === 'Twitter' &&
+                        this.settingsStore.settings.tv_panel_active_tab === 'Twitter' &&
                         this.is_ime_composing === false) {
                         // (Ctrl or Cmd or Shift) + Enter
                         // Shift + Enter は隠し機能（間違えたとき用）
                         if ((event.ctrlKey || event.metaKey || event.shiftKey) && event.code === 'Enter') {
-                            twitter_component.$el.querySelector<HTMLDivElement>('.tweet-button').click();
+                            twitter_component.$el.querySelector<HTMLDivElement>('.tweet-button')!.click();
                             return true;
                         }
                     }
@@ -1694,7 +1728,7 @@ export default Vue.extend({
                         if (this.player.template.controller.classList.contains('dplayer-controller-comment')) {
                             // Ctrl or Cmd + M
                             if ((event.ctrlKey || event.metaKey) && event.code === 'KeyM') {
-                                this.player.comment.hide();
+                                this.player.comment!.hide();
                                 return true;
                             }
                         }
@@ -1713,7 +1747,7 @@ export default Vue.extend({
                             const switch_channel_type = (event.shiftKey) ? 'BS' : 'GR';
 
                             // 1～9キー
-                            let switch_remocon_id = null;
+                            let switch_remocon_id: number | null = null;
                             if (event.code === 'Digit1' || event.code === 'Digit2' || event.code === 'Digit3' ||
                                 event.code === 'Digit4' || event.code === 'Digit5' || event.code === 'Digit6' ||
                                 event.code === 'Digit7' || event.code === 'Digit8' || event.code === 'Digit9') {
@@ -1770,22 +1804,22 @@ export default Vue.extend({
                             }
                             // Kキー: 番組情報タブ
                             if (event.code === 'KeyK') {
-                                this.tv_panel_active_tab = 'Program';
+                                this.settingsStore.settings.tv_panel_active_tab = 'Program';
                                 return true;
                             }
                             // Lキー: チャンネルタブ
                             if (event.code === 'KeyL') {
-                                this.tv_panel_active_tab = 'Channel';
+                                this.settingsStore.settings.tv_panel_active_tab = 'Channel';
                                 return true;
                             }
                             // ;(+)キー: コメントタブ
                             if (event.code === 'Semicolon') {
-                                this.tv_panel_active_tab = 'Comment';
+                                this.settingsStore.settings.tv_panel_active_tab = 'Comment';
                                 return true;
                             }
                             // :(*)キー: Twitterタブ
                             if (event.code === 'Quote') {
-                                this.tv_panel_active_tab = 'Twitter';
+                                this.settingsStore.settings.tv_panel_active_tab = 'Twitter';
                                 return true;
                             }
 
@@ -1810,7 +1844,7 @@ export default Vue.extend({
 
                         // Twitter タブ内のキャプチャタブが表示されている & Ctrl / Cmd / Shift / Alt のいずれも押されていないときだけ
                         // キャプチャタブが表示されている時は、プレイヤー操作側の矢印キー/スペースキーのショートカットは動作しない（キーが重複するため）
-                        if (this.tv_panel_active_tab === 'Twitter' && twitter_component.twitter_active_tab === 'Capture' &&
+                        if (this.settingsStore.settings.tv_panel_active_tab === 'Twitter' && twitter_component.twitter_active_tab === 'Capture' &&
                             (!event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey)) {
 
                             // ***** キャプチャにフォーカスする *****
@@ -1978,7 +2012,7 @@ export default Vue.extend({
 
                             // Shift + Spaceキー + キーリピートでない時 + Twitter タブ表示時 + キャプチャタブ表示時: 再生/停止
                             if (event.shiftKey === true && event.code === 'Space' && is_repeat === false &&
-                                this.tv_panel_active_tab === 'Twitter' && twitter_component.twitter_active_tab === 'Capture') {
+                                this.settingsStore.settings.tv_panel_active_tab === 'Twitter' && twitter_component.twitter_active_tab === 'Capture') {
                                 this.player.toggle();
                                 return true;
                             }

@@ -10,10 +10,10 @@
         </h2>
         <div class="settings__content" :class="{'settings__content--loading': is_loading}">
             <div class="twitter-accounts">
-                <div class="twitter-accounts__heading" v-if="user.twitter_accounts.length > 0">
+                <div class="twitter-accounts__heading" v-if="userStore.user !== null && userStore.user.twitter_accounts.length > 0">
                     <Icon icon="fluent:person-board-20-filled" class="mr-2" height="30" />連携中のアカウント
                 </div>
-                <div class="twitter-accounts__guide" v-if="user.twitter_accounts.length === 0">
+                <div class="twitter-accounts__guide" v-if="userStore.user === null || userStore.user.twitter_accounts.length === 0">
                     <Icon class="flex-shrink-0" icon="fa-brands:twitter" width="45px" />
                     <div class="ml-4">
                         <div class="font-weight-bold text-h6">Twitter アカウントと連携していません</div>
@@ -22,7 +22,9 @@
                         </div>
                     </div>
                 </div>
-                <div class="twitter-account" v-for="twitter_account in user.twitter_accounts" :key="twitter_account.id">
+                <div class="twitter-account"
+                    v-for="twitter_account in (userStore.user !== null ? userStore.user.twitter_accounts: [])"
+                    :key="twitter_account.id">
                     <img class="twitter-account__icon" :src="twitter_account.icon_url">
                     <div class="twitter-account__info">
                         <div class="twitter-account__info-name">
@@ -46,7 +48,7 @@
                     ツイートを送信した後に、表示中のパネルを閉じる（折りたたむ）かを設定します。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="fold_panel_after_sending_tweet" inset hide-details
-                    v-model="settings.fold_panel_after_sending_tweet">
+                    v-model="settingsStore.settings.fold_panel_after_sending_tweet">
                 </v-switch>
             </div>
             <div class="settings__item settings__item--switch">
@@ -56,7 +58,7 @@
                     この設定をオンにしておけば、「誤って前番組のハッシュタグをつけたまま次番組の実況ツイートをしてしまう」といったミスを回避できます。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="reset_hashtag_when_program_switches" inset hide-details
-                    v-model="settings.reset_hashtag_when_program_switches">
+                    v-model="settingsStore.settings.reset_hashtag_when_program_switches">
                 </v-switch>
             </div>
             <div class="settings__item settings__item--switch">
@@ -66,7 +68,7 @@
                     現時点で、局タグは三大首都圏の地上波・BS の一部チャンネル・AT-X にのみ対応しています。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="auto_add_watching_channel_hashtag" inset hide-details
-                    v-model="settings.auto_add_watching_channel_hashtag">
+                    v-model="settingsStore.settings.auto_add_watching_channel_hashtag">
                 </v-switch>
             </div>
             <div class="settings__item">
@@ -75,7 +77,7 @@
                     視聴画面を開いたときに、パネルの Twitter タブの中で最初に表示されるタブを設定します。<br>
                 </div>
                 <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
-                    :items="twitter_active_tab" v-model="settings.twitter_active_tab">
+                    :items="twitter_active_tab" v-model="settingsStore.settings.twitter_active_tab">
                 </v-select>
             </div>
             <div class="settings__item">
@@ -84,7 +86,7 @@
                     ツイート本文から見て、ハッシュタグをどの位置につけてツイートするかを設定します。<br>
                 </div>
                 <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
-                    :items="tweet_hashtag_position" v-model="settings.tweet_hashtag_position">
+                    :items="tweet_hashtag_position" v-model="settingsStore.settings.tweet_hashtag_position">
                 </v-select>
             </div>
             <div class="settings__item">
@@ -93,7 +95,7 @@
                     ツイートするキャプチャに、視聴中の番組タイトルの透かしを描画するかを設定します。<br>
                 </div>
                 <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
-                    :items="tweet_capture_watermark_position" v-model="settings.tweet_capture_watermark_position">
+                    :items="tweet_capture_watermark_position" v-model="settingsStore.settings.tweet_capture_watermark_position">
                 </v-select>
             </div>
         </div>
@@ -101,10 +103,11 @@
 </template>
 <script lang="ts">
 
-import axios from 'axios';
+import { mapStores } from 'pinia';
 import Vue from 'vue';
 
-import { IUser } from '@/interface';
+import useSettingsStore from '@/store/SettingsStore';
+import useUserStore from '@/store/UserStore';
 import Base from '@/views/Settings/Base.vue';
 import Utils from '@/utils';
 
@@ -145,53 +148,17 @@ export default Vue.extend({
 
             // ローディング中かどうか
             is_loading: true,
-
-            // ログイン中かどうか
-            is_logged_in: Utils.getAccessToken() !== null,
-
-            // ユーザーアカウントの情報
-            // ログインしていない場合は null になる
-            user: null as IUser | null,
-
-            // 設定値が保存されるオブジェクト
-            // ここの値とフォームを v-model で binding する
-            settings: (() => {
-                // 現在の設定値を取得する
-                const settings = {};
-                const setting_keys = [
-                    'fold_panel_after_sending_tweet',
-                    'reset_hashtag_when_program_switches',
-                    'auto_add_watching_channel_hashtag',
-                    'twitter_active_tab',
-                    'tweet_hashtag_position',
-                    'tweet_capture_watermark_position',
-                ];
-                for (const setting_key of setting_keys) {
-                    settings[setting_key] = Utils.getSettingsItem(setting_key);
-                }
-                return settings;
-            })(),
         }
+    },
+    computed: {
+        // SettingsStore / UserStore に this.settingsStore /  this.userStore でアクセスできるようにする
+        // ref: https://pinia.vuejs.org/cookbook/options-api.html
+        ...mapStores(useSettingsStore, useUserStore),
     },
     async created() {
 
-        // ユーザーモデルの初期値
-        this.user = {
-            id: 0,
-            name: '',
-            is_admin: true,
-            niconico_user_id: null,
-            niconico_user_name: null,
-            niconico_user_premium: null,
-            twitter_accounts: [],
-            created_at: '',
-            updated_at: '',
-        }
-
-        // 表示されているアカウント情報を更新 (ログイン時のみ)
-        if (this.is_logged_in === true) {
-            await this.syncAccountInfo();
-        }
+        // アカウント情報を更新
+        await this.userStore.fetchUser();
 
         // ローディング状態を解除
         this.is_loading = false;
@@ -203,51 +170,20 @@ export default Vue.extend({
             const params = new URLSearchParams(location.hash.replace('#', ''));
             if (params.get('status') !== null && params.get('detail') !== null) {
                 // コールバックの結果を取得できたので、OAuth 連携の結果を画面に通知する
-                const authorization_status = parseInt(params.get('status'));
-                const authorization_detail = params.get('detail');
+                const authorization_status = parseInt(params.get('status')!);
+                const authorization_detail = params.get('detail')!;
                 this.onOAuthCallbackReceived(authorization_status, authorization_detail);
                 // URL からフラグメントを削除
                 // ref: https://stackoverflow.com/a/49373716/17124142
-                history.replaceState(null, null, ' ');
-            }
-        }
-    },
-    watch: {
-        // settings 内の値の変更を監視する
-        settings: {
-            deep: true,
-            handler() {
-                // settings 内の値を順に LocalStorage に保存する
-                for (const [setting_key, setting_value] of Object.entries(this.settings)) {
-                    Utils.setSettingsItem(setting_key, setting_value);
-                }
+                history.replaceState(null, '', ' ');
             }
         }
     },
     methods: {
-        async syncAccountInfo() {
-
-            try {
-
-                // ユーザーアカウントの情報を取得する
-                this.user = (await Vue.axios.get('/users/me')).data;
-
-            } catch (error) {
-
-                // ログインされていない
-                if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
-
-                    // 未ログイン状態に設定
-                    this.is_logged_in = false;
-                    this.user = null;
-                }
-            }
-        },
-
         async loginTwitterAccount() {
 
             // ログインしていない場合はエラーにする
-            if (this.is_logged_in === false) {
+            if (this.userStore.is_logged_in === false) {
                 this.$message.warning('連携をはじめるには、KonomiTV アカウントにログインしてください。');
                 return;
             }
@@ -265,6 +201,10 @@ export default Vue.extend({
             // window.open() の第2引数はユニークなものにしておくと良いらしい
             // ref: https://qiita.com/catatsuy/items/babce8726ea78f5d25b1 (大変参考になりました)
             const popup_window = window.open(authorization_url, 'KonomiTV-OAuthPopup', Utils.getWindowFeatures());
+            if (popup_window === null) {
+                this.$message.error('ポップアップウインドウを開けませんでした。');
+                return;
+            }
 
             // 認証完了 or 失敗後、ポップアップウインドウから送信される文字列を受信
             const onMessage = async (event) => {
@@ -308,13 +248,17 @@ export default Vue.extend({
                 return;
             }
 
-            // 表示されているアカウント情報を更新
-            await this.syncAccountInfo();
+            // アカウント情報を強制的に更新
+            await this.userStore.fetchUser(true);
+            if (this.userStore.user === null) {
+                this.$message.error('アカウント情報を取得できませんでした。');
+                return;
+            }
 
             // ログイン中のユーザーに紐づく Twitter アカウントのうち、一番 updated_at が新しいものを取得
             // ログインすると updated_at が更新されるため、この時点で一番 updated_at が新しいアカウントが今回連携したものだと判断できる
             // ref: https://stackoverflow.com/a/12192544/17124142 (ISO8601 のソートアルゴリズム)
-            const current_twitter_account = [...this.user.twitter_accounts].sort((a, b) => {
+            const current_twitter_account = [...this.userStore.user.twitter_accounts].sort((a, b) => {
                 return (a.updated_at < b.updated_at) ? 1 : ((a.updated_at > b.updated_at) ? -1 : 0);
             })[0];
 
@@ -326,8 +270,8 @@ export default Vue.extend({
             // Twitter アカウント連携解除 API にリクエスト
             await Vue.axios.delete(`/twitter/accounts/${screen_name}`);
 
-            // 表示されているアカウント情報を更新
-            await this.syncAccountInfo();
+            // アカウント情報を強制的に更新
+            await this.userStore.fetchUser(true);
 
             this.$message.success(`Twitter @${screen_name} との連携を解除しました。`);
         },

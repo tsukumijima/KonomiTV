@@ -37,11 +37,12 @@
 </template>
 <script lang="ts">
 
-import axios from 'axios';
+import { mapStores } from 'pinia';
 import Vue from 'vue';
 
 import Header from '@/components/Header.vue';
 import Navigation from '@/components/Navigation.vue';
+import useUserStore from '@/store/UserStore';
 import Utils from '@/utils';
 
 export default Vue.extend({
@@ -72,96 +73,29 @@ export default Vue.extend({
             },
         }
     },
+    computed: {
+        // UserStore に this.userStore でアクセスできるようにする
+        // ref: https://pinia.vuejs.org/cookbook/options-api.html
+        ...mapStores(useUserStore),
+    },
     methods: {
         async register() {
 
             // すべてのバリデーションが通過したときのみ
             // ref: https://qiita.com/Hijiri_Ishi/items/56cac99c8f3806a6fa24
             if ((this.$refs.register as any).validate() === false) return;
+            if (this.username === null || this.password === null) return;
 
-            try {
-
-                // アカウント作成 API にリクエスト
-                const response = await Vue.axios.post('/users', {
-                    username: this.username,
-                    password: this.password,
-                });
-
-                console.log('Account created.')
-                console.log(response.data);
-
-            } catch (error) {
-
-                // アカウントの作成に失敗
-                // ref: https://dev.classmethod.jp/articles/typescript-typing-exception-objects-in-axios-trycatch/
-                if (axios.isAxiosError(error) && error.response && error.response.status === 422) {
-
-                    console.log('Failed to create account.');
-                    console.log(error.response.data);
-
-                    // エラーメッセージごとに Snackbar に表示
-                    switch ((error.response.data as any).detail) {
-                        case 'Specified username is duplicated': {
-                            this.$message.error('ユーザー名が重複しています。');
-                            break;
-                        }
-                        case 'Specified username is not accepted due to system limitations': {
-                            this.$message.error('ユーザー名に token と me は使えません。');
-                            break;
-                        }
-                        default: {
-                            this.$message.error(`アカウントを作成できませんでした。(HTTP Error ${error.response.status})`);
-                            break;
-                        }
-                    }
-                }
-                return;  // 処理を中断
+            // アカウント作成 & ログイン処理 (エラーハンドリング含む) を実行
+            const result = await this.userStore.register(this.username, this.password);
+            if (result === false) {
+                return;  // ログイン失敗
             }
 
-            // ここから先の処理はログイン画面とほぼ同じ
-            try {
-
-                // アカウントを作成できたので、ログインしてアクセストークンを取得する
-                const response = await Vue.axios.post('/users/token', new URLSearchParams({
-                    username: this.username,
-                    password: this.password,
-                }));
-
-                // 取得したアクセストークンを保存
-                console.log('Login successful.');
-                console.log(response.data);
-                Utils.saveAccessToken(response.data.access_token);
-
-                // アカウントページに遷移
-                // ブラウザバックでアカウント作成画面に戻れないようにする
-                this.$message.success('アカウントを作成しました。');
-                await this.$router.replace({path: '/settings/account'});
-
-            } catch (error) {
-
-                // ログインに失敗
-                if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
-
-                    console.log('Failed to login.');
-                    console.log(error.response.data);
-
-                    // エラーメッセージごとに Snackbar に表示
-                    switch ((error.response.data as any).detail) {
-                        case 'Incorrect username': {
-                            this.$message.error('ログインできませんでした。そのユーザー名のアカウントは存在しません。');
-                            break;
-                        }
-                        case 'Incorrect password': {
-                            this.$message.error('ログインできませんでした。パスワードを間違えていませんか？');
-                            break;
-                        }
-                        default: {
-                            this.$message.error(`ログインできませんでした。(HTTP Error ${error.response.status})`);
-                            break;
-                        }
-                    }
-                }
-            }
+            // アカウントページに遷移
+            // ブラウザバックでアカウント作成画面に戻れないようにする
+            this.$message.success('アカウントを作成しました。');
+            await this.$router.replace({path: '/settings/account'});
         }
     }
 });

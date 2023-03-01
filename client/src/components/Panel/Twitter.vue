@@ -146,27 +146,29 @@
             </draggable>
         </div>
         <div class="twitter-account-list" :class="{'twitter-account-list--display': is_twitter_account_list_display}">
-            <div v-ripple class="twitter-account" v-for="twitter_account in user.twitter_accounts" :key="twitter_account.id"
-                @click="updateSelectedTwitterAccount(twitter_account)">
+            <div v-ripple class="twitter-account" v-for="twitter_account in userStore.user ? userStore.user.twitter_accounts : []"
+                :key="twitter_account.id" @click="updateSelectedTwitterAccount(twitter_account)">
                 <img class="twitter-account__icon" :src="twitter_account.icon_url">
                 <div class="twitter-account__info">
                     <div class="twitter-account__name">{{twitter_account.name}}</div>
                     <div class="twitter-account__screen-name">@{{twitter_account.screen_name}}</div>
                 </div>
                 <Icon class="twitter-account__check" icon="fluent:checkmark-16-filled" width="24px"
-                    v-show="twitter_account.id === selected_twitter_account_id" />
+                    v-show="twitter_account.id === settingsStore.settings.selected_twitter_account_id" />
             </div>
         </div>
     </div>
 </template>
 <script lang="ts">
 
-import axios from 'axios';
 import DPlayer from 'dplayer';
+import { mapStores } from 'pinia';
 import Vue, { PropType } from 'vue';
-import draggable from 'vuedraggable'
+import draggable from 'vuedraggable';
 
-import { IChannel, ITwitterAccount, IUser } from '@/interface';
+import { IChannel, ITwitterAccount } from '@/interface';
+import useSettingsStore from '@/store/SettingsStore';
+import useUserStore from '@/store/UserStore';
 import Utils from '@/utils';
 
 // このコンポーネント内でのキャプチャのインターフェイス
@@ -213,27 +215,17 @@ export default Vue.extend({
             // ユーティリティをテンプレートで使えるように
             Utils: Utils,
 
-            // ログイン中かどうか
-            is_logged_in: Utils.getAccessToken() !== null,
-
             // Twitter アカウントを1つでも連携しているかどうか
             is_logged_in_twitter: false,
 
-            // ユーザーアカウントの情報
-            // ログインしていない場合は null になる
-            user: null as IUser | null,
-
             // 現在ツイート対象として選択されている Twitter アカウント
             selected_twitter_account: null as ITwitterAccount | null,
-
-            // 現在ツイート対象として選択されている Twitter アカウントの ID
-            selected_twitter_account_id: Utils.getSettingsItem('selected_twitter_account_id') as number | null,
 
             // 連携している Twitter アカウントリストを表示しているか
             is_twitter_account_list_display: false,
 
             // 保存している Twitter のハッシュタグが入るリスト
-            saved_twitter_hashtags: (Utils.getSettingsItem('saved_twitter_hashtags') as string[]).map((hashtag, index) => {
+            saved_twitter_hashtags: useSettingsStore().settings.saved_twitter_hashtags.map((hashtag, index) => {
                 // id プロパティは :key="" に指定するためにつける ID (ミリ秒単位のタイムスタンプ + index で適当に一意になるように)
                 return {id: Date.now() + index, text: hashtag, editing: false} as IHashtag;
             }),
@@ -242,7 +234,7 @@ export default Vue.extend({
             is_hashtag_list_display: false,
 
             // 既定で表示される Twitter タブ内のタブ
-            twitter_active_tab: Utils.getSettingsItem('twitter_active_tab') as ('Search' | 'Timeline' | 'Capture'),
+            twitter_active_tab: useSettingsStore().settings.twitter_active_tab,
 
             // キャプチャを拡大表示するモーダルの表示状態
             zoom_capture_modal: false,
@@ -275,43 +267,39 @@ export default Vue.extend({
             tweet_letter_count: 140,
         }
     },
+    computed: {
+        // SettingsStore / UserStore に this.settingsStore / this.userStore でアクセスできるようにする
+        // ref: https://pinia.vuejs.org/cookbook/options-api.html
+        ...mapStores(useSettingsStore, useUserStore),
+    },
     async created() {
 
-        // ユーザーモデルの初期値
-        this.user = {
-            id: 0,
-            name: '',
-            is_admin: true,
-            niconico_user_id: null,
-            niconico_user_name: null,
-            niconico_user_premium: null,
-            twitter_accounts: [],
-            created_at: '',
-            updated_at: '',
-        }
+        // アカウント情報を更新
+        await this.userStore.fetchUser();
 
-        // 表示されているアカウント情報を更新 (ログイン時のみ)
-        if (this.is_logged_in === true) {
-            await this.syncAccountInfo();
+        // ログイン時のみ
+        if (this.userStore.is_logged_in === true) {
 
             // 連携している Twitter アカウントがあれば true に設定
-            if (this.user.twitter_accounts.length > 0) {
+            if (this.userStore.user.twitter_accounts.length > 0) {
                 this.is_logged_in_twitter = true;
 
                 // 現在ツイート対象として選択されている Twitter アカウントの ID が設定されていない or ID に紐づく Twitter アカウントがない
                 // 連携している Twitter アカウントのうち、一番最初のものを自動選択する
                 // ここで言う Twitter アカウントの ID は DB 上で連番で振られるもので、Twitter アカウントそのものの固有 ID ではない
-                if (this.selected_twitter_account_id === null ||
-                    !this.user.twitter_accounts.some((twitter_account) => twitter_account.id === this.selected_twitter_account_id)) {
-                    this.selected_twitter_account_id = this.user.twitter_accounts[0].id;
-                    Utils.setSettingsItem('selected_twitter_account_id', this.selected_twitter_account_id);
+                if (this.settingsStore.settings.selected_twitter_account_id === null ||
+                    !this.userStore.user.twitter_accounts.some((twitter_account) => {
+                        return twitter_account.id === this.settingsStore.settings.selected_twitter_account_id;
+                    })) {
+                    this.settingsStore.settings.selected_twitter_account_id = this.userStore.user.twitter_accounts[0].id;
                 }
 
                 // 現在ツイート対象として選択されている Twitter アカウントを取得・設定
-                const twitter_account_index = this.user.twitter_accounts.findIndex((twitter_account) => {
-                    return twitter_account.id === this.selected_twitter_account_id;  // Twitter アカウントの ID が選択されているものと一致する
+                const twitter_account_index = this.userStore.user.twitter_accounts.findIndex((twitter_account) => {
+                    // Twitter アカウントの ID が選択されているものと一致する
+                    return twitter_account.id === this.settingsStore.settings.selected_twitter_account_id;
                 });
-                this.selected_twitter_account = this.user.twitter_accounts[twitter_account_index];
+                this.selected_twitter_account = this.userStore.user.twitter_accounts[twitter_account_index];
             }
         }
 
@@ -339,23 +327,11 @@ export default Vue.extend({
         saved_twitter_hashtags: {
             deep: true,
             handler() {
-                Utils.setSettingsItem('saved_twitter_hashtags', this.saved_twitter_hashtags.map(hashtag => hashtag.text));
+                this.settingsStore.settings.saved_twitter_hashtags = this.saved_twitter_hashtags.map(hashtag => hashtag.text);
             }
         }
     },
     methods: {
-
-        // ユーザーアカウントの情報を取得する
-        async syncAccountInfo() {
-            try {
-                this.user = (await Vue.axios.get('/users/me')).data;
-            } catch (error) {
-                // ログインされていないので未ログイン状態に設定
-                if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
-                    this.is_logged_in = false;
-                }
-            }
-        },
 
         // 文字数カウントを変更するイベント
         updateTweetLetterCount() {
@@ -424,8 +400,7 @@ export default Vue.extend({
 
         // 選択されている Twitter アカウントを更新する
         updateSelectedTwitterAccount(twitter_account: ITwitterAccount) {
-            this.selected_twitter_account_id = twitter_account.id;
-            Utils.setSettingsItem('selected_twitter_account_id', this.selected_twitter_account_id);
+            this.settingsStore.settings.selected_twitter_account_id = twitter_account.id;
             this.selected_twitter_account = twitter_account;
 
             // Twitter アカウントリストのオーバーレイを閉じる (少し待ってから閉じたほうが体感が良い)
@@ -512,7 +487,7 @@ export default Vue.extend({
             context.shadowOffsetY = 0;  // 影のY座標
 
             // 番組タイトルの透かしを描画
-            switch (Utils.getSettingsItem('tweet_capture_watermark_position')) {
+            switch (this.settingsStore.settings.tweet_capture_watermark_position) {
                 case 'TopLeft': {
                     context.textAlign = 'left'; // 左寄せ
                     context.textBaseline = 'top'; // ベースラインを上寄せ
@@ -641,7 +616,7 @@ export default Vue.extend({
             }
 
             // 設定でオンになっている場合のみ、視聴中チャンネルの局タグを自動的に追加する (ハッシュタグリスト内のハッシュタグは除外)
-            if (Utils.getSettingsItem('auto_add_watching_channel_hashtag') === true && from_hashtag_list === false) {
+            if (this.settingsStore.settings.auto_add_watching_channel_hashtag === true && from_hashtag_list === false) {
                 const channel_hashtag = this.getChannelHashtag(this.channel.channel_name);
                 if (channel_hashtag !== null) {
                     if (tweet_hashtag_array.includes(channel_hashtag) === false) {
@@ -663,7 +638,7 @@ export default Vue.extend({
             // 実際に送るツイート本文を作成
             let tweet_text = this.tweet_text;
             if (tweet_hashtag !== '') {  // ハッシュタグが入力されているときのみ
-                switch (Utils.getSettingsItem('tweet_hashtag_position')) {
+                switch (this.settingsStore.settings.tweet_hashtag_position) {
                     // ツイート本文の前に追加する
                     case 'Prepend': {
                         tweet_text = `${tweet_hashtag} ${this.tweet_text}`;
@@ -692,7 +667,7 @@ export default Vue.extend({
             form_data.append('tweet', tweet_text);
             for (let tweet_capture of this.tweet_captures) {
                 // キャプチャへの透かしの描画がオンの場合、キャプチャの Blob を透かし付きのものに差し替える
-                if (Utils.getSettingsItem('tweet_capture_watermark_position') !== 'None') {
+                if (this.settingsStore.settings.tweet_capture_watermark_position !== 'None') {
                     tweet_capture = await this.drawProgramTitleOnCapture(tweet_capture);
                 }
                 form_data.append('images', tweet_capture);
@@ -708,7 +683,7 @@ export default Vue.extend({
             this.tweet_text = '';
 
             // パネルを閉じるように親コンポーネントに伝える
-            if (Utils.getSettingsItem('fold_panel_after_sending_tweet') === true) {
+            if (this.settingsStore.settings.fold_panel_after_sending_tweet === true) {
                 this.$emit('panel_folding_requested');
                 (this.$refs.tweet_text as HTMLTextAreaElement).blur();  // フォーカスを外す
             }

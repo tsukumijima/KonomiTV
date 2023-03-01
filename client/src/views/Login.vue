@@ -35,11 +35,12 @@
 </template>
 <script lang="ts">
 
-import axios from 'axios';
+import { mapStores } from 'pinia';
 import Vue from 'vue';
 
 import Header from '@/components/Header.vue';
 import Navigation from '@/components/Navigation.vue';
+import useUserStore from '@/store/UserStore';
 import Utils from '@/utils';
 
 export default Vue.extend({
@@ -59,55 +60,29 @@ export default Vue.extend({
             password_showing: false,
         }
     },
+    computed: {
+        // UserStore に this.userStore でアクセスできるようにする
+        // ref: https://pinia.vuejs.org/cookbook/options-api.html
+        ...mapStores(useUserStore),
+    },
     methods: {
         async login() {
 
             // ユーザー名またはパスワードが空
-            if (this.username === '' || this.password === '') return;
-
-            try {
-
-                // ログインしてアクセストークンを取得する
-                const response = await Vue.axios.post('/users/token', new URLSearchParams({
-                    username: this.username,
-                    password: this.password,
-                }));
-
-                // 取得したアクセストークンを保存
-                console.log('Login successful.');
-                console.log(response.data);
-                Utils.saveAccessToken(response.data.access_token);
-
-                // アカウントページに遷移
-                // ブラウザバックでログインページに戻れないようにする
-                this.$message.success('ログインしました。');
-                await this.$router.replace({path: '/settings/account'});
-
-            } catch (error) {
-
-                // ログインに失敗
-                if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
-
-                    console.log('Failed to login.');
-                    console.log(error.response.data);
-
-                    // エラーメッセージごとに Snackbar に表示
-                    switch ((error.response.data as any).detail) {
-                        case 'Incorrect username': {
-                            this.$message.error('ログインできませんでした。そのユーザー名のアカウントは存在しません。');
-                            break;
-                        }
-                        case 'Incorrect password': {
-                            this.$message.error('ログインできませんでした。パスワードを間違えていませんか？');
-                            break;
-                        }
-                        default: {
-                            this.$message.error(`ログインできませんでした。(HTTP Error ${error.response.status})`);
-                            break;
-                        }
-                    }
-                }
+            if (this.username === '' || this.password === '') {
+                this.$message.error('ユーザー名またはパスワードが空です。');
+                return;
             }
+
+            // ログイン処理 (エラーハンドリング含む) を実行
+            const result = await this.userStore.login(this.username, this.password);
+            if (result === false) {
+                return;  // ログイン失敗
+            }
+
+            // アカウントページに遷移
+            // ブラウザバックでログインページに戻れないようにする
+            await this.$router.replace({path: '/settings/account'});
         }
     }
 });

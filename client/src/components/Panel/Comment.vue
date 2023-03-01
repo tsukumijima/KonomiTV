@@ -74,10 +74,13 @@ import { AxiosResponse } from 'axios';
 import dayjs from 'dayjs';
 import DPlayer from 'dplayer';
 import * as DPlayerType from 'dplayer/dist/d.ts/types/DPlayer';
+import { mapStores } from 'pinia';
 import Vue, { PropType } from 'vue';
 
 import { IChannel, IUser } from '@/interface';
 import CommentMuteSettings from '@/components/Settings/CommentMuteSettings.vue';
+import useSettingsStore from '@/store/SettingsStore';
+import useUserStore from '@/store/UserStore';
 import Utils, { CommentUtils } from '@/utils';
 
 // このコンポーネント内でのコメントのインターフェイス
@@ -120,10 +123,6 @@ export default Vue.extend({
             // 自動スクロール中の場合、scroll イベントが発火しても無視する
             is_auto_scrolling: false,
 
-            // ユーザーアカウントの情報
-            // ログインしていない場合は null になる
-            user: null as IUser | null,
-
             // コメントリストの配列
             comment_list: [] as IComment[],
 
@@ -160,6 +159,11 @@ export default Vue.extend({
             // コメントのミュート設定のモーダルを表示するか
             comment_mute_settings_modal: false,
         }
+    },
+    computed: {
+        // SettingsStore / UserStore に this.settingsStore / this.userStore でアクセスできるようにする
+        // ref: https://pinia.vuejs.org/cookbook/options-api.html
+        ...mapStores(useSettingsStore, useUserStore),
     },
     async mounted() {
 
@@ -227,12 +231,8 @@ export default Vue.extend({
             }
         }
 
-        // ユーザーアカウントの情報を取得
-        try {
-            this.user = (await Vue.axios.get('/users/me')).data;
-        } catch (error) {
-            this.user = null;
-        }
+        // アカウント情報を更新
+        this.userStore.fetchUser();
     },
     // 終了前に実行
     beforeDestroy() {
@@ -683,21 +683,21 @@ export default Vue.extend({
 
                 // 「映像の上下に固定表示されるコメントをミュートする」がオンの場合
                 // コメントの位置が top (上固定) もしくは bottom (下固定) のときは弾く
-                if (Utils.getSettingsItem('mute_fixed_comments') === true && (position === 'top' || position === 'bottom')) {
+                if (this.settingsStore.settings.mute_fixed_comments === true && (position === 'top' || position === 'bottom')) {
                     console.log('Muted comment (Fixed): ' + comment.content);
                     return;
                 }
 
                 // 「色付きのコメントをミュートする」がオンの場合
                 // コメントの色が #FFEAEA (デフォルト) 以外のときは弾く
-                if (Utils.getSettingsItem('mute_colored_comments') === true && color !== '#FFEAEA') {
+                if (this.settingsStore.settings.mute_colored_comments === true && color !== '#FFEAEA') {
                     console.log('Muted comment (Colored): ' + comment.content);
                     return;
                 }
 
                 // 「文字サイズが大きいコメントをミュートする」がオンの場合
                 // コメントのサイズが big のときは弾く
-                if (Utils.getSettingsItem('mute_big_size_comments') === true && size === 'big') {
+                if (this.settingsStore.settings.mute_big_size_comments === true && size === 'big') {
                     console.log('Muted comment (Big): ' + comment.content);
                     return;
                 }
@@ -705,7 +705,7 @@ export default Vue.extend({
                 // 配信に発生する遅延分待ってから
                 // 最初にドカッと送信されてくる初回コメントは少し前に投稿されたコメント群なので、遅らせずに表示させる
                 if (is_received_initial_comment) {
-                    const comment_delay_time = Utils.getSettingsItem('comment_delay_time');
+                    const comment_delay_time = this.settingsStore.settings.comment_delay_time;
                     await Utils.sleep(comment_delay_time);
                 }
 
@@ -779,25 +779,25 @@ export default Vue.extend({
             }
 
             // 未ログイン時
-            if (this.user === null) {
+            if (this.userStore.user === null) {
                 options.error('コメントするには、KonomiTV アカウントにログインしてください。');
                 return;
             }
 
             // ニコニコアカウント未連携時
-            if (this.user.niconico_user_id === null) {
+            if (this.userStore.user.niconico_user_id === null) {
                 options.error('コメントするには、ニコニコアカウントと連携してください。');
                 return;
             }
 
             // 一般会員ではコメント位置の指定 (ue, shita) が無視されるので、事前にエラーにしておく
-            if (this.user.niconico_user_premium === false && (options.data.type === 'top' || options.data.type === 'bottom')) {
+            if (this.userStore.user.niconico_user_premium === false && (options.data.type === 'top' || options.data.type === 'bottom')) {
                 options.error('コメントを上下に固定するには、ニコニコアカウントのプレミアム会員登録が必要です。');
                 return;
             }
 
             // 一般会員ではコメントサイズ大きめの指定 (big) が無視されるので、事前にエラーにしておく
-            if (this.user.niconico_user_premium === false && options.data.size === 'big') {
+            if (this.userStore.user.niconico_user_premium === false && options.data.size === 'big') {
                 options.error('コメントサイズを大きめに設定するには、ニコニコアカウントのプレミアム会員登録が必要です。');
                 return;
             }
@@ -843,7 +843,7 @@ export default Vue.extend({
                 id: new Date().getTime(),
                 text: options.data.text,
                 time: dayjs().format('HH:mm:ss'),
-                user_id: `${this.user.niconico_user_id}`,
+                user_id: `${this.userStore.user.niconico_user_id}`,
                 my_post: true,  // コメントリスト上でハイライトする
             });
 

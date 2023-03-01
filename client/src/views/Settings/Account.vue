@@ -9,7 +9,7 @@
             <span class="ml-2">アカウント</span>
         </h2>
         <div class="settings__content" :class="{'settings__content--loading': is_loading}">
-            <div class="account" v-if="user === null">
+            <div class="account" v-if="userStore.user === null">
                 <div class="account-wrapper">
                     <img class="account__icon" src="/assets/images/account-icon-default.png">
                     <div class="account__info">
@@ -23,22 +23,22 @@
                     <Icon icon="fa:sign-in" class="mr-2" />ログイン
                 </v-btn>
             </div>
-            <div class="account" v-if="user !== null">
+            <div class="account" v-if="userStore.user !== null">
                 <div class="account-wrapper">
-                    <img class="account__icon" :src="user_icon_blob">
+                    <img class="account__icon" :src="userStore.user_icon_url">
                     <div class="account__info">
                         <div class="account__info-name">
-                            <span class="account__info-name-text">{{user.name}}</span>
-                            <span class="account__info-admin" v-if="user.is_admin">管理者</span>
+                            <span class="account__info-name-text">{{userStore.user.name}}</span>
+                            <span class="account__info-admin" v-if="userStore.user.is_admin">管理者</span>
                         </div>
-                        <span class="account__info-id">User ID: {{user.id}}</span>
+                        <span class="account__info-id">User ID: {{userStore.user.id}}</span>
                     </div>
                 </div>
-                <v-btn class="account__login ml-auto" color="secondary" width="140" height="56" depressed @click="logout()">
+                <v-btn class="account__login ml-auto" color="secondary" width="140" height="56" depressed @click="userStore.logout()">
                     <Icon icon="fa:sign-out" class="mr-2" />ログアウト
                 </v-btn>
             </div>
-            <div class="account-register" v-if="is_logged_in === false">
+            <div class="account-register" v-if="userStore.is_logged_in === false">
                 <div class="account-register__heading">
                     KonomiTV アカウントにログインすると、<br>より便利な機能が使えます！
                 </div>
@@ -81,7 +81,7 @@
                     <Icon icon="fluent:person-add-20-filled" class="mr-2" height="24" />アカウントを作成
                 </v-btn>
             </div>
-            <div v-if="is_logged_in === true">
+            <div v-if="userStore.is_logged_in === true">
                 <div class="settings__item settings__item--switch">
                     <label class="settings__item-heading" for="sync_settings">設定をデバイス間で同期する</label>
                     <label class="settings__item-label" for="sync_settings">
@@ -200,10 +200,12 @@
 </template>
 <script lang="ts">
 
-import axios from 'axios';
+import { mapStores } from 'pinia';
 import Vue from 'vue';
 
-import { IUser } from '@/interface';
+import Settings from '@/services/Settings';
+import useSettingsStore from '@/store/SettingsStore';
+import useUserStore from '@/store/UserStore';
 import Base from '@/views/Settings/Base.vue';
 import Utils from '@/utils';
 
@@ -215,24 +217,11 @@ export default Vue.extend({
     data() {
         return {
 
-            // ユーティリティをテンプレートで使えるように
-            Utils: Utils,
-
             // フォームを小さくするかどうか
             is_form_dense: Utils.isSmartphoneHorizontal(),
 
             // ローディング中かどうか
             is_loading: true,
-
-            // ログイン中かどうか
-            is_logged_in: Utils.getAccessToken() !== null,
-
-            // ユーザーアカウントの情報
-            // ログインしていない場合は null になる
-            user: null as IUser | null,
-
-            // ユーザーアカウントのアイコンの Blob URL
-            user_icon_blob: '',
 
             // ユーザー名とパスワード
             // ログイン画面やアカウント作成画面の data と同一のもの
@@ -251,24 +240,28 @@ export default Vue.extend({
                 return true;
             },
 
-            // アイコン画像
+            // アップロードするアイコン画像
             settings_icon: null as File | null,
 
             // アカウント削除確認ダイヤログ
-            account_delete_confirm_dialog: null,
+            account_delete_confirm_dialog: null as boolean | null,
 
             // 設定を同期するかの設定値
-            sync_settings: Utils.getSettingsItem('sync_settings') as boolean,
+            sync_settings: useSettingsStore().settings.sync_settings as boolean,
 
             // 設定を同期するときのダイヤログ
             sync_settings_dialog: false,
         }
     },
+    computed: {
+        // SettingsStore / UserStore に this.settingsStore /  this.userStore でアクセスできるようにする
+        // ref: https://pinia.vuejs.org/cookbook/options-api.html
+        ...mapStores(useSettingsStore, useUserStore),
+    },
     async created() {
 
-        // 表示されているアカウント情報を更新
-        // アクセストークンが無効化されている可能性もあるので、アクセストークンの有無に関わらず実行する
-        await this.syncAccountInfo();
+        // アカウント情報を更新
+        await this.userStore.fetchUser();
 
         // ローディング状態を解除
         this.is_loading = false;
@@ -280,58 +273,38 @@ export default Vue.extend({
             // 同期がオンになった & ダイヤログが表示されていない
             if (this.sync_settings === true && this.sync_settings_dialog === false) {
 
-                try {
+                // 同期対象の設定キーのみで設定データをまとめ直す
+                const sync_settings = this.settingsStore.getSyncableClientSettings();
 
-                    // もし KonomiTV-Settings キーがまだない場合、あらかじめデフォルトの設定値を保存しておく
-                    if (localStorage.getItem('KonomiTV-Settings') === null) {
-                        localStorage.setItem('KonomiTV-Settings', JSON.stringify(Utils.default_settings));
-                    }
+                // 同期対象のこのクライアントの設定を再度 JSON にする（文字列比較のため）
+                const sync_settings_json = JSON.stringify(sync_settings);
 
-                    // LocalStorage から KonomiTV-Settings を取得
-                    const settings: {[key: string]: any} = JSON.parse(localStorage.getItem('KonomiTV-Settings'));
+                // サーバーから設定データをダウンロード
+                // 一度オブジェクトに戻したものをを再度 JSON にする（文字列比較のため）
+                const server_sync_settings = await Settings.fetchClientSettings();
+                if (server_sync_settings === null) {
+                    this.$message.error(`サーバーから設定データを取得できませんでした。`);
+                    return;
+                }
+                const server_sync_settings_json = JSON.stringify(server_sync_settings);
 
-                    // 同期対象の設定キーのみで設定データをまとめ直す
-                    // sync_settings には同期対象外の設定は含まれない
-                    const sync_settings: {[key: string]: any} = {};
-                    for (const sync_settings_key of Utils.sync_settings_keys) {
-                        if (sync_settings_key in settings) {
-                            sync_settings[sync_settings_key] = settings[sync_settings_key];
-                        } else {
-                            // 後から追加された設定キーなどの理由で設定キーが現状の KonomiTV-Settings に存在しない場合
-                            // その設定キーのデフォルト値を取得する
-                            sync_settings[sync_settings_key] = Utils.default_settings[sync_settings_key];
-                        }
-                    }
+                // このクライアントの設定とサーバーに保存されている設定が一致しない（=競合している）
+                if (sync_settings_json !== server_sync_settings_json) {
 
-                    // 同期対象のこのクライアントの設定を再度 JSON にする（文字列比較のため）
-                    const sync_settings_json = JSON.stringify(sync_settings);
+                    // 一度同期のスイッチをオフにして、クライアントとサーバーどちらの設定を使うのかを選択させるダイヤログを表示
+                    this.sync_settings_dialog = true;
+                    this.sync_settings = false;
 
-                    // サーバーから設定データ (生の JSON) をダウンロード
-                    // 一度オブジェクトにしたものを再度 JSON にする（文字列比較のため）
-                    const server_sync_settings_json: string = JSON.stringify((await Vue.axios.get('/settings/client')).data);
+                // このクライアントの設定とサーバーに保存されている設定が一致する
+                } else {
 
-                    // このクライアントの設定とサーバーに保存されている設定が一致しない（=競合している）
-                    if (sync_settings_json !== server_sync_settings_json) {
-
-                        // 一度同期をオフにして、クライアントとサーバーどちらの設定を使うのかを選択させるダイヤログを表示
-                        this.sync_settings_dialog = true;
-                        this.sync_settings = false;
-
-                    // このクライアントの設定とサーバーに保存されている設定が一致する
-                    } else {
-
-                        // 特に設定の同期をオンにしても問題ないので、そのまま有効にする
-                        Utils.setSettingsItem('sync_settings', true);
-                    }
-
-                } catch (error) {
-                    // 何らかの理由でエラーになったとき
-                    this.$message.error(`サーバーから設定データを取得できませんでした。(HTTP Error ${error.response.status})`);
+                    // 特に設定の同期をオンにしても問題ないので、そのまま有効にする
+                    this.settingsStore.settings.sync_settings = true;
                 }
 
             // 同期がオフになった & ダイヤログが表示されていない
             } else if (this.sync_settings === false && this.sync_settings_dialog === false) {
-                Utils.setSettingsItem('sync_settings', false);
+                this.settingsStore.settings.sync_settings = false;
             }
         }
     },
@@ -341,11 +314,11 @@ export default Vue.extend({
         async overrideServerSettingsFromClient() {
 
             // 強制的にこのクライアントの設定をサーバーに同期
-            await Utils.syncClientSettingsToServer(true);
+            await this.settingsStore.syncClientSettingsToServer(true);
 
             // 設定の同期を有効化
+            this.settingsStore.settings.sync_settings = true;
             this.sync_settings = true;
-            Utils.setSettingsItem('sync_settings', true);
 
             // ダイヤログを閉じる
             this.sync_settings_dialog = false;
@@ -356,58 +329,17 @@ export default Vue.extend({
 
             // 強制的にサーバーに保存されている設定データをこのクライアントに同期する
             // 設定の同期を有効化する前に実行しておくのが重要
-            await Utils.syncServerSettingsToClient(true);
+            await this.settingsStore.syncClientSettingsFromServer(true);
 
             // 設定の同期を有効化
-            // Utils.setSettingsItem() した段階で設定データがサーバーにアップロードされてしまうので、
-            // それよりも前に Utils.syncServerSettingsToClient(true) でサーバー上の設定データを同期させておく必要がある
+            // 値を変更した時点で設定データがサーバーにアップロードされてしまうので、
+            // それよりも前に syncClientSettingsFromServer(true) でサーバー上の設定データを同期させておく必要がある
             // さもなければ、サーバー上の設定データがこのクライアントの設定で上書きされてしまい、overrideServerSettingsFromClient() と同じ挙動になってしまう
+            this.settingsStore.settings.sync_settings = true;
             this.sync_settings = true;
-            Utils.setSettingsItem('sync_settings', true);
 
             // ダイヤログを閉じる
             this.sync_settings_dialog = false;
-        },
-
-        async syncAccountInfo() {
-
-            try {
-
-                // ユーザーアカウントの情報を取得する
-                const response = await Vue.axios.get('/users/me');
-                this.user = response.data;
-                this.settings_username = this.user.name;
-
-                // 表示中のアイコン画像を更新
-                await this.syncAccountIcon();
-
-            } catch (error) {
-
-                // ログインされていない
-                if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
-                    console.log('Not logged in.');
-
-                    // 未ログイン状態に設定
-                    this.is_logged_in = false;
-                    this.user = null;
-                    this.user_icon_blob = '';
-
-                    // まだアクセストークンが残っているかもしれないので、明示的にログアウト
-                    Utils.deleteAccessToken();
-                }
-            }
-        },
-
-        async syncAccountIcon() {
-
-            // ユーザーアカウントのアイコンを取得する
-            // 認証が必要な URL は img タグからは直で読み込めないため
-            const icon_response = await Vue.axios.get('/users/me/icon', {
-                responseType: 'arraybuffer',
-            });
-
-            // Blob URL を生成
-            this.user_icon_blob = URL.createObjectURL(new Blob([icon_response.data], {type: 'image/png'}));
         },
 
         async updateAccountInfo(update_type: 'username' | 'password') {
@@ -420,42 +352,13 @@ export default Vue.extend({
                 if ((this.$refs.settings_password as any).validate() === false) return;
             }
 
-            try {
-
-                // アカウント情報更新 API にリクエスト
-                // レスポンスは 204 No Content なので不要
-                if (update_type === 'username') {
-                    await Vue.axios.put('/users/me', {username: this.settings_username});
-                    this.$message.show('ユーザー名を更新しました。');
-                } else {
-                    await Vue.axios.put('/users/me', {password: this.settings_password});
-                    this.$message.show('パスワードを更新しました。');
-                }
-
-                // 表示中のアカウント情報を更新
-                await this.syncAccountInfo();
-
-            } catch (error) {
-
-                // アカウント情報の更新に失敗
-                // ref: https://dev.classmethod.jp/articles/typescript-typing-exception-objects-in-axios-trycatch/
-                if (axios.isAxiosError(error) && error.response && error.response.status === 422) {
-                    // エラーメッセージごとに Snackbar に表示
-                    switch ((error.response.data as any).detail) {
-                        case 'Specified username is duplicated': {
-                            this.$message.error('ユーザー名が重複しています。');
-                            break;
-                        }
-                        case 'Specified username is not accepted due to system limitations': {
-                            this.$message.error('ユーザー名に token と me は使えません。');
-                            break;
-                        }
-                        default: {
-                            this.$message.error(`アカウント情報を更新できませんでした。(HTTP Error ${error.response.status})`);
-                            break;
-                        }
-                    }
-                }
+            // アカウント情報の更新処理 (エラーハンドリングを含む) を実行
+            if (update_type === 'username') {
+                if (this.settings_username === null) return;
+                await this.userStore.updateUser({username: this.settings_username});
+            } else {
+                if (this.settings_password === null) return;
+                await this.userStore.updateUser({password: this.settings_password});
             }
         },
 
@@ -467,38 +370,8 @@ export default Vue.extend({
                 return;
             }
 
-            // アイコン画像の File オブジェクト (= Blob) を FormData に入れる
-            // multipart/form-data で送るために必要
-            // ref: https://r17n.page/2020/02/04/nodejs-axios-file-upload-api/
-            const form_data = new FormData();
-            form_data.append('image', this.settings_icon);
-
-            try {
-
-                // アカウントアイコン画像更新 API にリクエスト
-                await Vue.axios.put('/users/me/icon', form_data, {headers: {'Content-Type': 'multipart/form-data'}});
-
-                // 表示中のアイコン画像を更新
-                await this.syncAccountIcon();
-
-            } catch (error) {
-
-                // アカウント情報の更新に失敗
-                // ref: https://dev.classmethod.jp/articles/typescript-typing-exception-objects-in-axios-trycatch/
-                if (axios.isAxiosError(error) && error.response && error.response.status === 422) {
-                    // エラーメッセージごとに Snackbar に表示
-                    switch ((error.response.data as any).detail) {
-                        case 'Please upload JPEG or PNG image': {
-                            this.$message.error('JPEG または PNG 画像をアップロードしてください。');
-                            break;
-                        }
-                        default: {
-                            this.$message.error(`アイコン画像を更新できませんでした。(HTTP Error ${error.response.status})`);
-                            break;
-                        }
-                    }
-                }
-            }
+            // アイコン画像の更新処理 (エラーハンドリングを含む) を実行
+            await this.userStore.updateUserIcon(this.settings_icon);
         },
 
         async deleteAccount() {
@@ -506,39 +379,9 @@ export default Vue.extend({
             // ダイヤログを閉じる
             this.account_delete_confirm_dialog = false;
 
-            // アカウント削除 API にリクエスト
-            await Vue.axios.delete('/users/me');
-
-            // 設定の同期を無効化
-            Utils.setSettingsItem('sync_settings', false);
-
-            // ブラウザからアクセストークンを削除
-            Utils.deleteAccessToken();
-
-            // 未ログイン状態に設定
-            this.is_logged_in = false;
-            this.user = null;
-            this.user_icon_blob = '';
-
-            this.$message.show('アカウントを削除しました。');
-        },
-
-        logout() {
-
-            // 設定の同期を無効化
-            Utils.setSettingsItem('sync_settings', false);
-
-            // ブラウザからアクセストークンを削除
-            // これをもってログアウトしたことになる（それ以降の Axios のリクエストにはアクセストークンが含まれなくなる）
-            Utils.deleteAccessToken();
-
-            // 未ログイン状態に設定
-            this.is_logged_in = false;
-            this.user = null;
-            this.user_icon_blob = '';
-
-            this.$message.success('ログアウトしました。');
-        },
+            // アカウント削除処理 (エラーハンドリングを含む) を実行
+            await this.userStore.deleteUser();
+        }
     }
 });
 

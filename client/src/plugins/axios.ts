@@ -1,6 +1,7 @@
 
 import axios from 'axios';
 
+import useUserStore from '@/store/UserStore';
 import Utils from '@/utils';
 
 // ref: https://note.com/quoizunda/n/nb62e13e73499
@@ -20,6 +21,7 @@ axios_instance.interceptors.request.use((config) => {
     // アクセストークンが取得できたら（=ログインされていれば）
     // 取得したアクセストークンを Authorization ヘッダーに Bearer トークンとしてセット
     // これを忘れると（当然ながら）ログインしていない扱いになる
+    config.headers = config.headers || {};
     const access_token = Utils.getAccessToken();
     if (access_token !== null) {
         config.headers['Authorization'] = `Bearer ${access_token}`;
@@ -37,11 +39,11 @@ axios_instance.interceptors.response.use(
     (response) => response,
     (error) => {
 
-        // 401 Unauthorized が返ってきたら、アクセストークンを削除してログアウト状態にする
+        // 401 Unauthorized が返ってきたら、ログアウトさせる
         // JWT の有効期限が切れたときに発生する
-        // アクセストークンが削除されていないと、余計なリクエストが発生してしまう
         if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
-            Utils.deleteAccessToken();
+            const user_store = useUserStore();
+            user_store.logout(true);
         }
 
         // エラーをそのまま返す

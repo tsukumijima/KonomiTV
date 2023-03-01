@@ -6,7 +6,7 @@ import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore'
 
 import { IProgram } from '@/interface';
-import Utils from './Utils';
+import Utils from '@/utils';
 
 /**
  * 番組情報周りのユーティリティ

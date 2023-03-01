@@ -20,7 +20,7 @@
                     [1080p (60fps)] で視聴するときは、QSVEncC / NVEncC / VCEEncC エンコーダーの利用をおすすめします。FFmpeg エンコーダーでは CPU 使用率が高くなり、再生に支障が出ることがあります。<br>
                 </div>
                 <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
-                    :items="tv_streaming_quality" v-model="settings.tv_streaming_quality">
+                    :items="tv_streaming_quality" v-model="settingsStore.settings.tv_streaming_quality">
                 </v-select>
             </div>
             <div class="settings__item settings__item--switch settings__item--sync-disabled"
@@ -32,7 +32,7 @@
                     通信節約モードで視聴するときは、QSVEncC / NVEncC / VCEEncC エンコーダーの利用をおすすめします。FFmpeg エンコーダーではまともに再生できない可能性が高いです。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="tv_data_saver_mode" inset hide-details
-                    v-model="settings.tv_data_saver_mode" :disabled="PlayerUtils.isHEVCVideoSupported() === false">
+                    v-model="settingsStore.settings.tv_data_saver_mode" :disabled="PlayerUtils.isHEVCVideoSupported() === false">
                 </v-switch>
             </div>
             <div class="settings__item settings__item--switch settings__item--sync-disabled">
@@ -44,7 +44,7 @@
                     宅外視聴などのネットワークが不安定になりがちな環境では、一度低遅延ストリーミングをオフにしてみると、映像のカクつきを改善できるかもしれません。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="tv_low_latency_mode" inset hide-details
-                    v-model="settings.tv_low_latency_mode">
+                    v-model="settingsStore.settings.tv_low_latency_mode">
                 </v-switch>
             </div>
             <div class="settings__item settings__item--switch">
@@ -54,7 +54,7 @@
                     文字スーパーは、緊急地震速報の赤テロップや、NHK BS のニュース速報のテロップなどで利用されています。とくに理由がなければ、オンのままにしておくことをおすすめします。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="tv_show_superimpose" inset hide-details
-                    v-model="settings.tv_show_superimpose">
+                    v-model="settingsStore.settings.tv_show_superimpose">
                 </v-switch>
             </div>
             <v-divider class="mt-6"></v-divider>
@@ -64,7 +64,7 @@
                     視聴画面を開いたときに、右側のパネルをどう表示するかを設定します。<br>
                 </div>
                 <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
-                    :items="panel_display_state" v-model="settings.panel_display_state">
+                    :items="panel_display_state" v-model="settingsStore.settings.panel_display_state">
                 </v-select>
             </div>
             <div class="settings__item">
@@ -73,7 +73,7 @@
                     テレビの視聴画面を開いたときに、右側のパネルで最初に表示されるタブを設定します。<br>
                 </div>
                 <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
-                    :items="tv_panel_active_tab" v-model="settings.tv_panel_active_tab">
+                    :items="tv_panel_active_tab" v-model="settingsStore.settings.tv_panel_active_tab">
                 </v-select>
             </div>
             <v-divider class="mt-6"></v-divider>
@@ -83,7 +83,7 @@
                     プレイヤーで字幕表示をオンにしているときの、字幕のフォントを設定します。<br>
                 </label>
                 <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
-                    :items="caption_font" v-model="settings.caption_font">
+                    :items="caption_font" v-model="settingsStore.settings.caption_font">
                 </v-select>
             </div>
             <div class="settings__item settings__item--switch">
@@ -94,7 +94,7 @@
                     この設定をオフにしているときも、字幕データ側で明示的に縁取りするように指定されていれば、オンにしているとき同様に文字が縁取られて描画されます。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="always_border_caption_text" inset hide-details
-                    v-model="settings.always_border_caption_text">
+                    v-model="settingsStore.settings.always_border_caption_text">
                 </v-switch>
             </div>
             <div class="settings__item settings__item--switch">
@@ -104,19 +104,19 @@
                     この設定をオフにしているときは、字幕データ側で指定されている背景色で描画します。とくに理由がなければ、オフのままにしておくことをおすすめします。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="specify_caption_background_color" inset hide-details
-                    v-model="settings.specify_caption_background_color">
+                    v-model="settingsStore.settings.specify_caption_background_color">
                 </v-switch>
             </div>
-            <div class="settings__item" :class="{'settings__item--disabled': settings.specify_caption_background_color === false}">
+            <div class="settings__item" :class="{'settings__item--disabled': settingsStore.settings.specify_caption_background_color === false}">
                 <label class="settings__item-heading">字幕の背景色</label>
                 <label class="settings__item-label">
                     プレイヤーで字幕表示をオンにしているときの、字幕の背景色を設定します。<br>
                     上の [字幕の背景色を指定する] をオンにしているときのみ有効です。透明度 (アルファチャンネル) を 0 に設定すれば、字幕の背景を非表示にできます。<br>
                 </label>
                 <div class="settings__item-label" ref="caption_background_color">
-                    <v-color-picker class="settings__item-form" hide-details v-model="settings.caption_background_color"
+                    <v-color-picker class="settings__item-form" hide-details v-model="settingsStore.settings.caption_background_color"
                         :flat="true" :show-alpha="true" :show-swatches="false" :hide-inputs="false" :width="690" :canvas-height="80"
-                        :disabled="settings.specify_caption_background_color === false">
+                        :disabled="settingsStore.settings.specify_caption_background_color === false">
                     </v-color-picker>
                 </div>
             </div>
@@ -128,7 +128,7 @@
                     クリップボードの履歴をサポートしていない OS では、この設定をオンにした状態でキャプチャを撮ると、以前のクリップボードが上書きされます。注意してください。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="capture_copy_to_clipboard" inset hide-details
-                    v-model="settings.capture_copy_to_clipboard">
+                    v-model="settingsStore.settings.capture_copy_to_clipboard">
                 </v-switch>
             </div>
             <div class="settings__item">
@@ -148,7 +148,7 @@
                     </p>
                 </div>
                 <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
-                    :items="capture_save_mode" v-model="settings.capture_save_mode">
+                    :items="capture_save_mode" v-model="settingsStore.settings.capture_save_mode">
                 </v-select>
             </div>
             <div class="settings__item">
@@ -159,7 +159,7 @@
                     なお、字幕が表示されていない場合は、常に映像のみ (+コメント付きキャプチャではコメントを合成して) 保存されます。<br>
                 </div>
                 <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
-                    :items="capture_caption_mode" v-model="settings.capture_caption_mode">
+                    :items="capture_caption_mode" v-model="settingsStore.settings.capture_caption_mode">
                 </v-select>
             </div>
             <v-divider class="mt-6"></v-divider>
@@ -195,8 +195,10 @@
 </template>
 <script lang="ts">
 
+import { mapStores } from 'pinia';
 import Vue from 'vue';
 
+import useSettingsStore from '@/store/SettingsStore';
 import Base from '@/views/Settings/Base.vue';
 import Utils, { PlayerUtils } from '@/utils';
 
@@ -269,56 +271,22 @@ export default Vue.extend({
 
             // 選択された設定データ (KonomiTV-Settings.json) が入る
             import_settings_file: null as File | null,
-
-            // 設定値が保存されるオブジェクト
-            // ここの値とフォームを v-model で binding する
-            settings: (() => {
-                // 現在の設定値を取得する
-                const settings = {}
-                const setting_keys = [
-                    'tv_streaming_quality',
-                    'tv_data_saver_mode',
-                    'tv_low_latency_mode',
-                    'tv_show_superimpose',
-                    'panel_display_state',
-                    'tv_panel_active_tab',
-                    'caption_font',
-                    'always_border_caption_text',
-                    'specify_caption_background_color',
-                    'caption_background_color',
-                    'capture_copy_to_clipboard',
-                    'capture_save_mode',
-                    'capture_caption_mode',
-                ];
-                for (const setting_key of setting_keys) {
-                    settings[setting_key] = Utils.getSettingsItem(setting_key);
-                }
-                return settings;
-            })(),
         }
     },
-    watch: {
-        // settings 内の値の変更を監視する
-        settings: {
-            deep: true,
-            handler() {
-                // settings 内の値を順に LocalStorage に保存する
-                for (const [setting_key, setting_value] of Object.entries(this.settings)) {
-                    Utils.setSettingsItem(setting_key, setting_value);
-                }
-            }
-        }
+    computed: {
+        // SettingsStore に this.settingsStore でアクセスできるようにする
+        // ref: https://pinia.vuejs.org/cookbook/options-api.html
+        ...mapStores(useSettingsStore),
     },
     methods: {
 
         // 設定データをエクスポートする
         exportSettings() {
 
-            // JSON のままの設定データを LocalStorage から直に取得
-            // "KonomiTV-Settings" キーがないときはデフォルト設定を JSON 化したものを入れる
-            const settings_json = localStorage.getItem('KonomiTV-Settings') || JSON.stringify(Utils.default_settings);
+            // 設定データを JSON 化して取得
+            const settings_json = JSON.stringify(this.settingsStore.settings, null, 4);
 
-            // ダウンロードさせるために Blob にしてから、KonomiTV-Settings.json としてダウンロード
+            // ダウンロードさせるために一旦 Blob にしてから、KonomiTV-Settings.json としてダウンロード
             const settings_json_blob = new Blob([settings_json], {type: 'application/json'});
             Utils.downloadBlobData(settings_json_blob, 'KonomiTV-Settings.json');
             this.$message.success('設定をエクスポートしました。');
@@ -333,26 +301,13 @@ export default Vue.extend({
                 return;
             }
 
-            try {
-
-                // 選択された設定データの JSON を取得してデコード
-                // そのまま突っ込んでもいいんだけど、念のため一度オブジェクトになおしておく
-                const settings = JSON.parse(await this.import_settings_file.text());
-
-                // LocalStorage に直に保存
-                // このとき、既存の設定データはすべて上書きされる
-                localStorage.setItem('KonomiTV-Settings', JSON.stringify(settings));
-
-                // 設定データをサーバーに同期する
-                await Utils.syncClientSettingsToServer();
-
-                // 設定を適用するためリロード
+            // 設定データのインポートを実行
+            const result = await this.settingsStore.importClientSettings(this.import_settings_file);
+            if (result === true) {
                 this.$message.success('設定をインポートしました。');
                 window.setTimeout(() => this.$router.go(0), 300);
-
-            } catch (error) {
+            } else {
                 this.$message.error('設定データが不正なため、インポートできませんでした。');
-                return;
             }
         },
     }

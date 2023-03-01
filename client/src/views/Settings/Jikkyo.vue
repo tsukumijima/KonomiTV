@@ -9,7 +9,7 @@
             <span class="ml-3">ニコニコ実況</span>
         </h2>
         <div class="settings__content" :class="{'settings__content--loading': is_loading}">
-            <div class="niconico-account niconico-account--anonymous" v-if="user.niconico_user_id === null">
+            <div class="niconico-account niconico-account--anonymous" v-if="userStore.user === null || userStore.user.niconico_user_id === null">
                 <div class="niconico-account-wrapper">
                     <Icon class="flex-shrink-0" icon="bi:chat-left-text-fill" width="45px" />
                     <div class="niconico-account__info ml-4">
@@ -26,18 +26,18 @@
                     <Icon icon="fluent:plug-connected-20-filled" class="mr-2" height="26" />連携する
                 </v-btn>
             </div>
-            <div class="niconico-account" v-if="user.niconico_user_id !== null">
+            <div class="niconico-account" v-if="userStore.user !== null && userStore.user.niconico_user_id !== null">
                 <div class="niconico-account-wrapper">
-                    <img class="niconico-account__icon" :src="this.niconico_user_icon_url">
+                    <img class="niconico-account__icon" :src="userStore.user_niconico_icon_url">
                     <div class="niconico-account__info">
                         <div class="niconico-account__info-name">
-                            <span class="niconico-account__info-name-text">{{user.niconico_user_name}} と連携しています</span>
+                            <span class="niconico-account__info-name-text">{{userStore.user.niconico_user_name}} と連携しています</span>
                         </div>
                         <span class="niconico-account__info-description">
                             <span class="mr-2" style="white-space: nowrap;">Niconico User ID:</span>
-                            <a class="mr-2" :href="`https://www.nicovideo.jp/user/${user.niconico_user_id}`"
-                                target="_blank">{{user.niconico_user_id}}</a>
-                            <span class="secondary--text" v-if="user.niconico_user_premium == true">(Premium)</span>
+                            <a class="mr-2" :href="`https://www.nicovideo.jp/user/${userStore.user.niconico_user_id}`"
+                                target="_blank">{{userStore.user.niconico_user_id}}</a>
+                            <span class="secondary--text" v-if="userStore.user.niconico_user_premium == true">(Premium)</span>
                         </span>
                     </div>
                 </div>
@@ -63,7 +63,7 @@
                     たとえば 1.2 に設定すると、コメントが 1.2 倍速く流れます。<br>
                 </div>
                 <v-slider class="settings__item-form" ticks="always" thumb-label hide-details
-                    :step="0.1" :min="0.5" :max="2" v-model="settings.comment_speed_rate">
+                    :step="0.1" :min="0.5" :max="2" v-model="settingsStore.settings.comment_speed_rate">
                 </v-slider>
             </div>
             <div class="settings__item">
@@ -73,7 +73,7 @@
                     実際の文字サイズは画面の大きさに合わせて調整されます。既定の文字サイズは 34px です。<br>
                 </div>
                 <v-slider class="settings__item-form" ticks="always" thumb-label hide-details
-                    :min="20" :max="60" v-model="settings.comment_font_size">
+                    :min="20" :max="60" v-model="settingsStore.settings.comment_font_size">
                 </v-slider>
             </div>
             <div class="settings__item settings__item--sync-disabled">
@@ -83,7 +83,7 @@
                     通常は 1.75 秒程度で大丈夫です。ネットワークが遅いなどでタイムラグが大きいときだけ、映像の遅延に合わせて調整してください。<br>
                 </div>
                 <v-slider class="settings__item-form" ticks="always" thumb-label hide-details
-                    :step="0.25" :min="0" :max="10"  v-model="settings.comment_delay_time">
+                    :step="0.25" :min="0" :max="10"  v-model="settingsStore.settings.comment_delay_time">
                 </v-slider>
             </div>
             <div class="settings__item settings__item--switch">
@@ -93,7 +93,7 @@
                     基本的にはオンのままにしておくことをおすすめします。コメント入力フォームが表示されたままだと、大部分のショートカットキーが文字入力と競合して使えないためです。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="close_comment_form_after_sending" inset hide-details
-                    v-model="settings.close_comment_form_after_sending">
+                    v-model="settingsStore.settings.close_comment_form_after_sending">
                 </v-switch>
             </div>
         </div>
@@ -102,11 +102,12 @@
 </template>
 <script lang="ts">
 
-import axios from 'axios';
+import { mapStores } from 'pinia';
 import Vue from 'vue';
 
-import { IUser } from '@/interface';
 import CommentMuteSettings from '@/components/Settings/CommentMuteSettings.vue';
+import useSettingsStore from '@/store/SettingsStore';
+import useUserStore from '@/store/UserStore';
 import Base from '@/views/Settings/Base.vue';
 import Utils from '@/utils';
 
@@ -119,63 +120,22 @@ export default Vue.extend({
     data() {
         return {
 
-            // ユーティリティをテンプレートで使えるように
-            Utils: Utils,
-
             // コメントのミュート設定のモーダルを表示するか
             comment_mute_settings_modal: false,
 
             // ローディング中かどうか
             is_loading: true,
-
-            // ログイン中かどうか
-            is_logged_in: Utils.getAccessToken() !== null,
-
-            // ユーザーアカウントの情報
-            // ログインしていない場合は null になる
-            user: null as IUser | null,
-
-            // ニコニコアカウントのユーザーアイコンの URL
-            niconico_user_icon_url: '',
-
-            // 設定値が保存されるオブジェクト
-            // ここの値とフォームを v-model で binding する
-            settings: (() => {
-                // 現在の設定値を取得する
-                const settings = {};
-                const setting_keys = [
-                    'comment_speed_rate',
-                    'comment_font_size',
-                    'comment_delay_time',
-                    'close_comment_form_after_sending',
-                ];
-                for (const setting_key of setting_keys) {
-                    settings[setting_key] = Utils.getSettingsItem(setting_key);
-                }
-                return settings;
-            })(),
         }
+    },
+    computed: {
+        // SettingsStore / UserStore に this.settingsStore /  this.userStore でアクセスできるようにする
+        // ref: https://pinia.vuejs.org/cookbook/options-api.html
+        ...mapStores(useSettingsStore, useUserStore),
     },
     async created() {
 
-        // ユーザーモデルの初期値
-        // 初回描画で niconico_user_id が null かを判定するだけのためにセットしている
-        this.user = {
-            id: 0,
-            name: '',
-            is_admin: true,
-            niconico_user_id: null,
-            niconico_user_name: null,
-            niconico_user_premium: null,
-            twitter_accounts: [],
-            created_at: '',
-            updated_at: '',
-        }
-
-        // 表示されているアカウント情報を更新 (ログイン時のみ)
-        if (this.is_logged_in === true) {
-            await this.syncAccountInfo();
-        }
+        // アカウント情報を更新
+        await this.userStore.fetchUser();
 
         // ローディング状態を解除
         this.is_loading = false;
@@ -187,59 +147,20 @@ export default Vue.extend({
             const params = new URLSearchParams(location.hash.replace('#', ''));
             if (params.get('status') !== null && params.get('detail') !== null) {
                 // コールバックの結果を取得できたので、OAuth 連携の結果を画面に通知する
-                const authorization_status = parseInt(params.get('status'));
-                const authorization_detail = params.get('detail');
+                const authorization_status = parseInt(params.get('status')!);
+                const authorization_detail = params.get('detail')!;
                 this.onOAuthCallbackReceived(authorization_status, authorization_detail);
                 // URL からフラグメントを削除
                 // ref: https://stackoverflow.com/a/49373716/17124142
-                history.replaceState(null, null, ' ');
-            }
-        }
-    },
-    watch: {
-        // settings 内の値の変更を監視する
-        settings: {
-            deep: true,
-            handler() {
-                // settings 内の値を順に LocalStorage に保存する
-                for (const [setting_key, setting_value] of Object.entries(this.settings)) {
-                    Utils.setSettingsItem(setting_key, setting_value);
-                }
+                history.replaceState(null, '', ' ');
             }
         }
     },
     methods: {
-        async syncAccountInfo() {
-
-            try {
-
-                // ユーザーアカウントの情報を取得する
-                const response = await Vue.axios.get('/users/me');
-                this.user = response.data;
-
-                // ニコニコアカウントのユーザーアイコンの URL を生成 (ニコニコアカウントと連携されている場合のみ)
-                if (this.user.niconico_user_id !== null) {
-                    const user_id_slice = this.user.niconico_user_id.toString().slice(0, 4);
-                    this.niconico_user_icon_url =
-                        `https://secure-dcdn.cdn.nimg.jp/nicoaccount/usericon/${user_id_slice}/${this.user.niconico_user_id}.jpg`;
-                }
-
-            } catch (error) {
-
-                // ログインされていない
-                if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
-
-                    // 未ログイン状態に設定
-                    this.is_logged_in = false;
-                    this.user = null;
-                }
-            }
-        },
-
         async loginNiconicoAccount() {
 
             // ログインしていない場合はエラーにする
-            if (this.is_logged_in === false) {
+            if (this.userStore.is_logged_in === false) {
                 this.$message.warning('連携をはじめるには、KonomiTV アカウントにログインしてください。');
                 return;
             }
@@ -257,6 +178,10 @@ export default Vue.extend({
             // window.open() の第2引数はユニークなものにしておくと良いらしい
             // ref: https://qiita.com/catatsuy/items/babce8726ea78f5d25b1 (大変参考になりました)
             const popup_window = window.open(authorization_url, 'KonomiTV-OAuthPopup', Utils.getWindowFeatures());
+            if (popup_window === null) {
+                this.$message.error('ポップアップウインドウを開けませんでした。');
+                return;
+            }
 
             // 認証完了 or 失敗後、ポップアップウインドウから送信される文字列を受信
             const onMessage = async (event) => {
@@ -306,8 +231,8 @@ export default Vue.extend({
                 return;
             }
 
-            // 表示されているアカウント情報を更新
-            await this.syncAccountInfo();
+            // アカウント情報を強制的に更新
+            await this.userStore.fetchUser(true);
 
             this.$message.success('ニコニコアカウントと連携しました。');
         },
@@ -317,8 +242,8 @@ export default Vue.extend({
             // ニコニコアカウント連携解除 API にリクエスト
             await Vue.axios.delete('/niconico/logout');
 
-            // 表示されているアカウント情報を更新
-            await this.syncAccountInfo();
+            // アカウント情報を強制的に更新
+            await this.userStore.fetchUser(true);
 
             this.$message.success('ニコニコアカウントとの連携を解除しました。');
         },

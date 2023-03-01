@@ -1,7 +1,7 @@
 
 import { Icon } from '@iconify/vue2';
 import { createPinia, PiniaVuePlugin } from 'pinia';
-import { polyfill as SeamlessScrollPolyfill } from "seamless-scroll-polyfill";
+import { polyfill as SeamlessScrollPolyfill } from 'seamless-scroll-polyfill';
 import Vue from 'vue';
 import VueAxios from 'vue-axios';
 import VueVirtualScroller from 'vue-virtual-scroller';
@@ -16,9 +16,10 @@ import VTabs from '@/components/VTabs';
 import VTabsItems from '@/components/VTabsItems';
 import axios from '@/plugins/axios';
 import vuetify from '@/plugins/vuetify';
+import useSettingsStore, { setLocalStorageSettings } from '@/store/SettingsStore';
 import router from '@/router';
 import '@/service-worker';
-import Utils from './utils';
+import Utils from '@/utils';
 
 // スムーズスクロール周りの API の polyfill を適用
 // Element.scrollInfoView() のオプション指定を使うために必要
@@ -34,6 +35,7 @@ Vue.config.devtools = true;
 Vue.use(VueAxios, axios);
 
 // Pinia を使う
+// ref: https://pinia.vuejs.org/cookbook/options-api.html
 Vue.use(PiniaVuePlugin);
 const pinia = createPinia();
 
@@ -87,17 +89,45 @@ Vue.component('v-tabs-fix', VTabs);
 Vue.component('v-tabs-items-fix', VTabsItems);
 
 // Vue を初期化
-new Vue({
+(window as any).KonomiTVVueInstance = new Vue({
     pinia,
     router,
     vuetify,
     render: h => h(App),
 }).$mount('#app');
 
-// ログイン時かつ設定の同期が有効なとき、ページ遷移に関わらず、常に3秒おきにサーバーから設定を取得する
+// 設定データをサーバーにアップロード中かどうか
+let is_uploading_settings = false;
+
+// 設定データの変更を監視する
+const store = useSettingsStore();
+store.$subscribe(async () => {
+
+    // 設定データをアップロード中の場合は何もしない
+    if (is_uploading_settings === true) {
+        return;
+    }
+
+    // 設定データを LocalStorage に保存
+    console.log('Client Settings Changed:', store.settings)
+    setLocalStorageSettings(store.settings);
+
+    // 設定データをサーバーに同期する (ログイン時かつ同期が有効な場合のみ)
+    await store.syncClientSettingsToServer();
+
+}, {detached: true});
+
+// ログイン時かつ設定の同期が有効な場合、ページ遷移に関わらず、常に3秒おきにサーバーから設定を取得する
 // 初回のページレンダリングに間に合わないのは想定内（同期の完了を待つこともできるが、それだと表示速度が遅くなるのでしょうがない）
 window.setInterval(async () => {
-    if (Utils.getAccessToken() !== null && Utils.getSettingsItem('sync_settings') === true) {
-        Utils.syncServerSettingsToClient();
+    if (Utils.getAccessToken() !== null && store.settings.sync_settings === true) {
+
+        // 設定データをサーバーにアップロード
+        is_uploading_settings = true;
+        await store.syncClientSettingsFromServer();
+        is_uploading_settings = false;
+
+        // 設定データを LocalStorage に保存
+        setLocalStorageSettings(store.settings);
     }
 }, 3 * 1000);  // 3秒おき

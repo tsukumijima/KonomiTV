@@ -8,7 +8,9 @@ import * as piexif from 'piexifjs';
 import Vue from 'vue';
 
 import { IChannel, ICaptureExifData, IProgram } from '@/interface';
-import Utils from './Utils';
+import useSettingsStore from '@/store/SettingsStore';
+import Utils from '@/utils';
+
 
 export class PlayerCaptureHandler {
 
@@ -19,6 +21,7 @@ export class PlayerCaptureHandler {
     private comment_capture_button: HTMLDivElement;
     private canvas: OffscreenCanvas | HTMLCanvasElement;
     private canvas_context: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
+    private settings_store = useSettingsStore();
 
     constructor(player: DPlayer, captured_callback: (blob: Blob, filename: string) => void) {
 
@@ -168,13 +171,13 @@ export class PlayerCaptureHandler {
             blob = await this.setEXIFDataToCapture(blob, program, caption_text, is_caption_composited, is_comment_composited);
 
             // キャプチャの保存先: ブラウザでダウンロード or 両方
-            if (['Browser', 'Both'].includes(Utils.getSettingsItem('capture_save_mode'))) {
+            if (['Browser', 'Both'].includes(this.settings_store.settings.capture_save_mode)) {
                 Utils.downloadBlobData(blob, filename);
             }
 
             // キャプチャの保存先: KonomiTV サーバーにアップロード or 両方
             // 時間がかかるし完了を待つ必要がないので非同期
-            if (['UploadServer', 'Both'].includes(Utils.getSettingsItem('capture_save_mode'))) {
+            if (['UploadServer', 'Both'].includes(this.settings_store.settings.capture_save_mode)) {
                 this.uploadCaptureToServer(blob, filename);
             }
 
@@ -195,7 +198,7 @@ export class PlayerCaptureHandler {
         // (字幕が表示されていない or 字幕が表示されているが合成しないように設定されている) 場合
         // コメント付きキャプチャではなく、かつ字幕のない番組では大半がここの処理を通ることになる
         if (with_comments === false && is_superimpose_showing === false &&
-            (is_caption_showing === false || Utils.getSettingsItem('capture_caption_mode') === 'VideoOnly')) {
+            (is_caption_showing === false || this.settings_store.settings.capture_caption_mode === 'VideoOnly')) {
 
             // OffscreenCanvas が使えるなら使う (OffscreenCanvas の方がパフォーマンスが良い)
             const bitmap_canvas = ('OffscreenCanvas' in window) ?
@@ -213,7 +216,7 @@ export class PlayerCaptureHandler {
             // 保存モードが「字幕キャプチャのみ」のとき (=字幕キャプチャのみをキャプチャする設定にしていたが、字幕がそもそもないとき) は、
             // 便宜上字幕ありキャプチャと同じファイル名で保存する
             const filename_real =
-                (Utils.getSettingsItem('capture_caption_mode') === 'CompositingCaption') ? filename_caption : filename;
+                (this.settings_store.settings.capture_caption_mode === 'CompositingCaption') ? filename_caption : filename;
 
             // Blob にエクスポートして保存
             // false が返ってきた場合は失敗を意味する
@@ -257,7 +260,7 @@ export class PlayerCaptureHandler {
 
             // 字幕表示時のキャプチャの保存モード: 映像のみ or 両方
             // 保存モードが「字幕キャプチャのみ」になっているが字幕が表示されていない場合も実行する
-            if (['VideoOnly', 'Both'].includes(Utils.getSettingsItem('capture_caption_mode')) || is_caption_showing === false) {
+            if (['VideoOnly', 'Both'].includes(this.settings_store.settings.capture_caption_mode) || is_caption_showing === false) {
 
                 promises.push((async () => {
 
@@ -265,7 +268,7 @@ export class PlayerCaptureHandler {
                     // 保存モードが「字幕キャプチャのみ」のとき (=字幕キャプチャのみをキャプチャする設定にしていたが、字幕がそもそもないとき) は、
                     // 便宜上字幕ありキャプチャと同じファイル名で保存する
                     const filename_real =
-                        (Utils.getSettingsItem('capture_caption_mode') === 'CompositingCaption') ? filename_caption : filename;
+                        (this.settings_store.settings.capture_caption_mode === 'CompositingCaption') ? filename_caption : filename;
 
                     // Blob にエクスポートして保存
                     const blob = await export_and_save(
@@ -289,7 +292,7 @@ export class PlayerCaptureHandler {
 
             // 字幕表示時のキャプチャの保存モード: 字幕キャプチャのみ or 両方
             // 字幕が表示されているときのみ実行（字幕が表示されていないのにやっても意味がない）
-            if (['CompositingCaption', 'Both'].includes(Utils.getSettingsItem('capture_caption_mode')) && is_caption_showing === true) {
+            if (['CompositingCaption', 'Both'].includes(this.settings_store.settings.capture_caption_mode) && is_caption_showing === true) {
 
                 promises.push((async () => {
 
@@ -326,7 +329,7 @@ export class PlayerCaptureHandler {
                     if (capture_caption !== false) {
                         // 字幕表示時のキャプチャの保存モードが「両方 (Both)」のときのみ、映像のみのキャプチャの生成が終わるまで待ってから実行
                         // 必ずキャプチャリストへの追加が [映像のみ] → [字幕付き] の順序で行われるようにする
-                        if (Utils.getSettingsItem('capture_caption_mode') === 'Both') {
+                        if (this.settings_store.settings.capture_caption_mode === 'Both') {
                             while (capture_normal === null) {
                                 // Blob (成功) か false (失敗) が capture_normal に入るまでループ
                                 await Utils.sleep(0.01);
@@ -352,7 +355,7 @@ export class PlayerCaptureHandler {
 
             // クリップボードへのコピーが有効なら、キャプチャの Blob をクリップボードにコピー
             // PNG 以外は受け付けないそうなので、JPEG を PNG に変換してからコピーしている
-            if (Utils.getSettingsItem('capture_copy_to_clipboard') && capture !== null && capture !== false) {
+            if (this.settings_store.settings.capture_copy_to_clipboard && capture !== null && capture !== false) {
                 try {
                     await copyBlobToClipboard(await convertBlobToPng(capture.blob));
                 } catch (error) {

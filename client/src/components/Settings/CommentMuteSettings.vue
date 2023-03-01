@@ -14,21 +14,26 @@
                     <Icon icon="fluent:comment-dismiss-20-filled" width="24px" />
                     <span class="ml-2 mr-2">ミュート済みのキーワード</span>
                     <v-btn class="ml-auto" depressed
-                        @click="muted_comment_keywords.push({id: Date.now(), match: 'partial', pattern: ''})">
+                        @click="settingsStore.settings.muted_comment_keywords.push({match: 'partial', pattern: ''})">
                         <Icon icon="fluent:add-12-filled" height="17px" />
                         <span class="ml-1">追加</span>
                     </v-btn>
                 </div>
                 <div class="muted-comment-items">
-                    <div class="muted-comment-item" v-for="muted_comment_keyword in muted_comment_keywords" :key="muted_comment_keyword.id">
+                    <!-- @eslint-ignore -->
+                    <div class="muted-comment-item" v-for="(muted_comment_keyword, index) in settingsStore.settings.muted_comment_keywords"
+                        :key="muted_comment_keyword.id">
                         <v-text-field type="search" class="muted-comment-item__input" dense outlined hide-details
-                            placeholder="ミュートするキーワードを入力" v-model="muted_comment_keyword.pattern">
+                            placeholder="ミュートするキーワードを入力"
+                            v-model="settingsStore.settings.muted_comment_keywords[index].pattern">
                         </v-text-field>
                         <v-select class="muted-comment-item__match-type" dense outlined hide-details
-                            :items="muted_comment_keyword_match_type" v-model="muted_comment_keyword.match">
+                            :items="muted_comment_keyword_match_type"
+                            v-model="settingsStore.settings.muted_comment_keywords[index].match">
                         </v-select>
                         <button v-ripple class="muted-comment-item__delete-button"
-                            @click="muted_comment_keywords.splice(muted_comment_keywords.indexOf(muted_comment_keyword), 1)">
+                            @click="settingsStore.settings.muted_comment_keywords
+                                .splice(settingsStore.settings.muted_comment_keywords.indexOf(muted_comment_keyword), 1)">
                             <Icon icon="fluent:delete-16-filled" width="20px" />
                         </button>
                     </div>
@@ -37,18 +42,20 @@
                     <Icon icon="fluent:person-prohibited-20-filled" width="24px" />
                     <span class="ml-2 mr-2">ミュート済みのニコニコユーザー ID</span>
                     <v-btn class="ml-auto" depressed
-                        @click="muted_niconico_user_ids.push({id: Date.now(), user_id: ''})">
+                        @click="settingsStore.settings.muted_niconico_user_ids.push('')">
                         <Icon icon="fluent:add-12-filled" height="17px" />
                         <span class="ml-1">追加</span>
                     </v-btn>
                 </div>
                 <div class="muted-comment-items">
-                    <div class="muted-comment-item" v-for="muted_niconico_user_id in muted_niconico_user_ids" :key="muted_niconico_user_id.id">
+                    <div class="muted-comment-item" v-for="(muted_niconico_user_id, index) in settingsStore.settings.muted_niconico_user_ids"
+                        :key="muted_niconico_user_id.id">
                         <v-text-field type="search" class="muted-comment-item__input" dense outlined hide-details
-                            placeholder="ミュートするニコニコユーザー ID を入力" v-model="muted_niconico_user_id.user_id">
+                            placeholder="ミュートするニコニコユーザー ID を入力" v-model="settingsStore.settings.muted_niconico_user_ids[index]">
                         </v-text-field>
                         <button v-ripple class="muted-comment-item__delete-button"
-                            @click="muted_niconico_user_ids.splice(muted_niconico_user_ids.indexOf(muted_niconico_user_id), 1)">
+                            @click="settingsStore.settings.muted_niconico_user_ids
+                                .splice(settingsStore.settings.muted_niconico_user_ids.indexOf(muted_niconico_user_id), 1)">
                             <Icon icon="fluent:delete-16-filled" width="20px" />
                         </button>
                     </div>
@@ -65,7 +72,7 @@
                         性的な単語などの露骨・下品な表現を含むコメントを、一括でミュートするかを設定します。<br>
                     </label>
                     <v-switch class="settings__item-switch" id="mute_vulgar_comments" inset hide-details
-                        v-model="settings.mute_vulgar_comments">
+                        v-model="settingsStore.settings.mute_vulgar_comments">
                     </v-switch>
                 </div>
                 <div class="settings__item settings__item--switch">
@@ -76,7 +83,7 @@
                         『死ね』『殺す』などの罵倒や誹謗中傷、特定の国や人々への差別的な表現、政治的に偏った表現を含むコメントを、一括でミュートするかを設定します。<br>
                     </label>
                     <v-switch class="settings__item-switch" id="mute_abusive_discriminatory_prejudiced_comments" inset hide-details
-                        v-model="settings.mute_abusive_discriminatory_prejudiced_comments">
+                        v-model="settingsStore.settings.mute_abusive_discriminatory_prejudiced_comments">
                     </v-switch>
                 </div>
                 <div class="settings__item settings__item--switch">
@@ -88,7 +95,7 @@
                         文字サイズが大きいコメントには迷惑なコメントが多いです。基本的にはオンにしておくことをおすすめします。<br>
                     </label>
                     <v-switch class="settings__item-switch" id="mute_big_size_comments" inset hide-details
-                        v-model="settings.mute_big_size_comments">
+                        v-model="settingsStore.settings.mute_big_size_comments">
                     </v-switch>
                 </div>
                 <div class="settings__item settings__item--switch">
@@ -100,7 +107,7 @@
                         固定表示されるコメントが煩わしいと感じる方は、オンにしておくことをおすすめします。<br>
                     </label>
                     <v-switch class="settings__item-switch" id="mute_fixed_comments" inset hide-details
-                        v-model="settings.mute_fixed_comments">
+                        v-model="settingsStore.settings.mute_fixed_comments">
                     </v-switch>
                 </div>
                 <div class="settings__item settings__item--switch">
@@ -112,7 +119,7 @@
                         この設定をオンにしておくと、目立つ色のコメントを一掃できます。<br>
                     </label>
                     <v-switch class="settings__item-switch" id="mute_colored_comments" inset hide-details
-                        v-model="settings.mute_colored_comments">
+                        v-model="settingsStore.settings.mute_colored_comments">
                     </v-switch>
                 </div>
                 <div class="settings__item settings__item--switch">
@@ -124,7 +131,7 @@
                         しばしばあるテンプレコメントが煩わしいと感じる方は、オンにしておくことをおすすめします。<br>
                     </label>
                     <v-switch class="settings__item-switch" id="mute_consecutive_same_characters_comments" inset hide-details
-                        v-model="settings.mute_consecutive_same_characters_comments">
+                        v-model="settingsStore.settings.mute_consecutive_same_characters_comments">
                     </v-switch>
                 </div>
             </div>
@@ -133,10 +140,10 @@
 </template>
 <script lang="ts">
 
+import { mapStores } from 'pinia';
 import Vue, { PropType } from 'vue';
 
-import { IMutedCommentKeywords } from '@/interface';
-import Utils from '@/utils';
+import useSettingsStore from '@/store/SettingsStore';
 
 export default Vue.extend({
     name: 'CommentMuteSettings',
@@ -144,7 +151,7 @@ export default Vue.extend({
     // ref: https://jp.vuejs.org/v2/guide/components-custom-events.html
     model: {
         prop: 'showing',  // v-model で渡された値が "showing" props に入る
-        event: 'change'  // "change" イベントで親コンポーネントに反映
+        event: 'change',  // "change" イベントで親コンポーネントに反映
     },
     props: {
         // コメントのミュート設定のモーダルを表示するか
@@ -162,16 +169,6 @@ export default Vue.extend({
             // コメントのミュート設定のモーダルを表示するか
             comment_mute_settings_modal: false,
 
-            // ミュート済みのキーワードが入るリスト
-            muted_comment_keywords: (Utils.getSettingsItem('muted_comment_keywords') as IMutedCommentKeywords[]).map((keyword, index) => {
-                // id プロパティは :key="" に指定するためにつける ID (ミリ秒単位のタイムスタンプ + index で適当に一意になるように)
-                return {
-                    id: Date.now() + index,
-                    match: keyword.match as ('partial' | 'forward' | 'backward' | 'exact' | 'regex'),
-                    pattern: keyword.pattern as string,
-                };
-            }),
-
             // ミュート済みのキーワードのマッチタイプ
             muted_comment_keyword_match_type: [
                 {text: '部分一致', value: 'partial'},
@@ -180,99 +177,14 @@ export default Vue.extend({
                 {text: '完全一致', value: 'exact'},
                 {text: '正規表現', value: 'regex'},
             ],
-
-            // ミュート済みのニコニコユーザー ID が入るリスト
-            muted_niconico_user_ids: (Utils.getSettingsItem('muted_niconico_user_ids') as string[]).map((user_id, index) => {
-                // id プロパティは :key="" に指定するためにつける ID (ミリ秒単位のタイムスタンプ + index で適当に一意になるように)
-                return {
-                    id: Date.now() + index,
-                    user_id: user_id,
-                };
-            }),
-
-            // 設定値が保存されるオブジェクト
-            // ここの値とフォームを v-model で binding する
-            settings: (() => {
-                // 現在の設定値を取得する
-                const settings = {}
-                const setting_keys = [
-                    'mute_vulgar_comments',
-                    'mute_abusive_discriminatory_prejudiced_comments',
-                    'mute_big_size_comments',
-                    'mute_fixed_comments',
-                    'mute_colored_comments',
-                    'mute_consecutive_same_characters_comments',
-                ];
-                for (const setting_key of setting_keys) {
-                    settings[setting_key] = Utils.getSettingsItem(setting_key);
-                }
-                return settings;
-            })(),
         }
     },
-    created() {
-        // 1秒に1回、muted_comment_keywords と muted_niconico_user_ids の変更内容を同期する
-        // コメントリストからのミュート設定の変更を反映するために必要
-        this.interval_timer_id = window.setInterval(() => {
-            const new_muted_comment_keywords = Utils.getSettingsItem('muted_comment_keywords') as IMutedCommentKeywords[];
-            if (JSON.stringify(this.muted_comment_keywords) !== JSON.stringify(new_muted_comment_keywords)) {
-                this.muted_comment_keywords = (new_muted_comment_keywords).map((keyword, index) => {
-                    return {
-                        id: Date.now() + index,
-                        match: keyword.match as ('partial' | 'forward' | 'backward' | 'exact' | 'regex'),
-                        pattern: keyword.pattern as string,
-                    };
-                });
-            }
-            const new_muted_niconico_user_ids = Utils.getSettingsItem('muted_niconico_user_ids') as string[];
-            if (JSON.stringify(this.muted_niconico_user_ids.map((muted_niconico_user_id) => muted_niconico_user_id.user_id)) !==
-                JSON.stringify(new_muted_niconico_user_ids)) {
-                this.muted_niconico_user_ids = (new_muted_niconico_user_ids).map((user_id, index) => {
-                    return {
-                        id: Date.now() + index,
-                        user_id: user_id,
-                    };
-                });
-            }
-        }, 1000);
-    },
-    beforeDestroy() {
-        // インスタンスの破棄前にタイマーを解除する
-        window.clearInterval(this.interval_timer_id);
+    computed: {
+        // SettingsStore に this.settingsStore でアクセスできるようにする
+        // ref: https://pinia.vuejs.org/cookbook/options-api.html
+        ...mapStores(useSettingsStore),
     },
     watch: {
-
-        // settings 内の値の変更を監視する
-        settings: {
-            deep: true,
-            handler() {
-                // settings 内の値を順に LocalStorage に保存する
-                for (const [setting_key, setting_value] of Object.entries(this.settings)) {
-                    Utils.setSettingsItem(setting_key, setting_value);
-                }
-            }
-        },
-
-        // ミュート済みのキーワードが変更されたら随時 LocalStorage に保存する
-        muted_comment_keywords: {
-            deep: true,
-            handler() {
-                Utils.setSettingsItem('muted_comment_keywords', this.muted_comment_keywords.map((muted_comment_keyword) => {
-                    delete muted_comment_keyword.id;
-                    return muted_comment_keyword;
-                }));
-            }
-        },
-
-        // ミュート済みのニコニコユーザー ID が変更されたら随時 LocalStorage に保存する
-        muted_niconico_user_ids: {
-            deep: true,
-            handler() {
-                Utils.setSettingsItem('muted_niconico_user_ids', this.muted_niconico_user_ids.map((muted_niconico_user_id) => {
-                    return muted_niconico_user_id.user_id;
-                }));
-            }
-        },
 
         // showing (親コンポーネント側) の変更を監視し、変更されたら comment_mute_settings_modal に反映する
         showing() {

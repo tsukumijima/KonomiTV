@@ -23,6 +23,11 @@
         "strictPropertyInitialization": false,
         "useUnknownInCatchVariables": false,
         // ↑↑↑
+        // "strictNullChecks": false,
+        // "strictFunctionTypes": true,
+        // "strictBindCallApply": true,
+        // "strictPropertyInitialization": true,
+        // "useUnknownInCatchVariables": true,
         "types": [
             "offscreencanvas",
             "resize-observer-browser",

@@ -117,7 +117,7 @@ class LiveStreamLLHLSClientID(BaseModel):
     client_id: str
 
 class ClientSettings(BaseModel):
-    # 詳細は client/src/utils/Utils.ts を参照
+    # 詳細は client/src/services/Settings.ts と client/src/store/SettingsStore.ts を参照
     # デバイス間で同期するとかえって面倒なことになりそうな設定は除外している
     pinned_channel_ids: list[str] = Field([])
     # showed_panel_last_time: 同期無効

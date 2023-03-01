@@ -79,11 +79,13 @@
 </template>
 <script lang="ts">
 
+import { mapStores } from 'pinia';
 import Vue from 'vue';
 
 import { ChannelTypePretty, IChannel } from '@/interface';
 import Header from '@/components/Header.vue';
 import Navigation from '@/components/Navigation.vue';
+import useSettingsStore from '@/store/SettingsStore';
 import Utils, { ChannelUtils, ProgramUtils } from '@/utils';
 
 export default Vue.extend({
@@ -113,10 +115,12 @@ export default Vue.extend({
 
             // チャンネル情報リスト
             channels_list: new Map() as Map<ChannelTypePretty, IChannel[]>,
-
-            // ピン留めしているチャンネルの ID (ex: gr011) が入るリスト
-            pinned_channel_ids: [] as string[],
         }
+    },
+    computed: {
+        // SettingsStore に this.settingsStore でアクセスできるようにする
+        // ref: https://pinia.vuejs.org/cookbook/options-api.html
+        ...mapStores(useSettingsStore),
     },
     // 開始時に実行
     created() {
@@ -193,14 +197,8 @@ export default Vue.extend({
         // チャンネルをピン留めする
         addPinnedChannel(channel_id: string) {
 
-            // 現在ピン留めされているチャンネルを取得
-            this.pinned_channel_ids = Utils.getSettingsItem('pinned_channel_ids');
-
-            // ピン留めするチャンネルの ID を追加
-            this.pinned_channel_ids.push(channel_id);
-
-            // 設定を保存
-            Utils.setSettingsItem('pinned_channel_ids', this.pinned_channel_ids);
+            // ピン留めするチャンネルの ID を追加 (保存は自動で行われる)
+            this.settingsStore.settings.pinned_channel_ids.push(channel_id);
 
             // ピン留めされているチャンネルのリストを更新
             this.updatePinnedChannelList();
@@ -210,14 +208,8 @@ export default Vue.extend({
         // チャンネルをピン留めから外す
         removePinnedChannel(channel_id: string) {
 
-            // 現在ピン留めされているチャンネルを取得
-            this.pinned_channel_ids = Utils.getSettingsItem('pinned_channel_ids');
-
-            // ピン留めを外すチャンネルの ID を削除
-            this.pinned_channel_ids.splice(this.pinned_channel_ids.indexOf(channel_id), 1);
-
-            // 設定を保存
-            Utils.setSettingsItem('pinned_channel_ids', this.pinned_channel_ids);
+            // ピン留めを外すチャンネルの ID を削除 (保存は自動で行われる)
+            this.settingsStore.settings.pinned_channel_ids.splice(this.settingsStore.settings.pinned_channel_ids.indexOf(channel_id), 1);
 
             // ピン留めされているチャンネルのリストを更新
             this.updatePinnedChannelList();
@@ -227,19 +219,17 @@ export default Vue.extend({
         // ピン留めされているチャンネルのリストを更新する
         updatePinnedChannelList(is_update_tab: boolean = true) {
 
-            // ピン留めされているチャンネルの ID を取得
-            this.pinned_channel_ids = Utils.getSettingsItem('pinned_channel_ids');
-
             // ピン留めされているチャンネル情報のリスト
             const pinned_channels = [] as IChannel[];
 
             // チャンネル ID が一致したチャンネルの情報を保存する
-            for (const pinned_channel_id of this.pinned_channel_ids) {
+            for (const pinned_channel_id of this.settingsStore.settings.pinned_channel_ids) {
                 const pinned_channel_type = ChannelUtils.getChannelType(pinned_channel_id, true) as ChannelTypePretty;
-                if (this.channels_list.has(pinned_channel_type) === false) {
+                const channels = this.channels_list.get(pinned_channel_type);
+                if (channels === undefined) {
                     continue;  // チャンネルタイプが存在しない
                 }
-                const pinned_channel = this.channels_list.get(pinned_channel_type).find((channel) => {
+                const pinned_channel = channels.find((channel) => {
                     return channel.channel_id === pinned_channel_id;  // チャンネル ID がピン留めされているチャンネルのものと同じ
                 });
                 // チャンネル情報を取得できているときだけ
@@ -269,7 +259,7 @@ export default Vue.extend({
         isPinnedChannel(channel_id: string): boolean {
 
             // 引数のチャンネルがピン留めリストに存在するかを返す
-            return this.pinned_channel_ids.includes(channel_id);
+            return this.settingsStore.settings.pinned_channel_ids.includes(channel_id);
         }
     }
 });

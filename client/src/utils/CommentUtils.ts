@@ -1,8 +1,8 @@
 
 import { Buffer } from 'buffer';
 
-import { IMutedCommentKeywords } from '@/interface';
-import Utils from './Utils';
+import useSettingsStore from '@/store/SettingsStore';
+import Utils from '@/utils';
 
 /**
  * コメント周りのユーティリティ
@@ -83,9 +83,10 @@ export class CommentUtils {
      */
     static isMutedComment(comment: string, user_id: string): boolean {
 
+        const settings_store = useSettingsStore();
+
         // キーワードミュート処理
-        const muted_comment_keywords = Utils.getSettingsItem('muted_comment_keywords') as IMutedCommentKeywords[];
-        for (const muted_comment_keyword of muted_comment_keywords) {
+        for (const muted_comment_keyword of settings_store.settings.muted_comment_keywords) {
             if (muted_comment_keyword.pattern === '') continue;  // キーワードが空文字のときは無視
             switch (muted_comment_keyword.match) {
                 // 部分一致
@@ -112,17 +113,17 @@ export class CommentUtils {
         }
 
         // 「露骨な表現を含むコメントをミュートする」がオンの場合
-        if (Utils.getSettingsItem('mute_vulgar_comments') === true) {
+        if (settings_store.settings.mute_vulgar_comments === true) {
             if (CommentUtils.mute_vulgar_comments_pattern.test(comment)) return true;
         }
 
         // 「罵倒や差別的な表現を含むコメントをミュートする」がオンの場合
-        if (Utils.getSettingsItem('mute_abusive_discriminatory_prejudiced_comments') === true) {
+        if (settings_store.settings.mute_abusive_discriminatory_prejudiced_comments === true) {
             if (CommentUtils.mute_abusive_discriminatory_prejudiced_comments_pattern.test(comment)) return true;
         }
 
         // 「8文字以上同じ文字が連続しているコメントをミュートする」がオンの場合
-        if (Utils.getSettingsItem('mute_consecutive_same_characters_comments') === true) {
+        if (settings_store.settings.mute_consecutive_same_characters_comments === true) {
             if (/(.)\1{7,}/.test(comment)) return true;
         }
 
@@ -131,8 +132,7 @@ export class CommentUtils {
         if (/最高\d+米\/|計\d+ＩＤ|総\d+米/.test(comment)) return true;
 
         // ユーザー ID ミュート処理
-        const muted_niconico_user_ids = Utils.getSettingsItem('muted_niconico_user_ids') as string[];
-        if (muted_niconico_user_ids.includes(user_id)) return true;
+        if (settings_store.settings.muted_niconico_user_ids.includes(user_id)) return true;
 
         // いずれのミュート処理にも引っかからなかった (ミュート対象ではない)
         return false;
@@ -140,30 +140,28 @@ export class CommentUtils {
 
     // ミュート済みキーワードリストに追加する (完全一致)
     static addMutedKeywords(comment: string): void {
-        const muted_comment_keywords = Utils.getSettingsItem('muted_comment_keywords') as IMutedCommentKeywords[];
         // すでにまったく同じミュート済みキーワードが追加済みの場合は何もしない
-        for (const muted_comment_keyword of muted_comment_keywords) {
+        const settings_store = useSettingsStore();
+        for (const muted_comment_keyword of settings_store.settings.muted_comment_keywords) {
             if (muted_comment_keyword.match === 'exact' && muted_comment_keyword.pattern === comment) {
                 return;
             }
         }
         // ミュート済みキーワードリストに追加
-        muted_comment_keywords.push({
+        settings_store.settings.muted_comment_keywords.push({
             match: 'exact',
             pattern: comment,
         });
-        Utils.setSettingsItem('muted_comment_keywords', muted_comment_keywords);
     }
 
     // ミュート済みニコニコユーザー ID リストに追加する
     static addMutedNiconicoUserIDs(user_id: string): void {
-        const muted_niconico_user_ids = Utils.getSettingsItem('muted_niconico_user_ids') as string[];
         // すでに追加済みの場合は何もしない
-        if (muted_niconico_user_ids.includes(user_id)) {
+        const settings_store = useSettingsStore();
+        if (settings_store.settings.muted_niconico_user_ids.includes(user_id)) {
             return;
         }
         // ミュート済みニコニコユーザー ID リストに追加
-        muted_niconico_user_ids.push(user_id);
-        Utils.setSettingsItem('muted_niconico_user_ids', muted_niconico_user_ids);
+        settings_store.settings.muted_niconico_user_ids.push(user_id);
     }
 }
