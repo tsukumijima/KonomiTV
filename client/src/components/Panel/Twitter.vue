@@ -167,6 +167,7 @@ import Vue, { PropType } from 'vue';
 import draggable from 'vuedraggable';
 
 import { IChannel, ITwitterAccount } from '@/interface';
+import Twitter from '@/services/Twitter';
 import useSettingsStore from '@/store/SettingsStore';
 import useUserStore from '@/store/UserStore';
 import Utils from '@/utils';
@@ -662,16 +663,20 @@ export default Vue.extend({
                 }
             }
 
-            // multipart/form-data でツイート本文と画像（選択されている場合）を送る
-            const form_data = new FormData();
-            form_data.append('tweet', tweet_text);
+            // キャプチャへの透かしの描画がオンの場合、キャプチャの Blob を透かし付きのものに差し替える
+            const new_tweet_captures: Blob[] = [];
             for (let tweet_capture of this.tweet_captures) {
-                // キャプチャへの透かしの描画がオンの場合、キャプチャの Blob を透かし付きのものに差し替える
                 if (this.settingsStore.settings.tweet_capture_watermark_position !== 'None') {
                     tweet_capture = await this.drawProgramTitleOnCapture(tweet_capture);
                 }
-                form_data.append('images', tweet_capture);
+                new_tweet_captures.push(tweet_capture);
             }
+
+            // ツイート送信 API にリクエスト
+            // レスポンスは待たない
+            Twitter.sendTweet(this.selected_twitter_account.screen_name, this.tweet_text, new_tweet_captures, (message) => {
+                this.player.notice(message);
+            });
 
             // 連投防止のため、フォーム上のツイート本文・キャプチャの選択・キャプチャのフォーカスを消去
             // 送信した感を出す意味合いもある
@@ -686,25 +691,6 @@ export default Vue.extend({
             if (this.settingsStore.settings.fold_panel_after_sending_tweet === true) {
                 this.$emit('panel_folding_requested');
                 (this.$refs.tweet_text as HTMLTextAreaElement).blur();  // フォーカスを外す
-            }
-
-            try {
-
-                // ツイート送信 API にリクエスト
-                const result = await Vue.axios.post(`/twitter/accounts/${this.selected_twitter_account.screen_name}/tweets`, form_data, {
-                    headers: {'Content-Type': 'multipart/form-data'},
-                });
-
-                // 成功 or 失敗に関わらず detail の内容をそのまま通知する
-                if (result.data.is_success === true) {
-                    this.player.notice(result.data.detail);
-                } else {
-                    this.player.notice('エラー: ' + result.data.detail);
-                }
-
-            } catch (error) {
-                console.error(error);
-                this.player.notice('エラー: ツイートの送信に失敗しました。');
             }
         },
     }

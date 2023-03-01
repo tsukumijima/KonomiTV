@@ -1,7 +1,7 @@
 
 import APIClient from '@/services/APIClient';
 
-export interface NiconicoAuthURL {
+export interface INiconicoAuthURL {
     authorization_url: string;
 }
 
@@ -15,7 +15,7 @@ class Niconico {
     static async getAuthorizationUrl(): Promise<string | null> {
 
         // API リクエストを実行
-        const response = await APIClient.get<NiconicoAuthURL>('/niconico/auth');
+        const response = await APIClient.get<INiconicoAuthURL>('/niconico/auth');
 
         // エラー処理
         if ('is_error' in response) {

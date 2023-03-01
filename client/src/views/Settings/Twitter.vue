@@ -106,6 +106,7 @@
 import { mapStores } from 'pinia';
 import Vue from 'vue';
 
+import Twitter from '@/services/Twitter';
 import useSettingsStore from '@/store/SettingsStore';
 import useUserStore from '@/store/UserStore';
 import Base from '@/views/Settings/Base.vue';
@@ -189,7 +190,10 @@ export default Vue.extend({
             }
 
             // Twitter アカウントと連携するための認証 URL を取得
-            const authorization_url = (await Vue.axios.get('/twitter/auth')).data.authorization_url;
+            const authorization_url = await Twitter.getAuthorizationUrl();
+            if (authorization_url === null) {
+                return;
+            }
 
             // モバイルデバイスではポップアップが事実上使えない (特に Safari ではブロックされてしまう) ので、素直にリダイレクトで実装する
             if (Utils.isMobileDevice() === true) {
@@ -268,7 +272,10 @@ export default Vue.extend({
         async logoutTwitterAccount(screen_name: string) {
 
             // Twitter アカウント連携解除 API にリクエスト
-            await Vue.axios.delete(`/twitter/accounts/${screen_name}`);
+            const result = await Twitter.logoutAccount(screen_name);
+            if (result === false) {
+                return;
+            }
 
             // アカウント情報を強制的に更新
             await this.userStore.fetchUser(true);
