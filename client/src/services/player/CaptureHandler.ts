@@ -12,7 +12,7 @@ import useSettingsStore from '@/store/SettingsStore';
 import Utils from '@/utils';
 
 
-export class PlayerCaptureHandler {
+class CaptureHandler {
 
     private player: DPlayer;
     private player_container: HTMLElement;
@@ -659,3 +659,5 @@ export class PlayerCaptureHandler {
         }
     }
 }
+
+export default CaptureHandler;

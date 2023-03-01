@@ -206,8 +206,9 @@ import Channel from '@/components/Panel/Channel.vue';
 import Comment from '@/components/Panel/Comment.vue';
 import Program from '@/components/Panel/Program.vue';
 import Twitter from '@/components/Panel/Twitter.vue';
+import CaptureHandler from '@/services/player/CaptureHandler';
 import useSettingsStore from '@/store/SettingsStore';
-import Utils, { ChannelUtils, PlayerCaptureHandler, PlayerUtils, ProgramUtils } from '@/utils';
+import Utils, { ChannelUtils, PlayerUtils, ProgramUtils } from '@/utils';
 
 // 低遅延モードオン時の再生バッファ (秒単位)
 // 0.6 秒程度余裕を持たせる
@@ -345,7 +346,7 @@ export default Vue.extend({
             fullscreen_handler: null as () => void | null,
 
             // キャプチャハンドラーのインスタンス
-            capture_handler: null as PlayerCaptureHandler | null,
+            capture_handler: null as CaptureHandler | null,
 
             // ***** キーボードショートカット *****
 
@@ -2100,7 +2101,7 @@ export default Vue.extend({
         initCaptureHandler() {
 
             // キャプチャハンドラーを初期化
-            this.capture_handler = new PlayerCaptureHandler(this.player, (blob: Blob, filename: string) => {
+            this.capture_handler = new CaptureHandler(this.player, (blob: Blob, filename: string) => {
                 // キャプチャが撮られたら、随時 Twitter タブのキャプチャリストに追加する
                 (this.$refs.Twitter as InstanceType<typeof Twitter>).addCaptureList(blob, filename);
             });
