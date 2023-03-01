@@ -1,6 +1,8 @@
 
 import APIClient from '@/services/APIClient';
 
+
+// ニコニコアカウントと連携するための認証 URL を表すインターフェイス
 export interface INiconicoAuthURL {
     authorization_url: string;
 }
@@ -12,7 +14,7 @@ class Niconico {
      * ニコニコアカウントと連携するための認証 URL を取得する
      * @returns 認証 URL or 認証 URL の取得に失敗した場合は null
      */
-    static async getAuthorizationUrl(): Promise<string | null> {
+    static async fetchAuthorizationURL(): Promise<string | null> {
 
         // API リクエストを実行
         const response = await APIClient.get<INiconicoAuthURL>('/niconico/auth');

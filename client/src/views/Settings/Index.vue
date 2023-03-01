@@ -72,9 +72,9 @@
 
 import Vue from 'vue';
 
-import { IVersionInformation } from '@/interface';
 import Header from '@/components/Header.vue';
 import Navigation from '@/components/Navigation.vue';
+import Version from '@/services/Version';
 import Utils from '@/utils';
 
 export default Vue.extend({
@@ -100,7 +100,11 @@ export default Vue.extend({
         try {
 
             // バージョン情報を取得
-            const version_info: IVersionInformation = (await Vue.axios.get(`/version`)).data;
+            const version_info = await Version.fetchServerVersion();
+            if (version_info === null) {
+                return;
+            }
+
             this.latest_version = version_info.latest_version;
 
             // 最新のサーバーバージョンが取得できなかった場合は中断

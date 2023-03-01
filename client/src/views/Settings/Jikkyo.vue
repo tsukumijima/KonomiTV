@@ -167,7 +167,7 @@ export default Vue.extend({
             }
 
             // ニコニコアカウントと連携するための認証 URL を取得
-            const authorization_url = await Niconico.getAuthorizationUrl();
+            const authorization_url = await Niconico.fetchAuthorizationURL();
             if (authorization_url === null) {
                 return;
             }

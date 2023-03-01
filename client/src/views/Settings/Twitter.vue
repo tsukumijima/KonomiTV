@@ -190,7 +190,7 @@ export default Vue.extend({
             }
 
             // Twitter アカウントと連携するための認証 URL を取得
-            const authorization_url = await Twitter.getAuthorizationUrl();
+            const authorization_url = await Twitter.fetchAuthorizationURL();
             if (authorization_url === null) {
                 return;
             }
