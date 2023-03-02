@@ -111,7 +111,7 @@ jobs:
           Rename-Item thirdparty/Python/LICENSE.txt License.txt
 
           # pipenv のインストール
-          thirdparty/Python/python.exe -m pip install pipenv==2022.12.19
+          thirdparty/Python/python.exe -m pip install pipenv==2023.2.18
 
       # サードパーティーライブラリを 7z で圧縮
       # ファイルサイズ縮減のため、圧縮をかなり強めに掛けている
@@ -259,7 +259,7 @@ jobs:
           ln -s python3.11 thirdparty/Python/bin/python
 
           # pipenv のインストール
-          thirdparty/Python/bin/python -m pip install pipenv==2022.12.19
+          thirdparty/Python/bin/python -m pip install pipenv==2023.2.18
 
       # サードパーティーライブラリを tar.xz で圧縮
       # ファイルサイズ縮減のため、圧縮をかなり強めに掛けている
