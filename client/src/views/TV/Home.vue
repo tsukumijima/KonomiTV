@@ -120,7 +120,7 @@ export default Vue.extend({
         }
     },
     computed: {
-        // ChannelsStore / SettingsStore に this.channelsStore /  this.settingsStore でアクセスできるようにする
+        // ChannelsStore / SettingsStore に this.channelsStore / this.settingsStore でアクセスできるようにする
         // ref: https://pinia.vuejs.org/cookbook/options-api.html
         ...mapStores(useChannelsStore, useSettingsStore),
     },

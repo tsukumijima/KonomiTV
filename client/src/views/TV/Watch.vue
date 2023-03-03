@@ -110,8 +110,7 @@
                         :class="{'watch-panel__content--active': tv_panel_active_tab === 'Program'}"
                         :channel="channel" />
                     <Channel class="watch-panel__content"
-                        :class="{'watch-panel__content--active': tv_panel_active_tab === 'Channel'}"
-                        :channels_list="channels_list" />
+                        :class="{'watch-panel__content--active': tv_panel_active_tab === 'Channel'}" />
                     <Comment class="watch-panel__content" ref="Comment"
                         :class="{'watch-panel__content--active': tv_panel_active_tab === 'Comment'}"
                         :channel="channel" :player="player" />

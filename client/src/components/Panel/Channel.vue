@@ -1,13 +1,15 @@
 <template>
     <div class="channels-container channels-container--watch">
         <v-tabs-fix centered show-arrows class="channels-tab" v-model="tab">
-            <v-tab class="channels-tab__item" v-for="[channels_type,] in Array.from(channels_list)" :key="channels_type">
+            <v-tab class="channels-tab__item"
+                v-for="[channels_type,] in Array.from(channelsStore.channels_list_with_pinned_for_watch)" :key="channels_type">
                 {{channels_type}}
             </v-tab>
         </v-tabs-fix>
         <div class="channels-list-container">
             <v-tabs-items-fix class="channels-list" v-model="tab">
-                <v-tab-item-fix class="channels" v-for="[channels_type, channels] in Array.from(channels_list)" :key="channels_type">
+                <v-tab-item-fix class="channels"
+                    v-for="[channels_type, channels] in Array.from(channelsStore.channels_list_with_pinned_for_watch)" :key="channels_type">
                     <router-link v-ripple class="channel" v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.channel_id}`">
                         <div class="channel__broadcaster">
                             <img class="channel__broadcaster-icon" :src="`${Utils.api_base_url}/channels/${channel.channel_id}/logo`">
@@ -48,20 +50,14 @@
 </template>
 <script lang="ts">
 
-import Vue, { PropType } from 'vue';
+import { mapStores } from 'pinia';
+import Vue from 'vue';
 
-import { ChannelTypePretty, IChannel } from '@/interface';
+import useChannelsStore from '@/store/ChannelsStore';
 import Utils, { ChannelUtils, ProgramUtils } from '@/utils';
 
 export default Vue.extend({
     name: 'Panel-ChannelTab',
-    props: {
-        // チャンネル情報リスト
-        channels_list: {
-            type: Map as PropType<Map<ChannelTypePretty, IChannel[]>>,
-            required: true,
-        }
-    },
     data() {
         return {
 
@@ -73,6 +69,11 @@ export default Vue.extend({
             // タブの状態管理
             tab: null,
         }
+    },
+    computed: {
+        // ChannelsStore に this.channelsStore でアクセスできるようにする
+        // ref: https://pinia.vuejs.org/cookbook/options-api.html
+        ...mapStores(useChannelsStore),
     }
 });
 

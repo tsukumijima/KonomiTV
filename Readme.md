@@ -353,7 +353,7 @@ chmod a+x KonomiTV-Installer.elf
 
 > `(Tailscale)` の URL は、事前に Tailscale を導入していない場合は表示されません（外出先からのアクセス自体は、Tailscale をいつ導入したかに関わらず、Tailscale が起動していれば問題なく行えます）。
 
-KonomiTV サーバーは Windows サービス (Windows) / PM2 サービス (Linux) /  Docker サービス (Linux-Docker) としてインストールされているので、サーバー PC を再起動したあとも自動的に起動します。  
+KonomiTV サーバーは Windows サービス (Windows) / PM2 サービス (Linux) / Docker サービス (Linux-Docker) としてインストールされているので、サーバー PC を再起動したあとも自動的に起動します。  
 もし再起動後に KonomiTV にアクセスできない場合は、`server/logs/KonomiTV-Server.log` に出力されているエラーメッセージを確認してください。
 
 -----
