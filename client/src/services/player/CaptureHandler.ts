@@ -5,7 +5,6 @@ import DPlayer from 'dplayer';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ja';
 import * as piexif from 'piexifjs';
-import Vue from 'vue';
 
 import { IChannel, ICaptureExifData, IProgram } from '@/interface';
 import Captures from '@/services/Captures';

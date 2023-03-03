@@ -3,7 +3,7 @@ import Message from '@/message';
 import APIClient from '@/services/APIClient';
 
 
-// ユーザーアカウントの情報を表すインターフェイス
+/** ユーザーアカウントの情報を表すインターフェイス */
 export interface IUser {
     id: number;
     name: string;
@@ -16,7 +16,7 @@ export interface IUser {
     updated_at: string;
 }
 
-// ユーザーアカウントに紐づく Twitter アカウントの情報を表すインターフェイス
+/** ユーザーアカウントに紐づく Twitter アカウントの情報を表すインターフェイス */
 export interface ITwitterAccount {
     id: number;
     name: string;
@@ -26,13 +26,12 @@ export interface ITwitterAccount {
     updated_at: string;
 }
 
-// ユーザーアカウントのアクセストークンを表すインターフェイス
+/** ユーザーアカウントのアクセストークンを表すインターフェイス */
 export interface IUserAccessToken {
   access_token: string;
   token_type: string;
 }
 
-// リクエストボディのインターフェイス
 export interface IUserCreateRequest {
   username: string;
   password: string;

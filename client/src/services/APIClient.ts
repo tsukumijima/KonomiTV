@@ -10,12 +10,12 @@ import Message from '@/message';
 import axios from '@/plugins/axios';
 
 
-// API のエラーレスポンスを表すインターフェイス
+/** API のエラーレスポンスを表すインターフェイス */
 export interface IError {
     detail: string;
 }
 
-// API リクエスト成功時のレスポンスを表すインターフェイス
+/** API リクエスト成功時のレスポンスを表すインターフェイス */
 export type SuccessResponse<T> = {
     status: number;
     data: T;
@@ -23,7 +23,7 @@ export type SuccessResponse<T> = {
     is_success: true;
 }
 
-// API リクエスト失敗時のレスポンスを表すインターフェイス
+/** API リクエスト失敗時のレスポンスを表すインターフェイス */
 export type ErrorResponse<T extends Error = Error> = {
     status: number;
     data: null;

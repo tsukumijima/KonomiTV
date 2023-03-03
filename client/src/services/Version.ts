@@ -2,7 +2,7 @@
 import APIClient from '@/services/APIClient';
 
 
-// バージョン情報を表すインターフェイス
+/** バージョン情報を表すインターフェイス */
 export interface IVersionInformation {
     version: string;
     latest_version: string;

@@ -2,12 +2,12 @@
 import APIClient from '@/services/APIClient';
 
 
-// Twitter アカウントと連携するための認証 URL を表すインターフェイス
+/** Twitter アカウントと連携するための認証 URL を表すインターフェイス */
 export interface ITwitterAuthURL {
     authorization_url: string;
 }
 
-// ツイートの送信結果を表すインターフェイス
+/** ツイートの送信結果を表すインターフェイス */
 export interface ITweetResult {
     is_success: boolean;
     tweet_url?: string;

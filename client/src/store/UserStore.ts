@@ -7,7 +7,7 @@ import useSettingsStore from './SettingsStore';
 import Utils from '@/utils';
 
 
-// 現在ログイン中のユーザーアカウントの情報を共有するストア
+/** 現在ログイン中のユーザーアカウントの情報を共有するストア */
 const useUserStore = defineStore('user', {
     state: () => ({
 

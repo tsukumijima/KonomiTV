@@ -1,5 +1,5 @@
 
-// 番組情報を表すインターフェイス
+/** 番組情報を表すインターフェイス */
 export interface IProgram {
     id: string;
     network_id: number;

@@ -2,7 +2,7 @@
 import APIClient from '@/services/APIClient';
 
 
-// ニコニコアカウントと連携するための認証 URL を表すインターフェイス
+/** ニコニコアカウントと連携するための認証 URL を表すインターフェイス */
 export interface INiconicoAuthURL {
     authorization_url: string;
 }

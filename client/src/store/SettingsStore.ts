@@ -184,6 +184,7 @@ const default_settings: ISettings = {
 
 /**
  * LocalStorage の KonomiTV-Settings キーから設定データを取得する
+ * @returns 設定データ
  */
 export function getLocalStorageSettings(): {[key: string]: any} {
     const settings = localStorage.getItem('KonomiTV-Settings');
@@ -198,6 +199,7 @@ export function getLocalStorageSettings(): {[key: string]: any} {
 
 /**
  * LocalStorage の KonomiTV-Settings キーに設定データを保存する
+ * @param settings 設定データ
  */
 export function setLocalStorageSettings(settings: {[key: string]: any}): void {
     localStorage.setItem('KonomiTV-Settings', JSON.stringify(settings));
@@ -226,7 +228,7 @@ function getNormalizedSettings(settings: {[key: string]: any}): ISettings {
     return new_settings as ISettings;
 }
 
-// 設定データを共有するストア
+/** 設定データを共有するストア */
 const useSettingsStore = defineStore('settings', {
     state: () => {
 

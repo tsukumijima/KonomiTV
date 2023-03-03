@@ -3,11 +3,11 @@ import APIClient from '@/services/APIClient';
 import { IProgram } from '@/services/Programs';
 
 
-// チャンネルタイプの型
+/** チャンネルタイプの型 */
 export type ChannelType = 'GR' | 'BS' | 'CS' | 'CATV' | 'SKY' | 'STARDIGIO';
 
-// すべてのチャンネルの情報を表すインターフェイス
-export interface IChannels {
+/** すべてのチャンネルタイプのチャンネルの情報を表すインターフェイス */
+export interface IChannelsList {
     GR: IChannel[];
     BS: IChannel[];
     CS: IChannel[];
@@ -16,7 +16,7 @@ export interface IChannels {
     STARDIGIO: IChannel[];
 }
 
-// チャンネル情報を表すインターフェイス
+/** チャンネル情報を表すインターフェイス */
 export interface IChannel {
     id: string;
     network_id: number;
@@ -37,6 +37,7 @@ export interface IChannel {
     program_following: IProgram;
 }
 
+/** ニコニコ実況のセッション情報を表すインターフェイス */
 export interface IJikkyoSession {
     is_success: boolean;
     audience_token: string | null;
@@ -50,10 +51,10 @@ class Channels {
      * すべてのチャンネルの情報を取得する
      * @return すべてのチャンネルの情報
      */
-    static async fetchAll(): Promise<IChannels | null> {
+    static async fetchAll(): Promise<IChannelsList | null> {
 
         // API リクエストを実行
-        const response = await APIClient.get<IChannels>('/channels');
+        const response = await APIClient.get<IChannelsList>('/channels');
 
         // エラー処理
         if ('is_error' in response) {
