@@ -7,7 +7,9 @@ import useSettingsStore from './SettingsStore';
 import Utils from '@/utils';
 
 
-/** 現在ログイン中のユーザーアカウントの情報を共有するストア */
+/**
+ * 現在ログイン中のユーザーアカウントの情報を共有するストア
+ */
 const useUserStore = defineStore('user', {
     state: () => ({
 
@@ -21,7 +23,10 @@ const useUserStore = defineStore('user', {
         user_icon_url: null as string | null,
     }),
     getters: {
-        // ログイン済みのユーザーのニコニコアカウントのユーザーアイコンの URL (ニコニコアカウントと連携されている場合のみ)
+
+        /**
+         * ログイン済みのユーザーのニコニコアカウントのユーザーアイコンの URL (ニコニコアカウントと連携されている場合のみ)
+         */
         user_niconico_icon_url(): string | null {
             if (this.user === null || this.user.niconico_user_id === null) {
                 return null;

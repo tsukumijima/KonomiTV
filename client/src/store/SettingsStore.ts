@@ -228,7 +228,9 @@ function getNormalizedSettings(settings: {[key: string]: any}): ISettings {
     return new_settings as ISettings;
 }
 
-/** 設定データを共有するストア */
+/**
+ * 設定データを共有するストア
+ */
 const useSettingsStore = defineStore('settings', {
     state: () => {
 

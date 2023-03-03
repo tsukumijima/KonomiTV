@@ -1,10 +1,13 @@
 
 import APIClient from '@/services/APIClient';
-import { IProgram } from '@/services/Programs';
+import { IProgram, IProgramDefault } from '@/services/Programs';
 
 
 /** チャンネルタイプの型 */
 export type ChannelType = 'GR' | 'BS' | 'CS' | 'CATV' | 'SKY' | 'STARDIGIO';
+
+// チャンネルタイプの型 (実際のチャンネルリストに表示される表現)
+export type ChannelTypePretty = 'ピン留め' | '地デジ' | 'BS' | 'CS' | 'CATV' | 'SKY' | 'StarDigio';
 
 /** すべてのチャンネルタイプのチャンネルの情報を表すインターフェイス */
 export interface IChannelsList {
@@ -35,6 +38,27 @@ export interface IChannel {
     viewers: number;
     program_present: IProgram;
     program_following: IProgram;
+}
+
+/** チャンネル情報を表すインターフェイスのデフォルト値 */
+export const IChannelDefault: IChannel = {
+    id: 'NID0-SID0',
+    network_id: 0,
+    service_id: 0,
+    transport_stream_id: null,
+    remocon_id: null,
+    channel_id: 'gr000',
+    channel_number: '---',
+    channel_name: '取得中…',
+    channel_type: 'GR',
+    channel_force: null,
+    channel_comment: null,
+    is_subchannel: false,
+    is_radiochannel: false,
+    is_display: true,
+    viewers: 0,
+    program_present: IProgramDefault,
+    program_following: IProgramDefault,
 }
 
 /** ニコニコ実況のセッション情報を表すインターフェイス */
