@@ -5,12 +5,17 @@
             <Navigation/>
             <div class="channels-container channels-container--home" :class="{'channels-container--loading': is_loading}">
                 <v-tabs-fix centered class="channels-tab" v-model="tab">
-                    <v-tab class="channels-tab__item" v-for="[channels_type,] in Array.from(channels_list)" :key="channels_type">{{channels_type}}</v-tab>
+                    <v-tab class="channels-tab__item"
+                        v-for="[channels_type,] in Array.from(channelsStore.channels_list_with_pinned)" :key="channels_type">
+                        {{channels_type}}
+                    </v-tab>
                 </v-tabs-fix>
                 <v-tabs-items-fix class="channels-list" v-model="tab">
-                    <v-tab-item-fix class="channels-tabitem" v-for="[channels_type, channels] in Array.from(channels_list)" :key="channels_type">
+                    <v-tab-item-fix class="channels-tabitem"
+                        v-for="[channels_type, channels] in Array.from(channelsStore.channels_list_with_pinned)" :key="channels_type">
                         <div class="channels" :class="`channels--tab-${channels_type} channels--length-${channels.length}`">
-                            <router-link v-ripple class="channel" v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.channel_id}`">
+                            <router-link v-ripple class="channel"
+                                v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.channel_id}`">
                                 <div class="channel__broadcaster">
                                     <img class="channel__broadcaster-icon" :src="`${Utils.api_base_url}/channels/${channel.channel_id}/logo`">
                                     <div class="channel__broadcaster-content">
@@ -82,9 +87,9 @@
 import { mapStores } from 'pinia';
 import Vue from 'vue';
 
-import { ChannelTypePretty, IChannel } from '@/interface';
 import Header from '@/components/Header.vue';
 import Navigation from '@/components/Navigation.vue';
+import useChannelsStore from '@/store/ChannelsStore';
 import useSettingsStore from '@/store/SettingsStore';
 import Utils, { ChannelUtils, ProgramUtils } from '@/utils';
 
@@ -112,37 +117,52 @@ export default Vue.extend({
             // ページ遷移時に setInterval(), setTimeout() の実行を止めるのに使う
             // setInterval(), setTimeout() の返り値を登録する
             interval_ids: [] as number[],
-
-            // チャンネル情報リスト
-            channels_list: new Map() as Map<ChannelTypePretty, IChannel[]>,
         }
     },
     computed: {
-        // SettingsStore に this.settingsStore でアクセスできるようにする
+        // ChannelsStore / SettingsStore に this.channelsStore /  this.settingsStore でアクセスできるようにする
         // ref: https://pinia.vuejs.org/cookbook/options-api.html
-        ...mapStores(useSettingsStore),
+        ...mapStores(useChannelsStore, useSettingsStore),
     },
     // 開始時に実行
     created() {
 
-        // チャンネル情報を取得
-        this.update();
+        // ピン留めされているチャンネルの ID が空なら、タブを地デジタブに切り替える
+        // ピン留めができる事を示唆するためにピン留めタブ自体は残す
+        if (this.settingsStore.settings.pinned_channel_ids.length === 0) {
+            this.tab = 1;
+        }
 
-        // 00秒までの残り秒数
+        // チャンネル情報を更新
+        this.channelsStore.update().then(async () => {
+
+            // 少しだけ待つ
+            // v-tabs-slider-wrapper をアニメーションさせないために必要
+            await Utils.sleep(0.01);
+
+            // この時点でピン留めされているチャンネルがないなら、タブを地デジタブに切り替える
+            // ピン留めされているチャンネル自体はあるが、現在放送されていないため表示できない場合に備える
+            if (this.channelsStore.channels_list_with_pinned.get('ピン留め').length === 0) {
+                this.tab = 1;
+            }
+
+            // チャンネル情報の更新が終わったタイミングでローディング状態を解除する
+            this.is_loading = false;
+        });
+
+        // 00秒までの残り秒数を取得
         // 現在 16:01:34 なら 26 (秒) になる
-        const residue_second = 60 - (Math.floor(new Date().getTime() / 1000) % 60);
+        const residue_second = 60 - new Date().getSeconds();
 
         // 00秒になるまで待ってから
-        // 番組は基本1分単位で組まれているため、20秒や45秒など中途半端な秒数で更新してしまうと反映が遅れてしまう
+        // 番組は基本1分単位で組まれているため、20秒や45秒など中途半端な秒数で更新してしまうと番組情報の反映が遅れてしまう
         this.interval_ids.push(window.setTimeout(() => {
 
-            // チャンネル情報を更新
-            this.update();
+            // この時点で00秒なので、チャンネル情報を更新
+            this.channelsStore.update(true);
 
-            // チャンネル情報を定期的に更新
-            this.interval_ids.push(window.setInterval(() => {
-                this.update();
-            }, 30 * 1000));  // 30秒おき
+            // 以降、30秒おきにチャンネル情報を更新
+            this.interval_ids.push(window.setInterval(() => this.channelsStore.update(true), 30 * 1000));
 
         }, residue_second * 1000));
     },
@@ -157,52 +177,14 @@ export default Vue.extend({
     },
     methods: {
 
-        // チャンネル情報一覧を取得し、画面を更新する
-        async update() {
-
-            // チャンネル情報一覧 API にアクセス
-            let channels_response;
-            try {
-                channels_response = await Vue.axios.get('/channels');
-            } catch (error) {
-                console.error(error);   // エラー内容を表示
-                return;
-            }
-
-            // is_display が true のチャンネルのみに絞り込むフィルタ関数
-            // 放送していないサブチャンネルを表示から除外する
-            const filter = (channel: IChannel) => {
-                return channel.is_display;
-            }
-
-            // チャンネルリストを再構築
-            // 1つでもチャンネルが存在するチャンネルタイプのみ表示するように
-            // たとえば SKY (スカパー！プレミアムサービス) のタブは SKY に属すチャンネルが1つもない（=受信できない）なら表示されない
-            this.channels_list = new Map();
-            if (channels_response.data.GR.length > 0) this.channels_list.set('地デジ', channels_response.data.GR.filter(filter));
-            if (channels_response.data.BS.length > 0) this.channels_list.set('BS', channels_response.data.BS.filter(filter));
-            if (channels_response.data.CS.length > 0) this.channels_list.set('CS', channels_response.data.CS.filter(filter));
-            if (channels_response.data.CATV.length > 0) this.channels_list.set('CATV', channels_response.data.CATV.filter(filter));
-            if (channels_response.data.SKY.length > 0) this.channels_list.set('SKY', channels_response.data.SKY.filter(filter));
-            if (channels_response.data.STARDIGIO.length > 0) this.channels_list.set('StarDigio', channels_response.data.STARDIGIO.filter(filter));
-
-            // ピン留めされているチャンネルのリストを更新
-            // ローディング中のみ、もしピン留めされているチャンネルが空の時は、タブを地デジタブに切り替える
-            this.updatePinnedChannelList(this.is_loading ? true : false);
-
-            // ローディング状態を解除
-            this.is_loading = false;
-        },
-
         // チャンネルをピン留めする
         addPinnedChannel(channel_id: string) {
 
             // ピン留めするチャンネルの ID を追加 (保存は自動で行われる)
             this.settingsStore.settings.pinned_channel_ids.push(channel_id);
 
-            // ピン留めされているチャンネルのリストを更新
-            this.updatePinnedChannelList();
-            this.$message.show('ピン留めしました。')
+            const channel = this.channelsStore.getChannel(channel_id);
+            this.$message.show(`${channel.channel_name}をピン留めしました。`)
         },
 
         // チャンネルをピン留めから外す
@@ -211,48 +193,13 @@ export default Vue.extend({
             // ピン留めを外すチャンネルの ID を削除 (保存は自動で行われる)
             this.settingsStore.settings.pinned_channel_ids.splice(this.settingsStore.settings.pinned_channel_ids.indexOf(channel_id), 1);
 
-            // ピン留めされているチャンネルのリストを更新
-            this.updatePinnedChannelList();
-            this.$message.show('ピン留めを外しました。')
-        },
-
-        // ピン留めされているチャンネルのリストを更新する
-        updatePinnedChannelList(is_update_tab: boolean = true) {
-
-            // ピン留めされているチャンネル情報のリスト
-            const pinned_channels = [] as IChannel[];
-
-            // チャンネル ID が一致したチャンネルの情報を保存する
-            for (const pinned_channel_id of this.settingsStore.settings.pinned_channel_ids) {
-                const pinned_channel_type = ChannelUtils.getChannelType(pinned_channel_id, true) as ChannelTypePretty;
-                const channels = this.channels_list.get(pinned_channel_type);
-                if (channels === undefined) {
-                    continue;  // チャンネルタイプが存在しない
-                }
-                const pinned_channel = channels.find((channel) => {
-                    return channel.channel_id === pinned_channel_id;  // チャンネル ID がピン留めされているチャンネルのものと同じ
-                });
-                // チャンネル情報を取得できているときだけ
-                // サブチャンネルをピン留めしたが、マルチ編成が終了して現在は放送していない場合などに備える (BS142 など)
-                // 現在放送していないチャンネルは this.channels_list に入れた段階で弾いているため、チャンネル情報を取得できない
-                if (pinned_channel !== undefined) {
-                    pinned_channels.push(pinned_channel);
-                }
-            }
-
-            if (!this.channels_list.has('ピン留め')) {
-                // タブの一番左にピン留めタブを表示する
-                this.channels_list = new Map([['ピン留め', pinned_channels], ...this.channels_list]);
-            } else {
-                // 既に存在するピン留めタブにチャンネル情報を設定する
-                this.channels_list.set('ピン留め', pinned_channels);
-            }
-
-            // pinned_channels が空の場合は、タブを地デジタブに切り替える
-            // ピン留めができる事を示唆するためにピン留めタブ自体は残す
-            if (pinned_channels.length === 0 && is_update_tab === true) {
+            // この時点でピン留めされているチャンネルがないなら、タブを地デジタブに切り替える
+            if (this.channelsStore.channels_list_with_pinned.get('ピン留め').length === 0) {
                 this.tab = 1;
             }
+
+            const channel = this.channelsStore.getChannel(channel_id);
+            this.$message.show(`${channel.channel_name}のピン留めを外しました。`)
         },
 
         // チャンネルがピン留めされているか
@@ -292,6 +239,11 @@ export default Vue.extend({
         }
     }
 }
+.channels-container.channels-container--home.channels-container--loading {
+    .v-tabs-slider-wrapper {
+        transition: none !important;
+    }
+}
 
 </style>
 <style lang="scss" scoped>
@@ -303,7 +255,7 @@ export default Vue.extend({
     margin-left: 21px;
     margin-right: 21px;
     opacity: 1;
-    transition: opacity 0.4s;
+    transition: opacity 0.2s;
     @include smartphone-vertical {
         margin-left: 0px;
         margin-right: 0px;
