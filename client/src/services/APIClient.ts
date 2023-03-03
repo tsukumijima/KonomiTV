@@ -1,4 +1,9 @@
 
+/**
+ * services/ 以下の各クラスは、KonomiTV サーバーへの API リクエストを抽象化し、
+ * API レスポンスの受け取りと、エラーが発生した際のエラーハンドリング (エラーメッセージ表示) までを責務として負う
+ */
+
 import { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
 
 import Message from '@/message';
@@ -28,7 +33,7 @@ export type ErrorResponse<T extends Error = Error> = {
 
 
 /**
- * Axios の薄いラッパー
+ * services/ 以下の各クラスから呼び出される、Axios の薄いラッパー
  * エラーハンドリングを容易にするために、レスポンスを SuccessResponse と ErrorResponse に分けて返す
  * ref: https://zenn.dev/engineer_titan/articles/291c9fccb338e2
  */

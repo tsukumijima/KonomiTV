@@ -61,9 +61,8 @@ class Niconico {
      * @param screen_name Twitter のスクリーンネーム
      * @param text ツイート本文
      * @param captures 添付するキャプチャ画像
-     * @param message_callback ツイートの送信結果の文字列を受け取るコールバック関数 (プレイヤー側の通知用メソッドに渡すことを想定)
      */
-    static async sendTweet(screen_name: string, text: string, captures: Blob[], message_callback: (message: string) => void): Promise<void> {
+    static async sendTweet(screen_name: string, text: string, captures: Blob[]): Promise<{message: string, is_error: boolean}> {
 
         // multipart/form-data でツイート本文と画像（選択されている場合）を送る
         const form_data = new FormData();
@@ -79,17 +78,16 @@ class Niconico {
 
         // エラー処理 (API リクエスト自体に失敗した場合)
         if ('is_error' in response) {
-            message_callback('エラー: ツイートの送信に失敗しました。');
-            return;
+            return {message: 'エラー: ツイートの送信に失敗しました。', is_error: true};
         }
 
         // 成功 or 失敗に関わらず detail の内容をそのまま通知する
         if (response.data.is_success === true) {
             // ツイート成功
-            message_callback(response.data.detail);
+            return {message: response.data.detail, is_error: false};
         } else {
             // ツイート失敗
-            message_callback(`エラー: ${response.data.detail}`);
+            return {message: `エラー: ${response.data.detail}`, is_error: true}
         }
     }
 }

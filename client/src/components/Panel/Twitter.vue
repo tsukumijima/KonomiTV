@@ -674,8 +674,8 @@ export default Vue.extend({
 
             // ツイート送信 API にリクエスト
             // レスポンスは待たない
-            Twitter.sendTweet(this.selected_twitter_account.screen_name, this.tweet_text, new_tweet_captures, (message) => {
-                this.player.notice(message);
+            Twitter.sendTweet(this.selected_twitter_account.screen_name, this.tweet_text, new_tweet_captures).then((result) => {
+                this.player.notice(result.message);
             });
 
             // 連投防止のため、フォーム上のツイート本文・キャプチャの選択・キャプチャのフォーカスを消去
