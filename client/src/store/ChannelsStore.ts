@@ -137,8 +137,35 @@ const useChannelsStore = defineStore('channels', {
     actions: {
 
         /**
+         * チャンネル ID (ex: gr011) からチャンネルタイプ (ex: GR) を取得する
+         * @param channel_id チャンネル ID
+         * @returns チャンネルタイプ
+         */
+        getChannelType(channel_id: string): ChannelType {
+            const result = channel_id.match('(?<channel_type>[a-z]+)[0-9]+').groups.channel_type.toUpperCase();
+            return result as ChannelType;
+        },
+
+        /**
+         * 指定されたチャンネル ID のチャンネル情報を取得する
+         * @param channel_id 取得するチャンネル ID (ex: gr011)
+         * @returns チャンネル情報
+         */
+        getChannel(channel_id: string): IChannel | null {
+
+            // チャンネルタイプごとのチャンネル情報リストを取得する (すべてのチャンネルリストから探索するより効率的)
+            const channels = this.channels_list[this.getChannelType(channel_id)];
+            if (channels === undefined) {
+                return null;
+            }
+
+            // チャンネル ID が一致するチャンネル情報を返す
+            return channels.find(channel => channel.channel_id === channel_id) ?? null;
+        },
+
+        /**
          * 前・現在・次のチャンネル情報を取得する
-         * チャンネル情報はデータ量がかなり多いので、一気に取得したほうがループ回数が少なくなるためパフォーマンスが良い
+         * チャンネル情報はデータ量がかなり多いので、個別に取得するより一気に取得したほうがループ回数が少なくなりパフォーマンスが良い
          * @param channel_id 起点にするチャンネル ID (ex: gr011)
          * @returns チャンネル情報
          */
@@ -147,35 +174,38 @@ const useChannelsStore = defineStore('channels', {
             current_channel: IChannel,
             next_channel: IChannel,
         } {
-            for (const [channel_type, channels] of Object.entries(this.channels_list)) {
 
-                // 起点にするチャンネル情報があるインデックスを取得
-                const current_channel_index = channels.findIndex((channel) => channel.channel_id === channel_id);
-
-                // 前・次のインデックスが最初か最後の時はそれぞれ最後と最初にインデックスを一周させる
-                let previous_channel_index = current_channel_index - 1;
-                if (previous_channel_index === -1) {
-                    previous_channel_index = channels.length - 1;  // 最後のインデックス
-                }
-                let next_channel_index = current_channel_index + 1;
-                if (next_channel_index === channels.length) {
-                    next_channel_index = 0;  // 最初のインデックス
-                }
-
-                // 前・現在・次のチャンネル情報を返す
-                return {
-                    previous_channel: channels[previous_channel_index],
-                    current_channel: channels[current_channel_index],
-                    next_channel: channels[next_channel_index],
-                };
-            }
+            // チャンネルタイプごとのチャンネル情報リストを取得する (すべてのチャンネルリストから探索するより効率的)
+            const channels = this.channels_list[this.getChannelType(channel_id)];
 
             // まだチャンネルリストの更新が終わっていないなどの場合で取得できなかった場合、
             // null を返すと UI 側でのエラー処理が大変なので、暫定的なダミーのチャンネル情報を返す
+            if (channels === undefined || channels.length === 0) {
+                return {
+                    previous_channel: IChannelDefault,
+                    current_channel: IChannelDefault,
+                    next_channel: IChannelDefault,
+                };
+            }
+
+            // 起点にするチャンネル情報があるインデックスを取得
+            const current_channel_index = channels.findIndex((channel) => channel.channel_id === channel_id);
+
+            // 前・次のインデックスが最初か最後の時はそれぞれ最後と最初にインデックスを一周させる
+            let previous_channel_index = current_channel_index - 1;
+            if (previous_channel_index === -1) {
+                previous_channel_index = channels.length - 1;  // 最後のインデックス
+            }
+            let next_channel_index = current_channel_index + 1;
+            if (next_channel_index === channels.length) {
+                next_channel_index = 0;  // 最初のインデックス
+            }
+
+            // 前・現在・次のチャンネル情報を返す
             return {
-                previous_channel: IChannelDefault,
-                current_channel: IChannelDefault,
-                next_channel: IChannelDefault,
+                previous_channel: channels[previous_channel_index],
+                current_channel: channels[current_channel_index],
+                next_channel: channels[next_channel_index],
             };
         },
 
