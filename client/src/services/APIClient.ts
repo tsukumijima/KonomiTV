@@ -168,7 +168,11 @@ class APIClient {
             }
             default: {
                 if (response.error.message) {
-                    Message.error(`${template}(HTTP Error ${response.status} / ${response.error.message})`);
+                    if (Number.isNaN(response.status)) {
+                        Message.error(`${template}(${response.error.message})`);
+                    } else {
+                        Message.error(`${template}(HTTP Error ${response.status} / ${response.error.message})`);
+                    }
                 } else {
                     Message.error(`${template}(HTTP Error ${response.status})`);
                 }

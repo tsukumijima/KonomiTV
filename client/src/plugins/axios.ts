@@ -12,8 +12,7 @@ const axios_instance = axios.create();
 // HTTP リクエスト前に割り込んで行われる処理
 axios_instance.interceptors.request.use((config) => {
 
-    // API のベース URL を設定
-    // BaseURL が明示的に指定されているときは設定しない
+    // API のベース URL を設定 (config.baseURL が指定されていない場合のみ)
     if (config.baseURL === undefined) {
         config.baseURL = Utils.api_base_url;
     }
@@ -30,6 +29,9 @@ axios_instance.interceptors.request.use((config) => {
     // KonomiTV クライアントのバージョンを設定
     // 今のところ使わないが、将来的にクライアントとサーバーを分離することを見据えて念のため
     config.headers['X-KonomiTV-Version'] = Utils.version;
+
+    // タイムアウト時間を30秒に設定
+    config.timeout = 30 * 1000;
 
     return config;
 });
@@ -51,5 +53,4 @@ axios_instance.interceptors.response.use(
     }
 );
 
-// ここで返したインスタンスを VueAxios (Vue.axios) に設定する
 export default axios_instance;
