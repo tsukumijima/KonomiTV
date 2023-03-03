@@ -170,9 +170,9 @@ const useChannelsStore = defineStore('channels', {
          * @returns チャンネル情報
          */
         getPreviousAndCurrentAndNextChannel(channel_id: string): {
-            previous_channel: IChannel,
-            current_channel: IChannel,
-            next_channel: IChannel,
+            previous: IChannel;
+            current: IChannel;
+            next: IChannel;
         } {
 
             // チャンネルタイプごとのチャンネル情報リストを取得する (すべてのチャンネルリストから探索するより効率的)
@@ -182,9 +182,9 @@ const useChannelsStore = defineStore('channels', {
             // null を返すと UI 側でのエラー処理が大変なので、暫定的なダミーのチャンネル情報を返す
             if (channels === undefined || channels.length === 0) {
                 return {
-                    previous_channel: IChannelDefault,
-                    current_channel: IChannelDefault,
-                    next_channel: IChannelDefault,
+                    previous: IChannelDefault,
+                    current: IChannelDefault,
+                    next: IChannelDefault,
                 };
             }
 
@@ -203,9 +203,9 @@ const useChannelsStore = defineStore('channels', {
 
             // 前・現在・次のチャンネル情報を返す
             return {
-                previous_channel: channels[previous_channel_index],
-                current_channel: channels[current_channel_index],
-                next_channel: channels[next_channel_index],
+                previous: channels[previous_channel_index],
+                current: channels[current_channel_index],
+                next: channels[next_channel_index],
             };
         },
 

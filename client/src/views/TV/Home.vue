@@ -125,7 +125,7 @@ export default Vue.extend({
         ...mapStores(useChannelsStore, useSettingsStore),
     },
     // 開始時に実行
-    created() {
+    async created() {
 
         // ピン留めされているチャンネルの ID が空なら、タブを地デジタブに切り替える
         // ピン留めができる事を示唆するためにピン留めタブ自体は残す
@@ -133,28 +133,11 @@ export default Vue.extend({
             this.tab = 1;
         }
 
-        // チャンネル情報を更新
-        this.channelsStore.update().then(async () => {
-
-            // 少しだけ待つ
-            // v-tabs-slider-wrapper をアニメーションさせないために必要
-            await Utils.sleep(0.01);
-
-            // この時点でピン留めされているチャンネルがないなら、タブを地デジタブに切り替える
-            // ピン留めされているチャンネル自体はあるが、現在放送されていないため表示できない場合に備える
-            if (this.channelsStore.channels_list_with_pinned.get('ピン留め').length === 0) {
-                this.tab = 1;
-            }
-
-            // チャンネル情報の更新が終わったタイミングでローディング状態を解除する
-            this.is_loading = false;
-        });
-
         // 00秒までの残り秒数を取得
         // 現在 16:01:34 なら 26 (秒) になる
         const residue_second = 60 - new Date().getSeconds();
 
-        // 00秒になるまで待ってから
+        // 00秒になるまで待ってから実行するタイマー
         // 番組は基本1分単位で組まれているため、20秒や45秒など中途半端な秒数で更新してしまうと番組情報の反映が遅れてしまう
         this.interval_ids.push(window.setTimeout(() => {
 
@@ -165,6 +148,22 @@ export default Vue.extend({
             this.interval_ids.push(window.setInterval(() => this.channelsStore.update(true), 30 * 1000));
 
         }, residue_second * 1000));
+
+        // チャンネル情報を更新 (初回)
+        await this.channelsStore.update();
+
+        // 少しだけ待つ
+        // v-tabs-slider-wrapper をアニメーションさせないために必要
+        await Utils.sleep(0.01);
+
+        // この時点でピン留めされているチャンネルがないなら、タブを地デジタブに切り替える
+        // ピン留めされているチャンネル自体はあるが、現在放送されていないため表示できない場合に備える
+        if (this.channelsStore.channels_list_with_pinned.get('ピン留め').length === 0) {
+            this.tab = 1;
+        }
+
+        // チャンネル情報の更新が終わったタイミングでローディング状態を解除する
+        this.is_loading = false;
     },
     // 終了前に実行
     beforeDestroy() {

@@ -62,7 +62,7 @@ class Niconico {
      * @param text ツイート本文
      * @param captures 添付するキャプチャ画像
      */
-    static async sendTweet(screen_name: string, text: string, captures: Blob[]): Promise<{message: string, is_error: boolean}> {
+    static async sendTweet(screen_name: string, text: string, captures: Blob[]): Promise<{message: string; is_error: boolean;}> {
 
         // multipart/form-data でツイート本文と画像（選択されている場合）を送る
         const form_data = new FormData();
