@@ -231,7 +231,7 @@ body .route-container {
 
 // ページ遷移アニメーション
 .v-enter-active, .v-leave-active {
-    transition: opacity 0.3s;
+    transition: opacity 0.25s;
 }
 .v-enter, .v-leave-to {
     opacity: 0;
