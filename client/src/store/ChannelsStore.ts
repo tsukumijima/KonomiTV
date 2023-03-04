@@ -112,7 +112,7 @@ const useChannelsStore = defineStore('channels', {
 
         /**
          * 実際に表示されるチャンネルリストを表すデータ
-         * ピン留め済みのチャンネルのタブを追加するほか、放送していないサブチャンネルはピン留めタブを含めて表示から除外される
+         * ピン留めチャンネルのタブを追加するほか、放送していないサブチャンネルはピン留めタブを含めて表示から除外される
          * また、チャンネルが1つもないチャンネルタイプのタブも表示から除外される
          * (たとえば SKY (スカパー！プレミアムサービス) のタブは、SKY に属すチャンネルが1つもない（=受信できない）なら表示されない)
          */
@@ -181,6 +181,12 @@ const useChannelsStore = defineStore('channels', {
                         }
                     }
                 }
+            }
+
+            // ピン留めチャンネルを追加順に並び替える
+            for (const channel of [...channels_list_with_pinned.get('ピン留め')!]) {
+                const index = settings_store.settings.pinned_channel_ids.indexOf(channel.channel_id);
+                channels_list_with_pinned.get('ピン留め')![index] = channel;
             }
 
             // 最後に、チャンネルが1つもないチャンネルタイプのタブを除外する (ピン留めタブを除く)
