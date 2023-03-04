@@ -218,7 +218,7 @@ export default class Utils {
 
     /**
      * async/await でスリープ的なもの
-     * @param seconds 待機する秒数
+     * @param seconds 待機する秒数 (ミリ秒単位ではないので注意)
      * @returns Promise を返すので、await sleep(1); のように使う
      */
     static async sleep(seconds: number): Promise<number> {
@@ -227,8 +227,8 @@ export default class Utils {
 
 
     /**
-     * 現在時刻の UNIX タイムスタンプを取得する (デバッグ用)
-     * @returns 現在時刻の UNIX タイムスタンプ
+     * 現在時刻の UNIX タイムスタンプ (秒単位) を取得する (デバッグ用)
+     * @returns 現在時刻の UNIX タイムスタンプ (秒単位)
      */
     static time(): number {
         return Date.now() / 1000;

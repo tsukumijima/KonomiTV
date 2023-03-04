@@ -121,7 +121,7 @@
                     <span class="ml-1">ハッシュタグリスト</span>
                 </div>
                 <button v-ripple class="hashtag-heading__add-button"
-                    @click="saved_twitter_hashtags.push({id: Date.now(), text: '#ここにハッシュタグを入力', editing: false})">
+                    @click="saved_twitter_hashtags.push({id: Utils.time(), text: '#ここにハッシュタグを入力', editing: false})">
                     <Icon icon="fluent:add-12-filled" width="17px" />
                     <span class="ml-1">追加</span>
                 </button>
@@ -228,7 +228,7 @@ export default Vue.extend({
             // 保存している Twitter のハッシュタグが入るリスト
             saved_twitter_hashtags: useSettingsStore().settings.saved_twitter_hashtags.map((hashtag, index) => {
                 // id プロパティは :key="" に指定するためにつける ID (ミリ秒単位のタイムスタンプ + index で適当に一意になるように)
-                return {id: Date.now() + index, text: hashtag, editing: false} as IHashtag;
+                return {id: Utils.time() + index, text: hashtag, editing: false} as IHashtag;
             }),
 
             // ハッシュタグリストを表示しているか
