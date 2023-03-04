@@ -111,8 +111,7 @@
                 </div>
                 <div class="watch-panel__content-container">
                     <Program class="watch-panel__content"
-                        :class="{'watch-panel__content--active': tv_panel_active_tab === 'Program'}"
-                        :channel="channelsStore.channel.current" />
+                        :class="{'watch-panel__content--active': tv_panel_active_tab === 'Program'}" />
                     <Channel class="watch-panel__content"
                         :class="{'watch-panel__content--active': tv_panel_active_tab === 'Channel'}" />
                     <Comment class="watch-panel__content" ref="Comment"

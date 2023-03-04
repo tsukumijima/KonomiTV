@@ -1,17 +1,23 @@
 <template>
     <div class="program-container">
         <section class="program-broadcaster">
-            <img class="program-broadcaster__icon" :src="`${Utils.api_base_url}/channels/${($route.params.channel_id)}/logo`">
-            <div class="program-broadcaster__number">Ch: {{channel.channel_number}}</div>
-            <div class="program-broadcaster__name">{{channel.channel_name}}</div>
+            <img class="program-broadcaster__icon" :src="`${Utils.api_base_url}/channels/${(channelsStore.channel_id)}/logo`">
+            <div class="program-broadcaster__number">Ch: {{channelsStore.channel.current.channel_number}}</div>
+            <div class="program-broadcaster__name">{{channelsStore.channel.current.channel_name}}</div>
         </section>
         <section class="program-info">
-            <h1 class="program-info__title" v-html="ProgramUtils.decorateProgramInfo(channel.program_present, 'title')"></h1>
-            <div class="program-info__time">{{ProgramUtils.getProgramTime(channel.program_present)}}</div>
-            <div class="program-info__description" v-html="ProgramUtils.decorateProgramInfo(channel.program_present, 'description')"></div>
+            <h1 class="program-info__title"
+                v-html="ProgramUtils.decorateProgramInfo(channelsStore.channel.current.program_present, 'title')">
+            </h1>
+            <div class="program-info__time">
+                {{ProgramUtils.getProgramTime(channelsStore.channel.current.program_present)}}
+            </div>
+            <div class="program-info__description"
+                v-html="ProgramUtils.decorateProgramInfo(channelsStore.channel.current.program_present, 'description')">
+            </div>
             <div class="program-info__genre-container">
                 <div class="program-info__genre" :key="genre_index"
-                    v-for="(genre, genre_index) in ProgramUtils.getAttribute(channel.program_present, 'genre', [])">
+                    v-for="(genre, genre_index) in ProgramUtils.getAttribute(channelsStore.channel.current.program_present, 'genre', [])">
                     {{genre.major}} / {{genre.middle}}
                 </div>
             </div>
@@ -19,25 +25,29 @@
                 <span class="program-info__next-decorate">NEXT</span>
                 <Icon class="program-info__next-icon" icon="fluent:fast-forward-20-filled" width="16px" />
             </div>
-            <span class="program-info__next-title" v-html="ProgramUtils.decorateProgramInfo(channel.program_following, 'title')"></span>
-            <div class="program-info__next-time">{{ProgramUtils.getProgramTime(channel.program_following)}}</div>
+            <span class="program-info__next-title"
+                v-html="ProgramUtils.decorateProgramInfo(channelsStore.channel.current.program_following, 'title')">
+            </span>
+            <div class="program-info__next-time">
+                {{ProgramUtils.getProgramTime(channelsStore.channel.current.program_following)}}
+            </div>
             <div class="program-info__status">
                 <div class="program-info__status-force"
-                    :class="`program-info__status-force--${ChannelUtils.getChannelForceType(channel.channel_force)}`">
+                    :class="`program-info__status-force--${ChannelUtils.getChannelForceType(channelsStore.channel.current.channel_force)}`">
                     <Icon icon="fa-solid:fire-alt" height="14px" />
                     <span class="ml-2">勢い:</span>
-                    <span class="ml-2">{{ProgramUtils.getAttribute(channel, 'channel_force', '--')}} コメ/分</span>
+                    <span class="ml-2">{{ProgramUtils.getAttribute(channelsStore.channel.current, 'channel_force', '--')}} コメ/分</span>
                 </div>
                 <div class="program-info__status-viewers ml-5">
                     <Icon icon="fa-solid:eye" height="14px" />
                     <span class="ml-2">視聴数:</span>
-                    <span class="ml-1">{{channel.viewers}}</span>
+                    <span class="ml-1">{{channelsStore.channel.current.viewers}}</span>
                 </div>
             </div>
         </section>
         <section class="program-detail-container">
             <div class="program-detail" :key="detail_heading"
-                v-for="(detail_text, detail_heading) in ProgramUtils.getAttribute(channel.program_present, 'detail', {})">
+                v-for="(detail_text, detail_heading) in ProgramUtils.getAttribute(channelsStore.channel.current.program_present, 'detail', {})">
                 <h2 class="program-detail__heading">{{detail_heading}}</h2>
                 <div class="program-detail__text" v-html="Utils.URLtoLink(detail_text)"></div>
             </div>
@@ -46,20 +56,14 @@
 </template>
 <script lang="ts">
 
-import Vue, { PropType } from 'vue';
+import Vue from 'vue';
+import { mapStores } from 'pinia';
 
-import { IChannel } from '@/interface';
+import useChannelsStore from '@/store/ChannelsStore';
 import Utils, { ChannelUtils, ProgramUtils } from '@/utils';
 
 export default Vue.extend({
     name: 'Panel-ProgramTab',
-    props: {
-        // チャンネル情報
-        channel: {
-            type: Object as PropType<IChannel>,
-            required: true,
-        }
-    },
     data() {
         return {
             // ユーティリティをテンプレートで使えるように
@@ -67,6 +71,11 @@ export default Vue.extend({
             ChannelUtils: ChannelUtils,
             ProgramUtils: ProgramUtils,
         }
+    },
+    computed: {
+        // ChannelsStore に this.channelsStore でアクセスできるようにする
+        // ref: https://pinia.vuejs.org/cookbook/options-api.html
+        ...mapStores(useChannelsStore),
     }
 });
 
