@@ -315,7 +315,7 @@ export default Vue.extend({
         .channels {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(365px, 1fr));
-            grid-row-gap: 16px;
+            grid-row-gap: 12px;
             grid-column-gap: 16px;
             justify-content: center;
             // 背後を通過する別のタブのアニメーションが写らないようにするのに必要
@@ -402,8 +402,9 @@ export default Vue.extend({
                 display: flex;
                 flex-direction: column;
                 position: relative;
-                height: 275px;
-                padding: 20px 20px;
+                height: 270px;
+                padding: 18px 20px;
+                padding-bottom: 19px;
                 border-radius: 16px;
                 color: var(--v-text-base);
                 background: var(--v-background-lighten1);
@@ -414,7 +415,7 @@ export default Vue.extend({
                 cursor: pointer;
                 // content-visibility: auto; を付与するだけでスマホでの描画パフォーマンスが大幅に向上する
                 content-visibility: auto;
-                contain-intrinsic-height: 235px;
+                contain-intrinsic-height: 233px;
 
                 // 1列表示
                 @media (max-width: 1007.9px) {
@@ -675,7 +676,7 @@ export default Vue.extend({
 
                     &-description {
                         display: -webkit-box;
-                        margin-top: 8px;
+                        margin-top: 6px;
                         color: var(--v-text-darken1);
                         font-size: 10.5px;
                         line-height: 175%;
