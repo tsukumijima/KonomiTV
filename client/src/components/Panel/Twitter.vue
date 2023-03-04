@@ -168,6 +168,7 @@ import draggable from 'vuedraggable';
 
 import { IChannel, ITwitterAccount } from '@/interface';
 import Twitter from '@/services/Twitter';
+import useChannelsStore from '@/store/ChannelsStore';
 import useSettingsStore from '@/store/SettingsStore';
 import useUserStore from '@/store/UserStore';
 import Utils from '@/utils';
@@ -194,11 +195,6 @@ export default Vue.extend({
         draggable,
     },
     props: {
-        // チャンネル情報
-        channel: {
-            type: Object as PropType<IChannel>,
-            required: true,
-        },
         // プレイヤーのインスタンス
         player: {
             type: null as PropType<DPlayer>,  // 代入当初は null になるため苦肉の策
@@ -269,9 +265,9 @@ export default Vue.extend({
         }
     },
     computed: {
-        // SettingsStore / UserStore に this.settingsStore / this.userStore でアクセスできるようにする
+        // ChannelsStore / SettingsStore / UserStore に this.channelsStore / this.settingsStore / this.userStore でアクセスできるようにする
         // ref: https://pinia.vuejs.org/cookbook/options-api.html
-        ...mapStores(useSettingsStore, useUserStore),
+        ...mapStores(useChannelsStore, useSettingsStore, useUserStore),
     },
     async created() {
 
@@ -314,15 +310,6 @@ export default Vue.extend({
         }
     },
     watch: {
-
-        // チャンネル情報が変更されたとき
-        // 前のチャンネル情報と次のチャンネル情報で channel_id が変わってたら局タグ追加処理を走らせる
-        async channel(new_channel: IChannel, old_channel: IChannel) {
-            if (new_channel.channel_id !== old_channel.channel_id) {
-                const old_channel_hashtag = this.getChannelHashtag(old_channel.channel_name) ?? '';
-                this.tweet_hashtag = this.formatHashtag(this.tweet_hashtag.replaceAll(old_channel_hashtag, ''));
-            }
-        },
 
         // 保存しているハッシュタグが変更されたら随時 LocalStorage に保存する
         saved_twitter_hashtags: {
@@ -488,29 +475,30 @@ export default Vue.extend({
             context.shadowOffsetY = 0;  // 影のY座標
 
             // 番組タイトルの透かしを描画
+            const title = this.channelsStore.channel.current.program_present.title;
             switch (this.settingsStore.settings.tweet_capture_watermark_position) {
                 case 'TopLeft': {
                     context.textAlign = 'left'; // 左寄せ
                     context.textBaseline = 'top'; // ベースラインを上寄せ
-                    context.fillText(this.channel.program_present.title, 16, 12);
+                    context.fillText(title, 16, 12);
                     break;
                 }
                 case 'TopRight': {
                     context.textAlign = 'right'; // 右寄せ
                     context.textBaseline = 'top'; // ベースラインを上寄せ
-                    context.fillText(this.channel.program_present.title, canvas.width - 16, 12);
+                    context.fillText(title, canvas.width - 16, 12);
                     break;
                 }
                 case 'BottomLeft': {
                     context.textAlign = 'left'; // 左寄せ
                     context.textBaseline = 'bottom'; // ベースラインを下寄せ
-                    context.fillText(this.channel.program_present.title, 16, canvas.height - 12);
+                    context.fillText(title, 16, canvas.height - 12);
                     break;
                 }
                 case 'BottomRight': {
                     context.textAlign = 'right'; // 右寄せ
                     context.textBaseline = 'bottom'; // ベースラインを下寄せ
-                    context.fillText(this.channel.program_present.title, canvas.width - 16, canvas.height - 12);
+                    context.fillText(title, canvas.width - 16, canvas.height - 12);
                     break;
                 }
             }
@@ -618,7 +606,7 @@ export default Vue.extend({
 
             // 設定でオンになっている場合のみ、視聴中チャンネルの局タグを自動的に追加する (ハッシュタグリスト内のハッシュタグは除外)
             if (this.settingsStore.settings.auto_add_watching_channel_hashtag === true && from_hashtag_list === false) {
-                const channel_hashtag = this.getChannelHashtag(this.channel.channel_name);
+                const channel_hashtag = this.getChannelHashtag(this.channelsStore.channel.current.channel_name);
                 if (channel_hashtag !== null) {
                     if (tweet_hashtag_array.includes(channel_hashtag) === false) {
                         tweet_hashtag_array.push(channel_hashtag);
@@ -674,7 +662,7 @@ export default Vue.extend({
 
             // ツイート送信 API にリクエスト
             // レスポンスは待たない
-            Twitter.sendTweet(this.selected_twitter_account.screen_name, this.tweet_text, new_tweet_captures).then((result) => {
+            Twitter.sendTweet(this.selected_twitter_account.screen_name, tweet_text, new_tweet_captures).then((result) => {
                 this.player.notice(result.message);
             });
 

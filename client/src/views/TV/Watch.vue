@@ -119,8 +119,7 @@
                         :channel="channelsStore.channel.current" :player="player" />
                     <Twitter class="watch-panel__content" ref="Twitter" @panel_folding_requested="is_panel_display = false"
                         :class="{'watch-panel__content--active': tv_panel_active_tab === 'Twitter'}"
-                        :channel="channelsStore.channel.current" :player="player"
-                        :is_virtual_keyboard_display="is_virtual_keyboard_display" />
+                        :player="player" :is_virtual_keyboard_display="is_virtual_keyboard_display" />
                 </div>
                 <div class="watch-panel__navigation">
                     <div v-ripple class="panel-navigation-button"
@@ -540,6 +539,16 @@ export default Vue.extend({
                     return;
                 }
 
+                // Twitter コンポーネントのインスタンスを取得
+                const twitter_component = this.$refs.Twitter as InstanceType<typeof Twitter>;
+
+                // 前のチャンネル情報と次のチャンネル情報で channel_id が変わってたら局タグ追加処理を走らせる
+                if (new_channel.current.channel_id !== old_channel.current.channel_id) {
+                    const old_channel_hashtag = twitter_component.getChannelHashtag(old_channel.current.channel_name) ?? '';
+                    twitter_component.tweet_hashtag =
+                        twitter_component.formatHashtag(twitter_component.tweet_hashtag.replaceAll(old_channel_hashtag, ''));
+                }
+
                 // 取得したチャンネル情報と現在のチャンネル情報の NID-SID-EID の組み合わせが異なる場合
                 if ((new_channel.current.id !== old_channel.current.id) ||  // チャンネルが異なる
                     (new_channel.current.program_present !== null && old_channel.current.program_present === null) ||  // 番組情報あり→番組情報なし
@@ -549,7 +558,6 @@ export default Vue.extend({
 
                     // ハッシュタグフォームのリセットがオンなら、ハッシュタグフォームを空にする
                     if (this.settingsStore.settings.reset_hashtag_when_program_switches === true) {
-                        const twitter_component = this.$refs.Twitter as InstanceType<typeof Twitter>;
                         twitter_component.tweet_hashtag = twitter_component.formatHashtag('');
                     }
                 }
