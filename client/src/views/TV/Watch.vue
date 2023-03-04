@@ -54,9 +54,13 @@
                     <router-link class="watch-header__back-icon" v-ripple to="/tv/">
                         <Icon icon="fluent:arrow-left-12-filled" width="25px" />
                     </router-link>
-                    <img class="watch-header__broadcaster" :src="`${Utils.api_base_url}/channels/${($route.params.channel_id)}/logo`">
-                    <span class="watch-header__program-title" v-html="ProgramUtils.decorateProgramInfo(channel.program_present, 'title')"></span>
-                    <span class="watch-header__program-time">{{ProgramUtils.getProgramTime(channel.program_present, true)}}</span>
+                    <img class="watch-header__broadcaster" :src="`${Utils.api_base_url}/channels/${(channelsStore.channel_id)}/logo`">
+                    <span class="watch-header__program-title"
+                        v-html="ProgramUtils.decorateProgramInfo(channelsStore.channel.current.program_present, 'title')">
+                    </span>
+                    <span class="watch-header__program-time">
+                        {{ProgramUtils.getProgramTime(channelsStore.channel.current.program_present, true)}}
+                    </span>
                     <v-spacer></v-spacer>
                     <span class="watch-header__now">{{time}}</span>
                 </header>
@@ -77,7 +81,7 @@
                          @touchmove="controlDisplayTimer($event)"
                          @click="controlDisplayTimer($event)">
                         <div v-ripple class="switch-button switch-button-up" v-tooltip.top="'前のチャンネル'"
-                            @click="is_zapping = true; $router.push({path: `/tv/watch/${channel_previous.channel_id}`})">
+                            @click="is_zapping = true; $router.push({path: `/tv/watch/${channelsStore.channel.previous.channel_id}`})">
                             <Icon class="switch-button-icon" icon="fluent:ios-arrow-left-24-filled" width="32px" rotate="1" />
                         </div>
                         <div v-ripple class="switch-button switch-button-panel switch-button-panel--open"
@@ -85,7 +89,7 @@
                             <Icon class="switch-button-icon" icon="fluent:navigation-16-filled" width="32px" />
                         </div>
                         <div v-ripple class="switch-button switch-button-down" v-tooltip.bottom="'次のチャンネル'"
-                             @click="is_zapping = true; $router.push({path: `/tv/watch/${channel_next.channel_id}`})">
+                             @click="is_zapping = true; $router.push({path: `/tv/watch/${channelsStore.channel.next.channel_id}`})">
                             <Icon class="switch-button-icon" icon="fluent:ios-arrow-right-24-filled" width="33px" rotate="1" />
                         </div>
                     </div>
@@ -100,23 +104,23 @@
                     </div>
                     <v-spacer></v-spacer>
                     <div class="panel-broadcaster">
-                        <img class="panel-broadcaster__icon" :src="`${Utils.api_base_url}/channels/${($route.params.channel_id)}/logo`">
-                        <div class="panel-broadcaster__number">{{channel.channel_number}}</div>
-                        <div class="panel-broadcaster__name">{{channel.channel_name}}</div>
+                        <img class="panel-broadcaster__icon" :src="`${Utils.api_base_url}/channels/${(channelsStore.channel_id)}/logo`">
+                        <div class="panel-broadcaster__number">{{channelsStore.channel.current.channel_number}}</div>
+                        <div class="panel-broadcaster__name">{{channelsStore.channel.current.channel_name}}</div>
                     </div>
                 </div>
                 <div class="watch-panel__content-container">
                     <Program class="watch-panel__content"
                         :class="{'watch-panel__content--active': tv_panel_active_tab === 'Program'}"
-                        :channel="channel" />
+                        :channel="channelsStore.channel.current" />
                     <Channel class="watch-panel__content"
                         :class="{'watch-panel__content--active': tv_panel_active_tab === 'Channel'}" />
                     <Comment class="watch-panel__content" ref="Comment"
                         :class="{'watch-panel__content--active': tv_panel_active_tab === 'Comment'}"
-                        :channel="channel" :player="player" />
+                        :channel="channelsStore.channel.current" :player="player" />
                     <Twitter class="watch-panel__content" ref="Twitter" @panel_folding_requested="is_panel_display = false"
                         :class="{'watch-panel__content--active': tv_panel_active_tab === 'Twitter'}"
-                        :channel="channel" :player="player"
+                        :channel="channelsStore.channel.current" :player="player"
                         :is_virtual_keyboard_display="is_virtual_keyboard_display" />
                 </div>
                 <div class="watch-panel__navigation">
@@ -191,7 +195,6 @@
 </template>
 <script lang="ts">
 
-import { AxiosResponse } from 'axios';
 import dayjs from 'dayjs';
 import DPlayer from 'dplayer';
 import * as DPlayerType from 'dplayer/dist/d.ts/types/DPlayer';
@@ -199,15 +202,16 @@ import mpegts from 'mpegts.js';
 import { mapStores } from 'pinia';
 import Vue from 'vue';
 
-import { ChannelTypePretty, IChannel, IChannelDefault } from '@/interface';
 import BottomNavigation from '@/components/BottomNavigation.vue';
 import Channel from '@/components/Panel/Channel.vue';
 import Comment from '@/components/Panel/Comment.vue';
 import Program from '@/components/Panel/Program.vue';
 import Twitter from '@/components/Panel/Twitter.vue';
+import { IChannel } from '@/services/Channels';
 import CaptureHandler from '@/services/player/CaptureHandler';
+import useChannelsStore from '@/store/ChannelsStore';
 import useSettingsStore from '@/store/SettingsStore';
-import Utils, { ChannelUtils, PlayerUtils, ProgramUtils } from '@/utils';
+import Utils, { PlayerUtils, ProgramUtils } from '@/utils';
 
 // 低遅延モードオン時の再生バッファ (秒単位)
 // 0.6 秒程度余裕を持たせる
@@ -297,22 +301,6 @@ export default Vue.extend({
 
             // ***** チャンネル *****
 
-            // チャンネル ID
-            channel_id: this.$route.params.channel_id,
-
-            // チャンネル情報
-            // IChannelDefault に情報取得が完了するまでの間表示される初期値が定義されている
-            channel: IChannelDefault,
-
-            // 前のチャンネルのチャンネル情報
-            channel_previous: IChannelDefault,
-
-            // 次のチャンネルのチャンネル情報
-            channel_next: IChannelDefault,
-
-            // チャンネル情報リスト
-            channels_list: new Map() as Map<ChannelTypePretty, IChannel[]>,
-
             // ザッピング（「前/次のチャンネル」ボタン or 上下キーショートカット）によるチャンネル移動かどうか
             is_zapping: false,
 
@@ -353,7 +341,7 @@ export default Vue.extend({
             shortcut_key_handler: null as (event: KeyboardEvent) => void | null,
 
             // ショートカットキーの最終押下時刻のタイムスタンプ
-            shortcut_key_pressed_at: Date.now(),
+            shortcut_key_pressed_at: Utils.time(),
 
             // キーボードショートカットの一覧のモーダルを表示するか
             shortcut_key_modal: false,
@@ -430,12 +418,15 @@ export default Vue.extend({
         }
     },
     computed: {
-        // SettingsStore に this.settingsStore でアクセスできるようにする
+        // ChannelsStore / SettingsStore に this.channelsStore / this.settingsStore でアクセスできるようにする
         // ref: https://pinia.vuejs.org/cookbook/options-api.html
-        ...mapStores(useSettingsStore),
+        ...mapStores(useChannelsStore, useSettingsStore),
     },
     // 開始時に実行
     async created() {
+
+        // チャンネル ID をセット
+        this.channelsStore.channel_id = this.$route.params.channel_id;
 
         // Virtual Keyboard API に対応している場合は、仮想キーボード周りの操作を自力で行うことをブラウザに伝える
         // この視聴画面のみ
@@ -489,6 +480,9 @@ export default Vue.extend({
         if (this.romsounds_context !== null) {
             this.romsounds_context.close();
         }
+
+        // このページから離れるので、チャンネル ID を gr000 (ダミー値) に戻す
+        this.channelsStore.channel_id = 'gr000';
     },
     // チャンネル切り替え時に実行
     // コンポーネント（インスタンス）は再利用される
@@ -503,11 +497,7 @@ export default Vue.extend({
         this.is_zapping_continuously = true;
 
         // チャンネル ID を次のチャンネルのものに切り替える
-        this.channel_id = to.params.channel_id;
-
-        // 既に取得済みのチャンネル情報で、前・現在・次のチャンネル情報を更新する
-        [this.channel_previous, this.channel, this.channel_next]
-            = ChannelUtils.getPreviousAndCurrentAndNextChannel(this.channels_list, this.channel_id);
+        this.channelsStore.channel_id = to.params.channel_id;
 
         // ハッシュタグフォームのリセットがオンなら、ハッシュタグフォームを空にする
         if (this.settingsStore.settings.reset_hashtag_when_program_switches === true) {
@@ -537,6 +527,36 @@ export default Vue.extend({
         next();
     },
     watch: {
+
+        // 視聴中のチャンネルが変更されたときのイベント
+        'channelsStore.channel': {
+            immediate: true,
+            handler(
+                new_channel: {previous: IChannel; current: IChannel; next: IChannel;},
+                old_channel: {previous: IChannel; current: IChannel; next: IChannel;} | undefined,
+            ) {
+
+                // old_channel が undefined の場合は、初回のイベント発火なので何もしない
+                if (old_channel === undefined) {
+                    return;
+                }
+
+                // 取得したチャンネル情報と現在のチャンネル情報の NID-SID-EID の組み合わせが異なる場合
+                if ((new_channel.current.id !== old_channel.current.id) ||  // チャンネルが異なる
+                    (new_channel.current.program_present !== null && old_channel.current.program_present === null) ||  // 番組情報あり→番組情報なし
+                    (new_channel.current.program_present === null && old_channel.current.program_present !== null) ||  // 番組情報なし→番組情報あり
+                    ((new_channel.current.program_present !== null && old_channel.current.program_present !== null) &&
+                    (new_channel.current.program_present.id !== old_channel.current.program_present.id))) {  // 番組情報あり→番組情報あり & 番組が異なる
+
+                    // ハッシュタグフォームのリセットがオンなら、ハッシュタグフォームを空にする
+                    if (this.settingsStore.settings.reset_hashtag_when_program_switches === true) {
+                        const twitter_component = this.$refs.Twitter as InstanceType<typeof Twitter>;
+                        twitter_component.tweet_hashtag = twitter_component.formatHashtag('');
+                    }
+                }
+            },
+        },
+
         // 前回視聴画面を開いた際にパネルが表示されていたかどうかを保存
         is_panel_display() {
             this.settingsStore.settings.showed_panel_last_time = this.is_panel_display;
@@ -545,7 +565,7 @@ export default Vue.extend({
     methods: {
 
         // 再生セッションを初期化する
-        init() {
+        async init() {
 
             // ローディング中の背景画像をランダムで設定
             this.background_url = PlayerUtils.generatePlayerBackgroundURL();
@@ -553,76 +573,41 @@ export default Vue.extend({
             // コントロール表示タイマーを実行
             this.controlDisplayTimer();
 
-            // チャンネル情報を取得
-            this.update();
-
             // 現在時刻を1秒おきに更新
-            this.interval_ids.push(window.setInterval(() => {
-                this.time = dayjs().format('YYYY/MM/DD HH:mm:ss');
-            }, 1 * 1000));
+            this.interval_ids.push(window.setInterval(() => this.time = dayjs().format('YYYY/MM/DD HH:mm:ss'), 1 * 1000));
 
-            // 00秒までの残り秒数
+            // 00秒までの残り秒数を取得
             // 現在 16:01:34 なら 26 (秒) になる
-            const residue_second = 60 - (Math.floor(new Date().getTime() / 1000) % 60);
+            const residue_second = 60 - new Date().getSeconds();
 
-            // 00秒になるまで待ってから
-            // 番組は基本1分単位で組まれているため、20秒や45秒など中途半端な秒数で更新してしまうと反映が遅れてしまう
+            // 00秒になるまで待ってから実行するタイマー
+            // 番組は基本1分単位で組まれているため、20秒や45秒など中途半端な秒数で更新してしまうと番組情報の反映が遅れてしまう
             this.interval_ids.push(window.setTimeout(() => {
 
-                // チャンネル情報を更新
+                // この時点で00秒なので、チャンネル情報を更新
+                this.channelsStore.update(true);
                 this.update();
 
-                // チャンネル情報を定期的に更新
+                // 以降、30秒おきにチャンネル情報を更新
                 this.interval_ids.push(window.setInterval(() => {
+                    this.channelsStore.update(true);
                     this.update();
-                }, 30 * 1000));  // 30秒おき
+                }, 30 * 1000));
 
             }, residue_second * 1000));
+
+            // チャンネル情報を更新 (初回)
+            await this.channelsStore.update();
+            this.update();
         },
 
-        // チャンネル情報一覧を取得し、画面を更新する
+        // 画面を更新する
         async update() {
 
             // チャンネル ID が未定義なら実行しない（フェイルセーフ）
             if (this.$route.params.channel_id === undefined) {
                 return;
             }
-
-            // チャンネル情報 API にアクセス
-            let channel_response: AxiosResponse;
-            try {
-                channel_response = await Vue.axios.get(`/channels/${this.channel_id}`);
-            } catch (error) {
-
-                // エラー内容を表示
-                console.error(error);
-
-                // ステータスコードが 422（チャンネルが存在しない）なら 404 ページにリダイレクト
-                // 正確には 404 ページ自体がルートとして存在するわけじゃないけど、そもそも存在しないページなら 404 になるので
-                if (error.response && error.response.status === 422 && error.response.data.detail === 'Specified channel_id was not found') {
-                    await this.$router.push({path: '/not-found/'});
-                }
-
-                // 処理を中断
-                return;
-            }
-
-            // 取得したチャンネル情報と現在のチャンネル情報の NID-SID-EID の組み合わせが異なる場合
-            // ハッシュタグフォームのリセットがオンなら、ハッシュタグフォームを空にする
-            const channel_response_data = channel_response.data as IChannel;
-            if ((this.channel.id !== channel_response_data.id) ||  // チャンネルが異なる
-                (this.channel.program_present !== null && channel_response_data.program_present === null) ||  // 番組情報あり→番組情報なし
-                (this.channel.program_present === null && channel_response_data.program_present !== null) ||  // 番組情報なし→番組情報あり
-                ((this.channel.program_present !== null && channel_response_data.program_present !== null) &&
-                 (this.channel.program_present.id !== channel_response_data.program_present.id))) {  // 番組情報あり→番組情報あり & 番組が異なる
-                if (this.settingsStore.settings.reset_hashtag_when_program_switches === true) {
-                    const twitter_component = this.$refs.Twitter as InstanceType<typeof Twitter>;
-                    twitter_component.tweet_hashtag = twitter_component.formatHashtag('');
-                }
-            }
-
-            // チャンネル情報を代入
-            this.channel = channel_response_data;
 
             // プレイヤーがまだ初期化されていない or 他のチャンネルからの切り替えですでにプレイヤーが初期化されているけど破棄が可能
             // update() 自体は初期化時以外にも1分ごとに定期実行されるため、その際に毎回プレイヤーを再初期化しないようにする
@@ -650,102 +635,38 @@ export default Vue.extend({
 
             // 副音声がない番組でプレイヤー上で副音声に切り替えられないように
             // 音声多重放送でもデュアルモノでもない番組のみ
-            if ((this.channel.program_present === null) ||
-               ((this.channel.program_present.primary_audio_type !== '1/0+1/0モード(デュアルモノ)') &&
-                (this.channel.program_present.secondary_audio_type === null))) {
+            if ((this.channelsStore.channel.current.program_present === null) ||
+               ((this.channelsStore.channel.current.program_present.primary_audio_type !== '1/0+1/0モード(デュアルモノ)') &&
+                (this.channelsStore.channel.current.program_present.secondary_audio_type === null))) {
 
                 // クラスを付与
                 this.player.template.audioItem[1].classList.add('dplayer-setting-audio-item--disabled');
 
                 // 現在副音声が選択されている可能性を考慮し、明示的に主音声に切り替える
                 if (this.player.plugins.mpegts !== undefined || this.player.plugins.liveLLHLSForKonomiTV !== undefined) {
-                    window.setTimeout(() => {  // プレイヤーの初期化が完了するまで少し待つ
-                        if (this.player === null) {
-                            return;
+                    // プレイヤーの初期化が完了するまで少し待つ
+                    while (this.player === null) {
+                        await Utils.sleep(0.1);
+                    }
+                    this.player.template.audioItem[0].classList.add('dplayer-setting-audio-current');
+                    this.player.template.audioItem[1].classList.remove('dplayer-setting-audio-current');
+                    this.player.template.audioValue.textContent = this.player.tran('Primary audio');
+                    try {
+                        if (this.player.plugins.mpegts !== undefined && this.player.plugins.mpegts instanceof mpegts.MSEPlayer) {
+                            this.player.plugins.mpegts.switchPrimaryAudio();
                         }
-                        this.player.template.audioItem[0].classList.add('dplayer-setting-audio-current');
-                        this.player.template.audioItem[1].classList.remove('dplayer-setting-audio-current');
-                        this.player.template.audioValue.textContent = this.player.tran('Primary audio');
-                        try {
-                            if (this.player.plugins.mpegts !== undefined && this.player.plugins.mpegts instanceof mpegts.MSEPlayer) {
-                                this.player.plugins.mpegts.switchPrimaryAudio();
-                            }
-                            if (this.player.plugins.liveLLHLSForKonomiTV !== undefined) {
-                                this.player.plugins.liveLLHLSForKonomiTV.switchPrimaryAudio();
-                            }
-                        } catch (error) {
-                            // pass
+                        if (this.player.plugins.liveLLHLSForKonomiTV !== undefined) {
+                            this.player.plugins.liveLLHLSForKonomiTV.switchPrimaryAudio();
                         }
-                    }, 300);
+                    } catch (error) {
+                        // pass
+                    }
                 }
 
             // 音声多重放送かデュアルモノなので、副音声への切り替えを有効化
             } else {
-
-                // クラスを削除
                 this.player.template.audioItem[1].classList.remove('dplayer-setting-audio-item--disabled');
             }
-
-            // チャンネル情報一覧 API にアクセス
-            // チャンネル情報 API と同時にアクセスするとむしろレスポンスが遅くなるので、返ってくるのを待ってから実行
-            let channels_response: AxiosResponse;
-            try {
-                channels_response = await Vue.axios.get('/channels');
-            } catch (error) {
-                console.error(error);   // エラー内容を表示
-                return;
-            }
-
-            // is_display が true または現在表示中のチャンネルのみに絞り込むフィルタ関数
-            // 放送していないサブチャンネルを表示から除外する
-            const filter = (channel: IChannel) => {
-                return channel.is_display || this.channel_id === channel.channel_id;
-            }
-
-            // チャンネルリストを再構築
-            // 1つでもチャンネルが存在するチャンネルタイプのみ表示するように
-            // たとえば SKY (スカパー！プレミアムサービス) のタブは SKY に属すチャンネルが1つもない（=受信できない）なら表示されない
-            this.channels_list = new Map();
-            this.channels_list.set('ピン留め', []);  // ピン留めタブの準備
-            if (channels_response.data.GR.length > 0) this.channels_list.set('地デジ', channels_response.data.GR.filter(filter));
-            if (channels_response.data.BS.length > 0) this.channels_list.set('BS', channels_response.data.BS.filter(filter));
-            if (channels_response.data.CS.length > 0) this.channels_list.set('CS', channels_response.data.CS.filter(filter));
-            if (channels_response.data.CATV.length > 0) this.channels_list.set('CATV', channels_response.data.CATV.filter(filter));
-            if (channels_response.data.SKY.length > 0) this.channels_list.set('SKY', channels_response.data.SKY.filter(filter));
-            if (channels_response.data.STARDIGIO.length > 0) this.channels_list.set('StarDigio', channels_response.data.STARDIGIO.filter(filter));
-
-            // ピン留めされているチャンネルの ID を取得
-            const pinned_channel_ids = this.settingsStore.settings.pinned_channel_ids;
-
-            // ピン留めされているチャンネル情報のリスト
-            const pinned_channels = [] as IChannel[];
-
-            // チャンネル ID が一致したチャンネルの情報を保存する
-            for (const pinned_channel_id of pinned_channel_ids) {
-                const pinned_channel_type = ChannelUtils.getChannelType(pinned_channel_id, true) as ChannelTypePretty;
-                if (this.channels_list.has(pinned_channel_type) === false) {
-                    continue;  // チャンネルタイプが存在しない
-                }
-                const pinned_channel = this.channels_list.get(pinned_channel_type).find((channel) => {
-                    return channel.channel_id === pinned_channel_id;  // チャンネル ID がピン留めされているチャンネルのものと同じ
-                });
-                // チャンネル情報を取得できているときだけ
-                // サブチャンネルをピン留めしたが、マルチ編成が終了して現在は放送していない場合などに備える (BS142 など)
-                // 現在放送していないチャンネルは this.channels_list に入れた段階で弾いているため、チャンネル情報を取得できない
-                if (pinned_channel !== undefined) {
-                    pinned_channels.push(pinned_channel);
-                }
-            }
-
-            // pinned_channels に何か入っていたらピン留めタブを表示するし、そうでなければ表示しない
-            if (pinned_channels.length > 0) {
-                this.channels_list.set('ピン留め', pinned_channels);
-            } else {
-                this.channels_list.delete('ピン留め');
-            }
-
-            // 前と次のチャンネル ID を取得する
-            [this.channel_previous, , this.channel_next] = ChannelUtils.getPreviousAndCurrentAndNextChannel(this.channels_list, this.channel_id);
 
             // MediaSession API を使い、メディア通知の表示をカスタマイズ
             if ('mediaSession' in navigator) {
@@ -758,8 +679,9 @@ export default Vue.extend({
 
                 // メディア通知の表示をカスタマイズ
                 navigator.mediaSession.metadata = new MediaMetadata({
-                    title: this.channel.program_present ? this.channel.program_present.title : '放送休止',
-                    artist: this.channel.channel_name,
+                    title: this.channelsStore.channel.current.program_present ?
+                        this.channelsStore.channel.current.program_present.title : '放送休止',
+                    artist: this.channelsStore.channel.current.channel_name,
                     artwork: artwork,
                 });
 
@@ -771,26 +693,34 @@ export default Vue.extend({
                     });
                 }
 
+                // 一旦既存のイベントハンドラーを削除
+                navigator.mediaSession.setActionHandler('play', null);
+                navigator.mediaSession.setActionHandler('pause', null);
+                navigator.mediaSession.setActionHandler('previoustrack', null);
+                navigator.mediaSession.setActionHandler('nexttrack', null);
+
                 // メディア通知上のボタンが押されたときのイベント
                 navigator.mediaSession.setActionHandler('play', () => this.player?.play());  // 再生
                 navigator.mediaSession.setActionHandler('pause', () => this.player?.pause());  // 停止
                 navigator.mediaSession.setActionHandler('previoustrack', async () => {  // 前のチャンネルに切り替え
                     navigator.mediaSession.metadata = new MediaMetadata({
-                        title: this.channel_previous.program_present ? this.channel_previous.program_present.title : '放送休止',
-                        artist: this.channel_previous.channel_name,
+                        title: this.channelsStore.channel.previous.program_present ?
+                            this.channelsStore.channel.previous.program_present.title : '放送休止',
+                        artist: this.channelsStore.channel.previous.channel_name,
                         artwork: artwork,
                     });
                     // ルーティングを前のチャンネルに置き換える
-                    await this.$router.push({path: `/tv/watch/${this.channel_previous.channel_id}`});
+                    await this.$router.push({path: `/tv/watch/${this.channelsStore.channel.previous.channel_id}`});
                 });
                 navigator.mediaSession.setActionHandler('nexttrack', async () => {  // 次のチャンネルに切り替え
                     navigator.mediaSession.metadata = new MediaMetadata({
-                        title: this.channel_next.program_present ? this.channel_next.program_present.title : '放送休止',
-                        artist: this.channel_next.channel_name,
+                        title: this.channelsStore.channel.next.program_present ?
+                            this.channelsStore.channel.next.program_present.title : '放送休止',
+                        artist: this.channelsStore.channel.next.channel_name,
                         artwork: artwork,
                     });
                     // ルーティングを次のチャンネルに置き換える
-                    await this.$router.push({path: `/tv/watch/${this.channel_next.channel_id}`});
+                    await this.$router.push({path: `/tv/watch/${this.channelsStore.channel.next.channel_id}`});
                 });
             }
         },
@@ -916,7 +846,7 @@ export default Vue.extend({
                 video: {
                     // デフォルトの品質
                     // ラジオチャンネルでは常に 48KHz/192kbps に固定する
-                    defaultQuality: (this.channel.is_radiochannel) ? '48kHz/192kbps' : this.settingsStore.settings.tv_streaming_quality,
+                    defaultQuality: (this.channelsStore.channel.current.is_radiochannel) ? '48kHz/192kbps' : this.settingsStore.settings.tv_streaming_quality,
                     // 品質リスト
                     quality: (() => {
                         const qualities: DPlayerType.VideoQuality[] = [];
@@ -924,20 +854,20 @@ export default Vue.extend({
                         // ラジオチャンネル
                         // API が受け付ける品質の値は通常のチャンネルと同じだが (手抜き…)、実際の品質は 48KHz/192kbps で固定される
                         // ラジオチャンネルの場合は、1080p と渡しても 48kHz/192kbps 固定の音声だけの MPEG-TS が配信される
-                        if (this.channel.is_radiochannel) {
+                        if (this.channelsStore.channel.current.is_radiochannel) {
                             // mpegts.js
                             if (this.is_mpegts_supported === true) {
                                 qualities.push({
                                     name: '48kHz/192kbps',
                                     type: 'mpegts',
-                                    url: `${Utils.api_base_url}/streams/live/${this.channel_id}/1080p/mpegts`,
+                                    url: `${Utils.api_base_url}/streams/live/${this.channelsStore.channel_id}/1080p/mpegts`,
                                 });
                             // LL-HLS (mpegts.js がサポートされていない場合)
                             } else {
                                 qualities.push({
                                     name: '48kHz/192kbps',
                                     type: 'live-llhls-for-KonomiTV',
-                                    url: `${Utils.api_base_url}/streams/live/${this.channel_id}/1080p/ll-hls`,
+                                    url: `${Utils.api_base_url}/streams/live/${this.channelsStore.channel_id}/1080p/ll-hls`,
                                 });
                             }
 
@@ -958,14 +888,14 @@ export default Vue.extend({
                                     qualities.push({
                                         name: quality === '1080p-60fps' ? '1080p (60fps)' : quality,
                                         type: 'mpegts',
-                                        url: `${Utils.api_base_url}/streams/live/${this.channel_id}/${quality}${hevc_prefix}/mpegts`,
+                                        url: `${Utils.api_base_url}/streams/live/${this.channelsStore.channel_id}/${quality}${hevc_prefix}/mpegts`,
                                     });
                                 // LL-HLS (mpegts.js がサポートされていない場合)
                                 } else {
                                     qualities.push({
                                         name: quality === '1080p-60fps' ? '1080p (60fps)' : quality,
                                         type: 'live-llhls-for-KonomiTV',
-                                        url: `${Utils.api_base_url}/streams/live/${this.channel_id}/${quality}${hevc_prefix}/ll-hls`,
+                                        url: `${Utils.api_base_url}/streams/live/${this.channelsStore.channel_id}/${quality}${hevc_prefix}/ll-hls`,
                                     });
                                 }
                             }
@@ -1413,7 +1343,7 @@ export default Vue.extend({
                 // バッファリング中の Progress Circular を非表示にする
                 this.is_video_buffering = false;
 
-                if (this.channel.is_radiochannel) {
+                if (this.channelsStore.channel.current.is_radiochannel) {
                     // ラジオチャンネルでは引き続き映像の代わりとして背景画像を表示し続ける
                     this.is_background_display = true;
                 } else {
@@ -1472,7 +1402,10 @@ export default Vue.extend({
                 console.log(`[status_update] Status: ${event.status} / Detail: ${event.detail}`);
 
                 // 視聴者数を更新
-                this.channel.viewers = event.clients_count;
+                this.channelsStore.updateChannel(this.channelsStore.channel_id, {
+                    ...this.channelsStore.channel.current,
+                    viewers: event.clients_count,
+                });
 
                 // ステータスごとに処理を振り分け
                 switch (event.status) {
@@ -1587,7 +1520,10 @@ export default Vue.extend({
                 console.log(`[detail_update] Status: ${event.status} Detail:${event.detail}`);
 
                 // 視聴者数を更新
-                this.channel.viewers = event.clients_count;
+                this.channelsStore.updateChannel(this.channelsStore.channel_id, {
+                    ...this.channelsStore.channel.current,
+                    viewers: event.clients_count,
+                });
 
                 // ステータスごとに処理を振り分け
                 switch (event.status) {
@@ -1614,7 +1550,10 @@ export default Vue.extend({
                 const event = JSON.parse(event_raw.data);
 
                 // 視聴者数を更新
-                this.channel.viewers = event.clients_count;
+                this.channelsStore.updateChannel(this.channelsStore.channel_id, {
+                    ...this.channelsStore.channel.current,
+                    viewers: event.clients_count,
+                });
             });
         },
 
@@ -1653,8 +1592,8 @@ export default Vue.extend({
 
                 // キーリピート状態は event.repeat を見る事でだいたい検知できるが、最初の何回かは検知できないこともある
                 // そこで、0.05 秒以内に連続して発火したキーイベントは間引きも兼ねて実行しない
-                const now = Date.now();
-                if (now - this.shortcut_key_pressed_at < (0.05 * 1000)) return;
+                const now = Utils.time();
+                if (now - this.shortcut_key_pressed_at < 0.05) return;
                 this.shortcut_key_pressed_at = now;  // 最終押下時刻を更新
 
                 // 無名関数の中で実行する
@@ -1679,7 +1618,7 @@ export default Vue.extend({
                             this.is_panel_display = true;
 
                             // どのタブを開いていたかに関係なく Twitter タブに切り替える
-                            this.settingsStore.settings.tv_panel_active_tab = 'Twitter';
+                            this.tv_panel_active_tab = 'Twitter';
 
                             // ツイート入力フォームの textarea 要素にフォーカスを当てる
                             tweet_form_element.focus();
@@ -1709,7 +1648,7 @@ export default Vue.extend({
                     // 以降の if 文で textarea フォーカス時のイベントをすべて弾いてしまっているため、前に持ってきている
                     if (((tag !== 'INPUT' && tag !== 'TEXTAREA' && editable !== '' && editable !== 'true') ||
                         (document.activeElement === tweet_form_element)) &&
-                        this.settingsStore.settings.tv_panel_active_tab === 'Twitter' &&
+                        this.tv_panel_active_tab === 'Twitter' &&
                         this.is_ime_composing === false) {
                         // (Ctrl or Cmd or Shift) + Enter
                         // Shift + Enter は隠し機能（間違えたとき用）
@@ -1772,12 +1711,11 @@ export default Vue.extend({
                             if (switch_remocon_id !== null) {
 
                                 // 切り替え先のチャンネルを取得する
-                                const switch_channel = ChannelUtils.getChannelFromRemoconID(
-                                    this.channels_list, switch_channel_type, switch_remocon_id);
+                                const switch_channel = this.channelsStore.getChannelByRemoconID(switch_channel_type, switch_remocon_id);
 
                                 // チャンネルが取得できていれば、ルーティングをそのチャンネルに置き換える
                                 // 押されたキーに対応するリモコン番号のチャンネルがない場合や、現在と同じチャンネル ID の場合は何も起こらない
-                                if (switch_channel !== null && switch_channel.channel_id !== this.channel_id) {
+                                if (switch_channel !== null && switch_channel.channel_id !== this.channelsStore.channel_id) {
                                     await this.$router.push({path: `/tv/watch/${switch_channel.channel_id}`});
                                     return true;
                                 }
@@ -1804,22 +1742,22 @@ export default Vue.extend({
                             }
                             // Kキー: 番組情報タブ
                             if (event.code === 'KeyK') {
-                                this.settingsStore.settings.tv_panel_active_tab = 'Program';
+                                this.tv_panel_active_tab = 'Program';
                                 return true;
                             }
                             // Lキー: チャンネルタブ
                             if (event.code === 'KeyL') {
-                                this.settingsStore.settings.tv_panel_active_tab = 'Channel';
+                                this.tv_panel_active_tab = 'Channel';
                                 return true;
                             }
                             // ;(+)キー: コメントタブ
                             if (event.code === 'Semicolon') {
-                                this.settingsStore.settings.tv_panel_active_tab = 'Comment';
+                                this.tv_panel_active_tab = 'Comment';
                                 return true;
                             }
                             // :(*)キー: Twitterタブ
                             if (event.code === 'Quote') {
-                                this.settingsStore.settings.tv_panel_active_tab = 'Twitter';
+                                this.tv_panel_active_tab = 'Twitter';
                                 return true;
                             }
 
@@ -1844,7 +1782,7 @@ export default Vue.extend({
 
                         // Twitter タブ内のキャプチャタブが表示されている & Ctrl / Cmd / Shift / Alt のいずれも押されていないときだけ
                         // キャプチャタブが表示されている時は、プレイヤー操作側の矢印キー/スペースキーのショートカットは動作しない（キーが重複するため）
-                        if (this.settingsStore.settings.tv_panel_active_tab === 'Twitter' && twitter_component.twitter_active_tab === 'Capture' &&
+                        if (this.tv_panel_active_tab === 'Twitter' && twitter_component.twitter_active_tab === 'Capture' &&
                             (!event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey)) {
 
                             // ***** キャプチャにフォーカスする *****
@@ -1967,13 +1905,13 @@ export default Vue.extend({
                             // ↑キー: 前のチャンネルに切り替え
                             if (event.code === 'ArrowUp') {
                                 this.is_zapping = true;
-                                await this.$router.push({path: `/tv/watch/${this.channel_previous.channel_id}`});
+                                await this.$router.push({path: `/tv/watch/${this.channelsStore.channel.previous.channel_id}`});
                                 return true;
                             }
                             // ↓キー: 次のチャンネルに切り替え
                             if (event.code === 'ArrowDown') {
                                 this.is_zapping = true;
-                                await this.$router.push({path: `/tv/watch/${this.channel_next.channel_id}`});
+                                await this.$router.push({path: `/tv/watch/${this.channelsStore.channel.next.channel_id}`});
                                 return true;
                             }
                         }
@@ -2012,7 +1950,7 @@ export default Vue.extend({
 
                             // Shift + Spaceキー + キーリピートでない時 + Twitter タブ表示時 + キャプチャタブ表示時: 再生/停止
                             if (event.shiftKey === true && event.code === 'Space' && is_repeat === false &&
-                                this.settingsStore.settings.tv_panel_active_tab === 'Twitter' && twitter_component.twitter_active_tab === 'Capture') {
+                                this.tv_panel_active_tab === 'Twitter' && twitter_component.twitter_active_tab === 'Capture') {
                                 this.player.toggle();
                                 return true;
                             }
@@ -2065,12 +2003,12 @@ export default Vue.extend({
                             }
                             // Cキー: 映像をキャプチャ
                             if (event.code === 'KeyC') {
-                                await this.capture_handler.captureAndSave(this.channel, false);
+                                await this.capture_handler.captureAndSave(this.channelsStore.channel.current, false);
                                 return true;
                             }
                             // Vキー: 映像を実況コメントを付けてキャプチャ
                             if (event.code === 'KeyV') {
-                                await this.capture_handler.captureAndSave(this.channel, true);
+                                await this.capture_handler.captureAndSave(this.channelsStore.channel.current, true);
                                 return true;
                             }
                             // Mキー: コメント入力フォームにフォーカス
@@ -2109,14 +2047,14 @@ export default Vue.extend({
             // ショートカットからのキャプチャでも同じイベントがトリガーされる
             const capture_button = this.$el.querySelector('.dplayer-icon.dplayer-capture-icon');
             capture_button.addEventListener('click', async () => {
-                await this.capture_handler.captureAndSave(this.channel, false);
+                await this.capture_handler.captureAndSave(this.channelsStore.channel.current, false);
             });
 
             // コメント付きキャプチャボタンがクリックされたときのイベント
             // ショートカットからのキャプチャでも同じイベントがトリガーされる
             const comment_capture_button = this.$el.querySelector('.dplayer-icon.dplayer-comment-capture-icon');
             comment_capture_button.addEventListener('click', async () => {
-                await this.capture_handler.captureAndSave(this.channel, true);
+                await this.capture_handler.captureAndSave(this.channelsStore.channel.current, true);
             });
         },
 

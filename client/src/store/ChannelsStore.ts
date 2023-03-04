@@ -1,8 +1,10 @@
 
 import { defineStore } from 'pinia';
+import Vue from 'vue';
 
 import Channels, { ChannelType, ChannelTypePretty, IChannelsList, IChannel, IChannelDefault } from '@/services/Channels';
 import useSettingsStore from '@/store/SettingsStore';
+import Utils, { ChannelUtils } from '@/utils';
 
 
 /**
@@ -12,6 +14,10 @@ import useSettingsStore from '@/store/SettingsStore';
  */
 const useChannelsStore = defineStore('channels', {
     state: () => ({
+
+        // 現在視聴中のチャンネルの ID (ex: gr011)
+        // 視聴画面のみ有効で、ホーム画面では利用されない
+        channel_id: 'gr000' as string,
 
         // すべてのチャンネルタイプのチャンネルリスト
         channels_list: {
@@ -30,6 +36,79 @@ const useChannelsStore = defineStore('channels', {
         last_updated_at: 0,
     }),
     getters: {
+
+        /**
+         * 前・現在・次のチャンネル情報
+         * チャンネル情報はデータ量がかなり多いので、個別に取得するより一気に取得したほうがループ回数が少なくなりパフォーマンスが良い
+         */
+        channel(): {previous: IChannel; current: IChannel; next: IChannel;} {
+
+            // チャンネルタイプごとのチャンネル情報リストを取得する (すべてのチャンネルリストから探索するより効率的)
+            const channels: IChannel[] = this.channels_list[ChannelUtils.getChannelType(this.channel_id)];
+
+            // まだチャンネルリストの更新が終わっていないなどの場合で取得できなかった場合、
+            // null を返すと UI 側でのエラー処理が大変なので、暫定的なダミーのチャンネル情報を返す
+            if (channels === undefined || channels.length === 0) {
+                return {
+                    previous: IChannelDefault,
+                    current: IChannelDefault,
+                    next: IChannelDefault,
+                };
+            }
+
+            // 起点にするチャンネル情報があるインデックスを取得
+            const current_channel_index = channels.findIndex((channel) => channel.channel_id === this.channel_id);
+
+            // インデックスが取得できなかった場合も同様に、暫定的なダミーのチャンネル情報を返す
+            if (current_channel_index === -1) {
+                return {
+                    previous: IChannelDefault,
+                    current: IChannelDefault,
+                    next: IChannelDefault,
+                };
+            }
+
+            // 前のインデックスを取得する
+            // インデックスがマイナスになった時は、最後のインデックスに巻き戻す
+            // channel.is_display が true のチャンネルに到達するまで続ける
+            const previous_channel_index = ((): number => {
+                let index = current_channel_index - 1;
+                while (channels.length) {
+                    if (index <= -1) {
+                        index = channels.length - 1;  // 最後のインデックス
+                    }
+                    if (channels[index].is_display) {
+                        return index;
+                    }
+                    index--;
+                }
+                return 0;
+            })();
+
+            // 次のインデックスを取得する
+            // インデックスが配列の長さを超えた時は、最初のインデックスに巻き戻す
+            // channel.is_display が true のチャンネルに到達するまで続ける
+            const next_channel_index = ((): number => {
+                let index = current_channel_index + 1;
+                while (channels.length) {
+                    if (index >= channels.length) {
+                        index = 0;  // 最初のインデックス
+                    }
+                    if (channels[index].is_display) {
+                        return index;
+                    }
+                    index++;
+                }
+                return 0;
+            })();
+
+            // 前・現在・次のチャンネル情報を返す
+            return {
+                previous: channels[previous_channel_index],
+                current: channels[current_channel_index],
+                next: channels[next_channel_index],
+            };
+        },
 
         /**
          * 実際に表示されるチャンネルリストを表すデータ
@@ -137,16 +216,6 @@ const useChannelsStore = defineStore('channels', {
     actions: {
 
         /**
-         * チャンネル ID (ex: gr011) からチャンネルタイプ (ex: GR) を取得する
-         * @param channel_id チャンネル ID
-         * @returns チャンネルタイプ
-         */
-        getChannelType(channel_id: string): ChannelType {
-            const result = channel_id.match('(?<channel_type>[a-z]+)[0-9]+').groups.channel_type.toUpperCase();
-            return result as ChannelType;
-        },
-
-        /**
          * 指定されたチャンネル ID のチャンネル情報を取得する
          * @param channel_id 取得するチャンネル ID (ex: gr011)
          * @returns チャンネル情報
@@ -154,59 +223,13 @@ const useChannelsStore = defineStore('channels', {
         getChannel(channel_id: string): IChannel | null {
 
             // チャンネルタイプごとのチャンネル情報リストを取得する (すべてのチャンネルリストから探索するより効率的)
-            const channels = this.channels_list[this.getChannelType(channel_id)];
+            const channels = this.channels_list[ChannelUtils.getChannelType(channel_id)];
             if (channels === undefined) {
                 return null;
             }
 
             // チャンネル ID が一致するチャンネル情報を返す
             return channels.find(channel => channel.channel_id === channel_id) ?? null;
-        },
-
-        /**
-         * 前・現在・次のチャンネル情報を取得する
-         * チャンネル情報はデータ量がかなり多いので、個別に取得するより一気に取得したほうがループ回数が少なくなりパフォーマンスが良い
-         * @param channel_id 起点にするチャンネル ID (ex: gr011)
-         * @returns チャンネル情報
-         */
-        getPreviousAndCurrentAndNextChannel(channel_id: string): {
-            previous: IChannel;
-            current: IChannel;
-            next: IChannel;
-        } {
-
-            // チャンネルタイプごとのチャンネル情報リストを取得する (すべてのチャンネルリストから探索するより効率的)
-            const channels = this.channels_list[this.getChannelType(channel_id)];
-
-            // まだチャンネルリストの更新が終わっていないなどの場合で取得できなかった場合、
-            // null を返すと UI 側でのエラー処理が大変なので、暫定的なダミーのチャンネル情報を返す
-            if (channels === undefined || channels.length === 0) {
-                return {
-                    previous: IChannelDefault,
-                    current: IChannelDefault,
-                    next: IChannelDefault,
-                };
-            }
-
-            // 起点にするチャンネル情報があるインデックスを取得
-            const current_channel_index = channels.findIndex((channel) => channel.channel_id === channel_id);
-
-            // 前・次のインデックスが最初か最後の時はそれぞれ最後と最初にインデックスを一周させる
-            let previous_channel_index = current_channel_index - 1;
-            if (previous_channel_index === -1) {
-                previous_channel_index = channels.length - 1;  // 最後のインデックス
-            }
-            let next_channel_index = current_channel_index + 1;
-            if (next_channel_index === channels.length) {
-                next_channel_index = 0;  // 最初のインデックス
-            }
-
-            // 前・現在・次のチャンネル情報を返す
-            return {
-                previous: channels[previous_channel_index],
-                current: channels[current_channel_index],
-                next: channels[next_channel_index],
-            };
         },
 
         /**
@@ -228,6 +251,29 @@ const useChannelsStore = defineStore('channels', {
         },
 
         /**
+         * 指定されたチャンネル ID のチャンネル情報を更新する
+         * 今のところ viewers (視聴者数) を更新する目的でしか使っていない
+         * @param channel_id 更新するチャンネル ID (ex: gr011)
+         * @param channel 更新後のチャンネル情報
+         */
+        updateChannel(channel_id: string, channel: IChannel): void {
+
+            // チャンネルタイプごとのチャンネル情報リストを取得する (すべてのチャンネルリストから探索するより効率的)
+            const channel_type = ChannelUtils.getChannelType(channel_id);
+            if (this.channels_list[channel_type] === undefined) {
+                return null;
+            }
+
+            // チャンネル ID が一致するチャンネル情報を更新する
+            const index = this.channels_list[channel_type].findIndex(channel => channel.channel_id === channel_id);
+            if (index === -1) {
+                return;
+            }
+            // リアクティブにするために Vue.set を使う
+            Vue.set(this.channels_list[channel_type], index, channel);
+        },
+
+        /**
          * チャンネルリストを更新する
          * @param force 強制的に更新するかどうか
          */
@@ -243,14 +289,14 @@ const useChannelsStore = defineStore('channels', {
 
                 this.channels_list = channels_list;
                 this.is_channels_list_initial_updated = true;
-                this.last_updated_at = Date.now() / 1000;
+                this.last_updated_at = Utils.time();
             };
 
             // すでに取得されている場合は更新しない
             if (this.is_channels_list_initial_updated === true && force === false) {
 
                 // ただし、最終更新日時が1分以上前の場合は非同期で更新する
-                if (Date.now() / 1000 - this.last_updated_at > 60) {
+                if (Utils.time() - this.last_updated_at > 60) {
                     update();
                 }
 
