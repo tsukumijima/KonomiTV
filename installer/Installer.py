@@ -894,7 +894,7 @@ def Installer(version: str) -> None:
 
             # 入力プロンプト (サービスのインストールに失敗し続ける限り何度でも表示される)
             ## バリデーションのしようがないので、バリデーションは行わない
-            current_user_password = CustomPrompt.ask(f'ログオン中のユーザー ({current_user_name}) のパスワード')
+            current_user_password = getpass.getpass(f'ログオン中のユーザー ({current_user_name}) のパスワード: ')
 
             if current_user_password == '':
                 print(Padding(f'[red]ログオン中のユーザー ({current_user_name}) のパスワードが空です。', (0, 2, 0, 2)))
