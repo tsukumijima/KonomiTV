@@ -23,11 +23,20 @@ from app.utils.hls import LiveLLHLSSegmenter
 
 class LiveEncodingTask:
 
-    # H.264 再生時のエンコード後のストリームの GOP 長
-    GOP_LENGTH_SECOND_H264 = 0.5  # 0.5 秒
+    # H.264 再生時のエンコード後のストリームの GOP 長 (秒)
+    GOP_LENGTH_SECOND_H264 = 0.5
 
-    # H.265 再生時のエンコード後のストリームの GOP 長
-    GOP_LENGTH_SECOND_H265 = 2  # 2 秒
+    # H.265 再生時のエンコード後のストリームの GOP 長 (秒)
+    GOP_LENGTH_SECOND_H265 = 2
+
+    # チューナーから放送波 TS を読み取る際のタイムアウト (秒)
+    TUNER_TS_READ_TIMEOUT = 15
+
+    # エンコーダーの出力を読み取る際のタイムアウト (Standby 時) (秒)
+    ENCODER_TS_READ_TIMEOUT_STANDBY = 20
+
+    # エンコーダーの出力を読み取る際のタイムアウト (ONAir 時) (秒)
+    ENCODER_TS_READ_TIMEOUT_ONAIR = 5
 
 
     def __init__(self, livestream: LiveStream) -> None:
@@ -994,17 +1003,17 @@ class LiveEncodingTask:
                 if livestream_status['status'] == 'ONAir' and livestream_status['clients_count'] == 0:
                     self.livestream.setStatus('Idling', 'ライブストリームは Idling です。')
 
-                # 現在 Idling でかつ最終更新から指定された秒数以上経っていたらエンコーダーを終了し、Offline 状態に移行
+                # 現在 Idling でかつ最終更新から max_alive_time 秒以上経っていたらエンコーダーを終了し、Offline 状態に移行
                 if ((livestream_status['status'] == 'Idling') and
                     (time.time() - livestream_status['updated_at'] > CONFIG['tv']['max_alive_time'])):
                     self.livestream.setStatus('Offline', 'ライブストリームは Offline です。')
 
                 # ***** 異常処理 (エンコードタスク再起動による回復が不可能) *****
 
-                # 前回チューナーからの放送波 TS を読み取ってから 15 秒以上経過していたら、
+                # 前回チューナーからの放送波 TS を読み取ってから TUNER_TS_READ_TIMEOUT 秒以上経過していたら、
                 # 停波中もしくはチューナーからの放送波 TS の送信が停止したと判断して Offline に移行
                 with tuner_ts_read_at_lock:
-                    if (time.monotonic() - tuner_ts_read_at) > 15:
+                    if (time.monotonic() - tuner_ts_read_at) > self.TUNER_TS_READ_TIMEOUT:
 
                         # 番組名に「放送休止」などが入っていれば停波の可能性が高い
                         if program_present.isOffTheAirProgram():
@@ -1025,11 +1034,14 @@ class LiveEncodingTask:
 
                 # ***** 異常処理 (エンコードタスク再起動による回復が可能) *****
 
-                # 現在 ONAir でかつストリームデータの最終書き込み時刻から 5 秒以上が経過しているなら、エンコーダーがフリーズしたものとみなす
-                # 現在 Standby でかつストリームデータの最終書き込み時刻から 20 秒以上が経過している場合も、エンコーダーがフリーズしたものとみなす
-                ## 何らかの理由でエンコードが途中で停止した場合、livestream.write() が実行されなくなるのを利用する
-                if ((livestream_status['status'] == 'ONAir' and time.time() - self.livestream.getStreamDataWrittenAt() > 5) or
-                    (livestream_status['status'] == 'Standby' and time.time() - self.livestream.getStreamDataWrittenAt() > 20)):
+                # 現在 Standby でかつストリームデータの最終書き込み時刻から
+                # ENCODER_TS_READ_TIMEOUT_STANDBY 秒以上が経過しているなら、エンコーダーがフリーズしたものとみなす
+                # 現在 ONAir でかつストリームデータの最終書き込み時刻から
+                # ENCODER_TS_READ_TIMEOUT_ONAIR 秒以上が経過している場合も、エンコーダーがフリーズしたものとみなす
+                ## 何らかの理由でエンコードが途中で停止した場合、livestream.write() が実行されなくなることを利用している
+                stream_data_last_write_time = time.time() - self.livestream.getStreamDataWrittenAt()
+                if ((livestream_status['status'] == 'Standby' and stream_data_last_write_time > self.ENCODER_TS_READ_TIMEOUT_STANDBY) or
+                    (livestream_status['status'] == 'ONAir' and stream_data_last_write_time > self.ENCODER_TS_READ_TIMEOUT_ONAIR)):
 
                     # 番組名に「放送休止」などが入っている場合、チューナーから出力された放送波 TS に映像/音声ストリームが
                     # 含まれていない可能性が高いので、ここでエンコードタスクを停止する
