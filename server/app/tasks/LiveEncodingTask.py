@@ -64,6 +64,7 @@ class LiveEncodingTask:
         ネットワーク ID とサービス ID から、そのチャンネルでフル HD 放送が行われているかを返す
         放送波の PSI/SI から映像の横解像度を取得する手段がないので、現状 ID 決め打ちになっている
         ref: https://twitter.com/highwaymovies/status/1201282179390562305
+        ref: https://twitter.com/fkcb222/status/1630877111677485056
         ref: https://scrapbox.io/ci7lus/%E5%9C%B0%E4%B8%8A%E6%B3%A2%E3%81%AA%E3%81%AE%E3%81%ABFHD%E3%81%AE%E6%94%BE%E9%80%81%E5%B1%80%E6%83%85%E5%A0%B1
 
         Args:
@@ -75,8 +76,8 @@ class LiveEncodingTask:
         """
 
         # 地デジでフル HD 放送を行っているチャンネルのネットワーク ID と一致する
-        ## テレビ宮崎, あいテレビ, びわ湖放送, 奈良テレビ, KBS京都, KNB北日本放送, ABS秋田放送
-        if network_id in [31811, 31940, 32038, 32054, 32102, 32162, 32466]:
+        ## テレビ宮崎, あいテレビ, びわ湖放送, 奈良テレビ, KBS京都, KNB北日本放送, とちぎテレビ, ABS秋田放送
+        if network_id in [31811, 31940, 32038, 32054, 32102, 32162, 32311, 32466]:
             return True
 
         # BS でフル HD 放送を行っているチャンネルのサービス ID と一致する
