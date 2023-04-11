@@ -8,7 +8,7 @@ export interface IVersionInformation {
     latest_version: string;
     environment: 'Windows' | 'Linux' | 'Linux-Docker';
     backend: 'EDCB' | 'Mirakurun';
-    encoder: 'FFmpeg' | 'QSVEncC' | 'NVEncC' | 'VCEEncC';
+    encoder: 'FFmpeg' | 'QSVEncC' | 'NVEncC' | 'VCEEncC' | 'rkmppenc';
 }
 
 

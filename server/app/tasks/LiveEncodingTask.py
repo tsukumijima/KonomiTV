@@ -224,16 +224,16 @@ class LiveEncodingTask:
 
     def buildHWEncCOptions(self,
         quality: QUALITY_TYPES,
-        encoder_type: Literal['QSVEncC', 'NVEncC', 'VCEEncC'],
+        encoder_type: Literal['QSVEncC', 'NVEncC', 'VCEEncC', 'rkmppenc'],
         is_fullhd_channel: bool = False,
         is_sphd_channel: bool = False,
     ) -> list:
         """
-        QSVEncC・NVEncC・VCEEncC (便宜上 HWEncC と総称) に渡すオプションを組み立てる
+        QSVEncC・NVEncC・VCEEncC・rkmppenc (便宜上 HWEncC と総称) に渡すオプションを組み立てる
 
         Args:
             quality (QUALITY_TYPES): 映像の品質
-            encoder_type (Literal['QSVEncC', 'NVEncC', 'VCEEncC']): エンコーダー (QSVEncC or NVEncC or VCEEncC)
+            encoder_type (Literal['QSVEncC', 'NVEncC', 'VCEEncC', 'rkmppenc']): エンコーダー (QSVEncC or NVEncC or VCEEncC or rkmppenc)
             is_fullhd_channel (bool): フル HD 放送が実施されているチャンネルかどうか
             is_sphd_channel (bool): スカパー！プレミアムサービスのチャンネルかどうか
 
@@ -260,7 +260,7 @@ class LiveEncodingTask:
         ## VCEEncC の HW デコーダーはエラー耐性が低く TS を扱う用途では不安定なので、SW デコーダーを利用する
         if encoder_type == 'VCEEncC':
             options.append('--avsw')
-        ## QSVEncC・NVEncC は HW デコーダーを利用する
+        ## QSVEncC・NVEncC・rkmppenc は HW デコーダーを利用する
         else:
             options.append('--avhw')
 
@@ -306,7 +306,13 @@ class LiveEncodingTask:
             options.append('--preset default')
         elif encoder_type == 'VCEEncC':
             options.append('--preset balanced')
-        options.append(f'--profile main --interlace tff --dar 16:9')
+        elif encoder_type == 'rkmppenc':
+            options.append('--preset best')
+        if QUALITY[quality].is_hevc is True:
+            options.append('--profile main')
+        else:
+            options.append('--profile high')
+        options.append(f'--interlace tff --dar 16:9')
 
         ## 最大 GOP 長 (秒)
         ## 30fps なら ×30 、 60fps なら ×60 された値が --gop-len で使われる
@@ -323,6 +329,8 @@ class LiveEncodingTask:
                 options.append('--vpp-deinterlace bob')
             elif encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
                 options.append('--vpp-yadif mode=bob')
+            elif encoder_type == 'rkmppenc':
+                options.append('--vpp-deinterlace bob_i5')
             options.append(f'--avsync cfr --gop-len {int(gop_length_second * 60)}')
         ## インターレース解除 (60i → 30p (フレームレート: 30fps))
         ## VCEEncC では --vpp-deinterlace 自体が使えないので、代わりに --vpp-afs を使う
@@ -331,6 +339,8 @@ class LiveEncodingTask:
                 options.append(f'--vpp-deinterlace normal')
             elif encoder_type == 'VCEEncC':
                 options.append(f'--vpp-afs preset=default')
+            elif encoder_type == 'rkmppenc':
+                options.append('--vpp-deinterlace normal_i5')
             options.append(f'--avsync forcecfr --gop-len {int(gop_length_second * 30)}')
 
         ## フル HD 放送が行われているチャンネルかつ、指定された品質の解像度が 1440×1080 (1080p) の場合のみ、
@@ -471,7 +481,7 @@ class LiveEncodingTask:
         is_fullhd_channel = self.isFullHDChannel(channel.network_id, channel.service_id)
 
         # エンコーダーの種類を取得
-        encoder_type: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC'] = CONFIG['general']['encoder']
+        encoder_type: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC', 'rkmppenc'] = CONFIG['general']['encoder']
         ## ラジオチャンネルでは HW エンコードの意味がないため、FFmpeg に固定する
         if channel.is_radiochannel is True:
             encoder_type = 'FFmpeg'
@@ -496,7 +506,7 @@ class LiveEncodingTask:
             )
 
         # HWEncC
-        elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
+        elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC' or encoder_type == 'rkmppenc':
 
             # オプションを取得
             encoder_options = self.buildHWEncCOptions(self.livestream.quality, encoder_type, is_fullhd_channel, channel.channel_type == 'SKY')
@@ -884,7 +894,7 @@ class LiveEncodingTask:
                             if self._retry_count > 0:
                                 self._retry_count = 0
                     ## HWEncC
-                    elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
+                    elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC' or encoder_type == 'rkmppenc':
                         if 'opened file "pipe:0"' in line:
                             self.livestream.setStatus('Standby', 'エンコードを開始しています…')
                         elif 'starting output thread...' in line:
@@ -916,7 +926,7 @@ class LiveEncodingTask:
                         for log in lines[-51:-1]:
                             Logging.warning(log)
                 ## HWEncC
-                elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
+                elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC' or encoder_type == 'rkmppenc':
                     if 'error finding stream information.' in line:
                         # 何らかの要因で tsreadex から放送波が受信できなかったことによるエラーのため、エンコーダーの再起動は行わない
                         ## 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないなら放送波の受信に失敗したものとする
@@ -1063,7 +1073,7 @@ class LiveEncodingTask:
                         if encoder_type == 'FFmpeg':
                             for log in lines[-51:-1]:
                                 Logging.warning(log)
-                        elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
+                        elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC' or encoder_type == 'rkmppenc':
                             for log in lines[-151:-1]:
                                 Logging.warning(log)
 
@@ -1077,7 +1087,7 @@ class LiveEncodingTask:
                     if encoder_type == 'FFmpeg':
                         for log in lines[-51:-1]:
                             Logging.warning(log)
-                    elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
+                    elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC' or encoder_type == 'rkmppenc':
                         for log in lines[-151:-1]:
                             Logging.warning(log)
 

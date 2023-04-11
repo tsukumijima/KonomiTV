@@ -17,13 +17,14 @@
         'mirakurun_url': 'http://localhost:40772/',
 
         # 利用するエンコーダー
-        # FFmpeg・QSVEncC・NVEncC・VCEEncC から選択してください。
+        # FFmpeg・QSVEncC・NVEncC・VCEEncC・rkmppenc から選択してください。
         # FFmpeg はソフトウェアエンコーダーです。すべての PC で利用できますが、CPU に多大な負荷がかかり、パフォーマンスが悪いです。
-        # QSVEncC・NVEncC・VCEEncC はハードウェアエンコーダーです。CPU 負荷が低く、パフォーマンスがとても高いです（おすすめ）。
+        # QSVEncC・NVEncC・VCEEncC・rkmppenc はハードウェアエンコーダーです。CPU 負荷が低く、パフォーマンスがとても高いです（おすすめ）。
         # Intel Graphics 搭載の Intel CPU をお使いなら、QSVEncC が使えます。
         # Geforce などの NVIDIA GPU をお使いなら、NVEncC が使えます。
         # Radeon などの AMD GPU をお使いなら、VCEEncC が使えます。
-        'encoder': 'QSVEncC',
+        # RK3588 などの Rockchip SoC 搭載の ARM SBC をお使いなら、rkmppenc が使えます (いくつか事前設定が必要です) 。
+        'encoder': 'rkmppenc',
 
         # 番組情報の更新間隔 (分)
         # 番組情報を EDCB または Mirakurun から取得する間隔を設定します。デフォルトは 15 (分) です。

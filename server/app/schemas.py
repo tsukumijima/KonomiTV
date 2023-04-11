@@ -16,7 +16,7 @@ class Config(BaseModel):
         backend: Literal['EDCB', 'Mirakurun']
         mirakurun_url: AnyHttpUrl
         edcb_url: stricturl(allowed_schemes={'tcp'}, tld_required=False)  # type: ignore
-        encoder: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC']
+        encoder: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC', 'rkmppenc']
         program_update_interval: confloat(ge=0.1)  # type: ignore
         debug: bool
         debug_encoder: bool
@@ -176,4 +176,4 @@ class VersionInformation(BaseModel):
     latest_version: str | None
     environment: Literal['Windows', 'Linux', 'Linux-Docker']
     backend: Literal['EDCB', 'Mirakurun']
-    encoder: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC']
+    encoder: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC', 'rkmppenc']

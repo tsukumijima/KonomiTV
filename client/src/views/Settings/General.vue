@@ -17,7 +17,7 @@
                 </div>
                 <div class="settings__item-label">
                     [1080p (60fps)] は、通常 30fps (60i) の映像を補間することで、ほかの画質よりも滑らか（ぬるぬる）な映像で再生できます。ただし、再生負荷が少し高くなります。<br>
-                    [1080p (60fps)] で視聴するときは、QSVEncC / NVEncC / VCEEncC エンコーダーの利用をおすすめします。FFmpeg エンコーダーでは CPU 使用率が高くなり、再生に支障が出ることがあります。<br>
+                    [1080p (60fps)] で視聴するときは、QSVEncC などのハードウェアエンコーダーの利用をおすすめします。FFmpeg (ソフトウェアエンコーダー) では CPU 使用率が高くなり、再生に支障が出ることがあります。<br>
                 </div>
                 <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
                     :items="tv_streaming_quality" v-model="settingsStore.settings.tv_streaming_quality">
@@ -29,7 +29,7 @@
                 <label class="settings__item-label" for="tv_data_saver_mode">
                     テレビをライブストリーミングするときに、通信節約モードで視聴するかを設定します。<br>
                     通信節約モードでは、H.265 / HEVC という圧縮率の高いコーデックを使い、画質はほぼそのまま、通信量を通常の 2/3 程度に抑えながら視聴できます。ただし、再生負荷が高くなります。<br>
-                    通信節約モードで視聴するときは、QSVEncC / NVEncC / VCEEncC エンコーダーの利用をおすすめします。FFmpeg エンコーダーではまともに再生できない可能性が高いです。<br>
+                    通信節約モードで視聴するときは、QSVEncC などのハードウェアエンコーダーの利用をおすすめします。FFmpeg (ソフトウェアエンコーダー) ではまともに再生できない可能性が高いです。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="tv_data_saver_mode" inset hide-details
                     v-model="settingsStore.settings.tv_data_saver_mode" :disabled="PlayerUtils.isHEVCVideoSupported() === false">

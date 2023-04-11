@@ -5,6 +5,7 @@ import atexit
 import logging
 import logging.config
 import os
+import platform
 import psutil
 import requests
 import subprocess
@@ -75,10 +76,32 @@ def main():
         )
         sys.exit(1)
 
+    # ***** サポートされているアーキテクチャかのバリデーション *****
+
+    # サポートされているアーキテクチャ
+    ## AMD64 : Windows (x64)
+    ## x86_64: Linux (x64)
+    ## aarch64: Linux (arm64)
+    supported_arch = ['AMD64', 'x86_64', 'aarch64']
+
+    # CPU のアーキテクチャから実行可否を判定
+    current_arch = platform.machine()
+    if current_arch not in supported_arch:
+        logger.error(f'KonomiTV は {current_arch} アーキテクチャに対応していません。')
+        sys.exit(1)
+
     # ***** サードパーティーライブラリが配置されているかのバリデーション *****
 
     # すべてのサードパーティーライブラリの配置をチェック
     for library_name, library_path in LIBRARY_PATH.items():
+
+        # x64 の場合、ARM のみの rkmppenc はチェックしない
+        if current_arch in ['AMD64', 'x86_64'] and library_name == 'rkmppenc':
+            continue
+        # arm64 の場合、x64 のみの QSVEncC・NVEncC・VCEEncC はチェックしない
+        if current_arch == 'aarch64' and library_name in ['QSVEncC', 'NVEncC', 'VCEEncC']:
+            continue
+
         if Path(library_path).is_file() is False:
             logger.error(
                 f'{library_name} がサードパーティーライブラリとして配置されていないため、KonomiTV を起動できません。\n'
@@ -86,6 +109,24 @@ def main():
                 f'{library_name} が {library_path} に配置されているかを確認してください。'
             )
             sys.exit(1)
+
+    # x64 なのにエンコーダーとして rkmppenc が指定されている場合はエラー
+    if current_arch in ['AMD64', 'x86_64'] and CONFIG['general']['encoder'] == 'rkmppenc':
+        logger.error(
+            f'x64 アーキテクチャでは rkmppenc は使用できません。\n'
+            '                                '  # インデント用
+            '利用するエンコーダーを FFmpeg・QSVEncC・NVEncC・VCEEncC のいずれかに変更してください。'
+        )
+        sys.exit(1)
+
+    # arm64 なのにエンコーダーとして QSVEncC・NVEncC・VCEEncC が指定されている場合はエラー
+    if current_arch == 'aarch64' and CONFIG['general']['encoder'] in ['QSVEncC', 'NVEncC', 'VCEEncC']:
+        logger.error(
+            f'arm64 アーキテクチャでは QSVEncC・NVEncC・VCEEncC は使用できません。\n'
+            '                                '  # インデント用
+            '利用するエンコーダーを FFmpeg・rkmppenc のいずれかに変更してください。'
+        )
+        sys.exit(1)
 
     # ***** リッスンポートのバリデーション *****
 
