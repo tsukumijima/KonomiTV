@@ -184,8 +184,11 @@ jobs:
       - name: Download and Deploy Encoder Archives
         run: |
 
-          # p7zip のインストール
-          sudo apt-get install -y p7zip-full
+          # p7zip-full と patchelf のインストール
+          ## patchelf は ELF バイナリに埋め込まれている rpath (動的ライブラリの検索パス) を変更するツールで、
+          ## QSV/NV/VCEEncC に rpath を追加するために使う
+          ## ref: https://stackoverflow.com/questions/13769141/can-i-change-rpath-in-an-already-compiled-binary
+          sudo apt-get install -y p7zip-full patchelf
 
           # FFmpeg のアーカイブのダウンロード
           curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2022-12-31-12-36/ffmpeg-n5.1.2-9-g807afa59cc-linux64-gpl-shared-5.1.tar.xz
@@ -201,11 +204,6 @@ jobs:
           chmod a+x thirdparty/FFmpeg/ffmpeg.elf
           chmod a+x thirdparty/FFmpeg/ffprobe.elf
 
-          # patchelf のインストール
-          ## ELF バイナリに埋め込まれている rpath (動的ライブラリの検索パス) を変更するツールで、QSV/NV/VCEEncC に rpath を追加するために使う
-          ## ref: https://stackoverflow.com/questions/13769141/can-i-change-rpath-in-an-already-compiled-binary
-          sudo apt-get install -y patchelf
-
           # QSV/NV/VCEEncC が依存しているライブラリをダウンロードしてまとめる
           ## ref: https://stackoverflow.com/questions/13756800/how-to-download-all-dependencies-and-packages-to-directory
           ## ref: https://askubuntu.com/questions/1260559/how-to-install-deb-packages-in-a-custom-folder-different-from-root-using-dp
@@ -213,7 +211,7 @@ jobs:
           curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2022-12-31-12-36/ffmpeg-n4.4.3-3-gb48951bd29-linux64-gpl-shared-4.4.tar.xz
           tar xvf ffmpeg-n4.4.3-3-gb48951bd29-linux64-gpl-shared-4.4.tar.xz
           cp -ar ffmpeg-n4.4.3-3-gb48951bd29-linux64-gpl-shared-4.4/lib/* thirdparty/Library/
-          apt-get download libass9 libglib2.0-0 libgraphite2-3 libharfbuzz0b
+          sudo apt-get download libass9 libglib2.0-0 libgraphite2-3 libharfbuzz0b
           ls -1 | grep [.]deb >> all_debs.txt && cat all_debs.txt | while read fn; do dpkg-deb -x $fn `pwd`/thirdparty/Library; done && rm all_debs.txt
           cp -ar thirdparty/Library/usr/lib/x86_64-linux-gnu/* thirdparty/Library/
           rm -rf thirdparty/Library/usr/
@@ -275,3 +273,170 @@ jobs:
         with:
           name: thirdparty-linux.tar.xz
           path: thirdparty-linux.tar.xz
+
+  # Linux (ARM) 向けのサードパーティーライブラリのビルド
+  build-linux-arm:
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        image:
+          - arm64v8/ubuntu
+    steps:
+
+      # サードパーティーライブラリの配置フォルダを作成
+      - name: Create Thirdparty Folder
+        run: mkdir thirdparty/
+
+      # QEMU のセットアップ
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+        with:
+          platforms: linux/arm64
+
+      # Docker Buildx のセットアップ
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      # Dockerfile の作成
+      - name: Create Dockerfile
+        run: |
+          cat <<EOF > Dockerfile
+          ARG IMAGE
+          FROM \${IMAGE}
+          ENV DEBIAN_FRONTEND=noninteractive
+          RUN apt-get update && apt-get install -y build-essential pkg-config
+          EOF
+
+      # ARM64 版 Docker イメージのビルド
+      - name: Build Docker Image
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          tags: ${{ matrix.image }}:build
+          build-args: IMAGE=${{ matrix.image }}:20.04
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,scope=${{ matrix.image }},mode=max
+          load: true
+
+      # tsreadex のビルド
+      - name: Build tsreadex
+        run: |
+          git clone https://github.com/xtne6f/tsreadex
+          cd tsreadex/
+          git checkout fd72ef31b94832ee8e761800f9f5d5a8e66c8a22
+          docker run --rm -i -v $(pwd):/work -w /work ${{ matrix.image }}:build bash -c 'make'
+          mkdir ../thirdparty/tsreadex/
+          cp tsreadex ../thirdparty/tsreadex/tsreadex.elf
+          chmod a+x ../thirdparty/tsreadex/tsreadex.elf
+          cp License.txt ../thirdparty/tsreadex/
+
+      # psisiarc のビルド
+      - name: Build psisiarc
+        run: |
+          git clone https://github.com/xtne6f/psisiarc
+          cd psisiarc/
+          git checkout 6593a0f63aedaaecfac7682b51e267874a8ec549
+          docker run --rm -i -v $(pwd):/work -w /work ${{ matrix.image }}:build bash -c 'make'
+          mkdir ../thirdparty/psisiarc/
+          cp psisiarc ../thirdparty/psisiarc/psisiarc.elf
+          chmod a+x ../thirdparty/psisiarc/psisiarc.elf
+          cp License.txt ../thirdparty/psisiarc/
+
+      # Golang 環境のセットアップ
+      - name: Setup Golang Environment
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.18.1'
+
+      # Akebi HTTPS Server のビルド
+      - name: Build Akebi HTTPS Server
+        run: |
+          git clone https://github.com/tsukumijima/Akebi
+          cd Akebi/
+          git checkout 2757f136dda4f3c1d5b8baa433c1b52bb8526a0c
+          GOARCH=arm64 go build -ldflags="-s -w" -a -o "akebi-https-server.elf" "./https-server/"
+          mkdir ../thirdparty/Akebi/
+          cp akebi-https-server.elf ../thirdparty/Akebi/akebi-https-server.elf
+          chmod a+x ../thirdparty/Akebi/akebi-https-server.elf
+          cp License.txt ../thirdparty/Akebi/
+
+      # FFmpeg・rkmppenc のアーカイブのダウンロードと配置
+      # ドライバさえ入っていればスタンドアローンで実行できるように構成を工夫している
+      - name: Download and Deploy Encoder Archives
+        run: |
+
+          # p7zip-full と patchelf のインストール
+          ## patchelf は ELF バイナリに埋め込まれている rpath (動的ライブラリの検索パス) を変更するツールで、
+          ## rkmppenc に rpath を追加するために使う
+          ## ref: https://stackoverflow.com/questions/13769141/can-i-change-rpath-in-an-already-compiled-binary
+          sudo apt-get install -y p7zip-full patchelf
+
+          # FFmpeg のアーカイブのダウンロード
+          curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2022-12-31-12-36/ffmpeg-n5.1.2-9-g807afa59cc-linuxarm64-gpl-shared-5.1.tar.xz
+          tar xvf ffmpeg-n5.1.2-9-g807afa59cc-linuxarm64-gpl-shared-5.1.tar.xz
+          mkdir thirdparty/FFmpeg/
+          cp ffmpeg-n5.1.2-9-g807afa59cc-linuxarm64-gpl-shared-5.1/bin/* thirdparty/FFmpeg/
+          cp -r ffmpeg-n5.1.2-9-g807afa59cc-linuxarm64-gpl-shared-5.1/lib/* thirdparty/FFmpeg/
+          cp ffmpeg-n5.1.2-9-g807afa59cc-linuxarm64-gpl-shared-5.1/LICENSE.txt thirdparty/FFmpeg/License.txt
+          rm -rf thirdparty/FFmpeg/pkgconfig
+          mv thirdparty/FFmpeg/ffmpeg thirdparty/FFmpeg/ffmpeg.elf
+          mv thirdparty/FFmpeg/ffprobe thirdparty/FFmpeg/ffprobe.elf
+          rm thirdparty/FFmpeg/ffplay
+          chmod a+x thirdparty/FFmpeg/ffmpeg.elf
+          chmod a+x thirdparty/FFmpeg/ffprobe.elf
+
+          # rkmppenc が依存しているライブラリをダウンロードしてまとめる
+          ## ref: https://stackoverflow.com/questions/13756800/how-to-download-all-dependencies-and-packages-to-directory
+          ## ref: https://askubuntu.com/questions/1260559/how-to-install-deb-packages-in-a-custom-folder-different-from-root-using-dp
+          mkdir thirdparty/Library/
+          curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2022-12-31-12-36/ffmpeg-n4.4.3-3-gb48951bd29-linuxarm64-gpl-shared-4.4.tar.xz
+          tar xvf ffmpeg-n4.4.3-3-gb48951bd29-linuxarm64-gpl-shared-4.4.tar.xz
+          cp -ar ffmpeg-n4.4.3-3-gb48951bd29-linuxarm64-gpl-shared-4.4/lib/* thirdparty/Library/
+          docker run --rm -i -v $(pwd):/work -w /work ${{ matrix.image }}:build bash -c 'apt-get download libass9 libglib2.0-0 libgraphite2-3 libharfbuzz0b libva-x11-2 libvdpau1'
+          curl -LO https://github.com/tsukumijima/mpp/releases/download/v1.5.0-4b8799c38aad5c64481eec89ba8f3f0c64176e42/librockchip-mpp1_1.5.0-1_arm64.deb
+          curl -LO https://github.com/tsukumijima/librga/releases/download/v2.2.0-2827b00b884001e6da2c82d91cdace4fa473b5e2/librga2_2.2.0-1_arm64.deb
+          ls -1 | grep [.]deb >> all_debs.txt && cat all_debs.txt | while read fn; do dpkg-deb -x $fn `pwd`/thirdparty/Library; done && rm all_debs.txt
+          cp -ar thirdparty/Library/usr/lib/aarch64-linux-gnu/* thirdparty/Library/
+          rm -rf thirdparty/Library/usr/
+          rm -rf thirdparty/Library/pkgconfig
+          find thirdparty/Library/*.so* -not -type l -not -type d | while read fn; do patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../Library' $fn; done
+          find thirdparty/Library/*.so* -not -type l -not -type d | xargs chmod a+x
+
+          # rkmppenc のアーカイブのダウンロード
+          curl -LO https://nightly.link/rigaya/rkmppenc/workflows/build_packages/master/rkmppenc_0.00-1562002_Ubuntu20.04_arm64.deb.zip
+          unzip rkmppenc_0.00-1562002_Ubuntu20.04_arm64.deb.zip
+          7z x -y rkmppenc_0.00-1562002_Ubuntu20.04_arm64.deb && tar xvf data.tar
+          mkdir thirdparty/rkmppenc/
+          cp usr/bin/rkmppenc thirdparty/rkmppenc/rkmppenc.elf
+          chmod a+x thirdparty/rkmppenc/rkmppenc.elf
+          patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../Library' thirdparty/rkmppenc/rkmppenc.elf
+          curl -L -o thirdparty/rkmppenc/License.txt https://raw.githubusercontent.com/rigaya/rkmppenc/master/rkmppenc_license.txt
+
+      # Python Standalone Builds のダウンロードと pipenv のインストール
+      - name: Install Python Standalone Builds & pip & pipenv
+        run: |
+
+          # Python 本体のダウンロード
+          curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/20230116/cpython-3.11.1+20230116-aarch64-unknown-linux-gnu-install_only.tar.gz
+          tar xvf python.tar.gz
+          mv python/ thirdparty/Python/
+          ln -s python3.11 thirdparty/Python/bin/python
+
+          # pipenv のインストール
+          cd thirdparty/Python/
+          docker run --rm -i -v $(pwd):/work -w /work ${{ matrix.image }}:build bash -c './bin/python -m pip install pipenv==2023.2.18'
+
+      # サードパーティーライブラリを tar.xz で圧縮
+      # ファイルサイズ縮減のため、圧縮をかなり強めに掛けている
+      # ref: https://axelstudios.github.io/7z/#!/
+      - name: Compress Thirdparty Libraries
+        run: |
+          tar cvf thirdparty-linux-arm.tar thirdparty
+          7z a -txz -m0=LZMA2 -mx=9 -md=128m -mfb=128 -mmt=on thirdparty-linux-arm.tar.xz thirdparty-linux-arm.tar
+
+      # 7z で圧縮したサードパーティーライブラリを Artifact としてアップロード
+      - name: Upload Thirdparty Libraries as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: thirdparty-linux-arm.tar.xz
+          path: thirdparty-linux-arm.tar.xz
