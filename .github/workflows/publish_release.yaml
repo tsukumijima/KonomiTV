@@ -33,7 +33,7 @@ jobs:
       - build_thirdparty
     steps:
 
-      # ビルド済みのインストーラーとサードパーティライブラリをダウンロード
+      # ビルド済みのインストーラーとサードパーティーライブラリをダウンロード
       - name: Download Installer (for Windows)
         uses: actions/download-artifact@v3
         with:
