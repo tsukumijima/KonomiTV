@@ -338,7 +338,7 @@ def Installer(version: str) -> None:
             with open('/proc/device-tree/compatible', 'r') as compatible_file:
                 compatible_data = compatible_file.read()
                 if 'rockchip' in compatible_data and 'rk35' in compatible_data:
-                    rkmppenc_available = '🟢利用可能'
+                    rkmppenc_available = '✅利用できます'
                     default_encoder = 'rkmppenc'
 
     # Intel 製 GPU なら QSVEncC が、NVIDIA 製 GPU (Geforce) なら NVEncC が、AMD 製 GPU (Radeon) なら VCEEncC が使える
