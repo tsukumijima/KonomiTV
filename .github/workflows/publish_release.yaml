@@ -44,6 +44,11 @@ jobs:
         with:
           name: KonomiTV-Installer.elf
           path: ${{ github.workspace }}/
+      - name: Download Installer (for Linux ARM)
+        uses: actions/download-artifact@v3
+        with:
+          name: KonomiTV-Installer-ARM.elf
+          path: ${{ github.workspace }}/
       - name: Download Thirdparty Library (for Windows)
         uses: actions/download-artifact@v3
         with:
@@ -53,6 +58,11 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: thirdparty-linux.tar.xz
+          path: ${{ github.workspace }}/
+      - name: Download Thirdparty Library (for Linux ARM)
+        uses: actions/download-artifact@v3
+        with:
+          name: thirdparty-linux-arm.tar.xz
           path: ${{ github.workspace }}/
 
       # KonomiTV のソースコードをチェックアウト
@@ -86,7 +96,7 @@ jobs:
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: 'KonomiTV-Installer.exe,KonomiTV-Installer.elf,thirdparty-windows.7z,thirdparty-linux.tar.xz'
+          artifacts: 'KonomiTV-Installer.exe,KonomiTV-Installer.elf,KonomiTV-Installer-ARM.elf,thirdparty-windows.7z,thirdparty-linux.tar.xz,thirdparty-linux-arm.tar.xz'
           generateReleaseNotes: true
           name: KonomiTV (β) ${{ steps.get_version.outputs.version }}
           tag: v${{ steps.get_version.outputs.version }}

@@ -107,3 +107,96 @@ jobs:
         with:
           name: KonomiTV-Installer.elf
           path: installer/KonomiTV-Installer.elf
+
+  # Linux (ARM) 向けのインストーラーのビルド
+  build-linux-arm:
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        image:
+          - arm64v8/ubuntu
+    steps:
+
+      # QEMU のセットアップ
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+        with:
+          platforms: linux/arm64
+
+      # Docker Buildx のセットアップ
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      # Dockerfile の作成
+      - name: Create Dockerfile
+        run: |
+          cat <<EOF > Dockerfile
+          ARG IMAGE
+          FROM \${IMAGE}
+          ENV DEBIAN_FRONTEND=noninteractive
+          RUN apt-get update && \
+              apt-get install -y --no-install-recommends software-properties-common && \
+              add-apt-repository -y ppa:deadsnakes/ppa && \
+              apt-get install -y \
+                build-essential \
+                curl \
+                patchelf \
+                python3.11 \
+                python3.11-dev \
+                python3.11-distutils \
+                python3.11-venv \
+                zlib1g \
+                zlib1g-dev
+          RUN curl https://bootstrap.pypa.io/get-pip.py | python3.11
+          RUN python3.11 -m pip install pipenv
+          EOF
+
+      # ARM64 版 Docker イメージのビルド
+      - name: Build Docker Image
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          tags: ${{ matrix.image }}:build
+          build-args: IMAGE=${{ matrix.image }}:20.04
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,scope=${{ matrix.image }},mode=max
+          load: true
+
+      # Dockerfile を削除
+      - name: Remove Dockerfile
+        run: rm Dockerfile
+
+      # KonomiTV のソースコードをチェックアウト
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      # インストーラーの Nuitka のビルドキャッシュを保存/リストア
+      - name: Restore Build Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ${{ github.workspace }}/installer/.venv/
+          key: KonomiTV-Installer-Build-Linux-ARM-pipenv
+
+      # インストーラーの Nuitka のビルドキャッシュを保存/リストア
+      - name: Restore Build Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ${{ github.workspace }}/installer/KonomiTV-Installer.build
+            ${{ github.workspace }}/installer/KonomiTV-Installer.dist
+            ${{ github.workspace }}/installer/KonomiTV-Installer.onefile-build
+          key: KonomiTV-Installer-Build-Linux-ARM
+
+      # インストーラーを Nuitka でビルド
+      - name: Build Installer with Nuitka
+        working-directory: installer/
+        run: docker run --rm -i -v $(pwd):/work -w /work ${{ matrix.image }}:build bash -c \
+          'PIPENV_VENV_IN_PROJECT=true pipenv sync && pipenv run build-linux'
+
+      # 単一実行ファイルにビルドされたインストーラーを Artifact としてアップロード
+      - name: Upload Installer Executable as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: KonomiTV-Installer-ARM.elf
+          path: installer/KonomiTV-Installer.elf
