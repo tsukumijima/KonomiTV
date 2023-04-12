@@ -79,36 +79,38 @@ def main():
     # サポートされているアーキテクチャ
     ## AMD64 : Windows (x64)
     ## x86_64: Linux (x64)
-    supported_arch = ['AMD64', 'x86_64']
+    ## aarch64: Linux (arm64)
+    supported_arch = ['AMD64', 'x86_64', 'aarch64']
+    current_arch = platform.machine()
 
     # CPU のアーキテクチャから実行可否を判定
-    # arm64 で実行できないようにする
-    if platform.machine() not in supported_arch:
+    if current_arch not in supported_arch:
         print(Padding(Panel(
-            f'[red]KonomiTV は {platform.machine()} アーキテクチャに対応していません。[/red]\n'
-            f'Linux (arm64) には今後のアップデートで対応予定ですが、現時点では arm64 向けの\n'
-            'サードパーティーライブラリを用意できていないため、正常に動作しません。',
+            f'[red]KonomiTV は {current_arch} アーキテクチャに対応していません。[/red]',
             box = box.SQUARE,
             border_style = Style(color='#E33157'),
         ), (1, 2, 0, 2)))
         return  # 処理中断
 
-    # Ubuntu 20.04 LTS 以降以外の Linux ディストリビューションの場合
-    ## Ubuntu 20.04 LTS 以降以外の Linux ディストリビューションは正式にサポートされていない旨を表示する
+    # Ubuntu 20.04 LTS / Debian 11 以降以外の Linux ディストリビューションの場合
+    ## Ubuntu 20.04 LTS / Debian 11 以降以外の Linux ディストリビューションは正式にサポートされていない旨を表示する
+    ## Debian 11 の glibc バージョンは 2.31 で、Ubuntu 20.04 LTS (更新版) の glibc バージョンと同じ
     ## Linux ディストリビューションは数が多すぎるので、すべて動作確認なんてやってられない……
-    if os.name != 'nt' and not (distro.id() == 'ubuntu' and int(distro.major_version()) >= 20):
+    if os.name != 'nt' and not (distro.id() == 'ubuntu' and int(distro.major_version()) >= 20) and \
+        not (distro.id() == 'debian' and int(distro.major_version()) >= 11):
         table = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
         table.add_column(
             f'[yellow]注意: KonomiTV は {distro.name(pretty=True)} を正式にサポートしていません。[/yellow]\n'
             '動作する可能性はありますが、動作しない場合もサポートは一切できません。\n'
             '特に glibc 2.31 未満の OS では、サードパーティーライブラリの関係で動作しません。\n'
-            '対応コストを鑑み、Ubuntu 以外のサポート予定はありません。予めご了承ください。'
+            '対応コストを鑑み、Ubuntu/Debian 以外のサポート予定はありません。予めご了承ください。'
         )
-        table.add_row(
-            'なお、Docker でインストールする場合の OS は Ubuntu 22.04 LTS ベースのため、\n'
-            'ホスト OS が Ubuntu 以外でも動作することが期待されます。\n'
-            'Ubuntu 以外の OS にインストールする際は、Docker でのインストールを推奨します。'
-        )
+        if current_arch == 'x86_64':
+            table.add_row(
+                'なお、Docker でインストールする場合の OS は Ubuntu 22.04 LTS ベースのため、\n'
+                'ホスト OS が Ubuntu/Debian 以外でも動作することが期待されます。\n'
+                'Ubuntu/Debian 以外の OS にインストールする際は、Docker でのインストールを推奨します。'
+            )
         print(Padding(table, (1, 2, 0, 2)))
 
     print(Padding(Panel(

@@ -1,5 +1,6 @@
 
 import os
+import platform
 import py7zr
 import requests
 import ruamel.yaml
@@ -47,6 +48,9 @@ def Updater(version: str) -> None:
     # プラットフォームタイプ
     ## Windows・Linux・Linux (Docker)
     platform_type: Literal['Windows', 'Linux', 'Linux-Docker'] = 'Windows' if os.name == 'nt' else 'Linux'
+
+    # ARM デバイスかどうか
+    is_arm_device = platform.machine() == 'aarch64'
 
     # ***** アップデート対象の KonomiTV のフォルダのパス *****
 
@@ -97,7 +101,7 @@ def Updater(version: str) -> None:
     # Linux: インストールフォルダに docker-compose.yaml があれば
     # Docker でインストールしたことが推測されるので、プラットフォームタイプを Linux-Docker に切り替える
     ## インストーラーで Docker を使わずにインストールした場合は docker-compose.yaml は生成されないことを利用している
-    if platform_type == 'Linux' and Path(update_path / 'docker-compose.yaml').exists():
+    if platform_type == 'Linux' and is_arm_device is False and Path(update_path / 'docker-compose.yaml').exists():
 
         # 前回 Docker を使ってインストールされているが、今 Docker がインストールされていない
         if IsDockerInstalled() is False:
@@ -316,8 +320,13 @@ def Updater(version: str) -> None:
         progress = CreateDownloadProgress()
 
         # GitHub からサードパーティーライブラリをダウンロード
+        thirdparty_file = 'thirdparty-windows.7z'
+        if platform_type == 'Linux' and is_arm_device is False:
+            thirdparty_file = 'thirdparty-linux.tar.xz'
+        elif platform_type == 'Linux' and is_arm_device is True:
+            thirdparty_file = 'thirdparty-linux-arm.tar.xz'
         thirdparty_base_url = f'https://github.com/tsukumijima/KonomiTV/releases/download/v{version}/'
-        thirdparty_url = thirdparty_base_url + ('thirdparty-windows.7z' if platform_type == 'Windows' else 'thirdparty-linux.tar.xz')
+        thirdparty_url = thirdparty_base_url + thirdparty_file
         thirdparty_response = requests.get(thirdparty_url, stream=True)
         task_id = progress.add_task('', total=float(thirdparty_response.headers['Content-length']))
 

@@ -83,9 +83,9 @@ def main():
     ## x86_64: Linux (x64)
     ## aarch64: Linux (arm64)
     supported_arch = ['AMD64', 'x86_64', 'aarch64']
+    current_arch = platform.machine()
 
     # CPU のアーキテクチャから実行可否を判定
-    current_arch = platform.machine()
     if current_arch not in supported_arch:
         logger.error(f'KonomiTV は {current_arch} アーキテクチャに対応していません。')
         sys.exit(1)

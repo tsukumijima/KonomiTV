@@ -3,6 +3,7 @@ import asyncio
 import getpass
 import json
 import os
+import platform
 import psutil
 import py7zr
 import requests
@@ -53,14 +54,18 @@ def Installer(version: str) -> None:
     ## Windows・Linux・Linux (Docker)
     platform_type: Literal['Windows', 'Linux', 'Linux-Docker'] = 'Windows' if os.name == 'nt' else 'Linux'
 
+    # ARM デバイスかどうか
+    is_arm_device = platform.machine() == 'aarch64'
+
     # Linux: Docker がインストールされている場合、Docker + Docker Compose を使ってインストールするかを訊く
     if platform_type == 'Linux':
 
         is_install_with_docker: bool = False
 
         # Docker + Docker Compose がインストールされているかを検出
+        ## 現状 ARM 環境では Docker を使ったインストール方法はサポートしていない
         is_docker_installed = IsDockerInstalled()
-        if is_docker_installed is True:
+        if is_docker_installed is True and is_arm_device is False:
             print(Padding(Panel(
                 f'お使いの PC には Docker と Docker Compose {"V2" if IsDockerComposeV2() else "V1"} がインストールされています。\n'
                 'Docker + Docker Compose を使ってインストールしますか？',
@@ -271,9 +276,11 @@ def Installer(version: str) -> None:
 
     # PC に接続されている GPU の型番を取得し、そこから QSVEncC / NVEncC / VCEEncC の利用可否を大まかに判断する
     gpu_names: list[str] = []
+    default_encoder: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC', 'rkmppenc'] = 'FFmpeg'
     qsvencc_available: str = '❌利用できません'
     nvencc_available: str = '❌利用できません'
     vceencc_available: str = '❌利用できません'
+    rkmppenc_available: str = '❌利用できません'
 
     # Windows: PowerShell の Get-WmiObject と ConvertTo-Json の合わせ技で取得できる
     if platform_type == 'Windows':
@@ -301,6 +308,14 @@ def Installer(version: str) -> None:
 
     # Linux / Linux-Docker: lshw コマンドを使って取得できる
     elif platform_type == 'Linux' or platform_type == 'Linux-Docker':
+        # もし lshw コマンドがインストールされていなかったらインストールする
+        if shutil.which('lshw') is None:
+            subprocess.run(
+                args = ['apt-get', 'install', '-y', 'lshw'],
+                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+            )
+        # lshw コマンドを実行して GPU 情報を取得
         gpu_info_json = subprocess.run(
             args = ['lshw', '-class', 'display', '-json'],
             stdout = subprocess.PIPE,  # 標準出力をキャプチャする
@@ -309,16 +324,28 @@ def Installer(version: str) -> None:
         )
         # コマンド成功時のみ
         if gpu_info_json.returncode == 0:
-            # 接続されている GPU 名を取得してリストに追加
-            for gpu_info in json.loads(gpu_info_json.stdout):
-                if 'vendor' in gpu_info and 'product' in gpu_info:
-                    gpu_names.append(f'{gpu_info["vendor"]} {gpu_info["product"]}')
+            try:
+                # 接続されている GPU 名を取得してリストに追加
+                for gpu_info in json.loads(gpu_info_json.stdout):
+                    if 'vendor' in gpu_info and 'product' in gpu_info:
+                        gpu_names.append(f'{gpu_info["vendor"]} {gpu_info["product"]}')
+            except json.decoder.JSONDecodeError:
+                pass
+
+        # ARM 環境のみ、もし  /proc/device-tree/compatible が存在し、その中に "rockchip" と "rk35" という文字列が含まれていたら、
+        # Rockchip SoC 搭載の ARM SBC と判断して rkmppenc を利用可能とする
+        if platform_type == 'Linux' and Path('/proc/device-tree/compatible').exists():
+            with open('/proc/device-tree/compatible', 'r') as compatible_file:
+                compatible_data = compatible_file.read()
+                if 'rockchip' in compatible_data and 'rk35' in compatible_data:
+                    rkmppenc_available = '🟢利用可能'
+                    default_encoder = 'rkmppenc'
 
     # Intel 製 GPU なら QSVEncC が、NVIDIA 製 GPU (Geforce) なら NVEncC が、AMD 製 GPU (Radeon) なら VCEEncC が使える
+    # また、RK3588 などの Rockchip SoC 搭載の ARM SBC なら、rkmppenc が使える
     ## もちろん機種によって例外はあるけど、ダウンロード前だとこれくらいの大雑把な判定しかできない…
     ## VCEEncC は安定性があまり良くなく、NVEncC は性能は良いものの Geforce だと同時エンコード本数の制限があるので、
     ## 複数の GPU が接続されている場合は QSVEncC が一番優先されるようにする
-    default_encoder: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC'] = 'FFmpeg'
     for gpu_name in gpu_names:
         if 'AMD' in gpu_name or 'Radeon' in gpu_name:
             vceencc_available = f'✅利用できます (AMD GPU: {gpu_name})'
@@ -331,22 +358,37 @@ def Installer(version: str) -> None:
             default_encoder = 'QSVEncC'
 
     table_05 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
-    table_05.add_column('05. 利用するエンコーダーを FFmpeg・QSVEncC・NVEncC・VCEEncC から選んで入力してください。')
+    if is_arm_device is False:
+        table_05.add_column('05. 利用するエンコーダーを FFmpeg・QSVEncC・NVEncC・VCEEncC から選んで入力してください。')
+    else:
+        table_05.add_column('05. 利用するエンコーダーを FFmpeg・rkmppenc から選んで入力してください。')
     table_05.add_row('FFmpeg はソフトウェアエンコーダーです。')
     table_05.add_row('すべての PC で利用できますが、CPU に多大な負荷がかかり、パフォーマンスが悪いです。')
-    table_05.add_row('QSVEncC・NVEncC・VCEEncC はハードウェアエンコーダーです。')
+    if is_arm_device is False:
+        table_05.add_row('QSVEncC・NVEncC・VCEEncC はハードウェアエンコーダーです。')
+    else:
+        table_05.add_row('rkmppenc はハードウェアエンコーダーです。')
     table_05.add_row('FFmpeg と比較して CPU 負荷が低く、パフォーマンスがとても高いです（おすすめ）。')
     table_05.add_row(Rule(characters='─', style=Style(color='#E33157')))
-    table_05.add_row(RemoveEmojiIfLegacyTerminal(f'QSVEncC: {qsvencc_available}'))
-    table_05.add_row(RemoveEmojiIfLegacyTerminal(f'NVEncC : {nvencc_available}'))
-    table_05.add_row(RemoveEmojiIfLegacyTerminal(f'VCEEncC: {vceencc_available}'))
+    if is_arm_device is False:
+        table_05.add_row(RemoveEmojiIfLegacyTerminal(f'QSVEncC: {qsvencc_available}'))
+        table_05.add_row(RemoveEmojiIfLegacyTerminal(f'NVEncC : {nvencc_available}'))
+        table_05.add_row(RemoveEmojiIfLegacyTerminal(f'VCEEncC: {vceencc_available}'))
+    else:
+        table_05.add_row(RemoveEmojiIfLegacyTerminal(f'rkmppenc: {rkmppenc_available}'))
     print(Padding(table_05, (1, 2, 1, 2)))
 
     # 利用するエンコーダーを取得
-    encoder = cast(
-        Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC'],
-        CustomPrompt.ask('利用するエンコーダー', default=default_encoder, choices=['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC']),
-    )
+    if is_arm_device is False:
+        encoder = cast(
+            Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC'],
+            CustomPrompt.ask('利用するエンコーダー', default=default_encoder, choices=['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC']),
+        )
+    else:
+        encoder = cast(
+            Literal['FFmpeg', 'rkmppenc'],
+            CustomPrompt.ask('利用するエンコーダー', default=default_encoder, choices=['FFmpeg', 'rkmppenc']),
+        )
 
     # ***** アップロードしたキャプチャ画像の保存先フォルダのパス *****
 
@@ -497,8 +539,13 @@ def Installer(version: str) -> None:
         progress = CreateDownloadProgress()
 
         # GitHub からサードパーティーライブラリをダウンロード
+        thirdparty_file = 'thirdparty-windows.7z'
+        if platform_type == 'Linux' and is_arm_device is False:
+            thirdparty_file = 'thirdparty-linux.tar.xz'
+        elif platform_type == 'Linux' and is_arm_device is True:
+            thirdparty_file = 'thirdparty-linux-arm.tar.xz'
         thirdparty_base_url = f'https://github.com/tsukumijima/KonomiTV/releases/download/v{version}/'
-        thirdparty_url = thirdparty_base_url + ('thirdparty-windows.7z' if platform_type == 'Windows' else 'thirdparty-linux.tar.xz')
+        thirdparty_url = thirdparty_base_url + thirdparty_file
         thirdparty_response = requests.get(thirdparty_url, stream=True)
         task_id = progress.add_task('', total=float(thirdparty_response.headers['Content-length']))
 
@@ -839,6 +886,43 @@ def Installer(version: str) -> None:
                 ), (0, 2, 0, 2)))
                 print(Padding(Panel(
                     'VCEEncC のログ:\n' + result.stdout.strip(),
+                    box = box.SQUARE,
+                    border_style = Style(color='#E33157'),
+                ), (0, 2, 0, 2)))
+
+        # エンコーダーに rkmppenc が選択されているとき
+        elif encoder == 'rkmppenc':
+
+            # 実行コマンド
+            command = [install_path / 'server/thirdparty/rkmppenc/rkmppenc.elf', '--check-hw']
+
+            # rkmppenc の --check-hw オプションの終了コードが 0 なら利用可能、それ以外なら利用不可
+            result = subprocess.run(
+                args = command,
+                cwd = install_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
+                stdout = subprocess.PIPE,  # 標準出力をキャプチャする
+                stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
+                text = True,  # 出力をテキストとして取得する
+            )
+
+            # rkmppenc が利用できない結果になった場合は必要な設定とパッケージをインストールするように細則する
+            if result.returncode != 0:
+                print(Padding(Panel(
+                    '[yellow]注意: この PC では rkmppenc が利用できない状態です。[/yellow]\n'
+                    'Rockchip MPP の利用に必要な設定データファイルがインストールされていないか、\n'
+                    'お使いの SoC が Rockchip MPP に対応していない可能性があります。',
+                    box = box.SQUARE,
+                    border_style = Style(color='#E33157'),
+                ), (1, 2, 0, 2)))
+                print(Padding(Panel(
+                    '設定データファイルは、以下のコマンドでインストールできます。\n'
+                    'インストール完了後は、システムの再起動が必要です。\n'
+                    '[cyan]curl -LO https://github.com/tsukumijima/rockchip-multimedia-config/releases/download/v1.0.1-1/rockchip-multimedia-config_1.0.1-1_all.deb && sudo apt install -y ./rockchip-multimedia-config_1.0.1-1_all.deb && rm rockchip-multimedia-config_1.0.1-1_all.deb[/cyan]',
+                    box = box.SQUARE,
+                    border_style = Style(color='#E33157'),
+                ), (0, 2, 0, 2)))
+                print(Padding(Panel(
+                    'rkmppenc のログ:\n' + result.stdout.strip(),
                     box = box.SQUARE,
                     border_style = Style(color='#E33157'),
                 ), (0, 2, 0, 2)))

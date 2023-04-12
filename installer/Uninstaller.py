@@ -1,5 +1,6 @@
 
 import os
+import platform
 import subprocess
 import shutil
 import stat
@@ -27,6 +28,9 @@ def Uninstaller() -> None:
     # プラットフォームタイプ
     ## Windows・Linux・Linux (Docker)
     platform_type: Literal['Windows', 'Linux', 'Linux-Docker'] = 'Windows' if os.name == 'nt' else 'Linux'
+
+    # ARM デバイスかどうか
+    is_arm_device = platform.machine() == 'aarch64'
 
     # ***** アンインストール対象の KonomiTV のフォルダのパス *****
 
@@ -77,7 +81,7 @@ def Uninstaller() -> None:
     # Linux: インストールフォルダに docker-compose.yaml があれば
     # Docker でインストールしたことが推測されるので、プラットフォームタイプを Linux-Docker に切り替える
     ## インストーラーで Docker を使わずにインストールした場合は docker-compose.yaml は生成されないことを利用している
-    if platform_type == 'Linux' and Path(uninstall_path / 'docker-compose.yaml').exists():
+    if platform_type == 'Linux' and is_arm_device is False and Path(uninstall_path / 'docker-compose.yaml').exists():
 
         # 前回 Docker を使ってインストールされているが、今 Docker がインストールされていない
         if IsDockerInstalled() is False:
