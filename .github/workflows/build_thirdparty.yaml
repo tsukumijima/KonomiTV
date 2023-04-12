@@ -111,7 +111,7 @@ jobs:
           Rename-Item thirdparty/Python/LICENSE.txt License.txt
 
           # pipenv のインストール
-          thirdparty/Python/python.exe -m pip install pipenv==2023.2.18
+          thirdparty/Python/python.exe -m pip install pipenv==2023.3.20
 
       # サードパーティーライブラリを 7z で圧縮
       # ファイルサイズ縮減のため、圧縮をかなり強めに掛けている
@@ -259,7 +259,7 @@ jobs:
           ln -s python3.11 thirdparty/Python/bin/python
 
           # pipenv のインストール
-          thirdparty/Python/bin/python -m pip install pipenv==2023.2.18
+          thirdparty/Python/bin/python -m pip install pipenv==2023.3.20
 
       # サードパーティーライブラリを tar.xz で圧縮
       # ファイルサイズ縮減のため、圧縮をかなり強めに掛けている
@@ -407,9 +407,9 @@ jobs:
           find thirdparty/Library/*.so* -not -type l -not -type d | xargs chmod a+x
 
           # rkmppenc のアーカイブのダウンロード
-          curl -LO https://nightly.link/rigaya/rkmppenc/workflows/build_packages/master/rkmppenc_0.00-1562002_Ubuntu20.04_arm64.deb.zip
-          unzip rkmppenc_0.00-1562002_Ubuntu20.04_arm64.deb.zip
-          7z x -y rkmppenc_0.00-1562002_Ubuntu20.04_arm64.deb && tar xvf data.tar
+          curl -LO https://nightly.link/tsukumijima/rkmppenc/workflows/build_packages/master/rkmppenc_0.00-b00629d_Ubuntu20.04_arm64.deb.zip
+          unzip rkmppenc_0.00-b00629d_Ubuntu20.04_arm64.deb.zip
+          7z x -y rkmppenc_0.00-b00629d_Ubuntu20.04_arm64.deb && tar xvf data.tar
           mkdir thirdparty/rkmppenc/
           cp usr/bin/rkmppenc thirdparty/rkmppenc/rkmppenc.elf
           chmod a+x thirdparty/rkmppenc/rkmppenc.elf
@@ -428,7 +428,7 @@ jobs:
 
           # pipenv のインストール
           cd thirdparty/Python/
-          docker run --rm -i -v $(pwd):/work -w /work ${{ matrix.image }}:build bash -c './bin/python -m pip install pipenv==2023.2.18'
+          docker run --rm -i -v $(pwd):/work -w /work ${{ matrix.image }}:build bash -c './bin/python -m pip install pipenv==2023.3.20'
 
       # サードパーティーライブラリを tar.xz で圧縮
       # ファイルサイズ縮減のため、圧縮をかなり強めに掛けている
