@@ -213,6 +213,8 @@ jobs:
           cp -ar ffmpeg-n4.4.3-3-gb48951bd29-linux64-gpl-shared-4.4/lib/* thirdparty/Library/
           sudo apt-get download libass9 libbrotli1 libexpat1 libfontconfig1 libfreetype6 libfribidi0 libglib2.0-0 libgraphite2-3 libharfbuzz0b libpcre3 libpng16-16 libuuid1 zlib1g
           ls -1 | grep [.]deb >> all_debs.txt && cat all_debs.txt | while read fn; do dpkg-deb -x $fn `pwd`/thirdparty/Library; done && rm all_debs.txt
+          cp -ar thirdparty/Library/lib/x86_64-linux-gnu/* thirdparty/Library/
+          rm -rf thirdparty/Library/lib/
           cp -ar thirdparty/Library/usr/lib/x86_64-linux-gnu/* thirdparty/Library/
           rm -rf thirdparty/Library/usr/
           rm -rf thirdparty/Library/pkgconfig
@@ -396,6 +398,8 @@ jobs:
           curl -LO https://github.com/tsukumijima/mpp/releases/download/v1.5.0-4b8799c38aad5c64481eec89ba8f3f0c64176e42/librockchip-mpp1_1.5.0-1_arm64.deb
           curl -LO https://github.com/tsukumijima/librga/releases/download/v2.2.0-2827b00b884001e6da2c82d91cdace4fa473b5e2/librga2_2.2.0-1_arm64.deb
           ls -1 | grep [.]deb >> all_debs.txt && cat all_debs.txt | while read fn; do dpkg-deb -x $fn `pwd`/thirdparty/Library; done && rm all_debs.txt
+          cp -ar thirdparty/Library/lib/aarch64-linux-gnu/* thirdparty/Library/
+          rm -rf thirdparty/Library/lib/
           cp -ar thirdparty/Library/usr/lib/aarch64-linux-gnu/* thirdparty/Library/
           rm -rf thirdparty/Library/usr/
           rm -rf thirdparty/Library/pkgconfig
