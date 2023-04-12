@@ -13,9 +13,9 @@ from hashids import Hashids
 from typing import ClassVar, Literal, TypedDict
 
 from app.constants import QUALITY_TYPES
+from app.utils import HLSLiveSegmenter
 from app.utils import Logging
 from app.utils.EDCB import EDCBTuner
-from app.utils.hls import LiveLLHLSSegmenter
 
 
 class LiveStreamStatus(TypedDict):
@@ -288,7 +288,7 @@ class LiveStream():
         self._started_at: float
         self._updated_at: float
         self._stream_data_written_at: float
-        self.segmenter: LiveLLHLSSegmenter | None
+        self.segmenter: HLSLiveSegmenter | None
         self.tuner: EDCBTuner | None
 
 

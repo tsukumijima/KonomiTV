@@ -1,5 +1,6 @@
 
 # ユーティリティをモジュールとして登録
+from .HLSLiveSegmenter import HLSLiveSegmenter
 from .Jikkyo import Jikkyo
 from .OAuthCallbackResponse import OAuthCallbackResponse
 from .TSInformation import TSInformation

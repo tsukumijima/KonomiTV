@@ -9,7 +9,11 @@ https://opensource.org/licenses/MIT
 
 import asyncio
 import math
+import time
 from collections import deque
+from datetime import datetime
+from datetime import timedelta
+from datetime import timezone
 from fastapi.responses import Response
 from fastapi.responses import StreamingResponse
 from typing import cast
@@ -17,24 +21,23 @@ from typing import cast
 from app.constants import CONFIG
 from app.utils import Logging
 
-from app.utils.hls.m3u8 import M3U8
+from biim.mpeg2ts import ts
+from biim.mpeg2ts.pat import PATSection
+from biim.mpeg2ts.pmt import PMTSection
+from biim.mpeg2ts.pes import PES
+from biim.mpeg2ts.h264 import H264PES
+from biim.mpeg2ts.h265 import H265PES
+from biim.mpeg2ts.parser import SectionParser, PESParser
 
-from app.utils.mp4.box import ftyp, moov, mvhd, mvex, trex, moof, mdat, emsg
-from app.utils.mp4.avc import avcTrack
-from app.utils.mp4.hevc import hevcTrack
-from app.utils.mp4.mp4a import mp4aTrack
+from biim.hls.m3u8 import M3U8
 
-from app.utils.mpeg2ts import ts
-from app.utils.mpeg2ts.pes import PES
-from app.utils.mpeg2ts.pes import H264PES
-from app.utils.mpeg2ts.pes import H265PES
-from app.utils.mpeg2ts.pat import PATSection
-from app.utils.mpeg2ts.pmt import PMTSection
-from app.utils.mpeg2ts.parser import PESParser
-from app.utils.mpeg2ts.parser import SectionParser
+from biim.mp4.box import ftyp, moov, mvhd, mvex, trex, moof, mdat, emsg
+from biim.mp4.avc import avcTrack
+from biim.mp4.hevc import hevcTrack
+from biim.mp4.mp4a import mp4aTrack
 
 
-class LiveLLHLSSegmenter:
+class HLSLiveSegmenter:
 
     # ターゲットとする LL-HLS 部分セグメント (m4s) の再生時間 (秒)
     PART_DURATION = 0.15
@@ -65,26 +68,40 @@ class LiveLLHLSSegmenter:
 
         # M3U8 プレイリストのインスタンスを初期化
         ## 映像+主音声と映像+副音声のプレイリストは別々に管理する
-        self._primary_audio_m3u8 = M3U8(gop_length_second_int, self.PART_DURATION, self.LIST_SIZE, True, '')
-        self._secondary_audio_m3u8 = M3U8(gop_length_second_int, self.PART_DURATION, self.LIST_SIZE, True, '')
+        self._primary_audio_m3u8 = M3U8(
+            target_duration = gop_length_second_int,
+            part_target = self.PART_DURATION,
+            window_size = self.LIST_SIZE,
+            hasInit = True,
+        )
+        self._secondary_audio_m3u8 = M3U8(
+            target_duration = gop_length_second_int,
+            part_target = self.PART_DURATION,
+            window_size = self.LIST_SIZE,
+            hasInit = True,
+        )
 
         # init: 最初の初期セグメントを格納するための Future オブジェクト
         self._primary_audio_init: asyncio.Future[bytes] = asyncio.Future()
         self._secondary_audio_init: asyncio.Future[bytes] = asyncio.Future()
 
         # MPEG2-TS の各セクションのパーサーを初期化
-        self._pat_parser = SectionParser(PATSection)
-        self._pmt_parser = SectionParser(PMTSection)
-        self._h264_pes_parser = PESParser(H264PES)
-        self._h265_pes_parser = PESParser(H265PES)
-        self._aac_pes_parser_PA = PESParser(PES)
-        self._aac_pes_parser_SA = PESParser(PES)
-        self._id3_pes_parser = PESParser(PES)
+        self._pat_parser: SectionParser[PATSection] = SectionParser(PATSection)
+        self._pmt_parser: SectionParser[PMTSection] = SectionParser(PMTSection)
+        self._h264_pes_parser: PESParser[H264PES] = PESParser(H264PES)
+        self._h265_pes_parser: PESParser[H265PES] = PESParser(H265PES)
+        self._aac_pes_parser_PA: PESParser[PES] = PESParser(PES)
+        self._aac_pes_parser_SA: PESParser[PES] = PESParser(PES)
+        self._id3_pes_parser: PESParser[PES] = PESParser(PES)
 
         # PCR (Program Clock Reference)
         self._PCR_PID: int | None = None
         self._LATEST_PCR_VALUE: int | None = None
-        self._LATEST_PCR_TIMESTAMP_90KHZ: int = 0
+        self._LATEST_PCR_TIMESTAMP_90KHZ: int | None = 0
+        self._LATEST_PCR_DATETIME: datetime | None = None
+        self._LATEST_VIDEO_TIMESTAMP_90KHZ: int | None = None
+        self._LATEST_VIDEO_MONOTONIC_TIME: float | None = None
+        self._LATEST_VIDEO_SLEEP_DIFFERENCE: float = 0
 
         # エンコーダーから送られてきた MPEG2-TS 内の各トラックの PID
         self._PMT_PID: int | None = None
@@ -99,10 +116,10 @@ class LiveLLHLSSegmenter:
         self._aac_config_SA: tuple[bytes, int, int] | None = None  # 副音声
 
         # H.264 / H.265 映像トラック関連の一時変数
-        self._curr_h264_data: tuple[bool, deque[bytes], int, int] | None = None
-        self._next_h264_data: tuple[bool, deque[bytes], int, int] | None = None
-        self._curr_h265_data: tuple[bool, deque[bytes], int, int] | None = None
-        self._next_h265_data: tuple[bool, deque[bytes], int, int] | None = None
+        self._curr_h264_data: tuple[bool, deque[bytes], int, int, datetime] | None = None
+        self._next_h264_data: tuple[bool, deque[bytes], int, int, datetime] | None = None
+        self._curr_h265_data: tuple[bool, deque[bytes], int, int, datetime] | None = None
+        self._next_h265_data: tuple[bool, deque[bytes], int, int, datetime] | None = None
         self._vps_data: bytes | None = None
         self._sps_data: bytes | None = None
         self._pps_data: bytes | None = None
@@ -144,7 +161,7 @@ class LiveLLHLSSegmenter:
             # 通常モードで m3u8 プレイリストを生成
             future = m3u8.plain()
             if future is None:
-                Logging.error('[LiveLLHLSSegmenter][getPlaylist] m3u8.plain() returned None')
+                Logging.error('[HLSLiveSegmenter][getPlaylist] m3u8.plain() returned None')
                 return Response(status_code=422, media_type='application/vnd.apple.mpegurl', headers=self.cors_headers)
 
             # m3u8 プレイリストが生成されるまで待ってから返す
@@ -157,7 +174,7 @@ class LiveLLHLSSegmenter:
 
             # _HLS_part だけ指定されていることはありえない
             if msn is None:
-                Logging.error('[LiveLLHLSSegmenter][getPlaylist] msn is None')
+                Logging.error('[HLSLiveSegmenter][getPlaylist] msn is None')
                 return Response(status_code=422, media_type='application/vnd.apple.mpegurl', headers=self.cors_headers)
 
             # _HLS_part が指定されていなければ、0 に設定
@@ -167,7 +184,7 @@ class LiveLLHLSSegmenter:
             # ブロッキングモードで m3u8 プレイリストを生成
             future = m3u8.blocking(msn, part)
             if future is None:
-                Logging.error('[LiveLLHLSSegmenter][getPlaylist] m3u8.blocking() returned None')
+                Logging.error('[HLSLiveSegmenter][getPlaylist] m3u8.blocking() returned None')
                 return Response(status_code=422, media_type='application/vnd.apple.mpegurl', headers=self.cors_headers)
 
             # m3u8 プレイリストが生成されるまで待ってから返す
@@ -200,13 +217,13 @@ class LiveLLHLSSegmenter:
         # 完全なセグメントを Queue の形で取得する
         queue = await m3u8.segment(msn)
         if queue is None:
-            Logging.error('[LiveLLHLSSegmenter][getSegment] m3u8.segment() returned None')
+            Logging.error('[HLSLiveSegmenter][getSegment] m3u8.segment() returned None')
             return Response(status_code=422, media_type='video/mp4', headers=self.cors_headers)
 
         # Queue からセグメントデータを取得して StreamingResponse で返す
         async def generator():
             while True:
-                stream: bytearray | None = await queue.get()
+                stream = await queue.get()
                 if stream == None:
                     break
                 yield bytes(stream)
@@ -242,13 +259,13 @@ class LiveLLHLSSegmenter:
         # 部分セグメントを Queue の形で取得する
         queue = await m3u8.partial(msn, part)
         if queue is None:
-            Logging.error('[LiveLLHLSSegmenter][getPartialSegment] m3u8.partial() returned None')
+            Logging.error('[HLSLiveSegmenter][getPartialSegment] m3u8.partial() returned None')
             return Response(status_code=422, media_type='video/mp4', headers=self.cors_headers)
 
         # Queue からセグメントデータを取得して StreamingResponse で返す
         async def generator():
             while True:
-                stream: bytearray | None = await queue.get()
+                stream = await queue.get()
                 if stream == None:
                     break
                 yield bytes(stream)
@@ -272,7 +289,7 @@ class LiveLLHLSSegmenter:
         init = self._secondary_audio_init if secondary_audio is True else self._primary_audio_init
 
         # 初期セグメントの生成が完了するまで待機
-        init_segment: bytes = await init
+        init_segment: bytes = await asyncio.shield(init)
 
         # 初期セグメントデータを返す
         return Response(init_segment, media_type='video/mp4', headers=self.cors_headers)
@@ -312,10 +329,13 @@ class LiveLLHLSSegmenter:
             self._h264_pes_parser.push(packet)
             for H264 in self._h264_pes_parser:
                 if self._LATEST_PCR_VALUE is None: continue
-                H264 = cast(H264PES, H264)
-                timestamp = (((H264.dts() if H264.has_dts() else H264.pts()) - self._LATEST_PCR_VALUE + ts.PCR_CYCLE) % ts.PCR_CYCLE) + self._LATEST_PCR_TIMESTAMP_90KHZ  # type: ignore
-                cts = (H264.pts() - (H264.dts() if H264.has_dts() else H264.pts()) + ts.PCR_CYCLE) % ts.PCR_CYCLE  # type: ignore
-                keyInSamples = False
+                if self._LATEST_PCR_DATETIME is None: continue
+                dts = cast(int, H264.dts() if H264.has_dts() else H264.pts())
+                pts = cast(int, H264.pts())
+                cts = (pts - dts + ts.PCR_CYCLE) % ts.PCR_CYCLE
+                timestamp = ((dts - self._LATEST_PCR_VALUE + ts.PCR_CYCLE) % ts.PCR_CYCLE) + self._LATEST_PCR_TIMESTAMP_90KHZ
+                program_date_time: datetime = self._LATEST_PCR_DATETIME + timedelta(seconds=(((dts - self._LATEST_PCR_VALUE + ts.PCR_CYCLE) % ts.PCR_CYCLE) / ts.HZ))
+                keyframe_in_samples = False
                 samples = deque()
 
                 for ebsp in H264:
@@ -328,16 +348,20 @@ class LiveLLHLSSegmenter:
                     elif nal_unit_type == 0x09 or nal_unit_type == 0x06: # AUD or SEI
                         pass
                     elif nal_unit_type == 0x05:
-                        keyInSamples = True
+                        keyframe_in_samples = True
                         samples.append(ebsp)
                     else:
                         samples.append(ebsp)
-                self._next_h264_data = (keyInSamples, samples, timestamp, cts) if samples else None
+                self._next_h264_data = (keyframe_in_samples, samples, timestamp, cts, program_date_time) if samples else None
 
-                hasIDR: bool = False
+                has_IDR = False
+                begin_timestamp: int | None = None
+                begin_program_date_time: datetime | None = None
                 if self._curr_h264_data:
-                    isKeyframe, samples, dts, cts = self._curr_h264_data
-                    hasIDR = isKeyframe
+                    has_key_frame, samples, dts, cts, pdt = self._curr_h264_data
+                    has_IDR = has_key_frame
+                    begin_timestamp = dts
+                    begin_program_date_time = pdt
                     duration = timestamp - dts
                     content = bytearray()
                     while samples:
@@ -348,7 +372,7 @@ class LiveLLHLSSegmenter:
                         b''.join([
                             moof(0,
                                 [
-                                    (1, duration, dts, 0, [(len(content), duration, isKeyframe, cts)])
+                                    (1, duration, dts, 0, [(len(content), duration, has_key_frame, cts)])
                                 ]
                             ),
                             mdat(content)
@@ -363,7 +387,7 @@ class LiveLLHLSSegmenter:
                             mvhd(ts.HZ),
                             mvex([
                                 trex(1),
-                                trex(2)
+                                trex(2),
                             ]),
                             [
                                 avcTrack(1, ts.HZ, self._sps_data, self._pps_data),
@@ -377,7 +401,7 @@ class LiveLLHLSSegmenter:
                             mvhd(ts.HZ),
                             mvex([
                                 trex(1),
-                                trex(2)
+                                trex(2),
                             ]),
                             [
                                 avcTrack(1, ts.HZ, self._sps_data, self._pps_data),
@@ -387,20 +411,22 @@ class LiveLLHLSSegmenter:
                     ]))
                     self._initialization_segment_dispatched = True
 
-                if hasIDR:
+                if begin_timestamp is None: continue
+
+                if has_IDR:
                     if self._partial_begin_timestamp is not None:
-                        PART_DIFF = timestamp - self._partial_begin_timestamp
+                        PART_DIFF = begin_timestamp - self._partial_begin_timestamp
                         if self.PART_DURATION * ts.HZ < PART_DIFF:
-                            self._partial_begin_timestamp = int(timestamp - max(0, PART_DIFF - self.PART_DURATION * ts.HZ))
+                            self._partial_begin_timestamp = int(begin_timestamp - max(0, PART_DIFF - self.PART_DURATION * ts.HZ))
                             self._primary_audio_m3u8.continuousPartial(self._partial_begin_timestamp, False)
                             self._secondary_audio_m3u8.continuousPartial(self._partial_begin_timestamp, False)
-                    self._partial_begin_timestamp = timestamp
-                    self._primary_audio_m3u8.continuousSegment(self._partial_begin_timestamp, True)
-                    self._secondary_audio_m3u8.continuousSegment(self._partial_begin_timestamp, True)
+                    self._partial_begin_timestamp = begin_timestamp
+                    self._primary_audio_m3u8.continuousSegment(self._partial_begin_timestamp, True, begin_program_date_time)
+                    self._secondary_audio_m3u8.continuousSegment(self._partial_begin_timestamp, True, begin_program_date_time)
                 elif self._partial_begin_timestamp is not None:
-                    PART_DIFF = timestamp - self._partial_begin_timestamp
+                    PART_DIFF = begin_timestamp - self._partial_begin_timestamp
                     if self.PART_DURATION * ts.HZ <= PART_DIFF:
-                        self._partial_begin_timestamp = int(timestamp - max(0, PART_DIFF - self.PART_DURATION * ts.HZ))
+                        self._partial_begin_timestamp = int(begin_timestamp - max(0, PART_DIFF - self.PART_DURATION * ts.HZ))
                         self._primary_audio_m3u8.continuousPartial(self._partial_begin_timestamp)
                         self._secondary_audio_m3u8.continuousPartial(self._partial_begin_timestamp)
 
@@ -417,16 +443,30 @@ class LiveLLHLSSegmenter:
                 while self._aac_fragments_SA:
                     self._secondary_audio_m3u8.push(self._aac_fragments_SA.popleft())
 
+                if self._LATEST_VIDEO_TIMESTAMP_90KHZ is not None and self._LATEST_VIDEO_MONOTONIC_TIME is not None:
+                    TIMESTAMP_DIFF = (begin_timestamp - self._LATEST_VIDEO_TIMESTAMP_90KHZ) / ts.HZ
+                    TIME_DIFF = time.monotonic() - self._LATEST_VIDEO_MONOTONIC_TIME
+                    # if args.input is not sys.stdin.buffer:
+                    #     SLEEP_BEGIN = time.monotonic()
+                    #     time.sleep(max(0, TIMESTAMP_DIFF - (TIME_DIFF + self._LATEST_VIDEO_SLEEP_DIFFERENCE)))
+                    #     SLEEP_END = time.monotonic()
+                    #     self._LATEST_VIDEO_SLEEP_DIFFERENCE = (SLEEP_END - SLEEP_BEGIN) - max(0, TIMESTAMP_DIFF - (TIME_DIFF + self._LATEST_VIDEO_SLEEP_DIFFERENCE))
+                self._LATEST_VIDEO_TIMESTAMP_90KHZ = begin_timestamp
+                self._LATEST_VIDEO_MONOTONIC_TIME = time.monotonic()
+
         # H.265 映像トラック
         elif PID == self._H265_PID:
             self._h265_pes_parser.push(packet)
             for H265 in self._h265_pes_parser:
                 if self._LATEST_PCR_VALUE is None: continue
-                H265 = cast(H265PES, H265)
-                timestamp = (((H265.dts() if H265.has_dts() else  H265.pts()) - self._LATEST_PCR_VALUE + ts.PCR_CYCLE) % ts.PCR_CYCLE) + self._LATEST_PCR_TIMESTAMP_90KHZ  # type: ignore
-                cts = (H265.pts() - (H265.dts() if H265.has_dts() else  H265.pts()) + ts.PCR_CYCLE) % ts.PCR_CYCLE  # type: ignore
-                keyInSamples = False
-                samples = deque()
+                if self._LATEST_PCR_DATETIME is None: continue
+                dts = cast(int, H265.dts() if H265.has_dts() else H265.pts())
+                pts = cast(int, H265.pts())
+                cts = (pts - dts + ts.PCR_CYCLE) % ts.PCR_CYCLE
+                timestamp = ((dts - self._LATEST_PCR_VALUE + ts.PCR_CYCLE) % ts.PCR_CYCLE) + self._LATEST_PCR_TIMESTAMP_90KHZ
+                program_date_time: datetime = self._LATEST_PCR_DATETIME + timedelta(seconds=(((dts - self._LATEST_PCR_VALUE + ts.PCR_CYCLE) % ts.PCR_CYCLE) / ts.HZ))
+                keyframe_in_samples = False
+                samples: deque[bytes] = deque()
 
                 for ebsp in H265:
                     nal_unit_type = (ebsp[0] >> 1) & 0x3f
@@ -440,16 +480,20 @@ class LiveLLHLSSegmenter:
                     elif nal_unit_type == 0x23 or nal_unit_type == 0x27: # AUD or SEI
                         pass
                     elif nal_unit_type == 19 or nal_unit_type == 20 or nal_unit_type == 21: # IDR_W_RADL, IDR_W_LP, CRA_NUT
-                        keyInSamples = True
+                        keyframe_in_samples = True
                         samples.append(ebsp)
                     else:
                         samples.append(ebsp)
-                self._next_h265_data = (keyInSamples, samples, timestamp, cts) if samples else None
+                self._next_h265_data = (keyframe_in_samples, samples, timestamp, cts, program_date_time) if samples else None
 
-                hasIDR: bool = False
+                has_IDR = False
+                begin_timestamp: int | None = None
+                begin_program_date_time: datetime | None = None
                 if self._curr_h265_data:
-                    isKeyframe, samples, dts, cts = self._curr_h265_data
-                    hasIDR = isKeyframe
+                    has_key_frame, samples, dts, cts, pdt = self._curr_h265_data
+                    has_IDR = has_key_frame
+                    begin_timestamp = dts
+                    begin_program_date_time = pdt
                     duration = timestamp - dts
                     content = bytearray()
                     while samples:
@@ -460,7 +504,7 @@ class LiveLLHLSSegmenter:
                         b''.join([
                             moof(0,
                                 [
-                                    (1, duration, dts, 0, [(len(content), duration, isKeyframe, cts)])
+                                    (1, duration, dts, 0, [(len(content), duration, has_key_frame, cts)])
                                 ]
                             ),
                             mdat(content)
@@ -475,7 +519,7 @@ class LiveLLHLSSegmenter:
                             mvhd(ts.HZ),
                             mvex([
                                 trex(1),
-                                trex(2)
+                                trex(2),
                             ]),
                             [
                                 hevcTrack(1, ts.HZ, self._vps_data, self._sps_data, self._pps_data),
@@ -489,7 +533,7 @@ class LiveLLHLSSegmenter:
                             mvhd(ts.HZ),
                             mvex([
                                 trex(1),
-                                trex(2)
+                                trex(2),
                             ]),
                             [
                                 hevcTrack(1, ts.HZ, self._vps_data, self._sps_data, self._pps_data),
@@ -499,20 +543,22 @@ class LiveLLHLSSegmenter:
                     ]))
                     self._initialization_segment_dispatched = True
 
-                if hasIDR:
+                if begin_timestamp is None: continue
+
+                if has_IDR:
                     if self._partial_begin_timestamp is not None:
-                        PART_DIFF = timestamp - self._partial_begin_timestamp
+                        PART_DIFF = begin_timestamp - self._partial_begin_timestamp
                         if self.PART_DURATION * ts.HZ < PART_DIFF:
-                            self._partial_begin_timestamp = int(timestamp - max(0, PART_DIFF - self.PART_DURATION * ts.HZ))
+                            self._partial_begin_timestamp = int(begin_timestamp - max(0, PART_DIFF - self.PART_DURATION * ts.HZ))
                             self._primary_audio_m3u8.continuousPartial(self._partial_begin_timestamp, False)
                             self._secondary_audio_m3u8.continuousPartial(self._partial_begin_timestamp, False)
-                    self._partial_begin_timestamp = timestamp
-                    self._primary_audio_m3u8.continuousSegment(self._partial_begin_timestamp, True)
-                    self._secondary_audio_m3u8.continuousSegment(self._partial_begin_timestamp, True)
+                    self._partial_begin_timestamp = begin_timestamp
+                    self._primary_audio_m3u8.continuousSegment(self._partial_begin_timestamp, True, begin_program_date_time)
+                    self._secondary_audio_m3u8.continuousSegment(self._partial_begin_timestamp, True, begin_program_date_time)
                 elif self._partial_begin_timestamp is not None:
-                    PART_DIFF = timestamp - self._partial_begin_timestamp
+                    PART_DIFF = begin_timestamp - self._partial_begin_timestamp
                     if self.PART_DURATION * ts.HZ <= PART_DIFF:
-                        self._partial_begin_timestamp = int(timestamp - max(0, PART_DIFF - self.PART_DURATION * ts.HZ))
+                        self._partial_begin_timestamp = int(begin_timestamp - max(0, PART_DIFF - self.PART_DURATION * ts.HZ))
                         self._primary_audio_m3u8.continuousPartial(self._partial_begin_timestamp)
                         self._secondary_audio_m3u8.continuousPartial(self._partial_begin_timestamp)
 
@@ -529,15 +575,28 @@ class LiveLLHLSSegmenter:
                 while self._aac_fragments_SA:
                     self._secondary_audio_m3u8.push(self._aac_fragments_SA.popleft())
 
+                if self._LATEST_VIDEO_TIMESTAMP_90KHZ is not None and self._LATEST_VIDEO_MONOTONIC_TIME is not None:
+                    TIMESTAMP_DIFF = (begin_timestamp - self._LATEST_VIDEO_TIMESTAMP_90KHZ) / ts.HZ
+                    TIME_DIFF = time.monotonic() - self._LATEST_VIDEO_MONOTONIC_TIME
+                    # if args.input is not sys.stdin.buffer:
+                    #     SLEEP_BEGIN = time.monotonic()
+                    #     time.sleep(max(0, TIMESTAMP_DIFF - (TIME_DIFF + self._LATEST_VIDEO_SLEEP_DIFFERENCE)))
+                    #     SLEEP_END = time.monotonic()
+                    #     self._LATEST_VIDEO_SLEEP_DIFFERENCE = (SLEEP_END - SLEEP_BEGIN) - max(0, TIMESTAMP_DIFF - (TIME_DIFF + self._LATEST_VIDEO_SLEEP_DIFFERENCE))
+                self._LATEST_VIDEO_TIMESTAMP_90KHZ = begin_timestamp
+                self._LATEST_VIDEO_MONOTONIC_TIME = time.monotonic()
+
         # AAC 音声トラック (主音声)
         elif PID == self._AAC_PID_PA:
             self._aac_pes_parser_PA.push(packet)
             for AAC_PES in self._aac_pes_parser_PA:
                 if self._LATEST_PCR_VALUE is None: continue
-                timestamp = ((cast(int, AAC_PES.pts()) - self._LATEST_PCR_VALUE + ts.PCR_CYCLE) % ts.PCR_CYCLE) + self._LATEST_PCR_TIMESTAMP_90KHZ
+                pts = cast(int, AAC_PES.pts())
+                timestamp = ((pts - self._LATEST_PCR_VALUE + ts.PCR_CYCLE) % ts.PCR_CYCLE) + self._LATEST_PCR_TIMESTAMP_90KHZ
                 begin, ADTS_AAC = 0, AAC_PES.PES_packet_data()
                 length = len(ADTS_AAC)
                 while begin < length:
+                    protection = (ADTS_AAC[begin + 1] & 0b00000001) == 0
                     profile = ((ADTS_AAC[begin + 2] & 0b11000000) >> 6)
                     samplingFrequencyIndex = ((ADTS_AAC[begin + 2] & 0b00111100) >> 2)
                     channelConfiguration = ((ADTS_AAC[begin + 2] & 0b00000001) << 2) | ((ADTS_AAC[begin + 3] & 0b11000000) >> 6)
@@ -552,10 +611,10 @@ class LiveLLHLSSegmenter:
                         b''.join([
                             moof(0,
                                 [
-                                    (2, duration, timestamp, 0, [(frameLength - 7, duration, False, 0)])
+                                    (2, duration, timestamp, 0, [(frameLength - (9 if protection else 7), duration, False, 0)])
                                 ]
                             ),
-                            mdat(bytes(ADTS_AAC[begin + 7: begin + frameLength]))
+                            mdat(bytes(ADTS_AAC[begin + (9 if protection else 7): begin + frameLength]))
                         ])
                     )
                     timestamp += duration
@@ -566,10 +625,12 @@ class LiveLLHLSSegmenter:
             self._aac_pes_parser_SA.push(packet)
             for AAC_PES in self._aac_pes_parser_SA:
                 if self._LATEST_PCR_VALUE is None: continue
-                timestamp = ((cast(int, AAC_PES.pts()) - self._LATEST_PCR_VALUE + ts.PCR_CYCLE) % ts.PCR_CYCLE) + self._LATEST_PCR_TIMESTAMP_90KHZ
+                pts = cast(int, AAC_PES.pts())
+                timestamp = ((pts - self._LATEST_PCR_VALUE + ts.PCR_CYCLE) % ts.PCR_CYCLE) + self._LATEST_PCR_TIMESTAMP_90KHZ
                 begin, ADTS_AAC = 0, AAC_PES.PES_packet_data()
                 length = len(ADTS_AAC)
                 while begin < length:
+                    protection = (ADTS_AAC[begin + 1] & 0b00000001) == 0
                     profile = ((ADTS_AAC[begin + 2] & 0b11000000) >> 6)
                     samplingFrequencyIndex = ((ADTS_AAC[begin + 2] & 0b00111100) >> 2)
                     channelConfiguration = ((ADTS_AAC[begin + 2] & 0b00000001) << 2) | ((ADTS_AAC[begin + 3] & 0b11000000) >> 6)
@@ -584,10 +645,10 @@ class LiveLLHLSSegmenter:
                         b''.join([
                             moof(0,
                                 [
-                                    (2, duration, timestamp, 0, [(frameLength - 7, duration, False, 0)])
+                                    (2, duration, timestamp, 0, [(frameLength - (9 if protection else 7), duration, False, 0)])
                                 ]
                             ),
-                            mdat(bytes(ADTS_AAC[begin + 7: begin + frameLength]))
+                            mdat(bytes(ADTS_AAC[begin + (9 if protection else 7): begin + frameLength]))
                         ])
                     )
                     timestamp += duration
@@ -599,7 +660,6 @@ class LiveLLHLSSegmenter:
             for PAT in self._pat_parser:
                 if PAT.CRC32() != 0: continue
 
-                PAT = cast(PATSection, PAT)
                 for program_number, program_map_PID in PAT:
                     if program_number == 0: continue
 
@@ -607,31 +667,29 @@ class LiveLLHLSSegmenter:
                         self._PMT_PID = program_map_PID
 
         # PMT (Program Map Table)
-        elif PID == self._PMT_PID and not ((self._H264_PID is not None or self._H265_PID is not None) and
-            (self._AAC_PID_PA is not None) and (self._AAC_PID_SA is not None) and (self._ID3_PID is not None)):
+        elif PID == self._PMT_PID:
             self._pmt_parser.push(packet)
             for PMT in self._pmt_parser:
                 if PMT.CRC32() != 0: continue
 
-                PMT = cast(PMTSection, PMT)
                 self._PCR_PID = PMT.PCR_PID
-                for stream_type, elementary_PID in PMT:
-                    if stream_type == 0x1b:
+                for stream_type, elementary_PID, _ in PMT:
+                    if stream_type == 0x1b and self._H264_PID is None:
                         self._H264_PID = elementary_PID
-                        Logging.debug_simple('[LiveLLHLSSegmenter] H.264 Track: ' + hex(self._H264_PID))
-                    elif stream_type == 0x24:
+                        Logging.debug_simple('[HLSLiveSegmenter] H.264 Track: ' + hex(self._H264_PID))
+                    elif stream_type == 0x24 and self._H265_PID is None:
                         self._H265_PID = elementary_PID
-                        Logging.debug_simple('[LiveLLHLSSegmenter] H.265 Track: ' + hex(self._H265_PID))
+                        Logging.debug_simple('[HLSLiveSegmenter] H.265 Track: ' + hex(self._H265_PID))
                     elif stream_type == 0x0F:
                         if self._AAC_PID_PA is None:
                             self._AAC_PID_PA = elementary_PID
-                            Logging.debug_simple('[LiveLLHLSSegmenter] AAC Track (Primary): ' + hex(self._AAC_PID_PA))
+                            Logging.debug_simple('[HLSLiveSegmenter] AAC Track (Primary): ' + hex(self._AAC_PID_PA))
                         elif self._AAC_PID_SA is None:
                             self._AAC_PID_SA = elementary_PID
-                            Logging.debug_simple('[LiveLLHLSSegmenter] AAC Track (Secondary): ' + hex(self._AAC_PID_SA))
-                    elif stream_type == 0x15:
+                            Logging.debug_simple('[HLSLiveSegmenter] AAC Track (Secondary): ' + hex(self._AAC_PID_SA))
+                    elif stream_type == 0x15 and self._ID3_PID is None:
                         self._ID3_PID = elementary_PID
-                        Logging.debug_simple('[LiveLLHLSSegmenter] ID3 (ARIB Caption) Track: ' + hex(self._ID3_PID))
+                        Logging.debug_simple('[HLSLiveSegmenter] ID3 (ARIB Caption) Track: ' + hex(self._ID3_PID))
 
         # Timed Metadata (ID3) トラック
         ## Timed Metadata に変換された ARIB 字幕データが入る
@@ -639,7 +697,8 @@ class LiveLLHLSSegmenter:
             self._id3_pes_parser.push(packet)
             for ID3_PES in self._id3_pes_parser:
                 if self._LATEST_PCR_VALUE is None: continue
-                timestamp = ((cast(int, ID3_PES.pts()) - self._LATEST_PCR_VALUE + ts.PCR_CYCLE) % ts.PCR_CYCLE) + self._LATEST_PCR_TIMESTAMP_90KHZ
+                pts = cast(int, ID3_PES.pts())
+                timestamp = ((pts - self._LATEST_PCR_VALUE + ts.PCR_CYCLE) % ts.PCR_CYCLE) + self._LATEST_PCR_TIMESTAMP_90KHZ
                 ID3 = ID3_PES.PES_packet_data()
                 self._emsg_fragments.append(emsg(ts.HZ, timestamp, None, 'https://aomedia.org/emsg/ID3', ID3))
 
@@ -649,8 +708,10 @@ class LiveLLHLSSegmenter:
         # PCR (Program Clock Reference)
         if PID == self._PCR_PID and ts.has_pcr(packet):
             PCR_VALUE = (cast(int, ts.pcr(packet)) - ts.HZ + ts.PCR_CYCLE) % ts.PCR_CYCLE
-            if self._LATEST_PCR_VALUE is not None:
-                self._LATEST_PCR_TIMESTAMP_90KHZ += (cast(int, PCR_VALUE) - self._LATEST_PCR_VALUE + ts.PCR_CYCLE) % ts.PCR_CYCLE
+            PCR_DIFF = ((PCR_VALUE - self._LATEST_PCR_VALUE + ts.PCR_CYCLE) % ts.PCR_CYCLE) if self._LATEST_PCR_VALUE is not None else 0
+            self._LATEST_PCR_TIMESTAMP_90KHZ = cast(int, self._LATEST_PCR_TIMESTAMP_90KHZ) + PCR_DIFF
+            if self._LATEST_PCR_DATETIME is None: self._LATEST_PCR_DATETIME = datetime.now(timezone.utc) - timedelta(seconds=(1))
+            self._LATEST_PCR_DATETIME += timedelta(seconds=(PCR_DIFF / ts.HZ))
             self._LATEST_PCR_VALUE = PCR_VALUE
 
 

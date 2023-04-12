@@ -16,9 +16,9 @@ from app.constants import API_REQUEST_HEADERS, CONFIG, LIBRARY_PATH, LOGS_DIR, Q
 from app.models import Channel
 from app.models import LiveStream
 from app.models import Program
+from app.utils import HLSLiveSegmenter
 from app.utils import Logging
 from app.utils.EDCB import EDCBTuner
-from app.utils.hls import LiveLLHLSSegmenter
 
 
 class LiveEncodingTask:
@@ -386,7 +386,7 @@ class LiveEncodingTask:
         ## iPhone Safari は mpegts.js でのストリーミングに対応していないため、フォールバックとして LL-HLS で配信する必要がある
         ## できるだけ早い段階で初期化しておかないと、初期化より前に iOS Safari からプレイリストにアクセスが来てしまい
         ## LL-HLS Segmenter is not running エラーが発生してしまう
-        self.livestream.segmenter = LiveLLHLSSegmenter(gop_length_second)
+        self.livestream.segmenter = HLSLiveSegmenter(gop_length_second)
 
         # チャンネル情報からサービス ID とネットワーク ID を取得する
         channel = await Channel.filter(channel_id=self.livestream.channel_id).first()
