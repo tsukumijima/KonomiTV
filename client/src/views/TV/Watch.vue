@@ -3085,7 +3085,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 right: 0;
                 bottom: 0;
                 background: var(--v-background-base);
-                transition: opacity 0.3s, visibility 0.3s;
+                transition: opacity 0.2s, visibility 0.2s;
                 opacity: 0;
                 visibility: hidden;
 

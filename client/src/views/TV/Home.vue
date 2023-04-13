@@ -268,8 +268,8 @@ export default Vue.extend({
         position: sticky;
         flex: none;
         top: 65px;  // ヘッダーの高さ分
-        padding-top: 10px;
-        padding-bottom: 20px;
+        padding-top: 2px;
+        padding-bottom: 12px;
         background:var(--v-background-base);
         z-index: 1;
         @include smartphone-horizontal {
@@ -300,7 +300,7 @@ export default Vue.extend({
     }
 
     .channels-list {
-        padding-bottom: 32px;
+        padding-bottom: 20px;
         background: transparent !important;
         overflow: inherit;
         @include smartphone-horizontal {

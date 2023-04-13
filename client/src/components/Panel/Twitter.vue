@@ -462,7 +462,7 @@ export default Vue.extend({
                 alpha: false,
                 desynchronized: true,
                 willReadFrequently: false,
-            });
+            }) as OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
             context.drawImage(image_bitmap, 0, 0);
             image_bitmap.close();
 
@@ -1330,7 +1330,7 @@ export default Vue.extend({
         clip-path: inset(0% 0% 0% 0% round 7px);
         background: var(--v-background-lighten2);
         box-shadow: 0px 3px 4px rgba(0, 0, 0, 53%);
-        transition: opacity 0.2s ease, visibility 0.2s ease;
+        transition: opacity 0.15s ease, visibility 0.15s ease;
         opacity: 0;
         visibility: hidden;
         overflow-y: auto;
@@ -1545,7 +1545,7 @@ export default Vue.extend({
         clip-path: inset(0% 0% 0% 0% round 7px);
         background: var(--v-background-lighten2);
         box-shadow: 0px 3px 4px rgba(0, 0, 0, 53%);
-        transition: opacity 0.2s ease, visibility 0.2s ease;
+        transition: opacity 0.15s ease, visibility 0.15s ease;
         opacity: 0;
         visibility: hidden;
         overflow-y: auto;
