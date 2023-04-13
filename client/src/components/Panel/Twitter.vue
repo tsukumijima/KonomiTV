@@ -166,8 +166,8 @@ import { mapStores } from 'pinia';
 import Vue, { PropType } from 'vue';
 import draggable from 'vuedraggable';
 
-import { IChannel, ITwitterAccount } from '@/interface';
 import Twitter from '@/services/Twitter';
+import { ITwitterAccount } from '@/services/Users';
 import useChannelsStore from '@/store/ChannelsStore';
 import useSettingsStore from '@/store/SettingsStore';
 import useUserStore from '@/store/UserStore';
@@ -462,7 +462,7 @@ export default Vue.extend({
                 alpha: false,
                 desynchronized: true,
                 willReadFrequently: false,
-            }) as OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
+            });
             context.drawImage(image_bitmap, 0, 0);
             image_bitmap.close();
 
@@ -504,10 +504,10 @@ export default Vue.extend({
             }
 
             // Blob にして返す
-            if ('OffscreenCanvas' in window) {
-                return await (canvas as OffscreenCanvas).convertToBlob({type: 'image/jpeg', quality: 1});
+            if (canvas instanceof OffscreenCanvas) {
+                return await canvas.convertToBlob({type: 'image/jpeg', quality: 1});
             } else {
-                return new Promise(resolve => (canvas as HTMLCanvasElement).toBlob(blob => resolve(blob), 'image/jpeg', 1));
+                return new Promise(resolve => canvas.toBlob(blob => resolve(blob), 'image/jpeg', 1));
             }
         },
 

@@ -1,5 +1,4 @@
 
-import { IMutedCommentKeywords } from '@/interface';
 import APIClient from '@/services/APIClient';
 
 
@@ -45,6 +44,14 @@ export interface IClientSettings {
     twitter_active_tab: 'Search' | 'Timeline' | 'Capture';
     tweet_hashtag_position: 'Prepend' | 'Append' | 'PrependWithLineBreak' | 'AppendWithLineBreak';
     tweet_capture_watermark_position: 'None' | 'TopLeft' | 'TopRight' | 'BottomLeft' | 'BottomRight';
+}
+
+/**
+ * ミュート対象のコメントのキーワードのインターフェイス
+ */
+export interface IMutedCommentKeywords {
+    match: 'partial' | 'forward' | 'backward' | 'exact' | 'regex';
+    pattern: string;
 }
 
 

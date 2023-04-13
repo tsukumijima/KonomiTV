@@ -1,8 +1,7 @@
 
 import { defineStore } from 'pinia';
 
-import { IMutedCommentKeywords } from '@/interface';
-import Settings, { IClientSettings } from '@/services/Settings';
+import Settings, { IClientSettings, IMutedCommentKeywords } from '@/services/Settings';
 import Utils from '@/utils';
 
 

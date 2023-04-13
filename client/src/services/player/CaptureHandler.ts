@@ -6,10 +6,31 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/ja';
 import * as piexif from 'piexifjs';
 
-import { IChannel, ICaptureExifData, IProgram } from '@/interface';
 import Captures from '@/services/Captures';
+import { IChannel } from '@/services/Channels';
+import { IProgram } from '@/services/Programs';
 import useSettingsStore from '@/store/SettingsStore';
 import Utils from '@/utils';
+
+
+/**
+ * キャプチャに書き込む EXIF メタデータのインターフェイス
+ */
+export interface ICaptureExifData {
+    captured_at: string;
+    captured_playback_position: number;
+    network_id: number;
+    service_id: number;
+    event_id: number;
+    title: string;
+    description: string;
+    start_time: string;
+    end_time: string;
+    duration: number;
+    caption_text: string | null;
+    is_caption_composited: boolean;
+    is_comment_composited: boolean;
+}
 
 
 class CaptureHandler {

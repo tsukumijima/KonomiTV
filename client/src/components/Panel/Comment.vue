@@ -77,8 +77,8 @@ import * as DPlayerType from 'dplayer/dist/d.ts/types/DPlayer';
 import { mapStores } from 'pinia';
 import Vue, { PropType } from 'vue';
 
-import { IChannel, IUser } from '@/interface';
 import CommentMuteSettings from '@/components/Settings/CommentMuteSettings.vue';
+import { IChannel } from '@/services/Channels';
 import useSettingsStore from '@/store/SettingsStore';
 import useUserStore from '@/store/UserStore';
 import Utils, { CommentUtils } from '@/utils';

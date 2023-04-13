@@ -5,7 +5,7 @@ import isBetween from 'dayjs/plugin/isBetween';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore'
 
-import { IProgram } from '@/interface';
+import { IProgram } from '@/services/Programs';
 import Utils from '@/utils';
 
 /**

@@ -1,8 +1,4 @@
 
-import Vue from 'vue';
-
-import { IMutedCommentKeywords } from '@/interface';
-
 /**
  * 共通ユーティリティ
  */
