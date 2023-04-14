@@ -853,7 +853,8 @@ export default Vue.extend({
                 video: {
                     // デフォルトの品質
                     // ラジオチャンネルでは常に 48KHz/192kbps に固定する
-                    defaultQuality: (this.channelsStore.channel.current.is_radiochannel) ? '48kHz/192kbps' : this.settingsStore.settings.tv_streaming_quality,
+                    defaultQuality: (this.channelsStore.channel.current.is_radiochannel) ?
+                        '48kHz/192kbps' : this.settingsStore.settings.tv_streaming_quality,
                     // 品質リスト
                     quality: (() => {
                         const qualities: DPlayerType.VideoQuality[] = [];
@@ -2169,7 +2170,7 @@ export default Vue.extend({
     }
     .dplayer-controller-mask {
         height: 82px !important;
-        background: linear-gradient(to bottom, transparent, var(--v-background-base)) !important;
+        background: linear-gradient(to bottom, transparent, #000000cf) !important;
         opacity: 0 !important;
         visibility: hidden;
         transition: opacity 0.3s ease, visibility 0.3s ease !important;
@@ -2694,7 +2695,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             height: 82px;
             padding-left: calc(68px + 30px);
             padding-right: 30px;
-            background: linear-gradient(to bottom, var(--v-background-base), transparent);
+            background: linear-gradient(to bottom, #000000cf, transparent);
             transition: opacity 0.3s, visibility 0.3s;
             opacity: 0;
             visibility: hidden;
