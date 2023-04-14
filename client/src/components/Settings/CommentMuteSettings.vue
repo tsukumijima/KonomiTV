@@ -1,5 +1,5 @@
 <template>
-    <v-dialog max-width="740" transition="slide-y-transition" v-model="comment_mute_settings_modal">
+    <v-dialog max-width="770" transition="slide-y-transition" v-model="comment_mute_settings_modal">
         <v-card class="comment-mute-settings">
             <v-card-title class="px-5 pt-5 pb-3 d-flex align-center font-weight-bold" style="height: 60px;">
                 <Icon icon="heroicons-solid:filter" height="26px" />
@@ -10,6 +10,80 @@
                 </div>
             </v-card-title>
             <div class="px-5 pb-5">
+                <div class="text-subtitle-1 d-flex align-center font-weight-bold mt-4">
+                    <Icon icon="fa-solid:sliders-h" width="24px" height="20px" />
+                    <span class="ml-2">クイック設定</span>
+                </div>
+                <div class="settings__item settings__item--switch">
+                    <label class="settings__item-heading" for="mute_vulgar_comments">
+                        露骨な表現を含むコメントをミュートする
+                    </label>
+                    <label class="settings__item-label" for="mute_vulgar_comments">
+                        性的な単語などの露骨・下品な表現を含むコメントを、一括でミュートするかを設定します。<br>
+                    </label>
+                    <v-switch class="settings__item-switch" id="mute_vulgar_comments" inset hide-details
+                        v-model="settingsStore.settings.mute_vulgar_comments">
+                    </v-switch>
+                </div>
+                <div class="settings__item settings__item--switch">
+                    <label class="settings__item-heading" for="mute_abusive_discriminatory_prejudiced_comments">
+                        ネガティブな表現、差別的な表現、政治的に偏った表現を含むコメントをミュートする
+                    </label>
+                    <label class="settings__item-label" for="mute_abusive_discriminatory_prejudiced_comments">
+                        『死ね』『殺す』などのネガティブな表現、特定の国や人々への差別的な表現、政治的に偏った表現を含むコメントを、一括でミュートするかを設定します。<br>
+                    </label>
+                    <v-switch class="settings__item-switch" id="mute_abusive_discriminatory_prejudiced_comments" inset hide-details
+                        v-model="settingsStore.settings.mute_abusive_discriminatory_prejudiced_comments">
+                    </v-switch>
+                </div>
+                <div class="settings__item settings__item--switch">
+                    <label class="settings__item-heading" for="mute_big_size_comments">
+                        文字サイズが大きいコメントをミュートする
+                    </label>
+                    <label class="settings__item-label" for="mute_big_size_comments">
+                        通常より大きい文字サイズで表示されるコメントを、一括でミュートするかを設定します。<br>
+                        文字サイズが大きいコメントには迷惑なコメントが多いです。基本的にはオンにしておくのがおすすめです。<br>
+                    </label>
+                    <v-switch class="settings__item-switch" id="mute_big_size_comments" inset hide-details
+                        v-model="settingsStore.settings.mute_big_size_comments">
+                    </v-switch>
+                </div>
+                <div class="settings__item settings__item--switch">
+                    <label class="settings__item-heading" for="mute_fixed_comments">
+                        映像の上下に固定表示されるコメントをミュートする
+                    </label>
+                    <label class="settings__item-label" for="mute_fixed_comments">
+                        映像の上下に固定された状態で表示されるコメントを、一括でミュートするかを設定します。<br>
+                        固定表示されるコメントが煩わしい方におすすめです。<br>
+                    </label>
+                    <v-switch class="settings__item-switch" id="mute_fixed_comments" inset hide-details
+                        v-model="settingsStore.settings.mute_fixed_comments">
+                    </v-switch>
+                </div>
+                <div class="settings__item settings__item--switch">
+                    <label class="settings__item-heading" for="mute_colored_comments">
+                       色付きのコメントをミュートする
+                    </label>
+                    <label class="settings__item-label" for="mute_colored_comments">
+                        白以外の色で表示される色付きのコメントを、一括でミュートするかを設定します。<br>
+                        この設定をオンにしておくと、目立つ色のコメントを一掃できます。<br>
+                    </label>
+                    <v-switch class="settings__item-switch" id="mute_colored_comments" inset hide-details
+                        v-model="settingsStore.settings.mute_colored_comments">
+                    </v-switch>
+                </div>
+                <div class="settings__item settings__item--switch">
+                    <label class="settings__item-heading" for="mute_consecutive_same_characters_comments">
+                        8文字以上同じ文字が連続しているコメントをミュートする
+                    </label>
+                    <label class="settings__item-label" for="mute_consecutive_same_characters_comments">
+                        『wwwwwwwwwww』『あばばばばばばばばば』など、8文字以上同じ文字が連続しているコメントを、一括でミュートするかを設定します。<br>
+                        しばしばあるテンプレコメントが煩わしい方におすすめです。<br>
+                    </label>
+                    <v-switch class="settings__item-switch" id="mute_consecutive_same_characters_comments" inset hide-details
+                        v-model="settingsStore.settings.mute_consecutive_same_characters_comments">
+                    </v-switch>
+                </div>
                 <div class="text-subtitle-1 d-flex align-center font-weight-bold mt-4">
                     <Icon icon="fluent:comment-dismiss-20-filled" width="24px" />
                     <span class="ml-2 mr-2">ミュート済みのキーワード</span>
@@ -59,80 +133,6 @@
                             <Icon icon="fluent:delete-16-filled" width="20px" />
                         </button>
                     </div>
-                </div>
-                <div class="text-subtitle-1 d-flex align-center font-weight-bold mt-4">
-                    <Icon icon="fa-solid:sliders-h" width="24px" height="20px" />
-                    <span class="ml-2">クイック設定</span>
-                </div>
-                <div class="settings__item settings__item--switch">
-                    <label class="settings__item-heading" for="mute_vulgar_comments">
-                        露骨な表現を含むコメントをミュートする
-                    </label>
-                    <label class="settings__item-label" for="mute_vulgar_comments">
-                        性的な単語などの露骨・下品な表現を含むコメントを、一括でミュートするかを設定します。<br>
-                    </label>
-                    <v-switch class="settings__item-switch" id="mute_vulgar_comments" inset hide-details
-                        v-model="settingsStore.settings.mute_vulgar_comments">
-                    </v-switch>
-                </div>
-                <div class="settings__item settings__item--switch">
-                    <label class="settings__item-heading" for="mute_abusive_discriminatory_prejudiced_comments">
-                        罵倒や誹謗中傷、差別的な表現、政治的に偏った表現を含むコメントをミュートする
-                    </label>
-                    <label class="settings__item-label" for="mute_abusive_discriminatory_prejudiced_comments">
-                        『死ね』『殺す』などの罵倒や誹謗中傷、特定の国や人々への差別的な表現、政治的に偏った表現を含むコメントを、一括でミュートするかを設定します。<br>
-                    </label>
-                    <v-switch class="settings__item-switch" id="mute_abusive_discriminatory_prejudiced_comments" inset hide-details
-                        v-model="settingsStore.settings.mute_abusive_discriminatory_prejudiced_comments">
-                    </v-switch>
-                </div>
-                <div class="settings__item settings__item--switch">
-                    <label class="settings__item-heading" for="mute_big_size_comments">
-                        文字サイズが大きいコメントをミュートする
-                    </label>
-                    <label class="settings__item-label" for="mute_big_size_comments">
-                        通常より大きい文字サイズで表示されるコメントを、一括でミュートするかを設定します。<br>
-                        文字サイズが大きいコメントには迷惑なコメントが多いです。基本的にはオンにしておくことをおすすめします。<br>
-                    </label>
-                    <v-switch class="settings__item-switch" id="mute_big_size_comments" inset hide-details
-                        v-model="settingsStore.settings.mute_big_size_comments">
-                    </v-switch>
-                </div>
-                <div class="settings__item settings__item--switch">
-                    <label class="settings__item-heading" for="mute_fixed_comments">
-                        映像の上下に固定表示されるコメントをミュートする
-                    </label>
-                    <label class="settings__item-label" for="mute_fixed_comments">
-                        映像の上下に固定された状態で表示されるコメントを、一括でミュートするかを設定します。<br>
-                        固定表示されるコメントが煩わしいと感じる方は、オンにしておくことをおすすめします。<br>
-                    </label>
-                    <v-switch class="settings__item-switch" id="mute_fixed_comments" inset hide-details
-                        v-model="settingsStore.settings.mute_fixed_comments">
-                    </v-switch>
-                </div>
-                <div class="settings__item settings__item--switch">
-                    <label class="settings__item-heading" for="mute_colored_comments">
-                       色付きのコメントをミュートする
-                    </label>
-                    <label class="settings__item-label" for="mute_colored_comments">
-                        白以外の色で表示される色付きのコメントを、一括でミュートするかを設定します。<br>
-                        この設定をオンにしておくと、目立つ色のコメントを一掃できます。<br>
-                    </label>
-                    <v-switch class="settings__item-switch" id="mute_colored_comments" inset hide-details
-                        v-model="settingsStore.settings.mute_colored_comments">
-                    </v-switch>
-                </div>
-                <div class="settings__item settings__item--switch">
-                    <label class="settings__item-heading" for="mute_consecutive_same_characters_comments">
-                        8文字以上同じ文字が連続しているコメントをミュートする
-                    </label>
-                    <label class="settings__item-label" for="mute_consecutive_same_characters_comments">
-                        『wwwwwwwwwww』『あばばばばばばばばば』など、8文字以上同じ文字が連続しているコメントを、一括でミュートするかを設定します。<br>
-                        しばしばあるテンプレコメントが煩わしいと感じる方は、オンにしておくことをおすすめします。<br>
-                    </label>
-                    <v-switch class="settings__item-switch" id="mute_consecutive_same_characters_comments" inset hide-details
-                        v-model="settingsStore.settings.mute_consecutive_same_characters_comments">
-                    </v-switch>
                 </div>
             </div>
         </v-card>

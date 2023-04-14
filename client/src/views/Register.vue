@@ -64,7 +64,7 @@ export default Vue.extend({
                 return true;
             },
             password: null as string | null,
-            password_showing: true,  // アカウント作成時は既定でパスワードを表示する
+            password_showing: true,  // アカウント作成時はデフォルトでパスワードを表示する
             password_validation: (value: string | null) => {
                 if (value === '' || value === null) return 'パスワードを入力してください。';
                 // 正規表現の参考: https://qiita.com/grrrr/items/0b35b5c1c98eebfa5128

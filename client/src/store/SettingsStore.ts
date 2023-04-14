@@ -101,7 +101,7 @@ const default_settings: ISettings = {
 
     // ***** 設定 → 全般 *****
 
-    // テレビのストリーミング画質 (Default: 1080p) (同期無効)
+    // テレビのデフォルトのストリーミング画質 (Default: 1080p) (同期無効)
     tv_streaming_quality: '1080p',
     // テレビを通信節約モードで視聴する (Default: オフ) (同期無効)
     tv_data_saver_mode: false,
@@ -109,9 +109,9 @@ const default_settings: ISettings = {
     tv_low_latency_mode: true,
     // テレビをみるときに文字スーパーを表示する (Default: 表示する)
     tv_show_superimpose: true,
-    // 既定のパネルの表示状態 (Default: 前回の状態を復元する)
+    // デフォルトのパネルの表示状態 (Default: 前回の状態を復元する)
     panel_display_state: 'RestorePreviousState',
-    // テレビをみるときに既定で表示されるパネルのタブ (Default: 番組情報タブ)
+    // テレビをみるときにデフォルトで表示されるパネルのタブ (Default: 番組情報タブ)
     tv_panel_active_tab: 'Program',
     // 字幕のフォント (Default: Windows TV 丸ゴシック)
     caption_font: 'Windows TV MaruGothic',
@@ -163,13 +163,13 @@ const default_settings: ISettings = {
 
     // ***** 設定 → Twitter *****
 
-    // ツイート送信後にパネルを閉じる (Default: オフ)
+    // ツイート送信後にパネルを折りたたむ (Default: オフ)
     fold_panel_after_sending_tweet: false,
     // 番組が切り替わったときにハッシュタグフォームをリセットする (Default: オン)
     reset_hashtag_when_program_switches: true,
-    // 視聴中のチャンネルに対応する局タグを自動的に追加する (Default: オン)
+    // 視聴中のチャンネルに対応する局タグを自動で追加する (Default: オン)
     auto_add_watching_channel_hashtag: true,
-    // 既定で表示される Twitter タブ内のタブ (Default: キャプチャタブ)
+    // デフォルトで表示される Twitter タブ内のタブ (Default: キャプチャタブ)
     twitter_active_tab: 'Capture',
     // ツイートにつけるハッシュタグの位置 (Default: ツイート本文の後に追加する)
     tweet_hashtag_position: 'Append',

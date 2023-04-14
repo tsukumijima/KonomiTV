@@ -43,9 +43,10 @@
                 </v-btn>
             </div>
             <div class="settings__item settings__item--switch">
-                <label class="settings__item-heading" for="fold_panel_after_sending_tweet">ツイート送信後にパネルを閉じる</label>
+                <label class="settings__item-heading" for="fold_panel_after_sending_tweet">ツイート送信後にパネルを折りたたむ</label>
                 <label class="settings__item-label" for="fold_panel_after_sending_tweet">
-                    ツイートを送信した後に、表示中のパネルを閉じる（折りたたむ）かを設定します。<br>
+                    この設定をオンにすると、ツイートを送信した後に、パネルが自動で折りたたまれます。<br>
+                    ツイートするとき以外はできるだけ映像を大きくして見たい方におすすめです。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="fold_panel_after_sending_tweet" inset hide-details
                     v-model="settingsStore.settings.fold_panel_after_sending_tweet">
@@ -62,9 +63,9 @@
                 </v-switch>
             </div>
             <div class="settings__item settings__item--switch">
-                <label class="settings__item-heading" for="auto_add_watching_channel_hashtag">視聴中のチャンネルに対応する局タグを自動的に追加する</label>
+                <label class="settings__item-heading" for="auto_add_watching_channel_hashtag">視聴中のチャンネルに対応する局タグを自動で追加する</label>
                 <label class="settings__item-label" for="auto_add_watching_channel_hashtag">
-                    ハッシュタグフォームに、視聴中のチャンネルに対応する局タグ (#nhk, #tokyomx など) を自動的に追加するかを設定します。<br>
+                    この設定をオンにすると、視聴中のチャンネルに対応する局タグ (#nhk, #tokyomx など) がハッシュタグフォームに自動で追加されます。<br>
                     現時点で、局タグは三大首都圏の地上波・BS の一部チャンネル・AT-X にのみ対応しています。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="auto_add_watching_channel_hashtag" inset hide-details
@@ -72,7 +73,7 @@
                 </v-switch>
             </div>
             <div class="settings__item">
-                <div class="settings__item-heading">既定で表示される Twitter タブ内のタブ</div>
+                <div class="settings__item-heading">デフォルトで表示される Twitter タブ内のタブ</div>
                 <div class="settings__item-label">
                     視聴画面を開いたときに、パネルの Twitter タブの中で最初に表示されるタブを設定します。<br>
                 </div>
@@ -92,7 +93,8 @@
             <div class="settings__item">
                 <div class="settings__item-heading">ツイートするキャプチャに番組タイトルの透かしを描画する</div>
                 <div class="settings__item-label">
-                    ツイートするキャプチャに、視聴中の番組タイトルの透かしを描画するかを設定します。<br>
+                    ツイートするキャプチャに、透かしとして視聴中の番組タイトルを描画するかを設定します。<br>
+                    透かしの描画位置は 左上・右上・左下・右下 から選択できます。<br>
                 </div>
                 <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
                     :items="tweet_capture_watermark_position" v-model="settingsStore.settings.tweet_capture_watermark_position">
@@ -123,7 +125,7 @@ export default Vue.extend({
             // フォームを小さくするかどうか
             is_form_dense: Utils.isSmartphoneHorizontal(),
 
-            // 既定で表示されるパネルのタブの選択肢
+            // デフォルトで表示されるパネルのタブの選択肢
             twitter_active_tab: [
                 {'text': 'ツイート検索タブ', 'value': 'Search'},
                 {'text': 'タイムラインタブ', 'value': 'Timeline'},

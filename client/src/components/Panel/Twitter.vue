@@ -230,7 +230,7 @@ export default Vue.extend({
             // ハッシュタグリストを表示しているか
             is_hashtag_list_display: false,
 
-            // 既定で表示される Twitter タブ内のタブ
+            // デフォルトで表示される Twitter タブ内のタブ
             twitter_active_tab: useSettingsStore().settings.twitter_active_tab,
 
             // キャプチャを拡大表示するモーダルの表示状態
@@ -604,7 +604,7 @@ export default Vue.extend({
                 }
             }
 
-            // 設定でオンになっている場合のみ、視聴中チャンネルの局タグを自動的に追加する (ハッシュタグリスト内のハッシュタグは除外)
+            // 設定でオンになっている場合のみ、視聴中チャンネルの局タグを自動で追加する (ハッシュタグリスト内のハッシュタグは除外)
             if (this.settingsStore.settings.auto_add_watching_channel_hashtag === true && from_hashtag_list === false) {
                 const channel_hashtag = this.getChannelHashtag(this.channelsStore.channel.current.channel_name);
                 if (channel_hashtag !== null) {

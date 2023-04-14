@@ -10,9 +10,9 @@
         </h2>
         <div class="settings__content">
             <div class="settings__item settings__item--sync-disabled">
-                <div class="settings__item-heading">テレビのストリーミング画質</div>
+                <div class="settings__item-heading">テレビのデフォルトのストリーミング画質</div>
                 <div class="settings__item-label">
-                    テレビをライブストリーミングするときの既定の画質を設定します。<br>
+                    テレビをライブストリーミングするときのデフォルトの画質を設定します。<br>
                     ストリーミング画質はプレイヤーの設定からいつでも切り替えられます。<br>
                 </div>
                 <div class="settings__item-label">
@@ -27,7 +27,6 @@
                 :class="{'settings__item--disabled': PlayerUtils.isHEVCVideoSupported() === false}">
                 <label class="settings__item-heading" for="tv_data_saver_mode">テレビを通信節約モードで視聴する</label>
                 <label class="settings__item-label" for="tv_data_saver_mode">
-                    テレビをライブストリーミングするときに、通信節約モードで視聴するかを設定します。<br>
                     通信節約モードでは、H.265 / HEVC という圧縮率の高いコーデックを使い、画質はほぼそのまま、通信量を通常の 2/3 程度に抑えながら視聴できます。ただし、再生負荷が高くなります。<br>
                     通信節約モードで視聴するときは、QSVEncC などのハードウェアエンコーダーの利用をおすすめします。FFmpeg (ソフトウェアエンコーダー) ではまともに再生できない可能性が高いです。<br>
                 </label>
@@ -38,10 +37,9 @@
             <div class="settings__item settings__item--switch settings__item--sync-disabled">
                 <label class="settings__item-heading" for="tv_low_latency_mode">テレビを低遅延で視聴する</label>
                 <label class="settings__item-label" for="tv_low_latency_mode">
-                    テレビをライブストリーミングするときに、低遅延で視聴するかを設定します。<br>
-                    低遅延ストリーミングがオンのときは、放送波との遅延を最短 0.7 秒に抑えて視聴できます。<br>
+                    低遅延ストリーミングをオンにすると、<b>放送波との遅延を最短 0.7 秒に抑えて視聴できます。</b><br>
                     また、約 3 秒以上遅延したときに少しだけ再生速度を早める (1.1x) ことで、滑らかにストリーミングの遅れを取り戻します。<br>
-                    宅外視聴などのネットワークが不安定になりがちな環境では、一度低遅延ストリーミングをオフにしてみると、映像のカクつきを改善できるかもしれません。<br>
+                    宅外視聴などのネットワークが不安定になりがちな環境では、低遅延ストリーミングをオフにしてみると、映像のカクつきを改善できるかもしれません。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="tv_low_latency_mode" inset hide-details
                     v-model="settingsStore.settings.tv_low_latency_mode">
@@ -50,8 +48,7 @@
             <div class="settings__item settings__item--switch">
                 <label class="settings__item-heading" for="tv_show_superimpose">テレビをみるときに文字スーパーを表示する</label>
                 <label class="settings__item-label" for="tv_show_superimpose">
-                    テレビをライブストリーミングするときに、文字スーパーを表示するかを設定します。<br>
-                    文字スーパーは、緊急地震速報の赤テロップや、NHK BS のニュース速報のテロップなどで利用されています。とくに理由がなければ、オンのままにしておくことをおすすめします。<br>
+                    文字スーパーは、緊急地震速報の赤テロップや、NHK BS のニュース速報のテロップなどで利用されています。とくに理由がなければ、オンにしておくのがおすすめです。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="tv_show_superimpose" inset hide-details
                     v-model="settingsStore.settings.tv_show_superimpose">
@@ -59,7 +56,7 @@
             </div>
             <v-divider class="mt-6"></v-divider>
             <div class="settings__item">
-                <div class="settings__item-heading">既定のパネルの表示状態</div>
+                <div class="settings__item-heading">デフォルトのパネルの表示状態</div>
                 <div class="settings__item-label">
                     視聴画面を開いたときに、右側のパネルをどう表示するかを設定します。<br>
                 </div>
@@ -68,7 +65,7 @@
                 </v-select>
             </div>
             <div class="settings__item">
-                <div class="settings__item-heading">テレビをみるときに既定で表示されるパネルのタブ</div>
+                <div class="settings__item-heading">テレビをみるときにデフォルトで表示されるパネルのタブ</div>
                 <div class="settings__item-label">
                     テレビの視聴画面を開いたときに、右側のパネルで最初に表示されるタブを設定します。<br>
                 </div>
@@ -87,11 +84,10 @@
                 </v-select>
             </div>
             <div class="settings__item settings__item--switch">
-                <label class="settings__item-heading" for="always_border_caption_text">字幕の文字を常に縁取って描画する</label>
+                <label class="settings__item-heading" for="always_border_caption_text">字幕の文字を常に縁取りする</label>
                 <label class="settings__item-label" for="always_border_caption_text">
-                    プレイヤーで字幕表示をオンにしているときに、字幕の文字を常に縁取って描画するかを設定します。<br>
-                    字幕は縁取られていた方が視認性が良く、見た目的にもきれいです。とくに理由がなければ、オンのままにしておくことをおすすめします。<br>
-                    この設定をオフにしているときも、字幕データ側で明示的に縁取りするように指定されていれば、オンにしているとき同様に文字が縁取られて描画されます。<br>
+                    字幕表示時、縁取りをオンにすると、字幕が見やすくきれいになります。とくに理由がなければ、オンにしておくのがおすすめです。<br>
+                    この設定がオフのときも、字幕データ側で縁取りが指定されていれば、オンのときと同様に縁取り付きで描画されます。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="always_border_caption_text" inset hide-details
                     v-model="settingsStore.settings.always_border_caption_text">
@@ -100,8 +96,8 @@
             <div class="settings__item settings__item--switch">
                 <label class="settings__item-heading" for="specify_caption_background_color">字幕の背景色を指定する</label>
                 <label class="settings__item-label" for="specify_caption_background_color">
-                    プレイヤーで字幕表示をオンにしているときに、字幕の背景色を明示的に指定するかを設定します。<br>
-                    この設定をオフにしているときは、字幕データ側で指定されている背景色で描画します。とくに理由がなければ、オフのままにしておくことをおすすめします。<br>
+                    字幕表示時、背景色を自分で指定するか設定できます。<br>
+                    この設定をオフのときは、字幕データ側で指定されている背景色で描画します。とくに理由がなければ、オフにしておくのがおすすめです。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="specify_caption_background_color" inset hide-details
                     v-model="settingsStore.settings.specify_caption_background_color">
@@ -110,7 +106,6 @@
             <div class="settings__item" :class="{'settings__item--disabled': settingsStore.settings.specify_caption_background_color === false}">
                 <label class="settings__item-heading">字幕の背景色</label>
                 <label class="settings__item-label">
-                    プレイヤーで字幕表示をオンにしているときの、字幕の背景色を設定します。<br>
                     上の [字幕の背景色を指定する] をオンにしているときのみ有効です。透明度 (アルファチャンネル) を 0 に設定すれば、字幕の背景を非表示にできます。<br>
                 </label>
                 <div class="settings__item-label" ref="caption_background_color">
@@ -124,8 +119,8 @@
             <div class="settings__item settings__item--switch settings__item--sync-disabled">
                 <label class="settings__item-heading" for="capture_copy_to_clipboard">キャプチャをクリップボードにコピーする</label>
                 <label class="settings__item-label" for="capture_copy_to_clipboard">
-                    プレイヤーでキャプチャを撮ったときに、撮ったキャプチャをクリップボードにもコピーするかを設定します。<br>
-                    クリップボードの履歴をサポートしていない OS では、この設定をオンにした状態でキャプチャを撮ると、以前のクリップボードが上書きされます。注意してください。<br>
+                    この設定をオンにすると、撮ったキャプチャ画像がクリップボードにもコピーされます。<br>
+                    クリップボードの履歴をサポートしていない OS では、この設定をオンにしてキャプチャを撮ると、以前のクリップボードが上書きされます。注意してください。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="capture_copy_to_clipboard" inset hide-details
                     v-model="settingsStore.settings.capture_copy_to_clipboard">
@@ -152,11 +147,11 @@
                 </v-select>
             </div>
             <div class="settings__item">
-                <div class="settings__item-heading">字幕が表示されているときのキャプチャの保存モード</div>
+                <div class="settings__item-heading">字幕表示時のキャプチャの保存モード</div>
                 <div class="settings__item-label">
-                    字幕が表示されているときに、キャプチャした画像に字幕を合成するかを設定します。<br>
+                    字幕表示時、キャプチャした画像に字幕を合成するかを設定します。<br>
                     映像のみのキャプチャと、字幕を合成したキャプチャを両方同時に保存することもできます。<br>
-                    なお、字幕が表示されていない場合は、常に映像のみ (+コメント付きキャプチャではコメントを合成して) 保存されます。<br>
+                    なお、字幕非表示時は、常に映像のみ (+コメント付きキャプチャではコメントを合成して) 保存されます。<br>
                 </div>
                 <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
                     :items="capture_caption_mode" v-model="settingsStore.settings.capture_caption_mode">
@@ -228,7 +223,7 @@ export default Vue.extend({
             // フォームを小さくするかどうか
             is_form_dense: Utils.isSmartphoneHorizontal(),
 
-            // テレビのストリーミング画質の選択肢
+            // テレビのデフォルトのストリーミング画質の選択肢
             tv_streaming_quality: [
                 {'text': '1080p (60fps) （約3.24GB/h / 平均7.2Mbps）', 'value': '1080p-60fps'},
                 {'text': '1080p （約2.31GB/h / 平均5.1Mbps）', 'value': '1080p'},
@@ -240,14 +235,14 @@ export default Vue.extend({
                 {'text': '240p （約0.23GB/h / 平均0.5Mbps）', 'value': '240p'},
             ],
 
-            // 既定のパネルの表示状態の選択肢
+            // デフォルトのパネルの表示状態の選択肢
             panel_display_state: [
                 {'text': '前回の状態を復元する', 'value': 'RestorePreviousState'},
                 {'text': '常に表示する', 'value': 'AlwaysDisplay'},
                 {'text': '常に折りたたむ', 'value': 'AlwaysFold'},
             ],
 
-            // テレビをみるときに既定で表示されるパネルのタブの選択肢
+            // テレビをみるときにデフォルトで表示されるパネルのタブの選択肢
             tv_panel_active_tab: [
                 {'text': '番組情報タブ', 'value': 'Program'},
                 {'text': 'チャンネルタブ', 'value': 'Channel'},

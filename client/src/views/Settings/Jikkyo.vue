@@ -49,7 +49,7 @@
             <div class="settings__item mt-7">
                 <div class="settings__item-heading">コメントのミュート設定</div>
                 <div class="settings__item-label">
-                    表示したくないコメントを、画面やコメントリストに表示しないようにミュートできます。<br>
+                    表示したくないコメントを、映像上やコメントリストに表示しないようにミュートできます。<br>
                 </div>
             </div>
             <v-btn class="settings__save-button mt-4" depressed @click="comment_mute_settings_modal = !comment_mute_settings_modal">
@@ -70,7 +70,7 @@
                 <div class="settings__item-heading">コメントの文字サイズ</div>
                 <div class="settings__item-label">
                     プレイヤーに流れるコメントの文字サイズの基準値を設定します。<br>
-                    実際の文字サイズは画面の大きさに合わせて調整されます。既定の文字サイズは 34px です。<br>
+                    実際の文字サイズは画面サイズに合わせて調整されます。デフォルトの文字サイズは 34px です。<br>
                 </div>
                 <v-slider class="settings__item-form" ticks="always" thumb-label hide-details
                     :min="20" :max="60" v-model="settingsStore.settings.comment_font_size">
@@ -79,8 +79,8 @@
             <div class="settings__item settings__item--switch">
                 <label class="settings__item-heading" for="close_comment_form_after_sending">コメント送信後にコメント入力フォームを閉じる</label>
                 <label class="settings__item-label" for="close_comment_form_after_sending">
-                    コメントを送信したあとに、コメント入力フォームを自動的に閉じるかを設定します。<br>
-                    基本的にはオンのままにしておくことをおすすめします。コメント入力フォームが表示されたままだと、大部分のショートカットキーが文字入力と競合して使えないためです。<br>
+                    この設定をオンにすると、コメントを送信した後に、コメント入力フォームが自動で閉じるようになります。<br>
+                    コメント入力フォームが表示されたままだと、大半のショートカットキーが文字入力と競合して使えなくなります。とくに理由がなければ、オンにしておくのがおすすめです。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="close_comment_form_after_sending" inset hide-details
                     v-model="settingsStore.settings.close_comment_form_after_sending">

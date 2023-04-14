@@ -85,9 +85,9 @@
                 <div class="settings__item settings__item--switch">
                     <label class="settings__item-heading" for="sync_settings">設定をデバイス間で同期する</label>
                     <label class="settings__item-label" for="sync_settings">
-                        KonomiTV の設定を、同じアカウントにログインしているデバイス同士で同期するかを設定します。<br>
-                        同期を有効にすると、同期が有効なデバイスすべてで同じ設定が使えます。ピン留めしたチャンネルやハッシュタグリストなども同期されます。<br>
-                        ストリーミング画質やコメントの遅延時間など、デバイスごとに最適な設定が異なるものは、同期を有効にしたあとも引き続きこのデバイス（ブラウザ）のみに反映されます。<br>
+                        KonomiTV では、設定を同じアカウントでログインしているデバイス間で同期できます。<br>
+                        同期をオンにすると、同期をオンにしているすべてのデバイスで共通の設定が使えます。ピン留めチャンネルやハッシュタグリストなども同期されます。<br>
+                        ただし、デバイス固有の設定（画質設定など）は、同期後も各デバイスで個別に反映されます。<br>
                     </label>
                     <v-switch class="settings__item-switch" id="sync_settings" inset hide-details
                         v-model="sync_settings">
@@ -137,7 +137,7 @@
                     <div class="settings__item-heading">アイコン画像</div>
                     <div class="settings__item-label">
                         KonomiTV アカウントのアイコン画像を設定します。<br>
-                        アップロードされた画像は自動的に 400×400 の正方形にリサイズされます。<br>
+                        アップロードされた画像は自動で 400×400 の正方形にリサイズされます。<br>
                     </div>
                     <v-file-input class="settings__item-form" outlined hide-details placeholder="アイコン画像を選択"
                         :dense="is_form_dense"
@@ -172,7 +172,7 @@
                     <div class="settings__item-heading error--text text--lighten-1">アカウントを削除</div>
                     <div class="settings__item-label">
                         現在ログインしている KonomiTV アカウントを削除します。<br>
-                        アカウントに紐づくすべてのデータが削除されます。元に戻すことはできません。<br>
+                        <b>アカウントに紐づくすべてのデータが削除されます。</b>元に戻すことはできません。<br>
                     </div>
                 </div>
                 <v-dialog max-width="385" v-model="account_delete_confirm_dialog">
@@ -232,7 +232,7 @@ export default Vue.extend({
                 return true;
             },
             settings_password: null as string | null,
-            settings_password_showing: true,  // アカウント情報変更時は既定でパスワードを表示する
+            settings_password_showing: true,  // アカウント情報変更時はデフォルトでパスワードを表示する
             settings_password_validation: (value: string | null) => {
                 if (value === '' || value === null) return 'パスワードを入力してください。';
                 // 正規表現の参考: https://qiita.com/grrrr/items/0b35b5c1c98eebfa5128
