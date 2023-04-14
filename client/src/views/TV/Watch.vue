@@ -68,9 +68,11 @@
                     'watch-player--loading': is_loading,
                     'watch-player--virtual-keyboard-display': is_virtual_keyboard_display && Utils.hasActiveElementClass('dplayer-comment-input'),
                 }">
-                    <div class="watch-player__background" :class="{'watch-player__background--display': is_background_display}"
-                        :style="{backgroundImage: `url(${background_url})`}">
-                        <img class="watch-player__background-logo" src="/assets/images/logo.svg">
+                    <div class="watch-player__background-wrapper">
+                        <div class="watch-player__background" :class="{'watch-player__background--display': is_background_display}"
+                            :style="{backgroundImage: `url(${background_url})`}">
+                            <img class="watch-player__background-logo" src="/assets/images/logo.svg">
+                        </div>
                     </div>
                     <v-progress-circular indeterminate size="60" width="6" class="watch-player__buffering"
                         :class="{'watch-player__buffering--display': is_video_buffering && (is_loading || (player !== null && !player.video.paused))}">
@@ -2839,50 +2841,57 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 aspect-ratio: 16 / 9;
             }
 
-            .watch-player__background {
+            .watch-player__background-wrapper {
                 position: absolute;
-                top: 50%;
-                left: 50%;
-                padding-top: min(56.25%, 100vh);
-                padding-top: min(56.25%, 100dvh);
-                aspect-ratio: 16 / 9;
-                background-blend-mode: overlay;
-                background-color: rgba(14, 14, 18, 0.35);
-                background-size: cover;
-                background-image: none;
-                transform: translate(-50%, -50%);
-                opacity: 0;
-                visibility: hidden;
-                transition: opacity 0.4s cubic-bezier(0.4, 0.38, 0.49, 0.94), visibility 0.4s cubic-bezier(0.4, 0.38, 0.49, 0.94);
-                will-change: opacity;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
 
-                &--display {
-                    opacity: 1;
-                    visibility: visible;
-                }
+                .watch-player__background {
+                    position: relative;
+                    top: 50%;
+                    left: 50%;
+                    max-height: 100%;
+                    aspect-ratio: 16 / 9;
+                    transform: translate(-50%, -50%);
+                    background-blend-mode: overlay;
+                    background-color: rgba(14, 14, 18, 0.35);
+                    background-size: cover;
+                    background-image: none;
+                    opacity: 0;
+                    visibility: hidden;
+                    transition: opacity 0.4s cubic-bezier(0.4, 0.38, 0.49, 0.94), visibility 0.4s cubic-bezier(0.4, 0.38, 0.49, 0.94);
+                    will-change: opacity;
 
-                .watch-player__background-logo {
-                    display: inline-block;
-                    position: absolute;
-                    height: 34px;
-                    right: 56px;
-                    bottom: 44px;
-                    filter: drop-shadow(0px 0px 5px var(--v-black-base));
-
-                    @include tablet-horizontal {
-                        height: 30px;
-                        right: 34px;
-                        bottom: 30px;
+                    &--display {
+                        opacity: 1;
+                        visibility: visible;
                     }
-                    @include smartphone-horizontal {
-                        height: 25px;
-                        right: 30px;
-                        bottom: 24px;
-                    }
-                    @include smartphone-vertical {
-                        height: 22px;
-                        right: 30px;
-                        bottom: 24px;
+
+                    .watch-player__background-logo {
+                        display: inline-block;
+                        position: absolute;
+                        height: 34px;
+                        right: 56px;
+                        bottom: 44px;
+                        filter: drop-shadow(0px 0px 5px var(--v-black-base));
+
+                        @include tablet-horizontal {
+                            height: 30px;
+                            right: 34px;
+                            bottom: 30px;
+                        }
+                        @include smartphone-horizontal {
+                            height: 25px;
+                            right: 30px;
+                            bottom: 24px;
+                        }
+                        @include smartphone-vertical {
+                            height: 22px;
+                            right: 30px;
+                            bottom: 24px;
+                        }
                     }
                 }
             }
