@@ -36,7 +36,9 @@ class LiveEncodingTask:
     ENCODER_TS_READ_TIMEOUT_STANDBY = 20
 
     # エンコーダーの出力を読み取る際のタイムアウト (ONAir 時) (秒)
+    # VCEEncC 利用時のみ起動時に OpenCL シェーダーがコンパイルされる関係で起動が遅いため、10 秒に設定
     ENCODER_TS_READ_TIMEOUT_ONAIR = 5
+    ENCODER_TS_READ_TIMEOUT_ONAIR_VCEENCC = 10
 
 
     def __init__(self, livestream: LiveStream) -> None:
@@ -1050,9 +1052,11 @@ class LiveEncodingTask:
                 # 現在 ONAir でかつストリームデータの最終書き込み時刻から
                 # ENCODER_TS_READ_TIMEOUT_ONAIR 秒以上が経過している場合も、エンコーダーがフリーズしたものとみなす
                 ## 何らかの理由でエンコードが途中で停止した場合、livestream.write() が実行されなくなることを利用している
+                encoder_ts_read_timeout_onair = \
+                    self.ENCODER_TS_READ_TIMEOUT_ONAIR_VCEENCC if encoder_type == 'VCEEncC' else self.ENCODER_TS_READ_TIMEOUT_ONAIR
                 stream_data_last_write_time = time.time() - self.livestream.getStreamDataWrittenAt()
                 if ((livestream_status['status'] == 'Standby' and stream_data_last_write_time > self.ENCODER_TS_READ_TIMEOUT_STANDBY) or
-                    (livestream_status['status'] == 'ONAir' and stream_data_last_write_time > self.ENCODER_TS_READ_TIMEOUT_ONAIR)):
+                    (livestream_status['status'] == 'ONAir' and stream_data_last_write_time > encoder_ts_read_timeout_onair)):
 
                     # 番組名に「放送休止」などが入っている場合、チューナーから出力された放送波 TS に映像/音声ストリームが
                     # 含まれていない可能性が高いので、ここでエンコードタスクを停止する
