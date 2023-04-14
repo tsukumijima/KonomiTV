@@ -280,6 +280,19 @@ const useSettingsStore = defineStore('settings', {
         },
 
         /**
+         * 設定データを初期状態にリセットする
+         */
+        async resetClientSettings(): Promise<void> {
+
+            // デフォルト値の設定データを LocalStorage に保存し、Store の state に反映する
+            setLocalStorageSettings(default_settings);
+            this.settings = default_settings;
+
+            // 設定データをサーバーに同期する
+            await this.syncClientSettingsToServer();
+        },
+
+        /**
          * 設定データのうち、サーバーへの同期対象の設定キーのみで構成されたオブジェクト (IClientSettings と一致する) を返す
          * @returns サーバーへの同期対象の設定キーのみで構成されたオブジェクト
          */
