@@ -44,7 +44,7 @@ const useChannelsStore = defineStore('channels', {
         channel(): {previous: IChannel; current: IChannel; next: IChannel;} {
 
             // チャンネルタイプごとのチャンネル情報リストを取得する (すべてのチャンネルリストから探索するより効率的)
-            const channels: IChannel[] = this.channels_list[ChannelUtils.getChannelType(this.channel_id)];
+            const channels: IChannel[] | undefined = this.channels_list[ChannelUtils.getChannelType(this.channel_id)];
 
             // まだチャンネルリストの更新が終わっていないなどの場合で取得できなかった場合、
             // null を返すと UI 側でのエラー処理が大変なので、暫定的なダミーのチャンネル情報を返す
@@ -61,10 +61,23 @@ const useChannelsStore = defineStore('channels', {
 
             // インデックスが取得できなかった場合も同様に、暫定的なダミーのチャンネル情報を返す
             if (current_channel_index === -1) {
+                const IProgramError = {
+                    ...IChannelDefault.program_present,
+                    channel_id: 'gr999',
+                    title: 'チャンネル情報取得エラー',
+                    description: 'このチャンネル ID のチャンネル情報は存在しません。',
+                }
+                const IChannelError = {
+                    ...IChannelDefault,
+                    channel_id: 'gr999',  // チャンネル情報が存在しないことを示す特殊なチャンネル ID
+                    channel_name: 'ERROR',
+                    program_present: IProgramError,
+                    program_following: IProgramError,
+                }
                 return {
-                    previous: IChannelDefault,
-                    current: IChannelDefault,
-                    next: IChannelDefault,
+                    previous: IChannelError,
+                    current: IChannelError,
+                    next: IChannelError,
                 };
             }
 

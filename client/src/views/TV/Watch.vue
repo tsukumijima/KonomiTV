@@ -472,7 +472,10 @@ export default Vue.extend({
         // destroy() を実行
         // 別のページへ遷移するため、DPlayer のインスタンスを確実に破棄する
         // さもなければ、ブラウザがリロードされるまでバックグラウンドで永遠に再生され続けてしまう
-        this.destroy(true);
+        // 不正な ID のため 404 ページに遷移されるときは実行しない
+        if (this.channelsStore.channel.current.channel_id !== 'gr999') {
+            this.destroy(true);
+        }
 
         // AudioContext のリソースを解放
         if (this.romsounds_context !== null) {
@@ -613,6 +616,12 @@ export default Vue.extend({
 
             // チャンネル ID が未定義なら実行しない（フェイルセーフ）
             if (this.$route.params.channel_id === undefined) {
+                return;
+            }
+
+            // もし現時点でチャンネル ID が gr999 だった場合、チャンネル情報に存在しない不正な ID なので、404 ページにリダイレクト
+            if (this.channelsStore.channel.current.channel_id === 'gr999') {
+                this.$router.push({path: '/not-found/'});
                 return;
             }
 

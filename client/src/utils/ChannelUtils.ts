@@ -13,8 +13,14 @@ export class ChannelUtils {
      * @returns チャンネルタイプ
      */
     static getChannelType(channel_id: string): ChannelType {
-        const result = channel_id.match('(?<channel_type>[a-z]+)[0-9]+').groups.channel_type.toUpperCase();
-        return result as ChannelType;
+        try {
+            const result = channel_id.match('(?<channel_type>[a-z]+)[0-9]+').groups.channel_type.toUpperCase();
+            return result as ChannelType;
+        } catch (e) {
+            // 何かしらエラーが発生したということはチャンネル ID が不正
+            // とりあえずここではエラーにならないよう GR を返す  エラー処理はその後の段階で行われる
+            return 'GR';
+        }
     }
 
 
