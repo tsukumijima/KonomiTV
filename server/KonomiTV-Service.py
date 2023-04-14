@@ -94,12 +94,12 @@ def AddLogOnAsAServicePrivilege(account_name: str) -> None:
                 print('Error: Cannot determine computer name.')
                 return
         account_name = computer_name + '\\' + account_name.lstrip('.\\')
-    account_sid = win32security.LookupAccountName(None, account_name)[0]  # type: ignore
+    account_sid = win32security.LookupAccountName(None, account_name)[0]
 
     # ユーザーアカウントに SeServiceLogonRight 権限を付与
-    policy_handle = win32security.GetPolicyHandle('', win32security.POLICY_ALL_ACCESS)  # type: ignore
-    win32security.LsaAddAccountRights(policy_handle, account_sid, ['SeServiceLogonRight'])  # type: ignore
-    win32security.LsaClose(policy_handle)  # type: ignore
+    policy_handle = win32security.GetPolicyHandle('', win32security.POLICY_ALL_ACCESS)
+    win32security.LsaAddAccountRights(policy_handle, account_sid, ('SeServiceLogonRight',))
+    win32security.LsaClose(policy_handle)
 
 
 class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
@@ -220,7 +220,7 @@ def init():
 
         # サービスを起動
         servicemanager.Initialize()
-        servicemanager.PrepareToHostSingle(KonomiTVServiceFramework)  # type: ignore
+        servicemanager.PrepareToHostSingle(KonomiTVServiceFramework)
         servicemanager.StartServiceCtrlDispatcher()
 
     else:
