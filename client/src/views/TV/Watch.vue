@@ -927,7 +927,7 @@ export default Vue.extend({
                     send: async (options) => {
                         // Comment コンポーネント内のコメント送信メソッドを呼び出す
                         // ref: https://stackoverflow.com/a/65729556/17124142 ($refs への型設定)
-                        await (this.$refs.Comment as InstanceType<typeof Comment>).sendComment(options);
+                        (this.$refs.Comment as InstanceType<typeof Comment>).sendComment(options);
                     },
                 },
                 // プラグイン
@@ -1028,6 +1028,10 @@ export default Vue.extend({
             // 無効化しておかないと、controlDisplayTimer() と競合してしまう
             // 上書き元のコードは https://github.com/tsukumijima/DPlayer/blob/master/src/js/controller.js#L387-L395 にある
             this.player.controller.setAutoHide = (time: number) => {};
+
+            // ニコニコ実況セッションを初期化し、随時コメントを受信できるようにする
+            // 初期化以降の処理はすべて LiveCommentManager に任せる
+            (this.$refs.Comment as InstanceType<typeof Comment>).initSession(this.player, this.channelsStore.channel_id);
 
             // ***** コメント送信時のイベントハンドラー *****
 
@@ -2069,6 +2073,9 @@ export default Vue.extend({
         // 再生セッションを破棄する
         // チャンネルを切り替える際に実行される
         async destroy(is_destroy_player = false, is_zapping_continuously = false) {
+
+            // ニコニコ実況セッションを破棄し、コメント受信を終了する
+            (this.$refs.Comment as InstanceType<typeof Comment>).destroy();
 
             // clearInterval() ですべての setInterval(), setTimeout() の実行を止める
             // clearInterval() と clearTimeout() は中身共通なので問題ない

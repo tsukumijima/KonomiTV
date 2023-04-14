@@ -2,7 +2,7 @@
 import { Buffer } from 'buffer';
 
 import useSettingsStore from '@/store/SettingsStore';
-import Utils from '@/utils';
+
 
 /**
  * コメント周りのユーティリティ
@@ -15,54 +15,63 @@ export class CommentUtils {
     // 「罵倒や差別的な表現を含むコメントをミュートする」のフィルタ正規表現
     static readonly mute_abusive_discriminatory_prejudiced_comments_pattern = new RegExp(Buffer.from('44CCfOOCouOCueODmnzjgqTjgqvjgox844Kk44Op44Gk44GPfOOCpuOCuHzjgqbjg7zjg6h844Km44OofOOCpuODqOOCr3zjgqbjg7J844GN44KC44GEfOOCreODouOCpHzjgq3jg6LjgYR844KtL+ODoC/jg4F844Ks44Kk44K4fO+9tu++nu+9su+9vO++nnzjgqzjgq1844Kr44K5fOOCreODg+OCunzjgY3jgaHjgYzjgYR844Kt44OB44Ks44KkfOOCreODoOODgXzjg4Hjg6fjg7N85Y2D44On44OzfOOBpOOCk+OBvHzjg4Tjg7Pjg5x844ON44OI44Km44OofOOBq+OBoOOBguOBgnzjg4vjg4B8776G776A776efOODkeODvOODqHzjg5Hjg6h844OR44Oo44KvfOOBtuOBo+OBlXzjg5bjg4PjgrV844G244GV44GEfOODluOCteOCpHzjgb7jgazjgZF844Oh44Kv44OpfOODkOOCq3zjg6DjgqvjgaTjgY986bq755Sf44K744Oh44Oz44OIfOaFsOWuieWppnzlrrPlhZB85aSW5a2XfOWnpuWbvXzpn5Plm7186Z+T5LitfOmfk+aXpXzln7rlnLDlpJZ85rCX5oyB44Gh5oKqfOWbveS6pOaWree1tnzmrrp86aCD44GZfOWcqOaXpXzlj4LmlL/mqKl85q2744GtfOawj+OBrXzvvoDvvot85q255YyVfOatueODknzpmpzlrrN85pat5LqkfOS4remfk3zmnJ3prq585b6055So5belfOWjunzml6Xpn5N85pel5bidfOeymOedgHzlj43ml6V86aas6bm/fOeZuumBlHzmnLR85aOy5Zu9fOS4jeW/q3zplpPmipzjgZF86Z2W5Zu9', 'base64').toString());
 
+    // 「8文字以上同じ文字が連続しているコメントをミュートする」のフィルタ正規表現
+    static readonly mute_consecutive_same_characters_comments_pattern = /(.)\1{7,}/;
+
+    // ニコ生の特殊コマンド付きコメントのフィルタ正規表現
+    static readonly special_command_comments_pattern = /\/[a-z]+ /;
+
+    // 迷惑な統計コメントのフィルタ正規表現
+    static readonly annoying_statistical_comments_pattern = /最高\d+米\/|計\d+ＩＤ|総\d+米/;
+
+    // ニコニコの色指定を 16 進数カラーコードに置換するテーブル
+    static readonly color_table: {[key: string]: string} = {
+        'white': '#FFEAEA',
+        'red': '#F02840',
+        'pink': '#FD7E80',
+        'orange': '#FDA708',
+        'yellow': '#FFE133',
+        'green': '#64DD17',
+        'cyan': '#00D4F5',
+        'blue': '#4763FF',
+        'purple': '#D500F9',
+        'black': '#1E1310',
+        'white2': '#CCCC99',
+        'niconicowhite': '#CCCC99',
+        'red2': '#CC0033',
+        'truered': '#CC0033',
+        'pink2': '#FF33CC',
+        'orange2': '#FF6600',
+        'passionorange': '#FF6600',
+        'yellow2': '#999900',
+        'madyellow': '#999900',
+        'green2': '#00CC66',
+        'elementalgreen': '#00CC66',
+        'cyan2': '#00CCCC',
+        'blue2': '#3399FF',
+        'marineblue': '#3399FF',
+        'purple2': '#6633CC',
+        'nobleviolet': '#6633CC',
+        'black2': '#666666',
+    };
+
+
     /**
      * ニコニコの色指定を 16 進数カラーコードに置換する
      * @param color ニコニコの色指定
      * @return 16 進数カラーコード
      */
-    static getCommentColor(color: string): string {
-        const color_table = {
-            'white': '#FFEAEA',
-            'red': '#F02840',
-            'pink': '#FD7E80',
-            'orange': '#FDA708',
-            'yellow': '#FFE133',
-            'green': '#64DD17',
-            'cyan': '#00D4F5',
-            'blue': '#4763FF',
-            'purple': '#D500F9',
-            'black': '#1E1310',
-            'white2': '#CCCC99',
-            'niconicowhite': '#CCCC99',
-            'red2': '#CC0033',
-            'truered': '#CC0033',
-            'pink2': '#FF33CC',
-            'orange2': '#FF6600',
-            'passionorange': '#FF6600',
-            'yellow2': '#999900',
-            'madyellow': '#999900',
-            'green2': '#00CC66',
-            'elementalgreen': '#00CC66',
-            'cyan2': '#00CCCC',
-            'blue2': '#3399FF',
-            'marineblue': '#3399FF',
-            'purple2': '#6633CC',
-            'nobleviolet': '#6633CC',
-            'black2': '#666666',
-        };
-        if (color_table[color] !== undefined) {
-            return color_table[color];
-        } else {
-            return null;
-        }
+    static getCommentColor(color: string): string | null {
+        return this.color_table[color] || null;
     }
+
 
     /**
      * ニコニコの位置指定を DPlayer の位置指定に置換する
      * @param position ニコニコの位置指定
      * @return DPlayer の位置指定
      */
-    static getCommentPosition(position: string): 'top' | 'right' | 'bottom' {
+    static getCommentPosition(position: string): 'top' | 'right' | 'bottom' | null {
         switch (position) {
             case 'ue':
                 return 'top';
@@ -75,15 +84,131 @@ export class CommentUtils {
         }
     }
 
+
+    /**
+     * ニコニコのサイズ指定を DPlayer のサイズ指定に置換する
+     * @param size ニコニコのサイズ指定
+     * @returns DPlayer のサイズ指定
+     */
+    static getCommentSize(size: string): 'big' | 'medium' | 'small' | null {
+        switch (size) {
+            case 'big':
+            case 'medium':
+            case 'small':
+                return size;
+            default:
+                return null;
+        }
+    }
+
+
+    /**
+     * ニコニコのコメントコマンドを解析する
+     * @param comment_mail ニコニコのコメントコマンド
+     * @returns コメントの色、位置、サイズ
+     */
+    static parseCommentCommand(comment_mail: string): {
+        color: string;
+        position: 'top' | 'right' | 'bottom';
+        size: 'big' | 'medium' | 'small';
+    } {
+        let color = '#FFEAEA';
+        let position: 'top' | 'right' | 'bottom' = 'right';
+        let size: 'big' | 'medium' | 'small' = 'medium';
+
+        if (comment_mail !== undefined && comment_mail !== null) {
+            const commands = comment_mail.replace('184', '').split(' ');
+
+            for (const command of commands) {
+                const parsed_color = CommentUtils.getCommentColor(command);
+                const parsed_position = CommentUtils.getCommentPosition(command);
+                const parsed_size = CommentUtils.getCommentSize(command);
+                if (parsed_color !== null) {
+                    color = parsed_color;
+                }
+                if (parsed_position !== null) {
+                    position = parsed_position;
+                }
+                if (parsed_size !== null) {
+                    size = parsed_size;
+                }
+            }
+        }
+
+        return {color, position, size};
+    }
+
+
     /**
      * ミュート対象のコメントかどうかを判断する
      * @param comment コメント
+     * @param color コメントの色
+     * @param position コメントの位置
+     * @param size コメントのサイズ
      * @param user_id コメントを投稿したユーザーの ID
      * @return ミュート対象のコメントなら true を返す
      */
-    static isMutedComment(comment: string, user_id: string): boolean {
+    static isMutedComment(
+        comment: string,
+        color: string,
+        position: 'top' | 'right' | 'bottom',
+        size: 'big' | 'medium' | 'small',
+        user_id: string,
+    ): boolean {
 
         const settings_store = useSettingsStore();
+
+        // ユーザー ID ミュート処理
+        if (settings_store.settings.muted_niconico_user_ids.includes(user_id)) {
+            return true;
+        }
+
+        // ニコ生の特殊コマンド付きコメント (/nicoad, /emotion など) を一括で弾く
+        if (CommentUtils.special_command_comments_pattern.test(comment)) {
+            return true;
+        }
+
+        // 「映像の上下に固定表示されるコメントをミュートする」がオンの場合
+        // コメントの位置が top (上固定) もしくは bottom (下固定) のときは弾く
+        if (settings_store.settings.mute_fixed_comments === true && (position === 'top' || position === 'bottom')) {
+            console.log('[CommentUtils] Muted comment (fixed_comments): ' + comment);
+            return;
+        }
+
+        // 「色付きのコメントをミュートする」がオンの場合
+        // コメントの色が #FFEAEA (デフォルト) 以外のときは弾く
+        if (settings_store.settings.mute_colored_comments === true && color !== '#FFEAEA') {
+            console.log('[CommentUtils] Muted comment (colored_comments): ' + comment);
+            return;
+        }
+
+        // 「文字サイズが大きいコメントをミュートする」がオンの場合
+        // コメントのサイズが big のときは弾く
+        if (settings_store.settings.mute_big_size_comments === true && size === 'big') {
+            console.log('[CommentUtils] Muted comment (big_size_comments): ' + comment);
+            return;
+        }
+
+        // 「露骨な表現を含むコメントをミュートする」がオンの場合
+        if ((settings_store.settings.mute_vulgar_comments === true) &&
+            (CommentUtils.mute_vulgar_comments_pattern.test(comment))) {
+            console.log('[CommentUtils] Muted comment (vulgar_comments): ' + comment);
+            return true;
+        }
+
+        // 「罵倒や差別的な表現を含むコメントをミュートする」がオンの場合
+        if ((settings_store.settings.mute_abusive_discriminatory_prejudiced_comments === true) &&
+            (CommentUtils.mute_abusive_discriminatory_prejudiced_comments_pattern.test(comment))) {
+            console.log('[CommentUtils] Muted comment (abusive_discriminatory_prejudiced_comments): ' + comment);
+            return true;
+        }
+
+        // 「8文字以上同じ文字が連続しているコメントをミュートする」がオンの場合
+        if ((settings_store.settings.mute_consecutive_same_characters_comments === true &&
+            (CommentUtils.mute_consecutive_same_characters_comments_pattern.test(comment)))) {
+            console.log('[CommentUtils] Muted comment (consecutive_same_characters_comments): ' + comment);
+            return true;
+        }
 
         // キーワードミュート処理
         for (const muted_comment_keyword of settings_store.settings.muted_comment_keywords) {
@@ -91,55 +216,60 @@ export class CommentUtils {
             switch (muted_comment_keyword.match) {
                 // 部分一致
                 case 'partial':
-                    if (comment.includes(muted_comment_keyword.pattern)) return true;
+                    if (comment.includes(muted_comment_keyword.pattern)) {
+                        console.log('[CommentUtils] Muted comment (partial): ' + comment);
+                        return true;
+                    }
                     break;
                 // 前方一致
                 case 'forward':
-                    if (comment.startsWith(muted_comment_keyword.pattern)) return true;
+                    if (comment.startsWith(muted_comment_keyword.pattern)) {
+                        console.log('[CommentUtils] Muted comment (forward): ' + comment);
+                        return true;
+                    }
                     break;
                 // 後方一致
                 case 'backward':
-                    if (comment.endsWith(muted_comment_keyword.pattern)) return true;
+                    if (comment.endsWith(muted_comment_keyword.pattern)) {
+                        console.log('[CommentUtils] Muted comment (backward): ' + comment);
+                        return true;
+                    }
                     break;
                 // 完全一致
                 case 'exact':
-                    if (comment === muted_comment_keyword.pattern) return true;
+                    if (comment === muted_comment_keyword.pattern) {
+                        console.log('[CommentUtils] Muted comment (exact): ' + comment);
+                        return true;
+                    }
                     break;
                 // 正規表現
                 case 'regex':
-                    if (new RegExp(muted_comment_keyword.pattern).test(comment)) return true;
+                    if (new RegExp(muted_comment_keyword.pattern).test(comment)) {
+                        console.log('[CommentUtils] Muted comment (regex): ' + comment);
+                        return true;
+                    }
                     break;
             }
         }
 
-        // 「露骨な表現を含むコメントをミュートする」がオンの場合
-        if (settings_store.settings.mute_vulgar_comments === true) {
-            if (CommentUtils.mute_vulgar_comments_pattern.test(comment)) return true;
-        }
-
-        // 「罵倒や差別的な表現を含むコメントをミュートする」がオンの場合
-        if (settings_store.settings.mute_abusive_discriminatory_prejudiced_comments === true) {
-            if (CommentUtils.mute_abusive_discriminatory_prejudiced_comments_pattern.test(comment)) return true;
-        }
-
-        // 「8文字以上同じ文字が連続しているコメントをミュートする」がオンの場合
-        if (settings_store.settings.mute_consecutive_same_characters_comments === true) {
-            if (/(.)\1{7,}/.test(comment)) return true;
-        }
-
         // 「ＮHK→計1447ＩＤ／内プレ425ＩＤ／総33372米 ◆ Ｅﾃﾚ → 計73ＩＤ／内プレ19ＩＤ／総941米」のような
         // 迷惑コメントを一括で弾く (あえてミュートしたくないユースケースが思い浮かばないのでデフォルトで弾く)
-        if (/最高\d+米\/|計\d+ＩＤ|総\d+米/.test(comment)) return true;
-
-        // ユーザー ID ミュート処理
-        if (settings_store.settings.muted_niconico_user_ids.includes(user_id)) return true;
+        // 一番最後なのは、この迷惑コメント自体の頻度が低いため
+        if (CommentUtils.annoying_statistical_comments_pattern.test(comment)) {
+            return true;
+        }
 
         // いずれのミュート処理にも引っかからなかった (ミュート対象ではない)
         return false;
     }
 
-    // ミュート済みキーワードリストに追加する (完全一致)
+
+    /**
+     * ミュート済みキーワードリストに追加する (完全一致)
+     * @param comment コメント文字列
+     */
     static addMutedKeywords(comment: string): void {
+
         // すでにまったく同じミュート済みキーワードが追加済みの場合は何もしない
         const settings_store = useSettingsStore();
         for (const muted_comment_keyword of settings_store.settings.muted_comment_keywords) {
@@ -147,6 +277,7 @@ export class CommentUtils {
                 return;
             }
         }
+
         // ミュート済みキーワードリストに追加
         settings_store.settings.muted_comment_keywords.push({
             match: 'exact',
@@ -154,13 +285,19 @@ export class CommentUtils {
         });
     }
 
-    // ミュート済みニコニコユーザー ID リストに追加する
+
+    /**
+     * ミュート済みニコニコユーザー ID リストに追加する
+     * @param user_id ニコニコユーザー ID
+     */
     static addMutedNiconicoUserIDs(user_id: string): void {
+
         // すでに追加済みの場合は何もしない
         const settings_store = useSettingsStore();
         if (settings_store.settings.muted_niconico_user_ids.includes(user_id)) {
             return;
         }
+
         // ミュート済みニコニコユーザー ID リストに追加
         settings_store.settings.muted_niconico_user_ids.push(user_id);
     }

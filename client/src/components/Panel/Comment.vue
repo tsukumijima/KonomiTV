@@ -70,8 +70,6 @@
 </template>
 <script lang="ts">
 
-import { AxiosResponse } from 'axios';
-import dayjs from 'dayjs';
 import DPlayer from 'dplayer';
 import * as DPlayerType from 'dplayer/dist/d.ts/types/DPlayer';
 import { mapStores } from 'pinia';
@@ -79,35 +77,14 @@ import Vue, { PropType } from 'vue';
 
 import CommentMuteSettings from '@/components/Settings/CommentMuteSettings.vue';
 import { IChannel } from '@/services/Channels';
-import useSettingsStore from '@/store/SettingsStore';
+import LiveCommentManager, { ICommentData } from '@/services/player/LiveCommentManager';
 import useUserStore from '@/store/UserStore';
 import Utils, { CommentUtils } from '@/utils';
-
-// このコンポーネント内でのコメントのインターフェイス
-interface IComment {
-    id: number;
-    text: string;
-    time: string;
-    user_id: string;
-    my_post: boolean;
-}
 
 export default Vue.extend({
     name: 'Panel-CommentTab',
     components: {
         CommentMuteSettings,
-    },
-    props: {
-        // チャンネル情報
-        channel: {
-            type: Object as PropType<IChannel>,
-            required: true,
-        },
-        // プレイヤーのインスタンス
-        player: {
-            type: null as PropType<DPlayer>,  // 代入当初は null になるため苦肉の策
-            required: true,
-        }
     },
     data() {
         return {
@@ -124,7 +101,7 @@ export default Vue.extend({
             is_auto_scrolling: false,
 
             // コメントリストの配列
-            comment_list: [] as IComment[],
+            comment_list: [] as ICommentData[],
 
             // コメントリストの要素
             comment_list_element: null as HTMLElement | null,
@@ -132,23 +109,14 @@ export default Vue.extend({
             // コメントリストのドロップダウン関連
             is_comment_list_dropdown_display: false as boolean,
             comment_list_dropdown_top: 0 as number,
-            comment_list_dropdown_comment: null as IComment | null,
+            comment_list_dropdown_comment: null as ICommentData | null,
 
-            // 視聴セッションの WebSocket のインスタンス
-            watch_session: null as WebSocket | null,
+            // LiveCommentManager のインスタンス
+            live_comment_manager: null as LiveCommentManager | null,
 
-            // コメントセッションの WebSocket のインスタンス
-            comment_session: null as WebSocket | null,
-
-            // 視聴セッション・コメントセッションの初期化に失敗した際のエラーメッセージ
+            // ニコニコ実況セッションの初期化に失敗した際のエラーメッセージ
             // 視聴中チャンネルのニコニコ実況がないときなどに発生する
             initialize_failed_message: null as string | null,
-
-            // vpos を計算する基準となる時刻のタイムスタンプ
-            vpos_base_timestamp: 0,
-
-            // 座席維持用のタイマーのインターバル ID
-            keep_seat_interval_id: 0,
 
             // ResizeObserver のインスタンス
             resize_observer: null as ResizeObserver | null,
@@ -161,11 +129,16 @@ export default Vue.extend({
         }
     },
     computed: {
-        // SettingsStore / UserStore に this.settingsStore / this.userStore でアクセスできるようにする
+        // UserStore に this.userStore でアクセスできるようにする
         // ref: https://pinia.vuejs.org/cookbook/options-api.html
-        ...mapStores(useSettingsStore, useUserStore),
+        ...mapStores(useUserStore),
     },
-    async mounted() {
+    created() {
+
+        // アカウント情報を更新
+        this.userStore.fetchUser();
+    },
+    mounted() {
 
         // コメントリストの要素を取得
         if (this.comment_list_element === null) {
@@ -230,14 +203,11 @@ export default Vue.extend({
                 }
             }
         }
-
-        // アカウント情報を更新
-        this.userStore.fetchUser();
     },
     // 終了前に実行
     beforeDestroy() {
 
-        // 視聴セッション・コメントセッションを破棄
+        // ニコニコ実況セッションを破棄
         this.destroy();
 
         // ResizeObserver を終了
@@ -245,660 +215,59 @@ export default Vue.extend({
             this.resize_observer.unobserve(this.resize_observer_element);
         }
     },
-    watch: {
-
-        // チャンネル情報が変更されたとき
-        // created() だとチャンネル情報の取得前に実行してしまう
-        // this が変わってしまうのでアロー関数は使えない
-        async channel(new_channel: IChannel, old_channel: IChannel) {
-
-            // 前のチャンネル情報と次のチャンネル情報で channel_id が変わってたら
-            if (new_channel.channel_id !== old_channel.channel_id) {
-
-                // 0.5秒だけ待ってから
-                // 連続してチャンネルを切り替えた時などに毎回コメントサーバーに接続しないように猶予を設ける
-                // ただし、最初 (channel_id が gr000 の初期値になっている) だけは待たずに実行する
-                if (old_channel.channel_id !== 'gr000') {
-                    await Utils.sleep(0.5);
-                    // 0.5 秒待った結果、channel_id が既に変更されているので終了
-                    if (this.channel.channel_id !== new_channel.channel_id) {
-                        return;
-                    }
-                }
-
-                // 前の視聴セッション・コメントセッションを破棄
-                this.destroy();
-
-                // リサイズ時のイベントを初期化
-                // イベントはプレイヤーの DOM に紐づいているため、プレイヤーが破棄→再初期化される毎に実行する必要がある
-                await this.initReserveObserver();
-
-                // 現在のチャンネル情報で視聴セッション・コメントセッションを初期化
-                await this.init();
-            }
-        }
-    },
     methods: {
 
-        // 視聴セッション・コメントセッションを初期化する
-        async init() {
-
-            try {
-
-                // 視聴セッションを初期化
-                const comment_session_info = await this.initWatchSession();
-
-                // vpos の基準時刻のタイムスタンプを取得
-                // vpos は番組開始時間からの累計秒（10ミリ秒単位）
-                this.vpos_base_timestamp = dayjs(comment_session_info['vpos_base_time']).unix() * 100;
-
-                // コメントセッションを初期化
-                await this.initCommentSession(comment_session_info);
-
-            } catch (error) {
-
-                // 初期化に失敗した場合のエラーメッセージを保存しておく
-                // 初期化に失敗したのにコメントを送信しようとした際に表示するもの
-                this.initialize_failed_message = error.message;
-                console.error(error.toString());
+        // ドロップダウンメニューを表示する
+        displayCommentListDropdown(event: Event, comment: ICommentData) {
+            const comment_list_wrapper_rect = (this.$refs.comment_list_wrapper as HTMLDivElement).getBoundingClientRect();
+            const comment_list_dropdown_height = 76;  // 76px はドロップダウンメニューの高さ
+            const comment_button_rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+            // メニューの表示位置をクリックされたコメントに合わせる
+            this.comment_list_dropdown_top = comment_button_rect.top - comment_list_wrapper_rect.top;
+            // メニューがコメントリストからはみ出るときだけ、表示位置を上側に調整
+            if ((this.comment_list_dropdown_top + comment_list_dropdown_height) > comment_list_wrapper_rect.height) {
+                this.comment_list_dropdown_top = this.comment_list_dropdown_top - comment_list_dropdown_height + comment_button_rect.height;
             }
+            // 表示位置を調整できたので、メニューを表示
+            this.comment_list_dropdown_comment = comment;
+            this.is_comment_list_dropdown_display = true;
         },
 
-        // 視聴セッションを初期化
-        async initWatchSession(): Promise<{[key: string]: string | null}> {
+        // コメントリストを一番下までスクロールする
+        async scrollCommentList(smooth: boolean = false) {
 
-            // セッション情報を取得
-            let watch_session_info: AxiosResponse;
-            try {
-                watch_session_info = await Vue.axios.get(`/channels/${this.channel.channel_id}/jikkyo`);
-            } catch (error) {
-                throw new Error(error);  // エラー内容をコンソールに表示して終了
+            // 手動スクロールモードの時は実行しない
+            if (this.is_manual_scroll === true) return;
+
+            // 自動スクロール中のフラグを立てる
+            this.is_auto_scrolling = true;
+
+            // 0.01 秒待って実行し、念押しで2回実行しないと完全に最下部までスクロールされない…（ブラウザの描画バグ？）
+            // this.$nextTick() は効かなかった
+            for (let index = 0; index < 3; index++) {
+                await Utils.sleep(0.01);
+                if (smooth === true) {  // スムーズスクロール
+                    this.comment_list_element.scrollTo({top: this.comment_list_element.scrollHeight, left: 0, behavior: 'smooth'});
+                } else {
+                    this.comment_list_element.scrollTo(0, this.comment_list_element.scrollHeight);
+                }
             }
 
-            // セッション情報を取得できなかった
-            if (watch_session_info.data.is_success === false) {
-
-                // 一部を除くエラーメッセージはプレイヤーにも通知する
-                if ((watch_session_info.data.detail !== 'このチャンネルはニコニコ実況に対応していません。') &&
-                    (watch_session_info.data.detail !== '現在放送中のニコニコ実況がありません。')) {
-                    this.player.notice(watch_session_info.data.detail);
-                }
-
-                throw new Error(watch_session_info.data.detail);  // エラー内容をコンソールに表示して終了
-            }
-
-            // イベント内で値を返すため、Promise で包む
-            return new Promise((resolve) => {
-
-                // 視聴セッション WebSocket を開く
-                this.watch_session = new WebSocket(watch_session_info.data.audience_token);
-
-                // 視聴セッション WebSocket を開いたとき
-                this.watch_session.addEventListener('open', () => {
-
-                    // 視聴セッションをリクエスト
-                    // 公式ドキュメントいわく、stream フィールドは Optional らしい
-                    // サーバー負荷軽減のため、映像が不要な場合は必ず省略してくださいとのこと
-                    this.watch_session.send(JSON.stringify({
-                        'type': 'startWatching',
-                        'data': {
-                            'reconnect': false,
-                        },
-                    }));
-                });
-
-                // 視聴セッション WebSocket からメッセージを受信したとき
-                this.watch_session.addEventListener('message', async (event) => {
-
-                    // 受信したメッセージ
-                    const message = JSON.parse(event.data);
-
-                    switch (message.type) {
-
-                        // 部屋情報（実際には統合されていて、全てアリーナ扱いになっている）
-                        case 'room': {
-
-                            // コメントサーバーへの接続情報の入ったオブジェクトを返す
-                            return resolve({
-                                // コメントサーバーへの接続情報
-                                'message_server': message.data.messageServer.uri,
-                                // コメントサーバー上のスレッド ID
-                                'thread_id': message.data.threadId,
-                                // vpos を計算する基準となる時刻 (ISO8601形式)
-                                'vpos_base_time': message.data.vposBaseTime,
-                                // メッセージサーバーから受信するコメント (chat メッセージ) に yourpost フラグを付けるためのキー
-                                'your_post_key': (message.data.yourPostKey ? message.data.yourPostKey : null),
-                            });
-                        }
-
-                        // 座席情報
-                        case 'seat': {
-
-                            // keepIntervalSec の秒数ごとに keepSeat を送信して座席を維持する
-                            this.keep_seat_interval_id = window.setInterval(() => {
-                                // セッションがまだ開いていれば
-                                if (this.watch_session.readyState === 1) {
-                                    // 座席を維持
-                                    this.watch_session.send(JSON.stringify({
-                                        'type': 'keepSeat',
-                                    }));
-                                // setInterval を解除
-                                } else {
-                                    window.clearInterval(this.keep_seat_interval_id);
-                                }
-                            }, message.data.keepIntervalSec * 1000);
-                            break;
-                        }
-
-                        // ping-pong
-                        case 'ping': {
-
-                            // pong を返してセッションを維持する
-                            // 送り返さなかった場合、勝手にセッションが閉じられてしまう
-                            this.watch_session.send(JSON.stringify({
-                                'type': 'pong',
-                            }));
-                            break;
-                        }
-
-                        // エラー情報
-                        case 'error': {
-
-                            // エラー情報
-                            let error: string;
-                            switch (message.data.code) {
-
-                                case 'CONNECT_ERROR':
-                                    error = 'コメントサーバーに接続できません。';
-                                break;
-                                case 'CONTENT_NOT_READY':
-                                    error = 'ニコニコ実況が配信できない状態です。';
-                                break;
-                                case 'NO_THREAD_AVAILABLE':
-                                    error = 'コメントスレッドを取得できません。';
-                                break;
-                                case 'NO_ROOM_AVAILABLE':
-                                    error = 'コメント部屋を取得できません。';
-                                break;
-                                case 'NO_PERMISSION':
-                                    error = 'API にアクセスする権限がありません。';
-                                break;
-                                case 'NOT_ON_AIR':
-                                    error = 'ニコニコ実況が放送中ではありません。';
-                                break;
-                                case 'BROADCAST_NOT_FOUND':
-                                    error = 'ニコニコ実況の配信情報を取得できません。';
-                                break;
-                                case 'INTERNAL_SERVERERROR':
-                                    error = 'ニコニコ実況でサーバーエラーが発生しています。';
-                                break;
-                                default:
-                                    error = `ニコニコ実況でエラーが発生しています。(${message.data.code})`;
-                                break;
-                            }
-
-                            // エラー情報を表示
-                            console.log(`error occurred. code: ${message.data.code}`);
-                            if (this.player.danmaku.showing) {
-                                this.player.notice(error);
-                            }
-
-                            break;
-                        }
-
-                        // 再接続を求められた
-                        case 'reconnect': {
-
-                            // waitTimeSec に記載の秒数だけ待ってから再接続する
-                            await Utils.sleep(message.data.waitTimeSec);
-                            if (this.player.danmaku.showing) {
-                                this.player.notice('ニコニコ実況に再接続しています…');
-                            }
-
-                            // 前の視聴セッション・コメントセッションを破棄
-                            this.destroy();
-
-                            // 視聴セッションを再初期化
-                            // 公式ドキュメントには reconnect で送られてくる audienceToken で再接続しろと書いてあるんだけど、
-                            // 確実性的な面で実装が面倒なので当面このままにしておく
-                            const comment_session_info = await this.initWatchSession();
-
-                            // コメントセッションを再初期化
-                            await this.initCommentSession(comment_session_info);
-
-                            break;
-                        }
-
-                        // 視聴セッションが閉じられた（4時のリセットなど）
-                        case 'disconnect': {
-
-                            // 実際に接続が閉じられる前に disconnect イベントが送られてきたので、onclose イベントを削除する
-                            // onclose イベントが発火するのは不意に切断されたときなど最終手段
-                            if (this.watch_session) this.watch_session.onclose = null;
-
-                            // 接続切断の理由
-                            let disconnect_reason;
-                            switch (message.data.reason) {
-
-                                case 'TAKEOVER':
-                                    disconnect_reason = 'ニコニコ実況の番組から追い出されました。';
-                                break;
-                                case 'NO_PERMISSION':
-                                    disconnect_reason = 'ニコニコ実況の番組の座席を取得できませんでした。';
-                                break;
-                                case 'END_PROGRAM':
-                                    disconnect_reason = 'ニコニコ実況がリセットされたか、コミュニティの番組が終了しました。';
-                                break;
-                                case 'PING_TIMEOUT':
-                                    disconnect_reason = 'コメントサーバーとの接続生存確認に失敗しました。';
-                                break;
-                                case 'TOO_MANY_CONNECTIONS':
-                                    disconnect_reason = 'ニコニコ実況の同一ユーザからの接続数上限を越えています。';
-                                break;
-                                case 'TOO_MANY_WATCHINGS':
-                                    disconnect_reason = 'ニコニコ実況の同一ユーザからの視聴番組数上限を越えています。';
-                                break;
-                                case 'CROWDED':
-                                    disconnect_reason = 'ニコニコ実況の番組が満席です。';
-                                break;
-                                case 'MAINTENANCE_IN':
-                                    disconnect_reason = 'ニコニコ実況はメンテナンス中です。';
-                                break;
-                                case 'SERVICE_TEMPORARILY_UNAVAILABLE':
-                                    disconnect_reason = 'ニコニコ実況で一時的にサーバーエラーが発生しています。';
-                                break;
-                                default:
-                                    disconnect_reason = `ニコニコ実況との接続が切断されました。(${message.data.reason})`;
-                                break;
-                            }
-
-                            // 接続切断の理由を表示
-                            console.log(`disconnected. reason: ${message.data.reason}`);
-                            if (this.player.danmaku.showing) {
-                                this.player.notice(disconnect_reason);
-                            }
-
-                            // 5 秒ほど待ってから再接続する
-                            await Utils.sleep(5);
-                            if (this.player.danmaku.showing) {
-                                this.player.notice('ニコニコ実況に再接続しています…');
-                            }
-
-                            // 前の視聴セッション・コメントセッションを破棄
-                            this.destroy();
-
-                            // 視聴セッションを再初期化
-                            const comment_session_info = await this.initWatchSession();
-
-                            // コメントセッションを再初期化
-                            await this.initCommentSession(comment_session_info);
-
-                            break;
-                        }
-                    }
-                });
-
-
-                // 視聴セッションの接続が閉じられたとき（ネットワークが切断された場合など）
-                // イベントを無効化しやすいように敢えて onclose で実装する
-                this.watch_session.onclose = async (event) => {
-
-                    // 接続切断の理由を表示
-                    console.log(`disconnected. code: ${event.code}`);
-                    if (this.player.danmaku.showing) {
-                        this.player.notice(`ニコニコ実況との接続が切断されました。(code: ${event.code})`);
-                    }
-
-                    // 10 秒ほど待ってから再接続する
-                    // ニコ生側から切断された場合と異なりネットワークが切断された可能性が高いので、間を多めに取る
-                    await Utils.sleep(10);
-                    if (this.player.danmaku.showing) {
-                        this.player.notice('ニコニコ実況に再接続しています…');
-                    }
-
-                    // 前の視聴セッション・コメントセッションを破棄
-                    this.destroy();
-
-                    // 視聴セッションを再初期化
-                    const comment_session_info = await this.initWatchSession();
-
-                    // コメントセッションを再初期化
-                    await this.initCommentSession(comment_session_info);
-                };
-            });
-        },
-
-        // コメントセッションを初期化
-        async initCommentSession(comment_session_info: {[key: string]: string | null}) {
-
-            // タブが非表示状態のときにコメントを格納する配列
-            // タブが表示状態になったらコメントリストにのみ表示する（遅れているのでプレイヤーには表示しない）
-            let comment_list_buffer: IComment[] = [];
-
-            // 最初に送信されてくるコメントを受信し終えたかどうかのフラグ
-            let is_received_initial_comment = false;
-
-            // コメントセッション WebSocket を開く
-            this.comment_session = new WebSocket(comment_session_info.message_server);
-
-            // コメントセッション WebSocket を開いたとき
-            this.comment_session.addEventListener('open', () => {
-
-                // コメント送信をリクエスト
-                // このコマンドを送らないとコメントが送信されてこない
-                this.comment_session.send(JSON.stringify([
-                    { 'ping': {'content': 'rs:0'} },
-                    { 'ping': {'content': 'ps:0'} },
-                    {
-                        'thread': {
-                            'version': '20061206',  // 設定必須
-                            'thread': comment_session_info.thread_id,  // スレッド ID
-                            'threadkey': comment_session_info.your_post_key,  // スレッドキー
-                            'user_id': '',  // ユーザー ID（設定不要らしい）
-                            'res_from': -50,  // 最初にコメントを 50 個送信する
-                        }
-                    },
-                    { 'ping': {'content': 'pf:0'} },
-                    { 'ping': {'content': 'rf:0'} },
-                ]));
-            });
-
-            // コメントセッション WebSocket からメッセージを受信したとき
-            this.comment_session.addEventListener('message', async (event_raw) => {
-
-                // イベントを取得
-                const event = JSON.parse(event_raw.data);
-
-                // thread メッセージのみ
-                if (event.thread !== undefined) {
-
-                    // 接続成功のコールバックを DPlayer に通知
-                    if (event.thread.resultcode === 0) {
-
-                    // 接続失敗のコールバックを DPlayer に通知
-                    } else {
-                        const message = 'コメントサーバーに接続できませんでした。';
-                        console.error('Error: ' + message);
-                    }
-                }
-
-                // ping メッセージのみ
-                // rf:0 が送られてきたら初回コメントの受信は完了
-                if (event.ping !== undefined && event.ping.content === 'rf:0') {
-
-                    // 最初に送信されてくるコメントを受信し終えたフラグを立てる
-                    is_received_initial_comment = true;
-
-                    // コメントリストを一番下にスクロール
-                    // 初回コメントは量が多いので、一括でスクロールする
-                    this.scrollCommentList();
-                }
-
-                // コメントデータを取得
-                const comment = event.chat;
-
-                // コメントがない or 広告用など特殊な場合は弾く
-                if (comment === undefined ||
-                    comment.content === undefined ||
-                    comment.content.match(/\/[a-z]+ /)) {
-                    return;
-                }
-
-                // 自分のコメントも表示しない
-                if (comment.yourpost && comment.yourpost === 1) {
-                    return;
-                }
-
-                // ミュート対象のコメントかどうかを判定し、もしそうならここで弾く
-                if (CommentUtils.isMutedComment(comment.content as string, comment.user_id as string)) {
-                    console.log('Muted comment: ' + comment.content);
-                    return;
-                }
-
-                // 色・位置・サイズ
-                let color = '#FFEAEA';  // コメント色のデフォルト
-                let position: 'top' | 'right' | 'bottom' = 'right'; // コメント位置のデフォルト
-                let size: 'big' | 'medium' | 'small' = 'medium';    // コメントサイズのデフォルト
-                if (comment.mail !== undefined && comment.mail !== null) {
-
-                    // コマンドをスペースで区切って配列にしたもの (184 は事前に除外)
-                    const commands = comment.mail.replace('184', '').split(' ');
-
-                    for (const command of commands) {  // コマンドごとに
-                        // コメント色指定コマンドがあれば取得
-                        if (CommentUtils.getCommentColor(command) !== null) {
-                            color = CommentUtils.getCommentColor(command);
-                        }
-                        // コメント位置指定コマンドがあれば取得
-                        if (CommentUtils.getCommentPosition(command) !== null) {
-                            position = CommentUtils.getCommentPosition(command);
-                        }
-                        // コメントサイズ指定コマンドがあれば取得
-                        // コメントサイズのコマンドは DPlayer とニコニコで共通なので、変換の必要はない
-                        if (command === 'big' || command === 'medium' || command === 'small') {
-                            size = command;
-                        }
-                    }
-                }
-
-                // 「映像の上下に固定表示されるコメントをミュートする」がオンの場合
-                // コメントの位置が top (上固定) もしくは bottom (下固定) のときは弾く
-                if (this.settingsStore.settings.mute_fixed_comments === true && (position === 'top' || position === 'bottom')) {
-                    console.log('Muted comment (Fixed): ' + comment.content);
-                    return;
-                }
-
-                // 「色付きのコメントをミュートする」がオンの場合
-                // コメントの色が #FFEAEA (デフォルト) 以外のときは弾く
-                if (this.settingsStore.settings.mute_colored_comments === true && color !== '#FFEAEA') {
-                    console.log('Muted comment (Colored): ' + comment.content);
-                    return;
-                }
-
-                // 「文字サイズが大きいコメントをミュートする」がオンの場合
-                // コメントのサイズが big のときは弾く
-                if (this.settingsStore.settings.mute_big_size_comments === true && size === 'big') {
-                    console.log('Muted comment (Big): ' + comment.content);
-                    return;
-                }
-
-                // 配信に発生する遅延分待ってから
-                // 最初にドカッと送信されてくる初回コメントは少し前に投稿されたコメント群なので、遅らせずに表示させる
-                if (is_received_initial_comment) {
-                    const comment_delay_time = this.settingsStore.settings.comment_delay_time;
-                    await Utils.sleep(comment_delay_time);
-                }
-
-                // コメントリストのコメントが 500 件を超えたら古いものから順に削除する
-                // 仮想スクロールとはいえ、さすがに 500 件を超えると重くなりそう
-                // 手動スクロール時は実行しない
-                if (this.comment_list.length >= 500 && this.is_manual_scroll === false) {
-                    while (this.comment_list.length >= 500) {
-                        this.comment_list.shift();
-                    }
-                }
-
-                // コメントリストへ追加するオブジェクト
-                // コメント投稿時刻はフォーマットしてから
-                const comment_dict: IComment = {
-                    id: comment.no,
-                    text: comment.content,
-                    time: dayjs(comment.date * 1000).format('HH:mm:ss'),
-                    user_id: comment.user_id,
-                    my_post: false,
-                };
-
-                // タブが非表示状態のときは、バッファにコメントを追加するだけで終了する
-                // ここで追加すると、タブが表示状態になったときに一斉に描画されて大変なことになる
-                if (document.visibilityState === 'hidden') {
-                    comment_list_buffer.push(comment_dict);
-                    return;
-                }
-
-                // コメントリストに追加
-                this.comment_list.push(comment_dict);
-
-                // // コメントリストを一番下にスクロール
-                // 最初に受信したコメントは上の処理で一括でスクロールさせる
-                if (is_received_initial_comment) {
-                    this.scrollCommentList();
-                }
-
-                // コメント描画 (再生時のみ)
-                // 最初に受信したコメントはリアルタイムなコメントではないため、描画しないように
-                if (is_received_initial_comment) {
-                    if (!this.player.video.paused){
-                        this.player.danmaku.draw({
-                            text: comment.content,
-                            color: color,
-                            type: position,
-                            size: size,
-                        });
-                    }
-                }
-            });
-
-            // タブの表示/非表示の状態が切り替わったときのイベント
-            // 表示状態になったときにバッファにあるコメントをコメントリストに表示する
-            document.onvisibilitychange = () => {
-                if (document.visibilityState === 'visible') {
-                    this.comment_list.push(...comment_list_buffer);  // コメントリストに一括で追加
-                    comment_list_buffer = [];  // バッファをクリア
-                    this.scrollCommentList();  // コメントリストをスクロール
-                }
-            };
-        },
-
-        // コメントを送信する
-        async sendComment(options: DPlayerType.APIBackendSendOptions) {
-
-            // 初期化に失敗しているときは実行せず、保存しておいたエラーメッセージを表示する
-            if (this.initialize_failed_message !== null) {
-                options.error(this.initialize_failed_message);
-                return;
-            }
-
-            // 未ログイン時
-            if (this.userStore.user === null) {
-                options.error('コメントするには、KonomiTV アカウントにログインしてください。');
-                return;
-            }
-
-            // ニコニコアカウント未連携時
-            if (this.userStore.user.niconico_user_id === null) {
-                options.error('コメントするには、ニコニコアカウントと連携してください。');
-                return;
-            }
-
-            // 一般会員ではコメント位置の指定 (ue, shita) が無視されるので、事前にエラーにしておく
-            if (this.userStore.user.niconico_user_premium === false && (options.data.type === 'top' || options.data.type === 'bottom')) {
-                options.error('コメントを上下に固定するには、ニコニコアカウントのプレミアム会員登録が必要です。');
-                return;
-            }
-
-            // 一般会員ではコメントサイズ大きめの指定 (big) が無視されるので、事前にエラーにしておく
-            if (this.userStore.user.niconico_user_premium === false && options.data.size === 'big') {
-                options.error('コメントサイズを大きめに設定するには、ニコニコアカウントのプレミアム会員登録が必要です。');
-                return;
-            }
-
-            // DPlayer 上のコメント色（カラーコード）とニコニコの色コマンド定義のマッピング
-            const color_table = {
-                '#FFEAEA': 'white',
-                '#F02840': 'red',
-                '#FD7E80': 'pink',
-                '#FDA708': 'orange',
-                '#FFE133': 'yellow',
-                '#64DD17': 'green',
-                '#00D4F5': 'cyan',
-                '#4763FF': 'blue',
-            };
-
-            // DPlayer 上のコメント位置を表す数値とニコニコの位置コマンド定義のマッピング
-            const position_table = {
-                'top': 'ue',
-                'right': 'naka',
-                'bottom': 'shita',
-            };
-
-            // vpos を計算 (10ミリ秒単位)
-            // 番組開始時間からの累計秒らしいけど、なぜ指定しないといけないのかは不明
-            const vpos = Math.floor(new Date().getTime() / 10) - this.vpos_base_timestamp;
-
-            // コメントを送信
-            this.watch_session.send(JSON.stringify({
-                'type': 'postComment',
-                'data': {
-                    'text': options.data.text,  // コメント本文
-                    'color': color_table[options.data.color.toUpperCase()],  // コメントの色
-                    'position': position_table[options.data.type],  // コメント位置
-                    'size': options.data.size,  // コメントサイズ (DPlayer とニコニコで表現が共通)
-                    'vpos': vpos,  // 番組開始時間からの累計秒（10ミリ秒単位）
-                    'isAnonymous': true,  // 匿名コメント (184)
-                }
-            }));
-
-            // 自分のコメントをコメントリストに追加
-            this.comment_list.push({
-                id: new Date().getTime(),
-                text: options.data.text,
-                time: dayjs().format('HH:mm:ss'),
-                user_id: `${this.userStore.user.niconico_user_id}`,
-                my_post: true,  // コメントリスト上でハイライトする
-            });
-
-            // コメント送信のレスポンスを取得
-            // 簡単にイベントリスナーを削除できるため、あえて onmessage で実装している
-            this.watch_session.onmessage = (event) => {
-
-                // 受信したメッセージ
-                const message = JSON.parse(event.data);
-
-                switch (message.type) {
-
-                    // postCommentResult
-                    // これが送られてくる → コメント送信に成功している
-                    case 'postCommentResult': {
-
-                        // コメント成功のコールバックを DPlayer に通知
-                        options.success();
-
-                        // イベントリスナーを削除
-                        this.watch_session.onmessage = null;
-                        break;
-                    }
-
-                    // error
-                    // コメント送信直後に error が送られてきた → コメント送信に失敗している
-                    case 'error': {
-
-                        // エラーメッセージ
-                        let error = `コメントの送信に失敗しました。(${message.data.code})`;
-                        switch (message.data.code) {
-                            case 'COMMENT_POST_NOT_ALLOWED': {
-                                error = 'コメントが許可されていません。';
-                                break;
-                            }
-                            case 'INVALID_MESSAGE': {
-                                error = 'コメント内容が無効です。';
-                                break;
-                            }
-                        }
-
-                        // コメント失敗のコールバックを DPlayer に通知
-                        options.error(error);
-
-                        // イベントリスナーを解除
-                        this.watch_session.onmessage = null;
-                        break;
-                    }
-                }
-            };
+            // 0.1 秒待つ（重要）
+            await Utils.sleep(0.1);
+
+            // 自動スクロール中のフラグを降ろす
+            this.is_auto_scrolling = false;
         },
 
         // リサイズ時のイベントを初期化
         // プレイヤーが初期化される毎に実行する必要がある
-        async initReserveObserver() {
+        initReserveObserver() {
+
+            // 以前に初期化された ResizeObserver を終了
+            if (this.resize_observer !== null) {
+                this.resize_observer.unobserve(this.resize_observer_element);
+            }
 
             // 監視対象の要素
             this.resize_observer_element = document.querySelector('.watch-player');
@@ -976,11 +345,6 @@ export default Vue.extend({
                 }
             }
 
-            // 以前に初期化された ResizeObserver を終了
-            if (this.resize_observer !== null) {
-                this.resize_observer.unobserve(this.resize_observer_element);
-            }
-
             // 要素の監視を開始
             this.resize_observer = new ResizeObserver(on_resize);
             this.resize_observer.observe(this.resize_observer_element);
@@ -990,77 +354,139 @@ export default Vue.extend({
             window.setTimeout(on_resize, 0.6 * 1000);
         },
 
-        // コメントリストを一番下までスクロールする
-        async scrollCommentList(smooth: boolean = false) {
+        // ニコニコ実況に接続し、セッションを初期化する
+        async initSession(player: DPlayer, channel_id: string) {
 
-            // 手動スクロールモードの時は実行しない
-            if (this.is_manual_scroll === true) return;
+            // リサイズ時のイベントを初期化
+            // イベントはプレイヤーの DOM に紐づいているため、プレイヤーが破棄→再初期化される毎に実行する必要がある
+            this.initReserveObserver();
 
-            // 自動スクロール中のフラグを立てる
-            this.is_auto_scrolling = true;
+            // タブが非表示状態のときにコメントを格納する配列
+            // タブが表示状態になったらコメントリストにのみ表示する（遅れているのでプレイヤーには表示しない）
+            const comment_list_buffer: ICommentData[] = [];
 
-            // 0.01 秒待って実行し、念押しで2回実行しないと完全に最下部までスクロールされない…（ブラウザの描画バグ？）
-            // this.$nextTick() は効かなかった
-            for (let index = 0; index < 3; index++) {
-                await Utils.sleep(0.01);
-                if (smooth === true) {  // スムーズスクロール
-                    this.comment_list_element.scrollTo({top: this.comment_list_element.scrollHeight, left: 0, behavior: 'smooth'});
-                } else {
-                    this.comment_list_element.scrollTo(0, this.comment_list_element.scrollHeight);
+            // コメントの最大保持数
+            const max_comment_count = 500;
+
+            // LiveCommentManager を初期化
+            this.live_comment_manager = new LiveCommentManager(
+                // DPlayer のインスタンス
+                player,
+                // チャンネル ID
+                channel_id,
+
+                // 初回の過去コメント (最大50件) を受信したときのコールバック
+                async (initial_comments) => {
+
+                    // コメントリストに一括で追加
+                    this.comment_list.push(...initial_comments);
+
+                    // コメントリストを一番下までスクロール
+                    this.scrollCommentList();
+                },
+
+                // コメントを受信したときのコールバック
+                // プレイヤーへの描画は LiveCommentManager が行う
+                async (comment) => {
+
+                    // タブが非表示状態のときは、バッファにコメントを追加するだけで終了する
+                    // ここで追加すると、タブが表示状態になったときに一斉に描画されて大変なことになる
+                    if (document.visibilityState === 'hidden') {
+                        comment_list_buffer.push(comment);
+                        return;
+                    }
+
+                    // コメントリストのコメント数が max_comment_count 件を超えたら、古いものから順に削除する
+                    // 仮想スクロールとはいえ、さすがに max_comment_count 件を超えると重くなりそう
+                    // 手動スクロール時は実行しない
+                    if (this.comment_list.length >= max_comment_count && this.is_manual_scroll === false) {
+                        this.comment_list.splice(0, Math.max(0, this.comment_list.length - max_comment_count));
+                    }
+
+                    // コメントリストに追加
+                    this.comment_list.push(comment);
+
+                    // コメントリストを一番下までスクロール
+                    this.scrollCommentList();
+                },
+            );
+
+            // タブが表示状態になったときのイベント
+            document.onvisibilitychange = () => {
+                if (document.visibilityState === 'visible') {
+
+                    // コメントリスト + バッファの合計コメント数が max_comment_count 件を超えたら、
+                    // コメントリスト内のコメントを古いものから順に削除し、max_comment_count 件になるようにする
+                    const comment_list_and_buffer_length = this.comment_list.length + comment_list_buffer.length;
+                    if (comment_list_and_buffer_length >= max_comment_count && this.is_manual_scroll === false) {
+                        this.comment_list.splice(0, Math.max(0, comment_list_and_buffer_length - max_comment_count));
+                    }
+
+                    // バッファ内のコメントをコメントリストに一括で追加する
+                    this.comment_list.push(...comment_list_buffer);
+                    comment_list_buffer.length = 0;  // バッファを空にする
+
+                    // コメントリストを一番下までスクロール
+                    this.scrollCommentList();
                 }
+            };
+
+            // ニコニコ実況セッションを初期化する
+            const result = await this.live_comment_manager.initSession();
+
+            // ニコニコ実況セッションの初期化に失敗した
+            // 初期化に失敗した際のエラーメッセージを保存しておく (エラー表示などで利用する)
+            // プレイヤーへのエラー表示はすでに LiveCommentManager の方で行われているので、ここでは何もしない
+            if (result.is_success === false) {
+                this.initialize_failed_message = result.detail;
             }
-
-            // 0.1 秒待つ（重要）
-            await Utils.sleep(0.1);
-
-            // 自動スクロール中のフラグを降ろす
-            this.is_auto_scrolling = false;
         },
 
-        // ドロップダウンメニューを表示する
-        displayCommentListDropdown(event: Event, comment: IComment) {
-            const comment_list_wrapper_rect = (this.$refs.comment_list_wrapper as HTMLDivElement).getBoundingClientRect();
-            const comment_list_dropdown_height = 76;  // 76px はドロップダウンメニューの高さ
-            const comment_button_rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-            // メニューの表示位置をクリックされたコメントに合わせる
-            this.comment_list_dropdown_top = comment_button_rect.top - comment_list_wrapper_rect.top;
-            // メニューがコメントリストからはみ出るときだけ、表示位置を上側に調整
-            if ((this.comment_list_dropdown_top + comment_list_dropdown_height) > comment_list_wrapper_rect.height) {
-                this.comment_list_dropdown_top = this.comment_list_dropdown_top - comment_list_dropdown_height + comment_button_rect.height;
+        // コメントを送信する
+        sendComment(options: DPlayerType.APIBackendSendOptions) {
+
+            // 初期化に失敗しているときは実行せず、保存しておいたエラーメッセージを表示する
+            if (this.initialize_failed_message !== null) {
+                options.error(this.initialize_failed_message);
+                return;
             }
-            // 表示位置を調整できたので、メニューを表示
-            this.comment_list_dropdown_comment = comment;
-            this.is_comment_list_dropdown_display = true;
+
+            // バリデーション
+            if (this.userStore.user === null) {
+                options.error('コメントするには、KonomiTV アカウントにログインしてください。');
+                return;
+            }
+            if (this.userStore.user.niconico_user_id === null) {
+                options.error('コメントするには、ニコニコアカウントと連携してください。');
+                return;
+            }
+            if (this.userStore.user.niconico_user_premium === false && (options.data.type === 'top' || options.data.type === 'bottom')) {
+                options.error('コメントを上下に固定するには、ニコニコアカウントのプレミアム会員登録が必要です。');
+                return;
+            }
+            if (this.userStore.user.niconico_user_premium === false && options.data.size === 'big') {
+                options.error('コメントサイズを大きめに設定するには、ニコニコアカウントのプレミアム会員登録が必要です。');
+                return;
+            }
+
+            // ニコニコ実況のコメントサーバーにコメントを送信
+            this.live_comment_manager.sendComment(options);
         },
 
-        // 破棄する
+        // ニコニコ実況セッションを破棄する
         destroy() {
-
-            // 初期化失敗時のメッセージをクリア
-            this.initialize_failed_message = null;
-
-            // コメントリストをクリア
-            this.comment_list = [];
 
             // タブの表示/非表示の状態が切り替わったときのイベントを削除
             document.onvisibilitychange = null;
 
-            // 視聴セッションを閉じる
-            if (this.watch_session !== null) {
-                this.watch_session.onclose = null;  // WebSocket が閉じられた際のイベントを削除
-                this.watch_session.close();  // WebSocket を閉じる
-                this.watch_session = null;  // null に戻す
+            // LiveCommentManager を破棄
+            if (this.live_comment_manager !== null) {
+                this.live_comment_manager.destroy();
+                this.live_comment_manager = null;
             }
 
-            // コメントセッションを閉じる
-            if (this.comment_session !== null) {
-                this.comment_session.onclose = null;  // WebSocket が閉じられた際のイベントを削除
-                this.comment_session.close();  // WebSocket を閉じる
-                this.comment_session = null;  // null に戻す
-            }
-
-            // 座席保持用のタイマーをクリア
-            window.clearInterval(this.keep_seat_interval_id);
+            this.initialize_failed_message = null;
+            this.comment_list = [];
         }
     }
 });
