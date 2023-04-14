@@ -118,6 +118,9 @@ export default Vue.extend({
             // 視聴中チャンネルのニコニコ実況がないときなどに発生する
             initialize_failed_message: null as string | null,
 
+            // visibilitychange イベントのリスナー
+            visibilitychange_listener: null as (() => void) | null,
+
             // ResizeObserver のインスタンス
             resize_observer: null as ResizeObserver | null,
 
@@ -412,7 +415,7 @@ export default Vue.extend({
             );
 
             // タブが表示状態になったときのイベント
-            document.onvisibilitychange = () => {
+            this.visibilitychange_listener = () => {
                 if (document.visibilityState === 'visible') {
 
                     // コメントリスト + バッファの合計コメント数が max_comment_count 件を超えたら、
@@ -430,6 +433,7 @@ export default Vue.extend({
                     this.scrollCommentList();
                 }
             };
+            document.addEventListener('visibilitychange', this.visibilitychange_listener);
 
             // ニコニコ実況セッションを初期化する
             const result = await this.live_comment_manager.initSession();
@@ -477,7 +481,10 @@ export default Vue.extend({
         destroy() {
 
             // タブの表示/非表示の状態が切り替わったときのイベントを削除
-            document.onvisibilitychange = null;
+            if (this.visibilitychange_listener !== null) {
+                document.removeEventListener('visibilitychange', this.visibilitychange_listener);
+                this.visibilitychange_listener = null;
+            }
 
             // LiveCommentManager を破棄
             if (this.live_comment_manager !== null) {
