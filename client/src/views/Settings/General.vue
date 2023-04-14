@@ -166,7 +166,7 @@
             <div class="settings__item">
                 <div class="settings__item-heading">設定をエクスポート</div>
                 <div class="settings__item-label">
-                    このデバイス（ブラウザ）に保存されている設定データをエクスポート（ダウンロード）できます。<br>
+                    このデバイス（ブラウザ）に保存されている設定データを、エクスポート（ダウンロード）できます。<br>
                     ダウンロードした設定データ (KonomiTV-Settings.json) は、[設定をインポート] からインポートできます。異なるサーバーの KonomiTV を同じ設定で使いたいときなどに使ってください。<br>
                 </div>
             </div>
@@ -177,8 +177,8 @@
                 <div class="settings__item-heading error--text text--lighten-1">設定をインポート</div>
                 <div class="settings__item-label">
                     [設定をエクスポート] でダウンロードした設定データを、このデバイス（ブラウザ）にインポートできます。<br>
-                    設定をインポートすると、それまでこのデバイス（ブラウザ）に保存されていた設定が、すべてインポート先の設定データで上書きされます。元に戻すことはできません。<br>
-                    また、設定のデバイス間同期が有効な場合、<b>同期が有効なすべてのデバイスにインポート後の設定データが反映されます。</b>十分ご注意ください。<br>
+                    設定をインポートすると、<b>現在のデバイス設定はすべて上書きされます。</b>元に戻すことはできません。<br>
+                    設定のデバイス間同期がオンのときは、<b>同期が有効なすべてのデバイスに反映されます。</b>十分ご注意ください。<br>
                 </div>
                 <v-file-input class="settings__item-form" outlined hide-details placeholder="設定データ (KonomiTV-Settings.json) を選択"
                     :dense="is_form_dense"
@@ -188,12 +188,15 @@
                     v-model="import_settings_file">
                 </v-file-input>
             </div>
+            <v-btn class="settings__save-button error mt-5" depressed @click="importSettings()">
+                <Icon icon="fa6-solid:upload" class="mr-3" height="19px" />設定をインポート
+            </v-btn>
             <div class="settings__item">
                 <div class="settings__item-heading error--text text--lighten-1">設定を初期状態にリセット</div>
                 <div class="settings__item-label">
                     このデバイス（ブラウザ）に保存されている設定データを、初期状態のデフォルト値にリセットできます。<br>
                     設定をリセットすると、元に戻すことはできません。<br>
-                    また、設定のデバイス間同期が有効な場合、<b>同期が有効なすべてのデバイスに初期状態の設定データが反映されます。</b>十分ご注意ください。<br>
+                    設定のデバイス間同期がオンのときは、<b>同期が有効なすべてのデバイスに反映されます。</b>十分ご注意ください。<br>
                 </div>
             </div>
             <v-btn class="settings__save-button error mt-5" depressed @click="resetSettings()">
