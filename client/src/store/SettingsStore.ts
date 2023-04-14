@@ -27,7 +27,6 @@ interface ISettings {
     sync_settings: boolean;
     comment_speed_rate: number;
     comment_font_size: number;
-    comment_delay_time: number;
     close_comment_form_after_sending: boolean;
     muted_comment_keywords: IMutedCommentKeywords[];
     muted_niconico_user_ids: string[];
@@ -69,7 +68,6 @@ const sync_settings_keys = [
     // sync_settings: 同期無効
     'comment_speed_rate',
     'comment_font_size',
-    // comment_delay_time: 同期無効
     'close_comment_form_after_sending',
     'muted_comment_keywords',
     'muted_niconico_user_ids',
@@ -141,8 +139,6 @@ const default_settings: ISettings = {
     comment_speed_rate: 1,
     // コメントのフォントサイズ (Default: 34px)
     comment_font_size: 34,
-    // コメントの遅延時間 (Default: 1.75秒) (同期無効)
-    comment_delay_time: 1.75,
     // コメント送信後にコメント入力フォームを閉じる (Default: オン)
     close_comment_form_after_sending: true,
 

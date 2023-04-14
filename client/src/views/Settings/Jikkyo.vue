@@ -76,16 +76,6 @@
                     :min="20" :max="60" v-model="settingsStore.settings.comment_font_size">
                 </v-slider>
             </div>
-            <div class="settings__item settings__item--sync-disabled">
-                <div class="settings__item-heading">コメントの遅延時間</div>
-                <div class="settings__item-label">
-                    プレイヤーやコメントリストに表示されるコメントを何秒遅らせて反映するかを設定します。<br>
-                    通常は 1.75 秒程度で大丈夫です。ネットワークが遅いなどでタイムラグが大きいときだけ、映像の遅延に合わせて調整してください。<br>
-                </div>
-                <v-slider class="settings__item-form" ticks="always" thumb-label hide-details
-                    :step="0.25" :min="0" :max="10"  v-model="settingsStore.settings.comment_delay_time">
-                </v-slider>
-            </div>
             <div class="settings__item settings__item--switch">
                 <label class="settings__item-heading" for="close_comment_form_after_sending">コメント送信後にコメント入力フォームを閉じる</label>
                 <label class="settings__item-label" for="close_comment_form_after_sending">

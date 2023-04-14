@@ -139,7 +139,6 @@ class ClientSettings(BaseModel):
     # sync_settings: 同期無効
     comment_speed_rate: float = Field(1)
     comment_font_size: int = Field(34)
-    # comment_delay_time: 同期無効
     close_comment_form_after_sending: bool = Field(True)
     muted_comment_keywords: list[dict[str, str]] = Field([])
     muted_niconico_user_ids: list[str] = Field([])

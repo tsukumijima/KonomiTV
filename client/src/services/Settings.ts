@@ -28,7 +28,6 @@ export interface IClientSettings {
     // sync_settings: 同期無効
     comment_speed_rate: number;
     comment_font_size: number;
-    // comment_delay_time: 同期無効
     close_comment_form_after_sending: boolean;
     muted_comment_keywords: IMutedCommentKeywords[];
     muted_niconico_user_ids: string[];
