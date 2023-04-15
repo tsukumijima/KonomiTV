@@ -169,7 +169,7 @@ class LiveCommentManager {
                     }
                     // keepIntervalSec の秒数ごとに keepSeat を送信して座席を維持する
                     this.keep_seat_interval_id = window.setInterval(() => {
-                        if (this.watch_session?.readyState === 1) {
+                        if (this.watch_session && this.watch_session.readyState === WebSocket.OPEN) {
                             // セッションがまだ開いていれば、座席を維持する
                             this.watch_session.send(JSON.stringify({type: 'keepSeat'}));
                         } else {
@@ -467,6 +467,13 @@ class LiveCommentManager {
         // vpos を計算 (10ミリ秒単位)
         // 番組開始時間からの累計秒らしいけど、なぜ指定しないといけないのかは不明
         const vpos = (dayjs().valueOf() - this.vpos_base_timestamp) / 10;
+
+        // 視聴セッションが null か、接続が切れている場合は弾く
+        if (this.watch_session === null || this.watch_session.readyState !== WebSocket.OPEN) {
+            console.error('[LiveCommentManager][WatchSession] Comment sending failed. (Connection is not established.)');
+            options.error('コメントの送信に失敗しました。WebSocket 接続が確立されていません。');
+            return;
+        }
 
         // コメントを送信
         this.watch_session.send(JSON.stringify({
