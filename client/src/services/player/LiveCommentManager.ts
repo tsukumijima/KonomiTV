@@ -190,6 +190,11 @@ class LiveCommentManager {
 
                 // エラー情報
                 case 'error': {
+                    // COMMENT_POST_NOT_ALLOWED と INVALID_MESSAGE に関しては sendComment() の方で処理するので、ここでは何もしない
+                    if (message.data.code === 'COMMENT_POST_NOT_ALLOWED' || message.data.code === 'INVALID_MESSAGE') {
+                        break;
+                    }
+
                     let error = `ニコニコ実況でエラーが発生しています。(Code: ${message.data.code})`;
                     switch (message.data.code) {
                         case 'CONNECT_ERROR':
@@ -466,7 +471,8 @@ class LiveCommentManager {
 
         // vpos を計算 (10ミリ秒単位)
         // 番組開始時間からの累計秒らしいけど、なぜ指定しないといけないのかは不明
-        const vpos = (dayjs().valueOf() - this.vpos_base_timestamp) / 10;
+        // 小数点以下は丸めないとコメントサーバー側で投稿エラーになる
+        const vpos = Math.round((dayjs().valueOf() - this.vpos_base_timestamp) / 10);
 
         // 視聴セッションが null か、接続が切れている場合は弾く
         if (this.watch_session === null || this.watch_session.readyState !== WebSocket.OPEN) {
@@ -522,6 +528,7 @@ class LiveCommentManager {
                             error = 'コメント内容が無効です。';
                             break;
                     }
+                    console.error(`[LiveCommentManager][WatchSession] Comment sending failed. (Code: ${message.data.code})`);
                     options.error(error);
 
                     // イベントリスナーを解除
