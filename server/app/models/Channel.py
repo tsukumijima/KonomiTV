@@ -78,7 +78,7 @@ class Channel(models.Model):
                 mirakurun_services_api_response = await asyncio.to_thread(requests.get,
                     url = mirakurun_services_api_url,
                     headers = API_REQUEST_HEADERS,
-                    timeout = 3,
+                    timeout = 5,
                 )
                 if mirakurun_services_api_response.status_code != 200:  # Mirakurun からエラーが返ってきた
                     Logging.error(f'Failed to get channels from Mirakurun. (HTTP Error {mirakurun_services_api_response.status_code})')
@@ -264,7 +264,7 @@ class Channel(models.Model):
 
             # CtrlCmdUtil を初期化
             edcb = CtrlCmdUtil()
-            edcb.setConnectTimeOutSec(3)  # 3秒後にタイムアウト
+            edcb.setConnectTimeOutSec(5)  # 5秒後にタイムアウト
 
             # EDCB の ChSet5.txt からチャンネル情報を取得する
             services = await edcb.sendFileCopy('ChSet5.txt')

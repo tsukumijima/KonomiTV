@@ -217,7 +217,7 @@ def main():
 
         # サービス一覧が取得できるか試してみる
         edcb = CtrlCmdUtil()
-        edcb.setConnectTimeOutSec(3)  # 3秒後にタイムアウト
+        edcb.setConnectTimeOutSec(5)  # 5秒後にタイムアウト
         result = asyncio.run(edcb.sendEnumService())
         if result is None:
             logger.error(
@@ -235,7 +235,7 @@ def main():
             response = requests.get(
                 url = f'{CONFIG["general"]["mirakurun_url"]}/api/version',
                 headers = API_REQUEST_HEADERS,
-                timeout = 3,
+                timeout = 5,
             )
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
             logger.error(

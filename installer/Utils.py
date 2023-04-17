@@ -79,7 +79,7 @@ class CtrlCmdConnectionCheckUtil:
     TZ = datetime.timezone(datetime.timedelta(hours = 9), 'JST')
 
     def __init__(self, hostname: str, port: int | None) -> None:
-        self.__connect_timeout_sec: float = 3  # 3秒でタイムアウト
+        self.__connect_timeout_sec: float = 5  # 5秒でタイムアウト
         self.__pipe_name = 'EpgTimerSrvNoWaitPipe'
         self.__host: str | None = None
         self.__port: int = 0

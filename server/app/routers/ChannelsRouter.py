@@ -408,7 +408,7 @@ async def ChannelLogoAPI(
             mirakurun_logo_api_response = await asyncio.to_thread(requests.get,
                 url = mirakurun_logo_api_url,
                 headers = API_REQUEST_HEADERS,
-                timeout = 3,
+                timeout = 5,
             )
 
             # ステータスコードが 200 であれば
@@ -428,7 +428,7 @@ async def ChannelLogoAPI(
 
         # CtrlCmdUtil を初期化
         edcb = CtrlCmdUtil()
-        edcb.setConnectTimeOutSec(3)  # 3秒後にタイムアウト
+        edcb.setConnectTimeOutSec(5)  # 5秒後にタイムアウト
 
         # EDCB の LogoData フォルダからロゴを取得
         logo = None

@@ -255,7 +255,7 @@ def Installer(version: str) -> None:
             # バリデーション
             ## 試しにリクエストを送り、200 (OK) が返ってきたときだけ有効な URL とみなす
             try:
-                response = requests.get(f'{mirakurun_url.rstrip("/")}/api/version', timeout=3)
+                response = requests.get(f'{mirakurun_url.rstrip("/")}/api/version', timeout=5)
             except Exception:
                 print(Padding(str(
                     f'[red]Mirakurun ({mirakurun_url}) にアクセスできませんでした。\n'
