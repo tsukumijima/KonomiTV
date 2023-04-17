@@ -391,10 +391,7 @@ jobs:
           ## ref: https://stackoverflow.com/questions/13756800/how-to-download-all-dependencies-and-packages-to-directory
           ## ref: https://askubuntu.com/questions/1260559/how-to-install-deb-packages-in-a-custom-folder-different-from-root-using-dp
           mkdir thirdparty/Library/
-          curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2023-03-31-12-50/ffmpeg-n4.4.3-4-gd585a0a1cc-linuxarm64-gpl-shared-4.4.tar.xz
-          tar xvf ffmpeg-n4.4.3-4-gd585a0a1cc-linuxarm64-gpl-shared-4.4.tar.xz
-          cp -ar ffmpeg-n4.4.3-4-gd585a0a1cc-linuxarm64-gpl-shared-4.4/lib/* thirdparty/Library/
-          docker run --rm -i -v $(pwd):/work -w /work ${{ matrix.image }}:build bash -c 'apt-get download libass9 libbrotli1 libexpat1 libfontconfig1 libfreetype6 libfribidi0 libglib2.0-0 libgraphite2-3 libharfbuzz0b libpcre3 libpng16-16 libuuid1 zlib1g'
+          docker run --rm -i -v $(pwd):/work -w /work ${{ matrix.image }}:build bash -c 'apt-get download libasound2 libass9 libbluray2 libexpat1 libfontconfig1 libfreetype6 libfribidi0 libglib2.0-0 libgomp1 libgraphite2-3 libharfbuzz0b libicu66 liblzma5 libmp3lame0 libogg0 libopus0 libpcre3 libpng16-16 libsoxr0 libspeex1 libssl1.1 libtwolame0 libuuid1 libvorbis0a libvorbisenc2 libvpx6 libxml2 zlib1g'
           curl -LO https://github.com/tsukumijima/mpp/releases/download/v1.5.0-4b8799c38aad5c64481eec89ba8f3f0c64176e42/librockchip-mpp1_1.5.0-1_arm64.deb
           curl -LO https://github.com/tsukumijima/librga/releases/download/v2.2.0-2827b00b884001e6da2c82d91cdace4fa473b5e2/librga2_2.2.0-1_arm64.deb
           ls -1 | grep [.]deb >> all_debs.txt && cat all_debs.txt | while read fn; do dpkg-deb -x $fn `pwd`/thirdparty/Library; done && rm all_debs.txt
@@ -407,9 +404,9 @@ jobs:
           find thirdparty/Library/*.so* -not -type l -not -type d | xargs chmod a+x
 
           # rkmppenc のアーカイブのダウンロード
-          curl -LO https://nightly.link/rigaya/rkmppenc/actions/runs/4676844332/rkmppenc_0.00-b2d03b1_Ubuntu20.04_arm64.deb.zip
-          unzip rkmppenc_0.00-b2d03b1_Ubuntu20.04_arm64.deb.zip
-          7z x -y rkmppenc_0.00-b2d03b1_Ubuntu20.04_arm64.deb && tar xvf data.tar
+          curl -LO https://nightly.link/rigaya/rkmppenc/actions/runs/4716949680/rkmppenc_0.00-acf9b9f_Ubuntu20.04_arm64.deb.zip
+          unzip rkmppenc_0.00-acf9b9f_Ubuntu20.04_arm64.deb.zip
+          7z x -y rkmppenc_0.00-acf9b9f_Ubuntu20.04_arm64.deb && tar xvf data.tar
           mkdir thirdparty/rkmppenc/
           cp usr/bin/rkmppenc thirdparty/rkmppenc/rkmppenc.elf
           chmod a+x thirdparty/rkmppenc/rkmppenc.elf
