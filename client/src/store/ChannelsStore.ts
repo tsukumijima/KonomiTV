@@ -225,7 +225,7 @@ const useChannelsStore = defineStore('channels', {
          * 視聴ページではピン留めされているチャンネルが1つもないときにピン留めタブを表示する必要性がないので、削除される
          */
         channels_list_with_pinned_for_watch(): Map<ChannelTypePretty, IChannel[]> {
-            const channels_list_with_pinned = this.channels_list_with_pinned;
+            const channels_list_with_pinned = new Map([...this.channels_list_with_pinned]);
             if (channels_list_with_pinned.get('ピン留め')?.length === 0) {
                 channels_list_with_pinned.delete('ピン留め');
             }
