@@ -1229,13 +1229,16 @@ export default Vue.extend({
             // mpegts.js 再生時は 60 秒、LL-HLS 再生時は 30 秒おきに監視する (LL-HLS 再生時はバッファの状態に関わらずシークする)
             if (this.is_mpegts_supported === true) {
                 this.interval_ids.push(window.setInterval(() => {
-                    if (this.player?.video.paused && this.player.video.buffered.end(0) - this.player.video.currentTime > 30) {
+                    if (this.player === null) return;
+                    if ((this.player.video.paused && this.player.video.buffered.length >= 1) &&
+                        (this.player.video.buffered.end(0) - this.player.video.currentTime > 30)) {
                         this.player.sync();
                     }
                 }, 60 * 1000));
             } else {
                 this.interval_ids.push(window.setInterval(() => {
-                    if (this.player?.video.paused) {
+                    if (this.player === null) return;
+                    if (this.player.video.paused) {
                         this.player.sync();
                     }
                 }, 30 * 1000));
@@ -1328,12 +1331,11 @@ export default Vue.extend({
 
                     // 再生バッファを取得する (取得に失敗した場合は 0 を返す)
                     const get_playback_buffer_sec = (): number => {
-                        try {
-                            return (Math.round((this.player!.video.buffered.end(0) - this.player!.video.currentTime) * 1000) / 1000);
-                        } catch (error) {
-                            // まだ再生準備が整っていないなどの理由で、再生バッファの取得に失敗した場合
-                            return 0;
+                        let buffered_end = 0;
+                        if (this.player.video.buffered.length >= 1) {
+                            buffered_end = this.player.video.buffered.end(0);
                         }
+                        return (Math.round((buffered_end - this.player.video.currentTime) * 1000) / 1000);
                     }
 
                     // 低遅延モードであれば低遅延向けの再生バッファを、そうでなければ通常の再生バッファをセット (秒単位)
