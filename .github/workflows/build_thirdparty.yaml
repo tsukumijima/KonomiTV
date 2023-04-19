@@ -87,8 +87,8 @@ jobs:
           curl -L -o thirdparty/QSVEncC/License.txt https://raw.githubusercontent.com/rigaya/QSVEnc/master/license.txt
 
           # NVEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/NVEnc/releases/download/7.21/NVEncC_7.21_x64.7z
-          7z x -y -o"thirdparty/NVEncC" NVEncC_7.21_x64.7z
+          curl -LO https://github.com/rigaya/NVEnc/releases/download/7.22/NVEncC_7.22_x64.7z
+          7z x -y -o"thirdparty/NVEncC" NVEncC_7.22_x64.7z
           rm thirdparty/NVEncC/hdr10plus_gen.exe
           mv thirdparty/NVEncC/NVEncC64.exe thirdparty/NVEncC/NVEncC.exe
           curl -L -o thirdparty/NVEncC/License.txt https://raw.githubusercontent.com/rigaya/NVEnc/master/NVEnc_license.txt
@@ -231,8 +231,8 @@ jobs:
           curl -L -o thirdparty/QSVEncC/License.txt https://raw.githubusercontent.com/rigaya/QSVEnc/master/license.txt
 
           # NVEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/NVEnc/releases/download/7.21/nvencc_7.21_Ubuntu20.04_amd64.deb
-          7z x -y nvencc_7.21_Ubuntu20.04_amd64.deb && tar xvf data.tar
+          curl -LO https://github.com/rigaya/NVEnc/releases/download/7.22/nvencc_7.22_Ubuntu20.04_amd64.deb
+          7z x -y nvencc_7.22_Ubuntu20.04_amd64.deb && tar xvf data.tar
           mkdir thirdparty/NVEncC/
           cp usr/bin/nvencc thirdparty/NVEncC/NVEncC.elf
           chmod a+x thirdparty/NVEncC/NVEncC.elf
