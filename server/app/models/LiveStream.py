@@ -531,6 +531,10 @@ class LiveStream():
         if (status == 'Offline' or status == 'Restart') and status == self._status:
             return
 
+        # ステータスは Offline から Restart に移行してはならない
+        if self._status == 'Offline' and status == 'Restart':
+            return
+
         # ストリーム開始 (Offline or Restart → Standby) 時、started_at と stream_data_written_at を更新する
         # ここで更新しておかないと、いつまで経っても初期化時の古いタイムスタンプが使われてしまう
         if ((self._status == 'Offline' or self._status == 'Restart') and status == 'Standby'):
