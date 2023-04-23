@@ -60,26 +60,6 @@
         "vuetify-message-snackbar": "^0.2.7",
         "yarn-audit-fix": "^9.3.7"
     },
-    "eslintConfig": {
-        "root": true,
-        "env": {
-            "browser": true,
-            "node": true
-        },
-        "extends": [
-            "plugin:vue/essential",
-            "eslint:recommended",
-            "@vue/typescript"
-        ],
-        "parserOptions": {
-            "parser": "@typescript-eslint/parser"
-        },
-        "rules": {
-            "no-undef": "off",
-            "no-unused-vars": "off",
-            "vue/multi-word-component-names": "off"
-        }
-    },
     "browserslist": [
         "> 1%",
         "last 2 versions",

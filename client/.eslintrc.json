@@ -1,0 +1,26 @@
+{
+    "root": true,
+    "env": {
+        "browser": true,
+        "node": true
+    },
+    "parserOptions": {
+        "parser": "@typescript-eslint/parser"
+    },
+    "plugins": [
+        "@typescript-eslint"
+    ],
+    "extends": [
+        "plugin:vue/essential",
+        "eslint:recommended",
+        "@vue/typescript"
+    ],
+    "rules": {
+        "no-unused-vars": "off",
+        "quotes": ["error", "single"],
+        "semi": ["error", "always"],
+        "vue/multi-word-component-names": "off",
+        "@typescript-eslint/indent": ["error", 4, {"SwitchCase": 1}],
+        "@typescript-eslint/semi": ["error", "always"]
+    }
+}
