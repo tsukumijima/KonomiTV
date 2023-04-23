@@ -56,8 +56,8 @@
 </template>
 <script lang="ts">
 
-import Vue from 'vue';
 import { mapStores } from 'pinia';
+import Vue from 'vue';
 
 import useChannelsStore from '@/store/ChannelsStore';
 import Utils, { ChannelUtils, ProgramUtils } from '@/utils';

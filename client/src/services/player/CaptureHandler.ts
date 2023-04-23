@@ -1,8 +1,9 @@
 
 import { Buffer } from 'buffer';
+
 import { convertBlobToPng, copyBlobToClipboard } from 'copy-image-clipboard';
-import DPlayer from 'dplayer';
 import dayjs from 'dayjs';
+import DPlayer from 'dplayer';
 import 'dayjs/locale/ja';
 import * as piexif from 'piexifjs';
 

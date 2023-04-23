@@ -8,7 +8,9 @@
         "parser": "@typescript-eslint/parser"
     },
     "plugins": [
-        "@typescript-eslint"
+        "@typescript-eslint",
+        "import",
+        "unused-imports"
     ],
     "extends": [
         "plugin:vue/essential",
@@ -16,11 +18,18 @@
         "@vue/typescript"
     ],
     "rules": {
-        "no-unused-vars": "off",
-        "quotes": ["error", "single"],
-        "semi": ["error", "always"],
-        "vue/multi-word-component-names": "off",
         "@typescript-eslint/indent": ["error", 4, {"SwitchCase": 1}],
-        "@typescript-eslint/semi": ["error", "always"]
+        "@typescript-eslint/no-unused-vars": "off",
+        "@typescript-eslint/quotes": ["error", "single"],
+        "@typescript-eslint/semi": ["error", "always"],
+        "import/order": ["warn", {
+            "alphabetize": {"order": "asc", "caseInsensitive": true},
+            "groups": ["builtin", "external", "internal", "parent", "sibling", "index", "object", "type"],
+            "newlines-between": "always",
+            "pathGroupsExcludedImportTypes": ["builtin"]
+        }],
+        "unused-imports/no-unused-imports": "warn",
+        "vue/multi-word-component-names": "off",
+        "no-unused-vars": "off"
     }
 }

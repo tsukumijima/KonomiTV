@@ -99,8 +99,8 @@ import CommentMuteSettings from '@/components/Settings/CommentMuteSettings.vue';
 import Niconico from '@/services/Niconico';
 import useSettingsStore from '@/store/SettingsStore';
 import useUserStore from '@/store/UserStore';
-import Base from '@/views/Settings/Base.vue';
 import Utils from '@/utils';
+import Base from '@/views/Settings/Base.vue';
 
 export default Vue.extend({
     name: 'Settings-Jikkyo',

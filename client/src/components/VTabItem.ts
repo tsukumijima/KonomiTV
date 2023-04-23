@@ -1,6 +1,5 @@
 
 import { VueConstructor, VNode } from 'vue';
-
 import VTabItem from 'vuetify/lib/components/VTabs/VTabItem';
 
 // VTabItem は VWindowItem を extend() して実装されている

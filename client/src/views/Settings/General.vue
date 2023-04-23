@@ -206,8 +206,8 @@ import { mapStores } from 'pinia';
 import Vue from 'vue';
 
 import useSettingsStore from '@/store/SettingsStore';
-import Base from '@/views/Settings/Base.vue';
 import Utils, { PlayerUtils } from '@/utils';
+import Base from '@/views/Settings/Base.vue';
 
 export default Vue.extend({
     name: 'Settings-General',

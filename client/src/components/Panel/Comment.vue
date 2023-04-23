@@ -74,7 +74,6 @@ import { mapStores } from 'pinia';
 import Vue from 'vue';
 
 import CommentMuteSettings from '@/components/Settings/CommentMuteSettings.vue';
-import { IChannel } from '@/services/Channels';
 import LiveCommentManager, { ICommentData } from '@/services/player/LiveCommentManager';
 import useUserStore from '@/store/UserStore';
 import Utils, { CommentUtils } from '@/utils';

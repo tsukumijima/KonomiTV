@@ -111,8 +111,8 @@ import Vue from 'vue';
 import Twitter from '@/services/Twitter';
 import useSettingsStore from '@/store/SettingsStore';
 import useUserStore from '@/store/UserStore';
-import Base from '@/views/Settings/Base.vue';
 import Utils from '@/utils';
+import Base from '@/views/Settings/Base.vue';
 
 export default Vue.extend({
     name: 'Settings-Twitter',

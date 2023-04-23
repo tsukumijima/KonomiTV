@@ -2,18 +2,18 @@
 import Vue from 'vue';
 import VueRouter from 'vue-router';
 
-import TVHome from '@/views/TV/Home.vue';
-import TVWatch from '@/views/TV/Watch.vue';
-import SettingsIndex from '@/views/Settings/Index.vue';
-import SettingsGeneral from '@/views/Settings/General.vue';
+import Utils from '@/utils';
+import Login from '@/views/Login.vue';
+import NotFound from '@/views/NotFound.vue';
+import Register from '@/views/Register.vue';
 import SettingsAccount from '@/views/Settings/Account.vue';
+import SettingsEnvironment from '@/views/Settings/Environment.vue';
+import SettingsGeneral from '@/views/Settings/General.vue';
+import SettingsIndex from '@/views/Settings/Index.vue';
 import SettingsJikkyo from '@/views/Settings/Jikkyo.vue';
 import SettingsTwitter from '@/views/Settings/Twitter.vue';
-import SettingsEnvironment from '@/views/Settings/Environment.vue';
-import Login from '@/views/Login.vue';
-import Register from '@/views/Register.vue';
-import NotFound from '@/views/NotFound.vue';
-import Utils from '@/utils';
+import TVHome from '@/views/TV/Home.vue';
+import TVWatch from '@/views/TV/Watch.vue';
 
 Vue.use(VueRouter);
 

@@ -1,6 +1,5 @@
 
 import { VueConstructor } from 'vue';
-
 import { GroupableInstance } from 'vuetify/lib/components/VItemGroup/VItemGroup';
 import VTabsBar from 'vuetify/lib/components/VTabs/VTabsBar';
 
