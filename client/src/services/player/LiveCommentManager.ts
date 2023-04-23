@@ -396,7 +396,7 @@ class LiveCommentManager {
             const { color, position, size } = CommentUtils.parseCommentCommand(comment.mail);
 
             // ミュート対象のコメントかどうかを判定し、もしそうならここで弾く
-            if (CommentUtils.isMutedComment(comment.content, color, position, size, comment.user_id)) {
+            if (CommentUtils.isMutedComment(comment.content, comment.user_id, color, position, size)) {
                 return;
             }
 

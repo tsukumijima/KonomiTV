@@ -14,15 +14,13 @@
             <div class="comment-list-dropdown" :class="{'comment-list-dropdown--display': is_comment_list_dropdown_display}"
                 :style="{'--comment-list-dropdown-top': `${comment_list_dropdown_top}px`}">
                 <v-list style="background: var(--v-background-lighten1)">
-                    <v-list-item dense style="min-height: 30px"
-                        @click="CommentUtils.addMutedKeywords(comment_list_dropdown_comment.text); is_comment_list_dropdown_display = false">
+                    <v-list-item dense style="min-height: 30px" @click="addMutedKeywords()">
                         <v-list-item-title class="d-flex align-center">
                             <Icon icon="fluent:comment-dismiss-20-filled" width="20px" />
                             <span class="ml-2">このコメントをミュート</span>
                         </v-list-item-title>
                     </v-list-item>
-                    <v-list-item dense style="min-height: 30px"
-                        @click="CommentUtils.addMutedNiconicoUserIDs(comment_list_dropdown_comment.user_id); is_comment_list_dropdown_display = false">
+                    <v-list-item dense style="min-height: 30px" @click="addMutedNiconicoUserIds()">
                         <v-list-item-title class="d-flex align-center" >
                             <Icon icon="fluent:person-prohibited-20-filled" width="20px" />
                             <span class="ml-2">このコメントの投稿者をミュート</span>
@@ -73,7 +71,7 @@
 import DPlayer from 'dplayer';
 import * as DPlayerType from 'dplayer/dist/d.ts/types/DPlayer';
 import { mapStores } from 'pinia';
-import Vue, { PropType } from 'vue';
+import Vue from 'vue';
 
 import CommentMuteSettings from '@/components/Settings/CommentMuteSettings.vue';
 import { IChannel } from '@/services/Channels';
@@ -91,7 +89,6 @@ export default Vue.extend({
 
             // ユーティリティをテンプレートで使えるように
             Utils: Utils,
-            CommentUtils: CommentUtils,
 
             // 手動スクロール状態かどうか
             is_manual_scroll: false,
@@ -234,6 +231,26 @@ export default Vue.extend({
             // 表示位置を調整できたので、メニューを表示
             this.comment_list_dropdown_comment = comment;
             this.is_comment_list_dropdown_display = true;
+        },
+
+        // ミュートするキーワードを追加する
+        addMutedKeywords() {
+            CommentUtils.addMutedKeywords(this.comment_list_dropdown_comment.text);
+            this.is_comment_list_dropdown_display = false;
+            // ミュート対象のコメントを非表示にする
+            this.comment_list = this.comment_list.filter((comment) => {
+                return CommentUtils.isMutedComment(comment.text, comment.user_id) === false;
+            });
+        },
+
+        // ミュートするニコニコユーザー ID を追加する
+        addMutedNiconicoUserIds() {
+            CommentUtils.addMutedNiconicoUserIDs(this.comment_list_dropdown_comment.user_id);
+            this.is_comment_list_dropdown_display = false;
+            // ミュート対象のコメントを非表示にする
+            this.comment_list = this.comment_list.filter((comment) => {
+                return CommentUtils.isMutedComment(comment.text, comment.user_id) === false;
+            });
         },
 
         // コメントリストを一番下までスクロールする

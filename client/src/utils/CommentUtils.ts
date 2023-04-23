@@ -142,18 +142,18 @@ export class CommentUtils {
     /**
      * ミュート対象のコメントかどうかを判断する
      * @param comment コメント
+     * @param user_id コメントを投稿したユーザーの ID
      * @param color コメントの色
      * @param position コメントの位置
      * @param size コメントのサイズ
-     * @param user_id コメントを投稿したユーザーの ID
      * @return ミュート対象のコメントなら true を返す
      */
     static isMutedComment(
         comment: string,
-        color: string,
-        position: 'top' | 'right' | 'bottom',
-        size: 'big' | 'medium' | 'small',
         user_id: string,
+        color?: string,
+        position?: 'top' | 'right' | 'bottom',
+        size?: 'big' | 'medium' | 'small',
     ): boolean {
 
         const settings_store = useSettingsStore();
