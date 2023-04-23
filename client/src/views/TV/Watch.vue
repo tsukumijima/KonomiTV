@@ -1466,6 +1466,12 @@ export default Vue.extend({
                             on_canplay();
                         }
 
+                        // 再生が開始される前にチャンネルを切り替えた際にコメントが流れない不具合のワークアラウンド
+                        if (this.player.container.classList.contains('dplayer-paused')) {
+                            this.player.container.classList.remove('dplayer-paused');
+                            this.player.container.classList.add('dplayer-playing');
+                        }
+
                         // 前のプレイヤーインスタンスの Picture-in-Picture ウインドウが残っている場合、終了させてからもう一度切り替える
                         // チャンネル切り替えが完了しても前の Picture-in-Picture ウインドウは再利用されないため、一旦終了させるしかない
                         if (document.pictureInPictureElement) {
