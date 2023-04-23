@@ -66,14 +66,14 @@ const useChannelsStore = defineStore('channels', {
                     channel_id: 'gr999',
                     title: 'チャンネル情報取得エラー',
                     description: 'このチャンネル ID のチャンネル情報は存在しません。',
-                }
+                };
                 const IChannelError = {
                     ...IChannelDefault,
                     channel_id: 'gr999',  // チャンネル情報が存在しないことを示す特殊なチャンネル ID
                     channel_name: 'ERROR',
                     program_present: IProgramError,
                     program_following: IProgramError,
-                }
+                };
                 return {
                     previous: IChannelError,
                     current: IChannelError,

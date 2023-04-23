@@ -54,7 +54,7 @@ const useUserStore = defineStore('user', {
 
             // 作成したアカウントでログイン
             await this.login(username, password, true);
-            console.log('Register successful.')
+            console.log('Register successful.');
             Message.success('アカウントを作成しました。');
             return true;
         },

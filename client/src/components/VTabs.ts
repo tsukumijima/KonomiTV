@@ -1,7 +1,7 @@
 
 import { VueConstructor, VNode } from 'vue';
 
-import { convertToUnit } from 'vuetify/lib/util/helpers'
+import { convertToUnit } from 'vuetify/lib/util/helpers';
 import VTabs from 'vuetify/lib/components/VTabs/VTabs';
 import VTabsBar from '@/components/VTabsBar';
 

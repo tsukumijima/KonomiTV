@@ -151,7 +151,7 @@ export default Vue.extend({
 
             // ローディング中かどうか
             is_loading: true,
-        }
+        };
     },
     computed: {
         // SettingsStore / UserStore に this.settingsStore / this.userStore でアクセスできるようにする

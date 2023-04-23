@@ -415,7 +415,7 @@ export default Vue.extend({
                     },
                 ]
             }
-        }
+        };
     },
     computed: {
         // ChannelsStore / SettingsStore に this.channelsStore / this.settingsStore でアクセスできるようにする
@@ -439,7 +439,7 @@ export default Vue.extend({
                 } else {
                     this.is_virtual_keyboard_display = true;
                 }
-            }
+            };
         }
 
         // 再生セッションを初期化
@@ -776,7 +776,7 @@ export default Vue.extend({
                     this.player.controller.hide();
                     this.player.setting.hide();
                 }
-            }
+            };
 
             // タッチデバイスでプレイヤー画面がクリックされたとき
             if (is_touch_device === true && is_player_event === true) {
@@ -1116,7 +1116,7 @@ export default Vue.extend({
                             <path d="M22 16l-10.105-10.6-1.895 1.987 8.211 8.613-8.211 8.612 1.895 1.988 8.211-8.613z"></path>
                         </svg>
                     </div>
-                </div>`)
+                </div>`);
 
                 // 設定パネルの高さを再設定
                 const settingOriginPanelHeight = this.player.template.settingOriginPanel.scrollHeight;
@@ -1136,7 +1136,7 @@ export default Vue.extend({
             const fullscreen_container = document.querySelector('.v-application')!;
             this.fullscreen_handler = () => {
                 this.is_fullscreen = this.player?.fullScreen.isFullScreen() === true;
-            }
+            };
             if (fullscreen_container.onfullscreenchange !== undefined) {
                 fullscreen_container.addEventListener('fullscreenchange', this.fullscreen_handler);
             } else {
@@ -1148,7 +1148,7 @@ export default Vue.extend({
             // フルスクリーンかどうか
             this.player.fullScreen.isFullScreen = (type?: DPlayerType.FullscreenType) => {
                 return !!(document.fullscreenElement || document.webkitFullscreenElement);
-            }
+            };
             // フルスクリーンをリクエスト
             this.player.fullScreen.request = (type?: DPlayerType.FullscreenType) => {
                 if (this.player === null) return;
@@ -1174,7 +1174,7 @@ export default Vue.extend({
                 if (screen.orientation) {
                     screen.orientation.lock('landscape').catch(() => {});
                 }
-            }
+            };
             // フルスクリーンをキャンセル
             this.player.fullScreen.cancel = (type?: DPlayerType.FullscreenType) => {
 
@@ -1189,7 +1189,7 @@ export default Vue.extend({
                 if (screen.orientation) {
                     screen.orientation.unlock();
                 }
-            }
+            };
 
             // ***** 再生/停止/画質切り替え時のイベントハンドラー *****
 
@@ -1202,7 +1202,7 @@ export default Vue.extend({
 
                 // コントロールを表示する
                 this.controlDisplayTimer();
-            }
+            };
             this.player.on('play', on_play_or_pause);
             this.player.on('pause', on_play_or_pause);
 
@@ -1336,7 +1336,7 @@ export default Vue.extend({
                             buffered_end = this.player.video.buffered.end(0);
                         }
                         return (Math.round((buffered_end - this.player.video.currentTime) * 1000) / 1000);
-                    }
+                    };
 
                     // 低遅延モードであれば低遅延向けの再生バッファを、そうでなければ通常の再生バッファをセット (秒単位)
                     const playback_buffer_sec = this.settingsStore.settings.tv_low_latency_mode ?
@@ -1385,7 +1385,7 @@ export default Vue.extend({
                     await Utils.sleep(0.02);
                 }
                 this.player.video.volume = current_volume;
-            }
+            };
             this.player.video.oncanplay = on_canplay;
             this.player.video.oncanplaythrough = on_canplay;
 
@@ -1516,10 +1516,10 @@ export default Vue.extend({
                             this.player.video.onerror = () => {
                                 this.player!.notice(event.detail, -1);
                                 this.player!.video.onerror = null;
-                            }
+                            };
 
                             // 描画されたコメントをクリア
-                            this.player?.danmaku?.clear()
+                            this.player?.danmaku?.clear();
 
                             // 動画を停止する
                             this.player.video.pause();

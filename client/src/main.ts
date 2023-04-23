@@ -59,11 +59,11 @@ Vue.use(VuetifyMessageSnackbar, {
     // 2.5秒でタイムアウト
     timeout: 2500,
     // 要素が非表示になった後に DOM から要素を削除する
-	autoRemove: true,
+    autoRemove: true,
     // 閉じるボタンのテキスト
-	closeButtonContent: '閉じる',
-	// Vuetify のインスタンス
-	vuetifyInstance: vuetify,
+    closeButtonContent: '閉じる',
+    // Vuetify のインスタンス
+    vuetifyInstance: vuetify,
 });
 
 // VTooltip を使う
@@ -109,7 +109,7 @@ store.$subscribe(async () => {
     }
 
     // 設定データを LocalStorage に保存
-    console.log('Client Settings Changed:', store.settings)
+    console.log('Client Settings Changed:', store.settings);
     setLocalStorageSettings(store.settings);
 
     // 設定データをサーバーに同期する (ログイン時かつ同期が有効な場合のみ)

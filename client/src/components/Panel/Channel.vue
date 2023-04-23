@@ -68,7 +68,7 @@ export default Vue.extend({
 
             // タブの状態管理
             tab: null,
-        }
+        };
     },
     computed: {
         // ChannelsStore に this.channelsStore でアクセスできるようにする

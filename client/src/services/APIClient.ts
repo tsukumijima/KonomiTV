@@ -21,7 +21,7 @@ export type SuccessResponse<T> = {
     data: T;
     error: null;
     is_success: true;
-}
+};
 
 /** API リクエスト失敗時のレスポンスを表すインターフェイス */
 export type ErrorResponse<T extends Error = Error> = {
@@ -29,7 +29,7 @@ export type ErrorResponse<T extends Error = Error> = {
     data: null;
     error: T;
     is_error: true;
-}
+};
 
 
 /**
@@ -60,7 +60,7 @@ class APIClient {
                     data: null,
                     error: new Error(result.response.data.detail),
                     is_error: true,
-                }
+                };
 
             // エラーレスポンスがない場合は、AxiosError をそのまま返す
             } else {

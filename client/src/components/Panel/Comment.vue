@@ -129,7 +129,7 @@ export default Vue.extend({
 
             // コメントのミュート設定のモーダルを表示するか
             comment_mute_settings_modal: false,
-        }
+        };
     },
     computed: {
         // UserStore に this.userStore でアクセスできるようにする
@@ -158,20 +158,20 @@ export default Vue.extend({
             const x = event.clientX - this.comment_list_element.getBoundingClientRect().left;
             // 座標が clientWidth 以上であれば、スクロールバー上で mousedown されたものとする
             if (x > this.comment_list_element.clientWidth) is_user_scrolling = true;
-        }
+        };
         this.comment_list_element.onmouseup = (event: MouseEvent) => {
             // コメントリストの要素の左上を起点としたカーソルのX座標を求める
             const x = event.clientX - this.comment_list_element.getBoundingClientRect().left;
             // 座標が clientWidth 以上であれば、スクロールバー上で mouseup されたものとする
             if (x > this.comment_list_element.clientWidth) is_user_scrolling = false;
-        }
+        };
 
         // ユーザーによるスクロールイベントで is_user_scrolling を true にする
         // 0.1 秒後に false にする（継続してイベントが発火すれば再び true になる）
         const on_user_scrolling = () => {
             is_user_scrolling = true;
             window.setTimeout(() => is_user_scrolling = false, 100);
-        }
+        };
 
         // 現在コメントリストがドラッグされているかどうか
         let is_dragging = false;
@@ -205,7 +205,7 @@ export default Vue.extend({
                     this.is_manual_scroll = false;  // 手動スクロールを無効化
                 }
             }
-        }
+        };
     },
     // 終了前に実行
     beforeDestroy() {
@@ -224,7 +224,7 @@ export default Vue.extend({
         displayCommentListDropdown(event: Event, comment: ICommentData) {
             const comment_list_wrapper_rect = (this.$refs.comment_list_wrapper as HTMLDivElement).getBoundingClientRect();
             const comment_list_dropdown_height = 76;  // 76px はドロップダウンメニューの高さ
-            const comment_button_rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+            const comment_button_rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
             // メニューの表示位置をクリックされたコメントに合わせる
             this.comment_list_dropdown_top = comment_button_rect.top - comment_list_wrapper_rect.top;
             // メニューがコメントリストからはみ出るときだけ、表示位置を上側に調整
@@ -312,7 +312,7 @@ export default Vue.extend({
                     const gcd = (x: number, y: number) => {  // 最大公約数を求める関数
                         if (y === 0) return x;
                         return gcd(y, x % y);
-                    }
+                    };
                     // 幅と高さの最大公約数を求める
                     const gcd_result = gcd(comment_area_width, comment_area_height);
                     // 幅と高さをそれぞれ最大公約数で割ってアスペクト比を算出
@@ -346,7 +346,7 @@ export default Vue.extend({
                     comment_area_element.style.removeProperty('--comment-area-aspect-ratio');
                     comment_area_element.style.removeProperty('--comment-area-vertical-margin');
                 }
-            }
+            };
 
             // 要素の監視を開始
             this.resize_observer = new ResizeObserver(on_resize);

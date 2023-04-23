@@ -203,7 +203,7 @@ class CaptureHandler {
             }
 
             return blob;
-        }
+        };
 
         // ***** 映像のキャプチャ *****
 
@@ -256,7 +256,6 @@ class CaptureHandler {
             }
 
         // ***** 通常実行 (Canvas にキャプチャ以外のデータを重ねて描画する必要があるケース) *****
-
         } else {
 
             const promises: Promise<void>[] = [];
@@ -509,7 +508,7 @@ class CaptureHandler {
             // スクロール中のコメントの表示座標を計算
             const position = comment.getBoundingClientRect().left - this.player.video.getBoundingClientRect().left;
             comments_html = comments_html.replace(/transform: translateX\(.*?\);/, `left: ${position}px;`)
-                                            .replaceAll('border: 2px solid #E64F97;', '');
+                .replaceAll('border: 2px solid #E64F97;', '');
         }
 
         // HTML を画像として取得
@@ -599,7 +598,7 @@ class CaptureHandler {
             caption_text: caption_text,        // 字幕のテキスト (キャプチャした瞬間に字幕が表示されていなかったときは null)
             is_caption_composited: is_caption_composited,  // 字幕が合成されているか
             is_comment_composited: is_comment_composited,  // コメントが合成されているか
-        }
+        };
 
         // 保存する EXIF メタデータを構築
         // ref: 「カメラアプリで体感するWeb App」4.2

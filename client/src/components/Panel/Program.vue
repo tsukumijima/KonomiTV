@@ -70,7 +70,7 @@ export default Vue.extend({
             Utils: Utils,
             ChannelUtils: ChannelUtils,
             ProgramUtils: ProgramUtils,
-        }
+        };
     },
     computed: {
         // ChannelsStore に this.channelsStore でアクセスできるようにする

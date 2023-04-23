@@ -177,7 +177,7 @@ export default Vue.extend({
                 {text: '完全一致', value: 'exact'},
                 {text: '正規表現', value: 'regex'},
             ],
-        }
+        };
     },
     computed: {
         // SettingsStore に this.settingsStore でアクセスできるようにする

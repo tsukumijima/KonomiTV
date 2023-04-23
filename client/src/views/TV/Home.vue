@@ -117,7 +117,7 @@ export default Vue.extend({
             // ページ遷移時に setInterval(), setTimeout() の実行を止めるのに使う
             // setInterval(), setTimeout() の返り値を登録する
             interval_ids: [] as number[],
-        }
+        };
     },
     computed: {
         // ChannelsStore / SettingsStore に this.channelsStore / this.settingsStore でアクセスできるようにする
@@ -183,7 +183,7 @@ export default Vue.extend({
             this.settingsStore.settings.pinned_channel_ids.push(channel_id);
 
             const channel = this.channelsStore.getChannel(channel_id);
-            this.$message.show(`${channel.channel_name}をピン留めしました。`)
+            this.$message.show(`${channel.channel_name}をピン留めしました。`);
         },
 
         // チャンネルをピン留めから外す
@@ -198,7 +198,7 @@ export default Vue.extend({
             }
 
             const channel = this.channelsStore.getChannel(channel_id);
-            this.$message.show(`${channel.channel_name}のピン留めを外しました。`)
+            this.$message.show(`${channel.channel_name}のピン留めを外しました。`);
         },
 
         // チャンネルがピン留めされているか

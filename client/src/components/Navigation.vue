@@ -71,7 +71,7 @@ export default Vue.extend({
 
             // アップデートが利用可能か
             is_update_available: false as boolean,
-        }
+        };
     },
     async created() {
         try {

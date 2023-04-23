@@ -262,7 +262,7 @@ export default Vue.extend({
 
             // 文字数カウント
             tweet_letter_count: 140,
-        }
+        };
     },
     computed: {
         // ChannelsStore / SettingsStore / UserStore に this.channelsStore / this.settingsStore / this.userStore でアクセスできるようにする
@@ -467,9 +467,9 @@ export default Vue.extend({
             image_bitmap.close();
 
             // 描画設定
-            context.font = `bold 22px 'YakuHanJPs', 'Open Sans', 'Hiragino Sans', 'Noto Sans JP', sans-serif`; // フォント
+            context.font = 'bold 22px "YakuHanJPs", "Open Sans", "Hiragino Sans", "Noto Sans JP", sans-serif'; // フォント
             context.fillStyle = 'rgba(255, 255, 255, 70%)';  // 半透明の白
-            context.shadowColor = 'rgba(0, 0, 0, 100%)'  // 影の色
+            context.shadowColor = 'rgba(0, 0, 0, 100%)';  // 影の色
             context.shadowBlur = 4;  // 影をぼかすしきい値
             context.shadowOffsetX = 0;  // 影のX座標
             context.shadowOffsetY = 0;  // 影のY座標

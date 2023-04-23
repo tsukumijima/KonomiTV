@@ -71,7 +71,7 @@ export default Vue.extend({
                 if (/^[a-zA-Z0-9!-/:-@¥[-`{-~]{4,}$/.test(value) === false) return 'パスワードは4文字以上の半角英数記号を入力してください。';
                 return true;
             },
-        }
+        };
     },
     computed: {
         // UserStore に this.userStore でアクセスできるようにする

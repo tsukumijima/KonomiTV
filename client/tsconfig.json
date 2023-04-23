@@ -14,7 +14,7 @@
         "incremental": true,  // 差分ビルドを有効に
         "removeComments": false,  // コメントを残す
         "forceConsistentCasingInFileNames": true,  // ファイル名の大文字小文字に一貫性がないときにエラーにする
-        "noImplicitThis": true,  // Vetur で this の補完を有効にする
+        "noImplicitThis": true,  // Volar で this の補完を有効にする
         // ↓↓↓ がんばらない TypeScript
         "noImplicitAny": false,
         "strictNullChecks": false,

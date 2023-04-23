@@ -278,7 +278,7 @@ export default Vue.extend({
 
             // 選択された設定データ (KonomiTV-Settings.json) が入る
             import_settings_file: null as File | null,
-        }
+        };
     },
     computed: {
         // SettingsStore に this.settingsStore でアクセスできるようにする

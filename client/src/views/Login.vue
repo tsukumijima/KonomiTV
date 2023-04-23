@@ -58,7 +58,7 @@ export default Vue.extend({
             username: '' as string,
             password: '' as string,
             password_showing: false,
-        }
+        };
     },
     computed: {
         // UserStore に this.userStore でアクセスできるようにする

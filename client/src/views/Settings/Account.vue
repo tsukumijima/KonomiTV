@@ -251,7 +251,7 @@ export default Vue.extend({
 
             // 設定を同期するときのダイヤログ
             sync_settings_dialog: false,
-        }
+        };
     },
     computed: {
         // SettingsStore / UserStore に this.settingsStore / this.userStore でアクセスできるようにする
@@ -283,7 +283,7 @@ export default Vue.extend({
                 // 一度オブジェクトに戻したものをを再度 JSON にする（文字列比較のため）
                 const server_sync_settings = await Settings.fetchClientSettings();
                 if (server_sync_settings === null) {
-                    this.$message.error(`サーバーから設定データを取得できませんでした。`);
+                    this.$message.error('サーバーから設定データを取得できませんでした。');
                     return;
                 }
                 const server_sync_settings_json = JSON.stringify(server_sync_settings);

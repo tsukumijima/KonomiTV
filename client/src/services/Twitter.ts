@@ -87,7 +87,7 @@ class Niconico {
             return {message: response.data.detail, is_error: false};
         } else {
             // ツイート失敗
-            return {message: `エラー: ${response.data.detail}`, is_error: true}
+            return {message: `エラー: ${response.data.detail}`, is_error: true};
         }
     }
 }

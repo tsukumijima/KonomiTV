@@ -49,6 +49,6 @@ export const IProgramDefault: IProgram = {
     secondary_audio_type: null,
     secondary_audio_language: null,
     secondary_audio_sampling_rate: null,
-}
+};
 
 // TODO: 番組情報 API が開発されたらここに API 定義を書く

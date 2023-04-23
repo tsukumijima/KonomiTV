@@ -29,4 +29,4 @@ export default {
         // @ts-ignore
         return window.KonomiTVVueInstance.$message.show(message);
     }
-}
+};

@@ -10,7 +10,7 @@ export default (VTabsBar as VueConstructor).extend({
         return {
             // 一応型定義をしておく
             items: [] as GroupableInstance[],
-        }
+        };
     },
     methods: {
 

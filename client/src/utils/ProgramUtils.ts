@@ -3,7 +3,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/ja';
 import isBetween from 'dayjs/plugin/isBetween';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
-import isSameOrBefore from 'dayjs/plugin/isSameOrBefore'
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 
 import { IProgram } from '@/services/Programs';
 import Utils from '@/utils';
@@ -36,12 +36,12 @@ export class ProgramUtils {
                 '演|移|他|収|・|英|韓|中|字/日|字/日英|3D|2K|4K|8K|5.1|7.1|22.2|60P|120P|d|HC|HDR|SHV|UHD|VOD|配|初';
 
             // 正規表現を作成
-            const pattern1 = new RegExp(`\\((二|字|再)\\)`, 'g');  // 通常の括弧で囲まれている記号
+            const pattern1 = new RegExp('\\((二|字|再)\\)', 'g');  // 通常の括弧で囲まれている記号
             const pattern2 = new RegExp(`\\[(${mark})\\]`, 'g');
 
             // 正規表現で置換した結果を返す
             return text.replace(pattern1, '<span class="decorate-symbol">$1</span>')
-                       .replace(pattern2, '<span class="decorate-symbol">$1</span>');
+                .replace(pattern2, '<span class="decorate-symbol">$1</span>');
 
         // 番組情報がない時間帯
         } else {

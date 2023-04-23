@@ -28,22 +28,22 @@ export interface ITwitterAccount {
 
 /** ユーザーアカウントのアクセストークンを表すインターフェイス */
 export interface IUserAccessToken {
-  access_token: string;
-  token_type: string;
+    access_token: string;
+    token_type: string;
 }
 
 export interface IUserCreateRequest {
-  username: string;
-  password: string;
+    username: string;
+    password: string;
 }
 export interface IUserUpdateRequest {
-  username?: string;
-  password?: string;
+    username?: string;
+    password?: string;
 }
 export interface IUserUpdateRequestForAdmin {
-  username?: string;
-  password?: string;
-  is_admin?: boolean;
+    username?: string;
+    password?: string;
+    is_admin?: boolean;
 }
 
 

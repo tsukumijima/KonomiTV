@@ -59,7 +59,7 @@ export const IChannelDefault: IChannel = {
     viewers: 0,
     program_present: IProgramDefault,
     program_following: IProgramDefault,
-}
+};
 
 /** ニコニコ実況のセッション情報を表すインターフェイス */
 export interface IJikkyoSession {

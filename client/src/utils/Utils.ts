@@ -209,7 +209,7 @@ export default class Utils {
      */
     static mathFloor(value: number, base: number = 0): number {
         return Math.floor(value * (10**base)) / (10**base);
-      }
+    }
 
 
     /**
