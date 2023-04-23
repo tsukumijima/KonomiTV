@@ -29,7 +29,7 @@
                 </v-list>
             </div>
             <div class="comment-list-cover" :class="{'comment-list-cover--display': is_comment_list_dropdown_display}"
-                @click="is_comment_list_dropdown_display = false"></div>
+                @click="hideCommentListDropdown()"></div>
             <DynamicScroller class="comment-list" :direction="'vertical'" :items="comment_list" :min-item-size="34">
                 <template v-slot="{item, active}">
                 <DynamicScrollerItem :item="item" :active="active" :size-dependencies="[item.text]">
@@ -38,8 +38,8 @@
                         <span class="comment__time">{{item.time}}</span>
                         <!-- なぜか @click だとスマホで発火しないので @touchend にしている -->
                         <div class="comment__icon" v-ripple="!Utils.isTouchDevice()"
-                            @mouseup="displayCommentListDropdown($event, item)"
-                            @touchend="displayCommentListDropdown($event, item)">
+                            @mouseup="showCommentListDropdown($event, item)"
+                            @touchend="showCommentListDropdown($event, item)">
                             <Icon icon="fluent:more-vertical-20-filled" width="20px" />
                         </div>
                     </div>
@@ -217,7 +217,7 @@ export default Vue.extend({
     methods: {
 
         // ドロップダウンメニューを表示する
-        displayCommentListDropdown(event: Event, comment: ICommentData) {
+        showCommentListDropdown(event: Event, comment: ICommentData) {
             const comment_list_wrapper_rect = (this.$refs.comment_list_wrapper as HTMLDivElement).getBoundingClientRect();
             const comment_list_dropdown_height = 76;  // 76px はドロップダウンメニューの高さ
             const comment_button_rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
@@ -232,28 +232,33 @@ export default Vue.extend({
             this.is_comment_list_dropdown_display = true;
         },
 
-        // ミュートするキーワードを追加する
-        addMutedKeywords() {
-            CommentUtils.addMutedKeywords(this.comment_list_dropdown_comment.text);
+        // ドロップダウンメニューを非表示にする
+        hideCommentListDropdown() {
             this.is_comment_list_dropdown_display = false;
-            // ミュート対象のコメントを非表示にする
             this.comment_list = this.comment_list.filter((comment) => {
                 return CommentUtils.isMutedComment(comment.text, comment.user_id) === false;
             });
+        },
+
+        // ミュートするキーワードを追加する
+        addMutedKeywords() {
+            CommentUtils.addMutedKeywords(this.comment_list_dropdown_comment.text);
+            this.hideCommentListDropdown();
         },
 
         // ミュートするニコニコユーザー ID を追加する
         addMutedNiconicoUserIds() {
             CommentUtils.addMutedNiconicoUserIDs(this.comment_list_dropdown_comment.user_id);
-            this.is_comment_list_dropdown_display = false;
-            // ミュート対象のコメントを非表示にする
-            this.comment_list = this.comment_list.filter((comment) => {
-                return CommentUtils.isMutedComment(comment.text, comment.user_id) === false;
-            });
+            this.hideCommentListDropdown();
         },
 
         // コメントリストを一番下までスクロールする
         async scrollCommentList(smooth: boolean = false) {
+
+            // ドロップダウンメニュー表示中なら手動スクロールモードに設定
+            if (this.is_comment_list_dropdown_display === true) {
+                this.is_manual_scroll = true;
+            }
 
             // 手動スクロールモードの時は実行しない
             if (this.is_manual_scroll === true) return;
