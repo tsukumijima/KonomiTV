@@ -47,6 +47,10 @@
             "scripthost",
         ]
     },
+    "vueCompilerOptions": {
+        // for Volar
+        "target": 2.7,
+    },
     "include": [
         "src/**/*.ts",
         "src/**/*.tsx",

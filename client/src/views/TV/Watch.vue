@@ -2271,6 +2271,7 @@ export default Vue.extend({
             }
             .dplayer-comment-input {
                 transition: box-shadow 0.09s ease;
+                appearance: none;
                 -webkit-appearance: none;
                 &:focus {
                     box-shadow: rgba(79, 130, 230, 60%) 0 0 0 3.5px;
