@@ -11,7 +11,6 @@
         "lint": "vue-cli-service lint"
     },
     "dependencies": {
-        "@vue/composition-api": "^1.7.1",
         "axios": "^1.1.3",
         "buffer": "^6.0.3",
         "copy-image-clipboard": "^2.1.2",
