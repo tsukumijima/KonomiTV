@@ -3,6 +3,7 @@
         "dbaeumer.vscode-eslint",
         "ms-python.python",
         "ms-python.vscode-pylance",
-        "vue.volar"
+        "vue.volar",
+        "vue.vscode-typescript-vue-plugin"
     ]
 }
