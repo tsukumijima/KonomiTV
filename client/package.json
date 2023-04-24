@@ -60,6 +60,7 @@
         "vue-template-compiler": "^2.7.14",
         "vuetify-loader": "^1.9.2",
         "vuetify-message-snackbar": "^0.2.7",
+        "vuetify2-component-types": "^2.6.8",
         "yarn-audit-fix": "^9.3.7"
     },
     "browserslist": [

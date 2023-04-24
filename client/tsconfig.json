@@ -34,6 +34,7 @@
             "vuetify",
             "webpack-env",
             "wicg-mediasession",
+            "vuetify2-component-types",
         ],
         "paths": {
             "@/*": [
@@ -49,7 +50,24 @@
     },
     "vueCompilerOptions": {
         // for Volar
+        // ref: https://github.com/IntelliTect/vuetify2-component-types
         "target": 2.7,
+        "experimentalModelPropName": {
+            "input-value": {
+                "v-checkbox": true,
+                "v-switch": true,
+                "v-chip": true,
+                "v-btn": true,
+                "v-list-item": true,
+                "v-bottom-navigation": true,
+            },
+            "": {"input": true},
+            "value": {
+                "input": {"type": "text"},
+                "textarea": true,
+                "select": true,
+            }
+        }
     },
     "include": [
         "src/**/*.ts",

@@ -7842,6 +7842,11 @@ vuetify-message-snackbar@^0.2.7:
   resolved "https://registry.yarnpkg.com/vuetify-message-snackbar/-/vuetify-message-snackbar-0.2.7.tgz#82d89add0830627a13982dd736ccaef05a3b59ab"
   integrity sha512-RwBbSIx1/7fN/ZTXj1IspQeVWSJHuWI3p7KU29/CgW3Z8TFUPEITz+2zu+Fp5TWInKSPCXG3eMivkjNCa5BLqQ==
 
+vuetify2-component-types@^2.6.8:
+  version "2.6.8"
+  resolved "https://registry.yarnpkg.com/vuetify2-component-types/-/vuetify2-component-types-2.6.8.tgz#9cae3bd31dfcad9bb47770b855bb90328cb2ebfd"
+  integrity sha512-8e+rAw74tZ+6oRG8X9FQOFUQBKe7ds5p6HNmE84DqNp2xbXRM5o9o9ODbrNx2b8XB5sTStMOQ7B+DQIgdfMjkw==
+
 vuetify@^2.6.12:
   version "2.6.12"
   resolved "https://registry.yarnpkg.com/vuetify/-/vuetify-2.6.12.tgz#ef1871c720834d53e00fef142b9841a3e8c1a4f9"

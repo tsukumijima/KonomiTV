@@ -2,12 +2,12 @@
 import { Icon } from '@iconify/vue2';
 import { createPinia, PiniaVuePlugin } from 'pinia';
 import { polyfill as SeamlessScrollPolyfill } from 'seamless-scroll-polyfill';
+import VTooltip from 'v-tooltip';
 import Vue from 'vue';
 import VueAxios from 'vue-axios';
 import VueVirtualScroller from 'vue-virtual-scroller';
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
 import VuetifyMessageSnackbar from 'vuetify-message-snackbar';
-import VTooltip from 'v-tooltip';
 import 'v-tooltip/dist/v-tooltip.css';
 
 import App from '@/App.vue';
