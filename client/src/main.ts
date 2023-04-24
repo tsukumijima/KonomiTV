@@ -11,9 +11,9 @@ import VuetifyMessageSnackbar from 'vuetify-message-snackbar';
 import 'v-tooltip/dist/v-tooltip.css';
 
 import App from '@/App.vue';
-import VTabItem from '@/components/VTabItem';
-import VTabs from '@/components/VTabs';
-import VTabsItems from '@/components/VTabsItems';
+import VTabItem from '@/components/Vuetify/VTabItem';
+import VTabs from '@/components/Vuetify/VTabs';
+import VTabsItems from '@/components/Vuetify/VTabsItems';
 import axios from '@/plugins/axios';
 import vuetify from '@/plugins/vuetify';
 import router from '@/router';
@@ -79,13 +79,9 @@ Vue.use(VTooltip);
 // Iconify（アイコン）のグローバルコンポーネント
 Vue.component('Icon', Icon);
 
-// VTabItem の挙動を改善するグローバルコンポーネント
+// VTabItem / VTabs / VTabsItems の挙動を改善するグローバルコンポーネント
 Vue.component('v-tab-item-fix', VTabItem);
-
-// VTabs の挙動を改善するグローバルコンポーネント
 Vue.component('v-tabs-fix', VTabs);
-
-// VTabsItems の挙動を改善するグローバルコンポーネント
 Vue.component('v-tabs-items-fix', VTabsItems);
 
 // Vue を初期化
