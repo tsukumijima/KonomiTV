@@ -65,6 +65,16 @@ export default Vue.extend({
         // ref: https://pinia.vuejs.org/cookbook/options-api.html
         ...mapStores(useUserStore),
     },
+    async created() {
+
+        // アカウント情報を更新
+        await this.userStore.fetchUser();
+
+        // 現在ログイン中の場合はアカウントページに遷移
+        if (this.userStore.is_logged_in) {
+            await this.$router.replace({path: '/settings/account'});
+        }
+    },
     methods: {
         async login() {
 
