@@ -20,7 +20,7 @@
     display: none;
     position: fixed;
     bottom: 0;
-    z-index: 10;
+    z-index: 8;
     @include smartphone-vertical {
         display: flex;
     }

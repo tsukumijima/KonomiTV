@@ -5,8 +5,8 @@
             <router-link v-ripple class="settings__back-button" to="/settings/">
                 <Icon icon="fluent:arrow-left-12-filled" width="25px" />
             </router-link>
-            <Icon icon="fa-solid:sliders-h" width="19px" />
-            <span class="ml-3">キャプチャ</span>
+            <Icon icon="fluent:image-multiple-16-regular" width="26px" />
+            <span class="ml-2">キャプチャ</span>
         </h2>
         <div class="settings__content">
             <div class="settings__item settings__item--switch settings__item--sync-disabled">
@@ -59,7 +59,7 @@ import { mapStores } from 'pinia';
 import Vue from 'vue';
 
 import useSettingsStore from '@/store/SettingsStore';
-import Utils, { PlayerUtils } from '@/utils';
+import Utils from '@/utils';
 import Base from '@/views/Settings/Base.vue';
 
 export default Vue.extend({
@@ -69,9 +69,6 @@ export default Vue.extend({
     },
     data() {
         return {
-
-            // ユーティリティをテンプレートで使えるように
-            PlayerUtils: PlayerUtils,
 
             // フォームを小さくするかどうか
             is_form_dense: Utils.isSmartphoneHorizontal(),
@@ -89,9 +86,6 @@ export default Vue.extend({
                 {'text': '字幕を合成したキャプチャを保存する', 'value': 'CompositingCaption'},
                 {'text': '映像のみのキャプチャと、字幕を合成したキャプチャを両方保存する', 'value': 'Both'},
             ],
-
-            // 選択された設定データ (KonomiTV-Settings.json) が入る
-            import_settings_file: null as File | null,
         };
     },
     computed: {

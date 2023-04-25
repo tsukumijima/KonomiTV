@@ -220,6 +220,11 @@ body .route-container {
 }
 
 .v-menu__content {
+    @include smartphone-vertical {
+        .v-list {
+            background-color: var(--v-background-lighten1) !important;
+        }
+    }
     &::-webkit-scrollbar {
         width: 12px;
         height: 12px;
