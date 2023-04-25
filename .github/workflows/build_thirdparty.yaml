@@ -404,9 +404,8 @@ jobs:
           find thirdparty/Library/*.so* -not -type l -not -type d | xargs chmod a+x
 
           # rkmppenc のアーカイブのダウンロード
-          curl -LO https://nightly.link/rigaya/rkmppenc/actions/runs/4716949680/rkmppenc_0.00-acf9b9f_Ubuntu20.04_arm64.deb.zip
-          unzip rkmppenc_0.00-acf9b9f_Ubuntu20.04_arm64.deb.zip
-          7z x -y rkmppenc_0.00-acf9b9f_Ubuntu20.04_arm64.deb && tar xvf data.tar
+          curl -LO https://github.com/rigaya/rkmppenc/releases/download/0.00/rkmppenc_0.00_Ubuntu20.04_arm64.deb
+          7z x -y rkmppenc_0.00_Ubuntu20.04_arm64.deb && tar xvf data.tar
           mkdir thirdparty/rkmppenc/
           cp usr/bin/rkmppenc thirdparty/rkmppenc/rkmppenc.elf
           chmod a+x thirdparty/rkmppenc/rkmppenc.elf
