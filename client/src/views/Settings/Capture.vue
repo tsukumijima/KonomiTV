@@ -1,0 +1,104 @@
+<template>
+    <!-- ベース画面の中にそれぞれの設定画面で異なる部分を記述する -->
+    <Base>
+        <h2 class="settings__heading">
+            <router-link v-ripple class="settings__back-button" to="/settings/">
+                <Icon icon="fluent:arrow-left-12-filled" width="25px" />
+            </router-link>
+            <Icon icon="fa-solid:sliders-h" width="19px" />
+            <span class="ml-3">キャプチャ</span>
+        </h2>
+        <div class="settings__content">
+            <div class="settings__item settings__item--switch settings__item--sync-disabled">
+                <label class="settings__item-heading" for="capture_copy_to_clipboard">キャプチャをクリップボードにコピーする</label>
+                <label class="settings__item-label" for="capture_copy_to_clipboard">
+                    この設定をオンにすると、撮ったキャプチャ画像がクリップボードにもコピーされます。<br>
+                    クリップボードの履歴をサポートしていない OS では、この設定をオンにしてキャプチャを撮ると、以前のクリップボードが上書きされます。注意してください。<br>
+                </label>
+                <v-switch class="settings__item-switch" id="capture_copy_to_clipboard" inset hide-details
+                    v-model="settingsStore.settings.capture_copy_to_clipboard">
+                </v-switch>
+            </div>
+            <div class="settings__item">
+                <div class="settings__item-heading">キャプチャの保存先</div>
+                <div class="settings__item-label">
+                    <p>
+                        キャプチャした画像をブラウザでダウンロードするか、KonomiTV サーバーにアップロードするかを設定します。<br>
+                        ブラウザでのダウンロードと、KonomiTV サーバーへのアップロードを両方同時に行うこともできます。<br>
+                    </p>
+                    <p>
+                        ブラウザでダウンロードすると、視聴中のデバイスのダウンロードフォルダに保存されます。<br>
+                        視聴中のデバイスにそのまま保存されるためシンプルですが、保存先のフォルダを変更できないこと、PC 版 Chrome では毎回ダウンロードバーが表示されてしまうことがデメリットです。<br>
+                    </p>
+                    <p>
+                        KonomiTV サーバーにアップロードすると、環境設定で指定されたキャプチャ保存フォルダに保存されます。視聴したデバイスにかかわらず、今までに撮ったキャプチャをひとつのフォルダにまとめて保存できます。<br>
+                        他のデバイスでキャプチャを見るにはキャプチャ保存フォルダをネットワークに共有する必要があること、スマホ・タブレットではネットワーク上のフォルダへのアクセスがやや面倒なことがデメリットです。<br>
+                    </p>
+                </div>
+                <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
+                    :items="capture_save_mode" v-model="settingsStore.settings.capture_save_mode">
+                </v-select>
+            </div>
+            <div class="settings__item">
+                <div class="settings__item-heading">字幕表示時のキャプチャの保存モード</div>
+                <div class="settings__item-label">
+                    字幕表示時、キャプチャした画像に字幕を合成するかを設定します。<br>
+                    映像のみのキャプチャと、字幕を合成したキャプチャを両方同時に保存することもできます。<br>
+                    なお、字幕非表示時は、常に映像のみ (+コメント付きキャプチャではコメントを合成して) 保存されます。<br>
+                </div>
+                <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
+                    :items="capture_caption_mode" v-model="settingsStore.settings.capture_caption_mode">
+                </v-select>
+            </div>
+        </div>
+    </Base>
+</template>
+<script lang="ts">
+
+import { mapStores } from 'pinia';
+import Vue from 'vue';
+
+import useSettingsStore from '@/store/SettingsStore';
+import Utils, { PlayerUtils } from '@/utils';
+import Base from '@/views/Settings/Base.vue';
+
+export default Vue.extend({
+    name: 'Settings-Capture',
+    components: {
+        Base,
+    },
+    data() {
+        return {
+
+            // ユーティリティをテンプレートで使えるように
+            PlayerUtils: PlayerUtils,
+
+            // フォームを小さくするかどうか
+            is_form_dense: Utils.isSmartphoneHorizontal(),
+
+            // キャプチャの保存先の選択肢
+            capture_save_mode: [
+                {'text': 'ブラウザでダウンロード', 'value': 'Browser'},
+                {'text': 'KonomiTV サーバーにアップロード', 'value': 'UploadServer'},
+                {'text': 'ブラウザでのダウンロードと、KonomiTV サーバーへのアップロードを両方行う', 'value': 'Both'},
+            ],
+
+            // 字幕が表示されているときのキャプチャの保存モードの選択肢
+            capture_caption_mode: [
+                {'text': '映像のみのキャプチャを保存する', 'value': 'VideoOnly'},
+                {'text': '字幕を合成したキャプチャを保存する', 'value': 'CompositingCaption'},
+                {'text': '映像のみのキャプチャと、字幕を合成したキャプチャを両方保存する', 'value': 'Both'},
+            ],
+
+            // 選択された設定データ (KonomiTV-Settings.json) が入る
+            import_settings_file: null as File | null,
+        };
+    },
+    computed: {
+        // SettingsStore に this.settingsStore でアクセスできるようにする
+        // ref: https://pinia.vuejs.org/cookbook/options-api.html
+        ...mapStores(useSettingsStore),
+    }
+});
+
+</script>

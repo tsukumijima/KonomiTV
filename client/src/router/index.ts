@@ -7,6 +7,7 @@ import Login from '@/views/Login.vue';
 import NotFound from '@/views/NotFound.vue';
 import Register from '@/views/Register.vue';
 import SettingsAccount from '@/views/Settings/Account.vue';
+import SettingsCapture from '@/views/Settings/Capture.vue';
 import SettingsEnvironment from '@/views/Settings/Environment.vue';
 import SettingsGeneral from '@/views/Settings/General.vue';
 import SettingsIndex from '@/views/Settings/Index.vue';
@@ -61,6 +62,11 @@ const router = new VueRouter({
             path: '/settings/general',
             name: 'Settings General',
             component: SettingsGeneral,
+        },
+        {
+            path: '/settings/capture',
+            name: 'Settings Capture',
+            component: SettingsCapture,
         },
         {
             path: '/settings/account',

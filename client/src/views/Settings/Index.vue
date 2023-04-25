@@ -19,6 +19,14 @@
                                 <v-list-item-title>全般</v-list-item-title>
                             </v-list-item-content>
                         </v-list-item>
+                        <v-list-item link color="primary" class="px-4" to="/settings/capture">
+                            <v-list-item-icon class="mr-4">
+                                <Icon icon="fluent:image-multiple-24-regular" width="26px" />
+                            </v-list-item-icon>
+                            <v-list-item-content>
+                                <v-list-item-title>キャプチャ</v-list-item-title>
+                            </v-list-item-content>
+                        </v-list-item>
                         <v-list-item link color="primary" class="px-4" to="/settings/account">
                             <v-list-item-icon class="mr-4">
                                 <Icon icon="fluent:person-20-filled" width="26px" />
