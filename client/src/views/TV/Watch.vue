@@ -214,8 +214,8 @@ import useSettingsStore from '@/store/SettingsStore';
 import Utils, { PlayerUtils, ProgramUtils } from '@/utils';
 
 // 低遅延モードオン時の再生バッファ (秒単位)
-// 0.6 秒程度余裕を持たせる
-const PLAYBACK_BUFFER_SEC_LOW_LATENCY = 0.6;
+// 0.7 秒程度余裕を持たせる
+const PLAYBACK_BUFFER_SEC_LOW_LATENCY = 0.7;
 
 // 低遅延モードオフ時の再生バッファ (秒単位)
 // 5秒程度の遅延を許容する
@@ -853,7 +853,7 @@ export default Vue.extend({
                 theme: '#E64F97',  // テーマカラー
                 lang: 'ja-jp',  // 言語
                 live: true,  // ライブモード
-                liveSyncMinBufferSize: this.is_mpegts_supported ? playback_buffer_sec : 0,  // ライブモードで同期する際の最小バッファサイズ
+                liveSyncMinBufferSize: this.is_mpegts_supported ? playback_buffer_sec - 0.1 : 0,  // ライブモードで同期する際の最小バッファサイズ
                 loop: false,  // ループ再生 (ライブのため無効化)
                 airplay: false,  // AirPlay 機能 (うまく動かないため無効化)
                 autoplay: true,  // 自動再生

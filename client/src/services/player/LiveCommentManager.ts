@@ -418,12 +418,11 @@ class LiveCommentManager {
 
             // 配信で発生する遅延分待ってから
             // おおよその遅延時間は video.buffered.end(0) - video.currentTime で取得できる
-            // さらにおおよそのエンコードやネットワーク遅延として 0.1 秒を足す
             let buffered_end = 0;
             if (this.player.video.buffered.length >= 1) {
                 buffered_end = this.player.video.buffered.end(0);
             }
-            const comment_delay_time = buffered_end - this.player.video.currentTime + 0.1;
+            const comment_delay_time = buffered_end - this.player.video.currentTime;
             // console.log(`[LiveCommentManager][CommentSession] Delay: ${comment_delay_time} sec.`)
             await Utils.sleep(comment_delay_time);
 

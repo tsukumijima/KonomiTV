@@ -37,7 +37,7 @@
             <div class="settings__item settings__item--switch settings__item--sync-disabled">
                 <label class="settings__item-heading" for="tv_low_latency_mode">テレビを低遅延で視聴する</label>
                 <label class="settings__item-label" for="tv_low_latency_mode">
-                    低遅延ストリーミングをオンにすると、<b>放送波との遅延を最短 0.7 秒に抑えて視聴できます。</b><br>
+                    低遅延ストリーミングをオンにすると、<b>放送波との遅延を最短 0.9 秒に抑えて視聴できます。</b><br>
                     また、約 3 秒以上遅延したときに少しだけ再生速度を早める (1.1x) ことで、滑らかにストリーミングの遅れを取り戻します。<br>
                     宅外視聴などのネットワークが不安定になりがちな環境では、低遅延ストリーミングをオフにしてみると、映像のカクつきを改善できるかもしれません。<br>
                 </label>
