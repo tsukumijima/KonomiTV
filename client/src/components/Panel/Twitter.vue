@@ -368,7 +368,7 @@ export default Vue.extend({
             // Twitter アカウントが連携されていない場合は Twitter 設定画面に飛ばす
             if (!this.is_logged_in_twitter) {
 
-                // 視聴ページ以外に遷移するため、フルスクリーンを解除しないと画面が崩れる
+                // 視聴画面以外に遷移するため、フルスクリーンを解除しないと画面が崩れる
                 if (document.fullscreenElement) {
                     document.exitFullscreen();
                 }

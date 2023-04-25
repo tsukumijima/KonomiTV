@@ -38,7 +38,15 @@ const useChannelsStore = defineStore('channels', {
     getters: {
 
         /**
-         * 前・現在・次のチャンネル情報
+         * ライブ視聴画面を表示中かどうか
+         * チャンネル情報がセットされているかどうかで判定できる
+         */
+        is_showing_live(): boolean {
+            return this.channel_id !== 'gr000';
+        },
+
+        /**
+         * 前・現在・次のチャンネル情報 (視聴画面用)
          * チャンネル情報はデータ量がかなり多いので、個別に取得するより一気に取得したほうがループ回数が少なくなりパフォーマンスが良い
          */
         channel(): {previous: IChannel; current: IChannel; next: IChannel;} {
@@ -221,8 +229,8 @@ const useChannelsStore = defineStore('channels', {
         },
 
         /**
-         * 視聴ページ向け版の channels_list_with_pinned
-         * 視聴ページではピン留めされているチャンネルが1つもないときにピン留めタブを表示する必要性がないので、削除される
+         * 視聴画面向けの channels_list_with_pinned
+         * 視聴画面ではピン留めされているチャンネルが1つもないときは、ピン留めタブを表示する必要性がないため削除される
          */
         channels_list_with_pinned_for_watch(): Map<ChannelTypePretty, IChannel[]> {
             const channels_list_with_pinned = new Map([...this.channels_list_with_pinned]);

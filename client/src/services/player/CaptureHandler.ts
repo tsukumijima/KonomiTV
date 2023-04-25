@@ -8,18 +8,30 @@ import 'dayjs/locale/ja';
 import * as piexif from 'piexifjs';
 
 import Captures from '@/services/Captures';
-import { IChannel } from '@/services/Channels';
-import { IProgram } from '@/services/Programs';
+import useChannelsStore from '@/store/ChannelsStore';
 import useSettingsStore from '@/store/SettingsStore';
 import Utils from '@/utils';
 
 
-/**
- * キャプチャに書き込む EXIF メタデータのインターフェイス
- */
-export interface ICaptureExifData {
+// キャプチャに書き込む EXIF メタデータのインターフェイス
+interface ICaptureExifData {
     captured_at: string;
     captured_playback_position: number;
+    network_id: number;
+    service_id: number;
+    event_id: number;
+    title: string;
+    description: string;
+    start_time: string;
+    end_time: string;
+    duration: number;
+    caption_text: string | null;
+    is_caption_composited: boolean;
+    is_comment_composited: boolean;
+}
+
+// CaptureHandler.setEXIFDataToCapture() のオプションのインターフェイス
+interface ISetEXIFDataToCaptureOptions {
     network_id: number;
     service_id: number;
     event_id: number;
@@ -109,17 +121,20 @@ class CaptureHandler {
     /**
      * 映像をキャプチャして保存する
      * 映像のみと字幕付き (字幕表示時のみ) の両方のキャプチャを生成できる
-     * @param channel チャンネル情報 (キャプチャの EXIF メタデータに番組情報を書き込むのに必要)
      * @param with_comments キャプチャにコメントを合成するかどうか
      */
-    public async captureAndSave(channel: IChannel, with_comments: boolean): Promise<void> {
+    public async captureAndSave(with_comments: boolean): Promise<void> {
 
         const total_time = Utils.time();
+
+        // チャンネル情報を取得 (ライブ視聴画面のみ、ビデオ視聴画面では null になる)
+        const channels_store = useChannelsStore();
+        const channel = channels_store.is_showing_live ? channels_store.channel.current : null;
 
         // ***** バリデーション *****
 
         // ラジオチャンネルを視聴している場合 (当然映像がないのでキャプチャできない)
-        if (channel.is_radiochannel === true) {
+        if (channel !== null && channel.is_radiochannel === true) {
             this.player.notice('ラジオチャンネルはキャプチャできません。');
             return;
         }
@@ -167,14 +182,33 @@ class CaptureHandler {
         // 字幕が表示されていない場合は null を入れ、キャプチャしたシーンで字幕が表示されていなかったことを明示する
         const caption_text = is_caption_showing ? this.player.plugins.aribb24Caption.getTextContent() : null;
 
+        // EXIF に書き込むメタデータを取得する
+        // ライブ視聴画面では、番組情報から EXIF に書き込むメタデータを取得する
+        let exif_options: ISetEXIFDataToCaptureOptions;
+        if (channel !== null) {
+            exif_options = {
+                network_id: channel.program_present.network_id,
+                service_id: channel.program_present.service_id,
+                event_id: channel.program_present.event_id,
+                title: channel.program_present.title,
+                description: channel.program_present.description,
+                start_time: channel.program_present.start_time,
+                end_time: channel.program_present.end_time,
+                duration: channel.program_present.duration,
+                caption_text: caption_text,
+                is_caption_composited: false,  // 後で上書きされる
+                is_comment_composited: false,  // 後で上書きされる
+            };
+        // ビデオ視聴画面では、録画番組情報から EXIF に書き込むメタデータを取得する
+        } else {
+            // TODO
+        }
+
         // エクスポートして保存する共通処理
         const export_and_save = async (
             canvas: OffscreenCanvas | HTMLCanvasElement,
             filename: string,
-            program: IProgram,
-            caption_text: string | null,
-            is_caption_composited: boolean,
-            is_comment_composited: boolean,
+            exif_options: ISetEXIFDataToCaptureOptions,
         ): Promise<Blob | false> => {
 
             // Canvas を Blob にエクスポート
@@ -187,10 +221,10 @@ class CaptureHandler {
                 this.player.notice('キャプチャの保存に失敗しました…');
                 return false;
             }
-            console.log('[PlayerCaptureHandler] Export to Blob:', Utils.mathFloor(Utils.time() - time, 3), 'sec');
+            console.log('[CaptureHandler] Export to Blob:', Utils.mathFloor(Utils.time() - time, 3), 'sec');
 
             // キャプチャに番組情報などのメタデータ (EXIF) をセット
-            blob = await this.setEXIFDataToCapture(blob, program, caption_text, is_caption_composited, is_comment_composited);
+            blob = await this.setEXIFDataToCapture(blob, exif_options);
 
             // キャプチャの保存先: ブラウザでダウンロード or 両方
             if (['Browser', 'Both'].includes(this.settings_store.settings.capture_save_mode)) {
@@ -242,8 +276,11 @@ class CaptureHandler {
 
             // Blob にエクスポートして保存
             // false が返ってきた場合は失敗を意味する
-            const blob = await export_and_save(
-                bitmap_canvas, filename_real, channel.program_present, caption_text, false, with_comments);
+            const blob = await export_and_save(bitmap_canvas, filename_real, {
+                ...exif_options,
+                is_caption_composited: false,
+                is_comment_composited: false,
+            });
             if (blob !== false) {
                 capture_normal = {blob: blob, filename: filename_real};
             } else {
@@ -292,8 +329,11 @@ class CaptureHandler {
                         (this.settings_store.settings.capture_caption_mode === 'CompositingCaption') ? filename_caption : filename;
 
                     // Blob にエクスポートして保存
-                    const blob = await export_and_save(
-                        this.canvas, filename_real, channel.program_present, caption_text, false, with_comments);
+                    const blob = await export_and_save(this.canvas, filename_real, {
+                        ...exif_options,
+                        is_caption_composited: false,
+                        is_comment_composited: with_comments,
+                    });
                     if (blob !== false) {
                         capture_normal = {blob: blob, filename: filename_real};
                     } else {
@@ -336,9 +376,11 @@ class CaptureHandler {
                     }
 
                     // Blob にエクスポートして保存
-                    const blob = await export_and_save(
-                        this.canvas, filename_caption, channel.program_present, caption_text, true, with_comments,
-                    );
+                    const blob = await export_and_save(this.canvas, filename_caption, {
+                        ...exif_options,
+                        is_caption_composited: true,
+                        is_comment_composited: with_comments,
+                    });
                     if (blob !== false) {
                         capture_caption = {blob: blob, filename: filename_caption};
                     } else {
@@ -366,7 +408,7 @@ class CaptureHandler {
             await Promise.all(promises);
         }
 
-        console.log('[PlayerCaptureHandler] Total:', Utils.mathFloor(Utils.time() - total_time, 3), 'sec');
+        console.log('[CaptureHandler] Total:', Utils.mathFloor(Utils.time() - total_time, 3), 'sec');
 
         // キャプチャボタンのハイライトを削除する
         this.removeHighlight(with_comments);
@@ -566,39 +608,30 @@ class CaptureHandler {
     /**
      * キャプチャ画像に番組情報と撮影時刻、字幕やコメントが合成されているかどうかのメタデータ (EXIF) をセットする
      * @param blob キャプチャ画像の Blob オブジェクト
-     * @param program EXIF にセットする番組情報オブジェクト
-     * @param caption_text 字幕のテキスト (キャプチャしたときに字幕が表示されていなければ null)
-     * @param is_caption_composited 字幕が合成されているか
-     * @param is_comment_composited コメントが合成されているか
+     * @param options EXIF にセットする番組情報データ・字幕テキスト・字幕が合成されているかどうか・コメントが合成されているかどうか
      * @returns EXIF が追加されたキャプチャ画像の Blob オブジェクト
      */
-    private async setEXIFDataToCapture(
-        blob: Blob,
-        program: IProgram,
-        caption_text: string | null,
-        is_caption_composited: boolean,
-        is_comment_composited: boolean,
-    ): Promise<Blob> {
+    private async setEXIFDataToCapture(blob: Blob, options: ISetEXIFDataToCaptureOptions): Promise<Blob> {
 
         // 番組開始時刻換算のキャプチャ時刻 (秒)
-        const captured_playback_position = dayjs().diff(dayjs(program.start_time), 'second', true);
+        const captured_playback_position = dayjs().diff(dayjs(options.start_time), 'second', true);
 
         // EXIF の XPComment 領域に入れるメタデータの JSON オブジェクト
         // 撮影時刻とチャンネル・番組を一意に特定できる情報を入れる
         const json: ICaptureExifData = {
             captured_at: dayjs().format('YYYY-MM-DDTHH:mm:ss+09:00'),  // ISO8601 フォーマットのキャプチャ時刻
             captured_playback_position: captured_playback_position,  // 番組開始時刻換算のキャプチャ時刻 (秒)
-            network_id: program.network_id,    // 番組が放送されたチャンネルのネットワーク ID
-            service_id: program.service_id,    // 番組が放送されたチャンネルのサービス ID
-            event_id: program.event_id,        // 番組のイベント ID
-            title: program.title,              // 番組タイトル
-            description: program.description,  // 番組概要
-            start_time: program.start_time,    // 番組開始時刻 (ISO8601 フォーマット)
-            end_time: program.end_time,        // 番組終了時刻 (ISO8601 フォーマット)
-            duration: program.duration,        // 番組長 (秒)
-            caption_text: caption_text,        // 字幕のテキスト (キャプチャした瞬間に字幕が表示されていなかったときは null)
-            is_caption_composited: is_caption_composited,  // 字幕が合成されているか
-            is_comment_composited: is_comment_composited,  // コメントが合成されているか
+            network_id: options.network_id,    // 番組が放送されたチャンネルのネットワーク ID
+            service_id: options.service_id,    // 番組が放送されたチャンネルのサービス ID
+            event_id: options.event_id,        // 番組のイベント ID
+            title: options.title,              // 番組タイトル
+            description: options.description,  // 番組概要
+            start_time: options.start_time,    // 番組開始時刻 (ISO8601 フォーマット)
+            end_time: options.end_time,        // 番組終了時刻 (ISO8601 フォーマット)
+            duration: options.duration,        // 番組長 (秒)
+            caption_text: options.caption_text,        // 字幕のテキスト (キャプチャした瞬間に字幕が表示されていなかったときは null)
+            is_caption_composited: options.is_caption_composited,  // 字幕が合成されているか
+            is_comment_composited: options.is_comment_composited,  // コメントが合成されているか
         };
 
         // 保存する EXIF メタデータを構築

@@ -717,7 +717,7 @@ class HLSLiveSegmenter:
 
     def destroy(self) -> None:
         """
-        インスタンス変数をすべて破棄し、メモリを解放する。
+        インスタンス変数をすべて破棄し、メモリを解放する
         実際は Python の GC がよしなになんとかしてくれそうだけど、念のため…
         """
 

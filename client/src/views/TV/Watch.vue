@@ -2034,12 +2034,12 @@ export default Vue.extend({
                             }
                             // Cキー: 映像をキャプチャ
                             if (event.code === 'KeyC') {
-                                await this.capture_handler.captureAndSave(this.channelsStore.channel.current, false);
+                                await this.capture_handler.captureAndSave(false);
                                 return true;
                             }
                             // Vキー: 映像を実況コメントを付けてキャプチャ
                             if (event.code === 'KeyV') {
-                                await this.capture_handler.captureAndSave(this.channelsStore.channel.current, true);
+                                await this.capture_handler.captureAndSave(true);
                                 return true;
                             }
                             // Mキー: コメント入力フォームにフォーカス
@@ -2078,14 +2078,14 @@ export default Vue.extend({
             // ショートカットからのキャプチャでも同じイベントがトリガーされる
             const capture_button = this.$el.querySelector('.dplayer-icon.dplayer-capture-icon');
             capture_button.addEventListener('click', async () => {
-                await this.capture_handler.captureAndSave(this.channelsStore.channel.current, false);
+                await this.capture_handler.captureAndSave(false);
             });
 
             // コメント付きキャプチャボタンがクリックされたときのイベント
             // ショートカットからのキャプチャでも同じイベントがトリガーされる
             const comment_capture_button = this.$el.querySelector('.dplayer-icon.dplayer-comment-capture-icon');
             comment_capture_button.addEventListener('click', async () => {
-                await this.capture_handler.captureAndSave(this.channelsStore.channel.current, true);
+                await this.capture_handler.captureAndSave(true);
             });
         },
 
