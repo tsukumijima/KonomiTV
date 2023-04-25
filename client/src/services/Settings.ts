@@ -15,13 +15,13 @@ export interface IClientSettings {
     // tv_streaming_quality: 同期無効
     // tv_data_saver_mode: 同期無効
     // tv_low_latency_mode: 同期無効
-    tv_show_superimpose: boolean;
     panel_display_state: 'RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold';
     tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
     caption_font: string;
     always_border_caption_text: boolean;
     specify_caption_background_color: boolean;
     caption_background_color: string;
+    tv_show_superimpose: boolean;
     // capture_copy_to_clipboard: 同期無効
     capture_save_mode: 'Browser' | 'UploadServer' | 'Both';
     capture_caption_mode: 'VideoOnly' | 'CompositingCaption' | 'Both';

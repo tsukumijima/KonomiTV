@@ -126,13 +126,13 @@ class ClientSettings(BaseModel):
     # tv_streaming_quality: 同期無効
     # tv_data_saver_mode: 同期無効
     # tv_low_latency_mode: 同期無効
-    tv_show_superimpose: bool = Field(True)
     panel_display_state: Literal['RestorePreviousState', 'AlwaysDisplay', 'AlwaysFold'] = Field('RestorePreviousState')
     tv_panel_active_tab: Literal['Program', 'Channel', 'Comment', 'Twitter'] = Field('Program')
     caption_font: str = Field('Windows TV MaruGothic')
     always_border_caption_text: bool = Field(True)
     specify_caption_background_color: bool = Field(False)
     caption_background_color: str = Field('#00000080')
+    tv_show_superimpose: bool = Field(True)
     # capture_copy_to_clipboard: 同期無効
     capture_save_mode: Literal['Browser', 'UploadServer', 'Both'] = Field('Browser')
     capture_caption_mode: Literal['VideoOnly', 'CompositingCaption', 'Both'] = Field('Both')

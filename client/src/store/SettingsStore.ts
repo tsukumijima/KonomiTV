@@ -6,7 +6,7 @@ import Utils from '@/utils';
 
 
 // LocalStorage に保存される KonomiTV の設定データ
-interface ISettings {
+interface ILocalClientSettings {
     pinned_channel_ids: string[];
     showed_panel_last_time: boolean;
     selected_twitter_account_id: number | null;
@@ -14,13 +14,13 @@ interface ISettings {
     tv_streaming_quality: '1080p-60fps' | '1080p' | '810p' | '720p' | '540p' | '480p' | '360p' | '240p';
     tv_data_saver_mode: boolean;
     tv_low_latency_mode: boolean;
-    tv_show_superimpose: boolean;
     panel_display_state: 'RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold';
     tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
     caption_font: string;
     always_border_caption_text: boolean;
     specify_caption_background_color: boolean;
     caption_background_color: string;
+    tv_show_superimpose: boolean;
     capture_copy_to_clipboard: boolean;
     capture_save_mode: 'Browser' | 'UploadServer' | 'Both';
     capture_caption_mode: 'VideoOnly' | 'CompositingCaption' | 'Both';
@@ -55,13 +55,13 @@ const sync_settings_keys = [
     // tv_streaming_quality: 同期無効
     // tv_data_saver_mode: 同期無効
     // tv_low_latency_mode: 同期無効
-    'tv_show_superimpose',
     'panel_display_state',
     'tv_panel_active_tab',
     'caption_font',
     'always_border_caption_text',
     'specify_caption_background_color',
     'caption_background_color',
+    'tv_show_superimpose',
     // capture_copy_to_clipboard: 同期無効
     'capture_save_mode',
     'capture_caption_mode',
@@ -86,7 +86,7 @@ const sync_settings_keys = [
 ];
 
 // LocalStorage に保存される KonomiTV の設定データのデフォルト値
-const default_settings: ISettings = {
+const default_settings: ILocalClientSettings = {
 
     // ***** 設定画面から直接変更できない設定値 *****
 
@@ -107,12 +107,13 @@ const default_settings: ISettings = {
     tv_data_saver_mode: false,
     // テレビを低遅延で視聴する (Default: 低遅延で視聴する) (同期無効)
     tv_low_latency_mode: true,
-    // テレビをみるときに文字スーパーを表示する (Default: 表示する)
-    tv_show_superimpose: true,
     // デフォルトのパネルの表示状態 (Default: 前回の状態を復元する)
     panel_display_state: 'RestorePreviousState',
     // テレビをみるときにデフォルトで表示されるパネルのタブ (Default: 番組情報タブ)
     tv_panel_active_tab: 'Program',
+
+    // ***** 設定 → 字幕 *****
+
     // 字幕のフォント (Default: Windows TV 丸ゴシック)
     caption_font: 'Windows TV MaruGothic',
     // 字幕の文字を常に縁取って描画する (Default: 常に縁取る)
@@ -121,6 +122,11 @@ const default_settings: ISettings = {
     specify_caption_background_color: false,
     // 字幕の背景色 (Default: 不透明度が 50% の黒)
     caption_background_color: '#00000080',
+    // テレビをみるときに文字スーパーを表示する (Default: 表示する)
+    tv_show_superimpose: true,
+
+    // ***** 設定 → キャプチャ *****
+
     // キャプチャをクリップボードにコピーする (Default: 無効) (同期無効)
     capture_copy_to_clipboard: false,
     // キャプチャの保存先 (Default: ブラウザでダウンロード)
@@ -204,7 +210,7 @@ export function setLocalStorageSettings(settings: {[key: string]: any}): void {
  * 与えられた設定データを並び替えたり足りない設定キーを補完したり不要な設定キーを削除したりと整形して返す
  * @param settings 設定データ
  */
-function getNormalizedSettings(settings: {[key: string]: any}): ISettings {
+function getNormalizedSettings(settings: {[key: string]: any}): ILocalClientSettings {
 
     // (名前が変わった、廃止されたなどの理由で) 現在の default_settings に存在しない設定キーを排除した上で並び替え
     // 並び替えられていないと設定データの比較がうまくいかない
@@ -220,7 +226,7 @@ function getNormalizedSettings(settings: {[key: string]: any}): ISettings {
     }
 
     // この状態の新しい設定データを返す
-    return new_settings as ISettings;
+    return new_settings as ILocalClientSettings;
 }
 
 /**
@@ -242,7 +248,7 @@ const useSettingsStore = defineStore('settings', {
 
         // 設定データを Store の state のデフォルト値として返す
         return {
-            settings: new_settings as ISettings,
+            settings: new_settings as ILocalClientSettings,
         };
     },
     actions: {

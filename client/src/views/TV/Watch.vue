@@ -981,7 +981,7 @@ export default Vue.extend({
                         useStroke: true,
                         // Unicode 領域の代わりに私用面の領域を利用 (Windows TV 系フォントのみ)
                         usePUA: (() => {
-                            const font = this.settingsStore.settings.caption_font as string;
+                            const font = this.settingsStore.settings.caption_font;
                             const context = document.createElement('canvas').getContext('2d')!;
                             context.font = `10px ${font}`;
                             context.fillText('Test', 0, 0);

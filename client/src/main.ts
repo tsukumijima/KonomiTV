@@ -96,8 +96,8 @@ Vue.component('v-tabs-items-fix', VTabsItems);
 let is_uploading_settings = false;
 
 // 設定データの変更を監視する
-const store = useSettingsStore();
-store.$subscribe(async () => {
+const settings_store = useSettingsStore();
+settings_store.$subscribe(async () => {
 
     // 設定データをアップロード中の場合は何もしない
     if (is_uploading_settings === true) {
@@ -105,25 +105,25 @@ store.$subscribe(async () => {
     }
 
     // 設定データを LocalStorage に保存
-    console.log('Client Settings Changed:', store.settings);
-    setLocalStorageSettings(store.settings);
+    console.log('Client Settings Changed:', settings_store.settings);
+    setLocalStorageSettings(settings_store.settings);
 
     // 設定データをサーバーに同期する (ログイン時かつ同期が有効な場合のみ)
-    await store.syncClientSettingsToServer();
+    await settings_store.syncClientSettingsToServer();
 
 }, {detached: true});
 
 // ログイン時かつ設定の同期が有効な場合、ページ遷移に関わらず、常に3秒おきにサーバーから設定を取得する
 // 初回のページレンダリングに間に合わないのは想定内（同期の完了を待つこともできるが、それだと表示速度が遅くなるのでしょうがない）
 window.setInterval(async () => {
-    if (Utils.getAccessToken() !== null && store.settings.sync_settings === true) {
+    if (Utils.getAccessToken() !== null && settings_store.settings.sync_settings === true) {
 
         // 設定データをサーバーにアップロード
         is_uploading_settings = true;
-        await store.syncClientSettingsFromServer();
+        await settings_store.syncClientSettingsFromServer();
         is_uploading_settings = false;
 
         // 設定データを LocalStorage に保存
-        setLocalStorageSettings(store.settings);
+        setLocalStorageSettings(settings_store.settings);
     }
 }, 3 * 1000);  // 3秒おき
