@@ -310,7 +310,7 @@ class LiveEncodingTask:
             options.append('--preset balanced')
         elif encoder_type == 'rkmppenc':
             options.append('--preset best')
-        if QUALITY[quality].is_hevc is True or encoder_type == 'rkmppenc':
+        if QUALITY[quality].is_hevc is True:
             options.append('--profile main')
         else:
             options.append('--profile high')
