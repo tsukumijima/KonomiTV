@@ -461,7 +461,7 @@ class LiveCommentManager {
             '#4763FF': 'blue',
         };
 
-        // DPlayer 上のコメント位置を表す数値とニコニコの位置コマンド定義のマッピング
+        // DPlayer 上のコメント位置を表す値とニコニコの位置コマンド定義のマッピング
         const position_table = {
             'top': 'ue',
             'right': 'naka',
