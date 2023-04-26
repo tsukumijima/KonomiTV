@@ -4,6 +4,7 @@
         "ms-python.python",
         "ms-python.vscode-pylance",
         "vue.volar",
-        "vue.vscode-typescript-vue-plugin"
+        "vue.vscode-typescript-vue-plugin",
+        "yzhang.markdown-all-in-one"
     ]
 }
