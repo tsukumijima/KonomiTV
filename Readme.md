@@ -40,14 +40,15 @@
   - **Windows 10 Pro と Ubuntu 20.04 LTS の PC でのみ動作確認を行っています。**
     - Windows 11 でも動作するとは思いますが、手元に環境がないため、検証はできていません。
     - 32bit 版の Windows 10 には対応していません。
-  - **Linux PC は Ubuntu (20.04 LTS 以降) のみサポートしています。**
+  - **Linux PC は Ubuntu (20.04 LTS 以降) / Debian (11 Bullseye 以降) のみサポートしています。**
     - Linux PC では、Docker で動かすこともできます（後述）。
-    - Debian・RedHat 系 OS・Arch Linux でも動作するかもしれませんが、開発/検証リソースが大幅に不足しているため、サポートは行いません。
+    - Debian での動作確認はしていません。おそらく動くとは思いますが…
+    - RedHat 系 OS・Arch Linux でも動作するかもしれませんが、開発/検証リソースが大幅に不足しているため、サポートは行いません。
       - できるだけ Ubuntu の利用を推奨しますが、もし Ubuntu 以外の OS にインストールする際は、Docker でのインストールを推奨します。
       - ビルド済みのサードパーティーライブラリは glibc 2.31 以上に依存しています。Docker を使わずにインストールする場合、[glibc 2.30 以下を採用する OS](https://repology.org/project/glibc/versions) では動作しません。
     - ARM 向けのサードパーティーライブラリの実行ファイルを用意できていないため、今のところラズパイなどの ARM の Linux PC では動作しません。
       - KonomiTV はその性質上ハードウェアエンコーダーに強く依存していますが、ARM SoC のハードウェアエンコーダーは SoC メーカーごとにまちまちで、サポート状況もかなり厳しいと言わざるを得ません…。
-      - 将来的には、メジャーで比較的サポート状況の良い、ラズパイ4 (Broadcom BCM2711) と Rockchip RK3568 / RK3588 SoC のハードウェアエンコーダーにのみ対応する予定です。
+      - 0.7.0-dev 以降では、Rockchip RK3568 / RK3588 SoC のハードウェアエンコーダーに対応しています。ラズパイ4はハードウェアエンコーダーが非力なのと入手性が微妙なため、当面サポート予定はありません。
 - **EDCB または Mirakurun**
   - KonomiTV のバックエンドには、EDCB または Mirakurun のいずれかを選択できます。
   - **EDCB は、220122 以降のバージョンの [xtne6f 版 EDCB](https://github.com/xtne6f/EDCB) / [tkntrec 版 EDCB](https://github.com/tkntrec/EDCB) にのみ対応しています。**
@@ -562,7 +563,7 @@ URL が少し長いので、適宜ブックマークやホーム画面に追加�
   - Wi-Fi ルーターとの距離が離れていると、遮蔽物や減衰の影響で通信が不安定になることがあります。
   - デバイスを Wi-Fi ルーターにできるだけ近づけた状態でストリーミングが安定するなら、Wi-Fi 環境自体に問題がある可能性が高いです（電波干渉が発生している、など）。との距離が離れておらず、通信速度が十分に出ていることを確認してください。
 - **低遅延ストリーミングをオフにしてみてください。**
-  - 低遅延ストリーミングがオンのときは、放送波との遅延を最短 1.5 秒にまで抑えて視聴できます。ただし、回線速度が遅かったり不安定な通信環境だと、ストリーミングが安定しないことがあります。
+  - 低遅延ストリーミングがオンのときは、放送波との遅延を最短 0.9 秒にまで抑えて視聴できます。ただし、回線速度が遅かったり不安定な通信環境だと、ストリーミングが安定しないことがあります。
   - 低遅延ストリーミングをオフにすると、遅延が 5 秒以上になりますが、不安定な通信環境でも安定して視聴できます。
   - 低遅延ストリーミングのオン/オフは [設定] → [全般] から変更できます。
 - **ストリーミング画質を下げてみてください。**
@@ -596,13 +597,19 @@ URL が少し長いので、適宜ブックマークやホーム画面に追加�
 
 <img width="100%" src="https://user-images.githubusercontent.com/39271166/201457873-dab7a1cb-667f-4bcd-8843-231850d05689.png"><br>
 
+開発環境は VS Code です。  
+開発時に推奨する拡張機能は [.vscode/extensions.json](https://github.com/tsukumijima/KonomiTV/blob/master/.vscode/extensions.json) に記述されています。
+
 ### サーバー
 
 Uvicorn は ASGI サーバーで、FastAPI で書かれた KonomiTV のアプリケーションサーバーを実行します。  
 また、KonomiTV の場合は静的ファイルを配信する Web サーバーの役割も兼ねています。
 
-開発時などでサーバーをリロードモード（コードを変更すると自動でサーバーが再起動される）で起動したいときは、`pipenv run dev` を実行してください。  
-コードを変更すると強制的にサーバーが再起動されるため、サーバーを終了するタイミングによっては EDCB のチューナーが終了されないままになることがあります。
+開発時などでサーバーをリロードモード（コードを変更すると自動でサーバーが再起動される）で起動したいときは、`pipenv run dev` を実行してください。
+
+> コードを変更すると強制的にサーバーが再起動されるため、サーバーを終了するタイミングによっては EDCB のチューナーが終了されないままになることがあります。
+
+> Python の asyncio の制限により、リロードモードは事実上 Windows 上では利用できません（正確には外部プロセス実行を伴うストリーミング視聴を行わなければ一応機能する）。
 
 API ドキュメント (Swagger) は https://my.local.konomi.tv:7000/api/docs にあります。  
 API ドキュメントは FastAPI によって自動生成されたものです。  
@@ -610,8 +617,8 @@ API ドキュメントは FastAPI によって自動生成されたものです�
 
 ### クライアント
 
-クライアントは Vue.js 2.x の SPA (Single Page Application) で構築されており、コーディングとビルドには少なくとも Node.js が必要です。  
-Node.js v16, npm v8, yarn v1 で開発しています。
+クライアント (フロントエンド) は Vue.js 2.x の SPA (Single Page Application) で構築されており、コーディングとビルドには少なくとも Node.js が必要です。  
+Node.js v18, yarn v1 で開発しています。
 
 クライアントのデバッグは `client/` フォルダにて `yarn dev` または `npm run dev` を実行し、https://my.local.konomi.tv:7001/ にてリッスンされる開発用サーバーにて行っています。  
 
@@ -646,11 +653,11 @@ API サーバーは別のポート (7000) でリッスンされているので�
 ## Special Thanks
 
 - [xtne6f](https://github.com/xtne6f) さん： KonomiTV と EDCB を連携させるための実装や、[tsreadex](https://github.com/xtne6f/tsreadex) の実装の依頼・開発などで多大なご協力をいただきました。
-- [rigaya](https://github.com/rigaya) さん： QSVEncC・NVEncC・VCEEncC での動作オプションや不具合の対応、エンコードパラメーターのアドバイスなどを支援していただきました。
-- [xqq](https://github.com/xqq) さん： [mpegts.js](https://github.com/xqq/mpegts.js) で MPEG-TS をダイレクトストリーミングできるようになり、わずか最短 1.5 秒の低遅延でテレビを視聴することができるようになりました。mpegts.js のヘルプやプレイヤーへの導入のサポートなども支援していただきました。
+- [rigaya](https://github.com/rigaya) さん： [QSVEncC](https://github.com/rigaya/QSVEnc)・[NVEncC](https://github.com/rigaya/NVEnc)・[VCEEncC](https://github.com/rigaya/VCEEnc) での動作オプションや不具合の対応、低遅延化改良、エンコードパラメーターのアドバイスなどを支援していただきました。また、[rkmppenc](https://github.com/rigaya/rkmppenc) の開発では多岐に渡り多大なご協力をいただきました。
+- [xqq](https://github.com/xqq) さん： [mpegts.js](https://github.com/xqq/mpegts.js) で MPEG-TS をダイレクトストリーミングできるようになり、わずか最短 0.9 秒の低遅延でテレビを視聴することができるようになりました。mpegts.js のヘルプやプレイヤーへの導入のサポートなども支援していただきました。
 - [monyone](https://github.com/monyone) さん：[aribb24.js](https://github.com/monyone/aribb24.js) のおかげで、ARIB 字幕や文字スーパーを完璧に表示できるようになりました。また、字幕関連のほか、iPhone 向けの [LL-HLS ライブストリーミングの実装](https://github.com/monyone/biim) やトラブルシューティング、導入のサポートなどで多大なご協力をいただきました。
 
-KonomiTV の開発にあたり、ほかにも沢山の方からサポートやフィードバックをいただきました。  
+KonomiTV の開発にあたり、ほかにも沢山の方からサポートやフィードバック、ご支援をいただきました。  
 この場をお借りして厚く感謝を申し上げます。 本当にありがとうございました！
 
 ## License
