@@ -1,5 +1,5 @@
 
-# <img width="350" src="https://user-images.githubusercontent.com/39271166/134050201-8110f076-a939-4b62-8c86-7beaa3d4728c.png" alt="KonomiTV">
+# <img width="350" src="https://user-images.githubusercontent.com/39271166/134050201-8110f076-a939-4b62-8c86-7beaa3d4728c.png" alt="KonomiTV">　<!-- omit in toc -->
 
 <img width="100%" src="https://user-images.githubusercontent.com/39271166/153729504-2c047f35-c788-49d2-a088-cc1c3bab3fd0.png"><br>
 
@@ -10,6 +10,48 @@
 
 計画はかなり壮大ですが、現時点ではテレビをリアルタイムで視聴できる「テレビをみる」と、設定画面のみが実装されています。  
 将来的には、録画した番組を Netflix をはじめとした配信サイトのような UX で快適に視聴できる「ビデオをみる」など、多くの機能を追加予定です。
+
+## 目次 <!-- omit in toc -->
+- [設計思想](#設計思想)
+- [動作環境](#動作環境)
+  - [サーバー](#サーバー)
+  - [クライアント](#クライアント)
+- [備考・注意事項](#備考注意事項)
+- [事前準備](#事前準備)
+  - [チューナーのドライバーを px4\_drv に変更する](#チューナーのドライバーを-px4_drv-に変更する)
+  - [EDCB の事前設定](#edcb-の事前設定)
+  - [QSVEncC・NVEncC・VCEEncC に対応した GPU ドライバーのインストール](#qsvenccnvenccvceencc-に対応した-gpu-ドライバーのインストール)
+    - [Windows](#windows)
+    - [Linux](#linux)
+  - [Tailscale の導入](#tailscale-の導入)
+- [サーバーのインストール](#サーバーのインストール)
+  - [KonomiTV (β) 0.5.2 以前からのアップグレード](#konomitv-β-052-以前からのアップグレード)
+  - [KonomiTV (β) 0.6.0-dev (開発版) からのアップグレード](#konomitv-β-060-dev-開発版-からのアップグレード)
+  - [Windows](#windows-1)
+  - [Linux](#linux-1)
+  - [KonomiTV にアクセスする](#konomitv-にアクセスする)
+- [付録](#付録)
+  - [`https://aa-bb-cc-dd.local.konomi.tv:7000/` の URL について](#httpsaa-bb-cc-ddlocalkonomitv7000-の-url-について)
+  - [設定ファイルの編集](#設定ファイルの編集)
+    - [バックエンドの設定](#バックエンドの設定)
+    - [エンコーダーの設定](#エンコーダーの設定)
+    - [リッスンポートの設定](#リッスンポートの設定)
+    - [アップロードしたキャプチャ画像の保存先フォルダの設定](#アップロードしたキャプチャ画像の保存先フォルダの設定)
+  - [局ロゴ](#局ロゴ)
+- [FAQ](#faq)
+  - [Web UI にアクセスすると 502 Bad Gateway エラーが表示される](#web-ui-にアクセスすると-502-bad-gateway-エラーが表示される)
+  - [Web UI にアクセスすると「Client sent an HTTP request to an HTTPS server.」と表示される](#web-ui-にアクセスするとclient-sent-an-http-request-to-an-https-serverと表示される)
+  - [Web UI にアクセスすると「このサイトは安全に接続できません」「～から無効な応答が送信されました。」(ERR\_SSL\_PROTOCOL\_ERROR) と表示される](#web-ui-にアクセスするとこのサイトは安全に接続できませんから無効な応答が送信されましたerr_ssl_protocol_error-と表示される)
+  - [ライブストリーミングの視聴が安定しない・途切れ途切れになる](#ライブストリーミングの視聴が安定しない途切れ途切れになる)
+    - [全般](#全般)
+    - [KonomiTV サーバーのある自宅の Wi-Fi につないで視聴しているとき](#konomitv-サーバーのある自宅の-wi-fi-につないで視聴しているとき)
+    - [外出先 (自宅以外) から Tailscale 経由で視聴しているとき](#外出先-自宅以外-から-tailscale-経由で視聴しているとき)
+- [開発者向け情報](#開発者向け情報)
+  - [サーバー](#サーバー-1)
+  - [クライアント](#クライアント-1)
+- [寄付・支援について](#寄付支援について)
+- [Special Thanks](#special-thanks)
+- [License](#license)
 
 ## 設計思想
 
@@ -30,9 +72,10 @@
 当然ながら表に泥臭い処理を見せないようにしている分、裏側の実装がそれなりに大変です。細かいところまで調整しているとかなりの手間がかかります。  
 それでも私が頑張れば私を含めたユーザーの視聴体験が向上するわけで、必要な犠牲かなと思っています。
 
-## 動作環境
 
 <img width="100%" src="https://user-images.githubusercontent.com/39271166/153731898-c9743df8-794b-4498-ac25-017662f38759.png"><br>
+
+## 動作環境
 
 ### サーバー
 
