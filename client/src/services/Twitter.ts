@@ -1,4 +1,5 @@
 
+import Message from '@/message';
 import APIClient from '@/services/APIClient';
 
 
@@ -14,8 +15,13 @@ export interface ITweetResult {
     detail: string;
 }
 
+export interface ITwitterPasswordAuthRequest {
+    screen_name: string;
+    password: string;
+}
 
-class Niconico {
+
+class Twitter {
 
     /**
      * Twitter アカウントと連携するための認証 URL を取得する
@@ -33,6 +39,36 @@ class Niconico {
         }
 
         return response.data.authorization_url;
+    }
+
+
+    /**
+     * Twitter アカウントとパスワード認証で連携する
+     * @param twitter_password_auth_request スクリーンネームとパスワード
+     * @returns ログインできた場合は true, 失敗した場合は false
+     */
+    static async authWithPassword(twitter_password_auth_request: ITwitterPasswordAuthRequest): Promise<boolean> {
+
+        // API リクエストを実行
+        const response = await APIClient.post('/twitter/password-auth', twitter_password_auth_request);
+
+        // エラー処理
+        if ('is_error' in response) {
+            if (response.error.message.startsWith('Failed to authenticate with password')) {
+                const error = response.error.message.match(/Message: (.+)\)/)[1];
+                Message.error(`ログインに失敗しました。${error}`);
+            } else if (response.error.message.startsWith('Unexpected error occurred while authenticate with password')) {
+                const error = response.error.message.match(/Message: (.+)\)/)[1];
+                Message.error(`ログインフローの途中で予期せぬエラーが発生しました。${error}`);
+            } else if (response.error.message.startsWith('Failed to get user information')) {
+                Message.error('Twitter アカウントのユーザー情報の取得に失敗しました。');
+            } else {
+                APIClient.showGenericError(response, 'Twitter アカウントとの連携に失敗しました。');
+            }
+            return false;
+        }
+
+        return true;
     }
 
 
@@ -92,4 +128,4 @@ class Niconico {
     }
 }
 
-export default Niconico;
+export default Twitter;
