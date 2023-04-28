@@ -16,5 +16,7 @@
         "reportOptionalMemberAccess": "none",
         "reportPrivateImportUsage": "none",
         "reportShadowedImports": "none"
-    }
+    },
+    // TypeScript の SDK をプロジェクトの node_modules から読み込む
+    "typescript.tsdk": "client/node_modules/typescript/lib"
 }
