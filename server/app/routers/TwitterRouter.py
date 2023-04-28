@@ -1,7 +1,9 @@
 
 import asyncio
+import json
 import tweepy
 from fastapi import APIRouter
+from fastapi import Body
 from fastapi import Depends
 from fastapi import File
 from fastapi import Form
@@ -11,6 +13,7 @@ from fastapi import Query
 from fastapi import Request
 from fastapi import status
 from fastapi import UploadFile
+from tweepy_authlib import CookieSessionUserHandler
 from typing import Any, cast, Coroutine
 
 from app import schemas
@@ -247,6 +250,99 @@ async def TwitterAuthCallbackAPI(
         detail = 'Success',
         redirect_to = redirect_url,
     )
+
+
+@router.post(
+    '/password-auth',
+    summary = 'Twitter パスワード認証 API',
+    status_code = status.HTTP_204_NO_CONTENT,
+)
+async def TwitterPasswordAuthAPI(
+    password_auth_request: schemas.TwitterPasswordAuthRequest = Body(..., description='Twitter パスワード認証リクエスト'),
+    current_user: User = Depends(User.getCurrentUser),
+):
+    """
+    tweepy_authlib を利用してパスワード認証で Twitter 連携を行い、ログイン中のユーザーアカウントと Twitter アカウントを紐づける。
+    """
+
+    # 万が一スクリーンネームに @ が含まれていた場合は事前に削除する
+    password_auth_request.screen_name = password_auth_request.screen_name.replace('@', '')
+
+    # スクリーンネームとパスワードを指定して認証
+    try:
+        auth_handler = await asyncio.to_thread(CookieSessionUserHandler,
+            screen_name=password_auth_request.screen_name,
+            password=password_auth_request.password,
+        )
+    except tweepy.HTTPException as ex:
+        # パスワードが間違っているなどの理由で認証に失敗した場合
+        if len(ex.api_codes) > 0 and len(ex.api_messages) > 0:
+            error_message = f'Code: {ex.api_codes[0]}, Message: {ex.api_messages[0]}'
+        else:
+            error_message = 'Unknown Error'
+        Logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] Failed to authenticate with password ({error_message})')
+        raise HTTPException(
+            status_code = status.HTTP_401_UNAUTHORIZED,
+            detail = f'Failed to authenticate with password ({error_message})',
+        )
+    except tweepy.TweepyException as ex:
+        # 認証フローの途中で予期せぬエラーが発生し、ログインに失敗した
+        error_message = f'Message: {ex}'
+        Logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] Unexpected error occurred while authenticate with password ({error_message})')
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = f'Unexpected error occurred while authenticate with password ({error_message})',
+        )
+
+    # tweepy を初期化
+    api = tweepy.API(auth_handler)
+
+    # アカウント情報を更新
+    try:
+        verify_credentials = await asyncio.to_thread(api.verify_credentials)
+    except tweepy.TweepyException:
+        Logging.error('[TwitterRouter][TwitterAuthCallbackAPI] Failed to get user information')
+        return HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Failed to get user information',
+        )
+
+    # TwitterAccount のレコードを作成
+    twitter_account = TwitterAccount()
+    twitter_account.user = current_user
+    # アカウント名
+    twitter_account.name = verify_credentials.name
+    # スクリーンネーム
+    twitter_account.screen_name = verify_credentials.screen_name
+    # アイコン URL
+    ## (ランダムな文字列)_normal.jpg だと画像サイズが小さいので、(ランダムな文字列).jpg に置換
+    twitter_account.icon_url = verify_credentials.profile_image_url_https.replace('_normal', '')
+
+    # 現在のログインセッションの Cookie を取得
+    cookies: dict[str, str] = auth_handler.get_cookies().get_dict()
+
+    # アクセストークンは今までの OAuth 認証との互換性を保つため "COOKIE_SESSION" の固定値、
+    # アクセストークンシークレットとして Cookie を JSON 化した文字列を入れる
+    twitter_account.access_token = 'COOKIE_SESSION'
+    twitter_account.access_token_secret = json.dumps(cookies, ensure_ascii=False)
+
+    # 同じスクリーンネームを持つアカウントが重複している場合、古い方のレコードのデータを更新して終了
+    # すでに作成されている新しいレコード（まだ save() していないので仮の情報しか入っていない）は削除される
+    twitter_account_existing = await TwitterAccount.filter(
+        user_id = cast(Any, twitter_account).user_id,
+        screen_name = twitter_account.screen_name,
+    ).get_or_none()
+    if twitter_account_existing is not None:
+        twitter_account_existing.name = twitter_account.name  # アカウント名
+        twitter_account_existing.icon_url = twitter_account.icon_url  # アイコン URL
+        twitter_account_existing.access_token = twitter_account.access_token  # アクセストークン
+        twitter_account_existing.access_token_secret = twitter_account.access_token_secret  # アクセストークンシークレット
+        await twitter_account_existing.save()
+        await twitter_account.delete()
+        return
+
+    # ログインセッションとアカウント情報を保存
+    await twitter_account.save()
 
 
 @router.delete(

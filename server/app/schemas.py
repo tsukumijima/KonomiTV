@@ -90,6 +90,10 @@ class UserUpdateRequestForAdmin(BaseModel):
     password: str | None
     is_admin: bool | None
 
+class TwitterPasswordAuthRequest(BaseModel):
+    screen_name: str
+    password: str
+
 # API レスポンスに利用する Pydantic モデル
 # モデルを List や Dict でまとめたものが中心
 
