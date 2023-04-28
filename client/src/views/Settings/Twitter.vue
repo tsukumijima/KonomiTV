@@ -37,10 +37,44 @@
                         <Icon icon="fluent:plug-disconnected-20-filled" class="mr-2" height="24" />連携解除
                     </v-btn>
                 </div>
-                <v-btn class="twitter-account__login" color="secondary" max-width="250" height="50" depressed
-                    @click="loginTwitterAccountWithPassword()">
-                    <Icon icon="fluent:plug-connected-20-filled" class="mr-2" height="24" />連携するアカウントを追加
-                </v-btn>
+                <v-dialog max-width="600" v-model="twitter_password_auth_dialog">
+                    <template v-slot:activator="{ on }">
+                    <v-btn class="twitter-account__login" color="secondary" max-width="250" height="50" depressed v-on="on"
+                        @click="loginTwitterAccountWithPasswordForm()">
+                        <Icon icon="fluent:plug-connected-20-filled" class="mr-2" height="24" />連携するアカウントを追加
+                    </v-btn>
+                    </template>
+                    <v-card>
+                        <v-card-title class="justify-center pt-6 font-weight-bold">Twitter にログイン</v-card-title>
+                        <!-- スクリーンネームとパスワードフォーム -->
+                        <v-card-text class="pt-2 pb-0">
+                            <p class="mb-1">2023/4/30 以降、Twitter のサードパーティー API の事実上の廃止により、従来のアプリ連携では Twitter にアクセスできなくなりました。</p>
+                            <p class="mb-1">そこで KonomiTV では、代わりにユーザー名とパスワードでログインすることで、これまで通り Twitter 連携ができるようにしています。</p>
+                            <p class="mb-1">安全対策は講じていますが、非公式な手段のため、最悪の場合、アカウントにペナルティが適用される可能性もあります。自己の責任のもとでご利用ください。</p>
+                            <v-form class="settings__item" ref="twitter_form" @submit.prevent>
+                                <v-text-field class="settings__item-form mt-6" outlined label="ユーザー名 (@ から始まる ID)" placeholder="screen_name"
+                                    ref="twitter_screen_name"
+                                    :dense="is_form_dense"
+                                    v-model="twitter_screen_name"
+                                    :rules="[(value) => !!value || 'ユーザー名を入力してください。']">
+                                </v-text-field>
+                                <v-text-field class="settings__item-form" outlined label="パスワード"
+                                    :dense="is_form_dense"
+                                    v-model="twitter_password"
+                                    :type="twitter_password_showing ? 'text' : 'password'"
+                                    :append-icon="twitter_password_showing ? 'mdi-eye' : 'mdi-eye-off'"
+                                    :rules="[(value) => !!value || 'パスワードを入力してください。']"
+                                    @click:append="twitter_password_showing = !twitter_password_showing">
+                                </v-text-field>
+                            </v-form>
+                        </v-card-text>
+                        <v-card-actions class="pt-0 px-6 pb-5">
+                            <v-spacer></v-spacer>
+                            <v-btn color="text" height="40" text @click="twitter_password_auth_dialog = false">キャンセル</v-btn>
+                            <v-btn color="secondary" height="40" class="px-4" @click="loginTwitterAccountWithPassword()">ログイン</v-btn>
+                        </v-card-actions>
+                    </v-card>
+                </v-dialog>
                 <v-btn class="twitter-account__login" color="secondary" max-width="310" height="50" depressed
                     @click="loginTwitterAccountWithOAuth()">
                     <Icon icon="fluent:plug-connected-20-filled" class="mr-2" height="24" />連携するアカウントを追加 (Legacy)
@@ -155,6 +189,14 @@ export default Vue.extend({
 
             // ローディング中かどうか
             is_loading: true,
+
+            // パスワード認証用ダイヤログ
+            twitter_password_auth_dialog: false,
+
+            // Twitter のスクリーンネームとパスワード
+            twitter_screen_name: '',
+            twitter_password: '',
+            twitter_password_showing: false,
         };
     },
     computed: {
@@ -187,15 +229,51 @@ export default Vue.extend({
         }
     },
     methods: {
-        async loginTwitterAccountWithPassword() {
-
+        async loginTwitterAccountWithPasswordForm() {
             // ログインしていない場合はエラーにする
             if (this.userStore.is_logged_in === false) {
                 this.$message.warning('連携をはじめるには、KonomiTV アカウントにログインしてください。');
+                await Utils.sleep(0.01);
+                this.twitter_password_auth_dialog = false;
+                return;
+            }
+        },
+
+        async loginTwitterAccountWithPassword() {
+
+            // バリデーションを実行
+            if ((this.$refs.twitter_form as any).validate() === false) {
                 return;
             }
 
-            // TODO
+            // Twitter パスワード認証 API にリクエスト
+            const result = await Twitter.authWithPassword({
+                screen_name: this.twitter_screen_name,
+                password: this.twitter_password,
+            });
+            if (result === false) {
+                return;
+            }
+
+            // アカウント情報を強制的に更新
+            await this.userStore.fetchUser(true);
+            if (this.userStore.user === null) {
+                this.$message.error('アカウント情報を取得できませんでした。');
+                return;
+            }
+
+            // ログイン中のユーザーに紐づく Twitter アカウントのうち、一番 updated_at が新しいものを取得
+            // ログインすると updated_at が更新されるため、この時点で一番 updated_at が新しいアカウントが今回連携したものだと判断できる
+            // ref: https://stackoverflow.com/a/12192544/17124142 (ISO8601 のソートアルゴリズム)
+            const current_twitter_account = [...this.userStore.user.twitter_accounts].sort((a, b) => {
+                return (a.updated_at < b.updated_at) ? 1 : ((a.updated_at > b.updated_at) ? -1 : 0);
+            })[0];
+
+            this.$message.success(`Twitter @${current_twitter_account.screen_name} と連携しました。`);
+
+            // フォームをリセットし、非表示にする
+            (this.$refs.twitter_form as any).reset();
+            this.twitter_password_auth_dialog = false;
         },
 
         async loginTwitterAccountWithOAuth() {
