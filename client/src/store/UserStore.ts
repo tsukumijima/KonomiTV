@@ -72,6 +72,7 @@ const useUserStore = defineStore('user', {
             const access_token = await Users.createUserAccessToken(username, password);
             if (access_token === null) {
                 console.log('Login failed.');
+                this.logout(true);
                 return false;  // ログイン失敗 (エラーハンドリングは services 層で行われる)
             }
 

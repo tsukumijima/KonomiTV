@@ -1,7 +1,6 @@
 
 import axios from 'axios';
 
-import useUserStore from '@/store/UserStore';
 import Utils from '@/utils';
 
 // ref: https://note.com/quoizunda/n/nb62e13e73499
@@ -34,22 +33,5 @@ axios_instance.interceptors.request.use((config) => {
 
     return config;
 });
-
-// HTTP リクエスト後に割り込んで行われる処理
-axios_instance.interceptors.response.use(
-    (response) => response,
-    (error) => {
-
-        // 401 Unauthorized が返ってきたら、ログアウトさせる
-        // JWT の有効期限が切れたときに発生する
-        if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
-            const user_store = useUserStore();
-            user_store.logout(true);
-        }
-
-        // エラーをそのまま返す
-        return Promise.reject(error);
-    }
-);
 
 export default axios_instance;

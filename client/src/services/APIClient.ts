@@ -8,6 +8,7 @@ import { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
 
 import Message from '@/message';
 import axios from '@/plugins/axios';
+import useUserStore from '@/store/UserStore';
 
 
 /** API のエラーレスポンスを表すインターフェイス */
@@ -153,16 +154,25 @@ class APIClient {
      * @param template エラーメッセージのテンプレート（「アカウント情報を取得できませんでした。」など)
      */
     static showGenericError(response: ErrorResponse, template: string): void {
+        const user_store = useUserStore();
         switch (response.error.message) {
+            case 'Not authenticated': {
+                user_store.logout(true);
+                Message.error(`${template}\nログインし直してください。`);
+                return;
+            }
             case 'Access token data is invalid': {
-                Message.error(`${template}\nログインセッションが不正です。もう一度ログインしてください。`);
+                user_store.logout(true);
+                Message.error(`${template}\nログインセッションが不正です。もう一度ログインし直してください。`);
                 return;
             }
             case 'Access token is invalid': {
-                Message.error(`${template}\nログインセッションの有効期限が切れています。もう一度ログインしてください。`);
+                user_store.logout(true);
+                Message.error(`${template}\nログインセッションの有効期限が切れています。もう一度ログインし直してください。`);
                 return;
             }
             case 'User associated with access token does not exist': {
+                user_store.logout(true);
                 Message.error(`${template}\nログインセッションに紐づくユーザーが存在しないか、削除されています。`);
                 return;
             }
