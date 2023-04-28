@@ -3,6 +3,7 @@ import ariblib.constants
 import asyncio
 import concurrent.futures
 import datetime
+import json
 import requests
 import time
 import traceback
@@ -38,12 +39,12 @@ class Program(models.Model):
     channel_id: str = fields.TextField()
     title: str = fields.TextField()
     description: str = fields.TextField()
-    detail: dict[str, str] = fields.JSONField()
+    detail: dict[str, str] = fields.JSONField(encoder=lambda x: json.dumps(x, ensure_ascii=False))
     start_time: datetime.datetime = fields.DatetimeField()
     end_time: datetime.datetime = fields.DatetimeField()
     duration: float = fields.FloatField()
     is_free: bool = fields.BooleanField()  # type: ignore
-    genre: list[dict[str, str]] = fields.JSONField()
+    genre: list[dict[str, str]] = fields.JSONField(encoder=lambda x: json.dumps(x, ensure_ascii=False))
     video_type: str = fields.TextField()
     video_codec: str = fields.TextField()
     video_resolution: str = fields.TextField()

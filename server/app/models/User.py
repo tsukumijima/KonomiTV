@@ -30,7 +30,7 @@ class User(models.Model):
     name: str = fields.TextField()
     password: str = fields.TextField()
     is_admin: bool = fields.BooleanField()  # type: ignore
-    client_settings: dict = fields.JSONField()
+    client_settings: dict = fields.JSONField(encoder=lambda x: json.dumps(x, ensure_ascii=False))
     niconico_user_id: int | None = fields.IntField(null=True)
     niconico_user_name: str | None = fields.TextField(null=True)
     niconico_user_premium: bool | None = fields.BooleanField(null=True)  # type: ignore
