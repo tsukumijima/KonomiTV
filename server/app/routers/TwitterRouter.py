@@ -198,10 +198,8 @@ async def TwitterAuthCallbackAPI(
             redirect_to = redirect_url,
         )
 
-    # tweepy を初期化
-    api = tweepy.API(tweepy.OAuth1UserHandler(
-        consumer_key, consumer_secret, twitter_account.access_token, twitter_account.access_token_secret,
-    ))
+    # tweepy の API インスタンスを取得
+    api = await twitter_account.getTweepyAPI()
 
     # アカウント情報を更新
     try:
@@ -213,6 +211,7 @@ async def TwitterAuthCallbackAPI(
             detail = 'Failed to get user information',
             redirect_to = redirect_url,
         )
+
     # アカウント名
     twitter_account.name = verify_credentials.name
     # スクリーンネーム
@@ -270,6 +269,7 @@ async def TwitterPasswordAuthAPI(
 
     # スクリーンネームとパスワードを指定して認証
     try:
+        # ログインには数秒かかるため、非同期で実行
         auth_handler = await asyncio.to_thread(CookieSessionUserHandler,
             screen_name=password_auth_request.screen_name,
             password=password_auth_request.password,
@@ -294,8 +294,20 @@ async def TwitterPasswordAuthAPI(
             detail = f'Unexpected error occurred while authenticate with password ({error_message})',
         )
 
-    # tweepy を初期化
-    api = tweepy.API(auth_handler)
+    # 現在のログインセッションの Cookie を取得
+    cookies: dict[str, str] = auth_handler.get_cookies().get_dict()
+
+    # TwitterAccount のレコードを作成
+    twitter_account = TwitterAccount()
+    twitter_account.user = current_user
+
+    # アクセストークンは今までの OAuth 認証との互換性を保つため "COOKIE_SESSION" の固定値、
+    # アクセストークンシークレットとして Cookie を JSON 化した文字列を入れる
+    twitter_account.access_token = 'COOKIE_SESSION'
+    twitter_account.access_token_secret = json.dumps(cookies, ensure_ascii=False)
+
+    # tweepy の API インスタンスを取得
+    api = await twitter_account.getTweepyAPI()
 
     # アカウント情報を更新
     try:
@@ -307,9 +319,6 @@ async def TwitterPasswordAuthAPI(
             detail = 'Failed to get user information',
         )
 
-    # TwitterAccount のレコードを作成
-    twitter_account = TwitterAccount()
-    twitter_account.user = current_user
     # アカウント名
     twitter_account.name = verify_credentials.name
     # スクリーンネーム
@@ -317,14 +326,6 @@ async def TwitterPasswordAuthAPI(
     # アイコン URL
     ## (ランダムな文字列)_normal.jpg だと画像サイズが小さいので、(ランダムな文字列).jpg に置換
     twitter_account.icon_url = verify_credentials.profile_image_url_https.replace('_normal', '')
-
-    # 現在のログインセッションの Cookie を取得
-    cookies: dict[str, str] = auth_handler.get_cookies().get_dict()
-
-    # アクセストークンは今までの OAuth 認証との互換性を保つため "COOKIE_SESSION" の固定値、
-    # アクセストークンシークレットとして Cookie を JSON 化した文字列を入れる
-    twitter_account.access_token = 'COOKIE_SESSION'
-    twitter_account.access_token_secret = json.dumps(cookies, ensure_ascii=False)
 
     # 同じスクリーンネームを持つアカウントが重複している場合、古い方のレコードのデータを更新して終了
     # すでに作成されている新しいレコード（まだ save() していないので仮の情報しか入っていない）は削除される
@@ -419,11 +420,8 @@ async def TwitterTweetAPI(
             detail = 'Can tweet up to 4 images',
         )
 
-    # tweepy を初期化
-    from app.app import consumer_key, consumer_secret
-    api = tweepy.API(tweepy.OAuth1UserHandler(
-        consumer_key, consumer_secret, twitter_account.access_token, twitter_account.access_token_secret,
-    ))
+    # tweepy の API インスタンスを取得
+    api = await twitter_account.getTweepyAPI()
 
     # アップロードした画像の media_id のリスト
     media_ids: list[str] = []

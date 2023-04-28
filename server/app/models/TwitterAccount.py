@@ -1,9 +1,12 @@
 
 import asyncio
+import json
 import tweepy
 from datetime import datetime
+from requests.cookies import RequestsCookieJar
 from tortoise import fields
 from tortoise import models
+from tweepy_authlib import CookieSessionUserHandler
 
 from app.models import User
 
@@ -38,11 +41,8 @@ class TwitterAccount(models.Model):
                 await twitter_account.delete()
                 continue
 
-            # tweepy を初期化
-            from app.app import consumer_key, consumer_secret
-            api = tweepy.API(tweepy.OAuth1UserHandler(
-                consumer_key, consumer_secret, twitter_account.access_token, twitter_account.access_token_secret,
-            ))
+            # tweepy の API インスタンスを取得
+            api = await twitter_account.getTweepyAPI()
 
             # アカウント情報を更新
             try:
@@ -59,3 +59,38 @@ class TwitterAccount(models.Model):
 
             # 更新したアカウント情報を保存
             await twitter_account.save()
+
+
+    async def getTweepyAPI(self) -> tweepy.API:
+        """
+        tweepy の API インスタンスを取得する
+
+        Returns:
+            tweepy.API: tweepy の API インスタンス
+        """
+
+        # パスワード認証 (Cookie セッション) の場合
+        ## Cookie セッションでは access_token フィールドが "COOKIE_SESSION" の固定値になっている
+        if self.access_token == 'COOKIE_SESSION':
+
+            # access_token_secret から Cookie を取得
+            cookies_dict: dict[str, str] = json.loads(self.access_token_secret)
+
+            # RequestCookieJar オブジェクトに変換
+            cookies = RequestsCookieJar()
+            for key, value in cookies_dict.items():
+                cookies.set(key, value)
+
+            # 読み込んだ RequestCookieJar オブジェクトを CookieSessionUserHandler に渡す
+            ## Cookie を指定する際はコンストラクタ内部で API リクエストは行われないため、ログイン時のように await する必要性はない
+            auth_handler = CookieSessionUserHandler(cookies=cookies)
+
+        # 通常の OAuth 認証の場合
+        else:
+            from app.app import consumer_key, consumer_secret
+            auth_handler = tweepy.OAuth1UserHandler(
+                consumer_key, consumer_secret, self.access_token, self.access_token_secret,
+            )
+
+        # auth_handler で初期化した tweepy.API インスタンスを返す
+        return tweepy.API(auth=auth_handler)
