@@ -66,6 +66,7 @@ class LiveStream(BaseModel):
 
 class TwitterAccount(pydantic_model_creator(models.TwitterAccount, name='TwitterAccount',
     exclude=('access_token', 'access_token_secret'))):
+    is_oauth_session: bool
     pass
 
 class User(pydantic_model_creator(models.User, name='User',

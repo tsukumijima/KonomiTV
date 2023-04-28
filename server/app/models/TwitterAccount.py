@@ -28,6 +28,10 @@ class TwitterAccount(models.Model):
     created_at: datetime = fields.DatetimeField(auto_now_add=True)
     updated_at: datetime = fields.DatetimeField(auto_now=True)
 
+    @property
+    def is_oauth_session(self) -> bool:
+        return self.access_token != 'COOKIE_SESSION'
+
 
     @classmethod
     async def updateAccountInformation(cls):
