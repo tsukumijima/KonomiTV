@@ -220,6 +220,9 @@ async def TwitterAuthCallbackAPI(
     ## (ランダムな文字列)_normal.jpg だと画像サイズが小さいので、(ランダムな文字列).jpg に置換
     twitter_account.icon_url = verify_credentials.profile_image_url_https.replace('_normal', '')
 
+    # アクセストークンとアカウント情報を保存
+    await twitter_account.save()
+
     # 同じスクリーンネームを持つアカウントが重複している場合、古い方のレコードのデータを更新する
     # すでに作成されている新しいレコード（まだ save() していないので仮の情報しか入っていない）は削除される
     twitter_account_existing = await TwitterAccount.filter(
@@ -233,15 +236,6 @@ async def TwitterAuthCallbackAPI(
         twitter_account_existing.access_token_secret = twitter_account.access_token_secret  # アクセストークンシークレット
         await twitter_account_existing.save()
         await twitter_account.delete()
-
-        return OAuthCallbackResponse(
-            status_code = status.HTTP_200_OK,
-            detail = 'Success',
-            redirect_to = redirect_url,
-        )
-
-    # アクセストークンとアカウント情報を保存
-    await twitter_account.save()
 
     # OAuth 連携が正常に完了したことを伝える
     return OAuthCallbackResponse(
@@ -327,6 +321,9 @@ async def TwitterPasswordAuthAPI(
     ## (ランダムな文字列)_normal.jpg だと画像サイズが小さいので、(ランダムな文字列).jpg に置換
     twitter_account.icon_url = verify_credentials.profile_image_url_https.replace('_normal', '')
 
+    # ログインセッションとアカウント情報を保存
+    await twitter_account.save()
+
     # 同じスクリーンネームを持つアカウントが重複している場合、古い方のレコードのデータを更新して終了
     # すでに作成されている新しいレコード（まだ save() していないので仮の情報しか入っていない）は削除される
     twitter_account_existing = await TwitterAccount.filter(
@@ -341,9 +338,6 @@ async def TwitterPasswordAuthAPI(
         await twitter_account_existing.save()
         await twitter_account.delete()
         return
-
-    # ログインセッションとアカウント情報を保存
-    await twitter_account.save()
 
 
 @router.delete(
