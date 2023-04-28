@@ -10,6 +10,7 @@ from fastapi import Path
 from fastapi import Request
 from fastapi import status
 from fastapi.responses import FileResponse
+from fastapi.responses import JSONResponse
 from fastapi.responses import Response
 from fastapi.security.utils import get_authorization_scheme_param
 from tortoise import connections
@@ -38,11 +39,11 @@ router = APIRouter(
     '',
     summary = 'チャンネル情報一覧 API',
     response_description = 'チャンネル情報。',
+    response_model = schemas.Channels,
 )
 async def ChannelsAPI():
     """
     地デジ (GR)・BS・CS・CATV・SKY (SPHD)・STARDIGIO それぞれ全てのチャンネルの情報を取得する。<br>
-    パフォーマンス向上のために response_model はあえて設定していないが（設定すると検証処理が入る関係で 100~300ms ほど遅くなる）、Channel レスポンスを返す。
     """
 
     # 現在時刻
@@ -219,7 +220,9 @@ async def ChannelsAPI():
         ## 後から filter() で絞り込むのだと効率が悪い
         result[channel_dict['channel_type']].append(channel_dict)
 
-    return result
+    # JSONResponse を直接返すことで、通常自動的に行われる重いバリデーションや整形処理を回避できる
+    ## チャンネル情報は情報量が多くすべてのチャンネルに対してバリデーションを行うと重くなるため、検証をスキップしてパフォーマンスを向上させる
+    return JSONResponse(result)
 
 
 @router.get(
