@@ -228,13 +228,13 @@ async def TwitterAuthCallbackAPI(
     twitter_account_existing = await TwitterAccount.filter(
         user_id = cast(Any, twitter_account).user_id,
         screen_name = twitter_account.screen_name,
-    ).get_or_none()
-    if twitter_account_existing is not None:
-        twitter_account_existing.name = twitter_account.name  # アカウント名
-        twitter_account_existing.icon_url = twitter_account.icon_url  # アイコン URL
-        twitter_account_existing.access_token = twitter_account.access_token  # アクセストークン
-        twitter_account_existing.access_token_secret = twitter_account.access_token_secret  # アクセストークンシークレット
-        await twitter_account_existing.save()
+    )
+    if len(twitter_account_existing) > 1:
+        twitter_account_existing[0].name = twitter_account.name  # アカウント名
+        twitter_account_existing[0].icon_url = twitter_account.icon_url  # アイコン URL
+        twitter_account_existing[0].access_token = twitter_account.access_token  # アクセストークン
+        twitter_account_existing[0].access_token_secret = twitter_account.access_token_secret  # アクセストークンシークレット
+        await twitter_account_existing[0].save()
         await twitter_account.delete()
 
     # OAuth 連携が正常に完了したことを伝える
@@ -324,20 +324,19 @@ async def TwitterPasswordAuthAPI(
     # ログインセッションとアカウント情報を保存
     await twitter_account.save()
 
-    # 同じスクリーンネームを持つアカウントが重複している場合、古い方のレコードのデータを更新して終了
+    # 同じスクリーンネームを持つアカウントが重複している場合、古い方のレコードのデータを更新する
     # すでに作成されている新しいレコード（まだ save() していないので仮の情報しか入っていない）は削除される
     twitter_account_existing = await TwitterAccount.filter(
         user_id = cast(Any, twitter_account).user_id,
         screen_name = twitter_account.screen_name,
-    ).get_or_none()
-    if twitter_account_existing is not None:
-        twitter_account_existing.name = twitter_account.name  # アカウント名
-        twitter_account_existing.icon_url = twitter_account.icon_url  # アイコン URL
-        twitter_account_existing.access_token = twitter_account.access_token  # アクセストークン
-        twitter_account_existing.access_token_secret = twitter_account.access_token_secret  # アクセストークンシークレット
-        await twitter_account_existing.save()
+    )
+    if len(twitter_account_existing) > 1:
+        twitter_account_existing[0].name = twitter_account.name  # アカウント名
+        twitter_account_existing[0].icon_url = twitter_account.icon_url  # アイコン URL
+        twitter_account_existing[0].access_token = twitter_account.access_token  # アクセストークン
+        twitter_account_existing[0].access_token_secret = twitter_account.access_token_secret  # アクセストークンシークレット
+        await twitter_account_existing[0].save()
         await twitter_account.delete()
-        return
 
 
 @router.delete(
