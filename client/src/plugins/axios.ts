@@ -20,7 +20,6 @@ axios_instance.interceptors.request.use((config) => {
     // アクセストークンが取得できたら（=ログインされていれば）
     // 取得したアクセストークンを Authorization ヘッダーに Bearer トークンとしてセット
     // これを忘れると（当然ながら）ログインしていない扱いになる
-    config.headers = config.headers || {};
     const access_token = Utils.getAccessToken();
     if (access_token !== null) {
         config.headers['Authorization'] = `Bearer ${access_token}`;
