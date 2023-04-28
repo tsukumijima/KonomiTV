@@ -94,9 +94,8 @@
                     </v-btn>
                 </div>
                 <div class="muted-comment-items">
-                    <!-- @eslint-ignore -->
-                    <div class="muted-comment-item" v-for="(muted_comment_keyword, index) in settingsStore.settings.muted_comment_keywords"
-                        :key="muted_comment_keyword.id">
+                    <div class="muted-comment-item"
+                        v-for="(muted_comment_keyword, index) in settingsStore.settings.muted_comment_keywords" :key="index">
                         <v-text-field type="search" class="muted-comment-item__input" dense outlined hide-details
                             placeholder="ミュートするキーワードを入力"
                             v-model="settingsStore.settings.muted_comment_keywords[index].pattern">
@@ -122,8 +121,8 @@
                     </v-btn>
                 </div>
                 <div class="muted-comment-items">
-                    <div class="muted-comment-item" v-for="(muted_niconico_user_id, index) in settingsStore.settings.muted_niconico_user_ids"
-                        :key="muted_niconico_user_id.id">
+                    <div class="muted-comment-item"
+                        v-for="(muted_niconico_user_id, index) in settingsStore.settings.muted_niconico_user_ids" :key="index">
                         <v-text-field type="search" class="muted-comment-item__input" dense outlined hide-details
                             placeholder="ミュートするニコニコユーザー ID を入力" v-model="settingsStore.settings.muted_niconico_user_ids[index]">
                         </v-text-field>

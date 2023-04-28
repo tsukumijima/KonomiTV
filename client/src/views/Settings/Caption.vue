@@ -1,6 +1,6 @@
 <template>
     <!-- ベース画面の中にそれぞれの設定画面で異なる部分を記述する -->
-    <Base>
+    <SettingsBase>
         <h2 class="settings__heading">
             <router-link v-ripple class="settings__back-button" to="/settings/">
                 <Icon icon="fluent:arrow-left-12-filled" width="25px" />
@@ -61,7 +61,7 @@
                 </v-switch>
             </div>
         </div>
-    </Base>
+    </SettingsBase>
 </template>
 <script lang="ts">
 
@@ -70,12 +70,12 @@ import Vue from 'vue';
 
 import useSettingsStore from '@/store/SettingsStore';
 import Utils from '@/utils';
-import Base from '@/views/Settings/Base.vue';
+import SettingsBase from '@/views/Settings/Base.vue';
 
 export default Vue.extend({
     name: 'Settings-Caption',
     components: {
-        Base,
+        SettingsBase,
     },
     data() {
         return {
