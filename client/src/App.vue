@@ -234,6 +234,10 @@ body .route-container {
     }
 }
 
+.v-card__text {
+    font-weight: inherit !important;
+}
+
 // ページ遷移アニメーション
 .v-enter-active, .v-leave-active {
     transition: opacity 0.25s;

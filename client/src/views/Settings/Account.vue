@@ -176,21 +176,21 @@
                     </div>
                 </div>
                 <v-dialog max-width="385" v-model="account_delete_confirm_dialog">
-                    <template v-slot:activator="{ on, attrs }">
-                        <v-btn class="settings__save-button error mt-5" depressed v-bind="attrs" v-on="on">
+                    <template v-slot:activator="{ on }">
+                        <v-btn class="settings__save-button error mt-5" depressed v-on="on">
                             <Icon icon="fluent:delete-16-filled" class="mr-2" height="24px" />アカウントを削除
                         </v-btn>
                     </template>
                     <v-card>
-                        <v-card-title class="justify-center">本当にアカウントを削除しますか？</v-card-title>
-                        <v-card-text>
+                        <v-card-title class="justify-center pt-6 font-weight-bold">本当にアカウントを削除しますか？</v-card-title>
+                        <v-card-text class="pt-2 pb-0">
                             アカウントに紐づくすべてのデータが削除されます。元に戻すことはできません。<br>
                             本当にアカウントを削除しますか？
                         </v-card-text>
-                        <v-card-actions>
+                        <v-card-actions class="pt-4 px-6 pb-5">
                             <v-spacer></v-spacer>
                             <v-btn color="text" text @click="account_delete_confirm_dialog = false">キャンセル</v-btn>
-                            <v-btn color="error" text @click="deleteAccount()">削除</v-btn>
+                            <v-btn color="error" @click="deleteAccount()">削除</v-btn>
                         </v-card-actions>
                     </v-card>
                 </v-dialog>
@@ -244,7 +244,7 @@ export default Vue.extend({
             settings_icon: null as File | null,
 
             // アカウント削除確認ダイヤログ
-            account_delete_confirm_dialog: null as boolean | null,
+            account_delete_confirm_dialog: false,
 
             // 設定を同期するかの設定値
             sync_settings: useSettingsStore().settings.sync_settings as boolean,
