@@ -139,6 +139,9 @@
                 </v-select>
             </div>
         </div>
+        <v-overlay :value="is_twitter_password_auth_sending" z-index="300">
+            <v-progress-circular color="secondary" indeterminate size="64" />
+        </v-overlay>
     </SettingsBase>
 </template>
 <script lang="ts">
@@ -189,6 +192,9 @@ export default Vue.extend({
 
             // ローディング中かどうか
             is_loading: true,
+
+            // パスワード認証実行中かどうか
+            is_twitter_password_auth_sending: false,
 
             // パスワード認証用ダイヤログ
             twitter_password_auth_dialog: false,
@@ -247,10 +253,12 @@ export default Vue.extend({
             }
 
             // Twitter パスワード認証 API にリクエスト
+            this.is_twitter_password_auth_sending = true;
             const result = await Twitter.authWithPassword({
                 screen_name: this.twitter_screen_name,
                 password: this.twitter_password,
             });
+            this.is_twitter_password_auth_sending = false;
             if (result === false) {
                 return;
             }
