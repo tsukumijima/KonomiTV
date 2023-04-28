@@ -80,7 +80,7 @@ class Twitter {
     static async logoutAccount(screen_name: string): Promise<boolean> {
 
         // API リクエストを実行
-        const response = await APIClient.delete(`/twitter/accounts/${screen_name}`);
+        const response = await APIClient.delete(`/twitter/users/${screen_name}`);
 
         // エラー処理
         if ('is_error' in response) {
@@ -108,7 +108,7 @@ class Twitter {
         }
 
         // API リクエストを実行
-        const response = await APIClient.post<ITweetResult>(`/twitter/accounts/${screen_name}/tweets`, form_data, {
+        const response = await APIClient.post<ITweetResult>(`/twitter/users/${screen_name}/tweets`, form_data, {
             headers: {'Content-Type': 'multipart/form-data'},
         });
 
