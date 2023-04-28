@@ -172,21 +172,21 @@ export class CommentUtils {
         // コメントの位置が top (上固定) もしくは bottom (下固定) のときは弾く
         if (settings_store.settings.mute_fixed_comments === true && (position === 'top' || position === 'bottom')) {
             console.log('[CommentUtils] Muted comment (fixed_comments): ' + comment);
-            return;
+            return true;
         }
 
         // 「色付きのコメントをミュートする」がオンの場合
         // コメントの色が #FFEAEA (デフォルト) 以外のときは弾く
         if (settings_store.settings.mute_colored_comments === true && color !== '#FFEAEA') {
             console.log('[CommentUtils] Muted comment (colored_comments): ' + comment);
-            return;
+            return true;
         }
 
         // 「文字サイズが大きいコメントをミュートする」がオンの場合
         // コメントのサイズが big のときは弾く
         if (settings_store.settings.mute_big_size_comments === true && size === 'big') {
             console.log('[CommentUtils] Muted comment (big_size_comments): ' + comment);
-            return;
+            return true;
         }
 
         // 「露骨な表現を含むコメントをミュートする」がオンの場合
