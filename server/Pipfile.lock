@@ -1286,7 +1286,7 @@
                 "sha256:11ef1e08e54acb0d4f95bdb1be05da659673de4acbd21bf9c69e94cc5e907a3a",
                 "sha256:7e65763eef3120314099b6939b5546db7adce1e7d6f2e179e3df563c70511eda"
             ],
-            "markers": "python_version >= '3.6'",
+            "markers": "platform_system == 'Windows'",
             "version": "==2023.3"
         },
         "tzlocal": {
@@ -1314,7 +1314,6 @@
                 "sha256:e9434d3bbf05f310e762147f769c9f21235ee118ba2d2bf1155a7196448bd996"
             ],
             "index": "pypi",
-            "markers": null,
             "version": "==0.22.0"
         },
         "uvloop": {
@@ -1350,7 +1349,6 @@
                 "sha256:f1e507c9ee39c61bfddd79714e4f85900656db1aec4d40c6de55648e85c2799c",
                 "sha256:ff3d00b70ce95adce264462c930fbaecb29718ba6563db354608f37e49e09024"
             ],
-            "index": "pypi",
             "markers": "sys_platform != 'win32'",
             "version": "==0.17.0"
         },
