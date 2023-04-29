@@ -24,7 +24,6 @@
         "seamless-scroll-polyfill": "^2.3.4",
         "v-tooltip": "^3.0.0-beta.20",
         "vue": "^2.7.14",
-        "vue-axios": "^3.5.2",
         "vue-router": "^3.6.5",
         "vue-typed-mixins": "^0.2.0",
         "vue-virtual-scroller": "^1.1.2",

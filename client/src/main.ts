@@ -4,7 +4,6 @@ import { createPinia, PiniaVuePlugin } from 'pinia';
 import { polyfill as SeamlessScrollPolyfill } from 'seamless-scroll-polyfill';
 import VTooltip from 'v-tooltip';
 import Vue from 'vue';
-import VueAxios from 'vue-axios';
 import VueVirtualScroller from 'vue-virtual-scroller';
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
 import VuetifyMessageSnackbar from 'vuetify-message-snackbar';
@@ -14,7 +13,6 @@ import App from '@/App.vue';
 import VTabItem from '@/components/Vuetify/VTabItem';
 import VTabs from '@/components/Vuetify/VTabs';
 import VTabsItems from '@/components/Vuetify/VTabsItems';
-import axios from '@/plugins/axios';
 import vuetify from '@/plugins/vuetify';
 import router from '@/router';
 import useSettingsStore, { setLocalStorageSettings } from '@/store/SettingsStore';
@@ -30,9 +28,6 @@ Vue.config.productionTip = false;
 
 // 常に Vue.js devtools を有効にする
 Vue.config.devtools = true;
-
-// Axios を使う
-Vue.use(VueAxios, axios);
 
 // Pinia を使う
 // ref: https://pinia.vuejs.org/cookbook/options-api.html

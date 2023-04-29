@@ -207,6 +207,7 @@ import Channel from '@/components/Panel/Channel.vue';
 import Comment from '@/components/Panel/Comment.vue';
 import Program from '@/components/Panel/Program.vue';
 import Twitter from '@/components/Panel/Twitter.vue';
+import APIClient from '@/services/APIClient';
 import { IChannel } from '@/services/Channels';
 import CaptureHandler from '@/services/player/CaptureHandler';
 import useChannelsStore from '@/store/ChannelsStore';
@@ -453,7 +454,7 @@ export default Vue.extend({
 
             // ArrayBuffer として RomSound を取得
             const url = `/assets/romsounds/${index.toString().padStart(2, '0')}.wav`;
-            const audio_data = await Vue.axios.get(url, {
+            const audio_data = await APIClient.get(url, {
                 baseURL: '',  // BaseURL を明示的にクライアントのルートに設定
                 responseType: 'arraybuffer',
             });
