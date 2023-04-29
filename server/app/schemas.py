@@ -141,7 +141,7 @@ class ClientSettings(BaseModel):
     caption_background_color: str = Field('#00000080')
     tv_show_superimpose: bool = Field(True)
     # capture_copy_to_clipboard: 同期無効
-    capture_save_mode: Literal['Browser', 'UploadServer', 'Both'] = Field('Browser')
+    capture_save_mode: Literal['Browser', 'UploadServer', 'Both'] = Field('UploadServer')
     capture_caption_mode: Literal['VideoOnly', 'CompositingCaption', 'Both'] = Field('Both')
     # sync_settings: 同期無効
     comment_speed_rate: float = Field(1)

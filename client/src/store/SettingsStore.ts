@@ -129,8 +129,8 @@ const default_settings: ILocalClientSettings = {
 
     // キャプチャをクリップボードにコピーする (Default: 無効) (同期無効)
     capture_copy_to_clipboard: false,
-    // キャプチャの保存先 (Default: ブラウザでダウンロード)
-    capture_save_mode: 'Browser',
+    // キャプチャの保存先 (Default: KonomiTV サーバーにアップロード)
+    capture_save_mode: 'UploadServer',
     // 字幕が表示されているときのキャプチャの保存モード (Default: 映像のみのキャプチャと、字幕を合成したキャプチャを両方保存する)
     capture_caption_mode: 'Both',
 
