@@ -52,8 +52,8 @@
                         <!-- スクリーンネームとパスワードフォーム -->
                         <v-card-text class="pt-2 pb-0">
                             <p class="mb-1">2023/4/30 以降、Twitter のサードパーティー API の事実上の廃止により、従来のアプリ連携では Twitter にアクセスできなくなりました。</p>
-                            <p class="mb-1">そこで KonomiTV では、代わりにユーザー名とパスワードでログインすることで、これまで通り Twitter 連携ができるようにしています。</p>
-                            <p class="mb-1">安全対策は講じていますが、非公式な手段のため、最悪の場合、アカウントにペナルティが適用される可能性もあります。自己の責任のもとでご利用ください。</p>
+                            <p class="mb-1">そこで KonomiTV では、代わりにユーザー名とパスワードでログインすることで、これまで通り Twitter 連携ができるようにしています (2要素認証を設定しているアカウントには対応していません) 。</p>
+                            <p class="mb-1">万全は期していますが、非公式な方法のため、使い方次第ではアカウントにペナルティが適用される可能性もあります。自己の責任のもとでご利用ください。</p>
                             <v-form class="settings__item" ref="twitter_form" @submit.prevent>
                                 <v-text-field class="settings__item-form mt-6" outlined label="ユーザー名 (@ から始まる ID)" placeholder="screen_name"
                                     ref="twitter_screen_name"
