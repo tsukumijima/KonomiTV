@@ -145,6 +145,15 @@ export default class Utils {
 
 
     /**
+     * ブラウザが Firefox かどうか
+     * @returns ブラウザが Firefox なら true を返す
+     */
+    static isFirefox(): boolean {
+        return /Firefox/i.test(navigator.userAgent);
+    }
+
+
+    /**
      * モバイルデバイス（スマホ・タブレット）かどうか
      * @returns モバイルデバイス (スマホ・タブレット) なら true を返す
      */

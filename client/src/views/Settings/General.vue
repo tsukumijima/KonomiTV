@@ -29,6 +29,12 @@
                 <label class="settings__item-label" for="tv_data_saver_mode">
                     通信節約モードでは、H.265 / HEVC という圧縮率の高いコーデックを使い、画質はほぼそのまま、通信量を通常の 2/3 程度に抑えながら視聴できます！<br>
                     通信節約モードで視聴するときは、環境設定の [利用するエンコーダー] をハードウェアエンコーダーに設定してください。FFmpeg (ソフトウェアエンコーダー) では、再生に支障が出る可能性が高いです。<br>
+                    <p class="mt-1 mb-0 error--text lighten-1" v-if="PlayerUtils.isHEVCVideoSupported() === false && Utils.isFirefox() === false">
+                        このデバイスでは通信節約モードがサポートされていません。
+                    </p>
+                    <p class="mt-1 mb-0 error--text lighten-1" v-if="PlayerUtils.isHEVCVideoSupported() === false && Utils.isFirefox() === true">
+                        お使いの Firefox ブラウザでは通信節約モードがサポートされていません。
+                    </p>
                 </label>
                 <v-switch class="settings__item-switch" id="tv_data_saver_mode" inset hide-details
                     v-model="settingsStore.settings.tv_data_saver_mode" :disabled="PlayerUtils.isHEVCVideoSupported() === false">
@@ -125,6 +131,7 @@ export default Vue.extend({
         return {
 
             // ユーティリティをテンプレートで使えるように
+            Utils: Utils,
             PlayerUtils: PlayerUtils,
 
             // フォームを小さくするかどうか
