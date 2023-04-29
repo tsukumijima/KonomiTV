@@ -19,6 +19,7 @@ from typing import Any, cast, Coroutine
 from app import schemas
 from app.models import TwitterAccount
 from app.models import User
+from app.routers.UsersRouter import GetCurrentUser
 from app.utils import Logging
 from app.utils import OAuthCallbackResponse
 
@@ -56,6 +57,28 @@ error_messages = {
 }
 
 
+# 現在ログイン中のユーザーに紐づく Twitter アカウントを取得する
+async def GetCurrentTwitterAccount(
+    screen_name: str = Path(..., description='Twitter アカウントのスクリーンネーム。'),
+    current_user: User = Depends(GetCurrentUser),
+) -> TwitterAccount:
+
+    # 指定されたスクリーンネームに紐づく Twitter アカウントを取得
+    # 自分が所有していない Twitter アカウントでツイートできないよう、ログイン中のユーザーに限って絞り込む
+    twitter_account = await TwitterAccount.filter(user_id=current_user.id, screen_name=screen_name).get_or_none()
+
+    # 指定された Twitter アカウントがユーザーアカウントに紐付けられていない or 登録されていない
+    ## 実際に Twitter にそのスクリーンネームのアカウントが登録されているかとは無関係
+    if not twitter_account:
+        Logging.error(f'[TwitterRouter][GetCurrentTwitterAccount] TwitterAccount associated with screen_name does not exist [screen_name: {screen_name}]')
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'TwitterAccount associated with screen_name does not exist',
+        )
+
+    return twitter_account
+
+
 @router.get(
     '/auth',
     summary = 'Twitter OAuth 認証 URL 発行 API',
@@ -64,7 +87,7 @@ error_messages = {
 )
 async def TwitterAuthURLAPI(
     request: Request,
-    current_user: User = Depends(User.getCurrentUser),
+    current_user: User = Depends(GetCurrentUser),
 ):
     """
     Twitter アカウントと連携するための認証 URL を取得する。<br>
@@ -252,7 +275,7 @@ async def TwitterAuthCallbackAPI(
 )
 async def TwitterPasswordAuthAPI(
     password_auth_request: schemas.TwitterPasswordAuthRequest = Body(..., description='Twitter パスワード認証リクエスト'),
-    current_user: User = Depends(User.getCurrentUser),
+    current_user: User = Depends(GetCurrentUser),
 ):
     """
     tweepy-authlib を利用してパスワード認証で Twitter 連携を行い、ログイン中のユーザーアカウントと Twitter アカウントを紐づける。
@@ -274,7 +297,7 @@ async def TwitterPasswordAuthAPI(
             error_message = f'Code: {ex.api_codes[0]}, Message: {ex.api_messages[0]}'
         else:
             error_message = 'Unknown Error'
-        Logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] Failed to authenticate with password ({error_message})')
+        Logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] Failed to authenticate with password ({error_message}) [screen_name: {password_auth_request.screen_name}]')
         raise HTTPException(
             status_code = status.HTTP_401_UNAUTHORIZED,
             detail = f'Failed to authenticate with password ({error_message})',
@@ -282,7 +305,7 @@ async def TwitterPasswordAuthAPI(
     except tweepy.TweepyException as ex:
         # 認証フローの途中で予期せぬエラーが発生し、ログインに失敗した
         error_message = f'Message: {ex}'
-        Logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] Unexpected error occurred while authenticate with password ({error_message})')
+        Logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] Unexpected error occurred while authenticate with password ({error_message}) [screen_name: {password_auth_request.screen_name}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = f'Unexpected error occurred while authenticate with password ({error_message})',
@@ -307,7 +330,7 @@ async def TwitterPasswordAuthAPI(
     try:
         verify_credentials = await asyncio.to_thread(api.verify_credentials)
     except tweepy.TweepyException:
-        Logging.error('[TwitterRouter][TwitterAuthCallbackAPI] Failed to get user information')
+        Logging.error('[TwitterRouter][TwitterPasswordAuthAPI] Failed to get user information')
         return HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Failed to get user information',
@@ -345,26 +368,12 @@ async def TwitterPasswordAuthAPI(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def TwitterAccountDeleteAPI(
-    screen_name: str = Path(..., description='連携を解除する Twitter アカウントのスクリーンネーム。'),
-    current_user: User = Depends(User.getCurrentUser),
+    twitter_account: TwitterAccount = Depends(GetCurrentTwitterAccount),
 ):
     """
     指定された Twitter アカウントの連携を解除する。<br>
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
-
-    # 指定されたスクリーンネームに紐づく Twitter アカウントを取得
-    # 自分が所有していない Twitter アカウントでツイートできないよう、ログイン中のユーザーに限って絞り込む
-    twitter_account = await TwitterAccount.filter(user_id=current_user.id, screen_name=screen_name).get_or_none()
-
-    # 指定された Twitter アカウントがユーザーアカウントに紐付けられていない or 登録されていない
-    ## 実際に Twitter にそのスクリーンネームのアカウントが登録されているかとは無関係
-    if not twitter_account:
-        Logging.error(f'[TwitterRouter][TwitterAccountDeleteAPI] TwitterAccount associated with screen_name does not exist [screen_name: {screen_name}]')
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'TwitterAccount associated with screen_name does not exist',
-        )
 
     # Cookie セッションでは、明示的にログアウト処理を行う
     ## 単に Cookie を削除するだけだと Twitter 側にログインセッションが残り続けてしまう
@@ -378,7 +387,7 @@ async def TwitterAccountDeleteAPI(
                 error_message = f'Code: {ex.api_codes[0]}, Message: {ex.api_messages[0]}'
             else:
                 error_message = 'Unknown Error'
-            Logging.error(f'[TwitterRouter][TwitterAccountDeleteAPI] Failed to logout ({error_message}) [screen_name: {screen_name}]')
+            Logging.error(f'[TwitterRouter][TwitterAccountDeleteAPI] Failed to logout ({error_message}) [screen_name: {twitter_account.screen_name}]')
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = f'Failed to logout ({error_message})',
@@ -386,7 +395,7 @@ async def TwitterAccountDeleteAPI(
         except tweepy.TweepyException as ex:
             # 予期せぬエラーが発生した
             error_message = f'Message: {ex}'
-            Logging.error(f'[TwitterRouter][TwitterAccountDeleteAPI] Unexpected error occurred while logout ({error_message}) [screen_name: {screen_name}]')
+            Logging.error(f'[TwitterRouter][TwitterAccountDeleteAPI] Unexpected error occurred while logout ({error_message}) [screen_name: {twitter_account.screen_name}]')
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = f'Unexpected error occurred while logging out ({error_message})',
@@ -404,10 +413,9 @@ async def TwitterAccountDeleteAPI(
     response_model = schemas.TweetResult,
 )
 async def TwitterTweetAPI(
-    screen_name: str = Path(..., description='ツイートする Twitter アカウントのスクリーンネーム。'),
     tweet: str = Form('', description='ツイートの本文（基本的には140文字まで）。'),
     images: list[UploadFile] | None = File(None, description='ツイートに添付する画像（4枚まで）。'),
-    current_user: User = Depends(User.getCurrentUser),
+    twitter_account: TwitterAccount = Depends(GetCurrentTwitterAccount),
 ):
     """
     Twitter にツイートを送信する。<br>
@@ -415,19 +423,6 @@ async def TwitterTweetAPI(
 
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
-
-    # 指定されたスクリーンネームに紐づく Twitter アカウントを取得
-    # 自分が所有していない Twitter アカウントでツイートできないよう、ログイン中のユーザーに限って絞り込む
-    twitter_account = await TwitterAccount.filter(user_id=current_user.id, screen_name=screen_name).get_or_none()
-
-    # 指定された Twitter アカウントがユーザーアカウントに紐付けられていない or 登録されていない
-    ## 実際に Twitter にそのスクリーンネームのアカウントが登録されているかとは無関係
-    if not twitter_account:
-        Logging.error(f'[TwitterRouter][TwitterTweetAPI] TwitterAccount associated with screen_name does not exist [screen_name: {screen_name}]')
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'TwitterAccount associated with screen_name does not exist',
-        )
 
     # 画像が4枚を超えている
     if images is None:
@@ -490,7 +485,8 @@ async def TwitterTweetAPI(
     summary = 'リツイート実行 API',
 )
 async def TwitterRetweetAPI(
-    current_user: User = Depends(User.getCurrentUser),
+    tweet_id: str = Path(..., description='リツイートするツイートの ID。'),
+    twitter_account: TwitterAccount = Depends(GetCurrentTwitterAccount),
 ):
     """
     API 実装中…（モックアップ）
@@ -502,7 +498,8 @@ async def TwitterRetweetAPI(
     summary = 'リツイート取り消し API',
 )
 async def TwitterRetweetCancelAPI(
-    current_user: User = Depends(User.getCurrentUser),
+    tweet_id: str = Path(..., description='リツイートを取り消すツイートの ID。'),
+    twitter_account: TwitterAccount = Depends(GetCurrentTwitterAccount),
 ):
     """
     API 実装中…（モックアップ）
@@ -514,7 +511,8 @@ async def TwitterRetweetCancelAPI(
     summary = 'いいね実行 API',
 )
 async def TwitterFavoriteAPI(
-    current_user: User = Depends(User.getCurrentUser),
+    tweet_id: str = Path(..., description='いいねするツイートの ID。'),
+    twitter_account: TwitterAccount = Depends(GetCurrentTwitterAccount),
 ):
     """
     API 実装中…（モックアップ）
@@ -526,7 +524,8 @@ async def TwitterFavoriteAPI(
     summary = 'いいね取り消し API',
 )
 async def TwitterFavoriteCancelAPI(
-    current_user: User = Depends(User.getCurrentUser),
+    tweet_id: str = Path(..., description='いいねを取り消すツイートの ID。'),
+    twitter_account: TwitterAccount = Depends(GetCurrentTwitterAccount),
 ):
     """
     API 実装中…（モックアップ）
@@ -538,7 +537,7 @@ async def TwitterFavoriteCancelAPI(
     summary = 'ホームタイムライン取得 API',
 )
 async def TwitterTimelineAPI(
-    current_user: User = Depends(User.getCurrentUser),
+    twitter_account: TwitterAccount = Depends(GetCurrentTwitterAccount),
 ):
     """
     API 実装中…（モックアップ）
@@ -550,7 +549,7 @@ async def TwitterTimelineAPI(
     summary = 'ツイート検索 API',
 )
 async def TwitterSearchAPI(
-    current_user: User = Depends(User.getCurrentUser),
+    current_user: User = Depends(GetCurrentUser),
 ):
     """
     API 実装中…（モックアップ）

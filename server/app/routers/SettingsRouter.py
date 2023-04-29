@@ -6,6 +6,8 @@ from fastapi import status
 
 from app import schemas
 from app.models import User
+from app.routers.UsersRouter import GetCurrentUser
+
 
 # ルーター
 router = APIRouter(
@@ -21,7 +23,7 @@ router = APIRouter(
     response_model = schemas.ClientSettings,
 )
 async def ClientSettingsAPI(
-    current_user: User = Depends(User.getCurrentUser),
+    current_user: User = Depends(GetCurrentUser),
 ):
     """
     現在ログイン中のユーザーアカウントのクライアント設定を取得する。<br>
@@ -37,7 +39,7 @@ async def ClientSettingsAPI(
 )
 async def ClientSettingsUpdateAPI(
     client_settings: schemas.ClientSettings = Body(..., description='更新するクライアント設定のデータ。'),
-    current_user: User = Depends(User.getCurrentUser),
+    current_user: User = Depends(GetCurrentUser),
 ):
     """
     現在ログイン中のユーザーアカウントのクライアント設定を更新する。<br>

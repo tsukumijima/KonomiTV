@@ -9,6 +9,7 @@ from pathlib import Path
 from app import schemas
 from app.constants import API_REQUEST_HEADERS, CONFIG, VERSION
 
+
 # ルーター
 router = APIRouter(
     tags = ['Version'],

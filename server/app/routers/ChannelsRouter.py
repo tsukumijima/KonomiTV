@@ -5,6 +5,7 @@ import pathlib
 import requests
 from datetime import timedelta
 from fastapi import APIRouter
+from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import Path
 from fastapi import Request
@@ -21,7 +22,7 @@ from app import schemas
 from app.constants import API_REQUEST_HEADERS, CONFIG, LOGO_DIR
 from app.models import Channel
 from app.models import LiveStream
-from app.models import User
+from app.routers.UsersRouter import GetCurrentUser
 from app.utils import Jikkyo
 from app.utils import Logging
 from app.utils.EDCB import CtrlCmdUtil
@@ -33,6 +34,23 @@ router = APIRouter(
     tags = ['Channels'],
     prefix = '/api/channels',
 )
+
+
+# チャンネル ID からチャンネル情報を取得する
+async def GetChannel(channel_id: str = Path(..., description='チャンネル ID 。ex:gr011')) -> Channel:
+
+    # チャンネル情報を取得
+    channel = await Channel.filter(channel_id=channel_id).get_or_none()
+
+    # 指定されたチャンネル ID が存在しない
+    if channel is None:
+        Logging.error(f'[ChannelsRouter][GetChannel] Specified channel_id was not found [channel_id: {channel_id}]')
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Specified channel_id was not found',
+        )
+
+    return channel
 
 
 @router.get(
@@ -232,22 +250,11 @@ async def ChannelsAPI():
     response_model = schemas.Channel,
 )
 async def ChannelAPI(
-    channel_id: str = Path(..., description='チャンネル ID 。ex:gr011'),
+    channel: Channel = Depends(GetChannel),
 ):
     """
     チャンネルの情報を取得する。
     """
-
-    # チャンネル情報を取得
-    channel = await Channel.filter(channel_id=channel_id).get_or_none()
-
-    # 指定されたチャンネル ID が存在しない
-    if channel is None:
-        Logging.error(f'[ChannelsRouter][ChannelAPI] Specified channel_id was not found [channel_id: {channel_id}]')
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Specified channel_id was not found',
-        )
 
     # 現在と次の番組情報を取得
     channel.program_present, channel.program_following = await channel.getCurrentAndNextProgram()
@@ -277,22 +284,11 @@ async def ChannelAPI(
     }
 )
 async def ChannelLogoAPI(
-    channel_id: str = Path(..., description='チャンネル ID 。ex:gr011'),
+    channel: Channel = Depends(GetChannel),
 ):
     """
     チャンネルのロゴを取得する。
     """
-
-    # チャンネル情報を取得
-    channel = await Channel.filter(channel_id=channel_id).get_or_none()
-
-    # 指定されたチャンネル ID が存在しない
-    if channel is None:
-        Logging.error(f'[ChannelsRouter][ChannelLogoAPI] Specified channel_id was not found [channel_id: {channel_id}]')
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Specified channel_id was not found',
-        )
 
     # ブラウザにキャッシュしてもらえるようにヘッダーを設定
 	# ref: https://qiita.com/yuuuking/items/4f11ccfc822f4c198ab0
@@ -473,26 +469,14 @@ async def ChannelLogoAPI(
 )
 async def ChannelJikkyoSessionAPI(
     request: Request,
-    channel_id: str = Path(..., description='チャンネル ID 。ex:gr011'),
+    channel: Channel = Depends(GetChannel),
 ):
     """
     チャンネルに紐づくニコニコ実況のセッション情報を取得する。
     """
 
-    # チャンネル情報を取得
-    channel = await Channel.filter(channel_id=channel_id).get_or_none()
-
-    # 指定されたチャンネル ID が存在しない
-    if channel is None:
-        Logging.error(f'[ChannelsRouter][ChannelJikkyoSessionAPI] Specified channel_id was not found [channel_id: {channel_id}]')
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Specified channel_id was not found',
-        )
-
-    current_user = None
-
     # もし Authorization ヘッダーがあるなら、ログイン中のユーザーアカウントを取得する
+    current_user = None
     if request.headers.get('Authorization') is not None:
 
         # JWT アクセストークンを取得
@@ -501,7 +485,7 @@ async def ChannelJikkyoSessionAPI(
         # アクセストークンに紐づくユーザーアカウントを取得
         ## もともとバリデーション用なので HTTPException が送出されるが、ここではエラーにする必要はないのでパス
         try:
-            current_user = await User.getCurrentUser(token=user_access_token)
+            current_user = await GetCurrentUser(token=user_access_token)
         except HTTPException:
             pass
 

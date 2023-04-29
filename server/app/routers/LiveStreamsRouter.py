@@ -32,7 +32,7 @@ router = APIRouter(
 # チャンネル ID のバリデーション
 async def ValidateChannelID(channel_id: str = Path(..., description='チャンネル ID 。ex:gr011')) -> str:
     if await Channel.filter(channel_id=channel_id).get_or_none() is None:
-        Logging.error(f'[LiveStreamsRouter] Specified channel_id was not found [channel_id: {channel_id}]')
+        Logging.error(f'[LiveStreamsRouter][ValidateChannelID] Specified channel_id was not found [channel_id: {channel_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified channel_id was not found',
@@ -42,7 +42,7 @@ async def ValidateChannelID(channel_id: str = Path(..., description='チャン�
 # 品質のバリデーション
 async def ValidateQuality(quality: str = Path(..., description='映像の品質。ex:1080p')) -> QUALITY_TYPES:
     if quality not in QUALITY:
-        Logging.error(f'[LiveStreamsRouter] Specified quality was not found [quality: {quality}]')
+        Logging.error(f'[LiveStreamsRouter][ValidateQuality] Specified quality was not found [quality: {quality}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified quality was not found',
@@ -62,7 +62,7 @@ async def GetLiveStreamClient(
 
     # 指定されたクライアント ID が存在しない
     if livestream_client is None:
-        Logging.error(f'[LiveStreamsRouter] Specified client_id was not found [client_id: {client_id}]')
+        Logging.error(f'[LiveStreamsRouter][GetLiveStreamClient] Specified client_id was not found [client_id: {client_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified client_id was not found',
@@ -304,7 +304,6 @@ async def LiveMPEGTSStreamAPI(
             message = await receive()
             if message['type'] == 'http.disconnect':
                 # 上のループでライブストリームへの接続を切断できるようにしばらく待つ
-                Logging.debug_simple('[LiveStreamsRouter][LiveMPEGTSStreamAPI] Request is disconnected (from monkeypatch)')
                 await asyncio.sleep(5)
                 break
     response.listen_for_disconnect = listen_for_disconnect_monkeypatch

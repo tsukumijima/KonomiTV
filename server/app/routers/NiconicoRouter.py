@@ -16,6 +16,7 @@ from typing import Any, cast
 from app import schemas
 from app.constants import API_REQUEST_HEADERS, NICONICO_OAUTH_CLIENT_ID
 from app.models import User
+from app.routers.UsersRouter import GetCurrentUser
 from app.utils import Interlaced
 from app.utils import Logging
 from app.utils import OAuthCallbackResponse
@@ -36,7 +37,7 @@ router = APIRouter(
 )
 async def NiconicoAuthURLAPI(
     request: Request,
-    current_user: User = Depends(User.getCurrentUser),
+    current_user: User = Depends(GetCurrentUser),
 ):
     """
     ニコニコアカウントと連携するための認証 URL を取得する。<br>
@@ -140,7 +141,7 @@ async def NiconicoAuthCallbackAPI(
     # JWT アクセストークンに基づくユーザーアカウントを取得
     # この時点でユーザーアカウントが取得できなければ 401 エラーが送出される
     try:
-        current_user = await User.getCurrentUser(token=user_access_token)
+        current_user = await GetCurrentUser(token=user_access_token)
     except HTTPException as ex:
         return OAuthCallbackResponse(
             status_code = ex.status_code,
@@ -244,7 +245,7 @@ async def NiconicoAuthCallbackAPI(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def NiconicoAccountLogoutAPI(
-    current_user: User = Depends(User.getCurrentUser),
+    current_user: User = Depends(GetCurrentUser),
 ):
     """
     現在ログイン中のユーザーアカウントに紐づくニコニコアカウントとの連携を解除する。<br>

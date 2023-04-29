@@ -1,6 +1,5 @@
 
 import asyncio
-from multiprocessing.sharedctypes import Value
 import puremagic
 import shutil
 from fastapi import APIRouter
@@ -9,6 +8,7 @@ from fastapi import HTTPException
 from fastapi import status
 from fastapi import UploadFile
 from pathlib import Path
+from typing import cast
 
 from app.constants import CONFIG
 from app.utils import Logging
@@ -50,9 +50,10 @@ async def CaptureUploadAPI(
 
     # ディレクトリトラバーサル対策のためのチェック
     ## ref: https://stackoverflow.com/a/45190125/17124142
+    filename = Path(cast(str, image.filename))
     upload_folder = Path(CONFIG['capture']['upload_folder'])
     try:
-        upload_folder.joinpath(Path(image.filename)).resolve().relative_to(upload_folder.resolve())
+        upload_folder.joinpath(filename).resolve().relative_to(upload_folder.resolve())
     except ValueError:
         Logging.error('[CapturesRouter][CaptureUploadAPI] Invalid filename was specified.')
         raise HTTPException(
@@ -61,13 +62,13 @@ async def CaptureUploadAPI(
         )
 
     # 保存するファイルパス
-    filepath = upload_folder / image.filename
+    filepath = upload_folder / filename
 
     # 既にファイルが存在していた場合は上書きしないようにリネーム
     ## ref: https://note.nkmk.me/python-pathlib-name-suffix-parent/
     count = 1
     while filepath.exists():
-        filepath = upload_folder / f'{Path(image.filename).stem}-{count}{Path(image.filename).suffix}'
+        filepath = upload_folder / f'{filename.stem}-{count}{filename.suffix}'
         count += 1
 
     # キャプチャを保存

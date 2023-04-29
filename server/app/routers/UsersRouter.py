@@ -14,8 +14,10 @@ from fastapi import Response
 from fastapi import status
 from fastapi import UploadFile
 from fastapi.responses import FileResponse
+from fastapi.security import OAuth2PasswordBearer
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import jwt
+from jose import JWTError
 from passlib.context import CryptContext
 from PIL import Image
 from tortoise import timezone
@@ -63,6 +65,84 @@ async def TrimSquareAndResizeAndSave(file: BinaryIO, save_path: pathlib.Path, re
     ## 400×400 にリサイズして保存
     pillow_image_resize = await asyncio.to_thread(pillow_image_crop.resize, (resize_width_and_height, resize_width_and_height))
     await asyncio.to_thread(pillow_image_resize.save, save_path)
+
+# 現在ログイン中のユーザーを取得する
+async def GetCurrentUser(token: str = Depends(OAuth2PasswordBearer(tokenUrl='users/token'))) -> User:
+
+    try:
+        # JWT トークンをデコード
+        jwt_payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=['HS256'])
+
+        # ユーザー ID が JWT に含まれていない (JWT トークンが不正)
+        if jwt_payload.get('sub') is None:
+            Logging.error('[UsersRouter][GetCurrentUser] Access token data is invalid')
+            raise HTTPException(
+                status_code = status.HTTP_401_UNAUTHORIZED,
+                detail = 'Access token data is invalid',
+                headers = {'WWW-Authenticate': 'Bearer'},
+            )
+
+        # ペイロード内のユーザー ID（ユーザー名ではなく、ユーザーごとに一意な数値）を取得
+        user_id: str = json.loads(jwt_payload.get('sub', {}))['user_id']
+
+    # JWT トークンが不正
+    except JWTError:
+        Logging.error('[UsersRouter][GetCurrentUser] Access token is invalid')
+        raise HTTPException(
+            status_code = status.HTTP_401_UNAUTHORIZED,
+            detail = 'Access token is invalid',
+            headers = {'WWW-Authenticate': 'Bearer'},
+        )
+
+    # JWT トークンに刻まれたユーザー ID に紐づくユーザー情報を取得
+    current_user = await User.filter(id=user_id).get_or_none()
+
+    # そのユーザー ID のユーザーが存在しない
+    if not current_user:
+        Logging.error(f'[UsersRouter][GetCurrentUser] User associated with access token does not exist [user_id: {user_id}]')
+        raise HTTPException(
+            status_code = status.HTTP_401_UNAUTHORIZED,
+            detail = 'User associated with access token does not exist',
+            headers = {'WWW-Authenticate': 'Bearer'},
+        )
+
+    # 外部テーブルのデータを取得してから返す
+    # 明示的に fetch_related() しないと取得されない仕様になっているらしい
+    await current_user.fetch_related('twitter_accounts')
+    return current_user
+
+# 現在ログイン中の管理者ユーザーを取得する
+async def GetCurrentAdminUser(current_user: User = Depends(GetCurrentUser)) -> User:
+
+    # 取得したユーザーが管理者ではない
+    if current_user.is_admin is False:
+        Logging.error(f'[UsersRouter][GetCurrentAdminUser] Don\'t have permission to access this resource [user_id: {current_user.id}]')
+        raise HTTPException(
+            status_code = status.HTTP_403_FORBIDDEN,
+            detail = 'Don\'t have permission to access this resource',
+            headers = {'WWW-Authenticate': 'Bearer'},
+        )
+
+    return current_user
+
+# 指定されたユーザー名のユーザーを取得する
+async def GetSpecifiedUser(
+    username: str = Path(..., description='アカウントのユーザー名。'),
+    current_user: User = Depends(GetCurrentAdminUser),  # 管理者ユーザーのみアクセス可能
+) -> User:
+
+    # 指定されたユーザー名のユーザーを取得
+    user = await User.filter(name=username).get_or_none()
+
+    # 指定されたユーザー名のユーザーが存在しない
+    if not user:
+        Logging.error(f'[UsersRouter][GetSpecifiedUser] Specified user was not found [username: {username}]')
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Specified user was not found',
+        )
+
+    return user
 
 
 @router.post(
@@ -198,7 +278,7 @@ async def UserAccessTokenAPI(
     response_model = schemas.Users,
 )
 async def UsersAPI(
-    current_user: User = Depends(User.getCurrentAdminUser),
+    current_user: User = Depends(GetCurrentAdminUser),
 ):
     """
     すべてのユーザーアカウントのリストを取得する。<br>
@@ -213,6 +293,9 @@ async def UsersAPI(
     return users
 
 
+# ***** ログイン中ユーザーアカウント情報 API *****
+
+
 @router.get(
     '/me',
     summary = 'アカウント情報 API (ログイン中のユーザー)',
@@ -220,7 +303,7 @@ async def UsersAPI(
     response_model = schemas.User,
 )
 async def UserMeAPI(
-    current_user: User = Depends(User.getCurrentUser),
+    current_user: User = Depends(GetCurrentUser),
 ):
     """
     現在ログイン中のユーザーアカウントの情報を取得する。<br>
@@ -244,7 +327,7 @@ async def UserMeAPI(
 )
 async def UserUpdateMeAPI(
     user_update_request: schemas.UserUpdateRequest = Body(..., description='更新するユーザーアカウントの情報。'),
-    current_user: User = Depends(User.getCurrentUser),
+    current_user: User = Depends(GetCurrentUser),
 ):
     """
     現在ログイン中のユーザーアカウントの情報を更新する。<br>
@@ -300,7 +383,7 @@ async def UserUpdateMeAPI(
     }
 )
 async def UserIconMeAPI(
-    current_user: User = Depends(User.getCurrentUser),
+    current_user: User = Depends(GetCurrentUser),
 ):
     """
     現在ログイン中のユーザーアカウントのアイコン画像を取得する。<br>
@@ -329,7 +412,7 @@ async def UserIconMeAPI(
 )
 async def UserUpdateIconMeAPI(
     image: UploadFile = File(description='アカウントのアイコン画像 (JPEG or PNG)。'),
-    current_user: User = Depends(User.getCurrentUser),
+    current_user: User = Depends(GetCurrentUser),
 ):
     """
     現在ログイン中のユーザーアカウントのアイコン画像を更新する。<br>
@@ -355,7 +438,7 @@ async def UserUpdateIconMeAPI(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def UserDeleteMeAPI(
-    current_user: User = Depends(User.getCurrentUser),
+    current_user: User = Depends(GetCurrentUser),
 ):
     """
     現在ログイン中のユーザーアカウントを削除する。<br>
@@ -379,6 +462,9 @@ async def UserDeleteMeAPI(
         await id_young_user.save()
 
 
+# ***** 指定ユーザーアカウント情報 API (管理者用) *****
+
+
 @router.get(
     '/{username}',
     summary = 'アカウント情報 API',
@@ -386,24 +472,12 @@ async def UserDeleteMeAPI(
     response_model = schemas.User,
 )
 async def UserAPI(
-    username: str = Path(..., description='アカウントのユーザー名。'),
-    current_user: User = Depends(User.getCurrentAdminUser),
+    user: User = Depends(GetSpecifiedUser),
 ):
     """
     指定されたユーザーアカウントの情報を取得する。<br>
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
     """
-
-    # 指定されたユーザー名のユーザーを取得
-    user = await User.filter(name=username).get_or_none()
-
-    # 指定されたユーザー名のユーザーが存在しない
-    if not user:
-        Logging.error(f'[UsersRouter][UserAPI] Specified user was not found [username: {username}]')
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Specified user was not found',
-        )
 
     # 外部テーブルのデータを取得してから返す
     # Twitter アカウントが登録されているかに関わらず、こうしないとユーザーデータを返せない
@@ -418,25 +492,13 @@ async def UserAPI(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def UserUpdateAPI(
-    username: str = Path(..., description='アカウントのユーザー名。'),
     user_update_request: schemas.UserUpdateRequestForAdmin = Body(..., description='更新するユーザーアカウントの情報。'),
-    current_user: User = Depends(User.getCurrentAdminUser),
+    user: User = Depends(GetSpecifiedUser),
 ):
     """
     指定されたユーザーアカウントの情報を更新する。管理者権限を付与/剥奪できるのが /api/users/me との最大の違い。<br>
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
     """
-
-    # 指定されたユーザー名のユーザーを取得
-    user = await User.filter(name=username).get_or_none()
-
-    # 指定されたユーザー名のユーザーが存在しない
-    if not user:
-        Logging.error(f'[UsersRouter][UserUpdateAPI] Specified user was not found [username: {username}]')
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Specified user was not found',
-        )
 
     # Passlib のコンテキストを作成
     passlib_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
@@ -491,12 +553,11 @@ async def UserUpdateAPI(
     }
 )
 async def UserIconAPI(
-    username: str = Path(..., description='アカウントのユーザー名。'),
-    current_user: User = Depends(User.getCurrentUser),
+    user: User = Depends(GetSpecifiedUser),
 ):
     """
     指定されたユーザーアカウントのユーザーアカウントのアイコン画像を取得する。<br>
-    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
     """
 
     # ブラウザにキャッシュさせないようにヘッダーを設定
@@ -504,17 +565,6 @@ async def UserIconAPI(
     header = {
         'Cache-Control': 'no-store',
     }
-
-    # 指定されたユーザー名のユーザーを取得
-    user = await User.filter(name=username).get_or_none()
-
-    # 指定されたユーザー名のユーザーが存在しない
-    if not user:
-        Logging.error(f'[UsersRouter][UserIconAPI] Specified user was not found [username: {username}]')
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Specified user was not found',
-        )
 
     # アイコン画像が保存されていればそれを返す
     save_path = ACCOUNT_ICON_DIR / f'{user.id:02}.png'
@@ -531,25 +581,13 @@ async def UserIconAPI(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def UserUpdateIconAPI(
-    username: str = Path(..., description='アカウントのユーザー名。'),
     image: UploadFile = File(description='アカウントのアイコン画像 (JPEG or PNG)。'),
-    current_user: User = Depends(User.getCurrentUser),
+    user: User = Depends(GetSpecifiedUser),
 ):
     """
     指定されたユーザーアカウントのアイコン画像を更新する。<br>
-    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
     """
-
-    # 指定されたユーザー名のユーザーを取得
-    user = await User.filter(name=username).get_or_none()
-
-    # 指定されたユーザー名のユーザーが存在しない
-    if not user:
-        Logging.error(f'[UsersRouter][UserUpdateIconAPI] Specified user was not found [username: {username}]')
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Specified user was not found',
-        )
 
     # MIME タイプが image/jpeg or image/png 以外
     if image.content_type != 'image/jpeg' and image.content_type != 'image/png':
@@ -570,24 +608,12 @@ async def UserUpdateIconAPI(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def UserDeleteAPI(
-    username: str = Path(..., description='アカウントのユーザー名。'),
-    current_user: User = Depends(User.getCurrentAdminUser),
+    user: User = Depends(GetSpecifiedUser),
 ):
     """
     指定されたユーザーアカウントを削除する。<br>
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
     """
-
-    # 指定されたユーザー名のユーザーを取得
-    user = await User.filter(name=username).get_or_none()
-
-    # 指定されたユーザー名のユーザーが存在しない
-    if not user:
-        Logging.error(f'[UsersRouter][UserDeleteAPI] Specified user was not found [username: {username}]')
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Specified user was not found',
-        )
 
     # アイコン画像が保存されていれば削除する
     save_path = ACCOUNT_ICON_DIR / f'{user.id:02}.png'
