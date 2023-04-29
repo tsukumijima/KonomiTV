@@ -86,11 +86,19 @@ export default Vue.extend({
     padding-left: 16px;
     padding-right: 16px;
     overflow-y: auto;
+    @include tablet-vertical {
+        padding-left: 24px;
+        padding-right: 24px;
+    }
 
     .program-broadcaster {
         display: none;
         align-items: center;
         min-width: 0;
+        @include tablet-vertical {
+            display: flex;
+            margin-top: 20px;
+        }
         @include smartphone-horizontal {
             display: flex;
             margin-top: 16px;
@@ -109,6 +117,10 @@ export default Vue.extend({
             background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
             object-fit: cover;
             user-select: none;
+            @include tablet-vertical {
+                width: 58px;
+                height: 32px;
+            }
             @include smartphone-horizontal {
                 width: 42px;
                 height: 23.5px;
@@ -123,6 +135,10 @@ export default Vue.extend({
             flex-shrink: 0;
             margin-left: 12px;
             font-size: 16.5px;
+            @include tablet-vertical {
+                margin-left: 16px;
+                font-size: 19px;
+            }
         }
 
         &__name {
@@ -131,6 +147,10 @@ export default Vue.extend({
             overflow: hidden;
             white-space: nowrap;
             text-overflow: ellipsis;
+            @include tablet-vertical {
+                margin-left: 8px;
+                font-size: 19px;
+            }
             @include smartphone-vertical {
                 font-size: 18px;
             }
@@ -144,12 +164,15 @@ export default Vue.extend({
             line-height: 145%;
             font-feature-settings: "palt" 1;  // 文字詰め
             letter-spacing: 0.05em;  // 字間を少し空ける
+            @include tablet-vertical {
+                margin-top: 16px;
+            }
             @include smartphone-horizontal {
                 margin-top: 10px;
                 font-size: 18px;
             }
             @include smartphone-vertical {
-                margin-top: 12px;
+                margin-top: 16px;
                 font-size: 19px;
             }
         }
@@ -262,6 +285,10 @@ export default Vue.extend({
     .program-detail-container {
         margin-top: 24px;
         margin-bottom: 24px;
+        @include tablet-vertical {
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
         @include smartphone-horizontal {
             margin-top: 20px;
             margin-bottom: 16px;

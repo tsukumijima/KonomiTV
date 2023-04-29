@@ -770,6 +770,9 @@ export default Vue.extend({
             &::-webkit-scrollbar {
                 width: 6px;
             }
+            @include tablet-vertical {
+                padding-top: 16px;
+            }
             @include smartphone-horizontal {
                 padding-top: 8px;
             }
@@ -796,15 +799,21 @@ export default Vue.extend({
                 @supports (-webkit-touch-callout: none) {
                     padding-right: 12px;
                 }
+                @include tablet-vertical {
+                    grid-template-columns: 1fr 1fr 1fr;
+                    padding-left: 24px;
+                    padding-right: 24px;
+                    grid-row-gap: 10px;
+                    grid-column-gap: 16px;
+                }
                 @include smartphone-horizontal {
                     grid-row-gap: 8px;
                     grid-column-gap: 8px;
                 }
                 @include smartphone-vertical {
-                    padding-left: 24px;
-                    padding-right: 18px;
-                    grid-row-gap: 8px;
-                    grid-column-gap: 16px;
+                    grid-template-columns: 1fr 1fr 1fr;
+                    grid-row-gap: 10px;
+                    grid-column-gap: 10px;
                 }
 
                 .capture {
@@ -817,6 +826,13 @@ export default Vue.extend({
                     user-select: none;
                     cursor: pointer;
                     content-visibility: auto;
+                    @include tablet-vertical {
+                        height: 82px;
+                        border-radius: 9px;
+                        .capture__image {
+                            object-fit: cover;
+                        }
+                    }
                     @include smartphone-horizontal {
                         height: 74px;
                         border-radius: 9px;
@@ -937,6 +953,10 @@ export default Vue.extend({
                 height: 100%;
                 padding-left: 12px;
                 padding-right: 5px;
+                @include tablet-vertical {
+                    padding-left: 24px;
+                    padding-right: 24px;
+                }
 
                 &__heading {
                     font-size: 20px;
@@ -967,6 +987,11 @@ export default Vue.extend({
         margin-right: 12px;
         padding-top: 8px;
         padding-bottom: 6px;
+        @include tablet-vertical {
+            height: 40px;
+            margin-left: 24px;
+            margin-right: 24px;
+        }
         @include smartphone-horizontal {
             height: 38px;
             margin-left: 8px;
@@ -987,6 +1012,10 @@ export default Vue.extend({
             transition: background-color 0.15s ease;
             user-select: none;
             cursor: pointer;
+            @include tablet-vertical {
+                font-size: 11.5px;
+                border-radius: 7px;
+            }
             @include smartphone-horizontal {
                 font-size: 10.5px;
                 border-radius: 6px;
@@ -1020,6 +1049,10 @@ export default Vue.extend({
         border-bottom-right-radius: 7px;
         background: var(--v-background-lighten1);
         transition: box-shadow 0.09s ease;
+        @include tablet-vertical {
+            margin-left: 24px;
+            margin-right: 24px;
+        }
         @include smartphone-horizontal {
             height: 96px;
             margin-left: 8px;
@@ -1204,6 +1237,11 @@ export default Vue.extend({
                 background: var(--v-background-lighten2);
                 user-select: none;
                 cursor: pointer;
+                @include tablet-vertical {
+                    width: 200px;
+                    border-radius: 5px;
+                    font-size: 11.5px;
+                }
                 @include smartphone-horizontal {
                     width: 156px;
                     border-radius: 5px;
@@ -1259,6 +1297,11 @@ export default Vue.extend({
                 font-size: 10px;
                 color: var(--v-text-darken1);
                 user-select: none;
+                @include tablet-vertical {
+                    flex-grow: 1;
+                    flex-direction: row;
+                    width: auto;
+                }
                 @include smartphone-horizontal {
                     font-size: 9px;
                 }
@@ -1273,6 +1316,10 @@ export default Vue.extend({
                     align-items: center;
                     justify-content: center;
                     &:nth-child(2) {
+                        @include tablet-vertical {
+                            margin-left: 28px;
+                            padding-right: 3px;
+                        }
                         @include smartphone-horizontal {
                             margin-top: -2.5px;
                         }
@@ -1282,12 +1329,21 @@ export default Vue.extend({
                     }
                     svg {
                         width: 14px;
+                        @include tablet-vertical {
+                            width: 16px;
+                            height: 16px;
+                        }
                     }
                     span {
                         width: 16px;
                         margin-left: 5px;
                         text-align: center;
                         font-weight: bold;
+                        @include tablet-vertical {
+                            width: 25px;
+                            margin-left: 8px;
+                            font-size: 15px;
+                        }
                     }
                     &--yellow {
                         color: var(--v-warning-base);
@@ -1312,6 +1368,11 @@ export default Vue.extend({
                 user-select: none;
                 outline: none;
                 cursor: pointer;
+                @include tablet-vertical {
+                    width: 200px;
+                    border-radius: 5px;
+                    font-size: 11.8px;
+                }
                 @include smartphone-horizontal {
                     width: 86px;
                     border-radius: 5px;
@@ -1350,6 +1411,10 @@ export default Vue.extend({
         visibility: hidden;
         overflow-y: auto;
         z-index: 2;
+        @include tablet-vertical {
+            left: 24px;
+            right: 24px;
+        }
         @include smartphone-horizontal {
             left: 8px;
             right: 8px;
@@ -1565,6 +1630,10 @@ export default Vue.extend({
         visibility: hidden;
         overflow-y: auto;
         z-index: 3;
+        @include tablet-vertical {
+            left: 24px;
+            right: 24px;
+        }
         @include smartphone-horizontal {
             left: 8px;
             right: 8px;

@@ -322,6 +322,10 @@ export default Vue.extend({
             background: var(--v-background-base);
             // will-change を入れておく事で、アニメーションが GPU で処理される
             will-change: transform;
+            @include tablet-vertical {
+                grid-row-gap: 10px;
+                grid-template-columns: 1fr;
+            }
             @include smartphone-horizontal {
                 grid-row-gap: 8px;
                 grid-template-columns: 1fr;
@@ -421,6 +425,13 @@ export default Vue.extend({
                 @media (max-width: 1007.9px) {
                     height: auto;
                 }
+                @include tablet-vertical {
+                    padding: 14px 16px;
+                    padding-top: 12px;
+                    height: auto;
+                    border-radius: 11px;
+                    contain-intrinsic-height: 162.25px;
+                }
                 @include smartphone-horizontal {
                     padding: 12px 14px;
                     padding-top: 10px;
@@ -449,6 +460,9 @@ export default Vue.extend({
                 .channel__broadcaster {
                     display: flex;
                     height: 44px;
+                    @include tablet-vertical {
+                        height: 40px;
+                    }
                     @include smartphone-horizontal {
                         height: 29px;
                     }
@@ -465,6 +479,11 @@ export default Vue.extend({
                         // 読み込まれるまでのアイコンの背景
                         background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
                         object-fit: cover;
+                        @include tablet-vertical {
+                            width: 69px;
+                            height: 40px;
+                            border-radius: 4px;
+                        }
                         @include smartphone-horizontal {
                             width: 54px;
                             height: 29px;
@@ -483,6 +502,9 @@ export default Vue.extend({
                         margin-left: 16px;
                         width: 100%;
                         min-width: 0;
+                        @include tablet-vertical {
+                            margin-left: 14px;
+                        }
                         @include smartphone-horizontal {
                             align-items: center;
                             flex-direction: row;
@@ -500,6 +522,9 @@ export default Vue.extend({
                         overflow: hidden;
                         white-space: nowrap;
                         text-overflow: ellipsis;
+                        @include tablet-vertical {
+                            font-size: 15.5px;
+                        }
                         @include smartphone-horizontal {
                             font-size: 15px;
                         }
@@ -517,6 +542,10 @@ export default Vue.extend({
                         margin-top: 2px;
                         font-size: 12px;
                         color: var(--v-text-darken1);
+                        @include tablet-vertical {
+                            margin-top: 2px;
+                            font-size: 11px;
+                        }
                         @include smartphone-horizontal {
                             margin-top: 3px;
                             margin-left: auto;
@@ -621,6 +650,11 @@ export default Vue.extend({
                     &-title-wrapper {
                         margin-top: 14px;
 
+                        @include tablet-vertical {
+                            display: flex;
+                            flex-direction: column;
+                            margin-top: 8px;
+                        }
                         @include smartphone-horizontal {
                             display: flex;
                             align-items: center;
@@ -642,6 +676,9 @@ export default Vue.extend({
                         overflow: hidden;
                         -webkit-line-clamp: 2;  // 2行までに制限
                         -webkit-box-orient: vertical;
+                        @include tablet-vertical {
+                            font-size: 14px;
+                        }
                         @include smartphone-horizontal {
                             font-size: 14px;
                             -webkit-line-clamp: 1;  // 1行までに制限
@@ -656,6 +693,11 @@ export default Vue.extend({
                         margin-top: 4px;
                         color: var(--v-text-darken1);
                         font-size: 13.5px;
+                        @include tablet-vertical {
+                            flex-shrink: 0;
+                            margin-top: 2px;
+                            font-size: 13px;
+                        }
                         @include smartphone-horizontal {
                             flex-shrink: 0;
                             margin-top: 0px;
@@ -686,17 +728,23 @@ export default Vue.extend({
                         overflow: hidden;
                         -webkit-line-clamp: 3;  // 3行までに制限
                         -webkit-box-orient: vertical;
+                        @include tablet-vertical {
+                            margin-top: 4px;
+                            font-size: 11px;
+                            line-height: 155%;
+                            -webkit-line-clamp: 2;  // 2行までに制限
+                        }
                         @include smartphone-horizontal {
                             margin-top: 3px;
                             font-size: 10px;
                             line-height: 160%;
-                            -webkit-line-clamp: 2;  // 3行までに制限
+                            -webkit-line-clamp: 2;  // 2行までに制限
                         }
                         @include smartphone-vertical {
                             margin-top: 4px;
                             font-size: 10px;
                             line-height: 155%;
-                            -webkit-line-clamp: 2;  // 3行までに制限
+                            -webkit-line-clamp: 2;  // 2行までに制限
                         }
                     }
                 }

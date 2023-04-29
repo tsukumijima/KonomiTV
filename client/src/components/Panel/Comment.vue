@@ -534,6 +534,11 @@ export default Vue.extend({
         height: 26px;
         padding-left: 16px;
         padding-right: 16px;
+        @include tablet-vertical {
+            margin-top: 20px;
+            padding-left: 24px;
+            padding-right: 24px;
+        }
         @include smartphone-horizontal {
             margin-top: 12px;
         }
@@ -547,6 +552,9 @@ export default Vue.extend({
             font-size: 18.5px;
             font-weight: bold;
             line-height: 145%;
+            @include tablet-vertical {
+                font-size: 19px;
+            }
             @include smartphone-horizontal {
                 font-size: 16.5px;
             }
@@ -556,6 +564,10 @@ export default Vue.extend({
 
             &-icon {
                 margin-bottom: -3px;  // 高さ調整
+                @include tablet-vertical {
+                    width: 24px;
+                    height: 24px;
+                }
                 @include smartphone-horizontal {
                     height: 17.5px;
                 }
@@ -565,6 +577,9 @@ export default Vue.extend({
             }
             &-text {
                 margin-left: 12px;
+                @include tablet-vertical {
+                    margin-left: 16px;
+                }
             }
         }
 
@@ -587,6 +602,9 @@ export default Vue.extend({
         height: 100%;
         min-height: 0;
         margin-top: 16px;
+        @include tablet-vertical {
+            margin-top: 20px;
+        }
         @include smartphone-horizontal {
             margin-top: 12px;
         }
@@ -635,6 +653,11 @@ export default Vue.extend({
             padding-right: 10px;
             padding-bottom: 12px;
             overflow-y: scroll !important;
+            @include tablet-vertical {
+                padding-left: 24px;
+                padding-right: 18px;
+                padding-bottom: 0px;
+            }
             @include smartphone-vertical {
                 padding-bottom: 0px;
             }

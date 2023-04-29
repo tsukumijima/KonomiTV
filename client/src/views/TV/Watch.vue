@@ -2195,6 +2195,9 @@ export default Vue.extend({
         opacity: 0 !important;
         visibility: hidden;
         transition: opacity 0.3s ease, visibility 0.3s ease !important;
+        @include tablet-vertical {
+            height: 66px !important;
+        }
         @include smartphone-horizontal {
             height: 66px !important;
         }
@@ -2209,6 +2212,9 @@ export default Vue.extend({
         transition: opacity 0.3s ease, visibility 0.3s ease;
         opacity: 0 !important;
         visibility: hidden;
+        @include tablet-vertical {
+            padding-left: calc(0px + 18px) !important;
+        }
         @include smartphone-horizontal {
             padding-left: calc(0px + 18px) !important;
         }
@@ -2226,6 +2232,9 @@ export default Vue.extend({
             bottom: auto !important;
             &.dplayer-icons-right {
                 right: 22px !important;
+                @include tablet-vertical {
+                    right: 11px !important;
+                }
                 @include smartphone-horizontal {
                     right: 11px !important;
                 }
@@ -2238,6 +2247,14 @@ export default Vue.extend({
                 display: none !important;
             }
             .dplayer-icon {
+                @include tablet-vertical {
+                    &.dplayer-pip-icon:after {
+                        left: 25%;
+                    }
+                    &.dplayer-full-icon:after {
+                        left: -20%;
+                    }
+                }
                 @include smartphone-horizontal {
                     &.dplayer-pip-icon:after {
                         left: 25%;
@@ -2304,6 +2321,13 @@ export default Vue.extend({
         border-radius: 4px !important;
         font-size: 15px !important;
         line-height: 1.6;
+        @include tablet-vertical {
+            top: auto;
+            left: 16px !important;
+            padding: 12px 16px !important;
+            margin-right: 16px;
+            font-size: 13.5px !important;
+        }
         @include smartphone-horizontal {
             padding: 12px 16px !important;
             margin-right: 16px;
@@ -2321,6 +2345,9 @@ export default Vue.extend({
         transition: top 0.3s, left 0.3s;
     }
     .dplayer-setting-box {
+        @include tablet-vertical {
+            height: calc(100% - 60px) !important;
+        }
         @include smartphone-vertical {
             height: calc(100% - 60px) !important;
         }
@@ -2338,7 +2365,7 @@ export default Vue.extend({
         .dplayer-comment-setting-title {
             color: var(--v-text-base);
         }
-        .dplayer-comment-setting-type {
+        .dplayer-comment-setting-type, .dplayer-comment-setting-size {
             span {
                 border: 1px solid (--v-text-base);
             }
@@ -2352,6 +2379,9 @@ export default Vue.extend({
     &.dplayer-mobile {
         .dplayer-controller {
             padding-left: calc(68px + 30px) !important;
+            @include tablet-vertical {
+                padding-left: calc(0px + 18px) !important;
+            }
             @include smartphone-horizontal {
                 padding-left: calc(0px + 18px) !important;
             }
@@ -2385,6 +2415,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             visibility: visible !important;
             .dplayer-comment-box {
                 left: calc(68px + 20px);
+                @include tablet-vertical {
+                    left: calc(0px + 16px);
+                }
                 @include smartphone-horizontal {
                     left: calc(0px + 16px);
                 }
@@ -2396,6 +2429,10 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         .dplayer-notice {
             left: calc(68px + 30px);
             bottom: 62px;
+            @include tablet-vertical {
+                left: calc(0px + 16px);
+                bottom: 62px !important;
+            }
             @include smartphone-horizontal {
                 left: calc(0px + 16px);
             }
@@ -2407,6 +2444,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         .dplayer-info-panel {
             top: 82px;
             left: calc(68px + 30px);
+            @include tablet-horizontal {
+                left: calc(0px + 16px);
+            }
             @include smartphone-horizontal {
                 left: calc(0px + 16px);
             }
@@ -2416,6 +2456,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         }
         .dplayer-comment-setting-box {
             left: calc(68px + 20px);
+            @include tablet-vertical {
+                left: calc(0px + 16px);
+            }
             @include smartphone-horizontal {
                 left: calc(0px + 16px);
             }
@@ -2449,6 +2492,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         }
         &.dplayer-mobile .dplayer-controller {
             padding-left: 30px !important;
+            @include tablet-vertical {
+                padding-left: 16px !important;
+            }
             @include smartphone-horizontal {
                 padding-left: 16px !important;
             }
@@ -2458,6 +2504,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         }
         .dplayer-comment-box, .dplayer-comment-setting-box {
             left: 20px !important;
+            @include tablet-vertical {
+                left: 16px !important;
+            }
             @include smartphone-horizontal {
                 left: 16px !important;
             }
@@ -2475,6 +2524,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
     .watch-player__dplayer {
         .dplayer-notice, .dplayer-info-panel {
             left: 30px !important;
+            @include tablet-vertical {
+                left: 16px !important;
+            }
             @include smartphone-horizontal {
                 left: 16px !important;
             }
@@ -2543,6 +2595,10 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
     width: calc(100% + 352px);  // パネルの幅分はみ出す
     height: 100%;
     transition: width 0.4s cubic-bezier(0.26, 0.68, 0.55, 0.99);
+    @include tablet-vertical {
+        flex-direction: column;
+        width: 100%;
+    }
     @include smartphone-horizontal {
         width: calc(100% + 310px); // パネルの幅分はみ出す
     }
@@ -2573,6 +2629,14 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         }
 
         // タッチデバイスのみ、content-visibility: visible で明示的にパネルを描画する
+        .watch-panel {
+            @media (hover: none) {
+                content-visibility: auto;
+            }
+        }
+    }
+    @include tablet-vertical {
+        width: 100%;
         .watch-panel {
             @media (hover: none) {
                 content-visibility: auto;
@@ -2625,6 +2689,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         opacity: 0;
         visibility: hidden;
         z-index: 2;
+        @include tablet-vertical {
+            display: none;
+        }
         @include smartphone-horizontal {
             display: none;
         }
@@ -2723,6 +2790,11 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             visibility: hidden;
             z-index: 1;
 
+            @include tablet-vertical {
+                height: 66px;
+                padding-left: 16px;
+                padding-right: 16px;
+            }
             @include smartphone-horizontal {
                 padding-left: calc(68px + 16px);
                 padding-right: 16px;
@@ -2740,6 +2812,20 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
 
             .watch-header__back-icon {
                 display: none;
+                @include tablet-vertical {
+                    display: flex;
+                    position: relative !important;
+                    align-items: center;
+                    justify-content: center;
+                    flex-shrink: 0;
+                    width: 40px;
+                    height: 40px;
+                    left: -6px;
+                    padding: 6px;
+                    margin-right: 2px;
+                    border-radius: 50%;
+                    color: var(--v-text-base);
+                }
                 @include smartphone-horizontal {
                     display: flex;
                     position: relative !important;
@@ -2780,6 +2866,11 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 object-fit: cover;
                 user-select: none;
 
+                @include tablet-vertical {
+                    width: 48px;
+                    height: 28px;
+                    border-radius: 4px;
+                }
                 @include smartphone-horizontal {
                     width: 48px;
                     height: 28px;
@@ -2800,6 +2891,10 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 white-space: nowrap;
                 text-overflow: ellipsis;
 
+                @include tablet-vertical {
+                    margin-left: 12px;
+                    font-size: 16px;
+                }
                 @include smartphone-horizontal {
                     margin-left: 12px;
                     font-size: 16px;
@@ -2888,7 +2983,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                         bottom: 44px;
                         filter: drop-shadow(0px 0px 5px var(--v-black-base));
 
-                        @include tablet-horizontal {
+                        @include tablet-vertical {
                             height: 30px;
                             right: 34px;
                             bottom: 30px;
@@ -2942,6 +3037,10 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 opacity: 0;
                 visibility: hidden;
                 transition: opacity 0.3s, visibility 0.3s;
+                @include tablet-vertical {
+                    right: 15px;
+                    height: 128px;
+                }
                 @include smartphone-horizontal {
                     right: 15px;
                     height: 155px;
@@ -3001,6 +3100,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                         top: 6px;
                     }
                     &-panel {
+                        @include tablet-vertical {
+                            display: none;
+                        }
                         @include smartphone-vertical {
                             display: none;
                         }
@@ -3024,6 +3126,11 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         width: 352px;
         height: 100%;
         background: var(--v-background-base);
+        @include tablet-vertical {
+            width: 100%;
+            height: auto;
+            flex-grow: 1;
+        }
         @include smartphone-horizontal {
             width: 310px;
         }
@@ -3046,6 +3153,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             height: 70px;
             padding-left: 16px;
             padding-right: 16px;
+            @include tablet-vertical {
+                display: none;
+            }
             @include smartphone-horizontal {
                 display: none;
             }
@@ -3147,6 +3257,10 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             flex-shrink: 0;
             height: 77px;
             background: var(--v-background-lighten1);
+            @include tablet-vertical {
+                height: 48px;
+                background: var(--v-background-base);
+            }
             @include smartphone-horizontal {
                 height: 34px;
             }
@@ -3169,6 +3283,12 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 transition: color 0.3s;
                 user-select: none;
                 cursor: pointer;
+                @include tablet-vertical {
+                    width: 100px;
+                    height: 40px;
+                    padding: 5px 0px;
+                    box-sizing: border-box;
+                }
                 @include smartphone-horizontal {
                     height: 34px;
                     padding: 5px 0px;
@@ -3185,6 +3305,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                     .panel-navigation-button__icon {
                         color: var(--v-primary-base);
                     }
+                    @include tablet-vertical {
+                        background: #5b2d3c;
+                    }
                     @include smartphone-vertical {
                         background: #5b2d3c;
                     }
@@ -3192,6 +3315,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
 
                 &__icon {
                     height: 34px;
+                    @include tablet-vertical {
+                        color: var(--v-text-base);
+                    }
                     @include smartphone-vertical {
                         color: var(--v-text-base);
                     }
@@ -3199,6 +3325,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 &__text {
                     margin-top: 5px;
                     font-size: 13px;
+                    @include tablet-vertical {
+                        display: none;
+                    }
                     @include smartphone-horizontal {
                         display: none;
                     }

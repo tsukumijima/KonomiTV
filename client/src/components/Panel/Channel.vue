@@ -87,6 +87,9 @@ export default Vue.extend({
         height: 42px;
         // 下線を引く
         background: linear-gradient(to bottom, var(--v-background-base) calc(100% - 3px), var(--v-background-lighten1) 3px);
+        @include tablet-vertical {
+            height: 50px;
+        }
         @include smartphone-horizontal {
             height: 44px;
         }
@@ -122,6 +125,11 @@ export default Vue.extend({
         padding-bottom: 14px;
         background:var(--v-background-base);
         z-index: 1;
+        @include tablet-vertical {
+            padding-left: 24px;
+            padding-right: 24px;
+            padding-bottom: 10px;
+        }
         @include smartphone-horizontal {
             padding-bottom: 8px;
             margin-top: 0px;
@@ -152,6 +160,10 @@ export default Vue.extend({
             padding-bottom: 16px;
             background: transparent !important;
             overflow: visible !important;
+            @include tablet-vertical {
+                padding-left: 24px;
+                padding-right: 24px;
+            }
             @include smartphone-horizontal {
                 padding-bottom: 12px;
             }
@@ -305,12 +317,12 @@ export default Vue.extend({
                             @include smartphone-horizontal {
                                 margin-top: 5px;
                                 font-size: 12.5px;
-                                -webkit-line-clamp: 1;  // 2行までに制限
+                                -webkit-line-clamp: 1;  // 1行までに制限
                             }
                             @include smartphone-vertical {
                                 margin-top: 5px;
                                 font-size: 12.5px;
-                                -webkit-line-clamp: 1;  // 2行までに制限
+                                -webkit-line-clamp: 1;  // 1行までに制限
                             }
                         }
 
