@@ -40,13 +40,11 @@
                         <Icon icon="fluent:plug-disconnected-20-filled" class="mr-2" height="24" />連携解除
                     </v-btn>
                 </div>
+                <v-btn class="twitter-account__login" color="secondary" max-width="250" height="50" depressed
+                    @click="loginTwitterAccountWithPasswordForm()">
+                    <Icon icon="fluent:plug-connected-20-filled" class="mr-2" height="24" />連携するアカウントを追加
+                </v-btn>
                 <v-dialog max-width="600" v-model="twitter_password_auth_dialog">
-                    <template v-slot:activator="{ on }">
-                    <v-btn class="twitter-account__login" color="secondary" max-width="250" height="50" depressed v-on="on"
-                        @click="loginTwitterAccountWithPasswordForm()">
-                        <Icon icon="fluent:plug-connected-20-filled" class="mr-2" height="24" />連携するアカウントを追加
-                    </v-btn>
-                    </template>
                     <v-card>
                         <v-card-title class="justify-center pt-6 font-weight-bold">Twitter にログイン</v-card-title>
                         <!-- スクリーンネームとパスワードフォーム -->
@@ -246,6 +244,7 @@ export default Vue.extend({
                 this.twitter_password_auth_dialog = false;
                 return;
             }
+            this.twitter_password_auth_dialog = true;
         },
 
         async loginTwitterAccountWithPassword() {

@@ -115,7 +115,7 @@
                 <button v-ripple class="tweet-button"
                     :disabled="!is_logged_in_twitter || tweet_letter_count < 0 ||
                         (tweet_letter_count === 140 && tweet_captures.length === 0)"
-                    @click="sendTweet()">
+                    @click="sendTweet()" @touchstart="sendTweet()">
                     <Icon icon="fa-brands:twitter" height="16px" />
                     <span class="ml-1">ツイート</span>
                 </button>
@@ -273,6 +273,9 @@ export default Vue.extend({
 
             // 文字数カウント
             tweet_letter_count: 140,
+
+            // ツイートを送信中か (API リクエストを実行するまで)
+            is_tweet_sending: false,
         };
     },
     computed: {
@@ -632,6 +635,12 @@ export default Vue.extend({
         // ツイートを送信する
         async sendTweet() {
 
+            // 送信中フラグを立てる (重複送信防止)
+            if (this.is_tweet_sending === true) {
+                return;
+            }
+            this.is_tweet_sending = true;
+
             // ハッシュタグを整形
             this.tweet_hashtag = this.formatHashtag(this.tweet_hashtag);
             this.updateTweetLetterCount();
@@ -687,6 +696,9 @@ export default Vue.extend({
             }
             this.tweet_captures = [];
             this.tweet_text = '';
+
+            // 送信中フラグを下ろす
+            this.is_tweet_sending = false;
 
             // パネルを閉じるように親コンポーネントに伝える
             if (this.settingsStore.settings.fold_panel_after_sending_tweet === true) {
@@ -827,7 +839,7 @@ export default Vue.extend({
                     cursor: pointer;
                     content-visibility: auto;
                     @include tablet-vertical {
-                        height: 82px;
+                        height: 90px;
                         border-radius: 9px;
                         .capture__image {
                             object-fit: cover;
@@ -1075,6 +1087,9 @@ export default Vue.extend({
         &--virtual-keyboard-display {
             position: relative;
             bottom: calc(env(keyboard-inset-height, 0px) - 77px);
+            @include tablet-vertical {
+                bottom: calc(env(keyboard-inset-height, 0px) - 40px) !important;
+            }
             @include smartphone-horizontal {
                 bottom: calc(env(keyboard-inset-height, 0px) - 34px);
             }

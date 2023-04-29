@@ -140,6 +140,9 @@ export default Vue.extend({
         background-color: var(--v-background-lighten1);
         @include tablet-vertical {
             margin-left: 0 !important;
+            padding-top: 20px !important;
+            padding-left: 20px !important;
+            padding-right: 20px !important;
         }
         @include smartphone-horizontal {
             padding: 20px !important;

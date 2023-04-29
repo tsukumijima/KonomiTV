@@ -409,7 +409,7 @@ export default Vue.extend({
                 height: 270px;
                 padding: 18px 20px;
                 padding-bottom: 19px;
-                border-radius: 16px;
+                border-radius: 14px;
                 color: var(--v-text-base);
                 background: var(--v-background-lighten1);
                 transition: background-color 0.15s;

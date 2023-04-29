@@ -2543,6 +2543,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         .dplayer-controller-mask {
             position: absolute;
             bottom: env(keyboard-inset-height, 0px) !important;
+            @include tablet-vertical {
+                bottom: 0px !important;
+            }
             @include smartphone-vertical {
                 bottom: 0px !important;
             }
@@ -2550,6 +2553,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         .dplayer-icons.dplayer-comment-box {
             position: absolute;
             bottom: calc(env(keyboard-inset-height, 0px) + 4px) !important;
+            @include tablet-vertical {
+                bottom: 6px !important;
+            }
             @include smartphone-vertical {
                 bottom: 6px !important;
             }
@@ -2943,6 +2949,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             height: 100%;
             background-size: contain;
             background-position: center;
+            @include tablet-vertical {
+                aspect-ratio: 16 / 9;
+            }
             @include smartphone-vertical {
                 aspect-ratio: 16 / 9;
             }
