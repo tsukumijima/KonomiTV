@@ -232,7 +232,7 @@ export default Vue.extend({
                 return true;
             },
             settings_password: null as string | null,
-            settings_password_showing: true,  // アカウント情報変更時はデフォルトでパスワードを表示する
+            settings_password_showing: false,
             settings_password_validation: (value: string | null) => {
                 if (value === '' || value === null) return 'パスワードを入力してください。';
                 // 正規表現の参考: https://qiita.com/grrrr/items/0b35b5c1c98eebfa5128

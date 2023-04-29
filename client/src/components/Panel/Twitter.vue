@@ -10,6 +10,16 @@
             </div>
         </v-dialog>
         <div class="tab-container">
+            <div class="tab-content" :class="{'tab-content--active': twitter_active_tab === 'Search'}">
+                <div class="search px-4">
+                    リアルタイム検索機能は鋭意開発中です。
+                </div>
+            </div>
+            <div class="tab-content" :class="{'tab-content--active': twitter_active_tab === 'Timeline'}">
+                <div class="search px-4">
+                    タイムライン機能は鋭意開発中です。
+                </div>
+            </div>
             <div class="tab-content" :class="{'tab-content--active': twitter_active_tab === 'Capture'}">
                 <div class="captures">
                     <div class="capture" :class="{
@@ -745,11 +755,13 @@ export default Vue.extend({
     }
 
     .tab-container {
+        position: relative;
         flex-grow: 1;
         min-height: 0;  // magic!
 
         .tab-content {
-            position: relative;
+            position: absolute;
+            width: 100%;
             height: 100%;
             transition: opacity 0.2s, visibility 0.2s;
             opacity: 0;

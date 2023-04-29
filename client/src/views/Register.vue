@@ -104,7 +104,6 @@ export default Vue.extend({
 
             // アカウントページに遷移
             // ブラウザバックでアカウント作成画面に戻れないようにする
-            this.$message.success('アカウントを作成しました。');
             await this.$router.replace({path: '/settings/account'});
         }
     }
