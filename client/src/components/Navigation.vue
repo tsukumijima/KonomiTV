@@ -34,12 +34,13 @@
                     </router-link>
                     <a v-ripple class="navigation__link" active-class="navigation__link--active" href="https://github.com/tsukumijima/KonomiTV"
                         :class="{
-                            'navigation__link--version': Utils.version.includes('-dev'),
-                            'navigation__link--highlight': is_update_available,
+                            'navigation__link--version': versionStore.is_client_develop_version,
+                            'navigation__link--highlight': versionStore.is_update_available,
                         }"
-                        v-tooltip.top="is_update_available ? `アップデートがあります (version ${latest_version})` : ''">
+                        v-tooltip.top="versionStore.is_update_available ?
+                            `アップデートがあります (version ${versionStore.latest_version})` : ''">
                         <Icon class="navigation__link-icon" icon="fluent:info-16-regular" width="26px" />
-                        <span class="navigation__link-text">version {{Utils.version}}</span>
+                        <span class="navigation__link-text">version {{versionStore.client_version}}</span>
                     </a>
                 </div>
             </nav>
@@ -49,57 +50,22 @@
 </template>
 <script lang="ts">
 
+import { mapStores } from 'pinia';
 import Vue from 'vue';
 
 import BottomNavigation from '@/components/BottomNavigation.vue';
-import Version from '@/services/Version';
-import Utils from '@/utils';
+import useVersionStore from '@/store/VersionStore';
 
 export default Vue.extend({
     name: 'Navigation',
     components: {
         BottomNavigation,
     },
-    data() {
-        return {
-
-            // ユーティリティをテンプレートで使えるように
-            Utils: Utils,
-
-            // 最新のバージョン
-            latest_version: null as string | null,
-
-            // アップデートが利用可能か
-            is_update_available: false as boolean,
-        };
+    computed: {
+        ...mapStores(useVersionStore),
     },
     async created() {
-        try {
-
-            // バージョン情報を取得
-            const version_info = await Version.fetchServerVersion();
-            if (version_info === null) {
-                return;
-            }
-
-            this.latest_version = version_info.latest_version;
-
-            // 最新のサーバーバージョンが取得できなかった場合は中断
-            if (this.latest_version === null) {
-                return;
-            }
-
-            // もし現在のサーバーバージョン (-dev を除く) と最新のサーバーバージョンが異なるなら、アップデートが利用できる旨を表示する
-            // 現在のサーバーバージョンが -dev 付きで、かつ最新のサーバーバージョンが -dev なし の場合 (リリース版がリリースされたとき) も同様に表示する
-            // つまり開発版だと同じバージョンのリリース版がリリースされたときにしかアップデート通知が表示されない事になるが、ひとまずこれで…
-            if ((version_info.version.includes('-dev') === false && version_info.version !== version_info.latest_version) ||
-                (version_info.version.includes('-dev') === true && version_info.version.replace('-dev', '') === version_info.latest_version)) {
-                this.is_update_available = true;
-            }
-
-        } catch (error) {
-            throw new Error(error);  // エラー内容をコンソールに表示して終了
-        }
+        await this.versionStore.fetchServerVersion();
     }
 });
 

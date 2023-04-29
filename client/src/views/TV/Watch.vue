@@ -41,10 +41,6 @@
                              v-tooltip.right="'設定'" to="/settings/">
                     <Icon class="watch-navigation__link-icon" icon="fluent:settings-20-regular" width="26px" />
                 </router-link>
-                <a v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
-                   v-tooltip.right="`version ${Utils.version}`" href="https://github.com/tsukumijima/KonomiTV">
-                    <Icon class="watch-navigation__link-icon" icon="fluent:info-16-regular" width="26px" />
-                </a>
             </nav>
             <div class="watch-content"
                  @mousemove="controlDisplayTimer($event, true)"

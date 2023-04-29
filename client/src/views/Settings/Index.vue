@@ -68,13 +68,13 @@
                             </v-list-item-content>
                         </v-list-item>
                         <v-list-item link color="primary" class="px-4 settings-navigation-version" href="https://github.com/tsukumijima/KonomiTV"
-                            :class="{'settings-navigation-version--highlight': is_update_available}">
+                            :class="{'settings-navigation-version--highlight': versionStore.is_update_available}">
                             <v-list-item-icon class="mr-4">
                                 <Icon icon="fluent:info-16-regular" width="26px" />
                             </v-list-item-icon>
                             <v-list-item-content>
                                 <v-list-item-title>
-                                    version {{Utils.version}}{{is_update_available ? ' (Update Available)' : ''}}
+                                    version {{versionStore.client_version}}{{versionStore.is_update_available ? ' (Update Available)' : ''}}
                                 </v-list-item-title>
                             </v-list-item-content>
                         </v-list-item>
@@ -86,12 +86,12 @@
 </template>
 <script lang="ts">
 
+import { mapStores } from 'pinia';
 import Vue from 'vue';
 
 import Header from '@/components/Header.vue';
 import Navigation from '@/components/Navigation.vue';
-import Version from '@/services/Version';
-import Utils from '@/utils';
+import useVersionStore from '@/store/VersionStore';
 
 export default Vue.extend({
     name: 'Settings-Index',
@@ -99,46 +99,11 @@ export default Vue.extend({
         Header,
         Navigation,
     },
-    data() {
-        return {
-
-            // ユーティリティをテンプレートで使えるように
-            Utils: Utils,
-
-            // 最新のバージョン
-            latest_version: null as string | null,
-
-            // アップデートが利用可能か
-            is_update_available: false as boolean,
-        };
+    computed: {
+        ...mapStores(useVersionStore),
     },
     async created() {
-        try {
-
-            // バージョン情報を取得
-            const version_info = await Version.fetchServerVersion();
-            if (version_info === null) {
-                return;
-            }
-
-            this.latest_version = version_info.latest_version;
-
-            // 最新のサーバーバージョンが取得できなかった場合は中断
-            if (this.latest_version === null) {
-                return;
-            }
-
-            // もし現在のサーバーバージョン (-dev を除く) と最新のサーバーバージョンが異なるなら、アップデートが利用できる旨を表示する
-            // 現在のサーバーバージョンが -dev 付きで、かつ最新のサーバーバージョンが -dev なし の場合 (リリース版がリリースされたとき) も同様に表示する
-            // つまり開発版だと同じバージョンのリリース版がリリースされたときにしかアップデート通知が表示されない事になるが、ひとまずこれで…
-            if ((version_info.version.includes('-dev') === false && version_info.version !== version_info.latest_version) ||
-                (version_info.version.includes('-dev') === true && version_info.version.replace('-dev', '') === version_info.latest_version)) {
-                this.is_update_available = true;
-            }
-
-        } catch (error) {
-            throw new Error(error);  // エラー内容をコンソールに表示して終了
-        }
+        await this.versionStore.fetchServerVersion();
     }
 });
 
