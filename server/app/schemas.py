@@ -65,8 +65,10 @@ class LiveStream(BaseModel):
     clients_count: int
 
 class TwitterAccount(pydantic_model_creator(models.TwitterAccount, name='TwitterAccount',
-    exclude=('access_token', 'access_token_secret'))):
-    is_oauth_session: bool
+    exclude=('access_token', 'access_token_secret', 'created_at', 'updated_at'))):
+    is_oauth_session: bool  # 追加カラム
+    created_at: datetime  # is_oauth_session の下に配置するために、一旦 exclude した上で再度定義する
+    updated_at: datetime  # is_oauth_session の下に配置するために、一旦 exclude した上で再度定義する
     pass
 
 class User(pydantic_model_creator(models.User, name='User',
