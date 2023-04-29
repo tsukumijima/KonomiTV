@@ -269,7 +269,7 @@ async def TwitterPasswordAuthAPI(
             password=password_auth_request.password,
         )
     except tweepy.HTTPException as ex:
-        # パスワードが間違っているなどの理由で認証に失敗した場合
+        # パスワードが間違っているなどの理由で認証に失敗した
         if len(ex.api_codes) > 0 and len(ex.api_messages) > 0:
             error_message = f'Code: {ex.api_codes[0]}, Message: {ex.api_messages[0]}'
         else:
@@ -365,6 +365,32 @@ async def TwitterAccountDeleteAPI(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'TwitterAccount associated with screen_name does not exist',
         )
+
+    # Cookie セッションでは、明示的にログアウト処理を行う
+    ## 単に Cookie を削除するだけだと Twitter 側にログインセッションが残り続けてしまう
+    if twitter_account.access_token == 'COOKIE_SESSION':
+        auth_handler = cast(CookieSessionUserHandler, await twitter_account.getTweepyAuthHandler())
+        try:
+            await asyncio.to_thread(auth_handler.logout)
+        except tweepy.HTTPException as ex:
+            # サーバーエラーが発生した
+            if len(ex.api_codes) > 0 and len(ex.api_messages) > 0:
+                error_message = f'Code: {ex.api_codes[0]}, Message: {ex.api_messages[0]}'
+            else:
+                error_message = 'Unknown Error'
+            Logging.error(f'[TwitterRouter][TwitterAccountDeleteAPI] Failed to logout ({error_message}) [screen_name: {screen_name}]')
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = f'Failed to logout ({error_message})',
+            )
+        except tweepy.TweepyException as ex:
+            # 予期せぬエラーが発生した
+            error_message = f'Message: {ex}'
+            Logging.error(f'[TwitterRouter][TwitterAccountDeleteAPI] Unexpected error occurred while logout ({error_message}) [screen_name: {screen_name}]')
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = f'Unexpected error occurred while logging out ({error_message})',
+            )
 
     # 指定された Twitter アカウントのレコードを削除
     ## アクセストークンなどが保持されたレコードを削除することで連携解除とする

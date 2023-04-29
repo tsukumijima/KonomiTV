@@ -65,12 +65,12 @@ class TwitterAccount(models.Model):
             await twitter_account.save()
 
 
-    async def getTweepyAPI(self) -> tweepy.API:
+    async def getTweepyAuthHandler(self) -> tweepy.OAuth1UserHandler | CookieSessionUserHandler:
         """
-        tweepy の API インスタンスを取得する
+        tweepy の認証ハンドラーを取得する
 
         Returns:
-            tweepy.API: tweepy の API インスタンス
+            tweepy.OAuth1UserHandler | CookieSessionUserHandler: tweepy の認証ハンドラー
         """
 
         # パスワード認証 (Cookie セッション) の場合
@@ -96,5 +96,16 @@ class TwitterAccount(models.Model):
                 consumer_key, consumer_secret, self.access_token, self.access_token_secret,
             )
 
+        return auth_handler
+
+
+    async def getTweepyAPI(self) -> tweepy.API:
+        """
+        tweepy の API インスタンスを取得する
+
+        Returns:
+            tweepy.API: tweepy の API インスタンス
+        """
+
         # auth_handler で初期化した tweepy.API インスタンスを返す
-        return tweepy.API(auth=auth_handler)
+        return tweepy.API(auth=await self.getTweepyAuthHandler())
