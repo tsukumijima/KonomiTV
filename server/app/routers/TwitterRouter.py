@@ -340,7 +340,7 @@ async def TwitterPasswordAuthAPI(
 
 
 @router.delete(
-    '/users/{screen_name}',
+    '/accounts/{screen_name}',
     summary = 'Twitter アカウント連携解除 API',
     status_code = status.HTTP_204_NO_CONTENT,
 )
@@ -398,7 +398,7 @@ async def TwitterAccountDeleteAPI(
 
 
 @router.post(
-    '/users/{screen_name}/tweets',
+    '/accounts/{screen_name}/tweets',
     summary = 'ツイート送信 API',
     response_description = 'ツイートの送信結果。',
     response_model = schemas.TweetResult,
@@ -486,7 +486,7 @@ async def TwitterTweetAPI(
 
 
 @router.put(
-    '/users/{screen_name}/tweets/{tweet_id}/retweet',
+    '/accounts/{screen_name}/tweets/{tweet_id}/retweet',
     summary = 'リツイート実行 API',
 )
 async def TwitterRetweetAPI(
@@ -498,7 +498,7 @@ async def TwitterRetweetAPI(
 
 
 @router.delete(
-    '/users/{screen_name}/tweets/{tweet_id}/retweet',
+    '/accounts/{screen_name}/tweets/{tweet_id}/retweet',
     summary = 'リツイート取り消し API',
 )
 async def TwitterRetweetCancelAPI(
@@ -510,7 +510,7 @@ async def TwitterRetweetCancelAPI(
 
 
 @router.put(
-    '/users/{screen_name}/tweets/{tweet_id}/favorite',
+    '/accounts/{screen_name}/tweets/{tweet_id}/favorite',
     summary = 'いいね実行 API',
 )
 async def TwitterFavoriteAPI(
@@ -522,7 +522,7 @@ async def TwitterFavoriteAPI(
 
 
 @router.delete(
-    '/users/{screen_name}/tweets/{tweet_id}/favorite',
+    '/accounts/{screen_name}/tweets/{tweet_id}/favorite',
     summary = 'いいね取り消し API',
 )
 async def TwitterFavoriteCancelAPI(
@@ -534,7 +534,7 @@ async def TwitterFavoriteCancelAPI(
 
 
 @router.get(
-    '/users/{screen_name}/timeline',
+    '/accounts/{screen_name}/timeline',
     summary = 'ホームタイムライン取得 API',
 )
 async def TwitterTimelineAPI(
