@@ -15,17 +15,17 @@
                         <Icon class="navigation__link-icon" icon="fluent:calendar-ltr-20-regular" width="26px" />
                         <span class="navigation__link-text">番組表</span>
                     </router-link>
+                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/reserves/">
+                        <Icon class="navigation__link-icon" icon="fluent:timer-16-regular" width="26px" style="padding: 0.5px;" />
+                        <span class="navigation__link-text">録画予約</span>
+                    </router-link>
+                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/mylist/">
+                        <Icon class="navigation__link-icon" icon="ic:round-playlist-play" width="26px" />
+                        <span class="navigation__link-text">マイリスト</span>
+                    </router-link>
                     <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/captures/">
                         <Icon class="navigation__link-icon" icon="fluent:image-multiple-24-regular" width="26px" />
                         <span class="navigation__link-text">キャプチャ</span>
-                    </router-link>
-                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/watchlists/">
-                        <Icon class="navigation__link-icon" icon="ic:round-playlist-play" width="26px" />
-                        <span class="navigation__link-text">ウォッチリスト</span>
-                    </router-link>
-                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/histories/">
-                        <Icon class="navigation__link-icon" icon="fluent:history-16-regular" width="26px" />
-                        <span class="navigation__link-text">視聴履歴</span>
                     </router-link>
                     <v-spacer></v-spacer>
                     <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/settings/">

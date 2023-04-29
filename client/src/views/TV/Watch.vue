@@ -25,16 +25,16 @@
                     <Icon class="watch-navigation__link-icon" icon="fluent:calendar-ltr-20-regular" width="26px" />
                 </router-link>
                 <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
-                             v-tooltip.right="'キャプチャ'" to="/captures/">
-                    <Icon class="watch-navigation__link-icon" icon="fluent:image-multiple-24-regular" width="26px" />
+                             v-tooltip.right="'録画予約'" to="/reserves/">
+                    <Icon class="watch-navigation__link-icon" icon="fluent:timer-16-regular" width="26px" style="padding: 0.5px;"/>
                 </router-link>
                 <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
-                             v-tooltip.right="'ウォッチリスト'" to="/watchlists/">
+                             v-tooltip.right="'マイリスト'" to="/mylist/">
                     <Icon class="watch-navigation__link-icon" icon="ic:round-playlist-play" width="26px" />
                 </router-link>
                 <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
-                             v-tooltip.right="'視聴履歴'" to="/histories/">
-                    <Icon class="watch-navigation__link-icon" icon="fluent:history-16-regular" width="26px" />
+                             v-tooltip.right="'キャプチャ'" to="/captures/">
+                    <Icon class="watch-navigation__link-icon" icon="fluent:image-multiple-24-regular" width="26px" />
                 </router-link>
                 <v-spacer></v-spacer>
                 <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
