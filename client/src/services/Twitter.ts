@@ -114,7 +114,15 @@ class Twitter {
 
         // エラー処理 (API リクエスト自体に失敗した場合)
         if ('is_error' in response) {
-            return {message: 'エラー: ツイートの送信に失敗しました。', is_error: true};
+            if (response.error.message) {
+                if (Number.isNaN(response.status)) {
+                    return {message: `エラー: ツイートの送信に失敗しました。(${response.error.message})`, is_error: true};
+                } else {
+                    return {message: `エラー: ツイートの送信に失敗しました。(HTTP Error ${response.status} / ${response.error.message})`, is_error: true};
+                }
+            } else {
+                return {message: `エラー: ツイートの送信に失敗しました。(HTTP Error ${response.status})`, is_error: true};
+            }
         }
 
         // 成功 or 失敗に関わらず detail の内容をそのまま通知する
