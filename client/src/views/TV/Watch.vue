@@ -552,6 +552,7 @@ export default Vue.extend({
                     const old_channel_hashtag = twitter_component.getChannelHashtag(old_channel.current.channel_name) ?? '';
                     twitter_component.tweet_hashtag =
                         twitter_component.formatHashtag(twitter_component.tweet_hashtag.replaceAll(old_channel_hashtag, ''));
+                    twitter_component.updateTweetLetterCount();
                 }
 
                 // 取得したチャンネル情報と現在のチャンネル情報の NID-SID-EID の組み合わせが異なる場合
@@ -564,6 +565,7 @@ export default Vue.extend({
                     // ハッシュタグフォームのリセットがオンなら、ハッシュタグフォームを空にする
                     if (this.settingsStore.settings.reset_hashtag_when_program_switches === true) {
                         twitter_component.tweet_hashtag = twitter_component.formatHashtag('');
+                        twitter_component.updateTweetLetterCount();
                     }
                 }
             },

@@ -68,7 +68,7 @@
                 <input class="tweet-form__hashtag-form" type="search" placeholder="#ハッシュタグ" spellcheck="false"
                     v-model="tweet_hashtag" @input="updateTweetLetterCount()"
                     @focus="is_tweet_hashtag_form_focused = true" @blur="is_tweet_hashtag_form_focused = false"
-                    @change="tweet_hashtag = formatHashtag(tweet_hashtag)">
+                    @change="tweet_hashtag = formatHashtag(tweet_hashtag); updateTweetLetterCount()">
                 <div v-ripple class="tweet-form__hashtag-list-button" @click="clickHashtagListButton()">
                     <Icon icon="fluent:clipboard-text-ltr-32-regular" height="22px" />
                 </div>
@@ -132,7 +132,8 @@
                     @click="clickHashtag(hashtag)">
                     <input type="search" class="hashtag__input" spellcheck="false" v-model="hashtag.text" :disabled="!hashtag.editing" @click.stop="">
                     <button v-ripple class="hashtag__edit-button"
-                        @click.prevent.stop="hashtag.editing = !hashtag.editing; hashtag.text = formatHashtag(hashtag.text, true)">
+                        @click.prevent.stop="hashtag.editing = !hashtag.editing;
+                            hashtag.text = formatHashtag(hashtag.text, true); updateTweetLetterCount()">
                         <Icon :icon="hashtag.editing ? 'fluent:checkmark-16-filled': 'fluent:edit-16-filled'" width="17px" />
                     </button>
                     <button v-ripple class="hashtag__delete-button"
@@ -302,6 +303,7 @@ export default Vue.extend({
 
         // 局タグ追加処理を走らせる (ハッシュタグフォームのフォーマット処理も同時に行われるが、元々空なので無意味)
         this.tweet_hashtag = this.formatHashtag(this.tweet_hashtag);
+        this.updateTweetLetterCount();
     },
     beforeDestroy() {
         // 終了前にすべてのキャプチャの Blob URL を revoke してリソースを解放する
@@ -622,6 +624,7 @@ export default Vue.extend({
 
             // ハッシュタグを整形
             this.tweet_hashtag = this.formatHashtag(this.tweet_hashtag);
+            this.updateTweetLetterCount();
             const tweet_hashtag = this.tweet_hashtag;
 
             // 実際に送るツイート本文を作成
