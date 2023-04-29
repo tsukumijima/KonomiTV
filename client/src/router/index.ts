@@ -9,10 +9,10 @@ import Register from '@/views/Register.vue';
 import SettingsAccount from '@/views/Settings/Account.vue';
 import SettingsCaption from '@/views/Settings/Caption.vue';
 import SettingsCapture from '@/views/Settings/Capture.vue';
-import SettingsEnvironment from '@/views/Settings/Environment.vue';
 import SettingsGeneral from '@/views/Settings/General.vue';
 import SettingsIndex from '@/views/Settings/Index.vue';
 import SettingsJikkyo from '@/views/Settings/Jikkyo.vue';
+import SettingsServer from '@/views/Settings/Server.vue';
 import SettingsTwitter from '@/views/Settings/Twitter.vue';
 import TVHome from '@/views/TV/Home.vue';
 import TVWatch from '@/views/TV/Watch.vue';
@@ -90,9 +90,9 @@ const router = new VueRouter({
             component: SettingsTwitter,
         },
         {
-            path: '/settings/environment',
-            name: 'Settings Environment',
-            component: SettingsEnvironment,
+            path: '/settings/server',
+            name: 'Settings Server',
+            component: SettingsServer,
         },
         {
             path: '/login/',

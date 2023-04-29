@@ -5,7 +5,7 @@
             <router-link v-ripple class="settings__back-button" to="/settings/">
                 <Icon icon="fluent:arrow-left-12-filled" width="25px" />
             </router-link>
-            <Icon icon="fluent:image-multiple-16-regular" width="26px" />
+            <Icon icon="fluent:image-multiple-16-filled" width="26px" />
             <span class="ml-2">キャプチャ</span>
         </h2>
         <div class="settings__content">
@@ -28,11 +28,11 @@
                     </p>
                     <p>
                         ブラウザでダウンロードすると、視聴中のデバイスのダウンロードフォルダに保存されます。<br>
-                        視聴中のデバイスにそのまま保存されるためシンプルですが、保存先のフォルダを変更できないこと、PC 版 Chrome では毎回ダウンロードバーが表示されてしまうことがデメリットです。<br>
+                        視聴中のデバイスにそのまま保存されるためシンプルですが、保存先のフォルダを変更できないこと、PC 版 Chrome では毎回ダウンロードバーが表示されてしまったり、iOS Safari (PWA モード) ではダウンロードするとファイル概要画面が表示され再生が中断してしまったりなど、視聴に支障することがデメリットです (将来的には、iOS / Android アプリ版や拡張機能などで解消される予定) 。<br>
                     </p>
                     <p>
                         KonomiTV サーバーにアップロードすると、環境設定で指定されたキャプチャ保存フォルダに保存されます。視聴したデバイスにかかわらず、今までに撮ったキャプチャをひとつのフォルダにまとめて保存できます。<br>
-                        他のデバイスでキャプチャを見るにはキャプチャ保存フォルダをネットワークに共有する必要があること、スマホ・タブレットではネットワーク上のフォルダへのアクセスがやや面倒なことがデメリットです。<br>
+                        他のデバイスでキャプチャを見るにはキャプチャ保存フォルダをネットワークに共有する必要があること、スマホ・タブレットではネットワーク上のフォルダへのアクセスがやや面倒なことがデメリットです。(将来的には、保存フォルダ内のキャプチャを Google フォトのように表示する機能を追加予定)<br>
                     </p>
                 </div>
                 <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"

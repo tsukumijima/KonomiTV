@@ -21,7 +21,7 @@
                         </v-list-item>
                         <v-list-item link color="primary" class="px-4" to="/settings/caption">
                             <v-list-item-icon class="mr-4">
-                                <Icon icon="fluent:subtitles-16-regular" width="26px" />
+                                <Icon icon="fluent:subtitles-16-filled" width="26px" />
                             </v-list-item-icon>
                             <v-list-item-content>
                                 <v-list-item-title>字幕</v-list-item-title>
@@ -29,7 +29,7 @@
                         </v-list-item>
                         <v-list-item link color="primary" class="px-4" to="/settings/capture">
                             <v-list-item-icon class="mr-4">
-                                <Icon icon="fluent:image-multiple-16-regular" width="26px" />
+                                <Icon icon="fluent:image-multiple-16-filled" width="26px" />
                             </v-list-item-icon>
                             <v-list-item-content>
                                 <v-list-item-title>キャプチャ</v-list-item-title>
@@ -59,12 +59,12 @@
                                 <v-list-item-title>Twitter</v-list-item-title>
                             </v-list-item-content>
                         </v-list-item>
-                        <v-list-item link color="primary" class="px-4" to="/settings/environment">
+                        <v-list-item link color="primary" class="px-4" to="/settings/server">
                             <v-list-item-icon class="mr-4">
-                                <Icon icon="fluent:toolbox-20-filled" width="26px" />
+                                <Icon icon="fluent:server-surface-16-filled" width="26px" />
                             </v-list-item-icon>
                             <v-list-item-content>
-                                <v-list-item-title>環境設定</v-list-item-title>
+                                <v-list-item-title>サーバー設定</v-list-item-title>
                             </v-list-item-content>
                         </v-list-item>
                         <v-list-item link color="primary" class="px-4 settings-navigation-version" href="https://github.com/tsukumijima/KonomiTV"

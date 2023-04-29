@@ -5,7 +5,7 @@
             <router-link v-ripple class="settings__back-button" to="/settings/">
                 <Icon icon="fluent:arrow-left-12-filled" width="25px" />
             </router-link>
-            <Icon icon="fluent:subtitles-16-regular" width="25px" />
+            <Icon icon="fluent:subtitles-16-filled" width="25px" />
             <span class="ml-3">字幕</span>
         </h2>
         <div class="settings__content">

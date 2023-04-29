@@ -16,8 +16,8 @@
                     ストリーミング画質はプレイヤーの設定からいつでも切り替えられます。<br>
                 </div>
                 <div class="settings__item-label">
-                    [1080p (60fps)] は、通常 30fps (60i) の映像を補間することで、ほかの画質よりも滑らか（ぬるぬる）な映像で再生できます。ただし、再生負荷が少し高くなります。<br>
-                    [1080p (60fps)] で視聴するときは、QSVEncC などのハードウェアエンコーダーの利用をおすすめします。FFmpeg (ソフトウェアエンコーダー) では CPU 使用率が高くなり、再生に支障が出ることがあります。<br>
+                    [1080p (60fps)] は、通常 30fps (60i) の映像を補間し、より滑らか（ぬるぬる）な映像で視聴できます！<br>
+                    [1080p (60fps)] で視聴するときは、環境設定の [利用するエンコーダー] をハードウェアエンコーダーに設定してください。FFmpeg (ソフトウェアエンコーダー) では、再生に支障が出ることがあります。<br>
                 </div>
                 <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
                     :items="tv_streaming_quality" v-model="settingsStore.settings.tv_streaming_quality">
@@ -27,8 +27,8 @@
                 :class="{'settings__item--disabled': PlayerUtils.isHEVCVideoSupported() === false}">
                 <label class="settings__item-heading" for="tv_data_saver_mode">テレビを通信節約モードで視聴する</label>
                 <label class="settings__item-label" for="tv_data_saver_mode">
-                    通信節約モードでは、H.265 / HEVC という圧縮率の高いコーデックを使い、画質はほぼそのまま、通信量を通常の 2/3 程度に抑えながら視聴できます。ただし、再生負荷が高くなります。<br>
-                    通信節約モードで視聴するときは、QSVEncC などのハードウェアエンコーダーの利用をおすすめします。FFmpeg (ソフトウェアエンコーダー) ではまともに再生できない可能性が高いです。<br>
+                    通信節約モードでは、H.265 / HEVC という圧縮率の高いコーデックを使い、画質はほぼそのまま、通信量を通常の 2/3 程度に抑えながら視聴できます！<br>
+                    通信節約モードで視聴するときは、環境設定の [利用するエンコーダー] をハードウェアエンコーダーに設定してください。FFmpeg (ソフトウェアエンコーダー) では、再生に支障が出る可能性が高いです。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="tv_data_saver_mode" inset hide-details
                     v-model="settingsStore.settings.tv_data_saver_mode" :disabled="PlayerUtils.isHEVCVideoSupported() === false">
@@ -37,8 +37,8 @@
             <div class="settings__item settings__item--switch settings__item--sync-disabled">
                 <label class="settings__item-heading" for="tv_low_latency_mode">テレビを低遅延で視聴する</label>
                 <label class="settings__item-label" for="tv_low_latency_mode">
-                    低遅延ストリーミングをオンにすると、<b>放送波との遅延を最短 0.9 秒に抑えて視聴できます。</b><br>
-                    また、約 3 秒以上遅延したときに少しだけ再生速度を早める (1.1x) ことで、滑らかにストリーミングの遅れを取り戻します。<br>
+                    低遅延ストリーミングをオンにすると、<b>放送波との遅延を最短 0.9 秒に抑えて視聴できます！</b><br>
+                    また、約 3 秒以上遅延したときに少しだけ再生速度を早める (1.1x) ことで、滑らかにストリーミングの遅延を取り戻します。<br>
                     宅外視聴などのネットワークが不安定になりがちな環境では、低遅延ストリーミングをオフにしてみると、映像のカクつきを改善できるかもしれません。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="tv_low_latency_mode" inset hide-details

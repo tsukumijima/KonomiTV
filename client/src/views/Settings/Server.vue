@@ -5,8 +5,8 @@
             <router-link v-ripple class="settings__back-button" to="/settings/">
                 <Icon icon="fluent:arrow-left-12-filled" width="25px" />
             </router-link>
-            <Icon icon="fluent:toolbox-20-filled" width="22px" />
-            <span class="ml-3">環境設定</span>
+            <Icon icon="fluent:server-surface-16-filled" width="22px" />
+            <span class="ml-2">サーバー設定</span>
         </h2>
         <div class="settings__content">
             <div class="settings__item">
@@ -22,7 +22,7 @@ import Vue from 'vue';
 import SettingsBase from '@/views/Settings/Base.vue';
 
 export default Vue.extend({
-    name: 'Settings-Environment',
+    name: 'Settings-Server',
     components: {
         SettingsBase,
     }
