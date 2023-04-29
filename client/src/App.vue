@@ -120,8 +120,10 @@ body .route-container {
 }
 
 // ボタン内のテキストの字間をオフ
+// 大文字への強制変換をオフ
 .v-btn {
     letter-spacing: 0 !important;
+    text-transform: none !important;
 }
 
 .v-snack {

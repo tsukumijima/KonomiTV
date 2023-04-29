@@ -22,6 +22,7 @@ export interface ITwitterAccount {
     name: string;
     screen_name: string;
     icon_url: string;
+    is_oauth_session: boolean;
     created_at: string;
     updated_at: string;
 }

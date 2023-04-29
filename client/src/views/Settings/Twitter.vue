@@ -30,7 +30,10 @@
                         <div class="twitter-account__info-name">
                             <span class="twitter-account__info-name-text">{{twitter_account.name}}</span>
                         </div>
-                        <span class="twitter-account__info-screen-name">@{{twitter_account.screen_name}}</span>
+                        <span class="twitter-account__info-screen-name">
+                            @{{twitter_account.screen_name}}
+                            <span v-if="twitter_account.is_oauth_session === true">(Legacy Session)</span>
+                        </span>
                     </div>
                     <v-btn class="twitter-account__logout ml-auto" width="124" height="52" depressed
                         @click="logoutTwitterAccount(twitter_account.screen_name)">
