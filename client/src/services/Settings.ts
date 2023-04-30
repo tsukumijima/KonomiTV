@@ -17,7 +17,7 @@ export interface IClientSettings {
     // tv_low_latency_mode: 同期無効
     panel_display_state: 'RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold';
     tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
-    tv_channel_selection_requires_ctrl_key: boolean;
+    tv_channel_selection_requires_alt_key: boolean;
     caption_font: string;
     always_border_caption_text: boolean;
     specify_caption_background_color: boolean;

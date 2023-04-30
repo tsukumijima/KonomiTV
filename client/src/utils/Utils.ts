@@ -58,6 +58,17 @@ export default class Utils {
 
 
     /**
+     * ブラウザが実行されている OS に応じて、"Alt" または "Option" を返す
+     * キーボードショートカットのコンビネーションキーの説明を OS によって分けるために使う
+     * @returns ブラウザが実行されている OS が Mac なら Option を、それ以外なら Alt を返す
+     */
+    static AltOrOption(): 'Alt' | 'Option' {
+        // iPhone・iPad で純正キーボードを接続した場合も一応想定して、iPhone・iPad も含める（動くかは未検証）
+        return /iPhone|iPad|Macintosh/i.test(navigator.userAgent) ? 'Option' : 'Alt';
+    }
+
+
+    /**
      * ブラウザが実行されている OS に応じて、"Ctrl" または "Cmd" を返す
      * キーボードショートカットのコンビネーションキーの説明を OS によって分けるために使う
      * @returns ブラウザが実行されている OS が Mac なら Cmd を、それ以外なら Ctrl を返す

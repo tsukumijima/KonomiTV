@@ -135,7 +135,7 @@ class ClientSettings(BaseModel):
     # tv_low_latency_mode: 同期無効
     panel_display_state: Literal['RestorePreviousState', 'AlwaysDisplay', 'AlwaysFold'] = Field('RestorePreviousState')
     tv_panel_active_tab: Literal['Program', 'Channel', 'Comment', 'Twitter'] = Field('Program')
-    tv_channel_selection_requires_ctrl_key: bool = Field(False)
+    tv_channel_selection_requires_alt_key: bool = Field(False)
     caption_font: str = Field('Windows TV MaruGothic')
     always_border_caption_text: bool = Field(True)
     specify_caption_background_color: bool = Field(False)

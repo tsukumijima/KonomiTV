@@ -72,13 +72,13 @@
             </div>
             <v-divider class="mt-6"></v-divider>
             <div class="settings__item settings__item--switch">
-                <label class="settings__item-heading" for="tv_show_superimpose">チャンネル選局のキーボードショートカットを {{Utils.CtrlOrCmd()}} + 数字キー/テンキーに変更する</label>
+                <label class="settings__item-heading" for="tv_show_superimpose">チャンネル選局のキーボードショートカットを {{Utils.AltOrOption()}} + 数字キー/テンキーに変更する</label>
                 <label class="settings__item-label" for="tv_show_superimpose">
-                    この設定をオンにすると、数字キーまたはテンキーに対応するリモコン番号（1～12）のチャンネルに切り替える際、{{Utils.CtrlOrCmd()}} キーを同時に押す必要があります。<br>
+                    この設定をオンにすると、数字キーまたはテンキーに対応するリモコン番号（1～12）のチャンネルに切り替える際、{{Utils.AltOrOption()}} キーを同時に押す必要があります。<br>
                     コメントやツイートを入力しようとして誤って数字キーを押してしまい、チャンネルが変わってしまう事態を避けたい方におすすめです。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="tv_show_superimpose" inset hide-details
-                    v-model="settingsStore.settings.tv_channel_selection_requires_ctrl_key">
+                    v-model="settingsStore.settings.tv_channel_selection_requires_alt_key">
                 </v-switch>
             </div>
             <v-divider class="mt-6"></v-divider>

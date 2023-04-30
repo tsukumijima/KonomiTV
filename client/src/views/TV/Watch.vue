@@ -147,7 +147,7 @@
                 </div>
             </div>
         </main>
-        <v-dialog max-width="1000" transition="slide-y-transition" v-model="shortcut_key_modal">
+        <v-dialog max-width="1050" transition="slide-y-transition" v-model="shortcut_key_modal">
             <v-card>
                 <v-card-title class="px-5 pt-4 pb-3 d-flex align-center font-weight-bold">
                     <Icon icon="fluent:keyboard-20-filled" height="28px" />
@@ -421,6 +421,13 @@ export default Vue.extend({
     },
     // 開始時に実行
     async created() {
+
+        // チャンネル選局のキーボードショートカットを Alt or Option + 数字キー/テンキーに変更する設定が有効なら、
+        // キーボードショートカット一覧に反映する
+        if (this.settingsStore.settings.tv_channel_selection_requires_alt_key === true) {
+            this.shortcut_key_list.left_column[0].shortcuts[0].keys.unshift({name: Utils.AltOrOption(), icon: false});
+            this.shortcut_key_list.left_column[0].shortcuts[1].keys.unshift({name: Utils.AltOrOption(), icon: false});
+        }
 
         // チャンネル ID をセット
         this.channelsStore.channel_id = this.$route.params.channel_id;
@@ -1766,9 +1773,11 @@ export default Vue.extend({
                     // 文字入力中にショートカットキーが作動してしまわないように
                     if (tag !== 'INPUT' && tag !== 'TEXTAREA' && editable !== '' && editable !== 'true') {
 
-                        // キーリピートでない時・Alt キーが一緒に押された時に作動しないように
-                        if (is_repeat === false && !event.altKey &&
-                            (this.settingsStore.settings.tv_channel_selection_requires_ctrl_key === false || (event.ctrlKey || event.metaKey))) {
+                        // キーリピートでない時・Ctrl / Cmd キーが一緒に押された時に作動しないように
+                        // チャンネル選局のキーボードショートカットを Alt or Option + 数字キー/テンキーに変更する設定が有効なときは、
+                        // Alt or Option キーが押されていることを条件に追加する
+                        if (is_repeat === false && !event.ctrlKey && !event.metaKey &&
+                            (this.settingsStore.settings.tv_channel_selection_requires_alt_key === false || (event.altKey))) {
 
                             // ***** 数字キーでチャンネルを切り替える *****
 
