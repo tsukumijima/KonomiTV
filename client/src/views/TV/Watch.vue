@@ -1288,6 +1288,25 @@ export default Vue.extend({
             // これを設定しないと、クロスオリジンの場合にキャプチャができない
             this.player.video.crossOrigin = 'anonymous';
 
+            // mpegts.js 再生時のみ、mpegts.js のログハンドラーを設定する
+            if (this.is_mpegts_supported === true && this.player.plugins.mpegts !== undefined) {
+                this.player.plugins.mpegts.on(mpegts.Events.ERROR, async (error_type: mpegts.ErrorTypes, detail: mpegts.ErrorDetails) => {
+                    // 再生中にエラーが発生した場合
+                    // ワークアラウンドとして通知した後にページをリロードする
+                    // TODO: ロジックを整理してストリーミングを再起動できるようにする
+                    this.player.notice(`再生中にエラーが発生しました。(Type: ${error_type}) 3秒後にリロードします。`, -1);
+                    await Utils.sleep(3);
+                    location.reload();
+                });
+            // LL-HLS 再生時は、error イベントを監視してエラーが発生したらページをリロードする
+            } else if (this.is_mpegts_supported === false) {
+                this.player.on('error', async () => {
+                    this.player.notice(`再生中にエラーが発生しました。(Type: ${this.player.video.error.message}) 3秒後にリロードします。`, -1);
+                    await Utils.sleep(3);
+                    location.reload();
+                });
+            }
+
             // LL-HLS 再生時のみ、ローディングが終わるまでは表示上再生状態を維持する
             // play() が正常に実行できればいいのだが、Safari の自動再生制限により失敗することがあるので、
             // その際はアイコンの HTML を書き換えたりして強制的に再生状態にする (苦肉の策)
@@ -1355,17 +1374,35 @@ export default Vue.extend({
                     this.player.video.playbackRate = 1;
                 }
 
+                const recover = async () => {
+                    await Utils.sleep(0.5);
+                    // この時点で映像が停止している場合、復旧を試みる
+                    if (this.player?.video.readyState !== 4) {
+                        console.log('player.video.readyState !== ENOUGH_DATA. trying to recover.');
+                        this.player?.video.pause();
+                        await Utils.sleep(0.1);
+                        this.player?.video.play().catch(() => {
+                            console.warn('HTMLVideoElement.play() rejected. paused.');
+                            this.player?.pause();
+                        });
+                    }
+                };
+
                 // 再生が一時的に止まってバッファリングしているとき/再び再生されはじめたときのイベント
                 // バッファリングの Progress Circular の表示を制御する
                 // 同期が終わってからの方が都合が良い
                 this.player.video.addEventListener('waiting', () => this.is_video_buffering = true);
-                this.player.video.addEventListener('playing', () => this.is_video_buffering = false);
+                this.player.video.addEventListener('playing', () => {
+                    this.is_video_buffering = false;
+                    recover();
+                });
 
                 // ローディング状態を解除し、映像を表示する
                 this.is_loading = false;
 
                 // バッファリング中の Progress Circular を非表示にする
                 this.is_video_buffering = false;
+                recover();
 
                 if (this.channelsStore.channel.current.is_radiochannel) {
                     // ラジオチャンネルでは引き続き映像の代わりとして背景画像を表示し続ける
@@ -1418,7 +1455,7 @@ export default Vue.extend({
             });
 
             // ステータスが更新されたときのイベント
-            this.eventsource.addEventListener('status_update', (event_raw: MessageEvent) => {
+            this.eventsource.addEventListener('status_update', async (event_raw: MessageEvent) => {
 
                 // イベントを取得
                 if (this.player === null) return;
@@ -1480,8 +1517,30 @@ export default Vue.extend({
                         break;
                     }
 
+                    // Status: Idling
+                    case 'Idling': {
+
+                        // 本来誰も視聴していないことを示す Idling ステータスを受信している場合、何らかの理由で
+                        // ストリーミング API への接続が切断された可能性が高いので、ワークアラウンドとして通知した後にページをリロードする
+                        // TODO: ロジックを整理してストリーミングを再起動できるようにする
+                        this.player.notice('ストリーミング接続が切断されました。3秒後にリロードします。', -1);
+                        await Utils.sleep(3);
+                        location.reload();
+
+                        break;
+                    }
+
                     // Status: Restart
                     case 'Restart': {
+
+                        // 「ライブストリームは Offline です。」のステータス詳細を受信すること自体が不正な状態
+                        // ストリーミング API への接続が切断された可能性が高いので、ワークアラウンドとして通知した後にページをリロードする
+                        // TODO: ロジックを整理してストリーミングを再起動できるようにする
+                        if (event.detail === 'ライブストリームは Offline です。') {
+                            this.player.notice('ストリーミング接続が切断されました。3秒後にリロードします。', -1);
+                            await Utils.sleep(3);
+                            location.reload();
+                        }
 
                         // ステータス詳細をプレイヤーに表示
                         this.player.notice(event.detail, -1);
