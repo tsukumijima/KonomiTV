@@ -87,8 +87,8 @@ jobs:
           curl -L -o thirdparty/QSVEncC/License.txt https://raw.githubusercontent.com/rigaya/QSVEnc/master/license.txt
 
           # NVEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/NVEnc/releases/download/7.22/NVEncC_7.22_x64.7z
-          7z x -y -o"thirdparty/NVEncC" NVEncC_7.22_x64.7z
+          curl -LO https://github.com/rigaya/NVEnc/releases/download/7.24/NVEncC_7.24_x64.7z
+          7z x -y -o"thirdparty/NVEncC" NVEncC_7.24_x64.7z
           rm thirdparty/NVEncC/hdr10plus_gen.exe
           mv thirdparty/NVEncC/NVEncC64.exe thirdparty/NVEncC/NVEncC.exe
           curl -L -o thirdparty/NVEncC/License.txt https://raw.githubusercontent.com/rigaya/NVEnc/master/NVEnc_license.txt
@@ -111,7 +111,7 @@ jobs:
           Rename-Item thirdparty/Python/LICENSE.txt License.txt
 
           # pipenv のインストール
-          thirdparty/Python/python.exe -m pip install pipenv==2023.3.20
+          thirdparty/Python/python.exe -m pip install pipenv==2023.4.29
 
       # サードパーティーライブラリを 7z で圧縮
       # ファイルサイズ縮減のため、圧縮をかなり強めに掛けている
@@ -231,8 +231,8 @@ jobs:
           curl -L -o thirdparty/QSVEncC/License.txt https://raw.githubusercontent.com/rigaya/QSVEnc/master/license.txt
 
           # NVEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/NVEnc/releases/download/7.22/nvencc_7.22_Ubuntu20.04_amd64.deb
-          7z x -y nvencc_7.22_Ubuntu20.04_amd64.deb && tar xvf data.tar
+          curl -LO https://github.com/rigaya/NVEnc/releases/download/7.24/nvencc_7.24_Ubuntu20.04_amd64.deb
+          7z x -y nvencc_7.24_Ubuntu20.04_amd64.deb && tar xvf data.tar
           mkdir thirdparty/NVEncC/
           cp usr/bin/nvencc thirdparty/NVEncC/NVEncC.elf
           chmod a+x thirdparty/NVEncC/NVEncC.elf
@@ -259,7 +259,7 @@ jobs:
           ln -s python3.11 thirdparty/Python/bin/python
 
           # pipenv のインストール
-          thirdparty/Python/bin/python -m pip install pipenv==2023.3.20
+          thirdparty/Python/bin/python -m pip install pipenv==2023.4.29
 
       # サードパーティーライブラリを tar.xz で圧縮
       # ファイルサイズ縮減のため、圧縮をかなり強めに掛けている
@@ -424,7 +424,7 @@ jobs:
 
           # pipenv のインストール
           cd thirdparty/Python/
-          docker run --rm -i -v $(pwd):/work -w /work ${{ matrix.image }}:build bash -c './bin/python -m pip install pipenv==2023.3.20'
+          docker run --rm -i -v $(pwd):/work -w /work ${{ matrix.image }}:build bash -c './bin/python -m pip install pipenv==2023.4.29'
 
       # サードパーティーライブラリを tar.xz で圧縮
       # ファイルサイズ縮減のため、圧縮をかなり強めに掛けている
