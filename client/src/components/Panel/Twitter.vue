@@ -490,7 +490,7 @@ export default Vue.extend({
             context.shadowOffsetY = 0;  // 影のY座標
 
             // 番組タイトルの透かしを描画
-            const title = this.channelsStore.channel.current.program_present.title;
+            const title = this.channelsStore.channel.current.program_present?.title ?? '放送休止';
             switch (this.settingsStore.settings.tweet_capture_watermark_position) {
                 case 'TopLeft': {
                     context.textAlign = 'left'; // 左寄せ

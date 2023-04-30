@@ -187,14 +187,14 @@ class CaptureHandler {
         let exif_options: ISetEXIFDataToCaptureOptions;
         if (channel !== null) {
             exif_options = {
-                network_id: channel.program_present.network_id,
-                service_id: channel.program_present.service_id,
-                event_id: channel.program_present.event_id,
-                title: channel.program_present.title,
-                description: channel.program_present.description,
-                start_time: channel.program_present.start_time,
-                end_time: channel.program_present.end_time,
-                duration: channel.program_present.duration,
+                network_id: channel.network_id,
+                service_id: channel.service_id,
+                event_id: channel.program_present?.event_id ?? -1,
+                title: channel.program_present?.title ?? '放送休止',
+                description: channel.program_present?.description ?? '',
+                start_time: channel.program_present?.start_time ?? '2000-01-01T00:00:00+09:00',
+                end_time: channel.program_present?.end_time ?? '2000-01-01T00:00:00+09:00',
+                duration: channel.program_present?.duration ?? 0,
                 caption_text: caption_text,
                 is_caption_composited: false,  // 後で上書きされる
                 is_comment_composited: false,  // 後で上書きされる

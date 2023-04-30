@@ -36,8 +36,8 @@ export interface IChannel {
     is_radiochannel: boolean;
     is_display: boolean;
     viewers: number;
-    program_present: IProgram;
-    program_following: IProgram;
+    program_present: IProgram | null;
+    program_following: IProgram | null;
 }
 
 /** チャンネル情報を表すインターフェイスのデフォルト値 */

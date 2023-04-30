@@ -703,8 +703,7 @@ export default Vue.extend({
 
                 // メディア通知の表示をカスタマイズ
                 navigator.mediaSession.metadata = new MediaMetadata({
-                    title: this.channelsStore.channel.current.program_present ?
-                        this.channelsStore.channel.current.program_present.title : '放送休止',
+                    title: this.channelsStore.channel.current.program_present?.title ?? '放送休止',
                     artist: this.channelsStore.channel.current.channel_name,
                     artwork: artwork,
                 });
@@ -728,8 +727,7 @@ export default Vue.extend({
                 navigator.mediaSession.setActionHandler('pause', () => this.player?.pause());  // 停止
                 navigator.mediaSession.setActionHandler('previoustrack', async () => {  // 前のチャンネルに切り替え
                     navigator.mediaSession.metadata = new MediaMetadata({
-                        title: this.channelsStore.channel.previous.program_present ?
-                            this.channelsStore.channel.previous.program_present.title : '放送休止',
+                        title: this.channelsStore.channel.previous.program_present?.title ?? '放送休止',
                         artist: this.channelsStore.channel.previous.channel_name,
                         artwork: artwork,
                     });
@@ -738,8 +736,7 @@ export default Vue.extend({
                 });
                 navigator.mediaSession.setActionHandler('nexttrack', async () => {  // 次のチャンネルに切り替え
                     navigator.mediaSession.metadata = new MediaMetadata({
-                        title: this.channelsStore.channel.next.program_present ?
-                            this.channelsStore.channel.next.program_present.title : '放送休止',
+                        title: this.channelsStore.channel.next.program_present?.title ?? '放送休止',
                         artist: this.channelsStore.channel.next.channel_name,
                         artwork: artwork,
                     });
