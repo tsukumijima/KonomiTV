@@ -351,8 +351,8 @@ export default Vue.extend({
                         icon: 'fluent:home-20-filled',
                         icon_height: '22px',
                         shortcuts: [
-                            { name: '数字キー・テンキーに対応するリモコン番号 (1~12) の地デジチャンネルに切り替える', keys: [{name: '1~9, 0, -(=), ^(~)', icon: false}] },
-                            { name: '数字キー・テンキーに対応するリモコン番号 (1~12) の BS チャンネルに切り替える', keys: [{name: 'Shift', icon: false}, {name: '1~9, 0, -(=), ^(~)', icon: false}] },
+                            { name: '数字キー/テンキーに対応するリモコン番号 (1~12) の地デジチャンネルに切り替える', keys: [{name: '1~9, 0, -(=), ^(~)', icon: false}] },
+                            { name: '数字キー/テンキーに対応するリモコン番号 (1~12) の BS チャンネルに切り替える', keys: [{name: 'Shift', icon: false}, {name: '1~9, 0, -(=), ^(~)', icon: false}] },
                             { name: '前のチャンネルに切り替える', keys: [{name: 'fluent:arrow-up-12-filled', icon: true}] },
                             { name: '次のチャンネルに切り替える', keys: [{name: 'fluent:arrow-down-12-filled', icon: true}] },
                             { name: 'キーボードショートカットの一覧を表示する', keys: [{name: '／(？)', icon: false}] },
@@ -1766,12 +1766,13 @@ export default Vue.extend({
                     // 文字入力中にショートカットキーが作動してしまわないように
                     if (tag !== 'INPUT' && tag !== 'TEXTAREA' && editable !== '' && editable !== 'true') {
 
-                        // キーリピートでない時・Ctrl / Cmd / Alt キーが一緒に押された時に作動しないように
-                        if (is_repeat === false && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                        // キーリピートでない時・Alt キーが一緒に押された時に作動しないように
+                        if (is_repeat === false && !event.altKey &&
+                            (this.settingsStore.settings.tv_channel_selection_requires_ctrl_key === false || (event.ctrlKey || event.metaKey))) {
 
                             // ***** 数字キーでチャンネルを切り替える *****
 
-                            // Ctrl / Cmd キーが同時押しされていたら BS チャンネルの方を選局する
+                            // Shift キーが同時押しされていたら BS チャンネルの方を選局する
                             const switch_channel_type = (event.shiftKey) ? 'BS' : 'GR';
 
                             // 1～9キー
@@ -2045,8 +2046,8 @@ export default Vue.extend({
                             }
                         }
 
-                        // プレイヤーが初期化されていない時・キーリピートでない時・Ctrl / Cmd / Shift / Alt キーが一緒に押された時に作動しないように
-                        if (this.player !== null && is_repeat === false && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
+                        // プレイヤーが初期化されていない時・キーリピートでない時・Ctrl / Cmd / Alt キーが一緒に押された時に作動しないように
+                        if (this.player !== null && is_repeat === false && !event.ctrlKey && !event.metaKey && !event.altKey) {
 
                             // Spaceキー: 再生/停止
                             if (event.code === 'Space') {

@@ -16,6 +16,7 @@ interface ILocalClientSettings {
     tv_low_latency_mode: boolean;
     panel_display_state: 'RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold';
     tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
+    tv_channel_selection_requires_ctrl_key: boolean;
     caption_font: string;
     always_border_caption_text: boolean;
     specify_caption_background_color: boolean;
@@ -57,6 +58,7 @@ const sync_settings_keys = [
     // tv_low_latency_mode: 同期無効
     'panel_display_state',
     'tv_panel_active_tab',
+    'tv_channel_selection_requires_ctrl_key',
     'caption_font',
     'always_border_caption_text',
     'specify_caption_background_color',
@@ -111,6 +113,8 @@ const default_settings: ILocalClientSettings = {
     panel_display_state: 'RestorePreviousState',
     // テレビをみるときにデフォルトで表示されるパネルのタブ (Default: 番組情報タブ)
     tv_panel_active_tab: 'Program',
+    // チャンネル選局のキーボードショートカットを Ctrl or Cmd + 数字キー/テンキーに変更する (Default: オフ)
+    tv_channel_selection_requires_ctrl_key: false,
 
     // ***** 設定 → 字幕 *****
 
