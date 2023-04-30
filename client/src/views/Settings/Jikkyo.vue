@@ -441,7 +441,7 @@ export default Vue.extend({
         letter-spacing: 0;
         @include tablet-horizontal {
             height: 50px !important;
-            margin-top: 8px;
+            margin-top: 12px;
             margin-right: auto;
         }
         @include tablet-vertical {

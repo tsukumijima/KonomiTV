@@ -576,6 +576,7 @@ export default Vue.extend({
         }
         @include smartphone-vertical {
             height: 42px !important;
+            margin-top: 16px;
             margin-right: auto;
             font-size: 14.5px;
         }
