@@ -26,11 +26,11 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GIT_PUSH_TOKEN }}
 
-      # Node.js 16 環境をセットアップ
-      - name: Setup Node.js 16
+      # Node.js 18 環境をセットアップ
+      - name: Setup Node.js 18
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: '18'
           cache: 'yarn'
           cache-dependency-path: '${{ github.workspace }}/client/yarn.lock'
 
@@ -51,7 +51,7 @@ jobs:
           # クライアントをビルド
           # GitHub Actions 環境ではなぜか --ignore-scripts をつけないと patch-package の実行エラーでそのままエラー終了してしまう
           cd client/
-          yarn install --ignore-scripts
+          yarn install --frozen-lockfile --ignore-scripts
           yarn build
           cd ../
 
