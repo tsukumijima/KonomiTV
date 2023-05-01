@@ -97,14 +97,16 @@ class Program(models.Model):
 
         # 番組情報をシングルプロセスで更新する
         else:
+            try:
+                # Mirakurun バックエンド
+                if CONFIG['general']['backend'] == 'Mirakurun':
+                    await cls.updateFromMirakurun()
 
-            # Mirakurun バックエンド
-            if CONFIG['general']['backend'] == 'Mirakurun':
-                await cls.updateFromMirakurun()
-
-            # EDCB バックエンド
-            elif CONFIG['general']['backend'] == 'EDCB':
-                await cls.updateFromEDCB()
+                # EDCB バックエンド
+                elif CONFIG['general']['backend'] == 'EDCB':
+                    await cls.updateFromEDCB()
+            except:
+                traceback.print_exc()
 
         Logging.info(f'Programs update complete. ({round(time.time() - timestamp, 3)} sec)')
 
@@ -187,30 +189,30 @@ class Program(models.Model):
 
         try:
 
-            # Mirakurun の URL の末尾のスラッシュを削除
-            ## 多重のスラッシュは Mirakurun だと 404 になってしまう
-            ## マルチプロセス時は起動後に動的に調整される Mirakurun の URL が元に戻ってしまうため、再度実行する
-            if is_running_multiprocess:
-                CONFIG['general']['mirakurun_url'] = CONFIG['general']['mirakurun_url'].rstrip('/')
-
-            # Mirakurun の API から番組情報を取得する
-            try:
-                mirakurun_programs_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/programs'
-                mirakurun_programs_api_response = await asyncio.to_thread(requests.get,
-                    url = mirakurun_programs_api_url,
-                    headers = API_REQUEST_HEADERS,
-                    timeout = 10,  # 10秒後にタイムアウト (SPHD や CATV も映る環境だと時間がかかるので、少し伸ばす)
-                )
-                if mirakurun_programs_api_response.status_code != 200:  # Mirakurun からエラーが返ってきた
-                    Logging.error(f'Failed to get programs from Mirakurun. (HTTP Error {mirakurun_programs_api_response.status_code})')
-                    return
-                programs: list[dict[str, Any]] = mirakurun_programs_api_response.json()
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-                Logging.error(f'Failed to get programs from Mirakurun. (Connection Timeout)')
-                return
-
-            # このトランザクションは単にパフォーマンス向上のため
+            # このトランザクションはパフォーマンス向上と、取得失敗時のロールバックのためのもの
             async with transactions.in_transaction():
+
+                # Mirakurun の URL の末尾のスラッシュを削除
+                ## 多重のスラッシュは Mirakurun だと 404 になってしまう
+                ## マルチプロセス時は起動後に動的に調整される Mirakurun の URL が元に戻ってしまうため、再度実行する
+                if is_running_multiprocess:
+                    CONFIG['general']['mirakurun_url'] = CONFIG['general']['mirakurun_url'].rstrip('/')
+
+                # Mirakurun の API から番組情報を取得する
+                try:
+                    mirakurun_programs_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/programs'
+                    mirakurun_programs_api_response = await asyncio.to_thread(requests.get,
+                        url = mirakurun_programs_api_url,
+                        headers = API_REQUEST_HEADERS,
+                        timeout = 10,  # 10秒後にタイムアウト (SPHD や CATV も映る環境だと時間がかかるので、少し伸ばす)
+                    )
+                    if mirakurun_programs_api_response.status_code != 200:  # Mirakurun からエラーが返ってきた
+                        Logging.error(f'Failed to get programs from Mirakurun. (HTTP Error {mirakurun_programs_api_response.status_code})')
+                        raise Exception(f'Failed to get programs from Mirakurun. (HTTP Error {mirakurun_programs_api_response.status_code})')
+                    programs: list[dict[str, Any]] = mirakurun_programs_api_response.json()
+                except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as ex:
+                    Logging.error(f'Failed to get programs from Mirakurun. (Connection Timeout)')
+                    raise ex
 
                 # この変数から更新or更新不要な番組情報を削除していき、残った古い番組情報を最後にまとめて削除する
                 duplicate_programs = {temp.id:temp for temp in await Program.all()}
@@ -477,18 +479,18 @@ class Program(models.Model):
 
         try:
 
-            # CtrlCmdUtil を初期化
-            edcb = CtrlCmdUtil()
-            edcb.setConnectTimeOutSec(10)  # 10秒後にタイムアウト (SPHD や CATV も映る環境だと時間がかかるので、少し伸ばす)
-
-            # 開始時間未定をのぞく全番組を取得する (リスト引数の前2要素は全番組、残り2要素は全期間を意味)
-            program_services: list[dict[str, Any]] | None = await edcb.sendEnumPgInfoEx([0xffffffffffff, 0xffffffffffff, 1, 0x7fffffffffffffff])
-            if program_services is None:
-                Logging.error(f'Failed to get programs from EDCB.')
-                return
-
-            # このトランザクションは単にパフォーマンス向上のため
+            # このトランザクションはパフォーマンス向上と、取得失敗時のロールバックのためのもの
             async with transactions.in_transaction():
+
+                # CtrlCmdUtil を初期化
+                edcb = CtrlCmdUtil()
+                edcb.setConnectTimeOutSec(10)  # 10秒後にタイムアウト (SPHD や CATV も映る環境だと時間がかかるので、少し伸ばす)
+
+                # 開始時間未定をのぞく全番組を取得する (リスト引数の前2要素は全番組、残り2要素は全期間を意味)
+                program_services: list[dict[str, Any]] | None = await edcb.sendEnumPgInfoEx([0xffffffffffff, 0xffffffffffff, 1, 0x7fffffffffffffff])
+                if program_services is None:
+                    Logging.error('Failed to get programs from EDCB.')
+                    raise Exception('Failed to get programs from EDCB.')
 
                 # この変数から更新or更新不要な番組情報を削除していき、残った古い番組情報を最後にまとめて削除する
                 duplicate_programs = {temp.id:temp for temp in await Program.all()}

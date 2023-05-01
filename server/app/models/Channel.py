@@ -2,6 +2,7 @@
 import asyncio
 import requests
 import time
+import traceback
 from tortoise import fields
 from tortoise import models
 from tortoise import timezone
@@ -50,13 +51,16 @@ class Channel(models.Model):
         timestamp = time.time()
         Logging.info('Channels updating...')
 
-        # Mirakurun バックエンド
-        if CONFIG['general']['backend'] == 'Mirakurun':
-            await cls.updateFromMirakurun()
+        try:
+            # Mirakurun バックエンド
+            if CONFIG['general']['backend'] == 'Mirakurun':
+                await cls.updateFromMirakurun()
 
-        # EDCB バックエンド
-        elif CONFIG['general']['backend'] == 'EDCB':
-            await cls.updateFromEDCB()
+            # EDCB バックエンド
+            elif CONFIG['general']['backend'] == 'EDCB':
+                await cls.updateFromEDCB()
+        except:
+            traceback.print_exc()
 
         Logging.info(f'Channels update complete. ({round(time.time() - timestamp, 3)} sec)')
 
@@ -82,11 +86,11 @@ class Channel(models.Model):
                 )
                 if mirakurun_services_api_response.status_code != 200:  # Mirakurun からエラーが返ってきた
                     Logging.error(f'Failed to get channels from Mirakurun. (HTTP Error {mirakurun_services_api_response.status_code})')
-                    return
+                    raise Exception(f'Failed to get channels from Mirakurun. (HTTP Error {mirakurun_services_api_response.status_code})')
                 services = mirakurun_services_api_response.json()
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as ex:
                 Logging.error(f'Failed to get channels from Mirakurun. (Connection Timeout)')
-                return
+                raise ex
 
             # 同じネットワーク ID のサービスのカウント
             same_network_id_counts: dict[int, int] = {}
@@ -273,8 +277,8 @@ class Channel(models.Model):
                 # 枝番処理がミスらないようソートしておく
                 services.sort(key = lambda temp: temp['onid'] * 100000 + temp['sid'])
             else:
-                Logging.error(f'Failed to get channels from EDCB.')
-                return
+                Logging.error('Failed to get channels from EDCB.')
+                raise Exception('Failed to get channels from EDCB.')
 
             # EDCB から EPG 由来のチャンネル情報を取得する
             ## sendEnumService() の情報源は番組表で、期限切れなどで番組情報が1つもないサービスについては取得できない
