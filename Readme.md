@@ -199,8 +199,10 @@ px4_drv では、公式ドライバーとの比較で、チューナーの起動
 **EpgDataCap_Bon を開き、[設定] → [ネットワーク設定] → [TCP送信] から、[SrvPipe] を選択して [追加] ボタンをクリックしてください。**
 送信先一覧に `0.0.0.1:0-29 (SrvPipe)` と表示されていれば OK です。
 
->SrvPipe とは、EpgDataCap_Bon で受信した放送波を EpgTimerSrv (EpgTimer Service) に渡すための、EDCB 固有の特殊な名前付きパイプのことです。  
+> SrvPipe とは、EpgDataCap_Bon で受信した放送波を EpgTimerSrv (EpgTimer Service) に渡すための、EDCB 固有の特殊な名前付きパイプのことです。  
 > KonomiTV は SrvPipe を経由して EDCB から放送波を受信しているため、この設定を忘れると、テレビのライブストリーミングができません。
+
+> 必須ではありませんが、この機会に [設定] → [動作設定] → [全サービスを処理対象とする] のチェックを外しておくことを推奨します。
 
 このほか、**リモート PC の KonomiTV から EDCB にアクセスする場合は、EpgTimerSrv.exe にファイアウォールが掛かっていると接続に失敗します。**  
 適宜ファイアウォールの設定を変更し、EDCB に接続できるようにしておいてください。
