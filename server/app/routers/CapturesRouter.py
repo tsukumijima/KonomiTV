@@ -1,5 +1,7 @@
 
 import asyncio
+import errno
+import os
 import puremagic
 import shutil
 from fastapi import APIRouter
@@ -58,7 +60,7 @@ async def CaptureUploadAPI(
         Logging.error('[CapturesRouter][CaptureUploadAPI] Invalid filename was specified.')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Specified filename is invalid.',
+            detail = 'Specified filename is invalid',
         )
 
     # 保存するファイルパス
@@ -72,5 +74,30 @@ async def CaptureUploadAPI(
         count += 1
 
     # キャプチャを保存
-    with open(filepath, 'wb') as buffer:
-        await asyncio.to_thread(shutil.copyfileobj, image.file, buffer)
+    try:
+        with open(filepath, 'wb') as buffer:
+            await asyncio.to_thread(shutil.copyfileobj, image.file, buffer)
+    except PermissionError:
+        Logging.error('[CapturesRouter][CaptureUploadAPI] Permission denied to save the file.')
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Permission denied to save the file',
+        )
+    except OSError as ex:
+        is_disk_full_error = False
+        if hasattr(ex, 'winerror'):
+            is_disk_full_error = ex.winerror == 112  # type: ignore
+        if hasattr(ex, 'errno'):
+            is_disk_full_error = ex.errno == errno.ENOSPC
+        if is_disk_full_error is True:
+            Logging.error('[CapturesRouter][CaptureUploadAPI] No space left on the device.')
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'No space left on the device',
+            )
+        else:
+            Logging.error(f'[CapturesRouter][CaptureUploadAPI] Unexpected OSError: {ex}')
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'Unexpected error occurred while saving the file',
+            )
