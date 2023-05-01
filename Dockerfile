@@ -25,14 +25,14 @@ RUN tar xvf thirdparty-linux.tar.xz
 # クライアントのビルド成果物 (dist) は Git に含まれているが、万が一ビルドし忘れたりや開発ブランチでの利便性を考慮してビルドしておく
 # --------------------------------------------------------------------------------------------------------------
 
-FROM node:16 AS client-builder
+FROM node:18 AS client-builder
 
 # 依存パッケージリスト (package.json/yarn.lock) だけをコピー
 WORKDIR /code/client/
 COPY ./client/package.json ./client/yarn.lock /code/client/
 
 # 依存パッケージを yarn でインストール
-RUN yarn install
+RUN yarn install --frozen-lockfile --ignore-scripts
 
 # クライアントのソースコードをコピー
 COPY ./client/ /code/client/
