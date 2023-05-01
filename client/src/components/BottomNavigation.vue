@@ -23,6 +23,9 @@
     z-index: 8;
     @include smartphone-vertical {
         display: flex;
+        // iPhone X 以降の Home Indicator の高さ分
+        padding-bottom: env(safe-area-inset-bottom);
+        box-sizing: content-box;
     }
     .v-btn.bottom-navigation-button {
         color: var(--v-text-darken1) !important;

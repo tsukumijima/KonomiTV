@@ -109,7 +109,7 @@ body header + main {
     // ボトムナビゲーションバーの高さ分
     @include smartphone-vertical {
         padding-top: 0px !important;
-        padding-bottom: 56px !important;
+        padding-bottom: calc(env(safe-area-inset-bottom) + 56px) !important;
     }
 }
 
