@@ -20,7 +20,7 @@
 - [事前準備](#事前準備)
   - [チューナーのドライバーを px4\_drv に変更する](#チューナーのドライバーを-px4_drv-に変更する)
   - [EDCB の事前設定](#edcb-の事前設定)
-  - [QSVEncC・NVEncC・VCEEncC に対応した GPU ドライバーのインストール](#qsvenccnvenccvceencc-に対応した-gpu-ドライバーのインストール)
+  - [QSVEncC・NVEncC・VCEEncC・rkmppenc に対応した GPU ドライバーのインストール](#qsvenccnvenccvceenccrkmppenc-に対応した-gpu-ドライバーのインストール)
     - [Windows](#windows)
     - [Linux](#linux)
   - [Tailscale の導入](#tailscale-の導入)
@@ -42,6 +42,7 @@
   - [Web UI にアクセスすると 502 Bad Gateway エラーが表示される](#web-ui-にアクセスすると-502-bad-gateway-エラーが表示される)
   - [Web UI にアクセスすると「Client sent an HTTP request to an HTTPS server.」と表示される](#web-ui-にアクセスするとclient-sent-an-http-request-to-an-https-serverと表示される)
   - [Web UI にアクセスすると「このサイトは安全に接続できません」「～から無効な応答が送信されました。」(ERR\_SSL\_PROTOCOL\_ERROR) と表示される](#web-ui-にアクセスするとこのサイトは安全に接続できませんから無効な応答が送信されましたerr_ssl_protocol_error-と表示される)
+  - [Web UI にアクセスすると、DNS エラーが表示される](#web-ui-にアクセスするとdns-エラーが表示される)
   - [ライブストリーミングの視聴が安定しない・途切れ途切れになる](#ライブストリーミングの視聴が安定しない途切れ途切れになる)
     - [全般](#全般)
     - [KonomiTV サーバーのある自宅の Wi-Fi につないで視聴しているとき](#konomitv-サーバーのある自宅の-wi-fi-につないで視聴しているとき)
@@ -88,9 +89,10 @@
     - RedHat 系 OS・Arch Linux でも動作するかもしれませんが、開発/検証リソースが大幅に不足しているため、サポートは行いません。
       - できるだけ Ubuntu の利用を推奨しますが、もし Ubuntu 以外の OS にインストールする際は、Docker でのインストールを推奨します。
       - ビルド済みのサードパーティーライブラリは glibc 2.31 以上に依存しています。Docker を使わずにインストールする場合、[glibc 2.30 以下を採用する OS](https://repology.org/project/glibc/versions) では動作しません。
-    - ARM 向けのサードパーティーライブラリの実行ファイルを用意できていないため、今のところラズパイなどの ARM の Linux PC では動作しません。
-      - KonomiTV はその性質上ハードウェアエンコーダーに強く依存していますが、ARM SoC のハードウェアエンコーダーは SoC メーカーごとにまちまちで、サポート状況もかなり厳しいと言わざるを得ません…。
-      - 0.7.0-dev 以降では、Rockchip RK3568 / RK3588 SoC のハードウェアエンコーダーに対応しています。ラズパイ4はハードウェアエンコーダーが非力なのと入手性が微妙なため、当面サポート予定はありません。
+    - ARM 向けには、Rockchip RK3568 / RK3588 SoC のハードウェアエンコーダーに対応しています。
+      - arm64 のみに対応しています。armhf などの 32bit ARM には対応していません。
+      - ラズパイ4はハードウェアエンコーダーが非力なのと入手性が微妙なため、当面サポート予定はありません。
+      - ARM 向けのインストーラーも用意していますが、テスト不足のため、動作する保証はありません。
 - **EDCB または Mirakurun**
   - KonomiTV のバックエンドには、EDCB または Mirakurun のいずれかを選択できます。
   - **EDCB は、220122 以降のバージョンの [xtne6f 版 EDCB](https://github.com/xtne6f/EDCB) / [tkntrec 版 EDCB](https://github.com/tkntrec/EDCB) にのみ対応しています。**
@@ -107,12 +109,14 @@
   - Firefox でも動作するはずですが、コメント描画が重く、コメント表示をオンにするとライブストリーミングが時折止まることが確認されています。動作確認もあまりできていないため、Chrome か Edge を使うことをおすすめします。
   - Mac の Safari はサポートしていません。Mac でも Chrome か Edge を使ってください。
 - **Android: Google Chrome**
-  - 現時点では横画面表示のみの対応です。縦画面表示ではレイアウトが崩れます。
   - Android の Firefox はサポートしていません。
-- **iPadOS: Safari（暫定対応）**
-  - 現時点では横画面表示のみの対応です。縦画面表示ではレイアウトが崩れます。
-  - あまり動作確認を行っていないため、修正できていない不具合があるかもしれません。
-  - 技術的な問題により、iOS Safari への対応は当面の間行いません（後述）。
+- **iPhone (iOS) / iPad (iPadOS): Safari**
+  - 技術的な制約により、iOS Safari ではほかのブラウザと異なるストリーミング方式 (LL-HLS) を利用しています。現状の制約は下記の通りです。
+    - 放送大学ラジオなどのラジオチャンネルが聴取できません。
+    - 低遅延モードのオン/オフは効果がなく、常に低遅延でストリーミングされます。
+    - あまりテストされていないため、潜在的なバグがある可能性があります。
+  - Safari は全体的にバグが多く開発が大変なため、全体的にあまり動作確認を行っていません。修正できていない不具合があるかもしれません。
+  - PWA でも動作しますが、Safari 側のバグで PWA では残念ながら Picture-in-Picture ボタンが動作しません。
 
 ## 備考・注意事項
 
@@ -122,16 +126,12 @@
   - 確かに TVRemotePlus の開発で得られた知見を数多く活用していますし開発者も同じではありますが、ユーザービリティや操作感は大きく異なるはずです。
   - TVRemotePlus の技術スタックでは解決不可能なボトルネックを根本的に解消した上で、「同じものを作り直す」のではなく、ゼロから新しいテレビ視聴・録画視聴のユーザー体験を作り上げ、追求したいという想いから開発しています。
   - どちらかというと録画視聴機能の方がメインの予定でいますが、前述のとおり、現時点ではテレビのライブ視聴機能のみの実装です。構想は壮大ですが、全て実装し終えるには数年単位で時間がかかるでしょう。
-- **今のところ、スマートフォン・タブレットでは横画面表示のみ対応しています。将来的には縦画面でも崩れずに表示できるようにする予定です。**
-  - **スマートフォンでは、最低限 iPhone SE2 (4.7インチ) 以上の画面サイズが必要です。**
-    - 快適に利用するには、画面サイズが 6.1 インチ以上の端末をおすすめします。
-    - iPhone 5s (4インチ) サイズには対応しておらず、画面が大幅に崩れます。
-  - **Fire タブレット (Fire HD 10 (2021) / Fire HD 8 (2022)) でも動作します。**
-    - Fire HD 10 (2021) では Google Play を導入した上で、Google Play 経由で Chrome をインストールしてください。
-    - Fire HD 8 (2022) では現状 Google Play が導入できないため、適宜 Chrome の APK を入手してインストールしてください。Chrome は、(Google アカウントとの同期機能以外は) GMS がインストールされていなくても動作します。
-  - **iPhone の Safari はライブストリーミングに必要な Media Source Extensions API がサポートされていないため、現時点では動作しません。**
-    - 今後 iPhone の Safari に対応した再生モードを実装する予定ですが、かなり実装が大変なこと、私が iPhone を常用していないこともあり、実装時期は未定です。
-    - Safari 側のバグが原因で、iPad でホーム画面に追加したアイコンから単独アプリのように起動した場合も (PWA)、iPhone の Safari 同様に動作しません。
+- **スマートフォンでは、最低限 iPhone SE2 (4.7インチ) 以上の画面サイズが必要です。**
+  - 快適に利用するには、画面サイズが 6.1 インチ以上の端末をおすすめします。
+  - iPhone 5s (4インチ) サイズには対応しておらず、画面が大幅に崩れます。
+- **Fire タブレット (Fire HD 10 (2021) / Fire HD 8 (2022)) でも動作します。**
+  - Fire HD 10 (2021) では Google Play を導入した上で、Google Play 経由で Chrome をインストールしてください。
+  - Fire HD 8 (2022) では現状 Google Play が導入できないため、適宜 Chrome の APK を入手してインストールしてください。Chrome は、(Google アカウントとの同期機能以外は) GMS がインストールされていなくても動作します。
 - **今後、開発の過程で設定や構成が互換性なく大幅に変更される可能性があります。**
 - **ユーザービリティなどのフィードバック・不具合報告・Pull Requests (PR) などは歓迎します。**
   - 技術スタックはサーバー側が Python 3.10 + [FastAPI](https://github.com/tiangolo/fastapi) + [Tortoise ORM](https://github.com/tortoise/tortoise-orm) + [Uvicorn](https://github.com/encode/uvicorn) 、クライアント側が Vue.js 2.x + [Vuetify](https://github.com/vuetifyjs/vuetify) 2.x の SPA です。
@@ -205,9 +205,9 @@ px4_drv では、公式ドライバーとの比較で、チューナーの起動
 このほか、**リモート PC の KonomiTV から EDCB にアクセスする場合は、EpgTimerSrv.exe にファイアウォールが掛かっていると接続に失敗します。**  
 適宜ファイアウォールの設定を変更し、EDCB に接続できるようにしておいてください。
 
-### QSVEncC・NVEncC・VCEEncC に対応した GPU ドライバーのインストール
+### QSVEncC・NVEncC・VCEEncC・rkmppenc に対応した GPU ドライバーのインストール
 
-KonomiTV は、[QSVEncC](https://github.com/rigaya/QSVEnc) (Intel QSV)・[NVEncC](https://github.com/rigaya/NVEnc) (NVIDIA NVENC)・[VCEEncC](https://github.com/rigaya/VCEEnc)・(AMD VCE) の3つのハードウェアエンコーダーに標準で対応しています。
+KonomiTV は、[QSVEncC](https://github.com/rigaya/QSVEnc) (Intel QSV)・[NVEncC](https://github.com/rigaya/NVEnc) (NVIDIA NVENC)・[VCEEncC](https://github.com/rigaya/VCEEnc) (AMD VCE)・[rkmppenc](https://github.com/rigaya/rkmppenc) (Rockchip ARM SoC) の3つのハードウェアエンコーダーに標準で対応しています。
 
 > FFmpeg (ソフトウェアエンコーダー) は遅い上に CPU 負荷がかなり高くなるため、ハードウェアエンコーダーの利用を強くおすすめします。
 
@@ -274,7 +274,24 @@ sudo apt update && sudo amdgpu-install -y --accept-eula --usecase=graphics,amf,o
 sudo reboot
 ```
 
+
 以上のコマンドを実行して、AMDGPU-PRO Driver をインストールしてください (Ubuntu 20.04 LTS 以降向け) 。
+
+-----
+
+rkmppenc のサポートは試験的なものです。また、Rockchip 製 ARM SoC (RK3588 など) でのみ利用できます。
+
+```bash
+# rockchip-multimedia-config パッケージのインストール
+wget https://github.com/tsukumijima/rockchip-multimedia-config/releases/download/v1.0.2-1/rockchip-multimedia-config_1.0.2-1_all.deb
+sudo apt install -y ./rockchip-multimedia-config_1.0.2-1_all.deb
+rm rockchip-multimedia-config_1.0.2-1_all.deb
+
+# 念のため再起動
+sudo reboot
+```
+
+以上のコマンドを実行して、Rockchip のハードウェアエンコーダーを有効化するための設定パッケージをインストールしてください (Ubuntu 20.04 LTS / Debian 11 Bullseye 以降向け) 。
 
 ### Tailscale の導入
 
@@ -344,10 +361,12 @@ Assets の下にある `KonomiTV-Installer.exe` をダウンロードしてく�
 **Docker を使ったインストール方法では、事前に [Docker](https://docs.docker.com/engine/install/) と [Docker Compose](https://docs.docker.com/compose/install/) のインストールが必要です。**  
 Docker Compose は V1 と V2 の両方に対応していますが、できれば V2 (ハイフンなしの `docker compose` コマンド) が使えるようにしておくことをおすすめします。
 
+> **ARM デバイスでは、対応コストの観点から Docker を使ったインストール方法はサポートされていません。**
+
 > **Docker Compose V1 は最終版の 1.29.2 でのみ動作を確認しています。古いバージョンでは正常に動作しない可能性が高いです。**  
 > もし Docker Compose V1 が 1.29.2 よりも古い場合は、この機会に V2 への更新をおすすめします。以前よりもグラフィカルに進捗が表示されたりなどのメリットもあります。
 
-> [QSVEncC・NVEncC・VCEEncC に対応した GPU ドライバーのインストール] に記載のとおり、**NVIDIA GPU が搭載されている PC に Docker を使ってインストールする場合は、必ず事前に NVIDIA Container Toolkit をインストールしておいてください。**  
+> [QSVEncC・NVEncC・VCEEncC・rkmppenc に対応した GPU ドライバーのインストール] に記載のとおり、**NVIDIA GPU が搭載されている PC に Docker を使ってインストールする場合は、必ず事前に NVIDIA Container Toolkit をインストールしておいてください。**  
 > NVIDIA Container Toolkit がインストールされていない場合、KonomiTV のインストールにも失敗する可能性が高いです。
 
 > Docker を使ってインストールする場合、動作環境によっては `getaddrinfo EAI_AGAIN registry.yarnpkg.com` といったエラーで Docker イメージのビルドに失敗することがあります。  
@@ -364,6 +383,8 @@ chmod a+x KonomiTV-Installer.elf
 
 以上のコマンドを実行して `KonomiTV-Installer.elf` を実行し、インストーラーの通りに進めてください。  
 インストールには root 権限が必要です。`KonomiTV-Installer.elf` の実行時に自動的にパスワードを求められます。
+
+> ARM デバイスでは、`KonomiTV-Installer.elf` の代わりに `KonomiTV-Installer.elf` をダウンロードし、実行してください。
 
 ### KonomiTV にアクセスする
 
@@ -389,10 +410,18 @@ KonomiTV サーバーは Windows サービス (Windows) / PM2 サービス (Linu
 ブラウザバーが表示されない分、より映像に没頭できますし、画面も広く使えます。私も KonomiTV をデスクトップアプリとして使っています。  
 タスクバーや Dock に登録しておけば、起動するのも簡単です。ぜひお試しください。
 
+> デスクトップアプリとしてインストールしない場合は、[サイトの設定] から自動再生を [許可する] にしておくと、テレビをスムーズに視聴できます。
+
 <img width="100%" src="https://user-images.githubusercontent.com/39271166/201473798-97aa818a-0474-46bc-b56a-0c49f281e92a.jpg"><br>
 
-**Android 版 Chrome では、下に表示される [ホーム画面に追加] またはメニューの [アプリをインストール] から、KonomiTV をブラウザバーのないスマホアプリとしてインストールできます！**  
+**Android 版 Chrome では、下に表示される [ホーム画面に追加] またはメニューの [アプリをインストール] から、KonomiTV をブラウザバーのないスマホアプリとしてインストールできます！**
+
+**iPhone / iPad Safari では、共有メニュー → [ホーム画面に追加] から、KonomiTV をブラウザバーのないスマホアプリとしてインストールできます！**
+
 特にスマホは画面が小さいので、アプリとしてインストールした方が画面が広くなって使いやすいです。私も KonomiTV をスマホアプリとして使っています。こちらもぜひお試しください。
+
+> 現状、iPhone / iPad Safari をスマホアプリとしてインストールした場合、Safari のバグの影響で Picture-in-Picture ボタンが利用できなくなります。  
+> とはいえ、Picture-in-Picture を使わないのであれば、アプリとしてインストールした方が圧倒的に快適です。
 
 > [PWA (Progressive Web Apps)](https://developer.mozilla.org/ja/docs/Web/Progressive_web_apps) という、Web アプリを通常のネイティブアプリのように使えるようにする技術を利用しています。将来的には、PWA だけでなく、より快適に利用できるようにした iOS 向けアプリと Android 向けアプリ (いわゆるガワアプリ) をリリースする予定です。
 
@@ -482,15 +511,15 @@ Mirakurun をバックエンドとして利用する場合は、Mirakurun の HT
 
 #### エンコーダーの設定
 
-エンコーダーには、ソフトウェアエンコーダーの FFmpeg のほか、ハードウェアエンコーダーの QSVEncC・NVEncC・VCEEncC を選択できます。  
-`general.encoder` に `FFmpeg` / `QSVEncC` / `NVEncC` / `VCEEncC` のいずれかを指定してください。
+エンコーダーには、ソフトウェアエンコーダーの FFmpeg のほか、ハードウェアエンコーダーの QSVEncC・NVEncC・VCEEncC・rkmppenc を選択できます。  
+`general.encoder` に `FFmpeg` / `QSVEncC` / `NVEncC` / `VCEEncC` / `rkmppenc` のいずれかを指定してください。
 
 **ハードウェアエンコーダーを選択すると、エンコードに GPU アクセラレーションを利用するため、CPU 使用率を大幅に下げる事ができます。**  
 エンコード速度も高速になるため、お使いの PC で利用可能であれば、できるだけハードウェアエンコーダーを選択することを推奨します。
 
 > お使いの PC で選択したハードウェアエンコーダーが利用できない場合、ライブストリーミング時にその旨を伝えるエラーメッセージが表示されます。まずはお使いの PC でハードウェアエンコーダーが使えるかどうか、一度試してみてください（設定ファイルの変更後はサーバーの再起動が必要です）。
 
-> 前述のとおり、Linux 環境で QSVEncC・NVEncC・VCEEncC を利用する場合は、別途 GPU ドライバーのインストールが必要です。
+> 前述のとおり、Linux 環境で QSVEncC・NVEncC・VCEEncC・rkmppenc を利用する場合は、別途 GPU ドライバーのインストールが必要です。
 
 **QSVEncC は、Intel 製 CPU の内蔵 GPU に搭載されているハードウェアエンコード機能 (Intel QSV) を利用するエンコーダーです。**  
 ここ数年に発売された Intel Graphics 搭載の Intel 製 CPU であれば基本的に搭載されているため、一般的な PC の大半で利用できます。内蔵 GPU なのにもかかわらず高速で、画質も良好です。  
@@ -504,6 +533,9 @@ Mirakurun をバックエンドとして利用する場合は、Mirakurun の HT
 
 **VCEEncC は、Radeon などの AMD 製 GPU に搭載されているハードウェアエンコード機能 (AMD VCE) を利用するエンコーダーです。**  
 QSVEncC・NVEncC に比べると安定しない上に、画質や性能もあまり良くありません。もし QSVEncC・NVEncC が使えるならそちらを使うことをおすすめします。
+
+**rkmppenc は、RK3588 などの Rockchip 製 ARM SoC に搭載されているハードウェアエンコード機能 (mpp) を利用するエンコーダーです。**  
+画質は VCEEncC と同等くらいですが、ARM デバイスで利用できるハードウェアエンコーダーとしては最高レベルの性能を誇ります。
 
 #### リッスンポートの設定
 
@@ -580,7 +612,16 @@ Web UI には `https://(IPアドレス(.を-にしたもの)).local.konomi.tv:70
 URL が少し長いので、適宜ブックマークやホーム画面に追加しておくと便利です。
 
 > 上記のフォーマット以外の URL (例: `https://localhost:7000/`・`https://192.168.1.11:7000/`) では証明書や HTTPS の通信エラーが発生し、Web UI にアクセスできない仕様になっています。  
-> 当然ですが、プライベート IP アドレス単体では正式な証明書を取得できないためです。  
+> 当然ですが、プライベート IP アドレス単体では正式な証明書を取得できないためです。 
+
+### Web UI にアクセスすると、DNS エラーが表示される
+
+お使いのルーターで DNS Rebinding Protection が有効になっている可能性があります。
+
+KonomiTV を利用するには、DNS Rebinding Protection を無効にする必要があります。  
+適宜ルーターの設定を変更するか、お使いのデバイスの DNS を 1.1.1.1 や 8.8.8.8 などの公開 DNS サーバーに変更してください。
+
+> OpenWRT では、Rebind Protection のチェックボックスを外すと無効化できるようです。
 
 ### ライブストリーミングの視聴が安定しない・途切れ途切れになる
 
