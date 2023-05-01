@@ -27,7 +27,7 @@
                 :class="{'settings__item--disabled': PlayerUtils.isHEVCVideoSupported() === false}">
                 <label class="settings__item-heading" for="tv_data_saver_mode">テレビを通信節約モードで視聴する</label>
                 <label class="settings__item-label" for="tv_data_saver_mode">
-                    通信節約モードでは、H.265 / HEVC という圧縮率の高いコーデックを使い、画質はほぼそのまま、通信量を通常の 2/3 程度に抑えながら視聴できます！<br>
+                    通信節約モードでは、H.265 / HEVC という圧縮率の高いコーデックを使い、画質はほぼそのまま、通信量を通常の 1/2 程度に抑えながら視聴できます！<br>
                     通信節約モードで視聴するときは、環境設定の [利用するエンコーダー] をハードウェアエンコーダーに設定してください。FFmpeg (ソフトウェアエンコーダー) では、再生に支障が出る可能性が高いです。<br>
                     <p class="mt-1 mb-0 error--text lighten-1" v-if="PlayerUtils.isHEVCVideoSupported() === false && Utils.isFirefox() === false">
                         このデバイスでは通信節約モードがサポートされていません。
@@ -133,6 +133,28 @@ import useSettingsStore from '@/store/SettingsStore';
 import Utils, { PlayerUtils } from '@/utils';
 import SettingsBase from '@/views/Settings/Base.vue';
 
+const QUALITY_H264 = [
+    {text: '1080p (60fps) (約4.50GB/h / 平均10.0Mbps)', value: '1080p-60fps'},
+    {text: '1080p (約4.50GB/h / 平均10.0Mbps)', value: '1080p'},
+    {text: '810p (約2.62GB/h / 平均5.8Mbps)', value: '810p'},
+    {text: '720p (約2.18GB/h / 平均4.9Mbps)', value: '720p'},
+    {text: '540p (約1.52GB/h / 平均3.4Mbps)', value: '540p'},
+    {text: '480p (約1.06GB/h / 平均2.3Mbps)', value: '480p'},
+    {text: '360p (約0.60GB/h / 平均1.3Mbps)', value: '360p'},
+    {text: '240p (約0.35GB/h / 平均0.8Mbps)', value: '240p'},
+];
+
+const QUALITY_H265 = [
+    {text: '1080p (60fps) (約1.80GB/h / 平均4.0Mbps)', value: '1080p-60fps'},
+    {text: '1080p (約1.37GB/h / 平均3.0Mbps)', value: '1080p'},
+    {text: '810p (約1.05GB/h / 平均2.3Mbps)', value: '810p'},
+    {text: '720p (約0.82GB/h / 平均1.8Mbps)', value: '720p'},
+    {text: '540p (約0.53GB/h / 平均1.2Mbps)', value: '540p'},
+    {text: '480p (約0.46GB/h / 平均1.0Mbps)', value: '480p'},
+    {text: '360p (約0.30GB/h / 平均0.7Mbps)', value: '360p'},
+    {text: '240p (約0.20GB/h / 平均0.4Mbps)', value: '240p'},
+];
+
 export default Vue.extend({
     name: 'Settings-General',
     components: {
@@ -149,30 +171,21 @@ export default Vue.extend({
             is_form_dense: Utils.isSmartphoneHorizontal(),
 
             // テレビのデフォルトのストリーミング画質の選択肢
-            tv_streaming_quality: [
-                {'text': '1080p (60fps) （約3.24GB/h / 平均7.2Mbps）', 'value': '1080p-60fps'},
-                {'text': '1080p （約2.31GB/h / 平均5.1Mbps）', 'value': '1080p'},
-                {'text': '810p （約1.92GB/h / 平均4.2Mbps）', 'value': '810p'},
-                {'text': '720p （約1.33GB/h / 平均3.0Mbps）', 'value': '720p'},
-                {'text': '540p （約1.00GB/h / 平均2.2Mbps）', 'value': '540p'},
-                {'text': '480p （約0.74GB/h / 平均1.6Mbps）', 'value': '480p'},
-                {'text': '360p （約0.40GB/h / 平均0.9Mbps）', 'value': '360p'},
-                {'text': '240p （約0.23GB/h / 平均0.5Mbps）', 'value': '240p'},
-            ],
+            tv_streaming_quality: QUALITY_H264,
 
             // デフォルトのパネルの表示状態の選択肢
             panel_display_state: [
-                {'text': '前回の状態を復元する', 'value': 'RestorePreviousState'},
-                {'text': '常に表示する', 'value': 'AlwaysDisplay'},
-                {'text': '常に折りたたむ', 'value': 'AlwaysFold'},
+                {text: '前回の状態を復元する', value: 'RestorePreviousState'},
+                {text: '常に表示する', value: 'AlwaysDisplay'},
+                {text: '常に折りたたむ', value: 'AlwaysFold'},
             ],
 
             // テレビをみるときにデフォルトで表示されるパネルのタブの選択肢
             tv_panel_active_tab: [
-                {'text': '番組情報タブ', 'value': 'Program'},
-                {'text': 'チャンネルタブ', 'value': 'Channel'},
-                {'text': 'コメントタブ', 'value': 'Comment'},
-                {'text': 'Twitter タブ', 'value': 'Twitter'},
+                {text: '番組情報タブ', value: 'Program'},
+                {text: 'チャンネルタブ', value: 'Channel'},
+                {text: 'コメントタブ', value: 'Comment'},
+                {text: 'Twitter タブ', value: 'Twitter'},
             ],
 
             // 選択された設定データ (KonomiTV-Settings.json) が入る
@@ -183,6 +196,23 @@ export default Vue.extend({
         // SettingsStore に this.settingsStore でアクセスできるようにする
         // ref: https://pinia.vuejs.org/cookbook/options-api.html
         ...mapStores(useSettingsStore),
+    },
+    created() {
+        if (this.settingsStore.settings.tv_data_saver_mode === true) {
+            this.tv_streaming_quality = QUALITY_H265;
+        }
+    },
+    watch: {
+        'settingsStore.settings.tv_data_saver_mode': {
+            immediate: true,
+            handler(val: boolean) {
+                if (val === true) {
+                    this.tv_streaming_quality = QUALITY_H265;
+                } else {
+                    this.tv_streaming_quality = QUALITY_H264;
+                }
+            },
+        }
     },
     methods: {
 

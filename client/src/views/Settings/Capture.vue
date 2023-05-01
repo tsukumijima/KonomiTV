@@ -75,16 +75,16 @@ export default Vue.extend({
 
             // キャプチャの保存先の選択肢
             capture_save_mode: [
-                {'text': 'ブラウザでダウンロード', 'value': 'Browser'},
-                {'text': 'KonomiTV サーバーにアップロード', 'value': 'UploadServer'},
-                {'text': 'ブラウザでのダウンロードと、KonomiTV サーバーへのアップロードを両方行う', 'value': 'Both'},
+                {text: 'ブラウザでダウンロード', value: 'Browser'},
+                {text: 'KonomiTV サーバーにアップロード', value: 'UploadServer'},
+                {text: 'ブラウザでのダウンロードと、KonomiTV サーバーへのアップロードを両方行う', value: 'Both'},
             ],
 
             // 字幕が表示されているときのキャプチャの保存モードの選択肢
             capture_caption_mode: [
-                {'text': '映像のみのキャプチャを保存する', 'value': 'VideoOnly'},
-                {'text': '字幕を合成したキャプチャを保存する', 'value': 'CompositingCaption'},
-                {'text': '映像のみのキャプチャと、字幕を合成したキャプチャを両方保存する', 'value': 'Both'},
+                {text: '映像のみのキャプチャを保存する', value: 'VideoOnly'},
+                {text: '字幕を合成したキャプチャを保存する', value: 'CompositingCaption'},
+                {text: '映像のみのキャプチャと、字幕を合成したキャプチャを両方保存する', value: 'Both'},
             ],
         };
     },

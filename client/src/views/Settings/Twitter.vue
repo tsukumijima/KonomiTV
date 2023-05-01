@@ -169,26 +169,26 @@ export default Vue.extend({
 
             // デフォルトで表示されるパネルのタブの選択肢
             twitter_active_tab: [
-                {'text': 'ツイート検索タブ', 'value': 'Search'},
-                {'text': 'タイムラインタブ', 'value': 'Timeline'},
-                {'text': 'キャプチャタブ', 'value': 'Capture'},
+                {text: 'ツイート検索タブ', value: 'Search'},
+                {text: 'タイムラインタブ', value: 'Timeline'},
+                {text: 'キャプチャタブ', value: 'Capture'},
             ],
 
             // ツイートにつけるハッシュタグの位置の選択肢
             tweet_hashtag_position: [
-                {'text': 'ツイート本文の前に追加する', 'value': 'Prepend'},
-                {'text': 'ツイート本文の後に追加する', 'value': 'Append'},
-                {'text': 'ツイート本文の前に追加してから改行する', 'value': 'PrependWithLineBreak'},
-                {'text': 'ツイート本文の後に改行してから追加する', 'value': 'AppendWithLineBreak'},
+                {text: 'ツイート本文の前に追加する', value: 'Prepend'},
+                {text: 'ツイート本文の後に追加する', value: 'Append'},
+                {text: 'ツイート本文の前に追加してから改行する', value: 'PrependWithLineBreak'},
+                {text: 'ツイート本文の後に改行してから追加する', value: 'AppendWithLineBreak'},
             ],
 
             // ツイートするキャプチャに番組タイトルの透かしを描画する位置の選択肢
             tweet_capture_watermark_position: [
-                {'text': '透かしを描画しない', 'value': 'None'},
-                {'text': '透かしをキャプチャの左上に描画する', 'value': 'TopLeft'},
-                {'text': '透かしをキャプチャの右上に描画する', 'value': 'TopRight'},
-                {'text': '透かしをキャプチャの左下に描画する', 'value': 'BottomLeft'},
-                {'text': '透かしをキャプチャの右下に描画する', 'value': 'BottomRight'},
+                {text: '透かしを描画しない', value: 'None'},
+                {text: '透かしをキャプチャの左上に描画する', value: 'TopLeft'},
+                {text: '透かしをキャプチャの右上に描画する', value: 'TopRight'},
+                {text: '透かしをキャプチャの左下に描画する', value: 'BottomLeft'},
+                {text: '透かしをキャプチャの右下に描画する', value: 'BottomRight'},
             ],
 
             // ローディング中かどうか

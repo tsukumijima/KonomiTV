@@ -85,14 +85,14 @@ export default Vue.extend({
 
             // 字幕のフォントの選択肢
             caption_font: [
-                {'text': 'Windows TV ゴシック', 'value': 'Windows TV Gothic'},
-                {'text': 'Windows TV 丸ゴシック', 'value': 'Windows TV MaruGothic'},
-                {'text': 'Windows TV 太丸ゴシック', 'value': 'Windows TV FutoMaruGothic'},
-                {'text': 'ヒラギノTV丸ゴ', 'value': 'Hiragino TV Sans Rd S'},
-                {'text': '新丸ゴ ARIB', 'value': 'TT-ShinMGo-regular'},
-                {'text': 'Rounded M+ 1m for ARIB', 'value': 'Rounded M+ 1m for ARIB'},
-                {'text': 'Noto Sans JP', 'value': 'Noto Sans JP Caption'},
-                {'text': 'デフォルトのフォント', 'value': 'sans-serif'},
+                {text: 'Windows TV ゴシック', value: 'Windows TV Gothic'},
+                {text: 'Windows TV 丸ゴシック', value: 'Windows TV MaruGothic'},
+                {text: 'Windows TV 太丸ゴシック', value: 'Windows TV FutoMaruGothic'},
+                {text: 'ヒラギノTV丸ゴ', value: 'Hiragino TV Sans Rd S'},
+                {text: '新丸ゴ ARIB', value: 'TT-ShinMGo-regular'},
+                {text: 'Rounded M+ 1m for ARIB', value: 'Rounded M+ 1m for ARIB'},
+                {text: 'Noto Sans JP', value: 'Noto Sans JP Caption'},
+                {text: 'デフォルトのフォント', value: 'sans-serif'},
             ],
         };
     },
