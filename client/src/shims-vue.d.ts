@@ -1,6 +1,7 @@
 
 import type { DefineComponent } from 'vue';
 
+
 // Vue グローバルコンポーネントの型定義
 // ref: https://azukiazusa.dev/blog/volar-vuetify2-x/
 declare module 'vue' {

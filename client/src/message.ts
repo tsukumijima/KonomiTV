@@ -11,22 +11,22 @@ interface MessageReturnValue {
 export default {
     success(message: MessageType | MessageOption): MessageReturnValue {
         // @ts-ignore
-        return window.KonomiTVVueInstance.$message.success(message);
+        return window.KonomiTVVueInstance?.$message.success(message);
     },
     info(message: MessageType | MessageOption): MessageReturnValue {
         // @ts-ignore
-        return window.KonomiTVVueInstance.$message.info(message);
+        return window.KonomiTVVueInstance?.$message.info(message);
     },
     warning(message: MessageType | MessageOption): MessageReturnValue {
         // @ts-ignore
-        return window.KonomiTVVueInstance.$message.warning(message);
+        return window.KonomiTVVueInstance?.$message.warning(message);
     },
     error(message: MessageType | MessageOption): MessageReturnValue {
         // @ts-ignore
-        return window.KonomiTVVueInstance.$message.error(message);
+        return window.KonomiTVVueInstance?.$message.error(message);
     },
     show(message: MessageType | MessageOption): MessageReturnValue {
         // @ts-ignore
-        return window.KonomiTVVueInstance.$message.show(message);
+        return window.KonomiTVVueInstance?.$message.show(message);
     }
 };

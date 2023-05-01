@@ -3,6 +3,7 @@ import Vue from 'vue';
 import { VSnackbar, VBtn, VIcon } from 'vuetify/lib';
 import Vuetify from 'vuetify/lib/framework';
 
+
 Vue.use(Vuetify);
 
 // vuetify-message-snackbar を使うのに必要

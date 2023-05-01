@@ -2,6 +2,10 @@
 
 import { register } from 'register-service-worker';
 
+import Message from '@/message';
+import Utils from '@/utils';
+
+
 if (process.env.NODE_ENV === 'production') {
     register(`${process.env.BASE_URL}service-worker.js`, {
         ready() {
@@ -19,8 +23,11 @@ if (process.env.NODE_ENV === 'production') {
         updatefound() {
             console.log('New content is downloading.');
         },
-        updated() {
+        async updated() {
             console.log('New content is available; please refresh.');
+            Message.show('新しいバージョンがあります。5秒後にリロードします。');
+            await Utils.sleep(5);
+            location.reload(true);
         },
         offline() {
             console.log('No internet connection found. App is running in offline mode.');

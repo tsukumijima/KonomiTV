@@ -19,6 +19,7 @@ import useSettingsStore, { setLocalStorageSettings } from '@/store/SettingsStore
 import '@/service-worker';
 import Utils from '@/utils';
 
+
 // スムーズスクロール周りの API の polyfill を適用
 // Element.scrollInfoView() のオプション指定を使うために必要
 SeamlessScrollPolyfill();

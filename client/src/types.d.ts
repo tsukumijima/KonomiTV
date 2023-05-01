@@ -1,6 +1,12 @@
 
 // ***** ブラウザの JavaScript API のうち、開発時点でマイナーすぎて @types が定義されていない API の型定義 *****
 
+// location.reload() の forceReload 引数
+// ref: https://developer.mozilla.org/en-US/docs/Web/API/Location/reload
+interface Location {
+    reload(forceReload?: boolean): void;
+}
+
 // Virtual Keyboard API
 // ref: https://www.w3.org/TR/virtual-keyboard/
 interface Navigator {

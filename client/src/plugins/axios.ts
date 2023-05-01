@@ -3,7 +3,6 @@ import axios from 'axios';
 
 import Utils from '@/utils';
 
-// ref: https://note.com/quoizunda/n/nb62e13e73499
 
 // Axios のインスタンスを作成
 const axios_instance = axios.create();
