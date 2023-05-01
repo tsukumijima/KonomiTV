@@ -41,10 +41,6 @@ def main():
     parser.add_argument('--version', action='version', help='show version information', version=f'KonomiTV version {VERSION}')
     args = parser.parse_args()
 
-    # Uvicorn を自動リロードモードで起動するかのフラグ
-    ## 基本的に開発時用で、コードを変更するとアプリケーションサーバーを自動で再起動してくれる
-    is_reload: bool = args.reload
-
     # 前回のログをすべて削除
     try:
         if KONOMITV_SERVER_LOG_PATH.exists():
@@ -255,6 +251,13 @@ def main():
 
     # このプロセスが終了されたときに、HTTPS リバースプロキシも一緒に終了する
     atexit.register(lambda: reverse_proxy_process.terminate())
+
+    # Uvicorn を自動リロードモードで起動するかのフラグ
+    ## 基本的に開発時用で、コードを変更するとアプリケーションサーバーを自動で再起動してくれる
+    is_reload: bool = args.reload
+    if os.name == 'nt' and is_reload is True:
+        logger.warning('Python の asyncio の技術的な制約により、Windows では自動リロードモードは事実上利用できません。')
+        logger.warning('なお、外部プロセス実行を伴うストリーミング視聴を行わなければ一応 Windows でも機能します。')
 
     # Uvicorn の設定
     config = uvicorn.Config(
