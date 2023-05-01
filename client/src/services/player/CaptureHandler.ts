@@ -7,6 +7,7 @@ import DPlayer from 'dplayer';
 import 'dayjs/locale/ja';
 import * as piexif from 'piexifjs';
 
+import APIClient from '@/services/APIClient';
 import Captures from '@/services/Captures';
 import useChannelsStore from '@/store/ChannelsStore';
 import useSettingsStore from '@/store/SettingsStore';
@@ -44,6 +45,10 @@ interface ISetEXIFDataToCaptureOptions {
     is_caption_composited: boolean;
     is_comment_composited: boolean;
 }
+
+// Web フォントを Base64 化したデータ (コメントを SVG の foreignObject としてレンダリングする際に必要)
+let web_font_noto_sans_base64: string | null = null;
+let web_font_open_sans_base64: string | null = null;
 
 
 class CaptureHandler {
@@ -115,6 +120,30 @@ class CaptureHandler {
                 this.canvas.height = player.video.videoHeight;
             }
         });
+
+        // もし Web フォントがダウンロードされていないならダウンロード
+        // コメントのレンダリングに最低限必要なウェイトのみダウンロードする
+        // 待つ必要はないので非同期で実行
+        // ref: https://stackoverflow.com/a/66969479/17124142
+        (async () => {
+            const web_font_noto_sans_url = 'https://cdn.jsdelivr.net/npm/noto-sans-japanese@1.0.0/fonts/NotoSansJP-Bold.woff2';
+            const web_font_open_sans_url = 'https://cdn.jsdelivr.net/npm/open-sans-all@0.1.3/fonts/open-sans-700.woff2';
+            const base64_font_prefix = 'data:font/woff2;base64,';
+            if (web_font_noto_sans_base64 === null) {
+                const web_font_noto_sans: ArrayBuffer = (await APIClient.get(web_font_noto_sans_url, {
+                    responseType: 'arraybuffer',
+                })).data;
+                // Buffer で受け取ったデータを Base64 に変換
+                web_font_noto_sans_base64 = base64_font_prefix + Buffer.from(web_font_noto_sans).toString('base64');
+            }
+            if (web_font_open_sans_base64 === null) {
+                const web_font_open_sans: ArrayBuffer = (await APIClient.get(web_font_open_sans_url, {
+                    responseType: 'arraybuffer',
+                })).data;
+                // Buffer で受け取ったデータを Base64 に変換
+                web_font_open_sans_base64 = base64_font_prefix + Buffer.from(web_font_open_sans).toString('base64');
+            }
+        })();
     }
 
 
@@ -477,6 +506,16 @@ class CaptureHandler {
                 <foreignObject width="100%" height="100%">
                     <div xmlns="http://www.w3.org/1999/xhtml">
                         <style>
+                        @font-face {
+                            font-family: 'Noto Sans JP';
+                            font-weight: bold;
+                            src: url(${web_font_noto_sans_base64}) format('woff2');
+                        }
+                        @font-face {
+                            font-family: 'Open Sans';
+                            font-weight: bold;
+                            src: url(${web_font_open_sans_base64}) format('woff2');
+                        }
                         .dplayer-danmaku {
                             position: absolute;
                             top: 0;
@@ -485,7 +524,7 @@ class CaptureHandler {
                             bottom: 0;
                             color: #fff;
                             font-size: 29px;
-                            font-family: 'YakuHanJPs', 'Open Sans', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+                            font-family: 'Open Sans', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
                         }
                         .dplayer-danmaku .dplayer-danmaku-item {
                             display: inline-block;
