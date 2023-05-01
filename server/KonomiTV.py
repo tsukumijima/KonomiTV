@@ -69,11 +69,8 @@ def main():
         CONFIG['server']['custom_https_certificate']
         CONFIG['server']['custom_https_private_key']
     except KeyError:
-        logger.error(
-            'config.yaml のフォーマットが不正なため、KonomiTV を起動できません。\n'
-            '                                '  # インデント用
-            'config.yaml の記述が正しいかを確認してください。'
-        )
+        logger.error('config.yaml のフォーマットが不正なため、KonomiTV を起動できません。')
+        logger.error('config.yaml の記述が正しいかを確認してください。')
         sys.exit(1)
 
     # ***** サポートされているアーキテクチャかのバリデーション *****
@@ -103,29 +100,20 @@ def main():
             continue
 
         if Path(library_path).is_file() is False:
-            logger.error(
-                f'{library_name} がサードパーティーライブラリとして配置されていないため、KonomiTV を起動できません。\n'
-                '                                '  # インデント用
-                f'{library_name} が {library_path} に配置されているかを確認してください。'
-            )
+            logger.error(f'{library_name} がサードパーティーライブラリとして配置されていないため、KonomiTV を起動できません。')
+            logger.error(f'{library_name} が {library_path} に配置されているかを確認してください。')
             sys.exit(1)
 
     # x64 なのにエンコーダーとして rkmppenc が指定されている場合はエラー
     if current_arch in ['AMD64', 'x86_64'] and CONFIG['general']['encoder'] == 'rkmppenc':
-        logger.error(
-            f'x64 アーキテクチャでは rkmppenc は使用できません。\n'
-            '                                '  # インデント用
-            '利用するエンコーダーを FFmpeg・QSVEncC・NVEncC・VCEEncC のいずれかに変更してください。'
-        )
+        logger.error('x64 アーキテクチャでは rkmppenc は使用できません。')
+        logger.error('利用するエンコーダーを FFmpeg・QSVEncC・NVEncC・VCEEncC のいずれかに変更してください。')
         sys.exit(1)
 
     # arm64 なのにエンコーダーとして QSVEncC・NVEncC・VCEEncC が指定されている場合はエラー
     if current_arch == 'aarch64' and CONFIG['general']['encoder'] in ['QSVEncC', 'NVEncC', 'VCEEncC']:
-        logger.error(
-            f'arm64 アーキテクチャでは QSVEncC・NVEncC・VCEEncC は使用できません。\n'
-            '                                '  # インデント用
-            '利用するエンコーダーを FFmpeg・rkmppenc のいずれかに変更してください。'
-        )
+        logger.error('arm64 アーキテクチャでは QSVEncC・NVEncC・VCEEncC は使用できません。')
+        logger.error('利用するエンコーダーを FFmpeg・rkmppenc のいずれかに変更してください。')
         sys.exit(1)
 
     # ***** リッスンポートのバリデーション *****
@@ -133,11 +121,8 @@ def main():
     # リッスンするポート番号
     port = CONFIG['server']['port']
     if type(port) is not int or port < 1024 or port > 65525:
-        logger.error(
-            f'ポート番号の設定が不正なため、KonomiTV を起動できません。\n'
-            '                                '  # インデント用
-            f'設定したポート番号が 1024 ~ 65525 (65535 ではない) の間に収まっているかを確認してください。'
-        )
+        logger.error('ポート番号の設定が不正なため、KonomiTV を起動できません。')
+        logger.error('設定したポート番号が 1024 ~ 65525 (65535 ではない) の間に収まっているかを確認してください。')
         sys.exit(1)
 
     # 使用中のポートを取得
@@ -147,18 +132,12 @@ def main():
     # リッスンポートと同じポートが使われていたら、エラーを表示する
     # Akebi HTTPS Server のリッスンポートと Uvicorn のリッスンポートの両方をチェック
     if port in used_ports:
-        logger.error(
-            f'ポート {port} は他のプロセスで使われているため、KonomiTV を起動できません。\n'
-            '                                '  # インデント用
-            f'重複して KonomiTV を起動していないか、他のソフトでポート {port} を使っていないかを確認してください。'
-        )
+        logger.error(f'ポート {port} は他のプロセスで使われているため、KonomiTV を起動できません。')
+        logger.error(f'重複して KonomiTV を起動していないか、他のソフトでポート {port} を使っていないかを確認してください。')
         sys.exit(1)
     if (port + 10) in used_ports:
-        logger.error(
-            f'ポート {port + 10} は他のプロセスで使われているため、KonomiTV を起動できません。\n'
-            '                                '  # インデント用
-            f'重複して KonomiTV を起動していないか、他のソフトでポート {port + 10} を使っていないかを確認してください。'
-        )
+        logger.error(f'ポート {port + 10} は他のプロセスで使われているため、KonomiTV を起動できません。')
+        logger.error(f'重複して KonomiTV を起動していないか、他のソフトでポート {port + 10} を使っていないかを確認してください。')
         sys.exit(1)
 
     # ***** カスタム HTTPS 証明書/秘密鍵のバリデーション *****
@@ -168,11 +147,8 @@ def main():
     if CONFIG['server']['custom_https_certificate'] is not None and CONFIG['server']['custom_https_private_key'] is not None:
         if (Path(CONFIG['server']['custom_https_certificate']).is_file() is False or
             Path(CONFIG['server']['custom_https_private_key']).is_file() is False):
-            logger.error(
-                f'指定されたカスタム HTTPS 証明書/秘密鍵が存在しないため、KonomiTV を起動できません。\n'
-                '                                '  # インデント用
-                f'正しいカスタム HTTPS 証明書/秘密鍵のパスを指定しているかを確認してください。'
-            )
+            logger.error('指定されたカスタム HTTPS 証明書/秘密鍵が存在しないため、KonomiTV を起動できません。')
+            logger.error('正しいカスタム HTTPS 証明書/秘密鍵のパスを指定しているかを確認してください。')
             sys.exit(1)
         # 追加の引数リスト
         custom_https_certificate = [
@@ -188,11 +164,8 @@ def main():
         from app.schemas import Config
         Config(**cast(Any, CONFIG))
     except ValidationError as error:
-        logger.error(
-            '設定内容が不正なため、KonomiTV を起動できません。\n'
-                '                                '  # インデント用
-            '以下のエラーメッセージを参考に、config.yaml の記述が正しいかを確認してください。'
-        )
+        logger.error('設定内容が不正なため、KonomiTV を起動できません。')
+        logger.error('以下のエラーメッセージを参考に、config.yaml の記述が正しいかを確認してください。')
         logger.error(error)
         sys.exit(1)
 
@@ -209,11 +182,8 @@ def main():
         result_stdout = result.stdout.decode('utf-8')
         result_stdout = '\n'.join([line for line in result_stdout.split('\n') if 'reader:' not in line])
         if 'unavailable.' in result_stdout:
-            logger.error(
-                f'お使いの環境では {CONFIG["general"]["encoder"]} がサポートされていないため、KonomiTV を起動できません。\n'
-                '                                '  # インデント用
-                f'別のエンコーダーを選択するか、{CONFIG["general"]["encoder"]} の動作環境を整備してください。'
-            )
+            logger.error(f'お使いの環境では {CONFIG["general"]["encoder"]} がサポートされていないため、KonomiTV を起動できません。')
+            logger.error(f'別のエンコーダーを選択するか、{CONFIG["general"]["encoder"]} の動作環境を整備してください。')
             sys.exit(1)
         # H.265/HEVC に対応していない環境では、通信節約モードが利用できない旨を出力する
         if 'H.265/HEVC' not in result_stdout:
@@ -231,11 +201,8 @@ def main():
         # ホスト名またはポートが指定されていない
         if ((EDCBUtil.getEDCBHost() is None) or
             (EDCBUtil.getEDCBPort() is None and EDCBUtil.getEDCBHost() != 'edcb-namedpipe')):
-            logger.error(
-                'URL 内にホスト名またはポートが指定されていません。\n'
-                '                                '  # インデント用
-                'EDCB の URL を間違えている可能性があります。'
-            )
+            logger.error('URL 内にホスト名またはポートが指定されていません。')
+            logger.error('EDCB の URL を間違えている可能性があります。')
             sys.exit(1)
 
         # サービス一覧が取得できるか試してみる
@@ -243,11 +210,8 @@ def main():
         edcb.setConnectTimeOutSec(5)  # 5秒後にタイムアウト
         result = asyncio.run(edcb.sendEnumService())
         if result is None:
-            logger.error(
-                f'EDCB ({CONFIG["general"]["edcb_url"]}/) にアクセスできませんでした。\n'
-                '                                '  # インデント用
-                'EDCB が起動していないか、URL を間違えている可能性があります。'
-            )
+            logger.error(f'EDCB ({CONFIG["general"]["edcb_url"]}/) にアクセスできませんでした。')
+            logger.error('EDCB が起動していないか、URL を間違えている可能性があります。')
             sys.exit(1)
 
     # Mirakurun バックエンドの接続確認
@@ -261,18 +225,12 @@ def main():
                 timeout = 10,  # 久々のアクセスだとどうも時間がかかることがあるため、ここだけタイムアウトを長めに設定
             )
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-            logger.error(
-                f'Mirakurun ({CONFIG["general"]["mirakurun_url"]}/) にアクセスできませんでした。\n'
-                '                                '  # インデント用
-                'Mirakurun が起動していないか、URL を間違えている可能性があります。'
-            )
+            logger.error(f'Mirakurun ({CONFIG["general"]["mirakurun_url"]}/) にアクセスできませんでした。')
+            logger.error('Mirakurun が起動していないか、URL を間違えている可能性があります。')
             sys.exit(1)
         if response.status_code != 200:
-            logger.error(
-                f'{CONFIG["general"]["mirakurun_url"]}/ は Mirakurun の URL ではありません。\n'
-                '                                '  # インデント用
-                'Mirakurun の URL を間違えている可能性があります。'
-            )
+            logger.error(f'{CONFIG["general"]["mirakurun_url"]}/ は Mirakurun の URL ではありません。')
+            logger.error('Mirakurun の URL を間違えている可能性があります。')
             sys.exit(1)
 
     # ***** KonomiTV サーバーを起動 *****
