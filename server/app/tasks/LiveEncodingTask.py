@@ -952,15 +952,6 @@ class LiveEncodingTask:
                         ('Failed to initalize VCE factory:' in line or 'Assertion failed:Init() failed to vkCreateInstance' in line):
                         # VCEEncC 非対応の環境
                         self.livestream.setStatus('Offline', 'お使いの PC 環境は VCEEncC エンコーダーに対応していません。')
-                    elif encoder_type == 'QSVEncC' and 'HEVC encoding is not supported on current platform.' in line:
-                        # QSVEncC: H.265/HEVC でのエンコードに非対応の環境
-                        self.livestream.setStatus('Offline', 'お使いの Intel GPU は H.265/HEVC でのエンコードに対応していません。')
-                    elif encoder_type == 'NVEncC' and 'does not support H.265/HEVC encoding.' in line:
-                        # NVEncC: H.265/HEVC でのエンコードに非対応の環境
-                        self.livestream.setStatus('Offline', 'お使いの NVIDIA GPU は H.265/HEVC でのエンコードに対応していません。')
-                    elif encoder_type == 'VCEEncC' and 'HW Acceleration of H.265/HEVC is not supported on this platform.' in line:
-                        # VCEEncC: H.265/HEVC でのエンコードに非対応の環境
-                        self.livestream.setStatus('Offline', 'お使いの AMD GPU は H.265/HEVC でのエンコードに対応していません。')
                     elif 'Consider increasing the value for the --input-analyze and/or --input-probesize!' in line:
                         # --input-probesize or --input-analyze の期間内に入力ストリームの解析が終わらなかった
                         ## エンコーダーの再起動で復帰できる可能性があるので、エンコードタスクを再起動する
@@ -1084,16 +1075,45 @@ class LiveEncodingTask:
                 # エンコーダーが意図せず終了した場合
                 if encoder.returncode is not None:
 
-                    # エンコードタスクを再起動
-                    self.livestream.setStatus('Restart', 'エンコーダーが強制終了されました。エンコードタスクを再起動します。')
+                    # 複数 GPU が搭載されていてかつ片方のみ H.265/HEVC でのエンコードに対応している環境も考えられるので、
+                    # H.265/HEVC でのエンコードに非対応かは実際にエンコーダーが落ちた後に確認する
+                    # もし H.265/HEVC 非対応なのが原因で落ちていた場合は復帰の見込みはないので、エンコードタスクを停止する
+                    # 基本的にこれらのエラーでリトライが発生することはないので、初回のみチェックする (偽陽性を減らす意味合いもある)
+                    if self._retry_count == 0:
+                        for line in lines:
+                            # QSVEncC: H.265/HEVC でのエンコードに非対応の環境
+                            if encoder_type == 'QSVEncC' and 'HEVC encoding is not supported on current platform.' in line:
+                                self.livestream.setStatus('Offline', 'お使いの Intel GPU は H.265/HEVC でのエンコードに対応していません。')
+                                break
+                            # NVEncC: H.265/HEVC でのエンコードに非対応の環境
+                            elif encoder_type == 'NVEncC' and 'does not support H.265/HEVC encoding.' in line:
+                                # 他の行に available for encode. という文字列が含まれている場合は除外
+                                available_for_encode = False
+                                for line2 in lines:
+                                    if 'available for encode.' in line2:
+                                        available_for_encode = True
+                                        break
+                                if not available_for_encode:
+                                    self.livestream.setStatus('Offline', 'お使いの NVIDIA GPU は H.265/HEVC でのエンコードに対応していません。')
+                                    break
+                            # VCEEncC: H.265/HEVC でのエンコードに非対応の環境
+                            elif encoder_type == 'VCEEncC' and 'HW Acceleration of H.265/HEVC is not supported on this platform.' in line:
+                                self.livestream.setStatus('Offline', 'お使いの AMD GPU は H.265/HEVC でのエンコードに対応していません。')
+                                break
 
-                    # エンコーダーのログを表示 (FFmpeg は最後の50行、HWEncC は最後の150行を表示)
-                    if encoder_type == 'FFmpeg':
-                        for log in lines[-51:-1]:
-                            Logging.warning(log)
-                    elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC' or encoder_type == 'rkmppenc':
-                        for log in lines[-151:-1]:
-                            Logging.warning(log)
+                    # それ以外なら、エンコーダーの再起動で復帰できる可能性があるのでエンコードタスクを再起動する
+                    if self.livestream.getStatus()['status'] == 'Offline':
+
+                        # エンコードタスクを再起動
+                        self.livestream.setStatus('Restart', 'エンコーダーが強制終了されました。エンコードタスクを再起動します。')
+
+                        # エンコーダーのログを表示 (FFmpeg は最後の50行、HWEncC は最後の150行を表示)
+                        if encoder_type == 'FFmpeg':
+                            for log in lines[-51:-1]:
+                                Logging.warning(log)
+                        elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC' or encoder_type == 'rkmppenc':
+                            for log in lines[-151:-1]:
+                                Logging.warning(log)
 
                 # tsreadex が意図せず終了したか、チューナーとの接続が切断された場合
                 ## エンコーダーが異常終了した場合、パイプが閉じられることで tsreadex も同時に終了してしまうため、

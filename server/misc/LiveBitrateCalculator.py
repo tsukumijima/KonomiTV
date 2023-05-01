@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 import requests
 import time
@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 # Written with ChatGPT (GPT-4)
 
-BASE_API_URL = 'https://my.local.konomi.tv:7000/api/streams/live/gr041/{}/mpegts'
+BASE_API_URL = 'https://my.local.konomi.tv:7000/api/streams/live/gr011/{}/mpegts'
 DURATION = 10 * 60  # 10 minutes in seconds
 BUFFER_SIZE = 1024
 QUALITIES = ['240p', '360p', '480p', '540p', '720p', '810p', '1080p', '1080p-60fps']
@@ -40,7 +40,7 @@ def print_results(results: list[tuple[str, str, float, float]], codec: str = '')
     for quality, _, data_usage, bitrate in results:
         print(f'{quality}{codec}:')
         print(f'  1時間あたりのデータ量: {data_usage:.2f} GB/h')
-        print(f'  平均ビットレート: {bitrate:.2f} Mbps\n')
+        print(f'  平均ビットレート: {bitrate:.1f} Mbps')
 
 with ThreadPoolExecutor() as executor:
     # H.264 streams
