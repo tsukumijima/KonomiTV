@@ -425,7 +425,7 @@ class LiveEncodingTask:
             # 特定サービスのみを選択して出力するフィルタを有効にする
             ## 有効にすると、特定のストリームのみ PID を固定して出力される
             ## 視聴対象のチャンネルのサービス ID を指定する
-            '-n', f'{channel.service_id}',
+            '-n', f'{channel.service_id}' if CONFIG['tv']['debug_mode_ts_path'] is None else '-1',
             # 主音声ストリームが常に存在する状態にする
             ## ストリームが存在しない場合、無音の AAC ストリームが出力される
             ## 音声がモノラルであればステレオにする
@@ -447,7 +447,7 @@ class LiveEncodingTask:
             '-d', '13',
         ]
 
-        if 'debug_mode_ts_path' not in CONFIG['tv'] or CONFIG['tv']['debug_mode_ts_path'] is None:
+        if CONFIG['tv']['debug_mode_ts_path'] is None:
             # 通常は標準入力を指定
             tsreadex_options.append('-')
         else:
