@@ -10,17 +10,17 @@
             </div>
         </v-dialog>
         <div class="tab-container">
-            <div class="tab-content" :class="{'tab-content--active': twitter_active_tab === 'Search'}">
+            <div class="tab-content tab-content--search" :class="{'tab-content--active': twitter_active_tab === 'Search'}">
                 <div class="search px-4">
                     リアルタイム検索機能は鋭意開発中です。
                 </div>
             </div>
-            <div class="tab-content" :class="{'tab-content--active': twitter_active_tab === 'Timeline'}">
+            <div class="tab-content tab-content--timeline" :class="{'tab-content--active': twitter_active_tab === 'Timeline'}">
                 <div class="search px-4">
                     タイムライン機能は鋭意開発中です。
                 </div>
             </div>
-            <div class="tab-content" :class="{'tab-content--active': twitter_active_tab === 'Capture'}">
+            <div class="tab-content tab-content--capture" :class="{'tab-content--active': twitter_active_tab === 'Capture'}">
                 <div class="captures">
                     <div class="capture" :class="{
                             'capture--selected': capture.selected,
@@ -432,7 +432,7 @@ export default Vue.extend({
         async addCaptureList(blob: Blob, filename: string) {
 
             if (this.captures_element === null) {
-                this.captures_element = this.$el.querySelector('.tab-content');
+                this.captures_element = this.$el.querySelector('.tab-content--capture');
             }
 
             // 撮ったキャプチャが50件を超えていたら、重くなるので古いものから削除する
