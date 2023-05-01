@@ -19,8 +19,8 @@ interface ILocalClientSettings {
     tv_channel_selection_requires_alt_key: boolean;
     caption_font: string;
     always_border_caption_text: boolean;
-    specify_caption_background_color: boolean;
-    caption_background_color: string;
+    specify_caption_opacity: boolean;
+    caption_opacity: number;
     tv_show_superimpose: boolean;
     capture_copy_to_clipboard: boolean;
     capture_save_mode: 'Browser' | 'UploadServer' | 'Both';
@@ -61,8 +61,8 @@ const sync_settings_keys = [
     'tv_channel_selection_requires_alt_key',
     'caption_font',
     'always_border_caption_text',
-    'specify_caption_background_color',
-    'caption_background_color',
+    'specify_caption_opacity',
+    'caption_opacity',
     'tv_show_superimpose',
     // capture_copy_to_clipboard: 同期無効
     'capture_save_mode',
@@ -122,10 +122,10 @@ const default_settings: ILocalClientSettings = {
     caption_font: 'Windows TV MaruGothic',
     // 字幕の文字を常に縁取って描画する (Default: 常に縁取る)
     always_border_caption_text: true,
-    // 字幕の背景色を指定する (Default: 指定しない)
-    specify_caption_background_color: false,
-    // 字幕の背景色 (Default: 不透明度が 50% の黒)
-    caption_background_color: '#00000080',
+    // 字幕の不透明度を指定する (Default: 指定しない)
+    specify_caption_opacity: false,
+    // 字幕の不透明度 (Default: 50%)
+    caption_opacity: 0.5,
     // テレビをみるときに文字スーパーを表示する (Default: 表示する)
     tv_show_superimpose: true,
 

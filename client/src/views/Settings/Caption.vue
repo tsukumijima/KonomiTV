@@ -29,25 +29,25 @@
                 </v-switch>
             </div>
             <div class="settings__item settings__item--switch">
-                <label class="settings__item-heading" for="specify_caption_background_color">字幕の背景色を指定する</label>
-                <label class="settings__item-label" for="specify_caption_background_color">
-                    字幕表示時、背景色を自分で指定するか設定できます。<br>
-                    この設定をオフのときは、字幕データ側で指定されている背景色で描画します。とくに理由がなければ、オフにしておくのがおすすめです。<br>
+                <label class="settings__item-heading" for="specify_caption_opacity">字幕の不透明度を指定する</label>
+                <label class="settings__item-label" for="specify_caption_opacity">
+                    字幕表示時、不透明度を自分で指定するか設定できます。<br>
+                    この設定がオフのときは、字幕データ側で指定されている不透明度で描画します。とくに理由がなければ、オフにしておくのがおすすめです。<br>
                 </label>
-                <v-switch class="settings__item-switch" id="specify_caption_background_color" inset hide-details
-                    v-model="settingsStore.settings.specify_caption_background_color">
+                <v-switch class="settings__item-switch" id="specify_caption_opacity" inset hide-details
+                    v-model="settingsStore.settings.specify_caption_opacity">
                 </v-switch>
             </div>
-            <div class="settings__item" :class="{'settings__item--disabled': settingsStore.settings.specify_caption_background_color === false}">
-                <label class="settings__item-heading">字幕の背景色</label>
+            <div class="settings__item" :class="{'settings__item--disabled': settingsStore.settings.specify_caption_opacity === false}">
+                <label class="settings__item-heading">字幕の不透明度</label>
                 <label class="settings__item-label">
-                    上の [字幕の背景色を指定する] をオンにしているときのみ有効です。透明度 (アルファチャンネル) を 0 に設定すれば、字幕の背景を非表示にできます。<br>
+                    上の [字幕の不透明度を指定する] をオンに設定したときのみ有効です。不透明度を 0 に設定すれば、字幕の背景を非表示にできます。<br>
                 </label>
-                <div class="settings__item-label" ref="caption_background_color">
-                    <v-color-picker class="settings__item-form" hide-details v-model="settingsStore.settings.caption_background_color"
-                        :flat="true" :show-alpha="true" :show-swatches="false" :hide-inputs="false" :width="690" :canvas-height="80"
-                        :disabled="settingsStore.settings.specify_caption_background_color === false">
-                    </v-color-picker>
+                <div class="settings__item-label" ref="caption_opacity">
+                    <v-slider class="settings__item-form" ticks="always" thumb-label hide-details
+                        :min="0" :max="1" :step="0.05" v-model="settingsStore.settings.caption_opacity"
+                        :disabled="settingsStore.settings.specify_caption_opacity === false">
+                    </v-slider>
                 </div>
             </div>
             <v-divider class="mt-6"></v-divider>

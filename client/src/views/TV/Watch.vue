@@ -972,10 +972,16 @@ export default Vue.extend({
                         // 描画フォント
                         normalFont: `"${this.settingsStore.settings.caption_font}", sans-serif`,
                         // 縁取りする色
-                        forceStrokeColor: this.settingsStore.settings.always_border_caption_text ? true : false,
+                        forceStrokeColor: this.settingsStore.settings.always_border_caption_text,
                         // 背景色
-                        forceBackgroundColor: this.settingsStore.settings.specify_caption_background_color ?
-                            this.settingsStore.settings.caption_background_color : null,
+                        forceBackgroundColor: (() => {
+                            if (this.settingsStore.settings.specify_caption_opacity === true) {
+                                const opacity = this.settingsStore.settings.caption_opacity;
+                                return `rgba(0, 0, 0, ${opacity})`;
+                            } else {
+                                return null;
+                            }
+                        })(),
                         // DRCS 文字を対応する Unicode 文字に置換
                         drcsReplacement: true,
                         // 高解像度の字幕 Canvas を取得できるように

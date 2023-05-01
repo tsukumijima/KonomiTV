@@ -20,8 +20,8 @@ export interface IClientSettings {
     tv_channel_selection_requires_alt_key: boolean;
     caption_font: string;
     always_border_caption_text: boolean;
-    specify_caption_background_color: boolean;
-    caption_background_color: string;
+    specify_caption_opacity: boolean;
+    caption_opacity: number;
     tv_show_superimpose: boolean;
     // capture_copy_to_clipboard: 同期無効
     capture_save_mode: 'Browser' | 'UploadServer' | 'Both';

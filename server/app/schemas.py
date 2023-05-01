@@ -138,8 +138,8 @@ class ClientSettings(BaseModel):
     tv_channel_selection_requires_alt_key: bool = Field(False)
     caption_font: str = Field('Windows TV MaruGothic')
     always_border_caption_text: bool = Field(True)
-    specify_caption_background_color: bool = Field(False)
-    caption_background_color: str = Field('#00000080')
+    specify_caption_opacity: bool = Field(False)
+    caption_opacity: float = Field(1.0)
     tv_show_superimpose: bool = Field(True)
     # capture_copy_to_clipboard: 同期無効
     capture_save_mode: Literal['Browser', 'UploadServer', 'Both'] = Field('UploadServer')
