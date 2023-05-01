@@ -196,6 +196,29 @@ def main():
         logger.error(error)
         sys.exit(1)
 
+    # ***** ハードウェアエンコーダーのバリデーション *****
+
+    # HWEncC が指定されているときのみ、--check-hw でハードウェアエンコーダーが利用できるかをチェック
+    ## もし利用可能なら標準出力に "H.264/AVC" という文字列が出力されるので、それで判定する
+    if CONFIG['general']['encoder'] != 'FFmpeg':
+        result = subprocess.run(
+            [LIBRARY_PATH[CONFIG['general']['encoder']], '--check-hw'],
+            stdout = subprocess.PIPE,
+            stderr = subprocess.DEVNULL,
+        )
+        result_stdout = result.stdout.decode('utf-8')
+        result_stdout = '\n'.join([line for line in result_stdout.split('\n') if 'reader:' not in line])
+        if 'unavailable.' in result_stdout:
+            logger.error(
+                f'お使いの環境では {CONFIG["general"]["encoder"]} がサポートされていないため、KonomiTV を起動できません。\n'
+                '                                '  # インデント用
+                f'別のエンコーダーを選択するか、{CONFIG["general"]["encoder"]} の動作環境を整備してください。'
+            )
+            sys.exit(1)
+        # H.265/HEVC に対応していない環境では、通信節約モードが利用できない旨を出力する
+        if 'H.265/HEVC' not in result_stdout:
+            logger.warning(f'お使いの環境では {CONFIG["general"]["encoder"]} での H.265/HEVC エンコードがサポートされていないため、通信節約モードは利用できません。')
+
     # ***** EDCB / Mirakurun バックエンドへの接続確認 *****
 
     # EDCB バックエンドの接続確認
