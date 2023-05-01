@@ -1,4 +1,5 @@
 
+import Message from '@/message';
 import APIClient from '@/services/APIClient';
 
 
@@ -22,7 +23,24 @@ class Captures {
 
         // エラー処理
         if ('is_error' in response) {
-            APIClient.showGenericError(response, 'キャプチャのアップロードに失敗しました。');
+            switch (response.error.message) {
+                case 'Permission denied to save the file': {
+                    Message.error('キャプチャのアップロードに失敗しました。保存先フォルダに書き込み権限がありません。');
+                    break;
+                }
+                case 'No space left on the device': {
+                    Message.error('キャプチャのアップロードに失敗しました。保存先フォルダに空き容量がありません。');
+                    break;
+                }
+                case 'Unexpected error occurred while saving the file': {
+                    Message.error('キャプチャのアップロードに失敗しました。保存中に予期しないエラーが発生しました。');
+                    break;
+                }
+                default: {
+                    APIClient.showGenericError(response, 'キャプチャのアップロードに失敗しました。');
+                    break;
+                }
+            }
             return;
         }
     }
