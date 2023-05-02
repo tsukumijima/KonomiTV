@@ -970,7 +970,7 @@ export default Vue.extend({
                     // aribb24.js
                     aribb24: {
                         // 描画フォント
-                        normalFont: `"${this.settingsStore.settings.caption_font}", sans-serif`,
+                        normalFont: `"${this.settingsStore.settings.caption_font}", "Rounded M+ 1m for ARIB", sans-serif`,
                         // 縁取りする色
                         forceStrokeColor: this.settingsStore.settings.always_border_caption_text,
                         // 背景色
@@ -992,7 +992,9 @@ export default Vue.extend({
                         usePUA: (() => {
                             const font = this.settingsStore.settings.caption_font;
                             const context = document.createElement('canvas').getContext('2d')!;
-                            context.font = `10px ${font}`;
+                            context.font = '10px "Rounded M+ 1m for ARIB"';
+                            context.fillText('Test', 0, 0);
+                            context.font = `10px "${font}"`;
                             context.fillText('Test', 0, 0);
                             if (font.startsWith('Windows TV')) {
                                 return true;
