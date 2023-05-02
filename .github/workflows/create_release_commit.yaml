@@ -49,9 +49,8 @@ jobs:
           sed -i -e 's|download/v.*/KonomiTV-Installer\.elf|download/v${{ github.event.inputs.version }}/KonomiTV-Installer\.elf|' Readme.md
 
           # クライアントをビルド
-          # GitHub Actions 環境ではなぜか --ignore-scripts をつけないと patch-package の実行エラーでそのままエラー終了してしまう
           cd client/
-          yarn install --frozen-lockfile --ignore-scripts
+          yarn install --frozen-lockfile
           yarn build
           cd ../
 

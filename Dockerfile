@@ -32,7 +32,7 @@ WORKDIR /code/client/
 COPY ./client/package.json ./client/yarn.lock /code/client/
 
 # 依存パッケージを yarn でインストール
-RUN yarn install --frozen-lockfile --ignore-scripts
+RUN yarn install --frozen-lockfile
 
 # クライアントのソースコードをコピー
 COPY ./client/ /code/client/
