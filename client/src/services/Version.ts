@@ -6,7 +6,7 @@ import APIClient from '@/services/APIClient';
 export interface IVersionInformation {
     version: string;
     latest_version: string;
-    environment: 'Windows' | 'Linux' | 'Linux-Docker';
+    environment: 'Windows' | 'Linux' | 'Linux-Docker' | 'Linux-ARM';
     backend: 'EDCB' | 'Mirakurun';
     encoder: 'FFmpeg' | 'QSVEncC' | 'NVEncC' | 'VCEEncC' | 'rkmppenc';
 }
