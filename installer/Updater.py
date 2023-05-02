@@ -242,6 +242,7 @@ def Updater(version: str) -> None:
         shutil.rmtree(update_path / 'client/', ignore_errors=True)
         shutil.rmtree(update_path / 'installer/', ignore_errors=True)
         shutil.rmtree(update_path / 'server/app/', ignore_errors=True)
+        shutil.rmtree(update_path / 'server/misc/', ignore_errors=True)
         shutil.rmtree(update_path / 'server/static/', ignore_errors=True)
         Path(update_path / 'server/KonomiTV.py').unlink(missing_ok=True)
         Path(update_path / 'server/KonomiTV-Service.py').unlink(missing_ok=True)
