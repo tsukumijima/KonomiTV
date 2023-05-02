@@ -294,9 +294,15 @@ const useSettingsStore = defineStore('settings', {
          */
         async resetClientSettings(): Promise<void> {
 
+            // デフォルトの設定に現在設定の同期がオンになっているかだけ反映した設定データ
+            const default_settings_modified: ILocalClientSettings = {
+                ...default_settings,
+                sync_settings: this.settings.sync_settings,
+            };
+
             // デフォルト値の設定データを LocalStorage に保存し、Store の state に反映する
-            setLocalStorageSettings(default_settings);
-            this.settings = default_settings;
+            setLocalStorageSettings(default_settings_modified);
+            this.settings = default_settings_modified;
 
             // 設定データをサーバーに同期する
             await this.syncClientSettingsToServer();
