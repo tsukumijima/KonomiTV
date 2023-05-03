@@ -50,7 +50,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: KonomiTV-Installer.exe
-          path: installer/KonomiTV-Installer.exe
+          path: installer/dist/KonomiTV-Installer.exe
 
   # Linux 向けのインストーラーのビルド
   build-linux:
@@ -86,7 +86,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: KonomiTV-Installer.elf
-          path: installer/KonomiTV-Installer.elf
+          path: installer/dist/KonomiTV-Installer.elf
 
   # Linux (ARM) 向けのインストーラーのビルド
   build-linux-arm:
@@ -156,11 +156,11 @@ jobs:
         run: |
           docker run --rm -i -v $(pwd):/work -w /work ${{ matrix.image }}:build bash -c \
             'PIPENV_VENV_IN_PROJECT=true pipenv sync && pipenv run build-linux'
-          mv KonomiTV-Installer.elf KonomiTV-Installer-ARM.elf
+          mv dist/KonomiTV-Installer.elf dist/KonomiTV-Installer-ARM.elf
 
       # 単一実行ファイルにビルドされたインストーラーを Artifact としてアップロード
       - name: Upload Installer Executable as Artifact
         uses: actions/upload-artifact@v3
         with:
           name: KonomiTV-Installer-ARM.elf
-          path: installer/KonomiTV-Installer-ARM.elf
+          path: installer/dist/KonomiTV-Installer-ARM.elf

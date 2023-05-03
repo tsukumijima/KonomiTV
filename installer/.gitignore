@@ -2,6 +2,4 @@
 # PyInstaller によるビルドキャッシュや成果物
 build/
 dist/
-KonomiTV-Installer.elf
-KonomiTV-Installer-ARM.elf
-KonomiTV-Installer.exe
+*.spec
