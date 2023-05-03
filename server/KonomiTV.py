@@ -218,7 +218,7 @@ def main():
             response = requests.get(
                 url = f'{CONFIG["general"]["mirakurun_url"]}/api/version',
                 headers = API_REQUEST_HEADERS,
-                timeout = 10,  # 久々のアクセスだとどうも時間がかかることがあるため、ここだけタイムアウトを長めに設定
+                timeout = 20,  # 久々のアクセスだとどうも時間がかかることがあるため、ここだけタイムアウトを長めに設定
             )
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
             logger.error(f'Mirakurun ({CONFIG["general"]["mirakurun_url"]}/) にアクセスできませんでした。')
