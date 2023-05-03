@@ -162,6 +162,7 @@ def Updater(version: str) -> None:
                 '入力されたログオン中ユーザーのパスワードが間違っている可能性があります。',
             ), (1, 2, 0, 2)))
             print(Padding('[red]エラーログ:\n' + service_stop_result.stdout.strip(), (1, 2, 1, 2)))
+            return  # 処理中断
 
     # ***** Linux: 起動中の PM2 サービスの終了 *****
 
@@ -172,12 +173,28 @@ def Updater(version: str) -> None:
         progress = CreateBasicInfiniteProgress()
         progress.add_task('', total=None)
         with progress:
-            subprocess.run(
+            pm2_stop_result = subprocess.run(
                 args = ['/usr/bin/env', 'pm2', 'stop', 'KonomiTV'],
                 cwd = update_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
-                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+                stdout = subprocess.PIPE,  # 標準出力をキャプチャする
+                stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
+                text = True,  # 出力をテキストとして取得する
             )
+
+        # PM2 サービスの終了に失敗
+        if pm2_stop_result.returncode != 0:
+            print(Padding(Panel(
+                '[red]PM2 サービスの終了中に予期しないエラーが発生しました。[/red]\n'
+                'お手数をおかけしますが、下記のログを開発者に報告してください。',
+                box = box.SQUARE,
+                border_style = Style(color='#E33157'),
+            ), (1, 2, 0, 2)))
+            print(Padding(Panel(
+                'PM2 のエラーログ:\n' + pm2_stop_result.stdout.strip(),
+                box = box.SQUARE,
+                border_style = Style(color='#E33157'),
+            ), (0, 2, 0, 2)))
+            return  # 処理中断
 
     # ***** Linux-Docker: 起動中の Docker コンテナの終了 *****
 
@@ -450,6 +467,7 @@ def Updater(version: str) -> None:
                 '入力されたログオン中ユーザーのパスワードが間違っている可能性があります。',
             ), (1, 2, 0, 2)))
             print(Padding('[red]エラーログ:\n' + service_start_result.stdout.strip(), (1, 2, 1, 2)))
+            return  # 処理中断
 
     # ***** Linux: PM2 サービスの起動 *****
 

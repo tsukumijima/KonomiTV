@@ -18,7 +18,6 @@ from pathlib import Path
 from rich import box
 from rich import print
 from rich.padding import Padding
-from rich.panel import Panel
 from rich.rule import Rule
 from rich.style import Style
 from rich.table import Table
@@ -39,7 +38,10 @@ from Utils import IsDockerComposeV2
 from Utils import IsDockerInstalled
 from Utils import IsGitInstalled
 from Utils import RemoveEmojiIfLegacyTerminal
+from Utils import RunSubprocess
 from Utils import SaveConfigYaml
+from Utils import ShowPanel
+from Utils import ShowSubProcessErrorLog
 
 
 def Installer(version: str) -> None:
@@ -66,12 +68,10 @@ def Installer(version: str) -> None:
         ## 現状 ARM 環境では Docker を使ったインストール方法はサポートしていない
         is_docker_installed = IsDockerInstalled()
         if is_docker_installed is True and is_arm_device is False:
-            print(Padding(Panel(
-                f'お使いの PC には Docker と Docker Compose {"V2" if IsDockerComposeV2() else "V1"} がインストールされています。\n'
+            ShowPanel([
+                f'お使いの PC には Docker と Docker Compose {"V2" if IsDockerComposeV2() else "V1"} がインストールされています。',
                 'Docker + Docker Compose を使ってインストールしますか？',
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (1, 2, 1, 2)))
+            ], padding=(1, 2, 1, 2))
 
             # Docker を使ってインストールするかを訊く (Y/N)
             is_install_with_docker = bool(CustomConfirm.ask('Docker + Docker Compose でインストールする', default=True))
@@ -97,13 +97,11 @@ def Installer(version: str) -> None:
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
             )
             if result.returncode != 0:
-                print(Padding(Panel(
-                    '[yellow]KonomiTV を Docker を使わずにインストールするには PM2 が必要です。[/yellow]\n'
-                    'PM2 は、KonomiTV サービスのプロセスマネージャーとして利用しています。\n'
+                ShowPanel([
+                    '[yellow]KonomiTV を Docker を使わずにインストールするには PM2 が必要です。[/yellow]',
+                    'PM2 は、KonomiTV サービスのプロセスマネージャーとして利用しています。',
                     'Node.js が導入されていれば、[cyan]sudo npm install -g pm2[/cyan] でインストールできます。',
-                    box = box.SQUARE,
-                    border_style = Style(color='#E33157'),
-                ), (1, 2, 0, 2)))
+                ])
                 return  # 処理中断
 
     # Docker Compose V2 かどうかでコマンド名を変える
@@ -256,7 +254,7 @@ def Installer(version: str) -> None:
             ## 試しにリクエストを送り、200 (OK) が返ってきたときだけ有効な URL とみなす
             ## 10秒でタイムアウト
             try:
-                response = requests.get(f'{mirakurun_url.rstrip("/")}/api/version', timeout=10)
+                response = requests.get(f'{mirakurun_url.rstrip("/")}/api/version', timeout=20)
             except Exception:
                 print(Padding(str(
                     f'[red]Mirakurun ({mirakurun_url}) にアクセスできませんでした。\n'
@@ -293,19 +291,22 @@ def Installer(version: str) -> None:
         )
         # コマンド成功時のみ
         if gpu_info_json.returncode == 0:
-            # GPU が1個だけ搭載されている環境では直接 dict[str, Any] 、2個以上搭載されている環境は list[dict[str, Any]] の形で出力される
-            gpu_info_data = json.loads(gpu_info_json.stdout)
-            gpu_infos: list[dict[str, Any]]
-            if type(gpu_info_data) is dict:
-                # GPU が1個だけ搭載されている環境
-                gpu_infos = [gpu_info_data]
-            else:
-                # GPU が2個以上搭載されている環境
-                gpu_infos = gpu_info_data
-            # 搭載されている GPU 名を取得してリストに追加
-            for gpu_info in gpu_infos:
-                if 'Name' in gpu_info:
-                    gpu_names.append(gpu_info['Name'])
+            try:
+                # GPU が1個だけ搭載されている環境では直接 dict[str, Any] 、2個以上搭載されている環境は list[dict[str, Any]] の形で出力される
+                gpu_info_data = json.loads(gpu_info_json.stdout)
+                gpu_infos: list[dict[str, Any]]
+                if type(gpu_info_data) is dict:
+                    # GPU が1個だけ搭載されている環境
+                    gpu_infos = [gpu_info_data]
+                else:
+                    # GPU が2個以上搭載されている環境
+                    gpu_infos = gpu_info_data
+                # 搭載されている GPU 名を取得してリストに追加
+                for gpu_info in gpu_infos:
+                    if 'Name' in gpu_info:
+                        gpu_names.append(gpu_info['Name'])
+            except json.decoder.JSONDecodeError:
+                pass
 
     # Linux / Linux-Docker: lshw コマンドを使って取得できる
     elif platform_type == 'Linux' or platform_type == 'Linux-Docker':
@@ -430,16 +431,15 @@ def Installer(version: str) -> None:
     if is_git_installed is True:
 
         # git clone でソースコードをダウンロード
-        print(Padding('KonomiTV のソースコードを Git でダウンロードしています…', (1, 2, 0, 2)))
-        progress = CreateBasicInfiniteProgress()
-        progress.add_task('', total=None)
-        with progress:
-            subprocess.run(
-                args = ['git', 'clone', '-b', f'v{version}', 'https://github.com/tsukumijima/KonomiTV.git', install_path.name],
-                cwd = install_path.parent,
-                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
-                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-            )
+        result = RunSubprocess(
+            'KonomiTV のソースコードを Git でダウンロードしています…',
+            ['git', 'clone', '-b', f'v{version}', 'https://github.com/tsukumijima/KonomiTV.git', install_path.name],
+            cwd = install_path.parent,
+            error_message = 'KonomiTV のソースコードのダウンロード中に予期しないエラーが発生しました。',
+            error_log_name = 'Git のエラーログ',
+        )
+        if result is False:
+            return  # 処理中断
 
     # Git コマンドがインストールされていない場合: zip でダウンロード
     else:
@@ -490,13 +490,11 @@ def Installer(version: str) -> None:
 
     # 結果的にデフォルトのリッスンポートが 7000 以外になった場合の注意メッセージ
     if server_port != 7000:
-        print(Padding(Panel(
-            '[yellow]注意: デフォルトのリッスンポート (7000) がほかのサーバーソフトと重複しています。[/yellow]\n'
-            f'代わりのリッスンポートとして、ポート {server_port} を選択します。\n'
+        ShowPanel([
+            '[yellow]注意: デフォルトのリッスンポート (7000) がほかのサーバーソフトと重複しています。[/yellow]',
+            f'代わりのリッスンポートとして、ポート {server_port} を選択します。',
             'リッスンポートは、環境設定ファイル (config.yaml) を編集すると変更できます。',
-            box = box.SQUARE,
-            border_style = Style(color='#E33157'),
-        ), (1, 2, 0, 2)))
+        ])
 
     # ***** 環境設定ファイル (config.yaml) の生成 *****
 
@@ -591,25 +589,29 @@ def Installer(version: str) -> None:
         print(Rule(style=Style(color='cyan'), align='center'))
         environment = os.environ.copy()
         environment['PIPENV_VENV_IN_PROJECT'] = 'true'
-        subprocess.run(
+        pipenv_sync_result = subprocess.run(
             args = [python_executable_path, '-m', 'pipenv', 'sync', f'--python={python_executable_path}'],
             cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
             env = environment,  # 環境変数を設定
         )
         print(Rule(style=Style(color='cyan'), align='center'))
+        if pipenv_sync_result.returncode != 0:
+            ShowPanel([
+                '[red]依存パッケージのインストール中に予期しないエラーが発生しました。[/red]'
+                'お手数をおかけしますが、上記のログを開発者に報告してください。',
+            ])
+            return  # 処理中断
 
         # ***** データベースのアップグレード *****
 
-        print(Padding('データベースをアップグレードしています…', (1, 2, 0, 2)))
-        progress = CreateBasicInfiniteProgress()
-        progress.add_task('', total=None)
-        with progress:
-            subprocess.run(
-                args = [python_executable_path, '-m', 'pipenv', 'run', 'aerich', 'upgrade'],
-                cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
-                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-            )
+        result = RunSubprocess(
+            'データベースをアップグレードしています…',
+            [python_executable_path, '-m', 'pipenv', 'run', 'aerich', 'upgrade'],
+            cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+            error_message = 'データベースのアップグレード中に予期しないエラーが発生しました。'
+        )
+        if result is False:
+            return  # 処理中断
 
     # Linux-Docker: docker-compose.yaml を生成し、Docker イメージをビルド
     elif platform_type == 'Linux-Docker':
@@ -683,12 +685,10 @@ def Installer(version: str) -> None:
         )
         print(Rule(style=Style(color='cyan'), align='center'))
         if docker_compose_build_result.returncode != 0:
-            print(Padding(Panel(
-                '[red]Docker イメージのビルド中に予期しないエラーが発生しました。[/red]\n'
+            ShowPanel([
+                '[red]Docker イメージのビルド中に予期しないエラーが発生しました。[/red]',
                 'お手数をおかけしますが、上記のログを開発者に報告してください。',
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (1, 2, 0, 2)))
+            ])
             return  # 処理中断
 
     # ***** Linux / Linux-Docker: QSVEncC / NVEncC / VCEEncC の動作チェック *****
@@ -745,37 +745,27 @@ def Installer(version: str) -> None:
                 ## Intel Graphics 本体のドライバーは Linux カーネルに組み込まれている
                 ## インストールコマンドが複雑なので、コマンド例を明示する
                 if result1.returncode != 0 or result2.returncode != 0 or is_intel_media_driver_installed is False:
-                    print(Padding(Panel(
-                        '[yellow]注意: この PC では QSVEncC が利用できない状態です。[/yellow]\n'
-                        'Intel QSV の利用に必要な Intel Media Driver が\n'
+                    ShowPanel([
+                        '[yellow]注意: この PC では QSVEncC が利用できない状態です。[/yellow]',
+                        'Intel QSV の利用に必要な Intel Media Driver が',
                         'インストールされていない可能性があります。',
-                        box = box.SQUARE,
-                        border_style = Style(color='#E33157'),
-                    ), (1, 2, 0, 2)))
-                    print(Padding(Panel(
-                        'Intel Media Driver は以下のコマンドでインストールできます。\n'
+                    ])
+                    ShowPanel([
+                        'Intel Media Driver は以下のコマンドでインストールできます。',
                         '[cyan]curl -fsSL https://repositories.intel.com/graphics/intel-graphics.key | sudo gpg --dearmor --yes -o /usr/share/keyrings/intel-graphics-keyring.gpg && echo \'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/graphics/ubuntu focal main\' | sudo tee /etc/apt/sources.list.d/intel-graphics.list > /dev/null && sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-opencl-icd[/cyan]',
-                        box = box.SQUARE,
-                        border_style = Style(color='#E33157'),
-                    ), (0, 2, 0, 2)))
-                    print(Padding(Panel(
-                        'Alder Lake (第12世代) 以降の CPU では、追加で以下のコマンドを実行してください。\n'
-                        'なお、libmfx-gen1.2 パッケージは Ubuntu 22.04 LTS にしか存在しないため、 \n'
-                        'Ubuntu 20.04 LTS では、Alder Lake 以降の CPU の Intel QSV を利用できません。\n'
+                    ], padding=(0, 2, 0, 2))
+                    ShowPanel([
+                        'Alder Lake (第12世代) 以降の CPU では、追加で以下のコマンドを実行してください。',
+                        'なお、libmfx-gen1.2 パッケージは Ubuntu 22.04 LTS にしか存在しないため、',
+                        'Ubuntu 20.04 LTS では、Alder Lake 以降の CPU の Intel QSV を利用できません。',
                         '[cyan]sudo apt install -y libmfx-gen1.2[/cyan]',
-                        box = box.SQUARE,
-                        border_style = Style(color='#E33157'),
-                    ), (0, 2, 0, 2)))
-                    print(Padding(Panel(
+                    ], padding=(0, 2, 0, 2))
+                    ShowPanel([
                         'QSVEncC (--check-hw) のログ:\n' + result1.stdout.strip(),
-                        box = box.SQUARE,
-                        border_style = Style(color='#E33157'),
-                    ), (0, 2, 0, 2)))
-                    print(Padding(Panel(
+                    ], padding=(0, 2, 0, 2))
+                    ShowPanel([
                         'QSVEncC (--check-clinfo) のログ:\n' + result2.stdout.strip(),
-                        box = box.SQUARE,
-                        border_style = Style(color='#E33157'),
-                    ), (0, 2, 0, 2)))
+                    ], padding=(0, 2, 0, 2))
 
             # Linux-Docker のみ
             elif platform_type == 'Linux-Docker':
@@ -783,25 +773,19 @@ def Installer(version: str) -> None:
                 # Linux-Docker では Docker イメージの中に Intel Media Driver が含まれているため、基本的には動作するはず
                 ## もしそれでも動作しない場合は、Intel QSV に対応していない古い Intel CPU である可能性が高い
                 if result1.returncode != 0 or result2.returncode != 0:
-                    print(Padding(Panel(
-                        '[yellow]注意: この PC では QSVEncC が利用できない状態です。[/yellow]\n'
-                        'お使いの CPU が古く、Intel QSV に対応していない可能性があります。\n'
-                        'Linux 版の Intel QSV は、Broadwell (第5世代) 以上の Intel CPU でのみ利用できます。\n'
-                        'そのため、Haswell (第4世代) 以下の CPU では、QSVEncC を利用できません。\n'
+                    ShowPanel([
+                        '[yellow]注意: この PC では QSVEncC が利用できない状態です。[/yellow]',
+                        'お使いの CPU が古く、Intel QSV に対応していない可能性があります。',
+                        'Linux 版の Intel QSV は、Broadwell (第5世代) 以上の Intel CPU でのみ利用できます。',
+                        'そのため、Haswell (第4世代) 以下の CPU では、QSVEncC を利用できません。',
                         'なお、Windows 版の Intel QSV は、Haswell (第4世代) 以下の CPU でも利用できます。',
-                        box = box.SQUARE,
-                        border_style = Style(color='#E33157'),
-                    ), (1, 2, 0, 2)))
-                    print(Padding(Panel(
+                    ])
+                    ShowPanel([
                         'QSVEncC (--check-hw) のログ:\n' + result1.stdout.strip(),
-                        box = box.SQUARE,
-                        border_style = Style(color='#E33157'),
-                    ), (0, 2, 0, 2)))
-                    print(Padding(Panel(
+                    ], padding=(0, 2, 0, 2))
+                    ShowPanel([
                         'QSVEncC (--check-clinfo) のログ:\n' + result2.stdout.strip(),
-                        box = box.SQUARE,
-                        border_style = Style(color='#E33157'),
-                    ), (0, 2, 0, 2)))
+                    ], padding=(0, 2, 0, 2))
 
         # エンコーダーに NVEncC が選択されているとき
         elif encoder == 'NVEncC':
@@ -825,20 +809,16 @@ def Installer(version: str) -> None:
             # 適宜ドライバーをインストール/アップデートするように催促する
             ## NVEncC は NVIDIA Graphics Driver さえインストールされていれば動作する
             if result.returncode != 0:
-                print(Padding(Panel(
-                    '[yellow]注意: この PC では NVEncC が利用できない状態です。[/yellow]\n'
-                    'NVENC の利用に必要な NVIDIA Graphics Driver がインストールされていないか、\n'
-                    'NVIDIA Graphics Driver のバージョンが古い可能性があります。\n'
-                    'NVIDIA Graphics Driver をインストール/最新バージョンに更新してください。\n'
+                ShowPanel([
+                    '[yellow]注意: この PC では NVEncC が利用できない状態です。[/yellow]',
+                    'NVENC の利用に必要な NVIDIA Graphics Driver がインストールされていないか、',
+                    'NVIDIA Graphics Driver のバージョンが古い可能性があります。',
+                    'NVIDIA Graphics Driver をインストール/最新バージョンに更新してください。',
                     'インストール/アップデート完了後は、システムの再起動が必要です。',
-                    box = box.SQUARE,
-                    border_style = Style(color='#E33157'),
-                ), (1, 2, 0, 2)))
-                print(Padding(Panel(
+                ])
+                ShowPanel([
                     'NVEncC のログ:\n' + result.stdout.strip(),
-                    box = box.SQUARE,
-                    border_style = Style(color='#E33157'),
-                ), (0, 2, 0, 2)))
+                ], padding=(0, 2, 0, 2))
 
         # エンコーダーに VCEEncC が選択されているとき
         elif encoder == 'VCEEncC':
@@ -862,34 +842,26 @@ def Installer(version: str) -> None:
             # 適宜ドライバーをインストール/アップデートするように催促する
             ## VCEEncC は AMDGPU-PRO Driver さえインストールされていれば動作する
             if result.returncode != 0:
-                print(Padding(Panel(
-                    '[yellow]注意: この PC では VCEEncC が利用できない状態です。[/yellow]\n'
-                    'AMD VCE の利用に必要な AMDGPU-PRO Driver がインストールされていないか、\n'
-                    'AMDGPU-PRO Driver のバージョンが古い可能性があります。\n'
+                ShowPanel([
+                    '[yellow]注意: この PC では VCEEncC が利用できない状態です。[/yellow]',
+                    'AMD VCE の利用に必要な AMDGPU-PRO Driver がインストールされていないか、',
+                    'AMDGPU-PRO Driver のバージョンが古い可能性があります。',
                     'AMDGPU-PRO Driver をインストール/最新バージョンに更新してください。',
-                    box = box.SQUARE,
-                    border_style = Style(color='#E33157'),
-                ), (1, 2, 0, 2)))
-                print(Padding(Panel(
-                    'AMDGPU-PRO Driver のインストーラーは以下のコマンドでダウンロードできます。\n'
-                    'Ubuntu 20.04 LTS: [cyan]curl -LO https://repo.radeon.com/amdgpu-install/22.20/ubuntu/focal/amdgpu-install_22.20.50200-1_all.deb[/cyan]\n'
+                ])
+                ShowPanel([
+                    'AMDGPU-PRO Driver のインストーラーは以下のコマンドでダウンロードできます。',
+                    'Ubuntu 20.04 LTS: [cyan]curl -LO https://repo.radeon.com/amdgpu-install/22.20/ubuntu/focal/amdgpu-install_22.20.50200-1_all.deb[/cyan]',
                     'Ubuntu 22.04 LTS: [cyan]curl -LO https://repo.radeon.com/amdgpu-install/22.20/ubuntu/jammy/amdgpu-install_22.20.50200-1_all.deb[/cyan]',
-                    box = box.SQUARE,
-                    border_style = Style(color='#E33157'),
-                ), (0, 2, 0, 2)))
-                print(Padding(Panel(
-                    'AMDGPU-PRO Driver は以下のコマンドでインストール/アップデートできます。\n'
-                    '事前に AMDGPU-PRO Driver のインストーラーをダウンロードしてから実行してください。\n'
-                    'インストール/アップデート完了後は、システムの再起動が必要です。\n'
+                ], padding=(0, 2, 0, 2))
+                ShowPanel([
+                    'AMDGPU-PRO Driver は以下のコマンドでインストール/アップデートできます。',
+                    '事前に AMDGPU-PRO Driver のインストーラーをダウンロードしてから実行してください。',
+                    'インストール/アップデート完了後は、システムの再起動が必要です。',
                     '[cyan]sudo apt install -y ./amdgpu-install_22.20.50200-1_all.deb && sudo apt update && sudo amdgpu-install -y --accept-eula --usecase=graphics,amf,opencl --opencl=rocr,legacy --no-32[/cyan]',
-                    box = box.SQUARE,
-                    border_style = Style(color='#E33157'),
-                ), (0, 2, 0, 2)))
-                print(Padding(Panel(
+                ], padding=(0, 2, 0, 2))
+                ShowPanel([
                     'VCEEncC のログ:\n' + result.stdout.strip(),
-                    box = box.SQUARE,
-                    border_style = Style(color='#E33157'),
-                ), (0, 2, 0, 2)))
+                ], padding=(0, 2, 0, 2))
 
         # エンコーダーに rkmppenc が選択されているとき
         elif encoder == 'rkmppenc':
@@ -908,25 +880,19 @@ def Installer(version: str) -> None:
 
             # rkmppenc が利用できない結果になった場合は必要な設定とパッケージをインストールするように細則する
             if result.returncode != 0:
-                print(Padding(Panel(
-                    '[yellow]注意: この PC では rkmppenc が利用できない状態です。[/yellow]\n'
-                    'Rockchip MPP の利用に必要な設定データファイルがインストールされていないか、\n'
+                ShowPanel([
+                    '[yellow]注意: この PC では rkmppenc が利用できない状態です。[/yellow]',
+                    'Rockchip MPP の利用に必要な設定データファイルがインストールされていないか、',
                     'お使いの SoC が Rockchip MPP に対応していない可能性があります。',
-                    box = box.SQUARE,
-                    border_style = Style(color='#E33157'),
-                ), (1, 2, 0, 2)))
-                print(Padding(Panel(
-                    '設定データファイルは、以下のコマンドでインストールできます。\n'
-                    'インストール完了後は、システムの再起動が必要です。\n'
+                ])
+                ShowPanel([
+                    '設定データファイルは、以下のコマンドでインストールできます。',
+                    'インストール完了後は、システムの再起動が必要です。',
                     '[cyan]curl -LO https://github.com/tsukumijima/rockchip-multimedia-config/releases/download/v1.0.1-1/rockchip-multimedia-config_1.0.1-1_all.deb && sudo apt install -y ./rockchip-multimedia-config_1.0.1-1_all.deb && rm rockchip-multimedia-config_1.0.1-1_all.deb[/cyan]',
-                    box = box.SQUARE,
-                    border_style = Style(color='#E33157'),
-                ), (0, 2, 0, 2)))
-                print(Padding(Panel(
+                ], padding=(0, 2, 0, 2))
+                ShowPanel([
                     'rkmppenc のログ:\n' + result.stdout.strip(),
-                    box = box.SQUARE,
-                    border_style = Style(color='#E33157'),
-                ), (0, 2, 0, 2)))
+                ], padding=(0, 2, 0, 2))
 
     # ***** Windows: Windows Defender ファイアウォールに受信規則を追加 *****
 
@@ -1006,7 +972,8 @@ def Installer(version: str) -> None:
             if 'Error installing service' in service_install_result.stdout:
                 print(Padding(str(
                     '[red]Windows サービスのインストールに失敗しました。\n'
-                    '入力されたログオン中ユーザーのパスワードが間違っている可能性があります。',
+                    '入力されたログオン中ユーザーのパスワードが間違っているか、\n'
+                    'すでに KonomiTV がインストールされている可能性があります。',
                 ), (1, 2, 0, 2)))
                 print(Padding('[red]エラーログ:\n' + service_install_result.stdout.strip(), (1, 2, 1, 2)))
                 continue
@@ -1028,7 +995,8 @@ def Installer(version: str) -> None:
             if 'Error starting service' in service_start_result.stdout:
                 print(Padding(str(
                     '[red]Windows サービスの起動に失敗しました。\n'
-                    '入力されたログオン中ユーザーのパスワードが間違っている可能性があります。',
+                    '入力されたログオン中ユーザーのパスワードが間違っているか、\n'
+                    'すでに KonomiTV がインストールされている可能性があります。',
                 ), (1, 2, 0, 2)))
                 print(Padding('[red]エラーログ:\n' + service_start_result.stdout.strip(), (1, 2, 1, 2)))
                 continue
@@ -1043,115 +1011,49 @@ def Installer(version: str) -> None:
         # PM2 サービスをインストール
         ## インストーラーは強制的に root 権限で実行されるので、ここで実行する PM2 も root ユーザーとして動いているものになる
         ## Mirakurun や EPGStation 同様、PM2 はユーザー権限よりも root 権限で動かしたほうが何かとよさそう
-        print(Padding('PM2 サービスをインストールしています…', (1, 2, 0, 2)))
-        progress = CreateBasicInfiniteProgress()
-        progress.add_task('', total=None)
-        with progress:
-
-            # PM2 サービスをインストール
-            pm2_install_result = subprocess.run(
-                args = ['/usr/bin/env', 'pm2', 'start', '.venv/bin/python', '--name', 'KonomiTV', '--', 'KonomiTV.py'],
-                cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-                stdout = subprocess.PIPE,  # 標準出力をキャプチャする
-                stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
-                text = True,  # 出力をテキストとして取得する
-            )
-
-            # PM2 への変更を保存
-            pm2_save_result = subprocess.run(
-                args = ['/usr/bin/env', 'pm2', 'save'],
-                cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-                stdout = subprocess.PIPE,  # 標準出力をキャプチャする
-                stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
-                text = True,  # 出力をテキストとして取得する
-            )
-
-        if pm2_install_result.returncode != 0:
-            print(Padding(Panel(
-                '[red]PM2 サービスのインストール中に予期しないエラーが発生しました。[/red]\n'
-                'お手数をおかけしますが、下記のログを開発者に報告してください。',
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (1, 2, 0, 2)))
-            print(Padding(Panel(
-                'PM2 のエラーログ:\n' + pm2_install_result.stdout.strip(),
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (0, 2, 0, 2)))
+        result = RunSubprocess(
+            'PM2 サービスをインストールしています…',
+            ['/usr/bin/env', 'pm2', 'start', '.venv/bin/python', '--name', 'KonomiTV', '--', 'KonomiTV.py'],
+            cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+            error_message = 'PM2 サービスのインストール中に予期しないエラーが発生しました。',
+            error_log_name = 'PM2 のエラーログ',
+        )
+        if result is False:
             return  # 処理中断
 
-        if pm2_save_result.returncode != 0:
-            print(Padding(Panel(
-                '[red]PM2 サービスのインストール中に予期しないエラーが発生しました。[/red]\n'
-                'お手数をおかけしますが、下記のログを開発者に報告してください。',
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (1, 2, 0, 2)))
-            print(Padding(Panel(
-                'PM2 のエラーログ:\n' + pm2_save_result.stdout.strip(),
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (0, 2, 0, 2)))
+        # PM2 への変更を保存
+        result = RunSubprocess(
+            'PM2 サービスを保存しています…',
+            ['/usr/bin/env', 'pm2', 'start', 'save'],
+            cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+            error_message = 'PM2 サービスの保存中に予期しないエラーが発生しました。',
+            error_log_name = 'PM2 のエラーログ',
+        )
+        if result is False:
             return  # 処理中断
 
         # PM2 サービスを起動
-        print(Padding('PM2 サービスを起動しています…', (1, 2, 0, 2)))
-        progress = CreateBasicInfiniteProgress()
-        progress.add_task('', total=None)
-        with progress:
-            pm2_start_result = subprocess.run(
-                args = ['/usr/bin/env', 'pm2', 'start', 'KonomiTV'],
-                cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-                stdout = subprocess.PIPE,  # 標準出力をキャプチャする
-                stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
-                text = True,  # 出力をテキストとして取得する
-            )
-
-        if pm2_start_result.returncode != 0:
-            print(Padding(Panel(
-                '[red]PM2 サービスの起動中に予期しないエラーが発生しました。[/red]\n'
-                'お手数をおかけしますが、下記のログを開発者に報告してください。',
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (1, 2, 0, 2)))
-            print(Padding(Panel(
-                'PM2 のエラーログ:\n' + pm2_start_result.stdout.strip(),
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (0, 2, 0, 2)))
+        result = RunSubprocess(
+            'PM2 サービスを起動しています…',
+            ['/usr/bin/env', 'pm2', 'start', 'KonomiTV'],
+            cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+            error_message = 'PM2 サービスの起動中に予期しないエラーが発生しました。',
+            error_log_name = 'PM2 のエラーログ',
+        )
+        if result is False:
             return  # 処理中断
 
     # ***** Linux-Docker: Docker コンテナの起動 *****
 
     elif platform_type == 'Linux-Docker':
-
-        print(Padding('Docker コンテナを起動しています…', (1, 2, 0, 2)))
-        progress = CreateBasicInfiniteProgress()
-        progress.add_task('', total=None)
-        with progress:
-
-            # docker compose up -d --force-recreate で Docker コンテナを起動
-            ## 念のためコンテナを強制的に再作成させる
-            docker_compose_up_result = subprocess.run(
-                args = [*docker_compose_command, 'up', '-d', '--force-recreate'],
-                cwd = install_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
-                stdout = subprocess.PIPE,  # 標準出力をキャプチャする
-                stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
-                text = True,  # 出力をテキストとして取得する
-            )
-
-        if docker_compose_up_result.returncode != 0:
-            print(Padding(Panel(
-                '[red]Docker コンテナの起動中に予期しないエラーが発生しました。[/red]\n'
-                'お手数をおかけしますが、下記のログを開発者に報告してください。',
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (1, 2, 0, 2)))
-            print(Padding(Panel(
-                'Docker Compose のエラーログ:\n' + docker_compose_up_result.stdout.strip(),
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (0, 2, 0, 2)))
+        result = RunSubprocess(
+            'Docker コンテナを起動しています…',
+            [*docker_compose_command, 'up', '-d', '--force-recreate'],
+            cwd = install_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
+            error_message = 'Docker コンテナの起動中に予期しないエラーが発生しました。',
+            error_log_name = 'Docker Compose のエラーログ',
+        )
+        if result is False:
             return  # 処理中断
 
     # ***** サービスの起動を待機 *****
@@ -1218,13 +1120,11 @@ def Installer(version: str) -> None:
                     text = True,  # 出力をテキストとして取得する
                 )
                 if 'STOPPED' in service_status_result.stdout:
-                    print(Padding(Panel(
-                        '[red]KonomiTV サーバーの起動に失敗しました。[/red]\n'
-                        'お手数をおかけしますが、イベントビューアーにエラーログが\n'
+                    ShowPanel([
+                        '[red]KonomiTV サーバーの起動に失敗しました。[/red]',
+                        'お手数をおかけしますが、イベントビューアーにエラーログが',
                         '出力されている場合は、そのログを開発者に報告してください。',
-                        box = box.SQUARE,
-                        border_style = Style(color='#E33157'),
-                    ), (1, 2, 0, 2)))
+                    ])
                     return  # 処理中断
             time.sleep(0.1)
 
@@ -1235,18 +1135,12 @@ def Installer(version: str) -> None:
     with progress:
         while is_server_started is False:
             if is_error_occurred is True:
-                print(Padding(Panel(
-                    '[red]KonomiTV サーバーの起動中に予期しないエラーが発生しました。[/red]\n'
-                    'お手数をおかけしますが、下記のログを開発者に報告してください。',
-                    box = box.SQUARE,
-                    border_style = Style(color='#E33157'),
-                ), (1, 2, 0, 2)))
                 with open(install_path / 'server/logs/KonomiTV-Server.log', mode='r', encoding='utf-8') as log:
-                    print(Padding(Panel(
-                        'KonomiTV サーバーのログ:\n' + log.read().strip(),
-                        box = box.SQUARE,
-                        border_style = Style(color='#E33157'),
-                    ), (0, 2, 0, 2)))
+                    ShowSubProcessErrorLog(
+                        error_message = 'KonomiTV サーバーの起動中に予期しないエラーが発生しました。',
+                        error_log_name = 'KonomiTV サーバーのログ',
+                        error_log = log.read(),
+                    )
                     return  # 処理中断
             time.sleep(0.1)
 
@@ -1257,18 +1151,12 @@ def Installer(version: str) -> None:
     with progress:
         while is_programs_update_completed is False:
             if is_error_occurred is True:
-                print(Padding(Panel(
-                    '[red]番組情報の取得中に予期しないエラーが発生しました。[/red]\n'
-                    'お手数をおかけしますが、下記のログを開発者に報告してください。',
-                    box = box.SQUARE,
-                    border_style = Style(color='#E33157'),
-                ), (1, 2, 0, 2)))
                 with open(install_path / 'server/logs/KonomiTV-Server.log', mode='r', encoding='utf-8') as log:
-                    print(Padding(Panel(
-                        'KonomiTV サーバーのログ:\n' + log.read().strip(),
-                        box = box.SQUARE,
-                        border_style = Style(color='#E33157'),
-                    ), (0, 2, 0, 2)))
+                    ShowSubProcessErrorLog(
+                        error_message = '番組情報の取得中に予期しないエラーが発生しました。',
+                        error_log_name = 'KonomiTV サーバーのログ',
+                        error_log = log.read(),
+                    )
                     return  # 処理中断
             time.sleep(0.1)
 

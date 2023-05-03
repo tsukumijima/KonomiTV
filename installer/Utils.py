@@ -9,8 +9,11 @@ import rich
 import subprocess
 import time
 from pathlib import Path
+from rich import box
+from rich import print
 from rich.console import Console
 from rich.padding import Padding
+from rich.panel import Panel
 from rich.progress import Progress
 from rich.progress import (
     BarColumn,
@@ -22,6 +25,7 @@ from rich.progress import (
 )
 from rich.prompt import Confirm
 from rich.prompt import Prompt
+from rich.style import Style
 from rich.text import TextType
 from typing import Callable, cast, Optional
 
@@ -605,3 +609,87 @@ def SaveConfigYaml(config_yaml_path: Path, config_data: dict[str, dict[str, int 
     ## リスト内の各要素にはすでに改行コードが含まれているので、空文字で join() するだけで OK
     with open(config_yaml_path, mode='w', encoding='utf-8') as file:
         file.write(''.join(new_lines))
+
+
+def RunSubprocess(
+    name: str,
+    args: list[str | Path],
+    cwd: Path | None = None,
+    environment: dict[str, str] | None = None,
+    error_message: str = '予期しないエラーが発生しました。',
+    error_log_name: str = 'エラーログ',
+) -> bool:
+    """
+    サブプロセスを実行する。
+
+    Args:
+        name (str): プロセス名
+        args (list[str]): 実行するコマンド
+        cwd (Path): カレントディレクトリ
+        error_message (str, optional): エラー発生時のエラーメッセージ. Defaults to '予期しないエラーが発生しました。'.
+        error_log_name (str, optional): エラー発生時のエラーログ名. Defaults to 'エラーログ'.
+
+    Returns:
+        bool: 成功したかどうか
+    """
+
+    print(Padding(name, (1, 2, 0, 2)))
+    progress = CreateBasicInfiniteProgress()
+    progress.add_task('', total=None)
+    with progress:
+        result = subprocess.run(
+            args = args,
+            cwd = cwd,
+            env = environment,
+            stdout = subprocess.PIPE,  # 標準出力をキャプチャする
+            stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
+            text = True,  # 出力をテキストとして取得する
+        )
+
+    if result.returncode != 0:
+        ShowSubProcessErrorLog(
+            error_message = error_message,
+            error_log_name = error_log_name,
+            error_log = result.stdout,
+        )
+        return False
+
+    return True
+
+
+def ShowPanel(message: list[str], padding: tuple[int, int, int, int] = (1, 2, 0, 2)) -> None:
+    """
+    パネルを表示する
+
+    Args:
+        message (list[str]): パネルに表示するメッセージのリスト
+        padding (tuple[int], optional): パネルのパディング. Defaults to (1, 2, 0, 2).
+    """
+    print(Padding(Panel(
+        '\n'.join(message),
+        box = box.SQUARE,
+        border_style = Style(color='#E33157'),
+    ), padding))
+
+
+def ShowSubProcessErrorLog(
+        error_message: str = '予期しないエラーが発生しました。',
+        error_log_name: str = 'エラーログ',
+        error_log: str = '',
+    ) -> None:
+    """
+    サブプロセスのエラーログを表示する
+
+    Args:
+        error_message (str): エラーメッセージ
+        error_log (str): エラーログ
+        error_log_name (str): エラーログの名前
+    """
+
+    ShowPanel([
+        f'[red]{error_message}[/red]',
+        'お手数をおかけしますが、下記のログを開発者に報告してください。',
+    ])
+    ShowPanel([
+        f'{error_log_name}:\n' + error_log.strip(),
+    ], padding=(0, 2, 0, 2))

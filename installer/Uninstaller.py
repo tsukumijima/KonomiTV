@@ -142,11 +142,18 @@ def Uninstaller() -> None:
 
         # Windows サービスの終了に失敗
         if 'Error stopping service' in service_stop_result.stdout:
-            print(Padding(str(
-                '[red]Windows サービスの終了に失敗しました。\n'
-                '入力されたログオン中ユーザーのパスワードが間違っている可能性があります。',
+            print(Padding(Panel(
+                '[red]Windows サービスの終了中に予期しないエラーが発生しました。[/red]\n'
+                'お手数をおかけしますが、下記のログを開発者に報告してください。',
+                box = box.SQUARE,
+                border_style = Style(color='#E33157'),
             ), (1, 2, 0, 2)))
-            print(Padding('[red]エラーログ:\n' + service_stop_result.stdout.strip(), (1, 2, 1, 2)))
+            print(Padding(Panel(
+                'エラーログ:\n' + service_stop_result.stdout.strip(),
+                box = box.SQUARE,
+                border_style = Style(color='#E33157'),
+            ), (0, 2, 0, 2)))
+            return  # 処理中断
 
         # Windows サービスをアンインストール
         print(Padding('Windows サービスをアンインストールしています…', (1, 2, 0, 2)))
@@ -163,11 +170,18 @@ def Uninstaller() -> None:
 
         # Windows サービスのアンインストールに失敗
         if 'Error removing service' in service_uninstall_result.stdout:
-            print(Padding(str(
-                '[red]Windows サービスのアンインストールに失敗しました。\n'
-                '入力されたログオン中ユーザーのパスワードが間違っている可能性があります。',
+            print(Padding(Panel(
+                '[red]Windows サービスのアンインストール中に予期しないエラーが発生しました。[/red]\n'
+                'お手数をおかけしますが、下記のログを開発者に報告してください。',
+                box = box.SQUARE,
+                border_style = Style(color='#E33157'),
             ), (1, 2, 0, 2)))
-            print(Padding('[red]エラーログ:\n' + service_uninstall_result.stdout.strip(), (1, 2, 1, 2)))
+            print(Padding(Panel(
+                'エラーログ:\n' + service_uninstall_result.stdout.strip(),
+                box = box.SQUARE,
+                border_style = Style(color='#E33157'),
+            ), (0, 2, 0, 2)))
+            return  # 処理中断
 
     # ***** Linux: PM2 サービスの終了・アンインストール *****
 
