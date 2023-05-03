@@ -5,23 +5,21 @@ name = "pypi"
 
 [scripts]
 dev = "python KonomiTV-Installer.py"
-build-windows = "nuitka --onefile --msvc='latest' --follow-imports --assume-yes-for-downloads --windows-uac-admin --windows-icon-from-ico='KonomiTV-Installer.ico' KonomiTV-Installer.py"
-build-linux = "nuitka3 --onefile --follow-imports --assume-yes-for-downloads --output-filename='KonomiTV-Installer.elf' KonomiTV-Installer.py"
+build-windows = "pyinstaller --onefile --uac-admin --icon=KonomiTV-Installer.ico KonomiTV-Installer.py"
+build-linux = "pyinstaller --onefile --name=KonomiTV-Installer.elf KonomiTV-Installer.py"
 
 [packages]
 distro = "*"
 elevate = "*"
 emoji = "*"
 ifaddr = "*"
-nuitka = "*"
-ordered-set = "*"
 psutil = "*"
 py7zr = "*"
+pyinstaller = "==5.10.1"
 requests = "*"
 rich = "*"
 "ruamel.yaml" = "*"
 watchdog = "*"
-zstandard = "*"
 
 [dev-packages]
 

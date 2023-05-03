@@ -1,7 +1,7 @@
 
-# Nuitka によるビルドキャッシュや成果物
-KonomiTV-Installer.build/
-KonomiTV-Installer.dist/
-KonomiTV-Installer.onefile-build/
+# PyInstaller によるビルドキャッシュや成果物
+build/
+dist/
 KonomiTV-Installer.elf
+KonomiTV-Installer-ARM.elf
 KonomiTV-Installer.exe
