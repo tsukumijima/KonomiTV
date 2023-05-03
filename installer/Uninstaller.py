@@ -5,19 +5,19 @@ import subprocess
 import shutil
 import stat
 from pathlib import Path
-from rich import box
 from rich import print
 from rich.padding import Padding
-from rich.panel import Panel
-from rich.style import Style
-from rich.table import Table
 from typing import Literal
 
 from Utils import CreateBasicInfiniteProgress
+from Utils import CreateTable
 from Utils import CustomConfirm
 from Utils import CustomPrompt
 from Utils import IsDockerComposeV2
 from Utils import IsDockerInstalled
+from Utils import RunSubprocess
+from Utils import ShowPanel
+from Utils import ShowSubProcessErrorLog
 
 
 def Uninstaller() -> None:
@@ -34,7 +34,7 @@ def Uninstaller() -> None:
 
     # ***** アンインストール対象の KonomiTV のフォルダのパス *****
 
-    table_02 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
+    table_02 = CreateTable()
     table_02.add_column('02. アンインストール対象の KonomiTV のフォルダのパスを入力してください。')
     if platform_type == 'Windows':
         table_02.add_row('例: C:\\DTV\\KonomiTV')
@@ -85,13 +85,11 @@ def Uninstaller() -> None:
 
         # 前回 Docker を使ってインストールされているが、今 Docker がインストールされていない
         if IsDockerInstalled() is False:
-            print(Padding(Panel(
-                '[yellow]この KonomiTV をアンインストールするには、Docker のインストールが必要です。[/yellow]\n'
-                'この KonomiTV は Docker を使ってインストールされていますが、現在 Docker が\n'
+            ShowPanel([
+                '[yellow]この KonomiTV をアンインストールするには、Docker のインストールが必要です。[/yellow]',
+                'この KonomiTV は Docker を使ってインストールされていますが、現在 Docker が',
                 'インストールされていないため、アンインストールすることができません。',
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (1, 2, 0, 2)))
+            ])
             return  # 処理中断
 
         # プラットフォームタイプを Linux-Docker にセット
@@ -106,14 +104,12 @@ def Uninstaller() -> None:
         )
 
     # アンインストールするかの最終確認
-    print(Padding(Panel(
-        '[yellow]KonomiTV サーバーに保存されているすべてのユーザーデータが削除されます。\n'
-        'もとに戻すことはできません。本当に KonomiTV をアンインストールしますか？[/yellow]\n'
-        'なお、config.yaml で指定されたフォルダに保存されているキャプチャ画像は\n'
+    ShowPanel([
+        '[yellow]KonomiTV サーバーに保存されているすべてのユーザーデータが削除されます。',
+        'もとに戻すことはできません。本当に KonomiTV をアンインストールしますか？[/yellow]',
+        'なお、config.yaml で指定されたフォルダに保存されているキャプチャ画像は',
         'アンインストール後も引き続き残りますので、ご安心ください。',
-        box = box.SQUARE,
-        border_style = Style(color='#E33157'),
-    ), (1, 2, 1, 2)))
+    ], padding=(1, 2, 1, 2))
 
     ## 誤実行防止のため、デフォルトは N にしておく
     confirm_uninstall = bool(CustomConfirm.ask('KonomiTV のアンインストール', default=False))
@@ -139,20 +135,11 @@ def Uninstaller() -> None:
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
                 text = True,  # 出力をテキストとして取得する
             )
-
-        # Windows サービスの終了に失敗
         if 'Error stopping service' in service_stop_result.stdout:
-            print(Padding(Panel(
-                '[red]Windows サービスの終了中に予期しないエラーが発生しました。[/red]\n'
-                'お手数をおかけしますが、下記のログを開発者に報告してください。',
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (1, 2, 0, 2)))
-            print(Padding(Panel(
-                'エラーログ:\n' + service_stop_result.stdout.strip(),
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (0, 2, 0, 2)))
+            ShowSubProcessErrorLog(
+                error_message = 'Windows サービスの終了中に予期しないエラーが発生しました。',
+                error_log = service_stop_result.stdout.strip(),
+            )
             return  # 処理中断
 
         # Windows サービスをアンインストール
@@ -167,20 +154,11 @@ def Uninstaller() -> None:
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
                 text = True,  # 出力をテキストとして取得する
             )
-
-        # Windows サービスのアンインストールに失敗
         if 'Error removing service' in service_uninstall_result.stdout:
-            print(Padding(Panel(
-                '[red]Windows サービスのアンインストール中に予期しないエラーが発生しました。[/red]\n'
-                'お手数をおかけしますが、下記のログを開発者に報告してください。',
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (1, 2, 0, 2)))
-            print(Padding(Panel(
-                'エラーログ:\n' + service_uninstall_result.stdout.strip(),
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (0, 2, 0, 2)))
+            ShowSubProcessErrorLog(
+                error_message = 'Windows サービスのアンインストール中に予期しないエラーが発生しました。',
+                error_log = service_uninstall_result.stdout.strip(),
+            )
             return  # 処理中断
 
     # ***** Linux: PM2 サービスの終了・アンインストール *****
@@ -188,34 +166,37 @@ def Uninstaller() -> None:
     elif platform_type == 'Linux':
 
         # PM2 サービスを終了
-        print(Padding('PM2 サービスを終了しています…', (1, 2, 0, 2)))
-        progress = CreateBasicInfiniteProgress()
-        progress.add_task('', total=None)
-        with progress:
-            subprocess.run(
-                args = ['/usr/bin/env', 'pm2', 'stop', 'KonomiTV'],
-                cwd = uninstall_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
-                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-            )
+        result = RunSubprocess(
+            'PM2 サービスを終了しています…',
+            ['/usr/bin/env', 'pm2', 'stop', 'KonomiTV'],
+            cwd = uninstall_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+            error_message = 'PM2 サービスの終了中に予期しないエラーが発生しました。',
+            error_log_name = 'PM2 のエラーログ',
+        )
+        if result is False:
+            return  # 処理中断
 
         # PM2 サービスをアンインストール
-        print(Padding('PM2 サービスをアンインストールしています…', (1, 2, 0, 2)))
-        progress = CreateBasicInfiniteProgress()
-        progress.add_task('', total=None)
-        with progress:
-            subprocess.run(
-                args = ['/usr/bin/env', 'pm2', 'delete', 'KonomiTV'],
-                cwd = uninstall_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
-                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-            )
-            subprocess.run(
-                args = ['/usr/bin/env', 'pm2', 'save'],
-                cwd = uninstall_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
-                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-            )
+        result = RunSubprocess(
+            'PM2 サービスをアンインストールしています…',
+            ['/usr/bin/env', 'pm2', 'delete', 'KonomiTV'],
+            cwd = uninstall_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+            error_message = 'PM2 サービスのアンインストール中に予期しないエラーが発生しました。',
+            error_log_name = 'PM2 のエラーログ',
+        )
+        if result is False:
+            return  # 処理中断
+
+        # PM2 サービスの状態を保存
+        result = RunSubprocess(
+            'PM2 サービスの状態を保存しています…',
+            ['/usr/bin/env', 'pm2', 'save'],
+            cwd = uninstall_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+            error_message = 'PM2 サービスの状態の保存中に予期しないエラーが発生しました。',
+            error_log_name = 'PM2 のエラーログ',
+        )
+        if result is False:
+            return  # 処理中断
 
     # ***** Linux-Docker: Docker イメージ/コンテナの削除 *****
 
@@ -227,29 +208,27 @@ def Uninstaller() -> None:
         docker_compose_command = ['docker', 'compose'] if IsDockerComposeV2() else ['docker-compose']
 
         # docker compose stop で Docker コンテナを終了
-        print(Padding('Docker コンテナを終了しています…', (1, 2, 0, 2)))
-        progress = CreateBasicInfiniteProgress()
-        progress.add_task('', total=None)
-        with progress:
-            subprocess.run(
-                args = [*docker_compose_command, 'stop'],
-                cwd = uninstall_path,  # カレントディレクトリを KonomiTV のアンインストールフォルダに設定
-                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
-                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-            )
+        result = RunSubprocess(
+            'Docker コンテナを終了しています…',
+            [*docker_compose_command, 'stop'],
+            cwd = uninstall_path,  # カレントディレクトリを KonomiTV のアンインストールフォルダに設定
+            error_message = 'Docker コンテナの終了中に予期しないエラーが発生しました。',
+            error_log_name = 'Docker Compose のエラーログ',
+        )
+        if result is False:
+            return  # 処理中断
 
         # docker compose up -d --force-recreate で Docker コンテナを削除
         ## アンインストールなので、Docker イメージも同時に削除する
-        print(Padding('Docker イメージ/コンテナを削除しています…', (1, 2, 0, 2)))
-        progress = CreateBasicInfiniteProgress()
-        progress.add_task('', total=None)
-        with progress:
-            subprocess.run(
-                args = [*docker_compose_command, 'down', '--rmi', 'all', '--volumes', '--remove-orphans'],
-                cwd = uninstall_path,  # カレントディレクトリを KonomiTV のアンインストールフフォルダに設定
-                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
-                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-            )
+        result = RunSubprocess(
+            'Docker イメージ/コンテナを削除',
+            [*docker_compose_command, 'down', '--rmi', 'all', '--volumes', '--remove-orphans'],
+            cwd = uninstall_path,  # カレントディレクトリを KonomiTV のアンインストールフォルダに設定
+            error_message = 'Docker イメージ/コンテナの削除中に予期しないエラーが発生しました。',
+            error_log_name = 'Docker Compose のエラーログ',
+        )
+        if result is False:
+            return  # 処理中断
 
     # ***** Windows: Windows Defender ファイアウォールから受信規則を削除 *****
 
@@ -281,9 +260,7 @@ def Uninstaller() -> None:
         shutil.rmtree(uninstall_path, onerror=on_rm_error)
 
     # アンインストール完了
-    print(Padding(Panel(
-        'KonomiTV のアンインストールが完了しました。\n'
+    ShowPanel([
+        'KonomiTV のアンインストールが完了しました。',
         '今まで利用していただきありがとうございました！',
-        box = box.SQUARE,
-        border_style = Style(color='#E33157'),
-    ), (1, 2, 0, 2)))
+    ])

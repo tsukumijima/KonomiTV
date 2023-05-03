@@ -27,6 +27,7 @@ from rich.prompt import Confirm
 from rich.prompt import Prompt
 from rich.rule import Rule
 from rich.style import Style
+from rich.table import Table
 from rich.text import TextType
 from typing import Callable, cast, Optional
 
@@ -620,6 +621,16 @@ def CreateRule() -> Rule:
         Rule: ルール (区切り線)
     """
     return Rule(characters='─', style=Style(color='#E33157'))
+
+
+def CreateTable() -> Table:
+    """
+    テーブルを新しく生成して返す
+
+    Returns:
+        Table: テーブル
+    """
+    return Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
 
 
 def RunSubprocess(

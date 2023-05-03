@@ -8,17 +8,16 @@ import signal
 import subprocess
 import threading
 import traceback
-from rich import box
 from rich import print
 from rich.padding import Padding
 from rich.prompt import Prompt
 from rich.rule import Rule
 from rich.style import Style
-from rich.table import Table
 
 from Installer import Installer
 from Uninstaller import Uninstaller
 from Updater import Updater
+from Utils import CreateTable
 from Utils import CustomPrompt
 from Utils import GetNetworkDriveList
 from Utils import ShowPanel
@@ -100,7 +99,7 @@ def main():
     ## Linux ディストリビューションは数が多すぎるので、すべて動作確認なんてやってられない……
     if os.name != 'nt' and not (distro.id() == 'ubuntu' and int(distro.major_version()) >= 20) and \
         not (distro.id() == 'debian' and int(distro.major_version()) >= 11):
-        table = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
+        table = CreateTable()
         table.add_column(
             f'[yellow]注意: KonomiTV は {distro.name(pretty=True)} を正式にサポートしていません。[/yellow]\n'
             '動作する可能性はありますが、動作しない場合もサポートは一切できません。\n'

@@ -15,11 +15,8 @@ import tempfile
 import time
 import urllib.parse
 from pathlib import Path
-from rich import box
 from rich import print
 from rich.padding import Padding
-from rich.style import Style
-from rich.table import Table
 from typing import Any, cast, Literal
 from watchdog.events import FileCreatedEvent
 from watchdog.events import FileModifiedEvent
@@ -30,6 +27,7 @@ from Utils import CreateBasicInfiniteProgress
 from Utils import CreateDownloadProgress
 from Utils import CreateDownloadInfiniteProgress
 from Utils import CreateRule
+from Utils import CreateTable
 from Utils import CtrlCmdConnectionCheckUtil
 from Utils import CustomConfirm
 from Utils import CustomPrompt
@@ -112,7 +110,7 @@ def Installer(version: str) -> None:
 
     # ***** KonomiTV をインストールするフォルダのパス *****
 
-    table_02 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
+    table_02 = CreateTable()
     table_02.add_column('02. KonomiTV をインストールするフォルダのパスを入力してください。')
     table_02.add_row('インストール先のフォルダは、インストール時に自動で作成されます。')
     if platform_type == 'Windows':
@@ -168,7 +166,7 @@ def Installer(version: str) -> None:
 
     # ***** 利用するバックエンド *****
 
-    table_03 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
+    table_03 = CreateTable()
     table_03.add_column('03. 利用するバックエンドを EDCB・Mirakurun から選んで入力してください。')
     table_03.add_row('バックエンドは、テレビチューナーへのアクセスや番組情報の取得などに利用します。')
     table_03.add_row(CreateRule())
@@ -190,7 +188,7 @@ def Installer(version: str) -> None:
     mirakurun_url: str = ''
     if backend == 'EDCB':
 
-        table_04 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
+        table_04 = CreateTable()
         table_04.add_column('04. EDCB (EpgTimerNW) の TCP API の URL を入力してください。')
         table_04.add_row('tcp://192.168.1.11:4510/ のような形式の URL で指定します。')
         table_04.add_row('EDCB と同じ PC に KonomiTV をインストールしようとしている場合は、')
@@ -237,7 +235,7 @@ def Installer(version: str) -> None:
 
     elif backend == 'Mirakurun':
 
-        table_04 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
+        table_04 = CreateTable()
         table_04.add_column('04. Mirakurun の HTTP API の URL を入力してください。')
         table_04.add_row('http://192.168.1.11:40772/ のような形式の URL で指定します。')
         table_04.add_row('Mirakurun と同じ PC に KonomiTV をインストールしようとしている場合は、')
@@ -360,7 +358,7 @@ def Installer(version: str) -> None:
             qsvencc_available = f'✅利用できます (Intel GPU: {gpu_name})'
             default_encoder = 'QSVEncC'
 
-    table_05 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
+    table_05 = CreateTable()
     if is_arm_device is False:
         table_05.add_column('05. 利用するエンコーダーを FFmpeg・QSVEncC・NVEncC・VCEEncC から選んで入力してください。')
     else:
@@ -395,7 +393,7 @@ def Installer(version: str) -> None:
 
     # ***** アップロードしたキャプチャ画像の保存先フォルダのパス *****
 
-    table_06 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
+    table_06 = CreateTable()
     table_06.add_column('06. アップロードしたキャプチャ画像の保存先フォルダのパスを入力してください。')
     table_06.add_row('クライアントの [キャプチャの保存先] 設定で [KonomiTV サーバーにアップロード] または')
     table_06.add_row('[ブラウザでのダウンロードと、KonomiTV サーバーへのアップロードを両方行う] を選択したときに利用されます。')
@@ -919,7 +917,7 @@ def Installer(version: str) -> None:
         # 現在ログオン中のユーザー名を取得
         current_user_name = getpass.getuser()
 
-        table_07 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
+        table_07 = CreateTable()
         table_07.add_column(f'07. ログオン中のユーザー ({current_user_name}) のパスワードを入力してください。')
         table_07.add_row('KonomiTV の Windows サービスを一般ユーザーの権限で起動するために利用します。')
         table_07.add_row('入力されたパスワードがそれ以外の用途に利用されることはありません。')
@@ -1014,10 +1012,10 @@ def Installer(version: str) -> None:
 
         # PM2 への変更を保存
         result = RunSubprocess(
-            'PM2 サービスを保存しています…',
-            ['/usr/bin/env', 'pm2', 'start', 'save'],
+            'PM2 サービスの状態を保存しています…',
+            ['/usr/bin/env', 'pm2', 'save'],
             cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-            error_message = 'PM2 サービスの保存中に予期しないエラーが発生しました。',
+            error_message = 'PM2 サービスの状態の保存中に予期しないエラーが発生しました。',
             error_log_name = 'PM2 のエラーログ',
         )
         if result is False:
@@ -1159,7 +1157,7 @@ def Installer(version: str) -> None:
     nic_infos = GetNetworkInterfaceInformation()
 
     # インストール完了メッセージを表示
-    table_done = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
+    table_done = CreateTable()
     table_done.add_column(RemoveEmojiIfLegacyTerminal(
         'インストールが完了しました！🎉🎊 すぐに使いはじめられます！🎈\n'
         '下記の URL から、KonomiTV の Web UI にアクセスしてみましょう！\n'

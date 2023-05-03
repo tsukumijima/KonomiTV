@@ -16,7 +16,6 @@ from rich.padding import Padding
 from rich.panel import Panel
 from rich.rule import Rule
 from rich.style import Style
-from rich.table import Table
 from typing import cast, Literal
 from watchdog.events import FileCreatedEvent
 from watchdog.events import FileModifiedEvent
@@ -26,6 +25,7 @@ from watchdog.observers.polling import PollingObserver
 from Utils import CreateBasicInfiniteProgress
 from Utils import CreateDownloadProgress
 from Utils import CreateDownloadInfiniteProgress
+from Utils import CreateTable
 from Utils import CustomPrompt
 from Utils import GetNetworkInterfaceInformation
 from Utils import IsDockerComposeV2
@@ -54,7 +54,7 @@ def Updater(version: str) -> None:
 
     # ***** アップデート対象の KonomiTV のフォルダのパス *****
 
-    table_02 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
+    table_02 = CreateTable()
     table_02.add_column('02. アップデート対象の KonomiTV のフォルダのパスを入力してください。')
     if platform_type == 'Windows':
         table_02.add_row('例: C:\\DTV\\KonomiTV')
@@ -657,7 +657,7 @@ def Updater(version: str) -> None:
     nic_infos = GetNetworkInterfaceInformation()
 
     # アップデート完了メッセージを表示
-    table_done = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
+    table_done = CreateTable()
     table_done.add_column(RemoveEmojiIfLegacyTerminal(
         'アップデートが完了しました！🎉🎊 すぐに使いはじめられます！🎈\n'
         '下記の URL から、KonomiTV の Web UI にアクセスしてみましょう！\n'
