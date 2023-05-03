@@ -1007,7 +1007,8 @@ def Installer(version: str) -> None:
                 print(Padding(str(
                     '[red]Windows サービスのインストールに失敗しました。\n'
                     '入力されたログオン中ユーザーのパスワードが間違っている可能性があります。',
-                ), (1, 2, 1, 2)))
+                ), (1, 2, 0, 2)))
+                print(Padding('[red]エラーログ:\n' + service_install_result.stdout.strip(), (1, 2, 1, 2)))
                 continue
 
             # Windows サービスを起動

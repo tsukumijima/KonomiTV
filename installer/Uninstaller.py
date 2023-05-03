@@ -125,31 +125,49 @@ def Uninstaller() -> None:
 
     if platform_type == 'Windows':
 
+        python_executable_path = uninstall_path / 'server/thirdparty/Python/python.exe'
+
         # Windows サービスを終了
         print(Padding('Windows サービスを終了しています…', (1, 2, 0, 2)))
         progress = CreateBasicInfiniteProgress()
         progress.add_task('', total=None)
         with progress:
-            python_executable_path = uninstall_path / 'server/thirdparty/Python/python.exe'
-            subprocess.run(
+            service_stop_result = subprocess.run(
                 args = [python_executable_path, '-m', 'pipenv', 'run', 'python', 'KonomiTV-Service.py', 'stop'],
                 cwd = uninstall_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+                stdout = subprocess.PIPE,  # 標準出力をキャプチャする
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+                text = True,  # 出力をテキストとして取得する
             )
+
+        # Windows サービスの終了に失敗
+        if 'Error stopping service' in service_stop_result.stdout:
+            print(Padding(str(
+                '[red]Windows サービスの終了に失敗しました。\n'
+                '入力されたログオン中ユーザーのパスワードが間違っている可能性があります。',
+            ), (1, 2, 0, 2)))
+            print(Padding('[red]エラーログ:\n' + service_stop_result.stdout.strip(), (1, 2, 1, 2)))
 
         # Windows サービスをアンインストール
         print(Padding('Windows サービスをアンインストールしています…', (1, 2, 0, 2)))
         progress = CreateBasicInfiniteProgress()
         progress.add_task('', total=None)
         with progress:
-            python_executable_path = uninstall_path / 'server/thirdparty/Python/python.exe'
-            subprocess.run(
+            service_uninstall_result = subprocess.run(
                 args = [python_executable_path, '-m', 'pipenv', 'run', 'python', 'KonomiTV-Service.py', 'uninstall'],
                 cwd = uninstall_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+                stdout = subprocess.PIPE,  # 標準出力をキャプチャする
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+                text = True,  # 出力をテキストとして取得する
             )
+
+        # Windows サービスのアンインストールに失敗
+        if 'Error removing service' in service_uninstall_result.stdout:
+            print(Padding(str(
+                '[red]Windows サービスのアンインストールに失敗しました。\n'
+                '入力されたログオン中ユーザーのパスワードが間違っている可能性があります。',
+            ), (1, 2, 0, 2)))
+            print(Padding('[red]エラーログ:\n' + service_uninstall_result.stdout.strip(), (1, 2, 1, 2)))
 
     # ***** Linux: PM2 サービスの終了・アンインストール *****
 

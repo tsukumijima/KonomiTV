@@ -147,12 +147,21 @@ def Updater(version: str) -> None:
         progress = CreateBasicInfiniteProgress()
         progress.add_task('', total=None)
         with progress:
-            subprocess.run(
+            service_stop_result = subprocess.run(
                 args = [python_executable_path, '-m', 'pipenv', 'run', 'python', 'KonomiTV-Service.py', 'stop'],
                 cwd = update_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+                stdout = subprocess.PIPE,  # 標準出力をキャプチャする
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+                text = True,  # 出力をテキストとして取得する
             )
+
+        # Windows サービスの終了に失敗
+        if 'Error stopping service' in service_stop_result.stdout:
+            print(Padding(str(
+                '[red]起動中の Windows サービスの終了に失敗しました。\n'
+                '入力されたログオン中ユーザーのパスワードが間違っている可能性があります。',
+            ), (1, 2, 0, 2)))
+            print(Padding('[red]エラーログ:\n' + service_stop_result.stdout.strip(), (1, 2, 1, 2)))
 
     # ***** Linux: 起動中の PM2 サービスの終了 *****
 
@@ -426,13 +435,21 @@ def Updater(version: str) -> None:
         progress = CreateBasicInfiniteProgress()
         progress.add_task('', total=None)
         with progress:
-            subprocess.run(
+            service_start_result = subprocess.run(
                 args = [python_executable_path, '-m', 'pipenv', 'run', 'python', 'KonomiTV-Service.py', 'start'],
                 cwd = update_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
                 stdout = subprocess.PIPE,  # 標準出力をキャプチャする
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
                 text = True,  # 出力をテキストとして取得する
             )
+
+        # Windows サービスの起動に失敗
+        if 'Error starting service' in service_start_result.stdout:
+            print(Padding(str(
+                '[red]Windows サービスの起動に失敗しました。\n'
+                '入力されたログオン中ユーザーのパスワードが間違っている可能性があります。',
+            ), (1, 2, 0, 2)))
+            print(Padding('[red]エラーログ:\n' + service_start_result.stdout.strip(), (1, 2, 1, 2)))
 
     # ***** Linux: PM2 サービスの起動 *****
 
