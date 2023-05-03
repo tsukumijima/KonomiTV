@@ -15,8 +15,7 @@ emoji = "*"
 ifaddr = "*"
 psutil = "*"
 py7zr = "*"
-pyinstaller_windows_mybuild = {file = "https://github.com/tsukumijima/Pyinstaller-Builds/raw/gh-pages/x86_64/pyinstaller-5.10.1-py3-none-any.whl", sys_platform = "== 'win32'"}
-pyinstaller = {version = "==5.10.1", sys_platform = "!= 'win32'"}
+pyinstaller = "==5.10.1"
 requests = "*"
 rich = "*"
 "ruamel.yaml" = "*"
