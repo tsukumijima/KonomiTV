@@ -191,12 +191,14 @@ jobs:
       # インストーラーを Nuitka でビルド
       - name: Build Installer with Nuitka
         working-directory: installer/
-        run: docker run --rm -i -v $(pwd):/work -w /work ${{ matrix.image }}:build bash -c \
-          'PIPENV_VENV_IN_PROJECT=true pipenv sync && pipenv run build-linux'
+        run: |
+          docker run --rm -i -v $(pwd):/work -w /work ${{ matrix.image }}:build bash -c \
+            'PIPENV_VENV_IN_PROJECT=true pipenv sync && pipenv run build-linux'
+          mv KonomiTV-Installer.elf KonomiTV-Installer-ARM.elf
 
       # 単一実行ファイルにビルドされたインストーラーを Artifact としてアップロード
       - name: Upload Installer Executable as Artifact
         uses: actions/upload-artifact@v3
         with:
           name: KonomiTV-Installer-ARM.elf
-          path: installer/KonomiTV-Installer.elf
+          path: installer/KonomiTV-Installer-ARM.elf
