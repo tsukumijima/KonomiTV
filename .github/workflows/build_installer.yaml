@@ -156,7 +156,7 @@ jobs:
         run: |
           docker run --rm -i -v $(pwd):/work -w /work ${{ matrix.image }}:build bash -c \
             'PIPENV_VENV_IN_PROJECT=true pipenv sync && pipenv run build-linux'
-          mv dist/KonomiTV-Installer.elf dist/KonomiTV-Installer-ARM.elf
+          sudo cp -a dist/KonomiTV-Installer.elf dist/KonomiTV-Installer-ARM.elf
 
       # 単一実行ファイルにビルドされたインストーラーを Artifact としてアップロード
       - name: Upload Installer Executable as Artifact
