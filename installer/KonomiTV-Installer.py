@@ -146,7 +146,6 @@ def main():
 
 if __name__ == '__main__':
 
-    # Nuitka の onefile モードでビルドした実行ファイルだと Windows でうまく Ctrl+C がキャッチできない問題の回避策
     ## KeyboardInterrupt が複数回送出されないようにする
     ## ref: https://github.com/Nuitka/Nuitka/issues/1477
     keyboard_interrupted = False
@@ -160,7 +159,7 @@ if __name__ == '__main__':
     try:
 
         # 管理者権限 (Windows) / root 権限 (Linux) に昇格
-        ## Windows 向けに配布する .exe では既に Nuitka 側の機能 (--windows-uac-admin) を使い管理者に昇格しているため、何も行われない
+        ## Windows 向けに配布する .exe では既に PyInstaller 側の機能 (--uac-admin) を使い管理者に昇格しているため、何も行われない
         ## graphical=False で pkexec を使わずに sudo コマンドで root 権限に昇格するようにしている (pkexec だと諸々問題がある)
         elevate.elevate(graphical=False)
 

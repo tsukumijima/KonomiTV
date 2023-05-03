@@ -40,18 +40,8 @@ jobs:
           pip install pipenv
           pipenv sync
 
-      # インストーラーの Nuitka のビルドキャッシュを保存/リストア
-      - name: Restore Build Cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            ${{ github.workspace }}/installer/KonomiTV-Installer.build
-            ${{ github.workspace }}/installer/KonomiTV-Installer.dist
-            ${{ github.workspace }}/installer/KonomiTV-Installer.onefile-build
-          key: KonomiTV-Installer-Build-Windows
-
-      # インストーラーを Nuitka でビルド
-      - name: Build Installer with Nuitka
+      # インストーラーを PyInstaller でビルド
+      - name: Build Installer with PyInstaller
         working-directory: installer/
         run: pipenv run build-windows
 
@@ -86,18 +76,8 @@ jobs:
           pip install pipenv
           pipenv sync
 
-      # インストーラーの Nuitka のビルドキャッシュを保存/リストア
-      - name: Restore Build Cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            ${{ github.workspace }}/installer/KonomiTV-Installer.build
-            ${{ github.workspace }}/installer/KonomiTV-Installer.dist
-            ${{ github.workspace }}/installer/KonomiTV-Installer.onefile-build
-          key: KonomiTV-Installer-Build-Linux
-
-      # インストーラーを Nuitka でビルド
-      - name: Build Installer with Nuitka
+      # インストーラーを PyInstaller でビルド
+      - name: Build Installer with PyInstaller
         working-directory: installer/
         run: pipenv run build-linux
 
@@ -170,26 +150,8 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      # インストーラーの Nuitka のビルドキャッシュを保存/リストア
-      - name: Restore Build Cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            ${{ github.workspace }}/installer/.venv/
-          key: KonomiTV-Installer-Build-Linux-ARM-pipenv
-
-      # インストーラーの Nuitka のビルドキャッシュを保存/リストア
-      - name: Restore Build Cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            ${{ github.workspace }}/installer/KonomiTV-Installer.build
-            ${{ github.workspace }}/installer/KonomiTV-Installer.dist
-            ${{ github.workspace }}/installer/KonomiTV-Installer.onefile-build
-          key: KonomiTV-Installer-Build-Linux-ARM
-
-      # インストーラーを Nuitka でビルド
-      - name: Build Installer with Nuitka
+      # インストーラーを PyInstaller でビルド
+      - name: Build Installer with PyInstaller
         working-directory: installer/
         run: |
           docker run --rm -i -v $(pwd):/work -w /work ${{ matrix.image }}:build bash -c \
