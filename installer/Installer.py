@@ -18,10 +18,6 @@ from pathlib import Path
 from rich import print
 from rich.padding import Padding
 from typing import Any, cast, Literal
-from watchdog.events import FileCreatedEvent
-from watchdog.events import FileModifiedEvent
-from watchdog.events import FileSystemEventHandler
-from watchdog.observers.polling import PollingObserver
 
 from Utils import CreateBasicInfiniteProgress
 from Utils import CreateDownloadProgress
@@ -36,6 +32,7 @@ from Utils import IsDockerComposeV2
 from Utils import IsDockerInstalled
 from Utils import IsGitInstalled
 from Utils import RemoveEmojiIfLegacyTerminal
+from Utils import RunKonomiTVServiceWaiter
 from Utils import RunSubprocess
 from Utils import RunSubprocessDirectLogOutput
 from Utils import SaveConfigYaml
@@ -669,7 +666,7 @@ def Installer(version: str) -> None:
 
         # ***** Docker イメージのビルド *****
 
-        # docker compose build --no-cache で Docker イメージをビルド
+        # docker compose build --no-cache --pull で Docker イメージをビルド
         ## 万が一以前ビルドしたキャッシュが残っていたときに備え、キャッシュを使わずにビルドさせる
         result = RunSubprocessDirectLogOutput(
             'Docker イメージをビルドしています… (数分～数十分かかります)',
@@ -1049,107 +1046,8 @@ def Installer(version: str) -> None:
 
     # ***** サービスの起動を待機 *****
 
-    # サービスが起動したかのフラグ
-    is_service_started = False
-
-    # KonomiTV サーバーが起動したかのフラグ
-    is_server_started = False
-
-    # 番組情報更新が完了して起動したかのフラグ
-    is_programs_update_completed = False
-
-    # 起動中にエラーが発生した場合のフラグ
-    is_error_occurred = False
-
-    # ログフォルダ以下のファイルに変更があったときのイベントハンドラー
-    class LogFolderWatchHandler(FileSystemEventHandler):
-
-        # 何かしらログフォルダに新しいファイルが作成されたら、サービスが起動したものとみなす
-        def on_created(self, event: FileCreatedEvent) -> None:
-            nonlocal is_service_started
-            is_service_started = True
-
-        # ログファイルが更新されたら、ログの中に Application startup complete. という文字列が含まれていないかを探す
-        # ログの中に Application startup complete. という文字列が含まれていたら、KonomiTV サーバーの起動が完了したとみなす
-        def on_modified(self, event: FileModifiedEvent) -> None:
-            # もし on_created をハンドリングできなかった場合に備え、on_modified でもサービス起動フラグを立てる
-            nonlocal is_service_started, is_server_started, is_programs_update_completed, is_error_occurred
-            is_service_started = True
-            # ファイルのみに限定（フォルダの変更も検知されることがあるが、当然フォルダは開けないのでエラーになる）
-            if Path(event.src_path).is_file() is True:
-                with open(event.src_path, mode='r', encoding='utf-8') as log:
-                    text = log.read()
-                    if 'ERROR:' in text or 'Traceback (most recent call last):' in text:
-                        # 何らかのエラーが発生したことが想定されるので、エラーフラグを立てる
-                        is_error_occurred = True
-                    if 'Waiting for application startup.' in text:
-                        # サーバーの起動が完了した事が想定されるので、サーバー起動フラグを立てる
-                        is_server_started = True
-                    if 'Application startup complete.' in text:
-                        # 番組情報の更新が完了した事が想定されるので、番組情報更新完了フラグを立てる
-                        is_programs_update_completed = True
-
-    # Watchdog を起動
-    ## 通常の OS のファイルシステム変更通知 API を使う Observer だとなかなか検知できないことがあるみたいなので、
-    ## 代わりに PollingObserver を使う
-    observer = PollingObserver()
-    observer.schedule(LogFolderWatchHandler(), str(install_path / 'server/logs/'), recursive=True)
-    observer.start()
-
-    # サービスが起動するまで待つ
-    print(Padding('サービスの起動を待っています… (時間がかかることがあります)', (1, 2, 0, 2)))
-    progress = CreateBasicInfiniteProgress()
-    progress.add_task('', total=None)
-    with progress:
-        while is_service_started is False:
-            if platform_type == 'Windows':
-                # 起動したはずの Windows サービスが停止してしまっている場合はエラーとする
-                service_status_result = subprocess.run(
-                    args = ['sc', 'query', 'KonomiTV Service'],
-                    stdout = subprocess.PIPE,  # 標準出力をキャプチャする
-                    stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-                    text = True,  # 出力をテキストとして取得する
-                )
-                if 'STOPPED' in service_status_result.stdout:
-                    ShowPanel([
-                        '[red]KonomiTV サーバーの起動に失敗しました。[/red]',
-                        'お手数をおかけしますが、イベントビューアーにエラーログが',
-                        '出力されている場合は、そのログを開発者に報告してください。',
-                    ])
-                    return  # 処理中断
-            time.sleep(0.1)
-
-    # KonomiTV サーバーが起動するまで待つ
-    print(Padding('KonomiTV サーバーの起動を待っています… (時間がかかることがあります)', (1, 2, 0, 2)))
-    progress = CreateBasicInfiniteProgress()
-    progress.add_task('', total=None)
-    with progress:
-        while is_server_started is False:
-            if is_error_occurred is True:
-                with open(install_path / 'server/logs/KonomiTV-Server.log', mode='r', encoding='utf-8') as log:
-                    ShowSubProcessErrorLog(
-                        error_message = 'KonomiTV サーバーの起動中に予期しないエラーが発生しました。',
-                        error_log_name = 'KonomiTV サーバーのログ',
-                        error_log = log.read(),
-                    )
-                    return  # 処理中断
-            time.sleep(0.1)
-
-    # 番組情報更新が完了するまで待つ
-    print(Padding('すべてのチャンネルの番組情報を取得しています… (数秒～数分かかります)', (1, 2, 0, 2)))
-    progress = CreateBasicInfiniteProgress()
-    progress.add_task('', total=None)
-    with progress:
-        while is_programs_update_completed is False:
-            if is_error_occurred is True:
-                with open(install_path / 'server/logs/KonomiTV-Server.log', mode='r', encoding='utf-8') as log:
-                    ShowSubProcessErrorLog(
-                        error_message = '番組情報の取得中に予期しないエラーが発生しました。',
-                        error_log_name = 'KonomiTV サーバーのログ',
-                        error_log = log.read(),
-                    )
-                    return  # 処理中断
-            time.sleep(0.1)
+    # KonomiTV サービスの起動を監視して起動完了を待機する処理はアップデーターと共通
+    RunKonomiTVServiceWaiter(platform_type, install_path)
 
     # ***** インストール完了 *****
 

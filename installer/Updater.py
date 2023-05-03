@@ -8,19 +8,10 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
-import time
 from pathlib import Path
-from rich import box
 from rich import print
 from rich.padding import Padding
-from rich.panel import Panel
-from rich.rule import Rule
-from rich.style import Style
 from typing import cast, Literal
-from watchdog.events import FileCreatedEvent
-from watchdog.events import FileModifiedEvent
-from watchdog.events import FileSystemEventHandler
-from watchdog.observers.polling import PollingObserver
 
 from Utils import CreateBasicInfiniteProgress
 from Utils import CreateDownloadProgress
@@ -32,7 +23,12 @@ from Utils import IsDockerComposeV2
 from Utils import IsDockerInstalled
 from Utils import IsGitInstalled
 from Utils import RemoveEmojiIfLegacyTerminal
+from Utils import RunKonomiTVServiceWaiter
+from Utils import RunSubprocess
+from Utils import RunSubprocessDirectLogOutput
 from Utils import SaveConfigYaml
+from Utils import ShowPanel
+from Utils import ShowSubProcessErrorLog
 
 
 def Updater(version: str) -> None:
@@ -105,13 +101,11 @@ def Updater(version: str) -> None:
 
         # 前回 Docker を使ってインストールされているが、今 Docker がインストールされていない
         if IsDockerInstalled() is False:
-            print(Padding(Panel(
-                '[yellow]この KonomiTV をアップデートするには、Docker のインストールが必要です。[/yellow]\n'
-                'この KonomiTV は Docker を使ってインストールされていますが、現在 Docker が\n'
+            ShowPanel([
+                '[yellow]この KonomiTV をアップデートするには、Docker のインストールが必要です。[/yellow]',
+                'この KonomiTV は Docker を使ってインストールされていますが、現在 Docker が',
                 'インストールされていないため、アップデートすることができません。',
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (1, 2, 0, 2)))
+            ])
             return  # 処理中断
 
         # プラットフォームタイプを Linux-Docker にセット
@@ -154,14 +148,11 @@ def Updater(version: str) -> None:
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
                 text = True,  # 出力をテキストとして取得する
             )
-
-        # Windows サービスの終了に失敗
         if 'Error stopping service' in service_stop_result.stdout:
-            print(Padding(str(
-                '[red]起動中の Windows サービスの終了に失敗しました。\n'
-                '入力されたログオン中ユーザーのパスワードが間違っている可能性があります。',
-            ), (1, 2, 0, 2)))
-            print(Padding('[red]エラーログ:\n' + service_stop_result.stdout.strip(), (1, 2, 1, 2)))
+            ShowSubProcessErrorLog(
+                error_message = '起動中の Windows サービスの終了中に予期しないエラーが発生しました。',
+                error_log = service_stop_result.stdout.strip(),
+            )
             return  # 処理中断
 
     # ***** Linux: 起動中の PM2 サービスの終了 *****
@@ -169,31 +160,14 @@ def Updater(version: str) -> None:
     elif platform_type == 'Linux':
 
         # PM2 サービスを終了
-        print(Padding('起動中の PM2 サービスを終了しています…', (1, 2, 0, 2)))
-        progress = CreateBasicInfiniteProgress()
-        progress.add_task('', total=None)
-        with progress:
-            pm2_stop_result = subprocess.run(
-                args = ['/usr/bin/env', 'pm2', 'stop', 'KonomiTV'],
-                cwd = update_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-                stdout = subprocess.PIPE,  # 標準出力をキャプチャする
-                stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
-                text = True,  # 出力をテキストとして取得する
-            )
-
-        # PM2 サービスの終了に失敗
-        if pm2_stop_result.returncode != 0:
-            print(Padding(Panel(
-                '[red]PM2 サービスの終了中に予期しないエラーが発生しました。[/red]\n'
-                'お手数をおかけしますが、下記のログを開発者に報告してください。',
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (1, 2, 0, 2)))
-            print(Padding(Panel(
-                'PM2 のエラーログ:\n' + pm2_stop_result.stdout.strip(),
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (0, 2, 0, 2)))
+        result = RunSubprocess(
+            '起動中の PM2 サービスを終了しています…',
+            ['/usr/bin/env', 'pm2', 'stop', 'KonomiTV'],
+            cwd = update_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+            error_message = '起動中の PM2 サービスの終了中に予期しないエラーが発生しました。',
+            error_log_name = 'PM2 のエラーログ',
+        )
+        if result is False:
             return  # 処理中断
 
     # ***** Linux-Docker: 起動中の Docker コンテナの終了 *****
@@ -223,15 +197,13 @@ def Updater(version: str) -> None:
 
         # 前回 Git を使ってインストールされているが、今 Git がインストールされていない
         if IsGitInstalled() is False:
-            print(Padding(Panel(
-                '[yellow]この KonomiTV をアップデートするには、Git のインストールが必要です。[/yellow]\n'
-                'KonomiTV は初回インストール時に Git がインストールされている場合は、\n'
-                '自動的に Git を使ってインストールされます。\n'
-                'この KonomiTV は Git を使ってインストールされていますが、現在 Git が\n'
+            ShowPanel([
+                '[yellow]この KonomiTV をアップデートするには、Git のインストールが必要です。[/yellow]',
+                'KonomiTV は初回インストール時に Git がインストールされている場合は、',
+                '自動的に Git を使ってインストールされます。',
+                'この KonomiTV は Git を使ってインストールされていますが、現在 Git が',
                 'インストールされていないため、アップデートすることができません。',
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (1, 2, 0, 2)))
+            ])
             return  # 処理中断
 
         # git clone でソースコードをダウンロード
@@ -241,20 +213,26 @@ def Updater(version: str) -> None:
         with progress:
 
             # リモートの変更内容とタグを取得
-            subprocess.run(
-                args = ['git', 'fetch', 'origin', '--tags'],
+            result = RunSubprocess(
+                'KonomiTV のソースコードを Git でダウンロードしています…',
+                ['git', 'fetch', 'origin', '--tags'],
                 cwd = update_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
-                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
-                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+                error_message = 'KonomiTV のソースコードのダウンロード中に予期しないエラーが発生しました。',
+                error_log_name = 'Git のエラーログ',
             )
+            if result is False:
+                return  # 処理中断
 
             # 新しいバージョンのコードをチェックアウト
-            subprocess.run(
-                args = ['git', 'checkout', '--force', f'v{version}'],
+            result = RunSubprocess(
+                'KonomiTV のソースコードを更新しています…',
+                ['git', 'checkout', '--force', f'v{version}'],
                 cwd = update_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
-                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
-                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+                error_message = 'KonomiTV のソースコードの更新中に予期しないエラーが発生しました。',
+                error_log_name = 'Git のエラーログ',
             )
+            if result is False:
+                return  # 処理中断
 
     # Git を使ってインストールされていない場合: zip からソースコードを更新
     else:
@@ -390,57 +368,54 @@ def Updater(version: str) -> None:
 
         # ***** 依存パッケージの更新 *****
 
-        print(Padding('依存パッケージを更新しています…', (1, 2, 1, 2)))
-        print(Rule(style=Style(color='cyan'), align='center'))
         # pipenv --rm を実行
         ## すでに仮想環境があると稀に更新がうまく行かないことがあるため、アップデート毎に作り直す
-        subprocess.run(
-            args = [python_executable_path, '-m', 'pipenv', '--rm'],
+        result = RunSubprocess(
+            '既存の依存パッケージを削除しています…',
+            [python_executable_path, '-m', 'pipenv', '--rm'],
             cwd = update_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+            error_message = '既存の依存パッケージの削除中に予期しないエラーが発生しました。'
         )
+        if result is False:
+            return  # 処理中断
+
         # pipenv sync を実行
         ## server/.venv/ に pipenv の仮想環境を構築するため、PIPENV_VENV_IN_PROJECT 環境変数をセットした状態で実行している
         environment = os.environ.copy()
         environment['PIPENV_VENV_IN_PROJECT'] = 'true'
-        subprocess.run(
-            args = [python_executable_path, '-m', 'pipenv', 'sync', f'--python={python_executable_path}'],
+        result = RunSubprocessDirectLogOutput(
+            '依存パッケージを更新しています…',
+            [python_executable_path, '-m', 'pipenv', 'sync', f'--python={python_executable_path}'],
             cwd = update_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-            env = environment,  # 環境変数を設定
+            environment = environment,  # 環境変数を設定
+            error_message = '依存パッケージの更新中に予期しないエラーが発生しました。',
         )
-        print(Rule(style=Style(color='cyan'), align='center'))
+        if result is False:
+            return  # 処理中断
 
         # ***** データベースのアップグレード *****
 
-        print(Padding('データベースをアップグレードしています…', (1, 2, 0, 2)))
-        progress = CreateBasicInfiniteProgress()
-        progress.add_task('', total=None)
-        with progress:
-            subprocess.run(
-                args = [python_executable_path, '-m', 'pipenv', 'run', 'aerich', 'upgrade'],
-                cwd = update_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
-                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-            )
+        result = RunSubprocess(
+            'データベースをアップグレードしています…',
+            [python_executable_path, '-m', 'pipenv', 'run', 'aerich', 'upgrade'],
+            cwd = update_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+            error_message = 'データベースのアップグレード中に予期しないエラーが発生しました。'
+        )
+        if result is False:
+            return  # 処理中断
 
-    # Linux-Docker: docker-compose.yaml を生成し、Docker イメージを再ビルド
+    # Linux-Docker: Docker イメージを再ビルド
     elif platform_type == 'Linux-Docker':
 
-        # docker compose build --no-cache で Docker イメージを再ビルド
-        ## 以前ビルドしたキャッシュが残っていたときに備え、キャッシュを使わずにビルドさせる
-        print(Padding('Docker イメージを再ビルドしています… (数分～数十分かかります)', (1, 2, 1, 2)))
-        print(Rule(style=Style(color='cyan'), align='center'))
-        docker_compose_build_result = subprocess.run(
-            args = [*docker_compose_command, 'build', '--no-cache', '--pull'],
+        # docker compose build --no-cache --pull で Docker イメージをビルド
+        ## 万が一以前ビルドしたキャッシュが残っていたときに備え、キャッシュを使わずにビルドさせる
+        result = RunSubprocessDirectLogOutput(
+            'Docker イメージを再ビルドしています… (数分～数十分かかります)',
+            [*docker_compose_command, 'build', '--no-cache', '--pull'],
             cwd = update_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
+            error_message = 'Docker イメージの再ビルド中に予期しないエラーが発生しました。',
         )
-        print(Rule(style=Style(color='cyan'), align='center'))
-        if docker_compose_build_result.returncode != 0:
-            print(Padding(Panel(
-                '[red]Docker イメージの再ビルド中に予期しないエラーが発生しました。[/red]\n'
-                'お手数をおかけしますが、上記のログを開発者に報告してください。',
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (1, 2, 0, 2)))
+        if result is False:
             return  # 処理中断
 
     # ***** Windows: Windows サービスの起動 *****
@@ -459,14 +434,11 @@ def Updater(version: str) -> None:
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
                 text = True,  # 出力をテキストとして取得する
             )
-
-        # Windows サービスの起動に失敗
         if 'Error starting service' in service_start_result.stdout:
-            print(Padding(str(
-                '[red]Windows サービスの起動に失敗しました。\n'
-                '入力されたログオン中ユーザーのパスワードが間違っている可能性があります。',
-            ), (1, 2, 0, 2)))
-            print(Padding('[red]エラーログ:\n' + service_start_result.stdout.strip(), (1, 2, 1, 2)))
+            ShowSubProcessErrorLog(
+                error_message = 'Windows サービスの起動中に予期しないエラーが発生しました。',
+                error_log = service_start_result.stdout.strip(),
+            )
             return  # 処理中断
 
     # ***** Linux: PM2 サービスの起動 *****
@@ -474,182 +446,35 @@ def Updater(version: str) -> None:
     elif platform_type == 'Linux':
 
         # PM2 サービスを起動
-        print(Padding('PM2 サービスを起動しています…', (1, 2, 0, 2)))
-        progress = CreateBasicInfiniteProgress()
-        progress.add_task('', total=None)
-        with progress:
-            pm2_start_result = subprocess.run(
-                args = ['/usr/bin/env', 'pm2', 'start', 'KonomiTV'],
-                cwd = update_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-                stdout = subprocess.PIPE,  # 標準出力をキャプチャする
-                stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
-                text = True,  # 出力をテキストとして取得する
-            )
-
-        if pm2_start_result.returncode != 0:
-            print(Padding(Panel(
-                '[red]PM2 サービスの起動中に予期しないエラーが発生しました。[/red]\n'
-                'お手数をおかけしますが、下記のログを開発者に報告してください。',
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (1, 2, 0, 2)))
-            print(Padding(Panel(
-                'PM2 のエラーログ:\n' + pm2_start_result.stdout.strip(),
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (0, 2, 0, 2)))
+        result = RunSubprocess(
+            'PM2 サービスを起動しています…',
+            ['/usr/bin/env', 'pm2', 'start', 'KonomiTV'],
+            cwd = update_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+            error_message = 'PM2 サービスの起動中に予期しないエラーが発生しました。',
+            error_log_name = 'PM2 のエラーログ',
+        )
+        if result is False:
             return  # 処理中断
 
     # ***** Linux-Docker: Docker コンテナの起動 *****
 
     elif platform_type == 'Linux-Docker':
 
-        print(Padding('Docker コンテナを起動しています…', (1, 2, 0, 2)))
-        progress = CreateBasicInfiniteProgress()
-        progress.add_task('', total=None)
-        with progress:
-
-            # docker compose up -d --force-recreate で Docker コンテナを起動
-            ## 念のためコンテナを強制的に再作成させる
-            docker_compose_up_result = subprocess.run(
-                args = [*docker_compose_command, 'up', '-d', '--force-recreate'],
-                cwd = update_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
-                stdout = subprocess.PIPE,  # 標準出力をキャプチャする
-                stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
-                text = True,  # 出力をテキストとして取得する
-            )
-
-        if docker_compose_up_result.returncode != 0:
-            print(Padding(Panel(
-                '[red]Docker コンテナの起動中に予期しないエラーが発生しました。[/red]\n'
-                'お手数をおかけしますが、下記のログを開発者に報告してください。',
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (1, 2, 0, 2)))
-            print(Padding(Panel(
-                'Docker Compose のエラーログ:\n' + docker_compose_up_result.stdout.strip(),
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (0, 2, 0, 2)))
+        # Docker コンテナを起動
+        result = RunSubprocess(
+            'Docker コンテナを起動しています…',
+            [*docker_compose_command, 'up', '-d', '--force-recreate'],
+            cwd = update_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
+            error_message = 'Docker コンテナの起動中に予期しないエラーが発生しました。',
+            error_log_name = 'Docker Compose のエラーログ',
+        )
+        if result is False:
             return  # 処理中断
 
     # ***** サービスの起動を待機 *****
 
-    # サービスが起動したかのフラグ
-    is_service_started = False
-
-    # KonomiTV サーバーが起動したかのフラグ
-    is_server_started = False
-
-    # 番組情報更新が完了して起動したかのフラグ
-    is_programs_update_completed = False
-
-    # 起動中にエラーが発生した場合のフラグ
-    is_error_occurred = False
-
-    # ログフォルダ以下のファイルに変更があったときのイベントハンドラー
-    class LogFolderWatchHandler(FileSystemEventHandler):
-
-        # 何かしらログフォルダに新しいファイルが作成されたら、サービスが起動したものとみなす
-        def on_created(self, event: FileCreatedEvent) -> None:
-            nonlocal is_service_started
-            is_service_started = True
-
-        # ログファイルが更新されたら、ログの中に Application startup complete. という文字列が含まれていないかを探す
-        # ログの中に Application startup complete. という文字列が含まれていたら、KonomiTV サーバーの起動が完了したとみなす
-        def on_modified(self, event: FileModifiedEvent) -> None:
-            # もし on_created をハンドリングできなかった場合に備え、on_modified でもサービス起動フラグを立てる
-            nonlocal is_service_started, is_server_started, is_programs_update_completed, is_error_occurred
-            is_service_started = True
-            # ファイルのみに限定（フォルダの変更も検知されることがあるが、当然フォルダは開けないのでエラーになる）
-            if Path(event.src_path).is_file() is True:
-                with open(event.src_path, mode='r', encoding='utf-8') as log:
-                    text = log.read()
-                    if 'ERROR:' in text or 'Traceback (most recent call last):' in text:
-                        # 何らかのエラーが発生したことが想定されるので、エラーフラグを立てる
-                        is_error_occurred = True
-                    if 'Waiting for application startup.' in text:
-                        # サーバーの起動が完了した事が想定されるので、サーバー起動フラグを立てる
-                        is_server_started = True
-                    if 'Application startup complete.' in text:
-                        # 番組情報の更新が完了した事が想定されるので、番組情報更新完了フラグを立てる
-                        is_programs_update_completed = True
-
-    # Watchdog を起動
-    ## 通常の OS のファイルシステム変更通知 API を使う Observer だとなかなか検知できないことがあるみたいなので、
-    ## 代わりに PollingObserver を使う
-    observer = PollingObserver()
-    observer.schedule(LogFolderWatchHandler(), str(update_path / 'server/logs/'), recursive=True)
-    observer.start()
-
-    # サービスが起動するまで待つ
-    print(Padding('サービスの起動を待っています… (時間がかかることがあります)', (1, 2, 0, 2)))
-    progress = CreateBasicInfiniteProgress()
-    progress.add_task('', total=None)
-    with progress:
-        while is_service_started is False:
-            if platform_type == 'Windows':
-                # 起動したはずの Windows サービスが停止してしまっている場合はエラーとする
-                service_status_result = subprocess.run(
-                    args = ['sc', 'query', 'KonomiTV Service'],
-                    stdout = subprocess.PIPE,  # 標準出力をキャプチャする
-                    stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-                    text = True,  # 出力をテキストとして取得する
-                )
-                if 'STOPPED' in service_status_result.stdout:
-                    print(Padding(Panel(
-                        '[red]KonomiTV サーバーの起動に失敗しました。[/red]\n'
-                        'お手数をおかけしますが、イベントビューアーにエラーログが\n'
-                        '出力されている場合は、そのログを開発者に報告してください。',
-                        box = box.SQUARE,
-                        border_style = Style(color='#E33157'),
-                    ), (1, 2, 0, 2)))
-                    return  # 処理中断
-            time.sleep(0.1)
-
-    # KonomiTV サーバーが起動するまで待つ
-    print(Padding('KonomiTV サーバーの起動を待っています… (時間がかかることがあります)', (1, 2, 0, 2)))
-    progress = CreateBasicInfiniteProgress()
-    progress.add_task('', total=None)
-    with progress:
-        while is_server_started is False:
-            if is_error_occurred is True:
-                print(Padding(Panel(
-                    '[red]KonomiTV サーバーの起動中に予期しないエラーが発生しました。[/red]\n'
-                    'お手数をおかけしますが、下記のログを開発者に報告してください。',
-                    box = box.SQUARE,
-                    border_style = Style(color='#E33157'),
-                ), (1, 2, 0, 2)))
-                with open(update_path / 'server/logs/KonomiTV-Server.log', mode='r', encoding='utf-8') as log:
-                    print(Padding(Panel(
-                        'KonomiTV サーバーのログ:\n' + log.read().strip(),
-                        box = box.SQUARE,
-                        border_style = Style(color='#E33157'),
-                    ), (0, 2, 0, 2)))
-                    return  # 処理中断
-            time.sleep(0.1)
-
-    # 番組情報更新が完了するまで待つ
-    print(Padding('すべてのチャンネルの番組情報を取得しています… (数秒～数分かかります)', (1, 2, 0, 2)))
-    progress = CreateBasicInfiniteProgress()
-    progress.add_task('', total=None)
-    with progress:
-        while is_programs_update_completed is False:
-            if is_error_occurred is True:
-                print(Padding(Panel(
-                    '[red]番組情報の取得中に予期しないエラーが発生しました。[/red]\n'
-                    'お手数をおかけしますが、下記のログを開発者に報告してください。',
-                    box = box.SQUARE,
-                    border_style = Style(color='#E33157'),
-                ), (1, 2, 0, 2)))
-                with open(update_path / 'server/logs/KonomiTV-Server.log', mode='r', encoding='utf-8') as log:
-                    print(Padding(Panel(
-                        'KonomiTV サーバーのログ:\n' + log.read().strip(),
-                        box = box.SQUARE,
-                        border_style = Style(color='#E33157'),
-                    ), (0, 2, 0, 2)))
-                    return  # 処理中断
-            time.sleep(0.1)
+    # KonomiTV サービスの起動を監視して起動完了を待機する処理はインストーラーと共通
+    RunKonomiTVServiceWaiter(platform_type, update_path)
 
     # ***** アップデート完了 *****
 
