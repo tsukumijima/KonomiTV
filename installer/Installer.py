@@ -18,7 +18,6 @@ from pathlib import Path
 from rich import box
 from rich import print
 from rich.padding import Padding
-from rich.rule import Rule
 from rich.style import Style
 from rich.table import Table
 from typing import Any, cast, Literal
@@ -30,6 +29,7 @@ from watchdog.observers.polling import PollingObserver
 from Utils import CreateBasicInfiniteProgress
 from Utils import CreateDownloadProgress
 from Utils import CreateDownloadInfiniteProgress
+from Utils import CreateRule
 from Utils import CtrlCmdConnectionCheckUtil
 from Utils import CustomConfirm
 from Utils import CustomPrompt
@@ -39,6 +39,7 @@ from Utils import IsDockerInstalled
 from Utils import IsGitInstalled
 from Utils import RemoveEmojiIfLegacyTerminal
 from Utils import RunSubprocess
+from Utils import RunSubprocessDirectLogOutput
 from Utils import SaveConfigYaml
 from Utils import ShowPanel
 from Utils import ShowSubProcessErrorLog
@@ -170,12 +171,12 @@ def Installer(version: str) -> None:
     table_03 = Table(expand=True, box=box.SQUARE, border_style=Style(color='#E33157'))
     table_03.add_column('03. 利用するバックエンドを EDCB・Mirakurun から選んで入力してください。')
     table_03.add_row('バックエンドは、テレビチューナーへのアクセスや番組情報の取得などに利用します。')
-    table_03.add_row(Rule(characters='─', style=Style(color='#E33157')))
+    table_03.add_row(CreateRule())
     table_03.add_row('EDCB は、220122 以降のバージョンの xtne6f / tkntrec 版の EDCB にのみ対応しています。')
     table_03.add_row('「人柱版10.66」などの古いバージョンをお使いの場合は、EDCB のアップグレードが必要です。')
     table_03.add_row('KonomiTV と連携するには、さらに EDCB に事前の設定が必要になります。')
     table_03.add_row('詳しくは [bright_blue]https://github.com/tsukumijima/KonomiTV[/bright_blue] をご覧ください。')
-    table_03.add_row(Rule(characters='─', style=Style(color='#E33157')))
+    table_03.add_row(CreateRule())
     table_03.add_row('Mirakurun は、3.9.0 以降のバージョンを推奨します。')
     table_03.add_row('3.8.0 以下のバージョンでも動作しますが、諸問題で推奨しません。')
     print(Padding(table_03, (1, 2, 1, 2)))
@@ -371,7 +372,7 @@ def Installer(version: str) -> None:
     else:
         table_05.add_row('rkmppenc はハードウェアエンコーダーです。')
     table_05.add_row('FFmpeg と比較して CPU 負荷が低く、パフォーマンスがとても高いです（おすすめ）。')
-    table_05.add_row(Rule(characters='─', style=Style(color='#E33157')))
+    table_05.add_row(CreateRule())
     if is_arm_device is False:
         table_05.add_row(RemoveEmojiIfLegacyTerminal(f'QSVEncC: {qsvencc_available}'))
         table_05.add_row(RemoveEmojiIfLegacyTerminal(f'NVEncC : {nvencc_available}'))
@@ -585,21 +586,16 @@ def Installer(version: str) -> None:
 
         # pipenv sync を実行
         ## server/.venv/ に pipenv の仮想環境を構築するため、PIPENV_VENV_IN_PROJECT 環境変数をセットした状態で実行している
-        print(Padding('依存パッケージをインストールしています…', (1, 2, 1, 2)))
-        print(Rule(style=Style(color='cyan'), align='center'))
         environment = os.environ.copy()
         environment['PIPENV_VENV_IN_PROJECT'] = 'true'
-        pipenv_sync_result = subprocess.run(
-            args = [python_executable_path, '-m', 'pipenv', 'sync', f'--python={python_executable_path}'],
+        result = RunSubprocessDirectLogOutput(
+            '依存パッケージをインストールしています…',
+            [python_executable_path, '-m', 'pipenv', 'sync', f'--python={python_executable_path}'],
             cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-            env = environment,  # 環境変数を設定
+            environment = environment,  # 環境変数を設定
+            error_message = '依存パッケージのインストール中に予期しないエラーが発生しました。',
         )
-        print(Rule(style=Style(color='cyan'), align='center'))
-        if pipenv_sync_result.returncode != 0:
-            ShowPanel([
-                '[red]依存パッケージのインストール中に予期しないエラーが発生しました。[/red]'
-                'お手数をおかけしますが、上記のログを開発者に報告してください。',
-            ])
+        if result is False:
             return  # 処理中断
 
         # ***** データベースのアップグレード *****
@@ -677,18 +673,13 @@ def Installer(version: str) -> None:
 
         # docker compose build --no-cache で Docker イメージをビルド
         ## 万が一以前ビルドしたキャッシュが残っていたときに備え、キャッシュを使わずにビルドさせる
-        print(Padding('Docker イメージをビルドしています… (数分～数十分かかります)', (1, 2, 1, 2)))
-        print(Rule(style=Style(color='cyan'), align='center'))
-        docker_compose_build_result = subprocess.run(
-            args = [*docker_compose_command, 'build', '--no-cache', '--pull'],
+        result = RunSubprocessDirectLogOutput(
+            'Docker イメージをビルドしています… (数分～数十分かかります)',
+            [*docker_compose_command, 'build', '--no-cache', '--pull'],
             cwd = install_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
+            error_message = 'Docker イメージのビルド中に予期しないエラーが発生しました。',
         )
-        print(Rule(style=Style(color='cyan'), align='center'))
-        if docker_compose_build_result.returncode != 0:
-            ShowPanel([
-                '[red]Docker イメージのビルド中に予期しないエラーが発生しました。[/red]',
-                'お手数をおかけしますが、上記のログを開発者に報告してください。',
-            ])
+        if result is False:
             return  # 処理中断
 
     # ***** Linux / Linux-Docker: QSVEncC / NVEncC / VCEEncC の動作チェック *****
@@ -934,7 +925,7 @@ def Installer(version: str) -> None:
         table_07.add_row('入力されたパスワードがそれ以外の用途に利用されることはありません。')
         table_07.add_row('間違ったパスワードを入力すると、KonomiTV が起動できなくなります。')
         table_07.add_row('Enter キーを押す前に、正しいパスワードかどうか今一度確認してください。')
-        table_07.add_row(Rule(characters='─', style=Style(color='#E33157')))
+        table_07.add_row(CreateRule())
         table_07.add_row('ログオン中のユーザーにパスワードを設定していない場合は、簡単なものでいいので')
         table_07.add_row('何かパスワードを設定してから、その設定したパスワードを入力してください。')
         table_07.add_row('なお、パスワードの設定後にインストーラーを起動し直す必要はありません。')
@@ -1046,6 +1037,8 @@ def Installer(version: str) -> None:
     # ***** Linux-Docker: Docker コンテナの起動 *****
 
     elif platform_type == 'Linux-Docker':
+
+        # Docker コンテナを起動
         result = RunSubprocess(
             'Docker コンテナを起動しています…',
             [*docker_compose_command, 'up', '-d', '--force-recreate'],

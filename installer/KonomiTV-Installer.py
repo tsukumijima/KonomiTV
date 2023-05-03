@@ -11,7 +11,6 @@ import traceback
 from rich import box
 from rich import print
 from rich.padding import Padding
-from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.rule import Rule
 from rich.style import Style
@@ -22,10 +21,19 @@ from Uninstaller import Uninstaller
 from Updater import Updater
 from Utils import CustomPrompt
 from Utils import GetNetworkDriveList
+from Utils import ShowPanel
 
 
 # インストール or アップデート対象の KonomiTV バージョン
 TARGET_VERSION = '0.7.0'
+
+def ShowHeader():
+    print(Padding(Rule(
+        title = f'KonomiTV version {TARGET_VERSION} Installer',
+        characters='─',
+        style = Style(color='#E33157'),
+        align = 'center',
+    ), (1, 2, 0, 2)))
 
 # main() 関数内のすべての処理は管理者権限 (Windows) / root 権限 (Linux) で実行される
 def main():
@@ -67,12 +75,8 @@ def main():
         for thread in threads:
             thread.join()
 
-    print(Padding(Rule(
-        title = f'KonomiTV version {TARGET_VERSION} Installer',
-        characters = '─',
-        style = Style(color='#E33157'),
-        align = 'center',
-    ), (1, 2, 0, 2)))
+    # ヘッダーを表示
+    ShowHeader()
 
     print(Padding('KonomiTV のインストール/アップデート/アンインストールを行うインストーラーです。', (1, 2, 0, 2)))
 
@@ -85,11 +89,9 @@ def main():
 
     # CPU のアーキテクチャから実行可否を判定
     if current_arch not in supported_arch:
-        print(Padding(Panel(
+        ShowPanel([
             f'[red]KonomiTV は {current_arch} アーキテクチャに対応していません。[/red]',
-            box = box.SQUARE,
-            border_style = Style(color='#E33157'),
-        ), (1, 2, 0, 2)))
+        ])
         return  # 処理中断
 
     # Ubuntu 20.04 LTS / Debian 11 以降以外の Linux ディストリビューションの場合
@@ -113,12 +115,10 @@ def main():
             )
         print(Padding(table, (1, 2, 0, 2)))
 
-    print(Padding(Panel(
-        '01. KonomiTV をインストールするときは 1 を、アップデートするときは 2 を、\n'
+    ShowPanel([
+        '01. KonomiTV をインストールするときは 1 を、アップデートするときは 2 を、',
         '    アンインストールするときは 3 を入力してください。',
-        box = box.SQUARE,
-        border_style = Style(color='#E33157'),
-    ), (1, 2, 1, 2)))
+    ], padding=(1, 2, 1, 2))
 
     # 実行タイプ (インストール or アップデート or アンインストール)
     ## choices を指定することで、自動的にバリデーションが行われる（超便利）
@@ -167,50 +167,34 @@ if __name__ == '__main__':
 
     # UAC がキャンセルされるなどして管理者権限が得られなかったとき
     except OSError:
-
-        print(Padding(Rule(
-            title = f'KonomiTV version {TARGET_VERSION} Installer',
-            characters='─',
-            style = Style(color='#E33157'),
-            align = 'center',
-        ), (1, 2, 0, 2)))
-
+        # ヘッダーを表示
+        ShowHeader()
         if os.name == 'nt':
-            print(Padding(Panel(
-                '[yellow]KonomiTV のインストール/アップデート/アンインストールには管理者権限が必要です。[/yellow]\n'
+            ShowPanel([
+                '[yellow]KonomiTV のインストール/アップデート/アンインストールには管理者権限が必要です。[/yellow]',
                 '「このアプリがデバイスに変更を加えることを許可しますか？」のダイヤログで [はい] をクリックしてください。',
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (1, 2, 0, 2)))
+            ])
         else:
-            print(Padding(Panel(
+            ShowPanel([
                 '[yellow]KonomiTV のインストール/アップデート/アンインストールには root 権限が必要です。[/yellow]',
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (1, 2, 0, 2)))
+            ])
 
     # main() を実行
     else:
         try:
             main()
         except KeyboardInterrupt:
-            print(Padding(Panel(
+            ShowPanel([
                 '[yellow]Ctrl+C が押されたため、処理を中断しました。[/yellow]',
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (1, 2, 0, 2)))
+            ])
         except:
-            print(Padding(Panel(
-                '[red]インストーラーの処理中に予期しないエラーが発生しました。[/red]\n'
+            ShowPanel([
+                '[red]インストーラーの処理中に予期しないエラーが発生しました。[/red]',
                 'お手数をおかけしますが、下記のログを開発者に報告してください。',
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (1, 2, 0, 2)))
-            print(Padding(Panel(
+            ])
+            ShowPanel([
                 traceback.format_exc().rstrip(),
-                box = box.SQUARE,
-                border_style = Style(color='#E33157'),
-            ), (0, 2, 0, 2)))
+            ], padding=(0, 2, 0, 2))
 
     # 終了時のプロンプト (Windows のみ)
     ## 処理がなくなると conhost.exe のウインドウも消滅し、メッセージが読めなくなるため

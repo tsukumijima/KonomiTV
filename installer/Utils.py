@@ -25,6 +25,7 @@ from rich.progress import (
 )
 from rich.prompt import Confirm
 from rich.prompt import Prompt
+from rich.rule import Rule
 from rich.style import Style
 from rich.text import TextType
 from typing import Callable, cast, Optional
@@ -266,55 +267,6 @@ class CtrlCmdConnectionCheckUtil:
             return None
         pos[0] = size
         return v
-
-
-def CreateBasicInfiniteProgress() -> Progress:
-    """
-    シンプルな完了未定状態向けの Progress インスタンスを新しく生成して返す
-
-    Returns:
-        Progress: 進捗表示に使うProgress インスタンス
-    """
-    return Progress(
-        TextColumn(' '),
-        BarColumn(bar_width=9999),
-        TimeElapsedColumn(),
-        TextColumn(' '),
-    )
-
-
-def CreateDownloadProgress() -> Progress:
-    """
-    ダウンロード時向けの Progress インスタンスを新しく生成して返す
-
-    Returns:
-        Progress: 進捗表示に使うProgress インスタンス
-    """
-    return Progress(
-        TextColumn(' '),
-        BarColumn(bar_width=9999),
-        '[progress.percentage]{task.percentage:>3.1f}%',
-        DownloadColumn(),
-        TransferSpeedColumn(),
-        TimeRemainingColumn(),
-        TextColumn(' '),
-    )
-
-
-def CreateDownloadInfiniteProgress() -> Progress:
-    """
-    ダウンロード時 (完了未定) 向けの Progress インスタンスを新しく生成して返す
-
-    Returns:
-        Progress: 進捗表示に使うProgress インスタンス
-    """
-    return Progress(
-        TextColumn(' '),
-        BarColumn(bar_width=9999),
-        DownloadColumn(),
-        TimeElapsedColumn(),
-        TextColumn(' '),
-    )
 
 
 def GetNetworkDriveList() -> list[dict[str, str]]:
@@ -611,6 +563,65 @@ def SaveConfigYaml(config_yaml_path: Path, config_data: dict[str, dict[str, int 
         file.write(''.join(new_lines))
 
 
+def CreateBasicInfiniteProgress() -> Progress:
+    """
+    シンプルな完了未定状態向けの Progress インスタンスを新しく生成して返す
+
+    Returns:
+        Progress: 進捗表示に使うProgress インスタンス
+    """
+    return Progress(
+        TextColumn(' '),
+        BarColumn(bar_width=9999),
+        TimeElapsedColumn(),
+        TextColumn(' '),
+    )
+
+
+def CreateDownloadProgress() -> Progress:
+    """
+    ダウンロード時向けの Progress インスタンスを新しく生成して返す
+
+    Returns:
+        Progress: 進捗表示に使うProgress インスタンス
+    """
+    return Progress(
+        TextColumn(' '),
+        BarColumn(bar_width=9999),
+        '[progress.percentage]{task.percentage:>3.1f}%',
+        DownloadColumn(),
+        TransferSpeedColumn(),
+        TimeRemainingColumn(),
+        TextColumn(' '),
+    )
+
+
+def CreateDownloadInfiniteProgress() -> Progress:
+    """
+    ダウンロード時 (完了未定) 向けの Progress インスタンスを新しく生成して返す
+
+    Returns:
+        Progress: 進捗表示に使うProgress インスタンス
+    """
+    return Progress(
+        TextColumn(' '),
+        BarColumn(bar_width=9999),
+        DownloadColumn(),
+        TimeElapsedColumn(),
+        TextColumn(' '),
+    )
+
+
+def CreateRule() -> Rule:
+    """
+    ルールを新しく生成して返す
+
+    Returns:
+        Rule: ルール (区切り線)
+    """
+    return Rule(characters='─', style=Style(color='#E33157'))
+
+
 def RunSubprocess(
     name: str,
     args: list[str | Path],
@@ -652,6 +663,41 @@ def RunSubprocess(
             error_log_name = error_log_name,
             error_log = result.stdout,
         )
+        return False
+
+    return True
+
+
+def RunSubprocessDirectLogOutput(
+    name: str,
+    args: list[str | Path],
+    cwd: Path | None = None,
+    environment: dict[str, str] | None = None,
+    error_message: str = '予期しないエラーが発生しました。',
+) -> bool:
+    """
+    サブプロセスを実行する。(ログをそのまま出力する)
+
+    Args:
+        name (str): プロセス名
+        args (list[str]): 実行するコマンド
+        cwd (Path): カレントディレクトリ
+        error_message (str, optional): エラー発生時のエラーメッセージ. Defaults to '予期しないエラーが発生しました。'.
+
+    Returns:
+        bool: 成功したかどうか
+    """
+
+    print(Padding(name, (1, 2, 1, 2)))
+    print(Rule(style=Style(color='cyan'), align='center'))
+    pipenv_sync_result = subprocess.run(args, cwd = cwd, env = environment)
+    print(Rule(style=Style(color='cyan'), align='center'))
+
+    if pipenv_sync_result.returncode != 0:
+        ShowPanel([
+            f'[red]{error_message}[/red]'
+            'お手数をおかけしますが、上記のログを開発者に報告してください。',
+        ])
         return False
 
     return True
