@@ -1389,8 +1389,8 @@ export default Vue.extend({
                 const recover = async () => {
                     await Utils.sleep(0.5);
                     // この時点で映像が停止している場合、復旧を試みる
-                    if (this.player?.video.readyState !== 4) {
-                        console.log('player.video.readyState !== ENOUGH_DATA. trying to recover.');
+                    if (this.player?.video.readyState < 3) {
+                        console.log('player.video.readyState < HAVE_FUTURE_DATA. trying to recover.');
                         this.player?.video.pause();
                         await Utils.sleep(0.1);
                         this.player?.video.play().catch(() => {
