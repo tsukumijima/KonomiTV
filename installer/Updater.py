@@ -281,12 +281,12 @@ def Updater(version: str) -> None:
         shutil.rmtree(update_path.parent / f'KonomiTV-{version}/', ignore_errors=True)
         Path(source_code_file.name).unlink()
 
-    # ***** 環境設定ファイル (config.yaml) の更新 *****
+    # ***** サーバー設定ファイル (config.yaml) の更新 *****
 
     # サーバーのリッスンポート
     server_port: int = 7000
 
-    print(Padding('環境設定ファイル (config.yaml) を更新しています…', (1, 2, 0, 2)))
+    print(Padding('サーバー設定ファイル (config.yaml) を更新しています…', (1, 2, 0, 2)))
     progress = CreateBasicInfiniteProgress()
     progress.add_task('', total=None)
     with progress:

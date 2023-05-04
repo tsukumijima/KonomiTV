@@ -489,12 +489,12 @@ def Installer(version: str) -> None:
         ShowPanel([
             '[yellow]注意: デフォルトのリッスンポート (7000) がほかのサーバーソフトと重複しています。[/yellow]',
             f'代わりのリッスンポートとして、ポート {server_port} を選択します。',
-            'リッスンポートは、環境設定ファイル (config.yaml) を編集すると変更できます。',
+            'リッスンポートは、サーバー設定ファイル (config.yaml) を編集すると変更できます。',
         ])
 
-    # ***** 環境設定ファイル (config.yaml) の生成 *****
+    # ***** サーバー設定ファイル (config.yaml) の生成 *****
 
-    print(Padding('環境設定ファイル (config.yaml) を生成しています…', (1, 2, 0, 2)))
+    print(Padding('サーバー設定ファイル (config.yaml) を生成しています…', (1, 2, 0, 2)))
     progress = CreateBasicInfiniteProgress()
     progress.add_task('', total=None)
     with progress:
@@ -507,7 +507,7 @@ def Installer(version: str) -> None:
         with open(install_path / 'config.yaml', mode='r', encoding='utf-8') as fp:
             config_data = dict(ruamel.yaml.YAML().load(fp))
 
-        # 環境設定データの一部を事前に取得しておいた値で置き換え
+        # サーバー設定データの一部を事前に取得しておいた値で置き換え
         ## インストーラーで置換するのはバックエンドや EDCB / Mirakurun の URL など、サーバーの起動に不可欠な値のみ
         config_data['general']['backend'] = backend
         if backend == 'EDCB':
@@ -518,7 +518,7 @@ def Installer(version: str) -> None:
         config_data['server']['port'] = server_port
         config_data['capture']['upload_folder'] = str(capture_upload_folder)
 
-        # 環境設定データを保存
+        # サーバー設定データを保存
         SaveConfigYaml(install_path / 'config.yaml', config_data)
 
     # Windows・Linux: KonomiTV のインストール処理

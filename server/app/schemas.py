@@ -8,8 +8,8 @@ from typing import Literal
 from app import models
 
 
-# 環境設定を表す Pydantic モデル
-# バリデーションは環境設定をこの Pydantic モデルに通すことで行う
+# サーバー設定を表す Pydantic モデル
+# バリデーションはサーバー設定をこの Pydantic モデルに通すことで行う
 
 class Config(BaseModel):
     class General(BaseModel):

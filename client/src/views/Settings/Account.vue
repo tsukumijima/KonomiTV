@@ -67,8 +67,8 @@
                     <div class="account-feature">
                         <Icon class="account-feature__icon" icon="fa-solid:sliders-h" />
                         <div class="account-feature__info">
-                            <span class="account-feature__info-heading">環境設定をブラウザから変更</span>
-                            <span class="account-feature__info-text">管理者権限があれば、環境設定をブラウザから変更できます。一番最初に作成されたアカウントには、自動で管理者権限が付与されます。</span>
+                            <span class="account-feature__info-heading">サーバー設定をブラウザから変更</span>
+                            <span class="account-feature__info-text">管理者権限があれば、サーバー設定をブラウザから変更できます。一番最初に作成されたアカウントには、自動で管理者権限が付与されます。</span>
                         </div>
                     </div>
                 </div>

@@ -476,12 +476,12 @@ def RemoveEmojiIfLegacyTerminal(text: str) -> str:
 
 def SaveConfigYaml(config_yaml_path: Path, config_data: dict[str, dict[str, int |float | bool | str | None]]) -> None:
     """
-    変更された環境設定データを、コメントやフォーマットを保持した形で config.yaml に書き込む
+    変更されたサーバー設定データを、コメントやフォーマットを保持した形で config.yaml に書き込む
     config.yaml のすべてを上書きするのではなく、具体的な値が記述されている部分のみ正規表現で置換している
 
     Args:
         config_yaml_path (Path): 保存する config.yaml のパス
-        config_data (dict[str, dict[str, int | float | bool | str | None]]): 環境設定データの辞書
+        config_data (dict[str, dict[str, int | float | bool | str | None]]): サーバー設定データの辞書
     """
 
     # 現在の config.yaml の内容を行ごとに取得

@@ -197,7 +197,7 @@ if Path.exists(CONFIG_YAML) is False:
     logger.error('config.example.yaml を config.yaml にコピーし、お使いの環境に合わせて編集してください。')
     sys.exit(1)
 
-# 設定ファイルから環境設定を読み込む
+# 設定ファイルからサーバー設定を読み込む
 with open(CONFIG_YAML, encoding='utf-8') as file:
     CONFIG: dict[str, dict[str, Any]] = dict(ruamel.yaml.YAML().load(file))  # type: ignore
 
@@ -207,7 +207,7 @@ with open(CONFIG_YAML, encoding='utf-8') as file:
     CONFIG['general']['edcb_url'] = CONFIG['general']['edcb_url'].rstrip('/')
     CONFIG['general']['mirakurun_url'] = CONFIG['general']['mirakurun_url'].rstrip('/')
 
-    # Docker 上で実行されているとき、環境設定のうち、パス指定の項目に Docker 環境向けの Prefix (/host-rootfs) を付ける
+    # Docker 上で実行されているとき、サーバー設定のうち、パス指定の項目に Docker 環境向けの Prefix (/host-rootfs) を付ける
     ## /host-rootfs (docker-compose.yaml で定義) を通してホストマシンのファイルシステムにアクセスできる
     if Path.exists(Path('/.dockerenv')) is True:
         docker_fs_prefix = '/host-rootfs'
