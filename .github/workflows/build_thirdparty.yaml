@@ -11,6 +11,34 @@ on:
   workflow_call:
   workflow_dispatch:
 
+# 各サードパーティーライブラリのバージョン
+env:
+  # Python のバージョン (Python Standalone Builds のリリースを指定する)
+  ## ref: https://github.com/indygreg/python-build-standalone/releases
+  PYTHON_TAG: '20230116'
+  PYTHON_MAJOR_VERSION: '3.11'
+  PYTHON_VERSION: '3.11.1'
+  # pipenv のバージョン
+  PIPENV_VERSION: '2023.4.29'
+  # FFmpeg (FFmpeg-Builds のリリースを指定する)
+  ## HWENCC が付く方は QSVEncC・NVEncC・VCEEncC (Linux 版) が依存する FFmpeg のバージョン
+  ## FFmpeg-Builds は毎月末のリリースが長期間保持されるので、基本的には毎月末のリリースを指定する
+  ## ref: https://github.com/BtbN/FFmpeg-Builds/releases
+  FFMPEG_TAG: 'autobuild-2023-04-30-12-46'
+  FFMPEG_MAJOR_VERSION: '5.1'
+  FFMPEG_VERSION: '5.1.3-6-g1e413487bf'
+  FFMPEG_HWENCC_MAJOR_VERSION: '4.4'
+  FFMPEG_HWENCC_VERSION: '4.4.4'
+  # QSVEncC・NVEncC・VCEEncC・rkmppenc のバージョン
+  QSVENCC_VERSION: '7.38'
+  NVENCC_VERSION: '7.24'
+  VCEENCC_VERSION: '8.12'
+  RKMPPENC_VERSION: '0.00'
+  # ビルド対象の tsreadex・psisiarc・Akebi のコミットハッシュ
+  TSREADEX_COMMIT_HASH: 'fd72ef31b94832ee8e761800f9f5d5a8e66c8a22'
+  PSISIARC_COMMIT_HASH: '6593a0f63aedaaecfac7682b51e267874a8ec549'
+  AKEBI_COMMIT_HASH: '2757f136dda4f3c1d5b8baa433c1b52bb8526a0c'
+
 # ジョブの定義
 jobs:
 
@@ -32,7 +60,7 @@ jobs:
         run: |
           git clone https://github.com/xtne6f/tsreadex
           cd tsreadex/
-          git checkout fd72ef31b94832ee8e761800f9f5d5a8e66c8a22
+          git checkout ${{ env.TSREADEX_COMMIT_HASH }}
           msbuild tsreadex.sln /t:Build /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v142
           mkdir ../thirdparty/tsreadex/
           cp x64/Release/tsreadex.exe ../thirdparty/tsreadex/tsreadex.exe
@@ -43,7 +71,7 @@ jobs:
         run: |
           git clone https://github.com/xtne6f/psisiarc
           cd psisiarc/
-          git checkout 6593a0f63aedaaecfac7682b51e267874a8ec549
+          git checkout ${{ env.PSISIARC_COMMIT_HASH }}
           msbuild psisiarc.sln /t:Build /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v142
           mkdir ../thirdparty/psisiarc/
           cp x64/Release/psisiarc.exe ../thirdparty/psisiarc/psisiarc.exe
@@ -60,7 +88,7 @@ jobs:
         run: |
           git clone https://github.com/tsukumijima/Akebi
           cd Akebi/
-          git checkout 2757f136dda4f3c1d5b8baa433c1b52bb8526a0c
+          git checkout ${{ env.AKEBI_COMMIT_HASH }}
           go build -ldflags="-s -w" -a -o "akebi-https-server.exe" "./https-server/"
           mkdir ../thirdparty/Akebi/
           cp akebi-https-server.exe ../thirdparty/Akebi/akebi-https-server.exe
@@ -72,30 +100,30 @@ jobs:
         run: |
 
           # FFmpeg のアーカイブのダウンロード
-          curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2023-03-31-12-50/ffmpeg-n5.1.3-win64-gpl-shared-5.1.zip
-          7z x -y ffmpeg-n5.1.3-win64-gpl-shared-5.1.zip
+          curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/${{ env.FFMPEG_TAG }}/ffmpeg-n${{ env.FFMPEG_VERSION }}-win64-gpl-shared-${{ env.FFMPEG_MAJOR_VERSION }}.zip
+          7z x -y ffmpeg-n${{ env.FFMPEG_VERSION }}-win64-gpl-shared-${{ env.FFMPEG_MAJOR_VERSION }}.zip
           mkdir thirdparty/FFmpeg/
-          cp ffmpeg-n5.1.3-win64-gpl-shared-5.1/bin/* thirdparty/FFmpeg/
-          cp ffmpeg-n5.1.3-win64-gpl-shared-5.1/LICENSE.txt thirdparty/FFmpeg/License.txt
+          cp ffmpeg-n${{ env.FFMPEG_VERSION }}-win64-gpl-shared-${{ env.FFMPEG_MAJOR_VERSION }}/bin/* thirdparty/FFmpeg/
+          cp ffmpeg-n${{ env.FFMPEG_VERSION }}-win64-gpl-shared-${{ env.FFMPEG_MAJOR_VERSION }}/LICENSE.txt thirdparty/FFmpeg/License.txt
           rm thirdparty/FFmpeg/ffplay.exe
 
           # QSVEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/QSVEnc/releases/download/7.37/QSVEncC_7.37_x64.7z
-          7z x -y -o"thirdparty/QSVEncC" QSVEncC_7.37_x64.7z
+          curl -LO https://github.com/rigaya/QSVEnc/releases/download/${{ env.QSVENCC_VERSION }}/QSVEncC_${{ env.QSVENCC_VERSION }}_x64.7z
+          7z x -y -o"thirdparty/QSVEncC" QSVEncC_${{ env.QSVENCC_VERSION }}_x64.7z
           rm thirdparty/QSVEncC/hdr10plus_gen.exe
           mv thirdparty/QSVEncC/QSVEncC64.exe thirdparty/QSVEncC/QSVEncC.exe
           curl -L -o thirdparty/QSVEncC/License.txt https://raw.githubusercontent.com/rigaya/QSVEnc/master/license.txt
 
           # NVEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/NVEnc/releases/download/7.24/NVEncC_7.24_x64.7z
-          7z x -y -o"thirdparty/NVEncC" NVEncC_7.24_x64.7z
+          curl -LO https://github.com/rigaya/NVEnc/releases/download/${{ env.NVENCC_VERSION }}/NVEncC_${{ env.NVENCC_VERSION }}_x64.7z
+          7z x -y -o"thirdparty/NVEncC" NVEncC_${{ env.NVENCC_VERSION }}_x64.7z
           rm thirdparty/NVEncC/hdr10plus_gen.exe
           mv thirdparty/NVEncC/NVEncC64.exe thirdparty/NVEncC/NVEncC.exe
           curl -L -o thirdparty/NVEncC/License.txt https://raw.githubusercontent.com/rigaya/NVEnc/master/NVEnc_license.txt
 
           # VCEEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/VCEEnc/releases/download/8.11/VCEEncC_8.11_x64.7z
-          7z x -y -o"thirdparty/VCEEncC" VCEEncC_8.11_x64.7z
+          curl -LO https://github.com/rigaya/VCEEnc/releases/download/${{ env.VCEENCC_VERSION }}/VCEEncC_${{ env.VCEENCC_VERSION }}_x64.7z
+          7z x -y -o"thirdparty/VCEEncC" VCEEncC_${{ env.VCEENCC_VERSION }}_x64.7z
           rm thirdparty/VCEEncC/hdr10plus_gen.exe
           mv thirdparty/VCEEncC/VCEEncC64.exe thirdparty/VCEEncC/VCEEncC.exe
           curl -L -o thirdparty/VCEEncC/License.txt https://raw.githubusercontent.com/rigaya/VCEEnc/master/VCEEnc_license.txt
@@ -105,13 +133,13 @@ jobs:
         run: |
 
           # Python 本体のダウンロード
-          curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/20230116/cpython-3.11.1+20230116-x86_64-pc-windows-msvc-shared-install_only.tar.gz
+          curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/${{ env.PYTHON_TAG }}/cpython-${{ env.PYTHON_VERSION }}+${{ env.PYTHON_TAG }}-x86_64-pc-windows-msvc-shared-install_only.tar.gz
           tar xvf python.tar.gz
           mv python/ thirdparty/Python/
           Rename-Item thirdparty/Python/LICENSE.txt License.txt
 
           # pipenv のインストール
-          thirdparty/Python/python.exe -m pip install pipenv==2023.4.29
+          thirdparty/Python/python.exe -m pip install pipenv==${{ env.PIPENV_VERSION }}
 
       # サードパーティーライブラリを 7z で圧縮
       # ファイルサイズ縮減のため、圧縮をかなり強めに掛けている
@@ -142,7 +170,7 @@ jobs:
         run: |
           git clone https://github.com/xtne6f/tsreadex
           cd tsreadex/
-          git checkout fd72ef31b94832ee8e761800f9f5d5a8e66c8a22
+          git checkout ${{ env.TSREADEX_COMMIT_HASH }}
           make
           mkdir ../thirdparty/tsreadex/
           cp tsreadex ../thirdparty/tsreadex/tsreadex.elf
@@ -154,7 +182,7 @@ jobs:
         run: |
           git clone https://github.com/xtne6f/psisiarc
           cd psisiarc/
-          git checkout 6593a0f63aedaaecfac7682b51e267874a8ec549
+          git checkout ${{ env.PSISIARC_COMMIT_HASH }}
           make
           mkdir ../thirdparty/psisiarc/
           cp psisiarc ../thirdparty/psisiarc/psisiarc.elf
@@ -172,7 +200,7 @@ jobs:
         run: |
           git clone https://github.com/tsukumijima/Akebi
           cd Akebi/
-          git checkout 2757f136dda4f3c1d5b8baa433c1b52bb8526a0c
+          git checkout ${{ env.AKEBI_COMMIT_HASH }}
           go build -ldflags="-s -w" -a -o "akebi-https-server.elf" "./https-server/"
           mkdir ../thirdparty/Akebi/
           cp akebi-https-server.elf ../thirdparty/Akebi/akebi-https-server.elf
@@ -191,12 +219,12 @@ jobs:
           sudo apt-get install -y p7zip-full patchelf
 
           # FFmpeg のアーカイブのダウンロード
-          curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2023-03-31-12-50/ffmpeg-n5.1.3-linux64-gpl-shared-5.1.tar.xz
-          tar xvf ffmpeg-n5.1.3-linux64-gpl-shared-5.1.tar.xz
+          curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/${{ env.FFMPEG_TAG }}/ffmpeg-n${{ env.FFMPEG_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_MAJOR_VERSION }}.tar.xz
+          tar xvf ffmpeg-n${{ env.FFMPEG_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_MAJOR_VERSION }}.tar.xz
           mkdir thirdparty/FFmpeg/
-          cp ffmpeg-n5.1.3-linux64-gpl-shared-5.1/bin/* thirdparty/FFmpeg/
-          cp -r ffmpeg-n5.1.3-linux64-gpl-shared-5.1/lib/* thirdparty/FFmpeg/
-          cp ffmpeg-n5.1.3-linux64-gpl-shared-5.1/LICENSE.txt thirdparty/FFmpeg/License.txt
+          cp ffmpeg-n${{ env.FFMPEG_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_MAJOR_VERSION }}/bin/* thirdparty/FFmpeg/
+          cp -r ffmpeg-n${{ env.FFMPEG_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_MAJOR_VERSION }}/lib/* thirdparty/FFmpeg/
+          cp ffmpeg-n${{ env.FFMPEG_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_MAJOR_VERSION }}/LICENSE.txt thirdparty/FFmpeg/License.txt
           rm -rf thirdparty/FFmpeg/pkgconfig
           mv thirdparty/FFmpeg/ffmpeg thirdparty/FFmpeg/ffmpeg.elf
           mv thirdparty/FFmpeg/ffprobe thirdparty/FFmpeg/ffprobe.elf
@@ -208,9 +236,9 @@ jobs:
           ## ref: https://stackoverflow.com/questions/13756800/how-to-download-all-dependencies-and-packages-to-directory
           ## ref: https://askubuntu.com/questions/1260559/how-to-install-deb-packages-in-a-custom-folder-different-from-root-using-dp
           mkdir thirdparty/Library/
-          curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2023-03-31-12-50/ffmpeg-n4.4.3-4-gd585a0a1cc-linux64-gpl-shared-4.4.tar.xz
-          tar xvf ffmpeg-n4.4.3-4-gd585a0a1cc-linux64-gpl-shared-4.4.tar.xz
-          cp -ar ffmpeg-n4.4.3-4-gd585a0a1cc-linux64-gpl-shared-4.4/lib/* thirdparty/Library/
+          curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/${{ env.FFMPEG_TAG }}/ffmpeg-n${{ env.FFMPEG_HWENCC_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_HWENCC_MAJOR_VERSION }}.tar.xz
+          tar xvf ffmpeg-n${{ env.FFMPEG_HWENCC_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_HWENCC_MAJOR_VERSION }}.tar.xz
+          cp -ar ffmpeg-n${{ env.FFMPEG_HWENCC_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_HWENCC_MAJOR_VERSION }}/lib/* thirdparty/Library/
           sudo apt-get download libass9 libbrotli1 libexpat1 libfontconfig1 libfreetype6 libfribidi0 libglib2.0-0 libgraphite2-3 libharfbuzz0b libpcre3 libpng16-16 libuuid1 zlib1g
           ls -1 | grep [.]deb >> all_debs.txt && cat all_debs.txt | while read fn; do dpkg-deb -x $fn `pwd`/thirdparty/Library; done && rm all_debs.txt
           cp -ar thirdparty/Library/lib/x86_64-linux-gnu/* thirdparty/Library/
@@ -222,8 +250,8 @@ jobs:
           find thirdparty/Library/*.so* -not -type l -not -type d | xargs chmod a+x
 
           # QSVEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/QSVEnc/releases/download/7.37/qsvencc_7.37_Ubuntu20.04_amd64.deb
-          7z x -y qsvencc_7.37_Ubuntu20.04_amd64.deb && tar xvf data.tar
+          curl -LO https://github.com/rigaya/QSVEnc/releases/download/${{ env.QSVENCC_VERSION }}/qsvencc_${{ env.QSVENCC_VERSION }}_Ubuntu20.04_amd64.deb
+          7z x -y qsvencc_${{ env.QSVENCC_VERSION }}_Ubuntu20.04_amd64.deb && tar xvf data.tar
           mkdir thirdparty/QSVEncC/
           cp usr/bin/qsvencc thirdparty/QSVEncC/QSVEncC.elf
           chmod a+x thirdparty/QSVEncC/QSVEncC.elf
@@ -231,8 +259,8 @@ jobs:
           curl -L -o thirdparty/QSVEncC/License.txt https://raw.githubusercontent.com/rigaya/QSVEnc/master/license.txt
 
           # NVEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/NVEnc/releases/download/7.24/nvencc_7.24_Ubuntu20.04_amd64.deb
-          7z x -y nvencc_7.24_Ubuntu20.04_amd64.deb && tar xvf data.tar
+          curl -LO https://github.com/rigaya/NVEnc/releases/download/${{ env.NVENCC_VERSION }}/nvencc_${{ env.NVENCC_VERSION }}_Ubuntu20.04_amd64.deb
+          7z x -y nvencc_${{ env.NVENCC_VERSION }}_Ubuntu20.04_amd64.deb && tar xvf data.tar
           mkdir thirdparty/NVEncC/
           cp usr/bin/nvencc thirdparty/NVEncC/NVEncC.elf
           chmod a+x thirdparty/NVEncC/NVEncC.elf
@@ -240,8 +268,8 @@ jobs:
           curl -L -o thirdparty/NVEncC/License.txt https://raw.githubusercontent.com/rigaya/NVEnc/master/NVEnc_license.txt
 
           # VCEEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/VCEEnc/releases/download/8.11/vceencc_8.11_Ubuntu20.04_amd64.deb
-          7z x -y vceencc_8.11_Ubuntu20.04_amd64.deb && tar xvf data.tar
+          curl -LO https://github.com/rigaya/VCEEnc/releases/download/${{ env.VCEENCC_VERSION }}/vceencc_${{ env.VCEENCC_VERSION }}_Ubuntu20.04_amd64.deb
+          7z x -y vceencc_${{ env.VCEENCC_VERSION }}_Ubuntu20.04_amd64.deb && tar xvf data.tar
           mkdir thirdparty/VCEEncC/
           cp usr/bin/vceencc thirdparty/VCEEncC/VCEEncC.elf
           chmod a+x thirdparty/VCEEncC/VCEEncC.elf
@@ -253,13 +281,13 @@ jobs:
         run: |
 
           # Python 本体のダウンロード
-          curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/20230116/cpython-3.11.1+20230116-x86_64-unknown-linux-gnu-install_only.tar.gz
+          curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/${{ env.PYTHON_TAG }}/cpython-${{ env.PYTHON_VERSION }}+${{ env.PYTHON_TAG }}-x86_64-unknown-linux-gnu-install_only.tar.gz
           tar xvf python.tar.gz
           mv python/ thirdparty/Python/
-          ln -s python3.11 thirdparty/Python/bin/python
+          ln -s python${{ env.PYTHON_MAJOR_VERSION }} thirdparty/Python/bin/python
 
           # pipenv のインストール
-          thirdparty/Python/bin/python -m pip install pipenv==2023.4.29
+          thirdparty/Python/bin/python -m pip install pipenv==${{ env.PIPENV_VERSION }}
 
       # サードパーティーライブラリを tar.xz で圧縮
       # ファイルサイズ縮減のため、圧縮をかなり強めに掛けている
@@ -325,7 +353,7 @@ jobs:
         run: |
           git clone https://github.com/xtne6f/tsreadex
           cd tsreadex/
-          git checkout fd72ef31b94832ee8e761800f9f5d5a8e66c8a22
+          git checkout ${{ env.TSREADEX_COMMIT_HASH }}
           docker run --rm -i -v $(pwd):/work -w /work ${{ matrix.image }}:build bash -c 'make'
           mkdir ../thirdparty/tsreadex/
           cp tsreadex ../thirdparty/tsreadex/tsreadex.elf
@@ -337,7 +365,7 @@ jobs:
         run: |
           git clone https://github.com/xtne6f/psisiarc
           cd psisiarc/
-          git checkout 6593a0f63aedaaecfac7682b51e267874a8ec549
+          git checkout ${{ env.PSISIARC_COMMIT_HASH }}
           docker run --rm -i -v $(pwd):/work -w /work ${{ matrix.image }}:build bash -c 'make'
           mkdir ../thirdparty/psisiarc/
           cp psisiarc ../thirdparty/psisiarc/psisiarc.elf
@@ -355,7 +383,7 @@ jobs:
         run: |
           git clone https://github.com/tsukumijima/Akebi
           cd Akebi/
-          git checkout 2757f136dda4f3c1d5b8baa433c1b52bb8526a0c
+          git checkout ${{ env.AKEBI_COMMIT_HASH }}
           GOARCH=arm64 go build -ldflags="-s -w" -a -o "akebi-https-server.elf" "./https-server/"
           mkdir ../thirdparty/Akebi/
           cp akebi-https-server.elf ../thirdparty/Akebi/akebi-https-server.elf
@@ -374,12 +402,12 @@ jobs:
           sudo apt-get install -y p7zip-full patchelf
 
           # FFmpeg のアーカイブのダウンロード
-          curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2023-03-31-12-50/ffmpeg-n5.1.3-linuxarm64-gpl-shared-5.1.tar.xz
-          tar xvf ffmpeg-n5.1.3-linuxarm64-gpl-shared-5.1.tar.xz
+          curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/${{ env.FFMPEG_TAG }}/ffmpeg-n${{ env.FFMPEG_VERSION }}-linuxarm64-gpl-shared-${{ env.FFMPEG_MAJOR_VERSION }}.tar.xz
+          tar xvf ffmpeg-n${{ env.FFMPEG_VERSION }}-linuxarm64-gpl-shared-${{ env.FFMPEG_MAJOR_VERSION }}.tar.xz
           mkdir thirdparty/FFmpeg/
-          cp ffmpeg-n5.1.3-linuxarm64-gpl-shared-5.1/bin/* thirdparty/FFmpeg/
-          cp -r ffmpeg-n5.1.3-linuxarm64-gpl-shared-5.1/lib/* thirdparty/FFmpeg/
-          cp ffmpeg-n5.1.3-linuxarm64-gpl-shared-5.1/LICENSE.txt thirdparty/FFmpeg/License.txt
+          cp ffmpeg-n${{ env.FFMPEG_VERSION }}-linuxarm64-gpl-shared-${{ env.FFMPEG_MAJOR_VERSION }}/bin/* thirdparty/FFmpeg/
+          cp -r ffmpeg-n${{ env.FFMPEG_VERSION }}-linuxarm64-gpl-shared-${{ env.FFMPEG_MAJOR_VERSION }}/lib/* thirdparty/FFmpeg/
+          cp ffmpeg-n${{ env.FFMPEG_VERSION }}-linuxarm64-gpl-shared-${{ env.FFMPEG_MAJOR_VERSION }}/LICENSE.txt thirdparty/FFmpeg/License.txt
           rm -rf thirdparty/FFmpeg/pkgconfig
           mv thirdparty/FFmpeg/ffmpeg thirdparty/FFmpeg/ffmpeg.elf
           mv thirdparty/FFmpeg/ffprobe thirdparty/FFmpeg/ffprobe.elf
@@ -404,8 +432,8 @@ jobs:
           find thirdparty/Library/*.so* -not -type l -not -type d | xargs chmod a+x
 
           # rkmppenc のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/rkmppenc/releases/download/0.00/rkmppenc_0.00_Ubuntu20.04_arm64.deb
-          7z x -y rkmppenc_0.00_Ubuntu20.04_arm64.deb && tar xvf data.tar
+          curl -LO https://github.com/rigaya/rkmppenc/releases/download/${{ env.RKMPPENC_VERSION }}/rkmppenc_${{ env.RKMPPENC_VERSION }}_Ubuntu20.04_arm64.deb
+          7z x -y rkmppenc_${{ env.RKMPPENC_VERSION }}_Ubuntu20.04_arm64.deb && tar xvf data.tar
           mkdir thirdparty/rkmppenc/
           cp usr/bin/rkmppenc thirdparty/rkmppenc/rkmppenc.elf
           chmod a+x thirdparty/rkmppenc/rkmppenc.elf
@@ -417,14 +445,14 @@ jobs:
         run: |
 
           # Python 本体のダウンロード
-          curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/20230116/cpython-3.11.1+20230116-aarch64-unknown-linux-gnu-install_only.tar.gz
+          curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/${{ env.PYTHON_TAG }}/cpython-${{ env.PYTHON_VERSION }}+${{ env.PYTHON_TAG }}-aarch64-unknown-linux-gnu-install_only.tar.gz
           tar xvf python.tar.gz
           mv python/ thirdparty/Python/
-          ln -s python3.11 thirdparty/Python/bin/python
+          ln -s python${{ env.PYTHON_MAJOR_VERSION }} thirdparty/Python/bin/python
 
           # pipenv のインストール
           cd thirdparty/Python/
-          docker run --rm -i -v $(pwd):/work -w /work ${{ matrix.image }}:build bash -c './bin/python -m pip install pipenv==2023.4.29'
+          docker run --rm -i -v $(pwd):/work -w /work ${{ matrix.image }}:build bash -c './bin/python -m pip install pipenv==${{ env.PIPENV_VERSION }}'
 
       # サードパーティーライブラリを tar.xz で圧縮
       # ファイルサイズ縮減のため、圧縮をかなり強めに掛けている
