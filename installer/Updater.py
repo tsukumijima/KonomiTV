@@ -175,16 +175,15 @@ def Updater(version: str) -> None:
     elif platform_type == 'Linux-Docker':
 
         # docker compose stop で Docker コンテナを終了
-        print(Padding('起動中の Docker コンテナを終了しています…', (1, 2, 0, 2)))
-        progress = CreateBasicInfiniteProgress()
-        progress.add_task('', total=None)
-        with progress:
-            subprocess.run(
-                args = [*docker_compose_command, 'stop'],
-                cwd = update_path,  # カレントディレクトリを KonomiTV のアンインストールフォルダに設定
-                stdout = subprocess.DEVNULL,  # 標準出力を表示しない
-                stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-            )
+        result = RunSubprocess(
+            '起動中の Docker コンテナを終了しています…',
+            [*docker_compose_command, 'stop'],
+            cwd = update_path,  # カレントディレクトリを KonomiTV のアンインストールフォルダに設定
+            error_message = '起動中の Docker コンテナの終了中に予期しないエラーが発生しました。',
+            error_log_name = 'PM2 のエラーログ',
+        )
+        if result is False:
+            return  # 処理中断
 
     # ***** ソースコードの更新 *****
 
@@ -206,33 +205,27 @@ def Updater(version: str) -> None:
             ])
             return  # 処理中断
 
-        # git clone でソースコードをダウンロード
-        print(Padding('KonomiTV のソースコードを Git で更新しています…', (1, 2, 0, 2)))
-        progress = CreateBasicInfiniteProgress()
-        progress.add_task('', total=None)
-        with progress:
+        # リモートの変更内容とタグを取得
+        result = RunSubprocess(
+            'KonomiTV のソースコードを Git でダウンロードしています…',
+            ['git', 'fetch', 'origin', '--tags'],
+            cwd = update_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
+            error_message = 'KonomiTV のソースコードのダウンロード中に予期しないエラーが発生しました。',
+            error_log_name = 'Git のエラーログ',
+        )
+        if result is False:
+            return  # 処理中断
 
-            # リモートの変更内容とタグを取得
-            result = RunSubprocess(
-                'KonomiTV のソースコードを Git でダウンロードしています…',
-                ['git', 'fetch', 'origin', '--tags'],
-                cwd = update_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
-                error_message = 'KonomiTV のソースコードのダウンロード中に予期しないエラーが発生しました。',
-                error_log_name = 'Git のエラーログ',
-            )
-            if result is False:
-                return  # 処理中断
-
-            # 新しいバージョンのコードをチェックアウト
-            result = RunSubprocess(
-                'KonomiTV のソースコードを更新しています…',
-                ['git', 'checkout', '--force', f'v{version}'],
-                cwd = update_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
-                error_message = 'KonomiTV のソースコードの更新中に予期しないエラーが発生しました。',
-                error_log_name = 'Git のエラーログ',
-            )
-            if result is False:
-                return  # 処理中断
+        # 新しいバージョンのコードをチェックアウト
+        result = RunSubprocess(
+            'KonomiTV のソースコードを更新しています…',
+            ['git', 'checkout', '--force', f'v{version}'],
+            cwd = update_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
+            error_message = 'KonomiTV のソースコードの更新中に予期しないエラーが発生しました。',
+            error_log_name = 'Git のエラーログ',
+        )
+        if result is False:
+            return  # 処理中断
 
     # Git を使ってインストールされていない場合: zip からソースコードを更新
     else:

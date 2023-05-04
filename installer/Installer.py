@@ -953,8 +953,6 @@ def Installer(version: str) -> None:
                     stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
                     text = True,  # 出力をテキストとして取得する
                 )
-
-            # Windows サービスのインストールに失敗
             if 'Error installing service' in service_install_result.stdout:
                 print(Padding(str(
                     '[red]Windows サービスのインストールに失敗しました。\n'
@@ -976,8 +974,6 @@ def Installer(version: str) -> None:
                     stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
                     text = True,  # 出力をテキストとして取得する
                 )
-
-            # Windows サービスの起動に失敗
             if 'Error starting service' in service_start_result.stdout:
                 print(Padding(str(
                     '[red]Windows サービスの起動に失敗しました。\n'
