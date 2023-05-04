@@ -1306,14 +1306,14 @@ export default Vue.extend({
                     // 再生中にエラーが発生した場合
                     // ワークアラウンドとして通知した後にページをリロードする
                     // TODO: ロジックを整理してストリーミングを再起動できるようにする
-                    this.player.notice(`再生中にエラーが発生しました。(Type: ${error_type}) 3秒後にリロードします。`, -1);
+                    this.player.notice(`再生中にエラーが発生しました。(${error_type}: ${detail}) 3秒後にリロードします。`, -1);
                     await Utils.sleep(3);
                     location.reload();
                 });
             // LL-HLS 再生時は、error イベントを監視してエラーが発生したらページをリロードする
             } else if (this.is_mpegts_supported === false) {
                 this.player.on('error', async () => {
-                    this.player.notice(`再生中にエラーが発生しました。(Type: ${this.player.video.error.message}) 3秒後にリロードします。`, -1);
+                    this.player.notice(`再生中にエラーが発生しました。(${this.player.video.error.code}: ${this.player.video.error.message}) 3秒後にリロードします。`, -1);
                     await Utils.sleep(3);
                     location.reload();
                 });
