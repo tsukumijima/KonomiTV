@@ -234,8 +234,13 @@ QSVEncC では、別途 Intel Media Driver のインストールが必要です�
 
 ```bash
 curl -fsSL https://repositories.intel.com/graphics/intel-graphics.key | sudo gpg --dearmor --yes -o /usr/share/keyrings/intel-graphics-keyring.gpg
-echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/graphics/ubuntu focal main' | sudo tee /etc/apt/sources.list.d/intel-graphics.list > /dev/null
-sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-opencl-icd
+
+# Ubuntu 22.04 LTS
+echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/graphics/ubuntu jammy arc' | sudo tee /etc/apt/sources.list.d/intel-graphics.list > /dev/null
+# Ubuntu 20.04 LTS
+echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/graphics/ubuntu focal-devel main' | sudo tee /etc/apt/sources.list.d/intel-graphics.list > /dev/null
+
+sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-opencl-icd libmfxgen1
 ```
 
 以上のコマンドを実行して、Intel Media Driver をインストールしてください (Ubuntu 20.04 LTS 以降向け) 。  
@@ -243,8 +248,8 @@ sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-open
 > Docker を使ってインストールする場合は、Intel Media Driver をインストールしなくても動作します（未検証）。  
 > [KonomiTV の Docker イメージ](https://github.com/tsukumijima/KonomiTV/blob/master/Dockerfile) には Intel Media Driver が標準でインストールされているほか、Intel Graphics 本体のドライバは Linux カーネルに取り込まれているためです。
 
-> Alder Lake (第12世代) 以降の Intel CPU では、追加で `sudo apt install -y libmfx-gen1.2` を実行してください。  
-> なお、`libmfx-gen1.2` パッケージは Ubuntu 22.04 LTS にしか存在しないため、Ubuntu 20.04 LTS では、Alder Lake 以降の CPU の Intel QSV を利用できません。
+> 以前 Alder Lake (第12世代) 以降の Intel CPU で必要だった `libmfx-gen1.2` は、[QSVEncC 7.38](https://github.com/rigaya/QSVEnc/releases/tag/7.38) 以降で `libmfxgen1` に置き換えられました。  
+> `libmfxgen1` は、Ubuntu 20.04 LTS 以降で利用できます。
 
 -----
 
