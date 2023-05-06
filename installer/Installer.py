@@ -738,13 +738,10 @@ def Installer(version: str) -> None:
                     ])
                     ShowPanel([
                         'Intel Media Driver は以下のコマンドでインストールできます。',
-                        '[cyan]curl -fsSL https://repositories.intel.com/graphics/intel-graphics.key | sudo gpg --dearmor --yes -o /usr/share/keyrings/intel-graphics-keyring.gpg && echo \'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/graphics/ubuntu focal main\' | sudo tee /etc/apt/sources.list.d/intel-graphics.list > /dev/null && sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-opencl-icd[/cyan]',
-                    ], padding=(0, 2, 0, 2))
-                    ShowPanel([
-                        'Alder Lake (第12世代) 以降の CPU では、追加で以下のコマンドを実行してください。',
-                        'なお、libmfx-gen1.2 パッケージは Ubuntu 22.04 LTS にしか存在しないため、',
-                        'Ubuntu 20.04 LTS では、Alder Lake 以降の CPU の Intel QSV を利用できません。',
-                        '[cyan]sudo apt install -y libmfx-gen1.2[/cyan]',
+                        'Ubuntu 22.04 LTS:',
+                        '[cyan]curl -fsSL https://repositories.intel.com/graphics/intel-graphics.key | sudo gpg --dearmor --yes -o /usr/share/keyrings/intel-graphics-keyring.gpg && echo \'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/graphics/ubuntu jammy arc\' | sudo tee /etc/apt/sources.list.d/intel-graphics.list > /dev/null && sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-opencl-icd libmfxgen1[/cyan]',
+                        'Ubuntu 20.04 LTS:',
+                        '[cyan]curl -fsSL https://repositories.intel.com/graphics/intel-graphics.key | sudo gpg --dearmor --yes -o /usr/share/keyrings/intel-graphics-keyring.gpg && echo \'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/graphics/ubuntu focal-devel main\' | sudo tee /etc/apt/sources.list.d/intel-graphics.list > /dev/null && sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-opencl-icd libmfxgen1[/cyan]',
                     ], padding=(0, 2, 0, 2))
                     ShowPanel([
                         'QSVEncC (--check-hw) のログ:\n' + result1.stdout.strip(),
