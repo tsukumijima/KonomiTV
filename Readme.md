@@ -210,7 +210,7 @@ px4_drv では、公式ドライバーとの比較で、チューナーの起動
 
 ### QSVEncC・NVEncC・VCEEncC・rkmppenc に対応した GPU ドライバーのインストール
 
-KonomiTV は、[QSVEncC](https://github.com/rigaya/QSVEnc) (Intel QSV)・[NVEncC](https://github.com/rigaya/NVEnc) (NVIDIA NVENC)・[VCEEncC](https://github.com/rigaya/VCEEnc) (AMD VCE)・[rkmppenc](https://github.com/rigaya/rkmppenc) (Rockchip ARM SoC) の3つのハードウェアエンコーダーに標準で対応しています。
+KonomiTV は、[QSVEncC](https://github.com/rigaya/QSVEnc) (Intel QSV)・[NVEncC](https://github.com/rigaya/NVEnc) (NVIDIA NVENC)・[VCEEncC](https://github.com/rigaya/VCEEnc) (AMD VCE)・[rkmppenc](https://github.com/rigaya/rkmppenc) (Rockchip ARM SoC) の4つのハードウェアエンコーダーに標準で対応しています。
 
 > FFmpeg (ソフトウェアエンコーダー) は遅い上に CPU 負荷がかなり高くなるため、ハードウェアエンコーダーの利用を強くおすすめします。
 
