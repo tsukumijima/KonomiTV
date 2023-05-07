@@ -420,8 +420,8 @@ jobs:
           ## ref: https://askubuntu.com/questions/1260559/how-to-install-deb-packages-in-a-custom-folder-different-from-root-using-dp
           mkdir thirdparty/Library/
           docker run --rm -i -v $(pwd):/work -w /work ${{ matrix.image }}:build bash -c 'apt-get download libasound2 libass9 libbluray2 libexpat1 libfontconfig1 libfreetype6 libfribidi0 libglib2.0-0 libgomp1 libgraphite2-3 libharfbuzz0b libicu66 liblzma5 libmp3lame0 libogg0 libopus0 libpcre3 libpng16-16 libsoxr0 libspeex1 libssl1.1 libtwolame0 libuuid1 libvorbis0a libvorbisenc2 libvpx6 libxml2 zlib1g'
-          curl -LO https://github.com/tsukumijima/mpp/releases/download/v1.5.0-4b8799c38aad5c64481eec89ba8f3f0c64176e42/librockchip-mpp1_1.5.0-1_arm64.deb
-          curl -LO https://github.com/tsukumijima/librga/releases/download/v2.2.0-2827b00b884001e6da2c82d91cdace4fa473b5e2/librga2_2.2.0-1_arm64.deb
+          curl -LO https://github.com/tsukumijima/mpp/releases/download/v1.5.0-1-54f7257/librockchip-mpp1_1.5.0-1_arm64.deb
+          curl -LO https://github.com/tsukumijima/librga/releases/download/v2.2.0-1-fb93eed/librga2_2.2.0-1_arm64.deb
           ls -1 | grep [.]deb >> all_debs.txt && cat all_debs.txt | while read fn; do dpkg-deb -x $fn `pwd`/thirdparty/Library; done && rm all_debs.txt
           cp -ar thirdparty/Library/lib/aarch64-linux-gnu/* thirdparty/Library/
           rm -rf thirdparty/Library/lib/
