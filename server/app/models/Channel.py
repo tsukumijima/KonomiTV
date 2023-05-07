@@ -36,7 +36,7 @@ class Channel(models.Model):
     network_id: int = fields.IntField()
     service_id: int = fields.IntField()
     transport_stream_id: int | None = fields.IntField(null=True)
-    remocon_id: int | None = fields.IntField(null=True)
+    remocon_id: int = fields.IntField()
     channel_id: str = fields.TextField()
     channel_number: str = fields.TextField()
     channel_name: str = fields.TextField()
@@ -121,7 +121,6 @@ class Channel(models.Model):
             # 同じリモコン番号のサービスのカウント
             same_remocon_id_counts: dict[int, int] = {}
 
-            # サービスごとに実行
             for service in services:
 
                 # type が 0x01 (デジタルTVサービス) / 0x02 (デジタル音声サービス) / 0xa1 (161: 臨時映像サービス) /
@@ -143,14 +142,14 @@ class Channel(models.Model):
                 channel.id = f'NID{service["networkId"]}-SID{service["serviceId"]:03d}'
                 channel.service_id = int(service['serviceId'])
                 channel.network_id = int(service['networkId'])
-                channel.remocon_id = int(service['remoteControlKeyId']) if ('remoteControlKeyId' in service) else None
+                channel.remocon_id = int(service['remoteControlKeyId']) if ('remoteControlKeyId' in service) else -1
                 channel.channel_name = TSInformation.formatString(service['name'])
                 channel.channel_type = TSInformation.getNetworkType(channel.network_id)
                 channel.channel_force = None
                 channel.channel_comment = None
 
                 # すでに放送が終了した「FOXスポーツ＆エンターテインメント」「BSスカパー」「Dlife」を除外
-                ## 放送終了後にチャンネルスキャンしていないなどの理由で Mirakurun 側にチャンネル情報が残っている場合がある
+                ## 放送終了後にチャンネルスキャンしていないなどの理由でバックエンド側にチャンネル情報が残っている場合がある
                 if channel.channel_type == 'BS' and channel.service_id in [238, 241, 258]:
                     continue
 
@@ -168,7 +167,7 @@ class Channel(models.Model):
                 # 今のところ、ラジオに該当するチャンネルは放送大学ラジオとスターデジオのみ
                 channel.is_radiochannel = True if (service['type'] == 0x02) else False
 
-                # 同じネットワーク ID のチャンネルのカウントを追加
+                # 同じネットワーク内にあるサービスのカウントを追加
                 if channel.network_id not in same_network_id_counts:  # まだキーが存在しないとき
                     same_network_id_counts[channel.network_id] = 0
                 same_network_id_counts[channel.network_id] += 1  # カウントを足す
@@ -177,10 +176,6 @@ class Channel(models.Model):
 
                 # 地デジ: リモコン番号からチャンネル番号を算出する
                 if channel.channel_type == 'GR':
-
-                    # リモコン番号が不明のときはとりあえず 0 とする
-                    if channel.remocon_id is None:
-                        channel.remocon_id = 0
 
                     # 同じリモコン番号のサービスのカウントを定義
                     if channel.remocon_id not in same_remocon_id_counts:  # まだキーが存在しないとき
@@ -284,7 +279,7 @@ class Channel(models.Model):
         async with transactions.in_transaction():
 
             # リモコン番号が取得できない場合に備えてバックアップ
-            backup_remocon_ids = {channel.id: channel.remocon_id for channel in await Channel.all()}
+            backup_remocon_ids: dict[str, int] = {channel.id: channel.remocon_id for channel in await Channel.all()}
 
             # 既にデータベースにチャンネル情報が存在する場合は一旦全て削除する
             await Channel.all().delete()
@@ -336,14 +331,14 @@ class Channel(models.Model):
                 channel.service_id = int(service['sid'])
                 channel.network_id = int(service['onid'])
                 channel.transport_stream_id = int(service['tsid'])
-                channel.remocon_id = None
+                channel.remocon_id = -1
                 channel.channel_name = TSInformation.formatString(service['service_name'])
                 channel.channel_type = TSInformation.getNetworkType(channel.network_id)
                 channel.channel_force = None
                 channel.channel_comment = None
 
                 # すでに放送が終了した「FOXスポーツ＆エンターテインメント」「BSスカパー」「Dlife」を除外
-                ## 放送終了後にチャンネルスキャンしていないなどの理由で EDCB 側にチャンネル情報が残っている場合がある
+                ## 放送終了後にチャンネルスキャンしていないなどの理由でバックエンド側にチャンネル情報が残っている場合がある
                 if channel.channel_type == 'BS' and channel.service_id in [238, 241, 258]:
                     continue
 
@@ -372,7 +367,8 @@ class Channel(models.Model):
                 if channel.channel_type == 'GR':
 
                     # EPG 由来のチャンネル情報を取得
-                    # 現在のチャンネルのリモコン番号が含まれる
+                    ## 現在のチャンネルのリモコン番号が含まれる
+                    ## EDCB では EPG 由来のチャンネル情報からしかリモコン番号の情報を取得できない
                     epg_service = next(filter(lambda temp: temp['onid'] == channel.network_id and temp['sid'] == channel.service_id, epg_services), None)
 
                     if epg_service is not None:
@@ -380,8 +376,15 @@ class Channel(models.Model):
                         channel.remocon_id = int(epg_service['remote_control_key_id'])
                     else:
                         # 取得できなかったので、あれば以前のバックアップからリモコン番号を取得
-                        # それでもリモコン番号が不明のときはとりあえず 0 とする
-                        channel.remocon_id = cast(int, backup_remocon_ids.get(channel.id, 0))
+                        channel.remocon_id = cast(int, backup_remocon_ids.get(channel.id, -1))
+
+                        # それでもリモコン番号が不明の時は、同じネットワーク ID を持つ別サービスのリモコン番号を取得する
+                        ## 地上波の臨時サービスはリモコン番号が取得できないことが多い問題への対応
+                        if channel.remocon_id <= 0:
+                            for temp in epg_services:
+                                if temp['onid'] == channel.network_id and temp['sid'] != channel.service_id:
+                                    channel.remocon_id = int(temp['remote_control_key_id'])
+                                    break
 
                     # 同じリモコン番号のサービスのカウントを定義
                     if channel.remocon_id not in same_remocon_id_counts:  # まだキーが存在しないとき

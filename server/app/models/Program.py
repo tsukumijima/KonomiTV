@@ -45,9 +45,9 @@ class Program(models.Model):
     duration: float = fields.FloatField()
     is_free: bool = fields.BooleanField()  # type: ignore
     genre: list[dict[str, str]] = fields.JSONField(encoder=lambda x: json.dumps(x, ensure_ascii=False))
-    video_type: str = fields.TextField()
-    video_codec: str = fields.TextField()
-    video_resolution: str = fields.TextField()
+    video_type: str | None = fields.TextField(null=True)
+    video_codec: str | None = fields.TextField(null=True)
+    video_resolution: str | None = fields.TextField(null=True)
     primary_audio_type: str = fields.TextField()
     primary_audio_language: str = fields.TextField()
     primary_audio_sampling_rate: str = fields.TextField()
