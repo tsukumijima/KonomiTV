@@ -184,20 +184,13 @@ async def UserCreateAPI(
             detail = 'Specified username is not accepted due to system limitations',
         )
 
-    # 新しいユーザーアカウントのモデルを作成
-    user = User()
-    user.name = user_create_request.username  # ユーザー名
-    user.password = passlib_context.hash(user_create_request.password)  # ハッシュ化されたパスワード
-    user.client_settings = {}  # クライアント側の設定（ひとまず空の辞書を設定）
-
-    # 他のユーザーアカウントがまだ作成されていないなら、特別に管理者権限を付与
-    if await User.all().count() == 0:
-        user.is_admin = True
-    else:
-        user.is_admin = False
-
-    # レコードを保存する
-    await user.save()
+    # 新しいユーザーアカウントのモデルを作成・保存
+    user = await User.create(
+        name = user_create_request.username,  # ユーザー名
+        password = passlib_context.hash(user_create_request.password),  # ハッシュ化されたパスワード
+        is_admin = False if await User.all().count() > 0 else True,  # 他のユーザーアカウントがまだ作成されていないなら、特別に管理者権限を付与
+        client_settings = {},  # クライアント側の設定（ひとまず空の辞書を設定）
+    )
 
     # 外部テーブルのデータを取得してから返す
     # Twitter アカウントが登録されているかに関わらず、こうしないとユーザーデータを返せない

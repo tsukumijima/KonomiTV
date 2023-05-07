@@ -1,4 +1,8 @@
 
+# Type Hints を指定できるように
+# ref: https://stackoverflow.com/a/33533514/17124142
+from __future__ import annotations
+
 import asyncio
 import requests
 import time
@@ -8,7 +12,7 @@ from tortoise import models
 from tortoise import timezone
 from tortoise import transactions
 from tortoise.exceptions import IntegrityError
-from typing import Any, cast, Literal
+from typing import Any, cast, Literal, TYPE_CHECKING
 
 from app.constants import API_REQUEST_HEADERS, CONFIG
 from app.utils import Jikkyo
@@ -16,6 +20,9 @@ from app.utils import Logging
 from app.utils import TSInformation
 from app.utils.EDCB import CtrlCmdUtil
 from app.utils.EDCB import EDCBUtil
+
+if TYPE_CHECKING:
+    from app.models import Program
 
 
 class Channel(models.Model):
@@ -35,13 +42,29 @@ class Channel(models.Model):
     channel_name: str = fields.TextField()
     channel_type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO', 'OTHER'] = fields.TextField()  # type: ignore
     channel_force: int | None = fields.IntField(null=True)
-    channel_comment: int | None = fields.IntField(null=True)
+    channel_comment: int | None = fields.IntField(null=True)  # TODO: 削除予定
     is_subchannel: bool = fields.BooleanField()  # type: ignore
     is_radiochannel: bool = fields.BooleanField()  # type: ignore
-    is_display: bool
-    viewers: int
+    # 本当は型を追加したいが、元々動的に追加される追加カラムなので、型を追加すると諸々エラーが出る
+    ## 実際の値は Channel モデルの利用側で Channel.getCurrentAndNextProgram() を呼び出して取得する
+    ## モデルの取得は非同期のため、@property は使えない
     program_present: Any
     program_following: Any
+
+    @property
+    def is_display(self) -> bool:
+        # サブチャンネルでかつ現在の番組情報が両方存在しないなら、表示フラグを False に設定
+        # 現在放送されているサブチャンネルのみをチャンネルリストに表示するような挙動とする
+        # 一般的にサブチャンネルは常に放送されているわけではないため、放送されていない時にチャンネルリストに表示する必要はない
+        if self.is_subchannel is True and self.program_present is None:
+            return False
+        return True
+
+    @property
+    def viewers(self) -> int:
+        # 現在の視聴者数を取得
+        from app.models import LiveStream
+        return LiveStream.getViewers(self.channel_id)
 
 
     @classmethod
@@ -483,12 +506,12 @@ class Channel(models.Model):
                 await channel.save()
 
 
-    async def getCurrentAndNextProgram(self) -> tuple:
+    async def getCurrentAndNextProgram(self) -> tuple[Program | None, Program | None]:
         """
         現在と次の番組情報を取得する
 
         Returns:
-            tuple: 現在と次の番組情報が入ったタプル
+            tuple[Program | None, Program | None]: 現在と次の番組情報が入ったタプル
         """
 
         # モジュール扱いになるのを避けるためここでインポート
@@ -499,14 +522,16 @@ class Channel(models.Model):
 
         # 現在の番組情報を取得する
         program_present = await Program.filter(
-            channel_id = self.channel_id,  # 同じチャンネルID
+            network_id = self.network_id,  # 同じ network_id
+            service_id = self.service_id,  # 同じ service_id
             start_time__lte = now,  # 番組開始時刻が現在時刻以下
             end_time__gte = now,  # 番組終了時刻が現在時刻以上
         ).order_by('-start_time').first()
 
         # 次の番組情報を取得する
         program_following = await Program.filter(
-            channel_id = self.channel_id,  # 同じチャンネルID
+            network_id = self.network_id,  # 同じ network_id
+            service_id = self.service_id,  # 同じ service_id
             start_time__gte = now,  # 番組開始時刻が現在時刻以上
         ).order_by('start_time').first()
 

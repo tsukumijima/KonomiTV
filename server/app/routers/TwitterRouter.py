@@ -129,17 +129,17 @@ async def TwitterAuthURLAPI(
     # KonomiTV アカウントに複数の Twitter アカウントを登録する場合、毎回一旦 Twitter を開いてアカウントを切り替えるのは（特にスマホの場合）かなり面倒
     authorization_url = f'{authorization_url}&force_login=true'
 
-    # 仮で TwitterAccount のレコードを作成
+    # 仮で TwitterAccount のレコードを作成・保存
     ## 戻ってきたときに oauth_token がどのユーザーに紐づいているのかを判断するため
     ## TwitterAuthCallbackAPI は仕組み上認証をかけられないので、勝手に任意のアカウントを紐付けられないためにはこうせざるを得ない
-    twitter_account = TwitterAccount()
-    twitter_account.user = current_user
-    twitter_account.name = 'Temporary'
-    twitter_account.screen_name = 'Temporary'
-    twitter_account.icon_url = 'Temporary'
-    twitter_account.access_token = oauth_handler.request_token['oauth_token']  # 暫定的に oauth_token を格納 (認証 URL の ?oauth_token= と同じ値)
-    twitter_account.access_token_secret = oauth_handler.request_token['oauth_token_secret']  # 暫定的に oauth_token_secret を格納
-    await twitter_account.save()
+    await TwitterAccount.create(
+        user = current_user,
+        name = 'Temporary',
+        screen_name = 'Temporary',
+        icon_url = 'Temporary',
+        access_token = oauth_handler.request_token['oauth_token'],  # 暫定的に oauth_token を格納 (認証 URL の ?oauth_token= と同じ値)
+        access_token_secret = oauth_handler.request_token['oauth_token_secret'],  # 暫定的に oauth_token_secret を格納
+    )
 
     return {'authorization_url': authorization_url}
 
@@ -315,13 +315,17 @@ async def TwitterPasswordAuthAPI(
     cookies: dict[str, str] = auth_handler.get_cookies().get_dict()
 
     # TwitterAccount のレコードを作成
-    twitter_account = TwitterAccount()
-    twitter_account.user = current_user
-
-    # アクセストークンは今までの OAuth 認証との互換性を保つため "COOKIE_SESSION" の固定値、
-    # アクセストークンシークレットとして Cookie を JSON 化した文字列を入れる
-    twitter_account.access_token = 'COOKIE_SESSION'
-    twitter_account.access_token_secret = json.dumps(cookies, ensure_ascii=False)
+    ## アクセストークンは今までの OAuth 認証との互換性を保つため "COOKIE_SESSION" の固定値、
+    ## アクセストークンシークレットとして Cookie を JSON 化した文字列を入れる
+    ## ここではまだ保存しない
+    twitter_account = TwitterAccount(
+        user = current_user,
+        name = 'Temporary',
+        screen_name = 'Temporary',
+        icon_url = 'Temporary',
+        access_token = 'COOKIE_SESSION',
+        access_token_secret = json.dumps(cookies, ensure_ascii=False),
+    )
 
     # tweepy の API インスタンスを取得
     api = await twitter_account.getTweepyAPI()

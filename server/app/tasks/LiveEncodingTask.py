@@ -394,24 +394,25 @@ class LiveEncodingTask:
         channel = await Channel.filter(channel_id=self.livestream.channel_id).first()
 
         # 現在の番組情報を取得する
-        program_present: Program | None = (await channel.getCurrentAndNextProgram())[0]
+        program_present = (await channel.getCurrentAndNextProgram())[0]
 
         # 現在の番組情報が取得できなかった場合、「番組情報がありません」という仮の番組情報を入れておく（実装上の都合）
         ## このデータは UI 上には表示されないし、データベースにも保存されない
         if program_present is None:
-            program_present = Program()
-            program_present.id = f'NID{channel.network_id}-SID{channel.service_id}-EID99999'
-            program_present.network_id = channel.network_id
-            program_present.service_id = channel.service_id
-            program_present.event_id = 99999  # 適当に 99999 に設定
-            program_present.channel_id = channel.channel_id
-            program_present.title = '番組情報がありません'
-            program_present.description = ''
-            program_present.start_time = datetime(2000, 1, 1, 0, 0, 0, tzinfo=timezone.get_default_timezone())
-            program_present.end_time = datetime(2099, 1, 1, 0, 0, 0, tzinfo=timezone.get_default_timezone())
-            program_present.duration = (program_present.end_time - program_present.start_time).total_seconds()
-            program_present.is_free = True
-            program_present.genre = []
+            program_present = Program(
+                id = f'NID{channel.network_id}-SID{channel.service_id}-EID99999',
+                network_id = channel.network_id,
+                service_id = channel.service_id,
+                event_id = 99999,  # 適当に 99999 に設定
+                channel_id = channel.channel_id,
+                title = '番組情報がありません',
+                description = '',
+                start_time = datetime(2000, 1, 1, 0, 0, 0, tzinfo=timezone.get_default_timezone()),
+                end_time = datetime(2000, 1, 1, 0, 0, 0, tzinfo=timezone.get_default_timezone()),
+                duration = 0,
+                is_free = True,
+                genre = []
+            )
 
         Logging.info(f'[Live: {self.livestream.livestream_id}] Title:{program_present.title}')
 
@@ -992,7 +993,7 @@ class LiveEncodingTask:
                 if program_present is not None and time.time() > program_present.end_time.timestamp():
 
                     # 新しい現在放送中の番組情報を取得する
-                    program_following: Program = (await channel.getCurrentAndNextProgram())[0]
+                    program_following = (await channel.getCurrentAndNextProgram())[0]
                     if program_following is not None:
 
                         # 現在の番組のタイトルをログに出力

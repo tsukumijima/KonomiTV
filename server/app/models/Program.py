@@ -36,12 +36,12 @@ class Program(models.Model):
     network_id: int = fields.IntField()
     service_id: int = fields.IntField()
     event_id: int = fields.IntField()
-    channel_id: str = fields.TextField()
+    channel_id: str = fields.TextField()  # TODO: 削除予定
     title: str = fields.TextField()
     description: str = fields.TextField()
     detail: dict[str, str] = fields.JSONField(encoder=lambda x: json.dumps(x, ensure_ascii=False))
-    start_time: datetime.datetime = fields.DatetimeField()
-    end_time: datetime.datetime = fields.DatetimeField()
+    start_time = fields.DatetimeField()
+    end_time = fields.DatetimeField()
     duration: float = fields.FloatField()
     is_free: bool = fields.BooleanField()  # type: ignore
     genre: list[dict[str, str]] = fields.JSONField(encoder=lambda x: json.dumps(x, ensure_ascii=False))

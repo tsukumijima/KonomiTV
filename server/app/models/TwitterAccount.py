@@ -2,7 +2,6 @@
 import asyncio
 import json
 import tweepy
-from datetime import datetime
 from requests.cookies import RequestsCookieJar
 from tortoise import fields
 from tortoise import models
@@ -19,14 +18,14 @@ class TwitterAccount(models.Model):
 
     # テーブル設計は Notion を参照のこと
     id: int = fields.IntField(pk=True)
-    user: User = fields.ForeignKeyField('models.User', related_name='twitter_accounts')  # type: ignore
+    user: fields.ForeignKeyRelation[User] = fields.ForeignKeyField('models.User', related_name='twitter_accounts')
     name: str = fields.TextField()
     screen_name: str = fields.TextField()
     icon_url: str = fields.TextField()
     access_token: str = fields.TextField()
     access_token_secret: str = fields.TextField()
-    created_at: datetime = fields.DatetimeField(auto_now_add=True)
-    updated_at: datetime = fields.DatetimeField(auto_now=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
 
     @property
     def is_oauth_session(self) -> bool:

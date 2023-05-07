@@ -152,7 +152,10 @@ async def ChannelsAPI():
         }
 
         # チャンネルに紐づく現在と次の番組情報を取得
-        pf_program: list[dict[str, Any]] = list(filter(lambda pf_program: pf_program['channel_id'] == channel_dict['channel_id'], pf_programs))
+        pf_program: list[dict[str, Any]] = list(filter(lambda pf_program:
+            pf_program['network_id'] == channel_dict['network_id'] and
+            pf_program['service_id'] == channel_dict['service_id'],
+        pf_programs))
 
         # 番組情報が1つ以上取得できていれば
         if len(pf_program) >= 1:
@@ -258,15 +261,6 @@ async def ChannelAPI(
 
     # 現在と次の番組情報を取得
     channel.program_present, channel.program_following = await channel.getCurrentAndNextProgram()
-
-    # サブチャンネルでかつ現在の番組情報が両方存在しないなら、表示フラグを False に設定
-    # 現在放送されているサブチャンネルのみをチャンネルリストに表示するような挙動とする
-    # 一般的にサブチャンネルは常に放送されているわけではないため、放送されていない時にチャンネルリストに表示する必要はない
-    if channel.is_subchannel is True and channel.program_present is None:
-        channel.is_display = False
-
-    # 現在の視聴者数を取得
-    channel.viewers = LiveStream.getViewers(channel.channel_id)
 
     # チャンネル情報を返却
     return channel

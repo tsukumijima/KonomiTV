@@ -154,9 +154,9 @@ async def Startup():
     await TwitterAccount.updateAccountInformation()
 
     # 全てのチャンネル&品質のライブストリームを初期化する
-    for channel in await Channel.all().order_by('channel_number').values():
+    for channel in await Channel.all().order_by('channel_number'):
         for quality in QUALITY:
-            LiveStream(channel['channel_id'], quality)
+            LiveStream(channel.channel_id, quality)
 
 # サーバー設定で指定された時間 (デフォルト: 15分) ごとに1回、チャンネル情報と番組情報を更新する
 # チャンネル情報は頻繁に変わるわけではないけど、手動で再起動しなくても自動で変更が適用されてほしい
