@@ -135,7 +135,10 @@ def Uninstaller() -> None:
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
                 text = True,  # 出力をテキストとして取得する
             )
-        if 'Error stopping service' in service_stop_result.stdout and '(1062)' not in service_stop_result.stdout:
+        # 1060: ERROR_SERVICE_DOES_NOT_EXIST はサービスが存在しない場合に発生するエラーのため無視する
+        # 1062: ERROR_SERVICE_NOT_ACTIVE はサービスが起動していない場合に発生するエラーのため無視する
+        if 'Error stopping service' in service_stop_result.stdout and \
+            '(1060)' not in service_stop_result.stdout and '(1062)' not in service_stop_result.stdout:
             ShowSubProcessErrorLog(
                 error_message = 'Windows サービスの終了中に予期しないエラーが発生しました。',
                 error_log = service_stop_result.stdout.strip(),
@@ -154,7 +157,8 @@ def Uninstaller() -> None:
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
                 text = True,  # 出力をテキストとして取得する
             )
-        if 'Error removing service' in service_uninstall_result.stdout:
+        # 1060: ERROR_SERVICE_DOES_NOT_EXIST はサービスが存在しない場合に発生するエラーのため無視する
+        if 'Error removing service' in service_uninstall_result.stdout and '(1060)' not in service_uninstall_result.stdout:
             ShowSubProcessErrorLog(
                 error_message = 'Windows サービスのアンインストール中に予期しないエラーが発生しました。',
                 error_log = service_uninstall_result.stdout.strip(),

@@ -148,6 +148,7 @@ def Updater(version: str) -> None:
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
                 text = True,  # 出力をテキストとして取得する
             )
+        # 1062: ERROR_SERVICE_NOT_ACTIVE はサービスが起動していない場合に発生するエラーのため無視する
         if 'Error stopping service' in service_stop_result.stdout and '(1062)' not in service_stop_result.stdout:
             ShowSubProcessErrorLog(
                 error_message = '起動中の Windows サービスの終了中に予期しないエラーが発生しました。',
