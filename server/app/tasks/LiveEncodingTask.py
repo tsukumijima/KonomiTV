@@ -301,6 +301,11 @@ class LiveEncodingTask:
             elif encoder_type == 'NVEncC':
                 options.append('--qp-min 23:26:30 --lookahead 16 --multipass 2pass-full --weightp --bref-mode middle --aq --aq-temporal')
 
+        ## ヘッダ情報制御 (GOP ごとにヘッダを再送する)
+        ## VCEEncC ではデフォルトで有効であり、当該オプションは存在しない
+        if encoder_type != 'VCEEncC':
+            options.append('--repeat-headers')
+
         ## 品質
         if encoder_type == 'QSVEncC':
             options.append('--quality balanced')
