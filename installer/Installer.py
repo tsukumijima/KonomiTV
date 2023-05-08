@@ -1,6 +1,5 @@
 
 import asyncio
-import getpass
 import json
 import os
 import platform
@@ -909,27 +908,43 @@ def Installer(version: str) -> None:
     if platform_type == 'Windows':
 
         # 現在ログオン中のユーザー名を取得
-        current_user_name = getpass.getuser()
+        ## PowerShell の [Environment]::UserName を使う
+        current_user_name_default = subprocess.run(
+            args = ['powershell', '-Command', '[Environment]::UserName'],
+            stdout = subprocess.PIPE,  # 標準出力をキャプチャする
+            stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+            text = True,  # 出力をテキストとして取得する
+        ).stdout.strip()
 
         table_07 = CreateTable()
-        table_07.add_column(f'07. ログオン中のユーザー ({current_user_name}) のパスワードを入力してください。')
+        table_07.add_column(f'07. KonomiTV の Windows サービスの実行ユーザー名を入力してください。')
         table_07.add_row('KonomiTV の Windows サービスを一般ユーザーの権限で起動するために利用します。')
-        table_07.add_row('入力されたパスワードがそれ以外の用途に利用されることはありません。')
-        table_07.add_row('間違ったパスワードを入力すると、KonomiTV が起動できなくなります。')
-        table_07.add_row('Enter キーを押す前に、正しいパスワードかどうか今一度確認してください。')
-        table_07.add_row('なお、PIN などのほかの認証方法には対応していません。')
-        table_07.add_row(CreateRule())
-        table_07.add_row('ログオン中のユーザーにパスワードを設定していない場合は、簡単なものでいいので')
-        table_07.add_row('何かパスワードを設定してから、その設定したパスワードを入力してください。')
-        table_07.add_row('なお、パスワードの設定後にインストーラーを起動し直す必要はありません。')
-        table_07.add_row(CreateRule())
-        table_07.add_row('ごく稀に、正しいパスワードを指定したのにログオンできない場合があります。')
-        table_07.add_row('その場合は、一度インストーラーを Ctrl+C で中断し、インストーラーの')
-        table_07.add_row('実行ファイルを Shift + 右クリック → [別のユーザーとして実行] から、')
-        table_07.add_row('ログオン中のユーザーとパスワードを指定して再度実行してみてください。')
-        print(Padding(table_07, (1, 2, 1, 2)))
+        table_07.add_row('ほかのユーザー権限で実行したい場合は、そのユーザー名を入力してください。')
+        table_07.add_row(f'Enter キーを押すと、現在ログオン中のユーザー ({current_user_name_default}) が利用されます。')
+        print(Padding(table_07, (0, 2, 0, 2)))
 
-        # 現在ログオン中のユーザーのパスワードを取得
+        # ユーザー名を入力
+        current_user_name: str = CustomPrompt.ask(f'KonomiTV の Windows サービスの実行ユーザー名', default=current_user_name_default)
+
+        table_08 = CreateTable()
+        table_08.add_column(f'08. ユーザー ({current_user_name}) のパスワードを入力してください。')
+        table_08.add_row('KonomiTV の Windows サービスを一般ユーザーの権限で起動するために利用します。')
+        table_08.add_row('入力されたパスワードがそれ以外の用途に利用されることはありません。')
+        table_08.add_row('間違ったパスワードを入力すると、KonomiTV が起動できなくなります。')
+        table_08.add_row('Enter キーを押す前に、正しいパスワードかどうか今一度確認してください。')
+        table_08.add_row('なお、PIN などのほかの認証方法には対応していません。')
+        table_08.add_row(CreateRule())
+        table_08.add_row('ログオン中のユーザーにパスワードを設定していない場合は、簡単なものでいいので')
+        table_08.add_row('何かパスワードを設定してから、その設定したパスワードを入力してください。')
+        table_08.add_row('なお、パスワードの設定後にインストーラーを起動し直す必要はありません。')
+        table_08.add_row(CreateRule())
+        table_08.add_row('ごく稀に、正しいパスワードを指定したのにログオンできない場合があります。')
+        table_08.add_row('その場合は、一度インストーラーを Ctrl+C で中断し、インストーラーの')
+        table_08.add_row('実行ファイルを Shift + 右クリック → [別のユーザーとして実行] から、')
+        table_08.add_row('ログオン中のユーザーとパスワードを指定して再度実行してみてください。')
+        print(Padding(table_08, (1, 2, 1, 2)))
+
+        # ユーザーのパスワードを取得
         while True:
 
             # 入力プロンプト (サービスのインストールに失敗し続ける限り何度でも表示される)
