@@ -1073,10 +1073,9 @@ class LiveEncodingTask:
                             for log in lines[-151:-1]:
                                 Logging.warning(log)
 
-                # tsreadex が意図せず終了したか、チューナーとの接続が切断された場合
+                # チューナーとの接続が切断された場合
                 ## ref: https://stackoverflow.com/a/45251241/17124142
-                if ((tsreadex.returncode is not None) or
-                    (CONFIG['general']['backend'] == 'Mirakurun' and response.raw.closed is True) or
+                if ((CONFIG['general']['backend'] == 'Mirakurun' and response.raw.closed is True) or
                     (CONFIG['general']['backend'] == 'EDCB' and type(pipe_or_socket) is socket.socket and pipe_or_socket.fileno() < 0) or
                     (CONFIG['general']['backend'] == 'EDCB' and type(pipe_or_socket) is BinaryIO and pipe_or_socket.closed is True)):
 
