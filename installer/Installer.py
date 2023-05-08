@@ -865,13 +865,13 @@ def Installer(version: str) -> None:
             if result.returncode != 0:
                 ShowPanel([
                     '[yellow]注意: この PC では rkmppenc が利用できない状態です。[/yellow]',
-                    'Rockchip MPP の利用に必要な設定データファイルがインストールされていないか、',
+                    'Rockchip MPP の利用に必要な Mali GPU Driver がインストールされていないか、',
                     'お使いの SoC が Rockchip MPP に対応していない可能性があります。',
                 ])
                 ShowPanel([
-                    '設定データファイルは、以下のコマンドでインストールできます。',
+                    'Mali GPU Driver は、以下のコマンドでインストールできます。',
                     'インストール完了後は、システムの再起動が必要です。',
-                    '[cyan]curl -LO https://github.com/tsukumijima/rockchip-multimedia-config/releases/download/v1.0.1-1/rockchip-multimedia-config_1.0.1-1_all.deb && sudo apt install -y ./rockchip-multimedia-config_1.0.1-1_all.deb && rm rockchip-multimedia-config_1.0.1-1_all.deb[/cyan]',
+                    '[cyan]curl -LO https://github.com/tsukumijima/libmali-rockchip/releases/download/v1.9-1-6f3d407/libmali-valhall-g610-g13p0-wayland-gbm_1.9-1_arm64.deb && sudo apt install -y ./libmali-valhall-g610-g13p0-wayland-gbm_1.9-1_arm64.deb && rm libmali-valhall-g610-g13p0-wayland-gbm_1.9-1_arm64.deb && curl -LO https://github.com/tsukumijima/rockchip-multimedia-config/releases/download/v1.0.2-1/rockchip-multimedia-config_1.0.2-1_all.deb && sudo apt install -y ./rockchip-multimedia-config_1.0.2-1_all.deb && rm rockchip-multimedia-config_1.0.2-1_all.deb[/cyan]',
                 ], padding=(0, 2, 0, 2))
                 ShowPanel([
                     'rkmppenc のログ:\n' + result.stdout.strip(),

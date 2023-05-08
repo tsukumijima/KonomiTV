@@ -291,10 +291,18 @@ sudo reboot
 
 -----
 
-rkmppenc のサポートは試験的なものです。また、Rockchip 製 ARM SoC (RK3588 など) でのみ利用できます。
+rkmppenc のサポートは試験的なものです。また、Rockchip 製 ARM SoC (RK3588/RK3588S など) でのみ利用できます。
 
 ```bash
-# rockchip-multimedia-config パッケージのインストール
+# Mali GPU Driver のインストール (RK3588/RK3588S 向け)
+## 他の Rockchip SoC の Mali GPU Driver は https://github.com/tsukumijima/libmali-rockchip/releases から入手できる
+## RK3588/RK3588S の場合、g610-g6p0 より g610-g13p0 の方が高速に動作する
+wget https://github.com/tsukumijima/libmali-rockchip/releases/download/v1.9-1-6f3d407/libmali-valhall-g610-g13p0-wayland-gbm_1.9-1_arm64.deb
+sudo apt install -y ./libmali-valhall-g610-g13p0-wayland-gbm_1.9-1_arm64.deb
+rm libmali-valhall-g610-g13p0-wayland-gbm_1.9-1_arm64.deb
+
+# rockchip-multimedia-config のインストール
+## Rockchip のハードウェアエンコーダーを有効化するための設定パッケージ
 wget https://github.com/tsukumijima/rockchip-multimedia-config/releases/download/v1.0.2-1/rockchip-multimedia-config_1.0.2-1_all.deb
 sudo apt install -y ./rockchip-multimedia-config_1.0.2-1_all.deb
 rm rockchip-multimedia-config_1.0.2-1_all.deb
@@ -303,7 +311,7 @@ rm rockchip-multimedia-config_1.0.2-1_all.deb
 sudo reboot
 ```
 
-以上のコマンドを実行して、Rockchip のハードウェアエンコーダーを有効化するための設定パッケージをインストールしてください (Ubuntu 20.04 LTS / Debian 11 Bullseye 以降向け) 。
+以上のコマンドを実行して、Mali GPU Driver と、Rockchip のハードウェアエンコーダーを有効化するための設定パッケージをインストールしてください (Ubuntu 20.04 LTS / Debian 11 Bullseye 以降向け) 。
 
 ### Tailscale の導入
 
