@@ -15,9 +15,9 @@ on:
 env:
   # Python のバージョン (Python Standalone Builds のリリースを指定する)
   ## ref: https://github.com/indygreg/python-build-standalone/releases
-  PYTHON_TAG: '20230116'
+  PYTHON_TAG: '20230507'
   PYTHON_MAJOR_VERSION: '3.11'
-  PYTHON_VERSION: '3.11.1'
+  PYTHON_VERSION: '3.11.3'
   # pipenv のバージョン
   PIPENV_VERSION: '2023.4.29'
   # FFmpeg (FFmpeg-Builds のリリースを指定する)
