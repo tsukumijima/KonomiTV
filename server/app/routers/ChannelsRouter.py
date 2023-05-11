@@ -142,7 +142,6 @@ async def ChannelsAPI():
             'channel_name': channel.channel_name,
             'channel_type': channel.channel_type,
             'channel_force': channel.channel_force,
-            'channel_comment': channel.channel_comment,
             'is_subchannel': channel.is_subchannel,
             'is_radiochannel': channel.is_radiochannel,
             'is_display': True,

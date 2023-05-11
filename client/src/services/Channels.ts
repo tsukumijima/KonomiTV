@@ -31,7 +31,6 @@ export interface IChannel {
     channel_name: string;
     channel_type: ChannelType;
     channel_force: number | null;
-    channel_comment: number | null;
     is_subchannel: boolean;
     is_radiochannel: boolean;
     is_display: boolean;
@@ -52,7 +51,6 @@ export const IChannelDefault: IChannel = {
     channel_name: '取得中…',
     channel_type: 'GR',
     channel_force: null,
-    channel_comment: null,
     is_subchannel: false,
     is_radiochannel: false,
     is_display: true,
