@@ -175,7 +175,7 @@ const useChannelsStore = defineStore('channels', {
                     }
 
                     // チャンネルタイプごとに分類
-                    switch (channel.channel_type) {
+                    switch (channel.type) {
                         case 'GR': {
                             channels_list_with_pinned.get('地デジ')?.push(channel);
                             break;

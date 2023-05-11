@@ -502,7 +502,7 @@ class LiveEncodingTask:
             if channel.is_radiochannel is True:
                 encoder_options = self.buildFFmpegOptionsForRadio()
             else:
-                encoder_options = self.buildFFmpegOptions(self.livestream.quality, is_fullhd_channel, channel.channel_type == 'SKY')
+                encoder_options = self.buildFFmpegOptions(self.livestream.quality, is_fullhd_channel, channel.type == 'SKY')
             Logging.info(f'[Live: {self.livestream.livestream_id}] FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
             # プロセスを非同期で作成・実行
@@ -517,7 +517,7 @@ class LiveEncodingTask:
         elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC' or encoder_type == 'rkmppenc':
 
             # オプションを取得
-            encoder_options = self.buildHWEncCOptions(self.livestream.quality, encoder_type, is_fullhd_channel, channel.channel_type == 'SKY')
+            encoder_options = self.buildHWEncCOptions(self.livestream.quality, encoder_type, is_fullhd_channel, channel.type == 'SKY')
             Logging.info(f'[Live: {self.livestream.livestream_id}] {encoder_type} Commands:\n{encoder_type} {" ".join(encoder_options)}')
 
             # プロセスを非同期で作成・実行

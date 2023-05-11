@@ -39,8 +39,8 @@ class Channel(models.Model):
     remocon_id: int = fields.IntField()
     channel_id: str = fields.TextField()
     channel_number: str = fields.TextField()
+    type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO', 'OTHER'] = fields.TextField()  # type: ignore
     channel_name: str = fields.TextField()
-    channel_type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO', 'OTHER'] = fields.TextField()  # type: ignore
     jikkyo_force: int | None = fields.IntField(null=True)
     is_subchannel: bool = fields.BooleanField()  # type: ignore
     is_radiochannel: bool = fields.BooleanField()  # type: ignore
@@ -144,18 +144,18 @@ class Channel(models.Model):
                 channel.network_id = int(service['networkId'])
                 channel.remocon_id = int(service['remoteControlKeyId']) if ('remoteControlKeyId' in service) else -1
                 channel.channel_name = TSInformation.formatString(service['name'])
-                channel.channel_type = TSInformation.getNetworkType(channel.network_id)
+                channel.type = TSInformation.getNetworkType(channel.network_id)
                 channel.jikkyo_force = None
                 channel.is_watchable = True
 
                 # すでに放送が終了した「FOXスポーツ＆エンターテインメント」「BSスカパー」「Dlife」を除外
                 ## 放送終了後にチャンネルスキャンしていないなどの理由でバックエンド側にチャンネル情報が残っている場合がある
-                if channel.channel_type == 'BS' and channel.service_id in [238, 241, 258]:
+                if channel.type == 'BS' and channel.service_id in [238, 241, 258]:
                     continue
 
                 # チャンネルタイプが STARDIGIO でサービス ID が 400 ～ 499 以外のチャンネルを除外
                 # だいたい謎の試験チャンネルとかで見るに耐えない
-                if channel.channel_type == 'STARDIGIO' and not 400 <= channel.service_id <= 499:
+                if channel.type == 'STARDIGIO' and not 400 <= channel.service_id <= 499:
                     continue
 
                 # 「試験チャンネル」という名前（前方一致）のチャンネルを除外
@@ -175,7 +175,7 @@ class Channel(models.Model):
                 # ***** チャンネル番号・チャンネル ID を算出 *****
 
                 # 地デジ: リモコン番号からチャンネル番号を算出する
-                if channel.channel_type == 'GR':
+                if channel.type == 'GR':
 
                     # 同じリモコン番号のサービスのカウントを定義
                     if channel.remocon_id not in same_remocon_id_counts:  # まだキーが存在しないとき
@@ -195,15 +195,15 @@ class Channel(models.Model):
                         channel.channel_number += '-' + str(same_remocon_id_counts[channel.remocon_id])
 
                 # BS・CS・CATV・STARDIGIO: サービス ID をそのままチャンネル番号・リモコン番号とする
-                elif (channel.channel_type == 'BS' or
-                    channel.channel_type == 'CS' or
-                    channel.channel_type == 'CATV' or
-                    channel.channel_type == 'STARDIGIO'):
+                elif (channel.type == 'BS' or
+                    channel.type == 'CS' or
+                    channel.type == 'CATV' or
+                    channel.type == 'STARDIGIO'):
                     channel.remocon_id = channel.service_id  # ソートする際の便宜上設定しておく
                     channel.channel_number = str(channel.service_id).zfill(3)
 
                     # BS のみ、一部のチャンネルに決め打ちでチャンネル番号を割り当てる
-                    if channel.channel_type == 'BS':
+                    if channel.type == 'BS':
                         if 101 <= channel.service_id <= 102:
                             channel.remocon_id = 1
                         elif 103 <= channel.service_id <= 104:
@@ -231,12 +231,12 @@ class Channel(models.Model):
                 ## SPHD (network_id=10) のチャンネル番号は service_id - 32768 、
                 ## SPSD (SKYサービス系: network_id=3) のチャンネル番号は service_id - 16384 で求められる
                 ## 両者とも 1024 の倍数なので、1024 で割った余りからチャンネル番号が算出できる
-                elif channel.channel_type == 'SKY':
+                elif channel.type == 'SKY':
                     channel.remocon_id = channel.service_id % 1024  # ソートする際の便宜上設定しておく
                     channel.channel_number = str(channel.service_id % 1024).zfill(3)
 
                 # チャンネルID = チャンネルタイプ(小文字)+チャンネル番号
-                channel.channel_id = channel.channel_type.lower() + channel.channel_number
+                channel.channel_id = channel.type.lower() + channel.channel_number
 
                 # ***** サブチャンネルかどうかを算出 *****
 
@@ -246,11 +246,11 @@ class Channel(models.Model):
                 ## 0x0187 はビット単位に直すと 0b0000000110000111 になるので、AND 演算でビットマスク（1以外のビットを強制的に0に設定）すると、
                 ## サービス種別とサービス番号だけが取得できる  ビットマスクした値のサービス種別が 0（テレビ型）でサービス番号が 0（プライマリサービス）であれば
                 ## メインチャンネルと判定できるし、そうでなければサブチャンネルだと言える
-                if channel.channel_type == 'GR':
+                if channel.type == 'GR':
                     channel.is_subchannel = (channel.service_id & 0x0187) != 0
 
                 # BS: Mirakurun から得られる情報からはサブチャンネルかを判定できないため、決め打ちで設定
-                elif channel.channel_type == 'BS':
+                elif channel.type == 'BS':
                     # サービス ID が以下のリストに含まれるかどうか
                     if ((channel.service_id in [102, 104]) or
                         (142 <= channel.service_id <= 149) or
@@ -333,18 +333,18 @@ class Channel(models.Model):
                 channel.transport_stream_id = int(service['tsid'])
                 channel.remocon_id = -1
                 channel.channel_name = TSInformation.formatString(service['service_name'])
-                channel.channel_type = TSInformation.getNetworkType(channel.network_id)
+                channel.type = TSInformation.getNetworkType(channel.network_id)
                 channel.jikkyo_force = None
                 channel.is_watchable = True
 
                 # すでに放送が終了した「FOXスポーツ＆エンターテインメント」「BSスカパー」「Dlife」を除外
                 ## 放送終了後にチャンネルスキャンしていないなどの理由でバックエンド側にチャンネル情報が残っている場合がある
-                if channel.channel_type == 'BS' and channel.service_id in [238, 241, 258]:
+                if channel.type == 'BS' and channel.service_id in [238, 241, 258]:
                     continue
 
                 # チャンネルタイプが STARDIGIO でサービス ID が 400 ～ 499 以外のチャンネルを除外
                 # だいたい謎の試験チャンネルとかで見るに耐えない
-                if channel.channel_type == 'STARDIGIO' and not 400 <= channel.service_id <= 499:
+                if channel.type == 'STARDIGIO' and not 400 <= channel.service_id <= 499:
                     continue
 
                 # 「試験チャンネル」という名前（前方一致）のチャンネルを除外
@@ -364,7 +364,7 @@ class Channel(models.Model):
                 # ***** チャンネル番号・チャンネル ID を算出 *****
 
                 # 地デジ: リモコン番号からチャンネル番号を算出する
-                if channel.channel_type == 'GR':
+                if channel.type == 'GR':
 
                     # EPG 由来のチャンネル情報を取得
                     ## 現在のチャンネルのリモコン番号が含まれる
@@ -404,15 +404,15 @@ class Channel(models.Model):
                         channel.channel_number += '-' + str(same_remocon_id_counts[channel.remocon_id])
 
                 # BS・CS・CATV・STARDIGIO: サービス ID をそのままチャンネル番号・リモコン番号とする
-                elif (channel.channel_type == 'BS' or
-                    channel.channel_type == 'CS' or
-                    channel.channel_type == 'CATV' or
-                    channel.channel_type == 'STARDIGIO'):
+                elif (channel.type == 'BS' or
+                    channel.type == 'CS' or
+                    channel.type == 'CATV' or
+                    channel.type == 'STARDIGIO'):
                     channel.remocon_id = channel.service_id  # ソートする際の便宜上設定しておく
                     channel.channel_number = str(channel.service_id).zfill(3)
 
                     # BS のみ、一部のチャンネルに決め打ちでチャンネル番号を割り当てる
-                    if channel.channel_type == 'BS':
+                    if channel.type == 'BS':
                         if 101 <= channel.service_id <= 102:
                             channel.remocon_id = 1
                         elif 103 <= channel.service_id <= 104:
@@ -440,12 +440,12 @@ class Channel(models.Model):
                 ## SPHD (network_id=10) のチャンネル番号は service_id - 32768 、
                 ## SPSD (SKYサービス系: network_id=3) のチャンネル番号は service_id - 16384 で求められる
                 ## 両者とも 1024 の倍数なので、1024 で割った余りからチャンネル番号が算出できる
-                elif channel.channel_type == 'SKY':
+                elif channel.type == 'SKY':
                     channel.remocon_id = channel.service_id % 1024  # ソートする際の便宜上設定しておく
                     channel.channel_number = str(channel.service_id % 1024).zfill(3)
 
                 # チャンネルID = チャンネルタイプ(小文字)+チャンネル番号
-                channel.channel_id = channel.channel_type.lower() + channel.channel_number
+                channel.channel_id = channel.type.lower() + channel.channel_number
 
                 # ***** サブチャンネルかどうかを算出 *****
 
@@ -455,11 +455,11 @@ class Channel(models.Model):
                 ## 0x0187 はビット単位に直すと 0b0000000110000111 になるので、AND 演算でビットマスク（1以外のビットを強制的に0に設定）すると、
                 ## サービス種別とサービス番号だけが取得できる  ビットマスクした値のサービス種別が 0（テレビ型）でサービス番号が 0（プライマリサービス）であれば
                 ## メインチャンネルと判定できるし、そうでなければサブチャンネルだと言える
-                if channel.channel_type == 'GR':
+                if channel.type == 'GR':
                     channel.is_subchannel = (channel.service_id & 0x0187) != 0
 
                 # BS: EDCB から得られる情報からはサブチャンネルかを判定できないため、決め打ちで設定
-                elif channel.channel_type == 'BS':
+                elif channel.type == 'BS':
                     # サービス ID が以下のリストに含まれるかどうか
                     if ((channel.service_id in [102, 104]) or
                         (142 <= channel.service_id <= 149) or

@@ -139,8 +139,8 @@ async def ChannelsAPI():
             'remocon_id': channel.remocon_id,
             'channel_id': channel.channel_id,
             'channel_number': channel.channel_number,
+            'type': channel.type,
             'channel_name': channel.channel_name,
-            'channel_type': channel.channel_type,
             'jikkyo_force': channel.jikkyo_force,
             'is_subchannel': channel.is_subchannel,
             'is_radiochannel': channel.is_radiochannel,
@@ -238,7 +238,7 @@ async def ChannelsAPI():
 
         # せっかくチャンネルごとにループで回しているので、ここでチャンネルタイプごとの分類もやっておく
         ## 後から filter() で絞り込むのだと効率が悪い
-        result[channel_dict['channel_type']].append(channel_dict)
+        result[channel_dict['type']].append(channel_dict)
 
     # JSONResponse を直接返すことで、通常自動的に行われる重いバリデーションや整形処理を回避できる
     ## チャンネル情報は情報量が多くすべてのチャンネルに対してバリデーションを行うと重くなるため、検証をスキップしてパフォーマンスを向上させる
@@ -300,11 +300,11 @@ async def ChannelLogoAPI(
     # ***** ロゴが全国共通なので、チャンネル名の前方一致で決め打ち *****
 
     # NHK総合
-    if channel.channel_type == 'GR' and channel.channel_name.startswith('NHK総合'):
+    if channel.type == 'GR' and channel.channel_name.startswith('NHK総合'):
         return FileResponse(LOGO_DIR / 'NID32736-SID1024.png', headers=header)
 
     # NHKEテレ
-    if channel.channel_type == 'GR' and channel.channel_name.startswith('NHKEテレ'):
+    if channel.type == 'GR' and channel.channel_name.startswith('NHKEテレ'):
         return FileResponse(LOGO_DIR / 'NID32737-SID1032.png', headers=header)
 
     # 複数の地域で放送しているケーブルテレビの場合、コミュニティチャンネル (自主放送) の NID と SID は地域ごとに異なる
@@ -312,54 +312,54 @@ async def ChannelLogoAPI(
     ## ref: https://youzaka.hatenablog.com/entry/2013/06/30/154243
 
     # J:COMテレビ
-    if channel.channel_type == 'GR' and channel.channel_name.startswith('J:COMテレビ'):
+    if channel.type == 'GR' and channel.channel_name.startswith('J:COMテレビ'):
         return FileResponse(LOGO_DIR / 'community-channels/J：COMテレビ.png', headers=header)
 
     # J:COMチャンネル
-    if channel.channel_type == 'GR' and channel.channel_name.startswith('J:COMチャンネル'):
+    if channel.type == 'GR' and channel.channel_name.startswith('J:COMチャンネル'):
         return FileResponse(LOGO_DIR / 'community-channels/J：COMチャンネル.png', headers=header)
 
     # イッツコムch10
-    if channel.channel_type == 'GR' and channel.channel_name.startswith('イッツコムch10'):
+    if channel.type == 'GR' and channel.channel_name.startswith('イッツコムch10'):
         return FileResponse(LOGO_DIR / 'community-channels/イッツコムch10.png', headers=header)
 
     # イッツコムch11
-    if channel.channel_type == 'GR' and channel.channel_name.startswith('イッツコムch11'):
+    if channel.type == 'GR' and channel.channel_name.startswith('イッツコムch11'):
         return FileResponse(LOGO_DIR / 'community-channels/イッツコムch11.png', headers=header)
 
     # スカパー！ナビ1
-    if channel.channel_type == 'GR' and channel.channel_name.startswith('スカパー！ナビ1'):
+    if channel.type == 'GR' and channel.channel_name.startswith('スカパー！ナビ1'):
         return FileResponse(LOGO_DIR / 'community-channels/スカパー！ナビ1.png', headers=header)
 
     # スカパー！ナビ2
-    if channel.channel_type == 'GR' and channel.channel_name.startswith('スカパー！ナビ2'):
+    if channel.type == 'GR' and channel.channel_name.startswith('スカパー！ナビ2'):
         return FileResponse(LOGO_DIR / 'community-channels/スカパー！ナビ2.png', headers=header)
 
     # eo光チャンネル
-    if channel.channel_type == 'GR' and channel.channel_name.startswith('eo光チャンネル'):
+    if channel.type == 'GR' and channel.channel_name.startswith('eo光チャンネル'):
         return FileResponse(LOGO_DIR / 'community-channels/eo光チャンネル.png', headers=header)
 
     # ZTV
-    if channel.channel_type == 'GR' and channel.channel_name.startswith('ZTV'):
+    if channel.type == 'GR' and channel.channel_name.startswith('ZTV'):
         return FileResponse(LOGO_DIR / 'community-channels/ZTV.png', headers=header)
 
     # BaycomCH
-    if channel.channel_type == 'GR' and channel.channel_name.startswith('BaycomCH'):
+    if channel.type == 'GR' and channel.channel_name.startswith('BaycomCH'):
         return FileResponse(LOGO_DIR / 'community-channels/BaycomCH.png', headers=header)
 
     # ベイコム12CH
-    if channel.channel_type == 'GR' and channel.channel_name.startswith('ベイコム12CH'):
+    if channel.type == 'GR' and channel.channel_name.startswith('ベイコム12CH'):
         return FileResponse(LOGO_DIR / 'community-channels/ベイコム12CH.png', headers=header)
 
     # スターデジオ
     ## 本来は局ロゴは存在しないが、見栄えが悪いので 100 チャンネルすべてで同じ局ロゴを表示する
-    if channel.channel_type == 'STARDIGIO':
+    if channel.type == 'STARDIGIO':
         return FileResponse(LOGO_DIR / 'NID1-SID400.png', headers=header)
 
     # ***** サブチャンネルのロゴを取得 *****
 
     # 地デジでかつサブチャンネルのみ、メインチャンネルにロゴがあればそれを利用する
-    if channel.channel_type == 'GR' and channel.is_subchannel is True:
+    if channel.type == 'GR' and channel.is_subchannel is True:
 
         # メインチャンネルの情報を取得
         # ネットワーク ID が同じチャンネルのうち、一番サービス ID が若いチャンネルを探す
@@ -370,7 +370,7 @@ async def ChannelLogoAPI(
             return FileResponse(LOGO_DIR / f'{main_channel.id}.png', headers=header)
 
     # BS でかつサブチャンネルのみ、メインチャンネルにロゴがあればそれを利用する
-    if channel.channel_type == 'BS' and channel.is_subchannel is True:
+    if channel.type == 'BS' and channel.is_subchannel is True:
 
         # メインチャンネルのサービス ID を算出
         # NHKBS1 と NHKBSプレミアム だけ特別に、それ以外は一の位が1のサービス ID を算出

@@ -28,8 +28,8 @@ export interface IChannel {
     remocon_id: number | null;
     channel_id: string;
     channel_number: string;
+    type: ChannelType;
     channel_name: string;
-    channel_type: ChannelType;
     jikkyo_force: number | null;
     is_subchannel: boolean;
     is_radiochannel: boolean;
@@ -48,8 +48,8 @@ export const IChannelDefault: IChannel = {
     remocon_id: null,
     channel_id: 'gr000',
     channel_number: '---',
+    type: 'GR',
     channel_name: '取得中…',
-    channel_type: 'GR',
     jikkyo_force: null,
     is_subchannel: false,
     is_radiochannel: false,
