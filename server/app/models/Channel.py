@@ -40,7 +40,7 @@ class Channel(models.Model):
     channel_id: str = fields.TextField()
     channel_number: str = fields.TextField()
     type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO', 'OTHER'] = fields.TextField()  # type: ignore
-    channel_name: str = fields.TextField()
+    name: str = fields.TextField()
     jikkyo_force: int | None = fields.IntField(null=True)
     is_subchannel: bool = fields.BooleanField()  # type: ignore
     is_radiochannel: bool = fields.BooleanField()  # type: ignore
@@ -143,8 +143,8 @@ class Channel(models.Model):
                 channel.service_id = int(service['serviceId'])
                 channel.network_id = int(service['networkId'])
                 channel.remocon_id = int(service['remoteControlKeyId']) if ('remoteControlKeyId' in service) else -1
-                channel.channel_name = TSInformation.formatString(service['name'])
                 channel.type = TSInformation.getNetworkType(channel.network_id)
+                channel.name = TSInformation.formatString(service['name'])
                 channel.jikkyo_force = None
                 channel.is_watchable = True
 
@@ -160,7 +160,7 @@ class Channel(models.Model):
 
                 # 「試験チャンネル」という名前（前方一致）のチャンネルを除外
                 # CATV や SKY に存在するが、だいたいどれもやってないし表示されてるだけ邪魔
-                if channel.channel_name.startswith('試験チャンネル'):
+                if channel.name.startswith('試験チャンネル'):
                     continue
 
                 # type が 0x02 のサービスのみ、ラジオチャンネルとして設定する
@@ -332,8 +332,8 @@ class Channel(models.Model):
                 channel.network_id = int(service['onid'])
                 channel.transport_stream_id = int(service['tsid'])
                 channel.remocon_id = -1
-                channel.channel_name = TSInformation.formatString(service['service_name'])
                 channel.type = TSInformation.getNetworkType(channel.network_id)
+                channel.name = TSInformation.formatString(service['service_name'])
                 channel.jikkyo_force = None
                 channel.is_watchable = True
 
@@ -349,7 +349,7 @@ class Channel(models.Model):
 
                 # 「試験チャンネル」という名前（前方一致）のチャンネルを除外
                 # CATV や SKY に存在するが、だいたいどれもやってないし表示されてるだけ邪魔
-                if channel.channel_name.startswith('試験チャンネル'):
+                if channel.name.startswith('試験チャンネル'):
                     continue
 
                 # type が 0x02 のサービスのみ、ラジオチャンネルとして設定する

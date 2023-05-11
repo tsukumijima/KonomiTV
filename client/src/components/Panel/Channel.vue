@@ -14,7 +14,7 @@
                         <div class="channel__broadcaster">
                             <img class="channel__broadcaster-icon" :src="`${Utils.api_base_url}/channels/${channel.channel_id}/logo`">
                             <div class="channel__broadcaster-content">
-                                <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.channel_name}}</span>
+                                <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.name}}</span>
                                 <div class="channel__broadcaster-force"
                                     :class="`channel__broadcaster-force--${ChannelUtils.getChannelForceType(channel.jikkyo_force)}`">
                                     <Icon icon="fa-solid:fire-alt" height="11px" />

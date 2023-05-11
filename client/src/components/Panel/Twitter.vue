@@ -621,7 +621,7 @@ export default Vue.extend({
 
             // 設定でオンになっている場合のみ、視聴中チャンネルの局タグを自動で追加する (ハッシュタグリスト内のハッシュタグは除外)
             if (this.settingsStore.settings.auto_add_watching_channel_hashtag === true && from_hashtag_list === false) {
-                const channel_hashtag = this.getChannelHashtag(this.channelsStore.channel.current.channel_name);
+                const channel_hashtag = this.getChannelHashtag(this.channelsStore.channel.current.name);
                 if (channel_hashtag !== null) {
                     if (tweet_hashtag_array.includes(channel_hashtag) === false) {
                         tweet_hashtag_array.push(channel_hashtag);

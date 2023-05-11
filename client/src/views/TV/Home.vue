@@ -19,7 +19,7 @@
                                 <div class="channel__broadcaster">
                                     <img class="channel__broadcaster-icon" :src="`${Utils.api_base_url}/channels/${channel.channel_id}/logo`">
                                     <div class="channel__broadcaster-content">
-                                        <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.channel_name}}</span>
+                                        <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.name}}</span>
                                         <div class="channel__broadcaster-status">
                                             <div class="channel__broadcaster-status-force"
                                                 :class="`channel__broadcaster-status-force--${ChannelUtils.getChannelForceType(channel.jikkyo_force)}`">
@@ -183,7 +183,7 @@ export default Vue.extend({
             this.settingsStore.settings.pinned_channel_ids.push(channel_id);
 
             const channel = this.channelsStore.getChannel(channel_id);
-            this.$message.show(`${channel.channel_name}をピン留めしました。`);
+            this.$message.show(`${channel.name}をピン留めしました。`);
         },
 
         // チャンネルをピン留めから外す
@@ -198,7 +198,7 @@ export default Vue.extend({
             }
 
             const channel = this.channelsStore.getChannel(channel_id);
-            this.$message.show(`${channel.channel_name}のピン留めを外しました。`);
+            this.$message.show(`${channel.name}のピン留めを外しました。`);
         },
 
         // チャンネルがピン留めされているか

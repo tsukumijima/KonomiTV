@@ -78,7 +78,7 @@ const useChannelsStore = defineStore('channels', {
                 const IChannelError = {
                     ...IChannelDefault,
                     channel_id: 'gr999',  // チャンネル情報が存在しないことを示す特殊なチャンネル ID
-                    channel_name: 'ERROR',
+                    name: 'ERROR',
                     program_present: IProgramError,
                     program_following: IProgramError,
                 };

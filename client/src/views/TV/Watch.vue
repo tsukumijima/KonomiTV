@@ -104,7 +104,7 @@
                     <div class="panel-broadcaster">
                         <img class="panel-broadcaster__icon" :src="`${Utils.api_base_url}/channels/${(channelsStore.channel_id)}/logo`">
                         <div class="panel-broadcaster__number">{{channelsStore.channel.current.channel_number}}</div>
-                        <div class="panel-broadcaster__name">{{channelsStore.channel.current.channel_name}}</div>
+                        <div class="panel-broadcaster__name">{{channelsStore.channel.current.name}}</div>
                     </div>
                 </div>
                 <div class="watch-panel__content-container">
@@ -553,7 +553,7 @@ export default Vue.extend({
 
                 // 前のチャンネル情報と次のチャンネル情報で channel_id が変わってたら局タグ追加処理を走らせる
                 if (new_channel.current.channel_id !== old_channel.current.channel_id) {
-                    const old_channel_hashtag = twitter_component.getChannelHashtag(old_channel.current.channel_name) ?? '';
+                    const old_channel_hashtag = twitter_component.getChannelHashtag(old_channel.current.name) ?? '';
                     twitter_component.tweet_hashtag =
                         twitter_component.formatHashtag(twitter_component.tweet_hashtag.replaceAll(old_channel_hashtag, ''));
                     twitter_component.updateTweetLetterCount();
@@ -704,7 +704,7 @@ export default Vue.extend({
                 // メディア通知の表示をカスタマイズ
                 navigator.mediaSession.metadata = new MediaMetadata({
                     title: this.channelsStore.channel.current.program_present?.title ?? '放送休止',
-                    artist: this.channelsStore.channel.current.channel_name,
+                    artist: this.channelsStore.channel.current.name,
                     artwork: artwork,
                 });
 
@@ -728,7 +728,7 @@ export default Vue.extend({
                 navigator.mediaSession.setActionHandler('previoustrack', async () => {  // 前のチャンネルに切り替え
                     navigator.mediaSession.metadata = new MediaMetadata({
                         title: this.channelsStore.channel.previous.program_present?.title ?? '放送休止',
-                        artist: this.channelsStore.channel.previous.channel_name,
+                        artist: this.channelsStore.channel.previous.name,
                         artwork: artwork,
                     });
                     // ルーティングを前のチャンネルに置き換える
@@ -737,7 +737,7 @@ export default Vue.extend({
                 navigator.mediaSession.setActionHandler('nexttrack', async () => {  // 次のチャンネルに切り替え
                     navigator.mediaSession.metadata = new MediaMetadata({
                         title: this.channelsStore.channel.next.program_present?.title ?? '放送休止',
-                        artist: this.channelsStore.channel.next.channel_name,
+                        artist: this.channelsStore.channel.next.name,
                         artwork: artwork,
                     });
                     // ルーティングを次のチャンネルに置き換える
