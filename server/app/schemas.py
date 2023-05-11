@@ -52,7 +52,7 @@ class Program(pydantic_model_creator(models.Program, name='Program')):
 
 class Channel(pydantic_model_creator(models.Channel, name='Channel')):
     is_display: bool  # 追加カラム
-    viewers: int  # 追加カラム
+    viewer_count: int  # 追加カラム
     program_present: Program | None  # 追加カラム
     program_following: Program | None  # 追加カラム
 

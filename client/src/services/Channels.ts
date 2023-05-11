@@ -34,7 +34,7 @@ export interface IChannel {
     is_subchannel: boolean;
     is_radiochannel: boolean;
     is_display: boolean;
-    viewers: number;
+    viewer_count: number;
     program_present: IProgram | null;
     program_following: IProgram | null;
 }
@@ -54,7 +54,7 @@ export const IChannelDefault: IChannel = {
     is_subchannel: false,
     is_radiochannel: false,
     is_display: true,
-    viewers: 0,
+    viewer_count: 0,
     program_present: IProgramDefault,
     program_following: IProgramDefault,
 };

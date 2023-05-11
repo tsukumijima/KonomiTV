@@ -60,10 +60,10 @@ class Channel(models.Model):
         return True
 
     @property
-    def viewers(self) -> int:
+    def viewer_count(self) -> int:
         # 現在の視聴者数を取得
         from app.models import LiveStream
-        return LiveStream.getViewers(self.channel_id)
+        return LiveStream.getViewerCount(self.channel_id)
 
 
     @classmethod

@@ -279,7 +279,7 @@ const useChannelsStore = defineStore('channels', {
 
         /**
          * 指定されたチャンネル ID のチャンネル情報を更新する
-         * 今のところ viewers (視聴者数) を更新する目的でしか使っていない
+         * 今のところ viewer_count (視聴者数) を更新する目的でしか使っていない
          * @param channel_id 更新するチャンネル ID (ex: gr011)
          * @param channel 更新後のチャンネル情報
          */

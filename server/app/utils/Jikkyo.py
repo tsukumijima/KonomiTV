@@ -340,7 +340,8 @@ class Jikkyo:
 
     async def getStatus(self) -> dict[str, int] | None:
         """
-        実況チャンネルのステータスを取得する
+        実況チャンネルの現在のステータスを取得する (ステータス更新は updateStatus() で行う)
+        戻り値は force: 実況勢い / viewers: 累計視聴者数 / comments: 累計コメント数 の各カウントの辞書だが、force 以外は未使用
 
         Returns:
             dict[str, int] | None: 実況チャンネルのステータス

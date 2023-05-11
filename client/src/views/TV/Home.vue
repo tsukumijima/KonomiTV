@@ -31,7 +31,7 @@
                                             <div class="channel__broadcaster-status-viewers ml-4">
                                                 <Icon icon="fa-solid:eye" height="14px" />
                                                 <span class="ml-1">視聴数:</span>
-                                                <span class="ml-1">{{channel.viewers}}</span>
+                                                <span class="ml-1">{{channel.viewer_count}}</span>
                                             </div>
                                         </div>
                                     </div>

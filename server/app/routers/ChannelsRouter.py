@@ -145,7 +145,7 @@ async def ChannelsAPI():
             'is_subchannel': channel.is_subchannel,
             'is_radiochannel': channel.is_radiochannel,
             'is_display': True,
-            'viewers': 0,
+            'viewer_count': 0,
             'program_present': None,
             'program_following': None,
         }
@@ -234,7 +234,7 @@ async def ChannelsAPI():
             channel_dict['is_display'] = False
 
         # 現在の視聴者数を取得
-        channel_dict['viewers'] = LiveStream.getViewers(channel_dict['channel_id'])
+        channel_dict['viewer_count'] = LiveStream.getViewerCount(channel_dict['channel_id'])
 
         # せっかくチャンネルごとにループで回しているので、ここでチャンネルタイプごとの分類もやっておく
         ## 後から filter() で絞り込むのだと効率が悪い

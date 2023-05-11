@@ -41,7 +41,7 @@
                 <div class="program-info__status-viewers ml-5">
                     <Icon icon="fa-solid:eye" height="14px" />
                     <span class="ml-2">視聴数:</span>
-                    <span class="ml-1">{{channelsStore.channel.current.viewers}}</span>
+                    <span class="ml-1">{{channelsStore.channel.current.viewer_count}}</span>
                 </div>
             </div>
         </section>
