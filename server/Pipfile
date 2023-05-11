@@ -12,7 +12,7 @@ aerich = "==0.6.3"
 aiofiles = "*"
 aiosqlite = "*"
 ariblib = {file = "https://github.com/tsukumijima/ariblib/archive/refs/tags/v0.1.0.zip"}
-biim = {file = "https://github.com/monyone/biim/archive/refs/tags/v1.10.1.zip"}
+biim = {file = "https://github.com/monyone/biim/archive/refs/tags/v1.10.2.zip"}
 colorama = ">=0.4"
 fastapi = ">=0.95.0"
 fastapi-utils = ">=0.2.1"
