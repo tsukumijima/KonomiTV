@@ -16,9 +16,9 @@
                             <div class="channel__broadcaster-content">
                                 <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.channel_name}}</span>
                                 <div class="channel__broadcaster-force"
-                                    :class="`channel__broadcaster-force--${ChannelUtils.getChannelForceType(channel.channel_force)}`">
+                                    :class="`channel__broadcaster-force--${ChannelUtils.getChannelForceType(channel.jikkyo_force)}`">
                                     <Icon icon="fa-solid:fire-alt" height="11px" />
-                                    <span class="ml-1">{{ProgramUtils.getAttribute(channel, 'channel_force', '-')}}</span>
+                                    <span class="ml-1">{{ProgramUtils.getAttribute(channel, 'jikkyo_force', '-')}}</span>
                                 </div>
                             </div>
                         </div>

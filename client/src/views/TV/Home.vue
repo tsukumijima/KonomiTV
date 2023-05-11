@@ -22,10 +22,10 @@
                                         <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.channel_name}}</span>
                                         <div class="channel__broadcaster-status">
                                             <div class="channel__broadcaster-status-force"
-                                                :class="`channel__broadcaster-status-force--${ChannelUtils.getChannelForceType(channel.channel_force)}`">
+                                                :class="`channel__broadcaster-status-force--${ChannelUtils.getChannelForceType(channel.jikkyo_force)}`">
                                                 <Icon icon="fa-solid:fire-alt" height="12px" />
                                                 <span class="ml-1">勢い:</span>
-                                                <span class="ml-1">{{ProgramUtils.getAttribute(channel, 'channel_force', '--')}}</span>
+                                                <span class="ml-1">{{ProgramUtils.getAttribute(channel, 'jikkyo_force', '--')}}</span>
                                                 <span style="margin-left: 3px;"> コメ/分</span>
                                             </div>
                                             <div class="channel__broadcaster-status-viewers ml-4">

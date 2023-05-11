@@ -41,7 +41,7 @@ class Channel(models.Model):
     channel_number: str = fields.TextField()
     channel_name: str = fields.TextField()
     channel_type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO', 'OTHER'] = fields.TextField()  # type: ignore
-    channel_force: int | None = fields.IntField(null=True)
+    jikkyo_force: int | None = fields.IntField(null=True)
     is_subchannel: bool = fields.BooleanField()  # type: ignore
     is_radiochannel: bool = fields.BooleanField()  # type: ignore
     # 本当は型を追加したいが、元々動的に追加される追加カラムなので、型を追加すると諸々エラーが出る
@@ -144,7 +144,7 @@ class Channel(models.Model):
                 channel.remocon_id = int(service['remoteControlKeyId']) if ('remoteControlKeyId' in service) else -1
                 channel.channel_name = TSInformation.formatString(service['name'])
                 channel.channel_type = TSInformation.getNetworkType(channel.network_id)
-                channel.channel_force = None
+                channel.jikkyo_force = None
 
                 # すでに放送が終了した「FOXスポーツ＆エンターテインメント」「BSスカパー」「Dlife」を除外
                 ## 放送終了後にチャンネルスキャンしていないなどの理由でバックエンド側にチャンネル情報が残っている場合がある
@@ -332,7 +332,7 @@ class Channel(models.Model):
                 channel.remocon_id = -1
                 channel.channel_name = TSInformation.formatString(service['service_name'])
                 channel.channel_type = TSInformation.getNetworkType(channel.network_id)
-                channel.channel_force = None
+                channel.jikkyo_force = None
 
                 # すでに放送が終了した「FOXスポーツ＆エンターテインメント」「BSスカパー」「Dlife」を除外
                 ## 放送終了後にチャンネルスキャンしていないなどの理由でバックエンド側にチャンネル情報が残っている場合がある
@@ -501,7 +501,7 @@ class Channel(models.Model):
             if status != None and status['force'] != -1:
 
                 # ステータスを更新
-                channel.channel_force = status['force']
+                channel.jikkyo_force = status['force']
                 await channel.save()
 
 

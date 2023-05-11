@@ -33,10 +33,10 @@
             </div>
             <div class="program-info__status">
                 <div class="program-info__status-force"
-                    :class="`program-info__status-force--${ChannelUtils.getChannelForceType(channelsStore.channel.current.channel_force)}`">
+                    :class="`program-info__status-force--${ChannelUtils.getChannelForceType(channelsStore.channel.current.jikkyo_force)}`">
                     <Icon icon="fa-solid:fire-alt" height="14px" />
                     <span class="ml-2">勢い:</span>
-                    <span class="ml-2">{{ProgramUtils.getAttribute(channelsStore.channel.current, 'channel_force', '--')}} コメ/分</span>
+                    <span class="ml-2">{{ProgramUtils.getAttribute(channelsStore.channel.current, 'jikkyo_force', '--')}} コメ/分</span>
                 </div>
                 <div class="program-info__status-viewers ml-5">
                     <Icon icon="fa-solid:eye" height="14px" />

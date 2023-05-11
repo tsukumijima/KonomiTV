@@ -30,7 +30,7 @@ export interface IChannel {
     channel_number: string;
     channel_name: string;
     channel_type: ChannelType;
-    channel_force: number | null;
+    jikkyo_force: number | null;
     is_subchannel: boolean;
     is_radiochannel: boolean;
     is_display: boolean;
@@ -50,7 +50,7 @@ export const IChannelDefault: IChannel = {
     channel_number: '---',
     channel_name: '取得中…',
     channel_type: 'GR',
-    channel_force: null,
+    jikkyo_force: null,
     is_subchannel: false,
     is_radiochannel: false,
     is_display: true,
