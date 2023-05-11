@@ -95,7 +95,7 @@ async def GetCurrentUser(token: str = Depends(OAuth2PasswordBearer(tokenUrl='use
         )
 
     # JWT トークンに刻まれたユーザー ID に紐づくユーザー情報を取得
-    current_user = await User.filter(id=user_id).get_or_none()
+    current_user = await User.filter(id=user_id).prefetch_related('twitter_accounts').get_or_none()
 
     # そのユーザー ID のユーザーが存在しない
     if not current_user:
@@ -106,9 +106,6 @@ async def GetCurrentUser(token: str = Depends(OAuth2PasswordBearer(tokenUrl='use
             headers = {'WWW-Authenticate': 'Bearer'},
         )
 
-    # 外部テーブルのデータを取得してから返す
-    # 明示的に fetch_related() しないと取得されない仕様になっているらしい
-    await current_user.fetch_related('twitter_accounts')
     return current_user
 
 # 現在ログイン中の管理者ユーザーを取得する
@@ -132,7 +129,7 @@ async def GetSpecifiedUser(
 ) -> User:
 
     # 指定されたユーザー名のユーザーを取得
-    user = await User.filter(name=username).get_or_none()
+    user = await User.filter(name=username).prefetch_related('twitter_accounts').get_or_none()
 
     # 指定されたユーザー名のユーザーが存在しない
     if not user:
@@ -193,9 +190,7 @@ async def UserCreateAPI(
     )
 
     # 外部テーブルのデータを取得してから返す
-    # Twitter アカウントが登録されているかに関わらず、こうしないとユーザーデータを返せない
     await user.fetch_related('twitter_accounts')
-
     return user
 
 
@@ -278,12 +273,7 @@ async def UsersAPI(
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
     """
 
-    # 外部テーブルのデータを取得してから返す
-    # 明示的に fetch_related() しないと取得されない仕様になっているらしい
-    users = await User.all()
-    for user in users:
-        await user.fetch_related('twitter_accounts')
-    return users
+    return await User.all().prefetch_related('twitter_accounts')
 
 
 # ***** ログイン中ユーザーアカウント情報 API *****
@@ -307,8 +297,7 @@ async def UserMeAPI(
     ## Twitter 連携では途中で連携をキャンセルした場合に仮のアカウントデータが残置されてしまうので、それを取り除く
     if await TwitterAccount.filter(icon_url='Temporary').count() > 0:
         await TwitterAccount.filter(icon_url='Temporary').delete()
-        current_user = await User.filter(id=current_user.id).get()  # current_user のデータを更新
-        await current_user.fetch_related('twitter_accounts')
+        current_user = await User.filter(id=current_user.id).prefetch_related('twitter_accounts').get()  # current_user のデータを更新
 
     return current_user
 
@@ -471,10 +460,6 @@ async def UserAPI(
     指定されたユーザーアカウントの情報を取得する。<br>
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
     """
-
-    # 外部テーブルのデータを取得してから返す
-    # Twitter アカウントが登録されているかに関わらず、こうしないとユーザーデータを返せない
-    await user.fetch_related('twitter_accounts')
 
     return user
 
