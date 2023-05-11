@@ -33,11 +33,11 @@ class Channel(models.Model):
 
     # テーブル設計は Notion を参照のこと
     id: str = fields.TextField(pk=True)
+    display_channel_id: str = fields.TextField()
     network_id: int = fields.IntField()
     service_id: int = fields.IntField()
     transport_stream_id: int | None = fields.IntField(null=True)
     remocon_id: int = fields.IntField()
-    channel_id: str = fields.TextField()
     channel_number: str = fields.TextField()
     type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO', 'OTHER'] = fields.TextField()  # type: ignore
     name: str = fields.TextField()
@@ -64,7 +64,7 @@ class Channel(models.Model):
     def viewer_count(self) -> int:
         # 現在の視聴者数を取得
         from app.models import LiveStream
-        return LiveStream.getViewerCount(self.channel_id)
+        return LiveStream.getViewerCount(self.display_channel_id)
 
 
     @classmethod
@@ -93,7 +93,7 @@ class Channel(models.Model):
         """ Mirakurun バックエンドからチャンネル情報を取得し、更新する """
 
         # このトランザクションはパフォーマンス向上と、チャンネル情報を一時的に削除してから再生成するまでの間に API リクエストが来た場合に
-        # "Specified channel_id was not found" エラーでフロントエンドを誤動作させるのを防ぐためのもの
+        # "Specified display_channel_id was not found" エラーでフロントエンドを誤動作させるのを防ぐためのもの
         async with transactions.in_transaction():
 
             # 既にデータベースにチャンネル情報が存在する場合は一旦全て削除する
@@ -236,7 +236,7 @@ class Channel(models.Model):
                     channel.channel_number = str(channel.service_id % 1024).zfill(3)
 
                 # チャンネルID = チャンネルタイプ(小文字)+チャンネル番号
-                channel.channel_id = channel.type.lower() + channel.channel_number
+                channel.display_channel_id = channel.type.lower() + channel.channel_number
 
                 # ***** サブチャンネルかどうかを算出 *****
 
@@ -275,7 +275,7 @@ class Channel(models.Model):
         """ EDCB バックエンドからチャンネル情報を取得し、更新する """
 
         # このトランザクションはパフォーマンス向上と、チャンネル情報を一時的に削除してから再生成するまでの間に API リクエストが来た場合に
-        # "Specified channel_id was not found" エラーでフロントエンドを誤動作させるのを防ぐためのもの
+        # "Specified display_channel_id was not found" エラーでフロントエンドを誤動作させるのを防ぐためのもの
         async with transactions.in_transaction():
 
             # リモコン番号が取得できない場合に備えてバックアップ
@@ -445,7 +445,7 @@ class Channel(models.Model):
                     channel.channel_number = str(channel.service_id % 1024).zfill(3)
 
                 # チャンネルID = チャンネルタイプ(小文字)+チャンネル番号
-                channel.channel_id = channel.type.lower() + channel.channel_number
+                channel.display_channel_id = channel.type.lower() + channel.channel_number
 
                 # ***** サブチャンネルかどうかを算出 *****
 

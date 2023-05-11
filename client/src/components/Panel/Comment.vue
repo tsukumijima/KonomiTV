@@ -379,7 +379,7 @@ export default Vue.extend({
         },
 
         // ニコニコ実況に接続し、セッションを初期化する
-        async initSession(player: DPlayer, channel_id: string) {
+        async initSession(player: DPlayer, display_channel_id: string) {
 
             // リサイズ時のイベントを初期化
             // イベントはプレイヤーの DOM に紐づいているため、プレイヤーが破棄→再初期化される毎に実行する必要がある
@@ -397,7 +397,7 @@ export default Vue.extend({
                 // DPlayer のインスタンス
                 player,
                 // チャンネル ID
-                channel_id,
+                display_channel_id,
 
                 // 初回の過去コメント (最大50件) を受信したときのコールバック
                 async (initial_comments) => {

@@ -9,12 +9,12 @@ export class ChannelUtils {
 
     /**
      * チャンネル ID からチャンネルタイプを取得する
-     * @param channel_id チャンネル ID
+     * @param display_channel_id チャンネル ID
      * @returns チャンネルタイプ
      */
-    static getChannelType(channel_id: string): ChannelType {
+    static getChannelType(display_channel_id: string): ChannelType {
         try {
-            const result = channel_id.match('(?<channel_type>[a-z]+)[0-9]+').groups.channel_type.toUpperCase();
+            const result = display_channel_id.match('(?<channel_type>[a-z]+)[0-9]+').groups.channel_type.toUpperCase();
             return result as ChannelType;
         } catch (e) {
             // 何かしらエラーが発生したということはチャンネル ID が不正

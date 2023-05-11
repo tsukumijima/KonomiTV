@@ -37,17 +37,17 @@ router = APIRouter(
 
 
 # チャンネル ID からチャンネル情報を取得する
-async def GetChannel(channel_id: str = Path(..., description='チャンネル ID 。ex:gr011')) -> Channel:
+async def GetChannel(display_channel_id: str = Path(..., description='チャンネル ID 。ex:gr011')) -> Channel:
 
     # チャンネル情報を取得
-    channel = await Channel.filter(channel_id=channel_id).get_or_none()
+    channel = await Channel.filter(display_channel_id=display_channel_id).get_or_none()
 
     # 指定されたチャンネル ID が存在しない
     if channel is None:
-        Logging.error(f'[ChannelsRouter][GetChannel] Specified channel_id was not found [channel_id: {channel_id}]')
+        Logging.error(f'[ChannelsRouter][GetChannel] Specified display_channel_id was not found [display_channel_id: {display_channel_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Specified channel_id was not found',
+            detail = 'Specified display_channel_id was not found',
         )
 
     return channel
@@ -90,7 +90,7 @@ async def ChannelsAPI():
         FROM (
             SELECT
                 -- チャンネル ID ごとに番組開始時刻が小さい順でランクを付け、program_order フィールドにセット
-                DENSE_RANK() OVER (PARTITION BY channel_id ORDER BY start_time ASC) program_order,
+                DENSE_RANK() OVER (PARTITION BY display_channel_id ORDER BY start_time ASC) program_order,
                 -- 番組開始時刻が現在時刻よりも前（=放送中）なら true 、そうでないなら false を is_present フィールドにセット
                 CASE WHEN "start_time" <= (?) THEN true ELSE false END AS is_present,
                 *
@@ -133,11 +133,11 @@ async def ChannelsAPI():
         ## クラスそのままだとレスポンスを返す際にシリアライズ処理が入る関係でパフォーマンスが悪い
         channel_dict = {
             'id': channel.id,
+            'display_channel_id': channel.display_channel_id,
             'network_id': channel.network_id,
             'service_id': channel.service_id,
             'transport_stream_id': channel.transport_stream_id,
             'remocon_id': channel.remocon_id,
-            'channel_id': channel.channel_id,
             'channel_number': channel.channel_number,
             'type': channel.type,
             'name': channel.name,
@@ -234,7 +234,7 @@ async def ChannelsAPI():
             channel_dict['is_display'] = False
 
         # 現在の視聴者数を取得
-        channel_dict['viewer_count'] = LiveStream.getViewerCount(channel_dict['channel_id'])
+        channel_dict['viewer_count'] = LiveStream.getViewerCount(channel_dict['display_channel_id'])
 
         # せっかくチャンネルごとにループで回しているので、ここでチャンネルタイプごとの分類もやっておく
         ## 後から filter() で絞り込むのだと効率が悪い
@@ -246,7 +246,7 @@ async def ChannelsAPI():
 
 
 @router.get(
-    '/{channel_id}',
+    '/{display_channel_id}',
     summary = 'チャンネル情報 API',
     response_description = 'チャンネル情報。',
     response_model = schemas.Channel,
@@ -266,7 +266,7 @@ async def ChannelAPI(
 
 
 @router.get(
-    '/{channel_id}/logo',
+    '/{display_channel_id}/logo',
     summary = 'チャンネルロゴ API',
     response_class = Response,
     responses = {
@@ -455,7 +455,7 @@ async def ChannelLogoAPI(
 
 
 @router.get(
-    '/{channel_id}/jikkyo',
+    '/{display_channel_id}/jikkyo',
     summary = 'ニコニコ実況セッション情報 API',
     response_description = 'ニコニコ実況のセッション情報。',
     response_model = schemas.JikkyoSession,

@@ -211,11 +211,11 @@ class LiveStream():
 
     # 必ずライブストリーム ID ごとに1つのインスタンスになるように (Singleton)
     # ref: https://qiita.com/ttsubo/items/c4af71ceba15b5b213f8
-    def __new__(cls, channel_id: str, quality: QUALITY_TYPES) -> LiveStream:
+    def __new__(cls, display_channel_id: str, quality: QUALITY_TYPES) -> LiveStream:
 
         # まだ同じライブストリーム ID のインスタンスがないときだけ、インスタンスを生成する
         # (チャンネルID)-(映像の品質) で一意な ID になる
-        livestream_id = f'{channel_id}-{quality}'
+        livestream_id = f'{display_channel_id}-{quality}'
         if livestream_id not in cls.__instances:
 
             # 新しいライブストリームのインスタンスを生成する
@@ -225,7 +225,7 @@ class LiveStream():
             instance.livestream_id = livestream_id
 
             # チャンネル ID と映像の品質を設定
-            instance.channel_id = channel_id
+            instance.display_channel_id = display_channel_id
             instance.quality = quality
 
             # ライブストリームクライアントが入るリスト
@@ -268,19 +268,19 @@ class LiveStream():
         return cls.__instances[livestream_id]
 
 
-    def __init__(self, channel_id: str, quality: str) -> None:
+    def __init__(self, display_channel_id: str, quality: str) -> None:
         """
         ライブストリームのインスタンスを取得する
 
         Args:
-            channel_id (str): チャンネルID
+            display_channel_id (str): チャンネルID
             quality (str): 映像の品質 (1080p-60fps ~ 240p)
         """
 
         # インスタンス変数の型ヒントを定義
         # Singleton のためインスタンスの生成は __new__() で行うが、__init__() も定義しておかないと補完がうまく効かない
         self.livestream_id: str
-        self.channel_id: str
+        self.display_channel_id: str
         self.quality: QUALITY_TYPES
         self._clients: list[LiveStreamClient]
         self._status: Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart']
@@ -344,12 +344,12 @@ class LiveStream():
 
 
     @classmethod
-    def getViewerCount(cls, channel_id: str) -> int:
+    def getViewerCount(cls, display_channel_id: str) -> int:
         """
         指定されたチャンネルのライブストリームの現在の視聴者数を取得する
 
         Args:
-            channel_id (str): チャンネルID
+            display_channel_id (str): チャンネルID
 
         Returns:
             int: 視聴者数
@@ -358,7 +358,7 @@ class LiveStream():
         # 指定されたチャンネル ID に紐づくライブストリームを探して視聴者数を集計
         viewer_count = 0
         for livestream in LiveStream.getAllLiveStreams():
-            if livestream.channel_id == channel_id:
+            if livestream.display_channel_id == display_channel_id:
                 viewer_count += livestream.getStatus()['client_count']
 
         return viewer_count

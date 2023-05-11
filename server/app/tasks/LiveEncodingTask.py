@@ -396,7 +396,7 @@ class LiveEncodingTask:
         self.livestream.segmenter = HLSLiveSegmenter(gop_length_second)
 
         # チャンネル情報からサービス ID とネットワーク ID を取得する
-        channel = await Channel.filter(channel_id=self.livestream.channel_id).first()
+        channel = await Channel.filter(display_channel_id=self.livestream.display_channel_id).first()
 
         # 現在の番組情報を取得する
         program_present = (await channel.getCurrentAndNextProgram())[0]
@@ -409,7 +409,7 @@ class LiveEncodingTask:
                 network_id = channel.network_id,
                 service_id = channel.service_id,
                 event_id = 99999,  # 適当に 99999 に設定
-                channel_id = channel.channel_id,
+                display_channel_id = channel.display_channel_id,
                 title = '番組情報がありません',
                 description = '',
                 start_time = datetime(2000, 1, 1, 0, 0, 0, tzinfo=timezone.get_default_timezone()),

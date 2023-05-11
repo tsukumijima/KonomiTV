@@ -30,14 +30,14 @@ router = APIRouter(
 
 
 # チャンネル ID のバリデーション
-async def ValidateChannelID(channel_id: str = Path(..., description='チャンネル ID 。ex:gr011')) -> str:
-    if await Channel.filter(channel_id=channel_id).get_or_none() is None:
-        Logging.error(f'[LiveStreamsRouter][ValidateChannelID] Specified channel_id was not found [channel_id: {channel_id}]')
+async def ValidateChannelID(display_channel_id: str = Path(..., description='チャンネル ID 。ex:gr011')) -> str:
+    if await Channel.filter(display_channel_id=display_channel_id).get_or_none() is None:
+        Logging.error(f'[LiveStreamsRouter][ValidateChannelID] Specified display_channel_id was not found [display_channel_id: {display_channel_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Specified channel_id was not found',
+            detail = 'Specified display_channel_id was not found',
         )
-    return channel_id
+    return display_channel_id
 
 # 品質のバリデーション
 async def ValidateQuality(quality: str = Path(..., description='映像の品質。ex:1080p')) -> QUALITY_TYPES:
@@ -51,13 +51,13 @@ async def ValidateQuality(quality: str = Path(..., description='映像の品質�
 
 # クライアント ID からライブストリームクライアントのインスタンスを取得する
 async def GetLiveStreamClient(
-    channel_id: str = Depends(ValidateChannelID),
+    display_channel_id: str = Depends(ValidateChannelID),
     quality: QUALITY_TYPES = Depends(ValidateQuality),
     client_id: str = Path(..., description='ライブストリームのクライアント ID 。'),
 ) -> LiveStreamClient:
 
     # 既に接続済みのクライアントのインスタンスを取得
-    livestream = LiveStream(channel_id, quality)
+    livestream = LiveStream(display_channel_id, quality)
     livestream_client = livestream.connectToExistingClient(client_id)
 
     # 指定されたクライアント ID が存在しない
@@ -102,13 +102,13 @@ async def LiveStreamsAPI():
 
 
 @router.get(
-    '/{channel_id}/{quality}',
+    '/{display_channel_id}/{quality}',
     summary = 'ライブストリーム API',
     response_description = 'ライブストリームの状態。',
     response_model = schemas.LiveStream,
 )
 async def LiveStreamAPI(
-    channel_id: str = Depends(ValidateChannelID),
+    display_channel_id: str = Depends(ValidateChannelID),
     quality: QUALITY_TYPES = Depends(ValidateQuality),
 ):
     """
@@ -118,14 +118,14 @@ async def LiveStreamAPI(
 
     # ライブストリームを取得
     # ステータスを取得したいだけなので、接続はしない
-    livestream = LiveStream(channel_id, quality)
+    livestream = LiveStream(display_channel_id, quality)
 
     # 取得してきた値をそのまま返す
     return livestream.getStatus()
 
 
 @router.get(
-    '/{channel_id}/{quality}/events',
+    '/{display_channel_id}/{quality}/events',
     summary = 'ライブストリーム イベント API',
     response_class = Response,
     responses = {
@@ -136,7 +136,7 @@ async def LiveStreamAPI(
     }
 )
 async def LiveStreamEventAPI(
-    channel_id: str = Depends(ValidateChannelID),
+    display_channel_id: str = Depends(ValidateChannelID),
     quality: QUALITY_TYPES = Depends(ValidateQuality),
 ):
     """
@@ -157,7 +157,7 @@ async def LiveStreamEventAPI(
 
     # ライブストリームを取得
     # ステータスを取得したいだけなので、接続はしない
-    livestream = LiveStream(channel_id, quality)
+    livestream = LiveStream(display_channel_id, quality)
 
     # ステータスの変更を監視し、変更があればステータスをイベントストリームとして出力する
     async def generator():
@@ -168,7 +168,7 @@ async def LiveStreamEventAPI(
 
         # 取得できたクライアント数はあくまで同じチャンネル+同じ画質で視聴中のクライアントをカウントしたものなので、
         # 同じチャンネル+すべての画質で視聴中のクライアント数を別途取得して上書きする
-        previous_status['client_count'] = LiveStream.getViewerCount(channel_id)
+        previous_status['client_count'] = LiveStream.getViewerCount(display_channel_id)
 
         # 初回接続時に必ず現在のステータスを返す
         yield {
@@ -183,7 +183,7 @@ async def LiveStreamEventAPI(
 
             # 取得できたクライアント数はあくまで同じチャンネル+同じ画質で視聴中のクライアントをカウントしたものなので、
             # 同じチャンネル+すべての画質で視聴中のクライアント数を別途取得して上書きする
-            status['client_count'] = LiveStream.getViewerCount(channel_id)
+            status['client_count'] = LiveStream.getViewerCount(display_channel_id)
 
             # 以前の結果と異なっている場合のみレスポンスを返す
             if previous_status != status:
@@ -221,7 +221,7 @@ async def LiveStreamEventAPI(
 
 
 @router.get(
-    '/{channel_id}/{quality}/mpegts',
+    '/{display_channel_id}/{quality}/mpegts',
     summary = 'ライブ MPEGTS ストリーム API',
     response_class = Response,
     responses = {
@@ -233,7 +233,7 @@ async def LiveStreamEventAPI(
 )
 async def LiveMPEGTSStreamAPI(
     request: Request,
-    channel_id: str = Depends(ValidateChannelID),
+    display_channel_id: str = Depends(ValidateChannelID),
     quality: QUALITY_TYPES = Depends(ValidateQuality),
 ):
     """
@@ -248,7 +248,7 @@ async def LiveMPEGTSStreamAPI(
 
     # ライブストリームに接続し、ライブストリームクライアントを取得する
     ## 接続時に Offline だった場合は自動的にエンコードタスクが起動される
-    livestream = LiveStream(channel_id, quality)
+    livestream = LiveStream(display_channel_id, quality)
     livestream_client = await livestream.connect('mpegts')
 
     # ライブストリームを出力するジェネレーター
@@ -315,17 +315,17 @@ async def LiveMPEGTSStreamAPI(
 
 
 @router.post(
-    '/{channel_id}/{quality}/ll-hls',
+    '/{display_channel_id}/{quality}/ll-hls',
     summary = 'ライブ LL-HLS クライアント接続 API',
     response_description = 'ライブストリームのクライアント ID。',
     response_model = schemas.LiveStreamLLHLSClientID,
 )
 async def LiveLLHLSClientConnectAPI(
-    channel_id: str = Depends(ValidateChannelID),
+    display_channel_id: str = Depends(ValidateChannelID),
     quality: QUALITY_TYPES = Depends(ValidateQuality),
 ):
     # ライブストリームに接続し、クライアントのインスタンスを取得
-    livestream = LiveStream(channel_id, quality)
+    livestream = LiveStream(display_channel_id, quality)
     livestream_client = await livestream.connect('ll-hls')
 
     # クライアント ID を返す
@@ -333,17 +333,17 @@ async def LiveLLHLSClientConnectAPI(
 
 
 @router.delete(
-    '/{channel_id}/{quality}/ll-hls/{client_id}',
+    '/{display_channel_id}/{quality}/ll-hls/{client_id}',
     summary = 'ライブ LL-HLS クライアント接続切断 API',
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def LiveLLHLSClientDisconnectAPI(
-    channel_id: str = Depends(ValidateChannelID),
+    display_channel_id: str = Depends(ValidateChannelID),
     quality: QUALITY_TYPES = Depends(ValidateQuality),
     livestream_client: LiveStreamClient = Depends(GetLiveStreamClient),
 ):
     # ライブストリームへの接続を切断する
-    livestream = LiveStream(channel_id, quality)
+    livestream = LiveStream(display_channel_id, quality)
     livestream.disconnect(livestream_client)
 
 
@@ -351,7 +351,7 @@ async def LiveLLHLSClientDisconnectAPI(
 
 
 @router.get(
-    '/{channel_id}/{quality}/ll-hls/{client_id}/primary-audio/playlist.m3u8',
+    '/{display_channel_id}/{quality}/ll-hls/{client_id}/primary-audio/playlist.m3u8',
     summary = 'ライブ LL-HLS M3U8 プレイリスト API (主音声)',
     response_class = Response,
     responses = {
@@ -371,7 +371,7 @@ async def LiveLLHLSPrimaryAudioPlaylistAPI(
 
 
 @router.get(
-    '/{channel_id}/{quality}/ll-hls/{client_id}/primary-audio/segment',
+    '/{display_channel_id}/{quality}/ll-hls/{client_id}/primary-audio/segment',
     summary = 'ライブ LL-HLS セグメントデータ API (主音声)',
     response_class = Response,
     responses = {
@@ -390,7 +390,7 @@ async def LiveLLHLSPrimaryAudioSegmentAPI(
 
 
 @router.get(
-    '/{channel_id}/{quality}/ll-hls/{client_id}/primary-audio/part',
+    '/{display_channel_id}/{quality}/ll-hls/{client_id}/primary-audio/part',
     summary = 'ライブ LL-HLS 部分セグメントデータ API (主音声)',
     response_class = Response,
     responses = {
@@ -415,7 +415,7 @@ async def LiveLLHLSPrimaryAudioPartialSegmentAPI(
 
 
 @router.get(
-    '/{channel_id}/{quality}/ll-hls/{client_id}/primary-audio/init',
+    '/{display_channel_id}/{quality}/ll-hls/{client_id}/primary-audio/init',
     summary = 'ライブ LL-HLS 初期セグメントデータ API (主音声)',
     response_class = Response,
     responses = {
@@ -436,7 +436,7 @@ async def LiveLLHLSPrimaryAudioInitializationSegmentAPI(
 
 
 @router.get(
-    '/{channel_id}/{quality}/ll-hls/{client_id}/secondary-audio/playlist.m3u8',
+    '/{display_channel_id}/{quality}/ll-hls/{client_id}/secondary-audio/playlist.m3u8',
     summary = 'ライブ LL-HLS M3U8 プレイリスト API (副音声)',
     response_class = Response,
     responses = {
@@ -456,7 +456,7 @@ async def LiveLLHLSSecondaryAudioPlaylistAPI(
 
 
 @router.get(
-    '/{channel_id}/{quality}/ll-hls/{client_id}/secondary-audio/segment',
+    '/{display_channel_id}/{quality}/ll-hls/{client_id}/secondary-audio/segment',
     summary = 'ライブ LL-HLS セグメントデータ API (副音声)',
     response_class = Response,
     responses = {
@@ -475,7 +475,7 @@ async def LiveLLHLSSecondaryAudioSegmentAPI(
 
 
 @router.get(
-    '/{channel_id}/{quality}/ll-hls/{client_id}/secondary-audio/part',
+    '/{display_channel_id}/{quality}/ll-hls/{client_id}/secondary-audio/part',
     summary = 'ライブ LL-HLS 部分セグメントデータ API (副音声)',
     response_class = Response,
     responses = {
@@ -500,7 +500,7 @@ async def LiveLLHLSSecondaryAudioPartialSegmentAPI(
 
 
 @router.get(
-    '/{channel_id}/{quality}/ll-hls/{client_id}/secondary-audio/init',
+    '/{display_channel_id}/{quality}/ll-hls/{client_id}/secondary-audio/init',
     summary = 'ライブ LL-HLS 初期セグメントデータ API (副音声)',
     response_class = Response,
     responses = {

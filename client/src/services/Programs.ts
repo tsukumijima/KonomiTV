@@ -5,7 +5,7 @@ export interface IProgram {
     network_id: number;
     service_id: number;
     event_id: number;
-    channel_id: string;
+    display_channel_id: string;
     title: string;
     description: string;
     detail: {[key: string]: string};
@@ -31,7 +31,7 @@ export const IProgramDefault: IProgram = {
     network_id: 0,
     service_id: 0,
     event_id: 0,
-    channel_id: 'gr000',
+    display_channel_id: 'gr000',
     title: '取得中…',
     description: '取得中…',
     detail: {},

@@ -39,7 +39,7 @@ const router = new VueRouter({
             component: TVHome,
         },
         {
-            path: '/tv/watch/:channel_id',
+            path: '/tv/watch/:display_channel_id',
             name: 'TV Watch',
             component: TVWatch,
         },

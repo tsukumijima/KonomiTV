@@ -15,9 +15,9 @@
                         v-for="[channels_type, channels] in Array.from(channelsStore.channels_list_with_pinned)" :key="channels_type">
                         <div class="channels" :class="`channels--tab-${channels_type} channels--length-${channels.length}`">
                             <router-link v-ripple class="channel"
-                                v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.channel_id}`">
+                                v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.display_channel_id}`">
                                 <div class="channel__broadcaster">
-                                    <img class="channel__broadcaster-icon" :src="`${Utils.api_base_url}/channels/${channel.channel_id}/logo`">
+                                    <img class="channel__broadcaster-icon" :src="`${Utils.api_base_url}/channels/${channel.display_channel_id}/logo`">
                                     <div class="channel__broadcaster-content">
                                         <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.name}}</span>
                                         <div class="channel__broadcaster-status">
@@ -36,9 +36,9 @@
                                         </div>
                                     </div>
                                     <div v-ripple class="channel__broadcaster-pin"
-                                        v-tooltip="isPinnedChannel(channel.channel_id) ? 'ピン留めを外す' : 'ピン留めする'"
-                                        :class="{'channel__broadcaster-pin--pinned': isPinnedChannel(channel.channel_id)}"
-                                        @click.prevent.stop="isPinnedChannel(channel.channel_id) ? removePinnedChannel(channel.channel_id) : addPinnedChannel(channel.channel_id)"
+                                        v-tooltip="isPinnedChannel(channel.display_channel_id) ? 'ピン留めを外す' : 'ピン留めする'"
+                                        :class="{'channel__broadcaster-pin--pinned': isPinnedChannel(channel.display_channel_id)}"
+                                        @click.prevent.stop="isPinnedChannel(channel.display_channel_id) ? removePinnedChannel(channel.display_channel_id) : addPinnedChannel(channel.display_channel_id)"
                                         @mousedown.prevent.stop="/* 親要素の波紋が広がらないように */">
                                         <Icon icon="fluent:pin-20-filled" width="24px" />
                                     </div>
@@ -177,35 +177,35 @@ export default Vue.extend({
     methods: {
 
         // チャンネルをピン留めする
-        addPinnedChannel(channel_id: string) {
+        addPinnedChannel(display_channel_id: string) {
 
             // ピン留めするチャンネルの ID を追加 (保存は自動で行われる)
-            this.settingsStore.settings.pinned_channel_ids.push(channel_id);
+            this.settingsStore.settings.pinned_channel_ids.push(display_channel_id);
 
-            const channel = this.channelsStore.getChannel(channel_id);
+            const channel = this.channelsStore.getChannel(display_channel_id);
             this.$message.show(`${channel.name}をピン留めしました。`);
         },
 
         // チャンネルをピン留めから外す
-        removePinnedChannel(channel_id: string) {
+        removePinnedChannel(display_channel_id: string) {
 
             // ピン留めを外すチャンネルの ID を削除 (保存は自動で行われる)
-            this.settingsStore.settings.pinned_channel_ids.splice(this.settingsStore.settings.pinned_channel_ids.indexOf(channel_id), 1);
+            this.settingsStore.settings.pinned_channel_ids.splice(this.settingsStore.settings.pinned_channel_ids.indexOf(display_channel_id), 1);
 
             // この時点でピン留めされているチャンネルがないなら、タブを地デジタブに切り替える
             if (this.channelsStore.channels_list_with_pinned.get('ピン留め').length === 0) {
                 this.tab = 1;
             }
 
-            const channel = this.channelsStore.getChannel(channel_id);
+            const channel = this.channelsStore.getChannel(display_channel_id);
             this.$message.show(`${channel.name}のピン留めを外しました。`);
         },
 
         // チャンネルがピン留めされているか
-        isPinnedChannel(channel_id: string): boolean {
+        isPinnedChannel(display_channel_id: string): boolean {
 
             // 引数のチャンネルがピン留めリストに存在するかを返す
-            return this.settingsStore.settings.pinned_channel_ids.includes(channel_id);
+            return this.settingsStore.settings.pinned_channel_ids.includes(display_channel_id);
         }
     }
 });

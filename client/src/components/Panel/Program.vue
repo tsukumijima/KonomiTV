@@ -1,7 +1,7 @@
 <template>
     <div class="program-container">
         <section class="program-broadcaster">
-            <img class="program-broadcaster__icon" :src="`${Utils.api_base_url}/channels/${(channelsStore.channel_id)}/logo`">
+            <img class="program-broadcaster__icon" :src="`${Utils.api_base_url}/channels/${(channelsStore.display_channel_id)}/logo`">
             <div class="program-broadcaster__number">Ch: {{channelsStore.channel.current.channel_number}}</div>
             <div class="program-broadcaster__name">{{channelsStore.channel.current.name}}</div>
         </section>

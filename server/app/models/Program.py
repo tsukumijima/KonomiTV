@@ -36,7 +36,7 @@ class Program(models.Model):
     network_id: int = fields.IntField()
     service_id: int = fields.IntField()
     event_id: int = fields.IntField()
-    channel_id: str = fields.TextField()  # TODO: 削除予定
+    display_channel_id: str = fields.TextField()  # TODO: 削除予定
     title: str = fields.TextField()
     description: str = fields.TextField()
     detail: dict[str, str] = fields.JSONField(encoder=lambda x: json.dumps(x, ensure_ascii=False))
@@ -310,7 +310,7 @@ class Program(models.Model):
                     program.network_id = int(channel.network_id)
                     program.service_id = int(channel.service_id)
                     program.event_id = int(program_info['eventId'])
-                    program.channel_id = channel.channel_id
+                    program.display_channel_id = channel.display_channel_id
                     program.title = title
                     program.description = description
                     program.detail = detail
@@ -595,7 +595,7 @@ class Program(models.Model):
                         program.network_id = channel.network_id
                         program.service_id = channel.service_id
                         program.event_id = int(program_info['eid'])
-                        program.channel_id = channel.channel_id
+                        program.display_channel_id = channel.display_channel_id
                         program.title = title
                         program.description = description
                         program.detail = detail

@@ -38,18 +38,18 @@ class LiveCommentManager {
     private abort_controller: AbortController = new AbortController();
 
     private player: DPlayer;
-    private channel_id: string;
+    private display_channel_id: string;
     private on_initial_comments_received: (initial_comments: ICommentData[]) => void;
     private on_comment_received: (comment: ICommentData) => void;
 
     constructor(
         player: DPlayer,
-        channel_id: string,
+        display_channel_id: string,
         on_initial_comments_received: (initial_comments: ICommentData[]) => void,
         on_comment_received: (comment: ICommentData) => void,
     ) {
         this.player = player;
-        this.channel_id = channel_id;
+        this.display_channel_id = display_channel_id;
         this.on_initial_comments_received = on_initial_comments_received;
         this.on_comment_received = on_comment_received;
     }
@@ -95,7 +95,7 @@ class LiveCommentManager {
         let is_disconnect_message_received = false;
 
         // セッション情報を取得
-        const watch_session_info = await Channels.fetchJikkyoSession(this.channel_id);
+        const watch_session_info = await Channels.fetchJikkyoSession(this.display_channel_id);
         if (watch_session_info === null) {
             return {
                 is_success: false,

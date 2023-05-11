@@ -22,11 +22,11 @@ export interface IChannelsList {
 /** チャンネル情報を表すインターフェイス */
 export interface IChannel {
     id: string;
+    display_channel_id: string;
     network_id: number;
     service_id: number;
     transport_stream_id: number | null;
     remocon_id: number | null;
-    channel_id: string;
     channel_number: string;
     type: ChannelType;
     name: string;
@@ -42,11 +42,11 @@ export interface IChannel {
 /** チャンネル情報を表すインターフェイスのデフォルト値 */
 export const IChannelDefault: IChannel = {
     id: 'NID0-SID0',
+    display_channel_id: 'gr000',
     network_id: 0,
     service_id: 0,
     transport_stream_id: null,
     remocon_id: null,
-    channel_id: 'gr000',
     channel_number: '---',
     type: 'GR',
     name: '取得中…',
@@ -91,13 +91,13 @@ class Channels {
     /**
      * 指定したチャンネルの情報を取得する
      * 現状、処理の見直しにより使用されていない
-     * @param channel_id チャンネル ID
+     * @param display_channel_id チャンネル ID
      * @return 指定したチャンネルの情報
      */
-    static async fetch(channel_id: string): Promise<IChannel | null> {
+    static async fetch(display_channel_id: string): Promise<IChannel | null> {
 
         // API リクエストを実行
-        const response = await APIClient.get<IChannel>(`/channels/${channel_id}`);
+        const response = await APIClient.get<IChannel>(`/channels/${display_channel_id}`);
 
         // エラー処理
         if ('is_error' in response) {
@@ -111,13 +111,13 @@ class Channels {
 
     /**
      * 指定したチャンネルに紐づくニコニコ実況のセッション情報を取得する
-     * @param channel_id チャンネル ID
+     * @param display_channel_id チャンネル ID
      * @return 指定したチャンネルに紐づくニコニコ実況のセッション情報
      */
-    static async fetchJikkyoSession(channel_id: string): Promise<IJikkyoSession | null> {
+    static async fetchJikkyoSession(display_channel_id: string): Promise<IJikkyoSession | null> {
 
         // API リクエストを実行
-        const response = await APIClient.get<IJikkyoSession>(`/channels/${channel_id}/jikkyo`);
+        const response = await APIClient.get<IJikkyoSession>(`/channels/${display_channel_id}/jikkyo`);
 
         // エラー処理
         if ('is_error' in response) {
