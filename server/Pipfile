@@ -8,7 +8,7 @@ serve = "python KonomiTV.py"
 dev = "python KonomiTV.py --reload"
 
 [packages]
-aerich = "==0.6.3"
+aerich = {file = "https://github.com/tortoise/aerich/archive/dbc0d9e7efba1509a56796a8977cb11011c469e6.zip"}
 aiofiles = "*"
 aiosqlite = "*"
 ariblib = {file = "https://github.com/tsukumijima/ariblib/archive/refs/tags/v0.1.0.zip"}

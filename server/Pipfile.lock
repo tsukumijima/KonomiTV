@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "25398454980bfd8ef55645ef908f67e52fa2a895a6845da54ea38f52ab38b206"
+            "sha256": "686f8ade4c25da96ac79cf36c1de86795082f95f20b38122fa551ebdd06f88cd"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -17,12 +17,11 @@
     },
     "default": {
         "aerich": {
+            "file": "https://github.com/tortoise/aerich/archive/dbc0d9e7efba1509a56796a8977cb11011c469e6.zip",
             "hashes": [
-                "sha256:96ac087922048470687264125cb9dfeaade982219c78e6a9b91a0fb67eaa1cd1",
-                "sha256:d45f98214ed54b8ec9be949df264c5b0b9e8b79d8f8ba9e68714675bc81a5574"
+                "sha256:255b2393bc66198e814071223ac7dfe413f6067e8c16a3993fdfc5276a1c0344"
             ],
-            "index": "pypi",
-            "version": "==0.6.3"
+            "version": "==0.7.3"
         },
         "aiofiles": {
             "hashes": [
