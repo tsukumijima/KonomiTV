@@ -1010,7 +1010,7 @@ class LiveEncodingTask:
                     del program_following
 
                 # 現在 ONAir でかつクライアント数が 0 なら Idling（アイドリング状態）に移行
-                if livestream_status['status'] == 'ONAir' and livestream_status['clients_count'] == 0:
+                if livestream_status['status'] == 'ONAir' and livestream_status['client_count'] == 0:
                     self.livestream.setStatus('Idling', 'ライブストリームは Idling です。')
 
                 # 現在 Idling でかつ最終更新から max_alive_time 秒以上経っていたらエンコーダーを終了し、Offline 状態に移行

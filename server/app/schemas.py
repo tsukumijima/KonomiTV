@@ -62,7 +62,7 @@ class LiveStream(BaseModel):
     detail: str
     started_at: float
     updated_at: float
-    clients_count: int
+    client_count: int
 
 class TwitterAccount(pydantic_model_creator(models.TwitterAccount, name='TwitterAccount',
     exclude=('access_token', 'access_token_secret', 'created_at', 'updated_at'))):

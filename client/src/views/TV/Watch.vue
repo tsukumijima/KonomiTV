@@ -1477,7 +1477,7 @@ export default Vue.extend({
                 // 視聴者数を更新
                 this.channelsStore.updateChannel(this.channelsStore.channel_id, {
                     ...this.channelsStore.channel.current,
-                    viewer_count: event.clients_count,
+                    viewer_count: event.client_count,
                 });
 
                 // ステータスごとに処理を振り分け
@@ -1623,7 +1623,7 @@ export default Vue.extend({
                 // 視聴者数を更新
                 this.channelsStore.updateChannel(this.channelsStore.channel_id, {
                     ...this.channelsStore.channel.current,
-                    viewer_count: event.clients_count,
+                    viewer_count: event.client_count,
                 });
 
                 // ステータスごとに処理を振り分け
@@ -1653,7 +1653,7 @@ export default Vue.extend({
                 // 視聴者数を更新
                 this.channelsStore.updateChannel(this.channelsStore.channel_id, {
                     ...this.channelsStore.channel.current,
-                    viewer_count: event.clients_count,
+                    viewer_count: event.client_count,
                 });
             });
         },

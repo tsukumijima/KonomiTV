@@ -168,7 +168,7 @@ async def LiveStreamEventAPI(
 
         # 取得できたクライアント数はあくまで同じチャンネル+同じ画質で視聴中のクライアントをカウントしたものなので、
         # 同じチャンネル+すべての画質で視聴中のクライアント数を別途取得して上書きする
-        previous_status['clients_count'] = LiveStream.getViewerCount(channel_id)
+        previous_status['client_count'] = LiveStream.getViewerCount(channel_id)
 
         # 初回接続時に必ず現在のステータスを返す
         yield {
@@ -183,7 +183,7 @@ async def LiveStreamEventAPI(
 
             # 取得できたクライアント数はあくまで同じチャンネル+同じ画質で視聴中のクライアントをカウントしたものなので、
             # 同じチャンネル+すべての画質で視聴中のクライアント数を別途取得して上書きする
-            status['clients_count'] = LiveStream.getViewerCount(channel_id)
+            status['client_count'] = LiveStream.getViewerCount(channel_id)
 
             # 以前の結果と異なっている場合のみレスポンスを返す
             if previous_status != status:
@@ -201,7 +201,7 @@ async def LiveStreamEventAPI(
                         'data': json.dumps(status, ensure_ascii=False),
                     }
                 # クライアント数が以前と異なる
-                elif previous_status['clients_count'] != status['clients_count']:
+                elif previous_status['client_count'] != status['client_count']:
                     yield {
                         'event': 'clients_update',  # clients_update イベントを設定
                         'data': json.dumps(status, ensure_ascii=False),

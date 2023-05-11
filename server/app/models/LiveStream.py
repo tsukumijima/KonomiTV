@@ -24,7 +24,7 @@ class LiveStreamStatus(TypedDict):
     detail: str
     started_at: float
     updated_at: float
-    clients_count: int
+    client_count: int
 
 
 class LiveStreamClient():
@@ -359,7 +359,7 @@ class LiveStream():
         viewer_count = 0
         for livestream in LiveStream.getAllLiveStreams():
             if livestream.channel_id == channel_id:
-                viewer_count += livestream.getStatus()['clients_count']
+                viewer_count += livestream.getStatus()['client_count']
 
         return viewer_count
 
@@ -499,14 +499,14 @@ class LiveStream():
             LiveStreamStatus: ライブストリームのステータス
         """
 
-        clients_count = len(self._clients)
+        client_count = len(self._clients)
 
         return {
             'status': self._status,  # ライブストリームの現在のステータス
             'detail': self._detail,  # ライブストリームの現在のステータスの詳細情報
             'started_at': self._started_at,  # ライブストリームが開始された (ステータスが Offline or Restart → Standby に移行した) 時刻
             'updated_at': self._updated_at,  # ライブストリームのステータスが最後に更新された時刻
-            'clients_count': clients_count,  # ライブストリームに接続中のクライアント数
+            'client_count': client_count,  # ライブストリームに接続中のクライアント数
         }
 
 
