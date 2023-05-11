@@ -89,8 +89,8 @@ async def ChannelsAPI():
         SELECT *
         FROM (
             SELECT
-                -- チャンネル ID ごとに番組開始時刻が小さい順でランクを付け、program_order フィールドにセット
-                DENSE_RANK() OVER (PARTITION BY display_channel_id ORDER BY start_time ASC) program_order,
+                -- チャンネル ID (ex: NID32736-SID1024) ごとに番組開始時刻が小さい順でランクを付け、program_order フィールドにセット
+                DENSE_RANK() OVER (PARTITION BY channel_id ORDER BY start_time ASC) program_order,
                 -- 番組開始時刻が現在時刻よりも前（=放送中）なら true 、そうでないなら false を is_present フィールドにセット
                 CASE WHEN "start_time" <= (?) THEN true ELSE false END AS is_present,
                 *

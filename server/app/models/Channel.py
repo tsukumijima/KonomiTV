@@ -524,16 +524,14 @@ class Channel(models.Model):
 
         # 現在の番組情報を取得する
         program_present = await Program.filter(
-            network_id = self.network_id,  # 同じ network_id
-            service_id = self.service_id,  # 同じ service_id
+            channel_id = self.id,  # 同じ channel_id (ex: NID32736-SID1024)
             start_time__lte = now,  # 番組開始時刻が現在時刻以下
             end_time__gte = now,  # 番組終了時刻が現在時刻以上
         ).order_by('-start_time').first()
 
         # 次の番組情報を取得する
         program_following = await Program.filter(
-            network_id = self.network_id,  # 同じ network_id
-            service_id = self.service_id,  # 同じ service_id
+            channel_id = self.id,  # 同じ channel_id (ex: NID32736-SID1024)
             start_time__gte = now,  # 番組開始時刻が現在時刻以上
         ).order_by('start_time').first()
 

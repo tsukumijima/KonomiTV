@@ -2,10 +2,10 @@
 /** 番組情報を表すインターフェイス */
 export interface IProgram {
     id: string;
+    channel_id: string;
     network_id: number;
     service_id: number;
     event_id: number;
-    display_channel_id: string;
     title: string;
     description: string;
     detail: {[key: string]: string};
@@ -28,10 +28,10 @@ export interface IProgram {
 /** 番組情報を表すインターフェイスのデフォルト値 */
 export const IProgramDefault: IProgram = {
     id: 'NID0-SID0-EID0',
+    channel_id: 'NID0-SID0',
     network_id: 0,
     service_id: 0,
     event_id: 0,
-    display_channel_id: 'gr000',
     title: '取得中…',
     description: '取得中…',
     detail: {},

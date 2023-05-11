@@ -33,6 +33,7 @@ export interface IChannel {
     jikkyo_force: number | null;
     is_subchannel: boolean;
     is_radiochannel: boolean;
+    is_watchable: boolean,
     is_display: boolean;
     viewer_count: number;
     program_present: IProgram | null;
@@ -53,6 +54,7 @@ export const IChannelDefault: IChannel = {
     jikkyo_force: null,
     is_subchannel: false,
     is_radiochannel: false,
+    is_watchable: true,
     is_display: true,
     viewer_count: 0,
     program_present: IProgramDefault,

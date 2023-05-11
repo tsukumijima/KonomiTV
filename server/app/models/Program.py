@@ -33,10 +33,10 @@ class Program(models.Model):
 
     # テーブル設計は Notion を参照のこと
     id: str = fields.TextField(pk=True)
+    channel_id: str = fields.TextField()
     network_id: int = fields.IntField()
     service_id: int = fields.IntField()
     event_id: int = fields.IntField()
-    display_channel_id: str = fields.TextField()  # TODO: 削除予定
     title: str = fields.TextField()
     description: str = fields.TextField()
     detail: dict[str, str] = fields.JSONField(encoder=lambda x: json.dumps(x, ensure_ascii=False))
@@ -307,10 +307,10 @@ class Program(models.Model):
 
                     # 取得してきた値を設定
                     program.id = program_id
+                    program.channel_id = channel.id
                     program.network_id = int(channel.network_id)
                     program.service_id = int(channel.service_id)
                     program.event_id = int(program_info['eventId'])
-                    program.display_channel_id = channel.display_channel_id
                     program.title = title
                     program.description = description
                     program.detail = detail
@@ -504,7 +504,7 @@ class Program(models.Model):
                     tsid = int(program_service['service_info']['tsid'])
 
                     # チャンネル情報を取得
-                    channel = await Channel.filter(network_id = nid, service_id = sid).first()
+                    channel = await Channel.filter(network_id=nid, service_id=sid).first()
                     if channel is None:  # 登録されていないチャンネルの番組を弾く（ワンセグやデータ放送など）
                         continue
 
@@ -592,10 +592,10 @@ class Program(models.Model):
 
                         # 取得してきた値を設定
                         program.id = program_id
+                        program.channel_id = channel.id
                         program.network_id = channel.network_id
                         program.service_id = channel.service_id
                         program.event_id = int(program_info['eid'])
-                        program.display_channel_id = channel.display_channel_id
                         program.title = title
                         program.description = description
                         program.detail = detail
