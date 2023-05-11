@@ -33,7 +33,8 @@ class Program(models.Model):
 
     # テーブル設計は Notion を参照のこと
     id: str = fields.TextField(pk=True)
-    channel_id: str = fields.TextField()
+    channel: fields.ForeignKeyRelation[Channel] = fields.ForeignKeyField('models.Channel', related_name='programs')
+    channel_id: str
     network_id: int = fields.IntField()
     service_id: int = fields.IntField()
     event_id: int = fields.IntField()

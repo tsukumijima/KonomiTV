@@ -19,6 +19,7 @@ class TwitterAccount(models.Model):
     # テーブル設計は Notion を参照のこと
     id: int = fields.IntField(pk=True)
     user: fields.ForeignKeyRelation[User] = fields.ForeignKeyField('models.User', related_name='twitter_accounts')
+    user_id: int
     name: str = fields.TextField()
     screen_name: str = fields.TextField()
     icon_url: str = fields.TextField()
