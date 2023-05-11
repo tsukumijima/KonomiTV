@@ -32,14 +32,14 @@ class Channel(models.Model):
         table: str = 'channels'
 
     # テーブル設計は Notion を参照のこと
-    id: str = fields.TextField(pk=True)
-    display_channel_id: str = fields.TextField()
+    id: str = fields.CharField(255, pk=True)  # type: ignore
+    display_channel_id: str = fields.CharField(255, unique=True)  # type: ignore
     network_id: int = fields.IntField()
     service_id: int = fields.IntField()
     transport_stream_id: int | None = fields.IntField(null=True)
     remocon_id: int = fields.IntField()
-    channel_number: str = fields.TextField()
-    type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO', 'OTHER'] = fields.TextField()  # type: ignore
+    channel_number: str = fields.CharField(255)  # type: ignore
+    type: str = fields.CharField(255)  # type: ignore
     name: str = fields.TextField()
     jikkyo_force: int | None = fields.IntField(null=True)
     is_subchannel: bool = fields.BooleanField()  # type: ignore

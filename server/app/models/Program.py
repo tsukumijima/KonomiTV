@@ -32,8 +32,8 @@ class Program(models.Model):
         table: str = 'programs'
 
     # テーブル設計は Notion を参照のこと
-    id: str = fields.TextField(pk=True)
-    channel: fields.ForeignKeyRelation[Channel] = fields.ForeignKeyField('models.Channel', related_name='programs')
+    id: str = fields.CharField(255, pk=True)  # type: ignore
+    channel: fields.ForeignKeyRelation[Channel] = fields.ForeignKeyField('models.Channel', related_name='programs', index=True)
     channel_id: str
     network_id: int = fields.IntField()
     service_id: int = fields.IntField()
@@ -41,8 +41,8 @@ class Program(models.Model):
     title: str = fields.TextField()
     description: str = fields.TextField()
     detail: dict[str, str] = fields.JSONField(encoder=lambda x: json.dumps(x, ensure_ascii=False))
-    start_time = fields.DatetimeField()
-    end_time = fields.DatetimeField()
+    start_time = fields.DatetimeField(index=True)
+    end_time = fields.DatetimeField(index=True)
     duration: float = fields.FloatField()
     is_free: bool = fields.BooleanField()  # type: ignore
     genre: list[dict[str, str]] = fields.JSONField(encoder=lambda x: json.dumps(x, ensure_ascii=False))
