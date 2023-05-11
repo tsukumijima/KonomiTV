@@ -44,6 +44,7 @@ class Channel(models.Model):
     jikkyo_force: int | None = fields.IntField(null=True)
     is_subchannel: bool = fields.BooleanField()  # type: ignore
     is_radiochannel: bool = fields.BooleanField()  # type: ignore
+    is_watchable: bool = fields.BooleanField()  # type: ignore
     # 本当は型を追加したいが、元々動的に追加される追加カラムなので、型を追加すると諸々エラーが出る
     ## 実際の値は Channel モデルの利用側で Channel.getCurrentAndNextProgram() を呼び出して取得する
     ## モデルの取得は非同期のため、@property は使えない
@@ -145,6 +146,7 @@ class Channel(models.Model):
                 channel.channel_name = TSInformation.formatString(service['name'])
                 channel.channel_type = TSInformation.getNetworkType(channel.network_id)
                 channel.jikkyo_force = None
+                channel.is_watchable = True
 
                 # すでに放送が終了した「FOXスポーツ＆エンターテインメント」「BSスカパー」「Dlife」を除外
                 ## 放送終了後にチャンネルスキャンしていないなどの理由でバックエンド側にチャンネル情報が残っている場合がある
@@ -333,6 +335,7 @@ class Channel(models.Model):
                 channel.channel_name = TSInformation.formatString(service['service_name'])
                 channel.channel_type = TSInformation.getNetworkType(channel.network_id)
                 channel.jikkyo_force = None
+                channel.is_watchable = True
 
                 # すでに放送が終了した「FOXスポーツ＆エンターテインメント」「BSスカパー」「Dlife」を除外
                 ## 放送終了後にチャンネルスキャンしていないなどの理由でバックエンド側にチャンネル情報が残っている場合がある
