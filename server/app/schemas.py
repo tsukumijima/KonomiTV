@@ -44,6 +44,7 @@ class Config(BaseModel):
 
 # Channel モデルで Program モデルを使っているため、先に定義する
 class Program(pydantic_model_creator(models.Program, name='Program')):
+    channel_id: str
     class Genre(BaseModel):
         major: str
         middle: str

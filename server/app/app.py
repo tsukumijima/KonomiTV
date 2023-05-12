@@ -131,10 +131,10 @@ tortoise.contrib.fastapi.logging = logging.getLogger('uvicorn')  # type: ignore
 ## Tortoise ORM を登録する
 ## ref: https://tortoise-orm.readthedocs.io/en/latest/contrib/fastapi.html
 tortoise.contrib.fastapi.register_tortoise(
-    app=app,
-    config=DATABASE_CONFIG,
-    generate_schemas=True,
-    add_exception_handlers=True,
+    app = app,
+    config = DATABASE_CONFIG,
+    generate_schemas = True,
+    add_exception_handlers = True,
 )
 
 # サーバーの起動時に実行する

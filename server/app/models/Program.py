@@ -258,14 +258,16 @@ class Program(models.Model):
                         for head, text in program_info['extended'].items():
 
                             # 見出しと本文
-                            head_han = TSInformation.formatString(head).replace('◇', '')  # ◇ を取り除く
-                            text_han = TSInformation.formatString(text)
-                            detail[head_han] = text_han
+                            head_hankaku = TSInformation.formatString(head).replace('◇', '').strip()  # ◇ を取り除く
+                            if head_hankaku == '':  # 見出しが空の場合、固定で「番組内容」としておく
+                                head_hankaku = '番組内容'
+                            text_hankaku = TSInformation.formatString(text).strip()
+                            detail[head_hankaku] = text_hankaku
 
                             # 番組概要が空の場合、番組詳細の最初の本文を概要として使う
                             # 空でまったく情報がないよりかは良いはず
                             if description.strip() == '':
-                                description = text_han
+                                description = text_hankaku
 
                     # 番組開始時刻・番組終了時刻
                     start_time = MillisecondToDatetime(program_info['startAt'])
@@ -335,9 +337,9 @@ class Program(models.Model):
                     program.duration = (program.end_time - program.start_time).total_seconds()
 
                     # 映像情報
-                    program.video_type = ''  # デフォルト値
-                    program.video_codec = ''  # デフォルト値
-                    program.video_resolution = ''  # デフォルト値
+                    program.video_type = None
+                    program.video_codec = None
+                    program.video_resolution = None
                     if 'video' in program_info:
                         program.video_type = ariblib.constants.COMPONENT_TYPE \
                             [program_info['video']['streamContent']][program_info['video']['componentType']]
@@ -345,9 +347,12 @@ class Program(models.Model):
                         program.video_resolution = program_info['video']['resolution']
 
                     # 音声情報
-                    program.primary_audio_type = ''  # デフォルト値
-                    program.primary_audio_language = ''  # デフォルト値
-                    program.primary_audio_sampling_rate = ''  # デフォルト値
+                    program.primary_audio_type = ''
+                    program.primary_audio_language = ''
+                    program.primary_audio_sampling_rate = ''
+                    program.secondary_audio_type = None
+                    program.secondary_audio_language = None
+                    program.secondary_audio_sampling_rate = None
 
                     ## Mirakurun 3.9 以降向け
                     ## ref: https://github.com/Chinachu/Mirakurun/blob/master/api.d.ts#L88-L105
@@ -538,16 +543,16 @@ class Program(models.Model):
                             for head, text in EDCBUtil.parseProgramExtendedText(program_info['ext_info']['text_char']).items():
 
                                 # 見出しと本文
-                                head_han = TSInformation.formatString(head).replace('◇', '')  # ◇ を取り除く
-                                if head_han == '':  # 見出しが空の場合、固定で「番組内容」としておく
-                                    head_han = '番組内容'
-                                text_han = TSInformation.formatString(text)
-                                detail[head_han] = text_han
+                                head_hankaku = TSInformation.formatString(head).replace('◇', '').strip()  # ◇ を取り除く
+                                if head_hankaku == '':  # 見出しが空の場合、固定で「番組内容」としておく
+                                    head_hankaku = '番組内容'
+                                text_hankaku = TSInformation.formatString(text).strip()
+                                detail[head_hankaku] = text_hankaku
 
                                 # 番組概要が空の場合、番組詳細の最初の本文を概要として使う
                                 # 空でまったく情報がないよりかは良いはず
                                 if description.strip() == '':
-                                    description = text_han
+                                    description = text_hankaku
 
                         # 番組開始時刻
                         start_time: datetime.datetime = program_info['start_time']
@@ -607,9 +612,9 @@ class Program(models.Model):
 
                         # 映像情報
                         ## テキストにするために ariblib.constants や TSInformation の値を使う
-                        program.video_type = ''  # デフォルト値
-                        program.video_codec = ''  # デフォルト値
-                        program.video_resolution = ''  # デフォルト値
+                        program.video_type = None
+                        program.video_codec = None
+                        program.video_resolution = None
                         component_info = program_info.get('component_info')
                         if component_info is not None:
                             ## 映像の種類
@@ -622,9 +627,12 @@ class Program(models.Model):
                             program.video_resolution = TSInformation.COMPONENT_TYPE.get(component_info['component_type'], '')
 
                         # 音声情報
-                        program.primary_audio_type = ''  # デフォルト値
-                        program.primary_audio_language = ''  # デフォルト値
-                        program.primary_audio_sampling_rate = ''  # デフォルト値
+                        program.primary_audio_type = ''
+                        program.primary_audio_language = ''
+                        program.primary_audio_sampling_rate = ''
+                        program.secondary_audio_type = None
+                        program.secondary_audio_language = None
+                        program.secondary_audio_sampling_rate = None
                         audio_info = program_info.get('audio_info')
                         if audio_info is not None and len(audio_info['component_list']) > 0:
 
