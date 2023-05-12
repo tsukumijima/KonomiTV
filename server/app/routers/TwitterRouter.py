@@ -57,6 +57,18 @@ error_messages = {
 }
 
 
+# Twitter API のエラーコードからエラーメッセージを生成して HTTPException を発生させる
+def RaiseHTTPException(ex: tweepy.HTTPException) -> None:
+    if len(ex.api_codes) > 0 and len(ex.api_messages) > 0:
+        error_message = f'Code: {ex.api_codes[0]}, Message: {error_messages.get(ex.api_codes[0], ex.api_messages[0])}'
+    else:
+        error_message = f'Unknown Error (HTTP Error {ex.response.status_code})'
+    raise HTTPException(
+        status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail = f'Failed to Twitter API operation ({error_message})'
+    )
+
+
 # 現在ログイン中のユーザーに紐づく Twitter アカウントを取得する
 async def GetCurrentTwitterAccount(
     screen_name: str = Path(..., description='Twitter アカウントのスクリーンネーム。'),
@@ -77,6 +89,11 @@ async def GetCurrentTwitterAccount(
         )
 
     return twitter_account
+
+
+# 現在ログイン中のユーザーに紐づく Twitter アカウントの Tweepy インスタンスを取得する
+def GetCurrentTwitterAccountAPI(twitter_account: TwitterAccount = Depends(GetCurrentTwitterAccount)) -> tweepy.API:
+    return twitter_account.getTweepyAPI()
 
 
 @router.get(
@@ -222,7 +239,7 @@ async def TwitterAuthCallbackAPI(
         )
 
     # tweepy の API インスタンスを取得
-    api = await twitter_account.getTweepyAPI()
+    api = twitter_account.getTweepyAPI()
 
     # アカウント情報を更新
     try:
@@ -296,7 +313,7 @@ async def TwitterPasswordAuthAPI(
         if len(ex.api_codes) > 0 and len(ex.api_messages) > 0:
             error_message = f'Code: {ex.api_codes[0]}, Message: {ex.api_messages[0]}'
         else:
-            error_message = 'Unknown Error'
+            error_message = f'Unknown Error (HTTP Error {ex.response.status_code})'
         Logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] Failed to authenticate with password ({error_message}) [screen_name: {password_auth_request.screen_name}]')
         raise HTTPException(
             status_code = status.HTTP_401_UNAUTHORIZED,
@@ -328,7 +345,7 @@ async def TwitterPasswordAuthAPI(
     )
 
     # tweepy の API インスタンスを取得
-    api = await twitter_account.getTweepyAPI()
+    api = twitter_account.getTweepyAPI()
 
     # アカウント情報を更新
     try:
@@ -382,7 +399,7 @@ async def TwitterAccountDeleteAPI(
     # Cookie セッションでは、明示的にログアウト処理を行う
     ## 単に Cookie を削除するだけだと Twitter 側にログインセッションが残り続けてしまう
     if twitter_account.access_token == 'COOKIE_SESSION':
-        auth_handler = cast(CookieSessionUserHandler, await twitter_account.getTweepyAuthHandler())
+        auth_handler = cast(CookieSessionUserHandler, twitter_account.getTweepyAuthHandler())
         try:
             await asyncio.to_thread(auth_handler.logout)
         except tweepy.HTTPException as ex:
@@ -390,7 +407,7 @@ async def TwitterAccountDeleteAPI(
             if len(ex.api_codes) > 0 and len(ex.api_messages) > 0:
                 error_message = f'Code: {ex.api_codes[0]}, Message: {ex.api_messages[0]}'
             else:
-                error_message = 'Unknown Error'
+                error_message = f'Unknown Error (HTTP Error {ex.response.status_code})'
             Logging.error(f'[TwitterRouter][TwitterAccountDeleteAPI] Failed to logout ({error_message}) [screen_name: {twitter_account.screen_name}]')
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -419,7 +436,7 @@ async def TwitterAccountDeleteAPI(
 async def TwitterTweetAPI(
     tweet: str = Form('', description='ツイートの本文（基本的には140文字まで）。'),
     images: list[UploadFile] | None = File(None, description='ツイートに添付する画像（4枚まで）。'),
-    twitter_account: TwitterAccount = Depends(GetCurrentTwitterAccount),
+    twitter_account_api: tweepy.API = Depends(GetCurrentTwitterAccountAPI),
 ):
     """
     Twitter にツイートを送信する。<br>
@@ -438,9 +455,6 @@ async def TwitterTweetAPI(
             detail = 'Can tweet up to 4 images',
         )
 
-    # tweepy の API インスタンスを取得
-    api = await twitter_account.getTweepyAPI()
-
     # アップロードした画像の media_id のリスト
     media_ids: list[str] = []
 
@@ -449,7 +463,7 @@ async def TwitterTweetAPI(
         # 画像をアップロードするタスク
         image_upload_task: list[Coroutine] = []
         for image in images:
-            image_upload_task.append(asyncio.to_thread(api.media_upload, filename=image.filename, file=image.file))
+            image_upload_task.append(asyncio.to_thread(twitter_account_api.media_upload, filename=image.filename, file=image.file))
 
         # 画像を Twitter にアップロード
         ## asyncio.gather() で同時にアップロードし、ツイートをより早く送信できるように
@@ -458,23 +472,23 @@ async def TwitterTweetAPI(
             media_ids.append(image_upload_result.media_id)
 
         # ツイートを送信
-        result = await asyncio.to_thread(api.update_status, tweet, media_ids=media_ids)
+        result = await asyncio.to_thread(twitter_account_api.update_status, tweet, media_ids=media_ids)
 
     # 送信失敗
     except tweepy.HTTPException as ex:
 
-        # API のエラーコードがない
-        if len(ex.api_codes) == 0:
-            return {
-                'is_success': False,
-                'detail': f'Message: {ex.api_errors[0]} (HTTP Error {ex.response.status_code})',
-            }
+        if len(ex.api_codes) > 0 and len(ex.api_messages) > 0:
+            # 定義されていないエラーコードの時は Twitter API から返ってきたエラーメッセージをそのまま返す
+            error_message = error_messages.get(ex.api_codes[0], f'Code: {ex.api_codes[0]}, Message: {ex.api_messages[0]}')
+        else:
+            if len(ex.api_errors) > 0:
+                error_message = f'Message: {ex.api_errors[0]} (HTTP Error {ex.response.status_code})'
+            else:
+                error_message = f'Unknown Error (HTTP Error {ex.response.status_code})'
 
-        # エラーメッセージ
-        # 定義されていないエラーコードの時は Twitter API から返ってきたエラーをそのまま返す
         return {
             'is_success': False,
-            'detail': error_messages.get(ex.api_codes[0], f'Code: {ex.api_codes[0]}, Message: {ex.api_messages[0]}'),
+            'detail': error_message,
         }
 
     return {
@@ -487,53 +501,92 @@ async def TwitterTweetAPI(
 @router.put(
     '/accounts/{screen_name}/tweets/{tweet_id}/retweet',
     summary = 'リツイート実行 API',
+    status_code = status.HTTP_204_NO_CONTENT,
 )
 async def TwitterRetweetAPI(
     tweet_id: str = Path(..., description='リツイートするツイートの ID。'),
-    twitter_account: TwitterAccount = Depends(GetCurrentTwitterAccount),
+    twitter_account_api: tweepy.API = Depends(GetCurrentTwitterAccountAPI),
 ):
     """
-    API 実装中…（モックアップ）
+    指定されたツイートをリツイートする。<br>
+    リツイートには screen_name で指定したスクリーンネームに紐づく Twitter アカウントが利用される。
+
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
+
+    # ツイートをリツイート
+    try:
+        await asyncio.to_thread(twitter_account_api.retweet, tweet_id)
+    except tweepy.HTTPException as ex:
+        RaiseHTTPException(ex)
 
 
 @router.delete(
     '/accounts/{screen_name}/tweets/{tweet_id}/retweet',
     summary = 'リツイート取り消し API',
+    status_code = status.HTTP_204_NO_CONTENT,
 )
 async def TwitterRetweetCancelAPI(
     tweet_id: str = Path(..., description='リツイートを取り消すツイートの ID。'),
-    twitter_account: TwitterAccount = Depends(GetCurrentTwitterAccount),
+    twitter_account_api: tweepy.API = Depends(GetCurrentTwitterAccountAPI),
 ):
     """
-    API 実装中…（モックアップ）
+    指定されたツイートのリツイートを取り消す。<br>
+    リツイートの取り消しには screen_name で指定したスクリーンネームに紐づく Twitter アカウントが利用される。
+
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
+
+    # ツイートのリツイートを取り消し
+    try:
+        await asyncio.to_thread(twitter_account_api.unretweet, tweet_id)
+    except tweepy.HTTPException as ex:
+        RaiseHTTPException(ex)
 
 
 @router.put(
     '/accounts/{screen_name}/tweets/{tweet_id}/favorite',
     summary = 'いいね実行 API',
+    status_code = status.HTTP_204_NO_CONTENT,
 )
 async def TwitterFavoriteAPI(
     tweet_id: str = Path(..., description='いいねするツイートの ID。'),
-    twitter_account: TwitterAccount = Depends(GetCurrentTwitterAccount),
+    twitter_account_api: tweepy.API = Depends(GetCurrentTwitterAccountAPI),
 ):
     """
-    API 実装中…（モックアップ）
+    指定されたツイートをいいねする。<br>
+    いいねには screen_name で指定したスクリーンネームに紐づく Twitter アカウントが利用される。
+
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
+
+    # ツイートをいいね
+    try:
+        await asyncio.to_thread(twitter_account_api.create_favorite, tweet_id)
+    except tweepy.HTTPException as ex:
+        RaiseHTTPException(ex)
 
 
 @router.delete(
     '/accounts/{screen_name}/tweets/{tweet_id}/favorite',
     summary = 'いいね取り消し API',
+    status_code = status.HTTP_204_NO_CONTENT,
 )
 async def TwitterFavoriteCancelAPI(
     tweet_id: str = Path(..., description='いいねを取り消すツイートの ID。'),
-    twitter_account: TwitterAccount = Depends(GetCurrentTwitterAccount),
+    twitter_account_api: tweepy.API = Depends(GetCurrentTwitterAccountAPI),
 ):
     """
-    API 実装中…（モックアップ）
+    指定されたツイートのいいねを取り消す。<br>
+    いいねの取り消しには screen_name で指定したスクリーンネームに紐づく Twitter アカウントが利用される。
+
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
+    # ツイートのいいねを取り消し
+    try:
+        await asyncio.to_thread(twitter_account_api.destroy_favorite, tweet_id)
+    except tweepy.HTTPException as ex:
+        RaiseHTTPException(ex)
 
 
 @router.get(
@@ -541,7 +594,7 @@ async def TwitterFavoriteCancelAPI(
     summary = 'ホームタイムライン取得 API',
 )
 async def TwitterTimelineAPI(
-    twitter_account: TwitterAccount = Depends(GetCurrentTwitterAccount),
+    twitter_account_api: tweepy.API = Depends(GetCurrentTwitterAccountAPI),
 ):
     """
     API 実装中…（モックアップ）

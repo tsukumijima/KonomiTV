@@ -46,7 +46,7 @@ class TwitterAccount(models.Model):
                 continue
 
             # tweepy の API インスタンスを取得
-            api = await twitter_account.getTweepyAPI()
+            api = twitter_account.getTweepyAPI()
 
             # アカウント情報を更新
             try:
@@ -65,7 +65,7 @@ class TwitterAccount(models.Model):
             await twitter_account.save()
 
 
-    async def getTweepyAuthHandler(self) -> tweepy.OAuth1UserHandler | CookieSessionUserHandler:
+    def getTweepyAuthHandler(self) -> tweepy.OAuth1UserHandler | CookieSessionUserHandler:
         """
         tweepy の認証ハンドラーを取得する
 
@@ -99,7 +99,7 @@ class TwitterAccount(models.Model):
         return auth_handler
 
 
-    async def getTweepyAPI(self) -> tweepy.API:
+    def getTweepyAPI(self) -> tweepy.API:
         """
         tweepy の API インスタンスを取得する
 
@@ -108,4 +108,4 @@ class TwitterAccount(models.Model):
         """
 
         # auth_handler で初期化した tweepy.API インスタンスを返す
-        return tweepy.API(auth=await self.getTweepyAuthHandler())
+        return tweepy.API(auth=self.getTweepyAuthHandler())
