@@ -205,6 +205,28 @@ class LiveStreamLLHLSClientID(BaseModel):
 class ThirdpartyAuthURL(BaseModel):
     authorization_url: str
 
+class TweetUser(BaseModel):
+    id: str
+    name: str
+    screen_name: str
+    icon_url: str
+
+class Tweet(BaseModel):
+    id: str
+    created_at: datetime
+    user: TweetUser
+    text: str
+    lang: str
+    via: str
+    image_urls: list[str]
+    retweet_count: int
+    retweeted: bool
+    favorite_count: int
+    favorited: bool
+
+class Tweets(BaseModel):
+    __root__: list[Tweet]
+
 class TweetResult(BaseModel):
     is_success: bool
     tweet_url: str | None

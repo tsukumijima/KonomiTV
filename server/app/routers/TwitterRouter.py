@@ -1,7 +1,9 @@
 
 import asyncio
 import json
+import re
 import tweepy
+import tweepy.models
 from fastapi import APIRouter
 from fastapi import Body
 from fastapi import Depends
@@ -592,13 +594,64 @@ async def TwitterFavoriteCancelAPI(
 @router.get(
     '/accounts/{screen_name}/timeline',
     summary = 'ホームタイムライン取得 API',
+    response_description = 'タイムラインのツイートのリスト。',
+    response_model = schemas.Tweets,
 )
 async def TwitterTimelineAPI(
+    since_tweet_id: str | None = Query(None, description='取得するツイートの ID の開始位置。'),
     twitter_account_api: tweepy.API = Depends(GetCurrentTwitterAccountAPI),
 ):
     """
-    API 実装中…（モックアップ）
+    ホームタイムラインを取得する。<br>
+    ホームタイムラインの取得には screen_name で指定したスクリーンネームに紐づく Twitter アカウントが利用される。
+
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
+
+    try:
+
+        # ホームタイムラインを取得
+        timelines = twitter_account_api.home_timeline(
+            count = 200,
+            since_id = since_tweet_id,
+            trim_user = False,
+            exclude_replies = True,
+            include_entities = True,
+            tweet_mode = 'extended',
+        )
+
+        # レスポンス用に情報を整形
+        tweets: list[schemas.Tweet] = []
+        for timeline in timelines:
+            image_urls: list[str] = []
+            if 'media' in timeline.entities:
+                for media in timeline.entities['media']:
+                    image_urls.append(media['media_url_https'])
+
+            tweets.append(schemas.Tweet(
+                id = timeline.id_str,
+                created_at = timeline.created_at,
+                user = schemas.TweetUser(
+                    id = timeline.user.id_str,
+                    name = timeline.user.name,
+                    screen_name = timeline.user.screen_name,
+                    ## (ランダムな文字列)_normal.jpg だと画像サイズが小さいので、(ランダムな文字列).jpg に置換
+                    icon_url = timeline.user.profile_image_url_https.replace('_normal', ''),
+                ),
+                text = timeline.full_text,
+                lang = timeline.lang,
+                via = re.sub(r'<.+?>', '', timeline.source),
+                image_urls = image_urls,
+                retweet_count = timeline.retweet_count,
+                favorite_count = timeline.favorite_count,
+                retweeted = timeline.retweeted,
+                favorited = timeline.favorited,
+            ))
+
+        return tweets
+
+    except tweepy.HTTPException as ex:
+        RaiseHTTPException(ex)
 
 
 @router.get(
