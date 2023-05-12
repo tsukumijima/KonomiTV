@@ -157,8 +157,8 @@ def main():
     ## リッスンポートとカスタム HTTPS 証明書/秘密鍵はすでにバリデーション済み
     ## Pydantic のエラーメッセージだけだと分かりづらいので、よくありがちな上2つのエラーに関しては別でエラーメッセージを用意している
     try:
-        from app.schemas import Config
-        Config(**cast(Any, CONFIG))
+        from app.schemas import ServerSettings
+        ServerSettings(**cast(Any, CONFIG))
     except ValidationError as error:
         logger.error('設定内容が不正なため、KonomiTV を起動できません。')
         logger.error('以下のエラーメッセージを参考に、config.yaml の記述が正しいかを確認してください。')

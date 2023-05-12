@@ -6,10 +6,52 @@ from tortoise.contrib.pydantic import PydanticModel
 from typing import Literal
 
 
-# サーバー設定を表す Pydantic モデル
-# バリデーションはサーバー設定をこの Pydantic モデルに通すことで行う
+# クライアント設定を表す Pydantic モデル (クライアント設定同期用 API で利用)
+# デバイス間で同期するとかえって面倒なことになりそうな設定は除外されている
+# 詳細は client/src/services/Settings.ts と client/src/store/SettingsStore.ts を参照
 
-class Config(BaseModel):
+class ClientSettings(BaseModel):
+    pinned_channel_ids: list[str] = Field([])
+    # showed_panel_last_time: 同期無効
+    # selected_twitter_account_id: 同期無効
+    saved_twitter_hashtags: list[str] = Field([])
+    # tv_streaming_quality: 同期無効
+    # tv_data_saver_mode: 同期無効
+    # tv_low_latency_mode: 同期無効
+    panel_display_state: Literal['RestorePreviousState', 'AlwaysDisplay', 'AlwaysFold'] = Field('RestorePreviousState')
+    tv_panel_active_tab: Literal['Program', 'Channel', 'Comment', 'Twitter'] = Field('Program')
+    tv_channel_selection_requires_alt_key: bool = Field(False)
+    caption_font: str = Field('Windows TV MaruGothic')
+    always_border_caption_text: bool = Field(True)
+    specify_caption_opacity: bool = Field(False)
+    caption_opacity: float = Field(1.0)
+    tv_show_superimpose: bool = Field(True)
+    # capture_copy_to_clipboard: 同期無効
+    capture_save_mode: Literal['Browser', 'UploadServer', 'Both'] = Field('UploadServer')
+    capture_caption_mode: Literal['VideoOnly', 'CompositingCaption', 'Both'] = Field('Both')
+    # sync_settings: 同期無効
+    comment_speed_rate: float = Field(1)
+    comment_font_size: int = Field(34)
+    close_comment_form_after_sending: bool = Field(True)
+    muted_comment_keywords: list[dict[str, str]] = Field([])
+    muted_niconico_user_ids: list[str] = Field([])
+    mute_vulgar_comments: bool = Field(True)
+    mute_abusive_discriminatory_prejudiced_comments: bool = Field(True)
+    mute_big_size_comments: bool = Field(True)
+    mute_fixed_comments: bool = Field(False)
+    mute_colored_comments: bool = Field(False)
+    mute_consecutive_same_characters_comments: bool = Field(False)
+    fold_panel_after_sending_tweet: bool = Field(False)
+    reset_hashtag_when_program_switches: bool = Field(True)
+    auto_add_watching_channel_hashtag: bool = Field(True)
+    twitter_active_tab: Literal['Search', 'Timeline', 'Capture'] = Field('Capture')
+    tweet_hashtag_position: Literal['Prepend', 'Append', 'PrependWithLineBreak', 'AppendWithLineBreak'] = Field('Append')
+    tweet_capture_watermark_position: Literal['None', 'TopLeft', 'TopRight', 'BottomLeft', 'BottomRight'] = Field('None')
+
+# サーバー設定を表す Pydantic モデル
+# config.yaml のバリデーションは設定データをこの Pydantic モデルに通すことで行う
+
+class ServerSettings(BaseModel):
     class General(BaseModel):
         backend: Literal['EDCB', 'Mirakurun']
         mirakurun_url: AnyHttpUrl
@@ -115,7 +157,7 @@ class User(PydanticModel):
     updated_at: datetime
 
 # API リクエストに利用する Pydantic モデル
-# リクエストボティの JSON の構造を表す
+# リクエストボティの JSON 構造を表す
 
 class UserCreateRequest(BaseModel):
     username: str
@@ -135,7 +177,7 @@ class TwitterPasswordAuthRequest(BaseModel):
     password: str
 
 # API レスポンスに利用する Pydantic モデル
-# モデルを list や dict でまとめたものが中心
+# レスポンスボディの JSON 構造を表す
 
 class Channels(BaseModel):
     GR: list[Channel]
@@ -159,46 +201,6 @@ class LiveStreams(BaseModel):
 
 class LiveStreamLLHLSClientID(BaseModel):
     client_id: str
-
-class ClientSettings(BaseModel):
-    # 詳細は client/src/services/Settings.ts と client/src/store/SettingsStore.ts を参照
-    # デバイス間で同期するとかえって面倒なことになりそうな設定は除外している
-    pinned_channel_ids: list[str] = Field([])
-    # showed_panel_last_time: 同期無効
-    # selected_twitter_account_id: 同期無効
-    saved_twitter_hashtags: list[str] = Field([])
-    # tv_streaming_quality: 同期無効
-    # tv_data_saver_mode: 同期無効
-    # tv_low_latency_mode: 同期無効
-    panel_display_state: Literal['RestorePreviousState', 'AlwaysDisplay', 'AlwaysFold'] = Field('RestorePreviousState')
-    tv_panel_active_tab: Literal['Program', 'Channel', 'Comment', 'Twitter'] = Field('Program')
-    tv_channel_selection_requires_alt_key: bool = Field(False)
-    caption_font: str = Field('Windows TV MaruGothic')
-    always_border_caption_text: bool = Field(True)
-    specify_caption_opacity: bool = Field(False)
-    caption_opacity: float = Field(1.0)
-    tv_show_superimpose: bool = Field(True)
-    # capture_copy_to_clipboard: 同期無効
-    capture_save_mode: Literal['Browser', 'UploadServer', 'Both'] = Field('UploadServer')
-    capture_caption_mode: Literal['VideoOnly', 'CompositingCaption', 'Both'] = Field('Both')
-    # sync_settings: 同期無効
-    comment_speed_rate: float = Field(1)
-    comment_font_size: int = Field(34)
-    close_comment_form_after_sending: bool = Field(True)
-    muted_comment_keywords: list[dict[str, str]] = Field([])
-    muted_niconico_user_ids: list[str] = Field([])
-    mute_vulgar_comments: bool = Field(True)
-    mute_abusive_discriminatory_prejudiced_comments: bool = Field(True)
-    mute_big_size_comments: bool = Field(True)
-    mute_fixed_comments: bool = Field(False)
-    mute_colored_comments: bool = Field(False)
-    mute_consecutive_same_characters_comments: bool = Field(False)
-    fold_panel_after_sending_tweet: bool = Field(False)
-    reset_hashtag_when_program_switches: bool = Field(True)
-    auto_add_watching_channel_hashtag: bool = Field(True)
-    twitter_active_tab: Literal['Search', 'Timeline', 'Capture'] = Field('Capture')
-    tweet_hashtag_position: Literal['Prepend', 'Append', 'PrependWithLineBreak', 'AppendWithLineBreak'] = Field('Append')
-    tweet_capture_watermark_position: Literal['None', 'TopLeft', 'TopRight', 'BottomLeft', 'BottomRight'] = Field('None')
 
 class ThirdpartyAuthURL(BaseModel):
     authorization_url: str
