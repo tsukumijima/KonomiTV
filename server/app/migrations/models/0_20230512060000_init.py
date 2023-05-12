@@ -23,7 +23,7 @@ CREATE TABLE "channels" (
 DROP TABLE IF EXISTS "programs";
 CREATE TABLE "programs" (
     "id" VARCHAR(255) NOT NULL PRIMARY KEY,
-    "channel_id" VARCHAR(255) NOT NULL REFERENCES "channels" ("id") ON DELETE CASCADE,
+    "channel_id" VARCHAR(255) NOT NULL,
     "network_id" INT NOT NULL,
     "service_id" INT NOT NULL,
     "event_id" INT NOT NULL,
@@ -43,7 +43,8 @@ CREATE TABLE "programs" (
     "primary_audio_sampling_rate" TEXT NOT NULL,
     "secondary_audio_type" TEXT,
     "secondary_audio_language" TEXT,
-    "secondary_audio_sampling_rate" TEXT
+    "secondary_audio_sampling_rate" TEXT,
+    FOREIGN KEY ("channel_id") REFERENCES "channels" ("id") ON DELETE CASCADE
 );
 DROP INDEX IF EXISTS "programs_time_index";
 CREATE INDEX "programs_time_index" ON "programs" (
@@ -67,14 +68,15 @@ CREATE TABLE IF NOT EXISTS "users" (
 );
 CREATE TABLE IF NOT EXISTS "twitter_accounts" (
     "id" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-    "user_id" INT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
+    "user_id" INT NOT NULL,
     "name" TEXT NOT NULL,
     "screen_name" TEXT NOT NULL,
     "icon_url" TEXT NOT NULL,
     "access_token" TEXT NOT NULL,
     "access_token_secret" TEXT NOT NULL,
     "created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "updated_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE
 );
 DROP TABLE IF EXISTS "aerich";
 CREATE TABLE IF NOT EXISTS "aerich" (

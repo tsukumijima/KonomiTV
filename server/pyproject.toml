@@ -1,5 +1,5 @@
 
 [tool.aerich]
 tortoise_orm = "app.constants.DATABASE_CONFIG"
-location = "./app/migrations"
-src_folder = "./."
+location = "./app/migrations/"
+src_folder = "./"

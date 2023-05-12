@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# Usage: pipenv run python -m misc.LiveBitrateCalculator
+
 import requests
 import time
 from concurrent.futures import ThreadPoolExecutor
