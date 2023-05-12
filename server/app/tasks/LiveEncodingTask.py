@@ -416,7 +416,7 @@ class LiveEncodingTask:
                 end_time = datetime(2000, 1, 1, 0, 0, 0, tzinfo=timezone.get_default_timezone()),
                 duration = 0,
                 is_free = True,
-                genre = []
+                genres = []
             )
 
         Logging.info(f'[Live: {self.livestream.livestream_id}] Title:{program_present.title}')

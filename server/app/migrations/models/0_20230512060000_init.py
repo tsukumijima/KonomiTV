@@ -34,7 +34,7 @@ CREATE TABLE "programs" (
     "end_time" TIMESTAMP NOT NULL,
     "duration" REAL NOT NULL,
     "is_free" INT NOT NULL,
-    "genre" JSON NOT NULL,
+    "genres" JSON NOT NULL,
     "video_type" TEXT,
     "video_codec" TEXT,
     "video_resolution" TEXT,

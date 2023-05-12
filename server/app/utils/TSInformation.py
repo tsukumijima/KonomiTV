@@ -461,7 +461,7 @@ class TSInformation:
             'end_time': None,
             'duration': None,
             'is_free': None,
-            'genre': None,
+            'genres': None,
             'video': {
                 'type': None,
                 'codec': None,
@@ -552,7 +552,7 @@ class TSInformation:
 
                     ## ジャンル
                     if hasattr(event, 'genre'):
-                        result['genre'] = []
+                        result['genres'] = []
                         for index, _ in enumerate(event.genre):  # ジャンルごとに
 
                             # major … 大分類
@@ -572,7 +572,7 @@ class TSInformation:
                                     continue
 
                             # ジャンルを追加
-                            result['genre'].append(genre_dict)
+                            result['genres'].append(genre_dict)
 
                     ## 映像情報
                     if hasattr(event, 'video'):  ## 映像の種別
@@ -642,8 +642,8 @@ class TSInformation:
             if count > 100:
                 if result['detail'] is None:
                     result['detail'] = {}
-                if result['genre'] is None:
-                    result['genre'] = []
+                if result['genres'] is None:
+                    result['genres'] = []
 
             # ループが 1000 回を超えたら（＝10回シークしても放送時間が確定しなかったら）、タイムアウトでループを抜ける
             if count > 1000:

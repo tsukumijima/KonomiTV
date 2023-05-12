@@ -17,7 +17,7 @@
             </div>
             <div class="program-info__genre-container">
                 <div class="program-info__genre" :key="genre_index"
-                    v-for="(genre, genre_index) in ProgramUtils.getAttribute(channelsStore.channel.current.program_present, 'genre', [])">
+                    v-for="(genre, genre_index) in ProgramUtils.getAttribute(channelsStore.channel.current.program_present, 'genres', [])">
                     {{genre.major}} / {{genre.middle}}
                 </div>
             </div>

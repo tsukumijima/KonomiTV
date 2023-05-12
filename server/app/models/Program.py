@@ -45,7 +45,7 @@ class Program(models.Model):
     end_time = fields.DatetimeField(index=True)
     duration: float = fields.FloatField()
     is_free: bool = fields.BooleanField()  # type: ignore
-    genre: list[dict[str, str]] = fields.JSONField(encoder=lambda x: json.dumps(x, ensure_ascii=False))
+    genres: list[dict[str, str]] = fields.JSONField(encoder=lambda x: json.dumps(x, ensure_ascii=False))
     video_type: str | None = fields.TextField(null=True)
     video_codec: str | None = fields.TextField(null=True)
     video_resolution: str | None = fields.TextField(null=True)
@@ -396,7 +396,7 @@ class Program(models.Model):
 
                     # ジャンル
                     ## 数字だけでは開発中の視認性が低いのでテキストに変換する
-                    program.genre = []  # デフォルト値
+                    program.genres = []  # デフォルト値
                     if 'genres' in program_info:
                         for genre in program_info['genres']:  # ジャンルごとに
 
@@ -418,7 +418,7 @@ class Program(models.Model):
                                     continue
 
                             # ジャンルを追加
-                            program.genre.append(genre_dict)
+                            program.genres.append(genre_dict)
 
                     # 番組情報をデータベースに保存する
                     if duplicate_program is None:
@@ -667,7 +667,7 @@ class Program(models.Model):
 
                         # ジャンル
                         ## 数字だけでは開発中の視認性が低いのでテキストに変換する
-                        program.genre = []  # デフォルト値
+                        program.genres = []  # デフォルト値
                         content_info = program_info.get('content_info')
                         if content_info is not None:
                             for content_data in content_info['nibble_list']:  # ジャンルごとに
@@ -694,7 +694,7 @@ class Program(models.Model):
                                             continue
 
                                     # ジャンルを追加
-                                    program.genre.append(genre_dict)
+                                    program.genres.append(genre_dict)
 
                         # 番組情報をデータベースに保存する
                         if duplicate_program is None:

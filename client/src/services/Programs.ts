@@ -13,7 +13,7 @@ export interface IProgram {
     end_time: string;
     duration: number;
     is_free: boolean;
-    genre: {major: string; middle: string}[];
+    genres: {major: string; middle: string;}[];
     video_type: string;
     video_codec: string;
     video_resolution: string;
@@ -39,7 +39,7 @@ export const IProgramDefault: IProgram = {
     end_time: '2000-01-01T00:00:00+09:00',
     duration: 0,
     is_free: true,
-    genre: [],
+    genres: [],
     video_type: '映像1080i(1125i)、アスペクト比16:9 パンベクトルなし',
     video_codec: 'mpeg2',
     video_resolution: '1080i',

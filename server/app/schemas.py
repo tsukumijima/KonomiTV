@@ -45,11 +45,11 @@ class Config(BaseModel):
 # Channel モデルで Program モデルを使っているため、先に定義する
 class Program(pydantic_model_creator(models.Program, name='Program')):
     channel_id: str
-    class Genre(BaseModel):
+    class Genres(BaseModel):
         major: str
         middle: str
     detail: dict[str, str]
-    genre: list[Genre]
+    genres: list[Genres]
 
 class Channel(pydantic_model_creator(models.Channel, name='Channel')):
     is_display: bool  # 追加カラム

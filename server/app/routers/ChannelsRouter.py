@@ -215,7 +215,7 @@ async def ChannelsAPI():
                 channel_dict['program_present']['start_time'] = channel_dict['program_present']['start_time'].replace(' ', 'T')
                 channel_dict['program_present']['end_time'] = channel_dict['program_present']['end_time'].replace(' ', 'T')
                 channel_dict['program_present']['is_free'] = bool(channel_dict['program_present']['is_free'])
-                channel_dict['program_present']['genre'] = json.loads(channel_dict['program_present']['genre'])
+                channel_dict['program_present']['genres'] = json.loads(channel_dict['program_present']['genres'])
                 channel_dict['program_present'].pop('is_present')
                 channel_dict['program_present'].pop('program_order')
             if channel_dict['program_following'] is not None:
@@ -223,7 +223,7 @@ async def ChannelsAPI():
                 channel_dict['program_following']['start_time'] = channel_dict['program_following']['start_time'].replace(' ', 'T')
                 channel_dict['program_following']['end_time'] = channel_dict['program_following']['end_time'].replace(' ', 'T')
                 channel_dict['program_following']['is_free'] = bool(channel_dict['program_following']['is_free'])
-                channel_dict['program_following']['genre'] = json.loads(channel_dict['program_following']['genre'])
+                channel_dict['program_following']['genres'] = json.loads(channel_dict['program_following']['genres'])
                 channel_dict['program_following'].pop('is_present')
                 channel_dict['program_following'].pop('program_order')
 
