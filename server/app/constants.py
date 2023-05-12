@@ -1,5 +1,4 @@
 
-import inspect
 import logging
 import logging.config
 import os
@@ -12,7 +11,7 @@ from typing import Any, Literal
 
 
 # バージョン
-VERSION = '0.7.1'
+VERSION = '0.8.0-dev'
 
 # ベースディレクトリ
 BASE_DIR = Path(__file__).resolve().parent.parent
