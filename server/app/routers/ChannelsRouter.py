@@ -61,7 +61,7 @@ async def GetChannel(display_channel_id: str = Path(..., description='チャン�
 )
 async def ChannelsAPI():
     """
-    地デジ (GR)・BS・CS・CATV・SKY (SPHD)・STARDIGIO それぞれ全てのチャンネルの情報を取得する。<br>
+    地デジ (GR)・BS・CS・CATV・SKY (SPHD)・STARDIGIO それぞれ全てのチャンネルの情報を取得する。
     """
 
     # 現在時刻
@@ -129,6 +129,10 @@ async def ChannelsAPI():
     # チャンネルごとに実行
     for channel in channels:
 
+        # 視聴できないチャンネルはスキップ
+        if not channel.is_watchable:
+            continue
+
         # チャンネル情報の辞書を作成
         ## クラスそのままだとレスポンスを返す際にシリアライズ処理が入る関係でパフォーマンスが悪い
         channel_dict = {
@@ -144,6 +148,7 @@ async def ChannelsAPI():
             'jikkyo_force': channel.jikkyo_force,
             'is_subchannel': channel.is_subchannel,
             'is_radiochannel': channel.is_radiochannel,
+            'is_watchable': True,
             'is_display': True,
             'viewer_count': 0,
             'program_present': None,
