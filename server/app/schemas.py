@@ -2,10 +2,8 @@
 from datetime import datetime
 from pydantic import AnyHttpUrl, BaseModel, confloat, DirectoryPath, Field, FilePath, PositiveInt
 from pydantic.networks import stricturl
-from tortoise.contrib.pydantic import pydantic_model_creator
+from tortoise.contrib.pydantic import PydanticModel
 from typing import Literal
-
-from app import models
 
 
 # サーバー設定を表す Pydantic モデル
@@ -39,44 +37,82 @@ class Config(BaseModel):
     twitter: Twitter
 
 # モデルを表す Pydantic モデル
-# 基本的には pydantic_model_creator() で Tortoise ORM モデルから変換したものを継承
-# JSONField など変換だけでは補いきれない部分や、新しく追加したいカラムなどを追加で定義する
+# Pydantic モデルに含まれていないカラムは、API レスポンス返却時に自動で除外される (パスワードなど)
+# 以前は pydantic_model_creator() で自動生成していたが、だんだん実態と合わなくなってきたため手動で定義している
+# PydanticModel を使うところがポイント (BaseModel だとバリデーションエラーが発生する)
 
-# Channel モデルで Program モデルを使っているため、先に定義する
-class Program(pydantic_model_creator(models.Program, name='Program')):
+class Program(PydanticModel):
+    id: str
     channel_id: str
+    network_id: int
+    service_id: int
+    event_id: int
+    title: str
+    description: str
+    detail: dict[str, str]
+    start_time: datetime
+    end_time: datetime
+    duration: float
+    is_free: bool
     class Genres(BaseModel):
         major: str
         middle: str
-    detail: dict[str, str]
     genres: list[Genres]
+    video_type: str | None
+    video_codec: str | None
+    video_resolution: str | None
+    primary_audio_type: str
+    primary_audio_language: str
+    primary_audio_sampling_rate: str
+    secondary_audio_type: str | None
+    secondary_audio_language: str | None
+    secondary_audio_sampling_rate: str | None
 
-class Channel(pydantic_model_creator(models.Channel, name='Channel')):
+class Channel(PydanticModel):
+    id: str
+    display_channel_id: str
+    network_id: int
+    service_id: int
+    transport_stream_id: int | None
+    remocon_id: int
+    channel_number: str
+    type: str
+    name: str
+    jikkyo_force: int | None
+    is_subchannel: bool
+    is_radiochannel: bool
+    is_watchable: bool
     is_display: bool  # 追加カラム
     viewer_count: int  # 追加カラム
     program_present: Program | None  # 追加カラム
     program_following: Program | None  # 追加カラム
 
 class LiveStream(BaseModel):
-    # LiveStream は特殊なモデルのため、ここで全て定義する
     status: Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart']
     detail: str
     started_at: float
     updated_at: float
     client_count: int
 
-class TwitterAccount(pydantic_model_creator(models.TwitterAccount, name='TwitterAccount',
-    exclude=('access_token', 'access_token_secret', 'created_at', 'updated_at'))):
+class TwitterAccount(PydanticModel):
+    id: int
+    name: str
+    screen_name: str
+    icon_url: str
     is_oauth_session: bool  # 追加カラム
-    created_at: datetime  # is_oauth_session の下に配置するために、一旦 exclude した上で再度定義する
-    updated_at: datetime  # is_oauth_session の下に配置するために、一旦 exclude した上で再度定義する
-    pass
+    created_at: datetime
+    updated_at: datetime
 
-class User(pydantic_model_creator(models.User, name='User',
-    exclude=('password', 'client_settings', 'niconico_access_token', 'niconico_refresh_token', 'created_at', 'updated_at'))):
+class User(PydanticModel):
+    id: int
+    name: str
+    is_admin: bool
+    niconico_user_id: int | None
+    niconico_user_name: str | None
+    niconico_user_premium: bool | None
     twitter_accounts: list[TwitterAccount]  # 追加カラム
-    created_at: datetime  # twitter_accounts の下に配置するために、一旦 exclude した上で再度定義する
-    updated_at: datetime  # twitter_accounts の下に配置するために、一旦 exclude した上で再度定義する
+    created_at: datetime
+    updated_at: datetime
 
 # API リクエストに利用する Pydantic モデル
 # リクエストボティの JSON の構造を表す
@@ -99,7 +135,7 @@ class TwitterPasswordAuthRequest(BaseModel):
     password: str
 
 # API レスポンスに利用する Pydantic モデル
-# モデルを List や Dict でまとめたものが中心
+# モデルを list や dict でまとめたものが中心
 
 class Channels(BaseModel):
     GR: list[Channel]

@@ -26,7 +26,7 @@ export interface IChannel {
     network_id: number;
     service_id: number;
     transport_stream_id: number | null;
-    remocon_id: number | null;
+    remocon_id: number;
     channel_number: string;
     type: ChannelType;
     name: string;
@@ -47,7 +47,7 @@ export const IChannelDefault: IChannel = {
     network_id: 0,
     service_id: 0,
     transport_stream_id: null,
-    remocon_id: null,
+    remocon_id: 0,
     channel_number: '---',
     type: 'GR',
     name: '取得中…',

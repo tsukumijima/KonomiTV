@@ -14,9 +14,9 @@ export interface IProgram {
     duration: number;
     is_free: boolean;
     genres: {major: string; middle: string;}[];
-    video_type: string;
-    video_codec: string;
-    video_resolution: string;
+    video_type: string | null;
+    video_codec: string | null;
+    video_resolution: string | null;
     primary_audio_type: string;
     primary_audio_language: string;
     primary_audio_sampling_rate: string;
