@@ -666,7 +666,7 @@ async def TwitterTimelineAPI(
                 text = expanded_text,
                 lang = tweet.lang,
                 via = re.sub(r'<.+?>', '', tweet.source),
-                image_urls = image_urls,
+                image_urls = image_urls if len(image_urls) > 0 else None,
                 movie_url = movie_url,
                 retweet_count = tweet.retweet_count,
                 favorite_count = tweet.favorite_count,
