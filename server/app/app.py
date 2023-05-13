@@ -21,6 +21,7 @@ from app.models import TwitterAccount
 from app.routers import CapturesRouter
 from app.routers import ChannelsRouter
 from app.routers import LiveStreamsRouter
+from app.routers import MaintenanceRouter
 from app.routers import NiconicoRouter
 from app.routers import SettingsRouter
 from app.routers import TwitterRouter
@@ -56,13 +57,14 @@ app.add_middleware(
 )
 
 # ルーターの追加
-app.include_router(CapturesRouter.router)
 app.include_router(ChannelsRouter.router)
 app.include_router(LiveStreamsRouter.router)
-app.include_router(SettingsRouter.router)
+app.include_router(CapturesRouter.router)
 app.include_router(NiconicoRouter.router)
 app.include_router(TwitterRouter.router)
 app.include_router(UsersRouter.router)
+app.include_router(SettingsRouter.router)
+app.include_router(MaintenanceRouter.router)
 app.include_router(VersionRouter.router)
 
 # 静的ファイルの配信
