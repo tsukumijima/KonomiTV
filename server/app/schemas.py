@@ -3,7 +3,7 @@ from datetime import datetime
 from pydantic import AnyHttpUrl, BaseModel, confloat, DirectoryPath, Field, FilePath, PositiveInt
 from pydantic.networks import stricturl
 from tortoise.contrib.pydantic import PydanticModel
-from typing import Literal
+from typing import Literal, Union
 
 
 # クライアント設定を表す Pydantic モデル (クライアント設定同期用 API で利用)
@@ -223,6 +223,8 @@ class Tweet(BaseModel):
     retweeted: bool
     favorite_count: int
     favorited: bool
+    retweeted_tweet: Union['Tweet', None]
+    quoted_tweet: Union['Tweet', None]
 
 class Tweets(BaseModel):
     __root__: list[Tweet]

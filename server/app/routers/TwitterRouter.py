@@ -1,6 +1,7 @@
 
 import asyncio
 import json
+import pytz
 import re
 import tweepy
 import tweepy.models
@@ -611,7 +612,7 @@ async def TwitterTimelineAPI(
     try:
 
         # ホームタイムラインを取得
-        timelines = twitter_account_api.home_timeline(
+        tweets = twitter_account_api.home_timeline(
             count = 200,
             since_id = since_tweet_id,
             trim_user = False,
@@ -621,34 +622,54 @@ async def TwitterTimelineAPI(
         )
 
         # レスポンス用に情報を整形
-        tweets: list[schemas.Tweet] = []
-        for timeline in timelines:
-            image_urls: list[str] = []
-            if 'media' in timeline.entities:
-                for media in timeline.entities['media']:
-                    image_urls.append(media['media_url_https'])
+        formatted_tweets: list[schemas.Tweet] = []
+        for tweet in tweets:
 
-            tweets.append(schemas.Tweet(
-                id = timeline.id_str,
-                created_at = timeline.created_at,
-                user = schemas.TweetUser(
-                    id = timeline.user.id_str,
-                    name = timeline.user.name,
-                    screen_name = timeline.user.screen_name,
-                    ## (ランダムな文字列)_normal.jpg だと画像サイズが小さいので、(ランダムな文字列).jpg に置換
-                    icon_url = timeline.user.profile_image_url_https.replace('_normal', ''),
-                ),
-                text = timeline.full_text,
-                lang = timeline.lang,
-                via = re.sub(r'<.+?>', '', timeline.source),
-                image_urls = image_urls,
-                retweet_count = timeline.retweet_count,
-                favorite_count = timeline.favorite_count,
-                retweeted = timeline.retweeted,
-                favorited = timeline.favorited,
-            ))
+            def GenerateTweet(tweet) -> schemas.Tweet:
 
-        return tweets
+                # リツイートがある場合は、リツイート元のツイートの情報を取得
+                retweeted_tweet = None
+                if hasattr(tweet, 'retweeted_status'):
+                    retweeted_tweet = GenerateTweet(tweet.retweeted_status)
+
+                # 引用リツイートがある場合は、引用リツイート元のツイートの情報を取得
+                quoted_tweet = None
+                if hasattr(tweet, 'quoted_status'):
+                    quoted_tweet = GenerateTweet(tweet.quoted_status)
+
+                # 画像の URL を取得
+                image_urls = []
+                if hasattr(tweet, 'extended_entities'):
+                    for media in tweet.extended_entities['media']:
+                        if media['type'] == 'photo':
+                            image_urls.append(media['media_url_https'])
+
+                return schemas.Tweet(
+                    id = tweet.id_str,
+                    created_at = tweet.created_at.astimezone(pytz.timezone('Asia/Tokyo')),
+                    user = schemas.TweetUser(
+                        id = tweet.user.id_str,
+                        name = tweet.user.name,
+                        screen_name = tweet.user.screen_name,
+                        # (ランダムな文字列)_normal.jpg だと画像サイズが小さいので、(ランダムな文字列).jpg に置換
+                        icon_url = tweet.user.profile_image_url_https.replace('_normal', ''),
+                    ),
+                    text = tweet.full_text,
+                    lang = tweet.lang,
+                    via = re.sub(r'<.+?>', '', tweet.source),
+                    image_urls = image_urls,
+                    retweet_count = tweet.retweet_count,
+                    favorite_count = tweet.favorite_count,
+                    retweeted = tweet.retweeted,
+                    favorited = tweet.favorited,
+                    retweeted_tweet = retweeted_tweet,
+                    quoted_tweet = quoted_tweet,
+                )
+
+            # 最終的なツイートモデルを作成
+            formatted_tweets.append(GenerateTweet(tweet))
+
+        return formatted_tweets
 
     except tweepy.HTTPException as ex:
         RaiseHTTPException(ex)
