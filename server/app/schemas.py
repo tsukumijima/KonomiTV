@@ -219,6 +219,7 @@ class Tweet(BaseModel):
     lang: str
     via: str
     image_urls: list[str]
+    movie_url: str | None
     retweet_count: int
     retweeted: bool
     favorite_count: int
