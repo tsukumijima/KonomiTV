@@ -96,8 +96,8 @@ class Channel(models.Model):
         # "Specified display_channel_id was not found" エラーでフロントエンドを誤動作させるのを防ぐためのもの
         async with transactions.in_transaction():
 
-            # 既にデータベースにチャンネル情報が存在する場合は一旦全て削除する
-            await Channel.all().delete()
+            # この変数から更新対象のチャンネル情報を削除していき、残った古いチャンネル情報を最後にまとめて削除する
+            duplicate_channels = {temp.id:temp for temp in await Channel.filter(is_watchable=True)}
 
             # Mirakurun の API からチャンネル情報を取得する
             try:
@@ -135,8 +135,15 @@ class Channel(models.Model):
                 if TSInformation.getNetworkType(service['networkId']) == 'OTHER':
                     continue
 
-                # 新しいチャンネルのレコードを作成
-                channel = Channel()
+                # チャンネル ID
+                channel_id = f'NID{service["onid"]}-SID{service["sid"]:03d}'
+
+                # 既にレコードがある場合は更新、ない場合は新規作成
+                duplicate_channel = duplicate_channels.pop(channel_id, None)
+                if duplicate_channel is None:
+                    channel = Channel()
+                else:
+                    channel = duplicate_channel
 
                 # 取得してきた値を設定
                 channel.id = f'NID{service["networkId"]}-SID{service["serviceId"]:03d}'
@@ -270,6 +277,10 @@ class Channel(models.Model):
                 # レコードを保存する
                 await channel.save()
 
+            # 不要なチャンネル情報を削除する
+            for duplicate_channel in duplicate_channels.values():
+                await duplicate_channel.delete()
+
 
     @classmethod
     async def updateFromEDCB(cls) -> None:
@@ -279,11 +290,11 @@ class Channel(models.Model):
         # "Specified display_channel_id was not found" エラーでフロントエンドを誤動作させるのを防ぐためのもの
         async with transactions.in_transaction():
 
-            # リモコン番号が取得できない場合に備えてバックアップ
-            backup_remocon_ids: dict[str, int] = {channel.id: channel.remocon_id for channel in await Channel.all()}
+            # この変数から更新対象のチャンネル情報を削除していき、残った古いチャンネル情報を最後にまとめて削除する
+            duplicate_channels = {temp.id:temp for temp in await Channel.filter(is_watchable=True)}
 
-            # 既にデータベースにチャンネル情報が存在する場合は一旦全て削除する
-            await Channel.all().delete()
+            # リモコン番号が取得できない場合に備えてバックアップ
+            backup_remocon_ids: dict[str, int] = {channel.id: channel.remocon_id for channel in await Channel.filter(is_watchable=True)}
 
             # CtrlCmdUtil を初期化
             edcb = CtrlCmdUtil()
@@ -324,11 +335,18 @@ class Channel(models.Model):
                 if TSInformation.getNetworkType(service['onid']) == 'OTHER':
                     continue
 
-                # 新しいチャンネルのレコードを作成
-                channel = Channel()
+                # チャンネル ID
+                channel_id = f'NID{service["onid"]}-SID{service["sid"]:03d}'
+
+                # 既にレコードがある場合は更新、ない場合は新規作成
+                duplicate_channel = duplicate_channels.pop(channel_id, None)
+                if duplicate_channel is None:
+                    channel = Channel()
+                else:
+                    channel = duplicate_channel
 
                 # 取得してきた値を設定
-                channel.id = f'NID{service["onid"]}-SID{service["sid"]:03d}'
+                channel.id = channel_id
                 channel.service_id = int(service['sid'])
                 channel.network_id = int(service['onid'])
                 channel.transport_stream_id = int(service['tsid'])
@@ -484,6 +502,10 @@ class Channel(models.Model):
                 except IntegrityError:
                     pass
 
+            # 不要なチャンネル情報を削除する
+            for duplicate_channel in duplicate_channels.values():
+                await duplicate_channel.delete()
+
 
     @classmethod
     async def updateJikkyoStatus(cls) -> None:
@@ -493,7 +515,7 @@ class Channel(models.Model):
         await Jikkyo.updateStatus()
 
         # 全てのチャンネル情報を取得
-        channels = await Channel.all()
+        channels = await Channel.filter(is_watchable=True)
 
         # チャンネル情報ごとに
         for channel in channels:

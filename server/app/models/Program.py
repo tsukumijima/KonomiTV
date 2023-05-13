@@ -220,7 +220,7 @@ class Program(models.Model):
 
                 # チャンネル情報を取得
                 # NID32736-SID1024 形式の ID をキーにした辞書にまとめる
-                channels = {temp.id:temp for temp in await Channel.all()}
+                channels = {temp.id:temp for temp in await Channel.filter(is_watchable=True)}
 
                 # 番組情報ごとに
                 for program_info in programs:

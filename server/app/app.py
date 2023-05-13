@@ -154,7 +154,7 @@ async def Startup():
     await TwitterAccount.updateAccountInformation()
 
     # 全てのチャンネル&品質のライブストリームを初期化する
-    for channel in await Channel.all().order_by('channel_number'):
+    for channel in await Channel.filter(is_watchable=True).order_by('channel_number'):
         for quality in QUALITY:
             LiveStream(channel.display_channel_id, quality)
 

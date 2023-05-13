@@ -72,7 +72,7 @@ async def ChannelsAPI():
 
     # チャンネル情報を取得
     channels: list[Channel]
-    tasks.append(Channel.all().order_by('channel_number').order_by('remocon_id'))
+    tasks.append(Channel.filter(is_watchable=True).order_by('channel_number').order_by('remocon_id'))
 
     # データベースの生のコネクションを取得
     # 地デジ・BS・CS を合わせると 18000 件近くになる番組情報を SQLite かつ ORM で絞り込んで素早く取得するのは無理があるらしい
@@ -128,10 +128,6 @@ async def ChannelsAPI():
 
     # チャンネルごとに実行
     for channel in channels:
-
-        # 視聴できないチャンネルはスキップ
-        if not channel.is_watchable:
-            continue
 
         # チャンネル情報の辞書を作成
         ## クラスそのままだとレスポンスを返す際にシリアライズ処理が入る関係でパフォーマンスが悪い
