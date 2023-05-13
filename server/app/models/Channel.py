@@ -257,7 +257,8 @@ class Channel(models.Model):
                         (152 <= channel.service_id <= 159) or
                         (162 <= channel.service_id <= 169) or
                         (172 <= channel.service_id <= 179) or
-                        (182 <= channel.service_id <= 189)):
+                        (182 <= channel.service_id <= 189) or
+                        (channel.service_id in [232, 233])):
                         channel.is_subchannel = True
                     else:
                         channel.is_subchannel = False
@@ -466,7 +467,8 @@ class Channel(models.Model):
                         (152 <= channel.service_id <= 159) or
                         (162 <= channel.service_id <= 169) or
                         (172 <= channel.service_id <= 179) or
-                        (182 <= channel.service_id <= 189)):
+                        (182 <= channel.service_id <= 189) or
+                        (channel.service_id in [232, 233])):
                         channel.is_subchannel = True
                     else:
                         channel.is_subchannel = False
