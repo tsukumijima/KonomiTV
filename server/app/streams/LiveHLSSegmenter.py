@@ -37,7 +37,7 @@ from biim.mp4.hevc import hevcTrack
 from biim.mp4.mp4a import mp4aTrack
 
 
-class HLSLiveSegmenter:
+class LiveHLSSegmenter:
 
     # ターゲットとする LL-HLS 部分セグメント (m4s) の再生時間 (秒)
     PART_DURATION = 0.15
@@ -161,7 +161,7 @@ class HLSLiveSegmenter:
             # 通常モードで m3u8 プレイリストを生成
             future = m3u8.plain()
             if future is None:
-                Logging.error('[HLSLiveSegmenter][getPlaylist] m3u8.plain() returned None')
+                Logging.error('[LiveHLSSegmenter][getPlaylist] m3u8.plain() returned None')
                 return Response(status_code=422, media_type='application/vnd.apple.mpegurl', headers=self.cors_headers)
 
             # m3u8 プレイリストが生成されるまで待ってから返す
@@ -174,7 +174,7 @@ class HLSLiveSegmenter:
 
             # _HLS_part だけ指定されていることはありえない
             if msn is None:
-                Logging.error('[HLSLiveSegmenter][getPlaylist] msn is None')
+                Logging.error('[LiveHLSSegmenter][getPlaylist] msn is None')
                 return Response(status_code=422, media_type='application/vnd.apple.mpegurl', headers=self.cors_headers)
 
             # _HLS_part が指定されていなければ、0 に設定
@@ -184,7 +184,7 @@ class HLSLiveSegmenter:
             # ブロッキングモードで m3u8 プレイリストを生成
             future = m3u8.blocking(msn, part)
             if future is None:
-                Logging.error('[HLSLiveSegmenter][getPlaylist] m3u8.blocking() returned None')
+                Logging.error('[LiveHLSSegmenter][getPlaylist] m3u8.blocking() returned None')
                 return Response(status_code=422, media_type='application/vnd.apple.mpegurl', headers=self.cors_headers)
 
             # m3u8 プレイリストが生成されるまで待ってから返す
@@ -217,7 +217,7 @@ class HLSLiveSegmenter:
         # 完全なセグメントを Queue の形で取得する
         queue = await m3u8.segment(msn)
         if queue is None:
-            Logging.error('[HLSLiveSegmenter][getSegment] m3u8.segment() returned None')
+            Logging.error('[LiveHLSSegmenter][getSegment] m3u8.segment() returned None')
             return Response(status_code=422, media_type='video/mp4', headers=self.cors_headers)
 
         # Queue からセグメントデータを取得して StreamingResponse で返す
@@ -259,7 +259,7 @@ class HLSLiveSegmenter:
         # 部分セグメントを Queue の形で取得する
         queue = await m3u8.partial(msn, part)
         if queue is None:
-            Logging.error('[HLSLiveSegmenter][getPartialSegment] m3u8.partial() returned None')
+            Logging.error('[LiveHLSSegmenter][getPartialSegment] m3u8.partial() returned None')
             return Response(status_code=422, media_type='video/mp4', headers=self.cors_headers)
 
         # Queue からセグメントデータを取得して StreamingResponse で返す
@@ -676,20 +676,20 @@ class HLSLiveSegmenter:
                 for stream_type, elementary_PID, _ in PMT:
                     if stream_type == 0x1b and self._H264_PID is None:
                         self._H264_PID = elementary_PID
-                        Logging.debug_simple('[HLSLiveSegmenter] H.264 Track: ' + hex(self._H264_PID))
+                        Logging.debug_simple('[LiveHLSSegmenter] H.264 Track: ' + hex(self._H264_PID))
                     elif stream_type == 0x24 and self._H265_PID is None:
                         self._H265_PID = elementary_PID
-                        Logging.debug_simple('[HLSLiveSegmenter] H.265 Track: ' + hex(self._H265_PID))
+                        Logging.debug_simple('[LiveHLSSegmenter] H.265 Track: ' + hex(self._H265_PID))
                     elif stream_type == 0x0F:
                         if self._AAC_PID_PA is None:
                             self._AAC_PID_PA = elementary_PID
-                            Logging.debug_simple('[HLSLiveSegmenter] AAC Track (Primary): ' + hex(self._AAC_PID_PA))
+                            Logging.debug_simple('[LiveHLSSegmenter] AAC Track (Primary): ' + hex(self._AAC_PID_PA))
                         elif self._AAC_PID_SA is None:
                             self._AAC_PID_SA = elementary_PID
-                            Logging.debug_simple('[HLSLiveSegmenter] AAC Track (Secondary): ' + hex(self._AAC_PID_SA))
+                            Logging.debug_simple('[LiveHLSSegmenter] AAC Track (Secondary): ' + hex(self._AAC_PID_SA))
                     elif stream_type == 0x15 and self._ID3_PID is None:
                         self._ID3_PID = elementary_PID
-                        Logging.debug_simple('[HLSLiveSegmenter] ID3 (ARIB Caption) Track: ' + hex(self._ID3_PID))
+                        Logging.debug_simple('[LiveHLSSegmenter] ID3 (ARIB Caption) Track: ' + hex(self._ID3_PID))
 
         # Timed Metadata (ID3) トラック
         ## Timed Metadata に変換された ARIB 字幕データが入る

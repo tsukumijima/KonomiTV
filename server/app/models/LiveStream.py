@@ -13,7 +13,7 @@ from hashids import Hashids
 from typing import ClassVar, Literal, TypedDict
 
 from app.constants import QUALITY_TYPES
-from app.utils import HLSLiveSegmenter
+from app.streams import LiveHLSSegmenter
 from app.utils import Logging
 from app.utils.EDCB import EDCBTuner
 
@@ -288,7 +288,7 @@ class LiveStream():
         self._started_at: float
         self._updated_at: float
         self._stream_data_written_at: float
-        self.segmenter: HLSLiveSegmenter | None
+        self.segmenter: LiveHLSSegmenter | None
         self.tuner: EDCBTuner | None
 
 
@@ -414,7 +414,7 @@ class LiveStream():
             # エンコードタスクを非同期で実行
             ## 相互に依存し合っている場合、__init__.py でモジュール内の各クラスのインポートを定義している以上うまくいかないため、
             ## どちらかをモジュールの初回参照時にインポートされないようにする必要がある
-            from app.tasks import LiveEncodingTask
+            from app.streams import LiveEncodingTask
             instance = LiveEncodingTask(self)
             asyncio.create_task(instance.run())
 
