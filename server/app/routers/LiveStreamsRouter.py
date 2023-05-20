@@ -217,6 +217,48 @@ async def LiveStreamEventAPI(
     return EventSourceResponse(generator())
 
 
+# ***** ライブ PSI/SI アーカイブデータストリーミング API *****
+
+
+@router.get(
+    '/{display_channel_id}/{quality}/psi-si',
+    summary = 'ライブ PSI/SI アーカイブデータストリーミング API',
+    response_class = Response,
+    responses = {
+        status.HTTP_200_OK: {
+            'description': 'ライブ PSI/SI アーカイブデータストリーム。',
+            'content': {'application/octet-stream': {}},
+        }
+    }
+)
+async def LivePSIArchivedDataAPI(
+    request: Request,
+    display_channel_id: str = Depends(ValidateChannelID),
+    quality: QUALITY_TYPES = Depends(ValidateQuality),
+):
+    """
+    ライブ PSI/SI アーカイブデータストリームを配信する。
+
+    何らかの理由でライブストリームが終了しない限り、継続的にレスポンスが出力される（ストリーミング）。
+    """
+
+    # ライブストリームを取得
+    # PSI/SI アーカイブデータを取得したいだけなので、接続はしない
+    livestream = LiveStream(display_channel_id, quality)
+
+    # LivePSIDataArchiver が起動していない場合はエラー
+    if livestream.psi_data_archiver is None:
+        Logging.error(f'[LiveStreamsRouter][LivePSIArchivedDataAPI] PSI/SI Data Archiver is not running')
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'PSI/SI Data Archiver is not running',
+        )
+
+    # StreamingResponse で読み取ったストリームデータをストリーミングする
+    # LivePSIDataArchiver.getPSIArchivedData() は AsyncGenerator なので、そのまま渡せる
+    return StreamingResponse(livestream.psi_data_archiver.getPSIArchivedData(), media_type='application/octet-stream')
+
+
 # ***** MPEG-TS ストリーミング API *****
 
 

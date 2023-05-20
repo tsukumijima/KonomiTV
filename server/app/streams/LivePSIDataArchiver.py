@@ -39,6 +39,7 @@ class LivePSIDataArchiver:
         async with self.psi_archive_list_condition:
             if len(self.psi_archive_list) > 0:
                 self.psi_archive_list.clear()
+                self.psi_archive_list_condition.notify_all()  # 全ての待機中のタスクに通知
 
         # psisiarc のオプション
         # ref: https://github.com/xtne6f/psisiarc
@@ -81,7 +82,6 @@ class LivePSIDataArchiver:
 
             # PSI/SI アーカイブデータを psisiarc から読み取る
             result = await self.__readPSIArchivedDataChunk(trailer_size, trailer_remain_size)
-            print(result)
             if result is None:
                 return
             psi_archive, trailer_size, trailer_remain_size = result
@@ -135,7 +135,7 @@ class LivePSIDataArchiver:
 
             # psisiarc が終了している場合は終了する
             if self.psisiarc_process.returncode is not None:
-                return
+                break
 
             # データの利用可能性を待つ
             async with self.psi_archive_list_condition:
@@ -163,12 +163,14 @@ class LivePSIDataArchiver:
         # データをクリアする
         async with self.psi_archive_list_condition:
             self.psi_archive_list.clear()
+            self.psi_archive_list_condition.notify_all()  # 全ての待機中のタスクに通知
 
 
     async def __readPSIArchivedDataChunk(self, trailer_size: int, trailer_remain_size: int) -> tuple[bytes, int, int] | None:
         """
         psisiarc からの出力ストリームから PSI/SI アーカイブデータ (.psc) を適切に読み取る
         EDCB Legacy WebUI の実装をそのまま Python に移植したもの (完全な形で移植してくれた ChatGPT (GPT-4) 先生に感謝！)
+        ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-230212/ini/HttpPublic/legacy/view.lua#L128-L160
 
         Args:
             trailer_size (int): trailer のサイズ
