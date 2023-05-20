@@ -1,5 +1,6 @@
 
 import asyncio
+import time
 from typing import AsyncGenerator
 
 from app.constants import LIBRARY_PATH
@@ -66,6 +67,9 @@ class LivePSIDataArchiver:
             stderr = asyncio.subprocess.STDOUT,  # ログ出力
         )
 
+        # 起動時間のタイムスタンプ
+        start_at = time.time()
+
         # 受信した PSI/SI アーカイブデータを Queue に貯める
         trailer_size: int = 0
         trailer_remain_size: int = 0
@@ -86,6 +90,13 @@ class LivePSIDataArchiver:
             async with self.psi_archive_list_condition:
                 self.psi_archive_list.append(psi_archive)
                 self.psi_archive_list_condition.notify_all()  # 全ての待機中のタスクに通知
+
+            # もし起動から15分以上経過している場合は、psisiarc を一旦終了して再起動する
+            ## 再起動するタイミングでデータをリセットし、データが無尽蔵に増えていくのを防ぐ
+            if time.time() - start_at > 60 * 15:
+                await self.destroy()
+                await self.run()
+                return
 
 
     def pushTSPacketData(self, packet: bytes) -> None:
@@ -169,6 +180,9 @@ class LivePSIDataArchiver:
 
         def get_le_number(buffer: bytes, pos: int, len: int) -> int:
             return int.from_bytes(buffer[pos:pos+len], byteorder='little')
+
+        if self.psisiarc_process is None:
+            return None
 
         try:
             if trailer_size > 0:
