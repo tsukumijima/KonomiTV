@@ -14,6 +14,7 @@ from typing import ClassVar, Literal, TypedDict
 
 from app.constants import QUALITY_TYPES
 from app.streams import LiveHLSSegmenter
+from app.streams import LivePSIDataArchiver
 from app.utils import Logging
 from app.utils.EDCB import EDCBTuner
 
@@ -251,6 +252,9 @@ class LiveStream():
             ## エンコーダーがフリーズしたものとみなしてエンコードタスクを再起動する
             instance._stream_data_written_at = 0
 
+            # PSI/SI データアーカイバーのインスタンス
+            instance.psi_data_archiver = None
+
             # LL-HLS Segmenter のインスタンス
             ## iPhone Safari は mpegts.js でのストリーミングに対応していないため、フォールバックとして LL-HLS で配信する必要がある
             ## エンコードタスクが実行されたときに毎回生成され、エンコードタスクが終了したときに破棄される
@@ -288,6 +292,7 @@ class LiveStream():
         self._started_at: float
         self._updated_at: float
         self._stream_data_written_at: float
+        self.psi_data_archiver: LivePSIDataArchiver | None
         self.segmenter: LiveHLSSegmenter | None
         self.tuner: EDCBTuner | None
 

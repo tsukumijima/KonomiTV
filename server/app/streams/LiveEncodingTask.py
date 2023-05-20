@@ -16,7 +16,6 @@ from app.constants import API_REQUEST_HEADERS, CONFIG, LIBRARY_PATH, LOGS_DIR, Q
 from app.models import Channel
 from app.models import LiveStream
 from app.models import Program
-from app.streams import LiveHLSSegmenter
 from app.utils import Logging
 from app.utils.EDCB import EDCBTuner
 
@@ -379,6 +378,10 @@ class LiveEncodingTask:
         エンコードタスクを実行する
         """
 
+        # ここでインポートしないと module 扱いになってしまう
+        from app.streams import LiveHLSSegmenter
+        from app.streams import LivePSIDataArchiver
+
         # まだ Standby になっていなければ、ステータスを Standby に設定
         # 基本はエンコードタスクの呼び出し元である self.livestream.connect() の方で Standby に設定されるが、再起動の場合はそこを経由しないため必要
         if not (self.livestream.getStatus()['status'] == 'Standby' and self.livestream.getStatus()['detail'] == 'エンコードタスクを起動しています…'):
@@ -420,6 +423,17 @@ class LiveEncodingTask:
             )
 
         Logging.info(f'[Live: {self.livestream.livestream_id}] Title:{program_present.title}')
+
+        # **** PSI/SI データアーカイバーの起動 *****
+
+        # PSI/SI データアーカイバーを初期化
+        self.livestream.psi_data_archiver = LivePSIDataArchiver(channel.service_id)
+
+        # PSI/SI データアーカイバーのプロセスを非同期で起動
+        ## 内部で psisiarc が起動され、LiveEncodingTask からデータが送信されるのを待ち受ける
+        asyncio.create_task(self.livestream.psi_data_archiver.run())
+
+        # ***** tsreadex プロセスの作成と実行 *****
 
         # tsreadex のオプション
         ## 放送波の前処理を行い、エンコードを安定させるツール
@@ -568,6 +582,11 @@ class LiveEncodingTask:
                 # すべての視聴中クライアントのライブストリームへの接続を切断する
                 self.livestream.disconnectAll()
 
+                # PSI/SI データアーカイバーを終了・破棄する
+                if self.livestream.psi_data_archiver is not None:
+                    await self.livestream.psi_data_archiver.destroy()
+                    self.livestream.psi_data_archiver = None
+
                 # LL-HLS Segmenter を破棄する
                 if self.livestream.segmenter is not None:
                     self.livestream.segmenter.destroy()
@@ -599,6 +618,11 @@ class LiveEncodingTask:
                 # すべての視聴中クライアントのライブストリームへの接続を切断する
                 self.livestream.disconnectAll()
 
+                # PSI/SI データアーカイバーを終了・破棄する
+                if self.livestream.psi_data_archiver is not None:
+                    await self.livestream.psi_data_archiver.destroy()
+                    self.livestream.psi_data_archiver = None
+
                 # LL-HLS Segmenter を破棄する
                 if self.livestream.segmenter is not None:
                     self.livestream.segmenter.destroy()
@@ -625,6 +649,11 @@ class LiveEncodingTask:
 
                 # すべての視聴中クライアントのライブストリームへの接続を切断する
                 self.livestream.disconnectAll()
+
+                # PSI/SI データアーカイバーを終了・破棄する
+                if self.livestream.psi_data_archiver is not None:
+                    await self.livestream.psi_data_archiver.destroy()
+                    self.livestream.psi_data_archiver = None
 
                 # LL-HLS Segmenter を破棄する
                 if self.livestream.segmenter is not None:
@@ -683,6 +712,10 @@ class LiveEncodingTask:
                     except OSError:
                         break
 
+                    # 生の放送波の TS パケットを PSI/SI データアーカイバーに送信する
+                    if self.livestream.psi_data_archiver is not None:
+                        self.livestream.psi_data_archiver.pushTSPacketData(bytes(chunk))
+
                     # エンコードタスクが終了しているか既にエンコーダープロセスが終了していたら、タスクを終了
                     if is_running is False or tsreadex.returncode is not None or encoder.returncode is not None:
                         break
@@ -731,7 +764,7 @@ class LiveEncodingTask:
                     ## read() ではなく厳密な readexactly() を使わないとぴったり 188 bytes にならない場合がある
                     chunk = await cast(asyncio.StreamReader, encoder.stdout).readexactly(188)
 
-                    # 受け取った TS パケットを LL-HLS Segmenter に渡す
+                    # 受け取った TS パケットを LL-HLS Segmenter に送信する
                     if self.livestream.segmenter is not None:
                         self.livestream.segmenter.pushTSPacketData(chunk)
 
@@ -1156,6 +1189,11 @@ class LiveEncodingTask:
 
         # すべての視聴中クライアントのライブストリームへの接続を切断する
         self.livestream.disconnectAll()
+
+        # PSI/SI データアーカイバーを終了・破棄する
+        if self.livestream.psi_data_archiver is not None:
+            await self.livestream.psi_data_archiver.destroy()
+            self.livestream.psi_data_archiver = None
 
         # LL-HLS Segmenter を破棄する
         if self.livestream.segmenter is not None:
