@@ -205,7 +205,7 @@ import Program from '@/components/Panel/Program.vue';
 import Twitter from '@/components/Panel/Twitter.vue';
 import APIClient from '@/services/APIClient';
 import { IChannel } from '@/services/Channels';
-import CaptureHandler from '@/services/player/CaptureHandler';
+import CaptureManager from '@/services/player/managers/CaptureManager';
 import useChannelsStore from '@/store/ChannelsStore';
 import useSettingsStore from '@/store/SettingsStore';
 import Utils, { PlayerUtils, ProgramUtils } from '@/utils';
@@ -330,7 +330,7 @@ export default Vue.extend({
             fullscreen_handler: null as () => void | null,
 
             // キャプチャハンドラーのインスタンス
-            capture_handler: null as CaptureHandler | null,
+            capture_handler: null as CaptureManager | null,
 
             // ***** キーボードショートカット *****
 
@@ -644,7 +644,7 @@ export default Vue.extend({
                 this.initEventHandler();
 
                 // キャプチャのイベントハンドラーを初期化
-                this.initCaptureHandler();
+                this.initCaptureManager();
 
                 // ショートカットキーのイベントハンドラーを初期化
                 // 事前に前のイベントハンドラーを削除しておかないと、重複してキー操作が実行されてしまう
@@ -2139,10 +2139,10 @@ export default Vue.extend({
         },
 
         // キャプチャ関連のイベントを初期化する
-        initCaptureHandler() {
+        initCaptureManager() {
 
             // キャプチャハンドラーを初期化
-            this.capture_handler = new CaptureHandler(this.player, (blob: Blob, filename: string) => {
+            this.capture_handler = new CaptureManager(this.player, (blob: Blob, filename: string) => {
                 // キャプチャが撮られたら、随時 Twitter タブのキャプチャリストに追加する
                 (this.$refs.Twitter as InstanceType<typeof Twitter>).addCaptureList(blob, filename);
             });

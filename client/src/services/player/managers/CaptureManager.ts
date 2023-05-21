@@ -31,7 +31,7 @@ interface ICaptureExifData {
     is_comment_composited: boolean;
 }
 
-// CaptureHandler.setEXIFDataToCapture() のオプションのインターフェイス
+// CaptureManager.setEXIFDataToCapture() のオプションのインターフェイス
 interface ISetEXIFDataToCaptureOptions {
     network_id: number;
     service_id: number;
@@ -51,7 +51,7 @@ let web_font_noto_sans_base64: string | null = null;
 let web_font_open_sans_base64: string | null = null;
 
 
-class CaptureHandler {
+class CaptureManager {
 
     private player: DPlayer;
     private player_container: HTMLElement;
@@ -250,7 +250,7 @@ class CaptureHandler {
                 this.player.notice('キャプチャの保存に失敗しました…');
                 return false;
             }
-            console.log('[CaptureHandler] Export to Blob:', Utils.mathFloor(Utils.time() - time, 3), 'sec');
+            console.log('[CaptureManager] Export to Blob:', Utils.mathFloor(Utils.time() - time, 3), 'sec');
 
             // キャプチャに番組情報などのメタデータ (EXIF) をセット
             blob = await this.setEXIFDataToCapture(blob, exif_options);
@@ -437,7 +437,7 @@ class CaptureHandler {
             await Promise.all(promises);
         }
 
-        console.log('[CaptureHandler] Total:', Utils.mathFloor(Utils.time() - total_time, 3), 'sec');
+        console.log('[CaptureManager] Total:', Utils.mathFloor(Utils.time() - total_time, 3), 'sec');
 
         // キャプチャボタンのハイライトを削除する
         this.removeHighlight(with_comments);
@@ -730,4 +730,4 @@ class CaptureHandler {
     }
 }
 
-export default CaptureHandler;
+export default CaptureManager;
