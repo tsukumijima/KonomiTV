@@ -221,7 +221,7 @@ async def LiveStreamEventAPI(
 
 
 @router.get(
-    '/{display_channel_id}/{quality}/psi-si',
+    '/{display_channel_id}/{quality}/psi-archived-data',
     summary = 'ライブ PSI/SI アーカイブデータストリーミング API',
     response_class = Response,
     responses = {
