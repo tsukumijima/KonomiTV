@@ -11,7 +11,6 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
-import time
 import urllib.parse
 from pathlib import Path
 from rich import print
@@ -36,7 +35,6 @@ from Utils import RunSubprocess
 from Utils import RunSubprocessDirectLogOutput
 from Utils import SaveConfigYaml
 from Utils import ShowPanel
-from Utils import ShowSubProcessErrorLog
 
 
 def Installer(version: str) -> None:
@@ -1016,6 +1014,18 @@ def Installer(version: str) -> None:
             ['/usr/bin/env', 'pm2', 'start', '.venv/bin/python', '--name', 'KonomiTV', '--', 'KonomiTV.py'],
             cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
             error_message = 'PM2 サービスのインストール中に予期しないエラーが発生しました。',
+            error_log_name = 'PM2 のエラーログ',
+        )
+        if result is False:
+            return  # 処理中断
+
+        # PM2 のスタートアップ設定を行う
+        ## これにより、PM2 サービスは OS 起動時に自動的に起動されるようになる
+        result = RunSubprocess(
+            'PM2 サービスのスタートアップ設定を行っています…',
+            ['/usr/bin/env', 'pm2', 'startup'],
+            cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+            error_message = 'PM2 サービスのスタートアップ設定中に予期しないエラーが発生しました。',
             error_log_name = 'PM2 のエラーログ',
         )
         if result is False:
