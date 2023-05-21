@@ -136,7 +136,7 @@ class Channel(models.Model):
                     continue
 
                 # チャンネル ID
-                channel_id = f'NID{service["onid"]}-SID{service["sid"]:03d}'
+                channel_id = f'NID{service["networkId"]}-SID{service["serviceId"]:03d}'
 
                 # 既にレコードがある場合は更新、ない場合は新規作成
                 duplicate_channel = duplicate_channels.pop(channel_id, None)
