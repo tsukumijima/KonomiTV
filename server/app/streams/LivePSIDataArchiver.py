@@ -29,6 +29,9 @@ class LivePSIDataArchiver:
         # PSI/SI データのアーカイブデータの状態を管理する Condition
         self.psi_archive_list_condition = asyncio.Condition()
 
+        # psisiarc のプロセスを再起動中かどうか
+        self.is_restarting: bool = False
+
 
     @property
     def is_running(self) -> bool:
@@ -77,6 +80,10 @@ class LivePSIDataArchiver:
             stderr = asyncio.subprocess.STDOUT,  # ログ出力
         )
 
+        # psisiarc のプロセスを再起動中でないことを示す
+        if self.is_restarting is True:
+            self.is_restarting = False
+
         # 起動時間のタイムスタンプ
         start_at = time.time()
 
@@ -103,8 +110,7 @@ class LivePSIDataArchiver:
             # もし起動から15分以上経過している場合は、psisiarc を一旦終了して再起動する
             ## 再起動するタイミングでデータをリセットし、データが無尽蔵に増えていくのを防ぐ
             if time.time() - start_at > 60 * 15:
-                await self.destroy()
-                await self.run()
+                await self.restart()
                 return
 
 
@@ -143,7 +149,8 @@ class LivePSIDataArchiver:
         while True:
 
             # psisiarc が終了している場合は終了する
-            if self.psisiarc_process is None or self.psisiarc_process.returncode is not None:
+            ## ただし、再起動中の場合は終了しない
+            if (self.psisiarc_process is None or self.psisiarc_process.returncode is not None) and self.is_restarting is False:
                 break
 
             # データの利用可能性を待つ
@@ -173,6 +180,18 @@ class LivePSIDataArchiver:
         async with self.psi_archive_list_condition:
             self.psi_archive_list.clear()
             self.psi_archive_list_condition.notify_all()  # 全ての待機中のタスクに通知
+
+
+    async def restart(self) -> None:
+        """
+        PSI/SI データアーカイバーを再起動する
+        このメソッドは run() が終了するまで戻らないので注意
+        """
+
+        # 破棄してから再起動する
+        self.is_restarting = True
+        await self.destroy()
+        await self.run()
 
 
     async def __readPSIArchivedDataChunk(self, trailer_size: int, trailer_remain_size: int) -> tuple[bytes, int, int] | None:
