@@ -27,7 +27,6 @@ class LiveDataBroadcastingManager implements PlayerManager {
     private player: DPlayer;
     private display_channel_id: string;
     private container_element: HTMLElement;
-    private media_element: HTMLElement;
 
     // BML ブラウザのインスタンス
     // Vue.js は data() で設定した変数を再帰的に監視するが、BMLBrowser 内の JS-Interpreter が
@@ -52,12 +51,12 @@ class LiveDataBroadcastingManager implements PlayerManager {
         // DPlayer 内の dplayer-video-wrap の中に動的に追加する
         // 要素のスタイルは Watch.vue で定義されている
         this.container_element = document.createElement('div');
-        this.container_element.classList.add('dplayer-bml-container');
-        this.container_element = this.player.template.videoWrap.insertAdjacentElement('beforeend', this.container_element) as HTMLElement;
+        this.container_element.classList.add('dplayer-bml-browser');
+        this.container_element = this.player.template.videoWrap.insertAdjacentElement('afterbegin', this.container_element) as HTMLElement;
 
         // 動画が入っている要素
-        // ダミーの要素を入れておく
-        this.media_element = document.createElement('div');
+        // 動画のサイズ調整はこちら側で行うため、ダミーの要素を入れておく
+        const media_element = document.createElement('div');
 
         // BML 用フォント
         const round_gothic: BMLBrowserFontFace = {
@@ -73,8 +72,10 @@ class LiveDataBroadcastingManager implements PlayerManager {
         // BML ブラウザの初期化
         this.#bml_browser = new BMLBrowser({
             containerElement: this.container_element,
-            mediaElement: this.media_element,
+            mediaElement: media_element,
             indicator: remote_control,
+            storagePrefix: 'KonomiTV-BMLBrowser_',
+            nvramPrefix: 'nvram_',
             videoPlaneModeEnabled: true,
             fonts: {
                 roundGothic: round_gothic,
@@ -91,6 +92,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
 
         // リモコンに BML ブラウザを設定
         remote_control.content = this.#bml_browser.content;
+        console.log('[LiveDataBroadcastingManager] BMLBrowser initialized');
     }
 
 
@@ -102,21 +104,28 @@ class LiveDataBroadcastingManager implements PlayerManager {
      */
     public async init(): Promise<void> {
 
-        // BML ブラウザのイベントを定義
+        // BML ブラウザがロードされたとき
         this.#bml_browser.addEventListener('load', (event) => {
             console.log('[LiveDataBroadcastingManager] BMLBrowser: load', event.detail);
         });
+
+        // BML ブラウザの表示状態が変化したとき
         this.#bml_browser.addEventListener('invisible', (event) => {
             if (event.detail === true) {
+                // 非表示状態
                 console.log('[LiveDataBroadcastingManager] BMLBrowser: invisible');
+                this.container_element.classList.remove('dplayer-bml-browser--display');
             } else {
+                // 表示状態
                 console.log('[LiveDataBroadcastingManager] BMLBrowser: visible');
+                this.container_element.classList.add('dplayer-bml-browser--display');
             }
         });
+
+        // BML ブラウザ内に表示する動画要素のサイズが変化したとき
         this.#bml_browser.addEventListener('videochanged', (event) => {
             console.log('[LiveDataBroadcastingManager] BMLBrowser: videochanged', event.detail);
         });
-        console.log('[LiveDataBroadcastingManager] BMLBrowser initialized');
 
         // TS ストリームのデコードを開始
         // PES (字幕) は mpegts.js / LL-HLS 側で既に対応しているため、BML ブラウザ側では対応しない

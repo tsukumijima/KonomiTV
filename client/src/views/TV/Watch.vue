@@ -2271,9 +2271,9 @@ export default Vue.extend({
             transition: max-height 0.5s cubic-bezier(0.42, 0.19, 0.53, 0.87), aspect-ratio 0.5s cubic-bezier(0.42, 0.19, 0.53, 0.87);
             will-change: aspect-ratio;
             overflow: hidden;
-            z-index: 3;  // BML ブラウザよりも上のレイヤーに表示する
         }
-        .dplayer-bml-container {
+        .dplayer-bml-browser {
+            display: none;
             position: absolute;
             top: 0px;
             left: 0px;
@@ -2281,7 +2281,9 @@ export default Vue.extend({
             height: 540px;
             color: rgb(0, 0, 0);
             aspect-ratio: 16 / 9;
-            z-index: 2;
+            &--display {
+                display: block;
+            }
         }
         .dplayer-danloading {
             display: none !important;
