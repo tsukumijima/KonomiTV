@@ -21,9 +21,16 @@ module.exports = {
         }
     },
     // Webpack の設定
+    // web-bml の動作に必要
+    // ref: https://github.com/tsukumijima/web-bml/blob/master/webpack.config.js
     configureWebpack: {
-        // web-bml の動作に必要
-        // ref: https://github.com/tsukumijima/web-bml/blob/master/webpack.config.js
+        plugins: [
+            new webpack.ProvidePlugin({
+                acorn: path.resolve(__dirname, 'node_modules/web-bml/JS-Interpreter/acorn.js'),
+                Buffer: ['buffer', 'Buffer'],
+                process: 'process/browser',
+            }),
+        ],
         resolve: {
             extensions: ['.ts', '.js'],
             fallback: {
@@ -41,15 +48,6 @@ module.exports = {
         }
     },
     chainWebpack: (config) => {
-        // web-bml の動作に必要
-        // ref: https://github.com/tsukumijima/web-bml/blob/master/webpack.config.js
-        config.plugin('ProvidePlugin1').use(webpack.ProvidePlugin, [{
-            Buffer: ['buffer', 'Buffer'],
-            process: 'process/browser',
-        }]);
-        config.plugin('ProvidePlugin2').use(webpack.ProvidePlugin, [{
-            acorn: path.resolve(__dirname, 'node_modules/web-bml/JS-Interpreter/acorn.js'),
-        }]);
         if (process.env.NODE_ENV === 'development') {
             // 開発時は Minify を行わない
             config.optimization.minimize(false);

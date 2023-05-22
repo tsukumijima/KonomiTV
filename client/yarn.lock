@@ -7769,9 +7769,9 @@ wcwidth@^1.0.1:
   dependencies:
     defaults "^1.0.3"
 
-"web-bml@github:tsukumijima/web-bml#2d6d098e37f8f822f9e307724c6fdebf93252e42":
+"web-bml@github:tsukumijima/web-bml#b2861b5ece46f46246327992e01905c96a5d4d72":
   version "1.0.0"
-  resolved "https://codeload.github.com/tsukumijima/web-bml/tar.gz/2d6d098e37f8f822f9e307724c6fdebf93252e42"
+  resolved "https://codeload.github.com/tsukumijima/web-bml/tar.gz/b2861b5ece46f46246327992e01905c96a5d4d72"
   dependencies:
     "@tsukumijima/aribts" "github:tsukumijima/node-aribts#v1.4.0"
     arib-subtitle-timedmetadater "^4.0.10"

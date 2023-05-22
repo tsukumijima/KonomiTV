@@ -32,7 +32,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
     // BML ブラウザのインスタンス
     // Vue.js は data() で設定した変数を再帰的に監視するが、BMLBrowser 内の JS-Interpreter が
     // Vue.js の監視対象に入ると謎のエラーが発生してしまうため、プロパティを Hard Private にして監視対象から外す
-    // #bml_browser: BMLBrowser;
+    #bml_browser: BMLBrowser;
 
     // PSI/SI アーカイブデータの読み込みに必要な情報
     private psi_archived_data: Uint8Array = new Uint8Array(0);
@@ -52,11 +52,17 @@ class LiveDataBroadcastingManager implements PlayerManager {
         // DPlayer 内の dplayer-video-wrap の中に動的に追加する
         const container_element = document.createElement('div');
         container_element.classList.add('dplayer-bml-container');
+        container_element.style.position = 'absolute';
+        container_element.style.top = '0';
+        container_element.style.left = '0';
+        container_element.style.color = '#000000';
+        container_element.style.aspectRatio = '16/9';
+        container_element.style.zIndex = '1';
         this.container_element = this.player.template.videoWrap.insertAdjacentElement('afterbegin', container_element) as HTMLElement;
 
         // 動画が入っている要素
-        // DPlayer 内の dplayer-video-wrap-aspect を使う
-        this.media_element = this.player.template.videoWrapAspect;
+        // ダミーの要素を入れておく
+        this.media_element = document.createElement('div');
 
         // BML 用フォント
         const round_gothic: BMLBrowserFontFace = {
@@ -67,28 +73,29 @@ class LiveDataBroadcastingManager implements PlayerManager {
         };
 
         // リモコンを初期化
-        // const remote_control = new RemoteControl(document.querySelector('.remote-control')!, document.querySelector('.remote-control-receiving-status')!);
+        const remote_control = new RemoteControl(document.querySelector('.remote-control')!, document.querySelector('.remote-control-receiving-status')!);
 
         // BML ブラウザの初期化
-        // this.#bml_browser = new BMLBrowser({
-        //     containerElement: this.container_element,
-        //     mediaElement: this.media_element,
-        //     indicator: remote_control,
-        //     fonts: {
-        //         roundGothic: round_gothic,
-        //         squareGothic: square_gothic,
-        //     },
-        //     epg: {
-        //         tune(originalNetworkId, transportStreamId, serviceId) {
-        //             // 現状データ放送からのチャンネル切り替えには非対応
-        //             console.error('tune', originalNetworkId, transportStreamId, serviceId);
-        //             return false;
-        //         }
-        //     }
-        // });
+        this.#bml_browser = new BMLBrowser({
+            containerElement: this.container_element,
+            mediaElement: this.media_element,
+            indicator: remote_control,
+            videoPlaneModeEnabled: true,
+            fonts: {
+                roundGothic: round_gothic,
+                squareGothic: square_gothic,
+            },
+            epg: {
+                tune(originalNetworkId, transportStreamId, serviceId) {
+                    // 現状データ放送からのチャンネル切り替えには非対応
+                    console.error('tune', originalNetworkId, transportStreamId, serviceId);
+                    return false;
+                }
+            }
+        });
 
-        // // リモコンに BML ブラウザを設定
-        // remote_control.content = this.#bml_browser.content;
+        // リモコンに BML ブラウザを設定
+        remote_control.content = this.#bml_browser.content;
     }
 
 
@@ -100,25 +107,27 @@ class LiveDataBroadcastingManager implements PlayerManager {
      */
     public async init(): Promise<void> {
 
-        // // BML ブラウザのイベントを定義
-        // this.#bml_browser.addEventListener('load', (event) => {
-        //     console.log('[LiveDataBroadcastingManager] BMLBrowser: load', event.detail);
-        // });
-        // this.#bml_browser.addEventListener('invisible', (event) => {
-        //     if (event.detail === true) {
-        //         console.log('[LiveDataBroadcastingManager] BMLBrowser: invisible');
-        //     } else {
-        //         console.log('[LiveDataBroadcastingManager] BMLBrowser: visible');
-        //     }
-        // });
+        // BML ブラウザのイベントを定義
+        this.#bml_browser.addEventListener('load', (event) => {
+            console.log('[LiveDataBroadcastingManager] BMLBrowser: load', event.detail);
+        });
+        this.#bml_browser.addEventListener('invisible', (event) => {
+            if (event.detail === true) {
+                console.log('[LiveDataBroadcastingManager] BMLBrowser: invisible');
+            } else {
+                console.log('[LiveDataBroadcastingManager] BMLBrowser: visible');
+            }
+        });
+        this.#bml_browser.addEventListener('videochanged', (event) => {
+            console.log('[LiveDataBroadcastingManager] BMLBrowser: videochanged', event.detail);
+        });
         console.log('[LiveDataBroadcastingManager] BMLBrowser initialized');
 
         // TS ストリームのデコードを開始
         // PES (字幕) は mpegts.js / LL-HLS 側で既に対応しているため、BML ブラウザ側では対応しない
         const ts_stream = decodeTS({
             // TS ストリームをデコードした結果を BML ブラウザにそのまま送信
-            // sendCallback: (message) => this.#bml_browser.emitMessage(message),
-            sendCallback: (message) => console.log('[LiveDataBroadcastingManager] TS: send', message),
+            sendCallback: (message) => this.#bml_browser.emitMessage(message),
         });
 
         // ライブ PSI/SI アーカイブデータストリーミング API にリクエスト
@@ -153,11 +162,11 @@ class LiveDataBroadcastingManager implements PlayerManager {
                     // PCR (Packet Clock Reference) を取得して送信
                     const pcr = Math.floor(second * 90000);
                     if (last_pcr !== pcr) {
-                        // this.#bml_browser.emitMessage({
-                        //     type: 'pcr',
-                        //     pcrBase: pcr,
-                        //     pcrExtension: 0,
-                        // });
+                        this.#bml_browser.emitMessage({
+                            type: 'pcr',
+                            pcrBase: pcr,
+                            pcrExtension: 0,
+                        });
                         last_pcr = pcr;
                     }
 
@@ -191,7 +200,8 @@ class LiveDataBroadcastingManager implements PlayerManager {
         this.psi_archived_data = new Uint8Array();
 
         // BML ブラウザを破棄
-        // this.#bml_browser.destroy();
+        this.#bml_browser.destroy();
+        console.log('[LiveDataBroadcastingManager] BMLBrowser destroyed');
     }
 
 

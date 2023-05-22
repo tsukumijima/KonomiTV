@@ -29,7 +29,7 @@
         "vue-virtual-scroller": "^1.1.2",
         "vuedraggable": "^2.24.3",
         "vuetify": "^2.6.15",
-        "web-bml": "github:tsukumijima/web-bml#2d6d098e37f8f822f9e307724c6fdebf93252e42"
+        "web-bml": "github:tsukumijima/web-bml#b2861b5ece46f46246327992e01905c96a5d4d72"
     },
     "devDependencies": {
         "@iconify/vue2": "^2.1.0",

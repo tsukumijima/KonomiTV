@@ -54,6 +54,8 @@
         </section>
         <!-- TODO: 以下は仮 -->
         <div class="remote-control">
+            <div class="remote-control-indicator"></div>
+            <span class="remote-control-receiving-status" style="display: none;">Loading...</span>
             <button v-ripple type="button" id="key21">青</button>
             <button v-ripple type="button" id="key22">赤</button>
             <button v-ripple type="button" id="key23">緑</button>
@@ -78,8 +80,6 @@
             <button v-ripple type="button" id="key16">11</button>
             <button v-ripple type="button" id="key17">12</button>
             <button v-ripple type="button" id="key5">0</button>
-            <span class="remote-control-receiving-status" style="display: none;">Loading...</span>
-            <div class="remote-control-indicator"></div>
         </div>
     </div>
 </template>
