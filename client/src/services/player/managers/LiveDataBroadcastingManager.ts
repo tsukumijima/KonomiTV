@@ -55,10 +55,10 @@ class LiveDataBroadcastingManager implements PlayerManager {
 
         // BML 用フォント
         const round_gothic: BMLBrowserFontFace = {
-            source: 'url("https://github.com/googlefonts/kosugi-maru/raw/main/fonts/webfonts/KosugiMaru-Regular.woff2"), local("sans-serif")',
+            source: 'url("https://cdn.jsdelivr.net/gh/googlefonts/kosugi-maru@main/fonts/webfonts/KosugiMaru-Regular.woff2"), local("sans-serif")',
         };
         const square_gothic: BMLBrowserFontFace = {
-            source: 'url("https://github.com/googlefonts/kosugi/raw/main/fonts/webfonts/Kosugi-Regular.woff2"), local("sans-serif")',
+            source: 'url("https://cdn.jsdelivr.net/gh/googlefonts/kosugi@main/fonts/webfonts/Kosugi-Regular.woff2"), local("sans-serif")',
         };
 
         // リモコンを初期化
