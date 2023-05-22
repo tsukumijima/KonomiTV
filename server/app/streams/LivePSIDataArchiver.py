@@ -30,6 +30,15 @@ class LivePSIDataArchiver:
         self.psi_archive_list_condition = asyncio.Condition()
 
 
+    @property
+    def is_running(self) -> bool:
+        """
+        PSI/SI データアーカイバーが起動中かどうかを返す
+        """
+
+        return self.psisiarc_process is not None and self.psisiarc_process.returncode is None
+
+
     async def run(self) -> None:
         """
         PSI/SI データアーカイバーを起動する
@@ -77,7 +86,7 @@ class LivePSIDataArchiver:
         while True:
 
             # psisiarc が終了している場合は終了する
-            if self.psisiarc_process.returncode is not None:
+            if self.psisiarc_process is None or self.psisiarc_process.returncode is not None:
                 return
 
             # PSI/SI アーカイブデータを psisiarc から読み取る
@@ -134,7 +143,7 @@ class LivePSIDataArchiver:
         while True:
 
             # psisiarc が終了している場合は終了する
-            if self.psisiarc_process.returncode is not None:
+            if self.psisiarc_process is None or self.psisiarc_process.returncode is not None:
                 break
 
             # データの利用可能性を待つ
