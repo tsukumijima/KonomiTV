@@ -50,9 +50,11 @@ module.exports = {
         config.plugin('ProvidePlugin2').use(webpack.ProvidePlugin, [{
             acorn: path.resolve(__dirname, 'node_modules/web-bml/JS-Interpreter/acorn.js'),
         }]);
-        // Safari で開発用サーバーのホットリロードが機能しない問題の回避策
-        // ref: https://github.com/vuejs/vue-cli/issues/1132#issuecomment-409916879
         if (process.env.NODE_ENV === 'development') {
+            // 開発時は Minify を行わない
+            config.optimization.minimize(false);
+            // Safari で開発用サーバーのホットリロードが機能しない問題の回避策
+            // ref: https://github.com/vuejs/vue-cli/issues/1132#issuecomment-409916879
             config.output.filename('[name].[contenthash].js').end();
         }
     },
