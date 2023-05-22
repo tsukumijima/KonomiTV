@@ -1,4 +1,3 @@
-/* eslint-disable unused-imports/no-unused-imports */
 
 import DPlayer from 'dplayer';
 import { BMLBrowser, BMLBrowserFontFace } from 'web-bml/client/bml_browser';
@@ -176,7 +175,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
                 concat_data.set(add_data, this.psi_archived_data.length);
 
                 // PSI/SI アーカイブデータから TS パケットを生成し、BML ブラウザに送信
-                const psi_archived_data = this.readPSIArchivedData(concat_data.buffer, 0, (second, psi_ts_packets, pid) => {
+                const psi_archived_data = this.readPSIArchivedDataChunk(concat_data.buffer, 0, (second, psi_ts_packets, pid) => {
 
                     // PCR (Packet Clock Reference) を取得して送信
                     const pcr = Math.floor(second * 90000);
@@ -257,7 +256,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
      * @param callback PSI/SI アーカイブデータから生成した PSI/SI TS を返すコールバック関数
      * @returns ロード済みの PSI/SI アーカイブデータ（？）
      */
-    private readPSIArchivedData(
+    private readPSIArchivedDataChunk(
         buffer: ArrayBuffer,
         start_second: number,
         callback: (second: number, psi_ts_packets: Uint8Array, pid: number) => void,
