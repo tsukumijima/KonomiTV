@@ -206,7 +206,7 @@ import Twitter from '@/components/Panel/Twitter.vue';
 import APIClient from '@/services/APIClient';
 import { IChannel } from '@/services/Channels';
 import CaptureManager from '@/services/player/managers/CaptureManager';
-// import LiveDataBroadcastingManager from '@/services/player/managers/LiveDataBroadcastingManager';
+import LiveDataBroadcastingManager from '@/services/player/managers/LiveDataBroadcastingManager';
 import useChannelsStore from '@/store/ChannelsStore';
 import useSettingsStore from '@/store/SettingsStore';
 import Utils, { PlayerUtils, ProgramUtils } from '@/utils';
@@ -334,7 +334,7 @@ export default Vue.extend({
             capture_manager: null as CaptureManager | null,
 
             // データ放送マネージャーのインスタンス
-            // data_broadcasting_manager: null as LiveDataBroadcastingManager | null,
+            data_broadcasting_manager: null as LiveDataBroadcastingManager | null,
 
             // ***** キーボードショートカット *****
 
@@ -649,14 +649,6 @@ export default Vue.extend({
 
                 // キャプチャのイベントハンドラーを初期化
                 this.initCaptureManager();
-
-                // データ放送マネージャーを初期化
-                // TODO: これは暫定的なものでリファクタリング時は周囲含めて総取っ替えする
-                // this.data_broadcasting_manager = new LiveDataBroadcastingManager({
-                //     player: this.player,
-                //     display_channel_id: this.channelsStore.channel.current.display_channel_id,
-                // });
-                // await this.data_broadcasting_manager.init();
 
                 // ショートカットキーのイベントハンドラーを初期化
                 // 事前に前のイベントハンドラーを削除しておかないと、重複してキー操作が実行されてしまう
@@ -1244,15 +1236,6 @@ export default Vue.extend({
                 // 新しい EventSource を作成
                 // 画質ごとにイベント API は異なるため、一度破棄してから作り直す
                 this.initEventHandler();
-
-                // if (this.data_broadcasting_manager !== null) {
-                //     this.data_broadcasting_manager.destroy();
-                //     this.data_broadcasting_manager = new LiveDataBroadcastingManager({
-                //         player: this.player,
-                //         display_channel_id: this.channelsStore.channel.current.display_channel_id,
-                //     });
-                //     await this.data_broadcasting_manager.init();
-                // }
             });
 
             // 停止状態でかつ再生時間からバッファが 30 秒以上離れていないかを監視し、そうなっていたら強制的にシークする
@@ -1310,6 +1293,17 @@ export default Vue.extend({
             // ***** プレイヤー再生開始時のイベントハンドラー *****
 
             if (this.player === null) return;
+
+            // データ放送マネージャーを初期化
+            // TODO: これは暫定的なものでリファクタリング時は周囲含めて総取っ替えする
+            if (this.data_broadcasting_manager !== null) {
+                this.data_broadcasting_manager.destroy();
+            }
+            this.data_broadcasting_manager = new LiveDataBroadcastingManager({
+                player: this.player,
+                display_channel_id: this.channelsStore.channel.current.display_channel_id,
+            });
+            this.data_broadcasting_manager.init();
 
             // 必ず最初はローディング状態とする
             this.is_loading = true;
@@ -2220,10 +2214,10 @@ export default Vue.extend({
                 this.eventsource = null;
             }
 
-            // if (this.data_broadcasting_manager !== null) {
-            //     this.data_broadcasting_manager.destroy();
-            //     this.data_broadcasting_manager = null;
-            // }
+            if (this.data_broadcasting_manager !== null) {
+                this.data_broadcasting_manager.destroy();
+                this.data_broadcasting_manager = null;
+            }
 
             // 映像がフェードアウトするアニメーション (0.2秒) 分待ってから実行
             // この 0.2 秒の間に音量をフェードアウトさせる

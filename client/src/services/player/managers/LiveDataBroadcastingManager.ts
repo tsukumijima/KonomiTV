@@ -1,3 +1,4 @@
+/* eslint-disable unused-imports/no-unused-imports */
 
 import DPlayer from 'dplayer';
 import { BMLBrowser, BMLBrowserFontFace } from 'web-bml/client/bml_browser';
@@ -31,7 +32,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
     // BML ブラウザのインスタンス
     // Vue.js は data() で設定した変数を再帰的に監視するが、BMLBrowser 内の JS-Interpreter が
     // Vue.js の監視対象に入ると謎のエラーが発生してしまうため、プロパティを Hard Private にして監視対象から外す
-    #bml_browser: BMLBrowser;
+    // #bml_browser: BMLBrowser;
 
     // PSI/SI アーカイブデータの読み込みに必要な情報
     private psi_archived_data: Uint8Array = new Uint8Array(0);
@@ -66,28 +67,28 @@ class LiveDataBroadcastingManager implements PlayerManager {
         };
 
         // リモコンを初期化
-        const remote_control = new RemoteControl(document.querySelector('.remote-control')!, document.querySelector('.remote-control-receiving-status')!);
+        // const remote_control = new RemoteControl(document.querySelector('.remote-control')!, document.querySelector('.remote-control-receiving-status')!);
 
         // BML ブラウザの初期化
-        this.#bml_browser = new BMLBrowser({
-            containerElement: this.container_element,
-            mediaElement: this.media_element,
-            indicator: remote_control,
-            fonts: {
-                roundGothic: round_gothic,
-                squareGothic: square_gothic,
-            },
-            epg: {
-                tune(originalNetworkId, transportStreamId, serviceId) {
-                    // 現状データ放送からのチャンネル切り替えには非対応
-                    console.error('tune', originalNetworkId, transportStreamId, serviceId);
-                    return false;
-                }
-            }
-        });
+        // this.#bml_browser = new BMLBrowser({
+        //     containerElement: this.container_element,
+        //     mediaElement: this.media_element,
+        //     indicator: remote_control,
+        //     fonts: {
+        //         roundGothic: round_gothic,
+        //         squareGothic: square_gothic,
+        //     },
+        //     epg: {
+        //         tune(originalNetworkId, transportStreamId, serviceId) {
+        //             // 現状データ放送からのチャンネル切り替えには非対応
+        //             console.error('tune', originalNetworkId, transportStreamId, serviceId);
+        //             return false;
+        //         }
+        //     }
+        // });
 
-        // リモコンに BML ブラウザを設定
-        remote_control.content = this.#bml_browser.content;
+        // // リモコンに BML ブラウザを設定
+        // remote_control.content = this.#bml_browser.content;
     }
 
 
@@ -99,24 +100,25 @@ class LiveDataBroadcastingManager implements PlayerManager {
      */
     public async init(): Promise<void> {
 
-        // BML ブラウザのイベントを定義
-        this.#bml_browser.addEventListener('load', (event) => {
-            console.log('[LiveDataBroadcastingManager] BMLBrowser: load', event.detail);
-        });
-        this.#bml_browser.addEventListener('invisible', (event) => {
-            if (event.detail === true) {
-                console.log('[LiveDataBroadcastingManager] BMLBrowser: invisible');
-            } else {
-                console.log('[LiveDataBroadcastingManager] BMLBrowser: visible');
-            }
-        });
+        // // BML ブラウザのイベントを定義
+        // this.#bml_browser.addEventListener('load', (event) => {
+        //     console.log('[LiveDataBroadcastingManager] BMLBrowser: load', event.detail);
+        // });
+        // this.#bml_browser.addEventListener('invisible', (event) => {
+        //     if (event.detail === true) {
+        //         console.log('[LiveDataBroadcastingManager] BMLBrowser: invisible');
+        //     } else {
+        //         console.log('[LiveDataBroadcastingManager] BMLBrowser: visible');
+        //     }
+        // });
         console.log('[LiveDataBroadcastingManager] BMLBrowser initialized');
 
         // TS ストリームのデコードを開始
         // PES (字幕) は mpegts.js / LL-HLS 側で既に対応しているため、BML ブラウザ側では対応しない
         const ts_stream = decodeTS({
             // TS ストリームをデコードした結果を BML ブラウザにそのまま送信
-            sendCallback: (message) => this.#bml_browser.emitMessage(message),
+            // sendCallback: (message) => this.#bml_browser.emitMessage(message),
+            sendCallback: (message) => console.log('[LiveDataBroadcastingManager] TS: send', message),
         });
 
         // ライブ PSI/SI アーカイブデータストリーミング API にリクエスト
@@ -151,11 +153,11 @@ class LiveDataBroadcastingManager implements PlayerManager {
                     // PCR (Packet Clock Reference) を取得して送信
                     const pcr = Math.floor(second * 90000);
                     if (last_pcr !== pcr) {
-                        this.#bml_browser.emitMessage({
-                            type: 'pcr',
-                            pcrBase: pcr,
-                            pcrExtension: 0,
-                        });
+                        // this.#bml_browser.emitMessage({
+                        //     type: 'pcr',
+                        //     pcrBase: pcr,
+                        //     pcrExtension: 0,
+                        // });
                         last_pcr = pcr;
                     }
 
@@ -189,7 +191,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
         this.psi_archived_data = new Uint8Array();
 
         // BML ブラウザを破棄
-        this.#bml_browser.destroy();
+        // this.#bml_browser.destroy();
     }
 
 
