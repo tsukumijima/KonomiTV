@@ -2271,6 +2271,17 @@ export default Vue.extend({
             transition: max-height 0.5s cubic-bezier(0.42, 0.19, 0.53, 0.87), aspect-ratio 0.5s cubic-bezier(0.42, 0.19, 0.53, 0.87);
             will-change: aspect-ratio;
             overflow: hidden;
+            z-index: 3;  // BML ブラウザよりも上のレイヤーに表示する
+        }
+        .dplayer-bml-container {
+            position: absolute;
+            top: 0px;
+            left: 0px;
+            width: 960px;
+            height: 540px;
+            color: rgb(0, 0, 0);
+            aspect-ratio: 16 / 9;
+            z-index: 2;
         }
         .dplayer-danloading {
             display: none !important;
@@ -2785,7 +2796,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         transition: opacity 0.3s, visibility 0.3s;
         opacity: 0;
         visibility: hidden;
-        z-index: 2;
+        z-index: 10;
         @include tablet-vertical {
             display: none;
         }
@@ -2885,7 +2896,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             transition: opacity 0.3s, visibility 0.3s;
             opacity: 0;
             visibility: hidden;
-            z-index: 1;
+            z-index: 5;
 
             @include tablet-vertical {
                 height: 66px;

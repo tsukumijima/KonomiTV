@@ -50,15 +50,10 @@ class LiveDataBroadcastingManager implements PlayerManager {
 
         // BML文書が入る要素
         // DPlayer 内の dplayer-video-wrap の中に動的に追加する
-        const container_element = document.createElement('div');
-        container_element.classList.add('dplayer-bml-container');
-        container_element.style.position = 'absolute';
-        container_element.style.top = '0';
-        container_element.style.left = '0';
-        container_element.style.color = '#000000';
-        container_element.style.aspectRatio = '16/9';
-        container_element.style.zIndex = '1';
-        this.container_element = this.player.template.videoWrap.insertAdjacentElement('afterbegin', container_element) as HTMLElement;
+        // 要素のスタイルは Watch.vue で定義されている
+        this.container_element = document.createElement('div');
+        this.container_element.classList.add('dplayer-bml-container');
+        this.container_element = this.player.template.videoWrap.insertAdjacentElement('beforeend', this.container_element) as HTMLElement;
 
         // 動画が入っている要素
         // ダミーの要素を入れておく
