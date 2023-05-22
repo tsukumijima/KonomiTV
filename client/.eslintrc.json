@@ -31,7 +31,7 @@
         "unused-imports/no-unused-imports": "warn",
         "vue/multi-word-component-names": "off",
         "vue/no-reserved-component-names": "off",
-        "no-constant-condition": ["error", {"checkLoop": false}],
+        "no-constant-condition": ["error", {"checkLoops": false}],
         "no-unused-vars": "off"
     }
 }

@@ -206,6 +206,7 @@ import Twitter from '@/components/Panel/Twitter.vue';
 import APIClient from '@/services/APIClient';
 import { IChannel } from '@/services/Channels';
 import CaptureManager from '@/services/player/managers/CaptureManager';
+// import LiveDataBroadcastingManager from '@/services/player/managers/LiveDataBroadcastingManager';
 import useChannelsStore from '@/store/ChannelsStore';
 import useSettingsStore from '@/store/SettingsStore';
 import Utils, { PlayerUtils, ProgramUtils } from '@/utils';
@@ -329,8 +330,11 @@ export default Vue.extend({
             // フルスクリーン状態が切り替わったときのハンドラー
             fullscreen_handler: null as () => void | null,
 
-            // キャプチャハンドラーのインスタンス
-            capture_handler: null as CaptureManager | null,
+            // キャプチャマネージャーのインスタンス
+            capture_manager: null as CaptureManager | null,
+
+            // データ放送マネージャーのインスタンス
+            // data_broadcasting_manager: null as LiveDataBroadcastingManager | null,
 
             // ***** キーボードショートカット *****
 
@@ -645,6 +649,14 @@ export default Vue.extend({
 
                 // キャプチャのイベントハンドラーを初期化
                 this.initCaptureManager();
+
+                // データ放送マネージャーを初期化
+                // TODO: これは暫定的なものでリファクタリング時は周囲含めて総取っ替えする
+                // this.data_broadcasting_manager = new LiveDataBroadcastingManager({
+                //     player: this.player,
+                //     display_channel_id: this.channelsStore.channel.current.display_channel_id,
+                // });
+                // await this.data_broadcasting_manager.init();
 
                 // ショートカットキーのイベントハンドラーを初期化
                 // 事前に前のイベントハンドラーを削除しておかないと、重複してキー操作が実行されてしまう
@@ -1218,7 +1230,7 @@ export default Vue.extend({
             this.player.on('pause', on_play_or_pause);
 
             // 画質の切り替えが開始されたときのイベント
-            this.player.on('quality_start', () => {
+            this.player.on('quality_start', async () => {
 
                 // ローディング中の背景画像をランダムで設定
                 this.background_url = PlayerUtils.generatePlayerBackgroundURL();
@@ -1232,6 +1244,15 @@ export default Vue.extend({
                 // 新しい EventSource を作成
                 // 画質ごとにイベント API は異なるため、一度破棄してから作り直す
                 this.initEventHandler();
+
+                // if (this.data_broadcasting_manager !== null) {
+                //     this.data_broadcasting_manager.destroy();
+                //     this.data_broadcasting_manager = new LiveDataBroadcastingManager({
+                //         player: this.player,
+                //         display_channel_id: this.channelsStore.channel.current.display_channel_id,
+                //     });
+                //     await this.data_broadcasting_manager.init();
+                // }
             });
 
             // 停止状態でかつ再生時間からバッファが 30 秒以上離れていないかを監視し、そうなっていたら強制的にシークする
@@ -2107,12 +2128,12 @@ export default Vue.extend({
                             }
                             // Cキー: 映像をキャプチャ
                             if (event.code === 'KeyC') {
-                                await this.capture_handler.captureAndSave(false);
+                                await this.capture_manager.captureAndSave(false);
                                 return true;
                             }
                             // Vキー: 映像を実況コメントを付けてキャプチャ
                             if (event.code === 'KeyV') {
-                                await this.capture_handler.captureAndSave(true);
+                                await this.capture_manager.captureAndSave(true);
                                 return true;
                             }
                             // Mキー: コメント入力フォームにフォーカス
@@ -2141,8 +2162,8 @@ export default Vue.extend({
         // キャプチャ関連のイベントを初期化する
         initCaptureManager() {
 
-            // キャプチャハンドラーを初期化
-            this.capture_handler = new CaptureManager(this.player, (blob: Blob, filename: string) => {
+            // キャプチャマネージャーを初期化
+            this.capture_manager = new CaptureManager(this.player, (blob: Blob, filename: string) => {
                 // キャプチャが撮られたら、随時 Twitter タブのキャプチャリストに追加する
                 (this.$refs.Twitter as InstanceType<typeof Twitter>).addCaptureList(blob, filename);
             });
@@ -2151,14 +2172,14 @@ export default Vue.extend({
             // ショートカットからのキャプチャでも同じイベントがトリガーされる
             const capture_button = this.$el.querySelector('.dplayer-icon.dplayer-capture-icon');
             capture_button.addEventListener('click', async () => {
-                await this.capture_handler.captureAndSave(false);
+                await this.capture_manager.captureAndSave(false);
             });
 
             // コメント付きキャプチャボタンがクリックされたときのイベント
             // ショートカットからのキャプチャでも同じイベントがトリガーされる
             const comment_capture_button = this.$el.querySelector('.dplayer-icon.dplayer-comment-capture-icon');
             comment_capture_button.addEventListener('click', async () => {
-                await this.capture_handler.captureAndSave(true);
+                await this.capture_manager.captureAndSave(true);
             });
         },
 
@@ -2198,6 +2219,11 @@ export default Vue.extend({
                 this.eventsource.close();
                 this.eventsource = null;
             }
+
+            // if (this.data_broadcasting_manager !== null) {
+            //     this.data_broadcasting_manager.destroy();
+            //     this.data_broadcasting_manager = null;
+            // }
 
             // 映像がフェードアウトするアニメーション (0.2秒) 分待ってから実行
             // この 0.2 秒の間に音量をフェードアウトさせる

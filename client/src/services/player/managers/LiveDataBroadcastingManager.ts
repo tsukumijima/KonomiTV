@@ -106,6 +106,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
                 console.log('BMLBrowser: visible');
             }
         });
+        console.log('[LiveDataBroadcastingManager] BMLBrowser initialized');
 
         // TS ストリームのデコードを開始
         // PES (字幕) は mpegts.js / LL-HLS 側で既に対応しているため、BML ブラウザ側では対応しない
@@ -128,8 +129,10 @@ class LiveDataBroadcastingManager implements PlayerManager {
                 // API から随時データを取得
                 const result = await reader.read();
                 if (result.done) {
+                    console.log('[LiveDataBroadcastingManager] PSI/SI archived data finished');
                     break;  // ストリームの終端に達した
                 }
+                console.log('[LiveDataBroadcastingManager] PSI/SI archived data received');
 
                 // 今まで受信した PSI/SI アーカイブデータと結合
                 // TODO: サーバー側で psisiarc がリセットされた場合はここでも別途処理を挟む必要があるかも？要調査
@@ -156,6 +159,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
                     // デコードされた結果は decodeTS() の sendCallback で BML ブラウザに送信される
                     this.setTSPacketHeader(psi_ts_packets, pid);
                     ts_stream.parse(Buffer.from(psi_ts_packets.buffer, psi_ts_packets.byteOffset, psi_ts_packets.byteLength));
+                    console.log(`[LiveDataBroadcastingManager] TS packets sent (pid: ${pid})`);
                 });
 
                 // 今回受信したデータを次回に持ち越す

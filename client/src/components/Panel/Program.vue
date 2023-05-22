@@ -52,6 +52,35 @@
                 <div class="program-detail__text" v-html="Utils.URLtoLink(detail_text)"></div>
             </div>
         </section>
+        <!-- TODO: 以下は仮 -->
+        <div class="remote-control">
+            <button v-ripple type="button" id="key21">青</button>
+            <button v-ripple type="button" id="key22">赤</button>
+            <button v-ripple type="button" id="key23">緑</button>
+            <button v-ripple type="button" id="key24">黄</button>
+            <button v-ripple type="button" id="key1">↑</button>
+            <button v-ripple type="button" id="key3">←</button>
+            <button v-ripple type="button" id="key18">決定</button>
+            <button v-ripple type="button" id="key4">→</button>
+            <button v-ripple type="button" id="key2">↓</button>
+            <button v-ripple type="button" id="key20">d</button>
+            <button v-ripple type="button" id="key19">戻る</button>
+            <button v-ripple type="button" id="key6">1</button>
+            <button v-ripple type="button" id="key7">2</button>
+            <button v-ripple type="button" id="key8">3</button>
+            <button v-ripple type="button" id="key9">4</button>
+            <button v-ripple type="button" id="key10">5</button>
+            <button v-ripple type="button" id="key11">6</button>
+            <button v-ripple type="button" id="key12">7</button>
+            <button v-ripple type="button" id="key13">8</button>
+            <button v-ripple type="button" id="key14">9</button>
+            <button v-ripple type="button" id="key15">10</button>
+            <button v-ripple type="button" id="key16">11</button>
+            <button v-ripple type="button" id="key17">12</button>
+            <button v-ripple type="button" id="key5">0</button>
+            <span class="remote-control-receiving-status" style="display: none;">Loading...</span>
+            <div class="remote-control-indicator"></div>
+        </div>
     </div>
 </template>
 <script lang="ts">
@@ -321,6 +350,23 @@ export default Vue.extend({
                     color: var(--v-primary-lighten1);
                     text-underline-offset: 3px;  // 下線と字の間隔を空ける
                 }
+            }
+        }
+    }
+
+    .remote-control {
+        button {
+            margin-top: 16px;
+            width: 100%;
+            height: 48px;
+            border-radius: 4px;
+            background: var(--v-background-lighten1);
+            color: var(--v-text-base);
+            font-size: 14px;
+            font-weight: bold;
+            @include smartphone-horizontal {
+                margin-top: 12px;
+                font-size: 13px;
             }
         }
     }
