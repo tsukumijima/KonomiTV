@@ -246,7 +246,14 @@ async def LivePSIArchivedDataAPI(
     # PSI/SI アーカイブデータを取得したいだけなので、接続はしない
     livestream = LiveStream(display_channel_id, quality)
 
-    # LivePSIDataArchiver が起動していない場合はエラー
+    # LivePSIDataArchiver がまだ起動していない場合は、起動するまで最大10秒待つ
+    ## LivePSIDataArchiver は MPEG-TS / LL-HLS ストリーミング API によって自動的に起動されるので、ここでは起動を待つだけ
+    for _ in range(20):
+        if livestream.psi_data_archiver is not None:
+            break
+        await asyncio.sleep(0.5)
+
+    # 10秒待っても起動しなかった場合はエラー
     if livestream.psi_data_archiver is None:
         Logging.error(f'[LiveStreamsRouter][LivePSIArchivedDataAPI] PSI/SI Data Archiver is not running')
         raise HTTPException(
