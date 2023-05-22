@@ -27,7 +27,11 @@ class LiveDataBroadcastingManager implements PlayerManager {
     private display_channel_id: string;
     private container_element: HTMLElement;
     private media_element: HTMLElement;
-    private bml_browser: BMLBrowser;
+
+    // BML ブラウザのインスタンス
+    // Vue.js は data() で設定した変数を再帰的に監視するが、BMLBrowser 内の JS-Interpreter が
+    // Vue.js の監視対象に入ると謎のエラーが発生してしまうため、プロパティを Hard Private にして監視対象から外す
+    #bml_browser: BMLBrowser;
 
     // PSI/SI アーカイブデータの読み込みに必要な情報
     private psi_archived_data: Uint8Array = new Uint8Array(0);
@@ -65,7 +69,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
         const remote_control = new RemoteControl(document.querySelector('.remote-control')!, document.querySelector('.remote-control-receiving-status')!);
 
         // BML ブラウザの初期化
-        this.bml_browser = new BMLBrowser({
+        this.#bml_browser = new BMLBrowser({
             containerElement: this.container_element,
             mediaElement: this.media_element,
             indicator: remote_control,
@@ -83,7 +87,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
         });
 
         // リモコンに BML ブラウザを設定
-        remote_control.content = this.bml_browser.content;
+        remote_control.content = this.#bml_browser.content;
     }
 
 
@@ -96,14 +100,14 @@ class LiveDataBroadcastingManager implements PlayerManager {
     public async init(): Promise<void> {
 
         // BML ブラウザのイベントを定義
-        this.bml_browser.addEventListener('load', (event) => {
-            console.log('BMLBrowser: load', event.detail);
+        this.#bml_browser.addEventListener('load', (event) => {
+            console.log('[LiveDataBroadcastingManager] BMLBrowser: load', event.detail);
         });
-        this.bml_browser.addEventListener('invisible', (event) => {
+        this.#bml_browser.addEventListener('invisible', (event) => {
             if (event.detail === true) {
-                console.log('BMLBrowser: invisible');
+                console.log('[LiveDataBroadcastingManager] BMLBrowser: invisible');
             } else {
-                console.log('BMLBrowser: visible');
+                console.log('[LiveDataBroadcastingManager] BMLBrowser: visible');
             }
         });
         console.log('[LiveDataBroadcastingManager] BMLBrowser initialized');
@@ -112,7 +116,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
         // PES (字幕) は mpegts.js / LL-HLS 側で既に対応しているため、BML ブラウザ側では対応しない
         const ts_stream = decodeTS({
             // TS ストリームをデコードした結果を BML ブラウザにそのまま送信
-            sendCallback: (message) => this.bml_browser.emitMessage(message),
+            sendCallback: (message) => this.#bml_browser.emitMessage(message),
         });
 
         // ライブ PSI/SI アーカイブデータストリーミング API にリクエスト
@@ -132,7 +136,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
                     console.log('[LiveDataBroadcastingManager] PSI/SI archived data finished');
                     break;  // ストリームの終端に達した
                 }
-                console.log('[LiveDataBroadcastingManager] PSI/SI archived data received');
+                console.log(`[LiveDataBroadcastingManager] PSI/SI archived data received (length: ${result.value.length})`);
 
                 // 今まで受信した PSI/SI アーカイブデータと結合
                 // TODO: サーバー側で psisiarc がリセットされた場合はここでも別途処理を挟む必要があるかも？要調査
@@ -147,7 +151,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
                     // PCR (Packet Clock Reference) を取得して送信
                     const pcr = Math.floor(second * 90000);
                     if (last_pcr !== pcr) {
-                        this.bml_browser.emitMessage({
+                        this.#bml_browser.emitMessage({
                             type: 'pcr',
                             pcrBase: pcr,
                             pcrExtension: 0,
@@ -159,7 +163,6 @@ class LiveDataBroadcastingManager implements PlayerManager {
                     // デコードされた結果は decodeTS() の sendCallback で BML ブラウザに送信される
                     this.setTSPacketHeader(psi_ts_packets, pid);
                     ts_stream.parse(Buffer.from(psi_ts_packets.buffer, psi_ts_packets.byteOffset, psi_ts_packets.byteLength));
-                    console.log(`[LiveDataBroadcastingManager] TS packets sent (pid: ${pid})`);
                 });
 
                 // 今回受信したデータを次回に持ち越す
@@ -186,7 +189,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
         this.psi_archived_data = new Uint8Array();
 
         // BML ブラウザを破棄
-        this.bml_browser.destroy();
+        this.#bml_browser.destroy();
     }
 
 
