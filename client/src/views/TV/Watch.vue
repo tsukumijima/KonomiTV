@@ -2275,11 +2275,12 @@ export default Vue.extend({
         .dplayer-bml-browser {
             display: none;
             position: absolute;
-            top: 0px;
-            left: 0px;
             width: 960px;
             height: 540px;
             color: rgb(0, 0, 0);
+            overflow: hidden;
+            transform-origin: center;
+            transform: scale(var(--scale-factor));
             aspect-ratio: 16 / 9;
             &--display {
                 display: block;

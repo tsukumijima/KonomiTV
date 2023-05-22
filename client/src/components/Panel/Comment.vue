@@ -120,9 +120,6 @@ export default Vue.extend({
             // ResizeObserver のインスタンス
             resize_observer: null as ResizeObserver | null,
 
-            // ResizeObserver の監視対象の要素
-            resize_observer_element: null as HTMLElement | null,
-
             // コメントのミュート設定のモーダルを表示するか
             comment_mute_settings_modal: false,
         };
@@ -211,7 +208,7 @@ export default Vue.extend({
 
         // ResizeObserver を終了
         if (this.resize_observer !== null) {
-            this.resize_observer.unobserve(this.resize_observer_element);
+            this.resize_observer.disconnect();
         }
     },
     methods: {
@@ -290,11 +287,11 @@ export default Vue.extend({
 
             // 以前に初期化された ResizeObserver を終了
             if (this.resize_observer !== null) {
-                this.resize_observer.unobserve(this.resize_observer_element);
+                this.resize_observer.disconnect();
             }
 
             // 監視対象の要素
-            this.resize_observer_element = document.querySelector('.watch-player');
+            const resize_observer_element = document.querySelector('.watch-player');
 
             // タイムアウト ID
             // 一時的に無効にした transition を有効化する際に利用する
@@ -311,9 +308,9 @@ export default Vue.extend({
 
                 // プレイヤー全体と映像の高さの差（レターボックス）から、コメント描画領域の高さを狭める必要があるかを判定する
                 // 2で割っているのは単体の差を測るため
-                if (this.resize_observer_element === null || this.resize_observer_element.clientHeight === null) return;
+                if (resize_observer_element === null || resize_observer_element.clientHeight === null) return;
                 if (video_element === null || video_element.clientHeight === null) return;
-                const letter_box_height = (this.resize_observer_element.clientHeight - video_element.clientHeight) / 2;
+                const letter_box_height = (resize_observer_element.clientHeight - video_element.clientHeight) / 2;
 
                 const threshold = Utils.isSmartphoneVertical() ? 0 : window.matchMedia('(max-height: 450px)').matches ? 50 : 66;
                 if (letter_box_height < threshold) {
@@ -371,7 +368,7 @@ export default Vue.extend({
 
             // 要素の監視を開始
             this.resize_observer = new ResizeObserver(on_resize);
-            this.resize_observer.observe(this.resize_observer_element);
+            this.resize_observer.observe(resize_observer_element);
 
             // 0.6 秒待ってから初回実行
             // チャンネル切り替え後、再初期化されたプレイヤーに適用するため（早いと再初期化前のプレイヤーに適用されてしまう）

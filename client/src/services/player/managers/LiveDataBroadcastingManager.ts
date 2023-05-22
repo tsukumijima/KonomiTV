@@ -29,9 +29,12 @@ class LiveDataBroadcastingManager implements PlayerManager {
     private container_element: HTMLElement;
 
     // BML ブラウザのインスタンス
-    // Vue.js は data() で設定した変数を再帰的に監視するが、BMLBrowser 内の JS-Interpreter が
+    // Vue.js は data() で設定した変数を再帰的に監視するが、BMLBrowser 内の JS-Interpreter のインスタンスが
     // Vue.js の監視対象に入ると謎のエラーが発生してしまうため、プロパティを Hard Private にして監視対象から外す
     #bml_browser: BMLBrowser;
+
+    // DPlayer のリサイズを監視する ResizeObserver
+    private resize_observer: ResizeObserver;
 
     // PSI/SI アーカイブデータの読み込みに必要な情報
     private psi_archived_data: Uint8Array = new Uint8Array(0);
@@ -52,7 +55,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
         // 要素のスタイルは Watch.vue で定義されている
         this.container_element = document.createElement('div');
         this.container_element.classList.add('dplayer-bml-browser');
-        this.container_element = this.player.template.videoWrap.insertAdjacentElement('afterbegin', this.container_element) as HTMLElement;
+        this.container_element = this.player.template.videoWrap.insertAdjacentElement('beforeend', this.container_element) as HTMLElement;
 
         // 動画が入っている要素
         // 動画のサイズ調整はこちら側で行うため、ダミーの要素を入れておく
@@ -89,10 +92,19 @@ class LiveDataBroadcastingManager implements PlayerManager {
                 }
             }
         });
+        console.log('[LiveDataBroadcastingManager] BMLBrowser initialized');
 
         // リモコンに BML ブラウザを設定
         remote_control.content = this.#bml_browser.content;
-        console.log('[LiveDataBroadcastingManager] BMLBrowser initialized');
+
+        // DPlayer のリサイズを監視する ResizeObserver を初期化
+        this.resize_observer = new ResizeObserver((entries) => {
+            const entry = entries[0];
+            const scaleFactorWidth = entry.contentRect.width / 960; // Shadow DOM の元の幅
+            const scaleFactorHeight = entry.contentRect.height / 540; // Shadow DOM の元の高さ
+            const scaleFactor = Math.min(scaleFactorWidth, scaleFactorHeight);
+            this.container_element.style.setProperty('--scale-factor', scaleFactor.toString());
+        });
     }
 
 
@@ -104,12 +116,15 @@ class LiveDataBroadcastingManager implements PlayerManager {
      */
     public async init(): Promise<void> {
 
-        // BML ブラウザがロードされたとき
+        // DPlayer のリサイズを監視する ResizeObserver を開始
+        this.resize_observer.observe(this.player.template.videoWrap);
+
+        // BML ブラウザがロードされたときのイベント
         this.#bml_browser.addEventListener('load', (event) => {
             console.log('[LiveDataBroadcastingManager] BMLBrowser: load', event.detail);
         });
 
-        // BML ブラウザの表示状態が変化したとき
+        // BML ブラウザの表示状態が変化したときのイベント
         this.#bml_browser.addEventListener('invisible', (event) => {
             if (event.detail === true) {
                 // 非表示状態
@@ -122,7 +137,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
             }
         });
 
-        // BML ブラウザ内に表示する動画要素のサイズが変化したとき
+        // BML ブラウザ内に表示する動画要素のサイズが変化したときのイベント
         this.#bml_browser.addEventListener('videochanged', (event) => {
             console.log('[LiveDataBroadcastingManager] BMLBrowser: videochanged', event.detail);
         });
@@ -196,6 +211,9 @@ class LiveDataBroadcastingManager implements PlayerManager {
      * LiveDataBroadcastingManager での処理を終了し、破棄する
      */
     public async destroy(): Promise<void> {
+
+        // DPlayer のリサイズを監視する ResizeObserver を終了
+        this.resize_observer.disconnect();
 
         // ライブ PSI/SI アーカイブデータストリーミング API のリクエストを中断
         this.psi_archived_data_api_abort_controller.abort();
