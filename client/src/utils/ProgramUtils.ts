@@ -80,28 +80,6 @@ export class ProgramUtils {
 
 
     /**
-     * オブジェクトからプロパティを取得し、もしプロパティが存在しなければ代替値を返す
-     * @param items 対象のオブジェクト
-     * @param key オブジェクトから取り出すプロパティのキー
-     * @param default_value 取得できなかった際の代替値
-     * @returns オブジェクト取得した値 or 代替値
-     */
-    static getAttribute(items: {[key: string]: any}, key: string, default_value: any): any {
-
-        // items が空でないかつ、items[key] が存在する
-        if (items !== null && items[key] !== undefined && items[key] !== null) {
-
-            // items[key] の内容を返す
-            return items[key];
-
-        // 指定された代替値を返す
-        } else {
-            return default_value;
-        }
-    }
-
-
-    /**
      * 番組の進捗状況を取得する
      * @param program 番組情報
      * @returns 番組の進捗状況（%単位）

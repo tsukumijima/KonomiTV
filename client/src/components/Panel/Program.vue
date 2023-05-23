@@ -17,7 +17,7 @@
             </div>
             <div class="program-info__genre-container">
                 <div class="program-info__genre" :key="genre_index"
-                    v-for="(genre, genre_index) in ProgramUtils.getAttribute(channelsStore.channel.current.program_present, 'genres', [])">
+                    v-for="(genre, genre_index) in channelsStore.channel.current.program_present.genres">
                     {{genre.major}} / {{genre.middle}}
                 </div>
             </div>
@@ -36,7 +36,7 @@
                     :class="`program-info__status-force--${ChannelUtils.getChannelForceType(channelsStore.channel.current.jikkyo_force)}`">
                     <Icon icon="fa-solid:fire-alt" height="14px" />
                     <span class="ml-2">勢い:</span>
-                    <span class="ml-2">{{ProgramUtils.getAttribute(channelsStore.channel.current, 'jikkyo_force', '--')}} コメ/分</span>
+                    <span class="ml-2">{{channelsStore.channel.current.jikkyo_force ?? '--'}} コメ/分</span>
                 </div>
                 <div class="program-info__status-viewers ml-5">
                     <Icon icon="fa-solid:eye" height="14px" />
@@ -47,7 +47,7 @@
         </section>
         <section class="program-detail-container">
             <div class="program-detail" :key="detail_heading"
-                v-for="(detail_text, detail_heading) in ProgramUtils.getAttribute(channelsStore.channel.current.program_present, 'detail', {})">
+                v-for="(detail_text, detail_heading) in channelsStore.channel.current.program_present.detail">
                 <h2 class="program-detail__heading">{{detail_heading}}</h2>
                 <div class="program-detail__text" v-html="Utils.URLtoLink(detail_text)"></div>
             </div>
