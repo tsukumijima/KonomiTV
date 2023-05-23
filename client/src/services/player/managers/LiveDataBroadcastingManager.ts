@@ -51,11 +51,11 @@ class LiveDataBroadcastingManager implements PlayerManager {
         this.display_channel_id = options.display_channel_id;
 
         // BML文書が入る要素
-        // DPlayer 内の dplayer-video-wrap の中に動的に追加する (動画レイヤーより上で、コメントレイヤーより下に配置)
+        // DPlayer 内の dplayer-video-wrap の中に動的に追加する (動画レイヤーより下)
         // 要素のスタイルは Watch.vue で定義されている
         this.container_element = document.createElement('div');
         this.container_element.classList.add('dplayer-bml-browser');
-        this.container_element = this.player.template.videoWrap.insertBefore(this.container_element, this.player.template.danmaku);
+        this.container_element = this.player.template.videoWrap.insertAdjacentElement('afterbegin', this.container_element) as HTMLElement;
 
         // 動画が入っている要素
         // DPlayer の dplayer-video-wrap-aspect をそのまま使う (中に動画と字幕が含まれる)
@@ -98,6 +98,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
         remote_control.content = this.#bml_browser.content;
 
         // DPlayer のリサイズを監視する ResizeObserver を初期化
+        // TODO: SD 画質の場合は 720x480 になるので注意
         this.resize_observer = new ResizeObserver((entries) => {
             const entry = entries[0];
             const scaleFactorWidth = entry.contentRect.width / 960; // Shadow DOM の元の幅
@@ -122,21 +123,41 @@ class LiveDataBroadcastingManager implements PlayerManager {
         // BML ブラウザがロードされたときのイベント
         this.#bml_browser.addEventListener('load', (event) => {
             console.log('[LiveDataBroadcastingManager] BMLBrowser: load', event.detail);
-            // 動画の要素が BML ブラウザ内に入れられるので、スタイルを調整する
-            this.media_element.style.width = '100%';
-            this.media_element.style.height = '100%';
-            (this.media_element.firstElementChild as HTMLElement).style.width = '100%';
-            (this.media_element.firstElementChild as HTMLElement).style.height = '100%';
         });
 
         // BML ブラウザの表示状態が変化したときのイベント
+        let last_invisible_event_timestamp = new Date().getTime();
         this.#bml_browser.addEventListener('invisible', (event) => {
+
+            // このイベントは 0.2 秒以内に連続で発生することがあるため、タイムスタンプで間引く
+            // d ボタンを押した際に最初に発火する値が一番正確で、それ以降に発火した値は非表示状態なのに表示状態扱いだったりがある
+            const current_timestamp = new Date().getTime();
+            if (current_timestamp - last_invisible_event_timestamp < 200) {
+                return;
+            }
+            last_invisible_event_timestamp = current_timestamp;
+
             if (event.detail === true) {
                 // 非表示状態
                 console.log('[LiveDataBroadcastingManager] BMLBrowser: invisible');
+                // データ放送内から動画の要素を移動し、プレイヤーに戻す
+                // BML ブラウザの要素より後に配置する
+                this.player.template.videoWrap.insertBefore(this.media_element, this.container_element.nextElementSibling);
+                // 設定されていたスタイルを削除
+                this.media_element.style.width = '';
+                this.media_element.style.height = '';
+                (this.media_element.firstElementChild as HTMLElement).style.width = '';
+                (this.media_element.firstElementChild as HTMLElement).style.height = '';
             } else {
                 // 表示状態
                 console.log('[LiveDataBroadcastingManager] BMLBrowser: visible');
+                // データ放送内に動画の要素を移動する
+                this.#bml_browser.getVideoElement().appendChild(this.media_element);
+                // データ放送内での表示用にスタイルを調整
+                this.media_element.style.width = '100%';
+                this.media_element.style.height = '100%';
+                (this.media_element.firstElementChild as HTMLElement).style.width = '100%';
+                (this.media_element.firstElementChild as HTMLElement).style.height = '100%';
             }
         });
 
