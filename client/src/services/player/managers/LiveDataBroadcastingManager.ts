@@ -26,11 +26,12 @@ class LiveDataBroadcastingManager implements PlayerManager {
     private player: DPlayer;
     private display_channel_id: string;
     private container_element: HTMLElement;
+    private media_element: HTMLElement;
 
     // BML ブラウザのインスタンス
     // Vue.js は data() で設定した変数を再帰的に監視するが、BMLBrowser 内の JS-Interpreter のインスタンスが
     // Vue.js の監視対象に入ると謎のエラーが発生してしまうため、プロパティを Hard Private にして監視対象から外す
-    #bml_browser: BMLBrowser;
+    #bml_browser: BMLBrowser | null = null;
 
     // DPlayer のリサイズを監視する ResizeObserver
     private resize_observer: ResizeObserver;
@@ -50,15 +51,15 @@ class LiveDataBroadcastingManager implements PlayerManager {
         this.display_channel_id = options.display_channel_id;
 
         // BML文書が入る要素
-        // DPlayer 内の dplayer-video-wrap の中に動的に追加する
+        // DPlayer 内の dplayer-video-wrap の中に動的に追加する (動画レイヤーより上で、コメントレイヤーより下に配置)
         // 要素のスタイルは Watch.vue で定義されている
         this.container_element = document.createElement('div');
         this.container_element.classList.add('dplayer-bml-browser');
-        this.container_element = this.player.template.videoWrap.insertAdjacentElement('beforeend', this.container_element) as HTMLElement;
+        this.container_element = this.player.template.videoWrap.insertBefore(this.container_element, this.player.template.danmaku);
 
         // 動画が入っている要素
-        // 動画のサイズ調整はこちら側で行うため、ダミーの要素を入れておく
-        const media_element = document.createElement('div');
+        // DPlayer の dplayer-video-wrap-aspect をそのまま使う (中に動画と字幕が含まれる)
+        this.media_element = this.player.template.videoWrapAspect;
 
         // BML 用フォント
         const round_gothic: BMLBrowserFontFace = {
@@ -74,11 +75,11 @@ class LiveDataBroadcastingManager implements PlayerManager {
         // BML ブラウザの初期化
         this.#bml_browser = new BMLBrowser({
             containerElement: this.container_element,
-            mediaElement: media_element,
+            mediaElement: this.media_element,
             indicator: remote_control,
             storagePrefix: 'KonomiTV-BMLBrowser_',
             nvramPrefix: 'nvram_',
-            videoPlaneModeEnabled: true,
+            videoPlaneModeEnabled: false,
             fonts: {
                 roundGothic: round_gothic,
                 squareGothic: square_gothic,
@@ -121,6 +122,11 @@ class LiveDataBroadcastingManager implements PlayerManager {
         // BML ブラウザがロードされたときのイベント
         this.#bml_browser.addEventListener('load', (event) => {
             console.log('[LiveDataBroadcastingManager] BMLBrowser: load', event.detail);
+            // 動画の要素が BML ブラウザ内に入れられるので、スタイルを調整する
+            this.media_element.style.width = '100%';
+            this.media_element.style.height = '100%';
+            (this.media_element.firstElementChild as HTMLElement).style.width = '100%';
+            (this.media_element.firstElementChild as HTMLElement).style.height = '100%';
         });
 
         // BML ブラウザの表示状態が変化したときのイベント
@@ -128,11 +134,9 @@ class LiveDataBroadcastingManager implements PlayerManager {
             if (event.detail === true) {
                 // 非表示状態
                 console.log('[LiveDataBroadcastingManager] BMLBrowser: invisible');
-                this.container_element.classList.remove('dplayer-bml-browser--display');
             } else {
                 // 表示状態
                 console.log('[LiveDataBroadcastingManager] BMLBrowser: visible');
-                this.container_element.classList.add('dplayer-bml-browser--display');
             }
         });
 
@@ -211,18 +215,22 @@ class LiveDataBroadcastingManager implements PlayerManager {
      */
     public async destroy(): Promise<void> {
 
-        // DPlayer のリサイズを監視する ResizeObserver を終了
-        this.resize_observer.disconnect();
-
         // ライブ PSI/SI アーカイブデータストリーミング API のリクエストを中断
         this.psi_archived_data_api_abort_controller.abort();
 
         // PSI/SI アーカイブデータを破棄
         this.psi_archived_data = new Uint8Array();
 
+        // DPlayer のリサイズを監視する ResizeObserver を終了
+        this.resize_observer.disconnect();
+
         // BML ブラウザを破棄
-        this.#bml_browser.destroy();
+        await this.#bml_browser.destroy();
+        this.#bml_browser = null;
         console.log('[LiveDataBroadcastingManager] BMLBrowser destroyed');
+
+        // BML のコンテナ要素を削除
+        this.container_element.remove();
     }
 
 

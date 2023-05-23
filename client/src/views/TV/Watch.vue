@@ -2272,7 +2272,7 @@ export default Vue.extend({
             overflow: hidden;
         }
         .dplayer-bml-browser {
-            display: none;
+            display: block;
             position: absolute;
             width: 960px;
             height: 540px;
@@ -2281,9 +2281,6 @@ export default Vue.extend({
             transform-origin: center;
             transform: scale(var(--scale-factor));
             aspect-ratio: 16 / 9;
-            &--display {
-                display: block;
-            }
         }
         .dplayer-danloading {
             display: none !important;
