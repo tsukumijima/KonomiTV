@@ -242,6 +242,11 @@ class LiveDataBroadcastingManager implements PlayerManager {
             return;
         }
 
+        // getVideoElement() に失敗した (=現在データ放送に映像が表示されていない) 場合は何もしない
+        if (this.#bml_browser.getVideoElement() === null) {
+            return;
+        }
+
         // ダミーで渡した p 要素があれば削除
         if (this.#bml_browser.getVideoElement().firstElementChild instanceof HTMLParagraphElement) {
             this.#bml_browser.getVideoElement().firstElementChild.remove();
