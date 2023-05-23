@@ -2274,12 +2274,12 @@ export default Vue.extend({
         .dplayer-bml-browser {
             display: block;
             position: absolute;
-            width: 960px;
-            height: 540px;
+            width: var(--bml-browser-width, 960px);
+            height: var(--bml-browser-height, 540px);
             color: rgb(0, 0, 0);
             overflow: hidden;
             transform-origin: center;
-            transform: scale(var(--scale-factor));
+            transform: scale(var(--bml-browser-scale-factor, 1));
             aspect-ratio: 16 / 9;
         }
         .dplayer-danloading {

@@ -53,14 +53,14 @@ class LiveDataBroadcastingManager implements PlayerManager {
         this.player = options.player;
         this.display_channel_id = options.display_channel_id;
 
-        // BML文書が入る要素
+        // BML ブラウザが入る DOM 要素
         // DPlayer 内の dplayer-video-wrap の中に動的に追加する (映像レイヤーより下)
         // 要素のスタイルは Watch.vue で定義されている
         this.container_element = document.createElement('div');
         this.container_element.classList.add('dplayer-bml-browser');
         this.container_element = this.player.template.videoWrap.insertAdjacentElement('afterbegin', this.container_element) as HTMLElement;
 
-        // 映像が入っている要素
+        // 映像が入る DOM 要素
         // DPlayer 内の dplayer-video-wrap-aspect をそのまま使う (中に映像と字幕が含まれる)
         this.media_element = this.player.template.videoWrapAspect;
     }
@@ -105,16 +105,34 @@ class LiveDataBroadcastingManager implements PlayerManager {
                 }
             }
         });
-        console.log('[LiveDataBroadcastingManager] BMLBrowser initialized');
+        console.log('[LiveDataBroadcastingManager] BMLBrowser initialized.');
 
         // リモコンに BML ブラウザを設定
         remote_control.content = this.#bml_browser.content;
 
+        // BML ブラウザの幅と高さ
+        let bml_browser_width = 960;
+        let bml_browser_height = 540;
+
         // BML ブラウザがロードされたときのイベント
         this.#bml_browser.addEventListener('load', (event) => {
             console.log('[LiveDataBroadcastingManager] BMLBrowser: load', event.detail);
+
             // 映像の要素をデータ放送内に移動
             this.moveVideoElementToBMLBrowser();
+
+            // BML ブラウザの要素に幅と高さを設定
+            bml_browser_width = event.detail.resolution.width;
+            bml_browser_height = event.detail.resolution.height;
+            this.container_element.style.setProperty('--bml-browser-width', `${bml_browser_width}px`);
+            this.container_element.style.setProperty('--bml-browser-height', `${bml_browser_height}px`);
+
+            // --bml-browser-scale-factor (データ放送画面の拡大/縮小率) を設定
+            // データ放送は 960×540 か 720×480 の固定サイズなので、レスポンシブにするために transform: scale() を使っている
+            const scale_factor_width = this.player.template.videoWrap.clientWidth / bml_browser_width; // Shadow DOM の元の幅
+            const scale_factor_height = this.player.template.videoWrap.clientHeight / bml_browser_height; // Shadow DOM の元の高さ
+            const scale_factor = Math.min(scale_factor_width, scale_factor_height);
+            this.container_element.style.setProperty('--bml-browser-scale-factor', `${scale_factor}`);
         });
 
         // BML ブラウザの表示状態が変化したときのイベント
@@ -132,19 +150,19 @@ class LiveDataBroadcastingManager implements PlayerManager {
             }
         });
 
-        // BML ブラウザ内に表示する映像要素のサイズが変化したときのイベント
+        // BML ブラウザ内の映像のサイズが変化したときのイベント
         this.#bml_browser.addEventListener('videochanged', (event) => {
             console.log('[LiveDataBroadcastingManager] BMLBrowser: videochanged', event.detail);
         });
 
         // DPlayer のリサイズを監視する ResizeObserver を開始
-        // TODO: SD 画質の場合は 720x480 になるので注意
         this.resize_observer = new ResizeObserver((entries: ResizeObserverEntry[]) => {
+            // --bml-browser-scale-factor を再計算
             const entry = entries[0];
-            const scaleFactorWidth = entry.contentRect.width / 960; // Shadow DOM の元の幅
-            const scaleFactorHeight = entry.contentRect.height / 540; // Shadow DOM の元の高さ
-            const scaleFactor = Math.min(scaleFactorWidth, scaleFactorHeight);
-            this.container_element.style.setProperty('--scale-factor', scaleFactor.toString());
+            const scale_factor_width = entry.contentRect.width / bml_browser_width; // Shadow DOM の元の幅
+            const scale_factor_height = entry.contentRect.height / bml_browser_height; // Shadow DOM の元の高さ
+            const scale_factor = Math.min(scale_factor_width, scale_factor_height);
+            this.container_element.style.setProperty('--bml-browser-scale-factor', `${scale_factor}`);
         });
         this.resize_observer.observe(this.player.template.videoWrap);
 
@@ -170,10 +188,10 @@ class LiveDataBroadcastingManager implements PlayerManager {
                 // API から随時データを取得
                 const result = await reader.read();
                 if (result.done) {
-                    console.log('[LiveDataBroadcastingManager] PSI/SI archived data finished');
+                    console.log('[LiveDataBroadcastingManager] PSI/SI archived data finished.');
                     break;  // ストリームの終端に達した
                 }
-                console.log(`[LiveDataBroadcastingManager] PSI/SI archived data received (length: ${result.value.length})`);
+                console.log(`[LiveDataBroadcastingManager] PSI/SI archived data received. (length: ${result.value.length})`);
 
                 // 今まで受信した PSI/SI アーカイブデータと結合
                 // TODO: サーバー側で psisiarc がリセットされた場合はここでも別途処理を挟む必要があるかも？要調査
@@ -296,9 +314,9 @@ class LiveDataBroadcastingManager implements PlayerManager {
         await this.#bml_browser.destroy();
         this.is_bml_browser_destroying = false;
         this.#bml_browser = null;
-        console.log('[LiveDataBroadcastingManager] BMLBrowser destroyed');
+        console.log('[LiveDataBroadcastingManager] BMLBrowser destroyed.');
 
-        // BML のコンテナ要素を削除
+        // BML ブラウザの要素を削除
         this.container_element.remove();
     }
 
