@@ -3367,14 +3367,13 @@ dotenv@^16.0.3:
   resolved "https://registry.yarnpkg.com/dotenv/-/dotenv-16.0.3.tgz#115aec42bac5053db3c456db30cc243a5a836a07"
   integrity sha512-7GO6HghkA5fYG9TYnNxi14/7K9f5occMlp3zXAuSxn7CKCxt9xbNWG7yF8hTCSUchlfWSe3uLmlPfigevRItzQ==
 
-"dplayer@github:tsukumijima/DPlayer#v1.28.1":
-  version "1.28.1"
-  resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/25c97d7d160ccb1ba51a1582a51df688452bfebe"
+"dplayer@github:tsukumijima/DPlayer#v1.29.0":
+  version "1.29.0"
+  resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/4f49bb57597e4997c4d3084d2721b6cc4814b416"
   dependencies:
     aribb24.js "1.11.0"
     axios "^1.4.0"
     balloon-css "^1.2.0"
-    promise-polyfill "^8.3.0"
 
 duplexer@^0.1.2:
   version "0.1.2"
@@ -6241,11 +6240,6 @@ progress-webpack-plugin@^1.0.12:
     chalk "^2.1.0"
     figures "^2.0.0"
     log-update "^2.3.0"
-
-promise-polyfill@^8.3.0:
-  version "8.3.0"
-  resolved "https://registry.yarnpkg.com/promise-polyfill/-/promise-polyfill-8.3.0.tgz#9284810268138d103807b11f4e23d5e945a4db63"
-  integrity sha512-H5oELycFml5yto/atYqmjyigJoAo3+OXwolYiH7OfQuYlAqhxNvTfiNMbV9hsC6Yp83yE5r2KTVmtrG6R9i6Pg==
 
 proxy-addr@~2.0.7:
   version "2.0.7"

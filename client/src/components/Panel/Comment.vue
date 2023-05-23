@@ -68,8 +68,7 @@
 </template>
 <script lang="ts">
 
-import DPlayer from 'dplayer';
-import * as DPlayerType from 'dplayer/dist/d.ts/types/DPlayer';
+import DPlayer, { DPlayerType } from 'dplayer';
 import { mapStores } from 'pinia';
 import Vue from 'vue';
 

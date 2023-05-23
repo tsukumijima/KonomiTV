@@ -1,7 +1,6 @@
 
 import dayjs from 'dayjs';
-import DPlayer from 'dplayer';
-import * as DPlayerType from 'dplayer/dist/d.ts/types/DPlayer';
+import DPlayer, { DPlayerType } from 'dplayer';
 
 import Channels from '@/services/Channels';
 import Utils, { CommentUtils } from '@/utils';

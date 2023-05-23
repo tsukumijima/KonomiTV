@@ -192,8 +192,7 @@
 <script lang="ts">
 
 import dayjs from 'dayjs';
-import DPlayer from 'dplayer';
-import * as DPlayerType from 'dplayer/dist/d.ts/types/DPlayer';
+import DPlayer, { DPlayerType } from 'dplayer';
 import mpegts from 'mpegts.js';
 import { mapStores } from 'pinia';
 import Vue from 'vue';
