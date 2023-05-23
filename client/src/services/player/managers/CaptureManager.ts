@@ -96,31 +96,6 @@ class CaptureManager {
         this.comment_capture_button = this.player_container.querySelector('.dplayer-comment-capture-icon');
         this.capture_button = this.player_container.querySelector('.dplayer-capture-icon');
 
-        // キャプチャ用の Canvas を初期化
-        // パフォーマンス向上のため、一度作成した Canvas は使い回す
-        // OffscreenCanvas が使えるなら使う (OffscreenCanvas の方がパフォーマンスが良い)
-        this.canvas = ('OffscreenCanvas' in window) ? new OffscreenCanvas(0, 0) : document.createElement('canvas');
-        this.canvas_context = this.canvas.getContext('2d', {
-            alpha: false,
-            desynchronized: true,
-            willReadFrequently: false,
-        }) as OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
-
-        // 映像の解像度を Canvas サイズとして設定
-        // 映像が読み込まれた / 画質が変わった際に Canvas のサイズを映像のサイズに合わせる
-        this.canvas.width = 0;
-        this.canvas.height = 0;
-        player.on('loadedmetadata', async () => {
-            this.canvas.width = player.video.videoWidth;
-            this.canvas.height = player.video.videoHeight;
-            // 映像サイズがちゃんと設定されるまで繰り返す (Safari 対策)
-            while (this.canvas.width === 0 && this.canvas.height === 0) {
-                await Utils.sleep(0.1);
-                this.canvas.width = player.video.videoWidth;
-                this.canvas.height = player.video.videoHeight;
-            }
-        });
-
         // もし Web フォントがダウンロードされていないならダウンロード
         // コメントのレンダリングに最低限必要なウェイトのみダウンロードする
         // 待つ必要はないので非同期で実行
@@ -169,7 +144,7 @@ class CaptureManager {
         }
 
         // まだ映像の表示準備が終わっていない (Canvas の幅/高さが 0 のまま)
-        if (this.canvas.width === 0 && this.canvas.height === 0) {
+        if (this.player.video.videoWidth === 0 && this.player.video.videoHeight === 0) {
             this.player.notice('読み込み中はキャプチャできません。', undefined, undefined, '#FF6F6A');
             return;
         }
@@ -288,8 +263,8 @@ class CaptureManager {
             // OffscreenCanvas が使えるなら使う (OffscreenCanvas の方がパフォーマンスが良い)
             const bitmap_canvas = ('OffscreenCanvas' in window) ?
                 new OffscreenCanvas(image_bitmap.width, image_bitmap.height) : document.createElement('canvas');
-            bitmap_canvas.width = image_bitmap.width;
-            bitmap_canvas.height = image_bitmap.height;
+            bitmap_canvas.width = image_bitmap.width;  // HTMLCanvasElement でのフォールバック用
+            bitmap_canvas.height = image_bitmap.height;  // HTMLCanvasElement でのフォールバック用
             const canvas_context = bitmap_canvas.getContext('bitmaprenderer', {alpha: false}) as ImageBitmapRenderingContext;
 
             // Canvas に映像がキャプチャされた ImageBitmap を転送
@@ -327,20 +302,32 @@ class CaptureManager {
 
             const promises: Promise<void>[] = [];
 
+            // キャプチャ用の Canvas を初期化
+            // OffscreenCanvas が使えるなら使う (OffscreenCanvas の方がパフォーマンスが良い)
+            const canvas = ('OffscreenCanvas' in window) ?
+                new OffscreenCanvas(this.player.video.videoWidth, this.player.video.videoHeight) : document.createElement('canvas');
+            canvas.width = this.player.video.videoWidth;  // HTMLCanvasElement でのフォールバック用
+            canvas.height = this.player.video.videoHeight;  // HTMLCanvasElement でのフォールバック用
+            const canvas_context = canvas.getContext('2d', {
+                alpha: false,
+                desynchronized: true,
+                willReadFrequently: false,
+            }) as OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
+
             // Canvas に映像がキャプチャされた ImageBitmap を描画
-            this.canvas_context.drawImage(image_bitmap, 0, 0, this.canvas.width, this.canvas.height);
+            canvas_context.drawImage(image_bitmap, 0, 0, canvas.width, canvas.height);
 
             // 文字スーパーを描画 (表示されている場合)
             // 文字スーパー自体が稀だし、文字スーパーなしでキャプチャ撮りたいユースケースはない…はず
             if (is_superimpose_showing === true) {
-                this.canvas_context.drawImage(superimpose_canvas, 0, 0, this.canvas.width, this.canvas.height);
+                canvas_context.drawImage(superimpose_canvas, 0, 0, canvas.width, canvas.height);
             }
 
             // コメント付きキャプチャ: 追加でニコニコ実況のコメントを描画
             let comments_image: HTMLImageElement | null = null;
             if (with_comments === true) {
                 comments_image = await this.createCommentsImage();
-                await this.drawComments(comments_image);
+                await this.drawComments(canvas, canvas_context, comments_image);
             }
 
             // ***** 映像のみのキャプチャを保存 *****
@@ -358,7 +345,7 @@ class CaptureManager {
                         (this.settings_store.settings.capture_caption_mode === 'CompositingCaption') ? filename_caption : filename;
 
                     // Blob にエクスポートして保存
-                    const blob = await export_and_save(this.canvas, filename_real, {
+                    const blob = await export_and_save(canvas, filename_real, {
                         ...exif_options,
                         is_caption_composited: false,
                         is_comment_composited: with_comments,
@@ -389,23 +376,23 @@ class CaptureManager {
                     // コメント付きキャプチャ: 映像と文字スーパーの描画をやり直す
                     // すでに字幕なしキャプチャを生成する過程でコメントを描画してしまっているため、映像描画からやり直す必要がある
                     if (with_comments === true) {
-                        this.canvas_context.drawImage(image_bitmap, 0, 0, this.canvas.width, this.canvas.height);
+                        canvas_context.drawImage(image_bitmap, 0, 0, canvas.width, canvas.height);
                         if (is_superimpose_showing === true) {
-                            this.canvas_context.drawImage(superimpose_canvas, 0, 0, this.canvas.width, this.canvas.height);
+                            canvas_context.drawImage(superimpose_canvas, 0, 0, canvas.width, canvas.height);
                         }
                     }
                     image_bitmap.close();  // 今後使うことはないので明示的に閉じる
 
                     // 字幕を重ねて描画
-                    this.canvas_context.drawImage(caption_canvas, 0, 0, this.canvas.width, this.canvas.height);
+                    canvas_context.drawImage(caption_canvas, 0, 0, canvas.width, canvas.height);
 
                     // コメント付きキャプチャ: 追加でニコニコ実況のコメントを描画
                     if (with_comments === true) {
-                        await this.drawComments(comments_image);
+                        await this.drawComments(canvas, canvas_context, comments_image);
                     }
 
                     // Blob にエクスポートして保存
-                    const blob = await export_and_save(this.canvas, filename_caption, {
+                    const blob = await export_and_save(canvas, filename_caption, {
                         ...exif_options,
                         is_caption_composited: true,
                         is_comment_composited: with_comments,
@@ -570,7 +557,11 @@ class CaptureManager {
         const image = new Image();
         image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 
-        // Image は onload を使わなくても await Image.decode() でロードできる
+        // 画像を読み込んでデコードしてから返す
+        await new Promise((resolve, reject) => {
+            image.onload = resolve;
+            image.onerror = reject;
+        });
         await image.decode();
         return image;
     }
@@ -607,17 +598,21 @@ class CaptureManager {
     /**
      * 現在表示されているニコニコ実況のコメントを Canvas に描画する
      */
-    private async drawComments(comments_image: HTMLImageElement): Promise<void> {
+    private async drawComments(
+        canvas: HTMLCanvasElement | OffscreenCanvas,
+        canvas_context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+        comments_image: HTMLImageElement,
+    ): Promise<void> {
 
         // コメント描画領域がコントロールの表示によりリサイズされている (=16:9でない) 場合も考慮して、コメント要素の offsetWidth から高さを求める
         // 映像の横解像度 (ex: 1920) がコメント描画領域の幅 (ex: 1280) の何倍かの割合 (ex: 1.5 (150%))
-        const draw_scale_ratio = this.canvas.width / this.player.template.danmaku.offsetWidth;
+        const draw_scale_ratio = canvas.width / this.player.template.danmaku.offsetWidth;
 
         // コメント描画領域の高さを映像の横解像度に合わせて（コメント描画領域のアスペクト比を維持したまま）拡大した値
         // 映像の縦解像度が 1080 のとき、コントロールがコメント領域と被っていない or 表示されていないなら、この値は 1080 に近くなる
         const draw_height = this.player.template.danmaku.offsetHeight * draw_scale_ratio;
 
-        this.canvas_context.drawImage(comments_image, 0, 0, this.canvas.width, draw_height);
+        canvas_context.drawImage(comments_image, 0, 0, canvas.width, draw_height);
     }
 
 
