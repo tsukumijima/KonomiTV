@@ -116,12 +116,12 @@ class Twitter {
         if ('is_error' in response) {
             if (response.error.message) {
                 if (Number.isNaN(response.status)) {
-                    return {message: `エラー: ツイートの送信に失敗しました。(${response.error.message})`, is_error: true};
+                    return {message: `ツイートの送信に失敗しました。(${response.error.message})`, is_error: true};
                 } else {
-                    return {message: `エラー: ツイートの送信に失敗しました。(HTTP Error ${response.status} / ${response.error.message})`, is_error: true};
+                    return {message: `ツイートの送信に失敗しました。(HTTP Error ${response.status} / ${response.error.message})`, is_error: true};
                 }
             } else {
-                return {message: `エラー: ツイートの送信に失敗しました。(HTTP Error ${response.status})`, is_error: true};
+                return {message: `ツイートの送信に失敗しました。(HTTP Error ${response.status})`, is_error: true};
             }
         }
 
@@ -131,7 +131,7 @@ class Twitter {
             return {message: response.data.detail, is_error: false};
         } else {
             // ツイート失敗
-            return {message: `エラー: ${response.data.detail}`, is_error: true};
+            return {message: response.data.detail, is_error: true};
         }
     }
 }

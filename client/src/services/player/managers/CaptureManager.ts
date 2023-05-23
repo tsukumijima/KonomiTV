@@ -164,19 +164,19 @@ class CaptureManager {
 
         // ラジオチャンネルを視聴している場合 (当然映像がないのでキャプチャできない)
         if (channel !== null && channel.is_radiochannel === true) {
-            this.player.notice('ラジオチャンネルはキャプチャできません。');
+            this.player.notice('ラジオチャンネルはキャプチャできません。', undefined, undefined, '#FF6F6A');
             return;
         }
 
         // まだ映像の表示準備が終わっていない (Canvas の幅/高さが 0 のまま)
         if (this.canvas.width === 0 && this.canvas.height === 0) {
-            this.player.notice('読み込み中はキャプチャできません。');
+            this.player.notice('読み込み中はキャプチャできません。', undefined, undefined, '#FF6F6A');
             return;
         }
 
         // コメントが表示されていないのにコメント付きキャプチャしようとした
         if (with_comments === true && this.player.danmaku.showing === false) {
-            this.player.notice('コメントを付けてキャプチャするには、コメント表示をオンにしてください。');
+            this.player.notice('コメントを付けてキャプチャするには、コメント表示をオンにしてください。', undefined, undefined, '#FF6F6A');
             return;
         }
 
@@ -247,7 +247,7 @@ class CaptureManager {
                 blob = await this.exportToBlob(canvas);
             } catch (error) {
                 console.log(error);
-                this.player.notice('キャプチャの保存に失敗しました…');
+                this.player.notice('キャプチャの保存に失敗しました。', undefined, undefined, '#FF6F6A');
                 return false;
             }
             console.log('[CaptureManager] Export to Blob:', Utils.mathFloor(Utils.time() - time, 3), 'sec');
@@ -451,7 +451,7 @@ class CaptureManager {
                 try {
                     await copyBlobToClipboard(await convertBlobToPng(capture.blob));
                 } catch (error) {
-                    this.player.notice('クリップボードへのキャプチャのコピーに失敗しました…');
+                    this.player.notice('クリップボードへのキャプチャのコピーに失敗しました。', undefined, undefined, '#FF6F6A');
                     console.error(error);
                 }
             }

@@ -1088,7 +1088,7 @@ export default Vue.extend({
 
                 // 空コメントを弾く
                 if (!this.player.template.commentInput.value.replace(/^\s+|\s+$/g, '')) {
-                    this.player.notice(this.player.tran('Please input danmaku content!'));
+                    this.player.notice(this.player.tran('Please input danmaku content!'), undefined, undefined, '#FF6F6A');
                     return;
                 }
 
@@ -1180,7 +1180,7 @@ export default Vue.extend({
                     fullscreen_container.requestFullscreen();
                 } else {
                     // フルスクリーンがサポートされていない場合はエラーを表示
-                    this.player.notice('iPhone Safari は動画のフルスクリーン表示に対応していません。');
+                    this.player.notice('iPhone Safari は動画のフルスクリーン表示に対応していません。', undefined, undefined, '#FF6F6A');
                     return;
                 }
 
@@ -1320,14 +1320,14 @@ export default Vue.extend({
                     // 再生中にエラーが発生した場合
                     // ワークアラウンドとして通知した後にページをリロードする
                     // TODO: ロジックを整理してストリーミングを再起動できるようにする
-                    this.player.notice(`再生中にエラーが発生しました。(${error_type}: ${detail}) 3秒後にリロードします。`, -1);
+                    this.player.notice(`再生中にエラーが発生しました。(${error_type}: ${detail}) 3秒後にリロードします。`, -1, undefined, '#FF6F6A');
                     await Utils.sleep(3);
                     location.reload();
                 });
             // LL-HLS 再生時は、error イベントを監視してエラーが発生したらページをリロードする
             } else if (this.is_mpegts_supported === false) {
                 this.player.on('error', async () => {
-                    this.player.notice(`再生中にエラーが発生しました。(${this.player.video.error.code}: ${this.player.video.error.message}) 3秒後にリロードします。`, -1);
+                    this.player.notice(`再生中にエラーが発生しました。(${this.player.video.error.code}: ${this.player.video.error.message}) 3秒後にリロードします。`, -1, undefined, '#FF6F6A');
                     await Utils.sleep(3);
                     location.reload();
                 });
@@ -1549,7 +1549,7 @@ export default Vue.extend({
                         // 本来誰も視聴していないことを示す Idling ステータスを受信している場合、何らかの理由で
                         // ストリーミング API への接続が切断された可能性が高いので、ワークアラウンドとして通知した後にページをリロードする
                         // TODO: ロジックを整理してストリーミングを再起動できるようにする
-                        this.player.notice('ストリーミング接続が切断されました。3秒後にリロードします。', -1);
+                        this.player.notice('ストリーミング接続が切断されました。3秒後にリロードします。', -1, undefined, '#FF6F6A');
                         await Utils.sleep(3);
                         location.reload();
 
@@ -1563,7 +1563,7 @@ export default Vue.extend({
                         // ストリーミング API への接続が切断された可能性が高いので、ワークアラウンドとして通知した後にページをリロードする
                         // TODO: ロジックを整理してストリーミングを再起動できるようにする
                         if (event.detail === 'ライブストリームは Offline です。') {
-                            this.player.notice('ストリーミング接続が切断されました。3秒後にリロードします。', -1);
+                            this.player.notice('ストリーミング接続が切断されました。3秒後にリロードします。', -1, undefined, '#FF6F6A');
                             await Utils.sleep(3);
                             location.reload();
                         }
