@@ -1327,7 +1327,7 @@ export default Vue.extend({
             // LL-HLS 再生時は、error イベントを監視してエラーが発生したらページをリロードする
             } else if (this.is_mpegts_supported === false) {
                 this.player.on('error', async () => {
-                    this.player.notice(`再生中にエラーが発生しました。(${this.player.video.error.code}: ${this.player.video.error.message}) 3秒後にリロードします。`, -1, undefined, '#FF6F6A');
+                    this.player.notice(`再生中にエラーが発生しました。(${this.player.video.error?.code}: ${this.player.video.error?.message}) 3秒後にリロードします。`, -1, undefined, '#FF6F6A');
                     await Utils.sleep(3);
                     location.reload();
                 });

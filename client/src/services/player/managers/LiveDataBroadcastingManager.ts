@@ -191,7 +191,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
                     console.log('[LiveDataBroadcastingManager] PSI/SI archived data finished.');
                     break;  // ストリームの終端に達した
                 }
-                console.log(`[LiveDataBroadcastingManager] PSI/SI archived data received. (length: ${result.value.length})`);
+                // console.log(`[LiveDataBroadcastingManager] PSI/SI archived data received. (length: ${result.value.length})`);
 
                 // 今まで受信した PSI/SI アーカイブデータと結合
                 // TODO: サーバー側で psisiarc がリセットされた場合はここでも別途処理を挟む必要があるかも？要調査
