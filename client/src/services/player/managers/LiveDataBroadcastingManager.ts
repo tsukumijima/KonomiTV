@@ -123,41 +123,25 @@ class LiveDataBroadcastingManager implements PlayerManager {
         // BML ブラウザがロードされたときのイベント
         this.#bml_browser.addEventListener('load', (event) => {
             console.log('[LiveDataBroadcastingManager] BMLBrowser: load', event.detail);
+            // データ放送内での表示用にスタイルを調整
+            this.media_element.style.width = '100%';
+            this.media_element.style.height = '100%';
+            for (const child of this.media_element.children) {
+                (child as HTMLElement).style.display = 'block';
+                (child as HTMLElement).style.visibility = 'visible';
+                (child as HTMLElement).style.width = '100%';
+                (child as HTMLElement).style.height = '100%';
+            }
         });
 
         // BML ブラウザの表示状態が変化したときのイベント
-        let last_invisible_event_timestamp = new Date().getTime();
         this.#bml_browser.addEventListener('invisible', (event) => {
-
-            // このイベントは 0.2 秒以内に連続で発生することがあるため、タイムスタンプで間引く
-            // d ボタンを押した際に最初に発火する値が一番正確で、それ以降に発火した値は非表示状態なのに表示状態扱いだったりがある
-            const current_timestamp = new Date().getTime();
-            if (current_timestamp - last_invisible_event_timestamp < 200) {
-                return;
-            }
-            last_invisible_event_timestamp = current_timestamp;
-
             if (event.detail === true) {
                 // 非表示状態
                 console.log('[LiveDataBroadcastingManager] BMLBrowser: invisible');
-                // データ放送内から動画の要素を移動し、プレイヤーに戻す
-                // BML ブラウザの要素より後に配置する
-                this.player.template.videoWrap.insertBefore(this.media_element, this.container_element.nextElementSibling);
-                // 設定されていたスタイルを削除
-                this.media_element.style.width = '';
-                this.media_element.style.height = '';
-                (this.media_element.firstElementChild as HTMLElement).style.width = '';
-                (this.media_element.firstElementChild as HTMLElement).style.height = '';
             } else {
                 // 表示状態
                 console.log('[LiveDataBroadcastingManager] BMLBrowser: visible');
-                // データ放送内に動画の要素を移動する
-                this.#bml_browser.getVideoElement().appendChild(this.media_element);
-                // データ放送内での表示用にスタイルを調整
-                this.media_element.style.width = '100%';
-                this.media_element.style.height = '100%';
-                (this.media_element.firstElementChild as HTMLElement).style.width = '100%';
-                (this.media_element.firstElementChild as HTMLElement).style.height = '100%';
             }
         });
 

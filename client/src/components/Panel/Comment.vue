@@ -121,6 +121,8 @@ export default Vue.extend({
 
             // コメントのミュート設定のモーダルを表示するか
             comment_mute_settings_modal: false,
+
+            player: null as DPlayer | null,
         };
     },
     computed: {
@@ -299,17 +301,18 @@ export default Vue.extend({
             // プレイヤーの要素がリサイズされた際に発火するイベント
             const on_resize = () => {
 
-                // 映像の要素
-                const video_element = document.querySelector('.dplayer-video-wrap-aspect');
-
                 // コメント描画領域の要素
-                const comment_area_element = document.querySelector<HTMLElement>('.dplayer-danmaku');
+                const comment_area_element = this.player?.template.danmaku;
+
+                // コメント描画領域の幅から算出した、映像の要素の幅/高さ (px)
+                // 実際の映像の要素は BML ブラウザ内に入ることがあり正確な算出ができないため、代わりに使っている
+                const video_element_width = comment_area_element.clientWidth;
+                const video_element_height = comment_area_element.clientWidth * (9 / 16);
 
                 // プレイヤー全体と映像の高さの差（レターボックス）から、コメント描画領域の高さを狭める必要があるかを判定する
                 // 2で割っているのは単体の差を測るため
                 if (resize_observer_element === null || resize_observer_element.clientHeight === null) return;
-                if (video_element === null || video_element.clientHeight === null) return;
-                const letter_box_height = (resize_observer_element.clientHeight - video_element.clientHeight) / 2;
+                const letter_box_height = (resize_observer_element.clientHeight - video_element_height) / 2;
 
                 const threshold = Utils.isSmartphoneVertical() ? 0 : window.matchMedia('(max-height: 450px)').matches ? 50 : 66;
                 if (letter_box_height < threshold) {
@@ -319,10 +322,10 @@ export default Vue.extend({
 
                     // 狭めるコメント描画領域の幅
                     // 映像の要素の幅をそのまま利用する
-                    const comment_area_width = video_element.clientWidth;
+                    const comment_area_width = video_element_width;
 
                     // 狭めるコメント描画領域の高さ
-                    const comment_area_height = video_element.clientHeight - comment_area_vertical_margin;
+                    const comment_area_height = video_element_height - comment_area_vertical_margin;
 
                     // 狭めるコメント描画領域のアスペクト比を求める
                     // https://tech.arc-one.jp/asepct-ratio/
@@ -376,6 +379,7 @@ export default Vue.extend({
 
         // ニコニコ実況に接続し、セッションを初期化する
         async initSession(player: DPlayer, display_channel_id: string) {
+            this.player = player;
 
             // リサイズ時のイベントを初期化
             // イベントはプレイヤーの DOM に紐づいているため、プレイヤーが破棄→再初期化される毎に実行する必要がある
