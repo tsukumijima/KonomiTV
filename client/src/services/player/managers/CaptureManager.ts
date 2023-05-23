@@ -474,88 +474,109 @@ class CaptureManager {
 
     /**
      * DPlayer から取得したコメント HTML を SVG 画像の HTMLImageElement に変換する
-     * ZenzaWatch のコードを参考にしている
+     * ZenzaWatch と html-to-image を参考に実装した
+     * ref: https://github.com/bubkoo/html-to-image/blob/v1.11.11/src/util.ts#L202-L224
      * ref: https://github.com/segabito/ZenzaWatch/blob/master/packages/lib/src/dom/VideoCaptureUtil.js
      * ref: https://web.archive.org/web/2/https://developer.mozilla.org/ja/docs/Web/HTML/Canvas/Drawing_DOM_objects_into_a_canvas
-     * @param html DPlayer から取得したコメント HTML
+     * @param comments_html DPlayer から取得したコメント HTML
      * @param width SVG 画像の幅
      * @param height SVG 画像の高さ
      * @returns SVG 画像の HTMLImageElement
      */
-    private async commentsHTMLtoSVGImage(html: string, width: number, height: number): Promise<HTMLImageElement> {
+    private async commentsHTMLtoSVGImage(comments_html: string, width: number, height: number): Promise<HTMLImageElement> {
 
         // SVG の foreignObject を使い、HTML をそのまま SVG に埋め込む
+
+        // SVG を作成
+        const xmlns = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(xmlns, 'svg');
+        svg.setAttribute('width', `${width}`);
+        svg.setAttribute('height', `${height}`);
+        svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+        // SVG に foreignObject を追加
+        const foreignObject = document.createElementNS(xmlns, 'foreignObject');
+        foreignObject.setAttribute('width', '100%');
+        foreignObject.setAttribute('height', '100%');
+        foreignObject.setAttribute('x', '0');
+        foreignObject.setAttribute('y', '0');
+        foreignObject.setAttribute('externalResourcesRequired', 'true');
+        svg.appendChild(foreignObject);
+
+        // foreignObject にコンテナ要素を追加
+        const body = document.createElement('body');
+        foreignObject.appendChild(body);
+
+        // コンテナ要素に CSS と Web フォントの定義を追加
         // SVG なので、CSS はインラインでないと適用されない…
         // DPlayer の danmaku.scss の内容のうち、描画に必要なプロパティのみを列挙 (追加変更したものもある)
         // ref: https://github.com/tsukumijima/DPlayer/blob/master/src/css/danmaku.scss
-        const svg = (`
-            <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
-                <foreignObject width="100%" height="100%">
-                    <div xmlns="http://www.w3.org/1999/xhtml">
-                        <style>
-                        @font-face {
-                            font-family: 'Noto Sans JP';
-                            font-weight: bold;
-                            src: url(${web_font_noto_sans_base64}) format('woff2');
-                        }
-                        @font-face {
-                            font-family: 'Open Sans';
-                            font-weight: bold;
-                            src: url(${web_font_open_sans_base64}) format('woff2');
-                        }
-                        .dplayer-danmaku {
-                            position: absolute;
-                            top: 0;
-                            left: 0;
-                            right: 0;
-                            bottom: 0;
-                            color: #fff;
-                            font-size: 29px;
-                            font-family: 'Open Sans', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
-                        }
-                        .dplayer-danmaku .dplayer-danmaku-item {
-                            display: inline-block;
-                            line-height: 1;
-                            font-weight: bold;
-                            font-size: var(--dplayer-danmaku-font-size);
-                            opacity: var(--dplayer-danmaku-opacity);
-                            text-shadow: 1.2px 1.2px 4px rgba(0, 0, 0, 0.9);
-                            white-space: nowrap;
-                        }
-                        .dplayer-danmaku .dplayer-danmaku-item--demo {
-                            position: absolute;
-                            visibility: hidden;
-                        }
-                        .dplayer-danmaku .dplayer-danmaku-item span {
-                            box-decoration-break: clone;
-                            -webkit-box-decoration-break: clone;
-                        }
-                        .dplayer-danmaku .dplayer-danmaku-item.dplayer-danmaku-size-big {
-                            font-size: calc(var(--dplayer-danmaku-font-size) * 1.25);
-                        }
-                        .dplayer-danmaku .dplayer-danmaku-item.dplayer-danmaku-size-small {
-                            font-size: calc(var(--dplayer-danmaku-font-size) * 0.8);
-                        }
-                        .dplayer-danmaku .dplayer-danmaku-right {
-                            position: absolute;
-                            right: 0;
-                        }
-                        .dplayer-danmaku .dplayer-danmaku-top, .dplayer-danmaku .dplayer-danmaku-bottom {
-                            position: absolute;
-                            left: 50%;
-                            transform: translateX(-50%);
-                        }
-                        </style>
-                        ${html}
-                    </div>
-                </foreignObject>
-            </svg>
-        `).trim();
+        const style = document.createElement('style');
+        style.appendChild(document.createTextNode(`
+            @font-face {
+                font-family: 'Noto Sans JP';
+                font-weight: bold;
+                src: url(${web_font_noto_sans_base64}) format('woff2');
+            }
+            @font-face {
+                font-family: 'Open Sans';
+                font-weight: bold;
+                src: url(${web_font_open_sans_base64}) format('woff2');
+            }
+            .dplayer-danmaku {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                color: #fff;
+                font-size: 29px;
+                font-family: 'Open Sans', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+            }
+            .dplayer-danmaku .dplayer-danmaku-item {
+                display: inline-block;
+                line-height: 1;
+                font-weight: bold;
+                font-size: var(--dplayer-danmaku-font-size);
+                opacity: var(--dplayer-danmaku-opacity);
+                text-shadow: 1.2px 1.2px 4px rgba(0, 0, 0, 0.9);
+                white-space: nowrap;
+            }
+            .dplayer-danmaku .dplayer-danmaku-item--demo {
+                position: absolute;
+                visibility: hidden;
+            }
+            .dplayer-danmaku .dplayer-danmaku-item span {
+                box-decoration-break: clone;
+                -webkit-box-decoration-break: clone;
+            }
+            .dplayer-danmaku .dplayer-danmaku-item.dplayer-danmaku-size-big {
+                font-size: calc(var(--dplayer-danmaku-font-size) * 1.25);
+            }
+            .dplayer-danmaku .dplayer-danmaku-item.dplayer-danmaku-size-small {
+                font-size: calc(var(--dplayer-danmaku-font-size) * 0.8);
+            }
+            .dplayer-danmaku .dplayer-danmaku-right {
+                position: absolute;
+                right: 0;
+            }
+            .dplayer-danmaku .dplayer-danmaku-top, .dplayer-danmaku .dplayer-danmaku-bottom {
+                position: absolute;
+                left: 50%;
+                transform: translateX(-50%);
+            }
+        `));
+        body.appendChild(style);
+
+        // コンテナ要素にコメントの HTML を追加
+        const temp = document.createElement('div');
+        temp.innerHTML = comments_html;
+        body.appendChild(temp.childNodes[0]);
 
         // Data URL 化して Image オブジェクトにする
-        // わざわざ Blob にするよりこっちのほうが楽
         const image = new Image();
-        image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+        const serialized_svg =  new XMLSerializer().serializeToString(svg);
+        image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(serialized_svg)}`;
 
         // 画像を読み込んでデコードしてから返す
         await new Promise((resolve, reject) => {
