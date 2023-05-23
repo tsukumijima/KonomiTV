@@ -33,6 +33,9 @@ class LiveDataBroadcastingManager implements PlayerManager {
     // Vue.js の監視対象に入ると謎のエラーが発生してしまうため、プロパティを Hard Private にして監視対象から外す
     #bml_browser: BMLBrowser | null = null;
 
+    // BML ブラウザを破棄中かどうか
+    private is_bml_browser_destroying: boolean = false;
+
     // DPlayer のリサイズを監視する ResizeObserver
     private resize_observer: ResizeObserver;
 
@@ -51,14 +54,14 @@ class LiveDataBroadcastingManager implements PlayerManager {
         this.display_channel_id = options.display_channel_id;
 
         // BML文書が入る要素
-        // DPlayer 内の dplayer-video-wrap の中に動的に追加する (動画レイヤーより下)
+        // DPlayer 内の dplayer-video-wrap の中に動的に追加する (映像レイヤーより下)
         // 要素のスタイルは Watch.vue で定義されている
         this.container_element = document.createElement('div');
         this.container_element.classList.add('dplayer-bml-browser');
         this.container_element = this.player.template.videoWrap.insertAdjacentElement('afterbegin', this.container_element) as HTMLElement;
 
-        // 動画が入っている要素
-        // DPlayer 内の dplayer-video-wrap-aspect をそのまま使う (中に動画と字幕が含まれる)
+        // 映像が入っている要素
+        // DPlayer 内の dplayer-video-wrap-aspect をそのまま使う (中に映像と字幕が含まれる)
         this.media_element = this.player.template.videoWrapAspect;
     }
 
@@ -110,27 +113,8 @@ class LiveDataBroadcastingManager implements PlayerManager {
         // BML ブラウザがロードされたときのイベント
         this.#bml_browser.addEventListener('load', (event) => {
             console.log('[LiveDataBroadcastingManager] BMLBrowser: load', event.detail);
-            if (this.#bml_browser === null) return;
-
-            // ダミーで渡した p 要素があれば削除
-            if (this.#bml_browser.getVideoElement().firstElementChild instanceof HTMLParagraphElement) {
-                this.#bml_browser.getVideoElement().firstElementChild.remove();
-            }
-
-            // データ放送内に動画の要素を入れる
-            this.#bml_browser.getVideoElement().appendChild(this.media_element);
-
-            // データ放送内での表示用にスタイルを調整
-            this.media_element.style.width = '100%';
-            this.media_element.style.height = '100%';
-            for (const child of this.media_element.children) {
-                (child as HTMLElement).style.display = 'block';
-                (child as HTMLElement).style.visibility = 'visible';
-                if (child instanceof HTMLVideoElement) {
-                    (child as HTMLVideoElement).style.width = '100%';
-                    (child as HTMLVideoElement).style.height = '100%';
-                }
-            }
+            // 映像の要素をデータ放送内に移動
+            this.moveVideoElementToBMLBrowser();
         });
 
         // BML ブラウザの表示状態が変化したときのイベント
@@ -138,13 +122,17 @@ class LiveDataBroadcastingManager implements PlayerManager {
             if (event.detail === true) {
                 // 非表示状態
                 console.log('[LiveDataBroadcastingManager] BMLBrowser: invisible');
+                // データ放送内に移動していた映像の要素を DPlayer に戻す
+                this.moveVideoElementToDPlayer();
             } else {
                 // 表示状態
                 console.log('[LiveDataBroadcastingManager] BMLBrowser: visible');
+                // 映像の要素をデータ放送内に移動
+                this.moveVideoElementToBMLBrowser();
             }
         });
 
-        // BML ブラウザ内に表示する動画要素のサイズが変化したときのイベント
+        // BML ブラウザ内に表示する映像要素のサイズが変化したときのイベント
         this.#bml_browser.addEventListener('videochanged', (event) => {
             console.log('[LiveDataBroadcastingManager] BMLBrowser: videochanged', event.detail);
         });
@@ -227,20 +215,48 @@ class LiveDataBroadcastingManager implements PlayerManager {
 
 
     /**
-     * LiveDataBroadcastingManager での処理を終了し、破棄する
+     * 映像の DOM 要素を DPlayer から BML ブラウザ (データ放送) 内に移動する
      */
-    public async destroy(): Promise<void> {
+    private moveVideoElementToBMLBrowser(): void {
 
-        // ライブ PSI/SI アーカイブデータストリーミング API のリクエストを中断
-        this.psi_archived_data_api_abort_controller.abort();
+        // BML ブラウザの破棄中にイベントが発火した場合は何もしない
+        if (this.is_bml_browser_destroying) {
+            return;
+        }
 
-        // PSI/SI アーカイブデータを破棄
-        this.psi_archived_data = new Uint8Array();
+        // ダミーで渡した p 要素があれば削除
+        if (this.#bml_browser.getVideoElement().firstElementChild instanceof HTMLParagraphElement) {
+            this.#bml_browser.getVideoElement().firstElementChild.remove();
+        }
 
-        // DPlayer のリサイズを監視する ResizeObserver を終了
-        this.resize_observer.disconnect();
+        // データ放送内に映像の要素を入れる
+        this.#bml_browser.getVideoElement().appendChild(this.media_element);
 
-        // データ放送内に移動していた動画の要素を DPlayer に戻す (BML ブラウザより上のレイヤーに配置)
+        // データ放送内での表示用にスタイルを調整
+        this.media_element.style.width = '100%';
+        this.media_element.style.height = '100%';
+        for (const child of this.media_element.children) {
+            (child as HTMLElement).style.display = 'block';
+            (child as HTMLElement).style.visibility = 'visible';
+            if (child instanceof HTMLVideoElement) {
+                (child as HTMLVideoElement).style.width = '100%';
+                (child as HTMLVideoElement).style.height = '100%';
+            }
+        }
+    }
+
+
+    /**
+     * 映像の DOM 要素を BML ブラウザ (データ放送) から DPlayer 内に移動する
+     */
+    private moveVideoElementToDPlayer(): void {
+
+        // BML ブラウザの破棄中にイベントが発火した場合は何もしない
+        if (this.is_bml_browser_destroying) {
+            return;
+        }
+
+        // データ放送内に移動していた映像の要素を DPlayer に戻す (BML ブラウザより上のレイヤーに配置)
         // BML ブラウザの破棄前に行う必要がある
         this.player.template.videoWrap.insertBefore(this.media_element, this.container_element.nextElementSibling);
 
@@ -255,9 +271,30 @@ class LiveDataBroadcastingManager implements PlayerManager {
                 (child as HTMLVideoElement).style.height = '';
             }
         }
+    }
+
+
+    /**
+     * LiveDataBroadcastingManager での処理を終了し、破棄する
+     */
+    public async destroy(): Promise<void> {
+
+        // ライブ PSI/SI アーカイブデータストリーミング API のリクエストを中断
+        this.psi_archived_data_api_abort_controller.abort();
+
+        // PSI/SI アーカイブデータを破棄
+        this.psi_archived_data = new Uint8Array();
+
+        // DPlayer のリサイズを監視する ResizeObserver を終了
+        this.resize_observer.disconnect();
+
+        // データ放送内に移動していた映像の要素を DPlayer に戻す
+        this.moveVideoElementToDPlayer();
 
         // BML ブラウザを破棄
+        this.is_bml_browser_destroying = true;
         await this.#bml_browser.destroy();
+        this.is_bml_browser_destroying = false;
         this.#bml_browser = null;
         console.log('[LiveDataBroadcastingManager] BMLBrowser destroyed');
 
