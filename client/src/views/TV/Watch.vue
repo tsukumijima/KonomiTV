@@ -644,7 +644,7 @@ export default Vue.extend({
                 this.initPlayer();
 
                 // サーバーから送られてくるメッセージのイベントハンドラーを初期化
-                this.initEventHandler();
+                await this.initEventHandler();
 
                 // キャプチャのイベントハンドラーを初期化
                 this.initCaptureManager();
@@ -1234,7 +1234,7 @@ export default Vue.extend({
 
                 // 新しい EventSource を作成
                 // 画質ごとにイベント API は異なるため、一度破棄してから作り直す
-                this.initEventHandler();
+                await this.initEventHandler();
             });
 
             // 停止状態でかつ再生時間からバッファが 30 秒以上離れていないかを監視し、そうなっていたら強制的にシークする
@@ -1287,7 +1287,7 @@ export default Vue.extend({
         },
 
         // イベントハンドラーを初期化する
-        initEventHandler() {
+        async initEventHandler() {
 
             // ***** プレイヤー再生開始時のイベントハンドラー *****
 
@@ -1296,13 +1296,13 @@ export default Vue.extend({
             // データ放送マネージャーを初期化
             // TODO: これは暫定的なものでリファクタリング時は周囲含めて総取っ替えする
             if (this.data_broadcasting_manager !== null) {
-                this.data_broadcasting_manager.destroy();
+                await this.data_broadcasting_manager.destroy();
             }
             this.data_broadcasting_manager = new LiveDataBroadcastingManager({
                 player: this.player,
                 display_channel_id: this.channelsStore.channel.current.display_channel_id,
             });
-            this.data_broadcasting_manager.init();
+            await this.data_broadcasting_manager.init();
 
             // 必ず最初はローディング状態とする
             this.is_loading = true;
@@ -2214,7 +2214,7 @@ export default Vue.extend({
             }
 
             if (this.data_broadcasting_manager !== null) {
-                this.data_broadcasting_manager.destroy();
+                await this.data_broadcasting_manager.destroy();
                 this.data_broadcasting_manager = null;
             }
 

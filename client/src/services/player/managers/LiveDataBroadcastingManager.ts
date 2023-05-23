@@ -58,8 +58,18 @@ class LiveDataBroadcastingManager implements PlayerManager {
         this.container_element = this.player.template.videoWrap.insertAdjacentElement('afterbegin', this.container_element) as HTMLElement;
 
         // 動画が入っている要素
-        // DPlayer の dplayer-video-wrap-aspect をそのまま使う (中に動画と字幕が含まれる)
+        // DPlayer 内の dplayer-video-wrap-aspect をそのまま使う (中に動画と字幕が含まれる)
         this.media_element = this.player.template.videoWrapAspect;
+    }
+
+
+    /**
+     * LiveDataBroadcastingManager での処理を開始する
+     *
+     * EDCB Legacy WebUI での実装を参考にした
+     * https://github.com/xtne6f/EDCB/blob/work-plus-s-230212/ini/HttpPublic/legacy/util.lua#L444-L497
+     */
+    public async init(): Promise<void> {
 
         // BML 用フォント
         const round_gothic: BMLBrowserFontFace = {
@@ -75,11 +85,11 @@ class LiveDataBroadcastingManager implements PlayerManager {
         // BML ブラウザの初期化
         this.#bml_browser = new BMLBrowser({
             containerElement: this.container_element,
-            mediaElement: this.media_element,
+            mediaElement: document.createElement('p'),  // ダミーの p 要素を渡す
             indicator: remote_control,
             storagePrefix: 'KonomiTV-BMLBrowser_',
             nvramPrefix: 'nvram_',
-            videoPlaneModeEnabled: false,
+            videoPlaneModeEnabled: true,
             fonts: {
                 roundGothic: round_gothic,
                 squareGothic: square_gothic,
@@ -97,40 +107,29 @@ class LiveDataBroadcastingManager implements PlayerManager {
         // リモコンに BML ブラウザを設定
         remote_control.content = this.#bml_browser.content;
 
-        // DPlayer のリサイズを監視する ResizeObserver を初期化
-        // TODO: SD 画質の場合は 720x480 になるので注意
-        this.resize_observer = new ResizeObserver((entries) => {
-            const entry = entries[0];
-            const scaleFactorWidth = entry.contentRect.width / 960; // Shadow DOM の元の幅
-            const scaleFactorHeight = entry.contentRect.height / 540; // Shadow DOM の元の高さ
-            const scaleFactor = Math.min(scaleFactorWidth, scaleFactorHeight);
-            this.container_element.style.setProperty('--scale-factor', scaleFactor.toString());
-        });
-    }
-
-
-    /**
-     * LiveDataBroadcastingManager での処理を開始する
-     *
-     * EDCB Legacy WebUI での実装を参考にした
-     * https://github.com/xtne6f/EDCB/blob/work-plus-s-230212/ini/HttpPublic/legacy/util.lua#L444-L497
-     */
-    public async init(): Promise<void> {
-
-        // DPlayer のリサイズを監視する ResizeObserver を開始
-        this.resize_observer.observe(this.player.template.videoWrap);
-
         // BML ブラウザがロードされたときのイベント
         this.#bml_browser.addEventListener('load', (event) => {
             console.log('[LiveDataBroadcastingManager] BMLBrowser: load', event.detail);
+            if (this.#bml_browser === null) return;
+
+            // ダミーで渡した p 要素があれば削除
+            if (this.#bml_browser.getVideoElement().firstElementChild instanceof HTMLParagraphElement) {
+                this.#bml_browser.getVideoElement().firstElementChild.remove();
+            }
+
+            // データ放送内に動画の要素を入れる
+            this.#bml_browser.getVideoElement().appendChild(this.media_element);
+
             // データ放送内での表示用にスタイルを調整
             this.media_element.style.width = '100%';
             this.media_element.style.height = '100%';
             for (const child of this.media_element.children) {
                 (child as HTMLElement).style.display = 'block';
                 (child as HTMLElement).style.visibility = 'visible';
-                (child as HTMLElement).style.width = '100%';
-                (child as HTMLElement).style.height = '100%';
+                if (child instanceof HTMLVideoElement) {
+                    (child as HTMLVideoElement).style.width = '100%';
+                    (child as HTMLVideoElement).style.height = '100%';
+                }
             }
         });
 
@@ -150,6 +149,17 @@ class LiveDataBroadcastingManager implements PlayerManager {
             console.log('[LiveDataBroadcastingManager] BMLBrowser: videochanged', event.detail);
         });
 
+        // DPlayer のリサイズを監視する ResizeObserver を開始
+        // TODO: SD 画質の場合は 720x480 になるので注意
+        this.resize_observer = new ResizeObserver((entries: ResizeObserverEntry[]) => {
+            const entry = entries[0];
+            const scaleFactorWidth = entry.contentRect.width / 960; // Shadow DOM の元の幅
+            const scaleFactorHeight = entry.contentRect.height / 540; // Shadow DOM の元の高さ
+            const scaleFactor = Math.min(scaleFactorWidth, scaleFactorHeight);
+            this.container_element.style.setProperty('--scale-factor', scaleFactor.toString());
+        });
+        this.resize_observer.observe(this.player.template.videoWrap);
+
         // TS ストリームのデコードを開始
         // PES (字幕) は mpegts.js / LL-HLS 側で既に対応しているため、BML ブラウザ側では対応しない
         const ts_stream = decodeTS({
@@ -158,6 +168,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
         });
 
         // ライブ PSI/SI アーカイブデータストリーミング API にリクエスト
+        // 以降の処理はエンドレスなので非同期で実行
         const api_quality = PlayerUtils.extractAPIQualityFromDPlayer(this.player);
         const api_url = `${Utils.api_base_url}/streams/live/${this.display_channel_id}/${api_quality}/psi-archived-data`;
         fetch(api_url, {signal: this.psi_archived_data_api_abort_controller.signal}).then(async (response) => {
@@ -228,6 +239,22 @@ class LiveDataBroadcastingManager implements PlayerManager {
 
         // DPlayer のリサイズを監視する ResizeObserver を終了
         this.resize_observer.disconnect();
+
+        // データ放送内に移動していた動画の要素を DPlayer に戻す (BML ブラウザより上のレイヤーに配置)
+        // BML ブラウザの破棄前に行う必要がある
+        this.player.template.videoWrap.insertBefore(this.media_element, this.container_element.nextElementSibling);
+
+        // データ放送内での表示用に調整していたスタイルを戻す
+        this.media_element.style.width = '';
+        this.media_element.style.height = '';
+        for (const child of this.media_element.children) {
+            (child as HTMLElement).style.display = '';
+            (child as HTMLElement).style.visibility = '';
+            if (child instanceof HTMLVideoElement) {
+                (child as HTMLVideoElement).style.width = '';
+                (child as HTMLVideoElement).style.height = '';
+            }
+        }
 
         // BML ブラウザを破棄
         await this.#bml_browser.destroy();
