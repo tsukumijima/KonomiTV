@@ -678,6 +678,7 @@ class LiveEncodingTask:
         # Reader だけ同期関数に依存しているので、別スレッドで実行する
         def Reader():
 
+            from app.app import loop
             nonlocal tuner_ts_read_at
 
             # 受信した放送波が入るイテレータ
@@ -714,7 +715,7 @@ class LiveEncodingTask:
 
                     # 生の放送波の TS パケットを PSI/SI データアーカイバーに送信する
                     if self.livestream.psi_data_archiver is not None:
-                        self.livestream.psi_data_archiver.pushTSPacketData(bytes(chunk))
+                        asyncio.run_coroutine_threadsafe(self.livestream.psi_data_archiver.pushTSPacketData(bytes(chunk)), loop)
 
                     # エンコードタスクが終了しているか既にエンコーダープロセスが終了していたら、タスクを終了
                     if is_running is False or tsreadex.returncode is not None or encoder.returncode is not None:
