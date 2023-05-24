@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import datetime
 import socket
+import sys
 import time
 import urllib.parse
 from typing import BinaryIO, Callable, cast, ClassVar
@@ -384,6 +385,22 @@ class EDCBUtil:
         return None
 
     @staticmethod
+    async def openViewStreamAsync(process_id: int, timeout_sec: float=10.) -> asyncio.StreamReader | None:
+        """ View アプリの SrvPipe ストリームの転送を開始する """
+        edcb = CtrlCmdUtil()
+        edcb.setConnectTimeOutSec(timeout_sec)
+        to = time.monotonic() + timeout_sec
+        wait = 0.1
+        while time.monotonic() < to:
+            reader = await edcb.openViewStreamAsync(process_id)
+            if reader is not None:
+                return reader
+            await asyncio.sleep(wait)
+            # 初期に成功しなければ見込みは薄いので問い合わせを疎にしていく
+            wait = min(wait + 0.1, 1.0)
+        return None
+
+    @staticmethod
     async def openPipeStream(process_id: int, buffering: int, timeout_sec: float=10.) -> BinaryIO | None:
         """ システムに存在する SrvPipe ストリームを開き、ファイルオブジェクトを返す """
         to = time.monotonic() + timeout_sec
@@ -394,6 +411,33 @@ class EDCBUtil:
                 try:
                     path = '\\\\.\\pipe\\SendTSTCP_' + str(port) + '_' + str(process_id)
                     return open(path, mode = 'rb', buffering = buffering)
+                except:
+                    pass
+            await asyncio.sleep(wait)
+            # 初期に成功しなければ見込みは薄いので問い合わせを疎にしていく
+            wait = min(wait + 0.1, 1.0)
+        return None
+
+    @staticmethod
+    async def openPipeStreamAsync(process_id: int, timeout_sec: float=10.) -> asyncio.StreamReader | None:
+        """ システムに存在する SrvPipe ストリームを開き、ファイルオブジェクトを返す """
+        if sys.platform != 'win32':
+            raise NotImplementedError('Windows Only')
+
+        from app.app import loop
+        to = time.monotonic() + timeout_sec
+        wait = 0.1
+        while time.monotonic() < to:
+            # ポートは必ず 0 から 29 まで
+            for port in range(30):
+                # asyncio.ProactorEventLoop.create_pipe_connection() を使う (Windows 専用のプライベート API)
+                # ref: https://github.com/qwertyquerty/pypresence/blob/4.2.1/pypresence/baseclient.py#L105-L123
+                path = '\\\\.\\pipe\\SendTSTCP_' + str(port) + '_' + str(process_id)
+                reader = asyncio.StreamReader(loop=loop)
+                reader_protocol = asyncio.StreamReaderProtocol(reader, loop=loop)
+                try:
+                    writer, _ = await cast(asyncio.ProactorEventLoop, loop).create_pipe_connection(lambda: reader_protocol, path)
+                    return reader
                 except:
                     pass
             await asyncio.sleep(wait)
@@ -640,6 +684,48 @@ class CtrlCmdUtil:
         sock.close()
         return None
 
+    async def openViewStreamAsync(self, process_id: int) -> asyncio.StreamReader | None:
+        """ View アプリの SrvPipe ストリームの転送を開始する """
+        to = time.monotonic() + self.__connect_timeout_sec
+        buf = bytearray()
+        self.__writeInt(buf, self.__CMD_EPG_SRV_RELAY_VIEW_STREAM)
+        self.__writeInt(buf, 4)
+        self.__writeInt(buf, process_id)
+
+        # TCP/IP モードであること
+        if self.__host is None:
+            return None
+
+        try:
+            connection = await asyncio.wait_for(asyncio.open_connection(self.__host, self.__port),  max(to - time.monotonic(), 0.))
+            reader: asyncio.StreamReader = connection[0]
+            writer: asyncio.StreamWriter = connection[1]
+        except:
+            return None
+        try:
+            writer.write(buf)
+            await asyncio.wait_for(writer.drain(), max(to - time.monotonic(), 0.))
+            rbuf = bytearray()
+            while len(rbuf) < 8:
+                r = await asyncio.wait_for(reader.readexactly(8 - len(rbuf)), max(to - time.monotonic(), 0.))
+                if not r:
+                    break
+                rbuf.extend(r)
+        except:
+            writer.close()
+            return None
+
+        if len(rbuf) == 8:
+            ret = self.__readInt(memoryview(rbuf), [0], 8)
+            if ret == self.__CMD_SUCCESS:
+                return reader
+        try:
+            writer.close()
+            await asyncio.wait_for(writer.wait_closed(), max(to - time.monotonic(), 0.))
+        except:
+            pass
+        return None
+
     # EDCB/EpgTimer の CtrlCmd.cs より
     __CMD_SUCCESS = 1
     __CMD_VER = 5
@@ -690,25 +776,27 @@ class CtrlCmdUtil:
 
         # TCP/IP モード
         try:
-            r, w = await asyncio.wait_for(asyncio.open_connection(self.__host, self.__port), max(to - time.monotonic(), 0.))
+            connection = await asyncio.wait_for(asyncio.open_connection(self.__host, self.__port), max(to - time.monotonic(), 0.))
+            reader: asyncio.StreamReader = connection[0]
+            writer: asyncio.StreamWriter = connection[1]
         except:
             return None, None
         try:
-            w.write(buf)
-            await asyncio.wait_for(w.drain(), max(to - time.monotonic(), 0.))
-            rbuf = await asyncio.wait_for(r.readexactly(8), max(to - time.monotonic(), 0.))
+            writer.write(buf)
+            await asyncio.wait_for(writer.drain(), max(to - time.monotonic(), 0.))
+            rbuf = await asyncio.wait_for(reader.readexactly(8), max(to - time.monotonic(), 0.))
             if len(rbuf) == 8:
                 bufview = memoryview(rbuf)
                 pos = [0]
                 ret = self.__readInt(bufview, pos, 8)
                 size = cast(int, self.__readInt(bufview, pos, 8))
-                rbuf = await asyncio.wait_for(r.readexactly(size), max(to - time.monotonic(), 0.))
+                rbuf = await asyncio.wait_for(reader.readexactly(size), max(to - time.monotonic(), 0.))
         except:
-            w.close()
+            writer.close()
             return None, None
         try:
-            w.close()
-            await asyncio.wait_for(w.wait_closed(), max(to - time.monotonic(), 0.))
+            writer.close()
+            await asyncio.wait_for(writer.wait_closed(), max(to - time.monotonic(), 0.))
         except:
             pass
         if len(rbuf) == size:
