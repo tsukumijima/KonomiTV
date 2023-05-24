@@ -17,7 +17,7 @@
             </div>
             <div class="program-info__genre-container">
                 <div class="program-info__genre" :key="genre_index"
-                    v-for="(genre, genre_index) in channelsStore.channel.current.program_present.genres">
+                    v-for="(genre, genre_index) in channelsStore.channel.current.program_present?.genres ?? []">
                     {{genre.major}} / {{genre.middle}}
                 </div>
             </div>
@@ -47,7 +47,7 @@
         </section>
         <section class="program-detail-container">
             <div class="program-detail" :key="detail_heading"
-                v-for="(detail_text, detail_heading) in channelsStore.channel.current.program_present.detail">
+                v-for="(detail_text, detail_heading) in channelsStore.channel.current.program_present?.detail ?? {}">
                 <h2 class="program-detail__heading">{{detail_heading}}</h2>
                 <div class="program-detail__text" v-html="Utils.URLtoLink(detail_text)"></div>
             </div>

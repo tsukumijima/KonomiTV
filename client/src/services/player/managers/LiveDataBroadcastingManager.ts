@@ -4,7 +4,9 @@ import { BMLBrowser, BMLBrowserFontFace } from 'web-bml/client/bml_browser';
 import { RemoteControl } from 'web-bml/client/remote_controller_client';
 import { decodeTS } from 'web-bml/server/decode_ts';
 
+import router from '@/router';
 import PlayerManager from '@/services/player/PlayerManager';
+import useChannelsStore from '@/store/ChannelsStore';
 import Utils, { PlayerUtils } from '@/utils';
 
 
@@ -86,24 +88,55 @@ class LiveDataBroadcastingManager implements PlayerManager {
         const remote_control = new RemoteControl(document.querySelector('.remote-control')!, document.querySelector('.remote-control-receiving-status')!);
 
         // BML ブラウザの初期化
+        const this_ = this;
         this.#bml_browser = new BMLBrowser({
             containerElement: this.container_element,
             mediaElement: document.createElement('p'),  // ダミーの p 要素を渡す
             indicator: remote_control,
             storagePrefix: 'KonomiTV-BMLBrowser_',
             nvramPrefix: 'nvram_',
+            broadcasterDatabasePrefix: '',
             videoPlaneModeEnabled: true,
             fonts: {
                 roundGothic: round_gothic,
                 squareGothic: square_gothic,
             },
             epg: {
-                tune(originalNetworkId, transportStreamId, serviceId) {
-                    // 現状データ放送からのチャンネル切り替えには非対応
-                    console.error('tune', originalNetworkId, transportStreamId, serviceId);
+                tune(originalNetworkId: number, transportStreamId: number, serviceId: number): boolean {
+                    // チャンネルリストから network_id と service_id が一致するチャンネルを探す
+                    // transport_stream_id は Mirakurun バックエンドの場合は存在しないため使わない
+                    // network_id + service_id だけで一意になる
+                    const channels_store = useChannelsStore();
+                    for (const channels of Object.values(channels_store.channels_list)) {
+                        for (const channel of channels) {
+                            if (channel.network_id === originalNetworkId && channel.service_id === serviceId) {
+                                // 少し待ってからチャンネルを切り替える（チャンネル切り替え時にデータ放送側から音が鳴る可能性があるため）
+                                Utils.sleep(0.5).then(() => router.push({path: `/tv/watch/${channel.display_channel_id}`}));
+                                return true;
+                            }
+                        }
+                    }
+                    // network_id と service_id が一致するチャンネルが見つからなかった
+                    // この場合 BML ブラウザはフリーズ状態になるので、ひとまず他の通知が表示されるまではずっとエラーを表示しておく
+                    console.error(`[LiveDataBroadcastingManager] Channel not found (network_id: ${originalNetworkId} / service_id: ${serviceId})`);
+                    this_.player.notice(`切り替え先のチャンネルが見つかりませんでした。(network_id: ${originalNetworkId} / service_id: ${serviceId})`, -1, undefined, '#FF6F6A');
                     return false;
                 }
-            }
+            },
+            ip: {
+                getConnectionType(): number {
+                    return 403;
+                },
+                isIPConnected(): number {
+                    // ネットワーク接続に非対応 (対応する場合は 1 を返す)
+                    return 0;
+                },
+            },
+            // inputApplication (TODO)
+            showErrorMessage(title: string, message: string, code?: string): void {
+                // 5秒間エラーメッセージを表示する
+                this_.player.notice(`${title}<br>${message} (${code})`, 5000, undefined, '#FF6F6A');
+            },
         });
         console.log('[LiveDataBroadcastingManager] BMLBrowser initialized.');
 
@@ -229,6 +262,9 @@ class LiveDataBroadcastingManager implements PlayerManager {
         }).catch((error) => {
             console.error(error);
         });
+
+        // 処理完了を待たずに返す
+        return;
     }
 
 
