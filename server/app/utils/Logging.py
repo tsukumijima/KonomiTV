@@ -1,7 +1,7 @@
 
 import ctypes
 import logging
-import os
+import sys
 
 from app.constants import CONFIG
 
@@ -11,7 +11,7 @@ from app.constants import CONFIG
 # Windows Terminal なら何もしなくても色付きで表示される
 # Windows 7, 8.1 はエスケープシーケンス非対応だけど、クリティカルな不具合ではないのでご愛嬌…
 # ref: https://github.com/tiangolo/fastapi/pull/3753
-if os.name == 'nt':
+if sys.platform == 'win32':
     kernel32 = ctypes.windll.kernel32
     kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
 

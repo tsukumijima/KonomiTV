@@ -5,7 +5,7 @@
 # Windows 以外では動作しないので終了
 import os
 import sys
-if os.name != 'nt':
+if sys.platform != 'win32':
     print('KonomiTV-Service.py is for Windows only. Doesn\'t work on Linux.')
     sys.exit(1)
 

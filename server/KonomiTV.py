@@ -4,7 +4,6 @@ import asyncio
 import atexit
 import logging
 import logging.config
-import os
 import platform
 import psutil
 import requests
@@ -15,7 +14,6 @@ import uvicorn.logging
 from pathlib import Path
 from pydantic import ValidationError
 from typing import Any, cast
-from uvicorn.supervisors import ChangeReload
 
 from app.constants import (
     AKEBI_LOG_PATH,
@@ -247,7 +245,7 @@ def main():
             ],
             stdout = file,
             stderr = file,
-            creationflags = (subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0),  # コンソールなしで実行 (Windows)
+            creationflags = (subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0),  # コンソールなしで実行 (Windows)
         )
 
     # このプロセスが終了されたときに、HTTPS リバースプロキシも一緒に終了する
@@ -256,7 +254,7 @@ def main():
     # Uvicorn を自動リロードモードで起動するかのフラグ
     ## 基本的に開発時用で、コードを変更するとアプリケーションサーバーを自動で再起動してくれる
     is_reload: bool = args.reload
-    if os.name == 'nt' and is_reload is True:
+    if sys.platform == 'win32' and is_reload is True:
         logger.warning('Python の asyncio の技術的な制約により、Windows では自動リロードモードは事実上利用できません。')
         logger.warning('なお、外部プロセス実行を伴うストリーミング視聴を行わなければ一応 Windows でも機能します。')
 
@@ -282,7 +280,7 @@ def main():
         # HTTP プロトコルの実装として httptools を選択
         http = 'httptools',
         # イベントループの実装として Windows では asyncio 、それ以外では uvloop を選択
-        loop = ('asyncio' if os.name == 'nt' else 'uvloop'),
+        loop = ('asyncio' if sys.platform == 'win32' else 'uvloop'),
     )
 
     # Uvicorn を起動

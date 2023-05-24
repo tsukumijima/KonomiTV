@@ -48,7 +48,7 @@ AKEBI_LOG_PATH = LOGS_DIR / 'Akebi-HTTPS-Server.log'
 LIBRARY_DIR = BASE_DIR / 'thirdparty'
 
 # サードパーティーライブラリのあるパス
-LIBRARY_EXTENSION = ('.exe' if os.name == 'nt' else '.elf')
+LIBRARY_EXTENSION = ('.exe' if sys.platform == 'win32' else '.elf')
 LIBRARY_PATH = {
     'Akebi': str(LIBRARY_DIR / 'Akebi/akebi-https-server') + LIBRARY_EXTENSION,
     'FFmpeg': str(LIBRARY_DIR / 'FFmpeg/ffmpeg') + LIBRARY_EXTENSION,

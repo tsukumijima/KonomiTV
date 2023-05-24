@@ -10,6 +10,7 @@ from typing import Literal
 
 from app import schemas
 from app.constants import API_REQUEST_HEADERS, CONFIG, VERSION
+from app.utils import GetPlatformEnvironment
 
 
 # ルーター
@@ -53,13 +54,7 @@ async def VersionInformationAPI():
             pass
 
     # サーバーが稼働している環境を取得
-    environment: Literal['Windows', 'Linux', 'Linux-Docker', 'Linux-ARM'] = 'Windows' if os.name == 'nt' else 'Linux'
-    if environment == 'Linux' and Path.exists(Path('/.dockerenv')) is True:
-        # Linux かつ Docker 環境
-        environment = 'Linux-Docker'
-    if environment == 'Linux' and platform.machine() == 'aarch64':
-        # Linux かつ ARM 環境
-        environment = 'Linux-ARM'
+    environment = GetPlatformEnvironment()
 
     return {
         'version': VERSION,
