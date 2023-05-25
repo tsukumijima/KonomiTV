@@ -25,7 +25,7 @@
             </div>
             <div class="account" v-if="userStore.user !== null">
                 <div class="account-wrapper">
-                    <img class="account__icon" :src="userStore.user_icon_url">
+                    <img class="account__icon" :src="userStore.user_icon_url ?? ''">
                     <div class="account__info">
                         <div class="account__info-name">
                             <span class="account__info-name-text">{{userStore.user.name}}</span>

@@ -72,7 +72,7 @@ class CaptureManager {
         // insertAdjacentHTML で .dplayer-icons-right の一番左側に配置する
         // この後に通常のキャプチャボタンが insert されるので、実際は左から2番目
         // TODO: ボタンのデザインをコメント付きだと分かるようなものに変更する
-        this.player_container.querySelector('.dplayer-icons.dplayer-icons-right').insertAdjacentHTML('afterbegin', `
+        this.player_container.querySelector('.dplayer-icons.dplayer-icons-right')!.insertAdjacentHTML('afterbegin', `
             <div class="dplayer-icon dplayer-comment-capture-icon" aria-label="コメントを付けてキャプチャ"
                 data-balloon-nofocus="" data-balloon-pos="up">
                 <span class="dplayer-icon-content">
@@ -84,7 +84,7 @@ class CaptureManager {
         // キャプチャボタンの HTML を追加
         // 標準のスクリーンショット機能は貧弱なので、あえて独自に実装している（そのほうが自由度も高くてやりやすい）
         // insertAdjacentHTML で .dplayer-icons-right の一番左側に配置する
-        this.player_container.querySelector('.dplayer-icons.dplayer-icons-right').insertAdjacentHTML('afterbegin', `
+        this.player_container.querySelector('.dplayer-icons.dplayer-icons-right')!.insertAdjacentHTML('afterbegin', `
             <div class="dplayer-icon dplayer-capture-icon" aria-label="キャプチャ"
                 data-balloon-nofocus="" data-balloon-pos="up">
                 <span class="dplayer-icon-content">
@@ -93,8 +93,8 @@ class CaptureManager {
             </div>
         `);
 
-        this.comment_capture_button = this.player_container.querySelector('.dplayer-comment-capture-icon');
-        this.capture_button = this.player_container.querySelector('.dplayer-capture-icon');
+        this.comment_capture_button = this.player_container.querySelector('.dplayer-comment-capture-icon')!;
+        this.capture_button = this.player_container.querySelector('.dplayer-capture-icon')!;
 
         // もし Web フォントがダウンロードされていないならダウンロード
         // コメントのレンダリングに最低限必要なウェイトのみダウンロードする
@@ -150,7 +150,7 @@ class CaptureManager {
         }
 
         // コメントが表示されていないのにコメント付きキャプチャしようとした
-        if (with_comments === true && this.player.danmaku.showing === false) {
+        if (with_comments === true && this.player.danmaku!.showing === false) {
             this.player.notice('コメントを付けてキャプチャするには、コメント表示をオンにしてください。', undefined, undefined, '#FF6F6A');
             return;
         }
@@ -168,23 +168,23 @@ class CaptureManager {
 
         // 字幕・文字スーパーの Canvas を取得
         // getRawCanvas() で映像と同じ解像度の Canvas が取得できる
-        const caption_canvas: HTMLCanvasElement = this.player.plugins.aribb24Caption.getRawCanvas();
-        const superimpose_canvas: HTMLCanvasElement = this.player.plugins.aribb24Superimpose.getRawCanvas();
+        const caption_canvas: HTMLCanvasElement = this.player.plugins.aribb24Caption!.getRawCanvas()!;
+        const superimpose_canvas: HTMLCanvasElement = this.player.plugins.aribb24Superimpose!.getRawCanvas()!;
 
         // 字幕が表示されているか
         // @ts-ignore
         const is_caption_showing = (this.player.plugins.aribb24Caption.isShowing === true &&
-                                    this.player.plugins.aribb24Caption.isPresent());
+                                    this.player.plugins.aribb24Caption!.isPresent());
 
         // 文字スーパーが表示されているか
         // @ts-ignore
         const is_superimpose_showing = (this.player.plugins.aribb24Superimpose.isShowing === true &&
-                                        this.player.plugins.aribb24Superimpose.isPresent());
+                                        this.player.plugins.aribb24Superimpose!.isPresent());
 
         // 字幕が表示されている場合、表示中の字幕のテキストを取得
         // 取得した字幕のテキストは、キャプチャに字幕が合成されているかに関わらず、常に EXIF メタデータに書き込まれる
         // 字幕が表示されていない場合は null を入れ、キャプチャしたシーンで字幕が表示されていなかったことを明示する
-        const caption_text = is_caption_showing ? this.player.plugins.aribb24Caption.getTextContent() : null;
+        const caption_text = is_caption_showing ? this.player.plugins.aribb24Caption!.getTextContent() : null;
 
         // EXIF に書き込むメタデータを取得する
         // ライブ視聴画面では、番組情報から EXIF に書き込むメタデータを取得する
@@ -206,6 +206,19 @@ class CaptureManager {
         // ビデオ視聴画面では、録画番組情報から EXIF に書き込むメタデータを取得する
         } else {
             // TODO
+            exif_options = {
+                network_id: -1,
+                service_id: -1,
+                event_id: -1,
+                title: '録画番組',
+                description: '',
+                start_time: '2000-01-01T00:00:00+09:00',
+                end_time: '2000-01-01T00:00:00+09:00',
+                duration: 0,
+                caption_text: caption_text,
+                is_caption_composited: false,  // 後で上書きされる
+                is_comment_composited: false,  // 後で上書きされる
+            };
         }
 
         // エクスポートして保存する共通処理
@@ -387,7 +400,7 @@ class CaptureManager {
                     canvas_context.drawImage(caption_canvas, 0, 0, canvas.width, canvas.height);
 
                     // コメント付きキャプチャ: 追加でニコニコ実況のコメントを描画
-                    if (with_comments === true) {
+                    if (with_comments === true && comments_image !== null) {
                         await this.drawComments(canvas, canvas_context, comments_image);
                     }
 
@@ -434,7 +447,7 @@ class CaptureManager {
 
             // クリップボードへのコピーが有効なら、キャプチャの Blob をクリップボードにコピー
             // PNG 以外は受け付けないそうなので、JPEG を PNG に変換してからコピーしている
-            if (this.settings_store.settings.capture_copy_to_clipboard && capture !== null && capture !== false) {
+            if (this.settings_store.settings.capture_copy_to_clipboard && capture !== null && typeof capture === 'object') {
                 try {
                     await copyBlobToClipboard(await convertBlobToPng(capture.blob));
                 } catch (error) {
@@ -657,6 +670,8 @@ class CaptureManager {
                 }, 'image/jpeg', 0.99);
             });
         }
+        // ここに来ることはあり得ない
+        throw new Error('Failed to convert canvas to blob');
     }
 
 

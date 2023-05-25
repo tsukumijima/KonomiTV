@@ -982,7 +982,7 @@ export default Vue.extend({
                                 const opacity = this.settingsStore.settings.caption_opacity;
                                 return `rgba(0, 0, 0, ${opacity})`;
                             } else {
-                                return null;
+                                return undefined;
                             }
                         })(),
                         // DRCS 文字を対応する Unicode 文字に置換

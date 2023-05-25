@@ -6,7 +6,7 @@ export default class Utils {
 
     // バージョン情報
     // ビルド時の環境変数 (vue.config.js に記載) から取得
-    static readonly version: string = process.env.VUE_APP_VERSION;
+    static readonly version: string = process.env.VUE_APP_VERSION as string;
 
     // バックエンドの API のベース URL
     static readonly api_base_url = (() => {

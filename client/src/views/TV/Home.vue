@@ -158,7 +158,7 @@ export default Vue.extend({
 
         // この時点でピン留めされているチャンネルがないなら、タブを地デジタブに切り替える
         // ピン留めされているチャンネル自体はあるが、現在放送されていないため表示できない場合に備える
-        if (this.channelsStore.channels_list_with_pinned.get('ピン留め').length === 0) {
+        if (this.channelsStore.channels_list_with_pinned.get('ピン留め')?.length === 0) {
             this.tab = 1;
         }
 
@@ -183,7 +183,9 @@ export default Vue.extend({
             this.settingsStore.settings.pinned_channel_ids.push(display_channel_id);
 
             const channel = this.channelsStore.getChannel(display_channel_id);
-            this.$message.show(`${channel.name}をピン留めしました。`);
+            if (channel) {
+                this.$message.show(`${channel.name}をピン留めしました。`);
+            }
         },
 
         // チャンネルをピン留めから外す
@@ -193,12 +195,14 @@ export default Vue.extend({
             this.settingsStore.settings.pinned_channel_ids.splice(this.settingsStore.settings.pinned_channel_ids.indexOf(display_channel_id), 1);
 
             // この時点でピン留めされているチャンネルがないなら、タブを地デジタブに切り替える
-            if (this.channelsStore.channels_list_with_pinned.get('ピン留め').length === 0) {
+            if (this.channelsStore.channels_list_with_pinned.get('ピン留め')?.length === 0) {
                 this.tab = 1;
             }
 
             const channel = this.channelsStore.getChannel(display_channel_id);
-            this.$message.show(`${channel.name}のピン留めを外しました。`);
+            if (channel) {
+                this.$message.show(`${channel.name}のピン留めを外しました。`);
+            }
         },
 
         // チャンネルがピン留めされているか

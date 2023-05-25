@@ -93,9 +93,9 @@
                 <div v-ripple class="account-button" :class="{'account-button--no-login': !is_logged_in_twitter}"
                     @click="clickAccountButton()">
                     <img class="account-button__icon"
-                        :src="is_logged_in_twitter ? selected_twitter_account.icon_url : '/assets/images/account-icon-default.png'">
+                        :src="is_logged_in_twitter ? selected_twitter_account?.icon_url : '/assets/images/account-icon-default.png'">
                     <span class="account-button__screen-name">
-                        {{is_logged_in_twitter ? `@${selected_twitter_account.screen_name}` : '連携されていません'}}
+                        {{is_logged_in_twitter ? `@${selected_twitter_account?.screen_name}` : '連携されていません'}}
                     </span>
                     <Icon class="account-button__menu" icon="fluent:more-circle-20-regular" width="22px" />
                 </div>
@@ -208,7 +208,7 @@ export default Vue.extend({
     props: {
         // プレイヤーのインスタンス
         player: {
-            type: null as PropType<DPlayer>,  // 代入当初は null になるため苦肉の策
+            type: null as unknown as PropType<DPlayer>,  // 代入当初は null になるため苦肉の策
             required: true,
         },
         // 仮想キーボードが表示されているかどうか
@@ -292,7 +292,7 @@ export default Vue.extend({
         if (this.userStore.is_logged_in === true) {
 
             // 連携している Twitter アカウントがあれば true に設定
-            if (this.userStore.user.twitter_accounts.length > 0) {
+            if (this.userStore.user && this.userStore.user.twitter_accounts.length > 0) {
                 this.is_logged_in_twitter = true;
 
                 // 現在ツイート対象として選択されている Twitter アカウントの ID が設定されていない or ID に紐づく Twitter アカウントがない
@@ -346,6 +346,7 @@ export default Vue.extend({
 
         // クリップボード内のデータがペーストされたときのイベント
         pasteClipboardData(event: ClipboardEvent) {
+            if (event.clipboardData === null) return;
 
             // 一応配列になっているので回しているが、基本1回のペーストにつき DataTransferItem は1個しか入らない
             for (const clipboard_item of event.clipboardData.items) {
@@ -355,7 +356,9 @@ export default Vue.extend({
 
                     // クリップボード内の画像データを File オブジェクトとして取得し、キャプチャリストに追加
                     const file = clipboard_item.getAsFile();
-                    this.addCaptureList(file, file.name);
+                    if (file) {
+                        this.addCaptureList(file, file.name);
+                    }
                 }
             }
         },
@@ -432,7 +435,7 @@ export default Vue.extend({
         async addCaptureList(blob: Blob, filename: string) {
 
             if (this.captures_element === null) {
-                this.captures_element = this.$el.querySelector('.tab-content--capture');
+                this.captures_element = this.$el.querySelector('.tab-content--capture')!;
             }
 
             // 撮ったキャプチャが50件を超えていたら、重くなるので古いものから削除する
@@ -455,6 +458,7 @@ export default Vue.extend({
             // キャプチャリストを下にスクロール
             // this.$nextTick() のコールバックで DOM の更新を待つ
             this.$nextTick(() => {
+                if (this.captures_element === null) return;
                 this.captures_element.scrollTo({
                     top: this.captures_element.scrollHeight,
                     behavior: 'smooth',
@@ -522,7 +526,13 @@ export default Vue.extend({
             if (canvas instanceof OffscreenCanvas) {
                 return await canvas.convertToBlob({type: 'image/jpeg', quality: 1});
             } else {
-                return new Promise(resolve => canvas.toBlob(blob => resolve(blob), 'image/jpeg', 1));
+                return new Promise((resolve, reject) => canvas.toBlob(blob => {
+                    if (blob === null) {
+                        reject();
+                    } else {
+                        resolve(blob);
+                    }
+                }, 'image/jpeg', 1));
             }
         },
 
@@ -634,11 +644,10 @@ export default Vue.extend({
 
         // ツイートを送信する
         async sendTweet() {
+            if (this.selected_twitter_account === null) return;
 
             // 送信中フラグを立てる (重複送信防止)
-            if (this.is_tweet_sending === true) {
-                return;
-            }
+            if (this.is_tweet_sending === true) return;
             this.is_tweet_sending = true;
 
             // ハッシュタグを整形

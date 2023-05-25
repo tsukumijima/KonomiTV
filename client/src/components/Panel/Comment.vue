@@ -139,7 +139,7 @@ export default Vue.extend({
 
         // コメントリストの要素を取得
         if (this.comment_list_element === null) {
-            this.comment_list_element = this.$el.querySelector('.comment-list');
+            this.comment_list_element = this.$el.querySelector('.comment-list')!;
         }
 
         // 現在コメントリストがユーザーイベントでスクロールされているかどうか
@@ -149,12 +149,14 @@ export default Vue.extend({
         // 残念ながらスクロールバーのドラッグ中は mousemove のイベントが発火しないため、直接 is_user_scrolling を設定する
         this.comment_list_element.onmousedown = (event: MouseEvent) => {
             // コメントリストの要素の左上を起点としたカーソルのX座標を求める
+            if (this.comment_list_element === null) return;
             const x = event.clientX - this.comment_list_element.getBoundingClientRect().left;
             // 座標が clientWidth 以上であれば、スクロールバー上で mousedown されたものとする
             if (x > this.comment_list_element.clientWidth) is_user_scrolling = true;
         };
         this.comment_list_element.onmouseup = (event: MouseEvent) => {
             // コメントリストの要素の左上を起点としたカーソルのX座標を求める
+            if (this.comment_list_element === null) return;
             const x = event.clientX - this.comment_list_element.getBoundingClientRect().left;
             // 座標が clientWidth 以上であれば、スクロールバー上で mouseup されたものとする
             if (x > this.comment_list_element.clientWidth) is_user_scrolling = false;
@@ -181,6 +183,7 @@ export default Vue.extend({
         // コメントリストがスクロールされた際、自動スクロール中でない&ユーザーイベントで操作されていれば、手動スクロールモードに設定
         // 手動スクロールモードでは自動スクロールを行わず、ユーザーがコメントリストをスクロールできるようにする
         this.comment_list_element.onscroll = async () => {
+            if (this.comment_list_element === null) return;
 
             // scroll イベントは自動スクロールでも発火してしまうので、ユーザーイベントによるスクロールかを確認しないといけない
             // 自動スクロール中かどうかは is_auto_scrolling が true のときで判定できるはずだが、
@@ -240,18 +243,21 @@ export default Vue.extend({
 
         // ミュートするキーワードを追加する
         addMutedKeywords() {
+            if (this.comment_list_dropdown_comment === null) return;
             CommentUtils.addMutedKeywords(this.comment_list_dropdown_comment.text);
             this.hideCommentListDropdown();
         },
 
         // ミュートするニコニコユーザー ID を追加する
         addMutedNiconicoUserIds() {
+            if (this.comment_list_dropdown_comment === null) return;
             CommentUtils.addMutedNiconicoUserIDs(this.comment_list_dropdown_comment.user_id);
             this.hideCommentListDropdown();
         },
 
         // コメントリストを一番下までスクロールする
         async scrollCommentList(smooth: boolean = false) {
+            if (this.comment_list_element === null) return;
 
             // ドロップダウンメニュー表示中なら手動スクロールモードに設定
             if (this.is_comment_list_dropdown_display === true) {
@@ -292,17 +298,13 @@ export default Vue.extend({
             }
 
             // 監視対象の要素
-            const resize_observer_element = document.querySelector('.watch-player');
-
-            // タイムアウト ID
-            // 一時的に無効にした transition を有効化する際に利用する
-            let animation_timeout_id = null;
+            const resize_observer_element = document.querySelector('.watch-player')!;
 
             // プレイヤーの要素がリサイズされた際に発火するイベント
             const on_resize = () => {
 
                 // コメント描画領域の要素
-                const comment_area_element = this.player?.template.danmaku;
+                const comment_area_element = this.player?.template.danmaku!;
 
                 // コメント描画領域の幅から算出した、映像の要素の幅/高さ (px)
                 // 実際の映像の要素は BML ブラウザ内に入ることがあり正確な算出ができないため、代わりに使っている
@@ -347,9 +349,6 @@ export default Vue.extend({
 
                     // コメント描画領域に必要な上下マージンを設定する
                     comment_area_element.style.setProperty('--comment-area-vertical-margin', `${comment_area_vertical_margin}px`);
-
-                    // 以前セットされた setTimeout() を止める
-                    window.clearTimeout(animation_timeout_id);
 
                     // 0.2秒後に実行する
                     // 0.2秒より前にもう一度リサイズイベントが来た場合はタイマーがクリアされるため実行されない
@@ -495,7 +494,7 @@ export default Vue.extend({
             }
 
             // ニコニコ実況のコメントサーバーにコメントを送信
-            this.live_comment_manager.sendComment(options);
+            this.live_comment_manager?.sendComment(options);
         },
 
         // ニコニコ実況セッションを破棄する

@@ -83,9 +83,9 @@ const useChannelsStore = defineStore('channels', {
                     program_following: IProgramError,
                 };
                 return {
-                    previous: IChannelError,
-                    current: IChannelError,
-                    next: IChannelError,
+                    previous: IChannelError as IChannel,
+                    current: IChannelError as IChannel,
+                    next: IChannelError as IChannel,
                 };
             }
 
@@ -288,7 +288,7 @@ const useChannelsStore = defineStore('channels', {
             // チャンネルタイプごとのチャンネル情報リストを取得する (すべてのチャンネルリストから探索するより効率的)
             const channel_type = ChannelUtils.getChannelType(display_channel_id);
             if (this.channels_list[channel_type] === undefined) {
-                return null;
+                return;
             }
 
             // チャンネル ID が一致するチャンネル情報を更新する

@@ -55,10 +55,10 @@ class Twitter {
         // エラー処理
         if ('is_error' in response) {
             if (response.error.message.startsWith('Failed to authenticate with password')) {
-                const error = response.error.message.match(/Message: (.+)\)/)[1];
+                const error = response.error.message.match(/Message: (.+)\)/)![1];
                 Message.error(`ログインに失敗しました。${error}`);
             } else if (response.error.message.startsWith('Unexpected error occurred while authenticate with password')) {
-                const error = response.error.message.match(/Message: (.+)\)/)[1];
+                const error = response.error.message.match(/Message: (.+)\)/)![1];
                 Message.error(`ログインフローの途中で予期せぬエラーが発生しました。${error}`);
             } else if (response.error.message.startsWith('Failed to get user information')) {
                 Message.error('Twitter アカウントのユーザー情報の取得に失敗しました。');

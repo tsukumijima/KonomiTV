@@ -29,10 +29,10 @@ export default (VTabsBar as VueConstructor).extend({
             this.items.sort((a, b) => {
 
                 // VueComponent の key が一致する this.$slots.default 内の VNode を探す
-                const index_a = this.$slots.default.findIndex((element) => {
+                const index_a = this.$slots.default!.findIndex((element) => {
                     return a.$vnode.key === element.key;
                 });
-                const index_b = this.$slots.default.findIndex((element) => {
+                const index_b = this.$slots.default!.findIndex((element) => {
                     return b.$vnode.key === element.key;
                 });
 

@@ -115,7 +115,7 @@ class LiveCommentManager {
         }
 
         // 視聴セッション WebSocket を開く
-        this.watch_session = new WebSocket(watch_session_info.audience_token);
+        this.watch_session = new WebSocket(watch_session_info.audience_token!);
 
         // 視聴セッションの接続が開かれたとき
         this.watch_session.addEventListener('open', () => {
@@ -155,6 +155,7 @@ class LiveCommentManager {
         // 視聴セッションはコメント送信時のために維持し続ける必要がある
         // 以下はいずれも視聴セッションを維持し続けたり、エラーが発生した際に再接続するための処理
         this.watch_session.addEventListener('message', async (event) => {
+            if (this.watch_session === null) return;
 
             // 各メッセージタイプに対応する処理を実行
             const message = JSON.parse(event.data);
@@ -295,7 +296,7 @@ class LiveCommentManager {
         // コメントサーバーへの接続情報を返す
         // イベント内で値を返すため、Promise で包む
         return new Promise((resolve) => {
-            this.watch_session.addEventListener('message', async (event) => {
+            this.watch_session!.addEventListener('message', async (event) => {
                 const message = JSON.parse(event.data);
                 if (message.type === 'room') {
 
@@ -334,10 +335,11 @@ class LiveCommentManager {
         let initial_comments_received = false;
 
         // コメントセッション WebSocket を開く
-        this.comment_session = new WebSocket(comment_session_info.message_server_url);
+        this.comment_session = new WebSocket(comment_session_info.message_server_url!);
 
         // コメントセッション WebSocket を開いたとき
         this.comment_session.addEventListener('open', () => {
+            if (this.comment_session === null) return;
 
             // コメント送信をリクエスト
             // このコマンドを送らないとコメントが送信されてこない
@@ -430,7 +432,7 @@ class LiveCommentManager {
 
             // プレイヤーにコメントを描画する (映像再生時のみ)
             if (this.player.video.paused === false) {
-                this.player.danmaku.draw({
+                this.player.danmaku!.draw({
                     text: comment.content,
                     color: color,
                     type: position,
@@ -580,8 +582,10 @@ class LiveCommentManager {
         }
 
         // 座席保持用のタイマーをクリア
-        window.clearInterval(this.keep_seat_interval_id);
-        this.keep_seat_interval_id = null;
+        if (this.keep_seat_interval_id !== null) {
+            window.clearInterval(this.keep_seat_interval_id);
+            this.keep_seat_interval_id = null;
+        }
         this.vpos_base_timestamp = 0;
 
         console.log('[LiveCommentManager][WatchSession] Destroyed.');

@@ -30,6 +30,9 @@ if (process.env.NODE_ENV === 'production') {
                 timeout: 10000,  // リロードするまで表示し続ける
             });
             // PWA (Service Worker) を更新する
+            if (registration.waiting === null) {
+                return;
+            }
             registration.waiting.postMessage({type: 'SKIP_WAITING'});
             registration.waiting.addEventListener('statechange', async (event) => {
                 if ((event.target as ServiceWorker).state === 'activated') {

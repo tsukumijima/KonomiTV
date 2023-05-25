@@ -1,6 +1,6 @@
 {
     "compilerOptions": {
-        "target": "es2017",
+        "target": "es2021",
         "module": "esnext",
         "strict": true,
         "importHelpers": true,
@@ -23,7 +23,7 @@
         "strictPropertyInitialization": false,
         "useUnknownInCatchVariables": false,
         // ↑↑↑
-        // "strictNullChecks": false,
+        // "strictNullChecks": true,
         // "strictFunctionTypes": true,
         // "strictBindCallApply": true,
         // "strictPropertyInitialization": true,
