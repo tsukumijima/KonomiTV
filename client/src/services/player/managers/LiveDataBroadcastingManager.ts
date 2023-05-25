@@ -313,7 +313,8 @@ class LiveDataBroadcastingManager implements PlayerManager {
 
         // ライブ PSI/SI アーカイブデータデコーダーを終了
         if (this.live_psi_archived_data_decoder !== null) {
-            await this.live_psi_archived_data_decoder.destroy();
+            // タイミングの関係なのかチャンネル切り替え時の映像のフェードアウトが効かなくなるため、await してはいけない
+            this.live_psi_archived_data_decoder.destroy();
             this.live_psi_archived_data_decoder = null;
         }
 
