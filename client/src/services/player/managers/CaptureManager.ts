@@ -62,11 +62,13 @@ class CaptureManager {
     private canvas_context: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
     private settings_store = useSettingsStore();
 
-    constructor(player: DPlayer, captured_callback: (blob: Blob, filename: string) => void) {
-
-        this.player = player;
+    constructor(options: {
+        player: DPlayer;
+        captured_callback: (blob: Blob, filename: string) => void;
+    }) {
+        this.player = options.player;
         this.player_container = this.player.container;
-        this.captured_callback = captured_callback;
+        this.captured_callback = options.captured_callback;
 
         // コメント付きキャプチャボタンの HTML を追加
         // insertAdjacentHTML で .dplayer-icons-right の一番左側に配置する
@@ -168,23 +170,23 @@ class CaptureManager {
 
         // 字幕・文字スーパーの Canvas を取得
         // getRawCanvas() で映像と同じ解像度の Canvas が取得できる
-        const caption_canvas: HTMLCanvasElement = this.player.plugins.aribb24Caption!.getRawCanvas()!;
-        const superimpose_canvas: HTMLCanvasElement = this.player.plugins.aribb24Superimpose!.getRawCanvas()!;
+        const aribb24_caption = this.player.plugins.aribb24Caption!;
+        const aribb24_superimpose = this.player.plugins.aribb24Superimpose!;
+        const caption_canvas: HTMLCanvasElement = aribb24_caption.getRawCanvas()!;
+        const superimpose_canvas: HTMLCanvasElement = aribb24_superimpose.getRawCanvas()!;
 
         // 字幕が表示されているか
         // @ts-ignore
-        const is_caption_showing = (this.player.plugins.aribb24Caption.isShowing === true &&
-                                    this.player.plugins.aribb24Caption!.isPresent());
+        const is_caption_showing = (aribb24_caption.isShowing === true && aribb24_caption.isPresent());
 
         // 文字スーパーが表示されているか
         // @ts-ignore
-        const is_superimpose_showing = (this.player.plugins.aribb24Superimpose.isShowing === true &&
-                                        this.player.plugins.aribb24Superimpose!.isPresent());
+        const is_superimpose_showing = (aribb24_superimpose.isShowing === true && aribb24_superimpose.isPresent());
 
         // 字幕が表示されている場合、表示中の字幕のテキストを取得
         // 取得した字幕のテキストは、キャプチャに字幕が合成されているかに関わらず、常に EXIF メタデータに書き込まれる
         // 字幕が表示されていない場合は null を入れ、キャプチャしたシーンで字幕が表示されていなかったことを明示する
-        const caption_text = is_caption_showing ? this.player.plugins.aribb24Caption!.getTextContent() : null;
+        const caption_text = is_caption_showing ? aribb24_caption.getTextContent() : null;
 
         // EXIF に書き込むメタデータを取得する
         // ライブ視聴画面では、番組情報から EXIF に書き込むメタデータを取得する

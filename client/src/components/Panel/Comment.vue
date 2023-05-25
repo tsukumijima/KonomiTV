@@ -392,14 +392,11 @@ export default Vue.extend({
             const max_comment_count = 500;
 
             // LiveCommentManager を初期化
-            this.live_comment_manager = new LiveCommentManager(
-                // DPlayer のインスタンス
-                player,
-                // チャンネル ID
-                display_channel_id,
-
+            this.live_comment_manager = new LiveCommentManager({
+                player: player,
+                display_channel_id: display_channel_id,
                 // 初回の過去コメント (最大50件) を受信したときのコールバック
-                async (initial_comments) => {
+                on_initial_comments_received: async (initial_comments) => {
 
                     // コメントリストに一括で追加
                     this.comment_list.push(...initial_comments);
@@ -407,10 +404,9 @@ export default Vue.extend({
                     // コメントリストを一番下までスクロール
                     this.scrollCommentList();
                 },
-
                 // コメントを受信したときのコールバック
                 // プレイヤーへの描画は LiveCommentManager が行う
-                async (comment) => {
+                on_comment_received: async (comment) => {
 
                     // タブが非表示状態のときは、バッファにコメントを追加するだけで終了する
                     // ここで追加すると、タブが表示状態になったときに一斉に描画されて大変なことになる
@@ -431,8 +427,8 @@ export default Vue.extend({
 
                     // コメントリストを一番下までスクロール
                     this.scrollCommentList();
-                },
-            );
+                }
+            });
 
             // タブが表示状態になったときのイベント
             this.visibilitychange_listener = () => {

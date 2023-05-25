@@ -41,16 +41,16 @@ class LiveCommentManager {
     private on_initial_comments_received: (initial_comments: ICommentData[]) => void;
     private on_comment_received: (comment: ICommentData) => void;
 
-    constructor(
-        player: DPlayer,
-        display_channel_id: string,
-        on_initial_comments_received: (initial_comments: ICommentData[]) => void,
-        on_comment_received: (comment: ICommentData) => void,
-    ) {
-        this.player = player;
-        this.display_channel_id = display_channel_id;
-        this.on_initial_comments_received = on_initial_comments_received;
-        this.on_comment_received = on_comment_received;
+    constructor(options: {
+        player: DPlayer;
+        display_channel_id: string;
+        on_initial_comments_received: (initial_comments: ICommentData[]) => void;
+        on_comment_received: (comment: ICommentData) => void;
+    }) {
+        this.player = options.player;
+        this.display_channel_id = options.display_channel_id;
+        this.on_initial_comments_received = options.on_initial_comments_received;
+        this.on_comment_received = options.on_comment_received;
     }
 
 

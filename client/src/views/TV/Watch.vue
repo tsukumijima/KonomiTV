@@ -2156,9 +2156,12 @@ export default Vue.extend({
         initCaptureManager() {
 
             // キャプチャマネージャーを初期化
-            this.capture_manager = new CaptureManager(this.player, (blob: Blob, filename: string) => {
-                // キャプチャが撮られたら、随時 Twitter タブのキャプチャリストに追加する
-                (this.$refs.Twitter as InstanceType<typeof Twitter>).addCaptureList(blob, filename);
+            this.capture_manager = new CaptureManager({
+                player: this.player,
+                captured_callback: (blob: Blob, filename: string) => {
+                    // キャプチャが撮られたら、随時 Twitter タブのキャプチャリストに追加する
+                    (this.$refs.Twitter as InstanceType<typeof Twitter>).addCaptureList(blob, filename);
+                }
             });
 
             // キャプチャボタンがクリックされたときのイベント
