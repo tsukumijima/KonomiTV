@@ -118,6 +118,14 @@
                     <Twitter class="watch-panel__content" ref="Twitter" @panel_folding_requested="is_panel_display = false"
                         :class="{'watch-panel__content--active': tv_panel_active_tab === 'Twitter'}"
                         :player="player" :is_virtual_keyboard_display="is_virtual_keyboard_display" />
+                    <button v-ripple class="watch-panel__content-remocon-button elevation-8"
+                        :class="{'watch-panel__content-remocon-button--active': tv_panel_active_tab === 'Program'}"
+                        @click="is_remocon_display = !is_remocon_display">
+                        <Icon class="panel-close-button__icon" icon="material-symbols:remote-gen" width="25px" />
+                    </button>
+                    <Remocon class="watch-panel__remocon"
+                        :showing="tv_panel_active_tab === 'Program' && is_remocon_display === true"
+                        @close="is_remocon_display = false" />
                 </div>
                 <div class="watch-panel__navigation">
                     <div v-ripple class="panel-navigation-button"
@@ -201,6 +209,7 @@ import BottomNavigation from '@/components/BottomNavigation.vue';
 import Channel from '@/components/Panel/Channel.vue';
 import Comment from '@/components/Panel/Comment.vue';
 import Program from '@/components/Panel/Program.vue';
+import Remocon from '@/components/Panel/Remocon.vue';
 import Twitter from '@/components/Panel/Twitter.vue';
 import APIClient from '@/services/APIClient';
 import { IChannel } from '@/services/Channels';
@@ -225,6 +234,7 @@ export default Vue.extend({
         Channel,
         Comment,
         Program,
+        Remocon,
         Twitter,
     },
     data() {
@@ -259,6 +269,9 @@ export default Vue.extend({
             // コントロールを表示するか
             // 既定で表示する
             is_control_display: true,
+
+            // リモコンを表示するか
+            is_remocon_display: false,
 
             // パネルを表示するか
             // panel_display_state が 'AlwaysDisplay' なら常に表示し、'AlwaysFold' なら常に折りたたむ
@@ -3355,6 +3368,29 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                     transition: none;
                     content-visibility: hidden;
                 }
+                &--active {
+                    opacity: 1;
+                    visibility: visible;
+                    content-visibility: auto;
+                }
+            }
+
+            .watch-panel__content-remocon-button {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                position: absolute;
+                right: 20px;
+                bottom: 20px;
+                width: 50px;
+                height: 50px;
+                border-radius: 50%;
+                background: var(--v-background-lighten1);
+                outline: none;
+                transition: opacity 0.2s, visibility 0.2s;
+                opacity: 0;
+                visibility: hidden;
+
                 &--active {
                     opacity: 1;
                     visibility: visible;
