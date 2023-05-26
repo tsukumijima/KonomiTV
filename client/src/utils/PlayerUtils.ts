@@ -34,7 +34,7 @@ export class PlayerUtils {
      * プレイヤーの背景画像をランダムで取得し、その URL を返す
      * @returns ランダムで設定されたプレイヤーの背景画像の URL
      */
-    static generatePlayerBackgroundURL(): string {
+    public static generatePlayerBackgroundURL(): string {
         const background_count = 50;  // 50種類から選択
         const random = (Math.floor(Math.random() * background_count) + 1);
         return `/assets/images/player-backgrounds/${random.toString().padStart(2, '0')}.jpg`;
@@ -46,7 +46,7 @@ export class PlayerUtils {
      * ref: https://github.com/StaZhu/enable-chromium-hevc-hardware-decoding#mediacapabilities
      * @returns 再生できるなら true、できないなら false
      */
-    static isHEVCVideoSupported(): boolean {
+    public static isHEVCVideoSupported(): boolean {
         // hvc1.1.6.L123.B0 の部分は呪文 (HEVC であることと、そのプロファイルを示す値らしい)
         return document.createElement('video').canPlayType('video/mp4; codecs="hvc1.1.6.L123.B0"') === 'probably';
     }
@@ -57,7 +57,7 @@ export class PlayerUtils {
      * @param player DPlayer のインスタンス
      * @returns API で設定できる画質 (取得できなかった場合は null)
      */
-    static extractAPIQualityFromDPlayer(player: DPlayer): APIVideoQuality | null {
+    public static extractAPIQualityFromDPlayer(player: DPlayer): APIVideoQuality | null {
         if (player.quality === null) {
             return null;
         }

@@ -10,22 +10,22 @@ import useSettingsStore from '@/store/SettingsStore';
 export class CommentUtils {
 
     // 「露骨な表現を含むコメントをミュートする」のフィルタ正規表現
-    static readonly mute_vulgar_comments_pattern = new RegExp(Buffer.from('XChpXCl8XChVXCl8cHJwcnzvvZDvvZLvvZDvvZJ8U0VYfFPjgIdYfFPil69YfFPil4tYfFPil49YfO+8s++8pe+8uHzvvLPjgIfvvLh877yz4pev77y4fO+8s+KXi++8uHzvvLPil4/vvLh844Ki44OA44Or44OIfOOCouODiuOCpXzjgqLjg4rjg6t844Kk44Kr6IetfOOCpOOBj3zjgYbjgpPjgZN844Km44Oz44KzfOOBhuOCk+OBoXzjgqbjg7Pjg4F844Ko44Kt44ObfOOBiOOBoeOBiOOBoXzjgYjjgaPjgaF844Ko44OD44OBfOOBiOOBo+OCjXzjgqjjg4Pjg61844GI44KNfOOCqOODrXzlt6Xlj6N844GK44GV44KP44KK44G+44KTfOOBiuOBl+OBo+OBk3zjgqrjgrfjg4PjgrN844Kq44OD44K144OzfOOBiuOBo+OBseOBhHzjgqrjg4Pjg5HjgqR844Kq44OK44OL44O8fOOBiuOBquOBu3zjgqrjg4rjg5t844GK44Gx44GEfOOCquODkeOCpHzjgYpwfOOBiu+9kHzjgqrjg5Xjg5HjgrN844Ks44Kk44K444OzfOOCreODs+OCv+ODnnzjgY/jgbHjgYJ844GP44Gx44GBfOOCr+ODquODiOODquOCuXzjgq/jg7Pjg4t844GU44GP44GU44GP44GU44GP44GU44GPfOOCs+ODs+ODieODvOODoHzjgZHjgaTjgYLjgap844Kx44OE44Ki44OKfOOCtuODvOODoeODs3zjgrfjgrN844GX44GT44GX44GTfOOCt+OCs+OCt+OCs3zjgZnjgZHjgZnjgZF844Gb44GE44GI44GNfOOBm+OBhOOCinzjgZvjg7zjgop844GZ44GF44GF44GF44GF44GFfOOBmeOBhuOBhuOBhuOBhuOBhnzjgrvjgq/jg63jgrl844K744OD44Kv44K5fOOCu+ODleODrHzjgaHjgaPjgbHjgYR844Gh44Gj44OR44KkfOODgeODg+ODkeOCpHzjgaHjgpPjgZN844Gh44CH44GTfOOBoeKXr+OBk3zjgaHil4vjgZN844Gh4peP44GTfOODgeODs+OCs3zjg4HjgIfjgrN844OB4pev44KzfOODgeKXi+OCs3zjg4Hil4/jgrN844Gh44KT44G9fOOBoeOAh+OBvXzjgaHil6/jgb1844Gh4peL44G9fOOBoeKXj+OBvXzjg4Hjg7Pjg51844OB44CH44OdfOODgeKXr+ODnXzjg4Hil4vjg51844OB4peP44OdfOOBoeOCk+OBoeOCk3zjg4Hjg7Pjg4Hjg7N844Gm44GD44KT44Gm44GD44KTfOODhuOCo+ODs+ODhuOCo+ODs3zjg4bjgqPjg7Pjg51844OH44Kr44GEfOODh+ODquODmOODq3zjgarjgYvjgaDjgZd844Gq44GL44CH44GXfOOBquOBi+KXr+OBl3zjgarjgYvil4vjgZd844Gq44GL4peP44GXfOiEseOBknzjg4zjgYR844OM44GLfOODjOOCq3zjg4zjgY1844OM44KtfOODjOOBj3zjg4zjgq9844OM44GRfOODjOOCsXzjg4zjgZN844OM44KzfOOBseOBhOOCguOBv3zjg5Hjg5HmtLt844G144GG44O7fOOBteOBhuKApnzjgbXjgYV8776M772pfOOBteOBj+OCieOBv3zjgbXjgY/jgonjgpPjgad844G644Gj44GffOOBuuOCjeOBuuOCjXzjg5rjg63jg5rjg618776N776f776b776N776f776bfOODleOCp+ODqXzjgbvjgYbjgZHjgYR844G844Gj44GNfOODneODq+ODjnzjgbzjgo3jgpN844Oc44Ot44OzfO++ju++nu++m+++nXzjgb3jgo3jgop844Od44Ot44OqfO++ju++n+++m+++mHzjg57jg7PjgY3jgaR844Oe44Oz44Kt44OEfOOBvuOCk+OBk3zjgb7jgIfjgZN844G+4pev44GTfOOBvuKXi+OBk3zjgb7il4/jgZN844Oe44Oz44KzfOODnuOAh+OCs3zjg57il6/jgrN844Oe4peL44KzfOODnuKXj+OCs3zjgb7jgpPjgZXjgpN844KC44Gj44GT44KKfOODouODg+OCs+ODqnzjgoLjgb/jgoLjgb9844Oi44Of44Oi44OffOODpOOBo+OBn3zjg6TjgaPjgaZ844Ok44KJfOOChOOCieOBm+OCjXzjg6Tjgop844Ok44KLfOODpOOCjHzjg6Tjgo1844Op44OW44ObfOODr+ODrOODoXzmhJvmtrJ85ZaYfOmZsOaguHzpmbDojI586Zmw5ZSHfOa3q+WkonzpmqDmr5t86Zmw5q+bfOeUo+OCgeOCi3zlpbPjga7lrZDjga7ml6V85rGa44Gj44GV44KTfOWnpnzpqI7kuZfkvY185beo5qC5fOW3qOODgeODs3zlt6jnj4186YeR546JfOaciOe1jHzlvozog4zkvY185a2Q56iufOWtkOS9nOOCinzlsITnsr585L+h6ICFfOeyvua2snzpgI/jgZF85oCn5LqkfOeyvuWtkHzmraPluLjkvY185oCn5b60fOaAp+eahHznlJ/nkIZ85a+45q2i44KBfOe0oOadkHzmirHjgYR85oqx44GLfOaKseOBjXzmirHjgY985oqx44GRfOaKseOBk3zkvZPmtrJ85Lmz6aaWfOaBpeWeonznj43mo5J85Lit44Gg44GXfOS4reWHuuOBl3zlsL985oqc44GEfOaKnOOBkeOBquOBhHzmipzjgZHjgot85oqc44GR44KMfOeKr+ePjXzohqjjgol85YyF6IyOfOWLg+i1t3zmkannvoV86a2U576FfOaPieOBvnzmj4njgb985o+J44KAfOaPieOCgXzmvKvmuZZ844CH772efOKXr++9nnzil4vvvZ584peP772efOOAh+ODg+OCr+OCuXzil6/jg4Pjgq/jgrl84peL44OD44Kv44K5fOKXj+ODg+OCr+OCuQ==', 'base64').toString());
+    private static readonly mute_vulgar_comments_pattern = new RegExp(Buffer.from('XChpXCl8XChVXCl8cHJwcnzvvZDvvZLvvZDvvZJ8U0VYfFPjgIdYfFPil69YfFPil4tYfFPil49YfO+8s++8pe+8uHzvvLPjgIfvvLh877yz4pev77y4fO+8s+KXi++8uHzvvLPil4/vvLh844Ki44OA44Or44OIfOOCouODiuOCpXzjgqLjg4rjg6t844Kk44Kr6IetfOOCpOOBj3zjgYbjgpPjgZN844Km44Oz44KzfOOBhuOCk+OBoXzjgqbjg7Pjg4F844Ko44Kt44ObfOOBiOOBoeOBiOOBoXzjgYjjgaPjgaF844Ko44OD44OBfOOBiOOBo+OCjXzjgqjjg4Pjg61844GI44KNfOOCqOODrXzlt6Xlj6N844GK44GV44KP44KK44G+44KTfOOBiuOBl+OBo+OBk3zjgqrjgrfjg4PjgrN844Kq44OD44K144OzfOOBiuOBo+OBseOBhHzjgqrjg4Pjg5HjgqR844Kq44OK44OL44O8fOOBiuOBquOBu3zjgqrjg4rjg5t844GK44Gx44GEfOOCquODkeOCpHzjgYpwfOOBiu+9kHzjgqrjg5Xjg5HjgrN844Ks44Kk44K444OzfOOCreODs+OCv+ODnnzjgY/jgbHjgYJ844GP44Gx44GBfOOCr+ODquODiOODquOCuXzjgq/jg7Pjg4t844GU44GP44GU44GP44GU44GP44GU44GPfOOCs+ODs+ODieODvOODoHzjgZHjgaTjgYLjgap844Kx44OE44Ki44OKfOOCtuODvOODoeODs3zjgrfjgrN844GX44GT44GX44GTfOOCt+OCs+OCt+OCs3zjgZnjgZHjgZnjgZF844Gb44GE44GI44GNfOOBm+OBhOOCinzjgZvjg7zjgop844GZ44GF44GF44GF44GF44GFfOOBmeOBhuOBhuOBhuOBhuOBhnzjgrvjgq/jg63jgrl844K744OD44Kv44K5fOOCu+ODleODrHzjgaHjgaPjgbHjgYR844Gh44Gj44OR44KkfOODgeODg+ODkeOCpHzjgaHjgpPjgZN844Gh44CH44GTfOOBoeKXr+OBk3zjgaHil4vjgZN844Gh4peP44GTfOODgeODs+OCs3zjg4HjgIfjgrN844OB4pev44KzfOODgeKXi+OCs3zjg4Hil4/jgrN844Gh44KT44G9fOOBoeOAh+OBvXzjgaHil6/jgb1844Gh4peL44G9fOOBoeKXj+OBvXzjg4Hjg7Pjg51844OB44CH44OdfOODgeKXr+ODnXzjg4Hil4vjg51844OB4peP44OdfOOBoeOCk+OBoeOCk3zjg4Hjg7Pjg4Hjg7N844Gm44GD44KT44Gm44GD44KTfOODhuOCo+ODs+ODhuOCo+ODs3zjg4bjgqPjg7Pjg51844OH44Kr44GEfOODh+ODquODmOODq3zjgarjgYvjgaDjgZd844Gq44GL44CH44GXfOOBquOBi+KXr+OBl3zjgarjgYvil4vjgZd844Gq44GL4peP44GXfOiEseOBknzjg4zjgYR844OM44GLfOODjOOCq3zjg4zjgY1844OM44KtfOODjOOBj3zjg4zjgq9844OM44GRfOODjOOCsXzjg4zjgZN844OM44KzfOOBseOBhOOCguOBv3zjg5Hjg5HmtLt844G144GG44O7fOOBteOBhuKApnzjgbXjgYV8776M772pfOOBteOBj+OCieOBv3zjgbXjgY/jgonjgpPjgad844G644Gj44GffOOBuuOCjeOBuuOCjXzjg5rjg63jg5rjg618776N776f776b776N776f776bfOODleOCp+ODqXzjgbvjgYbjgZHjgYR844G844Gj44GNfOODneODq+ODjnzjgbzjgo3jgpN844Oc44Ot44OzfO++ju++nu++m+++nXzjgb3jgo3jgop844Od44Ot44OqfO++ju++n+++m+++mHzjg57jg7PjgY3jgaR844Oe44Oz44Kt44OEfOOBvuOCk+OBk3zjgb7jgIfjgZN844G+4pev44GTfOOBvuKXi+OBk3zjgb7il4/jgZN844Oe44Oz44KzfOODnuOAh+OCs3zjg57il6/jgrN844Oe4peL44KzfOODnuKXj+OCs3zjgb7jgpPjgZXjgpN844KC44Gj44GT44KKfOODouODg+OCs+ODqnzjgoLjgb/jgoLjgb9844Oi44Of44Oi44OffOODpOOBo+OBn3zjg6TjgaPjgaZ844Ok44KJfOOChOOCieOBm+OCjXzjg6Tjgop844Ok44KLfOODpOOCjHzjg6Tjgo1844Op44OW44ObfOODr+ODrOODoXzmhJvmtrJ85ZaYfOmZsOaguHzpmbDojI586Zmw5ZSHfOa3q+WkonzpmqDmr5t86Zmw5q+bfOeUo+OCgeOCi3zlpbPjga7lrZDjga7ml6V85rGa44Gj44GV44KTfOWnpnzpqI7kuZfkvY185beo5qC5fOW3qOODgeODs3zlt6jnj4186YeR546JfOaciOe1jHzlvozog4zkvY185a2Q56iufOWtkOS9nOOCinzlsITnsr585L+h6ICFfOeyvua2snzpgI/jgZF85oCn5LqkfOeyvuWtkHzmraPluLjkvY185oCn5b60fOaAp+eahHznlJ/nkIZ85a+45q2i44KBfOe0oOadkHzmirHjgYR85oqx44GLfOaKseOBjXzmirHjgY985oqx44GRfOaKseOBk3zkvZPmtrJ85Lmz6aaWfOaBpeWeonznj43mo5J85Lit44Gg44GXfOS4reWHuuOBl3zlsL985oqc44GEfOaKnOOBkeOBquOBhHzmipzjgZHjgot85oqc44GR44KMfOeKr+ePjXzohqjjgol85YyF6IyOfOWLg+i1t3zmkannvoV86a2U576FfOaPieOBvnzmj4njgb985o+J44KAfOaPieOCgXzmvKvmuZZ844CH772efOKXr++9nnzil4vvvZ584peP772efOOAh+ODg+OCr+OCuXzil6/jg4Pjgq/jgrl84peL44OD44Kv44K5fOKXj+ODg+OCr+OCuQ==', 'base64').toString());
 
     // 「罵倒や差別的な表現を含むコメントをミュートする」のフィルタ正規表現
-    static readonly mute_abusive_discriminatory_prejudiced_comments_pattern = new RegExp(Buffer.from('44CCfOOCouODi+ODl+ODrOOBj+OCk3zjgqLjg4vjg5fjg6zlkJt844Ki44K544OafOOCpOOCq+OCjHzjgYTjgb7jgYTjgaF844Kk44Oe44Kk44OBfOOCpOODqeOBpOOBj3zjgqbjgrh844Km44O844OofOOCpuODqHzjgqbjg6jjgq9844Km44OyfOOBjeOCguOBhHzjgq3jg6LjgqR844Kt44Oi44GEfOOCrS/jg6Av44OBfOOCrOOCpOOCuHzvvbbvvp7vvbLvvbzvvp5844Ks44KtfOOCq+OCuXzjgq3jg4Pjgrp844GN44Gh44GM44GEfOOCreODgeOCrOOCpHzjgq3jg6Djg4F844K344OKfOOCueODhuODnnzjgaTjgb7jgonjgap844Gk44G+44KJ44KTfOODgeODp+ODg+ODkeODqnzjg4Hjg6fjg7N85Y2D44On44OzfOOBpOOCk+OBvHzjg4Tjg7Pjg5x844ON44OI44Km44OofOOBq+OBoOOBguOBgnzjg4vjg4B85LqM44OAfO++hu++gO++nnzjg5Hjg7zjg6h844OR44OofOODkeODqOOCr3zjgbbjgaPjgZV844OW44OD44K1fOOBtuOBleOBhHzjg5bjgrXjgqR844G+44Gs44GRfOODoeOCr+ODqXzjg5Djgqt844Og44Kr44Gk44GPfOiNkuOCieOBl3zpurvnlJ/jgrvjg6Hjg7Pjg4h85oWw5a6J5ammfOWus+WFkHzlpJblrZd85aem5Zu9fOmfk+WbvXzpn5PkuK186Z+T5pelfOWfuuWcsOWklnzmsJfni4LjgYR85rCX6YGV44GEfOWIh+OBo+OBn3zliIfjgaPjgaZ85rCX5oyB44Gh5oKqfOWbveS6pOaWree1tnzmrrp86aCDfOmgg+OBl3zpoIPjgZl86aCD44GbfOWcqOaXpXzlj4LmlL/mqKl85q2744GtfOawj+OBrXzvvoDvvot85q255YyVfOatueODknzlpLHpgJ986Zqc5a6zfOaWreS6pHzkuK3pn5N85pyd6a6ufOW+tOeUqOW3pXzlo7p85aO3fOWjvHzml6Xpn5N85pel5bidfOeymOedgHzlj43ml6V86aas6bm/fOeZuueLgnznmbrpgZR85py0fOWjsuWbvXzkuI3lv6t85L215ZCIfOmWk+aKnOOBkXzmloflj6V86Z2W5Zu9', 'base64').toString());
+    private static readonly mute_abusive_discriminatory_prejudiced_comments_pattern = new RegExp(Buffer.from('44CCfOOCouODi+ODl+ODrOOBj+OCk3zjgqLjg4vjg5fjg6zlkJt844Ki44K544OafOOCpOOCq+OCjHzjgYTjgb7jgYTjgaF844Kk44Oe44Kk44OBfOOCpOODqeOBpOOBj3zjgqbjgrh844Km44O844OofOOCpuODqHzjgqbjg6jjgq9844Km44OyfOOBjeOCguOBhHzjgq3jg6LjgqR844Kt44Oi44GEfOOCrS/jg6Av44OBfOOCrOOCpOOCuHzvvbbvvp7vvbLvvbzvvp5844Ks44KtfOOCq+OCuXzjgq3jg4Pjgrp844GN44Gh44GM44GEfOOCreODgeOCrOOCpHzjgq3jg6Djg4F844K344OKfOOCueODhuODnnzjgaTjgb7jgonjgap844Gk44G+44KJ44KTfOODgeODp+ODg+ODkeODqnzjg4Hjg6fjg7N85Y2D44On44OzfOOBpOOCk+OBvHzjg4Tjg7Pjg5x844ON44OI44Km44OofOOBq+OBoOOBguOBgnzjg4vjg4B85LqM44OAfO++hu++gO++nnzjg5Hjg7zjg6h844OR44OofOODkeODqOOCr3zjgbbjgaPjgZV844OW44OD44K1fOOBtuOBleOBhHzjg5bjgrXjgqR844G+44Gs44GRfOODoeOCr+ODqXzjg5Djgqt844Og44Kr44Gk44GPfOiNkuOCieOBl3zpurvnlJ/jgrvjg6Hjg7Pjg4h85oWw5a6J5ammfOWus+WFkHzlpJblrZd85aem5Zu9fOmfk+WbvXzpn5PkuK186Z+T5pelfOWfuuWcsOWklnzmsJfni4LjgYR85rCX6YGV44GEfOWIh+OBo+OBn3zliIfjgaPjgaZ85rCX5oyB44Gh5oKqfOWbveS6pOaWree1tnzmrrp86aCDfOmgg+OBl3zpoIPjgZl86aCD44GbfOWcqOaXpXzlj4LmlL/mqKl85q2744GtfOawj+OBrXzvvoDvvot85q255YyVfOatueODknzlpLHpgJ986Zqc5a6zfOaWreS6pHzkuK3pn5N85pyd6a6ufOW+tOeUqOW3pXzlo7p85aO3fOWjvHzml6Xpn5N85pel5bidfOeymOedgHzlj43ml6V86aas6bm/fOeZuueLgnznmbrpgZR85py0fOWjsuWbvXzkuI3lv6t85L215ZCIfOmWk+aKnOOBkXzmloflj6V86Z2W5Zu9', 'base64').toString());
 
     // 「8文字以上同じ文字が連続しているコメントをミュートする」のフィルタ正規表現
-    static readonly mute_consecutive_same_characters_comments_pattern = /(.)\1{7,}/;
+    private static readonly mute_consecutive_same_characters_comments_pattern = /(.)\1{7,}/;
 
     // ニコ生の特殊コマンド付きコメントのフィルタ正規表現
-    static readonly special_command_comments_pattern = /\/[a-z]+ /;
+    private static readonly special_command_comments_pattern = /\/[a-z]+ /;
 
     // 迷惑な統計コメントのフィルタ正規表現
-    static readonly annoying_statistical_comments_pattern = /最高\d+米\/|計\d+ＩＤ|総\d+米/;
+    private static readonly annoying_statistical_comments_pattern = /最高\d+米\/|計\d+ＩＤ|総\d+米/;
 
     // ニコニコの色指定を 16 進数カラーコードに置換するテーブル
-    static readonly color_table: {[key: string]: string} = {
+    private static readonly color_table: {[key: string]: string} = {
         'white': '#FFEAEA',
         'red': '#F02840',
         'pink': '#FD7E80',
@@ -61,7 +61,7 @@ export class CommentUtils {
      * @param color ニコニコの色指定
      * @return 16 進数カラーコード
      */
-    static getCommentColor(color: string): string | null {
+    public static getCommentColor(color: string): string | null {
         return this.color_table[color] || null;
     }
 
@@ -71,7 +71,7 @@ export class CommentUtils {
      * @param position ニコニコの位置指定
      * @return DPlayer の位置指定
      */
-    static getCommentPosition(position: string): 'top' | 'right' | 'bottom' | null {
+    public static getCommentPosition(position: string): 'top' | 'right' | 'bottom' | null {
         switch (position) {
             case 'ue':
                 return 'top';
@@ -90,7 +90,7 @@ export class CommentUtils {
      * @param size ニコニコのサイズ指定
      * @returns DPlayer のサイズ指定
      */
-    static getCommentSize(size: string): 'big' | 'medium' | 'small' | null {
+    public static getCommentSize(size: string): 'big' | 'medium' | 'small' | null {
         switch (size) {
             case 'big':
             case 'medium':
@@ -107,7 +107,7 @@ export class CommentUtils {
      * @param comment_mail ニコニコのコメントコマンド
      * @returns コメントの色、位置、サイズ
      */
-    static parseCommentCommand(comment_mail: string): {
+    public static parseCommentCommand(comment_mail: string): {
         color: string;
         position: 'top' | 'right' | 'bottom';
         size: 'big' | 'medium' | 'small';
@@ -148,7 +148,7 @@ export class CommentUtils {
      * @param size コメントのサイズ
      * @return ミュート対象のコメントなら true を返す
      */
-    static isMutedComment(
+    public static isMutedComment(
         comment: string,
         user_id: string,
         color?: string,
@@ -268,7 +268,7 @@ export class CommentUtils {
      * ミュート済みキーワードリストに追加する (完全一致)
      * @param comment コメント文字列
      */
-    static addMutedKeywords(comment: string): void {
+    public static addMutedKeywords(comment: string): void {
 
         // すでにまったく同じミュート済みキーワードが追加済みの場合は何もしない
         const settings_store = useSettingsStore();
@@ -290,7 +290,7 @@ export class CommentUtils {
      * ミュート済みニコニコユーザー ID リストに追加する
      * @param user_id ニコニコユーザー ID
      */
-    static addMutedNiconicoUserIDs(user_id: string): void {
+    public static addMutedNiconicoUserIDs(user_id: string): void {
 
         // すでに追加済みの場合は何もしない
         const settings_store = useSettingsStore();
