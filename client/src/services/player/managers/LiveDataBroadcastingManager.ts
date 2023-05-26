@@ -96,6 +96,33 @@ class LiveDataBroadcastingManager implements PlayerManager {
                 roundGothic: LiveDataBroadcastingManager.round_gothic,
                 squareGothic: LiveDataBroadcastingManager.square_gothic,
             },
+            // Greg: 受信機の電源を切るまでグローバルに持続するメモリ
+            greg: {
+                getReg(index: number) {
+                    let Greg: string[];
+                    if (window.sessionStorage.getItem('KonomiTV-BMLBrowser-Greg') === null) {
+                        // 初回は Greg を初期化する
+                        Greg = [...new Array(64)].map(_ => '');
+                    } else {
+                        // 2回目以降は SessionStorage 内の Greg を復元する
+                        Greg = JSON.parse(window.sessionStorage.getItem('KonomiTV-BMLBrowser-Greg')!);
+                    }
+                    return Greg[index] ?? '';
+                },
+                setReg(index: number, value: string) {
+                    let Greg: string[];
+                    if (window.sessionStorage.getItem('KonomiTV-BMLBrowser-Greg') === null) {
+                        // 初回は Greg を初期化する
+                        Greg = [...new Array(64)].map(_ => '');
+                    } else {
+                        // 2回目以降は SessionStorage 内の Greg を復元する
+                        Greg = JSON.parse(window.sessionStorage.getItem('KonomiTV-BMLBrowser-Greg')!);
+                    }
+                    Greg[index] = value;
+                    window.sessionStorage.setItem('KonomiTV-BMLBrowser-Greg', JSON.stringify(Greg));
+                },
+            },
+            // データ放送からのチャンネル切り替え機能
             epg: {
                 tune(networkId: number, transport_stream_id: number, service_id: number): boolean {
                     // チャンネルリストから network_id と service_id が一致するチャンネルを探す
@@ -123,6 +150,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
                     return false;
                 }
             },
+            // 双方向 (ネット接続) 機能
             ip: {
                 getConnectionType(): number {
                     // ARIB STD-B24 第二分冊 (2/2) 第二編 付属3 5.6.5.2 表5-12
@@ -152,11 +180,11 @@ class LiveDataBroadcastingManager implements PlayerManager {
                     return 0;
                 },
             },
-            // inputApplication (TODO)
+            // エラー発生時のメッセージ表示
+            // 3秒間プレイヤーにエラーメッセージを表示する
             showErrorMessage(title: string, message: string, code?: string): void {
-                // 3秒間エラーメッセージを表示する
                 this_.player.notice(`${title}<br>${message} (${code})`, 3000, undefined, '#FF6F6A');
-            },
+            }
         });
         this.bml_browser_width = 960;
         this.bml_browser_height = 540;
