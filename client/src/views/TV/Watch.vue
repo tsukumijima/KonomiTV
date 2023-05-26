@@ -2282,7 +2282,7 @@ export default Vue.extend({
             color: rgb(0, 0, 0);
             overflow: hidden;
             transform-origin: center;
-            transform: scale(var(--bml-browser-scale-factor, 1));
+            transform: scale(var(--bml-browser-scale-factor-width, 1), var(--bml-browser-scale-factor-height, 1));
             aspect-ratio: 16 / 9;
         }
         .dplayer-danloading {

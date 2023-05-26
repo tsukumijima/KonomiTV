@@ -42,6 +42,10 @@ class LiveDataBroadcastingManager implements PlayerManager {
     // Vue.js の監視対象に入ると謎のエラーが発生してしまうため、プロパティを Hard Private にして監視対象から外す
     #bml_browser: BMLBrowser | null = null;
 
+    // BML ブラウザの幅と高さ
+    private bml_browser_width: number = 960;
+    private bml_browser_height: number = 540;
+
     // BML ブラウザを破棄中かどうか
     private is_bml_browser_destroying: boolean = false;
 
@@ -63,9 +67,8 @@ class LiveDataBroadcastingManager implements PlayerManager {
 
     /**
      * LiveDataBroadcastingManager での処理を開始する
-     *
      * EDCB Legacy WebUI での実装を参考にした
-     * https://github.com/xtne6f/EDCB/blob/work-plus-s-230212/ini/HttpPublic/legacy/util.lua#L444-L497
+     * ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-230212/ini/HttpPublic/legacy/util.lua#L444-L497
      */
     public async init(): Promise<void> {
 
@@ -103,7 +106,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
                         for (const channel of channels) {
                             if (channel.network_id === networkId && channel.service_id === service_id) {
                                 // 少し待ってからチャンネルを切り替える（チャンネル切り替え時にデータ放送側から音が鳴る可能性があるため）
-                                Utils.sleep(0.5).then(() => router.push({path: `/tv/watch/${channel.display_channel_id}`}));
+                                Utils.sleep(0.3).then(() => router.push({path: `/tv/watch/${channel.display_channel_id}`}));
                                 return true;
                             }
                         }
@@ -155,14 +158,12 @@ class LiveDataBroadcastingManager implements PlayerManager {
                 this_.player.notice(`${title}<br>${message} (${code})`, 3000, undefined, '#FF6F6A');
             },
         });
+        this.bml_browser_width = 960;
+        this.bml_browser_height = 540;
         console.log('[LiveDataBroadcastingManager] BMLBrowser initialized.');
 
         // リモコンに BML ブラウザを設定
         remote_control.content = this.#bml_browser.content;
-
-        // BML ブラウザの幅と高さ
-        let bml_browser_width = 960;
-        let bml_browser_height = 540;
 
         // BML ブラウザがロードされたときのイベント
         this.#bml_browser.addEventListener('load', (event) => {
@@ -172,30 +173,26 @@ class LiveDataBroadcastingManager implements PlayerManager {
             this.moveVideoElementToBMLBrowser();
 
             // BML ブラウザの要素に幅と高さを設定
-            bml_browser_width = event.detail.resolution.width;
-            bml_browser_height = event.detail.resolution.height;
-            this.container_element?.style.setProperty('--bml-browser-width', `${bml_browser_width}px`);
-            this.container_element?.style.setProperty('--bml-browser-height', `${bml_browser_height}px`);
+            this.bml_browser_width = event.detail.resolution.width;
+            this.bml_browser_height = event.detail.resolution.height;
+            this.container_element?.style.setProperty('--bml-browser-width', `${this.bml_browser_width}px`);
+            this.container_element?.style.setProperty('--bml-browser-height', `${this.bml_browser_height}px`);
 
-            // --bml-browser-scale-factor (データ放送画面の拡大/縮小率) を設定
-            // データ放送は 960×540 か 720×480 の固定サイズなので、レスポンシブにするために transform: scale() を使っている
-            const scale_factor_width = this.player.template.videoWrap.clientWidth / bml_browser_width; // Shadow DOM の元の幅
-            const scale_factor_height = this.player.template.videoWrap.clientHeight / bml_browser_height; // Shadow DOM の元の高さ
-            const scale_factor = Math.min(scale_factor_width, scale_factor_height);
-            this.container_element?.style.setProperty('--bml-browser-scale-factor', `${scale_factor}`);
+            // データ放送画面の拡大/縮小率を再計算
+            this.calculateBMLBrowserScaleFactor(this.player.template.videoWrap.clientWidth, this.player.template.videoWrap.clientHeight);
         });
 
         // BML ブラウザの表示状態が変化したときのイベント
         this.#bml_browser.addEventListener('invisible', (event) => {
             if (event.detail === true) {
                 // 非表示状態
-                console.log('[LiveDataBroadcastingManager] BMLBrowser: invisible');
                 // データ放送内に移動していた映像の要素を DPlayer に戻す
+                console.log('[LiveDataBroadcastingManager] BMLBrowser: invisible');
                 this.moveVideoElementToDPlayer();
             } else {
                 // 表示状態
-                console.log('[LiveDataBroadcastingManager] BMLBrowser: visible');
                 // 映像の要素をデータ放送内に移動
+                console.log('[LiveDataBroadcastingManager] BMLBrowser: visible');
                 this.moveVideoElementToBMLBrowser();
             }
         });
@@ -207,12 +204,9 @@ class LiveDataBroadcastingManager implements PlayerManager {
 
         // DPlayer のリサイズを監視する ResizeObserver を開始
         this.resize_observer = new ResizeObserver((entries: ResizeObserverEntry[]) => {
-            // --bml-browser-scale-factor を再計算
+            // データ放送画面の拡大/縮小率を再計算
             const entry = entries[0];
-            const scale_factor_width = entry.contentRect.width / bml_browser_width; // Shadow DOM の元の幅
-            const scale_factor_height = entry.contentRect.height / bml_browser_height; // Shadow DOM の元の高さ
-            const scale_factor = Math.min(scale_factor_width, scale_factor_height);
-            this.container_element?.style.setProperty('--bml-browser-scale-factor', `${scale_factor}`);
+            this.calculateBMLBrowserScaleFactor(entry.contentRect.width, entry.contentRect.height);
         });
         this.resize_observer.observe(this.player.template.videoWrap);
 
@@ -230,6 +224,32 @@ class LiveDataBroadcastingManager implements PlayerManager {
             // TS ストリームのデコード結果を BML ブラウザにそのまま送信する
             this.#bml_browser?.emitMessage(message);
         }));
+    }
+
+
+    /**
+     * データ放送画面の拡大/縮小率を再計算し、CSS カスタムプロパティに設定する
+     * データ放送は 960×540 か 720×480 の固定サイズなので、レスポンシブにするために transform: scale() を使っている
+     * @param container_width BML ブラウザが入るコンテナ要素の幅
+     * @param container_height BML ブラウザが入るコンテナ要素の高さ
+     */
+    private calculateBMLBrowserScaleFactor(container_width: number, container_height: number): void {
+
+        // 高さは BML ブラウザの高さをそのまま利用するが、横幅は常に高さに対して常に 16:9 の比率になるようにする
+        // BML ブラウザのサイズが 960×540 なら問題ないが、720×480 の場合は 854×480 として計算される
+        const scale_factor_width = container_width / (this.bml_browser_height * 16 / 9);
+        const scale_factor_height = container_height / this.bml_browser_height;
+
+        // transform: scale() での拡大率を算出
+        const scale_factor = Math.min(scale_factor_width, scale_factor_height);
+
+        // (BMLブラウザの高さに対して 16:9 の比率の幅)÷(BMLブラウザの幅) で横に引き伸ばす倍率を算出
+        // 854÷720 の場合、約 1.185 倍になる
+        const magnification = (this.bml_browser_height * 16 / 9) / this.bml_browser_width;
+
+        // データ放送画面の拡大/縮小率を CSS カスタムプロパティとして設定
+        this.container_element?.style.setProperty('--bml-browser-scale-factor-width', `${scale_factor * magnification}`);
+        this.container_element?.style.setProperty('--bml-browser-scale-factor-height', `${scale_factor}`);
     }
 
 
@@ -265,6 +285,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
             if (child instanceof HTMLVideoElement) {
                 (child as HTMLVideoElement).style.width = '100%';
                 (child as HTMLVideoElement).style.height = '100%';
+                (child as HTMLVideoElement).style.objectFit = 'fill';
             }
         }
     }
@@ -295,6 +316,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
             if (child instanceof HTMLVideoElement) {
                 (child as HTMLVideoElement).style.width = '';
                 (child as HTMLVideoElement).style.height = '';
+                (child as HTMLVideoElement).style.objectFit = '';
             }
         }
     }
