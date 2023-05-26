@@ -9,6 +9,7 @@ import Register from '@/views/Register.vue';
 import SettingsAccount from '@/views/Settings/Account.vue';
 import SettingsCaption from '@/views/Settings/Caption.vue';
 import SettingsCapture from '@/views/Settings/Capture.vue';
+import SettingsDataBroadcasting from '@/views/Settings/DataBroadcasting.vue';
 import SettingsGeneral from '@/views/Settings/General.vue';
 import SettingsIndex from '@/views/Settings/Index.vue';
 import SettingsJikkyo from '@/views/Settings/Jikkyo.vue';
@@ -68,6 +69,11 @@ const router = new VueRouter({
             path: '/settings/caption',
             name: 'Settings Caption',
             component: SettingsCaption,
+        },
+        {
+            path: '/settings/data-broadcasting',
+            name: 'Settings Data Broadcasting',
+            component: SettingsDataBroadcasting,
         },
         {
             path: '/settings/capture',

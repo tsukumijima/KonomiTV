@@ -8,11 +8,127 @@ import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import { IProgram } from '@/services/Programs';
 import Utils from '@/utils';
 
+dayjs.extend(isBetween);
+dayjs.extend(isSameOrAfter);
+dayjs.extend(isSameOrBefore);
+
 
 /**
  * 番組情報周りのユーティリティ
  */
 export class ProgramUtils {
+
+    private static format_string_translation_map: {[key: string]: string} | null = null;
+
+
+    /**
+     * formatString() で使用する変換テーブルを取得する
+     * server/app/utils/TSInformation.py の TSInformation.__getFormatStringTranslationTable() と同等の処理を行う
+     * @returns 変換テーブル
+     */
+    private static getFormatStringTranslationTable(): {[key: string]: string} {
+
+        // 全角英数を半角英数に置換
+        const zenkaku_table = '０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ';
+        const hankaku_table = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+        const merged_table: { [key: string]: string } = {};
+        for (let i = 0; i < zenkaku_table.length; i++) {
+            merged_table[zenkaku_table[i]] = hankaku_table[i];
+        }
+
+        // 全角記号を半角記号に置換
+        const synbol_zenkaku_table = '＂＃＄％＆＇（）＋，－．／：；＜＝＞［＼］＾＿｀｛｜｝　';
+        const synbol_hankaku_table = '"#$%&\'()+,-./:;<=>[\\]^_`{|} ';
+        for (let i = 0; i < synbol_zenkaku_table.length; i++) {
+            merged_table[synbol_zenkaku_table[i]] = synbol_hankaku_table[i];
+        }
+        // 一部の半角記号を全角に置換
+        // 主に見栄え的な問題（全角の方が字面が良い）
+        merged_table['!'] = '！';
+        merged_table['?'] = '？';
+        merged_table['*'] = '＊';
+        merged_table['~'] = '～';
+        merged_table['@'] = '＠';
+        // シャープ → ハッシュ
+        merged_table['♯'] = '#';
+        // 波ダッシュ → 全角チルダ
+        // EDCB は ～ を全角チルダとして扱っているため、KonomiTV でもそのように統一する
+        merged_table['〜'] = '～';
+
+        // 番組表で使用される囲み文字の置換テーブル
+        // ref: https://note.nkmk.me/python-chr-ord-unicode-code-point/
+        // ref: https://github.com/l3tnun/EPGStation/blob/v2.6.17/src/util/StrUtil.ts#L7-L46
+        const enclosed_characters_table: {[key: string]: string} = {
+            '\u{1F14A}': '[HV]',
+            '\u{1F13F}': '[P]',
+            '\u{1F14C}': '[SD]',
+            '\u{1F146}': '[W]',
+            '\u{1F14B}': '[MV]',
+            '\u{1F210}': '[手]',
+            '\u{1F211}': '[字]',
+            '\u{1F212}': '[双]',
+            '\u{1F213}': '[デ]',
+            '\u{1F142}': '[S]',
+            '\u{1F214}': '[二]',
+            '\u{1F215}': '[多]',
+            '\u{1F216}': '[解]',
+            '\u{1F14D}': '[SS]',
+            '\u{1F131}': '[B]',
+            '\u{1F13D}': '[N]',
+            '\u{1F217}': '[天]',
+            '\u{1F218}': '[交]',
+            '\u{1F219}': '[映]',
+            '\u{1F21A}': '[無]',
+            '\u{1F21B}': '[料]',
+            '\u{1F21C}': '[前]',
+            '\u{1F21D}': '[後]',
+            '\u{1F21E}': '[再]',
+            '\u{1F21F}': '[新]',
+            '\u{1F220}': '[初]',
+            '\u{1F221}': '[終]',
+            '\u{1F222}': '[生]',
+            '\u{1F223}': '[販]',
+            '\u{1F224}': '[声]',
+            '\u{1F225}': '[吹]',
+            '\u{1F14E}': '[PPV]',
+            '\u{1F200}': '[ほか]',
+        };
+
+        // Unicode の囲み文字を大かっこで囲った文字に置換する
+        // EDCB で EpgDataCap3_Unicode.dll を利用している場合や、Mirakurun 3.9.0-beta.24 以降など、
+        // 番組情報取得元から Unicode の囲み文字が送られてくる場合に対応するためのもの
+        // Unicode の囲み文字はサロゲートペアなどで扱いが難しい上に KonomiTV では囲み文字を CSS でハイライトしているため、Unicode にするメリットがない
+        // ref: https://note.nkmk.me/python-str-replace-translate-re-sub/
+        for (const key in enclosed_characters_table) {
+            merged_table[key] = enclosed_characters_table[key];
+        }
+
+        return merged_table;
+    }
+
+
+    /**
+     * 文字列に含まれる英数や記号を半角に置換し、一律な表現に整える
+     * server/app/utils/TSInformation.py の TSInformation.formatString() と同等の処理を行う
+     * @param string 変換する文字列
+     * @returns 置換した文字列
+     */
+    public static formatString(string: string): string {
+
+        // 変換マップを構築
+        if (ProgramUtils.format_string_translation_map === null) {
+            ProgramUtils.format_string_translation_map = ProgramUtils.getFormatStringTranslationTable();
+        }
+
+        // 変換
+        for (const key in ProgramUtils.format_string_translation_map) {
+            string = string.replaceAll(key, ProgramUtils.format_string_translation_map[key]);
+        }
+
+        // 置換した文字列を返す
+        return string;
+    }
+
 
     /**
      * 番組情報中の[字]や[解]などの記号をいい感じに装飾する
@@ -45,10 +161,6 @@ export class ProgramUtils {
 
         // 番組情報がない時間帯
         } else {
-
-            dayjs.extend(isSameOrAfter);
-            dayjs.extend(isSameOrBefore);
-            dayjs.extend(isBetween);
 
             // 23時～翌7時 (0:00 ~ 06:59 or 23:00 ~ 23:59) の間なら放送を休止している可能性が高いので、放送休止と表示する
             const now = dayjs();
@@ -113,30 +225,46 @@ export class ProgramUtils {
         // program が空でなく、かつ番組時刻が初期値でない
         if (program !== null && program.start_time !== '2000-01-01T00:00:00+09:00') {
 
-            // dayjs で日付を扱いやすく
             dayjs.locale('ja');  // ロケールを日本に設定
             const start_time = dayjs(program.start_time);
+
+            // duration が 0 以下の場合は、放送時間未定として扱う
+            if (program.duration <= 0) {
+                if (is_short === true) {  // 時刻のみ
+                    return `${start_time.format('HH:mm')} ～ --:--`;
+                } else {
+                    return `${start_time.format('YYYY/MM/DD (dd) HH:mm')} ～ --:-- (放送時間未定)`;
+                }
+            }
+
             const end_time = dayjs(program.end_time);
             const duration = program.duration / 60;  // 分換算
 
-            // 時刻のみ返す
             if (is_short === true) {  // 時刻のみ
                 return `${start_time.format('HH:mm')} ～ ${end_time.format('HH:mm')}`;
-            // 通常
             } else {
                 return `${start_time.format('YYYY/MM/DD (dd) HH:mm')} ～ ${end_time.format('HH:mm')} (${duration}分)`;
             }
 
         // 放送休止中
         } else {
-
-            // 時刻のみ返す
-            if (is_short === true) {
+            if (is_short === true) {  // 時刻のみ
                 return '--:-- ～ --:--';
-            // 通常
             } else {
                 return '----/--/-- (-) --:-- ～ --:-- (--分)';
             }
         }
+    }
+
+
+    /**
+     * ミリ秒単位の Unix タイムスタンプを ISO 8601 形式の文字列に変換する
+     * @param timestamp ミリ秒単位の Unix タイムスタンプ
+     * @returns ISO 8601 形式の文字列
+     */
+    static convertTimestampToISO8601(timestamp: number): string {
+        dayjs.locale('ja');
+        const date = dayjs(timestamp).toISOString();
+        return date;
     }
 }

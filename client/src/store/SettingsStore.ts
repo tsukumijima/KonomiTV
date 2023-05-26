@@ -22,6 +22,7 @@ interface ILocalClientSettings {
     specify_caption_opacity: boolean;
     caption_opacity: number;
     tv_show_superimpose: boolean;
+    tv_show_data_broadcasting: boolean;
     capture_copy_to_clipboard: boolean;
     capture_save_mode: 'Browser' | 'UploadServer' | 'Both';
     capture_caption_mode: 'VideoOnly' | 'CompositingCaption' | 'Both';
@@ -64,6 +65,7 @@ const sync_settings_keys = [
     'specify_caption_opacity',
     'caption_opacity',
     'tv_show_superimpose',
+    // tv_show_data_broadcasting: 同期無効
     // capture_copy_to_clipboard: 同期無効
     'capture_save_mode',
     'capture_caption_mode',
@@ -128,6 +130,11 @@ const default_settings: ILocalClientSettings = {
     caption_opacity: 0.5,
     // テレビをみるときに文字スーパーを表示する (Default: 表示する)
     tv_show_superimpose: true,
+
+    // ***** 設定 → データ放送 *****
+
+    // テレビをみるときにデータ放送を表示する (Default: 表示する) (同期無効)
+    tv_show_data_broadcasting: true,
 
     // ***** 設定 → キャプチャ *****
 

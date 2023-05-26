@@ -26,6 +26,7 @@ class ClientSettings(BaseModel):
     specify_caption_opacity: bool = Field(False)
     caption_opacity: float = Field(1.0)
     tv_show_superimpose: bool = Field(True)
+    # tv_show_data_broadcasting: 同期無効
     # capture_copy_to_clipboard: 同期無効
     capture_save_mode: Literal['Browser', 'UploadServer', 'Both'] = Field('UploadServer')
     capture_caption_mode: Literal['VideoOnly', 'CompositingCaption', 'Both'] = Field('Both')
