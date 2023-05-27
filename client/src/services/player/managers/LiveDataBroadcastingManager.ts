@@ -3,7 +3,7 @@ import * as Comlink from 'comlink';
 import dayjs from 'dayjs';
 import DPlayer from 'dplayer';
 import { BMLBrowser, BMLBrowserFontFace } from 'web-bml/client/bml_browser';
-import { RemoteControl } from 'web-bml/client/remote_controller_client';
+import { AribKeyCode } from 'web-bml/client/content';
 import { ResponseMessage } from 'web-bml/server/ws_api';
 
 import router from '@/router';
@@ -36,6 +36,10 @@ class LiveDataBroadcastingManager implements PlayerManager {
     private media_element: HTMLElement;
     private container_element: HTMLElement | null = null;
 
+    private remocon_element: HTMLElement;
+    private remocon_data_broadcasting_element: HTMLElement;
+    private remocon_button_event_abort_controller: AbortController | null = null;
+
     // DPlayer のリサイズを監視する ResizeObserver
     private resize_observer: ResizeObserver | null = null;
 
@@ -47,6 +51,9 @@ class LiveDataBroadcastingManager implements PlayerManager {
     // BML ブラウザの幅と高さ
     private bml_browser_width: number = 960;
     private bml_browser_height: number = 540;
+
+    // BML ブラウザが数字キーを文字入力などに利用中かどうか
+    private is_bml_browser_using_numeric_key: boolean = false;
 
     // BML ブラウザを破棄中かどうか
     private is_bml_browser_destroying: boolean = false;
@@ -64,6 +71,10 @@ class LiveDataBroadcastingManager implements PlayerManager {
         // 映像が入る DOM 要素
         // DPlayer 内の dplayer-video-wrap-aspect をそのまま使う (中に映像と字幕が含まれる)
         this.media_element = this.player.template.videoWrapAspect;
+
+        // リモコンの DOM 要素
+        this.remocon_element = document.querySelector('.remote-control')!;
+        this.remocon_data_broadcasting_element = this.remocon_element.querySelector('.remote-control-data-broadcasting')!;
     }
 
 
@@ -78,6 +89,9 @@ class LiveDataBroadcastingManager implements PlayerManager {
         const is_data_broadcasting_enabled = useSettingsStore().settings.tv_show_data_broadcasting;
         console.log(`[LiveDataBroadcastingManager] BMLBrowser: ${is_data_broadcasting_enabled ? 'enabled' : 'disabled'}`);
 
+        // リモコンのボタンを初期化
+        this.initRemoconButtons();
+
         // データ放送機能有効時のみ
         if (is_data_broadcasting_enabled === true) {
 
@@ -88,22 +102,35 @@ class LiveDataBroadcastingManager implements PlayerManager {
             this.container_element.classList.add('dplayer-bml-browser');
             this.container_element = this.player.template.videoWrap.insertAdjacentElement('afterbegin', this.container_element) as HTMLElement;
 
-            // リモコンを初期化
-            const remote_control = new RemoteControl(
-                document.querySelector('.remote-control')!,
-                document.querySelector('.remote-control-receiving-status')!,
-            );
+            // リモコンをローディング状態にする
+            this.toggleRemoconLoading(true);
 
             // BML ブラウザの初期化
             const this_ = this;
             this.#bml_browser = new BMLBrowser({
                 mediaElement: document.createElement('p'),  // ここではダミーの p 要素を渡す
                 containerElement: this.container_element,
-                indicator: remote_control,
                 storagePrefix: 'KonomiTV-BMLBrowser_',
                 nvramPrefix: 'nvram_',
                 broadcasterDatabasePrefix: '',
                 videoPlaneModeEnabled: true,
+                indicator: {
+                    setReceivingStatus(receiving: boolean) {
+                        this_.toggleRemoconLoading(receiving);
+                    },
+                    setNetworkingGetStatus(connecting: boolean) {
+                        this_.toggleRemoconLoading(connecting);
+                    },
+                    setNetworkingPostStatus(connecting: boolean) {
+                        this_.toggleRemoconLoading(connecting);
+                    },
+                    setUrl(name: string, loading: boolean) {
+                        // 何もしない
+                    },
+                    setEventName(name: string) {
+                        // 何もしない
+                    }
+                },
                 fonts: {
                     roundGothic: LiveDataBroadcastingManager.round_gothic,
                     squareGothic: LiveDataBroadcastingManager.square_gothic,
@@ -201,9 +228,6 @@ class LiveDataBroadcastingManager implements PlayerManager {
             this.bml_browser_height = 540;
             console.log('[LiveDataBroadcastingManager] BMLBrowser initialized.');
 
-            // リモコンに BML ブラウザを設定
-            remote_control.content = this.#bml_browser.content;
-
             // BML ブラウザがロードされたときのイベント
             this.#bml_browser.addEventListener('load', (event) => {
                 console.log('[LiveDataBroadcastingManager] BMLBrowser: load', event.detail);
@@ -241,6 +265,13 @@ class LiveDataBroadcastingManager implements PlayerManager {
                 console.log('[LiveDataBroadcastingManager] BMLBrowser: videochanged', event.detail);
             });
 
+            // 現在 BML ブラウザ上で利用しているボタンの一覧が変化したときのイベント
+            this.#bml_browser.addEventListener('usedkeylistchanged', (event) => {
+                console.log('[LiveDataBroadcastingManager] BMLBrowser: usedkeylistchanged', event.detail);
+                // usedKeyList の中に numeric-tuning が含まれている場合は、データ放送が数字キーを利用中
+                this.is_bml_browser_using_numeric_key = [...event.detail.usedKeyList].includes('numeric-tuning');
+            });
+
             // DPlayer のリサイズを監視する ResizeObserver を開始
             this.resize_observer = new ResizeObserver((entries: ResizeObserverEntry[]) => {
                 // データ放送画面の拡大/縮小率を再計算
@@ -266,7 +297,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
 
             // 番組情報イベントを受信し次第 ChannelsStore を更新
             // これで現在放送中の番組情報がリアルタイムに反映される
-            if (message.type == 'programInfo') {
+            if (message.type == 'programInfo' && channels_store.channel.current.program_present != null) {
                 // イベント ID
                 if (message.eventId) {
                     channels_store.channel.current.program_present.event_id = message.eventId;
@@ -293,10 +324,77 @@ class LiveDataBroadcastingManager implements PlayerManager {
             }
 
             // TS ストリームのデコード結果を BML ブラウザにそのまま送信する
-            if (is_data_broadcasting_enabled === true) {
+            // データ放送機能無効時は実行しない
+            if (this.#bml_browser !== null) {
                 this.#bml_browser?.emitMessage(message);
             }
         }));
+    }
+
+
+    /**
+     * リモコンのボタンを初期化する
+     */
+    private initRemoconButtons(): void {
+
+        const channels_store = useChannelsStore();
+        this.remocon_button_event_abort_controller = new AbortController();
+
+        // リモコンのボタンをクリックしたときのイベントを登録
+        const buttons = this.remocon_element.querySelectorAll('button');
+        for (const button of buttons) {
+            button.addEventListener('click', async () => {
+
+                // ARIB 仕様上のキーコード
+                const arib_key_code = (parseInt(button.dataset.aribKeyCode!) as AribKeyCode);
+
+                // リモコン ID (番号キーのみ)
+                const remocon_id = button.dataset.remoconId ? parseInt(button.dataset.remoconId) : null;
+
+                // 番号キーでかつ現在データ放送が番号キーを使っていない場合は、そのチャンネルに切り替える
+                if (remocon_id !== null && this.is_bml_browser_using_numeric_key === false) {
+
+                    // 切り替え先のチャンネルを取得する
+                    // チャンネルタイプは現在視聴中のチャンネルと同じ
+                    const switch_channel_type = channels_store.channel.current.type;
+                    const switch_channel = channels_store.getChannelByRemoconID(switch_channel_type, remocon_id);
+
+                    // チャンネルが取得できていれば、ルーティングをそのチャンネルに置き換える
+                    // 押されたキーに対応するリモコン ID のチャンネルがない場合や、現在と同じチャンネル ID の場合は何も起こらない
+                    if (switch_channel !== null && switch_channel.display_channel_id !== channels_store.display_channel_id) {
+                        router.push({path: `/tv/watch/${switch_channel.display_channel_id}`});
+                    }
+                    return;
+
+                // それ以外の場合は、BML ブラウザにキーイベントを送信する
+                // データ放送機能無効時は何もしない
+                } else {
+                    if (this.#bml_browser !== null) {
+                        if (remocon_id === 10) {
+                            // リモコン番号が 10 の場合のみ、"0" のキーイベントも送信する
+                            this.#bml_browser.content.processKeyDown(AribKeyCode.Digit0);
+                            this.#bml_browser.content.processKeyUp(AribKeyCode.Digit0);
+                            await Utils.sleep(0.1);  // 若干待つのがポイント
+                        }
+                        this.#bml_browser.content.processKeyDown(arib_key_code);
+                        this.#bml_browser.content.processKeyUp(arib_key_code);
+                    }
+                }
+
+            }, {signal: this.remocon_button_event_abort_controller.signal});
+        }
+    }
+
+
+    /**
+     * リモコンの表示状態をローディングかどうかで切り替える
+     */
+    private toggleRemoconLoading(loading: boolean): void {
+        if (loading === true) {
+            this.remocon_data_broadcasting_element.classList.add('remote-control-data-broadcasting--loading');
+        } else {
+            this.remocon_data_broadcasting_element.classList.remove('remote-control-data-broadcasting--loading');
+        }
     }
 
 
@@ -407,9 +505,14 @@ class LiveDataBroadcastingManager implements PlayerManager {
             this.live_psi_archived_data_decoder = null;
         }
 
-        // データ放送機能有効時のみ
-        const is_data_broadcasting_enabled = useSettingsStore().settings.tv_show_data_broadcasting;
-        if (is_data_broadcasting_enabled === true) {
+        // リモコンの各ボタンに登録していたリスナーを削除
+        if (this.remocon_button_event_abort_controller !== null) {
+            this.remocon_button_event_abort_controller.abort();
+            this.remocon_button_event_abort_controller = null;
+        }
+
+        // ここからはデータ放送機能有効時のみ実行
+        if (this.#bml_browser !== null) {
 
             // DPlayer のリサイズを監視する ResizeObserver を終了
             if (this.resize_observer !== null) {
@@ -420,9 +523,12 @@ class LiveDataBroadcastingManager implements PlayerManager {
             // データ放送内に移動していた映像の要素を DPlayer に戻す
             this.moveVideoElementToDPlayer();
 
+            // リモコンを再びローディング状態に戻す
+            this.toggleRemoconLoading(true);
+
             // BML ブラウザを破棄
             this.is_bml_browser_destroying = true;
-            await this.#bml_browser?.destroy();
+            await this.#bml_browser.destroy();
             this.is_bml_browser_destroying = false;
             this.#bml_browser = null;
             console.log('[LiveDataBroadcastingManager] BMLBrowser destroyed.');
