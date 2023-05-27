@@ -100,6 +100,7 @@ export default Vue.extend({
     overflow-y: scroll;
     opacity: 0;
     visibility: hidden;
+    z-index: 5;
     &--showing {
         opacity: 1;
         visibility: visible;

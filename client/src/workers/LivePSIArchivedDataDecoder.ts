@@ -117,7 +117,7 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
             }
 
         }).catch((error) => {
-            console.error(error);
+            // 何もしない
         });
 
         console.log('[PSIArchivedDataDecoder] TS decoder initialized.');

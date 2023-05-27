@@ -1340,7 +1340,11 @@ export default Vue.extend({
             // LL-HLS 再生時は、error イベントを監視してエラーが発生したらページをリロードする
             } else if (this.is_mpegts_supported === false) {
                 this.player.on('error', async () => {
-                    this.player.notice(`再生中にエラーが発生しました。(${this.player.video.error?.code}: ${this.player.video.error?.message}) 3秒後にリロードします。`, -1, undefined, '#FF6F6A');
+                    if (!this.player?.video.error) {
+                        // エラーイベントが発生したが、エラー情報が取得できない場合は何もしない
+                        return;
+                    }
+                    this.player.notice(`再生中にエラーが発生しました。(${this.player.video.error.code}: ${this.player.video.error.message}) 3秒後にリロードします。`, -1, undefined, '#FF6F6A');
                     await Utils.sleep(3);
                     location.reload();
                 });
@@ -1349,23 +1353,23 @@ export default Vue.extend({
             // LL-HLS 再生時のみ、ローディングが終わるまでは表示上再生状態を維持する
             // play() が正常に実行できればいいのだが、Safari の自動再生制限により失敗することがあるので、
             // その際はアイコンの HTML を書き換えたりして強制的に再生状態にする (苦肉の策)
+            const force_play = () => {
+                this.player?.video.play().catch(() => {
+                    console.warn('HTMLVideoElement.play() rejected. run fallback.');
+                    const pause_icon = '<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 17 32"><path d="M14.080 4.8q2.88 0 2.88 2.048v18.24q0 2.112-2.88 2.112t-2.88-2.112v-18.24q0-2.048 2.88-2.048zM2.88 4.8q2.88 0 2.88 2.048v18.24q0 2.112-2.88 2.112t-2.88-2.112v-18.24q0-2.048 2.88-2.048z"></path></svg>';
+                    this.player!.template.playButton.innerHTML = pause_icon;
+                    this.player!.template.mobilePlayButton.innerHTML = pause_icon;
+                    this.player!.container.classList.remove('dplayer-paused');
+                    this.player!.container.classList.add('dplayer-playing');
+                    this.player!.danmaku!.play();
+                });
+                // ローディング表示が消えたタイミングでイベントを登録解除
+                if (this.is_loading === false) {
+                    this.player!.video.removeEventListener('pause', force_play);
+                    return;
+                }
+            };
             if (this.is_mpegts_supported === false) {
-                const force_play = () => {
-                    this.player?.video.play().catch(() => {
-                        console.warn('HTMLVideoElement.play() rejected. run fallback.');
-                        const pause_icon = '<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 17 32"><path d="M14.080 4.8q2.88 0 2.88 2.048v18.24q0 2.112-2.88 2.112t-2.88-2.112v-18.24q0-2.048 2.88-2.048zM2.88 4.8q2.88 0 2.88 2.048v18.24q0 2.112-2.88 2.112t-2.88-2.112v-18.24q0-2.048 2.88-2.048z"></path></svg>';
-                        this.player!.template.playButton.innerHTML = pause_icon;
-                        this.player!.template.mobilePlayButton.innerHTML = pause_icon;
-                        this.player!.container.classList.remove('dplayer-paused');
-                        this.player!.container.classList.add('dplayer-playing');
-                        this.player!.danmaku!.play();
-                    });
-                    // ローディング表示が消えたタイミングでイベントを登録解除
-                    if (this.is_loading === false) {
-                        this.player?.video.removeEventListener('pause', force_play);
-                        return;
-                    }
-                };
                 this.player.video.addEventListener('pause', force_play);
             }
 
@@ -1438,6 +1442,13 @@ export default Vue.extend({
 
                 // ローディング状態を解除し、映像を表示する
                 this.is_loading = false;
+
+                // ローディングが終わったので強制的に見かけ上再生状態に見せるのをやめる
+                // この時点で再生できていなければ、そのまま停止する
+                if (this.is_mpegts_supported === false) {
+                    this.player!.video.removeEventListener('pause', force_play);
+                    this.player!.pause();
+                }
 
                 // バッファリング中の Progress Circular を非表示にする
                 this.is_video_buffering = false;
