@@ -115,8 +115,8 @@ class LiveDataBroadcastingManager implements PlayerManager {
                 broadcasterDatabasePrefix: '',
                 videoPlaneModeEnabled: true,
                 indicator: {
-                    setReceivingStatus(receiving: boolean) {
-                        this_.toggleRemoconLoading(receiving);
+                    setUrl(name: string, loading: boolean) {
+                        this_.toggleRemoconLoading(loading);
                     },
                     setNetworkingGetStatus(connecting: boolean) {
                         this_.toggleRemoconLoading(connecting);
@@ -124,7 +124,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
                     setNetworkingPostStatus(connecting: boolean) {
                         this_.toggleRemoconLoading(connecting);
                     },
-                    setUrl(name: string, loading: boolean) {
+                    setReceivingStatus(receiving: boolean) {
                         // 何もしない
                     },
                     setEventName(name: string) {
