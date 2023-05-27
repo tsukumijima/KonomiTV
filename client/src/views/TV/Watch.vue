@@ -119,12 +119,12 @@
                         :class="{'watch-panel__content--active': tv_panel_active_tab === 'Twitter'}"
                         :player="player" :is_virtual_keyboard_display="is_virtual_keyboard_display" />
                     <button v-ripple class="watch-panel__content-remocon-button elevation-8"
-                        :class="{'watch-panel__content-remocon-button--active': tv_panel_active_tab === 'Program'}"
+                        :class="{'watch-panel__content-remocon-button--active': tv_panel_active_tab === 'Program' || tv_panel_active_tab === 'Channel'}"
                         @click="is_remocon_display = !is_remocon_display">
                         <Icon class="panel-close-button__icon" icon="material-symbols:remote-gen" width="25px" />
                     </button>
                     <Remocon class="watch-panel__remocon"
-                        :showing="tv_panel_active_tab === 'Program' && is_remocon_display === true"
+                        :showing="(tv_panel_active_tab === 'Program' || tv_panel_active_tab === 'Channel') && is_remocon_display === true"
                         @close="is_remocon_display = false" />
                 </div>
                 <div class="watch-panel__navigation">
@@ -3380,10 +3380,10 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 align-items: center;
                 justify-content: center;
                 position: absolute;
-                right: 20px;
-                bottom: 20px;
-                width: 50px;
-                height: 50px;
+                right: 16px;
+                bottom: 16px;
+                width: 48px;
+                height: 48px;
                 border-radius: 50%;
                 background: var(--v-background-lighten1);
                 outline: none;
@@ -3391,10 +3391,12 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 opacity: 0;
                 visibility: hidden;
 
+                @media (hover: none) {
+                    transition: none;
+                }
                 &--active {
                     opacity: 1;
                     visibility: visible;
-                    content-visibility: auto;
                 }
             }
         }

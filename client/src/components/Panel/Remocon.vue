@@ -1,6 +1,7 @@
 <template>
-    <div class="remote-control-container" :class="{'remote-control-container--showing': showing}">
-        <div class="remote-control elevation-6">
+    <div class="remote-control-container" :class="{'remote-control-container--showing': showing}"
+        @click="$emit('close')">
+        <div class="remote-control elevation-6" @click.stop>
             <div v-ripple class="remote-control__close d-flex align-center rounded-circle cursor-pointer px-2 py-2"
                 @click="$emit('close')">
                 <Icon icon="fluent:dismiss-12-filled" width="23px" height="23px" />
@@ -87,15 +88,13 @@ export default Vue.extend({
 <style lang="scss" scoped>
 
 .remote-control-container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: grid;
+    place-items: center;
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    padding: 12px;
     background: rgba(30, 19, 16, 50%);
     transition: opacity 0.2s, visibility 0.2s;
     overflow-y: scroll;
