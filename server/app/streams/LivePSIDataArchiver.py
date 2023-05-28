@@ -1,7 +1,7 @@
 
 import asyncio
 import time
-from typing import AsyncGenerator
+from typing import AsyncGenerator, cast
 
 from app.constants import LIBRARY_PATH
 
@@ -123,12 +123,16 @@ class LivePSIDataArchiver:
             packet (bytes): MPEG2-TS パケット
         """
 
-        # psisiarc が起動していない場合は何もしない
-        if self.psisiarc_process is None:
+        # psisiarc が起動していない・既に終了している場合は何もしない
+        if self.psisiarc_process is None or cast(asyncio.StreamWriter, self.psisiarc_process.stdin).is_closing():
             return
 
         # psisiarc に TS パケットを送信する
-        self.psisiarc_process.stdin.write(packet)
+        cast(asyncio.StreamWriter, self.psisiarc_process.stdin).write(packet)
+        try:
+            await asyncio.wait_for(cast(asyncio.StreamWriter, self.psisiarc_process.stdin).drain(), timeout = 1.0)
+        except asyncio.TimeoutError:
+            pass
 
 
     async def getPSIArchivedData(self) -> AsyncGenerator[bytes, None]:
@@ -216,11 +220,11 @@ class LivePSIDataArchiver:
 
         try:
             if trailer_size > 0:
-                buffer = await self.psisiarc_process.stdout.readexactly(trailer_size)
+                buffer = await cast(asyncio.StreamReader, self.psisiarc_process.stdout).readexactly(trailer_size)
                 if len(buffer) != trailer_size:
                     return None
 
-            buffer = await self.psisiarc_process.stdout.readexactly(32)
+            buffer = await cast(asyncio.StreamReader, self.psisiarc_process.stdout).readexactly(32)
             if len(buffer) != 32:
                 return None
 
@@ -232,7 +236,7 @@ class LivePSIDataArchiver:
             payload_size = time_list_len * 4 + dictionary_len * 2 + ((dictionary_data_size + 1) // 2) * 2 + code_list_len * 2
 
             if payload_size > 0:
-                payload = await self.psisiarc_process.stdout.readexactly(payload_size)
+                payload = await cast(asyncio.StreamReader, self.psisiarc_process.stdout).readexactly(payload_size)
                 if len(payload) != payload_size:
                     return None
 

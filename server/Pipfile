@@ -10,6 +10,7 @@ dev = "python KonomiTV.py --reload"
 [packages]
 aerich = {file = "https://github.com/tortoise/aerich/archive/dbc0d9e7efba1509a56796a8977cb11011c469e6.zip"}
 aiofiles = "*"
+aiohttp = "*"
 aiosqlite = "*"
 ariblib = {file = "https://github.com/tsukumijima/ariblib/archive/refs/tags/v0.1.0.zip"}
 biim = {file = "https://github.com/monyone/biim/archive/refs/tags/v1.10.2.zip"}

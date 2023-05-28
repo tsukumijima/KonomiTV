@@ -440,8 +440,9 @@ async def UserDeleteMeAPI(
     ## ID が一番若いアカウントに管理者権限を付与する（そうしないと誰も管理者権限を行使できないし付与できない）
     if await User.filter(is_admin=True).get_or_none() is None:
         id_young_user = await User.all().order_by('id').first()
-        id_young_user.is_admin = True
-        await id_young_user.save()
+        if id_young_user is not None:
+            id_young_user.is_admin = True
+            await id_young_user.save()
 
 
 # ***** 指定ユーザーアカウント情報 API (管理者用) *****
@@ -605,5 +606,6 @@ async def UserDeleteAPI(
     ## ID が一番若いアカウントに管理者権限を付与する（そうしないと誰も管理者権限を行使できないし付与できない）
     if await User.filter(is_admin=True).get_or_none() is None:
         id_young_user = await User.all().order_by('id').first()
-        id_young_user.is_admin = True
-        await id_young_user.save()
+        if id_young_user is not None:
+            id_young_user.is_admin = True
+            await id_young_user.save()

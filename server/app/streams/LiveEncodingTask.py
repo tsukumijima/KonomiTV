@@ -1,14 +1,12 @@
 
+import aiohttp
 import asyncio
 import os
 import re
-import requests
 import socket
-import subprocess
-import threading
 import time
 from io import TextIOWrapper
-from typing import BinaryIO, cast, Iterator, Literal
+from typing import AsyncIterator, BinaryIO, cast, Literal
 
 from app.constants import API_REQUEST_HEADERS, CONFIG, LIBRARY_PATH, LOGS_DIR, QUALITY, QUALITY_TYPES
 from app.models import Channel
@@ -396,7 +394,7 @@ class LiveEncodingTask:
         self.livestream.segmenter = LiveHLSSegmenter(gop_length_second)
 
         # チャンネル情報からサービス ID とネットワーク ID を取得する
-        channel = await Channel.filter(display_channel_id=self.livestream.display_channel_id).first()
+        channel = cast(Channel, await Channel.filter(display_channel_id=self.livestream.display_channel_id).first())
 
         # 現在の番組情報を取得する
         program_present = (await channel.getCurrentAndNextProgram())[0]
@@ -463,10 +461,9 @@ class LiveEncodingTask:
         # tsreadex の読み込み用パイプと書き込み用パイプを作成
         tsreadex_read_pipe, tsreadex_write_pipe = os.pipe()
 
-        # tsreadex の起動
-        ## Reader だけ同期関数なので、asyncio.subprocess ではなく通常の subprocess を使っている (苦肉の策)
-        tsreadex = subprocess.Popen(
-            [LIBRARY_PATH['tsreadex'], *tsreadex_options],
+        # tsreadex のプロセスを非同期で作成・実行
+        tsreadex = await asyncio.subprocess.create_subprocess_exec(
+            *[LIBRARY_PATH['tsreadex'], *tsreadex_options],
             stdin = asyncio.subprocess.PIPE,  # 受信した放送波を書き込む
             stdout = tsreadex_write_pipe,  # エンコーダーに繋ぐ
         )
@@ -500,8 +497,8 @@ class LiveEncodingTask:
                 encoder_options = self.buildFFmpegOptions(self.livestream.quality, is_fullhd_channel, channel.type == 'SKY')
             Logging.info(f'[Live: {self.livestream.livestream_id}] FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
-            # プロセスを非同期で作成・実行
-            encoder: asyncio.subprocess.Process = await asyncio.subprocess.create_subprocess_exec(
+            # エンコーダープロセスを非同期で作成・実行
+            encoder = await asyncio.subprocess.create_subprocess_exec(
                 *[LIBRARY_PATH['FFmpeg'], *encoder_options],
                 stdin = tsreadex_read_pipe,  # tsreadex からの入力
                 stdout = asyncio.subprocess.PIPE,  # ストリーム出力
@@ -515,8 +512,8 @@ class LiveEncodingTask:
             encoder_options = self.buildHWEncCOptions(self.livestream.quality, encoder_type, is_fullhd_channel, channel.type == 'SKY')
             Logging.info(f'[Live: {self.livestream.livestream_id}] {encoder_type} Commands:\n{encoder_type} {" ".join(encoder_options)}')
 
-            # プロセスを非同期で作成・実行
-            encoder: asyncio.subprocess.Process = await asyncio.subprocess.create_subprocess_exec(
+            # エンコーダープロセスを非同期で作成・実行
+            encoder = await asyncio.subprocess.create_subprocess_exec(
                 *[LIBRARY_PATH[encoder_type], *encoder_options],
                 stdin = tsreadex_read_pipe,  # tsreadex からの入力
                 stdout = asyncio.subprocess.PIPE,  # ストリーム出力
@@ -534,6 +531,13 @@ class LiveEncodingTask:
         # EDCB のチューナーインスタンス (Mirakurun バックエンド利用時は常に None)
         tuner: EDCBTuner | None = None
 
+        # Mirakurun の aiohttp セッション
+        response: aiohttp.ClientResponse | None = None
+        session: aiohttp.ClientSession | None = None
+
+        # 放送波の MPEG2-TS を受信する StreamReader
+        stream_reader: asyncio.StreamReader | aiohttp.StreamReader
+
         # Mirakurun バックエンド
         if CONFIG['general']['backend'] == 'Mirakurun':
 
@@ -544,16 +548,17 @@ class LiveEncodingTask:
             mirakurun_stream_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services/{mirakurun_service_id}/stream'
 
             # Mirakurun の Service Stream API へ HTTP リクエストを開始
-            ## stream=True を設定することで、レスポンスの返却を待たずに処理を進められる
+            self.livestream.setStatus('Standby', 'チューナーを起動しています…')
+            session = aiohttp.ClientSession()
             try:
-                self.livestream.setStatus('Standby', 'チューナーを起動しています…')
-                response = await asyncio.to_thread(requests.get,
+                response = await session.get(
                     url = mirakurun_stream_api_url,
                     headers = {**API_REQUEST_HEADERS, 'X-Mirakurun-Priority': '0'},
-                    stream = True,
-                    timeout = 15,
+                    timeout = aiohttp.ClientTimeout(connect=15, sock_connect=15, sock_read=15)
                 )
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            except (aiohttp.ClientConnectorError, asyncio.TimeoutError):
+                await session.close()
+
                 # 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないならチューナーへの接続に失敗したものとする
                 if program_present is None or program_present.isOffTheAirProgram():
                     self.livestream.setStatus('Offline', 'この時間は放送を休止しています。')
@@ -575,6 +580,9 @@ class LiveEncodingTask:
 
                 # エンコードタスクを停止する
                 return
+
+            # 放送波の MPEG2-TS の受信元の StreamReader として設定
+            stream_reader = response.content
 
         # EDCB バックエンド
         elif CONFIG['general']['backend'] == 'EDCB':
@@ -619,10 +627,10 @@ class LiveEncodingTask:
             # チューナーに接続する
             # 放送波が送信される TCP ソケットまたは名前付きパイプを取得する
             self.livestream.setStatus('Standby', 'チューナーに接続しています…')
-            pipe_or_socket: BinaryIO | socket.socket | None = await tuner.connect()
+            reader = await tuner.connect()
 
             # チューナーへの接続に失敗した
-            if pipe_or_socket is None:
+            if reader is None:
                 self.livestream.setStatus('Offline', 'チューナーへの接続に失敗しました。チューナー側に何らかの問題があるかもしれません。')
 
                 # チューナーを閉じる
@@ -644,6 +652,9 @@ class LiveEncodingTask:
                 # エンコードタスクを停止する
                 return
 
+            # 放送波の MPEG2-TS の受信元の StreamReader として設定
+            stream_reader = reader
+
             # ライブストリームにチューナーインスタンスを設定する
             # Idling への切り替え、ONAir への復帰時に LiveStream 側でチューナーのアンロック/ロックが行われる
             self.livestream.tuner = tuner
@@ -654,50 +665,53 @@ class LiveEncodingTask:
         ## 単に時刻を比較する用途でしか使わないので、time.monotonic() から取得した単調増加時間が入る
         ## Unix Time とかではないので注意
         tuner_ts_read_at: float = time.monotonic()
-        tuner_ts_read_at_lock = threading.Lock()
+        tuner_ts_read_at_lock = asyncio.Lock()
 
-        # Reader だけ同期関数に依存しているので、別スレッドで実行する
-        def Reader():
-
-            from app.app import loop
+        async def Reader():
             nonlocal tuner_ts_read_at
 
-            # 受信した放送波が入るイテレータ
+            # 受信した放送波が入るイテレータを作成
             # R/W バッファ: 188B (TS Packet Size) * 256 = 48128B
-            ## EDCB
-            if CONFIG['general']['backend'] == 'EDCB':
-                if type(pipe_or_socket) is socket.socket:
-                    # EDCB の TCP ソケットから受信
-                    stream_iterator = iter(lambda: cast(socket.socket, pipe_or_socket).recv(48128), b'')
-                else:
-                    # EDCB の名前付きパイプから受信
-                    stream_iterator = iter(lambda: cast(BinaryIO, pipe_or_socket).read(48128), b'')
-            ## Mirakurun
-            elif CONFIG['general']['backend'] == 'Mirakurun':
-                # Mirakurun の HTTP API から受信
-                stream_iterator: Iterator[bytes] = response.iter_content(chunk_size=48128)
+            async def GetIterator(stream_reader: asyncio.StreamReader | aiohttp.StreamReader, chunk_size: int = 48128) -> AsyncIterator[bytes]:
+                while True:
+                    try:
+                        yield await stream_reader.readexactly(chunk_size)
+                    except asyncio.IncompleteReadError as ex:
+                        # もし残りのバイトがあれば、 break 前にそれらを yield する
+                        if ex.partial:
+                            yield ex.partial
+                        break
+            stream_iterator = GetIterator(stream_reader)
 
             # EDCB / Mirakurun から受信した放送波を随時 tsreadex の入力に書き込む
             try:
-                for chunk in stream_iterator:  # type: ignore
-                    chunk = cast(bytes, chunk)
+                async for chunk in stream_iterator:
 
                     # チューナーからの放送波 TS の最終読み取り時刻を更新
-                    with tuner_ts_read_at_lock:
+                    async with tuner_ts_read_at_lock:
                         tuner_ts_read_at = time.monotonic()
 
-                    # ストリームデータを tsreadex の標準入力に書き込む
-                    ## BrokenPipeError や OSError が発生した場合は回復不可能なため、タスクを終了
-                    try:
-                        tsreadex.stdin.write(bytes(chunk))
-                    except BrokenPipeError:
-                        break
-                    except OSError:
+                    # tsreadex の標準入力が閉じられていたら、タスクを終了
+                    if cast(asyncio.StreamWriter, tsreadex.stdin).is_closing():
                         break
 
-                    # 生の放送波の TS パケットを PSI/SI データアーカイバーに送信する
-                    if self.livestream.psi_data_archiver is not None:
-                        asyncio.run_coroutine_threadsafe(self.livestream.psi_data_archiver.pushTSPacketData(bytes(chunk)), loop)
+                    try:
+                        # Python 3.11 から追加された asyncio.TaskGroup() で並列タスクを実行する
+                        # ref: https://gihyo.jp/article/2022/10/monthly-python-2210
+                        async with asyncio.TaskGroup() as task_group:
+
+                            # ストリームデータを tsreadex の標準入力に書き込む
+                            cast(asyncio.StreamWriter, tsreadex.stdin).write(chunk)
+                            task_group.create_task(asyncio.wait_for(cast(asyncio.StreamWriter, tsreadex.stdin).drain(), timeout=1.0))
+
+                            # 生の放送波の TS パケットを PSI/SI データアーカイバーに送信する
+                            if self.livestream.psi_data_archiver is not None:
+                                task_group.create_task(self.livestream.psi_data_archiver.pushTSPacketData(chunk))
+
+                    # 並列タスク処理中に何らかの例外が発生した
+                    # BrokenPipeError・asyncio.TimeoutError などが想定されるが、何が発生するかわからないためすべての例外をキャッチする
+                    except:
+                        break
 
                     # エンコードタスクが終了しているか既にエンコーダープロセスが終了していたら、タスクを終了
                     if is_running is False or tsreadex.returncode is not None or encoder.returncode is not None:
@@ -708,16 +722,14 @@ class LiveEncodingTask:
 
             # タスクを終える前に、チューナーとの接続を明示的に閉じる
             try:
-                tsreadex.stdin.close()
+                cast(asyncio.StreamWriter, tsreadex.stdin).close()
             except OSError:
                 pass
-            if CONFIG['general']['backend'] == 'EDCB':
-                pipe_or_socket.close()
-            elif CONFIG['general']['backend'] == 'Mirakurun':
-                response.close()
+            if session is not None:
+                await session.close()
 
-        # threading を使うのが重要、asyncio.to_thread() を使うとボトルネックになる
-        threading.Thread(target=Reader).start()
+        # タスクを非同期で実行
+        asyncio.create_task(Reader())
 
         # ***** tsreadex・エンコーダーからの出力の読み込み → ライブストリームへの書き込み *****
 
@@ -847,7 +859,7 @@ class LiveEncodingTask:
                 ## 進捗ログを取得できずに永遠に Standby から ONAir に移行しない不具合が発生する
                 buffer = bytearray()
                 while True:
-                    byte = await encoder.stderr.read(1)
+                    byte = await cast(asyncio.StreamReader, encoder.stderr).read(1)
                     buffer += byte
                     if byte == b'\r' or byte == b'\n':
                         break
@@ -896,7 +908,7 @@ class LiveEncodingTask:
                         Logging.debug_simple(f'[Live: {self.livestream.livestream_id}] [{encoder_type}] ' + line)
 
                     # エンコーダーのログ出力が有効なら、エンコーダーのログファイルに書き込む
-                    if CONFIG['general']['debug_encoder'] is True:
+                    if CONFIG['general']['debug_encoder'] is True and encoder_log is not None:
                         encoder_log.write(line.strip('\r\n') + '\n')
                         encoder_log.flush()
 
@@ -991,7 +1003,7 @@ class LiveEncodingTask:
                     break
 
             # タスクを終える前にエンコーダーのログファイルを閉じる
-            if CONFIG['general']['debug_encoder'] is True:
+            if CONFIG['general']['debug_encoder'] is True and encoder_log is not None:
                 encoder_log.close()
 
         # タスクを非同期で実行
@@ -1039,7 +1051,7 @@ class LiveEncodingTask:
 
                 # 前回チューナーからの放送波 TS を読み取ってから TUNER_TS_READ_TIMEOUT 秒以上経過していたら、
                 # 停波中もしくはチューナーからの放送波 TS の送信が停止したと判断して Offline に移行
-                with tuner_ts_read_at_lock:
+                async with tuner_ts_read_at_lock:
                     if (time.monotonic() - tuner_ts_read_at) > self.TUNER_TS_READ_TIMEOUT:
 
                         # 番組名に「放送休止」などが入っていれば停波の可能性が高い
@@ -1051,9 +1063,9 @@ class LiveEncodingTask:
                             self.livestream.setStatus('Offline', 'チューナーへの接続に失敗しました。チューナー側に何らかの問題があるかもしれません。')
 
                 # Mirakurun の Service Stream API からエラーが返された場合
-                if CONFIG['general']['backend'] == 'Mirakurun' and response.status_code is not None and response.status_code != 200:
+                if CONFIG['general']['backend'] == 'Mirakurun' and response is not None and response.status != 200:
                     # Offline にしてエンコードタスクを停止する
-                    if response.status_code == 503:
+                    if response.status == 503:
                         self.livestream.setStatus('Offline', 'チューナーの起動に失敗しました。チューナー不足が原因かもしれません。')
                     else:
                         self.livestream.setStatus('Offline', 'チューナーで不明なエラーが発生しました。Mirakurun 側に問題があるかもしれません。')
@@ -1097,9 +1109,9 @@ class LiveEncodingTask:
 
                 # チューナーとの接続が切断された場合
                 ## ref: https://stackoverflow.com/a/45251241/17124142
-                if ((CONFIG['general']['backend'] == 'Mirakurun' and response.raw.closed is True) or
-                    (CONFIG['general']['backend'] == 'EDCB' and type(pipe_or_socket) is socket.socket and pipe_or_socket.fileno() < 0) or
-                    (CONFIG['general']['backend'] == 'EDCB' and type(pipe_or_socket) is BinaryIO and pipe_or_socket.closed is True)):
+                if ((CONFIG['general']['backend'] == 'Mirakurun' and response is not None and response.closed is True) or
+                    (CONFIG['general']['backend'] == 'EDCB' and type(stream_reader) is socket.socket and stream_reader.fileno() < 0) or
+                    (CONFIG['general']['backend'] == 'EDCB' and type(stream_reader) is BinaryIO and stream_reader.closed is True)):
 
                     # エンコードタスクを再起動
                     self.livestream.setStatus('Restart', 'チューナーとの接続が切断されました。エンコードタスクを再起動します。')
@@ -1171,6 +1183,10 @@ class LiveEncodingTask:
         except:
             pass
 
+        # Mirakurun バックエンドの場合はレスポンスを閉じる
+        if CONFIG['general']['backend'] == 'Mirakurun' and response is not None:
+            response.close()
+
         # すべての視聴中クライアントのライブストリームへの接続を切断する
         self.livestream.disconnectAll()
 
@@ -1190,7 +1206,7 @@ class LiveEncodingTask:
             # チューナーをアンロックする (EDCB バックエンドのみ)
             ## 新しいエンコードタスクが今回立ち上げたチューナーを再利用できるようにする
             ## エンコーダーの再起動が必要なだけでチューナー自体はそのまま使えるし、わざわざ閉じてからもう一度開くのは無駄
-            if CONFIG['general']['backend'] == 'EDCB':
+            if CONFIG['general']['backend'] == 'EDCB' and tuner is not None:
                 tuner.unlock()
 
             # 再起動回数が最大再起動回数に達していなければ、再起動する
@@ -1212,7 +1228,7 @@ class LiveEncodingTask:
 
                 # チューナーを終了する (EDCB バックエンドのみ)
                 ## tuner.close() した時点でそのチューナーインスタンスは意味をなさなくなるので、LiveStream インスタンスのプロパティからも削除する
-                if CONFIG['general']['backend'] == 'EDCB':
+                if CONFIG['general']['backend'] == 'EDCB' and tuner is not None:
                     await tuner.close()
                     self.livestream.tuner = None
 
@@ -1220,7 +1236,7 @@ class LiveEncodingTask:
         else:
 
             # EDCB バックエンドのみ
-            if CONFIG['general']['backend'] == 'EDCB':
+            if CONFIG['general']['backend'] == 'EDCB' and tuner is not None:
 
                 # チャンネル切り替え時にチューナーが再利用されるように、3秒ほど待つ
                 # 3秒間の間にチューナーの制御権限が新しいエンコードタスクに委譲されれば、下記の通り実際にチューナーが閉じられることはない

@@ -390,7 +390,7 @@ class Jikkyo:
         for channel in channels:
 
             # 実況 ID を取得
-            jikkyo_id = channel.find('video').text
+            jikkyo_id = channel.find('video').text  # type: ignore
 
             # 対照表に存在する実況 ID のみ
             if jikkyo_id in cls.jikkyo_nicolive_id_table:

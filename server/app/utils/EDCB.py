@@ -5,11 +5,10 @@ from __future__ import annotations
 
 import asyncio
 import datetime
-import socket
 import sys
 import time
 import urllib.parse
-from typing import Any, BinaryIO, Callable, cast, ClassVar
+from typing import Any, Callable, cast, ClassVar
 
 from app.constants import CONFIG
 
@@ -170,12 +169,12 @@ class EDCBTuner:
         return True
 
 
-    async def connect(self) -> BinaryIO | socket.socket | None:
+    async def connect(self) -> asyncio.StreamReader | None:
         """
         チューナーに接続し、放送波を受け取るための TCP ソケットまたは名前付きパイプを返す
 
         Returns:
-            BinaryIO | socket.socket | None: ソケットまたはファイルオブジェクト (取得できなかった場合は None を返す)
+            asyncio.StreamReader | None: ストリームリーダー (取得できなかった場合は None を返す)
         """
 
         # プロセス ID が取得できている（チューナーが起動している）ことが前提
@@ -186,20 +185,20 @@ class EDCBTuner:
         if EDCBUtil.getEDCBHost() != 'edcb-namedpipe':
             ## EpgDataCap_Bon で受信した放送波を受け取るための名前付きパイプの出力を、
             ## EpgTimerSrv の CtrlCmd インターフェイス (TCP API) 経由で受信するための TCP ソケット
-            pipe_or_socket = await EDCBUtil.openViewStream(self.edcb_process_id)
+            stream_reader = await EDCBUtil.openViewStream(self.edcb_process_id)
         else:
             ## EpgDataCap_Bon で受信した放送波を受け取るための名前付きパイプ
             ## R/W バッファ: 188B (TS Packet Size) * 256 = 48128B
-            pipe_or_socket = await EDCBUtil.openPipeStream(self.edcb_process_id, 48128)
+            stream_reader = await EDCBUtil.openViewStream(self.edcb_process_id, 48128)
 
         # チューナーへの接続に失敗した
         ## チューナーを閉じてからエラーを返す
-        if pipe_or_socket is None:
+        if stream_reader is None:
             await self.close()  # チューナーを閉じる
             return None
 
         # ファイルオブジェクトまたはソケットを返す
-        return pipe_or_socket
+        return stream_reader
 
 
     def lock(self) -> None:
@@ -369,30 +368,14 @@ class EDCBUtil:
         return result
 
     @staticmethod
-    async def openViewStream(process_id: int, timeout_sec: float=10.) -> socket.socket | None:
+    async def openViewStream(process_id: int, timeout_sec: float=10.) -> asyncio.StreamReader | None:
         """ View アプリの SrvPipe ストリームの転送を開始する """
         edcb = CtrlCmdUtil()
         edcb.setConnectTimeOutSec(timeout_sec)
         to = time.monotonic() + timeout_sec
         wait = 0.1
         while time.monotonic() < to:
-            sock = await asyncio.to_thread(edcb.openViewStream, process_id)
-            if sock is not None:
-                return sock
-            await asyncio.sleep(wait)
-            # 初期に成功しなければ見込みは薄いので問い合わせを疎にしていく
-            wait = min(wait + 0.1, 1.0)
-        return None
-
-    @staticmethod
-    async def openViewStreamAsync(process_id: int, timeout_sec: float=10.) -> asyncio.StreamReader | None:
-        """ View アプリの SrvPipe ストリームの転送を開始する """
-        edcb = CtrlCmdUtil()
-        edcb.setConnectTimeOutSec(timeout_sec)
-        to = time.monotonic() + timeout_sec
-        wait = 0.1
-        while time.monotonic() < to:
-            reader = await edcb.openViewStreamAsync(process_id)
+            reader = await edcb.openViewStream(process_id)
             if reader is not None:
                 return reader
             await asyncio.sleep(wait)
@@ -401,25 +384,7 @@ class EDCBUtil:
         return None
 
     @staticmethod
-    async def openPipeStream(process_id: int, buffering: int, timeout_sec: float=10.) -> BinaryIO | None:
-        """ システムに存在する SrvPipe ストリームを開き、ファイルオブジェクトを返す """
-        to = time.monotonic() + timeout_sec
-        wait = 0.1
-        while time.monotonic() < to:
-            # ポートは必ず 0 から 29 まで
-            for port in range(30):
-                try:
-                    path = '\\\\.\\pipe\\SendTSTCP_' + str(port) + '_' + str(process_id)
-                    return open(path, mode = 'rb', buffering = buffering)
-                except:
-                    pass
-            await asyncio.sleep(wait)
-            # 初期に成功しなければ見込みは薄いので問い合わせを疎にしていく
-            wait = min(wait + 0.1, 1.0)
-        return None
-
-    @staticmethod
-    async def openPipeStreamAsync(process_id: int, timeout_sec: float=10.) -> asyncio.StreamReader | None:
+    async def openPipeStream(process_id: int, timeout_sec: float=10.) -> asyncio.StreamReader | None:
         """ システムに存在する SrvPipe ストリームを開き、ファイルオブジェクトを返す """
         if sys.platform != 'win32':
             raise NotImplementedError('Windows Only')
@@ -647,44 +612,7 @@ class CtrlCmdUtil:
                 return self.__readRecFileInfo(bufview, pos, len(buf))  # type: ignore
         return None
 
-    def openViewStream(self, process_id: int) -> socket.socket | None:
-        """ View アプリの SrvPipe ストリームの転送を開始する """
-        buf = bytearray()
-        self.__writeInt(buf, self.__CMD_EPG_SRV_RELAY_VIEW_STREAM)
-        self.__writeInt(buf, 4)
-        self.__writeInt(buf, process_id)
-
-        # TCP/IP モードであること
-        if self.__host is None:
-            return None
-
-        # 利用側のロジックが同期的なので、ここでは asyncio を使わない
-        # asyncio を使って接続すると、受信する際にも await が必要になって reader() を同期関数にできなくなる
-        try:
-            sock = socket.create_connection((self.__host, self.__port), self.__connect_timeout_sec)
-        except:
-            return None
-        try:
-            sock.settimeout(self.__connect_timeout_sec)
-            sock.sendall(buf)
-            rbuf = bytearray()
-            while len(rbuf) < 8:
-                r = sock.recv(8 - len(rbuf))
-                if not r:
-                    break
-                rbuf.extend(r)
-        except:
-            sock.close()
-            return None
-
-        if len(rbuf) == 8:
-            ret = self.__readInt(memoryview(rbuf), [0], 8)
-            if ret == self.__CMD_SUCCESS:
-                return sock
-        sock.close()
-        return None
-
-    async def openViewStreamAsync(self, process_id: int) -> asyncio.StreamReader | None:
+    async def openViewStream(self, process_id: int) -> asyncio.StreamReader | None:
         """ View アプリの SrvPipe ストリームの転送を開始する """
         to = time.monotonic() + self.__connect_timeout_sec
         buf = bytearray()

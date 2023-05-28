@@ -15,7 +15,6 @@
     "python.analysis.diagnosticSeverityOverrides": {
         "reportConstantRedefinition": "none",
         "reportMissingTypeStubs": "none",
-        "reportOptionalMemberAccess": "none",
         "reportPrivateImportUsage": "none",
         "reportShadowedImports": "none",
         "reportUnnecessaryComparison": "none",
