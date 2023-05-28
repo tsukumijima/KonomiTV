@@ -172,6 +172,16 @@ class LiveDataBroadcastingManager implements PlayerManager {
                 // データ放送からのチャンネル切り替え機能
                 epg: {
                     tune(network_id: number, transport_stream_id: number, service_id: number): boolean {
+                        // 選局対象のチャンネルが現在視聴中のチャンネルと同じ場合
+                        if (channels_store.channel.current.network_id === network_id && channels_store.channel.current.service_id === service_id) {
+                            // 非同期で LiveDataBroadcastingManager を再起動
+                            // チャンネル切り替え後はリロードし直すまで BML ブラウザがフリーズするため
+                            (async () => {
+                                await this_.destroy();
+                                await this_.init();
+                            })();
+                            return true;
+                        }
                         // チャンネルリストから network_id と service_id が一致するチャンネルを探す
                         // transport_stream_id は Mirakurun バックエンドの場合は存在しないため使わない
                         // network_id + service_id だけで一意になる
@@ -188,7 +198,8 @@ class LiveDataBroadcastingManager implements PlayerManager {
                         // 3秒間エラーメッセージを表示する
                         console.error(`[LiveDataBroadcastingManager] Channel not found (network_id: ${network_id} / service_id: ${service_id})`);
                         this_.player.notice(`切り替え先のチャンネルが見つかりませんでした。(network_id: ${network_id} / service_id: ${service_id})`, 3000, undefined, '#FF6F6A');
-                        // 非同期で LiveDataBroadcastingManager を再起動
+                        // エラーメッセージを表示し終わったタイミングで、非同期で LiveDataBroadcastingManager を再起動
+                        // チャンネル切り替えに失敗すると BML ブラウザがフリーズするため
                         Utils.sleep(3).then(async () => {
                             await this_.destroy();
                             await this_.init();
