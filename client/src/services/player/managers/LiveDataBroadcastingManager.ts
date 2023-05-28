@@ -477,11 +477,6 @@ class LiveDataBroadcastingManager implements PlayerManager {
             return;
         }
 
-        // 既に映像の要素が BML ブラウザ内にある場合は何もしない
-        if (this.is_video_element_moved_to_bml_browser === true) {
-            return;
-        }
-
         // getVideoElement() に失敗した (=現在データ放送に映像が表示されていない) 場合は何もしない
         if (this.#bml_browser?.getVideoElement() === null) {
             return;
