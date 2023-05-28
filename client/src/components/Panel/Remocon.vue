@@ -6,8 +6,7 @@
                 @click="$emit('close')">
                 <Icon icon="fluent:dismiss-12-filled" width="23px" height="23px" />
             </div>
-            <div class="remote-control-data-broadcasting"
-                :class="{'remote-control-data-broadcasting--disabled': !settingsStore.settings.tv_show_data_broadcasting}">
+            <div class="remote-control-data-broadcasting remote-control-data-broadcasting--disabled">
                 <v-progress-circular indeterminate size="60" width="6" class="remote-control__loading"></v-progress-circular>
                 <div class="remote-control__directional-key">
                     <button v-ripple class="remote-control-button-up" data-arib-key-code="1">
@@ -62,11 +61,7 @@
 </template>
 <script lang="ts">
 
-import { mapStores } from 'pinia';
 import Vue, { PropType } from 'vue';
-
-import useSettingsStore from '@/store/SettingsStore';
-
 
 export default Vue.extend({
     name: 'Panel-Remocon',
@@ -76,11 +71,6 @@ export default Vue.extend({
             type: Boolean as PropType<Boolean>,
             required: true,
         }
-    },
-    computed: {
-        // SettingsStore に this.settingsStore でアクセスできるようにする
-        // ref: https://pinia.vuejs.org/cookbook/options-api.html
-        ...mapStores(useSettingsStore),
     }
 });
 

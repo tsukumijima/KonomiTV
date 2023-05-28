@@ -102,8 +102,12 @@ class LiveDataBroadcastingManager implements PlayerManager {
             this.container_element.classList.add('dplayer-bml-browser');
             this.container_element = this.player.template.videoWrap.insertAdjacentElement('afterbegin', this.container_element) as HTMLElement;
 
+            // リモコンのボタンを有効化
+            // データ放送機能無効時はボタンを無効のままにする
+            this.toggleRemoconButtonsEnabled(true);
+
             // リモコンをローディング状態にする
-            this.toggleRemoconLoading(true);
+            this.toggleRemoconButtonsLoading(true);
 
             // BML ブラウザの初期化
             const this_ = this;
@@ -121,13 +125,13 @@ class LiveDataBroadcastingManager implements PlayerManager {
                 // ステータス更新時のイベント
                 indicator: {
                     setUrl(name: string, loading: boolean) {
-                        this_.toggleRemoconLoading(loading);
+                        this_.toggleRemoconButtonsLoading(loading);
                     },
                     setNetworkingGetStatus(connecting: boolean) {
-                        this_.toggleRemoconLoading(connecting);
+                        this_.toggleRemoconButtonsLoading(connecting);
                     },
                     setNetworkingPostStatus(connecting: boolean) {
-                        this_.toggleRemoconLoading(connecting);
+                        this_.toggleRemoconButtonsLoading(connecting);
                     },
                     setReceivingStatus(receiving: boolean) {
                         // 何もしない
@@ -261,14 +265,8 @@ class LiveDataBroadcastingManager implements PlayerManager {
                 }
             });
 
-            // BML ブラウザ内の映像のサイズが変化したときのイベント
-            this.#bml_browser.addEventListener('videochanged', (event) => {
-                console.log('[LiveDataBroadcastingManager] BMLBrowser: videochanged', event.detail);
-            });
-
             // 現在 BML ブラウザ上で利用しているボタンの一覧が変化したときのイベント
             this.#bml_browser.addEventListener('usedkeylistchanged', (event) => {
-                console.log('[LiveDataBroadcastingManager] BMLBrowser: usedkeylistchanged', event.detail);
                 // usedKeyList の中に numeric-tuning が含まれている場合は、データ放送が数字キーを利用中
                 this.is_bml_browser_using_numeric_key = [...event.detail.usedKeyList].includes('numeric-tuning');
             });
@@ -282,23 +280,51 @@ class LiveDataBroadcastingManager implements PlayerManager {
             this.resize_observer.observe(this.player.template.videoWrap);
         }
 
-        // ここからはデータ放送機能無効時も実行される (番組情報をリアルタイムに更新するため)
+        // ここからはデータ放送機能無効時も実行される
+        // PSI/SI アーカイブデータは、UI 上の番組情報をリアルタイムに更新する用途でも利用している
 
         // ライブ PSI/SI アーカイブデータストリーミング API の URL を作成
         const api_quality = PlayerUtils.extractAPIQualityFromDPlayer(this.player);
         const api_url = `${Utils.api_base_url}/streams/live/${this.display_channel_id}/${api_quality}/psi-archived-data`;
 
         // ライブ PSI/SI アーカイブデータデコーダーを初期化
-        // Comlink を挟んでいる関係上コンストラクタにも関わらず Promise を返すため await する必要がある
+        // Comlink を挟んでいる関係上、コンストラクタにも関わらず Promise を返すため await する必要がある
         this.live_psi_archived_data_decoder = await new LivePSIArchivedDataDecoderWorker(api_url);
 
         // デコードを開始
         // デコーダーは Web Worker 上で実行される (コールバックを Comlink.proxy() で包むのがポイント)
         this.live_psi_archived_data_decoder.run(Comlink.proxy(async (message: ResponseMessage) => {
 
-            // 番組情報イベントを受信し次第 ChannelsStore を更新
-            // これで現在放送中の番組情報がリアルタイムに反映される
-            if (message.type == 'programInfo' && channels_store.channel.current.program_present != null) {
+            // PMT (Program Map Table)
+            if (message.type === 'pmt') {
+
+                // データ放送がチャンネルに含まれているかどうか
+                const is_bml_available = message.components.length > 0 && message.components.every((component) => component.bxmlInfo !== undefined);
+                console.log(`[LiveDataBroadcastingManager] BMLBrowser: ${is_bml_available ? 'available' : 'unavailable'}`);
+
+                // データ放送がチャンネルに含まれていない場合
+                if (is_bml_available === false) {
+
+                    // リモコンのローディング状態を解除
+                    // PMT にデータ放送用情報が含まれるようになるまでは、データ放送が利用できる見込みはない
+                    this.toggleRemoconButtonsLoading(false);
+
+                    // リモコンのボタンを無効化
+                    this.toggleRemoconButtonsEnabled(false);
+
+                // データ放送がチャンネルに含まれている場合
+                // データ放送がチャンネルに含まれていなかったが、後から含まれるようになったケースを想定
+                // この時点ではローディングは終わっていないので、ローディング状態は解除しない
+                } else {
+
+                    // リモコンのボタンを有効化
+                    this.toggleRemoconButtonsEnabled(true);
+                }
+            }
+
+            // 番組情報イベント
+            // 現在放送中の番組情報を UI にリアルタイムに反映する
+            if (message.type === 'programInfo' && channels_store.channel.current.program_present != null) {
                 // イベント ID
                 if (message.eventId) {
                     channels_store.channel.current.program_present.event_id = message.eventId;
@@ -327,7 +353,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
             // TS ストリームのデコード結果を BML ブラウザにそのまま送信する
             // データ放送機能無効時は実行しない
             if (this.#bml_browser !== null) {
-                this.#bml_browser?.emitMessage(message);
+                this.#bml_browser.emitMessage(message);
             }
         }));
     }
@@ -388,13 +414,26 @@ class LiveDataBroadcastingManager implements PlayerManager {
 
 
     /**
-     * リモコンの表示状態をローディングかどうかで切り替える
+     * リモコンのデータ放送ボタンの表示状態をローディングかどうかで切り替える
      */
-    private toggleRemoconLoading(loading: boolean): void {
+    private toggleRemoconButtonsLoading(loading: boolean): void {
         if (loading === true) {
             this.remocon_data_broadcasting_element.classList.add('remote-control-data-broadcasting--loading');
         } else {
             this.remocon_data_broadcasting_element.classList.remove('remote-control-data-broadcasting--loading');
+        }
+    }
+
+
+    /**
+     * リモコンのデータ放送ボタンの有効/無効をローディングかどうかで切り替える
+     * 初期状態 (Vue SFC の HTML 上) では無効になっているので、BML ブラウザの初期化時に有効にする
+     */
+    private toggleRemoconButtonsEnabled(enabled: boolean): void {
+        if (enabled === true) {
+            this.remocon_data_broadcasting_element.classList.remove('remote-control-data-broadcasting--disabled');
+        } else {
+            this.remocon_data_broadcasting_element.classList.add('remote-control-data-broadcasting--disabled');
         }
     }
 
@@ -515,6 +554,12 @@ class LiveDataBroadcastingManager implements PlayerManager {
         // ここからはデータ放送機能有効時のみ実行
         if (this.#bml_browser !== null) {
 
+            // リモコンのボタンを再び無効化
+            this.toggleRemoconButtonsEnabled(false);
+
+            // リモコンを再びローディング状態に戻す
+            this.toggleRemoconButtonsLoading(true);
+
             // DPlayer のリサイズを監視する ResizeObserver を終了
             if (this.resize_observer !== null) {
                 this.resize_observer.disconnect();
@@ -523,9 +568,6 @@ class LiveDataBroadcastingManager implements PlayerManager {
 
             // データ放送内に移動していた映像の要素を DPlayer に戻す
             this.moveVideoElementToDPlayer();
-
-            // リモコンを再びローディング状態に戻す
-            this.toggleRemoconLoading(true);
 
             // BML ブラウザを破棄
             this.is_bml_browser_destroying = true;
