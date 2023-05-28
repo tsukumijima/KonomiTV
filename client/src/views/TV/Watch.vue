@@ -330,6 +330,9 @@ export default Vue.extend({
             // mpegts.js がサポートされていない場合は LL-HLS にフォールバックする (基本 iPhone Safari 向け)
             is_mpegts_supported: mpegts.isSupported() === true,
 
+            // ライブストリームが Offline 状態かどうか
+            is_offline: false,
+
             // RomSound の AudioContext
             romsounds_context: null as AudioContext | null,
 
@@ -1340,8 +1343,12 @@ export default Vue.extend({
             // LL-HLS 再生時は、error イベントを監視してエラーが発生したらページをリロードする
             } else if (this.is_mpegts_supported === false) {
                 this.player.on('error', async () => {
+                    // オフライン状態では実行しない
+                    if (this.is_offline === true) {
+                        return;
+                    }
+                    // エラーイベントが発生したが、エラー情報が取得できない場合は何もしない
                     if (!this.player?.video.error) {
-                        // エラーイベントが発生したが、エラー情報が取得できない場合は何もしない
                         return;
                     }
                     this.player.notice(`再生中にエラーが発生しました。(${this.player.video.error.code}: ${this.player.video.error.message}) 3秒後にリロードします。`, -1, undefined, '#FF6F6A');
@@ -1645,6 +1652,8 @@ export default Vue.extend({
                         // バッファリング中の Progress Circular を非表示にする
                         this.is_loading = false;
                         this.is_video_buffering = false;
+
+                        this.is_offline = true;
                         break;
                     }
                 }
