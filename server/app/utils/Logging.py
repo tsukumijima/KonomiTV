@@ -2,6 +2,7 @@
 import ctypes
 import logging
 import sys
+from typing import Any
 
 from app.constants import CONFIG
 
@@ -18,26 +19,26 @@ if sys.platform == 'win32':
 logger = logging.getLogger('uvicorn')
 logger_debug = logging.getLogger('uvicorn.debug')
 
-def debug(message):
+def debug(message: Any):
     """ デバッグログを出力する """
     if CONFIG['general']['debug'] is True:
         logger_debug.debug(message, stacklevel=2)
 
-def debug_simple(message):
+def debug_simple(message: Any):
     """ デバッグログを出力する (スクリプトパス・行番号を出力しない) """
     if CONFIG['general']['debug'] is True:
         logger.setLevel(logging.DEBUG)
         logger.debug(message, stacklevel=2)
         logger.setLevel(logging.INFO)
 
-def info(message):
+def info(message: Any):
     """ 情報ログを出力する """
     logger.info(message, stacklevel=2)
 
-def warning(message):
+def warning(message: Any):
     """ 警告ログを出力する """
     logger.warning(message, stacklevel=2)
 
-def error(message):
+def error(message: Any):
     """ エラーログを出力する """
     logger.error(message, stacklevel=2)

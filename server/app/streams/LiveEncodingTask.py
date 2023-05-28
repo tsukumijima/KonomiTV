@@ -7,15 +7,12 @@ import socket
 import subprocess
 import threading
 import time
-from datetime import datetime
 from io import TextIOWrapper
-from tortoise import timezone
 from typing import BinaryIO, cast, Iterator, Literal
 
 from app.constants import API_REQUEST_HEADERS, CONFIG, LIBRARY_PATH, LOGS_DIR, QUALITY, QUALITY_TYPES
 from app.models import Channel
 from app.models import LiveStream
-from app.models import Program
 from app.utils import Logging
 from app.utils.EDCB import EDCBTuner
 
@@ -93,7 +90,7 @@ class LiveEncodingTask:
         quality: QUALITY_TYPES,
         is_fullhd_channel: bool = False,
         is_sphd_channel: bool = False,
-    ) -> list:
+    ) -> list[str]:
         """
         FFmpeg に渡すオプションを組み立てる
 
@@ -103,11 +100,11 @@ class LiveEncodingTask:
             is_sphd_channel (bool): スカパー！プレミアムサービスのチャンネルかどうか
 
         Returns:
-            list: FFmpeg に渡すオプションが連なる配列
+            list[str]: FFmpeg に渡すオプションが連なる配列
         """
 
         # オプションの入る配列
-        options = []
+        options: list[str] = []
 
         # 入力ストリームの解析時間
         analyzeduration = round(500000 + (self._retry_count * 200000))  # リトライ回数に応じて少し増やす
@@ -173,25 +170,25 @@ class LiveEncodingTask:
         options.append('pipe:1')  # 標準入力へ出力
 
         # オプションをスペースで区切って配列にする
-        result = []
+        result: list[str] = []
         for option in options:
             result += option.split(' ')
 
         return result
 
 
-    def buildFFmpegOptionsForRadio(self) -> list:
+    def buildFFmpegOptionsForRadio(self) -> list[str]:
         """
         FFmpeg に渡すオプションを組み立てる（ラジオチャンネル向け）
         音声の品質は変えたところでほとんど差がないため、1つだけに固定されている
         品質が固定ならコードにする必要は基本ないんだけど、可読性を高めるために敢えてこうしてある
 
         Returns:
-            list: FFmpeg に渡すオプションが連なる配列
+            list[str]: FFmpeg に渡すオプションが連なる配列
         """
 
         # オプションの入る配列
-        options = []
+        options: list[str] = []
 
         # 入力
         ## -analyzeduration をつけることで、ストリームの分析時間を短縮できる
@@ -216,7 +213,7 @@ class LiveEncodingTask:
         options.append('pipe:1')  # 標準入力へ出力
 
         # オプションをスペースで区切って配列にする
-        result = []
+        result: list[str] = []
         for option in options:
             result += option.split(' ')
 
@@ -228,7 +225,7 @@ class LiveEncodingTask:
         encoder_type: Literal['QSVEncC', 'NVEncC', 'VCEEncC', 'rkmppenc'],
         is_fullhd_channel: bool = False,
         is_sphd_channel: bool = False,
-    ) -> list:
+    ) -> list[str]:
         """
         QSVEncC・NVEncC・VCEEncC・rkmppenc (便宜上 HWEncC と総称) に渡すオプションを組み立てる
 
@@ -239,11 +236,11 @@ class LiveEncodingTask:
             is_sphd_channel (bool): スカパー！プレミアムサービスのチャンネルかどうか
 
         Returns:
-            list: HWEncC に渡すオプションが連なる配列
+            list[str]: HWEncC に渡すオプションが連なる配列
         """
 
         # オプションの入る配列
-        options = []
+        options: list[str] = []
 
         # 入力ストリームの解析時間
         input_probesize = round(1000 + (self._retry_count * 500))  # リトライ回数に応じて少し増やす
@@ -366,7 +363,7 @@ class LiveEncodingTask:
         options.append('--output -')  # 標準入力へ出力
 
         # オプションをスペースで区切って配列にする
-        result = []
+        result: list[str] = []
         for option in options:
             result += option.split(' ')
 
@@ -403,26 +400,10 @@ class LiveEncodingTask:
 
         # 現在の番組情報を取得する
         program_present = (await channel.getCurrentAndNextProgram())[0]
-
-        # 現在の番組情報が取得できなかった場合、「番組情報がありません」という仮の番組情報を入れておく（実装上の都合）
-        ## このデータは UI 上には表示されないし、データベースにも保存されない
-        if program_present is None:
-            program_present = Program(
-                id = f'NID{channel.network_id}-SID{channel.service_id}-EID99999',
-                network_id = channel.network_id,
-                service_id = channel.service_id,
-                event_id = 99999,  # 適当に 99999 に設定
-                display_channel_id = channel.display_channel_id,
-                title = '番組情報がありません',
-                description = '',
-                start_time = datetime(2000, 1, 1, 0, 0, 0, tzinfo=timezone.get_default_timezone()),
-                end_time = datetime(2000, 1, 1, 0, 0, 0, tzinfo=timezone.get_default_timezone()),
-                duration = 0,
-                is_free = True,
-                genres = []
-            )
-
-        Logging.info(f'[Live: {self.livestream.livestream_id}] Title:{program_present.title}')
+        if program_present is not None:
+            Logging.info(f'[Live: {self.livestream.livestream_id}] Title: {program_present.title}')
+        else:
+            Logging.info(f'[Live: {self.livestream.livestream_id}] Title: 番組情報がありません')
 
         # **** PSI/SI データアーカイバーの起動 *****
 
@@ -484,7 +465,7 @@ class LiveEncodingTask:
 
         # tsreadex の起動
         ## Reader だけ同期関数なので、asyncio.subprocess ではなく通常の subprocess を使っている (苦肉の策)
-        tsreadex: subprocess.Popen = subprocess.Popen(
+        tsreadex = subprocess.Popen(
             [LIBRARY_PATH['tsreadex'], *tsreadex_options],
             stdin = asyncio.subprocess.PIPE,  # 受信した放送波を書き込む
             stdout = tsreadex_write_pipe,  # エンコーダーに繋ぐ
@@ -574,7 +555,7 @@ class LiveEncodingTask:
                 )
             except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
                 # 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないならチューナーへの接続に失敗したものとする
-                if program_present.isOffTheAirProgram():
+                if program_present is None or program_present.isOffTheAirProgram():
                     self.livestream.setStatus('Offline', 'この時間は放送を休止しています。')
                 else:
                     self.livestream.setStatus('Offline', 'チューナーへの接続に失敗しました。チューナー側に何らかの問題があるかもしれません。')
@@ -699,6 +680,7 @@ class LiveEncodingTask:
             # EDCB / Mirakurun から受信した放送波を随時 tsreadex の入力に書き込む
             try:
                 for chunk in stream_iterator:  # type: ignore
+                    chunk = cast(bytes, chunk)
 
                     # チューナーからの放送波 TS の最終読み取り時刻を更新
                     with tuner_ts_read_at_lock:
@@ -956,7 +938,7 @@ class LiveEncodingTask:
                     if 'Stream map \'0:v:0\' matches no streams.' in line:
                         # 何らかの要因で tsreadex から放送波が受信できなかったことによるエラーのため、エンコーダーの再起動は行わない
                         ## 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないなら放送波の受信に失敗したものとする
-                        if program_present.isOffTheAirProgram():
+                        if program_present is None or program_present.isOffTheAirProgram():
                             self.livestream.setStatus('Offline', 'この時間は放送を休止しています。')
                         else:
                             self.livestream.setStatus('Offline', 'チューナーからの放送波の受信に失敗したため、エンコードを開始できません。')
@@ -972,7 +954,7 @@ class LiveEncodingTask:
                     if 'error finding stream information.' in line:
                         # 何らかの要因で tsreadex から放送波が受信できなかったことによるエラーのため、エンコーダーの再起動は行わない
                         ## 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないなら放送波の受信に失敗したものとする
-                        if program_present.isOffTheAirProgram():
+                        if program_present is None or program_present.isOffTheAirProgram():
                             self.livestream.setStatus('Offline', 'この時間は放送を休止しています。')
                         else:
                             self.livestream.setStatus('Offline', 'チューナーからの放送波の受信に失敗したため、エンコードを開始できません。')
@@ -1029,6 +1011,7 @@ class LiveEncodingTask:
                 livestream_status = self.livestream.getStatus()
 
                 # 現在放送中の番組が終了した際に program_present に保存している現在の番組情報を新しいものに更新する
+                # TODO: 番組情報のない時間帯から番組情報のある時間帯に移行する場合の処理が考慮されていない
                 if program_present is not None and time.time() > program_present.end_time.timestamp():
 
                     # 新しい現在放送中の番組情報を取得する
@@ -1038,7 +1021,7 @@ class LiveEncodingTask:
                         # 現在の番組のタイトルをログに出力
                         ## TODO: 番組の解像度が変わった際にエンコーダーがクラッシュorフリーズする可能性があるが、
                         ## その場合はここでエンコードタスクを再起動させる必要があるかも
-                        Logging.info(f'[Live: {self.livestream.livestream_id}] Title:{program_following.title}')
+                        Logging.info(f'[Live: {self.livestream.livestream_id}] Title: {program_following.title}')
 
                     program_present = program_following
                     del program_following
@@ -1060,7 +1043,7 @@ class LiveEncodingTask:
                     if (time.monotonic() - tuner_ts_read_at) > self.TUNER_TS_READ_TIMEOUT:
 
                         # 番組名に「放送休止」などが入っていれば停波の可能性が高い
-                        if program_present.isOffTheAirProgram():
+                        if program_present is None or program_present.isOffTheAirProgram():
                             self.livestream.setStatus('Offline', 'この時間は放送を休止しています。')
 
                         # それ以外なら、チューナーへの接続に失敗したものとする
@@ -1092,7 +1075,7 @@ class LiveEncodingTask:
                     # 番組名に「放送休止」などが入っている場合、チューナーから出力された放送波 TS に映像/音声ストリームが
                     # 含まれていない可能性が高いので、ここでエンコードタスクを停止する
                     ## 映像/音声ストリームが含まれていない場合は当然ながらエンコーダーはフリーズする
-                    if program_present.isOffTheAirProgram():
+                    if program_present is None or program_present.isOffTheAirProgram():
                         self.livestream.setStatus('Offline', 'この時間は放送を休止しています。')
 
                     # それ以外なら、エンコーダーの再起動で復帰できる可能性があるのでエンコードタスクを再起動する
@@ -1220,7 +1203,7 @@ class LiveEncodingTask:
             else:
 
                 # Offline に設定
-                if program_present.is_free == True:
+                if program_present is None or program_present.is_free == True:
                     # 無料番組
                     self.livestream.setStatus('Offline', 'ライブストリームの再起動に失敗しました。')
                 else:
