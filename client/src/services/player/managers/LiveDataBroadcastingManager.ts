@@ -114,6 +114,11 @@ class LiveDataBroadcastingManager implements PlayerManager {
                 nvramPrefix: 'nvram_',
                 broadcasterDatabasePrefix: '',
                 videoPlaneModeEnabled: true,
+                fonts: {
+                    roundGothic: LiveDataBroadcastingManager.round_gothic,
+                    squareGothic: LiveDataBroadcastingManager.square_gothic,
+                },
+                // ステータス更新時のイベント
                 indicator: {
                     setUrl(name: string, loading: boolean) {
                         this_.toggleRemoconLoading(loading);
@@ -130,10 +135,6 @@ class LiveDataBroadcastingManager implements PlayerManager {
                     setEventName(name: string) {
                         // 何もしない
                     }
-                },
-                fonts: {
-                    roundGothic: LiveDataBroadcastingManager.round_gothic,
-                    squareGothic: LiveDataBroadcastingManager.square_gothic,
                 },
                 // Greg: 受信機の電源を切るまでグローバルに持続するメモリ
                 greg: {
