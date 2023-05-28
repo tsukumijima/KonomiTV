@@ -528,15 +528,15 @@ class LiveEncodingTask:
         # エンコードタスクが稼働中かどうか
         is_running: bool = True
 
+        # 放送波の MPEG2-TS を受信する StreamReader
+        stream_reader: asyncio.StreamReader | aiohttp.StreamReader
+
         # EDCB のチューナーインスタンス (Mirakurun バックエンド利用時は常に None)
         tuner: EDCBTuner | None = None
 
-        # Mirakurun の aiohttp セッション
+        # Mirakurun の aiohttp セッション (EDCB バックエンド利用時は常に None)
         response: aiohttp.ClientResponse | None = None
         session: aiohttp.ClientSession | None = None
-
-        # 放送波の MPEG2-TS を受信する StreamReader
-        stream_reader: asyncio.StreamReader | aiohttp.StreamReader
 
         # Mirakurun バックエンド
         if CONFIG['general']['backend'] == 'Mirakurun':
@@ -725,8 +725,16 @@ class LiveEncodingTask:
                 cast(asyncio.StreamWriter, tsreadex.stdin).close()
             except OSError:
                 pass
-            if session is not None:
+
+            # EDCB バックエンド: チューナーとのストリーミング接続を閉じる
+            ## チャンネル切り替え時に再利用するため、ここではチューナー自体は閉じない
+            if CONFIG['general']['backend'] == 'EDCB' and tuner is not None:
+                await tuner.disconnect()
+
+            # Mirakurun バックエンド: Service Stream API とのストリーミング接続を閉じる
+            if CONFIG['general']['backend'] == 'Mirakurun' and response is not None and session is not None:
                 await session.close()
+                response.close()
 
         # タスクを非同期で実行
         asyncio.create_task(Reader())
@@ -1182,10 +1190,6 @@ class LiveEncodingTask:
             encoder.kill()
         except:
             pass
-
-        # Mirakurun バックエンドの場合はレスポンスを閉じる
-        if CONFIG['general']['backend'] == 'Mirakurun' and response is not None:
-            response.close()
 
         # すべての視聴中クライアントのライブストリームへの接続を切断する
         self.livestream.disconnectAll()
