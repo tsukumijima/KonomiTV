@@ -246,9 +246,9 @@ class Program(models.Model):
                     title = ''  # デフォルト値
                     description = ''  # デフォルト値
                     if 'name' in program_info:
-                        title = TSInformation.formatString(program_info['name'])
+                        title = TSInformation.formatString(program_info['name']).strip()
                     if 'description' in program_info:
-                        description = TSInformation.formatString(program_info['description'])
+                        description = TSInformation.formatString(program_info['description']).strip()
 
                     # 番組詳細
                     detail: dict[str, str] = {}  # デフォルト値
@@ -532,8 +532,8 @@ class Program(models.Model):
                         title = ''  # デフォルト値
                         description = ''  # デフォルト値
                         if 'short_info' in program_info:
-                            title = TSInformation.formatString(program_info['short_info']['event_name'])
-                            description = TSInformation.formatString(program_info['short_info']['text_char'])
+                            title = TSInformation.formatString(program_info['short_info']['event_name']).strip()
+                            description = TSInformation.formatString(program_info['short_info']['text_char']).strip()
 
                         # 番組詳細
                         detail: dict[str, str] = {}  # デフォルト値
