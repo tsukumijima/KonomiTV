@@ -58,6 +58,9 @@ class LiveDataBroadcastingManager implements PlayerManager {
     // BML ブラウザを破棄中かどうか
     private is_bml_browser_destroying: boolean = false;
 
+    // 動画の要素が BML ブラウザ上に移動されているかどうか
+    private is_video_element_moved_to_bml_browser: boolean = false;
+
     // PSI/SI アーカイブデータデコーダーのインスタンス
     private live_psi_archived_data_decoder: Comlink.Remote<Comlink.Remote<ILivePSIArchivedDataDecoder>> | null = null;
 
@@ -474,6 +477,11 @@ class LiveDataBroadcastingManager implements PlayerManager {
             return;
         }
 
+        // 既に映像の要素が BML ブラウザ内にある場合は何もしない
+        if (this.is_video_element_moved_to_bml_browser === true) {
+            return;
+        }
+
         // getVideoElement() に失敗した (=現在データ放送に映像が表示されていない) 場合は何もしない
         if (this.#bml_browser?.getVideoElement() === null) {
             return;
@@ -499,6 +507,8 @@ class LiveDataBroadcastingManager implements PlayerManager {
                 (child as HTMLVideoElement).style.objectFit = 'fill';
             }
         }
+
+        this.is_video_element_moved_to_bml_browser = true;
     }
 
 
@@ -509,6 +519,11 @@ class LiveDataBroadcastingManager implements PlayerManager {
 
         // BML ブラウザの破棄中にイベントが発火した場合は何もしない
         if (this.is_bml_browser_destroying) {
+            return;
+        }
+
+        // 既に DPlayer 内に映像の要素がある場合は何もしない
+        if (this.is_video_element_moved_to_bml_browser === false) {
             return;
         }
 
@@ -530,6 +545,8 @@ class LiveDataBroadcastingManager implements PlayerManager {
                 (child as HTMLVideoElement).style.objectFit = '';
             }
         }
+
+        this.is_video_element_moved_to_bml_browser = false;
     }
 
 

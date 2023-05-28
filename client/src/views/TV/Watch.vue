@@ -1378,7 +1378,23 @@ export default Vue.extend({
             };
             if (this.is_mpegts_supported === false) {
                 this.player.video.addEventListener('pause', force_play);
+                force_play();  // 一度実行しておく
             }
+
+            // 再生準備ができていない場合に復旧を試みる
+            const recover = async () => {
+                await Utils.sleep(0.5);
+                // この時点で映像が停止している場合、復旧を試みる
+                if (this.player?.video.readyState < 3) {
+                    console.log('player.video.readyState < HAVE_FUTURE_DATA. trying to recover.');
+                    this.player?.video.pause();
+                    await Utils.sleep(0.1);
+                    this.player?.video.play().catch(() => {
+                        console.warn('HTMLVideoElement.play() rejected. paused.');
+                        this.player?.pause();
+                    });
+                }
+            };
 
             // 再生バッファを調整し、再生準備ができた段階でプレイヤーの背景を非表示にするイベントを登録
             // 実際に再生可能になるのを待ってから実行する
@@ -1424,20 +1440,6 @@ export default Vue.extend({
                     this.player.video.playbackRate = 1;
                 }
 
-                const recover = async () => {
-                    await Utils.sleep(0.5);
-                    // この時点で映像が停止している場合、復旧を試みる
-                    if (this.player?.video.readyState < 3) {
-                        console.log('player.video.readyState < HAVE_FUTURE_DATA. trying to recover.');
-                        this.player?.video.pause();
-                        await Utils.sleep(0.1);
-                        this.player?.video.play().catch(() => {
-                            console.warn('HTMLVideoElement.play() rejected. paused.');
-                            this.player?.pause();
-                        });
-                    }
-                };
-
                 // 再生が一時的に止まってバッファリングしているとき/再び再生されはじめたときのイベント
                 // バッファリングの Progress Circular の表示を制御する
                 // 同期が終わってからの方が都合が良い
@@ -1451,10 +1453,8 @@ export default Vue.extend({
                 this.is_loading = false;
 
                 // ローディングが終わったので強制的に見かけ上再生状態に見せるのをやめる
-                // この時点で再生できていなければ、そのまま停止する
                 if (this.is_mpegts_supported === false) {
                     this.player!.video.removeEventListener('pause', force_play);
-                    this.player!.pause();
                 }
 
                 // バッファリング中の Progress Circular を非表示にする
@@ -2232,6 +2232,13 @@ export default Vue.extend({
             // interval_ids をクリア
             this.interval_ids = [];
 
+            // データ放送マネージャーを破棄
+            // CSS アニメーションの関係上、ローディング状態にする前に破棄する必要がある
+            if (this.data_broadcasting_manager !== null) {
+                await this.data_broadcasting_manager.destroy();
+                this.data_broadcasting_manager = null;
+            }
+
             // 再びローディング状態にする
             this.is_loading = true;
 
@@ -2247,11 +2254,6 @@ export default Vue.extend({
             if (this.eventsource !== null) {
                 this.eventsource.close();
                 this.eventsource = null;
-            }
-
-            if (this.data_broadcasting_manager !== null) {
-                await this.data_broadcasting_manager.destroy();
-                this.data_broadcasting_manager = null;
             }
 
             // 映像がフェードアウトするアニメーション (0.2秒) 分待ってから実行
