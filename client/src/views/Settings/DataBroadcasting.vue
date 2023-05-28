@@ -14,11 +14,11 @@
             <div class="settings__item settings__item--switch settings__item--sync-disabled">
                 <label class="settings__item-heading" for="tv_show_data_broadcasting">テレビをみるときにデータ放送を表示する</label>
                 <label class="settings__item-label" for="tv_show_data_broadcasting">
-                    この設定をオンにすると、テレビをみるときにデータ放送を表示できます。<br>
-                    データ放送自体のオン/オフは、視聴画面右側のパネルからリモコンを表示した上で、リモコンの d ボタンから切り替えられます。<br>
+                    この設定をオンにすると、テレビをみるときにデータ放送機能を利用できます。<br>
+                    データ放送そのもののオン/オフは、視聴画面右側のパネルからリモコンを表示した上で、リモコンの d ボタンから切り替えられます。<br>
                 </label>
                 <label class="settings__item-label" for="tv_show_data_broadcasting">
-                    データ放送機能をオンにすると、視聴時の負荷が比較的高くなります。データ放送をまったく使わない場合や、スペックの低い Android 端末ではオフにすることをおすすめします。<br>
+                    データ放送機能をオンにすると、負荷が高くなり視聴に支障が出ることがあります。データ放送を利用しない場合や、性能の低い Android デバイスではオフにすることをおすすめします。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="tv_show_data_broadcasting" inset hide-details
                     v-model="settingsStore.settings.tv_show_data_broadcasting">

@@ -771,8 +771,8 @@ export default Vue.extend({
             const is_touch_device = /iPhone|iPad|iPod|Windows|Macintosh|Android|Mobile/i.test(navigator.userAgent) && 'ontouchend' in document;
 
             // タッチデバイスで mousemove 、あるいはタッチデバイス以外で touchmove か click が発火した時は実行じない
-            if (is_touch_device == true  && event !== null && event.type === 'mousemove') return;
-            if (is_touch_device == false && event !== null && (event.type === 'touchmove' || event.type === 'click')) return;
+            if (is_touch_device === true  && event !== null && event.type === 'mousemove') return;
+            if (is_touch_device === false && event !== null && (event.type === 'touchmove' || event.type === 'click')) return;
 
             // 以前セットされたタイマーを止める
             window.clearTimeout(this.control_interval_id);

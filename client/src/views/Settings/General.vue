@@ -17,7 +17,7 @@
                 </div>
                 <div class="settings__item-label">
                     [1080p (60fps)] は、通常 30fps (60i) の映像を補間し、より滑らか（ぬるぬる）な映像で視聴できます！<br>
-                    [1080p (60fps)] で視聴するときは、サーバー設定の [利用するエンコーダー] をハードウェアエンコーダーに設定してください。FFmpeg (ソフトウェアエンコーダー) では、再生に支障が出ることがあります。<br>
+                    [1080p (60fps)] で視聴するときは、サーバー設定の [利用するエンコーダー] をハードウェアエンコーダーに設定してください。FFmpeg (ソフトウェアエンコーダー) では、視聴に支障が出ることがあります。<br>
                 </div>
                 <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
                     :items="tv_streaming_quality" v-model="settingsStore.settings.tv_streaming_quality">
@@ -28,7 +28,7 @@
                 <label class="settings__item-heading" for="tv_data_saver_mode">テレビを通信節約モードで視聴する</label>
                 <label class="settings__item-label" for="tv_data_saver_mode">
                     通信節約モードでは、H.265 / HEVC という圧縮率の高いコーデックを使い、画質はほぼそのまま、通信量を通常の 1/2 程度に抑えながら視聴できます！<br>
-                    通信節約モードで視聴するときは、サーバー設定の [利用するエンコーダー] をハードウェアエンコーダーに設定してください。FFmpeg (ソフトウェアエンコーダー) では、再生に支障が出る可能性が高いです。<br>
+                    通信節約モードで視聴するときは、サーバー設定の [利用するエンコーダー] をハードウェアエンコーダーに設定してください。FFmpeg (ソフトウェアエンコーダー) では、視聴に支障が出る可能性が高いです。<br>
                     <p class="mt-1 mb-0 error--text lighten-1" v-if="PlayerUtils.isHEVCVideoSupported() === false && Utils.isFirefox() === false">
                         このデバイスでは通信節約モードがサポートされていません。
                     </p>

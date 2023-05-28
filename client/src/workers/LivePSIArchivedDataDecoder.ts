@@ -281,7 +281,7 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
                 let init_time = this.psi_archived_data_context.init_time!;
                 let curr_time = this.psi_archived_data_context.curr_time!;
                 const abs_time = data.getUint32(time_list_position, true);
-                if (abs_time == 0xffffffff) {
+                if (abs_time === 0xffffffff) {
                     curr_time = -1;
                 } else if (abs_time >= 0x80000000) {
                     curr_time = abs_time & 0x3fffffff;
