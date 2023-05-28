@@ -12,7 +12,7 @@ from tortoise import models
 from tortoise import timezone
 from tortoise import transactions
 from tortoise.exceptions import IntegrityError
-from typing import Any, cast, Literal, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from app.constants import API_REQUEST_HEADERS, CONFIG
 from app.utils import Jikkyo
@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 class Channel(models.Model):
 
     # データベース上のテーブル名
-    class Meta:
+    class Meta:  # type: ignore
         table: str = 'channels'
 
     # テーブル設計は Notion を参照のこと
@@ -313,7 +313,7 @@ class Channel(models.Model):
             # EDCB から EPG 由来のチャンネル情報を取得する
             ## sendEnumService() の情報源は番組表で、期限切れなどで番組情報が1つもないサービスについては取得できない
             ## あればラッキー程度の情報と考えてほしい
-            epg_services: list[dict[str, Any]] = await edcb.sendEnumService() or []
+            epg_services = await edcb.sendEnumService() or []
 
             # 同じネットワーク ID のサービスのカウント
             same_network_id_counts: dict[int, int] = {}
@@ -395,7 +395,7 @@ class Channel(models.Model):
                         channel.remocon_id = int(epg_service['remote_control_key_id'])
                     else:
                         # 取得できなかったので、あれば以前のバックアップからリモコン番号を取得
-                        channel.remocon_id = cast(int, backup_remocon_ids.get(channel.id, -1))
+                        channel.remocon_id = backup_remocon_ids.get(channel.id, -1)
 
                         # それでもリモコン番号が不明の時は、同じネットワーク ID を持つ別サービスのリモコン番号を取得する
                         ## 地上波の臨時サービスはリモコン番号が取得できないことが多い問題への対応

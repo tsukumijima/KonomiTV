@@ -28,7 +28,7 @@ from app.utils.EDCB import EDCBUtil
 class Program(models.Model):
 
     # データベース上のテーブル名
-    class Meta:
+    class Meta:  # type: ignore
         table: str = 'programs'
 
     # テーブル設計は Notion を参照のこと
@@ -493,7 +493,7 @@ class Program(models.Model):
                 edcb.setConnectTimeOutSec(10)  # 10秒後にタイムアウト (SPHD や CATV も映る環境だと時間がかかるので、少し伸ばす)
 
                 # 開始時間未定をのぞく全番組を取得する (リスト引数の前2要素は全番組、残り2要素は全期間を意味)
-                program_services: list[dict[str, Any]] | None = await edcb.sendEnumPgInfoEx([0xffffffffffff, 0xffffffffffff, 1, 0x7fffffffffffffff])
+                program_services = await edcb.sendEnumPgInfoEx([0xffffffffffff, 0xffffffffffff, 1, 0x7fffffffffffffff])
                 if program_services is None:
                     Logging.error('Failed to get programs from EDCB.')
                     raise Exception('Failed to get programs from EDCB.')

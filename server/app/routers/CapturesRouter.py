@@ -1,7 +1,6 @@
 
 import asyncio
 import errno
-import os
 import puremagic
 import shutil
 from fastapi import APIRouter

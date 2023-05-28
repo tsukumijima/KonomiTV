@@ -155,7 +155,7 @@ def main():
     ## リッスンポートとカスタム HTTPS 証明書/秘密鍵はすでにバリデーション済み
     ## Pydantic のエラーメッセージだけだと分かりづらいので、よくありがちな上2つのエラーに関しては別でエラーメッセージを用意している
     try:
-        from app import models  # magic!! (ここでインポートしておかないと app.utils の参照時にエラーが発生する)
+        from app import models  # magic!! (ここでインポートしておかないと app.utils の参照時にエラーが発生する)  # type: ignore
         from app.schemas import ServerSettings
         ServerSettings(**cast(Any, CONFIG))
     except ValidationError as error:

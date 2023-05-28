@@ -40,24 +40,6 @@ async def UpdateDatabaseAPI(
 
 
 @router.post(
-    '/shutdown',
-    summary = 'サーバーシャットダウン API',
-    status_code = status.HTTP_204_NO_CONTENT,
-)
-async def ServerShutdownAPI(
-    background_tasks: BackgroundTasks,
-    current_user: User = Depends(GetCurrentAdminUser),
-):
-    """
-    KonomiTV サーバーをシャットダウンする。<br>
-    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
-    """
-
-    # バックグラウンドでサーバーのシャットダウンを行う
-    background_tasks.add_task(ServerManager.shutdown)
-
-
-@router.post(
     '/restart',
     summary = 'サーバー再起動 API',
     status_code = status.HTTP_204_NO_CONTENT,

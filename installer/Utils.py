@@ -29,7 +29,7 @@ from rich.rule import Rule
 from rich.style import Style
 from rich.table import Table
 from rich.text import TextType
-from typing import Callable, cast, Literal, Optional
+from typing import Any, Callable, cast, Literal, Optional
 from watchdog.events import FileCreatedEvent
 from watchdog.events import FileModifiedEvent
 from watchdog.events import FileSystemEventHandler
@@ -103,7 +103,7 @@ class CtrlCmdConnectionCheckUtil:
             self.__host = hostname
             self.__port = cast(int, port)
 
-    async def sendEnumService(self) -> list | None:
+    async def sendEnumService(self) -> list[dict[str, Any]] | None:
         """ サービス一覧を取得する """
         buf = bytearray()
         self.__writeInt(buf, self.__CMD_EPG_SRV_ENUM_SERVICE)
@@ -182,40 +182,43 @@ class CtrlCmdConnectionCheckUtil:
     # 各キーの意味は CtrlCmdDef.cs のクラス定義を参照のこと
 
     @staticmethod
-    def __readByte(buf: memoryview, pos: list, size: int, dest: dict | None = None, key: str | None = None):
+    def __readByte(buf: memoryview, pos: list[int], size: int, dest: dict[str, Any] | None = None, key: str | None = None):
         if size - pos[0] < 1:
             return None if dest is None else False
         v = int.from_bytes(buf[pos[0]:pos[0] + 1], 'little')
         pos[0] += 1
         if dest is None:
             return v
-        dest[key] = v
+        if key:
+            dest[key] = v
         return True
 
     @staticmethod
-    def __readUshort(buf: memoryview, pos: list, size: int, dest: dict | None = None, key: str | None = None):
+    def __readUshort(buf: memoryview, pos: list[int], size: int, dest: dict[str, Any] | None = None, key: str | None = None):
         if size - pos[0] < 2:
             return None if dest is None else False
         v = int.from_bytes(buf[pos[0]:pos[0] + 2], 'little')
         pos[0] += 2
         if dest is None:
             return v
-        dest[key] = v
+        if key:
+            dest[key] = v
         return True
 
     @staticmethod
-    def __readInt(buf: memoryview, pos: list, size: int, dest: dict | None = None, key: str | None = None):
+    def __readInt(buf: memoryview, pos: list[int], size: int, dest: dict[str, Any] | None = None, key: str | None = None):
         if size - pos[0] < 4:
             return None if dest is None else False
         v = int.from_bytes(buf[pos[0]:pos[0] + 4], 'little', signed = True)
         pos[0] += 4
         if dest is None:
             return v
-        dest[key] = v
+        if key:
+            dest[key] = v
         return True
 
     @classmethod
-    def __readString(cls, buf: memoryview, pos: list, size: int, dest: dict | None = None, key: str | None = None):
+    def __readString(cls, buf: memoryview, pos: list[int], size: int, dest: dict[str, Any] | None = None, key: str | None = None):
         vs = cls.__readInt(buf, pos, size)
         if vs is None or vs < 6 or size - pos[0] < vs - 4:
             return None if dest is None else False
@@ -223,18 +226,19 @@ class CtrlCmdConnectionCheckUtil:
         pos[0] += vs - 4
         if dest is None:
             return v
-        dest[key] = v
+        if key:
+            dest[key] = v
         return True
 
     @classmethod
-    def __readVector(cls, read_func: Callable, buf: memoryview, pos: list, size: int, dest: dict | None = None, key: str | None = None):
+    def __readVector(cls, read_func: Callable[[memoryview, list[int], int], Any], buf: memoryview, pos: list[int], size: int, dest: dict[str, Any] | None = None, key: str | None = None) -> list[Any] | bool | None:
         if ((vs := cls.__readInt(buf, pos, size)) is None or
             (vc := cls.__readInt(buf, pos, size)) is None or
             vs < 8 or vc < 0 or size - pos[0] < vs - 8):
             return None if dest is None else False
         size = pos[0] + vs - 8
         v = []
-        for i in range(vc):
+        for _ in range(vc):
             e = read_func(buf, pos, size)
             if e is None:
                 return None if dest is None else False
@@ -242,11 +246,12 @@ class CtrlCmdConnectionCheckUtil:
         pos[0] = size
         if dest is None:
             return v
-        dest[key] = v
+        if key:
+            dest[key] = v
         return True
 
     @classmethod
-    def __readStructIntro(cls, buf: memoryview, pos: list, size: int):
+    def __readStructIntro(cls, buf: memoryview, pos: list[int], size: int) -> Any:
         vs = cls.__readInt(buf, pos, size)
         if vs is None or vs < 4 or size - pos[0] < vs - 4:
             return None, 0
@@ -256,7 +261,7 @@ class CtrlCmdConnectionCheckUtil:
     # 各キーの意味は CtrlCmdDef.cs のクラス定義を参照のこと
 
     @classmethod
-    def __readServiceInfo(cls, buf: memoryview, pos: list, size: int) -> dict | None:
+    def __readServiceInfo(cls, buf: memoryview, pos: list[int], size: int) -> dict[str, Any] | None:
         v, size = cls.__readStructIntro(buf, pos, size)
         if (v is None or
             not cls.__readUshort(buf, pos, size, v, 'onid') or

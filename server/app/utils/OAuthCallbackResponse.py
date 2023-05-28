@@ -31,7 +31,7 @@ class OAuthCallbackResponse(HTMLResponse):
         self.init_headers(headers)
 
 
-    def render(self) -> bytes:
+    def render(self, content: Any = None) -> bytes:
 
         # ブラウザに返す HTML のテンプレート
         html = """

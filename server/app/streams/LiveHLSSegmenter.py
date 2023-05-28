@@ -444,8 +444,8 @@ class LiveHLSSegmenter:
                     self._secondary_audio_m3u8.push(self._aac_fragments_SA.popleft())
 
                 if self._LATEST_VIDEO_TIMESTAMP_90KHZ is not None and self._LATEST_VIDEO_MONOTONIC_TIME is not None:
-                    TIMESTAMP_DIFF = (begin_timestamp - self._LATEST_VIDEO_TIMESTAMP_90KHZ) / ts.HZ
-                    TIME_DIFF = time.monotonic() - self._LATEST_VIDEO_MONOTONIC_TIME
+                    TIMESTAMP_DIFF = (begin_timestamp - self._LATEST_VIDEO_TIMESTAMP_90KHZ) / ts.HZ  # type: ignore
+                    TIME_DIFF = time.monotonic() - self._LATEST_VIDEO_MONOTONIC_TIME  # type: ignore
                     # if args.input is not sys.stdin.buffer:
                     #     SLEEP_BEGIN = time.monotonic()
                     #     time.sleep(max(0, TIMESTAMP_DIFF - (TIME_DIFF + self._LATEST_VIDEO_SLEEP_DIFFERENCE)))
@@ -576,8 +576,8 @@ class LiveHLSSegmenter:
                     self._secondary_audio_m3u8.push(self._aac_fragments_SA.popleft())
 
                 if self._LATEST_VIDEO_TIMESTAMP_90KHZ is not None and self._LATEST_VIDEO_MONOTONIC_TIME is not None:
-                    TIMESTAMP_DIFF = (begin_timestamp - self._LATEST_VIDEO_TIMESTAMP_90KHZ) / ts.HZ
-                    TIME_DIFF = time.monotonic() - self._LATEST_VIDEO_MONOTONIC_TIME
+                    TIMESTAMP_DIFF = (begin_timestamp - self._LATEST_VIDEO_TIMESTAMP_90KHZ) / ts.HZ  # type: ignore
+                    TIME_DIFF = time.monotonic() - self._LATEST_VIDEO_MONOTONIC_TIME  # type: ignore
                     # if args.input is not sys.stdin.buffer:
                     #     SLEEP_BEGIN = time.monotonic()
                     #     time.sleep(max(0, TIMESTAMP_DIFF - (TIME_DIFF + self._LATEST_VIDEO_SLEEP_DIFFERENCE)))

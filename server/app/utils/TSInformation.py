@@ -6,7 +6,7 @@ from datetime import date
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
-from typing import Any, Literal
+from typing import Any, cast, Literal
 
 import ariblib
 import ariblib.constants
@@ -341,13 +341,13 @@ class TSInformation:
             return 'その他の言語'
 
 
-    def getSDTInformation(self) -> dict:
+    def getSDTInformation(self) -> dict[str, Any]:
         """
-        TS 内の SDT (Service Descrition Table) からサービス（チャンネル）情報を取得する
+        TS 内の SDT (Service Description Table) からサービス（チャンネル）情報を取得する
         PAT (Program Association Table) と NIT (Network Information Table) からも補助的に情報を取得する
 
         Returns:
-            dict: サービス（チャンネル）情報が入った辞書
+            dict[str, Any]: サービス（チャンネル）情報が入った辞書
         """
 
         # 雛形
@@ -412,7 +412,7 @@ class TSInformation:
             break
 
         # TS から NIT (Network Information Table) を抽出
-        NetworkInformationSection._table_ids = [0x40]  # 自ネットワークのみ
+        NetworkInformationSection._table_ids = [0x40]  # 自ネットワークのみ  # type: ignore
         for nit in self.ts.sections(NetworkInformationSection):
 
             for transport_stream in nit.transport_streams:
@@ -434,7 +434,7 @@ class TSInformation:
         return result
 
 
-    def getEITInformation(self, service_id: int, eit_section_number: int) -> dict:
+    def getEITInformation(self, service_id: int, eit_section_number: int) -> dict[str, Any]:
         """
         TS内の EIT (Event Information Table) から番組情報を取得する
         サービス ID が必要な理由は、CS などで別のチャンネルの番組情報が取得されるのを防ぐため
@@ -445,11 +445,11 @@ class TSInformation:
             eit_section_number (int): 取得したい EIT セクション（ 0 なら現在の番組、1 なら次の番組）
 
         Returns:
-            dict: 番組情報が入った辞書
+            dict[str, Any]: 番組情報が入った辞書
         """
 
         # 雛形
-        result = {
+        result: dict[str, Any] = {
             'id': None,
             'network_id': None,
             'service_id': None,
@@ -616,7 +616,7 @@ class TSInformation:
                                 else:
                                     result['secondary_audio']['language'] += '+副音声'  # 副音声で固定
 
-                    def all_not_none(iterable):
+                    def all_not_none(iterable: Any):
                         """リスト内の要素が全て None でないなら True を返す"""
                         for element in iterable:
                             if element is None:
@@ -761,7 +761,7 @@ class TSInformation:
                 if adaptation.with_PCR is not None:
 
                     # 生の PCR
-                    pcr_raw = adaptation.with_PCR.program_clock_reference_base
+                    pcr_raw = cast(int, adaptation.with_PCR.program_clock_reference_base)
 
                     # 秒数で割って timedelta にする
                     # 参考: https://www.gcd.org/blog/2010/09/648/

@@ -19,6 +19,7 @@ from app.constants import QUALITY, QUALITY_TYPES
 from app.models import Channel
 from app.models import LiveStream
 from app.models import LiveStreamClient
+from app.models import LiveStreamStatus
 from app.utils import Logging
 
 
@@ -84,7 +85,7 @@ async def LiveStreamsAPI():
 
     # 返却するデータ
     # 逆順になっているのは、デバッグ時に全体の大半を占める Offline なストリームが邪魔なため
-    result = {
+    result: dict[str, dict[str, LiveStreamStatus]] = {
         'Restart': {},
         'Idling' : {},
         'ONAir'  : {},

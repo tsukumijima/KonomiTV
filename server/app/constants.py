@@ -1,7 +1,6 @@
 
 import logging
 import logging.config
-import os
 import ruamel.yaml
 import secrets
 import sys

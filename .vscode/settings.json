@@ -1,22 +1,29 @@
 {
     // 保存時に ESLint による自動フォーマットを行う
     "editor.codeActionsOnSave": {
-        "source.fixAll.eslint": true
+        "source.fixAll.eslint": true,
     },
     // pipenv の仮想環境のあるフォルダを指定（指定しないと認識しない）
     "python.defaultInterpreterPath": "${workspaceFolder}/server/.venv/Scripts/python.exe",
     // 相対インポートが解決されるようにする
     "python.analysis.extraPaths": [
-        "./server"
+        "./server",
     ],
     // Pylance の Type Checking を有効化
-    "python.analysis.typeCheckingMode": "basic",
+    "python.analysis.typeCheckingMode": "strict",
     // Pylance の Type Checking のうち、いくつかのエラー報告を抑制する
     "python.analysis.diagnosticSeverityOverrides": {
+        "reportConstantRedefinition": "none",
+        "reportMissingTypeStubs": "none",
         "reportOptionalMemberAccess": "none",
         "reportPrivateImportUsage": "none",
-        "reportShadowedImports": "none"
+        "reportShadowedImports": "none",
+        "reportUnnecessaryComparison": "none",
+        "reportUnknownArgumentType": "none",
+        "reportUnknownMemberType": "none",
+        "reportUnknownVariableType": "none",
+        "reportUnusedFunction": "none",
     },
     // TypeScript の SDK をプロジェクトの node_modules から読み込む
-    "typescript.tsdk": "client/node_modules/typescript/lib"
+    "typescript.tsdk": "client/node_modules/typescript/lib",
 }

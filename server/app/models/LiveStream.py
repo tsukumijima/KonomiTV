@@ -272,13 +272,13 @@ class LiveStream():
         return cls.__instances[livestream_id]
 
 
-    def __init__(self, display_channel_id: str, quality: str) -> None:
+    def __init__(self, display_channel_id: str, quality: QUALITY_TYPES) -> None:
         """
         ライブストリームのインスタンスを取得する
 
         Args:
             display_channel_id (str): チャンネルID
-            quality (str): 映像の品質 (1080p-60fps ~ 240p)
+            quality (QUALITY_TYPES): 映像の品質 (1080p-60fps ~ 240p)
         """
 
         # インスタンス変数の型ヒントを定義

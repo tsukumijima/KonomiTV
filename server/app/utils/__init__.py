@@ -1,9 +1,9 @@
 
 # ユーティリティをモジュールとして登録
-from .Jikkyo import Jikkyo
-from .OAuthCallbackResponse import OAuthCallbackResponse
-from .ServerManager import ServerManager
-from .TSInformation import TSInformation
+from .Jikkyo import Jikkyo  # type: ignore
+from .OAuthCallbackResponse import OAuthCallbackResponse  # type: ignore
+from .ServerManager import ServerManager  # type: ignore
+from .TSInformation import TSInformation  # type: ignore
 
 import platform
 import sys

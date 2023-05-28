@@ -7,7 +7,7 @@ import stat
 from pathlib import Path
 from rich import print
 from rich.padding import Padding
-from typing import Literal
+from typing import Any, Literal
 
 from Utils import CreateBasicInfiniteProgress
 from Utils import CreateTable
@@ -258,7 +258,7 @@ def Uninstaller() -> None:
     with progress:
         # .git/ 以下の読み取り専用ファイルを削除できるようにする
         # ref: https://stackoverflow.com/a/4829285/17124142
-        def on_rm_error(func, path, exc_info):
+        def on_rm_error(func: Any, path: str, exc_info: Any):
             os.chmod(path, stat.S_IWRITE)
             os.unlink(path)
         shutil.rmtree(uninstall_path, onerror=on_rm_error)

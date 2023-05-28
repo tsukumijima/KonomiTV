@@ -56,22 +56,6 @@ class ServerManager:
 
 
     @classmethod
-    def shutdown(cls) -> None:
-        """
-        Uvicorn をシャットダウンする
-        今のところ、技術的な問題でリロードモードでは機能しない
-        """
-
-        # サーバーが起動していなければ何もしない
-        if cls.__server is None:
-            return
-
-        # サーバーのシャットダウンを要求する
-        cls.__server.should_exit = True
-        Logging.info('[ServerManager] Server shutdown requested')
-
-
-    @classmethod
     def restart(cls) -> None:
         """
         Uvicorn を再起動する

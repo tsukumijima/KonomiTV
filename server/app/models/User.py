@@ -10,7 +10,7 @@ from app.models import TwitterAccount
 class User(models.Model):
 
     # データベース上のテーブル名
-    class Meta:
+    class Meta:  # type: ignore
         table: str = 'users'
 
     # テーブル設計は Notion を参照のこと

@@ -13,6 +13,7 @@ from rich.padding import Padding
 from rich.prompt import Prompt
 from rich.rule import Rule
 from rich.style import Style
+from typing import Any
 
 from Installer import Installer
 from Uninstaller import Uninstaller
@@ -149,7 +150,7 @@ if __name__ == '__main__':
     ## KeyboardInterrupt が複数回送出されないようにする
     ## ref: https://github.com/Nuitka/Nuitka/issues/1477
     keyboard_interrupted = False
-    def keyboard_interrupt_handler(signal_number, frame):
+    def keyboard_interrupt_handler(signal_number: int, frame: Any):
         global keyboard_interrupted
         if keyboard_interrupted is False:
             keyboard_interrupted = True

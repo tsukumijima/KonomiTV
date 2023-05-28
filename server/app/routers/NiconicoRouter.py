@@ -48,7 +48,7 @@ async def NiconicoAuthURLAPI(
 
     # クライアント (フロントエンド) の URL を Origin ヘッダーから取得
     ## Origin ヘッダーがリクエストに含まれていない場合はこの API サーバーの URL を使う
-    client_url = cast(str, request.headers.get('Origin', f'https://{request.url.netloc}')).rstrip('/') + '/'
+    client_url = request.headers.get('Origin', f'https://{request.url.netloc}').rstrip('/') + '/'
 
     # コールバック URL を設定
     ## ニコニコ API の OAuth 連携では、事前にコールバック先の URL を運営側に設定しておく必要がある

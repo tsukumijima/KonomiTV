@@ -1,12 +1,8 @@
 
 import asyncio
-import os
-import platform
 import requests
 import time
 from fastapi import APIRouter
-from pathlib import Path
-from typing import Literal
 
 from app import schemas
 from app.constants import API_REQUEST_HEADERS, CONFIG, VERSION

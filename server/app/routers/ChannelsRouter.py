@@ -131,7 +131,7 @@ async def ChannelsAPI():
 
         # チャンネル情報の辞書を作成
         ## クラスそのままだとレスポンスを返す際にシリアライズ処理が入る関係でパフォーマンスが悪い
-        channel_dict = {
+        channel_dict: dict[str, Any] = {
             'id': channel.id,
             'display_channel_id': channel.display_channel_id,
             'network_id': channel.network_id,

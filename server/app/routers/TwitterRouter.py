@@ -118,7 +118,7 @@ async def TwitterAuthURLAPI(
 
     # クライアント (フロントエンド) の URL を Origin ヘッダーから取得
     ## Origin ヘッダーがリクエストに含まれていない場合はこの API サーバーの URL を使う
-    client_url = cast(str, request.headers.get('Origin', f'https://{request.url.netloc}')).rstrip('/') + '/'
+    client_url = request.headers.get('Origin', f'https://{request.url.netloc}').rstrip('/') + '/'
 
     # コールバック URL を設定
     ## Twitter API の OAuth 連携では、事前にコールバック先の URL をデベロッパーダッシュボードから設定しておく必要がある
@@ -464,7 +464,7 @@ async def TwitterTweetAPI(
     try:
 
         # 画像をアップロードするタスク
-        image_upload_task: list[Coroutine] = []
+        image_upload_task: list[Coroutine[Any, Any, Any | None]] = []
         for image in images:
             image_upload_task.append(asyncio.to_thread(twitter_account_api.media_upload, filename=image.filename, file=image.file))
 
@@ -592,7 +592,7 @@ async def TwitterFavoriteCancelAPI(
         RaiseHTTPException(ex)
 
 
-def GenerateTweet(tweet) -> schemas.Tweet:
+def GenerateTweet(tweet: Any) -> schemas.Tweet:
     """
     Twitter API のツイート情報を API レスポンス用のツイート情報に変換する。
 
