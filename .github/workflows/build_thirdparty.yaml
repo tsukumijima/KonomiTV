@@ -21,7 +21,7 @@ env:
   # pipenv のバージョン
   PIPENV_VERSION: '2023.5.19'
   # FFmpeg (FFmpeg-Builds のリリースを指定する)
-  ## HWENCC が付く方は QSVEncC・NVEncC・VCEEncC (Linux 版) が依存する FFmpeg のバージョン
+  ## HWENCC と付く方は QSVEncC・NVEncC・VCEEncC (Linux 版) が依存する FFmpeg のバージョン
   ## FFmpeg-Builds は毎月末のリリースが長期間保持されるので、基本的には毎月末のリリースを指定する
   ## ref: https://github.com/BtbN/FFmpeg-Builds/releases
   FFMPEG_TAG: 'autobuild-2023-04-30-12-46'
@@ -30,8 +30,8 @@ env:
   FFMPEG_HWENCC_MAJOR_VERSION: '4.4'
   FFMPEG_HWENCC_VERSION: '4.4.4'
   # QSVEncC・NVEncC・VCEEncC・rkmppenc のバージョン
-  QSVENCC_VERSION: '7.39'
-  NVENCC_VERSION: '7.24'
+  QSVENCC_VERSION: '7.41'
+  NVENCC_VERSION: '7.26'
   VCEENCC_VERSION: '8.12'
   RKMPPENC_VERSION: '0.01'
   # ビルド対象の tsreadex・psisiarc・Akebi のコミットハッシュ
