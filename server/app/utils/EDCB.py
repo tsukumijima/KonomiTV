@@ -95,7 +95,7 @@ class EDCBTuner:
             if instance is not None and instance._locked is False:
 
                 # edcb_networktv_id が存在しない（初期化途中、おそらく自分自身のインスタンス）場合はスキップ
-                if not hasattr(instance, 'edcb_networktv_id'):
+                if not hasattr(instance, '_edcb_networktv_id'):
                     continue
 
                 # そのインスタンスの NetworkTV ID を取得
