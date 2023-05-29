@@ -313,7 +313,8 @@ class LiveDataBroadcastingManager implements PlayerManager {
             if (message.type === 'pmt') {
 
                 // データ放送がチャンネルに含まれているかどうか
-                const is_bml_available = message.components.length > 0 && message.components.every((component) => component.bxmlInfo !== undefined);
+                // AdditionalAribBXMLInfo を含むコンポーネントが一つでも存在するかどうかで判定
+                const is_bml_available = message.components.some((component) => component.bxmlInfo !== undefined);
                 console.log(`[LiveDataBroadcastingManager] BMLBrowser: ${is_bml_available ? 'available' : 'unavailable'}`);
 
                 // データ放送がチャンネルに含まれていない場合
