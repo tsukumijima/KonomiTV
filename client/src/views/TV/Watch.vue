@@ -2,7 +2,7 @@
     <div class="route-container">
         <main class="watch-container" :class="{
                 'watch-container--control-display': is_control_display,
-                'watch-container--panel-display': Utils.isSmartphoneVertical() ? true : is_panel_display,
+                'watch-container--panel-display': Utils.isSmartphoneVertical() || Utils.isTabletVertical() ? true : is_panel_display,
                 'watch-container--fullscreen': is_fullscreen,
             }">
             <nav class="watch-navigation"
@@ -2808,6 +2808,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         .watch-content {
             .watch-header {
                 padding-left: 30px;
+                @include tablet-vertical {
+                    padding-left: 16px;
+                }
                 @include smartphone-horizontal {
                     padding-left: 16px;
                 }
