@@ -56,7 +56,7 @@ def GetNetworkDriveList() -> list[dict[str, str]]:
                     for sub_key in range(winreg.QueryInfoKey(key)[1]):
 
                         # 値の名前、データ、データ型を取得
-                        name, data, regtype = winreg.EnumValue(key, sub_key)
+                        name, data, _ = winreg.EnumValue(key, sub_key)
 
                         # リストに追加
                         if name == 'RemotePath':
@@ -241,7 +241,7 @@ def init():
         parser_stop = subparsers.add_parser('stop', help='stop KonomiTV service')
 
         # サービスインストール時のイベント
-        def install_handler(args):
+        def install_handler(args: Any):
 
             # ユーザー名とパスワードを取得
             username: str = args.username
@@ -264,16 +264,16 @@ def init():
         # サブコマンドのイベントを登録
         # install コマンド以外は HandleCommandLine() のサブコマンドのエイリアス
         parser_install.set_defaults(handler=install_handler)
-        parser_uninstall.set_defaults(handler=lambda args: win32serviceutil.HandleCommandLine(
+        parser_uninstall.set_defaults(handler=lambda args: win32serviceutil.HandleCommandLine(  # type: ignore
             cls = KonomiTVServiceFramework, argv = [sys.argv[0], 'remove'],
         ))
-        parser_start.set_defaults(handler=lambda args: win32serviceutil.HandleCommandLine(
+        parser_start.set_defaults(handler=lambda args: win32serviceutil.HandleCommandLine(  # type: ignore
             cls = KonomiTVServiceFramework, argv = [sys.argv[0], 'start'],
         ))
-        parser_restart.set_defaults(handler=lambda args: win32serviceutil.HandleCommandLine(
+        parser_restart.set_defaults(handler=lambda args: win32serviceutil.HandleCommandLine(  # type: ignore
             cls = KonomiTVServiceFramework, argv = [sys.argv[0], 'restart'],
         ))
-        parser_stop.set_defaults(handler=lambda args: win32serviceutil.HandleCommandLine(
+        parser_stop.set_defaults(handler=lambda args: win32serviceutil.HandleCommandLine(  # type: ignore
             cls = KonomiTVServiceFramework, argv = [sys.argv[0], 'stop'],
         ))
 

@@ -419,9 +419,15 @@ class EDCBUtil:
                 reader = asyncio.StreamReader(loop=loop)
                 reader_protocol = asyncio.StreamReaderProtocol(reader, loop=loop)
                 try:
-                    writer, _ = await cast(asyncio.ProactorEventLoop, loop).create_pipe_connection(lambda: reader_protocol, path)
+                    transport, _ = await cast(asyncio.ProactorEventLoop, loop).create_pipe_connection(lambda: reader_protocol, path)
+                    writer = asyncio.StreamWriter(transport, reader_protocol, reader, loop)
                     return (reader, writer)
                 except:
+                    # TODO: エラーを解消できたら削除
+                    import traceback
+                    from app.utils import Logging
+                    Logging.error('openPipeStream: failed to connect to ' + path)
+                    Logging.error(traceback.format_exc())
                     pass
             await asyncio.sleep(wait)
             # 初期に成功しなければ見込みは薄いので問い合わせを疎にしていく
