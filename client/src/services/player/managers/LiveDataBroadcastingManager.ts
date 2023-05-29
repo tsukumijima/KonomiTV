@@ -251,9 +251,6 @@ class LiveDataBroadcastingManager implements PlayerManager {
             this.#bml_browser.addEventListener('load', (event) => {
                 console.log('[LiveDataBroadcastingManager] BMLBrowser: load', event.detail);
 
-                // 映像の要素をデータ放送内に移動
-                this.moveVideoElementToBMLBrowser();
-
                 // BML ブラウザの要素に幅と高さを設定
                 this.bml_browser_width = event.detail.resolution.width;
                 this.bml_browser_height = event.detail.resolution.height;
@@ -262,6 +259,9 @@ class LiveDataBroadcastingManager implements PlayerManager {
 
                 // データ放送画面の拡大/縮小率を再計算
                 this.calculateBMLBrowserScaleFactor(this.player.template.videoWrap.clientWidth, this.player.template.videoWrap.clientHeight);
+
+                // 映像の要素をデータ放送内に移動
+                this.moveVideoElementToBMLBrowser();
             });
 
             // BML ブラウザの表示状態が変化したときのイベント
@@ -512,7 +512,15 @@ class LiveDataBroadcastingManager implements PlayerManager {
             if (child instanceof HTMLVideoElement) {
                 (child as HTMLVideoElement).style.width = '100%';
                 (child as HTMLVideoElement).style.height = '100%';
-                (child as HTMLVideoElement).style.objectFit = 'fill';
+                // BML ブラウザのアスペクト比が 16:9 以外のケース (運用上は 720×480 のみ該当) に限定して適用する
+                if (this.bml_browser_width / this.bml_browser_height !== 16 / 9) {
+                    const magnification = (this.bml_browser_height * 16 / 9) / this.bml_browser_width;
+                    (child as HTMLVideoElement).style.transform = `scaleY(${magnification})`;
+                    (child as HTMLVideoElement).style.transformOrigin = 'center center';
+                } else {
+                    (child as HTMLVideoElement).style.transform = '';
+                    (child as HTMLVideoElement).style.transformOrigin = '';
+                }
             }
         }
 
@@ -550,7 +558,8 @@ class LiveDataBroadcastingManager implements PlayerManager {
             if (child instanceof HTMLVideoElement) {
                 (child as HTMLVideoElement).style.width = '';
                 (child as HTMLVideoElement).style.height = '';
-                (child as HTMLVideoElement).style.objectFit = '';
+                (child as HTMLVideoElement).style.transform = '';
+                (child as HTMLVideoElement).style.transformOrigin = '';
             }
         }
 
