@@ -1076,7 +1076,7 @@ class LiveEncodingTask:
                     if response.status == 503:
                         self.livestream.setStatus('Offline', 'チューナーの起動に失敗しました。チューナー不足が原因かもしれません。')
                     else:
-                        self.livestream.setStatus('Offline', 'チューナーで不明なエラーが発生しました。Mirakurun 側に問題があるかもしれません。')
+                        self.livestream.setStatus('Offline', f'チューナーで不明なエラーが発生しました。Mirakurun 側に問題があるかもしれません。(HTTP Error {response.status})')
                     break
 
                 # ***** 異常処理 (エンコードタスク再起動による回復が可能) *****
