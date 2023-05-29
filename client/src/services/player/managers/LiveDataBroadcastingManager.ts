@@ -310,7 +310,8 @@ class LiveDataBroadcastingManager implements PlayerManager {
         this.live_psi_archived_data_decoder.run(Comlink.proxy(async (message: ResponseMessage) => {
 
             // PMT (Program Map Table)
-            if (message.type === 'pmt') {
+            // データ放送有効時のみ処理
+            if (message.type === 'pmt' && this.#bml_browser !== null) {
 
                 // データ放送がチャンネルに含まれているかどうか
                 // AdditionalAribBXMLInfo を含むコンポーネントが一つでも存在するかどうかで判定
