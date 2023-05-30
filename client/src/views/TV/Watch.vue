@@ -1590,15 +1590,6 @@ export default Vue.extend({
                     // Status: Restart
                     case 'Restart': {
 
-                        // 「ライブストリームは Offline です。」のステータス詳細を受信すること自体が不正な状態
-                        // ストリーミング API への接続が切断された可能性が高いので、ワークアラウンドとして通知した後にページをリロードする
-                        // TODO: ロジックを整理してストリーミングを再起動できるようにする
-                        if (event.detail === 'ライブストリームは Offline です。') {
-                            this.player.notice('ストリーミング接続が切断されました。3秒後にリロードします。', -1, undefined, '#FF6F6A');
-                            await Utils.sleep(3);
-                            location.reload();
-                        }
-
                         // ステータス詳細をプレイヤーに表示
                         this.player.notice(event.detail, -1);
 
@@ -1622,6 +1613,15 @@ export default Vue.extend({
                     // Status: Offline
                     // 基本的に Offline は放送休止中やエラーなどで復帰の見込みがない状態
                     case 'Offline': {
+
+                        // 「ライブストリームは Offline です。」のステータス詳細を受信すること自体が不正な状態
+                        // ストリーミング API への接続が切断された可能性が高いので、ワークアラウンドとして通知した後にページをリロードする
+                        // TODO: ロジックを整理してストリーミングを再起動できるようにする
+                        if (event.detail === 'ライブストリームは Offline です。') {
+                            this.player?.notice('ストリーミング接続が切断されました。3秒後にリロードします。', -1, undefined, '#FF6F6A');
+                            await Utils.sleep(3);
+                            location.reload();
+                        }
 
                         if (this.player !== null) {
 

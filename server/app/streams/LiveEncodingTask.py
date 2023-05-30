@@ -561,9 +561,9 @@ class LiveEncodingTask:
 
                 # 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないならチューナーへの接続に失敗したものとする
                 if program_present is None or program_present.isOffTheAirProgram():
-                    self.livestream.setStatus('Offline', 'この時間は放送を休止しています。')
+                    self.livestream.setStatus('Offline', 'この時間は放送を休止しています。(E-01M)')
                 else:
-                    self.livestream.setStatus('Offline', 'チューナーへの接続に失敗しました。チューナー側に何らかの問題があるかもしれません。')
+                    self.livestream.setStatus('Offline', 'チューナーへの接続に失敗しました。チューナー側に何らかの問題があるかもしれません。(E-01M)')
 
                 # すべての視聴中クライアントのライブストリームへの接続を切断する
                 self.livestream.disconnectAll()
@@ -599,7 +599,7 @@ class LiveEncodingTask:
             # ほとんどがチューナー不足によるものなので、ステータス詳細でもそのように表示する
             # 成功時は tuner.close() するか予約などに割り込まれるまで起動しつづけるので注意
             if is_tuner_opened is False:
-                self.livestream.setStatus('Offline', 'チューナーの起動に失敗しました。チューナー不足が原因かもしれません。')
+                self.livestream.setStatus('Offline', 'チューナーの起動に失敗しました。チューナー不足が原因かもしれません。(E-02E)')
 
                 # チューナーを閉じる
                 await tuner.close()
@@ -631,7 +631,7 @@ class LiveEncodingTask:
 
             # チューナーへの接続に失敗した
             if reader is None:
-                self.livestream.setStatus('Offline', 'チューナーへの接続に失敗しました。チューナー側に何らかの問題があるかもしれません。')
+                self.livestream.setStatus('Offline', 'チューナーへの接続に失敗しました。チューナー側に何らかの問題があるかもしれません。(E-03E)')
 
                 # チューナーを閉じる
                 await tuner.close()
@@ -959,13 +959,13 @@ class LiveEncodingTask:
                         # 何らかの要因で tsreadex から放送波が受信できなかったことによるエラーのため、エンコーダーの再起動は行わない
                         ## 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないなら放送波の受信に失敗したものとする
                         if program_present is None or program_present.isOffTheAirProgram():
-                            self.livestream.setStatus('Offline', 'この時間は放送を休止しています。')
+                            self.livestream.setStatus('Offline', 'この時間は放送を休止しています。(E-04F)')
                         else:
-                            self.livestream.setStatus('Offline', 'チューナーからの放送波の受信に失敗したため、エンコードを開始できません。')
+                            self.livestream.setStatus('Offline', 'チューナーからの放送波の受信に失敗したため、エンコードを開始できません。(E-04F)')
                     elif 'Conversion failed!' in line:
                         # 捕捉されないエラー
                         ## エンコーダーの再起動で復帰できる可能性があるので、エンコードタスクを再起動する
-                        self.livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。エンコードタスクを再起動します。')
+                        self.livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。エンコードタスクを再起動します。(ER-01F)')
                         # 直近 50 件のログを表示
                         for log in lines[-51:-1]:
                             Logging.warning(log)
@@ -975,33 +975,33 @@ class LiveEncodingTask:
                         # 何らかの要因で tsreadex から放送波が受信できなかったことによるエラーのため、エンコーダーの再起動は行わない
                         ## 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないなら放送波の受信に失敗したものとする
                         if program_present is None or program_present.isOffTheAirProgram():
-                            self.livestream.setStatus('Offline', 'この時間は放送を休止しています。')
+                            self.livestream.setStatus('Offline', 'この時間は放送を休止しています。(E-05H)')
                         else:
-                            self.livestream.setStatus('Offline', 'チューナーからの放送波の受信に失敗したため、エンコードを開始できません。')
+                            self.livestream.setStatus('Offline', 'チューナーからの放送波の受信に失敗したため、エンコードを開始できません。(E-05H)')
                     elif encoder_type == 'NVEncC' and 'due to the NVIDIA\'s driver limitation.' in line:
                         # NVEncC で、同時にエンコードできるセッション数 (Geforceだと5つ) を全て使い果たしている時のエラー
-                        self.livestream.setStatus('Offline', 'NVENC のエンコードセッションが不足しているため、エンコードを開始できません。')
+                        self.livestream.setStatus('Offline', 'NVENC のエンコードセッションが不足しているため、エンコードを開始できません。(E-06HN)')
                     elif encoder_type == 'QSVEncC' and ('unable to decode by qsv.' in line or 'No device found for QSV encoding!' in line):
                         # QSVEncC 非対応の環境
-                        self.livestream.setStatus('Offline', 'お使いの PC 環境は QSVEncC エンコーダーに対応していません。')
+                        self.livestream.setStatus('Offline', 'お使いの PC 環境は QSVEncC エンコーダーに対応していません。(E-07HQ)')
                     elif encoder_type == 'QSVEncC' and 'iHD_drv_video.so init failed' in line:
                         # QSVEncC 非対応の環境 (Linux かつ第5世代以前の Intel CPU)
-                        self.livestream.setStatus('Offline', 'お使いの PC 環境は Linux 版 QSVEncC エンコーダーに対応していません。第5世代以前の古い CPU をお使いの可能性があります。')
+                        self.livestream.setStatus('Offline', 'お使いの PC 環境は Linux 版 QSVEncC エンコーダーに対応していません。第5世代以前の古い CPU をお使いの可能性があります。(E-08HQ)')
                     elif encoder_type == 'NVEncC' and 'CUDA not available.' in line:
                         # NVEncC 非対応の環境
-                        self.livestream.setStatus('Offline', 'お使いの PC 環境は NVEncC エンコーダーに対応していません。')
+                        self.livestream.setStatus('Offline', 'お使いの PC 環境は NVEncC エンコーダーに対応していません。(E-09HN)')
                     elif encoder_type == 'VCEEncC' and \
                         ('Failed to initalize VCE factory:' in line or 'Assertion failed:Init() failed to vkCreateInstance' in line):
                         # VCEEncC 非対応の環境
-                        self.livestream.setStatus('Offline', 'お使いの PC 環境は VCEEncC エンコーダーに対応していません。')
+                        self.livestream.setStatus('Offline', 'お使いの PC 環境は VCEEncC エンコーダーに対応していません。(E-10HV)')
                     elif 'Consider increasing the value for the --input-analyze and/or --input-probesize!' in line:
                         # --input-probesize or --input-analyze の期間内に入力ストリームの解析が終わらなかった
                         ## エンコーダーの再起動で復帰できる可能性があるので、エンコードタスクを再起動する
-                        self.livestream.setStatus('Restart', '入力ストリームの解析に失敗しました。エンコードタスクを再起動します。')
+                        self.livestream.setStatus('Restart', '入力ストリームの解析に失敗しました。エンコードタスクを再起動します。(ER-02H)')
                     elif 'finished with error!' in line:
                         # 捕捉されないエラー
                         ## エンコーダーの再起動で復帰できる可能性があるので、エンコードタスクを再起動する
-                        self.livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。エンコードタスクを再起動します。')
+                        self.livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。エンコードタスクを再起動します。(ER-03H)')
                         # 直近 150 件のログを表示
                         for log in lines[-151:-1]:
                             Logging.warning(log)
@@ -1064,19 +1064,19 @@ class LiveEncodingTask:
 
                         # 番組名に「放送休止」などが入っていれば停波の可能性が高い
                         if program_present is None or program_present.isOffTheAirProgram():
-                            self.livestream.setStatus('Offline', 'この時間は放送を休止しています。')
+                            self.livestream.setStatus('Offline', 'この時間は放送を休止しています。(E-11)')
 
                         # それ以外なら、チューナーへの接続に失敗したものとする
                         else:
-                            self.livestream.setStatus('Offline', 'チューナーへの接続に失敗しました。チューナー側に何らかの問題があるかもしれません。')
+                            self.livestream.setStatus('Offline', 'チューナーへの接続に失敗しました。チューナー側に何らかの問題があるかもしれません。(E-11)')
 
                 # Mirakurun の Service Stream API からエラーが返された場合
                 if CONFIG['general']['backend'] == 'Mirakurun' and response is not None and response.status != 200:
                     # Offline にしてエンコードタスクを停止する
                     if response.status == 503:
-                        self.livestream.setStatus('Offline', 'チューナーの起動に失敗しました。チューナー不足が原因かもしれません。')
+                        self.livestream.setStatus('Offline', 'チューナーの起動に失敗しました。チューナー不足が原因かもしれません。(E-12M)')
                     else:
-                        self.livestream.setStatus('Offline', f'チューナーで不明なエラーが発生しました。Mirakurun 側に問題があるかもしれません。(HTTP Error {response.status})')
+                        self.livestream.setStatus('Offline', f'チューナーで不明なエラーが発生しました。Mirakurun 側に問題があるかもしれません。(HTTP Error {response.status}) (E-12M)')
                     break
 
                 # ***** 異常処理 (エンコードタスク再起動による回復が可能) *****
@@ -1096,7 +1096,7 @@ class LiveEncodingTask:
                     # 含まれていない可能性が高いので、ここでエンコードタスクを停止する
                     ## 映像/音声ストリームが含まれていない場合は当然ながらエンコーダーはフリーズする
                     if program_present is None or program_present.isOffTheAirProgram():
-                        self.livestream.setStatus('Offline', 'この時間は放送を休止しています。')
+                        self.livestream.setStatus('Offline', 'この時間は放送を休止しています。(E-13)')
 
                     # それ以外なら、エンコーダーの再起動で復帰できる可能性があるのでエンコードタスクを再起動する
                     else:
@@ -1105,7 +1105,7 @@ class LiveEncodingTask:
                         await asyncio.sleep(1)
 
                         # エンコードタスクを再起動
-                        self.livestream.setStatus('Restart', 'エンコードが途中で停止しました。エンコードタスクを再起動します。')
+                        self.livestream.setStatus('Restart', 'エンコードが途中で停止しました。エンコードタスクを再起動します。(ER-04)')
 
                         # エンコーダーのログを表示 (FFmpeg は最後の50行、HWEncC は最後の150行を表示)
                         if encoder_type == 'FFmpeg':
@@ -1122,7 +1122,7 @@ class LiveEncodingTask:
                     (CONFIG['general']['backend'] == 'EDCB' and type(stream_reader) is BinaryIO and stream_reader.closed is True)):
 
                     # エンコードタスクを再起動
-                    self.livestream.setStatus('Restart', 'チューナーとの接続が切断されました。エンコードタスクを再起動します。')
+                    self.livestream.setStatus('Restart', 'チューナーとの接続が切断されました。エンコードタスクを再起動します。(ER-05)')
 
                 # エンコーダーが意図せず終了した場合
                 if encoder.returncode is not None:
@@ -1135,7 +1135,7 @@ class LiveEncodingTask:
                         for line in lines:
                             # QSVEncC: H.265/HEVC でのエンコードに非対応の環境
                             if encoder_type == 'QSVEncC' and 'HEVC encoding is not supported on current platform.' in line:
-                                self.livestream.setStatus('Offline', 'お使いの Intel GPU は H.265/HEVC でのエンコードに対応していません。')
+                                self.livestream.setStatus('Offline', 'お使いの Intel GPU は H.265/HEVC でのエンコードに対応していません。(E-14HQ)')
                                 break
                             # NVEncC: H.265/HEVC でのエンコードに非対応の環境
                             elif encoder_type == 'NVEncC' and 'does not support H.265/HEVC encoding.' in line:
@@ -1146,18 +1146,18 @@ class LiveEncodingTask:
                                         available_for_encode = True
                                         break
                                 if not available_for_encode:
-                                    self.livestream.setStatus('Offline', 'お使いの NVIDIA GPU は H.265/HEVC でのエンコードに対応していません。')
+                                    self.livestream.setStatus('Offline', 'お使いの NVIDIA GPU は H.265/HEVC でのエンコードに対応していません。(E-15HN)')
                                     break
                             # VCEEncC: H.265/HEVC でのエンコードに非対応の環境
                             elif encoder_type == 'VCEEncC' and 'HW Acceleration of H.265/HEVC is not supported on this platform.' in line:
-                                self.livestream.setStatus('Offline', 'お使いの AMD GPU は H.265/HEVC でのエンコードに対応していません。')
+                                self.livestream.setStatus('Offline', 'お使いの AMD GPU は H.265/HEVC でのエンコードに対応していません。(E-16HV)')
                                 break
 
                     # それ以外なら、エンコーダーの再起動で復帰できる可能性があるのでエンコードタスクを再起動する
                     if self.livestream.getStatus()['status'] == 'Offline':
 
                         # エンコードタスクを再起動
-                        self.livestream.setStatus('Restart', 'エンコーダーが強制終了されました。エンコードタスクを再起動します。')
+                        self.livestream.setStatus('Restart', 'エンコーダーが強制終了されました。エンコードタスクを再起動します。(ER-06)')
 
                         # エンコーダーのログを表示 (FFmpeg は最後の50行、HWEncC は最後の150行を表示)
                         if encoder_type == 'FFmpeg':
@@ -1225,10 +1225,10 @@ class LiveEncodingTask:
                 # Offline に設定
                 if program_present is None or program_present.is_free == True:
                     # 無料番組
-                    self.livestream.setStatus('Offline', 'ライブストリームの再起動に失敗しました。')
+                    self.livestream.setStatus('Offline', 'ライブストリームの再起動に失敗しました。(E-17)')
                 else:
                     # 有料番組（契約されていないことが原因の可能性が高いため、そのように表示する）
-                    self.livestream.setStatus('Offline', 'ライブストリームの再起動に失敗しました。契約されていないため視聴できません。')
+                    self.livestream.setStatus('Offline', 'ライブストリームの再起動に失敗しました。契約されていないため視聴できません。(E-17)')
 
                 # チューナーを終了する (EDCB バックエンドのみ)
                 ## tuner.close() した時点でそのチューナーインスタンスは意味をなさなくなるので、LiveStream インスタンスのプロパティからも削除する
