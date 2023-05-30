@@ -4,10 +4,9 @@ import aiohttp
 import asyncio
 import os
 import re
-import socket
 import time
 from aiofiles.threadpool.text import AsyncTextIOWrapper
-from typing import AsyncIterator, BinaryIO, cast, Literal
+from typing import AsyncIterator, cast, Literal
 
 from app.constants import API_REQUEST_HEADERS, CONFIG, LIBRARY_PATH, LOGS_DIR, QUALITY, QUALITY_TYPES
 from app.models import Channel
@@ -1119,8 +1118,7 @@ class LiveEncodingTask:
                 # チューナーとの接続が切断された場合
                 ## ref: https://stackoverflow.com/a/45251241/17124142
                 if ((CONFIG['general']['backend'] == 'Mirakurun' and response is not None and response.closed is True) or
-                    (CONFIG['general']['backend'] == 'EDCB' and type(stream_reader) is socket.socket and stream_reader.fileno() < 0) or
-                    (CONFIG['general']['backend'] == 'EDCB' and type(stream_reader) is BinaryIO and stream_reader.closed is True)):
+                    (CONFIG['general']['backend'] == 'EDCB' and tuner is not None and tuner.isDisconnected() is True)):
 
                     # エンコードタスクを再起動
                     self.livestream.setStatus('Restart', 'チューナーとの接続が切断されました。エンコードタスクを再起動します。(ER-05)')

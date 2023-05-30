@@ -38,6 +38,12 @@ class PipeStreamReader:
             self.__buffer += data
         return bytes(self.__buffer)
 
+    def is_closing(self) -> bool:
+        return self.__pipe.closed
+
+    async def close(self) -> None:
+        await self.__loop.run_in_executor(self.__executor, self.__pipe.close)
+
 
 class EDCBTuner:
     """ EDCB バックエンドのチューナーを制御するクラス """
@@ -91,9 +97,13 @@ class EDCBTuner:
         ## プロセス ID が None のときはチューナーが起動されていないものとして扱う
         self._edcb_process_id: int | None = None
 
-        # チューナーとのストリーミング接続を閉じるための StreamWriter
+        # チューナーとのストリーミング接続を閉じるための StreamWriter (TCP/IP モード時)
         ## まだ接続していないとき、接続が閉じられた後は None になる
         self._edcb_stream_writer: asyncio.StreamWriter | None = None
+
+        # チューナーとのストリーミング接続を閉じるためのパイプ (名前付きパイプモード時)
+        ## まだ接続していないとき、接続が閉じられた後は None になる
+        self._edcb_pipe_stream_reader: PipeStreamReader | None = None
 
 
     def __getNetworkTVID(self) -> int:
@@ -223,6 +233,7 @@ class EDCBTuner:
             ## EpgDataCap_Bon で受信した放送波を受け取るための名前付きパイプ (PipeStreamReader)
             stream_reader = await EDCBUtil.openPipeStream(self._edcb_process_id)
             stream_writer = None
+            self._edcb_pipe_stream_reader = stream_reader
 
         # チューナーへの接続に失敗した
         ## チューナーを閉じてからエラーを返す
@@ -230,7 +241,8 @@ class EDCBTuner:
             await self.close()  # チューナーを閉じる
             return None
 
-        self._edcb_stream_writer = stream_writer
+        if stream_writer is not None:
+            self._edcb_stream_writer = stream_writer
 
         return stream_reader
 
@@ -241,11 +253,32 @@ class EDCBTuner:
         ストリーミングが終了した際に必ず呼び出す必要がある
         """
 
-        # チューナーとの接続を閉じる
+        # TCP/IP モード
         if self._edcb_stream_writer is not None:
             self._edcb_stream_writer.close()
             await self._edcb_stream_writer.wait_closed()
             self._edcb_stream_writer = None
+
+        # 名前付きパイプモード
+        elif self._edcb_pipe_stream_reader is not None:
+            await self._edcb_pipe_stream_reader.close()
+            self._edcb_pipe_stream_reader = None
+
+
+    def isDisconnected(self) -> bool:
+        """
+        チューナーとのストリーミング接続が閉じられているかどうかを返す
+
+        Returns:
+            bool: チューナーとのストリーミング接続が閉じられているかどうか
+        """
+
+        if self._edcb_stream_writer is not None:
+            return self._edcb_stream_writer.is_closing()
+        elif self._edcb_pipe_stream_reader is not None:
+            return self._edcb_pipe_stream_reader.is_closing()
+
+        return True
 
 
     def lock(self) -> None:
