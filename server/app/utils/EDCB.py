@@ -23,10 +23,10 @@ class PipeStreamReader:
     内部で Win32API の CreateFile に渡すフラグが不適切で使い物にならないためつなぎとして用意したもの
     """
 
-    def __init__(self, pipe: BufferedReader, executor: ThreadPoolExecutor, loop: asyncio.AbstractEventLoop) -> None:
+    def __init__(self, pipe: BufferedReader, executor: ThreadPoolExecutor) -> None:
         self.__pipe = pipe
         self.__executor = executor
-        self.__loop = loop
+        self.__loop = asyncio.get_running_loop()
         self.__buffer = bytearray()
 
     async def readexactly(self, n: int) -> bytes:
@@ -469,7 +469,6 @@ class EDCBUtil:
         if sys.platform != 'win32':
             raise NotImplementedError('Windows Only')
 
-        from app.app import loop
         to = time.monotonic() + timeout_sec
         wait = 0.1
         while time.monotonic() < to:
@@ -478,7 +477,7 @@ class EDCBUtil:
                 try:
                     path = '\\\\.\\pipe\\SendTSTCP_' + str(port) + '_' + str(process_id)
                     pipe = await asyncio.to_thread(open, path, mode='rb')
-                    return PipeStreamReader(pipe, ThreadPoolExecutor(), loop)
+                    return PipeStreamReader(pipe, ThreadPoolExecutor())
                 except:
                     pass
             await asyncio.sleep(wait)
