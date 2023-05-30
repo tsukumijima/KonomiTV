@@ -12,7 +12,7 @@ from app.constants import API_REQUEST_HEADERS, CONFIG, LIBRARY_PATH, LOGS_DIR, Q
 from app.models import Channel
 from app.models import LiveStream
 from app.utils import Logging
-from app.utils.EDCB import EDCBTuner
+from app.utils.EDCB import EDCBTuner, PipeStreamReader
 
 
 class LiveEncodingTask:
@@ -529,7 +529,7 @@ class LiveEncodingTask:
         is_running: bool = True
 
         # 放送波の MPEG2-TS を受信する StreamReader
-        stream_reader: asyncio.StreamReader | aiohttp.StreamReader
+        stream_reader: asyncio.StreamReader | PipeStreamReader | aiohttp.StreamReader
 
         # EDCB のチューナーインスタンス (Mirakurun バックエンド利用時は常に None)
         tuner: EDCBTuner | None = None
@@ -672,7 +672,7 @@ class LiveEncodingTask:
 
             # 受信した放送波が入るイテレータを作成
             # R/W バッファ: 188B (TS Packet Size) * 256 = 48128B
-            async def GetIterator(stream_reader: asyncio.StreamReader | aiohttp.StreamReader, chunk_size: int = 48128) -> AsyncIterator[bytes]:
+            async def GetIterator(stream_reader: asyncio.StreamReader | PipeStreamReader | aiohttp.StreamReader, chunk_size: int = 48128) -> AsyncIterator[bytes]:
                 while True:
                     try:
                         yield await stream_reader.readexactly(chunk_size)
