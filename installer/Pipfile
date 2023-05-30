@@ -9,6 +9,7 @@ build-windows = "pyinstaller --onefile --uac-admin --icon=KonomiTV-Installer.ico
 build-linux = "pyinstaller --onefile --name=KonomiTV-Installer.elf KonomiTV-Installer.py"
 
 [packages]
+aiofiles = "*"
 distro = "*"
 elevate = "*"
 emoji = "*"

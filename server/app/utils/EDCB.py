@@ -3,6 +3,7 @@
 # ref: https://stackoverflow.com/a/33533514/17124142
 from __future__ import annotations
 
+import aiofiles
 import asyncio
 import datetime
 import sys
@@ -443,7 +444,7 @@ class EDCBUtil:
             for port in range(30):
                 try:
                     path = '\\\\.\\pipe\\SendTSTCP_' + str(port) + '_' + str(process_id)
-                    pipe = open(path, mode = 'rb')
+                    pipe = await asyncio.to_thread(open, path, mode='rb')
                     return PipeStreamReader(pipe, ThreadPoolExecutor(), loop)
                 except:
                     pass
@@ -485,17 +486,6 @@ class CtrlCmdUtil:
         """ 名前付きパイプモードにする """
         self.__pipe_name = name
         self.__host = None
-
-    def pipeExists(self) -> bool:
-        """ 接続先パイプが存在するか調べる """
-        try:
-            with open('\\\\.\\pipe\\' + self.__pipe_name, mode = 'r+b'):
-                pass
-        except FileNotFoundError:
-            return False
-        except:
-            pass
-        return True
 
     def setConnectTimeOutSec(self, timeout: float) -> None:
         """ 接続処理時のタイムアウト設定 """
@@ -722,18 +712,18 @@ class CtrlCmdUtil:
             # 名前付きパイプモード
             while True:
                 try:
-                    with open('\\\\.\\pipe\\' + self.__pipe_name, mode = 'r+b') as f:
-                        f.write(buf)
-                        f.flush()
-                        rbuf = f.read(8)
+                    async with aiofiles.open('\\\\.\\pipe\\' + self.__pipe_name, mode='r+b') as f:
+                        await f.write(buf)
+                        await f.flush()
+                        rbuf = await f.read(8)
                         if len(rbuf) == 8:
                             bufview = memoryview(rbuf)
                             pos = [0]
                             ret = self.__readInt(bufview, pos, 8)
                             size = cast(int, self.__readInt(bufview, pos, 8))
-                            rbuf = f.read(size)
+                            rbuf = await f.read(size)
                             if len(rbuf) == size:
-                                    return ret, rbuf
+                                return ret, rbuf
                     break
                 except FileNotFoundError:
                     break

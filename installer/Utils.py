@@ -1,4 +1,5 @@
 
+import aiofiles
 import asyncio
 import emoji
 import datetime
@@ -125,18 +126,18 @@ class CtrlCmdConnectionCheckUtil:
             # 名前付きパイプモード
             while True:
                 try:
-                    with open('\\\\.\\pipe\\' + self.__pipe_name, mode = 'r+b') as f:
-                        f.write(buf)
-                        f.flush()
-                        rbuf = f.read(8)
+                    async with aiofiles.open('\\\\.\\pipe\\' + self.__pipe_name, mode='r+b') as f:
+                        await f.write(buf)
+                        await f.flush()
+                        rbuf = await f.read(8)
                         if len(rbuf) == 8:
                             bufview = memoryview(rbuf)
                             pos = [0]
                             ret = self.__readInt(bufview, pos, 8)
                             size = cast(int, self.__readInt(bufview, pos, 8))
-                            rbuf = f.read(size)
+                            rbuf = await f.read(size)
                             if len(rbuf) == size:
-                                    return ret, rbuf
+                                return ret, rbuf
                     break
                 except FileNotFoundError:
                     break

@@ -1,11 +1,12 @@
 
+import aiofiles
 import aiohttp
 import asyncio
 import os
 import re
 import socket
 import time
-from io import TextIOWrapper
+from aiofiles.threadpool.text import AsyncTextIOWrapper
 from typing import AsyncIterator, BinaryIO, cast, Literal
 
 from app.constants import API_REQUEST_HEADERS, CONFIG, LIBRARY_PATH, LOGS_DIR, QUALITY, QUALITY_TYPES
@@ -854,9 +855,9 @@ class LiveEncodingTask:
                 count += 1
 
             # エンコーダーのログファイルを開く (エンコーダーログ有効時のみ)
-            encoder_log: TextIOWrapper | None = None
+            encoder_log: AsyncTextIOWrapper | None = None
             if CONFIG['general']['debug_encoder'] is True:
-                encoder_log = open(encoder_log_path, mode='w', encoding='utf-8')
+                encoder_log = await aiofiles.open(encoder_log_path, mode='w', encoding='utf-8')
 
             # エンコーダーの出力結果を取得
             while True:
@@ -917,8 +918,8 @@ class LiveEncodingTask:
 
                     # エンコーダーのログ出力が有効なら、エンコーダーのログファイルに書き込む
                     if CONFIG['general']['debug_encoder'] is True and encoder_log is not None:
-                        encoder_log.write(line.strip('\r\n') + '\n')
-                        encoder_log.flush()
+                        await encoder_log.write(line.strip('\r\n') + '\n')
+                        await encoder_log.flush()
 
                 # ライブストリームのステータスを取得
                 livestream_status = self.livestream.getStatus()
@@ -1012,7 +1013,7 @@ class LiveEncodingTask:
 
             # タスクを終える前にエンコーダーのログファイルを閉じる
             if CONFIG['general']['debug_encoder'] is True and encoder_log is not None:
-                encoder_log.close()
+                await encoder_log.close()
 
         # タスクを非同期で実行
         asyncio.create_task(EncoderObServer())

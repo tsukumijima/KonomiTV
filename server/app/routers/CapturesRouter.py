@@ -74,7 +74,7 @@ async def CaptureUploadAPI(
 
     # キャプチャを保存
     try:
-        with open(filepath, 'wb') as buffer:
+        with await asyncio.to_thread(open, filepath, mode='wb') as buffer:
             await asyncio.to_thread(shutil.copyfileobj, image.file, buffer)
     except PermissionError:
         Logging.error('[CapturesRouter][CaptureUploadAPI] Permission denied to save the file.')
