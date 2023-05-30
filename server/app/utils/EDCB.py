@@ -9,6 +9,7 @@ import sys
 import time
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
+from io import BufferedReader
 from typing import Any, Callable, cast, ClassVar
 
 from app.constants import CONFIG
@@ -21,7 +22,7 @@ class PipeStreamReader:
     内部で Win32API の CreateFile に渡すフラグが不適切で使い物にならないためつなぎとして用意したもの
     """
 
-    def __init__(self, pipe: Any, executor: ThreadPoolExecutor, loop: Any):
+    def __init__(self, pipe: BufferedReader, executor: ThreadPoolExecutor, loop: asyncio.AbstractEventLoop) -> None:
         self.__pipe = pipe
         self.__executor = executor
         self.__loop = loop
