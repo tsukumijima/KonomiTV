@@ -902,6 +902,8 @@ class LiveEncodingTask:
                 ## FFmpeg と HWEncC のログが衝突して行の先頭が欠けることがあるので、できるだけ多く弾けるように部分一致にしている
                 if (('removing 2 bytes from input bitstream not read by decoder.' not in line) and
                     ('Delay between the' not in line) and
+                    ('[h264_metadata' not in line) and
+                    ('[hevc_metadata' not in line) and
                     ('packet in the muxing queue' not in line) and ('ing output' not in line) and
                     ('ng output' != line) and ('g output' != line) and (' output' != line) and ('output' != line) and
                     ('utput' != line) and ('tput' != line) and ('put' != line) and ('ut' != line) and ('t' != line) and
