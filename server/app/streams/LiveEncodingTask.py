@@ -557,7 +557,6 @@ class LiveEncodingTask:
                     timeout = aiohttp.ClientTimeout(connect=15, sock_connect=15, sock_read=15)
                 )
             except (aiohttp.ClientConnectorError, asyncio.TimeoutError):
-                await session.close()
 
                 # 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないならチューナーへの接続に失敗したものとする
                 if program_present is None or program_present.isOffTheAirProgram():
@@ -579,6 +578,7 @@ class LiveEncodingTask:
                     self.livestream.segmenter = None
 
                 # エンコードタスクを停止する
+                await session.close()
                 return
 
             # 放送波の MPEG2-TS の受信元の StreamReader として設定
@@ -725,6 +725,9 @@ class LiveEncodingTask:
                 cast(asyncio.StreamWriter, tsreadex.stdin).close()
             except OSError:
                 pass
+
+            ## 並行している別の非同期タスクとのタイミングの関係で 0.1 秒待ってからクリーンアップする
+            await asyncio.sleep(0.1)
 
             # EDCB バックエンド: チューナーとのストリーミング接続を閉じる
             ## チャンネル切り替え時に再利用するため、ここではチューナー自体は閉じない
@@ -1071,9 +1074,9 @@ class LiveEncodingTask:
                         if program_present is None or program_present.isOffTheAirProgram():
                             self.livestream.setStatus('Offline', 'この時間は放送を休止しています。(E-11)')
 
-                        # それ以外なら、チューナーへの接続に失敗したものとする
+                        # それ以外は受信エラーとする
                         else:
-                            self.livestream.setStatus('Offline', 'チューナーへの接続に失敗しました。チューナー側に何らかの問題があるかもしれません。(E-11)')
+                            self.livestream.setStatus('Offline', 'チューナーからの放送波の受信がタイムアウトしました。チューナー側に何らかの問題があるかもしれません。(E-11)')
 
                 # Mirakurun の Service Stream API からエラーが返された場合
                 if CONFIG['general']['backend'] == 'Mirakurun' and response is not None and response.status != 200:
