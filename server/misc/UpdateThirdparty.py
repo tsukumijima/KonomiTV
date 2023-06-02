@@ -11,6 +11,7 @@ import py7zr
 import re
 import requests
 import subprocess
+import sys
 import tarfile
 import tempfile
 import typer
@@ -160,16 +161,24 @@ def main(
 
     # 最後に server/thirdparty/ を削除した後、インストールディレクトリ直下から server/ に移動する
     ## この処理のみ、subprocess で外部コマンドで実行する必要がある (実行中の Python 自身を上書きするため)
+    ## このプロセスが終了した1秒後に非同期で実行される
     if platform_type == 'Windows':
-        subprocess.run((
-            f'rmdir /S /Q {str(INSTALLED_DIR / "server/thirdparty")} &&'
-            f'move {str(INSTALLED_DIR / "thirdparty")} {str(INSTALLED_DIR / "server")}'
-        ), shell=True)
+        command = (
+            f'rmdir /S /Q {str(INSTALLED_DIR / "server/thirdparty")} > nul &&'
+            f'move /Y {str(INSTALLED_DIR / "thirdparty")} {str(INSTALLED_DIR / "server")} > nul'
+        )
     elif platform_type == 'Linux':
-        subprocess.run((
+        command = (
             f'sudo rm -rf {str(INSTALLED_DIR / "server/thirdparty")} &&'
             f'sudo mv {str(INSTALLED_DIR / "thirdparty")} {str(INSTALLED_DIR / "server")}'
-        ), shell=True)
+        )
+
+    def RunCommandLater(command: str, wait_time: int):
+        if sys.platform.startswith('win32'):
+            subprocess.Popen(f"ping localhost -n {wait_time + 1} > nul && {command}", shell=True)
+        else:
+            subprocess.Popen(f"sleep {wait_time} && {command}", shell=True)
+    RunCommandLater(command, 1)
 
 
 if __name__ == '__main__':
