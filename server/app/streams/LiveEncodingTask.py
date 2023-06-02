@@ -702,7 +702,7 @@ class LiveEncodingTask:
 
                             # ストリームデータを tsreadex の標準入力に書き込む
                             cast(asyncio.StreamWriter, tsreadex.stdin).write(chunk)
-                            task_group.create_task(asyncio.wait_for(cast(asyncio.StreamWriter, tsreadex.stdin).drain(), timeout=1.0))
+                            task_group.create_task(cast(asyncio.StreamWriter, tsreadex.stdin).drain())
 
                             # 生の放送波の TS パケットを PSI/SI データアーカイバーに送信する
                             if self.livestream.psi_data_archiver is not None:
