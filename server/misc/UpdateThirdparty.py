@@ -174,7 +174,7 @@ def main(
         )
 
     def RunCommandLater(command: str, wait_time: int):
-        if sys.platform.startswith('win32'):
+        if sys.platform == 'win32':
             subprocess.Popen(f"ping localhost -n {wait_time + 1} > nul && {command}", shell=True)
         else:
             subprocess.Popen(f"sleep {wait_time} && {command}", shell=True)
