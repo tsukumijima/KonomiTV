@@ -3,11 +3,14 @@
 # Usage: pipenv run python -m misc.ResetAerichMigration
 
 import asyncio
+import typer
 from aerich import Command
 from tortoise import Tortoise
 
 from app.constants import DATABASE_CONFIG
 
+
+app = typer.Typer()
 
 async def main():
 
@@ -29,5 +32,9 @@ async def main():
     await Tortoise.close_connections()
     print('Done.')
 
-if __name__ == '__main__':
+@app.command()
+def run():
     asyncio.run(main())
+
+if __name__ == '__main__':
+    app()

@@ -1,5 +1,4 @@
 
-import argparse
 import asyncio
 import atexit
 import logging
@@ -10,6 +9,7 @@ import re
 import requests
 import subprocess
 import sys
+import typer
 import uvicorn
 import uvicorn.logging
 from pathlib import Path
@@ -29,16 +29,18 @@ from app.constants import (
 )
 
 
-def main():
+app = typer.Typer()
 
-    # 引数解析
-    parser = argparse.ArgumentParser(
-        formatter_class = argparse.RawTextHelpFormatter,
-        description = 'KonomiTV: Kept Organized, Notably Optimized, Modern Interface TV media server',
-    )
-    parser.add_argument('--reload', action='store_true', help='start uvicorn in auto-reload mode (Linux only)')
-    parser.add_argument('--version', action='version', help='show version information', version=f'KonomiTV version {VERSION}')
-    args = parser.parse_args()
+def version(value: bool):
+    if value is True:
+        typer.echo(f'KonomiTV version {VERSION}')
+        raise typer.Exit()
+
+@app.command(help='KonomiTV: Kept Organized, Notably Optimized, Modern Interface TV media server')
+def main(
+    reload: bool = typer.Option(False, '--reload', help='Start Uvicorn in auto-reload mode. (Linux only)'),
+    version: bool = typer.Option(None, '--version', callback=version, is_eager=True, help='Show version information.'),
+):
 
     # 前回のログをすべて削除
     try:
@@ -268,8 +270,7 @@ def main():
 
     # Uvicorn を自動リロードモードで起動するかのフラグ
     ## 基本的に開発時用で、コードを変更するとアプリケーションサーバーを自動で再起動してくれる
-    is_reload: bool = args.reload
-    if sys.platform == 'win32' and is_reload is True:
+    if sys.platform == 'win32' and reload is True:
         logger.warning('Python の asyncio の技術的な制約により、Windows では自動リロードモードは事実上利用できません。')
         logger.warning('なお、外部プロセス実行を伴うストリーミング視聴を行わなければ一応 Windows でも機能します。')
 
@@ -285,9 +286,9 @@ def main():
         ## 指定されたポートに 10 を足したもの
         port = port + 10,
         # 自動リロードモードモードで起動するか
-        reload = is_reload,
+        reload = reload,
         # リロードするフォルダ
-        reload_dirs = str(BASE_DIR / 'app') if is_reload else None,
+        reload_dirs = str(BASE_DIR / 'app') if reload else None,
         # ロギングの設定
         log_config = LOGGING_CONFIG,
         # インターフェイスとして ASGI3 を選択
@@ -305,4 +306,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    app()
