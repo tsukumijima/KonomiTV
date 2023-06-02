@@ -6,6 +6,7 @@ import logging
 import logging.config
 import platform
 import psutil
+import re
 import requests
 import subprocess
 import sys
@@ -183,6 +184,20 @@ def main():
         # H.265/HEVC に対応していない環境では、通信節約モードが利用できない旨を出力する
         if 'H.265/HEVC' not in result_stdout:
             logger.warning(f'お使いの環境では {CONFIG["general"]["encoder"]} での H.265/HEVC エンコードがサポートされていないため、通信節約モードは利用できません。')
+
+    # エンコーダーのバージョン情報を取得する
+    ## バージョン情報は出力の1行目にある
+    result = subprocess.run(
+        [LIBRARY_PATH[CONFIG['general']['encoder']], '--version'],
+        stdout = subprocess.PIPE,
+        stderr = subprocess.STDOUT,
+    )
+    encoder_version = result.stdout.decode('utf-8').split('\n')[0]
+    ## Copyright (FFmpeg) と by rigaya (HWEncC) 以降の文字列を削除
+    encoder_version = re.sub(r' Copyright.*$', '', encoder_version)
+    encoder_version = re.sub(r' by rigaya.*$', '', encoder_version)
+    encoder_version = encoder_version.replace('ffmpeg', 'FFmpeg').strip()
+    logger.info(f'Encoder: {encoder_version}')
 
     # ***** EDCB / Mirakurun バックエンドへの接続確認 *****
 
