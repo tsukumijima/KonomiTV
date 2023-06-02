@@ -297,8 +297,8 @@ class LiveEncodingTask:
 
         ## ヘッダ情報制御 (GOP ごとにヘッダを再送する)
         ## VCEEncC ではデフォルトで有効であり、当該オプションは存在しない
-        if encoder_type != 'VCEEncC':
-            options.append('--repeat-headers')
+        # if encoder_type != 'VCEEncC':
+        #     options.append('--repeat-headers')
 
         ## 品質
         if encoder_type == 'QSVEncC':
@@ -1002,6 +1002,9 @@ class LiveEncodingTask:
                         self.livestream.setStatus('Restart', '入力ストリームの解析に失敗しました。エンコードタスクを再起動します。(ER-02H)')
                     elif 'finished with error!' in line:
                         # 捕捉されないエラー
+                        ## Controller 非同期タスク側で完全にエンコーダープロセスが落ちたタイミングで HEVC 非対応かなどを判断しているため、
+                        ## ここで 0.5 秒待機してから実行する
+                        await asyncio.sleep(0.5)
                         ## エンコーダーの再起動で復帰できる可能性があるので、エンコードタスクを再起動する
                         self.livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。エンコードタスクを再起動します。(ER-03H)')
                         # 直近 150 件のログを表示
