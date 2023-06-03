@@ -32,7 +32,7 @@ env:
   # QSVEncC・NVEncC・VCEEncC・rkmppenc のバージョン
   QSVENCC_VERSION: '7.42'
   NVENCC_VERSION: '7.26'
-  VCEENCC_VERSION: '8.12'
+  VCEENCC_VERSION: '8.13'
   RKMPPENC_VERSION: '0.01'
   # ビルド対象の tsreadex・psisiarc・Akebi のコミットハッシュ
   TSREADEX_COMMIT_HASH: 'fd72ef31b94832ee8e761800f9f5d5a8e66c8a22'
