@@ -35,26 +35,26 @@ class Program(models.Model):
     id: str = fields.CharField(255, pk=True)  # type: ignore
     channel: fields.ForeignKeyRelation[Channel] = fields.ForeignKeyField('models.Channel', related_name='programs', index=True)
     channel_id: str
-    network_id: int = fields.IntField()
-    service_id: int = fields.IntField()
-    event_id: int = fields.IntField()
-    title: str = fields.TextField()
-    description: str = fields.TextField()
-    detail: dict[str, str] = fields.JSONField(encoder=lambda x: json.dumps(x, ensure_ascii=False))
+    network_id: int = fields.IntField()  # type: ignore
+    service_id: int = fields.IntField()  # type: ignore
+    event_id: int = fields.IntField()  # type: ignore
+    title: str = fields.TextField()  # type: ignore
+    description: str = fields.TextField()  # type: ignore
+    detail: dict[str, str] = fields.JSONField(encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
     start_time = fields.DatetimeField(index=True)
     end_time = fields.DatetimeField(index=True)
-    duration: float = fields.FloatField()
+    duration: float = fields.FloatField()  # type: ignore
     is_free: bool = fields.BooleanField()  # type: ignore
-    genres: list[dict[str, str]] = fields.JSONField(encoder=lambda x: json.dumps(x, ensure_ascii=False))
-    video_type: str | None = fields.TextField(null=True)
-    video_codec: str | None = fields.TextField(null=True)
-    video_resolution: str | None = fields.TextField(null=True)
-    primary_audio_type: str = fields.TextField()
-    primary_audio_language: str = fields.TextField()
-    primary_audio_sampling_rate: str = fields.TextField()
-    secondary_audio_type: str | None = fields.TextField(null=True)
-    secondary_audio_language: str | None = fields.TextField(null=True)
-    secondary_audio_sampling_rate: str | None = fields.TextField(null=True)
+    genres: list[dict[str, str]] = fields.JSONField(encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
+    video_type: str | None = fields.TextField(null=True)  # type: ignore
+    video_codec: str | None = fields.TextField(null=True)  # type: ignore
+    video_resolution: str | None = fields.TextField(null=True)  # type: ignore
+    primary_audio_type: str = fields.TextField()  # type: ignore
+    primary_audio_language: str = fields.TextField()  # type: ignore
+    primary_audio_sampling_rate: str = fields.TextField()  # type: ignore
+    secondary_audio_type: str | None = fields.TextField(null=True)  # type: ignore
+    secondary_audio_language: str | None = fields.TextField(null=True)  # type: ignore
+    secondary_audio_sampling_rate: str | None = fields.TextField(null=True)  # type: ignore
 
 
     @classmethod

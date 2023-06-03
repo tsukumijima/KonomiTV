@@ -34,14 +34,14 @@ class Channel(models.Model):
     # テーブル設計は Notion を参照のこと
     id: str = fields.CharField(255, pk=True)  # type: ignore
     display_channel_id: str = fields.CharField(255, unique=True)  # type: ignore
-    network_id: int = fields.IntField()
-    service_id: int = fields.IntField()
-    transport_stream_id: int | None = fields.IntField(null=True)
-    remocon_id: int = fields.IntField()
+    network_id: int = fields.IntField()  # type: ignore
+    service_id: int = fields.IntField()  # type: ignore
+    transport_stream_id: int | None = fields.IntField(null=True)  # type: ignore
+    remocon_id: int = fields.IntField()  # type: ignore
     channel_number: str = fields.CharField(255)  # type: ignore
     type: str = fields.CharField(255)  # type: ignore
-    name: str = fields.TextField()
-    jikkyo_force: int | None = fields.IntField(null=True)
+    name: str = fields.TextField()  # type: ignore
+    jikkyo_force: int | None = fields.IntField(null=True)  # type: ignore
     is_subchannel: bool = fields.BooleanField()  # type: ignore
     is_radiochannel: bool = fields.BooleanField()  # type: ignore
     is_watchable: bool = fields.BooleanField()  # type: ignore

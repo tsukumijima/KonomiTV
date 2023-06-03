@@ -17,14 +17,14 @@ class TwitterAccount(models.Model):
         table: str = 'twitter_accounts'
 
     # テーブル設計は Notion を参照のこと
-    id: int = fields.IntField(pk=True)
+    id: int = fields.IntField(pk=True)  # type: ignore
     user: fields.ForeignKeyRelation[User] = fields.ForeignKeyField('models.User', related_name='twitter_accounts')
     user_id: int
-    name: str = fields.TextField()
-    screen_name: str = fields.TextField()
-    icon_url: str = fields.TextField()
-    access_token: str = fields.TextField()
-    access_token_secret: str = fields.TextField()
+    name: str = fields.TextField()  # type: ignore
+    screen_name: str = fields.TextField()  # type: ignore
+    icon_url: str = fields.TextField()  # type: ignore
+    access_token: str = fields.TextField()  # type: ignore
+    access_token_secret: str = fields.TextField()  # type: ignore
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
