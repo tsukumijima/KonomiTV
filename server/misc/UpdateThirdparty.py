@@ -164,10 +164,12 @@ def main(
     print()
 
     # 最後に server/thirdparty/ を削除した後、インストールディレクトリ直下から server/ に移動する
-    ## この処理のみ、subprocess で外部コマンドで実行する必要がある (実行中の Python 自身を上書きするため)
+    ## この処理のみ、subprocess で外部コマンドで実行する必要がある (実行中の Python の実行ファイル自身を上書きするため)
     ## このプロセスが終了した1秒後に非同期で実行される
     if platform_type == 'Windows':
         command = (
+            'powershell -Command "Get-Process | Where-Object { $_.Path -eq \'' +
+                str(INSTALLED_DIR / 'server\\thirdparty\\Python\\python.exe') + '\' } | Stop-Process -Force" &&'
             f'rmdir /S /Q {str(INSTALLED_DIR / "server/thirdparty")} > nul &&'
             f'move /Y {str(INSTALLED_DIR / "thirdparty")} {str(INSTALLED_DIR / "server")} > nul'
         )
@@ -179,9 +181,16 @@ def main(
 
     def RunCommandLater(command: str, wait_time: int):
         if sys.platform == 'win32':
-            subprocess.Popen(f"ping localhost -n {wait_time + 1} > nul && {command}", shell=True)
+            subprocess.Popen(
+                f"ping localhost -n {wait_time + 1} > nul && {command}",
+                shell = True,
+                creationflags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
+            )
         else:
-            subprocess.Popen(f"sleep {wait_time} && {command}", shell=True)
+            subprocess.Popen(
+                f"sleep {wait_time} && {command}",
+                shell = True,
+            )
     RunCommandLater(command, 2)  # 2秒後に実行する
     sys.exit(0)
 
