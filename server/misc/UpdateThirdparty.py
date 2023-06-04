@@ -5,7 +5,7 @@
 # 最新版のナイトリービルドをダウンロードする場合は、DOWNLOAD_VERSION に latest を指定する (開発版ではナイトリービルドを推奨)
 # 安定版をダウンロードする場合は、DOWNLOAD_VERSION にバージョン番号を指定する (例: 0.7.1)
 
-import os
+import elevate
 import platform
 import py7zr
 import re
@@ -55,8 +55,12 @@ def main(
 
     # ***** 以下はアップデーターのサードパーティーライブラリの更新処理をベースに実装したもの *****
 
-    platform_type: Literal['Windows', 'Linux'] = 'Windows' if os.name == 'nt' else 'Linux'
+    platform_type: Literal['Windows', 'Linux'] = 'Windows' if sys.platform == 'win32' else 'Linux'
     is_arm_device = platform.machine() == 'aarch64'
+
+    # Linux では elevate で root 権限に昇格 (KonomiTV サーバー自体が root 権限で動作しているため)
+    if platform_type == 'Linux':
+        elevate.elevate(graphical=False)
 
     # サードパーティーライブラリを随時ダウンロードし、進捗を表示
     # ref: https://github.com/Textualize/rich/blob/master/examples/downloader.py
@@ -169,8 +173,8 @@ def main(
         )
     elif platform_type == 'Linux':
         command = (
-            f'sudo rm -rf {str(INSTALLED_DIR / "server/thirdparty")} &&'
-            f'sudo mv {str(INSTALLED_DIR / "thirdparty")} {str(INSTALLED_DIR / "server")}'
+            f'rm -rf {str(INSTALLED_DIR / "server/thirdparty")} &&'
+            f'mv {str(INSTALLED_DIR / "thirdparty")} {str(INSTALLED_DIR / "server")}'
         )
 
     def RunCommandLater(command: str, wait_time: int):
@@ -178,7 +182,8 @@ def main(
             subprocess.Popen(f"ping localhost -n {wait_time + 1} > nul && {command}", shell=True)
         else:
             subprocess.Popen(f"sleep {wait_time} && {command}", shell=True)
-    RunCommandLater(command, 1)
+    RunCommandLater(command, 2)  # 2秒後に実行する
+    sys.exit(0)
 
 
 if __name__ == '__main__':
