@@ -297,8 +297,8 @@ class LiveEncodingTask:
 
         ## ヘッダ情報制御 (GOP ごとにヘッダを再送する)
         ## VCEEncC ではデフォルトで有効であり、当該オプションは存在しない
-        # if encoder_type != 'VCEEncC':
-        #     options.append('--repeat-headers')
+        if encoder_type != 'VCEEncC':
+            options.append('--repeat-headers')
 
         ## 品質
         if encoder_type == 'QSVEncC':
