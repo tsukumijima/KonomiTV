@@ -24,6 +24,8 @@ DATA_DIR = BASE_DIR / 'data'
 ACCOUNT_ICON_DIR = DATA_DIR / 'account-icons'
 ## サムネイル画像があるディレクトリ
 THUMBNAIL_DIR = DATA_DIR / 'thumbnails'
+## サーバー終了時に再起動が必要なことを伝えるロックファイルのパス
+RESTART_REQUIRED_LOCK_PATH = DATA_DIR / 'restart_required.lock'
 
 # スタティックディレクトリ
 STATIC_DIR = BASE_DIR / 'static'

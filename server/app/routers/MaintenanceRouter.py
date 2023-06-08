@@ -1,9 +1,15 @@
 
+import os
+import psutil
+import signal
+import sys
+import threading
+import time
 from fastapi import APIRouter
-# from fastapi import BackgroundTasks
 from fastapi import Depends
 from fastapi import status
 
+from app.constants import RESTART_REQUIRED_LOCK_PATH
 from app.models import Channel
 from app.models import Program
 from app.models import TwitterAccount
@@ -38,19 +44,37 @@ async def UpdateDatabaseAPI(
     await TwitterAccount.updateAccountInformation()
 
 
-# @router.post(
-#     '/restart',
-#     summary = 'サーバー再起動 API',
-#     status_code = status.HTTP_204_NO_CONTENT,
-# )
-# async def ServerRestartAPI(
-#     background_tasks: BackgroundTasks,
-#     current_user: User = Depends(GetCurrentAdminUser),
-# ):
-#     """
-#     KonomiTV サーバーを再起動する。<br>
-#     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
-#     """
+@router.post(
+    '/restart',
+    summary = 'サーバー再起動 API',
+    status_code = status.HTTP_204_NO_CONTENT,
+)
+def ServerRestartAPI(
+    current_user: User = Depends(GetCurrentAdminUser),
+):
+    """
+    KonomiTV サーバーを再起動する。<br>
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
+    """
 
-#     # バックグラウンドでサーバーの再起動を行う
-#     background_tasks.add_task(ServerManager.restart)
+    def Restart():
+
+        # シグナルの送信対象の PID
+        ## --reload フラグが付与されている場合のみ、Reloader の起動元である親プロセスの PID を利用する
+        target_pid = os.getpid()
+        if '--reload' in sys.argv:
+            target_pid = psutil.Process(target_pid).parent().pid
+
+        # 現在の Uvicorn サーバーを終了する
+        os.kill(target_pid, signal.SIGINT)
+
+        # Waiting for connections to close. となって終了できない場合があるので、少し待ってからもう一度シグナルを送る
+        time.sleep(0.5)
+        os.kill(target_pid, signal.SIGINT)
+
+        # Uvicorn 終了後に再起動が必要であることを示すロックファイルを作成する
+        # Uvicorn 終了後、KonomiTV.py でロックファイルの存在が確認され、もし存在していればサーバー再起動が行われる
+        RESTART_REQUIRED_LOCK_PATH.touch(exist_ok=True)
+
+    # バックグラウンドでサーバー再起動を開始
+    threading.Thread(target=Restart).start()

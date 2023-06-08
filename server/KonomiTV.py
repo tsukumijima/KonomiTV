@@ -3,12 +3,14 @@ import asyncio
 import atexit
 import logging
 import logging.config
+import os
 import platform
 import psutil
 import re
 import requests
 import subprocess
 import sys
+import time
 import typer
 import uvicorn
 import uvicorn.logging
@@ -26,6 +28,7 @@ from app.constants import (
     KONOMITV_SERVER_LOG_PATH,
     LIBRARY_PATH,
     LOGGING_CONFIG,
+    RESTART_REQUIRED_LOCK_PATH,
     VERSION,
 )
 
@@ -43,7 +46,7 @@ def main(
     version: bool = typer.Option(None, '--version', callback=version, is_eager=True, help='Show version information.'),
 ):
 
-    # 前回のログをすべて削除
+    # 前回のログをすべて削除する
     try:
         if KONOMITV_SERVER_LOG_PATH.exists():
             KONOMITV_SERVER_LOG_PATH.unlink()
@@ -53,6 +56,10 @@ def main(
             AKEBI_LOG_PATH.unlink()
     except PermissionError:
         pass
+
+    # もし何らかの理由でロックファイルが残っていた場合は削除する
+    if RESTART_REQUIRED_LOCK_PATH.exists():
+        RESTART_REQUIRED_LOCK_PATH.unlink()
 
     # Uvicorn を起動する前に Uvicorn のロガーを使えるようにする
     logging.config.dictConfig(LOGGING_CONFIG)
@@ -317,6 +324,20 @@ def main(
     else:
         # 通常時
         server.run()
+
+    # HTTPS リバースプロキシを終了
+    reverse_proxy_process.terminate()
+
+    # この時点ではタイミングの関係でまだロックファイルが作成されていないことがあるので、1秒待機する
+    time.sleep(1)
+
+    # もしこの時点で再起動が必要であることを示すロックファイルが存在する場合、
+    # os.execv で現在のプロセスを新規に起動したプロセスに置き換える
+    ## これにより、KonomiTV サーバーが再起動される
+    if RESTART_REQUIRED_LOCK_PATH.exists():
+        RESTART_REQUIRED_LOCK_PATH.unlink()
+        logger.warning('Server restart requested. Restarting...')
+        os.execv(sys.executable, [sys.executable] + sys.argv)
 
 
 if __name__ == '__main__':
