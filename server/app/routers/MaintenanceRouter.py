@@ -9,7 +9,6 @@ from app.models import Program
 from app.models import TwitterAccount
 from app.models import User
 from app.routers.UsersRouter import GetCurrentAdminUser
-from app.utils import ServerManager
 
 
 # ルーター
@@ -39,19 +38,19 @@ async def UpdateDatabaseAPI(
     await TwitterAccount.updateAccountInformation()
 
 
-@router.post(
-    '/restart',
-    summary = 'サーバー再起動 API',
-    status_code = status.HTTP_204_NO_CONTENT,
-)
-async def ServerRestartAPI(
-    background_tasks: BackgroundTasks,
-    current_user: User = Depends(GetCurrentAdminUser),
-):
-    """
-    KonomiTV サーバーを再起動する。<br>
-    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
-    """
+# @router.post(
+#     '/restart',
+#     summary = 'サーバー再起動 API',
+#     status_code = status.HTTP_204_NO_CONTENT,
+# )
+# async def ServerRestartAPI(
+#     background_tasks: BackgroundTasks,
+#     current_user: User = Depends(GetCurrentAdminUser),
+# ):
+#     """
+#     KonomiTV サーバーを再起動する。<br>
+#     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
+#     """
 
-    # バックグラウンドでサーバーの再起動を行う
-    background_tasks.add_task(ServerManager.restart)
+#     # バックグラウンドでサーバーの再起動を行う
+#     background_tasks.add_task(ServerManager.restart)

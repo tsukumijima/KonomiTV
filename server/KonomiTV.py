@@ -15,6 +15,7 @@ import uvicorn.logging
 from pathlib import Path
 from pydantic import ValidationError
 from typing import Any, cast
+from uvicorn.supervisors.watchfilesreload import WatchFilesReload
 
 from app.constants import (
     AKEBI_LOG_PATH,
@@ -299,10 +300,23 @@ def main(
         loop = ('asyncio' if sys.platform == 'win32' else 'uvloop'),
     )
 
+    # Uvicorn のサーバーインスタンスを初期化
+    server = uvicorn.Server(config)
+
     # Uvicorn を起動
-    ## 以降のサーバーの管理は ServerManager が行う
-    from app.utils import ServerManager
-    ServerManager.run(config)
+    ## 自動リロードモードと通常時で呼び方が異なる
+    ## ここで終了までブロッキングされる（非同期 I/O のエントリーポイント）
+    ## ref: https://github.com/encode/uvicorn/blob/0.18.2/uvicorn/main.py#L568-L575
+    if config.should_reload:
+        # 自動リロードモード (Linux 専用)
+        ## Windows で自動リロードモードを機能させるには SelectorEventLoop が必要だが、外部プロセス実行に利用している
+        ## asyncio.subprocess.create_subprocess_exec() は ProactorEventLoop でないと動作しないため、Windows では事実上利用できない
+        ## 外部プロセス実行を伴うストリーミング視聴を行わなければ一応 Windows でも機能する
+        sock = config.bind_socket()
+        WatchFilesReload(config, target=server.run, sockets=[sock]).run()
+    else:
+        # 通常時
+        server.run()
 
 
 if __name__ == '__main__':
