@@ -134,7 +134,11 @@ class LiveEncodingTask:
 
         ## ビットレートと品質
         options.append(f'-flags +cgop -vb {QUALITY[quality].video_bitrate} -maxrate {QUALITY[quality].video_bitrate_max}')
-        options.append('-profile:v main -preset veryfast -aspect 16:9')
+        options.append('-preset veryfast -aspect 16:9')
+        if QUALITY[quality].is_hevc is True:
+            options.append('-profile:v main')
+        else:
+            options.append('-profile:v high')
 
         ## フル HD 放送が行われているチャンネルかつ、指定された品質の解像度が 1440×1080 (1080p) の場合のみ、
         ## 特別に縦解像度を 1920 に変更してフル HD (1920×1080) でエンコードする
