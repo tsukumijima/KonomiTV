@@ -350,12 +350,15 @@ async def LiveMPEGTSStreamAPI(
     # ref: https://github.com/encode/starlette/pull/839
     from starlette.types import Receive
     async def listen_for_disconnect_monkeypatch(receive: Receive) -> None:
-        while True:
-            message = await receive()
-            if message['type'] == 'http.disconnect':
-                # 上のループでライブストリームへの接続を切断できるようにしばらく待つ
-                await asyncio.sleep(5)
-                break
+        try:
+            while True:
+                message = await receive()
+                if message['type'] == 'http.disconnect':
+                    # 上のループでライブストリームへの接続を切断できるようにしばらく待つ
+                    await asyncio.sleep(5)
+                    break
+        except asyncio.CancelledError:
+            pass
     response.listen_for_disconnect = listen_for_disconnect_monkeypatch
 
     return response
