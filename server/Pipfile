@@ -24,6 +24,7 @@ pillow = "*"
 psutil = "*"
 puremagic = "*"
 py7zr = "*"
+pymediainfo = "*"
 python-jose = {extras = ["cryptography"], version = "*"}
 python-multipart = "*"
 pywin32 = {version = ">=305", sys_platform = "== 'win32'"}
