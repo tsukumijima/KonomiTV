@@ -10,7 +10,6 @@ if sys.platform != 'win32':
     sys.exit(1)
 
 # 標準モジュール
-import ctypes
 import psutil
 import subprocess
 import time
@@ -23,6 +22,8 @@ from typing import Any, cast
 # pywin32 モジュール
 import servicemanager
 import win32api
+import win32con
+import win32job
 import win32security
 import win32service
 import win32serviceutil
@@ -47,8 +48,8 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
     _exe_args_ = f'-u -E "{BASE_DIR / "KonomiTV-Service.py"}"'  # サービス起動時の引数 (この KonomiTV-Service.py への絶対パス)
 
 
-    @classmethod
-    def getNetworkDriveList(cls) -> list[dict[str, str]]:
+    @staticmethod
+    def GetNetworkDriveList() -> list[dict[str, str]]:
         """
         レジストリからログオン中のユーザーがマウントしているネットワークドライブのリストを取得する
 
@@ -89,6 +90,32 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
         return network_drives
 
 
+    @staticmethod
+    def SendCtrlCEvent(process_id: int) -> None:
+        """
+        指定したプロセス ID のプロセスに Ctrl+C イベントを送信する
+        Windows サービス上からはなぜか process.send_signal() や os.kill() が使えない
+        そのため、Windows API を直で叩いて Ctrl+C のシグナル (SIGINT) を送る
+
+        Args:
+            process_id (int): プロセス ID
+        """
+
+        # 新しいジョブオブジェクトを作成
+        job = cast(int, win32job.CreateJobObject(None, ''))
+
+        # プロセスハンドルを取得
+        process_handle = win32api.OpenProcess(win32con.PROCESS_ALL_ACCESS, False, process_id)
+        win32job.AssignProcessToJobObject(job, process_handle)
+
+        # Ctrl+C イベントを送信
+        try:
+            win32api.GenerateConsoleCtrlEvent(win32con.CTRL_C_EVENT, 0)
+        finally:
+            win32api.CloseHandle(process_handle)
+            win32api.CloseHandle(job)
+
+
     def SvcDoRun(self):
         """ Windows サービスのメインループ """
 
@@ -100,7 +127,7 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
         ## そこで、レジストリから取得したネットワークドライブのリストからネットワークドライブをマウントする
         ## マウントには時間がかかることがあるため、threading で並列に実行する (ThreadPoolExecutor はなぜか動かなかった)
         threads: list[threading.Thread] = []
-        for network_drive in self.getNetworkDriveList():
+        for network_drive in self.GetNetworkDriveList():
 
             # net use コマンドでネットワークドライブをマウントするスレッドを作成し、リストに追加
             def run():
@@ -109,7 +136,7 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
                         ['net', 'use', f'{network_drive["drive_letter"]}:', network_drive['remote_path']],
                         stdout = subprocess.DEVNULL,  # 標準出力を表示しない
                         stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-                        timeout = 3,  # マウントできたかに関わらず、3秒でタイムアウト
+                        timeout = 5,  # マウントできたかに関わらず、5秒でタイムアウト
                     )
                 except subprocess.TimeoutExpired:
                     pass  # タイムアウトになっても何もしない
@@ -166,27 +193,14 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
         self.is_running = False
         self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
 
-        ## Windows サービス上からはなぜか process.send_signal() や os.kill() が使えない
-        ## そのため、Windows API を直で叩いて Ctrl+C のシグナル (SIGINT) を送る
-        ## ref: https://gist.github.com/chikatoike/5424539
-        CTRL_C_EVENT = 0
-        ctypes.windll.kernel32.FreeConsole() # 現在のコンソールプロセスを解放
-        ctypes.windll.kernel32.AttachConsole(self.process.pid)  # Uvicorn のコンソールプロセスにアタッチ
-        ctypes.windll.kernel32.SetConsoleCtrlHandler(0, 1)  # これがないと自分自身も SIGINT で終了してしまう
-
-        # SIGINT を送って Uvicorn を終了させる
+        # CTRL_C_EVENT を送って Uvicorn を終了させる
         ## subprocess.terminate() だとシグナルではなく直接プロセスが終了されてしまうため、
         ## atexit などのシグナルベースのクリーンアップ処理が実行されない
-        ctypes.windll.kernel32.GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0)
+        self.SendCtrlCEvent(self.process.pid)
 
         # Waiting for connections to close. となって終了できない場合があるので、少し待ってからもう一度シグナルを送る
         time.sleep(0.5)
-        ctypes.windll.kernel32.GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0)
-
-        # 現在のコンソールプロセスを解放
-        ## これがないとイベントログに The Python service control handler failed. と謎のエラーが記録されてしまう
-        ## アタッチしたコンソールは解放するのがお作法なんだろうか…
-        ctypes.windll.kernel32.FreeConsole()
+        self.SendCtrlCEvent(self.process.pid)
 
         # 3秒待ってまだプロセスが終了していなければ、プロセスを強制終了する
         ## エンコードタスクが動作中の場合に起きやすい
@@ -194,9 +208,6 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
         time.sleep(3)
         if self.process.poll() is None:
             self.process.terminate()
-
-        # Windows サービスのステータスを停止中に設定
-        self.ReportServiceStatus(win32service.SERVICE_STOPPED)
 
 
 app = typer.Typer(help='KonomiTV Windows Service Launcher.')

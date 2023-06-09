@@ -61,7 +61,7 @@ def main():
                         ['net', 'use', f'{network_drive["drive_letter"]}:', network_drive['remote_path']],
                         stdout = subprocess.DEVNULL,  # 標準出力を表示しない
                         stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-                        timeout = 3,  # マウントできたかに関わらず、3秒でタイムアウト
+                        timeout = 5,  # マウントできたかに関わらず、5秒でタイムアウト
                     )
                 except subprocess.TimeoutExpired:
                     pass  # タイムアウトになっても何もしない
