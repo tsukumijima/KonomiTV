@@ -36,6 +36,26 @@ def GetPlatformEnvironment() -> Literal['Windows', 'Linux', 'Linux-Docker', 'Lin
     return environment
 
 
+def IsRunningAsWindowsService() -> bool:
+    """
+    現在のプロセスが Windows サービスとして実行されているかどうかを確認する
+
+    Returns:
+        bool: 現在のプロセスがサービスとして実行されていれば True、そうでなければ False
+    """
+
+    # 実行プラットフォームが Windows でない場合は False を返す
+    if sys.platform != "win32":
+        return False
+
+    # アクティブなウィンドウのハンドルを取得
+    import ctypes
+    hWnd = ctypes.windll.user32.GetForegroundWindow()
+
+    # ウィンドウのハンドルが取得できなければサービスとして実行されているとみなす
+    return hWnd == 0
+
+
 def Interlaced(n: int):
     import app.constants,codecs
     return list(map(lambda v:str(codecs.decode(''.join(list(reversed(v))).encode('utf8'),'hex'),'utf8'),format(int(open(app.constants.STATIC_DIR/'interlaced.dat').read(),0x10)<<8>>43,'x').split('abf01d')))[n-1]

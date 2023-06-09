@@ -331,12 +331,19 @@ def main(
     # この時点ではタイミングの関係でまだロックファイルが作成されていないことがあるので、1秒待機する
     time.sleep(1)
 
-    # もしこの時点で再起動が必要であることを示すロックファイルが存在する場合、
-    # os.execv で現在のプロセスを新規に起動したプロセスに置き換える
-    ## これにより、KonomiTV サーバーが再起動される
+    # もしこの時点で再起動が必要であることを示すロックファイルが存在する場合、KonomiTV サーバーを再起動する
+    ## このロックファイルは ServerRestartAPI によって作成される
     if RESTART_REQUIRED_LOCK_PATH.exists():
-        RESTART_REQUIRED_LOCK_PATH.unlink()
         logger.warning('Server restart requested. Restarting...')
+
+        # Windows サービスとして実行されている場合は、Windows サービス側で再起動処理が行われるので、ここでは何もしない
+        from app.utils import IsRunningAsWindowsService
+        if IsRunningAsWindowsService():
+            return
+
+        # os.execv() で現在のプロセスを新規に起動したプロセスに置き換える
+        ## os.execv() は戻らないので、事前にロックファイルを削除しておく
+        RESTART_REQUIRED_LOCK_PATH.unlink()
         os.execv(sys.executable, [sys.executable] + sys.argv)
 
 

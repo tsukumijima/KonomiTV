@@ -61,16 +61,22 @@ def ServerRestartAPI(
 
         # シグナルの送信対象の PID
         ## --reload フラグが付与されている場合のみ、Reloader の起動元である親プロセスの PID を利用する
-        target_pid = os.getpid()
+        target_process: psutil.Process = psutil.Process(os.getpid())
         if '--reload' in sys.argv:
-            target_pid = psutil.Process(target_pid).parent().pid
+            target_process = target_process.parent()
 
         # 現在の Uvicorn サーバーを終了する
-        os.kill(target_pid, signal.SIGINT)
+        if sys.platform == 'win32':
+            target_process.send_signal(signal.CTRL_C_EVENT)
+        else:
+            target_process.send_signal(signal.SIGINT)
 
         # Waiting for connections to close. となって終了できない場合があるので、少し待ってからもう一度シグナルを送る
         time.sleep(0.5)
-        os.kill(target_pid, signal.SIGINT)
+        if sys.platform == 'win32':
+            target_process.send_signal(signal.CTRL_C_EVENT)
+        else:
+            target_process.send_signal(signal.SIGINT)
 
         # Uvicorn 終了後に再起動が必要であることを示すロックファイルを作成する
         # Uvicorn 終了後、KonomiTV.py でロックファイルの存在が確認され、もし存在していればサーバー再起動が行われる
@@ -78,3 +84,42 @@ def ServerRestartAPI(
 
     # バックグラウンドでサーバー再起動を開始
     threading.Thread(target=Restart).start()
+
+
+@router.post(
+    '/shutdown',
+    summary = 'サーバー終了 API',
+    status_code = status.HTTP_204_NO_CONTENT,
+)
+def ServerShutdownAPI(
+    current_user: User = Depends(GetCurrentAdminUser),
+):
+    """
+    KonomiTV サーバーを終了する。<br>
+    なお、PM2 環境 / Docker 環境では、サーバー終了後に自動的にプロセスが再起動されるため、事実上 /api/maintenance/restart と等価。<br>
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
+    """
+
+    def Shutdown():
+
+        # シグナルの送信対象の PID
+        ## --reload フラグが付与されている場合のみ、Reloader の起動元である親プロセスの PID を利用する
+        target_process: psutil.Process = psutil.Process(os.getpid())
+        if '--reload' in sys.argv:
+            target_process = target_process.parent()
+
+        # 現在の Uvicorn サーバーを終了する
+        if sys.platform == 'win32':
+            target_process.send_signal(signal.CTRL_C_EVENT)
+        else:
+            target_process.send_signal(signal.SIGINT)
+
+        # Waiting for connections to close. となって終了できない場合があるので、少し待ってからもう一度シグナルを送る
+        time.sleep(0.5)
+        if sys.platform == 'win32':
+            target_process.send_signal(signal.CTRL_C_EVENT)
+        else:
+            target_process.send_signal(signal.SIGINT)
+
+    # バックグラウンドでサーバー終了を開始
+    threading.Thread(target=Shutdown).start()

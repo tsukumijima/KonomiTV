@@ -312,7 +312,7 @@ def GetNetworkDriveList() -> list[dict[str, str]]:
                     for sub_key in range(winreg.QueryInfoKey(key)[1]):
 
                         # 値の名前、データ、データ型を取得
-                        name, data, regtype = winreg.EnumValue(key, sub_key)
+                        name, data, _ = winreg.EnumValue(key, sub_key)
 
                         # リストに追加
                         if name == 'RemotePath':
