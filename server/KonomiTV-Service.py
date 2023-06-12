@@ -9,10 +9,10 @@ if sys.platform != 'win32':
     print('KonomiTV-Service.py is for Windows only. Doesn\'t work on Linux.')
     sys.exit(1)
 
-# 標準モジュール
+# 通常モジュール
 import psutil
+import requests
 import subprocess
-import time
 import threading
 import typer
 import winreg
@@ -22,8 +22,6 @@ from typing import Any, cast
 # pywin32 モジュール
 import servicemanager
 import win32api
-import win32con
-import win32job
 import win32security
 import win32service
 import win32serviceutil
@@ -90,32 +88,6 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
         return network_drives
 
 
-    @staticmethod
-    def SendCtrlCEvent(process_id: int) -> None:
-        """
-        指定したプロセス ID のプロセスに Ctrl+C イベントを送信する
-        Windows サービス上からはなぜか process.send_signal() や os.kill() が使えない
-        そのため、Windows API を直で叩いて Ctrl+C のシグナル (SIGINT) を送る
-
-        Args:
-            process_id (int): プロセス ID
-        """
-
-        # 新しいジョブオブジェクトを作成
-        job = cast(int, win32job.CreateJobObject(None, ''))
-
-        # プロセスハンドルを取得
-        process_handle = win32api.OpenProcess(win32con.PROCESS_ALL_ACCESS, False, process_id)
-        win32job.AssignProcessToJobObject(job, process_handle)
-
-        # Ctrl+C イベントを送信
-        try:
-            win32api.GenerateConsoleCtrlEvent(win32con.CTRL_C_EVENT, 0)
-        finally:
-            win32api.CloseHandle(process_handle)
-            win32api.CloseHandle(job)
-
-
     def SvcDoRun(self):
         """ Windows サービスのメインループ """
 
@@ -152,12 +124,15 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
 
         # 万が一ポートが衝突する Akebi HTTPS Server があったら終了させる
         # ポートが衝突する Akebi HTTPS Server があると KonomiTV サーバーの起動に失敗するため
-        from app.constants import CONFIG
-        for process in psutil.process_iter(attrs=('name', 'pid', 'cmdline')):
-            process_info: dict[str, Any] = cast(Any, process).info
-            if ('akebi-https-server.exe' == process_info.get('name', None) and
-                f'--listen-address 0.0.0.0:{CONFIG["server"]["port"]}' in ' '.join(process_info.get('cmdline', []))):
-                process.kill()
+        try:
+            from app.constants import CONFIG
+            for process in psutil.process_iter(attrs=('name', 'pid', 'cmdline')):
+                process_info: dict[str, Any] = cast(Any, process).info
+                if ('akebi-https-server.exe' == process_info.get('name', None) and
+                    f'--listen-address 0.0.0.0:{CONFIG["server"]["port"]}' in ' '.join(process_info.get('cmdline', []))):
+                    process.kill()
+        except:
+            pass
 
         # Windows サービスのステータスを起動中に設定
         self.ReportServiceStatus(win32service.SERVICE_RUNNING)
@@ -168,14 +143,14 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
         while self.is_running is True:
 
             # 仮想環境上の Python から KonomiTV のサーバープロセス (Uvicorn) を起動
-            self.process = subprocess.Popen(
+            process = subprocess.Popen(
                 [self._exe_name_, '-X', 'utf8', str(BASE_DIR / 'KonomiTV.py')],
                 cwd = BASE_DIR,  # カレントディレクトリを指定
             )
 
             # プロセスが終了するまで待つ
             ## Windows サービスではメインループが終了してしまうとサービスも終了扱いになってしまう
-            self.process.wait()
+            process.wait()
 
             # プロセス終了後、もしこの時点で再起動が必要であることを示すロックファイルが存在する場合、KonomiTV サーバーを再起動する
             if RESTART_REQUIRED_LOCK_PATH.exists():
@@ -193,21 +168,13 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
         self.is_running = False
         self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
 
-        # CTRL_C_EVENT を送って Uvicorn を終了させる
-        ## subprocess.terminate() だとシグナルではなく直接プロセスが終了されてしまうため、
-        ## atexit などのシグナルベースのクリーンアップ処理が実行されない
-        self.SendCtrlCEvent(self.process.pid)
-
-        # Waiting for connections to close. となって終了できない場合があるので、少し待ってからもう一度シグナルを送る
-        time.sleep(0.5)
-        self.SendCtrlCEvent(self.process.pid)
-
-        # 3秒待ってまだプロセスが終了していなければ、プロセスを強制終了する
-        ## エンコードタスクが動作中の場合に起きやすい
-        ## クリーンアップ処理はすでに行われているので、強制終了してしまっても問題ない
-        time.sleep(3)
-        if self.process.poll() is None:
-            self.process.terminate()
+        # KonomiTV サーバーのシャットダウン API にリクエストしてサーバーを終了させる
+        ## 通常管理者ユーザーでログインしていないと実行できないが、特別に 127.0.0.77:7010 に直接アクセスすると無認証で実行できる
+        try:
+            from app.constants import CONFIG
+            requests.post(f'http://127.0.0.77:{CONFIG["server"]["port"] + 10}/api/maintenance/shutdown')
+        except:
+            pass
 
 
 app = typer.Typer(help='KonomiTV Windows Service Launcher.')

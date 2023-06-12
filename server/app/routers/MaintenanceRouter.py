@@ -7,14 +7,18 @@ import threading
 import time
 from fastapi import APIRouter
 from fastapi import Depends
+from fastapi import Request
 from fastapi import status
+from fastapi.exceptions import HTTPException
+from fastapi.security import OAuth2PasswordBearer
 
-from app.constants import RESTART_REQUIRED_LOCK_PATH
+from app.constants import CONFIG, RESTART_REQUIRED_LOCK_PATH
 from app.models import Channel
 from app.models import Program
 from app.models import TwitterAccount
 from app.models import User
 from app.routers.UsersRouter import GetCurrentAdminUser
+from app.routers.UsersRouter import GetCurrentUser
 
 
 # ルーター
@@ -22,6 +26,29 @@ router = APIRouter(
     tags = ['Maintenance'],
     prefix = '/api/maintenance',
 )
+
+
+# 現在管理者ユーザーでログインしているか、http://127.0.0.77:7010 からのアクセスであるかを確認する
+# KonomiTV の Windows サービスからサーバーをシャットダウンするために必要
+async def GetCurrentAdminUserOrLocal(
+    request: Request,
+    token: str | None = Depends(OAuth2PasswordBearer(tokenUrl='users/token', auto_error=False)),
+) -> User | None:
+
+    # HTTP リクエストの Host ヘッダーが 127.0.0.77:7010 である場合、Windows サービスプロセスからのアクセスと見なす
+    ## 通常アクセス時の Host ヘッダーは 192-168-1-11.local.konomi.tv:7000 のような形式になる
+    valid_host = f'127.0.0.77:{CONFIG["server"]["port"] + 10}'
+    if request.headers.get('host', '').strip() == valid_host:
+        return None
+
+    # それ以外である場合、管理者ユーザーでログインしているかを確認する
+    if token is None:
+        raise HTTPException(
+            status_code = status.HTTP_401_UNAUTHORIZED,
+            detail = 'Not authenticated',
+            headers = {'WWW-Authenticate': 'Bearer'},
+        )
+    return await GetCurrentAdminUser(await GetCurrentUser(token))
 
 
 @router.post(
@@ -50,7 +77,7 @@ async def UpdateDatabaseAPI(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 def ServerRestartAPI(
-    current_user: User = Depends(GetCurrentAdminUser),
+    current_user: User | None = Depends(GetCurrentAdminUserOrLocal),
 ):
     """
     KonomiTV サーバーを再起動する。<br>
@@ -92,7 +119,7 @@ def ServerRestartAPI(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 def ServerShutdownAPI(
-    current_user: User = Depends(GetCurrentAdminUser),
+    current_user: User | None = Depends(GetCurrentAdminUserOrLocal),
 ):
     """
     KonomiTV サーバーを終了する。<br>
