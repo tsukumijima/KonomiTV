@@ -705,6 +705,62 @@ class ServiceEventInfo(TypedDict):
     event_list: list[EventInfo]
 
 
+class SearchDateInfo(TypedDict, total=False):
+    """ 対象期間 """
+    start_day_of_week: int
+    start_hour: int
+    start_min: int
+    end_day_of_week: int
+    end_hour: int
+    end_min: int
+
+
+class SearchKeyInfo(TypedDict, total=False):
+    """ 検索条件 """
+    and_key: str  # 登録無効、大小文字区別、番組長についての接頭辞は処理済み
+    not_key: str
+    key_disabled: bool
+    case_sensitive: bool
+    reg_exp_flag: bool
+    title_only_flag: bool
+    content_list: list[ContentData]
+    date_list: list[SearchDateInfo]
+    service_list: list[int]  # (onid << 32 | tsid << 16 | sid) のリスト
+    video_list: list[int]  # 無視してよい
+    audio_list: list[int]  # 無視してよい
+    aimai_flag: bool
+    not_contet_flag: bool
+    not_date_flag: bool
+    free_ca_flag: int
+    chk_rec_end: bool
+    chk_rec_day: int
+    chk_rec_no_service: bool
+    chk_duration_min: int
+    chk_duration_max: int
+
+
+class AutoAddData(TypedDict, total=False):
+    """ 自動予約登録情報 """
+    data_id: int
+    search_info: SearchKeyInfo
+    rec_setting: RecSettingData
+    add_count: int
+
+
+class ManualAutoAddData(TypedDict, total=False):
+    """ 自動予約 (プログラム) 登録情報 """
+    data_id: int
+    day_of_week_flag: int
+    start_time: int
+    duration_second: int
+    title: str
+    station_name: str
+    onid: int
+    tsid: int
+    sid: int
+    rec_setting: RecSettingData
+
+
 # 以上、 CtrlCmdUtil で受け渡しする辞書の型ヒント
 
 
@@ -959,6 +1015,79 @@ class CtrlCmdUtil:
                 pass
         return None
 
+    async def sendSearchPg(self, key_list: list[SearchKeyInfo]) -> list[EventInfo] | None:
+        """ 指定キーワードで番組情報を検索する """
+        ret, rbuf = await self.__sendCmd(self.__CMD_EPG_SRV_SEARCH_PG,
+                                         lambda buf: self.__writeVector(self.__writeSearchKeyInfo, buf, key_list))
+        if ret == self.__CMD_SUCCESS:
+            try:
+                return self.__readVector(self.__readEventInfo, memoryview(rbuf), [0], len(rbuf))
+            except self.__ReadError:
+                pass
+        return None
+
+    async def sendEnumAutoAdd(self) -> list[AutoAddData] | None:
+        """ 自動予約登録情報一覧を取得する """
+        ret, rbuf = await self.__sendCmd2(self.__CMD_EPG_SRV_ENUM_AUTO_ADD2)
+        if ret == self.__CMD_SUCCESS:
+            bufview = memoryview(rbuf)
+            pos = [0]
+            try:
+                if self.__readUshort(bufview, pos, len(rbuf)) >= self.__CMD_VER:
+                    return self.__readVector(self.__readAutoAddData, bufview, pos, len(rbuf))
+            except self.__ReadError:
+                pass
+        return None
+
+    async def sendAddAutoAdd(self, data_list: list[AutoAddData]) -> bool:
+        """ 自動予約登録情報を追加する """
+        ret, _ = await self.__sendCmd2(self.__CMD_EPG_SRV_ADD_AUTO_ADD2,
+                                       lambda buf: self.__writeVector(self.__writeAutoAddData, buf, data_list))
+        return ret == self.__CMD_SUCCESS
+
+    async def sendChgAutoAdd(self, data_list: list[AutoAddData]) -> bool:
+        """ 自動予約登録情報を変更する """
+        ret, _ = await self.__sendCmd2(self.__CMD_EPG_SRV_CHG_AUTO_ADD2,
+                                       lambda buf: self.__writeVector(self.__writeAutoAddData, buf, data_list))
+        return ret == self.__CMD_SUCCESS
+
+    async def sendDelAutoAdd(self, id_list: list[int]) -> bool:
+        """ 自動予約登録情報を削除する """
+        ret, _ = await self.__sendCmd(self.__CMD_EPG_SRV_DEL_AUTO_ADD,
+                                      lambda buf: self.__writeVector(self.__writeInt, buf, id_list))
+        return ret == self.__CMD_SUCCESS
+
+    async def sendEnumManualAdd(self) -> list[ManualAutoAddData] | None:
+        """ 自動予約 (プログラム) 登録情報一覧を取得する """
+        ret, rbuf = await self.__sendCmd2(self.__CMD_EPG_SRV_ENUM_MANU_ADD2)
+        if ret == self.__CMD_SUCCESS:
+            bufview = memoryview(rbuf)
+            pos = [0]
+            try:
+                if self.__readUshort(bufview, pos, len(rbuf)) >= self.__CMD_VER:
+                    return self.__readVector(self.__readManualAutoAddData, bufview, pos, len(rbuf))
+            except self.__ReadError:
+                pass
+        return None
+
+    async def sendAddManualAdd(self, data_list: list[ManualAutoAddData]) -> bool:
+        """ 自動予約 (プログラム) 登録情報を追加する """
+        ret, _ = await self.__sendCmd2(self.__CMD_EPG_SRV_ADD_MANU_ADD2,
+                                       lambda buf: self.__writeVector(self.__writeManualAutoAddData, buf, data_list))
+        return ret == self.__CMD_SUCCESS
+
+    async def sendChgManualAdd(self, data_list: list[ManualAutoAddData]) -> bool:
+        """ 自動予約 (プログラム) 登録情報を変更する """
+        ret, _ = await self.__sendCmd2(self.__CMD_EPG_SRV_CHG_MANU_ADD2,
+                                       lambda buf: self.__writeVector(self.__writeManualAutoAddData, buf, data_list))
+        return ret == self.__CMD_SUCCESS
+
+    async def sendDelManualAdd(self, id_list: list[int]) -> bool:
+        """ 自動予約 (プログラム) 登録情報を削除する """
+        ret, _ = await self.__sendCmd(self.__CMD_EPG_SRV_DEL_MANU_ADD,
+                                      lambda buf: self.__writeVector(self.__writeInt, buf, id_list))
+        return ret == self.__CMD_SUCCESS
+
     async def openViewStream(self, process_id: int) -> tuple[asyncio.StreamReader, asyncio.StreamWriter] | None:
         """ View アプリの SrvPipe ストリームの転送を開始する """
         to = time.monotonic() + self.__connect_timeout_sec
@@ -1014,8 +1143,11 @@ class CtrlCmdUtil:
     __CMD_EPG_SRV_DEL_RECINFO = 1018
     __CMD_EPG_SRV_CHG_PATH_RECINFO = 1019
     __CMD_EPG_SRV_ENUM_SERVICE = 1021
+    __CMD_EPG_SRV_SEARCH_PG = 1025
     __CMD_EPG_SRV_ENUM_PG_INFO_EX = 1029
     __CMD_EPG_SRV_ENUM_PG_ARC = 1030
+    __CMD_EPG_SRV_DEL_AUTO_ADD = 1033
+    __CMD_EPG_SRV_DEL_MANU_ADD = 1043
     __CMD_EPG_SRV_FILE_COPY = 1060
     __CMD_EPG_SRV_ENUM_PLUGIN = 1061
     __CMD_EPG_SRV_NWTV_ID_SET_CH = 1073
@@ -1029,6 +1161,12 @@ class CtrlCmdUtil:
     __CMD_EPG_SRV_ENUM_RECINFO_BASIC2 = 2020
     __CMD_EPG_SRV_GET_RECINFO2 = 2024
     __CMD_EPG_SRV_FILE_COPY2 = 2060
+    __CMD_EPG_SRV_ENUM_AUTO_ADD2 = 2131
+    __CMD_EPG_SRV_ADD_AUTO_ADD2 = 2132
+    __CMD_EPG_SRV_CHG_AUTO_ADD2 = 2134
+    __CMD_EPG_SRV_ENUM_MANU_ADD2 = 2141
+    __CMD_EPG_SRV_ADD_MANU_ADD2 = 2142
+    __CMD_EPG_SRV_CHG_MANU_ADD2 = 2144
 
     async def __sendAndReceive(self, buf: bytearray) -> tuple[int | None, bytes]:
         to = time.monotonic() + self.__connect_timeout_sec
@@ -1258,6 +1396,84 @@ class CtrlCmdUtil:
     @classmethod
     def __writeRecFileInfo2(cls, buf: bytearray, v: RecFileInfo) -> None:
         cls.__writeRecFileInfo(buf, v, True)
+
+    @classmethod
+    def __writeContentData(cls, buf: bytearray, v: ContentData) -> None:
+        pos = len(buf)
+        cls.__writeInt(buf, 0)
+        cn = v.get('content_nibble', 0)
+        un = v.get('user_nibble', 0)
+        cls.__writeUshort(buf, (cn >> 8 | cn << 8) & 0xffff)
+        cls.__writeUshort(buf, (un >> 8 | un << 8) & 0xffff)
+        cls.__writeIntInplace(buf, pos, len(buf) - pos)
+
+    @classmethod
+    def __writeSearchDateInfo(cls, buf: bytearray, v: SearchDateInfo) -> None:
+        pos = len(buf)
+        cls.__writeInt(buf, 0)
+        cls.__writeByte(buf, v.get('start_day_of_week', 0))
+        cls.__writeUshort(buf, v.get('start_hour', 0))
+        cls.__writeUshort(buf, v.get('start_min', 0))
+        cls.__writeByte(buf, v.get('end_day_of_week', 0))
+        cls.__writeUshort(buf, v.get('end_hour', 0))
+        cls.__writeUshort(buf, v.get('end_min', 0))
+        cls.__writeIntInplace(buf, pos, len(buf) - pos)
+
+    @classmethod
+    def __writeSearchKeyInfo(cls, buf: bytearray, v: SearchKeyInfo, has_chk_rec_end: bool = False) -> None:
+        pos = len(buf)
+        cls.__writeInt(buf, 0)
+        chk_duration = int(v.get('chk_duration_min', 0) * 10000 + v.get('chk_duration_max', 0)) % 100000000
+        cls.__writeString(buf, ('^!{999}' if v.get('key_disabled', False) else '') +
+                               ('C!{999}' if v.get('case_sensitive', False) else '') +
+                               (f'D!{{1{chk_duration:08d}}}' if chk_duration > 0 else '') + v.get('and_key', ''))
+        cls.__writeString(buf, v.get('not_key', ''))
+        cls.__writeInt(buf, v.get('reg_exp_flag', False))
+        cls.__writeInt(buf, v.get('title_only_flag', False))
+        cls.__writeVector(cls.__writeContentData, buf, v.get('content_list', []))
+        cls.__writeVector(cls.__writeSearchDateInfo, buf, v.get('date_list', []))
+        cls.__writeVector(cls.__writeLong, buf, v.get('service_list', []))
+        cls.__writeVector(cls.__writeUshort, buf, v.get('video_list', []))
+        cls.__writeVector(cls.__writeUshort, buf, v.get('audio_list', []))
+        cls.__writeByte(buf, v.get('aimai_flag', False))
+        cls.__writeByte(buf, v.get('not_contet_flag', False))
+        cls.__writeByte(buf, v.get('not_date_flag', False))
+        cls.__writeByte(buf, v.get('free_ca_flag', 0))
+        if has_chk_rec_end:
+            cls.__writeByte(buf, v.get('chk_rec_end', False))
+            chk_rec_day = v.get('chk_rec_day', 0)
+            cls.__writeUshort(buf, chk_rec_day % 10000 + 40000 if v.get('chk_rec_no_service', False) else chk_rec_day)
+        cls.__writeIntInplace(buf, pos, len(buf) - pos)
+
+    @classmethod
+    def __writeSearchKeyInfo2(cls, buf: bytearray, v: SearchKeyInfo) -> None:
+        cls.__writeSearchKeyInfo(buf, v, True)
+
+    @classmethod
+    def __writeAutoAddData(cls, buf: bytearray, v: AutoAddData) -> None:
+        pos = len(buf)
+        cls.__writeInt(buf, 0)
+        cls.__writeInt(buf, v.get('data_id', 0))
+        cls.__writeSearchKeyInfo2(buf, v.get('search_info', {}))
+        cls.__writeRecSettingData(buf, v.get('rec_setting', {}))
+        cls.__writeInt(buf, v.get('add_count', 0))
+        cls.__writeIntInplace(buf, pos, len(buf) - pos)
+
+    @classmethod
+    def __writeManualAutoAddData(cls, buf: bytearray, v: ManualAutoAddData) -> None:
+        pos = len(buf)
+        cls.__writeInt(buf, 0)
+        cls.__writeInt(buf, v.get('data_id', 0))
+        cls.__writeByte(buf, v.get('day_of_week_flag', 0))
+        cls.__writeUint(buf, v.get('start_time', 0))
+        cls.__writeUint(buf, v.get('duration_second', 0))
+        cls.__writeString(buf, v.get('title', ''))
+        cls.__writeString(buf, v.get('station_name', ''))
+        cls.__writeUshort(buf, v.get('onid', 0))
+        cls.__writeUshort(buf, v.get('tsid', 0))
+        cls.__writeUshort(buf, v.get('sid', 0))
+        cls.__writeRecSettingData(buf, v.get('rec_setting', {}))
+        cls.__writeIntInplace(buf, pos, len(buf) - pos)
 
     class __ReadError(Exception):
         """ バッファをデータ構造として読み取るのに失敗したときの内部エラー """
@@ -1646,6 +1862,92 @@ class CtrlCmdUtil:
             'tsid': cls.__readUshort(buf, pos, size),
             'sid': cls.__readUshort(buf, pos, size),
             'eid': cls.__readUshort(buf, pos, size)
+        }
+        pos[0] = size
+        return v
+
+    @classmethod
+    def __readSearchDateInfo(cls, buf: memoryview, pos: list[int], size: int) -> SearchDateInfo:
+        size = cls.__readStructIntro(buf, pos, size)
+        v: SearchDateInfo = {
+            'start_day_of_week': cls.__readByte(buf, pos, size),
+            'start_hour': cls.__readUshort(buf, pos, size),
+            'start_min': cls.__readUshort(buf, pos, size),
+            'end_day_of_week': cls.__readByte(buf, pos, size),
+            'end_hour': cls.__readUshort(buf, pos, size),
+            'end_min': cls.__readUshort(buf, pos, size)
+        }
+        pos[0] = size
+        return v
+
+    @classmethod
+    def __readSearchKeyInfo(cls, buf: memoryview, pos: list[int], size: int) -> SearchKeyInfo:
+        size = cls.__readStructIntro(buf, pos, size)
+        and_key = cls.__readString(buf, pos, size)
+        key_disabled = and_key.startswith('^!{999}')
+        and_key = and_key.removeprefix('^!{999}')
+        case_sensitive = and_key.startswith('C!{999}')
+        and_key = and_key.removeprefix('C!{999}')
+        chk_duration_min = 0
+        chk_duration_max = 0
+        if (len(and_key) >= 13 and and_key.startswith('D!{1') and and_key[12] == '}' and
+                all([c >= '0' and c <= '9' for c in and_key[4:12]])):
+            chk_duration_max = int(and_key[3:12])
+            and_key = and_key[13:]
+            chk_duration_min = chk_duration_max // 10000 % 10000
+            chk_duration_max = chk_duration_max % 10000
+        v: SearchKeyInfo = {
+            'and_key': and_key,
+            'not_key': cls.__readString(buf, pos, size),
+            'key_disabled': key_disabled,
+            'case_sensitive': case_sensitive,
+            'reg_exp_flag': cls.__readInt(buf, pos, size) != 0,
+            'title_only_flag': cls.__readInt(buf, pos, size) != 0,
+            'content_list': cls.__readVector(cls.__readContentData, buf, pos, size),
+            'date_list': cls.__readVector(cls.__readSearchDateInfo, buf, pos, size),
+            'service_list': cls.__readVector(cls.__readLong, buf, pos, size),
+            'video_list': cls.__readVector(cls.__readUshort, buf, pos, size),
+            'audio_list': cls.__readVector(cls.__readUshort, buf, pos, size),
+            'aimai_flag': cls.__readByte(buf, pos, size) != 0,
+            'not_contet_flag': cls.__readByte(buf, pos, size) != 0,
+            'not_date_flag': cls.__readByte(buf, pos, size) != 0,
+            'free_ca_flag': cls.__readByte(buf, pos, size),
+            'chk_rec_end': cls.__readByte(buf, pos, size) != 0,
+            'chk_duration_min': chk_duration_min,
+            'chk_duration_max': chk_duration_max
+        }
+        chk_rec_day = cls.__readUshort(buf, pos, size)
+        v['chk_rec_day'] = chk_rec_day % 10000 if chk_rec_day >= 40000 else chk_rec_day
+        v['chk_rec_no_service'] = chk_rec_day >= 40000
+        pos[0] = size
+        return v
+
+    @classmethod
+    def __readAutoAddData(cls, buf: memoryview, pos: list[int], size: int) -> AutoAddData:
+        size = cls.__readStructIntro(buf, pos, size)
+        v: AutoAddData = {
+            'data_id': cls.__readInt(buf, pos, size),
+            'search_info': cls.__readSearchKeyInfo(buf, pos, size),
+            'rec_setting': cls.__readRecSettingData(buf, pos, size),
+            'add_count': cls.__readInt(buf, pos, size)
+        }
+        pos[0] = size
+        return v
+
+    @classmethod
+    def __readManualAutoAddData(cls, buf: memoryview, pos: list[int], size: int) -> ManualAutoAddData:
+        size = cls.__readStructIntro(buf, pos, size)
+        v: ManualAutoAddData = {
+            'data_id': cls.__readInt(buf, pos, size),
+            'day_of_week_flag': cls.__readByte(buf, pos, size),
+            'start_time': cls.__readUint(buf, pos, size),
+            'duration_second': cls.__readUint(buf, pos, size),
+            'title': cls.__readString(buf, pos, size),
+            'station_name': cls.__readString(buf, pos, size),
+            'onid': cls.__readUshort(buf, pos, size),
+            'tsid': cls.__readUshort(buf, pos, size),
+            'sid': cls.__readUshort(buf, pos, size),
+            'rec_setting': cls.__readRecSettingData(buf, pos, size)
         }
         pos[0] = size
         return v
