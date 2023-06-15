@@ -761,7 +761,38 @@ class ManualAutoAddData(TypedDict, total=False):
     rec_setting: RecSettingData
 
 
+class NotifySrvInfo(TypedDict):
+    """ 情報通知用パラメーター """
+    notify_id: int  # 通知情報の種類
+    time: datetime.datetime  # 通知状態の発生した時間
+    param1: int  # パラメーター1 (種類によって内容変更)
+    param2: int  # パラメーター2 (種類によって内容変更)
+    count: int  # 通知の巡回カウンタ
+    param4: str  # パラメーター4 (種類によって内容変更)
+    param5: str  # パラメーター5 (種類によって内容変更)
+    param6: str  # パラメーター6 (種類によって内容変更)
+
+
 # 以上、 CtrlCmdUtil で受け渡しする辞書の型ヒント
+
+
+class NotifyUpdate:
+    """ 通知情報の種類 """
+    EPGDATA = 1  # EPGデータが更新された
+    RESERVE_INFO = 2  # 予約情報が更新された
+    REC_INFO = 3  # 録画済み情報が更新された
+    AUTOADD_EPG = 4  # 自動予約登録情報が更新された
+    AUTOADD_MANUAL = 5  # 自動予約 (プログラム) 登録情報が更新された
+    PROFILE = 51  # 設定ファイル (ini) が更新された
+    SRV_STATUS = 100  # Srv の動作状況が変更 (param1: ステータス 0:通常、1:録画中、2:EPG取得中)
+    PRE_REC_START = 101  # 録画準備開始 (param4: ログ用メッセージ)
+    REC_START = 102  # 録画開始 (param4: ログ用メッセージ)
+    REC_END = 103  # 録画終了 (param4: ログ用メッセージ)
+    REC_TUIJYU = 104  # 録画中に追従が発生 (param4: ログ用メッセージ)
+    CHG_TUIJYU = 105  # 追従が発生 (param4: ログ用メッセージ)
+    PRE_EPGCAP_START = 106  # EPG 取得準備開始
+    EPGCAP_START = 107  # EPG 取得開始
+    EPGCAP_END = 108  # EPG 取得終了
 
 
 class CtrlCmdUtil:
@@ -1088,6 +1119,24 @@ class CtrlCmdUtil:
                                       lambda buf: self.__writeVector(self.__writeInt, buf, id_list))
         return ret == self.__CMD_SUCCESS
 
+    async def sendGetNotifySrvInfo(self, target_count: int) -> NotifySrvInfo | None:
+        """ target_count より大きいカウントの通知を待つ (TCP/IP モードのときロングポーリング) """
+        ret, rbuf = await self.__sendCmd2(self.__CMD_EPG_SRV_GET_STATUS_NOTIFY2,
+                                          lambda buf: self.__writeUint(buf, target_count))
+        if ret == self.__CMD_SUCCESS:
+            bufview = memoryview(rbuf)
+            pos = [0]
+            try:
+                if self.__readUshort(bufview, pos, len(rbuf)) >= self.__CMD_VER:
+                    return self.__readNotifySrvInfo(bufview, pos, len(rbuf))
+            except self.__ReadError:
+                pass
+        return None
+
+    async def sendGetNotifySrvStatus(self) -> NotifySrvInfo | None:
+        """ 現在の NotifyUpdate.SRV_STATUS を取得する """
+        return await self.sendGetNotifySrvInfo(0)
+
     async def openViewStream(self, process_id: int) -> tuple[asyncio.StreamReader, asyncio.StreamWriter] | None:
         """ View アプリの SrvPipe ストリームの転送を開始する """
         to = time.monotonic() + self.__connect_timeout_sec
@@ -1167,6 +1216,7 @@ class CtrlCmdUtil:
     __CMD_EPG_SRV_ENUM_MANU_ADD2 = 2141
     __CMD_EPG_SRV_ADD_MANU_ADD2 = 2142
     __CMD_EPG_SRV_CHG_MANU_ADD2 = 2144
+    __CMD_EPG_SRV_GET_STATUS_NOTIFY2 = 2200
 
     async def __sendAndReceive(self, buf: bytearray) -> tuple[int | None, bytes]:
         to = time.monotonic() + self.__connect_timeout_sec
@@ -1216,10 +1266,10 @@ class CtrlCmdUtil:
                 size = self.__readInt(bufview, pos, 8)
                 rbuf = await asyncio.wait_for(reader.readexactly(size), max(to - time.monotonic(), 0.))
         except Exception:
-            writer.close()
             return None, b''
-        try:
+        finally:
             writer.close()
+        try:
             await asyncio.wait_for(writer.wait_closed(), max(to - time.monotonic(), 0.))
         except Exception:
             pass
@@ -1948,6 +1998,22 @@ class CtrlCmdUtil:
             'tsid': cls.__readUshort(buf, pos, size),
             'sid': cls.__readUshort(buf, pos, size),
             'rec_setting': cls.__readRecSettingData(buf, pos, size)
+        }
+        pos[0] = size
+        return v
+
+    @classmethod
+    def __readNotifySrvInfo(cls, buf: memoryview, pos: list[int], size: int) -> NotifySrvInfo:
+        size = cls.__readStructIntro(buf, pos, size)
+        v: NotifySrvInfo = {
+            'notify_id': cls.__readUint(buf, pos, size),
+            'time': cls.__readSystemTime(buf, pos, size),
+            'param1': cls.__readUint(buf, pos, size),
+            'param2': cls.__readUint(buf, pos, size),
+            'count': cls.__readUint(buf, pos, size),
+            'param4': cls.__readString(buf, pos, size),
+            'param5': cls.__readString(buf, pos, size),
+            'param6': cls.__readString(buf, pos, size)
         }
         pos[0] = size
         return v
