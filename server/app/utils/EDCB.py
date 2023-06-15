@@ -560,7 +560,7 @@ class RecFileInfo(TypedDict, total=False):
     comment: str
     program_info: str
     err_info: str
-    protect_flag: int
+    protect_flag: bool
 
 
 class ShortEventInfo(TypedDict):
@@ -842,7 +842,7 @@ class CtrlCmdUtil:
         ret, _ = await self.__sendAndReceive(buf)
         return ret == self.__CMD_SUCCESS
 
-    async def sendEnumRecInfoBasic2(self) -> list[RecFileInfo] | None:
+    async def sendEnumRecInfoBasic(self) -> list[RecFileInfo] | None:
         """ 録画済み情報一覧取得 (programInfo と errInfo を除く) """
         buf = bytearray()
         self.__writeInt(buf, self.__CMD_EPG_SRV_ENUM_RECINFO_BASIC2)
@@ -860,7 +860,7 @@ class CtrlCmdUtil:
                 pass
         return None
 
-    async def sendGetRecInfo2(self, info_id: int) -> RecFileInfo | None:
+    async def sendGetRecInfo(self, info_id: int) -> RecFileInfo | None:
         """ 録画済み情報取得 """
         buf = bytearray()
         self.__writeInt(buf, self.__CMD_EPG_SRV_GET_RECINFO2)
@@ -1169,7 +1169,7 @@ class CtrlCmdUtil:
             'comment': cls.__readString(buf, pos, size),
             'program_info': cls.__readString(buf, pos, size),
             'err_info': cls.__readString(buf, pos, size),
-            'protect_flag': cls.__readByte(buf, pos, size)
+            'protect_flag': cls.__readByte(buf, pos, size) != 0
         }
         pos[0] = size
         return v
