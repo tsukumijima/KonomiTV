@@ -909,6 +909,35 @@ class CtrlCmdUtil:
                 pass
         return None
 
+    async def sendChgPathRecInfo(self, info_list: list[RecFileInfo]) -> bool:
+        """ 録画済み情報のファイルパスを変更する """
+        ret, _ = await self.__sendCmd(self.__CMD_EPG_SRV_CHG_PATH_RECINFO,
+                                      lambda buf: self.__writeVector(self.__writeRecFileInfo, buf, info_list))
+        return ret == self.__CMD_SUCCESS
+
+    async def sendChgProtectRecInfo(self, info_list: list[RecFileInfo]) -> bool:
+        """ 録画済み情報のプロテクト変更 """
+        ret, _ = await self.__sendCmd2(self.__CMD_EPG_SRV_CHG_PROTECT_RECINFO2,
+                                       lambda buf: self.__writeVector(self.__writeRecFileInfo2, buf, info_list))
+        return ret == self.__CMD_SUCCESS
+
+    async def sendDelRecInfo(self, id_list: list[int]) -> bool:
+        """ 録画済み情報を削除する """
+        ret, _ = await self.__sendCmd(self.__CMD_EPG_SRV_DEL_RECINFO,
+                                      lambda buf: self.__writeVector(self.__writeInt, buf, id_list))
+        return ret == self.__CMD_SUCCESS
+
+    async def sendGetRecFileNetworkPath(self, path: str) -> str | None:
+        """ 録画ファイルのネットワークパスを取得 (tkntrec 拡張) """
+        ret, rbuf = await self.__sendCmd(self.__CMD_EPG_SRV_GET_NETWORK_PATH,
+                                         lambda buf: self.__writeString(buf, path))
+        if ret == self.__CMD_SUCCESS:
+            try:
+                return self.__readString(memoryview(rbuf), [0], len(rbuf))
+            except self.__ReadError:
+                pass
+        return None
+
     async def sendEnumTunerReserve(self) -> list[TunerReserveInfo] | None:
         """ チューナーごとの予約一覧を取得する """
         ret, rbuf = await self.__sendCmd(self.__CMD_EPG_SRV_ENUM_TUNER_RESERVE)
@@ -982,6 +1011,8 @@ class CtrlCmdUtil:
     __CMD_EPG_SRV_RELAY_VIEW_STREAM = 301
     __CMD_EPG_SRV_DEL_RESERVE = 1014
     __CMD_EPG_SRV_ENUM_TUNER_RESERVE = 1016
+    __CMD_EPG_SRV_DEL_RECINFO = 1018
+    __CMD_EPG_SRV_CHG_PATH_RECINFO = 1019
     __CMD_EPG_SRV_ENUM_SERVICE = 1021
     __CMD_EPG_SRV_ENUM_PG_INFO_EX = 1029
     __CMD_EPG_SRV_ENUM_PG_ARC = 1030
@@ -989,10 +1020,12 @@ class CtrlCmdUtil:
     __CMD_EPG_SRV_ENUM_PLUGIN = 1061
     __CMD_EPG_SRV_NWTV_ID_SET_CH = 1073
     __CMD_EPG_SRV_NWTV_ID_CLOSE = 1074
+    __CMD_EPG_SRV_GET_NETWORK_PATH = 1299
     __CMD_EPG_SRV_ENUM_RESERVE2 = 2011
     __CMD_EPG_SRV_GET_RESERVE2 = 2012
     __CMD_EPG_SRV_ADD_RESERVE2 = 2013
     __CMD_EPG_SRV_CHG_RESERVE2 = 2015
+    __CMD_EPG_SRV_CHG_PROTECT_RECINFO2 = 2019
     __CMD_EPG_SRV_ENUM_RECINFO_BASIC2 = 2020
     __CMD_EPG_SRV_GET_RECINFO2 = 2024
     __CMD_EPG_SRV_FILE_COPY2 = 2060
@@ -1197,6 +1230,35 @@ class CtrlCmdUtil:
         cls.__writeInt(buf, 0)
         cls.__writeIntInplace(buf, pos, len(buf) - pos)
 
+    @classmethod
+    def __writeRecFileInfo(cls, buf: bytearray, v: RecFileInfo, has_protect_flag: bool = False) -> None:
+        pos = len(buf)
+        cls.__writeInt(buf, 0)
+        cls.__writeInt(buf, v.get('id', 0))
+        cls.__writeString(buf, v.get('rec_file_path', ''))
+        cls.__writeString(buf, v.get('title', ''))
+        cls.__writeSystemTime(buf, v.get('start_time', cls.UNIX_EPOCH))
+        cls.__writeUint(buf, v.get('duration_sec', 0))
+        cls.__writeString(buf, v.get('service_name', ''))
+        cls.__writeUshort(buf, v.get('onid', 0))
+        cls.__writeUshort(buf, v.get('tsid', 0))
+        cls.__writeUshort(buf, v.get('sid', 0))
+        cls.__writeUshort(buf, v.get('eid', 0))
+        cls.__writeLong(buf, v.get('drops', 0))
+        cls.__writeLong(buf, v.get('scrambles', 0))
+        cls.__writeInt(buf, v.get('rec_status', 0))
+        cls.__writeSystemTime(buf, v.get('start_time_epg', cls.UNIX_EPOCH))
+        cls.__writeString(buf, v.get('comment', ''))
+        cls.__writeString(buf, v.get('program_info', ''))
+        cls.__writeString(buf, v.get('err_info', ''))
+        if has_protect_flag:
+            cls.__writeByte(buf, v.get('protect_flag', False))
+        cls.__writeIntInplace(buf, pos, len(buf) - pos)
+
+    @classmethod
+    def __writeRecFileInfo2(cls, buf: bytearray, v: RecFileInfo) -> None:
+        cls.__writeRecFileInfo(buf, v, True)
+
     class __ReadError(Exception):
         """ バッファをデータ構造として読み取るのに失敗したときの内部エラー """
         pass
@@ -1377,7 +1439,7 @@ class CtrlCmdUtil:
             'rec_file_path': cls.__readString(buf, pos, size),
             'title': cls.__readString(buf, pos, size),
             'start_time': cls.__readSystemTime(buf, pos, size),
-            'duration_sec': cls.__readInt(buf, pos, size),
+            'duration_sec': cls.__readUint(buf, pos, size),
             'service_name': cls.__readString(buf, pos, size),
             'onid': cls.__readUshort(buf, pos, size),
             'tsid': cls.__readUshort(buf, pos, size),
