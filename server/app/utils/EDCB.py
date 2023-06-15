@@ -464,6 +464,11 @@ class EDCBUtil:
         return result
 
     @staticmethod
+    def datetimeToFileTime(dt: datetime.datetime, tz: datetime.timezone = datetime.UTC) -> int:
+        """ FILETIME 時間 (1601 年からの 100 ナノ秒時刻) に変換する """
+        return int((dt.timestamp() + tz.utcoffset(None).total_seconds()) * 10000000) + 116444736000000000
+
+    @staticmethod
     async def openViewStream(process_id: int, timeout_sec: float = 10.0) -> tuple[asyncio.StreamReader, asyncio.StreamWriter] | None:
         """ View アプリの SrvPipe ストリームの転送を開始する """
         edcb = CtrlCmdUtil()
@@ -798,6 +803,7 @@ class NotifyUpdate:
 class CtrlCmdUtil:
     """
     EpgTimerSrv の CtrlCmd インタフェースと通信する (EDCB/EpgTimer の CtrlCmd(Def).cs を移植したもの)
+
     ・利用可能なコマンドはもっとあるが使いそうなものだけ
     ・sendView* 系コマンドは EpgDataCap_Bon 等との通信用。接続先パイプは "View_Ctrl_BonNoWaitPipe_{プロセス ID}"
     """
@@ -878,7 +884,14 @@ class CtrlCmdUtil:
         return None
 
     async def sendEnumPgInfoEx(self, service_time_list: list[int]) -> list[ServiceEventInfo] | None:
-        """ サービス指定と時間指定で番組情報一覧を取得する """
+        """
+        サービス指定と時間指定で番組情報一覧を取得する
+
+        引数の list の最終2要素で番組の開始時間の範囲、その他の要素でサービスを指定する。最終要素の
+        1つ前は時間の始点、最終要素は時間の終点、それぞれ FILETIME 時間で指定する。その他の奇数イン
+        デックス要素は (onid << 32 | tsid << 16 | sid) で表現するサービスの ID 、各々1つ手前の要素は
+        比較対象のサービスの ID に対するビット OR マスクを指定する。
+        """
         ret, rbuf = await self.__sendCmd(self.__CMD_EPG_SRV_ENUM_PG_INFO_EX,
                                          lambda buf: self.__writeVector(self.__writeLong, buf, service_time_list))
         if ret == self.__CMD_SUCCESS:
@@ -889,7 +902,12 @@ class CtrlCmdUtil:
         return None
 
     async def sendEnumPgArc(self, service_time_list: list[int]) -> list[ServiceEventInfo] | None:
-        """ サービス指定と時間指定で過去番組情報一覧を取得する """
+        """
+        サービス指定と時間指定で過去番組情報一覧を取得する
+
+        引数については sendEnumPgInfoEx() と同じ。このコマンドはファイルアクセスを伴うこと、また実装
+        上の限界があることから、せいぜい1週間を目安に極端に大きな時間範囲を指定してはならない。
+        """
         ret, rbuf = await self.__sendCmd(self.__CMD_EPG_SRV_ENUM_PG_ARC,
                                          lambda buf: self.__writeVector(self.__writeLong, buf, service_time_list))
         if ret == self.__CMD_SUCCESS:
@@ -1533,7 +1551,7 @@ class CtrlCmdUtil:
     def __readByte(cls, buf: memoryview, pos: list[int], size: int) -> int:
         if size - pos[0] < 1:
             raise cls.__ReadError
-        v = int.from_bytes(buf[pos[0]:pos[0] + 1], 'little')
+        v = buf[pos[0]]
         pos[0] += 1
         return v
 
@@ -1541,7 +1559,7 @@ class CtrlCmdUtil:
     def __readUshort(cls, buf: memoryview, pos: list[int], size: int) -> int:
         if size - pos[0] < 2:
             raise cls.__ReadError
-        v = int.from_bytes(buf[pos[0]:pos[0] + 2], 'little')
+        v = buf[pos[0]] | buf[pos[0] + 1] << 8
         pos[0] += 2
         return v
 
@@ -1574,12 +1592,13 @@ class CtrlCmdUtil:
         if size - pos[0] < 16:
             raise cls.__ReadError
         try:
-            v = datetime.datetime(int.from_bytes(buf[pos[0]:pos[0] + 2], 'little'),
-                                  int.from_bytes(buf[pos[0] + 2:pos[0] + 4], 'little'),
-                                  int.from_bytes(buf[pos[0] + 6:pos[0] + 8], 'little'),
-                                  int.from_bytes(buf[pos[0] + 8:pos[0] + 10], 'little'),
-                                  int.from_bytes(buf[pos[0] + 10:pos[0] + 12], 'little'),
-                                  int.from_bytes(buf[pos[0] + 12:pos[0] + 14], 'little'),
+            pos0 = pos[0]
+            v = datetime.datetime(buf[pos0] | buf[pos0 + 1] << 8,
+                                  buf[pos0 + 2] | buf[pos0 + 3] << 8,
+                                  buf[pos0 + 6] | buf[pos0 + 7] << 8,
+                                  buf[pos0 + 8] | buf[pos0 + 9] << 8,
+                                  buf[pos0 + 10] | buf[pos0 + 11] << 8,
+                                  buf[pos0 + 12] | buf[pos0 + 13] << 8,
                                   tzinfo=cls.TZ)
         except Exception:
             v = cls.UNIX_EPOCH
