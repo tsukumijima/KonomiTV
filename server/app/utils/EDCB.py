@@ -11,7 +11,7 @@ import time
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 from io import BufferedReader
-from typing import Callable, cast, ClassVar, TypedDict, TypeVar
+from typing import Callable, cast, ClassVar, Literal, TypedDict, TypeVar
 
 from app.constants import CONFIG
 
@@ -541,6 +541,50 @@ class FileData(TypedDict):
     data: bytes
 
 
+class RecFileSetInfo(TypedDict, total=False):
+    """ 録画フォルダ情報 """
+    rec_folder: str
+    write_plug_in: str
+    rec_name_plug_in: str
+
+
+class RecSettingData(TypedDict, total=False):
+    """ 録画設定 """
+    rec_mode: int  # 0-4: 全サービス～視聴, 5-8: 無効の指定サービス～視聴, 9: 無効の全サービス
+    priority: int
+    tuijyuu_flag: bool
+    service_mode: int
+    pittari_flag: bool
+    bat_file_path: str
+    rec_folder_list: list[RecFileSetInfo]
+    suspend_mode: int
+    reboot_flag: bool
+    start_margin: int  # デフォルトのとき存在しない
+    end_margin: int  # デフォルトのとき存在しない
+    continue_rec_flag: bool
+    partial_rec_flag: int
+    tuner_id: int
+    partial_rec_folder: list[RecFileSetInfo]
+
+
+class ReserveData(TypedDict, total=False):
+    """ 予約情報 """
+    title: str
+    start_time: datetime.datetime
+    duration_second: int
+    station_name: str
+    onid: int
+    tsid: int
+    sid: int
+    eid: int
+    comment: str
+    reserve_id: int
+    overlap_mode: int
+    start_time_epg: datetime.datetime
+    rec_setting: RecSettingData
+    rec_file_name_list: list[str]  # 録画予定ファイル名
+
+
 class RecFileInfo(TypedDict, total=False):
     """ 録画済み情報 """
     id: int
@@ -561,6 +605,13 @@ class RecFileInfo(TypedDict, total=False):
     program_info: str
     err_info: str
     protect_flag: bool
+
+
+class TunerReserveInfo(TypedDict):
+    """ チューナー予約情報 """
+    tuner_id: int
+    tuner_name: str
+    reserve_list: list[int]
 
 
 class ShortEventInfo(TypedDict):
@@ -800,6 +851,37 @@ class CtrlCmdUtil:
                                       lambda buf: self.__writeInt(buf, nwtv_id))
         return ret == self.__CMD_SUCCESS
 
+    async def sendEnumReserve(self) -> list[ReserveData] | None:
+        """ 予約一覧を取得する """
+        ret, rbuf = await self.__sendCmd2(self.__CMD_EPG_SRV_ENUM_RESERVE2)
+        if ret == self.__CMD_SUCCESS:
+            bufview = memoryview(rbuf)
+            pos = [0]
+            try:
+                if self.__readUshort(bufview, pos, len(rbuf)) >= self.__CMD_VER:
+                    return self.__readVector(self.__readReserveData, bufview, pos, len(rbuf))
+            except self.__ReadError:
+                pass
+        return None
+
+    async def sendAddReserve(self, reserve_list: list[ReserveData]) -> bool:
+        """ 予約を追加する """
+        ret, _ = await self.__sendCmd2(self.__CMD_EPG_SRV_ADD_RESERVE2,
+                                       lambda buf: self.__writeVector(self.__writeReserveData, buf, reserve_list))
+        return ret == self.__CMD_SUCCESS
+
+    async def sendChgReserve(self, reserve_list: list[ReserveData]) -> bool:
+        """ 予約を変更する """
+        ret, _ = await self.__sendCmd2(self.__CMD_EPG_SRV_CHG_RESERVE2,
+                                       lambda buf: self.__writeVector(self.__writeReserveData, buf, reserve_list))
+        return ret == self.__CMD_SUCCESS
+
+    async def sendDelReserve(self, reserve_id_list: list[int]) -> bool:
+        """ 予約を削除する """
+        ret, _ = await self.__sendCmd(self.__CMD_EPG_SRV_DEL_RESERVE,
+                                      lambda buf: self.__writeVector(self.__writeInt, buf, reserve_id_list))
+        return ret == self.__CMD_SUCCESS
+
     async def sendEnumRecInfoBasic(self) -> list[RecFileInfo] | None:
         """ 録画済み情報一覧取得 (programInfo と errInfo を除く) """
         ret, rbuf = await self.__sendCmd2(self.__CMD_EPG_SRV_ENUM_RECINFO_BASIC2)
@@ -823,6 +905,27 @@ class CtrlCmdUtil:
             try:
                 if self.__readUshort(bufview, pos, len(rbuf)) >= self.__CMD_VER:
                     return self.__readRecFileInfo(bufview, pos, len(rbuf))
+            except self.__ReadError:
+                pass
+        return None
+
+    async def sendEnumTunerReserve(self) -> list[TunerReserveInfo] | None:
+        """ チューナーごとの予約一覧を取得する """
+        ret, rbuf = await self.__sendCmd(self.__CMD_EPG_SRV_ENUM_TUNER_RESERVE)
+        if ret == self.__CMD_SUCCESS:
+            try:
+                return self.__readVector(self.__readTunerReserveInfo, memoryview(rbuf), [0], len(rbuf))
+            except self.__ReadError:
+                pass
+        return None
+
+    async def sendEnumPlugIn(self, index: Literal[1, 2]) -> list[str] | None:
+        """ PlugIn ファイルの一覧を取得する """
+        ret, rbuf = await self.__sendCmd(self.__CMD_EPG_SRV_ENUM_PLUGIN,
+                                         lambda buf: self.__writeUshort(buf, index))
+        if ret == self.__CMD_SUCCESS:
+            try:
+                return self.__readVector(self.__readString, memoryview(rbuf), [0], len(rbuf))
             except self.__ReadError:
                 pass
         return None
@@ -877,12 +980,19 @@ class CtrlCmdUtil:
     __CMD_VIEW_APP_SET_CH = 205
     __CMD_VIEW_APP_CLOSE = 208
     __CMD_EPG_SRV_RELAY_VIEW_STREAM = 301
+    __CMD_EPG_SRV_DEL_RESERVE = 1014
+    __CMD_EPG_SRV_ENUM_TUNER_RESERVE = 1016
     __CMD_EPG_SRV_ENUM_SERVICE = 1021
     __CMD_EPG_SRV_ENUM_PG_INFO_EX = 1029
     __CMD_EPG_SRV_ENUM_PG_ARC = 1030
     __CMD_EPG_SRV_FILE_COPY = 1060
+    __CMD_EPG_SRV_ENUM_PLUGIN = 1061
     __CMD_EPG_SRV_NWTV_ID_SET_CH = 1073
     __CMD_EPG_SRV_NWTV_ID_CLOSE = 1074
+    __CMD_EPG_SRV_ENUM_RESERVE2 = 2011
+    __CMD_EPG_SRV_GET_RESERVE2 = 2012
+    __CMD_EPG_SRV_ADD_RESERVE2 = 2013
+    __CMD_EPG_SRV_CHG_RESERVE2 = 2015
     __CMD_EPG_SRV_ENUM_RECINFO_BASIC2 = 2020
     __CMD_EPG_SRV_GET_RECINFO2 = 2024
     __CMD_EPG_SRV_FILE_COPY2 = 2060
@@ -978,12 +1088,27 @@ class CtrlCmdUtil:
         buf.extend(v.to_bytes(4, 'little', signed=True))
 
     @staticmethod
+    def __writeUint(buf: bytearray, v: int) -> None:
+        buf.extend(v.to_bytes(4, 'little'))
+
+    @staticmethod
     def __writeLong(buf: bytearray, v: int) -> None:
         buf.extend(v.to_bytes(8, 'little', signed=True))
 
     @staticmethod
     def __writeIntInplace(buf: bytearray, pos: int, v: int) -> None:
         buf[pos:pos + 4] = v.to_bytes(4, 'little', signed=True)
+
+    @classmethod
+    def __writeSystemTime(cls, buf: bytearray, v: datetime.datetime) -> None:
+        cls.__writeUshort(buf, v.year)
+        cls.__writeUshort(buf, v.month)
+        cls.__writeUshort(buf, v.isoweekday() % 7)
+        cls.__writeUshort(buf, v.day)
+        cls.__writeUshort(buf, v.hour)
+        cls.__writeUshort(buf, v.minute)
+        cls.__writeUshort(buf, v.second)
+        cls.__writeUshort(buf, 0)
 
     @classmethod
     def __writeString(cls, buf: bytearray, v: str) -> None:
@@ -1016,6 +1141,62 @@ class CtrlCmdUtil:
         cls.__writeInt(buf, v.get('ch_or_mode', 0))
         cls.__writeIntInplace(buf, pos, len(buf) - pos)
 
+    @classmethod
+    def __writeRecFileSetInfo(cls, buf: bytearray, v: RecFileSetInfo) -> None:
+        pos = len(buf)
+        cls.__writeInt(buf, 0)
+        cls.__writeString(buf, v.get('rec_folder', ''))
+        cls.__writeString(buf, v.get('write_plug_in', ''))
+        cls.__writeString(buf, v.get('rec_name_plug_in', ''))
+        cls.__writeString(buf, '')
+        cls.__writeIntInplace(buf, pos, len(buf) - pos)
+
+    @classmethod
+    def __writeRecSettingData(cls, buf: bytearray, v: RecSettingData) -> None:
+        pos = len(buf)
+        cls.__writeInt(buf, 0)
+        cls.__writeByte(buf, v.get('rec_mode', 0))
+        cls.__writeByte(buf, v.get('priority', 0))
+        cls.__writeByte(buf, v.get('tuijyuu_flag', False))
+        cls.__writeUint(buf, v.get('service_mode', 0))
+        cls.__writeByte(buf, v.get('pittari_flag', False))
+        cls.__writeString(buf, v.get('bat_file_path', ''))
+        cls.__writeVector(cls.__writeRecFileSetInfo, buf, v.get('rec_folder_list', []))
+        cls.__writeByte(buf, v.get('suspend_mode', 0))
+        cls.__writeByte(buf, v.get('reboot_flag', False))
+        cls.__writeByte(buf, v.get('start_margin') is not None and v.get('end_margin') is not None)
+        cls.__writeInt(buf, v.get('start_margin', 0))
+        cls.__writeInt(buf, v.get('end_margin', 0))
+        cls.__writeByte(buf, v.get('continue_rec_flag', False))
+        cls.__writeByte(buf, v.get('partial_rec_flag', 0))
+        cls.__writeUint(buf, v.get('tuner_id', 0))
+        cls.__writeVector(cls.__writeRecFileSetInfo, buf, v.get('partial_rec_folder', []))
+        cls.__writeIntInplace(buf, pos, len(buf) - pos)
+
+    @classmethod
+    def __writeReserveData(cls, buf: bytearray, v: ReserveData) -> None:
+        pos = len(buf)
+        cls.__writeInt(buf, 0)
+        cls.__writeString(buf, v.get('title', ''))
+        cls.__writeSystemTime(buf, v.get('start_time', cls.UNIX_EPOCH))
+        cls.__writeUint(buf, v.get('duration_second', 0))
+        cls.__writeString(buf, v.get('station_name', ''))
+        cls.__writeUshort(buf, v.get('onid', 0))
+        cls.__writeUshort(buf, v.get('tsid', 0))
+        cls.__writeUshort(buf, v.get('sid', 0))
+        cls.__writeUshort(buf, v.get('eid', 0))
+        cls.__writeString(buf, v.get('comment', ''))
+        cls.__writeInt(buf, v.get('reserve_id', 0))
+        cls.__writeByte(buf, 0)
+        cls.__writeByte(buf, v.get('overlap_mode', 0))
+        cls.__writeString(buf, '')
+        cls.__writeSystemTime(buf, v.get('start_time_epg', cls.UNIX_EPOCH))
+        cls.__writeRecSettingData(buf, v.get('rec_setting', {}))
+        cls.__writeInt(buf, 0)
+        cls.__writeVector(cls.__writeString, buf, v.get('rec_file_name_list', []))
+        cls.__writeInt(buf, 0)
+        cls.__writeIntInplace(buf, pos, len(buf) - pos)
+
     class __ReadError(Exception):
         """ バッファをデータ構造として読み取るのに失敗したときの内部エラー """
         pass
@@ -1041,6 +1222,14 @@ class CtrlCmdUtil:
         if size - pos[0] < 4:
             raise cls.__ReadError
         v = int.from_bytes(buf[pos[0]:pos[0] + 4], 'little', signed=True)
+        pos[0] += 4
+        return v
+
+    @classmethod
+    def __readUint(cls, buf: memoryview, pos: list[int], size: int) -> int:
+        if size - pos[0] < 4:
+            raise cls.__ReadError
+        v = int.from_bytes(buf[pos[0]:pos[0] + 4], 'little')
         pos[0] += 4
         return v
 
@@ -1116,6 +1305,71 @@ class CtrlCmdUtil:
         return v
 
     @classmethod
+    def __readRecFileSetInfo(cls, buf: memoryview, pos: list[int], size: int) -> RecFileSetInfo:
+        size = cls.__readStructIntro(buf, pos, size)
+        v: RecFileSetInfo = {
+            'rec_folder': cls.__readString(buf, pos, size),
+            'write_plug_in': cls.__readString(buf, pos, size),
+            'rec_name_plug_in': cls.__readString(buf, pos, size)
+        }
+        cls.__readString(buf, pos, size)
+        pos[0] = size
+        return v
+
+    @classmethod
+    def __readRecSettingData(cls, buf: memoryview, pos: list[int], size: int) -> RecSettingData:
+        size = cls.__readStructIntro(buf, pos, size)
+        v: RecSettingData = {
+            'rec_mode': cls.__readByte(buf, pos, size),
+            'priority': cls.__readByte(buf, pos, size),
+            'tuijyuu_flag': cls.__readByte(buf, pos, size) != 0,
+            'service_mode': cls.__readUint(buf, pos, size),
+            'pittari_flag': cls.__readByte(buf, pos, size) != 0,
+            'bat_file_path': cls.__readString(buf, pos, size),
+            'rec_folder_list': cls.__readVector(cls.__readRecFileSetInfo, buf, pos, size),
+            'suspend_mode': cls.__readByte(buf, pos, size),
+            'reboot_flag': cls.__readByte(buf, pos, size) != 0
+        }
+        use_margin_flag = cls.__readByte(buf, pos, size) != 0
+        start_margin = cls.__readInt(buf, pos, size)
+        end_margin = cls.__readInt(buf, pos, size)
+        if use_margin_flag:
+            v['start_margin'] = start_margin
+            v['end_margin'] = end_margin
+        v['continue_rec_flag'] = cls.__readByte(buf, pos, size) != 0
+        v['partial_rec_flag'] = cls.__readByte(buf, pos, size)
+        v['tuner_id'] = cls.__readUint(buf, pos, size)
+        v['partial_rec_folder'] = cls.__readVector(cls.__readRecFileSetInfo, buf, pos, size)
+        pos[0] = size
+        return v
+
+    @classmethod
+    def __readReserveData(cls, buf: memoryview, pos: list[int], size: int) -> ReserveData:
+        size = cls.__readStructIntro(buf, pos, size)
+        v: ReserveData = {
+            'title': cls.__readString(buf, pos, size),
+            'start_time': cls.__readSystemTime(buf, pos, size),
+            'duration_second': cls.__readUint(buf, pos, size),
+            'station_name': cls.__readString(buf, pos, size),
+            'onid': cls.__readUshort(buf, pos, size),
+            'tsid': cls.__readUshort(buf, pos, size),
+            'sid': cls.__readUshort(buf, pos, size),
+            'eid': cls.__readUshort(buf, pos, size),
+            'comment': cls.__readString(buf, pos, size),
+            'reserve_id': cls.__readInt(buf, pos, size)
+        }
+        cls.__readByte(buf, pos, size)
+        v['overlap_mode'] = cls.__readByte(buf, pos, size)
+        cls.__readString(buf, pos, size)
+        v['start_time_epg'] = cls.__readSystemTime(buf, pos, size)
+        v['rec_setting'] = cls.__readRecSettingData(buf, pos, size)
+        cls.__readInt(buf, pos, size)
+        v['rec_file_name_list'] = cls.__readVector(cls.__readString, buf, pos, size)
+        cls.__readInt(buf, pos, size)
+        pos[0] = size
+        return v
+
+    @classmethod
     def __readRecFileInfo(cls, buf: memoryview, pos: list[int], size: int) -> RecFileInfo:
         size = cls.__readStructIntro(buf, pos, size)
         v: RecFileInfo = {
@@ -1137,6 +1391,17 @@ class CtrlCmdUtil:
             'program_info': cls.__readString(buf, pos, size),
             'err_info': cls.__readString(buf, pos, size),
             'protect_flag': cls.__readByte(buf, pos, size) != 0
+        }
+        pos[0] = size
+        return v
+
+    @classmethod
+    def __readTunerReserveInfo(cls, buf: memoryview, pos: list[int], size: int) -> TunerReserveInfo:
+        size = cls.__readStructIntro(buf, pos, size)
+        v: TunerReserveInfo = {
+            'tuner_id': cls.__readUint(buf, pos, size),
+            'tuner_name': cls.__readString(buf, pos, size),
+            'reserve_list': cls.__readVector(cls.__readInt, buf, pos, size)
         }
         pos[0] = size
         return v
