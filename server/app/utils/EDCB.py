@@ -704,20 +704,13 @@ class CtrlCmdUtil:
 
     async def sendViewSetBonDriver(self, name: str) -> bool:
         """ BonDriver の切り替え """
-        buf = bytearray()
-        self.__writeInt(buf, self.__CMD_VIEW_APP_SET_BONDRIVER)
-        self.__writeInt(buf, 0)
-        self.__writeString(buf, name)
-        self.__writeIntInplace(buf, 4, len(buf) - 8)
-        ret, _ = await self.__sendAndReceive(buf)
+        ret, _ = await self.__sendCmd(self.__CMD_VIEW_APP_SET_BONDRIVER,
+                                      lambda buf: self.__writeString(buf, name))
         return ret == self.__CMD_SUCCESS
 
     async def sendViewGetBonDriver(self) -> str | None:
         """ 使用中の BonDriver のファイル名を取得 """
-        buf = bytearray()
-        self.__writeInt(buf, self.__CMD_VIEW_APP_GET_BONDRIVER)
-        self.__writeInt(buf, 0)
-        ret, rbuf = await self.__sendAndReceive(buf)
+        ret, rbuf = await self.__sendCmd(self.__CMD_VIEW_APP_GET_BONDRIVER)
         if ret == self.__CMD_SUCCESS:
             try:
                 return self.__readString(memoryview(rbuf), [0], len(rbuf))
@@ -727,28 +720,18 @@ class CtrlCmdUtil:
 
     async def sendViewSetCh(self, set_ch_info: SetChInfo) -> bool:
         """ チャンネル切り替え """
-        buf = bytearray()
-        self.__writeInt(buf, self.__CMD_VIEW_APP_SET_CH)
-        self.__writeInt(buf, 0)
-        self.__writeSetChInfo(buf, set_ch_info)
-        self.__writeIntInplace(buf, 4, len(buf) - 8)
-        ret, _ = await self.__sendAndReceive(buf)
+        ret, _ = await self.__sendCmd(self.__CMD_VIEW_APP_SET_CH,
+                                      lambda buf: self.__writeSetChInfo(buf, set_ch_info))
         return ret == self.__CMD_SUCCESS
 
     async def sendViewAppClose(self) -> bool:
         """ アプリケーションの終了 """
-        buf = bytearray()
-        self.__writeInt(buf, self.__CMD_VIEW_APP_CLOSE)
-        self.__writeInt(buf, 0)
-        ret, _ = await self.__sendAndReceive(buf)
+        ret, _ = await self.__sendCmd(self.__CMD_VIEW_APP_CLOSE)
         return ret == self.__CMD_SUCCESS
 
     async def sendEnumService(self) -> list[ServiceInfo] | None:
         """ サービス一覧を取得する """
-        buf = bytearray()
-        self.__writeInt(buf, self.__CMD_EPG_SRV_ENUM_SERVICE)
-        self.__writeInt(buf, 0)
-        ret, rbuf = await self.__sendAndReceive(buf)
+        ret, rbuf = await self.__sendCmd(self.__CMD_EPG_SRV_ENUM_SERVICE)
         if ret == self.__CMD_SUCCESS:
             try:
                 return self.__readVector(self.__readServiceInfo, memoryview(rbuf), [0], len(rbuf))
@@ -758,12 +741,8 @@ class CtrlCmdUtil:
 
     async def sendEnumPgInfoEx(self, service_time_list: list[int]) -> list[ServiceEventInfo] | None:
         """ サービス指定と時間指定で番組情報一覧を取得する """
-        buf = bytearray()
-        self.__writeInt(buf, self.__CMD_EPG_SRV_ENUM_PG_INFO_EX)
-        self.__writeInt(buf, 0)
-        self.__writeVector(self.__writeLong, buf, service_time_list)
-        self.__writeIntInplace(buf, 4, len(buf) - 8)
-        ret, rbuf = await self.__sendAndReceive(buf)
+        ret, rbuf = await self.__sendCmd(self.__CMD_EPG_SRV_ENUM_PG_INFO_EX,
+                                         lambda buf: self.__writeVector(self.__writeLong, buf, service_time_list))
         if ret == self.__CMD_SUCCESS:
             try:
                 return self.__readVector(self.__readServiceEventInfo, memoryview(rbuf), [0], len(rbuf))
@@ -773,12 +752,8 @@ class CtrlCmdUtil:
 
     async def sendEnumPgArc(self, service_time_list: list[int]) -> list[ServiceEventInfo] | None:
         """ サービス指定と時間指定で過去番組情報一覧を取得する """
-        buf = bytearray()
-        self.__writeInt(buf, self.__CMD_EPG_SRV_ENUM_PG_ARC)
-        self.__writeInt(buf, 0)
-        self.__writeVector(self.__writeLong, buf, service_time_list)
-        self.__writeIntInplace(buf, 4, len(buf) - 8)
-        ret, rbuf = await self.__sendAndReceive(buf)
+        ret, rbuf = await self.__sendCmd(self.__CMD_EPG_SRV_ENUM_PG_ARC,
+                                         lambda buf: self.__writeVector(self.__writeLong, buf, service_time_list))
         if ret == self.__CMD_SUCCESS:
             try:
                 return self.__readVector(self.__readServiceEventInfo, memoryview(rbuf), [0], len(rbuf))
@@ -788,25 +763,16 @@ class CtrlCmdUtil:
 
     async def sendFileCopy(self, name: str) -> bytes | None:
         """ 指定ファイルを転送する """
-        buf = bytearray()
-        self.__writeInt(buf, self.__CMD_EPG_SRV_FILE_COPY)
-        self.__writeInt(buf, 0)
-        self.__writeString(buf, name)
-        self.__writeIntInplace(buf, 4, len(buf) - 8)
-        ret, rbuf = await self.__sendAndReceive(buf)
+        ret, rbuf = await self.__sendCmd(self.__CMD_EPG_SRV_FILE_COPY,
+                                         lambda buf: self.__writeString(buf, name))
         if ret == self.__CMD_SUCCESS:
             return rbuf
         return None
 
     async def sendFileCopy2(self, name_list: list[str]) -> list[FileData] | None:
         """ 指定ファイルをまとめて転送する """
-        buf = bytearray()
-        self.__writeInt(buf, self.__CMD_EPG_SRV_FILE_COPY2)
-        self.__writeInt(buf, 0)
-        self.__writeUshort(buf, self.__CMD_VER)
-        self.__writeVector(self.__writeString, buf, name_list)
-        self.__writeIntInplace(buf, 4, len(buf) - 8)
-        ret, rbuf = await self.__sendAndReceive(buf)
+        ret, rbuf = await self.__sendCmd2(self.__CMD_EPG_SRV_FILE_COPY2,
+                                          lambda buf: self.__writeVector(self.__writeString, buf, name_list))
         if ret == self.__CMD_SUCCESS:
             bufview = memoryview(rbuf)
             pos = [0]
@@ -819,12 +785,8 @@ class CtrlCmdUtil:
 
     async def sendNwTVIDSetCh(self, set_ch_info: SetChInfo) -> int | None:
         """ NetworkTV モードの View アプリのチャンネルを切り替え、または起動の確認 (ID 指定) """
-        buf = bytearray()
-        self.__writeInt(buf, self.__CMD_EPG_SRV_NWTV_ID_SET_CH)
-        self.__writeInt(buf, 0)
-        self.__writeSetChInfo(buf, set_ch_info)
-        self.__writeIntInplace(buf, 4, len(buf) - 8)
-        ret, rbuf = await self.__sendAndReceive(buf)
+        ret, rbuf = await self.__sendCmd(self.__CMD_EPG_SRV_NWTV_ID_SET_CH,
+                                         lambda buf: self.__writeSetChInfo(buf, set_ch_info))
         if ret == self.__CMD_SUCCESS:
             try:
                 return self.__readInt(memoryview(rbuf), [0], len(rbuf))
@@ -834,22 +796,13 @@ class CtrlCmdUtil:
 
     async def sendNwTVIDClose(self, nwtv_id: int) -> bool:
         """ NetworkTV モードで起動中の View アプリを終了 (ID 指定) """
-        buf = bytearray()
-        self.__writeInt(buf, self.__CMD_EPG_SRV_NWTV_ID_CLOSE)
-        self.__writeInt(buf, 0)
-        self.__writeInt(buf, nwtv_id)
-        self.__writeIntInplace(buf, 4, len(buf) - 8)
-        ret, _ = await self.__sendAndReceive(buf)
+        ret, _ = await self.__sendCmd(self.__CMD_EPG_SRV_NWTV_ID_CLOSE,
+                                      lambda buf: self.__writeInt(buf, nwtv_id))
         return ret == self.__CMD_SUCCESS
 
     async def sendEnumRecInfoBasic(self) -> list[RecFileInfo] | None:
         """ 録画済み情報一覧取得 (programInfo と errInfo を除く) """
-        buf = bytearray()
-        self.__writeInt(buf, self.__CMD_EPG_SRV_ENUM_RECINFO_BASIC2)
-        self.__writeInt(buf, 0)
-        self.__writeUshort(buf, self.__CMD_VER)
-        self.__writeIntInplace(buf, 4, len(buf) - 8)
-        ret, rbuf = await self.__sendAndReceive(buf)
+        ret, rbuf = await self.__sendCmd2(self.__CMD_EPG_SRV_ENUM_RECINFO_BASIC2)
         if ret == self.__CMD_SUCCESS:
             bufview = memoryview(rbuf)
             pos = [0]
@@ -862,13 +815,8 @@ class CtrlCmdUtil:
 
     async def sendGetRecInfo(self, info_id: int) -> RecFileInfo | None:
         """ 録画済み情報取得 """
-        buf = bytearray()
-        self.__writeInt(buf, self.__CMD_EPG_SRV_GET_RECINFO2)
-        self.__writeInt(buf, 0)
-        self.__writeUshort(buf, self.__CMD_VER)
-        self.__writeInt(buf, info_id)
-        self.__writeIntInplace(buf, 4, len(buf) - 8)
-        ret, rbuf = await self.__sendAndReceive(buf)
+        ret, rbuf = await self.__sendCmd2(self.__CMD_EPG_SRV_GET_RECINFO2,
+                                          lambda buf: self.__writeInt(buf, info_id))
         if ret == self.__CMD_SUCCESS:
             bufview = memoryview(rbuf)
             pos = [0]
@@ -997,6 +945,25 @@ class CtrlCmdUtil:
         if len(rbuf) == size:
             return ret, rbuf
         return None, b''
+
+    async def __sendCmd(self, cmd: int, write_func: Callable[[bytearray], None] | None = None) -> tuple[int | None, bytes]:
+        buf = bytearray()
+        self.__writeInt(buf, cmd)
+        self.__writeInt(buf, 0)
+        if write_func:
+            write_func(buf)
+        self.__writeIntInplace(buf, 4, len(buf) - 8)
+        return await self.__sendAndReceive(buf)
+
+    async def __sendCmd2(self, cmd2: int, write_func: Callable[[bytearray], None] | None = None) -> tuple[int | None, bytes]:
+        buf = bytearray()
+        self.__writeInt(buf, cmd2)
+        self.__writeInt(buf, 0)
+        self.__writeUshort(buf, self.__CMD_VER)
+        if write_func:
+            write_func(buf)
+        self.__writeIntInplace(buf, 4, len(buf) - 8)
+        return await self.__sendAndReceive(buf)
 
     @staticmethod
     def __writeByte(buf: bytearray, v: int) -> None:
