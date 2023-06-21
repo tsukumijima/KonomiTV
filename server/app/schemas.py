@@ -1,4 +1,5 @@
 
+from datetime import date
 from datetime import datetime
 from pydantic import AnyHttpUrl, BaseModel, confloat, DirectoryPath, Field, FilePath, PositiveInt
 from pydantic.networks import stricturl
@@ -136,6 +137,64 @@ class LiveStream(BaseModel):
     started_at: float
     updated_at: float
     client_count: int
+
+class RecordedVideo(PydanticModel):
+    id: int
+    file_path: str
+    file_hash: str
+    recording_start_time: datetime | None
+    recording_end_time: datetime | None
+    recording_start_margin: float | None
+    recording_end_margin: float | None
+    duration: float
+    container_format: str
+    video_codec: str
+    video_resolution: str
+    primary_audio_codec: str
+    primary_audio_channel: str
+    secondary_audio_codec: str | None
+    secondary_audio_channel: str | None
+    cm_intervals: list[tuple[float, float]] | None
+
+class RecordedProgram(PydanticModel):
+    id: int
+    recorded_video: RecordedVideo
+    channel: Channel | None
+    channel_id: int | None
+    network_id: int | None
+    service_id: int | None
+    event_id: int | None
+    series_id: int | None
+    series_broadcast_period_id: int | None
+    title: str
+    episode_number: str | None
+    subtitle: str | None
+    description: str
+    detail: dict[str, str]
+    start_time: datetime
+    end_time: datetime
+    duration: float
+    is_free: bool
+    genres: list[dict[str, str]]
+    primary_audio_type: str
+    primary_audio_language: str
+    secondary_audio_type: str | None
+    secondary_audio_language: str | None
+
+class SeriesBroadcastPeriod(PydanticModel):
+    channel: Channel
+    channel_id: int
+    start_date: date
+    end_date: date
+    recorded_programs: list[RecordedProgram]
+
+class Series(PydanticModel):
+    id: int
+    title: str
+    description: str
+    genres: list[dict[str, str]]
+    broadcast_periods: list[SeriesBroadcastPeriod]
+    updated_at: datetime
 
 class TwitterAccount(PydanticModel):
     id: int
