@@ -19,11 +19,11 @@ from pydantic import ValidationError
 from typing import Any, cast
 from uvicorn.supervisors.watchfilesreload import WatchFilesReload
 
+from app.config import CONFIG
 from app.constants import (
     AKEBI_LOG_PATH,
     API_REQUEST_HEADERS,
     BASE_DIR,
-    CONFIG,
     KONOMITV_ACCESS_LOG_PATH,
     KONOMITV_SERVER_LOG_PATH,
     LIBRARY_PATH,

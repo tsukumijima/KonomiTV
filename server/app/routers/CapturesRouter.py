@@ -11,7 +11,7 @@ from fastapi import UploadFile
 from pathlib import Path
 from typing import cast
 
-from app.constants import CONFIG
+from app.config import CONFIG
 from app.utils import Logging
 
 

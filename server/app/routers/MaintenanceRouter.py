@@ -12,7 +12,8 @@ from fastapi import status
 from fastapi.exceptions import HTTPException
 from fastapi.security import OAuth2PasswordBearer
 
-from app.constants import CONFIG, RESTART_REQUIRED_LOCK_PATH
+from app.config import CONFIG
+from app.constants import RESTART_REQUIRED_LOCK_PATH
 from app.models import Channel
 from app.models import Program
 from app.models import TwitterAccount

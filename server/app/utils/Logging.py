@@ -4,7 +4,7 @@ import logging
 import sys
 from typing import Any
 
-from app.constants import CONFIG
+from app.config import CONFIG
 
 
 # ログの色付き表示に必要な ANSI エスケープシーケンスを Windows でも有効化

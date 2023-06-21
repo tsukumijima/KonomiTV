@@ -8,7 +8,8 @@ import time
 from aiofiles.threadpool.text import AsyncTextIOWrapper
 from typing import AsyncIterator, cast, Literal
 
-from app.constants import API_REQUEST_HEADERS, CONFIG, LIBRARY_PATH, LOGS_DIR, QUALITY, QUALITY_TYPES
+from app.config import CONFIG
+from app.constants import API_REQUEST_HEADERS, LIBRARY_PATH, LOGS_DIR, QUALITY, QUALITY_TYPES
 from app.models import Channel
 from app.models import LiveStream
 from app.utils import Logging

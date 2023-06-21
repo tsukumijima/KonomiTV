@@ -18,7 +18,7 @@ from fastapi.responses import Response
 from fastapi.responses import StreamingResponse
 from typing import cast
 
-from app.constants import CONFIG
+from app.config import CONFIG
 from app.utils import Logging
 
 from biim.mpeg2ts import ts

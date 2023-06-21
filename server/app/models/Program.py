@@ -17,7 +17,8 @@ from tortoise import Tortoise
 from tortoise import transactions
 from typing import Any
 
-from app.constants import API_REQUEST_HEADERS, CONFIG, DATABASE_CONFIG
+from app.config import CONFIG
+from app.constants import API_REQUEST_HEADERS, DATABASE_CONFIG
 from app.models import Channel
 from app.utils import Logging
 from app.utils import TSInformation

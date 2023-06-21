@@ -13,7 +13,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi_utils.tasks import repeat_every
 from pathlib import Path
 
-from app.constants import CONFIG, CLIENT_DIR, DATABASE_CONFIG, QUALITY, VERSION
+from app.config import CONFIG
+from app.constants import CLIENT_DIR, DATABASE_CONFIG, QUALITY, VERSION
 from app.models import Channel
 from app.models import LiveStream
 from app.models import Program

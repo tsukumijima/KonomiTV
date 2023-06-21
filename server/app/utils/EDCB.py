@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from io import BufferedReader
 from typing import Callable, cast, ClassVar, Literal, TypedDict, TypeVar
 
-from app.constants import CONFIG
+from app.config import CONFIG
 
 # ジェネリック型
 T = TypeVar('T')

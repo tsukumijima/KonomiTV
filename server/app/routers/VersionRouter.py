@@ -3,9 +3,11 @@ import asyncio
 import requests
 import time
 from fastapi import APIRouter
+from typing import Any
 
 from app import schemas
-from app.constants import API_REQUEST_HEADERS, CONFIG, VERSION
+from app.config import CONFIG
+from app.constants import API_REQUEST_HEADERS, VERSION
 from app.utils import GetPlatformEnvironment
 
 
@@ -52,10 +54,11 @@ async def VersionInformationAPI():
     # サーバーが稼働している環境を取得
     environment = GetPlatformEnvironment()
 
-    return {
+    result: dict[str, Any] = {
         'version': VERSION,
         'latest_version': latest_version,
         'environment': environment,
         'backend': CONFIG['general']['backend'],
         'encoder': CONFIG['general']['encoder'],
     }
+    return result

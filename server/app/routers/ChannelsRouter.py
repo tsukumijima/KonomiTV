@@ -20,7 +20,8 @@ from tortoise import timezone
 from typing import Any
 
 from app import schemas
-from app.constants import API_REQUEST_HEADERS, CONFIG, LOGO_DIR, VERSION
+from app.config import CONFIG
+from app.constants import API_REQUEST_HEADERS, LOGO_DIR, VERSION
 from app.models import Channel
 from app.models import LiveStream
 from app.routers.UsersRouter import GetCurrentUser

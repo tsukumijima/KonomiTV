@@ -14,7 +14,8 @@ from tortoise import transactions
 from tortoise.exceptions import IntegrityError
 from typing import Any, TYPE_CHECKING
 
-from app.constants import API_REQUEST_HEADERS, CONFIG
+from app.config import CONFIG
+from app.constants import API_REQUEST_HEADERS
 from app.utils import Jikkyo
 from app.utils import Logging
 from app.utils import TSInformation
