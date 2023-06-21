@@ -18,7 +18,7 @@ class User(models.Model):
     name: str = fields.TextField()  # type: ignore
     password: str = fields.TextField()  # type: ignore
     is_admin: bool = fields.BooleanField()  # type: ignore
-    client_settings: dict[str, Any] = fields.JSONField(encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
+    client_settings: dict[str, Any] = fields.JSONField(default={}, encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
     niconico_user_id: int | None = fields.IntField(null=True)  # type: ignore
     niconico_user_name: str | None = fields.TextField(null=True)  # type: ignore
     niconico_user_premium: bool | None = fields.BooleanField(null=True)  # type: ignore

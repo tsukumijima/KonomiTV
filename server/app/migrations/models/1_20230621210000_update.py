@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS "recorded_videos" (
     "primary_audio_channel" TEXT NOT NULL,
     "secondary_audio_codec" TEXT,
     "secondary_audio_channel" TEXT,
-    "cm_intervals" JSON
+    "cm_intervals" JSON NOT NULL
 );
 CREATE TABLE IF NOT EXISTS "series" (
     "id" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,

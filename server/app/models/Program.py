@@ -40,12 +40,12 @@ class Program(models.Model):
     event_id: int = fields.IntField()  # type: ignore
     title: str = fields.TextField()  # type: ignore
     description: str = fields.TextField()  # type: ignore
-    detail: dict[str, str] = fields.JSONField(encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
+    detail: dict[str, str] = fields.JSONField(default={}, encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
     start_time = fields.DatetimeField(index=True)
     end_time = fields.DatetimeField(index=True)
     duration: float = fields.FloatField()  # type: ignore
     is_free: bool = fields.BooleanField()  # type: ignore
-    genres: list[dict[str, str]] = fields.JSONField(encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
+    genres: list[dict[str, str]] = fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
     video_type: str | None = fields.TextField(null=True)  # type: ignore
     video_codec: str | None = fields.TextField(null=True)  # type: ignore
     video_resolution: str | None = fields.TextField(null=True)  # type: ignore

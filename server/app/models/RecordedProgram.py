@@ -35,12 +35,12 @@ class RecordedProgram(models.Model):
     episode_number: str | None = fields.CharField(255, null=True)  # type: ignore
     subtitle: str | None = fields.TextField(null=True)  # type: ignore
     description: str = fields.TextField()  # type: ignore
-    detail: dict[str, str] = fields.JSONField(encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
+    detail: dict[str, str] = fields.JSONField(default={}, encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
     start_time = fields.DatetimeField()
     end_time = fields.DatetimeField()
     duration: float = fields.FloatField()  # type: ignore
     is_free: bool = fields.BooleanField()  # type: ignore
-    genres: list[dict[str, str]] = fields.JSONField(encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
+    genres: list[dict[str, str]] = fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
     primary_audio_type: str = fields.TextField(default='2/0モード(ステレオ)')  # type: ignore
     primary_audio_language: str = fields.TextField(default='日本語')  # type: ignore
     secondary_audio_type: str | None = fields.TextField(null=True)  # type: ignore

@@ -27,5 +27,5 @@ class RecordedVideo(models.Model):
     primary_audio_channel: str = fields.TextField()  # type: ignore
     secondary_audio_codec: str | None = fields.TextField(null=True)  # type: ignore
     secondary_audio_channel: str | None = fields.TextField(null=True)  # type: ignore
-    cm_intervals: list[tuple[float, float]] | None = \
-        fields.JSONField(null=True, encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
+    cm_intervals: list[tuple[float, float]] = \
+        fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore

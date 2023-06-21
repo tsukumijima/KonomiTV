@@ -16,6 +16,6 @@ class Series(models.Model):
     id: int = fields.IntField(pk=True)  # type: ignore
     title: str = fields.TextField()  # type: ignore
     description: str = fields.TextField()  # type: ignore
-    genres: list[dict[str, str]] = fields.JSONField(encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
+    genres: list[dict[str, str]] = fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
     broadcast_periods: fields.ReverseRelation[SeriesBroadcastPeriod]
     updated_at = fields.DatetimeField(auto_now=True)
