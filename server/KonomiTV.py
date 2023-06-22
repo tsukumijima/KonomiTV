@@ -167,7 +167,7 @@ def main(
     ## Pydantic のエラーメッセージだけだと分かりづらいので、よくありがちな上2つのエラーに関しては別でエラーメッセージを用意している
     try:
         from app import models  # magic!! (ここでインポートしておかないと app.utils の参照時にエラーが発生する)  # type: ignore
-        from app.schemas import ServerSettings
+        from app.config import ServerSettings
         ServerSettings(**cast(Any, CONFIG))
     except ValidationError as error:
         logger.error('設定内容が不正なため、KonomiTV を起動できません。')

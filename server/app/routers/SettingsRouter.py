@@ -4,7 +4,7 @@ from fastapi import Body
 from fastapi import Depends
 from fastapi import status
 
-from app import schemas
+from app.config import ClientSettings
 from app.models import User
 from app.routers.UsersRouter import GetCurrentUser
 
@@ -20,7 +20,7 @@ router = APIRouter(
     '/client',
     summary = 'クライアント設定取得 API',
     response_description = 'ログイン中のユーザーアカウントのクライアント設定。',
-    response_model = schemas.ClientSettings,
+    response_model = ClientSettings,
 )
 async def ClientSettingsAPI(
     current_user: User = Depends(GetCurrentUser),
@@ -38,7 +38,7 @@ async def ClientSettingsAPI(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def ClientSettingsUpdateAPI(
-    client_settings: schemas.ClientSettings = Body(..., description='更新するクライアント設定のデータ。'),
+    client_settings: ClientSettings = Body(..., description='更新するクライアント設定のデータ。'),
     current_user: User = Depends(GetCurrentUser),
 ):
     """
@@ -46,7 +46,7 @@ async def ClientSettingsUpdateAPI(
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
 
-    # Dict に変換してから入れる
+    # dict に変換してから入れる
     ## Pydantic モデルのままだと JSON にシリアライズできないので怒られる
     current_user.client_settings = dict(client_settings)
 
