@@ -717,7 +717,7 @@ class LiveEncodingTask:
 
                     # 並列タスク処理中に何らかの例外が発生した
                     # BrokenPipeError・asyncio.TimeoutError などが想定されるが、何が発生するかわからないためすべての例外をキャッチする
-                    except:
+                    except Exception:
                         break
 
                     # エンコードタスクが終了しているか既にエンコーダープロセスが終了していたら、タスクを終了
@@ -1202,7 +1202,7 @@ class LiveEncodingTask:
         try:
             tsreadex.kill()
             encoder.kill()
-        except:
+        except Exception:
             pass
 
         # すべての視聴中クライアントのライブストリームへの接続を切断する

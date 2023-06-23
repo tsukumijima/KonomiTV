@@ -83,7 +83,7 @@ class Channel(models.Model):
             # EDCB バックエンド
             elif Config().general.backend == 'EDCB':
                 await cls.updateFromEDCB()
-        except:
+        except Exception:
             traceback.print_exc()
 
         Logging.info(f'Channels update complete. ({round(time.time() - timestamp, 3)} sec)')

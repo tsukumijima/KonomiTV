@@ -174,7 +174,7 @@ class LivePSIDataArchiver:
         if self.psisiarc_process is not None:
             try:
                 self.psisiarc_process.kill()
-            except:
+            except Exception:
                 pass
 
         # データをクリアする

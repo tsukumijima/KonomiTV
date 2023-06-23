@@ -186,7 +186,7 @@ if __name__ == '__main__':
             ShowPanel([
                 '[yellow]Ctrl+C が押されたため、処理を中断しました。[/yellow]',
             ])
-        except:
+        except Exception:
             ShowPanel([
                 '[red]インストーラーの処理中に予期しないエラーが発生しました。[/red]',
                 'お手数をおかけしますが、下記のログを開発者に報告してください。',
@@ -201,7 +201,7 @@ if __name__ == '__main__':
         print()  # 改行
         try:
             Prompt.ask('  終了するには何かキーを押してください')
-        except:
+        except Exception:
             pass
 
     print(Padding(Rule(

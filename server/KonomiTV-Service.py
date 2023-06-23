@@ -131,7 +131,7 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
                 if ('akebi-https-server.exe' == process_info.get('name', None) and
                     f'--listen-address 0.0.0.0:{GetServerPort()}' in ' '.join(process_info.get('cmdline', []))):
                     process.kill()
-        except:
+        except Exception:
             pass
 
         # Windows サービスのステータスを起動中に設定
@@ -173,7 +173,7 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
         try:
             from app.config import GetServerPort
             requests.post(f'http://127.0.0.77:{GetServerPort() + 10}/api/maintenance/shutdown')
-        except:
+        except Exception:
             pass
 
 
