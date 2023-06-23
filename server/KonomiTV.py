@@ -113,7 +113,7 @@ def main(
     # Uvicorn を自動リロードモードで起動するかのフラグ
     ## 基本的に開発時用で、コードを変更するとアプリケーションサーバーを自動で再起動してくれる
     if sys.platform == 'win32' and reload is True:
-        Logging.warning('Python の asyncio の技術的な制約により、Windows では自動リロードモードは事実上利用できません。')
+        Logging.warning('Python の asyncio の技術的な制約により、Windows では自動リロードモードは正常に動作しません。')
         Logging.warning('なお、外部プロセス実行を伴うストリーミング視聴を行わなければ一応 Windows でも機能します。')
 
     # Uvicorn の設定
