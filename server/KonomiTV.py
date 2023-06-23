@@ -16,8 +16,6 @@ from app.config import Config
 from app.constants import (
     AKEBI_LOG_PATH,
     BASE_DIR,
-    KONOMITV_ACCESS_LOG_PATH,
-    KONOMITV_SERVER_LOG_PATH,
     LIBRARY_PATH,
     LOGGING_CONFIG,
     RESTART_REQUIRED_LOCK_PATH,
@@ -39,17 +37,6 @@ def main(
     reload: bool = typer.Option(False, '--reload', help='Start Uvicorn in auto-reload mode. (Linux only)'),
     version: bool = typer.Option(None, '--version', callback=version, is_eager=True, help='Show version information.'),
 ):
-
-    # 前回のログをすべて削除する
-    try:
-        if KONOMITV_SERVER_LOG_PATH.exists():
-            KONOMITV_SERVER_LOG_PATH.unlink()
-        if KONOMITV_ACCESS_LOG_PATH.exists():
-            KONOMITV_ACCESS_LOG_PATH.unlink()
-        if AKEBI_LOG_PATH.exists():
-            AKEBI_LOG_PATH.unlink()
-    except PermissionError:
-        pass
 
     # もし何らかの理由でロックファイルが残っていた場合は削除する
     if RESTART_REQUIRED_LOCK_PATH.exists():

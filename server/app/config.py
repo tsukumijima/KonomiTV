@@ -1,5 +1,6 @@
 
 import asyncio
+import concurrent.futures
 import platform
 import psutil
 import re
@@ -105,9 +106,11 @@ class ServerSettings(BaseModel):
                     )
                 # サービス一覧が取得できるか試してみる
                 ## RecursionError 回避のために edcb_url を明示的に指定
+                ## ThreadPoolExecutor 上で実行し、リロードモード時に発生するイベントループ周りの謎エラーを回避する
                 edcb = CtrlCmdUtil(edcb_url)
                 edcb.setConnectTimeOutSec(5)  # 5秒後にタイムアウト
-                result = asyncio.run(edcb.sendEnumService())
+                with concurrent.futures.ThreadPoolExecutor(1) as executor:
+                    result = executor.submit(asyncio.run, edcb.sendEnumService()).result()
                 if result is None:
                     raise ValueError(
                         f'EDCB ({edcb_url}/) にアクセスできませんでした。\n'
@@ -210,7 +213,26 @@ class ServerSettings(BaseModel):
                 )
             # 使用中のポートを取得
             # ref: https://qiita.com/skokado/items/6e76762c68866d73570b
-            used_ports = [cast(Any, conn.laddr).port for conn in psutil.net_connections() if conn.status == 'LISTEN']
+            current_process = psutil.Process()
+            used_ports: list[int] = []
+            for conn in psutil.net_connections():
+                if conn.status == 'LISTEN':
+                    if conn.pid is None:
+                        continue
+                    # 自分自身のプロセスは除外
+                    ## 主にリロードモードで起動させた際に Uvicorn や Akebi が起動した後に二重でバリデーションが実行され、
+                    ## その結果ポートが使用中と判定されてしまうのを防ぐためのもの
+                    ## リロードモードでの reloader process や Akebi は KonomiTV サーバーの子プロセスになるので、
+                    ## 子プロセスの親プロセスの PID が一致するかもチェックする
+                    process = psutil.Process(conn.pid)
+                    if ((process.pid == current_process.pid) or
+                        (process.pid == current_process.parent().pid) or
+                        (process.parent().pid == current_process.pid) or
+                        (process.parent().pid == current_process.parent().pid)):
+                        continue
+                    # 使用中のポートに追加
+                    if conn.laddr is not None:
+                        used_ports.append(cast(Any, conn.laddr).port)
             # リッスンポートと同じポートが使われていたら、エラーを表示する
             # Akebi HTTPS Server のリッスンポートと Uvicorn のリッスンポートの両方をチェック
             if port in used_ports:
