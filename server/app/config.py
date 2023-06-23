@@ -313,7 +313,7 @@ def LoadConfig() -> ServerSettings:
         config_dict['general']['edcb_url'] = config_dict['general']['edcb_url'].rstrip('/')
         config_dict['general']['mirakurun_url'] = config_dict['general']['mirakurun_url'].rstrip('/')
 
-        # Docker 上で実行されているとき、サーバー設定のうち、パス指定の項目に Docker 環境向けの Prefix (/host-rootfs) を付ける
+        # Docker 上で実行されているとき、サーバー設定のうちパス指定の項目に Docker 環境向けの Prefix (/host-rootfs) を付ける
         ## /host-rootfs (docker-compose.yaml で定義) を通してホストマシンのファイルシステムにアクセスできる
         if Path.exists(Path('/.dockerenv')) is True:
             docker_fs_prefix = '/host-rootfs'
