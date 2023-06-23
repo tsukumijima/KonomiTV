@@ -73,6 +73,7 @@ class ClientSettings(BaseModel):
     tweet_hashtag_position: Literal['Prepend', 'Append', 'PrependWithLineBreak', 'AppendWithLineBreak'] = Field('Append')
     tweet_capture_watermark_position: Literal['None', 'TopLeft', 'TopRight', 'BottomLeft', 'BottomRight'] = Field('None')
 
+
 # サーバー設定を表す Pydantic モデル
 # config.yaml のバリデーションは設定データをこの Pydantic モデルに通すことで行う
 
@@ -266,11 +267,13 @@ class ServerSettings(BaseModel):
     capture: Capture
     twitter: Twitter
 
+
 # サーバー設定データと読み込み・保存用の関数
 # _CONFIG には config.yaml から読み込んだ KonomiTV サーバーの設定データが保持される
 # _CONFIG には直接アクセスせず、Config() 関数を通してアクセスする
 
 _CONFIG: ServerSettings | None = None
+
 
 def LoadConfig() -> ServerSettings:
     """
@@ -349,6 +352,7 @@ def LoadConfig() -> ServerSettings:
 
     return _CONFIG
 
+
 def Config() -> ServerSettings:
     """
     サーバー設定データを返す (まだサーバー設定データが読み込まれていない場合のみ読み込んでから返す)
@@ -361,3 +365,27 @@ def Config() -> ServerSettings:
     if _CONFIG is None:
         _CONFIG = LoadConfig()
     return _CONFIG
+
+
+def GetServerPort() -> int:
+    """
+    サーバーのポート番号を返す (KonomiTV-Service.py でポート番号を取得するために使用)
+    KonomiTV-Service.py ではバリデーションは行いたくないので、Pydantic には通さずに config.yaml から直接読み込む
+
+    Returns:
+        int: サーバーのポート番号
+    """
+
+    try:
+
+        # サーバー設定ファイルのパス
+        config_yaml_path = BASE_DIR.parent / 'config.yaml'
+
+        # 設定ファイルからサーバー設定を読み込み、ポート番号だけを返す
+        with open(config_yaml_path, encoding='utf-8') as file:
+            config_dict: dict[str, dict[str, Any]] = dict(ruamel.yaml.YAML().load(file))
+        return config_dict['server']['port']
+
+    # 処理中にエラーが発生した (config.yaml が存在しない・フォーマットが不正など) 場合は、デフォルトのポート番号を返す
+    except Exception:
+        return 7000
