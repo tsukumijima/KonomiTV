@@ -125,11 +125,11 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
         # 万が一ポートが衝突する Akebi HTTPS Server があったら終了させる
         # ポートが衝突する Akebi HTTPS Server があると KonomiTV サーバーの起動に失敗するため
         try:
-            from app.config import CONFIG
+            from app.config import Config
             for process in psutil.process_iter(attrs=('name', 'pid', 'cmdline')):
                 process_info: dict[str, Any] = cast(Any, process).info
                 if ('akebi-https-server.exe' == process_info.get('name', None) and
-                    f'--listen-address 0.0.0.0:{CONFIG["server"]["port"]}' in ' '.join(process_info.get('cmdline', []))):
+                    f'--listen-address 0.0.0.0:{Config().server.port}' in ' '.join(process_info.get('cmdline', []))):
                     process.kill()
         except:
             pass
@@ -171,8 +171,8 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
         # KonomiTV サーバーのシャットダウン API にリクエストしてサーバーを終了させる
         ## 通常管理者ユーザーでログインしていないと実行できないが、特別に 127.0.0.77:7010 に直接アクセスすると無認証で実行できる
         try:
-            from app.config import CONFIG
-            requests.post(f'http://127.0.0.77:{CONFIG["server"]["port"] + 10}/api/maintenance/shutdown')
+            from app.config import Config
+            requests.post(f'http://127.0.0.77:{Config().server.port + 10}/api/maintenance/shutdown')
         except:
             pass
 

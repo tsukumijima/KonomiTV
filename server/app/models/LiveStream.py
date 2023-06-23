@@ -417,8 +417,7 @@ class LiveStream():
             self.setStatus('Standby', 'エンコードタスクを起動しています…')
 
             # エンコードタスクを非同期で実行
-            ## 相互に依存し合っている場合、__init__.py でモジュール内の各クラスのインポートを定義している以上うまくいかないため、
-            ## どちらかをモジュールの初回参照時にインポートされないようにする必要がある
+            ## LiveEncodingTask と LiveStream は相互に参照しあっているので、循環参照を避けるために遅延インポートしている
             from app.streams import LiveEncodingTask
             instance = LiveEncodingTask(self)
             asyncio.create_task(instance.run())

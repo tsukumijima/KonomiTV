@@ -1,7 +1,6 @@
 
 import asyncio
 import atexit
-import logging
 import tortoise.contrib.fastapi
 from fastapi import FastAPI
 from fastapi import Request
@@ -13,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi_utils.tasks import repeat_every
 from pathlib import Path
 
-from app.config import CONFIG
+from app.config import Config
 from app.constants import CLIENT_DIR, DATABASE_CONFIG, QUALITY, VERSION
 from app.models import Channel
 from app.models import LiveStream
@@ -37,6 +36,7 @@ from app.utils.EDCB import EDCBTuner
 loop = asyncio.get_running_loop()
 
 # FastAPI を初期化
+CONFIG = Config()
 app = FastAPI(
     title = 'KonomiTV',
     description = 'KonomiTV: Kept Organized, Notably Optimized, Modern Interface TV media server',
@@ -50,7 +50,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        '*' if CONFIG['general']['debug'] is True else '',  # デバッグ時のみ CORS ヘッダーを有効化
+        '*' if CONFIG.general.debug is True else '',  # デバッグ時のみ CORS ヘッダーを有効化
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -130,7 +130,7 @@ async def ExceptionHandler(request: Request, exc: Exception):
 # Tortoise ORM の初期化
 ## ロガーを Uvicorn に統合する
 ## ref: https://github.com/tortoise/tortoise-orm/issues/529
-tortoise.contrib.fastapi.logging = logging.getLogger('uvicorn')  # type: ignore
+tortoise.contrib.fastapi.logging = Logging.logger  # type: ignore
 ## Tortoise ORM を登録する
 ## ref: https://tortoise-orm.readthedocs.io/en/latest/contrib/fastapi.html
 tortoise.contrib.fastapi.register_tortoise(
@@ -165,7 +165,7 @@ async def Startup():
 # チャンネル情報は頻繁に変わるわけではないけど、手動で再起動しなくても自動で変更が適用されてほしい
 # 番組情報の更新処理はかなり重くストリーム配信などの他の処理に影響してしまうため、マルチプロセスで実行する
 @app.on_event('startup')
-@repeat_every(seconds=CONFIG['general']['program_update_interval'] * 60, wait_first=True, logger=Logging.logger)
+@repeat_every(seconds=CONFIG.general.program_update_interval * 60, wait_first=True, logger=Logging.logger)
 async def UpdateChannelAndProgram():
     await Channel.update()
     await Channel.updateJikkyoStatus()
@@ -199,7 +199,7 @@ async def Shutdown():
         livestream.setStatus('Offline', 'ライブストリームは Offline です。', True)
 
     # 全てのチューナーインスタンスを終了する (EDCB バックエンドのみ)
-    if CONFIG['general']['backend'] == 'EDCB':
+    if CONFIG.general.backend == 'EDCB':
         await EDCBTuner.closeAll()
 
 # shutdown イベントが発火しない場合も想定し、アプリケーションの終了時に Shutdown() が確実に呼ばれるように
@@ -207,5 +207,5 @@ async def Shutdown():
 atexit.register(asyncio.run, Shutdown())
 
 # Twitter の CK/CS
-consumer_key: str = CONFIG['twitter']['consumer_key'] if CONFIG['twitter']['consumer_key'] is not None else Interlaced(1)
-consumer_secret: str = CONFIG['twitter']['consumer_secret'] if CONFIG['twitter']['consumer_secret'] is not None else Interlaced(2)
+consumer_key: str = CONFIG.twitter.consumer_key if CONFIG.twitter.consumer_key is not None else Interlaced(1)
+consumer_secret: str = CONFIG.twitter.consumer_secret if CONFIG.twitter.consumer_secret is not None else Interlaced(2)

@@ -18,7 +18,7 @@ from fastapi.responses import Response
 from fastapi.responses import StreamingResponse
 from typing import cast
 
-from app.config import CONFIG
+from app.config import Config
 from app.utils import Logging
 
 from biim.mpeg2ts import ts
@@ -55,7 +55,7 @@ class LiveHLSSegmenter:
         """
 
         # デバッグ時のみ CORS ヘッダーを有効化
-        if CONFIG['general']['debug'] is True:
+        if Config().general.debug is True:
             self.cors_headers = {
                 'Access-Control-Allow-Credentials': 'true',
                 'Access-Control-Allow-Origin': '*',

@@ -20,7 +20,7 @@ from tortoise import timezone
 from typing import Any
 
 from app import schemas
-from app.config import CONFIG
+from app.config import Config
 from app.constants import API_REQUEST_HEADERS, LOGO_DIR, VERSION
 from app.models import Channel
 from app.models import LiveStream
@@ -393,7 +393,7 @@ async def ChannelLogoAPI(
         """ フォールバックとして EDCB または Mirakurun からロゴデータと MIME タイプを取得する """
 
         # EDCB バックエンドの場合
-        if CONFIG['general']['backend'] == 'EDCB':
+        if Config().general.backend == 'EDCB':
 
             # CtrlCmdUtil を初期化
             edcb = CtrlCmdUtil()
@@ -423,7 +423,7 @@ async def ChannelLogoAPI(
                 return (logo, logo_media_type)
 
         # Mirakurun バックエンドの場合
-        elif CONFIG['general']['backend'] == 'Mirakurun':
+        elif Config().general.backend == 'Mirakurun':
 
             # Mirakurun 形式のサービス ID
             # NID と SID を 5 桁でゼロ埋めした上で int に変換する
@@ -432,7 +432,7 @@ async def ChannelLogoAPI(
             # Mirakurun の API からロゴを取得する
             # 同梱のロゴが存在しない場合のみ
             try:
-                mirakurun_logo_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services/{mirakurun_service_id}/logo'
+                mirakurun_logo_api_url = f'{Config().general.mirakurun_url}/api/services/{mirakurun_service_id}/logo'
                 mirakurun_logo_api_response = await asyncio.to_thread(requests.get,
                     url = mirakurun_logo_api_url,
                     headers = API_REQUEST_HEADERS,

@@ -14,7 +14,7 @@ from tortoise import transactions
 from tortoise.exceptions import IntegrityError
 from typing import Any, TYPE_CHECKING
 
-from app.config import CONFIG
+from app.config import Config
 from app.constants import API_REQUEST_HEADERS
 from app.utils import Jikkyo
 from app.utils import Logging
@@ -77,11 +77,11 @@ class Channel(models.Model):
 
         try:
             # Mirakurun バックエンド
-            if CONFIG['general']['backend'] == 'Mirakurun':
+            if Config().general.backend == 'Mirakurun':
                 await cls.updateFromMirakurun()
 
             # EDCB バックエンド
-            elif CONFIG['general']['backend'] == 'EDCB':
+            elif Config().general.backend == 'EDCB':
                 await cls.updateFromEDCB()
         except:
             traceback.print_exc()
@@ -102,7 +102,7 @@ class Channel(models.Model):
 
             # Mirakurun の API からチャンネル情報を取得する
             try:
-                mirakurun_services_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services'
+                mirakurun_services_api_url = f'{Config().general.mirakurun_url}/api/services'
                 mirakurun_services_api_response = await asyncio.to_thread(requests.get,
                     url = mirakurun_services_api_url,
                     headers = API_REQUEST_HEADERS,
@@ -541,7 +541,7 @@ class Channel(models.Model):
             tuple[Program | None, Program | None]: 現在と次の番組情報が入ったタプル
         """
 
-        # モジュール扱いになるのを避けるためここでインポート
+        # モジュール扱いになるのを避けるために遅延インポート
         from app.models import Program
 
         # 現在時刻

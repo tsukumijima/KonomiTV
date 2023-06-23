@@ -1,10 +1,12 @@
 
 import ctypes
 import logging
+import logging.config
 import sys
 from typing import Any
 
-from app.config import CONFIG
+from app.config import Config
+from app.constants import LOGGING_CONFIG
 
 
 # ログの色付き表示に必要な ANSI エスケープシーケンスを Windows でも有効化
@@ -16,17 +18,20 @@ if sys.platform == 'win32':
     kernel32 = ctypes.windll.kernel32
     kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
 
+# Uvicorn を起動する前に Uvicorn のロガーを使えるようにする
+logging.config.dictConfig(LOGGING_CONFIG)
+
 logger = logging.getLogger('uvicorn')
 logger_debug = logging.getLogger('uvicorn.debug')
 
 def debug(message: Any):
     """ デバッグログを出力する """
-    if CONFIG['general']['debug'] is True:
+    if Config().general.debug is True:
         logger_debug.debug(message, stacklevel=2)
 
 def debug_simple(message: Any):
     """ デバッグログを出力する (スクリプトパス・行番号を出力しない) """
-    if CONFIG['general']['debug'] is True:
+    if Config().general.debug is True:
         logger.setLevel(logging.DEBUG)
         logger.debug(message, stacklevel=2)
         logger.setLevel(logging.INFO)

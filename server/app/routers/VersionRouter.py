@@ -6,7 +6,7 @@ from fastapi import APIRouter
 from typing import Any
 
 from app import schemas
-from app.config import CONFIG
+from app.config import Config
 from app.constants import API_REQUEST_HEADERS, VERSION
 from app.utils import GetPlatformEnvironment
 
@@ -58,7 +58,7 @@ async def VersionInformationAPI():
         'version': VERSION,
         'latest_version': latest_version,
         'environment': environment,
-        'backend': CONFIG['general']['backend'],
-        'encoder': CONFIG['general']['encoder'],
+        'backend': Config().general.backend,
+        'encoder': Config().general.encoder,
     }
     return result

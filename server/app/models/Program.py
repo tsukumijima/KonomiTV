@@ -17,7 +17,7 @@ from tortoise import Tortoise
 from tortoise import transactions
 from typing import Any
 
-from app.config import CONFIG
+from app.config import Config
 from app.constants import API_REQUEST_HEADERS, DATABASE_CONFIG
 from app.models import Channel
 from app.utils import Logging
@@ -83,11 +83,11 @@ class Program(models.Model):
                 with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
 
                     # Mirakurun バックエンド
-                    if CONFIG['general']['backend'] == 'Mirakurun':
+                    if Config().general.backend == 'Mirakurun':
                         await loop.run_in_executor(executor, cls.updateFromMirakurunSync, True)
 
                     # EDCB バックエンド
-                    elif CONFIG['general']['backend'] == 'EDCB':
+                    elif Config().general.backend == 'EDCB':
                         await loop.run_in_executor(executor, cls.updateFromEDCBSync, True)
 
             # データベースが他のプロセスにロックされていた場合
@@ -101,11 +101,11 @@ class Program(models.Model):
         else:
             try:
                 # Mirakurun バックエンド
-                if CONFIG['general']['backend'] == 'Mirakurun':
+                if Config().general.backend == 'Mirakurun':
                     await cls.updateFromMirakurun()
 
                 # EDCB バックエンド
-                elif CONFIG['general']['backend'] == 'EDCB':
+                elif Config().general.backend == 'EDCB':
                     await cls.updateFromEDCB()
             except:
                 traceback.print_exc()
@@ -194,15 +194,9 @@ class Program(models.Model):
             # このトランザクションはパフォーマンス向上と、取得失敗時のロールバックのためのもの
             async with transactions.in_transaction():
 
-                # Mirakurun の URL の末尾のスラッシュを削除
-                ## 多重のスラッシュは Mirakurun だと 404 になってしまう
-                ## マルチプロセス時は起動後に動的に調整される Mirakurun の URL が元に戻ってしまうため、再度実行する
-                if is_running_multiprocess:
-                    CONFIG['general']['mirakurun_url'] = CONFIG['general']['mirakurun_url'].rstrip('/')
-
                 # Mirakurun の API から番組情報を取得する
                 try:
-                    mirakurun_programs_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/programs'
+                    mirakurun_programs_api_url = f'{Config().general.mirakurun_url}/api/programs'
                     mirakurun_programs_api_response = await asyncio.to_thread(requests.get,
                         url = mirakurun_programs_api_url,
                         headers = API_REQUEST_HEADERS,

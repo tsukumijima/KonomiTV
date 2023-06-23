@@ -8,7 +8,7 @@ import time
 from aiofiles.threadpool.text import AsyncTextIOWrapper
 from typing import AsyncIterator, cast, Literal
 
-from app.config import CONFIG
+from app.config import Config
 from app.constants import API_REQUEST_HEADERS, LIBRARY_PATH, LOGS_DIR, QUALITY, QUALITY_TYPES
 from app.models import Channel
 from app.models import LiveStream
@@ -378,9 +378,10 @@ class LiveEncodingTask:
         エンコードタスクを実行する
         """
 
-        # ここでインポートしないと module 扱いになってしまう
+        # 循環参照を避けるために遅延インポート
         from app.streams import LiveHLSSegmenter
         from app.streams import LivePSIDataArchiver
+        CONFIG = Config()
 
         # まだ Standby になっていなければ、ステータスを Standby に設定
         # 基本はエンコードタスクの呼び出し元である self.livestream.connect() の方で Standby に設定されるが、再起動の場合はそこを経由しないため必要
@@ -429,7 +430,7 @@ class LiveEncodingTask:
             # 特定サービスのみを選択して出力するフィルタを有効にする
             ## 有効にすると、特定のストリームのみ PID を固定して出力される
             ## 視聴対象のチャンネルのサービス ID を指定する
-            '-n', f'{channel.service_id}' if CONFIG['tv']['debug_mode_ts_path'] is None else '-1',
+            '-n', f'{channel.service_id}' if CONFIG.tv.debug_mode_ts_path is None else '-1',
             # 主音声ストリームが常に存在する状態にする
             ## ストリームが存在しない場合、無音の AAC ストリームが出力される
             ## 音声がモノラルであればステレオにする
@@ -451,7 +452,7 @@ class LiveEncodingTask:
             '-d', '13',
         ]
 
-        if CONFIG['tv']['debug_mode_ts_path'] is None:
+        if CONFIG.tv.debug_mode_ts_path is None:
             # 通常は標準入力を指定
             tsreadex_options.append('-')
         else:
@@ -460,7 +461,7 @@ class LiveEncodingTask:
             ## 1倍速に近い値だが、TS のビットレートはチャンネルや番組、シーンによって変動するため完全な1倍速にはならない
             tsreadex_options += [
                 '-l', '2350',
-                CONFIG['tv']['debug_mode_ts_path']
+                CONFIG.tv.debug_mode_ts_path
             ]
 
         # tsreadex の読み込み用パイプと書き込み用パイプを作成
@@ -486,7 +487,8 @@ class LiveEncodingTask:
         is_fullhd_channel = self.isFullHDChannel(channel.network_id, channel.service_id)
 
         # エンコーダーの種類を取得
-        encoder_type: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC', 'rkmppenc'] = CONFIG['general']['encoder']
+        encoder_type = CONFIG.general.encoder
+
         ## ラジオチャンネルでは HW エンコードの意味がないため、FFmpeg に固定する
         if channel.is_radiochannel is True:
             encoder_type = 'FFmpeg'
@@ -511,7 +513,7 @@ class LiveEncodingTask:
             )
 
         # HWEncC
-        elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC' or encoder_type == 'rkmppenc':
+        else:
 
             # オプションを取得
             encoder_options = self.buildHWEncCOptions(self.livestream.quality, encoder_type, is_fullhd_channel, channel.type == 'SKY')
@@ -544,13 +546,13 @@ class LiveEncodingTask:
         session: aiohttp.ClientSession | None = None
 
         # Mirakurun バックエンド
-        if CONFIG['general']['backend'] == 'Mirakurun':
+        if CONFIG.general.backend == 'Mirakurun':
 
             # Mirakurun 形式のサービス ID
             # NID と SID を 5 桁でゼロ埋めした上で int に変換する
             mirakurun_service_id = int(str(channel.network_id).zfill(5) + str(channel.service_id).zfill(5))
             # Mirakurun API の URL を作成
-            mirakurun_stream_api_url = f'{CONFIG["general"]["mirakurun_url"]}/api/services/{mirakurun_service_id}/stream'
+            mirakurun_stream_api_url = f'{CONFIG.general.mirakurun_url}/api/services/{mirakurun_service_id}/stream'
 
             # Mirakurun の Service Stream API へ HTTP リクエストを開始
             self.livestream.setStatus('Standby', 'チューナーを起動しています…')
@@ -590,7 +592,7 @@ class LiveEncodingTask:
             stream_reader = response.content
 
         # EDCB バックエンド
-        elif CONFIG['general']['backend'] == 'EDCB':
+        elif CONFIG.general.backend == 'EDCB':
 
             # チューナーインスタンスを初期化
             tuner = EDCBTuner(channel.network_id, channel.service_id, cast(int, channel.transport_stream_id))
@@ -736,11 +738,11 @@ class LiveEncodingTask:
 
             # EDCB バックエンド: チューナーとのストリーミング接続を閉じる
             ## チャンネル切り替え時に再利用するため、ここではチューナー自体は閉じない
-            if CONFIG['general']['backend'] == 'EDCB' and tuner is not None:
+            if CONFIG.general.backend == 'EDCB' and tuner is not None:
                 await tuner.disconnect()
 
             # Mirakurun バックエンド: Service Stream API とのストリーミング接続を閉じる
-            if CONFIG['general']['backend'] == 'Mirakurun' and response is not None and session is not None:
+            if CONFIG.general.backend == 'Mirakurun' and response is not None and session is not None:
                 await session.close()
                 response.close()
 
@@ -863,7 +865,7 @@ class LiveEncodingTask:
 
             # エンコーダーのログファイルを開く (エンコーダーログ有効時のみ)
             encoder_log: AsyncTextIOWrapper | None = None
-            if CONFIG['general']['debug_encoder'] is True:
+            if CONFIG.general.debug_encoder is True:
                 encoder_log = await aiofiles.open(encoder_log_path, mode='w', encoding='utf-8')
 
             # エンコーダーの出力結果を取得
@@ -922,11 +924,11 @@ class LiveEncodingTask:
 
                     # ストリーム関連のログを表示
                     ## エンコーダーのログ出力が有効なら、ストリーム関連に限らずすべてのログを出力する
-                    if 'Stream #0:' in line or CONFIG['general']['debug_encoder'] is True:
+                    if 'Stream #0:' in line or CONFIG.general.debug_encoder is True:
                         Logging.debug_simple(f'[Live: {self.livestream.livestream_id}] [{encoder_type}] ' + line)
 
                     # エンコーダーのログ出力が有効なら、エンコーダーのログファイルに書き込む
-                    if CONFIG['general']['debug_encoder'] is True and encoder_log is not None:
+                    if CONFIG.general.debug_encoder is True and encoder_log is not None:
                         await encoder_log.write(line.strip('\r\n') + '\n')
                         await encoder_log.flush()
 
@@ -1024,7 +1026,7 @@ class LiveEncodingTask:
                     break
 
             # タスクを終える前にエンコーダーのログファイルを閉じる
-            if CONFIG['general']['debug_encoder'] is True and encoder_log is not None:
+            if CONFIG.general.debug_encoder is True and encoder_log is not None:
                 await encoder_log.close()
 
         # タスクを非同期で実行
@@ -1065,7 +1067,7 @@ class LiveEncodingTask:
 
                 # 現在 Idling でかつ最終更新から max_alive_time 秒以上経っていたらエンコーダーを終了し、Offline 状態に移行
                 if ((livestream_status['status'] == 'Idling') and
-                    (time.time() - livestream_status['updated_at'] > CONFIG['tv']['max_alive_time'])):
+                    (time.time() - livestream_status['updated_at'] > CONFIG.tv.max_alive_time)):
                     self.livestream.setStatus('Offline', 'ライブストリームは Offline です。')
 
                 # ***** 異常処理 (エンコードタスク再起動による回復が不可能) *****
@@ -1084,7 +1086,7 @@ class LiveEncodingTask:
                             self.livestream.setStatus('Offline', 'チューナーからの放送波の受信がタイムアウトしました。チューナー側に何らかの問題があるかもしれません。(E-11)')
 
                 # Mirakurun の Service Stream API からエラーが返された場合
-                if CONFIG['general']['backend'] == 'Mirakurun' and response is not None and response.status != 200:
+                if CONFIG.general.backend == 'Mirakurun' and response is not None and response.status != 200:
                     # Offline にしてエンコードタスクを停止する
                     if response.status == 503:
                         self.livestream.setStatus('Offline', 'チューナーの起動に失敗しました。チューナー不足が原因かもしれません。(E-12M)')
@@ -1130,8 +1132,8 @@ class LiveEncodingTask:
 
                 # チューナーとの接続が切断された場合
                 ## ref: https://stackoverflow.com/a/45251241/17124142
-                if ((CONFIG['general']['backend'] == 'Mirakurun' and response is not None and response.closed is True) or
-                    (CONFIG['general']['backend'] == 'EDCB' and tuner is not None and tuner.isDisconnected() is True)):
+                if ((CONFIG.general.backend == 'Mirakurun' and response is not None and response.closed is True) or
+                    (CONFIG.general.backend == 'EDCB' and tuner is not None and tuner.isDisconnected() is True)):
 
                     # エンコードタスクを再起動
                     self.livestream.setStatus('Restart', 'チューナーとの接続が切断されました。エンコードタスクを再起動します。(ER-05)')
@@ -1222,7 +1224,7 @@ class LiveEncodingTask:
             # チューナーをアンロックする (EDCB バックエンドのみ)
             ## 新しいエンコードタスクが今回立ち上げたチューナーを再利用できるようにする
             ## エンコーダーの再起動が必要なだけでチューナー自体はそのまま使えるし、わざわざ閉じてからもう一度開くのは無駄
-            if CONFIG['general']['backend'] == 'EDCB' and tuner is not None:
+            if CONFIG.general.backend == 'EDCB' and tuner is not None:
                 tuner.unlock()
 
             # 再起動回数が最大再起動回数に達していなければ、再起動する
@@ -1244,7 +1246,7 @@ class LiveEncodingTask:
 
                 # チューナーを終了する (EDCB バックエンドのみ)
                 ## tuner.close() した時点でそのチューナーインスタンスは意味をなさなくなるので、LiveStream インスタンスのプロパティからも削除する
-                if CONFIG['general']['backend'] == 'EDCB' and tuner is not None:
+                if CONFIG.general.backend == 'EDCB' and tuner is not None:
                     await tuner.close()
                     self.livestream.tuner = None
 
@@ -1252,7 +1254,7 @@ class LiveEncodingTask:
         else:
 
             # EDCB バックエンドのみ
-            if CONFIG['general']['backend'] == 'EDCB' and tuner is not None:
+            if CONFIG.general.backend == 'EDCB' and tuner is not None:
 
                 # チャンネル切り替え時にチューナーが再利用されるように、3秒ほど待つ
                 # 3秒間の間にチューナーの制御権限が新しいエンコードタスクに委譲されれば、下記の通り実際にチューナーが閉じられることはない

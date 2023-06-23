@@ -11,7 +11,7 @@ from fastapi import UploadFile
 from pathlib import Path
 from typing import cast
 
-from app.config import CONFIG
+from app.config import Config
 from app.utils import Logging
 
 
@@ -52,7 +52,7 @@ async def CaptureUploadAPI(
     # ディレクトリトラバーサル対策のためのチェック
     ## ref: https://stackoverflow.com/a/45190125/17124142
     filename = Path(cast(str, image.filename))
-    upload_folder = Path(CONFIG['capture']['upload_folder'])
+    upload_folder = Path(Config().capture.upload_folder)
     try:
         upload_folder.joinpath(filename).resolve().relative_to(upload_folder.resolve())
     except ValueError:

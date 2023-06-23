@@ -12,7 +12,7 @@ from fastapi import status
 from fastapi.exceptions import HTTPException
 from fastapi.security import OAuth2PasswordBearer
 
-from app.config import CONFIG
+from app.config import Config
 from app.constants import RESTART_REQUIRED_LOCK_PATH
 from app.models import Channel
 from app.models import Program
@@ -38,7 +38,7 @@ async def GetCurrentAdminUserOrLocal(
 
     # HTTP リクエストの Host ヘッダーが 127.0.0.77:7010 である場合、Windows サービスプロセスからのアクセスと見なす
     ## 通常アクセス時の Host ヘッダーは 192-168-1-11.local.konomi.tv:7000 のような形式になる
-    valid_host = f'127.0.0.77:{CONFIG["server"]["port"] + 10}'
+    valid_host = f'127.0.0.77:{Config().server.port + 10}'
     if request.headers.get('host', '').strip() == valid_host:
         return None
 

@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from io import BufferedReader
 from typing import Callable, cast, ClassVar, Literal, TypedDict, TypeVar
 
-from app.config import CONFIG
+from app.config import Config
 
 # ジェネリック型
 T = TypeVar('T')
@@ -357,25 +357,35 @@ class EDCBUtil:
     """
 
     @staticmethod
-    def getEDCBHost() -> str | None:
+    def getEDCBHost(edcb_url: str | None = None) -> str | None:
         """
         バックエンドとして指定された EDCB の接続先ホスト名を取得する
+
+        Params:
+            edcb_url (str): EDCB の接続先 URL (指定されなかった場合は Config().general.edcb_url から取得する)
 
         Returns:
             str: バックエンドとして指定された EDCB の接続先ホスト名 (取得できなかった場合は None を返す)
         """
-        edcb_url_parse = urllib.parse.urlparse(CONFIG['general']['edcb_url'])
+        if edcb_url is None:
+            edcb_url = str(Config().general.edcb_url)
+        edcb_url_parse = urllib.parse.urlparse(edcb_url)
         return edcb_url_parse.hostname
 
     @staticmethod
-    def getEDCBPort() -> int | None:
+    def getEDCBPort(edcb_url: str | None = None) -> int | None:
         """
         バックエンドとして指定された EDCB の接続先ポートを取得する
+
+        Params:
+            edcb_url (str): EDCB の接続先 URL (指定されなかった場合は Config().general.edcb_url から取得する)
 
         Returns:
             str: バックエンドとして指定された EDCB の接続先ポート (取得できなかった場合は None を返す)
         """
-        edcb_url_parse = urllib.parse.urlparse(CONFIG['general']['edcb_url'])
+        if edcb_url is None:
+            edcb_url = str(Config().general.edcb_url)
+        edcb_url_parse = urllib.parse.urlparse(edcb_url)
         return edcb_url_parse.port
 
     @staticmethod
@@ -819,18 +829,18 @@ class CtrlCmdUtil:
     __host: str | None
     __port: int
 
-    def __init__(self) -> None:
+    def __init__(self, edcb_url: str | None = None) -> None:
         self.__connect_timeout_sec = 15.
         self.__pipe_name = 'EpgTimerSrvNoWaitPipe'
         self.__host = None
         self.__port = 0
 
-        if EDCBUtil.getEDCBHost() == 'edcb-namedpipe':
+        if EDCBUtil.getEDCBHost(edcb_url) == 'edcb-namedpipe':
             # 特別に名前付きパイプモードにする
             self.setPipeSetting('EpgTimerSrvNoWaitPipe')
         else:
             # TCP/IP モードにする
-            self.setNWSetting(cast(str, EDCBUtil.getEDCBHost()), cast(int, EDCBUtil.getEDCBPort()))
+            self.setNWSetting(cast(str, EDCBUtil.getEDCBHost(edcb_url)), cast(int, EDCBUtil.getEDCBPort(edcb_url)))
 
     def setNWSetting(self, host: str, port: int) -> None:
         """ TCP/IP モードにする """
