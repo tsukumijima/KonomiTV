@@ -11,18 +11,17 @@ import uvicorn.logging
 from pathlib import Path
 from uvicorn.supervisors.watchfilesreload import WatchFilesReload
 
-from app import models  # type: ignore  # import magic!!!
 from app.config import Config
 from app.constants import (
     AKEBI_LOG_PATH,
     BASE_DIR,
+    KONOMITV_ACCESS_LOG_PATH,
+    KONOMITV_SERVER_LOG_PATH,
     LIBRARY_PATH,
     LOGGING_CONFIG,
     RESTART_REQUIRED_LOCK_PATH,
     VERSION,
 )
-from app.utils import IsRunningAsWindowsService
-from app.utils import Logging
 
 
 cli = typer.Typer()
@@ -38,9 +37,29 @@ def main(
     version: bool = typer.Option(None, '--version', callback=version, is_eager=True, help='Show version information.'),
 ):
 
+    # 前回のログをすべて削除する
+    try:
+        if KONOMITV_SERVER_LOG_PATH.exists():
+            KONOMITV_SERVER_LOG_PATH.unlink()
+        if KONOMITV_ACCESS_LOG_PATH.exists():
+            KONOMITV_ACCESS_LOG_PATH.unlink()
+        if AKEBI_LOG_PATH.exists():
+            AKEBI_LOG_PATH.unlink()
+    except PermissionError:
+        pass
+
     # もし何らかの理由でロックファイルが残っていた場合は削除する
     if RESTART_REQUIRED_LOCK_PATH.exists():
         RESTART_REQUIRED_LOCK_PATH.unlink()
+
+    # 前回のログをすべて削除してから、config.py と constants.py 以外の内部モジュールをインポートする
+    ## ロギング設定は Logging.py が読み込まれた瞬間に行われるが、その際に前回のログファイルが残っているとエラーになる
+    ## constants.py は内部モジュールへの依存がなく、config.py も constants.py 以外への依存はないので、この2つのみトップレベルでインポートしている
+    ## 前回のログをすべて削除する処理を Logging.py 自体に記述してしまうとマルチプロセス実行時やリロードモード時に意図せずファイルが削除されてしまう
+    ## from app import models を最初に実行しておかないと、なぜか app.utils 配下のモジュールへのアクセスがうまくいかない
+    from app import models  # type: ignore  # import magic!!!
+    from app.utils import IsRunningAsWindowsService
+    from app.utils import Logging
 
     # バージョン情報をログに出力
     Logging.info(f'KonomiTV version {VERSION}')

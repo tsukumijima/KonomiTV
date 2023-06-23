@@ -6,12 +6,7 @@ import sys
 from typing import Any
 
 from app.config import Config
-from app.constants import (
-    AKEBI_LOG_PATH,
-    KONOMITV_ACCESS_LOG_PATH,
-    KONOMITV_SERVER_LOG_PATH,
-    LOGGING_CONFIG,
-)
+from app.constants import LOGGING_CONFIG
 
 
 # ログの色付き表示に必要な ANSI エスケープシーケンスを Windows でも有効化
@@ -22,17 +17,6 @@ from app.constants import (
 if sys.platform == 'win32':
     kernel32 = ctypes.windll.kernel32
     kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
-
-# 前回のログをすべて削除する
-try:
-    if KONOMITV_SERVER_LOG_PATH.exists():
-        KONOMITV_SERVER_LOG_PATH.unlink()
-    if KONOMITV_ACCESS_LOG_PATH.exists():
-        KONOMITV_ACCESS_LOG_PATH.unlink()
-    if AKEBI_LOG_PATH.exists():
-        AKEBI_LOG_PATH.unlink()
-except PermissionError:
-    pass
 
 # Uvicorn を起動する前に Uvicorn のロガーを使えるようにする
 logging.config.dictConfig(LOGGING_CONFIG)
