@@ -227,9 +227,9 @@ class ServerSettings(BaseModel):
                     ## 子プロセスの親プロセスの PID が一致するかもチェックする
                     process = psutil.Process(conn.pid)
                     if ((process.pid == current_process.pid) or
-                        (process.pid == current_process.parent().pid) or
-                        (process.parent().pid == current_process.pid) or
-                        (process.parent().pid == current_process.parent().pid)):
+                        (process.pid == current_process.ppid()) or
+                        (process.ppid() == current_process.pid) or
+                        (process.ppid() == current_process.ppid())):
                         continue
                     # 使用中のポートに追加
                     if conn.laddr is not None:
