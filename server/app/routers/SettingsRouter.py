@@ -3,7 +3,6 @@ from fastapi import APIRouter
 from fastapi import Body
 from fastapi import Depends
 from fastapi import status
-from pathlib import Path
 
 from app.config import Config
 from app.config import ClientSettings
@@ -72,15 +71,7 @@ async def ServerSettingsAPI(
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
     """
 
-    # Docker 上で実行されているとき、サーバー設定のうちパス指定の項目に付与される /host-rootfs のプレフィックスを削除する
-    ## 各パスは Pydantic でのバリデーション後に Path オブジェクトに変換されているので、文字列に変換してから置換する
-    ## 実装の都合上 config.py でのサーバー設定読み込み時に後付けされているものなので、外部に公開するときには削除する
-    config_dict = Config().dict()
-    config_dict['capture']['upload_folder'] = str(config_dict['capture']['upload_folder']).replace('/host-rootfs', '')
-    if type(config_dict['tv']['debug_mode_ts_path']) is Path:
-        config_dict['tv']['debug_mode_ts_path'] = str(config_dict['tv']['debug_mode_ts_path']).replace('/host-rootfs', '')
-
-    return config_dict
+    return Config()
 
 
 @router.put(
@@ -100,3 +91,4 @@ async def ServerSettingsUpdateAPI(
     """
 
     # TODO!!!
+    # TODO: /host-rootfs の考慮
