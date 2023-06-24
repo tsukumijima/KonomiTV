@@ -221,18 +221,16 @@ class ServerSettings(BaseModel):
                     if conn.pid is None:
                         continue
                     # 自分自身のプロセスは除外
-                    ## 主にリロードモードで起動させた際に Uvicorn や Akebi が起動した後に二重でバリデーションが実行され、
-                    ## その結果ポートが使用中と判定されてしまうのを防ぐためのもの
+                    ## 主にリロードモードで起動させた際に Uvicorn や Akebi が起動した後や、番組情報のマルチプロセス更新時 (Windows のみ) に
+                    ## 二重でバリデーションが実行されることにより、ポートが使用中と判定されてしまうのを防ぐためのもの
                     ## リロードモードでの reloader process や Akebi は KonomiTV サーバーの子プロセスになるので、
                     ## 子プロセスの親プロセスの PID が一致するかもチェックする
-                    ## Windows では正常に動作しない上、そもそもリロードモード自体が Windows では動作しないのでパス
-                    if sys.platform != 'win32':
-                        process = psutil.Process(conn.pid)
-                        if ((process.pid == current_process.pid) or
-                            (process.pid == current_process.parent().pid) or
-                            (process.parent().pid == current_process.pid) or
-                            (process.parent().pid == current_process.parent().pid)):
-                            continue
+                    process = psutil.Process(conn.pid)
+                    if ((process.pid == current_process.pid) or
+                        (process.pid == current_process.parent().pid) or
+                        (process.parent().pid == current_process.pid) or
+                        (process.parent().pid == current_process.parent().pid)):
+                        continue
                     # 使用中のポートに追加
                     if conn.laddr is not None:
                         used_ports.append(cast(Any, conn.laddr).port)

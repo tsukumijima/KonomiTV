@@ -361,7 +361,7 @@ class EDCBUtil:
         """
         バックエンドとして指定された EDCB の接続先ホスト名を取得する
 
-        Params:
+        Args:
             edcb_url (str): EDCB の接続先 URL (指定されなかった場合は Config().general.edcb_url から取得する)
 
         Returns:
@@ -377,7 +377,7 @@ class EDCBUtil:
         """
         バックエンドとして指定された EDCB の接続先ポートを取得する
 
-        Params:
+        Args:
             edcb_url (str): EDCB の接続先 URL (指定されなかった場合は Config().general.edcb_url から取得する)
 
         Returns:
