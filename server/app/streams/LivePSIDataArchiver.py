@@ -8,6 +8,9 @@ from app.constants import LIBRARY_PATH
 
 class LivePSIDataArchiver:
 
+    # PSI/SI データアーカイバーを再起動する間隔 (分)
+    RESTART_INTERVAL_MINUTES = 10
+
 
     def __init__(self, service_id: int) -> None:
         """
@@ -107,9 +110,9 @@ class LivePSIDataArchiver:
                 self.psi_archive_list.append(psi_archive)
                 self.psi_archive_list_condition.notify_all()  # 全ての待機中のタスクに通知
 
-            # もし起動から15分以上経過している場合は、psisiarc を一旦終了して再起動する
+            # もし起動から RESTART_INTERVAL_MINUTES 分以上経過している場合は、psisiarc を一旦終了して再起動する
             ## 再起動するタイミングでデータをリセットし、データが無尽蔵に増えていくのを防ぐ
-            if time.time() - start_at > 60 * 15:
+            if time.time() - start_at > 60 * self.RESTART_INTERVAL_MINUTES:
                 await self.restart()
                 return
 
@@ -129,7 +132,7 @@ class LivePSIDataArchiver:
 
         # psisiarc に TS パケットを送信する
         cast(asyncio.StreamWriter, self.psisiarc_process.stdin).write(packet)
-        await cast(asyncio.StreamWriter, self.psisiarc_process.stdin).drain()
+        await asyncio.wait_for(cast(asyncio.StreamWriter, self.psisiarc_process.stdin).drain(), timeout=1.0)
 
 
     async def getPSIArchivedData(self) -> AsyncGenerator[bytes, None]:

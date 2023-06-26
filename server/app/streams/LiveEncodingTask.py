@@ -703,17 +703,15 @@ class LiveEncodingTask:
                         break
 
                     try:
-                        # Python 3.11 から追加された asyncio.TaskGroup() で並列タスクを実行する
-                        # ref: https://gihyo.jp/article/2022/10/monthly-python-2210
-                        async with asyncio.TaskGroup() as task_group:
+                        # ストリームデータを tsreadex の標準入力に書き込む
+                        cast(asyncio.StreamWriter, tsreadex.stdin).write(chunk)
+                        await cast(asyncio.StreamWriter, tsreadex.stdin).drain()
 
-                            # ストリームデータを tsreadex の標準入力に書き込む
-                            cast(asyncio.StreamWriter, tsreadex.stdin).write(chunk)
-                            task_group.create_task(cast(asyncio.StreamWriter, tsreadex.stdin).drain())
-
-                            # 生の放送波の TS パケットを PSI/SI データアーカイバーに送信する
-                            if self.livestream.psi_data_archiver is not None:
-                                task_group.create_task(self.livestream.psi_data_archiver.pushTSPacketData(chunk))
+                        # 生の放送波の TS パケットを PSI/SI データアーカイバーに送信する
+                        ## 放送波の tsreadex への書き込みを最優先で行うため、非同期タスクとして実行する
+                        ## ここで tsreadex への書き込みがブロックされると放送波の受信ループが止まり、ライブストリームの異常終了に繋がりかねない
+                        if self.livestream.psi_data_archiver is not None:
+                            asyncio.create_task(self.livestream.psi_data_archiver.pushTSPacketData(chunk))
 
                     # 並列タスク処理中に何らかの例外が発生した
                     # BrokenPipeError・asyncio.TimeoutError などが想定されるが、何が発生するかわからないためすべての例外をキャッチする
@@ -950,7 +948,7 @@ class LiveEncodingTask:
                             if self._retry_count > 0:
                                 self._retry_count = 0
                     ## HWEncC
-                    elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC' or encoder_type == 'rkmppenc':
+                    else:
                         if 'opened file "pipe:0"' in line:
                             self.livestream.setStatus('Standby', 'エンコードを開始しています…')
                         elif 'starting output thread...' in line:
@@ -977,12 +975,13 @@ class LiveEncodingTask:
                     elif 'Conversion failed!' in line:
                         # 捕捉されないエラー
                         ## エンコーダーの再起動で復帰できる可能性があるので、エンコードタスクを再起動する
-                        self.livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。エンコードタスクを再起動します。(ER-01F)')
+                        result = self.livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。エンコードタスクを再起動します。(ER-01F)')
                         # 直近 50 件のログを表示
-                        for log in lines[-51:-1]:
-                            Logging.warning(log)
+                        if result is True:
+                            for log in lines[-51:-1]:
+                                Logging.warning(log)
                 ## HWEncC
-                elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC' or encoder_type == 'rkmppenc':
+                else:
                     if 'error finding stream information.' in line:
                         # 何らかの要因で tsreadex から放送波が受信できなかったことによるエラーのため、エンコーダーの再起動は行わない
                         ## 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないなら放送波の受信に失敗したものとする
@@ -1016,10 +1015,11 @@ class LiveEncodingTask:
                         ## ここで 0.5 秒待機してから実行する
                         await asyncio.sleep(0.5)
                         ## エンコーダーの再起動で復帰できる可能性があるので、エンコードタスクを再起動する
-                        self.livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。エンコードタスクを再起動します。(ER-03H)')
+                        result = self.livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。エンコードタスクを再起動します。(ER-03H)')
                         # 直近 150 件のログを表示
-                        for log in lines[-151:-1]:
-                            Logging.warning(log)
+                        if result is True:
+                            for log in lines[-151:-1]:
+                                Logging.warning(log)
 
                 # エンコードタスクが終了しているか既にエンコーダープロセスが終了していたら、タスクを終了
                 if is_running is False or tsreadex.returncode is not None or encoder.returncode is not None:
@@ -1120,15 +1120,16 @@ class LiveEncodingTask:
                         await asyncio.sleep(1)
 
                         # エンコードタスクを再起動
-                        self.livestream.setStatus('Restart', 'エンコードが途中で停止しました。エンコードタスクを再起動します。(ER-04)')
+                        result = self.livestream.setStatus('Restart', 'エンコードが途中で停止しました。エンコードタスクを再起動します。(ER-04)')
 
                         # エンコーダーのログを表示 (FFmpeg は最後の50行、HWEncC は最後の150行を表示)
-                        if encoder_type == 'FFmpeg':
-                            for log in lines[-51:-1]:
-                                Logging.warning(log)
-                        elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC' or encoder_type == 'rkmppenc':
-                            for log in lines[-151:-1]:
-                                Logging.warning(log)
+                        if result is True:
+                            if encoder_type == 'FFmpeg':
+                                for log in lines[-51:-1]:
+                                    Logging.warning(log)
+                            else:
+                                for log in lines[-151:-1]:
+                                    Logging.warning(log)
 
                 # チューナーとの接続が切断された場合
                 ## ref: https://stackoverflow.com/a/45251241/17124142
@@ -1171,15 +1172,16 @@ class LiveEncodingTask:
                     if self.livestream.getStatus()['status'] == 'Offline':
 
                         # エンコードタスクを再起動
-                        self.livestream.setStatus('Restart', 'エンコーダーが強制終了されました。エンコードタスクを再起動します。(ER-06)')
+                        result = self.livestream.setStatus('Restart', 'エンコーダーが強制終了されました。エンコードタスクを再起動します。(ER-06)')
 
                         # エンコーダーのログを表示 (FFmpeg は最後の50行、HWEncC は最後の150行を表示)
-                        if encoder_type == 'FFmpeg':
-                            for log in lines[-51:-1]:
-                                Logging.warning(log)
-                        elif encoder_type == 'QSVEncC' or encoder_type == 'NVEncC' or encoder_type == 'VCEEncC' or encoder_type == 'rkmppenc':
-                            for log in lines[-151:-1]:
-                                Logging.warning(log)
+                        if result is True:
+                            if encoder_type == 'FFmpeg':
+                                for log in lines[-51:-1]:
+                                    Logging.warning(log)
+                            else:
+                                for log in lines[-151:-1]:
+                                    Logging.warning(log)
 
                 # この時点で最新のライブストリームのステータスが Offline か Restart に変更されていたら、エンコードタスクの終了処理に移る
                 livestream_status = self.livestream.getStatus()  # 更新されているかもしれないので再取得

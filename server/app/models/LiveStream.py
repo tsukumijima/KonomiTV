@@ -514,7 +514,7 @@ class LiveStream():
         }
 
 
-    def setStatus(self, status: Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart'], detail: str, quiet: bool = False) -> None:
+    def setStatus(self, status: Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart'], detail: str, quiet: bool = False) -> bool:
         """
         ライブストリームのステータスを設定する
 
@@ -522,22 +522,25 @@ class LiveStream():
             status (Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart']): ライブストリームのステータス
             detail (str): ステータスの詳細
             quiet (bool): ステータス設定のログを出力するかどうか
+
+        Returns:
+            bool: ステータスが更新されたかどうか (更新が実際には行われなかった場合は False を返す)
         """
 
         # ステータスも詳細も現在の状態と重複しているなら、更新を行わない（同じ内容のイベントが複数発生するのを防ぐ）
         if self._status == status and self._detail == detail:
-            return
+            return False
 
         # ステータスが Offline or Restart かつ現在の状態と重複している場合は、更新を行わない
         ## Offline や Restart は Standby に移行しない限り同じステータスで詳細が変化することはありえないので、
         ## ステータス詳細が上書きできてしまう状態は不適切
         ## ただ LiveEncodingTask で非同期的にステータスをセットしている関係で上書きしてしまう可能性があるため、ここで上書きを防ぐ
         if (status == 'Offline' or status == 'Restart') and status == self._status:
-            return
+            return False
 
         # ステータスは Offline から Restart に移行してはならない
         if self._status == 'Offline' and status == 'Restart':
-            return
+            return False
 
         # ストリーム開始 (Offline or Restart → Standby) 時、started_at と stream_data_written_at を更新する
         # ここで更新しておかないと、いつまで経っても初期化時の古いタイムスタンプが使われてしまう
@@ -570,6 +573,8 @@ class LiveStream():
             # ONAir への切り替え（復帰）時、再びチューナーをロックして制御を横取りされないように
             if self._status == 'ONAir':
                 self.tuner.lock()
+
+        return True
 
 
     def getStreamDataWrittenAt(self) -> float:
