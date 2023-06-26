@@ -284,6 +284,8 @@ class ServerSettings(BaseModel):
 # _CONFIG には直接アクセスせず、Config() 関数を通してアクセスする
 
 _CONFIG: ServerSettings | None = None
+_CONFIG_YAML_PATH = BASE_DIR.parent / 'config.yaml'
+_DOCKER_PATH_PREFIX = '/host-rootfs'
 
 
 def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
@@ -302,24 +304,22 @@ def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
         ServerSettings: 読み込んだサーバー設定データ
     """
 
-    global _CONFIG
+    global _CONFIG, _CONFIG_YAML_PATH, _DOCKER_PATH_PREFIX
     assert _CONFIG is None, 'LoadConfig() は既に呼び出されています。'
 
     # 循環参照を避けるために遅延インポート
+    from app.utils import GetPlatformEnvironment
     from app.utils import Logging
 
-    # サーバー設定ファイルのパス
-    config_yaml_path = BASE_DIR.parent / 'config.yaml'
-
     # 設定ファイルが配置されていない場合、エラーを表示して終了する
-    if Path.exists(config_yaml_path) is False:
+    if Path.exists(_CONFIG_YAML_PATH) is False:
         Logging.error('設定ファイルが配置されていないため、KonomiTV を起動できません。')
         Logging.error('config.example.yaml を config.yaml にコピーし、お使いの環境に合わせて編集してください。')
         sys.exit(1)
 
     # 設定ファイルからサーバー設定をロードする
     try:
-        with open(config_yaml_path, encoding='utf-8') as file:
+        with open(_CONFIG_YAML_PATH, encoding='utf-8') as file:
             config_raw = ruamel.yaml.YAML().load(file)
             if config_raw is None:
                 Logging.error('設定ファイルが空のため、KonomiTV を起動できません。')
@@ -340,11 +340,10 @@ def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
 
         # Docker 上で実行されているとき、サーバー設定のうちパス指定の項目に Docker 環境向けの Prefix (/host-rootfs) を付ける
         ## /host-rootfs (docker-compose.yaml で定義) を通してホストマシンのファイルシステムにアクセスできる
-        if Path.exists(Path('/.dockerenv')) is True:
-            docker_fs_prefix = '/host-rootfs'
-            config_dict['capture']['upload_folder'] = docker_fs_prefix + config_dict['capture']['upload_folder']
+        if GetPlatformEnvironment() == 'Linux-Docker':
+            config_dict['capture']['upload_folder'] = _DOCKER_PATH_PREFIX + config_dict['capture']['upload_folder']
             if type(config_dict['tv']['debug_mode_ts_path']) is str:
-                config_dict['tv']['debug_mode_ts_path'] = docker_fs_prefix + config_dict['tv']['debug_mode_ts_path']
+                config_dict['tv']['debug_mode_ts_path'] = _DOCKER_PATH_PREFIX + config_dict['tv']['debug_mode_ts_path']
     except KeyError:
         pass  # config.yaml の記述が不正な場合は何もしない（どっちみち後のバリデーション処理で弾かれる）
 
@@ -378,6 +377,116 @@ def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
     return _CONFIG
 
 
+def SaveConfig(config: ServerSettings) -> None:
+    """
+    変更されたサーバー設定データを、コメントやフォーマットを保持した形で config.yaml に書き込む
+    config.yaml のすべてを上書きするのではなく、具体的な値が記述されている部分のみ正規表現で置換している
+    この関数は _CONFIG を更新しないため、設定変更を反映するにはサーバーを再起動する必要がある
+    (仮に _CONFIG を更新するよう実装しても、すでに Config() から取得した値を使って実行されている処理は更新できない)
+
+    Args:
+        config (ServerSettings): 変更されたサーバー設定データ
+    """
+
+    global _CONFIG_YAML_PATH, _DOCKER_PATH_PREFIX
+
+    # 循環参照を避けるために遅延インポート
+    from app.utils import GetPlatformEnvironment
+
+    # ServerSettings の Pydantic モデルを辞書に変換
+    config_dict = config.dict()
+
+    # Docker 上で実行されているとき、サーバー設定のうちパス指定の項目に付与されている Docker 環境向けの Prefix (/host-rootfs) を外す
+    ## LoadConfig() で実行されている処理と逆の処理を行う
+    if GetPlatformEnvironment() == 'Linux-Docker':
+        config_dict['capture']['upload_folder'] = str(config_dict['capture']['upload_folder']).replace(_DOCKER_PATH_PREFIX, '')
+        if type(config_dict['tv']['debug_mode_ts_path']) is str or config_dict['tv']['debug_mode_ts_path'] is Path:
+            config_dict['tv']['debug_mode_ts_path'] = str(config_dict['tv']['debug_mode_ts_path']).replace(_DOCKER_PATH_PREFIX, '')
+
+    # 現在の config.yaml の内容を行ごとに取得
+    current_lines: list[str]
+    with open(_CONFIG_YAML_PATH, mode='r', encoding='utf-8') as file:
+        current_lines = file.readlines()
+
+    # 新しく作成する config.yaml の内容が入るリスト
+    ## このリストに格納された値を、最後に文字列として繋げて書き込む
+    new_lines: list[str] = []
+
+    current_parent_key: str = ''
+    in_list: bool = False
+    list_key: str = ''
+
+    for current_line in current_lines:
+        parent_key_match_pattern = r'^ {4}(?P<key>\'.*?\'|\".*?\"): \{$'
+        parent_key_match = re.match(parent_key_match_pattern, current_line)
+
+        if parent_key_match is not None:
+            parent_key_match_data = parent_key_match.groupdict()
+            current_parent_key = parent_key_match_data['key'].replace('"', '').replace('\'', '')
+            new_lines.append(current_line)
+            continue
+
+        list_start_pattern = r'^ {8}(?P<key>\'.*?\'|\".*?\"): \[\s*(#.*)?$'
+        list_start_match = re.match(list_start_pattern, current_line)
+
+        if list_start_match is not None:
+            list_start_match_data = list_start_match.groupdict()
+            list_key = list_start_match_data['key'].replace('"', '').replace('\'', '')
+            in_list = True
+
+            if list_key in config_dict[current_parent_key]:
+                new_list = ",\n".join([f"        '{item}'" for item in config_dict[current_parent_key][list_key]])
+                new_lines.append(f"    '{list_key}': [\n{new_list}\n    ],\n")
+            else:
+                new_lines.append(current_line)
+            continue
+
+        list_end_pattern = r'^ {8}\],\s*(#.*)?$'
+        list_end_match = re.match(list_end_pattern, current_line)
+
+        if list_end_match is not None:
+            in_list = False
+            continue
+
+        if in_list:
+            continue
+
+        key_value_match_pattern = r'^ {8}(?P<key>\'.*?\'|\".*?\"): (?P<value>[0-9\.]+|true|false|null|\'.*?\'|\".*?\"),$'
+        key_value_match = re.match(key_value_match_pattern, current_line)
+
+        if key_value_match is not None:
+            key_value_match_data = key_value_match.groupdict()
+            key = key_value_match_data['key'].replace('"', '').replace('\'', '')
+
+            if key in config_dict[current_parent_key]:
+                value = config_dict[current_parent_key][key]
+
+                if type(value) is int or type(value) is float:
+                    value_real = str(value)
+                    if value_real.endswith('.0'):
+                        value_real = value_real[:-2]
+                elif value is True:
+                    value_real = 'true'
+                elif value is False:
+                    value_real = 'false'
+                elif value is None:
+                    value_real = 'null'
+                else:
+                    value_real = f"'{value}'"
+                value_real = value_real.replace('\\', '\\\\')
+
+                new_line = re.sub(key_value_match_pattern, r'        \g<key>: ' + value_real + ',', current_line)
+                new_lines.append(new_line)
+                continue
+
+        new_lines.append(current_line)
+
+    # 置換が終わったので、config.yaml に書き込む
+    ## リスト内の各要素にはすでに改行コードが含まれているので、空文字で join() するだけで OK
+    with open(_CONFIG_YAML_PATH, mode='w', encoding='utf-8') as file:
+        file.write(''.join(new_lines))
+
+
 def Config() -> ServerSettings:
     """
     LoadConfig() でグローバル変数に格納したサーバー設定データを取得する
@@ -403,11 +512,8 @@ def GetServerPort() -> int:
 
     try:
 
-        # サーバー設定ファイルのパス
-        config_yaml_path = BASE_DIR.parent / 'config.yaml'
-
         # 設定ファイルからサーバー設定をロードし、ポート番号だけを返す
-        with open(config_yaml_path, encoding='utf-8') as file:
+        with open(_CONFIG_YAML_PATH, encoding='utf-8') as file:
             config_dict: dict[str, dict[str, Any]] = dict(ruamel.yaml.YAML().load(file))
         return config_dict['server']['port']
 
