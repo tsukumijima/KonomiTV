@@ -5,6 +5,7 @@ import pytz
 import re
 import tweepy
 import tweepy.models
+import tweepy.parsers
 from fastapi import APIRouter
 from fastapi import Body
 from fastapi import Depends
@@ -592,41 +593,44 @@ async def TwitterFavoriteCancelAPI(
         RaiseHTTPException(ex)
 
 
-def GenerateTweet(tweet: Any) -> schemas.Tweet:
+def FormatTweet(tweet: tweepy.models.Status) -> schemas.Tweet:
     """
-    Twitter API のツイート情報を API レスポンス用のツイート情報に変換する。
+    Twitter API のツイート情報を API レスポンス用のツイート情報にフォーマットする。
 
     Args:
-        tweet: Twitter API のツイート情報。
+        tweet (tweepy.models.Status): Twitter API のツイート情報。
 
     Returns:
         schemas.Tweet: API レスポンス用のツイート情報。
     """
 
+    # tweepy のモデルには型定義がないため、Any 型にキャスト
+    tweet_data = cast(Any, tweet)
+
     # リツイートがある場合は、リツイート元のツイートの情報を取得
     retweeted_tweet = None
-    if hasattr(tweet, 'retweeted_status'):
-        retweeted_tweet = GenerateTweet(tweet.retweeted_status)
+    if hasattr(tweet_data, 'retweeted_status'):
+        retweeted_tweet = FormatTweet(tweet_data.retweeted_status)
 
     # 引用リツイートがある場合は、引用リツイート元のツイートの情報を取得
     quoted_tweet = None
-    if hasattr(tweet, 'quoted_status'):
-        quoted_tweet = GenerateTweet(tweet.quoted_status)
+    if hasattr(tweet_data, 'quoted_status'):
+        quoted_tweet = FormatTweet(tweet_data.quoted_status)
 
     # 画像の URL を取得
     image_urls = []
     movie_url = None
-    if hasattr(tweet, 'extended_entities'):
-        for media in tweet.extended_entities['media']:
+    if hasattr(tweet_data, 'extended_entities'):
+        for media in tweet_data.extended_entities['media']:
             if media['type'] == 'photo':
                 image_urls.append(media['media_url_https'])
             elif media['type'] in ['video', 'animated_gif']:
                 movie_url = media['video_info']['variants'][0]['url']  # bitrate が最も高いものを取得
 
     # t.co の URL を展開した URL に置換
-    expanded_text = tweet.full_text
-    if hasattr(tweet, 'entities') and 'urls' in tweet.entities:
-        for url_entity in tweet.entities['urls']:
+    expanded_text = tweet_data.full_text
+    if hasattr(tweet_data, 'entities') and 'urls' in tweet_data.entities:
+        for url_entity in tweet_data.entities['urls']:
             expanded_text = expanded_text.replace(url_entity['url'], url_entity['expanded_url'])
 
     # 残った t.co の URL を削除
@@ -634,24 +638,24 @@ def GenerateTweet(tweet: Any) -> schemas.Tweet:
         expanded_text = re.sub(r'\s*https://t\.co/\w+$', '', expanded_text)
 
     return schemas.Tweet(
-        id = tweet.id_str,
-        created_at = tweet.created_at.astimezone(pytz.timezone('Asia/Tokyo')),
+        id = tweet_data.id_str,
+        created_at = tweet_data.created_at.astimezone(pytz.timezone('Asia/Tokyo')),
         user = schemas.TweetUser(
-            id = tweet.user.id_str,
-            name = tweet.user.name,
-            screen_name = tweet.user.screen_name,
+            id = tweet_data.user.id_str,
+            name = tweet_data.user.name,
+            screen_name = tweet_data.user.screen_name,
             # (ランダムな文字列)_normal.jpg だと画像サイズが小さいので、(ランダムな文字列).jpg に置換
-            icon_url = tweet.user.profile_image_url_https.replace('_normal', ''),
+            icon_url = tweet_data.user.profile_image_url_https.replace('_normal', ''),
         ),
         text = expanded_text,
-        lang = tweet.lang,
-        via = re.sub(r'<.+?>', '', tweet.source),
+        lang = tweet_data.lang,
+        via = re.sub(r'<.+?>', '', tweet_data.source),
         image_urls = image_urls if len(image_urls) > 0 else None,
         movie_url = movie_url,
-        retweet_count = tweet.retweet_count,
-        favorite_count = tweet.favorite_count,
-        retweeted = tweet.retweeted,
-        favorited = tweet.favorited,
+        retweet_count = tweet_data.retweet_count,
+        favorite_count = tweet_data.favorite_count,
+        retweeted = tweet_data.retweeted,
+        favorited = tweet_data.favorited,
         retweeted_tweet = retweeted_tweet,
         quoted_tweet = quoted_tweet,
     )
@@ -677,7 +681,7 @@ async def TwitterTimelineAPI(
     try:
 
         # ホームタイムラインを取得
-        tweets = twitter_account_api.home_timeline(
+        tweets = await asyncio.to_thread(twitter_account_api.home_timeline,
             count = 200,
             since_id = since_tweet_id,
             trim_user = False,
@@ -691,7 +695,7 @@ async def TwitterTimelineAPI(
         for tweet in tweets:
 
             # 最終的なツイートモデルを作成
-            formatted_tweets.append(GenerateTweet(tweet))
+            formatted_tweets.append(FormatTweet(tweet))
 
         return formatted_tweets
 
@@ -707,8 +711,9 @@ async def TwitterTimelineAPI(
 )
 async def TwitterSearchAPI(
     query: str = Query(..., description='検索クエリ。'),
-    since_tweet_id: str | None = Query(None, description='このツイート ID 以降のツイートを取得する。'),
-    twitter_account_api: tweepy.API = Depends(GetCurrentTwitterAccountAPI),
+    since_tweet_id: str | None = Query(None, description='このツイート ID より後のツイートを取得する。'),
+    max_tweet_id: str | None = Query(None, description='このツイート ID より前のツイートを取得する。'),
+    twitter_account: TwitterAccount = Depends(GetCurrentTwitterAccount),
 ):
     """
     指定されたクエリでツイートを検索する。
@@ -716,27 +721,127 @@ async def TwitterSearchAPI(
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
 
+    # tweepy の API インスタンスを取得
+    api = twitter_account.getTweepyAPI()
+
     try:
-        # ツイートを検索
-        tweets = twitter_account_api.search_tweets(
-            q = query + ' exclude:nativeretweets exclude:retweets exclude:replies',
-            count = 200,
-            since_id = since_tweet_id,
-            lang = 'ja',
-            locale = 'ja',
-            result_type = 'recent',
-            include_entities = True,
-            tweet_mode = 'extended',
-        )
 
-        # レスポンス用に情報を整形
-        formatted_tweets: list[schemas.Tweet] = []
-        for tweet in tweets:
+        # Cookie セッションの場合
+        if twitter_account.is_oauth_session is False:
 
-            # 最終的なツイートモデルを作成
-            formatted_tweets.append(GenerateTweet(tweet))
+            # 検索クエリを作成
+            search_query = query.strip() + ' exclude:nativeretweets exclude:retweets exclude:replies'
+            if since_tweet_id is not None:
+                search_query += f' since:{since_tweet_id}'
+            if max_tweet_id is not None:
+                search_query += f' max_id:{max_tweet_id}'
 
-        return formatted_tweets
+            # 条件に一致するツイートが存在するにも関わらず検索結果が 0 件になることがあるので (Twitter のバグ？)、5回までリトライする
+            tweets_data: dict[str, Any] = {}
+            retry_count = 0
+            while retry_count < 5:
+
+                # ツイートを検索
+                ## 旧 TweetDeck が使っている search/universal (プライベート API) を利用する
+                ## q, count, since_id, max_id 以外のクエリパラメーターは実際に旧 TweetDeck から送信されている値をそのまま設定している
+                tweets_data = await asyncio.to_thread(api.request, 'GET', 'search/universal',
+                    # search/universal のパーサーは当然ながら用意されていないので JSONParser を利用する
+                    parser = tweepy.parsers.JSONParser(),
+                    # endpoint_parameters に設定されていないクエリパラメーターは無視される
+                    endpoint_parameters = (
+                        'q',
+                        'count',
+                        'modules',
+                        'result_type',
+                        'pc',
+                        'ui_lang',
+                        'cards_platform',
+                        'include_entities',
+                        'include_user_entities',
+                        'include_cards',
+                        'send_error_codes',
+                        'tweet_mode',
+                        'include_ext_alt_text',
+                        'include_reply_count',
+                        'ext',
+                        'include_ext_has_nft_avatar',
+                        'include_ext_is_blue_verified',
+                        'include_ext_verified_type',
+                        'include_ext_sensitive_media_warning',
+                        'include_ext_media_color',
+                    ),
+                    q = search_query,
+                    count = 200,
+                    modules = 'status',
+                    result_type = 'recent',
+                    pc = 'false',
+                    ui_lang = 'ja',
+                    cards_platform = 'Web-13',
+                    include_entities = 1,
+                    include_user_entities = 1,
+                    include_cards = 1,
+                    send_error_codes = 1,
+                    tweet_mode = 'extended',
+                    include_ext_alt_text = 'true',
+                    include_reply_count = 'true',
+                    ext = 'mediaStats,highlightedLabel,voiceInfo,superFollowMetadata',
+                    include_ext_has_nft_avatar = 'true',
+                    include_ext_is_blue_verified = 'true',
+                    include_ext_verified_type = 'true',
+                    include_ext_sensitive_media_warning = 'true',
+                    include_ext_media_color = 'true',
+                )
+
+                # ツイートを取得できたらループを抜ける
+                if len(tweets_data['modules']) > 0:
+                    break
+
+                # 少し待ってからリトライ
+                await asyncio.sleep(0.1)
+                retry_count += 1
+
+            # レスポンス用に情報を整形
+            formatted_tweets: list[schemas.Tweet] = []
+            for tweet_data in tweets_data['modules']:
+
+                # Tweet モデルを作成
+                tweet = tweepy.models.Status.parse(api, tweet_data['status']['data'])
+
+                # 最終的なツイートモデルを作成
+                ## id が max_id と一致するツイートは除外する
+                formatted_tweet = FormatTweet(tweet)
+                if formatted_tweet.id != max_tweet_id:
+                    formatted_tweets.append(formatted_tweet)
+
+            return formatted_tweets
+
+        # OAuth セッションの場合
+        else:
+
+            # ツイートを検索
+            tweets = api.search_tweets(
+                q = query.strip() + ' exclude:nativeretweets exclude:retweets exclude:replies',
+                count = 200,
+                since_id = since_tweet_id,
+                max_id = max_tweet_id,
+                lang = 'ja',
+                locale = 'ja',
+                result_type = 'recent',
+                include_entities = True,
+                tweet_mode = 'extended',
+            )
+
+            # レスポンス用に情報を整形
+            formatted_tweets: list[schemas.Tweet] = []
+            for tweet in tweets:
+
+                # 最終的なツイートモデルを作成
+                ## id が max_id と一致するツイートは除外する
+                formatted_tweet = FormatTweet(tweet)
+                if formatted_tweet.id != max_tweet_id:
+                    formatted_tweets.append(formatted_tweet)
+
+            return formatted_tweets
 
     except tweepy.HTTPException as ex:
         RaiseHTTPException(ex)
