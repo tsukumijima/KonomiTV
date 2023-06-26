@@ -11,7 +11,7 @@ import uvicorn.logging
 from pathlib import Path
 from uvicorn.supervisors.watchfilesreload import WatchFilesReload
 
-from app.config import Config
+from app.config import LoadConfig
 from app.constants import (
     AKEBI_LOG_PATH,
     BASE_DIR,
@@ -55,7 +55,7 @@ def main(
     # 前回のログをすべて削除してから、config.py と constants.py 以外の内部モジュールをインポートする
     ## ロギング設定は Logging.py が読み込まれた瞬間に行われるが、その際に前回のログファイルが残っているとエラーになる
     ## constants.py は内部モジュールへの依存がなく、config.py も constants.py 以外への依存はないので、この2つのみトップレベルでインポートしている
-    ## 前回のログをすべて削除する処理を Logging.py 自体に記述してしまうとマルチプロセス実行時やリロードモード時に意図せずファイルが削除されてしまう
+    ## 前回のログをすべて削除する処理を Logging.py 自体に記述してしまうとマルチプロセス実行時や自動リロードモード時に意図せずファイルが削除されてしまう
     ## from app import models を最初に実行しておかないと、なぜか app.utils 配下のモジュールへのアクセスがうまくいかない
     from app import models  # type: ignore  # import magic!!!
     from app.utils import IsRunningAsWindowsService
@@ -91,12 +91,13 @@ def main(
             Logging.error(f'{library_name} が {library_path} に配置されているかを確認してください。')
             sys.exit(1)
 
-    # ***** サーバー設定データを読み込み *****
+    # ***** サーバー設定データのロード *****
 
-    # Config() を実行することで、読み込んだサーバー設定データがグローバル変数にキャッシュされる
-    ## サーバー起動時の初回のみ、サーバー設定データの読み込みとバリデーションが行われる
-    ## この処理以降に Config() を呼び出すと、今回キャッシュされたサーバー設定データが返される
-    CONFIG = Config()
+    # サーバー設定データのロードとバリデーションを行う
+    ## ここでロードしたサーバー設定データが Config() で参照される
+    ## config.yaml が配置されていなかったりバリデーションエラーが発生した際は、
+    ## LoadConfig() 内でエラーログを出力した後、sys.exit(1) でサーバーが終了される
+    CONFIG = LoadConfig()
 
     # ***** KonomiTV サーバーを起動 *****
 

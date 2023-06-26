@@ -18,6 +18,7 @@ from tortoise import transactions
 from typing import Any
 
 from app.config import Config
+from app.config import LoadConfig
 from app.constants import API_REQUEST_HEADERS, DATABASE_CONFIG
 from app.models import Channel
 from app.utils import Logging
@@ -84,11 +85,11 @@ class Program(models.Model):
 
                     # Mirakurun バックエンド
                     if Config().general.backend == 'Mirakurun':
-                        await loop.run_in_executor(executor, cls.updateFromMirakurunSync, True)
+                        await loop.run_in_executor(executor, cls.updateFromMirakurunForMultiProcess)
 
                     # EDCB バックエンド
                     elif Config().general.backend == 'EDCB':
-                        await loop.run_in_executor(executor, cls.updateFromEDCBSync, True)
+                        await loop.run_in_executor(executor, cls.updateFromEDCBForMultiProcess)
 
             # データベースが他のプロセスにロックされていた場合
             # 5秒待ってからリトライ
@@ -733,27 +734,41 @@ class Program(models.Model):
 
 
     @classmethod
-    def updateFromMirakurunSync(cls, is_running_multiprocess: bool = False) -> None:
+    def updateFromMirakurunForMultiProcess(cls) -> None:
         """
-        Programs.updateFromMirakurun() の同期版
+        Programs.updateFromMirakurun() の同期版 (ProcessPoolExecutor でのマルチプロセス実行用)
+        """
 
-        Args:
-            is_running_multiprocess (bool, optional): マルチプロセスで実行されているかどうか
-        """
+        # もし Config() の実行時に AssertionError が発生した場合は、LoadConfig() を実行してサーバー設定データをロードする
+        ## 通常ならマルチプロセス実行時もサーバー設定データがロードされているはずだが、
+        ## 自動リロードモード時のみなぜかグローバル変数がマルチプロセスに引き継がれないため、明示的にロードさせる必要がある
+        try:
+            Config()
+        except AssertionError:
+            # バリデーションは既にサーバー起動時に行われているためスキップする
+            LoadConfig(bypass_validation=True)
+
         # asyncio.run() で非同期メソッドの実行が終わるまで待つ
-        asyncio.run(cls.updateFromMirakurun(is_running_multiprocess))
+        asyncio.run(cls.updateFromMirakurun(is_running_multiprocess=True))
 
 
     @classmethod
-    def updateFromEDCBSync(cls, is_running_multiprocess: bool = False) -> None:
+    def updateFromEDCBForMultiProcess(cls) -> None:
         """
-        Programs.updateFromEDCB() の同期版
+        Programs.updateFromEDCB() の同期版 (ProcessPoolExecutor でのマルチプロセス実行用)
+        """
 
-        Args:
-            is_running_multiprocess (bool, optional): マルチプロセスで実行されているかどうか
-        """
+        # もし Config() の実行時に AssertionError が発生した場合は、LoadConfig() を実行してサーバー設定データをロードする
+        ## 通常ならマルチプロセス実行時もサーバー設定データがロードされているはずだが、
+        ## 自動リロードモード時のみなぜかグローバル変数がマルチプロセスに引き継がれないため、明示的にロードさせる必要がある
+        try:
+            Config()
+        except AssertionError:
+            # バリデーションは既にサーバー起動時に行われているためスキップする
+            LoadConfig(bypass_validation=True)
+
         # asyncio.run() で非同期メソッドの実行が終わるまで待つ
-        asyncio.run(cls.updateFromEDCB(is_running_multiprocess))
+        asyncio.run(cls.updateFromEDCB(is_running_multiprocess=True))
 
 
     def isOffTheAirProgram(self) -> bool:

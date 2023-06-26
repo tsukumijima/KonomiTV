@@ -13,6 +13,7 @@ from fastapi_utils.tasks import repeat_every
 from pathlib import Path
 
 from app.config import Config
+from app.config import LoadConfig
 from app.constants import CLIENT_DIR, DATABASE_CONFIG, QUALITY, VERSION
 from app.models import Channel
 from app.models import LiveStream
@@ -35,8 +36,16 @@ from app.utils.EDCB import EDCBTuner
 # このアプリケーションの実行中のイベントループ
 loop = asyncio.get_running_loop()
 
+# もし Config() の実行時に AssertionError が発生した場合は、LoadConfig() を実行してサーバー設定データをロードする
+## 自動リロードモードでは app.py がサーバープロセスのエントリーポイントになるため、
+## サーバープロセス上にサーバー設定データがロードされていない状態になる
+try:
+    CONFIG = Config()
+except AssertionError:
+    # バリデーションは既にサーバー起動時に行われているためスキップする
+    CONFIG = LoadConfig(bypass_validation=True)
+
 # FastAPI を初期化
-CONFIG = Config()
 app = FastAPI(
     title = 'KonomiTV',
     description = 'KonomiTV: Kept Organized, Notably Optimized, Modern Interface TV media server',
