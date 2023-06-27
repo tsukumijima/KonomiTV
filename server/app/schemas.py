@@ -106,6 +106,10 @@ class RecordedProgram(PydanticModel):
     secondary_audio_type: str | None
     secondary_audio_language: str | None
 
+class RecordedPrograms(BaseModel):
+    total: int
+    recorded_programs: list[RecordedProgram]
+
 class SeriesBroadcastPeriod(PydanticModel):
     channel: Channel
     start_date: date
@@ -121,7 +125,8 @@ class Series(PydanticModel):
     updated_at: datetime
 
 class SeriesList(BaseModel):
-    __root__: list[Series]
+    total: int
+    series_list: list[Series]
 
 class TwitterAccount(PydanticModel):
     id: int

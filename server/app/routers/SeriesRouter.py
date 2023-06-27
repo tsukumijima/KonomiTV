@@ -17,30 +17,35 @@ router = APIRouter(
 
 @router.get(
     '',
-    summary = 'シリーズ情報一覧 API',
-    response_description = 'シリーズ情報のリスト。',
+    summary = 'シリーズ番組一覧 API',
+    response_description = 'シリーズ番組のリスト。',
     response_model = schemas.SeriesList,
 )
 async def SeriesListAPI():
     """
-    すべてのシリーズ情報を取得する。
+    すべてのシリーズ番組を取得する。
     """
 
-    return await Series.all() \
+    series_list = await Series.all() \
         .prefetch_related('broadcast_periods') \
         .prefetch_related('broadcast_periods__recorded_programs') \
         .order_by('-updated_at')
 
+    return {
+        'total': await Series.all().count(),
+        'series_list': series_list,
+    }
+
 
 @router.get(
     '/{series_id}',
-    summary = 'シリーズ情報 API',
-    response_description = 'シリーズ情報。',
-    response_model = schemas.SeriesList,
+    summary = 'シリーズ番組 API',
+    response_description = 'シリーズ番組。',
+    response_model = schemas.Series,
 )
 async def SeriesAPI(series_id: int):
     """
-    指定されたシリーズ情報を取得する。
+    指定されたシリーズ番組を取得する。
     """
 
     series = await Series.get_or_none(id=series_id) \

@@ -29,6 +29,7 @@ from app.routers import SettingsRouter
 from app.routers import TwitterRouter
 from app.routers import UsersRouter
 from app.routers import VersionRouter
+from app.routers import VideosRouter
 from app.utils import Interlaced
 from app.utils import Logging
 from app.utils.EDCB import EDCBTuner
@@ -69,6 +70,7 @@ app.add_middleware(
 
 # ルーターの追加
 app.include_router(ChannelsRouter.router)
+app.include_router(VideosRouter.router)
 app.include_router(SeriesRouter.router)
 app.include_router(LiveStreamsRouter.router)
 app.include_router(CapturesRouter.router)
