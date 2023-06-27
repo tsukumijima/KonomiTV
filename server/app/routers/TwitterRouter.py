@@ -61,23 +61,11 @@ error_messages = {
 }
 
 
-# Twitter API のエラーコードからエラーメッセージを生成して HTTPException を発生させる
-def RaiseHTTPException(ex: tweepy.HTTPException) -> None:
-    if len(ex.api_codes) > 0 and len(ex.api_messages) > 0:
-        error_message = f'Code: {ex.api_codes[0]}, Message: {error_messages.get(ex.api_codes[0], ex.api_messages[0])}'
-    else:
-        error_message = f'Unknown Error (HTTP Error {ex.response.status_code})'
-    raise HTTPException(
-        status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-        detail = f'Failed to Twitter API operation ({error_message})'
-    )
-
-
-# 現在ログイン中のユーザーに紐づく Twitter アカウントを取得する
 async def GetCurrentTwitterAccount(
     screen_name: str = Path(..., description='Twitter アカウントのスクリーンネーム。'),
     current_user: User = Depends(GetCurrentUser),
 ) -> TwitterAccount:
+    """ 現在ログイン中のユーザーに紐づく Twitter アカウントを取得する """
 
     # 指定されたスクリーンネームに紐づく Twitter アカウントを取得
     # 自分が所有していない Twitter アカウントでツイートできないよう、ログイン中のユーザーに限って絞り込む
@@ -95,9 +83,89 @@ async def GetCurrentTwitterAccount(
     return twitter_account
 
 
-# 現在ログイン中のユーザーに紐づく Twitter アカウントの Tweepy インスタンスを取得する
 def GetCurrentTwitterAccountAPI(twitter_account: TwitterAccount = Depends(GetCurrentTwitterAccount)) -> tweepy.API:
+    """ 現在ログイン中のユーザーに紐づく Twitter アカウントの Tweepy インスタンスを取得する """
     return twitter_account.getTweepyAPI()
+
+
+def RaiseHTTPException(ex: tweepy.HTTPException) -> None:
+    """ Twitter API のエラーコードからエラーメッセージを生成して HTTPException を発生させる """
+    if len(ex.api_codes) > 0 and len(ex.api_messages) > 0:
+        error_message = f'Code: {ex.api_codes[0]}, Message: {error_messages.get(ex.api_codes[0], ex.api_messages[0])}'
+    else:
+        error_message = f'Unknown Error (HTTP Error {ex.response.status_code})'
+    raise HTTPException(
+        status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail = f'Failed to Twitter API operation ({error_message})'
+    )
+
+
+def FormatTweet(tweet: tweepy.models.Status) -> schemas.Tweet:
+    """
+    Twitter API のツイートオブジェクトを API レスポンス用のツイートオブジェクトにフォーマットする
+
+    Args:
+        tweet (tweepy.models.Status): Twitter API のツイートオブジェクト
+
+    Returns:
+        schemas.Tweet: API レスポンス用にフォーマットしたツイートオブジェクト
+    """
+
+    # tweepy のモデルには型定義がないため、Any 型にキャスト
+    tweet_data = cast(Any, tweet)
+
+    # リツイートがある場合は、リツイート元のツイートの情報を取得
+    retweeted_tweet = None
+    if hasattr(tweet_data, 'retweeted_status'):
+        retweeted_tweet = FormatTweet(tweet_data.retweeted_status)
+
+    # 引用リツイートがある場合は、引用リツイート元のツイートの情報を取得
+    quoted_tweet = None
+    if hasattr(tweet_data, 'quoted_status'):
+        quoted_tweet = FormatTweet(tweet_data.quoted_status)
+
+    # 画像の URL を取得
+    image_urls = []
+    movie_url = None
+    if hasattr(tweet_data, 'extended_entities'):
+        for media in tweet_data.extended_entities['media']:
+            if media['type'] == 'photo':
+                image_urls.append(media['media_url_https'])
+            elif media['type'] in ['video', 'animated_gif']:
+                movie_url = media['video_info']['variants'][0]['url']  # bitrate が最も高いものを取得
+
+    # t.co の URL を展開した URL に置換
+    expanded_text = tweet_data.full_text
+    if hasattr(tweet_data, 'entities') and 'urls' in tweet_data.entities:
+        for url_entity in tweet_data.entities['urls']:
+            expanded_text = expanded_text.replace(url_entity['url'], url_entity['expanded_url'])
+
+    # 残った t.co の URL を削除
+    if len(image_urls) > 0 or movie_url:
+        expanded_text = re.sub(r'\s*https://t\.co/\w+$', '', expanded_text)
+
+    return schemas.Tweet(
+        id = tweet_data.id_str,
+        created_at = tweet_data.created_at.astimezone(pytz.timezone('Asia/Tokyo')),
+        user = schemas.TweetUser(
+            id = tweet_data.user.id_str,
+            name = tweet_data.user.name,
+            screen_name = tweet_data.user.screen_name,
+            # (ランダムな文字列)_normal.jpg だと画像サイズが小さいので、(ランダムな文字列).jpg に置換
+            icon_url = tweet_data.user.profile_image_url_https.replace('_normal', ''),
+        ),
+        text = expanded_text,
+        lang = tweet_data.lang,
+        via = re.sub(r'<.+?>', '', tweet_data.source),
+        image_urls = image_urls if len(image_urls) > 0 else None,
+        movie_url = movie_url,
+        retweet_count = tweet_data.retweet_count,
+        favorite_count = tweet_data.favorite_count,
+        retweeted = tweet_data.retweeted,
+        favorited = tweet_data.favorited,
+        retweeted_tweet = retweeted_tweet,
+        quoted_tweet = quoted_tweet,
+    )
 
 
 @router.get(
@@ -591,74 +659,6 @@ async def TwitterFavoriteCancelAPI(
         await asyncio.to_thread(twitter_account_api.destroy_favorite, tweet_id)
     except tweepy.HTTPException as ex:
         RaiseHTTPException(ex)
-
-
-def FormatTweet(tweet: tweepy.models.Status) -> schemas.Tweet:
-    """
-    Twitter API のツイート情報を API レスポンス用のツイート情報にフォーマットする。
-
-    Args:
-        tweet (tweepy.models.Status): Twitter API のツイート情報。
-
-    Returns:
-        schemas.Tweet: API レスポンス用のツイート情報。
-    """
-
-    # tweepy のモデルには型定義がないため、Any 型にキャスト
-    tweet_data = cast(Any, tweet)
-
-    # リツイートがある場合は、リツイート元のツイートの情報を取得
-    retweeted_tweet = None
-    if hasattr(tweet_data, 'retweeted_status'):
-        retweeted_tweet = FormatTweet(tweet_data.retweeted_status)
-
-    # 引用リツイートがある場合は、引用リツイート元のツイートの情報を取得
-    quoted_tweet = None
-    if hasattr(tweet_data, 'quoted_status'):
-        quoted_tweet = FormatTweet(tweet_data.quoted_status)
-
-    # 画像の URL を取得
-    image_urls = []
-    movie_url = None
-    if hasattr(tweet_data, 'extended_entities'):
-        for media in tweet_data.extended_entities['media']:
-            if media['type'] == 'photo':
-                image_urls.append(media['media_url_https'])
-            elif media['type'] in ['video', 'animated_gif']:
-                movie_url = media['video_info']['variants'][0]['url']  # bitrate が最も高いものを取得
-
-    # t.co の URL を展開した URL に置換
-    expanded_text = tweet_data.full_text
-    if hasattr(tweet_data, 'entities') and 'urls' in tweet_data.entities:
-        for url_entity in tweet_data.entities['urls']:
-            expanded_text = expanded_text.replace(url_entity['url'], url_entity['expanded_url'])
-
-    # 残った t.co の URL を削除
-    if len(image_urls) > 0 or movie_url:
-        expanded_text = re.sub(r'\s*https://t\.co/\w+$', '', expanded_text)
-
-    return schemas.Tweet(
-        id = tweet_data.id_str,
-        created_at = tweet_data.created_at.astimezone(pytz.timezone('Asia/Tokyo')),
-        user = schemas.TweetUser(
-            id = tweet_data.user.id_str,
-            name = tweet_data.user.name,
-            screen_name = tweet_data.user.screen_name,
-            # (ランダムな文字列)_normal.jpg だと画像サイズが小さいので、(ランダムな文字列).jpg に置換
-            icon_url = tweet_data.user.profile_image_url_https.replace('_normal', ''),
-        ),
-        text = expanded_text,
-        lang = tweet_data.lang,
-        via = re.sub(r'<.+?>', '', tweet_data.source),
-        image_urls = image_urls if len(image_urls) > 0 else None,
-        movie_url = movie_url,
-        retweet_count = tweet_data.retweet_count,
-        favorite_count = tweet_data.favorite_count,
-        retweeted = tweet_data.retweeted,
-        favorited = tweet_data.favorited,
-        retweeted_tweet = retweeted_tweet,
-        quoted_tweet = quoted_tweet,
-    )
 
 
 @router.get(

@@ -37,37 +37,8 @@ router = APIRouter(
 )
 
 
-# 正方形の 400×400 の PNG にトリミング&リサイズして保存する関数
-async def TrimSquareAndResizeAndSave(file: BinaryIO, save_path: pathlib.Path, resize_width_and_height: int = 400):
-    """
-    正方形の 400×400 の PNG にトリミング&リサイズして保存する関数
-    ref: https://note.nkmk.me/python-pillow-basic/
-    ref: https://note.nkmk.me/python-pillow-image-resize/
-    ref: https://note.nkmk.me/python-pillow-image-crop-trimming/
-
-    Args:
-        file (io.BytesIO): 入力元のファイルオブジェクト。
-        save_path (pathlib.Path): トリミング&リサイズしたファイルの保存先のパス
-        resize_width_and_height (int, optional): リサイズする幅と高さ. Defaults to 400.
-    """
-
-    ## 画像を開く
-    pillow_image = await asyncio.to_thread(Image.open, file)
-
-    ## 縦横どちらか長さが短い方に合わせて正方形にクロップ
-    pillow_image_crop = await asyncio.to_thread(pillow_image.crop, (
-        (pillow_image.size[0] - min(pillow_image.size)) // 2,
-        (pillow_image.size[1] - min(pillow_image.size)) // 2,
-        (pillow_image.size[0] + min(pillow_image.size)) // 2,
-        (pillow_image.size[1] + min(pillow_image.size)) // 2,
-    ))
-
-    ## 400×400 にリサイズして保存
-    pillow_image_resize = await asyncio.to_thread(pillow_image_crop.resize, (resize_width_and_height, resize_width_and_height))
-    await asyncio.to_thread(pillow_image_resize.save, save_path)
-
-# 現在ログイン中のユーザーを取得する
 async def GetCurrentUser(token: str = Depends(OAuth2PasswordBearer(tokenUrl='users/token'))) -> User:
+    """ 現在ログイン中のユーザーを取得する """
 
     try:
         # JWT トークンをデコード
@@ -108,8 +79,9 @@ async def GetCurrentUser(token: str = Depends(OAuth2PasswordBearer(tokenUrl='use
 
     return current_user
 
-# 現在ログイン中の管理者ユーザーを取得する
+
 async def GetCurrentAdminUser(current_user: User = Depends(GetCurrentUser)) -> User:
+    """ 現在ログイン中の管理者ユーザーを取得する """
 
     # 取得したユーザーが管理者ではない
     if current_user.is_admin is False:
@@ -122,11 +94,12 @@ async def GetCurrentAdminUser(current_user: User = Depends(GetCurrentUser)) -> U
 
     return current_user
 
-# 指定されたユーザー名のユーザーを取得する
+
 async def GetSpecifiedUser(
     username: str = Path(..., description='アカウントのユーザー名。'),
     current_user: User = Depends(GetCurrentAdminUser),  # 管理者ユーザーのみアクセス可能
 ) -> User:
+    """ 指定されたユーザー名のユーザーを取得する """
 
     # 指定されたユーザー名のユーザーを取得
     user = await User.filter(name=username).prefetch_related('twitter_accounts').get_or_none()
@@ -140,6 +113,35 @@ async def GetSpecifiedUser(
         )
 
     return user
+
+
+async def TrimSquareAndResizeAndSave(file: BinaryIO, save_path: pathlib.Path, resize_width_and_height: int = 400) -> None:
+    """
+    正方形の 400×400 の PNG にトリミング&リサイズして保存する
+    ref: https://note.nkmk.me/python-pillow-basic/
+    ref: https://note.nkmk.me/python-pillow-image-resize/
+    ref: https://note.nkmk.me/python-pillow-image-crop-trimming/
+
+    Args:
+        file (io.BytesIO): 入力元のファイルオブジェクト
+        save_path (pathlib.Path): トリミング&リサイズしたファイルの保存先のパス
+        resize_width_and_height (int, optional): リサイズする幅と高さ. Defaults to 400.
+    """
+
+    ## 画像を開く
+    pillow_image = await asyncio.to_thread(Image.open, file)
+
+    ## 縦横どちらか長さが短い方に合わせて正方形にクロップ
+    pillow_image_crop = await asyncio.to_thread(pillow_image.crop, (
+        (pillow_image.size[0] - min(pillow_image.size)) // 2,
+        (pillow_image.size[1] - min(pillow_image.size)) // 2,
+        (pillow_image.size[0] + min(pillow_image.size)) // 2,
+        (pillow_image.size[1] + min(pillow_image.size)) // 2,
+    ))
+
+    ## 400×400 にリサイズして保存
+    pillow_image_resize = await asyncio.to_thread(pillow_image_crop.resize, (resize_width_and_height, resize_width_and_height))
+    await asyncio.to_thread(pillow_image_resize.save, save_path)
 
 
 @router.post(

@@ -30,8 +30,8 @@ router = APIRouter(
 )
 
 
-# チャンネル ID のバリデーション
 async def ValidateChannelID(display_channel_id: str = Path(..., description='チャンネル ID 。ex:gr011')) -> str:
+    """ チャンネル ID のバリデーション """
     if await Channel.filter(display_channel_id=display_channel_id).get_or_none() is None:
         Logging.error(f'[LiveStreamsRouter][ValidateChannelID] Specified display_channel_id was not found [display_channel_id: {display_channel_id}]')
         raise HTTPException(
@@ -40,8 +40,9 @@ async def ValidateChannelID(display_channel_id: str = Path(..., description='チ
         )
     return display_channel_id
 
-# 品質のバリデーション
+
 async def ValidateQuality(quality: str = Path(..., description='映像の品質。ex:1080p')) -> QUALITY_TYPES:
+    """ 映像の品質のバリデーション """
     if quality not in QUALITY:
         Logging.error(f'[LiveStreamsRouter][ValidateQuality] Specified quality was not found [quality: {quality}]')
         raise HTTPException(
@@ -50,12 +51,13 @@ async def ValidateQuality(quality: str = Path(..., description='映像の品質�
         )
     return quality
 
-# クライアント ID からライブストリームクライアントのインスタンスを取得する
+
 async def GetLiveStreamClient(
     display_channel_id: str = Depends(ValidateChannelID),
     quality: QUALITY_TYPES = Depends(ValidateQuality),
     client_id: str = Path(..., description='ライブストリームのクライアント ID 。'),
 ) -> LiveStreamClient:
+    """ ライブストリームのクライアント ID からライブストリームクライアントのインスタンスを取得する """
 
     # 既に接続済みのクライアントのインスタンスを取得
     livestream = LiveStream(display_channel_id, quality)

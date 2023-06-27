@@ -38,20 +38,15 @@ router = APIRouter(
 )
 
 
-# チャンネル ID からチャンネル情報を取得する
 async def GetChannel(display_channel_id: str = Path(..., description='チャンネル ID 。ex:gr011')) -> Channel:
-
-    # チャンネル情報を取得
+    """ チャンネル ID からチャンネル情報を取得する """
     channel = await Channel.filter(display_channel_id=display_channel_id).get_or_none()
-
-    # 指定されたチャンネル ID が存在しない
     if channel is None:
         Logging.error(f'[ChannelsRouter][GetChannel] Specified display_channel_id was not found [display_channel_id: {display_channel_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified display_channel_id was not found',
         )
-
     return channel
 
 
