@@ -18,10 +18,10 @@ class RecordedProgram(models.Model):
     # テーブル設計は Notion を参照のこと
     id: int = fields.IntField(pk=True)  # type: ignore
     recorded_video: fields.ForeignKeyRelation[RecordedVideo] = \
-        fields.ForeignKeyField('models.RecordedVideo', related_name='recorded_programs')
+        fields.ForeignKeyField('models.RecordedVideo', related_name=None)
     recorded_video_id: int
     channel: fields.ForeignKeyRelation[Channel] | None = fields.ForeignKeyField('models.Channel', related_name=None, null=True)
-    channel_id: int | None
+    channel_id: str | None
     network_id: int | None = fields.IntField(null=True)  # type: ignore
     service_id: int | None = fields.IntField(null=True)  # type: ignore
     event_id: int | None = fields.IntField(null=True)  # type: ignore

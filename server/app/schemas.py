@@ -85,8 +85,7 @@ class RecordedVideo(PydanticModel):
 class RecordedProgram(PydanticModel):
     id: int
     recorded_video: RecordedVideo
-    channel: Channel | None
-    channel_id: int | None
+    channel_id: str | None
     network_id: int | None
     service_id: int | None
     event_id: int | None
@@ -109,7 +108,6 @@ class RecordedProgram(PydanticModel):
 
 class SeriesBroadcastPeriod(PydanticModel):
     channel: Channel
-    channel_id: int
     start_date: date
     end_date: date
     recorded_programs: list[RecordedProgram]
@@ -121,6 +119,9 @@ class Series(PydanticModel):
     genres: list[dict[str, str]]
     broadcast_periods: list[SeriesBroadcastPeriod]
     updated_at: datetime
+
+class SeriesList(BaseModel):
+    __root__: list[Series]
 
 class TwitterAccount(PydanticModel):
     id: int

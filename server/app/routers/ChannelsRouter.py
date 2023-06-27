@@ -253,7 +253,7 @@ async def ChannelAPI(
     channel: Channel = Depends(GetChannel),
 ):
     """
-    チャンネルの情報を取得する。
+    指定されたチャンネルの情報を取得する。
     """
 
     # 現在と次の番組情報を取得
@@ -279,7 +279,7 @@ async def ChannelLogoAPI(
     channel: Channel = Depends(GetChannel),
 ):
     """
-    チャンネルのロゴを取得する。
+    指定されたチャンネルに紐づくロゴを取得する。
     """
 
     async def GetLogoFilePath(channel: Channel) -> pathlib.Path | None:
@@ -512,7 +512,7 @@ async def ChannelJikkyoSessionAPI(
     channel: Channel = Depends(GetChannel),
 ):
     """
-    チャンネルに紐づくニコニコ実況のセッション情報を取得する。
+    指定されたチャンネルに紐づくニコニコ実況のセッション情報を取得する。
     """
 
     # もし Authorization ヘッダーがあるなら、ログイン中のユーザーアカウントを取得する

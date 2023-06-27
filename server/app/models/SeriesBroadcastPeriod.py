@@ -18,7 +18,7 @@ class SeriesBroadcastPeriod(models.Model):
     series: fields.ForeignKeyRelation[Series] = fields.ForeignKeyField('models.Series', related_name='broadcast_periods')
     series_id: int
     channel: fields.ForeignKeyRelation[Channel] = fields.ForeignKeyField('models.Channel', related_name=None)
-    channel_id: int
+    channel_id: str
     start_date = fields.DateField()
     end_date = fields.DateField()
     recorded_programs: fields.ReverseRelation[RecordedProgram]

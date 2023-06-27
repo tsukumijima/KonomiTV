@@ -24,6 +24,7 @@ from app.routers import ChannelsRouter
 from app.routers import LiveStreamsRouter
 from app.routers import MaintenanceRouter
 from app.routers import NiconicoRouter
+from app.routers import SeriesRouter
 from app.routers import SettingsRouter
 from app.routers import TwitterRouter
 from app.routers import UsersRouter
@@ -68,6 +69,7 @@ app.add_middleware(
 
 # ルーターの追加
 app.include_router(ChannelsRouter.router)
+app.include_router(SeriesRouter.router)
 app.include_router(LiveStreamsRouter.router)
 app.include_router(CapturesRouter.router)
 app.include_router(NiconicoRouter.router)
