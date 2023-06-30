@@ -41,7 +41,7 @@ export const IProgramDefault: IProgram = {
     is_free: true,
     genres: [],
     video_type: '映像1080i(1125i)、アスペクト比16:9 パンベクトルなし',
-    video_codec: 'mpeg2',
+    video_codec: 'MPEG-2',
     video_resolution: '1080i',
     primary_audio_type: '2/0モード(ステレオ)',
     primary_audio_language: '日本語',

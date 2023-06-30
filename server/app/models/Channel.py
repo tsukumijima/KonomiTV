@@ -12,7 +12,7 @@ from tortoise import models
 from tortoise import timezone
 from tortoise import transactions
 from tortoise.exceptions import IntegrityError
-from typing import Any, TYPE_CHECKING
+from typing import Any, Literal, TYPE_CHECKING
 
 from app.config import Config
 from app.constants import API_REQUEST_HEADERS
@@ -40,7 +40,7 @@ class Channel(models.Model):
     transport_stream_id: int | None = fields.IntField(null=True)  # type: ignore
     remocon_id: int = fields.IntField()  # type: ignore
     channel_number: str = fields.CharField(255)  # type: ignore
-    type: str = fields.CharField(255)  # type: ignore
+    type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO'] = fields.CharField(255)  # type: ignore
     name: str = fields.TextField()  # type: ignore
     jikkyo_force: int | None = fields.IntField(null=True)  # type: ignore
     is_subchannel: bool = fields.BooleanField()  # type: ignore
@@ -133,7 +133,8 @@ class Channel(models.Model):
                     continue
 
                 # 不明なネットワーク ID のチャンネルを弾く
-                if TSInformation.getNetworkType(service['networkId']) == 'OTHER':
+                channel_type = TSInformation.getNetworkType(service['networkId'])
+                if channel_type == 'OTHER':
                     continue
 
                 # チャンネル ID
@@ -151,7 +152,7 @@ class Channel(models.Model):
                 channel.service_id = int(service['serviceId'])
                 channel.network_id = int(service['networkId'])
                 channel.remocon_id = int(service['remoteControlKeyId']) if ('remoteControlKeyId' in service) else -1
-                channel.type = TSInformation.getNetworkType(channel.network_id)
+                channel.type = channel_type
                 channel.name = TSInformation.formatString(service['name'])
                 channel.jikkyo_force = None
                 channel.is_watchable = True
@@ -333,7 +334,8 @@ class Channel(models.Model):
                     continue
 
                 # 不明なネットワーク ID のチャンネルを弾く
-                if TSInformation.getNetworkType(service['onid']) == 'OTHER':
+                channel_type = TSInformation.getNetworkType(service['onid'])
+                if channel_type == 'OTHER':
                     continue
 
                 # チャンネル ID
@@ -352,7 +354,7 @@ class Channel(models.Model):
                 channel.network_id = int(service['onid'])
                 channel.transport_stream_id = int(service['tsid'])
                 channel.remocon_id = -1
-                channel.type = TSInformation.getNetworkType(channel.network_id)
+                channel.type = channel_type
                 channel.name = TSInformation.formatString(service['service_name'])
                 channel.jikkyo_force = None
                 channel.is_watchable = True

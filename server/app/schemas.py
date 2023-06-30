@@ -70,17 +70,18 @@ class RecordedVideo(PydanticModel):
     file_hash: str
     recording_start_time: datetime | None
     recording_end_time: datetime | None
-    recording_start_margin: float | None
-    recording_end_margin: float | None
     duration: float
-    container_format: str
-    video_codec: str
-    video_resolution: str
-    primary_audio_codec: str
-    primary_audio_channel: str
-    secondary_audio_codec: str | None
-    secondary_audio_channel: str | None
-    cm_intervals: list[tuple[float, float]] | None
+    container_format: Literal['MPEG-TS']
+    video_codec: Literal['MPEG-2', 'H.264', 'H.265']
+    video_resolution_width: int
+    video_resolution_height: int
+    primary_audio_codec: Literal['AAC-LC', 'HE-AAC', 'MP2']
+    primary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch']
+    primary_audio_sampling_rate: int
+    secondary_audio_codec: Literal['AAC-LC', 'HE-AAC', 'MP2'] | None
+    secondary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] | None
+    secondary_audio_sampling_rate: int | None
+    cm_intervals: list[tuple[float, float]]
 
 class RecordedProgram(PydanticModel):
     id: int

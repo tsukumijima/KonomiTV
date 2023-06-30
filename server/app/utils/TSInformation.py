@@ -39,9 +39,9 @@ class TSInformation:
     # 映像のコーデック
     # 参考: https://github.com/Chinachu/Mirakurun/blob/master/src/Mirakurun/epg.ts#L27
     STREAM_CONTENT = {
-        0x01: 'mpeg2',
-        0x05: 'h.264',
-        0x09: 'h.265',
+        0x01: 'MPEG-2',
+        0x05: 'H.264',
+        0x09: 'H.265',
     }
 
     # 映像の解像度
