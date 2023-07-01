@@ -441,6 +441,7 @@ class Channel(models.Model):
         elif self.type == 'GR':
 
             # Tortoise ORM のコネクションが取得できない時は Tortoise ORM を初期化する
+            ## 基本 MetadataAnalyzer を単独で実行したときくらいしか起きないはず…
             cleanup_required = False
             try:
                 Tortoise.get_connection('default')

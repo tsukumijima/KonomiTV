@@ -58,7 +58,8 @@ class TSInfoAnalyzer:
         channel = self.__analyzeSDTInformation()
 
         # 録画番組情報のモデルを作成
-        recorded_program = RecordedProgram()
+        ## EIT[p/f] のうち、現在の番組情報を取得
+        recorded_program = self.__analyzeEITInformation(channel.service_id, is_following=False)
 
         return recorded_program, channel
 
@@ -333,3 +334,27 @@ class TSInfoAnalyzer:
         channel.is_watchable = False
 
         return channel
+
+
+    def __analyzeEITInformation(self, service_id: int, is_following: bool = False) -> RecordedProgram:
+        """
+        TS内の EIT (Event Information Table) から番組情報を取得する
+        サービス ID が必要な理由は、CS などで別のチャンネルの番組情報が取得されるのを防ぐため
+        このため、事前に __analyzeSDTInformation() でサービス ID を取得しておく必要がある
+
+        Args:
+            service_id (int): 取得したいチャンネルのサービス ID
+            is_following (bool): 次の番組情報を取得するかどうか (デフォルト: 現在の番組情報)
+
+        Returns:
+            RecordedProgram: 録画番組情報を表すモデル
+        """
+
+        # 誤動作防止のため必ず最初にシークを戻す
+        self.ts.seek(0)
+
+        # 録画番組情報を表すモデルを作成
+        recorded_program = RecordedProgram()
+
+
+        return recorded_program

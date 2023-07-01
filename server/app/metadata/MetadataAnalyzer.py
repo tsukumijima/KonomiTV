@@ -137,6 +137,10 @@ class MetadataAnalyzer:
         if is_video_track_read is False or is_primary_audio_track_read is False:
             return None
 
+        # duration が1分未満の場合は短すぎるので None を返す
+        if recorded_video.duration < 60:
+            return None
+
         if recorded_video.container_format == 'MPEG-TS':
             # TS ファイル内に含まれる番組情報を解析する
             program_analyzer = TSInfoAnalyzer(self.recorded_file_path)
