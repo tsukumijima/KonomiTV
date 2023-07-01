@@ -81,7 +81,7 @@ class RecordedVideo(PydanticModel):
     secondary_audio_codec: Literal['AAC-LC', 'HE-AAC', 'MP2'] | None
     secondary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] | None
     secondary_audio_sampling_rate: int | None
-    cm_intervals: list[tuple[float, float]]
+    cm_sections: list[tuple[float, float]]
 
 class RecordedProgram(PydanticModel):
     id: int
