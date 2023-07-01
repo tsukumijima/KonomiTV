@@ -147,8 +147,8 @@ class MetadataAnalyzer:
             channel = None
             ## ファイルの作成日時を録画開始時刻として使用する
             start_time = datetime.fromtimestamp(self.recorded_file_path.stat().st_ctime)
-            ## 拡張子を除いたファイル名をタイトルとして使用する
-            title = self.recorded_file_path.stem
+            ## 拡張子を除いたファイル名をフォーマットした上でタイトルとして使用する
+            title = TSInfoAnalyzer.formatString(self.recorded_file_path.stem)
             recorded_program = RecordedProgram(
                 title = title,
                 description = '番組情報を取得できませんでした。',
@@ -160,10 +160,13 @@ class MetadataAnalyzer:
                 genres = [],
             )
 
-        # CM 区間を検出する
+        # CM 区間を検出する (MPEG-TS のみ)
         ## 時間がかかるので最後に実行する
-        cm_sections_detector = CMSectionsDetector(self.recorded_file_path)
-        recorded_video.cm_sections = cm_sections_detector.detect(recorded_video)
+        if recorded_video.container_format == 'MPEG-TS':
+            cm_sections_detector = CMSectionsDetector(self.recorded_file_path)
+            recorded_video.cm_sections = cm_sections_detector.detect(recorded_video)
+        else:
+            recorded_video.cm_sections = []
 
         return recorded_video, recorded_program, channel
 
@@ -267,11 +270,12 @@ class MetadataAnalyzer:
 if __name__ == '__main__':
     def main(recorded_file_path: Path = typer.Argument(..., exists=True, file_okay=True, dir_okay=False, readable=True, resolve_path=True)):
         metadata_analyzer = MetadataAnalyzer(recorded_file_path)
-        result = metadata_analyzer.analyze()
-        if result:
+        results = metadata_analyzer.analyze()
+        if results:
             from pprint import pprint
-            pprint(dict(result[0]))
-            pprint(dict(result[1]))
+            for result in results:
+                if result is not None:
+                    pprint(dict(result))
         else:
             typer.echo('Not a KonomiTV playable TS file.')
     typer.run(main)

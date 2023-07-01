@@ -455,7 +455,7 @@ class Program(models.Model):
         # コネクションを閉じないと Ctrl+C を押下しても終了できない
         finally:
             if is_running_multiprocess:
-                await connections.close_all()
+                await Tortoise.close_connections()
 
 
     @classmethod
