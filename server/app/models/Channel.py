@@ -450,9 +450,10 @@ class Channel(models.Model):
 
             # 同じリモコン ID のサービスのカウントを DB から取得
             same_remocon_id_count = await Channel.filter(
-                ~Q(id = self.id),
-                remocon_id = self.remocon_id,
-                type = 'GR',
+                ~Q(id = self.id),  # チャンネル ID が自身のチャンネル ID と異なる (=異なるチャンネルだがリモコン番号が同じ)
+                remocon_id = self.remocon_id,  # リモコン番号が同じ
+                type = 'GR',  # 地デジのみ
+                is_subchannel = False,  # メインチャンネルのみ
             ).count()
 
             # Tortoise ORM を独自に初期化した場合は、開いた Tortoise ORM のコネクションを明示的に閉じる
