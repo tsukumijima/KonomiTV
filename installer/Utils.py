@@ -386,7 +386,8 @@ def IsDockerComposeV2() -> bool:
             stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
             text = True,  # 出力をテキストとして取得する
         )
-        if docker_compose_v2_result.returncode == 0 and 'Docker Compose version v2' in docker_compose_v2_result.stdout:
+        if docker_compose_v2_result.returncode == 0 and any(x in docker_compose_v2_result.stdout for x in
+                                                            ('Docker Compose version v2', 'Docker Compose version 2')):
             return True  #  Docker Compose V2 がインストールされている
     except FileNotFoundError:
         pass
@@ -425,7 +426,8 @@ def IsDockerInstalled() -> bool:
             stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
             text = True,  # 出力をテキストとして取得する
         )
-        if docker_compose_v2_result.returncode == 0 and 'Docker Compose version v2' in docker_compose_v2_result.stdout:
+        if docker_compose_v2_result.returncode == 0 and any(x in docker_compose_v2_result.stdout for x in
+                                                            ('Docker Compose version v2', 'Docker Compose version 2')):
             return True  # Docker と Docker Compose V2 がインストールされている
 
         # Docker Compose V1 の存在確認
