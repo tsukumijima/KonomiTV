@@ -1,4 +1,5 @@
 
+import pkgutil
 import secrets
 import sys
 from pathlib import Path
@@ -60,6 +61,7 @@ LIBRARY_PATH = {
 }
 
 # データベース (Tortoise ORM) の設定
+model_list = [name for _, name, _ in pkgutil.iter_modules(path=['app/models'])]
 DATABASE_CONFIG = {
     'timezone': 'Asia/Tokyo',
     'connections': {
@@ -67,7 +69,7 @@ DATABASE_CONFIG = {
     },
     'apps': {
         'models': {
-            'models': ['app.models', 'aerich.models'],
+            'models': [f'app.models.{name}' for name in model_list] + ['aerich.models'],
             'default_connection': 'default',
         }
     }

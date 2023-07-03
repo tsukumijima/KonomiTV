@@ -23,8 +23,8 @@ from app import schemas
 from app.config import Config
 from app.constants import API_REQUEST_HEADERS, LOGO_DIR, VERSION
 from app.models.Channel import Channel
-from app.models.LiveStream import LiveStream
 from app.routers.UsersRouter import GetCurrentUser
+from app.streams.LiveStream import LiveStream
 from app.utils import Logging
 from app.utils.EDCB import CtrlCmdUtil
 from app.utils.EDCB import EDCBUtil

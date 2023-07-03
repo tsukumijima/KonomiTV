@@ -68,7 +68,7 @@ class Channel(models.Model):
     def viewer_count(self) -> int:
         # 現在の視聴者数を取得
         ## 循環参照を防ぐためにここで遅延インポート
-        from app.models.LiveStream import LiveStream
+        from app.streams.LiveStream import LiveStream
         return LiveStream.getViewerCount(self.display_channel_id)
 
 

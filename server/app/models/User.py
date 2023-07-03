@@ -1,10 +1,15 @@
 
+# Type Hints を指定できるように
+# ref: https://stackoverflow.com/a/33533514/17124142
+from __future__ import annotations
+
 import json
 from tortoise import fields
 from tortoise import models
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
-from app.models.TwitterAccount import TwitterAccount
+if TYPE_CHECKING:
+    from app.models.TwitterAccount import TwitterAccount
 
 
 class User(models.Model):

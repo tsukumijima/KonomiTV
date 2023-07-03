@@ -16,7 +16,6 @@ from app.config import Config
 from app.config import LoadConfig
 from app.constants import CLIENT_DIR, DATABASE_CONFIG, QUALITY, VERSION
 from app.models.Channel import Channel
-from app.models.LiveStream import LiveStream
 from app.models.Program import Program
 from app.models.TwitterAccount import TwitterAccount
 from app.routers import CapturesRouter
@@ -30,6 +29,7 @@ from app.routers import TwitterRouter
 from app.routers import UsersRouter
 from app.routers import VersionRouter
 from app.routers import VideosRouter
+from app.streams.LiveStream import LiveStream
 from app.utils import Interlaced
 from app.utils import Logging
 from app.utils.EDCB import EDCBTuner

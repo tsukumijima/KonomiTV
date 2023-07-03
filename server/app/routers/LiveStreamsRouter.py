@@ -18,9 +18,9 @@ from typing import cast
 from app import schemas
 from app.constants import QUALITY, QUALITY_TYPES
 from app.models.Channel import Channel
-from app.models.LiveStream import LiveStream
-from app.models.LiveStream import LiveStreamClient
-from app.models.LiveStream import LiveStreamStatus
+from app.streams.LiveStream import LiveStream
+from app.streams.LiveStream import LiveStreamClient
+from app.streams.LiveStream import LiveStreamStatus
 from app.utils import Logging
 
 

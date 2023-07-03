@@ -1,4 +1,8 @@
 
+# Type Hints を指定できるように
+# ref: https://stackoverflow.com/a/33533514/17124142
+from __future__ import annotations
+
 import asyncio
 import json
 import tweepy
@@ -6,9 +10,10 @@ from requests.cookies import RequestsCookieJar
 from tortoise import fields
 from tortoise import models
 from tweepy_authlib import CookieSessionUserHandler
+from typing import TYPE_CHECKING
 
-from app.app import consumer_key, consumer_secret
-from app.models.User import User
+if TYPE_CHECKING:
+    from app.models.User import User
 
 
 class TwitterAccount(models.Model):
@@ -92,6 +97,7 @@ class TwitterAccount(models.Model):
 
         # 通常の OAuth 認証の場合
         else:
+            from app.app import consumer_key, consumer_secret
             auth_handler = tweepy.OAuth1UserHandler(
                 consumer_key, consumer_secret, self.access_token, self.access_token_secret,
             )

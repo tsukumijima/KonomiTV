@@ -1,4 +1,8 @@
 
+# Type Hints を指定できるように
+# ref: https://stackoverflow.com/a/33533514/17124142
+from __future__ import annotations
+
 import aiofiles
 import aiohttp
 import asyncio
@@ -6,16 +10,18 @@ import os
 import re
 import time
 from aiofiles.threadpool.text import AsyncTextIOWrapper
-from typing import AsyncIterator, cast, Literal
+from typing import AsyncIterator, cast, Literal, TYPE_CHECKING
 
 from app.config import Config
 from app.constants import API_REQUEST_HEADERS, LIBRARY_PATH, LOGS_DIR, QUALITY, QUALITY_TYPES
 from app.models.Channel import Channel
-from app.models.LiveStream import LiveStream
 from app.streams.LiveHLSSegmenter import LiveHLSSegmenter
 from app.streams.LivePSIDataArchiver import LivePSIDataArchiver
 from app.utils import Logging
 from app.utils.EDCB import EDCBTuner, PipeStreamReader
+
+if TYPE_CHECKING:
+    from app.streams.LiveStream import LiveStream
 
 
 class LiveEncodingTask:

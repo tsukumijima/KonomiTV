@@ -1,10 +1,16 @@
 
+# Type Hints を指定できるように
+# ref: https://stackoverflow.com/a/33533514/17124142
+from __future__ import annotations
+
 from tortoise import fields
 from tortoise import models
+from typing import TYPE_CHECKING
 
-from app.models.Channel import Channel
-from app.models.Series import Series
-from app.models.RecordedProgram import RecordedProgram
+if TYPE_CHECKING:
+    from app.models.Channel import Channel
+    from app.models.Series import Series
+    from app.models.RecordedProgram import RecordedProgram
 
 
 class SeriesBroadcastPeriod(models.Model):

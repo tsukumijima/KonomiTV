@@ -32,7 +32,6 @@ class LiveStreamStatus(TypedDict):
 class LiveStreamClient():
     """ ライブストリームのクライアントを表すクラス """
 
-
     def __init__(self, livestream: LiveStream, client_type: Literal['mpegts', 'll-hls']) -> None:
         """
         ライブストリーミングクライアントのインスタンスを初期化する
