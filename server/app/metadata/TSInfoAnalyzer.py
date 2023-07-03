@@ -76,6 +76,15 @@ class TSInfoAnalyzer:
         else:
             recorded_program = recorded_program_present
 
+        # もし番組情報から番組開始時刻 or 番組終了時刻を取得できなかった場合、録画開始時刻 or 録画終了時刻を利用する
+        assert recorded_video.recording_start_time is not None, 'recording_start_time not found.'
+        assert recorded_video.recording_end_time is not None, 'recording_end_time not found.'
+        if recorded_program.start_time is None:
+            recorded_program.start_time = recorded_video.recording_start_time
+        if recorded_program.end_time is None:
+            recorded_program.end_time = recorded_video.recording_end_time
+            recorded_program.duration = (recorded_video.recording_end_time - recorded_program.start_time).total_seconds()
+
         # RecordedProgram と RecordedVideo を紐付ける
         recorded_program.recorded_video_id = recorded_video.id
 
@@ -115,22 +124,18 @@ class TSInfoAnalyzer:
 
         # TS から SDT (Service Description Table) を抽出
         for sdt in self.ts.sections(ActualStreamServiceDescriptionSection):
-
             # ネットワーク ID とサービス種別 (=チャンネルタイプ) を取得
             channel.network_id = int(sdt.original_network_id)
             channel_type = TSInformation.getNetworkType(channel.network_id)
             assert channel_type != 'OTHER', f'Unknown network_id: {channel.network_id}'
             channel.type = channel_type
-
             # SDT に含まれるサービスごとの情報を取得
             for service in sdt.services:
-
                 # service_id が PAT から抽出したものと一致した場合のみ
                 # CS の場合同じ TS の中に複数のチャンネルが含まれている事があり、録画する場合は基本的に他のチャンネルは削除される
                 # そうすると ffprobe で確認できるがサービス情報や番組情報だけ残ってしまい、別のチャンネルの番組情報になるケースがある
                 # PAT にはそうした削除済みのチャンネルは含まれていないので、正しいチャンネルの service_id を抽出できる
                 if service.service_id == channel.service_id:
-
                     # SDT から得られる ServiceDescriptor 内の情報からチャンネル名を取得
                     for sd in service.descriptors[ServiceDescriptor]:
                         channel.name = TSInformation.formatString(sd.service_name)
@@ -145,13 +150,11 @@ class TSInfoAnalyzer:
         assert channel.name is not None, 'channel name not found.'
 
         # リモコン番号を取得
-        ## 地デジ: TS から NIT (Network Information Table) を抽出
         if channel.type == 'GR':
+            ## 地デジ: TS から NIT (Network Information Table) を抽出
             for nit in self.ts.sections(ActualStreamNetworkInformationSection):
-
                 # NIT に含まれるトランスポートストリームごとの情報を取得
                 for transport_stream in nit.transport_streams:
-
                     # NIT から得られる TSInformationDescriptor 内の情報からリモコンキー ID を取得
                     # 地デジのみで、BS には TSInformationDescriptor 自体が存在しない
                     for ts_information in transport_stream.descriptors.get(TSInformationDescriptor, []):
@@ -163,8 +166,8 @@ class TSInfoAnalyzer:
                 break
             if channel.remocon_id is None:
                 channel.remocon_id = -1
-        ## それ以外: 共通のリモコン番号取得処理を実行
         else:
+            ## それ以外: 共通のリモコン番号取得処理を実行
             channel.remocon_id = channel.calculateRemoconID()
 
         # チャンネル番号を算出
