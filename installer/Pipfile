@@ -16,7 +16,11 @@ emoji = "*"
 ifaddr = "*"
 psutil = "*"
 py7zr = "*"
-pyinstaller = "*"
+# ウイルス検知対策で Windows 版のみインストーラーの CI ビルド時に強引に自前ビルドの PyInstaller に差し替えているため、
+# PyInstaller を更新する際は Pyinstaller-Builds の GitHub Actions ワークフローと
+# .github/workflows/build_installer.yaml に記載されているバージョンをすべて更新する必要がある
+# ref: https://github.com/tsukumijima/Pyinstaller-Builds
+pyinstaller = "==5.13.0"
 requests = "*"
 rich = "*"
 "ruamel.yaml" = "*"

@@ -39,7 +39,8 @@ jobs:
         run: |
           pip install pipenv
           pipenv sync
-          pipenv run pip install https://github.com/tsukumijima/Pyinstaller-Builds/raw/gh-pages/x86_64/pyinstaller-5.10.1-py3-none-any.whl
+          # ウイルス検知対策で Windows のみ自前ビルドの PyInstaller に差し替える
+          pipenv run pip install https://github.com/tsukumijima/Pyinstaller-Builds/raw/gh-pages/x86_64/pyinstaller-5.13.0-py3-none-any.whl
 
       # インストーラーを PyInstaller でビルド
       - name: Build Installer with PyInstaller
