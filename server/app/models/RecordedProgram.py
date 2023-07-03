@@ -1,5 +1,6 @@
 
 import json
+from datetime import datetime
 from tortoise import fields
 from tortoise import models
 
@@ -36,8 +37,8 @@ class RecordedProgram(models.Model):
     subtitle: str | None = fields.TextField(null=True)  # type: ignore
     description: str = fields.TextField()  # type: ignore
     detail: dict[str, str] = fields.JSONField(default={}, encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
-    start_time = fields.DatetimeField()
-    end_time = fields.DatetimeField()
+    start_time: datetime = fields.DatetimeField()  # type: ignore
+    end_time: datetime = fields.DatetimeField()  # type: ignore
     duration: float = fields.FloatField()  # type: ignore
     is_free: bool = fields.BooleanField()  # type: ignore
     genres: list[dict[str, str]] = fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore

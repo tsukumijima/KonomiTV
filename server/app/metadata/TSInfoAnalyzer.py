@@ -1,15 +1,21 @@
 
 import ariblib
+import ariblib.event
 import asyncio
 import concurrent.futures
 from ariblib.aribstr import AribString
+from ariblib.descriptors import AudioComponentDescriptor
 from ariblib.descriptors import ServiceDescriptor
 from ariblib.descriptors import TSInformationDescriptor
+from ariblib.sections import ActualStreamPresentFollowingEventInformationSection
 from ariblib.sections import ActualStreamServiceDescriptionSection
 from ariblib.sections import ProgramAssociationSection
 from ariblib.sections import NetworkInformationSection
+from datetime import datetime
+from datetime import timedelta
+from datetime import timezone
 from pathlib import Path
-from typing import Literal
+from typing import Any, cast, Literal
 
 from app.models import Channel
 from app.models import RecordedProgram
@@ -58,8 +64,21 @@ class TSInfoAnalyzer:
         channel = self.__analyzeSDTInformation()
 
         # 録画番組情報のモデルを作成
-        ## EIT[p/f] のうち、現在の番組情報を取得
-        recorded_program = self.__analyzeEITInformation(channel.service_id, is_following=False)
+        ## EIT[p/f] のうち、現在と次の番組情報を両方取得した上で、録画マージンを考慮してどちらの番組を録画したかを判定する
+        recorded_program_present = self.__analyzeEITInformation(channel, is_following=False)
+        recorded_program_following = self.__analyzeEITInformation(channel, is_following=True)
+
+        # 録画開始時刻と次の番組の開始時刻を比較して、差が1分以内（＝録画マージン）なら次の番組情報を利用する
+        # 録画マージン分おおまかにシークしてから番組情報を取得しているため、基本的には現在の番組情報を使うことになるはず
+        if (recorded_program_following.start_time is not None and
+            recorded_video.recording_start_time is not None and
+            recorded_program_following.start_time - recorded_video.recording_start_time <= timedelta(minutes=1)):
+            recorded_program = recorded_program_following
+        else:
+            recorded_program = recorded_program_present
+
+        # RecordedProgram と RecordedVideo を紐付ける
+        recorded_program.recorded_video_id = recorded_video.id
 
         return recorded_program, channel
 
@@ -228,6 +247,40 @@ class TSInfoAnalyzer:
         return 'OTHER'
 
 
+    @staticmethod
+    def getISO639LanguageCodeName(iso639_language_code: str) -> str:
+        """
+        ISO639 形式の言語コードが示す言語の名称を取得する
+
+        Args:
+            iso639_code (str): ISO639 形式の言語コード
+
+        Returns:
+            str: ISO639 形式の言語コードが示す言語の名称
+        """
+
+        if iso639_language_code == 'jpn':
+            return '日本語'
+        elif iso639_language_code == 'eng':
+            return '英語'
+        elif iso639_language_code == 'deu':
+            return 'ドイツ語'
+        elif iso639_language_code == 'fra':
+            return 'フランス語'
+        elif iso639_language_code == 'ita':
+            return 'イタリア語'
+        elif iso639_language_code == 'rus':
+            return 'ロシア語'
+        elif iso639_language_code == 'zho':
+            return '中国語'
+        elif iso639_language_code == 'kor':
+            return '韓国語'
+        elif iso639_language_code == 'spa':
+            return 'スペイン語'
+        else:
+            return 'その他の言語'
+
+
     def __analyzeSDTInformation(self) -> Channel:
         """
         TS 内の SDT (Service Description Table) からサービス（チャンネル）情報を解析する
@@ -336,25 +389,185 @@ class TSInfoAnalyzer:
         return channel
 
 
-    def __analyzeEITInformation(self, service_id: int, is_following: bool = False) -> RecordedProgram:
+    def __analyzeEITInformation(self, channel: Channel, is_following: bool = False) -> RecordedProgram:
         """
         TS内の EIT (Event Information Table) から番組情報を取得する
         サービス ID が必要な理由は、CS などで別のチャンネルの番組情報が取得されるのを防ぐため
-        このため、事前に __analyzeSDTInformation() でサービス ID を取得しておく必要がある
+        このため、事前に __analyzeSDTInformation() でサービス ID を含めたチャンネル情報を取得しておく必要がある
 
         Args:
-            service_id (int): 取得したいチャンネルのサービス ID
+            channel (Channel): チャンネル情報を表すモデル
             is_following (bool): 次の番組情報を取得するかどうか (デフォルト: 現在の番組情報)
 
         Returns:
             RecordedProgram: 録画番組情報を表すモデル
         """
 
+        if is_following is True:
+            eit_section_number = 1
+        else:
+            eit_section_number = 0
+
         # 誤動作防止のため必ず最初にシークを戻す
-        self.ts.seek(0)
+        ## 数秒の録画マージンを考慮して、少し後から始める
+        self.ts.seek(18800000)  # 18MB
 
         # 録画番組情報を表すモデルを作成
         recorded_program = RecordedProgram()
+        recorded_program.channel_id = channel.id
+        recorded_program.network_id = channel.network_id
+        recorded_program.service_id = channel.service_id
 
+        # TS から EIT (Event Information Table) を抽出
+        count: int = 0
+        for eit in self.ts.sections(ActualStreamPresentFollowingEventInformationSection):
+
+            # section_number と service_id が一致したときだけ
+            # サービス ID が必要な理由は、CS などで同じトランスポートストリームに含まれる別チャンネルの番組情報になることを防ぐため
+            if eit.section_number == eit_section_number and eit.service_id == channel.service_id:
+
+                # EIT から得られる各種 Descriptor 内の情報を取得
+                # ariblib.event が各種 Descriptor のラッパーになっていたのでそれを利用
+                for event_data in eit.events:
+
+                    # EIT 内のイベントを取得
+                    event: Any = ariblib.event.Event(eit, event_data)
+
+                    # デフォルトで毎回設定されている情報
+                    ## イベント ID
+                    recorded_program.event_id = int(event.event_id)
+                    ## 番組開始時刻 (タイムゾーンを日本時間 (+9:00) に設定)
+                    ## 注意: present の duration が None (終了時間未定) の場合のみ、following の start_time が None になることがある
+                    if event.start_time is not None:
+                        recorded_program.start_time = cast(datetime, event.start_time).astimezone(timezone(timedelta(hours=9)))
+                    ## 番組長 (秒)
+                    ## 注意: 臨時ニュースなどで放送時間未定の場合は None になる
+                    if event.duration is not None:
+                        recorded_program.duration = cast(timedelta, event.duration).total_seconds()
+                    ## 番組終了時刻を start_time と duration から算出
+                    if recorded_program.start_time is not None and recorded_program.duration is not None:
+                        recorded_program.end_time = recorded_program.start_time + cast(timedelta, event.duration)
+                    ## ARIB TR-B15 第三分冊 (https://vs1p.manualzilla.com/store/data/006629648.pdf)
+                    ## free_CA_mode が 1 のとき有料番組、0 のとき無料番組だそう
+                    ## bool に変換した後、真偽を反転させる
+                    recorded_program.is_free = not bool(event.free_CA_mode)
+
+                    # 番組名, 番組概要 (ShortEventDescriptor)
+                    if hasattr(event, 'title') and hasattr(event, 'desc'):
+                        ## 番組名
+                        recorded_program.title = self.formatString(event.title)
+                        ## 番組概要
+                        recorded_program.description = self.formatString(event.desc)
+
+                    # 番組詳細情報 (ExtendedEventDescriptor)
+                    if hasattr(event, 'detail'):
+                        recorded_program.detail = {}
+                        # 番組詳細テキストから取得した、見出しと本文の辞書ごとに
+                        for head, text in cast(dict[str, str], event.detail).items():
+                            # 見出しと本文
+                            head_hankaku = self.formatString(head).replace('◇', '').strip()  # ◇ を取り除く
+                            if head_hankaku == '':  # 見出しが空の場合、固定で「番組内容」としておく
+                                head_hankaku = '番組内容'
+                            text_hankaku = self.formatString(text).strip()
+                            recorded_program.detail[head_hankaku] = text_hankaku
+                            # 番組概要が空の場合、番組詳細の最初の本文を概要として使う
+                            # 空でまったく情報がないよりかは良いはず
+                            if recorded_program.description.strip() == '':
+                                recorded_program.description = text_hankaku
+
+                    ## ジャンル情報 (ContentDescriptor)
+                    if hasattr(event, 'genre') and hasattr(event, 'subgenre') and hasattr(event, 'user_genre'):
+                        recorded_program.genres = []
+                        for index, _ in enumerate(event.genre):  # ジャンルごとに
+                            # major … 大分類
+                            # middle … 中分類
+                            genre_dict = {
+                                'major': event.genre[index].replace('／', '・'),
+                                'middle': event.subgenre[index].replace('／', '・'),
+                            }
+                            # BS/地上デジタル放送用番組付属情報がジャンルに含まれている場合、user_genre から拡張情報を取得する
+                            # たとえば「中止の可能性あり」や「延長の可能性あり」といった情報が取れる
+                            if genre_dict['major'] == '拡張':
+                                if genre_dict['middle'] == 'BS/地上デジタル放送用番組付属情報':
+                                    genre_dict['middle'] = event.user_genre[index]
+                                # 「拡張」はあるがBS/地上デジタル放送用番組付属情報でない場合はなんの値なのかわからないのでパス
+                                else:
+                                    continue
+                            # ジャンルを追加
+                            recorded_program.genres.append(genre_dict)
+
+                    # 音声情報 (AudioComponentDescriptor)
+                    ## 主音声情報
+                    if hasattr(event, 'audio'):
+                        ## 主音声の種別
+                        recorded_program.primary_audio_type = str(event.audio)
+                    ## 副音声情報
+                    if hasattr(event, 'second_audio'):
+                        ## 副音声の種別
+                        recorded_program.secondary_audio_type = str(event.second_audio)
+                    ## 主音声・副音声の言語
+                    ## event クラスには用意されていないので自前で取得する
+                    for acd in event_data.descriptors.get(AudioComponentDescriptor, []):
+                        if bool(acd.main_component_flag) is True:
+                            ## 主音声の言語
+                            recorded_program.primary_audio_language = self.getISO639LanguageCodeName(acd.ISO_639_language_code)
+                            ## デュアルモノのみ
+                            if recorded_program.primary_audio_type == '1/0+1/0モード(デュアルモノ)':
+                                if bool(acd.ES_multi_lingual_flag) is True:
+                                    recorded_program.primary_audio_language += '+' + self.getISO639LanguageCodeName(acd.ISO_639_language_code_2)
+                                else:
+                                    recorded_program.primary_audio_language += '+副音声'  # 副音声で固定
+                        else:
+                            ## 副音声の言語
+                            recorded_program.secondary_audio_language = self.getISO639LanguageCodeName(acd.ISO_639_language_code)
+                            ## デュアルモノのみ
+                            if recorded_program.secondary_audio_type == '1/0+1/0モード(デュアルモノ)':
+                                if bool(acd.ES_multi_lingual_flag) is True:
+                                    recorded_program.secondary_audio_language += '+' + self.getISO639LanguageCodeName(acd.ISO_639_language_code_2)
+                                else:
+                                    recorded_program.secondary_audio_language += '+副音声'  # 副音声で固定
+
+                    # EIT から取得できるすべての情報を取得できたら抜ける
+                    ## 一回の EIT ですべての情報 (Descriptor) が降ってくるとは限らない
+                    ## 副音声情報は副音声がない番組では当然取得できないので、除外している
+                    attributes: list[str] = [
+                        'event_id',
+                        'title',
+                        'description',
+                        'detail',
+                        'start_time',
+                        'end_time',
+                        'duration',
+                        'is_free',
+                        'genres',
+                        'primary_audio_type',
+                        'primary_audio_language',
+                    ]
+                    if all([hasattr(recorded_program, attribute) for attribute in attributes]):
+                        break
+
+                else: # 多重ループを抜けるトリック
+                    continue
+                break
+
+            # カウントを追加
+            count += 1
+
+            # ループが 100 回を超えたら、番組詳細とジャンルの初期値を設定する
+            # 稀に番組詳細やジャンルが全く設定されていない番組があり、存在しない情報を探して延々とループするのを避けるため
+            if count > 100:
+                if recorded_program.detail is None:
+                    recorded_program.detail = {}
+                if recorded_program.genres is None:
+                    recorded_program.genres = []
+
+            # ループが 1000 回を超えたら（＝10回シークしても放送時間が確定しなかったら）、タイムアウトでループを抜ける
+            if count > 1000:
+                break
+
+            # ループが 100 で割り切れるたびに現在の位置から 188MB シークする
+            # ループが 100 以上に到達しているときはおそらく放送時間が未定の番組なので、放送時間が確定するまでシークする
+            if count % 100 == 0:
+                self.ts.seek(188000000, 1)  # 188MB
 
         return recorded_program
