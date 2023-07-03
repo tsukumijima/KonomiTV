@@ -3,7 +3,7 @@ import json
 from tortoise import fields
 from tortoise import models
 
-from app.models import SeriesBroadcastPeriod
+from app.models.SeriesBroadcastPeriod import SeriesBroadcastPeriod
 
 
 class Series(models.Model):

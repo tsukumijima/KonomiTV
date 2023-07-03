@@ -4,10 +4,10 @@ from datetime import datetime
 from tortoise import fields
 from tortoise import models
 
-from app.models import Channel
-from app.models import RecordedVideo
-from app.models import Series
-from app.models import SeriesBroadcastPeriod
+from app.models.Channel import Channel
+from app.models.RecordedVideo import RecordedVideo
+from app.models.Series import Series
+from app.models.SeriesBroadcastPeriod import SeriesBroadcastPeriod
 
 
 class RecordedProgram(models.Model):

@@ -21,11 +21,12 @@ from tweepy_authlib import CookieSessionUserHandler
 from typing import Any, cast, Coroutine
 
 from app import schemas
-from app.models import TwitterAccount
-from app.models import User
+from app.app import consumer_key, consumer_secret
+from app.models.TwitterAccount import TwitterAccount
+from app.models.User import User
 from app.routers.UsersRouter import GetCurrentUser
 from app.utils import Logging
-from app.utils import OAuthCallbackResponse
+from app.utils.OAuthCallbackResponse import OAuthCallbackResponse
 
 
 # ルーター
@@ -204,7 +205,6 @@ async def TwitterAuthURLAPI(
     ## oauth/authorize と異なり、すでにアプリ連携している場合は再承認することなくコールバック URL にリダイレクトされる
     ## ref: https://developer.twitter.com/ja/docs/authentication/api-reference/authenticate
     try:
-        from app.app import consumer_key, consumer_secret
         oauth_handler = tweepy.OAuth1UserHandler(consumer_key, consumer_secret, callback=callback_url)
         authorization_url = await asyncio.to_thread(oauth_handler.get_authorization_url, signin_with_twitter=False)  # 同期関数なのでスレッド上で実行
     except tweepy.TweepyException:
@@ -291,7 +291,6 @@ async def TwitterAuthCallbackAPI(
 
     # OAuth1UserHandler を初期化
     ## ref: https://docs.tweepy.org/en/latest/authentication.html#legged-oauth
-    from app.app import consumer_key, consumer_secret
     oauth_handler = tweepy.OAuth1UserHandler(consumer_key, consumer_secret)
     oauth_handler.request_token = {
         'oauth_token': twitter_account.access_token,

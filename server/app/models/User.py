@@ -4,7 +4,7 @@ from tortoise import fields
 from tortoise import models
 from typing import Any
 
-from app.models import TwitterAccount
+from app.models.TwitterAccount import TwitterAccount
 
 
 class User(models.Model):

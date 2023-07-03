@@ -56,8 +56,6 @@ def main(
     ## ロギング設定は Logging.py が読み込まれた瞬間に行われるが、その際に前回のログファイルが残っているとエラーになる
     ## constants.py は内部モジュールへの依存がなく、config.py も constants.py 以外への依存はないので、この2つのみトップレベルでインポートしている
     ## 前回のログをすべて削除する処理を Logging.py 自体に記述してしまうとマルチプロセス実行時や自動リロードモード時に意図せずファイルが削除されてしまう
-    ## from app import models を最初に実行しておかないと、なぜか app.utils 配下のモジュールへのアクセスがうまくいかない
-    from app import models  # type: ignore  # import magic!!!
     from app.utils import IsRunningAsWindowsService
     from app.utils import Logging
 

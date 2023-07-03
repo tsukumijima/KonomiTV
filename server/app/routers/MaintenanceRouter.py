@@ -14,10 +14,10 @@ from fastapi.security import OAuth2PasswordBearer
 
 from app.config import Config
 from app.constants import RESTART_REQUIRED_LOCK_PATH
-from app.models import Channel
-from app.models import Program
-from app.models import TwitterAccount
-from app.models import User
+from app.models.Channel import Channel
+from app.models.Program import Program
+from app.models.TwitterAccount import TwitterAccount
+from app.models.User import User
 from app.routers.UsersRouter import GetCurrentAdminUser
 from app.routers.UsersRouter import GetCurrentUser
 

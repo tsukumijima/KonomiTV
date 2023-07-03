@@ -1,9 +1,4 @@
 
-# ユーティリティをモジュールとして登録
-from .Jikkyo import Jikkyo  # type: ignore
-from .OAuthCallbackResponse import OAuthCallbackResponse  # type: ignore
-from .TSInformation import TSInformation  # type: ignore
-
 import platform
 import sys
 from pathlib import Path

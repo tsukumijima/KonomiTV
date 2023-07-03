@@ -2,9 +2,9 @@
 from tortoise import fields
 from tortoise import models
 
-from app.models import Channel
-from app.models import Series
-from app.models import RecordedProgram
+from app.models.Channel import Channel
+from app.models.Series import Series
+from app.models.RecordedProgram import RecordedProgram
 
 
 class SeriesBroadcastPeriod(models.Model):

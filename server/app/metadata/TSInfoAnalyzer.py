@@ -3,7 +3,6 @@ import ariblib
 import ariblib.event
 import asyncio
 import concurrent.futures
-from ariblib.aribstr import AribString
 from ariblib.descriptors import AudioComponentDescriptor
 from ariblib.descriptors import ServiceDescriptor
 from ariblib.descriptors import TSInformationDescriptor
@@ -15,11 +14,12 @@ from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 from pathlib import Path
-from typing import Any, cast, Literal
+from typing import Any, cast
 
-from app.models import Channel
-from app.models import RecordedProgram
-from app.models import RecordedVideo
+from app.models.Channel import Channel
+from app.models.RecordedProgram import RecordedProgram
+from app.models.RecordedVideo import RecordedVideo
+from app.utils.TSInformation import TSInformation
 
 
 class ActualStreamNetworkInformationSection(NetworkInformationSection):
@@ -28,11 +28,10 @@ class ActualStreamNetworkInformationSection(NetworkInformationSection):
 
 
 class TSInfoAnalyzer:
-    """ 録画 TS ファイル内に含まれる番組情報を解析するクラス """
-
-    # formatString() で使用する変換マップ
-    __format_string_translation_map = None
-
+    """
+    録画 TS ファイル内に含まれる番組情報を解析するクラス
+    ariblib の開発者の youzaka 氏に感謝します
+    """
 
     def __init__(self, recorded_ts_path: Path) -> None:
         """
@@ -83,204 +82,6 @@ class TSInfoAnalyzer:
         return recorded_program, channel
 
 
-    @staticmethod
-    def __getFormatStringTranslationTable() -> dict[str, str]:
-        """
-        formatString() で使用する変換テーブルを取得する
-
-        Returns:
-            dict[str, str]: 変換テーブル
-        """
-
-        # 全角英数を半角英数に置換
-        # ref: https://github.com/ikegami-yukino/jaconv/blob/master/jaconv/conv_table.py
-        zenkaku_table = '０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ'
-        hankaku_table = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-        merged_table = dict(zip(list(zenkaku_table), list(hankaku_table)))
-
-        # 全角記号を半角記号に置換
-        synbol_zenkaku_table = '＂＃＄％＆＇（）＋，－．／：；＜＝＞［＼］＾＿｀｛｜｝　'
-        synbol_hankaku_table = '"#$%&\'()+,-./:;<=>[\\]^_`{|} '
-        merged_table.update(zip(list(synbol_zenkaku_table), list(synbol_hankaku_table)))
-        merged_table.update({
-            # 一部の半角記号を全角に置換
-            # 主に見栄え的な問題（全角の方が字面が良い）
-            '!': '！',
-            '?': '？',
-            '*': '＊',
-            '~': '～',
-            '@': '＠',
-            # シャープ → ハッシュ
-            '♯': '#',
-            # 波ダッシュ → 全角チルダ
-            ## EDCB は ～ を全角チルダとして扱っているため、KonomiTV でもそのように統一する
-            ## TODO: 番組検索を実装する際は検索文字列の波ダッシュを全角チルダに置換する下処理が必要
-            ## ref: https://qiita.com/kasei-san/items/3ce2249f0a1c1af1cbd2
-            '〜': '～',
-        })
-
-        # 番組表で使用される囲み文字の置換テーブル
-        # ref: https://note.nkmk.me/python-chr-ord-unicode-code-point/
-        # ref: https://github.com/l3tnun/EPGStation/blob/v2.6.17/src/util/StrUtil.ts#L7-L46
-        enclosed_characters_table = {
-            '\U0001f14a': '[HV]',
-            '\U0001f13f': '[P]',
-            '\U0001f14c': '[SD]',
-            '\U0001f146': '[W]',
-            '\U0001f14b': '[MV]',
-            '\U0001f210': '[手]',
-            '\U0001f211': '[字]',
-            '\U0001f212': '[双]',
-            '\U0001f213': '[デ]',
-            '\U0001f142': '[S]',
-            '\U0001f214': '[二]',
-            '\U0001f215': '[多]',
-            '\U0001f216': '[解]',
-            '\U0001f14d': '[SS]',
-            '\U0001f131': '[B]',
-            '\U0001f13d': '[N]',
-            '\U0001f217': '[天]',
-            '\U0001f218': '[交]',
-            '\U0001f219': '[映]',
-            '\U0001f21a': '[無]',
-            '\U0001f21b': '[料]',
-            '\U0001f21c': '[前]',
-            '\U0001f21d': '[後]',
-            '\U0001f21e': '[再]',
-            '\U0001f21f': '[新]',
-            '\U0001f220': '[初]',
-            '\U0001f221': '[終]',
-            '\U0001f222': '[生]',
-            '\U0001f223': '[販]',
-            '\U0001f224': '[声]',
-            '\U0001f225': '[吹]',
-            '\U0001f14e': '[PPV]',
-            '\U0001f200': '[ほか]',
-        }
-
-        # Unicode の囲み文字を大かっこで囲った文字に置換する
-        # EDCB で EpgDataCap3_Unicode.dll を利用している場合や、Mirakurun 3.9.0-beta.24 以降など、
-        # 番組情報取得元から Unicode の囲み文字が送られてくる場合に対応するためのもの
-        # Unicode の囲み文字はサロゲートペアなどで扱いが難しい上に KonomiTV では囲み文字を CSS でハイライトしているため、Unicode にするメリットがない
-        # ref: https://note.nkmk.me/python-str-replace-translate-re-sub/
-        merged_table.update(enclosed_characters_table)
-
-        return merged_table
-
-
-    @classmethod
-    def formatString(cls, string: str | AribString) -> str:
-        """
-        文字列に含まれる英数や記号を半角に置換し、一律な表現に整える
-
-        Args:
-            string (str | AribString): str あるいは AribString の文字列
-
-        Returns:
-            str: 置換した文字列
-        """
-
-        # AribString になっている事があるので明示的に str 型にキャストする
-        result = str(string)
-
-        # 変換マップを構築
-        if cls.__format_string_translation_map is None:
-            cls.__format_string_translation_map = str.maketrans(cls.__getFormatStringTranslationTable())
-
-        result = result.translate(cls.__format_string_translation_map)
-
-        # 置換した文字列を返す
-        return result
-
-
-    @staticmethod
-    def getNetworkType(network_id: int) -> Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO', 'OTHER']:
-        """
-        ネットワーク ID からネットワークの種別を取得する
-        種別は GR (地デジ)・BS・CS・CATV・SKY (SPHD)・STARDIGIO (スターデジオ)・OTHER (不明なネットワーク ID のチャンネル) のいずれか
-
-        Args:
-            network_id (int): ネットワーク ID
-
-        Returns:
-            str: GR・BS・CS・CATV・SKY・STARDIGIO・OTHER のいずれか
-        """
-
-        # 以下は ARIB STD-B10 第2部 付録N より抜粋
-        # https://web.archive.org/web/2if_/http://www.arib.or.jp/english/html/overview/doc/2-STD-B10v5_3.pdf#page=256
-
-        # 地上デジタルテレビジョン放送 (network_id: 30848 ~ 32744)
-        if network_id >= 0x7880 and network_id <= 0x7FE8:
-            return 'GR'
-
-        # BSデジタル放送
-        if network_id == 0x0004:
-            return 'BS'
-
-        # 110度CSデジタル放送
-        # CS1: 0x0006 (旧プラット・ワン系)
-        # CS2: 0x0007 (旧スカイパーフェクTV!2系)
-        if network_id == 0x0006 or network_id == 0x0007:
-            return 'CS'
-
-        # ケーブルテレビ (リマックス方式・トランスモジュレーション方式)
-        # ケーブルテレビ独自のチャンネルのみで、地上波・BS の再送信は含まない
-        # デジタル放送リマックス: 0xFFFE (HD・SD チャンネル (MPEG-2))
-        # デジタル放送高度リマックス: 0xFFFA (ケーブル4Kチャンネル (H.264, H.265))
-        # JC-HITSトランスモジュレーション: 0xFFFD (HD・SD チャンネル (MPEG-2))
-        # 高度JC-HITSトランスモジュレーション: 0xFFF9 (ケーブル4Kチャンネル (H.264, H.265))
-        if network_id == 0xFFFE or network_id == 0xFFFA or network_id == 0xFFFD or network_id == 0xFFF9:
-            return 'CATV'
-
-        # 124/128度CSデジタル放送
-        # SPHD: 0x000A (スカパー！プレミアムサービス)
-        # SPSD-SKY: 0x0003 (運用終了)
-        if network_id == 0x000A or network_id == 0x0003:
-            return 'SKY'
-
-        # 124/128度CSデジタル放送
-        # SPSD-PerfecTV: 0x0001 (スターデジオ)
-        if network_id == 1:
-            return 'STARDIGIO'
-
-        # 不明なネットワーク ID のチャンネル
-        return 'OTHER'
-
-
-    @staticmethod
-    def getISO639LanguageCodeName(iso639_language_code: str) -> str:
-        """
-        ISO639 形式の言語コードが示す言語の名称を取得する
-
-        Args:
-            iso639_code (str): ISO639 形式の言語コード
-
-        Returns:
-            str: ISO639 形式の言語コードが示す言語の名称
-        """
-
-        if iso639_language_code == 'jpn':
-            return '日本語'
-        elif iso639_language_code == 'eng':
-            return '英語'
-        elif iso639_language_code == 'deu':
-            return 'ドイツ語'
-        elif iso639_language_code == 'fra':
-            return 'フランス語'
-        elif iso639_language_code == 'ita':
-            return 'イタリア語'
-        elif iso639_language_code == 'rus':
-            return 'ロシア語'
-        elif iso639_language_code == 'zho':
-            return '中国語'
-        elif iso639_language_code == 'kor':
-            return '韓国語'
-        elif iso639_language_code == 'spa':
-            return 'スペイン語'
-        else:
-            return 'その他の言語'
-
-
     def __analyzeSDTInformation(self) -> Channel:
         """
         TS 内の SDT (Service Description Table) からサービス（チャンネル）情報を解析する
@@ -317,7 +118,7 @@ class TSInfoAnalyzer:
 
             # ネットワーク ID とサービス種別 (=チャンネルタイプ) を取得
             channel.network_id = int(sdt.original_network_id)
-            channel_type = self.getNetworkType(channel.network_id)
+            channel_type = TSInformation.getNetworkType(channel.network_id)
             assert channel_type != 'OTHER', f'Unknown network_id: {channel.network_id}'
             channel.type = channel_type
 
@@ -332,7 +133,7 @@ class TSInfoAnalyzer:
 
                     # SDT から得られる ServiceDescriptor 内の情報からチャンネル名を取得
                     for sd in service.descriptors[ServiceDescriptor]:
-                        channel.name = self.formatString(sd.service_name)
+                        channel.name = TSInformation.formatString(sd.service_name)
                         break
                     else:
                         continue
@@ -455,9 +256,9 @@ class TSInfoAnalyzer:
                     # 番組名, 番組概要 (ShortEventDescriptor)
                     if hasattr(event, 'title') and hasattr(event, 'desc'):
                         ## 番組名
-                        recorded_program.title = self.formatString(event.title)
+                        recorded_program.title = TSInformation.formatString(event.title)
                         ## 番組概要
-                        recorded_program.description = self.formatString(event.desc)
+                        recorded_program.description = TSInformation.formatString(event.desc)
 
                     # 番組詳細情報 (ExtendedEventDescriptor)
                     if hasattr(event, 'detail'):
@@ -465,10 +266,10 @@ class TSInfoAnalyzer:
                         # 番組詳細テキストから取得した、見出しと本文の辞書ごとに
                         for head, text in cast(dict[str, str], event.detail).items():
                             # 見出しと本文
-                            head_hankaku = self.formatString(head).replace('◇', '').strip()  # ◇ を取り除く
+                            head_hankaku = TSInformation.formatString(head).replace('◇', '').strip()  # ◇ を取り除く
                             if head_hankaku == '':  # 見出しが空の場合、固定で「番組内容」としておく
                                 head_hankaku = '番組内容'
-                            text_hankaku = self.formatString(text).strip()
+                            text_hankaku = TSInformation.formatString(text).strip()
                             recorded_program.detail[head_hankaku] = text_hankaku
                             # 番組概要が空の場合、番組詳細の最初の本文を概要として使う
                             # 空でまったく情報がないよりかは良いはず
@@ -510,20 +311,24 @@ class TSInfoAnalyzer:
                     for acd in event_data.descriptors.get(AudioComponentDescriptor, []):
                         if bool(acd.main_component_flag) is True:
                             ## 主音声の言語
-                            recorded_program.primary_audio_language = self.getISO639LanguageCodeName(acd.ISO_639_language_code)
+                            recorded_program.primary_audio_language = \
+                                TSInformation.getISO639LanguageCodeName(acd.ISO_639_language_code)
                             ## デュアルモノのみ
                             if recorded_program.primary_audio_type == '1/0+1/0モード(デュアルモノ)':
                                 if bool(acd.ES_multi_lingual_flag) is True:
-                                    recorded_program.primary_audio_language += '+' + self.getISO639LanguageCodeName(acd.ISO_639_language_code_2)
+                                    recorded_program.primary_audio_language += '+' + \
+                                        TSInformation.getISO639LanguageCodeName(acd.ISO_639_language_code_2)
                                 else:
                                     recorded_program.primary_audio_language += '+副音声'  # 副音声で固定
                         else:
                             ## 副音声の言語
-                            recorded_program.secondary_audio_language = self.getISO639LanguageCodeName(acd.ISO_639_language_code)
+                            recorded_program.secondary_audio_language = \
+                                TSInformation.getISO639LanguageCodeName(acd.ISO_639_language_code)
                             ## デュアルモノのみ
                             if recorded_program.secondary_audio_type == '1/0+1/0モード(デュアルモノ)':
                                 if bool(acd.ES_multi_lingual_flag) is True:
-                                    recorded_program.secondary_audio_language += '+' + self.getISO639LanguageCodeName(acd.ISO_639_language_code_2)
+                                    recorded_program.secondary_audio_language += '+' + \
+                                        TSInformation.getISO639LanguageCodeName(acd.ISO_639_language_code_2)
                                 else:
                                     recorded_program.secondary_audio_language += '+副音声'  # 副音声で固定
 

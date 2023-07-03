@@ -5,7 +5,7 @@ from fastapi import status
 from typing import Literal
 
 from app import schemas
-from app.models import RecordedProgram
+from app.models.RecordedProgram import RecordedProgram
 from app.utils import Logging
 
 

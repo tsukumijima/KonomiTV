@@ -1,7 +1,7 @@
 
 from pathlib import Path
 
-from app.models import RecordedVideo
+from app.models.RecordedVideo import RecordedVideo
 
 
 class CMSectionsDetector:

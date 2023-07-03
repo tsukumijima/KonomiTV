@@ -13,8 +13,9 @@ from hashids import Hashids
 from typing import ClassVar, Literal, TypedDict
 
 from app.constants import QUALITY_TYPES
-from app.streams import LiveHLSSegmenter
-from app.streams import LivePSIDataArchiver
+from app.streams.LiveEncodingTask import LiveEncodingTask
+from app.streams.LiveHLSSegmenter import LiveHLSSegmenter
+from app.streams.LivePSIDataArchiver import LivePSIDataArchiver
 from app.utils import Logging
 from app.utils.EDCB import EDCBTuner
 
@@ -417,8 +418,6 @@ class LiveStream():
             self.setStatus('Standby', 'エンコードタスクを起動しています…')
 
             # エンコードタスクを非同期で実行
-            ## LiveEncodingTask と LiveStream は相互に参照しあっているので、循環参照を避けるために遅延インポートしている
-            from app.streams import LiveEncodingTask
             instance = LiveEncodingTask(self)
             asyncio.create_task(instance.run())
 

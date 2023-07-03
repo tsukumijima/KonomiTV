@@ -4,16 +4,18 @@ import typer
 from datetime import datetime
 from datetime import timedelta
 from pathlib import Path
+from pprint import pprint
 from pymediainfo import MediaInfo
 from typing import cast
 
 from app.constants import LIBRARY_DIR
-from app.metadata import CMSectionsDetector
-from app.metadata import TSInfoAnalyzer
-from app.models import Channel
-from app.models import RecordedProgram
-from app.models import RecordedVideo
+from app.metadata.CMSectionsDetector import CMSectionsDetector
+from app.metadata.TSInfoAnalyzer import TSInfoAnalyzer
+from app.models.Channel import Channel
+from app.models.RecordedProgram import RecordedProgram
+from app.models.RecordedVideo import RecordedVideo
 from app.utils import GetPlatformEnvironment
+from app.utils.TSInformation import TSInformation
 
 
 class MetadataAnalyzer:
@@ -152,7 +154,7 @@ class MetadataAnalyzer:
             ## ファイルの作成日時を録画開始時刻として使用する
             start_time = datetime.fromtimestamp(self.recorded_file_path.stat().st_ctime)
             ## 拡張子を除いたファイル名をフォーマットした上でタイトルとして使用する
-            title = TSInfoAnalyzer.formatString(self.recorded_file_path.stem)
+            title = TSInformation.formatString(self.recorded_file_path.stem)
             recorded_program = RecordedProgram(
                 title = title,
                 description = '番組情報を取得できませんでした。',
@@ -276,7 +278,6 @@ if __name__ == '__main__':
         metadata_analyzer = MetadataAnalyzer(recorded_file_path)
         results = metadata_analyzer.analyze()
         if results:
-            from pprint import pprint
             for result in results:
                 if result is not None:
                     pprint(dict(result))

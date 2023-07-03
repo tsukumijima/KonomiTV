@@ -10,8 +10,10 @@ from typing import AsyncIterator, cast, Literal
 
 from app.config import Config
 from app.constants import API_REQUEST_HEADERS, LIBRARY_PATH, LOGS_DIR, QUALITY, QUALITY_TYPES
-from app.models import Channel
-from app.models import LiveStream
+from app.models.Channel import Channel
+from app.models.LiveStream import LiveStream
+from app.streams.LiveHLSSegmenter import LiveHLSSegmenter
+from app.streams.LivePSIDataArchiver import LivePSIDataArchiver
 from app.utils import Logging
 from app.utils.EDCB import EDCBTuner, PipeStreamReader
 
@@ -378,9 +380,6 @@ class LiveEncodingTask:
         エンコードタスクを実行する
         """
 
-        # 循環参照を避けるために遅延インポート
-        from app.streams import LiveHLSSegmenter
-        from app.streams import LivePSIDataArchiver
         CONFIG = Config()
 
         # まだ Standby になっていなければ、ステータスを Standby に設定

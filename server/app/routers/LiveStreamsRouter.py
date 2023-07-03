@@ -11,15 +11,16 @@ from fastapi import status
 from fastapi.requests import Request
 from fastapi.responses import Response
 from fastapi.responses import StreamingResponse
+from starlette.types import Receive
 from sse_starlette.sse import EventSourceResponse
 from typing import cast
 
 from app import schemas
 from app.constants import QUALITY, QUALITY_TYPES
-from app.models import Channel
-from app.models import LiveStream
-from app.models import LiveStreamClient
-from app.models import LiveStreamStatus
+from app.models.Channel import Channel
+from app.models.LiveStream import LiveStream
+from app.models.LiveStream import LiveStreamClient
+from app.models.LiveStream import LiveStreamStatus
 from app.utils import Logging
 
 
@@ -350,7 +351,6 @@ async def LiveMPEGTSStreamAPI(
     ## そうするとリクエストがキャンセルされたか判定できず、クライアントがタイムアウトするまで接続切断がライブストリームに反映されない
     ## これを避けるため StreamingResponse.listen_for_disconnect() を書き換えて、自前でライブストリームの接続を切断できるようにする
     # ref: https://github.com/encode/starlette/pull/839
-    from starlette.types import Receive
     async def listen_for_disconnect_monkeypatch(receive: Receive) -> None:
         try:
             while True:

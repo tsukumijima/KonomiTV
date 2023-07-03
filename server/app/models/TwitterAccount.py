@@ -7,7 +7,8 @@ from tortoise import fields
 from tortoise import models
 from tweepy_authlib import CookieSessionUserHandler
 
-from app.models import User
+from app.app import consumer_key, consumer_secret
+from app.models.User import User
 
 
 class TwitterAccount(models.Model):
@@ -91,7 +92,6 @@ class TwitterAccount(models.Model):
 
         # 通常の OAuth 認証の場合
         else:
-            from app.app import consumer_key, consumer_secret
             auth_handler = tweepy.OAuth1UserHandler(
                 consumer_key, consumer_secret, self.access_token, self.access_token_secret,
             )

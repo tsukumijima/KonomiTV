@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from fastapi import status
 
 from app import schemas
-from app.models import Series
+from app.models.Series import Series
 from app.utils import Logging
 
 

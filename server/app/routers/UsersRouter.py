@@ -25,8 +25,8 @@ from typing import BinaryIO
 
 from app import schemas
 from app.constants import ACCOUNT_ICON_DIR, ACCOUNT_ICON_DEFAULT_DIR, JWT_SECRET_KEY
-from app.models import TwitterAccount
-from app.models import User
+from app.models.TwitterAccount import TwitterAccount
+from app.models.User import User
 from app.utils import Logging
 
 

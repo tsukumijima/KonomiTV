@@ -15,10 +15,10 @@ from pathlib import Path
 from app.config import Config
 from app.config import LoadConfig
 from app.constants import CLIENT_DIR, DATABASE_CONFIG, QUALITY, VERSION
-from app.models import Channel
-from app.models import LiveStream
-from app.models import Program
-from app.models import TwitterAccount
+from app.models.Channel import Channel
+from app.models.LiveStream import LiveStream
+from app.models.Program import Program
+from app.models.TwitterAccount import TwitterAccount
 from app.routers import CapturesRouter
 from app.routers import ChannelsRouter
 from app.routers import LiveStreamsRouter

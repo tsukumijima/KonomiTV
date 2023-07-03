@@ -20,11 +20,11 @@ from typing import Any
 from app.config import Config
 from app.config import LoadConfig
 from app.constants import API_REQUEST_HEADERS, DATABASE_CONFIG
-from app.models import Channel
+from app.models.Channel import Channel
 from app.utils import Logging
-from app.utils import TSInformation
 from app.utils.EDCB import CtrlCmdUtil
 from app.utils.EDCB import EDCBUtil
+from app.utils.TSInformation import TSInformation
 
 
 class Program(models.Model):

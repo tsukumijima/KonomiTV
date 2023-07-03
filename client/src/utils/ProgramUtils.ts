@@ -162,7 +162,7 @@ export class ProgramUtils {
 
     /**
      * 文字列に含まれる英数や記号を半角に置換し、一律な表現に整える
-     * server/app/utils/TSInformation.py の TSInformation.formatString() と同等の処理を行う
+     * server/app/metadata/TSInfoAnalyzer.py の TSInfoAnalyzer.formatString() と同等の処理を行う
      * @param string 変換する文字列
      * @returns 置換した文字列
      */
@@ -185,7 +185,7 @@ export class ProgramUtils {
 
     /**
      * formatString() で使用する変換テーブルを取得する
-     * server/app/utils/TSInformation.py の TSInformation.__getFormatStringTranslationTable() と同等の処理を行う
+     * server/app/metadata/TSInfoAnalyzer.py の TSInfoAnalyzer.__getFormatStringTranslationTable() と同等の処理を行う
      * @returns 変換テーブル
      */
     private static getFormatStringTranslationTable(): {[key: string]: string} {

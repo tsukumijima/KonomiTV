@@ -19,14 +19,14 @@ from typing import Any, Literal, TYPE_CHECKING
 
 from app.config import Config
 from app.constants import API_REQUEST_HEADERS, DATABASE_CONFIG
-from app.utils import Jikkyo
 from app.utils import Logging
-from app.utils import TSInformation
 from app.utils.EDCB import CtrlCmdUtil
 from app.utils.EDCB import EDCBUtil
+from app.utils.Jikkyo import Jikkyo
+from app.utils.TSInformation import TSInformation
 
 if TYPE_CHECKING:
-    from app.models import Program
+    from app.models.Program import Program
 
 
 class Channel(models.Model):
@@ -67,7 +67,8 @@ class Channel(models.Model):
     @property
     def viewer_count(self) -> int:
         # 現在の視聴者数を取得
-        from app.models import LiveStream
+        ## 循環参照を防ぐためにここで遅延インポート
+        from app.models.LiveStream import LiveStream
         return LiveStream.getViewerCount(self.display_channel_id)
 
 
@@ -531,8 +532,8 @@ class Channel(models.Model):
             tuple[Program | None, Program | None]: 現在と次の番組情報が入ったタプル
         """
 
-        # モジュール扱いになるのを避けるために遅延インポート
-        from app.models import Program
+        # 循環参照を防ぐためにここで遅延インポート
+        from app.models.Program import Program
 
         # 現在時刻
         now = timezone.now()

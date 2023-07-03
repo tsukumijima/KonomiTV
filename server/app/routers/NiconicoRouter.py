@@ -15,11 +15,11 @@ from typing import Any, cast
 
 from app import schemas
 from app.constants import API_REQUEST_HEADERS, NICONICO_OAUTH_CLIENT_ID
-from app.models import User
+from app.models.User import User
 from app.routers.UsersRouter import GetCurrentUser
 from app.utils import Interlaced
 from app.utils import Logging
-from app.utils import OAuthCallbackResponse
+from app.utils.OAuthCallbackResponse import OAuthCallbackResponse
 
 
 # ルーター

@@ -8,7 +8,7 @@ from app.config import ClientSettings
 from app.config import Config
 from app.config import SaveConfig
 from app.config import ServerSettings
-from app.models import User
+from app.models.User import User
 from app.routers.UsersRouter import GetCurrentAdminUser
 from app.routers.UsersRouter import GetCurrentUser
 

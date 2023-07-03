@@ -12,7 +12,8 @@ import xml.etree.ElementTree as ET
 from typing import Any, cast, ClassVar
 
 from app.constants import API_REQUEST_HEADERS, JIKKYO_CHANNELS_PATH, NICONICO_OAUTH_CLIENT_ID
-from app.models import User
+from app.models.User import User
+from app.utils import Interlaced
 
 
 class Jikkyo:
@@ -157,7 +158,6 @@ class Jikkyo:
         try:
 
             # リフレッシュトークンを使い、ニコニコ OAuth のアクセストークンとリフレッシュトークンを更新
-            from app.utils import Interlaced
             token_api_url = 'https://oauth.nicovideo.jp/oauth2/token'
             token_api_response = await asyncio.to_thread(
                 requests.post,
