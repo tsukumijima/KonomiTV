@@ -8,7 +8,7 @@ serve = "python KonomiTV.py"
 dev = "python KonomiTV.py --reload"
 
 [packages]
-aerich = {file = "https://github.com/tortoise/aerich/archive/dbc0d9e7efba1509a56796a8977cb11011c469e6.zip"}
+aerich = {file = "https://github.com/tortoise/aerich/archive/467406ed200031b131fc7da762ccacd376e17ac7.zip"}
 aiofiles = "*"
 aiohttp = "*"
 aiosqlite = "*"
@@ -38,6 +38,7 @@ tweepy = "*"
 tweepy_authlib = "*"
 uvicorn = {extras = ["standard"], version = ">=0.21.1"}
 uvloop = {version = ">=0.14.0,!=0.15.0,!=0.15.1", sys_platform = "!= 'win32'"}
+watchfiles = "*"
 
 [dev-packages]
 
