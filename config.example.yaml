@@ -9,12 +9,12 @@
 
         # EDCB (EpgTimerNW) の TCP API の URL
         # バックエンドに EDCB を選択したときに利用されます。
-        # tcp://edcb-namedpipe/ と指定すると、TCP API の代わりに名前付きパイプを使って通信します (ローカルのみ)。
-        'edcb_url': 'tcp://localhost:4510/',
+        # tcp://edcb-namedpipe と指定すると、TCP API の代わりに名前付きパイプを使って通信します (ローカルのみ)。
+        'edcb_url': 'tcp://localhost:4510',
 
         # Mirakurun の HTTP API の URL
         # バックエンドに Mirakurun を選択したときに利用されます。
-        'mirakurun_url': 'http://localhost:40772/',
+        'mirakurun_url': 'http://localhost:40772',
 
         # 利用するエンコーダー
         # FFmpeg・QSVEncC・NVEncC・VCEEncC・rkmppenc から選択してください。
@@ -24,7 +24,7 @@
         # Geforce などの NVIDIA GPU をお使いなら、NVEncC が使えます。
         # Radeon などの AMD GPU をお使いなら、VCEEncC が使えます。
         # RK3588 などの Rockchip SoC 搭載の ARM SBC をお使いなら、rkmppenc が使えます (いくつか事前設定が必要です) 。
-        'encoder': 'rkmppenc',
+        'encoder': 'FFmpeg',
 
         # 番組情報の更新間隔 (分)
         # 番組情報を EDCB または Mirakurun から取得する間隔を設定します。デフォルトは 15 (分) です。
@@ -69,6 +69,17 @@
         # リアルタイムで放送されているものから、指定した TS ファイルのものに強制的に置き換えられます。
         # 開発者がライブストリーミング関連の機能をテストするために使う特殊なデバッグ用設定です。
         'debug_mode_ts_path': null,
+    },
+
+    # ビデオのオンデマンドストリーミングの設定
+    'video': {
+
+        # 録画済み番組の保存先フォルダの絶対パス
+        # 複数の保存先フォルダを指定できます。
+        # Docker でインストールした場合も、ホストマシン側のフォルダの絶対パスを指定してください。
+        'recorded_folders': [
+            'E:\TV-Record',
+        ]
     },
 
     # キャプチャの設定

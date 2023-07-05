@@ -21,10 +21,6 @@ from app.models.Channel import Channel
 from app.utils import Logging
 
 
-# 仮で設定してるだけ
-DIRECTORIES: list[Path] = []
-
-
 class RecordedVideo(models.Model):
 
     # データベース上のテーブル名
@@ -65,11 +61,14 @@ class RecordedVideo(models.Model):
         # 動作中のイベントループを取得
         loop = asyncio.get_running_loop()
 
+        # サーバー設定から録画フォルダを取得
+        recorded_folders = Config().video.recorded_folders
+
         # 複数のディレクトリを ProcessPoolExecutor で並列に処理する
         ## with 文で括ることで、with 文を抜けたときに Executor がクリーンアップされるようにする
         ## さもなければプロセスが残り続けてゾンビプロセス化し、メモリリークを引き起こしてしまう
         with concurrent.futures.ProcessPoolExecutor() as executor:
-            tasks = [loop.run_in_executor(executor, cls.updateSingleForMultiProcess, directory) for directory in DIRECTORIES]
+            tasks = [loop.run_in_executor(executor, cls.updateSingleForMultiProcess, directory) for directory in recorded_folders]
             await asyncio.gather(*tasks)
 
         Logging.info(f'Recorded videos update complete. ({round(time.time() - timestamp, 3)} sec)')
@@ -102,10 +101,11 @@ class RecordedVideo(models.Model):
             async with transactions.in_transaction():
 
                 # 指定されたディレクトリ以下のファイルを再帰的に走査する
+                ## シンボリックリンクにより同一ファイルが複数回スキャンされることを防ぐため、followlinks=False に設定している
                 ## 本来同期関数の os.walk を非同期関数の中で使うのは望ましくないが (イベントループがブロッキングされるため)、
                 ## この関数自体が ProcessPoolExecutor 内でそれぞれ別プロセスで実行されるため問題ない
                 existing_files: list[str] = []
-                for dir_path, _, file_names in os.walk(directory):
+                for dir_path, _, file_names in os.walk(directory, followlinks=False):
                     for file_name in file_names:
 
                         # 録画ファイルのフルパス
@@ -188,7 +188,7 @@ class RecordedVideo(models.Model):
                     ## 録画ファイルパスが directory から始まっていない & DIRECTORIES のいずれかから始まっている場合は、
                     ## 同時に別フォルダを処理している別プロセスのスキャン結果に含まれている可能性が高いため、スキップする
                     if not recorded_video.file_path.startswith(str(directory)) and \
-                        any([recorded_video.file_path.startswith(str(d)) for d in DIRECTORIES]):
+                        any([recorded_video.file_path.startswith(str(d)) for d in Config().video.recorded_folders]):
                         continue
                     if recorded_video.file_path not in existing_files:
                         await recorded_video.delete()

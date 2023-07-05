@@ -249,6 +249,9 @@ class _ServerSettingsTV(BaseModel):
     max_alive_time: PositiveInt
     debug_mode_ts_path: FilePath | None
 
+class _ServerSettingsVideo(BaseModel):
+    recorded_folders: list[DirectoryPath]
+
 class _ServerSettingsCapture(BaseModel):
     upload_folder: DirectoryPath
 
@@ -260,6 +263,7 @@ class ServerSettings(BaseModel):
     general: _ServerSettingsGeneral
     server: _ServerSettingsServer
     tv: _ServerSettingsTV
+    video: _ServerSettingsVideo
     capture: _ServerSettingsCapture
     twitter: _ServerSettingsTwitter
 
@@ -341,6 +345,7 @@ def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
         # Docker 上で実行されているとき、サーバー設定のうちパス指定の項目に Docker 環境向けの Prefix (/host-rootfs) を付ける
         ## /host-rootfs (docker-compose.yaml で定義) を通してホストマシンのファイルシステムにアクセスできる
         if GetPlatformEnvironment() == 'Linux-Docker':
+            config_dict['video']['recorded_folders'] = [_DOCKER_PATH_PREFIX + folder for folder in config_dict['video']['recorded_folders']]
             config_dict['capture']['upload_folder'] = _DOCKER_PATH_PREFIX + config_dict['capture']['upload_folder']
             if type(config_dict['tv']['debug_mode_ts_path']) is str:
                 config_dict['tv']['debug_mode_ts_path'] = _DOCKER_PATH_PREFIX + config_dict['tv']['debug_mode_ts_path']
@@ -399,6 +404,7 @@ def SaveConfig(config: ServerSettings) -> None:
     # Docker 上で実行されているとき、サーバー設定のうちパス指定の項目に付与されている Docker 環境向けの Prefix (/host-rootfs) を外す
     ## LoadConfig() で実行されている処理と逆の処理を行う
     if GetPlatformEnvironment() == 'Linux-Docker':
+        config_dict['video']['recorded_folders'] = [str(folder).replace(_DOCKER_PATH_PREFIX, '') for folder in config_dict['video']['recorded_folders']]
         config_dict['capture']['upload_folder'] = str(config_dict['capture']['upload_folder']).replace(_DOCKER_PATH_PREFIX, '')
         if type(config_dict['tv']['debug_mode_ts_path']) is str or config_dict['tv']['debug_mode_ts_path'] is Path:
             config_dict['tv']['debug_mode_ts_path'] = str(config_dict['tv']['debug_mode_ts_path']).replace(_DOCKER_PATH_PREFIX, '')
