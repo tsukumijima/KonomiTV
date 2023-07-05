@@ -167,9 +167,6 @@ async def Startup():
     # 番組情報を更新
     await Program.update()
 
-    # 録画フォルダ配下の録画ファイルを更新/同期
-    await RecordedVideo.update()
-
     # 登録されている Twitter アカウントの情報を更新
     await TwitterAccount.updateAccountInformation()
 
@@ -177,6 +174,14 @@ async def Startup():
     for channel in await Channel.filter(is_watchable=True).order_by('channel_number'):
         for quality in QUALITY:
             LiveStream(channel.display_channel_id, quality)
+
+    # 録画フォルダ配下の録画ファイルのメタデータを更新/同期
+    ## 録画ファイルのハッシュを確認するだけでも録画ファイルの量次第では時間がかかるので非同期で実行する
+    ## サーバーの起動完了を待ってから実行する
+    async def run():
+        await asyncio.sleep(0.1)
+        await RecordedVideo.update()
+    asyncio.create_task(run())
 
 # サーバー設定で指定された時間 (デフォルト: 15分) ごとに1回、チャンネル情報と番組情報を更新する
 # チャンネル情報は頻繁に変わるわけではないけど、手動で再起動しなくても自動で変更が適用されてほしい
