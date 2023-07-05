@@ -40,6 +40,7 @@ class MetadataAnalyzer:
     def analyze(self) -> tuple[RecordedVideo, RecordedProgram, Channel | None] | None:
         """
         録画ファイル内のメタデータを解析し、データベースに格納するモデルを作成する
+        各モデルの紐付けは行われていないので、子レコード作成後に別途紐付ける必要がある
 
         Returns:
             tuple[RecordedVideo, RecordedProgram, Channel | None] | None: 録画ファイル・番組情報・チャンネルを表すモデル
@@ -52,9 +53,9 @@ class MetadataAnalyzer:
 
         # 録画ファイルのハッシュを計算
         try:
-            recorded_video.file_hash = self.__calculateTSFileHash()
+            recorded_video.file_hash = self.calculateTSFileHash()
         except ValueError:
-            Logging.error(f'[MetadataAnalyzer] {self.recorded_file_path}: File size is too small. ignored.')
+            Logging.warning(f'{self.recorded_file_path}: File size is too small. ignored.')
             return None
 
         # MediaInfo から録画ファイルのメディア情報を取得
@@ -116,6 +117,7 @@ class MetadataAnalyzer:
                 if int(track.channel_s) == 1:
                     recorded_video.primary_audio_channel = 'Monaural'
                 elif int(track.channel_s) == 2:
+                    # デュアルモノも Stereo として判定される (別途 RecordedProgram の primary_audio_type で判定すべき)
                     recorded_video.primary_audio_channel = 'Stereo'
                 elif int(track.channel_s) == 6:
                     recorded_video.primary_audio_channel = '5.1ch'
@@ -133,6 +135,7 @@ class MetadataAnalyzer:
                 if int(track.channel_s) == 1:
                     recorded_video.secondary_audio_channel = 'Monaural'
                 elif int(track.channel_s) == 2:
+                    # デュアルモノも Stereo として判定される (別途 RecordedProgram の secondary_audio_type で判定すべき)
                     recorded_video.secondary_audio_channel = 'Stereo'
                 elif int(track.channel_s) == 6:
                     recorded_video.secondary_audio_channel = '5.1ch'
@@ -142,12 +145,12 @@ class MetadataAnalyzer:
         # 最低でも映像トラックと主音声トラックが含まれている必要がある
         # 映像か主音声、あるいは両方のトラックが含まれていない場合は None を返す
         if is_video_track_read is False or is_primary_audio_track_read is False:
-            Logging.error(f'[MetadataAnalyzer] {self.recorded_file_path}: Video or primary audio track is missing. ignored.')
+            Logging.warning(f'{self.recorded_file_path}: Video or primary audio track is missing. ignored.')
             return None
 
         # duration が1分未満の場合は短すぎるので None を返す
         if recorded_video.duration < 60:
-            Logging.error(f'[MetadataAnalyzer] {self.recorded_file_path}: Duration is too short. ignored.')
+            Logging.warning(f'{self.recorded_file_path}: Duration is too short. ignored.')
             return None
 
         # MPEG-TS 形式のみ、TS ファイルに含まれる番組情報・チャンネル情報を解析する
@@ -178,6 +181,8 @@ class MetadataAnalyzer:
                 duration = recorded_video.duration,
             )
 
+        # TODO: シリーズタイトル・話数・サブタイトルを取得する処理を追加する
+
         # CM 区間を検出する (MPEG-TS 形式のみ)
         ## 時間がかかるので最後に実行する
         if recorded_video.container_format == 'MPEG-TS':
@@ -189,7 +194,7 @@ class MetadataAnalyzer:
         return recorded_video, recorded_program, channel
 
 
-    def __calculateTSFileHash(self, chunk_size: int = 1024 * 1024, num_chunks: int = 3) -> str:
+    def calculateTSFileHash(self, chunk_size: int = 1024 * 1024, num_chunks: int = 3) -> str:
         """
         録画ファイルのハッシュを計算する
         録画ファイル全体をハッシュ化すると時間がかかるため、ファイルの先頭、中央、末尾の3箇所のみをハッシュ化する
@@ -249,7 +254,7 @@ class MetadataAnalyzer:
         try:
             media_info = cast(MediaInfo, MediaInfo.parse(str(self.recorded_file_path), library_file=libmediainfo_path))
         except Exception:
-            Logging.error(f'[MetadataAnalyzer] {self.recorded_file_path}: Failed to parse media info.')
+            Logging.warning(f'{self.recorded_file_path}: Failed to parse media info.')
             return None
 
         # 最低限 KonomiTV で再生可能なファイルであるかのバリデーションを行う
@@ -264,36 +269,38 @@ class MetadataAnalyzer:
                     # MPEG-TS コンテナではない (当面 MPEG-TS のみ対応)
                     ## BDAV も MPEG-TS だが、TS パケット長が 192 byte で ariblib でパースできないため現状非対応
                     if track.format != 'MPEG-TS':
-                        Logging.error(f'[MetadataAnalyzer] {self.recorded_file_path}: {track.format} is not supported.')
+                        Logging.warning(f'{self.recorded_file_path}: {track.format} is not supported.')
                         return None
                     # 映像 or 音声ストリームが存在しない
                     if track.count_of_video_streams == 0 and track.count_of_audio_streams == 0:
-                        Logging.error(f'[MetadataAnalyzer] {self.recorded_file_path}: Video or audio stream is missing.')
+                        Logging.warning(f'{self.recorded_file_path}: Video or audio stream is missing.')
                         return None
 
                 # 映像ストリーム
                 elif track.track_type == 'Video':
                     # スクランブルが解除されていない
                     if track.encryption == 'Encrypted':
-                        Logging.error(f'[MetadataAnalyzer] {self.recorded_file_path}: Video stream is encrypted.')
+                        Logging.warning(f'{self.recorded_file_path}: Video stream is encrypted.')
                         return None
 
                 # 音声ストリーム
                 elif track.track_type == 'Audio':
                     # スクランブルが解除されていない
                     if track.encryption == 'Encrypted':
-                        Logging.error(f'[MetadataAnalyzer] {self.recorded_file_path}: Audio stream is encrypted.')
+                        Logging.warning(f'{self.recorded_file_path}: Audio stream is encrypted.')
                         return None
 
         except Exception as ex:
-            Logging.error(f'[MetadataAnalyzer] {self.recorded_file_path}: Failed to validate media info.')
-            Logging.error(ex)
+            Logging.warning(f'{self.recorded_file_path}: Failed to validate media info.')
+            Logging.warning(ex)
             return None
 
         return media_info
 
 
 if __name__ == '__main__':
+    # デバッグ用: 録画ファイルのパスを引数に取り、そのファイルのメタデータを解析する
+    # Usage: pipenv run python -m app.metadata.MetadataAnalyzer /path/to/recorded_file.ts
     def main(recorded_file_path: Path = typer.Argument(..., exists=True, file_okay=True, dir_okay=False, readable=True, resolve_path=True)):
         metadata_analyzer = MetadataAnalyzer(recorded_file_path)
         results = metadata_analyzer.analyze()

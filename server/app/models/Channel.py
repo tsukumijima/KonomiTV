@@ -67,7 +67,7 @@ class Channel(models.Model):
     @property
     def viewer_count(self) -> int:
         # 現在の視聴者数を取得
-        ## 循環参照を防ぐためにここで遅延インポート
+        ## 循環参照を避けるために遅延インポート
         from app.streams.LiveStream import LiveStream
         return LiveStream.getViewerCount(self.display_channel_id)
 
@@ -341,7 +341,7 @@ class Channel(models.Model):
                 # チャンネル番号を算出
                 channel.channel_number = await channel.calculateChannelNumber(same_network_id_counts, same_remocon_id_counts)
 
-                # 表示用表示用チャンネルID = チャンネルタイプ(小文字)+チャンネル番号
+                # 表示用チャンネルID = チャンネルタイプ(小文字)+チャンネル番号
                 channel.display_channel_id = channel.type.lower() + channel.channel_number
 
                 # サブチャンネルかどうかを算出
@@ -410,6 +410,7 @@ class Channel(models.Model):
     ) -> str:
         """ このチャンネルのチャンネル番号を算出する """
 
+        assert self.id is not None, 'id not set.'
         assert self.type is not None, 'type not set.'
         assert self.network_id is not None, 'network_id not set.'
         assert self.service_id is not None, 'service_id not set.'
@@ -441,28 +442,6 @@ class Channel(models.Model):
         # 地デジ (録画番組向け): リモコン番号からチャンネル番号を算出する (枝番処理も行うが、DB アクセスが発生する)
         elif self.type == 'GR':
 
-            # Tortoise ORM のコネクションが取得できない時は Tortoise ORM を初期化する
-            ## 基本 MetadataAnalyzer を単独で実行したときくらいしか起きないはず…
-            cleanup_required = False
-            try:
-                Tortoise.get_connection('default')
-            except ConfigurationError:
-                await Tortoise.init(config=DATABASE_CONFIG)
-                cleanup_required = True
-
-            # 同じリモコン ID のサービスのカウントを DB から取得
-            same_remocon_id_count = await Channel.filter(
-                ~Q(id = self.id),  # チャンネル ID が自身のチャンネル ID と異なる (=異なるチャンネルだがリモコン番号が同じ)
-                remocon_id = self.remocon_id,  # リモコン番号が同じ
-                type = 'GR',  # 地デジのみ
-                is_subchannel = False,  # メインチャンネルのみ
-            ).count()
-
-            # Tortoise ORM を独自に初期化した場合は、開いた Tortoise ORM のコネクションを明示的に閉じる
-            # コネクションを閉じないと Ctrl+C を押下しても終了できない
-            if cleanup_required is True:
-                await Tortoise.close_connections()
-
             # 同じネットワーク内にあるサービスのカウントを取得
             ## 地デジのサービス ID は、ARIB TR-B14 第五分冊 第七編 9.1 によると
             ## (地域種別:6bit)(県複フラグ:1bit)(サービス種別:2bit)(地域事業者識別:4bit)(サービス番号:3bit) の 16bit で構成されている
@@ -473,9 +452,34 @@ class Channel(models.Model):
             # 上2桁はリモコン番号から、下1桁は同じネットワーク内にあるサービスのカウント
             channel_number = str(self.remocon_id).zfill(2) + str(same_network_id_count)
 
-            # 同じリモコン番号のサービスが複数ある場合、枝番をつける
-            if same_remocon_id_count > 1:
-                channel_number += '-' + str(same_remocon_id_count)
+            # Tortoise ORM のコネクションが取得できない時は Tortoise ORM を初期化する
+            ## 基本 MetadataAnalyzer を単独で実行したときくらいしか起きないはず…
+            cleanup_required = False
+            try:
+                Tortoise.get_connection('default')
+            except ConfigurationError:
+                await Tortoise.init(config=DATABASE_CONFIG)
+                cleanup_required = True
+
+            # 同じチャンネル番号のサービスのカウントを DB から取得
+            ## チャンネル ID は NID-SID の組 (CATV を除き日本全国で一意) なので、
+            ## チャンネル ID が異なる場合は同じリモコン番号/チャンネル番号でも別チャンネルになる
+            ## ex: tvk1 (gr031) / NHK総合1・福岡 (gr031)
+            same_channel_number_count = await Channel.filter(
+                ~Q(id = self.id),  # チャンネル ID が自身のチャンネル ID と異なる (=異なるチャンネルだがチャンネル番号が同じ)
+                channel_number = channel_number,  # チャンネル番号が同じ
+                type = 'GR',  # 地デジのみ
+            ).count()
+
+            # Tortoise ORM を独自に初期化した場合は、開いた Tortoise ORM のコネクションを明示的に閉じる
+            # コネクションを閉じないと Ctrl+C を押下しても終了できない
+            if cleanup_required is True:
+                await Tortoise.close_connections()
+
+            # 異なる NID-SID で同じチャンネル番号のサービスが複数ある場合、枝番をつける
+            ## samme_channel_number_count は自身を含まないため、1 以上の場合は枝番をつける
+            if same_channel_number_count >= 1:
+                channel_number += '-' + str(same_channel_number_count)
 
         # SKY: サービス ID を 1024 で割った余りをチャンネル番号とする
         ## SPHD (network_id=10) のチャンネル番号は service_id - 32768 、
@@ -532,7 +536,7 @@ class Channel(models.Model):
             tuple[Program | None, Program | None]: 現在と次の番組情報が入ったタプル
         """
 
-        # 循環参照を防ぐためにここで遅延インポート
+        # 循環参照を避けるために遅延インポート
         from app.models.Program import Program
 
         # 現在時刻

@@ -734,7 +734,7 @@ class Program(models.Model):
     @classmethod
     def updateFromMirakurunForMultiProcess(cls) -> None:
         """
-        Programs.updateFromMirakurun() の同期版 (ProcessPoolExecutor でのマルチプロセス実行用)
+        Program.updateFromMirakurun() の同期版 (ProcessPoolExecutor でのマルチプロセス実行用)
         """
 
         # もし Config() の実行時に AssertionError が発生した場合は、LoadConfig() を実行してサーバー設定データをロードする
@@ -753,7 +753,7 @@ class Program(models.Model):
     @classmethod
     def updateFromEDCBForMultiProcess(cls) -> None:
         """
-        Programs.updateFromEDCB() の同期版 (ProcessPoolExecutor でのマルチプロセス実行用)
+        Program.updateFromEDCB() の同期版 (ProcessPoolExecutor でのマルチプロセス実行用)
         """
 
         # もし Config() の実行時に AssertionError が発生した場合は、LoadConfig() を実行してサーバー設定データをロードする

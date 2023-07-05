@@ -2,7 +2,6 @@
 import ariblib
 import ariblib.event
 import asyncio
-import concurrent.futures
 import pytz
 from ariblib.descriptors import AudioComponentDescriptor
 from ariblib.descriptors import ServiceDescriptor
@@ -51,6 +50,7 @@ class TSInfoAnalyzer:
     def analyze(self) -> tuple[RecordedProgram, Channel] | None:
         """
         録画 TS ファイル内に含まれる番組情報を解析し、データベースに格納するモデルを作成する
+        各モデルの紐付けは行われていないので、子レコード作成後に別途紐付ける必要がある
 
         Returns:
             tuple[RecordedProgram, Channel]: 録画番組情報とチャンネル情報を表すモデルのタプル (サービス情報が取得できなかった場合は None)
@@ -74,9 +74,6 @@ class TSInfoAnalyzer:
             recorded_program = recorded_program_following
         else:
             recorded_program = recorded_program_present
-
-        # RecordedProgram と RecordedVideo を紐付ける
-        recorded_program.recorded_video_id = self.recorded_video.id
 
         return recorded_program, channel
 
@@ -111,7 +108,7 @@ class TSInfoAnalyzer:
                 # 他にも pid があるかもしれないが（複数のチャンネルが同じストリームに含まれている場合など）、最初の pid のみを取得する
                 break
         if channel.service_id is None:
-            Logging.error(f'[TSInfoAnalyzer] {self.recorded_video.file_path}: service_id not found.')
+            Logging.warning(f'{self.recorded_video.file_path}: service_id not found.')
             return None
 
         # TS から SDT (Service Description Table) を抽出
@@ -120,7 +117,7 @@ class TSInfoAnalyzer:
             channel.network_id = int(sdt.original_network_id)
             channel_type = TSInformation.getNetworkType(channel.network_id)
             if channel_type == 'OTHER':
-                Logging.error(f'[TSInfoAnalyzer] {self.recorded_video.file_path}: Unknown network_id: {channel.network_id}')
+                Logging.warning(f'{self.recorded_video.file_path}: Unknown network_id: {channel.network_id}')
                 return None
             channel.type = channel_type
             # SDT に含まれるサービスごとの情報を取得
@@ -141,7 +138,7 @@ class TSInfoAnalyzer:
                 continue
             break
         if channel.network_id is None or channel.name is None:
-            Logging.error(f'[TSInfoAnalyzer] {self.recorded_video.file_path}: network_id or channel name not found.')
+            Logging.warning(f'{self.recorded_video.file_path}: network_id or channel name not found.')
             return None
 
         # リモコン番号を取得
@@ -165,13 +162,11 @@ class TSInfoAnalyzer:
             ## それ以外: 共通のリモコン番号取得処理を実行
             channel.remocon_id = channel.calculateRemoconID()
 
-        # チャンネル番号を算出
-        ## ThreadPoolExecutor 上で実行し、イベントループ周りの謎エラーを回避する
-        with concurrent.futures.ThreadPoolExecutor(1) as executor:
-            channel.channel_number = executor.submit(asyncio.run, channel.calculateChannelNumber()).result()
-
         # チャンネル ID を生成
         channel.id = f'NID{channel.network_id}-SID{channel.service_id:03d}'
+
+        # チャンネル番号を算出
+        channel.channel_number = asyncio.run(channel.calculateChannelNumber())
 
         # 表示用チャンネルID = チャンネルタイプ(小文字)+チャンネル番号
         channel.display_channel_id = channel.type.lower() + channel.channel_number
@@ -212,9 +207,7 @@ class TSInfoAnalyzer:
         self.ts.seek(18800000)  # 18MB
 
         # 録画番組情報を表すモデルを作成
-        ## RecordedProgram と Channel を紐付ける
         recorded_program = RecordedProgram()
-        recorded_program.channel_id = channel.id
         recorded_program.network_id = channel.network_id
         recorded_program.service_id = channel.service_id
 
@@ -371,7 +364,7 @@ class TSInfoAnalyzer:
             # ループが 2000 回を超えたら (≒20回シークしても放送時間が確定しなかったら) 、タイムアウトでループを抜ける
             if count > 2000:
                 p_or_f = 'following' if is_following is True else 'present'
-                Logging.warning(f'[TSInfoAnalyzer] {self.recorded_video.file_path}: Analyzing EIT information ({p_or_f}) timed out.')
+                Logging.warning(f'{self.recorded_video.file_path}: Analyzing EIT information ({p_or_f}) timed out.')
                 break
 
             # ループが 100 で割り切れるたびに現在の位置から 188MB シークする
