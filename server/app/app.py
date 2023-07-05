@@ -17,6 +17,7 @@ from app.config import LoadConfig
 from app.constants import CLIENT_DIR, DATABASE_CONFIG, QUALITY, VERSION
 from app.models.Channel import Channel
 from app.models.Program import Program
+from app.models.RecordedVideo import RecordedVideo
 from app.models.TwitterAccount import TwitterAccount
 from app.routers import CapturesRouter
 from app.routers import ChannelsRouter
@@ -165,6 +166,9 @@ async def Startup():
 
     # 番組情報を更新
     await Program.update()
+
+    # 録画フォルダ配下の録画ファイルを更新/同期
+    await RecordedVideo.update()
 
     # 登録されている Twitter アカウントの情報を更新
     await TwitterAccount.updateAccountInformation()
