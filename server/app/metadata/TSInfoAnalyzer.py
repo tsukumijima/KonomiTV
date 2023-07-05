@@ -3,6 +3,7 @@ import ariblib
 import ariblib.event
 import asyncio
 import concurrent.futures
+import pytz
 from ariblib.descriptors import AudioComponentDescriptor
 from ariblib.descriptors import ServiceDescriptor
 from ariblib.descriptors import TSInformationDescriptor
@@ -12,13 +13,13 @@ from ariblib.sections import ProgramAssociationSection
 from ariblib.sections import NetworkInformationSection
 from datetime import datetime
 from datetime import timedelta
-from datetime import timezone
 from pathlib import Path
 from typing import Any, cast
 
 from app.models.Channel import Channel
 from app.models.RecordedProgram import RecordedProgram
 from app.models.RecordedVideo import RecordedVideo
+from app.utils import Logging
 from app.utils.TSInformation import TSInformation
 
 
@@ -33,71 +34,60 @@ class TSInfoAnalyzer:
     ariblib の開発者の youzaka 氏に感謝します
     """
 
-    def __init__(self, recorded_ts_path: Path) -> None:
+    def __init__(self, recorded_video: RecordedVideo) -> None:
         """
         録画 TS ファイル内に含まれる番組情報を解析するクラスを初期化する
 
         Args:
-            recorded_ts_path (Path): 録画 TS ファイルのパス
+            recorded_video (RecordedVideo): 録画ファイル情報を表すモデル
         """
 
         # TS ファイルを開く
         # チャンクは 1000（だいたい 0.1 ～ 0.2 秒間隔）に設定
-        self.ts = ariblib.tsopen(recorded_ts_path, chunk=1000)
+        self.recorded_video = recorded_video
+        self.ts = ariblib.tsopen(self.recorded_video.file_path, chunk=1000)
 
 
-    def analyze(self, recorded_video: RecordedVideo) -> tuple[RecordedProgram, Channel]:
+    def analyze(self) -> tuple[RecordedProgram, Channel] | None:
         """
         録画 TS ファイル内に含まれる番組情報を解析し、データベースに格納するモデルを作成する
 
-        Args:
-            recorded_video (RecordedVideo): 録画ファイル情報を表すモデル
-
         Returns:
-            tuple[RecordedProgram, Channel]: 録画番組情報とチャンネル情報を表すモデルのタプル
+            tuple[RecordedProgram, Channel]: 録画番組情報とチャンネル情報を表すモデルのタプル (サービス情報が取得できなかった場合は None)
         """
-
-        # TODO!!!!!
 
         # サービス (チャンネル) 情報を取得
         channel = self.__analyzeSDTInformation()
+        if channel is None:
+            return None
 
         # 録画番組情報のモデルを作成
         ## EIT[p/f] のうち、現在と次の番組情報を両方取得した上で、録画マージンを考慮してどちらの番組を録画したかを判定する
         recorded_program_present = self.__analyzeEITInformation(channel, is_following=False)
         recorded_program_following = self.__analyzeEITInformation(channel, is_following=True)
 
-        # 録画開始時刻と次の番組の開始時刻を比較して、差が1分以内（＝録画マージン）なら次の番組情報を利用する
+        # 録画開始時刻と次の番組の開始時刻を比較して、差が0〜1分以内（＝録画マージン）なら次の番組情報を利用する
         # 録画マージン分おおまかにシークしてから番組情報を取得しているため、基本的には現在の番組情報を使うことになるはず
         if (recorded_program_following.start_time is not None and
-            recorded_video.recording_start_time is not None and
-            recorded_program_following.start_time - recorded_video.recording_start_time <= timedelta(minutes=1)):
+            self.recorded_video.recording_start_time is not None and
+            timedelta(minutes=0) <= recorded_program_following.start_time - self.recorded_video.recording_start_time <= timedelta(minutes=1)):
             recorded_program = recorded_program_following
         else:
             recorded_program = recorded_program_present
 
-        # もし番組情報から番組開始時刻 or 番組終了時刻を取得できなかった場合、録画開始時刻 or 録画終了時刻を利用する
-        assert recorded_video.recording_start_time is not None, 'recording_start_time not found.'
-        assert recorded_video.recording_end_time is not None, 'recording_end_time not found.'
-        if recorded_program.start_time is None:
-            recorded_program.start_time = recorded_video.recording_start_time
-        if recorded_program.end_time is None:
-            recorded_program.end_time = recorded_video.recording_end_time
-            recorded_program.duration = (recorded_video.recording_end_time - recorded_program.start_time).total_seconds()
-
         # RecordedProgram と RecordedVideo を紐付ける
-        recorded_program.recorded_video_id = recorded_video.id
+        recorded_program.recorded_video_id = self.recorded_video.id
 
         return recorded_program, channel
 
 
-    def __analyzeSDTInformation(self) -> Channel:
+    def __analyzeSDTInformation(self) -> Channel | None:
         """
         TS 内の SDT (Service Description Table) からサービス（チャンネル）情報を解析する
         PAT (Program Association Table) と NIT (Network Information Table) からも補助的に情報を取得する
 
         Returns:
-            Channel: サービス（チャンネル）情報を表すモデル
+            Channel: サービス（チャンネル）情報を表すモデル (サービス情報が取得できなかった場合は None)
         """
 
         # 誤動作防止のため必ず最初にシークを戻す
@@ -120,14 +110,18 @@ class TSInfoAnalyzer:
                 channel.service_id = int(pid.program_number)
                 # 他にも pid があるかもしれないが（複数のチャンネルが同じストリームに含まれている場合など）、最初の pid のみを取得する
                 break
-        assert channel.service_id is not None, 'service_id not found.'
+        if channel.service_id is None:
+            Logging.error(f'[TSInfoAnalyzer] {self.recorded_video.file_path}: service_id not found.')
+            return None
 
         # TS から SDT (Service Description Table) を抽出
         for sdt in self.ts.sections(ActualStreamServiceDescriptionSection):
             # ネットワーク ID とサービス種別 (=チャンネルタイプ) を取得
             channel.network_id = int(sdt.original_network_id)
             channel_type = TSInformation.getNetworkType(channel.network_id)
-            assert channel_type != 'OTHER', f'Unknown network_id: {channel.network_id}'
+            if channel_type == 'OTHER':
+                Logging.error(f'[TSInfoAnalyzer] {self.recorded_video.file_path}: Unknown network_id: {channel.network_id}')
+                return None
             channel.type = channel_type
             # SDT に含まれるサービスごとの情報を取得
             for service in sdt.services:
@@ -146,8 +140,9 @@ class TSInfoAnalyzer:
             else:
                 continue
             break
-        assert channel.network_id is not None, 'network_id not found.'
-        assert channel.name is not None, 'channel name not found.'
+        if channel.network_id is None or channel.name is None:
+            Logging.error(f'[TSInfoAnalyzer] {self.recorded_video.file_path}: network_id or channel name not found.')
+            return None
 
         # リモコン番号を取得
         if channel.type == 'GR':
@@ -195,7 +190,7 @@ class TSInfoAnalyzer:
 
     def __analyzeEITInformation(self, channel: Channel, is_following: bool = False) -> RecordedProgram:
         """
-        TS内の EIT (Event Information Table) から番組情報を取得する
+        TS 内の EIT (Event Information Table) から番組情報を取得する
         サービス ID が必要な理由は、CS などで別のチャンネルの番組情報が取得されるのを防ぐため
         このため、事前に __analyzeSDTInformation() でサービス ID を含めたチャンネル情報を取得しておく必要がある
 
@@ -217,6 +212,7 @@ class TSInfoAnalyzer:
         self.ts.seek(18800000)  # 18MB
 
         # 録画番組情報を表すモデルを作成
+        ## RecordedProgram と Channel を紐付ける
         recorded_program = RecordedProgram()
         recorded_program.channel_id = channel.id
         recorded_program.network_id = channel.network_id
@@ -243,7 +239,7 @@ class TSInfoAnalyzer:
                     ## 番組開始時刻 (タイムゾーンを日本時間 (+9:00) に設定)
                     ## 注意: present の duration が None (終了時間未定) の場合のみ、following の start_time が None になることがある
                     if event.start_time is not None:
-                        recorded_program.start_time = cast(datetime, event.start_time).astimezone(timezone(timedelta(hours=9)))
+                        recorded_program.start_time = cast(datetime, event.start_time).astimezone(pytz.timezone('Asia/Tokyo'))
                     ## 番組長 (秒)
                     ## 注意: 臨時ニュースなどで放送時間未定の場合は None になる
                     if event.duration is not None:
@@ -351,7 +347,10 @@ class TSInfoAnalyzer:
                         'primary_audio_type',
                         'primary_audio_language',
                     ]
-                    if all([hasattr(recorded_program, attribute) for attribute in attributes]):
+                    if all([
+                        hasattr(recorded_program, attribute) and getattr(recorded_program, attribute) is not None
+                        for attribute in attributes
+                    ]):
                         break
 
                 else: # 多重ループを抜けるトリック
@@ -369,13 +368,62 @@ class TSInfoAnalyzer:
                 if recorded_program.genres is None:
                     recorded_program.genres = []
 
-            # ループが 1000 回を超えたら（＝10回シークしても放送時間が確定しなかったら）、タイムアウトでループを抜ける
-            if count > 1000:
+            # ループが 2000 回を超えたら (≒20回シークしても放送時間が確定しなかったら) 、タイムアウトでループを抜ける
+            if count > 2000:
+                p_or_f = 'following' if is_following is True else 'present'
+                Logging.warning(f'[TSInfoAnalyzer] {self.recorded_video.file_path}: Analyzing EIT information ({p_or_f}) timed out.')
                 break
 
             # ループが 100 で割り切れるたびに現在の位置から 188MB シークする
             # ループが 100 以上に到達しているときはおそらく放送時間が未定の番組なので、放送時間が確定するまでシークする
             if count % 100 == 0:
                 self.ts.seek(188000000, 1)  # 188MB
+
+        # この時点でタイトルを取得できていない場合、拡張子を除いたファイル名をフォーマットした上でタイトルとして使用する
+        ## 他の値は RecordedProgram モデルで設定されたデフォルト値が自動的に入るので、タイトルだけここで設定する
+        if recorded_program.title is None:
+            recorded_program.title = TSInformation.formatString(Path(self.recorded_video.file_path).stem)
+
+        # この時点で番組開始時刻・番組終了時刻を取得できていない場合、適当なダミー値を設定する
+        ## start_time が None になる組み合わせは「現在の番組の終了時間が未定」かつ「次の番組情報を取得しようとした」ときのみ
+        ## 番組情報としては全く使い物にならないし、基本現在の番組情報を使わせるようにしたいので、後続の処理で使われないような値を設定する
+        if recorded_program.start_time is None and recorded_program.end_time is None:
+            recorded_program.start_time = datetime(1970, 1, 1, 0, 0, 0, 0, pytz.timezone('Asia/Tokyo'))
+            recorded_program.end_time = datetime(1970, 1, 1, 0, 0, 0, 0, pytz.timezone('Asia/Tokyo'))
+            recorded_program.duration = 0
+
+        # この時点で番組終了時刻のみを取得できていない場合、フォールバックとして録画終了時刻を利用する
+        ## さらにまずあり得ないとは思うが、もし録画終了時刻が取得できていない場合は、番組開始時刻 + 動画長を利用する
+        if recorded_program.end_time is None:
+            if self.recorded_video.recording_end_time is not None:
+                recorded_program.end_time = self.recorded_video.recording_end_time
+                recorded_program.duration = (recorded_program.end_time - recorded_program.start_time).total_seconds()
+            else:
+                recorded_program.end_time = recorded_program.start_time + timedelta(seconds=self.recorded_video.duration)
+                recorded_program.duration = self.recorded_video.duration
+
+        assert recorded_program.start_time is not None, 'start_time not found.'
+        assert recorded_program.end_time is not None, 'end_time not found.'
+        assert recorded_program.duration is not None, 'duration not found.'
+
+        # 録画開始時刻・録画終了時刻が取得できている場合
+        if (self.recorded_video.recording_start_time is not None and
+            self.recorded_video.recording_end_time is not None):
+
+            # 録画マージン (開始/終了) を算出
+            ## 取得できなかった場合はデフォルト値として 0 が自動設定される
+            ## 番組の途中から録画した/番組終了前に録画を中断したなどで録画マージンがマイナスになる場合も 0 が設定される
+            recorded_program.recording_start_margin = \
+                max((recorded_program.start_time - self.recorded_video.recording_start_time).total_seconds(), 0.0)
+            recorded_program.recording_end_margin = \
+                max((self.recorded_video.recording_end_time - recorded_program.end_time).total_seconds(), 0.0)
+
+            # 番組開始時刻 < 録画開始時刻 or 録画終了時刻 < 番組終了時刻 の場合、部分的に録画されていることを示すフラグを立てる
+            ## 番組全編を録画するには、録画開始時刻が番組開始時刻よりも前で、録画終了時刻が番組終了時刻よりも後である必要がある
+            if (recorded_program.start_time < self.recorded_video.recording_start_time or
+                self.recorded_video.recording_end_time < recorded_program.end_time):
+                recorded_program.is_partially_recorded = True
+            else:
+                recorded_program.is_partially_recorded = False
 
         return recorded_program

@@ -1,5 +1,6 @@
 
 import hashlib
+import pytz
 import typer
 from datetime import datetime
 from datetime import timedelta
@@ -15,6 +16,7 @@ from app.models.Channel import Channel
 from app.models.RecordedProgram import RecordedProgram
 from app.models.RecordedVideo import RecordedVideo
 from app.utils import GetPlatformEnvironment
+from app.utils import Logging
 from app.utils.TSInformation import TSInformation
 
 
@@ -52,6 +54,7 @@ class MetadataAnalyzer:
         try:
             recorded_video.file_hash = self.__calculateTSFileHash()
         except ValueError:
+            Logging.error(f'[MetadataAnalyzer] {self.recorded_file_path}: File size is too small. ignored.')
             return None
 
         # MediaInfo から録画ファイルのメディア情報を取得
@@ -69,8 +72,10 @@ class MetadataAnalyzer:
             # 全般（コンテナ情報）
             if track.track_type == 'General':
                 recorded_video.duration = float(track.duration) / 1000  # ミリ秒を秒に変換
-                recorded_video.container_format = track.format  # 今のところ MPEG-TS 固定
-                if hasattr(track, 'start_time'):
+                # 今のところ MPEG-TS 固定
+                if track.format == 'MPEG-TS':
+                    recorded_video.container_format = 'MPEG-TS'
+                if hasattr(track, 'start_time') and track.start_time is not None:
                     # 録画開始時刻と録画終了時刻を算出
                     ## 録画開始時刻は MediaInfo から "start_time" として取得できる (ただし小数点以下は省略されている)
                     ## "start_time" は "UTC 2023-06-26 23:59:52" のフォーマットになっているが、実際には JST の時刻が返される
@@ -137,40 +142,47 @@ class MetadataAnalyzer:
         # 最低でも映像トラックと主音声トラックが含まれている必要がある
         # 映像か主音声、あるいは両方のトラックが含まれていない場合は None を返す
         if is_video_track_read is False or is_primary_audio_track_read is False:
+            Logging.error(f'[MetadataAnalyzer] {self.recorded_file_path}: Video or primary audio track is missing. ignored.')
             return None
 
         # duration が1分未満の場合は短すぎるので None を返す
         if recorded_video.duration < 60:
+            Logging.error(f'[MetadataAnalyzer] {self.recorded_file_path}: Duration is too short. ignored.')
             return None
 
+        # MPEG-TS 形式のみ、TS ファイルに含まれる番組情報・チャンネル情報を解析する
+        recorded_program = None
+        channel = None
         if recorded_video.container_format == 'MPEG-TS':
-            # TS ファイル内に含まれる番組情報を解析する
-            program_analyzer = TSInfoAnalyzer(self.recorded_file_path)
-            recorded_program, channel = program_analyzer.analyze(recorded_video)
-        else:
-            # それ以外のファイルでは番組情報を取得できないので、ファイル名などから最低限の情報を設定する
-            ## チャンネル情報は取得できない
-            channel = None
-            ## ファイルの作成日時を録画開始時刻として使用する
-            start_time = datetime.fromtimestamp(self.recorded_file_path.stat().st_ctime)
+            program_analyzer = TSInfoAnalyzer(recorded_video)
+            result = program_analyzer.analyze()
+            if result is not None:
+                recorded_program, channel = result
+
+        # それ以外の形式では番組情報を取得できないので、ファイル名などから最低限の情報を設定する
+        # MPEG-TS 形式だが TS ファイルからチャンネル情報を取得できなかった場合も同様
+        ## 他の値は RecordedProgram モデルで設定されたデフォルト値が自動的に入るので、タイトルと日時だけここで設定する
+        if recorded_program is None:
+            ## ファイルの作成日時を番組開始時刻として使用する
+            ## 録画開始時刻が取得できる場合は、それを番組開始時刻として使用する
+            ## ソートなど諸々の関係で日時が DB に入ってないと面倒くさいのでやむを得ず適当な値を入れている
+            start_time = datetime.utcfromtimestamp(self.recorded_file_path.stat().st_ctime).astimezone(pytz.timezone('Asia/Tokyo'))
+            if recorded_video.recording_start_time is not None:
+                start_time = recorded_video.recording_start_time
             ## 拡張子を除いたファイル名をフォーマットした上でタイトルとして使用する
             title = TSInformation.formatString(self.recorded_file_path.stem)
             recorded_program = RecordedProgram(
                 title = title,
-                description = '番組情報を取得できませんでした。',
-                detail = {},
                 start_time = start_time,
                 end_time = start_time + timedelta(seconds=recorded_video.duration),
                 duration = recorded_video.duration,
-                is_free = True,
-                genres = [],
             )
 
-        # CM 区間を検出する (MPEG-TS のみ)
+        # CM 区間を検出する (MPEG-TS 形式のみ)
         ## 時間がかかるので最後に実行する
         if recorded_video.container_format == 'MPEG-TS':
-            cm_sections_detector = CMSectionsDetector(self.recorded_file_path)
-            recorded_video.cm_sections = cm_sections_detector.detect(recorded_video)
+            cm_sections_detector = CMSectionsDetector(recorded_video)
+            recorded_video.cm_sections = cm_sections_detector.detect()
         else:
             recorded_video.cm_sections = []
 
@@ -237,6 +249,7 @@ class MetadataAnalyzer:
         try:
             media_info = cast(MediaInfo, MediaInfo.parse(str(self.recorded_file_path), library_file=libmediainfo_path))
         except Exception:
+            Logging.error(f'[MetadataAnalyzer] {self.recorded_file_path}: Failed to parse media info.')
             return None
 
         # 最低限 KonomiTV で再生可能なファイルであるかのバリデーションを行う
@@ -249,25 +262,32 @@ class MetadataAnalyzer:
                 # 全般 (TS コンテナの情報)
                 if track.track_type == 'General':
                     # MPEG-TS コンテナではない (当面 MPEG-TS のみ対応)
+                    ## BDAV も MPEG-TS だが、TS パケット長が 192 byte で ariblib でパースできないため現状非対応
                     if track.format != 'MPEG-TS':
+                        Logging.error(f'[MetadataAnalyzer] {self.recorded_file_path}: {track.format} is not supported.')
                         return None
                     # 映像 or 音声ストリームが存在しない
                     if track.count_of_video_streams == 0 and track.count_of_audio_streams == 0:
+                        Logging.error(f'[MetadataAnalyzer] {self.recorded_file_path}: Video or audio stream is missing.')
                         return None
 
                 # 映像ストリーム
                 elif track.track_type == 'Video':
                     # スクランブルが解除されていない
                     if track.encryption == 'Encrypted':
+                        Logging.error(f'[MetadataAnalyzer] {self.recorded_file_path}: Video stream is encrypted.')
                         return None
 
                 # 音声ストリーム
                 elif track.track_type == 'Audio':
                     # スクランブルが解除されていない
                     if track.encryption == 'Encrypted':
+                        Logging.error(f'[MetadataAnalyzer] {self.recorded_file_path}: Audio stream is encrypted.')
                         return None
 
-        except Exception:
+        except Exception as ex:
+            Logging.error(f'[MetadataAnalyzer] {self.recorded_file_path}: Failed to validate media info.')
+            Logging.error(ex)
             return None
 
         return media_info

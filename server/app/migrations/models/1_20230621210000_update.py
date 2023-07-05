@@ -7,6 +7,7 @@ async def upgrade(db: BaseDBAsyncClient) -> str:
 CREATE TABLE IF NOT EXISTS "recorded_programs" (
     "id" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     "recorded_video_id" INT NOT NULL REFERENCES "recorded_videos" ("id") ON DELETE CASCADE,
+    "is_partially_recorded" INT NOT NULL,
     "channel_id" VARCHAR(255) REFERENCES "channels" ("id") ON DELETE CASCADE,
     "network_id" INT,
     "service_id" INT,
@@ -14,6 +15,7 @@ CREATE TABLE IF NOT EXISTS "recorded_programs" (
     "series_id" INT REFERENCES "series" ("id") ON DELETE CASCADE,
     "series_broadcast_period_id" INT REFERENCES "series_broadcast_periods" ("id") ON DELETE CASCADE,
     "title" TEXT NOT NULL,
+    "series_title" TEXT,
     "episode_number" VARCHAR(255),
     "subtitle" TEXT,
     "description" TEXT NOT NULL,

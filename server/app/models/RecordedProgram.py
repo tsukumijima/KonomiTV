@@ -27,6 +27,9 @@ class RecordedProgram(models.Model):
     recorded_video: fields.ForeignKeyRelation[RecordedVideo] = \
         fields.ForeignKeyField('models.RecordedVideo', related_name=None)
     recorded_video_id: int
+    recording_start_margin: float = fields.FloatField(default=0.0)  # type: ignore
+    recording_end_margin: float = fields.FloatField(default=0.0)  # type: ignore
+    is_partially_recorded: bool = fields.BooleanField(default=False)  # type: ignore
     channel: fields.ForeignKeyRelation[Channel] | None = fields.ForeignKeyField('models.Channel', related_name=None, null=True)
     channel_id: str | None
     network_id: int | None = fields.IntField(null=True)  # type: ignore
@@ -39,14 +42,15 @@ class RecordedProgram(models.Model):
         fields.ForeignKeyField('models.SeriesBroadcastPeriod', related_name='recorded_programs', null=True)
     series_broadcast_period_id: int | None
     title: str = fields.TextField()  # type: ignore
+    series_title: str | None = fields.TextField(null=True)  # type: ignore
     episode_number: str | None = fields.CharField(255, null=True)  # type: ignore
     subtitle: str | None = fields.TextField(null=True)  # type: ignore
-    description: str = fields.TextField()  # type: ignore
+    description: str = fields.TextField(default='番組情報を取得できませんでした。')  # type: ignore
     detail: dict[str, str] = fields.JSONField(default={}, encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
     start_time: datetime = fields.DatetimeField()  # type: ignore
     end_time: datetime = fields.DatetimeField()  # type: ignore
     duration: float = fields.FloatField()  # type: ignore
-    is_free: bool = fields.BooleanField()  # type: ignore
+    is_free: bool = fields.BooleanField(default=True)  # type: ignore
     genres: list[dict[str, str]] = fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
     primary_audio_type: str = fields.TextField(default='2/0モード(ステレオ)')  # type: ignore
     primary_audio_language: str = fields.TextField(default='日本語')  # type: ignore

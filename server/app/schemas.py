@@ -86,6 +86,9 @@ class RecordedVideo(PydanticModel):
 class RecordedProgram(PydanticModel):
     id: int
     recorded_video: RecordedVideo
+    recording_start_margin: float
+    recording_end_margin: float
+    is_partially_recorded: bool
     channel_id: str | None
     network_id: int | None
     service_id: int | None
@@ -93,6 +96,7 @@ class RecordedProgram(PydanticModel):
     series_id: int | None
     series_broadcast_period_id: int | None
     title: str
+    series_title: str | None
     episode_number: str | None
     subtitle: str | None
     description: str

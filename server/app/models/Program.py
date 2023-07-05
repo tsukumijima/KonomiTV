@@ -4,6 +4,7 @@ import asyncio
 import concurrent.futures
 import datetime
 import json
+import pytz
 import requests
 import time
 import traceback
@@ -12,7 +13,6 @@ from tortoise import connections
 from tortoise import exceptions
 from tortoise import fields
 from tortoise import models
-from tortoise import timezone
 from tortoise import Tortoise
 from tortoise import transactions
 from typing import Any
@@ -173,10 +173,8 @@ class Program(models.Model):
                 datetime.datetime: Datetime（タイムゾーン付き）
             """
 
-            return datetime.datetime.fromtimestamp(
-                millisecond / 1000,  # ミリ秒なので秒に変換
-                tz = timezone.get_default_timezone(),  # タイムゾーンを UTC+9（日本時間）に指定する
-            )
+            # タイムゾーンを UTC+9（日本時間）に指定する
+            return datetime.datetime.utcfromtimestamp(millisecond / 1000).astimezone(pytz.timezone('Asia/Tokyo'))
 
         # マルチプロセス時は既存のコネクションが使えないため、Tortoise ORM を初期化し直す
         # ref: https://tortoise-orm.readthedocs.io/en/latest/setup.html
@@ -270,7 +268,7 @@ class Program(models.Model):
                     end_time = MillisecondToDatetime(program_info['startAt'] + program_info['duration'])
 
                     # 番組終了時刻が現在時刻より1時間以上前な番組を弾く
-                    if datetime.datetime.now(timezone.get_default_timezone()) - end_time > timedelta(hours = 1):
+                    if datetime.datetime.now(pytz.timezone('Asia/Tokyo')) - end_time > timedelta(hours = 1):
                         continue
 
                     # ***** ここからは 追加・更新・更新不要 のいずれか *****

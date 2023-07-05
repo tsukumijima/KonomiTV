@@ -1,6 +1,7 @@
 
 import asyncio
 import pathlib
+import pytz
 import json
 from datetime import datetime
 from datetime import timedelta
@@ -20,7 +21,6 @@ from jose import jwt
 from jose import JWTError
 from passlib.context import CryptContext
 from PIL import Image
-from tortoise import timezone
 from typing import BinaryIO
 
 from app import schemas
@@ -246,9 +246,9 @@ async def UserAccessTokenAPI(
         ## ユーザー名は他のアカウントと被らなければ変更できるため使えない
         'sub': json.dumps({'user_id': user.id}),
         # JWT の発行時間
-        'iat': datetime.now(timezone.get_default_timezone()),
+        'iat': datetime.now(pytz.timezone('Asia/Tokyo')),
         # JWT の有効期限 (JWT の発行から 180 日間)
-        'exp': datetime.now(timezone.get_default_timezone()) + timedelta(days=180),
+        'exp': datetime.now(pytz.timezone('Asia/Tokyo')) + timedelta(days=180),
     }
 
     # JWT エンコードを行い、アクセストークンを生成
