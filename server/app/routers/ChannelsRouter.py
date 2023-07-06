@@ -54,7 +54,7 @@ async def GetChannel(display_channel_id: str = Path(..., description='チャン�
     '',
     summary = 'チャンネル情報一覧 API',
     response_description = 'チャンネル情報。',
-    response_model = schemas.Channels,
+    response_model = schemas.LiveChannels,
 )
 async def ChannelsAPI():
     """
@@ -247,7 +247,7 @@ async def ChannelsAPI():
     '/{display_channel_id}',
     summary = 'チャンネル情報 API',
     response_description = 'チャンネル情報。',
-    response_model = schemas.Channel,
+    response_model = schemas.LiveChannel,
 )
 async def ChannelAPI(
     channel: Channel = Depends(GetChannel),

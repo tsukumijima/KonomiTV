@@ -177,7 +177,8 @@ class TSInfoAnalyzer:
         # ラジオチャンネルにはなり得ない (録画ファイルのバリデーションの時点で映像と音声があることを確認している)
         channel.is_radiochannel = False
 
-        # 録画ファイルから取得したチャンネルなので、is_watchable を False に設定
+        # 録画ファイル内の情報として含まれているだけのチャンネルなので（視聴できるとは限らない）、is_watchable を False に設定
+        ## もし視聴可能な場合はすでに channels テーブルにそのチャンネルのレコードが存在しているはずなので、そちらが優先される
         channel.is_watchable = False
 
         return channel

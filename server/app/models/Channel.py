@@ -57,6 +57,9 @@ class Channel(models.Model):
 
     @property
     def is_display(self) -> bool:
+        # is_watchable が False のチャンネルは録画番組に紐付けられているだけで視聴不可なので常に False を返す
+        if self.is_watchable is False:
+            return False
         # サブチャンネルでかつ現在の番組情報が両方存在しないなら、表示フラグを False に設定
         # 現在放送されているサブチャンネルのみをチャンネルリストに表示するような挙動とする
         # 一般的にサブチャンネルは常に放送されているわけではないため、放送されていない時にチャンネルリストに表示する必要はない
@@ -66,6 +69,9 @@ class Channel(models.Model):
 
     @property
     def viewer_count(self) -> int:
+        # is_watchable が False のチャンネルは録画番組に紐付けられているだけで視聴不可なので常に 0 を返す
+        if self.is_watchable is False:
+            return 0
         # 現在の視聴者数を取得
         ## 循環参照を避けるために遅延インポート
         from app.streams.LiveStream import LiveStream

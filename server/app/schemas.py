@@ -52,10 +52,13 @@ class Channel(PydanticModel):
     is_subchannel: bool
     is_radiochannel: bool
     is_watchable: bool
-    is_display: bool  # 追加カラム
-    viewer_count: int  # 追加カラム
-    program_present: Program | None  # 追加カラム
-    program_following: Program | None  # 追加カラム
+
+class LiveChannel(PydanticModel):
+    # 以下はすべて動的に生成される TV ライブストリーミング用の追加カラム
+    is_display: bool
+    viewer_count: int
+    program_present: Program | None
+    program_following: Program | None
 
 class LiveStream(BaseModel):
     status: Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart']
@@ -176,13 +179,13 @@ class TwitterPasswordAuthRequest(BaseModel):
 # API レスポンスに利用する Pydantic モデル
 # レスポンスボディの JSON 構造を表す
 
-class Channels(BaseModel):
-    GR: list[Channel]
-    BS: list[Channel]
-    CS: list[Channel]
-    CATV: list[Channel]
-    SKY: list[Channel]
-    STARDIGIO: list[Channel]
+class LiveChannels(BaseModel):
+    GR: list[LiveChannel]
+    BS: list[LiveChannel]
+    CS: list[LiveChannel]
+    CATV: list[LiveChannel]
+    SKY: list[LiveChannel]
+    STARDIGIO: list[LiveChannel]
 
 class JikkyoSession(BaseModel):
     is_success: bool
