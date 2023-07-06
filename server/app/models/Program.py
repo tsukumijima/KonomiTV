@@ -1,4 +1,8 @@
 
+# Type Hints を指定できるように
+# ref: https://stackoverflow.com/a/33533514/17124142
+from __future__ import annotations
+
 import ariblib.constants
 import asyncio
 import concurrent.futures
@@ -35,7 +39,8 @@ class Program(models.Model):
 
     # テーブル設計は Notion を参照のこと
     id: str = fields.CharField(255, pk=True)  # type: ignore
-    channel: fields.ForeignKeyRelation[Channel] = fields.ForeignKeyField('models.Channel', related_name='programs', index=True)
+    channel: fields.ForeignKeyRelation[Channel] = \
+        fields.ForeignKeyField('models.Channel', related_name='programs', index=True, on_delete=fields.CASCADE)
     channel_id: str
     network_id: int = fields.IntField()  # type: ignore
     service_id: int = fields.IntField()  # type: ignore

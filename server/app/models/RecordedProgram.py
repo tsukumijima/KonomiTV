@@ -24,22 +24,21 @@ class RecordedProgram(models.Model):
 
     # テーブル設計は Notion を参照のこと
     id: int = fields.IntField(pk=True)  # type: ignore
-    recorded_video: fields.ForeignKeyRelation[RecordedVideo] = \
-        fields.ForeignKeyField('models.RecordedVideo', related_name=None)
-    recorded_video_id: int
+    recorded_video: fields.OneToOneRelation[RecordedVideo]
     recording_start_margin: float = fields.FloatField(default=0.0)  # type: ignore
     recording_end_margin: float = fields.FloatField(default=0.0)  # type: ignore
     is_partially_recorded: bool = fields.BooleanField(default=False)  # type: ignore
-    channel: fields.ForeignKeyRelation[Channel] | None = fields.ForeignKeyField('models.Channel', related_name=None, null=True)
+    channel: fields.ForeignKeyNullableRelation[Channel] = \
+        fields.ForeignKeyField('models.Channel', related_name=None, null=True, on_delete=fields.CASCADE)
     channel_id: str | None
     network_id: int | None = fields.IntField(null=True)  # type: ignore
     service_id: int | None = fields.IntField(null=True)  # type: ignore
     event_id: int | None = fields.IntField(null=True)  # type: ignore
-    series: fields.ForeignKeyRelation[Series] | None = \
-        fields.ForeignKeyField('models.Series', related_name=None, null=True)
+    series: fields.ForeignKeyNullableRelation[Series] = \
+        fields.ForeignKeyField('models.Series', related_name=None, null=True, on_delete=fields.CASCADE)
     series_id: int | None
-    series_broadcast_period: fields.ForeignKeyRelation[SeriesBroadcastPeriod] | None = \
-        fields.ForeignKeyField('models.SeriesBroadcastPeriod', related_name='recorded_programs', null=True)
+    series_broadcast_period: fields.ForeignKeyNullableRelation[SeriesBroadcastPeriod] = \
+        fields.ForeignKeyField('models.SeriesBroadcastPeriod', related_name='recorded_programs', null=True, on_delete=fields.CASCADE)
     series_broadcast_period_id: int | None
     title: str = fields.TextField()  # type: ignore
     series_title: str | None = fields.TextField(null=True)  # type: ignore

@@ -24,7 +24,8 @@ class TwitterAccount(models.Model):
 
     # テーブル設計は Notion を参照のこと
     id: int = fields.IntField(pk=True)  # type: ignore
-    user: fields.ForeignKeyRelation[User] = fields.ForeignKeyField('models.User', related_name='twitter_accounts')
+    user: fields.ForeignKeyRelation[User] = \
+        fields.ForeignKeyField('models.User', related_name='twitter_accounts', on_delete=fields.CASCADE)
     user_id: int
     name: str = fields.TextField()  # type: ignore
     screen_name: str = fields.TextField()  # type: ignore

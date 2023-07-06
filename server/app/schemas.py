@@ -89,7 +89,7 @@ class RecordedProgram(PydanticModel):
     recording_start_margin: float
     recording_end_margin: float
     is_partially_recorded: bool
-    channel_id: str | None
+    channel: Channel | None
     network_id: int | None
     service_id: int | None
     event_id: int | None

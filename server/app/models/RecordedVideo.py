@@ -17,16 +17,14 @@ from tortoise import fields
 from tortoise import models
 from tortoise import Tortoise
 from tortoise import transactions
-from typing import Awaitable, Literal, TYPE_CHECKING
+from typing import Awaitable, Literal
 
 from app.config import Config
 from app.config import LoadConfig
 from app.constants import DATABASE_CONFIG
 from app.models.Channel import Channel
+from app.models.RecordedProgram import RecordedProgram
 from app.utils import Logging
-
-if TYPE_CHECKING:
-    from app.models.RecordedProgram import RecordedProgram
 
 
 class RecordedVideo(models.Model):
@@ -37,6 +35,9 @@ class RecordedVideo(models.Model):
 
     # テーブル設計は Notion を参照のこと
     id: int = fields.IntField(pk=True)  # type: ignore
+    recorded_program: fields.OneToOneRelation[RecordedProgram] = \
+        fields.OneToOneField('models.RecordedProgram', related_name='recorded_video', on_delete=fields.CASCADE)
+    recorded_program_id: int
     file_path: str = fields.TextField()  # type: ignore
     file_hash: str = fields.TextField()  # type: ignore
     recording_start_time: datetime | None = fields.DatetimeField(null=True)  # type: ignore
@@ -69,7 +70,7 @@ class RecordedVideo(models.Model):
         # 動作中のイベントループを取得
         loop = asyncio.get_running_loop()
 
-        # サーバー設定から録画フォルダを取得
+        # サーバー設定から録画フォルダリストを取得
         recorded_folders = Config().video.recorded_folders
 
         # 複数のディレクトリを ProcessPoolExecutor で並列に処理する
@@ -78,6 +79,13 @@ class RecordedVideo(models.Model):
         with concurrent.futures.ProcessPoolExecutor() as executor:
             tasks = [loop.run_in_executor(executor, cls.updateSingleForMultiProcess, directory) for directory in recorded_folders]
             await asyncio.gather(*tasks)
+
+        # もし録画フォルダリストが空だったら、RecordedProgram をすべて削除する
+        ## RecordedProgram に紐づく RecordedVideo も CASCADE 制約で同時に削除される
+        ## この処理で録画フォルダリストが空の状態でサーバーを起動した場合、すべての録画番組が DB 上から削除される
+        if len(recorded_folders) == 0:
+            Logging.info('No recorded folders are specified. Delete all recorded videos.')
+            await RecordedProgram.all().delete()
 
         Logging.info(f'Recorded videos update complete. ({round(time.time() - timestamp, 3)} sec)')
 
@@ -126,18 +134,19 @@ class RecordedVideo(models.Model):
                     channel = exists_channel
 
             # 同一のパスを持つ録画ファイルが存在するがハッシュが異なる場合、一旦削除する
-            ## RecordedVideo に紐づく RecordedProgram, Channel (is_watchable=False) も CASCADE 制約で同時に削除される
+            ## RecordedProgram に紐づく RecordedVideo も CASCADE 制約で同時に削除される
+            ## Channel (is_watchable=False) は他の録画ファイルから参照されている可能性があるため、削除しない
             if current_recorded_video is not None:
-                await current_recorded_video.delete()
+                await current_recorded_video.recorded_program.delete()
 
             # メタデータの解析に成功したなら DB に保存する
             ## 子テーブルを保存した後、それらを親テーブルに紐付けて保存する
-            await recorded_video.save()
-            recorded_program.recorded_video_id = recorded_video.id
             if channel is not None:
                 await channel.save()
                 recorded_program.channel_id = channel.id
             await recorded_program.save()
+            recorded_video.recorded_program_id = recorded_program.id
+            await recorded_video.save()
 
         # DB に保存するタスクを格納するリスト
         ## リスト内のタスクはスキャン完了後に一括で実行する
@@ -224,7 +233,7 @@ class RecordedVideo(models.Model):
                             await task
 
                         # DB 内のすべての録画ファイルを取得する
-                        for recorded_video in await RecordedVideo.all():
+                        for recorded_video in await RecordedVideo.all().select_related('recorded_program'):
 
                             ## 録画ファイルパスが directory から始まっていない & DIRECTORIES のいずれかから始まっている場合は、
                             ## 同時に別フォルダを処理している別プロセスのスキャン結果に含まれている可能性が高いため、スキップする
@@ -233,8 +242,10 @@ class RecordedVideo(models.Model):
                                 continue
 
                             # スキャン結果に含まれない録画ファイルが DB に存在する場合は削除する
+                            ## RecordedProgram に紐づく RecordedVideo も CASCADE 制約で同時に削除される
+                            ## Channel (is_watchable=False) は他の録画ファイルから参照されている可能性があるため、削除しない
                             if recorded_video.file_path not in existing_files:
-                                await recorded_video.delete()
+                                await recorded_video.recorded_program.delete()
                                 Logging.info(f'Delete Recorded: {Path(recorded_video.file_path).name}')
 
                         # 正常に DB に保存できたならループを抜ける
