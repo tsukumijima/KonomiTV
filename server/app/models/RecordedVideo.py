@@ -1,4 +1,8 @@
 
+# Type Hints を指定できるように
+# ref: https://stackoverflow.com/a/33533514/17124142
+from __future__ import annotations
+
 import asyncio
 import concurrent.futures
 import os
@@ -13,13 +17,16 @@ from tortoise import fields
 from tortoise import models
 from tortoise import Tortoise
 from tortoise import transactions
-from typing import Literal
+from typing import Awaitable, Literal, TYPE_CHECKING
 
 from app.config import Config
 from app.config import LoadConfig
 from app.constants import DATABASE_CONFIG
 from app.models.Channel import Channel
 from app.utils import Logging
+
+if TYPE_CHECKING:
+    from app.models.RecordedProgram import RecordedProgram
 
 
 class RecordedVideo(models.Model):
@@ -97,6 +104,45 @@ class RecordedVideo(models.Model):
         # ref: https://tortoise-orm.readthedocs.io/en/latest/setup.html
         await Tortoise.init(config=DATABASE_CONFIG)
 
+        async def save(
+            current_recorded_video: RecordedVideo | None,
+            recorded_video: RecordedVideo,
+            recorded_program: RecordedProgram,
+            channel: Channel | None,
+        ) -> None:
+            """
+            データベースに保存する
+            スキャン時にタスクを生成した後遅延して一括保存するために使っている
+            """
+
+            # TODO: 完成形ではこの時点で recorded_program 内にシリーズタイトル・話数・サブタイトルが取得できているはずだが、
+            # Series と SeriesBroadcastPeriod モデル自体は作成および紐付けされていないので、別途それを行う必要がある
+            ## もちろんすべて（あるいはいずれか）が取得できない場合もあるので、取得できる限られた情報から判断するように実装する必要がある
+
+            # 既に同一の ID を持つ Channel が存在する場合は、既存の Channel を使う
+            if channel is not None:
+                exists_channel = await Channel.get_or_none(id=channel.id)
+                if exists_channel is not None:
+                    channel = exists_channel
+
+            # 同一のパスを持つ録画ファイルが存在するがハッシュが異なる場合、一旦削除する
+            ## RecordedVideo に紐づく RecordedProgram, Channel (is_watchable=False) も CASCADE 制約で同時に削除される
+            if current_recorded_video is not None:
+                await current_recorded_video.delete()
+
+            # メタデータの解析に成功したなら DB に保存する
+            ## 子テーブルを保存した後、それらを親テーブルに紐付けて保存する
+            await recorded_video.save()
+            recorded_program.recorded_video_id = recorded_video.id
+            if channel is not None:
+                await channel.save()
+                recorded_program.channel_id = channel.id
+            await recorded_program.save()
+
+        # DB に保存するタスクを格納するリスト
+        ## リスト内のタスクはスキャン完了後に一括で実行する
+        save_tasks: list[Awaitable[None]] = []
+
         try:
 
             # 指定されたディレクトリ以下のファイルを再帰的に走査する
@@ -152,50 +198,11 @@ class RecordedVideo(models.Model):
                             Logging.error(traceback.format_exc())
                             continue
 
-                        # TODO: 完成形ではこの時点で recorded_program 内にシリーズタイトル・話数・サブタイトルが取得できているはずだが、
-                        # Series と SeriesBroadcastPeriod モデル自体は作成および紐付けされていないので、別途それを行う必要がある
-                        ## もちろんすべて（あるいはいずれか）が取得できない場合もあるので、取得できる限られた情報から判断するように実装する必要がある
-
-                        retry_count = 10
-                        while retry_count > 0:
-                            try:
-                                # このトランザクションはパフォーマンス向上のため
-                                async with transactions.in_transaction():
-
-                                    # 既に同一の ID を持つ Channel が存在する場合は、既存の Channel を使う
-                                    if channel is not None:
-                                        exists_channel = await Channel.get_or_none(id=channel.id)
-                                        if exists_channel is not None:
-                                            channel = exists_channel
-
-                                    # 同一のパスを持つ録画ファイルが存在するがハッシュが異なる場合、一旦削除する
-                                    ## RecordedVideo に紐づく RecordedProgram, Channel (is_watchable=False) も CASCADE 制約で同時に削除される
-                                    if current_recorded_video is not None:
-                                        await current_recorded_video.delete()
-
-                                    # メタデータの解析に成功したなら DB に保存する
-                                    ## 子テーブルを保存した後、それらを親テーブルに紐付けて保存する
-                                    await recorded_video.save()
-                                    recorded_program.recorded_video_id = recorded_video.id
-                                    if channel is not None:
-                                        await channel.save()
-                                        recorded_program.channel_id = channel.id
-                                    await recorded_program.save()
-
-                                    # 正常に DB に保存できたならループを抜ける
-                                    break
-                            except exceptions.OperationalError:
-                                # DB が他のプロセスによってロックされている場合は、少し待ってからリトライする
-                                ## SQLite は複数プロセスから同時に書き込むことができないため、リトライ処理が必要
-                                retry_count -= 1
-                                Logging.warning(f'{file_path}: Database is locked. Retrying... ({retry_count}/10)')
-                                await asyncio.sleep(0.1)
-
-                        if 0 < retry_count < 10:
-                            Logging.info(f'{file_path}: Retry succeeded.')
-                        elif retry_count == 0:
-                            Logging.error(f'{file_path}: Failed to save to database. ignored.')
-                            continue
+                        # メタデータの解析に成功したなら DB に保存するタスクを生成する
+                        ## スキャン中にタスクを生成しておき、スキャン完了後に一括で実行する
+                        ## スキャン中に DB への書き込みを行うと並列処理の関係でデータベースロックエラーが発生することがあるほか、
+                        ## スキャン用ループのパフォーマンス低下につながる
+                        save_tasks.append(save(current_recorded_video, recorded_video, recorded_program, channel))
 
                         if current_recorded_video is None:
                             Logging.info(f'Add Recorded: {file_path.name}')
@@ -208,8 +215,15 @@ class RecordedVideo(models.Model):
             retry_count = 10
             while retry_count > 0:
                 try:
-                    # このトランザクションはパフォーマンス向上のため
+                    # このトランザクションは主にパフォーマンス向上のため
                     async with transactions.in_transaction():
+
+                        # DB に保存するタスクを一括実行する
+                        ## DB 書き込みは並行だとパフォーマンスが出ないので、普通に for ループで実行する
+                        for task in save_tasks:
+                            await task
+
+                        # DB 内のすべての録画ファイルを取得する
                         for recorded_video in await RecordedVideo.all():
 
                             ## 録画ファイルパスが directory から始まっていない & DIRECTORIES のいずれかから始まっている場合は、
@@ -225,9 +239,10 @@ class RecordedVideo(models.Model):
 
                         # 正常に DB に保存できたならループを抜ける
                         break
+
+                # DB が他のプロセスによってロックされている場合は、少し待ってからリトライする
+                ## SQLite は複数プロセスから同時に書き込むことができないため、リトライ処理が必要
                 except exceptions.OperationalError:
-                    # DB が他のプロセスによってロックされている場合は、少し待ってからリトライする
-                    ## SQLite は複数プロセスから同時に書き込むことができないため、リトライ処理が必要
                     retry_count -= 1
                     Logging.warning(f'Database is locked. Retrying... ({retry_count}/10)')
                     await asyncio.sleep(0.1)
@@ -235,7 +250,7 @@ class RecordedVideo(models.Model):
             if 0 < retry_count < 10:
                 Logging.info(f'Retry succeeded.')
             elif retry_count == 0:
-                Logging.error(f'Failed to delete to database. ignored.')
+                Logging.error(f'Failed to save to database. ignored.')
 
         # 明示的に例外を拾わないとなぜかメインプロセスも含め全体がフリーズしてしまう
         except Exception:
