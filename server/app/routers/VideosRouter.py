@@ -34,6 +34,8 @@ async def VideosAPI(
 
     PAGE_SIZE = 100
     recorded_programs = await RecordedProgram.all() \
+        .select_related('recorded_video') \
+        .select_related('channel') \
         .order_by('-start_time' if order == 'desc' else 'start_time') \
         .offset((page - 1) * PAGE_SIZE) \
         .limit(PAGE_SIZE) \
@@ -55,7 +57,9 @@ async def VideoAPI(video_id: int):
     指定された録画番組を取得する。
     """
 
-    recorded_program = await RecordedProgram.get_or_none(id=video_id)
+    recorded_program = await RecordedProgram.get_or_none(id=video_id) \
+        .select_related('recorded_video') \
+        .select_related('channel')
     if recorded_program is None:
         Logging.error(f'[VideosRouter][VideoAPI] Specified video_id was not found [video_id: {video_id}]')
         raise HTTPException(

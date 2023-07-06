@@ -29,6 +29,9 @@ async def SeriesListAPI():
     series_list = await Series.all() \
         .prefetch_related('broadcast_periods') \
         .prefetch_related('broadcast_periods__recorded_programs') \
+        .select_related('broadcast_periods__channel') \
+        .select_related('broadcast_periods__recorded_programs__recorded_video') \
+        .select_related('broadcast_periods__recorded_programs__channel') \
         .order_by('-updated_at')
 
     return {
@@ -50,7 +53,10 @@ async def SeriesAPI(series_id: int):
 
     series = await Series.get_or_none(id=series_id) \
         .prefetch_related('broadcast_periods') \
-        .prefetch_related('broadcast_periods__recorded_programs')
+        .prefetch_related('broadcast_periods__recorded_programs') \
+        .select_related('broadcast_periods__channel') \
+        .select_related('broadcast_periods__recorded_programs__recorded_video') \
+        .select_related('broadcast_periods__recorded_programs__channel')
     if series is None:
         Logging.error(f'[SeriesRouter][SeriesAPI] Specified series_id was not found [series_id: {series_id}]')
         raise HTTPException(
