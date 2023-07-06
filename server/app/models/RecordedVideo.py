@@ -8,6 +8,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 from tortoise import connections
+from tortoise import exceptions
 from tortoise import fields
 from tortoise import models
 from tortoise import Tortoise
@@ -97,102 +98,144 @@ class RecordedVideo(models.Model):
         await Tortoise.init(config=DATABASE_CONFIG)
 
         try:
-            # このトランザクションはパフォーマンス向上のため
-            async with transactions.in_transaction():
 
-                # 指定されたディレクトリ以下のファイルを再帰的に走査する
-                ## シンボリックリンクにより同一ファイルが複数回スキャンされることを防ぐため、followlinks=False に設定している
-                ## 本来同期関数の os.walk を非同期関数の中で使うのは望ましくないが (イベントループがブロッキングされるため)、
-                ## この関数自体が ProcessPoolExecutor 内でそれぞれ別プロセスで実行されるため問題ない
-                existing_files: list[str] = []
-                for dir_path, _, file_names in os.walk(directory, followlinks=False):
-                    for file_name in file_names:
+            # 指定されたディレクトリ以下のファイルを再帰的に走査する
+            ## シンボリックリンクにより同一ファイルが複数回スキャンされることを防ぐため、followlinks=False に設定している
+            ## 本来同期関数の os.walk を非同期関数の中で使うのは望ましくないが (イベントループがブロッキングされるため)、
+            ## この関数自体が ProcessPoolExecutor 内でそれぞれ別プロセスで実行されるため問題ない
+            existing_files: list[str] = []
+            for dir_path, _, file_names in os.walk(directory, followlinks=False):
+                for file_name in file_names:
 
-                        # 録画ファイルのフルパス
-                        file_path = Path(dir_path) / file_name
+                    # 録画ファイルのフルパス
+                    file_path = Path(dir_path) / file_name
 
-                        # バリデーション
-                        ## ._ から始まるファイルは Mac が勝手に作成するファイルなので無視する
-                        if file_path.name.startswith('._'):
-                            continue
-                        ## 当面 TS ファイルのみを対象とする
-                        if file_path.suffix not in ['.ts', '.m2t', '.m2ts', '.mts']:
-                            continue
-                        existing_files.append(str(file_path))
+                    # バリデーション
+                    ## ._ から始まるファイルは Mac が勝手に作成するファイルなので無視する
+                    if file_path.name.startswith('._'):
+                        continue
+                    ## 当面 TS ファイルのみを対象とする
+                    if file_path.suffix not in ['.ts', '.m2t', '.m2ts', '.mts']:
+                        continue
+                    existing_files.append(str(file_path))
 
-                        # 録画ファイルのハッシュを取得
-                        ## ブロッキング同期関数とはいえ本来 await する意義はあまりないが、念のため asyncio.to_thread() でくるむ
+                    # 録画ファイルのハッシュを取得
+                    ## 高速化のためにあえて asyncio.to_thread() を使っていない
+                    ## イベントループは ProcessPoolExecutor 内で実行されているため、他の非同期タスクをブロッキングすることはない
+                    try:
+                        file_hash = MetadataAnalyzer(file_path).calculateTSFileHash()
+                    except ValueError:
+                        Logging.warning(f'{file_path}: File size is too small. ignored.')
+                        continue
+
+                    # 同一のパスを持つ録画ファイルが DB に存在するか確認する
+                    current_recorded_video = await RecordedVideo.get_or_none(file_path=file_path)
+
+                    # 同一のパスを持つ録画ファイルが存在しないか、ハッシュが異なる場合はメタデータを取得する
+                    if current_recorded_video is None or current_recorded_video.file_hash != file_hash:
+
+                        # MetadataAnalyzer でメタデータを解析し、RecordedVideo, RecordedProgram, Channel (is_watchable=False) モデルを取得する
+                        ## メタデータの解析に失敗した (KonomiTV で再生できない形式など) 場合は None が返るのでスキップする
+                        ## Channel モデルは録画ファイルから番組情報を取得できなかった場合は None になる
+                        ## asyncio.to_thread() で非同期に実行しないと内部で DB アクセスしている箇所でエラーが発生する
                         try:
-                            file_hash = await asyncio.to_thread(MetadataAnalyzer(file_path).calculateTSFileHash)
-                        except ValueError:
-                            Logging.warning(f'{file_path}: File size is too small. ignored.')
+                            result = await asyncio.to_thread(MetadataAnalyzer(file_path).analyze)
+                            if result is None:
+                                # メタデータの解析に失敗するファイルが出ることは一定数想定されうるので warning 扱い
+                                Logging.warning(f'{file_path}: Failed to analyze metadata. ignored.')
+                                continue
+                            recorded_video, recorded_program, channel = result
+                        except Exception:
+                            # メタデータの解析中に予期せぬエラーが発生した場合
+                            # ログ出力した上でスキップする
+                            Logging.error(f'{file_path}: Unexpected error occurred while analyzing metadata. ignored.')
+                            Logging.error(traceback.format_exc())
                             continue
 
-                        # 同一のパスを持つ録画ファイルが DB に存在するか確認する
-                        current_recorded_video = await RecordedVideo.get_or_none(file_path=file_path)
+                        # TODO: 完成形ではこの時点で recorded_program 内にシリーズタイトル・話数・サブタイトルが取得できているはずだが、
+                        # Series と SeriesBroadcastPeriod モデル自体は作成および紐付けされていないので、別途それを行う必要がある
+                        ## もちろんすべて（あるいはいずれか）が取得できない場合もあるので、取得できる限られた情報から判断するように実装する必要がある
 
-                        # 同一のパスを持つ録画ファイルが存在しないか、ハッシュが異なる場合はメタデータを取得する
-                        if current_recorded_video is None or current_recorded_video.file_hash != file_hash:
-
-                            # 同一のパスを持つ録画ファイルが存在するがハッシュが異なる場合、一旦削除する
-                            ## RecordedVideo に紐づく RecordedProgram, Channel (is_watchable=False) も CASCADE 制約で同時に削除される
-                            if current_recorded_video is not None:
-                                await current_recorded_video.delete()
-
-                            # MetadataAnalyzer でメタデータを解析し、RecordedVideo, RecordedProgram, Channel (is_watchable=False) モデルを取得する
-                            ## メタデータの解析に失敗した (KonomiTV で再生できない形式など) 場合は None が返るのでスキップする
-                            ## Channel モデルは録画ファイルから番組情報を取得できなかった場合は None になる
-                            ## asyncio.to_thread() で非同期に実行しないと内部で DB アクセスしている箇所でエラーが発生する
+                        retry_count = 10
+                        while retry_count > 0:
                             try:
-                                result = await asyncio.to_thread(MetadataAnalyzer(file_path).analyze)
-                                if result is None:
-                                    # メタデータの解析に失敗するファイルが出ることは一定数想定されうるので warning 扱い
-                                    Logging.warning(f'{file_path}: Failed to analyze metadata. ignored.')
-                                    continue
-                                recorded_video, recorded_program, channel = result
-                            except Exception:
-                                # メタデータの解析中に予期せぬエラーが発生した場合
-                                # ログ出力した上でスキップする
-                                Logging.error(f'{file_path}: Unexpected error occurred while analyzing metadata. ignored.')
-                                Logging.error(traceback.format_exc())
+                                # このトランザクションはパフォーマンス向上のため
+                                async with transactions.in_transaction():
+
+                                    # 既に同一の ID を持つ Channel が存在する場合は、既存の Channel を使う
+                                    if channel is not None:
+                                        exists_channel = await Channel.get_or_none(id=channel.id)
+                                        if exists_channel is not None:
+                                            channel = exists_channel
+
+                                    # 同一のパスを持つ録画ファイルが存在するがハッシュが異なる場合、一旦削除する
+                                    ## RecordedVideo に紐づく RecordedProgram, Channel (is_watchable=False) も CASCADE 制約で同時に削除される
+                                    if current_recorded_video is not None:
+                                        await current_recorded_video.delete()
+
+                                    # メタデータの解析に成功したなら DB に保存する
+                                    ## 子テーブルを保存した後、それらを親テーブルに紐付けて保存する
+                                    await recorded_video.save()
+                                    recorded_program.recorded_video_id = recorded_video.id
+                                    if channel is not None:
+                                        await channel.save()
+                                        recorded_program.channel_id = channel.id
+                                    await recorded_program.save()
+
+                                    # 正常に DB に保存できたならループを抜ける
+                                    break
+                            except exceptions.OperationalError:
+                                # DB が他のプロセスによってロックされている場合は、少し待ってからリトライする
+                                ## SQLite は複数プロセスから同時に書き込むことができないため、リトライ処理が必要
+                                retry_count -= 1
+                                Logging.warning(f'{file_path}: Database is locked. Retrying... ({retry_count}/10)')
+                                await asyncio.sleep(0.1)
+
+                        if 0 < retry_count < 10:
+                            Logging.info(f'{file_path}: Retry succeeded.')
+                        elif retry_count == 0:
+                            Logging.error(f'{file_path}: Failed to save to database. ignored.')
+                            continue
+
+                        if current_recorded_video is None:
+                            Logging.info(f'Add Recorded: {file_path.name}')
+                        else:
+                            Logging.info(f'Update Recorded: {file_path.name}')
+                    else:
+                        #Logging.debug(f'Skip Recorded: {file_path.name}')
+                        pass
+
+            retry_count = 10
+            while retry_count > 0:
+                try:
+                    # このトランザクションはパフォーマンス向上のため
+                    async with transactions.in_transaction():
+                        for recorded_video in await RecordedVideo.all():
+
+                            ## 録画ファイルパスが directory から始まっていない & DIRECTORIES のいずれかから始まっている場合は、
+                            ## 同時に別フォルダを処理している別プロセスのスキャン結果に含まれている可能性が高いため、スキップする
+                            if not recorded_video.file_path.startswith(str(directory)) and \
+                                any([recorded_video.file_path.startswith(str(d)) for d in Config().video.recorded_folders]):
                                 continue
 
-                            # TODO: 完成形ではこの時点で recorded_program 内にシリーズタイトル・話数・サブタイトルが取得できているはずだが、
-                            # Series と SeriesBroadcastPeriod モデル自体は作成および紐付けされていないので、別途それを行う必要がある
-                            ## もちろんすべて（あるいはいずれか）が取得できない場合もあるので、取得できる限られた情報から判断するように実装する必要がある
+                            # スキャン結果に含まれない録画ファイルが DB に存在する場合は削除する
+                            if recorded_video.file_path not in existing_files:
+                                await recorded_video.delete()
+                                Logging.info(f'Delete Recorded: {Path(recorded_video.file_path).name}')
 
-                            # 既に同一の ID を持つ Channel が存在する場合は、既存の Channel を使う
-                            if channel is not None:
-                                exists_channel = await Channel.get_or_none(id=channel.id)
-                                if exists_channel is not None:
-                                    channel = exists_channel
+                        # 正常に DB に保存できたならループを抜ける
+                        break
+                except exceptions.OperationalError:
+                    # DB が他のプロセスによってロックされている場合は、少し待ってからリトライする
+                    ## SQLite は複数プロセスから同時に書き込むことができないため、リトライ処理が必要
+                    retry_count -= 1
+                    Logging.warning(f'Database is locked. Retrying... ({retry_count}/10)')
+                    await asyncio.sleep(0.1)
 
-                            # メタデータの解析に成功したなら DB に保存する
-                            ## 子テーブルを保存した後、それらを親テーブルに紐付けて保存する
-                            await recorded_video.save()
-                            recorded_program.recorded_video_id = recorded_video.id
-                            if channel is not None:
-                                await channel.save()
-                                recorded_program.channel_id = channel.id
-                            await recorded_program.save()
-                            if current_recorded_video is None:
-                                Logging.info(f'Add Recorded: {file_path.name}')
-                            else:
-                                Logging.info(f'Update Recorded: {file_path.name}')
-                        else:
-                            #Logging.debug(f'Skip Recorded: {file_path.name}')
-                            pass
-
-                # os.walk() のスキャン結果に含まれない録画ファイルが DB に存在する場合は削除する
-                for recorded_video in await RecordedVideo.all():
-                    ## 録画ファイルパスが directory から始まっていない & DIRECTORIES のいずれかから始まっている場合は、
-                    ## 同時に別フォルダを処理している別プロセスのスキャン結果に含まれている可能性が高いため、スキップする
-                    if not recorded_video.file_path.startswith(str(directory)) and \
-                        any([recorded_video.file_path.startswith(str(d)) for d in Config().video.recorded_folders]):
-                        continue
-                    if recorded_video.file_path not in existing_files:
-                        await recorded_video.delete()
-                        Logging.info(f'Delete Recorded: {Path(recorded_video.file_path).name}')
+            if 0 < retry_count < 10:
+                Logging.info(f'Retry succeeded.')
+            elif retry_count == 0:
+                Logging.error(f'Failed to delete to database. ignored.')
 
         # 明示的に例外を拾わないとなぜかメインプロセスも含め全体がフリーズしてしまう
         except Exception:

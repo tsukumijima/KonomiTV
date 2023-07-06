@@ -218,7 +218,10 @@ class MetadataAnalyzer:
             raise ValueError(f'File size must be at least {chunk_size * num_chunks} bytes.')
 
         with self.recorded_file_path.open('rb') as file:
-            hash_obj = hashlib.sha256()
+
+            # SHA-256 だとハッシュ化に時間がかかるため、高速化のために MD5 を使用する
+            ## 録画ファイルのハッシュを取りたいだけなのでセキュリティの考慮は不要
+            hash_obj = hashlib.md5(usedforsecurity=False)
 
             # 指定された数のチャンクを読み込み、ハッシュを計算する
             for chunk_index in range(num_chunks):
