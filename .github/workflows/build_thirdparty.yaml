@@ -37,7 +37,7 @@ env:
   # ビルド対象の tsreadex・psisiarc・Akebi のコミットハッシュ
   TSREADEX_COMMIT_HASH: 'fd72ef31b94832ee8e761800f9f5d5a8e66c8a22'
   PSISIARC_COMMIT_HASH: '6593a0f63aedaaecfac7682b51e267874a8ec549'
-  AKEBI_COMMIT_HASH: '2757f136dda4f3c1d5b8baa433c1b52bb8526a0c'
+  AKEBI_COMMIT_HASH: '3c1f9e4a35dfee57f0f6adfe3c9cff94dd8236f4'
 
 # ジョブの定義
 jobs:
@@ -81,7 +81,7 @@ jobs:
       - name: Setup Golang Environment
         uses: actions/setup-go@v3
         with:
-          go-version: '1.18.1'
+          go-version: '1.19.5'
 
       # Akebi HTTPS Server のビルド
       - name: Build Akebi HTTPS Server
