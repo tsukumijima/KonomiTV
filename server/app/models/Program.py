@@ -7,6 +7,7 @@ import ariblib.constants
 import asyncio
 import concurrent.futures
 import datetime
+import gc
 import json
 import pytz
 import requests
@@ -734,6 +735,9 @@ class Program(models.Model):
         finally:
             if is_running_multiprocess:
                 await connections.close_all()
+
+        # 強制的にガベージコレクションを実行する
+        gc.collect()
 
 
     @classmethod

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import gc
 import os
 import json
 import time
@@ -17,7 +18,7 @@ from tortoise import fields
 from tortoise import models
 from tortoise import Tortoise
 from tortoise import transactions
-from typing import Awaitable, Literal
+from typing import Literal
 
 from app.config import Config
 from app.config import LoadConfig
@@ -119,8 +120,8 @@ class RecordedVideo(models.Model):
             channel: Channel | None,
         ) -> None:
             """
-            データベースに保存する
-            スキャン時にタスクを生成した後遅延して一括保存するために使っている
+            変更を DB に保存する
+            スキャン時にこの関数に渡す引数を作成した後、スキャン終了後に一括で実行する
             """
 
             # TODO: 完成形ではこの時点で recorded_program 内にシリーズタイトル・話数・サブタイトルが取得できているはずだが、
@@ -134,8 +135,9 @@ class RecordedVideo(models.Model):
                     channel = exists_channel
 
             # 同一のパスを持つ録画ファイルが存在するがハッシュが異なる場合、一旦削除する
+            ## この処理が実行されている時点で、同一のパスを持つ録画ファイルが存在する場合、ハッシュが異なることが確定している
             ## RecordedProgram に紐づく RecordedVideo も CASCADE 制約で同時に削除される
-            ## Channel (is_watchable=False) は他の録画ファイルから参照されている可能性があるため、削除しない
+            ## Channel (is_watchable=False) は他の録画ファイルから参照されている可能性があるため、削除されない
             if current_recorded_video is not None:
                 await current_recorded_video.recorded_program.delete()
 
@@ -148,9 +150,14 @@ class RecordedVideo(models.Model):
             recorded_video.recorded_program_id = recorded_program.id
             await recorded_video.save()
 
-        # DB に保存するタスクを格納するリスト
+        # DB に保存するタスクの引数を格納するリスト
         ## リスト内のタスクはスキャン完了後に一括で実行する
-        save_tasks: list[Awaitable[None]] = []
+        save_args_list: list[tuple[
+            RecordedVideo | None,
+            RecordedVideo,
+            RecordedProgram,
+            Channel | None,
+        ]] = []
 
         try:
 
@@ -184,7 +191,7 @@ class RecordedVideo(models.Model):
                         continue
 
                     # 同一のパスを持つ録画ファイルが DB に存在するか確認する
-                    current_recorded_video = await RecordedVideo.get_or_none(file_path=file_path)
+                    current_recorded_video = await RecordedVideo.get_or_none(file_path=file_path).select_related('recorded_program')
 
                     # 同一のパスを持つ録画ファイルが存在しないか、ハッシュが異なる場合はメタデータを取得する
                     if current_recorded_video is None or current_recorded_video.file_hash != file_hash:
@@ -207,11 +214,11 @@ class RecordedVideo(models.Model):
                             Logging.error(traceback.format_exc())
                             continue
 
-                        # メタデータの解析に成功したなら DB に保存するタスクを生成する
-                        ## スキャン中にタスクを生成しておき、スキャン完了後に一括で実行する
+                        # メタデータの解析に成功したなら DB に保存するタスクの引数を追加する
+                        # この引数リストを save() に渡すループをスキャン完了後に一括で回して DB に保存する
                         ## スキャン中に DB への書き込みを行うと並列処理の関係でデータベースロックエラーが発生することがあるほか、
                         ## スキャン用ループのパフォーマンス低下につながる
-                        save_tasks.append(save(current_recorded_video, recorded_video, recorded_program, channel))
+                        save_args_list.append((current_recorded_video, recorded_video, recorded_program, channel))
 
                         if current_recorded_video is None:
                             Logging.info(f'Add Recorded: {file_path.name}')
@@ -224,13 +231,13 @@ class RecordedVideo(models.Model):
             retry_count = 10
             while retry_count > 0:
                 try:
-                    # このトランザクションは主にパフォーマンス向上のため
+                    # トランザクション配下に入れることでパフォーマンスが向上する
                     async with transactions.in_transaction():
 
                         # DB に保存するタスクを一括実行する
                         ## DB 書き込みは並行だとパフォーマンスが出ないので、普通に for ループで実行する
-                        for task in save_tasks:
-                            await task
+                        for save_args in save_args_list:
+                            await save(*save_args)
 
                         # DB 内のすべての録画ファイルを取得する
                         for recorded_video in await RecordedVideo.all().select_related('recorded_program'):
@@ -243,7 +250,7 @@ class RecordedVideo(models.Model):
 
                             # スキャン結果に含まれない録画ファイルが DB に存在する場合は削除する
                             ## RecordedProgram に紐づく RecordedVideo も CASCADE 制約で同時に削除される
-                            ## Channel (is_watchable=False) は他の録画ファイルから参照されている可能性があるため、削除しない
+                            ## Channel (is_watchable=False) は他の録画ファイルから参照されている可能性があるため、削除されない
                             if recorded_video.file_path not in existing_files:
                                 await recorded_video.recorded_program.delete()
                                 Logging.info(f'Delete Recorded: {Path(recorded_video.file_path).name}')
@@ -253,15 +260,19 @@ class RecordedVideo(models.Model):
 
                 # DB が他のプロセスによってロックされている場合は、少し待ってからリトライする
                 ## SQLite は複数プロセスから同時に書き込むことができないため、リトライ処理が必要
-                except exceptions.OperationalError:
-                    retry_count -= 1
-                    Logging.warning(f'Database is locked. Retrying... ({retry_count}/10)')
-                    await asyncio.sleep(0.1)
+                except exceptions.OperationalError as ex:
+                    if 'database is locked' in str(ex).lower():
+                        retry_count -= 1
+                        Logging.warning(f'Failed to save to database. Retrying... ({retry_count}/10)')
+                        await asyncio.sleep(0.25)
+                    else:
+                        # 予期せぬ OperationalError が発生した場合はリトライせずに例外を投げる
+                        raise ex
 
             if 0 < retry_count < 10:
-                Logging.info(f'Retry succeeded.')
+                Logging.info(f'Succeeded to save to database after retrying.')
             elif retry_count == 0:
-                Logging.error(f'Failed to save to database. ignored.')
+                Logging.error(f'Failed to save to database after retrying. ignored.')
 
         # 明示的に例外を拾わないとなぜかメインプロセスも含め全体がフリーズしてしまう
         except Exception:
@@ -271,6 +282,9 @@ class RecordedVideo(models.Model):
         # コネクションを閉じないと Ctrl+C を押下しても終了できない
         finally:
             await Tortoise.close_connections()
+
+        # 強制的にガベージコレクションを実行する
+        gc.collect()
 
 
     @classmethod
