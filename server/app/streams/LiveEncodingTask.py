@@ -6,6 +6,7 @@ from __future__ import annotations
 import aiofiles
 import aiohttp
 import asyncio
+import gc
 import os
 import re
 import time
@@ -543,9 +544,6 @@ class LiveEncodingTask:
         # 放送波の MPEG2-TS を受信する StreamReader
         stream_reader: asyncio.StreamReader | PipeStreamReader | aiohttp.StreamReader
 
-        # EDCB のチューナーインスタンス (Mirakurun バックエンド利用時は常に None)
-        tuner: EDCBTuner | None = None
-
         # Mirakurun の aiohttp セッション (EDCB バックエンド利用時は常に None)
         response: aiohttp.ClientResponse | None = None
         session: aiohttp.ClientSession | None = None
@@ -600,12 +598,13 @@ class LiveEncodingTask:
         elif CONFIG.general.backend == 'EDCB':
 
             # チューナーインスタンスを初期化
-            tuner = EDCBTuner(channel.network_id, channel.service_id, cast(int, channel.transport_stream_id))
+            ## Idling への切り替え、ONAir への復帰時に LiveStream 側でチューナーのアンロック/ロックが行われる
+            self.livestream.tuner = EDCBTuner(channel.network_id, channel.service_id, cast(int, channel.transport_stream_id))
 
             # チューナーを起動する
             # アンロック状態のチューナーインスタンスがあれば、自動的にそのチューナーが再利用される
             self.livestream.setStatus('Standby', 'チューナーを起動しています…')
-            is_tuner_opened = await tuner.open()
+            is_tuner_opened = await self.livestream.tuner.open()
 
             # チューナーの起動に失敗した
             # ほとんどがチューナー不足によるものなので、ステータス詳細でもそのように表示する
@@ -614,7 +613,7 @@ class LiveEncodingTask:
                 self.livestream.setStatus('Offline', 'チューナーの起動に失敗しました。チューナー不足が原因かもしれません。(E-02E)')
 
                 # チューナーを閉じる
-                await tuner.close()
+                await self.livestream.tuner.close()
 
                 # すべての視聴中クライアントのライブストリームへの接続を切断する
                 self.livestream.disconnectAll()
@@ -634,19 +633,19 @@ class LiveEncodingTask:
 
             # チューナーをロックする
             # ロックしないと途中でチューナーの制御を横取りされてしまう
-            tuner.lock()
+            self.livestream.tuner.lock()
 
             # チューナーに接続する
             # 放送波が送信される TCP ソケットまたは名前付きパイプを取得する
             self.livestream.setStatus('Standby', 'チューナーに接続しています…')
-            reader = await tuner.connect()
+            reader = await self.livestream.tuner.connect()
 
             # チューナーへの接続に失敗した
             if reader is None:
                 self.livestream.setStatus('Offline', 'チューナーへの接続に失敗しました。チューナー側に何らかの問題があるかもしれません。(E-03E)')
 
                 # チューナーを閉じる
-                await tuner.close()
+                await self.livestream.tuner.close()
 
                 # すべての視聴中クライアントのライブストリームへの接続を切断する
                 self.livestream.disconnectAll()
@@ -666,10 +665,6 @@ class LiveEncodingTask:
 
             # 放送波の MPEG2-TS の受信元の StreamReader として設定
             stream_reader = reader
-
-            # ライブストリームにチューナーインスタンスを設定する
-            # Idling への切り替え、ONAir への復帰時に LiveStream 側でチューナーのアンロック/ロックが行われる
-            self.livestream.tuner = tuner
 
         # ***** チューナーからの出力の読み込み → tsreadex・エンコーダーへの書き込み *****
 
@@ -741,8 +736,8 @@ class LiveEncodingTask:
 
             # EDCB バックエンド: チューナーとのストリーミング接続を閉じる
             ## チャンネル切り替え時に再利用するため、ここではチューナー自体は閉じない
-            if CONFIG.general.backend == 'EDCB' and tuner is not None:
-                await tuner.disconnect()
+            if CONFIG.general.backend == 'EDCB' and self.livestream.tuner is not None:
+                await self.livestream.tuner.disconnect()
 
             # Mirakurun バックエンド: Service Stream API とのストリーミング接続を閉じる
             if CONFIG.general.backend == 'Mirakurun' and response is not None and session is not None:
@@ -1139,7 +1134,7 @@ class LiveEncodingTask:
                 # チューナーとの接続が切断された場合
                 ## ref: https://stackoverflow.com/a/45251241/17124142
                 if ((CONFIG.general.backend == 'Mirakurun' and response is not None and response.closed is True) or
-                    (CONFIG.general.backend == 'EDCB' and tuner is not None and tuner.isDisconnected() is True)):
+                    (CONFIG.general.backend == 'EDCB' and self.livestream.tuner is not None and self.livestream.tuner.isDisconnected() is True)):
 
                     # エンコードタスクを再起動
                     self.livestream.setStatus('Restart', 'チューナーとの接続が切断されました。エンコードタスクを再起動します。(ER-05)')
@@ -1231,8 +1226,8 @@ class LiveEncodingTask:
             # チューナーをアンロックする (EDCB バックエンドのみ)
             ## 新しいエンコードタスクが今回立ち上げたチューナーを再利用できるようにする
             ## エンコーダーの再起動が必要なだけでチューナー自体はそのまま使えるし、わざわざ閉じてからもう一度開くのは無駄
-            if CONFIG.general.backend == 'EDCB' and tuner is not None:
-                tuner.unlock()
+            if CONFIG.general.backend == 'EDCB' and self.livestream.tuner is not None:
+                self.livestream.tuner.unlock()
 
             # 再起動回数が最大再起動回数に達していなければ、再起動する
             if self._retry_count < self._max_retry_count:
@@ -1253,15 +1248,15 @@ class LiveEncodingTask:
 
                 # チューナーを終了する (EDCB バックエンドのみ)
                 ## tuner.close() した時点でそのチューナーインスタンスは意味をなさなくなるので、LiveStream インスタンスのプロパティからも削除する
-                if CONFIG.general.backend == 'EDCB' and tuner is not None:
-                    await tuner.close()
+                if CONFIG.general.backend == 'EDCB' and self.livestream.tuner is not None:
+                    await self.livestream.tuner.close()
                     self.livestream.tuner = None
 
         # 通常終了
         else:
 
             # EDCB バックエンドのみ
-            if CONFIG.general.backend == 'EDCB' and tuner is not None:
+            if CONFIG.general.backend == 'EDCB' and self.livestream.tuner is not None:
 
                 # チャンネル切り替え時にチューナーが再利用されるように、3秒ほど待つ
                 # 3秒間の間にチューナーの制御権限が新しいエンコードタスクに委譲されれば、下記の通り実際にチューナーが閉じられることはない
@@ -1270,5 +1265,21 @@ class LiveEncodingTask:
                 # チューナーを終了する（まだ制御を他のチューナーインスタンスに委譲していない場合）
                 # Idling に移行しアンロック状態になっている間にチューナーが再利用された場合、制御権限をもう持っていないため実際には何も起こらない
                 ## tuner.close() した時点でそのチューナーインスタンスは意味をなさなくなるので、LiveStream インスタンスのプロパティからも削除する
-                await tuner.close()
+                await self.livestream.tuner.close()
                 self.livestream.tuner = None
+
+        # 使い終わった変数を明示的に削除する (不要だとは思うけど念のため)
+        del channel
+        del program_present
+        del stream_reader
+        del response
+        del session
+        del tuner_ts_read_at
+        del tuner_ts_read_at_lock
+        del chunk_buffer
+        del chunk_written_at
+        del writer_lock
+        del lines
+
+        # 強制的にガベージコレクションを実行する
+        gc.collect()

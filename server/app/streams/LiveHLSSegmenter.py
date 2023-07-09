@@ -8,6 +8,7 @@ https://opensource.org/licenses/MIT
 """
 
 import asyncio
+import gc
 import math
 import time
 from collections import deque
@@ -724,6 +725,9 @@ class LiveHLSSegmenter:
         del self._primary_audio_m3u8
         del self._secondary_audio_m3u8
 
+        del self._primary_audio_init
+        del self._secondary_audio_init
+
         del self._pat_parser
         del self._pmt_parser
         del self._h264_pes_parser
@@ -731,6 +735,21 @@ class LiveHLSSegmenter:
         del self._aac_pes_parser_PA
         del self._aac_pes_parser_SA
         del self._id3_pes_parser
+
+        del self._PCR_PID
+        del self._LATEST_PCR_VALUE
+        del self._LATEST_PCR_TIMESTAMP_90KHZ
+        del self._LATEST_PCR_DATETIME
+        del self._LATEST_VIDEO_TIMESTAMP_90KHZ
+        del self._LATEST_VIDEO_MONOTONIC_TIME
+        del self._LATEST_VIDEO_SLEEP_DIFFERENCE
+
+        del self._PMT_PID
+        del self._H264_PID
+        del self._H265_PID
+        del self._AAC_PID_PA
+        del self._AAC_PID_SA
+        del self._ID3_PID
 
         del self._aac_config_PA
         del self._aac_config_SA
@@ -748,3 +767,9 @@ class LiveHLSSegmenter:
         del self._aac_fragments_PA
         del self._aac_fragments_SA
         del self._emsg_fragments
+
+        del self._initialization_segment_dispatched
+        del self._partial_begin_timestamp
+
+        # 強制的にガベージコレクションを実行する
+        gc.collect()

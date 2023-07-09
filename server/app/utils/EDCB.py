@@ -46,6 +46,10 @@ class PipeStreamReader:
 
     async def close(self) -> None:
         await self.__loop.run_in_executor(self.__executor, self.__pipe.close)
+        del self.__pipe
+        del self.__executor
+        del self.__loop
+        del self.__buffer
 
 
 class EDCBTuner:
