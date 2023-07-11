@@ -169,7 +169,7 @@ class MetadataAnalyzer:
             ## ファイルの作成日時を番組開始時刻として使用する
             ## 録画開始時刻が取得できる場合は、それを番組開始時刻として使用する
             ## ソートなど諸々の関係で日時が DB に入ってないと面倒くさいのでやむを得ず適当な値を入れている
-            start_time = datetime.utcfromtimestamp(self.recorded_file_path.stat().st_ctime).astimezone(ZoneInfo('Asia/Tokyo'))
+            start_time = datetime.fromtimestamp(self.recorded_file_path.stat().st_ctime, tz=ZoneInfo('Asia/Tokyo'))
             if recorded_video.recording_start_time is not None:
                 start_time = recorded_video.recording_start_time
             ## 拡張子を除いたファイル名をフォーマットした上でタイトルとして使用する

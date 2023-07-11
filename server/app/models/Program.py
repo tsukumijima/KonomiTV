@@ -6,12 +6,12 @@ from __future__ import annotations
 import ariblib.constants
 import asyncio
 import concurrent.futures
-import datetime
 import gc
 import json
 import requests
 import time
 import traceback
+from datetime import datetime
 from datetime import timedelta
 from tortoise import connections
 from tortoise import exceptions
@@ -169,7 +169,7 @@ class Program(models.Model):
 
             return False
 
-        def MillisecondToDatetime(millisecond: int) -> datetime.datetime:
+        def MillisecondToDatetime(millisecond: int) -> datetime:
             """
             ミリ秒から Datetime を取得する
 
@@ -177,11 +177,11 @@ class Program(models.Model):
                 millisecond (int): ミリ秒
 
             Returns:
-                datetime.datetime: Datetime（タイムゾーン付き）
+                datetime: Datetime（タイムゾーン付き）
             """
 
             # タイムゾーンを UTC+9（日本時間）に指定する
-            return datetime.datetime.utcfromtimestamp(millisecond / 1000).astimezone(ZoneInfo('Asia/Tokyo'))
+            return datetime.fromtimestamp(millisecond / 1000, tz=ZoneInfo('Asia/Tokyo'))
 
         # マルチプロセス時は既存のコネクションが使えないため、Tortoise ORM を初期化し直す
         # ref: https://tortoise-orm.readthedocs.io/en/latest/setup.html
@@ -275,7 +275,7 @@ class Program(models.Model):
                     end_time = MillisecondToDatetime(program_info['startAt'] + program_info['duration'])
 
                     # 番組終了時刻が現在時刻より1時間以上前な番組を弾く
-                    if datetime.datetime.now(ZoneInfo('Asia/Tokyo')) - end_time > timedelta(hours=1):
+                    if datetime.now(ZoneInfo('Asia/Tokyo')) - end_time > timedelta(hours=1):
                         continue
 
                     # ***** ここからは 追加・更新・更新不要 のいずれか *****
@@ -563,7 +563,7 @@ class Program(models.Model):
                         end_time = start_time + timedelta(seconds=program_info.get('duration_sec', 300))
 
                         # 番組終了時刻が現在時刻より1時間以上前な番組を弾く
-                        if datetime.datetime.now(CtrlCmdUtil.TZ) - end_time > timedelta(hours=1):
+                        if datetime.now(CtrlCmdUtil.TZ) - end_time > timedelta(hours=1):
                             continue
 
                         # ***** ここからは 追加・更新・更新不要 のいずれか *****
