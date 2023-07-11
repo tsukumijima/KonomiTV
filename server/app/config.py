@@ -288,6 +288,7 @@ class ServerSettings(BaseModel):
             general = _ServerSettingsGeneral.model_construct(**config_dict['general']),
             server = _ServerSettingsServer.model_construct(**config_dict['server']),
             tv = _ServerSettingsTV.model_construct(**config_dict['tv']),
+            video = _ServerSettingsVideo.model_construct(**config_dict['video']),
             capture = _ServerSettingsCapture.model_construct(**config_dict['capture']),
             twitter = _ServerSettingsTwitter.model_construct(**config_dict['twitter']),
         )
