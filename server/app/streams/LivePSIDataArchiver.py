@@ -132,7 +132,10 @@ class LivePSIDataArchiver:
 
         # psisiarc に TS パケットを送信する
         cast(asyncio.StreamWriter, self.psisiarc_process.stdin).write(packet)
-        await asyncio.wait_for(cast(asyncio.StreamWriter, self.psisiarc_process.stdin).drain(), timeout=1.0)
+        try:
+            await asyncio.wait_for(cast(asyncio.StreamWriter, self.psisiarc_process.stdin).drain(), timeout=1.0)
+        except Exception:
+            pass
 
 
     async def getPSIArchivedData(self) -> AsyncGenerator[bytes, None]:

@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 from io import BufferedReader
 from pydantic_core import Url
 from typing import Callable, cast, ClassVar, Literal, TypedDict, TypeVar
+from zoneinfo import ZoneInfo
 
 from app.config import Config
 
@@ -821,7 +822,7 @@ class CtrlCmdUtil:
     """
 
     # EDCB の日付は OS のタイムゾーンに関わらず常に UTC+9
-    TZ = datetime.timezone(datetime.timedelta(hours=9), 'JST')
+    TZ = ZoneInfo('Asia/Tokyo')
 
     # 読み取った日付が不正なときや既定値に使う UNIX エポック
     UNIX_EPOCH = datetime.datetime(1970, 1, 1, 9, tzinfo=TZ)

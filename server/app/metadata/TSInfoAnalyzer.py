@@ -2,7 +2,6 @@
 import ariblib
 import ariblib.event
 import asyncio
-import pytz
 from ariblib.descriptors import AudioComponentDescriptor
 from ariblib.descriptors import ServiceDescriptor
 from ariblib.descriptors import TSInformationDescriptor
@@ -14,6 +13,7 @@ from datetime import datetime
 from datetime import timedelta
 from pathlib import Path
 from typing import Any, cast
+from zoneinfo import ZoneInfo
 
 from app.models.Channel import Channel
 from app.models.RecordedProgram import RecordedProgram
@@ -233,7 +233,7 @@ class TSInfoAnalyzer:
                     ## 番組開始時刻 (タイムゾーンを日本時間 (+9:00) に設定)
                     ## 注意: present の duration が None (終了時間未定) の場合のみ、following の start_time が None になることがある
                     if event.start_time is not None:
-                        recorded_program.start_time = cast(datetime, event.start_time).astimezone(pytz.timezone('Asia/Tokyo'))
+                        recorded_program.start_time = cast(datetime, event.start_time).astimezone(ZoneInfo('Asia/Tokyo'))
                     ## 番組長 (秒)
                     ## 注意: 臨時ニュースなどで放送時間未定の場合は None になる
                     if event.duration is not None:
@@ -382,8 +382,8 @@ class TSInfoAnalyzer:
         ## start_time が None になる組み合わせは「現在の番組の終了時間が未定」かつ「次の番組情報を取得しようとした」ときのみ
         ## 番組情報としては全く使い物にならないし、基本現在の番組情報を使わせるようにしたいので、後続の処理で使われないような値を設定する
         if recorded_program.start_time is None and recorded_program.end_time is None:
-            recorded_program.start_time = datetime(1970, 1, 1, 0, 0, 0, 0, pytz.timezone('Asia/Tokyo'))
-            recorded_program.end_time = datetime(1970, 1, 1, 0, 0, 0, 0, pytz.timezone('Asia/Tokyo'))
+            recorded_program.start_time = datetime(1970, 1, 1, 0, 0, 0, 0, ZoneInfo('Asia/Tokyo'))
+            recorded_program.end_time = datetime(1970, 1, 1, 0, 0, 0, 0, ZoneInfo('Asia/Tokyo'))
             recorded_program.duration = 0
 
         # この時点で番組終了時刻のみを取得できていない場合、フォールバックとして録画終了時刻を利用する

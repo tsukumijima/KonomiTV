@@ -35,6 +35,7 @@ from watchdog.events import FileCreatedEvent
 from watchdog.events import FileModifiedEvent
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers.polling import PollingObserver
+from zoneinfo import ZoneInfo
 
 
 class CustomPrompt(Prompt):
@@ -103,7 +104,7 @@ class CtrlCmdConnectionCheckUtil:
     """ server/app/utils/EDCB.py の CtrlCmdUtil クラスのうち、接続確認に必要なロジックだけを抜き出したもの"""
 
     # EDCB の日付は OS のタイムゾーンに関わらず常に UTC+9
-    TZ = datetime.timezone(datetime.timedelta(hours=9), 'JST')
+    TZ = ZoneInfo('Asia/Tokyo')
 
     # 読み取った日付が不正なときや既定値に使う UNIX エポック
     UNIX_EPOCH = datetime.datetime(1970, 1, 1, 9, tzinfo=TZ)

@@ -9,7 +9,6 @@ import concurrent.futures
 import datetime
 import gc
 import json
-import pytz
 import requests
 import time
 import traceback
@@ -21,6 +20,7 @@ from tortoise import models
 from tortoise import Tortoise
 from tortoise import transactions
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from app.config import Config
 from app.config import LoadConfig
@@ -181,7 +181,7 @@ class Program(models.Model):
             """
 
             # タイムゾーンを UTC+9（日本時間）に指定する
-            return datetime.datetime.utcfromtimestamp(millisecond / 1000).astimezone(pytz.timezone('Asia/Tokyo'))
+            return datetime.datetime.utcfromtimestamp(millisecond / 1000).astimezone(ZoneInfo('Asia/Tokyo'))
 
         # マルチプロセス時は既存のコネクションが使えないため、Tortoise ORM を初期化し直す
         # ref: https://tortoise-orm.readthedocs.io/en/latest/setup.html
@@ -275,7 +275,7 @@ class Program(models.Model):
                     end_time = MillisecondToDatetime(program_info['startAt'] + program_info['duration'])
 
                     # 番組終了時刻が現在時刻より1時間以上前な番組を弾く
-                    if datetime.datetime.now(pytz.timezone('Asia/Tokyo')) - end_time > timedelta(hours = 1):
+                    if datetime.datetime.now(ZoneInfo('Asia/Tokyo')) - end_time > timedelta(hours=1):
                         continue
 
                     # ***** ここからは 追加・更新・更新不要 のいずれか *****
@@ -330,7 +330,7 @@ class Program(models.Model):
                     ## 「終了時間未定」だと番組表の整合性が壊れるので、実態と一致しないとしても EIT[schedule] 由来の番組時間を優先したい
                     if program_info['duration'] == 1:
                         if program.duration is None:  # 番組情報をまだ取得していない
-                            program.end_time = start_time + timedelta(minutes = 5)
+                            program.end_time = start_time + timedelta(minutes=5)
                         else:  # すでに番組情報を取得しているので以前取得した値をそのまま使う
                             pass
                     else:
@@ -556,14 +556,14 @@ class Program(models.Model):
                                     description = text_hankaku
 
                         # 番組開始時刻
-                        start_time: datetime.datetime = program_info['start_time']
+                        start_time = program_info['start_time']
 
                         # 番組終了時刻
                         ## 終了時間未定の場合、とりあえず5分とする
-                        end_time: datetime.datetime = start_time + timedelta(seconds = program_info.get('duration_sec', 300))
+                        end_time = start_time + timedelta(seconds=program_info.get('duration_sec', 300))
 
                         # 番組終了時刻が現在時刻より1時間以上前な番組を弾く
-                        if datetime.datetime.now(CtrlCmdUtil.TZ) - end_time > timedelta(hours = 1):
+                        if datetime.datetime.now(CtrlCmdUtil.TZ) - end_time > timedelta(hours=1):
                             continue
 
                         # ***** ここからは 追加・更新・更新不要 のいずれか *****

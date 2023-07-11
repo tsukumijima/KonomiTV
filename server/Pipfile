@@ -25,7 +25,7 @@ psutil = "*"
 puremagic = "*"
 py7zr = "*"
 pydantic = ">=2.0.2"
-pymediainfo = "*"
+pymediainfo = "==6.0.1"
 python-jose = {extras = ["cryptography"], version = "*"}
 python-multipart = "*"
 pywin32 = {version = ">=305", sys_platform = "== 'win32'"}
@@ -37,6 +37,7 @@ tortoise-orm = ">=0.19.3"
 typer = "==0.9.*"
 tweepy = "*"
 tweepy_authlib = "*"
+tzdata = "*"
 uvicorn = {extras = ["standard"], version = ">=0.21.1"}
 uvloop = {version = ">=0.14.0,!=0.15.0,!=0.15.1", sys_platform = "!= 'win32'"}
 watchfiles = "*"
