@@ -288,7 +288,6 @@ jobs:
           cp -a lib/* thirdparty/Library/
           rm -rf lib/
           chmod a+x thirdparty/Library/libmediainfo.so*
-          patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../Library' thirdparty/Library/libmediainfo.so*
 
       # Python Standalone Builds のダウンロードと pipenv のインストール
       - name: Install Python Standalone Builds & pip & pipenv
