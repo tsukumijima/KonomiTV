@@ -1,10 +1,16 @@
 
+import warnings
 from datetime import date
 from datetime import datetime
 from pydantic import BaseModel
 from pydantic import RootModel
-from tortoise.contrib.pydantic import PydanticModel
 from typing import Literal, Union
+
+# Tortoise ORM がまだ Pydantic V2 に移行できていないため、インポート時や Pydantic モデル定義時に
+# 非推奨 API が利用されていることを示す UserWarning が出力される
+# 毎回警告が出るのは邪魔なため、このモジュールの読み込みが終わるまで一時的に UserWarning を抑制する
+warnings.filterwarnings('ignore', category=UserWarning)
+from tortoise.contrib.pydantic import PydanticModel
 
 
 # モデルを表す Pydantic モデル
@@ -249,3 +255,6 @@ class VersionInformation(BaseModel):
     environment: Literal['Windows', 'Linux', 'Linux-Docker', 'Linux-ARM']
     backend: Literal['EDCB', 'Mirakurun']
     encoder: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC', 'rkmppenc']
+
+# UserWarning を再度有効化
+warnings.filterwarnings('default', category=UserWarning)
