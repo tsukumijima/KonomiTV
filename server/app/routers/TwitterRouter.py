@@ -1,7 +1,6 @@
 
 import asyncio
 import json
-import pytz
 import re
 import tweepy
 import tweepy.models
@@ -19,6 +18,7 @@ from fastapi import status
 from fastapi import UploadFile
 from tweepy_authlib import CookieSessionUserHandler
 from typing import Any, cast, Coroutine
+from zoneinfo import ZoneInfo
 
 from app import schemas
 from app.models.TwitterAccount import TwitterAccount
@@ -146,7 +146,7 @@ def FormatTweet(tweet: tweepy.models.Status) -> schemas.Tweet:
 
     return schemas.Tweet(
         id = tweet_data.id_str,
-        created_at = tweet_data.created_at.astimezone(pytz.timezone('Asia/Tokyo')),
+        created_at = tweet_data.created_at.astimezone(ZoneInfo('Asia/Tokyo')),
         user = schemas.TweetUser(
             id = tweet_data.user.id_str,
             name = tweet_data.user.name,

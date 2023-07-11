@@ -7,15 +7,16 @@ import asyncio
 import requests
 import time
 import traceback
+from datetime import datetime
 from tortoise import fields
 from tortoise import models
-from tortoise import timezone
 from tortoise import Tortoise
 from tortoise import transactions
 from tortoise.exceptions import ConfigurationError
 from tortoise.exceptions import IntegrityError
 from tortoise.expressions import Q
 from typing import Any, Literal, TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 from app.config import Config
 from app.constants import API_REQUEST_HEADERS, DATABASE_CONFIG
@@ -547,7 +548,7 @@ class Channel(models.Model):
         from app.models.Program import Program
 
         # 現在時刻
-        now = timezone.now()
+        now = datetime.now(ZoneInfo('Asia/Tokyo'))
 
         # 現在の番組情報を取得する
         program_present = await Program.filter(

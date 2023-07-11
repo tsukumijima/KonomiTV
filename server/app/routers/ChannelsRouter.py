@@ -4,6 +4,7 @@ import hashlib
 import json
 import pathlib
 import requests
+from datetime import datetime
 from datetime import timedelta
 from fastapi import APIRouter
 from fastapi import Depends
@@ -16,8 +17,8 @@ from fastapi.responses import JSONResponse
 from fastapi.responses import Response
 from fastapi.security.utils import get_authorization_scheme_param
 from tortoise import connections
-from tortoise import timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from app import schemas
 from app.config import Config
@@ -63,7 +64,7 @@ async def ChannelsAPI():
     """
 
     # 現在時刻
-    now = timezone.now()
+    now = datetime.now(ZoneInfo('Asia/Tokyo'))
 
     # タスク
     tasks = []

@@ -37,6 +37,7 @@ tortoise-orm = ">=0.19.3"
 typer = "==0.9.*"
 tweepy = "*"
 tweepy_authlib = "*"
+tzdata = "*"
 uvicorn = {extras = ["standard"], version = ">=0.21.1"}
 uvloop = {version = ">=0.14.0,!=0.15.0,!=0.15.1", sys_platform = "!= 'win32'"}
 watchfiles = "*"
