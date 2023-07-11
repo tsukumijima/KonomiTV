@@ -8,9 +8,9 @@ import asyncio
 import datetime
 import sys
 import time
-import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 from io import BufferedReader
+from pydantic_core import Url
 from typing import Callable, cast, ClassVar, Literal, TypedDict, TypeVar
 
 from app.config import Config
@@ -361,36 +361,34 @@ class EDCBUtil:
     """
 
     @staticmethod
-    def getEDCBHost(edcb_url: str | None = None) -> str | None:
+    def getEDCBHost(edcb_url: Url | None = None) -> str | None:
         """
         バックエンドとして指定された EDCB の接続先ホスト名を取得する
 
         Args:
-            edcb_url (str): EDCB の接続先 URL (指定されなかった場合は Config().general.edcb_url から取得する)
+            edcb_url (Url): EDCB の接続先 URL (指定されなかった場合は Config().general.edcb_url から取得する)
 
         Returns:
             str: バックエンドとして指定された EDCB の接続先ホスト名 (取得できなかった場合は None を返す)
         """
         if edcb_url is None:
-            edcb_url = str(Config().general.edcb_url)
-        edcb_url_parse = urllib.parse.urlparse(edcb_url)
-        return edcb_url_parse.hostname
+            edcb_url = Config().general.edcb_url
+        return edcb_url.host
 
     @staticmethod
-    def getEDCBPort(edcb_url: str | None = None) -> int | None:
+    def getEDCBPort(edcb_url: Url | None = None) -> int | None:
         """
         バックエンドとして指定された EDCB の接続先ポートを取得する
 
         Args:
-            edcb_url (str): EDCB の接続先 URL (指定されなかった場合は Config().general.edcb_url から取得する)
+            edcb_url (Url): EDCB の接続先 URL (指定されなかった場合は Config().general.edcb_url から取得する)
 
         Returns:
-            str: バックエンドとして指定された EDCB の接続先ポート (取得できなかった場合は None を返す)
+            int: バックエンドとして指定された EDCB の接続先ポート (取得できなかった場合は None を返す)
         """
         if edcb_url is None:
-            edcb_url = str(Config().general.edcb_url)
-        edcb_url_parse = urllib.parse.urlparse(edcb_url)
-        return edcb_url_parse.port
+            edcb_url = Config().general.edcb_url
+        return edcb_url.port
 
     @staticmethod
     def convertBytesToString(buffer: bytes) -> str:
@@ -833,7 +831,7 @@ class CtrlCmdUtil:
     __host: str | None
     __port: int
 
-    def __init__(self, edcb_url: str | None = None) -> None:
+    def __init__(self, edcb_url: Url | None = None) -> None:
         self.__connect_timeout_sec = 15.
         self.__pipe_name = 'EpgTimerSrvNoWaitPipe'
         self.__host = None

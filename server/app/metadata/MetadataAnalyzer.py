@@ -256,8 +256,9 @@ class MetadataAnalyzer:
         # 録画ファイルのメディア情報を取得する
         try:
             media_info = cast(MediaInfo, MediaInfo.parse(str(self.recorded_file_path), library_file=libmediainfo_path))
-        except Exception:
+        except Exception as ex:
             Logging.warning(f'{self.recorded_file_path}: Failed to parse media info.')
+            Logging.warning(ex)
             return None
 
         # 最低限 KonomiTV で再生可能なファイルであるかのバリデーションを行う

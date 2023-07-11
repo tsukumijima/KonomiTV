@@ -18,6 +18,7 @@ from app.constants import API_REQUEST_HEADERS, LIBRARY_PATH, LOGS_DIR, QUALITY, 
 from app.models.Channel import Channel
 from app.streams.LiveHLSSegmenter import LiveHLSSegmenter
 from app.streams.LivePSIDataArchiver import LivePSIDataArchiver
+from app.utils import GetMirakurunAPIEndpointURL
 from app.utils import Logging
 from app.utils.EDCB import EDCBTuner, PipeStreamReader
 
@@ -555,7 +556,7 @@ class LiveEncodingTask:
             # NID と SID を 5 桁でゼロ埋めした上で int に変換する
             mirakurun_service_id = int(str(channel.network_id).zfill(5) + str(channel.service_id).zfill(5))
             # Mirakurun API の URL を作成
-            mirakurun_stream_api_url = f'{CONFIG.general.mirakurun_url}/api/services/{mirakurun_service_id}/stream'
+            mirakurun_stream_api_url = GetMirakurunAPIEndpointURL(f'/api/services/{mirakurun_service_id}/stream')
 
             # Mirakurun の Service Stream API へ HTTP リクエストを開始
             self.livestream.setStatus('Standby', 'チューナーを起動しています…')
@@ -1267,19 +1268,6 @@ class LiveEncodingTask:
                 ## tuner.close() した時点でそのチューナーインスタンスは意味をなさなくなるので、LiveStream インスタンスのプロパティからも削除する
                 await self.livestream.tuner.close()
                 self.livestream.tuner = None
-
-        # 使い終わった変数を明示的に削除する (不要だとは思うけど念のため)
-        del channel
-        del program_present
-        del stream_reader
-        del response
-        del session
-        del tuner_ts_read_at
-        del tuner_ts_read_at_lock
-        del chunk_buffer
-        del chunk_written_at
-        del writer_lock
-        del lines
 
         # 強制的にガベージコレクションを実行する
         gc.collect()

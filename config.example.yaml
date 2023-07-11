@@ -9,12 +9,12 @@
 
         # EDCB (EpgTimerNW) の TCP API の URL
         # バックエンドに EDCB を選択したときに利用されます。
-        # tcp://edcb-namedpipe と指定すると、TCP API の代わりに名前付きパイプを使って通信します (ローカルのみ)。
-        'edcb_url': 'tcp://localhost:4510',
+        # tcp://edcb-namedpipe/ と指定すると、TCP API の代わりに名前付きパイプを使って通信します (ローカルのみ)。
+        'edcb_url': 'tcp://localhost:4510/',
 
         # Mirakurun の HTTP API の URL
         # バックエンドに Mirakurun を選択したときに利用されます。
-        'mirakurun_url': 'http://localhost:40772',
+        'mirakurun_url': 'http://localhost:40772/',
 
         # 利用するエンコーダー
         # FFmpeg・QSVEncC・NVEncC・VCEEncC・rkmppenc から選択してください。

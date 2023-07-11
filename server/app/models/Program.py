@@ -26,6 +26,7 @@ from app.config import Config
 from app.config import LoadConfig
 from app.constants import API_REQUEST_HEADERS, DATABASE_CONFIG
 from app.models.Channel import Channel
+from app.utils import GetMirakurunAPIEndpointURL
 from app.utils import Logging
 from app.utils.EDCB import CtrlCmdUtil
 from app.utils.EDCB import EDCBUtil
@@ -201,7 +202,7 @@ class Program(models.Model):
 
                 # Mirakurun の API から番組情報を取得する
                 try:
-                    mirakurun_programs_api_url = f'{Config().general.mirakurun_url}/api/programs'
+                    mirakurun_programs_api_url = GetMirakurunAPIEndpointURL('/api/programs')
                     mirakurun_programs_api_response = await asyncio.to_thread(requests.get,
                         url = mirakurun_programs_api_url,
                         headers = API_REQUEST_HEADERS,

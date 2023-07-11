@@ -25,6 +25,7 @@ from app.constants import API_REQUEST_HEADERS, LOGO_DIR, VERSION
 from app.models.Channel import Channel
 from app.routers.UsersRouter import GetCurrentUser
 from app.streams.LiveStream import LiveStream
+from app.utils import GetMirakurunAPIEndpointURL
 from app.utils import Logging
 from app.utils.EDCB import CtrlCmdUtil
 from app.utils.EDCB import EDCBUtil
@@ -427,7 +428,7 @@ async def ChannelLogoAPI(
             # Mirakurun の API からロゴを取得する
             # 同梱のロゴが存在しない場合のみ
             try:
-                mirakurun_logo_api_url = f'{Config().general.mirakurun_url}/api/services/{mirakurun_service_id}/logo'
+                mirakurun_logo_api_url = GetMirakurunAPIEndpointURL(f'/api/services/{mirakurun_service_id}/logo')
                 mirakurun_logo_api_response = await asyncio.to_thread(requests.get,
                     url = mirakurun_logo_api_url,
                     headers = API_REQUEST_HEADERS,

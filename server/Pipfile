@@ -8,22 +8,23 @@ serve = "python KonomiTV.py"
 dev = "python KonomiTV.py --reload"
 
 [packages]
-aerich = {file = "https://github.com/tortoise/aerich/archive/467406ed200031b131fc7da762ccacd376e17ac7.zip"}
+aerich = {file = "https://github.com/tsukumijima/aerich/releases/download/v0.7.1-patch/aerich-0.7.2-py3-none-any.whl"}
 aiofiles = "*"
 aiohttp = "*"
 aiosqlite = "*"
-ariblib = {file = "https://github.com/tsukumijima/ariblib/archive/refs/tags/v0.1.0.zip"}
-biim = {file = "https://github.com/monyone/biim/archive/refs/tags/v1.10.2.zip"}
+ariblib = {file = "https://github.com/tsukumijima/ariblib/releases/download/v0.1.0/ariblib-0.1.0-py3-none-any.whl"}
+biim = {file = "https://github.com/tsukumijima/biim/releases/download/v1.10.2-patch/biim-1.10.2-py3-none-any.whl"}
 colorama = ">=0.4"
 elevate = "*"
-fastapi = ">=0.95.0"
-fastapi-utils = ">=0.2.1"
+fastapi = ">=0.100.0"
+fastapi-restful = {file = "https://github.com/tsukumijima/FastAPI-RESTful/releases/download/V0.4.5-patch/fastapi_restful-0.4.5-py3-none-any.whl"}
 hashids = "*"
 passlib = {extras = ["bcrypt"], version = "*"}
 pillow = "*"
 psutil = "*"
 puremagic = "*"
 py7zr = "*"
+pydantic = ">=2.0.2"
 pymediainfo = "*"
 python-jose = {extras = ["cryptography"], version = "*"}
 python-multipart = "*"

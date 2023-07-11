@@ -5,6 +5,27 @@ from pathlib import Path
 from typing import Literal
 
 
+def GetMirakurunAPIEndpointURL(endpoint: str) -> str:
+    """
+    /api/version などのエンドポイントを Mirakurun API の URL に変換する
+
+    Args:
+        endpoint (str): エンドポイントのパス
+
+    Returns:
+        str: Mirakurun API の URL
+    """
+
+    from app.config import Config
+
+    # エンドポイントが / から始まっていない場合
+    assert endpoint.startswith('/'), 'Endpoint must start with /.'
+
+    # Mirakurun API は http://localhost:40772//api/version のような二重スラッシュを許容しないので、
+    # mirakurun_url の末尾のスラッシュを削除してから endpoint を追加する必要がある
+    return str(Config().general.mirakurun_url).rstrip('/') + endpoint
+
+
 def GetPlatformEnvironment() -> Literal['Windows', 'Linux', 'Linux-Docker', 'Linux-ARM'] | None:
     """
     サーバーが稼働している動作環境を取得する

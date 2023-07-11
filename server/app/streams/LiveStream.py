@@ -474,7 +474,8 @@ class LiveStream():
             Logging.info(f'[Live: {self.livestream_id}] Client Disconnected. Client ID: {client.client_id}')
         except ValueError:
             pass
-        del client.queue
+        if hasattr(client, 'queue'):
+            del client.queue
         del client
 
 
@@ -490,7 +491,8 @@ class LiveStream():
             if client.client_type == 'mpegts':
                 client.queue.put_nowait(None)
             self.disconnect(client)
-            del client.queue
+            if hasattr(client, 'queue'):
+                del client.queue
             del client
 
         # 念のためクライアントが入るリストを空にする
@@ -613,7 +615,8 @@ class LiveStream():
             if now - client.stream_data_read_at > timeout:
                 self._clients.remove(client)
                 Logging.info(f'[Live: {self.livestream_id}] Client Disconnected (Timeout). Client ID: {client.client_id}')
-                del client.queue
+                if hasattr(client, 'queue'):
+                    del client.queue
                 del client
                 continue
 

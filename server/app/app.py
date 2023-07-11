@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi_utils.tasks import repeat_every
+from fastapi_restful.tasks import repeat_every
 from pathlib import Path
 
 from app.config import Config
@@ -168,7 +168,7 @@ async def Startup():
     await Program.update()
 
     # 登録されている Twitter アカウントの情報を更新
-    await TwitterAccount.updateAccountInformation()
+    await TwitterAccount.updateAccountsInformation()
 
     # 全てのチャンネル&品質のライブストリームを初期化する
     for channel in await Channel.filter(is_watchable=True).order_by('channel_number'):
@@ -176,9 +176,9 @@ async def Startup():
             LiveStream(channel.display_channel_id, quality)
 
     # 録画フォルダ配下の録画ファイルのメタデータを更新/同期
-    ## 録画ファイルのハッシュを確認するだけでも録画ファイルの量次第では時間がかかるので非同期で実行する
-    ## サーバーの起動完了を待ってから実行する
+    ## 録画ファイルの量次第では録画ファイルの更新確認に時間がかかるため、非同期で実行する
     async def run():
+        # サーバーの起動完了を待ってから実行する
         await asyncio.sleep(0.1)
         await RecordedVideo.update()
     asyncio.create_task(run())
@@ -187,7 +187,11 @@ async def Startup():
 # チャンネル情報は頻繁に変わるわけではないけど、手動で再起動しなくても自動で変更が適用されてほしい
 # 番組情報の更新処理はかなり重くストリーム配信などの他の処理に影響してしまうため、マルチプロセスで実行する
 @app.on_event('startup')
-@repeat_every(seconds=CONFIG.general.program_update_interval * 60, wait_first=True, logger=Logging.logger)
+@repeat_every(
+    seconds = CONFIG.general.program_update_interval * 60,
+    wait_first = CONFIG.general.program_update_interval * 60,
+    logger = Logging.logger,
+)
 async def UpdateChannelAndProgram():
     await Channel.update()
     await Channel.updateJikkyoStatus()
@@ -195,15 +199,15 @@ async def UpdateChannelAndProgram():
 
 # 30秒に1回、ニコニコ実況関連のステータスを更新する
 @app.on_event('startup')
-@repeat_every(seconds=0.5 * 60, wait_first=True, logger=Logging.logger)
+@repeat_every(seconds=0.5 * 60, wait_first=0.5 * 60, logger=Logging.logger)
 async def UpdateChannelJikkyoStatus():
     await Channel.updateJikkyoStatus()
 
 # 1時間に1回、登録されている Twitter アカウントの情報を更新する
 @app.on_event('startup')
-@repeat_every(seconds=60 * 60, wait_first=True, logger=Logging.logger)
+@repeat_every(seconds=60 * 60, wait_first=60 * 60, logger=Logging.logger)
 async def UpdateTwitterAccountInformation():
-    await TwitterAccount.updateAccountInformation()
+    await TwitterAccount.updateAccountsInformation()
 
 # サーバーの終了時に実行する
 cleanup = False

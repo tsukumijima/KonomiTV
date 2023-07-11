@@ -2,6 +2,7 @@
 from datetime import date
 from datetime import datetime
 from pydantic import BaseModel
+from pydantic import RootModel
 from tortoise.contrib.pydantic import PydanticModel
 from typing import Literal, Union
 
@@ -164,13 +165,13 @@ class UserCreateRequest(BaseModel):
     password: str
 
 class UserUpdateRequest(BaseModel):
-    username: str | None
-    password: str | None
+    username: str | None = None
+    password: str | None = None
 
 class UserUpdateRequestForAdmin(BaseModel):
-    username: str | None
-    password: str | None
-    is_admin: bool | None
+    username: str | None = None
+    password: str | None = None
+    is_admin: bool | None = None
 
 class TwitterPasswordAuthRequest(BaseModel):
     screen_name: str
@@ -189,7 +190,7 @@ class LiveChannels(BaseModel):
 
 class JikkyoSession(BaseModel):
     is_success: bool
-    audience_token: str | None
+    audience_token: str | None = None
     detail: str
 
 class LiveStreams(BaseModel):
@@ -227,16 +228,16 @@ class Tweet(BaseModel):
     retweeted_tweet: Union['Tweet', None]
     quoted_tweet: Union['Tweet', None]
 
-class Tweets(BaseModel):
-    __root__: list[Tweet]
+class Tweets(RootModel[list[Tweet]]):
+    pass
 
 class TweetResult(BaseModel):
     is_success: bool
-    tweet_url: str | None
+    tweet_url: str | None = None
     detail: str
 
-class Users(BaseModel):
-    __root__: list[User]
+class Users(RootModel[list[User]]):
+    pass
 
 class UserAccessToken(BaseModel):
     access_token: str

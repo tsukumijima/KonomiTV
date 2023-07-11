@@ -14,14 +14,16 @@ from pydantic import (
     confloat,
     DirectoryPath,
     Field,
+    FieldValidationInfo,
+    field_validator,
     FilePath,
     PositiveInt,
+    UrlConstraints,
     ValidationError,
-    validator,
 )
-from pydantic.networks import stricturl
+from pydantic_core import Url
 from pathlib import Path
-from typing import Any, cast, Literal
+from typing import Annotated, Any, cast, Literal
 
 from app.constants import (
     API_REQUEST_HEADERS,
@@ -79,17 +81,19 @@ class ClientSettings(BaseModel):
 
 class _ServerSettingsGeneral(BaseModel):
     backend: Literal['EDCB', 'Mirakurun']
-    edcb_url: stricturl(allowed_schemes={'tcp'}, tld_required=False)  # type: ignore
+    edcb_url: Annotated[Url, UrlConstraints(allowed_schemes=['tcp'])]
     mirakurun_url: AnyHttpUrl
     encoder: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC', 'rkmppenc']
-    program_update_interval: confloat(ge=0.1)  # type: ignore
+    program_update_interval: Annotated[float, confloat(ge=0.1)]
     debug: bool
     debug_encoder: bool
 
-    @validator('edcb_url')
-    def validate_edcb_url(cls, edcb_url: str, values: dict[str, Any]) -> str:
+    @field_validator('edcb_url')
+    def validate_edcb_url(cls, edcb_url: Url, info: FieldValidationInfo) -> Url:
+        # URL を末尾のスラッシュありに統一
+        edcb_url = Url(str(edcb_url).rstrip('/') + '/')
         # EDCB バックエンドの接続確認
-        if values.get('backend') == 'EDCB':
+        if info.data.get('backend') == 'EDCB':
             # 循環参照を避けるために遅延インポート
             from app.utils.EDCB import CtrlCmdUtil
             from app.utils.EDCB import EDCBUtil
@@ -112,43 +116,49 @@ class _ServerSettingsGeneral(BaseModel):
                 result = executor.submit(asyncio.run, edcb.sendEnumService()).result()
             if result is None:
                 raise ValueError(
-                    f'EDCB ({edcb_url}/) にアクセスできませんでした。\n'
+                    f'EDCB ({edcb_url}) にアクセスできませんでした。\n'
                     'EDCB が起動していないか、URL を間違えている可能性があります。'
                 )
             from app.utils import Logging
-            Logging.info(f'Backend: EDCB ({edcb_url}/)')
+            Logging.info(f'Backend: EDCB ({edcb_url})')
         return edcb_url
 
-    @validator('mirakurun_url')
-    def validate_mirakurun_url(cls, mirakurun_url: str, values: dict[str, Any]) -> str:
+    @field_validator('mirakurun_url')
+    def validate_mirakurun_url(cls, mirakurun_url: Url, info: FieldValidationInfo) -> Url:
+        # URL を末尾のスラッシュありに統一
+        ## HTTP/HTTPS URL では Pydantic の Url インスタンスが自動的に末尾のスラッシュを付けてしまうようだが、
+        ## 挙動が変わらないとも限らないので、一応明示的に付けておく
+        mirakurun_url = Url(str(mirakurun_url).rstrip('/') + '/')
         # Mirakurun バックエンドの接続確認
-        if values.get('backend') == 'Mirakurun':
+        if info.data.get('backend') == 'Mirakurun':
             # 試しにリクエストを送り、200 (OK) が返ってきたときだけ有効な URL とみなす
             try:
                 response = requests.get(
-                    url = f'{mirakurun_url}/api/version',
+                    # Mirakurun API は http://localhost:40772//api/version のような二重スラッシュを許容しないので、
+                    # mirakurun_url の末尾のスラッシュを削除してから endpoint を追加する必要がある
+                    url = str(mirakurun_url).rstrip('/') + '/api/version',
                     headers = API_REQUEST_HEADERS,
                     timeout = 20,  # 久々のアクセスだとなぜか時間がかかることがあるため、ここだけタイムアウトを長めに設定
                 )
             except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
                 raise ValueError(
-                    f'Mirakurun ({mirakurun_url}/) にアクセスできませんでした。\n'
+                    f'Mirakurun ({mirakurun_url}) にアクセスできませんでした。\n'
                     'Mirakurun が起動していないか、URL を間違えている可能性があります。'
                 )
             try:
                 response_json = response.json()
                 if response.status_code != 200 or response_json.get('current') is None:
-                    raise requests.exceptions.JSONDecodeError()
-            except requests.exceptions.JSONDecodeError:
+                    raise ValueError()
+            except (requests.exceptions.JSONDecodeError, ValueError):
                 raise ValueError(
-                    f'{mirakurun_url}/ は Mirakurun の URL ではありません。\n'
+                    f'{mirakurun_url} は Mirakurun の URL ではありません。\n'
                     'Mirakurun の URL を間違えている可能性があります。'
                 )
             from app.utils import Logging
-            Logging.info(f'Backend: Mirakurun {response_json.get("current")} ({mirakurun_url}/)')
+            Logging.info(f'Backend: Mirakurun {response_json.get("current")} ({mirakurun_url})')
         return mirakurun_url
 
-    @validator('encoder')
+    @field_validator('encoder')
     def validate_encoder(cls, encoder: str) -> str:
         from app.utils import Logging
         current_arch = platform.machine()
@@ -202,7 +212,7 @@ class _ServerSettingsServer(BaseModel):
     custom_https_certificate: FilePath | None
     custom_https_private_key: FilePath | None
 
-    @validator('port')
+    @field_validator('port')
     def validate_port(cls, port: int) -> int:
         # リッスンするポート番号が 1024 ~ 65525 の間に収まっているかをチェック
         if port < 1024 or port > 65525:
@@ -274,12 +284,12 @@ class ServerSettings(BaseModel):
         ref: https://github.com/pydantic/pydantic/issues/897
         """
 
-        return ServerSettings.construct(
-            general = _ServerSettingsGeneral.construct(**config_dict['general']),
-            server = _ServerSettingsServer.construct(**config_dict['server']),
-            tv = _ServerSettingsTV.construct(**config_dict['tv']),
-            capture = _ServerSettingsCapture.construct(**config_dict['capture']),
-            twitter = _ServerSettingsTwitter.construct(**config_dict['twitter']),
+        return ServerSettings.model_construct(
+            general = _ServerSettingsGeneral.model_construct(**config_dict['general']),
+            server = _ServerSettingsServer.model_construct(**config_dict['server']),
+            tv = _ServerSettingsTV.model_construct(**config_dict['tv']),
+            capture = _ServerSettingsCapture.model_construct(**config_dict['capture']),
+            twitter = _ServerSettingsTwitter.model_construct(**config_dict['twitter']),
         )
 
 
@@ -309,7 +319,7 @@ def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
     """
 
     global _CONFIG, _CONFIG_YAML_PATH, _DOCKER_PATH_PREFIX
-    assert _CONFIG is None, 'LoadConfig() は既に呼び出されています。'
+    assert _CONFIG is None, 'LoadConfig() has already been called.'
 
     # 循環参照を避けるために遅延インポート
     from app.utils import GetPlatformEnvironment
@@ -336,12 +346,6 @@ def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
         sys.exit(1)
 
     try:
-        # EDCB / Mirakurun の URL の末尾のスラッシュをなしに統一
-        ## これをやっておかないと Mirakurun の URL の末尾にスラッシュが入ってきた場合に接続に失敗する
-        ## EDCB に関しては統一する必要はないが、念のため
-        config_dict['general']['edcb_url'] = config_dict['general']['edcb_url'].rstrip('/')
-        config_dict['general']['mirakurun_url'] = config_dict['general']['mirakurun_url'].rstrip('/')
-
         # Docker 上で実行されているとき、サーバー設定のうちパス指定の項目に Docker 環境向けの Prefix (/host-rootfs) を付ける
         ## /host-rootfs (docker-compose.yaml で定義) を通してホストマシンのファイルシステムにアクセスできる
         if GetPlatformEnvironment() == 'Linux-Docker':
@@ -349,7 +353,7 @@ def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
             config_dict['capture']['upload_folder'] = _DOCKER_PATH_PREFIX + config_dict['capture']['upload_folder']
             if type(config_dict['tv']['debug_mode_ts_path']) is str:
                 config_dict['tv']['debug_mode_ts_path'] = _DOCKER_PATH_PREFIX + config_dict['tv']['debug_mode_ts_path']
-    except KeyError:
+    except Exception:
         pass  # config.yaml の記述が不正な場合は何もしない（どっちみち後のバリデーション処理で弾かれる）
 
     # サーバー設定のバリデーションを実行
@@ -359,13 +363,13 @@ def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
             Logging.debug_simple('Server settings loaded.')
         except ValidationError as error:
 
-            # エラーのうちどれか一つでもカスタムバリデーターからのエラーだった場合
-            ## カスタムバリデーターからのエラーメッセージかどうかは "。" がメッセージに含まれているかで判定する
+            # エラーのうちどれか一つでもカスタムバリデーターからのエラーだった場合、エラーメッセージを表示して終了する
+            ## カスタムバリデーターからのエラーメッセージかどうかは ctx に error が含まれているかどうかで判定する
             custom_error = False
             for error_message in error.errors():
-                if '。' in error_message['msg']:
+                if 'ctx' in error_message and 'error' in error_message['ctx'] and type(error_message['ctx']['error']) is str:
                     custom_error = True
-                    for message in error_message['msg'].split('\n'):
+                    for message in error_message['ctx']['error'].split('\n'):
                         Logging.error(message)
             if custom_error is True:
                 sys.exit(1)
@@ -399,7 +403,7 @@ def SaveConfig(config: ServerSettings) -> None:
     from app.utils import GetPlatformEnvironment
 
     # ServerSettings の Pydantic モデルを辞書に変換
-    config_dict = config.dict()
+    config_dict = config.model_dump()
 
     # Docker 上で実行されているとき、サーバー設定のうちパス指定の項目に付与されている Docker 環境向けの Prefix (/host-rootfs) を外す
     ## LoadConfig() で実行されている処理と逆の処理を行う
@@ -503,7 +507,7 @@ def Config() -> ServerSettings:
     """
 
     global _CONFIG
-    assert _CONFIG is not None, 'サーバー設定データが初期化されていません。'
+    assert _CONFIG is not None, 'Server settings have not been initialized.'
     return _CONFIG
 
 

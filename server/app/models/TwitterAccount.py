@@ -5,12 +5,15 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 import tweepy
 from requests.cookies import RequestsCookieJar
 from tortoise import fields
 from tortoise import models
 from tweepy_authlib import CookieSessionUserHandler
 from typing import TYPE_CHECKING
+
+from app.utils import Logging
 
 if TYPE_CHECKING:
     from app.models.User import User
@@ -41,10 +44,12 @@ class TwitterAccount(models.Model):
 
 
     @classmethod
-    async def updateAccountInformation(cls):
-        """ Twitter のアカウント情報を更新する """
+    async def updateAccountsInformation(cls):
+        """ 登録されているすべての Twitter アカウントの情報を更新する """
 
-        # 登録されているすべての Twitter アカウントの情報を更新する
+        timestamp = time.time()
+        Logging.info('Twitter accounts updating...')
+
         for twitter_account in await TwitterAccount.all():
 
             # アイコン URL が Temporary になってる仮のアカウント情報が何らかの理由で残っていたら、ここで削除する
@@ -70,6 +75,8 @@ class TwitterAccount(models.Model):
 
             # 更新したアカウント情報を保存
             await twitter_account.save()
+
+        Logging.info(f'Twitter accounts update complete. ({round(time.time() - timestamp, 3)} sec)')
 
 
     def getTweepyAuthHandler(self) -> tweepy.OAuth1UserHandler | CookieSessionUserHandler:

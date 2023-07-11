@@ -19,6 +19,7 @@ from typing import Any, Literal, TYPE_CHECKING
 
 from app.config import Config
 from app.constants import API_REQUEST_HEADERS, DATABASE_CONFIG
+from app.utils import GetMirakurunAPIEndpointURL
 from app.utils import Logging
 from app.utils.EDCB import CtrlCmdUtil
 from app.utils.EDCB import EDCBUtil
@@ -112,7 +113,7 @@ class Channel(models.Model):
 
             # Mirakurun の API からチャンネル情報を取得する
             try:
-                mirakurun_services_api_url = f'{Config().general.mirakurun_url}/api/services'
+                mirakurun_services_api_url = GetMirakurunAPIEndpointURL('/api/services')
                 mirakurun_services_api_response = await asyncio.to_thread(requests.get,
                     url = mirakurun_services_api_url,
                     headers = API_REQUEST_HEADERS,

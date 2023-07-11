@@ -78,7 +78,7 @@ class RecordedVideo(models.Model):
         ## with 文で括ることで、with 文を抜けたときに Executor がクリーンアップされるようにする
         ## さもなければプロセスが残り続けてゾンビプロセス化し、メモリリークを引き起こしてしまう
         with concurrent.futures.ProcessPoolExecutor() as executor:
-            tasks = [loop.run_in_executor(executor, cls.updateSingleForMultiProcess, directory) for directory in recorded_folders]
+            tasks = [loop.run_in_executor(executor, cls.updateDirectoryForMultiProcess, directory) for directory in recorded_folders]
             await asyncio.gather(*tasks)
 
         # もし録画フォルダリストが空だったら、RecordedProgram をすべて削除する
@@ -92,7 +92,7 @@ class RecordedVideo(models.Model):
 
 
     @classmethod
-    async def updateSingle(cls, directory: Path) -> None:
+    async def updateDirectory(cls, directory: Path) -> None:
         """
         指定されたディレクトリ以下の録画ファイルのメタデータを更新する
         ProcessPoolExecutor 内で実行されることを想定している
@@ -288,9 +288,9 @@ class RecordedVideo(models.Model):
 
 
     @classmethod
-    def updateSingleForMultiProcess(cls, directory: Path) -> None:
+    def updateDirectoryForMultiProcess(cls, directory: Path) -> None:
         """
-        RecordedVideo.updateSingle() の同期版 (ProcessPoolExecutor でのマルチプロセス実行用)
+        RecordedVideo.updateDirectory() の同期版 (ProcessPoolExecutor でのマルチプロセス実行用)
 
         Args:
             directory (Path): 録画ファイルが格納されているディレクトリ
@@ -306,4 +306,4 @@ class RecordedVideo(models.Model):
             LoadConfig(bypass_validation=True)
 
         # asyncio.run() で非同期メソッドの実行が終わるまで待つ
-        asyncio.run(cls.updateSingle(directory))
+        asyncio.run(cls.updateDirectory(directory))

@@ -71,7 +71,7 @@ async def UpdateDatabaseAPI(
     await Channel.update()
     await Channel.updateJikkyoStatus()
     await Program.update(multiprocess=True)
-    await TwitterAccount.updateAccountInformation()
+    await TwitterAccount.updateAccountsInformation()
 
 
 @router.post(
