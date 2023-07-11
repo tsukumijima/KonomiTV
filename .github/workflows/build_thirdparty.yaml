@@ -34,6 +34,10 @@ env:
   NVENCC_VERSION: '7.30'
   VCEENCC_VERSION: '8.16'
   RKMPPENC_VERSION: '0.02'
+  # libmediainfo のバージョン
+  ## Windows 版の pymediainfo (ビルド済みの MediaInfo.dll が同梱されている) とバージョンを合わせる
+  ## ref: https://github.com/sbraz/pymediainfo/blob/v6.0.1/appveyor.yml#L6
+  LIBMEDIAINFO_VERSION: '22.09'
   # ビルド対象の tsreadex・psisiarc・Akebi のコミットハッシュ
   TSREADEX_COMMIT_HASH: 'fd72ef31b94832ee8e761800f9f5d5a8e66c8a22'
   PSISIARC_COMMIT_HASH: '6593a0f63aedaaecfac7682b51e267874a8ec549'
@@ -240,7 +244,7 @@ jobs:
           curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/${{ env.FFMPEG_TAG }}/ffmpeg-n${{ env.FFMPEG_HWENCC_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_HWENCC_MAJOR_VERSION }}.tar.xz
           tar xvf ffmpeg-n${{ env.FFMPEG_HWENCC_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_HWENCC_MAJOR_VERSION }}.tar.xz
           cp -ar ffmpeg-n${{ env.FFMPEG_HWENCC_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_HWENCC_MAJOR_VERSION }}/lib/* thirdparty/Library/
-          sudo apt-get download libass9 libbrotli1 libexpat1 libfontconfig1 libfreetype6 libfribidi0 libglib2.0-0 libgraphite2-3 libharfbuzz0b libmediainfo0v5 libpcre3 libpng16-16 libuuid1 zlib1g
+          sudo apt-get download libass9 libbrotli1 libexpat1 libfontconfig1 libfreetype6 libfribidi0 libglib2.0-0 libgraphite2-3 libharfbuzz0b libpcre3 libpng16-16 libuuid1 zlib1g
           ls -1 | grep [.]deb >> all_debs.txt && cat all_debs.txt | while read fn; do dpkg-deb -x $fn `pwd`/thirdparty/Library; done && rm all_debs.txt
           cp -ar thirdparty/Library/lib/x86_64-linux-gnu/* thirdparty/Library/
           rm -rf thirdparty/Library/lib/
@@ -276,6 +280,15 @@ jobs:
           chmod a+x thirdparty/VCEEncC/VCEEncC.elf
           patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../Library' thirdparty/VCEEncC/VCEEncC.elf
           curl -L -o thirdparty/VCEEncC/License.txt https://raw.githubusercontent.com/rigaya/VCEEnc/master/VCEEnc_license.txt
+
+          # libmediainfo のアーカイブのダウンロード
+          ## AWS Lambda 向けのビルドが完全な Static Build で扱いやすそうだったので、それを使う
+          curl -L -o libmediainfo.zip https://mediaarea.net/download/binary/libmediainfo0/${{ env.LIBMEDIAINFO_VERSION }}/MediaInfo_DLL_${{ env.LIBMEDIAINFO_VERSION }}_Lambda_x86_64.zip
+          7z x -y libmediainfo.zip
+          cp -a lib/* thirdparty/Library/
+          rm -rf lib/
+          chmod a+x thirdparty/Library/libmediainfo.so*
+          patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../Library' thirdparty/Library/libmediainfo.so*
 
       # Python Standalone Builds のダウンロードと pipenv のインストール
       - name: Install Python Standalone Builds & pip & pipenv
@@ -421,7 +434,7 @@ jobs:
           ## ref: https://stackoverflow.com/questions/13756800/how-to-download-all-dependencies-and-packages-to-directory
           ## ref: https://askubuntu.com/questions/1260559/how-to-install-deb-packages-in-a-custom-folder-different-from-root-using-dp
           mkdir thirdparty/Library/
-          docker run --rm -i -v $(pwd):/work -w /work ${{ matrix.image }}:build bash -c 'apt-get update && apt-get download libasound2 libass9 libbluray2 libexpat1 libfontconfig1 libfreetype6 libfribidi0 libglib2.0-0 libgomp1 libgraphite2-3 libharfbuzz0b libicu66 liblzma5 libmediainfo0v5 libmp3lame0 libogg0 libopus0 libpcre3 libpng16-16 libsoxr0 libspeex1 libssl1.1 libtwolame0 libuuid1 libvorbisenc2 libvpx6 libxml2 zlib1g'
+          docker run --rm -i -v $(pwd):/work -w /work ${{ matrix.image }}:build bash -c 'apt-get update && apt-get download libasound2 libass9 libbluray2 libexpat1 libfontconfig1 libfreetype6 libfribidi0 libglib2.0-0 libgomp1 libgraphite2-3 libharfbuzz0b libicu66 liblzma5 libmp3lame0 libogg0 libopus0 libpcre3 libpng16-16 libsoxr0 libspeex1 libssl1.1 libtwolame0 libuuid1 libvorbisenc2 libvpx6 libxml2 zlib1g'
           curl -LO https://github.com/tsukumijima/mpp/releases/download/v1.5.0-1-54f7257/librockchip-mpp1_1.5.0-1_arm64.deb
           curl -LO https://github.com/tsukumijima/librga/releases/download/v2.2.0-1-fb93eed/librga2_2.2.0-1_arm64.deb
           ls -1 | grep [.]deb >> all_debs.txt && cat all_debs.txt | while read fn; do dpkg-deb -x $fn `pwd`/thirdparty/Library; done && rm all_debs.txt
@@ -441,6 +454,14 @@ jobs:
           chmod a+x thirdparty/rkmppenc/rkmppenc.elf
           patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../Library' thirdparty/rkmppenc/rkmppenc.elf
           curl -L -o thirdparty/rkmppenc/License.txt https://raw.githubusercontent.com/rigaya/rkmppenc/master/rkmppenc_license.txt
+
+          # libmediainfo のアーカイブのダウンロード
+          ## AWS Lambda 向けのビルドが完全な Static Build で扱いやすそうだったので、それを使う
+          curl -L -o libmediainfo.zip https://mediaarea.net/download/binary/libmediainfo0/${{ env.LIBMEDIAINFO_VERSION }}/MediaInfo_DLL_${{ env.LIBMEDIAINFO_VERSION }}_Lambda_arm64.zip
+          7z x -y libmediainfo.zip
+          cp -a lib/* thirdparty/Library/
+          rm -rf lib/
+          chmod a+x thirdparty/Library/libmediainfo.so*
 
       # Python Standalone Builds のダウンロードと pipenv のインストール
       - name: Install Python Standalone Builds & pip & pipenv
