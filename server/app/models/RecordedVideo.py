@@ -68,9 +68,6 @@ class RecordedVideo(models.Model):
         timestamp = time.time()
         Logging.info('Recorded videos updating...')
 
-        # 動作中のイベントループを取得
-        loop = asyncio.get_running_loop()
-
         # サーバー設定から録画フォルダリストを取得
         recorded_folders = Config().video.recorded_folders
 
@@ -81,6 +78,9 @@ class RecordedVideo(models.Model):
             Logging.info('No recorded folders are specified. Delete all recorded videos.')
             await RecordedProgram.all().delete()
             return
+
+        # 動作中のイベントループを取得
+        loop = asyncio.get_running_loop()
 
         # 複数のディレクトリを ProcessPoolExecutor で並列に処理する
         ## with 文で括ることで、with 文を抜けたときに Executor がクリーンアップされるようにする
@@ -133,52 +133,14 @@ class RecordedVideo(models.Model):
         # ref: https://tortoise-orm.readthedocs.io/en/latest/setup.html
         await Tortoise.init(config=DATABASE_CONFIG)
 
-        async def save(
-            current_recorded_video: RecordedVideo | None,
-            recorded_video: RecordedVideo,
-            recorded_program: RecordedProgram,
-            channel: Channel | None,
-        ) -> None:
-            """
-            変更を DB に保存する
-            スキャン時にこの関数に渡す引数を作成した後、スキャン終了後に一括で実行する
-            """
-
-            # TODO: 完成形ではこの時点で recorded_program 内にシリーズタイトル・話数・サブタイトルが取得できているはずだが、
-            # Series と SeriesBroadcastPeriod モデル自体は作成および紐付けされていないので、別途それを行う必要がある
-            ## もちろんすべて（あるいはいずれか）が取得できない場合もあるので、取得できる限られた情報から判断するように実装する必要がある
-
-            # 既に同一の ID を持つ Channel が存在する場合は、既存の Channel を使う
-            if channel is not None:
-                exists_channel = await Channel.get_or_none(id=channel.id)
-                if exists_channel is not None:
-                    channel = exists_channel
-
-            # 同一のパスを持つ録画ファイルが存在するがハッシュが異なる場合、一旦削除する
-            ## この処理が実行されている時点で、同一のパスを持つ録画ファイルが存在する場合、ハッシュが異なることが確定している
-            ## RecordedProgram に紐づく RecordedVideo も CASCADE 制約で同時に削除される
-            ## Channel (is_watchable=False) は他の録画ファイルから参照されている可能性があるため、削除されない
-            if current_recorded_video is not None:
-                await current_recorded_video.recorded_program.delete()
-
-            # メタデータの解析に成功したなら DB に保存する
-            ## 子テーブルを保存した後、それらを親テーブルに紐付けて保存する
-            if channel is not None:
-                await channel.save()
-                recorded_program.channel_id = channel.id
-            await recorded_program.save()
-            recorded_video.recorded_program_id = recorded_program.id
-            await recorded_video.save()
-
-        # DB に保存するタスクの引数を格納するリスト
-        ## リスト内のタスクはスキャン完了後に一括で実行する
+        # 録画ファイルの変更を DB に保存するタスクの引数を格納するリスト
+        ## リスト内のタスクはスキャン完了後に一括で実行される
         save_args_list: list[tuple[
             RecordedVideo | None,
             RecordedVideo,
             RecordedProgram,
             Channel | None,
         ]] = []
-
 
         # 指定されたディレクトリ以下のファイルを再帰的に走査する
         ## シンボリックリンクにより同一ファイルが複数回スキャンされることを防ぐため、followlinks=False に設定している
@@ -241,9 +203,10 @@ class RecordedVideo(models.Model):
                             continue
 
                         # メタデータの解析に成功したなら DB に保存するタスクの引数を追加する
-                        # この引数リストを save() に渡すループをスキャン完了後に一括で回して DB に保存する
+                        # 録画ファイルのスキャン完了後に引数を表すタプルが save() の引数に渡され、一括で DB に保存される
                         ## スキャン中に DB への書き込みを行うと並列処理の関係でデータベースロックエラーが発生することがあるほか、
-                        ## スキャン用ループのパフォーマンス低下につながる
+                        ## スキャン用ループのパフォーマンス低下につながるため、敢えて遅延させている
+                        ## 以前は Coroutine を直接追加していたが、Coroutine は一度実行するとエラーが起きても再利用できないため、この実装に変更した
                         save_args_list.append((current_recorded_video, recorded_video, recorded_program, channel))
 
                         if current_recorded_video is None:
@@ -253,6 +216,43 @@ class RecordedVideo(models.Model):
                     else:
                         #Logging.debug(f'Skip Recorded: {file_path.name}')
                         pass
+
+            async def save(
+                current_recorded_video: RecordedVideo | None,
+                recorded_video: RecordedVideo,
+                recorded_program: RecordedProgram,
+                channel: Channel | None,
+            ) -> None:
+                """
+                録画ファイルの変更を DB に保存する
+                スキャン時にこの関数に渡す引数を作成した後、スキャン終了後に一括で実行する
+                """
+
+                # TODO: 完成形ではこの時点で recorded_program 内にシリーズタイトル・話数・サブタイトルが取得できているはずだが、
+                # Series と SeriesBroadcastPeriod モデル自体は作成および紐付けされていないので、別途それを行う必要がある
+                ## もちろんすべて（あるいはいずれか）が取得できない場合もあるので、取得できる限られた情報から判断するように実装する必要がある
+
+                # 既に同一の ID を持つ Channel が存在する場合は、既存の Channel を使う
+                if channel is not None:
+                    exists_channel = await Channel.get_or_none(id=channel.id)
+                    if exists_channel is not None:
+                        channel = exists_channel
+
+                # 同一のパスを持つ録画ファイルが存在するがハッシュが異なる場合、一旦削除する
+                ## この処理が実行されている時点で、同一のパスを持つ録画ファイルが存在する場合、ハッシュが異なることが確定している
+                ## RecordedProgram に紐づく RecordedVideo も CASCADE 制約で同時に削除される
+                ## Channel (is_watchable=False) は他の録画ファイルから参照されている可能性があるため、削除されない
+                if current_recorded_video is not None:
+                    await current_recorded_video.recorded_program.delete()
+
+                # メタデータの解析に成功したなら DB に保存する
+                ## 子テーブルを保存した後、それらを親テーブルに紐付けて保存する
+                if channel is not None:
+                    await channel.save()
+                    recorded_program.channel_id = channel.id
+                await recorded_program.save()
+                recorded_video.recorded_program_id = recorded_program.id
+                await recorded_video.save()
 
             retry_count = 10
             while retry_count > 0:
