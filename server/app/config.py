@@ -92,6 +92,9 @@ class _ServerSettingsGeneral(BaseModel):
     def validate_edcb_url(cls, edcb_url: Url, info: FieldValidationInfo) -> Url:
         # URL を末尾のスラッシュありに統一
         edcb_url = Url(str(edcb_url).rstrip('/') + '/')
+        # バリデーションをスキップする場合はここで終了
+        if type(info.context) is dict and info.context.get('bypass_validation') is True:
+            return edcb_url
         # EDCB バックエンドの接続確認
         if info.data.get('backend') == 'EDCB':
             # 循環参照を避けるために遅延インポート
@@ -129,6 +132,9 @@ class _ServerSettingsGeneral(BaseModel):
         ## HTTP/HTTPS URL では Pydantic の Url インスタンスが自動的に末尾のスラッシュを付けてしまうようだが、
         ## 挙動が変わらないとも限らないので、一応明示的に付けておく
         mirakurun_url = Url(str(mirakurun_url).rstrip('/') + '/')
+        # バリデーションをスキップする場合はここで終了
+        if type(info.context) is dict and info.context.get('bypass_validation') is True:
+            return mirakurun_url
         # Mirakurun バックエンドの接続確認
         if info.data.get('backend') == 'Mirakurun':
             # 試しにリクエストを送り、200 (OK) が返ってきたときだけ有効な URL とみなす
@@ -159,7 +165,10 @@ class _ServerSettingsGeneral(BaseModel):
         return mirakurun_url
 
     @field_validator('encoder')
-    def validate_encoder(cls, encoder: str) -> str:
+    def validate_encoder(cls, encoder: str, info: FieldValidationInfo) -> str:
+        # バリデーションをスキップする場合はここで終了
+        if type(info.context) is dict and info.context.get('bypass_validation') is True:
+            return encoder
         from app.utils import Logging
         current_arch = platform.machine()
         # x64 なのにエンコーダーとして rkmppenc が指定されている場合
@@ -213,7 +222,10 @@ class _ServerSettingsServer(BaseModel):
     custom_https_private_key: FilePath | None
 
     @field_validator('port')
-    def validate_port(cls, port: int) -> int:
+    def validate_port(cls, port: int, info: FieldValidationInfo) -> int:
+        # バリデーションをスキップする場合はここで終了
+        if type(info.context) is dict and info.context.get('bypass_validation') is True:
+            return port
         # リッスンするポート番号が 1024 ~ 65525 の間に収まっているかをチェック
         if port < 1024 or port > 65525:
             raise ValueError(
@@ -276,22 +288,6 @@ class ServerSettings(BaseModel):
     video: _ServerSettingsVideo
     capture: _ServerSettingsCapture
     twitter: _ServerSettingsTwitter
-
-    @classmethod
-    def unverified(cls, config_dict: dict[str, dict[str, Any]]) -> 'ServerSettings':
-        """
-        バリデーションをスキップして ServerSettings オブジェクトを生成する
-        ref: https://github.com/pydantic/pydantic/issues/897
-        """
-
-        return ServerSettings.model_construct(
-            general = _ServerSettingsGeneral.model_construct(**config_dict['general']),
-            server = _ServerSettingsServer.model_construct(**config_dict['server']),
-            tv = _ServerSettingsTV.model_construct(**config_dict['tv']),
-            video = _ServerSettingsVideo.model_construct(**config_dict['video']),
-            capture = _ServerSettingsCapture.model_construct(**config_dict['capture']),
-            twitter = _ServerSettingsTwitter.model_construct(**config_dict['twitter']),
-        )
 
 
 # サーバー設定データと読み込み・保存用の関数
@@ -360,7 +356,7 @@ def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
     # サーバー設定のバリデーションを実行
     if bypass_validation is False:
         try:
-            _CONFIG = ServerSettings(**cast(Any, config_dict))
+            _CONFIG = ServerSettings.model_validate(config_dict, context={'bypass_validation': False})
             Logging.debug_simple('Server settings loaded.')
         except ValidationError as error:
 
@@ -381,7 +377,7 @@ def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
             Logging.error(error)
             sys.exit(1)
     else:
-        _CONFIG = ServerSettings.unverified(config_dict)
+        _CONFIG = ServerSettings.model_validate(config_dict, context={'bypass_validation': True})
         Logging.debug_simple('Server settings loaded (bypassed validation).')
 
     return _CONFIG
