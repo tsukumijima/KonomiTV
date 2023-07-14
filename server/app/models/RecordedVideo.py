@@ -74,31 +74,51 @@ class RecordedVideo(models.Model):
         # サーバー設定から録画フォルダリストを取得
         recorded_folders = Config().video.recorded_folders
 
+        # もし録画フォルダリストが空だったら、RecordedProgram をすべて削除して終了
+        ## RecordedProgram に紐づく RecordedVideo も CASCADE 制約で同時に削除される
+        ## この処理により、録画フォルダリストが空の状態でサーバーを起動した場合、すべての録画番組が DB 上から削除される
+        if len(recorded_folders) == 0:
+            Logging.info('No recorded folders are specified. Delete all recorded videos.')
+            await RecordedProgram.all().delete()
+            return
+
         # 複数のディレクトリを ProcessPoolExecutor で並列に処理する
         ## with 文で括ることで、with 文を抜けたときに Executor がクリーンアップされるようにする
         ## さもなければプロセスが残り続けてゾンビプロセス化し、メモリリークを引き起こしてしまう
         with concurrent.futures.ProcessPoolExecutor() as executor:
             tasks = [loop.run_in_executor(executor, cls.updateDirectoryForMultiProcess, directory) for directory in recorded_folders]
-            await asyncio.gather(*tasks)
+            tasks = await asyncio.gather(*tasks)
 
-        # もし録画フォルダリストが空だったら、RecordedProgram をすべて削除する
-        ## RecordedProgram に紐づく RecordedVideo も CASCADE 制約で同時に削除される
-        ## この処理で録画フォルダリストが空の状態でサーバーを起動した場合、すべての録画番組が DB 上から削除される
-        if len(recorded_folders) == 0:
-            Logging.info('No recorded folders are specified. Delete all recorded videos.')
-            await RecordedProgram.all().delete()
+        # スキャンで見つかったすべての録画ファイルのフルパスのリストを取得
+        ## このリストに含まれる録画ファイルは基本すべて DB に保存されているはず (エラーが発生する録画ファイルを除く)
+        existing_files: list[str] = []
+        for task in tasks:
+            existing_files.extend(task)
+
+        # トランザクション配下に入れることでパフォーマンスが向上する
+        async with transactions.in_transaction():
+            # スキャン結果に含まれない録画ファイルが DB に存在する場合は削除する
+            ## RecordedProgram に紐づく RecordedVideo も CASCADE 制約で同時に削除される
+            ## Channel (is_watchable=False) は他の録画ファイルから参照されている可能性があるため、削除されない
+            for recorded_video in await RecordedVideo.all().select_related('recorded_program'):
+                if recorded_video.file_path not in existing_files:
+                    await recorded_video.recorded_program.delete()
+                    Logging.info(f'Delete Recorded: {Path(recorded_video.file_path).name}')
 
         Logging.info(f'Recorded videos update complete. ({round(time.time() - timestamp, 3)} sec)')
 
 
     @classmethod
-    async def updateDirectory(cls, directory: Path) -> None:
+    async def updateDirectory(cls, directory: Path) -> list[str]:
         """
         指定されたディレクトリ以下の録画ファイルのメタデータを更新する
         ProcessPoolExecutor 内で実行されることを想定している
 
         Args:
             directory (Path): 録画ファイルが格納されているディレクトリ
+
+        Returns:
+            list[str]: スキャンで見つかったすべての録画ファイルのフルパスのリスト
         """
 
         # 循環参照を避けるために遅延インポート
@@ -159,13 +179,13 @@ class RecordedVideo(models.Model):
             Channel | None,
         ]] = []
 
-        try:
 
-            # 指定されたディレクトリ以下のファイルを再帰的に走査する
-            ## シンボリックリンクにより同一ファイルが複数回スキャンされることを防ぐため、followlinks=False に設定している
-            ## 本来同期関数の os.walk を非同期関数の中で使うのは望ましくないが (イベントループがブロッキングされるため)、
-            ## この関数自体が ProcessPoolExecutor 内でそれぞれ別プロセスで実行されるため問題ない
-            existing_files: list[str] = []
+        # 指定されたディレクトリ以下のファイルを再帰的に走査する
+        ## シンボリックリンクにより同一ファイルが複数回スキャンされることを防ぐため、followlinks=False に設定している
+        ## 本来同期関数の os.walk を非同期関数の中で使うのは望ましくないが (イベントループがブロッキングされるため)、
+        ## この関数自体が ProcessPoolExecutor 内でそれぞれ別プロセスで実行されるため問題ない
+        existing_files: list[str] = []
+        try:
             for dir_path, _, file_names in os.walk(directory, followlinks=False):
                 for file_name in file_names:
 
@@ -191,7 +211,7 @@ class RecordedVideo(models.Model):
                         continue
 
                     # 同一のパスを持つ録画ファイルが DB に存在するか確認する
-                    current_recorded_video = await RecordedVideo.get_or_none(file_path=file_path).select_related('recorded_program')
+                    current_recorded_video = await RecordedVideo.get_or_none(file_path=str(file_path)).select_related('recorded_program')
 
                     # 同一のパスを持つ録画ファイルが存在しないか、ハッシュが異なる場合はメタデータを取得する
                     if current_recorded_video is None or current_recorded_video.file_hash != file_hash:
@@ -239,22 +259,6 @@ class RecordedVideo(models.Model):
                         for save_args in save_args_list:
                             await save(*save_args)
 
-                        # DB 内のすべての録画ファイルを取得する
-                        for recorded_video in await RecordedVideo.all().select_related('recorded_program'):
-
-                            ## 録画ファイルパスが directory から始まっていない & DIRECTORIES のいずれかから始まっている場合は、
-                            ## 同時に別フォルダを処理している別プロセスのスキャン結果に含まれている可能性が高いため、スキップする
-                            if not recorded_video.file_path.startswith(str(directory)) and \
-                                any([recorded_video.file_path.startswith(str(d)) for d in Config().video.recorded_folders]):
-                                continue
-
-                            # スキャン結果に含まれない録画ファイルが DB に存在する場合は削除する
-                            ## RecordedProgram に紐づく RecordedVideo も CASCADE 制約で同時に削除される
-                            ## Channel (is_watchable=False) は他の録画ファイルから参照されている可能性があるため、削除されない
-                            if recorded_video.file_path not in existing_files:
-                                await recorded_video.recorded_program.delete()
-                                Logging.info(f'Delete Recorded: {Path(recorded_video.file_path).name}')
-
                         # 正常に DB に保存できたならループを抜ける
                         break
 
@@ -286,14 +290,19 @@ class RecordedVideo(models.Model):
         # 強制的にガベージコレクションを実行する
         gc.collect()
 
+        return existing_files
+
 
     @classmethod
-    def updateDirectoryForMultiProcess(cls, directory: Path) -> None:
+    def updateDirectoryForMultiProcess(cls, directory: Path) -> list[str]:
         """
         RecordedVideo.updateDirectory() の同期版 (ProcessPoolExecutor でのマルチプロセス実行用)
 
         Args:
             directory (Path): 録画ファイルが格納されているディレクトリ
+
+        Returns:
+            list[str]: スキャンで見つかったすべての録画ファイルのフルパスのリスト
         """
 
         # もし Config() の実行時に AssertionError が発生した場合は、LoadConfig() を実行してサーバー設定データをロードする
@@ -306,4 +315,4 @@ class RecordedVideo(models.Model):
             LoadConfig(bypass_validation=True)
 
         # asyncio.run() で非同期メソッドの実行が終わるまで待つ
-        asyncio.run(cls.updateDirectory(directory))
+        return asyncio.run(cls.updateDirectory(directory))
