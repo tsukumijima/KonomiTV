@@ -506,12 +506,12 @@ async def TwitterAccountDeleteAPI(
     response_model = schemas.TweetResult,
 )
 async def TwitterTweetAPI(
-    tweet: str = Form(description='ツイートの本文（基本的には140文字まで）。'),
+    tweet: str = Form('', description='ツイートの本文（基本的には140文字まで）。'),
     images: list[UploadFile] = File([], description='ツイートに添付する画像（4枚まで）。'),
     twitter_account_api: tweepy.API = Depends(GetCurrentTwitterAccountAPI),
 ):
     """
-    Twitter にツイートを送信する。<br>
+    Twitter にツイートを送信する。ツイート本文 or 画像のみ送信することもできる。<br>
     ツイートには screen_name で指定したスクリーンネームに紐づく Twitter アカウントが利用される。
 
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
