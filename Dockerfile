@@ -12,13 +12,15 @@ FROM ubuntu:22.04 AS thirdparty-downloader
 ENV DEBIAN_FRONTEND=noninteractive
 
 # ダウンロード・展開に必要なパッケージのインストール
-RUN apt-get update && apt-get install -y --no-install-recommends aria2 ca-certificates xz-utils
+RUN apt-get update && apt-get install -y --no-install-recommends aria2 ca-certificates unzip xz-utils
 
 # サードパーティーライブラリをダウンロード
 ## サードパーティーライブラリは変更が少ないので、先にダウンロード処理を実行してビルドキャッシュを効かせる
 WORKDIR /
-RUN aria2c -x10 https://github.com/tsukumijima/KonomiTV/releases/download/v0.7.1/thirdparty-linux.tar.xz
-RUN tar xvf thirdparty-linux.tar.xz
+# RUN aria2c -x10 https://github.com/tsukumijima/KonomiTV/releases/download/v0.7.1/thirdparty-linux.tar.xz
+# RUN tar xvf thirdparty-linux.tar.xz
+RUN aria2c -x10 https://nightly.link/tsukumijima/KonomiTV/actions/runs/5518921550/thirdparty-linux.tar.xz.zip
+RUN unzip thirdparty-linux.tar.xz.zip && tar xvf thirdparty-linux.tar.xz
 
 # --------------------------------------------------------------------------------------------------------------
 # クライアントをビルドするステージ
