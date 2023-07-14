@@ -1,7 +1,8 @@
 
+import re
 from ariblib.aribstr import AribString
 from ariblib.sections import NetworkInformationSection
-from typing import Literal
+from typing import cast, Literal
 
 
 class ActualStreamNetworkInformationSection(NetworkInformationSection):
@@ -59,17 +60,21 @@ class TSInformation:
     }
 
     # formatString() で使用する変換マップ
-    __format_string_translation_map = None
+    __format_string_translation_map: dict[int, str] | None = None
+    __format_string_regex: re.Pattern[str] | None = None
+    __format_string_regex_table: dict[str, str] | None = None
 
 
-    @staticmethod
-    def __getFormatStringTranslationTable() -> dict[str, str]:
+    @classmethod
+    def __buildFormatStringTranslationTable(cls) -> None:
         """
-        formatString() で使用する変換テーブルを取得する
-
-        Returns:
-            dict[str, str]: 変換テーブル
+        formatString() で使用する変換テーブルや正規表現を構築する
+        一度のみ実行され、以降はキャッシュされる
         """
+
+        # すでに構築済みの場合は何もしない
+        if cls.__format_string_translation_map is not None and cls.__format_string_regex is not None:
+            return
 
         # 全角英数を半角英数に置換
         # ref: https://github.com/ikegami-yukino/jaconv/blob/master/jaconv/conv_table.py
@@ -99,12 +104,13 @@ class TSInformation:
         })
 
         # 番組表で使用される囲み文字の置換テーブル
-        # ref: https://note.nkmk.me/python-chr-ord-unicode-code-point/
-        # ref: https://github.com/l3tnun/EPGStation/blob/v2.6.17/src/util/StrUtil.ts#L7-L46
+        ## ref: https://note.nkmk.me/python-chr-ord-unicode-code-point/
+        ## ref: https://github.com/l3tnun/EPGStation/blob/v2.6.17/src/util/StrUtil.ts#L7-L46
+        ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-230526/EpgDataCap3/EpgDataCap3/ARIB8CharDecode.cpp#L1324-L1614
         enclosed_characters_table = {
             '\U0001f14a': '[HV]',
-            '\U0001f13f': '[P]',
             '\U0001f14c': '[SD]',
+            '\U0001f13f': '[P]',
             '\U0001f146': '[W]',
             '\U0001f14b': '[MV]',
             '\U0001f210': '[手]',
@@ -138,13 +144,44 @@ class TSInformation:
         }
 
         # Unicode の囲み文字を大かっこで囲った文字に置換する
-        # EDCB で EpgDataCap3_Unicode.dll を利用している場合や、Mirakurun 3.9.0-beta.24 以降など、
-        # 番組情報取得元から Unicode の囲み文字が送られてくる場合に対応するためのもの
-        # Unicode の囲み文字はサロゲートペアなどで扱いが難しい上に KonomiTV では囲み文字を CSS でハイライトしているため、Unicode にするメリットがない
-        # ref: https://note.nkmk.me/python-str-replace-translate-re-sub/
+        ## EDCB で EpgDataCap3_Unicode.dll を利用している場合や、Mirakurun 3.9.0-beta.24 以降など、
+        ## 番組情報取得元から Unicode の囲み文字が送られてくる場合に対応するためのもの
+        ## Unicode の囲み文字はサロゲートペアなどで扱いが難しい上に KonomiTV では囲み文字を CSS でハイライトしているため、Unicode にするメリットがない
+        ## ref: https://note.nkmk.me/python-str-replace-translate-re-sub/
         merged_table.update(enclosed_characters_table)
 
-        return merged_table
+        # 変換マップを構築し、クラス変数に格納
+        cls.__format_string_translation_map = str.maketrans(merged_table)
+
+        # 逆に代替の文字表現に置換された ARIB 外字を Unicode に置換するテーブル
+        ## 主に EDCB (EpgDataCap3_Unicode.dll 不使用) 環境向けの処理
+        ## EDCB は通常 Shift-JIS で表現できない文字をサロゲートペア範囲外の文字も含めてすべて代替の文字表現に変換するが、これはこれで見栄えが悪い
+        ## そこで、サロゲートペアなしで表現できて、一般的な日本語フォントでグリフが用意されていて、
+        ## かつ他の文字表現から明確に判別可能でそのままでは分かりづらい文字表現だけ Unicode に置換する
+        ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-230526/EpgDataCap3/EpgDataCap3/ARIB8CharDecode.cpp#L1324-L1614
+        cls.__format_string_regex_table = {
+            # '[・]': '⚿',  # グリフが用意されていないことが多い
+            '(秘)': '㊙',
+            'm^2': 'm²',
+            'm^3': 'm³',
+            'cm^2': 'cm²',
+            'cm^3': 'cm³',
+            'km^2': 'km²',
+            '[社]': '㈳',
+            '[財]': '㈶',
+            '[有]': '㈲',
+            '[株]': '㈱',
+            '[代]': '㈹',
+            # '(問)': '㉄',  # グリフが用意されていないことが多い
+            '^2': '²',
+            '^3': '³',
+            # '(箏): '㉇',  # グリフが用意されていないことが多い
+            '(〒)': '〶',
+            '()()': '⚾',
+        }
+
+        # 正規表現を構築し、クラス変数に格納
+        cls.__format_string_regex = re.compile("|".join(map(re.escape, cls.__format_string_regex_table.keys())))
 
 
     @classmethod
@@ -162,11 +199,15 @@ class TSInformation:
         # AribString になっている事があるので明示的に str 型にキャストする
         result = str(string)
 
-        # 変換マップを構築
-        if cls.__format_string_translation_map is None:
-            cls.__format_string_translation_map = str.maketrans(cls.__getFormatStringTranslationTable())
+        # 変換マップを構築 (初回以降はキャッシュされる)
+        cls.__buildFormatStringTranslationTable()
+        assert cls.__format_string_translation_map is not None
+        assert cls.__format_string_regex is not None
+        assert cls.__format_string_regex_table is not None
 
+        # 置換を実行
         result = result.translate(cls.__format_string_translation_map)
+        result = cls.__format_string_regex.sub(lambda match: cast(dict[str, str], cls.__format_string_regex_table)[match.group(0)], result)
 
         # 置換した文字列を返す
         return result
