@@ -199,6 +199,12 @@ class RecordedVideo(models.Model):
                     ## 当面 TS ファイルのみを対象とする
                     if file_path.suffix not in ['.ts', '.m2t', '.m2ts', '.mts']:
                         continue
+                    ## 最終更新日時が 30 秒以内 (=現在録画中) のファイルを無視する
+                    ## 録画中のファイルはメタデータの解析に失敗したり、不正確なメタデータが取得される可能性があるため
+                    if (time.time() - file_path.stat().st_mtime) < 30:
+                        Logging.warning(f'{file_path}: File is being recorded. ignored.')
+                        continue
+
                     existing_files.append(str(file_path))
 
                     # 録画ファイルのハッシュを取得
