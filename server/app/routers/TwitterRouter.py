@@ -506,8 +506,8 @@ async def TwitterAccountDeleteAPI(
     response_model = schemas.TweetResult,
 )
 async def TwitterTweetAPI(
-    tweet: str = Form('', description='ツイートの本文（基本的には140文字まで）。'),
-    images: list[UploadFile] | None = File(None, description='ツイートに添付する画像（4枚まで）。'),
+    tweet: str = Form(description='ツイートの本文（基本的には140文字まで）。'),
+    images: list[UploadFile] = File([], description='ツイートに添付する画像（4枚まで）。'),
     twitter_account_api: tweepy.API = Depends(GetCurrentTwitterAccountAPI),
 ):
     """
@@ -518,8 +518,6 @@ async def TwitterTweetAPI(
     """
 
     # 画像が4枚を超えている
-    if images is None:
-        images = []
     if len(images) > 4:
         Logging.error(f'[TwitterRouter][TwitterTweetAPI] Can tweet up to 4 images [image length: {len(images)}]')
         raise HTTPException(
