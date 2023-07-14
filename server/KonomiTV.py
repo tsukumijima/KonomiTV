@@ -1,13 +1,20 @@
 
-import atexit
+# タイムゾーンを常に Asia/Tokyo に設定する (Linux のみ)
+## タイムゾーンが UTC の環境ではログの日時が日本時間より9時間遅れてしまうため
+## デフォルトを Asia/Tokyo に変更することで、万が一のタイムゾーン関連のバグを防ぐ最終防波堤としての意味合いもある
+## Windows ではタイムゾーンを変更することができないため、何もしない
 import os
-import platform
-import subprocess
 import sys
 import time
+if sys.platform != 'win32':
+    os.environ['TZ'] = 'Asia/Tokyo'
+    time.tzset()
+
+import atexit
+import platform
+import subprocess
 import typer
 import uvicorn
-import uvicorn.logging
 from pathlib import Path
 from uvicorn.supervisors.watchfilesreload import WatchFilesReload
 
