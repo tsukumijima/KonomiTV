@@ -96,6 +96,10 @@ class MetadataAnalyzer:
 
             # 映像
             elif track.track_type == 'Video' and is_video_track_read is False:
+                # 長さが取得できない映像トラックは基本的に不正なため無視する
+                # 録画データの一部分のみに主映像と異なる映像トラックが含まれている場合に発生する可能性がある (基本ないはずだが…)
+                if hasattr(track, 'duration') is False or track.duration is None:
+                    continue
                 if track.format == 'MPEG Video':
                     recorded_video.video_codec = 'MPEG-2'
                 elif track.format == 'AVC':
@@ -108,6 +112,10 @@ class MetadataAnalyzer:
 
             # 主音声
             elif track.track_type == 'Audio' and is_primary_audio_track_read is False:
+                # 長さが取得できない音声トラックは基本的に不正なため無視する
+                # 録画マージンに音声多重放送が含まれているなど、録画データの一部分のみに副音声トラックが含まれている場合に発生する
+                if hasattr(track, 'duration') is False or track.duration is None:
+                    continue
                 if track.format == 'AAC' and track.format_additionalfeatures == 'LC':
                     recorded_video.primary_audio_codec = 'AAC-LC'
                 elif track.format == 'AAC' and track.format_additionalfeatures == 'HE-AAC':
@@ -117,7 +125,7 @@ class MetadataAnalyzer:
                 if int(track.channel_s) == 1:
                     recorded_video.primary_audio_channel = 'Monaural'
                 elif int(track.channel_s) == 2:
-                    # デュアルモノも Stereo として判定される (別途 RecordedProgram の primary_audio_type で判定すべき)
+                    # デュアルモノも Stereo として判定される可能性がある (別途 RecordedProgram の primary_audio_type で判定すべき)
                     recorded_video.primary_audio_channel = 'Stereo'
                 elif int(track.channel_s) == 6:
                     recorded_video.primary_audio_channel = '5.1ch'
@@ -126,6 +134,10 @@ class MetadataAnalyzer:
 
             # 副音声（存在する場合）
             elif track.track_type == 'Audio' and is_secondary_audio_track_read is False:
+                # 長さが取得できない音声トラックは基本的に不正なため無視する
+                # 録画マージンに音声多重放送が含まれているなど、録画データの一部分のみに副音声トラックが含まれている場合に発生する
+                if hasattr(track, 'duration') is False or track.duration is None:
+                    continue
                 if track.format == 'AAC' and track.format_additionalfeatures == 'LC':
                     recorded_video.secondary_audio_codec = 'AAC-LC'
                 elif track.format == 'AAC' and track.format_additionalfeatures == 'HE-AAC':
@@ -135,7 +147,7 @@ class MetadataAnalyzer:
                 if int(track.channel_s) == 1:
                     recorded_video.secondary_audio_channel = 'Monaural'
                 elif int(track.channel_s) == 2:
-                    # デュアルモノも Stereo として判定される (別途 RecordedProgram の secondary_audio_type で判定すべき)
+                    # デュアルモノも Stereo として判定される可能性がある (別途 RecordedProgram の secondary_audio_type で判定すべき)
                     recorded_video.secondary_audio_channel = 'Stereo'
                 elif int(track.channel_s) == 6:
                     recorded_video.secondary_audio_channel = '5.1ch'
@@ -278,6 +290,10 @@ class MetadataAnalyzer:
                     # 映像 or 音声ストリームが存在しない
                     if track.count_of_video_streams == 0 and track.count_of_audio_streams == 0:
                         Logging.warning(f'{self.recorded_file_path}: Video or audio stream is missing.')
+                        return None
+                    # 長さが取得できない
+                    if hasattr(track, 'duration') is False or track.duration is None:
+                        Logging.warning(f'{self.recorded_file_path}: Duration is missing.')
                         return None
 
                 # 映像ストリーム
