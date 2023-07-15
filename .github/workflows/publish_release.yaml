@@ -76,8 +76,10 @@ jobs:
       # KonomiTV のバージョン番号をリリースコミットのコミットメッセージから取得
       - name: Get Version
         id: get_version
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
-          echo version=$(echo '${{ github.event.head_commit.message }}' | sed -e 's/Release: version //') >> $GITHUB_OUTPUT
+          echo version=$(echo "$COMMIT_MESSAGE" | sed -e 's/Release: version //') >> $GITHUB_OUTPUT
 
       # リリースコミットに対応する新バージョンのタグを release ブランチで作成
       ## この git push origin --tags をトリガーに Docker イメージを公開するワークフローが実行される
