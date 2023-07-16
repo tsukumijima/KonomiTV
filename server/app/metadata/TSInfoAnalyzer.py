@@ -68,9 +68,8 @@ class TSInfoAnalyzer:
 
         # 録画開始時刻と次の番組の開始時刻を比較して、差が0〜1分以内（＝録画マージン）なら次の番組情報を利用する
         # 録画マージン分おおまかにシークしてから番組情報を取得しているため、基本的には現在の番組情報を使うことになるはず
-        if (recorded_program_following.start_time is not None and
-            self.recorded_video.recording_start_time is not None and
-            timedelta(minutes=0) <= recorded_program_following.start_time - self.recorded_video.recording_start_time <= timedelta(minutes=1)):
+        if (self.recorded_video.recording_start_time is not None and
+            timedelta(minutes=0) <= (recorded_program_following.start_time - self.recorded_video.recording_start_time) <= timedelta(minutes=1)):
             recorded_program = recorded_program_following
         else:
             recorded_program = recorded_program_present

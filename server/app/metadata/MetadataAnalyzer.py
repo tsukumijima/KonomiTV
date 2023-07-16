@@ -116,6 +116,9 @@ class MetadataAnalyzer:
                 # 録画マージンに音声多重放送が含まれているなど、録画データの一部分のみに副音声トラックが含まれている場合に発生する
                 if hasattr(track, 'duration') is False or track.duration is None:
                     continue
+                # 長さが取得できるが、全体の長さの 80% 以下の場合は不正なトラックと判断する
+                if float(track.duration) / 1000 < recorded_video.duration * 0.8:
+                    continue
                 if track.format == 'AAC' and track.format_additionalfeatures == 'LC':
                     recorded_video.primary_audio_codec = 'AAC-LC'
                 elif track.format == 'AAC' and track.format_additionalfeatures == 'HE-AAC':
@@ -137,6 +140,9 @@ class MetadataAnalyzer:
                 # 長さが取得できない音声トラックは基本的に不正なため無視する
                 # 録画マージンに音声多重放送が含まれているなど、録画データの一部分のみに副音声トラックが含まれている場合に発生する
                 if hasattr(track, 'duration') is False or track.duration is None:
+                    continue
+                # 長さが取得できるが、全体の長さの 80% 以下の場合は不正なトラックと判断する
+                if float(track.duration) / 1000 < recorded_video.duration * 0.8:
                     continue
                 if track.format == 'AAC' and track.format_additionalfeatures == 'LC':
                     recorded_video.secondary_audio_codec = 'AAC-LC'
