@@ -207,10 +207,17 @@ class TSInfoAnalyzer:
         else:
             eit_section_number = 0
 
+        def closest_multiple(n: int, multiple: int):
+            """ n に最も近い multiple の倍数を返す """
+            return round(n / multiple) * multiple
+
         # 誤動作防止のため必ず最初にシークを戻す
-        ## 録画ファイルのサイズ全体の 20% の位置から始める
-        ## 先頭にシークすると録画マージン分のデータを含んでしまうため、おおよそ録画マージン分を除いた位置から始める
-        self.ts.seek(int(self.recorded_video_file_size * 0.2))
+        ## 録画ファイルのサイズ全体の 20% の位置にシークする (正確にはシーク単位は 188 バイトずつでなければならないので調整する)
+        ## 先頭にシークすると録画開始マージン分のデータを含んでしまうため、大体録画開始マージン分を除いた位置から始める
+        ## 極端に録画開始マージンが大きいか番組長が短い録画でない限り、録画対象の番組が放送されているタイミングにシークできるはず
+        ## 例えば30分10秒の録画 (前後5秒が録画マージン) の場合、全体の 20% の位置にシークすると大体6分2秒の位置になる
+        ## 生の録画データはビットレートが一定のため、シーンによって大きくデータサイズが変動することはない
+        self.ts.seek(closest_multiple(int(self.recorded_video_file_size * 0.2), 188))
 
         # 録画番組情報を表すモデルを作成
         recorded_program = RecordedProgram()
