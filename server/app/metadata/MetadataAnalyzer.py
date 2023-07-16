@@ -175,8 +175,7 @@ class MetadataAnalyzer:
         recorded_program = None
         channel = None
         if recorded_video.container_format == 'MPEG-TS':
-            program_analyzer = TSInfoAnalyzer(recorded_video)
-            result = program_analyzer.analyze()
+            result = TSInfoAnalyzer(recorded_video).analyze()
             if result is not None:
                 recorded_program, channel = result
 
@@ -204,8 +203,7 @@ class MetadataAnalyzer:
         # CM 区間を検出する (MPEG-TS 形式のみ)
         ## 時間がかかるので最後に実行する
         if recorded_video.container_format == 'MPEG-TS':
-            cm_sections_detector = CMSectionsDetector(recorded_video)
-            recorded_video.cm_sections = cm_sections_detector.detect()
+            recorded_video.cm_sections = CMSectionsDetector(recorded_video).detect()
         else:
             recorded_video.cm_sections = []
 

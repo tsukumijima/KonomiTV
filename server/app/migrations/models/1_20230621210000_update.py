@@ -4,6 +4,7 @@ from tortoise import BaseDBAsyncClient
 
 async def upgrade(db: BaseDBAsyncClient) -> str:
     return """
+        DROP TABLE IF EXISTS "recorded_programs";
         CREATE TABLE IF NOT EXISTS "recorded_programs" (
             "id" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
             "recording_start_margin" REAL NOT NULL,
@@ -31,6 +32,7 @@ async def upgrade(db: BaseDBAsyncClient) -> str:
             "secondary_audio_type" TEXT,
             "secondary_audio_language" TEXT
         );
+        DROP TABLE IF EXISTS "recorded_videos";
         CREATE TABLE IF NOT EXISTS "recorded_videos" (
             "id" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
             "recorded_program_id" INT NOT NULL REFERENCES "recorded_programs" ("id") ON DELETE CASCADE,
@@ -51,6 +53,7 @@ async def upgrade(db: BaseDBAsyncClient) -> str:
             "secondary_audio_sampling_rate" INT,
             "cm_sections" JSON NOT NULL
         );
+        DROP TABLE IF EXISTS "series";
         CREATE TABLE IF NOT EXISTS "series" (
             "id" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
             "title" TEXT NOT NULL,
@@ -58,6 +61,7 @@ async def upgrade(db: BaseDBAsyncClient) -> str:
             "genres" JSON NOT NULL,
             "updated_at" TIMESTAMP NOT NULL  DEFAULT CURRENT_TIMESTAMP
         );
+        DROP TABLE IF EXISTS "series_broadcast_periods";
         CREATE TABLE IF NOT EXISTS "series_broadcast_periods" (
             "id" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
             "series_id" INT NOT NULL REFERENCES "series" ("id") ON DELETE CASCADE,

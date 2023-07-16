@@ -46,6 +46,9 @@ class TSInfoAnalyzer:
         self.recorded_video = recorded_video
         self.ts = ariblib.tsopen(self.recorded_video.file_path, chunk=1000)
 
+        # 録画ファイルのファイルサイズを取得
+        self.recorded_video_file_size = Path(self.recorded_video.file_path).stat().st_size
+
 
     def analyze(self) -> tuple[RecordedProgram, Channel] | None:
         """
@@ -66,8 +69,10 @@ class TSInfoAnalyzer:
         recorded_program_present = self.__analyzeEITInformation(channel, is_following=False)
         recorded_program_following = self.__analyzeEITInformation(channel, is_following=True)
 
-        # 録画開始時刻と次の番組の開始時刻を比較して、差が0〜1分以内（＝録画マージン）なら次の番組情報を利用する
-        # 録画マージン分おおまかにシークしてから番組情報を取得しているため、基本的には現在の番組情報を使うことになるはず
+        # 録画開始時刻と次の番組の開始時刻を比較して、もし差が0〜1分以内なら次の番組情報を利用する
+        ## 録画ファイルのサイズ全体の 20% の位置にシークしてから番組情報を取得しているため、基本的には現在の番組情報を使うことになるはず
+        ## シークした位置が録画開始マージン範囲（=録画対象の番組の前番組）だった場合のみ、次の番組情報が利用される
+        ## 録画開始マージンは通常 5~10 秒程度で、長くても1分以内に収まるはず
         if (self.recorded_video.recording_start_time is not None and
             timedelta(minutes=0) <= (recorded_program_following.start_time - self.recorded_video.recording_start_time) <= timedelta(minutes=1)):
             recorded_program = recorded_program_following
@@ -203,8 +208,9 @@ class TSInfoAnalyzer:
             eit_section_number = 0
 
         # 誤動作防止のため必ず最初にシークを戻す
-        ## 数秒の録画マージンを考慮して、少し後から始める
-        self.ts.seek(18800000)  # 18MB
+        ## 録画ファイルのサイズ全体の 20% の位置から始める
+        ## 先頭にシークすると録画マージン分のデータを含んでしまうため、おおよそ録画マージン分を除いた位置から始める
+        self.ts.seek(int(self.recorded_video_file_size * 0.2))
 
         # 録画番組情報を表すモデルを作成
         recorded_program = RecordedProgram()
