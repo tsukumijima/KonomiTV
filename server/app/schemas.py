@@ -78,6 +78,7 @@ class RecordedVideo(PydanticModel):
     id: int
     file_path: str
     file_hash: str
+    file_size: int
     recording_start_time: datetime | None
     recording_end_time: datetime | None
     duration: float
