@@ -50,6 +50,7 @@ class MetadataAnalyzer:
         # 録画ファイルを表すモデルを作成
         recorded_video = RecordedVideo()
         recorded_video.file_path = str(self.recorded_file_path)
+        recorded_video.file_size = self.recorded_file_path.stat().st_size
 
         # 録画ファイルのハッシュを計算
         try:

@@ -38,6 +38,7 @@ async def upgrade(db: BaseDBAsyncClient) -> str:
             "recorded_program_id" INT NOT NULL REFERENCES "recorded_programs" ("id") ON DELETE CASCADE,
             "file_path" TEXT NOT NULL,
             "file_hash" TEXT NOT NULL,
+            "file_size" INT NOT NULL,
             "recording_start_time" TIMESTAMP,
             "recording_end_time" TIMESTAMP,
             "duration" REAL NOT NULL,

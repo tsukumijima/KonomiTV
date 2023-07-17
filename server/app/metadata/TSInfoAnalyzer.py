@@ -46,9 +46,6 @@ class TSInfoAnalyzer:
         self.recorded_video = recorded_video
         self.ts = ariblib.tsopen(self.recorded_video.file_path, chunk=1000)
 
-        # 録画ファイルのファイルサイズを取得
-        self.recorded_video_file_size = Path(self.recorded_video.file_path).stat().st_size
-
 
     def analyze(self) -> tuple[RecordedProgram, Channel] | None:
         """
@@ -217,7 +214,7 @@ class TSInfoAnalyzer:
         ## 極端に録画開始マージンが大きいか番組長が短い録画でない限り、録画対象の番組が放送されているタイミングにシークできるはず
         ## 例えば30分10秒の録画 (前後5秒が録画マージン) の場合、全体の 20% の位置にシークすると大体6分2秒の位置になる
         ## 生の録画データはビットレートが一定のため、シーンによって大きくデータサイズが変動することはない
-        self.ts.seek(closest_multiple(int(self.recorded_video_file_size * 0.2), 188))
+        self.ts.seek(closest_multiple(int(self.recorded_video.file_size * 0.2), 188))
 
         # 録画番組情報を表すモデルを作成
         recorded_program = RecordedProgram()

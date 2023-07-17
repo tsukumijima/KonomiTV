@@ -41,6 +41,7 @@ class RecordedVideo(models.Model):
     recorded_program_id: int
     file_path: str = fields.TextField()  # type: ignore
     file_hash: str = fields.TextField()  # type: ignore
+    file_size: int = fields.IntField()  # type: ignore
     recording_start_time: datetime | None = fields.DatetimeField(null=True)  # type: ignore
     recording_end_time: datetime | None = fields.DatetimeField(null=True)  # type: ignore
     duration: float = fields.FloatField()  # type: ignore
