@@ -18,6 +18,7 @@ from zoneinfo import ZoneInfo
 from app.models.Channel import Channel
 from app.models.RecordedProgram import RecordedProgram
 from app.models.RecordedVideo import RecordedVideo
+from app.schemas import Genre
 from app.utils import Logging
 from app.utils.TSInformation import TSInformation
 
@@ -284,7 +285,7 @@ class TSInfoAnalyzer:
                         for index, _ in enumerate(event.genre):  # ジャンルごとに
                             # major … 大分類
                             # middle … 中分類
-                            genre_dict = {
+                            genre_dict: Genre = {
                                 'major': event.genre[index].replace('／', '・'),
                                 'middle': event.subgenre[index].replace('／', '・'),
                             }

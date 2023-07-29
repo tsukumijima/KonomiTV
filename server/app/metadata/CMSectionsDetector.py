@@ -1,5 +1,6 @@
 
 from app.models.RecordedVideo import RecordedVideo
+from app.schemas import CMSection
 
 
 class CMSectionsDetector:
@@ -16,12 +17,12 @@ class CMSectionsDetector:
         self.recorded_video = recorded_video
 
 
-    def detect(self) -> list[tuple[float, float]]:
+    def detect(self) -> list[CMSection]:
         """
         CM 区間を検出する
 
         Returns:
-            list[tuple[float, float]]: CM 区間 (開始時刻, 終了時刻) のリスト
+            list[CMSection]: CM 区間 (開始時刻, 終了時刻) のリスト
         """
 
         # TODO: CM 区間を検出する処理を実装する

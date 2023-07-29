@@ -9,6 +9,8 @@ from tortoise import fields
 from tortoise import models
 from typing import TYPE_CHECKING
 
+from app.schemas import Genre
+
 if TYPE_CHECKING:
     from app.models.Channel import Channel
     from app.models.RecordedVideo import RecordedVideo
@@ -50,7 +52,7 @@ class RecordedProgram(models.Model):
     end_time: datetime = fields.DatetimeField()  # type: ignore
     duration: float = fields.FloatField()  # type: ignore
     is_free: bool = fields.BooleanField(default=True)  # type: ignore
-    genres: list[dict[str, str]] = fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
+    genres: list[Genre] = fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
     primary_audio_type: str = fields.TextField(default='2/0モード(ステレオ)')  # type: ignore
     primary_audio_language: str = fields.TextField(default='日本語')  # type: ignore
     secondary_audio_type: str | None = fields.TextField(null=True)  # type: ignore

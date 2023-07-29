@@ -25,6 +25,7 @@ from app.config import LoadConfig
 from app.constants import DATABASE_CONFIG
 from app.models.Channel import Channel
 from app.models.RecordedProgram import RecordedProgram
+from app.schemas import CMSection
 from app.utils import Logging
 
 
@@ -55,7 +56,7 @@ class RecordedVideo(models.Model):
     secondary_audio_codec: Literal['AAC-LC', 'HE-AAC', 'MP2'] | None = fields.CharField(255, null=True)  # type: ignore
     secondary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] | None = fields.CharField(255, null=True)  # type: ignore
     secondary_audio_sampling_rate: int | None = fields.IntField(null=True)  # type: ignore
-    cm_sections: list[tuple[float, float]] = \
+    cm_sections: list[CMSection] = \
         fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
 
 

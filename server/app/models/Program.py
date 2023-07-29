@@ -26,6 +26,7 @@ from app.config import Config
 from app.config import LoadConfig
 from app.constants import API_REQUEST_HEADERS, DATABASE_CONFIG
 from app.models.Channel import Channel
+from app.schemas import Genre
 from app.utils import GetMirakurunAPIEndpointURL
 from app.utils import Logging
 from app.utils.EDCB import CtrlCmdUtil
@@ -54,7 +55,7 @@ class Program(models.Model):
     end_time = fields.DatetimeField(index=True)
     duration: float = fields.FloatField()  # type: ignore
     is_free: bool = fields.BooleanField()  # type: ignore
-    genres: list[dict[str, str]] = fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
+    genres: list[Genre] = fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
     video_type: str | None = fields.TextField(null=True)  # type: ignore
     video_codec: str | None = fields.TextField(null=True)  # type: ignore
     video_resolution: str | None = fields.TextField(null=True)  # type: ignore
@@ -403,7 +404,7 @@ class Program(models.Model):
 
                             # major … 大分類
                             # middle … 中分類
-                            genre_dict: dict[str, str] = {
+                            genre_dict: Genre = {
                                 'major': ariblib.constants.CONTENT_TYPE[genre['lv1']][0].replace('／', '・'),
                                 'middle': ariblib.constants.CONTENT_TYPE[genre['lv1']][1][genre['lv2']].replace('／', '・'),
                             }
@@ -679,7 +680,7 @@ class Program(models.Model):
 
                                     # major … 大分類
                                     # middle … 中分類
-                                    genre_dict: dict[str, str] = {
+                                    genre_dict: Genre = {
                                         'major': genre_tuple[0].replace('／', '・'),
                                         'middle': genre_tuple[1].get(content_data['content_nibble'] & 0xf, '').replace('／', '・'),
                                     }

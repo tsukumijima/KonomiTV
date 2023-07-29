@@ -4,7 +4,7 @@ from datetime import date
 from datetime import datetime
 from pydantic import BaseModel
 from pydantic import RootModel
-from typing import Literal, Union
+from typing import Literal, TypedDict, Union
 
 # Tortoise ORM がまだ Pydantic V2 に移行できていないため、インポート時や Pydantic モデル定義時に
 # 非推奨 API が利用されていることを示す UserWarning が出力される
@@ -17,6 +17,10 @@ from tortoise.contrib.pydantic import PydanticModel
 # Pydantic モデルに含まれていないカラムは、API レスポンス返却時に自動で除外される (パスワードなど)
 # 以前は pydantic_model_creator() で自動生成していたが、だんだん実態と合わなくなってきたため手動で定義している
 # PydanticModel を使うところがポイント (BaseModel だとバリデーションエラーが発生する)
+
+class Genre(TypedDict):
+    major: str
+    middle: str
 
 class Program(PydanticModel):
     id: str
@@ -31,10 +35,7 @@ class Program(PydanticModel):
     end_time: datetime
     duration: float
     is_free: bool
-    class Genres(BaseModel):
-        major: str
-        middle: str
-    genres: list[Genres]
+    genres: list[Genre]
     video_type: str | None
     video_codec: str | None
     video_resolution: str | None
@@ -74,6 +75,10 @@ class LiveStream(BaseModel):
     updated_at: float
     client_count: int
 
+class CMSection(TypedDict):
+    start_time: float
+    end_time: float
+
 class RecordedVideo(PydanticModel):
     id: int
     file_path: str
@@ -92,7 +97,7 @@ class RecordedVideo(PydanticModel):
     secondary_audio_codec: Literal['AAC-LC', 'HE-AAC', 'MP2'] | None
     secondary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] | None
     secondary_audio_sampling_rate: int | None
-    cm_sections: list[tuple[float, float]]
+    cm_sections: list[CMSection]
 
 class RecordedProgram(PydanticModel):
     id: int
@@ -116,7 +121,7 @@ class RecordedProgram(PydanticModel):
     end_time: datetime
     duration: float
     is_free: bool
-    genres: list[dict[str, str]]
+    genres: list[Genre]
     primary_audio_type: str
     primary_audio_language: str
     secondary_audio_type: str | None
@@ -136,7 +141,7 @@ class Series(PydanticModel):
     id: int
     title: str
     description: str
-    genres: list[dict[str, str]]
+    genres: list[Genre]
     broadcast_periods: list[SeriesBroadcastPeriod]
     updated_at: datetime
 
