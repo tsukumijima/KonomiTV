@@ -1,7 +1,7 @@
 
 # タイムゾーンを常に Asia/Tokyo に設定する (Linux のみ)
 ## タイムゾーンが UTC の環境ではログの日時が日本時間より9時間遅れてしまうため
-## デフォルトを Asia/Tokyo に変更することで、万が一のタイムゾーン関連のバグを防ぐ最終防波堤としての意味合いもある
+## デフォルトを Asia/Tokyo に変更することで、万が一のタイムゾーン関連のバグを防ぐ防波堤としての意味合いもある
 ## Windows ではタイムゾーンを変更することができないため、何もしない
 import os
 import sys
@@ -164,6 +164,8 @@ def main(
         http = 'httptools',
         # イベントループの実装として Windows では asyncio 、それ以外では uvloop を選択
         loop = ('asyncio' if sys.platform == 'win32' else 'uvloop'),
+        # ストリーミング配信中にサーバーシャットダウンを要求された際、強制的に接続を切断するまでの秒数
+        timeout_graceful_shutdown = 1,
     )
 
     # Uvicorn のサーバーインスタンスを初期化
