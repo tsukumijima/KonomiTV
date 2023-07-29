@@ -62,7 +62,7 @@ class Channel(PydanticModel):
     is_radiochannel: bool
     is_watchable: bool
 
-class LiveChannel(PydanticModel):
+class LiveChannel(Channel):
     # 以下はすべて動的に生成される TV ライブストリーミング用の追加カラム
     is_display: bool
     viewer_count: int
