@@ -4,7 +4,8 @@ from datetime import date
 from datetime import datetime
 from pydantic import BaseModel
 from pydantic import RootModel
-from typing import Literal, TypedDict, Union
+from typing import Literal, Union
+from typing_extensions import TypedDict
 
 # Tortoise ORM がまだ Pydantic V2 に移行できていないため、インポート時や Pydantic モデル定義時に
 # 非推奨 API が利用されていることを示す UserWarning が出力される
