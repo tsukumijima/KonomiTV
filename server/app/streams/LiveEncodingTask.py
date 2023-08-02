@@ -347,7 +347,7 @@ class LiveEncodingTask:
                 options.append('--vpp-yadif mode=bob')
             elif encoder_type == 'rkmppenc':
                 options.append('--vpp-deinterlace bob_i5')
-            options.append(f'--avsync cfr --gop-len {int(gop_length_second * 60)}')
+            options.append(f'--avsync vfr --gop-len {int(gop_length_second * 60)}')
         ## インターレース解除 (60i → 30p (フレームレート: 30fps))
         ## VCEEncC では --vpp-deinterlace 自体が使えないので、代わりに --vpp-afs を使う
         else:
@@ -357,7 +357,7 @@ class LiveEncodingTask:
                 options.append(f'--vpp-afs preset=default')
             elif encoder_type == 'rkmppenc':
                 options.append('--vpp-deinterlace normal_i5')
-            options.append(f'--avsync forcecfr --gop-len {int(gop_length_second * 30)}')
+            options.append(f'--avsync vfr --gop-len {int(gop_length_second * 30)}')
 
         ## フル HD 放送が行われているチャンネルかつ、指定された品質の解像度が 1440×1080 (1080p) の場合のみ、
         ## 特別に縦解像度を 1920 に変更してフル HD (1920×1080) でエンコードする
