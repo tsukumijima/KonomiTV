@@ -39,7 +39,7 @@ env:
   ## ref: https://github.com/sbraz/pymediainfo/blob/v6.0.1/appveyor.yml#L6
   LIBMEDIAINFO_VERSION: '22.09'
   # ビルド対象の tsreadex・psisiarc・Akebi のコミットハッシュ
-  TSREADEX_COMMIT_HASH: 'fd72ef31b94832ee8e761800f9f5d5a8e66c8a22'
+  TSREADEX_COMMIT_HASH: 'f8f861b4afb360aadd85718ff762ab6013135425'
   PSISIARC_COMMIT_HASH: '6593a0f63aedaaecfac7682b51e267874a8ec549'
   AKEBI_COMMIT_HASH: '3c1f9e4a35dfee57f0f6adfe3c9cff94dd8236f4'
 
