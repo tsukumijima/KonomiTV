@@ -6,9 +6,9 @@ from ariblib.descriptors import AudioComponentDescriptor
 from ariblib.descriptors import ServiceDescriptor
 from ariblib.descriptors import TSInformationDescriptor
 from ariblib.sections import ActualStreamPresentFollowingEventInformationSection
+from ariblib.sections import ActualStreamNetworkInformationSection
 from ariblib.sections import ActualStreamServiceDescriptionSection
 from ariblib.sections import ProgramAssociationSection
-from ariblib.sections import NetworkInformationSection
 from datetime import datetime
 from datetime import timedelta
 from pathlib import Path
@@ -21,11 +21,6 @@ from app.models.RecordedVideo import RecordedVideo
 from app.schemas import Genre
 from app.utils import Logging
 from app.utils.TSInformation import TSInformation
-
-
-class ActualStreamNetworkInformationSection(NetworkInformationSection):
-    """ 自ストリームSDT """
-    _table_ids = [0x40]  # 自ネットワークのみ
 
 
 class TSInfoAnalyzer:

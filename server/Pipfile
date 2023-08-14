@@ -12,19 +12,19 @@ aerich = {file = "https://github.com/tsukumijima/aerich/releases/download/v0.7.1
 aiofiles = "*"
 aiohttp = "*"
 aiosqlite = "*"
-ariblib = {file = "https://github.com/tsukumijima/ariblib/releases/download/v0.1.0/ariblib-0.1.0-py3-none-any.whl"}
+ariblib = {file = "https://github.com/tsukumijima/ariblib/releases/download/v0.1.1/ariblib-0.1.1-py3-none-any.whl"}
 biim = {file = "https://github.com/tsukumijima/biim/releases/download/v1.10.2-patch/biim-1.10.2-py3-none-any.whl"}
 colorama = ">=0.4"
 elevate = "*"
-fastapi = ">=0.100.0"
-fastapi-restful = {file = "https://github.com/tsukumijima/FastAPI-RESTful/releases/download/V0.4.5-patch/fastapi_restful-0.4.5-py3-none-any.whl"}
+fastapi = ">=0.101.1"
+fastapi-restful = ">=0.5.0"
 hashids = "*"
 passlib = {extras = ["bcrypt"], version = "*"}
 pillow = "*"
 psutil = "*"
 puremagic = "*"
 py7zr = "*"
-pydantic = ">=2.0.2"
+pydantic = ">=2.1.1"
 pymediainfo = "==6.0.1"
 python-jose = {extras = ["cryptography"], version = "*"}
 python-multipart = "*"
