@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "7de109e69604cb64258604554a4e416ef2944c421d9da02a81ed22d0344842f7"
+            "sha256": "5fb2eebf886917541dbca1d3d441fef811e318d83e2848cdae4448cf8bec75f6"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -161,12 +161,12 @@
             "version": "==3.7.1"
         },
         "ariblib": {
-            "file": "https://github.com/tsukumijima/ariblib/releases/download/v0.1.1/ariblib-0.1.1-py3-none-any.whl",
+            "file": "https://github.com/tsukumijima/ariblib/releases/download/v0.1.2/ariblib-0.1.2-py3-none-any.whl",
             "hashes": [
-                "sha256:6d508bef116bfa605046a9f05a5075c21d9869638066e9f77ee25fcb8c52e393"
+                "sha256:88dfd372962ed491d3a1cce19724c9b587109ff71b6025227038cdee78eaac72"
             ],
             "index": "pypi",
-            "version": "==0.1.1"
+            "version": "==0.1.2"
         },
         "async-timeout": {
             "hashes": [
@@ -1826,6 +1826,7 @@
                 "sha256:f1e507c9ee39c61bfddd79714e4f85900656db1aec4d40c6de55648e85c2799c",
                 "sha256:ff3d00b70ce95adce264462c930fbaecb29718ba6563db354608f37e49e09024"
             ],
+            "index": "pypi",
             "markers": "sys_platform != 'win32'",
             "version": "==0.17.0"
         },

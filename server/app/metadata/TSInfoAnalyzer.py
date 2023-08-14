@@ -5,8 +5,8 @@ import asyncio
 from ariblib.descriptors import AudioComponentDescriptor
 from ariblib.descriptors import ServiceDescriptor
 from ariblib.descriptors import TSInformationDescriptor
+from ariblib.sections import ActualNetworkNetworkInformationSection
 from ariblib.sections import ActualStreamPresentFollowingEventInformationSection
-from ariblib.sections import ActualStreamNetworkInformationSection
 from ariblib.sections import ActualStreamServiceDescriptionSection
 from ariblib.sections import ProgramAssociationSection
 from datetime import datetime
@@ -141,7 +141,7 @@ class TSInfoAnalyzer:
         # リモコン番号を取得
         if channel.type == 'GR':
             ## 地デジ: TS から NIT (Network Information Table) を抽出
-            for nit in self.ts.sections(ActualStreamNetworkInformationSection):
+            for nit in self.ts.sections(ActualNetworkNetworkInformationSection):
                 # NIT に含まれるトランスポートストリームごとの情報を取得
                 for transport_stream in nit.transport_streams:
                     # NIT から得られる TSInformationDescriptor 内の情報からリモコンキー ID を取得
