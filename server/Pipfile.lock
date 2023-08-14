@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "f559c870e172477c92277fe067847f7692e352ec40b2d14b06e8e3acb62e3d79"
+            "sha256": "7de109e69604cb64258604554a4e416ef2944c421d9da02a81ed22d0344842f7"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -870,6 +870,14 @@
             ],
             "markers": "python_version >= '3.6'",
             "version": "==0.2.3"
+        },
+        "mypy-extensions": {
+            "hashes": [
+                "sha256:4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d",
+                "sha256:75dbf8955dc00442a438fc4d0666508a9a97b6bd41aa2f0ffe9d2f2725af0782"
+            ],
+            "markers": "python_version >= '3.5'",
+            "version": "==1.0.0"
         },
         "oauthlib": {
             "hashes": [
@@ -1741,6 +1749,14 @@
             ],
             "index": "pypi",
             "version": "==4.7.1"
+        },
+        "typing-inspect": {
+            "hashes": [
+                "sha256:9ee6fc59062311ef8547596ab6b955e1b8aa46242d854bfc78f4f6b0eff35f9f",
+                "sha256:b23fc42ff6f6ef6954e4852c1fb512cdd18dbea03134f91f856a95ccc9461f78"
+            ],
+            "index": "pypi",
+            "version": "==0.9.0"
         },
         "tzdata": {
             "hashes": [
