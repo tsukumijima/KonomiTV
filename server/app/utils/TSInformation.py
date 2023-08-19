@@ -83,9 +83,9 @@ class TSInformation:
         merged_table = dict(zip(list(zenkaku_table), list(hankaku_table)))
 
         # 全角記号を半角記号に置換
-        synbol_zenkaku_table = '＂＃＄％＆＇（）＋，－．／：；＜＝＞［＼］＾＿｀｛｜｝　'
-        synbol_hankaku_table = '"#$%&\'()+,-./:;<=>[\\]^_`{|} '
-        merged_table.update(zip(list(synbol_zenkaku_table), list(synbol_hankaku_table)))
+        symbol_zenkaku_table = '＂＃＄％＆＇（）＋，－．／：；＜＝＞［＼］＾＿｀｛｜｝　'
+        symbol_hankaku_table = '"#$%&\'()+,-./:;<=>[\\]^_`{|} '
+        merged_table.update(zip(list(symbol_zenkaku_table), list(symbol_hankaku_table)))
         merged_table.update({
             # 一部の半角記号を全角に置換
             # 主に見栄え的な問題（全角の方が字面が良い）
