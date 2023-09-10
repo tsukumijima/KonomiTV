@@ -485,7 +485,7 @@ class Channel(models.Model):
                 await Tortoise.close_connections()
 
             # 異なる NID-SID で同じチャンネル番号のサービスが複数ある場合、枝番をつける
-            ## samme_channel_number_count は自身を含まないため、1 以上の場合は枝番をつける
+            ## same_channel_number_count は自身を含まないため、1 以上の場合は枝番をつける
             if same_channel_number_count >= 1:
                 channel_number += '-' + str(same_channel_number_count)
 
