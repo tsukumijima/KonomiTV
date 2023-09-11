@@ -339,6 +339,7 @@ class LiveEncodingTask:
 
         ## インターレース解除 (60i → 60p (フレームレート: 60fps))
         ## NVEncC の --vpp-deinterlace bob は品質が悪いので、代わりに --vpp-yadif を使う
+        ## NVIDIA GPU は当然ながら Intel の内蔵 GPU よりも性能が高いので、GPU フィルタを使ってもパフォーマンスに問題はないと判断
         ## VCEEncC では --vpp-deinterlace 自体が使えないので、代わりに --vpp-yadif を使う
         if QUALITY[quality].is_60fps is True:
             if encoder_type == 'QSVEncC':
@@ -349,11 +350,13 @@ class LiveEncodingTask:
                 options.append('--vpp-deinterlace bob_i5')
             options.append(f'--avsync vfr --gop-len {int(gop_length_second * 60)}')
         ## インターレース解除 (60i → 30p (フレームレート: 30fps))
+        ## NVEncC の --vpp-deinterlace normal は GPU 機種次第では稀に解除漏れのジャギーが入るらしいので、代わりに --vpp-afs を使う
+        ## NVIDIA GPU は当然ながら Intel の内蔵 GPU よりも性能が高いので、GPU フィルタを使ってもパフォーマンスに問題はないと判断
         ## VCEEncC では --vpp-deinterlace 自体が使えないので、代わりに --vpp-afs を使う
         else:
-            if encoder_type == 'QSVEncC' or encoder_type == 'NVEncC':
+            if encoder_type == 'QSVEncC':
                 options.append(f'--vpp-deinterlace normal')
-            elif encoder_type == 'VCEEncC':
+            elif encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
                 options.append(f'--vpp-afs preset=default')
             elif encoder_type == 'rkmppenc':
                 options.append('--vpp-deinterlace normal_i5')
@@ -543,7 +546,7 @@ class LiveEncodingTask:
         is_running: bool = True
 
         # 放送波の MPEG2-TS を受信する StreamReader
-        stream_reader: asyncio.StreamReader | PipeStreamReader | aiohttp.StreamReader
+        stream_reader: asyncio.StreamReader | PipeStreamReader | aiohttp.StreamReader | None = None
 
         # Mirakurun の aiohttp セッション (EDCB バックエンド利用時は常に None)
         response: aiohttp.ClientResponse | None = None
@@ -689,6 +692,8 @@ class LiveEncodingTask:
                         if ex.partial:
                             yield ex.partial
                         break
+
+            assert stream_reader is not None
             stream_iterator = GetIterator(stream_reader)
 
             # EDCB / Mirakurun から受信した放送波を随時 tsreadex の入力に書き込む
