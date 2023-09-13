@@ -388,6 +388,10 @@ class LiveStream():
         # ライブストリームが Offline な場合、新たにエンコードタスクを起動する
         if current_status == 'Offline':
 
+            # ステータスを Standby に設定
+            # 現在 Idling 状態のライブストリームを探す前に設定しないと多重に LiveEncodingTask が起動しかねず、重篤な不具合につながる
+            self.setStatus('Standby', 'エンコードタスクを起動しています…')
+
             # 現在 Idling 状態のライブストリームがあれば、うち最初のライブストリームを Offline にする
             ## 一般にチューナーリソースは無尽蔵にあるわけではないので、現在 Idling（=つまり誰も見ていない）ライブストリームがあるのなら
             ## それを Offline にしてチューナーリソースを解放し、新しいライブストリームがチューナーを使えるようにする
@@ -411,10 +415,6 @@ class LiveStream():
                     break
 
                 await asyncio.sleep(0.1)
-
-            # ステータスを Standby に設定
-            # タイミングの関係でこっちで明示的に設定しておく必要がある
-            self.setStatus('Standby', 'エンコードタスクを起動しています…')
 
             # エンコードタスクを非同期で実行
             instance = LiveEncodingTask(self)
