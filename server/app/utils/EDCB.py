@@ -158,6 +158,17 @@ class EDCBTuner:
         return edcb_networktv_id
 
 
+    def getEDCBNetworkTVID(self) -> int:
+        """
+        EpgDataCap_Bon の NetworkTV ID を取得する
+
+        Returns:
+            int: 取得した EpgDataCap_Bon の NetworkTV ID
+        """
+
+        return self._edcb_networktv_id
+
+
     async def open(self) -> bool:
         """
         チューナーを起動する

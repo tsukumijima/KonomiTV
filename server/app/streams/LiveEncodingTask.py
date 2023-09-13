@@ -607,7 +607,7 @@ class LiveEncodingTask:
 
             # チューナーを起動する
             # アンロック状態のチューナーインスタンスがあれば、自動的にそのチューナーが再利用される
-            self.livestream.setStatus('Standby', 'チューナーを起動しています…')
+            self.livestream.setStatus('Standby', f'チューナーを起動しています… (EDCB NetworkTV ID: {self.livestream.tuner.getEDCBNetworkTVID()})')
             is_tuner_opened = await self.livestream.tuner.open()
 
             # チューナーの起動に失敗した
