@@ -2,6 +2,7 @@
 import asyncio
 import json
 import re
+import requests
 import tweepy
 import tweepy.models
 import tweepy.parsers
@@ -214,9 +215,9 @@ async def TwitterAuthURLAPI(
             detail = 'Failed to get Twitter authorization URL',
         )
 
-    # 認証 URL に force_login=true をつけることで、Twitter にログイン中でも強制的にログインフォームを表示できる
+    # 認証 URL に force_login=True をつけることで、Twitter にログイン中でも強制的にログインフォームを表示できる
     # KonomiTV アカウントに複数の Twitter アカウントを登録する場合、毎回一旦 Twitter を開いてアカウントを切り替えるのは（特にスマホの場合）かなり面倒
-    authorization_url = f'{authorization_url}&force_login=true'
+    authorization_url = f'{authorization_url}&force_login=True'
 
     # 仮で TwitterAccount のレコードを作成・保存
     ## 戻ってきたときに oauth_token がどのユーザーに紐づいているのかを判断するため
@@ -542,7 +543,7 @@ async def TwitterTweetAPI(
             media_ids.append(image_upload_result.media_id)
 
         # ツイートを送信
-        result = await asyncio.to_thread(twitter_account_api.update_status, tweet, media_ids=media_ids)
+        # result = await asyncio.to_thread(twitter_account_api.update_status, tweet, media_ids=media_ids)
 
     # 送信失敗
     except tweepy.HTTPException as ex:
@@ -561,9 +562,81 @@ async def TwitterTweetAPI(
             'detail': error_message,
         }
 
+    # ツイートを送信 (GraphQL API)
+
+    media_entities = []
+    for media_id in media_ids:
+        media_entities.append({
+            "media_id": media_id,
+            "tagged_users": []
+        })
+
+    payload = {
+        "variables": {
+            "tweet_text": tweet,
+            "media": {
+                "media_entities": media_entities,
+                "possibly_sensitive": False
+            },
+            "withDownvotePerspective": False,
+            "withReactionsMetadata": False,
+            "withReactionsPerspective": False,
+            "withSuperFollowsTweetFields": True,
+            "withSuperFollowsUserFields": True,
+            "semantic_annotation_ids": [],
+            "dark_request": False
+        },
+        "features": {
+            "tweetypie_unmention_optimization_enabled": True,
+            "responsive_web_edit_tweet_api_enabled": True,
+            "graphql_is_translatable_rweb_tweet_is_translatable_enabled": True,
+            "view_counts_everywhere_api_enabled": True,
+            "longform_notetweets_consumption_enabled": True,
+            "responsive_web_twitter_article_tweet_consumption_enabled": False,
+            "tweet_awards_web_tipping_enabled": False,
+            "longform_notetweets_rich_text_read_enabled": True,
+            "longform_notetweets_inline_media_enabled": True,
+            "responsive_web_graphql_exclude_directive_enabled": True,
+            "verified_phone_label_enabled": False,
+            "freedom_of_speech_not_reach_fetch_enabled": True,
+            "standardized_nudges_misinfo": True,
+            "tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled": True,
+            "responsive_web_media_download_video_enabled": False,
+            "responsive_web_graphql_skip_user_profile_image_extensions_enabled": False,
+            "responsive_web_graphql_timeline_navigation_enabled": True,
+            "responsive_web_enhance_cards_enabled": False
+        },
+        "fieldToggles": {
+            "withArticleRichContentState": False,
+            "withAuxiliaryUserLabels": False
+        },
+        "queryId": "tTsjMKyhajZvK4q76mpIBg"
+    }
+
+    cookie_session_user_handler = cast(CookieSessionUserHandler, twitter_account_api.auth)
+    cookies = cookie_session_user_handler.get_cookies_as_dict()
+
+    headers = cookie_session_user_handler._tweetdeck_api_headers  # type: ignore
+    headers['content-type'] = 'application/json'
+    headers['cookie'] = '; '.join([f'{key}={value}' for key, value in cookies.items()])
+    headers['origin'] = 'https://twitter.com'
+    headers['referer'] = 'https://twitter.com/'
+    headers.pop('x-twitter-client-version')
+
+    response = requests.post(
+        url = 'https://twitter.com/i/api/graphql/tTsjMKyhajZvK4q76mpIBg/CreateTweet',
+        headers = cast(dict[str, str], headers),
+        json = payload,
+    )
+    if response.status_code != 200:
+        return {
+            'is_success': False,
+            'detail': f'Twitter GraphQl API Error (HTTP Error {response.status_code})',
+        }
+
     return {
         'is_success': True,
-        'tweet_url': f'https://twitter.com/{result.user.screen_name}/status/{result.id}',
+        'tweet_url': f'https://twitter.com/__dummy__/status/__dummy__',
         'detail': 'ツイートを送信しました。',
     }
 
@@ -772,7 +845,7 @@ async def TwitterSearchAPI(
                     count = 200,
                     modules = 'status',
                     result_type = 'recent',
-                    pc = 'false',
+                    pc = 'False',
                     ui_lang = 'ja',
                     cards_platform = 'Web-13',
                     include_entities = 1,
@@ -780,14 +853,14 @@ async def TwitterSearchAPI(
                     include_cards = 1,
                     send_error_codes = 1,
                     tweet_mode = 'extended',
-                    include_ext_alt_text = 'true',
-                    include_reply_count = 'true',
+                    include_ext_alt_text = 'True',
+                    include_reply_count = 'True',
                     ext = 'mediaStats,highlightedLabel,voiceInfo,superFollowMetadata',
-                    include_ext_has_nft_avatar = 'true',
-                    include_ext_is_blue_verified = 'true',
-                    include_ext_verified_type = 'true',
-                    include_ext_sensitive_media_warning = 'true',
-                    include_ext_media_color = 'true',
+                    include_ext_has_nft_avatar = 'True',
+                    include_ext_is_blue_verified = 'True',
+                    include_ext_verified_type = 'True',
+                    include_ext_sensitive_media_warning = 'True',
+                    include_ext_media_color = 'True',
                 )
 
                 # ツイートを取得できたらループを抜ける
