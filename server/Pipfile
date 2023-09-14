@@ -38,7 +38,7 @@ typer = "==0.9.*"
 typing-extensions = ">=4.7,<5.0"
 typing-inspect = ">=0.9.0"
 tweepy = "*"
-tweepy-authlib = "*"
+tweepy-authlib = ">=1.2.0"
 tzdata = "*"
 uvicorn = {extras = ["standard"], version = ">=0.21.1"}
 uvloop = {version = ">=0.14.0,!=0.15.0,!=0.15.1", sys_platform = "!= 'win32'"}
