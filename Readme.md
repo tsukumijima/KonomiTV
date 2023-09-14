@@ -403,6 +403,12 @@ Assets の下にある `KonomiTV-Installer.exe` をダウンロードしてく�
 
 > できるだけ Ubuntu の利用を推奨しますが、もし Ubuntu 以外の OS にインストールする際は、Docker でのインストールをおすすめします。
 
+> **Warning**  
+> NVIDIA が KonomiTV で利用していたバージョンの CUDA Docker イメージを削除した影響で ([詳細1](https://twitter.com/TVRemotePlus/status/1683860609555898369) / [詳細2](https://twitter.com/TVRemotePlus/status/1689227380664209409)) 、0.7.1 以前では Docker を使ったインストール方法が利用できなくなりました。  
+> 0.8.0 以降のバージョンでは CUDA Docker イメージの pull 先を [NGC](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/cuda/tags) に変更していますが、0.8.0 自体が現在開発中な上、録画視聴機能の実装に向け破壊的変更を多数行っており当分リリースが先にならざるを得ない状況です。  
+> 現状複数のブランチを並行開発するリソースがないため、現時点では通常のインストール方法を使っていただくか、  
+> 0.7.1 のタグを checkout し事前に config.yaml と docker-compose.yaml を適切に構成した上で、Dockerfile を `FROM nvcr.io/nvidia/cuda:11.7.1-runtime-ubuntu22.04` に書き換え、`docker compose up -d --build` を実行し手動でインストールを行っていただきますようお願いします。
+
 **Linux 向けの KonomiTV には、通常のインストール方法と、Docker を使ったインストール方法の 2 通りがあります。**  
 
 **通常のインストール方法では、事前に [PM2](https://pm2.keymetrics.io/docs/usage/quick-start/) と [Node.js](https://github.com/nodesource/distributions) (PM2 の動作に必要) のインストールが必要です。**  

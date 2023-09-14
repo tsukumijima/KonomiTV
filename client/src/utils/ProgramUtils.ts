@@ -199,10 +199,10 @@ export class ProgramUtils {
         }
 
         // 全角記号を半角記号に置換
-        const synbol_zenkaku_table = '＂＃＄％＆＇（）＋，－．／：；＜＝＞［＼］＾＿｀｛｜｝　';
-        const synbol_hankaku_table = '"#$%&\'()+,-./:;<=>[\\]^_`{|} ';
-        for (let i = 0; i < synbol_zenkaku_table.length; i++) {
-            merged_table[synbol_zenkaku_table[i]] = synbol_hankaku_table[i];
+        const symbol_zenkaku_table = '＂＃＄％＆＇（）＋，－．／：；＜＝＞［＼］＾＿｀｛｜｝　';
+        const symbol_hankaku_table = '"#$%&\'()+,-./:;<=>[\\]^_`{|} ';
+        for (let i = 0; i < symbol_zenkaku_table.length; i++) {
+            merged_table[symbol_zenkaku_table[i]] = symbol_hankaku_table[i];
         }
         // 一部の半角記号を全角に置換
         // 主に見栄え的な問題（全角の方が字面が良い）

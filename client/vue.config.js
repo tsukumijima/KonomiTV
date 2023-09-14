@@ -17,6 +17,7 @@ module.exports = {
         port: 7011,
         allowedHosts: 'all',
         client: {
+            overlay: false,  // エラー発生時のオーバーレイ表示を無効化
             webSocketURL: 'wss://0.0.0.0:7001/ws',
         }
     },
