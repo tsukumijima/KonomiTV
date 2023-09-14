@@ -971,6 +971,9 @@ export default Vue.extend({
                         config: {
                             // Web Worker を有効にする
                             enableWorker: true,
+                            // Media Source Extensions API 向けの Web Worker を有効にする
+                            // メインスレッドから再生処理を分離することで、低スペック端末で DOM 描画の遅延が影響して映像再生が詰まる問題が解消される
+                            enableMSEWorker: true,
                             // IO 層のバッファを禁止する
                             enableStashBuffer: false,
                             // HTMLMediaElement の内部バッファによるライブストリームの遅延を追跡する

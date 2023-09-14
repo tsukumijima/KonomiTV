@@ -2361,15 +2361,6 @@ available-typed-arrays@^1.0.5:
   resolved "https://registry.yarnpkg.com/available-typed-arrays/-/available-typed-arrays-1.0.5.tgz#92f95616501069d07d10edb2fc37d3e1c65123b7"
   integrity sha512-DMD0KiN46eipeziST1LPP/STfDU0sufISXmjSgvVsoU2tqxctQeASejWcfNtxYKqETM1UxQ8sp2OrSBWpHY6sw==
 
-axios@^1.4.0:
-  version "1.4.0"
-  resolved "https://registry.yarnpkg.com/axios/-/axios-1.4.0.tgz#38a7bf1224cd308de271146038b551d725f0be1f"
-  integrity sha512-S4XCWMEmzvo64T9GfvQDOXgYRDJ/wsSZc7Jvdgx5u1sd0JwsuPLqb3SYmusag+edF6ziyMensPVqLTSc1PiSEA==
-  dependencies:
-    follow-redirects "^1.15.0"
-    form-data "^4.0.0"
-    proxy-from-env "^1.1.0"
-
 axios@^1.5.0:
   version "1.5.0"
   resolved "https://registry.yarnpkg.com/axios/-/axios-1.5.0.tgz#f02e4af823e2e46a9768cfc74691fdd0517ea267"
@@ -3421,12 +3412,12 @@ dotenv@^16.0.3:
   resolved "https://registry.yarnpkg.com/dotenv/-/dotenv-16.0.3.tgz#115aec42bac5053db3c456db30cc243a5a836a07"
   integrity sha512-7GO6HghkA5fYG9TYnNxi14/7K9f5occMlp3zXAuSxn7CKCxt9xbNWG7yF8hTCSUchlfWSe3uLmlPfigevRItzQ==
 
-"dplayer@github:tsukumijima/DPlayer#v1.29.1":
-  version "1.29.1"
-  resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/d8bf506a60cc0455d18c7a1503a1203f5e2024b5"
+"dplayer@github:tsukumijima/DPlayer#v1.30.0":
+  version "1.30.0"
+  resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/85edf3627e34be968cd013fcc429817245c35f9e"
   dependencies:
     aribb24.js "1.11.0"
-    axios "^1.4.0"
+    axios "^1.5.0"
     balloon-css "^1.2.0"
 
 duplexer@^0.1.2:
@@ -5481,9 +5472,9 @@ module-alias@^2.2.2:
   resolved "https://registry.yarnpkg.com/module-alias/-/module-alias-2.2.2.tgz#151cdcecc24e25739ff0aa6e51e1c5716974c0e0"
   integrity sha512-A/78XjoX2EmNvppVWEhM2oGk3x4lLxnkEA4jTbaK97QKSDjkIoOsKQlfylt/d3kKKi596Qy3NP5XrXJ6fZIC9Q==
 
-mpegts.js@^1.7.3, "mpegts.js@github:tsukumijima/mpegts.js#0e9b14569cc20e198172af747ad067b61f9804fe":
+mpegts.js@^1.7.3, "mpegts.js@github:tsukumijima/mpegts.js#a4ff3ff4627f2555dfcb85efa41e45b701982c2c":
   version "1.7.3"
-  resolved "https://codeload.github.com/tsukumijima/mpegts.js/tar.gz/0e9b14569cc20e198172af747ad067b61f9804fe"
+  resolved "https://codeload.github.com/tsukumijima/mpegts.js/tar.gz/a4ff3ff4627f2555dfcb85efa41e45b701982c2c"
   dependencies:
     es6-promise "^4.2.5"
     webworkify-webpack "^2.1.5"
