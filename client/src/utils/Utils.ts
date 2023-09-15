@@ -165,6 +165,15 @@ export default class Utils {
 
 
     /**
+     * ブラウザが Safari かどうか
+     * @returns ブラウザが Safari なら true を返す
+     */
+    public static isSafari(): boolean {
+        return /Safari/i.test(navigator.userAgent) && !/Chrome/i.test(navigator.userAgent);
+    }
+
+
+    /**
      * モバイルデバイス（スマホ・タブレット）かどうか
      * @returns モバイルデバイス (スマホ・タブレット) なら true を返す
      */

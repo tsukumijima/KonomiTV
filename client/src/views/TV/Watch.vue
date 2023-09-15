@@ -327,8 +327,10 @@ export default Vue.extend({
             player_can_be_destroyed: false,
 
             // mpegts.js がサポートされているかどうか
-            // mpegts.js がサポートされていない場合は LL-HLS にフォールバックする (基本 iPhone Safari 向け)
-            is_mpegts_supported: mpegts.isSupported() === true,
+            // mpegts.js がサポートされていない場合は LL-HLS にフォールバックする (基本 iPhone/iPad Safari 向け)
+            // iPad Safari では Media Source Extensions API がサポートされているが、残念ながら数年経っても挙動が不安定なこと、
+            // どっちみち iPhone Safari 向けに LL-HLS のサポートを続ける必要があることから、iPad Safari でも LL-HLS を使う
+            is_mpegts_supported: mpegts.isSupported() === true && Utils.isSafari() === false,
 
             // ライブストリームが Offline 状態かどうか
             is_offline: false,
