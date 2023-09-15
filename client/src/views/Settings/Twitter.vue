@@ -49,8 +49,9 @@
                         <v-card-title class="justify-center pt-6 font-weight-bold">Twitter にログイン</v-card-title>
                         <!-- スクリーンネームとパスワードフォーム -->
                         <v-card-text class="pt-2 pb-0">
-                            <p class="mb-1">2023/4/30 以降、Twitter のサードパーティー API の事実上の廃止により、従来のアプリ連携では Twitter にアクセスできなくなりました。</p>
-                            <p class="mb-1">そこで KonomiTV では、代わりにユーザー名とパスワードでログインすることで、これまで通り Twitter 連携ができるようにしています (2要素認証を設定しているアカウントには対応していません) 。</p>
+                            <p class="mb-1">2023/07 以降、Twitter のサードパーティー API の事実上の廃止により、従来のアプリ連携では Twitter にアクセスできなくなりました。</p>
+                            <p class="mb-1">そこで KonomiTV では、代わりに <a href="https://github.com/tsukumijima/tweepy-authlib" target="_blank">ユーザー名とパスワードでログイン</a> することで、これまで通り Twitter 連携ができるようにしています (2要素認証を設定しているアカウントには対応していません) 。</p>
+                            <p class="mb-1">ここで入力したパスワードは一切保存されず、取得した Cookie セッションはローカルの KonomiTV サーバーにのみ保存されます。Cookie セッションが Twitter API 以外の外部サービスに送信されることはありません。</p>
                             <p class="mb-1">万全は期していますが、非公式な方法のため、使い方次第ではアカウントにペナルティが適用される可能性もあります。自己の責任のもとでご利用ください。</p>
                             <v-form class="settings__item" ref="twitter_form" @submit.prevent>
                                 <v-text-field class="settings__item-form mt-6" outlined label="ユーザー名 (@ から始まる ID)" placeholder="screen_name"
@@ -76,10 +77,6 @@
                         </v-card-actions>
                     </v-card>
                 </v-dialog>
-                <v-btn class="twitter-account__login" color="secondary" max-width="310" height="50" depressed
-                    @click="loginTwitterAccountWithOAuth()">
-                    <Icon icon="fluent:plug-connected-20-filled" class="mr-2" height="24" />連携するアカウントを追加 (Legacy)
-                </v-btn>
             </div>
             <div class="settings__item settings__item--switch">
                 <label class="settings__item-heading" for="fold_panel_after_sending_tweet">ツイート送信後にパネルを折りたたむ</label>
@@ -218,22 +215,6 @@ export default Vue.extend({
 
         // ローディング状態を解除
         this.is_loading = false;
-
-        // もしハッシュ (# から始まるフラグメント) に何か指定されていたら、
-        // OAuth 連携のコールバックの結果が入っている可能性が高いので、パースを試みる
-        // アカウント情報更新より後にしないと Snackbar がうまく表示されない
-        if (location.hash !== '') {
-            const params = new URLSearchParams(location.hash.replace('#', ''));
-            if (params.get('status') !== null && params.get('detail') !== null) {
-                // コールバックの結果を取得できたので、OAuth 連携の結果を画面に通知する
-                const authorization_status = parseInt(params.get('status')!);
-                const authorization_detail = params.get('detail')!;
-                this.onOAuthCallbackReceived(authorization_status, authorization_detail);
-                // URL からフラグメントを削除
-                // ref: https://stackoverflow.com/a/49373716/17124142
-                history.replaceState(null, '', ' ');
-            }
-        }
     },
     methods: {
         async loginTwitterAccountWithPasswordForm() {
@@ -284,94 +265,6 @@ export default Vue.extend({
             // フォームをリセットし、非表示にする
             (this.$refs.twitter_form as any).reset();
             this.twitter_password_auth_dialog = false;
-        },
-
-        async loginTwitterAccountWithOAuth() {
-
-            // ログインしていない場合はエラーにする
-            if (this.userStore.is_logged_in === false) {
-                this.$message.warning('連携をはじめるには、KonomiTV アカウントにログインしてください。');
-                return;
-            }
-
-            // Twitter アカウントと連携するための認証 URL を取得
-            const authorization_url = await Twitter.fetchAuthorizationURL();
-            if (authorization_url === null) {
-                return;
-            }
-
-            // モバイルデバイスではポップアップが事実上使えない (特に Safari ではブロックされてしまう) ので、素直にリダイレクトで実装する
-            if (Utils.isMobileDevice() === true) {
-                location.href = authorization_url;
-                return;
-            }
-
-            // OAuth 連携のため、認証 URL をポップアップウインドウで開く
-            // window.open() の第2引数はユニークなものにしておくと良いらしい
-            // ref: https://qiita.com/catatsuy/items/babce8726ea78f5d25b1 (大変参考になりました)
-            const popup_window = window.open(authorization_url, 'KonomiTV-OAuthPopup', Utils.getWindowFeatures());
-            if (popup_window === null) {
-                this.$message.error('ポップアップウインドウを開けませんでした。');
-                return;
-            }
-
-            // 認証完了 or 失敗後、ポップアップウインドウから送信される文字列を受信
-            const onMessage = async (event) => {
-
-                // すでにウインドウが閉じている場合は実行しない
-                if (popup_window.closed) return;
-
-                // 受け取ったオブジェクトに KonomiTV-OAuthPopup キーがない or そもそもオブジェクトではない際は実行しない
-                // ブラウザの拡張機能から結構余計な message が飛んでくるっぽい…。
-                if (Utils.typeof(event.data) !== 'object') return;
-                if (('KonomiTV-OAuthPopup' in event.data) === false) return;
-
-                // 認証は完了したので、ポップアップウインドウを閉じ、リスナーを解除する
-                if (popup_window) popup_window.close();
-                window.removeEventListener('message', onMessage);
-
-                // ステータスコードと詳細メッセージを取得
-                const authorization_status = event.data['KonomiTV-OAuthPopup']['status'] as number;
-                const authorization_detail = event.data['KonomiTV-OAuthPopup']['detail'] as string;
-                this.onOAuthCallbackReceived(authorization_status, authorization_detail);
-            };
-
-            // postMessage() を受信するリスナーを登録
-            window.addEventListener('message', onMessage);
-        },
-
-        async onOAuthCallbackReceived(authorization_status: number, authorization_detail: string) {
-            console.log(`TwitterAuthCallbackAPI: Status: ${authorization_status} / Detail: ${authorization_detail}`);
-
-            // OAuth 連携に失敗した
-            if (authorization_status !== 200) {
-                if (authorization_detail.startsWith('Authorization was denied by user')) {
-                    this.$message.error('Twitter アカウントとの連携がキャンセルされました。');
-                } else if (authorization_detail.startsWith('Failed to get access token')) {
-                    this.$message.error('アクセストークンの取得に失敗しました。');
-                } else if (authorization_detail.startsWith('Failed to get user information')) {
-                    this.$message.error('Twitter アカウントのユーザー情報の取得に失敗しました。');
-                } else {
-                    this.$message.error(`Twitter アカウントとの連携に失敗しました。(${authorization_detail})`);
-                }
-                return;
-            }
-
-            // アカウント情報を強制的に更新
-            await this.userStore.fetchUser(true);
-            if (this.userStore.user === null) {
-                this.$message.error('アカウント情報を取得できませんでした。');
-                return;
-            }
-
-            // ログイン中のユーザーに紐づく Twitter アカウントのうち、一番 updated_at が新しいものを取得
-            // ログインすると updated_at が更新されるため、この時点で一番 updated_at が新しいアカウントが今回連携したものだと判断できる
-            // ref: https://stackoverflow.com/a/12192544/17124142 (ISO8601 のソートアルゴリズム)
-            const current_twitter_account = [...this.userStore.user.twitter_accounts].sort((a, b) => {
-                return (a.updated_at < b.updated_at) ? 1 : ((a.updated_at > b.updated_at) ? -1 : 0);
-            })[0];
-
-            this.$message.success(`Twitter @${current_twitter_account.screen_name} と連携しました。`);
         },
 
         async logoutTwitterAccount(screen_name: string) {

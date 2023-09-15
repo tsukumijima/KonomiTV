@@ -74,7 +74,7 @@
                 </div>
                 <div class="account-register__description">
                     KonomiTV アカウントの作成に必要なものは<br class="smartphone-vertical-only">ユーザー名とパスワードだけです。<br>
-                    アカウントはローカルにインストールした<br class="smartphone-vertical-only"> KonomiTV サーバーごとに保存されます。<br>
+                    アカウントはローカルに導入した<br class="smartphone-vertical-only"> KonomiTV サーバーにのみ保存されます。<br>
                     外部のサービスには保存されませんので、ご安心ください。<br>
                 </div>
                 <v-btn class="account-register__button" color="secondary" width="100%" max-width="250" height="50" depressed to="/register/">
