@@ -13,7 +13,7 @@ from fastapi.responses import Response
 from fastapi.responses import StreamingResponse
 from starlette.types import Receive
 from sse_starlette.sse import EventSourceResponse
-from typing import cast
+from typing import Literal
 
 from app import schemas
 from app.constants import QUALITY, QUALITY_TYPES
@@ -458,12 +458,11 @@ async def LiveLLHLSPrimaryAudioSegmentAPI(
 async def LiveLLHLSPrimaryAudioPartialSegmentAPI(
     livestream_client: LiveStreamClient = Depends(GetLiveStreamClient),
     msn: int | None = Query(None, description='LL-HLS セグメントの msn (Media Sequence Number) インデックス。'),
-    part: int | str | None = Query(None, description='LL-HLS セグメントの part (部分セグメント) インデックス。'),
+    part: int | Literal[''] | None = Query(None, description='LL-HLS セグメントの part (部分セグメント) インデックス。'),
 ):
     # part が空文字列の場合は 0 に変換する
     if part == '':
         part = 0
-    part = cast(int | None, part)
 
     # クライアントから LL-HLS 部分セグメントデータのレスポンスを取得してそのまま返す
     return await livestream_client.getPartialSegment(msn, part, secondary_audio=False)
@@ -543,12 +542,11 @@ async def LiveLLHLSSecondaryAudioSegmentAPI(
 async def LiveLLHLSSecondaryAudioPartialSegmentAPI(
     livestream_client: LiveStreamClient = Depends(GetLiveStreamClient),
     msn: int | None = Query(None, description='LL-HLS セグメントの msn (Media Sequence Number) インデックス。'),
-    part: int | str | None = Query(None, description='LL-HLS セグメントの part (部分セグメント) インデックス。'),
+    part: int | Literal[''] | None = Query(None, description='LL-HLS セグメントの part (部分セグメント) インデックス。'),
 ):
     # part が空文字列の場合は 0 に変換する
     if part == '':
         part = 0
-    part = cast(int | None, part)
 
     # クライアントから LL-HLS 部分セグメントデータのレスポンスを取得してそのまま返す
     return await livestream_client.getPartialSegment(msn, part, secondary_audio=True)
