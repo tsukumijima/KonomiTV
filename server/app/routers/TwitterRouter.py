@@ -14,7 +14,6 @@ from fastapi import Form
 from fastapi import HTTPException
 from fastapi import Path
 from fastapi import Query
-from fastapi import Request
 from fastapi import status
 from fastapi import UploadFile
 from tweepy_authlib import CookieSessionUserHandler
@@ -26,7 +25,6 @@ from app.models.TwitterAccount import TwitterAccount
 from app.models.User import User
 from app.routers.UsersRouter import GetCurrentUser
 from app.utils import Logging
-from app.utils.OAuthCallbackResponse import OAuthCallbackResponse
 
 
 # ルーター
@@ -169,195 +167,6 @@ def FormatTweet(tweet: tweepy.models.Status) -> schemas.Tweet:
     )
 
 
-@router.get(
-    '/auth',
-    summary = 'Twitter OAuth 認証 URL 発行 API',
-    response_model = schemas.ThirdpartyAuthURL,
-    response_description = 'ユーザーにアプリ連携してもらうための認証 URL。',
-)
-async def TwitterAuthURLAPI(
-    request: Request,
-    current_user: User = Depends(GetCurrentUser),
-):
-    """
-    Twitter アカウントと連携するための認証 URL を取得する。<br>
-    認証 URL をブラウザで開くとアプリ連携の許可を求められ、ユーザーが許可すると /api/twitter/callback に戻ってくる。
-
-    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。<br>
-    """
-
-    # クライアント (フロントエンド) の URL を Origin ヘッダーから取得
-    ## Origin ヘッダーがリクエストに含まれていない場合はこの API サーバーの URL を使う
-    client_url = request.headers.get('Origin', f'https://{request.url.netloc}').rstrip('/') + '/'
-
-    # コールバック URL を設定
-    ## Twitter API の OAuth 連携では、事前にコールバック先の URL をデベロッパーダッシュボードから設定しておく必要がある
-    ## 一方 KonomiTV サーバーの URL はまちまちなので、コールバック先の URL を一旦 https://app.konomi.tv/api/redirect/twitter に集約する
-    ## この API は、リクエストを "server" パラメーターで指定された KonomiTV サーバーの TwitterAuthCallbackAPI にリダイレクトする
-    ## 最後に KonomiTV サーバーがリダイレクトを受け取ることで、コールバック対象の URL が定まらなくても OAuth 連携ができるようになる
-    ## "client" パラメーターはスマホ・タブレットでの TwitterAuthCallbackAPI のリダイレクト先 URL として使われる
-    ## Twitter だけ他のサービスと違い OAuth 1.0a なので、フローがかなり異なる
-    ## ref: https://github.com/tsukumijima/KonomiTV-API
-    callback_url = f'https://app.konomi.tv/api/redirect/twitter?server=https://{request.url.netloc}/&client={client_url}'
-
-    # OAuth1UserHandler を初期化し、認証 URL を取得
-    ## signin_with_twitter を True に設定すると、oauth/authenticate の認証 URL が生成される
-    ## oauth/authorize と異なり、すでにアプリ連携している場合は再承認することなくコールバック URL にリダイレクトされる
-    ## ref: https://developer.twitter.com/ja/docs/authentication/api-reference/authenticate
-    try:
-        from app.app import consumer_key, consumer_secret
-        oauth_handler = tweepy.OAuth1UserHandler(consumer_key, consumer_secret, callback=callback_url)
-        authorization_url = await asyncio.to_thread(oauth_handler.get_authorization_url, signin_with_twitter=False)  # 同期関数なのでスレッド上で実行
-    except tweepy.TweepyException:
-        Logging.error('[TwitterRouter][TwitterAuthURLAPI] Failed to get Twitter authorization URL')
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Failed to get Twitter authorization URL',
-        )
-
-    # 認証 URL に force_login=True をつけることで、Twitter にログイン中でも強制的にログインフォームを表示できる
-    # KonomiTV アカウントに複数の Twitter アカウントを登録する場合、毎回一旦 Twitter を開いてアカウントを切り替えるのは（特にスマホの場合）かなり面倒
-    authorization_url = f'{authorization_url}&force_login=True'
-
-    # 仮で TwitterAccount のレコードを作成・保存
-    ## 戻ってきたときに oauth_token がどのユーザーに紐づいているのかを判断するため
-    ## TwitterAuthCallbackAPI は仕組み上認証をかけられないので、勝手に任意のアカウントを紐付けられないためにはこうせざるを得ない
-    await TwitterAccount.create(
-        user = current_user,
-        name = 'Temporary',
-        screen_name = 'Temporary',
-        icon_url = 'Temporary',
-        access_token = oauth_handler.request_token['oauth_token'],  # 暫定的に oauth_token を格納 (認証 URL の ?oauth_token= と同じ値)
-        access_token_secret = oauth_handler.request_token['oauth_token_secret'],  # 暫定的に oauth_token_secret を格納
-    )
-
-    return {'authorization_url': authorization_url}
-
-
-@router.get(
-    '/callback',
-    summary = 'Twitter OAuth コールバック API',
-    response_class = OAuthCallbackResponse,
-    response_description = 'ユーザーアカウントに Twitter アカウントのアクセストークン・アクセストークンシークレットが登録できたことを示す。',
-)
-async def TwitterAuthCallbackAPI(
-    client: str = Query(..., description='OAuth 連携元の KonomiTV クライアントの URL 。'),
-    oauth_token: str | None = Query(None, description='コールバック元から渡された oauth_token。OAuth 認証が成功したときのみセットされる。'),
-    oauth_verifier: str | None = Query(None, description='コールバック元から渡された oauth_verifier。OAuth 認証が成功したときのみセットされる。'),
-    denied: str | None = Query(None, description='このパラメーターがセットされているとき、OAuth 認証がユーザーによって拒否されたことを示す。'),
-):
-    """
-    Twitter の OAuth 認証のコールバックを受け取り、ログイン中のユーザーアカウントと Twitter アカウントを紐づける。
-    """
-
-    # スマホ・タブレット向けのリダイレクト先 URL を生成
-    redirect_url = f'{client.rstrip("/")}/settings/twitter'
-
-    # "denied" パラメーターがセットされている
-    # OAuth 認証がユーザーによって拒否されたことを示しているので、401 エラーにする
-    if denied is not None:
-
-        # 認証が失敗したので、TwitterAuthURLAPI で作成されたレコードを削除
-        ## "denied" パラメーターの値は oauth_token と同一
-        twitter_account = await TwitterAccount.filter(access_token=denied).get_or_none()
-        if twitter_account:
-            await twitter_account.delete()
-
-        # 401 エラーを送出
-        Logging.error('[TwitterRouter][TwitterAuthCallbackAPI] Authorization was denied by user')
-        return OAuthCallbackResponse(
-            status_code = status.HTTP_401_UNAUTHORIZED,
-            detail = 'Authorization was denied by user',
-            redirect_to = redirect_url,
-        )
-
-    # なぜか oauth_token も oauth_verifier もない
-    if oauth_token is None or oauth_verifier is None:
-        Logging.error('[TwitterRouter][TwitterAuthCallbackAPI] oauth_token or oauth_verifier does not exist')
-        return OAuthCallbackResponse(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'oauth_token or oauth_verifier does not exist',
-            redirect_to = redirect_url,
-        )
-
-    # oauth_token に紐づく Twitter アカウントを取得
-    twitter_account = await TwitterAccount.filter(access_token=oauth_token).get_or_none()
-    if not twitter_account:
-        Logging.error(f'[TwitterRouter][TwitterAuthCallbackAPI] TwitterAccount associated with oauth_token does not exist [oauth_token: {oauth_token}]')
-        return OAuthCallbackResponse(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'TwitterAccount associated with oauth_token does not exist',
-            redirect_to = redirect_url,
-        )
-
-    # OAuth1UserHandler を初期化
-    ## ref: https://docs.tweepy.org/en/latest/authentication.html#legged-oauth
-    from app.app import consumer_key, consumer_secret
-    oauth_handler = tweepy.OAuth1UserHandler(consumer_key, consumer_secret)
-    oauth_handler.request_token = {
-        'oauth_token': twitter_account.access_token,
-        'oauth_token_secret': twitter_account.access_token_secret,
-    }
-
-    # アクセストークン・アクセストークンシークレットを取得し、仮の oauth_token, oauth_token_secret と置き換える
-    ## 同期関数なのでスレッド上で実行
-    try:
-        twitter_account.access_token, twitter_account.access_token_secret = await asyncio.to_thread(oauth_handler.get_access_token, oauth_verifier)
-    except tweepy.TweepyException:
-        Logging.error('[TwitterRouter][TwitterAuthCallbackAPI] Failed to get access token')
-        return OAuthCallbackResponse(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Failed to get access token',
-            redirect_to = redirect_url,
-        )
-
-    # tweepy の API インスタンスを取得
-    api = twitter_account.getTweepyAPI()
-
-    # アカウント情報を更新
-    try:
-        verify_credentials = await asyncio.to_thread(api.verify_credentials)
-    except tweepy.TweepyException:
-        Logging.error('[TwitterRouter][TwitterAuthCallbackAPI] Failed to get user information')
-        return OAuthCallbackResponse(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Failed to get user information',
-            redirect_to = redirect_url,
-        )
-
-    # アカウント名
-    twitter_account.name = verify_credentials.name
-    # スクリーンネーム
-    twitter_account.screen_name = verify_credentials.screen_name
-    # アイコン URL
-    ## (ランダムな文字列)_normal.jpg だと画像サイズが小さいので、(ランダムな文字列).jpg に置換
-    twitter_account.icon_url = verify_credentials.profile_image_url_https.replace('_normal', '')
-
-    # アクセストークンとアカウント情報を保存
-    await twitter_account.save()
-
-    # 同じスクリーンネームを持つアカウントが重複している場合、古い方のレコードのデータを更新する
-    # すでに作成されている新しいレコード（まだ save() していないので仮の情報しか入っていない）は削除される
-    twitter_account_existing = await TwitterAccount.filter(
-        user_id = cast(Any, twitter_account).user_id,
-        screen_name = twitter_account.screen_name,
-    )
-    if len(twitter_account_existing) > 1:
-        twitter_account_existing[0].name = twitter_account.name  # アカウント名
-        twitter_account_existing[0].icon_url = twitter_account.icon_url  # アイコン URL
-        twitter_account_existing[0].access_token = twitter_account.access_token  # アクセストークン
-        twitter_account_existing[0].access_token_secret = twitter_account.access_token_secret  # アクセストークンシークレット
-        await twitter_account_existing[0].save()
-        await twitter_account.delete()
-
-    # OAuth 連携が正常に完了したことを伝える
-    return OAuthCallbackResponse(
-        status_code = status.HTTP_200_OK,
-        detail = 'Success',
-        redirect_to = redirect_url,
-    )
-
-
 @router.post(
     '/password-auth',
     summary = 'Twitter パスワード認証 API',
@@ -405,7 +214,7 @@ async def TwitterPasswordAuthAPI(
     cookies: dict[str, str] = auth_handler.get_cookies().get_dict()
 
     # TwitterAccount のレコードを作成
-    ## アクセストークンは今までの OAuth 認証との互換性を保つため "COOKIE_SESSION" の固定値、
+    ## アクセストークンは今までの OAuth 認証 (廃止) との互換性を保つため "COOKIE_SESSION" の固定値、
     ## アクセストークンシークレットとして Cookie を JSON 化した文字列を入れる
     ## ここではまだ保存しない
     twitter_account = TwitterAccount(
@@ -469,31 +278,31 @@ async def TwitterAccountDeleteAPI(
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
 
-    # Cookie セッションでは、明示的にログアウト処理を行う
+    # 明示的にログアウト処理を行う
     ## 単に Cookie を削除するだけだと Twitter 側にログインセッションが残り続けてしまう
-    if twitter_account.access_token == 'COOKIE_SESSION':
-        auth_handler = cast(CookieSessionUserHandler, twitter_account.getTweepyAuthHandler())
-        try:
-            await asyncio.to_thread(auth_handler.logout)
-        except tweepy.HTTPException as ex:
-            # サーバーエラーが発生した
-            if len(ex.api_codes) > 0 and len(ex.api_messages) > 0:
-                error_message = f'Code: {ex.api_codes[0]}, Message: {ex.api_messages[0]}'
-            else:
-                error_message = f'Unknown Error (HTTP Error {ex.response.status_code})'
-            Logging.error(f'[TwitterRouter][TwitterAccountDeleteAPI] Failed to logout ({error_message}) [screen_name: {twitter_account.screen_name}]')
-            raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail = f'Failed to logout ({error_message})',
-            )
-        except tweepy.TweepyException as ex:
-            # 予期せぬエラーが発生した
-            error_message = f'Message: {ex}'
-            Logging.error(f'[TwitterRouter][TwitterAccountDeleteAPI] Unexpected error occurred while logout ({error_message}) [screen_name: {twitter_account.screen_name}]')
-            raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail = f'Unexpected error occurred while logging out ({error_message})',
-            )
+    assert twitter_account.access_token == 'COOKIE_SESSION', 'OAuth session is no longer available.'
+    auth_handler = twitter_account.getTweepyAuthHandler()
+    try:
+        await asyncio.to_thread(auth_handler.logout)
+    except tweepy.HTTPException as ex:
+        # サーバーエラーが発生した
+        if len(ex.api_codes) > 0 and len(ex.api_messages) > 0:
+            error_message = f'Code: {ex.api_codes[0]}, Message: {ex.api_messages[0]}'
+        else:
+            error_message = f'Unknown Error (HTTP Error {ex.response.status_code})'
+        Logging.error(f'[TwitterRouter][TwitterAccountDeleteAPI] Failed to logout ({error_message}) [screen_name: {twitter_account.screen_name}]')
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = f'Failed to logout ({error_message})',
+        )
+    except tweepy.TweepyException as ex:
+        # 予期せぬエラーが発生した
+        error_message = f'Message: {ex}'
+        Logging.error(f'[TwitterRouter][TwitterAccountDeleteAPI] Unexpected error occurred while logout ({error_message}) [screen_name: {twitter_account.screen_name}]')
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = f'Unexpected error occurred while logging out ({error_message})',
+        )
 
     # 指定された Twitter アカウントのレコードを削除
     ## アクセストークンなどが保持されたレコードを削除することで連携解除とする
@@ -797,122 +606,30 @@ async def TwitterSearchAPI(
 
     try:
 
-        # Cookie セッションの場合
-        if twitter_account.is_oauth_session is False:
+        # ツイートを検索
+        tweets = api.search_tweets(
+            q = query.strip() + ' exclude:nativeretweets exclude:retweets exclude:replies',
+            count = 200,
+            since_id = since_tweet_id,
+            max_id = max_tweet_id,
+            lang = 'ja',
+            locale = 'ja',
+            result_type = 'recent',
+            include_entities = True,
+            tweet_mode = 'extended',
+        )
 
-            # 検索クエリを作成
-            search_query = query.strip() + ' exclude:nativeretweets exclude:retweets exclude:replies'
-            if since_tweet_id is not None:
-                search_query += f' since:{since_tweet_id}'
-            if max_tweet_id is not None:
-                search_query += f' max_id:{max_tweet_id}'
+        # レスポンス用に情報を整形
+        formatted_tweets: list[schemas.Tweet] = []
+        for tweet in tweets:
 
-            # 条件に一致するツイートが存在するにも関わらず検索結果が 0 件になることがあるので (Twitter のバグ？)、5回までリトライする
-            tweets_data: dict[str, Any] = {}
-            retry_count = 0
-            while retry_count < 5:
+            # 最終的なツイートモデルを作成
+            ## id が max_id と一致するツイートは除外する
+            formatted_tweet = FormatTweet(tweet)
+            if formatted_tweet.id != max_tweet_id:
+                formatted_tweets.append(formatted_tweet)
 
-                # ツイートを検索
-                ## 旧 TweetDeck が使っている search/universal (プライベート API) を利用する
-                ## q, count, since_id, max_id 以外のクエリパラメーターは実際に旧 TweetDeck から送信されている値をそのまま設定している
-                tweets_data = await asyncio.to_thread(api.request, 'GET', 'search/universal',
-                    # search/universal のパーサーは当然ながら用意されていないので JSONParser を利用する
-                    parser = tweepy.parsers.JSONParser(),
-                    # endpoint_parameters に設定されていないクエリパラメーターは無視される
-                    endpoint_parameters = (
-                        'q',
-                        'count',
-                        'modules',
-                        'result_type',
-                        'pc',
-                        'ui_lang',
-                        'cards_platform',
-                        'include_entities',
-                        'include_user_entities',
-                        'include_cards',
-                        'send_error_codes',
-                        'tweet_mode',
-                        'include_ext_alt_text',
-                        'include_reply_count',
-                        'ext',
-                        'include_ext_has_nft_avatar',
-                        'include_ext_is_blue_verified',
-                        'include_ext_verified_type',
-                        'include_ext_sensitive_media_warning',
-                        'include_ext_media_color',
-                    ),
-                    q = search_query,
-                    count = 200,
-                    modules = 'status',
-                    result_type = 'recent',
-                    pc = 'False',
-                    ui_lang = 'ja',
-                    cards_platform = 'Web-13',
-                    include_entities = 1,
-                    include_user_entities = 1,
-                    include_cards = 1,
-                    send_error_codes = 1,
-                    tweet_mode = 'extended',
-                    include_ext_alt_text = 'True',
-                    include_reply_count = 'True',
-                    ext = 'mediaStats,highlightedLabel,voiceInfo,superFollowMetadata',
-                    include_ext_has_nft_avatar = 'True',
-                    include_ext_is_blue_verified = 'True',
-                    include_ext_verified_type = 'True',
-                    include_ext_sensitive_media_warning = 'True',
-                    include_ext_media_color = 'True',
-                )
-
-                # ツイートを取得できたらループを抜ける
-                if len(tweets_data['modules']) > 0:
-                    break
-
-                # 少し待ってからリトライ
-                await asyncio.sleep(0.1)
-                retry_count += 1
-
-            # レスポンス用に情報を整形
-            formatted_tweets: list[schemas.Tweet] = []
-            for tweet_data in tweets_data['modules']:
-
-                # Tweet モデルを作成
-                tweet = tweepy.models.Status.parse(api, tweet_data['status']['data'])
-
-                # 最終的なツイートモデルを作成
-                ## id が max_id と一致するツイートは除外する
-                formatted_tweet = FormatTweet(tweet)
-                if formatted_tweet.id != max_tweet_id:
-                    formatted_tweets.append(formatted_tweet)
-
-            return formatted_tweets
-
-        # OAuth セッションの場合
-        else:
-
-            # ツイートを検索
-            tweets = api.search_tweets(
-                q = query.strip() + ' exclude:nativeretweets exclude:retweets exclude:replies',
-                count = 200,
-                since_id = since_tweet_id,
-                max_id = max_tweet_id,
-                lang = 'ja',
-                locale = 'ja',
-                result_type = 'recent',
-                include_entities = True,
-                tweet_mode = 'extended',
-            )
-
-            # レスポンス用に情報を整形
-            formatted_tweets: list[schemas.Tweet] = []
-            for tweet in tweets:
-
-                # 最終的なツイートモデルを作成
-                ## id が max_id と一致するツイートは除外する
-                formatted_tweet = FormatTweet(tweet)
-                if formatted_tweet.id != max_tweet_id:
-                    formatted_tweets.append(formatted_tweet)
-
-            return formatted_tweets
+        return formatted_tweets
 
     except tweepy.HTTPException as ex:
         RaiseHTTPException(ex)

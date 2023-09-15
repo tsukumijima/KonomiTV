@@ -57,6 +57,11 @@ class TwitterAccount(models.Model):
                 await twitter_account.delete()
                 continue
 
+            # OAuth 認証アカウントは Twitter API v1.1 の廃止で利用できなくなったため、ここで削除する
+            if twitter_account.is_oauth_session is True:
+                await twitter_account.delete()
+                continue
+
             # tweepy の API インスタンスを取得
             api = twitter_account.getTweepyAPI()
 
@@ -79,12 +84,12 @@ class TwitterAccount(models.Model):
         Logging.info(f'Twitter accounts update complete. ({round(time.time() - timestamp, 3)} sec)')
 
 
-    def getTweepyAuthHandler(self) -> tweepy.OAuth1UserHandler | CookieSessionUserHandler:
+    def getTweepyAuthHandler(self) -> CookieSessionUserHandler:
         """
         tweepy の認証ハンドラーを取得する
 
         Returns:
-            tweepy.OAuth1UserHandler | CookieSessionUserHandler: tweepy の認証ハンドラー
+            zCookieSessionUserHandler: tweepy の認証ハンドラー
         """
 
         # パスワード認証 (Cookie セッション) の場合
@@ -103,12 +108,9 @@ class TwitterAccount(models.Model):
             ## Cookie を指定する際はコンストラクタ内部で API リクエストは行われないため、ログイン時のように await する必要性はない
             auth_handler = CookieSessionUserHandler(cookies=cookies)
 
-        # 通常の OAuth 認証の場合
+        # OAuth 認証 (廃止) の場合
         else:
-            from app.app import consumer_key, consumer_secret
-            auth_handler = tweepy.OAuth1UserHandler(
-                consumer_key, consumer_secret, self.access_token, self.access_token_secret,
-            )
+            assert False, 'OAuth session is no longer available.'
 
         return auth_handler
 
