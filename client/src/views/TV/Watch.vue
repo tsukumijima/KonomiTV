@@ -883,6 +883,7 @@ export default Vue.extend({
                 autoplay: true,  // 自動再生
                 hotkey: false,  // ショートカットキー（こちらで制御するため無効化）
                 screenshot: false,  // スクリーンショット (こちらで制御するため無効化)
+                crossOrigin: 'anonymous',  // CORS を有効化
                 volume: 1.0,  // 音量の初期値
                 // 映像
                 video: {
@@ -951,6 +952,7 @@ export default Vue.extend({
                     user: 'KonomiTV',  // 便宜上 KonomiTV に固定
                     speedRate: this.settingsStore.settings.comment_speed_rate,  // コメントの流れる速度
                     fontSize: this.settingsStore.settings.comment_font_size,  // コメントのフォントサイズ
+                    closeCommentFormAfterSend: this.settingsStore.settings.close_comment_form_after_sending,  // コメント送信後にコメントフォームを閉じる
                 },
                 // コメント API バックエンド
                 apiBackend: {
@@ -996,6 +998,8 @@ export default Vue.extend({
                     },
                     // aribb24.js
                     aribb24: {
+                        // 文字スーパーを表示するかどうか
+                        disableSuperimposeRenderer: this.settingsStore.settings.tv_show_superimpose === false,
                         // 描画フォント
                         normalFont: `"${this.settingsStore.settings.caption_font}", "Rounded M+ 1m for ARIB", sans-serif`,
                         // 縁取りする色
@@ -1090,55 +1094,13 @@ export default Vue.extend({
             // Enter キーの押下がコメント送信由来のイベントかキャプチャ拡大表示由来のイベントかを判断できない
             // そこで、コメント入力フォームフォーカス中に Enter キーが押された場合（=コメント送信時）に 0.1 秒間フラグを立てることで、
             // ショートカットキーハンドラーがコメント送信由来のイベントであることを判定できるようにしている
+            // TODO: 普通に KeyboardEvent.target が dplayer-comment-input かで判断できるんじゃね？
             this.player.template.commentInput.addEventListener('keydown', (event) => {
                 if (event.code === 'Enter') {
                     this.is_comment_send_just_did = true;
                     setTimeout(() => this.is_comment_send_just_did = false, 100);
                 }
             });
-
-            // 「コメント送信後にコメント入力フォームを閉じる」がオフになっている時のために、プレイヤー側のコメント送信関数を上書き
-            // 上書き部分以外の処理内容は概ね https://github.com/tsukumijima/DPlayer/blob/master/src/js/comment.js に準じる
-            this.player.comment!.send = () => {
-
-                if (this.player === null) {
-                    return;  // 復旧不可能 (発生しないはずだが、書いとかないと TypeScript に怒られる)
-                }
-
-                // コメント入力フォームへのフォーカスを外す (「コメント送信後にコメント入力フォームを閉じる」がオンのときだけ)
-                if (this.settingsStore.settings.close_comment_form_after_sending === true) {
-                    this.player.template.commentInput.blur();
-                }
-
-                // 空コメントを弾く
-                if (!this.player.template.commentInput.value.replace(/^\s+|\s+$/g, '')) {
-                    this.player.notice(this.player.tran('Please input danmaku content!'), undefined, undefined, '#FF6F6A');
-                    return;
-                }
-
-                // コメントを送信
-                this.player.danmaku!.send(
-                    {
-                        text: this.player.template.commentInput.value,
-                        color: this.player.container.
-                            querySelector<HTMLInputElement>('.dplayer-comment-setting-color input:checked')!.value,
-                        type: this.player.container.
-                            querySelector<HTMLInputElement>('.dplayer-comment-setting-type input:checked')!.value as DPlayerType.DanmakuType,
-                        size: this.player.container.
-                            querySelector<HTMLInputElement>('.dplayer-comment-setting-size input:checked')!.value as DPlayerType.DanmakuSize,
-                    },
-                    // 送信完了後にコメント入力フォームを閉じる ([コメント送信後にコメント入力フォームを閉じる] がオンのときだけ)
-                    () => {
-                        if (this.settingsStore.settings.close_comment_form_after_sending === true) {
-                            this.player !== null && this.player.comment!.hide();
-                        }
-                    },
-                    true,
-                );
-
-                // 重複送信を防ぐ
-                this.player.template.commentInput.value = '';
-            };
 
             // ***** 設定パネルのショートカット一覧へのリンクのイベントハンドラー *****
 
@@ -1155,10 +1117,6 @@ export default Vue.extend({
                         </svg>
                     </div>
                 </div>`);
-
-                // 設定パネルの高さを再設定
-                const settingOriginPanelHeight = this.player.template.settingOriginPanel.scrollHeight;
-                this.player.template.settingBox.style.clipPath = `inset(calc(100% - ${settingOriginPanelHeight}px) 0 0 round 7px)`;
 
                 // 設定パネルのショートカット一覧を表示するリンクがクリックされたときのイベント
                 // リアクティブではないので、手動でやらないといけない…
@@ -1281,33 +1239,6 @@ export default Vue.extend({
                     }
                 }, 30 * 1000));
             }
-
-            // ***** 文字スーパーのイベントハンドラー *****
-
-            (async () => {
-
-                // 文字スーパーが初期化されるまで待つ
-                if (this.player === null) return;
-                while (this.player.plugins.aribb24Superimpose === undefined) {
-                    await Utils.sleep(0.1);  // 0.1 秒待つ
-                }
-
-                // 設定で文字スーパーが有効
-                // 字幕が非表示の場合でも、文字スーパーは表示する
-                if (this.settingsStore.settings.tv_show_superimpose === true) {
-                    this.player.plugins.aribb24Superimpose.show();
-                    this.player.on('subtitle_hide', () => {
-                        this.player?.plugins.aribb24Superimpose!.show();
-                    });
-                // 設定で文字スーパーが無効
-                } else {
-                    this.player.plugins.aribb24Superimpose.hide();
-                    this.player.on('subtitle_show', () => {
-                        this.player?.plugins.aribb24Superimpose!.hide();
-                    });
-                }
-
-            })();
         },
 
         // イベントハンドラーを初期化する
@@ -1333,10 +1264,6 @@ export default Vue.extend({
 
             // 音量を 0 に設定
             this.player.video.volume = 0;
-
-            // video 要素の crossOrigin 属性を 'anonymous' に設定
-            // これを設定しないと、クロスオリジンの場合にキャプチャができない
-            this.player.video.crossOrigin = 'anonymous';
 
             // mpegts.js 再生時のみ、mpegts.js のログハンドラーを設定する
             if (this.is_mpegts_supported === true && this.player.plugins.mpegts !== undefined) {
@@ -2207,14 +2134,14 @@ export default Vue.extend({
 
             // キャプチャボタンがクリックされたときのイベント
             // ショートカットからのキャプチャでも同じイベントがトリガーされる
-            const capture_button = this.$el.querySelector('.dplayer-icon.dplayer-capture-icon');
+            const capture_button = this.$el.querySelector('.dplayer-icon.dplayer-capture-icon')!;
             capture_button.addEventListener('click', async () => {
                 await this.capture_manager.captureAndSave(false);
             });
 
             // コメント付きキャプチャボタンがクリックされたときのイベント
             // ショートカットからのキャプチャでも同じイベントがトリガーされる
-            const comment_capture_button = this.$el.querySelector('.dplayer-icon.dplayer-comment-capture-icon');
+            const comment_capture_button = this.$el.querySelector('.dplayer-icon.dplayer-comment-capture-icon')!;
             comment_capture_button.addEventListener('click', async () => {
                 await this.capture_manager.captureAndSave(true);
             });

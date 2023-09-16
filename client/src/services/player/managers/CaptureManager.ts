@@ -171,17 +171,15 @@ class CaptureManager {
         // 字幕・文字スーパーの Canvas を取得
         // getRawCanvas() で映像と同じ解像度の Canvas が取得できる
         const aribb24_caption = this.player.plugins.aribb24Caption!;
-        const aribb24_superimpose = this.player.plugins.aribb24Superimpose!;
-        const caption_canvas: HTMLCanvasElement = aribb24_caption.getRawCanvas()!;
-        const superimpose_canvas: HTMLCanvasElement = aribb24_superimpose.getRawCanvas()!;
+        const aribb24_superimpose = this.player.plugins.aribb24Superimpose ?? null;
+        const caption_canvas = aribb24_caption.getRawCanvas()!;
+        const superimpose_canvas = aribb24_superimpose?.getRawCanvas() ?? null;
 
         // 字幕が表示されているか
-        // @ts-ignore
-        const is_caption_showing = (aribb24_caption.isShowing === true && aribb24_caption.isPresent());
+        const is_caption_showing = ((aribb24_caption as any).isShowing === true && aribb24_caption.isPresent());
 
         // 文字スーパーが表示されているか
-        // @ts-ignore
-        const is_superimpose_showing = (aribb24_superimpose.isShowing === true && aribb24_superimpose.isPresent());
+        const is_superimpose_showing = (aribb24_superimpose && (aribb24_superimpose as any).isShowing === true && aribb24_superimpose.isPresent());
 
         // 字幕が表示されている場合、表示中の字幕のテキストを取得
         // 取得した字幕のテキストは、キャプチャに字幕が合成されているかに関わらず、常に EXIF メタデータに書き込まれる
@@ -334,7 +332,7 @@ class CaptureManager {
 
             // 文字スーパーを描画 (表示されている場合)
             // 文字スーパー自体が稀だし、文字スーパーなしでキャプチャ撮りたいユースケースはない…はず
-            if (is_superimpose_showing === true) {
+            if (superimpose_canvas && is_superimpose_showing === true) {
                 canvas_context.drawImage(superimpose_canvas, 0, 0, canvas.width, canvas.height);
             }
 
@@ -392,7 +390,7 @@ class CaptureManager {
                     // すでに字幕なしキャプチャを生成する過程でコメントを描画してしまっているため、映像描画からやり直す必要がある
                     if (with_comments === true) {
                         canvas_context.drawImage(image_bitmap, 0, 0, canvas.width, canvas.height);
-                        if (is_superimpose_showing === true) {
+                        if (superimpose_canvas && is_superimpose_showing === true) {
                             canvas_context.drawImage(superimpose_canvas, 0, 0, canvas.width, canvas.height);
                         }
                     }
