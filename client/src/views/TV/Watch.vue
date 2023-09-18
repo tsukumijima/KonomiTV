@@ -2419,6 +2419,7 @@ export default Vue.extend({
         transition: top 0.3s, left 0.3s;
     }
     .dplayer-setting-box {
+        z-index: 10 !important;
         @include tablet-vertical {
             height: calc(100% - 60px) !important;
         }
