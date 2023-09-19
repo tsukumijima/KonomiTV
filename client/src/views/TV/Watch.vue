@@ -980,7 +980,7 @@ export default Vue.extend({
                             // MSE in Workers が使えるかは MediaSource.canConstructInDedicatedWorker が true かどうかで判定できる
                             // MediaSource.canConstructInDedicatedWorker は TypeScript の仕様上型定義の追加が難しいため any で回避している
                             // ref: https://developer.mozilla.org/en-US/docs/Web/API/MediaSource/canConstructInDedicatedWorker_static
-                            enableMSEWorker: (MediaSource as any).canConstructInDedicatedWorker === true,
+                            enableMSEWorker: window.MediaSource && (window.MediaSource as any).canConstructInDedicatedWorker === true,
                             // IO 層のバッファを禁止する
                             enableStashBuffer: false,
                             // HTMLMediaElement の内部バッファによるライブストリームの遅延を追跡する
