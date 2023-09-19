@@ -8,6 +8,7 @@ import { ResponseMessage } from 'web-bml/server/ws_api';
 
 import router from '@/router';
 import PlayerManager from '@/services/player/PlayerManager';
+import { IProgramDefault } from '@/services/Programs';
 import useChannelsStore from '@/store/ChannelsStore';
 import useSettingsStore from '@/store/SettingsStore';
 import Utils, { PlayerUtils, ProgramUtils } from '@/utils';
@@ -340,29 +341,36 @@ class LiveDataBroadcastingManager implements PlayerManager {
 
             // 番組情報イベント
             // 現在放送中の番組情報を UI にリアルタイムに反映する
+            // TODO: 残りのプロパティの対応・次の番組情報への対応 (いずれも web-bml 側の改修が必要)
             if (message.type === 'programInfo' && channels_store.channel.current.program_present != null) {
+
+                // 番組情報が取得できていない場合はスキップ
+                if (message.eventId === null || message.eventName === null || message.startTimeUnixMillis === null) {
+                    return;
+                }
+
+                // 雛形として現在最新のチャンネル情報・番組情報を設定する
+                channels_store.current_channel = channels_store.channel.current;
+                if (channels_store.current_channel.program_present === null) {
+                    channels_store.current_channel.program_present = IProgramDefault;
+                }
+
                 // イベント ID
-                if (message.eventId) {
-                    channels_store.channel.current.program_present.event_id = message.eventId;
-                }
+                channels_store.current_channel.program_present.event_id = message.eventId;
                 // 番組タイトル
-                if (message.eventName) {
-                    channels_store.channel.current.program_present.title = ProgramUtils.formatString(message.eventName);
-                }
+                channels_store.current_channel.program_present.title = ProgramUtils.formatString(message.eventName);
                 // 番組開始時刻・番組終了時刻・番組長
-                if (message.startTimeUnixMillis) {
-                    const start_time = ProgramUtils.convertTimestampToISO8601(message.startTimeUnixMillis);
-                    channels_store.channel.current.program_present.start_time = start_time;
-                    if (message.durationSeconds === null || message.indefiniteDuration === true) {
-                        // 放送時間未定扱い
-                        // duration が -1 の場合、ProgramUtils.getProgramTime() は「放送時間未定」と表示する
-                        channels_store.channel.current.program_present.end_time = start_time;
-                        channels_store.channel.current.program_present.duration = -1;  // -1 を設定する
-                    } else {
-                        channels_store.channel.current.program_present.end_time =
-                            dayjs(start_time).add(message.durationSeconds, 'seconds').toISOString();
-                        channels_store.channel.current.program_present.duration = message.durationSeconds;
-                    }
+                const start_time = ProgramUtils.convertTimestampToISO8601(message.startTimeUnixMillis);
+                channels_store.current_channel.program_present.start_time = start_time;
+                if (message.durationSeconds === null || message.indefiniteDuration === true) {
+                    // 放送時間未定扱い
+                    // duration が -1 の場合、ProgramUtils.getProgramTime() は「放送時間未定」と表示する
+                    channels_store.current_channel.program_present.end_time = start_time;
+                    channels_store.current_channel.program_present.duration = -1;  // -1 を設定する
+                } else {
+                    channels_store.current_channel.program_present.end_time =
+                        dayjs(start_time).add(message.durationSeconds, 'seconds').toISOString();
+                    channels_store.current_channel.program_present.duration = message.durationSeconds;
                 }
             }
 

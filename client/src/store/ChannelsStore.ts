@@ -19,6 +19,11 @@ const useChannelsStore = defineStore('channels', {
         // 視聴画面のみ有効で、ホーム画面では利用されない
         display_channel_id: 'gr000' as string,
 
+        // 現在視聴中のチャンネル・番組情報 (番組情報のみ EIT[p/f] からリアルタイムに更新される)
+        // チャンネル切り替え後、LiveDataBroadcastingManager で EIT[p/f] から取得されるまでは null
+        // 視聴画面のみ有効で、ホーム画面では利用されない
+        current_channel: null as IChannel | null,
+
         // すべてのチャンネルタイプのチャンネルリスト
         channels_list: {
             GR: [],
@@ -123,10 +128,19 @@ const useChannelsStore = defineStore('channels', {
                 return 0;
             })();
 
+            // もしこの時点で current_channel が持つチャンネル ID と channels[current_channel_index] が持つチャンネル ID が一致していない場合、
+            // チャンネル切り替えなどで EPG 由来の current_channel の情報が古くなっているため、ここで null にする
+            // チャンネル切り替え後、LiveDataBroadcastingManager で EIT[p/f] から最新のチャンネル情報が取得されるまでの間は
+            // channels[current_channel_index] の情報が表示に使われることになる
+            if (this.current_channel !== null && this.current_channel.id !== channels[current_channel_index].id) {
+                this.current_channel = null;
+            }
+
             // 前・現在・次のチャンネル情報を返す
+            // current_channel が利用可能であれば使う
             return {
                 previous: channels[previous_channel_index],
-                current: channels[current_channel_index],
+                current: this.current_channel ?? channels[current_channel_index],
                 next: channels[next_channel_index],
             };
         },
