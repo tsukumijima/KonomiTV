@@ -353,15 +353,15 @@ class LiveDataBroadcastingManager implements PlayerManager {
                 if (message.startTimeUnixMillis) {
                     const start_time = ProgramUtils.convertTimestampToISO8601(message.startTimeUnixMillis);
                     channels_store.channel.current.program_present.start_time = start_time;
-                    if (message.durationSeconds) {
-                        channels_store.channel.current.program_present.end_time =
-                            dayjs(start_time).add(message.durationSeconds, 'seconds').toISOString();
-                        channels_store.channel.current.program_present.duration = message.durationSeconds;
-                    } else {
-                        // 開始時刻はあるが番組長がない場合、放送時間未定として扱う
+                    if (message.durationSeconds === null || message.indefiniteDuration === true) {
+                        // 放送時間未定扱い
                         // duration が -1 の場合、ProgramUtils.getProgramTime() は「放送時間未定」と表示する
                         channels_store.channel.current.program_present.end_time = start_time;
                         channels_store.channel.current.program_present.duration = -1;  // -1 を設定する
+                    } else {
+                        channels_store.channel.current.program_present.end_time =
+                            dayjs(start_time).add(message.durationSeconds, 'seconds').toISOString();
+                        channels_store.channel.current.program_present.duration = message.durationSeconds;
                     }
                 }
             }
