@@ -46,7 +46,7 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
 
     /**
      * PSI/SI アーカイブデータのストリーミングを開始し、TS ストリームをデコードする
-     * デコード結果はコンストラクタで指定した decoded_callback に送信される
+     * デコード結果は decoded_callback に送信される
      *
      * EDCB Legacy WebUI での実装を参考にした
      * https://github.com/xtne6f/EDCB/blob/work-plus-s-230212/ini/HttpPublic/legacy/util.lua#L444-L497
@@ -77,9 +77,23 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
 
                 // API から随時データを取得
                 const result = await reader.read();
+
+                // ストリームの終端に達した場合
+                // PSI/SI アーカイブデータは過去受信したデータがなければデコードできないため、
+                // クライアントとサーバーともに長期間ストリーミングするほどメモリ上のサイズが肥大化する
+                // そこで、psisiarc を 10 分毎にリセット (再起動) し、10分おきに辞書化されていない最新のデータを取得するようにしている
+                // この psisiarc のリセットが発生したタイミングで API からのデータストリーミングが終了するため、ここでデコーダーを起動し直す
                 if (result.done) {
-                    console.log('[PSIArchivedDataDecoder] PSI/SI archived data finished.');
-                    break;  // ストリームの終端に達した (基本これより前に abort() されるので発生しない)
+
+                    // 既存の PSI/SI アーカイブデータを破棄 (破棄しないと正常にデコードできない)
+                    // ts_packet_counters はリセットせずとも動く (はず)
+                    this.psi_archived_data = new Uint8Array();
+                    this.psi_archived_data_context = {};
+
+                    // 再起動
+                    console.log('[PSIArchivedDataDecoder] TS decoder destroyed. (psisiarc reset)');
+                    this.run(decoded_callback);
+                    break;
                 }
                 // console.log(`[PSIArchivedDataDecoder] PSI/SI archived data received. (length: ${result.value.length})`);
 
