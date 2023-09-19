@@ -32,9 +32,6 @@ class LivePSIDataArchiver:
         # PSI/SI データのアーカイブデータの状態を管理する Condition
         self.psi_archive_list_condition = asyncio.Condition()
 
-        # psisiarc のプロセスを再起動中かどうか
-        self.is_restarting: bool = False
-
 
     @property
     def is_running(self) -> bool:
@@ -82,10 +79,6 @@ class LivePSIDataArchiver:
             stdout = asyncio.subprocess.PIPE,  # ストリーム出力
             stderr = asyncio.subprocess.STDOUT,  # ログ出力
         )
-
-        # psisiarc のプロセスを再起動中でないことを示す
-        if self.is_restarting is True:
-            self.is_restarting = False
 
         # 起動時間のタイムスタンプ
         start_at = time.time()
@@ -155,9 +148,9 @@ class LivePSIDataArchiver:
 
         while True:
 
-            # psisiarc が終了している場合は終了する
-            ## ただし、再起動中の場合は終了しない
-            if (self.psisiarc_process is None or self.psisiarc_process.returncode is not None) and self.is_restarting is False:
+            # psisiarc が再起動などにより終了している場合は、ジェネレーターを終了する
+            ## psisiarc の再起動後に得られた PSI/SI アーカイブデータは、それ以前のものと互換性がない
+            if (self.psisiarc_process is None or self.psisiarc_process.returncode is not None):
                 break
 
             # データの利用可能性を待つ
@@ -165,10 +158,13 @@ class LivePSIDataArchiver:
                 await self.psi_archive_list_condition.wait()
 
                 # PSI/SI アーカイブデータが更新されたら、最新のチャンクを返す
-                # 複数の非同期タスクすべてが同じデータを随時取得できるようにするため、
-                # getPSIArchivedData() 内では PSI/SI アーカイブデータは常に読み取り専用である必要がある
+                ## 複数の非同期タスクすべてが同じデータを随時取得できるようにするため、
+                ## getPSIArchivedData() 内では PSI/SI アーカイブデータは常に読み取り専用である必要がある
+                ## この時点で self.psi_archive_list が空の場合、psisiarc が終了したとみなしてジェネレーターを終了する
                 if len(self.psi_archive_list) > 0:
                     yield self.psi_archive_list[-1]
+                else:
+                    break
 
 
     async def destroy(self) -> None:
@@ -196,7 +192,6 @@ class LivePSIDataArchiver:
         """
 
         # 破棄してから再起動する
-        self.is_restarting = True
         await self.destroy()
         await self.run()
 
