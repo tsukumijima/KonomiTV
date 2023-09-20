@@ -12,7 +12,7 @@ aerich = {file = "https://github.com/tsukumijima/aerich/releases/download/v0.7.1
 aiofiles = "*"
 aiohttp = "*"
 aiosqlite = "*"
-ariblib = {file = "https://github.com/tsukumijima/ariblib/releases/download/v0.1.2/ariblib-0.1.2-py3-none-any.whl"}
+ariblib = {file = "https://github.com/tsukumijima/ariblib/releases/download/v0.1.4/ariblib-0.1.4-py3-none-any.whl"}
 biim = {file = "https://github.com/tsukumijima/biim/releases/download/v1.10.2-patch/biim-1.10.2-py3-none-any.whl"}
 colorama = ">=0.4"
 elevate = "*"
