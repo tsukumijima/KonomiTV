@@ -474,15 +474,23 @@ class EDCBUtil:
             if i == 0 and extended_text.startswith('- '):
                 j = 2
             elif (j := extended_text.find('\n- ', i)) >= 0:
+                # 重複する項目名にはタブ文字を付加する
+                while head in result:
+                    head += '\t'
                 result[head] = extended_text[(0 if i == 0 else i + 1):j + 1]
                 j += 3
             else:
                 if len(extended_text) != 0:
+                    while head in result:
+                        head += '\t'
                     result[head] = extended_text[(0 if i == 0 else i + 1):]
                 break
             i = extended_text.find('\n', j)
             if i < 0:
-                result[extended_text[j:]] = ''
+                head = extended_text[j:]
+                while head in result:
+                    head += '\t'
+                result[head] = ''
                 break
             head = extended_text[j:i]
         return result
