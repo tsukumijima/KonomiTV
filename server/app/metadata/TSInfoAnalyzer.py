@@ -264,8 +264,14 @@ class TSInfoAnalyzer:
                         # 番組詳細テキストから取得した、見出しと本文の辞書ごとに
                         for head, text in cast(dict[str, str], event.detail).items():
                             # 見出しと本文
-                            head_hankaku = TSInformation.formatString(head).replace('◇', '').strip()  # ◇ を取り除く
-                            if head_hankaku == '':  # 見出しが空の場合、固定で「番組内容」としておく
+                            ## 見出しのみ ariblib 側で意図的に重複防止のためのタブ文字付加が行われる場合があるため、
+                            ## strip() では明示的に半角スペースと改行のみを指定している
+                            head_hankaku = TSInformation.formatString(head).replace('◇', '').strip(' \r\n')  # ◇ を取り除く
+                            ## ないとは思うが、万が一この状態で見出しが衝突しうる場合は、見出しの後ろにタブ文字を付加する
+                            while head_hankaku in recorded_program.detail.keys():
+                                head_hankaku += '\t'
+                            ## 見出しが空の場合、固定で「番組内容」としておく
+                            if head_hankaku == '':
                                 head_hankaku = '番組内容'
                             text_hankaku = TSInformation.formatString(text).strip()
                             recorded_program.detail[head_hankaku] = text_hankaku
