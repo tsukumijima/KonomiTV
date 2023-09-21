@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "ecfa956139ce66f412dd1a8e2ae13104cceee6c9e0fc43fa805f63cb8775f4f1"
+            "sha256": "c0a8bdede0f399941ec712f788d9c1190708bd6aad4142fcd6d523decb21112d"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -19,10 +19,10 @@
         "aerich": {
             "file": "https://github.com/tsukumijima/aerich/releases/download/v0.7.1-patch/aerich-0.7.2-py3-none-any.whl",
             "hashes": [
-                "sha256:31d67de7b96184636b89de99062e059e5e6204b6251d24c33eb21fc9cf982e09",
-                "sha256:84c78c07d45436b89ca4db5411eca4e9292a591fb7d6fd4282fa4a7d0c6d2af1"
+                "sha256:f6035b03ad2498f33b9ead340ecd20b7f29fd136e2ffa5b863ab7c07c4678593"
             ],
-            "markers": "python_version >= '3.7' and python_version < '4.0'"
+            "index": "pypi",
+            "version": "==0.7.2"
         },
         "aiofiles": {
             "hashes": [
@@ -30,7 +30,6 @@
                 "sha256:84ec2218d8419404abcb9f0c02df3f34c6e0a68ed41072acfb1cef5cbc29051a"
             ],
             "index": "pypi",
-            "markers": "python_version >= '3.7'",
             "version": "==23.2.1"
         },
         "aiohttp": {
@@ -124,7 +123,6 @@
                 "sha256:fd1ed388ea7fbed22c4968dd64bab0198de60750a25fe8c0c9d4bef5abe13824"
             ],
             "index": "pypi",
-            "markers": "python_version >= '3.6'",
             "version": "==3.8.5"
         },
         "aiosignal": {
@@ -141,7 +139,6 @@
                 "sha256:f0e6acc24bc4864149267ac82fb46dfb3be4455f99fe21df82609cc6e6baee51"
             ],
             "index": "pypi",
-            "markers": "python_version >= '3.6'",
             "version": "==0.17.0"
         },
         "annotated-types": {
@@ -161,7 +158,12 @@
             "version": "==3.7.1"
         },
         "ariblib": {
-            "file": "https://github.com/tsukumijima/ariblib/releases/download/v0.1.4/ariblib-0.1.4-py3-none-any.whl"
+            "file": "https://github.com/tsukumijima/ariblib/releases/download/v0.1.4/ariblib-0.1.4-py3-none-any.whl",
+            "hashes": [
+                "sha256:ac3bb62ef2998811c23b00d6d9648dcde4c1df9d4e0c5a79385cb04b0bfb2310"
+            ],
+            "index": "pypi",
+            "version": "==0.1.4"
         },
         "async-timeout": {
             "hashes": [
@@ -206,7 +208,12 @@
             "version": "==4.0.1"
         },
         "biim": {
-            "file": "https://github.com/tsukumijima/biim/releases/download/v1.10.2-patch/biim-1.10.2-py3-none-any.whl"
+            "file": "https://github.com/tsukumijima/biim/releases/download/v1.10.2-patch/biim-1.10.2-py3-none-any.whl",
+            "hashes": [
+                "sha256:d002840a52d71569af9c52060466a16500b9d70a4599c1ca056e0bc32da69045"
+            ],
+            "index": "pypi",
+            "version": "==1.10.2"
         },
         "brotli": {
             "hashes": [
@@ -469,7 +476,6 @@
                 "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"
             ],
             "index": "pypi",
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6'",
             "version": "==0.4.6"
         },
         "cryptography": {
@@ -528,7 +534,6 @@
                 "sha256:5e5f17e826dbd9e9b5a5145976c5cd90bcaa61f2bf9a69aca423f2bcebe44d83"
             ],
             "index": "pypi",
-            "markers": "python_version >= '3.7'",
             "version": "==0.103.1"
         },
         "fastapi-restful": {
@@ -537,7 +542,6 @@
                 "sha256:f768bfe383fe9ef4affe357572122c8348d6a108eef5e373101c8cde18c0d27d"
             ],
             "index": "pypi",
-            "markers": "python_version >= '3.7' and python_version < '4.0'",
             "version": "==0.5.0"
         },
         "frozenlist": {
@@ -621,7 +625,6 @@
                 "sha256:8bddd1acba501bfc9306e7e5a99a1667f4f2cacdc20cbd70bcc5ddfa5147c94c"
             ],
             "index": "pypi",
-            "markers": "python_version >= '2.7'",
             "version": "==1.3.1"
         },
         "httptools": {
@@ -890,6 +893,7 @@
                 "sha256:aa6bca462b8d8bda89c70b382f0c298a20b5560af6cbfa2dce410c0a2fb669f1",
                 "sha256:defd50f72b65c5402ab2c573830a6978e5f202ad0d984793c8dde2c4152ebe04"
             ],
+            "index": "pypi",
             "version": "==1.7.4"
         },
         "pillow": {
@@ -950,7 +954,6 @@
                 "sha256:fd2a5403a75b54661182b75ec6132437a181209b901446ee5724b589af8edef1"
             ],
             "index": "pypi",
-            "markers": "python_version >= '3.8'",
             "version": "==10.0.1"
         },
         "psutil": {
@@ -971,7 +974,6 @@
                 "sha256:ea8518d152174e1249c4f2a1c89e3e6065941df2fa13a1ab45327716a23c2b48"
             ],
             "index": "pypi",
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==5.9.5"
         },
         "puremagic": {
@@ -988,7 +990,6 @@
                 "sha256:d036dee11fce69ad8d4fa86025ccfc4a3511ec27ee1c6b5bd8d6759313dbd077"
             ],
             "index": "pypi",
-            "markers": "python_version >= '3.7'",
             "version": "==0.20.6"
         },
         "pyasn1": {
@@ -1134,7 +1135,6 @@
                 "sha256:45b5e446c6dfaad9444819a293b921a40e1db1aa61ea08aede0522529ce90e81"
             ],
             "index": "pypi",
-            "markers": "python_version >= '3.7'",
             "version": "==2.3.0"
         },
         "pydantic-core": {
@@ -1272,7 +1272,6 @@
                 "sha256:c38e79d4d2062732ae555b564c3cac18a6de4f36e033066c617f386cf5e77564"
             ],
             "index": "pypi",
-            "markers": "python_version >= '3.7'",
             "version": "==6.0.1"
         },
         "pypika-tortoise": {
@@ -1382,6 +1381,7 @@
                 "sha256:55779b5e6ad599c6336191246e95eb2293a9ddebd555f796a65f838f07e5d78a",
                 "sha256:9b1376b023f8b298536eedd47ae1089bcdb848f1535ab30555cd92002d78923a"
             ],
+            "index": "pypi",
             "version": "==3.3.0"
         },
         "python-multipart": {
@@ -1390,7 +1390,6 @@
                 "sha256:ee698bab5ef148b0a760751c261902cd096e57e10558e11aca17646b74ee1c18"
             ],
             "index": "pypi",
-            "markers": "python_version >= '3.7'",
             "version": "==0.0.6"
         },
         "pytz": {
@@ -1598,7 +1597,6 @@
                 "sha256:942c5a758f98d790eaed1a29cb6eefc7ffb0d1cf7af05c3d2791656dbd6ad1e1"
             ],
             "index": "pypi",
-            "markers": "python_version >= '3.7'",
             "version": "==2.31.0"
         },
         "requests-oauthlib": {
@@ -1615,7 +1613,6 @@
                 "sha256:9257b468badc3d347e146a4faa268ff229039d4c2d176ab0cffb4c4fbc73d5d9"
             ],
             "index": "pypi",
-            "markers": "python_full_version >= '3.7.0'",
             "version": "==13.5.3"
         },
         "rsa": {
@@ -1632,7 +1629,6 @@
                 "sha256:ec939063761914e14542972a5cba6d33c23b0859ab6342f61cf070cfc600efc2"
             ],
             "index": "pypi",
-            "markers": "python_version >= '3'",
             "version": "==0.17.32"
         },
         "ruamel.yaml.clib": {
@@ -1700,7 +1696,6 @@
                 "sha256:819f2c421fb37067380fe3dcaba246c476b02651b7bb7601099a378ad802a0ac"
             ],
             "index": "pypi",
-            "markers": "python_version >= '3.8'",
             "version": "==1.6.5"
         },
         "starlette": {
@@ -1732,7 +1727,6 @@
                 "sha256:283af584d685dcc58d6cc1da35b9115bb1e41c89075eae2a19c493b39b9b41f7"
             ],
             "index": "pypi",
-            "markers": "python_version >= '3.8' and python_version < '4.0'",
             "version": "==0.20.0"
         },
         "tweepy": {
@@ -1741,7 +1735,6 @@
                 "sha256:db6d3844ccc0c6d27f339f12ba8acc89912a961da513c1ae50fa2be502a56afb"
             ],
             "index": "pypi",
-            "markers": "python_version >= '3.7'",
             "version": "==4.14.0"
         },
         "tweepy-authlib": {
@@ -1750,7 +1743,6 @@
                 "sha256:1930d66b24e0798de249c6c7a02a0ace159a787c517209645a71f96104f253ba"
             ],
             "index": "pypi",
-            "markers": "python_version >= '3.8'",
             "version": "==1.3.0"
         },
         "typer": {
@@ -1759,7 +1751,6 @@
                 "sha256:5d96d986a21493606a358cae4461bd8cdf83cbf33a5aa950ae629ca3b51467ee"
             ],
             "index": "pypi",
-            "markers": "python_version >= '3.6'",
             "version": "==0.9.0"
         },
         "typing-extensions": {
@@ -1768,7 +1759,6 @@
                 "sha256:df8e4339e9cb77357558cbdbceca33c303714cf861d1eef15e1070055ae8b7ef"
             ],
             "index": "pypi",
-            "markers": "python_version >= '3.8'",
             "version": "==4.8.0"
         },
         "typing-inspect": {
@@ -1785,7 +1775,6 @@
                 "sha256:7e65763eef3120314099b6939b5546db7adce1e7d6f2e179e3df563c70511eda"
             ],
             "index": "pypi",
-            "markers": "python_version >= '2'",
             "version": "==2023.3"
         },
         "tzlocal": {
@@ -1812,7 +1801,7 @@
                 "sha256:1f9be6558f01239d4fdf22ef8126c39cb1ad0addf76c40e760549d2c2f43ab53",
                 "sha256:4d3cc12d7727ba72b64d12d3cc7743124074c0a69f7b201512fc50c3e3f1569a"
             ],
-            "markers": "python_version >= '3.8'",
+            "index": "pypi",
             "version": "==0.23.2"
         },
         "uvloop": {
@@ -1848,7 +1837,7 @@
                 "sha256:f1e507c9ee39c61bfddd79714e4f85900656db1aec4d40c6de55648e85c2799c",
                 "sha256:ff3d00b70ce95adce264462c930fbaecb29718ba6563db354608f37e49e09024"
             ],
-            "markers": "python_version >= '3.7' and sys_platform != 'win32'",
+            "markers": "sys_platform != 'win32'",
             "version": "==0.17.0"
         },
         "watchfiles": {
@@ -1877,7 +1866,6 @@
                 "sha256:eccc8942bcdc7d638a01435d915b913255bbd66f018f1af051cd8afddb339ea3"
             ],
             "index": "pypi",
-            "markers": "python_version >= '3.7'",
             "version": "==0.20.0"
         },
         "websockets": {
