@@ -2,4 +2,4 @@
 in-project = true
 
 [virtualenvs.options]
-always-copy = true
+always-copy = false
