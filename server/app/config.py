@@ -442,8 +442,13 @@ def SaveConfig(config: ServerSettings) -> None:
     # None を null として出力するようにする
     yaml.Representer.add_representer(type(None), lambda self, data: self.represent_scalar('tag:yaml.org,2002:null', 'null'))  # type: ignore
 
+    # 配列の末尾の "']" を "',\n    ]" に変換する transform 関数を定義
+    # 基本的に recorded_folders 用 (ruamel.yaml がフロースタイルの改行などを保持できないための苦肉の策)
+    def transform(value: str) -> str:
+        return value.replace("']", "',\n    ]")
+
     with open(_CONFIG_YAML_PATH, mode='w', encoding='utf-8') as file:
-        yaml.dump(config_raw, file)
+        yaml.dump(config_raw, file, transform=transform)
 
 
 def Config() -> ServerSettings:
