@@ -30,22 +30,21 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-          cache: 'pipenv'
-          cache-dependency-path: '${{ github.workspace }}/installer/Pipfile.lock'
+          cache: 'poetry'
 
       # インストーラーの依存関係をインストール
       - name: Install Dependencies
         working-directory: installer/
         run: |
-          pip install pipenv
-          pipenv sync
+          pip install poetry
+          poetry install
           # ウイルス検知対策で Windows のみ自前ビルドの PyInstaller に差し替える
-          pipenv run pip install https://github.com/tsukumijima/Pyinstaller-Builds/raw/gh-pages/x86_64/pyinstaller-5.13.0-py3-none-any.whl
+          poetry run pip install https://github.com/tsukumijima/Pyinstaller-Builds/raw/gh-pages/x86_64/pyinstaller-5.13.0-py3-none-any.whl
 
       # インストーラーを PyInstaller でビルド
       - name: Build Installer with PyInstaller
         working-directory: installer/
-        run: pipenv run build-windows
+        run: poetry run task build-windows
 
       # 単一実行ファイルにビルドされたインストーラーを Artifact としてアップロード
       - name: Upload Installer Executable as Artifact
@@ -68,20 +67,19 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-          cache: 'pipenv'
-          cache-dependency-path: '${{ github.workspace }}/installer/Pipfile.lock'
+          cache: 'poetry'
 
       # インストーラーの依存関係をインストール
       - name: Install Dependencies
         working-directory: installer/
         run: |
-          pip install pipenv
-          pipenv sync
+          pip install poetry
+          poetry install
 
       # インストーラーを PyInstaller でビルド
       - name: Build Installer with PyInstaller
         working-directory: installer/
-        run: pipenv run build-linux
+        run: poetry run task build-linux
 
       # 単一実行ファイルにビルドされたインストーラーを Artifact としてアップロード
       - name: Upload Installer Executable as Artifact
@@ -93,10 +91,6 @@ jobs:
   # Linux (ARM) 向けのインストーラーのビルド
   build-linux-arm:
     runs-on: ubuntu-20.04
-    strategy:
-      matrix:
-        image:
-          - arm64v8/ubuntu
     steps:
 
       # QEMU のセットアップ
@@ -130,7 +124,7 @@ jobs:
                 zlib1g \
                 zlib1g-dev
           RUN curl https://bootstrap.pypa.io/get-pip.py | python3.11
-          RUN python3.11 -m pip install pipenv
+          RUN python3.11 -m pip install poetry
           EOF
 
       # ARM64 版 Docker イメージのビルド
@@ -138,10 +132,10 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           context: .
-          tags: ${{ matrix.image }}:build
-          build-args: IMAGE=${{ matrix.image }}:20.04
-          cache-from: type=gha,scope=${{ matrix.image }}
-          cache-to: type=gha,scope=${{ matrix.image }},mode=max
+          tags: arm64v8/ubuntu:build
+          build-args: IMAGE=arm64v8/ubuntu:20.04
+          cache-from: type=gha,scope=arm64v8/ubuntu
+          cache-to: type=gha,scope=arm64v8/ubuntu,mode=max
           load: true
 
       # Dockerfile を削除
@@ -156,8 +150,8 @@ jobs:
       - name: Build Installer with PyInstaller
         working-directory: installer/
         run: |
-          docker run --rm -i -v $(pwd):/work -w /work ${{ matrix.image }}:build bash -c \
-            'PIPENV_VENV_IN_PROJECT=true pipenv sync && pipenv run build-linux'
+          docker run --rm -i -v $(pwd):/work -w /work arm64v8/ubuntu:build bash -c \
+            'poetry install && poetry run task build-linux'
           sudo cp -a dist/KonomiTV-Installer.elf dist/KonomiTV-Installer-ARM.elf
 
       # 単一実行ファイルにビルドされたインストーラーを Artifact としてアップロード

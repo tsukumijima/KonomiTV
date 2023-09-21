@@ -43,6 +43,7 @@ jobs:
 
           # ソースコードやドキュメント内のバージョンを更新
           sed -i -e 's|"version": ".*",|"version": "${{ github.event.inputs.version }}",|' client/package.json
+          sed -i -e 's|version = ".*"|version = "${{ github.event.inputs.version }}"|' installer/pyproject.toml
           sed -i -e "s|TARGET_VERSION = '.*'|TARGET_VERSION = '${{ github.event.inputs.version }}'|" installer/KonomiTV-Installer.py
           sed -i -e "s|VERSION = '.*'|VERSION = '${{ github.event.inputs.version }}'|" server/app/constants.py
           sed -i -e 's|download/v.*/thirdparty-linux\.tar\.xz|download/v${{ github.event.inputs.version }}/thirdparty-linux\.tar\.xz|' Dockerfile
