@@ -4,7 +4,7 @@
         "source.fixAll.eslint": true,
     },
     // pipenv の仮想環境のあるフォルダを指定（指定しないと認識しない）
-    "python.defaultInterpreterPath": "${workspaceFolder}/server/.venv/Scripts/python.exe",
+    "python.defaultInterpreterPath": "${workspaceFolder}/server/.venv/bin/python",
     // 相対インポートが解決されるようにする
     "python.analysis.extraPaths": [
         "./server",
