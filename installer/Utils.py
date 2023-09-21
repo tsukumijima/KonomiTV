@@ -5,7 +5,8 @@ import emoji
 import datetime
 import ifaddr
 import os
-import re
+import ruamel.yaml
+import ruamel.yaml.scalarstring
 import rich
 import subprocess
 import time
@@ -30,7 +31,7 @@ from rich.rule import Rule
 from rich.style import Style
 from rich.table import Table
 from rich.text import TextType
-from typing import Callable, cast, Literal, Optional, TypedDict, TypeVar
+from typing import Any, Callable, cast, Literal, Optional, TypedDict, TypeVar
 from watchdog.events import FileCreatedEvent
 from watchdog.events import FileModifiedEvent
 from watchdog.events import FileSystemEventHandler
@@ -499,98 +500,57 @@ def RemoveEmojiIfLegacyTerminal(text: str) -> str:
         return text
 
 
-def SaveConfigYaml(config_yaml_path: Path, config_data: dict[str, dict[str, int |float | bool | str | None]]) -> None:
+def SaveConfig(config_yaml_path: Path, config_dict: dict[str, dict[str, Any]]) -> None:
     """
     変更されたサーバー設定データを、コメントやフォーマットを保持した形で config.yaml に書き込む
-    config.yaml のすべてを上書きするのではなく、具体的な値が記述されている部分のみ正規表現で置換している
+    server.app.config.SaveConfig の実装を簡略化したもの
 
     Args:
         config_yaml_path (Path): 保存する config.yaml のパス
-        config_data (dict[str, dict[str, int | float | bool | str | None]]): サーバー設定データの辞書
+        config_dict (dict[str, dict[str, Any]]): 保存するサーバー設定データ
     """
 
-    # 現在の config.yaml の内容を行ごとに取得
-    current_lines: list[str]
-    with open(config_yaml_path, mode='r', encoding='utf-8') as file:
-        current_lines = file.readlines()
+    # config.yaml の内容をロード
+    yaml = ruamel.yaml.YAML()
+    yaml.default_flow_style = None  # None を使うと、スカラー以外のものはブロックスタイルになる
+    yaml.preserve_quotes = True
+    yaml.width = 20
+    yaml.indent(mapping=4, sequence=4, offset=4)
+    try:
+        with open(config_yaml_path, mode='r', encoding='utf-8') as file:
+            config_raw = yaml.load(file)
+    except Exception as error:
+        # 回復不可能
+        raise RuntimeError(f'Failed to load config.yaml: {error}')
 
-    # 新しく作成する config.yaml の内容が入るリスト
-    ## このリストに格納された値を、最後に文字列として繋げて書き込む
-    new_lines: list[str] = []
-
-    # config.yaml の行ごとに実行
-    ## 以下の実装は、キーが必ずシングルクオートかダブルクオートで囲われている事、1階層目に直接バリューが入らない事、
-    ## 親キーが半角スペース4つ、その配下にあるキーが半角スペース8つでインデントされている事などを前提としたもの
-    ## KonomiTV の config.yaml のフォーマットにのみ適合するもので、汎用性はない
-    current_parent_key: str = ''  # 現在処理中の親キー
-    for current_line in current_lines:
-
-        # 'general': { のような記述にマッチする正規表現を実行
-        parent_key_match_pattern = r'^ {4}(?P<key>\'.*?\'|\".*?\"): \{$'
-        parent_key_match = re.match(parent_key_match_pattern, current_line)
-
-        # マッチした場合、現在処理中の親キー (general, server, tv など) を更新する
-        if parent_key_match is not None:
-
-            # 親キーの値を取得し、更新する
-            ## 生の値にはシングルクオート or ダブルクオートが含まれているので、除去してから代入
-            parent_key_match_data = parent_key_match.groupdict()
-            current_parent_key = parent_key_match_data['key'].replace('"', '').replace('\'', '')
-
-            # 新しく作成する config.yaml には現在の行データをそのまま追加（変更する必要がないため）
-            new_lines.append(current_line)
-            continue
-
-        # 'backend': 'EDCB', のような記述にマッチし、キーとバリューの値をそれぞれ取り出せる正規表現を実行
-        key_value_match_pattern = r'^ {8}(?P<key>\'.*?\'|\".*?\"): (?P<value>[0-9\.]+|true|false|null|\'.*?\'|\".*?\"),$'
-        key_value_match = re.match(key_value_match_pattern, current_line)
-
-        # 何かしらマッチした場合のみ
-        # コメント行では何も行われない
-        if key_value_match is not None:
-
-            # キーの値を取得する
-            ## 生の値にはシングルクオート or ダブルクオートが含まれているので、除去してから代入
-            key_value_match_data = key_value_match.groupdict()
-            key = key_value_match_data['key'].replace('"', '').replace('\'', '')
-
-            # 取得したキーが config_data[current_parent_key] の中に存在するときのみ
-            ## current_parent_key は現在処理中の親キー (general, server, tv など)
-            if key in config_data[current_parent_key]:
-
-                # config_data から新しいバリューとなる値を取得
-                value = config_data[current_parent_key][key]
-
-                # バリューを YAML に書き込めるフォーマットに整形する
-                if type(value) is str:
-                    value_real = f"'{value}'"  # 文字列: シングルクオートで囲う
-                elif value is True:
-                    value_real = 'true'  # True → true に置換
-                elif value is False:
-                    value_real = 'false'  # False → false に置換
-                elif value is None:
-                    value_real = 'null'  # None → null に置換
+    # config.yaml の内容を更新して保存
+    # コメントやフォーマットを保持して保存するために更新方法を工夫している
+    for key in config_dict:
+        for sub_key in config_dict[key]:
+            # 文字列のリストを更新する場合は clear() と extend() を使う
+            if type(config_dict[key][sub_key]) is list:
+                if type(config_raw[key][sub_key]) is ruamel.yaml.CommentedSeq:
+                    config_raw[key][sub_key].clear()
+                    for item in config_dict[key][sub_key]:
+                        config_raw[key][sub_key].append(ruamel.yaml.scalarstring.SingleQuotedScalarString(item))
                 else:
-                    value_real = str(value)  # それ以外 (数値など): そのまま文字列化
-                ## 正規表現パターンに組み込んでも良いように、値の中のバックスラッシュをエスケープ
-                value_real = value_real.replace('\\', '\\\\')
+                    config_raw[key][sub_key] = ruamel.yaml.CommentedSeq(config_dict[key][sub_key])
+            # 文字列は明示的に SingleQuotedScalarString に変換する
+            elif type(config_dict[key][sub_key]) is str:
+                config_raw[key][sub_key] = ruamel.yaml.scalarstring.SingleQuotedScalarString(config_dict[key][sub_key])
+            else:
+                config_raw[key][sub_key] = config_dict[key][sub_key]
 
-                # キー/バリュー行を新しい値で置換
-                ## キーは以前と同じ値が使われる (バリューのみ新しい値置換される)
-                new_line = re.sub(key_value_match_pattern, r'        \g<key>: ' + value_real + ',', current_line)
+    # None を null として出力するようにする
+    yaml.Representer.add_representer(type(None), lambda self, data: self.represent_scalar('tag:yaml.org,2002:null', 'null'))  # type: ignore
 
-                # 新しく作成する config.yaml に置換した行データを追加
-                new_lines.append(new_line)
-                continue
+    # 配列の末尾の "']" を "',\n    ]" に変換する transform 関数を定義
+    # 基本的に recorded_folders 用 (ruamel.yaml がフロースタイルの改行などを保持できないための苦肉の策)
+    def transform(value: str) -> str:
+        return value.replace("']", "',\n    ]")
 
-        # 何もマッチしなかった場合 (コメント行など)
-        ## 新しく作成する config.yaml には現在の行データをそのまま追加（変更する必要がないため）
-        new_lines.append(current_line)
-
-    # 置換が終わったので、config.yaml に書き込む
-    ## リスト内の各要素にはすでに改行コードが含まれているので、空文字で join() するだけで OK
     with open(config_yaml_path, mode='w', encoding='utf-8') as file:
-        file.write(''.join(new_lines))
+        yaml.dump(config_raw, file, transform=transform)
 
 
 def CreateBasicInfiniteProgress() -> Progress:

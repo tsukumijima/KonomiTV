@@ -33,7 +33,7 @@ from Utils import RemoveEmojiIfLegacyTerminal
 from Utils import RunKonomiTVServiceWaiter
 from Utils import RunSubprocess
 from Utils import RunSubprocessDirectLogOutput
-from Utils import SaveConfigYaml
+from Utils import SaveConfig
 from Utils import ShowPanel
 
 
@@ -500,23 +500,24 @@ def Installer(version: str) -> None:
         shutil.copyfile(install_path / 'config.example.yaml', install_path / 'config.yaml')
 
         # config.yaml から既定の設定値を取得
-        config_data: dict[str, dict[str, int | float | bool | str | None]]
+        config_dict: dict[str, dict[str, Any]]
         with open(install_path / 'config.yaml', mode='r', encoding='utf-8') as fp:
-            config_data = dict(ruamel.yaml.YAML().load(fp))
+            config_dict = dict(ruamel.yaml.YAML().load(fp))
 
         # サーバー設定データの一部を事前に取得しておいた値で置き換え
         ## インストーラーで置換するのはバックエンドや EDCB / Mirakurun の URL など、サーバーの起動に不可欠な値のみ
-        config_data['general']['backend'] = backend
+        config_dict['general']['backend'] = backend
         if backend == 'EDCB':
-            config_data['general']['edcb_url'] = edcb_url
+            config_dict['general']['edcb_url'] = edcb_url
         elif backend == 'Mirakurun':
-            config_data['general']['mirakurun_url'] = mirakurun_url
-        config_data['general']['encoder'] = encoder
-        config_data['server']['port'] = server_port
-        config_data['capture']['upload_folder'] = str(capture_upload_folder)
+            config_dict['general']['mirakurun_url'] = mirakurun_url
+        config_dict['general']['encoder'] = encoder
+        config_dict['server']['port'] = server_port
+        config_dict['video']['recorded_folders'] = []  # TODO: 本来はインストーラーで設定できるべき
+        config_dict['capture']['upload_folder'] = str(capture_upload_folder)
 
         # サーバー設定データを保存
-        SaveConfigYaml(install_path / 'config.yaml', config_data)
+        SaveConfig(install_path / 'config.yaml', config_dict)
 
     # Windows・Linux: KonomiTV のインストール処理
     ## Linux-Docker では Docker イメージの構築時に各種インストール処理も行われるため、実行の必要がない

@@ -433,9 +433,6 @@ def SaveConfig(config: ServerSettings) -> None:
             # 文字列は明示的に SingleQuotedScalarString に変換する
             elif type(config_dict[key][sub_key]) is str:
                 config_raw[key][sub_key] = ruamel.yaml.scalarstring.SingleQuotedScalarString(config_dict[key][sub_key])
-            # null は明示的に設定しないと省略されてしまう
-            elif config_dict[key][sub_key] is None:
-                config_raw[key][sub_key] = None
             else:
                 config_raw[key][sub_key] = config_dict[key][sub_key]
 

@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 from rich import print
 from rich.padding import Padding
-from typing import cast, Literal
+from typing import Any, cast, Literal
 
 from Utils import CreateBasicInfiniteProgress
 from Utils import CreateDownloadProgress
@@ -26,7 +26,7 @@ from Utils import RemoveEmojiIfLegacyTerminal
 from Utils import RunKonomiTVServiceWaiter
 from Utils import RunSubprocess
 from Utils import RunSubprocessDirectLogOutput
-from Utils import SaveConfigYaml
+from Utils import SaveConfig
 from Utils import ShowPanel
 from Utils import ShowSubProcessErrorLog
 
@@ -303,18 +303,18 @@ def Updater(version: str) -> None:
 
         # 旧バージョンの config.yaml の設定値を取得
         ## config.yaml の上書き更新前に行うのが重要
-        config_data: dict[str, dict[str, int | float | bool | str | None]]
+        config_dict: dict[str, dict[str, Any]]
         with open(update_path / 'config.yaml', mode='r', encoding='utf-8') as fp:
-            config_data = dict(ruamel.yaml.YAML().load(fp))
+            config_dict = dict(ruamel.yaml.YAML().load(fp))
 
         # サーバーのリッスンポートの設定値を取得
-        server_port = cast(int, config_data['server']['port'])
+        server_port = cast(int, config_dict['server']['port'])
 
         # 新しい config.example.yaml を config.yaml に上書きコピーし、新しいフォーマットに更新
         shutil.copyfile(update_path / 'config.example.yaml', update_path / 'config.yaml')
 
         # 旧バージョンの config.yaml の設定値を復元
-        SaveConfigYaml(update_path / 'config.yaml', config_data)
+        SaveConfig(update_path / 'config.yaml', config_dict)
 
     # Windows・Linux: KonomiTV のアップデート処理
     ## Linux-Docker では Docker イメージの再構築時に各種アップデート処理も行われるため、実行の必要がない
