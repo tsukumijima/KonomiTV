@@ -20,4 +20,3 @@ indent_size = 2
 
 [config*.yaml]
 indent_size = 4
-insert_final_newline = false

@@ -6,6 +6,7 @@ import psutil
 import re
 import requests
 import ruamel.yaml
+import ruamel.yaml.scalarstring
 import subprocess
 import sys
 from pydantic import (
@@ -277,17 +278,12 @@ class _ServerSettingsVideo(BaseModel):
 class _ServerSettingsCapture(BaseModel):
     upload_folder: DirectoryPath
 
-class _ServerSettingsTwitter(BaseModel):
-    consumer_key: str | None
-    consumer_secret: str | None
-
 class ServerSettings(BaseModel):
     general: _ServerSettingsGeneral
     server: _ServerSettingsServer
     tv: _ServerSettingsTV
     video: _ServerSettingsVideo
     capture: _ServerSettingsCapture
-    twitter: _ServerSettingsTwitter
 
 
 # サーバー設定データと読み込み・保存用の関数
@@ -386,7 +382,6 @@ def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
 def SaveConfig(config: ServerSettings) -> None:
     """
     変更されたサーバー設定データを、コメントやフォーマットを保持した形で config.yaml に書き込む
-    config.yaml のすべてを上書きするのではなく、具体的な値が記述されている部分のみ正規表現で置換している
     この関数は _CONFIG を更新しないため、設定変更を反映するにはサーバーを再起動する必要がある
     (仮に _CONFIG を更新するよう実装しても、すでに Config() から取得した値を使って実行されている処理は更新できない)
 
@@ -400,7 +395,7 @@ def SaveConfig(config: ServerSettings) -> None:
     from app.utils import GetPlatformEnvironment
 
     # ServerSettings の Pydantic モデルを辞書に変換
-    config_dict = config.model_dump()
+    config_dict = config.model_dump(mode='json')
 
     # Docker 上で実行されているとき、サーバー設定のうちパス指定の項目に付与されている Docker 環境向けの Prefix (/host-rootfs) を外す
     ## LoadConfig() で実行されている処理と逆の処理を行う
@@ -410,88 +405,45 @@ def SaveConfig(config: ServerSettings) -> None:
         if type(config_dict['tv']['debug_mode_ts_path']) is str or config_dict['tv']['debug_mode_ts_path'] is Path:
             config_dict['tv']['debug_mode_ts_path'] = str(config_dict['tv']['debug_mode_ts_path']).replace(_DOCKER_PATH_PREFIX, '')
 
-    # 現在の config.yaml の内容を行ごとに取得
-    current_lines: list[str]
-    with open(_CONFIG_YAML_PATH, mode='r', encoding='utf-8') as file:
-        current_lines = file.readlines()
+    # config.yaml の内容をロード
+    yaml = ruamel.yaml.YAML()
+    yaml.default_flow_style = None  # None を使うと、スカラー以外のものはブロックスタイルになる
+    yaml.preserve_quotes = True
+    yaml.width = 20
+    yaml.indent(mapping=4, sequence=4, offset=4)
+    try:
+        with open(_CONFIG_YAML_PATH, mode='r', encoding='utf-8') as file:
+            config_raw = yaml.load(file)
+    except Exception as error:
+        # 回復不可能
+        raise RuntimeError(f'Failed to load config.yaml: {error}')
 
-    # 新しく作成する config.yaml の内容が入るリスト
-    ## このリストに格納された値を、最後に文字列として繋げて書き込む
-    new_lines: list[str] = []
-
-    current_parent_key: str = ''
-    in_list: bool = False
-    list_key: str = ''
-
-    for current_line in current_lines:
-        parent_key_match_pattern = r'^ {4}(?P<key>\'.*?\'|\".*?\"): \{$'
-        parent_key_match = re.match(parent_key_match_pattern, current_line)
-
-        if parent_key_match is not None:
-            parent_key_match_data = parent_key_match.groupdict()
-            current_parent_key = parent_key_match_data['key'].replace('"', '').replace('\'', '')
-            new_lines.append(current_line)
-            continue
-
-        list_start_pattern = r'^ {8}(?P<key>\'.*?\'|\".*?\"): \[\s*(#.*)?$'
-        list_start_match = re.match(list_start_pattern, current_line)
-
-        if list_start_match is not None:
-            list_start_match_data = list_start_match.groupdict()
-            list_key = list_start_match_data['key'].replace('"', '').replace('\'', '')
-            in_list = True
-
-            if list_key in config_dict[current_parent_key]:
-                new_list = ",\n".join([f"        '{item}'" for item in config_dict[current_parent_key][list_key]])
-                new_lines.append(f"    '{list_key}': [\n{new_list}\n    ],\n")
-            else:
-                new_lines.append(current_line)
-            continue
-
-        list_end_pattern = r'^ {8}\],\s*(#.*)?$'
-        list_end_match = re.match(list_end_pattern, current_line)
-
-        if list_end_match is not None:
-            in_list = False
-            continue
-
-        if in_list:
-            continue
-
-        key_value_match_pattern = r'^ {8}(?P<key>\'.*?\'|\".*?\"): (?P<value>[0-9\.]+|true|false|null|\'.*?\'|\".*?\"),$'
-        key_value_match = re.match(key_value_match_pattern, current_line)
-
-        if key_value_match is not None:
-            key_value_match_data = key_value_match.groupdict()
-            key = key_value_match_data['key'].replace('"', '').replace('\'', '')
-
-            if key in config_dict[current_parent_key]:
-                value = config_dict[current_parent_key][key]
-
-                if type(value) is int or type(value) is float:
-                    value_real = str(value)
-                    if value_real.endswith('.0'):
-                        value_real = value_real[:-2]
-                elif value is True:
-                    value_real = 'true'
-                elif value is False:
-                    value_real = 'false'
-                elif value is None:
-                    value_real = 'null'
+    # config.yaml の内容を更新して保存
+    # コメントやフォーマットを保持して保存するために更新方法を工夫している
+    for key in config_dict:
+        for sub_key in config_dict[key]:
+            # 文字列のリストを更新する場合は clear() と extend() を使う
+            if type(config_dict[key][sub_key]) is list:
+                if type(config_raw[key][sub_key]) is ruamel.yaml.CommentedSeq:
+                    config_raw[key][sub_key].clear()
+                    for item in config_dict[key][sub_key]:
+                        config_raw[key][sub_key].append(ruamel.yaml.scalarstring.SingleQuotedScalarString(item))
                 else:
-                    value_real = f"'{value}'"
-                value_real = value_real.replace('\\', '\\\\')
+                    config_raw[key][sub_key] = ruamel.yaml.CommentedSeq(config_dict[key][sub_key])
+            # 文字列は明示的に SingleQuotedScalarString に変換する
+            elif type(config_dict[key][sub_key]) is str:
+                config_raw[key][sub_key] = ruamel.yaml.scalarstring.SingleQuotedScalarString(config_dict[key][sub_key])
+            # null は明示的に設定しないと省略されてしまう
+            elif config_dict[key][sub_key] is None:
+                config_raw[key][sub_key] = None
+            else:
+                config_raw[key][sub_key] = config_dict[key][sub_key]
 
-                new_line = re.sub(key_value_match_pattern, r'        \g<key>: ' + value_real + ',', current_line)
-                new_lines.append(new_line)
-                continue
+    # None を null として出力するようにする
+    yaml.Representer.add_representer(type(None), lambda self, data: self.represent_scalar('tag:yaml.org,2002:null', 'null'))  # type: ignore
 
-        new_lines.append(current_line)
-
-    # 置換が終わったので、config.yaml に書き込む
-    ## リスト内の各要素にはすでに改行コードが含まれているので、空文字で join() するだけで OK
     with open(_CONFIG_YAML_PATH, mode='w', encoding='utf-8') as file:
-        file.write(''.join(new_lines))
+        yaml.dump(config_raw, file)
 
 
 def Config() -> ServerSettings:

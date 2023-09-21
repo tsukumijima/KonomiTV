@@ -1,106 +1,87 @@
-{
-    # JSON っぽい書き方をした YAML
-    # 全般の設定
-    'general': {
+#
+# ================================== 全般の設定 ==================================
+general:
 
-        # 利用するバックエンド
-        # EDCB・Mirakurun のいずれかを選択してください。
-        'backend': 'EDCB',
+    # 利用するバックエンド
+    # EDCB・Mirakurun のいずれかを選択してください。
+    backend: 'EDCB'
 
-        # EDCB (EpgTimerNW) の TCP API の URL
-        # バックエンドに EDCB を選択したときに利用されます。
-        # tcp://edcb-namedpipe/ と指定すると、TCP API の代わりに名前付きパイプを使って通信します (ローカルのみ)。
-        'edcb_url': 'tcp://localhost:4510/',
+    # EDCB (EpgTimerNW) の TCP API の URL
+    # バックエンドに EDCB を選択したときに利用されます。
+    # tcp://edcb-namedpipe/ と指定すると、TCP API の代わりに名前付きパイプを使って通信します (ローカルのみ)。
+    edcb_url: 'tcp://localhost:4510/'
 
-        # Mirakurun の HTTP API の URL
-        # バックエンドに Mirakurun を選択したときに利用されます。
-        'mirakurun_url': 'http://localhost:40772/',
+    # Mirakurun の HTTP API の URL
+    # バックエンドに Mirakurun を選択したときに利用されます。
+    mirakurun_url: 'http://localhost:40772/'
 
-        # 利用するエンコーダー
-        # FFmpeg・QSVEncC・NVEncC・VCEEncC・rkmppenc から選択してください。
-        # FFmpeg はソフトウェアエンコーダーです。すべての PC で利用できますが、CPU に多大な負荷がかかり、パフォーマンスが悪いです。
-        # QSVEncC・NVEncC・VCEEncC・rkmppenc はハードウェアエンコーダーです。CPU 負荷が低く、パフォーマンスがとても高いです（おすすめ）。
-        # Intel Graphics 搭載の Intel CPU をお使いなら、QSVEncC が使えます。
-        # Geforce などの NVIDIA GPU をお使いなら、NVEncC が使えます。
-        # Radeon などの AMD GPU をお使いなら、VCEEncC が使えます。
-        # RK3588 などの Rockchip SoC 搭載の ARM SBC をお使いなら、rkmppenc が使えます (いくつか事前設定が必要です) 。
-        'encoder': 'FFmpeg',
+    # 利用するエンコーダー
+    # FFmpeg・QSVEncC・NVEncC・VCEEncC・rkmppenc から選択してください。
+    # FFmpeg はソフトウェアエンコーダーです。すべての PC で利用できますが、CPU に多大な負荷がかかり、パフォーマンスが悪いです。
+    # QSVEncC・NVEncC・VCEEncC・rkmppenc はハードウェアエンコーダーです。CPU 負荷が低く、パフォーマンスがとても高いです（おすすめ）。
+    # Intel Graphics 搭載の Intel CPU をお使いなら、QSVEncC が使えます。
+    # Geforce などの NVIDIA GPU をお使いなら、NVEncC が使えます。
+    # Radeon などの AMD GPU をお使いなら、VCEEncC が使えます。
+    # RK3588 などの Rockchip SoC 搭載の ARM SBC をお使いなら、rkmppenc が使えます (いくつか事前設定が必要です) 。
+    encoder: 'FFmpeg'
 
-        # 番組情報の更新間隔 (分)
-        # 番組情報を EDCB または Mirakurun から取得する間隔を設定します。デフォルトは 15 (分) です。
-        'program_update_interval': 15,
+    # 番組情報の更新間隔 (分)
+    # 番組情報を EDCB または Mirakurun から取得する間隔を設定します。デフォルトは 15 (分) です。
+    program_update_interval: 15.0
 
-        # デバッグモードを有効にするか
-        # 有効にすると、デバッグログも出力されるようになります。
-        'debug': false,
+    # デバッグモードを有効にするか
+    # 有効にすると、デバッグログも出力されるようになります。
+    debug: false
 
-        # エンコーダーのログを有効にするか
-        # 有効にすると、エンコーダーのログが server/logs/KonomiTV-Encoder-(ストリームID).log に保存されます。
-        # さらにデバッグモードが有効のときは、デバッグログとしてリアルタイムにエンコーダーのログが出力されます。
-        'debug_encoder': false,
-    },
+    # エンコーダーのログを有効にするか
+    # 有効にすると、エンコーダーのログが server/logs/KonomiTV-Encoder-(ストリームID).log に保存されます。
+    # さらにデバッグモードが有効のときは、デバッグログとしてリアルタイムにエンコーダーのログが出力されます。
+    debug_encoder: false
 
-    # Web サーバーの設定
-    'server': {
+# ================================ サーバーの設定 ================================
+server:
 
-        # KonomiTV サーバーのリッスンポート
-        # デフォルトのリッスンポートは 7000 です。
-        'port': 7000,
+    # KonomiTV サーバーのリッスンポート
+    # デフォルトのリッスンポートは 7000 です。
+    port: 7000
 
-        # HTTPS リバースプロキシのカスタム HTTPS 証明書/秘密鍵ファイルへの絶対パス
-        # 設定すると、Akebi Keyless Server の代わりに、カスタム HTTPS 証明書を使って HTTPS リバースプロキシを開始します。
-        # カスタム HTTPS 証明書を有効化すると、https://192-168-x-xx.local.konomi.tv:7000/ の URL では KonomiTV にアクセスできなくなります。
-        # カスタム HTTPS 証明書を有効化するには、custom_https_certificate と custom_https_private_key の両方に設定が必要です。
-        # 基本的に変更する必要はありません。HTTPS 証明書について詳細に理解している方のみ設定してください。
-        'custom_https_certificate': null,
-        'custom_https_private_key': null,
-    },
+    # HTTPS リバースプロキシのカスタム HTTPS 証明書/秘密鍵ファイルへの絶対パス
+    # 設定すると、Akebi Keyless Server の代わりに、カスタム HTTPS 証明書を使って HTTPS リバースプロキシを開始します。
+    # カスタム HTTPS 証明書を有効化すると、https://192-168-x-xx.local.konomi.tv:7000/ の URL では KonomiTV にアクセスできなくなります。
+    # カスタム HTTPS 証明書を有効化するには、custom_https_certificate と custom_https_private_key の両方に設定が必要です。
+    # 基本的に変更する必要はありません。HTTPS 証明書について詳細に理解している方のみ設定してください。
+    custom_https_certificate: null
+    custom_https_private_key: null
 
-    # テレビのライブストリーミングの設定
-    'tv': {
+# ======================= テレビのライブストリーミングの設定 =======================
+tv:
 
-        # 誰も見ていないチャンネルのエンコードタスクを何秒まで維持するか
-        # 10 秒に設定したなら、10 秒間誰も見ていない状態が継続したらエンコードタスク（エンコーダー）を終了します。
-        # 0 秒に設定すると、リロードしただけでチューナーとエンコーダーの起動がやり直しになってしまいます。余裕をもたせておく事をおすすめします。
-        'max_alive_time': 10,
+    # 誰も見ていないチャンネルのエンコードタスクを何秒まで維持するか
+    # 10 秒に設定したなら、10 秒間誰も見ていない状態が継続したらエンコードタスク（エンコーダー）を終了します。
+    # 0 秒に設定すると、リロードしただけでチューナーとエンコーダーの起動がやり直しになってしまいます。余裕をもたせておく事をおすすめします。
+    max_alive_time: 10
 
-        # デバッグ用に再生する TS ファイルの絶対パス（デバッグ用設定のため、変更は推奨しない）
-        # この値に TS ファイルのパスを指定すると、すべてのチャンネルにおいて、ストリーミングされる映像（字幕・文字スーパーを含む）が
-        # リアルタイムで放送されているものから、指定した TS ファイルのものに強制的に置き換えられます。
-        # 開発者がライブストリーミング関連の機能をテストするために使う特殊なデバッグ用設定です。
-        'debug_mode_ts_path': null,
-    },
+    # デバッグ用に再生する TS ファイルの絶対パス（デバッグ用設定のため、変更は推奨しない）
+    # この値に TS ファイルのパスを指定すると、すべてのチャンネルにおいて、ストリーミングされる映像（字幕・文字スーパーを含む）が
+    # リアルタイムで放送されているものから、指定した TS ファイルのものに強制的に置き換えられます。
+    # 開発者がライブストリーミング関連の機能をテストするために使う特殊なデバッグ用設定です。
+    debug_mode_ts_path: null
 
-    # ビデオのオンデマンドストリーミングの設定
-    'video': {
+# ==================== ビデオのオンデマンドストリーミングの設定 ====================
+video:
 
-        # 録画済み番組の保存先フォルダの絶対パス
-        # 複数の保存先フォルダを指定できます。
-        # Docker でインストールした場合も、ホストマシン側のフォルダの絶対パスを指定してください。
-        'recorded_folders': [
-            'E:\TV-Record',
-        ]
-    },
+    # 録画済み番組の保存先フォルダの絶対パス
+    # 複数の保存先フォルダを指定できます。
+    # Docker でインストールした場合も、ホストマシン側のフォルダの絶対パスを指定してください。
+    recorded_folders: [
+        'E:\TV-Record',
+    ]
 
-    # キャプチャの設定
-    'capture': {
+# =============================== キャプチャの設定 ===============================
+capture:
 
-        # アップロードしたキャプチャ画像の保存先フォルダの絶対パス
-        # クライアントの [キャプチャの保存先] 設定で [KonomiTV サーバーにアップロード] または
-        # [ブラウザでのダウンロードと、KonomiTV サーバーへのアップロードを両方行う] を選択したときに利用されます。
-        # Docker でインストールした場合も、ホストマシン側のフォルダの絶対パスを指定してください。
-        'upload_folder': 'E:\TV-Capture',
-    },
-
-    # Twitter 連携の設定
-    'twitter': {
-
-        # Twitter API の Consumer Key (CK) / Consumer Secret (CS)
-        # 設定すると、デフォルトの CK/CS の代わりに、カスタム CK/CS を使って Twitter アカウントとの連携を行います。
-        # KonomiTV でカスタム CK/CS を使うには、別途カスタム CK/CS に紐づく Twitter API アプリケーションの設定で、
-        # Callback URI / Redirect URL に https://app.konomi.tv/api/redirect/twitter を追加する必要があります。
-        # 基本的に変更する必要はありません。Twitter API について詳細に理解している方のみ設定してください。
-        'consumer_key': null,
-        'consumer_secret': null,
-    }
-}
+    # アップロードしたキャプチャ画像の保存先フォルダの絶対パス
+    # クライアントの [キャプチャの保存先] 設定で [KonomiTV サーバーにアップロード] または
+    # [ブラウザでのダウンロードと、KonomiTV サーバーへのアップロードを両方行う] を選択したときに利用されます。
+    # Docker でインストールした場合も、ホストマシン側のフォルダの絶対パスを指定してください。
+    upload_folder: 'E:\TV-Capture'
