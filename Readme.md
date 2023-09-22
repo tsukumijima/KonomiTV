@@ -49,8 +49,12 @@
     - [KonomiTV サーバーのある自宅の Wi-Fi につないで視聴しているとき](#konomitv-サーバーのある自宅の-wi-fi-につないで視聴しているとき)
     - [外出先 (自宅以外) から Tailscale 経由で視聴しているとき](#外出先-自宅以外-から-tailscale-経由で視聴しているとき)
 - [開発者向け情報](#開発者向け情報)
-  - [サーバー](#サーバー-1)
-  - [クライアント](#クライアント-1)
+  - [開発版 KonomiTV のインストール (開発環境の構築)](#開発版-konomitv-のインストール-開発環境の構築)
+  - [サーバーの起動](#サーバーの起動)
+  - [Windows / PM2 サービスのインストールと起動](#windows--pm2-サービスのインストールと起動)
+    - [Windows サービス](#windows-サービス)
+    - [PM2 サービス](#pm2-サービス)
+  - [クライアントの開発・ビルド](#クライアントの開発ビルド)
 - [寄付・支援について](#寄付支援について)
 - [Special Thanks](#special-thanks)
 - [License](#license)
@@ -411,7 +415,7 @@ Assets の下にある `KonomiTV-Installer.exe` をダウンロードしてく�
 
 **Linux 向けの KonomiTV には、通常のインストール方法と、Docker を使ったインストール方法の 2 通りがあります。**  
 
-**通常のインストール方法では、事前に [PM2](https://pm2.keymetrics.io/docs/usage/quick-start/) と [Node.js](https://github.com/nodesource/distributions) (PM2 の動作に必要) のインストールが必要です。**  
+**通常のインストール方法では、事前に [PM2](https://PM2.keymetrics.io/docs/usage/quick-start/) と [Node.js](https://github.com/nodesource/distributions) (PM2 の動作に必要) のインストールが必要です。**  
 [Mirakurun](https://github.com/Chinachu/Mirakurun) や [EPGStation](https://github.com/l3tnun/EPGStation) を Docker を使わずにインストールしているなら、すでにインストールされているはずです。
 
 **Docker を使ったインストール方法では、事前に [Docker](https://docs.docker.com/engine/install/) と [Docker Compose](https://docs.docker.com/compose/install/) のインストールが必要です。**  
@@ -743,40 +747,213 @@ KonomiTV を利用するには、DNS Rebinding Protection を無効にする必�
 
 ## 開発者向け情報
 
-開発環境は VS Code です。  
-開発時に推奨する拡張機能は [.vscode/extensions.json](https://github.com/tsukumijima/KonomiTV/blob/master/.vscode/extensions.json) に記述されています。
+VS Code を開発に利用しています。  
+開発時に推奨する VS Code 拡張機能は [.vscode/extensions.json](https://github.com/tsukumijima/KonomiTV/blob/master/.vscode/extensions.json) に記述されています。
 
-### サーバー
+### 開発版 KonomiTV のインストール (開発環境の構築)
 
-Uvicorn は ASGI サーバーで、FastAPI で書かれた KonomiTV のアプリケーションサーバーを実行します。  
-また、KonomiTV の場合は静的ファイルを配信する Web サーバーの役割も兼ねています。
+ここでは、master ブランチにある最新の開発版 KonomiTV を手動でインストールする方法を説明します。  
+サポートは行えませんので、技術的な知識がある方のみお試しください。
 
-開発時などでサーバーをリロードモード（コードを変更すると自動でサーバーが再起動される）で起動したいときは、`poetry run task dev` を実行してください。
+- Python 3.11.x
+- Poetry (最新版)
+- Node.js 18.x (クライアントの開発やビルドを行う場合のみ)
+- yarn 1.x (クライアントの開発やビルドを行う場合のみ)
 
-> コードを変更すると強制的にサーバーが再起動されるため、サーバーを終了するタイミングによっては EDCB のチューナーが終了されないままになることがあります。
+事前に、上記ソフトウェアをインストールしている必要があります。
 
-> Python の asyncio の制限により、リロードモードは事実上 Windows 上では利用できません（正確には外部プロセス実行を伴うストリーミング視聴を行わなければ一応機能する）。
+開発環境は Windows 10 (x64) と Ubuntu 20.04 LTS (x64) で動作を確認しています。  
+なお、開発環境の Docker での動作は想定していません。サードパーティーライブラリなどの兼ね合いで、Docker では開発時の柔軟性が低くなってしまうためです。
+
+```bash
+# Windows は PowerShell 7 で、Ubuntu は bash での実行を想定
+
+# リポジトリの clone
+## /Develop の部分は適宜変更すること
+cd /Develop
+git clone https://github.com/tsukumijima/KonomiTV.git
+
+# 設定ファイルのコピーと編集
+## config.yaml は適切に構成されている必要がある (さもなければサーバーが起動しない)
+cd KonomiTV/
+cp -a config.example.yaml config.yaml
+nano config.yaml
+
+# 一時的な Poetry 仮想環境の構築 (UpdateThirdparty の実行に必要)
+cd server/
+poetry env use 3.11
+
+# 最新のサードパーティーライブラリを GitHub Actions からダウンロード
+## 本番環境用のスタンドアローン版 Python もサードパーティーライブラリに含まれている
+poetry run python -m misc.UpdateThirdparty latest
+
+# サードパーティーライブラリ内のスタンドアローン版 Python を明示的に指定して Poetry 仮想環境を再構築
+# Windows:
+poetry env use /Develop/KonomiTV/server/thirdparty/Python/python.exe
+# Linux
+poetry env use /Develop/KonomiTV/server/thirdparty/Python/bin/python
+
+# 依存パッケージのインストール
+poetry install --no-root
+
+# データベースのアップグレード
+## SQLite の仕様上後からのテーブル定義の変更が難しいため、
+## 開発版 KonomiTV では Aerich のマイグレーションファイル (server/app/migrations/models/ 以下) 自体が後から変更されることがある
+## その場合は手動で server/data/database.sqlite のテーブル定義を変更するか、
+## poetry run aerich downgrade で一つ前の状態に戻してから、再度 poetry run aerich upgrade を実行する必要がある
+poetry run aerich upgrade
+```
+
+### サーバーの起動
+
+KonomiTV サーバー (KonomiTV.py) を起動すると、内部で [Uvicorn](https://github.com/encode/uvicorn) と [Akebi HTTPS Server](https://github.com/tsukumijima/Akebi) が起動されます。
+
+Uvicorn は ASGI サーバーで、FastAPI で記述された KonomiTV のアプリケーションサーバーを実行します。  
+また、KonomiTV の場合は `client/dist/` 以下の静的ファイル (クライアント) を配信する Web サーバーの役割も兼ねています。  
+Akebi HTTPS Server は、自己署名証明書なしでプライベートネットワーク上の HTTP サーバーに HTTPS 化するためのリバースプロキシサーバーです。
+
+実際にユーザーがアクセスするのは Uvicorn の HTTP (HTTP/1.1) サーバーのリバースプロキシである、Akebi HTTPS Server による HTTPS (HTTP/2) サーバーになります。  
+Uvicorn も Akebi HTTPS Server も KonomiTV.py の起動時に透過的に同時起動されるため、一般のユーザーが意識する必要はありません。
+
+```bash
+cd /Develop/KonomiTV/server/
+
+# リロードモードで起動する
+poetry run task dev
+
+# 通常モードで起動する
+poetry run task serve
+```
+
+サーバーの起動方法には、リロードモードと通常モードの2つがあります。
+
+通常モードは、本番環境 (リリース版) での Windows サービスや PM2 サービスで起動されるサーバーと同じモードになります。  
+より厳密にサービス起動時の環境を再現したい際は、sudo などで root 権限/管理者権限で実行してください。
+
+リロードモードでは、`server/` 以下のコードを変更すると自動でサーバーが再起動されます。  
+コードが変更されると今まで起動していたサーバープロセスは強制終了され、新しいサーバープロセスが起動されます。
+
+> **Warning**  
+> リロードモードかつ EDCB バックエンド利用時、サーバーを終了するタイミング次第では、EDCB のチューナープロセス (EpgDataCap_Bon) が終了されないままになることがあります。  
+> 必ずログでエンコードタスクが終了 (Offline) になったことを確認してから、サーバーを終了してください。
+
+> **Warning**  
+> Python の asyncio の制限により、リロードモードは事実上 Windows 環境では利用できません。  
+> 正確には外部プロセス実行を伴うストリーミング視聴を行わなければ一応動作しますが、予期せぬ問題が発生する可能性があります。  
+> こうした関係もあり、現在の開発は Linux (Ubuntu 20.04 LTS) をメインに行っています。
+
+起動したサーバーは、`https://my.local.konomi.tv:7000/` でリッスンされます。
+特にリッスン範囲の制限はしていないので、プライベートネットワーク上の他の PC やスマホからもアクセスできます。  
+サーバーを終了するときは、Ctrl+C を押してください。
+
+起動中のサーバーのログは、`server/logs/KonomiTV-Server.log` に保存されます。  
+同時起動される Akebi HTTPS Server のログは `server/logs/Akebi-HTTPS-Server.log` に保存されます。
+
+> **Note**  
+> サーバー設定でデバッグモード (general -> debug) を有効にすると、デバッグログも出力されるようになります。開発環境では常にデバッグモードにしておくことをおすすめします。
+> さらにエンコーダーのログ (general -> debug_encoder) を有効にすると、エンコーダーのログが `server/logs/KonomiTV-Encoder-(ストリームID).log` に保存されます。
 
 API ドキュメント (Swagger) は https://my.local.konomi.tv:7000/api/docs にあります。  
 API ドキュメントは FastAPI によって自動生成されたものです。  
 その場で API リクエストを試せたり、グラフィカルに API ドキュメントを参照できたりととても便利です。ぜひご活用ください。
 
-### クライアント
+### Windows / PM2 サービスのインストールと起動
 
-クライアント (フロントエンド) は Vue.js 2.x の SPA (Single Page Application) で構築されており、コーディングとビルドには少なくとも Node.js が必要です。  
-Node.js v18, yarn v1 で開発しています。
+ここでは、上記手順で構築した開発環境を Windows / PM2 サービスとして起動する方法を説明します。
 
-クライアントのデバッグは `client/` フォルダにて `yarn dev` または `npm run dev` を実行し、https://my.local.konomi.tv:7001/ にてリッスンされる開発用サーバーにて行っています。  
+#### Windows サービス
 
-> 事前に `yarn install` を実行し、依存するパッケージをインストールしておいてください。  
+事前に PowerShell 7 を管理者権限で起動しておいてください。  
+管理者権限でない場合、Windows サービスのインストールに失敗します。
 
-> 以前は npm を使っていたのですが、GitHub からのパッケージの更新がなぜかかなり重いため、yarn に変更しました。パッケージのインストールは遅いですが、npm を使ってビルドすることもできます。
+> **Warning**  
+> KonomiTV の Windows サービスは相当強引な手法で実装しているため (そうせざるを得なかった…) 、開発状況次第では Windows サービスでのみ動作しなくなっている可能性があります。  
+> 動作不良時は、一度 `poetry run task serve` で起動できるかや、`server/logs/KonomiTV-Server.log` 内のログを確認してみてください。
 
-`yarn dev` でリッスンされる開発サーバーでは、コードすると自動的に差分が再ビルドされます。  
-API サーバーは別のポート (7000) でリッスンされているので、開発サーバーでのみ API のアクセス先を `http://(サーバーと同じホスト名):7000/` に固定しています。
+> **Note**  
+> KonomiTV-Service.py は、KonomiTV の Windows サービスの管理を行うユーティリティスクリプトです。
+> `poetry run python KonomiTV-Service.py --help` と実行すると、利用できるコマンドの一覧が表示されます。
 
-クライアントの静的ファイルは、`client/dist/` に配置されているビルド済みのものをサーバー側で配信するように設定されています。  
-そのため、`yarn build` でクライアントのビルドを更新したのなら、サーバー側で配信されるファイルも同時に更新されることになります。
+```powershell
+cd /Develop/KonomiTV/server/
+
+# Windows サービスのインストール
+## インストールと同時に自動起動 (OS 起動後数分遅延してから) も設定される
+poetry run python KonomiTV-Service.py install --username (ユーザー名) --password (パスワード)
+
+# Windows サービスの起動
+## sc start "KonomiTV Service" でも起動できる
+poetry run python KonomiTV-Service.py start
+
+# Windows サービスの停止
+## sc stop "KonomiTV Service" でも停止できる
+poetry run python KonomiTV-Service.py stop
+
+# Windows サービスのアンインストール
+## アンインストールと同時に自動起動の設定も解除される
+poetry run python KonomiTV-Service.py stop  # サービスを停止してからアンインストールすること
+poetry run python KonomiTV-Service.py uninstall
+```
+
+#### PM2 サービス
+
+事前に root 権限で PM2 がインストールされている必要があります。
+
+```bash
+cd /Develop/KonomiTV/server/
+
+# PM2 サービスのインストール
+sudo pm2 start .venv/bin/python --name KonomiTV -- KonomiTV.py
+
+# PM2 のスタートアップ設定
+sudo pm2 startup
+
+# PM2 への変更の保存
+sudo pm2 save
+
+# PM2 サービスの起動
+sudo pm2 start KonomiTV
+
+# PM2 サービスの停止
+sudo pm2 stop KonomiTV
+
+# PM2 サービスのアンインストール
+sudo pm2 stop KonomiTV  # サービスを停止してからアンインストールすること
+sudo pm2 delete KonomiTV
+sudo pm2 save
+```
+
+### クライアントの開発・ビルド
+
+クライアント (フロントエンド) は Vue.js 2.x の SPA (Single Page Application) で開発されており、コーディングとビルドには少なくとも Node.js が必要です。  
+Node.js 18.x / yarn 1.x で開発しています。
+
+```bash
+cd /Develop/KonomiTV/client/
+
+# 依存パッケージのインストール
+yarn install
+
+# クライアントの開発サーバーの起動
+yarn dev
+
+# クライアントのビルド
+## ビルド成果物は client/dist/ に出力され、サーバー側の HTTP サーバーによって配信される
+yarn build
+```
+
+起動したクライアントの開発サーバーは、`https://my.local.konomi.tv:7001/` でリッスンされます。  
+`client/` 以下のコードを変更すると、自動で差分が再ビルドされます。
+特にリッスン範囲の制限はしていないので、プライベートネットワーク上の他の PC やスマホからもアクセスできます。  
+サーバーを終了するときは、Ctrl+C を押してください。
+
+> **Warning**  
+> `yarn dev` でクライアントの開発サーバーを起動する際は、必ず `poetry run task dev` でサーバー側の開発サーバーも起動してください。  
+> クライアントの開発サーバーはフロントエンド側の静的ファイルのみをホスティングしますが、サーバー側の開発サーバーは静的ファイルの配信だけでなく、API サーバーとしての役割も兼ねています。  
+> このため、クライアントの開発サーバーのみ、クライアントからのサーバー API のアクセス先を `https://(サーバーと同じIPアドレス).local.konomi.tv:7000/` に固定しています。
+
+クライアントの静的ファイルは、`client/dist/` に配置されているビルド済みの成果物を、サーバー側で配信するように構成されています。  
+そのため、`yarn build` でクライアントのビルドを更新したのなら、サーバー側で配信される静的ファイルも同時に更新されることになります。
 
 <img width="100%" src="https://user-images.githubusercontent.com/39271166/201461029-2f75a38f-928c-4f23-8552-e2d845d67365.jpg"><br>
 

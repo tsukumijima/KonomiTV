@@ -3,6 +3,8 @@ name = "KonomiTV"
 version = "0.8.0-dev"
 description = "KonomiTV: Kept Organized, Notably Optimized, Modern Interface TV media server"
 authors = ["tsukumi <tsukumijima@users.noreply.github.com>"]
+# ref: https://github.com/python-poetry/poetry/issues/1537#issuecomment-1154642727
+classifiers = ["Private :: Do Not Upload"]
 
 [tool.taskipy.tasks]
 serve = "python KonomiTV.py"
