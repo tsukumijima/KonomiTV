@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Usage: pipenv run python -m misc.UpdateThirdparty DOWNLOAD_VERSION
+# Usage: poetry run python -m misc.UpdateThirdparty DOWNLOAD_VERSION
 # サーバー稼働状態だと正常に動作しません。必ず KonomiTV サービスが停止している状態で実行してください。
 # 最新版のナイトリービルドをダウンロードする場合は、DOWNLOAD_VERSION に latest を指定する (開発版ではナイトリービルドを推奨)
 # 安定版をダウンロードする場合は、DOWNLOAD_VERSION にバージョン番号を指定する (例: 0.7.1)

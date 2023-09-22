@@ -5,7 +5,7 @@ config.yaml
 # node_modules: ファイル数が多すぎてコピーに時間がかかる
 client/node_modules/
 
-# pipenv の仮想環境: Docker 上で新たに作り直すため不要
+# poetry の仮想環境: Docker 上で新たに作り直すため不要
 server/.venv/
 
 # データベース: マイグレーションに失敗するのを防ぐ

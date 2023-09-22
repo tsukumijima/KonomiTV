@@ -18,8 +18,8 @@ env:
   PYTHON_TAG: '20230826'
   PYTHON_MAJOR_VERSION: '3.11'
   PYTHON_VERSION: '3.11.5'
-  # pipenv のバージョン
-  PIPENV_VERSION: '2023.7.23'
+  # poetry のバージョン
+  POETRY_VERSION: '1.6.1'
   # FFmpeg (FFmpeg-Builds のリリースを指定する)
   ## HWENCC と付く方は QSVEncC・NVEncC・VCEEncC (Linux 版) が依存する FFmpeg のバージョン
   ## FFmpeg-Builds は毎月末のリリースが長期間保持されるので、基本的には毎月末のリリースを指定する
@@ -132,8 +132,8 @@ jobs:
           mv thirdparty/VCEEncC/VCEEncC64.exe thirdparty/VCEEncC/VCEEncC.exe
           curl -L -o thirdparty/VCEEncC/License.txt https://raw.githubusercontent.com/rigaya/VCEEnc/master/VCEEnc_license.txt
 
-      # Python Standalone Builds のダウンロードと pipenv のインストール
-      - name: Install Python Standalone Builds & pip & pipenv
+      # Python Standalone Builds のダウンロードと poetry のインストール
+      - name: Install Python Standalone Builds & pip & poetry
         run: |
 
           # Python 本体のダウンロード
@@ -142,8 +142,8 @@ jobs:
           mv python/ thirdparty/Python/
           Rename-Item thirdparty/Python/LICENSE.txt License.txt
 
-          # pipenv のインストール
-          thirdparty/Python/python.exe -m pip install pipenv==${{ env.PIPENV_VERSION }}
+          # poetry のインストール
+          thirdparty/Python/python.exe -m pip install poetry==${{ env.POETRY_VERSION }}
 
       # サードパーティーライブラリを 7z で圧縮
       # ファイルサイズ縮減のため、圧縮をかなり強めに掛けている
@@ -289,8 +289,8 @@ jobs:
           rm -rf lib/
           chmod a+x thirdparty/Library/libmediainfo.so*
 
-      # Python Standalone Builds のダウンロードと pipenv のインストール
-      - name: Install Python Standalone Builds & pip & pipenv
+      # Python Standalone Builds のダウンロードと poetry のインストール
+      - name: Install Python Standalone Builds & pip & poetry
         run: |
 
           # Python 本体のダウンロード
@@ -299,8 +299,8 @@ jobs:
           mv python/ thirdparty/Python/
           ln -s python${{ env.PYTHON_MAJOR_VERSION }} thirdparty/Python/bin/python
 
-          # pipenv のインストール
-          thirdparty/Python/bin/python -m pip install pipenv==${{ env.PIPENV_VERSION }}
+          # poetry のインストール
+          thirdparty/Python/bin/python -m pip install poetry==${{ env.POETRY_VERSION }}
 
       # サードパーティーライブラリを tar.xz で圧縮
       # ファイルサイズ縮減のため、圧縮をかなり強めに掛けている
@@ -462,8 +462,8 @@ jobs:
           rm -rf lib/
           chmod a+x thirdparty/Library/libmediainfo.so*
 
-      # Python Standalone Builds のダウンロードと pipenv のインストール
-      - name: Install Python Standalone Builds & pip & pipenv
+      # Python Standalone Builds のダウンロードと poetry のインストール
+      - name: Install Python Standalone Builds & pip & poetry
         run: |
 
           # Python 本体のダウンロード
@@ -472,9 +472,9 @@ jobs:
           mv python/ thirdparty/Python/
           ln -s python${{ env.PYTHON_MAJOR_VERSION }} thirdparty/Python/bin/python
 
-          # pipenv のインストール
+          # poetry のインストール
           cd thirdparty/Python/
-          docker run --rm -i -v $(pwd):/work -w /work ${{ matrix.image }}:build bash -c './bin/python -m pip install pipenv==${{ env.PIPENV_VERSION }}'
+          docker run --rm -i -v $(pwd):/work -w /work ${{ matrix.image }}:build bash -c './bin/python -m pip install poetry==${{ env.POETRY_VERSION }}'
 
       # サードパーティーライブラリを tar.xz で圧縮
       # ファイルサイズ縮減のため、圧縮をかなり強めに掛けている

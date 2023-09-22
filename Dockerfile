@@ -84,10 +84,10 @@ COPY --from=thirdparty-downloader /thirdparty/ /code/server/thirdparty/
 # 依存パッケージリスト (Pipfile/Pipfile.lock) だけをコピー
 COPY ./server/Pipfile ./server/Pipfile.lock /code/server/
 
-# 依存パッケージを pipenv でインストール
+# 依存パッケージを poetry でインストール
 ## 仮想環境 (.venv) をプロジェクト直下に作成する
-ENV PIPENV_VENV_IN_PROJECT true
-RUN /code/server/thirdparty/Python/bin/python -m pipenv sync --python="/code/server/thirdparty/Python/bin/python"
+RUN /code/server/thirdparty/Python/bin/python -m poetry env use --python="/code/server/thirdparty/Python/bin/python" && \
+    /code/server/thirdparty/Python/bin/python -m poetry install --no-dev --no-root
 
 # サーバーのソースコードをコピー
 COPY ./server/ /code/server/
@@ -99,4 +99,4 @@ COPY --from=client-builder /code/client/dist/ /code/client/dist/
 COPY ./config.example.yaml /code/config.example.yaml
 
 # データベースを必要な場合にアップグレードし、起動
-ENTRYPOINT /code/server/thirdparty/Python/bin/python -m pipenv run aerich upgrade && exec /code/server/.venv/bin/python KonomiTV.py
+ENTRYPOINT /code/server/thirdparty/Python/bin/python -m poetry run aerich upgrade && exec /code/server/.venv/bin/python KonomiTV.py

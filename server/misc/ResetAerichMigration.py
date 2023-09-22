@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Usage: pipenv run python -m misc.ResetAerichMigration
+# Usage: poetry run python -m misc.ResetAerichMigration
 
 import asyncio
 import typer

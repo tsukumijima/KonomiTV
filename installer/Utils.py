@@ -802,10 +802,10 @@ def RunSubprocessDirectLogOutput(
 
     print(Padding(name, (1, 2, 1, 2)))
     print(Rule(style=Style(color='cyan'), align='center'))
-    pipenv_sync_result = subprocess.run(args, cwd = cwd, env = environment)
+    subprocess_result = subprocess.run(args, cwd = cwd, env = environment)
     print(Rule(style=Style(color='cyan'), align='center'))
 
-    if pipenv_sync_result.returncode != 0:
+    if subprocess_result.returncode != 0:
         ShowPanel([
             f'[red]{error_message}[/red]'
             'お手数をおかけしますが、上記のログを開発者に報告してください。',
