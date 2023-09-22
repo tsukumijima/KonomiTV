@@ -156,6 +156,10 @@ class RecordedVideo(models.Model):
                     # 録画ファイルのフルパス
                     file_path = Path(dir_path) / file_name
 
+                    # 録画ファイルが確実に存在することを確認する (環境次第で稀に os.walk で見つかるファイルが既に存在しなくなっているケースがある)
+                    if file_path.is_file() is False:
+                        continue
+
                     # バリデーション
                     ## ._ から始まるファイルは Mac が勝手に作成するファイルなので無視する
                     if file_path.name.startswith('._'):
