@@ -782,6 +782,7 @@ nano config.yaml
 # 一時的な Poetry 仮想環境の構築 (UpdateThirdparty の実行に必要)
 cd server/
 poetry env use 3.11
+poetry install --no-root
 
 # 最新のサードパーティーライブラリを GitHub Actions からダウンロード
 ## 本番環境用のスタンドアローン版 Python もサードパーティーライブラリに含まれている
@@ -789,8 +790,10 @@ poetry run python -m misc.UpdateThirdparty latest
 
 # サードパーティーライブラリ内のスタンドアローン版 Python を明示的に指定して Poetry 仮想環境を再構築
 # Windows:
+Remove-Item -Recurse -Force .venv/
 poetry env use /Develop/KonomiTV/server/thirdparty/Python/python.exe
 # Linux
+rm -rf .venv/
 poetry env use /Develop/KonomiTV/server/thirdparty/Python/bin/python
 
 # 依存パッケージのインストール
