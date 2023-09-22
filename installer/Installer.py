@@ -569,7 +569,7 @@ def Installer(version: str) -> None:
             if Path(install_path / 'server/thirdparty/.gitkeep').exists() is False:
                 Path(install_path / 'server/thirdparty/.gitkeep').touch()
 
-        # ***** pipenv 環境の構築 (依存パッケージのインストール) *****
+        # ***** poetry 環境の構築 (依存パッケージのインストール) *****
 
         # Python の実行ファイルのパス (Windows と Linux で異なる)
         if platform_type == 'Windows':
@@ -577,15 +577,22 @@ def Installer(version: str) -> None:
         elif platform_type == 'Linux':
             python_executable_path = install_path / 'server/thirdparty/Python/bin/python'
 
-        # pipenv sync を実行
-        ## server/.venv/ に pipenv の仮想環境を構築するため、PIPENV_VENV_IN_PROJECT 環境変数をセットした状態で実行している
-        environment = os.environ.copy()
-        environment['PIPENV_VENV_IN_PROJECT'] = 'true'
+        # poetry env use を実行
+        result = RunSubprocessDirectLogOutput(
+            'Python の仮想環境を作成しています…',
+            [python_executable_path, '-m', 'poetry', 'env', 'use', python_executable_path],
+            cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+            error_message = 'Python の仮想環境の作成中に予期しないエラーが発生しました。',
+        )
+        if result is False:
+            return  # 処理中断
+
+        # poetry install を実行
+        # --no-root: プロジェクトのルートパッケージをインストールしない
         result = RunSubprocessDirectLogOutput(
             '依存パッケージをインストールしています…',
-            [python_executable_path, '-m', 'pipenv', 'sync', f'--python={python_executable_path}'],
+            [python_executable_path, '-m', 'poetry', 'install', '--only', 'main', '--no-root'],
             cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-            environment = environment,  # 環境変数を設定
             error_message = '依存パッケージのインストール中に予期しないエラーが発生しました。',
         )
         if result is False:
@@ -595,7 +602,7 @@ def Installer(version: str) -> None:
 
         result = RunSubprocess(
             'データベースをアップグレードしています…',
-            [python_executable_path, '-m', 'pipenv', 'run', 'aerich', 'upgrade'],
+            [python_executable_path, '-m', 'poetry', 'run', 'aerich', 'upgrade'],
             cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
             error_message = 'データベースのアップグレード中に予期しないエラーが発生しました。'
         )
@@ -962,7 +969,7 @@ def Installer(version: str) -> None:
             with progress:
                 service_install_result = subprocess.run(
                     args = [
-                        python_executable_path, '-m', 'pipenv', 'run', 'python', 'KonomiTV-Service.py', 'install',
+                        python_executable_path, '-m', 'poetry', 'run', 'python', 'KonomiTV-Service.py', 'install',
                         '--username', current_user_name, '--password', current_user_password,
                     ],
                     cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
@@ -985,7 +992,7 @@ def Installer(version: str) -> None:
             progress.add_task('', total=None)
             with progress:
                 service_start_result = subprocess.run(
-                    args = [python_executable_path, '-m', 'pipenv', 'run', 'python', 'KonomiTV-Service.py', 'start'],
+                    args = [python_executable_path, '-m', 'poetry', 'run', 'python', 'KonomiTV-Service.py', 'start'],
                     cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
                     stdout = subprocess.PIPE,  # 標準出力をキャプチャする
                     stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない

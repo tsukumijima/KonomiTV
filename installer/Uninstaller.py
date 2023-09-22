@@ -129,7 +129,7 @@ def Uninstaller() -> None:
         progress.add_task('', total=None)
         with progress:
             service_stop_result = subprocess.run(
-                args = [python_executable_path, '-m', 'pipenv', 'run', 'python', 'KonomiTV-Service.py', 'stop'],
+                args = [python_executable_path, '-m', 'poetry', 'run', 'python', 'KonomiTV-Service.py', 'stop'],
                 cwd = uninstall_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
                 stdout = subprocess.PIPE,  # 標準出力をキャプチャする
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
@@ -151,7 +151,7 @@ def Uninstaller() -> None:
         progress.add_task('', total=None)
         with progress:
             service_uninstall_result = subprocess.run(
-                args = [python_executable_path, '-m', 'pipenv', 'run', 'python', 'KonomiTV-Service.py', 'uninstall'],
+                args = [python_executable_path, '-m', 'poetry', 'run', 'python', 'KonomiTV-Service.py', 'uninstall'],
                 cwd = uninstall_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
                 stdout = subprocess.PIPE,  # 標準出力をキャプチャする
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない

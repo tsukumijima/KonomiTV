@@ -86,8 +86,8 @@ COPY ./server/Pipfile ./server/Pipfile.lock /code/server/
 
 # 依存パッケージを poetry でインストール
 ## 仮想環境 (.venv) をプロジェクト直下に作成する
-RUN /code/server/thirdparty/Python/bin/python -m poetry env use --python="/code/server/thirdparty/Python/bin/python" && \
-    /code/server/thirdparty/Python/bin/python -m poetry install --no-dev --no-root
+RUN /code/server/thirdparty/Python/bin/python -m poetry env use /code/server/thirdparty/Python/bin/python && \
+    /code/server/thirdparty/Python/bin/python -m poetry install --only main --no-root
 
 # サーバーのソースコードをコピー
 COPY ./server/ /code/server/
