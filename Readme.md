@@ -853,7 +853,7 @@ poetry run task serve
 同時起動される Akebi HTTPS Server のログは `server/logs/Akebi-HTTPS-Server.log` に保存されます。
 
 > **Note**  
-> サーバー設定でデバッグモード (general -> debug) を有効にすると、デバッグログも出力されるようになります。開発環境では常にデバッグモードにしておくことをおすすめします。
+> サーバー設定でデバッグモード (general -> debug) を有効にすると、デバッグログも出力されるようになります。開発環境では常にデバッグモードにしておくことをおすすめします。  
 > さらにエンコーダーのログ (general -> debug_encoder) を有効にすると、エンコーダーのログが `server/logs/KonomiTV-Encoder-(ストリームID).log` に保存されます。
 
 API ドキュメント (Swagger) は https://my.local.konomi.tv:7000/api/docs にあります。  
@@ -946,7 +946,7 @@ yarn build
 ```
 
 起動したクライアントの開発サーバーは、`https://my.local.konomi.tv:7001/` でリッスンされます。  
-`client/` 以下のコードを変更すると、自動で差分が再ビルドされます。
+`client/` 以下のコードを変更すると、自動で差分が再ビルドされます。  
 特にリッスン範囲の制限はしていないので、プライベートネットワーク上の他の PC やスマホからもアクセスできます。  
 サーバーを終了するときは、Ctrl+C を押してください。
 
