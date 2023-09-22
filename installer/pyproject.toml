@@ -20,10 +20,11 @@ psutil = "^5.9.5"
 py7zr = "^0.20.6"
 # For the Windows version only, to prevent virus detection, when the installer is built by CI,
 # it is forced to replace the PyInstaller with my own build.
-# When updating PyInstaller, all versions listed in the tsukumijima/Pyinstaller-Builds/.github/workflows/build.yml
-# and in KonomiTV/.github/workflows/build_installer.yaml must be updated.
-# ref: https://github.com/tsukumijima/Pyinstaller-Builds/blob/master/.github/workflows/build.yml
-pyinstaller = "==5.13.0"
+# ref: https://python-poetry.org/docs/dependency-specification/#combining-git--url--path-dependencies-with-source-repositories
+pyinstaller = [
+    { platform = "win32", url = "https://github.com/tsukumijima/Pyinstaller-Builds/raw/gh-pages/x86_64/pyinstaller-5.13.0-py3-none-any.whl" },
+    { platform = "linux", version = "5.13.0", source = "pypi" },
+]
 requests = "^2.31.0"
 rich = "^13.5.3"
 "ruamel.yaml" = "^0.17.32"

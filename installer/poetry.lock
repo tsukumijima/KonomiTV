@@ -476,20 +476,6 @@ docs = ["docutils", "sphinx (>=5.0)"]
 test = ["pyannotate", "pytest"]
 
 [[package]]
-name = "macholib"
-version = "1.16.2"
-description = "Mach-O header analysis and editing"
-optional = false
-python-versions = "*"
-files = [
-    {file = "macholib-1.16.2-py2.py3-none-any.whl", hash = "sha256:44c40f2cd7d6726af8fa6fe22549178d3a4dfecc35a9cd15ea916d9c83a688e0"},
-    {file = "macholib-1.16.2.tar.gz", hash = "sha256:557bbfa1bb255c20e9abafe7ed6cd8046b48d9525db2f9b77d3122a63a2a8bf8"},
-]
-
-[package.dependencies]
-altgraph = ">=0.17"
-
-[[package]]
 name = "markdown-it-py"
 version = "3.0.0"
 description = "Python port of markdown-it. Markdown parsing, done right!"
@@ -798,7 +784,25 @@ files = [
 
 [package.dependencies]
 altgraph = "*"
-macholib = {version = ">=1.8", markers = "sys_platform == \"darwin\""}
+pyinstaller-hooks-contrib = ">=2021.4"
+setuptools = ">=42.0.0"
+
+[package.extras]
+encryption = ["tinyaes (>=1.0.0)"]
+hook-testing = ["execnet (>=1.5.0)", "psutil", "pytest (>=2.7.3)"]
+
+[[package]]
+name = "pyinstaller"
+version = "5.13.0"
+description = "PyInstaller bundles a Python application and all its dependencies into a single package."
+optional = false
+python-versions = "<3.13,>=3.7"
+files = [
+    {file = "pyinstaller-5.13.0-py3-none-any.whl", hash = "sha256:847d307b48231219c0b91837f91c5513bed4c6b6315c1b60c0a8fe281250e72e"},
+]
+
+[package.dependencies]
+altgraph = "*"
 pefile = {version = ">=2022.5.30", markers = "sys_platform == \"win32\""}
 pyinstaller-hooks-contrib = ">=2021.4"
 pywin32-ctypes = {version = ">=0.2.1", markers = "sys_platform == \"win32\""}
@@ -807,6 +811,10 @@ setuptools = ">=42.0.0"
 [package.extras]
 encryption = ["tinyaes (>=1.0.0)"]
 hook-testing = ["execnet (>=1.5.0)", "psutil", "pytest (>=2.7.3)"]
+
+[package.source]
+type = "url"
+url = "https://github.com/tsukumijima/Pyinstaller-Builds/raw/gh-pages/x86_64/pyinstaller-5.13.0-py3-none-any.whl"
 
 [[package]]
 name = "pyinstaller-hooks-contrib"
@@ -1259,4 +1267,4 @@ watchmedo = ["PyYAML (>=3.10)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "3.11.*"
-content-hash = "f469b2d958284d730ea96fbec55d2555dd26afa92c4df48bda35ae4b68324cca"
+content-hash = "7ef89bd7b39fe8208d038c9d1b92b2f0e43dfc6688cce47f4c471ecce761b250"
