@@ -255,6 +255,8 @@ def Updater(version: str) -> None:
         Path(update_path / 'server/KonomiTV-Service.py').unlink(missing_ok=True)
         Path(update_path / 'server/Pipfile').unlink(missing_ok=True)
         Path(update_path / 'server/Pipfile.lock').unlink(missing_ok=True)
+        Path(update_path / 'server/poetry.lock').unlink(missing_ok=True)
+        Path(update_path / 'server/poetry.toml').unlink(missing_ok=True)
         Path(update_path / 'server/pyproject.toml').unlink(missing_ok=True)
         Path(update_path / '.dockerignore').unlink(missing_ok=True)
         Path(update_path / '.editorconfig').unlink(missing_ok=True)

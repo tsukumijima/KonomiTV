@@ -81,8 +81,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 WORKDIR /code/server/
 COPY --from=thirdparty-downloader /thirdparty/ /code/server/thirdparty/
 
-# 依存パッケージリスト (Pipfile/Pipfile.lock) だけをコピー
-COPY ./server/Pipfile ./server/Pipfile.lock /code/server/
+# Poetry の依存パッケージリストだけをコピー
+COPY ./server/pyproject.toml ./server/poetry.lock ./server/poetry.toml /code/server/
 
 # 依存パッケージを poetry でインストール
 ## 仮想環境 (.venv) をプロジェクト直下に作成する
