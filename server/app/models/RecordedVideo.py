@@ -186,6 +186,9 @@ class RecordedVideo(models.Model):
                     # 同一のパスを持つ録画ファイルが存在しないか、ハッシュが異なる場合はメタデータを取得する
                     if current_recorded_video is None or current_recorded_video.file_hash != file_hash:
 
+                        # TODO: CMSectionDetector とシリーズタイトル・話数・サブタイトルの取得処理を並列化する
+                        # どちらも MetadataAnalyzer だけで完結する処理と比較して時間がかかる想定なので、処理の完了を待つべきではない
+
                         # MetadataAnalyzer でメタデータを解析し、RecordedVideo, RecordedProgram, Channel (is_watchable=False) モデルを取得する
                         ## メタデータの解析に失敗した (KonomiTV で再生できない形式など) 場合は None が返るのでスキップする
                         ## Channel モデルは録画ファイルから番組情報を取得できなかった場合は None になる

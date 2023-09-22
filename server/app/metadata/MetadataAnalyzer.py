@@ -10,7 +10,6 @@ from typing import cast
 from zoneinfo import ZoneInfo
 
 from app.constants import LIBRARY_DIR
-from app.metadata.CMSectionsDetector import CMSectionsDetector
 from app.metadata.TSInfoAnalyzer import TSInfoAnalyzer
 from app.models.Channel import Channel
 from app.models.RecordedProgram import RecordedProgram
@@ -198,15 +197,6 @@ class MetadataAnalyzer:
                 end_time = start_time + timedelta(seconds=recorded_video.duration),
                 duration = recorded_video.duration,
             )
-
-        # TODO: シリーズタイトル・話数・サブタイトルを取得する処理を追加する
-
-        # CM 区間を検出する (MPEG-TS 形式のみ)
-        ## 時間がかかるので最後に実行する
-        if recorded_video.container_format == 'MPEG-TS':
-            recorded_video.cm_sections = CMSectionsDetector(recorded_video).detect()
-        else:
-            recorded_video.cm_sections = []
 
         return recorded_video, recorded_program, channel
 
