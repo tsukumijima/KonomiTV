@@ -8,7 +8,11 @@ import sys
 import time
 if sys.platform != 'win32':
     os.environ['TZ'] = 'Asia/Tokyo'
-    time.tzset()
+    # Linux でもなぜか time.tzset() が使えないことがあるので、try-except で囲む
+    try:
+        time.tzset()
+    except AttributeError:
+        pass
 
 import atexit
 import platform
