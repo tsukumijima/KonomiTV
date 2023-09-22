@@ -776,6 +776,9 @@ git clone https://github.com/tsukumijima/KonomiTV.git
 # 設定ファイルのコピーと編集
 ## config.yaml は適切に構成されている必要がある (さもなければサーバーが起動しない)
 cd KonomiTV/
+# Windows
+Copy-Item -Force config.example.yaml config.yaml
+# Linux:
 cp -a config.example.yaml config.yaml
 nano config.yaml
 
@@ -882,7 +885,7 @@ cd /Develop/KonomiTV/server/
 
 # Windows サービスのインストール
 ## インストールと同時に自動起動 (OS 起動後数分遅延してから) も設定される
-poetry run python KonomiTV-Service.py install --username (ユーザー名) --password (パスワード)
+poetry run python KonomiTV-Service.py install --username (ログオン中のユーザー名) --password (ログオン中ユーザーのパスワード)
 
 # Windows サービスの起動
 ## sc start "KonomiTV Service" でも起動できる
