@@ -4,11 +4,12 @@ import typer
 from datetime import datetime
 from datetime import timedelta
 from pathlib import Path
-from pprint import pprint
 from pymediainfo import MediaInfo
+from rich import print
 from typing import cast
 from zoneinfo import ZoneInfo
 
+from app import schemas
 from app.constants import LIBRARY_DIR
 from app.metadata.TSInfoAnalyzer import TSInfoAnalyzer
 from app.models.Channel import Channel
@@ -106,6 +107,14 @@ class MetadataAnalyzer:
                     recorded_video.video_codec = 'H.264'
                 elif track.format == 'HEVC':
                     recorded_video.video_codec = 'H.265'
+                # format_profile は Main@High や High@L5 など @ 区切りで Level や Tier などが付与されている場合があるので、それらを除去する
+                recorded_video.video_codec_profile = track.format_profile.split('@')[0]
+                # scan_type は現在一般的なプログレッシブ映像では属性自体が存在しないことが多いので、存在しない場合はプログレッシブとして扱う
+                if hasattr(track, 'scan_type') and track.scan_type == 'Interlaced':
+                    recorded_video.video_scan_type = 'Interlaced'
+                else:
+                    recorded_video.video_scan_type = 'Progressive'
+                recorded_video.video_frame_rate = float(track.frame_rate)
                 recorded_video.video_resolution_width = int(track.width)
                 recorded_video.video_resolution_height = int(track.height)
                 is_video_track_read = True
@@ -320,9 +329,15 @@ if __name__ == '__main__':
         metadata_analyzer = MetadataAnalyzer(recorded_file_path)
         results = metadata_analyzer.analyze()
         if results:
-            for result in results:
-                if result is not None:
-                    pprint(dict(result))
+            recorded_video, recorded_program, channel = results
+            recorded_program_dict = dict(recorded_program)
+            recorded_program_dict['id'] = -1  # dummy
+            recorded_program_dict['recorded_video_id'] = -1  # dummy
+            recorded_program_dict['recorded_video'] = dict(recorded_video)
+            recorded_program_dict['recorded_video']['id'] = -1  # dummy
+            if channel:
+                recorded_program_dict['channel'] = dict(channel)
+            print(schemas.RecordedProgram.model_validate(recorded_program_dict))
         else:
-            typer.echo('Not a KonomiTV playable TS file.')
+            print('Not a KonomiTV playable TS file.')
     typer.run(main)

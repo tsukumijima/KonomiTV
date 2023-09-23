@@ -48,6 +48,10 @@ class RecordedVideo(models.Model):
     duration: float = fields.FloatField()  # type: ignore
     container_format: Literal['MPEG-TS'] = fields.CharField(255)  # type: ignore
     video_codec: Literal['MPEG-2', 'H.264', 'H.265'] = fields.CharField(255)  # type: ignore
+    # プロファイルは他にも多くあるが、現実的に使われそうなものだけを列挙
+    video_codec_profile: Literal['High', 'High 10', 'Main', 'Main 10', 'Baseline'] = fields.CharField(255)  # type: ignore
+    video_scan_type: Literal['Interlaced', 'Progressive'] = fields.CharField(255)  # type: ignore
+    video_frame_rate: float = fields.FloatField()  # type: ignore
     video_resolution_width: int = fields.IntField()  # type: ignore
     video_resolution_height: int = fields.IntField()  # type: ignore
     primary_audio_codec: Literal['AAC-LC', 'HE-AAC', 'MP2'] = fields.CharField(255)  # type: ignore

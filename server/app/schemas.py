@@ -90,6 +90,9 @@ class RecordedVideo(PydanticModel):
     duration: float
     container_format: Literal['MPEG-TS']
     video_codec: Literal['MPEG-2', 'H.264', 'H.265']
+    video_codec_profile: Literal['High', 'High 10', 'Main', 'Main 10', 'Baseline']
+    video_scan_type: Literal['Interlaced', 'Progressive']
+    video_frame_rate: float
     video_resolution_width: int
     video_resolution_height: int
     primary_audio_codec: Literal['AAC-LC', 'HE-AAC', 'MP2']
