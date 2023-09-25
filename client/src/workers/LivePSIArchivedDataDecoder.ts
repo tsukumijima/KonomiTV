@@ -78,21 +78,10 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
                 // API から随時データを取得
                 const result = await reader.read();
 
-                // ストリームの終端に達した場合
-                // PSI/SI アーカイブデータは過去受信したデータがなければデコードできないため、
-                // クライアントとサーバーともに長期間ストリーミングするほどメモリ上のサイズが肥大化する
-                // そこで、psisiarc を 10 分毎にリセット (再起動) し、10分おきに辞書化されていない最新のデータを取得するようにしている
-                // この psisiarc のリセットが発生したタイミングで API からのデータストリーミングが終了するため、ここでデコーダーを起動し直す
+                // サーバー側からのレスポンスが終了した (ライブストリームが Offline になったなど)
+                // 基本サーバー側からのレスポンス出力が打ち切られる前にこちらから abort() するので発生しない
                 if (result.done) {
-
-                    // 既存の PSI/SI アーカイブデータを破棄 (破棄しないと正常にデコードできない)
-                    // ts_packet_counters はリセットせずとも動く (はず)
-                    this.psi_archived_data = new Uint8Array();
-                    this.psi_archived_data_context = {};
-
-                    // 再起動
-                    console.log('[PSIArchivedDataDecoder] TS decoder destroyed. (psisiarc reset)');
-                    this.run(decoded_callback);
+                    console.log('[PSIArchivedDataDecoder] PSI/SI archived data finished.');
                     break;
                 }
                 // console.log(`[PSIArchivedDataDecoder] PSI/SI archived data received. (length: ${result.value.length})`);
