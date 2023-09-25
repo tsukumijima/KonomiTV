@@ -1,15 +1,13 @@
 
 import asyncio
-import time
-from typing import AsyncGenerator, cast
+from fastapi import Request
+from typing import Any, AsyncGenerator, Coroutine
 
 from app.constants import LIBRARY_PATH
+from app.utils import Logging
 
 
 class LivePSIDataArchiver:
-
-    # PSI/SI データアーカイバーを再起動する間隔 (分)
-    RESTART_INTERVAL_MINUTES = 10
 
 
     def __init__(self, service_id: int) -> None:
@@ -23,35 +21,47 @@ class LivePSIDataArchiver:
         # 視聴対象のチャンネルのサービス ID
         self.service_id = service_id
 
-        # psisiarc のプロセス
-        self.psisiarc_process: asyncio.subprocess.Process | None = None
-
-        # PSI/SI データのアーカイブデータを貯めるリスト
-        self.psi_archive_list: list[bytes] = []
-
-        # PSI/SI データのアーカイブデータの状態を管理する Condition
-        self.psi_archive_list_condition = asyncio.Condition()
+        # psisiarc のプロセスリスト
+        self.psisiarc_processes: list[asyncio.subprocess.Process] = []
 
 
-    @property
-    def is_running(self) -> bool:
+    async def pushTSPacketData(self, packet: bytes) -> None:
         """
-        PSI/SI データアーカイバーが起動中かどうかを返す
+        LiveEncodingTask から生の放送波の MPEG2-TS パケットを受け取り、登録されている PSI/SI データアーカイバープロセスに送信する
+        LiveHLSSegmenter とは異なり、188 bytes ぴったりで送信する必要はない
+
+        Args:
+            packet (bytes): MPEG2-TS パケット
         """
 
-        return self.psisiarc_process is not None and self.psisiarc_process.returncode is None
+        tasks: list[Coroutine[Any, Any, None]] = []
+        for psisiarc_process in self.psisiarc_processes:
+            assert type(psisiarc_process.stdin) is asyncio.StreamWriter
+
+            # psisiarc が既に終了中の場合は何もしない
+            if psisiarc_process.stdin.is_closing():
+                continue
+
+            # psisiarc に TS パケットを送信する
+            psisiarc_process.stdin.write(packet)
+            tasks.append(psisiarc_process.stdin.drain())
+
+        # 複数のプロセス分並行して drain() する
+        ## タスクのいずれかで例外が発生しても、ほかのタスクは継続する
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
-    async def run(self) -> None:
+    async def getPSIArchivedData(self, request: Request) -> AsyncGenerator[bytes, None]:
         """
-        PSI/SI データアーカイバーを起動する
-        """
+        PSI/SI データアーカイバープロセスを起動し、受信した PSI/SI アーカイブデータをジェネレーターとして返す
+        FastAPI の StreamingResponse での利用を想定している
 
-        # すでにリストにデータがある場合は、クリアしておく
-        async with self.psi_archive_list_condition:
-            if len(self.psi_archive_list) > 0:
-                self.psi_archive_list.clear()
-                self.psi_archive_list_condition.notify_all()  # 全ての待機中のタスクに通知
+        Args:
+            request (Request): FastAPI の Request オブジェクト
+
+        Yields:
+            AsyncGenerator[bytes, None]: PSI/SI アーカイブデータ
+        """
 
         # psisiarc のオプション
         # ref: https://github.com/xtne6f/psisiarc
@@ -64,8 +74,8 @@ class LivePSIDataArchiver:
             ## 視聴対象のチャンネルのサービス ID を指定する
             '-n ', str(self.service_id),
             # PCR (Program Clock Reference) を基準に一定間隔でアーカイブデータを出力する
-            # 3秒間隔でアーカイブデータを出力する
-            '-i', '3',
+            # 1秒間隔でアーカイブデータを出力する
+            '-i', '1',
             # 標準入力から放送波を入力する
             '-',
             # 標準出力にアーカイブデータを出力する
@@ -73,136 +83,72 @@ class LivePSIDataArchiver:
         ]
 
         # psisiarc を起動する
-        self.psisiarc_process = await asyncio.subprocess.create_subprocess_exec(
+        psisiarc_process = await asyncio.subprocess.create_subprocess_exec(
             *[LIBRARY_PATH['psisiarc'], *psisiarc_options],
             stdin = asyncio.subprocess.PIPE,  # 放送波を入力
             stdout = asyncio.subprocess.PIPE,  # ストリーム出力
-            stderr = asyncio.subprocess.STDOUT,  # ログ出力
+            stderr = asyncio.subprocess.DEVNULL,
         )
+        self.psisiarc_processes.append(psisiarc_process)
+        Logging.debug_simple(f'[LivePSIDataArchiver] psisiarc started (PID: {psisiarc_process.pid})')
 
-        # 起動時間のタイムスタンプ
-        start_at = time.time()
-
-        # 受信した PSI/SI アーカイブデータを Queue に貯める
+        # 受信した PSI/SI アーカイブデータを yield で返す
         trailer_size: int = 0
         trailer_remain_size: int = 0
         while True:
 
-            # psisiarc が終了している場合は終了する
-            if self.psisiarc_process is None or self.psisiarc_process.returncode is not None:
-                return
-
-            # PSI/SI アーカイブデータを psisiarc から読み取る
-            result = await self.__readPSIArchivedDataChunk(trailer_size, trailer_remain_size)
-            if result is None:
-                return
-            psi_archive, trailer_size, trailer_remain_size = result
-
-            # PSI/SI アーカイブデータをリストに追加する
-            async with self.psi_archive_list_condition:
-                self.psi_archive_list.append(psi_archive)
-                self.psi_archive_list_condition.notify_all()  # 全ての待機中のタスクに通知
-
-            # もし起動から RESTART_INTERVAL_MINUTES 分以上経過している場合は、psisiarc を一旦終了して再起動する
-            ## 再起動するタイミングでデータをリセットし、データが無尽蔵に増えていくのを防ぐ
-            if time.time() - start_at > 60 * self.RESTART_INTERVAL_MINUTES:
-                await self.restart()
-                return
-
-
-    async def pushTSPacketData(self, packet: bytes) -> None:
-        """
-        LiveEncodingTask から生の放送波の MPEG2-TS パケットを受け取り、PSI/SI データアーカイバーに送信する
-        LiveHLSSegmenter とは異なり、188 bytes ぴったりで送信する必要はない
-
-        Args:
-            packet (bytes): MPEG2-TS パケット
-        """
-
-        # psisiarc が起動していない・既に終了している場合は何もしない
-        if self.psisiarc_process is None or cast(asyncio.StreamWriter, self.psisiarc_process.stdin).is_closing():
-            return
-
-        # psisiarc に TS パケットを送信する
-        cast(asyncio.StreamWriter, self.psisiarc_process.stdin).write(packet)
-        try:
-            await asyncio.wait_for(cast(asyncio.StreamWriter, self.psisiarc_process.stdin).drain(), timeout=1.0)
-        except Exception:
-            pass
-
-
-    async def getPSIArchivedData(self) -> AsyncGenerator[bytes, None]:
-        """
-        PSI/SI アーカイブデータをジェネレーターとして返す
-        このメソッドは複数の非同期タスクから呼び出される可能性がある
-
-        Yields:
-            AsyncGenerator[bytes, None]: PSI/SI アーカイブデータ
-        """
-
-        # 既にリストにデータがある場合は、すべてのデータを返してから、最新のチャンクを待機する
-        async with self.psi_archive_list_condition:
-            if len(self.psi_archive_list) > 0:
-                for psi_archive in self.psi_archive_list:
-                    yield psi_archive
-
-        while True:
-
-            # psisiarc が再起動などにより終了している場合は、ジェネレーターを終了する
-            ## psisiarc の再起動後に得られた PSI/SI アーカイブデータは、それ以前のものと互換性がない
-            if (self.psisiarc_process is None or self.psisiarc_process.returncode is not None):
+            # HTTP リクエストが途中で切断された
+            if await request.is_disconnected():
+                if psisiarc_process.returncode is None:
+                    psisiarc_process.kill()
+                if psisiarc_process in self.psisiarc_processes:
+                    self.psisiarc_processes.remove(psisiarc_process)
+                Logging.debug_simple(f'[LivePSIDataArchiver] psisiarc terminated (Disconnected / PID: {psisiarc_process.pid})')
                 break
 
-            # データの利用可能性を待つ
-            async with self.psi_archive_list_condition:
-                await self.psi_archive_list_condition.wait()
+            # PSI/SI アーカイブデータを psisiarc から読み取る
+            result = await self.__readPSIArchivedDataChunk(psisiarc_process, trailer_size, trailer_remain_size)
 
-                # PSI/SI アーカイブデータが更新されたら、最新のチャンクを返す
-                ## 複数の非同期タスクすべてが同じデータを随時取得できるようにするため、
-                ## getPSIArchivedData() 内では PSI/SI アーカイブデータは常に読み取り専用である必要がある
-                ## この時点で self.psi_archive_list が空の場合、psisiarc が終了したとみなしてジェネレーターを終了する
-                if len(self.psi_archive_list) > 0:
-                    yield self.psi_archive_list[-1]
-                else:
-                    break
+            # LivePSIDataArchiver が破棄されたなどの理由で読み取り処理中に psisiarc が終了したか、データ構造が壊れている
+            if result is None:
+                if psisiarc_process.returncode is None:
+                    psisiarc_process.kill()
+                if psisiarc_process in self.psisiarc_processes:
+                    self.psisiarc_processes.remove(psisiarc_process)
+                Logging.debug_simple(f'[LivePSIDataArchiver] psisiarc terminated (Destroyed / PID: {psisiarc_process.pid})')
+                break
+
+            # PSI/SI アーカイブデータを yield で返す
+            psi_archive, trailer_size, trailer_remain_size = result
+            yield psi_archive
 
 
-    async def destroy(self) -> None:
+    def destroy(self) -> None:
         """
         PSI/SI データアーカイバーを破棄する
         """
 
-        # psisiarc を終了する
-        if self.psisiarc_process is not None:
-            try:
-                self.psisiarc_process.kill()
-            except Exception:
-                pass
-
-        # データをクリアする
-        async with self.psi_archive_list_condition:
-            self.psi_archive_list.clear()
-            self.psi_archive_list_condition.notify_all()  # 全ての待機中のタスクに通知
+        # 登録されているすべての psisiarc プロセスを終了する
+        ## 基本ここに到達する前に HTTP リクエストが切断され psisiarc も終了されているはずだが、念のため
+        ## タイミング次第では LivePSIDataArchiver.getPSIArchivedData() で psisiarc を終了する前に到達する可能性もある
+        for psisiarc_process in self.psisiarc_processes:
+            psisiarc_process.kill()
+        self.psisiarc_processes.clear()
 
 
-    async def restart(self) -> None:
-        """
-        PSI/SI データアーカイバーを再起動する
-        このメソッドは run() が終了するまで戻らないので注意
-        """
-
-        # 破棄してから再起動する
-        await self.destroy()
-        await self.run()
-
-
-    async def __readPSIArchivedDataChunk(self, trailer_size: int, trailer_remain_size: int) -> tuple[bytes, int, int] | None:
+    @staticmethod
+    async def __readPSIArchivedDataChunk(
+        psisiarc_process: asyncio.subprocess.Process,
+        trailer_size: int,
+        trailer_remain_size: int,
+    ) -> tuple[bytes, int, int] | None:
         """
         psisiarc からの出力ストリームから PSI/SI アーカイブデータ (.psc) を適切に読み取る
         EDCB Legacy WebUI の実装をそのまま Python に移植したもの (完全な形で移植してくれた ChatGPT (GPT-4) 先生に感謝！)
         ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-230212/ini/HttpPublic/legacy/view.lua#L128-L160
 
         Args:
+            psisiarc_process (asyncio.subprocess.Process): psisiarc のプロセス
             trailer_size (int): trailer のサイズ
             trailer_remain_size (int): trailer までの余りのサイズ
 
@@ -213,16 +159,15 @@ class LivePSIDataArchiver:
         def get_le_number(buffer: bytes, pos: int, len: int) -> int:
             return int.from_bytes(buffer[pos:pos+len], byteorder='little')
 
-        if self.psisiarc_process is None:
-            return None
+        assert type(psisiarc_process.stdout) is asyncio.StreamReader
 
         try:
             if trailer_size > 0:
-                buffer = await cast(asyncio.StreamReader, self.psisiarc_process.stdout).readexactly(trailer_size)
+                buffer = await psisiarc_process.stdout.readexactly(trailer_size)
                 if len(buffer) != trailer_size:
                     return None
 
-            buffer = await cast(asyncio.StreamReader, self.psisiarc_process.stdout).readexactly(32)
+            buffer = await psisiarc_process.stdout.readexactly(32)
             if len(buffer) != 32:
                 return None
 
@@ -234,7 +179,7 @@ class LivePSIDataArchiver:
             payload_size = time_list_len * 4 + dictionary_len * 2 + ((dictionary_data_size + 1) // 2) * 2 + code_list_len * 2
 
             if payload_size > 0:
-                payload = await cast(asyncio.StreamReader, self.psisiarc_process.stdout).readexactly(payload_size)
+                payload = await psisiarc_process.stdout.readexactly(payload_size)
                 if len(payload) != payload_size:
                     return None
 
@@ -243,5 +188,6 @@ class LivePSIDataArchiver:
             buffer = b'=' * trailer_remain_size + buffer + payload + b'=' * trailer_consume_size
             return buffer, 2 + (2 + len(payload)) % 4, 2 + (2 + len(payload)) % 4 - trailer_consume_size
 
+        # 読み取り処理中に psisiarc が終了した
         except asyncio.IncompleteReadError:
             return None

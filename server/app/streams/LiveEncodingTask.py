@@ -419,14 +419,9 @@ class LiveEncodingTask:
         else:
             Logging.info(f'[Live: {self.livestream.livestream_id}] Title: 番組情報がありません')
 
-        # **** PSI/SI データアーカイバーの起動 *****
-
         # PSI/SI データアーカイバーを初期化
+        ## psisiarc は API リクエストがある度に都度起動される
         self.livestream.psi_data_archiver = LivePSIDataArchiver(channel.service_id)
-
-        # PSI/SI データアーカイバーのプロセスを非同期で起動
-        ## 内部で psisiarc が起動され、LiveEncodingTask からデータが送信されるのを待ち受ける
-        asyncio.create_task(self.livestream.psi_data_archiver.run())
 
         # ***** tsreadex プロセスの作成と実行 *****
 
@@ -583,7 +578,7 @@ class LiveEncodingTask:
 
                 # PSI/SI データアーカイバーを終了・破棄する
                 if self.livestream.psi_data_archiver is not None:
-                    await self.livestream.psi_data_archiver.destroy()
+                    self.livestream.psi_data_archiver.destroy()
                     self.livestream.psi_data_archiver = None
 
                 # LL-HLS Segmenter を破棄する
@@ -625,7 +620,7 @@ class LiveEncodingTask:
 
                 # PSI/SI データアーカイバーを終了・破棄する
                 if self.livestream.psi_data_archiver is not None:
-                    await self.livestream.psi_data_archiver.destroy()
+                    self.livestream.psi_data_archiver.destroy()
                     self.livestream.psi_data_archiver = None
 
                 # LL-HLS Segmenter を破棄する
@@ -657,7 +652,7 @@ class LiveEncodingTask:
 
                 # PSI/SI データアーカイバーを終了・破棄する
                 if self.livestream.psi_data_archiver is not None:
-                    await self.livestream.psi_data_archiver.destroy()
+                    self.livestream.psi_data_archiver.destroy()
                     self.livestream.psi_data_archiver = None
 
                 # LL-HLS Segmenter を破棄する
@@ -1219,7 +1214,7 @@ class LiveEncodingTask:
 
         # PSI/SI データアーカイバーを終了・破棄する
         if self.livestream.psi_data_archiver is not None:
-            await self.livestream.psi_data_archiver.destroy()
+            self.livestream.psi_data_archiver.destroy()
             self.livestream.psi_data_archiver = None
 
         # LL-HLS Segmenter を破棄する

@@ -250,15 +250,15 @@ async def LivePSIArchivedDataAPI(
     # PSI/SI アーカイブデータを取得したいだけなので、接続はしない
     livestream = LiveStream(display_channel_id, quality)
 
-    # LivePSIDataArchiver がまだ起動していない場合は、起動するまで最大10秒待つ
-    ## LivePSIDataArchiver は MPEG-TS / LL-HLS ストリーミング API によって自動的に起動されるので、ここでは起動を待つだけ
+    # LivePSIDataArchiver がまだ初期化されていない場合は、起動するまで最大10秒待つ
+    ## LivePSIDataArchiver は LiveEncodingTask が起動次第自動的に初期化されるので、ここでは待つだけ
     for _ in range(20):
-        if livestream.psi_data_archiver is not None and livestream.psi_data_archiver.is_running is True:
+        if livestream.psi_data_archiver is not None:
             break
         await asyncio.sleep(0.5)
 
     # 10秒待っても起動しなかった場合はエラー
-    if livestream.psi_data_archiver is None or livestream.psi_data_archiver.is_running is False:
+    if livestream.psi_data_archiver is None:
         Logging.error(f'[LiveStreamsRouter][LivePSIArchivedDataAPI] PSI/SI Data Archiver is not running')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -267,7 +267,24 @@ async def LivePSIArchivedDataAPI(
 
     # StreamingResponse で読み取ったストリームデータをストリーミングする
     # LivePSIDataArchiver.getPSIArchivedData() は AsyncGenerator なので、そのまま渡せる
-    return StreamingResponse(livestream.psi_data_archiver.getPSIArchivedData(), media_type='application/octet-stream')
+    response = StreamingResponse(livestream.psi_data_archiver.getPSIArchivedData(request), media_type='application/octet-stream')
+
+    # HTTP リクエストがキャンセルされたときに psisiarc を終了できるよう、StreamingResponse のインスタンスにモンキーパッチを当てる
+    # モンキーパッチしている理由は LiveMPEGTSStreamAPI と同じ
+    # ref: https://github.com/encode/starlette/pull/839
+    async def listen_for_disconnect_monkeypatch(receive: Receive) -> None:
+        try:
+            while True:
+                message = await receive()
+                if message['type'] == 'http.disconnect':
+                    # HTTP リクエストの切断を検知できるようにしばらく待つ
+                    await asyncio.sleep(5)
+                    break
+        except asyncio.CancelledError:
+            pass
+    response.listen_for_disconnect = listen_for_disconnect_monkeypatch
+
+    return response
 
 
 # ***** MPEG-TS ストリーミング API *****
