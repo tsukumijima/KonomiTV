@@ -94,7 +94,6 @@ class LivePSIDataArchiver:
 
         # 受信した PSI/SI アーカイブデータを yield で返す
         trailer_size: int = 0
-        trailer_remain_size: int = 0
         while True:
 
             # HTTP リクエストが途中で切断された
@@ -107,7 +106,7 @@ class LivePSIDataArchiver:
                 break
 
             # PSI/SI アーカイブデータを psisiarc から読み取る
-            result = await self.__readPSIArchivedDataChunk(psisiarc_process, trailer_size, trailer_remain_size)
+            result = await self.__readPSIArchivedDataChunk(psisiarc_process, trailer_size)
 
             # LivePSIDataArchiver が破棄されたなどの理由で読み取り処理中に psisiarc が終了したか、データ構造が壊れている
             if result is None:
@@ -119,7 +118,7 @@ class LivePSIDataArchiver:
                 break
 
             # PSI/SI アーカイブデータを yield で返す
-            psi_archive, trailer_size, trailer_remain_size = result
+            psi_archive, trailer_size = result
             yield psi_archive
 
 
@@ -140,8 +139,7 @@ class LivePSIDataArchiver:
     async def __readPSIArchivedDataChunk(
         psisiarc_process: asyncio.subprocess.Process,
         trailer_size: int,
-        trailer_remain_size: int,
-    ) -> tuple[bytes, int, int] | None:
+    ) -> tuple[bytes, int] | None:
         """
         psisiarc からの出力ストリームから PSI/SI アーカイブデータ (.psc) を適切に読み取る
         EDCB Legacy WebUI の実装をそのまま Python に移植したもの (完全な形で移植してくれた ChatGPT (GPT-4) 先生に感謝！)
@@ -150,10 +148,9 @@ class LivePSIDataArchiver:
         Args:
             psisiarc_process (asyncio.subprocess.Process): psisiarc のプロセス
             trailer_size (int): trailer のサイズ
-            trailer_remain_size (int): trailer までの余りのサイズ
 
         Returns:
-            tuple[bytes, int, int] | None: アーカイブデータ、次の trailer のサイズ、次の trailer までの余りのサイズ
+            tuple[bytes, int] | None: アーカイブデータ、次の trailer のサイズ
         """
 
         def get_le_number(buffer: bytes, pos: int, len: int) -> int:
@@ -183,10 +180,8 @@ class LivePSIDataArchiver:
                 if len(payload) != payload_size:
                     return None
 
-            # Base64 のパディングを避けるため、トレーラを利用して buffer のサイズを 3 の倍数にする
-            trailer_consume_size = (3 - (trailer_remain_size + len(buffer) + len(payload) + 2) % 3) % 3
-            buffer = b'=' * trailer_remain_size + buffer + payload + b'=' * trailer_consume_size
-            return buffer, 2 + (2 + len(payload)) % 4, 2 + (2 + len(payload)) % 4 - trailer_consume_size
+            buffer = b'=' * trailer_size + buffer + payload
+            return (buffer, 2 + (2 + len(payload)) % 4)
 
         # 読み取り処理中に psisiarc が終了した
         except asyncio.IncompleteReadError:
