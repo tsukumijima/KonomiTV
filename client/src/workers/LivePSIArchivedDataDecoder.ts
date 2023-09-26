@@ -1,7 +1,16 @@
 
+import { Buffer } from 'buffer';
+
+import { TsChar, TsDate } from '@tsukumijima/aribts';
+import { EIT } from '@tsukumijima/aribts/src/table/eit';
 import * as Comlink from 'comlink';
+import dayjs from 'dayjs';
 import { decodeTS } from 'web-bml/server/decode_ts';
 import { ResponseMessage } from 'web-bml/server/ws_api';
+
+import { ILiveChannel } from '@/services/Channels';
+import { IProgram, IProgramPF, IProgramDefault } from '@/services/Programs';
+import Utils, { ProgramUtils } from '@/utils';
 
 
 interface IPSIArchivedDataContext {
@@ -17,7 +26,7 @@ interface IPSIArchivedDataContext {
 }
 
 export interface ILivePSIArchivedDataDecoder {
-    run(decoded_callback: (message: ResponseMessage) => void): void;
+    run(decoded_callback: (message: ResponseMessage | IProgramPF) => void): void;
     destroy(): void;
 }
 
@@ -27,8 +36,11 @@ export interface ILivePSIArchivedDataDecoder {
  */
 class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
 
-    // ライブ PSI/SI アーカイブデータストリーミング API の URL
-    private psi_archived_data_api_url: string;
+    // 対象のチャンネル情報
+    private channel: ILiveChannel;
+
+    // 現在視聴中の API 上の画質 ID (ex: 1080p-60fps)
+    private api_quality: string;
 
     // PSI/SI アーカイブデータの読み込みに必要な情報
     private psi_archived_data: Uint8Array = new Uint8Array(0);
@@ -37,10 +49,12 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
     private ts_packet_counters: {[index: number]: number} = {};
 
     /**
-     * @param psi_archived_data_api_url ライブ PSI/SI アーカイブデータストリーミング API の URL
+     * @param channel 対象のチャンネル情報
+     * @param api_quality 現在視聴中の API 上の画質 ID (ex: 1080p-60fps)
      */
-    constructor(psi_archived_data_api_url: string) {
-        this.psi_archived_data_api_url = psi_archived_data_api_url;
+    constructor(channel: ILiveChannel, api_quality: string) {
+        this.channel = channel;
+        this.api_quality = api_quality;
     }
 
 
@@ -51,19 +65,51 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
      * EDCB Legacy WebUI での実装を参考にした
      * https://github.com/xtne6f/EDCB/blob/work-plus-s-230212/ini/HttpPublic/legacy/util.lua#L444-L497
      */
-    public run(decoded_callback: (message: ResponseMessage) => void): void {
+    public run(decoded_callback: (message: ResponseMessage | IProgramPF) => void): void {
 
-        // TS ストリームのデコードを開始
-        // PES (字幕) は mpegts.js / LL-HLS 側で既に対応しているため、BML ブラウザ側では対応しない
+        // TS ストリームがデコードされた際のハンドラーをセット
+        // web-bml には字幕表示機能もあるが、mpegts.js / LL-HLS 側で既に対応しているため敢えて無効化している
         const ts_stream = decodeTS({
             // TS ストリームをデコードした結果をメインスレッドの BML ブラウザに送信
             sendCallback: (message) => decoded_callback(message),
+            serviceId: this.channel.service_id,
+            // ARIB 字幕は PES に含まれるため PES パケットをパースする必要があるが、ここでは無効化
+            parsePES: false,
         });
+
+        // EIT[p/f] のみ web-bml の decodeTS でデコードできる情報 (ProgramInfoMessage など) だけでは不十分なため、
+        // 独自に EIT[p/f] のデコード処理を行い IProgramPF を生成する
+        ts_stream.on('eit', (pid: number, eit: EIT) => {
+
+            // pid: 0x0012 / table_id: 0x4e (EIT[p/f]) に絞り込む
+            if (pid !== 0x0012 || eit.table_id !== 0x4e) {
+                return;
+            }
+
+            // EIT[p/f] のイベント情報をデコード/解析し、IProgram を生成する
+            const program = this.generateIProgramFromEPG(eit);
+            if (program === null) {
+                return;  // 処理対象の EIT[p/f] ではないので無視
+            }
+
+            // section_number が 0 なら現在放送中の番組情報、1 なら次の番組情報
+            const present_or_following = eit.section_number === 0 ? 'Present' : 'Following';
+
+            // メインスレッドに送信
+            decoded_callback({
+                type: 'IProgramPF',
+                present_or_following: present_or_following,
+                program: program,
+            });
+        });
+
+        // ライブ PSI/SI アーカイブデータストリーミング API の URL を作成
+        const psi_archived_data_api_url = `${Utils.api_base_url}/streams/live/${this.channel.display_channel_id}/${this.api_quality}/psi-archived-data`;
 
         // ライブ PSI/SI アーカイブデータストリーミング API にリクエスト
         // 以降の処理はエンドレスなので非同期で実行
         this.psi_archived_data_api_abort_controller = new AbortController();
-        fetch(this.psi_archived_data_api_url, {signal: this.psi_archived_data_api_abort_controller.signal}).then(async (response) => {
+        fetch(psi_archived_data_api_url, {signal: this.psi_archived_data_api_abort_controller.signal}).then(async (response) => {
 
             // ReadableStreamDefaultReader を取得
             const reader = response.body?.getReader();
@@ -124,6 +170,231 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
         });
 
         console.log('[PSIArchivedDataDecoder] TS decoder initialized.');
+    }
+
+
+    /**
+     * EIT[p/f] のイベント情報をデコード/解析し、IProgram を生成する
+     * 各 EPG データの文字列のフォーマット処理は KonomiTV サーバーでの実装と同等
+     * @param eit EIT[p/f]
+     */
+    private generateIProgramFromEPG(eit: EIT): IProgram | null {
+
+        // 以下は以前書いた EITViewer のコードを参考にした
+        // ref: https://github.com/tsukumijima/EITViewer/blob/master/EITViewer.ts
+
+        // 番組開始時刻/番組長未定の場合の生の値
+        const UNKNOWN_START_TIME = Buffer.from([0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
+        const UNKNOWN_DURATION = Buffer.from([0xFF, 0xFF, 0xFF]);
+
+        // 有効でない EIT を除外
+        // current_next_indicator (カレントネクスト指示): テーブルが現在使用可能である場合は "1" とし、
+        // テーブルが現在使用不可であり次に有効となることを示す場合は "0" とする
+        if (eit.events === null || eit.events.length !== 1 || eit.current_next_indicator === 0) {
+            return null;
+        }
+
+        // network_id / service_id が一致しない
+        if (eit.original_network_id !== this.channel.network_id || eit.service_id !== this.channel.service_id) {
+            return null;
+        }
+
+        // 雛形とする IProgram をコピー
+        const program = structuredClone(IProgramDefault);
+
+        // ID 系
+        const event = eit.events[0];
+        program.id = `NID${eit.original_network_id}-SID${eit.service_id}-EID${event.event_id}`;
+        program.channel_id = `NID${eit.original_network_id}-SID${eit.service_id}`;
+        program.network_id = eit.original_network_id;
+        program.service_id = eit.service_id;
+        program.event_id = event.event_id;
+        program.is_free = event.free_CA_mode === 0;  // 0: 無料番組 / 1: 有料番組
+
+        // 番組開始時刻
+        if (UNKNOWN_START_TIME.compare(event.start_time) === 0) {
+            // 番組開始時刻が未定の場合は IProgramDefault でも使われている初期値をセット
+            program.start_time = '2000-01-01T00:00:00+09:00';
+        } else {
+            program.start_time = dayjs(new TsDate(event.start_time).decode()).format();
+        }
+
+        // 番組長
+        if (UNKNOWN_DURATION.compare(event.duration) === 0) {
+            // 番組長が未定の場合は Infinity をセット
+            // duration が Infinity の場合、ProgramUtils.getProgramTime() は「放送時間未定」と表示する
+            program.duration = Infinity;
+        } else {
+            const duration = new TsDate(event.duration).decodeTime();
+            program.duration = duration[0] * 3600 + duration[1] * 60 + duration[2];
+        }
+
+        // 番組開始時刻と番組長から番組終了時刻を算出
+        // ただし、番組長が未定の場合は番組終了時刻を番組開始時刻と同一の値にする
+        if (program.duration === Infinity) {
+            program.end_time = program.start_time;
+        } else {
+            program.end_time = dayjs(program.start_time).add(program.duration, 'second').format();
+        }
+
+        // IProgram の生成に必要な記述子を取得
+        const descriptors: any[] = event.descriptors;
+        const short_event_descriptor = descriptors.find(d => d.descriptor_tag === 0x4D) ?? null;  // 短形式イベント記述子
+        const extended_event_descriptors = descriptors.filter(d => d.descriptor_tag === 0x4E);  // 拡張形式イベント記述子 (これのみ複数必要)
+        const content_descriptor = descriptors.find(d => d.descriptor_tag === 0x54) ?? null;  // コンテント記述子
+        const video_component_descriptor = descriptors.find(d => d.descriptor_tag === 0x50) ?? null;  // コンポーネント記述子
+        const audio_component_descriptor_primary =
+            descriptors.find(d => d.descriptor_tag === 0xC4 && d.main_component_flag === 1) ?? null;  // 音声コンポーネント記述子 (主音声)
+        const audio_component_descriptor_secondary =
+            descriptors.find(d => d.descriptor_tag === 0xC4 && d.main_component_flag !== 1) ?? null;  // 音声コンポーネント記述子 (副音声)
+
+        // タイトル・番組概要
+        if (short_event_descriptor !== null) {
+            program.title = ProgramUtils.formatString(new TsChar(short_event_descriptor.event_name_char).decode());
+            program.description = ProgramUtils.formatString(new TsChar(short_event_descriptor.text_char).decode());
+        } else {
+            // 運用上短形式イベント記述子は必ず送出されているはずだが、念のため
+            program.title = '番組情報がありません';
+            program.description = 'この時間の番組情報を取得できませんでした。';
+        }
+
+        // 番組詳細
+        // 拡張形式イベント記述子が送出されていない場合はデフォルト値の {} がセットされる
+        // ariblib/event.py での実装と server/app/metadata/TSInfoAnalyzer.py での実装をマージしたもの
+        const detail_array: {head: string, raw_text: Buffer}[] = [];
+        for (const extended_event_descriptor of extended_event_descriptors) {
+            // 一応 items 内の item が複数あることを想定してループしているが、運用上は1つしか存在しないはず (?)
+            for (const item of extended_event_descriptor.items) {
+                // 項目名が空の場合のみ、本文をバイナリレベルで一つ前のものにつなげてからデコードする
+                // ref: ARIB TR-B14 第四分冊 第四編 第1部 4.4.3
+                if (item.item_description_length === 0) {
+                    detail_array[detail_array.length - 1].raw_text = Buffer.concat([detail_array[detail_array.length - 1].raw_text, item.item_char]);
+                } else {
+                    let head = ProgramUtils.formatString(new TsChar(item.item_description_char).decode());
+                    // 項目名が重複する場合はタブ文字を追加して区別する
+                    while (detail_array.some(detail => detail.head === head)) {
+                        head += '\t';
+                    }
+                    detail_array.push({head: head, raw_text: item.item_char});
+                }
+            }
+        }
+        for (const detail of detail_array) {
+            // 見出し
+            // 意図的に重複防止のためのタブ文字付加が行われる場合があるため、
+            // trim() ではなく明示的に半角スペースと改行のみを指定した replace() を使っている
+            let head_hankaku = ProgramUtils.formatString(detail.head).replaceAll('◇', '').replace(/[\s\r\n]+/g, '');  // ◇ を取り除く
+            // 見出しが空の場合、固定で「番組内容」としておく
+            if (head_hankaku === '') {
+                head_hankaku = '番組内容';
+            }
+            // 本文
+            const text_hankaku = ProgramUtils.formatString(new TsChar(detail.raw_text).decode()).trim();
+            // この時点で番組概要が空の場合、番組詳細の最初の本文を概要として使う
+            // 空でまったく情報がないよりかは良いはず
+            if (program.description.trim() === '') {
+                program.description = text_hankaku;
+            }
+            program.detail[head_hankaku] = text_hankaku;
+        }
+
+        // ジャンル
+        // server/app/models/Program.py 内の処理ロジックを移植したもの
+        if (content_descriptor !== null) {
+            for (const content of content_descriptor.contents) {
+                const genre_tuple = ProgramUtils.CONTENT_TYPE[content.content_nibble_level_1] ?? null;
+                if (genre_tuple !== null) {
+                    // major: 大分類
+                    // middle: 中分類
+                    const genre_dict = {
+                        'major': genre_tuple[0] as string,
+                        'middle': (genre_tuple[1][content.content_nibble_level_2] ?? '未定義') as string,
+                    };
+                    // BS/地上デジタル放送用番組付属情報がジャンルに含まれている場合、user_nibble から値を取得して書き換える
+                    // たとえば「中止の可能性あり」や「延長の可能性あり」といった情報が取れる
+                    if (genre_dict['major'] === '拡張') {
+                        if (genre_dict['middle'] === 'BS/地上デジタル放送用番組付属情報') {
+                            const user_nibble = (content.user_nibble_1 * 0x10) + content.user_nibble_2;
+                            genre_dict['middle'] = ProgramUtils.USER_TYPE[user_nibble] ?? '未定義';
+                        } else {
+                            // 「拡張」はあるがBS/地上デジタル放送用番組付属情報でない場合はなんの値なのかわからないのでパス
+                            continue;
+                        }
+                    }
+                    program.genres.push(genre_dict);
+                }
+            }
+        }
+
+        // 映像情報
+        // server/app/models/Program.py 内の処理ロジックを移植したもの
+        if (video_component_descriptor !== null) {
+            // 映像の種類
+            const component_types = ProgramUtils.COMPONENT_TYPE[video_component_descriptor.stream_content] ?? null;
+            if (component_types !== null) {
+                program.video_type = component_types[video_component_descriptor.component_type] ?? null;
+            }
+            // 映像のコーデック
+            program.video_codec = ProgramUtils.STREAM_CONTENT[video_component_descriptor.stream_content] ?? null;
+            // 映像の解像度
+            program.video_resolution = ProgramUtils.VIDEO_COMPONENT_TYPE[video_component_descriptor.component_type] ?? null;
+        } else {
+            // ラジオチャンネルなど映像情報がない場合
+            program.video_type = null;
+            program.video_resolution = null;
+            program.video_codec = null;
+        }
+
+        // 音声情報 (主音声)
+        // server/app/models/Program.py 内の処理ロジックを移植したもの
+        if (audio_component_descriptor_primary !== null) {
+            // 音声の種類
+            program.primary_audio_type = ProgramUtils.COMPONENT_TYPE[0x02][audio_component_descriptor_primary.component_type] ?? '';
+            program.primary_audio_language =
+                ProgramUtils.getISO639LanguageCodeName(String.fromCharCode(...audio_component_descriptor_primary.ISO_639_language_code));
+            program.primary_audio_sampling_rate = ProgramUtils.SAMPLING_RATE[audio_component_descriptor_primary.sampling_rate] ?? '';
+            // デュアルモノのみ
+            if (program.primary_audio_type == '1/0+1/0モード(デュアルモノ)') {
+                if (audio_component_descriptor_primary.ES_multi_lingual_flag === 1) {
+                    program.primary_audio_language += '+' +
+                        ProgramUtils.getISO639LanguageCodeName(String.fromCharCode(...audio_component_descriptor_primary.ISO_639_language_code_2));
+                } else {
+                    program.primary_audio_language += '+副音声';  // 副音声で固定
+                }
+            }
+        } else {
+            // 運用上音声コンポーネント記述子 (主音声) は必ず送出されているはずだが、念のため
+            // 型定義上 null は許容していないのでひとまず空文字列をセット
+            program.primary_audio_type = '';
+            program.primary_audio_language = '';
+            program.primary_audio_sampling_rate = '';
+        }
+
+        // 音声情報 (副音声)
+        // server/app/models/Program.py 内の処理ロジックを移植したもの
+        if (audio_component_descriptor_secondary !== null) {
+            // 音声の種類
+            program.secondary_audio_type = ProgramUtils.COMPONENT_TYPE[0x02][audio_component_descriptor_secondary.component_type] ?? '';
+            program.secondary_audio_language =
+                ProgramUtils.getISO639LanguageCodeName(String.fromCharCode(...audio_component_descriptor_secondary.ISO_639_language_code));
+            program.secondary_audio_sampling_rate = ProgramUtils.SAMPLING_RATE[audio_component_descriptor_secondary.sampling_rate] ?? '';
+            // デュアルモノのみ
+            if (program.secondary_audio_type == '1/0+1/0モード(デュアルモノ)') {
+                if (audio_component_descriptor_secondary.ES_multi_lingual_flag === 1) {
+                    program.secondary_audio_language += '+' +
+                        ProgramUtils.getISO639LanguageCodeName(String.fromCharCode(...audio_component_descriptor_secondary.ISO_639_language_code_2));
+                } else {
+                    program.secondary_audio_language += '+副音声';  // 副音声で固定
+                }
+            }
+        } else {
+            // 副音声が存在しない場合
+            program.secondary_audio_type = null;
+            program.secondary_audio_language = null;
+            program.secondary_audio_sampling_rate = null;
+        }
+
+        return program;
     }
 
 

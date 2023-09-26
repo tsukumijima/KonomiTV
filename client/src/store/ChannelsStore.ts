@@ -2,7 +2,8 @@
 import { defineStore } from 'pinia';
 import Vue from 'vue';
 
-import Channels, { ChannelType, ChannelTypePretty, IChannelsList, IChannel, IChannelDefault } from '@/services/Channels';
+import Channels, { ChannelType, ChannelTypePretty, ILiveChannelsList, ILiveChannel, ILiveChannelDefault } from '@/services/Channels';
+import { IProgram } from '@/services/Programs';
 import useSettingsStore from '@/store/SettingsStore';
 import Utils, { ChannelUtils } from '@/utils';
 
@@ -15,15 +16,6 @@ import Utils, { ChannelUtils } from '@/utils';
 const useChannelsStore = defineStore('channels', {
     state: () => ({
 
-        // 現在視聴中のチャンネルの ID (ex: gr011)
-        // 視聴画面のみ有効で、ホーム画面では利用されない
-        display_channel_id: 'gr000' as string,
-
-        // 現在視聴中のチャンネル・番組情報 (番組情報のみ EIT[p/f] からリアルタイムに更新される)
-        // チャンネル切り替え後、LiveDataBroadcastingManager で EIT[p/f] から取得されるまでは null
-        // 視聴画面のみ有効で、ホーム画面では利用されない
-        current_channel: null as IChannel | null,
-
         // すべてのチャンネルタイプのチャンネルリスト
         channels_list: {
             GR: [],
@@ -32,13 +24,27 @@ const useChannelsStore = defineStore('channels', {
             CATV: [],
             SKY: [],
             STARDIGIO: [],
-        } as IChannelsList,
+        } as ILiveChannelsList,
 
         // 初回のチャンネル情報更新が実行された後かどうか
         is_channels_list_initial_updated: false,
 
         // 最終更新日時 (UNIX タイムスタンプ、秒単位)
         last_updated_at: 0,
+
+        // 現在視聴中のチャンネルの ID (ex: gr011)
+        // 視聴画面のみ有効で、ホーム画面では利用されない
+        display_channel_id: 'gr000' as string,
+
+        // 現在放送中の番組情報 (EPG (EIT[p/f]) からリアルタイムに更新される)
+        // チャンネル切り替え後、LiveDataBroadcastingManager で EIT[p/f] から取得されるまでは null になる
+        // 視聴画面のみ有効で、ホーム画面では利用されない
+        current_program_present: null as IProgram | null,
+
+        // 次に放送される番組情報 (EPG (EIT[p/f]) からリアルタイムに更新される)
+        // チャンネル切り替え後、LiveDataBroadcastingManager で EIT[p/f] から取得されるまでは null になる
+        // 視聴画面のみ有効で、ホーム画面では利用されない
+        current_program_following: null as IProgram | null,
     }),
     getters: {
 
@@ -51,21 +57,21 @@ const useChannelsStore = defineStore('channels', {
         },
 
         /**
-         * 前・現在・次のチャンネル情報 (視聴画面用)
+         * 前・現在・次のチャンネルの情報 (視聴画面用)
          * チャンネル情報はデータ量がかなり多いので、個別に取得するより一気に取得したほうがループ回数が少なくなりパフォーマンスが良い
          */
-        channel(): {previous: IChannel; current: IChannel; next: IChannel;} {
+        channel(): {previous: ILiveChannel; current: ILiveChannel; next: ILiveChannel;} {
 
             // チャンネルタイプごとのチャンネル情報リストを取得する (すべてのチャンネルリストから探索するより効率的)
-            const channels: IChannel[] | undefined = this.channels_list[ChannelUtils.getChannelType(this.display_channel_id)];
+            const channels: ILiveChannel[] | undefined = this.channels_list[ChannelUtils.getChannelType(this.display_channel_id)];
 
             // まだチャンネルリストの更新が終わっていないなどの場合で取得できなかった場合、
             // null を返すと UI 側でのエラー処理が大変なので、暫定的なダミーのチャンネル情報を返す
             if (channels === undefined || channels.length === 0) {
                 return {
-                    previous: IChannelDefault,
-                    current: IChannelDefault,
-                    next: IChannelDefault,
+                    previous: ILiveChannelDefault,
+                    current: ILiveChannelDefault,
+                    next: ILiveChannelDefault,
                 };
             }
 
@@ -75,22 +81,22 @@ const useChannelsStore = defineStore('channels', {
             // インデックスが取得できなかった場合も同様に、暫定的なダミーのチャンネル情報を返す
             if (current_channel_index === -1) {
                 const IProgramError = {
-                    ...IChannelDefault.program_present,
+                    ...ILiveChannelDefault.program_present,
                     display_channel_id: 'gr999',
                     title: 'チャンネル情報取得エラー',
                     description: 'このチャンネル ID のチャンネル情報は存在しません。',
                 };
-                const IChannelError = {
-                    ...IChannelDefault,
+                const ILiveChannelError = {
+                    ...ILiveChannelDefault,
                     display_channel_id: 'gr999',  // チャンネル情報が存在しないことを示す特殊なチャンネル ID
                     name: 'ERROR',
                     program_present: IProgramError,
                     program_following: IProgramError,
                 };
                 return {
-                    previous: IChannelError as IChannel,
-                    current: IChannelError as IChannel,
-                    next: IChannelError as IChannel,
+                    previous: ILiveChannelError as ILiveChannel,
+                    current: ILiveChannelError as ILiveChannel,
+                    next: ILiveChannelError as ILiveChannel,
                 };
             }
 
@@ -128,19 +134,34 @@ const useChannelsStore = defineStore('channels', {
                 return 0;
             })();
 
-            // もしこの時点で current_channel が持つチャンネル ID と channels[current_channel_index] が持つチャンネル ID が一致していない場合、
-            // チャンネル切り替えなどで EPG 由来の current_channel の情報が古くなっているため、ここで null にする
-            // チャンネル切り替え後、LiveDataBroadcastingManager で EIT[p/f] から最新のチャンネル情報が取得されるまでの間は
-            // channels[current_channel_index] の情報が表示に使われることになる
-            if (this.current_channel !== null && this.current_channel.id !== channels[current_channel_index].id) {
-                this.current_channel = null;
+            // もしこの時点で channels[current_channel_index] の network_id / service_id と
+            // EPG 由来の current_program_(present/following) の network_id / service_id が一致していない場合、
+            // チャンネル切り替えが行われたことで current_program_(present/following) の情報が古くなっているため、ここで null にする
+            // チャンネル切り替え後、ストリーミングが開始され EPG から再度最新の番組情報が取得されるまでの間は、
+            // channels[current_channel_index] 内の番組情報 (サーバー API 由来) が使われることになる
+            if ((this.current_program_present?.network_id !== channels[current_channel_index].network_id) ||
+                (this.current_program_present?.service_id !== channels[current_channel_index].service_id)) {
+                this.current_program_present = null;
+            }
+            if ((this.current_program_following?.network_id !== channels[current_channel_index].network_id) ||
+                (this.current_program_following?.service_id !== channels[current_channel_index].service_id)) {
+                this.current_program_following = null;
+            }
+
+            // 現在のチャンネル情報のみ、EPG から取得した現在/次の番組情報があればそちらを優先して上書き表示する
+            // channels[current_channel_index] は channels_list に格納されているチャンネル情報と同一の参照なので、
+            // 上書きした番組情報は番組情報タブだけでなく、チャンネルリストにも反映される
+            if (this.current_program_present !== null) {
+                channels[current_channel_index].program_present = this.current_program_present;
+            }
+            if (this.current_program_following !== null) {
+                channels[current_channel_index].program_following = this.current_program_following;
             }
 
             // 前・現在・次のチャンネル情報を返す
-            // current_channel が利用可能であれば使う
             return {
                 previous: channels[previous_channel_index],
-                current: this.current_channel ?? channels[current_channel_index],
+                current: channels[current_channel_index],
                 next: channels[next_channel_index],
             };
         },
@@ -151,13 +172,13 @@ const useChannelsStore = defineStore('channels', {
          * また、チャンネルが1つもないチャンネルタイプのタブも表示から除外される
          * (たとえば SKY (スカパー！プレミアムサービス) のタブは、SKY に属すチャンネルが1つもない（=受信できない）なら表示されない)
          */
-        channels_list_with_pinned(): Map<ChannelTypePretty, IChannel[]> {
+        channels_list_with_pinned(): Map<ChannelTypePretty, ILiveChannel[]> {
 
             const settings_store = useSettingsStore();
 
             // 事前に Map を定義しておく
             // Map にしていたのは、確か連想配列の順序を保証してくれるからだったはず
-            const channels_list_with_pinned = new Map<ChannelTypePretty, IChannel[]>();
+            const channels_list_with_pinned = new Map<ChannelTypePretty, ILiveChannel[]>();
             channels_list_with_pinned.set('ピン留め', []);
             channels_list_with_pinned.set('地デジ', []);
 
@@ -246,7 +267,7 @@ const useChannelsStore = defineStore('channels', {
          * 視聴画面向けの channels_list_with_pinned
          * 視聴画面ではピン留めされているチャンネルが1つもないときは、ピン留めタブを表示する必要性がないため削除される
          */
-        channels_list_with_pinned_for_watch(): Map<ChannelTypePretty, IChannel[]> {
+        channels_list_with_pinned_for_watch(): Map<ChannelTypePretty, ILiveChannel[]> {
             const channels_list_with_pinned = new Map([...this.channels_list_with_pinned]);
             if (channels_list_with_pinned.get('ピン留め')?.length === 0) {
                 channels_list_with_pinned.delete('ピン留め');
@@ -261,7 +282,7 @@ const useChannelsStore = defineStore('channels', {
          * @param display_channel_id 取得するチャンネル ID (ex: gr011)
          * @returns チャンネル情報
          */
-        getChannel(display_channel_id: string): IChannel | null {
+        getChannel(display_channel_id: string): ILiveChannel | null {
 
             // チャンネルタイプごとのチャンネル情報リストを取得する (すべてのチャンネルリストから探索するより効率的)
             const channels = this.channels_list[ChannelUtils.getChannelType(display_channel_id)];
@@ -279,7 +300,7 @@ const useChannelsStore = defineStore('channels', {
          * @param remocon_id リモコン番号
          * @returns チャンネル情報 (見つからなかった場合は null)
          */
-        getChannelByRemoconID(channel_type: ChannelType, remocon_id: number): IChannel | null {
+        getChannelByRemoconID(channel_type: ChannelType, remocon_id: number): ILiveChannel | null {
 
             // 指定されたチャンネルタイプのチャンネルを取得
             const channels = this.channels_list[channel_type];
@@ -297,7 +318,7 @@ const useChannelsStore = defineStore('channels', {
          * @param display_channel_id 更新するチャンネル ID (ex: gr011)
          * @param channel 更新後のチャンネル情報
          */
-        updateChannel(display_channel_id: string, channel: IChannel): void {
+        updateChannel(display_channel_id: string, channel: ILiveChannel): void {
 
             // チャンネルタイプごとのチャンネル情報リストを取得する (すべてのチャンネルリストから探索するより効率的)
             const channel_type = ChannelUtils.getChannelType(display_channel_id);

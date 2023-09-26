@@ -1,17 +1,15 @@
 
 import * as Comlink from 'comlink';
-import dayjs from 'dayjs';
 import DPlayer from 'dplayer';
 import { BMLBrowser, BMLBrowserFontFace } from 'web-bml/client/bml_browser';
 import { AribKeyCode } from 'web-bml/client/content';
-import { ResponseMessage } from 'web-bml/server/ws_api';
 
 import router from '@/router';
+import { ILiveChannel } from '@/services/Channels';
 import PlayerManager from '@/services/player/PlayerManager';
-import { IProgramDefault } from '@/services/Programs';
 import useChannelsStore from '@/store/ChannelsStore';
 import useSettingsStore from '@/store/SettingsStore';
-import Utils, { PlayerUtils, ProgramUtils } from '@/utils';
+import Utils, { PlayerUtils } from '@/utils';
 import { ILivePSIArchivedDataDecoder } from '@/workers/LivePSIArchivedDataDecoder';
 
 
@@ -19,7 +17,7 @@ import { ILivePSIArchivedDataDecoder } from '@/workers/LivePSIArchivedDataDecode
 // Comlink を使い、Web Worker とメインスレッド間でオブジェクトをやり取りする
 const worker = new Worker(new URL('@/workers/LivePSIArchivedDataDecoder', import.meta.url));
 const LivePSIArchivedDataDecoderWorker =
-    Comlink.wrap<new (psi_archived_data_api_url: string) => Comlink.Remote<ILivePSIArchivedDataDecoder>>(worker);
+    Comlink.wrap<new (channel: ILiveChannel, api_quality: string) => Comlink.Remote<ILivePSIArchivedDataDecoder>>(worker);
 
 
 class LiveDataBroadcastingManager implements PlayerManager {
@@ -33,7 +31,6 @@ class LiveDataBroadcastingManager implements PlayerManager {
     };
 
     private player: DPlayer;
-    private display_channel_id: string;
     private media_element: HTMLElement;
     private container_element: HTMLElement | null = null;
 
@@ -65,12 +62,8 @@ class LiveDataBroadcastingManager implements PlayerManager {
     // PSI/SI アーカイブデータデコーダーのインスタンス
     private live_psi_archived_data_decoder: Comlink.Remote<Comlink.Remote<ILivePSIArchivedDataDecoder>> | null = null;
 
-    constructor(options: {
-        player: DPlayer;
-        display_channel_id: string;
-    }) {
-        this.player = options.player;
-        this.display_channel_id = options.display_channel_id;
+    constructor(player: DPlayer) {
+        this.player = player;
 
         // 映像が入る DOM 要素
         // DPlayer 内の dplayer-video-wrap-aspect をそのまま使う (中に映像と字幕が含まれる)
@@ -298,86 +291,61 @@ class LiveDataBroadcastingManager implements PlayerManager {
         // ここからはデータ放送機能無効時も実行される
         // PSI/SI アーカイブデータは、UI 上の番組情報をリアルタイムに更新する用途でも利用している
 
-        // ライブ PSI/SI アーカイブデータストリーミング API の URL を作成
-        const api_quality = PlayerUtils.extractAPIQualityFromDPlayer(this.player);
-        const api_url = `${Utils.api_base_url}/streams/live/${this.display_channel_id}/${api_quality}/psi-archived-data`;
-
         // ライブ PSI/SI アーカイブデータデコーダーを初期化
         // Comlink を挟んでいる関係上、コンストラクタにも関わらず Promise を返すため await する必要がある
-        this.live_psi_archived_data_decoder = await new LivePSIArchivedDataDecoderWorker(api_url);
+        const api_quality = PlayerUtils.extractAPIQualityFromDPlayer(this.player);
+        this.live_psi_archived_data_decoder = await new LivePSIArchivedDataDecoderWorker(channels_store.channel.current, api_quality);
 
         // デコードを開始
         // デコーダーは Web Worker 上で実行される (コールバックを Comlink.proxy() で包むのがポイント)
-        this.live_psi_archived_data_decoder.run(Comlink.proxy(async (message: ResponseMessage) => {
+        this.live_psi_archived_data_decoder.run(Comlink.proxy(async (message) => {
 
-            // PMT (Program Map Table)
-            // データ放送有効時のみ処理
-            if (message.type === 'pmt' && this.#bml_browser !== null) {
-
-                // データ放送がチャンネルに含まれているかどうか
-                // AdditionalAribBXMLInfo を含むコンポーネントが一つでも存在するかどうかで判定
-                const is_bml_available = message.components.some((component) => component.bxmlInfo !== undefined);
-                console.log(`[LiveDataBroadcastingManager] BMLBrowser: ${is_bml_available ? 'available' : 'unavailable'}`);
-
-                // データ放送がチャンネルに含まれていない場合
-                if (is_bml_available === false) {
-
-                    // リモコンのローディング状態を解除
-                    // PMT にデータ放送用情報が含まれるようになるまでは、データ放送が利用できる見込みはない
-                    this.toggleRemoconButtonsLoading(false);
-
-                    // リモコンのボタンを無効化
-                    this.toggleRemoconButtonsEnabled(false);
-
-                // データ放送がチャンネルに含まれている場合
-                // データ放送がチャンネルに含まれていなかったが、後から含まれるようになったケースを想定
-                // この時点ではローディングは終わっていないので、ローディング状態は解除しない
-                } else {
-
-                    // リモコンのボタンを有効化
-                    this.toggleRemoconButtonsEnabled(true);
-                }
-            }
-
-            // 番組情報イベント
-            // 現在放送中の番組情報を UI にリアルタイムに反映する
-            // TODO: 残りのプロパティの対応・次の番組情報への対応 (いずれも web-bml 側の改修が必要)
-            if (message.type === 'programInfo' && channels_store.channel.current.program_present != null) {
-
-                // 番組情報が取得できていない場合はスキップ
-                if (message.eventId === null || message.eventName === null || message.startTimeUnixMillis === null) {
-                    return;
-                }
-
-                // 雛形として現在最新のチャンネル情報・番組情報を設定する
-                channels_store.current_channel = channels_store.channel.current;
-                if (channels_store.current_channel.program_present === null) {
-                    channels_store.current_channel.program_present = IProgramDefault;
-                }
-
-                // イベント ID
-                channels_store.current_channel.program_present.event_id = message.eventId;
-                // 番組タイトル
-                channels_store.current_channel.program_present.title = ProgramUtils.formatString(message.eventName);
-                // 番組開始時刻・番組終了時刻・番組長
-                const start_time = ProgramUtils.convertTimestampToISO8601(message.startTimeUnixMillis);
-                channels_store.current_channel.program_present.start_time = start_time;
-                if (message.durationSeconds === null || message.indefiniteDuration === true) {
-                    // 放送時間未定扱い
-                    // duration が -1 の場合、ProgramUtils.getProgramTime() は「放送時間未定」と表示する
-                    channels_store.current_channel.program_present.end_time = start_time;
-                    channels_store.current_channel.program_present.duration = -1;  // -1 を設定する
-                } else {
-                    channels_store.current_channel.program_present.end_time =
-                        dayjs(start_time).add(message.durationSeconds, 'seconds').toISOString();
-                    channels_store.current_channel.program_present.duration = message.durationSeconds;
-                }
-            }
-
-            // TS ストリームのデコード結果を BML ブラウザにそのまま送信する
-            // データ放送機能無効時は実行しない
+            // データ放送有効時のみ
             if (this.#bml_browser !== null) {
-                this.#bml_browser.emitMessage(message);
+
+                // PMT (Program Map Table) イベント
+                if (message.type === 'pmt') {
+
+                    // データ放送がチャンネルに含まれているかどうか
+                    // AdditionalAribBXMLInfo を含むコンポーネントが一つでも存在するかどうかで判定
+                    const is_bml_available = message.components.some((component) => component.bxmlInfo !== undefined);
+                    console.log(`[LiveDataBroadcastingManager] BMLBrowser: ${is_bml_available ? 'available' : 'unavailable'}`);
+
+                    // データ放送がチャンネルに含まれていない場合
+                    if (is_bml_available === false) {
+
+                        // リモコンのローディング状態を解除
+                        // PMT にデータ放送用情報が含まれるようになるまでは、データ放送が利用できる見込みはない
+                        this.toggleRemoconButtonsLoading(false);
+
+                        // リモコンのボタンを無効化
+                        this.toggleRemoconButtonsEnabled(false);
+
+                    // データ放送がチャンネルに含まれている場合
+                    // データ放送がチャンネルに含まれていなかったが、後から含まれるようになったケースを想定
+                    // この時点ではローディングは終わっていないので、ローディング状態は解除しない
+                    } else {
+
+                        // リモコンのボタンを有効化
+                        this.toggleRemoconButtonsEnabled(true);
+                    }
+                }
+
+                // TS ストリームのデコード結果を BML ブラウザにそのまま送信する
+                // IProgramPF は KonomiTV の UI 表示用の番組情報イベントなので、BML ブラウザには送信しない
+                if (message.type !== 'IProgramPF') {
+                    this.#bml_browser.emitMessage(message);
+                }
+            }
+
+            // 番組情報イベント (KonomiTV の UI 表示用)
+            // 現在放送中/次に放送される番組情報を ChannelsStore を経由し UI 側にリアルタイムに反映する
+            if (message.type === 'IProgramPF') {
+                if (message.present_or_following === 'Present') {
+                    channels_store.current_program_present = message.program;
+                } else if (message.present_or_following === 'Following') {
+                    channels_store.current_program_following = message.program;
+                }
             }
         }));
     }

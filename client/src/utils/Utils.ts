@@ -9,13 +9,14 @@ export default class Utils {
     public static readonly version: string = process.env.VUE_APP_VERSION as string;
 
     // バックエンドの API のベース URL
+    // Worker からも参照できるように self.location を使う
     public static readonly api_base_url = (() => {
         if (process.env.NODE_ENV === 'development') {
             // デバッグ時はポートを 7000 に強制する
-            return `${window.location.protocol}//${window.location.hostname}:7000/api`;
+            return `${self.location.protocol}//${self.location.hostname}:7000/api`;
         } else {
             // ビルド後は同じポートを使う
-            return `${window.location.protocol}//${window.location.host}/api`;
+            return `${self.location.protocol}//${self.location.host}/api`;
         }
     })();
 

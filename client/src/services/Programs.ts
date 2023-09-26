@@ -25,6 +25,13 @@ export interface IProgram {
     secondary_audio_sampling_rate: string | null;
 }
 
+/** 番組情報を表すインターフェイス (present_or_following: Present なら現在放送中、Following なら次の番組であることを示す) */
+export interface IProgramPF {
+    type: 'IProgramPF';
+    present_or_following: 'Present' | 'Following';
+    program: IProgram;
+}
+
 /** 番組情報を表すインターフェイスのデフォルト値 */
 export const IProgramDefault: IProgram = {
     id: 'NID0-SID0-EID0',

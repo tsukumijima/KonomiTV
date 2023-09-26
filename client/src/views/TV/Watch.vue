@@ -212,7 +212,7 @@ import Program from '@/components/Panel/Program.vue';
 import Remocon from '@/components/Panel/Remocon.vue';
 import Twitter from '@/components/Panel/Twitter.vue';
 import APIClient from '@/services/APIClient';
-import { IChannel } from '@/services/Channels';
+import { ILiveChannel } from '@/services/Channels';
 import CaptureManager from '@/services/player/managers/CaptureManager';
 import LiveDataBroadcastingManager from '@/services/player/managers/LiveDataBroadcastingManager';
 import useChannelsStore from '@/store/ChannelsStore';
@@ -560,8 +560,8 @@ export default Vue.extend({
         'channelsStore.channel': {
             immediate: true,
             handler(
-                new_channel: {previous: IChannel; current: IChannel; next: IChannel;},
-                old_channel: {previous: IChannel; current: IChannel; next: IChannel;} | undefined,
+                new_channel: {previous: ILiveChannel; current: ILiveChannel; next: ILiveChannel;},
+                old_channel: {previous: ILiveChannel; current: ILiveChannel; next: ILiveChannel;} | undefined,
             ) {
 
                 // old_channel が undefined の場合は、初回のイベント発火なので何もしない
@@ -1253,10 +1253,7 @@ export default Vue.extend({
             if (this.data_broadcasting_manager !== null) {
                 await this.data_broadcasting_manager.destroy();
             }
-            this.data_broadcasting_manager = new LiveDataBroadcastingManager({
-                player: this.player,
-                display_channel_id: this.channelsStore.channel.current.display_channel_id,
-            });
+            this.data_broadcasting_manager = new LiveDataBroadcastingManager(this.player);
             await this.data_broadcasting_manager.init();
 
             // 必ず最初はローディング状態とする

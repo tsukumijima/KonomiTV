@@ -10,17 +10,17 @@ export type ChannelType = 'GR' | 'BS' | 'CS' | 'CATV' | 'SKY' | 'STARDIGIO';
 export type ChannelTypePretty = 'ピン留め' | '地デジ' | 'BS' | 'CS' | 'CATV' | 'SKY' | 'StarDigio';
 
 /** すべてのチャンネルタイプのチャンネルの情報を表すインターフェイス */
-export interface IChannelsList {
-    GR: IChannel[];
-    BS: IChannel[];
-    CS: IChannel[];
-    CATV: IChannel[];
-    SKY: IChannel[];
-    STARDIGIO: IChannel[];
+export interface ILiveChannelsList {
+    GR: ILiveChannel[];
+    BS: ILiveChannel[];
+    CS: ILiveChannel[];
+    CATV: ILiveChannel[];
+    SKY: ILiveChannel[];
+    STARDIGIO: ILiveChannel[];
 }
 
 /** チャンネル情報を表すインターフェイス */
-export interface IChannel {
+export interface ILiveChannel {
     id: string;
     display_channel_id: string;
     network_id: number;
@@ -41,7 +41,7 @@ export interface IChannel {
 }
 
 /** チャンネル情報を表すインターフェイスのデフォルト値 */
-export const IChannelDefault: IChannel = {
+export const ILiveChannelDefault: ILiveChannel = {
     id: 'NID0-SID0',
     display_channel_id: 'gr000',
     network_id: 0,
@@ -75,10 +75,10 @@ class Channels {
      * すべてのチャンネルの情報を取得する
      * @return すべてのチャンネルの情報
      */
-    static async fetchAll(): Promise<IChannelsList | null> {
+    static async fetchAll(): Promise<ILiveChannelsList | null> {
 
         // API リクエストを実行
-        const response = await APIClient.get<IChannelsList>('/channels');
+        const response = await APIClient.get<ILiveChannelsList>('/channels');
 
         // エラー処理
         if ('is_error' in response) {
@@ -96,10 +96,10 @@ class Channels {
      * @param display_channel_id チャンネル ID
      * @return 指定したチャンネルの情報
      */
-    static async fetch(display_channel_id: string): Promise<IChannel | null> {
+    static async fetch(display_channel_id: string): Promise<ILiveChannel | null> {
 
         // API リクエストを実行
-        const response = await APIClient.get<IChannel>(`/channels/${display_channel_id}`);
+        const response = await APIClient.get<ILiveChannel>(`/channels/${display_channel_id}`);
 
         // エラー処理
         if ('is_error' in response) {
