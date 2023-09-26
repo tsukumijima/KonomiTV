@@ -632,11 +632,11 @@ class Program(models.Model):
                             ## 映像の種類
                             component_types = ariblib.constants.COMPONENT_TYPE.get(component_info['stream_content'])
                             if component_types is not None:
-                                program.video_type = component_types.get(component_info['component_type'], '')
+                                program.video_type = component_types.get(component_info['component_type'])
                             ## 映像のコーデック
-                            program.video_codec = TSInformation.STREAM_CONTENT.get(component_info['stream_content'], '')
+                            program.video_codec = TSInformation.STREAM_CONTENT.get(component_info['stream_content'])
                             ## 映像の解像度
-                            program.video_resolution = TSInformation.COMPONENT_TYPE.get(component_info['component_type'], '')
+                            program.video_resolution = TSInformation.COMPONENT_TYPE.get(component_info['component_type'])
 
                         # 音声情報
                         program.primary_audio_type = ''
@@ -658,7 +658,7 @@ class Program(models.Model):
                             ## デュアルモノのみ
                             if program.primary_audio_type == '1/0+1/0モード(デュアルモノ)':
                                 if audio_component_info['es_multi_lingual_flag'] != 0:  # デュアルモノ時の多言語フラグ
-                                    program.primary_audio_language += '+英語'  #
+                                    program.primary_audio_language += '+英語'
                                 else:
                                     program.primary_audio_language += '+副音声'
 
@@ -673,7 +673,7 @@ class Program(models.Model):
                                 ## デュアルモノのみ
                                 if program.secondary_audio_type == '1/0+1/0モード(デュアルモノ)':
                                     if audio_component_info['es_multi_lingual_flag'] != 0:  # デュアルモノ時の多言語フラグ
-                                        program.secondary_audio_language += '+英語'  #
+                                        program.secondary_audio_language += '+英語'
                                     else:
                                         program.secondary_audio_language += '+副音声'
 

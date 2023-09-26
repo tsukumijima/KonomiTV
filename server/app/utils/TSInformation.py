@@ -1,20 +1,14 @@
 
 import re
 from ariblib.aribstr import AribString
-from ariblib.sections import NetworkInformationSection
 from typing import cast, Literal
-
-
-class ActualStreamNetworkInformationSection(NetworkInformationSection):
-    """ 自ストリームSDT """
-    _table_ids = [0x40]  # 自ネットワークのみ
 
 
 class TSInformation:
     """ 録画 TS ファイル内に含まれる番組情報のユーティリティ """
 
     # 映像のコーデック
-    # 参考: https://github.com/Chinachu/Mirakurun/blob/master/src/Mirakurun/epg.ts#L27
+    # ref: https://github.com/Chinachu/Mirakurun/blob/master/src/Mirakurun/EPG.ts#L23-L27
     STREAM_CONTENT = {
         0x01: 'MPEG-2',
         0x05: 'H.264',
@@ -22,7 +16,7 @@ class TSInformation:
     }
 
     # 映像の解像度
-    # 参考: https://github.com/Chinachu/Mirakurun/blob/master/src/Mirakurun/epg.ts#L33
+    # ref: https://github.com/Chinachu/Mirakurun/blob/master/src/Mirakurun/EPG.ts#L29-L63
     COMPONENT_TYPE = {
         0x01: '480i',
         0x02: '480i',
