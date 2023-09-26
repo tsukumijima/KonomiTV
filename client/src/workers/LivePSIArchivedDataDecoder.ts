@@ -2,7 +2,7 @@
 import { Buffer } from 'buffer';
 
 import { TsChar, TsDate } from '@tsukumijima/aribts';
-import { EIT } from '@tsukumijima/aribts/src/table/eit';
+import { EIT } from '@tsukumijima/aribts/lib/table/eit';
 import * as Comlink from 'comlink';
 import dayjs from 'dayjs';
 import { decodeTS } from 'web-bml/server/decode_ts';
