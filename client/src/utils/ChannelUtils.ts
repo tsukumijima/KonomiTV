@@ -12,7 +12,7 @@ export class ChannelUtils {
      * @param display_channel_id チャンネル ID
      * @returns チャンネルタイプ
      */
-    public static getChannelType(display_channel_id: string): ChannelType {
+    static getChannelType(display_channel_id: string): ChannelType {
         try {
             const result = display_channel_id.match('(?<channel_type>[a-z]+)[0-9]+')!.groups!.channel_type.toUpperCase();
             return result as ChannelType;
@@ -30,7 +30,7 @@ export class ChannelUtils {
      * @param jikkyo_force チャンネルの実況勢い
      * @returns normal（普通）or many（多）or so-many（激多）or festival（祭）
      */
-    public static getChannelForceType(jikkyo_force: number | null): 'normal' | 'many' | 'so-many' | 'festival' {
+    static getChannelForceType(jikkyo_force: number | null): 'normal' | 'many' | 'so-many' | 'festival' {
 
         // 実況勢いが null（=対応する実況チャンネルがない）
         if (jikkyo_force === null) return 'normal';

@@ -20,7 +20,7 @@ export class ProgramUtils {
 
     // 映像のコーデック
     // ref: https://github.com/Chinachu/Mirakurun/blob/master/src/Mirakurun/EPG.ts#L23-L27
-    public static readonly STREAM_CONTENT = {
+    static readonly STREAM_CONTENT = {
         0x01: 'MPEG-2',
         0x05: 'H.264',
         0x09: 'H.265',
@@ -28,7 +28,7 @@ export class ProgramUtils {
 
     // 映像の解像度
     // ref: https://github.com/Chinachu/Mirakurun/blob/master/src/Mirakurun/EPG.ts#L29-L63
-    public static readonly VIDEO_COMPONENT_TYPE = {
+    static readonly VIDEO_COMPONENT_TYPE = {
         0x01: '480i',
         0x02: '480i',
         0x03: '480i',
@@ -70,7 +70,7 @@ export class ProgramUtils {
 
     // ARIB-STD-B10-2-H コンテント記述子におけるジャンル指定
     // KonomiTV では見栄え的な都合で中分類の "／" を "・" に置き換えている (サーバー側も同様)
-    public static readonly CONTENT_TYPE = {
+    static readonly CONTENT_TYPE = {
         0x0: ['ニュース・報道', {
             0x0: '定時・総合',
             0x1: '天気',
@@ -212,7 +212,7 @@ export class ProgramUtils {
 
     // ARIB-TR-B24-4.B 表B-1 地上デジタルテレビジョン放送用番組付属情報
     // ARIB-TR-B25-4.B 表B-1 BSデジタル放送用番組付属情報
-    public static readonly USER_TYPE = {
+    static readonly USER_TYPE = {
         0x00: '中止の可能性あり',
         0x01: '延長の可能性あり',
         0x02: '中断の可能性あり',
@@ -225,7 +225,7 @@ export class ProgramUtils {
     };
 
     // ARIB-STD-B10-2-6.2.3 表6-5 コンポーネント内容とコンポーネント種別
-    public static readonly COMPONENT_TYPE = {
+    static readonly COMPONENT_TYPE = {
         0x01: {
             0x00: '将来使用のためリザーブ',
             0x01: '映像480i(525i)、アスペクト比4:3',
@@ -320,7 +320,7 @@ export class ProgramUtils {
     };
 
     // ARIB-STD-B10-2-6.2.26 表6-45 サンプリング周波数
-    public static readonly SAMPLING_RATE = {
+    static readonly SAMPLING_RATE = {
         0b000: '将来使用のためリザーブ',
         0b001: '16kHz',
         0b010: '22.05kHz',
@@ -340,7 +340,7 @@ export class ProgramUtils {
      * @param key 番組情報のオブジェクトから取り出すプロパティのキー
      * @returns 装飾した文字列
      */
-    public static decorateProgramInfo(program: IProgram | null, key: string): string {
+    static decorateProgramInfo(program: IProgram | null, key: string): string {
 
         // program が空でないかつ、program[key] が存在する
         if (program !== null && program[key] !== null) {
@@ -400,7 +400,7 @@ export class ProgramUtils {
      * @param program 番組情報
      * @returns 番組の進捗状況（%単位）
      */
-    public static getProgramProgress(program: IProgram | null): number {
+    static getProgramProgress(program: IProgram | null): number {
 
         // program が空でない
         if (program !== null) {
@@ -429,7 +429,7 @@ export class ProgramUtils {
      * @param is_short 時刻のみ返すかどうか
      * @returns 番組の放送時刻
      */
-    public static getProgramTime(program: IProgram | null, is_short: boolean = false): string {
+    static getProgramTime(program: IProgram | null, is_short: boolean = false): string {
 
         // program が空でなく、かつ番組時刻が初期値でない
         if (program !== null && program.start_time !== '2000-01-01T00:00:00+09:00') {
@@ -472,7 +472,7 @@ export class ProgramUtils {
      * @param string 変換する文字列
      * @returns 置換した文字列
      */
-    public static formatString(string: string): string {
+    static formatString(string: string): string {
 
         // 変換マップを構築
         if (ProgramUtils.format_string_translation_map === null) {
@@ -580,7 +580,7 @@ export class ProgramUtils {
      * @param iso639_language_code ISO639 形式の言語コード
      * @returns ISO639 形式の言語コードが示す言語の名称
      */
-    public static getISO639LanguageCodeName(iso639_language_code: string): string {
+    static getISO639LanguageCodeName(iso639_language_code: string): string {
         if (iso639_language_code === 'jpn') {
             return '日本語';
         } else if (iso639_language_code === 'eng') {

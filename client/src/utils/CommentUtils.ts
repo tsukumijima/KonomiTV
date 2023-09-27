@@ -61,7 +61,7 @@ export class CommentUtils {
      * @param color ニコニコの色指定
      * @return 16 進数カラーコード
      */
-    public static getCommentColor(color: string): string | null {
+    static getCommentColor(color: string): string | null {
         return this.color_table[color] || null;
     }
 
@@ -71,7 +71,7 @@ export class CommentUtils {
      * @param position ニコニコの位置指定
      * @return DPlayer の位置指定
      */
-    public static getCommentPosition(position: string): 'top' | 'right' | 'bottom' | null {
+    static getCommentPosition(position: string): 'top' | 'right' | 'bottom' | null {
         switch (position) {
             case 'ue':
                 return 'top';
@@ -90,7 +90,7 @@ export class CommentUtils {
      * @param size ニコニコのサイズ指定
      * @returns DPlayer のサイズ指定
      */
-    public static getCommentSize(size: string): 'big' | 'medium' | 'small' | null {
+    static getCommentSize(size: string): 'big' | 'medium' | 'small' | null {
         switch (size) {
             case 'big':
             case 'medium':
@@ -107,7 +107,7 @@ export class CommentUtils {
      * @param comment_mail ニコニコのコメントコマンド
      * @returns コメントの色、位置、サイズ
      */
-    public static parseCommentCommand(comment_mail: string): {
+    static parseCommentCommand(comment_mail: string): {
         color: string;
         position: 'top' | 'right' | 'bottom';
         size: 'big' | 'medium' | 'small';
@@ -148,7 +148,7 @@ export class CommentUtils {
      * @param size コメントのサイズ
      * @return ミュート対象のコメントなら true を返す
      */
-    public static isMutedComment(
+    static isMutedComment(
         comment: string,
         user_id: string,
         color?: string,
@@ -268,7 +268,7 @@ export class CommentUtils {
      * ミュート済みキーワードリストに追加する (完全一致)
      * @param comment コメント文字列
      */
-    public static addMutedKeywords(comment: string): void {
+    static addMutedKeywords(comment: string): void {
 
         // すでにまったく同じミュート済みキーワードが追加済みの場合は何もしない
         const settings_store = useSettingsStore();
@@ -290,7 +290,7 @@ export class CommentUtils {
      * ミュート済みニコニコユーザー ID リストに追加する
      * @param user_id ニコニコユーザー ID
      */
-    public static addMutedNiconicoUserIDs(user_id: string): void {
+    static addMutedNiconicoUserIDs(user_id: string): void {
 
         // すでに追加済みの場合は何もしない
         const settings_store = useSettingsStore();

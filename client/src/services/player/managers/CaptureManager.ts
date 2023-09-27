@@ -58,8 +58,6 @@ class CaptureManager {
     private captured_callback: (blob: Blob, filename: string) => void;
     private capture_button: HTMLDivElement;
     private comment_capture_button: HTMLDivElement;
-    private canvas: OffscreenCanvas | HTMLCanvasElement;
-    private canvas_context: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
     private settings_store = useSettingsStore();
 
     constructor(options: {
