@@ -265,11 +265,19 @@ class LiveDataBroadcastingManager implements PlayerManager {
                     // データ放送内に移動していた映像の要素を DPlayer に戻す
                     console.log('[LiveDataBroadcastingManager] BMLBrowser: invisible');
                     this.moveVideoElementToDPlayer();
+                    // BML ブラウザのコンテナ要素を display: none にする
+                    if (this.container_element !== null) {
+                        this.container_element.style.display = 'none';
+                    }
                 } else {
                     // 表示状態
                     // 映像の要素をデータ放送内に移動
                     console.log('[LiveDataBroadcastingManager] BMLBrowser: visible');
                     this.moveVideoElementToBMLBrowser();
+                    // BML ブラウザのコンテナ要素を display: block にする
+                    if (this.container_element !== null) {
+                        this.container_element.style.display = 'block';
+                    }
                 }
             });
 
@@ -458,6 +466,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
 
     /**
      * 映像の DOM 要素を DPlayer から BML ブラウザ (データ放送) 内に移動する
+     * データ放送が読み込まれるか、表示状態になるときに呼び出される
      */
     private moveVideoElementToBMLBrowser(): void {
 
@@ -506,6 +515,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
 
     /**
      * 映像の DOM 要素を BML ブラウザ (データ放送) から DPlayer 内に移動する
+     * データ放送が非表示状態になるか、破棄されるときに呼び出される
      */
     private moveVideoElementToDPlayer(): void {
 
