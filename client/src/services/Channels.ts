@@ -9,18 +9,8 @@ export type ChannelType = 'GR' | 'BS' | 'CS' | 'CATV' | 'SKY' | 'STARDIGIO';
 // チャンネルタイプの型 (実際のチャンネルリストに表示される表現)
 export type ChannelTypePretty = 'ピン留め' | '地デジ' | 'BS' | 'CS' | 'CATV' | 'SKY' | 'StarDigio';
 
-/** すべてのチャンネルタイプのチャンネルの情報を表すインターフェイス */
-export interface ILiveChannelsList {
-    GR: ILiveChannel[];
-    BS: ILiveChannel[];
-    CS: ILiveChannel[];
-    CATV: ILiveChannel[];
-    SKY: ILiveChannel[];
-    STARDIGIO: ILiveChannel[];
-}
-
 /** チャンネル情報を表すインターフェイス */
-export interface ILiveChannel {
+export interface IChannel {
     id: string;
     display_channel_id: string;
     network_id: number;
@@ -34,13 +24,18 @@ export interface ILiveChannel {
     is_subchannel: boolean;
     is_radiochannel: boolean;
     is_watchable: boolean,
+}
+
+/** 現在放送中のチャンネル情報を表すインターフェイス */
+export interface ILiveChannel extends IChannel {
+    // 以下はすべて動的に生成される TV ライブストリーミング用の追加カラム
     is_display: boolean;
     viewer_count: number;
     program_present: IProgram | null;
     program_following: IProgram | null;
 }
 
-/** チャンネル情報を表すインターフェイスのデフォルト値 */
+/** 現在放送中のチャンネル情報を表すインターフェイスのデフォルト値 */
 export const ILiveChannelDefault: ILiveChannel = {
     id: 'NID0-SID0',
     display_channel_id: 'gr000',
@@ -60,6 +55,16 @@ export const ILiveChannelDefault: ILiveChannel = {
     program_present: IProgramDefault,
     program_following: IProgramDefault,
 };
+
+/** すべてのチャンネルタイプの現在放送中のチャンネルの情報を表すインターフェイス */
+export interface ILiveChannelsList {
+    GR: ILiveChannel[];
+    BS: ILiveChannel[];
+    CS: ILiveChannel[];
+    CATV: ILiveChannel[];
+    SKY: ILiveChannel[];
+    STARDIGIO: ILiveChannel[];
+}
 
 /** ニコニコ実況のセッション情報を表すインターフェイス */
 export interface IJikkyoSession {

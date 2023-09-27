@@ -51,7 +51,7 @@ class APIClient {
         const result: AxiosResponse<T> | AxiosError<IError> = await axios.request(request).catch((error: AxiosError<IError>) => error);
 
         // エラーが発生した場合は ErrorResponse を返す
-        if (result instanceof AxiosError<IError>) {
+        if (result instanceof AxiosError) {
             console.error(result);
 
             // エラーレスポンスがあれば、エラー内容を取得して返す

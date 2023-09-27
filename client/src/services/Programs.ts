@@ -25,13 +25,6 @@ export interface IProgram {
     secondary_audio_sampling_rate: string | null;
 }
 
-/** 番組情報を表すインターフェイス (present_or_following: Present なら現在放送中、Following なら次の番組であることを示す) */
-export interface IProgramPF {
-    type: 'IProgramPF';
-    present_or_following: 'Present' | 'Following';
-    program: IProgram;
-}
-
 /** 番組情報を表すインターフェイスのデフォルト値 */
 export const IProgramDefault: IProgram = {
     id: 'NID0-SID0-EID0',
@@ -57,5 +50,12 @@ export const IProgramDefault: IProgram = {
     secondary_audio_language: null,
     secondary_audio_sampling_rate: null,
 };
+
+/** 番組情報を表すインターフェイス (present_or_following: Present なら現在放送中、Following なら次の番組であることを示す) */
+export interface IProgramPF {
+    type: 'IProgramPF';
+    present_or_following: 'Present' | 'Following';
+    program: IProgram;
+}
 
 // TODO: 番組情報 API が開発されたらここに API 定義を書く

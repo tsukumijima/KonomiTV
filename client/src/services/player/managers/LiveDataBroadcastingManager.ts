@@ -23,10 +23,10 @@ const LivePSIArchivedDataDecoderWorker =
 class LiveDataBroadcastingManager implements PlayerManager {
 
     // BML 用フォント
-    static readonly round_gothic: BMLBrowserFontFace = {
+    private static readonly round_gothic: BMLBrowserFontFace = {
         source: 'url("https://cdn.jsdelivr.net/gh/googlefonts/kosugi-maru@main/fonts/webfonts/KosugiMaru-Regular.woff2"), local("sans-serif")',
     };
-    static readonly square_gothic: BMLBrowserFontFace = {
+    private static readonly square_gothic: BMLBrowserFontFace = {
         source: 'url("https://cdn.jsdelivr.net/gh/googlefonts/kosugi@main/fonts/webfonts/Kosugi-Regular.woff2"), local("sans-serif")',
     };
 
