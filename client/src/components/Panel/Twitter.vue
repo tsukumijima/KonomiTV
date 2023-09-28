@@ -327,6 +327,7 @@ export default Vue.extend({
     watch: {
 
         // 保存しているハッシュタグが変更されたら随時 LocalStorage に保存する
+        // TODO: 直接 SettingsStore のデータをいじってもいいと思う (たぶん)
         saved_twitter_hashtags: {
             deep: true,
             handler() {
@@ -422,26 +423,24 @@ export default Vue.extend({
                 this.tweet_captures.push(capture.blob);
             } else {
                 // ツイート対象のキャプチャになっていたら取り除く
-                const index = this.tweet_captures.findIndex(blob => blob === capture.blob);
-                if (index > -1) {
-                    this.tweet_captures.splice(index, 1);
-                }
+                this.tweet_captures = this.tweet_captures.filter(blob => blob !== capture.blob);
                 // キャプチャの選択を解除
                 capture.selected = false;
             }
         },
 
         // 撮ったキャプチャを親コンポーネントから受け取り、キャプチャリストに追加する
-        async addCaptureList(blob: Blob, filename: string) {
+        addCaptureList(blob: Blob, filename: string) {
 
             if (this.captures_element === null) {
                 this.captures_element = this.$el.querySelector('.tab-content--capture')!;
             }
 
-            // 撮ったキャプチャが50件を超えていたら、重くなるので古いものから削除する
+            // 撮ったキャプチャが 100 枚を超えていたら、重くなるので古いものから削除する
             // 削除する前に Blob URL を revoke してリソースを解放するのがポイント
-            if (this.captures.length > 50) {
+            if (this.captures.length > 100) {
                 URL.revokeObjectURL(this.captures[0].image_url);
+                this.tweet_captures = this.tweet_captures.filter(blob => blob !== this.captures[0].blob);
                 this.captures.shift();
             }
 
@@ -644,6 +643,8 @@ export default Vue.extend({
 
         // ツイートを送信する
         async sendTweet() {
+
+            // Twitter アカウントが連携されていない場合は何もしない
             if (this.selected_twitter_account === null) return;
 
             // 送信中フラグを立てる (重複送信防止)
