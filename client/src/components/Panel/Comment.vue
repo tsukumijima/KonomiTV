@@ -68,6 +68,7 @@
 </template>
 <script lang="ts">
 
+import dayjs from 'dayjs';
 import DPlayer, { DPlayerType } from 'dplayer';
 import { mapStores } from 'pinia';
 import Vue from 'vue';
@@ -491,6 +492,18 @@ export default Vue.extend({
 
             // ニコニコ実況のコメントサーバーにコメントを送信
             this.live_comment_manager?.sendComment(options);
+
+            // 自分のコメントをコメントリストに追加
+            this.comment_list.push({
+                id: Date.now(),  // ID は取得できないので現在の時間をユニークな ID として利用する
+                text: options.data.text,
+                time: dayjs().format('HH:mm:ss'),  // 現在時刻
+                user_id: this.userStore.user.niconico_user_id.toString(),
+                my_post: true,  // 自分のコメントであることを示す
+            });
+
+            // コメントリストを一番下までスクロール
+            this.scrollCommentList();
         },
 
         // ニコニコ実況セッションを破棄する
