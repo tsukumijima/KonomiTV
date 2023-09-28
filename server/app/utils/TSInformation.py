@@ -60,9 +60,9 @@ class TSInformation:
 
 
     @classmethod
-    def __buildFormatStringTranslationTable(cls) -> None:
+    def __buildFormatStringTranslationMap(cls) -> None:
         """
-        formatString() で使用する変換テーブルや正規表現を構築する
+        formatString() で使用する変換マップや正規表現を構築する
         一度のみ実行され、以降はキャッシュされる
         """
 
@@ -194,7 +194,7 @@ class TSInformation:
         result = str(string)
 
         # 変換マップを構築 (初回以降はキャッシュされる)
-        cls.__buildFormatStringTranslationTable()
+        cls.__buildFormatStringTranslationMap()
         assert cls.__format_string_translation_map is not None
         assert cls.__format_string_regex is not None
         assert cls.__format_string_regex_table is not None

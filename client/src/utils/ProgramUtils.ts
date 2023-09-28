@@ -331,7 +331,8 @@ export class ProgramUtils {
         0b111: '48kHz',
     };
 
-    private static format_string_translation_map: {[key: string]: string} | null = null;
+    // 事前に文字列の変換テーブルを構築しておく
+    private static readonly format_string_translation_map = ProgramUtils.buildFormatStringTranslationMap();
 
 
     /**
@@ -474,11 +475,6 @@ export class ProgramUtils {
      */
     static formatString(string: string): string {
 
-        // 変換マップを構築
-        if (ProgramUtils.format_string_translation_map === null) {
-            ProgramUtils.format_string_translation_map = ProgramUtils.getFormatStringTranslationTable();
-        }
-
         // 変換
         for (const key in ProgramUtils.format_string_translation_map) {
             string = string.replaceAll(key, ProgramUtils.format_string_translation_map[key]);
@@ -490,11 +486,11 @@ export class ProgramUtils {
 
 
     /**
-     * formatString() で使用する変換テーブルを取得する
-     * server/app/metadata/TSInfoAnalyzer.py の TSInfoAnalyzer.__getFormatStringTranslationTable() と同等の処理を行う
-     * @returns 変換テーブル
+     * formatString() で使用する変換マップを取得する
+     * server/app/utils/TSInformation.py の TSInfoAnalyzer.__buildFormatStringTranslationMap() と同等の処理を行う
+     * @returns 変換マップ
      */
-    private static getFormatStringTranslationTable(): {[key: string]: string} {
+    private static buildFormatStringTranslationMap(): {[key: string]: string} {
 
         // 全角英数を半角英数に置換
         const zenkaku_table = '０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ';
