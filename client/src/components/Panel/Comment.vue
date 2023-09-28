@@ -14,6 +14,12 @@
             <div class="comment-list-dropdown" :class="{'comment-list-dropdown--display': is_comment_list_dropdown_display}"
                 :style="{'--comment-list-dropdown-top': `${comment_list_dropdown_top}px`}">
                 <v-list style="background: var(--v-background-lighten1)">
+                    <v-list-item dense style="min-height: 30px" @click="copyTextToClipboard()">
+                        <v-list-item-title class="d-flex align-center">
+                            <Icon icon="fluent:clipboard-paste-20-filled" width="20px" />
+                            <span class="ml-2">クリップボードにコピー</span>
+                        </v-list-item-title>
+                    </v-list-item>
                     <v-list-item dense style="min-height: 30px" @click="addMutedKeywords()">
                         <v-list-item-title class="d-flex align-center">
                             <Icon icon="fluent:comment-dismiss-20-filled" width="20px" />
@@ -221,7 +227,7 @@ export default Vue.extend({
         // ドロップダウンメニューを表示する
         showCommentListDropdown(event: Event, comment: ICommentData) {
             const comment_list_wrapper_rect = (this.$refs.comment_list_wrapper as HTMLDivElement).getBoundingClientRect();
-            const comment_list_dropdown_height = 76;  // 76px はドロップダウンメニューの高さ
+            const comment_list_dropdown_height = 106;  // 106px はドロップダウンメニューの高さ
             const comment_button_rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
             // メニューの表示位置をクリックされたコメントに合わせる
             this.comment_list_dropdown_top = comment_button_rect.top - comment_list_wrapper_rect.top;
@@ -240,6 +246,13 @@ export default Vue.extend({
             this.comment_list = this.comment_list.filter((comment) => {
                 return CommentUtils.isMutedComment(comment.text, comment.user_id) === false;
             });
+        },
+
+        // コメントのテキストをクリップボードにコピーする
+        copyTextToClipboard() {
+            if (this.comment_list_dropdown_comment === null) return;
+            navigator.clipboard.writeText(this.comment_list_dropdown_comment.text);
+            this.hideCommentListDropdown();
         },
 
         // ミュートするキーワードを追加する
