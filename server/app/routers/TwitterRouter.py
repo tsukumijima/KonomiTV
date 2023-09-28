@@ -385,23 +385,18 @@ async def TwitterTweetAPI(
         })
 
     response = await asyncio.to_thread(requests.post,
-        url = 'https://twitter.com/i/api/graphql/tTsjMKyhajZvK4q76mpIBg/CreateTweet',
+        url = 'https://twitter.com/i/api/graphql/mjRUA3-5JspiUp54VXex6g/CreateTweet',
         headers = headers_dict,
         cookies = cookies_dict,
         json = {
             'variables': {
                 'tweet_text': tweet,
+                'dark_request': False,
                 'media': {
                     'media_entities': media_entities,
                     'possibly_sensitive': False,
                 },
-                'withDownvotePerspective': False,
-                'withReactionsMetadata': False,
-                'withReactionsPerspective': False,
-                'withSuperFollowsTweetFields': True,
-                'withSuperFollowsUserFields': True,
                 'semantic_annotation_ids': [],
-                'dark_request': False,
             },
             'features': {
                 'tweetypie_unmention_optimization_enabled': True,
@@ -411,6 +406,7 @@ async def TwitterTweetAPI(
                 'longform_notetweets_consumption_enabled': True,
                 'responsive_web_twitter_article_tweet_consumption_enabled': False,
                 'tweet_awards_web_tipping_enabled': False,
+                'responsive_web_home_pinned_timelines_enabled': False,
                 'longform_notetweets_rich_text_read_enabled': True,
                 'longform_notetweets_inline_media_enabled': True,
                 'responsive_web_graphql_exclude_directive_enabled': True,
@@ -423,11 +419,7 @@ async def TwitterTweetAPI(
                 'responsive_web_graphql_timeline_navigation_enabled': True,
                 'responsive_web_enhance_cards_enabled': False,
             },
-            'fieldToggles': {
-                'withArticleRichContentState': False,
-                'withAuxiliaryUserLabels': False,
-            },
-            'queryId': 'tTsjMKyhajZvK4q76mpIBg',
+            'queryId': 'mjRUA3-5JspiUp54VXex6g',
         },
     )
     if response.status_code != 200:
