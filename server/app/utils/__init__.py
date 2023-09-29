@@ -21,7 +21,7 @@ def GetMirakurunAPIEndpointURL(endpoint: str) -> str:
     # エンドポイントが / から始まっていない場合
     assert endpoint.startswith('/'), 'Endpoint must start with /.'
 
-    # Mirakurun API は http://localhost:40772//api/version のような二重スラッシュを許容しないので、
+    # Mirakurun API は http://127.0.0.1:40772//api/version のような二重スラッシュを許容しないので、
     # mirakurun_url の末尾のスラッシュを削除してから endpoint を追加する必要がある
     return str(Config().general.mirakurun_url).rstrip('/') + endpoint
 

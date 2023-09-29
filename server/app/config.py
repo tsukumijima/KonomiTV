@@ -141,7 +141,7 @@ class _ServerSettingsGeneral(BaseModel):
             # 試しにリクエストを送り、200 (OK) が返ってきたときだけ有効な URL とみなす
             try:
                 response = requests.get(
-                    # Mirakurun API は http://localhost:40772//api/version のような二重スラッシュを許容しないので、
+                    # Mirakurun API は http://127.0.0.1:40772//api/version のような二重スラッシュを許容しないので、
                     # mirakurun_url の末尾のスラッシュを削除してから endpoint を追加する必要がある
                     url = str(mirakurun_url).rstrip('/') + '/api/version',
                     headers = API_REQUEST_HEADERS,

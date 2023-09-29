@@ -186,7 +186,7 @@ def Installer(version: str) -> None:
         table_04.add_column('04. EDCB (EpgTimerNW) の TCP API の URL を入力してください。')
         table_04.add_row('tcp://192.168.1.11:4510/ のような形式の URL で指定します。')
         table_04.add_row('EDCB と同じ PC に KonomiTV をインストールしようとしている場合は、')
-        table_04.add_row('tcp://localhost:4510/ または tcp://127.0.0.1:4510/ と入力してください。')
+        table_04.add_row('tcp://127.0.0.1:4510/ と入力してください。')
         table_04.add_row('tcp://edcb-namedpipe/ と指定すると、TCP API の代わりに')
         table_04.add_row('名前付きパイプを使って通信します(同じ PC で EDCB が稼働している場合のみ)。')
         print(Padding(table_04, (1, 2, 1, 2)))
@@ -197,6 +197,8 @@ def Installer(version: str) -> None:
             # 入力プロンプト (バリデーションに失敗し続ける限り何度でも表示される)
             ## 末尾のスラッシュは常に付与する
             edcb_url: str = CustomPrompt.ask('EDCB (EpgTimerNW) の TCP API の URL').rstrip('/') + '/'
+            ## localhost を 127.0.0.1 に置き換え (localhost だと一部 Windows 環境で TCP API への接続が遅くなる)
+            edcb_url = edcb_url.replace('localhost', '127.0.0.1')
 
             # バリデーション
             ## 入力された URL がちゃんとパースできるかを確認
@@ -233,7 +235,7 @@ def Installer(version: str) -> None:
         table_04.add_column('04. Mirakurun の HTTP API の URL を入力してください。')
         table_04.add_row('http://192.168.1.11:40772/ のような形式の URL で指定します。')
         table_04.add_row('Mirakurun と同じ PC に KonomiTV をインストールしようとしている場合は、')
-        table_04.add_row('http://localhost:40772/ または http://127.0.0.1:40772/ と入力してください。')
+        table_04.add_row('http://127.0.0.1:40772/ と入力してください。')
         print(Padding(table_04, (1, 2, 1, 2)))
 
         # Mirakurun の HTTP API の URL を取得
@@ -242,6 +244,8 @@ def Installer(version: str) -> None:
             # 入力プロンプト (バリデーションに失敗し続ける限り何度でも表示される)
             ## 末尾のスラッシュは常に付与する
             mirakurun_url = CustomPrompt.ask('Mirakurun の HTTP API の URL').rstrip('/') + '/'
+            ## localhost を 127.0.0.1 に置き換え (localhost だと一部 Windows 環境で TCP API への接続が遅くなる)
+            mirakurun_url = mirakurun_url.replace('localhost', '127.0.0.1')
 
             # バリデーション
             ## 試しにリクエストを送り、200 (OK) が返ってきたときだけ有効な URL とみなす
