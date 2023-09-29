@@ -38,7 +38,6 @@
     - [リッスンポートの設定](#リッスンポートの設定)
     - [アップロードしたキャプチャ画像の保存先フォルダの設定](#アップロードしたキャプチャ画像の保存先フォルダの設定)
   - [局ロゴ](#局ロゴ)
-  - [KonomiTV (β) 0.5.2 以前からのアップグレード](#konomitv-β-052-以前からのアップグレード)
 - [FAQ](#faq)
   - [Web UI にアクセスすると 502 Bad Gateway エラーが表示される](#web-ui-にアクセスすると-502-bad-gateway-エラーが表示される)
   - [Web UI にアクセスすると「Client sent an HTTP request to an HTTPS server.」と表示される](#web-ui-にアクセスするとclient-sent-an-http-request-to-an-https-serverと表示される)
@@ -301,7 +300,7 @@ rkmppenc のサポートは試験的なものです。また、Rockchip 製 ARM 
 # Mali GPU Driver のインストール (RK3588/RK3588S 向け)
 ## 他の Rockchip SoC の Mali GPU Driver は https://github.com/tsukumijima/libmali-rockchip/releases から入手できる
 ## RK3588/RK3588S の場合、g610-g6p0 より g610-g13p0 の方が高速に動作する
-wget https://github.com/tsukumijima/libmali-rockchip/releases/download/v1.9-1-6f3d407/libmali-valhall-g610-g13p0-wayland-gbm_1.9-1_arm64.deb
+wget https://github.com/tsukumijima/libmali-rockchip/releases/download/v1.9-1-53c16ef/libmali-valhall-g610-g13p0-wayland-gbm_1.9-1_arm64.deb
 sudo apt install -y ./libmali-valhall-g610-g13p0-wayland-gbm_1.9-1_arm64.deb
 rm libmali-valhall-g610-g13p0-wayland-gbm_1.9-1_arm64.deb
 
@@ -363,6 +362,12 @@ KonomiTV を共有したい家族や親戚に Tailscale アカウントを作成
 
 以下はインストール時の手順になります。アップデート/アンインストールする際は適宜読み替えてください。
 
+> **Warning**  
+> KonomiTV は鋭意開発中のため、現在破壊的な構成変更が頻繁に行われています。  
+> 破壊的変更が続く中アップデーターの機能を維持することは難しいため、**安定版リリースまでの当面の間、アップデーターの今後の改修は放置されています。**  
+> お手数をおかけしますが、**0.7.1 以前から 0.8.0 以降へのアップデートは、DB や設定ファイルなどをバックアップの上で一旦アンインストールし、新規でインストールし直すことを強くおすすめします。**  
+> 0.8.0 からそれ以降のアップデートは動作する可能性がありますが、0.7.1 以前からのアップデートでは大幅な構成変更が入っているため、確実に動作しません。
+
 ### Windows
 
 [動作環境] に記載のとおり、Windows 10 以降の 64bit OS にのみ対応しています。  
@@ -409,9 +414,7 @@ Assets の下にある `KonomiTV-Installer.exe` をダウンロードしてく�
 
 > **Warning**  
 > NVIDIA が KonomiTV で利用していたバージョンの CUDA Docker イメージを削除した影響で ([詳細1](https://twitter.com/TVRemotePlus/status/1683860609555898369) / [詳細2](https://twitter.com/TVRemotePlus/status/1689227380664209409)) 、0.7.1 以前では Docker を使ったインストール方法が利用できなくなりました。  
-> 0.8.0 以降のバージョンでは CUDA Docker イメージの pull 先を [NGC](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/cuda/tags) に変更していますが、0.8.0 自体が現在開発中な上、録画視聴機能の実装に向け破壊的変更を多数行っており当分リリースが先にならざるを得ない状況です。  
-> 現状複数のブランチを並行開発するリソースがないため、現時点では通常のインストール方法を使っていただくか、  
-> 0.7.1 のタグを checkout し事前に config.yaml と docker-compose.yaml を適切に構成した上で、Dockerfile を `FROM nvcr.io/nvidia/cuda:11.7.1-runtime-ubuntu22.04` に書き換え、`docker compose up -d --build` を実行し手動でインストールを行っていただきますようお願いします。
+> 0.8.0 以降のバージョンでは CUDA Docker イメージの pull 先を [NGC](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/cuda/tags) に変更しています。0.8.0 へのアップデートをお願いします。
 
 **Linux 向けの KonomiTV には、通常のインストール方法と、Docker を使ったインストール方法の 2 通りがあります。**  
 
@@ -426,7 +429,7 @@ Docker Compose は V1 と V2 の両方に対応していますが、できれば
 > **Docker Compose V1 は最終版の 1.29.2 でのみ動作を確認しています。古いバージョンでは正常に動作しない可能性が高いです。**  
 > もし Docker Compose V1 が 1.29.2 よりも古い場合は、この機会に V2 への更新をおすすめします。以前よりもグラフィカルに進捗が表示されたりなどのメリットもあります。
 
-> [QSVEncC・NVEncC・VCEEncC・rkmppenc に対応した GPU ドライバーのインストール] に記載のとおり、**NVIDIA GPU が搭載されている PC に Docker を使ってインストールする場合は、必ず事前に NVIDIA Container Toolkit をインストールしておいてください。**  
+> [QSVEncC・NVEncC・VCEEncC・rkmppenc に対応した GPU ドライバーのインストール](#qsvenccnvenccvceenccrkmppenc-に対応した-gpu-ドライバーのインストール) に記載のとおり、**NVIDIA GPU が搭載されている PC に Docker を使ってインストールする場合は、必ず事前に NVIDIA Container Toolkit をインストールしておいてください。**  
 > NVIDIA Container Toolkit がインストールされていない場合、KonomiTV のインストールにも失敗する可能性が高いです。
 
 > Docker を使ってインストールする場合、動作環境によっては `getaddrinfo EAI_AGAIN registry.yarnpkg.com` といったエラーで Docker イメージのビルドに失敗することがあります。  
@@ -648,15 +651,6 @@ KonomiTV には、放送波から取得できるものよりも遥かに高画�
 
 > 同梱されているロゴは `server/static/logos/` に `NID(ネットワークID)-SID(サービスID).png` (解像度: 256×256) のフォーマットで保存されています。  
 > チャンネルのネットワーク ID とサービス ID がわかっていれば、自分で局ロゴ画像を作ることも可能です。
-
-### KonomiTV (β) 0.5.2 以前からのアップグレード
-
-KonomiTV 0.5.2 以前のバージョンをすでにインストールしている場合、**直接 0.5.2 から 0.6.0 以降にアップグレードすることはできません。** 各種構成に破壊的な変更を多数行ったため、KonomiTV 0.5.2 と 0.6.0 以降には互換性がないためです。
-
-お手数ですが、**一度 0.5.2 をインストールしているフォルダを丸ごと削除した上で、新しく 0.6.0 以降をインストールし直してください。**  
-
-また、KonomiTV 0.6.0-dev 以降のバージョンでは、ポータブル版の Python をサードパーティーライブラリに組み込んでいます。そのため、Python 3.9 / 3.10 を別途インストールする必要はなくなりました。  
-不要であれば適宜アンインストールしてください（残しておいても動作に支障はありません）。
 
 ## FAQ
 
