@@ -786,7 +786,7 @@ description = "PyInstaller bundles a Python application and all its dependencies
 optional = false
 python-versions = "<3.13,>=3.7"
 files = [
-    {file = "pyinstaller-5.13.0-py3-none-any.whl", hash = "sha256:847d307b48231219c0b91837f91c5513bed4c6b6315c1b60c0a8fe281250e72e"},
+    {file = "pyinstaller-5.13.0-py3-none-any.whl", hash = "sha256:4f5da6accf838401ec723f5d5f1049a9eaa15e1d5fae051a2ca423a5419ee53c"},
 ]
 
 [package.dependencies]
