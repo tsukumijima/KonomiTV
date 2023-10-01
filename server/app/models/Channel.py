@@ -291,7 +291,7 @@ class Channel(models.Model):
                 channel.service_id = int(service['sid'])
                 channel.network_id = int(service['onid'])
                 channel.transport_stream_id = int(service['tsid'])
-                channel.remocon_id = -1
+                channel.remocon_id = 0  # リモコン番号を取得できなかった際は 0 がそのまま設定される
                 channel.type = channel_type
                 channel.name = TSInformation.formatString(service['service_name'])
                 channel.jikkyo_force = None

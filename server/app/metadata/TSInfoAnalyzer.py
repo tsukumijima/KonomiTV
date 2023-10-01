@@ -154,7 +154,7 @@ class TSInfoAnalyzer:
                     continue
                 break
             if channel.remocon_id is None:
-                channel.remocon_id = -1
+                channel.remocon_id = 0  # リモコン番号を取得できなかった際は 0 が自動設定される
         else:
             ## それ以外: 共通のリモコン番号取得処理を実行
             channel.remocon_id = channel.calculateRemoconID()
