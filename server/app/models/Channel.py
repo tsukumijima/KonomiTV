@@ -3,8 +3,7 @@
 # ref: https://stackoverflow.com/a/33533514/17124142
 from __future__ import annotations
 
-import asyncio
-import requests
+import httpx
 import time
 import traceback
 from datetime import datetime
@@ -115,16 +114,20 @@ class Channel(models.Model):
             # Mirakurun の API からチャンネル情報を取得する
             try:
                 mirakurun_services_api_url = GetMirakurunAPIEndpointURL('/api/services')
-                mirakurun_services_api_response = await asyncio.to_thread(requests.get,
-                    url = mirakurun_services_api_url,
-                    headers = API_REQUEST_HEADERS,
-                    timeout = 5,
-                )
+                async with httpx.AsyncClient() as client:
+                    mirakurun_services_api_response = await client.get(
+                        url = mirakurun_services_api_url,
+                        headers = API_REQUEST_HEADERS,
+                        timeout = 5,
+                    )
                 if mirakurun_services_api_response.status_code != 200:  # Mirakurun からエラーが返ってきた
                     Logging.error(f'Failed to get channels from Mirakurun. (HTTP Error {mirakurun_services_api_response.status_code})')
                     raise Exception(f'Failed to get channels from Mirakurun. (HTTP Error {mirakurun_services_api_response.status_code})')
                 services = mirakurun_services_api_response.json()
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as ex:
+            except httpx.NetworkError as ex:
+                Logging.error(f'Failed to get channels from Mirakurun. (Network Error)')
+                raise ex
+            except httpx.TimeoutException as ex:
                 Logging.error(f'Failed to get channels from Mirakurun. (Connection Timeout)')
                 raise ex
 

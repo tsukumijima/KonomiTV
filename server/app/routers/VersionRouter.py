@@ -1,6 +1,5 @@
 
-import asyncio
-import requests
+import httpx
 import time
 from fastapi import APIRouter
 from typing import Any
@@ -40,15 +39,17 @@ async def VersionInformationAPI():
     ## GitHub API は無認証だと60回/1時間までしかリクエストできないので、リクエスト結果を10分ほどキャッシュする
     if latest_version is None or (time.time() - latest_version_updated_at) > 60 * 10:
         try:
-            response = await asyncio.to_thread(requests.get,
-                url = 'https://api.github.com/repos/tsukumijima/KonomiTV/tags',
-                headers = API_REQUEST_HEADERS,
-                timeout = 3,
-            )
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    url = 'https://api.github.com/repos/tsukumijima/KonomiTV/tags',
+                    headers = API_REQUEST_HEADERS,
+                    timeout = 3,
+                    follow_redirects = True,
+                )
             if response.status_code == 200:
                 latest_version = response.json()[0]['name'].replace('v', '')  # 先頭の v を取り除く
                 latest_version_updated_at = time.time()
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+        except (httpx.NetworkError, httpx.TimeoutException):
             pass
 
     # サーバーが稼働している環境を取得

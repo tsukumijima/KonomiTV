@@ -10,8 +10,8 @@ if sys.platform != 'win32':
     sys.exit(1)
 
 # 通常モジュール
+import httpx
 import psutil
-import requests
 import subprocess
 import threading
 import typer
@@ -172,7 +172,7 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
         ## 通常管理者ユーザーでログインしていないと実行できないが、特別に 127.0.0.77:7010 に直接アクセスすると無認証で実行できる
         try:
             from app.config import GetServerPort
-            requests.post(f'http://127.0.0.77:{GetServerPort() + 10}/api/maintenance/shutdown')
+            httpx.post(f'http://127.0.0.77:{GetServerPort() + 10}/api/maintenance/shutdown')
         except Exception:
             pass
 

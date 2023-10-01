@@ -1,8 +1,7 @@
 
-import asyncio
 import base64
+import httpx
 import json
-import requests
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
@@ -153,19 +152,20 @@ async def NiconicoAuthCallbackAPI(
 
         # 認証コードを使い、ニコニコ OAuth のアクセストークンとリフレッシュトークンを取得
         token_api_url = 'https://oauth.nicovideo.jp/oauth2/token'
-        token_api_response = await asyncio.to_thread(
-            requests.post,
-            url = token_api_url,
-            data = {
-                'grant_type': 'authorization_code',
-                'client_id': NICONICO_OAUTH_CLIENT_ID,
-                'client_secret': Interlaced(3),
-                'code': code,
-                'redirect_uri': 'https://app.konomi.tv/api/redirect/niconico',
-            },
-            headers = {**API_REQUEST_HEADERS, 'Content-Type': 'application/x-www-form-urlencoded'},
-            timeout = 3,  # 3秒応答がなかったらタイムアウト
-        )
+        async with httpx.AsyncClient() as httpx_client:
+            token_api_response = await httpx_client.post(
+                url = token_api_url,
+                data = {
+                    'grant_type': 'authorization_code',
+                    'client_id': NICONICO_OAUTH_CLIENT_ID,
+                    'client_secret': Interlaced(3),
+                    'code': code,
+                    'redirect_uri': 'https://app.konomi.tv/api/redirect/niconico',
+                },
+                headers = {**API_REQUEST_HEADERS, 'Content-Type': 'application/x-www-form-urlencoded'},
+                timeout = 3,  # 3秒応答がなかったらタイムアウト
+                follow_redirects = True,  # リダイレクトを追跡する
+            )
 
         # ステータスコードが 200 以外
         if token_api_response.status_code != 200:
@@ -179,7 +179,7 @@ async def NiconicoAuthCallbackAPI(
         token_api_response_json = token_api_response.json()
 
     # 接続エラー（サーバーメンテナンスやタイムアウトなど）
-    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+    except (httpx.NetworkError, httpx.TimeoutException):
         Logging.error('[NiconicoRouter][NiconicoAuthCallbackAPI] Failed to get access token (Connection Timeout)')
         return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -203,7 +203,8 @@ async def NiconicoAuthCallbackAPI(
         ## 3秒応答がなかったらタイムアウト
         user_api_url = f'https://nvapi.nicovideo.jp/v1/users/{current_user.niconico_user_id}'
         user_api_headers = {**API_REQUEST_HEADERS, 'X-Frontend-Id': '6'}  # X-Frontend-Id がないと INVALID_PARAMETER になる
-        user_api_response = await asyncio.to_thread(requests.get, user_api_url, headers=user_api_headers, timeout=3)
+        async with httpx.AsyncClient() as httpx_client:
+            user_api_response = await httpx_client.get(user_api_url, headers=user_api_headers, timeout=3, follow_redirects=True)
 
         # ステータスコードが 200 以外
         if user_api_response.status_code != 200:
@@ -220,7 +221,7 @@ async def NiconicoAuthCallbackAPI(
         current_user.niconico_user_premium = bool(user_api_response.json()['data']['user']['isPremium'])
 
     # 接続エラー（サーバー再起動やタイムアウトなど）
-    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+    except (httpx.NetworkError, httpx.TimeoutException):
         Logging.error('[NiconicoRouter][NiconicoAuthCallbackAPI] Failed to get user information (Connection Timeout)')
         return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,

@@ -3,11 +3,10 @@
 # ref: https://stackoverflow.com/a/33533514/17124142
 from __future__ import annotations
 
-import asyncio
 import html
+import httpx
 import json
 import re
-import requests
 import xml.etree.ElementTree as ET
 from typing import Any, cast, ClassVar
 
@@ -17,6 +16,7 @@ from app.utils import Interlaced
 
 
 class Jikkyo:
+    """ ニコニコ実況関連 API のクライアント実装 """
 
     # 実況 ID とサービス ID (SID)・ネットワーク ID (NID) の対照表
     ## NicoJK の jkch.sh.txt (https://github.com/xtne6f/NicoJK/blob/master/jkch.sh.txt) を情報を更新の上で JSON に変換したもの
@@ -159,32 +159,33 @@ class Jikkyo:
 
             # リフレッシュトークンを使い、ニコニコ OAuth のアクセストークンとリフレッシュトークンを更新
             token_api_url = 'https://oauth.nicovideo.jp/oauth2/token'
-            token_api_response = await asyncio.to_thread(
-                requests.post,
-                url = token_api_url,
-                data = {
-                    'grant_type': 'refresh_token',
-                    'client_id': NICONICO_OAUTH_CLIENT_ID,
-                    'client_secret': Interlaced(3),
-                    'refresh_token': current_user.niconico_refresh_token,
-                },
-                headers = {**API_REQUEST_HEADERS, 'Content-Type': 'application/x-www-form-urlencoded'},
-                timeout = 3,  # 3秒応答がなかったらタイムアウト
-            )
+            async with httpx.AsyncClient() as client:
+                token_api_response = await client.post(
+                    url = token_api_url,
+                    data = {
+                        'grant_type': 'refresh_token',
+                        'client_id': NICONICO_OAUTH_CLIENT_ID,
+                        'client_secret': Interlaced(3),
+                        'refresh_token': current_user.niconico_refresh_token,
+                    },
+                    headers = {**API_REQUEST_HEADERS, 'Content-Type': 'application/x-www-form-urlencoded'},
+                    timeout = 3,  # 3秒応答がなかったらタイムアウト
+                    follow_redirects = True,
+                )
 
             # ステータスコードが 200 以外
             if token_api_response.status_code != 200:
                 error_code = ''
                 try:
                     error_code = f' ({token_api_response.json()["error"]})'
-                except requests.JSONDecodeError:
+                except Exception:
                     pass
                 raise Exception(f'アクセストークンの更新に失敗しました。(HTTP Error {token_api_response.status_code}{error_code})')
 
             token_api_response_json = token_api_response.json()
 
         # 接続エラー（サーバーメンテナンスやタイムアウトなど）
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+        except (httpx.NetworkError, httpx.TimeoutException):
             raise Exception('アクセストークンの更新リクエストがタイムアウトしました。')
 
         # 取得したアクセストークンとリフレッシュトークンをユーザーアカウントに設定
@@ -199,7 +200,8 @@ class Jikkyo:
             ## 3秒応答がなかったらタイムアウト
             user_api_url = f'https://nvapi.nicovideo.jp/v1/users/{current_user.niconico_user_id}'
             user_api_headers = {**API_REQUEST_HEADERS, 'X-Frontend-Id': '6'}  # X-Frontend-Id がないと INVALID_PARAMETER になる
-            user_api_response = await asyncio.to_thread(requests.get, user_api_url, headers=user_api_headers, timeout=3)
+            async with httpx.AsyncClient() as client:
+                user_api_response = await client.get(user_api_url, headers=user_api_headers, timeout=3, follow_redirects=True)
 
             if user_api_response.status_code == 200:
                 # ユーザー名
@@ -208,7 +210,7 @@ class Jikkyo:
                 current_user.niconico_user_premium = bool(user_api_response.json()['data']['user']['isPremium'])
 
         # 接続エラー（サーバー再起動やタイムアウトなど）
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+        except (httpx.NetworkError, httpx.TimeoutException):
             pass  # 取れなくてもセッション取得に支障はないのでパス
 
         # 変更をデータベースに保存
@@ -235,8 +237,9 @@ class Jikkyo:
         ## 3秒応答がなかったらタイムアウト
         watch_page_url = f'https://live.nicovideo.jp/watch/{self.jikkyo_nicolive_id}'
         try:
-            watch_page_response = await asyncio.to_thread(requests.get, watch_page_url, headers=API_REQUEST_HEADERS, timeout=3)
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            async with httpx.AsyncClient() as client:
+                watch_page_response = await client.get(watch_page_url, headers=API_REQUEST_HEADERS, timeout=3, follow_redirects=True)
+        except (httpx.NetworkError, httpx.TimeoutException):  # 接続エラー（サーバー再起動やタイムアウトなど）
             return {'is_success': False, 'detail': 'ニコニコ実況に接続できませんでした。ニコニコで障害が発生している可能性があります。'}
         watch_page_code = watch_page_response.status_code
 
@@ -295,12 +298,13 @@ class Jikkyo:
                 )
 
                 async def getSession():  # 使い回せるように関数化
-                    return await asyncio.to_thread(
-                        requests.get,
-                        session_api_url,
-                        headers = {**API_REQUEST_HEADERS, 'Authorization': f'Bearer {current_user.niconico_access_token}'},
-                        timeout = 3,  # 3秒応答がなかったらタイムアウト
-                    )
+                    async with httpx.AsyncClient() as client:
+                        return await client.get(
+                            session_api_url,
+                            headers = {**API_REQUEST_HEADERS, 'Authorization': f'Bearer {current_user.niconico_access_token}'},
+                            timeout = 3,  # 3秒応答がなかったらタイムアウト
+                            follow_redirects = True,  # リダイレクトを追跡する
+                        )
                 session_api_response = await getSession()
 
                 # ステータスコードが 401 (Unauthorized)
@@ -317,7 +321,7 @@ class Jikkyo:
                     error_code = ''
                     try:
                         error_code = f' ({session_api_response.json()["meta"]["errorCode"]})'
-                    except requests.JSONDecodeError:
+                    except Exception:
                         pass
                     return {
                         'is_success': False,
@@ -331,7 +335,7 @@ class Jikkyo:
                 session = session_api_response.json()['data']['url']
 
             # 接続エラー（サーバー再起動やタイムアウトなど）
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            except (httpx.NetworkError, httpx.TimeoutException):
                 return {'is_success': False, 'detail': 'ニコニコ実況に接続できませんでした。ニコニコで障害が発生している可能性があります。'}
 
         # 視聴セッションの WebSocket URL を返す
@@ -375,8 +379,9 @@ class Jikkyo:
         ## 3秒応答がなかったらタイムアウト
         try:
             getchannels_api_url = 'https://jikkyo.tsukumijima.net/namami/api/v2/getchannels'
-            getchannels_api_response = await asyncio.to_thread(requests.get, getchannels_api_url, headers=API_REQUEST_HEADERS, timeout=3)
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):  # 接続エラー（サーバー再起動やタイムアウトなど）
+            async with httpx.AsyncClient() as client:
+                getchannels_api_response = await client.get(getchannels_api_url, headers=API_REQUEST_HEADERS, timeout=3, follow_redirects=True)
+        except (httpx.NetworkError, httpx.TimeoutException):  # 接続エラー（サーバー再起動やタイムアウトなど）
             return # ステータス更新を中断
 
         # ステータスコードが 200 以外

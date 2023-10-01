@@ -1,9 +1,9 @@
 
 import asyncio
 import hashlib
+import httpx
 import json
 import pathlib
-import requests
 from datetime import datetime
 from datetime import timedelta
 from fastapi import APIRouter
@@ -430,11 +430,12 @@ async def ChannelLogoAPI(
             # 同梱のロゴが存在しない場合のみ
             try:
                 mirakurun_logo_api_url = GetMirakurunAPIEndpointURL(f'/api/services/{mirakurun_service_id}/logo')
-                mirakurun_logo_api_response = await asyncio.to_thread(requests.get,
-                    url = mirakurun_logo_api_url,
-                    headers = API_REQUEST_HEADERS,
-                    timeout = 5,
-                )
+                async with httpx.AsyncClient() as client:
+                    mirakurun_logo_api_response = await client.get(
+                        url = mirakurun_logo_api_url,
+                        headers = API_REQUEST_HEADERS,
+                        timeout = 5,
+                    )
 
                 # ステータスコードが 200 であれば
                 # ステータスコードが 503 の場合はロゴデータが存在しない
@@ -444,8 +445,9 @@ async def ChannelLogoAPI(
                     mirakurun_logo = mirakurun_logo_api_response.content
                     return (mirakurun_logo, 'image/png')
 
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-                pass  # 特にエラーは吐かず、デフォルトのロゴ画像を利用させる
+            # API に接続できなかった際は特にエラーは吐かず、デフォルトのロゴ画像を利用する
+            except (httpx.NetworkError, httpx.TimeoutException):
+                pass
 
         return None
 

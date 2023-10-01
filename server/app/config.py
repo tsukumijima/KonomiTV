@@ -1,10 +1,10 @@
 
 import asyncio
 import concurrent.futures
+import httpx
 import platform
 import psutil
 import re
-import requests
 import ruamel.yaml
 import ruamel.yaml.scalarstring
 import subprocess
@@ -140,14 +140,14 @@ class _ServerSettingsGeneral(BaseModel):
         if info.data.get('backend') == 'Mirakurun':
             # 試しにリクエストを送り、200 (OK) が返ってきたときだけ有効な URL とみなす
             try:
-                response = requests.get(
+                response = httpx.get(
                     # Mirakurun API は http://127.0.0.1:40772//api/version のような二重スラッシュを許容しないので、
                     # mirakurun_url の末尾のスラッシュを削除してから endpoint を追加する必要がある
                     url = str(mirakurun_url).rstrip('/') + '/api/version',
                     headers = API_REQUEST_HEADERS,
                     timeout = 20,  # 久々のアクセスだとなぜか時間がかかることがあるため、ここだけタイムアウトを長めに設定
                 )
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            except (httpx.NetworkError, httpx.TimeoutException):
                 raise ValueError(
                     f'Mirakurun ({mirakurun_url}) にアクセスできませんでした。\n'
                     'Mirakurun が起動していないか、URL を間違えている可能性があります。'
@@ -156,7 +156,7 @@ class _ServerSettingsGeneral(BaseModel):
                 response_json = response.json()
                 if response.status_code != 200 or response_json.get('current') is None:
                     raise ValueError()
-            except (requests.exceptions.JSONDecodeError, ValueError):
+            except Exception:
                 raise ValueError(
                     f'{mirakurun_url} は Mirakurun の URL ではありません。\n'
                     'Mirakurun の URL を間違えている可能性があります。'

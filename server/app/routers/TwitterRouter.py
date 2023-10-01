@@ -1,8 +1,8 @@
 
 import asyncio
+import httpx
 import json
 import re
-import requests
 import tweepy
 import tweepy.models
 import tweepy.parsers
@@ -351,9 +351,6 @@ async def TwitterTweetAPI(
         for image_upload_result in await asyncio.gather(*image_upload_task):
             media_ids.append(image_upload_result.media_id)
 
-        # ツイートを送信
-        # result = await asyncio.to_thread(twitter_account_api.update_status, tweet, media_ids=media_ids)
-
     # 送信失敗
     except tweepy.HTTPException as ex:
 
@@ -373,6 +370,7 @@ async def TwitterTweetAPI(
 
     # ツイートを送信 (GraphQL API)
 
+    # Chrome への偽装用 HTTP リクエストヘッダーと Cookie を取得
     cookie_session_user_handler = cast(CookieSessionUserHandler, twitter_account_api.auth)
     cookies_dict = cookie_session_user_handler.get_cookies_as_dict()
     headers_dict = cookie_session_user_handler.get_graphql_api_headers()
@@ -384,48 +382,61 @@ async def TwitterTweetAPI(
             'tagged_users': []
         })
 
-    response = await asyncio.to_thread(requests.post,
-        url = 'https://twitter.com/i/api/graphql/mjRUA3-5JspiUp54VXex6g/CreateTweet',
-        headers = headers_dict,
-        cookies = cookies_dict,
-        json = {
-            'variables': {
-                'tweet_text': tweet,
-                'dark_request': False,
-                'media': {
-                    'media_entities': media_entities,
-                    'possibly_sensitive': False,
+    # Twitter GraphQL API にリクエスト
+    ## 可能な限り Chrome からのリクエストに偽装するため、HTTP/1.1 ではなく明示的に HTTP/2 で接続する
+    try:
+        async with httpx.AsyncClient(http2=True) as client:
+            response = await client.post(
+                url = 'https://twitter.com/i/api/graphql/mjRUA3-5JspiUp54VXex6g/CreateTweet',
+                headers = headers_dict,
+                cookies = cookies_dict,
+                json = {
+                    'variables': {
+                        'tweet_text': tweet,
+                        'dark_request': False,
+                        'media': {
+                            'media_entities': media_entities,
+                            'possibly_sensitive': False,
+                        },
+                        'semantic_annotation_ids': [],
+                    },
+                    'features': {
+                        'tweetypie_unmention_optimization_enabled': True,
+                        'responsive_web_edit_tweet_api_enabled': True,
+                        'graphql_is_translatable_rweb_tweet_is_translatable_enabled': True,
+                        'view_counts_everywhere_api_enabled': True,
+                        'longform_notetweets_consumption_enabled': True,
+                        'responsive_web_twitter_article_tweet_consumption_enabled': False,
+                        'tweet_awards_web_tipping_enabled': False,
+                        'responsive_web_home_pinned_timelines_enabled': False,
+                        'longform_notetweets_rich_text_read_enabled': True,
+                        'longform_notetweets_inline_media_enabled': True,
+                        'responsive_web_graphql_exclude_directive_enabled': True,
+                        'verified_phone_label_enabled': False,
+                        'freedom_of_speech_not_reach_fetch_enabled': True,
+                        'standardized_nudges_misinfo': True,
+                        'tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled': True,
+                        'responsive_web_media_download_video_enabled': False,
+                        'responsive_web_graphql_skip_user_profile_image_extensions_enabled': False,
+                        'responsive_web_graphql_timeline_navigation_enabled': True,
+                        'responsive_web_enhance_cards_enabled': False,
+                    },
+                    'queryId': 'mjRUA3-5JspiUp54VXex6g',
                 },
-                'semantic_annotation_ids': [],
-            },
-            'features': {
-                'tweetypie_unmention_optimization_enabled': True,
-                'responsive_web_edit_tweet_api_enabled': True,
-                'graphql_is_translatable_rweb_tweet_is_translatable_enabled': True,
-                'view_counts_everywhere_api_enabled': True,
-                'longform_notetweets_consumption_enabled': True,
-                'responsive_web_twitter_article_tweet_consumption_enabled': False,
-                'tweet_awards_web_tipping_enabled': False,
-                'responsive_web_home_pinned_timelines_enabled': False,
-                'longform_notetweets_rich_text_read_enabled': True,
-                'longform_notetweets_inline_media_enabled': True,
-                'responsive_web_graphql_exclude_directive_enabled': True,
-                'verified_phone_label_enabled': False,
-                'freedom_of_speech_not_reach_fetch_enabled': True,
-                'standardized_nudges_misinfo': True,
-                'tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled': True,
-                'responsive_web_media_download_video_enabled': False,
-                'responsive_web_graphql_skip_user_profile_image_extensions_enabled': False,
-                'responsive_web_graphql_timeline_navigation_enabled': True,
-                'responsive_web_enhance_cards_enabled': False,
-            },
-            'queryId': 'mjRUA3-5JspiUp54VXex6g',
-        },
-    )
-    if response.status_code != 200:
+                follow_redirects = True,
+            )
+        if response.status_code != 200:
+            return {
+                'is_success': False,
+                'detail': f'Twitter GraphQL API Error (HTTP Error {response.status_code})',
+            }
+
+    # 接続エラー（サーバーメンテナンスやタイムアウトなど）
+    except (httpx.NetworkError, httpx.TimeoutException):
+        Logging.error('[TwitterRouter][TwitterTweetAPI] Failed to connect to Twitter GraphQL API')
         return {
             'is_success': False,
-            'detail': f'Twitter GraphQL API Error (HTTP Error {response.status_code})',
+            'detail': 'Failed to connect to Twitter GraphQL API',
         }
 
     return {
