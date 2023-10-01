@@ -61,7 +61,7 @@ export class PlayerUtils {
         if (player.quality === null) {
             return '1080p';
         }
-        const regex = /streams\/live\/[a-z0-9]*\/(.*)\/(mpegts|ll-hls)/;
+        const regex = /streams\/live\/[a-z0-9-]*\/(.*)\/(mpegts|ll-hls)/;
         const match = player.quality.url.match(regex);
         return match ? (match[1] as APIVideoQuality) : '1080p';
     }
