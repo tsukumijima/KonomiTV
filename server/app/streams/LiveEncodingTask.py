@@ -133,7 +133,9 @@ class LiveEncodingTask:
 
         # フラグ
         ## 主に FFmpeg の起動を高速化するための設定
-        max_interleave_delta = round(1 + self._retry_count) * 100
+        ## max_interleave_delta: mux 時に影響するオプションで、増やしすぎると CM で詰まりがちになるが、減らしすぎると LL-HLS で音ズレしやすくなる
+        ## リトライなしの場合は 500K (0.5秒) に設定し、リトライ回数に応じて 100K (0.1秒) ずつ増やす
+        max_interleave_delta = round(500 + (self._retry_count * 100))
         options.append(f'-fflags nobuffer -flags low_delay -max_delay 250000 -max_interleave_delta {max_interleave_delta}K -threads auto')
 
         # 映像
@@ -214,7 +216,9 @@ class LiveEncodingTask:
 
         # フラグ
         ## 主に FFmpeg の起動を高速化するための設定
-        max_interleave_delta = round(1 + self._retry_count) * 100
+        ## max_interleave_delta: mux 時に影響するオプションで、増やしすぎると CM で詰まりがちになるが、減らしすぎると LL-HLS で音ズレしやすくなる
+        ## リトライなしの場合は 500K (0.5秒) に設定し、リトライ回数に応じて 100K (0.1秒) ずつ増やす
+        max_interleave_delta = round(500 + (self._retry_count * 100))
         options.append(f'-fflags nobuffer -flags low_delay -max_delay 250000 -max_interleave_delta {max_interleave_delta}K -threads auto')
 
         # 音声
@@ -282,7 +286,9 @@ class LiveEncodingTask:
 
         # フラグ
         ## 主に HWEncC の起動を高速化するための設定
-        max_interleave_delta = round(1 + self._retry_count) * 100
+        ## max_interleave_delta: mux 時に影響するオプションで、増やしすぎると CM で詰まりがちになるが、減らしすぎると LL-HLS で音ズレしやすくなる
+        ## リトライなしの場合は 500K (0.5秒) に設定し、リトライ回数に応じて 100K (0.1秒) ずつ増やす
+        max_interleave_delta = round(500 + (self._retry_count * 100))
         options.append(f'-m avioflags:direct -m fflags:nobuffer+flush_packets -m flush_packets:1 -m max_delay:250000 -m max_interleave_delta:{max_interleave_delta}K --output-thread 0 --lowlatency')
         ## その他の設定
         options.append('--log-level debug')
