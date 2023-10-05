@@ -425,7 +425,7 @@ export class ProgramUtils {
 
 
     /**
-     * 番組の放送時刻を取得する
+     * 番組放送時刻の文字列表現を取得する
      * @param program 番組情報
      * @param is_short 時刻のみ返すかどうか
      * @returns 番組の放送時刻
@@ -437,8 +437,10 @@ export class ProgramUtils {
 
             dayjs.locale('ja');  // ロケールを日本に設定
             const start_time = dayjs(program.start_time);
+            const end_time = dayjs(program.end_time);
 
-            // duration が Infinity の場合は、放送時間未定として扱う
+            // duration が Infinity の場合は、end_time を無視して放送時間未定として扱う
+            // この時 end_time には便宜上 start_time と同一の時刻が設定されるため、参照してはいけない
             if (program.duration === Infinity) {
                 if (is_short === true) {  // 時刻のみ
                     return `${start_time.format('HH:mm')} ～ --:--`;
@@ -447,8 +449,8 @@ export class ProgramUtils {
                 }
             }
 
-            const end_time = dayjs(program.end_time);
-            const duration = program.duration / 60;  // 分換算
+            // 分単位の番組長 (割り切れない場合は小数第2位で四捨五入)
+            const duration = Math.round(program.duration / 60 * 100) / 100;
 
             if (is_short === true) {  // 時刻のみ
                 return `${start_time.format('HH:mm')} ～ ${end_time.format('HH:mm')}`;

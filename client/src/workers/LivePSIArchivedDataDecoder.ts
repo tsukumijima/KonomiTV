@@ -230,7 +230,7 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
         }
 
         // 番組開始時刻と番組長から番組終了時刻を算出
-        // ただし、番組長が未定の場合は番組終了時刻を番組開始時刻と同一の値にする
+        // ただし、番組長が未定の場合は便宜上番組終了時刻を番組開始時刻と同一の時刻にする
         if (program.duration === Infinity) {
             program.end_time = program.start_time;
         } else {
@@ -394,6 +394,7 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
             program.secondary_audio_sampling_rate = null;
         }
 
+        console.debug('[PSIArchivedDataDecoder] EIT[p/f] decoded.', program);
         return program;
     }
 
