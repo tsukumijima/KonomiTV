@@ -245,12 +245,15 @@ class _ServerSettingsServer(BaseModel):
                 ## サーバーの起動中に再度バリデーションが実行された際に、ポートが使用中と判定されてしまうのを防ぐためのもの
                 ## 自動リロードモードでの reloader process や Akebi は KonomiTV サーバーの子プロセスになるので、
                 ## プロセスの親プロセスの PID が一致するかもチェックする
-                process = psutil.Process(conn.pid)
-                if ((process.pid == current_process.pid) or
-                    (process.pid == current_process.ppid()) or
-                    (process.ppid() == current_process.pid) or
-                    (process.ppid() == current_process.ppid())):
-                    continue
+                try:
+                    process = psutil.Process(conn.pid)
+                    if ((process.pid == current_process.pid) or
+                        (process.pid == current_process.ppid()) or
+                        (process.ppid() == current_process.pid) or
+                        (process.ppid() == current_process.ppid())):
+                        continue
+                except Exception:
+                    pass
                 # 使用中のポートに追加
                 if conn.laddr is not None:
                     used_ports.append(cast(Any, conn.laddr).port)
