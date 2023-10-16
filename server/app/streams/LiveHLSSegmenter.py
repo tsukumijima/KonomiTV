@@ -41,7 +41,7 @@ from biim.mp4.mp4a import mp4aTrack
 class LiveHLSSegmenter:
 
     # ターゲットとする LL-HLS 部分セグメント (m4s) の再生時間 (秒)
-    PART_DURATION = 0.15
+    PART_DURATION = 0.5
 
     # m3u8 プレイリストに含めるセグメントの最大数
     LIST_SIZE = 10
