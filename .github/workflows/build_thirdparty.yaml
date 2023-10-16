@@ -39,11 +39,11 @@ env:
   ## ref: https://github.com/sbraz/pymediainfo/blob/v6.0.1/appveyor.yml#L6
   LIBMEDIAINFO_VERSION: '22.09'
   # Akebi HTTPS Server ビルド用の Golang のバージョン
-  GOLANG_VERSION: '1.21.2'
+  GOLANG_VERSION: '1.21.3'
   # ビルド対象の tsreadex・psisiarc・Akebi のコミットハッシュ
   TSREADEX_COMMIT_HASH: 'f8f861b4afb360aadd85718ff762ab6013135425'
   PSISIARC_COMMIT_HASH: '6593a0f63aedaaecfac7682b51e267874a8ec549'
-  AKEBI_COMMIT_HASH: '454ac3d4b834fe1580050f9f487369c9f52232e0'
+  AKEBI_COMMIT_HASH: '02d6e1b91f7efa02ea9d370e714667c680182ebe'
 
 # ジョブの定義
 jobs:
@@ -85,16 +85,15 @@ jobs:
 
       # Golang 環境のセットアップ
       - name: Setup Golang Environment
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GOLANG_VERSION }}
+          cache: false
 
       # Akebi HTTPS Server のビルド
       - name: Build Akebi HTTPS Server
         run: |
-          # ref: https://github.com/actions/setup-go/issues/107#issuecomment-853325017
-          $env:PATH = "$env:GOROOT\bin;$env:PATH";
-          go version
+          go env
           git clone https://github.com/tsukumijima/Akebi
           cd Akebi/
           git checkout ${{ env.AKEBI_COMMIT_HASH }}
@@ -198,18 +197,22 @@ jobs:
           chmod a+x ../thirdparty/psisiarc/psisiarc.elf
           cp License.txt ../thirdparty/psisiarc/
 
+      # デフォルトで勝手にキャッシュされてる (?) Golang を削除
+      # ここで削除しておかないと意図しないバージョンの Golang が使われてしまうことがある (?)
+      - name: Remove Default Golang
+        run: sudo rm -rf /opt/hostedtoolcache/go/*
+
       # Golang 環境のセットアップ
       - name: Setup Golang Environment
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GOLANG_VERSION }}
+          cache: false
 
       # Akebi HTTPS Server のビルド
       - name: Build Akebi HTTPS Server
         run: |
-          # ref: https://github.com/actions/setup-go/issues/107#issuecomment-853325017
-          export PATH=${GOROOT}/bin:$PATH
-          go version
+          go env
           git clone https://github.com/tsukumijima/Akebi
           cd Akebi/
           git checkout ${{ env.AKEBI_COMMIT_HASH }}
@@ -389,18 +392,22 @@ jobs:
           chmod a+x ../thirdparty/psisiarc/psisiarc.elf
           cp License.txt ../thirdparty/psisiarc/
 
+      # デフォルトで勝手にキャッシュされてる (?) Golang を削除
+      # ここで削除しておかないと意図しないバージョンの Golang が使われてしまうことがある (?)
+      - name: Remove Default Golang
+        run: sudo rm -rf /opt/hostedtoolcache/go/*
+
       # Golang 環境のセットアップ
       - name: Setup Golang Environment
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GOLANG_VERSION }}
+          cache: false
 
       # Akebi HTTPS Server のビルド
       - name: Build Akebi HTTPS Server
         run: |
-          # ref: https://github.com/actions/setup-go/issues/107#issuecomment-853325017
-          export PATH=${GOROOT}/bin:$PATH
-          go version
+          go env
           git clone https://github.com/tsukumijima/Akebi
           cd Akebi/
           git checkout ${{ env.AKEBI_COMMIT_HASH }}
