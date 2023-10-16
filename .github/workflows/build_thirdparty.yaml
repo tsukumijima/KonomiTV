@@ -38,6 +38,8 @@ env:
   ## Windows 版の pymediainfo (ビルド済みの MediaInfo.dll が同梱されている) とバージョンを合わせる
   ## ref: https://github.com/sbraz/pymediainfo/blob/v6.0.1/appveyor.yml#L6
   LIBMEDIAINFO_VERSION: '22.09'
+  # Akebi HTTPS Server ビルド用の Golang のバージョン
+  GOLANG_VERSION: '1.21.2'
   # ビルド対象の tsreadex・psisiarc・Akebi のコミットハッシュ
   TSREADEX_COMMIT_HASH: 'f8f861b4afb360aadd85718ff762ab6013135425'
   PSISIARC_COMMIT_HASH: '6593a0f63aedaaecfac7682b51e267874a8ec549'
@@ -85,11 +87,14 @@ jobs:
       - name: Setup Golang Environment
         uses: actions/setup-go@v3
         with:
-          go-version: '1.21.2'
+          go-version: ${{ env.GOLANG_VERSION }}
 
       # Akebi HTTPS Server のビルド
       - name: Build Akebi HTTPS Server
         run: |
+          # ref: https://github.com/actions/setup-go/issues/107#issuecomment-853325017
+          $env:PATH = "$env:GOROOT\bin;$env:PATH";
+          go version
           git clone https://github.com/tsukumijima/Akebi
           cd Akebi/
           git checkout ${{ env.AKEBI_COMMIT_HASH }}
@@ -197,15 +202,18 @@ jobs:
       - name: Setup Golang Environment
         uses: actions/setup-go@v3
         with:
-          go-version: '1.21.2'
+          go-version: ${{ env.GOLANG_VERSION }}
 
       # Akebi HTTPS Server のビルド
       - name: Build Akebi HTTPS Server
         run: |
+          # ref: https://github.com/actions/setup-go/issues/107#issuecomment-853325017
+          export PATH=${GOROOT}/bin:$PATH
+          go version
           git clone https://github.com/tsukumijima/Akebi
           cd Akebi/
           git checkout ${{ env.AKEBI_COMMIT_HASH }}
-          make build-https-server
+          GOARCH=amd64 make build-https-server
           mkdir ../thirdparty/Akebi/
           cp akebi-https-server ../thirdparty/Akebi/akebi-https-server.elf
           chmod a+x ../thirdparty/Akebi/akebi-https-server.elf
@@ -385,11 +393,14 @@ jobs:
       - name: Setup Golang Environment
         uses: actions/setup-go@v3
         with:
-          go-version: '1.21.2'
+          go-version: ${{ env.GOLANG_VERSION }}
 
       # Akebi HTTPS Server のビルド
       - name: Build Akebi HTTPS Server
         run: |
+          # ref: https://github.com/actions/setup-go/issues/107#issuecomment-853325017
+          export PATH=${GOROOT}/bin:$PATH
+          go version
           git clone https://github.com/tsukumijima/Akebi
           cd Akebi/
           git checkout ${{ env.AKEBI_COMMIT_HASH }}
