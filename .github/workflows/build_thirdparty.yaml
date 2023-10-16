@@ -93,7 +93,7 @@ jobs:
           git clone https://github.com/tsukumijima/Akebi
           cd Akebi/
           git checkout ${{ env.AKEBI_COMMIT_HASH }}
-          go build -ldflags="-s -w" -a -o "akebi-https-server.exe" "./https-server/"
+          make build-https-server
           mkdir ../thirdparty/Akebi/
           cp akebi-https-server.exe ../thirdparty/Akebi/akebi-https-server.exe
           cp License.txt ../thirdparty/Akebi/
@@ -205,9 +205,9 @@ jobs:
           git clone https://github.com/tsukumijima/Akebi
           cd Akebi/
           git checkout ${{ env.AKEBI_COMMIT_HASH }}
-          go build -ldflags="-s -w" -a -o "akebi-https-server.elf" "./https-server/"
+          make build-https-server
           mkdir ../thirdparty/Akebi/
-          cp akebi-https-server.elf ../thirdparty/Akebi/akebi-https-server.elf
+          cp akebi-https-server ../thirdparty/Akebi/akebi-https-server.elf
           chmod a+x ../thirdparty/Akebi/akebi-https-server.elf
           cp License.txt ../thirdparty/Akebi/
 
@@ -397,9 +397,9 @@ jobs:
           git clone https://github.com/tsukumijima/Akebi
           cd Akebi/
           git checkout ${{ env.AKEBI_COMMIT_HASH }}
-          GOARCH=arm64 go build -ldflags="-s -w" -a -o "akebi-https-server.elf" "./https-server/"
+          GOARCH=arm64 make build-https-server
           mkdir ../thirdparty/Akebi/
-          cp akebi-https-server.elf ../thirdparty/Akebi/akebi-https-server.elf
+          cp akebi-https-server ../thirdparty/Akebi/akebi-https-server.elf
           chmod a+x ../thirdparty/Akebi/akebi-https-server.elf
           cp License.txt ../thirdparty/Akebi/
 
