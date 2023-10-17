@@ -955,6 +955,20 @@ files = [
     {file = "pyzstd-0.15.9-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:542808d88464d538f5d2c6b48b545a7fe15f0d20c7fa703b469d039a08c9fa10"},
     {file = "pyzstd-0.15.9-cp311-cp311-win32.whl", hash = "sha256:e79babb67b415aa54abb213897ceaa011515a5f3e146a2a97f4e6486b9743af4"},
     {file = "pyzstd-0.15.9-cp311-cp311-win_amd64.whl", hash = "sha256:ef3399e0544b46d31c2a8ff14ae1fb3c3571ae1153bbbc5ddf0d242c67bde624"},
+    {file = "pyzstd-0.15.9-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:418e9a676cc7ce00edd2fd044ee063c8639fd8cd6897ffda395a152cdc66ec97"},
+    {file = "pyzstd-0.15.9-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:52dcae42f32f7a25c6b90bd479f3d04902700e3214e8fffe1bfe70053eb35ccb"},
+    {file = "pyzstd-0.15.9-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c36dbbf71480f1fffeaeca901adb31e0c7d59270a239eca63fe26e4647b7aca8"},
+    {file = "pyzstd-0.15.9-cp312-cp312-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:cfa981cedd54bb8862d9033440a0afac38845db89e7099ceeb4f4d064dffd2f8"},
+    {file = "pyzstd-0.15.9-cp312-cp312-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:937f118fdd7a23654886634f650d6502a2dd12c8a8e2bf14beb2fa5fa95058bf"},
+    {file = "pyzstd-0.15.9-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:922f1bb8ef80c42a2fca297ba0b03442c143a9a1f717e83db79f190514888803"},
+    {file = "pyzstd-0.15.9-cp312-cp312-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:78c38850af6b990e8ec1bc87b48f73ed5cc633f4baaa7bbc78f9b2f4449cf081"},
+    {file = "pyzstd-0.15.9-cp312-cp312-musllinux_1_1_aarch64.whl", hash = "sha256:5453ebe42a2c7462fa532fd03cbf64e5c6baf5508b3089736c78444148d3c593"},
+    {file = "pyzstd-0.15.9-cp312-cp312-musllinux_1_1_i686.whl", hash = "sha256:da070933d4bcfcbf58472da12ffa77c9fbc90efb39e21a9b74eb04b5af4b412a"},
+    {file = "pyzstd-0.15.9-cp312-cp312-musllinux_1_1_ppc64le.whl", hash = "sha256:c8d1966e38c220d5940f8cb6303651af261f0bcfce77218a030b1a24ec986e2f"},
+    {file = "pyzstd-0.15.9-cp312-cp312-musllinux_1_1_s390x.whl", hash = "sha256:145ca5ed6240af2cbfc09faa50aada8aacf1e2928ed6dd9da1d6b8ebe39cdc4c"},
+    {file = "pyzstd-0.15.9-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:9638d40ec02a5b194a4c98a5b6e36cdfde4e9d6b721ae6167ef8e57d2e69002f"},
+    {file = "pyzstd-0.15.9-cp312-cp312-win32.whl", hash = "sha256:f73821d429bfbb04645b80ec491ab05b35078f031f9fa3273fbf9027d1406233"},
+    {file = "pyzstd-0.15.9-cp312-cp312-win_amd64.whl", hash = "sha256:02c95d7109052c985b7d90dac6f6010bc0630227f15aec16302162107137bdbc"},
     {file = "pyzstd-0.15.9-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:cd6a8d43a0c294918e3afb7e4b1d8c04d2e4c3ea9ddf05475fdaf366c7e5b3a6"},
     {file = "pyzstd-0.15.9-cp36-cp36m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:5aed5fc86d0bfc5f16e871cbb35ec93df61476d7fde4c1c6081015a075ecfbc1"},
     {file = "pyzstd-0.15.9-cp36-cp36m-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:8f9eb97fb6fd4551ff9d5012b4fcee9abeea9c8af6b9e3ebc3c76cc2bd0a43a7"},
@@ -1209,13 +1223,13 @@ files = [
 
 [[package]]
 name = "urllib3"
-version = "2.0.6"
+version = "2.0.7"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "urllib3-2.0.6-py3-none-any.whl", hash = "sha256:7a7c7003b000adf9e7ca2a377c9688bbc54ed41b985789ed576570342a375cd2"},
-    {file = "urllib3-2.0.6.tar.gz", hash = "sha256:b19e1a85d206b56d7df1d5e683df4a7725252a964e3993648dd0fb5a1c157564"},
+    {file = "urllib3-2.0.7-py3-none-any.whl", hash = "sha256:fdb6d215c776278489906c2f8916e6e7d4f5a9b602ccbcfdf7f016fc8da0596e"},
+    {file = "urllib3-2.0.7.tar.gz", hash = "sha256:c97dfde1f7bd43a71c8d2a58e369e9b2bf692d1334ea9f9cae55add7d0dd0f84"},
 ]
 
 [package.extras]
