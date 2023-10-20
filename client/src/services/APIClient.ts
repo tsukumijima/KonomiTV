@@ -4,12 +4,11 @@
  * API レスポンスの受け取りと、エラーが発生した際のエラーハンドリング (エラーメッセージ表示) までを責務として負う
  */
 
-import { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
 
 import Message from '@/message';
-import axios from '@/plugins/axios';
 import useUserStore from '@/store/UserStore';
-
+import Utils from '@/utils';
 
 
 /** API リクエスト成功時のレスポンスを表すインターフェイス */
@@ -52,6 +51,35 @@ class APIClient {
      * @returns 成功なら ISuccessResponse 、失敗なら IErrorResponse を返す
      */
     static async request<T>(request: AxiosRequestConfig): Promise<ISuccessResponse<T> | IErrorResponse> {
+
+        // API のベース URL を設定 (config.baseURL が指定されていない場合のみ)
+        if (request.baseURL === undefined) {
+            request.baseURL = Utils.api_base_url;
+        }
+
+        // リクエストヘッダーが指定されていない場合は空のオブジェクトを設定
+        if (request.headers === undefined) {
+            request.headers = {};
+        }
+
+        // 外部サイトへの HTTP/HTTPS リクエストでは実行しない
+        if (request.url?.startsWith('http') === false) {
+
+            // アクセストークンが取得できたら (=ログインされていれば)
+            // 取得したアクセストークンを Authorization ヘッダーに Bearer トークンとしてセット
+            // これを忘れると当然ながらログインしていない扱いになる
+            const access_token = Utils.getAccessToken();
+            if (access_token !== null) {
+                request.headers['Authorization'] = `Bearer ${access_token}`;
+            }
+
+            // KonomiTV クライアントのバージョンを設定
+            // 今のところ使わないが、将来的にクライアントとサーバーを分離することを見据えて念のため
+            request.headers['X-KonomiTV-Version'] = Utils.version;
+        }
+
+        // リクエストのタイムアウト時間を30秒に設定
+        request.timeout = 30 * 1000;
 
         // Axios で HTTP リクエストを送信し、レスポンスを受け取る
         const result: AxiosResponse<T> | AxiosError<IErrorResponseData> = await axios.request(request).catch((error) => error);
