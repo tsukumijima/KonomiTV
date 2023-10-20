@@ -86,7 +86,7 @@ class Channels {
         const response = await APIClient.get<ILiveChannelsList>('/channels');
 
         // エラー処理
-        if ('is_error' in response) {
+        if (response.type === 'error') {
             APIClient.showGenericError(response, 'チャンネル情報を取得できませんでした。');
             return null;
         }
@@ -107,7 +107,7 @@ class Channels {
         const response = await APIClient.get<ILiveChannel>(`/channels/${display_channel_id}`);
 
         // エラー処理
-        if ('is_error' in response) {
+        if (response.type === 'error') {
             APIClient.showGenericError(response, 'チャンネル情報を取得できませんでした。');
             return null;
         }
@@ -127,7 +127,7 @@ class Channels {
         const response = await APIClient.get<IJikkyoSession>(`/channels/${display_channel_id}/jikkyo`);
 
         // エラー処理
-        if ('is_error' in response) {
+        if (response.type === 'error') {
             APIClient.showGenericError(response, 'ニコニコ実況のセッション情報を取得できませんでした。');
             return null;
         }

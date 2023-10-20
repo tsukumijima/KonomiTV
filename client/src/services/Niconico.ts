@@ -20,7 +20,7 @@ class Niconico {
         const response = await APIClient.get<INiconicoAuthURL>('/niconico/auth');
 
         // エラー処理
-        if ('is_error' in response) {
+        if (response.type === 'error') {
             APIClient.showGenericError(response, 'ニコニコアカウントとの連携用の認証 URL を取得できませんでした。');
             return null;
         }
@@ -39,7 +39,7 @@ class Niconico {
         const response = await APIClient.delete('/niconico/logout');
 
         // エラー処理
-        if ('is_error' in response) {
+        if (response.type === 'error') {
             APIClient.showGenericError(response, 'ニコニコアカウントとの連携を解除できませんでした。');
             return false;
         }

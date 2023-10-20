@@ -61,8 +61,8 @@ class Users {
         const response = await APIClient.post<IUser>('/users', user_create_request);
 
         // エラー処理
-        if ('is_error' in response) {
-            switch (response.error.message) {
+        if (response.type === 'error') {
+            switch (response.data.detail) {
                 case 'Specified username is duplicated': {
                     Message.error('ユーザー名が重複しています。');
                     break;
@@ -95,8 +95,8 @@ class Users {
         const response = await APIClient.post<IUserAccessToken>('/users/token', new URLSearchParams({username, password}));
 
         // エラー処理
-        if ('is_error' in response) {
-            switch (response.error.message) {
+        if (response.type === 'error') {
+            switch (response.data.detail) {
                 case 'Incorrect username': {
                     Message.error('ログインできませんでした。そのユーザー名のアカウントは存在しません。');
                     break;
@@ -127,7 +127,7 @@ class Users {
         const response = await APIClient.get<IUser>('/users/me');
 
         // エラー処理
-        if ('is_error' in response) {
+        if (response.type === 'error') {
             APIClient.showGenericError(response, 'アカウント情報を取得できませんでした。');
             return null;
         }
@@ -146,7 +146,7 @@ class Users {
         const response = await APIClient.get('/users/me/icon', {responseType: 'blob'});
 
         // エラー処理
-        if ('is_error' in response) {
+        if (response.type === 'error') {
             APIClient.showGenericError(response, 'アイコン画像を取得できませんでした。');
             return null;
         }
@@ -165,8 +165,8 @@ class Users {
         const response = await APIClient.put('/users/me', user_update_request);
 
         // エラー処理
-        if ('is_error' in response) {
-            switch (response.error.message) {
+        if (response.type === 'error') {
+            switch (response.data.detail) {
                 case 'Specified username is duplicated': {
                     Message.error('ユーザー名が重複しています。');
                     break;
@@ -201,8 +201,8 @@ class Users {
         const response = await APIClient.put('/users/me/icon', form_data, {headers: {'Content-Type': 'multipart/form-data'}});
 
         // エラー処理
-        if ('is_error' in response) {
-            switch (response.error.message) {
+        if (response.type === 'error') {
+            switch (response.data.detail) {
                 case 'Please upload JPEG or PNG image': {
                     Message.error('JPEG または PNG 画像をアップロードしてください。');
                     break;
@@ -226,7 +226,7 @@ class Users {
         const response = await APIClient.delete('/users/me');
 
         // エラー処理
-        if ('is_error' in response) {
+        if (response.type === 'error') {
             APIClient.showGenericError(response, 'アカウントを削除できませんでした。');
             return;
         }

@@ -68,7 +68,7 @@ class Settings {
         const response = await APIClient.get<IClientSettings>('/settings/client');
 
         // エラー処理 (基本起こらないはず & 実行できなくても後続の処理に影響しないため何もしない)
-        if ('is_error' in response) {
+        if (response.type === 'error') {
             return null;
         }
 

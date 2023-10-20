@@ -33,7 +33,7 @@ class Twitter {
         const response = await APIClient.get<ITwitterAuthURL>('/twitter/auth');
 
         // エラー処理
-        if ('is_error' in response) {
+        if (response.type === 'error') {
             APIClient.showGenericError(response, 'Twitter アカウントとの連携用の認証 URL を取得できませんでした。');
             return null;
         }
@@ -53,18 +53,23 @@ class Twitter {
         const response = await APIClient.post('/twitter/password-auth', twitter_password_auth_request);
 
         // エラー処理
-        if ('is_error' in response) {
-            if (response.error.message.startsWith('Failed to authenticate with password')) {
-                const error = response.error.message.match(/Message: (.+)\)/)![1];
-                Message.error(`ログインに失敗しました。${error}`);
-            } else if (response.error.message.startsWith('Unexpected error occurred while authenticate with password')) {
-                const error = response.error.message.match(/Message: (.+)\)/)![1];
-                Message.error(`ログインフローの途中で予期せぬエラーが発生しました。${error}`);
-            } else if (response.error.message.startsWith('Failed to get user information')) {
-                Message.error('Twitter アカウントのユーザー情報の取得に失敗しました。');
-            } else {
-                APIClient.showGenericError(response, 'Twitter アカウントとの連携に失敗しました。');
+        if (response.type === 'error') {
+            if (typeof response.data.detail === 'string') {
+                if (response.data.detail.startsWith('Failed to authenticate with password')) {
+                    const error = response.data.detail.match(/Message: (.+)\)/)![1];
+                    Message.error(`ログインに失敗しました。${error}`);
+                    return false;
+                } else if (response.data.detail.startsWith('Unexpected error occurred while authenticate with password')) {
+                    const error = response.data.detail.match(/Message: (.+)\)/)![1];
+                    Message.error(`ログインフローの途中で予期せぬエラーが発生しました。${error}`);
+                    return false;
+                } else if (response.data.detail.startsWith('Failed to get user information')) {
+                    Message.error('Twitter アカウントのユーザー情報の取得に失敗しました。');
+                    return false;
+                }
             }
+            // 上記以外のエラー
+            APIClient.showGenericError(response, 'Twitter アカウントとの連携に失敗しました。');
             return false;
         }
 
@@ -83,7 +88,7 @@ class Twitter {
         const response = await APIClient.delete(`/twitter/accounts/${screen_name}`);
 
         // エラー処理
-        if ('is_error' in response) {
+        if (response.type === 'error') {
             APIClient.showGenericError(response, 'Twitter アカウントとの連携を解除できませんでした。');
             return false;
         }
@@ -113,12 +118,14 @@ class Twitter {
         });
 
         // エラー処理 (API リクエスト自体に失敗した場合)
-        if ('is_error' in response) {
-            if (response.error.message) {
+        if (response.type === 'error') {
+            if (typeof response.data.detail === 'string') {
                 if (Number.isNaN(response.status)) {
-                    return {message: `ツイートの送信に失敗しました。(${response.error.message})`, is_error: true};
+                    // HTTP リクエスト自体が失敗し、HTTP ステータスコードが取得できなかった場合
+                    return {message: `ツイートの送信に失敗しました。(${response.data.detail})`, is_error: true};
                 } else {
-                    return {message: `ツイートの送信に失敗しました。(HTTP Error ${response.status} / ${response.error.message})`, is_error: true};
+                    // HTTP リクエスト自体は成功したが、API からエラーレスポンスが返ってきた場合
+                    return {message: `ツイートの送信に失敗しました。(HTTP Error ${response.status} / ${response.data.detail})`, is_error: true};
                 }
             } else {
                 return {message: `ツイートの送信に失敗しました。(HTTP Error ${response.status})`, is_error: true};
@@ -126,12 +133,12 @@ class Twitter {
         }
 
         // 成功 or 失敗に関わらず detail の内容をそのまま通知する
-        if (response.data.is_success === true) {
-            // ツイート成功
-            return {message: response.data.detail, is_error: false};
-        } else {
+        if (response.data.is_success === false) {
             // ツイート失敗
             return {message: response.data.detail, is_error: true};
+        } else {
+            // ツイート成功
+            return {message: response.data.detail, is_error: false};
         }
     }
 }

@@ -24,7 +24,7 @@ class Version {
         const response = await APIClient.get<IVersionInformation>('/version');
 
         // エラー処理
-        if ('is_error' in response) {
+        if (response.type === 'error') {
             APIClient.showGenericError(response, 'バージョン情報を取得できませんでした。');
             return null;
         }

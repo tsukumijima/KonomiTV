@@ -11,31 +11,37 @@ import axios from '@/plugins/axios';
 import useUserStore from '@/store/UserStore';
 
 
-/** API のエラーレスポンスを表すインターフェイス */
-export interface IError {
-    detail: string;
-}
 
 /** API リクエスト成功時のレスポンスを表すインターフェイス */
-export type SuccessResponse<T> = {
+export interface ISuccessResponse<T> {
+    type: 'success';
     status: number;
     data: T;
-    error: null;
-    is_success: true;
-};
+}
 
 /** API リクエスト失敗時のレスポンスを表すインターフェイス */
-export type ErrorResponse<T extends Error = Error> = {
+export interface IErrorResponse {
+    type: 'error';
     status: number;
-    data: null;
-    error: T;
-    is_error: true;
-};
+    data: IErrorResponseData;
+    error: AxiosError<IErrorResponseData>;
+}
+
+/** API リクエスト失敗時にサーバーから返されるエラーレスポンスを表すインターフェイス */
+export interface IErrorResponseData {
+    detail: string | {
+        type: string;
+        loc: (string | number)[];
+        msg: string;
+        input?: any;
+        url?: string;
+    }
+}
 
 
 /**
  * services/ 以下の各クラスから呼び出される、Axios の薄いラッパー
- * エラーハンドリングを容易にするために、レスポンスを SuccessResponse と ErrorResponse に分けて返す
+ * エラーハンドリングを容易にするために、レスポンスを ISuccessResponse と IErrorResponse に分けて返す
  * ref: https://zenn.dev/engineer_titan/articles/291c9fccb338e2
  */
 class APIClient {
@@ -43,43 +49,42 @@ class APIClient {
     /**
      * Axios で HTTP リクエストを送信し、レスポンスを受け取る
      * @param request AxiosRequestConfig
-     * @returns 成功なら SuccessResponse 、失敗なら ErrorResponse を返す
+     * @returns 成功なら ISuccessResponse 、失敗なら IErrorResponse を返す
      */
-    static async request<T>(request: AxiosRequestConfig): Promise<SuccessResponse<T> | ErrorResponse> {
+    static async request<T>(request: AxiosRequestConfig): Promise<ISuccessResponse<T> | IErrorResponse> {
 
         // Axios で HTTP リクエストを送信し、レスポンスを受け取る
-        const result: AxiosResponse<T> | AxiosError<IError> = await axios.request(request).catch((error: AxiosError<IError>) => error);
+        const result: AxiosResponse<T> | AxiosError<IErrorResponseData> = await axios.request(request).catch((error) => error);
 
-        // エラーが発生した場合は ErrorResponse を返す
+        // エラーが発生した場合は IErrorResponse を返す
         if (result instanceof AxiosError) {
             console.error(result);
 
-            // エラーレスポンスがあれば、エラー内容を取得して返す
+            // エラーレスポンスがあれば、エラー内容と AxiosError を IErrorResponse に入れて返す
             if (result.response) {
                 return {
+                    type: 'error',
                     status: result.response.status,
-                    data: null,
-                    error: new Error(result.response.data.detail),
-                    is_error: true,
+                    data: result.response.data,  // data には IErrorResponseData が入る
+                    error: result,  // AxiosError をそのまま入れる
                 };
 
-            // エラーレスポンスがない場合は、AxiosError をそのまま返す
+            // エラーレスポンスがない場合は、AxiosError のみを IErrorResponse に入れて返す
             } else {
                 return {
-                    status: NaN,
-                    data: null,
-                    error: result,
-                    is_error: true,
+                    type: 'error',
+                    status: NaN,  // ステータスコードは取得できないので NaN にする
+                    data: {detail: result.message},  // data.detail に AxiosError のエラーメッセージを入れる
+                    error: result,  // AxiosError をそのまま入れる
                 };
             }
 
-        // 正常にレスポンスが返ってきた場合は SuccessResponse を返す
+        // 正常にレスポンスが返ってきた場合は ISuccessResponse を返す
         } else {
             return {
+                type: 'success',
                 status: result.status,
                 data: result.data,
-                error: null,
-                is_success: true,
             };
         }
     }
@@ -88,9 +93,9 @@ class APIClient {
     /**
      * GET リクエストを送信する
      * @param url リクエスト先の URL
-     * @returns 成功なら SuccessResponse 、失敗なら ErrorResponse を返す
+     * @returns 成功なら ISuccessResponse 、失敗なら IErrorResponse を返す
      */
-    static async get<T = any, D = any>(url: string, config?: AxiosRequestConfig<D>): Promise<SuccessResponse<T> | ErrorResponse> {
+    static async get<T = any, D = any>(url: string, config?: AxiosRequestConfig<D>): Promise<ISuccessResponse<T> | IErrorResponse> {
         const request: AxiosRequestConfig = {
             url: url,
             method: 'GET',
@@ -103,9 +108,9 @@ class APIClient {
     /**
      * POST リクエストを送信する
      * @param url リクエスト先の URL
-     * @returns 成功なら SuccessResponse 、失敗なら ErrorResponse を返す
+     * @returns 成功なら ISuccessResponse 、失敗なら IErrorResponse を返す
      */
-    static async post<T = any, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<SuccessResponse<T> | ErrorResponse> {
+    static async post<T = any, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<ISuccessResponse<T> | IErrorResponse> {
         const request: AxiosRequestConfig = {
             url: url,
             method: 'POST',
@@ -119,9 +124,9 @@ class APIClient {
     /**
      * PUT リクエストを送信する
      * @param url リクエスト先の URL
-     * @returns 成功なら SuccessResponse 、失敗なら ErrorResponse を返す
+     * @returns 成功なら ISuccessResponse 、失敗なら IErrorResponse を返す
      */
-    static async put<T = any, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<SuccessResponse<T> | ErrorResponse> {
+    static async put<T = any, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<ISuccessResponse<T> | IErrorResponse> {
         const request: AxiosRequestConfig = {
             url: url,
             method: 'PUT',
@@ -135,9 +140,9 @@ class APIClient {
     /**
      * DELETE リクエストを送信する
      * @param url リクエスト先の URL
-     * @returns 成功なら SuccessResponse 、失敗なら ErrorResponse を返す
+     * @returns 成功なら ISuccessResponse 、失敗なら IErrorResponse を返す
      */
-    static async delete<T = any, D = any>(url: string, config?: AxiosRequestConfig<D>): Promise<SuccessResponse<T> | ErrorResponse> {
+    static async delete<T = any, D = any>(url: string, config?: AxiosRequestConfig<D>): Promise<ISuccessResponse<T> | IErrorResponse> {
         const request: AxiosRequestConfig = {
             url: url,
             method: 'DELETE',
@@ -150,12 +155,12 @@ class APIClient {
     /**
      * 一般的なエラーメッセージの共通処理
      * エラーメッセージを SnackBar で表示する
-     * @param response API から返されたエラーレスポンス
+     * @param error_response API から返されたエラーレスポンス
      * @param template エラーメッセージのテンプレート（「アカウント情報を取得できませんでした。」など)
      */
-    static showGenericError(response: ErrorResponse, template: string): void {
+    static showGenericError(error_response: IErrorResponse, template: string): void {
         const user_store = useUserStore();
-        switch (response.error.message) {
+        switch (error_response.data.detail) {
             case 'Not authenticated': {
                 user_store.logout(true);
                 Message.error(`${template}\nログインし直してください。`);
@@ -177,14 +182,17 @@ class APIClient {
                 return;
             }
             default: {
-                if (response.error.message) {
-                    if (Number.isNaN(response.status)) {
-                        Message.error(`${template}(${response.error.message})`);
+                if (error_response.data.detail) {
+                    if (Number.isNaN(error_response.status)) {
+                        // HTTP リクエスト自体が失敗し、HTTP ステータスコードが取得できなかった場合
+                        Message.error(`${template}(${error_response.data.detail})`);
                     } else {
-                        Message.error(`${template}(HTTP Error ${response.status} / ${response.error.message})`);
+                        // HTTP リクエスト自体は成功したが、API からエラーレスポンスが返ってきた場合
+                        Message.error(`${template}(HTTP Error ${error_response.status} / ${error_response.data.detail})`);
                     }
                 } else {
-                    Message.error(`${template}(HTTP Error ${response.status})`);
+                    // HTTP リクエスト自体は成功したが、API からエラーコードのみが返ってきた場合 (基本あり得ないはずだが、念のため)
+                    Message.error(`${template}(HTTP Error ${error_response.status})`);
                 }
                 return;
             }

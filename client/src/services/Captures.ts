@@ -22,8 +22,8 @@ class Captures {
         const response = await APIClient.post('/captures', form_data, {headers: {'Content-Type': 'multipart/form-data'}});
 
         // エラー処理
-        if ('is_error' in response) {
-            switch (response.error.message) {
+        if (response.type === 'error') {
+            switch (response.data.detail) {
                 case 'Permission denied to save the file': {
                     Message.error('キャプチャのアップロードに失敗しました。保存先フォルダに書き込み権限がありません。');
                     break;
@@ -41,11 +41,10 @@ class Captures {
                     break;
                 }
             }
-            return;
         }
     }
 
-    // TODO: キャプチャリスト機能の実装時にいろいろ追加する
+    // TODO: キャプチャ管理機能の実装時に API を追加する
 }
 
 export default Captures;
