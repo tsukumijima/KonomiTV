@@ -97,8 +97,8 @@ import Vue from 'vue';
 
 import CommentMuteSettings from '@/components/Settings/CommentMuteSettings.vue';
 import Niconico from '@/services/Niconico';
-import useSettingsStore from '@/store/SettingsStore';
-import useUserStore from '@/store/UserStore';
+import useSettingsStore from '@/stores/SettingsStore';
+import useUserStore from '@/stores/UserStore';
 import Utils from '@/utils';
 import SettingsBase from '@/views/Settings/Base.vue';
 

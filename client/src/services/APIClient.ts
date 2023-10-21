@@ -7,7 +7,7 @@
 import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
 
 import Message from '@/message';
-import useUserStore from '@/store/UserStore';
+import useUserStore from '@/stores/UserStore';
 import Utils from '@/utils';
 
 

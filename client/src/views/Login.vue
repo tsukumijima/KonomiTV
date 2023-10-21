@@ -40,7 +40,7 @@ import Vue from 'vue';
 
 import Header from '@/components/Header.vue';
 import Navigation from '@/components/Navigation.vue';
-import useUserStore from '@/store/UserStore';
+import useUserStore from '@/stores/UserStore';
 import Utils from '@/utils';
 
 export default Vue.extend({

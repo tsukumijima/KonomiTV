@@ -7,8 +7,8 @@ import { AribKeyCode } from 'web-bml/client/content';
 import router from '@/router';
 import { ILiveChannel } from '@/services/Channels';
 import PlayerManager from '@/services/player/PlayerManager';
-import useChannelsStore from '@/store/ChannelsStore';
-import useSettingsStore from '@/store/SettingsStore';
+import useChannelsStore from '@/stores/ChannelsStore';
+import useSettingsStore from '@/stores/SettingsStore';
 import Utils, { PlayerUtils } from '@/utils';
 import { ILivePSIArchivedDataDecoder } from '@/workers/LivePSIArchivedDataDecoder';
 

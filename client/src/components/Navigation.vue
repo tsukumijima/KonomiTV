@@ -54,7 +54,7 @@ import { mapStores } from 'pinia';
 import Vue from 'vue';
 
 import BottomNavigation from '@/components/BottomNavigation.vue';
-import useVersionStore from '@/store/VersionStore';
+import useVersionStore from '@/stores/VersionStore';
 
 export default Vue.extend({
     name: 'Navigation',

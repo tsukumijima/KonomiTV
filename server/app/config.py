@@ -35,7 +35,7 @@ from app.constants import (
 
 # クライアント設定を表す Pydantic モデル (クライアント設定同期用 API で利用)
 # デバイス間で同期するとかえって面倒なことになりそうな設定は除外されている
-# 詳細は client/src/services/Settings.ts と client/src/store/SettingsStore.ts を参照
+# 詳細は client/src/services/Settings.ts と client/src/stores/SettingsStore.ts を参照
 
 class ClientSettings(BaseModel):
     pinned_channel_ids: list[str] = Field([])

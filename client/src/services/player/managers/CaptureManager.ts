@@ -9,8 +9,8 @@ import * as piexif from 'piexifjs';
 
 import APIClient from '@/services/APIClient';
 import Captures from '@/services/Captures';
-import useChannelsStore from '@/store/ChannelsStore';
-import useSettingsStore from '@/store/SettingsStore';
+import useChannelsStore from '@/stores/ChannelsStore';
+import useSettingsStore from '@/stores/SettingsStore';
 import Utils from '@/utils';
 
 

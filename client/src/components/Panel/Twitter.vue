@@ -179,9 +179,9 @@ import draggable from 'vuedraggable';
 
 import Twitter from '@/services/Twitter';
 import { ITwitterAccount } from '@/services/Users';
-import useChannelsStore from '@/store/ChannelsStore';
-import useSettingsStore from '@/store/SettingsStore';
-import useUserStore from '@/store/UserStore';
+import useChannelsStore from '@/stores/ChannelsStore';
+import useSettingsStore from '@/stores/SettingsStore';
+import useUserStore from '@/stores/UserStore';
 import Utils from '@/utils';
 
 // このコンポーネント内でのキャプチャのインターフェイス

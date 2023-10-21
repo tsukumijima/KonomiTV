@@ -15,7 +15,7 @@ import VTabs from '@/components/Vuetify/VTabs';
 import VTabsItems from '@/components/Vuetify/VTabsItems';
 import vuetify from '@/plugins/vuetify';
 import router from '@/router';
-import useSettingsStore, { setLocalStorageSettings } from '@/store/SettingsStore';
+import useSettingsStore, { setLocalStorageSettings } from '@/stores/SettingsStore';
 import '@/service-worker';
 import Utils from '@/utils';
 

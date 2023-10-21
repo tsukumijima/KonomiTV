@@ -3,7 +3,7 @@ import { defineStore } from 'pinia';
 
 import Message from '@/message';
 import Users, { IUser, IUserUpdateRequest } from '@/services/Users';
-import useSettingsStore from '@/store/SettingsStore';
+import useSettingsStore from '@/stores/SettingsStore';
 import Utils from '@/utils';
 
 

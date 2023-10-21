@@ -53,7 +53,7 @@
 import { mapStores } from 'pinia';
 import Vue from 'vue';
 
-import useChannelsStore from '@/store/ChannelsStore';
+import useChannelsStore from '@/stores/ChannelsStore';
 import Utils, { ChannelUtils, ProgramUtils } from '@/utils';
 
 export default Vue.extend({

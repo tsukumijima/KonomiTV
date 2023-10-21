@@ -1,7 +1,7 @@
 
 import { Buffer } from 'buffer';
 
-import useSettingsStore from '@/store/SettingsStore';
+import useSettingsStore from '@/stores/SettingsStore';
 
 
 /**

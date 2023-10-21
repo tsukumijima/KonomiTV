@@ -68,7 +68,7 @@
 import { mapStores } from 'pinia';
 import Vue from 'vue';
 
-import useSettingsStore from '@/store/SettingsStore';
+import useSettingsStore from '@/stores/SettingsStore';
 import Utils from '@/utils';
 import SettingsBase from '@/views/Settings/Base.vue';
 

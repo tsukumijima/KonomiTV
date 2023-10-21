@@ -89,8 +89,8 @@ import Vue from 'vue';
 
 import Header from '@/components/Header.vue';
 import Navigation from '@/components/Navigation.vue';
-import useChannelsStore from '@/store/ChannelsStore';
-import useSettingsStore from '@/store/SettingsStore';
+import useChannelsStore from '@/stores/ChannelsStore';
+import useSettingsStore from '@/stores/SettingsStore';
 import Utils, { ChannelUtils, ProgramUtils } from '@/utils';
 
 export default Vue.extend({

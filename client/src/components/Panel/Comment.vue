@@ -81,7 +81,7 @@ import Vue from 'vue';
 
 import CommentMuteSettings from '@/components/Settings/CommentMuteSettings.vue';
 import LiveCommentManager, { ICommentData } from '@/services/player/managers/LiveCommentManager';
-import useUserStore from '@/store/UserStore';
+import useUserStore from '@/stores/UserStore';
 import Utils, { CommentUtils } from '@/utils';
 
 export default Vue.extend({

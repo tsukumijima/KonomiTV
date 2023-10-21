@@ -215,8 +215,8 @@ import APIClient from '@/services/APIClient';
 import { ILiveChannel } from '@/services/Channels';
 import CaptureManager from '@/services/player/managers/CaptureManager';
 import LiveDataBroadcastingManager from '@/services/player/managers/LiveDataBroadcastingManager';
-import useChannelsStore from '@/store/ChannelsStore';
-import useSettingsStore from '@/store/SettingsStore';
+import useChannelsStore from '@/stores/ChannelsStore';
+import useSettingsStore from '@/stores/SettingsStore';
 import Utils, { PlayerUtils, ProgramUtils } from '@/utils';
 
 // 低遅延モードオン時の再生バッファ (秒単位)

@@ -4,7 +4,7 @@ import Vue from 'vue';
 
 import Channels, { ChannelType, ChannelTypePretty, ILiveChannelsList, ILiveChannel, ILiveChannelDefault } from '@/services/Channels';
 import { IProgram } from '@/services/Programs';
-import useSettingsStore from '@/store/SettingsStore';
+import useSettingsStore from '@/stores/SettingsStore';
 import Utils, { ChannelUtils } from '@/utils';
 
 

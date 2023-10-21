@@ -142,7 +142,7 @@
 import { mapStores } from 'pinia';
 import Vue, { PropType } from 'vue';
 
-import useSettingsStore from '@/store/SettingsStore';
+import useSettingsStore from '@/stores/SettingsStore';
 
 export default Vue.extend({
     name: 'CommentMuteSettings',

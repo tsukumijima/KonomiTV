@@ -5,7 +5,7 @@ import APIClient from '@/services/APIClient';
 /**
  * サーバーに保存されるクライアント設定を表すインターフェース
  * サーバー側の app.schemas.ClientSettings と
- * client/src/store/SettingsStore.ts 内の sync_settings_keys で定義されているものと同じ
+ * client/src/stores/SettingsStore.ts 内の sync_settings_keys で定義されているものと同じ
  */
 export interface IClientSettings {
     pinned_channel_ids: string[];
