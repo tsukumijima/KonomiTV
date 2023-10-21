@@ -15,12 +15,12 @@ from pydantic import (
     confloat,
     DirectoryPath,
     Field,
-    FieldValidationInfo,
     field_validator,
     FilePath,
     PositiveInt,
     UrlConstraints,
     ValidationError,
+    ValidationInfo,
 )
 from pydantic_core import Url
 from pathlib import Path
@@ -90,7 +90,7 @@ class _ServerSettingsGeneral(BaseModel):
     debug_encoder: bool
 
     @field_validator('edcb_url')
-    def validate_edcb_url(cls, edcb_url: Url, info: FieldValidationInfo) -> Url:
+    def validate_edcb_url(cls, edcb_url: Url, info: ValidationInfo) -> Url:
         # URL を末尾のスラッシュありに統一
         edcb_url = Url(str(edcb_url).rstrip('/') + '/')
         # バリデーションをスキップする場合はここで終了
@@ -128,7 +128,7 @@ class _ServerSettingsGeneral(BaseModel):
         return edcb_url
 
     @field_validator('mirakurun_url')
-    def validate_mirakurun_url(cls, mirakurun_url: Url, info: FieldValidationInfo) -> Url:
+    def validate_mirakurun_url(cls, mirakurun_url: Url, info: ValidationInfo) -> Url:
         # URL を末尾のスラッシュありに統一
         ## HTTP/HTTPS URL では Pydantic の Url インスタンスが自動的に末尾のスラッシュを付けてしまうようだが、
         ## 挙動が変わらないとも限らないので、一応明示的に付けておく
@@ -166,7 +166,7 @@ class _ServerSettingsGeneral(BaseModel):
         return mirakurun_url
 
     @field_validator('encoder')
-    def validate_encoder(cls, encoder: str, info: FieldValidationInfo) -> str:
+    def validate_encoder(cls, encoder: str, info: ValidationInfo) -> str:
         # バリデーションをスキップする場合はここで終了
         if type(info.context) is dict and info.context.get('bypass_validation') is True:
             return encoder
@@ -223,7 +223,7 @@ class _ServerSettingsServer(BaseModel):
     custom_https_private_key: FilePath | None
 
     @field_validator('port')
-    def validate_port(cls, port: int, info: FieldValidationInfo) -> int:
+    def validate_port(cls, port: int, info: ValidationInfo) -> int:
         # バリデーションをスキップする場合はここで終了
         if type(info.context) is dict and info.context.get('bypass_validation') is True:
             return port
