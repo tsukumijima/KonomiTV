@@ -166,7 +166,7 @@ class Channel(models.Model):
                 channel.id = f'NID{service["networkId"]}-SID{service["serviceId"]:03d}'
                 channel.service_id = int(service['serviceId'])
                 channel.network_id = int(service['networkId'])
-                channel.remocon_id = int(service['remoteControlKeyId']) if ('remoteControlKeyId' in service) else -1
+                channel.remocon_id = int(service['remoteControlKeyId']) if ('remoteControlKeyId' in service) else 0
                 channel.type = channel_type
                 channel.name = TSInformation.formatString(service['name'])
                 channel.jikkyo_force = None
@@ -335,7 +335,7 @@ class Channel(models.Model):
                         channel.remocon_id = int(epg_service['remote_control_key_id'])
                     else:
                         # 取得できなかったので、あれば以前のバックアップからリモコン番号を取得
-                        channel.remocon_id = backup_remocon_ids.get(channel.id, -1)
+                        channel.remocon_id = backup_remocon_ids.get(channel.id, 0)
 
                         # それでもリモコン番号が不明の時は、同じネットワーク ID を持つ別サービスのリモコン番号を取得する
                         ## 地上波の臨時サービスはリモコン番号が取得できないことが多い問題への対応
