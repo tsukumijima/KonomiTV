@@ -1,33 +1,25 @@
 {
     "compilerOptions": {
-        "target": "es2021",
-        "module": "esnext",
-        "strict": true,
-        "importHelpers": true,
-        "moduleResolution": "node",
-        "allowJs": true,
-        "skipLibCheck": true,
-        "esModuleInterop": true,
-        "allowSyntheticDefaultImports": true,
-        "sourceMap": true,
+        "target": "ES2022",
+        "module": "ESNext",
         "baseUrl": ".",
-        "incremental": true,  // 差分ビルドを有効に
-        "removeComments": false,  // コメントを残す
+        "moduleResolution": "Node",  // Bundler だと謎のエラーが出る…
+        "incremental": true,  // 差分ビルドを有効化 (差分情報は .tsbuildinfo に保存される)
+        "sourceMap": true,  // ソースマップを出力
+        "removeComments": false,  // ビルド後にコメントを残す
+        "importHelpers": true,  // tslib から polyfill を import する
+        "esModuleInterop": true,  // CommonJS モジュールとの相互運用性を有効化
         "forceConsistentCasingInFileNames": true,  // ファイル名の大文字小文字に一貫性がないときにエラーにする
+        // 以下は型チェックの設定
+        "strict": true,  // 厳密な型チェックを有効化
+        "skipLibCheck": true,  // ライブラリ (d.ts) の型チェックをしない (Vue.js で確か必要なはず)
+        "noImplicitAny": false,  // 特に依存している web-bml が型がないモジュールをインポートしてたりして解消が面倒なので無効化
         "noImplicitThis": true,  // Volar で this の補完を有効にする
-        // ↓↓↓ がんばらない TypeScript
-        "noImplicitAny": false,
-        "strictNullChecks": false,
-        "strictFunctionTypes": false,
-        "strictBindCallApply": false,
-        "strictPropertyInitialization": false,
-        "useUnknownInCatchVariables": false,
-        // ↑↑↑
-        // "strictNullChecks": true,
-        // "strictFunctionTypes": true,
-        // "strictBindCallApply": true,
-        // "strictPropertyInitialization": true,
-        // "useUnknownInCatchVariables": true,
+        "strictNullChecks": true,
+        "strictFunctionTypes": true,
+        "strictBindCallApply": true,
+        "strictPropertyInitialization": true,
+        "useUnknownInCatchVariables": true,
         "types": [
             "offscreencanvas",
             "resize-observer-browser",

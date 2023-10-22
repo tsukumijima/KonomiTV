@@ -1080,7 +1080,7 @@ export default Vue.extend({
 
             // プレイヤー側のコントロール非表示タイマーを無効化（上書き）
             // 無効化しておかないと、controlDisplayTimer() と競合してしまう
-            // 上書き元のコードは https://github.com/tsukumijima/DPlayer/blob/master/src/js/controller.js#L387-L395 にある
+            // 上書き元のコードは https://github.com/tsukumijima/DPlayer/blob/v1.30.2/src/ts/controller.ts#L397-L405 にある
             this.player.controller.setAutoHide = (time: number) => {};
 
             // ニコニコ実況セッションを初期化し、随時コメントを受信できるようにする

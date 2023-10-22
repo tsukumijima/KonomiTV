@@ -70,15 +70,16 @@ interface HTMLVideoElement {
     onleavepictureinpicture: PictureInPictureEventListener;
 }
 interface Element {
-    webkitRequestFullscreen(): Promise<void>;
+    webkitRequestFullscreen?(): Promise<void>;
+    onwebkitfullscreenchange?: ((this: Element, ev: Event) => any) | null;
 }
 interface Document {
     readonly pictureInPictureEnabled: boolean;
-    webkitFullscreenElement: Element;
     exitPictureInPicture(): Promise<void>;
-    webkitExitFullscreen(): Promise<void>;
+    webkitFullscreenElement?: Element;
+    webkitExitFullscreen?(): Promise<void>;
 }
 interface DocumentOrShadowRoot {
     readonly pictureInPictureElement: HTMLVideoElement | null;
-    webkitFullscreenElement: Element;
+    webkitFullscreenElement?: Element;
 }

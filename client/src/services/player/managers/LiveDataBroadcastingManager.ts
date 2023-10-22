@@ -20,22 +20,28 @@ const LivePSIArchivedDataDecoderWorker =
     Comlink.wrap<new (channel: ILiveChannel, api_quality: string) => Comlink.Remote<ILivePSIArchivedDataDecoder>>(worker);
 
 
+/**
+ * データ放送機能を管理する PlayerManager
+ */
 class LiveDataBroadcastingManager implements PlayerManager {
 
+    // ユーザー操作により DPlayer 側で画質が切り替わった際、この PlayerManager の再起動が必要かどうかを PlayerWrapper に示す値
+    public readonly restart_required_when_quality_switched = true;
+
     // BML 用フォント
-    private static readonly round_gothic: BMLBrowserFontFace = {
+    private static readonly ROUND_GOTHIC: BMLBrowserFontFace = {
         source: 'url("https://cdn.jsdelivr.net/gh/googlefonts/kosugi-maru@main/fonts/webfonts/KosugiMaru-Regular.woff2"), local("sans-serif")',
     };
-    private static readonly square_gothic: BMLBrowserFontFace = {
+    private static readonly SQUARE_GOTHIC: BMLBrowserFontFace = {
         source: 'url("https://cdn.jsdelivr.net/gh/googlefonts/kosugi@main/fonts/webfonts/Kosugi-Regular.woff2"), local("sans-serif")',
     };
 
-    private player: DPlayer;
-    private media_element: HTMLElement;
+    private readonly player: DPlayer;
+    private readonly media_element: HTMLElement;
     private container_element: HTMLElement | null = null;
 
-    private remocon_element: HTMLElement;
-    private remocon_data_broadcasting_element: HTMLElement;
+    private readonly remocon_element: HTMLElement;
+    private readonly remocon_data_broadcasting_element: HTMLElement;
     private remocon_button_event_abort_controller: AbortController | null = null;
 
     // DPlayer のリサイズを監視する ResizeObserver
@@ -62,6 +68,10 @@ class LiveDataBroadcastingManager implements PlayerManager {
     // PSI/SI アーカイブデータデコーダーのインスタンス
     private live_psi_archived_data_decoder: Comlink.Remote<Comlink.Remote<ILivePSIArchivedDataDecoder>> | null = null;
 
+    /**
+     * コンストラクタ
+     * @param player DPlayer のインスタンス
+     */
     constructor(player: DPlayer) {
         this.player = player;
 
@@ -116,8 +126,8 @@ class LiveDataBroadcastingManager implements PlayerManager {
                 broadcasterDatabasePrefix: '',
                 videoPlaneModeEnabled: true,
                 fonts: {
-                    roundGothic: LiveDataBroadcastingManager.round_gothic,
-                    squareGothic: LiveDataBroadcastingManager.square_gothic,
+                    roundGothic: LiveDataBroadcastingManager.ROUND_GOTHIC,
+                    squareGothic: LiveDataBroadcastingManager.SQUARE_GOTHIC,
                 },
                 // ステータス更新時のイベント
                 indicator: {

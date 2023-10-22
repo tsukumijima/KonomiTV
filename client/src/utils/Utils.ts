@@ -175,12 +175,13 @@ export default class Utils {
 
 
     /**
-     * モバイルデバイス（スマホ・タブレット）かどうか
+     * モバイルデバイス (スマホ・タブレット) かどうか
      * @returns モバイルデバイス (スマホ・タブレット) なら true を返す
      */
     static isMobileDevice(): boolean {
         // Macintosh が入っているのは、iPadOS は既定でデスクトップ表示モードが有効になっていて、UA だけでは Mac と判別できないため
         // Mac にタッチパネル付きの機種は存在しないので、'ontouchend' in document で判定できる
+        // Windows タブレットはマウスやキーボードを付けたら普通の PC になるケースもあって判断が非常に難しく、需要も少ないため除外している
         return /iPhone|iPad|iPod|Macintosh|Android|Mobile/i.test(navigator.userAgent) && 'ontouchend' in document;
     }
 
@@ -222,7 +223,8 @@ export default class Utils {
 
 
     /**
-     * 表示端末がタッチデバイスかどうか
+     * 表示端末がタッチデバイスかどうか (Utils.isMobileDevice() とは異なり、モバイルデバイスかどうかは問わない)
+     * おそらく Windows タブレットや Chromebook なども含まれる
      * @returns タッチデバイスなら true を返す
      */
     static isTouchDevice(): boolean {
