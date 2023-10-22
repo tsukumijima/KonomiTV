@@ -19,6 +19,7 @@
         "core-js": "^3.33.1",
         "dayjs": "^1.11.10",
         "dplayer": "github:tsukumijima/DPlayer#v1.30.2",
+        "mitt": "^3.0.1",
         "mpegts.js": "github:tsukumijima/mpegts.js#72da909cdbcfb8c9ef32e9b527190d5393f66176",
         "piexifjs": "^2.0.0-beta.9",
         "pinia": "^2.1.7",

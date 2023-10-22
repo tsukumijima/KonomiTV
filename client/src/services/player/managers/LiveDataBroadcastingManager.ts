@@ -21,7 +21,7 @@ const LivePSIArchivedDataDecoderWorker =
 
 
 /**
- * データ放送機能を管理する PlayerManager
+ * ライブ視聴: データ放送機能を管理する PlayerManager
  */
 class LiveDataBroadcastingManager implements PlayerManager {
 

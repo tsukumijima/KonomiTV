@@ -7,6 +7,7 @@ import mpegts from 'mpegts.js';
 import APIClient from '@/services/APIClient';
 import { ILiveChannel } from '@/services/Channels';
 import LiveDataBroadcastingManager from '@/services/player/managers/LiveDataBroadcastingManager';
+import LiveEventManager from '@/services/player/managers/LiveEventManager';
 import MediaSessionManager from '@/services/player/managers/MediaSessionManager';
 import PlayerManager from '@/services/player/PlayerManager';
 import { IRecordedProgram } from '@/services/Videos';
@@ -400,6 +401,7 @@ class PlayerWrapper {
         if (this.playback_mode === 'live') {
             // ライブ視聴時に設定する PlayerManager
             this.player_managers = [
+                new LiveEventManager(this.player),
                 new LiveDataBroadcastingManager(this.player),
                 new MediaSessionManager(this.player, this.channel ?? this.recorded_program!),
             ];
@@ -411,6 +413,7 @@ class PlayerWrapper {
         }
 
         // 登録されている PlayerManager をすべて初期化
+        // これにより各 PlayerManager での実際の処理が開始される
         for (const player_manager of this.player_managers) {
             await player_manager.init();
         }

@@ -9,6 +9,9 @@ import { IRecordedProgram } from '@/services/Videos';
 import useChannelsStore from '@/stores/ChannelsStore';
 
 
+/**
+ * MediaSession API を使いメディア通知を管理する PlayerManager
+ */
 class MediaSessionManager implements PlayerManager {
 
     // ユーザー操作により DPlayer 側で画質が切り替わった際、この PlayerManager の再起動が必要かどうかを PlayerWrapper に示す値
