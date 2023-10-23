@@ -42,7 +42,7 @@ jobs:
         working-directory: installer/
         run: |
           pip install poetry
-          poetry install
+          poetry install --no-root
 
       # インストーラーを PyInstaller でビルド
       - name: Build Installer with PyInstaller
@@ -82,7 +82,7 @@ jobs:
         working-directory: installer/
         run: |
           pip install poetry
-          poetry install
+          poetry install --no-root
 
       # インストーラーを PyInstaller でビルド
       - name: Build Installer with PyInstaller
@@ -159,7 +159,7 @@ jobs:
         working-directory: installer/
         run: |
           docker run --rm -i -v $(pwd):/work -w /work arm64v8/ubuntu:build bash -c \
-            'poetry install && poetry run task build-linux'
+            'poetry install --no-root && poetry run task build-linux'
           sudo cp -a dist/KonomiTV-Installer.elf dist/KonomiTV-Installer-ARM.elf
 
       # 単一実行ファイルにビルドされたインストーラーを Artifact としてアップロード
