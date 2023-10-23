@@ -36,10 +36,12 @@ class LiveDataBroadcastingManager implements PlayerManager {
         source: 'url("https://cdn.jsdelivr.net/gh/googlefonts/kosugi@main/fonts/webfonts/Kosugi-Regular.woff2"), local("sans-serif")',
     };
 
+    // DPlayer のインスタンス
+    // 設計上コンストラクタ以降で変更すべきでないため readonly にしている
     private readonly player: DPlayer;
+
     private readonly media_element: HTMLElement;
     private container_element: HTMLElement | null = null;
-
     private readonly remocon_element: HTMLElement;
     private readonly remocon_data_broadcasting_element: HTMLElement;
     private remocon_button_event_abort_controller: AbortController | null = null;
@@ -91,8 +93,8 @@ class LiveDataBroadcastingManager implements PlayerManager {
      * ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-230212/ini/HttpPublic/legacy/util.lua#L444-L497
      */
     public async init(): Promise<void> {
-
         const channels_store = useChannelsStore();
+
         const is_data_broadcasting_enabled = useSettingsStore().settings.tv_show_data_broadcasting;
         console.log(`[LiveDataBroadcastingManager] BMLBrowser: ${is_data_broadcasting_enabled ? 'enabled' : 'disabled'}`);
 
@@ -373,8 +375,9 @@ class LiveDataBroadcastingManager implements PlayerManager {
      * リモコンのボタンを初期化する
      */
     private initRemoconButtons(): void {
-
         const channels_store = useChannelsStore();
+
+        // リモコンのボタンのクリックイベントを一括で削除するための AbortController
         this.remocon_button_event_abort_controller = new AbortController();
 
         // リモコンのボタンをクリックしたときのイベントを登録

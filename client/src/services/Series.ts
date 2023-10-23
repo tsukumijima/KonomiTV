@@ -1,4 +1,5 @@
 
+import APIClient from '@/services/APIClient';
 import { IChannel } from '@/services/Channels';
 import { IRecordedProgram } from '@/services/Videos';
 
@@ -26,3 +27,27 @@ export interface ISeriesBroadcastPeriod {
     end_date: string;
     recorded_programs: IRecordedProgram[];
 }
+
+class Series {
+
+    /**
+     * シリーズ情報を取得する
+     * @param series_id シリーズ ID
+     * @returns シリーズ情報 or シリーズ情報の取得に失敗した場合は null
+     */
+    static async fetchSeries(series_id: number): Promise<ISeries | null> {
+
+        // API リクエストを実行
+        const response = await APIClient.get<ISeries>(`/series/${series_id}`);
+
+        // エラー処理
+        if (response.type === 'error') {
+            APIClient.showGenericError(response, 'シリーズ情報を取得できませんでした。');
+            return null;
+        }
+
+        return response.data;
+    }
+}
+
+export default Series;

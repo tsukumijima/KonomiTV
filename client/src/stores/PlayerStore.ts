@@ -2,6 +2,8 @@
 import mitt from 'mitt';
 import { defineStore } from 'pinia';
 
+import { IRecordedProgram, IRecordedProgramDefault } from '@/services/Videos';
+
 
 /** プレイヤーに関するイベントの型 */
 export type PlayerEvents = {
@@ -19,6 +21,10 @@ const usePlayerStore = defineStore('player', {
 
         // プレイヤーに関するイベントを発行する EventEmitter
         event_emitter: mitt<PlayerEvents>(),
+
+        // 現在視聴中の録画番組の情報
+        // 視聴中の録画番組がない場合は IRecordedProgramDefault を設定すべき (初期値も IRecordedProgramDefault にしている)
+        recorded_program: IRecordedProgramDefault as IRecordedProgram,
 
         // コントロールを表示するか (既定で表示する)
         is_control_display: true,

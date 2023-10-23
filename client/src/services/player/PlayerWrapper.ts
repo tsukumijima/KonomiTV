@@ -5,12 +5,11 @@ import DPlayer, { DPlayerType } from 'dplayer';
 import mpegts from 'mpegts.js';
 
 import APIClient from '@/services/APIClient';
-import { ILiveChannel } from '@/services/Channels';
 import LiveDataBroadcastingManager from '@/services/player/managers/LiveDataBroadcastingManager';
 import LiveEventManager from '@/services/player/managers/LiveEventManager';
 import MediaSessionManager from '@/services/player/managers/MediaSessionManager';
 import PlayerManager from '@/services/player/PlayerManager';
-import { IRecordedProgram } from '@/services/Videos';
+import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
 import useSettingsStore from '@/stores/SettingsStore';
 import Utils, { PlayerUtils } from '@/utils';
@@ -39,13 +38,8 @@ class PlayerWrapper {
     // それぞれの PlayerManager のインスタンスのリスト
     private player_managers: PlayerManager[] = [];
 
-    // ライブ視聴: 視聴対象のチャンネル情報の参照
-    // 設計上コンストラクタ以降で変更すべきでないため readonly にしている
-    private readonly channel: ILiveChannel | null = null;
-
-    // ビデオ視聴: 視聴対象の録画番組情報の参照
-    // 設計上コンストラクタ以降で変更すべきでないため readonly にしている
-    private readonly recorded_program: IRecordedProgram | null = null;
+    // 再生モード (Live: ライブ視聴, Video: ビデオ視聴)
+    private readonly playback_mode: 'Live' | 'Video';
 
     // ライブ視聴: 許容する HTMLMediaElement の内部再生バッファの秒数
     // 設計上コンストラクタ以降で変更すべきでないため readonly にしている
@@ -70,16 +64,11 @@ class PlayerWrapper {
     /**
      * コンストラクタ
      * 実際の DPlayer の初期化処理は await init() で行われる
-     * @param channel_or_recorded_program 視聴対象のチャンネル情報または録画番組情報
      */
-    constructor(channel_or_recorded_program: ILiveChannel | IRecordedProgram) {
+    constructor(playback_mode: 'Live' | 'Video') {
 
-        // 引数の型に応じて channel または recorded_program をセット
-        if ('recorded_video' in channel_or_recorded_program) {
-            this.recorded_program = channel_or_recorded_program;
-        } else {
-            this.channel = channel_or_recorded_program;
-        }
+        // 再生モードをセット
+        this.playback_mode = playback_mode;
 
         // 低遅延モードであれば低遅延向けの再生バッファを、そうでなければ通常の再生バッファをセット (秒単位)
         const settings_store = useSettingsStore();
@@ -105,21 +94,10 @@ class PlayerWrapper {
 
 
     /**
-     * 再生モード (live: ライブ視聴, video: ビデオ視聴)
-     */
-    public get playback_mode(): 'live' | 'video' {
-        if (this.channel !== null) {
-            return 'live';
-        } else {
-            return 'video';
-        }
-    }
-
-
-    /**
      * DPlayer と PlayerManager を初期化し、再生準備を行う
      */
     public async init(): Promise<void> {
+        const channels_store = useChannelsStore();
         const player_store = usePlayerStore();
         const settings_store = useSettingsStore();
 
@@ -139,11 +117,11 @@ class PlayerWrapper {
             // 言語 (日本語固定)
             lang: 'ja-jp',
             // ライブモード (ビデオ視聴では無効)
-            live: this.playback_mode === 'live' ? true : false,
+            live: this.playback_mode === 'Live' ? true : false,
             // ライブモードで同期する際の最小バッファサイズ
             liveSyncMinBufferSize: this.live_playback_buffer_seconds - 0.1,
             // ループ再生 (ライブ視聴では無効)
-            loop: this.playback_mode === 'live' ? false : true,
+            loop: this.playback_mode === 'Live' ? false : true,
             // 自動再生
             autoplay: true,
             // AirPlay 機能 (うまく動かないため無効化)
@@ -174,17 +152,16 @@ class PlayerWrapper {
                 }
 
                 // ライブ視聴: チャンネル情報がセットされているはず
-                if (this.playback_mode === 'live') {
-                    assert(this.channel !== null);
+                if (this.playback_mode === 'Live') {
 
                     // ラジオチャンネルの場合
                     // API が受け付ける画質の値は通常のチャンネルと同じだが (手抜き…)、実際の画質は 48KHz/192kbps で固定される
                     // ラジオチャンネルの場合は、1080p と渡しても 48kHz/192kbps 固定の音声だけの MPEG-TS が配信される
-                    if (this.channel.is_radiochannel === true) {
+                    if (channels_store.channel.current.is_radiochannel === true) {
                         qualities.push({
                             name: '48kHz/192kbps',
                             type: 'mpegts',
-                            url: `${Utils.api_base_url}/streams/live/${this.channel.display_channel_id}/1080p/mpegts`,
+                            url: `${Utils.api_base_url}/streams/live/${channels_store.channel.current.display_channel_id}/1080p/mpegts`,
                         });
 
                     // 通常のチャンネルの場合
@@ -196,7 +173,7 @@ class PlayerWrapper {
                                 // 1080p-60fps のみ、見栄えの観点から表示上 "1080p (60fps)" と表示する
                                 name: quality_name === '1080p-60fps' ? '1080p (60fps)' : quality_name,
                                 type: 'mpegts',
-                                url: `${Utils.api_base_url}/streams/live/${this.channel.display_channel_id}/${quality_name}${hevc_prefix}/mpegts`,
+                                url: `${Utils.api_base_url}/streams/live/${channels_store.channel.current.display_channel_id}/${quality_name}${hevc_prefix}/mpegts`,
                             });
                         }
                     }
@@ -204,7 +181,7 @@ class PlayerWrapper {
                     // デフォルトの画質
                     // ラジオチャンネルのみ常に 48KHz/192kbps に固定する
                     let default_quality: string = settings_store.settings.tv_streaming_quality;
-                    if (this.channel.is_radiochannel) {
+                    if (channels_store.channel.current.is_radiochannel) {
                         default_quality = '48kHz/192kbps';
                     }
 
@@ -215,7 +192,6 @@ class PlayerWrapper {
 
                 // ビデオ視聴: 録画番組情報がセットされているはず
                 } else {
-                    assert(this.recorded_program !== null);
 
                     // 画質リストを作成
                     for (const quality_name of quality_names) {
@@ -224,7 +200,7 @@ class PlayerWrapper {
                             name: quality_name === '1080p-60fps' ? '1080p (60fps)' : quality_name,
                             type: 'hls',
                             // TODO: API URL は未実装なので適当な値を入れておく
-                            url: `${Utils.api_base_url}/streams/video/${this.recorded_program.id}/${quality_name}${hevc_prefix}/playlist`,
+                            url: `${Utils.api_base_url}/streams/video/${player_store.recorded_program.id}/${quality_name}${hevc_prefix}/playlist`,
                         });
                     }
 
@@ -254,7 +230,7 @@ class PlayerWrapper {
                 // コメント取得時
                 read: (options) => {
                     // ライブ視聴: 空の配列を返す (こうするとコメント0件と認識される)
-                    if (this.playback_mode === 'live') {
+                    if (this.playback_mode === 'Live') {
                         options.success([]);
                     // ビデオ視聴: 過去ログコメントを取得して返す
                     } else {
@@ -265,7 +241,7 @@ class PlayerWrapper {
                 // コメント送信時
                 send: async (options) => {
                     // ライブ視聴: コメントを送信する
-                    if (this.playback_mode === 'live') {
+                    if (this.playback_mode === 'Live') {
                         // TODO: 未実装
                         options.success();
                     // ビデオ視聴: 過去ログにはコメントできないのでエラーを返す
@@ -426,17 +402,17 @@ class PlayerWrapper {
         // 各 PlayerManager を初期化・登録
         // ライブ視聴とビデオ視聴で必要な PlayerManager が異なる
         // 一応順序は意図的だがそこまで重要ではない
-        if (this.playback_mode === 'live') {
+        if (this.playback_mode === 'Live') {
             // ライブ視聴時に設定する PlayerManager
             this.player_managers = [
                 new LiveEventManager(this.player),
                 new LiveDataBroadcastingManager(this.player),
-                new MediaSessionManager(this.player, this.channel ?? this.recorded_program!),
+                new MediaSessionManager(this.player, this.playback_mode),
             ];
         } else {
             // ビデオ視聴時に設定する PlayerManager
             this.player_managers = [
-                new MediaSessionManager(this.player, this.channel ?? this.recorded_program!),
+                new MediaSessionManager(this.player, this.playback_mode),
             ];
         }
 
@@ -455,7 +431,7 @@ class PlayerWrapper {
      */
     private getPlaybackBufferSeconds(): number {
         assert(this.player !== null);
-        if (this.playback_mode === 'live') {
+        if (this.playback_mode === 'Live') {
             let buffered_end = 0;
             if (this.player.video.buffered.length >= 1) {
                 buffered_end = this.player.video.buffered.end(0);
@@ -501,12 +477,13 @@ class PlayerWrapper {
      */
     private setupVideoPlaybackHandler(): void {
         assert(this.player !== null);
+        const channels_store = useChannelsStore();
         const player_store = usePlayerStore();
 
         // ライブ視聴: 再生停止状態かつ現在の再生位置からバッファが 30 秒以上離れていないかを 60 秒おきに監視し、そうなっていたら強制的にシークする
         // mpegts.js の仕様上、MSE 側に未再生のバッファが貯まり過ぎると新規に SourceBuffer が追加できなくなるため、強制的に接続が切断されてしまう
         // 再生停止状態でも定期的にシークすることで、バッファが貯まりすぎないように調節する
-        if (this.playback_mode === 'live') {
+        if (this.playback_mode === 'Live') {
             this.live_force_seek_interval_timer_id = window.setInterval(() => {
                 if (this.player === null) return;
                 if ((this.player.video.paused && this.player.video.buffered.length >= 1) &&
@@ -557,7 +534,7 @@ class PlayerWrapper {
             }
 
             // ライブ視聴時のみ
-            if (this.playback_mode === 'live') {
+            if (this.playback_mode === 'Live') {
 
                 // mpegts.js のエラーログハンドラーを登録
                 // 再生中に mpegts.js 内部でエラーが発生した際 (例: デバイスの通信が一時的に切断され、API からのストリーミングが途切れた際) に呼び出される
@@ -610,7 +587,7 @@ class PlayerWrapper {
                     // この時点で再生が開始できていない場合、再生状態の復旧を試みる
                     this.recoverPlayback();
 
-                    if (this.channel?.is_radiochannel === true) {
+                    if (channels_store.channel.current.is_radiochannel === true) {
                         // ラジオチャンネルでは引き続き映像の代わりとしてローディング中の背景画像を表示し続ける
                         player_store.is_background_display = true;
                     } else {

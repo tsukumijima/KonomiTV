@@ -3,10 +3,9 @@
 import DPlayer from 'dplayer';
 
 import router from '@/router';
-import { ILiveChannel } from '@/services/Channels';
 import PlayerManager from '@/services/player/PlayerManager';
-import { IRecordedProgram } from '@/services/Videos';
 import useChannelsStore from '@/stores/ChannelsStore';
+import usePlayerStore from '@/stores/PlayerStore';
 
 
 /**
@@ -21,13 +20,8 @@ class MediaSessionManager implements PlayerManager {
     // 設計上コンストラクタ以降で変更すべきでないため readonly にしている
     private readonly player: DPlayer;
 
-    // ライブ視聴: 視聴対象のチャンネル情報の参照
-    // 設計上コンストラクタ以降で変更すべきでないため readonly にしている
-    private readonly channel: ILiveChannel | null = null;
-
-    // ビデオ視聴: 視聴対象の録画番組情報の参照
-    // 設計上コンストラクタ以降で変更すべきでないため readonly にしている
-    private readonly recorded_program: IRecordedProgram | null = null;
+    // 再生モード (Live: ライブ視聴, Video: ビデオ視聴)
+    private readonly playback_mode: 'Live' | 'Video';
 
     // 破棄済みかどうか
     private destroyed = false;
@@ -35,17 +29,10 @@ class MediaSessionManager implements PlayerManager {
     /**
      * コンストラクタ
      * @param player DPlayer のインスタンス
-     * @param channel_or_recorded_program 視聴対象のチャンネル情報または録画番組情報
      */
-    constructor(player: DPlayer, channel_or_recorded_program: ILiveChannel | IRecordedProgram) {
+    constructor(player: DPlayer, playback_mode: 'Live' | 'Video') {
         this.player = player;
-
-        // 引数の型に応じて channel または recorded_program をセット
-        if ('recorded_video' in channel_or_recorded_program) {
-            this.recorded_program = channel_or_recorded_program;
-        } else {
-            this.channel = channel_or_recorded_program;
-        }
+        this.playback_mode = playback_mode;
     }
 
 
@@ -54,6 +41,8 @@ class MediaSessionManager implements PlayerManager {
      * 再生中のチャンネル情報・番組情報・録画番組情報が変更された場合は、一度破棄してから再度実行する必要がある
      */
     public async init(): Promise<void> {
+        const channels_store = useChannelsStore();
+        const player_store = usePlayerStore();
 
         // 破棄済みかどうかのフラグを下ろす
         this.destroyed = false;
@@ -76,18 +65,18 @@ class MediaSessionManager implements PlayerManager {
 
             // メディア通知の表示をカスタマイズ
             // ライブ視聴: 番組タイトル・チャンネル名・アイコンを表示
-            if (this.channel !== null) {
+            if (this.playback_mode === 'Live') {
                 navigator.mediaSession.metadata = new MediaMetadata({
-                    title: this.channel.program_present?.title ?? '放送休止',
-                    artist: this.channel.name,
+                    title: channels_store.channel.current.program_present?.title ?? '放送休止',
+                    artist: channels_store.channel.current.name,
                     artwork: live_artwork,
                 });
             // ビデオ視聴: 番組タイトル・シリーズタイトル・サムネイルを表示
             // シリーズタイトルが取得できていない場合は番組タイトルが代わりに設定される
-            } else if (this.recorded_program !== null) {
+            } else {
                 navigator.mediaSession.metadata = new MediaMetadata({
-                    title: this.recorded_program.title,
-                    artist: this.recorded_program.series_title ?? this.recorded_program.title,
+                    title: player_store.recorded_program.title,
+                    artist: player_store.recorded_program.series_title ?? player_store.recorded_program.title,
                     artwork: video_artwork,
                 });
             }
@@ -103,29 +92,23 @@ class MediaSessionManager implements PlayerManager {
             navigator.mediaSession.setActionHandler('play', () => this.player?.play());
             // 停止
             navigator.mediaSession.setActionHandler('pause', () => this.player?.pause());
-            // 前の再生位置にシーク
-            navigator.mediaSession.setActionHandler('seekbackward', (details) => {
-                // ライブ視聴: 何もしない
-                // ビデオ視聴: 10 秒早戻し
-                if (this.recorded_program !== null) {
+            // 前/次の再生位置にシーク (ビデオ視聴時のみ)
+            if (this.playback_mode === 'Video') {
+                // 前の再生位置にシーク
+                navigator.mediaSession.setActionHandler('seekbackward', (details) => {
                     const seek_offset = details.seekOffset ?? 10;  // デフォルト: 10 秒早戻し
                     this.player.seek(this.player.video.currentTime - seek_offset);
-                }
-            });
-            // 次の再生位置にシーク
-            navigator.mediaSession.setActionHandler('seekforward', (details) => {
-                // ライブ視聴: 何もしない
-                // ビデオ視聴: 10 秒早送り
-                if (this.recorded_program !== null) {
+                });
+                // 次の再生位置にシーク
+                navigator.mediaSession.setActionHandler('seekforward', (details) => {
                     const seek_offset = details.seekOffset ?? 10;  // デフォルト: 10 秒早送り
                     this.player.seek(this.player.video.currentTime + seek_offset);
-                }
-            });
+                });
+            }
             // 前のトラックに移動
             navigator.mediaSession.setActionHandler('previoustrack', async () => {
                 // ライブ視聴: 前のチャンネルに切り替え
-                if (this.channel !== null) {
-                    const channels_store = useChannelsStore();
+                if (this.playback_mode === 'Live') {
                     navigator.mediaSession.metadata = new MediaMetadata({
                         title: channels_store.channel.previous.program_present?.title ?? '放送休止',
                         artist: channels_store.channel.previous.name,
@@ -134,15 +117,14 @@ class MediaSessionManager implements PlayerManager {
                     // ルーティングを前のチャンネルに置き換える
                     await router.push({path: `/tv/watch/${channels_store.channel.previous.display_channel_id}`});
                 // ビデオ視聴: シリーズ番組の前の話数に切り替え
-                } else if (this.recorded_program !== null) {
+                } else {
                     // TODO: 未実装
                 }
             });
             // 次のトラックに移動
             navigator.mediaSession.setActionHandler('nexttrack', async () => {  // 次のチャンネルに切り替え
                 // ライブ視聴: 次のチャンネルに切り替え
-                if (this.channel !== null) {
-                    const channels_store = useChannelsStore();
+                if (this.playback_mode === 'Live') {
                     navigator.mediaSession.metadata = new MediaMetadata({
                         title: channels_store.channel.next.program_present?.title ?? '放送休止',
                         artist: channels_store.channel.next.name,
@@ -151,7 +133,7 @@ class MediaSessionManager implements PlayerManager {
                     // ルーティングを次のチャンネルに置き換える
                     await router.push({path: `/tv/watch/${channels_store.channel.next.display_channel_id}`});
                 // ビデオ視聴: シリーズ番組の次の話数に切り替え
-                } else if (this.recorded_program !== null) {
+                } else {
                     // TODO: 未実装
                 }
             });
@@ -170,17 +152,17 @@ class MediaSessionManager implements PlayerManager {
 
         if ('setPositionState' in navigator.mediaSession) {
             // ライブ視聴
-            if (this.channel !== null) {
+            if (this.playback_mode === 'Live') {
                 navigator.mediaSession.setPositionState({
                     duration: Infinity,  // ライブ視聴では長さは無限大
                     playbackRate: 1.0,  // ライブ視聴では常に再生速度は 1.0 になる
                 });
             // ビデオ視聴
-            } else if (this.recorded_program !== null) {
+            } else {
                 navigator.mediaSession.setPositionState({
-                    duration: this.player.video.duration,  // 現在の動画の長さを設定
-                    playbackRate: this.player.video.playbackRate,  // 現在の動画の再生速度を設定
-                    position: this.player.video.currentTime,  // 現在の動画の再生位置を設定
+                    duration: this.player.video.duration,  // 現在の動画の長さ
+                    playbackRate: this.player.video.playbackRate,  // 現在の動画の再生速度
+                    position: this.player.video.currentTime,  // 現在の動画の再生位置
                 });
             }
         }

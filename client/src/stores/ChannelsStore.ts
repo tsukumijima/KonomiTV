@@ -3,7 +3,7 @@ import { defineStore } from 'pinia';
 import Vue from 'vue';
 
 import Channels, { ChannelType, ChannelTypePretty, ILiveChannelsList, ILiveChannel, ILiveChannelDefault } from '@/services/Channels';
-import { IProgram } from '@/services/Programs';
+import { IProgram, IProgramDefault } from '@/services/Programs';
 import useSettingsStore from '@/stores/SettingsStore';
 import Utils, { ChannelUtils } from '@/utils';
 
@@ -34,6 +34,8 @@ const useChannelsStore = defineStore('channels', {
 
         // 現在視聴中のチャンネルの ID (ex: gr011)
         // 視聴画面のみ有効で、ホーム画面では利用されない
+        // 視聴画面から離れる際は、必ず gr000 (現在視聴画面ではないことを示す特別な値) に戻さなければならない
+        // 本来は null あたりにすべきだが、null を入れると UI 側でのエラー処理が大変なので、やむを得ず形式上有効だが絶対にあり得ない値を入れている
         display_channel_id: 'gr000' as string,
 
         // 現在放送中の番組情報 (EPG (EIT[p/f]) からリアルタイムに更新される)
@@ -60,7 +62,7 @@ const useChannelsStore = defineStore('channels', {
          * 前・現在・次のチャンネルの情報 (視聴画面用)
          * チャンネル情報はデータ量がかなり多いので、個別に取得するより一気に取得したほうがループ回数が少なくなりパフォーマンスが良い
          */
-        channel(): {previous: ILiveChannel; current: ILiveChannel; next: ILiveChannel;} {
+        channel(): { previous: ILiveChannel; current: ILiveChannel; next: ILiveChannel; } {
 
             // チャンネルタイプごとのチャンネル情報リストを取得する (すべてのチャンネルリストから探索するより効率的)
             const channels: ILiveChannel[] | undefined = this.channels_list[ChannelUtils.getChannelType(this.display_channel_id)];
@@ -81,7 +83,7 @@ const useChannelsStore = defineStore('channels', {
             // インデックスが取得できなかった場合も同様に、暫定的なダミーのチャンネル情報を返す
             if (current_channel_index === -1) {
                 const IProgramError = {
-                    ...ILiveChannelDefault.program_present,
+                    ...IProgramDefault,
                     display_channel_id: 'gr999',
                     title: 'チャンネル情報取得エラー',
                     description: 'このチャンネル ID のチャンネル情報は存在しません。',
