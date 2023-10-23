@@ -1,5 +1,13 @@
 
+import mitt from 'mitt';
 import { defineStore } from 'pinia';
+
+
+/** プレイヤーに関するイベントの型 */
+export type PlayerEvents = {
+    // PlayerManager からプレイヤーロジックの再起動が必要になったことを通知する (message: プレイヤーに通知するメッセージ)
+    PlayerRestartRequired: { message: string; };
+};
 
 
 /**
@@ -8,6 +16,9 @@ import { defineStore } from 'pinia';
  */
 const usePlayerStore = defineStore('player', {
     state: () => ({
+
+        // プレイヤーに関するイベントを発行する EventEmitter
+        event_emitter: mitt<PlayerEvents>(),
 
         // コントロールを表示するか (既定で表示する)
         is_control_display: true,

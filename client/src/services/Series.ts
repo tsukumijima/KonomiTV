@@ -8,7 +8,7 @@ export interface ISeries {
     id: number;
     title: string;
     description: string;
-    genres: {major: string; middle: string;}[];
+    genres: { major: string; middle: string; }[];
     broadcast_periods: ISeriesBroadcastPeriod[];
     updated_at: string;
 }

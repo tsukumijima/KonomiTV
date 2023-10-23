@@ -8,12 +8,12 @@ export interface IProgram {
     event_id: number;
     title: string;
     description: string;
-    detail: {[key: string]: string};
+    detail: { [key: string]: string };
     start_time: string;
     end_time: string;
     duration: number;
     is_free: boolean;
-    genres: {major: string; middle: string;}[];
+    genres: { major: string; middle: string; }[];
     video_type: string | null;
     video_codec: string | null;
     video_resolution: string | null;

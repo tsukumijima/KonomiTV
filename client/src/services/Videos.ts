@@ -25,7 +25,7 @@ export interface IRecordedProgram {
     end_time: string;
     duration: number;
     is_free: boolean;
-    genres: {major: string; middle: string;}[];
+    genres: { major: string; middle: string; }[];
     primary_audio_type: string;
     primary_audio_language: string;
     secondary_audio_type: string | null;
@@ -60,5 +60,5 @@ export interface IRecordedVideo {
     secondary_audio_codec: 'AAC-LC' | 'HE-AAC' | 'MP2' | null;
     secondary_audio_channel: 'Monaural' | 'Stereo' | '5.1ch' | null;
     secondary_audio_sampling_rate: number | null;
-    cm_sections: {start_time: number; end_time: number;}[];
+    cm_sections: { start_time: number; end_time: number; }[];
 }

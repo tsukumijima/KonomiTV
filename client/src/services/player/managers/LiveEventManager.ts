@@ -6,10 +6,9 @@ import DPlayer from 'dplayer';
 import PlayerManager from '@/services/player/PlayerManager';
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
-import Utils from '@/utils';
 
 
-/** ライブストリームステータス API から受信するイベントの型 */
+/** ライブストリームステータス API から受信するイベントのインターフェイス */
 interface ILiveStreamStatusEvent {
     status: 'Offline' | 'Standby' | 'ONAir' | 'Idling' | 'Restart';
     detail: string;
@@ -142,11 +141,10 @@ class LiveEventManager implements PlayerManager {
                 case 'Idling': {
 
                     // 本来誰も視聴していないことを示す Idling ステータスを受信している場合、何らかの理由で
-                    // ストリーミング API への接続が切断された可能性が高いので、ワークアラウンドとして通知した後にページをリロードする
-                    // TODO: ロジックを整理してストリーミングを再起動できるようにする
-                    this.player.notice('ストリーミング接続が切断されました。3秒後にリロードします。', -1, undefined, '#FF6F6A');
-                    await Utils.sleep(3);
-                    location.reload();
+                    // ライブストリーミング API への接続が切断された可能性が高いので、PlayerWrapper にプレイヤーロジックの再起動を要求する
+                    player_store.event_emitter.emit('PlayerRestartRequired', {
+                        message: 'ストリーミング接続が切断されました。プレイヤーロジックを再起動しています…',
+                    });
 
                     break;
                 }
@@ -180,12 +178,11 @@ class LiveEventManager implements PlayerManager {
                 case 'Offline': {
 
                     // 「ライブストリームは Offline です。」のステータス詳細を受信すること自体が不正な状態
-                    // ストリーミング API への接続が切断された可能性が高いので、ワークアラウンドとして通知した後にページをリロードする
-                    // TODO: ロジックを整理してストリーミングを再起動できるようにする
+                    // ストリーミング API への接続が切断された可能性が高いので、PlayerWrapper にプレイヤーロジックの再起動を要求する
                     if (event.detail === 'ライブストリームは Offline です。') {
-                        this.player.notice('ストリーミング接続が切断されました。3秒後にリロードします。', -1, undefined, '#FF6F6A');
-                        await Utils.sleep(3);
-                        location.reload();
+                        player_store.event_emitter.emit('PlayerRestartRequired', {
+                            message: 'ストリーミング接続が切断されました。プレイヤーロジックを再起動しています…',
+                        });
                     }
 
                     // ステータス詳細をプレイヤーに表示

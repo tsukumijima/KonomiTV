@@ -63,6 +63,10 @@ class PlayerWrapper {
     private readonly romsounds_context: AudioContext = new AudioContext();
     private readonly romsounds_buffers: AudioBuffer[] = [];
 
+    // 破棄済みかどうか
+    private destroyed = false;
+
+
     /**
      * コンストラクタ
      * 実際の DPlayer の初期化処理は await init() で行われる
@@ -116,7 +120,11 @@ class PlayerWrapper {
      * DPlayer と PlayerManager を初期化し、再生準備を行う
      */
     public async init(): Promise<void> {
+        const player_store = usePlayerStore();
         const settings_store = useSettingsStore();
+
+        // 破棄済みかどうかのフラグを下ろす
+        this.destroyed = false;
 
         // mpegts.js を window 直下に入れる
         // こうしないと DPlayer が mpegts.js を認識できない
@@ -395,6 +403,26 @@ class PlayerWrapper {
         // DPlayer の設定パネルを無理やり拡張し、KonomiTV 独自の項目を追加する
         this.setupSettingPanelHandler();
 
+        // PlayerManager からプレイヤーロジックの再起動が必要になったことを通知されたときのイベントハンドラーを登録する
+        // このイベントは常にアプリケーション上で1つだけ登録されていなければならない
+        // さもなければ使い終わった破棄済みの PlayerWrapper が再起動イベントにより復活し、現在利用中の PlayerWrapper と競合してしまう
+        player_store.event_emitter.off('PlayerRestartRequired');  // PlayerRestartRequired イベントの全てのイベントハンドラーを削除
+        player_store.event_emitter.on('PlayerRestartRequired', async (event) => {
+
+            // PlayerWrapper を破棄
+            await this.destroy();
+
+            // PlayerWrapper を再度初期化
+            // この時点で PlayerRestartRequired のイベントハンドラーは再登録されているはず
+            await this.init();
+
+            // プレイヤー側にイベントの発火元から送られたメッセージ (プレイヤーロジックを再起動中である旨) を通知する
+            // 再初期化により、作り直した DPlayer が再び this.player にセットされているはず
+            // 通知を表示してから PlayerWrapper を破棄すると DPlayer の DOM 要素ごと消えてしまうので、DPlayer を作り直した後に通知を表示する
+            assert(this.player !== null);
+            this.player.notice(event.message, -1, undefined, '#FF6F6A');
+        });
+
         // 各 PlayerManager を初期化・登録
         // ライブ視聴とビデオ視聴で必要な PlayerManager が異なる
         // 一応順序は意図的だがそこまで重要ではない
@@ -533,14 +561,12 @@ class PlayerWrapper {
 
                 // mpegts.js のエラーログハンドラーを登録
                 // 再生中に mpegts.js 内部でエラーが発生した際 (例: デバイスの通信が一時的に切断され、API からのストリーミングが途切れた際) に呼び出される
-                // このエラーハンドラーでエラーをキャッチして、PlayerWrapper を再起動する
+                // このエラーハンドラーでエラーをキャッチして、PlayerWrapper の再起動を要求する
+                // PlayerWrapper 内部なので直接再起動してもいいのだが、PlayerWrapper を再起動させる処理は共通化しておきたい
                 this.player.plugins.mpegts?.on(mpegts.Events.ERROR, async (error_type: mpegts.ErrorTypes, detail: mpegts.ErrorDetails) => {
-                    await this.destroy();
-                    await this.init();
-                    // 再初期化により、作り直した DPlayer が再び this.player にセットされているはず
-                    // 通知を表示してから PlayerWrapper を破棄すると DPlayer の DOM 要素ごと消えてしまうので、DPlayer を作り直した後に通知を表示する
-                    assert(this.player !== null);
-                    this.player.notice(`再生中にエラーが発生しました。(${error_type}: ${detail}) プレイヤーロジックを再起動しています…`, -1, undefined, '#FF6F6A');
+                    player_store.event_emitter.emit('PlayerRestartRequired', {
+                        message: `再生中にエラーが発生しました。(${error_type}: ${detail}) プレイヤーロジックを再起動しています…`,
+                    });
                 });
 
                 // 必ず最初はローディング状態とする
@@ -688,6 +714,7 @@ class PlayerWrapper {
      */
     private setupSettingPanelHandler(): void {
         assert(this.player !== null);
+        const player_store = usePlayerStore();
 
         // 設定パネルにショートカット一覧を表示するボタンを動的に追加する
         // スマホなどのタッチデバイスでは基本キーボードが使えないため、タッチデバイスの場合はボタンを表示しない
@@ -708,7 +735,6 @@ class PlayerWrapper {
                 // 設定パネルを閉じる
                 this.player.setting.hide();
                 // ショートカットキー一覧モーダルを表示する
-                const player_store = usePlayerStore();
                 player_store.shortcut_key_modal = true;
             });
         }
@@ -803,10 +829,15 @@ class PlayerWrapper {
     /**
      * DPlayer と PlayerManager を破棄し、再生を終了する
      * 常に init() で作成したものが destroy() ですべてクリーンアップされるように実装すべき
+     * PlayerWrapper の再起動を行う場合、基本外部から直接 await destroy() と await init() は呼び出さず、代わりに
+     * player_store.event_emitter.emit('PlayerRestartRequired', 'プレイヤーロジックを再起動しています…') のようにイベントを発火させるべき
      */
     public async destroy(): Promise<void> {
         assert(this.player !== null);
         const player_store = usePlayerStore();
+
+        // すでに破棄されているのに再度実行してはならない
+        assert(this.destroyed === false);
 
         // 登録されている PlayerManager をすべて破棄
         // CSS アニメーションの関係上、ローディング状態にする前に破棄する必要がある (特に LiveDataBroadcastingManager)
@@ -838,6 +869,9 @@ class PlayerWrapper {
         // DPlayer 本体を破棄
         this.player.destroy();
         this.player = null;
+
+        // 破棄済みかどうかのフラグを立てる
+        this.destroyed = true;
     }
 }
 
