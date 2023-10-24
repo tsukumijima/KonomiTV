@@ -4,13 +4,12 @@ import { Buffer } from 'buffer';
 import { TsChar, TsDate } from '@tsukumijima/aribts';
 import { EIT } from '@tsukumijima/aribts/lib/table/eit';
 import * as Comlink from 'comlink';
-import dayjs from 'dayjs';
 import { decodeTS } from 'web-bml/server/decode_ts';
 import { ResponseMessage } from 'web-bml/server/ws_api';
 
 import { ILiveChannel } from '@/services/Channels';
 import { IProgram, IProgramPF, IProgramDefault } from '@/services/Programs';
-import Utils, { ProgramUtils } from '@/utils';
+import Utils, { dayjs, ProgramUtils } from '@/utils';
 
 
 interface IPSIArchivedDataContext {

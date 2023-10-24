@@ -2,16 +2,14 @@
 import { Buffer } from 'buffer';
 
 import { convertBlobToPng, copyBlobToClipboard } from 'copy-image-clipboard';
-import dayjs from 'dayjs';
 import DPlayer from 'dplayer';
-import 'dayjs/locale/ja';
 import * as piexif from 'piexifjs';
 
 import APIClient from '@/services/APIClient';
 import Captures from '@/services/Captures';
 import useChannelsStore from '@/stores/ChannelsStore';
 import useSettingsStore from '@/stores/SettingsStore';
-import Utils from '@/utils';
+import Utils, { dayjs } from '@/utils';
 
 
 // キャプチャに書き込む EXIF メタデータのインターフェイス

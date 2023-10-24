@@ -199,7 +199,6 @@
 </template>
 <script lang="ts">
 
-import dayjs from 'dayjs';
 import DPlayer, { DPlayerType } from 'dplayer';
 import mpegts from 'mpegts.js';
 import { mapStores } from 'pinia';
@@ -217,7 +216,7 @@ import CaptureManager from '@/services/player/managers/CaptureManager';
 import LiveDataBroadcastingManager from '@/services/player/managers/LiveDataBroadcastingManager';
 import useChannelsStore from '@/stores/ChannelsStore';
 import useSettingsStore from '@/stores/SettingsStore';
-import Utils, { PlayerUtils, ProgramUtils } from '@/utils';
+import Utils, { dayjs, PlayerUtils, ProgramUtils } from '@/utils';
 
 // 低遅延モードオン時の再生バッファ (秒単位)
 // 0.7 秒程度余裕を持たせる

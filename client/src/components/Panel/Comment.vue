@@ -74,7 +74,6 @@
 </template>
 <script lang="ts">
 
-import dayjs from 'dayjs';
 import DPlayer, { DPlayerType } from 'dplayer';
 import { mapStores } from 'pinia';
 import Vue from 'vue';
@@ -82,7 +81,7 @@ import Vue from 'vue';
 import CommentMuteSettings from '@/components/Settings/CommentMuteSettings.vue';
 import LiveCommentManager, { ICommentData } from '@/services/player/managers/LiveCommentManager';
 import useUserStore from '@/stores/UserStore';
-import Utils, { CommentUtils } from '@/utils';
+import Utils, { dayjs, CommentUtils } from '@/utils';
 
 export default Vue.extend({
     name: 'Panel-CommentTab',

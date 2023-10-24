@@ -1,16 +1,6 @@
 
-import dayjs from 'dayjs';
-import 'dayjs/locale/ja';
-import isBetween from 'dayjs/plugin/isBetween';
-import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
-import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
-
 import { IProgram } from '@/services/Programs';
-import Utils from '@/utils';
-
-dayjs.extend(isBetween);
-dayjs.extend(isSameOrAfter);
-dayjs.extend(isSameOrBefore);
+import Utils, { dayjs } from '@/utils';
 
 
 /**
@@ -435,7 +425,6 @@ export class ProgramUtils {
         // program が空でなく、かつ番組時刻が初期値でない
         if (program !== null && program.start_time !== '2000-01-01T00:00:00+09:00') {
 
-            dayjs.locale('ja');  // ロケールを日本に設定
             const start_time = dayjs(program.start_time);
             const end_time = dayjs(program.end_time);
 

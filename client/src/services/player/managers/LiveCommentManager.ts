@@ -1,9 +1,8 @@
 
-import dayjs from 'dayjs';
 import DPlayer, { DPlayerType } from 'dplayer';
 
 import Channels from '@/services/Channels';
-import Utils, { CommentUtils } from '@/utils';
+import Utils, { dayjs, CommentUtils } from '@/utils';
 
 
 export interface ICommentData {
