@@ -2,13 +2,21 @@
 import mitt from 'mitt';
 import { defineStore } from 'pinia';
 
+import { ICommentData } from '@/services/player/managers/LiveCommentManager2';
 import { IRecordedProgram, IRecordedProgramDefault } from '@/services/Videos';
 
 
 /** プレイヤーに関するイベントの型 */
 export type PlayerEvents = {
-    // PlayerManager からプレイヤーロジックの再起動が必要になったことを通知する (message: プレイヤーに通知するメッセージ)
-    PlayerRestartRequired: { message: string; };
+    // PlayerManager からプレイヤーロジックの再起動が必要になったことを通知する
+    PlayerRestartRequired: {
+        message: string;  // プレイヤーに通知するメッセージ
+    };
+    // LiveCommentManager からコメントの受信が完了したことを通知する
+    LiveCommentReceived: {
+        is_initial_comments: boolean;  // 初期コメントかどうか
+        comments: ICommentData[];  // コメントのリスト
+    }
 };
 
 

@@ -11,6 +11,7 @@
         "lint": "vue-cli-service lint"
     },
     "dependencies": {
+        "@github/mini-throttle": "^2.1.1",
         "assert": "^2.1.0",
         "axios": "^1.5.1",
         "buffer": "^6.0.3",
