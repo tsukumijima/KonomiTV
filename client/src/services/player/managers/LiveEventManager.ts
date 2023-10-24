@@ -10,10 +10,15 @@ import usePlayerStore from '@/stores/PlayerStore';
 
 /** ライブストリームステータス API から受信するイベントのインターフェイス */
 interface ILiveStreamStatusEvent {
+    // 現在のライブストリームのステータス
     status: 'Offline' | 'Standby' | 'ONAir' | 'Idling' | 'Restart';
+    // 現在のライブストリームのステータス詳細
     detail: string;
+    // ライブストリームの開始時刻 (UNIX タイムスタンプ)
     started_at: number;
+    // ライブストリームの最終更新時刻 (UNIX タイムスタンプ)
     updated_at: number;
+    // このライブストリームを視聴しているクライアント数
     client_count: number;
 }
 
@@ -121,7 +126,8 @@ class LiveEventManager implements PlayerManager {
                         this.player.notice(this.player.template.notice.textContent!, 0.000001);
                     }
 
-                    // 再生が開始される前にチャンネルを切り替えた際、コメントが流れないことがある不具合のワークアラウンド
+                    // ライブストリーミングが開始される前にチャンネルを切り替えた際、稀にコメントが流れないことがある不具合のワークアラウンド
+                    // TODO: リファクタリングで不要になってるかも？
                     if (this.player.container.classList.contains('dplayer-paused')) {
                         this.player.container.classList.remove('dplayer-paused');
                         this.player.container.classList.add('dplayer-playing');
@@ -152,22 +158,17 @@ class LiveEventManager implements PlayerManager {
                 // Status: Restart
                 case 'Restart': {
 
-                    // ステータス詳細をプレイヤーに表示
-                    this.player.notice(event.detail, -1);
-
-                    // プレイヤーを再起動する
-                    this.player.switchVideo({
-                        url: this.player.quality!.url,
-                        type: this.player.quality!.type,
+                    // エンコーダーがクラッシュしたなどの理由でライブストリームが再起動中なので、
+                    // PlayerWrapper にプレイヤーロジックの再起動を要求する
+                    player_store.event_emitter.emit('PlayerRestartRequired', {
+                        // ステータス詳細 (再起動に至った理由) をプレイヤーに表示
+                        message: event.detail,
                     });
 
-                    // 再起動しただけでは自動再生されないので、明示的に
-                    this.player.play();
-
-                    // バッファリング中の Progress Circular を表示
+                    // バッファリング中の Progress Circular を表示 (不要だとは思うけど念のため)
                     player_store.is_video_buffering = true;
 
-                    // プレイヤーの背景を表示する
+                    // プレイヤーの背景を表示する (不要だとは思うけど念のため)
                     player_store.is_background_display = true;
 
                     break;
@@ -186,24 +187,18 @@ class LiveEventManager implements PlayerManager {
                     }
 
                     // ステータス詳細をプレイヤーに表示
-                    // 動画の読み込みエラーが送出された時にメッセージを上書きする
                     this.player.notice(event.detail, -1);
                     this.player.video.onerror = () => {
+                        // 動画の読み込みエラーが送出された際に DPlayer に表示中の通知メッセージを上書きする
                         this.player.notice(event.detail, -1);
                         this.player.video.onerror = null;
                     };
 
-                    // 描画されたコメントをクリア
+                    // 既に描画されたコメントをクリア
                     this.player.danmaku!.clear();
 
                     // 動画を停止する
                     this.player.video.pause();
-
-                    // イベントソースを閉じる（復帰の見込みがないため）
-                    if (this.eventsource !== null) {
-                        this.eventsource.close();
-                        this.eventsource = null;
-                    }
 
                     // プレイヤーの背景を表示する
                     player_store.is_background_display = true;
@@ -240,9 +235,8 @@ class LiveEventManager implements PlayerManager {
                     this.player.notice(event.detail, -1);
 
                     // プレイヤーの背景を表示する
-                    if (player_store.is_background_display === false) {
-                        player_store.is_background_display = true;
-                    }
+                    player_store.is_background_display = true;
+
                     break;
                 }
             }
