@@ -344,7 +344,7 @@ export default Vue.extend({
             eventsource: null as EventSource | null,
 
             // フルスクリーン状態が切り替わったときのハンドラー
-            fullscreen_handler: null as () => void | null,
+            fullscreen_handler: null as unknown as () => void | null,
 
             // キャプチャマネージャーのインスタンス
             capture_manager: null as CaptureManager | null,
@@ -355,7 +355,7 @@ export default Vue.extend({
             // ***** キーボードショートカット *****
 
             // ショートカットキーのハンドラー
-            shortcut_key_handler: null as (event: KeyboardEvent) => void | null,
+            shortcut_key_handler: null as unknown as (event: KeyboardEvent) => Promise<void> | null,
 
             // ショートカットキーの最終押下時刻のタイムスタンプ
             shortcut_key_pressed_at: Utils.time(),
@@ -669,6 +669,7 @@ export default Vue.extend({
                 // ショートカットキーのイベントハンドラーを初期化
                 // 事前に前のイベントハンドラーを削除しておかないと、重複してキー操作が実行されてしまう
                 // 直前で実行しないと上下キーでのチャンネル操作が動かなくなる
+                // @ts-ignore
                 document.removeEventListener('keydown', this.shortcut_key_handler);
                 this.initShortcutKeyHandler();
             }
@@ -1045,20 +1046,20 @@ export default Vue.extend({
                             // 自動再生ポリシーに引っかかったなどで AudioContext が一時停止されている場合、一度 resume() する必要がある
                             // resume() するまでに何らかのユーザーのジェスチャーが行われているはず…
                             // なくても動くこともあるみたいだけど、念のため
-                            if (this.romsounds_context.state === 'suspended') {
-                                await this.romsounds_context.resume();
+                            if (this.romsounds_context!.state === 'suspended') {
+                                await this.romsounds_context!.resume();
                             }
 
                             // index で指定された音声データを読み込み
-                            const buffer_source_node = this.romsounds_context.createBufferSource();
+                            const buffer_source_node = this.romsounds_context!.createBufferSource();
                             buffer_source_node.buffer = this.romsounds_buffers[index];
 
                             // GainNode につなげる
-                            const gain_node = this.romsounds_context.createGain();
+                            const gain_node = this.romsounds_context!.createGain();
                             buffer_source_node.connect(gain_node);
 
                             // 出力につなげる
-                            gain_node.connect(this.romsounds_context.destination);
+                            gain_node.connect(this.romsounds_context!.destination);
 
                             // 音量を元の wav の3倍にする (1倍だと結構小さめ)
                             gain_node.gain.value = 3;
@@ -1267,7 +1268,7 @@ export default Vue.extend({
                     // 再生中にエラーが発生した場合
                     // ワークアラウンドとして通知した後にページをリロードする
                     // TODO: ロジックを整理してストリーミングを再起動できるようにする
-                    this.player.notice(`再生中にエラーが発生しました。(${error_type}: ${detail}) 3秒後にリロードします。`, -1, undefined, '#FF6F6A');
+                    this.player!.notice(`再生中にエラーが発生しました。(${error_type}: ${detail}) 3秒後にリロードします。`, -1, undefined, '#FF6F6A');
                     await Utils.sleep(3);
                     location.reload();
                 });
@@ -1316,7 +1317,7 @@ export default Vue.extend({
             const recover = async () => {
                 await Utils.sleep(0.5);
                 // この時点で映像が停止している場合、復旧を試みる
-                if (this.player?.video.readyState < 3) {
+                if (this.player?.video.readyState! < 3) {
                     console.log('player.video.readyState < HAVE_FUTURE_DATA. trying to recover.');
                     this.player?.video.pause();
                     await Utils.sleep(0.1);
@@ -1347,10 +1348,10 @@ export default Vue.extend({
                     // 再生バッファを取得する (取得に失敗した場合は 0 を返す)
                     const get_playback_buffer_sec = (): number => {
                         let buffered_end = 0;
-                        if (this.player.video.buffered.length >= 1) {
-                            buffered_end = this.player.video.buffered.end(0);
+                        if (this.player!.video.buffered.length >= 1) {
+                            buffered_end = this.player!.video.buffered.end(0);
                         }
-                        return (Math.round((buffered_end - this.player.video.currentTime) * 1000) / 1000);
+                        return (Math.round((buffered_end - this.player!.video.currentTime) * 1000) / 1000);
                     };
 
                     // 低遅延モードであれば低遅延向けの再生バッファを、そうでなければ通常の再生バッファをセット (秒単位)
@@ -1639,8 +1640,8 @@ export default Vue.extend({
         // ショートカットキーを初期化する
         initShortcutKeyHandler() {
 
-            const twitter_component = (this.$refs.Twitter as InstanceType<typeof Twitter>);
-            const tweet_form_element = twitter_component.$el.querySelector<HTMLDivElement>('.tweet-form__textarea');
+            const twitter_component = (this.$refs.Twitter as InstanceType<typeof Twitter>)!;
+            const tweet_form_element = twitter_component.$el.querySelector<HTMLDivElement>('.tweet-form__textarea')!;
 
             // IME 変換中の状態を保存する
             for (const element of document.querySelectorAll('input[type=text],input[type=search],textarea')) {
@@ -1651,8 +1652,8 @@ export default Vue.extend({
             // ショートカットキーハンドラー
             this.shortcut_key_handler = async (event: KeyboardEvent) => {
 
-                const tag = document.activeElement.tagName.toUpperCase();
-                const editable = document.activeElement.getAttribute('contenteditable');
+                const tag = document.activeElement!.tagName.toUpperCase();
+                const editable = document.activeElement!.getAttribute('contenteditable');
 
                 // 矢印キーのデフォルトの挙動（スクロール）を抑制
                 // キーリピート周りで間引かれるイベントでも event.preventDefault() しないとスクロールしてしまうため、
@@ -1918,7 +1919,7 @@ export default Vue.extend({
 
                                 // 拡大表示のモーダルが開かれている場合は、フォーカスしたキャプチャをモーダルにセット
                                 // こうすることで、QuickLook みたいな挙動になる
-                                const focused_capture = twitter_component.captures.find(capture => capture.focused === true);
+                                const focused_capture = twitter_component.captures.find(capture => capture.focused === true)!;
                                 if (twitter_component.zoom_capture_modal === true) {
                                     twitter_component.zoom_capture = focused_capture;
                                 }
@@ -1926,7 +1927,7 @@ export default Vue.extend({
                                 // 現在フォーカスされているキャプチャが見える位置までスクロール
                                 // block: 'nearest' の指定で、上下どちらにスクロールしてもフォーカスされているキャプチャが常に表示されるようになる
                                 const focused_capture_element =
-                                    twitter_component.$el.querySelector(`img[src="${focused_capture.image_url}"]`).parentElement;
+                                    twitter_component.$el.querySelector(`img[src="${focused_capture.image_url}"]`)!.parentElement!;
                                 if (is_repeat) {
                                     // キーリピート状態ではスムーズスクロールがフォーカスの移動に追いつけずスクロールの挙動がおかしくなるため、
                                     // スムーズスクロールは無効にしてある
@@ -2065,8 +2066,8 @@ export default Vue.extend({
                             }
                             // Sキー: 字幕の表示切り替え
                             if (event.code === 'KeyS') {
-                                this.player.subtitle.toggle();
-                                if (!this.player.subtitle.container.classList.contains('dplayer-subtitle-hide')) {
+                                this.player.subtitle!.toggle();
+                                if (!this.player.subtitle!.container.classList.contains('dplayer-subtitle-hide')) {
                                     this.player.notice(`${this.player.tran('Show subtitle')}`);
                                 } else {
                                     this.player.notice(`${this.player.tran('Hide subtitle')}`);
@@ -2085,20 +2086,20 @@ export default Vue.extend({
                             }
                             // Cキー: 映像をキャプチャ
                             if (event.code === 'KeyC') {
-                                await this.capture_manager.captureAndSave(false);
+                                await this.capture_manager!.captureAndSave(false);
                                 return true;
                             }
                             // Vキー: 映像を実況コメントを付けてキャプチャ
                             if (event.code === 'KeyV') {
-                                await this.capture_manager.captureAndSave(true);
+                                await this.capture_manager!.captureAndSave(true);
                                 return true;
                             }
                             // Mキー: コメント入力フォームにフォーカス
                             if (event.code === 'KeyM') {
                                 this.player.controller.show();
-                                this.player.comment.show();
+                                this.player.comment!.show();
                                 this.controlDisplayTimer();
-                                window.setTimeout(() => this.player.template.commentInput.focus(), 100);
+                                window.setTimeout(() => this.player!.template.commentInput.focus(), 100);
                                 return true;
                             }
                         }
@@ -2121,7 +2122,7 @@ export default Vue.extend({
 
             // キャプチャマネージャーを初期化
             this.capture_manager = new CaptureManager({
-                player: this.player,
+                player: this.player!,
                 captured_callback: (blob: Blob, filename: string) => {
                     // キャプチャが撮られたら、随時 Twitter タブのキャプチャリストに追加する
                     (this.$refs.Twitter as InstanceType<typeof Twitter>).addCaptureList(blob, filename);
@@ -2132,14 +2133,14 @@ export default Vue.extend({
             // ショートカットからのキャプチャでも同じイベントがトリガーされる
             const capture_button = this.$el.querySelector('.dplayer-icon.dplayer-capture-icon')!;
             capture_button.addEventListener('click', async () => {
-                await this.capture_manager.captureAndSave(false);
+                await this.capture_manager!.captureAndSave(false);
             });
 
             // コメント付きキャプチャボタンがクリックされたときのイベント
             // ショートカットからのキャプチャでも同じイベントがトリガーされる
             const comment_capture_button = this.$el.querySelector('.dplayer-icon.dplayer-comment-capture-icon')!;
             comment_capture_button.addEventListener('click', async () => {
-                await this.capture_manager.captureAndSave(true);
+                await this.capture_manager!.captureAndSave(true);
             });
         },
 
@@ -2191,11 +2192,11 @@ export default Vue.extend({
             // この 0.2 秒の間に音量をフェードアウトさせる
             // なお、ザッピングでチャンネルを連続で切り替えている場合は実行しない (実行しても意味がないため)
             if (is_zapping_continuously === false) {
-                const current_volume = this.player.user.get('volume');
+                const current_volume = this.player!.user.get('volume');
                 // 20回 (0.01秒おき) に分けて音量を下げる
                 for (let i = 0; i < 20; i++) {
                     await Utils.sleep(0.01);
-                    this.player.video.volume = current_volume * (1 - (i + 1) / 20);
+                    this.player!.video.volume = current_volume * (1 - (i + 1) / 20);
                 }
             }
 
