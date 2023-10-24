@@ -108,7 +108,7 @@ module.exports = {
         // Workbox の設定
         workboxOptions: {
             cleanupOutdatedCaches: true,
-            maximumFileSizeToCacheInBytes: 1024 * 1024 * 3,  // 3MB
+            maximumFileSizeToCacheInBytes: 1024 * 1024 * 15,  // 15MB
         }
     }
 };

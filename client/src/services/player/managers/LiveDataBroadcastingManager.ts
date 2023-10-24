@@ -1,23 +1,15 @@
 
-import * as Comlink from 'comlink';
+import Comlink from 'comlink';
 import DPlayer from 'dplayer';
 import { BMLBrowser, BMLBrowserFontFace } from 'web-bml/client/bml_browser';
 import { AribKeyCode } from 'web-bml/client/content';
 
 import router from '@/router';
-import { ILiveChannel } from '@/services/Channels';
 import PlayerManager from '@/services/player/PlayerManager';
 import useChannelsStore from '@/stores/ChannelsStore';
 import useSettingsStore from '@/stores/SettingsStore';
 import Utils, { PlayerUtils } from '@/utils';
-import { ILivePSIArchivedDataDecoder } from '@/workers/LivePSIArchivedDataDecoder';
-
-
-// LivePSIArchivedDataDecoder を Web Worker で動作させるためのラッパー
-// Comlink を使い、Web Worker とメインスレッド間でオブジェクトをやり取りする
-const worker = new Worker(new URL('@/workers/LivePSIArchivedDataDecoder', import.meta.url));
-const LivePSIArchivedDataDecoderWorker =
-    Comlink.wrap<new (channel: ILiveChannel, api_quality: string) => Comlink.Remote<ILivePSIArchivedDataDecoder>>(worker);
+import LivePSIArchivedDataDecoderProxy, { ILivePSIArchivedDataDecoder } from '@/workers/LivePSIArchivedDataDecoder';
 
 
 /**
@@ -68,7 +60,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
     private is_video_element_moved_to_bml_browser: boolean = false;
 
     // PSI/SI アーカイブデータデコーダーのインスタンス
-    private live_psi_archived_data_decoder: Comlink.Remote<Comlink.Remote<ILivePSIArchivedDataDecoder>> | null = null;
+    private live_psi_archived_data_decoder: Comlink.Remote<ILivePSIArchivedDataDecoder> | null = null;
 
     /**
      * コンストラクタ
@@ -314,7 +306,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
         // ライブ PSI/SI アーカイブデータデコーダーを初期化
         // Comlink を挟んでいる関係上、コンストラクタにも関わらず Promise を返すため await する必要がある
         const api_quality = PlayerUtils.extractAPIQualityFromDPlayer(this.player);
-        this.live_psi_archived_data_decoder = await new LivePSIArchivedDataDecoderWorker(channels_store.channel.current, api_quality);
+        this.live_psi_archived_data_decoder = await new LivePSIArchivedDataDecoderProxy(channels_store.channel.current, api_quality);
 
         // デコードを開始
         // デコーダーは Web Worker 上で実行される (コールバックを Comlink.proxy() で包むのがポイント)

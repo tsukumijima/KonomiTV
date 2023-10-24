@@ -3,7 +3,7 @@ import { Buffer } from 'buffer';
 
 import { convertBlobToPng, copyBlobToClipboard } from 'copy-image-clipboard';
 import DPlayer from 'dplayer';
-import * as piexif from 'piexifjs';
+import piexif from 'piexifjs';
 
 import APIClient from '@/services/APIClient';
 import Captures from '@/services/Captures';

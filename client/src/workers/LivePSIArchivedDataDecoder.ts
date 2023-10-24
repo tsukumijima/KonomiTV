@@ -3,7 +3,7 @@ import { Buffer } from 'buffer';
 
 import { TsChar, TsDate } from '@tsukumijima/aribts';
 import { EIT } from '@tsukumijima/aribts/lib/table/eit';
-import * as Comlink from 'comlink';
+import Comlink from 'comlink';
 import { decodeTS } from 'web-bml/server/decode_ts';
 import { ResponseMessage } from 'web-bml/server/ws_api';
 
@@ -32,14 +32,15 @@ export interface ILivePSIArchivedDataDecoder {
 
 /**
  * ライブ PSI/SI アーカイブデータストリーミング API から取得した PSI/SI アーカイブデータをデコードする
+ * 直接は呼び出さず、LivePSIArchivedDataDecoderProxy (Comlink) 経由で Web Worker 内で実行する
  */
 class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
 
     // 対象のチャンネル情報
-    private channel: ILiveChannel;
+    private readonly channel: ILiveChannel;
 
     // 現在視聴中の API 上の画質 ID (ex: 1080p-60fps)
-    private api_quality: string;
+    private readonly api_quality: string;
 
     // PSI/SI アーカイブデータの読み込みに必要な情報
     private psi_archived_data: Uint8Array = new Uint8Array(0);
@@ -48,6 +49,8 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
     private ts_packet_counters: {[index: number]: number} = {};
 
     /**
+     * コンストラクタ
+     * ここで渡すチャンネル情報はメインスレッドから渡された後は当然更新されないが、実際に利用するのは不変のチャンネル ID 系のみなので問題ない
      * @param channel 対象のチャンネル情報
      * @param api_quality 現在視聴中の API 上の画質 ID (ex: 1080p-60fps)
      */
@@ -598,4 +601,12 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
     }
 }
 
+// Comlink にクラスをエクスポート
 Comlink.expose(LivePSIArchivedDataDecoder);
+
+// LivePSIArchivedDataDecoder を Web Worker で動作させるためのラッパー
+// Comlink を経由し、Web Worker とメインスレッド間でオブジェクトをやり取りする
+const worker = new Worker(new URL('@/workers/LivePSIArchivedDataDecoder', import.meta.url));
+const LivePSIArchivedDataDecoderProxy =
+    Comlink.wrap<new (channel: ILiveChannel, api_quality: string) => Comlink.Remote<ILivePSIArchivedDataDecoder>>(worker);
+export default LivePSIArchivedDataDecoderProxy;
