@@ -959,7 +959,12 @@ class PlayerWrapper {
         this.player_container_resize_observer = null;
 
         // DPlayer 本体を破棄
-        this.player.destroy();
+        // なぜか例外が出ることがあるので try-catch で囲む
+        try {
+            this.player.destroy();
+        } catch (e) {
+            // 何もしない
+        }
         this.player = null;
 
         // 破棄済みかどうかのフラグを立てる
