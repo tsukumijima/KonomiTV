@@ -537,10 +537,14 @@ class PlayerWrapper {
         // 再生が一時的に止まってバッファリングしているとき/再び再生されはじめたときのイベント
         // バッファリングの Progress Circular の表示を制御する
         this.player.on('waiting', () => {
+            // Progress Circular を表示する
             player_store.is_video_buffering = true;
         });
         this.player.on('playing', () => {
-            player_store.is_video_buffering = false;
+            // ロード中 (映像が表示されていない) でなければ Progress Circular を非表示にする
+            if (player_store.is_loading === false) {
+                player_store.is_video_buffering = false;
+            }
             // 再生が開始できていない場合に再生状態の復旧を試みる
             this.recoverPlayback();
         });
@@ -594,13 +598,13 @@ class PlayerWrapper {
                     // this.player.video.pause() を使うとプレイヤーの UI アイコンが停止してしまうので、代わりに playbackRate を使う
                     this.player.video.playbackRate = 0;
 
-                    // 再生バッファが live_playback_buffer_seconds を超えるまで 0.1 秒おきに再生バッファをチェックする
+                    // 再生バッファが live_playback_buffer_seconds を超えるまで 0.05 秒おきに再生バッファをチェックする
                     // 再生バッファが live_playback_buffer_seconds を切ると再生が途切れやすくなるので (特に動きの激しい映像)、
                     // 再生開始までの時間を若干犠牲にして、再生バッファの調整と同期に時間を割く
                     // live_playback_buffer_seconds の値は mpegts.js に渡す liveSyncTargetLatency プロパティに渡す値と共通
                     let current_playback_buffer_sec = this.getPlaybackBufferSeconds();
                     while (current_playback_buffer_sec < this.live_playback_buffer_seconds) {
-                        await Utils.sleep(0.1);
+                        await Utils.sleep(0.05);
                         current_playback_buffer_sec = this.getPlaybackBufferSeconds();
                     }
 

@@ -232,7 +232,9 @@ class LiveEventManager implements PlayerManager {
                 case 'Standby': {
 
                     // ステータス詳細をプレイヤーに表示
-                    this.player.notice(event.detail, -1);
+                    if (this.player.template.notice.textContent!.includes('画質を') === false) {  // 画質切り替えの通知なら上書きしない
+                        this.player.notice(event.detail, -1);
+                    }
 
                     // プレイヤーの背景を表示する
                     player_store.is_background_display = true;

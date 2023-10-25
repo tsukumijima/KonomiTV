@@ -405,7 +405,7 @@ export default Vue.extend({
     beforeRouteUpdate(to, from, next) {
 
         // 前の再生セッションを破棄して終了する
-        const destroy_promise = this.destroy(this.is_zapping_continuously);
+        const destroy_promise = this.destroy();
 
         // 連続してチャンネルを切り替えていることを示すフラグを立てる
         // このフラグは再生セッションが初期化されるタイミングで必ず降ろされる
@@ -489,7 +489,7 @@ export default Vue.extend({
 
         // 再生セッションを破棄する
         // チャンネルを切り替える際に実行される
-        async destroy(is_zapping_continuously = false) {
+        async destroy() {
 
             // clearInterval() ですべての setInterval(), setTimeout() の実行を止める
             // clearInterval() と clearTimeout() は中身共通なので問題ない
@@ -540,6 +540,8 @@ export default Vue.extend({
             overflow: hidden;
             transform-origin: center;
             transform: scale(var(--bml-browser-scale-factor-width, 1), var(--bml-browser-scale-factor-height, 1));
+            transition: opacity 0.2s cubic-bezier(0.4, 0.38, 0.49, 0.94);
+            opacity: 1;
             aspect-ratio: 16 / 9;
         }
         .dplayer-danloading {
@@ -757,9 +759,11 @@ export default Vue.extend({
     }
 }
 
-// ロード中は動画を非表示にする
-.watch-player--loading .dplayer-video-wrap-aspect {
-    opacity: 0 !important;
+// ロード中は動画と BML ブラウザを非表示にする
+.watch-player--loading {
+    .dplayer-video-wrap-aspect, .dplayer-bml-browser {
+        opacity: 0 !important;
+    }
 }
 
 // Safari のみ、アイコンに hover しても opacity が変わらないようにする
