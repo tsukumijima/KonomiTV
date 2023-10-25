@@ -32,7 +32,7 @@ export interface ILivePSIArchivedDataDecoder {
 
 /**
  * ライブ PSI/SI アーカイブデータストリーミング API から取得した PSI/SI アーカイブデータをデコードする
- * 直接は呼び出さず、LivePSIArchivedDataDecoderProxy (Comlink) 経由で Web Worker 内で実行する
+ * 直接は呼び出さず、LivePSIArchivedDataDecoderProxy (Comlink) 経由で Web Worker 上で実行する
  */
 class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
 
@@ -604,9 +604,8 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
 // Comlink にクラスをエクスポート
 Comlink.expose(LivePSIArchivedDataDecoder);
 
-// LivePSIArchivedDataDecoder を Web Worker で動作させるためのラッパー
+// LivePSIArchivedDataDecoder を Web Worker 上で動作させるためのラッパー
 // Comlink を経由し、Web Worker とメインスレッド間でオブジェクトをやり取りする
 const worker = new Worker(new URL('@/workers/LivePSIArchivedDataDecoder', import.meta.url));
-const LivePSIArchivedDataDecoderProxy =
-    Comlink.wrap<new (channel: ILiveChannel, api_quality: string) => Comlink.Remote<ILivePSIArchivedDataDecoder>>(worker);
+const LivePSIArchivedDataDecoderProxy = Comlink.wrap<new (channel: ILiveChannel, api_quality: string) => ILivePSIArchivedDataDecoder>(worker);
 export default LivePSIArchivedDataDecoderProxy;
