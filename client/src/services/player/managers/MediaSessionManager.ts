@@ -84,9 +84,9 @@ class MediaSessionManager implements PlayerManager {
 
             // 再生速度や再生位置が変更された際に MediaSession の情報を更新する
             // ライブ視聴時は再生位置自体が無限なので何も起こらない
-            this.player.on('ratechange', this.updateMediaSessionPositionState);
-            this.player.on('seeking', this.updateMediaSessionPositionState);
-            this.player.on('seeked', this.updateMediaSessionPositionState);
+            this.player.on('ratechange', this.updateMediaSessionPositionState.bind(this));
+            this.player.on('seeking', this.updateMediaSessionPositionState.bind(this));
+            this.player.on('seeked', this.updateMediaSessionPositionState.bind(this));
 
             // メディア通知上のボタンが押されたときのイベント
             // 再生
@@ -104,6 +104,10 @@ class MediaSessionManager implements PlayerManager {
                 navigator.mediaSession.setActionHandler('seekforward', (details) => {
                     const seek_offset = details.seekOffset ?? 10;  // デフォルト: 10 秒早送り
                     this.player.seek(this.player.video.currentTime + seek_offset);
+                });
+                // イベントで渡された再生位置にシーク
+                navigator.mediaSession.setActionHandler('seekto', (details) => {
+                    this.player.seek(details.seekTime!);
                 });
             }
             // 前のトラックに移動
@@ -157,15 +161,21 @@ class MediaSessionManager implements PlayerManager {
             // ライブ視聴
             if (this.playback_mode === 'Live') {
                 navigator.mediaSession.setPositionState({
-                    duration: Infinity,  // ライブ視聴では長さは無限大
-                    playbackRate: 1.0,  // ライブ視聴では常に再生速度は 1.0 になる
+                    // 仕様上は duration に Infinity を設定すべきだが、実際には Infinity を設定すると Chrome でエラーになる…
+                    // ワークアラウンドで 0 を設定しておく (今の所問題なく動作している)
+                    duration: 0,
+                    // ライブ視聴では常に再生速度は 1.0 になる
+                    playbackRate: 1.0,
                 });
             // ビデオ視聴
             } else {
                 navigator.mediaSession.setPositionState({
-                    duration: this.player.video.duration,  // 現在の動画の長さ
-                    playbackRate: this.player.video.playbackRate,  // 現在の動画の再生速度
-                    position: this.player.video.currentTime,  // 現在の動画の再生位置
+                    // 現在の動画の長さ
+                    duration: this.player.video.duration,
+                    // 現在の動画の再生速度
+                    playbackRate: this.player.video.playbackRate,
+                    // 現在の動画の再生位置
+                    position: this.player.video.currentTime,
                 });
             }
         }
