@@ -307,7 +307,8 @@ export default Vue.extend({
         this.updateTweetLetterCount();
 
         // CaptureManager からキャプチャを受け取るイベントハンドラーを登録
-        this.playerStore.event_emitter.on('CaptureCompleted', (event) => {
+        // 非同期関数で登録することで、CaptureManager でキャプチャの登録完了を待たずに処理を続行できるはず
+        this.playerStore.event_emitter.on('CaptureCompleted', async (event) => {
             this.addCaptureList(event.capture, event.filename);
         });
     },

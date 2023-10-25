@@ -208,7 +208,8 @@ export default Vue.extend({
         const max_comment_count = 500;
 
         // LiveCommentManager からコメントを受信したときのイベントハンドラーを登録
-        this.playerStore.event_emitter.on('LiveCommentReceived', (event) => {
+        // 非同期関数で登録することで、気持ち高速化を図る
+        this.playerStore.event_emitter.on('LiveCommentReceived', async (event) => {
 
             // 初回の過去コメント (最大50件) を受信したとき
             if (event.is_initial_comments === true) {
@@ -249,7 +250,7 @@ export default Vue.extend({
         });
 
         // LiveCommentManager からコメントの送信完了イベントを受信したときのイベントハンドラーを登録
-        this.playerStore.event_emitter.on('LiveCommentSendCompleted', (event) => {
+        this.playerStore.event_emitter.on('LiveCommentSendCompleted', async (event) => {
 
             // 送信した自分のコメントをコメントリストに追加
             this.comment_list.push(event.comment);

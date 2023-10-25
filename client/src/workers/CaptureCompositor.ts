@@ -103,7 +103,6 @@ class CaptureCompositor implements ICaptureCompositor {
      */
     constructor(options: ICaptureCompositorOptions) {
         this.options = options;
-        console.log('[CaptureCompositor] Options:', options);
     }
 
 
@@ -112,6 +111,8 @@ class CaptureCompositor implements ICaptureCompositor {
      * @returns 字幕なしのキャプチャ画像と、字幕ありのキャプチャ画像の Blob オブジェクト (どちらかが null になる場合がある)
      */
     public async composite(): Promise<ICaptureCompositorResult> {
+        console.log('[CaptureCompositor] Composite start:', this.options);
+        const start_time = Utils.time();
 
         // 字幕ありキャプチャ画像から合成しているのは、this.compositeInNormalDirectMode() を実行した時点で
         // ImageBitmap が解放されてしまい、その後条件次第で実行される this.compositeInCaptionMode() でキャプチャを描画できなくなるため
@@ -138,6 +139,7 @@ class CaptureCompositor implements ICaptureCompositor {
 
         // 並列で実行して、結果を待つ
         const [capture_caption, capture_normal] = await Promise.all([capture_caption_promise, capture_normal_promise]);
+        console.log('[CaptureCompositor] Composite end:', Utils.mathFloor(Utils.time() - start_time, 3), 'sec');
 
         return {
             capture_normal: capture_normal,
@@ -171,9 +173,9 @@ class CaptureCompositor implements ICaptureCompositor {
         // ImageBitmap を OffscreenCanvas に転送
         normal_direct_canvas_context.transferFromImageBitmap(this.options.capture);
         this.options.capture.close();  // ImageBitmap を解放
+        console.log('[CaptureCompositor] Normal (Direct):', Utils.mathFloor(Utils.time() - start_time, 3), 'sec');
 
         // EXIF メタデータをセットした Blob を返す
-        console.log('[CaptureCompositor] Normal (Direct):', Utils.mathFloor(Utils.time() - start_time, 3), 'sec');
         return await this.exportToBlob(normal_direct_canvas);
     }
 
@@ -217,9 +219,9 @@ class CaptureCompositor implements ICaptureCompositor {
         if (this.options.capture_comment_data !== null) {
             this.compositeComments(normal_canvas, normal_canvas_context);
         }
+        console.log('[CaptureCompositor] Normal:', Utils.mathFloor(Utils.time() - start_time, 3), 'sec');
 
         // EXIF メタデータをセットした Blob を返す
-        console.log('[CaptureCompositor] Normal:', Utils.mathFloor(Utils.time() - start_time, 3), 'sec');
         return await this.exportToBlob(normal_canvas);
     }
 
@@ -267,9 +269,9 @@ class CaptureCompositor implements ICaptureCompositor {
         if (this.options.capture_comment_data !== null) {
             this.compositeComments(caption_canvas, caption_canvas_context);
         }
+        console.log('[CaptureCompositor] With Caption:', Utils.mathFloor(Utils.time() - start_time, 3), 'sec');
 
         // EXIF メタデータをセットした Blob を返す
-        console.log('[CaptureCompositor] With Caption:', Utils.mathFloor(Utils.time() - start_time, 3), 'sec');
         return await this.exportToBlob(caption_canvas);
     }
 
@@ -304,6 +306,7 @@ class CaptureCompositor implements ICaptureCompositor {
         comment_canvas_context.textBaseline = 'top';
 
         // 指定された座標に、指定されたフォントサイズでコメントを描画
+        // TODO: なぜか Web フォントが効いてない
         for (const comment of this.options.capture_comment_data.comments) {
             comment_canvas_context.fillStyle = comment.color;
             // UI 側と同じフォント指定なので、明示的にロードせずとも OffscreenCanvas に描画できる状態にあるはず

@@ -289,7 +289,6 @@ class CaptureManager implements PlayerManager {
         // ***** キャプチャの実行・字幕/文字スーパー/コメントを合成 *****
 
         // 高速化のため、Promise.all() で並列に実行する
-        const create_image_bitmap_start_time = Utils.time();
         const create_image_bitmap_results = await Promise.all([
             // 現在再生中の動画のキャプチャを ImageBitmap として取得
             createImageBitmap(this.player.video),
@@ -302,7 +301,6 @@ class CaptureManager implements PlayerManager {
         const capture_image_bitmap = create_image_bitmap_results[0];
         const caption_image_bitmap = create_image_bitmap_results[1];
         const superimpose_image_bitmap = create_image_bitmap_results[2];
-        console.log('[CaptureManager] createImageBitmap():', Utils.mathFloor(Utils.time() - create_image_bitmap_start_time, 3), 'sec');
 
         // キャプチャにコメントを合成する場合、コメントを取得する
         const capture_comment_data = is_comment_composite ? this.createCaptureCommentData() : null;
@@ -314,6 +312,8 @@ class CaptureManager implements PlayerManager {
         // キャプチャの合成を実行し、字幕なしキャプチャと字幕ありキャプチャを生成する
         // Web Worker 側に ImageBitmap を移譲するため、Comlink.transfer() を使う
         // 第二引数に (第一引数内のオブジェクトに含まれる) 移譲する Transferable オブジェクトを渡す
+        console.log('[CaptureManager] Composite start:');
+        const capture_compositor_start_time = Utils.time();
         const capture_compositor = await new CaptureCompositorProxy(Comlink.transfer({
             mode: settings_store.settings.capture_caption_mode,
             capture: capture_image_bitmap,
@@ -323,6 +323,7 @@ class CaptureManager implements PlayerManager {
             capture_exif_data: capture_exif_data,
         }, image_bitmaps));
         const result = await capture_compositor.composite();
+        console.log('[CaptureManager] Composite end:', Utils.mathFloor(Utils.time() - capture_compositor_start_time, 3), 'sec');
 
         // ファイル名（拡張子なし）
         // TODO: ファイル名パターンを設定で変更できるようにする
