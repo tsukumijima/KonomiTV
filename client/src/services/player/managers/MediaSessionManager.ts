@@ -149,7 +149,9 @@ class MediaSessionManager implements PlayerManager {
 
         // 破棄済みなら何もしない
         // DPlayer に登録したイベントから破棄後のタイミングでこのメソッドが呼ばれる可能性がなくもないので、念のため
-        if (this.destroyed === true) return;
+        if (this.destroyed === true) {
+            return;
+        }
 
         if ('setPositionState' in navigator.mediaSession) {
             // ライブ視聴

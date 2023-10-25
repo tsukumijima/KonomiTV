@@ -51,6 +51,10 @@ class PlayerWrapper {
     // 保持しておかないと clearInterval() でタイマーを止められない
     private live_force_seek_interval_timer_id: number = 0;
 
+    // setupPlayerContainerResizeHandler() で利用する ResizeObserver
+    // 保持しておかないと disconnect() で ResizeObserver を止められない
+    private player_container_resize_observer: ResizeObserver | null = null;
+
     // handlePlayerControlUIVisibility() で利用するタイマー ID
     // 保持しておかないと clearTimeout() でタイマーを止められない
     private player_control_ui_hide_timer_id: number = 0;
@@ -376,9 +380,6 @@ class PlayerWrapper {
         // 上書き元のコードは https://github.com/tsukumijima/DPlayer/blob/v1.30.2/src/ts/controller.ts#L397-L405 にある
         this.player.controller.setAutoHide = (time: number) => {};
 
-        // プレイヤーのコントロール UI を表示する (初回実行)
-        this.handlePlayerControlUIVisibility();
-
         // DPlayer に動画再生系のイベントハンドラーを登録する
         this.setupVideoPlaybackHandler();
 
@@ -387,6 +388,12 @@ class PlayerWrapper {
 
         // DPlayer の設定パネルを無理やり拡張し、KonomiTV 独自の項目を追加する
         this.setupSettingPanelHandler();
+
+        // KonomiTV 本体の UI を含むプレイヤー全体のコンテナ要素がリサイズされたときのイベントハンドラーを登録する
+        this.setupPlayerContainerResizeHandler();
+
+        // プレイヤーのコントロール UI を表示する (初回実行)
+        this.handlePlayerControlUIVisibility();
 
         // PlayerManager からプレイヤーロジックの再起動が必要になったことを通知されたときのイベントハンドラーを登録する
         // このイベントは常にアプリケーション上で1つだけ登録されていなければならない
@@ -731,6 +738,86 @@ class PlayerWrapper {
 
 
     /**
+     * KonomiTV 本体の UI を含むプレイヤー全体のコンテナ要素がリサイズされたときのイベントハンドラーを登録する
+     */
+    private setupPlayerContainerResizeHandler(): void {
+
+        // 監視対象のプレイヤー全体のコンテナ要素
+        const player_container_element = document.querySelector('.watch-player')!;
+
+        // プレイヤー全体のコンテナ要素がリサイズされた際に発火するイベント
+        const resize_handler = () => {
+
+            // コメント描画領域の要素
+            if (this.player === null) return;
+            const comment_area_element = this.player.danmaku!.container;
+
+            // コメント描画領域の幅から算出した、映像の要素の幅/高さ (px)
+            // 実際の映像の要素の幅は BML ブラウザの ShadowDOM 内に入ると正確な算出ができないため、代わりにコメント描画領域の幅を使って算出する
+            const video_element_width = comment_area_element.clientWidth;
+            const video_element_height = comment_area_element.clientWidth * (9 / 16);
+
+            // プレイヤー全体と映像の高さの差（レターボックス）から、コメント描画領域の高さを狭める必要があるかを判定する
+            // 2で割っているのは単体の差を測るため
+            if (player_container_element === null || player_container_element.clientHeight === null) return;
+            const letter_box_height = (player_container_element.clientHeight - video_element_height) / 2;
+
+            const threshold = Utils.isSmartphoneVertical() ? 0 : window.matchMedia('(max-height: 450px)').matches ? 50 : 66;
+            if (letter_box_height < threshold) {
+
+                // コメント描画領域に必要な上下マージン
+                const comment_area_vertical_margin = (threshold - letter_box_height) * 2;
+
+                // 狭めるコメント描画領域の幅
+                // 映像の要素の幅をそのまま利用する
+                const comment_area_width = video_element_width;
+
+                // 狭めるコメント描画領域の高さ
+                const comment_area_height = video_element_height - comment_area_vertical_margin;
+
+                // 狭めるコメント描画領域のアスペクト比を求める
+                // https://tech.arc-one.jp/asepct-ratio/
+                const gcd = (x: number, y: number) => {  // 最大公約数を求める関数
+                    if (y === 0) return x;
+                    return gcd(y, x % y);
+                };
+                // 幅と高さの最大公約数を求める
+                const gcd_result = gcd(comment_area_width, comment_area_height);
+                // 幅と高さをそれぞれ最大公約数で割ってアスペクト比を算出
+                const comment_area_height_aspect = `${comment_area_width / gcd_result} / ${comment_area_height / gcd_result}`;
+
+                // 一時的に transition を無効化する
+                // アスペクト比の設定は連続して行われるが、その際に transition が適用されるとワンテンポ遅れたアニメーションになってしまう
+                comment_area_element.style.transition = 'none';
+
+                // コメント描画領域に算出したアスペクト比を設定する
+                comment_area_element.style.setProperty('--comment-area-aspect-ratio', comment_area_height_aspect);
+
+                // コメント描画領域に必要な上下マージンを設定する
+                comment_area_element.style.setProperty('--comment-area-vertical-margin', `${comment_area_vertical_margin}px`);
+
+                // 0.2秒後に再び transition を有効化する
+                // 0.2秒より前にもう一度リサイズイベントが来た場合はタイマーがクリアされるため実行されない
+                window.setTimeout(() => comment_area_element.style.transition = '', 0.2 * 1000);
+
+            } else {
+
+                // コメント描画領域に設定したアスペクト比・上下マージンを削除する
+                comment_area_element.style.removeProperty('--comment-area-aspect-ratio');
+                comment_area_element.style.removeProperty('--comment-area-vertical-margin');
+            }
+        };
+
+        // 初回実行
+        resize_handler();
+
+        // 要素の監視を開始
+        this.player_container_resize_observer = new ResizeObserver(resize_handler);
+        this.player_container_resize_observer.observe(player_container_element);
+    }
+
+
+    /**
      * マウスが動いたりタップされた時に実行するタイマー関数
      * 一定の条件に基づいてプレイヤーのコントロール UI の表示状態を切り替える
      * 3秒間何も操作がなければプレイヤーのコントロール UI を非表示にする
@@ -823,10 +910,13 @@ class PlayerWrapper {
      */
     public async destroy(): Promise<void> {
         assert(this.player !== null);
+        assert(this.player_container_resize_observer !== null);
         const player_store = usePlayerStore();
 
         // すでに破棄されているのに再度実行してはならない
-        assert(this.destroyed === false);
+        if (this.destroyed === true) {
+            return;
+        }
 
         // 登録されている PlayerManager をすべて破棄
         // CSS アニメーションの関係上、ローディング状態にする前に破棄する必要がある (特に LiveDataBroadcastingManager)
@@ -854,6 +944,10 @@ class PlayerWrapper {
         // タイマーを破棄
         window.clearInterval(this.live_force_seek_interval_timer_id);
         window.clearTimeout(this.player_control_ui_hide_timer_id);
+
+        // プレイヤー全体のコンテナ要素の監視を停止
+        this.player_container_resize_observer.disconnect();
+        this.player_container_resize_observer = null;
 
         // DPlayer 本体を破棄
         this.player.destroy();
