@@ -11,7 +11,8 @@ import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
 import useSettingsStore from '@/stores/SettingsStore';
 import Utils, { dayjs } from '@/utils';
-import CaptureCompositorProxy, { ICaptureCommentData, ICaptureExifData } from '@/workers/CaptureCompositor';
+import { ICaptureCommentData, ICaptureExifData } from '@/workers/CaptureCompositor';
+import CaptureCompositorProxy from '@/workers/CaptureCompositorProxy';
 
 
 /**

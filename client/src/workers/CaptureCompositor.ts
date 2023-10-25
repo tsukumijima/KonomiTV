@@ -407,9 +407,3 @@ class CaptureCompositor implements ICaptureCompositor {
 
 // Comlink にクラスをエクスポート
 Comlink.expose(CaptureCompositor);
-
-// CaptureCompositor を Web Worker 上で動作させるためのラッパー
-// Comlink を経由し、Web Worker とメインスレッド間でオブジェクトをやり取りする
-const worker = new Worker(new URL('@/workers/CaptureCompositor', import.meta.url));
-const CaptureCompositorProxy = Comlink.wrap<new (options: ICaptureCompositorOptions) => ICaptureCompositor>(worker);
-export default CaptureCompositorProxy;

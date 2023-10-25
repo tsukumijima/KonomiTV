@@ -9,7 +9,8 @@ import PlayerManager from '@/services/player/PlayerManager';
 import useChannelsStore from '@/stores/ChannelsStore';
 import useSettingsStore from '@/stores/SettingsStore';
 import Utils, { PlayerUtils } from '@/utils';
-import LivePSIArchivedDataDecoderProxy, { ILivePSIArchivedDataDecoder } from '@/workers/LivePSIArchivedDataDecoder';
+import { ILivePSIArchivedDataDecoder } from '@/workers/LivePSIArchivedDataDecoder';
+import LivePSIArchivedDataDecoderProxy from '@/workers/LivePSIArchivedDataDecoderProxy';
 
 
 /**
