@@ -50,6 +50,16 @@ class CaptureManager implements PlayerManager {
      */
     public async init(): Promise<void> {
 
+        // 万が一すでにキャプチャボタンが存在していた場合は削除する
+        const current_capture_button = this.player.container.querySelector('.dplayer-capture-icon');
+        const current_comment_capture_button = this.player.container.querySelector('.dplayer-comment-capture-icon');
+        if (current_capture_button !== null) {
+            current_capture_button.remove();
+        }
+        if (current_comment_capture_button !== null) {
+            current_comment_capture_button.remove();
+        }
+
         // コメント付きキャプチャボタンの HTML を追加
         // insertAdjacentHTML で .dplayer-icons-right の一番左側に配置する
         // この後に通常のキャプチャボタンが insert されるので、実際は左から2番目になる (コメント付きキャプチャボタンの配置が先なのもこのため)
@@ -407,17 +417,13 @@ class CaptureManager implements PlayerManager {
 
 
     /**
-     * init() で動的に追加したキャプチャボタンの HTML 要素を削除する
+     * 何もしない
+     * 本来であれば init() で動的に追加したキャプチャボタンの HTML 要素を削除するべきだが、
+     * 実装上 PlayerWrapper の破棄が完了する前にボタンを削除してしまうと、キャプチャボタンだけ一瞬消える不恰好な状態になってしまう
+     * このため、代わりに init() 側にすでにキャプチャボタンが追加済みであれば一旦削除する処理を入れている
      */
     public async destroy(): Promise<void> {
-
-        // 動的に追加したキャプチャボタンの HTML 要素を削除
-        if (this.capture_button !== null) {
-            this.capture_button.remove();
-        }
-        if (this.comment_capture_button !== null) {
-            this.comment_capture_button.remove();
-        }
+        // 何もしない
     }
 }
 
