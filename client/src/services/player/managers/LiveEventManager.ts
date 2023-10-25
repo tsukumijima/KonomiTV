@@ -104,7 +104,9 @@ class LiveEventManager implements PlayerManager {
                 case 'Standby': {
 
                     // ステータス詳細をプレイヤーに表示
-                    if (this.player.template.notice.textContent!.includes('画質を') === false) {  // 画質切り替えの通知なら上書きしない
+                    // 画質切り替え or エンコードタスクの再起動通知が既に表示されている場合は上書きしない
+                    if ((this.player.template.notice.textContent!.includes('画質を') === false &&
+                         this.player.template.notice.textContent!.includes('(ER-') === false)) {
                         this.player.notice(event.detail, -1);
                     }
 
@@ -121,7 +123,9 @@ class LiveEventManager implements PlayerManager {
                 case 'ONAir': {
 
                     // ステータス詳細をプレイヤーから削除
-                    if (this.player.template.notice.textContent!.includes('画質を') === false) {  // 画質切り替えの通知なら上書きしない
+                    // 画質切り替えの通知が既に表示されている場合は上書きしない
+                    // TODO: DPlayer に hideNotice() メソッドを追加する
+                    if (this.player.template.notice.textContent!.includes('画質を') === false) {
                         this.player.notice(this.player.template.notice.textContent!, 0.000001);
                     }
 
@@ -231,7 +235,9 @@ class LiveEventManager implements PlayerManager {
                 case 'Standby': {
 
                     // ステータス詳細をプレイヤーに表示
-                    if (this.player.template.notice.textContent!.includes('画質を') === false) {  // 画質切り替えの通知なら上書きしない
+                    // 画質切り替え or エンコードタスクの再起動通知が既に表示されている場合は上書きしない
+                    if ((this.player.template.notice.textContent!.includes('画質を') === false &&
+                         this.player.template.notice.textContent!.includes('(ER-') === false)) {
                         this.player.notice(event.detail, -1);
                     }
 

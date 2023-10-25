@@ -984,6 +984,7 @@ class PlayerWrapper {
 
         // DPlayer 本体を破棄
         // なぜか例外が出ることがあるので try-catch で囲む
+        // TODO: DPlayer の destroy() メソッドに破棄後も要素を保持するオプションを追加する
         if (this.player !== null) {
             try {
                 this.player.destroy();
