@@ -29,8 +29,8 @@ import Utils, { PlayerUtils } from '@/utils';
 class PlayerWrapper {
 
     // ライブ視聴: 低遅延モードオンでの再生バッファ (秒単位)
-    // 0.7 秒程度余裕を持たせる
-    private static readonly LIVE_PLAYBACK_BUFFER_SECONDS_LOW_LATENCY = 0.7;
+    // 0.8 秒程度余裕を持たせる
+    private static readonly LIVE_PLAYBACK_BUFFER_SECONDS_LOW_LATENCY = 0.8;
 
     // ライブ視聴: 低遅延モードオフでの再生バッファ (秒単位)
     // 5秒程度の遅延を許容する
