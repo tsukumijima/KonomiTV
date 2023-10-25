@@ -422,7 +422,7 @@ class PlayerWrapper {
             // 再初期化により、作り直した DPlayer が再び this.player にセットされているはず
             // 通知を表示してから PlayerWrapper を破棄すると DPlayer の DOM 要素ごと消えてしまうので、DPlayer を作り直した後に通知を表示する
             assert(this.player !== null);
-            this.player.notice(event.message, -1, undefined, '#FF6F6A');
+            this.player.notice(event.message, undefined, undefined, '#FF6F6A');
         });
 
         // 各 PlayerManager を初期化・登録
@@ -951,7 +951,9 @@ class PlayerWrapper {
         // 20回 (0.01秒おき) に分けて音量を下げる
         for (let i = 0; i < 20; i++) {
             await Utils.sleep(0.01);
-            this.player.video.volume = current_volume * (1 - (i + 1) / 20);
+            if (this.player?.video) {
+                this.player.video.volume = current_volume * (1 - (i + 1) / 20);
+            }
         }
 
         // タイマーを破棄
