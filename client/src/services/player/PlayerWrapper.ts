@@ -5,6 +5,7 @@ import DPlayer, { DPlayerType } from 'dplayer';
 import mpegts from 'mpegts.js';
 
 import APIClient from '@/services/APIClient';
+import CaptureManager from '@/services/player/managers/CaptureManager2';
 import LiveCommentManager from '@/services/player/managers/LiveCommentManager2';
 import LiveDataBroadcastingManager from '@/services/player/managers/LiveDataBroadcastingManager';
 import LiveEventManager from '@/services/player/managers/LiveEventManager';
@@ -232,14 +233,11 @@ class PlayerWrapper {
                 read: (options) => {
                     // ライブ視聴: 空の配列を返す (こうするとコメント0件と認識される)
                     if (this.playback_mode === 'Live') {
-
                         // ライブ視聴では LiveCommentManager 側でリアルタイムにコメントを受信・描画するため、最終的なコメント数を確定できない
                         // ここでは一旦コメント0件として認識させる
                         options.success([]);
-
                     // ビデオ視聴: 過去ログコメントを取得して返す
                     } else {
-
                         // TODO: 未実装
                         options.success([]);
                     }
@@ -248,7 +246,6 @@ class PlayerWrapper {
                 send: async (options) => {
                     // ライブ視聴: コメントを送信する
                     if (this.playback_mode === 'Live') {
-
                         // ライブ視聴であれば PlayerManager に登録されているはずの LiveCommentManager を探し、コメントを送信する
                         for (const player_manager of this.player_managers) {
                             if (player_manager instanceof LiveCommentManager) {
@@ -256,7 +253,6 @@ class PlayerWrapper {
                                 return;
                             }
                         }
-
                     // ビデオ視聴: 過去ログにはコメントできないのでエラーを返す
                     } else {
                         options.error('録画番組にはコメントできません。');
@@ -421,11 +417,13 @@ class PlayerWrapper {
                 new LiveEventManager(this.player),
                 new LiveCommentManager(this.player),
                 new LiveDataBroadcastingManager(this.player),
+                new CaptureManager(this.player, this.playback_mode),
                 new MediaSessionManager(this.player, this.playback_mode),
             ];
         } else {
             // ビデオ視聴時に設定する PlayerManager
             this.player_managers = [
+                new CaptureManager(this.player, this.playback_mode),
                 new MediaSessionManager(this.player, this.playback_mode),
             ];
         }

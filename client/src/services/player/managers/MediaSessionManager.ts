@@ -29,6 +29,7 @@ class MediaSessionManager implements PlayerManager {
     /**
      * コンストラクタ
      * @param player DPlayer のインスタンス
+     * @param playback_mode 再生モード (Live: ライブ視聴, Video: ビデオ視聴)
      */
     constructor(player: DPlayer, playback_mode: 'Live' | 'Video') {
         this.player = player;

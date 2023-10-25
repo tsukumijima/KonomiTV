@@ -6,16 +6,24 @@ import { ICommentData } from '@/services/player/managers/LiveCommentManager2';
 import { IRecordedProgram, IRecordedProgramDefault } from '@/services/Videos';
 
 
-/** プレイヤーに関するイベントの型 */
+/**
+ * プレイヤーに関連するイベントの型
+ * PlayerManager 側からのイベントも UI 側からのイベントも PlayerEvents を通じて行う
+ */
 export type PlayerEvents = {
     // PlayerManager からプレイヤーロジックの再起動が必要になったことを通知する
     PlayerRestartRequired: {
         message: string;  // プレイヤーに通知するメッセージ
     };
-    // LiveCommentManager からコメントの受信が完了したことを通知する
+    // CaptureManager からキャプチャの撮影が完了したことを通知する
+    CaptureCompleted: {
+        capture: Blob;  // キャプチャの Blob
+        filename: string;  // キャプチャのファイル名 (UI からの手動ダウンロード時に使う)
+    };
+    // ライブ視聴: LiveCommentManager からコメントを受信したことを通知する
     LiveCommentReceived: {
         is_initial_comments: boolean;  // 初期コメントかどうか
-        comments: ICommentData[];  // コメントのリスト
+        comments: ICommentData[];  // コメントデータのリスト
     }
 };
 
@@ -27,7 +35,7 @@ export type PlayerEvents = {
 const usePlayerStore = defineStore('player', {
     state: () => ({
 
-        // プレイヤーに関するイベントを発行する EventEmitter
+        // プレイヤーに関連するイベントを発行する EventEmitter
         event_emitter: mitt<PlayerEvents>(),
 
         // 現在視聴中の録画番組の情報
