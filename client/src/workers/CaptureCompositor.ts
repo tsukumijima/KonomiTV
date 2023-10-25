@@ -24,8 +24,8 @@ export interface ICaptureCommentData {
         left: number;
         // コメントの色
         color: string;
-        // コメントのフォントサイズ
-        font_size: string;
+        // コメントのフォントサイズ (px)
+        font_size: number;
         // コメントのテキスト
         text: string;
     }[];
@@ -283,11 +283,8 @@ class CaptureCompositor implements ICaptureCompositor {
         assert(this.options.capture_comment_data !== null);
 
         // コメントを描画する一時的な OffscreenCanvas を生成
-        // この OffscreenCanvas のサイズは、コメントのコンテナ要素のサイズと同じにする
-        const comment_canvas = new OffscreenCanvas(
-            this.options.capture_comment_data.container_width,
-            this.options.capture_comment_data.container_height,
-        );
+        // この OffscreenCanvas のサイズは指定された OffscreenCanvas と同じにする
+        const comment_canvas = new OffscreenCanvas(canvas.width, canvas.height);
 
         // OffscreenCanvas のコンテキストを取得
         // オプションはいずれもパフォーマンス向上のために指定している
@@ -297,17 +294,26 @@ class CaptureCompositor implements ICaptureCompositor {
             willReadFrequently: false,
         })!;
 
+        // 本来のプレイヤー要素の幅/高さと OffscreenCanvas の幅/高さを比較して、どれだけ拡大/縮小して描画するかを計算
+        // この値を使って、コメントの座標やフォントサイズを拡大/縮小する
+        const width_ratio = canvas.width / this.options.capture_comment_data.container_width;
+        const height_ratio = canvas.height / this.options.capture_comment_data.container_height;
+
+        // 事前に描画する文字のベースラインを top に設定
+        // デフォルトのベースラインでは Y 座標が上にずれてしまうため
+        comment_canvas_context.textBaseline = 'top';
+
         // 指定された座標に、指定されたフォントサイズでコメントを描画
         for (const comment of this.options.capture_comment_data.comments) {
             comment_canvas_context.fillStyle = comment.color;
             // UI 側と同じフォント指定なので、明示的にロードせずとも OffscreenCanvas に描画できる状態にあるはず
-            comment_canvas_context.font = `bold ${comment.font_size} 'Open Sans','Hiragino Sans','Noto Sans JP',sans-serif`;
+            comment_canvas_context.font = `bold ${comment.font_size * width_ratio}px 'Open Sans','Hiragino Sans','Noto Sans JP',sans-serif`;
             // UI 側と同じテキストシャドウを付ける
-            comment_canvas_context.shadowOffsetX = 1.2;
-            comment_canvas_context.shadowOffsetY = 1.2;
-            comment_canvas_context.shadowBlur = 4;
+            comment_canvas_context.shadowOffsetX = 1.2 * width_ratio;
+            comment_canvas_context.shadowOffsetY = 1.2 * width_ratio;
+            comment_canvas_context.shadowBlur = 4 * width_ratio;
             comment_canvas_context.shadowColor = 'rgba(0, 0, 0, 0.9)';
-            comment_canvas_context.fillText(comment.text, comment.left, comment.top);
+            comment_canvas_context.fillText(comment.text, comment.left * width_ratio, comment.top * height_ratio);
         }
 
         // コメントを描画する OffscreenCanvas を、指定された OffscreenCanvas に合成

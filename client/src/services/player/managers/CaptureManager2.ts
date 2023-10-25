@@ -148,7 +148,7 @@ class CaptureManager implements PlayerManager {
                 // コメントの色
                 color: computed_style.color,
                 // コメントのフォントサイズ (px)
-                font_size: computed_style.fontSize,
+                font_size: parseFloat(computed_style.fontSize.replaceAll('px', '')),
                 // コメントのテキスト
                 text: comment_element.textContent.trim(),  // 念のため前後の空白を削除
             });
