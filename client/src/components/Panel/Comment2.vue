@@ -198,14 +198,103 @@ export default Vue.extend({
             }
         };
 
-        // コメントを受信するイベントリスナーを登録する
-        this.init();
+        // ***** イベントリスナーの登録 *****
+
+        // タブが非表示状態のときにコメントを格納する配列
+        // タブが表示状態になったらコメントリストにのみ表示する（遅れているのでプレイヤーには表示しない）
+        const comment_list_buffer: ICommentData[] = [];
+
+        // コメントの最大保持数
+        const max_comment_count = 500;
+
+        // LiveCommentManager からコメントを受信したときのイベントハンドラーを登録
+        this.playerStore.event_emitter.on('LiveCommentReceived', (event) => {
+
+            // 初回の過去コメント (最大50件) を受信したとき
+            if (event.is_initial_comments === true) {
+
+                // チャンネルが切り替わった可能性があるので、既存のコメントリストをクリア
+                this.comment_list.length = 0;
+
+                // コメントリストに一括で追加
+                this.comment_list.push(...event.comments);
+
+                // コメントリストを一番下までスクロール
+                this.scrollCommentList();
+
+                // 通常のコメントを受信したとき
+            } else {
+
+                // タブが非表示状態のときは、バッファにコメントを追加するだけで終了する
+                // ここで追加すると、タブが表示状態になったときに一斉に描画されて大変なことになる
+                if (document.visibilityState === 'hidden') {
+                    comment_list_buffer.push(...event.comments);
+                    return;
+                }
+
+                // コメントリストのコメント数が max_comment_count 件を超えたら、古いものから順に削除する
+                // 仮想スクロールとはいえ、さすがに max_comment_count 件を超えると重くなりそう
+                // 手動スクロール時は実行しない
+                if (this.comment_list.length >= max_comment_count && this.is_manual_scroll === false) {
+                    this.comment_list.splice(0, Math.max(0, this.comment_list.length - max_comment_count));
+                }
+
+                // コメントリストに追加
+                // 通常コメントは1つだが、コメントが殺到した場合は DOM 描画負荷軽減のため一括で送信されてくる
+                this.comment_list.push(...event.comments);
+
+                // コメントリストを一番下までスクロール
+                this.scrollCommentList();
+            }
+        });
+
+        // LiveCommentManager からコメントの送信完了イベントを受信したときのイベントハンドラーを登録
+        this.playerStore.event_emitter.on('LiveCommentSendCompleted', (event) => {
+
+            // 送信した自分のコメントをコメントリストに追加
+            this.comment_list.push(event.comment);
+
+            // コメントリストを一番下までスクロール
+            this.scrollCommentList();
+        });
+
+        // タブが表示状態になったときのイベントハンドラーを登録
+        this.visibilitychange_listener = () => {
+            if (document.visibilityState === 'visible') {
+
+                // コメントリスト + バッファの合計コメント数が max_comment_count 件を超えたら、
+                // コメントリスト内のコメントを古いものから順に削除し、max_comment_count 件になるようにする
+                const comment_list_and_buffer_length = this.comment_list.length + comment_list_buffer.length;
+                if (comment_list_and_buffer_length >= max_comment_count && this.is_manual_scroll === false) {
+                    this.comment_list.splice(0, Math.max(0, comment_list_and_buffer_length - max_comment_count));
+                }
+
+                // バッファ内のコメントをコメントリストに一括で追加する
+                this.comment_list.push(...comment_list_buffer);
+                comment_list_buffer.length = 0;  // バッファを空にする
+
+                // コメントリストを一番下までスクロール
+                this.scrollCommentList();
+            }
+        };
+        document.addEventListener('visibilitychange', this.visibilitychange_listener);
     },
     // 終了前に実行
     beforeDestroy() {
 
-        // 登録したイベントリスナーを削除
-        this.destroy();
+        // ***** イベントリスナーの登録解除 *****
+
+        // タブの表示/非表示の状態が切り替わったときのイベントを削除
+        if (this.visibilitychange_listener !== null) {
+            document.removeEventListener('visibilitychange', this.visibilitychange_listener);
+            this.visibilitychange_listener = null;
+        }
+
+        // LiveCommentManager からコメントを受信したときのイベントハンドラーを削除
+        this.playerStore.event_emitter.off('LiveCommentReceived');  // LiveCommentReceived イベントの全てのイベントハンドラーを削除
+
+        // コメントリストをクリア
+        this.comment_list.length = 0;
     },
     methods: {
 
@@ -269,16 +358,15 @@ export default Vue.extend({
             // 自動スクロール中のフラグを立てる
             this.is_auto_scrolling = true;
 
-            // 0.01 秒待って実行し、念押しで2回実行しないと完全に最下部までスクロールされない…（ブラウザの描画バグ？）
-            // this.$nextTick() は効かなかった
-            for (let index = 0; index < 3; index++) {
-                await Utils.sleep(0.01);
+            // window.requestAnimationFrame() でアニメーション更新を待ってからスクロールする (重要)
+            // すぐに scrollTo() を実行すると、DOM 描画のタイミングの関係なのか、なぜか最後までスクロールされないことがある
+            window.requestAnimationFrame(() => {
                 if (smooth === true) {  // スムーズスクロール
-                    this.comment_list_element.scrollTo({top: this.comment_list_element.scrollHeight, left: 0, behavior: 'smooth'});
+                    this.comment_list_element?.scrollTo({top: this.comment_list_element.scrollHeight, left: 0, behavior: 'smooth'});
                 } else {
-                    this.comment_list_element.scrollTo(0, this.comment_list_element.scrollHeight);
+                    this.comment_list_element?.scrollTo(0, this.comment_list_element.scrollHeight);
                 }
-            }
+            });
 
             // 0.1 秒待つ（重要）
             await Utils.sleep(0.1);
@@ -286,105 +374,6 @@ export default Vue.extend({
             // 自動スクロール中のフラグを降ろす
             this.is_auto_scrolling = false;
         },
-
-        // コメントを受信するイベントリスナーを登録する
-        async init() {
-
-            // タブが非表示状態のときにコメントを格納する配列
-            // タブが表示状態になったらコメントリストにのみ表示する（遅れているのでプレイヤーには表示しない）
-            const comment_list_buffer: ICommentData[] = [];
-
-            // コメントの最大保持数
-            const max_comment_count = 500;
-
-            // LiveCommentManager からコメントを受信したときのイベントハンドラーを登録
-            this.playerStore.event_emitter.on('LiveCommentReceived', (event) => {
-
-                // 初回の過去コメント (最大50件) を受信したとき
-                if (event.is_initial_comments === true) {
-
-                    // チャンネルが切り替わった可能性があるので、既存のコメントリストをクリア
-                    this.comment_list.length = 0;
-
-                    // コメントリストに一括で追加
-                    this.comment_list.push(...event.comments);
-
-                    // コメントリストを一番下までスクロール
-                    this.scrollCommentList();
-
-                // 通常のコメントを受信したとき
-                } else {
-
-                    // タブが非表示状態のときは、バッファにコメントを追加するだけで終了する
-                    // ここで追加すると、タブが表示状態になったときに一斉に描画されて大変なことになる
-                    if (document.visibilityState === 'hidden') {
-                        comment_list_buffer.push(...event.comments);
-                        return;
-                    }
-
-                    // コメントリストのコメント数が max_comment_count 件を超えたら、古いものから順に削除する
-                    // 仮想スクロールとはいえ、さすがに max_comment_count 件を超えると重くなりそう
-                    // 手動スクロール時は実行しない
-                    if (this.comment_list.length >= max_comment_count && this.is_manual_scroll === false) {
-                        this.comment_list.splice(0, Math.max(0, this.comment_list.length - max_comment_count));
-                    }
-
-                    // コメントリストに追加
-                    // 通常コメントは1つだが、コメントが殺到した場合は DOM 描画負荷軽減のため一括で送信されてくる
-                    this.comment_list.push(...event.comments);
-
-                    // コメントリストを一番下までスクロール
-                    this.scrollCommentList();
-                }
-            });
-
-            // LiveCommentManager からコメントの送信完了イベントを受信したときのイベントハンドラーを登録
-            this.playerStore.event_emitter.on('LiveCommentSendCompleted', (event) => {
-
-                // 送信した自分のコメントをコメントリストに追加
-                this.comment_list.push(event.comment);
-
-                // コメントリストを一番下までスクロール
-                this.scrollCommentList();
-            });
-
-            // タブが表示状態になったときのイベントハンドラーを登録
-            this.visibilitychange_listener = () => {
-                if (document.visibilityState === 'visible') {
-
-                    // コメントリスト + バッファの合計コメント数が max_comment_count 件を超えたら、
-                    // コメントリスト内のコメントを古いものから順に削除し、max_comment_count 件になるようにする
-                    const comment_list_and_buffer_length = this.comment_list.length + comment_list_buffer.length;
-                    if (comment_list_and_buffer_length >= max_comment_count && this.is_manual_scroll === false) {
-                        this.comment_list.splice(0, Math.max(0, comment_list_and_buffer_length - max_comment_count));
-                    }
-
-                    // バッファ内のコメントをコメントリストに一括で追加する
-                    this.comment_list.push(...comment_list_buffer);
-                    comment_list_buffer.length = 0;  // バッファを空にする
-
-                    // コメントリストを一番下までスクロール
-                    this.scrollCommentList();
-                }
-            };
-            document.addEventListener('visibilitychange', this.visibilitychange_listener);
-        },
-
-        // 登録したイベントリスナーを削除する
-        destroy() {
-
-            // タブの表示/非表示の状態が切り替わったときのイベントを削除
-            if (this.visibilitychange_listener !== null) {
-                document.removeEventListener('visibilitychange', this.visibilitychange_listener);
-                this.visibilitychange_listener = null;
-            }
-
-            // LiveCommentManager からコメントを受信したときのイベントハンドラーを削除
-            this.playerStore.event_emitter.off('LiveCommentReceived');  // LiveCommentReceived イベントの全てのイベントハンドラーを削除
-
-            // コメントリストをクリア
-            this.comment_list.length = 0;
-        }
     }
 });
 

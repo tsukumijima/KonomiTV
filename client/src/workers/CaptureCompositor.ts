@@ -3,7 +3,7 @@ import assert from 'assert';
 import { Buffer } from 'buffer';
 
 import * as Comlink from 'comlink';
-import piexif from 'piexifjs';
+import * as piexif from 'piexifjs';
 
 import Utils, { dayjs } from '@/utils';
 
