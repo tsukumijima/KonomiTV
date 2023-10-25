@@ -6,6 +6,7 @@ import Channels from '@/services/Channels';
 import PlayerManager from '@/services/player/PlayerManager';
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
+import useUserStore from '@/stores/UserStore';
 import Utils, { dayjs, CommentUtils } from '@/utils';
 
 
@@ -66,11 +67,17 @@ class LiveCommentManager implements PlayerManager {
      * ニコニコ実況に接続し、セッションを初期化する
      */
     public async init(): Promise<void> {
+        const player_store = usePlayerStore();
 
         // 視聴セッションを初期化
         const watch_session_info = await this.initWatchSession();
         if (watch_session_info.is_success === false) {
+
+            // 初期化に失敗した際のエラーメッセージを設定する
+            // UI 側のエラー表示に利用されるほか、null から string になったことで初期化に失敗したことを示す
+            player_store.live_comment_init_failed_message = watch_session_info.detail;
             console.error(`[LiveCommentManager][WatchSession] Error: ${watch_session_info.detail}`);
+
             // 通常発生しないエラーメッセージ (サーバーエラーなど) はプレイヤー側にも通知する
             if ((watch_session_info.detail !== 'このチャンネルはニコニコ実況に対応していません。') &&
                 (watch_session_info.detail !== '現在放送中のニコニコ実況がありません。')) {
@@ -137,8 +144,8 @@ class LiveCommentManager implements PlayerManager {
             }
 
             // 接続切断の理由を表示
-            console.error(`[LiveCommentManager][WatchSession] Connection closed. (Code: ${event.code})`);
             this.player.notice(`ニコニコ実況との接続が切断されました。(Code: ${event.code})`, undefined, undefined, '#FF6F6A');
+            console.error(`[LiveCommentManager][WatchSession] Connection closed. (Code: ${event.code})`);
 
             // 10 秒ほど待ってから再接続する
             // ニコ生側から切断された場合と異なりネットワークが切断された可能性が高いので、間を多めに取る
@@ -220,8 +227,8 @@ class LiveCommentManager implements PlayerManager {
                     }
 
                     // エラー情報を表示
-                    console.error(`[LiveCommentManager][WatchSession] Error occurred. (Code: ${message.data.code})`);
                     this.player.notice(error, undefined, undefined, '#FF6F6A');
+                    console.error(`[LiveCommentManager][WatchSession] Error occurred. (Code: ${message.data.code})`);
 
                     // 5 秒ほど待ってから再接続する
                     await Utils.sleep(5);
@@ -277,8 +284,8 @@ class LiveCommentManager implements PlayerManager {
                     }
 
                     // 接続切断の理由を表示
-                    console.error(`[LiveCommentManager][WatchSession] Disconnected. (Reason: ${message.data.reason})`);
                     this.player.notice(disconnect_reason);
+                    console.error(`[LiveCommentManager][WatchSession] Disconnected. (Reason: ${message.data.reason})`);
 
                     // 5 秒ほど待ってから再接続する
                     await Utils.sleep(5);
@@ -465,6 +472,39 @@ class LiveCommentManager implements PlayerManager {
      * @param options DPlayer のコメントオプション
      */
     public sendComment(options: DPlayerType.APIBackendSendOptions): void {
+        const player_store = usePlayerStore();
+        const user_store = useUserStore();
+
+        // 初期化に失敗しているときは実行せず、保存しておいたエラーメッセージを表示する
+        if (player_store.live_comment_init_failed_message !== null) {
+            options.error(player_store.live_comment_init_failed_message);
+            return;
+        }
+
+        // ログイン関連のバリデーション
+        if (user_store.user === null) {
+            options.error('コメントするには、KonomiTV アカウントにログインしてください。');
+            return;
+        }
+        if (user_store.user.niconico_user_id === null) {
+            options.error('コメントするには、ニコニコアカウントと連携してください。');
+            return;
+        }
+        if (user_store.user.niconico_user_premium === false && (options.data.type === 'top' || options.data.type === 'bottom')) {
+            options.error('コメントを上下に固定するには、ニコニコアカウントのプレミアム会員登録が必要です。');
+            return;
+        }
+        if (user_store.user.niconico_user_premium === false && options.data.size === 'big') {
+            options.error('コメントサイズを大きめに設定するには、ニコニコアカウントのプレミアム会員登録が必要です。');
+            return;
+        }
+
+        // 視聴セッションが null か、接続が既に切れている場合
+        if (this.watch_session === null || this.watch_session.readyState !== WebSocket.OPEN) {
+            console.error('[LiveCommentManager][WatchSession] Comment sending failed. (Connection is not established.)');
+            options.error('コメントの送信に失敗しました。WebSocket 接続が確立されていません。');
+            return;
+        }
 
         // DPlayer 上のコメント色（カラーコード）とニコニコの色コマンド定義のマッピング
         const color_table = {
@@ -489,13 +529,6 @@ class LiveCommentManager implements PlayerManager {
         // 番組開始時間からの累計秒らしいけど、なぜ指定しないといけないのかは不明
         // 小数点以下は丸めないとコメントサーバー側で投稿エラーになる
         const vpos = Math.round((dayjs().valueOf() - this.vpos_base_timestamp) / 10);
-
-        // 視聴セッションが null か、接続が切れている場合は弾く
-        if (this.watch_session === null || this.watch_session.readyState !== WebSocket.OPEN) {
-            console.error('[LiveCommentManager][WatchSession] Comment sending failed. (Connection is not established.)');
-            options.error('コメントの送信に失敗しました。WebSocket 接続が確立されていません。');
-            return;
-        }
 
         // コメントを送信
         this.watch_session.send(JSON.stringify({
@@ -526,6 +559,17 @@ class LiveCommentManager implements PlayerManager {
                 case 'postCommentResult': {
                     // コメント成功を DPlayer にコールバックで通知
                     options.success();
+
+                    // 送信したコメントを整形してコメントリストに送信
+                    player_store.event_emitter.emit('LiveCommentSendCompleted', {
+                        comment: {
+                            id: Utils.time(),  // ID は取得できないので現在の時間をユニークな ID として利用する
+                            text: options.data.text,  // コメント本文
+                            time: dayjs().format('HH:mm:ss'),  // 現在時刻
+                            user_id: `${user_store.user!.niconico_user_id!}`,  // ニコニコユーザー ID
+                            my_post: true,  // 自分のコメントであることを示すフラグ
+                        }
+                    });
 
                     // イベントリスナーを削除
                     abort_controller.abort();
@@ -560,6 +604,9 @@ class LiveCommentManager implements PlayerManager {
      * 同じ設定でニコニコ実況に再接続する
      */
     private async reconnect(): Promise<void> {
+        const player_store = usePlayerStore();
+
+        // 再接続を開始
         console.warn('[LiveCommentManager][WatchSession] Reconnecting...');
         this.player.notice('ニコニコ実況に再接続しています…');
 
@@ -569,8 +616,13 @@ class LiveCommentManager implements PlayerManager {
         // 視聴セッションを再初期化
         const watch_session_info = await this.initWatchSession();
         if (watch_session_info.is_success === false) {
-            // 無条件にエラーメッセージをプレイヤーに通知
+
+            // 初期化に失敗した際のエラーメッセージを設定する
+            // UI 側のエラー表示に利用されるほか、null から string になったことで初期化に失敗したことを示す
+            player_store.live_comment_init_failed_message = watch_session_info.detail;
             console.error('[LiveCommentManager][WatchSession] Reconnection failed.');
+
+            // 無条件にエラーメッセージをプレイヤーに通知
             this.player.notice(watch_session_info.detail, undefined, undefined, '#FF6F6A');
             return;
         }
@@ -585,6 +637,7 @@ class LiveCommentManager implements PlayerManager {
      * 視聴セッションとコメントセッションをそれぞれ閉じる
      */
     public async destroy(): Promise<void> {
+        const player_store = usePlayerStore();
 
         // セッションに紐いているすべての EventListener を解除
         // 再接続する場合に備えて AbortController を作り直す
@@ -609,6 +662,9 @@ class LiveCommentManager implements PlayerManager {
             this.keep_seat_interval_id = null;
         }
         this.vpos_base_timestamp = 0;
+
+        // 初期化に失敗した際のエラーメッセージを削除
+        player_store.live_comment_init_failed_message = null;
 
         console.log('[LiveCommentManager][WatchSession] Destroyed.');
     }

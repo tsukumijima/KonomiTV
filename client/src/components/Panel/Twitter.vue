@@ -70,7 +70,7 @@
         </div>
         <div class="tweet-form" :class="{
             'tweet-form--focused': is_tweet_hashtag_form_focused || is_tweet_text_form_focused,
-            'tweet-form--virtual-keyboard-display': is_virtual_keyboard_display &&
+            'tweet-form--virtual-keyboard-display': playerStore.is_virtual_keyboard_display &&
                 (Utils.hasActiveElementClass('tweet-form__hashtag-form') || Utils.hasActiveElementClass('tweet-form__textarea')) &&
                 (() => {is_hashtag_list_display = false; return true;})(),
         }">
@@ -123,7 +123,7 @@
         </div>
         <div class="hashtag-list" :class="{
             'hashtag-list--display': is_hashtag_list_display,
-            'hashtag-list--virtual-keyboard-display': is_virtual_keyboard_display && Utils.hasActiveElementClass('hashtag__input'),
+            'hashtag-list--virtual-keyboard-display': playerStore.is_virtual_keyboard_display && Utils.hasActiveElementClass('hashtag__input'),
         }">
             <div class="hashtag-heading">
                 <div class="hashtag-heading__text">
@@ -172,14 +172,14 @@
 </template>
 <script lang="ts">
 
-import DPlayer from 'dplayer';
 import { mapStores } from 'pinia';
-import Vue, { PropType } from 'vue';
+import Vue from 'vue';
 import draggable from 'vuedraggable';
 
 import Twitter from '@/services/Twitter';
 import { ITwitterAccount } from '@/services/Users';
 import useChannelsStore from '@/stores/ChannelsStore';
+import usePlayerStore from '@/stores/PlayerStore';
 import useSettingsStore from '@/stores/SettingsStore';
 import useUserStore from '@/stores/UserStore';
 import Utils from '@/utils';
@@ -204,18 +204,6 @@ export default Vue.extend({
     name: 'Panel-TwitterTab',
     components: {
         draggable,
-    },
-    props: {
-        // プレイヤーのインスタンス
-        player: {
-            type: null as unknown as PropType<DPlayer>,  // 代入当初は null になるため苦肉の策
-            required: true,
-        },
-        // 仮想キーボードが表示されているかどうか
-        is_virtual_keyboard_display: {
-            type: Boolean as PropType<boolean>,
-            required: true,
-        },
     },
     data() {
         return {
@@ -279,9 +267,9 @@ export default Vue.extend({
         };
     },
     computed: {
-        // ChannelsStore / SettingsStore / UserStore に this.channelsStore / this.settingsStore / this.userStore でアクセスできるようにする
+        // ChannelsStore / PlayerStore / SettingsStore / UserStore にアクセスできるようにする
         // ref: https://pinia.vuejs.org/cookbook/options-api.html
-        ...mapStores(useChannelsStore, useSettingsStore, useUserStore),
+        ...mapStores(useChannelsStore, usePlayerStore, useSettingsStore, useUserStore),
     },
     async created() {
 
@@ -695,7 +683,10 @@ export default Vue.extend({
             // ツイート送信 API にリクエスト
             // レスポンスは待たない
             Twitter.sendTweet(this.selected_twitter_account.screen_name, tweet_text, new_tweet_captures).then((result) => {
-                this.player.notice(result.message, undefined, undefined, result.is_error ? '#FF6F6A' : undefined);
+                this.playerStore.event_emitter.emit('SendNotification', {
+                    message: result.message,
+                    color: result.is_error ? '#FF6F6A' : undefined,
+                });
             });
 
             // 連投防止のため、フォーム上のツイート本文・キャプチャの選択・キャプチャのフォーカスを消去

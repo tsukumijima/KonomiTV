@@ -3,7 +3,7 @@ import { Buffer } from 'buffer';
 
 import { TsChar, TsDate } from '@tsukumijima/aribts';
 import { EIT } from '@tsukumijima/aribts/lib/table/eit';
-import Comlink from 'comlink';
+import * as Comlink from 'comlink';
 import { decodeTS } from 'web-bml/server/decode_ts';
 import { ResponseMessage } from 'web-bml/server/ws_api';
 

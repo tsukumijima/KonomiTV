@@ -18,11 +18,13 @@ import Utils, { PlayerUtils } from '@/utils';
 
 
 /**
- * 動画プレイヤーである DPlayer に関連するロジックを丸ごとラップするクラスで、動画再生系ロジックの中核を担う
- * DPlayer の初期化後は DPlayer のイベントなどに合わせて、イベントハンドラーや PlayerManager を管理する
- * このクラスはコンストラクタで指定されたチャンネル or 録画番組の再生に責任を持ち、
- * 他のチャンネル or 録画番組に切り替えられた際は別途新しい PlayerWrapper を作成する
- * await destroy() 後に再度 await init() すると、コンストラクタで設定したチャンネル or 録画番組の動画プレイヤーを再起動できる
+ * 動画プレイヤーである DPlayer に関連するロジックを丸ごとラップするクラスで、プレイヤーロジックの中核を担う
+ * DPlayer の初期化後は DPlayer が発行するイベントなどに合わせ、各イベントハンドラーや PlayerManager を管理する
+ *
+ * このクラスはコンストラクタで指定されたチャンネル or 録画番組の再生に責任を持つ
+ * await destroy() 後に再度 await init() すると、コンストラクタに渡したのと同じチャンネル or 録画番組のプレイヤーロジックを再起動できる
+ * 再生対象が他のチャンネル or 録画番組に切り替えられた際は、既存の PlayerWrapper を破棄し、新たに PlayerWrapper を作り直す必要がある
+ * 実装上、このクラスのインスタンスは必ずアプリケーション上で1つだけ存在するように実装する必要がある
  */
 class PlayerWrapper {
 
@@ -395,6 +397,14 @@ class PlayerWrapper {
         // プレイヤーのコントロール UI を表示する (初回実行)
         this.handlePlayerControlUIVisibility();
 
+        // UI コンポーネントからプレイヤーに通知メッセージの送信を要求されたときのイベントハンドラーを登録する
+        // このイベントは常にアプリケーション上で1つだけ登録されていなければならない
+        player_store.event_emitter.off('SendNotification');  // SendNotification イベントの全てのイベントハンドラーを削除
+        player_store.event_emitter.on('SendNotification', async (event) => {
+            assert(this.player !== null);
+            this.player.notice(event.message, event.duration, event.opacity, event.color);
+        });
+
         // PlayerManager からプレイヤーロジックの再起動が必要になったことを通知されたときのイベントハンドラーを登録する
         // このイベントは常にアプリケーション上で1つだけ登録されていなければならない
         // さもなければ使い終わった破棄済みの PlayerWrapper が再起動イベントにより復活し、現在利用中の PlayerWrapper と競合してしまう
@@ -404,7 +414,7 @@ class PlayerWrapper {
             // PlayerWrapper を破棄
             await this.destroy();
 
-            // PlayerWrapper を再度初期化
+            // PlayerWrapper を再初期化
             // この時点で PlayerRestartRequired のイベントハンドラーは再登録されているはず
             await this.init();
 
@@ -516,6 +526,7 @@ class PlayerWrapper {
         // デバイスの通知バーからの制御など、ブラウザの画面以外から動画の再生/停止が行われる事もあるため必要
         const on_play_or_pause = () => {
             if (this.player === null) return;
+            player_store.is_video_paused = this.player.video.paused;
             // まだ設定パネルが表示されていたら非表示にする
             this.player.setting.hide();
             // プレイヤーのコントロール UI を表示する

@@ -11,6 +11,14 @@ import { IRecordedProgram, IRecordedProgramDefault } from '@/services/Videos';
  * PlayerManager 側からのイベントも UI 側からのイベントも PlayerEvents を通じて行う
  */
 export type PlayerEvents = {
+    // UI コンポーネントからプレイヤーに通知メッセージの送信を要求する
+    // DPlayer.notice() の引数と同じで、そのまま DPlayer.notice() に渡される
+    SendNotification: {
+        message: string;  // 通知メッセージの内容
+        duration?: number;  // 通知メッセージの表示時間 (ミリ秒)
+        opacity?: number;  // 通知メッセージの透明度
+        color?: string;  // 通知メッセージの文字色
+    }
     // PlayerManager からプレイヤーロジックの再起動が必要になったことを通知する
     PlayerRestartRequired: {
         message: string;  // プレイヤーに通知するメッセージ
@@ -24,6 +32,10 @@ export type PlayerEvents = {
     LiveCommentReceived: {
         is_initial_comments: boolean;  // 初期コメントかどうか
         comments: ICommentData[];  // コメントデータのリスト
+    }
+    // ライブ視聴: LiveCommentManager からコメントを送信したことを通知する
+    LiveCommentSendCompleted: {
+        comment: ICommentData;  // 送信したコメントデータ (を整形したもの)
     }
 };
 
@@ -48,6 +60,10 @@ const usePlayerStore = defineStore('player', {
         // フルスクリーン状態かどうか
         is_fullscreen: false,
 
+        // 仮想キーボードが表示されているか
+        // 既定で表示されていない想定
+        is_virtual_keyboard_display: false,
+
         // プレイヤーのローディング状態
         // 既定でローディングとする
         is_loading: true,
@@ -56,6 +72,10 @@ const usePlayerStore = defineStore('player', {
         // 視聴開始時以外にも、ネットワークが遅くて再生が一時的に途切れたときなどで表示される
         // 既定でバッファリング中とする
         is_video_buffering: true,
+
+        // プレイヤーの再生が停止しているか
+        // 既定で再生中とする
+        is_video_paused: false,
 
         // プレイヤーの背景を表示するか
         // 既定で表示しない
@@ -66,6 +86,10 @@ const usePlayerStore = defineStore('player', {
 
         // キーボードショートカットの一覧のモーダルを表示するか
         shortcut_key_modal: false,
+
+        // ライブ視聴: ニコニコ実況への接続に失敗した際のエラーメッセージ
+        // null のとき、エラーは発生していないとみなす
+        live_comment_init_failed_message: null as string | null,
     }),
 });
 

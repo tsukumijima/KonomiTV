@@ -1,7 +1,7 @@
 
 import assert from 'assert';
 
-import Comlink from 'comlink';
+import * as Comlink from 'comlink';
 import { convertBlobToPng, copyBlobToClipboard } from 'copy-image-clipboard';
 import DPlayer from 'dplayer';
 
