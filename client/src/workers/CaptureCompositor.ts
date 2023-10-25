@@ -296,10 +296,10 @@ class CaptureCompositor implements ICaptureCompositor {
             willReadFrequently: false,
         })!;
 
-        // 本来のプレイヤー要素の幅/高さと OffscreenCanvas の幅/高さを比較して、どれだけ拡大/縮小して描画するかを計算
+        // コメントのコンテナ要素の幅と OffscreenCanvas の幅を比較して、どれだけ拡大/縮小して描画するかを計算
         // この値を使って、コメントの座標やフォントサイズを拡大/縮小する
-        const width_ratio = canvas.width / this.options.capture_comment_data.container_width;
-        const height_ratio = canvas.height / this.options.capture_comment_data.container_height;
+        // コメントのコンテナ要素の高さは可変なので、幅のみを使う
+        const magnification_ratio = canvas.width / this.options.capture_comment_data.container_width;
 
         // 事前に描画する文字のベースラインを top に設定
         // デフォルトのベースラインでは Y 座標が上にずれてしまうため
@@ -310,13 +310,13 @@ class CaptureCompositor implements ICaptureCompositor {
         for (const comment of this.options.capture_comment_data.comments) {
             comment_canvas_context.fillStyle = comment.color;
             // UI 側と同じフォント指定なので、明示的にロードせずとも OffscreenCanvas に描画できる状態にあるはず
-            comment_canvas_context.font = `bold ${comment.font_size * width_ratio}px 'Open Sans','Hiragino Sans','Noto Sans JP',sans-serif`;
+            comment_canvas_context.font = `bold ${comment.font_size * magnification_ratio}px 'Open Sans','Hiragino Sans','Noto Sans JP',sans-serif`;
             // UI 側と同じテキストシャドウを付ける
-            comment_canvas_context.shadowOffsetX = 1.2 * width_ratio;
-            comment_canvas_context.shadowOffsetY = 1.2 * width_ratio;
-            comment_canvas_context.shadowBlur = 4 * width_ratio;
+            comment_canvas_context.shadowOffsetX = 1.2 * magnification_ratio;
+            comment_canvas_context.shadowOffsetY = 1.2 * magnification_ratio;
+            comment_canvas_context.shadowBlur = 4 * magnification_ratio;
             comment_canvas_context.shadowColor = 'rgba(0, 0, 0, 0.9)';
-            comment_canvas_context.fillText(comment.text, comment.left * width_ratio, comment.top * height_ratio);
+            comment_canvas_context.fillText(comment.text, comment.left * magnification_ratio, comment.top * magnification_ratio);
         }
 
         // コメントを描画する OffscreenCanvas を、指定された OffscreenCanvas に合成
