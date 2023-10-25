@@ -923,8 +923,6 @@ class PlayerWrapper {
      * player_store.event_emitter.emit('PlayerRestartRequired', 'プレイヤーロジックを再起動しています…') のようにイベントを発火させるべき
      */
     public async destroy(): Promise<void> {
-        assert(this.player !== null);
-        assert(this.player_container_resize_observer !== null);
         const player_store = usePlayerStore();
 
         // すでに破棄されているのに再度実行してはならない
@@ -947,12 +945,14 @@ class PlayerWrapper {
         // ローディング状態への移行に伴い、映像がフェードアウトするアニメーション (0.2秒) 分待ってから実行
         // この 0.2 秒の間に音量をフェードアウトさせる
         // なお、ザッピングでチャンネルを連続で切り替えている場合は実行しない (実行しても意味がないため)
-        const current_volume = this.player.user.get('volume');
-        // 20回 (0.01秒おき) に分けて音量を下げる
-        for (let i = 0; i < 20; i++) {
-            await Utils.sleep(0.01);
-            if (this.player?.video) {
-                this.player.video.volume = current_volume * (1 - (i + 1) / 20);
+        if (this.player !== null) {
+            const current_volume = this.player.user.get('volume');
+            // 20回 (0.01秒おき) に分けて音量を下げる
+            for (let i = 0; i < 20; i++) {
+                await Utils.sleep(0.01);
+                if (this.player && this.player.video) {  // この行がないとタイミングによってはエラーになる
+                    this.player.video.volume = current_volume * (1 - (i + 1) / 20);
+                }
             }
         }
 
@@ -961,17 +961,21 @@ class PlayerWrapper {
         window.clearTimeout(this.player_control_ui_hide_timer_id);
 
         // プレイヤー全体のコンテナ要素の監視を停止
-        this.player_container_resize_observer.disconnect();
-        this.player_container_resize_observer = null;
+        if (this.player_container_resize_observer !== null) {
+            this.player_container_resize_observer.disconnect();
+            this.player_container_resize_observer = null;
+        }
 
         // DPlayer 本体を破棄
         // なぜか例外が出ることがあるので try-catch で囲む
-        try {
-            this.player.destroy();
-        } catch (e) {
-            // 何もしない
+        if (this.player !== null) {
+            try {
+                this.player.destroy();
+            } catch (e) {
+                // 何もしない
+            }
+            this.player = null;
         }
-        this.player = null;
 
         // 破棄済みかどうかのフラグを立てる
         this.destroyed = true;

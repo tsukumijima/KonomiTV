@@ -1,5 +1,4 @@
 
-import assert from 'assert';
 
 import DPlayer from 'dplayer';
 
@@ -263,11 +262,12 @@ class LiveEventManager implements PlayerManager {
      * サーバー側のライブストリームステータス API (Server-Sent Events) への接続を切断し、ライブストリームのステータス監視を停止する
      */
     public async destroy(): Promise<void> {
-        assert(this.eventsource !== null);
 
         // EventSource を破棄し、Server-Sent Events のストリーミングを終了する
-        this.eventsource.close();
-        this.eventsource = null;
+        if (this.eventsource !== null) {
+            this.eventsource.close();
+            this.eventsource = null;
+        }
     }
 }
 

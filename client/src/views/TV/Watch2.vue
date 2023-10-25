@@ -263,10 +263,6 @@ export default Vue.extend({
             // ザッピング（「前/次のチャンネル」ボタン or 上下キーショートカット）によるチャンネル移動かどうか
             is_zapping: false,
 
-            // ザッピングで連続してチャンネルを切り替えている最中かどうか
-            // 「連続して」とは、切り替える間隔が 0.5 秒以下で、再生セッションが初期化される前に次のチャンネルに切り替えたときのこと
-            is_zapping_continuously: false,
-
             // ***** プレイヤー *****
 
             // PlayerWrapper のインスタンス
@@ -407,10 +403,6 @@ export default Vue.extend({
         // 前の再生セッションを破棄して終了する
         const destroy_promise = this.destroy();
 
-        // 連続してチャンネルを切り替えていることを示すフラグを立てる
-        // このフラグは再生セッションが初期化されるタイミングで必ず降ろされる
-        this.is_zapping_continuously = true;
-
         // チャンネル ID を次のチャンネルのものに切り替える
         this.channelsStore.display_channel_id = to.params.display_channel_id;
 
@@ -422,13 +414,11 @@ export default Vue.extend({
             if (this.is_zapping === true) {
                 this.is_zapping = false;
                 this.interval_ids.push(window.setTimeout(() => {
-                    this.is_zapping_continuously = false;  // 新しいセッションを初期化するので、フラグを下ろす
                     destroy_promise.then(() => this.init());  // destroy() の実行完了を待ってから初期化する
                 }, 0.5 * 1000));
 
             // 通常のチャンネル移動時は、すぐに再生セッションを初期化する
             } else {
-                this.is_zapping_continuously = false;  // 新しいセッションを初期化するので、フラグを下ろす
                 destroy_promise.then(() => this.init());  // destroy() の実行完了を待ってから初期化する
             }
         })();
