@@ -329,7 +329,7 @@ export default Vue.extend({
                 if (resize_observer_element === null || resize_observer_element.clientHeight === null) return;
                 const letter_box_height = (resize_observer_element.clientHeight - video_element_height) / 2;
 
-                const threshold = Utils.isSmartphoneVertical() ? 0 : window.matchMedia('(max-height: 450px)').matches ? 50 : 66;
+                const threshold = Utils.isSmartphoneVertical() ? 0 : window.matchMedia('(max-height: 400px)').matches ? 50 : 66;
                 if (letter_box_height < threshold) {
 
                     // コメント描画領域に必要な上下マージン
