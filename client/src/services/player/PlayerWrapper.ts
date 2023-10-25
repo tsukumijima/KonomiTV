@@ -447,9 +447,8 @@ class PlayerWrapper {
 
         // 登録されている PlayerManager をすべて初期化
         // これにより各 PlayerManager での実際の処理が開始される
-        for (const player_manager of this.player_managers) {
-            await player_manager.init();
-        }
+        // 同期処理すると時間が掛かるので、並行して実行する
+        await Promise.all(this.player_managers.map((player_manager) => player_manager.init()));
     }
 
 
@@ -931,9 +930,8 @@ class PlayerWrapper {
 
         // 登録されている PlayerManager をすべて破棄
         // CSS アニメーションの関係上、ローディング状態にする前に破棄する必要がある (特に LiveDataBroadcastingManager)
-        for (const player_manager of this.player_managers) {
-            await player_manager.destroy();
-        }
+        // 同期処理すると時間が掛かるので、並行して実行する
+        await Promise.all(this.player_managers.map(async (player_manager) => player_manager.destroy()));
         this.player_managers = [];
 
         // ローディング中の背景画像を隠す

@@ -120,7 +120,7 @@ class MediaSessionManager implements PlayerManager {
                         artwork: live_artwork,
                     });
                     // ルーティングを前のチャンネルに置き換える
-                    await router.push({path: `/tv/watch/${channels_store.channel.previous.display_channel_id}`});
+                    await router.push({path: `/tv/watch2/${channels_store.channel.previous.display_channel_id}`});
                 // ビデオ視聴: シリーズ番組の前の話数に切り替え
                 } else {
                     // TODO: 未実装
@@ -136,7 +136,7 @@ class MediaSessionManager implements PlayerManager {
                         artwork: live_artwork,
                     });
                     // ルーティングを次のチャンネルに置き換える
-                    await router.push({path: `/tv/watch/${channels_store.channel.next.display_channel_id}`});
+                    await router.push({path: `/tv/watch2/${channels_store.channel.next.display_channel_id}`});
                 // ビデオ視聴: シリーズ番組の次の話数に切り替え
                 } else {
                     // TODO: 未実装
