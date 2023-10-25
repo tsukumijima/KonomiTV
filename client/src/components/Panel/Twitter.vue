@@ -305,12 +305,21 @@ export default Vue.extend({
         // 局タグ追加処理を走らせる (ハッシュタグフォームのフォーマット処理も同時に行われるが、元々空なので無意味)
         this.tweet_hashtag = this.formatHashtag(this.tweet_hashtag);
         this.updateTweetLetterCount();
+
+        // CaptureManager からキャプチャを受け取るイベントハンドラーを登録
+        this.playerStore.event_emitter.on('CaptureCompleted', (event) => {
+            this.addCaptureList(event.capture, event.filename);
+        });
     },
     beforeDestroy() {
+
         // 終了前にすべてのキャプチャの Blob URL を revoke してリソースを解放する
         for (const capture of this.captures) {
             URL.revokeObjectURL(capture.image_url);
         }
+
+        // CaptureManager からキャプチャを受け取るイベントハンドラーを削除
+        this.playerStore.event_emitter.off('CaptureCompleted');  // CaptureCompleted イベントの全てのイベントハンドラーを削除
     },
     watch: {
 
