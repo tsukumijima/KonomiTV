@@ -89,6 +89,8 @@ class LiveCommentManager implements PlayerManager {
         // 視聴セッションを初期化できた場合のみ、
         // 取得したコメントサーバーへの接続情報を使い、非同期でコメントセッションを初期化
         this.initCommentSession(watch_session_info);
+
+        console.log('[LiveCommentManager] Initialized.');
     }
 
 
@@ -607,7 +609,7 @@ class LiveCommentManager implements PlayerManager {
         const player_store = usePlayerStore();
 
         // 再接続を開始
-        console.warn('[LiveCommentManager][WatchSession] Reconnecting...');
+        console.warn('[LiveCommentManager] Reconnecting...');
         this.player.notice('ニコニコ実況に再接続しています…');
 
         // 前の視聴セッション・コメントセッションを破棄
@@ -620,7 +622,7 @@ class LiveCommentManager implements PlayerManager {
             // 初期化に失敗した際のエラーメッセージを設定する
             // UI 側のエラー表示に利用されるほか、null から string になったことで初期化に失敗したことを示す
             player_store.live_comment_init_failed_message = watch_session_info.detail;
-            console.error('[LiveCommentManager][WatchSession] Reconnection failed.');
+            console.error('[LiveCommentManager] Reconnection failed.');
 
             // 無条件にエラーメッセージをプレイヤーに通知
             this.player.notice(watch_session_info.detail, undefined, undefined, '#FF6F6A');
@@ -630,6 +632,8 @@ class LiveCommentManager implements PlayerManager {
         // 視聴セッションを初期化できた場合のみ、
         // 取得したコメントサーバーへの接続情報を使い、非同期でコメントセッションを初期化
         this.initCommentSession(watch_session_info);
+
+        console.warn('[LiveCommentManager] Reconnected.');
     }
 
 
@@ -666,7 +670,7 @@ class LiveCommentManager implements PlayerManager {
         // 初期化に失敗した際のエラーメッセージを削除
         player_store.live_comment_init_failed_message = null;
 
-        console.log('[LiveCommentManager][WatchSession] Destroyed.');
+        console.log('[LiveCommentManager] Destroyed.');
     }
 }
 

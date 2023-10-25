@@ -65,6 +65,10 @@ class PlayerWrapper {
     private readonly romsounds_context: AudioContext = new AudioContext();
     private readonly romsounds_buffers: AudioBuffer[] = [];
 
+    // 破棄中かどうか
+    // 破棄中は destroy() が呼ばれても何もしない
+    private destroying = false;
+
     // 破棄済みかどうか
     private destroyed = false;
 
@@ -108,6 +112,8 @@ class PlayerWrapper {
         const channels_store = useChannelsStore();
         const player_store = usePlayerStore();
         const settings_store = useSettingsStore();
+
+        console.log('\u001b[31m[PlayerWrapper] Initializing...');
 
         // 破棄済みかどうかのフラグを下ろす
         this.destroyed = false;
@@ -449,6 +455,8 @@ class PlayerWrapper {
         // これにより各 PlayerManager での実際の処理が開始される
         // 同期処理すると時間が掛かるので、並行して実行する
         await Promise.all(this.player_managers.map((player_manager) => player_manager.init()));
+
+        console.log('\u001b[31m[PlayerWrapper] Initialized.');
     }
 
 
@@ -483,7 +491,7 @@ class PlayerWrapper {
 
         // この時点で映像が停止している場合、復旧を試みる
         if (this.player.video.readyState < 3) {
-            console.log('player.video.readyState < HAVE_FUTURE_DATA. trying to recover.');
+            console.log('\u001b[31m[PlayerWrapper] player.video.readyState < HAVE_FUTURE_DATA. trying to recover.');
 
             // 一旦停止して、0.1 秒間を置く
             this.player.video.pause();
@@ -492,7 +500,7 @@ class PlayerWrapper {
             // 再度再生を試みる
             this.player.video.play().catch(() => {
                 assert(this.player !== null);
-                console.warn('HTMLVideoElement.play() rejected. paused.');
+                console.warn('\u001b[31m[PlayerWrapper] HTMLVideoElement.play() rejected. paused.');
                 this.player.pause();
             });
         }
@@ -930,6 +938,14 @@ class PlayerWrapper {
             return;
         }
 
+        // すでに破棄中なら何もしない
+        if (this.destroying === true) {
+            return;
+        }
+        this.destroying = true;
+
+        console.log('\u001b[31m[PlayerWrapper] Destroying...');
+
         // 登録されている PlayerManager をすべて破棄
         // CSS アニメーションの関係上、ローディング状態にする前に破棄する必要がある (特に LiveDataBroadcastingManager)
         // 同期処理すると時間が掛かるので、並行して実行する
@@ -978,7 +994,10 @@ class PlayerWrapper {
         }
 
         // 破棄済みかどうかのフラグを立てる
+        this.destroying = false;
         this.destroyed = true;
+
+        console.log('\u001b[31m[PlayerWrapper] Destroyed.');
     }
 }
 

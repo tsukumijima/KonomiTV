@@ -93,6 +93,8 @@ class CaptureManager implements PlayerManager {
         // キャプチャボタンがクリックされたら、非同期でキャプチャと保存を行う
         this.capture_button.addEventListener('click', () => this.captureAndSave(false));
         this.comment_capture_button.addEventListener('click', () => this.captureAndSave(true));
+
+        console.log('[CaptureManager] Initialized.');
     }
 
 
@@ -322,7 +324,7 @@ class CaptureManager implements PlayerManager {
         // キャプチャの合成を実行し、字幕なしキャプチャと字幕ありキャプチャを生成する
         // Web Worker 側に ImageBitmap を移譲するため、Comlink.transfer() を使う
         // 第二引数に (第一引数内のオブジェクトに含まれる) 移譲する Transferable オブジェクトを渡す
-        console.log('[CaptureManager] Composite start:');
+        console.log('\u001b[36m[CaptureManager] Composite start:');
         const capture_compositor_start_time = Utils.time();
         const capture_compositor = await new CaptureCompositorProxy(Comlink.transfer({
             mode: settings_store.settings.capture_caption_mode,
@@ -333,7 +335,7 @@ class CaptureManager implements PlayerManager {
             capture_exif_data: capture_exif_data,
         }, image_bitmaps));
         const result = await capture_compositor.composite();
-        console.log('[CaptureManager] Composite end:', Utils.mathFloor(Utils.time() - capture_compositor_start_time, 3), 'sec');
+        console.log('\u001b[36m[CaptureManager] Composite end:', Utils.mathFloor(Utils.time() - capture_compositor_start_time, 3), 'sec');
 
         // ファイル名（拡張子なし）
         // TODO: ファイル名パターンを設定で変更できるようにする
@@ -394,7 +396,7 @@ class CaptureManager implements PlayerManager {
         } else {
             this.removeHighlight(is_comment_composite);
         }
-        console.log('[CaptureManager] Total:', total_time, 'sec');
+        console.log('\u001b[36m[CaptureManager] Total:', total_time, 'sec');
 
         // ***** クリップボードへのキャプチャ画像のコピー *****
 
@@ -423,7 +425,9 @@ class CaptureManager implements PlayerManager {
      * このため、代わりに init() 側にすでにキャプチャボタンが追加済みであれば一旦削除する処理を入れている
      */
     public async destroy(): Promise<void> {
+
         // 何もしない
+        console.log('[CaptureManager] Destroyed.');
     }
 }
 

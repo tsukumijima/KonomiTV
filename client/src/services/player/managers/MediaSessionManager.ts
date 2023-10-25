@@ -143,6 +143,8 @@ class MediaSessionManager implements PlayerManager {
                 }
             });
         }
+
+        console.log('[MediaSessionManager] Initialized.');
     }
 
 
@@ -213,6 +215,8 @@ class MediaSessionManager implements PlayerManager {
 
         // 破棄済みかどうかのフラグを立てる
         this.destroyed = true;
+
+        console.log('[MediaSessionManager] Destroyed.');
     }
 }
 

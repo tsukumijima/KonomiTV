@@ -244,7 +244,6 @@ class LiveDataBroadcastingManager implements PlayerManager {
             });
             this.bml_browser_width = 960;
             this.bml_browser_height = 540;
-            console.log('[LiveDataBroadcastingManager] BMLBrowser initialized.');
 
             // BML ブラウザがロードされたときのイベント
             this.#bml_browser.addEventListener('load', (event) => {
@@ -361,6 +360,8 @@ class LiveDataBroadcastingManager implements PlayerManager {
                 }
             }
         }));
+
+        console.log('[LiveDataBroadcastingManager] Initialized.');
     }
 
 
@@ -600,10 +601,11 @@ class LiveDataBroadcastingManager implements PlayerManager {
             await this.#bml_browser.destroy();
             this.is_bml_browser_destroying = false;
             this.#bml_browser = null;
-            console.log('[LiveDataBroadcastingManager] BMLBrowser destroyed.');
 
             // BML ブラウザの要素を削除
             this.container_element?.remove();
+
+            console.log('[LiveDataBroadcastingManager] Destroyed.');
         }
     }
 }
