@@ -293,6 +293,7 @@ export default Vue.extend({
 
         // LiveCommentManager からコメントを受信したときのイベントハンドラーを削除
         this.playerStore.event_emitter.off('LiveCommentReceived');  // LiveCommentReceived イベントの全てのイベントハンドラーを削除
+        this.playerStore.event_emitter.off('LiveCommentSendCompleted');  // LiveCommentSendCompleted イベントの全てのイベントハンドラーを削除
 
         // コメントリストをクリア
         this.comment_list.length = 0;

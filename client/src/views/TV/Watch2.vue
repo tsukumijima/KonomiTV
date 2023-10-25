@@ -401,6 +401,8 @@ export default Vue.extend({
     beforeRouteUpdate(to, from, next) {
 
         // 前の再生セッションを破棄して終了する
+        // このとき this.interval_ids に登録された setTimeout がキャンセルされるため、
+        // 後述の 0.5 秒の間にザッピングにより他のチャンネルに切り替えた場合は this.init() は実行されない
         const destroy_promise = this.destroy();
 
         // チャンネル ID を次のチャンネルのものに切り替える

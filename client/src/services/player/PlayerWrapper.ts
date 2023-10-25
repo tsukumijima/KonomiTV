@@ -587,6 +587,23 @@ class PlayerWrapper {
                     });
                 });
 
+                // HTMLVideoElement ネイティブの再生時エラーのイベントハンドラーを登録
+                // mpegts.js が予期せずクラッシュした場合など、意図せず発生してしまうことがある
+                // Offline 以外であれば PlayerWrapper の再起動を要求する
+                this.player.on('error', (event: MediaError) => {
+                    if (player_store.live_stream_status === 'Offline') return;
+                    if (this.player === null) return;
+                    if (this.player.video.error) {
+                        player_store.event_emitter.emit('PlayerRestartRequired', {
+                            message: `再生中にエラーが発生しました。(Native: ${this.player.video.error.code}: ${this.player.video.error.message}) 3秒後にリロードします。`,
+                        });
+                    } else {
+                        player_store.event_emitter.emit('PlayerRestartRequired', {
+                            message: '再生中にエラーが発生しました。(Native: unknown error) 3秒後にリロードします。',
+                        });
+                    }
+                });
+
                 // 必ず最初はローディング状態とする
                 player_store.is_loading = true;
 

@@ -87,6 +87,10 @@ const usePlayerStore = defineStore('player', {
         // キーボードショートカットの一覧のモーダルを表示するか
         shortcut_key_modal: false,
 
+        // ライブ視聴: 現在のライブストリームのステータス
+        // 既定で null (未視聴) とする
+        live_stream_status: null as 'Offline' | 'Standby' | 'ONAir' | 'Idling' | 'Restart' | null,
+
         // ライブ視聴: ニコニコ実況への接続に失敗した際のエラーメッセージ
         // null のとき、エラーは発生していないとみなす
         live_comment_init_failed_message: null as string | null,

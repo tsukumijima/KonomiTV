@@ -67,6 +67,9 @@ class LiveEventManager implements PlayerManager {
             const event: ILiveStreamStatusEvent = JSON.parse(event_raw.data);
             console.log('\u001b[33m[LiveEventManager][initial_update]', `\nStatus: ${event.status} / Detail: ${event.detail}`);
 
+            // ライブストリームのステータスを設定
+            player_store.live_stream_status = event.status;
+
             // ステータスごとに処理を振り分け
             switch (event.status) {
 
@@ -90,6 +93,9 @@ class LiveEventManager implements PlayerManager {
             // イベントを取得
             const event: ILiveStreamStatusEvent = JSON.parse(event_raw.data);
             console.log('\u001b[33m[LiveEventManager][status_update]', `\nStatus: ${event.status} / Detail: ${event.detail}`);
+
+            // ライブストリームのステータスを設定
+            player_store.live_stream_status = event.status;
 
             // 視聴者数を更新
             channels_store.updateChannel(channels_store.display_channel_id, {
@@ -270,6 +276,10 @@ class LiveEventManager implements PlayerManager {
      * サーバー側のライブストリームステータス API (Server-Sent Events) への接続を切断し、ライブストリームのステータス監視を停止する
      */
     public async destroy(): Promise<void> {
+
+        // ライブストリームのステータスを null に戻す
+        const player_store = usePlayerStore();
+        player_store.live_stream_status = null;
 
         // EventSource を破棄し、Server-Sent Events のストリーミングを終了する
         if (this.eventsource !== null) {
