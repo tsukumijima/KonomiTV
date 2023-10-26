@@ -168,6 +168,9 @@ class PlayerWrapper {
                 // ライブ視聴: チャンネル情報がセットされているはず
                 if (this.playback_mode === 'Live') {
 
+                    // ライブストリーミング API のベース URL
+                    const stream_api_base_url = `${Utils.api_base_url}/streams/live/${channels_store.channel.current.display_channel_id}`;
+
                     // ラジオチャンネルの場合
                     // API が受け付ける画質の値は通常のチャンネルと同じだが (手抜き…)、実際の画質は 48KHz/192kbps で固定される
                     // ラジオチャンネルの場合は、1080p と渡しても 48kHz/192kbps 固定の音声だけの MPEG-TS が配信される
@@ -175,7 +178,7 @@ class PlayerWrapper {
                         qualities.push({
                             name: '48kHz/192kbps',
                             type: 'mpegts',
-                            url: `${Utils.api_base_url}/streams/live/${channels_store.channel.current.display_channel_id}/1080p/mpegts`,
+                            url: `${stream_api_base_url}/1080p/mpegts`,
                         });
 
                     // 通常のチャンネルの場合
@@ -187,7 +190,7 @@ class PlayerWrapper {
                                 // 1080p-60fps のみ、見栄えの観点から表示上 "1080p (60fps)" と表示する
                                 name: quality_name === '1080p-60fps' ? '1080p (60fps)' : quality_name,
                                 type: 'mpegts',
-                                url: `${Utils.api_base_url}/streams/live/${channels_store.channel.current.display_channel_id}/${quality_name}${hevc_prefix}/mpegts`,
+                                url: `${stream_api_base_url}/${quality_name}${hevc_prefix}/mpegts`,
                             });
                         }
                     }
@@ -582,6 +585,7 @@ class PlayerWrapper {
                 // このエラーハンドラーでエラーをキャッチして、PlayerWrapper の再起動を要求する
                 // PlayerWrapper 内部なので直接再起動してもいいのだが、PlayerWrapper を再起動させる処理は共通化しておきたい
                 this.player.plugins.mpegts?.on(mpegts.Events.ERROR, async (error_type: mpegts.ErrorTypes, detail: mpegts.ErrorDetails) => {
+                    console.error('\u001b[31m[PlayerWrapper] mpegts.js error event:', error_type, detail);
                     player_store.event_emitter.emit('PlayerRestartRequired', {
                         message: `再生中にエラーが発生しました。(${error_type}: ${detail}) プレイヤーロジックを再起動しています…`,
                     });
@@ -594,6 +598,7 @@ class PlayerWrapper {
                     if (player_store.live_stream_status === 'Offline') return;
                     if (this.player === null) return;
                     if (this.player.video.error) {
+                        console.error('\u001b[31m[PlayerWrapper] HTMLVideoElement error event:', this.player.video.error);
                         player_store.event_emitter.emit('PlayerRestartRequired', {
                             message: `再生中にエラーが発生しました。(Native: ${this.player.video.error.code}: ${this.player.video.error.message}) 3秒後にリロードします。`,
                         });
