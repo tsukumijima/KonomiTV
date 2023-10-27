@@ -174,7 +174,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
                         // 選局対象のチャンネルが現在視聴中のチャンネルと同じ場合
                         if (channels_store.channel.current.network_id === network_id && channels_store.channel.current.service_id === service_id) {
                             // 非同期で LiveDataBroadcastingManager を再起動
-                            // チャンネル切り替え後はリロードし直すまで BML ブラウザがフリーズするため
+                            // チャンネル切り替え後は BML ブラウザがフリーズするため
                             (async () => {
                                 await this_.destroy();
                                 await this_.init();
