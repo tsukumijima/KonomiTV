@@ -485,27 +485,50 @@ class PlayerWrapper {
     /**
      * もしまだ再生が開始できていない場合に再生状態の復旧を試みる
      * 処理の完了を待つ必要はないので、基本 await せず非同期で実行すべき
+     * 基本 Safari だとなぜか再生開始がうまく行かないことが多いので（自動再生まわりが影響してる？）、その対策として用意した処理
      */
     private async recoverPlayback(): Promise<void> {
         assert(this.player !== null);
 
-        // 0.5 秒待つ
-        await Utils.sleep(0.5);
+        // 0.75 秒待つ
+        await Utils.sleep(0.75);
 
         // この時点で映像が停止している場合、復旧を試みる
-        if (this.player.video.readyState < 3) {
+        if (this.player?.video?.readyState < 3) {  // Safari ではタイミングによっては null になる場合があるらしいので ? を付ける
             console.log('\u001b[31m[PlayerWrapper] player.video.readyState < HAVE_FUTURE_DATA. trying to recover.');
 
-            // 一旦停止して、0.1 秒間を置く
+            // 一旦停止して、0.25 秒間を置く
             this.player.video.pause();
-            await Utils.sleep(0.1);
+            await Utils.sleep(0.25);
 
             // 再度再生を試みる
-            this.player.video.play().catch(() => {
+            try {
+                await this.player.video.play();
+            } catch (error) {
                 assert(this.player !== null);
                 console.warn('\u001b[31m[PlayerWrapper] HTMLVideoElement.play() rejected. paused.');
                 this.player.pause();
-            });
+                return;  // 再生開始がリジェクトされた場合はここで終了
+            }
+
+            // さらに 0.25 秒待った時点で映像が停止している場合、復旧を試みる
+            await Utils.sleep(0.25);
+            if (this.player?.video?.readyState < 3) {
+                console.log('\u001b[31m[PlayerWrapper] (retry) player.video.readyState < HAVE_FUTURE_DATA. trying to recover.');
+
+                // 一旦停止して、0.25 秒間を置く
+                this.player.video.pause();
+                await Utils.sleep(0.25);
+
+                // 再度再生を試みる
+                try {
+                    await this.player.video.play();
+                } catch (error) {
+                    assert(this.player !== null);
+                    console.warn('\u001b[31m[PlayerWrapper] (retry) HTMLVideoElement.play() rejected. paused.');
+                    this.player.pause();
+                }
+            }
         }
     }
 
@@ -595,8 +618,13 @@ class PlayerWrapper {
                 // mpegts.js が予期せずクラッシュした場合など、意図せず発生してしまうことがある
                 // Offline 以外であれば PlayerWrapper の再起動を要求する
                 this.player.on('error', (event: MediaError) => {
-                    if (player_store.live_stream_status === 'Offline') return;
-                    if (this.player === null) return;
+
+                    // DPlayer がすでに破棄されているか、現在ライブストリームが Offline であれば何もしない
+                    if (this.player === null || player_store.live_stream_status === 'Offline') {
+                        return;
+                    }
+
+                    // MediaError オブジェクトは場合によっては存在しないことがあるっぽい…
                     if (this.player.video.error) {
                         console.error('\u001b[31m[PlayerWrapper] HTMLVideoElement error event:', this.player.video.error);
                         player_store.event_emitter.emit('PlayerRestartRequired', {
@@ -612,8 +640,8 @@ class PlayerWrapper {
                 // 必ず最初はローディング状態とする
                 player_store.is_loading = true;
 
-                // 音量を 0 に設定
-                this.player.video.volume = 0;
+                // 一旦音量をミュートする
+                this.player.video.muted = true;
 
                 // 再生準備ができた段階で再生バッファを調整し、再生準備ができた段階でローディング中の背景画像を非表示にするイベントハンドラーを登録
                 // canplay と canplaythrough のどちらかのみが発火することも稀にある？ようなので、念のため両方に登録している
@@ -660,6 +688,9 @@ class PlayerWrapper {
 
                     // 再生開始時に音量を徐々に上げる
                     // いきなり再生されるよりも体験が良い
+                    // ミュートを解除した上で即座に音量を 0 に設定し、そこから徐々に上げていく
+                    this.player.video.muted = false;
+                    this.player.video.volume = 0;
                     const current_volume = this.player.user.get('volume');
                     while ((this.player.video.volume + 0.05) < current_volume) {
                         // 小数第2位以下を切り捨てて、浮動小数の誤差で 1 (100%) を微妙に超えてしまいエラーになるのを避ける
@@ -1006,9 +1037,22 @@ class PlayerWrapper {
 
         // DPlayer 本体を破棄
         // なぜか例外が出ることがあるので try-catch で囲む
-        // TODO: DPlayer の destroy() メソッドに破棄後も要素を保持するオプションを追加する
         if (this.player !== null) {
             try {
+                // プレイヤーの破棄を実行する前に、DPlayer 側に登録された HTMLVideoElement の error イベントハンドラーを全て削除
+                // Safari のみ、削除しておかないと「動画の読み込みに失敗しました」というエラーが発生する
+                if (this.player.events.events['error']) {
+                    this.player.events.events['error'] = [];
+                }
+                // 通常 this.player.destroy() が実行された後 mpegts.js も自動的に破棄されるのだが、Safari のみ
+                // なぜか video.src = '' を実行した後に mpegts.js を破棄するとエラーというか挙動不審になるので、
+                // あえて mpegts.js を明示的に先に破棄しておいて Safari の地雷を回避する
+                this.player.plugins.mpegts?.unload();
+                this.player.plugins.mpegts?.detachMediaElement();
+                this.player.plugins.mpegts?.destroy();
+                // 引数に true を指定して、破棄後も DPlayer 側の HTML 要素を保持する
+                // これにより、チャンネルを切り替えるなどして再度初期化されるまでの僅かな間もプレイヤーのコントロール UI が表示される (動作はしない)
+                // ここで HTML 要素を削除してしまうと、プレイヤーのコントロール UI が一瞬削除されることでちらつきが発生して見栄えが悪い
                 this.player.destroy(true);
             } catch (e) {
                 // 何もしない

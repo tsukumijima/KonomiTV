@@ -396,7 +396,10 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
             program.secondary_audio_sampling_rate = null;
         }
 
-        console.debug('[PSIArchivedDataDecoder] EIT[p/f] decoded.', program);
+        // Safari では console.debug() がデフォルトで出力されてしまい煩いので出力しない
+        if (Utils.isSafari() === false) {
+            console.debug('[PSIArchivedDataDecoder] EIT[p/f] decoded.', program);
+        }
         return program;
     }
 

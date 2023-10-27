@@ -6,6 +6,7 @@ import router from '@/router';
 import PlayerManager from '@/services/player/PlayerManager';
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
+import Utils from '@/utils';
 
 
 /**
@@ -160,17 +161,8 @@ class MediaSessionManager implements PlayerManager {
         }
 
         if ('setPositionState' in navigator.mediaSession) {
-            // ライブ視聴
-            if (this.playback_mode === 'Live') {
-                navigator.mediaSession.setPositionState({
-                    // 仕様上は duration に Infinity を設定すべきだが、実際には Infinity を設定すると Chrome でエラーになる…
-                    // ワークアラウンドで 0 を設定しておく (今の所問題なく動作している)
-                    duration: 0,
-                    // ライブ視聴では常に再生速度は 1.0 になる
-                    playbackRate: 1.0,
-                });
-            // ビデオ視聴
-            } else {
+            // ビデオ視聴のみ
+            if (this.playback_mode === 'Video') {
                 navigator.mediaSession.setPositionState({
                     // 現在の動画の長さ
                     duration: this.player.video.duration,
@@ -204,7 +196,10 @@ class MediaSessionManager implements PlayerManager {
             navigator.mediaSession.setActionHandler('previoustrack', null);
             navigator.mediaSession.setActionHandler('nexttrack', null);
             if ('setPositionState' in navigator.mediaSession) {
-                navigator.mediaSession.setPositionState({});  // 空のオブジェクトを渡して状態をリセット
+                // Safari ではなぜかエラーになるので実行しない
+                if (Utils.isSafari() === false) {
+                    navigator.mediaSession.setPositionState({});  // 空のオブジェクトを渡して状態をリセット
+                }
             }
         }
 

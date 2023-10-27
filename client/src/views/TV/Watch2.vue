@@ -1384,6 +1384,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 transition: opacity 0.2s cubic-bezier(0.4, 0.38, 0.49, 0.94), visibility 0.2s cubic-bezier(0.4, 0.38, 0.49, 0.94);
                 will-change: opacity;
                 z-index: 3;
+                pointer-events: none;  // クリックイベントを無効化 (重要)
 
                 &--display {
                     opacity: 1;
