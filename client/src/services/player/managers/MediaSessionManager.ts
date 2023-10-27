@@ -190,14 +190,9 @@ class MediaSessionManager implements PlayerManager {
     public async destroy(): Promise<void> {
 
         // DPlayer からイベントを削除
-        // 現状 off() がないので this.player.events.events を直接操作する
-        for (const event_name of ['ratechange', 'seeking', 'seeked']) {
-            for(const event of this.player.events.events[event_name]) {
-                if (event === this.updateMediaSessionPositionState) {
-                    this.player.events.events[event_name] = this.player.events.events[event_name].filter((e: any) => e !== event);
-                }
-            }
-        }
+        this.player.off('ratechange', this.updateMediaSessionPositionState.bind(this));
+        this.player.off('seeking', this.updateMediaSessionPositionState.bind(this));
+        this.player.off('seeked', this.updateMediaSessionPositionState.bind(this));
 
         // MediaSession API を使い、メディア通知の表示をリセット
         if ('mediaSession' in navigator) {

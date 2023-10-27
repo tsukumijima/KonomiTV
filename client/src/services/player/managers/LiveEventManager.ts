@@ -132,7 +132,7 @@ class LiveEventManager implements PlayerManager {
                     // 画質切り替えの通知が既に表示されている場合は上書きしない
                     // TODO: DPlayer に hideNotice() メソッドを追加する
                     if (this.player.template.notice.textContent!.includes('画質を') === false) {
-                        this.player.notice(this.player.template.notice.textContent!, 0.000001);
+                        this.player.hideNotice();
                     }
 
                     // ライブストリーミングが開始される前にチャンネルを切り替えた際、稀にコメントが流れないことがある不具合のワークアラウンド

@@ -292,7 +292,7 @@ class PlayerWrapper {
                         // MSE in Workers が使えるかは MediaSource.canConstructInDedicatedWorker が true かどうかで判定できる
                         // MediaSource.canConstructInDedicatedWorker は TypeScript の仕様上型定義の追加が難しいため any で回避している
                         // ref: https://developer.mozilla.org/en-US/docs/Web/API/MediaSource/canConstructInDedicatedWorker_static
-                        enableMSEWorker: window.MediaSource && (window.MediaSource as any).canConstructInDedicatedWorker === true,
+                        enableWorkerForMSE: window.MediaSource && (window.MediaSource as any).canConstructInDedicatedWorker === true,
                         // IO 層のバッファを禁止する
                         enableStashBuffer: false,
                         // HTMLMediaElement の内部バッファによるライブストリームの遅延を追跡する
@@ -1009,7 +1009,7 @@ class PlayerWrapper {
         // TODO: DPlayer の destroy() メソッドに破棄後も要素を保持するオプションを追加する
         if (this.player !== null) {
             try {
-                this.player.destroy();
+                this.player.destroy(true);
             } catch (e) {
                 // 何もしない
             }
