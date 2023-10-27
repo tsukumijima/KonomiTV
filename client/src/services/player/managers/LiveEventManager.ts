@@ -158,7 +158,7 @@ class LiveEventManager implements PlayerManager {
                     // 本来誰も視聴していないことを示す Idling ステータスを受信している場合、何らかの理由で
                     // ライブストリーミング API への接続が切断された可能性が高いので、PlayerWrapper にプレイヤーロジックの再起動を要求する
                     player_store.event_emitter.emit('PlayerRestartRequired', {
-                        message: 'ストリーミング接続が切断されました。プレイヤーロジックを再起動しています…',
+                        message: 'ストリーミング接続が切断されました。(Status: Idling) プレイヤーロジックを再起動しています…',
                     });
 
                     break;
@@ -191,7 +191,7 @@ class LiveEventManager implements PlayerManager {
                     // ストリーミング API への接続が切断された可能性が高いので、PlayerWrapper にプレイヤーロジックの再起動を要求する
                     if (event.detail === 'ライブストリームは Offline です。') {
                         player_store.event_emitter.emit('PlayerRestartRequired', {
-                            message: 'ストリーミング接続が切断されました。プレイヤーロジックを再起動しています…',
+                            message: 'ストリーミング接続が切断されました。(Status: Offline) プレイヤーロジックを再起動しています…',
                         });
                     }
 

@@ -6,9 +6,9 @@
                 'watch-container--fullscreen': playerStore.is_fullscreen,
             }">
             <nav class="watch-navigation"
-                 @mousemove="player_wrapper?.handlePlayerControlUIVisibility($event)"
-                 @touchmove="player_wrapper?.handlePlayerControlUIVisibility($event)"
-                 @click="player_wrapper?.handlePlayerControlUIVisibility($event)">
+                 @mousemove="($event) => player_wrapper?.handlePlayerControlUIVisibility($event)"
+                 @touchmove="($event) => player_wrapper?.handlePlayerControlUIVisibility($event)"
+                 @click="($event) => player_wrapper?.handlePlayerControlUIVisibility($event)">
                 <router-link v-ripple class="watch-navigation__icon" to="/tv/">
                     <img class="watch-navigation__icon-image" src="/assets/images/icon.svg" width="23px">
                 </router-link>
@@ -43,9 +43,9 @@
                 </router-link>
             </nav>
             <div class="watch-content"
-                 @mousemove="player_wrapper?.handlePlayerControlUIVisibility($event, true)"
-                 @touchmove="player_wrapper?.handlePlayerControlUIVisibility($event, true)"
-                 @click="player_wrapper?.handlePlayerControlUIVisibility($event, true)">
+                 @mousemove="($event) => player_wrapper?.handlePlayerControlUIVisibility($event, true)"
+                 @touchmove="($event) => player_wrapper?.handlePlayerControlUIVisibility($event, true)"
+                 @click="($event) => player_wrapper?.handlePlayerControlUIVisibility($event, true)">
                 <header class="watch-header">
                     <router-link class="watch-header__back-icon" v-ripple to="/tv/">
                         <Icon icon="fluent:arrow-left-12-filled" width="25px" />
@@ -75,9 +75,9 @@
                     </v-progress-circular>
                     <div class="watch-player__dplayer"></div>
                     <div class="watch-player__button"
-                         @mousemove="player_wrapper?.handlePlayerControlUIVisibility($event)"
-                         @touchmove="player_wrapper?.handlePlayerControlUIVisibility($event)"
-                         @click="player_wrapper?.handlePlayerControlUIVisibility($event)">
+                         @mousemove="($event) => player_wrapper?.handlePlayerControlUIVisibility($event)"
+                         @touchmove="($event) => player_wrapper?.handlePlayerControlUIVisibility($event)"
+                         @click="($event) => player_wrapper?.handlePlayerControlUIVisibility($event)">
                         <div v-ripple class="switch-button switch-button-up" v-tooltip.top="'前のチャンネル'"
                             @click="is_zapping = true; $router.push({path: `/tv/watch2/${channelsStore.channel.previous.display_channel_id}`})">
                             <Icon class="switch-button-icon" icon="fluent:ios-arrow-left-24-filled" width="32px" rotate="1" />
@@ -94,7 +94,7 @@
                 </div>
             </div>
             <div class="watch-panel"
-                 @mousemove="player_wrapper?.handlePlayerControlUIVisibility($event)">
+                 @mousemove="($event) => player_wrapper?.handlePlayerControlUIVisibility($event)">
                 <div class="watch-panel__header">
                     <div v-ripple class="panel-close-button" @click="is_panel_display = false">
                         <Icon class="panel-close-button__icon" icon="akar-icons:chevron-right" width="25px" />

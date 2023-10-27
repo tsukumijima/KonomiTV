@@ -419,6 +419,7 @@ class PlayerWrapper {
         // さもなければ使い終わった破棄済みの PlayerWrapper が再起動イベントにより復活し、現在利用中の PlayerWrapper と競合してしまう
         player_store.event_emitter.off('PlayerRestartRequired');  // PlayerRestartRequired イベントの全てのイベントハンドラーを削除
         player_store.event_emitter.on('PlayerRestartRequired', async (event) => {
+            console.warn('\u001b[31m[PlayerWrapper] PlayerRestartRequired event received. Message: ', event.message);
 
             // PlayerWrapper を破棄
             await this.destroy();
@@ -431,7 +432,6 @@ class PlayerWrapper {
             // 再初期化により、作り直した DPlayer が再び this.player にセットされているはず
             // 通知を表示してから PlayerWrapper を破棄すると DPlayer の DOM 要素ごと消えてしまうので、DPlayer を作り直した後に通知を表示する
             assert(this.player !== null);
-            console.warn('\u001b[31m[PlayerWrapper] PlayerRestartRequired event received. Message: ', event.message);
             this.player.notice(event.message, undefined, undefined, '#FF6F6A');
         });
 
