@@ -158,7 +158,16 @@ class Channel(models.Model):
                 # 既にレコードがある場合は更新、ない場合は新規作成
                 duplicate_channel = duplicate_channels.pop(channel_id, None)
                 if duplicate_channel is None:
-                    channel = Channel()
+                    # 既に登録されているが、現在は is_watchable = False (録画番組のメタデータのみでライブで視聴不可) なチャンネル情報がある可能性もある
+                    # その場合は is_watchable = True (ライブで視聴可能) なチャンネル情報として更新する
+                    # 録画番組更新とのタイミングの関係でごく稀に発生しうる問題への対応
+                    unwatchable_channel = await Channel.filter(id=channel_id, is_watchable=False).first()
+                    if unwatchable_channel is not None:
+                        channel = unwatchable_channel
+                        channel.is_watchable = True
+                        Logging.warning(f'Channel: {channel.name} ({channel.id}) is already registered but is_watchable = False.')
+                    else:
+                        channel = Channel()
                 else:
                     channel = duplicate_channel
 
@@ -282,7 +291,16 @@ class Channel(models.Model):
                 # 既にレコードがある場合は更新、ない場合は新規作成
                 duplicate_channel = duplicate_channels.pop(channel_id, None)
                 if duplicate_channel is None:
-                    channel = Channel()
+                    # 既に登録されているが、現在は is_watchable = False (録画番組のメタデータのみでライブで視聴不可) なチャンネル情報がある可能性もある
+                    # その場合は is_watchable = True (ライブで視聴可能) なチャンネル情報として更新する
+                    # 録画番組更新とのタイミングの関係でごく稀に発生しうる問題への対応
+                    unwatchable_channel = await Channel.filter(id=channel_id, is_watchable=False).first()
+                    if unwatchable_channel is not None:
+                        channel = unwatchable_channel
+                        channel.is_watchable = True
+                        Logging.warning(f'Channel: {channel.name} ({channel.id}) is already registered but is_watchable = False.')
+                    else:
+                        channel = Channel()
                 else:
                     channel = duplicate_channel
 
@@ -363,6 +381,7 @@ class Channel(models.Model):
                     await channel.save()
                 # 既に登録されているチャンネルならスキップ
                 except IntegrityError:
+                    Logging.warning(f'Channel: {channel.name} ({channel.id}) is already registered.')
                     pass
 
             # 不要なチャンネル情報を削除する
