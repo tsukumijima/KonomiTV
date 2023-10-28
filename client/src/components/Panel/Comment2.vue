@@ -55,7 +55,12 @@
             <div class="comment-announce" v-if="playerStore.live_comment_init_failed_message === null && comment_list.length === 0">
                 <div class="comment-announce__heading">まだコメントがありません。</div>
                 <div class="comment-announce__text">
-                    <p class="mt-0 mb-0">このチャンネルに対応するニコニコ実況のコメントが、リアルタイムで表示されます。</p>
+                    <p class="mt-0 mb-0" v-if="playback_mode === 'Live'">
+                        このチャンネルに対応するニコニコ実況のコメントが、リアルタイムで表示されます。
+                    </p>
+                    <p class="mt-0 mb-0" v-if="playback_mode === 'Video'">
+                        この録画番組に対応するニコニコ実況の過去ログコメントを読み込んでいます…
+                    </p>
                 </div>
             </div>
             <div class="comment-announce" v-if="playerStore.live_comment_init_failed_message !== null && comment_list.length === 0">
@@ -75,18 +80,24 @@
 <script lang="ts">
 
 import { mapStores } from 'pinia';
-import Vue from 'vue';
+import Vue, { PropType } from 'vue';
 
 import CommentMuteSettings from '@/components/Settings/CommentMuteSettings.vue';
 import { ICommentData } from '@/services/player/managers/LiveCommentManager2';
+import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
-import useUserStore from '@/stores/UserStore';
 import Utils, { CommentUtils } from '@/utils';
 
 export default Vue.extend({
     name: 'Panel-CommentTab',
     components: {
         CommentMuteSettings,
+    },
+    props: {
+        playback_mode: {
+            type: String as PropType<'Live' | 'Video'>,
+            required: true,
+        },
     },
     data() {
         return {
@@ -120,14 +131,9 @@ export default Vue.extend({
         };
     },
     computed: {
-        // PlayerStore / UserStore にアクセスできるようにする
+        // ChannelsStore / PlayerStore にアクセスできるようにする
         // ref: https://pinia.vuejs.org/cookbook/options-api.html
-        ...mapStores(usePlayerStore, useUserStore),
-    },
-    created() {
-
-        // アカウント情報を更新
-        this.userStore.fetchUser();
+        ...mapStores(useChannelsStore, usePlayerStore),
     },
     mounted() {
 
@@ -215,15 +221,17 @@ export default Vue.extend({
             if (event.is_initial_comments === true) {
 
                 // チャンネルが切り替わった可能性があるので、既存のコメントリストをクリア
-                this.comment_list.length = 0;
+                this.comment_list = [];
 
                 // コメントリストに一括で追加
                 this.comment_list.push(...event.comments);
 
-                // コメントリストを一番下までスクロール
-                this.scrollCommentList();
+                // ライブ視聴のみ: コメントリストを一番下までスクロール
+                if (this.playback_mode === 'Live') {
+                    this.scrollCommentList();
+                }
 
-                // 通常のコメントを受信したとき
+            // 通常のコメントを受信したとき
             } else {
 
                 // タブが非表示状態のときは、バッファにコメントを追加するだけで終了する
@@ -245,6 +253,7 @@ export default Vue.extend({
                 this.comment_list.push(...event.comments);
 
                 // コメントリストを一番下までスクロール
+                // ビデオ視聴では is_initial_comments が true のイベントしか送られてこないので、そもそも実行されない
                 this.scrollCommentList();
             }
         });
@@ -256,6 +265,7 @@ export default Vue.extend({
             this.comment_list.push(event.comment);
 
             // コメントリストを一番下までスクロール
+            // ビデオ視聴ではコメントを送信できないので、そもそも実行されない
             this.scrollCommentList();
         });
 
@@ -296,7 +306,20 @@ export default Vue.extend({
         this.playerStore.event_emitter.off('LiveCommentSendCompleted');  // LiveCommentSendCompleted イベントの全てのイベントハンドラーを削除
 
         // コメントリストをクリア
-        this.comment_list.length = 0;
+        this.comment_list = [];
+    },
+    watch: {
+
+        // ライブ視聴のみ: ChannelsStore の channel.current.id の変更を監視する
+        // 現在視聴中のチャンネルが変更されたときにコメントリストをクリアする
+        'channelsStore.channel.current.id': {
+            handler() {
+                if (this.playback_mode === 'Live') {
+                    // 明示的に空の配列を入れてクリアしないと、コメントリストが残ったままになる
+                    this.comment_list = [];
+                }
+            }
+        }
     },
     methods: {
 

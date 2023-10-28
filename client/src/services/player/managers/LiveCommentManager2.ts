@@ -14,6 +14,7 @@ export interface ICommentData {
     id: number;
     text: string;
     time: string;
+    playback_position: number;
     user_id: string;
     my_post: boolean;
 }
@@ -68,6 +69,10 @@ class LiveCommentManager implements PlayerManager {
      */
     public async init(): Promise<void> {
         const player_store = usePlayerStore();
+        const user_store = useUserStore();
+
+        // ユーザー情報を事前にキャッシュさせておく
+        await user_store.fetchUser();
 
         // 視聴セッションを初期化
         const watch_session_info = await this.initWatchSession();
@@ -429,6 +434,7 @@ class LiveCommentManager implements PlayerManager {
                 id: comment.no,
                 text: comment.content,
                 time: dayjs(comment.date * 1000).format('HH:mm:ss'),
+                playback_position: this.player.video.currentTime,
                 user_id: comment.user_id,
                 my_post: false,
             };
@@ -568,6 +574,7 @@ class LiveCommentManager implements PlayerManager {
                             id: Utils.time(),  // ID は取得できないので現在の時間をユニークな ID として利用する
                             text: options.data.text,  // コメント本文
                             time: dayjs().format('HH:mm:ss'),  // 現在時刻
+                            playback_position: this.player.video.currentTime,  // 現在の再生位置
                             user_id: `${user_store.user!.niconico_user_id!}`,  // ニコニコユーザー ID
                             my_post: true,  // 自分のコメントであることを示すフラグ
                         }

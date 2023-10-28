@@ -173,9 +173,10 @@
 <script lang="ts">
 
 import { mapStores } from 'pinia';
-import Vue from 'vue';
+import Vue, { PropType } from 'vue';
 import draggable from 'vuedraggable';
 
+import { IProgram } from '@/services/Programs';
 import Twitter from '@/services/Twitter';
 import { ITwitterAccount } from '@/services/Users';
 import useChannelsStore from '@/stores/ChannelsStore';
@@ -204,6 +205,12 @@ export default Vue.extend({
     name: 'Panel-TwitterTab',
     components: {
         draggable,
+    },
+    props: {
+        playback_mode: {
+            type: String as PropType<'Live' | 'Video'>,
+            required: true,
+        },
     },
     data() {
         return {
@@ -324,8 +331,42 @@ export default Vue.extend({
     },
     watch: {
 
+        // ライブ視聴のみ: ChannelsStore の channel.current.name の変更を監視する
+        // 現在視聴中のチャンネルが変更されたときに局タグを自動で更新する
+        'channelsStore.channel.current.name': {
+            handler(new_channel_name: string, old_channel_name: string) {
+                if (this.playback_mode === 'Live') {
+                    const old_channel_hashtag = this.getChannelHashtag(old_channel_name) ?? '';
+                    this.tweet_hashtag = this.formatHashtag(this.tweet_hashtag.replaceAll(old_channel_hashtag, ''));
+                    this.updateTweetLetterCount();
+                    // 「番組が切り替わったときにハッシュタグフォームをリセットする」がオンなら、ハッシュタグフォームを空にする
+                    if (this.settingsStore.settings.reset_hashtag_when_program_switches === true) {
+                        this.tweet_hashtag = this.formatHashtag('');
+                        this.updateTweetLetterCount();
+                    }
+                }
+            }
+        },
+
+        // ライブ視聴のみ: ChannelsStore の channel.current.program_present の変更を監視する
+        // 現在視聴中の番組が変更されたときに局タグを自動で更新する
+        'channelsStore.channel.current.program_present': {
+            deep: true,  // ネストされたプロパティの変更も監視する
+            handler(new_program: IProgram | null, old_program: IProgram | null) {
+                if (this.playback_mode === 'Live') {
+                    // NID-SID-EID の組が変わったときのみ更新する
+                    if (new_program?.id !== old_program?.id) {
+                        // 「番組が切り替わったときにハッシュタグフォームをリセットする」がオンなら、ハッシュタグフォームを空にする
+                        if (this.settingsStore.settings.reset_hashtag_when_program_switches === true) {
+                            this.tweet_hashtag = this.formatHashtag('');
+                            this.updateTweetLetterCount();
+                        }
+                    }
+                }
+            }
+        },
+
         // 保存しているハッシュタグが変更されたら随時 LocalStorage に保存する
-        // TODO: 直接 SettingsStore のデータをいじってもいいと思う (たぶん)
         saved_twitter_hashtags: {
             deep: true,
             handler() {
@@ -490,8 +531,15 @@ export default Vue.extend({
             context.shadowOffsetX = 0;  // 影のX座標
             context.shadowOffsetY = 0;  // 影のY座標
 
+            // 現在視聴中の番組タイトルを取得
+            let title;
+            if (this.playback_mode === 'Live') {
+                title = this.channelsStore.channel.current.program_present?.title ?? '放送休止';
+            } else {
+                title = this.playerStore.recorded_program.title;
+            }
+
             // 番組タイトルの透かしを描画
-            const title = this.channelsStore.channel.current.program_present?.title ?? '放送休止';
             switch (this.settingsStore.settings.tweet_capture_watermark_position) {
                 case 'TopLeft': {
                     context.textAlign = 'left'; // 左寄せ
@@ -626,12 +674,15 @@ export default Vue.extend({
                 }
             }
 
-            // 設定でオンになっている場合のみ、視聴中チャンネルの局タグを自動で追加する (ハッシュタグリスト内のハッシュタグは除外)
-            if (this.settingsStore.settings.auto_add_watching_channel_hashtag === true && from_hashtag_list === false) {
-                const channel_hashtag = this.getChannelHashtag(this.channelsStore.channel.current.name);
-                if (channel_hashtag !== null) {
-                    if (tweet_hashtag_array.includes(channel_hashtag) === false) {
-                        tweet_hashtag_array.push(channel_hashtag);
+            // ライブ視聴: 設定でオンになっている場合のみ、視聴中チャンネルの局タグを自動で追加する (ハッシュタグリスト内のハッシュタグは除外)
+            // ビデオ視聴ではリアルタイム実況ではないので追加しない
+            if (this.playback_mode === 'Live') {
+                if (this.settingsStore.settings.auto_add_watching_channel_hashtag === true && from_hashtag_list === false) {
+                    const channel_hashtag = this.getChannelHashtag(this.channelsStore.channel.current.name);
+                    if (channel_hashtag !== null) {
+                        if (tweet_hashtag_array.includes(channel_hashtag) === false) {
+                            tweet_hashtag_array.push(channel_hashtag);
+                        }
                     }
                 }
             }
@@ -651,8 +702,8 @@ export default Vue.extend({
 
             // ハッシュタグを整形
             this.tweet_hashtag = this.formatHashtag(this.tweet_hashtag);
-            this.updateTweetLetterCount();
             const tweet_hashtag = this.tweet_hashtag;
+            this.updateTweetLetterCount();
 
             // 実際に送るツイート本文を作成
             let tweet_text = this.tweet_text;
@@ -707,6 +758,7 @@ export default Vue.extend({
             }
             this.tweet_captures = [];
             this.tweet_text = '';
+            this.updateTweetLetterCount();
 
             // 送信中フラグを下ろす
             this.is_tweet_sending = false;

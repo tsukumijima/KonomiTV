@@ -114,8 +114,9 @@
                         :class="{'watch-panel__content--active': tv_panel_active_tab === 'Channel'}" />
                     <Comment class="watch-panel__content" ref="Comment"
                         :class="{'watch-panel__content--active': tv_panel_active_tab === 'Comment'}" />
-                    <Twitter class="watch-panel__content" ref="Twitter" @panel_folding_requested="is_panel_display = false"
-                        :class="{'watch-panel__content--active': tv_panel_active_tab === 'Twitter'}" />
+                    <Twitter class="watch-panel__content" ref="Twitter" :playback_mode="'Live'"
+                        :class="{'watch-panel__content--active': tv_panel_active_tab === 'Twitter'}"
+                        @panel_folding_requested="is_panel_display = false" />
                     <button v-ripple class="watch-panel__content-remocon-button elevation-8"
                         :class="{'watch-panel__content-remocon-button--active': tv_panel_active_tab === 'Program' || tv_panel_active_tab === 'Channel'}"
                         @click="is_remocon_display = !is_remocon_display">
