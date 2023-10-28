@@ -28,26 +28,26 @@
 
 // スマホ横画面
 @mixin smartphone-horizontal {
-    @media (max-width: 1000px) and (max-height: 400px) {
+    @media (max-width: 1000px) and (max-height: 425px) {
         @content;
     }
 }
 // スマホ横画面 (iPhone SE2 などの縦に短いサイズのスマホ)
 @mixin smartphone-horizontal-short {
-    @media (max-width: 680px) and (max-height: 400px) {
+    @media (max-width: 680px) and (max-height: 425px) {
         @content;
     }
 }
 
 // スマホ縦画面
 @mixin smartphone-vertical {
-    @media (max-width: 600px) and (min-height: 400.01px) {
+    @media (max-width: 600px) and (min-height: 375.01px) {
         @content;
     }
 }
 // スマホ縦画面 (iPhone SE2 などの縦に短いサイズのスマホ)
 @mixin smartphone-vertical-short {
-    @media (max-width: 380px) and (min-height: 400.01px) {
+    @media (max-width: 380px) and (min-height: 375.01px) {
         @content;
     }
 }

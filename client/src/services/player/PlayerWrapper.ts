@@ -870,7 +870,10 @@ class PlayerWrapper {
             if (player_container_element === null || player_container_element.clientHeight === null) return;
             const letter_box_height = (player_container_element.clientHeight - video_element_height) / 2;
 
-            const threshold = Utils.isSmartphoneVertical() ? 0 : window.matchMedia('(max-height: 400px)').matches ? 50 : 66;
+            // コメント描画領域の高さがしきい値より小さい場合、コメント描画領域のアスペクト比を狭める
+            // しきい値はデバイスの画面サイズや向きによって異なる
+            // スマホ縦画面ではコメント描画領域を狭める必要がある上部のヘッダーがないため、しきい値を 0 にする
+            const threshold = Utils.isSmartphoneVertical() ? 0 : Utils.isSmartphoneHorizontal() ? 50 : 66;
             if (letter_box_height < threshold) {
 
                 // コメント描画領域に必要な上下マージン

@@ -191,7 +191,7 @@ export default class Utils {
      * @returns スマホ横画面なら true を返す
      */
     static isSmartphoneHorizontal(): boolean {
-        return window.matchMedia('(max-width: 1000px) and (max-height: 400px)').matches;
+        return window.matchMedia('(max-width: 1000px) and (max-height: 425px)').matches;
     }
 
 
@@ -200,7 +200,7 @@ export default class Utils {
      * @returns スマホ縦画面なら true を返す
      */
     static isSmartphoneVertical(): boolean {
-        return window.matchMedia('(max-width: 600px) and (min-height: 400.01px)').matches;
+        return window.matchMedia('(max-width: 600px) and (min-height: 375.01px)').matches;
     }
 
 
