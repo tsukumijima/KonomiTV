@@ -86,7 +86,9 @@ class LiveCommentManager implements PlayerManager {
             // 通常発生しないエラーメッセージ (サーバーエラーなど) はプレイヤー側にも通知する
             if ((watch_session_info.detail !== 'このチャンネルはニコニコ実況に対応していません。') &&
                 (watch_session_info.detail !== '現在放送中のニコニコ実況がありません。')) {
-                this.player.notice(watch_session_info.detail, undefined, undefined, '#FF6F6A');
+                if (this.player.template.notice.textContent!.includes('プレイヤーロジックを再起動しています…') === false) {
+                    this.player.notice(watch_session_info.detail, undefined, undefined, '#FF6F6A');
+                }
             }
             return;
         }
@@ -151,7 +153,9 @@ class LiveCommentManager implements PlayerManager {
             }
 
             // 接続切断の理由を表示
-            this.player.notice(`ニコニコ実況との接続が切断されました。(Code: ${event.code})`, undefined, undefined, '#FF6F6A');
+            if (this.player.template.notice.textContent!.includes('プレイヤーロジックを再起動しています…') === false) {
+                this.player.notice(`ニコニコ実況との接続が切断されました。(Code: ${event.code})`, undefined, undefined, '#FF6F6A');
+            }
             console.error(`[LiveCommentManager][WatchSession] Connection closed. (Code: ${event.code})`);
 
             // 10 秒ほど待ってから再接続する
@@ -234,7 +238,9 @@ class LiveCommentManager implements PlayerManager {
                     }
 
                     // エラー情報を表示
-                    this.player.notice(error, undefined, undefined, '#FF6F6A');
+                    if (this.player.template.notice.textContent!.includes('プレイヤーロジックを再起動しています…') === false) {
+                        this.player.notice(error, undefined, undefined, '#FF6F6A');
+                    }
                     console.error(`[LiveCommentManager][WatchSession] Error occurred. (Code: ${message.data.code})`);
 
                     // 5 秒ほど待ってから再接続する
@@ -291,7 +297,9 @@ class LiveCommentManager implements PlayerManager {
                     }
 
                     // 接続切断の理由を表示
-                    this.player.notice(disconnect_reason);
+                    if (this.player.template.notice.textContent!.includes('プレイヤーロジックを再起動しています…') === false) {
+                        this.player.notice(disconnect_reason, undefined, undefined, '#FF6F6A');
+                    }
                     console.error(`[LiveCommentManager][WatchSession] Disconnected. (Reason: ${message.data.reason})`);
 
                     // 5 秒ほど待ってから再接続する
@@ -622,7 +630,9 @@ class LiveCommentManager implements PlayerManager {
 
         // 再接続を開始
         console.warn('[LiveCommentManager] Reconnecting...');
-        this.player.notice('ニコニコ実況に再接続しています…');
+        if (this.player.template.notice.textContent!.includes('プレイヤーロジックを再起動しています…') === false) {
+            this.player.notice('ニコニコ実況に再接続しています…');
+        }
 
         // 前の視聴セッション・コメントセッションを破棄
         await this.destroy();
@@ -637,7 +647,9 @@ class LiveCommentManager implements PlayerManager {
             console.error('[LiveCommentManager] Reconnection failed.');
 
             // 無条件にエラーメッセージをプレイヤーに通知
-            this.player.notice(watch_session_info.detail, undefined, undefined, '#FF6F6A');
+            if (this.player.template.notice.textContent!.includes('プレイヤーロジックを再起動しています…') === false) {
+                this.player.notice(watch_session_info.detail, undefined, undefined, '#FF6F6A');
+            }
             return;
         }
 
