@@ -376,15 +376,18 @@ class LiveCommentManager implements PlayerManager {
         }, { signal: this.abort_controller.signal });
 
         // 受信したコメントをイベントリスナーに送信する関数
-        // スロットルを設定し、100ms 未満の間隔でイベントが発火しないようにする
+        // スロットルを設定し、333ms 未満の間隔でイベントが発火しないようにする
         const emit_comments = throttle(() => {
+            if (Utils.isSafari() === false) {
+                console.debug('[LiveCommentManager][CommentSession] Comments buffer length:', comments_buffer.length);
+            }
             player_store.event_emitter.emit('LiveCommentReceived', {
                 is_initial_comments: false,
                 comments: comments_buffer,
             });
             // バッファを空にする
             comments_buffer.length = 0;
-        }, 100);
+        }, 333);
 
         // コメントセッション WebSocket からメッセージを受信したとき
         this.comment_session.addEventListener('message', async (event) => {
@@ -458,6 +461,11 @@ class LiveCommentManager implements PlayerManager {
             }
             await Utils.sleep(comment_delay_time);
 
+            // コメントを一時バッファに格納し、スロットルを設定してイベントリスナーに送信する
+            // コメントの受信間隔が 333ms 以上あれば、今回のコールバックで取得したコメントがダイレクトにイベントリスナーに送信される
+            comments_buffer.push(comment_data);
+            emit_comments();
+
             // プレイヤーにコメントを描画する (映像再生時のみ)
             if (this.player.video.paused === false) {
                 this.player.danmaku!.draw({
@@ -467,11 +475,6 @@ class LiveCommentManager implements PlayerManager {
                     size: size,
                 });
             }
-
-            // コメントを一時バッファに格納し、スロットルを設定してイベントリスナーに送信する
-            // コメントの受信間隔が 100ms 以上あれば、今回のコールバックで取得したコメントがダイレクトにイベントリスナーに送信される
-            comments_buffer.push(comment_data);
-            emit_comments();
 
         }, { signal: this.abort_controller.signal });
     }
