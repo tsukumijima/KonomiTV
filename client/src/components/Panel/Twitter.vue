@@ -741,6 +741,16 @@ export default Vue.extend({
                 new_tweet_captures.push(tweet_capture);
             }
 
+            // 連投防止のため、フォーム上のツイート本文・キャプチャの選択・キャプチャのフォーカスを消去
+            // 送信した感を出す意味合いもある
+            this.tweet_text = '';
+            this.updateTweetLetterCount();
+            for (const capture of this.captures) {
+                capture.selected = false;
+                capture.focused = false;
+            }
+            this.tweet_captures = [];
+
             // ツイート送信 API にリクエスト
             // レスポンスは待たない
             Twitter.sendTweet(this.selected_twitter_account.screen_name, tweet_text, new_tweet_captures).then((result) => {
@@ -749,16 +759,6 @@ export default Vue.extend({
                     color: result.is_error ? '#FF6F6A' : undefined,
                 });
             });
-
-            // 連投防止のため、フォーム上のツイート本文・キャプチャの選択・キャプチャのフォーカスを消去
-            // 送信した感を出す意味合いもある
-            for (const capture of this.captures) {
-                capture.selected = false;
-                capture.focused = false;
-            }
-            this.tweet_captures = [];
-            this.tweet_text = '';
-            this.updateTweetLetterCount();
 
             // 送信中フラグを下ろす
             this.is_tweet_sending = false;
