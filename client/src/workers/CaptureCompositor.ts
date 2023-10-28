@@ -150,7 +150,7 @@ class CaptureCompositor implements ICaptureCompositor {
         console.log('[CaptureCompositor] Composite start:', this.options);
         const start_time = Utils.time();
 
-        // 字幕ありキャプチャ画像から合成しているのは、this.compositeInNormalDirectMode() を実行した時点で
+        // 字幕ありキャプチャ画像を先に合成している理由は、this.compositeInNormalDirectMode() を実行した時点で
         // ImageBitmap が解放されてしまい、その後条件次第で実行される this.compositeInCaptionMode() でキャプチャを描画できなくなるため
 
         let capture_caption_promise: Promise<Blob | null> | null = null;
@@ -195,10 +195,6 @@ class CaptureCompositor implements ICaptureCompositor {
         assert(this.options.capture_comment_data === null);
         const start_time = Utils.time();
 
-        // 事前に EXIF メタデータを適切に上書きする
-        this.options.capture_exif_data.is_caption_composited = false;
-        this.options.capture_exif_data.is_comment_composited = false;
-
         // OffscreenCanvas を生成
         const normal_direct_canvas = new OffscreenCanvas(this.options.capture.width, this.options.capture.height);
 
@@ -212,7 +208,10 @@ class CaptureCompositor implements ICaptureCompositor {
         console.log('[CaptureCompositor] Normal (Direct):', Utils.mathFloor(Utils.time() - start_time, 3), 'sec');
 
         // EXIF メタデータをセットした Blob を返す
-        return await this.exportToBlob(normal_direct_canvas);
+        return await this.exportToBlob(normal_direct_canvas, {
+            is_caption_composited: false,
+            is_comment_composited: false,
+        });
     }
 
 
@@ -222,15 +221,6 @@ class CaptureCompositor implements ICaptureCompositor {
      */
     private async compositeInNormalMode(): Promise<Blob> {
         const start_time = Utils.time();
-
-        // 事前に EXIF メタデータを適切に上書きする
-        // コメントが指定されている場合のみ、コメントを合成する
-        this.options.capture_exif_data.is_caption_composited = false;
-        if (this.options.capture_comment_data !== null) {
-            this.options.capture_exif_data.is_comment_composited = true;
-        } else {
-            this.options.capture_exif_data.is_comment_composited = false;
-        }
 
         // OffscreenCanvas を生成
         const normal_canvas = new OffscreenCanvas(this.options.capture.width, this.options.capture.height);
@@ -258,7 +248,10 @@ class CaptureCompositor implements ICaptureCompositor {
         console.log('[CaptureCompositor] Normal:', Utils.mathFloor(Utils.time() - start_time, 3), 'sec');
 
         // EXIF メタデータをセットした Blob を返す
-        return await this.exportToBlob(normal_canvas);
+        return await this.exportToBlob(normal_canvas, {
+            is_caption_composited: false,
+            is_comment_composited: this.options.capture_comment_data !== null ? true : false,
+        });
     }
 
 
@@ -269,15 +262,6 @@ class CaptureCompositor implements ICaptureCompositor {
     private async compositeInCaptionMode(): Promise<Blob> {
         assert(this.options.caption !== null);
         const start_time = Utils.time();
-
-        // 事前に EXIF メタデータを適切に上書きする
-        // コメントが指定されている場合のみ、コメントを合成する
-        this.options.capture_exif_data.is_caption_composited = true;
-        if (this.options.capture_comment_data !== null) {
-            this.options.capture_exif_data.is_comment_composited = true;
-        } else {
-            this.options.capture_exif_data.is_comment_composited = false;
-        }
 
         // OffscreenCanvas を生成
         const caption_canvas = new OffscreenCanvas(this.options.capture.width, this.options.capture.height);
@@ -308,7 +292,10 @@ class CaptureCompositor implements ICaptureCompositor {
         console.log('[CaptureCompositor] With Caption:', Utils.mathFloor(Utils.time() - start_time, 3), 'sec');
 
         // EXIF メタデータをセットした Blob を返す
-        return await this.exportToBlob(caption_canvas);
+        return await this.exportToBlob(caption_canvas, {
+            is_caption_composited: true,
+            is_comment_composited: this.options.capture_comment_data !== null ? true : false,
+        });
     }
 
 
@@ -365,13 +352,25 @@ class CaptureCompositor implements ICaptureCompositor {
     /**
      * キャプチャ画像に番組情報と撮影時刻、字幕やコメントが合成されているかどうかのメタデータ (EXIF) をセットする
      * @param blob キャプチャ画像の Blob オブジェクト
+     * @param options 字幕やコメントが合成されているかどうかのメタデータ (EXIF に書き込まれる)
      * @returns EXIF が追加されたキャプチャ画像の Blob オブジェクト
      */
-    private async setEXIFDataToCapture(blob: Blob): Promise<Blob> {
+    private async setEXIFDataToCapture(blob: Blob, options: {
+        is_caption_composited: boolean;
+        is_comment_composited: boolean;
+    }): Promise<Blob> {
 
         // EXIF 本体にセットする撮影時刻
         // すべてコロンで区切るのがポイント
         const datetime = dayjs(this.options.capture_exif_data.captured_at).format('YYYY:MM:DD HH:mm:ss');
+
+        // EXIF の XPComment 領域に保存するメタデータ
+        // is_caption_composited と is_comment_composited の値を既存の capture_exif_data に反映する
+        const capture_exif_data: ICaptureExifData = {
+            ...this.options.capture_exif_data,
+            is_caption_composited: options.is_caption_composited,
+            is_comment_composited: options.is_comment_composited,
+        };
 
         // 保存する EXIF メタデータを構築
         // ref: 「カメラアプリで体感するWeb App」4.2
@@ -389,7 +388,7 @@ class CaptureCompositor implements ICaptureCompositor {
                 [piexif.TagValues.ImageIFD.Software]: `KonomiTV version ${Utils.version}`,
                 // Microsoft 拡張のコメント領域（エクスプローラーで出てくるコメント欄と同じもの）
                 // ref: https://stackoverflow.com/a/66186660/17124142
-                [piexif.TagValues.ImageIFD.XPComment]: [...Buffer.from(JSON.stringify(this.options.capture_exif_data), 'ucs2')],
+                [piexif.TagValues.ImageIFD.XPComment]: [...Buffer.from(JSON.stringify(capture_exif_data), 'ucs2')],
             },
             'Exif': {
                 // 必須らしいプロパティ
@@ -431,10 +430,14 @@ class CaptureCompositor implements ICaptureCompositor {
 
     /**
      * OffscreenCanvas を EXIF メタデータをセットした Blob にエクスポートする
-     * @param canvas 変換する OffscreenCanvas
+     * @param canvas エクスポートする OffscreenCanvas
+     * @param options 字幕やコメントが合成されているかどうかのメタデータ (EXIF に書き込まれる)
      * @returns 変換された Blob
      */
-    private async exportToBlob(canvas: OffscreenCanvas): Promise<Blob> {
+    private async exportToBlob(canvas: OffscreenCanvas, options: {
+        is_caption_composited: boolean;
+        is_comment_composited: boolean;
+    }): Promise<Blob> {
 
         // OffscreenCanvas を Blob に変換
         // JPEG 画像の品質は 99% にした方が若干 Blob 変換までの速度が速い (？)
@@ -442,7 +445,7 @@ class CaptureCompositor implements ICaptureCompositor {
         const blob = await canvas.convertToBlob({type: 'image/jpeg', quality: 0.99});
 
         // Blob に EXIF メタデータをセットして返す
-        const blob_with_exif = await this.setEXIFDataToCapture(blob);
+        const blob_with_exif = await this.setEXIFDataToCapture(blob, options);
         console.log('[CaptureCompositor] Export to Blob:', Utils.mathFloor(Utils.time() - start_time, 3), 'sec');
 
         return blob_with_exif;
