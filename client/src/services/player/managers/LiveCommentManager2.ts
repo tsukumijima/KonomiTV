@@ -452,8 +452,10 @@ class LiveCommentManager implements PlayerManager {
             if (this.player.video.buffered.length >= 1) {
                 buffered_end = this.player.video.buffered.end(0);
             }
-            const comment_delay_time = buffered_end - this.player.video.currentTime;
-            // console.log(`[LiveCommentManager][CommentSession] Delay: ${comment_delay_time} sec.`)
+            const comment_delay_time = Math.max(buffered_end - this.player.video.currentTime, 0);
+            if (Utils.isSafari() === false) {
+                console.debug(`[LiveCommentManager][CommentSession] Delay: ${comment_delay_time} sec.`);
+            }
             await Utils.sleep(comment_delay_time);
 
             // プレイヤーにコメントを描画する (映像再生時のみ)

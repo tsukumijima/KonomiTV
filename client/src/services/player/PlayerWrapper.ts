@@ -680,13 +680,13 @@ class PlayerWrapper {
                     // this.player.video.pause() を使うとプレイヤーの UI アイコンが停止してしまうので、代わりに playbackRate を使う
                     this.player.video.playbackRate = 0;
 
-                    // 再生バッファが live_playback_buffer_seconds を超えるまで 0.05 秒おきに再生バッファをチェックする
+                    // 再生バッファが live_playback_buffer_seconds を超えるまで 0.15 秒おきに再生バッファをチェックする
                     // 再生バッファが live_playback_buffer_seconds を切ると再生が途切れやすくなるので (特に動きの激しい映像)、
                     // 再生開始までの時間を若干犠牲にして、再生バッファの調整と同期に時間を割く
                     // live_playback_buffer_seconds の値は mpegts.js に渡す liveSyncTargetLatency プロパティに渡す値と共通
                     let current_playback_buffer_sec = this.getPlaybackBufferSeconds();
                     while (current_playback_buffer_sec < this.live_playback_buffer_seconds) {
-                        await Utils.sleep(0.05);
+                        await Utils.sleep(0.15);
                         current_playback_buffer_sec = this.getPlaybackBufferSeconds();
                     }
 
