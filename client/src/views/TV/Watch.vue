@@ -2988,7 +2988,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 flex-shrink: 0;
                 margin-left: 16px;
                 font-size: 15px;
-                font-weight: 600;
+                font-weight: 500;
 
                 @include smartphone-horizontal {
                     margin-left: 8px;
@@ -3004,7 +3004,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 flex-shrink: 0;
                 margin-left: 16px;
                 font-size: 13px;
-                font-weight: 600;
+                font-weight: 500;
 
                 @include smartphone-horizontal {
                     display: none;

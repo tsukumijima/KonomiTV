@@ -29,6 +29,10 @@ export interface ILivePSIArchivedDataDecoder {
     destroy(): void;
 }
 
+export interface ILivePSIArchivedDataDecoderConstructor {
+    new (channel: ILiveChannel, api_quality: string): ILivePSIArchivedDataDecoder;
+}
+
 
 /**
  * ライブ PSI/SI アーカイブデータストリーミング API から取得した PSI/SI アーカイブデータをデコードする
@@ -65,7 +69,7 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
      * デコード結果は decoded_callback に送信される
      *
      * EDCB Legacy WebUI での実装を参考にした
-     * https://github.com/xtne6f/EDCB/blob/work-plus-s-230212/ini/HttpPublic/legacy/util.lua#L444-L497
+     * ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-230212/ini/HttpPublic/legacy/util.lua#L444-L497
      */
     public run(decoded_callback: (message: ResponseMessage | IProgramPF) => void): void {
 
@@ -135,7 +139,6 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
                 // console.log(`[PSIArchivedDataDecoder] PSI/SI archived data received. (length: ${result.value.length})`);
 
                 // 今まで受信した PSI/SI アーカイブデータと結合
-                // TODO: サーバー側で psisiarc がリセットされた場合はここでも別途処理を挟む必要があるかも？要調査
                 const add_data: Uint8Array = result.value;
                 const concat_data = new Uint8Array(this.psi_archived_data.length + add_data.length);
                 concat_data.set(this.psi_archived_data);

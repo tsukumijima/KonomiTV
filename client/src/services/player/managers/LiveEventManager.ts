@@ -130,7 +130,6 @@ class LiveEventManager implements PlayerManager {
 
                     // ステータス詳細をプレイヤーから削除
                     // 画質切り替えの通知が既に表示されている場合は上書きしない
-                    // TODO: DPlayer に hideNotice() メソッドを追加する
                     if (this.player.template.notice.textContent!.includes('画質を') === false) {
                         this.player.hideNotice();
                     }

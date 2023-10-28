@@ -94,6 +94,9 @@ class CaptureManager implements PlayerManager {
         this.capture_button.addEventListener('click', () => this.captureAndSave(false));
         this.comment_capture_button.addEventListener('click', () => this.captureAndSave(true));
 
+        // 事前に CaptureCompositor 側でフォントをロードしておく
+        await CaptureCompositorProxy.loadFonts();
+
         console.log('[CaptureManager] Initialized.');
     }
 

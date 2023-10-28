@@ -67,7 +67,7 @@ export default Vue.extend({
             password_showing: true,  // アカウント作成時はデフォルトでパスワードを表示する
             password_validation: (value: string | null) => {
                 if (value === '' || value === null) return 'パスワードを入力してください。';
-                // 正規表現の参考: https://qiita.com/grrrr/items/0b35b5c1c98eebfa5128
+                // ref: https://qiita.com/grrrr/items/0b35b5c1c98eebfa5128
                 if (/^[a-zA-Z0-9!-/:-@¥[-`{-~]{4,}$/.test(value) === false) return 'パスワードは4文字以上の半角英数記号を入力してください。';
                 return true;
             },

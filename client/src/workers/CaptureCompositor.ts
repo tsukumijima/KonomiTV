@@ -87,12 +87,20 @@ export interface ICaptureCompositor {
     composite(): Promise<ICaptureCompositorResult>;
 }
 
+export interface ICaptureCompositorConstructor {
+    new (options: ICaptureCompositorOptions): ICaptureCompositor;
+    loadFonts(): Promise<void>;
+}
+
 
 /**
  * Web Worker 上でキャプチャに字幕/文字スーパー/コメントを適宜合成し、EXIF メタデータをセットした上で Blob を返す
  * 直接は呼び出さず、CaptureCompositorProxy (Comlink) 経由で Web Worker 上で実行する
  */
 class CaptureCompositor implements ICaptureCompositor {
+
+    // フォントをロード済みかどうか
+    private static is_loaded_fonts: boolean = false;
 
     // CaptureCompositor の合成オプション
     private readonly options: ICaptureCompositorOptions;
@@ -103,6 +111,34 @@ class CaptureCompositor implements ICaptureCompositor {
      */
     constructor(options: ICaptureCompositorOptions) {
         this.options = options;
+    }
+
+
+    /**
+     * Web Worker 上に利用するフォントをロードする
+     * Web Worker はメインスレッドとは別のスレッドで実行されるため、明示的に Web Worker 側でフォントをロードする必要がある
+     */
+    public static async loadFonts(): Promise<void> {
+
+        // 既にロード済みの場合は何もしない
+        if (this.is_loaded_fonts === true) {
+            return;
+        }
+
+        // コメント描画に関しては Bold しか利用しない
+        const font_faces: FontFace[] = [
+            new FontFace('Open Sans', 'url(/assets/fonts/OpenSans-Bold.woff2)', {weight: 'bold'}),
+            new FontFace('YakuHanJPs', 'url(/assets/fonts/YakuHanJPs-Bold.woff2)', {weight: 'bold'}),
+            new FontFace('Noto Sans JP', 'url(/assets/fonts/NotoSansJP-Bold.woff2)', {weight: 'bold'}),
+        ];
+
+        // フォントを一括ロード
+        // Web Worker では document.fonts ではなく self.fonts を使う必要がある (落とし穴)
+        await Promise.all(font_faces.map((font_face) => font_face.load()));
+        for (const font_face of font_faces) {
+            self.fonts.add(font_face);
+        }
+        this.is_loaded_fonts = true;
     }
 
 
@@ -306,11 +342,10 @@ class CaptureCompositor implements ICaptureCompositor {
         comment_canvas_context.textBaseline = 'top';
 
         // 指定された座標に、指定されたフォントサイズでコメントを描画
-        // TODO: なぜか Web フォントが効いてない
         for (const comment of this.options.capture_comment_data.comments) {
             comment_canvas_context.fillStyle = comment.color;
             // UI 側と同じフォント指定なので、明示的にロードせずとも OffscreenCanvas に描画できる状態にあるはず
-            comment_canvas_context.font = `bold ${comment.font_size * magnification_ratio}px 'Open Sans','Hiragino Sans','Noto Sans JP',sans-serif`;
+            comment_canvas_context.font = `bold ${comment.font_size * magnification_ratio}px 'Open Sans', 'YakuHanJPs', 'Hiragino Sans', 'Noto Sans JP', sans-serif`;
             // UI 側と同じテキストシャドウを付ける
             comment_canvas_context.shadowOffsetX = 1.2 * magnification_ratio;
             comment_canvas_context.shadowOffsetY = 1.2 * magnification_ratio;

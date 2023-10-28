@@ -91,7 +91,7 @@ export default Vue.extend({
                 {text: 'ヒラギノTV丸ゴ', value: 'Hiragino TV Sans Rd S'},
                 {text: '新丸ゴ ARIB', value: 'TT-ShinMGo-regular'},
                 {text: 'Rounded M+ 1m for ARIB', value: 'Rounded M+ 1m for ARIB'},
-                {text: 'Noto Sans JP', value: 'Noto Sans JP Caption'},
+                {text: 'Noto Sans JP', value: 'Noto Sans JP'},
                 {text: 'デフォルトのフォント', value: 'sans-serif'},
             ],
         };

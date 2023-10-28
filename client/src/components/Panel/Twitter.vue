@@ -483,7 +483,7 @@ export default Vue.extend({
             image_bitmap.close();
 
             // 描画設定
-            context.font = 'bold 22px "YakuHanJPs", "Open Sans", "Hiragino Sans", "Noto Sans JP", sans-serif'; // フォント
+            context.font = 'bold 22px "Open Sans", "YakuHanJPs", "Hiragino Sans", "Noto Sans JP", sans-serif'; // フォント
             context.fillStyle = 'rgba(255, 255, 255, 70%)';  // 半透明の白
             context.shadowColor = 'rgba(0, 0, 0, 100%)';  // 影の色
             context.shadowBlur = 4;  // 影をぼかすしきい値
