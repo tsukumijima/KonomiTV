@@ -608,7 +608,24 @@ class PlayerWrapper {
                 // 再生中に mpegts.js 内部でエラーが発生した際 (例: デバイスの通信が一時的に切断され、API からのストリーミングが途切れた際) に呼び出される
                 // このエラーハンドラーでエラーをキャッチして、PlayerWrapper の再起動を要求する
                 // PlayerWrapper 内部なので直接再起動してもいいのだが、PlayerWrapper を再起動させる処理は共通化しておきたい
-                this.player.plugins.mpegts?.on(mpegts.Events.ERROR, async (error_type: mpegts.ErrorTypes, detail: mpegts.ErrorDetails) => {
+                this.player.plugins.mpegts?.on(mpegts.Events.ERROR, async (error_type: string, detail: string) => {
+
+                    // DPlayer がすでに破棄されている場合は何もしない
+                    if (this.player === null) {
+                        return;
+                    }
+
+                    // すぐ再起動すると問題があるケースがあるので、少し待機する
+                    await Utils.sleep(1);
+
+                    // もしこの時点でオフラインの場合、ネットワーク接続の変更による接続切断の可能性が高いので、オンラインになるまで待機する
+                    if (navigator.onLine === false) {
+                        this.player.notice('現在ネットワーク接続がありません。オンラインになるまで待機しています…', undefined, undefined, '#FF6F6A');
+                        console.warn('\u001b[31m[PlayerWrapper] mpegts.js error event: Network error. Waiting for online...');
+                        await Utils.waitUntilOnline();
+                    }
+
+                    // PlayerWrapper の再起動を要求する
                     console.error('\u001b[31m[PlayerWrapper] mpegts.js error event:', error_type, detail);
                     player_store.event_emitter.emit('PlayerRestartRequired', {
                         message: `再生中にエラーが発生しました。(${error_type}: ${detail}) プレイヤーロジックを再起動しています…`,
@@ -618,14 +635,18 @@ class PlayerWrapper {
                 // HTMLVideoElement ネイティブの再生時エラーのイベントハンドラーを登録
                 // mpegts.js が予期せずクラッシュした場合など、意図せず発生してしまうことがある
                 // Offline 以外であれば PlayerWrapper の再起動を要求する
-                this.player.on('error', (event: MediaError) => {
+                this.player.on('error', async (event: MediaError) => {
 
                     // DPlayer がすでに破棄されているか、現在ライブストリームが Offline であれば何もしない
                     if (this.player === null || player_store.live_stream_status === 'Offline') {
                         return;
                     }
 
-                    // MediaError オブジェクトは場合によっては存在しないことがあるっぽい…
+                    // すぐ再起動すると問題があるケースがあるので、少し待機する
+                    await Utils.sleep(1);
+
+                    // MediaError オブジェクトは場合によっては存在しないことがあるらしい…
+                    // 存在しない場合は unknown error として扱う
                     if (this.player.video.error) {
                         console.error('\u001b[31m[PlayerWrapper] HTMLVideoElement error event:', this.player.video.error);
                         player_store.event_emitter.emit('PlayerRestartRequired', {
@@ -1050,25 +1071,29 @@ class PlayerWrapper {
         // DPlayer 本体を破棄
         // なぜか例外が出ることがあるので try-catch で囲む
         if (this.player !== null) {
-            try {
-                // プレイヤーの破棄を実行する前に、DPlayer 側に登録された HTMLVideoElement の error イベントハンドラーを全て削除
-                // Safari のみ、削除しておかないと「動画の読み込みに失敗しました」というエラーが発生する
-                if (this.player.events.events['error']) {
-                    this.player.events.events['error'] = [];
-                }
-                // 通常 this.player.destroy() が実行された後 mpegts.js も自動的に破棄されるのだが、Safari のみ
-                // なぜか video.src = '' を実行した後に mpegts.js を破棄するとエラーというか挙動不審になるので、
-                // あえて mpegts.js を明示的に先に破棄しておいて Safari の地雷を回避する
-                if (this.player.plugins.mpegts) {
+            // プレイヤーの破棄を実行する前に、DPlayer 側に登録された HTMLVideoElement の error イベントハンドラーを全て削除
+            // Safari のみ、削除しておかないと「動画の読み込みに失敗しました」というエラーが発生する
+            if (this.player.events.events['error']) {
+                this.player.events.events['error'] = [];
+            }
+            // 通常 this.player.destroy() が実行された後 mpegts.js も自動的に破棄されるのだが、Safari のみ
+            // なぜか video.src = '' を実行した後に mpegts.js を破棄するとエラーというか挙動不審になるので、
+            // あえて mpegts.js を明示的に先に破棄しておいて Safari の地雷を回避する
+            if (this.player.plugins.mpegts) {
+                try {
                     this.player.plugins.mpegts.unload();
                     this.player.plugins.mpegts.detachMediaElement();
                     this.player.plugins.mpegts.destroy();
+                } catch (e) {
+                    // 何もしない
                 }
-                // 引数に true を指定して、破棄後も DPlayer 側の HTML 要素を保持する
-                // これにより、チャンネルを切り替えるなどして再度初期化されるまでの僅かな間もプレイヤーのコントロール UI が表示される (動作はしない)
-                // ここで HTML 要素を削除してしまうと、プレイヤーのコントロール UI が一瞬削除されることでちらつきが発生して見栄えが悪い
-                // HTML 要素を保持する分、破棄中に描画されていたコメントも残ってしまうので、破棄前にコメントを全て削除する
-                this.player.danmaku!.clear();
+            }
+            // 引数に true を指定して、破棄後も DPlayer 側の HTML 要素を保持する
+            // これにより、チャンネルを切り替えるなどして再度初期化されるまでの僅かな間もプレイヤーのコントロール UI が表示される (動作はしない)
+            // ここで HTML 要素を削除してしまうと、プレイヤーのコントロール UI が一瞬削除されることでちらつきが発生して見栄えが悪い
+            // HTML 要素を保持する分、破棄中に描画されていたコメントも残ってしまうので、破棄前にコメントを全て削除する
+            this.player.danmaku!.clear();
+            try {
                 this.player.destroy(true);
             } catch (e) {
                 // 何もしない

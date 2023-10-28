@@ -287,4 +287,15 @@ export default class Utils {
         const pattern = /(https?:\/\/[-A-Z0-9+&@#/%?=~_|!:,.;]*[-A-Z0-9+&@#/%=~_|])/ig;
         return text.replace(pattern, '<a href="$1" target="_blank">$1</a>');
     }
+
+
+    /**
+     * デバイスがオンラインになるまで待機する
+     * @returns Promise を返すので、await waitUntilOnline(); のように使う
+     */
+    static async waitUntilOnline(): Promise<void> {
+        return await new Promise(resolve => {
+            window.addEventListener('online', () => resolve());
+        });
+    }
 }
