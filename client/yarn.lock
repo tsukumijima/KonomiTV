@@ -3369,9 +3369,9 @@ dotenv@^16.0.3:
   resolved "https://registry.yarnpkg.com/dotenv/-/dotenv-16.3.1.tgz#369034de7d7e5b120972693352a3bf112172cc3e"
   integrity sha512-IPzF4w4/Rd94bA9imS68tZBaYyBWSCE47V1RGuMrB94iyTOIEwRmVL2x/4An+6mETpLrKJ5hQkB8W4kFAadeIQ==
 
-"dplayer@github:tsukumijima/DPlayer#v1.31.0":
-  version "1.31.0"
-  resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/7d2417a4967c3646f672d5638321a39e1e6f5a30"
+"dplayer@github:tsukumijima/DPlayer#v1.31.1":
+  version "1.31.1"
+  resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/dd868a5e278bcdf72a6e8968080b190a0a7bf08b"
   dependencies:
     aribb24.js "1.11.0"
     axios "^1.5.1"

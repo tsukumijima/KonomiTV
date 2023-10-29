@@ -20,7 +20,7 @@
         "copy-image-clipboard": "^2.1.2",
         "core-js": "^3.33.1",
         "dayjs": "^1.11.10",
-        "dplayer": "github:tsukumijima/DPlayer#v1.31.0",
+        "dplayer": "github:tsukumijima/DPlayer#v1.31.1",
         "mitt": "^3.0.1",
         "mpegts.js": "github:tsukumijima/mpegts.js#5932cf6c4012181dce7cf693fef8f736425eb72a",
         "piexifjs": "^2.0.0-beta.9",
