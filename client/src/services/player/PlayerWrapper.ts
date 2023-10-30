@@ -430,6 +430,14 @@ class PlayerWrapper {
         player_store.event_emitter.on('PlayerRestartRequired', async (event) => {
             console.warn('\u001b[31m[PlayerWrapper] PlayerRestartRequired event received. Message: ', event.message);
 
+            // ライブ視聴: iOS 17.0 以下で mpegts.js がサポートされていない場合は再起動できない
+            if (this.playback_mode === 'Live' && mpegts.isSupported() !== true) {  // サポートしていない場合は undefined が返る
+                console.warn('\u001b[31m[PlayerWrapper] PlayerRestartRequired event received, but mpegts.js is not supported. Ignored.');
+                // iOS 17.0 以下は mpegts.js がサポートされていないため、再生できない
+                this.player?.notice('iOS (Safari) 17.0 以下での視聴には対応していません。速やかに iOS を 17.1 以降に更新してください。', -1, undefined, '#FF6F6A');
+                return;
+            }
+
             // 既に再起動中であれば何もしない (再起動が重複して行われるのを防ぐ)
             if (is_player_restarting === true) {
                 console.warn('\u001b[31m[PlayerWrapper] PlayerRestartRequired event received, but already restarting. Ignored.');
