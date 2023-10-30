@@ -87,6 +87,12 @@ class PlayerWrapper {
         this.live_playback_buffer_seconds = settings_store.settings.tv_low_latency_mode ?
             PlayerWrapper.LIVE_PLAYBACK_BUFFER_SECONDS_LOW_LATENCY : PlayerWrapper.LIVE_PLAYBACK_BUFFER_SECONDS;
 
+        // Safari の Media Source Extensions API の実装はどうもバッファの揺らぎが大きい (?) ようなので、バッファ詰まり対策で
+        // さらに 0.3 秒程度余裕を持たせる
+        if (Utils.isSafari() === true) {
+            this.live_playback_buffer_seconds += 0.3;
+        }
+
         // 01 ~ 14 まですべての RomSound を読み込む
         for (let index = 1; index <= 14; index++) {
             (async () => {
@@ -293,8 +299,10 @@ class PlayerWrapper {
                         // MediaSource.canConstructInDedicatedWorker は TypeScript の仕様上型定義の追加が難しいため any で回避している
                         // ref: https://developer.mozilla.org/en-US/docs/Web/API/MediaSource/canConstructInDedicatedWorker_static
                         enableWorkerForMSE: window.MediaSource && (window.MediaSource as any).canConstructInDedicatedWorker === true,
-                        // IO 層のバッファを禁止する
-                        enableStashBuffer: false,
+                        // 再生開始まで 2048KB のバッファを貯める (?)
+                        // あまり大きくしすぎてもどうも効果がないようだが、小さくしたり無効化すると特に Safari で不安定になる
+                        enableStashBuffer: true,
+                        stashInitialSize: Math.floor(2048 * 1024),
                         // HTMLMediaElement の内部バッファによるライブストリームの遅延を追跡する
                         // liveBufferLatencyChasing と異なり、いきなり再生時間をスキップするのではなく、
                         // 再生速度を少しだけ上げることで再生を途切れさせることなく遅延を追跡する
@@ -417,12 +425,23 @@ class PlayerWrapper {
         // PlayerManager からプレイヤーロジックの再起動が必要になったことを通知されたときのイベントハンドラーを登録する
         // このイベントは常にアプリケーション上で1つだけ登録されていなければならない
         // さもなければ使い終わった破棄済みの PlayerWrapper が再起動イベントにより復活し、現在利用中の PlayerWrapper と競合してしまう
+        let is_player_restarting = false;  // 現在再起動中かどうか
         player_store.event_emitter.off('PlayerRestartRequired');  // PlayerRestartRequired イベントの全てのイベントハンドラーを削除
         player_store.event_emitter.on('PlayerRestartRequired', async (event) => {
             console.warn('\u001b[31m[PlayerWrapper] PlayerRestartRequired event received. Message: ', event.message);
 
+            // 既に再起動中であれば何もしない (再起動が重複して行われるのを防ぐ)
+            if (is_player_restarting === true) {
+                console.warn('\u001b[31m[PlayerWrapper] PlayerRestartRequired event received, but already restarting. Ignored.');
+                return;
+            }
+            is_player_restarting = true;
+
             // PlayerWrapper を破棄
             await this.destroy();
+
+            // 即座に再起動すると諸々問題があるので、少し待つ
+            await Utils.sleep(0.5);
 
             // PlayerWrapper を再初期化
             // この時点で PlayerRestartRequired のイベントハンドラーは再登録されているはず
@@ -433,6 +452,7 @@ class PlayerWrapper {
             // 通知を表示してから PlayerWrapper を破棄すると DPlayer の DOM 要素ごと消えてしまうので、DPlayer を作り直した後に通知を表示する
             assert(this.player !== null);
             this.player.notice(event.message, undefined, undefined, '#FF6F6A');
+            is_player_restarting = false;
         });
 
         // 各 PlayerManager を初期化・登録
@@ -470,13 +490,11 @@ class PlayerWrapper {
      * @returns バッファ秒数
      */
     private getPlaybackBufferSeconds(): number {
-        assert(this.player !== null);
+        if (this.player === null) return 0;
         if (this.playback_mode === 'Live') {
-            let buffered_end = 0;
-            if (this.player.video.buffered.length >= 1) {
-                buffered_end = this.player.video.buffered.end(0);
-            }
-            return (Math.round((buffered_end - this.player.video.currentTime) * 1000) / 1000);
+            const buffered_range_count = this.player.video.buffered.length;
+            const buffer_remain = this.player.video.buffered.end(buffered_range_count - 1) - this.player.video.currentTime;
+            return Utils.mathFloor(buffer_remain, 3);
         } else {
             return 0;
         }
@@ -484,19 +502,21 @@ class PlayerWrapper {
 
 
     /**
-     * もしまだ再生が開始できていない場合に再生状態の復旧を試みる
+     * まだ再生が開始できていない場合 (HTMLVideoElement.readyState < HAVE_FUTURE_DATA) に再生状態の復旧を試みる
      * 処理の完了を待つ必要はないので、基本 await せず非同期で実行すべき
      * 基本 Safari だとなぜか再生開始がうまく行かないことが多いので（自動再生まわりが影響してる？）、その対策として用意した処理
      */
     private async recoverPlayback(): Promise<void> {
         assert(this.player !== null);
+        const player_store = usePlayerStore();
 
-        // 0.75 秒待つ
-        await Utils.sleep(0.75);
+        // 1 秒待つ
+        await Utils.sleep(1);
 
-        // この時点で映像が停止している場合、復旧を試みる
-        if (this.player?.video?.readyState < 3) {  // Safari ではタイミングによっては null になる場合があるらしいので ? を付ける
-            console.warn('\u001b[31m[PlayerWrapper] player.video.readyState < HAVE_FUTURE_DATA. trying to recover.');
+        // この時点で映像が停止していて、かつ readyState が HAVE_FUTURE_DATA な場合、復旧を試みる
+        // Safari ではタイミングによっては null になる場合があるらしいので ? を付ける
+        if (player_store.is_video_buffering === true && this.player?.video?.readyState < 3) {
+            console.warn('\u001b[31m[PlayerWrapper] Video still buffering. (HTMLVideoElement.readyState < HAVE_FUTURE_DATA) trying to recover.');
 
             // 一旦停止して、0.25 秒間を置く
             this.player.video.pause();
@@ -512,10 +532,10 @@ class PlayerWrapper {
                 return;  // 再生開始がリジェクトされた場合はここで終了
             }
 
-            // さらに 0.25 秒待った時点で映像が停止している場合、復旧を試みる
-            await Utils.sleep(0.25);
-            if (this.player?.video?.readyState < 3) {
-                console.warn('\u001b[31m[PlayerWrapper] (retry) player.video.readyState < HAVE_FUTURE_DATA. trying to recover.');
+            // さらに 0.5 秒待った時点で映像が停止している場合、復旧を試みる
+            await Utils.sleep(0.5);
+            if (player_store.is_video_buffering === true && this.player?.video?.readyState < 3) {
+                console.warn('\u001b[31m[PlayerWrapper] Video still buffering. (HTMLVideoElement.readyState < HAVE_FUTURE_DATA) trying to recover.');
 
                 // 一旦停止して、0.25 秒間を置く
                 this.player.video.pause();
@@ -561,6 +581,10 @@ class PlayerWrapper {
         const on_play_or_pause = () => {
             if (this.player === null) return;
             player_store.is_video_paused = this.player.video.paused;
+            // 停止された場合、ロード中でなければ Progress Circular を非表示にする
+            if (this.player.video.paused === true && player_store.is_loading === false) {
+                player_store.is_video_buffering = false;
+            }
             // まだ設定パネルが表示されていたら非表示にする
             this.player.setting.hide();
             // プレイヤーのコントロール UI を表示する
@@ -666,32 +690,33 @@ class PlayerWrapper {
                 this.player.video.muted = true;
 
                 // 再生準備ができた段階で再生バッファを調整し、再生準備ができた段階でローディング中の背景画像を非表示にするイベントハンドラーを登録
-                // canplay と canplaythrough のどちらかのみが発火することも稀にある？ようなので、念のため両方に登録している
                 let on_canplay_called = false;
                 const on_canplay = async () => {
 
-                    // 自分自身のイベントの登録を解除 (重複実行を回避する)
+                    // 重複実行を回避する
                     if (this.player === null) return;
-                    this.player.video.oncanplay = null;
+                    if (on_canplay_called === true) return;
                     this.player.video.oncanplaythrough = null;
                     on_canplay_called = true;
 
                     // 再生バッファ調整のため、一旦停止させる
                     // this.player.video.pause() を使うとプレイヤーの UI アイコンが停止してしまうので、代わりに playbackRate を使う
+                    console.log('\u001b[31m[PlayerWrapper] buffering...');
                     this.player.video.playbackRate = 0;
 
-                    // 再生バッファが live_playback_buffer_seconds を超えるまで 0.15 秒おきに再生バッファをチェックする
+                    // 再生バッファが live_playback_buffer_seconds を超えるまで 0.1 秒おきに再生バッファをチェックする
                     // 再生バッファが live_playback_buffer_seconds を切ると再生が途切れやすくなるので (特に動きの激しい映像)、
                     // 再生開始までの時間を若干犠牲にして、再生バッファの調整と同期に時間を割く
-                    // live_playback_buffer_seconds の値は mpegts.js に渡す liveSyncTargetLatency プロパティに渡す値と共通
+                    // live_playback_buffer_seconds の値は mpegts.js の liveSyncTargetLatency 設定に渡す値と共通
                     let current_playback_buffer_sec = this.getPlaybackBufferSeconds();
                     while (current_playback_buffer_sec < this.live_playback_buffer_seconds) {
-                        await Utils.sleep(0.15);
+                        await Utils.sleep(0.1);
                         current_playback_buffer_sec = this.getPlaybackBufferSeconds();
                     }
 
                     // 再生バッファ調整のため一旦停止していた再生を再び開始
                     this.player.video.playbackRate = 1;
+                    console.log('\u001b[31m[PlayerWrapper] buffering completed.');
 
                     // ローディング状態を解除し、映像を表示する
                     player_store.is_loading = false;
@@ -723,13 +748,27 @@ class PlayerWrapper {
                     }
                     this.player.video.volume = current_volume;
                 };
-                this.player.video.oncanplay = on_canplay;
                 this.player.video.oncanplaythrough = on_canplay;
 
-                // もしライブストリームのステータスが ONAir になっているにも関わらず 15 秒以上 canplay が発火しない場合、
-                // 特に Safari でなぜか永遠にロードが終わらない状況の可能性が高いため (ブラウザの実装が悪い…)、PlayerWrapper の再起動を要求する
+                // 万が一 canplaythrough が発火しなかった場合のための処理
+                // 非同期で 0.05 秒おきに直接 readyState === HAVE_ENOUGH_DATA かどうかを確認する
+                // この処理は先に canplaythrough が発火した場合は実行されない
+                (async () => {
+                    while (this.player !== null && this.player.video.readyState < 4) {
+                        await Utils.sleep(0.05);
+                    }
+                    // さらに 0.1 秒待ってから実行
+                    await Utils.sleep(0.1);
+                    if (on_canplay_called === false) {
+                        console.warn('\u001b[31m[PlayerWrapper] canplaythrough event not fired. trying to recover.');
+                        on_canplay();
+                    }
+                })();
+
+                // もしライブストリームのステータスが ONAir にも関わらず 15 秒以上バッファリング中で canplaythrough が発火しない場合、
+                // ロードに失敗したとみなし PlayerWrapper の再起動を要求する
                 await Utils.sleep(15);
-                if (on_canplay_called === false && player_store.live_stream_status === 'ONAir') {
+                if (player_store.live_stream_status === 'ONAir' && player_store.is_video_buffering === true && on_canplay_called === false) {
                     player_store.event_emitter.emit('PlayerRestartRequired', {
                         message: '再生開始までに時間が掛かっています。プレイヤーロジックを再起動しています…',
                     });
@@ -742,6 +781,25 @@ class PlayerWrapper {
 
         // 画質切り替え開始時のイベント
         this.player.on('quality_start', on_init_or_quality_change);
+
+        // 動画の統計情報の表示/非表示を切り替える隠しコマンドのイベントハンドラーを登録
+        // iOS / iPadOS Safari では DPlayer 側の contextmenu が長押ししても発火しないため、代替の表示手段として用意
+        // 番組情報タブ内の NEXT >> を 500ms 以内に3回連続でタップすると統計情報の表示/非表示が切り替わる
+        let tap_count = 0;
+        let last_tap = 0;
+        document.querySelector<HTMLDivElement>('.program-info__next')!.addEventListener('touchstart', () => {
+            if (this.player === null) return;
+            const current_time = new Date().getTime();
+            const time_difference = current_time - last_tap;
+            if (time_difference < 500 && time_difference > 0) {
+                tap_count++;
+                if (tap_count === 3) {
+                    this.player.infoPanel.toggle();
+                    tap_count = 0;
+                }
+            }
+            last_tap = current_time;
+        });
     }
 
 

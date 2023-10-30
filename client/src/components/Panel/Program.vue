@@ -222,6 +222,7 @@ export default Vue.extend({
             color: var(--v-text-base);
             font-size: 14px;
             font-weight: bold;
+            user-select: none;
             @include smartphone-horizontal {
                 margin-top: 14px;
                 font-size: 13px;
