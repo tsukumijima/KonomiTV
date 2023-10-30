@@ -22,10 +22,6 @@ body .v-application {
     overflow-x: clip;  // clip なら position: sticky; が効く
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    // iOS Safari で 100vh にアドレスバーが含まれてしまう問題を回避する
-    @supports (-webkit-touch-callout: none) {
-        min-height: -webkit-fill-available;
-    }
 
     .v-application--wrap {
         min-height: 100% !important;
@@ -43,8 +39,6 @@ body header + main {
     padding-top: 65px !important;
     @include smartphone-horizontal {
         padding-top: 0px !important;
-        padding-left: env(safe-area-inset-left) !important;
-        padding-right: env(safe-area-inset-right) !important;
     }
     // ボトムナビゲーションバーの高さ分
     @include smartphone-vertical {

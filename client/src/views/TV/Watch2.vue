@@ -947,13 +947,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
 
 .route-container {
     height: 100vh !important;
-    height: 100dvh !important;
+    height: calc(100dvh - env(safe-area-inset-bottom)) !important;
     background: var(--v-black-base) !important;
     overflow: hidden;
-    // iOS Safari で 100vh にアドレスバーが含まれてしまう問題を回避する
-    @supports (-webkit-touch-callout: none) {
-        height: -webkit-fill-available !important;
-    }
 }
 .watch-container {
     display: flex;

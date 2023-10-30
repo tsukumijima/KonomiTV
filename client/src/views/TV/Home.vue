@@ -531,6 +531,7 @@ export default Vue.extend({
                         }
                         @include smartphone-horizontal {
                             font-size: 15px;
+                            margin-right: 8px;
                         }
                         @include smartphone-vertical {
                             font-size: 15.5px;
@@ -563,7 +564,7 @@ export default Vue.extend({
                         &-force, &-viewers {
                             display: flex;
                             align-items: center;
-                            @include smartphone-horizontal-short {
+                            @include smartphone-horizontal {
                                 span:nth-child(2), span:nth-child(4) {
                                     display: none;
                                 }
@@ -572,7 +573,7 @@ export default Vue.extend({
 
                         @include smartphone-horizontal {
                             &-viewers {
-                                margin-left: 8px !important;
+                                margin-left: 12px !important;
                             }
                         }
 
