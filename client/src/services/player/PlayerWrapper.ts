@@ -508,9 +508,13 @@ class PlayerWrapper {
     private getPlaybackBufferSeconds(): number {
         if (this.player === null) return 0;
         if (this.playback_mode === 'Live') {
-            const buffered_range_count = this.player.video.buffered.length;
-            const buffer_remain = this.player.video.buffered.end(buffered_range_count - 1) - this.player.video.currentTime;
-            return Utils.mathFloor(buffer_remain, 3);
+            try {
+                const buffered_range_count = this.player.video.buffered.length;
+                const buffer_remain = this.player.video.buffered.end(buffered_range_count - 1) - this.player.video.currentTime;
+                return Utils.mathFloor(buffer_remain, 3);
+            } catch (error) {
+                return 0;
+            }
         } else {
             return 0;
         }
