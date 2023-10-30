@@ -39,6 +39,8 @@ body header + main {
     padding-top: 65px !important;
     @include smartphone-horizontal {
         padding-top: 0px !important;
+        padding-left: env(safe-area-inset-left) !important;
+        padding-right: env(safe-area-inset-right) !important;
     }
     // ボトムナビゲーションバーの高さ分
     @include smartphone-vertical {

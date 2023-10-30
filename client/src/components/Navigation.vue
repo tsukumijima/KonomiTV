@@ -113,6 +113,8 @@ export default Vue.extend({
             overflow-y: auto;
             @include smartphone-horizontal {
                 padding: 10px 12px;
+                padding-left: calc(env(safe-area-inset-left) +10px);
+                padding-right: cale(env(safe-area-inset-right) + 10px);
             }
             @include smartphone-horizontal-short {
                 padding: 10px 8px;
