@@ -2463,6 +2463,10 @@ export default Vue.extend({
         &.dplayer-hide-controller .dplayer-controller {
             transform: none !important;
         }
+        // 画面の狭いデバイスのみに適用されるスタイル
+        &.dplayer-narrow .dplayer-icon {
+            margin: 0px -4px !important;
+        }
     }
 }
 

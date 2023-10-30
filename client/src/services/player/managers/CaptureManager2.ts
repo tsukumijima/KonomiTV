@@ -60,23 +60,9 @@ class CaptureManager implements PlayerManager {
             current_comment_capture_button.remove();
         }
 
-        // コメント付きキャプチャボタンの HTML を追加
-        // insertAdjacentHTML で .dplayer-icons-right の一番左側に配置する
-        // この後に通常のキャプチャボタンが insert されるので、実際は左から2番目になる (コメント付きキャプチャボタンの配置が先なのもこのため)
-        // TODO: ボタンのデザインをコメント付きだと分かるようなものに変更する
-        this.player.container.querySelector('.dplayer-icons.dplayer-icons-right')!.insertAdjacentHTML('afterbegin', `
-            <div class="dplayer-icon dplayer-comment-capture-icon" aria-label="コメントを付けてキャプチャ"
-                data-balloon-nofocus="" data-balloon-pos="up">
-                <span class="dplayer-icon-content">
-                    <svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 32 32"><path d="M16 23c-3.309 0-6-2.691-6-6s2.691-6 6-6 6 2.691 6 6-2.691 6-6 6zM16 13c-2.206 0-4 1.794-4 4s1.794 4 4 4c2.206 0 4-1.794 4-4s-1.794-4-4-4zM27 28h-22c-1.654 0-3-1.346-3-3v-16c0-1.654 1.346-3 3-3h3c0.552 0 1 0.448 1 1s-0.448 1-1 1h-3c-0.551 0-1 0.449-1 1v16c0 0.552 0.449 1 1 1h22c0.552 0 1-0.448 1-1v-16c0-0.551-0.448-1-1-1h-11c-0.552 0-1-0.448-1-1s0.448-1 1-1h11c1.654 0 3 1.346 3 3v16c0 1.654-1.346 3-3 3zM24 10.5c0 0.828 0.672 1.5 1.5 1.5s1.5-0.672 1.5-1.5c0-0.828-0.672-1.5-1.5-1.5s-1.5 0.672-1.5 1.5zM15 4c0 0.552-0.448 1-1 1h-4c-0.552 0-1-0.448-1-1v0c0-0.552 0.448-1 1-1h4c0.552 0 1 0.448 1 1v0z"></path></svg>
-                </span>
-            </div>
-        `);
-
         // キャプチャボタンの HTML を追加
         // 標準のスクリーンショット機能は貧弱なので、あえて独自に実装している（そのほうが自由度も高くてやりやすい）
-        // insertAdjacentHTML で .dplayer-icons-right の一番左側に配置する
-        this.player.container.querySelector('.dplayer-icons.dplayer-icons-right')!.insertAdjacentHTML('afterbegin', `
+        this.player.container.querySelector('.dplayer-player-restart-icon')!.insertAdjacentHTML('afterend', `
             <div class="dplayer-icon dplayer-capture-icon" aria-label="キャプチャ"
                 data-balloon-nofocus="" data-balloon-pos="up">
                 <span class="dplayer-icon-content">
@@ -84,9 +70,17 @@ class CaptureManager implements PlayerManager {
                 </span>
             </div>
         `);
-
-        // キャプチャボタンの HTML 要素を取得
         this.capture_button = this.player.container.querySelector('.dplayer-capture-icon')!;
+
+        // コメント付きキャプチャボタンの HTML を追加
+        this.capture_button.insertAdjacentHTML('afterend', `
+            <div class="dplayer-icon dplayer-comment-capture-icon" aria-label="コメントを付けてキャプチャ"
+                data-balloon-nofocus="" data-balloon-pos="up">
+                <span class="dplayer-icon-content">
+                    <svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 32 32"><path d="M16 23c-3.309 0-6-2.691-6-6s2.691-6 6-6 6 2.691 6 6-2.691 6-6 6zM16 13c-2.206 0-4 1.794-4 4s1.794 4 4 4c2.206 0 4-1.794 4-4s-1.794-4-4-4zM27 28h-22c-1.654 0-3-1.346-3-3v-16c0-1.654 1.346-3 3-3h3c0.552 0 1 0.448 1 1s-0.448 1-1 1h-3c-0.551 0-1 0.449-1 1v16c0 0.552 0.449 1 1 1h22c0.552 0 1-0.448 1-1v-16c0-0.551-0.448-1-1-1h-11c-0.552 0-1-0.448-1-1s0.448-1 1-1h11c1.654 0 3 1.346 3 3v16c0 1.654-1.346 3-3 3zM24 10.5c0 0.828 0.672 1.5 1.5 1.5s1.5-0.672 1.5-1.5c0-0.828-0.672-1.5-1.5-1.5s-1.5 0.672-1.5 1.5zM15 4c0 0.552-0.448 1-1 1h-4c-0.552 0-1-0.448-1-1v0c0-0.552 0.448-1 1-1h4c0.552 0 1 0.448 1 1v0z"></path></svg>
+                </span>
+            </div>
+        `);
         this.comment_capture_button = this.player.container.querySelector('.dplayer-comment-capture-icon')!;
 
         // キャプチャボタンがクリックされたときのイベントを登録
