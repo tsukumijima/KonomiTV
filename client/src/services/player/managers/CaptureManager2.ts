@@ -127,7 +127,7 @@ class CaptureManager implements PlayerManager {
      * キャプチャに合成する際に必要なコメント情報を生成する
      * @returns キャプチャに合成する際に必要なコメント情報
      */
-    private createCaptureCommentData(): ICaptureCommentData {
+    private createCaptureCommentData(): ICaptureCommentData | null {
 
         const capture_comment_data: ICaptureCommentData = {
             // DOM 上のコメントのコンテナ要素の幅と高さ (px)
@@ -161,6 +161,11 @@ class CaptureManager implements PlayerManager {
                 // コメントのテキスト
                 text: comment_element.textContent.trim(),  // 念のため前後の空白を削除
             });
+        }
+
+        // もしコメントが一つもなかった場合は null を返す
+        if (capture_comment_data.comments.length === 0) {
+            return null;
         }
 
         return capture_comment_data;
