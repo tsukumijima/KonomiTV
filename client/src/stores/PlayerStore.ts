@@ -51,6 +51,13 @@ export type PlayerEvents = {
 const usePlayerStore = defineStore('player', {
     state: () => ({
 
+        // 現在視聴画面を表示しているか
+        // 既定で表示していない
+        is_watching: false,
+
+        // PlayerWrapper が初期化されているか
+        is_player_initialized: false,
+
         // プレイヤーに関連するイベントを発行する EventEmitter
         event_emitter: mitt<PlayerEvents>(),
 
@@ -141,10 +148,30 @@ const usePlayerStore = defineStore('player', {
     actions: {
 
         /**
+         * 視聴画面を開き、再生処理を開始する際に必ず呼び出さなければならない
+         * 呼び出すと自動的に状態がリセットされ、is_watching が true になる
+         */
+        startWatching(): void {
+            this.reset();
+            this.is_watching = true;
+        },
+
+        /**
+         * 視聴画面を閉じ、再生処理を終了する際に必ず呼び出さなければならない
+         * 呼び出すと自動的に状態がリセットされ、is_watching が false になる
+         */
+        stopWatching(): void {
+            this.reset();
+            this.is_watching = false;
+        },
+
+        /**
          * PlayerStore の内容を初期値に戻す
-         * 視聴画面に入る/離れる際にのみ必ず呼び出すこと
+         * startWatching() / stopWatching() で呼び出される
          */
         reset(): void {
+            this.is_watching = false;
+            this.is_player_initialized = false;
             this.recorded_program = IRecordedProgramDefault;
             this.is_virtual_keyboard_display = false;
             this.is_fullscreen = false;

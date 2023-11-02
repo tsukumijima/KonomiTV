@@ -346,9 +346,9 @@ export default Vue.extend({
             this.shortcut_key_list.left_column[0].shortcuts[1].keys.unshift({name: Utils.AltOrOption(), icon: false});
         }
 
-        // PlayerStore の内容をリセット
+        // PlayerStore に視聴画面を開いたことを伝える
         // 視聴画面に入るまでに変更されているかもしれない初期値を反映させる
-        this.playerStore.reset();
+        this.playerStore.startWatching();
 
         // チャンネル ID をセット
         this.channelsStore.display_channel_id = this.$route.params.display_channel_id;
@@ -403,8 +403,8 @@ export default Vue.extend({
         // このページから離れるので、チャンネル ID を gr000 (ダミー値) に戻す
         this.channelsStore.display_channel_id = 'gr000';
 
-        // PlayerStore の内容をリセット
-        this.playerStore.reset();
+        // PlayerStore に視聴画面を閉じたことを伝える
+        this.playerStore.stopWatching();
 
         // 仮想キーボード周りの操作をブラウザに戻す
         if ('virtualKeyboard' in navigator) {

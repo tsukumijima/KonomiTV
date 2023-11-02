@@ -673,18 +673,17 @@ class KeyboardShortcutManager implements PlayerManager {
     public async destroy(): Promise<void> {
         const player_store = usePlayerStore();
 
-        // TODO: PlayerInitialized
-
         // ライブ視聴: ザッピング中のみ、ザッピングが終わるだけ待ってから非同期でキーボードショートカットイベントをキャンセルする
         // 即座にキーボードショートカットイベントをキャンセルしてしまうと、ザッピングが終わるまでキーボードショートカットが効かなくなってしまう
-        // TODO: うまく動いてない
         if (this.playback_mode === 'Live' && player_store.is_zapping === true) {
 
-            // ザッピングが終わったときに実行するウォッチャーを設定
-            const unwatch = watch(() => player_store.is_zapping, (is_zapping: boolean) => {
-                if (is_zapping === false) {
-                    // 設定したウォッチャーを削除
-                    unwatch();
+            // PlayerWrapper が初期化されているかの状態が変更されたときに実行するイベントを設定
+            // false から true に変わったときにザッピングが終わったとみなす
+            const unwatch_zapping = watch(() => player_store.is_player_initialized, (new_value, old_value) => {
+                if (old_value === false && new_value === true) {
+                    // 設定したウォッチャーを両方削除
+                    unwatch_zapping();
+                    unwatch_watching();
                     // キーボードショートカットイベントをキャンセル
                     if (this.abort_controller !== null) {
                         this.abort_controller.abort();
@@ -694,15 +693,31 @@ class KeyboardShortcutManager implements PlayerManager {
                 }
             });
 
-        // ザッピング中でなければ、同期的にキーボードショートカットイベントをキャンセル
+            // ザッピング中に視聴画面を離れたときに実行するイベントを設定
+            // 設定しておかないと視聴画面を離れてもキーボードショートカットイベントがキャンセルされない
+            // true から false に変わったときにザッピングがキャンセルされたとみなす
+            const unwatch_watching = watch(() => player_store.is_watching, (new_value, old_value) => {
+                if (old_value === true && new_value === false) {
+                    // 設定したウォッチャーを両方削除
+                    unwatch_zapping();
+                    unwatch_watching();
+                    // キーボードショートカットイベントをキャンセル
+                    if (this.abort_controller !== null) {
+                        this.abort_controller.abort();
+                        this.abort_controller = null;
+                    }
+                    console.log('[KeyboardShortcutManager] Destroyed. (Zapping canceled)');
+                }
+            });
+
+        // ザッピング中でなければ、即座にキーボードショートカットイベントをキャンセル
         } else {
             if (this.abort_controller !== null) {
                 this.abort_controller.abort();
                 this.abort_controller = null;
             }
+            console.log('[KeyboardShortcutManager] Destroyed.');
         }
-
-        console.log('[KeyboardShortcutManager] Destroyed.');
     }
 }
 

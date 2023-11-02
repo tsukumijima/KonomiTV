@@ -126,6 +126,12 @@ class PlayerWrapper {
         // 破棄済みかどうかのフラグを下ろす
         this.destroyed = false;
 
+        // PlayerStore にプレイヤーを初期化したことを通知する
+        // 実際にはこの時点ではプレイヤーの初期化は完了していないが、PlayerWrapper.init() を実行したことが通知されることが重要
+        // ライブ視聴かつザッピングを経てチャンネルが確定した場合、破棄を遅らせていた以前の PlayerWrapper に紐づく
+        // KeyboardShortcutManager がこのタイミングで破棄される
+        player_store.is_player_initialized = true;
+
         // mpegts.js を window 直下に入れる
         // こうしないと DPlayer が mpegts.js を認識できない
         (window as any).mpegts = mpegts;
@@ -1203,6 +1209,9 @@ class PlayerWrapper {
         // 破棄済みかどうかのフラグを立てる
         this.destroying = false;
         this.destroyed = true;
+
+        // PlayerStore にプレイヤーを破棄したことを通知
+        player_store.is_player_initialized = false;
 
         console.log('\u001b[31m[PlayerWrapper] Destroyed.');
     }
