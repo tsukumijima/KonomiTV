@@ -1847,24 +1847,24 @@ export default Vue.extend({
 
                             // [(「): ツイート検索タブ
                             if (event.code === 'BracketRight') {
-                                twitter_component.twitter_active_tab = 'Search';
+                                twitter_component.playerStore.twitter_active_tab = 'Search';
                                 return true;
                             }
                             // ](」): タイムラインタブ
                             if (event.code === 'Backslash') {
-                                twitter_component.twitter_active_tab = 'Timeline';
+                                twitter_component.playerStore.twitter_active_tab = 'Timeline';
                                 return true;
                             }
                             // \(￥)キー: キャプチャタブ
                             if (event.code === 'IntlRo') {
-                                twitter_component.twitter_active_tab = 'Capture';
+                                twitter_component.playerStore.twitter_active_tab = 'Capture';
                                 return true;
                             }
                         }
 
                         // Twitter タブ内のキャプチャタブが表示されている & Ctrl / Cmd / Shift / Alt のいずれも押されていないときだけ
                         // キャプチャタブが表示されている時は、プレイヤー操作側の矢印キー/スペースキーのショートカットは動作しない（キーが重複するため）
-                        if (this.tv_panel_active_tab === 'Twitter' && twitter_component.twitter_active_tab === 'Capture' &&
+                        if (this.tv_panel_active_tab === 'Twitter' && twitter_component.playerStore.twitter_active_tab === 'Capture' &&
                             (!event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey)) {
 
                             // ***** キャプチャにフォーカスする *****
@@ -2032,7 +2032,7 @@ export default Vue.extend({
 
                             // Shift + Spaceキー + キーリピートでない時 + Twitter タブ表示時 + キャプチャタブ表示時: 再生/停止
                             if (event.shiftKey === true && event.code === 'Space' && is_repeat === false &&
-                                this.tv_panel_active_tab === 'Twitter' && twitter_component.twitter_active_tab === 'Capture') {
+                                this.tv_panel_active_tab === 'Twitter' && twitter_component.playerStore.twitter_active_tab === 'Capture') {
                                 this.player.toggle();
                                 return true;
                             }

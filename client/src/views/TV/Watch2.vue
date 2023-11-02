@@ -2,13 +2,13 @@
     <div class="route-container">
         <main class="watch-container" :class="{
                 'watch-container--control-display': playerStore.is_control_display,
-                'watch-container--panel-display': Utils.isSmartphoneVertical() || Utils.isTabletVertical() ? true : is_panel_display,
+                'watch-container--panel-display': Utils.isSmartphoneVertical() || Utils.isTabletVertical() ? true : playerStore.is_panel_display,
                 'watch-container--fullscreen': playerStore.is_fullscreen,
             }">
             <nav class="watch-navigation"
-                 @mousemove="($event) => player_wrapper?.handlePlayerControlUIVisibility($event)"
-                 @touchmove="($event) => player_wrapper?.handlePlayerControlUIVisibility($event)"
-                 @click="($event) => player_wrapper?.handlePlayerControlUIVisibility($event)">
+                 @mousemove="($event) => player_wrapper?.setControlDisplayTimer($event)"
+                 @touchmove="($event) => player_wrapper?.setControlDisplayTimer($event)"
+                 @click="($event) => player_wrapper?.setControlDisplayTimer($event)">
                 <router-link v-ripple class="watch-navigation__icon" to="/tv/">
                     <img class="watch-navigation__icon-image" src="/assets/images/icon.svg" width="23px">
                 </router-link>
@@ -43,9 +43,9 @@
                 </router-link>
             </nav>
             <div class="watch-content"
-                 @mousemove="($event) => player_wrapper?.handlePlayerControlUIVisibility($event, true)"
-                 @touchmove="($event) => player_wrapper?.handlePlayerControlUIVisibility($event, true)"
-                 @click="($event) => player_wrapper?.handlePlayerControlUIVisibility($event, true)">
+                 @mousemove="($event) => player_wrapper?.setControlDisplayTimer($event, true)"
+                 @touchmove="($event) => player_wrapper?.setControlDisplayTimer($event, true)"
+                 @click="($event) => player_wrapper?.setControlDisplayTimer($event, true)">
                 <header class="watch-header">
                     <router-link class="watch-header__back-icon" v-ripple to="/tv/">
                         <Icon icon="fluent:arrow-left-12-filled" width="25px" />
@@ -75,28 +75,28 @@
                     </v-progress-circular>
                     <div class="watch-player__dplayer"></div>
                     <div class="watch-player__button"
-                         @mousemove="($event) => player_wrapper?.handlePlayerControlUIVisibility($event)"
-                         @touchmove="($event) => player_wrapper?.handlePlayerControlUIVisibility($event)"
-                         @click="($event) => player_wrapper?.handlePlayerControlUIVisibility($event)">
+                         @mousemove="($event) => player_wrapper?.setControlDisplayTimer($event)"
+                         @touchmove="($event) => player_wrapper?.setControlDisplayTimer($event)"
+                         @click="($event) => player_wrapper?.setControlDisplayTimer($event)">
                         <div v-ripple class="switch-button switch-button-up" v-tooltip.top="'前のチャンネル'"
-                            @click="is_zapping = true; $router.push({path: `/tv/watch2/${channelsStore.channel.previous.display_channel_id}`})">
+                            @click="playerStore.is_zapping = true; $router.push({path: `/tv/watch2/${channelsStore.channel.previous.display_channel_id}`})">
                             <Icon class="switch-button-icon" icon="fluent:ios-arrow-left-24-filled" width="32px" rotate="1" />
                         </div>
                         <div v-ripple class="switch-button switch-button-panel switch-button-panel--open"
-                            @click="is_panel_display = !is_panel_display">
+                            @click="playerStore.is_panel_display = !playerStore.is_panel_display">
                             <Icon class="switch-button-icon" icon="fluent:navigation-16-filled" width="32px" />
                         </div>
                         <div v-ripple class="switch-button switch-button-down" v-tooltip.bottom="'次のチャンネル'"
-                             @click="is_zapping = true; $router.push({path: `/tv/watch2/${channelsStore.channel.next.display_channel_id}`})">
+                             @click="playerStore.is_zapping = true; $router.push({path: `/tv/watch2/${channelsStore.channel.next.display_channel_id}`})">
                             <Icon class="switch-button-icon" icon="fluent:ios-arrow-right-24-filled" width="33px" rotate="1" />
                         </div>
                     </div>
                 </div>
             </div>
             <div class="watch-panel"
-                 @mousemove="($event) => player_wrapper?.handlePlayerControlUIVisibility($event)">
+                 @mousemove="($event) => player_wrapper?.setControlDisplayTimer($event)">
                 <div class="watch-panel__header">
-                    <div v-ripple class="panel-close-button" @click="is_panel_display = false">
+                    <div v-ripple class="panel-close-button" @click="playerStore.is_panel_display = false">
                         <Icon class="panel-close-button__icon" icon="akar-icons:chevron-right" width="25px" />
                         <span class="panel-close-button__text">閉じる</span>
                     </div>
@@ -109,45 +109,45 @@
                 </div>
                 <div class="watch-panel__content-container">
                     <Program class="watch-panel__content"
-                        :class="{'watch-panel__content--active': tv_panel_active_tab === 'Program'}" />
+                        :class="{'watch-panel__content--active': playerStore.tv_panel_active_tab === 'Program'}" />
                     <Channel class="watch-panel__content"
-                        :class="{'watch-panel__content--active': tv_panel_active_tab === 'Channel'}" />
+                        :class="{'watch-panel__content--active': playerStore.tv_panel_active_tab === 'Channel'}" />
                     <Comment class="watch-panel__content" :playback_mode="'Live'"
-                        :class="{'watch-panel__content--active': tv_panel_active_tab === 'Comment'}" />
+                        :class="{'watch-panel__content--active': playerStore.tv_panel_active_tab === 'Comment'}" />
                     <Twitter class="watch-panel__content" :playback_mode="'Live'"
-                        :class="{'watch-panel__content--active': tv_panel_active_tab === 'Twitter'}"
-                        @panel_folding_requested="is_panel_display = false" />
+                        :class="{'watch-panel__content--active': playerStore.tv_panel_active_tab === 'Twitter'}"
+                        @panel_folding_requested="playerStore.is_panel_display = false" />
                     <button v-ripple class="watch-panel__content-remocon-button elevation-8"
-                        :class="{'watch-panel__content-remocon-button--active': tv_panel_active_tab === 'Program' || tv_panel_active_tab === 'Channel'}"
-                        @click="is_remocon_display = !is_remocon_display">
+                        :class="{'watch-panel__content-remocon-button--active': playerStore.tv_panel_active_tab === 'Program' || playerStore.tv_panel_active_tab === 'Channel'}"
+                        @click="playerStore.is_remocon_display = !playerStore.is_remocon_display">
                         <Icon class="panel-close-button__icon" icon="material-symbols:remote-gen" width="25px" />
                     </button>
                     <Remocon class="watch-panel__remocon"
-                        :showing="(tv_panel_active_tab === 'Program' || tv_panel_active_tab === 'Channel') && is_remocon_display === true"
-                        @close="is_remocon_display = false" />
+                        :showing="(playerStore.tv_panel_active_tab === 'Program' || playerStore.tv_panel_active_tab === 'Channel') && playerStore.is_remocon_display === true"
+                        @close="playerStore.is_remocon_display = false" />
                 </div>
                 <div class="watch-panel__navigation">
                     <div v-ripple class="panel-navigation-button"
-                         :class="{'panel-navigation-button--active': tv_panel_active_tab === 'Program'}"
-                         @click="tv_panel_active_tab = 'Program'">
+                         :class="{'panel-navigation-button--active': playerStore.tv_panel_active_tab === 'Program'}"
+                         @click="playerStore.tv_panel_active_tab = 'Program'">
                         <Icon class="panel-navigation-button__icon" icon="fa-solid:info-circle" width="33px" />
                         <span class="panel-navigation-button__text">番組情報</span>
                     </div>
                     <div v-ripple class="panel-navigation-button"
-                         :class="{'panel-navigation-button--active': tv_panel_active_tab === 'Channel'}"
-                         @click="tv_panel_active_tab = 'Channel'">
+                         :class="{'panel-navigation-button--active': playerStore.tv_panel_active_tab === 'Channel'}"
+                         @click="playerStore.tv_panel_active_tab = 'Channel'">
                         <Icon class="panel-navigation-button__icon" icon="fa-solid:broadcast-tower" width="34px" />
                         <span class="panel-navigation-button__text">チャンネル</span>
                     </div>
                     <div v-ripple class="panel-navigation-button"
-                         :class="{'panel-navigation-button--active': tv_panel_active_tab === 'Comment'}"
-                         @click="tv_panel_active_tab = 'Comment'">
+                         :class="{'panel-navigation-button--active': playerStore.tv_panel_active_tab === 'Comment'}"
+                         @click="playerStore.tv_panel_active_tab = 'Comment'">
                         <Icon class="panel-navigation-button__icon" icon="bi:chat-left-text-fill" width="29px" />
                         <span class="panel-navigation-button__text">コメント</span>
                     </div>
                     <div v-ripple class="panel-navigation-button"
-                         :class="{'panel-navigation-button--active': tv_panel_active_tab === 'Twitter'}"
-                         @click="tv_panel_active_tab = 'Twitter'">
+                         :class="{'panel-navigation-button--active': playerStore.tv_panel_active_tab === 'Twitter'}"
+                         @click="playerStore.tv_panel_active_tab = 'Twitter'">
                         <Icon class="panel-navigation-button__icon" icon="fa-brands:twitter" width="34px" />
                         <span class="panel-navigation-button__text">Twitter</span>
                     </div>
@@ -233,36 +233,10 @@ export default Vue.extend({
             // 現在時刻
             time: dayjs().format('YYYY/MM/DD HH:mm:ss'),
 
-            // 表示されるパネルのタブ
-            tv_panel_active_tab: useSettingsStore().settings.tv_panel_active_tab,
-
-            // パネルを表示するか
-            // panel_display_state が 'AlwaysDisplay' なら常に表示し、'AlwaysFold' なら常に折りたたむ
-            // 'RestorePreviousState' なら showed_panel_last_time の値を使い､前回の状態を復元する
-            is_panel_display: (() => {
-                const settings_store = useSettingsStore();
-                switch (settings_store.settings.panel_display_state) {
-                    case 'AlwaysDisplay':
-                        return true;
-                    case 'AlwaysFold':
-                        return false;
-                    case 'RestorePreviousState':
-                        return settings_store.settings.showed_panel_last_time;
-                }
-            })() as boolean,
-
-            // リモコンを表示するか
-            is_remocon_display: false,
-
             // インターバル ID
             // ページ遷移時に setInterval(), setTimeout() の実行を止めるのに使う
             // setInterval(), setTimeout() の返り値を登録する
             interval_ids: [] as number[],
-
-            // ***** チャンネル *****
-
-            // ザッピング（「前/次のチャンネル」ボタン or 上下キーショートカット）によるチャンネル移動かどうか
-            is_zapping: false,
 
             // ***** プレイヤー *****
 
@@ -306,6 +280,7 @@ export default Vue.extend({
                             { name: '映像をコメントを付けてキャプチャする', keys: [{name: 'V', icon: false}] },
                             { name: 'コメント入力フォームにフォーカスする', keys: [{name: 'M', icon: false}] },
                             { name: 'コメント入力フォームを閉じる', keys: [{name: Utils.CtrlOrCmd(), icon: false}, {name: 'M', icon: false}] },
+                            { name: 'コメントを送信する', keys: [{name: 'コメント入力フォームを表示', icon: false}, {name: 'Enter', icon: false}] },
                         ]
                     },
                 ],
@@ -348,7 +323,7 @@ export default Vue.extend({
         ...mapStores(useChannelsStore, usePlayerStore, useSettingsStore),
     },
     // 開始時に実行
-    async created() {
+    created() {
 
         // Virtual Keyboard API に対応している場合は、仮想キーボード周りの操作を自力で行うことをブラウザに伝える
         // この視聴画面のみ
@@ -371,30 +346,15 @@ export default Vue.extend({
             this.shortcut_key_list.left_column[0].shortcuts[1].keys.unshift({name: Utils.AltOrOption(), icon: false});
         }
 
+        // PlayerStore の内容をリセット
+        // 視聴画面に入るまでに変更されているかもしれない初期値を反映させる
+        this.playerStore.reset();
+
         // チャンネル ID をセット
         this.channelsStore.display_channel_id = this.$route.params.display_channel_id;
 
         // 再生セッションを初期化
         this.init();
-    },
-    // 終了前に実行
-    beforeDestroy() {
-
-        // destroy() を実行
-        // 別のページへ遷移するため、DPlayer のインスタンスを確実に破棄する
-        // さもなければ、ブラウザがリロードされるまでバックグラウンドで永遠に再生され続けてしまう
-        // 不正な ID のため 404 ページに遷移されるときは実行しない
-        if (this.channelsStore.channel.current.display_channel_id !== 'gr999') {
-            this.destroy();
-        }
-
-        // このページから離れるので、チャンネル ID を gr000 (ダミー値) に戻す
-        this.channelsStore.display_channel_id = 'gr000';
-
-        // 仮想キーボード周りの操作をブラウザに戻す
-        if ('virtualKeyboard' in navigator) {
-            navigator.virtualKeyboard.overlaysContent = false;
-        }
     },
     // チャンネル切り替え時に実行
     // コンポーネント（インスタンス）は再利用される
@@ -414,8 +374,8 @@ export default Vue.extend({
             // ザッピング（「前/次のチャンネル」ボタン or 上下キーショートカット）によるチャンネル移動時のみ、
             // 0.5秒だけ待ってから新しい再生セッションを初期化する
             // 連続してチャンネルを切り替えた際に毎回再生処理を開始しないように猶予を設ける
-            if (this.is_zapping === true) {
-                this.is_zapping = false;
+            if (this.playerStore.is_zapping === true) {
+                this.playerStore.is_zapping = false;
                 this.interval_ids.push(window.setTimeout(() => {
                     destroy_promise.then(() => this.init());  // destroy() の実行完了を待ってから初期化する
                 }, 0.5 * 1000));
@@ -429,10 +389,34 @@ export default Vue.extend({
         // 次のルートに置き換え
         next();
     },
+    // 終了前に実行
+    beforeDestroy() {
+
+        // destroy() を実行
+        // 別のページへ遷移するため、DPlayer のインスタンスを確実に破棄する
+        // さもなければ、ブラウザがリロードされるまでバックグラウンドで永遠に再生され続けてしまう
+        // 不正な ID のため 404 ページに遷移されるときは実行しない
+        if (this.channelsStore.channel.current.display_channel_id !== 'gr999') {
+            this.destroy();
+        }
+
+        // このページから離れるので、チャンネル ID を gr000 (ダミー値) に戻す
+        this.channelsStore.display_channel_id = 'gr000';
+
+        // PlayerStore の内容をリセット
+        this.playerStore.reset();
+
+        // 仮想キーボード周りの操作をブラウザに戻す
+        if ('virtualKeyboard' in navigator) {
+            navigator.virtualKeyboard.overlaysContent = false;
+        }
+    },
     watch: {
-        // 前回視聴画面を開いた際にパネルが表示されていたかどうかを保存
-        is_panel_display() {
-            this.settingsStore.settings.showed_panel_last_time = this.is_panel_display;
+        // 前回視聴画面を開いた際にパネルが表示されていたかどうかを随時保存する
+        'playerStore.is_panel_display': {
+            handler() {
+                this.settingsStore.settings.showed_panel_last_time = this.playerStore.is_panel_display;
+            }
         }
     },
     methods: {

@@ -4,6 +4,8 @@ import assert from 'assert';
 import DPlayer, { DPlayerType } from 'dplayer';
 import mpegts from 'mpegts.js';
 
+import KeyboardShortcutManager from './managers/KeyboardShortcutManager';
+
 import APIClient from '@/services/APIClient';
 import CaptureManager from '@/services/player/managers/CaptureManager2';
 import LiveCommentManager from '@/services/player/managers/LiveCommentManager2';
@@ -57,7 +59,7 @@ class PlayerWrapper {
     // 保持しておかないと disconnect() で ResizeObserver を止められない
     private player_container_resize_observer: ResizeObserver | null = null;
 
-    // handlePlayerControlUIVisibility() で利用するタイマー ID
+    // setControlDisplayTimer() で利用するタイマー ID
     // 保持しておかないと clearTimeout() でタイマーを止められない
     private player_control_ui_hide_timer_id: number = 0;
 
@@ -395,7 +397,7 @@ class PlayerWrapper {
         (window as any).player = this.player;
 
         // DPlayer 側のコントロール UI 非表示タイマーを無効化（上書き）
-        // 無効化しておかないと、PlayerWrapper.handlePlayerControlUIVisibility() の処理と競合してしまう
+        // 無効化しておかないと、PlayerWrapper.setControlDisplayTimer() の処理と競合してしまう
         // 上書き元のコードは https://github.com/tsukumijima/DPlayer/blob/v1.30.2/src/ts/controller.ts#L397-L405 にある
         this.player.controller.setAutoHide = (time: number) => {};
 
@@ -412,13 +414,13 @@ class PlayerWrapper {
         this.setupPlayerContainerResizeHandler();
 
         // プレイヤーのコントロール UI を表示する (初回実行)
-        this.handlePlayerControlUIVisibility();
+        this.setControlDisplayTimer();
 
         // UI コンポーネントからプレイヤーに通知メッセージの送信を要求されたときのイベントハンドラーを登録する
         // このイベントは常にアプリケーション上で1つだけ登録されていなければならない
         player_store.event_emitter.off('SendNotification');  // SendNotification イベントの全てのイベントハンドラーを削除
-        player_store.event_emitter.on('SendNotification', async (event) => {
-            assert(this.player !== null);
+        player_store.event_emitter.on('SendNotification', (event) => {
+            if (this.player === null) return;
             this.player.notice(event.message, event.duration, event.opacity, event.color);
         });
 
@@ -463,6 +465,13 @@ class PlayerWrapper {
             is_player_restarting = false;
         });
 
+        // PlayerWrapper.setControlDisplayTimer() の呼び出しを要求されたときのイベントハンドラーを登録する
+        // このイベントは常にアプリケーション上で1つだけ登録されていなければならない
+        player_store.event_emitter.off('SetControlDisplayTimer');  // SetControlDisplayTimer イベントの全てのイベントハンドラーを削除
+        player_store.event_emitter.on('SetControlDisplayTimer', (event) => {
+            this.setControlDisplayTimer();
+        });
+
         // プレイヤー再起動ボタンを DPlayer の UI に追加する (再生が止まった際などに利用する想定)
         // insertAdjacentHTML で .dplayer-icons-right の一番左側に配置する
         this.player.container.querySelector('.dplayer-icons.dplayer-icons-right')!.insertAdjacentHTML('afterbegin', `
@@ -489,12 +498,14 @@ class PlayerWrapper {
                 new LiveCommentManager(this.player),
                 new LiveDataBroadcastingManager(this.player),
                 new CaptureManager(this.player, this.playback_mode),
+                new KeyboardShortcutManager(this.player, this.playback_mode),
                 new MediaSessionManager(this.player, this.playback_mode),
             ];
         } else {
             // ビデオ視聴時に設定する PlayerManager
             this.player_managers = [
                 new CaptureManager(this.player, this.playback_mode),
+                new KeyboardShortcutManager(this.player, this.playback_mode),
                 new MediaSessionManager(this.player, this.playback_mode),
             ];
         }
@@ -616,7 +627,7 @@ class PlayerWrapper {
             // まだ設定パネルが表示されていたら非表示にする
             this.player.setting.hide();
             // プレイヤーのコントロール UI を表示する
-            this.handlePlayerControlUIVisibility();
+            this.setControlDisplayTimer();
         };
         this.player.on('play', on_play_or_pause);
         this.player.on('pause', on_play_or_pause);
@@ -813,9 +824,10 @@ class PlayerWrapper {
         // 動画の統計情報の表示/非表示を切り替える隠しコマンドのイベントハンドラーを登録
         // iOS / iPadOS Safari では DPlayer 側の contextmenu が長押ししても発火しないため、代替の表示手段として用意
         // 番組情報タブ内の NEXT >> を 500ms 以内に3回連続でタップすると統計情報の表示/非表示が切り替わる
+        // イベントを重複定義しないように、あえて ontouchstart を使う
         let tap_count = 0;
         let last_tap = 0;
-        document.querySelector<HTMLDivElement>('.program-info__next')!.addEventListener('touchstart', () => {
+        document.querySelector<HTMLDivElement>('.program-info__next')!.ontouchstart = () => {
             if (this.player === null) return;
             const current_time = new Date().getTime();
             const time_difference = current_time - last_tap;
@@ -827,7 +839,7 @@ class PlayerWrapper {
                 }
             }
             last_tap = current_time;
-        });
+        };
     }
 
 
@@ -1015,14 +1027,14 @@ class PlayerWrapper {
 
 
     /**
-     * マウスが動いたりタップされた時に実行するタイマー関数
      * 一定の条件に基づいてプレイヤーのコントロール UI の表示状態を切り替える
-     * 3秒間何も操作がなければプレイヤーのコントロール UI を非表示にする
+     * マウスが動いたりタップされた時に実行するタイマー関数で、3秒間何も操作がなければプレイヤーのコントロール UI を非表示にする
      * 本来は View 側に実装すべきだが、プレイヤー側のロジックとも密接に関連しているため PlayerWrapper に実装した
      * @param event マウスやタッチイベント (手動実行する際は null を渡すか省略する)
      * @param is_player_region_event プレイヤー画面の中で発火したイベントなら true に設定する
      */
-    public handlePlayerControlUIVisibility(event: Event | null = null, is_player_region_event: boolean = false): void {
+    public setControlDisplayTimer(event: Event | null = null, is_player_region_event: boolean = false): void {
+        const player_store = usePlayerStore();
 
         // タッチデバイスで mousemove 、あるいはタッチデバイス以外で touchmove か click が発火した時は実行じない
         if (Utils.isTouchDevice() === true  && event !== null && (event.type === 'mousemove')) return;
@@ -1030,8 +1042,6 @@ class PlayerWrapper {
 
         // 以前セットされたタイマーを止める
         window.clearTimeout(this.player_control_ui_hide_timer_id);
-
-        const player_store = usePlayerStore();
 
         // 実行された際にプレイヤーのコントロール UI を非表示にするタイマー関数 (setTimeout に渡すコールバック関数)
         const player_control_ui_hide_timer = () => {

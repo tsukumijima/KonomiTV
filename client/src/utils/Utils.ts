@@ -61,22 +61,20 @@ export default class Utils {
     /**
      * ブラウザが実行されている OS に応じて、"Alt" または "Option" を返す
      * キーボードショートカットのコンビネーションキーの説明を OS によって分けるために使う
-     * @returns ブラウザが実行されている OS が Mac なら Option を、それ以外なら Alt を返す
+     * @returns ブラウザが実行されている OS が macOS なら Option を、それ以外なら Alt を返す
      */
     static AltOrOption(): 'Alt' | 'Option' {
-        // iPhone・iPad で純正キーボードを接続した場合も一応想定して、iPhone・iPad も含める（動くかは未検証）
-        return /iPhone|iPad|Macintosh/i.test(navigator.userAgent) ? 'Option' : 'Alt';
+        return Utils.isMacOS() ? 'Option' : 'Alt';
     }
 
 
     /**
      * ブラウザが実行されている OS に応じて、"Ctrl" または "Cmd" を返す
      * キーボードショートカットのコンビネーションキーの説明を OS によって分けるために使う
-     * @returns ブラウザが実行されている OS が Mac なら Cmd を、それ以外なら Ctrl を返す
+     * @returns ブラウザが実行されている OS が macOS なら Cmd を、それ以外なら Ctrl を返す
      */
     static CtrlOrCmd(): 'Ctrl' | 'Cmd' {
-        // iPhone・iPad で純正キーボードを接続した場合も一応想定して、iPhone・iPad も含める（動くかは未検証）
-        return /iPhone|iPad|Macintosh/i.test(navigator.userAgent) ? 'Cmd' : 'Ctrl';
+        return Utils.isMacOS() ? 'Cmd' : 'Ctrl';
     }
 
 
@@ -162,6 +160,17 @@ export default class Utils {
      */
     static isFirefox(): boolean {
         return /Firefox/i.test(navigator.userAgent);
+    }
+
+
+    /**
+     * デバイスの OS が macOS かどうか
+     * キーボードショートカットで使うキーを OS によって分けるために使う
+     * @returns デバイスの OS が macOS なら true を返す
+     */
+    static isMacOS(): boolean {
+        // iPhone・iPad で純正キーボードを接続した場合も一応想定して、iPhone・iPad も含める
+        return /iPhone|iPad|Macintosh/i.test(navigator.userAgent);
     }
 
 

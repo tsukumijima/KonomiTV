@@ -10,17 +10,17 @@
             </div>
         </v-dialog>
         <div class="tab-container">
-            <div class="tab-content tab-content--search" :class="{'tab-content--active': twitter_active_tab === 'Search'}">
+            <div class="tab-content tab-content--search" :class="{'tab-content--active': playerStore.twitter_active_tab === 'Search'}">
                 <div class="search px-4">
                     リアルタイム検索機能は鋭意開発中です。
                 </div>
             </div>
-            <div class="tab-content tab-content--timeline" :class="{'tab-content--active': twitter_active_tab === 'Timeline'}">
+            <div class="tab-content tab-content--timeline" :class="{'tab-content--active': playerStore.twitter_active_tab === 'Timeline'}">
                 <div class="search px-4">
                     タイムライン機能は鋭意開発中です。
                 </div>
             </div>
-            <div class="tab-content tab-content--capture" :class="{'tab-content--active': twitter_active_tab === 'Capture'}">
+            <div class="tab-content tab-content--capture" :class="{'tab-content--active': playerStore.twitter_active_tab === 'Capture'}">
                 <div class="captures">
                     <div class="capture" :class="{
                             'capture--selected': capture.selected,
@@ -52,18 +52,18 @@
             </div>
         </div>
         <div class="tab-button-container">
-            <div v-ripple class="tab-button" :class="{'tab-button--active': twitter_active_tab === 'Search'}"
-                @click="twitter_active_tab = 'Search'">
+            <div v-ripple class="tab-button" :class="{'tab-button--active': playerStore.twitter_active_tab === 'Search'}"
+                @click="playerStore.twitter_active_tab = 'Search'">
                 <Icon icon="fluent:search-16-filled" height="18px" />
                 <span class="tab-button__text">ツイート検索</span>
             </div>
-            <div v-ripple class="tab-button" :class="{'tab-button--active': twitter_active_tab === 'Timeline'}"
-                @click="twitter_active_tab = 'Timeline'">
+            <div v-ripple class="tab-button" :class="{'tab-button--active': playerStore.twitter_active_tab === 'Timeline'}"
+                @click="playerStore.twitter_active_tab = 'Timeline'">
                 <Icon icon="fluent:home-16-regular" height="18px" />
                 <span class="tab-button__text">タイムライン</span>
             </div>
-            <div v-ripple class="tab-button" :class="{'tab-button--active': twitter_active_tab === 'Capture'}"
-                @click="twitter_active_tab = 'Capture'">
+            <div v-ripple class="tab-button" :class="{'tab-button--active': playerStore.twitter_active_tab === 'Capture'}"
+                @click="playerStore.twitter_active_tab = 'Capture'">
                 <Icon icon="fluent:image-copy-20-regular" height="18px" />
                 <span class="tab-button__text">キャプチャ</span>
             </div>
@@ -235,9 +235,6 @@ export default Vue.extend({
 
             // ハッシュタグリストを表示しているか
             is_hashtag_list_display: false,
-
-            // デフォルトで表示される Twitter タブ内のタブ
-            twitter_active_tab: useSettingsStore().settings.twitter_active_tab,
 
             // キャプチャを拡大表示するモーダルの表示状態
             zoom_capture_modal: false,

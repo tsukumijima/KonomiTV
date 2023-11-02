@@ -4,6 +4,7 @@ import { defineStore } from 'pinia';
 
 import { ICommentData } from '@/services/player/managers/LiveCommentManager2';
 import { IRecordedProgram, IRecordedProgramDefault } from '@/services/Videos';
+import useSettingsStore from '@/stores/SettingsStore';
 
 
 /**
@@ -23,6 +24,8 @@ export type PlayerEvents = {
     PlayerRestartRequired: {
         message: string;  // プレイヤーに通知するメッセージ
     };
+    // PlayerWrapper.setControlDisplayTimer() をそのまま呼び出す
+    SetControlDisplayTimer: void;
     // CaptureManager からキャプチャの撮影が完了したことを通知する
     CaptureCompleted: {
         capture: Blob;  // キャプチャの Blob
@@ -54,15 +57,42 @@ const usePlayerStore = defineStore('player', {
         // 視聴中の録画番組がない場合は IRecordedProgramDefault を設定すべき (初期値も IRecordedProgramDefault にしている)
         recorded_program: IRecordedProgramDefault as IRecordedProgram,
 
-        // コントロールを表示するか (既定で表示する)
-        is_control_display: true,
+        // 仮想キーボードが表示されているか
+        // 既定で表示されていない想定
+        is_virtual_keyboard_display: false,
 
         // フルスクリーン状態かどうか
         is_fullscreen: false,
 
-        // 仮想キーボードが表示されているか
-        // 既定で表示されていない想定
-        is_virtual_keyboard_display: false,
+        // コントロールを表示するか
+        is_control_display: true,
+
+        // パネルを表示するか
+        // panel_display_state が "AlwaysDisplay" なら常に表示し、"AlwaysFold" なら常に折りたたむ
+        // "RestorePreviousState" なら showed_panel_last_time の値を使い､前回の状態を復元する
+        is_panel_display: (() => {
+            const settings_store = useSettingsStore();
+            switch (settings_store.settings.panel_display_state) {
+                case 'AlwaysDisplay':
+                    return true;
+                case 'AlwaysFold':
+                    return false;
+                case 'RestorePreviousState':
+                    return settings_store.settings.showed_panel_last_time;
+            }
+        })(),
+
+        // ライブ視聴: 表示されるパネルのタブ
+        tv_panel_active_tab: useSettingsStore().settings.tv_panel_active_tab,
+
+        // パネルの Twitter タブ内で表示されるタブ
+        twitter_active_tab: useSettingsStore().settings.twitter_active_tab,
+
+        // リモコンを表示するか
+        is_remocon_display: false,
+
+        // ザッピング（「前/次のチャンネル」ボタン or 上下キーショートカット）によるチャンネル移動かどうか
+        is_zapping: false,
 
         // プレイヤーのローディング状態
         // 既定でローディングとする
@@ -95,6 +125,42 @@ const usePlayerStore = defineStore('player', {
         // null のとき、エラーは発生していないとみなす
         live_comment_init_failed_message: null as string | null,
     }),
+    actions: {
+
+        /**
+         * PlayerStore の内容を初期値に戻す
+         * 視聴画面に入る/離れる際に必ず呼び出すこと
+         */
+        reset(): void {
+            this.recorded_program = IRecordedProgramDefault;
+            this.is_virtual_keyboard_display = false;
+            this.is_fullscreen = false;
+            this.is_control_display = true;
+            this.is_panel_display = (() => {
+                const settings_store = useSettingsStore();
+                switch (settings_store.settings.panel_display_state) {
+                    case 'AlwaysDisplay':
+                        return true;
+                    case 'AlwaysFold':
+                        return false;
+                    case 'RestorePreviousState':
+                        return settings_store.settings.showed_panel_last_time;
+                }
+            })();
+            this.tv_panel_active_tab = useSettingsStore().settings.tv_panel_active_tab;
+            this.twitter_active_tab = useSettingsStore().settings.twitter_active_tab;
+            this.is_remocon_display = false;
+            this.is_zapping = false;
+            this.is_loading = true;
+            this.is_video_buffering = true;
+            this.is_video_paused = false;
+            this.is_background_display = false;
+            this.background_url = '';
+            this.shortcut_key_modal = false;
+            this.live_stream_status = null;
+            this.live_comment_init_failed_message = null;
+        }
+    }
 });
 
 export default usePlayerStore;
