@@ -2,6 +2,7 @@
 import mitt from 'mitt';
 import { defineStore } from 'pinia';
 
+import { ITweetCapture } from '@/components/Panel/Twitter.vue';
 import { ICommentData } from '@/services/player/managers/LiveCommentManager2';
 import { IRecordedProgram, IRecordedProgramDefault } from '@/services/Videos';
 import useSettingsStore from '@/stores/SettingsStore';
@@ -124,12 +125,24 @@ const usePlayerStore = defineStore('player', {
         // ライブ視聴: ニコニコ実況への接続に失敗した際のエラーメッセージ
         // null のとき、エラーは発生していないとみなす
         live_comment_init_failed_message: null as string | null,
+
+        // Twitter パネルコンポーネントで利用する、ツイート添付候補のキャプチャのリスト
+        // UI 上と KeyboardShortcutManager の両方から操作する必要があるため PlayerStore に持たせている
+        twitter_captures: [] as ITweetCapture[],
+
+        // Twitter パネルコンポーネントで利用する、キャプチャを拡大表示するモーダルの表示状態
+        // UI 上と KeyboardShortcutManager の両方から操作する必要があるため PlayerStore に持たせている
+        twitter_zoom_capture_modal: false,
+
+        // Twitter パネルコンポーネントで利用する、現在モーダルで拡大表示中のキャプチャ
+        // UI 上と KeyboardShortcutManager の両方から操作する必要があるため PlayerStore に持たせている
+        twitter_zoom_capture: null as ITweetCapture | null,
     }),
     actions: {
 
         /**
          * PlayerStore の内容を初期値に戻す
-         * 視聴画面に入る/離れる際に必ず呼び出すこと
+         * 視聴画面に入る/離れる際にのみ必ず呼び出すこと
          */
         reset(): void {
             this.recorded_program = IRecordedProgramDefault;
@@ -159,6 +172,9 @@ const usePlayerStore = defineStore('player', {
             this.shortcut_key_modal = false;
             this.live_stream_status = null;
             this.live_comment_init_failed_message = null;
+            this.twitter_captures = [];
+            this.twitter_zoom_capture_modal = false;
+            this.twitter_zoom_capture = null;
         }
     }
 });

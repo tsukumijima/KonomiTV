@@ -1,10 +1,13 @@
 <template>
     <div class="twitter-container">
-        <v-dialog content-class="zoom-capture-modal-container" max-width="980" transition="slide-y-transition" v-model="zoom_capture_modal">
+        <v-dialog content-class="zoom-capture-modal-container" max-width="980" transition="slide-y-transition"
+            v-model="playerStore.twitter_zoom_capture_modal">
             <div class="zoom-capture-modal">
-                <img class="zoom-capture-modal__image" :src="zoom_capture ? zoom_capture.image_url: ''">
+                <img class="zoom-capture-modal__image"
+                    :src="playerStore.twitter_zoom_capture ? playerStore.twitter_zoom_capture.image_url: ''">
                 <a v-ripple class="zoom-capture-modal__download"
-                    :href="zoom_capture ? zoom_capture.image_url : ''" :download="zoom_capture ? zoom_capture.filename : ''">
+                    :href="playerStore.twitter_zoom_capture ? playerStore.twitter_zoom_capture.image_url : ''"
+                    :download="playerStore.twitter_zoom_capture ? playerStore.twitter_zoom_capture.filename : ''">
                     <Icon icon="fa6-solid:download" width="45px" />
                 </a>
             </div>
@@ -27,7 +30,7 @@
                             'capture--focused': capture.focused,
                             'capture--disabled': !capture.selected && tweet_captures.length >= 4,
                         }"
-                        v-for="capture in captures" :key="capture.image_url"
+                        v-for="capture in playerStore.twitter_captures" :key="capture.image_url"
                         @click="clickCapture(capture)">
                         <img class="capture__image" :src="capture.image_url">
                         <div class="capture__disabled-cover"></div>
@@ -36,13 +39,13 @@
                         <div class="capture__selected-border"></div>
                         <div class="capture__focused-border"></div>
                         <div v-ripple class="capture__zoom"
-                            @click.prevent.stop="zoom_capture_modal = true; zoom_capture = capture"
+                            @click.prevent.stop="playerStore.twitter_zoom_capture_modal = true; playerStore.twitter_zoom_capture = capture"
                             @mousedown.prevent.stop="/* 親要素の波紋が広がらないように */">
                             <Icon icon="fluent:zoom-in-16-regular" width="32px" />
                         </div>
                     </div>
                 </div>
-                <div class="capture-announce" v-show="captures.length === 0">
+                <div class="capture-announce" v-show="playerStore.twitter_captures.length === 0">
                     <div class="capture-announce__heading">まだキャプチャがありません。</div>
                     <div class="capture-announce__text">
                         <p class="mt-0 mb-0">プレイヤーのキャプチャボタンやショートカットキーでキャプチャを撮ると、ここに表示されます。</p>
@@ -186,7 +189,7 @@ import useUserStore from '@/stores/UserStore';
 import Utils from '@/utils';
 
 // このコンポーネント内でのキャプチャのインターフェイス
-interface ITweetCapture {
+export interface ITweetCapture {
     blob: Blob;
     filename: string;
     image_url: string;
@@ -235,15 +238,6 @@ export default Vue.extend({
 
             // ハッシュタグリストを表示しているか
             is_hashtag_list_display: false,
-
-            // キャプチャを拡大表示するモーダルの表示状態
-            zoom_capture_modal: false,
-
-            // 現在モーダルで拡大表示中のキャプチャのオブジェクト
-            zoom_capture: null as ITweetCapture | null,
-
-            // キャプチャリスト
-            captures: [] as ITweetCapture[],
 
             // キャプチャリストの要素
             captures_element: null as HTMLDivElement | null,
@@ -319,7 +313,7 @@ export default Vue.extend({
     beforeDestroy() {
 
         // 終了前にすべてのキャプチャの Blob URL を revoke してリソースを解放する
-        for (const capture of this.captures) {
+        for (const capture of this.playerStore.twitter_captures) {
             URL.revokeObjectURL(capture.image_url);
         }
 
@@ -474,15 +468,15 @@ export default Vue.extend({
 
             // 撮ったキャプチャが 100 枚を超えていたら、重くなるので古いものから削除する
             // 削除する前に Blob URL を revoke してリソースを解放するのがポイント
-            if (this.captures.length > 100) {
-                URL.revokeObjectURL(this.captures[0].image_url);
-                this.tweet_captures = this.tweet_captures.filter(blob => blob !== this.captures[0].blob);
-                this.captures.shift();
+            if (this.playerStore.twitter_captures.length > 100) {
+                URL.revokeObjectURL(this.playerStore.twitter_captures[0].image_url);
+                this.tweet_captures = this.tweet_captures.filter(blob => blob !== this.playerStore.twitter_captures[0].blob);
+                this.playerStore.twitter_captures.shift();
             }
 
             // キャプチャリストにキャプチャを追加
             const blob_url = URL.createObjectURL(blob);
-            this.captures.push({
+            this.playerStore.twitter_captures.push({
                 blob: blob,
                 filename: filename,
                 image_url: blob_url,
@@ -742,7 +736,7 @@ export default Vue.extend({
             // 送信した感を出す意味合いもある
             this.tweet_text = '';
             this.updateTweetLetterCount();
-            for (const capture of this.captures) {
+            for (const capture of this.playerStore.twitter_captures) {
                 capture.selected = false;
                 capture.focused = false;
             }

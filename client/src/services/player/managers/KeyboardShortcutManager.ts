@@ -295,7 +295,7 @@ class KeyboardShortcutManager implements PlayerManager {
 
             // ***** 特殊な処理を行うキーボードショートカットの処理 *****
 
-            // 1~9, 0, -(=), ^(~): (ライブ視聴のみ) チャンネル切り替え
+            // 1~9, 0, -(=), ^(~): (ライブ視聴のみ) 押されたキーに対応するチャンネルに切り替える
             // チャンネル選局のキーボードショートカットを Alt or Option + 数字キー/テンキーに変更する設定が有効なときは、
             // Alt or Option キーが押されていることを条件に追加する
             // フォーカスが input or textarea にあるときは誤動作防止のため無効化
@@ -467,8 +467,152 @@ class KeyboardShortcutManager implements PlayerManager {
                 return;
             }
 
+            // Twitter タブ内のキャプチャタブ専用の、キャプチャ選択操作用キーボードショートカット
+            // キーリピート状態でも実行する
+            // パネルが表示されていて、かつパネルで Twitter タブが表示されていて、Twitter タブ内でキャプチャタブが表示されているときのみ有効
+            // この場合キーが重複するため、通常プレイヤー操作に割り当てられている矢印キー/スペースキーのショートカットは動作しない
+            // フォーカスが input or textarea にあるときは誤動作防止のため無効化
+            if ((is_ctrl_or_cmd_pressed === false) &&
+                (is_shift_pressed === false) &&
+                (is_alt_pressed === false) &&
+                (player_store.is_panel_display === true) &&
+                (panel_active_tab === 'Twitter') &&
+                (player_store.twitter_active_tab === 'Capture') &&
+                (is_form_focused === false)) {
 
+                // 無名関数の中で実行し、戻り値が true の場合のみ既定のキーボードショートカットイベントをキャンセルする
+                // 途中で処理を中断した場合も、そのキーのイベントを処理していたら（誤作動防止のため）既定のイベントをキャンセルする
+                // 戻り値が false になるのは上記条件は満たしつつも、操作対象のキーが押されていない場合のみ
+                const result = ((): boolean => {
 
+                    // 上下左右キー: キャプチャのフォーカスを移動する
+                    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) {
+
+                        // キャプチャリストに一枚もキャプチャがない
+                        if (player_store.twitter_captures.length === 0) return true;
+
+                        // まだどのキャプチャにもフォーカスされていない場合は、一番新しいキャプチャにフォーカスして終了
+                        if (player_store.twitter_captures.some(capture => capture.focused === true) === false) {
+                            player_store.twitter_captures[player_store.twitter_captures.length - 1].focused = true;
+                            return true;
+                        }
+
+                        // 現在フォーカスされているキャプチャのインデックスを取得
+                        const focused_capture_index = player_store.twitter_captures.findIndex(capture => capture.focused === true);
+
+                        // ↑キー: 2つ前のキャプチャにフォーカスする
+                        // キャプチャリストは2列で並んでいるので、2つ後のキャプチャが現在フォーカスされているキャプチャの直上になる
+                        if (event.code === 'ArrowUp') {
+                            // 2つ前のキャプチャがないなら実行しない
+                            if (focused_capture_index - 2 < 0) return true;
+                            player_store.twitter_captures[focused_capture_index - 2].focused = true;
+                        }
+
+                        // ↓キー: 2つ後のキャプチャにフォーカスする
+                        // キャプチャリストは2列で並んでいるので、2つ後のキャプチャが現在フォーカスされているキャプチャの直下になる
+                        if (event.code === 'ArrowDown') {
+                            // 2つ後のキャプチャがないなら実行しない
+                            if (focused_capture_index + 2 > (player_store.twitter_captures.length - 1)) return true;
+                            player_store.twitter_captures[focused_capture_index + 2].focused = true;
+                        }
+
+                        // ←キー: 1つ前のキャプチャにフォーカスする
+                        if (event.code === 'ArrowLeft') {
+                            // 1つ前のキャプチャがないなら実行しない
+                            if (focused_capture_index - 1 < 0) return true;
+                            player_store.twitter_captures[focused_capture_index - 1].focused = true;
+                        }
+
+                        // ←キー: 1つ後のキャプチャにフォーカスする
+                        if (event.code === 'ArrowRight') {
+                            // 1つ後のキャプチャがないなら実行しない
+                            if (focused_capture_index + 1 > (player_store.twitter_captures.length - 1)) return true;
+                            player_store.twitter_captures[focused_capture_index + 1].focused = true;
+                        }
+
+                        // 現在フォーカスされているキャプチャのフォーカスを外す
+                        player_store.twitter_captures[focused_capture_index].focused = false;
+
+                        // 拡大表示のモーダルが開かれている場合は、フォーカスしたキャプチャをモーダルにセット
+                        // こうすることで、QuickLook みたいな挙動になる
+                        const focused_capture = player_store.twitter_captures.find(capture => capture.focused === true)!;
+                        if (player_store.twitter_zoom_capture_modal === true) {
+                            player_store.twitter_zoom_capture = focused_capture;
+                        }
+
+                        // 現在フォーカスされているキャプチャの要素を取得
+                        const focused_capture_element = document.querySelector(`img[src="${focused_capture.image_url}"]`)!.parentElement!;
+
+                        // 現在フォーカスされているキャプチャが見える位置までスクロール
+                        // block: 'nearest' を指定することで、上下どちらにスクロールしてもフォーカスされているキャプチャが常に表示されるようになる
+                        if (is_repeat) {
+                            // キーリピート状態ではスムーズスクロールがフォーカスの移動に追いつけずスクロールの挙動がおかしくなるため、
+                            // スムーズスクロールは無効にしてある
+                            focused_capture_element.scrollIntoView({block: 'nearest', inline: 'nearest', behavior: 'auto'});
+                        } else {
+                            focused_capture_element.scrollIntoView({block: 'nearest', inline: 'nearest', behavior: 'smooth'});
+                        }
+
+                        return true;
+                    }
+
+                    // Enterキー: 現在フォーカスされているキャプチャを拡大表示する/拡大表示を閉じる
+                    if (event.code === 'Enter') {
+
+                        // Enter キーの押下がプレイヤー側のコメント送信由来のイベントの場合は実行しない
+                        // コメントを送信するとコメント入力フォームへのフォーカスが即座に外れるため、is_form_focused === false の条件をすり抜けてしまう
+                        // そのため、event.target がコメント入力フォームの場合は実行しないようにする
+                        if (event.target === this.player.template.commentInput) return true;
+
+                        // すでにモーダルが開かれている場合は、どのキャプチャが拡大表示されているかに関わらず閉じる
+                        if (player_store.twitter_zoom_capture_modal === true) {
+                            player_store.twitter_zoom_capture_modal = false;
+                            return true;
+                        }
+
+                        // 現在フォーカスされているキャプチャを取得
+                        // まだどのキャプチャにもフォーカスされていない場合は実行しない
+                        const focused_capture = player_store.twitter_captures.find(capture => capture.focused === true);
+                        if (focused_capture === undefined) return true;
+
+                        // モーダルを開き、モーダルで拡大表示するキャプチャとしてセット
+                        player_store.twitter_zoom_capture = focused_capture;
+                        player_store.twitter_zoom_capture_modal = true;
+
+                        return true;
+                    }
+
+                    // Spaceキー: 現在フォーカスされているキャプチャを選択する/選択を解除する
+                    if (event.code === 'Space') {
+
+                        // 現在フォーカスされているキャプチャを取得
+                        // まだどのキャプチャにもフォーカスされていない場合は実行しない
+                        const focused_capture = player_store.twitter_captures.find(capture => capture.focused === true);
+                        if (focused_capture === undefined) return true;
+
+                        // 現在フォーカスされているキャプチャの要素を取得
+                        const focused_capture_element = document.querySelector(`img[src="${focused_capture.image_url}"]`)!.parentElement!;
+
+                        // 「キャプチャリスト内のキャプチャがクリックされたときのイベント」を呼ぶ
+                        // 選択されていなければ選択され、選択されていれば選択が解除される
+                        // キャプチャの枚数制限などはすべて clickCapture() の中で処理される
+                        focused_capture_element.click();
+
+                        return true;
+                    }
+
+                    // 操作対象のキーが押されていない
+                    return false;
+                })();
+
+                // 既定のキーボードショートカットイベントをキャンセル
+                // result が false の場合実際にはショートカット処理は実行されていないので、キャンセルする必要はない
+                if (result === true) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    return;
+                }
+            }
 
             // ***** 一般的なキーボードショートカットの処理 *****
 
@@ -513,7 +657,7 @@ class KeyboardShortcutManager implements PlayerManager {
                 event.preventDefault();
                 event.stopPropagation();
 
-                // 条件に一致してキーボードショートカットを実行した時点でループを抜ける
+                // 実行条件に一致しキーボードショートカットを実行し終えた時点で、即座にループを抜けて終了する
                 return;
             }
 

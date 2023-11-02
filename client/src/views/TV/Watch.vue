@@ -214,6 +214,7 @@ import { ILiveChannel } from '@/services/Channels';
 import CaptureManager from '@/services/player/managers/CaptureManager';
 import LiveDataBroadcastingManager from '@/services/player/managers/LiveDataBroadcastingManager';
 import useChannelsStore from '@/stores/ChannelsStore';
+import usePlayerStore from '@/stores/PlayerStore';
 import useSettingsStore from '@/stores/SettingsStore';
 import Utils, { dayjs, PlayerUtils, ProgramUtils } from '@/utils';
 
@@ -1639,6 +1640,8 @@ export default Vue.extend({
         // ショートカットキーを初期化する
         initShortcutKeyHandler() {
 
+            const player_store = usePlayerStore();
+
             const twitter_component = (this.$refs.Twitter as InstanceType<typeof Twitter>)!;
             const tweet_form_element = twitter_component.$el.querySelector<HTMLDivElement>('.tweet-form__textarea')!;
 
@@ -1847,24 +1850,24 @@ export default Vue.extend({
 
                             // [(「): ツイート検索タブ
                             if (event.code === 'BracketRight') {
-                                twitter_component.playerStore.twitter_active_tab = 'Search';
+                                player_store.twitter_active_tab = 'Search';
                                 return true;
                             }
                             // ](」): タイムラインタブ
                             if (event.code === 'Backslash') {
-                                twitter_component.playerStore.twitter_active_tab = 'Timeline';
+                                player_store.twitter_active_tab = 'Timeline';
                                 return true;
                             }
                             // \(￥)キー: キャプチャタブ
                             if (event.code === 'IntlRo') {
-                                twitter_component.playerStore.twitter_active_tab = 'Capture';
+                                player_store.twitter_active_tab = 'Capture';
                                 return true;
                             }
                         }
 
                         // Twitter タブ内のキャプチャタブが表示されている & Ctrl / Cmd / Shift / Alt のいずれも押されていないときだけ
                         // キャプチャタブが表示されている時は、プレイヤー操作側の矢印キー/スペースキーのショートカットは動作しない（キーが重複するため）
-                        if (this.tv_panel_active_tab === 'Twitter' && twitter_component.playerStore.twitter_active_tab === 'Capture' &&
+                        if (this.tv_panel_active_tab === 'Twitter' && player_store.twitter_active_tab === 'Capture' &&
                             (!event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey)) {
 
                             // ***** キャプチャにフォーカスする *****
@@ -1872,55 +1875,55 @@ export default Vue.extend({
                             if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) {
 
                                 // キャプチャリストに一枚もキャプチャがない
-                                if (twitter_component.captures.length === 0) return false;
+                                if (player_store.twitter_captures.length === 0) return false;
 
                                 // まだどのキャプチャにもフォーカスされていない場合は、一番新しいキャプチャにフォーカスして終了
-                                if (twitter_component.captures.some(capture => capture.focused === true) === false) {
-                                    twitter_component.captures[twitter_component.captures.length - 1].focused = true;
+                                if (player_store.twitter_captures.some(capture => capture.focused === true) === false) {
+                                    player_store.twitter_captures[player_store.twitter_captures.length - 1].focused = true;
                                     return true;
                                 }
 
                                 // 現在フォーカスされているキャプチャのインデックスを取得
-                                const focused_capture_index = twitter_component.captures.findIndex(capture => capture.focused === true);
+                                const focused_capture_index = player_store.twitter_captures.findIndex(capture => capture.focused === true);
 
                                 // ↑キー: 2つ前のキャプチャにフォーカスする
                                 // キャプチャリストは2列で並んでいるので、2つ後のキャプチャが現在フォーカスされているキャプチャの直上になる
                                 if (event.code === 'ArrowUp') {
                                     // 2つ前のキャプチャがないなら実行しない
                                     if (focused_capture_index - 2 < 0) return false;
-                                    twitter_component.captures[focused_capture_index - 2].focused = true;
+                                    player_store.twitter_captures[focused_capture_index - 2].focused = true;
                                 }
 
                                 // ↓キー: 2つ後のキャプチャにフォーカスする
                                 // キャプチャリストは2列で並んでいるので、2つ後のキャプチャが現在フォーカスされているキャプチャの直下になる
                                 if (event.code === 'ArrowDown') {
                                     // 2つ後のキャプチャがないなら実行しない
-                                    if (focused_capture_index + 2 > (twitter_component.captures.length - 1)) return false;
-                                    twitter_component.captures[focused_capture_index + 2].focused = true;
+                                    if (focused_capture_index + 2 > (player_store.twitter_captures.length - 1)) return false;
+                                    player_store.twitter_captures[focused_capture_index + 2].focused = true;
                                 }
 
                                 // ←キー: 1つ前のキャプチャにフォーカスする
                                 if (event.code === 'ArrowLeft') {
                                     // 1つ前のキャプチャがないなら実行しない
                                     if (focused_capture_index - 1 < 0) return false;
-                                    twitter_component.captures[focused_capture_index - 1].focused = true;
+                                    player_store.twitter_captures[focused_capture_index - 1].focused = true;
                                 }
 
                                 // ←キー: 1つ後のキャプチャにフォーカスする
                                 if (event.code === 'ArrowRight') {
                                     // 1つ後のキャプチャがないなら実行しない
-                                    if (focused_capture_index + 1 > (twitter_component.captures.length - 1)) return false;
-                                    twitter_component.captures[focused_capture_index + 1].focused = true;
+                                    if (focused_capture_index + 1 > (player_store.twitter_captures.length - 1)) return false;
+                                    player_store.twitter_captures[focused_capture_index + 1].focused = true;
                                 }
 
                                 // 現在フォーカスされているキャプチャのフォーカスを外す
-                                twitter_component.captures[focused_capture_index].focused = false;
+                                player_store.twitter_captures[focused_capture_index].focused = false;
 
                                 // 拡大表示のモーダルが開かれている場合は、フォーカスしたキャプチャをモーダルにセット
                                 // こうすることで、QuickLook みたいな挙動になる
-                                const focused_capture = twitter_component.captures.find(capture => capture.focused === true)!;
-                                if (twitter_component.zoom_capture_modal === true) {
-                                    twitter_component.zoom_capture = focused_capture;
+                                const focused_capture = player_store.twitter_captures.find(capture => capture.focused === true)!;
+                                if (player_store.twitter_zoom_capture_modal === true) {
+                                    player_store.twitter_zoom_capture = focused_capture;
                                 }
 
                                 // 現在フォーカスされているキャプチャが見える位置までスクロール
@@ -1945,19 +1948,19 @@ export default Vue.extend({
                                 if (this.is_comment_send_just_did) return false;
 
                                 // すでにモーダルが開かれている場合は、どのキャプチャが拡大表示されているかに関わらず閉じる
-                                if (twitter_component.zoom_capture_modal === true) {
-                                    twitter_component.zoom_capture_modal = false;
+                                if (player_store.twitter_zoom_capture_modal === true) {
+                                    player_store.twitter_zoom_capture_modal = false;
                                     return true;
                                 }
 
                                 // 現在フォーカスされているキャプチャを取得
                                 // まだどのキャプチャにもフォーカスされていない場合は実行しない
-                                const focused_capture = twitter_component.captures.find(capture => capture.focused === true);
+                                const focused_capture = player_store.twitter_captures.find(capture => capture.focused === true);
                                 if (focused_capture === undefined) return false;
 
                                 // モーダルを開き、モーダルで拡大表示するキャプチャとしてセット
-                                twitter_component.zoom_capture = focused_capture;
-                                twitter_component.zoom_capture_modal = true;
+                                player_store.twitter_zoom_capture = focused_capture;
+                                player_store.twitter_zoom_capture_modal = true;
                                 return true;
                             }
 
@@ -1967,7 +1970,7 @@ export default Vue.extend({
 
                                 // 現在フォーカスされているキャプチャを取得
                                 // まだどのキャプチャにもフォーカスされていない場合は実行しない
-                                const focused_capture = twitter_component.captures.find(capture => capture.focused === true);
+                                const focused_capture = player_store.twitter_captures.find(capture => capture.focused === true);
                                 if (focused_capture === undefined) return false;
 
                                 // 「キャプチャリスト内のキャプチャがクリックされたときのイベント」を呼ぶ
@@ -2032,7 +2035,7 @@ export default Vue.extend({
 
                             // Shift + Spaceキー + キーリピートでない時 + Twitter タブ表示時 + キャプチャタブ表示時: 再生/停止
                             if (event.shiftKey === true && event.code === 'Space' && is_repeat === false &&
-                                this.tv_panel_active_tab === 'Twitter' && twitter_component.playerStore.twitter_active_tab === 'Capture') {
+                                this.tv_panel_active_tab === 'Twitter' && player_store.twitter_active_tab === 'Capture') {
                                 this.player.toggle();
                                 return true;
                             }
