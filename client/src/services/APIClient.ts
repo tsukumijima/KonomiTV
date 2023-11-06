@@ -81,6 +81,11 @@ class APIClient {
         // リクエストのタイムアウト時間を30秒に設定
         request.timeout = 30 * 1000;
 
+        // リクエストのタイムアウト時に、一般的な ECONNABORTED の代わりに ETIMEDOUT を送出する
+        request.transitional = {
+            clarifyTimeoutError: true,
+        };
+
         // Axios で HTTP リクエストを送信し、レスポンスを受け取る
         const result: AxiosResponse<T> | AxiosError<IErrorResponseData> = await axios.request(request).catch((error) => error);
 
@@ -210,17 +215,24 @@ class APIClient {
                 return;
             }
             default: {
-                if (error_response.data.detail) {
-                    if (Number.isNaN(error_response.status)) {
-                        // HTTP リクエスト自体が失敗し、HTTP ステータスコードが取得できなかった場合
-                        Message.error(`${template}(${error_response.data.detail})`);
+                if (Number.isNaN(error_response.status)) {
+                    // HTTP リクエスト自体が失敗し、HTTP ステータスコードが取得できなかった場合
+                    if (error_response.error.code === AxiosError.ECONNABORTED) {
+                        // ネットワーク接続エラーの場合
+                        Message.error(`${template}\nサーバーへの接続が切断されました。(${error_response.error.message})`);
+                    } else if (error_response.error.code === AxiosError.ETIMEDOUT) {
+                        // タイムアウトの場合
+                        Message.error(`${template}\nサーバーへの接続がタイムアウトしました。(${error_response.error.message})`);
+                    } else if (error_response.error.code === AxiosError.ERR_NETWORK) {
+                        // 予期しないネットワークエラーの場合
+                        Message.error(`${template}\n予期しないネットワークエラーが発生しました。(${error_response.error.message})`);
                     } else {
-                        // HTTP リクエスト自体は成功したが、API からエラーレスポンスが返ってきた場合
-                        Message.error(`${template}(HTTP Error ${error_response.status} / ${error_response.data.detail})`);
+                        // それ以外のエラーの場合
+                        Message.error(`${template}(${error_response.error.message})`);
                     }
                 } else {
-                    // HTTP リクエスト自体は成功したが、API からエラーコードのみが返ってきた場合 (基本あり得ないはずだが、念のため)
-                    Message.error(`${template}(HTTP Error ${error_response.status})`);
+                    // HTTP リクエスト自体は成功したが、API からエラーレスポンスが返ってきた場合
+                    Message.error(`${template}(HTTP Error ${error_response.status} / ${error_response.data.detail})`);
                 }
                 return;
             }
