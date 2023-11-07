@@ -697,7 +697,7 @@ class PlayerWrapper {
                     // PlayerWrapper の再起動を要求する
                     console.error('\u001b[31m[PlayerWrapper] mpegts.js error event:', error_type, detail);
                     player_store.event_emitter.emit('PlayerRestartRequired', {
-                        message: `再生中にエラーが発生しました。(${error_type}: ${detail}) プレイヤーロジックを再起動しています…`,
+                        message: `再生中にエラーが発生しました。(${error_type}: ${detail}) プレイヤーを再起動しています…`,
                     });
                 });
 
@@ -719,11 +719,11 @@ class PlayerWrapper {
                     if (this.player.video.error) {
                         console.error('\u001b[31m[PlayerWrapper] HTMLVideoElement error event:', this.player.video.error);
                         player_store.event_emitter.emit('PlayerRestartRequired', {
-                            message: `再生中にエラーが発生しました。(Native: ${this.player.video.error.code}: ${this.player.video.error.message}) プレイヤーロジックを再起動しています…`,
+                            message: `再生中にエラーが発生しました。(Native: ${this.player.video.error.code}: ${this.player.video.error.message}) プレイヤーを再起動しています…`,
                         });
                     } else {
                         player_store.event_emitter.emit('PlayerRestartRequired', {
-                            message: '再生中にエラーが発生しました。(Native: unknown error) プレイヤーロジックを再起動しています…',
+                            message: '再生中にエラーが発生しました。(Native: unknown error) プレイヤーを再起動しています…',
                         });
                     }
                 });
@@ -815,7 +815,7 @@ class PlayerWrapper {
                 await Utils.sleep(15);
                 if (player_store.live_stream_status === 'ONAir' && player_store.is_video_buffering === true && on_canplay_called === false) {
                     player_store.event_emitter.emit('PlayerRestartRequired', {
-                        message: '再生開始までに時間が掛かっています。プレイヤーロジックを再起動しています…',
+                        message: '再生開始までに時間が掛かっています。プレイヤーを再起動しています…',
                     });
                 }
             }
@@ -1119,7 +1119,7 @@ class PlayerWrapper {
      * DPlayer と PlayerManager を破棄し、再生を終了する
      * 常に init() で作成したものが destroy() ですべてクリーンアップされるように実装すべき
      * PlayerWrapper の再起動を行う場合、基本外部から直接 await destroy() と await init() は呼び出さず、代わりに
-     * player_store.event_emitter.emit('PlayerRestartRequired', 'プレイヤーロジックを再起動しています…') のようにイベントを発火させるべき
+     * player_store.event_emitter.emit('PlayerRestartRequired', 'プレイヤーを再起動しています…') のようにイベントを発火させるべき
      */
     public async destroy(): Promise<void> {
         const player_store = usePlayerStore();

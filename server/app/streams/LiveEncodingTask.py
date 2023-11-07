@@ -983,7 +983,7 @@ class LiveEncodingTask:
                     elif 'Conversion failed!' in line:
                         # 捕捉されないエラー
                         ## エンコーダーの再起動で復帰できる可能性があるので、エンコードタスクを再起動する
-                        result = self.livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。エンコードタスクを再起動します。(ER-01F)')
+                        result = self.livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。エンコードタスクを再起動しています… (ER-01F)')
                         # 直近 50 件のログを表示
                         if result is True:
                             for log in lines[-51:-1]:
@@ -1016,14 +1016,14 @@ class LiveEncodingTask:
                     elif 'Consider increasing the value for the --input-analyze and/or --input-probesize!' in line:
                         # --input-probesize or --input-analyze の期間内に入力ストリームの解析が終わらなかった
                         ## エンコーダーの再起動で復帰できる可能性があるので、エンコードタスクを再起動する
-                        self.livestream.setStatus('Restart', '入力ストリームの解析に失敗しました。エンコードタスクを再起動します。(ER-02H)')
+                        self.livestream.setStatus('Restart', '入力ストリームの解析に失敗しました。エンコードタスクを再起動しています… (ER-02H)')
                     elif 'finished with error!' in line:
                         # 捕捉されないエラー
                         ## Controller 非同期タスク側で完全にエンコーダープロセスが落ちたタイミングで HEVC 非対応かなどを判断しているため、
                         ## ここで 0.5 秒待機してから実行する
                         await asyncio.sleep(0.5)
                         ## エンコーダーの再起動で復帰できる可能性があるので、エンコードタスクを再起動する
-                        result = self.livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。エンコードタスクを再起動します。(ER-03H)')
+                        result = self.livestream.setStatus('Restart', 'エンコード中に予期しないエラーが発生しました。エンコードタスクを再起動しています… (ER-03H)')
                         # 直近 150 件のログを表示
                         if result is True:
                             for log in lines[-151:-1]:
@@ -1128,7 +1128,7 @@ class LiveEncodingTask:
                         await asyncio.sleep(1)
 
                         # エンコードタスクを再起動
-                        result = self.livestream.setStatus('Restart', 'エンコードが途中で停止しました。エンコードタスクを再起動します。(ER-04)')
+                        result = self.livestream.setStatus('Restart', 'エンコードが途中で停止しました。エンコードタスクを再起動しています… (ER-04)')
 
                         # エンコーダーのログを表示 (FFmpeg は最後の50行、HWEncC は最後の150行を表示)
                         if result is True:
@@ -1145,7 +1145,7 @@ class LiveEncodingTask:
                     (CONFIG.general.backend == 'EDCB' and self.livestream.tuner is not None and self.livestream.tuner.isDisconnected() is True)):
 
                     # エンコードタスクを再起動
-                    self.livestream.setStatus('Restart', 'チューナーとの接続が切断されました。エンコードタスクを再起動します。(ER-05)')
+                    self.livestream.setStatus('Restart', 'チューナーとの接続が切断されました。エンコードタスクを再起動しています… (ER-05)')
 
                 # エンコーダーが意図せず終了した場合
                 if encoder.returncode is not None:
@@ -1180,7 +1180,7 @@ class LiveEncodingTask:
                     if self.livestream.getStatus()['status'] == 'Offline':
 
                         # エンコードタスクを再起動
-                        result = self.livestream.setStatus('Restart', 'エンコーダーが強制終了されました。エンコードタスクを再起動します。(ER-06)')
+                        result = self.livestream.setStatus('Restart', 'エンコーダーが強制終了されました。エンコードタスクを再起動しています… (ER-06)')
 
                         # エンコーダーのログを表示 (FFmpeg は最後の50行、HWEncC は最後の150行を表示)
                         if result is True:

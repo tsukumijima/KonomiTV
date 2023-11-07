@@ -274,7 +274,7 @@ class CaptureManager implements PlayerManager {
             return;
         }
 
-        // コメントが表示されていないのにコメント付きキャプチャしようとした
+        // コメントが表示されていないのにコメント付きでキャプチャしようとした
         if (is_comment_composite === true && this.player.danmaku!.showing === false) {
             this.player.notice('コメントを付けてキャプチャするには、コメント表示をオンにしてください。', undefined, undefined, '#FF6F6A');
             return;
