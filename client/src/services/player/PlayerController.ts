@@ -20,15 +20,15 @@ import Utils, { PlayerUtils } from '@/utils';
 
 
 /**
- * 動画プレイヤーである DPlayer に関連するロジックを丸ごとラップするクラスで、プレイヤーロジックの中核を担う
+ * 動画プレイヤーである DPlayer に関連するロジックを丸ごとラップするクラスで、再生系ロジックの中核を担う
  * DPlayer の初期化後は DPlayer が発行するイベントなどに合わせ、各イベントハンドラーや PlayerManager を管理する
  *
  * このクラスはコンストラクタで指定されたチャンネル or 録画番組の再生に責任を持つ
- * await destroy() 後に再度 await init() すると、コンストラクタに渡したのと同じチャンネル or 録画番組のプレイヤーロジックを再起動できる
- * 再生対象が他のチャンネル or 録画番組に切り替えられた際は、既存の PlayerWrapper を破棄し、新たに PlayerWrapper を作り直す必要がある
+ * await destroy() 後に再度 await init() すると、コンストラクタに渡したのと同じチャンネル or 録画番組のプレイヤーを再起動できる
+ * 再生対象が他のチャンネル or 録画番組に切り替えられた際は、既存の PlayerController を破棄し、新たに PlayerController を作り直す必要がある
  * 実装上、このクラスのインスタンスは必ずアプリケーション上で1つだけ存在するように実装する必要がある
  */
-class PlayerWrapper {
+class PlayerController {
 
     // ライブ視聴: 低遅延モードオンでの再生バッファ (秒単位)
     // 0.8 秒程度余裕を持たせる
@@ -87,7 +87,7 @@ class PlayerWrapper {
         // 低遅延モードであれば低遅延向けの再生バッファを、そうでなければ通常の再生バッファをセット (秒単位)
         const settings_store = useSettingsStore();
         this.live_playback_buffer_seconds = settings_store.settings.tv_low_latency_mode ?
-            PlayerWrapper.LIVE_PLAYBACK_BUFFER_SECONDS_LOW_LATENCY : PlayerWrapper.LIVE_PLAYBACK_BUFFER_SECONDS;
+            PlayerController.LIVE_PLAYBACK_BUFFER_SECONDS_LOW_LATENCY : PlayerController.LIVE_PLAYBACK_BUFFER_SECONDS;
 
         // Safari の Media Source Extensions API の実装はどうもバッファの揺らぎが大きい (?) ようなので、バッファ詰まり対策で
         // さらに 0.3 秒程度余裕を持たせる
@@ -121,14 +121,14 @@ class PlayerWrapper {
         const player_store = usePlayerStore();
         const settings_store = useSettingsStore();
 
-        console.log('\u001b[31m[PlayerWrapper] Initializing...');
+        console.log('\u001b[31m[PlayerController] Initializing...');
 
         // 破棄済みかどうかのフラグを下ろす
         this.destroyed = false;
 
         // PlayerStore にプレイヤーを初期化したことを通知する
-        // 実際にはこの時点ではプレイヤーの初期化は完了していないが、PlayerWrapper.init() を実行したことが通知されることが重要
-        // ライブ視聴かつザッピングを経てチャンネルが確定した場合、破棄を遅らせていた以前の PlayerWrapper に紐づく
+        // 実際にはこの時点ではプレイヤーの初期化は完了していないが、PlayerController.init() を実行したことが通知されることが重要
+        // ライブ視聴かつザッピングを経てチャンネルが確定した場合、破棄を遅らせていた以前の PlayerController に紐づく
         // KeyboardShortcutManager がこのタイミングで破棄される
         player_store.is_player_initialized = true;
 
@@ -403,7 +403,7 @@ class PlayerWrapper {
         (window as any).player = this.player;
 
         // DPlayer 側のコントロール UI 非表示タイマーを無効化（上書き）
-        // 無効化しておかないと、PlayerWrapper.setControlDisplayTimer() の処理と競合してしまう
+        // 無効化しておかないと、PlayerController.setControlDisplayTimer() の処理と競合してしまう
         // 上書き元のコードは https://github.com/tsukumijima/DPlayer/blob/v1.30.2/src/ts/controller.ts#L397-L405 にある
         this.player.controller.setAutoHide = (time: number) => {};
 
@@ -430,17 +430,17 @@ class PlayerWrapper {
             this.player.notice(event.message, event.duration, event.opacity, event.color);
         });
 
-        // PlayerManager からプレイヤーロジックの再起動が必要になったことを通知されたときのイベントハンドラーを登録する
+        // PlayerManager からプレイヤーの再起動が必要になったことを通知されたときのイベントハンドラーを登録する
         // このイベントは常にアプリケーション上で1つだけ登録されていなければならない
-        // さもなければ使い終わった破棄済みの PlayerWrapper が再起動イベントにより復活し、現在利用中の PlayerWrapper と競合してしまう
+        // さもなければ使い終わった破棄済みの PlayerController が再起動イベントにより復活し、現在利用中の PlayerController と競合してしまう
         let is_player_restarting = false;  // 現在再起動中かどうか
         player_store.event_emitter.off('PlayerRestartRequired');  // PlayerRestartRequired イベントの全てのイベントハンドラーを削除
         player_store.event_emitter.on('PlayerRestartRequired', async (event) => {
-            console.warn('\u001b[31m[PlayerWrapper] PlayerRestartRequired event received. Message: ', event.message);
+            console.warn('\u001b[31m[PlayerController] PlayerRestartRequired event received. Message: ', event.message);
 
             // ライブ視聴: iOS 17.0 以下で mpegts.js がサポートされていない場合は再起動できない
             if (this.playback_mode === 'Live' && mpegts.isSupported() !== true) {  // サポートしていない場合は undefined が返る
-                console.warn('\u001b[31m[PlayerWrapper] PlayerRestartRequired event received, but mpegts.js is not supported. Ignored.');
+                console.warn('\u001b[31m[PlayerController] PlayerRestartRequired event received, but mpegts.js is not supported. Ignored.');
                 // iOS 17.0 以下は mpegts.js がサポートされていないため、再生できない
                 this.player?.notice('iOS (Safari) 17.0 以下での視聴には対応していません。速やかに iOS を 17.1 以降に更新してください。', -1, undefined, '#FF6F6A');
                 return;
@@ -448,30 +448,30 @@ class PlayerWrapper {
 
             // 既に再起動中であれば何もしない (再起動が重複して行われるのを防ぐ)
             if (is_player_restarting === true) {
-                console.warn('\u001b[31m[PlayerWrapper] PlayerRestartRequired event received, but already restarting. Ignored.');
+                console.warn('\u001b[31m[PlayerController] PlayerRestartRequired event received, but already restarting. Ignored.');
                 return;
             }
             is_player_restarting = true;
 
-            // PlayerWrapper を破棄
+            // PlayerController を破棄
             await this.destroy();
 
             // 即座に再起動すると諸々問題があるので、少し待つ
             await Utils.sleep(0.5);
 
-            // PlayerWrapper を再初期化
+            // PlayerController を再初期化
             // この時点で PlayerRestartRequired のイベントハンドラーは再登録されているはず
             await this.init();
 
-            // プレイヤー側にイベントの発火元から送られたメッセージ (プレイヤーロジックを再起動中である旨) を通知する
+            // プレイヤー側にイベントの発火元から送られたメッセージ (プレイヤーを再起動中である旨) を通知する
             // 再初期化により、作り直した DPlayer が再び this.player にセットされているはず
-            // 通知を表示してから PlayerWrapper を破棄すると DPlayer の DOM 要素ごと消えてしまうので、DPlayer を作り直した後に通知を表示する
+            // 通知を表示してから PlayerController を破棄すると DPlayer の DOM 要素ごと消えてしまうので、DPlayer を作り直した後に通知を表示する
             assert(this.player !== null);
             this.player.notice(event.message, undefined, undefined, '#FF6F6A');
             is_player_restarting = false;
         });
 
-        // PlayerWrapper.setControlDisplayTimer() の呼び出しを要求されたときのイベントハンドラーを登録する
+        // PlayerController.setControlDisplayTimer() の呼び出しを要求されたときのイベントハンドラーを登録する
         // このイベントは常にアプリケーション上で1つだけ登録されていなければならない
         player_store.event_emitter.off('SetControlDisplayTimer');  // SetControlDisplayTimer イベントの全てのイベントハンドラーを削除
         player_store.event_emitter.on('SetControlDisplayTimer', (event) => {
@@ -488,7 +488,7 @@ class PlayerWrapper {
                 </span>
             </div>
         `);
-        // PlayerRestartRequired イベントとは異なり、通知メッセージなしで即座に PlayerWrapper を再起動する
+        // PlayerRestartRequired イベントとは異なり、通知メッセージなしで即座に PlayerController を再起動する
         this.player.container.querySelector('.dplayer-player-restart-icon')!.addEventListener('click', async () => {
             await this.destroy();
             await this.init();
@@ -521,7 +521,7 @@ class PlayerWrapper {
         // 同期処理すると時間が掛かるので、並行して実行する
         await Promise.all(this.player_managers.map((player_manager) => player_manager.init()));
 
-        console.log('\u001b[31m[PlayerWrapper] Initialized.');
+        console.log('\u001b[31m[PlayerController] Initialized.');
     }
 
 
@@ -561,7 +561,7 @@ class PlayerWrapper {
         // この時点で映像が停止していて、かつ readyState が HAVE_FUTURE_DATA な場合、復旧を試みる
         // Safari ではタイミングによっては null になる場合があるらしいので ? を付ける
         if (player_store.is_video_buffering === true && this.player?.video?.readyState < 3) {
-            console.warn('\u001b[31m[PlayerWrapper] Video still buffering. (HTMLVideoElement.readyState < HAVE_FUTURE_DATA) trying to recover.');
+            console.warn('\u001b[31m[PlayerController] Video still buffering. (HTMLVideoElement.readyState < HAVE_FUTURE_DATA) trying to recover.');
 
             // 一旦停止して、0.25 秒間を置く
             this.player.video.pause();
@@ -572,7 +572,7 @@ class PlayerWrapper {
                 await this.player.video.play();
             } catch (error) {
                 assert(this.player !== null);
-                console.warn('\u001b[31m[PlayerWrapper] HTMLVideoElement.play() rejected. paused.');
+                console.warn('\u001b[31m[PlayerController] HTMLVideoElement.play() rejected. paused.');
                 this.player.pause();
                 return;  // 再生開始がリジェクトされた場合はここで終了
             }
@@ -580,7 +580,7 @@ class PlayerWrapper {
             // さらに 0.5 秒待った時点で映像が停止している場合、復旧を試みる
             await Utils.sleep(0.5);
             if (player_store.is_video_buffering === true && this.player?.video?.readyState < 3) {
-                console.warn('\u001b[31m[PlayerWrapper] Video still buffering. (HTMLVideoElement.readyState < HAVE_FUTURE_DATA) trying to recover.');
+                console.warn('\u001b[31m[PlayerController] Video still buffering. (HTMLVideoElement.readyState < HAVE_FUTURE_DATA) trying to recover.');
 
                 // 一旦停止して、0.25 秒間を置く
                 this.player.video.pause();
@@ -591,7 +591,7 @@ class PlayerWrapper {
                     await this.player.video.play();
                 } catch (error) {
                     assert(this.player !== null);
-                    console.warn('\u001b[31m[PlayerWrapper] (retry) HTMLVideoElement.play() rejected. paused.');
+                    console.warn('\u001b[31m[PlayerController] (retry) HTMLVideoElement.play() rejected. paused.');
                     this.player.pause();
                 }
             }
@@ -675,8 +675,8 @@ class PlayerWrapper {
 
                 // mpegts.js のエラーログハンドラーを登録
                 // 再生中に mpegts.js 内部でエラーが発生した際 (例: デバイスの通信が一時的に切断され、API からのストリーミングが途切れた際) に呼び出される
-                // このエラーハンドラーでエラーをキャッチして、PlayerWrapper の再起動を要求する
-                // PlayerWrapper 内部なので直接再起動してもいいのだが、PlayerWrapper を再起動させる処理は共通化しておきたい
+                // このエラーハンドラーでエラーをキャッチして、PlayerController の再起動を要求する
+                // PlayerController 内部なので直接再起動してもいいのだが、PlayerController を再起動させる処理は共通化しておきたい
                 this.player.plugins.mpegts?.on(mpegts.Events.ERROR, async (error_type: string, detail: string) => {
 
                     // DPlayer がすでに破棄されている場合は何もしない
@@ -690,12 +690,12 @@ class PlayerWrapper {
                     // もしこの時点でオフラインの場合、ネットワーク接続の変更による接続切断の可能性が高いので、オンラインになるまで待機する
                     if (navigator.onLine === false) {
                         this.player.notice('現在ネットワーク接続がありません。オンラインになるまで待機しています…', undefined, undefined, '#FF6F6A');
-                        console.warn('\u001b[31m[PlayerWrapper] mpegts.js error event: Network error. Waiting for online...');
+                        console.warn('\u001b[31m[PlayerController] mpegts.js error event: Network error. Waiting for online...');
                         await Utils.waitUntilOnline();
                     }
 
-                    // PlayerWrapper の再起動を要求する
-                    console.error('\u001b[31m[PlayerWrapper] mpegts.js error event:', error_type, detail);
+                    // PlayerController の再起動を要求する
+                    console.error('\u001b[31m[PlayerController] mpegts.js error event:', error_type, detail);
                     player_store.event_emitter.emit('PlayerRestartRequired', {
                         message: `再生中にエラーが発生しました。(${error_type}: ${detail}) プレイヤーを再起動しています…`,
                     });
@@ -703,7 +703,7 @@ class PlayerWrapper {
 
                 // HTMLVideoElement ネイティブの再生時エラーのイベントハンドラーを登録
                 // mpegts.js が予期せずクラッシュした場合など、意図せず発生してしまうことがある
-                // Offline 以外であれば PlayerWrapper の再起動を要求する
+                // Offline 以外であれば PlayerController の再起動を要求する
                 this.player.on('error', async (event: MediaError) => {
 
                     // DPlayer がすでに破棄されているか、現在ライブストリームが Offline であれば何もしない
@@ -717,7 +717,7 @@ class PlayerWrapper {
                     // MediaError オブジェクトは場合によっては存在しないことがあるらしい…
                     // 存在しない場合は unknown error として扱う
                     if (this.player.video.error) {
-                        console.error('\u001b[31m[PlayerWrapper] HTMLVideoElement error event:', this.player.video.error);
+                        console.error('\u001b[31m[PlayerController] HTMLVideoElement error event:', this.player.video.error);
                         player_store.event_emitter.emit('PlayerRestartRequired', {
                             message: `再生中にエラーが発生しました。(Native: ${this.player.video.error.code}: ${this.player.video.error.message}) プレイヤーを再起動しています…`,
                         });
@@ -746,7 +746,7 @@ class PlayerWrapper {
 
                     // 再生バッファ調整のため、一旦停止させる
                     // this.player.video.pause() を使うとプレイヤーの UI アイコンが停止してしまうので、代わりに playbackRate を使う
-                    console.log('\u001b[31m[PlayerWrapper] buffering...');
+                    console.log('\u001b[31m[PlayerController] buffering...');
                     this.player.video.playbackRate = 0;
 
                     // 再生バッファが live_playback_buffer_seconds を超えるまで 0.1 秒おきに再生バッファをチェックする
@@ -761,7 +761,7 @@ class PlayerWrapper {
 
                     // 再生バッファ調整のため一旦停止していた再生を再び開始
                     this.player.video.playbackRate = 1;
-                    console.log('\u001b[31m[PlayerWrapper] buffering completed.');
+                    console.log('\u001b[31m[PlayerController] buffering completed.');
 
                     // ローディング状態を解除し、映像を表示する
                     player_store.is_loading = false;
@@ -805,13 +805,13 @@ class PlayerWrapper {
                     // さらに 0.1 秒待ってから実行
                     await Utils.sleep(0.1);
                     if (on_canplay_called === false) {
-                        console.warn('\u001b[31m[PlayerWrapper] canplaythrough event not fired. trying to recover.');
+                        console.warn('\u001b[31m[PlayerController] canplaythrough event not fired. trying to recover.');
                         on_canplay();
                     }
                 })();
 
                 // もしライブストリームのステータスが ONAir にも関わらず 15 秒以上バッファリング中で canplaythrough が発火しない場合、
-                // ロードに失敗したとみなし PlayerWrapper の再起動を要求する
+                // ロードに失敗したとみなし PlayerController の再起動を要求する
                 await Utils.sleep(15);
                 if (player_store.live_stream_status === 'ONAir' && player_store.is_video_buffering === true && on_canplay_called === false) {
                     player_store.event_emitter.emit('PlayerRestartRequired', {
@@ -1035,7 +1035,7 @@ class PlayerWrapper {
     /**
      * 一定の条件に基づいてプレイヤーのコントロール UI の表示状態を切り替える
      * マウスが動いたりタップされた時に実行するタイマー関数で、3秒間何も操作がなければプレイヤーのコントロール UI を非表示にする
-     * 本来は View 側に実装すべきだが、プレイヤー側のロジックとも密接に関連しているため PlayerWrapper に実装した
+     * 本来は View 側に実装すべきだが、プレイヤー側のロジックとも密接に関連しているため PlayerController に実装した
      * @param event マウスやタッチイベント (手動実行する際は null を渡すか省略する)
      * @param is_player_region_event プレイヤー画面の中で発火したイベントなら true に設定する
      */
@@ -1118,7 +1118,7 @@ class PlayerWrapper {
     /**
      * DPlayer と PlayerManager を破棄し、再生を終了する
      * 常に init() で作成したものが destroy() ですべてクリーンアップされるように実装すべき
-     * PlayerWrapper の再起動を行う場合、基本外部から直接 await destroy() と await init() は呼び出さず、代わりに
+     * PlayerController の再起動を行う場合、基本外部から直接 await destroy() と await init() は呼び出さず、代わりに
      * player_store.event_emitter.emit('PlayerRestartRequired', 'プレイヤーを再起動しています…') のようにイベントを発火させるべき
      */
     public async destroy(): Promise<void> {
@@ -1135,7 +1135,7 @@ class PlayerWrapper {
         }
         this.destroying = true;
 
-        console.log('\u001b[31m[PlayerWrapper] Destroying...');
+        console.log('\u001b[31m[PlayerController] Destroying...');
 
         // 登録されている PlayerManager をすべて破棄
         // CSS アニメーションの関係上、ローディング状態にする前に破棄する必要がある (特に LiveDataBroadcastingManager)
@@ -1213,8 +1213,8 @@ class PlayerWrapper {
         // PlayerStore にプレイヤーを破棄したことを通知
         player_store.is_player_initialized = false;
 
-        console.log('\u001b[31m[PlayerWrapper] Destroyed.');
+        console.log('\u001b[31m[PlayerController] Destroyed.');
     }
 }
 
-export default PlayerWrapper;
+export default PlayerController;

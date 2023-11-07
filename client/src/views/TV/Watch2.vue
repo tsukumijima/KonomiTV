@@ -6,9 +6,9 @@
                 'watch-container--fullscreen': playerStore.is_fullscreen,
             }">
             <nav class="watch-navigation"
-                 @mousemove="($event) => player_wrapper?.setControlDisplayTimer($event)"
-                 @touchmove="($event) => player_wrapper?.setControlDisplayTimer($event)"
-                 @click="($event) => player_wrapper?.setControlDisplayTimer($event)">
+                 @mousemove="($event) => player_controller?.setControlDisplayTimer($event)"
+                 @touchmove="($event) => player_controller?.setControlDisplayTimer($event)"
+                 @click="($event) => player_controller?.setControlDisplayTimer($event)">
                 <router-link v-ripple class="watch-navigation__icon" to="/tv/">
                     <img class="watch-navigation__icon-image" src="/assets/images/icon.svg" width="23px">
                 </router-link>
@@ -43,9 +43,9 @@
                 </router-link>
             </nav>
             <div class="watch-content"
-                 @mousemove="($event) => player_wrapper?.setControlDisplayTimer($event, true)"
-                 @touchmove="($event) => player_wrapper?.setControlDisplayTimer($event, true)"
-                 @click="($event) => player_wrapper?.setControlDisplayTimer($event, true)">
+                 @mousemove="($event) => player_controller?.setControlDisplayTimer($event, true)"
+                 @touchmove="($event) => player_controller?.setControlDisplayTimer($event, true)"
+                 @click="($event) => player_controller?.setControlDisplayTimer($event, true)">
                 <header class="watch-header">
                     <router-link class="watch-header__back-icon" v-ripple to="/tv/">
                         <Icon icon="fluent:arrow-left-12-filled" width="25px" />
@@ -75,9 +75,9 @@
                     </v-progress-circular>
                     <div class="watch-player__dplayer"></div>
                     <div class="watch-player__button"
-                         @mousemove="($event) => player_wrapper?.setControlDisplayTimer($event)"
-                         @touchmove="($event) => player_wrapper?.setControlDisplayTimer($event)"
-                         @click="($event) => player_wrapper?.setControlDisplayTimer($event)">
+                         @mousemove="($event) => player_controller?.setControlDisplayTimer($event)"
+                         @touchmove="($event) => player_controller?.setControlDisplayTimer($event)"
+                         @click="($event) => player_controller?.setControlDisplayTimer($event)">
                         <div v-ripple class="switch-button switch-button-up" v-tooltip.top="'前のチャンネル'"
                             @click="playerStore.is_zapping = true; $router.push({path: `/tv/watch2/${channelsStore.channel.previous.display_channel_id}`})">
                             <Icon class="switch-button-icon" icon="fluent:ios-arrow-left-24-filled" width="32px" rotate="1" />
@@ -94,7 +94,7 @@
                 </div>
             </div>
             <div class="watch-panel"
-                 @mousemove="($event) => player_wrapper?.setControlDisplayTimer($event)">
+                 @mousemove="($event) => player_controller?.setControlDisplayTimer($event)">
                 <div class="watch-panel__header">
                     <div v-ripple class="panel-close-button" @click="playerStore.is_panel_display = false">
                         <Icon class="panel-close-button__icon" icon="akar-icons:chevron-right" width="25px" />
@@ -207,7 +207,7 @@ import Comment from '@/components/Panel/Comment2.vue';
 import Program from '@/components/Panel/Program.vue';
 import Remocon from '@/components/Panel/Remocon.vue';
 import Twitter from '@/components/Panel/Twitter.vue';
-import PlayerWrapper from '@/services/player/PlayerWrapper';
+import PlayerController from '@/services/player/PlayerController';
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
 import useSettingsStore from '@/stores/SettingsStore';
@@ -240,8 +240,8 @@ export default Vue.extend({
 
             // ***** プレイヤー *****
 
-            // PlayerWrapper のインスタンス
-            player_wrapper: null as PlayerWrapper | null,
+            // PlayerController のインスタンス
+            player_controller: null as PlayerController | null,
 
             // ***** キーボードショートカット *****
 
@@ -459,9 +459,9 @@ export default Vue.extend({
                 return;
             }
 
-            // PlayerWrapper を初期化
-            this.player_wrapper = new PlayerWrapper('Live');
-            await this.player_wrapper.init();
+            // PlayerController を初期化
+            this.player_controller = new PlayerController('Live');
+            await this.player_controller.init();
         },
 
         // 再生セッションを破棄する
@@ -477,10 +477,10 @@ export default Vue.extend({
             // interval_ids をクリア
             this.interval_ids = [];
 
-            // PlayerWrapper を破棄
-            if (this.player_wrapper !== null) {
-                await this.player_wrapper.destroy();
-                this.player_wrapper = null;
+            // PlayerController を破棄
+            if (this.player_controller !== null) {
+                await this.player_controller.destroy();
+                this.player_controller = null;
             }
         }
     }

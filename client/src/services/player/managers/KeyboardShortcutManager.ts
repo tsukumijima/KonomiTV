@@ -40,7 +40,7 @@ interface ShortcutDefinition {
  */
 class KeyboardShortcutManager implements PlayerManager {
 
-    // ユーザー操作により DPlayer 側で画質が切り替わった際、この PlayerManager の再起動が必要かどうかを PlayerWrapper に示す値
+    // ユーザー操作により DPlayer 側で画質が切り替わった際、この PlayerManager の再起動が必要かどうかを PlayerController に示す値
     public readonly restart_required_when_quality_switched = false;
 
     // DPlayer のインスタンス
@@ -677,7 +677,7 @@ class KeyboardShortcutManager implements PlayerManager {
         // 即座にキーボードショートカットイベントをキャンセルしてしまうと、ザッピングが終わるまでキーボードショートカットが効かなくなってしまう
         if (this.playback_mode === 'Live' && player_store.is_zapping === true) {
 
-            // PlayerWrapper が初期化されているかの状態が変更されたときに実行するイベントを設定
+            // PlayerController が初期化されているかの状態が変更されたときに実行するイベントを設定
             // false から true に変わったときにザッピングが終わったとみなす
             const unwatch_zapping = watch(() => player_store.is_player_initialized, (new_value, old_value) => {
                 if (old_value === false && new_value === true) {

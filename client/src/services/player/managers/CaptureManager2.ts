@@ -20,7 +20,7 @@ import CaptureCompositorProxy from '@/workers/CaptureCompositorProxy';
  */
 class CaptureManager implements PlayerManager {
 
-    // ユーザー操作により DPlayer 側で画質が切り替わった際、この PlayerManager の再起動が必要かどうかを PlayerWrapper に示す値
+    // ユーザー操作により DPlayer 側で画質が切り替わった際、この PlayerManager の再起動が必要かどうかを PlayerController に示す値
     public readonly restart_required_when_quality_switched = false;
 
     // DPlayer のインスタンス
@@ -286,7 +286,7 @@ class CaptureManager implements PlayerManager {
         this.addHighlight(is_comment_composite);
 
         // aribb24js.CanvasID3Renderer のインスタンスを取得
-        // PlayerWrapper での実装上、aribb24.js (字幕) は必ず有効になっている
+        // PlayerController での実装上、aribb24.js (字幕) は必ず有効になっている
         const aribb24_caption = this.player.plugins.aribb24Caption!;
         // aribb24.js (文字スーパー) はビデオ視聴では常に無効なほか、ライブ視聴でも設定によっては無効になる
         const aribb24_superimpose = this.player.plugins.aribb24Superimpose ?? null;
@@ -423,7 +423,7 @@ class CaptureManager implements PlayerManager {
     /**
      * 何もしない
      * 本来であれば init() で動的に追加したキャプチャボタンの HTML 要素を削除するべきだが、
-     * 実装上 PlayerWrapper の破棄が完了する前にボタンを削除してしまうと、キャプチャボタンだけ一瞬消える不恰好な状態になってしまう
+     * 実装上 PlayerController の破棄が完了する前にボタンを削除してしまうと、キャプチャボタンだけ一瞬消える不恰好な状態になってしまう
      * このため、代わりに init() 側にすでにキャプチャボタンが追加済みであれば一旦削除する処理を入れている
      */
     public async destroy(): Promise<void> {

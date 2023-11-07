@@ -27,7 +27,7 @@ interface ILiveStreamStatusEvent {
  */
 class LiveEventManager implements PlayerManager {
 
-    // ユーザー操作により DPlayer 側で画質が切り替わった際、この PlayerManager の再起動が必要かどうかを PlayerWrapper に示す値
+    // ユーザー操作により DPlayer 側で画質が切り替わった際、この PlayerManager の再起動が必要かどうかを PlayerController に示す値
     public readonly restart_required_when_quality_switched = true;
 
     // DPlayer のインスタンス
@@ -155,7 +155,7 @@ class LiveEventManager implements PlayerManager {
                 case 'Idling': {
 
                     // 本来誰も視聴していないことを示す Idling ステータスを受信している場合、何らかの理由で
-                    // ライブストリーミング API への接続が切断された可能性が高いので、PlayerWrapper にプレイヤーロジックの再起動を要求する
+                    // ライブストリーミング API への接続が切断された可能性が高いので、PlayerController にプレイヤーの再起動を要求する
                     player_store.event_emitter.emit('PlayerRestartRequired', {
                         message: 'ストリーミング接続が切断されました。(Status: Idling) プレイヤーを再起動しています…',
                     });
@@ -167,7 +167,7 @@ class LiveEventManager implements PlayerManager {
                 case 'Restart': {
 
                     // エンコーダーがクラッシュしたなどの理由でライブストリームが再起動中なので、
-                    // PlayerWrapper にプレイヤーロジックの再起動を要求する
+                    // PlayerController にプレイヤーの再起動を要求する
                     player_store.event_emitter.emit('PlayerRestartRequired', {
                         // ステータス詳細 (再起動に至った理由) をプレイヤーに表示
                         message: event.detail,  // メッセージの末尾に「エンコードタスクを再起動しています… (ER-XX)」が入る
@@ -187,7 +187,7 @@ class LiveEventManager implements PlayerManager {
                 case 'Offline': {
 
                     // 「ライブストリームは Offline です。」のステータス詳細を受信すること自体が不正な状態
-                    // ストリーミング API への接続が切断された可能性が高いので、PlayerWrapper にプレイヤーロジックの再起動を要求する
+                    // ストリーミング API への接続が切断された可能性が高いので、PlayerController にプレイヤーの再起動を要求する
                     if (event.detail === 'ライブストリームは Offline です。') {
                         player_store.event_emitter.emit('PlayerRestartRequired', {
                             message: 'ストリーミング接続が切断されました。(Status: Offline) プレイヤーを再起動しています…',

@@ -33,7 +33,7 @@ interface IWatchSessionInfo {
  */
 class LiveCommentManager implements PlayerManager {
 
-    // ユーザー操作により DPlayer 側で画質が切り替わった際、この PlayerManager の再起動が必要かどうかを PlayerWrapper に示す値
+    // ユーザー操作により DPlayer 側で画質が切り替わった際、この PlayerManager の再起動が必要かどうかを PlayerController に示す値
     public readonly restart_required_when_quality_switched = false;
 
     // DPlayer のインスタンス

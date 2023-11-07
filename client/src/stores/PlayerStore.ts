@@ -21,11 +21,11 @@ export type PlayerEvents = {
         opacity?: number;  // 通知メッセージの透明度
         color?: string;  // 通知メッセージの文字色
     }
-    // PlayerManager からプレイヤーロジックの再起動が必要になったことを通知する
+    // PlayerManager からプレイヤーの再起動が必要になったことを通知する
     PlayerRestartRequired: {
         message: string;  // プレイヤーに通知するメッセージ
     };
-    // PlayerWrapper.setControlDisplayTimer() をそのまま呼び出す
+    // PlayerController.setControlDisplayTimer() をそのまま呼び出す
     SetControlDisplayTimer: void;
     // CaptureManager からキャプチャの撮影が完了したことを通知する
     CaptureCompleted: {
@@ -45,8 +45,8 @@ export type PlayerEvents = {
 
 
 /**
- * プレイヤー側の再生ロジックと UI 表示側で共有される状態を管理するストア
- * 主に PlayerWrapper や PlayerManager から状態変化に合わせて変更された値を UI に反映するためのもの
+ * プレイヤー側の再生系ロジックと UI 側で共有される状態を管理するストア
+ * 主に PlayerController や PlayerManager から状態変化に合わせて変更された値をリアクティブに UI に反映するためのもの
  */
 const usePlayerStore = defineStore('player', {
     state: () => ({
@@ -55,7 +55,7 @@ const usePlayerStore = defineStore('player', {
         // 既定で表示していない
         is_watching: false,
 
-        // PlayerWrapper が初期化されているか
+        // PlayerController が初期化されているか
         is_player_initialized: false,
 
         // プレイヤーに関連するイベントを発行する EventEmitter
