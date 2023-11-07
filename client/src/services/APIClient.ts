@@ -1,6 +1,6 @@
 
 /**
- * services/ 以下の各クラスは、KonomiTV サーバーへの API リクエストを抽象化し、
+ * services/ 直下の各クラスは、KonomiTV サーバーへの API リクエストを抽象化し、
  * API レスポンスの受け取りと、エラーが発生した際のエラーハンドリング (エラーメッセージ表示) までを責務として負う
  */
 
@@ -26,7 +26,10 @@ export interface IErrorResponse {
     error: AxiosError<IErrorResponseData>;
 }
 
-/** API リクエスト失敗時にサーバーから返されるエラーレスポンスを表すインターフェイス */
+/**
+ * API リクエスト失敗時にサーバーから返されるエラーレスポンスを表すインターフェイス
+ * HTTP リクエスト自体が失敗した場合は、detail に AxiosError のエラーメッセージが入る
+ */
 export interface IErrorResponseData {
     detail: string | {
         type: string;

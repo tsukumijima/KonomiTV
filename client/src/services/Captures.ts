@@ -1,4 +1,6 @@
 
+import { AxiosError } from 'axios';
+
 import Message from '@/message';
 import APIClient from '@/services/APIClient';
 
@@ -37,7 +39,25 @@ class Captures {
                     break;
                 }
                 default: {
-                    APIClient.showGenericError(response, 'キャプチャのアップロードに失敗しました。');
+                    if (Number.isNaN(response.status)) {
+                        // HTTP リクエスト自体が失敗した場合はネットワークエラーの可能性が高い & 基本アップロードに失敗してはならないので、リトライする
+                        if (response.error.code === AxiosError.ECONNABORTED) {
+                            // ネットワーク接続エラーの場合
+                            Message.warning('キャプチャのアップロード中にサーバーへの接続が切断されました。リトライします。');
+                        } else if (response.error.code === AxiosError.ETIMEDOUT) {
+                            // タイムアウトの場合
+                            Message.warning('キャプチャのアップロード中にサーバーへの接続がタイムアウトしました。リトライします。');
+                        } else if (response.error.code === AxiosError.ERR_NETWORK) {
+                            // 予期しないネットワークエラーの場合
+                            Message.warning('キャプチャのアップロード中に予期しないネットワークエラーが発生しました。リトライします。');
+                        } else {
+                            // それ以外のエラーの場合
+                            Message.warning('キャプチャのアップロードに失敗しました。リトライします。');
+                        }
+                        await this.uploadCapture(blob, filename);
+                    } else {
+                        APIClient.showGenericError(response, 'キャプチャのアップロードに失敗しました。');
+                    }
                     break;
                 }
             }
