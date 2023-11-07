@@ -402,6 +402,16 @@ class PlayerController {
         // デバッグ用にプレイヤーインスタンスも window 直下に入れる
         (window as any).player = this.player;
 
+        // この時点で DPlayer のコンテナ要素に dplayer-mobile クラスが付与されている場合、
+        // DPlayer は音量コントロールがないスマホ向けの UI になっている
+        // 通常の UI で DPlayer の音量を 1.0 以外に設定した後スマホ向け UI になった場合、DPlayer の音量を変更できず OS の音量を上げるしかなくなる
+        // そこで、スマホ向けの UI が表示されている場合のみ常に音量を 1.0 に設定する
+        if (this.player.container.classList.contains('dplayer-mobile') === true) {
+            // player.volume() を用いることで、単に音量を変更するだけでなく LocalStorage に音量を保存する処理も実行される
+            // 第3引数を true に設定すると、通知を表示せずに音量を変更できる
+            this.player.volume(1.0, undefined, true);
+        }
+
         // DPlayer 側のコントロール UI 非表示タイマーを無効化（上書き）
         // 無効化しておかないと、PlayerController.setControlDisplayTimer() の処理と競合してしまう
         // 上書き元のコードは https://github.com/tsukumijima/DPlayer/blob/v1.30.2/src/ts/controller.ts#L397-L405 にある
@@ -439,7 +449,7 @@ class PlayerController {
             console.warn('\u001b[31m[PlayerController] PlayerRestartRequired event received. Message: ', event.message);
 
             // ライブ視聴: iOS 17.0 以下で mpegts.js がサポートされていない場合は再起動できない
-            if (this.playback_mode === 'Live' && mpegts.isSupported() !== true) {  // サポートしていない場合は undefined が返る
+            if (this.playback_mode === 'Live' && mpegts.isSupported() !== true) {  // mpegts.js 非対応環境では undefined が返る
                 console.warn('\u001b[31m[PlayerController] PlayerRestartRequired event received, but mpegts.js is not supported. Ignored.');
                 // iOS 17.0 以下は mpegts.js がサポートされていないため、再生できない
                 this.player?.notice('iOS (Safari) 17.0 以下での視聴には対応していません。速やかに iOS を 17.1 以降に更新してください。', -1, undefined, '#FF6F6A');
@@ -780,18 +790,18 @@ class PlayerController {
                         player_store.is_background_display = false;
                     }
 
-                    // 再生開始時に音量を徐々に上げる
-                    // いきなり再生されるよりも体験が良い
+                    // 再生開始時に音量を徐々に上げる (いきなり再生されるよりも体験が良い)
                     // ミュートを解除した上で即座に音量を 0 に設定し、そこから徐々に上げていく
                     this.player.video.muted = false;
                     this.player.video.volume = 0;
+                    // 0.5 秒間かけて 0 から current_volume まで音量を上げる
                     const current_volume = this.player.user.get('volume');
-                    while ((this.player.video.volume + 0.05) < current_volume) {
-                        // 小数第2位以下を切り捨てて、浮動小数の誤差で 1 (100%) を微妙に超えてしまいエラーになるのを避ける
-                        this.player.video.volume = Utils.mathFloor(this.player.video.volume + 0.05, 2);
-                        await Utils.sleep(0.02);
+                    const volume_step = current_volume / 10;
+                    for (let i = 0; i < 10; i++) {
+                        await Utils.sleep(0.5 / 10);
+                        // 音量が current_volume を超えないようにする
+                        this.player.video.volume = Math.min(this.player.video.volume + volume_step, current_volume);
                     }
-                    this.player.video.volume = current_volume;
                 };
                 this.player.video.oncanplaythrough = on_canplay;
 
@@ -1153,12 +1163,15 @@ class PlayerController {
         // この 0.2 秒の間に音量をフェードアウトさせる
         // なお、ザッピングでチャンネルを連続で切り替えている場合は実行しない (実行しても意味がないため)
         if (this.player !== null) {
+            // 0.2 秒間かけて current_volume から 0 まで音量を下げる
             const current_volume = this.player.user.get('volume');
-            // 20回 (0.01秒おき) に分けて音量を下げる
-            for (let i = 0; i < 20; i++) {
-                await Utils.sleep(0.01);
-                if (this.player && this.player.video) {  // この行がないとタイミングによってはエラーになる
-                    this.player.video.volume = current_volume * (1 - (i + 1) / 20);
+            const volume_step = current_volume / 10;
+            for (let i = 0; i < 10; i++) {
+                await Utils.sleep(0.2 / 10);
+                // ごく稀に映像が既に破棄されている or まだ再生開始されていない場合がある (?) ので、その場合は実行しない
+                if (this.player && this.player.video) {
+                    // 音量が 0 より小さくならないようにする
+                    this.player.video.volume = Math.max(this.player.video.volume - volume_step, 0);
                 }
             }
         }
