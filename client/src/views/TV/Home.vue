@@ -15,7 +15,7 @@
                         v-for="[channels_type, channels] in Array.from(channelsStore.channels_list_with_pinned)" :key="channels_type">
                         <div class="channels" :class="`channels--tab-${channels_type} channels--length-${channels.length}`">
                             <router-link v-ripple class="channel"
-                                v-for="channel in channels" :key="channel.id" :to="`/tv/watch2/${channel.display_channel_id}`">
+                                v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.display_channel_id}`">
                                 <div class="channel__broadcaster">
                                     <img class="channel__broadcaster-icon" :src="`${Utils.api_base_url}/channels/${channel.display_channel_id}/logo`">
                                     <div class="channel__broadcaster-content">

@@ -79,7 +79,7 @@
                          @touchmove="($event) => player_controller?.setControlDisplayTimer($event)"
                          @click="($event) => player_controller?.setControlDisplayTimer($event)">
                         <div v-ripple class="switch-button switch-button-up" v-tooltip.top="'前のチャンネル'"
-                            @click="playerStore.is_zapping = true; $router.push({path: `/tv/watch2/${channelsStore.channel.previous.display_channel_id}`})">
+                            @click="playerStore.is_zapping = true; $router.push({path: `/tv/watch/${channelsStore.channel.previous.display_channel_id}`})">
                             <Icon class="switch-button-icon" icon="fluent:ios-arrow-left-24-filled" width="32px" rotate="1" />
                         </div>
                         <div v-ripple class="switch-button switch-button-panel switch-button-panel--open"
@@ -87,7 +87,7 @@
                             <Icon class="switch-button-icon" icon="fluent:navigation-16-filled" width="32px" />
                         </div>
                         <div v-ripple class="switch-button switch-button-down" v-tooltip.bottom="'次のチャンネル'"
-                             @click="playerStore.is_zapping = true; $router.push({path: `/tv/watch2/${channelsStore.channel.next.display_channel_id}`})">
+                             @click="playerStore.is_zapping = true; $router.push({path: `/tv/watch/${channelsStore.channel.next.display_channel_id}`})">
                             <Icon class="switch-button-icon" icon="fluent:ios-arrow-right-24-filled" width="33px" rotate="1" />
                         </div>
                     </div>
@@ -203,7 +203,7 @@ import Vue from 'vue';
 
 import BottomNavigation from '@/components/BottomNavigation.vue';
 import Channel from '@/components/Panel/Channel.vue';
-import Comment from '@/components/Panel/Comment2.vue';
+import Comment from '@/components/Panel/Comment.vue';
 import Program from '@/components/Panel/Program.vue';
 import Remocon from '@/components/Panel/Remocon.vue';
 import Twitter from '@/components/Panel/Twitter.vue';

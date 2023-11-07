@@ -16,7 +16,7 @@ import SettingsJikkyo from '@/views/Settings/Jikkyo.vue';
 import SettingsServer from '@/views/Settings/Server.vue';
 import SettingsTwitter from '@/views/Settings/Twitter.vue';
 import TVHome from '@/views/TV/Home.vue';
-import TVWatch2 from '@/views/TV/Watch2.vue';
+import TVWatch from '@/views/TV/Watch.vue';
 
 Vue.use(VueRouter);
 
@@ -40,9 +40,9 @@ const router = new VueRouter({
             component: TVHome,
         },
         {
-            path: '/tv/watch2/:display_channel_id',
-            name: 'TV Watch2',
-            component: TVWatch2,
+            path: '/tv/watch/:display_channel_id',
+            name: 'TV Watch',
+            component: TVWatch,
         },
         {
             path: '/settings/',

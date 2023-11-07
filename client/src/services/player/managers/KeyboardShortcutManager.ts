@@ -97,13 +97,13 @@ class KeyboardShortcutManager implements PlayerManager {
             // ↑: 前のチャンネルに切り替える
             {mode: 'Live', key: 'ArrowUp', repeat: false, ctrl: false, shift: false, alt: false, handler: () => {
                 player_store.is_zapping = true;  // ザッピング状態にする
-                router.push({path: `/tv/watch2/${channels_store.channel.previous.display_channel_id}`});
+                router.push({path: `/tv/watch/${channels_store.channel.previous.display_channel_id}`});
             }},
 
             // ↓: 次のチャンネルに切り替える
             {mode: 'Live', key: 'ArrowDown', repeat: false, ctrl: false, shift: false, alt: false, handler: () => {
                 player_store.is_zapping = true;  // ザッピング状態にする
-                router.push({path: `/tv/watch2/${channels_store.channel.next.display_channel_id}`});
+                router.push({path: `/tv/watch/${channels_store.channel.next.display_channel_id}`});
             }},
 
             // /(？): キーボードショートカットの一覧を表示する
@@ -340,7 +340,7 @@ class KeyboardShortcutManager implements PlayerManager {
                     // チャンネルが取得できていれば、ルーティングをそのチャンネルに置き換える
                     // 押されたキーに対応するリモコン番号のチャンネルがない場合や、現在と同じチャンネル ID の場合は何も起こらない
                     if (switch_channel !== null && switch_channel.display_channel_id !== channels_store.display_channel_id) {
-                        router.push({path: `/tv/watch2/${switch_channel.display_channel_id}`});
+                        router.push({path: `/tv/watch/${switch_channel.display_channel_id}`});
 
                         // 既定のキーボードショートカットイベントをキャンセルして終了
                         event.preventDefault();

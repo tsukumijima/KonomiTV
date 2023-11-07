@@ -3,7 +3,7 @@ import mitt from 'mitt';
 import { defineStore } from 'pinia';
 
 import { ITweetCapture } from '@/components/Panel/Twitter.vue';
-import { ICommentData } from '@/services/player/managers/LiveCommentManager2';
+import { ICommentData } from '@/services/player/managers/LiveCommentManager';
 import { IRecordedProgram, IRecordedProgramDefault } from '@/services/Videos';
 import useSettingsStore from '@/stores/SettingsStore';
 

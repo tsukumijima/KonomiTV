@@ -188,7 +188,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
                             for (const channel of channels) {
                                 if (channel.network_id === network_id && channel.service_id === service_id) {
                                     // 少し待ってからチャンネルを切り替える（チャンネル切り替え時にデータ放送側から音が鳴る可能性があるため）
-                                    Utils.sleep(0.3).then(() => router.push({path: `/tv/watch2/${channel.display_channel_id}`}));
+                                    Utils.sleep(0.3).then(() => router.push({path: `/tv/watch/${channel.display_channel_id}`}));
                                     return true;
                                 }
                             }
@@ -396,7 +396,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
                     // チャンネルが取得できていれば、ルーティングをそのチャンネルに置き換える
                     // 押されたキーに対応するリモコン ID のチャンネルがない場合や、現在と同じチャンネル ID の場合は何も起こらない
                     if (switch_channel !== null && switch_channel.display_channel_id !== channels_store.display_channel_id) {
-                        router.push({path: `/tv/watch2/${switch_channel.display_channel_id}`});
+                        router.push({path: `/tv/watch/${switch_channel.display_channel_id}`});
                     }
                     return;
 

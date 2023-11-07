@@ -83,7 +83,7 @@ import { mapStores } from 'pinia';
 import Vue, { PropType } from 'vue';
 
 import CommentMuteSettings from '@/components/Settings/CommentMuteSettings.vue';
-import { ICommentData } from '@/services/player/managers/LiveCommentManager2';
+import { ICommentData } from '@/services/player/managers/LiveCommentManager';
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
 import Utils, { CommentUtils } from '@/utils';

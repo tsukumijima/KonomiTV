@@ -7,8 +7,8 @@ import mpegts from 'mpegts.js';
 import KeyboardShortcutManager from './managers/KeyboardShortcutManager';
 
 import APIClient from '@/services/APIClient';
-import CaptureManager from '@/services/player/managers/CaptureManager2';
-import LiveCommentManager from '@/services/player/managers/LiveCommentManager2';
+import CaptureManager from '@/services/player/managers/CaptureManager';
+import LiveCommentManager from '@/services/player/managers/LiveCommentManager';
 import LiveDataBroadcastingManager from '@/services/player/managers/LiveDataBroadcastingManager';
 import LiveEventManager from '@/services/player/managers/LiveEventManager';
 import MediaSessionManager from '@/services/player/managers/MediaSessionManager';
