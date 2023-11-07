@@ -55,6 +55,9 @@ class LiveCommentManager implements PlayerManager {
     // destroy() 時に EventListener を全解除するための AbortController
     private abort_controller: AbortController = new AbortController();
 
+    // 破棄済みかどうか
+    private destroyed = false;
+
     /**
      * コンストラクタ
      * @param player DPlayer のインスタンス
@@ -70,6 +73,9 @@ class LiveCommentManager implements PlayerManager {
     public async init(): Promise<void> {
         const player_store = usePlayerStore();
         const user_store = useUserStore();
+
+        // 破棄済みかどうかのフラグを下ろす
+        this.destroyed = false;
 
         // ユーザー情報を事前にキャッシュさせておく
         await user_store.fetchUser();
@@ -389,10 +395,12 @@ class LiveCommentManager implements PlayerManager {
             if (Utils.isSafari() === false) {
                 console.debug('[LiveCommentManager][CommentSession] Comments buffer length:', comments_buffer.length);
             }
-            player_store.event_emitter.emit('LiveCommentReceived', {
-                is_initial_comments: false,
-                comments: comments_buffer,
-            });
+            if (this.destroyed === false) {  // まだ破棄されていない場合のみイベントを発火
+                player_store.event_emitter.emit('LiveCommentReceived', {
+                    is_initial_comments: false,
+                    comments: comments_buffer,
+                });
+            }
             // バッファを空にする
             comments_buffer.length = 0;
         }, 333);
@@ -416,10 +424,12 @@ class LiveCommentManager implements PlayerManager {
             // この時点で初期コメントを一気にイベントリスナーに送信する
             if (message.ping !== undefined && message.ping.content === 'rf:0') {
                 initial_comments_received = true;
-                player_store.event_emitter.emit('LiveCommentReceived', {
-                    is_initial_comments: true,
-                    comments: initial_comments_buffer,
-                });
+                if (this.destroyed === false) {  // まだ破棄されていない場合のみイベントを発火
+                    player_store.event_emitter.emit('LiveCommentReceived', {
+                        is_initial_comments: true,
+                        comments: initial_comments_buffer,
+                    });
+                }
                 return;
             }
 
@@ -693,6 +703,9 @@ class LiveCommentManager implements PlayerManager {
 
         // 初期化に失敗した際のエラーメッセージを削除
         player_store.live_comment_init_failed_message = null;
+
+        // 破棄済みかどうかのフラグを立てる
+        this.destroyed = true;
 
         console.log('[LiveCommentManager] Destroyed.');
     }
