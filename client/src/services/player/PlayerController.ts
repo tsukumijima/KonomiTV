@@ -800,7 +800,7 @@ class PlayerController {
                     for (let i = 0; i < 10; i++) {
                         await Utils.sleep(0.5 / 10);
                         // 音量が current_volume を超えないようにする
-                        this.player.video.volume = Math.min(this.player.video.volume + volume_step, current_volume);
+                        this.player.video.volume = Math.min(Utils.mathFloor(this.player.video.volume + volume_step, 2), current_volume);
                     }
                 };
                 this.player.video.oncanplaythrough = on_canplay;
@@ -1171,7 +1171,7 @@ class PlayerController {
                 // ごく稀に映像が既に破棄されている or まだ再生開始されていない場合がある (?) ので、その場合は実行しない
                 if (this.player && this.player.video) {
                     // 音量が 0 より小さくならないようにする
-                    this.player.video.volume = Math.max(this.player.video.volume - volume_step, 0);
+                    this.player.video.volume = Math.max(Utils.mathFloor(this.player.video.volume - volume_step, 2), 0);
                 }
             }
         }

@@ -71,7 +71,7 @@
                         </div>
                     </div>
                     <v-progress-circular indeterminate size="60" width="6" class="watch-player__buffering"
-                        :class="{'watch-player__buffering--display': playerStore.is_video_buffering && (playerStore.is_loading || playerStore.is_video_paused)}">
+                        :class="{'watch-player__buffering--display': playerStore.is_video_buffering}">
                     </v-progress-circular>
                     <div class="watch-player__dplayer"></div>
                     <div class="watch-player__button"
