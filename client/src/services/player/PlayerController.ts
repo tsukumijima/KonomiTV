@@ -480,7 +480,9 @@ class PlayerController {
             // 再初期化により、作り直した DPlayer が再び this.player にセットされているはず
             // 通知を表示してから PlayerController を破棄すると DPlayer の DOM 要素ごと消えてしまうので、DPlayer を作り直した後に通知を表示する
             assert(this.player !== null);
-            this.player.notice(event.message, undefined, undefined, '#FF6F6A');
+            if (event.message) {
+                this.player.notice(event.message, undefined, undefined, '#FF6F6A');
+            }
             is_player_restarting = false;
         });
 

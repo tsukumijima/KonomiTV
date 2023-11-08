@@ -118,16 +118,6 @@ class KeyboardShortcutManager implements PlayerManager {
                 this.player.toggle();
             }},
 
-            // Ctrl + ↑: プレイヤーの音量を上げる
-            {mode: 'Both', key: 'ArrowUp', repeat: true, ctrl: true, shift: false, alt: false, handler: () => {
-                this.player.volume(this.player.volume() + 0.05);
-            }},
-
-            // Ctrl + ↓: プレイヤーの音量を下げる
-            {mode: 'Both', key: 'ArrowDown', repeat: true, ctrl: true, shift: false, alt: false, handler: () => {
-                this.player.volume(this.player.volume() - 0.05);
-            }},
-
             // Ctrl + ←: 停止して0.5秒早戻し
             {mode: 'Live', key: 'ArrowLeft', repeat: true, ctrl: true, shift: false, alt: false, handler: () => {
                 if (this.player.video.paused === false) {
@@ -142,6 +132,25 @@ class KeyboardShortcutManager implements PlayerManager {
                     this.player.video.pause();
                 }
                 this.player.video.currentTime = this.player.video.currentTime + 0.5;
+            }},
+
+            // Ctrl + ↑: プレイヤーの音量を上げる
+            {mode: 'Both', key: 'ArrowUp', repeat: true, ctrl: true, shift: false, alt: false, handler: () => {
+                this.player.volume(this.player.volume() + 0.05);
+            }},
+
+            // Ctrl + ↓: プレイヤーの音量を下げる
+            {mode: 'Both', key: 'ArrowDown', repeat: true, ctrl: true, shift: false, alt: false, handler: () => {
+                this.player.volume(this.player.volume() - 0.05);
+            }},
+
+            // Q: プレイヤーの音量をミュートする
+            {mode: 'Both', key: 'KeyQ', repeat: false, ctrl: false, shift: false, alt: false, handler: () => {
+                if (this.player.container.classList.contains('dplayer-mobile')) {
+                    this.player.video.muted = !this.player.video.muted;
+                } else {
+                    this.player.template.volumeButtonIcon.click();
+                }
             }},
 
             // F: フルスクリーンの切り替え
@@ -198,6 +207,11 @@ class KeyboardShortcutManager implements PlayerManager {
                 this.player.comment!.show();
                 player_store.event_emitter.emit('SetControlDisplayTimer', {});
                 window.setTimeout(() => this.player.template.commentInput.focus(), 100);
+            }},
+
+            // R: プレイヤーを再起動する
+            {mode: 'Both', key: 'KeyR', repeat: false, ctrl: false, shift: false, alt: false, handler: () => {
+                player_store.event_emitter.emit('PlayerRestartRequired', {});
             }},
 
             // ***** パネル *****

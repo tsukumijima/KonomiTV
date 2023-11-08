@@ -23,7 +23,7 @@ export type PlayerEvents = {
     }
     // PlayerManager からプレイヤーの再起動が必要になったことを通知する
     PlayerRestartRequired: {
-        message: string;  // プレイヤーに通知するメッセージ
+        message?: string;  // プレイヤーに通知するメッセージ
     };
     // PlayerController.setControlDisplayTimer() をそのまま呼び出す
     SetControlDisplayTimer: {
