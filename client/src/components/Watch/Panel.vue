@@ -88,14 +88,14 @@ export default defineComponent({
             required: true,
         },
     },
-    computed: {
-        ...mapStores(useChannelsStore, usePlayerStore),
-    },
     data() {
         return {
             // ユーティリティをテンプレートで使えるように
             Utils: Utils,
         };
+    },
+    computed: {
+        ...mapStores(useChannelsStore, usePlayerStore),
     }
 });
 
