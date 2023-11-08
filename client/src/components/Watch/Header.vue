@@ -39,7 +39,7 @@ export default defineComponent({
             ProgramUtils: ProgramUtils,
 
             // 現在時刻
-            time: dayjs().format('YYYY/MM/DD HH:mm:ss'),
+            time: dayjs().format(Utils.isSmartphoneHorizontal() ? 'HH:mm:ss' : 'YYYY/MM/DD HH:mm:ss'),
 
             // 現在時刻更新用のインターバルの ID
             time_interval_id: 0,
@@ -50,7 +50,9 @@ export default defineComponent({
     },
     created() {
         // 現在時刻を1秒おきに更新
-        this.time_interval_id = window.setInterval(() => this.time = dayjs().format('YYYY/MM/DD HH:mm:ss'), 1 * 1000);
+        this.time_interval_id = window.setInterval(() => {
+            this.time = dayjs().format(Utils.isSmartphoneHorizontal() ? 'HH:mm:ss' : 'YYYY/MM/DD HH:mm:ss');
+        }, 1 * 1000);
     },
     beforeUnmount() {
         // インターバルをクリア
@@ -91,7 +93,6 @@ export default defineComponent({
         padding-left: calc(0px + 16px);
     }
     @include smartphone-vertical {
-        display: none;
         height: 50px;
         padding-left: 16px;
         padding-right: 16px;
@@ -159,7 +160,7 @@ export default defineComponent({
             border-radius: 4px;
         }
         @include smartphone-horizontal {
-            width: 48px;
+            width: 36px;
             height: 28px;
             border-radius: 4px;
         }
@@ -188,7 +189,7 @@ export default defineComponent({
         }
         @include smartphone-vertical {
             margin-left: 0px;
-            font-size: 16px;
+            font-size: 14px;
         }
     }
 
@@ -204,7 +205,7 @@ export default defineComponent({
         }
         @include smartphone-vertical {
             margin-left: 8px;
-            font-size: 14px;
+            font-size: 13px;
         }
     }
 
@@ -215,7 +216,7 @@ export default defineComponent({
         font-weight: 500;
 
         @include smartphone-horizontal {
-            display: none;
+            margin-left: 8px;
         }
         @include smartphone-vertical {
             display: none;
