@@ -127,8 +127,9 @@
 <script lang="ts">
 
 import { mapStores } from 'pinia';
-import Vue from 'vue';
+import { defineComponent } from 'vue';
 
+import Message from '@/message';
 import useSettingsStore from '@/stores/SettingsStore';
 import Utils, { PlayerUtils } from '@/utils';
 import SettingsBase from '@/views/Settings/Base.vue';
@@ -155,7 +156,7 @@ const QUALITY_H265 = [
     {text: '240p (約0.20GB/h / 平均0.4Mbps)', value: '240p'},
 ];
 
-export default Vue.extend({
+export default defineComponent({
     name: 'Settings-General',
     components: {
         SettingsBase,
@@ -225,7 +226,7 @@ export default Vue.extend({
             // ダウンロードさせるために一旦 Blob にしてから、KonomiTV-Settings.json としてダウンロード
             const settings_json_blob = new Blob([settings_json], {type: 'application/json'});
             Utils.downloadBlobData(settings_json_blob, 'KonomiTV-Settings.json');
-            this.$message.success('設定をエクスポートしました。');
+            Message.success('設定をエクスポートしました。');
         },
 
         // 設定データをインポートする
@@ -233,24 +234,24 @@ export default Vue.extend({
 
             // 設定データが選択されていないときは実行しない
             if (this.import_settings_file === null) {
-                this.$message.error('インポートする設定データを選択してください！');
+                Message.error('インポートする設定データを選択してください！');
                 return;
             }
 
             // 設定データのインポートを実行
             const result = await this.settingsStore.importClientSettings(this.import_settings_file);
             if (result === true) {
-                this.$message.success('設定をインポートしました。');
+                Message.success('設定をインポートしました。');
                 window.setTimeout(() => this.$router.go(0), 300);
             } else {
-                this.$message.error('設定データが不正なため、インポートできませんでした。');
+                Message.error('設定データが不正なため、インポートできませんでした。');
             }
         },
 
         // 設定データをリセットする
         async resetSettings() {
             await this.settingsStore.resetClientSettings();
-            this.$message.success('設定をリセットしました。');
+            Message.success('設定をリセットしました。');
             window.setTimeout(() => this.$router.go(0), 300);
         },
     }

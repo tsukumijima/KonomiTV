@@ -146,15 +146,16 @@
 <script lang="ts">
 
 import { mapStores } from 'pinia';
-import Vue from 'vue';
+import { defineComponent } from 'vue';
 
+import Message from '@/message';
 import Twitter from '@/services/Twitter';
 import useSettingsStore from '@/stores/SettingsStore';
 import useUserStore from '@/stores/UserStore';
 import Utils from '@/utils';
 import SettingsBase from '@/views/Settings/Base.vue';
 
-export default Vue.extend({
+export default defineComponent({
     name: 'Settings-Twitter',
     components: {
         SettingsBase,
@@ -221,7 +222,7 @@ export default Vue.extend({
         async loginTwitterAccountWithPasswordForm() {
             // ログインしていない場合はエラーにする
             if (this.userStore.is_logged_in === false) {
-                this.$message.warning('連携をはじめるには、KonomiTV アカウントにログインしてください。');
+                Message.warning('連携をはじめるには、KonomiTV アカウントにログインしてください。');
                 await Utils.sleep(0.01);
                 this.twitter_password_auth_dialog = false;
                 return;
@@ -250,7 +251,7 @@ export default Vue.extend({
             // アカウント情報を強制的に更新
             await this.userStore.fetchUser(true);
             if (this.userStore.user === null) {
-                this.$message.error('アカウント情報を取得できませんでした。');
+                Message.error('アカウント情報を取得できませんでした。');
                 return;
             }
 
@@ -261,7 +262,7 @@ export default Vue.extend({
                 return (a.updated_at < b.updated_at) ? 1 : ((a.updated_at > b.updated_at) ? -1 : 0);
             })[0];
 
-            this.$message.success(`Twitter @${current_twitter_account.screen_name} と連携しました。`);
+            Message.success(`Twitter @${current_twitter_account.screen_name} と連携しました。`);
 
             // フォームをリセットし、非表示にする
             (this.$refs.twitter_form as any).reset();
@@ -279,7 +280,7 @@ export default Vue.extend({
             // アカウント情報を強制的に更新
             await this.userStore.fetchUser(true);
 
-            this.$message.success(`Twitter @${screen_name} との連携を解除しました。`);
+            Message.success(`Twitter @${screen_name} との連携を解除しました。`);
         },
     }
 });

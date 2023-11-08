@@ -17,11 +17,11 @@
 </template>
 <script lang="ts">
 
-import Vue from 'vue';
+import { defineComponent } from 'vue';
 
 import SettingsBase from '@/views/Settings/Base.vue';
 
-export default Vue.extend({
+export default defineComponent({
     name: 'Settings-Server',
     components: {
         SettingsBase,

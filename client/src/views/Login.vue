@@ -36,14 +36,15 @@
 <script lang="ts">
 
 import { mapStores } from 'pinia';
-import Vue from 'vue';
+import { defineComponent } from 'vue';
 
 import Header from '@/components/Header.vue';
 import Navigation from '@/components/Navigation.vue';
+import Message from '@/message';
 import useUserStore from '@/stores/UserStore';
 import Utils from '@/utils';
 
-export default Vue.extend({
+export default defineComponent({
     name: 'Login',
     components: {
         Header,
@@ -80,7 +81,7 @@ export default Vue.extend({
 
             // ユーザー名またはパスワードが空
             if (this.username === '' || this.password === '') {
-                this.$message.error('ユーザー名またはパスワードが空です。');
+                Message.error('ユーザー名またはパスワードが空です。');
                 return;
             }
 

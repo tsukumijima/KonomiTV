@@ -201,15 +201,16 @@
 <script lang="ts">
 
 import { mapStores } from 'pinia';
-import Vue from 'vue';
+import { defineComponent } from 'vue';
 
+import Message from '@/message';
 import Settings from '@/services/Settings';
 import useSettingsStore from '@/stores/SettingsStore';
 import useUserStore from '@/stores/UserStore';
 import Utils from '@/utils';
 import SettingsBase from '@/views/Settings/Base.vue';
 
-export default Vue.extend({
+export default defineComponent({
     name: 'Settings-Account',
     components: {
         SettingsBase,
@@ -283,7 +284,7 @@ export default Vue.extend({
                 // 一度オブジェクトに戻したものをを再度 JSON にする（文字列比較のため）
                 const server_sync_settings = await Settings.fetchClientSettings();
                 if (server_sync_settings === null) {
-                    this.$message.error('サーバーから設定データを取得できませんでした。');
+                    Message.error('サーバーから設定データを取得できませんでした。');
                     return;
                 }
                 const server_sync_settings_json = JSON.stringify(server_sync_settings);
@@ -366,7 +367,7 @@ export default Vue.extend({
 
             // アイコン画像が選択されていないなら更新しない
             if (this.settings_icon === null) {
-                this.$message.error('アップロードする画像を選択してください！');
+                Message.error('アップロードする画像を選択してください！');
                 return;
             }
 

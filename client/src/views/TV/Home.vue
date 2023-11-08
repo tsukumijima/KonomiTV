@@ -85,15 +85,16 @@
 <script lang="ts">
 
 import { mapStores } from 'pinia';
-import Vue from 'vue';
+import { defineComponent } from 'vue';
 
 import Header from '@/components/Header.vue';
 import Navigation from '@/components/Navigation.vue';
+import Message from '@/message';
 import useChannelsStore from '@/stores/ChannelsStore';
 import useSettingsStore from '@/stores/SettingsStore';
 import Utils, { ChannelUtils, ProgramUtils } from '@/utils';
 
-export default Vue.extend({
+export default defineComponent({
     name: 'TV-Home',
     components: {
         Header,
@@ -184,7 +185,7 @@ export default Vue.extend({
 
             const channel = this.channelsStore.getChannel(display_channel_id);
             if (channel) {
-                this.$message.show(`${channel.name}をピン留めしました。`);
+                Message.show(`${channel.name}をピン留めしました。`);
             }
         },
 
@@ -201,7 +202,7 @@ export default Vue.extend({
 
             const channel = this.channelsStore.getChannel(display_channel_id);
             if (channel) {
-                this.$message.show(`${channel.name}のピン留めを外しました。`);
+                Message.show(`${channel.name}のピン留めを外しました。`);
             }
         },
 

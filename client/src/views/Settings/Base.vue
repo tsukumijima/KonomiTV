@@ -91,13 +91,13 @@
 </template>
 <script lang="ts">
 
-import Vue from 'vue';
+import { defineComponent } from 'vue';
 
 import Header from '@/components/Header.vue';
 import Navigation from '@/components/Navigation.vue';
 
 // 設定のベース画面なので、ロジックは基本置かない
-export default Vue.extend({
+export default defineComponent({
     name: 'Settings-Base',
     components: {
         Header,

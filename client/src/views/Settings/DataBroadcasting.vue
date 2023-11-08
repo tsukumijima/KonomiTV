@@ -62,8 +62,9 @@
 <script lang="ts">
 
 import { mapStores } from 'pinia';
-import Vue from 'vue';
+import { defineComponent } from 'vue';
 
+import Message from '@/message';
 import useSettingsStore from '@/stores/SettingsStore';
 import Utils from '@/utils';
 import SettingsBase from '@/views/Settings/Base.vue';
@@ -71,7 +72,7 @@ import SettingsBase from '@/views/Settings/Base.vue';
 // データ放送の NVRAM のうち、郵便番号/都道府県設定の保存に使う LocalStorage キーのプレフィックス
 const NVRAM_LOCAL_STORAGE_PREFIX = 'KonomiTV-BMLBrowser_nvram_prefix=receiverinfo%2F';
 
-export default Vue.extend({
+export default defineComponent({
     name: 'Settings-DataBroadcasting',
     components: {
         SettingsBase,
@@ -230,7 +231,7 @@ export default Vue.extend({
             }
             this.data_broadcasting_zip_code = '';
             this.data_broadcasting_prefecture = '255-0b0';
-            this.$message.success('データ放送の保存データをリセットしました。');
+            Message.success('データ放送の保存データをリセットしました。');
         }
     }
 });

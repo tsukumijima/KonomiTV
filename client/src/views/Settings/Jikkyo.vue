@@ -96,6 +96,7 @@ import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
 
 import CommentMuteSettings from '@/components/Settings/CommentMuteSettings.vue';
+import Message from '@/message';
 import Niconico from '@/services/Niconico';
 import useSettingsStore from '@/stores/SettingsStore';
 import useUserStore from '@/stores/UserStore';
@@ -152,7 +153,7 @@ export default defineComponent({
 
             // ログインしていない場合はエラーにする
             if (this.userStore.is_logged_in === false) {
-                this.$message.warning('連携をはじめるには、KonomiTV アカウントにログインしてください。');
+                Message.warning('連携をはじめるには、KonomiTV アカウントにログインしてください。');
                 return;
             }
 
@@ -173,7 +174,7 @@ export default defineComponent({
             // ref: https://qiita.com/catatsuy/items/babce8726ea78f5d25b1 (大変参考になりました)
             const popup_window = window.open(authorization_url, 'KonomiTV-OAuthPopup', Utils.getWindowFeatures());
             if (popup_window === null) {
-                this.$message.error('ポップアップウインドウを開けませんでした。');
+                Message.error('ポップアップウインドウを開けませんでした。');
                 return;
             }
 
@@ -208,19 +209,19 @@ export default defineComponent({
             // OAuth 連携に失敗した
             if (authorization_status !== 200) {
                 if (authorization_detail.startsWith('Authorization was denied (access_denied)')) {
-                    this.$message.error('ニコニコアカウントとの連携がキャンセルされました。');
+                    Message.error('ニコニコアカウントとの連携がキャンセルされました。');
                 } else if (authorization_detail.startsWith('Failed to get access token (HTTP Error ')) {
                     const error = authorization_detail.replace('Failed to get access token ', '');
-                    this.$message.error(`アクセストークンの取得に失敗しました。${error}`);
+                    Message.error(`アクセストークンの取得に失敗しました。${error}`);
                 } else if (authorization_detail.startsWith('Failed to get access token (Connection Timeout)')) {
-                    this.$message.error('アクセストークンの取得に失敗しました。ニコニコで障害が発生している可能性があります。');
+                    Message.error('アクセストークンの取得に失敗しました。ニコニコで障害が発生している可能性があります。');
                 } else if (authorization_detail.startsWith('Failed to get user information (HTTP Error ')) {
                     const error = authorization_detail.replace('Failed to get user information ', '');
-                    this.$message.error(`ニコニコアカウントのユーザー情報の取得に失敗しました。${error}`);
+                    Message.error(`ニコニコアカウントのユーザー情報の取得に失敗しました。${error}`);
                 } else if (authorization_detail.startsWith('Failed to get user information (Connection Timeout)')) {
-                    this.$message.error('ニコニコアカウントのユーザー情報の取得に失敗しました。ニコニコで障害が発生している可能性があります。');
+                    Message.error('ニコニコアカウントのユーザー情報の取得に失敗しました。ニコニコで障害が発生している可能性があります。');
                 } else {
-                    this.$message.error(`ニコニコアカウントとの連携に失敗しました。(${authorization_detail})`);
+                    Message.error(`ニコニコアカウントとの連携に失敗しました。(${authorization_detail})`);
                 }
                 return;
             }
@@ -228,7 +229,7 @@ export default defineComponent({
             // アカウント情報を強制的に更新
             await this.userStore.fetchUser(true);
 
-            this.$message.success('ニコニコアカウントと連携しました。');
+            Message.success('ニコニコアカウントと連携しました。');
         },
 
         async logoutNiconicoAccount() {
@@ -242,7 +243,7 @@ export default defineComponent({
             // アカウント情報を強制的に更新
             await this.userStore.fetchUser(true);
 
-            this.$message.success('ニコニコアカウントとの連携を解除しました。');
+            Message.success('ニコニコアカウントとの連携を解除しました。');
         },
     }
 });

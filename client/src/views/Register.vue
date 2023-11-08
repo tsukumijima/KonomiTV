@@ -38,14 +38,14 @@
 <script lang="ts">
 
 import { mapStores } from 'pinia';
-import Vue from 'vue';
+import { defineComponent } from 'vue';
 
 import Header from '@/components/Header.vue';
 import Navigation from '@/components/Navigation.vue';
 import useUserStore from '@/stores/UserStore';
 import Utils from '@/utils';
 
-export default Vue.extend({
+export default defineComponent({
     name: 'Register',
     components: {
         Header,

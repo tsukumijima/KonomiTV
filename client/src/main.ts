@@ -1,14 +1,14 @@
 
 import { Icon } from '@iconify/vue2';
+import '@mdi/font/css/materialdesignicons.css';
 import { createPinia, PiniaVuePlugin } from 'pinia';
 import { polyfill as SeamlessScrollPolyfill } from 'seamless-scroll-polyfill';
 import VTooltip from 'v-tooltip';
+import 'v-tooltip/dist/v-tooltip.css';
 import Vue from 'vue';
 import VueVirtualScroller from 'vue-virtual-scroller';
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
 import VuetifyMessageSnackbar from 'vuetify-message-snackbar';
-import 'v-tooltip/dist/v-tooltip.css';
-import '@mdi/font/css/materialdesignicons.css';
 
 import App from '@/App.vue';
 import VTabItem from '@/components/Vuetify/VTabItem';

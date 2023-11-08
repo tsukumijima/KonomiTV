@@ -8,6 +8,8 @@ interface MessageReturnValue {
 }
 
 // Vue コンポーネント以外からも this.$message を使えるようにするための (強引な) ラッパー
+// …だったのだが、defineComponent に移行した結果 this.$message が使えなくなったので結局こっちに統一した
+// 将来的にはちゃんと実装する予定
 export default {
     success(message: MessageType | MessageOption): MessageReturnValue {
         // @ts-ignore

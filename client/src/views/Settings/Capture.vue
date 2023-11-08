@@ -56,13 +56,13 @@
 <script lang="ts">
 
 import { mapStores } from 'pinia';
-import Vue from 'vue';
+import { defineComponent } from 'vue';
 
 import useSettingsStore from '@/stores/SettingsStore';
 import Utils from '@/utils';
 import SettingsBase from '@/views/Settings/Base.vue';
 
-export default Vue.extend({
+export default defineComponent({
     name: 'Settings-Capture',
     components: {
         SettingsBase,

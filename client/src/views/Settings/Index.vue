@@ -97,13 +97,13 @@
 <script lang="ts">
 
 import { mapStores } from 'pinia';
-import Vue from 'vue';
+import { defineComponent } from 'vue';
 
 import Header from '@/components/Header.vue';
 import Navigation from '@/components/Navigation.vue';
 import useVersionStore from '@/stores/VersionStore';
 
-export default Vue.extend({
+export default defineComponent({
     name: 'Settings-Index',
     components: {
         Header,
