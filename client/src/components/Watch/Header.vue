@@ -1,18 +1,18 @@
 <template>
-<header class="watch-header">
-    <router-link class="watch-header__back-icon" v-ripple :to="playback_mode === 'Live' ? '/tv/' : '/video/'">
-        <Icon icon="fluent:arrow-left-12-filled" width="25px" />
-    </router-link>
-    <img class="watch-header__broadcaster" :src="`${Utils.api_base_url}/channels/${(channelsStore.display_channel_id)}/logo`">
-    <span class="watch-header__program-title"
-        v-html="ProgramUtils.decorateProgramInfo(channelsStore.channel.current.program_present, 'title')">
-    </span>
-    <span class="watch-header__program-time">
-        {{ProgramUtils.getProgramTime(channelsStore.channel.current.program_present, true)}}
-    </span>
-    <v-spacer></v-spacer>
-    <span class="watch-header__now">{{time}}</span>
-</header>
+    <header class="watch-header">
+        <router-link class="watch-header__back-icon" v-ripple :to="playback_mode === 'Live' ? '/tv/' : '/video/'">
+            <Icon icon="fluent:arrow-left-12-filled" width="25px" />
+        </router-link>
+        <img class="watch-header__broadcaster" :src="`${Utils.api_base_url}/channels/${(channelsStore.display_channel_id)}/logo`">
+        <span class="watch-header__program-title"
+            v-html="ProgramUtils.decorateProgramInfo(channelsStore.channel.current.program_present, 'title')">
+        </span>
+        <span class="watch-header__program-time">
+            {{ProgramUtils.getProgramTime(channelsStore.channel.current.program_present, true)}}
+        </span>
+        <v-spacer></v-spacer>
+        <span class="watch-header__now">{{time}}</span>
+    </header>
 </template>
 <script lang="ts">
 
@@ -59,7 +59,7 @@ export default defineComponent({
 });
 
 </script>
-<style lang="scss">
+<style lang="scss" scoped>
 
 .watch-header {
     display: flex;
