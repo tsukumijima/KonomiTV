@@ -15,7 +15,6 @@
             </div>
             <WatchPanel :playback_mode="playback_mode" />
         </main>
-        <BottomNavigation />
         <KeyboardShortcutList :playback_mode="playback_mode" />
     </div>
 </template>
@@ -24,7 +23,6 @@
 import { mapStores } from 'pinia';
 import Vue, { PropType } from 'vue';
 
-import BottomNavigation from '@/components/BottomNavigation.vue';
 import WatchHeader from '@/components/Watch/Header.vue';
 import KeyboardShortcutList from '@/components/Watch/KeyboardShortcutList.vue';
 import WatchNavigation from '@/components/Watch/Navigation.vue';
@@ -38,7 +36,6 @@ import Utils from '@/utils';
 export default Vue.extend({
     name: 'Watch',
     components: {
-        BottomNavigation,
         KeyboardShortcutList,
         WatchHeader,
         WatchNavigation,
@@ -291,7 +288,6 @@ export default Vue.extend({
     @include smartphone-vertical {
         flex-direction: column;
         width: 100%;
-        padding-bottom: 56px;
     }
 
     // コントロール表示時

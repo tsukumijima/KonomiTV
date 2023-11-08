@@ -727,6 +727,9 @@ export default defineComponent({
     flex-direction: column;
     position: relative;
     padding-bottom: 8px;
+    @include tablet-vertical {
+        padding-bottom: 0px;
+    }
     @include smartphone-vertical {
         padding-bottom: 0px;
     }

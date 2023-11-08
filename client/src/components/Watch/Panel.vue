@@ -266,14 +266,14 @@ export default defineComponent({
         height: 77px;
         background: var(--v-background-lighten1);
         @include tablet-vertical {
-            height: 48px;
+            height: 66px;
             background: var(--v-background-base);
         }
         @include smartphone-horizontal {
             height: 34px;
         }
         @include smartphone-vertical {
-            height: 44px;
+            height: 50px;
             background: var(--v-background-base);
         }
 
@@ -293,8 +293,8 @@ export default defineComponent({
             cursor: pointer;
             @include tablet-vertical {
                 width: 100px;
-                height: 40px;
-                padding: 5px 0px;
+                height: 56px;
+                padding: 4px 0px;
                 box-sizing: border-box;
             }
             @include smartphone-horizontal {
@@ -303,8 +303,8 @@ export default defineComponent({
                 box-sizing: border-box;
             }
             @include smartphone-vertical {
-                height: 34px;
-                padding: 5px 0px;
+                height: 38px;
+                padding: 6px 0px;
                 box-sizing: border-box;
             }
 
@@ -334,7 +334,8 @@ export default defineComponent({
                 margin-top: 5px;
                 font-size: 13px;
                 @include tablet-vertical {
-                    display: none;
+                    margin-top: 3px;
+                    font-size: 12px;
                 }
                 @include smartphone-horizontal {
                     display: none;
