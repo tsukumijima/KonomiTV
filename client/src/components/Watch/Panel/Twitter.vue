@@ -176,7 +176,7 @@
 <script lang="ts">
 
 import { mapStores } from 'pinia';
-import Vue, { PropType } from 'vue';
+import { defineComponent, PropType } from 'vue';
 import draggable from 'vuedraggable';
 
 import { IProgram } from '@/services/Programs';
@@ -186,7 +186,7 @@ import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
 import useSettingsStore from '@/stores/SettingsStore';
 import useUserStore from '@/stores/UserStore';
-import Utils from '@/utils';
+import Utils, { ChannelUtils } from '@/utils';
 
 // このコンポーネント内でのキャプチャのインターフェイス
 export interface ITweetCapture {
@@ -204,7 +204,7 @@ interface IHashtag {
     editing: boolean;
 }
 
-export default Vue.extend({
+export default defineComponent({
     name: 'Panel-TwitterTab',
     components: {
         draggable,
@@ -327,7 +327,7 @@ export default Vue.extend({
         'channelsStore.channel.current.name': {
             handler(new_channel_name: string, old_channel_name: string) {
                 if (this.playback_mode === 'Live') {
-                    const old_channel_hashtag = this.getChannelHashtag(old_channel_name) ?? '';
+                    const old_channel_hashtag = ChannelUtils.getChannelHashtag(old_channel_name) ?? '';
                     this.tweet_hashtag = this.formatHashtag(this.tweet_hashtag.replaceAll(old_channel_hashtag, ''));
                     this.updateTweetLetterCount();
                     // 「番組が切り替わったときにハッシュタグフォームをリセットする」がオンなら、ハッシュタグフォームを空にする
@@ -572,84 +572,6 @@ export default Vue.extend({
             }
         },
 
-        // チャンネル名から対応する局タグを取得する
-        // とりあえず三大首都圏 + BS のみ対応
-        getChannelHashtag(channel_name: string): string | null {
-            // NHK
-            if (channel_name.startsWith('NHK総合')) {
-                return '#nhk';
-            } else if (channel_name.startsWith('NHKEテレ')) {
-                return '#etv';
-            // 民放
-            } else if (channel_name.startsWith('日テレ')) {
-                return '#ntv';
-            } else if (channel_name.startsWith('読売テレビ')) {
-                return '#ytv';
-            } else if (channel_name.startsWith('中京テレビ')) {
-                return '#chukyotv';
-            } else if (channel_name.startsWith('テレビ朝日')) {
-                return '#tvasahi';
-            } else if (channel_name.startsWith('ABCテレビ')) {
-                return '#abc';
-            } else if (channel_name.startsWith('メ~テレ')) {
-                return '#nagoyatv';
-            } else if (channel_name.startsWith('TBS') && !channel_name.includes('TBSチャンネル')) {
-                return '#tbs';
-            } else if (channel_name.startsWith('MBS')) {
-                return '#mbs';
-            } else if (channel_name.startsWith('CBC')) {
-                return '#cbc';
-            } else if (channel_name.startsWith('テレビ東京')) {
-                return '#tvtokyo';
-            } else if (channel_name.startsWith('テレビ大阪')) {
-                return '#tvo';
-            } else if (channel_name.startsWith('テレビ愛知')) {
-                return '#tva';
-            } else if (channel_name.startsWith('フジテレビ')) {
-                return '#fujitv';
-            } else if (channel_name.startsWith('関西テレビ')) {
-                return '#kantele';
-            } else if (channel_name.startsWith('東海テレビ')) {
-                return '#tokaitv';
-            // 独立局
-            } else if (channel_name.startsWith('TOKYO MX')) {
-                return '#tokyomx';
-            } else if (channel_name.startsWith('tvk')) {
-                return '#tvk';
-            } else if (channel_name.startsWith('チバテレ')) {
-                return '#chibatv';
-            } else if (channel_name.startsWith('テレ玉')) {
-                return '#teletama';
-            } else if (channel_name.startsWith('サンテレビ')) {
-                return '#suntv';
-            } else if (channel_name.startsWith('KBS京都')) {
-                return '#kbs';
-            // BS・CS
-            } else if (channel_name.startsWith('NHKBS1')) {
-                return '#nhkbs1';
-            } else if (channel_name.startsWith('NHKBSプレミアム')) {
-                return '#nhkbsp';
-            } else if (channel_name.startsWith('BS日テレ')) {
-                return '#bsntv';
-            } else if (channel_name.startsWith('BS朝日')) {
-                return '#bsasahi';
-            } else if (channel_name.startsWith('BS-TBS')) {
-                return '#bstbs';
-            } else if (channel_name.startsWith('BSテレ東')) {
-                return '#bstvtokyo';
-            } else if (channel_name.startsWith('BSフジ')) {
-                return '#bsfuji';
-            } else if (channel_name.startsWith('BS11イレブン')) {
-                return '#bs11';
-            } else if (channel_name.startsWith('BS12トゥエルビ')) {
-                return '#bs12';
-            } else if (channel_name.startsWith('AT-X')) {
-                return '#at_x';
-            }
-
-            return null;
-        },
-
         // ハッシュタグを整形（余計なスペースなどを削り、全角ハッシュを半角ハッシュへ、全角スペースを半角スペースに置換）
         formatHashtag(tweet_hashtag: string, from_hashtag_list: boolean = false): string {
 
@@ -669,7 +591,7 @@ export default Vue.extend({
             // ビデオ視聴ではリアルタイム実況ではないので追加しない
             if (this.playback_mode === 'Live') {
                 if (this.settingsStore.settings.auto_add_watching_channel_hashtag === true && from_hashtag_list === false) {
-                    const channel_hashtag = this.getChannelHashtag(this.channelsStore.channel.current.name);
+                    const channel_hashtag = ChannelUtils.getChannelHashtag(this.channelsStore.channel.current.name);
                     if (channel_hashtag !== null) {
                         if (tweet_hashtag_array.includes(channel_hashtag) === false) {
                             tweet_hashtag_array.push(channel_hashtag);
@@ -754,9 +676,9 @@ export default Vue.extend({
             // 送信中フラグを下ろす
             this.is_tweet_sending = false;
 
-            // パネルを閉じるように親コンポーネントに伝える
+            // パネルを閉じる
             if (this.settingsStore.settings.fold_panel_after_sending_tweet === true) {
-                this.$emit('panel_folding_requested');
+                this.playerStore.is_panel_display = false;
                 (this.$refs.tweet_text as HTMLTextAreaElement).blur();  // フォーカスを外す
             }
         },

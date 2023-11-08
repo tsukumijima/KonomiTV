@@ -115,16 +115,15 @@
                     <Comment class="watch-panel__content" :playback_mode="'Live'"
                         :class="{'watch-panel__content--active': playerStore.tv_panel_active_tab === 'Comment'}" />
                     <Twitter class="watch-panel__content" :playback_mode="'Live'"
-                        :class="{'watch-panel__content--active': playerStore.tv_panel_active_tab === 'Twitter'}"
-                        @panel_folding_requested="playerStore.is_panel_display = false" />
+                        :class="{'watch-panel__content--active': playerStore.tv_panel_active_tab === 'Twitter'}" />
                     <button v-ripple class="watch-panel__content-remocon-button elevation-8"
                         :class="{'watch-panel__content-remocon-button--active': playerStore.tv_panel_active_tab === 'Program' || playerStore.tv_panel_active_tab === 'Channel'}"
                         @click="playerStore.is_remocon_display = !playerStore.is_remocon_display">
                         <Icon class="panel-close-button__icon" icon="material-symbols:remote-gen" width="25px" />
                     </button>
                     <Remocon class="watch-panel__remocon"
-                        :showing="(playerStore.tv_panel_active_tab === 'Program' || playerStore.tv_panel_active_tab === 'Channel') && playerStore.is_remocon_display === true"
-                        @close="playerStore.is_remocon_display = false" />
+                        :modelValue="(playerStore.tv_panel_active_tab === 'Program' || playerStore.tv_panel_active_tab === 'Channel') && playerStore.is_remocon_display === true"
+                        @update:modelValue="playerStore.is_remocon_display = $event" />
                 </div>
                 <div class="watch-panel__navigation">
                     <div v-ripple class="panel-navigation-button"
@@ -202,11 +201,11 @@ import { mapStores } from 'pinia';
 import Vue from 'vue';
 
 import BottomNavigation from '@/components/BottomNavigation.vue';
-import Channel from '@/components/Panel/Channel.vue';
-import Comment from '@/components/Panel/Comment.vue';
-import Program from '@/components/Panel/Program.vue';
-import Remocon from '@/components/Panel/Remocon.vue';
-import Twitter from '@/components/Panel/Twitter.vue';
+import Channel from '@/components/Watch/Panel/Channel.vue';
+import Comment from '@/components/Watch/Panel/Comment.vue';
+import Program from '@/components/Watch/Panel/Program.vue';
+import Remocon from '@/components/Watch/Panel/Remocon.vue';
+import Twitter from '@/components/Watch/Panel/Twitter.vue';
 import PlayerController from '@/services/player/PlayerController';
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';

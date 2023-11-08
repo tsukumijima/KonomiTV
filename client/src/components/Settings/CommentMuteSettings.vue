@@ -140,30 +140,23 @@
 <script lang="ts">
 
 import { mapStores } from 'pinia';
-import Vue, { PropType } from 'vue';
+import { defineComponent, PropType } from 'vue';
 
 import useSettingsStore from '@/stores/SettingsStore';
 
-export default Vue.extend({
+export default defineComponent({
     name: 'CommentMuteSettings',
-    // カスタム v-model を実装する
-    // ref: https://jp.vuejs.org/v2/guide/components-custom-events.html
-    model: {
-        prop: 'showing',  // v-model で渡された値が "showing" props に入る
-        event: 'change',  // "change" イベントで親コンポーネントに反映
-    },
     props: {
-        // コメントのミュート設定のモーダルを表示するか
-        showing: {
-            type: Boolean as PropType<Boolean>,
+        modelValue: {
+            type: Boolean as PropType<boolean>,
             required: true,
         }
     },
+    emits: {
+        'update:modelValue': (value: boolean) => true,
+    },
     data() {
         return {
-
-            // インターバルのタイマー ID
-            interval_timer_id: 0,
 
             // コメントのミュート設定のモーダルを表示するか
             comment_mute_settings_modal: false,
@@ -185,14 +178,14 @@ export default Vue.extend({
     },
     watch: {
 
-        // showing (親コンポーネント側) の変更を監視し、変更されたら comment_mute_settings_modal に反映する
-        showing() {
-            this.comment_mute_settings_modal = this.showing as boolean;
+        // modelValue (親コンポーネント側: Props) の変更を監視し、変更されたら comment_mute_settings_modal に反映する
+        modelValue() {
+            this.comment_mute_settings_modal = this.modelValue;
         },
 
         // comment_mute_settings_modal (子コンポーネント側) の変更を監視し、変更されたら this.$emit() で親コンポーネントに伝える
         comment_mute_settings_modal() {
-            this.$emit('change', this.comment_mute_settings_modal);
+            this.$emit('update:modelValue', this.comment_mute_settings_modal);
         }
     }
 });

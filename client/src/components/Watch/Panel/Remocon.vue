@@ -1,9 +1,9 @@
 <template>
-    <div class="remote-control-container" :class="{'remote-control-container--showing': showing}"
-        @click="$emit('close')">
+    <div class="remote-control-container" :class="{'remote-control-container--showing': modelValue}"
+        @click="$emit('update:modelValue', false)">
         <div class="remote-control elevation-6" @click.stop>
             <div v-ripple class="remote-control__close d-flex align-center rounded-circle cursor-pointer px-2 py-2"
-                @click="$emit('close')">
+                @click="$emit('update:modelValue', false)">
                 <Icon icon="fluent:dismiss-12-filled" width="23px" height="23px" />
             </div>
             <div class="remote-control-data-broadcasting remote-control-data-broadcasting--disabled">
@@ -61,17 +61,19 @@
 </template>
 <script lang="ts">
 
-import Vue, { PropType } from 'vue';
+import { defineComponent, PropType } from 'vue';
 
-export default Vue.extend({
+export default defineComponent({
     name: 'Panel-Remocon',
     props: {
-        // リモコンのモーダルを表示するか
-        showing: {
-            type: Boolean as PropType<Boolean>,
+        modelValue: {
+            type: Boolean as PropType<boolean>,
             required: true,
         }
-    }
+    },
+    emits: {
+        'update:modelValue': (value: boolean) => true,
+    },
 });
 
 </script>

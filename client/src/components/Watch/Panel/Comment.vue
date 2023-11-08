@@ -74,13 +74,13 @@
              :class="{'comment-scroll-button--display': is_manual_scroll}">
             <Icon icon="fluent:arrow-down-12-filled" height="29px" />
         </div>
-        <CommentMuteSettings v-model="comment_mute_settings_modal" />
+        <CommentMuteSettings :modelValue="comment_mute_settings_modal" @update:modelValue="comment_mute_settings_modal = $event" />
     </div>
 </template>
 <script lang="ts">
 
 import { mapStores } from 'pinia';
-import Vue, { PropType } from 'vue';
+import { defineComponent, PropType } from 'vue';
 
 import CommentMuteSettings from '@/components/Settings/CommentMuteSettings.vue';
 import { ICommentData } from '@/services/player/managers/LiveCommentManager';
@@ -88,7 +88,7 @@ import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
 import Utils, { CommentUtils } from '@/utils';
 
-export default Vue.extend({
+export default defineComponent({
     name: 'Panel-CommentTab',
     components: {
         CommentMuteSettings,

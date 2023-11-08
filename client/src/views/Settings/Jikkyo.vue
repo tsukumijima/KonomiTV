@@ -87,13 +87,13 @@
                 </v-switch>
             </div>
         </div>
-        <CommentMuteSettings v-model="comment_mute_settings_modal" />
+        <CommentMuteSettings :modelValue="comment_mute_settings_modal" @update:modelValue="comment_mute_settings_modal = $event" />
     </SettingsBase>
 </template>
 <script lang="ts">
 
 import { mapStores } from 'pinia';
-import Vue from 'vue';
+import { defineComponent } from 'vue';
 
 import CommentMuteSettings from '@/components/Settings/CommentMuteSettings.vue';
 import Niconico from '@/services/Niconico';
@@ -102,7 +102,7 @@ import useUserStore from '@/stores/UserStore';
 import Utils from '@/utils';
 import SettingsBase from '@/views/Settings/Base.vue';
 
-export default Vue.extend({
+export default defineComponent({
     name: 'Settings-Jikkyo',
     components: {
         SettingsBase,

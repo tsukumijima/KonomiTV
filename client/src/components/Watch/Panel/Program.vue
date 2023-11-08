@@ -57,12 +57,12 @@
 <script lang="ts">
 
 import { mapStores } from 'pinia';
-import Vue from 'vue';
+import { defineComponent } from 'vue';
 
 import useChannelsStore from '@/stores/ChannelsStore';
 import Utils, { ChannelUtils, ProgramUtils } from '@/utils';
 
-export default Vue.extend({
+export default defineComponent({
     name: 'Panel-ProgramTab',
     data() {
         return {
