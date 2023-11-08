@@ -436,7 +436,7 @@ class PlayerController {
         // このイベントは常にアプリケーション上で1つだけ登録されていなければならない
         player_store.event_emitter.off('SendNotification');  // SendNotification イベントの全てのイベントハンドラーを削除
         player_store.event_emitter.on('SendNotification', (event) => {
-            if (this.player === null) return;
+            if (this.destroyed === true || this.player === null) return;
             this.player.notice(event.message, event.duration, event.opacity, event.color);
         });
 
@@ -446,6 +446,9 @@ class PlayerController {
         let is_player_restarting = false;  // 現在再起動中かどうか
         player_store.event_emitter.off('PlayerRestartRequired');  // PlayerRestartRequired イベントの全てのイベントハンドラーを削除
         player_store.event_emitter.on('PlayerRestartRequired', async (event) => {
+
+            // すでに破棄済みであれば何もしない
+            if (this.destroyed === true || this.player === null) return;
             console.warn('\u001b[31m[PlayerController] PlayerRestartRequired event received. Message: ', event.message);
 
             // ライブ視聴: iOS 17.0 以下で mpegts.js がサポートされていない場合は再起動できない
@@ -463,13 +466,13 @@ class PlayerController {
             }
             is_player_restarting = true;
 
-            // PlayerController を破棄
+            // PlayerController 自身を破棄
             await this.destroy();
 
             // 即座に再起動すると諸々問題があるので、少し待つ
             await Utils.sleep(0.5);
 
-            // PlayerController を再初期化
+            // PlayerController 自身を再初期化
             // この時点で PlayerRestartRequired のイベントハンドラーは再登録されているはず
             await this.init();
 
@@ -823,6 +826,7 @@ class PlayerController {
                 // もしライブストリームのステータスが ONAir にも関わらず 15 秒以上バッファリング中で canplaythrough が発火しない場合、
                 // ロードに失敗したとみなし PlayerController の再起動を要求する
                 await Utils.sleep(15);
+                if (this.destroyed === true || this.player === null) return;
                 if (player_store.live_stream_status === 'ONAir' && player_store.is_video_buffering === true && on_canplay_called === false) {
                     player_store.event_emitter.emit('PlayerRestartRequired', {
                         message: '再生開始までに時間が掛かっています。プレイヤーを再起動しています…',
