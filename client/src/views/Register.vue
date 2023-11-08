@@ -74,8 +74,6 @@ export default defineComponent({
         };
     },
     computed: {
-        // UserStore に this.userStore でアクセスできるようにする
-        // ref: https://pinia.vuejs.org/cookbook/options-api.html
         ...mapStores(useUserStore),
     },
     async created() {

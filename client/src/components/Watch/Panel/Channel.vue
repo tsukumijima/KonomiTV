@@ -71,8 +71,6 @@ export default defineComponent({
         };
     },
     computed: {
-        // ChannelsStore に this.channelsStore でアクセスできるようにする
-        // ref: https://pinia.vuejs.org/cookbook/options-api.html
         ...mapStores(useChannelsStore),
     }
 });

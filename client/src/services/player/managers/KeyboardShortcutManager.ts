@@ -196,7 +196,7 @@ class KeyboardShortcutManager implements PlayerManager {
             {mode: 'Live', key: 'KeyM', repeat: false, ctrl: false, shift: false, alt: false, handler: () => {
                 this.player.controller.show();
                 this.player.comment!.show();
-                player_store.event_emitter.emit('SetControlDisplayTimer');
+                player_store.event_emitter.emit('SetControlDisplayTimer', {});
                 window.setTimeout(() => this.player.template.commentInput.focus(), 100);
             }},
 

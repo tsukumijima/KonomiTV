@@ -26,7 +26,10 @@ export type PlayerEvents = {
         message: string;  // プレイヤーに通知するメッセージ
     };
     // PlayerController.setControlDisplayTimer() をそのまま呼び出す
-    SetControlDisplayTimer: void;
+    SetControlDisplayTimer: {
+        event?: Event;  // マウスやタッチイベント (手動実行する際は省略する)
+        is_player_region_event?: boolean;  // プレイヤー画面の中で発火したイベントなら true に設定する
+    }
     // CaptureManager からキャプチャの撮影が完了したことを通知する
     CaptureCompleted: {
         capture: Blob;  // キャプチャの Blob

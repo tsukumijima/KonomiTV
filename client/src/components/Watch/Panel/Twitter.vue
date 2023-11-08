@@ -265,8 +265,6 @@ export default defineComponent({
         };
     },
     computed: {
-        // ChannelsStore / PlayerStore / SettingsStore / UserStore にアクセスできるようにする
-        // ref: https://pinia.vuejs.org/cookbook/options-api.html
         ...mapStores(useChannelsStore, usePlayerStore, useSettingsStore, useUserStore),
     },
     async created() {

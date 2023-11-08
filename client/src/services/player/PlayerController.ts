@@ -485,7 +485,7 @@ class PlayerController {
         // このイベントは常にアプリケーション上で1つだけ登録されていなければならない
         player_store.event_emitter.off('SetControlDisplayTimer');  // SetControlDisplayTimer イベントの全てのイベントハンドラーを削除
         player_store.event_emitter.on('SetControlDisplayTimer', (event) => {
-            this.setControlDisplayTimer();
+            this.setControlDisplayTimer(event.event, event.is_player_region_event);
         });
 
         // プレイヤー再起動ボタンを DPlayer の UI に追加する (再生が止まった際などに利用する想定)
@@ -1046,7 +1046,7 @@ class PlayerController {
      * 一定の条件に基づいてプレイヤーのコントロール UI の表示状態を切り替える
      * マウスが動いたりタップされた時に実行するタイマー関数で、3秒間何も操作がなければプレイヤーのコントロール UI を非表示にする
      * 本来は View 側に実装すべきだが、プレイヤー側のロジックとも密接に関連しているため PlayerController に実装した
-     * @param event マウスやタッチイベント (手動実行する際は null を渡すか省略する)
+     * @param event マウスやタッチイベント (手動実行する際は省略する)
      * @param is_player_region_event プレイヤー画面の中で発火したイベントなら true に設定する
      */
     public setControlDisplayTimer(event: Event | null = null, is_player_region_event: boolean = false): void {
