@@ -141,7 +141,7 @@ export default defineComponent({
         }
     }
 
-    // ::deep() で子コンポーネント（それぞれの設定画面）にも CSS が効くようにする
+    // :deep() で子コンポーネント（それぞれの設定画面）にも CSS が効くようにする
     // ref: https://qiita.com/buntafujikawa/items/b1703a2a4344fd326fe0
     .settings :deep() {
         width: 100%;

@@ -260,6 +260,7 @@ export default defineComponent({
     font-size: 14.5px;
     text-align: center;
 }
+
 .shortcut-key-plus {
     display: inline-block;
     margin: 0px 5px;
