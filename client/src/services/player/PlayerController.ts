@@ -1053,7 +1053,7 @@ class PlayerController {
      * @param event マウスやタッチイベント (手動実行する際は省略する)
      * @param is_player_region_event プレイヤー画面の中で発火したイベントなら true に設定する
      */
-    public setControlDisplayTimer(event: Event | null = null, is_player_region_event: boolean = false): void {
+    private setControlDisplayTimer(event: Event | null = null, is_player_region_event: boolean = false): void {
         const player_store = usePlayerStore();
 
         // タッチデバイスで mousemove 、あるいはタッチデバイス以外で touchmove か click が発火した時は実行じない

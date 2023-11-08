@@ -5,6 +5,7 @@ import DPlayer from 'dplayer';
 import PlayerManager from '@/services/player/PlayerManager';
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
+import Utils from '@/utils';
 
 
 /** ライブストリームステータス API から受信するイベントのインターフェイス */
@@ -59,6 +60,15 @@ class LiveEventManager implements PlayerManager {
         // 画質切り替え後の再起動も想定しコンストラクタではなくあえて init() 内で API URL を取得している
         const eventsource_url = this.player.quality!.url.replace('/mpegts', '/events');
         this.eventsource = new EventSource(eventsource_url);
+
+        // EventSource 自体が開かれたときのイベント
+        let is_eventsource_opened = false;
+        this.eventsource.addEventListener('open', () => {
+            if (is_eventsource_opened === false) {
+                console.log('\u001b[33m[LiveEventManager]', 'EventSource opened.');
+            }
+            is_eventsource_opened = true;
+        });
 
         // 初回接続時のイベント
         this.eventsource.addEventListener('initial_update', (event_raw: MessageEvent) => {
@@ -268,6 +278,24 @@ class LiveEventManager implements PlayerManager {
         });
 
         console.log('\u001b[33m[LiveEventManager] Initialized.');
+
+        // 初期化から3秒後にまだ接続できていなかった場合、ネットワーク環境の遅延が酷いなどでなかなかサーバーに接続できていない状況とみなし、
+        // ユーザー体験向上のためプレイヤーの背景を表示する
+        (async () => {
+
+            // 3秒待機
+            await Utils.sleep(3);
+
+            // まだ接続できていなかった場合
+            if (is_eventsource_opened === false) {
+
+                // バッファリング中の Progress Circular を表示
+                player_store.is_video_buffering = true;
+
+                // プレイヤーの背景を表示する
+                player_store.is_background_display = true;
+            }
+        })();
     }
 
 
