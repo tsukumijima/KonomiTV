@@ -460,8 +460,8 @@ async def ChannelLogoAPI(
         return hashlib.sha256(logo_data).hexdigest()
 
     # HTTP レスポンスヘッダーの Cache-Control の設定
-    ## 1日キャッシュする
-    CACHE_CONTROL = 'public, no-transform, immutable, max-age=86400'
+    ## 1ヶ月キャッシュする
+    CACHE_CONTROL = 'public, no-transform, immutable, max-age=2592000'
 
     # ***** チャンネル情報を取得 *****
 
