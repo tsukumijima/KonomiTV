@@ -277,6 +277,7 @@ export default defineComponent({
         }
     }
     .dplayer-comment-setting-box {
+        z-index: 10 !important;
         .dplayer-comment-setting-title {
             color: var(--v-text-base);
         }
