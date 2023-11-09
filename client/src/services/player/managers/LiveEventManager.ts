@@ -38,6 +38,9 @@ class LiveEventManager implements PlayerManager {
     // EventSource のインスタンス
     private eventsource: EventSource | null = null;
 
+    // 破棄済みかどうか
+    private destroyed = false;
+
     /**
      * コンストラクタ
      * @param player DPlayer のインスタンス
@@ -54,6 +57,9 @@ class LiveEventManager implements PlayerManager {
         const channels_store = useChannelsStore();
         const player_store = usePlayerStore();
 
+        // 破棄済みかどうかのフラグを下ろす
+        this.destroyed = false;
+
         // EventSource を初期化し、Server-Sent Events のストリーミングを開始する
         // PlayerManager の設計上、同一の PlayerManager インスタンスはチャンネルが変更されない限り再利用される可能性がある
         // 接続先の API URL は DPlayer 上で再生中の画質設定によって変化するため、
@@ -64,6 +70,7 @@ class LiveEventManager implements PlayerManager {
         // EventSource 自体が開かれたときのイベント
         let is_eventsource_opened = false;
         this.eventsource.addEventListener('open', () => {
+            if (this.destroyed === true)  return;
             if (is_eventsource_opened === false) {
                 console.log('\u001b[33m[LiveEventManager]', 'EventSource opened.');
             }
@@ -72,6 +79,7 @@ class LiveEventManager implements PlayerManager {
 
         // 初回接続時のイベント
         this.eventsource.addEventListener('initial_update', (event_raw: MessageEvent) => {
+            if (this.destroyed === true)  return;
 
             // イベントを取得
             const event: ILiveStreamStatusEvent = JSON.parse(event_raw.data);
@@ -99,6 +107,7 @@ class LiveEventManager implements PlayerManager {
 
         // ステータスが更新されたときのイベント
         this.eventsource.addEventListener('status_update', async (event_raw: MessageEvent) => {
+            if (this.destroyed === true)  return;
 
             // イベントを取得
             const event: ILiveStreamStatusEvent = JSON.parse(event_raw.data);
@@ -232,6 +241,7 @@ class LiveEventManager implements PlayerManager {
 
         // ステータス詳細が更新されたときのイベント
         this.eventsource.addEventListener('detail_update', (event_raw: MessageEvent) => {
+            if (this.destroyed === true)  return;
 
             // イベントを取得
             const event: ILiveStreamStatusEvent = JSON.parse(event_raw.data);
@@ -266,6 +276,7 @@ class LiveEventManager implements PlayerManager {
 
         // クライアント数 (だけ) が更新されたときのイベント
         this.eventsource.addEventListener('clients_update', (event_raw: MessageEvent) => {
+            if (this.destroyed === true)  return;
 
             // イベントを取得
             const event: ILiveStreamStatusEvent = JSON.parse(event_raw.data);
@@ -307,6 +318,10 @@ class LiveEventManager implements PlayerManager {
         // ライブストリームのステータスを null に戻す
         const player_store = usePlayerStore();
         player_store.live_stream_status = null;
+
+        // 破棄済みかどうかのフラグを立てる
+        // もしかすると EventSource の破棄に時間がかかるかもしれないので、先にフラグを立てておく
+        this.destroyed = true;
 
         // EventSource を破棄し、Server-Sent Events のストリーミングを終了する
         if (this.eventsource !== null) {
