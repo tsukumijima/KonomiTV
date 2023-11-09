@@ -402,6 +402,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
 
                 // それ以外の場合は、BML ブラウザにキーイベントを送信する
                 // データ放送機能無効時は何もしない
+                // TODO: BML ブラウザがクラッシュした場合 processKeyDown() あたりから例外が送出されるが、途中で握り潰されている？のかキャッチできない
                 } else {
                     if (this.#bml_browser !== null) {
                         if (remocon_id === 10) {

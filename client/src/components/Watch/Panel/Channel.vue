@@ -67,7 +67,7 @@ export default defineComponent({
             ProgramUtils: ProgramUtils,
 
             // タブの状態管理
-            tab: null,
+            tab: null as number | null,
         };
     },
     computed: {

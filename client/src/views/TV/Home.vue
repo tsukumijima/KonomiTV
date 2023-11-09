@@ -126,7 +126,7 @@ export default defineComponent({
     // 開始時に実行
     async created() {
 
-        // ピン留めされているチャンネルの ID が空なら、タブを地デジタブに切り替える
+        // ピン留めされているチャンネルがないなら、タブを地デジタブに切り替える
         // ピン留めができる事を示唆するためにピン留めタブ自体は残す
         if (this.settingsStore.settings.pinned_channel_ids.length === 0) {
             this.tab = 1;

@@ -271,6 +271,12 @@ const useChannelsStore = defineStore('channels', {
          */
         channels_list_with_pinned_for_watch(): Map<ChannelTypePretty, ILiveChannel[]> {
             const channels_list_with_pinned = new Map([...this.channels_list_with_pinned]);
+            // 初回のチャンネル情報更新がまだ実行されていない or 実行中のときのみ、表示タイミングの問題で例外的に常にピン留めタブを削除せずに返す
+            // こうしないと視聴画面に直接アクセスした際に、ピン留めタブではなく地デジタブがデフォルトで表示されてしまう
+            if (this.is_channels_list_initial_updated === false) {
+                return channels_list_with_pinned;
+            }
+            // ピン留めされているチャンネルが1つもない場合は、ピン留めタブを削除する
             if (channels_list_with_pinned.get('ピン留め')?.length === 0) {
                 channels_list_with_pinned.delete('ピン留め');
             }
