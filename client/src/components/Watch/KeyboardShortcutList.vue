@@ -179,6 +179,8 @@ const VIDEO_SHORTCUT_LIST: IShortcutList = {
             icon_height: '24px',
             shortcuts: [
                 { name: 'パネルの表示切り替え', keys: [{name: 'P', icon: false}] },
+                { name: '番組情報タブを表示する', keys: [{name: 'K', icon: false}] },
+                { name: 'シリーズタブを表示する', keys: [{name: 'L', icon: false}] },
                 { name: 'コメントタブを表示する', keys: [{name: '；(＋)', icon: false}] },
                 { name: 'Twitter タブを表示する', keys: [{name: '：(＊)', icon: false}] },
             ]

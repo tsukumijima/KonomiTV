@@ -17,6 +17,7 @@ interface ILocalClientSettings {
     saved_twitter_hashtags: string[];
     panel_display_state: 'RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold';
     tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
+    video_panel_active_tab: 'RecordedProgram' | 'Series' | 'Comment' | 'Twitter';
     tv_channel_selection_requires_alt_key: boolean;
     tv_streaming_quality: LiveStreamingQuality;
     tv_streaming_quality_cellular: LiveStreamingQuality;
@@ -63,6 +64,7 @@ const sync_settings_keys = [
     'saved_twitter_hashtags',
     'panel_display_state',
     'tv_panel_active_tab',
+    'video_panel_active_tab',
     'tv_channel_selection_requires_alt_key',
     // tv_streaming_quality: 同期無効
     // tv_streaming_quality_cellular: 同期無効
@@ -119,6 +121,8 @@ const default_settings: ILocalClientSettings = {
     panel_display_state: 'RestorePreviousState',
     // テレビをみるときにデフォルトで表示されるパネルのタブ (Default: 番組情報タブ)
     tv_panel_active_tab: 'Program',
+    // ビデオをみるときにデフォルトで表示されるパネルのタブ (Default: 番組情報タブ)
+    video_panel_active_tab: 'RecordedProgram',
     // チャンネル選局のキーボードショートカットを Alt or Option + 数字キー/テンキーに変更する (Default: オフ)
     tv_channel_selection_requires_alt_key: false,
 

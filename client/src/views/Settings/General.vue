@@ -49,6 +49,15 @@
                     :items="tv_panel_active_tab" v-model="settingsStore.settings.tv_panel_active_tab">
                 </v-select>
             </div>
+            <div class="settings__item">
+                <div class="settings__item-heading">ビデオをみるときにデフォルトで表示されるパネルのタブ</div>
+                <div class="settings__item-label">
+                    ビデオの視聴画面を開いたときに、右側のパネルで最初に表示されるタブを設定します。<br>
+                </div>
+                <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
+                    :items="video_panel_active_tab" v-model="settingsStore.settings.video_panel_active_tab">
+                </v-select>
+            </div>
             <v-divider class="mt-6"></v-divider>
             <div class="settings__item">
                 <div class="settings__item-heading">設定をエクスポート</div>
@@ -133,6 +142,14 @@ export default defineComponent({
             tv_panel_active_tab: [
                 {text: '番組情報タブ', value: 'Program'},
                 {text: 'チャンネルタブ', value: 'Channel'},
+                {text: 'コメントタブ', value: 'Comment'},
+                {text: 'Twitter タブ', value: 'Twitter'},
+            ],
+
+            // ビデオをみるときにデフォルトで表示されるパネルのタブの選択肢
+            video_panel_active_tab: [
+                {text: '番組情報タブ', value: 'RecordedProgram'},
+                {text: 'シリーズタブ', value: 'Series'},
                 {text: 'コメントタブ', value: 'Comment'},
                 {text: 'Twitter タブ', value: 'Twitter'},
             ],

@@ -221,14 +221,24 @@ class KeyboardShortcutManager implements PlayerManager {
                 player_store.is_panel_display = !player_store.is_panel_display;  // 表示状態を反転
             }},
 
-            // K: 番組情報タブを表示する
+            // K: ライブ視聴: 番組情報タブを表示する
             {mode: 'Live', key: 'KeyK', repeat: false, ctrl: false, shift: false, alt: false, handler: () => {
                 player_store.tv_panel_active_tab = 'Program';
             }},
 
-            // L: チャンネル情報を表示する
+            // K: ビデオ視聴: 録画番組情報タブを表示する
+            {mode: 'Video', key: 'KeyK', repeat: false, ctrl: false, shift: false, alt: false, handler: () => {
+                player_store.video_panel_active_tab = 'RecordedProgram';
+            }},
+
+            // L: ライブ視聴: チャンネルタブを表示する
             {mode: 'Live', key: 'KeyL', repeat: false, ctrl: false, shift: false, alt: false, handler: () => {
                 player_store.tv_panel_active_tab = 'Channel';
+            }},
+
+            // L: ビデオ視聴: シリーズタブを表示する
+            {mode: 'Video', key: 'KeyL', repeat: false, ctrl: false, shift: false, alt: false, handler: () => {
+                player_store.video_panel_active_tab = 'Series';
             }},
 
             // ;(＋): コメントタブを表示する
@@ -236,7 +246,7 @@ class KeyboardShortcutManager implements PlayerManager {
                 if (this.playback_mode === 'Live') {
                     player_store.tv_panel_active_tab = 'Comment';
                 } else {
-                    // TODO: ビデオ視聴時のコメントタブ
+                    player_store.video_panel_active_tab = 'Comment';
                 }
             }},
 
@@ -245,7 +255,7 @@ class KeyboardShortcutManager implements PlayerManager {
                 if (this.playback_mode === 'Live') {
                     player_store.tv_panel_active_tab = 'Twitter';
                 } else {
-                    // TODO: ビデオ視聴時の Twitter タブ
+                    player_store.video_panel_active_tab = 'Twitter';
                 }
             }},
 
@@ -300,8 +310,7 @@ class KeyboardShortcutManager implements PlayerManager {
             const is_alt_pressed = event.altKey;
 
             // 現在パネル上でアクティブなタブ
-            // TODO: video_panel_active_tab に対応
-            const panel_active_tab = this.playback_mode === 'Live' ? player_store.tv_panel_active_tab : 'Twitter';
+            const panel_active_tab = this.playback_mode === 'Live' ? player_store.tv_panel_active_tab : player_store.video_panel_active_tab;
 
             // 現在フォーム (input or textarea) にフォーカスがあるかどうか
             const is_form_focused = (document.activeElement instanceof HTMLInputElement ||
@@ -429,7 +438,7 @@ class KeyboardShortcutManager implements PlayerManager {
                     if (this.playback_mode === 'Live') {
                         player_store.tv_panel_active_tab = 'Twitter';
                     } else {
-                        // TODO: video_panel_active_tab に対応
+                        player_store.video_panel_active_tab = 'Twitter';
                     }
 
                     // ツイート入力フォームの textarea 要素にフォーカスを当てる

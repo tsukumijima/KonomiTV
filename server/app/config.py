@@ -44,6 +44,7 @@ class ClientSettings(BaseModel):
     saved_twitter_hashtags: list[str] = Field([])
     panel_display_state: Literal['RestorePreviousState', 'AlwaysDisplay', 'AlwaysFold'] = Field('RestorePreviousState')
     tv_panel_active_tab: Literal['Program', 'Channel', 'Comment', 'Twitter'] = Field('Program')
+    video_panel_active_tab: Literal['RecordedProgram', 'Series', 'Comment', 'Twitter'] = Field('RecordedProgram')
     tv_channel_selection_requires_alt_key: bool = Field(False)
     # tv_streaming_quality: 同期無効
     # tv_streaming_quality_cellular: 同期無効

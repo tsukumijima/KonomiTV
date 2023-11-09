@@ -96,6 +96,9 @@ const usePlayerStore = defineStore('player', {
         // ライブ視聴: 表示されるパネルのタブ
         tv_panel_active_tab: useSettingsStore().settings.tv_panel_active_tab,
 
+        // ビデオ視聴: 表示されるパネルのタブ
+        video_panel_active_tab: useSettingsStore().settings.video_panel_active_tab,
+
         // パネルの Twitter タブ内で表示されるタブ
         twitter_active_tab: useSettingsStore().settings.twitter_active_tab,
 
@@ -195,6 +198,7 @@ const usePlayerStore = defineStore('player', {
                 }
             })();
             this.tv_panel_active_tab = useSettingsStore().settings.tv_panel_active_tab;
+            this.video_panel_active_tab = useSettingsStore().settings.video_panel_active_tab;
             this.twitter_active_tab = useSettingsStore().settings.twitter_active_tab;
             this.is_remocon_display = false;
             this.is_zapping = false;
