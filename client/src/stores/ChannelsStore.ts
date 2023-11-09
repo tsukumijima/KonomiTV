@@ -185,7 +185,7 @@ const useChannelsStore = defineStore('channels', {
             channels_list_with_pinned.set('ピン留め', []);
             channels_list_with_pinned.set('地デジ', []);
 
-            // 初回のチャンネル情報更新がまだ実行されていない or 実行中のときは最低限のこの2つだけで返す
+            // 初回のチャンネル情報更新がまだ実行されていない or 実行中のときは最低限の上記2つだけで返す
             if (this.is_channels_list_initial_updated === false) {
                 return channels_list_with_pinned;
             }
@@ -196,8 +196,8 @@ const useChannelsStore = defineStore('channels', {
             channels_list_with_pinned.set('SKY', []);
             channels_list_with_pinned.set('StarDigio', []);
 
-            // pinned_channel_ids の互換性 (display_channel_id -> id) の対応
-            // もし NIDxxx-SIDxxx の形式の ID でなければ、NIDxxx-SIDxxx の形式に変換する
+            // pinned_channel_ids がもし NIDxxx-SIDxxx の形式の ID でなければ、NIDxxx-SIDxxx の形式に変換する
+            // pinned_channel_ids に display_channel_id が格納されている古い環境への互換性のため
             settings_store.settings.pinned_channel_ids = settings_store.settings.pinned_channel_ids.map((channel_id) => {
                 if (channel_id.includes('NID') && channel_id.includes('SID')) {
                     // すでに NIDxxx-SIDxxx の形式の ID になっているので、そのまま返す
@@ -221,15 +221,16 @@ const useChannelsStore = defineStore('channels', {
             for (const [channel_type, channels] of Object.entries(this.channels_list)) {
                 for (const channel of channels) {
 
+                    // ピン留め中チャンネルの ID (ex: NID32736-SID1024) が入るリストに含まれているチャンネルなら、ピン留めタブに追加
+                    // 一旦 pinned_channels に追加した後、pinned_channel_ids の順に並び替える
+                    // ピン留めされているなら放送していないサブチャンネルも含める
+                    if (settings_store.settings.pinned_channel_ids.includes(channel.id)) {
+                        pinned_channels.push(channel);
+                    }
+
                     // 放送していないサブチャンネルは除外
                     if (channel.is_display === false) {
                         continue;
-                    }
-
-                    // ピン留めしているチャンネルの ID (ex: NID32736-SID1024) が入るリストに含まれているチャンネルなら、ピン留めタブに追加
-                    // 一旦 pinned_channels に追加した後、pinned_channel_ids の順に並び替える
-                    if (settings_store.settings.pinned_channel_ids.includes(channel.id)) {
-                        pinned_channels.push(channel);
                     }
 
                     // チャンネルタイプごとに分類
@@ -262,7 +263,13 @@ const useChannelsStore = defineStore('channels', {
                 }
             }
 
-            // ピン留めチャンネルを pinned_channel_ids の順に並び替える
+            // この時点で pinned_channels に存在していないピン留め中チャンネルの ID を pinned_channel_ids から削除する
+            // 受信環境の変化などでピン留め中チャンネルのチャンネル情報が取得できなくなった場合に備える
+            settings_store.settings.pinned_channel_ids = settings_store.settings.pinned_channel_ids.filter((channel_id) => {
+                return pinned_channels.some((channel) => channel.id === channel_id);
+            });
+
+            // ピン留め中チャンネルを pinned_channel_ids の順に並び替える
             channels_list_with_pinned.get('ピン留め')?.push(...pinned_channels.sort((a, b) => {
                 const index_a = settings_store.settings.pinned_channel_ids.indexOf(a.id);
                 const index_b = settings_store.settings.pinned_channel_ids.indexOf(b.id);
