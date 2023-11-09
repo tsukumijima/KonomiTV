@@ -8,7 +8,7 @@ from typing import Any, Literal
 
 
 # バージョン
-VERSION = '0.8.0'
+VERSION = '0.9.0-dev'
 
 # ベースディレクトリ
 BASE_DIR = Path(__file__).resolve().parent.parent
