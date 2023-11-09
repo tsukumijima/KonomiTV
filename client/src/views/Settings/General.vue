@@ -53,6 +53,28 @@
             </div>
             <v-divider class="mt-6"></v-divider>
             <div class="settings__item">
+                <div class="settings__item-heading">ピン留め中チャンネルの並び替え</div>
+                <div class="settings__item-label">
+                    ピン留め中のチャンネルの表示順序を変更できます。よくみるチャンネルは先頭に配置しておくと便利です。<br>
+                    ピン留め中のチャンネルの追加・削除は、別途 TV ホーム画面のチャンネルリストから行えます。<br>
+                </div>
+            </div>
+            <v-btn class="settings__save-button mt-4" depressed @click="pinned_channel_settings_modal = !pinned_channel_settings_modal">
+                <Icon icon="iconamoon:sorting-left-bold" height="19px" />
+                <span class="ml-1">ピン留め中チャンネルの並び替え設定を開く</span>
+            </v-btn>
+            <div class="settings__item settings__item--switch">
+                <label class="settings__item-heading" for="tv_show_superimpose">チャンネル選局のキーボードショートカットを {{Utils.AltOrOption()}} + 数字キー/テンキーに変更する</label>
+                <label class="settings__item-label" for="tv_show_superimpose">
+                    この設定をオンにすると、数字キーまたはテンキーに対応するリモコン番号（1～12）のチャンネルに切り替える際、{{Utils.AltOrOption()}} キーを同時に押す必要があります。<br>
+                    コメントやツイートを入力しようとして誤って数字キーを押してしまい、チャンネルが変わってしまう事態を避けたい方におすすめです。<br>
+                </label>
+                <v-switch class="settings__item-switch" id="tv_show_superimpose" inset hide-details
+                    v-model="settingsStore.settings.tv_channel_selection_requires_alt_key">
+                </v-switch>
+            </div>
+            <v-divider class="mt-6"></v-divider>
+            <div class="settings__item">
                 <div class="settings__item-heading">デフォルトのパネルの表示状態</div>
                 <div class="settings__item-label">
                     視聴画面を開いたときに、右側のパネルをどう表示するかを設定します。<br>
@@ -69,17 +91,6 @@
                 <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
                     :items="tv_panel_active_tab" v-model="settingsStore.settings.tv_panel_active_tab">
                 </v-select>
-            </div>
-            <v-divider class="mt-6"></v-divider>
-            <div class="settings__item settings__item--switch">
-                <label class="settings__item-heading" for="tv_show_superimpose">チャンネル選局のキーボードショートカットを {{Utils.AltOrOption()}} + 数字キー/テンキーに変更する</label>
-                <label class="settings__item-label" for="tv_show_superimpose">
-                    この設定をオンにすると、数字キーまたはテンキーに対応するリモコン番号（1～12）のチャンネルに切り替える際、{{Utils.AltOrOption()}} キーを同時に押す必要があります。<br>
-                    コメントやツイートを入力しようとして誤って数字キーを押してしまい、チャンネルが変わってしまう事態を避けたい方におすすめです。<br>
-                </label>
-                <v-switch class="settings__item-switch" id="tv_show_superimpose" inset hide-details
-                    v-model="settingsStore.settings.tv_channel_selection_requires_alt_key">
-                </v-switch>
             </div>
             <v-divider class="mt-6"></v-divider>
             <div class="settings__item">
@@ -122,6 +133,7 @@
                 <Icon icon="material-symbols:device-reset-rounded" class="mr-2" height="23px" />設定をリセット
             </v-btn>
         </div>
+        <PinnedChannelSettings :modelValue="pinned_channel_settings_modal" @update:modelValue="pinned_channel_settings_modal = $event" />
     </SettingsBase>
 </template>
 <script lang="ts">
@@ -129,6 +141,7 @@
 import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
 
+import PinnedChannelSettings from '@/components/Settings/PinnedChannelSettings.vue';
 import Message from '@/message';
 import useSettingsStore from '@/stores/SettingsStore';
 import Utils, { PlayerUtils } from '@/utils';
@@ -159,6 +172,7 @@ const QUALITY_H265 = [
 export default defineComponent({
     name: 'Settings-General',
     components: {
+        PinnedChannelSettings,
         SettingsBase,
     },
     data() {
@@ -173,6 +187,9 @@ export default defineComponent({
 
             // テレビのデフォルトのストリーミング画質の選択肢
             tv_streaming_quality: QUALITY_H264,
+
+            // ピン留め中チャンネルの並び替え設定のモーダルを表示するか
+            pinned_channel_settings_modal: false,
 
             // デフォルトのパネルの表示状態の選択肢
             panel_display_state: [
@@ -196,11 +213,6 @@ export default defineComponent({
     computed: {
         ...mapStores(useSettingsStore),
     },
-    created() {
-        if (this.settingsStore.settings.tv_data_saver_mode === true) {
-            this.tv_streaming_quality = QUALITY_H265;
-        }
-    },
     watch: {
         'settingsStore.settings.tv_data_saver_mode': {
             immediate: true,
@@ -211,6 +223,11 @@ export default defineComponent({
                     this.tv_streaming_quality = QUALITY_H264;
                 }
             },
+        }
+    },
+    created() {
+        if (this.settingsStore.settings.tv_data_saver_mode === true) {
+            this.tv_streaming_quality = QUALITY_H265;
         }
     },
     methods: {

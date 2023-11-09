@@ -71,7 +71,7 @@
                                 v-if="channels_type === 'ピン留め' && channels.length === 0">
                                 <div class="d-flex justify-center align-center flex-column">
                                     <h2>ピン留めされているチャンネルが<br>ありません。</h2>
-                                    <div class="mt-4 text--text text--darken-1">各チャンネルの <Icon style="position:relative;bottom:-5px;" icon="fluent:pin-20-filled" width="22px" /> アイコンから、よくみる<br>チャンネルをこのタブにピン留めできます。</div>
+                                    <div class="mt-4 text--text text--darken-1">各チャンネルの <Icon style="position: relative; bottom: -5px;" icon="fluent:pin-20-filled" width="22px" /> アイコンから、よくみる<br>チャンネルをこのタブにピン留めできます。</div>
                                     <div class="mt-2 text--text text--darken-1">チャンネルをピン留めすると、<br>このタブが最初に表示されます。</div>
                                 </div>
                             </div>

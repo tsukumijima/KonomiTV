@@ -325,6 +325,7 @@ export default defineComponent({
             }
 
             .settings__save-button {
+                max-width: 100%;
                 height: 45px;
                 background: var(--v-background-lighten2);
                 font-size: 15.5px;
