@@ -153,14 +153,19 @@ class KeyboardShortcutManager implements PlayerManager {
                 }
             }},
 
-            // F: フルスクリーンの切り替え
-            {mode: 'Both', key: 'KeyF', repeat: false, ctrl: false, shift: false, alt: false, handler: () => {
-                this.player.fullScreen.toggle();
-            }},
-
             // W: ライブストリームの同期
             {mode: 'Live', key: 'KeyW', repeat: false, ctrl: false, shift: false, alt: false, handler: () => {
                 this.player.sync();
+            }},
+
+            // R: プレイヤーを再起動する
+            {mode: 'Both', key: 'KeyR', repeat: false, ctrl: false, shift: false, alt: false, handler: () => {
+                player_store.event_emitter.emit('PlayerRestartRequired', {});
+            }},
+
+            // F: フルスクリーンの切り替え
+            {mode: 'Both', key: 'KeyF', repeat: false, ctrl: false, shift: false, alt: false, handler: () => {
+                this.player.fullScreen.toggle();
             }},
 
             // E: Picture-in-Picture の表示切り替え
@@ -207,11 +212,6 @@ class KeyboardShortcutManager implements PlayerManager {
                 this.player.comment!.show();
                 player_store.event_emitter.emit('SetControlDisplayTimer', {});
                 window.setTimeout(() => this.player.template.commentInput.focus(), 100);
-            }},
-
-            // R: プレイヤーを再起動する
-            {mode: 'Both', key: 'KeyR', repeat: false, ctrl: false, shift: false, alt: false, handler: () => {
-                player_store.event_emitter.emit('PlayerRestartRequired', {});
             }},
 
             // ***** パネル *****
