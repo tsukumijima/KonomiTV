@@ -282,7 +282,7 @@ async def ChannelAPI(
 )
 async def ChannelLogoAPI(
     request: Request,
-    channel: Channel = Depends(GetChannel),
+    channel_id: str = Path(..., description='チャンネル ID (id or display_channel_id) 。ex: NID32736-SID1024, gr011')
 ):
     """
     指定されたチャンネルに紐づくロゴを取得する。
@@ -462,6 +462,18 @@ async def ChannelLogoAPI(
     # HTTP レスポンスヘッダーの Cache-Control の設定
     ## 1日キャッシュする
     CACHE_CONTROL = 'public, no-transform, immutable, max-age=86400'
+
+    # ***** チャンネル情報を取得 *****
+
+    # チャンネル ID からチャンネル情報を取得する
+    # "NID0-SID0" "gr000" はフロントエンド側のチャンネル情報のデフォルト値になっているため、特別にデフォルトのロゴ画像を返す
+    # Depends だと GetChannel() が実行された時点で 422 エラーになるので、意図的に手動で GetChannel() を実行している
+    if channel_id == 'NID0-SID0' or channel_id == 'gr000':
+        return FileResponse(LOGO_DIR / 'default.png', headers={
+            'Cache-Control': CACHE_CONTROL,
+            'ETag': GetETag('default'.encode()),
+        })
+    channel = await GetChannel(channel_id)
 
     # ***** 同梱のロゴを利用（存在する場合）*****
 
