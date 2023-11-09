@@ -15,7 +15,7 @@ import MediaSessionManager from '@/services/player/managers/MediaSessionManager'
 import PlayerManager from '@/services/player/PlayerManager';
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
-import useSettingsStore, { VideoQuality } from '@/stores/SettingsStore';
+import useSettingsStore, { LiveVideoQuality } from '@/stores/SettingsStore';
 import Utils, { PlayerUtils } from '@/utils';
 
 
@@ -48,7 +48,7 @@ class PlayerController {
     private readonly playback_mode: 'Live' | 'Video';
 
     // ライブ視聴: 画質プロファイル
-    private readonly tv_streaming_quality: VideoQuality;
+    private readonly tv_streaming_quality: LiveVideoQuality;
     private readonly tv_data_saver_mode: boolean;
     private readonly tv_low_latency_mode: boolean;
 
