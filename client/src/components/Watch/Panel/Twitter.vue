@@ -1072,7 +1072,7 @@ export default defineComponent({
                 bottom: calc(env(keyboard-inset-height, 0px) - 34px);
             }
             @include smartphone-vertical {
-                bottom: calc(env(keyboard-inset-height, 0px) - 90px) !important;
+                bottom: calc(env(keyboard-inset-height, 0px) - 40px) !important;
             }
         }
 
@@ -1437,8 +1437,8 @@ export default defineComponent({
                 bottom: calc(env(keyboard-inset-height, 0px) - 26px) !important;
             }
             @include smartphone-vertical {
-                bottom: calc(env(keyboard-inset-height, 0px) - 90px) !important;
-                max-height: calc(100% - env(keyboard-inset-height, 0px) + 82px) !important;
+                bottom: calc(env(keyboard-inset-height, 0px) - 44px) !important;
+                max-height: calc(100% - env(keyboard-inset-height, 0px) + 36px) !important;
             }
         }
         @include smartphone-horizontal {
@@ -1548,6 +1548,7 @@ export default defineComponent({
                     .hashtag__input {
                         box-shadow: rgba(79, 130, 230, 60%) 0 0 0 3.5px;
                         cursor: text;
+                        pointer-events: auto;
                     }
                 }
 
@@ -1562,6 +1563,7 @@ export default defineComponent({
                     transition: box-shadow 0.09s ease;
                     margin-right: 4px;
                     font-size: 12.5px;
+                    pointer-events: none;
                     // iOS Safari でフォーカス時にズームされる問題への対処
                     @supports (-webkit-touch-callout: none) {
                         @include smartphone-horizontal {
