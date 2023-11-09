@@ -108,6 +108,10 @@ body .route-container {
     }
 }
 
+.v-tabs-items {
+    background-color: transparent !important;
+}
+
 // タッチデバイスで hover を無効にする
 // ref: https://github.com/vuetifyjs/vuetify/issues/2178
 @media (hover: none) {

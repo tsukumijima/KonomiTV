@@ -21,12 +21,13 @@
         "strictPropertyInitialization": true,
         "useUnknownInCatchVariables": true,
         "types": [
+            "network-information-types",
             "offscreencanvas",
             "resize-observer-browser",
             "vuetify",
+            "vuetify2-component-types",
             "webpack-env",
             "wicg-mediasession",
-            "vuetify2-component-types",
         ],
         "paths": {
             "@/*": [

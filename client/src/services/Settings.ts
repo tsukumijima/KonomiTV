@@ -16,8 +16,11 @@ export interface IClientSettings {
     tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
     tv_channel_selection_requires_alt_key: boolean;
     // tv_streaming_quality: 同期無効
+    // tv_streaming_quality_cellular: 同期無効
     // tv_data_saver_mode: 同期無効
+    // tv_data_saver_mode_cellular: 同期無効
     // tv_low_latency_mode: 同期無効
+    // tv_low_latency_mode_cellular: 同期無効
     caption_font: string;
     always_border_caption_text: boolean;
     specify_caption_opacity: boolean;

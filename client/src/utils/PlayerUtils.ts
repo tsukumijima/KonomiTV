@@ -24,7 +24,6 @@ type APIVideoQuality = (
 );
 
 
-
 /**
  * プレイヤー周りのユーティリティ
  */
@@ -38,6 +37,27 @@ export class PlayerUtils {
         const background_count = 50;  // 50種類から選択
         const random = (Math.floor(Math.random() * background_count) + 1);
         return `/assets/images/player-backgrounds/${random.toString().padStart(2, '0')}.jpg`;
+    }
+
+
+    /**
+     * Network Information API から現在接続されているネットワーク回線の種類を取得する
+     * navigator.connection.type が利用できない場合は null を返す
+     * "Wi-Fi" には Cellular 以外のすべてのネットワークが含まれる
+     * @returns ネットワークの種類 (Wi-Fi / Cellular)、取得できなかった場合は null
+     */
+    static getNetworkCircuitType(): 'Wi-Fi' | 'Cellular' | null {
+        if (navigator.connection && navigator.connection.type) {
+            switch (navigator.connection.type) {
+                case 'cellular':
+                    return 'Cellular';
+                default:
+                    return 'Wi-Fi';
+            }
+        } else {
+            console.warn('[PlayerUtils] navigator.connection.type is not available.');
+            return null;
+        }
     }
 
 

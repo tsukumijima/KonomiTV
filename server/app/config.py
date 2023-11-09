@@ -46,8 +46,11 @@ class ClientSettings(BaseModel):
     tv_panel_active_tab: Literal['Program', 'Channel', 'Comment', 'Twitter'] = Field('Program')
     tv_channel_selection_requires_alt_key: bool = Field(False)
     # tv_streaming_quality: 同期無効
+    # tv_streaming_quality_cellular: 同期無効
     # tv_data_saver_mode: 同期無効
+    # tv_data_saver_mode_cellular: 同期無効
     # tv_low_latency_mode: 同期無効
+    # tv_low_latency_mode_cellular: 同期無効
     caption_font: str = Field('Windows TV MaruGothic')
     always_border_caption_text: bool = Field(True)
     specify_caption_opacity: bool = Field(False)

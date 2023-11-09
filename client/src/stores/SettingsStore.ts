@@ -5,6 +5,8 @@ import Settings, { IClientSettings, IMutedCommentKeywords } from '@/services/Set
 import Utils from '@/utils';
 
 
+export type VideoQuality = '1080p-60fps' | '1080p' | '810p' | '720p' | '540p' | '480p' | '360p' | '240p';
+
 // LocalStorage に保存される KonomiTV の設定データ
 interface ILocalClientSettings {
     pinned_channel_ids: string[];
@@ -14,9 +16,12 @@ interface ILocalClientSettings {
     panel_display_state: 'RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold';
     tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
     tv_channel_selection_requires_alt_key: boolean;
-    tv_streaming_quality: '1080p-60fps' | '1080p' | '810p' | '720p' | '540p' | '480p' | '360p' | '240p';
+    tv_streaming_quality: VideoQuality;
+    tv_streaming_quality_cellular: VideoQuality;
     tv_data_saver_mode: boolean;
+    tv_data_saver_mode_cellular: boolean;
     tv_low_latency_mode: boolean;
+    tv_low_latency_mode_cellular: boolean;
     caption_font: string;
     always_border_caption_text: boolean;
     specify_caption_opacity: boolean;
@@ -58,8 +63,11 @@ const sync_settings_keys = [
     'tv_panel_active_tab',
     'tv_channel_selection_requires_alt_key',
     // tv_streaming_quality: 同期無効
+    // tv_streaming_quality_cellular: 同期無効
     // tv_data_saver_mode: 同期無効
+    // tv_data_saver_mode_cellular: 同期無効
     // tv_low_latency_mode: 同期無効
+    // tv_low_latency_mode_cellular: 同期無効
     'caption_font',
     'always_border_caption_text',
     'specify_caption_opacity',
@@ -114,12 +122,18 @@ const default_settings: ILocalClientSettings = {
 
     // ***** 設定 → 画質 *****
 
-    // テレビのデフォルトのストリーミング画質 (Default: 1080p) (同期無効)
+    // テレビのデフォルトのストリーミング画質 (Wi-Fi 回線時) (Default: 1080p) (同期無効)
     tv_streaming_quality: '1080p',
-    // テレビを通信節約モードで視聴する (Default: オフ) (同期無効)
+    // テレビのデフォルトのストリーミング画質 (モバイル回線時) (Default: 480p) (同期無効)
+    tv_streaming_quality_cellular: '480p',
+    // テレビを通信節約モードで視聴する (Wi-Fi 回線時)  (Default: オフ) (同期無効)
     tv_data_saver_mode: false,
-    // テレビを低遅延で視聴する (Default: 低遅延で視聴する) (同期無効)
+    // テレビを通信節約モードで視聴する (モバイル回線時)  (Default: オン) (同期無効)
+    tv_data_saver_mode_cellular: true,
+    // テレビを低遅延で視聴する (Wi-Fi 回線時)  (Default: 低遅延で視聴する) (同期無効)
     tv_low_latency_mode: true,
+    // テレビを低遅延で視聴する (モバイル回線時)  (Default: 低遅延で視聴しない) (同期無効)
+    tv_low_latency_mode_cellular: false,
 
     // ***** 設定 → 字幕 *****
 

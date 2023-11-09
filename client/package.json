@@ -58,6 +58,7 @@
         "eslint-plugin-import": "^2.28.1",
         "eslint-plugin-unused-imports": "^3.0.0",
         "eslint-plugin-vue": "^9.17.0",
+        "network-information-types": "^0.1.1",
         "run-script-os": "^1.1.6",
         "sass": "1.32.13",
         "sass-loader": "^8.0.2",

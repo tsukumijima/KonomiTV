@@ -15,7 +15,7 @@ import MediaSessionManager from '@/services/player/managers/MediaSessionManager'
 import PlayerManager from '@/services/player/PlayerManager';
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
-import useSettingsStore from '@/stores/SettingsStore';
+import useSettingsStore, { VideoQuality } from '@/stores/SettingsStore';
 import Utils, { PlayerUtils } from '@/utils';
 
 
@@ -46,6 +46,11 @@ class PlayerController {
 
     // 再生モード (Live: ライブ視聴, Video: ビデオ視聴)
     private readonly playback_mode: 'Live' | 'Video';
+
+    // ライブ視聴: 画質プロファイル
+    private readonly tv_streaming_quality: VideoQuality;
+    private readonly tv_data_saver_mode: boolean;
+    private readonly tv_low_latency_mode: boolean;
 
     // ライブ視聴: 許容する HTMLMediaElement の内部再生バッファの秒数
     // 設計上コンストラクタ以降で変更すべきでないため readonly にしている
@@ -84,9 +89,19 @@ class PlayerController {
         // 再生モードをセット
         this.playback_mode = playback_mode;
 
-        // 低遅延モードであれば低遅延向けの再生バッファを、そうでなければ通常の再生バッファをセット (秒単位)
+        // ネットワーク回線が Cellular (モバイル回線) であれば、モバイル回線用の画質プロファイルを適用する
+        // Wi-Fi or 取得できなかった場合は、通常の画質プロファイルを適用する
         const settings_store = useSettingsStore();
-        this.live_playback_buffer_seconds = settings_store.settings.tv_low_latency_mode ?
+        const network_circuit_type = PlayerUtils.getNetworkCircuitType();
+        this.tv_streaming_quality = network_circuit_type === 'Cellular' ?
+            settings_store.settings.tv_streaming_quality_cellular : settings_store.settings.tv_streaming_quality;
+        this.tv_data_saver_mode = network_circuit_type === 'Cellular' ?
+            settings_store.settings.tv_data_saver_mode_cellular : settings_store.settings.tv_data_saver_mode;
+        this.tv_low_latency_mode = network_circuit_type === 'Cellular' ?
+            settings_store.settings.tv_low_latency_mode_cellular : settings_store.settings.tv_low_latency_mode;
+
+        // 低遅延モードであれば低遅延向けの再生バッファを、そうでなければ通常の再生バッファをセット (秒単位)
+        this.live_playback_buffer_seconds = this.tv_low_latency_mode ?
             PlayerController.LIVE_PLAYBACK_BUFFER_SECONDS_LOW_LATENCY : PlayerController.LIVE_PLAYBACK_BUFFER_SECONDS;
 
         // Safari の Media Source Extensions API の実装はどうもバッファの揺らぎが大きい (?) ようなので、バッファ詰まり対策で
@@ -175,7 +190,7 @@ class PlayerController {
                 // ブラウザが H.265 / HEVC の再生に対応していて、かつ通信節約モードが有効なとき
                 // API に渡す画質に -hevc のプレフィックスをつける
                 let hevc_prefix = '';
-                if (PlayerUtils.isHEVCVideoSupported() && settings_store.settings.tv_data_saver_mode === true) {
+                if (PlayerUtils.isHEVCVideoSupported() && this.tv_data_saver_mode === true) {
                     hevc_prefix = '-hevc';
                 }
 
@@ -211,7 +226,7 @@ class PlayerController {
 
                     // デフォルトの画質
                     // ラジオチャンネルのみ常に 48KHz/192kbps に固定する
-                    let default_quality: string = settings_store.settings.tv_streaming_quality;
+                    let default_quality: string = this.tv_streaming_quality;
                     if (channels_store.channel.current.is_radiochannel) {
                         default_quality = '48kHz/192kbps';
                     }
@@ -314,7 +329,7 @@ class PlayerController {
                         // HTMLMediaElement の内部バッファによるライブストリームの遅延を追跡する
                         // liveBufferLatencyChasing と異なり、いきなり再生時間をスキップするのではなく、
                         // 再生速度を少しだけ上げることで再生を途切れさせることなく遅延を追跡する
-                        liveSync: settings_store.settings.tv_low_latency_mode,
+                        liveSync: this.tv_low_latency_mode,
                         // 許容する HTMLMediaElement の内部バッファの最大値 (秒単位, 3秒)
                         liveSyncMaxLatency: 3,
                         // HTMLMediaElement の内部バッファ (遅延) が liveSyncMaxLatency を超えたとき、ターゲットとする遅延時間 (秒単位)

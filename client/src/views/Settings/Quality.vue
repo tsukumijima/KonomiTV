@@ -1,6 +1,6 @@
 <template>
     <!-- ベース画面の中にそれぞれの設定画面で異なる部分を記述する -->
-    <SettingsBase>
+    <SettingsBase style="position: relative;">
         <h2 class="settings__heading">
             <router-link v-ripple class="settings__back-button" to="/settings/">
                 <Icon icon="fluent:arrow-left-12-filled" width="25px" />
@@ -8,50 +8,70 @@
             <Icon icon="fluent:video-clip-multiple-16-filled" width="26px" />
             <span class="ml-3">画質</span>
         </h2>
-        <div class="settings__content">
-            <div class="settings__item settings__item--sync-disabled">
-                <div class="settings__item-heading">テレビのデフォルトのストリーミング画質</div>
-                <div class="settings__item-label">
-                    テレビをライブストリーミングするときのデフォルトの画質を設定します。<br>
-                    ストリーミング画質はプレイヤーの設定からいつでも切り替えられます。<br>
+        <v-tabs-fix class="settings__tab" background-color="transparent" centered v-model="tab">
+            <v-tab style="text-transform: none !important;" v-for="network_circuit in network_circuits" :key="network_circuit">
+                {{network_circuit}}
+            </v-tab>
+        </v-tabs-fix>
+        <v-tabs-items-fix v-model="tab">
+            <v-tab-item-fix class="settings__content mt-0" v-for="network_circuit in network_circuits" :key="network_circuit">
+                <div class="settings__item settings__item--sync-disabled">
+                    <div class="settings__item-heading">テレビのデフォルトのストリーミング画質</div>
+                    <div class="settings__item-label">
+                        テレビをライブストリーミングするときのデフォルトの画質を設定します。<br>
+                        ストリーミング画質はプレイヤーの設定からいつでも切り替えられます。<br>
+                    </div>
+                    <div class="settings__item-label">
+                        [1080p (60fps)] は、通常 30fps (60i) の映像を補間し、より滑らか（ぬるぬる）な映像で視聴できます！<br>
+                        [1080p (60fps)] で視聴するときは、サーバー設定の [利用するエンコーダー] をハードウェアエンコーダーに設定してください。FFmpeg (ソフトウェアエンコーダー) では、視聴に支障が出ることがあります。<br>
+                    </div>
+                    <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense" v-if="network_circuit !== 'モバイル回線時'"
+                        :items="tv_streaming_quality" v-model="settingsStore.settings.tv_streaming_quality">
+                    </v-select>
+                    <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense" v-if="network_circuit === 'モバイル回線時'"
+                        :items="tv_streaming_quality_cellular" v-model="settingsStore.settings.tv_streaming_quality_cellular">
+                    </v-select>
                 </div>
-                <div class="settings__item-label">
-                    [1080p (60fps)] は、通常 30fps (60i) の映像を補間し、より滑らか（ぬるぬる）な映像で視聴できます！<br>
-                    [1080p (60fps)] で視聴するときは、サーバー設定の [利用するエンコーダー] をハードウェアエンコーダーに設定してください。FFmpeg (ソフトウェアエンコーダー) では、視聴に支障が出ることがあります。<br>
+                <div class="settings__item settings__item--switch settings__item--sync-disabled"
+                    :class="{'settings__item--disabled': PlayerUtils.isHEVCVideoSupported() === false}">
+                    <label class="settings__item-heading" :for="`tv_data_saver_mode${network_circuit === 'モバイル回線時' ? '_cellular' : ''}`">
+                        テレビを通信節約モードで視聴する
+                    </label>
+                    <label class="settings__item-label" :for="`tv_data_saver_mode${network_circuit === 'モバイル回線時' ? '_cellular' : ''}`">
+                        通信節約モードでは、H.265 / HEVC という圧縮率の高いコーデックを使い、画質はほぼそのまま、通信量を通常の 1/2 程度に抑えながら視聴できます！<br>
+                        通信節約モードで視聴するときは、サーバー設定の [利用するエンコーダー] をハードウェアエンコーダーに設定してください。FFmpeg (ソフトウェアエンコーダー) では、視聴に支障が出る可能性が高いです。<br>
+                        <p class="mt-1 mb-0 error--text lighten-1" v-if="PlayerUtils.isHEVCVideoSupported() === false && Utils.isFirefox() === false">
+                            このデバイスでは通信節約モードがサポートされていません。
+                        </p>
+                        <p class="mt-1 mb-0 error--text lighten-1" v-if="PlayerUtils.isHEVCVideoSupported() === false && Utils.isFirefox() === true">
+                            お使いの Firefox ブラウザでは通信節約モードがサポートされていません。
+                        </p>
+                    </label>
+                    <v-switch class="settings__item-switch" id="tv_data_saver_mode" inset hide-details v-if="network_circuit !== 'モバイル回線時'"
+                        v-model="settingsStore.settings.tv_data_saver_mode" :disabled="PlayerUtils.isHEVCVideoSupported() === false">
+                    </v-switch>
+                    <v-switch class="settings__item-switch" id="tv_data_saver_mode_cellular" inset hide-details v-if="network_circuit === 'モバイル回線時'"
+                        v-model="settingsStore.settings.tv_data_saver_mode_cellular" :disabled="PlayerUtils.isHEVCVideoSupported() === false">
+                    </v-switch>
                 </div>
-                <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
-                    :items="tv_streaming_quality" v-model="settingsStore.settings.tv_streaming_quality">
-                </v-select>
-            </div>
-            <div class="settings__item settings__item--switch settings__item--sync-disabled"
-                :class="{'settings__item--disabled': PlayerUtils.isHEVCVideoSupported() === false}">
-                <label class="settings__item-heading" for="tv_data_saver_mode">テレビを通信節約モードで視聴する</label>
-                <label class="settings__item-label" for="tv_data_saver_mode">
-                    通信節約モードでは、H.265 / HEVC という圧縮率の高いコーデックを使い、画質はほぼそのまま、通信量を通常の 1/2 程度に抑えながら視聴できます！<br>
-                    通信節約モードで視聴するときは、サーバー設定の [利用するエンコーダー] をハードウェアエンコーダーに設定してください。FFmpeg (ソフトウェアエンコーダー) では、視聴に支障が出る可能性が高いです。<br>
-                    <p class="mt-1 mb-0 error--text lighten-1" v-if="PlayerUtils.isHEVCVideoSupported() === false && Utils.isFirefox() === false">
-                        このデバイスでは通信節約モードがサポートされていません。
-                    </p>
-                    <p class="mt-1 mb-0 error--text lighten-1" v-if="PlayerUtils.isHEVCVideoSupported() === false && Utils.isFirefox() === true">
-                        お使いの Firefox ブラウザでは通信節約モードがサポートされていません。
-                    </p>
-                </label>
-                <v-switch class="settings__item-switch" id="tv_data_saver_mode" inset hide-details
-                    v-model="settingsStore.settings.tv_data_saver_mode" :disabled="PlayerUtils.isHEVCVideoSupported() === false">
-                </v-switch>
-            </div>
-            <div class="settings__item settings__item--switch settings__item--sync-disabled">
-                <label class="settings__item-heading" for="tv_low_latency_mode">テレビを低遅延で視聴する</label>
-                <label class="settings__item-label" for="tv_low_latency_mode">
-                    低遅延ストリーミングをオンにすると、<b>放送波との遅延を最短 0.9 秒に抑えて視聴できます！</b><br>
-                    また、約 3 秒以上遅延したときに少しだけ再生速度を早める (1.1x) ことで、滑らかにストリーミングの遅延を取り戻します。<br>
-                    宅外視聴などのネットワークが不安定になりがちな環境では、低遅延ストリーミングをオフにしてみると、映像のカクつきを改善できるかもしれません。<br>
-                </label>
-                <v-switch class="settings__item-switch" id="tv_low_latency_mode" inset hide-details
-                    v-model="settingsStore.settings.tv_low_latency_mode">
-                </v-switch>
-            </div>
-        </div>
+                <div class="settings__item settings__item--switch settings__item--sync-disabled">
+                    <label class="settings__item-heading" :for="`tv_low_latency_mode${network_circuit === 'モバイル回線時' ? '_cellular' : ''}`">
+                        テレビを低遅延で視聴する
+                    </label>
+                    <label class="settings__item-label" :for="`tv_low_latency_mode${network_circuit === 'モバイル回線時' ? '_cellular' : ''}`">
+                        低遅延ストリーミングをオンにすると、<b>放送波との遅延を最短 0.9 秒に抑えて視聴できます！</b><br>
+                        また、約 3 秒以上遅延したときに少しだけ再生速度を早める (1.1x) ことで、滑らかにストリーミングの遅延を取り戻します。<br>
+                        宅外視聴などのネットワークが不安定になりがちな環境では、低遅延ストリーミングをオフにしてみると、映像のカクつきを改善できるかもしれません。<br>
+                    </label>
+                    <v-switch class="settings__item-switch" id="tv_low_latency_mode" inset hide-details v-if="network_circuit !== 'モバイル回線時'"
+                        v-model="settingsStore.settings.tv_low_latency_mode">
+                    </v-switch>
+                    <v-switch class="settings__item-switch" id="tv_low_latency_mode_cellular" inset hide-details v-if="network_circuit === 'モバイル回線時'"
+                        v-model="settingsStore.settings.tv_low_latency_mode_cellular">
+                    </v-switch>
+                </div>
+            </v-tab-item-fix>
+        </v-tabs-items-fix>
     </SettingsBase>
 </template>
 <script lang="ts">
@@ -100,8 +120,15 @@ export default defineComponent({
             // フォームを小さくするかどうか
             is_form_dense: Utils.isSmartphoneHorizontal(),
 
+            // タブの状態管理
+            tab: null as number | null,
+
+            // ネットワーク回線の種類
+            network_circuits: ['Wi-Fi 回線時', 'モバイル回線時'] as ('Wi-Fi 回線時' | 'モバイル回線時')[],
+
             // テレビのデフォルトのストリーミング画質の選択肢
             tv_streaming_quality: QUALITY_H264,
+            tv_streaming_quality_cellular: QUALITY_H264,
         };
     },
     computed: {
@@ -110,11 +137,21 @@ export default defineComponent({
     watch: {
         'settingsStore.settings.tv_data_saver_mode': {
             immediate: true,
-            handler(val: boolean) {
-                if (val === true) {
+            handler(value: boolean) {
+                if (value === true) {
                     this.tv_streaming_quality = QUALITY_H265;
                 } else {
                     this.tv_streaming_quality = QUALITY_H264;
+                }
+            },
+        },
+        'settingsStore.settings.tv_data_saver_mode_cellular': {
+            immediate: true,
+            handler(value: boolean) {
+                if (value === true) {
+                    this.tv_streaming_quality_cellular = QUALITY_H265;
+                } else {
+                    this.tv_streaming_quality_cellular = QUALITY_H264;
                 }
             },
         }
@@ -124,7 +161,27 @@ export default defineComponent({
         if (this.settingsStore.settings.tv_data_saver_mode === true) {
             this.tv_streaming_quality = QUALITY_H265;
         }
+        if (this.settingsStore.settings.tv_data_saver_mode_cellular === true) {
+            this.tv_streaming_quality_cellular = QUALITY_H265;
+        }
     }
 });
 
 </script>
+<style lang="scss" scoped>
+
+.settings__tab {
+    position: sticky;
+    top: 65px;
+    z-index: 4;
+    background: var(--v-background-lighten1);
+    @include smartphone-horizontal {
+        top: 0px;
+    }
+    @include smartphone-vertical {
+        top: 60px;
+        background: var(--v-background-base);
+    }
+}
+
+</style>
