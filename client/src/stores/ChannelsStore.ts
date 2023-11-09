@@ -1,6 +1,5 @@
 
 import { defineStore } from 'pinia';
-import Vue from 'vue';
 
 import Channels, { ChannelType, ChannelTypePretty, ILiveChannelsList, ILiveChannel, ILiveChannelDefault } from '@/services/Channels';
 import { IProgram, IProgramDefault } from '@/services/Programs';
@@ -175,7 +174,6 @@ const useChannelsStore = defineStore('channels', {
          * (たとえば SKY (スカパー！プレミアムサービス) のタブは、SKY に属すチャンネルが1つもない（=受信できない）なら表示されない)
          */
         channels_list_with_pinned(): Map<ChannelTypePretty, ILiveChannel[]> {
-
             const settings_store = useSettingsStore();
 
             // 事前に Map を定義しておく
@@ -195,6 +193,24 @@ const useChannelsStore = defineStore('channels', {
             channels_list_with_pinned.set('SKY', []);
             channels_list_with_pinned.set('StarDigio', []);
 
+            // pinned_channel_ids の互換性 (display_channel_id -> id) の対応
+            // もし NIDxxx-SIDxxx の形式の ID でなければ、NIDxxx-SIDxxx の形式に変換する
+            settings_store.settings.pinned_channel_ids = settings_store.settings.pinned_channel_ids.map((channel_id) => {
+                if (channel_id.includes('NID') && channel_id.includes('SID')) {
+                    // すでに NIDxxx-SIDxxx の形式の ID になっているので、そのまま返す
+                    return channel_id;
+                } else {
+                    // display_channel_id (ex: gr011) の形式の ID なので、NIDxxx-SIDxxx の形式に変換する
+                    // チャンネルタイプごとのチャンネル情報リストを取得する (すべてのチャンネルリストから探索するより効率的)
+                    const channels: ILiveChannel[] | undefined = this.channels_list[ChannelUtils.getChannelType(channel_id)];
+                    if (channels === undefined) {
+                        return 'NID0-SID0';
+                    }
+                    // display_channel_id が一致するチャンネル情報の ID を返す
+                    return channels.find(channel => channel.display_channel_id === channel_id)?.id ?? 'NID0-SID0';
+                }
+            });
+
             // channels_list に格納されているすべてのチャンネルに対しループを回し、
             // 順次 channels_list_with_pinned に追加していく
             // 1つのチャンネルに対するループ回数が少なくなる分、毎回 filter() や find() するよりも高速になるはず
@@ -206,8 +222,8 @@ const useChannelsStore = defineStore('channels', {
                         continue;
                     }
 
-                    // ピン留めしているチャンネルの ID (ex: gr011) が入るリストに含まれていたら、ピン留めタブに追加
-                    if (settings_store.settings.pinned_channel_ids.includes(channel.display_channel_id)) {
+                    // ピン留めしているチャンネルの ID (ex: NID32736-SID1024) が入るリストに含まれているチャンネルなら、ピン留めタブに追加
+                    if (settings_store.settings.pinned_channel_ids.includes(channel.id)) {
                         channels_list_with_pinned.get('ピン留め')?.push(channel);
                     }
 
@@ -243,7 +259,7 @@ const useChannelsStore = defineStore('channels', {
 
             // ピン留めチャンネルを追加順に並び替える
             for (const channel of [...channels_list_with_pinned.get('ピン留め')!]) {
-                const index = settings_store.settings.pinned_channel_ids.indexOf(channel.display_channel_id);
+                const index = settings_store.settings.pinned_channel_ids.indexOf(channel.id);
                 channels_list_with_pinned.get('ピン留め')![index] = channel;
             }
 
@@ -270,37 +286,25 @@ const useChannelsStore = defineStore('channels', {
          * 視聴画面ではピン留めされているチャンネルが1つもないときは、ピン留めタブを表示する必要性がないため削除される
          */
         channels_list_with_pinned_for_watch(): Map<ChannelTypePretty, ILiveChannel[]> {
+
+            // 意図せぬ副作用が発生しないように、channels_list_with_pinned が返す Map をコピーする
             const channels_list_with_pinned = new Map([...this.channels_list_with_pinned]);
+
             // 初回のチャンネル情報更新がまだ実行されていない or 実行中のときのみ、表示タイミングの問題で例外的に常にピン留めタブを削除せずに返す
             // こうしないと視聴画面に直接アクセスした際に、ピン留めタブではなく地デジタブがデフォルトで表示されてしまう
             if (this.is_channels_list_initial_updated === false) {
                 return channels_list_with_pinned;
             }
+
             // ピン留めされているチャンネルが1つもない場合は、ピン留めタブを削除する
             if (channels_list_with_pinned.get('ピン留め')?.length === 0) {
                 channels_list_with_pinned.delete('ピン留め');
             }
+
             return channels_list_with_pinned;
         }
     },
     actions: {
-
-        /**
-         * 指定されたチャンネル ID のチャンネル情報を取得する
-         * @param display_channel_id 取得するチャンネル ID (ex: gr011)
-         * @returns チャンネル情報
-         */
-        getChannel(display_channel_id: string): ILiveChannel | null {
-
-            // チャンネルタイプごとのチャンネル情報リストを取得する (すべてのチャンネルリストから探索するより効率的)
-            const channels = this.channels_list[ChannelUtils.getChannelType(display_channel_id)];
-            if (channels === undefined) {
-                return null;
-            }
-
-            // チャンネル ID が一致するチャンネル情報を返す
-            return channels.find(channel => channel.display_channel_id === display_channel_id) ?? null;
-        },
 
         /**
          * チャンネルタイプとリモコン番号からチャンネル情報を取得する
@@ -318,29 +322,6 @@ const useChannelsStore = defineStore('channels', {
 
             // リモコン番号が一致するチャンネルを見つけられなかった場合は null を返す
             return channel ?? null;
-        },
-
-        /**
-         * 指定されたチャンネル ID のチャンネル情報を更新する
-         * 今のところ viewer_count (視聴者数) を更新する目的でしか使っていない
-         * @param display_channel_id 更新するチャンネル ID (ex: gr011)
-         * @param channel 更新後のチャンネル情報
-         */
-        updateChannel(display_channel_id: string, channel: ILiveChannel): void {
-
-            // チャンネルタイプごとのチャンネル情報リストを取得する (すべてのチャンネルリストから探索するより効率的)
-            const channel_type = ChannelUtils.getChannelType(display_channel_id);
-            if (this.channels_list[channel_type] === undefined) {
-                return;
-            }
-
-            // チャンネル ID が一致するチャンネル情報を更新する
-            const index = this.channels_list[channel_type].findIndex(channel => channel.display_channel_id === display_channel_id);
-            if (index === -1) {
-                return;
-            }
-            // リアクティブにするために Vue.set を使う
-            Vue.set(this.channels_list[channel_type], index, channel);
         },
 
         /**

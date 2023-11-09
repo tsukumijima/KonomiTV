@@ -117,10 +117,7 @@ class LiveEventManager implements PlayerManager {
             player_store.live_stream_status = event.status;
 
             // 視聴者数を更新
-            channels_store.updateChannel(channels_store.display_channel_id, {
-                ...channels_store.channel.current,
-                viewer_count: event.client_count,
-            });
+            channels_store.channel.current.viewer_count = event.client_count;
 
             // ステータスごとに処理を振り分け
             switch (event.status) {
@@ -248,10 +245,7 @@ class LiveEventManager implements PlayerManager {
             console.log('\u001b[33m[LiveEventManager][detail_update]', `\nStatus: ${event.status} Detail:${event.detail}`);
 
             // 視聴者数を更新
-            channels_store.updateChannel(channels_store.display_channel_id, {
-                ...channels_store.channel.current,
-                viewer_count: event.client_count,
-            });
+            channels_store.channel.current.viewer_count = event.client_count;
 
             // ステータスごとに処理を振り分け
             switch (event.status) {
@@ -282,10 +276,7 @@ class LiveEventManager implements PlayerManager {
             const event: ILiveStreamStatusEvent = JSON.parse(event_raw.data);
 
             // 視聴者数を更新
-            channels_store.updateChannel(channels_store.display_channel_id, {
-                ...channels_store.channel.current,
-                viewer_count: event.client_count,
-            });
+            channels_store.channel.current.viewer_count = event.client_count;
         });
 
         console.log('\u001b[33m[LiveEventManager] Initialized.');

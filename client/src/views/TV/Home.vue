@@ -36,9 +36,9 @@
                                         </div>
                                     </div>
                                     <div v-ripple class="channel__broadcaster-pin"
-                                        v-tooltip="isPinnedChannel(channel.display_channel_id) ? 'ピン留めを外す' : 'ピン留めする'"
-                                        :class="{'channel__broadcaster-pin--pinned': isPinnedChannel(channel.display_channel_id)}"
-                                        @click.prevent.stop="isPinnedChannel(channel.display_channel_id) ? removePinnedChannel(channel.display_channel_id) : addPinnedChannel(channel.display_channel_id)"
+                                        v-tooltip="isPinnedChannel(channel) ? 'ピン留めを外す' : 'ピン留めする'"
+                                        :class="{'channel__broadcaster-pin--pinned': isPinnedChannel(channel)}"
+                                        @click.prevent.stop="isPinnedChannel(channel) ? removePinnedChannel(channel) : addPinnedChannel(channel)"
                                         @mousedown.prevent.stop="/* 親要素の波紋が広がらないように */">
                                         <Icon icon="fluent:pin-20-filled" width="24px" />
                                     </div>
@@ -90,6 +90,7 @@ import { defineComponent } from 'vue';
 import Header from '@/components/Header.vue';
 import Navigation from '@/components/Navigation.vue';
 import Message from '@/message';
+import { ILiveChannel } from '@/services/Channels';
 import useChannelsStore from '@/stores/ChannelsStore';
 import useSettingsStore from '@/stores/SettingsStore';
 import Utils, { ChannelUtils, ProgramUtils } from '@/utils';
@@ -176,39 +177,33 @@ export default defineComponent({
     methods: {
 
         // チャンネルをピン留めする
-        addPinnedChannel(display_channel_id: string) {
+        addPinnedChannel(channel: ILiveChannel) {
 
-            // ピン留めするチャンネルの ID を追加 (保存は自動で行われる)
-            this.settingsStore.settings.pinned_channel_ids.push(display_channel_id);
+            // ピン留めするチャンネルの ID リストに追加 (保存は自動で行われる)
+            this.settingsStore.settings.pinned_channel_ids.push(channel.id);
 
-            const channel = this.channelsStore.getChannel(display_channel_id);
-            if (channel) {
-                Message.show(`${channel.name}をピン留めしました。`);
-            }
+            // ピン留めしたチャンネルを通知
+            Message.show(`${channel.name}をピン留めしました。`);
         },
 
         // チャンネルをピン留めから外す
-        removePinnedChannel(display_channel_id: string) {
+        removePinnedChannel(channel: ILiveChannel) {
 
-            // ピン留めを外すチャンネルの ID を削除 (保存は自動で行われる)
-            this.settingsStore.settings.pinned_channel_ids.splice(this.settingsStore.settings.pinned_channel_ids.indexOf(display_channel_id), 1);
+            // ピン留めするチャンネルの ID リストから削除 (保存は自動で行われる)
+            this.settingsStore.settings.pinned_channel_ids.splice(this.settingsStore.settings.pinned_channel_ids.indexOf(channel.id), 1);
 
             // この時点でピン留めされているチャンネルがないなら、タブを地デジタブに切り替える
             if (this.channelsStore.channels_list_with_pinned.get('ピン留め')?.length === 0) {
                 this.tab = 1;
             }
 
-            const channel = this.channelsStore.getChannel(display_channel_id);
-            if (channel) {
-                Message.show(`${channel.name}のピン留めを外しました。`);
-            }
+            // ピン留めを外したチャンネルを通知
+            Message.show(`${channel.name}のピン留めを外しました。`);
         },
 
         // チャンネルがピン留めされているか
-        isPinnedChannel(display_channel_id: string): boolean {
-
-            // 引数のチャンネルがピン留めリストに存在するかを返す
-            return this.settingsStore.settings.pinned_channel_ids.includes(display_channel_id);
+        isPinnedChannel(channel: ILiveChannel): boolean {
+            return this.settingsStore.settings.pinned_channel_ids.includes(channel.id);
         }
     }
 });
