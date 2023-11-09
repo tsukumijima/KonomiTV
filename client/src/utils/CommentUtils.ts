@@ -107,7 +107,7 @@ export class CommentUtils {
      * @param comment_mail ニコニコのコメントコマンド
      * @returns コメントの色、位置、サイズ
      */
-    static parseCommentCommand(comment_mail: string): {
+    static parseCommentCommand(comment_mail: string | null | undefined): {
         color: string;
         position: 'top' | 'right' | 'bottom';
         size: 'big' | 'medium' | 'small';

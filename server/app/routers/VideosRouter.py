@@ -7,6 +7,7 @@ from typing import Literal
 from app import schemas
 from app.models.RecordedProgram import RecordedProgram
 from app.utils import Logging
+from app.utils.Jikkyo import Jikkyo
 
 
 # ルーター
@@ -19,7 +20,7 @@ router = APIRouter(
 @router.get(
     '',
     summary = '録画番組一覧 API',
-    response_description = '録画番組のリスト。',
+    response_description = '録画番組の情報のリスト。',
     response_model = schemas.RecordedPrograms,
 )
 async def VideosAPI(
@@ -49,7 +50,7 @@ async def VideosAPI(
 @router.get(
     '/{video_id}',
     summary = '録画番組 API',
-    response_description = '録画番組。',
+    response_description = '録画番組の情報。',
     response_model = schemas.RecordedProgram,
 )
 async def VideoAPI(video_id: int):
@@ -68,3 +69,45 @@ async def VideoAPI(video_id: int):
         )
 
     return recorded_program
+
+
+@router.get(
+    '/{video_id}/jikkyo',
+    summary = '録画番組過去ログコメント API',
+    response_description = '録画番組の放送中に投稿されたニコニコ実況の過去ログコメント。',
+    response_model = schemas.JikkyoComments,
+)
+async def VideoJikkyoCommentsAPI(video_id: int):
+    """
+    指定された録画番組の放送中に投稿されたニコニコ実況の過去ログコメントを取得する。
+    ニコニコ実況 過去ログ API をラップし、DPlayer が受け付けるコメント形式に変換して返す。
+    """
+
+    recorded_program = await RecordedProgram.get_or_none(id=video_id) \
+        .select_related('recorded_video') \
+        .select_related('channel')
+    if recorded_program is None:
+        Logging.error(f'[VideosRouter][VideoAPI] Specified video_id was not found [video_id: {video_id}]')
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Specified video_id was not found',
+        )
+
+    # チャンネル情報と録画開始時刻/録画終了時刻の情報がある場合のみ
+    if ((recorded_program.channel is not None) and
+        (recorded_program.recorded_video.recording_start_time is not None) and
+        (recorded_program.recorded_video.recording_end_time is not None)):
+
+        # ニコニコ実況 過去ログ API から一致する過去ログコメントを取得して返す
+        jikkyo = Jikkyo(recorded_program.channel.network_id, recorded_program.channel.service_id)
+        return await jikkyo.fetchJikkyoComments(
+            recorded_program.recorded_video.recording_start_time,
+            recorded_program.recorded_video.recording_end_time,
+        )
+
+    # それ以外の場合はエラーを返す
+    return schemas.JikkyoComments(
+        is_success = False,
+        comments = [],
+        detail = 'チャンネル情報または録画開始時刻/録画終了時刻の情報がない録画番組です。',
+    )

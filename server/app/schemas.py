@@ -204,6 +204,19 @@ class LiveChannels(BaseModel):
     SKY: list[LiveChannel]
     STARDIGIO: list[LiveChannel]
 
+class JikkyoComment(BaseModel):
+    time: float
+    type: Literal['top', 'right', 'bottom']
+    size: Literal['big', 'medium', 'small']
+    color: str
+    author: str
+    text: str
+
+class JikkyoComments(BaseModel):
+    is_success: bool
+    comments: list[JikkyoComment]
+    detail: str
+
 class JikkyoSession(BaseModel):
     is_success: bool
     audience_token: str | None = None
