@@ -136,6 +136,10 @@ const usePlayerStore = defineStore('player', {
         // null のとき、エラーは発生していないとみなす
         live_comment_init_failed_message: null as string | null,
 
+        // ビデオ視聴: 過去ログコメントへの取得に失敗した際のエラーメッセージ
+        // null のとき、エラーは発生していないとみなす
+        video_comment_init_failed_message: null as string | null,
+
         // Twitter パネルコンポーネントで利用する、ツイート添付候補のキャプチャのリスト
         // UI 上と KeyboardShortcutManager の両方から操作する必要があるため PlayerStore に持たせている
         twitter_captures: [] as ITweetCapture[],

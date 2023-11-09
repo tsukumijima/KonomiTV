@@ -5,7 +5,9 @@ import Settings, { IClientSettings, IMutedCommentKeywords } from '@/services/Set
 import Utils from '@/utils';
 
 
-export type LiveVideoQuality = '1080p-60fps' | '1080p' | '810p' | '720p' | '540p' | '480p' | '360p' | '240p';
+// 選択可能な画質の種類
+export type LiveStreamingQuality = '1080p-60fps' | '1080p' | '810p' | '720p' | '540p' | '480p' | '360p' | '240p';
+export const LIVE_STREAMING_QUALITIES: LiveStreamingQuality[] = ['1080p-60fps', '1080p', '810p', '720p', '540p', '480p', '360p', '240p'];
 
 // LocalStorage に保存される KonomiTV の設定データ
 interface ILocalClientSettings {
@@ -16,8 +18,8 @@ interface ILocalClientSettings {
     panel_display_state: 'RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold';
     tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
     tv_channel_selection_requires_alt_key: boolean;
-    tv_streaming_quality: LiveVideoQuality;
-    tv_streaming_quality_cellular: LiveVideoQuality;
+    tv_streaming_quality: LiveStreamingQuality;
+    tv_streaming_quality_cellular: LiveStreamingQuality;
     tv_data_saver_mode: boolean;
     tv_data_saver_mode_cellular: boolean;
     tv_low_latency_mode: boolean;

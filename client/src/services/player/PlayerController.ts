@@ -13,9 +13,10 @@ import LiveDataBroadcastingManager from '@/services/player/managers/LiveDataBroa
 import LiveEventManager from '@/services/player/managers/LiveEventManager';
 import MediaSessionManager from '@/services/player/managers/MediaSessionManager';
 import PlayerManager from '@/services/player/PlayerManager';
+import Videos from '@/services/Videos';
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
-import useSettingsStore, { LiveVideoQuality } from '@/stores/SettingsStore';
+import useSettingsStore, { LiveStreamingQuality, LIVE_STREAMING_QUALITIES } from '@/stores/SettingsStore';
 import Utils, { PlayerUtils } from '@/utils';
 
 
@@ -48,7 +49,7 @@ class PlayerController {
     private readonly playback_mode: 'Live' | 'Video';
 
     // ライブ視聴: 画質プロファイル
-    private readonly tv_streaming_quality: LiveVideoQuality;
+    private readonly tv_streaming_quality: LiveStreamingQuality;
     private readonly tv_data_saver_mode: boolean;
     private readonly tv_low_latency_mode: boolean;
 
@@ -184,9 +185,6 @@ class PlayerController {
                 // 画質リスト
                 const qualities: DPlayerType.VideoQuality[] = [];
 
-                // 画質の種類
-                const quality_names = ['1080p-60fps', '1080p', '810p', '720p', '540p', '480p', '360p', '240p'];
-
                 // ブラウザが H.265 / HEVC の再生に対応していて、かつ通信節約モードが有効なとき
                 // API に渡す画質に -hevc のプレフィックスをつける
                 let hevc_prefix = '';
@@ -214,7 +212,7 @@ class PlayerController {
                     } else {
 
                         // 画質リストを作成
-                        for (const quality_name of quality_names) {
+                        for (const quality_name of LIVE_STREAMING_QUALITIES) {
                             qualities.push({
                                 // 1080p-60fps のみ、見栄えの観点から表示上 "1080p (60fps)" と表示する
                                 name: quality_name === '1080p-60fps' ? '1080p (60fps)' : quality_name,
@@ -240,7 +238,8 @@ class PlayerController {
                 } else {
 
                     // 画質リストを作成
-                    for (const quality_name of quality_names) {
+                    // TODO: 実際は VIDEO_STREAMING_QUALITIES を使う
+                    for (const quality_name of LIVE_STREAMING_QUALITIES) {
                         qualities.push({
                             // 1080p-60fps のみ、見栄えの観点から表示上 "1080p (60fps)" と表示する
                             name: quality_name === '1080p-60fps' ? '1080p (60fps)' : quality_name,
@@ -274,31 +273,35 @@ class PlayerController {
             // コメント API バックエンドの設定
             apiBackend: {
                 // コメント取得時
-                read: (options) => {
-                    // ライブ視聴: 空の配列を返す (こうするとコメント0件と認識される)
+                read: async (options) => {
                     if (this.playback_mode === 'Live') {
-                        // ライブ視聴では LiveCommentManager 側でリアルタイムにコメントを受信・描画するため、最終的なコメント数を確定できない
-                        // ここでは一旦コメント0件として認識させる
+                        // ライブ視聴: 空の配列を返す
+                        // ライブ視聴では LiveCommentManager 側でリアルタイムにコメントを受信して直接描画するため、ここでは一旦コメント0件として認識させる
                         options.success([]);
-                    // ビデオ視聴: 過去ログコメントを取得して返す
                     } else {
-                        // TODO: 未実装
-                        options.success([]);
+                        // ビデオ視聴: 過去ログコメントを取得して返す
+                        const jikkyo_comments = await Videos.fetchVideoJikkyoComments(player_store.recorded_program.id);
+                        if (jikkyo_comments.is_success === false) {
+                            player_store.video_comment_init_failed_message = jikkyo_comments.detail;
+                            options.error(jikkyo_comments.detail);
+                        } else {
+                            options.success(jikkyo_comments.comments);
+                        }
                     }
                 },
                 // コメント送信時
                 send: async (options) => {
-                    // ライブ視聴: コメントを送信する
                     if (this.playback_mode === 'Live') {
-                        // ライブ視聴であれば PlayerManager に登録されているはずの LiveCommentManager を探し、コメントを送信する
+                        // ライブ視聴: コメントを送信する
+                        // PlayerManager に登録されているはずの LiveCommentManager を探し、コメントを送信する
                         for (const player_manager of this.player_managers) {
                             if (player_manager instanceof LiveCommentManager) {
                                 player_manager.sendComment(options);  // options.success() は LiveCommentManager 側で呼ばれる
                                 return;
                             }
                         }
-                    // ビデオ視聴: 過去ログにはコメントできないのでエラーを返す
                     } else {
+                        // ビデオ視聴: 過去ログにはコメントできないのでエラーを返す
                         options.error('録画番組にはコメントできません。');
                     }
                 },
@@ -695,8 +698,7 @@ class PlayerController {
             // 初回実行時はそもそもまだ PlayerManager が一つも初期化されていないので、何も起こらない
             for (const player_manager of this.player_managers) {
                 if (player_manager.restart_required_when_quality_switched === true) {
-                    await player_manager.destroy();
-                    await player_manager.init();
+                    player_manager.destroy().then(() => player_manager.init());  // 非同期で実行
                 }
             }
 
@@ -1179,6 +1181,10 @@ class PlayerController {
 
         // 再びローディング状態にする
         player_store.is_loading = true;
+
+        // コメントの取得に失敗した際のエラーメッセージを削除
+        player_store.live_comment_init_failed_message = null;
+        player_store.video_comment_init_failed_message = null;
 
         // ローディング状態への移行に伴い、映像がフェードアウトするアニメーション (0.2秒) 分待ってから実行
         // この 0.2 秒の間に音量をフェードアウトさせる
