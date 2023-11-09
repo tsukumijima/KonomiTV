@@ -8,18 +8,26 @@ import { ChannelType } from '@/services/Channels';
 export class ChannelUtils {
 
     /**
-     * チャンネル ID からチャンネルタイプを取得する
-     * @param display_channel_id チャンネル ID
-     * @returns チャンネルタイプ
+     * display_channel_id からチャンネルタイプを取得する
+     * @param display_channel_id display_channel_id
+     * @returns チャンネルタイプ (不正な display_channel_id の場合は null)
      */
-    static getChannelType(display_channel_id: string): ChannelType {
+    static getChannelType(display_channel_id: string): ChannelType | null {
         try {
             const result = display_channel_id.match('(?<channel_type>[a-z]+)[0-9]+')!.groups!.channel_type.toUpperCase();
-            return result as ChannelType;
+            switch (result) {
+                case 'GR': return 'GR';
+                case 'BS': return 'BS';
+                case 'CS': return 'CS';
+                case 'CATV': return 'CATV';
+                case 'SKY': return 'SKY';
+                case 'STARDIGIO': return 'STARDIGIO';
+                // 正規表現ではエラーになっていないが、ChannelType のいずれにもマッチしない
+                default: return null;
+            }
         } catch (e) {
-            // 何かしらエラーが発生したということはチャンネル ID が不正
-            // とりあえずここではエラーにならないよう GR を返す  エラー処理はその後の段階で行われる
-            return 'GR';
+            // 何かしらエラーが発生したということは display_channel_id が不正
+            return null;
         }
     }
 

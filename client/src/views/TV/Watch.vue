@@ -11,6 +11,7 @@ import PlayerController from '@/services/player/PlayerController';
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
 import useSettingsStore from '@/stores/SettingsStore';
+import Utils from '@/utils';
 
 export default Vue.extend({
     name: 'TV-Watch',
@@ -86,10 +87,7 @@ export default Vue.extend({
         // destroy() を実行
         // 別のページへ遷移するため、DPlayer のインスタンスを確実に破棄する
         // さもなければ、ブラウザがリロードされるまでバックグラウンドで永遠に再生され続けてしまう
-        // 不正な ID のため 404 ページに遷移されるときは実行しない
-        if (this.channelsStore.channel.current.display_channel_id !== 'gr999') {
-            this.destroy();
-        }
+        this.destroy();
 
         // このページから離れるので、チャンネル ID を gr000 (ダミー値) に戻す
         this.channelsStore.display_channel_id = 'gr000';
@@ -131,8 +129,10 @@ export default Vue.extend({
                 return;
             }
 
-            // もし現時点でチャンネル ID が gr999 だった場合、チャンネル情報に存在しない不正な ID なので、404 ページにリダイレクト
-            if (this.channelsStore.channel.current.display_channel_id === 'gr999') {
+            // もしこの時点でチャンネル名が「チャンネル情報取得エラー」の場合、
+            // URL で指定された display_channel_id に紐づくチャンネル情報がないことを示しているので、404 ページにリダイレクト
+            if (this.channelsStore.channel.current.name === 'チャンネル情報取得エラー') {
+                await Utils.sleep(3);  // 3秒待機
                 this.$router.push({path: '/not-found/'});
                 return;
             }

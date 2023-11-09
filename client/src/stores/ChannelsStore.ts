@@ -50,25 +50,13 @@ const useChannelsStore = defineStore('channels', {
     getters: {
 
         /**
-         * ライブ視聴画面を表示中かどうか
-         * チャンネル情報がセットされているかどうかで判定できる
-         */
-        is_showing_live(): boolean {
-            return this.display_channel_id !== 'gr000';
-        },
-
-        /**
          * 前・現在・次のチャンネルの情報 (視聴画面用)
          * チャンネル情報はデータ量がかなり多いので、個別に取得するより一気に取得したほうがループ回数が少なくなりパフォーマンスが良い
          */
         channel(): { previous: ILiveChannel; current: ILiveChannel; next: ILiveChannel; } {
 
-            // チャンネルタイプごとのチャンネル情報リストを取得する (すべてのチャンネルリストから探索するより効率的)
-            const channels: ILiveChannel[] | undefined = this.channels_list[ChannelUtils.getChannelType(this.display_channel_id)];
-
-            // まだチャンネルリストの更新が終わっていないなどの場合で取得できなかった場合、
-            // null を返すと UI 側でのエラー処理が大変なので、暫定的なダミーのチャンネル情報を返す
-            if (channels === undefined || channels.length === 0) {
+            // 初回のチャンネル情報更新がまだ実行されていない or 実行中のときは、情報取得中であることを示すダミーのチャンネル情報を返す
+            if (this.is_channels_list_initial_updated === false) {
                 return {
                     previous: ILiveChannelDefault,
                     current: ILiveChannelDefault,
@@ -76,28 +64,43 @@ const useChannelsStore = defineStore('channels', {
                 };
             }
 
-            // 起点にするチャンネル情報があるインデックスを取得
-            const current_channel_index = channels.findIndex((channel) => channel.display_channel_id === this.display_channel_id);
+            // エラー発生時用のダミーのチャンネル情報
+            const IProgramError: IProgram = {
+                ...IProgramDefault,
+                title: 'チャンネル情報取得エラー',
+                description: 'このチャンネル ID のチャンネル情報は存在しません。',
+            };
+            const ILiveChannelError: ILiveChannel = {
+                ...ILiveChannelDefault,
+                name: 'チャンネル情報取得エラー',
+                program_present: IProgramError,
+                program_following: IProgramError,
+            };
 
-            // インデックスが取得できなかった場合も同様に、暫定的なダミーのチャンネル情報を返す
-            if (current_channel_index === -1) {
-                const IProgramError = {
-                    ...IProgramDefault,
-                    display_channel_id: 'gr999',
-                    title: 'チャンネル情報取得エラー',
-                    description: 'このチャンネル ID のチャンネル情報は存在しません。',
-                };
-                const ILiveChannelError = {
-                    ...ILiveChannelDefault,
-                    display_channel_id: 'gr999',  // チャンネル情報が存在しないことを示す特殊なチャンネル ID
-                    name: 'ERROR',
-                    program_present: IProgramError,
-                    program_following: IProgramError,
-                };
+            // display_channel_id に一致するチャンネルタイプを取得する
+            // 取得できなかった場合、display_channel_id 自体が不正なため、エラー発生時用のダミーのチャンネル情報を返す
+            // このチャンネル情報が返されたとき、視聴画面側では 404 ページへのリダイレクトが行われる
+            const channel_type = ChannelUtils.getChannelType(this.display_channel_id);
+            if (channel_type === null) {
                 return {
-                    previous: ILiveChannelError as ILiveChannel,
-                    current: ILiveChannelError as ILiveChannel,
-                    next: ILiveChannelError as ILiveChannel,
+                    previous: ILiveChannelError,
+                    current: ILiveChannelError,
+                    next: ILiveChannelError,
+                };
+            }
+
+            // チャンネルタイプごとのチャンネル情報リストを取得する (すべてのチャンネルリストから探索するより効率的)
+            const channels: ILiveChannel[] = this.channels_list[channel_type];
+
+            // 起点にするチャンネル情報があるインデックスを取得
+            // 取得できなかった場合、display_channel_id に一致するチャンネル情報は存在しないため、エラー発生時用のダミーのチャンネル情報を返す
+            // このチャンネル情報が返されたとき、視聴画面側では 404 ページへのリダイレクトが行われる
+            const current_channel_index = channels.findIndex((channel) => channel.display_channel_id === this.display_channel_id);
+            if (current_channel_index === -1) {
+                return {
+                    previous: ILiveChannelError,
+                    current: ILiveChannelError,
+                    next: ILiveChannelError,
                 };
             }
 
@@ -202,18 +205,19 @@ const useChannelsStore = defineStore('channels', {
                 } else {
                     // display_channel_id (ex: gr011) の形式の ID なので、NIDxxx-SIDxxx の形式に変換する
                     // チャンネルタイプごとのチャンネル情報リストを取得する (すべてのチャンネルリストから探索するより効率的)
-                    const channels: ILiveChannel[] | undefined = this.channels_list[ChannelUtils.getChannelType(channel_id)];
-                    if (channels === undefined) {
-                        return 'NID0-SID0';
-                    }
-                    // display_channel_id が一致するチャンネル情報の ID を返す
-                    return channels.find(channel => channel.display_channel_id === channel_id)?.id ?? 'NID0-SID0';
+                    const channel_type = ChannelUtils.getChannelType(channel_id);
+                    if (channel_type === null) return 'NID0-SID0';  // 不正なチャンネル ID なことを示す特別な値
+                    const channels: ILiveChannel[] = this.channels_list[channel_type];
+                    const channel = channels.find((channel) => channel.display_channel_id === channel_id) ?? null;
+                    if (channel === null) return 'NID0-SID0';  // 不正なチャンネル ID なことを示す特別な値
+                    return channel.id;
                 }
-            });
+            }).filter((channel_id) => channel_id !== 'NID0-SID0');  // NID0-SID0 は不正なチャンネル ID なので除外する
 
             // channels_list に格納されているすべてのチャンネルに対しループを回し、
             // 順次 channels_list_with_pinned に追加していく
             // 1つのチャンネルに対するループ回数が少なくなる分、毎回 filter() や find() するよりも高速になるはず
+            const pinned_channels: ILiveChannel[] = [];
             for (const [channel_type, channels] of Object.entries(this.channels_list)) {
                 for (const channel of channels) {
 
@@ -223,8 +227,9 @@ const useChannelsStore = defineStore('channels', {
                     }
 
                     // ピン留めしているチャンネルの ID (ex: NID32736-SID1024) が入るリストに含まれているチャンネルなら、ピン留めタブに追加
+                    // 一旦 pinned_channels に追加した後、pinned_channel_ids の順に並び替える
                     if (settings_store.settings.pinned_channel_ids.includes(channel.id)) {
-                        channels_list_with_pinned.get('ピン留め')?.push(channel);
+                        pinned_channels.push(channel);
                     }
 
                     // チャンネルタイプごとに分類
@@ -257,11 +262,12 @@ const useChannelsStore = defineStore('channels', {
                 }
             }
 
-            // ピン留めチャンネルを追加順に並び替える
-            for (const channel of [...channels_list_with_pinned.get('ピン留め')!]) {
-                const index = settings_store.settings.pinned_channel_ids.indexOf(channel.id);
-                channels_list_with_pinned.get('ピン留め')![index] = channel;
-            }
+            // ピン留めチャンネルを pinned_channel_ids の順に並び替える
+            channels_list_with_pinned.get('ピン留め')?.push(...pinned_channels.sort((a, b) => {
+                const index_a = settings_store.settings.pinned_channel_ids.indexOf(a.id);
+                const index_b = settings_store.settings.pinned_channel_ids.indexOf(b.id);
+                return index_a - index_b;
+            }));
 
             // 最後に、チャンネルが1つもないチャンネルタイプのタブを除外する (ピン留めタブを除く)
             for (const [channel_type, channels] of channels_list_with_pinned) {
