@@ -42,12 +42,12 @@ class ClientSettings(BaseModel):
     # showed_panel_last_time: 同期無効
     # selected_twitter_account_id: 同期無効
     saved_twitter_hashtags: list[str] = Field([])
-    # tv_streaming_quality: 同期無効
-    # tv_data_saver_mode: 同期無効
-    # tv_low_latency_mode: 同期無効
     panel_display_state: Literal['RestorePreviousState', 'AlwaysDisplay', 'AlwaysFold'] = Field('RestorePreviousState')
     tv_panel_active_tab: Literal['Program', 'Channel', 'Comment', 'Twitter'] = Field('Program')
     tv_channel_selection_requires_alt_key: bool = Field(False)
+    # tv_streaming_quality: 同期無効
+    # tv_data_saver_mode: 同期無効
+    # tv_low_latency_mode: 同期無効
     caption_font: str = Field('Windows TV MaruGothic')
     always_border_caption_text: bool = Field(True)
     specify_caption_opacity: bool = Field(False)

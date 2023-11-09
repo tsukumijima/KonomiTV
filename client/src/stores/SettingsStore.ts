@@ -11,12 +11,12 @@ interface ILocalClientSettings {
     showed_panel_last_time: boolean;
     selected_twitter_account_id: number | null;
     saved_twitter_hashtags: string[];
-    tv_streaming_quality: '1080p-60fps' | '1080p' | '810p' | '720p' | '540p' | '480p' | '360p' | '240p';
-    tv_data_saver_mode: boolean;
-    tv_low_latency_mode: boolean;
     panel_display_state: 'RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold';
     tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
     tv_channel_selection_requires_alt_key: boolean;
+    tv_streaming_quality: '1080p-60fps' | '1080p' | '810p' | '720p' | '540p' | '480p' | '360p' | '240p';
+    tv_data_saver_mode: boolean;
+    tv_low_latency_mode: boolean;
     caption_font: string;
     always_border_caption_text: boolean;
     specify_caption_opacity: boolean;
@@ -54,12 +54,12 @@ const sync_settings_keys = [
     // showed_panel_last_time: 同期無効
     // selected_twitter_account_id: 同期無効
     'saved_twitter_hashtags',
-    // tv_streaming_quality: 同期無効
-    // tv_data_saver_mode: 同期無効
-    // tv_low_latency_mode: 同期無効
     'panel_display_state',
     'tv_panel_active_tab',
     'tv_channel_selection_requires_alt_key',
+    // tv_streaming_quality: 同期無効
+    // tv_data_saver_mode: 同期無効
+    // tv_low_latency_mode: 同期無効
     'caption_font',
     'always_border_caption_text',
     'specify_caption_opacity',
@@ -105,18 +105,21 @@ const default_settings: ILocalClientSettings = {
 
     // ***** 設定 → 全般 *****
 
-    // テレビのデフォルトのストリーミング画質 (Default: 1080p) (同期無効)
-    tv_streaming_quality: '1080p',
-    // テレビを通信節約モードで視聴する (Default: オフ) (同期無効)
-    tv_data_saver_mode: false,
-    // テレビを低遅延で視聴する (Default: 低遅延で視聴する) (同期無効)
-    tv_low_latency_mode: true,
     // デフォルトのパネルの表示状態 (Default: 前回の状態を復元する)
     panel_display_state: 'RestorePreviousState',
     // テレビをみるときにデフォルトで表示されるパネルのタブ (Default: 番組情報タブ)
     tv_panel_active_tab: 'Program',
     // チャンネル選局のキーボードショートカットを Alt or Option + 数字キー/テンキーに変更する (Default: オフ)
     tv_channel_selection_requires_alt_key: false,
+
+    // ***** 設定 → 画質 *****
+
+    // テレビのデフォルトのストリーミング画質 (Default: 1080p) (同期無効)
+    tv_streaming_quality: '1080p',
+    // テレビを通信節約モードで視聴する (Default: オフ) (同期無効)
+    tv_data_saver_mode: false,
+    // テレビを低遅延で視聴する (Default: 低遅延で視聴する) (同期無効)
+    tv_low_latency_mode: true,
 
     // ***** 設定 → 字幕 *****
 

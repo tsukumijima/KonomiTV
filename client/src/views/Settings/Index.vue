@@ -19,6 +19,14 @@
                                 <v-list-item-title>全般</v-list-item-title>
                             </v-list-item-content>
                         </v-list-item>
+                        <v-list-item link color="primary" class="px-4" to="/settings/quality">
+                            <v-list-item-icon class="mr-4">
+                                <Icon icon="fluent:video-clip-multiple-16-filled" width="26px" />
+                            </v-list-item-icon>
+                            <v-list-item-content>
+                                <v-list-item-title>画質</v-list-item-title>
+                            </v-list-item-content>
+                        </v-list-item>
                         <v-list-item link color="primary" class="px-4" to="/settings/caption">
                             <v-list-item-icon class="mr-4">
                                 <Icon icon="fluent:subtitles-16-filled" width="26px" />

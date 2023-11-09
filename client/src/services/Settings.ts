@@ -12,12 +12,12 @@ export interface IClientSettings {
     // showed_panel_last_time: 同期無効
     // selected_twitter_account_id: 同期無効
     saved_twitter_hashtags: string[];
-    // tv_streaming_quality: 同期無効
-    // tv_data_saver_mode: 同期無効
-    // tv_low_latency_mode: 同期無効
     panel_display_state: 'RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold';
     tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
     tv_channel_selection_requires_alt_key: boolean;
+    // tv_streaming_quality: 同期無効
+    // tv_data_saver_mode: 同期無効
+    // tv_low_latency_mode: 同期無効
     caption_font: string;
     always_border_caption_text: boolean;
     specify_caption_opacity: boolean;

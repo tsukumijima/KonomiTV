@@ -13,6 +13,7 @@ import SettingsDataBroadcasting from '@/views/Settings/DataBroadcasting.vue';
 import SettingsGeneral from '@/views/Settings/General.vue';
 import SettingsIndex from '@/views/Settings/Index.vue';
 import SettingsJikkyo from '@/views/Settings/Jikkyo.vue';
+import SettingsQuality from '@/views/Settings/Quality.vue';
 import SettingsServer from '@/views/Settings/Server.vue';
 import SettingsTwitter from '@/views/Settings/Twitter.vue';
 import TVHome from '@/views/TV/Home.vue';
@@ -64,6 +65,11 @@ const router = new VueRouter({
             path: '/settings/general',
             name: 'Settings General',
             component: SettingsGeneral,
+        },
+        {
+            path: '/settings/quality',
+            name: 'Settings Quality',
+            component: SettingsQuality,
         },
         {
             path: '/settings/caption',
