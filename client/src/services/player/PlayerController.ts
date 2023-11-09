@@ -35,8 +35,8 @@ class PlayerController {
     private static readonly LIVE_PLAYBACK_BUFFER_SECONDS_LOW_LATENCY = 0.8;
 
     // ライブ視聴: 低遅延モードオフでの再生バッファ (秒単位)
-    // 5秒程度の遅延を許容する
-    private static readonly LIVE_PLAYBACK_BUFFER_SECONDS = 5.0;
+    // 4 秒程度の遅延を許容する
+    private static readonly LIVE_PLAYBACK_BUFFER_SECONDS = 4.0;
 
     // DPlayer のインスタンス
     private player: DPlayer | null = null;
