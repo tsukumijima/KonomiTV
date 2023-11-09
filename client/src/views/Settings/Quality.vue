@@ -124,7 +124,7 @@ export default defineComponent({
             tab: null as number | null,
 
             // ネットワーク回線の種類
-            network_circuits: ['Wi-Fi 回線時', 'モバイル回線時'] as ('Wi-Fi 回線時' | 'モバイル回線時')[],
+            network_circuits: PlayerUtils.getNetworkCircuitType() !== null ? ['Wi-Fi 回線時', 'モバイル回線時'] : ['Wi-Fi・モバイル回線時'],
 
             // テレビのデフォルトのストリーミング画質の選択肢
             tv_streaming_quality: QUALITY_H264,
