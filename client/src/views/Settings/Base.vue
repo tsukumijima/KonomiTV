@@ -343,6 +343,9 @@ export default defineComponent({
                     padding: 0 12px;
                     font-size: 14px;
                 }
+                @include smartphone-vertical-short {
+                    font-size: 14px;
+                }
             }
         }
     }

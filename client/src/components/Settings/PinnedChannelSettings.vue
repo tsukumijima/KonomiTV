@@ -12,14 +12,14 @@
             <div class="px-5 pb-5">
                 <div class="pinned-channels-settings__label"
                     v-if="(channelsStore.channels_list_with_pinned.get('ピン留め') ?? []).length > 0">
-                    <div>チャンネルをドラッグして並べ替えできます。</div>
+                    <div>各チャンネルのつまみをドラッグして並べ替えできます。</div>
                 </div>
                 <div class="pinned-channels-settings__label"
                     v-if="(channelsStore.channels_list_with_pinned.get('ピン留め') ?? []).length === 0">
                     <div><b>ピン留めされているチャンネルがありません。</b></div>
                     <div class="mt-1">TV ホーム画面のチャンネルリストの <Icon style="position: relative; bottom: -5px;" icon="fluent:pin-20-filled" width="18.5px" /> アイコンから、よくみるチャンネルをピン留めできます。</div>
                 </div>
-                <draggable class="pinned-channels" v-model="settingsStore.settings.pinned_channel_ids"
+                <draggable class="pinned-channels" v-model="settingsStore.settings.pinned_channel_ids" handle=".pinned-channel__sort-handle"
                     v-if="(channelsStore.channels_list_with_pinned.get('ピン留め') ?? []).length > 0">
                     <div class="pinned-channel"
                         v-for="channel in channelsStore.channels_list_with_pinned.get('ピン留め') ?? []" :key="channel.id">
@@ -107,7 +107,7 @@ export default defineComponent({
     .v-card__title span {
         font-size: 20px;
         @include smartphone-vertical {
-            font-size: 16px;
+            font-size: 15.5px;
         }
     }
 }
@@ -134,8 +134,6 @@ export default defineComponent({
         padding: 6px 0px;
         border-bottom: 1px solid var(--v-background-lighten2);
         transition: background-color 0.15s ease;
-        user-select: none;
-        cursor: grab;
 
         &:last-of-type {
             border-bottom: none;
@@ -168,18 +166,19 @@ export default defineComponent({
             display: flex;
             align-items: center;
             justify-content: center;
+            width: 35px;
             height: 40px;
             margin-left: auto;
             border-radius: 5px;
             outline: none;
-            cursor: inherit;
+            cursor: grab;
         }
 
         &__delete-button {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 40px;
+            width: 35px;
             height: 40px;
             margin-left: 4px;
             border-radius: 5px;
