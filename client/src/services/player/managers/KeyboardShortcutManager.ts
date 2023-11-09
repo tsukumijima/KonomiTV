@@ -324,8 +324,8 @@ class KeyboardShortcutManager implements PlayerManager {
                 // Shift キーが同時押しされていたら BS チャンネルの方を選局する
                 const switch_channel_type = is_shift_pressed ? 'BS' : 'GR';
 
-                // 切り替えるチャンネルのリモコン番号
-                // リモコン番号に当てはまるキーが押下していなければ null のままになる
+                // 切り替えるチャンネルのリモコン ID
+                // リモコン ID に当てはまるキーが押下していなければ null のままになる
                 let switch_remocon_id: number | null = null;
 
                 // 1～9キー
@@ -345,14 +345,14 @@ class KeyboardShortcutManager implements PlayerManager {
                 // 0キー (テンキー): 10に割り当て
                 if (event.code === 'Numpad0') switch_remocon_id = 10;
 
-                // この時点でリモコン番号が取得できている場合のみ実行
+                // この時点でリモコン ID が取得できている場合のみ実行
                 if (switch_remocon_id !== null) {
 
                     // 切り替え先のチャンネルを取得する
                     const switch_channel = channels_store.getChannelByRemoconID(switch_channel_type, switch_remocon_id);
 
                     // チャンネルが取得できていれば、ルーティングをそのチャンネルに置き換える
-                    // 押されたキーに対応するリモコン番号のチャンネルがない場合や、現在と同じチャンネル ID の場合は何も起こらない
+                    // 押されたキーに対応するリモコン ID のチャンネルがない場合や、現在と同じチャンネル ID の場合は何も起こらない
                     if (switch_channel !== null && switch_channel.display_channel_id !== channels_store.display_channel_id) {
                         router.push({path: `/tv/watch/${switch_channel.display_channel_id}`});
 

@@ -3,7 +3,7 @@
         <router-link class="watch-header__back-icon" v-ripple :to="playback_mode === 'Live' ? '/tv/' : '/video/'">
             <Icon icon="fluent:arrow-left-12-filled" width="25px" />
         </router-link>
-        <img class="watch-header__broadcaster" :src="`${Utils.api_base_url}/channels/${(channelsStore.display_channel_id)}/logo`">
+        <img class="watch-header__broadcaster" :src="`${Utils.api_base_url}/channels/${channelsStore.channel.current.id}/logo`">
         <span class="watch-header__program-title"
             v-html="ProgramUtils.decorateProgramInfo(channelsStore.channel.current.program_present, 'title')">
         </span>

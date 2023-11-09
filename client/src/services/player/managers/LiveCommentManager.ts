@@ -118,7 +118,7 @@ class LiveCommentManager implements PlayerManager {
         let is_disconnect_message_received = false;
 
         // セッション情報を取得
-        const watch_session_info = await Channels.fetchJikkyoSession(channels_store.display_channel_id);
+        const watch_session_info = await Channels.fetchJikkyoSession(channels_store.channel.current.id);
         if (watch_session_info === null) {
             return {
                 is_success: false,

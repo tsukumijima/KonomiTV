@@ -8,7 +8,7 @@
             </div>
             <v-spacer></v-spacer>
             <div class="panel-broadcaster">
-                <img class="panel-broadcaster__icon" :src="`${Utils.api_base_url}/channels/${(channelsStore.display_channel_id)}/logo`">
+                <img class="panel-broadcaster__icon" :src="`${Utils.api_base_url}/channels/${channelsStore.channel.current.id}/logo`">
                 <div class="panel-broadcaster__number">{{channelsStore.channel.current.channel_number}}</div>
                 <div class="panel-broadcaster__name">{{channelsStore.channel.current.name}}</div>
             </div>

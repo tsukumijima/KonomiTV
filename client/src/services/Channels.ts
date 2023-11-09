@@ -98,13 +98,13 @@ class Channels {
     /**
      * 指定したチャンネルの情報を取得する
      * 現状、処理の見直しにより使用されていない
-     * @param display_channel_id チャンネル ID
+     * @param channel_id チャンネル ID (id or display_channel_id)
      * @return 指定したチャンネルの情報
      */
-    static async fetch(display_channel_id: string): Promise<ILiveChannel | null> {
+    static async fetch(channel_id: string): Promise<ILiveChannel | null> {
 
         // API リクエストを実行
-        const response = await APIClient.get<ILiveChannel>(`/channels/${display_channel_id}`);
+        const response = await APIClient.get<ILiveChannel>(`/channels/${channel_id}`);
 
         // エラー処理
         if (response.type === 'error') {
@@ -118,13 +118,13 @@ class Channels {
 
     /**
      * 指定したチャンネルに紐づくニコニコ実況のセッション情報を取得する
-     * @param display_channel_id チャンネル ID
+     * @param channel_id チャンネル ID (id or display_channel_id)
      * @return 指定したチャンネルに紐づくニコニコ実況のセッション情報
      */
-    static async fetchJikkyoSession(display_channel_id: string): Promise<IJikkyoSession | null> {
+    static async fetchJikkyoSession(channel_id: string): Promise<IJikkyoSession | null> {
 
         // API リクエストを実行
-        const response = await APIClient.get<IJikkyoSession>(`/channels/${display_channel_id}/jikkyo`);
+        const response = await APIClient.get<IJikkyoSession>(`/channels/${channel_id}/jikkyo`);
 
         // エラー処理
         if (response.type === 'error') {
