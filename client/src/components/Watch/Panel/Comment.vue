@@ -133,6 +133,19 @@ export default defineComponent({
     computed: {
         ...mapStores(useChannelsStore, usePlayerStore),
     },
+    watch: {
+
+        // ライブ視聴のみ: ChannelsStore の channel.current.id の変更を監視する
+        // 現在視聴中のチャンネルが変更されたときにコメントリストをクリアする
+        'channelsStore.channel.current.id': {
+            handler() {
+                if (this.playback_mode === 'Live') {
+                    // 明示的に空の配列を入れてクリアしないと、コメントリストが残ったままになる
+                    this.comment_list = [];
+                }
+            }
+        }
+    },
     mounted() {
 
         // コメントリストの要素を取得
@@ -305,19 +318,6 @@ export default defineComponent({
 
         // コメントリストをクリア
         this.comment_list = [];
-    },
-    watch: {
-
-        // ライブ視聴のみ: ChannelsStore の channel.current.id の変更を監視する
-        // 現在視聴中のチャンネルが変更されたときにコメントリストをクリアする
-        'channelsStore.channel.current.id': {
-            handler() {
-                if (this.playback_mode === 'Live') {
-                    // 明示的に空の配列を入れてクリアしないと、コメントリストが残ったままになる
-                    this.comment_list = [];
-                }
-            }
-        }
     },
     methods: {
 

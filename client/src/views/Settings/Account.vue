@@ -257,14 +257,6 @@ export default defineComponent({
     computed: {
         ...mapStores(useSettingsStore, useUserStore),
     },
-    async created() {
-
-        // アカウント情報を更新
-        await this.userStore.fetchUser();
-
-        // ローディング状態を解除
-        this.is_loading = false;
-    },
     watch: {
         // sync_settings の値の変更を監視する
         async sync_settings() {
@@ -306,6 +298,14 @@ export default defineComponent({
                 this.settingsStore.settings.sync_settings = false;
             }
         }
+    },
+    async created() {
+
+        // アカウント情報を更新
+        await this.userStore.fetchUser();
+
+        // ローディング状態を解除
+        this.is_loading = false;
     },
     methods: {
 

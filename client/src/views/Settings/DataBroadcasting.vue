@@ -157,35 +157,6 @@ export default defineComponent({
     computed: {
         ...mapStores(useSettingsStore),
     },
-    created() {
-        // 郵便番号設定を LocalStorage から読み込む
-        const zip_code_raw = localStorage.getItem(`${NVRAM_LOCAL_STORAGE_PREFIX}zipcode`);
-        if (zip_code_raw) {
-            try {
-                // 3文字目と4文字目の間に - を挿入する
-                this.data_broadcasting_zip_code = window.atob(zip_code_raw);
-                this.data_broadcasting_zip_code = this.data_broadcasting_zip_code.slice(0, 3) + '-' + this.data_broadcasting_zip_code.slice(3);
-            } catch (error) {
-                // 何もしない
-            }
-        }
-        // 都道府県設定を LocalStorage から読み込む
-        // 現在設定されている都道府県を特定するだけなら regioncode は不要なので、省略している
-        const prefecture_raw = localStorage.getItem(`${NVRAM_LOCAL_STORAGE_PREFIX}prefecture`);
-        if (prefecture_raw) {
-            try {
-                const prefecture = window.atob(prefecture_raw).charCodeAt(0);
-                for (const item of this.data_broadcasting_prefectures) {
-                    if (item.value.startsWith(`${prefecture}-`)) {
-                        this.data_broadcasting_prefecture = item.value;
-                        break;
-                    }
-                }
-            } catch (error) {
-                // 何もしない
-            }
-        }
-    },
     watch: {
         data_broadcasting_zip_code(new_value: string) {
             // バリデーションチェック
@@ -216,6 +187,35 @@ export default defineComponent({
                 // 未設定の場合は LocalStorage から削除する
                 localStorage.removeItem(`${NVRAM_LOCAL_STORAGE_PREFIX}prefecture`);
                 localStorage.removeItem(`${NVRAM_LOCAL_STORAGE_PREFIX}regioncode`);
+            }
+        }
+    },
+    created() {
+        // 郵便番号設定を LocalStorage から読み込む
+        const zip_code_raw = localStorage.getItem(`${NVRAM_LOCAL_STORAGE_PREFIX}zipcode`);
+        if (zip_code_raw) {
+            try {
+                // 3文字目と4文字目の間に - を挿入する
+                this.data_broadcasting_zip_code = window.atob(zip_code_raw);
+                this.data_broadcasting_zip_code = this.data_broadcasting_zip_code.slice(0, 3) + '-' + this.data_broadcasting_zip_code.slice(3);
+            } catch (error) {
+                // 何もしない
+            }
+        }
+        // 都道府県設定を LocalStorage から読み込む
+        // 現在設定されている都道府県を特定するだけなら regioncode は不要なので、省略している
+        const prefecture_raw = localStorage.getItem(`${NVRAM_LOCAL_STORAGE_PREFIX}prefecture`);
+        if (prefecture_raw) {
+            try {
+                const prefecture = window.atob(prefecture_raw).charCodeAt(0);
+                for (const item of this.data_broadcasting_prefectures) {
+                    if (item.value.startsWith(`${prefecture}-`)) {
+                        this.data_broadcasting_prefecture = item.value;
+                        break;
+                    }
+                }
+            } catch (error) {
+                // 何もしない
             }
         }
     },

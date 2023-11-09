@@ -57,6 +57,14 @@ export default Vue.extend({
     computed: {
         ...mapStores(usePlayerStore, useSettingsStore),
     },
+    watch: {
+        // 前回視聴画面を開いた際にパネルが表示されていたかどうかを随時保存する
+        'playerStore.is_panel_display': {
+            handler() {
+                this.settingsStore.settings.showed_panel_last_time = this.playerStore.is_panel_display;
+            }
+        }
+    },
     // 開始時に実行
     created() {
 
@@ -87,14 +95,6 @@ export default Vue.extend({
         // 仮想キーボード周りの操作をブラウザに戻す
         if ('virtualKeyboard' in navigator) {
             navigator.virtualKeyboard.overlaysContent = false;
-        }
-    },
-    watch: {
-        // 前回視聴画面を開いた際にパネルが表示されていたかどうかを随時保存する
-        'playerStore.is_panel_display': {
-            handler() {
-                this.settingsStore.settings.showed_panel_last_time = this.playerStore.is_panel_display;
-            }
         }
     }
 });

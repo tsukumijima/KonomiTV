@@ -267,6 +267,51 @@ export default defineComponent({
     computed: {
         ...mapStores(useChannelsStore, usePlayerStore, useSettingsStore, useUserStore),
     },
+    watch: {
+
+        // ライブ視聴のみ: ChannelsStore の channel.current.name の変更を監視する
+        // 現在視聴中のチャンネルが変更されたときに局タグを自動で更新する
+        'channelsStore.channel.current.name': {
+            handler(new_channel_name: string, old_channel_name: string) {
+                if (this.playback_mode === 'Live') {
+                    const old_channel_hashtag = ChannelUtils.getChannelHashtag(old_channel_name) ?? '';
+                    this.tweet_hashtag = this.formatHashtag(this.tweet_hashtag.replaceAll(old_channel_hashtag, ''));
+                    this.updateTweetLetterCount();
+                    // 「番組が切り替わったときにハッシュタグフォームをリセットする」がオンなら、ハッシュタグフォームを空にする
+                    if (this.settingsStore.settings.reset_hashtag_when_program_switches === true) {
+                        this.tweet_hashtag = this.formatHashtag('');
+                        this.updateTweetLetterCount();
+                    }
+                }
+            }
+        },
+
+        // ライブ視聴のみ: ChannelsStore の channel.current.program_present の変更を監視する
+        // 現在視聴中の番組が変更されたときに局タグを自動で更新する
+        'channelsStore.channel.current.program_present': {
+            deep: true,  // ネストされたプロパティの変更も監視する
+            handler(new_program: IProgram | null, old_program: IProgram | null) {
+                if (this.playback_mode === 'Live') {
+                    // NID-SID-EID の組が変わったときのみ更新する
+                    if (new_program?.id !== old_program?.id) {
+                        // 「番組が切り替わったときにハッシュタグフォームをリセットする」がオンなら、ハッシュタグフォームを空にする
+                        if (this.settingsStore.settings.reset_hashtag_when_program_switches === true) {
+                            this.tweet_hashtag = this.formatHashtag('');
+                            this.updateTweetLetterCount();
+                        }
+                    }
+                }
+            }
+        },
+
+        // 保存しているハッシュタグが変更されたら随時 LocalStorage に保存する
+        saved_twitter_hashtags: {
+            deep: true,
+            handler() {
+                this.settingsStore.settings.saved_twitter_hashtags = this.saved_twitter_hashtags.map(hashtag => hashtag.text);
+            }
+        }
+    },
     async created() {
 
         // アカウント情報を更新
@@ -317,51 +362,6 @@ export default defineComponent({
 
         // CaptureManager からキャプチャを受け取るイベントハンドラーを削除
         this.playerStore.event_emitter.off('CaptureCompleted');  // CaptureCompleted イベントの全てのイベントハンドラーを削除
-    },
-    watch: {
-
-        // ライブ視聴のみ: ChannelsStore の channel.current.name の変更を監視する
-        // 現在視聴中のチャンネルが変更されたときに局タグを自動で更新する
-        'channelsStore.channel.current.name': {
-            handler(new_channel_name: string, old_channel_name: string) {
-                if (this.playback_mode === 'Live') {
-                    const old_channel_hashtag = ChannelUtils.getChannelHashtag(old_channel_name) ?? '';
-                    this.tweet_hashtag = this.formatHashtag(this.tweet_hashtag.replaceAll(old_channel_hashtag, ''));
-                    this.updateTweetLetterCount();
-                    // 「番組が切り替わったときにハッシュタグフォームをリセットする」がオンなら、ハッシュタグフォームを空にする
-                    if (this.settingsStore.settings.reset_hashtag_when_program_switches === true) {
-                        this.tweet_hashtag = this.formatHashtag('');
-                        this.updateTweetLetterCount();
-                    }
-                }
-            }
-        },
-
-        // ライブ視聴のみ: ChannelsStore の channel.current.program_present の変更を監視する
-        // 現在視聴中の番組が変更されたときに局タグを自動で更新する
-        'channelsStore.channel.current.program_present': {
-            deep: true,  // ネストされたプロパティの変更も監視する
-            handler(new_program: IProgram | null, old_program: IProgram | null) {
-                if (this.playback_mode === 'Live') {
-                    // NID-SID-EID の組が変わったときのみ更新する
-                    if (new_program?.id !== old_program?.id) {
-                        // 「番組が切り替わったときにハッシュタグフォームをリセットする」がオンなら、ハッシュタグフォームを空にする
-                        if (this.settingsStore.settings.reset_hashtag_when_program_switches === true) {
-                            this.tweet_hashtag = this.formatHashtag('');
-                            this.updateTweetLetterCount();
-                        }
-                    }
-                }
-            }
-        },
-
-        // 保存しているハッシュタグが変更されたら随時 LocalStorage に保存する
-        saved_twitter_hashtags: {
-            deep: true,
-            handler() {
-                this.settingsStore.settings.saved_twitter_hashtags = this.saved_twitter_hashtags.map(hashtag => hashtag.text);
-            }
-        }
     },
     methods: {
 

@@ -289,7 +289,7 @@ const useChannelsStore = defineStore('channels', {
 
         /**
          * 視聴画面向けの channels_list_with_pinned
-         * 視聴画面ではピン留めされているチャンネルが1つもないときは、ピン留めタブを表示する必要性がないため削除される
+         * 視聴画面ではピン留め中チャンネルが1つもないときは、ピン留めタブを表示する必要性がないため削除される
          */
         channels_list_with_pinned_for_watch(): Map<ChannelTypePretty, ILiveChannel[]> {
 
@@ -302,7 +302,7 @@ const useChannelsStore = defineStore('channels', {
                 return channels_list_with_pinned;
             }
 
-            // ピン留めされているチャンネルが1つもない場合は、ピン留めタブを削除する
+            // ピン留め中チャンネルが1つもない場合は、ピン留めタブを削除する
             if (channels_list_with_pinned.get('ピン留め')?.length === 0) {
                 channels_list_with_pinned.delete('ピン留め');
             }
