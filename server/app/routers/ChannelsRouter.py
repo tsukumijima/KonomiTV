@@ -40,11 +40,15 @@ router = APIRouter(
 )
 
 
-async def GetChannel(display_channel_id: str = Path(..., description='チャンネル ID 。ex:gr011')) -> Channel:
-    """ チャンネル ID からチャンネル情報を取得する """
-    channel = await Channel.filter(display_channel_id=display_channel_id).get_or_none()
+async def GetChannel(channel_id: str = Path(..., description='チャンネル ID (id or display_channel_id) 。ex: NID32736-SID1024, gr011')) -> Channel:
+    """ チャンネル ID (id or display_channel_id) からチャンネル情報を取得する """
+    # display_channel_id ではなく通常の id が指定されている場合は、そのまま id からチャンネル情報を取得する
+    if 'NID' in channel_id and 'SID' in channel_id:
+        channel = await Channel.filter(id=channel_id).get_or_none()
+    else:
+        channel = await Channel.filter(display_channel_id=channel_id).get_or_none()
     if channel is None:
-        Logging.error(f'[ChannelsRouter][GetChannel] Specified display_channel_id was not found [display_channel_id: {display_channel_id}]')
+        Logging.error(f'[ChannelsRouter][GetChannel] Specified display_channel_id was not found [display_channel_id: {channel_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified display_channel_id was not found',
@@ -246,7 +250,7 @@ async def ChannelsAPI():
 
 
 @router.get(
-    '/{display_channel_id}',
+    '/{channel_id}',
     summary = 'チャンネル情報 API',
     response_description = 'チャンネル情報。',
     response_model = schemas.LiveChannel,
@@ -266,7 +270,7 @@ async def ChannelAPI(
 
 
 @router.get(
-    '/{display_channel_id}/logo',
+    '/{channel_id}/logo',
     summary = 'チャンネルロゴ API',
     response_class = Response,
     responses = {
@@ -506,7 +510,7 @@ async def ChannelLogoAPI(
 
 
 @router.get(
-    '/{display_channel_id}/jikkyo',
+    '/{channel_id}/jikkyo',
     summary = 'ニコニコ実況セッション情報 API',
     response_description = 'ニコニコ実況のセッション情報。',
     response_model = schemas.JikkyoSession,
