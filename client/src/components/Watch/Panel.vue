@@ -15,44 +15,56 @@
         </div>
         <div class="watch-panel__content-container">
             <Program class="watch-panel__content" v-if="playback_mode === 'Live'"
-                :class="{'watch-panel__content--active': playerStore.tv_panel_active_tab === 'Program'}" />
+                :class="{'watch-panel__content--active': panel_active_tab === 'Program'}" />
             <Channel class="watch-panel__content" v-if="playback_mode === 'Live'"
-                :class="{'watch-panel__content--active': playerStore.tv_panel_active_tab === 'Channel'}" />
+                :class="{'watch-panel__content--active': panel_active_tab === 'Channel'}" />
             <Comment class="watch-panel__content" :playback_mode="playback_mode"
-                :class="{'watch-panel__content--active': playerStore.tv_panel_active_tab === 'Comment'}" />
+                :class="{'watch-panel__content--active': panel_active_tab === 'Comment'}" />
             <Twitter class="watch-panel__content" :playback_mode="playback_mode"
-                :class="{'watch-panel__content--active': playerStore.tv_panel_active_tab === 'Twitter'}" />
+                :class="{'watch-panel__content--active': panel_active_tab === 'Twitter'}" />
             <button v-ripple class="watch-panel__content-remocon-button elevation-8" v-if="playback_mode === 'Live'"
-                :class="{'watch-panel__content-remocon-button--active': playerStore.tv_panel_active_tab === 'Program' || playerStore.tv_panel_active_tab === 'Channel'}"
+                :class="{'watch-panel__content-remocon-button--active': panel_active_tab === 'Program' || panel_active_tab === 'Channel'}"
                 @click="playerStore.is_remocon_display = !playerStore.is_remocon_display">
                 <Icon class="panel-close-button__icon" icon="material-symbols:remote-gen" width="25px" />
             </button>
             <Remocon class="watch-panel__remocon" v-if="playback_mode === 'Live'"
-                :modelValue="(playerStore.tv_panel_active_tab === 'Program' || playerStore.tv_panel_active_tab === 'Channel') && playerStore.is_remocon_display === true"
+                :modelValue="(panel_active_tab === 'Program' || panel_active_tab === 'Channel') && playerStore.is_remocon_display === true"
                 @update:modelValue="playerStore.is_remocon_display = $event" />
         </div>
         <div class="watch-panel__navigation">
             <div v-ripple class="panel-navigation-button" v-if="playback_mode === 'Live'"
-                 :class="{'panel-navigation-button--active': playerStore.tv_panel_active_tab === 'Program'}"
+                 :class="{'panel-navigation-button--active': panel_active_tab === 'Program'}"
                  @click="playerStore.tv_panel_active_tab = 'Program'">
                 <Icon class="panel-navigation-button__icon" icon="fa-solid:info-circle" width="33px" />
                 <span class="panel-navigation-button__text">番組情報</span>
             </div>
+            <div v-ripple class="panel-navigation-button" v-if="playback_mode === 'Video'"
+                 :class="{'panel-navigation-button--active': panel_active_tab === 'RecordedProgram'}"
+                 @click="playerStore.video_panel_active_tab = 'RecordedProgram'">
+                <Icon class="panel-navigation-button__icon" icon="fa-solid:info-circle" width="33px" />
+                <span class="panel-navigation-button__text">番組情報</span>
+            </div>
             <div v-ripple class="panel-navigation-button" v-if="playback_mode === 'Live'"
-                 :class="{'panel-navigation-button--active': playerStore.tv_panel_active_tab === 'Channel'}"
+                 :class="{'panel-navigation-button--active': panel_active_tab === 'Channel'}"
                  @click="playerStore.tv_panel_active_tab = 'Channel'">
                 <Icon class="panel-navigation-button__icon" icon="fa-solid:broadcast-tower" width="34px" />
                 <span class="panel-navigation-button__text">チャンネル</span>
             </div>
+            <div v-ripple class="panel-navigation-button" v-if="playback_mode === 'Video'"
+                 :class="{'panel-navigation-button--active': panel_active_tab === 'Series'}"
+                 @click="playerStore.video_panel_active_tab = 'Series'">
+                <Icon class="panel-navigation-button__icon" icon="fa-solid:broadcast-tower" width="34px" />
+                <span class="panel-navigation-button__text">シリーズ</span>
+            </div>
             <div v-ripple class="panel-navigation-button"
-                 :class="{'panel-navigation-button--active': playerStore.tv_panel_active_tab === 'Comment'}"
-                 @click="playerStore.tv_panel_active_tab = 'Comment'">
+                 :class="{'panel-navigation-button--active': panel_active_tab === 'Comment'}"
+                 @click="playback_mode === 'Live' ? playerStore.tv_panel_active_tab = 'Comment' : playerStore.video_panel_active_tab = 'Comment'">
                 <Icon class="panel-navigation-button__icon" icon="bi:chat-left-text-fill" width="29px" />
                 <span class="panel-navigation-button__text">コメント</span>
             </div>
             <div v-ripple class="panel-navigation-button"
-                 :class="{'panel-navigation-button--active': playerStore.tv_panel_active_tab === 'Twitter'}"
-                 @click="playerStore.tv_panel_active_tab = 'Twitter'">
+                 :class="{'panel-navigation-button--active': panel_active_tab === 'Twitter'}"
+                 @click="playback_mode === 'Live' ? playerStore.tv_panel_active_tab = 'Twitter' : playerStore.video_panel_active_tab = 'Twitter'">
                 <Icon class="panel-navigation-button__icon" icon="fa-brands:twitter" width="34px" />
                 <span class="panel-navigation-button__text">Twitter</span>
             </div>
@@ -96,6 +108,15 @@ export default defineComponent({
     },
     computed: {
         ...mapStores(useChannelsStore, usePlayerStore),
+
+        // ライブ視聴なら tv_panel_active_tab を、ビデオ視聴なら video_panel_active_tab を返す
+        panel_active_tab() {
+            if (this.playback_mode === 'Live') {
+                return this.playerStore.tv_panel_active_tab;
+            } else {
+                return this.playerStore.video_panel_active_tab;
+            }
+        }
     }
 });
 
