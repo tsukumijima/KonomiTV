@@ -18,6 +18,7 @@ import SettingsServer from '@/views/Settings/Server.vue';
 import SettingsTwitter from '@/views/Settings/Twitter.vue';
 import TVHome from '@/views/TV/Home.vue';
 import TVWatch from '@/views/TV/Watch.vue';
+import VideosWatch from '@/views/Videos/Watch.vue';
 
 Vue.use(VueRouter);
 
@@ -44,6 +45,11 @@ const router = new VueRouter({
             path: '/tv/watch/:display_channel_id',
             name: 'TV Watch',
             component: TVWatch,
+        },
+        {
+            path: '/videos/watch/:video_id',
+            name: 'Videos Watch',
+            component: VideosWatch,
         },
         {
             path: '/settings/',

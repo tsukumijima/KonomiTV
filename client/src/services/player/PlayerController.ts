@@ -885,19 +885,22 @@ class PlayerController {
         // イベントを重複定義しないように、あえて ontouchstart を使う
         let tap_count = 0;
         let last_tap = 0;
-        document.querySelector<HTMLDivElement>('.program-info__next')!.ontouchstart = () => {
-            if (this.player === null) return;
-            const current_time = new Date().getTime();
-            const time_difference = current_time - last_tap;
-            if (time_difference < 500 && time_difference > 0) {
-                tap_count++;
-                if (tap_count === 3) {
-                    this.player.infoPanel.toggle();
-                    tap_count = 0;
+        const element = document.querySelector<HTMLDivElement>('.program-info__next');
+        if (element !== null) {
+            element.ontouchstart = () => {
+                if (this.player === null) return;
+                const current_time = new Date().getTime();
+                const time_difference = current_time - last_tap;
+                if (time_difference < 500 && time_difference > 0) {
+                    tap_count++;
+                    if (tap_count === 3) {
+                        this.player.infoPanel.toggle();
+                        tap_count = 0;
+                    }
                 }
-            }
-            last_tap = current_time;
-        };
+                last_tap = current_time;
+            };
+        }
     }
 
 

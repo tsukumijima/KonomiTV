@@ -1,5 +1,6 @@
 
 import { IProgram } from '@/services/Programs';
+import { IRecordedProgram } from '@/services/Videos';
 import Utils, { dayjs } from '@/utils';
 
 
@@ -331,7 +332,7 @@ export class ProgramUtils {
      * @param key 番組情報のオブジェクトから取り出すプロパティのキー
      * @returns 装飾した文字列
      */
-    static decorateProgramInfo(program: IProgram | null, key: string): string {
+    static decorateProgramInfo(program: IProgram | IRecordedProgram | null, key: string): string {
 
         // program が空でないかつ、program[key] が存在する
         if (program !== null && program[key] !== null) {
@@ -391,7 +392,7 @@ export class ProgramUtils {
      * @param program 番組情報
      * @returns 番組の進捗状況（%単位）
      */
-    static getProgramProgress(program: IProgram | null): number {
+    static getProgramProgress(program: IProgram | IRecordedProgram | null): number {
 
         // program が空でない
         if (program !== null) {
@@ -420,7 +421,7 @@ export class ProgramUtils {
      * @param is_short 時刻のみ返すかどうか
      * @returns 番組の放送時刻
      */
-    static getProgramTime(program: IProgram | null, is_short: boolean = false): string {
+    static getProgramTime(program: IProgram | IRecordedProgram | null, is_short: boolean = false): string {
 
         // program が空でなく、かつ番組時刻が初期値でない
         if (program !== null && program.start_time !== '2000-01-01T00:00:00+09:00') {

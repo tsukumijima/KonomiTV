@@ -53,7 +53,7 @@
                 </template>
             </DynamicScroller>
             <div class="comment-announce"
-                v-if="playback_mode === 'Live' && playerStore.live_comment_init_failed_message !== null && comment_list.length === 0">
+                v-if="playback_mode === 'Live' && playerStore.live_comment_init_failed_message === null && comment_list.length === 0">
                 <div class="comment-announce__heading">まだコメントがありません。</div>
                 <div class="comment-announce__text">
                     <p class="mt-0 mb-0">このチャンネルに対応するニコニコ実況のコメントが、リアルタイムで表示されます。</p>
@@ -67,7 +67,7 @@
                 </div>
             </div>
             <div class="comment-announce"
-                v-if="playback_mode === 'Video' && playerStore.video_comment_init_failed_message !== null && comment_list.length === 0">
+                v-if="playback_mode === 'Video' && playerStore.video_comment_init_failed_message === null && comment_list.length === 0">
                 <div class="comment-announce__heading">まだコメントがありません。</div>
                 <div class="comment-announce__text">
                     <p class="mt-0 mb-0">この録画番組に対応するニコニコ実況の過去ログコメントを読み込んでいます…</p>

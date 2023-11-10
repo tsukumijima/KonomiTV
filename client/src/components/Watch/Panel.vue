@@ -7,7 +7,7 @@
                 <span class="panel-close-button__text">閉じる</span>
             </div>
             <v-spacer></v-spacer>
-            <div class="panel-broadcaster">
+            <div class="panel-broadcaster" v-if="playback_mode === 'Live'">
                 <img class="panel-broadcaster__icon" :src="`${Utils.api_base_url}/channels/${channelsStore.channel.current.id}/logo`">
                 <div class="panel-broadcaster__number">{{channelsStore.channel.current.channel_number}}</div>
                 <div class="panel-broadcaster__name">{{channelsStore.channel.current.name}}</div>
@@ -16,6 +16,8 @@
         <div class="watch-panel__content-container">
             <Program class="watch-panel__content" v-if="playback_mode === 'Live'"
                 :class="{'watch-panel__content--active': panel_active_tab === 'Program'}" />
+            <RecordedProgram class="watch-panel__content" v-if="playback_mode === 'Video'"
+                :class="{'watch-panel__content--active': panel_active_tab === 'RecordedProgram'}" />
             <Channel class="watch-panel__content" v-if="playback_mode === 'Live'"
                 :class="{'watch-panel__content--active': panel_active_tab === 'Channel'}" />
             <Comment class="watch-panel__content" :playback_mode="playback_mode"
@@ -79,6 +81,7 @@ import { defineComponent, PropType } from 'vue';
 import Channel from '@/components/Watch/Panel/Channel.vue';
 import Comment from '@/components/Watch/Panel/Comment.vue';
 import Program from '@/components/Watch/Panel/Program.vue';
+import RecordedProgram from '@/components/Watch/Panel/RecordedProgram.vue';
 import Remocon from '@/components/Watch/Panel/Remocon.vue';
 import Twitter from '@/components/Watch/Panel/Twitter.vue';
 import useChannelsStore from '@/stores/ChannelsStore';
@@ -91,6 +94,7 @@ export default defineComponent({
         Channel,
         Comment,
         Program,
+        RecordedProgram,
         Remocon,
         Twitter,
     },
