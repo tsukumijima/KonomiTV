@@ -8,6 +8,8 @@ import Vue from 'vue';
 
 import Watch from '@/components/Watch/Watch.vue';
 import PlayerController from '@/services/player/PlayerController';
+import Videos from '@/services/Videos';
+import { IRecordedProgramDefault } from '@/services/Videos';
 import usePlayerStore from '@/stores/PlayerStore';
 import useSettingsStore from '@/stores/SettingsStore';
 
@@ -54,6 +56,9 @@ export default Vue.extend({
         // さもなければ、ブラウザがリロードされるまでバックグラウンドで永遠に再生され続けてしまう
         this.destroy();
 
+        // 録画番組情報を初期化
+        this.playerStore.recorded_program = IRecordedProgramDefault;
+
         // 上記以外の視聴画面の終了処理は Watch コンポーネントの方で自動的に行われる
     },
     methods: {
@@ -61,13 +66,20 @@ export default Vue.extend({
         // 再生セッションを初期化する
         async init() {
 
-            // TODO: 録画番組情報を更新する
-            // here
-
-            // 録画番組 ID が未定義なら実行しない（フェイルセーフ）
+            // URL 上の録画番組 ID が未定義なら実行しない (フェイルセーフ)
+            // 基本あり得ないはずだが、念のため
             if (this.$route.params.video_id === undefined) {
+                this.$router.push({path: '/not-found/'});
                 return;
             }
+
+            // 録画番組情報を更新する
+            const recorded_program = await Videos.fetchVideo(parseFloat(this.$route.params.video_id));
+            if (recorded_program === null) {
+                this.$router.push({path: '/not-found/'});
+                return;
+            }
+            this.playerStore.recorded_program = recorded_program;
 
             // PlayerController を初期化
             this.player_controller = new PlayerController('Video');

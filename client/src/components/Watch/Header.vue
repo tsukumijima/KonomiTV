@@ -5,11 +5,14 @@
         </router-link>
         <img class="watch-header__broadcaster" v-if="playback_mode === 'Live'"
             :src="`${Utils.api_base_url}/channels/${channelsStore.channel.current.id}/logo`">
-        <span class="watch-header__program-title"
-            v-html="ProgramUtils.decorateProgramInfo(channelsStore.channel.current.program_present, 'title')">
-        </span>
+        <span class="watch-header__program-title" v-html="ProgramUtils.decorateProgramInfo(
+            playback_mode === 'Live' ? channelsStore.channel.current.program_present : playerStore.recorded_program, 'title'
+        )"></span>
         <span class="watch-header__program-time">
-            {{ProgramUtils.getProgramTime(channelsStore.channel.current.program_present, true)}}
+            {{ProgramUtils.getProgramTime(
+                playback_mode === 'Live' ? channelsStore.channel.current.program_present : playerStore.recorded_program,
+                playback_mode === 'Live' ? true : false,
+            )}}
         </span>
         <v-spacer></v-spacer>
         <span class="watch-header__now">{{time}}</span>

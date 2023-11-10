@@ -124,8 +124,10 @@ export default Vue.extend({
             // チャンネル情報を更新 (初回)
             await this.channelsStore.update();
 
-            // チャンネル ID が未定義なら実行しない（フェイルセーフ）
+            // URL 上のチャンネル ID が未定義なら実行しない (フェイルセーフ)
+            // 基本あり得ないはずだが、念のため
             if (this.$route.params.display_channel_id === undefined) {
+                this.$router.push({path: '/not-found/'});
                 return;
             }
 
