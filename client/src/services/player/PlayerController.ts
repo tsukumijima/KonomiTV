@@ -136,7 +136,6 @@ class PlayerController {
         const channels_store = useChannelsStore();
         const player_store = usePlayerStore();
         const settings_store = useSettingsStore();
-
         console.log('\u001b[31m[PlayerController] Initializing...');
 
         // 破棄済みかどうかのフラグを下ろす
@@ -151,6 +150,11 @@ class PlayerController {
         // mpegts.js を window 直下に入れる
         // こうしないと DPlayer が mpegts.js を認識できない
         (window as any).mpegts = mpegts;
+
+        // 文字スーパーの表示設定
+        // ライブ視聴とビデオ視聴で設定キーが異なる
+        const is_show_superimpose = this.playback_mode === 'Live' ?
+            settings_store.settings.tv_show_superimpose : settings_store.settings.video_show_superimpose;
 
         // DPlayer を初期化
         this.player = new DPlayer({
@@ -344,8 +348,8 @@ class PlayerController {
                 },
                 // aribb24.js
                 aribb24: {
-                    // 文字スーパーを表示するかどうか
-                    disableSuperimposeRenderer: settings_store.settings.tv_show_superimpose === false,
+                    // 文字スーパーレンダラーを無効にするかどうか
+                    disableSuperimposeRenderer: is_show_superimpose === false,
                     // 描画フォント
                     normalFont: `"${settings_store.settings.caption_font}", "Rounded M+ 1m for ARIB", sans-serif`,
                     // 縁取りする色
@@ -383,7 +387,7 @@ class PlayerController {
                     PRACallback: async (index: number) => {
 
                         // 設定で文字スーパーが無効なら実行しない
-                        if (settings_store.settings.tv_show_superimpose === false) return;
+                        if (is_show_superimpose === false) return;
 
                         // index に応じた内蔵音を鳴らす
                         // ref: https://ics.media/entry/200427/

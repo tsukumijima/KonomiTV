@@ -60,6 +60,15 @@
                     v-model="settingsStore.settings.tv_show_superimpose">
                 </v-switch>
             </div>
+            <div class="settings__item settings__item--switch">
+                <label class="settings__item-heading" for="video_show_superimpose">ビデオをみるときに文字スーパーを表示する</label>
+                <label class="settings__item-label" for="video_show_superimpose">
+                    文字スーパーは、緊急地震速報の赤テロップや、NHK BS のニュース速報のテロップなどで利用されています。録画当時の文字スーパーによるニュース速報を確認したい方以外は、オフにしておくのがおすすめです。<br>
+                </label>
+                <v-switch class="settings__item-switch" id="video_show_superimpose" inset hide-details
+                    v-model="settingsStore.settings.video_show_superimpose">
+                </v-switch>
+            </div>
         </div>
     </SettingsBase>
 </template>

@@ -21,12 +21,12 @@
                 <span class="ml-1">ピン留め中チャンネルの並び替え設定を開く</span>
             </v-btn>
             <div class="settings__item settings__item--switch">
-                <label class="settings__item-heading" for="tv_show_superimpose">チャンネル選局のキーボードショートカットを {{Utils.AltOrOption()}} + 数字キー/テンキーに変更する</label>
-                <label class="settings__item-label" for="tv_show_superimpose">
+                <label class="settings__item-heading" for="tv_channel_selection_requires_alt_key">チャンネル選局のキーボードショートカットを {{Utils.AltOrOption()}} + 数字キー/テンキーに変更する</label>
+                <label class="settings__item-label" for="tv_channel_selection_requires_alt_key">
                     この設定をオンにすると、数字キーまたはテンキーに対応するリモコン番号（1～12）のチャンネルに切り替える際、{{Utils.AltOrOption()}} キーを同時に押す必要があります。<br>
                     コメントやツイートを入力しようとして誤って数字キーを押してしまい、チャンネルが変わってしまう事態を避けたい方におすすめです。<br>
                 </label>
-                <v-switch class="settings__item-switch" id="tv_show_superimpose" inset hide-details
+                <v-switch class="settings__item-switch" id="tv_channel_selection_requires_alt_key" inset hide-details
                     v-model="settingsStore.settings.tv_channel_selection_requires_alt_key">
                 </v-switch>
             </div>
