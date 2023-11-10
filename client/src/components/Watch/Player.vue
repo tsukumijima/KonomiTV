@@ -123,33 +123,28 @@ export default defineComponent({
 
     .dplayer-controller {
         padding-left: calc(68px + 18px) !important;
+        padding-right: calc(0px + 18px) !important;
         padding-bottom: 6px !important;
         transition: opacity 0.3s ease, visibility 0.3s ease;
         opacity: 0 !important;
         visibility: hidden;
         @include tablet-vertical {
             padding-left: calc(0px + 18px) !important;
+            padding-right: calc(0px + 18px) !important;
         }
         @include smartphone-horizontal {
             padding-left: calc(0px + 18px) !important;
+            padding-right: calc(0px + 18px) !important;
         }
         @include smartphone-vertical {
             padding-left: calc(0px + 18px) !important;
+            padding-right: calc(0px + 18px) !important;
         }
 
         .dplayer-bar-wrap {
             bottom: 54px !important;
-            width: calc(100% - 128px);
-            padding-left: 12px;
-            @include tablet-vertical {
-                width: calc(100% - (18px * 2));
-            }
-            @include smartphone-horizontal {
-                width: calc(100% - (18px * 2));
-            }
-            @include smartphone-vertical {
-                width: calc(100% - (18px * 2));
-            }
+            width: calc(100% - 68px - (18px * 2));
+            box-sizing: border-box;
         }
         .dplayer-time, .dplayer-live-badge {
             color: var(--v-text-base) !important;
@@ -310,22 +305,42 @@ export default defineComponent({
     &.dplayer-mobile {
         .dplayer-controller {
             padding-left: calc(68px + 30px) !important;
+            padding-right: calc(0px + 30px) !important;
             @include tablet-vertical {
                 padding-left: calc(0px + 18px) !important;
+                padding-right: calc(0px + 18px) !important;
             }
             @include smartphone-horizontal {
                 padding-left: calc(0px + 18px) !important;
+                padding-right: calc(0px + 18px) !important;
             }
             @include smartphone-vertical {
                 padding-left: calc(0px + 18px) !important;
+                padding-right: calc(0px + 18px) !important;
             }
             .dplayer-bar-wrap {
                 bottom: 51px !important;
-                padding-left: 0px !important;
+                width: calc(100% - 68px - (30px * 2));
+                @include tablet-vertical {
+                    width: calc(100% - (18px * 2));
+                }
+                @include smartphone-horizontal {
+                    width: calc(100% - (18px * 2));
+                }
+                @include smartphone-vertical {
+                    width: calc(100% - (18px * 2));
+                }
             }
         }
         &.dplayer-hide-controller .dplayer-controller {
             transform: none !important;
+        }
+    }
+
+    // 狭小幅デバイスのみ適用されるスタイル
+    &.dplayer-narrow {
+        .dplayer-icons.dplayer-icons-right {
+            right: 14px !important;
         }
     }
 }

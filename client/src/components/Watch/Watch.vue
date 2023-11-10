@@ -220,7 +220,7 @@ export default Vue.extend({
     }
 }
 
-// フルスクリーン+コントロール表示時
+// フルスクリーン時 + コントロール表示時
 .watch-container.watch-container--fullscreen.watch-container--control-display {
     .watch-player__dplayer {
         .dplayer-notice, .dplayer-info-panel {
@@ -246,6 +246,27 @@ export default Vue.extend({
         }
         &.dplayer-mobile .dplayer-notice {
             bottom: 71px !important;
+        }
+    }
+}
+
+// ビデオ視聴時 + フルスクリーン時のみ適用されるスタイル
+.watch-container.watch-container--video.watch-container--fullscreen {
+    .watch-player__dplayer {
+        .dplayer-bar-wrap {
+            width: calc(100% - (18px * 2));
+        }
+        &.dplayer-mobile .dplayer-bar-wrap {
+            width: calc(100% - (30px * 2));
+            @include tablet-vertical {
+                width: calc(100% - (18px * 2));
+            }
+            @include smartphone-horizontal {
+                width: calc(100% - (18px * 2));
+            }
+            @include smartphone-vertical {
+                width: calc(100% - (18px * 2));
+            }
         }
     }
 }
