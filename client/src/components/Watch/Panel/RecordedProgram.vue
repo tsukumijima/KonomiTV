@@ -20,7 +20,7 @@
                 <div class="recorded-program-info__status-force">
                     <Icon icon="fa-solid:fire-alt" height="14px" />
                     <span class="ml-2">コメント数:</span>
-                    <span class="ml-2">{{'--'}} コメ</span>
+                    <span class="ml-2">{{'--'}}</span>
                 </div>
             </div>
         </section>

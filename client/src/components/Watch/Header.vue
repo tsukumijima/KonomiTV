@@ -3,7 +3,8 @@
         <router-link class="watch-header__back-icon" v-ripple :to="playback_mode === 'Live' ? '/tv/' : '/video/'">
             <Icon icon="fluent:arrow-left-12-filled" width="25px" />
         </router-link>
-        <img class="watch-header__broadcaster" :src="`${Utils.api_base_url}/channels/${channelsStore.channel.current.id}/logo`">
+        <img class="watch-header__broadcaster" v-if="playback_mode === 'Live'"
+            :src="`${Utils.api_base_url}/channels/${channelsStore.channel.current.id}/logo`">
         <span class="watch-header__program-title"
             v-html="ProgramUtils.decorateProgramInfo(channelsStore.channel.current.program_present, 'title')">
         </span>
@@ -149,6 +150,7 @@ export default defineComponent({
         flex-shrink: 0;
         width: 64px;
         height: 36px;
+        margin-right: 18px;
         border-radius: 5px;
         background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
         object-fit: cover;
@@ -157,20 +159,22 @@ export default defineComponent({
         @include tablet-vertical {
             width: 48px;
             height: 28px;
+            margin-right: 12px;
             border-radius: 4px;
         }
         @include smartphone-horizontal {
             width: 36px;
             height: 28px;
+            margin-right: 12px;
             border-radius: 4px;
         }
         @include smartphone-vertical {
             display: none;
+            margin-right: 0px;
         }
     }
 
     .watch-header__program-title {
-        margin-left: 18px;
         font-size: 18px;
         font-weight: bold;
         font-feature-settings: "palt" 1;  // 文字詰め
@@ -180,15 +184,12 @@ export default defineComponent({
         text-overflow: ellipsis;
 
         @include tablet-vertical {
-            margin-left: 12px;
             font-size: 16px;
         }
         @include smartphone-horizontal {
-            margin-left: 12px;
             font-size: 16px;
         }
         @include smartphone-vertical {
-            margin-left: 0px;
             font-size: 14px;
         }
     }
