@@ -243,7 +243,7 @@ export default defineComponent({
             // 初回の過去コメント (最大50件) を受信したとき
             if (event.is_initial_comments === true) {
 
-                // チャンネルが切り替わった可能性があるので、既存のコメントリストをクリア
+                // チャンネル or 録画番組が切り替わった可能性があるので、既存のコメントリストをクリア
                 this.comment_list = [];
 
                 // コメントリストに一括で追加
