@@ -302,8 +302,13 @@ class PlayerController {
                         const jikkyo_comments = await Videos.fetchVideoJikkyoComments(player_store.recorded_program.id);
                         if (jikkyo_comments.is_success === false) {
                             // 取得に失敗した場合はコメントリストにエラーメッセージを表示する
+                            // ただし「この録画番組の過去ログコメントは存在しないか、現在取得中です。」の場合はエラー扱いしない
                             player_store.video_comment_init_failed_message = jikkyo_comments.detail;
-                            options.error(jikkyo_comments.detail);
+                            if (jikkyo_comments.detail !== 'この録画番組の過去ログコメントは存在しないか、現在取得中です。') {
+                                options.error(jikkyo_comments.detail);
+                            } else {
+                                options.success([]);
+                            }
                         } else {
                             // 過去ログコメントを取得できているということは、recording_start_time は null ではないはず
                             const recording_start_time = player_store.recorded_program.recorded_video.recording_start_time!;
