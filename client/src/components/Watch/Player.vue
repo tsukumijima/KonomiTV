@@ -414,6 +414,16 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         aspect-ratio: 16 / 9;
     }
 
+    &.watch-player--video {
+        .watch-player__button {
+            right: 0px;
+            .switch-button {
+                border-top-right-radius: 0px;
+                border-bottom-right-radius: 0px;
+            }
+        }
+    }
+
     .watch-player__background-wrapper {
         position: absolute;
         top: 0;
