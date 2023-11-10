@@ -6,11 +6,15 @@
             </h1>
             <div class="program-info__broadcaster" v-if="playerStore.recorded_program.channel !== null">
                 <img class="program-info__broadcaster-icon" :src="`${Utils.api_base_url}/channels/${playerStore.recorded_program.channel.id}/logo`">
-                <div class="program-info__broadcaster-number">Ch: {{playerStore.recorded_program.channel.channel_number}}</div>
-                <div class="program-info__broadcaster-name">{{playerStore.recorded_program.channel.name}}</div>
-            </div>
-            <div class="program-info__time">
-                {{ProgramUtils.getProgramTime(playerStore.recorded_program)}}
+                <div class="program-info__broadcaster-container">
+                    <div class="d-flex align-center">
+                        <div class="program-info__broadcaster-number">Ch: {{playerStore.recorded_program.channel.channel_number}}</div>
+                        <div class="program-info__broadcaster-name">{{playerStore.recorded_program.channel.name}}</div>
+                    </div>
+                    <div class="program-info__broadcaster-time">
+                        {{ProgramUtils.getProgramTime(playerStore.recorded_program)}}
+                    </div>
+                </div>
             </div>
             <div class="program-info__description"
                 v-html="ProgramUtils.decorateProgramInfo(playerStore.recorded_program, 'description')">
@@ -23,7 +27,7 @@
             </div>
             <div class="program-info__status">
                 <div class="program-info__status-force">
-                    <Icon icon="fa-solid:fire-alt" height="14px" />
+                    <Icon icon="bi:chat-left-text-fill" height="14px" style="margin-top: 3px" />
                     <span class="ml-2">コメント数:</span>
                     <span class="ml-2">{{'--'}}</span>
                 </div>
@@ -95,13 +99,13 @@ export default defineComponent({
             display: flex;
             align-items: center;
             min-width: 0;
-            margin-top: 12px;
+            margin-top: 16px;
             color: var(--v-text-darken1);
             &-icon {
                 display: inline-block;
                 flex-shrink: 0;
-                width: 40px;
-                height: 20px;
+                width: 44px;
+                height: 36px;
                 border-radius: 3px;
                 background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
                 object-fit: cover;
@@ -119,36 +123,40 @@ export default defineComponent({
                     height: 32px;
                 }
             }
-            &-number {
-                flex-shrink: 0;
+            .program-info__broadcaster-container {
+                display: flex;
+                flex-direction: column;
                 margin-left: 12px;
-                font-size: 14px;
-                @include tablet-vertical {
-                    margin-left: 16px;
-                    font-size: 13px;
+                .program-info__broadcaster-number {
+                    flex-shrink: 0;
+                    font-size: 14px;
+                    @include tablet-vertical {
+                        margin-left: 16px;
+                        font-size: 13px;
+                    }
                 }
-            }
-            &-name {
-                margin-left: 5px;
-                font-size: 14px;
-                overflow: hidden;
-                white-space: nowrap;
-                text-overflow: ellipsis;
-                @include tablet-vertical {
-                    margin-left: 8px;
-                    font-size: 13px;
+                .program-info__broadcaster-name {
+                    margin-left: 5px;
+                    font-size: 14px;
+                    overflow: hidden;
+                    white-space: nowrap;
+                    text-overflow: ellipsis;
+                    @include tablet-vertical {
+                        margin-left: 8px;
+                        font-size: 13px;
+                    }
+                    @include smartphone-vertical {
+                        font-size: 13px;
+                    }
                 }
-                @include smartphone-vertical {
-                    font-size: 13px;
+                .program-info__broadcaster-time {
+                    margin-top: 2px;
+                    color: var(--v-text-darken1);
+                    font-size: 13.5px;
+                    @include smartphone-horizontal {
+                        font-size: 12.5px;
+                    }
                 }
-            }
-        }
-        .program-info__time {
-            margin-top: 8px;
-            color: var(--v-text-darken1);
-            font-size: 14px;
-            @include smartphone-horizontal {
-                font-size: 13px;
             }
         }
         .program-info__description {

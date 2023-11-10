@@ -9,7 +9,6 @@ import Vue from 'vue';
 import Watch from '@/components/Watch/Watch.vue';
 import PlayerController from '@/services/player/PlayerController';
 import Videos from '@/services/Videos';
-import { IRecordedProgramDefault } from '@/services/Videos';
 import usePlayerStore from '@/stores/PlayerStore';
 import useSettingsStore from '@/stores/SettingsStore';
 
@@ -55,9 +54,6 @@ export default Vue.extend({
         // 別のページへ遷移するため、DPlayer のインスタンスを確実に破棄する
         // さもなければ、ブラウザがリロードされるまでバックグラウンドで永遠に再生され続けてしまう
         this.destroy();
-
-        // 録画番組情報を初期化
-        this.playerStore.recorded_program = IRecordedProgramDefault;
 
         // 上記以外の視聴画面の終了処理は Watch コンポーネントの方で自動的に行われる
     },

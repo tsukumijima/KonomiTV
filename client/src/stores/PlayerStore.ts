@@ -35,13 +35,13 @@ export type PlayerEvents = {
         capture: Blob;  // キャプチャの Blob
         filename: string;  // キャプチャのファイル名 (UI からの手動ダウンロード時に使う)
     };
-    // ライブ視聴: LiveCommentManager からコメントを受信したことを通知する
-    LiveCommentReceived: {
+    // LiveCommentManager からコメントを受信したことを通知する
+    CommentReceived: {
         is_initial_comments: boolean;  // 初期コメントかどうか
         comments: ICommentData[];  // コメントデータのリスト
     }
     // ライブ視聴: LiveCommentManager からコメントを送信したことを通知する
-    LiveCommentSendCompleted: {
+    CommentSendCompleted: {
         comment: ICommentData;  // 送信したコメントデータ (を整形したもの)
     }
 };

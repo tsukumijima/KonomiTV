@@ -1,5 +1,5 @@
 <template>
-    <header class="watch-header">
+    <header class="watch-header" :class="{'watch-header--video': playback_mode === 'Video'}">
         <router-link class="watch-header__back-icon" v-ripple :to="playback_mode === 'Live' ? '/tv/' : '/video/'">
             <Icon icon="fluent:arrow-left-12-filled" width="25px" />
         </router-link>
@@ -9,10 +9,7 @@
             playback_mode === 'Live' ? channelsStore.channel.current.program_present : playerStore.recorded_program, 'title'
         )"></span>
         <span class="watch-header__program-time">
-            {{ProgramUtils.getProgramTime(
-                playback_mode === 'Live' ? channelsStore.channel.current.program_present : playerStore.recorded_program,
-                playback_mode === 'Live' ? true : false,
-            )}}
+            {{ProgramUtils.getProgramTime(playback_mode === 'Live' ? channelsStore.channel.current.program_present : playerStore.recorded_program, true)}}
         </span>
         <v-spacer></v-spacer>
         <span class="watch-header__now">{{time}}</span>
@@ -100,6 +97,15 @@ export default defineComponent({
         height: 50px;
         padding-left: 16px;
         padding-right: 16px;
+    }
+
+    &.watch-header--video {
+        .watch-header__program-time {
+            font-size: 13px;
+        }
+        .watch-header__now {
+            display: none;
+        }
     }
 
     .watch-header__back-icon {

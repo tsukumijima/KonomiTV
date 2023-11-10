@@ -17,7 +17,7 @@ import Videos from '@/services/Videos';
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
 import useSettingsStore, { LiveStreamingQuality, LIVE_STREAMING_QUALITIES, VideoStreamingQuality, VIDEO_STREAMING_QUALITIES } from '@/stores/SettingsStore';
-import Utils, { PlayerUtils } from '@/utils';
+import Utils, { dayjs, PlayerUtils } from '@/utils';
 
 
 /**
@@ -301,9 +301,26 @@ class PlayerController {
                         // ビデオ視聴: 過去ログコメントを取得して返す
                         const jikkyo_comments = await Videos.fetchVideoJikkyoComments(player_store.recorded_program.id);
                         if (jikkyo_comments.is_success === false) {
+                            // 取得に失敗した場合はコメントリストにエラーメッセージを表示する
                             player_store.video_comment_init_failed_message = jikkyo_comments.detail;
                             options.error(jikkyo_comments.detail);
                         } else {
+                            // 過去ログコメントを取得できているということは、recording_start_time は null ではないはず
+                            const recording_start_time = player_store.recorded_program.recorded_video.recording_start_time!;
+                            // コメントリストに取得した過去ログコメントを送る
+                            // コメ番は重複している可能性がないとも言い切れないので、別途連番を振る
+                            let count = 0;
+                            player_store.event_emitter.emit('CommentReceived', {
+                                is_initial_comments: true,
+                                comments: jikkyo_comments.comments.map((comment) => ({
+                                    id: count++,
+                                    text: comment.text,
+                                    time: dayjs(recording_start_time).add(comment.time, 'seconds').format('MM/DD HH:mm:ss'),
+                                    playback_position: comment.time,
+                                    user_id: comment.author,
+                                    my_post: false,
+                                })),
+                            });
                             options.success(jikkyo_comments.comments);
                         }
                     }
@@ -870,6 +887,34 @@ class PlayerController {
                         message: '再生開始までに時間が掛かっています。プレイヤーを再起動しています…',
                     });
                 }
+
+            // ビデオ視聴のみ
+            } else {
+
+                // 必ず最初はローディング状態で、背景画像を表示する
+                player_store.is_loading = true;
+                player_store.is_background_display = true;
+
+                // 再生準備ができた段階でローディング中の背景画像を非表示にするイベントハンドラーを登録
+                let on_canplay_called = false;
+                const on_canplay = async () => {
+
+                    // 重複実行を回避する
+                    if (this.player === null) return;
+                    if (on_canplay_called === true) return;
+                    this.player.video.oncanplaythrough = null;
+                    on_canplay_called = true;
+
+                    // ローディング状態を解除し、映像を表示する
+                    player_store.is_loading = false;
+
+                    // バッファリング中の Progress Circular を非表示にする
+                    player_store.is_video_buffering = false;
+
+                    // ローディング中の背景画像をフェードアウト
+                    player_store.is_background_display = false;
+                };
+                this.player.video.oncanplaythrough = on_canplay;
             }
         };
 

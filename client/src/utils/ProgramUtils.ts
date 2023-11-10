@@ -431,6 +431,7 @@ export class ProgramUtils {
 
             // duration が Infinity の場合は、end_time を無視して放送時間未定として扱う
             // この時 end_time には便宜上 start_time と同一の時刻が設定されるため、参照してはいけない
+            // IRecordedProgram (録画番組) では発生しない
             if (program.duration === Infinity) {
                 if (is_short === true) {  // 時刻のみ
                     return `${start_time.format('HH:mm')} ～ --:--`;
@@ -443,7 +444,11 @@ export class ProgramUtils {
             const duration = Math.round(program.duration / 60 * 100) / 100;
 
             if (is_short === true) {  // 時刻のみ
-                return `${start_time.format('HH:mm')} ～ ${end_time.format('HH:mm')}`;
+                if ('recorded_video' in program) {
+                    return `${start_time.format('YYYY/MM/DD HH:mm')} ～ ${end_time.format('HH:mm')}`;  // 録画番組
+                } else {
+                    return `${start_time.format('HH:mm')} ～ ${end_time.format('HH:mm')}`;  // 放送中/次の番組
+                }
             } else {
                 return `${start_time.format('YYYY/MM/DD (dd) HH:mm')} ～ ${end_time.format('HH:mm')} (${duration}分)`;
             }
@@ -451,7 +456,11 @@ export class ProgramUtils {
         // 放送休止中
         } else {
             if (is_short === true) {  // 時刻のみ
-                return '--:-- ～ --:--';
+                if (program !== null && 'recorded_video' in program) {
+                    return '----/--/-- --:-- ～ --:--';  // 録画番組
+                } else {
+                    return '--:-- ～ --:--';  // 放送中/次の番組
+                }
             } else {
                 return '----/--/-- (-) --:-- ～ --:-- (--分)';
             }
@@ -504,7 +513,6 @@ export class ProgramUtils {
         merged_table['?'] = '？';
         merged_table['*'] = '＊';
         merged_table['~'] = '～';
-        merged_table['@'] = '＠';
         // シャープ → ハッシュ
         merged_table['♯'] = '#';
         // 波ダッシュ → 全角チルダ

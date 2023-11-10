@@ -2,6 +2,7 @@
     <div class="watch-player" :class="{
         'watch-player--loading': playerStore.is_loading,
         'watch-player--virtual-keyboard-display': playerStore.is_virtual_keyboard_display && Utils.hasActiveElementClass('dplayer-comment-input'),
+        'watch-player--video': playback_mode === 'Video',
     }">
         <div class="watch-player__background-wrapper">
             <div class="watch-player__background" :class="{'watch-player__background--display': playerStore.is_background_display}"
@@ -136,6 +137,20 @@ export default defineComponent({
             padding-left: calc(0px + 18px) !important;
         }
 
+        .dplayer-bar-wrap {
+            bottom: 54px !important;
+            width: calc(100% - 128px);
+            padding-left: 12px;
+            @include tablet-vertical {
+                width: calc(100% - (18px * 2));
+            }
+            @include smartphone-horizontal {
+                width: calc(100% - (18px * 2));
+            }
+            @include smartphone-vertical {
+                width: calc(100% - (18px * 2));
+            }
+        }
         .dplayer-time, .dplayer-live-badge {
             color: var(--v-text-base) !important;
         }
@@ -304,6 +319,10 @@ export default defineComponent({
             @include smartphone-vertical {
                 padding-left: calc(0px + 18px) !important;
             }
+            .dplayer-bar-wrap {
+                bottom: 51px !important;
+                padding-left: 0px !important;
+            }
         }
         &.dplayer-hide-controller .dplayer-controller {
             transform: none !important;
@@ -312,9 +331,47 @@ export default defineComponent({
 }
 
 // ロード中は DPlayer 内の動画と BML ブラウザを非表示にする
-.watch-player--loading {
-    .dplayer-video-wrap-aspect, .dplayer-bml-browser {
-        opacity: 0 !important;
+.watch-player.watch-player--loading {
+    .watch-player__dplayer {
+        .dplayer-video-wrap-aspect, .dplayer-bml-browser {
+            opacity: 0 !important;
+        }
+    }
+}
+
+// 仮想キーボード表示時
+.watch-player.watch-player--virtual-keyboard-display {
+    .watch-player__dplayer {
+        .dplayer-controller-mask {
+            position: absolute;
+            bottom: env(keyboard-inset-height, 0px) !important;
+            @include tablet-vertical {
+                bottom: 0px !important;
+            }
+            @include smartphone-vertical {
+                bottom: 0px !important;
+            }
+        }
+        .dplayer-icons.dplayer-comment-box {
+            position: absolute;
+            bottom: calc(env(keyboard-inset-height, 0px) + 4px) !important;
+            @include tablet-vertical {
+                bottom: 6px !important;
+            }
+            @include smartphone-vertical {
+                bottom: 6px !important;
+            }
+        }
+    }
+}
+
+// ビデオ視聴時のみ適用されるスタイル
+.watch-player.watch-player--video {
+    .watch-player__dplayer {
+        // コメント送信用ボタンを削除
+        .dplayer-controller .dplayer-icons .dplayer-comment {
+            display: none !important;
+        }
     }
 }
 

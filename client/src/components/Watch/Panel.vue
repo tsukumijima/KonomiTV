@@ -20,6 +20,8 @@
                 :class="{'watch-panel__content--active': panel_active_tab === 'RecordedProgram'}" />
             <Channel class="watch-panel__content" v-if="playback_mode === 'Live'"
                 :class="{'watch-panel__content--active': panel_active_tab === 'Channel'}" />
+            <Series class="watch-panel__content" v-if="playback_mode === 'Video'"
+                :class="{'watch-panel__content--active': panel_active_tab === 'Series'}" />
             <Comment class="watch-panel__content" :playback_mode="playback_mode"
                 :class="{'watch-panel__content--active': panel_active_tab === 'Comment'}" />
             <Twitter class="watch-panel__content" :playback_mode="playback_mode"
@@ -55,7 +57,8 @@
             <div v-ripple class="panel-navigation-button" v-if="playback_mode === 'Video'"
                  :class="{'panel-navigation-button--active': panel_active_tab === 'Series'}"
                  @click="playerStore.video_panel_active_tab = 'Series'">
-                <Icon class="panel-navigation-button__icon" icon="fa-solid:broadcast-tower" width="34px" />
+                <Icon class="panel-navigation-button__icon" icon="fluent:video-clip-multiple-16-filled" width="34px"
+                    style="width: 39px; height: 39px; margin-top: -4px; margin-bottom: -4px;" />
                 <span class="panel-navigation-button__text">シリーズ</span>
             </div>
             <div v-ripple class="panel-navigation-button"
@@ -83,6 +86,7 @@ import Comment from '@/components/Watch/Panel/Comment.vue';
 import Program from '@/components/Watch/Panel/Program.vue';
 import RecordedProgram from '@/components/Watch/Panel/RecordedProgram.vue';
 import Remocon from '@/components/Watch/Panel/Remocon.vue';
+import Series from '@/components/Watch/Panel/Series.vue';
 import Twitter from '@/components/Watch/Panel/Twitter.vue';
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
@@ -96,6 +100,7 @@ export default defineComponent({
         Program,
         RecordedProgram,
         Remocon,
+        Series,
         Twitter,
     },
     props: {

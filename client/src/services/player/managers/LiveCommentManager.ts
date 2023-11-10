@@ -396,7 +396,7 @@ class LiveCommentManager implements PlayerManager {
                 console.debug('[LiveCommentManager][CommentSession] Comments buffer length:', comments_buffer.length);
             }
             if (this.destroyed === false) {  // まだ破棄されていない場合のみイベントを発火
-                player_store.event_emitter.emit('LiveCommentReceived', {
+                player_store.event_emitter.emit('CommentReceived', {
                     is_initial_comments: false,
                     comments: comments_buffer,
                 });
@@ -425,7 +425,7 @@ class LiveCommentManager implements PlayerManager {
             if (message.ping !== undefined && message.ping.content === 'rf:0') {
                 initial_comments_received = true;
                 if (this.destroyed === false) {  // まだ破棄されていない場合のみイベントを発火
-                    player_store.event_emitter.emit('LiveCommentReceived', {
+                    player_store.event_emitter.emit('CommentReceived', {
                         is_initial_comments: true,
                         comments: initial_comments_buffer,
                     });
@@ -592,7 +592,7 @@ class LiveCommentManager implements PlayerManager {
                     options.success();
 
                     // 送信したコメントを整形してコメントリストに送信
-                    player_store.event_emitter.emit('LiveCommentSendCompleted', {
+                    player_store.event_emitter.emit('CommentSendCompleted', {
                         comment: {
                             id: Utils.time(),  // ID は取得できないので現在の時間をユニークな ID として利用する
                             text: options.data.text,  // コメント本文

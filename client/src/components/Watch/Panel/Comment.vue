@@ -70,7 +70,7 @@
                 v-if="playback_mode === 'Video' && playerStore.video_comment_init_failed_message === null && comment_list.length === 0">
                 <div class="comment-announce__heading">まだコメントがありません。</div>
                 <div class="comment-announce__text">
-                    <p class="mt-0 mb-0">この録画番組に対応するニコニコ実況の過去ログコメントを読み込んでいます…</p>
+                    <p class="mt-0 mb-0">この録画番組に対応する、ニコニコ実況の過去ログコメントを取得しています...</p>
                 </div>
             </div>
             <div class="comment-announce"
@@ -237,7 +237,8 @@ export default defineComponent({
 
         // LiveCommentManager からコメントを受信したときのイベントハンドラーを登録
         // 非同期関数で登録することで、気持ち高速化を図る
-        this.playerStore.event_emitter.on('LiveCommentReceived', async (event) => {
+        // ビデオ視聴での過去ログコメントは PlayerController から直接このイベントに送信される
+        this.playerStore.event_emitter.on('CommentReceived', async (event) => {
 
             // 初回の過去コメント (最大50件) を受信したとき
             if (event.is_initial_comments === true) {
@@ -281,7 +282,8 @@ export default defineComponent({
         });
 
         // LiveCommentManager からコメントの送信完了イベントを受信したときのイベントハンドラーを登録
-        this.playerStore.event_emitter.on('LiveCommentSendCompleted', async (event) => {
+        // ビデオ視聴では利用しない
+        this.playerStore.event_emitter.on('CommentSendCompleted', async (event) => {
 
             // 送信した自分のコメントをコメントリストに追加
             this.comment_list.push(event.comment);
@@ -324,8 +326,8 @@ export default defineComponent({
         }
 
         // LiveCommentManager からコメントを受信したときのイベントハンドラーを削除
-        this.playerStore.event_emitter.off('LiveCommentReceived');  // LiveCommentReceived イベントの全てのイベントハンドラーを削除
-        this.playerStore.event_emitter.off('LiveCommentSendCompleted');  // LiveCommentSendCompleted イベントの全てのイベントハンドラーを削除
+        this.playerStore.event_emitter.off('CommentReceived');  // CommentReceived イベントの全てのイベントハンドラーを削除
+        this.playerStore.event_emitter.off('CommentSendCompleted');  // CommentSendCompleted イベントの全てのイベントハンドラーを削除
 
         // コメントリストをクリア
         this.comment_list = [];

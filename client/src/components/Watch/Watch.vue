@@ -4,6 +4,7 @@
                 'watch-container--control-display': playerStore.is_control_display,
                 'watch-container--panel-display': Utils.isSmartphoneVertical() || Utils.isTabletVertical() ? true : playerStore.is_panel_display,
                 'watch-container--fullscreen': playerStore.is_fullscreen,
+                'watch-container--video': playback_mode === 'Video',
             }">
             <WatchNavigation />
             <div class="watch-content"
@@ -237,28 +238,14 @@ export default Vue.extend({
     }
 }
 
-// 仮想キーボード表示時
-.watch-player.watch-player--virtual-keyboard-display {
+// ビデオ視聴時 + コントロール表示時のみ適用されるスタイル
+.watch-container.watch-container--video.watch-container--control-display {
     .watch-player__dplayer {
-        .dplayer-controller-mask {
-            position: absolute;
-            bottom: env(keyboard-inset-height, 0px) !important;
-            @include tablet-vertical {
-                bottom: 0px !important;
-            }
-            @include smartphone-vertical {
-                bottom: 0px !important;
-            }
+        .dplayer-notice {
+            bottom: 74px !important;
         }
-        .dplayer-icons.dplayer-comment-box {
-            position: absolute;
-            bottom: calc(env(keyboard-inset-height, 0px) + 4px) !important;
-            @include tablet-vertical {
-                bottom: 6px !important;
-            }
-            @include smartphone-vertical {
-                bottom: 6px !important;
-            }
+        &.dplayer-mobile .dplayer-notice {
+            bottom: 71px !important;
         }
     }
 }
