@@ -21,9 +21,8 @@
                         テレビをライブストリーミングするときのデフォルトの画質を設定します。<br>
                         ストリーミング画質はプレイヤーの設定からいつでも切り替えられます。<br>
                     </div>
-                    <div class="settings__item-label">
-                        [1080p (60fps)] は、通常 30fps (60i) の映像を補間し、より滑らか（ぬるぬる）な映像で視聴できます！<br>
-                        [1080p (60fps)] で視聴するときは、サーバー設定の [利用するエンコーダー] をハードウェアエンコーダーに設定してください。FFmpeg (ソフトウェアエンコーダー) では、視聴に支障が出ることがあります。<br>
+                    <div class="settings__item-label mt-1">
+                        画質を [1080p (60fps)] に設定すると、<b>通常 30fps (60i) の映像を補間し、より滑らか（ぬるぬる）な映像で視聴できます！</b>ドラマやバラエティなどを視聴するときに特におすすめです。<br>
                     </div>
                     <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense" v-if="network_circuit !== 'モバイル回線時'"
                         :items="tv_streaming_quality" v-model="settingsStore.settings.tv_streaming_quality">
@@ -38,15 +37,17 @@
                         テレビを通信節約モードで視聴する
                     </label>
                     <label class="settings__item-label" :for="`tv_data_saver_mode${network_circuit === 'モバイル回線時' ? '_cellular' : ''}`">
-                        通信節約モードでは、H.265 / HEVC という圧縮率の高いコーデックを使い、画質はほぼそのまま、通信量を通常の 1/2 程度に抑えながら視聴できます！<br>
-                        通信節約モードで視聴するときは、サーバー設定の [利用するエンコーダー] をハードウェアエンコーダーに設定してください。FFmpeg (ソフトウェアエンコーダー) では、視聴に支障が出る可能性が高いです。<br>
+                        通信節約モードでは、圧縮率の高い H.265 / HEVC を使い、<b>画質はほぼそのまま、通信量を通常より 50% 〜 70% 削減して視聴できます！</b> サーバー PC によっては高負荷になることがあります。<br>
+                    </label>
+                    <div class="settings__item-label mt-1">
+                        通信が不安定になりがちなモバイル回線 (4G/5G)・通信速度の遅いフリー Wi-Fi から視聴するときに特におすすめです。<br>
                         <p class="mt-1 mb-0 error--text lighten-1" v-if="PlayerUtils.isHEVCVideoSupported() === false && Utils.isFirefox() === false">
                             このデバイスでは通信節約モードがサポートされていません。
                         </p>
                         <p class="mt-1 mb-0 error--text lighten-1" v-if="PlayerUtils.isHEVCVideoSupported() === false && Utils.isFirefox() === true">
                             お使いの Firefox ブラウザでは通信節約モードがサポートされていません。
                         </p>
-                    </label>
+                    </div>
                     <v-switch class="settings__item-switch" id="tv_data_saver_mode" inset hide-details v-if="network_circuit !== 'モバイル回線時'"
                         v-model="settingsStore.settings.tv_data_saver_mode" :disabled="PlayerUtils.isHEVCVideoSupported() === false">
                     </v-switch>
@@ -61,13 +62,56 @@
                     <label class="settings__item-label" :for="`tv_low_latency_mode${network_circuit === 'モバイル回線時' ? '_cellular' : ''}`">
                         低遅延ストリーミングをオンにすると、<b>放送波との遅延を最短 0.9 秒に抑えて視聴できます！</b><br>
                         また、約 3 秒以上遅延したときに少しだけ再生速度を早める (1.1x) ことで、滑らかにストリーミングの遅延を取り戻します。<br>
-                        宅外視聴などのネットワークが不安定になりがちな環境では、低遅延ストリーミングをオフにしてみると、映像のカクつきを改善できるかもしれません。<br>
                     </label>
+                    <div class="settings__item-label mt-1">
+                        映像がカクつきやすくなるため、通信が不安定になりがちなモバイル回線やフリー Wi-Fi から視聴するときは、低遅延ストリーミングをオフにすることをおすすめします。<br>
+                    </div>
                     <v-switch class="settings__item-switch" id="tv_low_latency_mode" inset hide-details v-if="network_circuit !== 'モバイル回線時'"
                         v-model="settingsStore.settings.tv_low_latency_mode">
                     </v-switch>
                     <v-switch class="settings__item-switch" id="tv_low_latency_mode_cellular" inset hide-details v-if="network_circuit === 'モバイル回線時'"
                         v-model="settingsStore.settings.tv_low_latency_mode_cellular">
+                    </v-switch>
+                </div>
+                <v-divider class="mt-6"></v-divider>
+                <div class="settings__item settings__item--sync-disabled">
+                    <div class="settings__item-heading">ビデオのデフォルトのストリーミング画質</div>
+                    <div class="settings__item-label">
+                        ビデオをストリーミング再生するときのデフォルトの画質を設定します。<br>
+                        ストリーミング画質はプレイヤーの設定からいつでも切り替えられます。<br>
+                    </div>
+                    <div class="settings__item-label mt-1">
+                        画質を [1080p (60fps)] に設定すると、<b>通常 30fps (60i) の映像を補間し、より滑らか（ぬるぬる）な映像で視聴できます！</b>ドラマやバラエティなどを視聴するときに特におすすめです。<br>
+                    </div>
+                    <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense" v-if="network_circuit !== 'モバイル回線時'"
+                        :items="video_streaming_quality" v-model="settingsStore.settings.video_streaming_quality">
+                    </v-select>
+                    <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense" v-if="network_circuit === 'モバイル回線時'"
+                        :items="video_streaming_quality_cellular" v-model="settingsStore.settings.video_streaming_quality_cellular">
+                    </v-select>
+                </div>
+                <div class="settings__item settings__item--switch settings__item--sync-disabled"
+                    :class="{'settings__item--disabled': PlayerUtils.isHEVCVideoSupported() === false}">
+                    <label class="settings__item-heading" :for="`video_data_saver_mode${network_circuit === 'モバイル回線時' ? '_cellular' : ''}`">
+                        ビデオを通信節約モードで視聴する
+                    </label>
+                    <label class="settings__item-label" :for="`video_data_saver_mode${network_circuit === 'モバイル回線時' ? '_cellular' : ''}`">
+                        通信節約モードでは、圧縮率の高い H.265 / HEVC を使い、<b>画質はほぼそのまま、通信量を通常より 50% 〜 70% 削減して視聴できます！</b> サーバー PC によっては高負荷になることがあります。<br>
+                    </label>
+                    <div class="settings__item-label mt-1">
+                        通信が不安定になりがちなモバイル回線 (4G/5G)・通信速度の遅いフリー Wi-Fi から視聴するときに特におすすめです。<br>
+                        <p class="mt-1 mb-0 error--text lighten-1" v-if="PlayerUtils.isHEVCVideoSupported() === false && Utils.isFirefox() === false">
+                            このデバイスでは通信節約モードがサポートされていません。
+                        </p>
+                        <p class="mt-1 mb-0 error--text lighten-1" v-if="PlayerUtils.isHEVCVideoSupported() === false && Utils.isFirefox() === true">
+                            お使いの Firefox ブラウザでは通信節約モードがサポートされていません。
+                        </p>
+                    </div>
+                    <v-switch class="settings__item-switch" id="video_data_saver_mode" inset hide-details v-if="network_circuit !== 'モバイル回線時'"
+                        v-model="settingsStore.settings.video_data_saver_mode" :disabled="PlayerUtils.isHEVCVideoSupported() === false">
+                    </v-switch>
+                    <v-switch class="settings__item-switch" id="video_data_saver_mode_cellular" inset hide-details v-if="network_circuit === 'モバイル回線時'"
+                        v-model="settingsStore.settings.video_data_saver_mode_cellular" :disabled="PlayerUtils.isHEVCVideoSupported() === false">
                     </v-switch>
                 </div>
             </v-tab-item-fix>
@@ -129,6 +173,10 @@ export default defineComponent({
             // テレビのデフォルトのストリーミング画質の選択肢
             tv_streaming_quality: QUALITY_H264,
             tv_streaming_quality_cellular: QUALITY_H264,
+
+            // ビデオのデフォルトのストリーミング画質の選択肢
+            video_streaming_quality: QUALITY_H264,
+            video_streaming_quality_cellular: QUALITY_H264,
         };
     },
     computed: {
@@ -154,7 +202,27 @@ export default defineComponent({
                     this.tv_streaming_quality_cellular = QUALITY_H264;
                 }
             },
-        }
+        },
+        'settingsStore.settings.video_data_saver_mode': {
+            immediate: true,
+            handler(value: boolean) {
+                if (value === true) {
+                    this.video_streaming_quality = QUALITY_H265;
+                } else {
+                    this.video_streaming_quality = QUALITY_H264;
+                }
+            },
+        },
+        'settingsStore.settings.video_data_saver_mode_cellular': {
+            immediate: true,
+            handler(value: boolean) {
+                if (value === true) {
+                    this.video_streaming_quality_cellular = QUALITY_H265;
+                } else {
+                    this.video_streaming_quality_cellular = QUALITY_H264;
+                }
+            },
+        },
     },
     created() {
         // 通信節約モードならストリーミング画質の選択肢を H.265 にする
@@ -163,6 +231,12 @@ export default defineComponent({
         }
         if (this.settingsStore.settings.tv_data_saver_mode_cellular === true) {
             this.tv_streaming_quality_cellular = QUALITY_H265;
+        }
+        if (this.settingsStore.settings.video_data_saver_mode === true) {
+            this.video_streaming_quality = QUALITY_H265;
+        }
+        if (this.settingsStore.settings.video_data_saver_mode_cellular === true) {
+            this.video_streaming_quality_cellular = QUALITY_H265;
         }
     }
 });

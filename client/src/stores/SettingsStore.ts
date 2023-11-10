@@ -8,6 +8,8 @@ import Utils from '@/utils';
 // 選択可能な画質の種類
 export type LiveStreamingQuality = '1080p-60fps' | '1080p' | '810p' | '720p' | '540p' | '480p' | '360p' | '240p';
 export const LIVE_STREAMING_QUALITIES: LiveStreamingQuality[] = ['1080p-60fps', '1080p', '810p', '720p', '540p', '480p', '360p', '240p'];
+export type VideoStreamingQuality = '1080p-60fps' | '1080p' | '810p' | '720p' | '540p' | '480p' | '360p' | '240p';
+export const VIDEO_STREAMING_QUALITIES: VideoStreamingQuality[] = ['1080p-60fps', '1080p', '810p', '720p', '540p', '480p', '360p', '240p'];
 
 // LocalStorage に保存される KonomiTV の設定データ
 interface ILocalClientSettings {
@@ -25,6 +27,10 @@ interface ILocalClientSettings {
     tv_data_saver_mode_cellular: boolean;
     tv_low_latency_mode: boolean;
     tv_low_latency_mode_cellular: boolean;
+    video_streaming_quality: VideoStreamingQuality;
+    video_streaming_quality_cellular: VideoStreamingQuality;
+    video_data_saver_mode: boolean;
+    video_data_saver_mode_cellular: boolean;
     caption_font: string;
     always_border_caption_text: boolean;
     specify_caption_opacity: boolean;
@@ -73,6 +79,10 @@ const sync_settings_keys = [
     // tv_data_saver_mode_cellular: 同期無効
     // tv_low_latency_mode: 同期無効
     // tv_low_latency_mode_cellular: 同期無効
+    // video_streaming_quality: 同期無効
+    // video_streaming_quality_cellular: 同期無効
+    // video_data_saver_mode: 同期無効
+    // video_data_saver_mode_cellular: 同期無効
     'caption_font',
     'always_border_caption_text',
     'specify_caption_opacity',
@@ -142,6 +152,15 @@ const default_settings: ILocalClientSettings = {
     tv_low_latency_mode: true,
     // テレビを低遅延で視聴する (モバイル回線時)  (Default: 低遅延で視聴しない) (同期無効)
     tv_low_latency_mode_cellular: false,
+
+    // ビデオのデフォルトのストリーミング画質 (Wi-Fi 回線時) (Default: 1080p) (同期無効)
+    video_streaming_quality: '1080p',
+    // ビデオのデフォルトのストリーミング画質 (モバイル回線時) (Default: 480p) (同期無効)
+    video_streaming_quality_cellular: '480p',
+    // ビデオを通信節約モードで視聴する (Wi-Fi 回線時)  (Default: オフ) (同期無効)
+    video_data_saver_mode: false,
+    // ビデオを通信節約モードで視聴する (モバイル回線時)  (Default: オン) (同期無効)
+    video_data_saver_mode_cellular: true,
 
     // ***** 設定 → 字幕 *****
 

@@ -16,7 +16,7 @@ import PlayerManager from '@/services/player/PlayerManager';
 import Videos from '@/services/Videos';
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
-import useSettingsStore, { LiveStreamingQuality, LIVE_STREAMING_QUALITIES } from '@/stores/SettingsStore';
+import useSettingsStore, { LiveStreamingQuality, LIVE_STREAMING_QUALITIES, VideoStreamingQuality, VIDEO_STREAMING_QUALITIES } from '@/stores/SettingsStore';
 import Utils, { PlayerUtils } from '@/utils';
 
 
@@ -52,6 +52,10 @@ class PlayerController {
     private readonly tv_streaming_quality: LiveStreamingQuality;
     private readonly tv_data_saver_mode: boolean;
     private readonly tv_low_latency_mode: boolean;
+
+    // ビデオ視聴: 画質プロファイル
+    private readonly video_streaming_quality: VideoStreamingQuality;
+    private readonly video_data_saver_mode: boolean;
 
     // ライブ視聴: 許容する HTMLMediaElement の内部再生バッファの秒数
     // 設計上コンストラクタ以降で変更すべきでないため readonly にしている
@@ -94,12 +98,18 @@ class PlayerController {
         // Wi-Fi or 取得できなかった場合は、通常の画質プロファイルを適用する
         const settings_store = useSettingsStore();
         const network_circuit_type = PlayerUtils.getNetworkCircuitType();
+        // ライブ視聴の画質プロファイル
         this.tv_streaming_quality = network_circuit_type === 'Cellular' ?
             settings_store.settings.tv_streaming_quality_cellular : settings_store.settings.tv_streaming_quality;
         this.tv_data_saver_mode = network_circuit_type === 'Cellular' ?
             settings_store.settings.tv_data_saver_mode_cellular : settings_store.settings.tv_data_saver_mode;
         this.tv_low_latency_mode = network_circuit_type === 'Cellular' ?
             settings_store.settings.tv_low_latency_mode_cellular : settings_store.settings.tv_low_latency_mode;
+        // ビデオ視聴の画質プロファイル
+        this.video_streaming_quality = network_circuit_type === 'Cellular' ?
+            settings_store.settings.video_streaming_quality_cellular : settings_store.settings.video_streaming_quality;
+        this.video_data_saver_mode = network_circuit_type === 'Cellular' ?
+            settings_store.settings.video_data_saver_mode_cellular : settings_store.settings.video_data_saver_mode;
 
         // 低遅延モードであれば低遅延向けの再生バッファを、そうでなければ通常の再生バッファをセット (秒単位)
         this.live_playback_buffer_seconds = this.tv_low_latency_mode ?
@@ -192,7 +202,9 @@ class PlayerController {
                 // ブラウザが H.265 / HEVC の再生に対応していて、かつ通信節約モードが有効なとき
                 // API に渡す画質に -hevc のプレフィックスをつける
                 let hevc_prefix = '';
-                if (PlayerUtils.isHEVCVideoSupported() && this.tv_data_saver_mode === true) {
+                if (PlayerUtils.isHEVCVideoSupported() &&
+                    ((this.playback_mode === 'Live' && this.tv_data_saver_mode === true) ||
+                     (this.playback_mode === 'Video' && this.video_data_saver_mode === true))) {
                     hevc_prefix = '-hevc';
                 }
 
@@ -200,7 +212,7 @@ class PlayerController {
                 if (this.playback_mode === 'Live') {
 
                     // ライブストリーミング API のベース URL
-                    const stream_api_base_url = `${Utils.api_base_url}/streams/live/${channels_store.channel.current.display_channel_id}`;
+                    const streaming_api_base_url = `${Utils.api_base_url}/streams/live/${channels_store.channel.current.display_channel_id}`;
 
                     // ラジオチャンネルの場合
                     // API が受け付ける画質の値は通常のチャンネルと同じだが (手抜き…)、実際の画質は 48KHz/192kbps で固定される
@@ -209,7 +221,7 @@ class PlayerController {
                         qualities.push({
                             name: '48kHz/192kbps',
                             type: 'mpegts',
-                            url: `${stream_api_base_url}/1080p/mpegts`,
+                            url: `${streaming_api_base_url}/1080p/mpegts`,
                         });
 
                     // 通常のチャンネルの場合
@@ -221,7 +233,7 @@ class PlayerController {
                                 // 1080p-60fps のみ、見栄えの観点から表示上 "1080p (60fps)" と表示する
                                 name: quality_name === '1080p-60fps' ? '1080p (60fps)' : quality_name,
                                 type: 'mpegts',
-                                url: `${stream_api_base_url}/${quality_name}${hevc_prefix}/mpegts`,
+                                url: `${streaming_api_base_url}/${quality_name}${hevc_prefix}/mpegts`,
                             });
                         }
                     }
@@ -241,23 +253,26 @@ class PlayerController {
                 // ビデオ視聴: 録画番組情報がセットされているはず
                 } else {
 
+                    // ビデオストリーミング API のベース URL
+                    const streaming_api_base_url = `${Utils.api_base_url}/streams/video/${player_store.recorded_program.id}`;
+
                     // 画質リストを作成
-                    // TODO: 実際は VIDEO_STREAMING_QUALITIES を使う
-                    for (const quality_name of LIVE_STREAMING_QUALITIES) {
+                    for (const quality_name of VIDEO_STREAMING_QUALITIES) {
                         qualities.push({
                             // 1080p-60fps のみ、見栄えの観点から表示上 "1080p (60fps)" と表示する
                             name: quality_name === '1080p-60fps' ? '1080p (60fps)' : quality_name,
                             type: 'hls',
-                            // TODO: API URL は未実装なので適当な値を入れておく
-                            url: `${Utils.api_base_url}/streams/video/${player_store.recorded_program.id}/${quality_name}${hevc_prefix}/playlist`,
+                            url: `${streaming_api_base_url}/${quality_name}${hevc_prefix}/playlist`,
                         });
                     }
 
-                    // TODO: 未実装なので適当な値を返す
+                    // デフォルトの画質
                     // 録画ではラジオは考慮しない
+                    const default_quality: string = this.video_streaming_quality;
+
                     return {
                         quality: qualities,
-                        defaultQuality: '1080p',  // TODO: 未実装なので適当に決めうち
+                        defaultQuality: default_quality,
                     };
                 }
             })(),
