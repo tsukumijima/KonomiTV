@@ -1,6 +1,6 @@
 <template>
     <!-- ベース画面の中にそれぞれの設定画面で異なる部分を記述する -->
-    <SettingsBase style="position: relative;">
+    <SettingsBase>
         <h2 class="settings__heading">
             <router-link v-ripple class="settings__back-button" to="/settings/">
                 <Icon icon="fluent:arrow-left-12-filled" width="25px" />

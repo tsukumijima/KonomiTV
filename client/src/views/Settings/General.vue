@@ -5,7 +5,7 @@
             <router-link v-ripple class="settings__back-button" to="/settings/">
                 <Icon icon="fluent:arrow-left-12-filled" width="25px" />
             </router-link>
-            <Icon icon="fa-solid:sliders-h" width="19px" />
+            <Icon icon="fa-solid:sliders-h" width="19px" style="margin: 0 4px;" />
             <span class="ml-3">全般</span>
         </h2>
         <div class="settings__content">
