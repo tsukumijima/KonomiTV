@@ -13,6 +13,10 @@ import usePlayerStore from '@/stores/PlayerStore';
 import useSettingsStore from '@/stores/SettingsStore';
 import Utils from '@/utils';
 
+// PlayerController のインスタンス
+// data() 内に記述すると再帰的にリアクティブ化され重くなる上リアクティブにする必要自体がないので、グローバル変数にしている
+let player_controller: PlayerController | null = null;
+
 export default Vue.extend({
     name: 'TV-Watch',
     components: {
@@ -20,14 +24,10 @@ export default Vue.extend({
     },
     data() {
         return {
-
             // インターバル ID
             // ページ遷移時に setInterval(), setTimeout() の実行を止めるのに使う
             // setInterval(), setTimeout() の返り値を登録する
             interval_ids: [] as number[],
-
-            // PlayerController のインスタンス
-            player_controller: null as PlayerController | null,
         };
     },
     computed: {
@@ -140,8 +140,8 @@ export default Vue.extend({
             }
 
             // PlayerController を初期化
-            this.player_controller = new PlayerController('Live');
-            await this.player_controller.init();
+            player_controller = new PlayerController('Live');
+            await player_controller.init();
         },
 
         // 再生セッションを破棄する
@@ -158,9 +158,9 @@ export default Vue.extend({
             this.interval_ids = [];
 
             // PlayerController を破棄
-            if (this.player_controller !== null) {
-                await this.player_controller.destroy();
-                this.player_controller = null;
+            if (player_controller !== null) {
+                await player_controller.destroy();
+                player_controller = null;
             }
         }
     }

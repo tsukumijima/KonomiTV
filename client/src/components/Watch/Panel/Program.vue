@@ -67,9 +67,9 @@ export default defineComponent({
     data() {
         return {
             // ユーティリティをテンプレートで使えるように
-            Utils: Utils,
-            ChannelUtils: ChannelUtils,
-            ProgramUtils: ProgramUtils,
+            Utils: Object.freeze(Utils),
+            ChannelUtils: Object.freeze(ChannelUtils),
+            ProgramUtils: Object.freeze(ProgramUtils),
         };
     },
     computed: {

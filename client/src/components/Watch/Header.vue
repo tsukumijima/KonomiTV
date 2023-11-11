@@ -36,8 +36,8 @@ export default defineComponent({
         return {
 
             // ユーティリティをテンプレートで使えるように
-            Utils: Utils,
-            ProgramUtils: ProgramUtils,
+            Utils: Object.freeze(Utils),
+            ProgramUtils: Object.freeze(ProgramUtils),
 
             // 現在時刻
             time: dayjs().format(Utils.isSmartphoneHorizontal() ? 'HH:mm:ss' : 'YYYY/MM/DD HH:mm:ss'),

@@ -216,7 +216,7 @@ export default defineComponent({
         return {
 
             // ユーティリティをテンプレートで使えるように
-            Utils: Utils,
+            Utils: Object.freeze(Utils),
 
             // キーボードショートカットの一覧に表示するショートカットキーのリスト (ライブ視聴)
             // created() で設定を反映するため、コンポーネントの破棄後に変更が残らないよう structuredClone() でクローンする

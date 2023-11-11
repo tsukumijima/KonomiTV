@@ -66,7 +66,7 @@ export default defineComponent({
         return {
 
             // ユーティリティをテンプレートで使えるように
-            Utils: Utils,
+            Utils: Object.freeze(Utils),
 
             // ピン留め中チャンネルの並び替え設定のモーダルを表示するか
             pinned_channel_settings_modal: false,

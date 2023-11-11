@@ -105,9 +105,9 @@ export default defineComponent({
         return {
 
             // ユーティリティをテンプレートで使えるように
-            Utils: Utils,
-            ChannelUtils: ChannelUtils,
-            ProgramUtils: ProgramUtils,
+            Utils: Object.freeze(Utils),
+            ChannelUtils: Object.freeze(ChannelUtils),
+            ProgramUtils: Object.freeze(ProgramUtils),
 
             // タブの状態管理
             tab: null as number | null,

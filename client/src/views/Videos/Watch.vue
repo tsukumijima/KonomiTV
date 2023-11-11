@@ -12,17 +12,14 @@ import Videos from '@/services/Videos';
 import usePlayerStore from '@/stores/PlayerStore';
 import useSettingsStore from '@/stores/SettingsStore';
 
+// PlayerController のインスタンス
+// data() 内に記述すると再帰的にリアクティブ化され重くなる上リアクティブにする必要自体がないので、グローバル変数にしている
+let player_controller: PlayerController | null = null;
+
 export default Vue.extend({
     name: 'Video-Watch',
     components: {
         Watch,
-    },
-    data() {
-        return {
-
-            // PlayerController のインスタンス
-            player_controller: null as PlayerController | null,
-        };
     },
     computed: {
         ...mapStores(usePlayerStore, useSettingsStore),
@@ -78,8 +75,8 @@ export default Vue.extend({
             this.playerStore.recorded_program = recorded_program;
 
             // PlayerController を初期化
-            this.player_controller = new PlayerController('Video');
-            await this.player_controller.init();
+            player_controller = new PlayerController('Video');
+            await player_controller.init();
         },
 
         // 再生セッションを破棄する
@@ -87,9 +84,9 @@ export default Vue.extend({
         async destroy() {
 
             // PlayerController を破棄
-            if (this.player_controller !== null) {
-                await this.player_controller.destroy();
-                this.player_controller = null;
+            if (player_controller !== null) {
+                await player_controller.destroy();
+                player_controller = null;
             }
         }
     }

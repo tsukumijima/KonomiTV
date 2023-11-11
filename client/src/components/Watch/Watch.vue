@@ -52,7 +52,7 @@ export default Vue.extend({
     data() {
         return {
             // ユーティリティをテンプレートで使えるように
-            Utils: Utils,
+            Utils: Object.freeze(Utils),
         };
     },
     computed: {

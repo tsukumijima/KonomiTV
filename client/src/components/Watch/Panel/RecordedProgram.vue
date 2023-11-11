@@ -55,8 +55,8 @@ export default defineComponent({
     data() {
         return {
             // ユーティリティをテンプレートで使えるように
-            Utils: Utils,
-            ProgramUtils: ProgramUtils,
+            Utils: Object.freeze(Utils),
+            ProgramUtils: Object.freeze(ProgramUtils),
 
             // コメント数カウント
             comment_count: null as number | null,

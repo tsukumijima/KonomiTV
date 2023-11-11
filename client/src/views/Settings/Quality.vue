@@ -158,8 +158,8 @@ export default defineComponent({
         return {
 
             // ユーティリティをテンプレートで使えるように
-            Utils: Utils,
-            PlayerUtils: PlayerUtils,
+            Utils: Object.freeze(Utils),
+            PlayerUtils: Object.freeze(PlayerUtils),
 
             // フォームを小さくするかどうか
             is_form_dense: Utils.isSmartphoneHorizontal(),

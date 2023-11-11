@@ -114,7 +114,7 @@ export default defineComponent({
         return {
 
             // ユーティリティをテンプレートで使えるように
-            Utils: Utils,
+            Utils: Object.freeze(Utils),
 
             // 手動スクロール状態かどうか
             is_manual_scroll: false,

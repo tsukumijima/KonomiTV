@@ -219,7 +219,7 @@ export default defineComponent({
         return {
 
             // ユーティリティをテンプレートで使えるように
-            Utils: Utils,
+            Utils: Object.freeze(Utils),
 
             // Twitter アカウントを1つでも連携しているかどうか
             is_logged_in_twitter: false,

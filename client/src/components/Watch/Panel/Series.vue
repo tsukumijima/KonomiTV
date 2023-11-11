@@ -16,7 +16,7 @@ export default defineComponent({
     data() {
         return {
             // ユーティリティをテンプレートで使えるように
-            Utils: Utils,
+            Utils: Object.freeze(Utils),
         };
     },
     computed: {
