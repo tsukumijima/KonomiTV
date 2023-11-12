@@ -540,7 +540,9 @@ class PlayerController {
             // 通知を表示してから PlayerController を破棄すると DPlayer の DOM 要素ごと消えてしまうので、DPlayer を作り直した後に通知を表示する
             assert(this.player !== null);
             if (event.message) {
-                this.player.notice(event.message, undefined, undefined, '#FF6F6A');
+                // 明示的にエラーメッセージではないことが指定されていればデフォルトの色で通知を表示する
+                const color = event.is_error_message === false ? undefined : '#FF6F6A';
+                this.player.notice(event.message, undefined, undefined, color);
             }
             is_player_restarting = false;
         });
@@ -566,6 +568,7 @@ class PlayerController {
         this.player.container.querySelector('.dplayer-player-restart-icon')!.addEventListener('click', async () => {
             await this.destroy();
             await this.init();
+            this.player?.notice('プレイヤーを再起動しました。', undefined, undefined, undefined);
         });
 
         // 各 PlayerManager を初期化・登録

@@ -151,6 +151,11 @@ class KeyboardShortcutManager implements PlayerManager {
                 } else {
                     this.player.template.volumeButtonIcon.click();
                 }
+                if (this.player.video.muted === true) {
+                    this.player.notice('音量をミュート中');
+                } else {
+                    this.player.notice('音量をミュート解除');
+                }
             }},
 
             // W: ライブストリームの同期
@@ -160,7 +165,10 @@ class KeyboardShortcutManager implements PlayerManager {
 
             // R: プレイヤーを再起動する
             {mode: 'Both', key: 'KeyR', repeat: false, ctrl: false, shift: false, alt: false, handler: () => {
-                player_store.event_emitter.emit('PlayerRestartRequired', {});
+                player_store.event_emitter.emit('PlayerRestartRequired', {
+                    message: 'プレイヤーを再起動しました。',
+                    is_error_message: false,  // 明示的に上記メッセージがエラーメッセージではないことを示す (通知時の色がデフォルトになる)
+                });
             }},
 
             // F: フルスクリーンの切り替え

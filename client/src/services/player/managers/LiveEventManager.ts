@@ -170,6 +170,12 @@ class LiveEventManager implements PlayerManager {
                 // Status: Idling
                 case 'Idling': {
 
+                    // 手動で再起動したのにタイミングの関係で破棄前に Idling イベントを受け取ってしまうことがあるので、
+                    // 1 秒ほど待機してから実行する (すでにプレイヤーが再起動中であれば PlayerRestartRequired イベントでは何も起こらない)
+                    if (this.destroyed === false) {
+                        await Utils.sleep(1);
+                    }
+
                     // 本来誰も視聴していないことを示す Idling ステータスを受信している場合、何らかの理由で
                     // ライブストリーミング API への接続が切断された可能性が高いので、PlayerController にプレイヤーの再起動を要求する
                     player_store.event_emitter.emit('PlayerRestartRequired', {
