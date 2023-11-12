@@ -39,6 +39,7 @@
             <DynamicScroller class="comment-list" :direction="'vertical'" :items="comment_list" :min-item-size="34">
                 <template v-slot="{item, active}">
                 <DynamicScrollerItem :item="item" :active="active" :size-dependencies="[item.text]">
+                    <!-- 以下では Icon コンポーネントを使うと個数が多いときに高負荷になるため、意図的に SVG を直書きしている -->
                     <div class="comment" :class="{'comment--my-post': item.my_post}">
                         <span class="comment__text">{{item.text}}</span>
                         <span class="comment__time">{{item.time}}</span>
@@ -46,9 +47,7 @@
                         <div class="comment__icon" v-ripple="!Utils.isTouchDevice()"
                             @mouseup="showCommentListDropdown($event, item)"
                             @touchend="showCommentListDropdown($event, item)">
-                            <!-- Icon コンポーネントを使うとコメント数が多い際に高負荷になるため、意図的に SVG を直書きしている -->
-                            <svg class="iconify iconify--fluent" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
-                                aria-hidden="true" role="img" width="20px" height="20px" viewBox="0 0 20 20">
+                            <svg class="iconify iconify--fluent" width="20px" height="20px" viewBox="0 0 20 20">
                                 <path fill="currentColor" d="M10 6.5A1.75 1.75 0 1 1 10 3a1.75 1.75 0 0 1 0 3.5ZM10 17a1.75 1.75 0 1 1 0-3.5a1.75 1.75 0 0 1 0 3.5Zm-1.75-7a1.75 1.75 0 1 0 3.5 0a1.75 1.75 0 0 0-3.5 0Z"></path>
                             </svg>
                         </div>

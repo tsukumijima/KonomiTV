@@ -11,13 +11,16 @@
                 <v-tab-item-fix class="channels"
                     v-for="[channels_type, channels] in Array.from(channelsStore.channels_list_with_pinned_for_watch)" :key="channels_type">
                     <router-link v-ripple class="channel" v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.display_channel_id}`">
+                        <!-- 以下では Icon コンポーネントを使うとチャンネルが多いときに高負荷になるため、意図的に SVG を直書きしている -->
                         <div class="channel__broadcaster">
                             <img class="channel__broadcaster-icon" :src="`${Utils.api_base_url}/channels/${channel.id}/logo`">
                             <div class="channel__broadcaster-content">
                                 <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.name}}</span>
                                 <div class="channel__broadcaster-force"
                                     :class="`channel__broadcaster-force--${ChannelUtils.getChannelForceType(channel.jikkyo_force)}`">
-                                    <Icon icon="fa-solid:fire-alt" height="11px" />
+                                    <svg class="iconify iconify--fa-solid" width="9.63px" height="11px" viewBox="0 0 448 512">
+                                        <path fill="currentColor" d="M323.56 51.2c-20.8 19.3-39.58 39.59-56.22 59.97C240.08 73.62 206.28 35.53 168 0C69.74 91.17 0 209.96 0 281.6C0 408.85 100.29 512 224 512s224-103.15 224-230.4c0-53.27-51.98-163.14-124.44-230.4zm-19.47 340.65C282.43 407.01 255.72 416 226.86 416C154.71 416 96 368.26 96 290.75c0-38.61 24.31-72.63 72.79-130.75c6.93 7.98 98.83 125.34 98.83 125.34l58.63-66.88c4.14 6.85 7.91 13.55 11.27 19.97c27.35 52.19 15.81 118.97-33.43 153.42z"></path>
+                                    </svg>
                                     <span class="ml-1">{{channel.jikkyo_force ?? '--'}}</span>
                                 </div>
                             </div>
@@ -31,7 +34,9 @@
                         <div class="channel__program-following">
                             <div class="channel__program-following-title">
                                 <span class="channel__program-following-title-decorate">NEXT</span>
-                                <Icon class="channel__program-following-title-icon" icon="fluent:fast-forward-20-filled" width="16px" />
+                                <svg class="channel__program-following-title-icon iconify iconify--fluent" width="16px" height="16px" viewBox="0 0 20 20">
+                                    <path fill="currentColor" d="M10.018 5.486a1 1 0 0 1 1.592-.806l5.88 4.311a1.25 1.25 0 0 1 0 2.017l-5.88 4.311a1 1 0 0 1-1.592-.806v-3.16L4.61 15.319a1 1 0 0 1-1.592-.806V5.486A1 1 0 0 1 4.61 4.68l5.408 3.966v-3.16Z"></path>
+                                </svg>
                                 <span class="channel__program-following-title-text"
                                     v-html="ProgramUtils.decorateProgramInfo(channel.program_following, 'title')">
                                 </span>

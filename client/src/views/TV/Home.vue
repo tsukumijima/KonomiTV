@@ -16,6 +16,7 @@
                         <div class="channels" :class="`channels--tab-${channels_type} channels--length-${channels.length}`">
                             <router-link v-ripple class="channel"
                                 v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.display_channel_id}`">
+                                <!-- 以下では Icon コンポーネントを使うとチャンネルが多いときに高負荷になるため、意図的に SVG を直書きしている -->
                                 <div class="channel__broadcaster">
                                     <img class="channel__broadcaster-icon" :src="`${Utils.api_base_url}/channels/${channel.id}/logo`">
                                     <div class="channel__broadcaster-content">
@@ -23,13 +24,17 @@
                                         <div class="channel__broadcaster-status">
                                             <div class="channel__broadcaster-status-force"
                                                 :class="`channel__broadcaster-status-force--${ChannelUtils.getChannelForceType(channel.jikkyo_force)}`">
-                                                <Icon icon="fa-solid:fire-alt" height="12px" />
+                                                <svg class="iconify iconify--fa-solid" width="10.5px" height="12px" viewBox="0 0 448 512">
+                                                    <path fill="currentColor" d="M323.56 51.2c-20.8 19.3-39.58 39.59-56.22 59.97C240.08 73.62 206.28 35.53 168 0C69.74 91.17 0 209.96 0 281.6C0 408.85 100.29 512 224 512s224-103.15 224-230.4c0-53.27-51.98-163.14-124.44-230.4zm-19.47 340.65C282.43 407.01 255.72 416 226.86 416C154.71 416 96 368.26 96 290.75c0-38.61 24.31-72.63 72.79-130.75c6.93 7.98 98.83 125.34 98.83 125.34l58.63-66.88c4.14 6.85 7.91 13.55 11.27 19.97c27.35 52.19 15.81 118.97-33.43 153.42z"></path>
+                                                </svg>
                                                 <span class="ml-1">勢い:</span>
                                                 <span class="ml-1">{{channel.jikkyo_force ?? '--'}}</span>
                                                 <span style="margin-left: 3px;"> コメ/分</span>
                                             </div>
                                             <div class="channel__broadcaster-status-viewers ml-4">
-                                                <Icon icon="fa-solid:eye" height="14px" />
+                                                <svg class="iconify iconify--fa-solid" width="15.75px" height="14px" viewBox="0 0 576 512">
+                                                    <path fill="currentColor" d="M572.52 241.4C518.29 135.59 410.93 64 288 64S57.68 135.64 3.48 241.41a32.35 32.35 0 0 0 0 29.19C57.71 376.41 165.07 448 288 448s230.32-71.64 284.52-177.41a32.35 32.35 0 0 0 0-29.19zM288 400a144 144 0 1 1 144-144a143.93 143.93 0 0 1-144 144zm0-240a95.31 95.31 0 0 0-25.31 3.79a47.85 47.85 0 0 1-66.9 66.9A95.78 95.78 0 1 0 288 160z"></path>
+                                                </svg>
                                                 <span class="ml-1">視聴数:</span>
                                                 <span class="ml-1">{{channel.viewer_count}}</span>
                                             </div>
@@ -40,7 +45,9 @@
                                         :class="{'channel__broadcaster-pin--pinned': isPinnedChannel(channel)}"
                                         @click.prevent.stop="isPinnedChannel(channel) ? removePinnedChannel(channel) : addPinnedChannel(channel)"
                                         @mousedown.prevent.stop="/* 親要素の波紋が広がらないように */">
-                                        <Icon icon="fluent:pin-20-filled" width="24px" />
+                                        <svg class="iconify iconify--fluent" width="24px" height="24px" viewBox="0 0 20 20">
+                                            <path fill="currentColor" d="M13.325 2.617a2 2 0 0 0-3.203.52l-1.73 3.459a1.5 1.5 0 0 1-.784.721l-3.59 1.436a1 1 0 0 0-.335 1.636L6.293 13L3 16.292V17h.707L7 13.706l2.61 2.61a1 1 0 0 0 1.636-.335l1.436-3.59a1.5 1.5 0 0 1 .722-.784l3.458-1.73a2 2 0 0 0 .52-3.203l-4.057-4.057Z"></path>
+                                        </svg>
                                     </div>
                                 </div>
                                 <div class="channel__program-present">
@@ -56,7 +63,9 @@
                                 <div class="channel__program-following">
                                     <div class="channel__program-following-title">
                                         <span class="channel__program-following-title-decorate">NEXT</span>
-                                        <Icon class="channel__program-following-title-icon" icon="fluent:fast-forward-20-filled" width="16px" />
+                                        <svg class="channel__program-following-title-icon iconify iconify--fluent" width="16px" height="16px" viewBox="0 0 20 20">
+                                            <path fill="currentColor" d="M10.018 5.486a1 1 0 0 1 1.592-.806l5.88 4.311a1.25 1.25 0 0 1 0 2.017l-5.88 4.311a1 1 0 0 1-1.592-.806v-3.16L4.61 15.319a1 1 0 0 1-1.592-.806V5.486A1 1 0 0 1 4.61 4.68l5.408 3.966v-3.16Z"></path>
+                                        </svg>
                                         <span class="channel__program-following-title-text"
                                               v-html="ProgramUtils.decorateProgramInfo(channel.program_following, 'title')"></span>
                                     </div>

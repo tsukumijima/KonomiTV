@@ -32,16 +32,21 @@
                         }"
                         v-for="capture in playerStore.twitter_captures" :key="capture.image_url"
                         @click="clickCapture(capture)">
+                        <!-- 以下では Icon コンポーネントを使うと個数が多いときに高負荷になるため、意図的に SVG を直書きしている -->
                         <img class="capture__image" :src="capture.image_url">
                         <div class="capture__disabled-cover"></div>
                         <div class="capture__selected-number">{{tweet_captures.findIndex(blob => blob === capture.blob) + 1}}</div>
-                        <Icon class="capture__selected-checkmark" icon="fluent:checkmark-circle-16-filled" />
+                        <svg class="capture__selected-checkmark iconify iconify--fluent" width="1em" height="1em" viewBox="0 0 16 16">
+                            <path fill="currentColor" d="M8 2a6 6 0 1 1 0 12A6 6 0 0 1 8 2Zm2.12 4.164L7.25 9.042L5.854 7.646a.5.5 0 1 0-.708.708l1.75 1.75a.5.5 0 0 0 .708 0l3.224-3.234a.5.5 0 0 0-.708-.706Z"></path>
+                        </svg>
                         <div class="capture__selected-border"></div>
                         <div class="capture__focused-border"></div>
                         <div v-ripple class="capture__zoom"
                             @click.prevent.stop="playerStore.twitter_zoom_capture_modal = true; playerStore.twitter_zoom_capture = capture"
                             @mousedown.prevent.stop="/* 親要素の波紋が広がらないように */">
-                            <Icon icon="fluent:zoom-in-16-regular" width="32px" />
+                            <svg class="iconify iconify--fluent" width="32px" height="32px" viewBox="0 0 16 16">
+                                <path fill="currentColor" d="M7 4.5a.5.5 0 0 0-1 0V6H4.5a.5.5 0 0 0 0 1H6v1.5a.5.5 0 0 0 1 0V7h1.5a.5.5 0 0 0 0-1H7V4.5ZM6.5 11a4.481 4.481 0 0 0 2.809-.984l3.837 3.838a.5.5 0 0 0 .708-.708L10.016 9.31A4.5 4.5 0 1 0 6.5 11Zm0-8a3.5 3.5 0 1 1 0 7a3.5 3.5 0 0 1 0-7Z"></path>
+                            </svg>
                         </div>
                     </div>
                 </div>
@@ -143,18 +148,28 @@
                 <div v-ripple="!hashtag.editing" class="hashtag" :class="{'hashtag--editing': hashtag.editing}"
                     v-for="hashtag in saved_twitter_hashtags" :key="hashtag.id"
                     @click="clickHashtag(hashtag)">
+                        <!-- 以下では Icon コンポーネントを使うと個数が多いときに高負荷になるため、意図的に SVG を直書きしている -->
                     <input type="search" class="hashtag__input" spellcheck="false" v-model="hashtag.text" :disabled="!hashtag.editing" @click.stop="">
                     <button v-ripple class="hashtag__edit-button"
                         @click.prevent.stop="hashtag.editing = !hashtag.editing;
                             hashtag.text = formatHashtag(hashtag.text, true); updateTweetLetterCount()">
-                        <Icon :icon="hashtag.editing ? 'fluent:checkmark-16-filled': 'fluent:edit-16-filled'" width="17px" />
+                        <svg class="iconify iconify--fluent" width="17px" height="17px" viewBox="0 0 16 16" v-if="hashtag.editing === false">
+                            <path fill="currentColor" d="M10.529 1.764a2.621 2.621 0 1 1 3.707 3.707l-.779.779L9.75 2.543l.779-.779ZM9.043 3.25L2.657 9.636a2.955 2.955 0 0 0-.772 1.354l-.87 3.386a.5.5 0 0 0 .61.608l3.385-.869a2.95 2.95 0 0 0 1.354-.772l6.386-6.386L9.043 3.25Z"></path>
+                        </svg>
+                        <svg class="iconify iconify--fluent" width="17px" height="17px" viewBox="0 0 16 16" v-if="hashtag.editing === true">
+                            <path fill="currentColor" d="M14.046 3.486a.75.75 0 0 1-.032 1.06l-7.93 7.474a.85.85 0 0 1-1.188-.022l-2.68-2.72a.75.75 0 1 1 1.068-1.053l2.234 2.267l7.468-7.038a.75.75 0 0 1 1.06.032Z"></path>
+                        </svg>
                     </button>
                     <button v-ripple class="hashtag__delete-button"
                         @click.prevent.stop="saved_twitter_hashtags.splice(saved_twitter_hashtags.indexOf(hashtag), 1)">
-                        <Icon  icon="fluent:delete-16-filled" width="17px" />
+                        <svg class="iconify iconify--fluent" width="17px" height="17px" viewBox="0 0 16 16">
+                            <path fill="currentColor" d="M7 3h2a1 1 0 0 0-2 0ZM6 3a2 2 0 1 1 4 0h4a.5.5 0 0 1 0 1h-.564l-1.205 8.838A2.5 2.5 0 0 1 9.754 15H6.246a2.5 2.5 0 0 1-2.477-2.162L2.564 4H2a.5.5 0 0 1 0-1h4Zm1 3.5a.5.5 0 0 0-1 0v5a.5.5 0 0 0 1 0v-5ZM9.5 6a.5.5 0 0 0-.5.5v5a.5.5 0 0 0 1 0v-5a.5.5 0 0 0-.5-.5Z"></path>
+                        </svg>
                     </button>
                     <div class="hashtag__sort-handle">
-                        <Icon icon="material-symbols:drag-handle-rounded" width="17px" />
+                        <svg class="iconify iconify--material-symbols" width="17px" height="17px" viewBox="0 0 24 24">
+                            <path fill="currentColor" d="M5 15q-.425 0-.713-.288T4 14q0-.425.288-.713T5 13h14q.425 0 .713.288T20 14q0 .425-.288.713T19 15H5Zm0-4q-.425 0-.713-.288T4 10q0-.425.288-.713T5 9h14q.425 0 .713.288T20 10q0 .425-.288.713T19 11H5Z"></path>
+                        </svg>
                     </div>
                 </div>
             </draggable>
@@ -162,13 +177,16 @@
         <div class="twitter-account-list" :class="{'twitter-account-list--display': is_twitter_account_list_display}">
             <div v-ripple class="twitter-account" v-for="twitter_account in userStore.user ? userStore.user.twitter_accounts : []"
                 :key="twitter_account.id" @click="updateSelectedTwitterAccount(twitter_account)">
+                <!-- 以下では Icon コンポーネントを使うと個数が多いときに高負荷になるため、意図的に SVG を直書きしている -->
                 <img class="twitter-account__icon" :src="twitter_account.icon_url">
                 <div class="twitter-account__info">
                     <div class="twitter-account__name">{{twitter_account.name}}</div>
                     <div class="twitter-account__screen-name">@{{twitter_account.screen_name}}</div>
                 </div>
-                <Icon class="twitter-account__check" icon="fluent:checkmark-16-filled" width="24px"
-                    v-show="twitter_account.id === settingsStore.settings.selected_twitter_account_id" />
+                <svg class="twitter-account__check iconify iconify--fluent" width="24px" height="24px" viewBox="0 0 16 16"
+                    v-show="twitter_account.id === settingsStore.settings.selected_twitter_account_id">
+                    <path fill="currentColor" d="M14.046 3.486a.75.75 0 0 1-.032 1.06l-7.93 7.474a.85.85 0 0 1-1.188-.022l-2.68-2.72a.75.75 0 1 1 1.068-1.053l2.234 2.267l7.468-7.038a.75.75 0 0 1 1.06.032Z"></path>
+                </svg>
             </div>
         </div>
     </div>
@@ -1407,6 +1425,8 @@ export default defineComponent({
         @include tablet-vertical {
             left: 24px;
             right: 24px;
+            bottom: 142px;
+            max-height: calc(100% - 158px);
         }
         @include smartphone-horizontal {
             left: 8px;

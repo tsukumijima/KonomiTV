@@ -96,6 +96,7 @@
                 <div class="muted-comment-items">
                     <div class="muted-comment-item"
                         v-for="(muted_comment_keyword, index) in settingsStore.settings.muted_comment_keywords" :key="index">
+                        <!-- 以下では Icon コンポーネントを使うと個数が多いときに高負荷になるため、意図的に SVG を直書きしている -->
                         <v-text-field type="search" class="muted-comment-item__input" dense outlined hide-details
                             placeholder="ミュートするキーワードを入力"
                             v-model="settingsStore.settings.muted_comment_keywords[index].pattern">
@@ -107,7 +108,9 @@
                         <button v-ripple class="muted-comment-item__delete-button"
                             @click="settingsStore.settings.muted_comment_keywords
                                 .splice(settingsStore.settings.muted_comment_keywords.indexOf(muted_comment_keyword), 1)">
-                            <Icon icon="fluent:delete-16-filled" width="20px" />
+                            <svg class="iconify iconify--fluent" width="20px" height="20px" viewBox="0 0 16 16">
+                                <path fill="currentColor" d="M7 3h2a1 1 0 0 0-2 0ZM6 3a2 2 0 1 1 4 0h4a.5.5 0 0 1 0 1h-.564l-1.205 8.838A2.5 2.5 0 0 1 9.754 15H6.246a2.5 2.5 0 0 1-2.477-2.162L2.564 4H2a.5.5 0 0 1 0-1h4Zm1 3.5a.5.5 0 0 0-1 0v5a.5.5 0 0 0 1 0v-5ZM9.5 6a.5.5 0 0 0-.5.5v5a.5.5 0 0 0 1 0v-5a.5.5 0 0 0-.5-.5Z"></path>
+                            </svg>
                         </button>
                     </div>
                 </div>
@@ -123,13 +126,16 @@
                 <div class="muted-comment-items">
                     <div class="muted-comment-item"
                         v-for="(muted_niconico_user_id, index) in settingsStore.settings.muted_niconico_user_ids" :key="index">
+                        <!-- 以下では Icon コンポーネントを使うと個数が多いときに高負荷になるため、意図的に SVG を直書きしている -->
                         <v-text-field type="search" class="muted-comment-item__input" dense outlined hide-details
                             placeholder="ミュートするニコニコユーザー ID を入力" v-model="settingsStore.settings.muted_niconico_user_ids[index]">
                         </v-text-field>
                         <button v-ripple class="muted-comment-item__delete-button"
                             @click="settingsStore.settings.muted_niconico_user_ids
                                 .splice(settingsStore.settings.muted_niconico_user_ids.indexOf(muted_niconico_user_id), 1)">
-                            <Icon icon="fluent:delete-16-filled" width="20px" />
+                            <svg class="iconify iconify--fluent" width="20px" height="20px" viewBox="0 0 16 16">
+                                <path fill="currentColor" d="M7 3h2a1 1 0 0 0-2 0ZM6 3a2 2 0 1 1 4 0h4a.5.5 0 0 1 0 1h-.564l-1.205 8.838A2.5 2.5 0 0 1 9.754 15H6.246a2.5 2.5 0 0 1-2.477-2.162L2.564 4H2a.5.5 0 0 1 0-1h4Zm1 3.5a.5.5 0 0 0-1 0v5a.5.5 0 0 0 1 0v-5ZM9.5 6a.5.5 0 0 0-.5.5v5a.5.5 0 0 0 1 0v-5a.5.5 0 0 0-.5-.5Z"></path>
+                            </svg>
                         </button>
                     </div>
                 </div>

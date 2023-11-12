@@ -21,16 +21,21 @@
                 </div>
                 <draggable class="pinned-channels" v-model="settingsStore.settings.pinned_channel_ids" handle=".pinned-channel__sort-handle"
                     v-if="(channelsStore.channels_list_with_pinned.get('ピン留め') ?? []).length > 0">
+                    <!-- 以下では Icon コンポーネントを使うと個数が多いときに高負荷になるため、意図的に SVG を直書きしている -->
                     <div class="pinned-channel"
                         v-for="channel in channelsStore.channels_list_with_pinned.get('ピン留め') ?? []" :key="channel.id">
                         <img class="pinned-channel__icon" :src="`${Utils.api_base_url}/channels/${channel.id}/logo`">
                         <span class="pinned-channel__name">Ch: {{channel.channel_number}} {{channel.name}}</span>
                         <button class="pinned-channel__sort-handle">
-                            <Icon icon="material-symbols:drag-handle-rounded" width="20px" />
+                            <svg class="iconify iconify--material-symbols" width="20px" height="20px" viewBox="0 0 24 24">
+                                <path fill="currentColor" d="M5 15q-.425 0-.713-.288T4 14q0-.425.288-.713T5 13h14q.425 0 .713.288T20 14q0 .425-.288.713T19 15H5Zm0-4q-.425 0-.713-.288T4 10q0-.425.288-.713T5 9h14q.425 0 .713.288T20 10q0 .425-.288.713T19 11H5Z"></path>
+                            </svg>
                         </button>
                         <button v-ripple class="pinned-channel__delete-button"
                             @click="settingsStore.settings.pinned_channel_ids.splice(settingsStore.settings.pinned_channel_ids.indexOf(channel.id), 1)">
-                            <Icon icon="fluent:delete-16-filled" width="20px" />
+                            <svg class="iconify iconify--fluent" width="20px" height="20px" viewBox="0 0 16 16">
+                                <path fill="currentColor" d="M7 3h2a1 1 0 0 0-2 0ZM6 3a2 2 0 1 1 4 0h4a.5.5 0 0 1 0 1h-.564l-1.205 8.838A2.5 2.5 0 0 1 9.754 15H6.246a2.5 2.5 0 0 1-2.477-2.162L2.564 4H2a.5.5 0 0 1 0-1h4Zm1 3.5a.5.5 0 0 0-1 0v5a.5.5 0 0 0 1 0v-5ZM9.5 6a.5.5 0 0 0-.5.5v5a.5.5 0 0 0 1 0v-5a.5.5 0 0 0-.5-.5Z"></path>
+                            </svg>
                         </button>
                     </div>
                 </draggable>
