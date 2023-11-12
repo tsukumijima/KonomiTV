@@ -24,6 +24,9 @@
                     <div class="settings__item-label mt-1">
                         画質を [1080p (60fps)] に設定すると、<b>通常 30fps (60i) の映像を補間し、より滑らか（ぬるぬる）な映像で視聴できます！</b>ドラマやバラエティなどを視聴するときに特におすすめです。<br>
                     </div>
+                    <div class="settings__item-label mt-1">
+                        Fire HD 10 (2021) などの一部のローエンド Android (特に MediaTek SoC 搭載) デバイスでは、1080p 以上の映像描画が不安定なことが確認されています。その場合は 720p 以下の画質を選択することをおすすめします。<br>
+                    </div>
                     <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense" v-if="network_circuit !== 'モバイル回線時'"
                         :items="tv_streaming_quality" v-model="settingsStore.settings.tv_streaming_quality">
                     </v-select>
@@ -82,6 +85,9 @@
                     </div>
                     <div class="settings__item-label mt-1">
                         画質を [1080p (60fps)] に設定すると、<b>通常 30fps (60i) の映像を補間し、より滑らか（ぬるぬる）な映像で視聴できます！</b>ドラマやバラエティなどを視聴するときに特におすすめです。<br>
+                    </div>
+                    <div class="settings__item-label mt-1">
+                        Fire HD 10 (2021) などの一部のローエンド Android (特に MediaTek SoC 搭載) デバイスでは、1080p 以上の映像描画が不安定なことが確認されています。その場合は 720p 以下の画質を選択することをおすすめします。<br>
                     </div>
                     <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense" v-if="network_circuit !== 'モバイル回線時'"
                         :items="video_streaming_quality" v-model="settingsStore.settings.video_streaming_quality">
