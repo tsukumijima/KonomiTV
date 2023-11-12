@@ -401,8 +401,12 @@ const useSettingsStore = defineStore('settings', {
             }
 
             // クライアントの設定データをサーバーからの設定データで上書き
+            // 両者の値に変更がある場合のみ上書きする
+            // さもなければ、実際にはサーバー側で値が変更されていない場合でも定義されているストアに紐づく全てのコンポーネントの再描画が発生してしまう (?)
             for (const [settings_server_key, settings_server_value] of Object.entries(settings_server)) {
-                this.settings[settings_server_key] = settings_server_value;
+                if (JSON.stringify(this.settings[settings_server_key]) !== JSON.stringify(settings_server_value)) {
+                    this.settings[settings_server_key] = settings_server_value;
+                }
             }
         },
 

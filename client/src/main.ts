@@ -105,7 +105,7 @@ settings_store.$subscribe(async () => {
     console.log('Client Settings Changed:', settings_store.settings);
     setLocalStorageSettings(settings_store.settings);
 
-    // 設定データをサーバーに同期する (ログイン時かつ同期が有効な場合のみ)
+    // このクライアントの設定をサーバーに同期する (ログイン時かつ同期が有効な場合のみ実行される)
     await settings_store.syncClientSettingsToServer();
 
 }, {detached: true});
@@ -115,7 +115,7 @@ settings_store.$subscribe(async () => {
 window.setInterval(async () => {
     if (Utils.getAccessToken() !== null && settings_store.settings.sync_settings === true) {
 
-        // 設定データをサーバーにアップロード
+        // サーバーに保存されている設定データをこのクライアントに同期する
         is_uploading_settings = true;
         await settings_store.syncClientSettingsFromServer();
         is_uploading_settings = false;
