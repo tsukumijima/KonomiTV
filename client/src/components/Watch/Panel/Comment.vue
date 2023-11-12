@@ -46,7 +46,11 @@
                         <div class="comment__icon" v-ripple="!Utils.isTouchDevice()"
                             @mouseup="showCommentListDropdown($event, item)"
                             @touchend="showCommentListDropdown($event, item)">
-                            <Icon icon="fluent:more-vertical-20-filled" width="20px" />
+                            <!-- Icon コンポーネントを使うとコメント数が多い際に高負荷になるため、意図的に SVG を直書きしている -->
+                            <svg class="iconify iconify--fluent" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+                                aria-hidden="true" role="img" width="20px" height="20px" viewBox="0 0 20 20">
+                                <path fill="currentColor" d="M10 6.5A1.75 1.75 0 1 1 10 3a1.75 1.75 0 0 1 0 3.5ZM10 17a1.75 1.75 0 1 1 0-3.5a1.75 1.75 0 0 1 0 3.5Zm-1.75-7a1.75 1.75 0 1 0 3.5 0a1.75 1.75 0 0 0-3.5 0Z"></path>
+                            </svg>
                         </div>
                     </div>
                 </DynamicScrollerItem>
