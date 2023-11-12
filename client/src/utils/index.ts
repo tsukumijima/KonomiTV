@@ -23,7 +23,10 @@ dayjsOriginal.locale(ja);
 dayjsOriginal.tz.setDefault('Asia/Tokyo');
 
 export const dayjs = (date?: ConfigType): Dayjs => {
-    return dayjsOriginal(date).tz();  // .tz() では setDefault で設定したタイムゾーンが適用される
+    // return dayjsOriginal(date).tz();  // .tz() では setDefault で設定したタイムゾーンが適用される
+    // dayjs.tz() があまりにもクッソ遅いことが判明したので当面使わないことにする
+    // dayjs.tz() を使わないようにするだけで低スペ端末でのパフォーマンスが大幅に向上した…
+    return dayjsOriginal(date);
 };
 
 // 共通ユーティリティをデフォルトとしてインポート
