@@ -37,12 +37,17 @@ const useChannelsStore = defineStore('channels', {
         // 本来は null あたりにすべきだが、null を入れると UI 側でのエラー処理が大変なので、やむを得ず形式上有効だが絶対にあり得ない値を入れている
         display_channel_id: 'gr000' as string,
 
-        // 現在放送中の番組情報 (EPG (EIT[p/f]) からリアルタイムに更新される)
+        // 現在視聴中のチャンネルの視聴者数 (LiveEventManager でリアルタイムに更新される)
+        // チャンネル切り替え後、LiveEventManager で Server-Sent Events から取得されるまでは null になる
+        // 視聴画面のみ有効で、ホーム画面では利用されない
+        viewer_count: null as number | null,
+
+        // 現在視聴中のチャンネルの現在放送中の番組情報 (EPG (EIT[p/f]) からリアルタイムに更新される)
         // チャンネル切り替え後、LiveDataBroadcastingManager で EIT[p/f] から取得されるまでは null になる
         // 視聴画面のみ有効で、ホーム画面では利用されない
         current_program_present: null as IProgram | null,
 
-        // 次に放送される番組情報 (EPG (EIT[p/f]) からリアルタイムに更新される)
+        // 現在視聴中のチャンネルの次に放送される番組情報 (EPG (EIT[p/f]) からリアルタイムに更新される)
         // チャンネル切り替え後、LiveDataBroadcastingManager で EIT[p/f] から取得されるまでは null になる
         // 視聴画面のみ有効で、ホーム画面では利用されない
         current_program_following: null as IProgram | null,
@@ -138,34 +143,27 @@ const useChannelsStore = defineStore('channels', {
                 return 0;
             })();
 
-            // もしこの時点で channels[current_channel_index] の network_id / service_id と
-            // EPG 由来の current_program_(present/following) の network_id / service_id が一致していない場合、
-            // チャンネル切り替えが行われたことで current_program_(present/following) の情報が古くなっているため、ここで null にする
-            // チャンネル切り替え後、ストリーミングが開始され EPG から再度最新の番組情報が取得されるまでの間は、
-            // channels[current_channel_index] 内の番組情報 (サーバー API 由来) が使われることになる
-            if ((this.current_program_present?.network_id !== channels[current_channel_index].network_id) ||
-                (this.current_program_present?.service_id !== channels[current_channel_index].service_id)) {
-                this.current_program_present = null;
-            }
-            if ((this.current_program_following?.network_id !== channels[current_channel_index].network_id) ||
-                (this.current_program_following?.service_id !== channels[current_channel_index].service_id)) {
-                this.current_program_following = null;
-            }
+            // structuredClone() でディープコピーを行い、プロパティの変更が channels_list 内のオブジェクトに反映されないようにする
+            // チャンネルリストに反映するとその時点で全チャンネルの再レンダリングが走ってしまい (?) 負荷が高まる
+            const current_channel = structuredClone(channels[current_channel_index]);
 
             // 現在のチャンネル情報のみ、EPG から取得した現在/次の番組情報があればそちらを優先して上書き表示する
-            // channels[current_channel_index] は channels_list に格納されているチャンネル情報と同一の参照なので、
-            // 上書きした番組情報は番組情報タブだけでなく、チャンネルリストにも反映される
             if (this.current_program_present !== null) {
-                channels[current_channel_index].program_present = this.current_program_present;
+                current_channel.program_present = this.current_program_present;
             }
             if (this.current_program_following !== null) {
-                channels[current_channel_index].program_following = this.current_program_following;
+                current_channel.program_following = this.current_program_following;
+            }
+
+            // 現在のチャンネル情報のみ、LiveEventManager から取得したリアルタイム視聴者数があればそちらを優先して上書き表示する
+            if (this.viewer_count !== null) {
+                current_channel.viewer_count = this.viewer_count;
             }
 
             // 前・現在・次のチャンネル情報を返す
             return {
                 previous: channels[previous_channel_index],
-                current: channels[current_channel_index],
+                current: current_channel,
                 next: channels[next_channel_index],
             };
         },
@@ -351,8 +349,18 @@ const useChannelsStore = defineStore('channels', {
                     return;
                 }
 
-                this.channels_list = channels_list;
-                this.is_channels_list_initial_updated = true;
+                // 再帰的に Object.freeze() を適用し、Vue 側で再帰的にリアクティブ化されないようにする
+                // channels_list 内の大量のチャンネル/番組情報オブジェクトはここ以外から更新されることはない
+                // さらに更新周期自体も基本 30 秒以上な上、毎回一括更新で一部だけが更新されることもないため、リアクティブである必要がない
+                // 大きなオブジェクトを扱う際は、細部のリアクティブを捨てることでパフォーマンスが向上する (下記記事が大変参考になりました)
+                // ref: https://speakerdeck.com/tbashiyy/shi-shu-mo-rekodoninai-euruvue-dot-jspuroziekutowoshi-xian-surutamenopahuomansutiyuningu
+                // ref: https://unyacat.net/2021/01/20/vue-freeze-faster/
+                this.channels_list = Utils.deepObjectFreeze(channels_list);
+
+                // チャンネルリストの更新日時を更新
+                if (this.is_channels_list_initial_updated === false) {
+                    this.is_channels_list_initial_updated = true;
+                }
                 this.last_updated_at = Utils.time();
             };
 

@@ -79,6 +79,20 @@ export default class Utils {
 
 
     /**
+     * 再帰的にオブジェクトを凍結する
+     * ref: https://unyacat.net/2021/01/20/vue-freeze-faster/
+     * @param object 凍結するオブジェクト
+     * @returns 再帰的に凍結されたオブジェクト
+     */
+    static deepObjectFreeze<T extends object>(object: T): T {
+        Object.keys(object).forEach(prop => {
+            if (typeof object[prop] === 'object' && !Object.isFrozen(object[prop])) Utils.deepObjectFreeze(object[prop]);
+        });
+        return Object.freeze(object);
+    }
+
+
+    /**
      * Blob に格納されているデータをブラウザにダウンロードさせる
      * @param blob Blob オブジェクト
      * @param filename 保存するファイル名

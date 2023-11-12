@@ -565,6 +565,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
      * LiveDataBroadcastingManager での処理を終了し、破棄する
      */
     public async destroy(): Promise<void> {
+        const channels_store = useChannelsStore();
 
         // ライブ PSI/SI アーカイブデータデコーダーを終了
         if (this.live_psi_archived_data_decoder !== null) {
@@ -572,6 +573,12 @@ class LiveDataBroadcastingManager implements PlayerManager {
             this.live_psi_archived_data_decoder.destroy();
             this.live_psi_archived_data_decoder = null;
         }
+
+        // ChannelsStore に設定したリアルタイム番組情報を削除
+        // ここで削除しないと再度更新されるまで channels_store.channel.current で古い番組情報が参照され続けてしまう
+        // ストリーミングが開始され EPG から再度最新の番組情報を取得するまでの間は、サーバー API から取得した番組情報が表示される
+        channels_store.current_program_present = null;
+        channels_store.current_program_following = null;
 
         // リモコンの各ボタンに登録していたリスナーを削除
         if (this.remocon_button_event_abort_controller !== null) {

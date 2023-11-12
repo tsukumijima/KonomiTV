@@ -117,7 +117,7 @@ class LiveEventManager implements PlayerManager {
             player_store.live_stream_status = event.status;
 
             // 視聴者数を更新
-            channels_store.channel.current.viewer_count = event.client_count;
+            channels_store.viewer_count = event.client_count;
 
             // ステータスごとに処理を振り分け
             switch (event.status) {
@@ -251,7 +251,7 @@ class LiveEventManager implements PlayerManager {
             console.log('\u001b[33m[LiveEventManager][detail_update]', `\nStatus: ${event.status} Detail:${event.detail}`);
 
             // 視聴者数を更新
-            channels_store.channel.current.viewer_count = event.client_count;
+            channels_store.viewer_count = event.client_count;
 
             // ステータスごとに処理を振り分け
             switch (event.status) {
@@ -282,7 +282,7 @@ class LiveEventManager implements PlayerManager {
             const event: ILiveStreamStatusEvent = JSON.parse(event_raw.data);
 
             // 視聴者数を更新
-            channels_store.channel.current.viewer_count = event.client_count;
+            channels_store.viewer_count = event.client_count;
         });
 
         console.log('\u001b[33m[LiveEventManager] Initialized.');
@@ -311,10 +311,16 @@ class LiveEventManager implements PlayerManager {
      * サーバー側のライブストリームステータス API (Server-Sent Events) への接続を切断し、ライブストリームのステータス監視を停止する
      */
     public async destroy(): Promise<void> {
-
-        // ライブストリームのステータスを null に戻す
+        const channels_store = useChannelsStore();
         const player_store = usePlayerStore();
+
+        // PlayerStore にセットしたライブストリームのステータスをリセット
         player_store.live_stream_status = null;
+
+        // ChannelsStore にセットしたリアルタイム視聴者数をリセット
+        // ここで削除しないといつまで経っても古い番組情報が参照され続けてしまう
+        // ストリーミングが開始され Server-Sent Events から再度最新の視聴者数を取得するまでの間は、サーバー API から取得した視聴者数が表示される
+        channels_store.viewer_count = null;
 
         // 破棄済みかどうかのフラグを立てる
         // もしかすると EventSource の破棄に時間がかかるかもしれないので、先にフラグを立てておく

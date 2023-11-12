@@ -38,10 +38,6 @@ export default Vue.extend({
 
         // 下記以外の視聴画面の開始処理は Watch コンポーネントの方で自動的に行われる
 
-        // EIT 由来の前と次の番組情報を消去
-        this.channelsStore.current_program_present = null;
-        this.channelsStore.current_program_following = null;
-
         // チャンネル ID をセット
         this.channelsStore.display_channel_id = this.$route.params.display_channel_id;
 
@@ -91,10 +87,6 @@ export default Vue.extend({
 
         // このページから離れるので、チャンネル ID を gr000 (ダミー値) に戻す
         this.channelsStore.display_channel_id = 'gr000';
-
-        // EIT 由来の前と次の番組情報を消去
-        this.channelsStore.current_program_present = null;
-        this.channelsStore.current_program_following = null;
 
         // 上記以外の視聴画面の終了処理は Watch コンポーネントの方で自動的に行われる
     },
