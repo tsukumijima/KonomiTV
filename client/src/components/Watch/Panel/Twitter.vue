@@ -109,11 +109,11 @@
                 </div>
                 <div class="limit-meter">
                     <div class="limit-meter__content" :class="{
-                        'limit-meter__content--yellow': tweet_letter_count <= 20,
-                        'limit-meter__content--red': tweet_letter_count <= 0,
+                        'limit-meter__content--yellow': tweet_letter_remain_count <= 20,
+                        'limit-meter__content--red': tweet_letter_remain_count <= 0,
                     }">
                         <Icon icon="fa-brands:twitter" width="12px" style="margin-right: -2px;" />
-                        <span>{{tweet_letter_count}}</span>
+                        <span>{{tweet_letter_remain_count}}</span>
                     </div>
                     <div class="limit-meter__content">
                         <Icon icon="fluent:image-16-filled" width="14px" />
@@ -121,8 +121,8 @@
                     </div>
                 </div>
                 <button v-ripple class="tweet-button"
-                    :disabled="!is_logged_in_twitter || tweet_letter_count < 0 ||
-                        (tweet_letter_count === 140 && tweet_captures.length === 0)"
+                    :disabled="is_logged_in_twitter === false || tweet_letter_remain_count < 0 ||
+                        ((tweet_text.trim() === '' || tweet_letter_remain_count === 140) && tweet_captures.length === 0)"
                     @click="sendTweet()" @touchstart="sendTweet()">
                     <Icon icon="fa-brands:twitter" height="16px" />
                     <span class="ml-1">ツイート</span>
@@ -275,8 +275,8 @@ export default defineComponent({
             // ツイートに添付するキャプチャの Blob のリスト
             tweet_captures: [] as Blob[],
 
-            // 文字数カウント
-            tweet_letter_count: 140,
+            // 140 文字から引いた残りの文字数カウント
+            tweet_letter_remain_count: 140,
 
             // ツイートを送信中か (API リクエストを実行するまで)
             is_tweet_sending: false,
@@ -388,7 +388,7 @@ export default defineComponent({
 
             // サロゲートペアを考慮し、スプレッド演算子で一度配列化してから数えている
             // ref: https://qiita.com/suin/items/3da4fb016728c024eaca
-            this.tweet_letter_count = 140 - [...this.tweet_hashtag].length - [...this.tweet_text].length;
+            this.tweet_letter_remain_count = 140 - [...this.tweet_hashtag].length - [...this.tweet_text].length;
         },
 
         // クリップボード内のデータがペーストされたときのイベント
