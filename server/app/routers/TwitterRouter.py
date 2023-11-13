@@ -369,13 +369,18 @@ async def TwitterTweetAPI(
         }
 
     # ツイートを送信 (GraphQL API)
+    ## 以下のリクエストペイロードなどはすべて実際に Twitter Web App が送信するリクエストを模倣したもの
 
     # Chrome への偽装用 HTTP リクエストヘッダーと Cookie を取得
     cookie_session_user_handler = cast(CookieSessionUserHandler, twitter_account_api.auth)
     cookies_dict = cookie_session_user_handler.get_cookies_as_dict()
     headers_dict = cookie_session_user_handler.get_graphql_api_headers()
 
-    media_entities = []
+    # queryId: どうも API のバージョン (?) を示しているらしい謎の値で、数週間単位で変更されうる
+    query_id = '5V_dkq1jfalfiFOEZ4g47A'
+
+    # 画像の media_id をリストに格納 (画像がない場合は空のリストになる)
+    media_entities: list[dict[str, Any]] = []
     for media_id in media_ids:
         media_entities.append({
             'media_id': media_id,
@@ -387,7 +392,7 @@ async def TwitterTweetAPI(
     try:
         async with httpx.AsyncClient(http2=True) as client:
             response = await client.post(
-                url = 'https://twitter.com/i/api/graphql/mjRUA3-5JspiUp54VXex6g/CreateTweet',
+                url = f'https://twitter.com/i/api/graphql/{query_id}/CreateTweet',
                 headers = headers_dict,
                 cookies = cookies_dict,
                 json = {
@@ -400,7 +405,10 @@ async def TwitterTweetAPI(
                         },
                         'semantic_annotation_ids': [],
                     },
+                    # 以下の謎のフラグも数週間単位で頻繁に変更されうるが、Twitter Web App と完全に一致していないからといって
+                    # 必ずしも動かなくなるわけではなく、queryId 同様にある程度は古い値でも動くようになっているらしい
                     'features': {
+                        'c9s_tweet_anatomy_moderator_badge_enabled': True,
                         'tweetypie_unmention_optimization_enabled': True,
                         'responsive_web_edit_tweet_api_enabled': True,
                         'graphql_is_translatable_rweb_tweet_is_translatable_enabled': True,
@@ -408,7 +416,7 @@ async def TwitterTweetAPI(
                         'longform_notetweets_consumption_enabled': True,
                         'responsive_web_twitter_article_tweet_consumption_enabled': False,
                         'tweet_awards_web_tipping_enabled': False,
-                        'responsive_web_home_pinned_timelines_enabled': False,
+                        'responsive_web_home_pinned_timelines_enabled': True,
                         'longform_notetweets_rich_text_read_enabled': True,
                         'longform_notetweets_inline_media_enabled': True,
                         'responsive_web_graphql_exclude_directive_enabled': True,
@@ -421,7 +429,7 @@ async def TwitterTweetAPI(
                         'responsive_web_graphql_timeline_navigation_enabled': True,
                         'responsive_web_enhance_cards_enabled': False,
                     },
-                    'queryId': 'mjRUA3-5JspiUp54VXex6g',
+                    'queryId': query_id,
                 },
                 follow_redirects = True,
             )
@@ -439,9 +447,17 @@ async def TwitterTweetAPI(
             'detail': 'Failed to connect to Twitter GraphQL API',
         }
 
+    # 取得できていればツイートの ID を取得
+    tweet_id: str
+    try:
+        tweet_id = str(response.json()['data']['create_tweet']['tweet_results']['result']['rest_id'])
+    except Exception:
+        # API レスポンスが変わっているなどでツイート ID を取得できなかった
+        tweet_id = '__error__'
+
     return {
         'is_success': True,
-        'tweet_url': f'https://twitter.com/__dummy__/status/__dummy__',
+        'tweet_url': f'https://twitter.com/i/status/{tweet_id}',
         'detail': 'ツイートを送信しました。',
     }
 
