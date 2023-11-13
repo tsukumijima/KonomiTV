@@ -586,6 +586,7 @@ def Installer(version: str) -> None:
             'Python の仮想環境を作成しています…',
             [python_executable_path, '-m', 'poetry', 'env', 'use', python_executable_path],
             cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+            environment = {'PYTHON_KEYRING_BACKEND': 'keyring.backends.null.Keyring'},  # Windows で SSH 接続時に発生するエラーを回避
             error_message = 'Python の仮想環境の作成中に予期しないエラーが発生しました。',
         )
         if result is False:
@@ -597,6 +598,7 @@ def Installer(version: str) -> None:
             '依存パッケージをインストールしています…',
             [python_executable_path, '-m', 'poetry', 'install', '--only', 'main', '--no-root'],
             cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+            environment = {'PYTHON_KEYRING_BACKEND': 'keyring.backends.null.Keyring'},  # Windows で SSH 接続時に発生するエラーを回避
             error_message = '依存パッケージのインストール中に予期しないエラーが発生しました。',
         )
         if result is False:

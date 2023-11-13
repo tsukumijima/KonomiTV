@@ -381,6 +381,7 @@ def Updater(version: str) -> None:
             'Python の仮想環境を作成しています…',
             [python_executable_path, '-m', 'poetry', 'env', 'use', python_executable_path],
             cwd = update_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+            environment = {'PYTHON_KEYRING_BACKEND': 'keyring.backends.null.Keyring'},  # Windows で SSH 接続時に発生するエラーを回避
             error_message = 'Python の仮想環境の作成中に予期しないエラーが発生しました。',
         )
         if result is False:
@@ -392,6 +393,7 @@ def Updater(version: str) -> None:
             '依存パッケージを更新しています…',
             [python_executable_path, '-m', 'poetry', 'install', '--only', 'main', '--no-root'],
             cwd = update_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
+            environment = {'PYTHON_KEYRING_BACKEND': 'keyring.backends.null.Keyring'},  # Windows で SSH 接続時に発生するエラーを回避
             error_message = '依存パッケージの更新中に予期しないエラーが発生しました。',
         )
         if result is False:

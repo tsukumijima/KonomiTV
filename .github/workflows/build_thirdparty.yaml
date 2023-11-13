@@ -15,25 +15,25 @@ on:
 env:
   # Python のバージョン (Python Standalone Builds のリリースを指定する)
   ## ref: https://github.com/indygreg/python-build-standalone/releases
-  PYTHON_TAG: '20230826'
+  PYTHON_TAG: '20231002'
   PYTHON_MAJOR_VERSION: '3.11'
-  PYTHON_VERSION: '3.11.5'
+  PYTHON_VERSION: '3.11.6'
   # poetry のバージョン
-  POETRY_VERSION: '1.6.1'
+  POETRY_VERSION: '1.7.0'
   # FFmpeg (FFmpeg-Builds のリリースを指定する)
   ## HWENCC と付く方は QSVEncC・NVEncC・VCEEncC (Linux 版) が依存する FFmpeg のバージョン
   ## FFmpeg-Builds は毎月末のリリースが長期間保持されるので、基本的には毎月末のリリースを指定する
   ## ref: https://github.com/BtbN/FFmpeg-Builds/releases
-  FFMPEG_TAG: 'autobuild-2023-08-31-12-54'
+  FFMPEG_TAG: 'autobuild-2023-10-31-13-06'
   FFMPEG_MAJOR_VERSION: '5.1'
-  FFMPEG_VERSION: '5.1.3-16-g566aa38d98'
+  FFMPEG_VERSION: '5.1.3-105-g7739dabb89'
   FFMPEG_HWENCC_MAJOR_VERSION: '4.4'
   FFMPEG_HWENCC_VERSION: '4.4.4-6-gd5fa6e3a91'
   # QSVEncC・NVEncC・VCEEncC・rkmppenc のバージョン
-  QSVENCC_VERSION: '7.49'
-  NVENCC_VERSION: '7.33'
-  VCEENCC_VERSION: '8.16'
-  RKMPPENC_VERSION: '0.03'
+  QSVENCC_VERSION: '7.52'
+  NVENCC_VERSION: '7.36'
+  VCEENCC_VERSION: '8.19'
+  RKMPPENC_VERSION: '0.05'
   # libmediainfo のバージョン
   ## Windows 版の pymediainfo (ビルド済みの MediaInfo.dll が同梱されている) とバージョンを合わせる
   ## ref: https://github.com/sbraz/pymediainfo/blob/v6.0.1/appveyor.yml#L6
