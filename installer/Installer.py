@@ -882,7 +882,7 @@ def Installer(version: str) -> None:
                 ShowPanel([
                     'Mali GPU Driver は、以下のコマンドでインストールできます。',
                     'インストール完了後は、システムの再起動が必要です。',
-                    '[cyan]curl -LO https://github.com/tsukumijima/libmali-rockchip/releases/download/v1.9-1-53c16ef/libmali-valhall-g610-g13p0-wayland-gbm_1.9-1_arm64.deb && sudo apt install -y ./libmali-valhall-g610-g13p0-wayland-gbm_1.9-1_arm64.deb && rm libmali-valhall-g610-g13p0-wayland-gbm_1.9-1_arm64.deb && curl -LO https://github.com/tsukumijima/rockchip-multimedia-config/releases/download/v1.0.2-1/rockchip-multimedia-config_1.0.2-1_all.deb && sudo apt install -y ./rockchip-multimedia-config_1.0.2-1_all.deb && rm rockchip-multimedia-config_1.0.2-1_all.deb[/cyan]',
+                    '[cyan]curl -LO https://github.com/tsukumijima/libmali-rockchip/releases/download/v1.9-1-2d267b0/libmali-valhall-g610-g13p0-wayland-gbm_1.9-1_arm64.deb && sudo apt install -y ./libmali-valhall-g610-g13p0-wayland-gbm_1.9-1_arm64.deb && rm libmali-valhall-g610-g13p0-wayland-gbm_1.9-1_arm64.deb && curl -LO https://github.com/tsukumijima/rockchip-multimedia-config/releases/download/v1.0.2-1/rockchip-multimedia-config_1.0.2-1_all.deb && sudo apt install -y ./rockchip-multimedia-config_1.0.2-1_all.deb && rm rockchip-multimedia-config_1.0.2-1_all.deb[/cyan]',
                 ], padding=(0, 2, 0, 2))
                 ShowPanel([
                     'rkmppenc のログ:\n' + result.stdout.strip(),

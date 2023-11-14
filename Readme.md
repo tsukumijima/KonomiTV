@@ -318,7 +318,7 @@ rkmppenc のサポートは試験的なものです。また、Rockchip 製 ARM 
 # Mali GPU Driver のインストール (RK3588/RK3588S 向け)
 ## 他の Rockchip SoC の Mali GPU Driver は https://github.com/tsukumijima/libmali-rockchip/releases から入手できる
 ## RK3588/RK3588S の場合、g610-g6p0 より g610-g13p0 の方が高速に動作する
-wget https://github.com/tsukumijima/libmali-rockchip/releases/download/v1.9-1-53c16ef/libmali-valhall-g610-g13p0-wayland-gbm_1.9-1_arm64.deb
+wget https://github.com/tsukumijima/libmali-rockchip/releases/download/v1.9-1-2d267b0/libmali-valhall-g610-g13p0-wayland-gbm_1.9-1_arm64.deb
 sudo apt install -y ./libmali-valhall-g610-g13p0-wayland-gbm_1.9-1_arm64.deb
 rm libmali-valhall-g610-g13p0-wayland-gbm_1.9-1_arm64.deb
 
