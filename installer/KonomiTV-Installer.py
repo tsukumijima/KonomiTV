@@ -25,7 +25,7 @@ from Utils import ShowPanel
 
 
 # インストール or アップデート対象の KonomiTV バージョン
-TARGET_VERSION = '0.8.0'
+TARGET_VERSION = '0.9.0'
 
 def ShowHeader():
     print(Padding(Rule(
