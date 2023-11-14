@@ -85,7 +85,7 @@
 
 - **Windows 10/11 PC または Linux (Ubuntu) PC**
   - **Windows 10 Pro と Ubuntu 20.04 LTS の PC でのみ動作確認を行っています。**
-    - Windows 11 でも動作するとは思いますが、手元に環境がないため、検証はできていません。
+    - Windows 11 でも動作するとは思いますが、手元に環境がないため、検証は行っていません。
     - 32bit 版の Windows 10 には対応していません。
   - **Linux PC は Ubuntu (20.04 LTS 以降) / Debian (11 Bullseye 以降) のみサポートしています。**
     - Linux PC では、Docker で動かすこともできます（後述）。
@@ -95,12 +95,13 @@
       - ビルド済みのサードパーティーライブラリは glibc 2.31 以上に依存しています。Docker を使わずにインストールする場合、[glibc 2.30 以下を採用する OS](https://repology.org/project/glibc/versions) では動作しません。
     - ARM 向けには、Rockchip RK3568 / RK3588 SoC のハードウェアエンコーダーに対応しています。
       - arm64 のみに対応しています。armhf などの 32bit ARM には対応していません。
-      - ラズパイ4はハードウェアエンコーダーが非力なのと入手性が微妙なため、当面サポート予定はありません。
+      - ラズパイ4はハードウェアエンコーダーが非力なのと入手性が微妙なため、サポート予定はありません。
       - ARM 向けのインストーラーも用意していますが、テスト不足のため、動作する保証はありません。
 - **EDCB または Mirakurun**
   - KonomiTV のバックエンドには、EDCB または Mirakurun のいずれかを選択できます。
   - **EDCB は、220122 以降のバージョンの [xtne6f 版 EDCB](https://github.com/xtne6f/EDCB) / [tkntrec 版 EDCB](https://github.com/tkntrec/EDCB) にのみ対応しています。**
     - **220122 以前のバージョンの EDCB では正常に動作しません。<ins>「人柱版10.66」などの古いバージョンをお使いの場合は、EDCB のアップグレードが必要です。</ins>**
+    - 230922 以降の xtne6f 版 / tkntrec 版 EDCB に更新すると EpgDataCap_Bon の起動が少し高速化され、KonomiTV でより快適にチャンネルを切り替えられるようになります。**  
     - **最新の EDCB のビルド済みアーカイブは [tsukumijima/DTV-Builds](https://github.com/tsukumijima/DTV-Builds) にて配布しています。** こだわりがなければ、DTV-Builds で配布しているアーカイブの利用を強くおすすめします (動作確認も DTV-Builds で配布しているアーカイブで行っています)。
     - **KonomiTV と連携するには、さらに EDCB に事前の設定が必要になります（後述）。**
   - **Mirakurun は 3.9.0 以降を推奨します。**
@@ -109,20 +110,23 @@
 
 ### クライアント
 
-- **PC: Microsoft Edge または Google Chrome**
-  - Firefox でも動作するはずですが、コメント描画が重く、コメント表示をオンにするとライブストリーミングが時折止まることが確認されています。動作確認もあまりできていないため、Chrome か Edge を使うことをおすすめします。
-  - Mac の Safari はサポートしていません。Mac でも Chrome か Edge を使ってください。
+- **PC: Google Chrome**
+  - **Windows 版 Microsoft Edge は https://github.com/tsukumijima/KonomiTV/issues/58 の問題 (Edge 側のバグ) があるため非推奨です。** 
+    - 仮にこの問題がなかったとしても、Microsoft Edge では通信節約モード (HEVC) での視聴に有料の [HEVC ビデオ拡張機能](https://apps.microsoft.com/detail/9NMZLZ57R3T7) プラグインが別途必要になります。
+    - Chrome ではこのような制約はないため、Chrome を使うことをおすすめします。 
+  - Firefox でも動作するはずですが、コメント描画が重く、コメント表示をオンにするとライブストリーミングが時折止まることが確認されています。  
+    - 動作確認も基本行っておらず、積極的なサポートはしていません。Chrome を使うことをおすすめします。
+  - Mac Safari はサポートしていません。Mac でも Chrome を使ってください。
 - **Android: Google Chrome**
   - Android の Firefox はサポートしていません。
 - **iPhone (iOS) / iPad (iPadOS): Safari**
-  - iOS / iPadOS 17.0 で動作確認を行っています。
-  - iOS / iPadOS の Chrome (WKWebView) はサポートしていません。
-  - 技術的な制約により、iOS / iPadOS Safari ではほかのブラウザと異なるストリーミング方式 (LL-HLS) を利用しています。現状の制約は下記の通りです。
-    - 放送大学ラジオなどのラジオチャンネルが聴取できません。
-    - 低遅延モードのオン/オフは効果がなく、常に低遅延でストリーミングされます。
-    - あまりテストされていないため、潜在的なバグがある可能性があります。
-  - Safari は全体的にバグが多く開発が大変なため、全体的にあまり動作確認を行っていません。修正できていない不具合があるかもしれません。
-  - PWA でも動作しますが、Safari 側のバグで PWA では残念ながら Picture-in-Picture ボタンが動作しません。
+  - **iOS / iPadOS 17.1 以降のみに対応しています。17.0 以前の iOS / iPadOS バージョンのサポートは廃止されました。**
+    - iOS 17.1 で ManagedMediaSource API がサポートされたため、KonomiTV 0.9.0 以降では iOS / iPadOS でも PC・Android と同じ再生方式 (mpegts.js) で再生します。
+    - メンテナンスコストの観点から、以前の LL-HLS 再生方式は廃止されました。iPadOS では 17.0 以前でも一応動作しますが、iOS では 17.1 以降でないと視聴開始に失敗します。
+  - 動作確認は iOS / iPadOS 17.1 で行っています。
+  - **iOS / iPadOS の Chrome (WKWebView) はサポートしていません。**
+  - Safari は全体的にバグが多く開発が大変なため、全体的にあまり動作確認を行えていません。修正できていない不具合があるかもしれません。
+  - PWA でも動作しますが、Safari 側のバグにより、PWA モードでは残念ながら Picture-in-Picture ボタンが動作しません。
 
 ## 備考・注意事項
 
@@ -138,9 +142,10 @@
 - **Fire タブレット (Fire HD 10 (2021) / Fire HD 8 (2022)) でも動作します。**
   - Fire HD 10 (2021) では Google Play を導入した上で、Google Play 経由で Chrome をインストールしてください。
   - Fire HD 8 (2022) では現状 Google Play が導入できないため、適宜 Chrome の APK を入手してインストールしてください。Chrome は、(Google アカウントとの同期機能以外は) GMS がインストールされていなくても動作します。
+  - **Fire HD 10 (2021) などの一部のローエンド Android (特に MediaTek SoC 搭載) デバイスでは、1080p 以上の映像描画が不安定なことが確認されています。** その場合は 720p 以下の画質を選択することをおすすめします。
 - **今後、開発の過程で設定や構成が互換性なく大幅に変更される可能性があります。**
 - **ユーザービリティなどのフィードバック・不具合報告・Pull Requests (PR) などは歓迎します。**
-  - 技術スタックはサーバー側が Python 3.10 + [FastAPI](https://github.com/tiangolo/fastapi) + [Tortoise ORM](https://github.com/tortoise/tortoise-orm) + [Uvicorn](https://github.com/encode/uvicorn) 、クライアント側が Vue.js 2.x + [Vuetify](https://github.com/vuetifyjs/vuetify) 2.x の SPA です。
+  - 技術スタックはサーバー側が Python 3.11 + [FastAPI](https://github.com/tiangolo/fastapi) + [Tortoise ORM](https://github.com/tortoise/tortoise-orm) + [Uvicorn](https://github.com/encode/uvicorn) 、クライアント側が Vue.js 2.x + [Vuetify](https://github.com/vuetifyjs/vuetify) 2.x の SPA です。
     - Vuetify は補助的に利用しているだけで、大部分は独自で書いた SCSS スタイルを適用しています。
   - コメントを多めに書いたりそれなりにきれいにコーディングしているつもりなので、少なくとも TVRemotePlus なんかよりかは読みやすいコードになっている…はず。
   - 他人が見るために書いたものではないのであれですが、一応自分用の [開発資料](https://mango-garlic-eff.notion.site/KonomiTV-90f4b25555c14b9ba0cf5498e6feb1c3) と [DB設計](https://mango-garlic-eff.notion.site/KonomiTV-544e02334c89420fa24804ec70f46b6d) 的なメモを公開しておきます。もし PR される場合などの参考になれば。
@@ -158,7 +163,7 @@ px4_drv では、公式ドライバーとの比較で、チューナーの起動
 **px4_drv を導入すると、ほかにもドロップが大幅に減って安定するなど、たくさんのメリットがあります！**  
 内蔵カードリーダーが使えないこと、BonDriver の差し替えが必要になることだけ注意してください。
 
-> **Note**  
+> [!NOTE]  
 > px4_drv for WinUSB のビルド済みアーカイブは [tsukumijima/DTV-Builds](https://github.com/tsukumijima/DTV-Builds) にて配布しています。
 
 ### EDCB の事前設定
@@ -171,7 +176,7 @@ px4_drv では、公式ドライバーとの比較で、チューナーの起動
 **また、必ず 220122 以降のバージョンの [xtne6f 版 EDCB](https://github.com/xtne6f/EDCB) / [tkntrec 版 EDCB](https://github.com/tkntrec/EDCB) を利用していることを確認してください。**  
 現在利用している EDCB のバージョンは、EpgTimer の設定ウインドウの下に表示されています。**KonomiTV でサポートしていない古い EDCB では、このバージョン表示自体がありません。**
 
-> **Note**  
+> [!NOTE]  
 > **230922 以降の xtne6f 版 / tkntrec 版 EDCB に更新すると EpgDataCap_Bon の起動が少し高速化され、KonomiTV でより快適にチャンネルを切り替えられるようになります。**
 
 **[動作環境] に記載のとおり、<ins>220122 以前や「人柱版10.66」などの古いバージョンをお使いの場合は、EDCB のアップグレードが必要になります。</ins>**  
@@ -209,11 +214,11 @@ px4_drv では、公式ドライバーとの比較で、チューナーの起動
 **EpgDataCap_Bon を開き、[設定] → [ネットワーク設定] → [TCP送信] から、[SrvPipe] を選択して [追加] ボタンをクリックしてください。**
 送信先一覧に `0.0.0.1:0-29 (SrvPipe)` と表示されていれば OK です。
 
-> **Note**  
+> [!NOTE]  
 > SrvPipe とは、EpgDataCap_Bon で受信した放送波を EpgTimerSrv (EpgTimer Service) に渡すための、EDCB 固有の特殊な名前付きパイプのことです。  
 > KonomiTV は SrvPipe を経由して EDCB から放送波を受信しているため、この設定を忘れると、テレビのライブストリーミングができません。
 
-> **Note**  
+> [!NOTE]  
 > 必須ではありませんが、この機会に [設定] → [動作設定] → [全サービスを処理対象とする] のチェックを外しておくことを推奨します。
 
 このほか、**リモート PC の KonomiTV から EDCB にアクセスする場合は、EpgTimerSrv.exe にファイアウォールが掛かっていると接続に失敗します。**  
@@ -234,14 +239,14 @@ KonomiTV は、[QSVEncC](https://github.com/rigaya/QSVEnc) (Intel QSV)・[NVEncC
 それぞれのハードウェアエンコーダーを使用するには、対応した GPU ドライバーのインストールが必要です。  
 基本的にすでにインストールされていると思います。
 
-> **Note**  
+> [!NOTE]  
 > 古いドライバーを使用している場合は、この機会に最新のドライバーにアップデートしておくことをおすすめします。ドライバーが古すぎると、ハードウェアエンコードに失敗する場合があります。
 
 #### Linux
 
 QSVEncC では、別途 Intel Media Driver のインストールが必要です。
 
-> **Warning**  
+> [!WARNING]  
 > Linux 版の Intel QSV は、Broadwell (第5世代) 以上の Intel CPU でのみ利用できます。そのため、Haswell (第4世代) 以下の CPU では、Intel Media Driver のインストール有無にかかわらず、QSVEncC を利用できません。  
 > なお、Windows 版の Intel QSV は、Haswell (第4世代) 以下の CPU でも利用できます。
 
@@ -258,15 +263,15 @@ sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-open
 
 以上のコマンドを実行して、Intel Media Driver をインストールしてください (Ubuntu 20.04 LTS 以降向け) 。  
 
-> **Note**  
+> [!NOTE]  
 > Docker を使ってインストールする場合は、Intel Media Driver をインストールしなくても動作します（未検証）。  
 > [KonomiTV の Docker イメージ](https://github.com/tsukumijima/KonomiTV/blob/master/Dockerfile) には Intel Media Driver が標準でインストールされているほか、Intel Graphics 本体のドライバは Linux カーネルに取り込まれているためです。
 
-> **Note**  
+> [!NOTE]  
 > 以前 Alder Lake (第12世代) 以降の Intel CPU で必要だった `libmfx-gen1.2` は、[QSVEncC 7.38](https://github.com/rigaya/QSVEnc/releases/tag/7.38) 以降で `libmfxgen1` に置き換えられました。  
 > `libmfxgen1` は、Ubuntu 20.04 LTS 以降で利用できます。
 
-> **Warning**  
+> [!WARNING]  
 > **Jasper Lake 世代などの一部の CPU や Arc GPU では、別途 HuC ファームウェアのロードを有効にする必要があります。**  
 > HuC ファームウェアのロードを有効にするには、`/etc/modprobe.d/i915.conf` にカーネルパラメーターとして `options i915 enable_guc=2` を追記し、システムを再起動してください。  
 > 詳細は [QSVEncC のドキュメント](https://github.com/rigaya/QSVEnc/blob/master/Install.ja.md) を確認してください。
@@ -335,10 +340,10 @@ sudo reboot
 
 **KonomiTV で外出先からリモート視聴するには、Tailscale というメッシュ VPN ソフトを、サーバー PC とクライアントデバイス双方にインストールしておく必要があります。**  
 
-> **Note**  
+> [!NOTE]  
 > KonomiTV を家の中だけで使う分には必須ではありませんが、セットアップがとっても簡単で時間もそこまでかからないので、この機会にインストールしておくことをおすすめします。
 
-> **Note**  
+> [!NOTE]  
 > 厳密にはほかの方法 (OpenVPN・SoftEther・リバースプロキシなど) でもリモート視聴は可能ですが、技術的に難易度がかなり高くネットワークエンジニア以外には難しいこと、Tailscale を使った方法が一番手軽でセキュアなことから、**<ins>KonomiTV では Tailscale を使ったリモート視聴方法のみ公式にサポートしています。</ins>**  
 > **特にリバースプロキシ経由でのアクセスでは<ins>一部機能が正常に動作しなくなる</ins>ほか、セキュリティ上の問題もあるため、非推奨です。**
 
@@ -369,10 +374,10 @@ KonomiTV を共有したい家族や親戚に Tailscale アカウントを作成
 **アップデート/アンインストール時は、KonomiTV のインストーラーを起動したあと、最初の質問でアップデートでは `2` 、アンインストールでは `3` を入力します。**  
 **その後、KonomiTV がインストールされているフォルダを入力すると、自動的にアップデート/アンインストールが開始されます！**
 
-> **Note**  
+> [!NOTE]  
 > インストール/アップデートにはインターネット接続が必要です。オフラインインストーラーではないため注意してください。
 
-> **Warning**  
+> [!WARNING]  
 > **KonomiTV サーバーは特殊な仕組みで動作しているため、通常のアプリと異なり Windows の「設定」や「プログラムと機能」からアンインストールすることはできません。**  
 > アンインストールする際は、**必ず KonomiTV のインストーラー (アンインストーラーモード) を使ってアンインストールしてください。**  
 > インストーラーには後方互換性があるため、インストールされているバージョンより新しいバージョンのインストーラーを使ってアンインストールすることもできます。
@@ -380,14 +385,14 @@ KonomiTV を共有したい家族や親戚に Tailscale アカウントを作成
 **以下はインストール時の手順になります。**  
 アップデート/アンインストールする際は適宜読み替えてください。
 
-> **Warning**  
+> [!WARNING]  
 > KonomiTV は鋭意開発中のため、現在破壊的な構成変更が頻繁に行われています。  
 > 破壊的変更が続く中アップデーターの機能を維持することは難しいため、**安定版リリースまでの当面の間、アップデーターの今後の改修は凍結されています。**  
 > お手数をおかけしますが、**0.7.1 以前から 0.8.0 以降へのアップデートは、適宜データベース (`server/data/database.sqlite`) や設定ファイル (`config.yaml`) などをバックアップの上で一旦アンインストールし、新規でインストールし直すことを強くおすすめします。**  
 > 0.8.0 から 0.9.0 以降へのアップデートは動作する可能性がありますが、0.7.1 以前からのアップデートでは大幅な構成変更が入っているため、確実に動作しません。  
 > **なお、0.7.1 のアンインストールには 0.7.1 のインストーラーが必要です。0.8.0 以降のインストーラーではアンインストールに失敗するため注意してください。**  
 
-> **Note**  
+> [!NOTE]  
 > **インストーラーを実行する前に、当該バージョンの [リリースノート](https://github.com/tsukumijima/KonomiTV/releases) を一読しておくことを強く推奨します。**  
 > 各バージョンごとのインストール時の注意点なども、すべてリリースノートに記載されています。
 
@@ -399,7 +404,7 @@ Windows 8 以前と、32bit OS には対応していません。
 **[Releases](https://github.com/tsukumijima/KonomiTV/releases) ページから、最新の KonomiTV のインストーラーをダウンロードします。**  
 Assets の下にある `KonomiTV-Installer.exe` をダウンロードしてください。
 
-> **Note**  
+> [!NOTE]  
 > **`KonomiTV-Installer.exe` がウイルス対策ソフトにウイルスと扱われてしまうことがありますが、誤検知です。一般に Python 製ソフトを exe 化すると問答無用でウイルスだと扱われてしまうことが多く、頭を抱えています…。**  
 > 適宜お使いのウイルス対策ソフトで、`KonomiTV-Installer.exe` を許可してください。KonomiTV のインストーラーのソースコードは [こちら](https://github.com/tsukumijima/KonomiTV/tree/master/installer) で公開しています。
 
@@ -419,17 +424,17 @@ Assets の下にある `KonomiTV-Installer.exe` をダウンロードしてく�
 
 KonomiTV の Windows サービスを一般ユーザーの権限で起動することで、KonomiTV からユーザーのネットワークドライブにアクセスできるようになります。
 
-> **Warning**  
+> [!WARNING]  
 > **KonomiTV の Windows サービスは、PC の起動後数分遅れてから起動します。** PC の起動直後は EDCB や Mirakurun の Windows サービスがまだ起動していないためです。
 
-> **Note**  
+> [!NOTE]  
 > 指定したユーザーにパスワードを設定していない場合は、簡単なものでいいので何かパスワードを設定してから、その設定したパスワードを入力してください (なお、パスワードの設定後にインストーラーを起動し直す必要はありません) 。
 
-> **Note**  
+> [!NOTE]  
 > ごく稀に、正しいパスワードを指定したにも関わらず、ログオンできない場合があります。その場合は、一度インストーラーを Ctrl+C で中断してください。  
 その後、インストーラーの実行ファイル (`KonomiTV-Installer.exe`) を Shift + 右クリック → [[別のユーザーとして実行]](https://faq.nec-lavie.jp/qasearch/1007/app/servlet/relatedqa?QID=020525) をクリックして、ログオン中のユーザー名とパスワードを指定してから、再度インストーラーを実行してみてください。
 
-> **Note**  
+> [!NOTE]  
 > セキュリティソフトの誤作動により、インストール途中にエラーが発生し、インストールに失敗することがあります。  
 > その場合は一時的にセキュリティソフトのリアルタイムスキャンをオフにしたり、インストール先のフォルダをスキャン対象から除外してから、再度インストーラーを実行してみてください。
 
@@ -438,10 +443,10 @@ KonomiTV の Windows サービスを一般ユーザーの権限で起動する�
 [動作環境] に記載のとおり、Ubuntu 20.04 LTS / Debian 11 Bullseye 以降の OS にのみ対応しています。  
 それ以外のディストリビューションでも動くかもしれませんが、動作は保証しませんし、今後のサポート予定もありません（Docker ならどの OS でもそれなりに動くような気はします）。
 
-> **Note**  
+> [!NOTE]  
 > できるだけ Ubuntu の利用を推奨しますが、もし Ubuntu 以外の OS にインストールする際は、Docker でのインストールをおすすめします。
 
-> **Warning**  
+> [!WARNING]  
 > NVIDIA が KonomiTV で利用していたバージョンの CUDA Docker イメージを削除した影響で ([詳細1](https://twitter.com/TVRemotePlus/status/1683860609555898369) / [詳細2](https://twitter.com/TVRemotePlus/status/1689227380664209409)) 、0.7.1 以前では Docker を使ったインストール方法が利用できなくなりました。  
 > 0.8.0 以降のバージョンでは CUDA Docker イメージの pull 先を [NGC](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/cuda/tags) に変更しています。0.8.0 以降へのアップデートをお願いします。
 
@@ -453,18 +458,18 @@ KonomiTV の Windows サービスを一般ユーザーの権限で起動する�
 **Docker を使ったインストール方法では、事前に [Docker](https://docs.docker.com/engine/install/) と [Docker Compose](https://docs.docker.com/compose/install/) のインストールが必要です。**  
 Docker Compose は V1 と V2 の両方に対応していますが、できれば V2 (ハイフンなしの `docker compose` コマンド) が使えるようにしておくことをおすすめします。
 
-> **Warning**  
+> [!WARNING]  
 > **ARM デバイスでは、対応コストの観点から Docker を使ったインストール方法はサポートされていません。**
 
-> **Warning**  
+> [!WARNING]  
 > **Docker Compose V1 は最終版の 1.29.2 でのみ動作を確認しています。古いバージョンでは正常に動作しない可能性が高いです。**  
 > もし Docker Compose V1 が 1.29.2 よりも古い場合は、この機会に V2 への更新をおすすめします。以前よりもグラフィカルに進捗が表示されたりなどのメリットもあります。
 
-> **Warning**  
+> [!WARNING]  
 > [QSVEncC・NVEncC・VCEEncC・rkmppenc に対応した GPU ドライバーのインストール](#qsvenccnvenccvceenccrkmppenc-に対応した-gpu-ドライバーのインストール) に記載のとおり、**NVIDIA GPU が搭載されている PC に Docker を使ってインストールする場合は、必ず事前に NVIDIA Container Toolkit をインストールしておいてください。**  
 > NVIDIA Container Toolkit がインストールされていない場合、KonomiTV のインストールにも失敗する可能性が高いです。
 
-> **Note**  
+> [!NOTE]  
 > Docker を使ってインストールする場合、動作環境によっては `getaddrinfo EAI_AGAIN registry.yarnpkg.com` といったエラーで Docker イメージのビルドに失敗することがあります。  
 > Docker の DNS 設定がおかしかったり、Docker が書き換える iptables の定義が壊れてしまっていることが原因のようで、解決方法は千差万別です。  
 > KonomiTV は通常のインストール方法でも極力環境を汚さないように開発されています。Docker を使わずに通常通りインストールしたほうが早いかもしれません。
@@ -480,7 +485,7 @@ chmod a+x KonomiTV-Installer.elf
 以上のコマンドを実行して `KonomiTV-Installer.elf` を実行し、インストーラーの通りに進めてください。  
 インストールには root 権限が必要です。`KonomiTV-Installer.elf` の実行時に自動的にパスワードを求められます。
 
-> **Note**  
+> [!NOTE]  
 > ARM デバイスでは、`KonomiTV-Installer.elf` の代わりに `KonomiTV-Installer-ARM.elf` をダウンロードしてください。
 
 ### KonomiTV にアクセスする
@@ -492,10 +497,10 @@ chmod a+x KonomiTV-Installer.elf
 
 **通常、`(イーサネット)` または `(Wi-Fi)` の URL が家の中からアクセスするときの URL 、`(Tailscale)` の URL が外出先（家の外）から Tailscale 経由でアクセスするときの URL になります。**  
 
-> **Note**  
+> [!NOTE]  
 > `https://my.local.konomi.tv:7000/` の URL は、KonomiTV サーバーをインストールした PC 自身を指す URL ([ループバックアドレス](https://wa3.i-3-i.info/word1101.html)) です。基本的に使うことはないと思います。
 
-> **Note**  
+> [!NOTE]  
 > `(Tailscale)` の URL は、事前に Tailscale を導入していない場合は表示されません（外出先からのアクセス自体は、Tailscale をいつ導入したかに関わらず、Tailscale が起動していれば問題なく行えます）。
 
 KonomiTV サーバーは Windows サービス (Windows) / PM2 サービス (Linux) / Docker サービス (Linux-Docker) としてインストールされているので、サーバー PC を再起動したあとも自動的に起動します。  
@@ -509,7 +514,7 @@ KonomiTV サーバーは Windows サービス (Windows) / PM2 サービス (Linu
 ブラウザバーが表示されない分、より映像に没頭できますし、画面も広く使えます。私も KonomiTV をデスクトップアプリとして使っています。  
 タスクバーや Dock に登録しておけば、起動するのも簡単です。ぜひお試しください。
 
-> **Note**  
+> [!NOTE]  
 > デスクトップアプリとしてインストールしない場合は、[サイトの設定] から自動再生を [許可する] にしておくと、テレビをスムーズに視聴できます。
 
 <img width="100%" src="https://user-images.githubusercontent.com/39271166/201473798-97aa818a-0474-46bc-b56a-0c49f281e92a.jpg"><br>
@@ -518,11 +523,11 @@ KonomiTV サーバーは Windows サービス (Windows) / PM2 サービス (Linu
 
 スマホは画面が小さいので、アプリとしてインストールした方が画面が広くなって使いやすいです。私も KonomiTV をスマホアプリとして使っています。こちらもぜひお試しください。
 
-> **Warning**  
+> [!WARNING]  
 > 現状、iPhone / iPad Safari で KonomiTV をスマホアプリとしてインストールすると、Safari のバグの影響で Picture-in-Picture ボタンが利用できなくなります。  
 > とはいえ Picture-in-Picture を使わないのであれば、アプリとしてインストールした方が圧倒的に快適です。
 
-> **Note**  
+> [!NOTE]  
 > [PWA (Progressive Web Apps)](https://developer.mozilla.org/ja/docs/Web/Progressive_web_apps) という、Web アプリを通常のネイティブアプリのように使えるようにする技術を利用しています。将来的には、PWA だけでなく、より快適に利用できるようにした iOS 向けアプリと Android 向けアプリ (いわゆるガワアプリ) をリリースする予定です。
 
 ### フィードバックのお願い
@@ -535,7 +540,7 @@ KonomiTV サーバーは Windows サービス (Windows) / PM2 サービス (Linu
 **もし KonomiTV を使っていて、何か不具合や問題が発生した場合は、ぜひ [Google フォーム](https://docs.google.com/forms/d/e/1FAIpQLScWKzmfCat4w9n9Jp4_P1dIFzewzV4qO-7_BJOcs5Zdvt6yPA/viewform) からフィードバックをお願いします…！！**  
 **フィードバックしていただけると、KonomiTV の品質改善に大いに役立ちます！**
 
-> **Note**  
+> [!NOTE]  
 > できればマイナーな条件や機能の組み合わせで問題が出ないか、各自でテストしていただけるととても助かります…！  
 > その際、フィードバックフォームには試した環境や条件などを詳細に記載していただけると、問題の再現性が高まります。
 >
@@ -580,11 +585,11 @@ aa-bb-cc-dd の部分には、ローカル IP アドレスのうち、. (ドッ�
 
 **KonomiTV のサーバー設定は、KonomiTV をインストールしたフォルダにある config.yaml に保存されています。**  
 
-> **Warning**  
+> [!WARNING]  
 > 0.7.1 以前に利用されていた config.yaml と 0.8.0 以降で利用されている config.yaml は、フォーマットの互換性がありません。  
 > KonomiTV は開発中のため、今後も設定ファイルの破壊的変更が発生する可能性があります。
 
-> **Note**  
+> [!NOTE]  
 > config.example.yaml は、config.yaml のデフォルトの設定を記載した、config.yaml のひな形となるファイルです。アップデート時に上書きされるため、config.example.yaml は編集しないでください。  
 
 **config.yaml は、インストーラーでインストールした際に自動的に生成されます。**  
@@ -598,7 +603,7 @@ aa-bb-cc-dd の部分には、ローカル IP アドレスのうち、. (ドッ�
 KonomiTV のバックエンドには、EDCB または Mirakurun のいずれかを選択できます。  
 `general.backend` に `EDCB` または `Mirakurun` を指定してください。
 
-> **Warning**  
+> [!WARNING]  
 > 一部 Windows 環境では localhost の名前解決が遅いため、チューナーが数秒遅れて起動し、ストリーミング開始までの待機時間が長くなる場合があります。    
 > EDCB / Mirakurun と同じ PC に KonomiTV をインストールしている場合、localhost ではなく 127.0.0.1 の利用を推奨します。
 
@@ -609,7 +614,7 @@ EDCB をバックエンドとして利用する場合は、EDCB (EpgTimerNW) の
 通常、TCP API の URL は `tcp://(EDCBのあるPCのIPアドレス):4510/` になります。接続できない際は、ファイアウォールの設定や EpgTimer Service が起動しているかを確認してみてください。  
 前述のとおり、あらかじめ EDCB の事前設定を済ませておく必要があります。
 
-> **Note**  
+> [!NOTE]  
 > TCP API の URL として `tcp://edcb-namedpipe/` と指定すると、TCP API の代わりに名前付きパイプで通信を行います（KonomiTV と EDCB が同じ PC で起動している場合のみ）。
 
 -----
@@ -626,16 +631,16 @@ Mirakurun をバックエンドとして利用する場合は、Mirakurun の HT
 **ハードウェアエンコーダーを選択すると、エンコードに GPU アクセラレーションを利用するため、CPU 使用率を大幅に下げる事ができます。**  
 エンコード速度も高速になるため、お使いの PC で利用可能であれば、できるだけハードウェアエンコーダーを選択することを推奨します。
 
-> **Note**  
+> [!NOTE]  
 > お使いの PC で選択したハードウェアエンコーダーが利用できない場合、ライブストリーミング時にその旨を伝えるエラーメッセージが表示されます。まずはお使いの PC でハードウェアエンコーダーが使えるかどうか、一度試してみてください（設定ファイルの変更後はサーバーの再起動が必要です）。
 
-> **Note**  
+> [!NOTE]  
 > 前述のとおり、Linux 環境で QSVEncC・NVEncC・VCEEncC・rkmppenc を利用する場合は、別途 GPU ドライバーのインストールが必要です。
 
 **QSVEncC は、Intel 製 CPU の内蔵 GPU に搭載されているハードウェアエンコード機能 (Intel QSV) を利用するエンコーダーです。**  
 ここ数年に発売された Intel Graphics 搭載の Intel 製 CPU であれば基本的に搭載されているため、一般的な PC の大半で利用できます。内蔵 GPU なのにもかかわらず高速で、画質も良好です。  
 
-> **Warning**  
+> [!WARNING]  
 > Linux 版の Intel QSV は、Broadwell (第5世代) 以上の Intel CPU でのみ利用できます。そのため、Haswell (第4世代) 以下の CPU では、QSVEncC を利用できません。  
 > なお、Windows 版の Intel QSV は、Haswell (第4世代) 以下の CPU でも利用できます。
 
@@ -654,7 +659,7 @@ QSVEncC・NVEncC に比べると安定しない上に、画質や性能もあま
 `server.port` に、KonomiTV サーバーのリッスンポートを指定してください。  
 デフォルトのリッスンポートは `7000` です。  
 
-> **Note**  
+> [!NOTE]  
 > インストーラーでのインストール時にポート 7000 がほかのサーバーソフトと重複している場合は、代わりのポートとして 7100 (7100 も利用できない場合は、さらに +100 される) が自動的にデフォルトのリッスンポートに設定されます。
 
 基本的に変更の必要はありません。変更したい方のみ変更してください。
@@ -688,7 +693,7 @@ QSVEncC・NVEncC に比べると安定しない上に、画質や性能もあま
 KonomiTV には、放送波から取得できるものよりも遥かに高画質な局ロゴが同梱されています。  
 ほとんどの地上波チャンネル・BS/CS の全チャンネル・一部の CATV のコミュニティチャンネルをカバーしており、受信できるチャンネルに対応する局ロゴが同梱されていれば、それが利用されます。
 
-> **Note**  
+> [!NOTE]  
 > 放送波から取得できる局ロゴは最高でも 64x36 で、現代的なデバイスで見るにはあまりにも解像度が低すぎます。とはいえ、局ロゴがなければぱっとチャンネルを判別できなくなり、ユーザー体験が悪化してしまいます。  
 > さらに、局ロゴは何らかの事情で取得できていないことも考えられます。こういった事情もあり、高画質な局ロゴを同梱しています。
 
@@ -702,7 +707,7 @@ KonomiTV には、放送波から取得できるものよりも遥かに高画�
     - ロゴデータ保存機能は [2020年10月に追加された](https://github.com/xtne6f/EDCB/commit/0457241ccdd83ae9847ab15a16157d04927b72ce) もので、KonomiTV が動作する 220122 以降のバージョンの EDCB なら問題なく利用できます。
   - EpgDataCap_Bon の設定 → [EPG取得設定] → [ロゴデータを保存する] にチェックが入っていて、なおかつ `EDCB/Settings/LogoData/` にロゴデータ (PNG) が保存されていることが条件です。
 
-> **Note**  
+> [!NOTE]  
 > 同梱されているロゴは `server/static/logos/` に `NID(ネットワークID)-SID(サービスID).png` (解像度: 256×256) のフォーマットで保存されています。  
 > チャンネルのネットワーク ID とサービス ID がわかっていれば、自分で局ロゴ画像を作ることも可能です。
 
@@ -726,7 +731,7 @@ KonomiTV サーバーは HTTPS で起動しているため、Web UI には `http
 Web UI には `https://(IPアドレス(.を-にしたもの)).local.konomi.tv:7000/` のフォーマットの HTTPS URL (例: `https://192-168-1-11.local.konomi.tv:7000/`) でアクセスしてください。  
 URL が少し長いので、適宜ブックマークやホーム画面に追加しておくと便利です。
 
-> **Note**  
+> [!NOTE]  
 > 上記のフォーマット以外の URL (例: `https://localhost:7000/`・`https://192.168.1.11:7000/`) では証明書や HTTPS の通信エラーが発生し、Web UI にアクセスできない仕様になっています。  
 > 当然ですが、プライベート IP アドレス単体では正式な証明書を取得できないためです。 
 
@@ -737,7 +742,7 @@ URL が少し長いので、適宜ブックマークやホーム画面に追加�
 KonomiTV を利用するには、DNS Rebinding Protection を無効にする必要があります。  
 適宜ルーターの設定を変更するか、お使いのデバイスの DNS を 1.1.1.1 や 8.8.8.8 などの公開 DNS サーバーに変更してください。
 
-> **Note**  
+> [!NOTE]  
 > OpenWRT では、Rebind Protection のチェックボックスを外すと無効化できるようです。
 
 ### ライブストリーミングの視聴が安定しない・途切れ途切れになる
@@ -889,11 +894,11 @@ poetry run task serve
 リロードモードでは、`server/` 以下のコードを変更すると自動でサーバーが再起動されます。  
 コードが変更されると今まで起動していたサーバープロセスは強制終了され、新しいサーバープロセスが起動されます。
 
-> **Warning**  
+> [!WARNING]  
 > リロードモードかつ EDCB バックエンド利用時、サーバーを終了するタイミング次第では、EDCB のチューナープロセス (EpgDataCap_Bon) が終了されないままになることがあります。  
 > 必ずログでエンコードタスクが終了 (Offline) になったことを確認してから、サーバーを終了してください。
 
-> **Warning**  
+> [!WARNING]  
 > Python の asyncio の制限により、リロードモードは事実上 Windows 環境では利用できません。  
 > 正確には外部プロセス実行を伴うストリーミング視聴を行わなければ一応動作しますが、予期せぬ問題が発生する可能性があります。  
 > こうした関係もあり、現在の開発は Linux (Ubuntu 20.04 LTS) をメインに行っています。
@@ -905,7 +910,7 @@ poetry run task serve
 起動中のサーバーのログは、`server/logs/KonomiTV-Server.log` に保存されます。  
 同時起動される Akebi HTTPS Server のログは `server/logs/Akebi-HTTPS-Server.log` に保存されます。
 
-> **Note**  
+> [!NOTE]  
 > サーバー設定でデバッグモード (general -> debug) を有効にすると、デバッグログも出力されるようになります。開発環境では常にデバッグモードにしておくことをおすすめします。  
 > さらにエンコーダーのログ (general -> debug_encoder) を有効にすると、エンコーダーのログが `server/logs/KonomiTV-Encoder-(ストリームID).log` に保存されます。
 
@@ -922,11 +927,11 @@ API ドキュメントは FastAPI によって自動生成されたものです�
 事前に PowerShell 7 を管理者権限で起動しておいてください。  
 管理者権限でない場合、Windows サービスのインストールに失敗します。
 
-> **Warning**  
+> [!WARNING]  
 > KonomiTV の Windows サービスは相当強引な手法で実装しているため (そうせざるを得なかった…) 、開発状況次第では Windows サービスでのみ動作しなくなっている可能性があります。  
 > 動作不良時は、一度 `poetry run task serve` で起動できるかや、`server/logs/KonomiTV-Server.log` 内のログを確認してみてください。
 
-> **Note**  
+> [!NOTE]  
 > KonomiTV-Service.py は、KonomiTV の Windows サービスの管理を行うユーティリティスクリプトです。
 > `poetry run python KonomiTV-Service.py --help` と実行すると、利用できるコマンドの一覧が表示されます。
 
@@ -984,7 +989,7 @@ sudo pm2 save
 クライアント (フロントエンド) は Vue.js 2.x の SPA (Single Page Application) で開発されており、コーディングとビルドには少なくとも Node.js が必要です。  
 Node.js 18.17.1 / yarn 1.x で開発しています。
 
-> **Warning**  
+> [!WARNING]  
 > 情報がほとんどなく詳細不明ですが、Node.js 18.18.0 以降ではどういう訳か `vue-cli-service build` がハングアップし、クライアントのビルド時にフリーズしてしまう問題があります。  
 > 開発者側で直接対応可能な問題ではないので、当面の間 Node.js のバージョンを 18.17.1 に固定しています。  
 
@@ -1007,7 +1012,7 @@ yarn build
 特にリッスン範囲の制限はしていないので、プライベートネットワーク上の他の PC やスマホからもアクセスできます。  
 サーバーを終了するときは、Ctrl+C を押してください。
 
-> **Warning**  
+> [!WARNING]  
 > `yarn dev` でクライアントの開発サーバーを起動する際は、必ず `poetry run task dev` でサーバー側の開発サーバーも起動してください。  
 > クライアントの開発サーバーはフロントエンド側の静的ファイルのみをホスティングしますが、サーバー側の開発サーバーは静的ファイルの配信だけでなく、API サーバーとしての役割も兼ねています。  
 > このため、クライアントの開発サーバーのみ、クライアントからのサーバー API のアクセス先を `https://(サーバーと同じIPアドレス).local.konomi.tv:7000/` に固定しています。
@@ -1023,7 +1028,7 @@ yarn build
 
 特典などは今のところありませんが、それでも寄付していただけるのであれば、アマギフの URL を [Twitter の DM (クリックすると DM が開きます)](https://twitter.com/messages/compose?recipient_id=1194724304585248769) か `tvremoteplusあっとgmail.com` まで送っていただけると、大変開発の励みになります…🙏🙏🙏
 
-> **Note**  
+> [!NOTE]  
 > アマギフを送っていただく際に KonomiTV に実装してほしい機能を添えていただければ、もしかするとその機能を優先して実装することがある…かもしれません。  
 > ただし、私個人のプライベートやモチベーション、技術的な難易度などの兼ね合いもあるため、『必ず実装する』とお約束することはできません。あくまで私からのちょっとしたお礼レベルなので、基本期待しないでいただけると…。
 
@@ -1032,7 +1037,7 @@ yarn build
 このほか、**[こちら](https://www.amazon.co.jp/?tag=tsukumijima-22) のリンクをクリックしてから Amazon で何かお買い物していただくことでも支援できます (Amazon アソシエイト)。**  
 買う商品はどのようなものでも OK ですが、より [紹介料率 (商品価格のうち、何%がアソシエイト参加者に入るかの割合)](https://affiliate.amazon.co.jp/help/node/topic/GRXPHT8U84RAYDXZ) が高く、価格が高い商品の方が、私に入る報酬は高くなります。Kindle の電子書籍や食べ物・飲み物は紹介料率が高めに設定されているみたいです。  
 
-> **Note**  
+> [!NOTE]  
 > もしかすると GitHub から Amazon に飛ぶと[リファラ](https://wa3.i-3-i.info/word129.html)チェックで弾かれてしまうかもしれないので、リンクをコピペして新しく開いたタブに貼り付ける方が良いかもしれません。
 
 ## Special Thanks
