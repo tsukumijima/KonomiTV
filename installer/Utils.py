@@ -746,15 +746,22 @@ def RunSubprocess(
     サブプロセスを実行する。
 
     Args:
-        name (str): プロセス名
+        name (str): 表示する実行中タスクの名前
         args (list[str]): 実行するコマンド
         cwd (Path): カレントディレクトリ
+        environment (dict[str, str], optional): 追加の環境変数. Defaults to None.
         error_message (str, optional): エラー発生時のエラーメッセージ. Defaults to '予期しないエラーが発生しました。'.
         error_log_name (str, optional): エラー発生時のエラーログ名. Defaults to 'エラーログ'.
 
     Returns:
         bool: 成功したかどうか
     """
+
+    # OS デフォルトの環境変数をコピーし、その上に追加の環境変数を適用する
+    ## OS デフォルトの環境変数がないと、Windows で名前解決に失敗したりなどの予期しない問題が発生する
+    env = os.environ.copy()
+    if environment is not None:
+        env.update(environment)
 
     print(Padding(name, (1, 2, 0, 2)))
     progress = CreateBasicInfiniteProgress()
@@ -763,7 +770,7 @@ def RunSubprocess(
         result = subprocess.run(
             args = args,
             cwd = cwd,
-            env = environment,
+            env = env,
             stdout = subprocess.PIPE,  # 標準出力をキャプチャする
             stderr = subprocess.STDOUT,  # 標準エラー出力を標準出力にリダイレクト
             text = True,  # 出力をテキストとして取得する
@@ -791,18 +798,25 @@ def RunSubprocessDirectLogOutput(
     サブプロセスを実行する。(ログをそのまま出力する)
 
     Args:
-        name (str): プロセス名
+        name (str): 表示する実行中タスクの名前
         args (list[str]): 実行するコマンド
         cwd (Path): カレントディレクトリ
+        environment (dict[str, str], optional): 追加の環境変数. Defaults to None.
         error_message (str, optional): エラー発生時のエラーメッセージ. Defaults to '予期しないエラーが発生しました。'.
 
     Returns:
         bool: 成功したかどうか
     """
 
+    # OS デフォルトの環境変数をコピーし、その上に追加の環境変数を適用する
+    ## OS デフォルトの環境変数がないと、Windows で名前解決に失敗したりなどの予期しない問題が発生する
+    env = os.environ.copy()
+    if environment is not None:
+        env.update(environment)
+
     print(Padding(name, (1, 2, 1, 2)))
     print(Rule(style=Style(color='cyan'), align='center'))
-    subprocess_result = subprocess.run(args, cwd = cwd, env = environment)
+    subprocess_result = subprocess.run(args, cwd = cwd, env = env)
     print(Rule(style=Style(color='cyan'), align='center'))
 
     if subprocess_result.returncode != 0:
