@@ -28,13 +28,13 @@
 
 // スマホ横画面
 @mixin smartphone-horizontal {
-    @media (max-width: 1000px) and (max-height: 425px) {
+    @media (max-width: 1000px) and (max-height: 500px) {
         @content;
     }
 }
 // スマホ横画面 (iPhone SE2 などの縦に短いサイズのスマホ)
 @mixin smartphone-horizontal-short {
-    @media (max-width: 680px) and (max-height: 425px) {
+    @media (max-width: 680px) and (max-height: 500px) {
         @content;
     }
 }

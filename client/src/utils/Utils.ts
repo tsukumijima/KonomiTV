@@ -210,38 +210,38 @@ export default class Utils {
 
 
     /**
+     * 表示画面がタブレット横画面かどうか (メディアクエリの定義は variables.scss と同一)
+     * @returns タブレット横画面なら true を返す
+     */
+    static isTabletHorizontal(): boolean {
+        return window.matchMedia('(min-width: 1000.01px) and (max-width: 1264px) and (max-height: 850px)').matches;
+    }
+
+
+    /**
+     * 表示画面がタブレット縦画面かどうか (メディアクエリの定義は variables.scss と同一)
+     * @returns タブレット縦画面なら true を返す
+     */
+    static isTabletVertical(): boolean {
+        return window.matchMedia('(min-width: 600.1px) and (max-width: 850px) and (min-height: 850.01px)').matches;
+    }
+
+
+    /**
      * 表示画面がスマホ横画面かどうか
      * @returns スマホ横画面なら true を返す
      */
     static isSmartphoneHorizontal(): boolean {
-        return window.matchMedia('(max-width: 1000px) and (max-height: 425px)').matches;
+        return window.matchMedia('(max-width: 1000px) and (max-height: 500px)').matches;
     }
 
 
     /**
-     * 表示画面がスマホ縦画面かどうか
+     * 表示画面がスマホ縦画面かどうか (メディアクエリの定義は variables.scss と同一)
      * @returns スマホ縦画面なら true を返す
      */
     static isSmartphoneVertical(): boolean {
         return window.matchMedia('(max-width: 600px) and (min-height: 375.01px)').matches;
-    }
-
-
-    /**
-     * 表示画面がタブレット横画面かどうか
-     * @returns タブレット横画面なら true を返す
-     */
-    static isTabletHorizontal(): boolean {
-        return window.matchMedia('(max-width: 1264px) and (max-height: 850px)').matches;
-    }
-
-
-    /**
-     * 表示画面がタブレット縦画面かどうか
-     * @returns タブレット縦画面なら true を返す
-     */
-    static isTabletVertical(): boolean {
-        return window.matchMedia('(max-width: 850px) and (min-height: 850.01px)').matches;
     }
 
 
