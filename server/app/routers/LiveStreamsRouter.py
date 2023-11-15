@@ -6,20 +6,17 @@ from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import Path
-from fastapi import Query
 from fastapi import status
 from fastapi.requests import Request
 from fastapi.responses import Response
 from fastapi.responses import StreamingResponse
 from starlette.types import Receive
 from sse_starlette.sse import EventSourceResponse
-from typing import Literal
 
 from app import schemas
 from app.constants import QUALITY, QUALITY_TYPES
 from app.models.Channel import Channel
 from app.streams.LiveStream import LiveStream
-from app.streams.LiveStream import LiveStreamClient
 from app.streams.LiveStream import LiveStreamStatus
 from app.utils import Logging
 
@@ -51,28 +48,6 @@ async def ValidateQuality(quality: str = Path(..., description='映像の品質�
             detail = 'Specified quality was not found',
         )
     return quality
-
-
-async def GetLiveStreamClient(
-    display_channel_id: str = Depends(ValidateChannelID),
-    quality: QUALITY_TYPES = Depends(ValidateQuality),
-    client_id: str = Path(..., description='ライブストリームのクライアント ID 。'),
-) -> LiveStreamClient:
-    """ ライブストリームのクライアント ID からライブストリームクライアントのインスタンスを取得する """
-
-    # 既に接続済みのクライアントのインスタンスを取得
-    livestream = LiveStream(display_channel_id, quality)
-    livestream_client = livestream.connectToExistingClient(client_id)
-
-    # 指定されたクライアント ID が存在しない
-    if livestream_client is None:
-        Logging.error(f'[LiveStreamsRouter][GetLiveStreamClient] Specified client_id was not found [client_id: {client_id}]')
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Specified client_id was not found',
-        )
-
-    return livestream_client
 
 
 @router.get(
@@ -381,207 +356,3 @@ async def LiveMPEGTSStreamAPI(
     response.listen_for_disconnect = listen_for_disconnect_monkeypatch
 
     return response
-
-
-# ***** LL-HLS ストリーミング開始/終了 API *****
-
-
-@router.post(
-    '/{display_channel_id}/{quality}/ll-hls',
-    summary = 'ライブ LL-HLS クライアント接続 API',
-    response_description = 'ライブストリームのクライアント ID。',
-    response_model = schemas.LiveStreamLLHLSClientID,
-)
-async def LiveLLHLSClientConnectAPI(
-    display_channel_id: str = Depends(ValidateChannelID),
-    quality: QUALITY_TYPES = Depends(ValidateQuality),
-):
-    # ライブストリームに接続し、クライアントのインスタンスを取得
-    livestream = LiveStream(display_channel_id, quality)
-    livestream_client = await livestream.connect('ll-hls')
-
-    # クライアント ID を返す
-    return {'client_id': livestream_client.client_id}
-
-
-@router.delete(
-    '/{display_channel_id}/{quality}/ll-hls/{client_id}',
-    summary = 'ライブ LL-HLS クライアント接続切断 API',
-    status_code = status.HTTP_204_NO_CONTENT,
-)
-async def LiveLLHLSClientDisconnectAPI(
-    display_channel_id: str = Depends(ValidateChannelID),
-    quality: QUALITY_TYPES = Depends(ValidateQuality),
-    livestream_client: LiveStreamClient = Depends(GetLiveStreamClient),
-):
-    # ライブストリームへの接続を切断する
-    livestream = LiveStream(display_channel_id, quality)
-    livestream.disconnect(livestream_client)
-
-
-# ***** LL-HLS ストリーミング API (主音声) *****
-
-
-@router.get(
-    '/{display_channel_id}/{quality}/ll-hls/{client_id}/primary-audio/playlist.m3u8',
-    summary = 'ライブ LL-HLS M3U8 プレイリスト API (主音声)',
-    response_class = Response,
-    responses = {
-        status.HTTP_200_OK: {
-            'description': 'LL-HLS の M3U8 プレイリスト。',
-            'content': {'application/vnd.apple.mpegurl': {}},
-        }
-    }
-)
-async def LiveLLHLSPrimaryAudioPlaylistAPI(
-    livestream_client: LiveStreamClient = Depends(GetLiveStreamClient),
-    _HLS_msn: int | None = Query(None, description='LL-HLS プレイリストの msn (Media Sequence Number) インデックス。'),
-    _HLS_part: int | None = Query(None, description='LL-HLS プレイリストの part (部分セグメント) インデックス。'),
-):
-    # クライアントから LL-HLS プレイリストのレスポンスを取得してそのまま返す
-    return await livestream_client.getPlaylist(_HLS_msn, _HLS_part, secondary_audio=False)
-
-
-@router.get(
-    '/{display_channel_id}/{quality}/ll-hls/{client_id}/primary-audio/segment',
-    summary = 'ライブ LL-HLS セグメントデータ API (主音声)',
-    response_class = Response,
-    responses = {
-        status.HTTP_200_OK: {
-            'description': 'LL-HLS のセグメントデータ (m4s) 。',
-            'content': {'video/mp4': {}},
-        }
-    }
-)
-async def LiveLLHLSPrimaryAudioSegmentAPI(
-    livestream_client: LiveStreamClient = Depends(GetLiveStreamClient),
-    msn: int | None = Query(None, description='LL-HLS セグメントの msn (Media Sequence Number) インデックス。'),
-):
-    # クライアントから LL-HLS セグメントデータのレスポンスを取得してそのまま返す
-    return await livestream_client.getSegment(msn, secondary_audio=False)
-
-
-@router.get(
-    '/{display_channel_id}/{quality}/ll-hls/{client_id}/primary-audio/part',
-    summary = 'ライブ LL-HLS 部分セグメントデータ API (主音声)',
-    response_class = Response,
-    responses = {
-        status.HTTP_200_OK: {
-            'description': 'LL-HLS の部分セグメントデータ (m4s) 。',
-            'content': {'video/mp4': {}},
-        }
-    }
-)
-async def LiveLLHLSPrimaryAudioPartialSegmentAPI(
-    livestream_client: LiveStreamClient = Depends(GetLiveStreamClient),
-    msn: int | None = Query(None, description='LL-HLS セグメントの msn (Media Sequence Number) インデックス。'),
-    part: int | Literal[''] | None = Query(None, description='LL-HLS セグメントの part (部分セグメント) インデックス。'),
-):
-    # part が空文字列の場合は 0 に変換する
-    if part == '':
-        part = 0
-
-    # クライアントから LL-HLS 部分セグメントデータのレスポンスを取得してそのまま返す
-    return await livestream_client.getPartialSegment(msn, part, secondary_audio=False)
-
-
-@router.get(
-    '/{display_channel_id}/{quality}/ll-hls/{client_id}/primary-audio/init',
-    summary = 'ライブ LL-HLS 初期セグメントデータ API (主音声)',
-    response_class = Response,
-    responses = {
-        status.HTTP_200_OK: {
-            'description': 'LL-HLS の初期セグメントデータ (m4s) 。',
-            'content': {'video/mp4': {}},
-        }
-    }
-)
-async def LiveLLHLSPrimaryAudioInitializationSegmentAPI(
-    livestream_client: LiveStreamClient = Depends(GetLiveStreamClient),
-):
-    # クライアントから LL-HLS 初期セグメントデータのレスポンスを取得してそのまま返す
-    return await livestream_client.getInitializationSegment(secondary_audio=False)
-
-
-# ***** LL-HLS ストリーミング API (副音声) *****
-
-
-@router.get(
-    '/{display_channel_id}/{quality}/ll-hls/{client_id}/secondary-audio/playlist.m3u8',
-    summary = 'ライブ LL-HLS M3U8 プレイリスト API (副音声)',
-    response_class = Response,
-    responses = {
-        status.HTTP_200_OK: {
-            'description': 'LL-HLS の M3U8 プレイリスト。',
-            'content': {'application/vnd.apple.mpegurl': {}},
-        }
-    }
-)
-async def LiveLLHLSSecondaryAudioPlaylistAPI(
-    livestream_client: LiveStreamClient = Depends(GetLiveStreamClient),
-    _HLS_msn: int | None = Query(None, description='LL-HLS プレイリストの msn (Media Sequence Number) インデックス。'),
-    _HLS_part: int | None = Query(None, description='LL-HLS プレイリストの part (部分セグメント) インデックス。'),
-):
-    # クライアントから LL-HLS プレイリストのレスポンスを取得してそのまま返す
-    return await livestream_client.getPlaylist(_HLS_msn, _HLS_part, secondary_audio=True)
-
-
-@router.get(
-    '/{display_channel_id}/{quality}/ll-hls/{client_id}/secondary-audio/segment',
-    summary = 'ライブ LL-HLS セグメントデータ API (副音声)',
-    response_class = Response,
-    responses = {
-        status.HTTP_200_OK: {
-            'description': 'LL-HLS のセグメントデータ (m4s) 。',
-            'content': {'video/mp4': {}},
-        }
-    }
-)
-async def LiveLLHLSSecondaryAudioSegmentAPI(
-    livestream_client: LiveStreamClient = Depends(GetLiveStreamClient),
-    msn: int | None = Query(None, description='LL-HLS セグメントの msn (Media Sequence Number) インデックス。'),
-):
-    # クライアントから LL-HLS セグメントデータのレスポンスを取得してそのまま返す
-    return await livestream_client.getSegment(msn, secondary_audio=True)
-
-
-@router.get(
-    '/{display_channel_id}/{quality}/ll-hls/{client_id}/secondary-audio/part',
-    summary = 'ライブ LL-HLS 部分セグメントデータ API (副音声)',
-    response_class = Response,
-    responses = {
-        status.HTTP_200_OK: {
-            'description': 'LL-HLS の部分セグメントデータ (m4s) 。',
-            'content': {'video/mp4': {}},
-        }
-    }
-)
-async def LiveLLHLSSecondaryAudioPartialSegmentAPI(
-    livestream_client: LiveStreamClient = Depends(GetLiveStreamClient),
-    msn: int | None = Query(None, description='LL-HLS セグメントの msn (Media Sequence Number) インデックス。'),
-    part: int | Literal[''] | None = Query(None, description='LL-HLS セグメントの part (部分セグメント) インデックス。'),
-):
-    # part が空文字列の場合は 0 に変換する
-    if part == '':
-        part = 0
-
-    # クライアントから LL-HLS 部分セグメントデータのレスポンスを取得してそのまま返す
-    return await livestream_client.getPartialSegment(msn, part, secondary_audio=True)
-
-
-@router.get(
-    '/{display_channel_id}/{quality}/ll-hls/{client_id}/secondary-audio/init',
-    summary = 'ライブ LL-HLS 初期セグメントデータ API (副音声)',
-    response_class = Response,
-    responses = {
-        status.HTTP_200_OK: {
-            'description': 'LL-HLS の初期セグメントデータ (m4s) 。',
-            'content': {'video/mp4': {}},
-        }
-    }
-)
-async def LiveLLHLSSecondaryAudioInitializationSegmentAPI(
-    livestream_client: LiveStreamClient = Depends(GetLiveStreamClient),
-):
-    # クライアントから LL-HLS 初期セグメントデータのレスポンスを取得してそのまま返す
-    return await livestream_client.getInitializationSegment(secondary_audio=True)

@@ -229,9 +229,6 @@ class LiveStreams(BaseModel):
     Standby: dict[str, LiveStream]
     Offline: dict[str, LiveStream]
 
-class LiveStreamLLHLSClientID(BaseModel):
-    client_id: str
-
 class ThirdpartyAuthURL(BaseModel):
     authorization_url: str
 

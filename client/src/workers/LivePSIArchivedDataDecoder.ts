@@ -74,7 +74,7 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
     public run(decoded_callback: (message: ResponseMessage | IProgramPF) => void): void {
 
         // TS ストリームがデコードされた際のハンドラーをセット
-        // web-bml には字幕表示機能もあるが、mpegts.js / LL-HLS 側で既に対応しているため敢えて無効化している
+        // web-bml には字幕表示機能もあるが、mpegts.js 側で既に対応しているため敢えて無効化している
         const ts_stream = decodeTS({
             // TS ストリームをデコードした結果をメインスレッドの BML ブラウザに送信
             sendCallback: (message) => decoded_callback(message),

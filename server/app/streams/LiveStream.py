@@ -5,16 +5,11 @@ from __future__ import annotations
 
 import asyncio
 import time
-from fastapi import HTTPException
-from fastapi import status
-from fastapi.responses import Response
-from fastapi.responses import StreamingResponse
 from hashids import Hashids
 from typing import ClassVar, Literal, TypedDict
 
 from app.constants import QUALITY_TYPES
 from app.streams.LiveEncodingTask import LiveEncodingTask
-from app.streams.LiveHLSSegmenter import LiveHLSSegmenter
 from app.streams.LivePSIDataArchiver import LivePSIDataArchiver
 from app.utils import Logging
 from app.utils.EDCB import EDCBTuner
@@ -32,15 +27,15 @@ class LiveStreamStatus(TypedDict):
 class LiveStreamClient():
     """ ライブストリームのクライアントを表すクラス """
 
-    def __init__(self, livestream: LiveStream, client_type: Literal['mpegts', 'll-hls']) -> None:
+    def __init__(self, livestream: LiveStream, client_type: Literal['mpegts']) -> None:
         """
         ライブストリーミングクライアントのインスタンスを初期化する
-        なお、LiveStreamClient は LiveStream クラス外から初期化してはいけない
-        (必ず LiveStream.connect() or LiveStream.connectToExistingClient() で取得した LiveStreamClient を利用すること)
+        LiveStreamClient は LiveStream クラス外から初期化してはいけない
+        (必ず LiveStream.connect() で取得した LiveStreamClient を利用すること)
 
         Args:
             livestream (LiveStream): クライアントが紐づくライブストリームのインスタンス
-            client_type (Literal['mpegts', 'll-hls']): クライアントの種別 (mpegts or ll-hls)
+            client_type (Literal['mpegts']): クライアントの種別 (mpegts, ll-hls クライアントは廃止された)
         """
 
         # このクライアントが紐づくライブストリームのインスタンス
@@ -48,14 +43,12 @@ class LiveStreamClient():
 
         # クライアント ID
         ## ミリ秒単位のタイムスタンプをもとに、Hashids による10文字のユニーク ID が生成される
-        self.client_id: str = ('MPEGTS-' if client_type == 'mpegts' else 'LLHLS-') + Hashids(min_length=10).encode(int(time.time() * 1000))
+        self.client_id: str = 'MPEGTS-' + Hashids(min_length=10).encode(int(time.time() * 1000))
 
-        # クライアントの種別 (mpegts or ll-hls)
-        self.client_type: Literal['mpegts', 'll-hls'] = client_type
+        # クライアントの種別 (mpegts)
+        self.client_type: Literal['mpegts'] = client_type
 
         # ストリームデータが入る Queue
-        ## client_type が mpegts の場合のみ、クライアントが持つ Queue にストリームデータが入る
-        ## client_type が ll-hls の場合は配信方式が異なるため Queue は使われない
         self.queue: asyncio.Queue[bytes | None] = asyncio.Queue()
 
         # ストリームデータの最終読み取り時刻のタイミング
@@ -75,8 +68,8 @@ class LiveStreamClient():
             bytes | None: ストリームデータ (エンコードタスクが終了した場合は None が返る)
         """
 
-        # LL-HLS クライアントの場合は実行しない
-        if self.client_type == 'll-hls':
+        # mpegts クライアント以外では実行しない
+        if self.client_type != 'mpegts':
             return None
 
         # ストリームデータの最終読み取り時刻を更新
@@ -87,119 +80,6 @@ class LiveStreamClient():
             return await self.queue.get()
         except TypeError:
             return None
-
-
-    async def __commonForLLHLSClient(self,
-        response_type: Literal['Playlist', 'Segment', 'PartialSegment', 'InitializationSegment'],
-        msn: int | None,
-        part: int | None,
-        secondary_audio: bool = False
-    ) -> Response | StreamingResponse:
-        """
-        LL-HLS クライアント向け API の共通処理 (バリデーションと最終読み取り時刻の更新)
-
-        Args:
-            response_type (Literal['Playlist', 'Segment', 'PartialSegment', 'InitializationSegment']): レスポンスの種別
-            msn (int | None): LL-HLS プレイリストの msn (Media Sequence Number) インデックス
-            part (int | None): LL-HLS プレイリストの part (部分セグメント) インデックス
-            secondary_audio (bool, optional): 副音声用セグメントを取得するかどうか. Defaults to False.
-
-        Returns:
-            Response | StreamingResponse: FastAPI のレスポンス
-        """
-
-        # mpegts クライアントの場合は実行しない
-        if self.client_type == 'mpegts':
-            Logging.error('[LiveStreamClient] This API is only for LL-HLS client')
-            raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail = 'This API is only for LL-HLS client',
-            )
-
-        # LL-HLS Segmenter が None (=Offline) の場合は実行しない
-        if self._livestream.segmenter is None:
-            Logging.error('[LiveStreamClient] LL-HLS Segmenter is not running')
-            raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail = 'LL-HLS Segmenter is not running',
-            )
-
-        # 指定されたデータのレスポンスを取得
-        if response_type == 'Playlist':
-            response = await self._livestream.segmenter.getPlaylist(msn, part, secondary_audio)
-        elif response_type == 'Segment':
-            response = await self._livestream.segmenter.getSegment(msn, secondary_audio)
-        elif response_type == 'PartialSegment':
-            response = await self._livestream.segmenter.getPartialSegment(msn, part, secondary_audio)
-        elif response_type == 'InitializationSegment':
-            response = await self._livestream.segmenter.getInitializationSegment(secondary_audio)
-
-        # ストリームデータの最終読み取り時刻を更新
-        ## LL-HLS Segmenter からのレスポンス取得後に更新しないとタイムアウト判定が正しく行われない
-        self.stream_data_read_at = time.time()
-
-        return response
-
-
-    async def getPlaylist(self, msn: int | None, part: int | None, secondary_audio: bool = False) -> Response:
-        """
-        LL-HLS のプレイリスト (m3u8) を FastAPI のレスポンスとして返す
-        ref: https://developer.apple.com/documentation/http_live_streaming/enabling_low-latency_http_live_streaming_hls
-
-        Args:
-            msn (int | None): LL-HLS プレイリストの msn (Media Sequence Number) インデックス
-            part (int | None): LL-HLS プレイリストの part (部分セグメント) インデックス
-            secondary_audio (bool, optional): 副音声用セグメントを取得するかどうか. Defaults to False.
-
-        Returns:
-            Response: プレイリストデータ (m3u8) の FastAPI レスポンス
-        """
-        return await self.__commonForLLHLSClient('Playlist', msn, part, secondary_audio)
-
-
-    async def getSegment(self, msn: int | None, secondary_audio: bool = False) -> Response | StreamingResponse:
-        """
-        LL-HLS の完全なセグメント (m4s) を FastAPI のレスポンスとして順次返す
-        ref: https://developer.apple.com/documentation/http_live_streaming/enabling_low-latency_http_live_streaming_hls
-
-        Args:
-            msn (int | None): LL-HLS セグメントの msn (Media Sequence Number) インデックス
-            secondary_audio (bool, optional): 副音声用セグメントを取得するかどうか. Defaults to False.
-
-        Returns:
-            Response | StreamingResponse: セグメントデータ (m4s) の FastAPI レスポンス (StreamingResponse)
-        """
-        return await self.__commonForLLHLSClient('Segment', msn, None, secondary_audio)
-
-
-    async def getPartialSegment(self, msn: int | None, part: int | None, secondary_audio: bool = False) -> Response | StreamingResponse:
-        """
-        LL-HLS の部分セグメント (m4s) を FastAPI のレスポンスとして順次返す
-        ref: https://developer.apple.com/documentation/http_live_streaming/enabling_low-latency_http_live_streaming_hls
-
-        Args:
-            msn (int | None): LL-HLS セグメントの msn (Media Sequence Number) インデックス
-            part (int | None): LL-HLS セグメントの part (部分セグメント) インデックス
-            secondary_audio (bool, optional): 副音声用セグメントを取得するかどうか. Defaults to False.
-
-        Returns:
-            Response | StreamingResponse: 部分セグメントデータ (m4s) の FastAPI レスポンス (StreamingResponse)
-        """
-        return await self.__commonForLLHLSClient('PartialSegment', msn, part, secondary_audio)
-
-
-    async def getInitializationSegment(self, secondary_audio: bool = False) -> Response:
-        """
-        LL-HLS の初期セグメント (init) を FastAPI のレスポンスとして返す
-        ref: https://developer.apple.com/documentation/http_live_streaming/enabling_low-latency_http_live_streaming_hls
-
-        Args:
-            secondary_audio (bool, optional): 副音声用セグメントを取得するかどうか. Defaults to False.
-
-        Returns:
-            Response: 初期セグメントデータ (m4s) の FastAPI レスポンス
-        """
-        return await self.__commonForLLHLSClient('InitializationSegment', None, None, secondary_audio)
 
 
 class LiveStream():
@@ -255,11 +135,6 @@ class LiveStream():
             # PSI/SI データアーカイバーのインスタンス
             instance.psi_data_archiver = None
 
-            # LL-HLS Segmenter のインスタンス
-            ## iPhone Safari は mpegts.js でのストリーミングに対応していないため、フォールバックとして LL-HLS で配信する必要がある
-            ## エンコードタスクが実行されたときに毎回生成され、エンコードタスクが終了したときに破棄される
-            instance.segmenter = None
-
             # EDCB バックエンドのチューナーインスタンス
             ## Mirakurun バックエンドを使っている場合は None のまま
             instance.tuner = None
@@ -293,7 +168,6 @@ class LiveStream():
         self._updated_at: float
         self._stream_data_written_at: float
         self.psi_data_archiver: LivePSIDataArchiver | None
-        self.segmenter: LiveHLSSegmenter | None
         self.tuner: EDCBTuner | None
 
 
@@ -369,13 +243,13 @@ class LiveStream():
         return viewer_count
 
 
-    async def connect(self, client_type: Literal['mpegts', 'll-hls']) -> LiveStreamClient:
+    async def connect(self, client_type: Literal['mpegts']) -> LiveStreamClient:
         """
         ライブストリームに接続して、新しくライブストリームに登録されたクライアントを返す
         この時点でライブストリームが Offline ならば、新たにエンコードタスクが起動される
 
         Args:
-            client_type (Literal['mpegts', 'll-hls']): クライアントの種別 (mpegts or ll-hls)
+            client_type (Literal['mpegts']): クライアントの種別 (mpegts, ll-hls クライアントは廃止された)
 
         Returns:
             LiveStreamClient: ライブストリームクライアントのインスタンス
@@ -435,26 +309,6 @@ class LiveStream():
 
         # ライブストリームクライアントのインスタンスを返す
         return client
-
-
-    def connectToExistingClient(self, client_id: str) -> LiveStreamClient | None:
-        """
-        指定されたクライアント ID に紐づく、ライブストリームに接続済みのクライアントを取得する
-
-        Args:
-            client_id (str): ライブストリームクライアントのクライアント ID
-
-        Returns:
-            LiveStreamClient | None: ライブストリームクライアントのインスタンス (見つからなかった場合は None を返す)
-        """
-
-        # 指定されたクライアント ID のクライアントを取得する
-        for client in self._clients:
-            if client.client_id == client_id:
-                return client
-
-        # 見つからなかった場合は None を返す
-        return None
 
 
     def disconnect(self, client: LiveStreamClient) -> None:
@@ -607,8 +461,8 @@ class LiveStream():
         # 接続している全てのクライアントの Queue にストリームデータを書き込む
         for client in self._clients:
 
-            # タイムアウト秒数は mpegts クライアントなら 10 秒、LL-HLS クライアントは 20 秒
-            timeout = 10 if client.client_type == 'mpegts' else 20
+            # タイムアウト秒数は 10 秒
+            timeout = 10
 
             # 最終読み取り時刻を指定秒数過ぎたクライアントはタイムアウトと判断し、クライアントを削除する
             ## 主にネットワークが切断されたなどの理由で発生する

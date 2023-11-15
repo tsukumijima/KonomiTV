@@ -28,7 +28,7 @@ class LivePSIDataArchiver:
     async def pushTSPacketData(self, packet: bytes) -> None:
         """
         LiveEncodingTask から生の放送波の MPEG2-TS パケットを受け取り、登録されている PSI/SI データアーカイバープロセスに送信する
-        LiveHLSSegmenter とは異なり、188 bytes ぴったりで送信する必要はない
+        188 bytes ぴったりで送信する必要はない
 
         Args:
             packet (bytes): MPEG2-TS パケット

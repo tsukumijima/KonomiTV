@@ -16,7 +16,6 @@ from typing import AsyncIterator, cast, Literal, TYPE_CHECKING
 from app.config import Config
 from app.constants import API_REQUEST_HEADERS, LIBRARY_PATH, LOGS_DIR, QUALITY, QUALITY_TYPES
 from app.models.Channel import Channel
-from app.streams.LiveHLSSegmenter import LiveHLSSegmenter
 from app.streams.LivePSIDataArchiver import LivePSIDataArchiver
 from app.utils import GetMirakurunAPIEndpointURL
 from app.utils import Logging
@@ -404,17 +403,6 @@ class LiveEncodingTask:
         if not (self.livestream.getStatus()['status'] == 'Standby' and self.livestream.getStatus()['detail'] == 'エンコードタスクを起動しています…'):
             self.livestream.setStatus('Standby', 'エンコードタスクを起動しています…')
 
-        # LL-HLS Segmenter に渡す今回のエンコードタスクの GOP 長 (H.264 と H.265 で異なる)
-        gop_length_second = self.GOP_LENGTH_SECOND_H264
-        if QUALITY[self.livestream.quality].is_hevc is True:
-            gop_length_second = self.GOP_LENGTH_SECOND_H265
-
-        # LL-HLS Segmenter を初期化
-        ## iPhone Safari は mpegts.js でのストリーミングに対応していないため、フォールバックとして LL-HLS で配信する必要がある
-        ## できるだけ早い段階で初期化しておかないと、初期化より前に iOS Safari からプレイリストにアクセスが来てしまい
-        ## LL-HLS Segmenter is not running エラーが発生してしまう
-        self.livestream.segmenter = LiveHLSSegmenter(gop_length_second)
-
         # チャンネル情報からサービス ID とネットワーク ID を取得する
         channel = cast(Channel, await Channel.filter(display_channel_id=self.livestream.display_channel_id).first())
 
@@ -587,11 +575,6 @@ class LiveEncodingTask:
                     self.livestream.psi_data_archiver.destroy()
                     self.livestream.psi_data_archiver = None
 
-                # LL-HLS Segmenter を破棄する
-                if self.livestream.segmenter is not None:
-                    self.livestream.segmenter.destroy()
-                    self.livestream.segmenter = None
-
                 # エンコードタスクを停止する
                 await session.close()
                 return
@@ -629,11 +612,6 @@ class LiveEncodingTask:
                     self.livestream.psi_data_archiver.destroy()
                     self.livestream.psi_data_archiver = None
 
-                # LL-HLS Segmenter を破棄する
-                if self.livestream.segmenter is not None:
-                    self.livestream.segmenter.destroy()
-                    self.livestream.segmenter = None
-
                 # エンコードタスクを停止する
                 return
 
@@ -660,11 +638,6 @@ class LiveEncodingTask:
                 if self.livestream.psi_data_archiver is not None:
                     self.livestream.psi_data_archiver.destroy()
                     self.livestream.psi_data_archiver = None
-
-                # LL-HLS Segmenter を破棄する
-                if self.livestream.segmenter is not None:
-                    self.livestream.segmenter.destroy()
-                    self.livestream.segmenter = None
 
                 # エンコードタスクを停止する
                 return
@@ -782,10 +755,6 @@ class LiveEncodingTask:
                     ## TS パケットのサイズが 188 bytes なので、1回の readexactly() で 188 bytes ずつ読み取る
                     ## read() ではなく厳密な readexactly() を使わないとぴったり 188 bytes にならない場合がある
                     chunk = await cast(asyncio.StreamReader, encoder.stdout).readexactly(188)
-
-                    # 受け取った TS パケットを LL-HLS Segmenter に送信する
-                    if self.livestream.segmenter is not None:
-                        self.livestream.segmenter.pushTSPacketData(chunk)
 
                     # 同時に chunk_buffer / chunk_written_at にアクセスするタスクが1つだけであることを保証する (排他ロック)
                     async with writer_lock:
@@ -1222,11 +1191,6 @@ class LiveEncodingTask:
         if self.livestream.psi_data_archiver is not None:
             self.livestream.psi_data_archiver.destroy()
             self.livestream.psi_data_archiver = None
-
-        # LL-HLS Segmenter を破棄する
-        if self.livestream.segmenter is not None:
-            self.livestream.segmenter.destroy()
-            self.livestream.segmenter = None
 
         # エンコードタスクを再起動する（エンコーダーの再起動が必要な場合）
         if self.livestream.getStatus()['status'] == 'Restart':
