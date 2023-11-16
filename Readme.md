@@ -456,14 +456,15 @@ KonomiTV の Windows サービスを一般ユーザーの権限で起動する�
 [Mirakurun](https://github.com/Chinachu/Mirakurun) や [EPGStation](https://github.com/l3tnun/EPGStation) を Docker を使わずにインストールしているなら、すでにインストールされているはずです。
 
 **Docker を使ったインストール方法では、事前に [Docker](https://docs.docker.com/engine/install/) と [Docker Compose](https://docs.docker.com/compose/install/) のインストールが必要です。**  
-Docker Compose は V1 と V2 の両方に対応していますが、できれば V2 (ハイフンなしの `docker compose` コマンド) が使えるようにしておくことをおすすめします。
+Docker Compose は V1 と V2 の両方に対応していますが、できれば V2 (ハイフンなしの `docker compose` コマンド) が使えるようにしておくことをおすすめします。  
+**なお、Ubuntu 公式 apt リポジトリの Docker / Docker Compose は古いバージョンで固定されているため、必ず Docker 公式 apt リポジトリからインストール・アップデートを行うようにしてください。** 古い Docker / Docker Compose では正常に動作しません。
 
 > [!WARNING]  
 > **ARM デバイスでは、対応コストの観点から Docker を使ったインストール方法はサポートされていません。**
 
 > [!WARNING]  
 > **Docker Compose V1 は最終版の 1.29.2 でのみ動作を確認しています。古いバージョンでは正常に動作しない可能性が高いです。**  
-> もし Docker Compose V1 が 1.29.2 よりも古い場合は、この機会に V2 への更新をおすすめします。以前よりもグラフィカルに進捗が表示されたりなどのメリットもあります。
+> もし Docker Compose V1 が 1.29.2 よりも古い場合は、この機会に V2 への更新をおすすめします。以前よりもグラフィカルに進捗が表示されたりなどのメリットもあります。  
 
 > [!WARNING]  
 > [QSVEncC・NVEncC・VCEEncC・rkmppenc に対応した GPU ドライバーのインストール](#qsvenccnvenccvceenccrkmppenc-に対応した-gpu-ドライバーのインストール) に記載のとおり、**NVIDIA GPU が搭載されている PC に Docker を使ってインストールする場合は、必ず事前に NVIDIA Container Toolkit をインストールしておいてください。**  
