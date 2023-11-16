@@ -573,7 +573,7 @@ class PlayerController {
 
         // 各 PlayerManager を初期化・登録
         // ライブ視聴とビデオ視聴で必要な PlayerManager が異なる
-        // 一応順序は意図的だがそこまで重要ではない
+        // この初期化順序は意図的 (入れ替えても動作するものもあるが、CaptureManager は KeyboardShortcutManager より先に初期化する必要がある)
         if (this.playback_mode === 'Live') {
             // ライブ視聴時に設定する PlayerManager
             this.player_managers = [
@@ -636,7 +636,7 @@ class PlayerController {
         await Utils.sleep(1);
 
         // この時点で映像が停止していて、かつ readyState が HAVE_FUTURE_DATA な場合、復旧を試みる
-        // Safari ではタイミングによっては null になる場合があるらしいので ? を付ける
+        // Safari ではタイミングによっては this.player.video が null になる場合があるらしいので ? を付ける
         if (player_store.is_video_buffering === true && this.player?.video?.readyState < 3) {
             console.warn('\u001b[31m[PlayerController] Video still buffering. (HTMLVideoElement.readyState < HAVE_FUTURE_DATA) trying to recover.');
 
@@ -1261,9 +1261,8 @@ class PlayerController {
         player_store.live_comment_init_failed_message = null;
         player_store.video_comment_init_failed_message = null;
 
-        // ローディング状態への移行に伴い、映像がフェードアウトするアニメーション (0.2秒) 分待ってから実行
+        // 映像がフェードアウトするアニメーション (0.2秒) 分待ってから実行
         // この 0.2 秒の間に音量をフェードアウトさせる
-        // なお、ザッピングでチャンネルを連続で切り替えている場合は実行しない (実行しても意味がないため)
         if (this.player !== null) {
             // 0.2 秒間かけて current_volume から 0 まで音量を下げる
             const current_volume = this.player.user.get('volume');
