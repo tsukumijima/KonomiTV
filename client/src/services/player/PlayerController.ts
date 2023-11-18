@@ -398,11 +398,27 @@ class PlayerController {
                     enableWorker: true,
                     // MediaSource が存在しない場合のみ ManagedMediaSource を利用する
                     preferManagedMediaSource: false,
-                    // プレイリスト / セグメントのリクエスト時のタイムアウトをかなり長めに設定してタイムアウトを回避する
+                    // プレイリスト / セグメントのリクエスト時のタイムアウトを回避する
+                    manifestLoadPolicy: {
+                        default: {
+                            maxTimeToFirstByteMs: 1000000,  // 適当に大きな値を設定
+                            maxLoadTimeMs: 1000000,  // 適当に大きな値を設定
+                            timeoutRetry: {
+                                maxNumRetry: 2,
+                                retryDelayMs: 0,
+                                maxRetryDelayMs: 0,
+                            },
+                            errorRetry: {
+                                maxNumRetry: 1,
+                                retryDelayMs: 1000,
+                                maxRetryDelayMs: 8000,
+                            },
+                        },
+                    },
                     playlistLoadPolicy: {
                         default: {
-                            maxTimeToFirstByteMs: 120 * 1000,  // 120 秒
-                            maxLoadTimeMs: 120 * 1000,  // 120 秒
+                            maxTimeToFirstByteMs: 1000000,  // 適当に大きな値を設定
+                            maxLoadTimeMs: 1000000,  // 適当に大きな値を設定
                             timeoutRetry: {
                                 maxNumRetry: 2,
                                 retryDelayMs: 0,
@@ -417,8 +433,8 @@ class PlayerController {
                     },
                     fragLoadPolicy: {
                         default: {
-                            maxTimeToFirstByteMs: 120 * 1000,  // 120 秒
-                            maxLoadTimeMs: 120 * 1000,  // 120 秒
+                            maxTimeToFirstByteMs: 1000000,  // 適当に大きな値を設定
+                            maxLoadTimeMs: 1000000,  // 適当に大きな値を設定
                             timeoutRetry: {
                                 maxNumRetry: 4,
                                 retryDelayMs: 0,
