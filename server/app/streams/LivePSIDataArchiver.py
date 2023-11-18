@@ -9,7 +9,6 @@ from app.utils import Logging
 
 class LivePSIDataArchiver:
 
-
     def __init__(self, service_id: int) -> None:
         """
         ライブストリーミング (データ放送) 用 PSI/SI データアーカイバーを初期化する

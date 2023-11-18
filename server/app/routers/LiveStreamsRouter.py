@@ -72,9 +72,9 @@ async def LiveStreamsAPI():
     }
 
     # すべてのストリームごとに
-    for livestream in LiveStream.getAllLiveStreams():
-        livestream_status = livestream.getStatus()
-        result[livestream_status['status']][livestream.livestream_id] = livestream_status
+    for live_stream in LiveStream.getAllLiveStreams():
+        live_stream_status = live_stream.getStatus()
+        result[live_stream_status['status']][live_stream.live_stream_id] = live_stream_status
 
     # すべてのライブストリームの状態を返す
     return result
@@ -97,10 +97,10 @@ async def LiveStreamAPI(
 
     # ライブストリームを取得
     # ステータスを取得したいだけなので、接続はしない
-    livestream = LiveStream(display_channel_id, quality)
+    live_stream = LiveStream(display_channel_id, quality)
 
     # 取得してきた値をそのまま返す
-    return livestream.getStatus()
+    return live_stream.getStatus()
 
 
 @router.get(
@@ -136,14 +136,14 @@ async def LiveStreamEventAPI(
 
     # ライブストリームを取得
     # ステータスを取得したいだけなので、接続はしない
-    livestream = LiveStream(display_channel_id, quality)
+    live_stream = LiveStream(display_channel_id, quality)
 
     # ステータスの変更を監視し、変更があればステータスをイベントストリームとして出力する
     async def generator():
         """イベントストリームを出力するジェネレーター"""
 
         # 初期値
-        previous_status = livestream.getStatus()
+        previous_status = live_stream.getStatus()
 
         # 取得できたクライアント数はあくまで同じチャンネル+同じ画質で視聴中のクライアントをカウントしたものなので、
         # 同じチャンネル+すべての画質で視聴中のクライアント数を別途取得して上書きする
@@ -158,7 +158,7 @@ async def LiveStreamEventAPI(
         while True:
 
             # 現在のライブストリームのステータスを取得
-            status = livestream.getStatus()
+            status = live_stream.getStatus()
 
             # 取得できたクライアント数はあくまで同じチャンネル+同じ画質で視聴中のクライアントをカウントしたものなので、
             # 同じチャンネル+すべての画質で視聴中のクライアント数を別途取得して上書きする
@@ -223,17 +223,17 @@ async def LivePSIArchivedDataAPI(
 
     # ライブストリームを取得
     # PSI/SI アーカイブデータを取得したいだけなので、接続はしない
-    livestream = LiveStream(display_channel_id, quality)
+    live_stream = LiveStream(display_channel_id, quality)
 
     # LivePSIDataArchiver がまだ初期化されていない場合は、起動するまで最大10秒待つ
     ## LivePSIDataArchiver は LiveEncodingTask が起動次第自動的に初期化されるので、ここでは待つだけ
     for _ in range(20):
-        if livestream.psi_data_archiver is not None:
+        if live_stream.psi_data_archiver is not None:
             break
         await asyncio.sleep(0.5)
 
     # 10秒待っても起動しなかった場合はエラー
-    if livestream.psi_data_archiver is None:
+    if live_stream.psi_data_archiver is None:
         Logging.error(f'[LiveStreamsRouter][LivePSIArchivedDataAPI] PSI/SI Data Archiver is not running')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -242,7 +242,7 @@ async def LivePSIArchivedDataAPI(
 
     # StreamingResponse で読み取ったストリームデータをストリーミングする
     # LivePSIDataArchiver.getPSIArchivedData() は AsyncGenerator なので、そのまま渡せる
-    response = StreamingResponse(livestream.psi_data_archiver.getPSIArchivedData(request), media_type='application/octet-stream')
+    response = StreamingResponse(live_stream.psi_data_archiver.getPSIArchivedData(request), media_type='application/octet-stream')
 
     # HTTP リクエストがキャンセルされたときに psisiarc を終了できるよう、StreamingResponse のインスタンスにモンキーパッチを当てる
     # モンキーパッチしている理由は LiveMPEGTSStreamAPI と同じ
@@ -267,11 +267,11 @@ async def LivePSIArchivedDataAPI(
 
 @router.get(
     '/{display_channel_id}/{quality}/mpegts',
-    summary = 'ライブ MPEGTS ストリーム API',
+    summary = 'ライブ MPEG-TS ストリーム API',
     response_class = Response,
     responses = {
         status.HTTP_200_OK: {
-            'description': 'ライブ MPEGTS ストリーム。',
+            'description': 'ライブ MPEG-TS ストリーム。',
             'content': {'video/mp2t': {}},
         }
     }
@@ -282,7 +282,7 @@ async def LiveMPEGTSStreamAPI(
     quality: QUALITY_TYPES = Depends(ValidateQuality),
 ):
     """
-    ライブ MPEGTS ストリームを配信する。
+    ライブ MPEG-TS ストリームを配信する。
 
     同じチャンネル ID 、同じ画質のライブストリームが Offline 状態のときは、新たにエンコードタスクを立ち上げて、
     ONAir 状態になるのを待機してからストリームデータを配信する。<br>
@@ -293,8 +293,8 @@ async def LiveMPEGTSStreamAPI(
 
     # ライブストリームに接続し、ライブストリームクライアントを取得する
     ## 接続時に Offline だった場合は自動的にエンコードタスクが起動される
-    livestream = LiveStream(display_channel_id, quality)
-    livestream_client = await livestream.connect('mpegts')
+    live_stream = LiveStream(display_channel_id, quality)
+    live_stream_client = await live_stream.connect('mpegts')
 
     # ライブストリームを出力するジェネレーター
     async def generator():
@@ -307,13 +307,13 @@ async def LiveMPEGTSStreamAPI(
 
                 # ライブストリームへの接続を切断し、ループを終了する
                 Logging.debug_simple('[LiveStreamsRouter][LiveMPEGTSStreamAPI] Request is disconnected')
-                livestream.disconnect(livestream_client)
+                live_stream.disconnect(live_stream_client)
                 break
 
-            if livestream.getStatus()['status'] != 'Offline':
+            if live_stream.getStatus()['status'] != 'Offline':
 
                 # クライアントが持つ Queue から読み取ったストリームデータ
-                stream_data: bytes | None = await livestream_client.readStreamData()
+                stream_data: bytes | None = await live_stream_client.readStreamData()
 
                 # 読み取ったストリームデータを yield で随時出力する
                 if stream_data is not None:
@@ -324,7 +324,7 @@ async def LiveMPEGTSStreamAPI(
 
                     # ライブストリームへの接続を切断し、ループを終了する
                     Logging.debug_simple('[LiveStreamsRouter][LiveMPEGTSStreamAPI] Encode task is finished')
-                    livestream.disconnect(livestream_client)  # 必要ないとは思うけど念のため
+                    live_stream.disconnect(live_stream_client)  # 必要ないとは思うけど念のため
                     break
 
             # ライブストリームが Offline になった場合もエンコードタスクが終了し、接続が切断されたものとみなす
@@ -332,7 +332,7 @@ async def LiveMPEGTSStreamAPI(
 
                 # ライブストリームへの接続を切断し、ループを終了する
                 Logging.debug_simple('[LiveStreamsRouter][LiveMPEGTSStreamAPI] LiveStream is currently Offline')
-                livestream.disconnect(livestream_client)  # 必要ないとは思うけど念のため
+                live_stream.disconnect(live_stream_client)  # 必要ないとは思うけど念のため
                 break
 
     # StreamingResponse で読み取ったストリームデータをストリーミングする

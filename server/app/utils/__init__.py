@@ -1,8 +1,9 @@
 
+import asyncio
 import platform
 import sys
 from pathlib import Path
-from typing import Literal
+from typing import Any, Callable, Literal
 
 
 def GetMirakurunAPIEndpointURL(endpoint: str) -> str:
@@ -70,6 +71,36 @@ def IsRunningAsWindowsService() -> bool:
 
     # ウィンドウのハンドルが取得できなければサービスとして実行されているとみなす
     return hWnd == 0
+
+
+def SetTimeout(callback: Callable[[], Any], delay: float) -> Callable[[], None]:
+    """
+    指定した時間後にコールバックを呼び出すタイムアウトを設定する
+    JavaScript の setTimeout() と同じような動作をする
+
+    Args:
+        callback (Callable[[], Any]): タイムアウト後に呼び出すコールバック
+        delay (float): タイムアウトまでの時間 (秒)
+
+    Returns:
+        Callable[[], None]: タイムアウトをキャンセルするための関数
+    """
+
+    # タイムアウトがキャンセルされたかどうかを表すフラグ
+    is_cancelled = False
+
+    async def timeout():
+        nonlocal is_cancelled
+        await asyncio.sleep(delay)
+        if not is_cancelled:
+            callback()
+
+    def cancel():
+        nonlocal is_cancelled
+        is_cancelled = True
+
+    asyncio.create_task(timeout())
+    return cancel
 
 
 def Interlaced(n: int):

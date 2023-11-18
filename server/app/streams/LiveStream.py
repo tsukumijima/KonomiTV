@@ -27,19 +27,19 @@ class LiveStreamStatus(TypedDict):
 class LiveStreamClient():
     """ ライブストリームのクライアントを表すクラス """
 
-    def __init__(self, livestream: LiveStream, client_type: Literal['mpegts']) -> None:
+    def __init__(self, live_stream: LiveStream, client_type: Literal['mpegts']) -> None:
         """
         ライブストリーミングクライアントのインスタンスを初期化する
         LiveStreamClient は LiveStream クラス外から初期化してはいけない
         (必ず LiveStream.connect() で取得した LiveStreamClient を利用すること)
 
         Args:
-            livestream (LiveStream): クライアントが紐づくライブストリームのインスタンス
+            live_stream (LiveStream): クライアントが紐づくライブストリームのインスタンス
             client_type (Literal['mpegts']): クライアントの種別 (mpegts, ll-hls クライアントは廃止された)
         """
 
         # このクライアントが紐づくライブストリームのインスタンス
-        self._livestream: LiveStream = livestream
+        self._live_stream: LiveStream = live_stream
 
         # クライアント ID
         ## ミリ秒単位のタイムスタンプをもとに、Hashids による10文字のユニーク ID が生成される
@@ -91,19 +91,18 @@ class LiveStream():
 
 
     # 必ずライブストリーム ID ごとに1つのインスタンスになるように (Singleton)
-    # ref: https://qiita.com/ttsubo/items/c4af71ceba15b5b213f8
     def __new__(cls, display_channel_id: str, quality: QUALITY_TYPES) -> LiveStream:
 
         # まだ同じライブストリーム ID のインスタンスがないときだけ、インスタンスを生成する
         # (チャンネルID)-(映像の品質) で一意な ID になる
-        livestream_id = f'{display_channel_id}-{quality}'
-        if livestream_id not in cls.__instances:
+        live_stream_id = f'{display_channel_id}-{quality}'
+        if live_stream_id not in cls.__instances:
 
             # 新しいライブストリームのインスタンスを生成する
             instance = super(LiveStream, cls).__new__(cls)
 
             # ライブストリーム ID を設定
-            instance.livestream_id = livestream_id
+            instance.live_stream_id = live_stream_id
 
             # チャンネル ID と映像の品質を設定
             instance.display_channel_id = display_channel_id
@@ -140,11 +139,10 @@ class LiveStream():
             instance.tuner = None
 
             # 生成したインスタンスを登録する
-            ## インスタンスの参照が渡されるので、オブジェクトとしては同一
-            cls.__instances[livestream_id] = instance
+            cls.__instances[live_stream_id] = instance
 
         # 登録されているインスタンスを返す
-        return cls.__instances[livestream_id]
+        return cls.__instances[live_stream_id]
 
 
     def __init__(self, display_channel_id: str, quality: QUALITY_TYPES) -> None:
@@ -158,7 +156,7 @@ class LiveStream():
 
         # インスタンス変数の型ヒントを定義
         # Singleton のためインスタンスの生成は __new__() で行うが、__init__() も定義しておかないと補完がうまく効かない
-        self.livestream_id: str
+        self.live_stream_id: str
         self.display_channel_id: str
         self.quality: QUALITY_TYPES
         self._clients: list[LiveStreamClient]
@@ -196,9 +194,9 @@ class LiveStream():
         result: list[LiveStream] = []
 
         # 現在 ONAir 状態のライブストリームに絞り込む
-        for livestream in LiveStream.getAllLiveStreams():
-            if livestream.getStatus()['status'] == 'ONAir':
-                result.append(livestream)
+        for live_stream in LiveStream.getAllLiveStreams():
+            if live_stream.getStatus()['status'] == 'ONAir':
+                result.append(live_stream)
 
         return result
 
@@ -215,9 +213,9 @@ class LiveStream():
         result: list[LiveStream] = []
 
         # 現在 Idling 状態のライブストリームに絞り込む
-        for livestream in LiveStream.getAllLiveStreams():
-            if livestream.getStatus()['status'] == 'Idling':
-                result.append(livestream)
+        for live_stream in LiveStream.getAllLiveStreams():
+            if live_stream.getStatus()['status'] == 'Idling':
+                result.append(live_stream)
 
         return result
 
@@ -236,9 +234,9 @@ class LiveStream():
 
         # 指定されたチャンネル ID に紐づくライブストリームを探して視聴者数を集計
         viewer_count = 0
-        for livestream in LiveStream.getAllLiveStreams():
-            if livestream.display_channel_id == display_channel_id:
-                viewer_count += livestream.getStatus()['client_count']
+        for live_stream in LiveStream.getAllLiveStreams():
+            if live_stream.display_channel_id == display_channel_id:
+                viewer_count += live_stream.getStatus()['client_count']
 
         return viewer_count
 
@@ -272,16 +270,16 @@ class LiveStream():
             for _ in range(8):  # 画質切り替えなどタイミングの問題で Idling なストリームがない事もあるので、8回くらいリトライする
 
                 # 現在 Idling 状態のライブストリームがあれば
-                idling_livestreams = self.getIdlingLiveStreams()
-                if len(idling_livestreams) > 0:
-                    idling_livestream: LiveStream = idling_livestreams[0]
+                idling_live_streams = self.getIdlingLiveStreams()
+                if len(idling_live_streams) > 0:
+                    idling_live_stream: LiveStream = idling_live_streams[0]
 
                     # EDCB バックエンドの場合はチューナーをアンロックし、これから開始するエンコードタスクで再利用できるようにする
-                    if idling_livestream.tuner is not None:
-                        idling_livestream.tuner.unlock()
+                    if idling_live_stream.tuner is not None:
+                        idling_live_stream.tuner.unlock()
 
                     # チューナーリソースを解放する
-                    idling_livestream.setStatus('Offline', '新しいライブストリームが開始されたため、チューナーリソースを解放しました。')
+                    idling_live_stream.setStatus('Offline', '新しいライブストリームが開始されたため、チューナーリソースを解放しました。')
                     break
 
                 # 現在 ONAir 状態のライブストリームがなく、リトライした所で Idling なライブストリームが取得できる見込みがない
@@ -299,7 +297,7 @@ class LiveStream():
         # ライブストリームクライアントのインスタンスを生成・登録する
         client = LiveStreamClient(self, client_type)
         self._clients.append(client)
-        Logging.info(f'[Live: {self.livestream_id}] Client Connected. Client ID: {client.client_id}')
+        Logging.info(f'[Live: {self.live_stream_id}] Client Connected. Client ID: {client.client_id}')
 
         # ***** アイドリングからの復帰 *****
 
@@ -325,7 +323,7 @@ class LiveStream():
         ## すでにタイムアウトなどで削除されていたら何もしない
         try:
             self._clients.remove(client)
-            Logging.info(f'[Live: {self.livestream_id}] Client Disconnected. Client ID: {client.client_id}')
+            Logging.info(f'[Live: {self.live_stream_id}] Client Disconnected. Client ID: {client.client_id}')
         except ValueError:
             pass
         if hasattr(client, 'queue'):
@@ -408,11 +406,11 @@ class LiveStream():
 
         # ステータス変更のログを出力
         if quiet is False:
-            Logging.info(f'[Live: {self.livestream_id}] [Status: {status}] {detail}')
+            Logging.info(f'[Live: {self.live_stream_id}] [Status: {status}] {detail}')
 
         # ストリーム起動完了時 (Standby → ONAir) 時のみ、ストリームの起動にかかった時間も出力
         if self._status == 'Standby' and status == 'ONAir':
-            Logging.info(f'[Live: {self.livestream_id}] Startup complete. ({round(time.time() - self._started_at, 2)} sec)')
+            Logging.info(f'[Live: {self.live_stream_id}] Startup complete. ({round(time.time() - self._started_at, 2)} sec)')
 
         # ログ出力を待ってからステータスと詳細をライブストリームにセット
         self._status = status
@@ -468,7 +466,7 @@ class LiveStream():
             ## 主にネットワークが切断されたなどの理由で発生する
             if now - client.stream_data_read_at > timeout:
                 self._clients.remove(client)
-                Logging.info(f'[Live: {self.livestream_id}] Client Disconnected (Timeout). Client ID: {client.client_id}')
+                Logging.info(f'[Live: {self.live_stream_id}] Client Disconnected (Timeout). Client ID: {client.client_id}')
                 if hasattr(client, 'queue'):
                     del client.queue
                 del client

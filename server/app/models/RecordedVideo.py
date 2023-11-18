@@ -46,6 +46,7 @@ class RecordedVideo(models.Model):
     recording_start_time: datetime | None = fields.DatetimeField(null=True)  # type: ignore
     recording_end_time: datetime | None = fields.DatetimeField(null=True)  # type: ignore
     duration: float = fields.FloatField()  # type: ignore
+    # 万が一将来他のコンテナ形式をサポートすることになった時のために一応定義しているが、当面の間 MPEG-TS 以外はサポートしない
     container_format: Literal['MPEG-TS'] = fields.CharField(255)  # type: ignore
     video_codec: Literal['MPEG-2', 'H.264', 'H.265'] = fields.CharField(255)  # type: ignore
     # プロファイルは他にも多くあるが、現実的に使われそうなものだけを列挙
