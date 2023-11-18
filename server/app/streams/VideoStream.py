@@ -165,7 +165,7 @@ class VideoStream:
             # キーフレームの DTS (秒換算) を算出
             keyframe_dts_second_list = [
                 int(frame['pkt_dts']) / ts.HZ  # pkt_dts_time は ffprobe 側で丸められているので使わない
-                for frame in frames if int(frame['key_frame']) == 1
+                for frame in frames if 'pkt_dts' in frame and int(frame['key_frame']) == 1
             ]
             print('keyframe_dts_second_list: ', end = '')
             print(keyframe_dts_second_list)
