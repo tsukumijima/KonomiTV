@@ -6,9 +6,10 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+from biim.mpeg2ts import ts
 from dataclasses import dataclass
 from rich import print
-from typing import Callable, ClassVar
+from typing import Any, Callable, ClassVar
 
 from app.constants import LIBRARY_PATH, QUALITY_TYPES
 from app.models.RecordedProgram import RecordedProgram
@@ -24,16 +25,16 @@ class VideoStreamSegment:
     当初 Pydantic モデルにしていたが、Pydantic モデルは非プリミティブ値を含められないようなので dataclass に変更した
     """
 
-    # HLS セグメントの開始タイムスタンプ (PTS)
-    # この PTS を元に HLS セグメントが録画データから切り出される
-    start_offset_timestamp: float
+    # HLS セグメントの切り出しを開始する DTS (秒換算)
+    # この DTS を元に HLS セグメントが録画データから切り出される
+    start_dts_second: float
 
     # HLS セグメント長 (秒)
     # 基本 SEGMENT_DURATION_SECOND に近い値になるが、キーフレーム単位で切り出すために少し長くなる
     duration: float
 
     # HLS セグメントのエンコード済み MPEG-TS データが返る asyncio.Future
-    segment_ts_future: asyncio.Future[bytes]
+    encoded_segment_ts_future: asyncio.Future[bytes]
 
     # 現在 HLS セグメントをエンコード中かどうか
     # エンコード中であれば True、エンコードが完了していれば False
@@ -145,85 +146,79 @@ class VideoStream:
         # ビデオストリームのアクティブ状態を維持する
         self.keepAlive()
 
-        # まだ HLS セグメントリストから空なら、キーフレームパケットの PTS (秒換算) のリストを取得した上ですべてのセグメント分作成する
+        # まだ HLS セグメントリストから空なら、キーフレームの DTS (秒換算) のリストを取得した上ですべてのセグメント分作成する
         # この時点では入れ物を作るだけで、実際にエンコードされるわけではない
         ## TODO: この値はキャッシュされるべき
+        ## TODO: キーフレームの収集中にもう一回プレイリストが叩かれるとバグる (録画データの収集時に事前にやっておくべき)
         if len(self.segments) == 0:
 
-            # ffprobe で映像パケットの PTS (秒換算) のリストを取得する
-            ## ffprobe で取得できる PTS は小数点6桁までの精度なので、それに合わせる
-            ffprobe_options = ['-show_frames', '-select_streams', 'v:0', '-of', 'json']
+            # ffprobe で映像パケットの情報を取得する
+            ffprobe_options = ['-show_frames', '-select_streams', 'v:0', '-show_entries', 'frame=pkt_dts,key_frame', '-of', 'json']
             ffprobe_result = await asyncio.subprocess.create_subprocess_exec(
                 *[LIBRARY_PATH['FFprobe'], *ffprobe_options, self.recorded_program.recorded_video.file_path],
                 stdout = asyncio.subprocess.PIPE,
                 stderr = asyncio.subprocess.DEVNULL,  # ログは使用しない
             )
-
-            # 映像の最初のキーフレームの PTS (秒換算) を取得
             assert ffprobe_result.stdout is not None
-            frames = json.loads((await ffprobe_result.stdout.read()).decode('utf-8'))
-            first_pts: float = 0
-            for frame in frames['frames']:
-                if int(frame['key_frame']) == 1:
-                    first_pts = float(frame['pts_time'])
-                    break
+            frames: list[dict[str, Any]] = json.loads((await ffprobe_result.stdout.read()).decode('utf-8'))['frames']
 
-            # 映像の最後のフレーム (キーフレームかどうかは問わない) の PTS (秒換算) を取得
-            last_pts = float(frames['frames'][-1]['pts_time'])
-
-            # キーフレームのタイムスタンプを抽出
-            # 最初の PTS (秒換算) を引いて、動画の先頭を 0 秒した場合の相対値 (秒) にする
-            keyframe_timestamps = [
-                # 小数点6桁までに丸める
-                round(float(frame['pts_time']) - first_pts, 6)
-                for frame in frames['frames'] if int(frame['key_frame']) == 1
+            # キーフレームの DTS (秒換算) を算出
+            keyframe_dts_second_list = [
+                int(frame['pkt_dts']) / ts.HZ  # pkt_dts_time は ffprobe 側で丸められているので使わない
+                for frame in frames if int(frame['key_frame']) == 1
             ]
-            print('keyframe_timestamps: ', end = '')
-            print(keyframe_timestamps)
+            print('keyframe_dts_second_list: ', end = '')
+            print(keyframe_dts_second_list)
 
-            # 映像の最後のフレームのタイムスタンプを取得
-            # 同じく最初の PTS (秒換算) を引いて、動画の先頭を 0 秒した場合の相対値 (秒) にする
-            last_timestamp = round(last_pts - first_pts, 6)
-            print(f"last_timestamp: {last_timestamp}")
+            # 映像の最初のキーフレームの DTS (秒換算) を取得
+            first_keyframe_dts = keyframe_dts_second_list[0]
+
+            # 映像の最後のフレーム (キーフレームかどうかは問わない) の DTS (秒換算) を取得
+            # frames を逆順に走査して一番先に見つけた pkt_dts プロパティがあるフレームを最後のフレームの DTS に採用する
+            last_dts_second = 0
+            for frame in reversed(frames):
+                if 'pkt_dts' in frame:
+                    last_dts_second = int(frame['pkt_dts']) / ts.HZ
+                    break
 
             # VideoStreamSegment を作成する
             ## セグメントは SEGMENT_DURATION_SECOND 秒ごとに作成するが、キーフレームがピッタリ合うことはまずないので、
-            # SEGMENT_DURATION_SECOND 秒を超えた時点で一番近いキーフレームのタイムスタンプを探してセグメントを作成する
+            # SEGMENT_DURATION_SECOND 秒を超えた時点で一番 DTS が近いキーフレームを探してセグメントを作成する
             ## 先頭のセグメント
             self.segments.append(VideoStreamSegment(
-                start_offset_timestamp = 0,
+                start_dts_second = first_keyframe_dts,  # 映像の最初のキーフレームの DTS (秒換算)
                 duration = 0,  # 仮の値
-                segment_ts_future = asyncio.Future(),  # dataclass 側に書くと全ての参照が同じになってしまうので毎回新たに生成する
+                encoded_segment_ts_future = asyncio.Future(),  # dataclass 側に書くと全ての参照が同じになってしまうので毎回新たに生成する
             ))
             ## キーフレーム自体放送波の場合 0.2 秒など基本高頻度で送出されているので、ちょうどいいタイミングで区切る
-            for keyframe_timestamp in keyframe_timestamps:
-                # 前のセグメントの開始タイムスタンプから SEGMENT_DURATION_SECOND 秒以上離れている場合のみ新たにセグメントを作成する
+            for keyframe_dts_second in keyframe_dts_second_list:
+                # 前のセグメントの開始 DTS から SEGMENT_DURATION_SECOND 秒以上離れている場合のみ新たにセグメントを作成する
                 # セグメント長はおそらく 10.203350 秒とかになるはず
-                if keyframe_timestamp - self.segments[-1].start_offset_timestamp >= VideoEncodingTask.SEGMENT_DURATION_SECOND:
+                if (keyframe_dts_second - self.segments[-1].start_dts_second) >= VideoEncodingTask.SEGMENT_DURATION_SECOND:
                     # 前のセグメントの長さを確定する
-                    # 小数点6桁までに丸める
-                    self.segments[-1].duration = round(keyframe_timestamp - self.segments[-1].start_offset_timestamp, 6)
-                    # セグメントを作成する
+                    self.segments[-1].duration = keyframe_dts_second - self.segments[-1].start_dts_second
+                    # 次のセグメントを作成する
                     self.segments.append(VideoStreamSegment(
-                        start_offset_timestamp = keyframe_timestamp,
+                        start_dts_second = keyframe_dts_second,
                         duration = 0,  # 仮の値
-                        segment_ts_future = asyncio.Future(),  # dataclass 側に書くと全ての参照が同じになってしまうので毎回新たに生成する
+                        encoded_segment_ts_future = asyncio.Future(),  # dataclass 側に書くと全ての参照が同じになってしまうので毎回新たに生成する
                     ))
             ## 最後のセグメントの長さを確定する
-            self.segments[-1].duration = round(last_timestamp - self.segments[-1].start_offset_timestamp, 6)
+            self.segments[-1].duration = last_dts_second - self.segments[-1].start_dts_second
 
         # 仮想 HLS M3U8 プレイリストを生成
         virtual_playlist = ''
-        virtual_playlist += f'#EXTM3U\n'
-        virtual_playlist += f'#EXT-X-VERSION:6\n'
-        virtual_playlist += f'#EXT-X-PLAYLIST-TYPE:VOD\n'
+        virtual_playlist += '#EXTM3U\n'
+        virtual_playlist += '#EXT-X-VERSION:6\n'
+        virtual_playlist += '#EXT-X-PLAYLIST-TYPE:VOD\n'
 
         # HLS セグメントの実時間の最大値を指定する (SEGMENT_DURATION_SECOND + 2 秒程度の余裕を持たせる)
         virtual_playlist += f'#EXT-X-TARGETDURATION:{int(VideoEncodingTask.SEGMENT_DURATION_SECOND + 2)}\n'
 
         # 事前に算出したセグメントをすべて記述する
         for index, segment in enumerate(self.segments):
-            virtual_playlist += f'#EXTINF:{segment.duration},\n'
+            virtual_playlist += f'#EXT-X-DISCONTINUITY\n'
+            virtual_playlist += f'#EXTINF:{segment.duration:.6f},\n'  # セグメントの長さ (秒, 小数点以下6桁まで)
             virtual_playlist += f'segment?sequence={index}&_={self.time_hash}\n'  # キャッシュ避けのためにタイムスタンプを付与する
 
         virtual_playlist += f'#EXT-X-ENDLIST\n'
@@ -263,12 +258,12 @@ class VideoStream:
 
         # エンコードタスクは既に起動しているがこの時点でまだセグメントのエンコードが完了していなければ、このセグメントからエンコードタスクを非同期で開始する
         # この HLS セグメントのエンコード処理が現在進行中の場合は完了まで待つ
-        elif segment.segment_ts_future.done() is False and segment.is_encode_processing is False:
+        elif segment.encoded_segment_ts_future.done() is False and segment.is_encode_processing is False:
 
             # 0.5 秒待ってみて、それでも同じ状態のときだけエンコードタスクを再起動する
             # タイミングの関係であともう少しだけ待てば当該セグメントのエンコードが開始するのに…！という場合に備える
             await asyncio.sleep(0.5)
-            if segment.segment_ts_future.done() is False and segment.is_encode_processing is False:
+            if segment.encoded_segment_ts_future.done() is False and segment.is_encode_processing is False:
 
                 # 以前のエンコードタスクをキャンセルする
                 # この時点で以前のエンコードタスクでエンコードが完了していたセグメントに関してはそのまま self.segments に格納されている
@@ -281,8 +276,8 @@ class VideoStream:
                 Logging.info(f'[Video: {self.video_stream_id}][Segment {segment_sequence}] New Encoding Task Started.')
 
         # セグメントデータの Future が完了したらそのデータを返す
-        segment_ts = await asyncio.shield(segment.segment_ts_future)
-        return segment_ts
+        encoded_segment_ts = await asyncio.shield(segment.encoded_segment_ts_future)
+        return encoded_segment_ts
 
 
     def destroy(self) -> None:

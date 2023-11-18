@@ -31,7 +31,7 @@ class VideoEncodingTask:
 
     # エンコード後のストリームの GOP 長 (秒)
     ## LiveEncodingTask と異なりライブではないため、GOP 長は H.264 / H.265 共通で長めに設定する
-    GOP_LENGTH_SECOND: ClassVar[float] = float(2.5)  # 2.5秒
+    GOP_LENGTH_SECOND: ClassVar[float] = float(5)  # 5秒
 
 
     def __init__(self, video_stream: VideoStream) -> None:
@@ -66,14 +66,14 @@ class VideoEncodingTask:
 
     def buildFFmpegOptions(self,
         quality: QUALITY_TYPES,
-        start_offset_timestamp: float,
+        output_timestamp_offset: float,
     ) -> list[str]:
         """
         FFmpeg に渡すオプションを組み立てる
 
         Args:
             quality (QUALITY_TYPES): 映像の品質
-            start_offset_timestamp (float): セグメントの開始タイムスタンプ (録画データの先頭からの経過秒数)
+            output_timestamp_offset (float): セグメントを出力する際のタイムスタンプ類のオフセット (DTS)
 
         Returns:
             list[str]: FFmpeg に渡すオプションが連なる配列
@@ -88,7 +88,6 @@ class VideoEncodingTask:
 
         # ストリームのマッピング
         ## 音声切り替えのため、主音声・副音声両方をエンコード後の TS に含む
-        ## 副音声が検出できない場合にエラーにならないよう、? をつけておく
         options.append('-map 0:v:0 -map 0:a:0 -map 0:a:1 -map 0:d? -ignore_unknown')
 
         # フラグ
@@ -138,13 +137,12 @@ class VideoEncodingTask:
         elif self.recorded_video.video_scan_type == 'Progressive':
             options.append(f'-r 30000/1001 -g {int(gop_length_second * 30)}')
 
-        # 音声
-        ## 音声が 5.1ch かどうかに関わらず、ステレオにダウンミックスする
-        options.append(f'-acodec aac -aac_coder twoloop -ac 2 -ab {QUALITY[quality].audio_bitrate} -ar 48000 -af volume=2.0')
+        # 音声は HLS セグメント化の都合上、当面ソースの音声をそのままコピーする
+        options.append('-acodec copy')
 
         # 出力するセグメント TS のタイムスタンプのオフセット
         # タイムスタンプが前回エンコードしたセグメントの続きになるようにする
-        options.append(f'-output_ts_offset {start_offset_timestamp}')
+        options.append(f'-output_ts_offset {output_timestamp_offset}')
 
         # 出力
         options.append('-y -f mpegts')  # MPEG-TS 出力ということを明示
@@ -161,7 +159,7 @@ class VideoEncodingTask:
     def buildHWEncCOptions(self,
         quality: QUALITY_TYPES,
         encoder_type: Literal['QSVEncC', 'NVEncC', 'VCEEncC', 'rkmppenc'],
-        start_offset_timestamp: float,
+        output_timestamp_offset: float,
     ) -> list[str]:
         """
         QSVEncC・NVEncC・VCEEncC・rkmppenc (便宜上 HWEncC と総称) に渡すオプションを組み立てる
@@ -169,7 +167,7 @@ class VideoEncodingTask:
         Args:
             quality (QUALITY_TYPES): 映像の品質
             encoder_type (Literal['QSVEncC', 'NVEncC', 'VCEEncC', 'rkmppenc']): エンコーダー (QSVEncC or NVEncC or VCEEncC or rkmppenc)
-            start_offset_timestamp (float): セグメントの開始タイムスタンプ (録画データの先頭からの経過秒数)
+            output_timestamp_offset (float): セグメントを出力する際のタイムスタンプ類のオフセット (DTS)
 
         Returns:
             list[str]: HWEncC に渡すオプションが連なる配列
@@ -181,7 +179,7 @@ class VideoEncodingTask:
         # 入力
         ## --input-probesize, --input-analyze をつけることで、ストリームの分析時間を短縮できる
         ## 両方つけるのが重要で、--input-analyze だけだとエンコーダーがフリーズすることがある
-        options.append('--input-format mpegts --fps 30000/1001 --input-probesize 1000K --input-analyze 0.7 --input -')
+        options.append('--input-format mpegts --input-probesize 1000K --input-analyze 0.7 --input -')
         ## VCEEncC の HW デコーダーはエラー耐性が低く TS を扱う用途では不安定なので、SW デコーダーを利用する
         if encoder_type == 'VCEEncC':
             options.append('--avsw')
@@ -190,16 +188,14 @@ class VideoEncodingTask:
             options.append('--avhw')
 
         # ストリームのマッピング
+        ## 音声は HLS セグメント化の都合上、当面ソースの音声をそのままコピーする
         ## 音声切り替えのため、主音声・副音声両方をエンコード後の TS に含む
-        ## 音声が 5.1ch かどうかに関わらず、ステレオにダウンミックスする
-        options.append('--audio-stream 1?:stereo --audio-stream 2?:stereo --data-copy timed_id3')
+        options.append('--audio-copy --data-copy timed_id3')
 
         # フラグ
         ## 主に HWEncC の起動を高速化するための設定
         options.append('-m avioflags:direct -m fflags:nobuffer+flush_packets -m flush_packets:1 -m max_delay:250000')
         options.append('-m max_interleave_delta:500K --output-thread 0 --lowlatency')
-        ## その他の設定
-        options.append('--log-level debug')
 
         # 映像
         ## コーデック
@@ -289,13 +285,9 @@ class VideoEncodingTask:
             video_width = 1920
         options.append(f'--output-res {video_width}x{video_height}')
 
-        # 音声
-        options.append(f'--audio-codec aac:aac_coder=twoloop --audio-bitrate {QUALITY[quality].audio_bitrate}')
-        options.append('--audio-samplerate 48000 --audio-filter volume=2.0 --audio-ignore-decode-error 30')
-
         # 出力するセグメント TS のタイムスタンプのオフセット
         # タイムスタンプが前回エンコードしたセグメントの続きになるようにする
-        options.append(f'-m output_ts_offset:{start_offset_timestamp}')
+        options.append(f'-m output_ts_offset:{output_timestamp_offset}')
 
         # 出力
         options.append('--output-format mpegts')  # MPEG-TS 出力ということを明示
@@ -319,7 +311,7 @@ class VideoEncodingTask:
         このメソッドを並列に実行してはならない
 
         Args:
-            start_offset_timestamp (float): セグメントの開始タイムスタンプ (録画データの先頭からの経過秒数)
+            segment (VideoStreamSegment): エンコード対象の VideoStreamSegment のデータ
 
         Returns:
             bool: 最終的にエンコードが成功したかどうか
@@ -386,13 +378,13 @@ class VideoEncodingTask:
 
         # エンコーダーの種類を取得
         encoder_type = Config().general.encoder
-        encoder_type = 'FFmpeg'  # 当面固定
+        # encoder_type = 'FFmpeg'  # デバッグ用
 
         # FFmpeg
         if encoder_type == 'FFmpeg':
 
             # オプションを取得
-            encoder_options = self.buildFFmpegOptions(self.video_stream.quality, segment.start_offset_timestamp)
+            encoder_options = self.buildFFmpegOptions(self.video_stream.quality, segment.start_dts_second)
             Logging.info(f'[Video: {self.video_stream.video_stream_id}] FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
             # エンコーダープロセスを非同期で作成・実行
@@ -400,15 +392,15 @@ class VideoEncodingTask:
                 *[LIBRARY_PATH['FFmpeg'], *encoder_options],
                 stdin = tsreadex_read_pipe,  # tsreadex からの入力
                 stdout = asyncio.subprocess.PIPE,  # ストリーム出力
-                # stderr = None,  # デバッグ用で当面そのまま出力する
                 stderr = asyncio.subprocess.DEVNULL,
+                # stderr = None,  # デバッグ用
             )
 
         # HWEncC
         else:
 
             # オプションを取得
-            encoder_options = self.buildHWEncCOptions(self.video_stream.quality, encoder_type, segment.start_offset_timestamp)
+            encoder_options = self.buildHWEncCOptions(self.video_stream.quality, encoder_type, segment.start_dts_second)
             Logging.info(f'[Video: {self.video_stream.video_stream_id}] {encoder_type} Commands:\n{encoder_type} {" ".join(encoder_options)}')
 
             # エンコーダープロセスを非同期で作成・実行
@@ -416,8 +408,8 @@ class VideoEncodingTask:
                 *[LIBRARY_PATH[encoder_type], *encoder_options],
                 stdin = tsreadex_read_pipe,  # tsreadex からの入力
                 stdout = asyncio.subprocess.PIPE,  # ストリーム出力
-                # stderr = None,  # デバッグ用で当面そのまま出力する
                 stderr = asyncio.subprocess.DEVNULL,
+                # stderr = None,  # デバッグ用
             )
 
         # tsreadex の読み込み用パイプを閉じる
@@ -434,27 +426,29 @@ class VideoEncodingTask:
 
         # この時点でエンコードタスクがキャンセルされていればエンコード済みのセグメントデータを放棄して中断する
         if self._is_cancelled is True:
-            Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] Discarded encoded segment data because cancelled.')
+            segment.is_encode_processing = False  # エンコードを中断したのでエンコード中フラグを下ろす
             self.__terminateEncoder()
+            Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] Discarded encoded segment data because cancelled.')
             return False
 
         # この時点でエンコーダーの exit code が 0 か None (まだプロセスが起動している) でなければ何らかの理由でエンコードに失敗している
         if self._encoder_process.returncode != 0 and self._encoder_process.returncode is not None:
-            Logging.error(f'[Video: {self.video_stream.video_stream_id}] {encoder_type} exited with non-zero exit code.')
+            segment.is_encode_processing = False  # エンコードが失敗したのでエンコード中フラグを下ろす
             self.__terminateEncoder()
+            Logging.error(f'[Video: {self.video_stream.video_stream_id}] {encoder_type} exited with non-zero exit code.')
             return False
 
         # この時点で tsreadex とエンコーダーは終了しているはずだが、念のため強制終了しておく
         # 上記の判定を行った後に行うのが重要 (kill すると exit code が 0 以外になる可能性があるため)
         self.__terminateEncoder()
 
-        # 処理対象の VideoStreamSegment をエンコード完了に設定
+        # 処理対象の VideoStreamSegment をエンコード終了状態に設定
         segment.is_encode_processing = False
 
         # エンコード後のセグメントデータを VideoStreamSegment に書き込む
         # ここで設定したエンコード済みのセグメントデータが API で返される
-        assert segment.segment_ts_future.done() is False  # すでに完了しているはずはない
-        segment.segment_ts_future.set_result(segment_ts)
+        assert segment.encoded_segment_ts_future.done() is False  # すでに完了しているはずはない
+        segment.encoded_segment_ts_future.set_result(segment_ts)
         return True
 
 
@@ -468,9 +462,14 @@ class VideoEncodingTask:
             packet (bytes): MPEG2-TS パケット or これ以上エンコーダーに投入するパケットがない場合は None
         """
 
-        # まだエンコーダープロセスが起動していない場合は起動するまで待機する
-        while self._tsreadex_process is None or self._encoder_process is None:
-            await asyncio.sleep(0.01)
+        # すでにキャンセルされている場合は何もしない
+        # キャンセルされている場合当然ながらエンコーダープロセスも起動していない状態になるので、下記の assert より上に書いている
+        if self._is_cancelled is True:
+            return
+
+        # エンコーダープロセスが起動していない場合はエラー
+        assert self._tsreadex_process is not None, 'tsreadex process is not running.'
+        assert self._encoder_process is not None, 'encoder process is not running.'
 
         # これ以上エンコーダーに投入するパケットがない場合は tsreadex の標準入力を閉じる
         assert self._tsreadex_process.stdin is not None
@@ -479,8 +478,12 @@ class VideoEncodingTask:
             return
 
         # tsreadex に TS パケットを送信する
-        self._tsreadex_process.stdin.write(packet)
-        await self._tsreadex_process.stdin.drain()
+        try:
+            self._tsreadex_process.stdin.write(packet)
+            await self._tsreadex_process.stdin.drain()
+        except Exception:
+            # 万が一何かしらのエラーが発生しても無視する
+            pass
 
 
     def __terminateEncoder(self) -> None:
@@ -509,7 +512,7 @@ class VideoEncodingTask:
         """
         HLS エンコードタスクを実行する
         biim の実装をかなり参考にした
-        TODO: 現状 PCR や PTS が一周した時の処理は何も考えてない
+        TODO: 現状 PCR や DTS/PTS が一周した時の処理は何も考えてない
         ref: https://github.com/monyone/biim/blob/other/static-ondemand-hls/seekable.py
         ref: https://github.com/monyone/biim/blob/other/static-ondemand-hls/vod_main.py
         ref: https://github.com/monyone/biim/blob/other/static-ondemand-hls/vod_fmp4.py
@@ -542,9 +545,6 @@ class VideoEncodingTask:
         # 映像ストリームの概算バイトレート
         BYTE_RATE: float | None = None
 
-        # 映像ストリームの最初の DTS
-        FIRST_DTS: int | None = None
-
         # PAT / PMT パーサー
         pat_parser: SectionParser[PATSection] = SectionParser(PATSection)
         pmt_parser: SectionParser[PMTSection] = SectionParser(PMTSection)
@@ -555,121 +555,109 @@ class VideoEncodingTask:
         pcr_remain_count: int = 30  # 30 回分の PCR 値を取得する (PCR を取得するたびに 1 減らす)
         async with aiofiles.open(self.recorded_video.file_path, 'rb') as reader:
             while True:
+
+                # 同期バイトを探す
                 while True:
-                    sync_byte = await reader.read(1)
+                    sync_byte: bytes = await reader.read(1)
                     if sync_byte == ts.SYNC_BYTE:
                         break
                     elif sync_byte == b'':
-                        assert False, 'Invalid TS file.'
+                        # このループでファイルの終端に達することは基本ないはず
+                        assert False, 'Invalid TS file. Sync byte is not found.'
 
-                # 1つずつ TS パケットを読み込む
-                packet = ts.SYNC_BYTE + await reader.read(ts.PACKET_SIZE - 1)
-                if len(packet) != ts.PACKET_SIZE:
-                    assert False, 'Invalid TS file. Packet size is not 188 bytes.'
+                # 速度向上のため 188 * 10000 バイトのチャンクで一気に読み込んだ後、188 バイトごとの TS パケットに分割して処理する
+                chunk = ts.SYNC_BYTE + await reader.read((ts.PACKET_SIZE * 10000) - 1)
+                for packet in [chunk[i:i + ts.PACKET_SIZE] for i in range(0, len(chunk), ts.PACKET_SIZE)]:
+                    if len(packet) != ts.PACKET_SIZE:
+                        Logging.error(f'[Video: {self.video_stream.video_stream_id}] Packet size is not 188 bytes.')
+                        continue
+                    if packet[0] != 0x47:
+                        Logging.error(f'[Video: {self.video_stream.video_stream_id}] Sync byte is not 0x47.')
+                        continue
 
-                # TS パケットの PID を取得する
-                PID = ts.pid(packet)
+                    # TS パケットの PID を取得する
+                    PID = ts.pid(packet)
 
-                # PAT: Program Association Table
-                if PID == PAT_PID:
-                    pat_parser.push(packet)
-                    for PAT in pat_parser:
-                        if PAT.CRC32() != 0:
-                            continue
-                        for program_number, program_map_PID in PAT:
-                            if program_number == 0:
+                    # PAT: Program Association Table
+                    if PID == PAT_PID:
+                        pat_parser.push(packet)
+                        for PAT in pat_parser:
+                            if PAT.CRC32() != 0:
                                 continue
-                            # PMT の PID を取得する
-                            if program_number == SERVICE_ID:
-                                PMT_PID = program_map_PID
-                            elif not PMT_PID and not SERVICE_ID:
-                                PMT_PID = program_map_PID
+                            for program_number, program_map_PID in PAT:
+                                if program_number == 0:
+                                    continue
+                                # PMT の PID を取得する
+                                if program_number == SERVICE_ID:
+                                    PMT_PID = program_map_PID
+                                elif not PMT_PID and not SERVICE_ID:
+                                    PMT_PID = program_map_PID
 
-                # PMT: Program Map Table
-                elif PID == PMT_PID:
-                    pmt_parser.push(packet)
-                    for PMT in pmt_parser:
-                        if PMT.CRC32() != 0:
-                            continue
-                        PCR_PID = PMT.PCR_PID
-                        # 映像ストリームの PID を取得する
-                        for stream_type, elementary_PID, _ in PMT:
-                            if stream_type == 0x02:
-                                if MPEG2_PID is None:
-                                    Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] MPEG-2 PID: 0x{elementary_PID:04x}')
-                                MPEG2_PID = elementary_PID
-                            elif stream_type == 0x1b:
-                                if H264_PID is None:
-                                    Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] H.264 PID: 0x{elementary_PID:04x}')
-                                H264_PID = elementary_PID
-                            elif stream_type == 0x24:
-                                if H265_PID is None:
-                                    Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] H.265 PID: 0x{elementary_PID:04x}')
-                                H265_PID = elementary_PID
+                    # PMT: Program Map Table
+                    elif PID == PMT_PID:
+                        pmt_parser.push(packet)
+                        for PMT in pmt_parser:
+                            if PMT.CRC32() != 0:
+                                continue
+                            PCR_PID = PMT.PCR_PID
+                            # 映像ストリームの PID を取得する
+                            for stream_type, elementary_PID, _ in PMT:
+                                if stream_type == 0x02:
+                                    if MPEG2_PID is None:
+                                        Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] MPEG-2 PID: 0x{elementary_PID:04x}')
+                                    MPEG2_PID = elementary_PID
+                                elif stream_type == 0x1b:
+                                    if H264_PID is None:
+                                        Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] H.264 PID: 0x{elementary_PID:04x}')
+                                    H264_PID = elementary_PID
+                                elif stream_type == 0x24:
+                                    if H265_PID is None:
+                                        Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] H.265 PID: 0x{elementary_PID:04x}')
+                                    H265_PID = elementary_PID
 
-                # PCR: Program Clock Reference
-                elif PID == PCR_PID and ts.has_pcr(packet):
-                    if latest_pcr_value is None:
-                        # 最初の PCR 値を取得する
-                        latest_pcr_value = cast(int, ts.pcr(packet))
-                        latest_pcr_ts_packet_bytes = 0  # 0 で初期化する
-                    elif pcr_remain_count > 0:
-                        pcr_remain_count -= 1  # PCR 値を取得するたびに 1 減らす
-                    else:
-                        # 30 回分の PCR パケットを読み取ったので、バイトレートを概算する
-                        if BYTE_RATE is None:
-                            # 初回のみ代入する (後のパケットで上書きしないようにする)
-                            assert latest_pcr_ts_packet_bytes is not None
-                            BYTE_RATE = (
-                                (latest_pcr_ts_packet_bytes + ts.PACKET_SIZE) * ts.HZ /
-                                ((cast(int, ts.pcr(packet)) - latest_pcr_value + ts.PCR_CYCLE) % ts.PCR_CYCLE)
-                            )
-                            assert BYTE_RATE is not None
-                            Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] Approximate Bitrate: {(BYTE_RATE / 1024 / 1024 * 8):.3f} Mbps')
+                    # PCR: Program Clock Reference
+                    elif PID == PCR_PID and ts.has_pcr(packet):
+                        if latest_pcr_value is None:
+                            # 最初の PCR 値を取得する
+                            latest_pcr_value = cast(int, ts.pcr(packet))
+                            latest_pcr_ts_packet_bytes = 0  # 0 で初期化する
+                        elif pcr_remain_count > 0:
+                            pcr_remain_count -= 1  # PCR 値を取得するたびに 1 減らす
+                        else:
+                            # 30 回分の PCR パケットを読み取ったので、バイトレートを概算する
+                            if BYTE_RATE is None:
+                                # 初回のみ代入する (後のパケットで上書きしないようにする)
+                                assert latest_pcr_ts_packet_bytes is not None
+                                BYTE_RATE = (
+                                    (latest_pcr_ts_packet_bytes + ts.PACKET_SIZE) * ts.HZ /
+                                    ((cast(int, ts.pcr(packet)) - latest_pcr_value + ts.PCR_CYCLE) % ts.PCR_CYCLE)
+                                )
+                                assert BYTE_RATE is not None
+                                Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] '
+                                                    f'Approximate Bitrate: {(BYTE_RATE / 1024 / 1024 * 8):.3f} Mbps')
 
-                # 最初の PCR 値を取得してから読み取った TS パケットの累計バイト数を更新する
-                # 最初の PCR 値が取得されるまではカウントしない
-                if latest_pcr_ts_packet_bytes is not None:
-                    latest_pcr_ts_packet_bytes += ts.PACKET_SIZE
+                    # 最初の PCR 値を取得してから読み取った TS パケットの累計バイト数を更新する
+                    # 最初の PCR 値が取得されるまではカウントしない
+                    if latest_pcr_ts_packet_bytes is not None:
+                        latest_pcr_ts_packet_bytes += ts.PACKET_SIZE
 
-                # 各 PID と概算バイトレートの両方が取得できたらループを抜ける
-                if (PMT_PID is not None) and \
-                   (PCR_PID is not None) and \
-                   (MPEG2_PID is not None or H264_PID is not None or H265_PID is not None) and \
-                   (BYTE_RATE is not None):
-                    break
+                    # 各 PID と概算バイトレートの両方が取得できたらループを抜ける
+                    if (PMT_PID is not None) and \
+                    (PCR_PID is not None) and \
+                    (MPEG2_PID is not None or H264_PID is not None or H265_PID is not None) and \
+                    (BYTE_RATE is not None):
+                        break
+
+                # 多重ループを抜けられるようにする
+                # ref: https://note.nkmk.me/python-break-nested-loops/
+                else:
+                    continue
+                break
 
         assert BYTE_RATE is not None, 'Byte Rate is not found.'
 
-        # 次に、映像ストリーム (MPEG-2 or H.264 or H.265) の最初の DTS を取得する
-        ## 上のループで一緒にやってしまうとまだ映像ストリームの PID が取得できていない頃のパケットを読み飛ばしてしまうので、あえて別のループにしている
-        async with aiofiles.open(self.recorded_video.file_path, 'rb') as reader:
-            while True:
-                while True:
-                    sync_byte = await reader.read(1)
-                    if sync_byte == ts.SYNC_BYTE:
-                        break
-                    elif sync_byte == b'':
-                        assert False, 'Invalid TS file.'
-
-                # 1つずつ TS パケットを読み込む
-                packet = ts.SYNC_BYTE + await reader.read(ts.PACKET_SIZE - 1)
-                if len(packet) != ts.PACKET_SIZE:
-                    assert False, 'Invalid TS file. Packet size is not 188 bytes.'
-
-                # TS パケットの PID を取得する
-                PID = ts.pid(packet)
-
-                # 映像ストリーム (MPEG-2 or H.264 or H.265) の最初の DTS を取得する
-                if PID == MPEG2_PID or PID == H264_PID or PID == H265_PID:
-                    if ts.payload_unit_start_indicator(packet):
-                        mpeg2_or_h264_or_h265 = PES(ts.payload(packet))
-                        dts_or_pts = cast(int, mpeg2_or_h264_or_h265.dts() if mpeg2_or_h264_or_h265.has_dts() else mpeg2_or_h264_or_h265.pts())
-                        FIRST_DTS = dts_or_pts
-                        Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] First DTS (Seconds): {FIRST_DTS / ts.HZ}')
-                        break
-
-        assert FIRST_DTS is not None, 'First DTS is not found.'
+        # 映像の最初のキーフレームの DTS (秒換算)
+        FIRST_KEYFRAME_DTS_SECOND = self.video_stream.segments[0].start_dts_second
 
         # 現在シーク (大雑把にシークした後、実際の出力開始位置まで録画データを細かく読み出して調整する) 処理中かどうか
         is_seeking = True
@@ -689,135 +677,185 @@ class VideoEncodingTask:
         # 取得した概算バイトレートをもとに、指定された開始タイムスタンプに近い位置までシークする
         # バイトレートの変動が激しい場合はぴったりシークできるとは限らないので、指定された開始タイムスタンプの 30 秒から読み取りを開始する
         async with aiofiles.open(self.recorded_video.file_path, 'rb') as reader:
-            seek_offset_second = max(0, self.video_stream.segments[first_segment_index].start_offset_timestamp - 30)
+            seek_offset_second = max(0, (self.video_stream.segments[first_segment_index].start_dts_second - FIRST_KEYFRAME_DTS_SECOND) - 30)
             await reader.seek(int(seek_offset_second * BYTE_RATE))
             Logging.info(f'[Video: {self.video_stream.video_stream_id}] Seeked to roughly {seek_offset_second} seconds.')
 
             while True:
+
+                # 同期バイトを探す
+                isEOF = False
                 while True:
-                    sync_byte = await reader.read(1)
+                    sync_byte: bytes = await reader.read(1)
                     if sync_byte == ts.SYNC_BYTE:
                         break
                     elif sync_byte == b'':
-                        assert False, 'Invalid TS file.'
+                        # ファイルの終端に達した場合はループを抜けて終了する
+                        isEOF = True
+                        Logging.info(f'[Video: {self.video_stream.video_stream_id}] Reached end of file.')
+                        break
 
-                # 1つずつ TS パケットを読み込む
-                packet = ts.SYNC_BYTE + await reader.read(ts.PACKET_SIZE - 1)
-                if len(packet) != ts.PACKET_SIZE:
-                    assert False, 'Invalid TS file. Packet size is not 188 bytes.'
-
-                # TS パケットの PID を取得する
-                PID = ts.pid(packet)
-
-                # PAT: Program Association Table
-                if PID == PAT_PID:
-                    pat_parser.push(packet)
-                    for PAT in pat_parser:
-                        if PAT.CRC32() != 0:
-                            continue
-                        for program_number, program_map_PID in PAT:
-                            if program_number == 0:
-                                continue
-                            # PMT の PID を取得する
-                            ## この時点ではすでに取得されているはずだが、PMT の PID が録画データの途中で変更されている場合に備える
-                            if program_number == SERVICE_ID:
-                                PMT_PID = program_map_PID
-                            elif not PMT_PID and not SERVICE_ID:
-                                PMT_PID = program_map_PID
-
-                # PMT: Program Map Table
-                elif PID == PMT_PID:
-                    pmt_parser.push(packet)
-                    for PMT in pmt_parser:
-                        if PMT.CRC32() != 0:
-                            continue
-                        PCR_PID = PMT.PCR_PID
-                        # 映像ストリームの PID を取得する
-                        ## この時点ではすでに取得されているはずだが、映像ストリームの PID が録画データの途中で変更されている場合に備える
-                        for stream_type, elementary_PID, _ in PMT:
-                            if stream_type == 0x02:
-                                MPEG2_PID = elementary_PID
-                            elif stream_type == 0x1b:
-                                H264_PID = elementary_PID
-                            elif stream_type == 0x24:
-                                H265_PID = elementary_PID
-
-                # 映像ストリーム (MPEG-2 or H.264 or H.265)
-                elif PID == MPEG2_PID or PID == H264_PID or PID == H265_PID:
-                    if ts.payload_unit_start_indicator(packet):
-                        mpeg2_or_h264_or_h265 = PES(ts.payload(packet))
-                        dts_or_pts = cast(int, mpeg2_or_h264_or_h265.dts() if mpeg2_or_h264_or_h265.has_dts() else mpeg2_or_h264_or_h265.pts())
-
-                        # 映像ストリームの最初の DTS (≒ 録画データの先頭) からの経過秒数を算出する
-                        current_relative_timestamp = (dts_or_pts - FIRST_DTS) / ts.HZ
-
-                        # 録画データの先頭からの経過秒数が次のセグメントの開始タイムスタンプよりも大きい場合
-                        # まだシーク中だった場合はシークを完了し、次のセグメントに切り替えてエンコードを開始する
-                        if current_relative_timestamp >= self.video_stream.segments[segment_index + 1].start_offset_timestamp:
-
-                            if is_seeking is True:
-                                # ここを通った時点で確実に first_segment_index のセグメントまでのシークが完了している
-                                is_seeking = False
-                                Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] '
-                                                    f'Current DTS (Seconds): {dts_or_pts / ts.HZ}')
-                                Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] '
-                                                    f'Current Relative Timestamp: {current_relative_timestamp}')
-                                Logging.info(f'[Video: {self.video_stream.video_stream_id}] Seeked to {current_relative_timestamp} seconds.')
-                            else:
-                                # ここを通った時点で前のセグメントの切り出しが完了している
-                                Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment_index}] '
-                                                    f'Current DTS (Seconds): {dts_or_pts / ts.HZ}')
-                                Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment_index}] '
-                                                    f'Current Relative Timestamp: {current_relative_timestamp}')
-                                Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment_index}] '
-                                             f'Cut out {segment_bytes_count / 1024 / 1024:.3f} MiB.')
-
-                            # まだ前のセグメントのエンコーダーが起動している場合
-                            if segment_encoding_task is not None and segment_encoding_task.done() is False:
-
-                                # もう投入するパケットがないことを通知する (これで tsreadex の標準入力が閉じられ、エンコードが完了する)
-                                await self.__pushTSPacketDataToEncoder(None)
-
-                                # エンコードが完了するまで待機する
-                                result = await segment_encoding_task
-                                if result is True:
-                                    Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment_index}] Successfully encoded HLS segment.')
-                                else:
-                                    Logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment_index}] Failed to encode HLS segment.')
-
-                            # この時点で次のセグメントのエンコードがすでに完了している場合、これ以上エンコードタスクを動かす必要はないのでループを抜ける
-                            ## 例えば 15 分地点からエンコードタスクが開始されて 30 分地点までエンコードした後、
-                            ## ユーザー操作により巻き戻って 5 分地点からエンコードタスクが開始された場合、15 分地点に到達した時点でエンコードタスクを終了する
-                            if self.video_stream.segments[segment_index + 1].segment_ts_future.done() is True:
-                                break
-
-                            # 次のセグメントのインデックスに切り替える
-                            segment_index += 1
-                            Logging.info(f'[Video: {self.video_stream.video_stream_id}] Switched to next segment: {segment_index}')
-
-                            # 非同期でエンコーダーを起動する
-                            segment = self.video_stream.segments[segment_index]
-                            segment_bytes_count = 0  # バイト数カウントをリセットする
-                            segment_encoding_task = asyncio.create_task(self.__runEncoder(segment))
-                            Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment_index}] '
-                                         f'Start: {segment.start_offset_timestamp} / End: {segment.start_offset_timestamp + segment.duration}')
-
-                # シーク中でなければ (PAT と PMT は例外的にシーク中でも処理する)
-                if is_seeking is False or PID == PAT_PID or PID == PMT_PID:
-                    # 現在処理中のセグメントのデータをエンコーダーに投入する
-                    await self.__pushTSPacketDataToEncoder(packet)
-                    segment_bytes_count += ts.PACKET_SIZE  # バイト数カウントを更新する
-
-                # 途中でエンコードタスクがキャンセルされた場合は処理中のセグメントがあるかに関わらずループを抜ける
-                # このとき、エンコード中のセグメントはエンコードの完了を待つことなく破棄される
-                if self._is_cancelled is True:
+                # ファイルの終端に達した場合はループを抜けて終了する
+                if isEOF is True:
                     break
 
-        # この時点でエンコードタスクがキャンセルされている場合は、このままエンコードタスクを終了する
-        if self._is_cancelled is True:
-            return
+                # 速度向上のため 188 * 10000 バイトのチャンクで一気に読み込んだ後、188 バイトごとの TS パケットに分割して処理する
+                chunk = ts.SYNC_BYTE + await reader.read((ts.PACKET_SIZE * 10000) - 1)
+                for packet in [chunk[i:i + ts.PACKET_SIZE] for i in range(0, len(chunk), ts.PACKET_SIZE)]:
+                    if len(packet) != ts.PACKET_SIZE:
+                        Logging.error(f'[Video: {self.video_stream.video_stream_id}] Packet size is not 188 bytes.')
+                        continue
+                    if packet[0] != 0x47 and is_seeking is False:  # シーク中は同期バイトをチェックしない
+                        Logging.error(f'[Video: {self.video_stream.video_stream_id}] Sync byte is not 0x47.')
+                        continue
+
+                    # TS パケットの PID を取得する
+                    PID = ts.pid(packet)
+
+                    # PAT: Program Association Table
+                    if PID == PAT_PID:
+                        pat_parser.push(packet)
+                        for PAT in pat_parser:
+                            if PAT.CRC32() != 0:
+                                continue
+                            for program_number, program_map_PID in PAT:
+                                if program_number == 0:
+                                    continue
+                                # PMT の PID を取得する
+                                ## この時点ではすでに取得されているはずだが、PMT の PID が録画データの途中で変更されている場合に備える
+                                if program_number == SERVICE_ID:
+                                    PMT_PID = program_map_PID
+                                elif not PMT_PID and not SERVICE_ID:
+                                    PMT_PID = program_map_PID
+
+                    # PMT: Program Map Table
+                    elif PID == PMT_PID:
+                        pmt_parser.push(packet)
+                        for PMT in pmt_parser:
+                            if PMT.CRC32() != 0:
+                                continue
+                            PCR_PID = PMT.PCR_PID
+                            # 映像ストリームの PID を取得する
+                            ## この時点ではすでに取得されているはずだが、映像ストリームの PID が録画データの途中で変更されている場合に備える
+                            for stream_type, elementary_PID, _ in PMT:
+                                if stream_type == 0x02:
+                                    MPEG2_PID = elementary_PID
+                                elif stream_type == 0x1b:
+                                    H264_PID = elementary_PID
+                                elif stream_type == 0x24:
+                                    H265_PID = elementary_PID
+
+                    # 映像ストリーム (MPEG-2 or H.264 or H.265)
+                    elif PID == MPEG2_PID or PID == H264_PID or PID == H265_PID:
+                        if ts.payload_unit_start_indicator(packet):
+                            mpeg2_or_h264_or_h265 = PES(ts.payload(packet))
+                            current_dts = cast(int, mpeg2_or_h264_or_h265.dts() if mpeg2_or_h264_or_h265.has_dts() else mpeg2_or_h264_or_h265.pts())
+
+                            # 現在の映像パケットの DTS (秒換算) を算出する
+                            current_dts_second = current_dts / ts.HZ
+                            assert (segment_index == -1 or current_dts_second - FIRST_KEYFRAME_DTS_SECOND >= 0), 'Current Relative Time is negative.'
+
+                            # 次のセグメントを取得 (最後のセグメントの場合は None)
+                            next_segment = self.video_stream.segments[segment_index + 1] if segment_index + 1 < len(self.video_stream.segments) else None
+
+                            # 現在の映像パケットの DTS が次のセグメントの開始 DTS 以上になった場合
+                            # まだシーク中だった場合はシークを完了し、次のセグメントに切り替えてエンコードを開始する
+                            if next_segment is not None and current_dts_second >= next_segment.start_dts_second:
+
+                                if is_seeking is True:
+                                    # ここを通った時点で確実に first_segment_index のセグメントまでのシークが完了している
+                                    is_seeking = False
+                                    Logging.info(f'[Video: {self.video_stream.video_stream_id}] '
+                                                f'Seeked to {current_dts_second - FIRST_KEYFRAME_DTS_SECOND} seconds.')
+                                else:
+                                    # ここを通った時点で前のセグメントの切り出しが完了している
+                                    Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment_index}] '
+                                                f'Cut out {segment_bytes_count / 1024 / 1024:.3f} MiB.')
+
+                                # まだ前のセグメントのエンコーダーが起動している場合
+                                if segment_encoding_task is not None and segment_encoding_task.done() is False:
+
+                                    # もう投入するパケットがないことを通知する (これで tsreadex の標準入力が閉じられ、エンコードが完了する)
+                                    Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment_index}] '
+                                                    'Waiting for encoder to finish...')
+                                    await self.__pushTSPacketDataToEncoder(None)
+
+                                    # エンコードが完了するまで待機する
+                                    result = await segment_encoding_task
+                                    if result is True:
+                                        Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment_index}] '
+                                                    'Successfully encoded HLS segment.')
+                                    else:
+                                        Logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment_index}] '
+                                                    'Failed to encode HLS segment.')
+
+                                # この時点で次のセグメントのエンコードがすでに完了している場合、これ以上エンコードタスクを動かす必要はないのでループを抜ける
+                                ## 例えば 15 分地点からエンコードタスクが開始されて 30 分地点までエンコードした後、
+                                ## ユーザー操作により巻き戻って 5 分地点からエンコードタスクが開始された場合、15 分地点に到達した時点でエンコードタスクを終了する
+                                if next_segment.encoded_segment_ts_future.done() is True:
+                                    break
+
+                                # 次のセグメントのインデックスに切り替える
+                                segment_index += 1
+                                Logging.info(f'[Video: {self.video_stream.video_stream_id}] Switched to next segment: {segment_index}')
+
+                                # 次のセグメントの切り出し・エンコード処理を開始する
+                                segment = self.video_stream.segments[segment_index]
+                                segment_bytes_count = 0  # バイト数カウントをリセットする
+                                Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment_index}] '
+                                                    f'Current Relative Time: {current_dts_second - FIRST_KEYFRAME_DTS_SECOND}')
+                                Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment_index}] '
+                                                    f'Current DTS (Seconds): {current_dts_second}')
+                                Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment_index}] '
+                                                    f'Segment Start DTS (Seconds): {segment.start_dts_second}')
+                                Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment_index}] '
+                                            f'Start: {segment.start_dts_second - FIRST_KEYFRAME_DTS_SECOND} / '
+                                            f'End: {(segment.start_dts_second - FIRST_KEYFRAME_DTS_SECOND) + segment.duration}')
+                                Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment_index}] '
+                                            'Encoding HLS segment...')
+
+                                # 非同期でエンコーダーを起動する
+                                segment_encoding_task = asyncio.create_task(self.__runEncoder(segment))
+
+                                # エンコーダープロセスが完全に起動するのを待機する
+                                # ここでしっかり待機しないと微妙なタイミングの差で self.__pushTSPacketDataToEncoder() で書き込みエラーが発生することがある
+                                while self._tsreadex_process is None or self._encoder_process is None:
+                                    await asyncio.sleep(0.01)
+
+                    # シーク中でなければ、現在処理中のセグメントのデータをエンコーダーに投入する
+                    if is_seeking is False:
+                        await self.__pushTSPacketDataToEncoder(packet)
+                        segment_bytes_count += ts.PACKET_SIZE  # バイト数カウントを更新する
+
+                    # 途中でエンコードタスクがキャンセルされた場合は処理中のセグメントがあるかに関わらずエンコードタスクを終了する
+                    # このとき、エンコード中のセグメントはエンコードの完了を待つことなく破棄される
+                    if self._is_cancelled is True:
+                        return
+
+                # 多重ループを抜けられるようにする
+                # ref: https://note.nkmk.me/python-break-nested-loops/
+                else:
+                    continue
+                break
 
         # この時点で録画データの MPEG-TS をすべて読み出し切ったか、次に処理予定だったセグメントのエンコードが既に完了している状態になっているはず
+        # 最後に上のループでは実装上実行されない最後のセグメントの切り出し後の処理を実行して、エンコードタスクを完了する
+        Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment_index}] Cut out {segment_bytes_count / 1024 / 1024:.3f} MiB.')
+
+        # まだ前のセグメントのエンコーダーが起動している場合
+        if segment_encoding_task is not None and segment_encoding_task.done() is False:
+
+            # もう投入するパケットがないことを通知する (これで tsreadex の標準入力が閉じられ、エンコードが完了する)
+            Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment_index}] Waiting for encoder to finish...')
+            await self.__pushTSPacketDataToEncoder(None)
+
+            # エンコードが完了するまで待機する
+            result = await segment_encoding_task
+            if result is True:
+                Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment_index}] Successfully encoded HLS segment.')
+            else:
+                Logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment_index}] Failed to encode HLS segment.')
+
         Logging.info(f'[Video: {self.video_stream.video_stream_id}] VideoEncodingTask finished.')
 
 

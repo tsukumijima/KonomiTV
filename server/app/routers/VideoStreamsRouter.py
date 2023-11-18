@@ -66,8 +66,8 @@ async def VideoHLSPlaylistAPI(
     """
 
     video_stream = VideoStream(recorded_program, quality)
-    m3u8_data = await video_stream.getVirtualPlaylist()
-    return Response(content=m3u8_data, media_type='application/vnd.apple.mpegurl')
+    virtual_playlist = await video_stream.getVirtualPlaylist()
+    return Response(content=virtual_playlist, media_type='application/vnd.apple.mpegurl')
 
 
 @router.get(
@@ -95,13 +95,13 @@ async def VideoHLSSegmentAPI(
     # TODO: 適切な Cache-Control ヘッダーを返す
 
     video_stream = VideoStream(recorded_program, quality)
-    segment_ts = await video_stream.getSegment(sequence)
-    if segment_ts is None:
+    encoded_segment_ts = await video_stream.getSegment(sequence)
+    if encoded_segment_ts is None:
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified sequence segment was not found',
         )
-    return Response(content=segment_ts, media_type='video/mp2t')
+    return Response(content=encoded_segment_ts, media_type='video/mp2t')
 
 
 @router.put(

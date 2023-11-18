@@ -127,7 +127,6 @@ class LiveEncodingTask:
 
         # ストリームのマッピング
         ## 音声切り替えのため、主音声・副音声両方をエンコード後の TS に含む
-        ## 副音声が検出できない場合にエラーにならないよう、? をつけておく
         options.append('-map 0:v:0 -map 0:a:0 -map 0:a:1 -map 0:d? -ignore_unknown')
 
         # フラグ
