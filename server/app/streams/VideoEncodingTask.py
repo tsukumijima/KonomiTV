@@ -434,7 +434,7 @@ class VideoEncodingTask:
 
         # この時点でエンコードタスクがキャンセルされていればエンコード済みのセグメントデータを放棄して中断する
         if self._is_cancelled is True:
-            Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] Discarded encoded segment data because VideoEncodingTask is cancelled.')
+            Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] Discarded encoded segment data because cancelled.')
             self.__terminateEncoder()
             return False
 

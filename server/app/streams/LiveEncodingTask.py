@@ -401,7 +401,7 @@ class LiveEncodingTask:
 
         # まだ Standby になっていなければ、ステータスを Standby に設定
         # 基本はエンコードタスクの呼び出し元である self.live_stream.connect() の方で Standby に設定されるが、再起動の場合はそこを経由しないため必要
-        if not (self.live_stream.getStatus()['status'] == 'Standby' and self.live_stream.getStatus()['detail'] == 'エンコードタスクを起動しています…'):
+        if not (self.live_stream.getStatus().status == 'Standby' and self.live_stream.getStatus().detail == 'エンコードタスクを起動しています…'):
             self.live_stream.setStatus('Standby', 'エンコードタスクを起動しています…')
 
         # チャンネル情報からサービス ID とネットワーク ID を取得する
@@ -914,7 +914,7 @@ class LiveEncodingTask:
 
                 # エンコードの進捗を判定し、ステータスを更新する
                 # 誤作動防止のため、ステータスが Standby の間のみ更新できるようにする
-                if live_stream_status['status'] == 'Standby':
+                if live_stream_status.status == 'Standby':
                     # FFmpeg
                     if encoder_type == 'FFmpeg':
                         if 'arib parser was created' in line or 'Invalid frame dimensions 0x0.' in line:
@@ -1041,12 +1041,12 @@ class LiveEncodingTask:
                     del program_following
 
                 # 現在 ONAir でかつクライアント数が 0 なら Idling（アイドリング状態）に移行
-                if live_stream_status['status'] == 'ONAir' and live_stream_status['client_count'] == 0:
+                if live_stream_status.status == 'ONAir' and live_stream_status.client_count == 0:
                     self.live_stream.setStatus('Idling', 'ライブストリームは Idling です。')
 
                 # 現在 Idling でかつ最終更新から max_alive_time 秒以上経っていたらエンコーダーを終了し、Offline 状態に移行
-                if ((live_stream_status['status'] == 'Idling') and
-                    (time.time() - live_stream_status['updated_at'] > CONFIG.tv.max_alive_time)):
+                if ((live_stream_status.status == 'Idling') and
+                    (time.time() - live_stream_status.updated_at > CONFIG.tv.max_alive_time)):
                     self.live_stream.setStatus('Offline', 'ライブストリームは Offline です。')
 
                 # ***** 異常処理 (エンコードタスク再起動による回復が不可能) *****
@@ -1083,8 +1083,8 @@ class LiveEncodingTask:
                 encoder_ts_read_timeout_onair = \
                     self.ENCODER_TS_READ_TIMEOUT_ONAIR_VCEENCC if encoder_type == 'VCEEncC' else self.ENCODER_TS_READ_TIMEOUT_ONAIR
                 stream_data_last_write_time = time.time() - self.live_stream.getStreamDataWrittenAt()
-                if ((live_stream_status['status'] == 'Standby' and stream_data_last_write_time > self.ENCODER_TS_READ_TIMEOUT_STANDBY) or
-                    (live_stream_status['status'] == 'ONAir' and stream_data_last_write_time > encoder_ts_read_timeout_onair)):
+                if ((live_stream_status.status == 'Standby' and stream_data_last_write_time > self.ENCODER_TS_READ_TIMEOUT_STANDBY) or
+                    (live_stream_status.status == 'ONAir' and stream_data_last_write_time > encoder_ts_read_timeout_onair)):
 
                     # 番組名に「放送休止」などが入っている場合、チューナーから出力された放送波 TS に映像/音声ストリームが
                     # 含まれていない可能性が高いので、ここでエンコードタスクを停止する
@@ -1148,7 +1148,7 @@ class LiveEncodingTask:
                                 break
 
                     # それ以外なら、エンコーダーの再起動で復帰できる可能性があるのでエンコードタスクを再起動する
-                    if self.live_stream.getStatus()['status'] == 'Offline':
+                    if self.live_stream.getStatus().status == 'Offline':
 
                         # エンコードタスクを再起動
                         result = self.live_stream.setStatus('Restart', 'エンコーダーが強制終了されました。エンコードタスクを再起動しています… (ER-06)')
@@ -1164,7 +1164,7 @@ class LiveEncodingTask:
 
                 # この時点で最新のライブストリームのステータスが Offline か Restart に変更されていたら、エンコードタスクの終了処理に移る
                 live_stream_status = self.live_stream.getStatus()  # 更新されているかもしれないので再取得
-                if live_stream_status['status'] == 'Offline' or live_stream_status['status'] == 'Restart':
+                if live_stream_status.status == 'Offline' or live_stream_status.status == 'Restart':
                     break
 
                 # ビジーにならないように 0.1 秒待機
@@ -1195,7 +1195,7 @@ class LiveEncodingTask:
             self.live_stream.psi_data_archiver = None
 
         # エンコードタスクを再起動する（エンコーダーの再起動が必要な場合）
-        if self.live_stream.getStatus()['status'] == 'Restart':
+        if self.live_stream.getStatus().status == 'Restart':
 
             # チューナーをアンロックする (EDCB バックエンドのみ)
             ## 新しいエンコードタスクが今回立ち上げたチューナーを再利用できるようにする

@@ -6,22 +6,14 @@ from __future__ import annotations
 import asyncio
 import time
 from hashids import Hashids
-from typing import ClassVar, Literal, TypedDict
+from typing import ClassVar, Literal
 
 from app.constants import QUALITY_TYPES
+from app.schemas import LiveStreamStatus
 from app.streams.LiveEncodingTask import LiveEncodingTask
 from app.streams.LivePSIDataArchiver import LivePSIDataArchiver
 from app.utils import Logging
 from app.utils.EDCB import EDCBTuner
-
-
-class LiveStreamStatus(TypedDict):
-    """ ライブストリームのステータスを表す辞書の型定義 """
-    status: Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart']
-    detail: str
-    started_at: float
-    updated_at: float
-    client_count: int
 
 
 class LiveStreamClient():
@@ -195,7 +187,7 @@ class LiveStream():
 
         # 現在 ONAir 状態のライブストリームに絞り込む
         for live_stream in LiveStream.getAllLiveStreams():
-            if live_stream.getStatus()['status'] == 'ONAir':
+            if live_stream.getStatus().status == 'ONAir':
                 result.append(live_stream)
 
         return result
@@ -214,7 +206,7 @@ class LiveStream():
 
         # 現在 Idling 状態のライブストリームに絞り込む
         for live_stream in LiveStream.getAllLiveStreams():
-            if live_stream.getStatus()['status'] == 'Idling':
+            if live_stream.getStatus().status == 'Idling':
                 result.append(live_stream)
 
         return result
@@ -236,7 +228,7 @@ class LiveStream():
         viewer_count = 0
         for live_stream in LiveStream.getAllLiveStreams():
             if live_stream.display_channel_id == display_channel_id:
-                viewer_count += live_stream.getStatus()['client_count']
+                viewer_count += live_stream.getStatus().client_count
 
         return viewer_count
 
@@ -361,13 +353,13 @@ class LiveStream():
 
         client_count = len(self._clients)
 
-        return {
-            'status': self._status,  # ライブストリームの現在のステータス
-            'detail': self._detail,  # ライブストリームの現在のステータスの詳細情報
-            'started_at': self._started_at,  # ライブストリームが開始された (ステータスが Offline or Restart → Standby に移行した) 時刻
-            'updated_at': self._updated_at,  # ライブストリームのステータスが最後に更新された時刻
-            'client_count': client_count,  # ライブストリームに接続中のクライアント数
-        }
+        return LiveStreamStatus(
+            status = self._status,  # ライブストリームの現在のステータス
+            detail = self._detail,  # ライブストリームの現在のステータスの詳細情報
+            started_at = self._started_at,  # ライブストリームが開始された (ステータスが Offline or Restart → Standby に移行した) 時刻
+            updated_at = self._updated_at,  # ライブストリームのステータスが最後に更新された時刻
+            client_count = client_count,  # ライブストリームに接続中のクライアント数
+        )
 
 
     def setStatus(self, status: Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart'], detail: str, quiet: bool = False) -> bool:

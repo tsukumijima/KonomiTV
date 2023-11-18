@@ -69,13 +69,6 @@ class LiveChannel(Channel):
     program_present: Program | None
     program_following: Program | None
 
-class LiveStream(BaseModel):
-    status: Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart']
-    detail: str
-    started_at: float
-    updated_at: float
-    client_count: int
-
 class CMSection(TypedDict):
     start_time: float
     end_time: float
@@ -222,12 +215,19 @@ class JikkyoSession(BaseModel):
     audience_token: str | None = None
     detail: str
 
-class LiveStreams(BaseModel):
-    Restart: dict[str, LiveStream]
-    Idling: dict[str, LiveStream]
-    ONAir: dict[str, LiveStream]
-    Standby: dict[str, LiveStream]
-    Offline: dict[str, LiveStream]
+class LiveStreamStatus(BaseModel):
+    status: Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart']
+    detail: str
+    started_at: float
+    updated_at: float
+    client_count: int
+
+class LiveStreamStatuses(BaseModel):
+    Restart: dict[str, LiveStreamStatus]
+    Idling: dict[str, LiveStreamStatus]
+    ONAir: dict[str, LiveStreamStatus]
+    Standby: dict[str, LiveStreamStatus]
+    Offline: dict[str, LiveStreamStatus]
 
 class ThirdpartyAuthURL(BaseModel):
     authorization_url: str

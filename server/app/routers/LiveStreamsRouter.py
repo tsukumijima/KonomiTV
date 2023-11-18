@@ -1,7 +1,6 @@
 
 import asyncio
 import copy
-import json
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
@@ -54,7 +53,7 @@ async def ValidateQuality(quality: str = Path(..., description='映像の品質�
     '',
     summary = 'ライブストリーム一覧 API',
     response_description = 'ステータスごとに分類された、すべてのライブストリームの状態。',
-    response_model = schemas.LiveStreams,
+    response_model = schemas.LiveStreamStatuses,
 )
 async def LiveStreamsAPI():
     """
@@ -74,7 +73,7 @@ async def LiveStreamsAPI():
     # すべてのストリームごとに
     for live_stream in LiveStream.getAllLiveStreams():
         live_stream_status = live_stream.getStatus()
-        result[live_stream_status['status']][live_stream.live_stream_id] = live_stream_status
+        result[live_stream_status.status][live_stream.live_stream_id] = live_stream_status
 
     # すべてのライブストリームの状態を返す
     return result
@@ -84,7 +83,7 @@ async def LiveStreamsAPI():
     '/{display_channel_id}/{quality}',
     summary = 'ライブストリーム API',
     response_description = 'ライブストリームの状態。',
-    response_model = schemas.LiveStream,
+    response_model = schemas.LiveStreamStatus,
 )
 async def LiveStreamAPI(
     display_channel_id: str = Depends(ValidateChannelID),
@@ -147,12 +146,12 @@ async def LiveStreamEventAPI(
 
         # 取得できたクライアント数はあくまで同じチャンネル+同じ画質で視聴中のクライアントをカウントしたものなので、
         # 同じチャンネル+すべての画質で視聴中のクライアント数を別途取得して上書きする
-        previous_status['client_count'] = LiveStream.getViewerCount(display_channel_id)
+        previous_status.client_count = LiveStream.getViewerCount(display_channel_id)
 
         # 初回接続時に必ず現在のステータスを返す
         yield {
             'event': 'initial_update',  # initial_update イベントを設定
-            'data': json.dumps(previous_status, ensure_ascii=False),
+            'data': previous_status.model_dump_json(),
         }
 
         while True:
@@ -162,28 +161,28 @@ async def LiveStreamEventAPI(
 
             # 取得できたクライアント数はあくまで同じチャンネル+同じ画質で視聴中のクライアントをカウントしたものなので、
             # 同じチャンネル+すべての画質で視聴中のクライアント数を別途取得して上書きする
-            status['client_count'] = LiveStream.getViewerCount(display_channel_id)
+            status.client_count = LiveStream.getViewerCount(display_channel_id)
 
             # 以前の結果と異なっている場合のみレスポンスを返す
             if previous_status != status:
 
                 # ステータスが以前と異なる
-                if previous_status['status'] != status['status']:
+                if previous_status.status != status.status:
                     yield {
                         'event': 'status_update',  # status_update イベントを設定
-                        'data': json.dumps(status, ensure_ascii=False),
+                        'data': status.model_dump_json(),
                     }
                 # 詳細が以前と異なる
-                elif previous_status['detail'] != status['detail']:
+                elif previous_status.detail != status.detail:
                     yield {
                         'event': 'detail_update',  # detail_update イベントを設定
-                        'data': json.dumps(status, ensure_ascii=False),
+                        'data': status.model_dump_json(),
                     }
                 # クライアント数が以前と異なる
-                elif previous_status['client_count'] != status['client_count']:
+                elif previous_status.client_count != status.client_count:
                     yield {
                         'event': 'clients_update',  # clients_update イベントを設定
-                        'data': json.dumps(status, ensure_ascii=False),
+                        'data': status.model_dump_json(),
                     }
 
                 # 取得結果を保存
@@ -310,7 +309,7 @@ async def LiveMPEGTSStreamAPI(
                 live_stream.disconnect(live_stream_client)
                 break
 
-            if live_stream.getStatus()['status'] != 'Offline':
+            if live_stream.getStatus().status != 'Offline':
 
                 # クライアントが持つ Queue から読み取ったストリームデータ
                 stream_data: bytes | None = await live_stream_client.readStreamData()
