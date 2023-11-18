@@ -5,7 +5,7 @@ import DPlayer from 'dplayer';
 import PlayerManager from '@/services/player/PlayerManager';
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
-import Utils from '@/utils';
+import Utils, { PlayerUtils } from '@/utils';
 
 
 /** ライブストリームステータス API から受信するイベントのインターフェイス */
@@ -64,7 +64,8 @@ class LiveEventManager implements PlayerManager {
         // PlayerManager の設計上、同一の PlayerManager インスタンスはチャンネルが変更されない限り再利用される可能性がある
         // 接続先の API URL は DPlayer 上で再生中の画質設定によって変化するため、
         // 画質切り替え後の再起動も想定しコンストラクタではなくあえて init() 内で API URL を取得している
-        const eventsource_url = this.player.quality!.url.replace('/mpegts', '/events');
+        const api_quality = PlayerUtils.extractLiveAPIQualityFromDPlayer(this.player);
+        const eventsource_url = `${Utils.api_base_url}/streams/live/${channels_store.display_channel_id}/${api_quality}/events`;
         this.eventsource = new EventSource(eventsource_url);
 
         // EventSource 自体が開かれたときのイベント

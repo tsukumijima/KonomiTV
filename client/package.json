@@ -21,6 +21,7 @@
         "core-js": "^3.33.2",
         "dayjs": "^1.11.10",
         "dplayer": "github:tsukumijima/DPlayer#v1.31.2",
+        "hls.js": "github:tsukumijima/hls.js#21275da882015871338b9da6350a5c18ec4efc5a",
         "mitt": "^3.0.1",
         "mpegts.js": "github:tsukumijima/mpegts.js#314d85c937463bcb50aa9d133812cb13b9c32286",
         "piexifjs": "^2.0.0-beta.9",

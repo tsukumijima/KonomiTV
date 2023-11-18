@@ -305,7 +305,7 @@ class LiveDataBroadcastingManager implements PlayerManager {
 
         // ライブ PSI/SI アーカイブデータデコーダーを初期化
         // Comlink を挟んでいる関係上、コンストラクタにも関わらず Promise を返すため await する必要がある
-        const api_quality = PlayerUtils.extractAPIQualityFromDPlayer(this.player);
+        const api_quality = PlayerUtils.extractLiveAPIQualityFromDPlayer(this.player);
         this.live_psi_archived_data_decoder = await new LivePSIArchivedDataDecoderProxy(channels_store.channel.current, api_quality);
 
         // デコードを開始

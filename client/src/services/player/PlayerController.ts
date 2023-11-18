@@ -2,6 +2,7 @@
 import assert from 'assert';
 
 import DPlayer, { DPlayerType } from 'dplayer';
+import Hls from 'hls.js';
 import mpegts from 'mpegts.js';
 
 import KeyboardShortcutManager from './managers/KeyboardShortcutManager';
@@ -64,6 +65,10 @@ class PlayerController {
     // ライブ視聴: mpegts.js のバッファ詰まり対策で定期的に強制シークするインターバルのタイマー ID
     // 保持しておかないと clearInterval() でタイマーを止められない
     private live_force_seek_interval_timer_id: number = 0;
+
+    // ビデオ視聴: ビデオストリームのアクティブ状態を維持するために Keep-Alive API にリクエストを送るインターバルのタイマー ID
+    // 保持しておかないと clearInterval() でタイマーを止められない
+    private video_keep_alive_interval_timer_id: number = 0;
 
     // setupPlayerContainerResizeHandler() で利用する ResizeObserver
     // 保持しておかないと disconnect() で ResizeObserver を止められない
@@ -157,9 +162,10 @@ class PlayerController {
         // KeyboardShortcutManager がこのタイミングで破棄される
         player_store.is_player_initialized = true;
 
-        // mpegts.js を window 直下に入れる
-        // こうしないと DPlayer が mpegts.js を認識できない
+        // mpegts.js と hls.js を window 直下に入れる
+        // こうしないと DPlayer が mpegts.js / hls.js を認識できない
         (window as any).mpegts = mpegts;
+        (window as any).Hls = Hls;
 
         // 文字スーパーの表示設定
         // ライブ視聴とビデオ視聴で設定キーが異なる
@@ -381,6 +387,49 @@ class PlayerController {
                         // ライブストリームの遅延の追跡に利用する再生速度 (x1.1)
                         // 遅延が 3 秒を超えたとき、遅延が playback_buffer_sec を下回るまで再生速度が x1.1 に設定される
                         liveSyncPlaybackRate: 1.1,
+                    }
+                },
+                // hls.js
+                hls: {
+                    ...Hls.DefaultConfig,
+                    // デバッグログを有効化
+                    debug: true,
+                    // Web Worker を有効にする
+                    enableWorker: true,
+                    // MediaSource が存在しない場合のみ ManagedMediaSource を利用する
+                    preferManagedMediaSource: false,
+                    // プレイリスト / セグメントのリクエスト時のタイムアウトをかなり長めに設定してタイムアウトを回避する
+                    playlistLoadPolicy: {
+                        default: {
+                            maxTimeToFirstByteMs: 120 * 1000,  // 120 秒
+                            maxLoadTimeMs: 120 * 1000,  // 120 秒
+                            timeoutRetry: {
+                                maxNumRetry: 2,
+                                retryDelayMs: 0,
+                                maxRetryDelayMs: 0,
+                            },
+                            errorRetry: {
+                                maxNumRetry: 2,
+                                retryDelayMs: 1000,
+                                maxRetryDelayMs: 8000,
+                            }
+                        }
+                    },
+                    fragLoadPolicy: {
+                        default: {
+                            maxTimeToFirstByteMs: 120 * 1000,  // 120 秒
+                            maxLoadTimeMs: 120 * 1000,  // 120 秒
+                            timeoutRetry: {
+                                maxNumRetry: 4,
+                                retryDelayMs: 0,
+                                maxRetryDelayMs: 0,
+                            },
+                            errorRetry: {
+                                maxNumRetry: 6,
+                                retryDelayMs: 1000,
+                                maxRetryDelayMs: 8000,
+                            }
+                        }
                     }
                 },
                 // aribb24.js
@@ -696,6 +745,19 @@ class PlayerController {
                     this.player.sync();
                 }
             }, 60 * 1000);
+        }
+
+        // ビデオ視聴: ビデオストリームのアクティブ状態を維持するために 15 秒おきに Keep-Alive API にリクエストを送る
+        // HLS プレイリストやセグメントのリクエストが行われたタイミングでも Keep-Alive が行われるが、
+        // それだけではタイミング次第では十分ではないため、定期的に Keep-Alive を行う
+        // Keep-Alive が行われなくなったタイミングで、サーバー側で自動的にビデオストリームの終了処理 (エンコードタスクの停止) が行われる
+        if (this.playback_mode === 'Video') {
+            this.video_keep_alive_interval_timer_id = window.setInterval(async () => {
+                // 画質切り替えでベース URL が変わることも想定し、あえて毎回 API URL を取得している
+                if (this.player === null) return;
+                const api_quality = PlayerUtils.extractVideoAPIQualityFromDPlayer(this.player);
+                await APIClient.put(`${Utils.api_base_url}/streams/video/${player_store.recorded_program.id}/${api_quality}/keep-alive`);
+            }, 15 * 1000);
         }
 
         // 再生/停止されたときのイベント
@@ -1279,6 +1341,7 @@ class PlayerController {
 
         // タイマーを破棄
         window.clearInterval(this.live_force_seek_interval_timer_id);
+        window.clearInterval(this.video_keep_alive_interval_timer_id);
         window.clearTimeout(this.player_control_ui_hide_timer_id);
 
         // プレイヤー全体のコンテナ要素の監視を停止
