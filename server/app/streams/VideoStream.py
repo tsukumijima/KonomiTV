@@ -217,7 +217,6 @@ class VideoStream:
 
         # 事前に算出したセグメントをすべて記述する
         for index, segment in enumerate(self.segments):
-            virtual_playlist += f'#EXT-X-DISCONTINUITY\n'
             virtual_playlist += f'#EXTINF:{segment.duration:.6f},\n'  # セグメントの長さ (秒, 小数点以下6桁まで)
             virtual_playlist += f'segment?sequence={index}&_={self.time_hash}\n'  # キャッシュ避けのためにタイムスタンプを付与する
 
