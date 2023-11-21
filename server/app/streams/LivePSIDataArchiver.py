@@ -21,7 +21,7 @@ class LivePSIDataArchiver:
         self.service_id = service_id
 
         # psisiarc のプロセスリスト
-        self.psisiarc_processes: list[asyncio.subprocess.Process] = []
+        self._psisiarc_processes: list[asyncio.subprocess.Process] = []
 
 
     async def pushTSPacketData(self, packet: bytes) -> None:
@@ -34,7 +34,7 @@ class LivePSIDataArchiver:
         """
 
         tasks: list[Coroutine[Any, Any, None]] = []
-        for psisiarc_process in self.psisiarc_processes:
+        for psisiarc_process in self._psisiarc_processes:
             assert type(psisiarc_process.stdin) is asyncio.StreamWriter
 
             # psisiarc が既に終了中の場合は何もしない
@@ -88,7 +88,7 @@ class LivePSIDataArchiver:
             stdout = asyncio.subprocess.PIPE,  # ストリーム出力
             stderr = asyncio.subprocess.DEVNULL,
         )
-        self.psisiarc_processes.append(psisiarc_process)
+        self._psisiarc_processes.append(psisiarc_process)
         Logging.debug_simple(f'[LivePSIDataArchiver] psisiarc started (PID: {psisiarc_process.pid})')
 
         # 受信した PSI/SI アーカイブデータを yield で返す
@@ -99,8 +99,8 @@ class LivePSIDataArchiver:
             if await request.is_disconnected():
                 if psisiarc_process.returncode is None:
                     psisiarc_process.kill()
-                if psisiarc_process in self.psisiarc_processes:
-                    self.psisiarc_processes.remove(psisiarc_process)
+                if psisiarc_process in self._psisiarc_processes:
+                    self._psisiarc_processes.remove(psisiarc_process)
                 Logging.debug_simple(f'[LivePSIDataArchiver] psisiarc terminated (Disconnected / PID: {psisiarc_process.pid})')
                 break
 
@@ -111,8 +111,8 @@ class LivePSIDataArchiver:
             if result is None:
                 if psisiarc_process.returncode is None:
                     psisiarc_process.kill()
-                if psisiarc_process in self.psisiarc_processes:
-                    self.psisiarc_processes.remove(psisiarc_process)
+                if psisiarc_process in self._psisiarc_processes:
+                    self._psisiarc_processes.remove(psisiarc_process)
                 Logging.debug_simple(f'[LivePSIDataArchiver] psisiarc terminated (Destroyed / PID: {psisiarc_process.pid})')
                 break
 
@@ -129,9 +129,9 @@ class LivePSIDataArchiver:
         # 登録されているすべての psisiarc プロセスを終了する
         ## 基本ここに到達する前に HTTP リクエストが切断され psisiarc も終了されているはずだが、念のため
         ## タイミング次第では LivePSIDataArchiver.getPSIArchivedData() で psisiarc を終了する前に到達する可能性もある
-        for psisiarc_process in self.psisiarc_processes:
+        for psisiarc_process in self._psisiarc_processes:
             psisiarc_process.kill()
-        self.psisiarc_processes.clear()
+        self._psisiarc_processes.clear()
 
 
     @staticmethod

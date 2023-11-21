@@ -41,17 +41,23 @@ class LiveStreamClient():
         self.client_type: Literal['mpegts'] = client_type
 
         # ストリームデータが入る Queue
-        self.queue: asyncio.Queue[bytes | None] = asyncio.Queue()
+        self._queue: asyncio.Queue[bytes | None] = asyncio.Queue()
 
         # ストリームデータの最終読み取り時刻のタイミング
-        ## 最終読み取り時刻を10秒過ぎたクライアントは LiveStream.writeStreamData() でタイムアウトと判断され、削除される
-        self.stream_data_read_at: float = time.time()
+        ## 最終読み取り時刻から 10 秒経過したクライアントは LiveStream.writeStreamData() でタイムアウトと判断され、削除される
+        self._stream_data_read_at: float = time.time()
+
+
+    @property
+    def stream_data_read_at(self) -> float:
+        """ ストリームデータの最終読み取り時刻のタイミング (読み取り専用) """
+        return self._stream_data_read_at
 
 
     async def readStreamData(self) -> bytes | None:
         """
         自分自身の Queue からストリームデータを読み取って返す
-        Queue 内のストリームデータは LiveStream.writeStreamData() で書き込まれたもの
+        Queue 内のストリームデータは writeStreamData() で書き込まれたもの
 
         Args:
             client (LiveStreamClient): ライブストリームクライアントのインスタンス
@@ -65,13 +71,30 @@ class LiveStreamClient():
             return None
 
         # ストリームデータの最終読み取り時刻を更新
-        self.stream_data_read_at = time.time()
+        self._stream_data_read_at = time.time()
 
         # Queue から読み取ったストリームデータを返す
         try:
-            return await self.queue.get()
+            return await self._queue.get()
         except TypeError:
             return None
+
+
+    def writeStreamData(self, stream_data: bytes | None) -> None:
+        """
+        自分自身の Queue にストリームデータを書き込む
+        Queue 内のストリームデータは readStreamData() で読み取られる
+
+        Args:
+            stream_data (bytes): 書き込むストリームデータ (エンコードタスクが終了した場合は None を渡す)
+        """
+
+        # mpegts クライアント以外では実行しない
+        if self.client_type != 'mpegts':
+            return None
+
+        # Queue にストリームデータを書き込む
+        self._queue.put_nowait(stream_data)
 
 
 class LiveStream():
@@ -124,6 +147,7 @@ class LiveStream():
             instance._stream_data_written_at = 0
 
             # PSI/SI データアーカイバーのインスタンス
+            ## LiveStreamsRouter からアクセスする必要があるためここに設置している
             instance.psi_data_archiver = None
 
             # EDCB バックエンドのチューナーインスタンス
@@ -318,8 +342,6 @@ class LiveStream():
             Logging.info(f'[Live: {self.live_stream_id}] Client Disconnected. Client ID: {client.client_id}')
         except ValueError:
             pass
-        if hasattr(client, 'queue'):
-            del client.queue
         del client
 
 
@@ -333,10 +355,8 @@ class LiveStream():
         for client in self._clients:
             # mpegts クライアントのみ、Queue に None を追加して接続切断を通知する
             if client.client_type == 'mpegts':
-                client.queue.put_nowait(None)
+                client.writeStreamData(None)
             self.disconnect(client)
-            if hasattr(client, 'queue'):
-                del client.queue
             del client
 
         # 念のためクライアントが入るリストを空にする
@@ -351,14 +371,12 @@ class LiveStream():
             LiveStreamStatus: ライブストリームのステータス
         """
 
-        client_count = len(self._clients)
-
         return LiveStreamStatus(
             status = self._status,  # ライブストリームの現在のステータス
             detail = self._detail,  # ライブストリームの現在のステータスの詳細情報
             started_at = self._started_at,  # ライブストリームが開始された (ステータスが Offline or Restart → Standby に移行した) 時刻
             updated_at = self._updated_at,  # ライブストリームのステータスが最後に更新された時刻
-            client_count = client_count,  # ライブストリームに接続中のクライアント数
+            client_count = len(self._clients),  # ライブストリームに接続中のクライアント数
         )
 
 
@@ -459,14 +477,12 @@ class LiveStream():
             if now - client.stream_data_read_at > timeout:
                 self._clients.remove(client)
                 Logging.info(f'[Live: {self.live_stream_id}] Client Disconnected (Timeout). Client ID: {client.client_id}')
-                if hasattr(client, 'queue'):
-                    del client.queue
                 del client
                 continue
 
             # ストリームデータを書き込む (クライアント種別が mpegts の場合のみ)
             if client.client_type == 'mpegts':
-                await client.queue.put(stream_data)
+                client.writeStreamData(stream_data)
 
         # ストリームデータが空でなければ、最終書き込み時刻を更新
         if stream_data != b'':

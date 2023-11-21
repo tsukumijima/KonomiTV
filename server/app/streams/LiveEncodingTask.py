@@ -28,10 +28,10 @@ if TYPE_CHECKING:
 class LiveEncodingTask:
 
     # H.264 再生時のエンコード後のストリームの GOP 長 (秒)
-    GOP_LENGTH_SECOND_H264: ClassVar[float] = float(0.5)
+    GOP_LENGTH_SECONDS_H264: ClassVar[float] = float(0.5)
 
     # H.265 再生時のエンコード後のストリームの GOP 長 (秒)
-    GOP_LENGTH_SECOND_H265: ClassVar[float] = float(2)
+    GOP_LENGTH_SECONDS_H265: ClassVar[float] = float(2)
 
     # チューナーから放送波 TS を読み取る際のタイムアウト (秒)
     TUNER_TS_READ_TIMEOUT: ClassVar[int] = 15
@@ -160,10 +160,10 @@ class LiveEncodingTask:
 
         ## 最大 GOP 長 (秒)
         ## 30fps なら ×30 、 60fps なら ×60 された値が --gop-len で使われる
-        gop_length_second = self.GOP_LENGTH_SECOND_H264
+        gop_length_second = self.GOP_LENGTH_SECONDS_H264
         if QUALITY[quality].is_hevc is True:
             ## H.265/HEVC では高圧縮化のため、最大 GOP 長を長くする
-            gop_length_second = self.GOP_LENGTH_SECOND_H265
+            gop_length_second = self.GOP_LENGTH_SECONDS_H265
 
         ## インターレース解除 (60i → 60p (フレームレート: 60fps))
         if QUALITY[quality].is_60fps is True:
@@ -337,10 +337,10 @@ class LiveEncodingTask:
 
         ## 最大 GOP 長 (秒)
         ## 30fps なら ×30 、 60fps なら ×60 された値が --gop-len で使われる
-        gop_length_second = self.GOP_LENGTH_SECOND_H264
+        gop_length_second = self.GOP_LENGTH_SECONDS_H264
         if QUALITY[quality].is_hevc is True:
             ## H.265/HEVC では高圧縮化のため、最大 GOP 長を長くする
-            gop_length_second = self.GOP_LENGTH_SECOND_H265
+            gop_length_second = self.GOP_LENGTH_SECONDS_H265
 
         ## インターレース解除 (60i → 60p (フレームレート: 60fps))
         ## NVEncC の --vpp-deinterlace bob は品質が悪いので、代わりに --vpp-yadif を使う
