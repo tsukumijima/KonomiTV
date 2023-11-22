@@ -55,10 +55,10 @@ class RecordedVideo(models.Model):
     video_frame_rate: float = fields.FloatField()  # type: ignore
     video_resolution_width: int = fields.IntField()  # type: ignore
     video_resolution_height: int = fields.IntField()  # type: ignore
-    primary_audio_codec: Literal['AAC-LC', 'HE-AAC', 'MP2'] = fields.CharField(255)  # type: ignore
+    primary_audio_codec: Literal['AAC-LC'] = fields.CharField(255)  # type: ignore
     primary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] = fields.CharField(255)  # type: ignore
     primary_audio_sampling_rate: int = fields.IntField()  # type: ignore
-    secondary_audio_codec: Literal['AAC-LC', 'HE-AAC', 'MP2'] | None = fields.CharField(255, null=True)  # type: ignore
+    secondary_audio_codec: Literal['AAC-LC'] | None = fields.CharField(255, null=True)  # type: ignore
     secondary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] | None = fields.CharField(255, null=True)  # type: ignore
     secondary_audio_sampling_rate: int | None = fields.IntField(null=True)  # type: ignore
     cm_sections: list[CMSection] = \

@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from rich import print
 from typing import Any, Callable, ClassVar
 
+from app.config import Config
 from app.constants import LIBRARY_PATH, QUALITY_TYPES
 from app.models.RecordedProgram import RecordedProgram
 from app.streams.VideoEncodingTask import VideoEncodingTask
@@ -23,22 +24,62 @@ class VideoStreamSegment:
     """
     ビデオストリームの HLS セグメントを表すデータクラス
     当初 Pydantic モデルにしていたが、Pydantic モデルは非プリミティブ値を含められないようなので dataclass に変更した
+    TODO: 普通のクラスにしてカプセル化を図るべきかもしれない
     """
 
-    # HLS セグメントの切り出しを開始する DTS (秒換算)
-    # この DTS を元に HLS セグメントが録画データから切り出される
-    start_dts_second: float
+    # HLS セグメントのシーケンス番号
+    ## リストのインデックスと一致する (0 から始まるので注意)
+    sequence_index: int
 
-    # HLS セグメント長 (秒)
-    # 基本 SEGMENT_DURATION_SECOND に近い値になるが、キーフレーム単位で切り出すために少し長くなる
-    duration: float
+    # HLS セグメントの切り出しを開始する映像パケットの PTS (秒ではないので注意)
+    ## この PTS を元に HLS セグメントが録画データから切り出される
+    ## DTS だと必ずしも表示順にならず本来切り出すべきパケットをロストしてしまうことがあるため、PTS を使用する
+    start_pts: int
+
+    # HLS セグメントの切り出しを開始する映像パケットがあるファイルの位置 (バイト)
+    start_file_position: int
+
+    # HLS セグメントの切り出しを終了する映像パケットの PTS (秒ではないので注意)
+    ## この PTS を元に HLS セグメントが録画データから切り出される
+    ## DTS だと必ずしも表示順にならず本来切り出すべきパケットをロストしてしまうことがあるため、PTS を使用する
+    end_pts: int
+
+    # HLS セグメントの切り出しを終了する映像パケットがあるファイルの位置 (バイト)
+    end_file_position: int
+
+    # HLS セグメント長 (秒単位)
+    ## 基本 SEGMENT_DURATION_SECONDS に近い値になるが、キーフレーム単位で切り出すために少し長くなる
+    duration_seconds: float
+
+    # 上記の情報に基づいて切り出された HLS セグメントの MPEG-TS データを入れる asyncio.Queue
+    ## 切り出す際に随時入れられた後、同時に稼働中のエンコーダーに投入するために取り出される
+    ## None が入れられたらこれ以上データは入らないことを示す
+    ## TS パケットは最大 256 個までに制限されている (188 * 256 = 48128B)
+    ## Queue に TS パケットが溜まりすぎてもエンコーダーが追いつかないので、256 個以上溜まったら一旦読み取りを中断してエンコーダーに投入されるようにする
+    segment_ts_packet_queue: asyncio.Queue[bytes | None]
 
     # HLS セグメントのエンコード済み MPEG-TS データが返る asyncio.Future
     encoded_segment_ts_future: asyncio.Future[bytes]
 
-    # 現在 HLS セグメントをエンコード中かどうか
-    # エンコード中であれば True、エンコードが完了していれば False
-    is_encode_processing: bool = False
+    # このセグメントの TS 切り出しなどの一連の処理が開始されたかどうか
+    ## 一度 True になるとリセットされない限り False には戻らない
+    is_started: bool = False
+
+    # HLS セグメントのエンコードが完了したかどうか
+    ## エンコードが完了したら True になる
+    is_encode_completed: bool = False
+
+
+    def resetState(self) -> None:
+        """
+        このセグメントの状態をリセットする
+        主にエンコード中にエンコードタスクがキャンセルされた場合に呼び出される
+        """
+
+        self.segment_ts_packet_queue = asyncio.Queue(maxsize=256)
+        self.encoded_segment_ts_future = asyncio.Future()
+        self.is_started = False
+        self.is_encode_completed = False
 
 
 class VideoStream:
@@ -72,10 +113,10 @@ class VideoStream:
             instance.quality = quality
 
             # セグメントの URL のキャッシュ避けとして使うインスタンス生成時刻のハッシュ
-            instance.time_hash = int(time.time())
+            instance._time_hash = int(time.time())
 
             # HLS セグメントを格納するリスト
-            instance.segments = []
+            instance._segments = []
 
             # 現在実行中のエンコードタスク
             instance._encoding_task = None
@@ -107,18 +148,29 @@ class VideoStream:
         self.video_stream_id: str
         self.recorded_program: RecordedProgram
         self.quality: QUALITY_TYPES
-        self.time_hash: int
+
+        # セグメントの URL のキャッシュ避けとして使うインスタンス生成時刻のハッシュ
+        self._time_hash: int
 
         # HLS セグメントを格納するリスト
         ## 一旦録画データの長さすべての VideoStreamSegment を作成したあと、必要に応じてエンコードしていく
-        ## VideoStream と VideoEncodingTask 以外から直接アクセスしてはならない
-        self.segments: list[VideoStreamSegment]
+        self._segments: list[VideoStreamSegment]
 
         # 現在実行中のエンコードタスク
         self._encoding_task: VideoEncodingTask | None
 
         # キャンセルされない限り VIDEO_STREAM_TIMEOUT 秒後にインスタンスを破棄するタイマー
         self._cancel_destroy_timer: Callable[[], None]
+
+
+    @property
+    def segments(self) -> tuple[VideoStreamSegment, ...]:
+        """
+        HLS セグメントを格納するリスト (読み取り専用)
+        一旦録画データの長さすべての VideoStreamSegment を作成したあと、必要に応じてエンコードしていく
+        基本一度 VideoStream 内部でセットされたら外部から変更されるべきではないので、読み取り専用にしている
+        """
+        return tuple(self._segments)
 
 
     def keepAlive(self) -> None:
@@ -146,65 +198,81 @@ class VideoStream:
         # ビデオストリームのアクティブ状態を維持する
         self.keepAlive()
 
-        # まだ HLS セグメントリストから空なら、キーフレームの DTS (秒換算) のリストを取得した上ですべてのセグメント分作成する
+        # まだ HLS セグメントリストから空なら、ffprobe で映像パケットの情報を取得した上でセグメントの切り出し位置などを算出する
         # この時点では入れ物を作るだけで、実際にエンコードされるわけではない
         ## TODO: この値はキャッシュされるべき
         ## TODO: キーフレームの収集中にもう一回プレイリストが叩かれるとバグる (録画データの収集時に事前にやっておくべき)
-        if len(self.segments) == 0:
+        if len(self._segments) == 0:
 
             # ffprobe で映像パケットの情報を取得する
-            ffprobe_options = ['-show_frames', '-select_streams', 'v:0', '-show_entries', 'frame=pkt_dts,key_frame', '-of', 'json']
+            ffprobe_options = ['-select_streams', 'v:0', '-show_packets', '-show_entries', 'packet=pts,dts,flags,pos', '-of', 'json']
             ffprobe_result = await asyncio.subprocess.create_subprocess_exec(
                 *[LIBRARY_PATH['FFprobe'], *ffprobe_options, self.recorded_program.recorded_video.file_path],
                 stdout = asyncio.subprocess.PIPE,
                 stderr = asyncio.subprocess.DEVNULL,  # ログは使用しない
             )
             assert ffprobe_result.stdout is not None
-            frames: list[dict[str, Any]] = json.loads((await ffprobe_result.stdout.read()).decode('utf-8'))['frames']
+            packets: list[dict[str, Any]] = json.loads((await ffprobe_result.stdout.read()).decode('utf-8'))['packets']
 
-            # キーフレームの DTS (秒換算) を算出
-            keyframe_dts_second_list = [
-                int(frame['pkt_dts']) / ts.HZ  # pkt_dts_time は ffprobe 側で丸められているので使わない
-                for frame in frames if 'pkt_dts' in frame and int(frame['key_frame']) == 1
-            ]
-            print('keyframe_dts_second_list: ', end = '')
-            print(keyframe_dts_second_list)
+            # 各セグメントの切り出し位置などを算出する
+            ## セグメントは SEGMENT_DURATION_SECONDS 秒ごとに作成するが、キーフレームがピッタリ合うことはまずないので、
+            ## SEGMENT_DURATION_SECONDS 秒を超えた時点で一番 PTS が近いキーフレームを探してセグメントを作成する
+            is_first_keyframe_found = False
+            segment_sequence = 0
+            for packet in packets:
 
-            # 映像の最初のキーフレームの DTS (秒換算) を取得
-            first_keyframe_dts = keyframe_dts_second_list[0]
+                # 最初 (先頭) のキーフレーム
+                if 'K' in str(packet['flags']) and is_first_keyframe_found is False:
 
-            # 映像の最後のフレーム (キーフレームかどうかは問わない) の DTS (秒換算) を取得
-            # frames を逆順に走査して一番先に見つけた pkt_dts プロパティがあるフレームを最後のフレームの DTS に採用する
-            last_dts_second = 0
-            for frame in reversed(frames):
-                if 'pkt_dts' in frame:
-                    last_dts_second = int(frame['pkt_dts']) / ts.HZ
-                    break
-
-            # VideoStreamSegment を作成する
-            ## セグメントは SEGMENT_DURATION_SECOND 秒ごとに作成するが、キーフレームがピッタリ合うことはまずないので、
-            # SEGMENT_DURATION_SECOND 秒を超えた時点で一番 DTS が近いキーフレームを探してセグメントを作成する
-            ## 先頭のセグメント
-            self.segments.append(VideoStreamSegment(
-                start_dts_second = first_keyframe_dts,  # 映像の最初のキーフレームの DTS (秒換算)
-                duration = 0,  # 仮の値
-                encoded_segment_ts_future = asyncio.Future(),  # dataclass 側に書くと全ての参照が同じになってしまうので毎回新たに生成する
-            ))
-            ## キーフレーム自体放送波の場合 0.2 秒など基本高頻度で送出されているので、ちょうどいいタイミングで区切る
-            for keyframe_dts_second in keyframe_dts_second_list:
-                # 前のセグメントの開始 DTS から SEGMENT_DURATION_SECOND 秒以上離れている場合のみ新たにセグメントを作成する
-                # セグメント長はおそらく 10.203350 秒とかになるはず
-                if (keyframe_dts_second - self.segments[-1].start_dts_second) >= VideoEncodingTask.SEGMENT_DURATION_SECOND:
-                    # 前のセグメントの長さを確定する
-                    self.segments[-1].duration = keyframe_dts_second - self.segments[-1].start_dts_second
-                    # 次のセグメントを作成する
-                    self.segments.append(VideoStreamSegment(
-                        start_dts_second = keyframe_dts_second,
-                        duration = 0,  # 仮の値
+                    # 最初 (先頭) のセグメントを作成する
+                    self._segments.append(VideoStreamSegment(
+                        sequence_index = segment_sequence,
+                        start_pts = int(packet['pts']),  # 映像の最初のパケットの PTS
+                        start_file_position = int(packet['pos']),  # 映像の最初のパケットのファイル上の位置 (バイト)
+                        end_pts = 0,  # 仮の値
+                        end_file_position = 0,  # 仮の値
+                        duration_seconds = 0,  # 仮の値
+                        segment_ts_packet_queue = asyncio.Queue(maxsize=256),  # dataclass 側に書くと全ての参照が同じになってしまうので毎回新たに生成する
                         encoded_segment_ts_future = asyncio.Future(),  # dataclass 側に書くと全ての参照が同じになってしまうので毎回新たに生成する
                     ))
-            ## 最後のセグメントの長さを確定する
-            self.segments[-1].duration = last_dts_second - self.segments[-1].start_dts_second
+                    is_first_keyframe_found = True
+                    segment_sequence += 1
+                    continue
+
+                # 2番目以降のキーフレーム
+                elif 'K' in str(packet['flags']) and is_first_keyframe_found is True:
+
+                    # 前のセグメントの start_pts から SEGMENT_DURATION_SECONDS 秒以上離れている場合のみ新たにセグメントを作成する
+                    ## PTS は整数値なので、比較するときは ts.HZ (90000) で割って秒単位にする
+                    ## セグメント長は 10.203350 秒など 10 秒より若干長いくらいになるはず
+                    if ((int(packet['pts']) - self._segments[-1].start_pts) / ts.HZ) >= VideoEncodingTask.SEGMENT_DURATION_SECONDS:
+
+                        # 前のセグメントの終了位置と長さを確定する
+                        self._segments[-1].end_pts = int(packet['pts']) - 1  # - 1 して次のセグメントの開始 PTS と重複しないようにする
+                        self._segments[-1].end_file_position = int(packet['pos']) - 1   # - 1 して次のセグメントの開始位置と重複しないようにする
+                        self._segments[-1].duration_seconds = (self._segments[-1].end_pts - self._segments[-1].start_pts + 1) / ts.HZ
+
+                        # 次のセグメントを作成する
+                        self._segments.append(VideoStreamSegment(
+                            sequence_index = segment_sequence,
+                            start_pts = int(packet['pts']),
+                            start_file_position = int(packet['pos']),
+                            end_pts = 0,  # 仮の値
+                            end_file_position = 0,  # 仮の値
+                            duration_seconds = 0,  # 仮の値
+                            segment_ts_packet_queue = asyncio.Queue(maxsize=256),  # dataclass 側に書くと全ての参照が同じになってしまうので毎回新たに生成する
+                            encoded_segment_ts_future = asyncio.Future(),  # dataclass 側に書くと全ての参照が同じになってしまうので毎回新たに生成する
+                        ))
+                        segment_sequence += 1
+
+            # 映像の最後のフレーム (キーフレームかどうかは問わない) の情報から最後のセグメントの終了位置と長さを確定する
+            self._segments[-1].end_pts = packets[-1]['pts']  # 次のセグメントはないので、最後のパケットの PTS をそのまま採用する
+            self._segments[-1].end_file_position = packets[-1]['pos']  # 次のセグメントはないので、最後のパケットのファイル上の位置をそのまま採用する
+            self._segments[-1].duration_seconds = (self._segments[-1].end_pts - self._segments[-1].start_pts + 1) / ts.HZ
+
+        if Config().general.debug is True:
+            print(f'[Video: {self.video_stream_id}] Segments:')
+            print(self._segments)
 
         # 仮想 HLS M3U8 プレイリストを生成
         virtual_playlist = ''
@@ -212,17 +280,15 @@ class VideoStream:
         virtual_playlist += '#EXT-X-VERSION:6\n'
         virtual_playlist += '#EXT-X-PLAYLIST-TYPE:VOD\n'
 
-        # HLS セグメントの実時間の最大値を指定する (SEGMENT_DURATION_SECOND + 2 秒程度の余裕を持たせる)
-        virtual_playlist += f'#EXT-X-TARGETDURATION:{int(VideoEncodingTask.SEGMENT_DURATION_SECOND + 2)}\n'
+        # HLS セグメントの実時間の最大値を指定する (SEGMENT_DURATION_SECONDS + 1 秒程度の余裕を持たせる)
+        virtual_playlist += f'#EXT-X-TARGETDURATION:{int(VideoEncodingTask.SEGMENT_DURATION_SECONDS + 1)}\n'
 
         # 事前に算出したセグメントをすべて記述する
-        for index, segment in enumerate(self.segments):
-            virtual_playlist += f'#EXTINF:{segment.duration:.6f},\n'  # セグメントの長さ (秒, 小数点以下6桁まで)
-            virtual_playlist += f'segment?sequence={index}&_={self.time_hash}\n'  # キャッシュ避けのためにタイムスタンプを付与する
+        for segment in self._segments:
+            virtual_playlist += f'#EXTINF:{segment.duration_seconds:.6f},\n'  # セグメントの長さ (秒, 小数点以下6桁まで)
+            virtual_playlist += f'segment?sequence={segment.sequence_index}&_={self._time_hash}\n'  # キャッシュ避けのためにタイムスタンプを付与する
 
         virtual_playlist += f'#EXT-X-ENDLIST\n'
-        print('virtual_playlist: ', end = '')
-        print(virtual_playlist)
         return virtual_playlist
 
 
@@ -243,11 +309,11 @@ class VideoStream:
         self.keepAlive()
 
         # セグメントのシーケンス番号が不正な場合は None を返す
-        if segment_sequence < 0 or segment_sequence >= len(self.segments):
+        if segment_sequence < 0 or segment_sequence >= len(self._segments):
             return None
 
         # シーケンス番号に対応する HLS セグメントを取得する
-        segment = self.segments[segment_sequence]
+        segment = self._segments[segment_sequence]
 
         # まだエンコードタスクが一度も実行されていない場合は、このセグメントからエンコードタスクを非同期で開始する
         if self._encoding_task is None:
@@ -257,12 +323,12 @@ class VideoStream:
 
         # エンコードタスクは既に起動しているがこの時点でまだセグメントのエンコードが完了していなければ、このセグメントからエンコードタスクを非同期で開始する
         # この HLS セグメントのエンコード処理が現在進行中の場合は完了まで待つ
-        elif segment.encoded_segment_ts_future.done() is False and segment.is_encode_processing is False:
+        elif segment.encoded_segment_ts_future.done() is False and segment.is_encode_completed is False:
 
             # 0.5 秒待ってみて、それでも同じ状態のときだけエンコードタスクを再起動する
             # タイミングの関係であともう少しだけ待てば当該セグメントのエンコードが開始するのに…！という場合に備える
             await asyncio.sleep(0.5)
-            if segment.encoded_segment_ts_future.done() is False and segment.is_encode_processing is False:
+            if segment.encoded_segment_ts_future.done() is False and segment.is_encode_completed is False:
 
                 # 以前のエンコードタスクをキャンセルする
                 # この時点で以前のエンコードタスクでエンコードが完了していたセグメントに関してはそのまま self.segments に格納されている
@@ -292,7 +358,7 @@ class VideoStream:
             self._encoding_task = None
 
         # すべての HLS セグメントを削除する
-        self.segments = []
+        self._segments = []
 
         # アクティブな間保持されていたインスタンスを削除する
         ## これにより、このインスタンスには誰も参照できなくなるため、ガベージコレクションによりメモリから解放される (はず)

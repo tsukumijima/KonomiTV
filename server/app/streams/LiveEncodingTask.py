@@ -761,7 +761,7 @@ class LiveEncodingTask:
                     async with writer_lock:
 
                         # 188 bytes ごとに区切られた、エンコーダーの出力のチャンクをバッファに貯める
-                        chunk_buffer.extend(chunk)
+                        chunk_buffer += chunk
 
                         # チャンクバッファが 65536 bytes (64KB) 以上になった時のみ
                         if len(chunk_buffer) >= 65536:
