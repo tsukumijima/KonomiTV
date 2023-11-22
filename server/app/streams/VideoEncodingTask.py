@@ -4,8 +4,9 @@
 from __future__ import annotations
 
 import asyncio
-import aiofiles
 import os
+import subprocess
+import threading
 from biim.mpeg2ts import ts
 from biim.mpeg2ts.packetize import packetize_section
 from biim.mpeg2ts.pat import PATSection
@@ -47,8 +48,8 @@ class VideoEncodingTask:
         self.video_stream = video_stream
 
         # tsreadex とエンコーダーのプロセス
-        self._tsreadex_process: asyncio.subprocess.Process | None = None
-        self._encoder_process: asyncio.subprocess.Process | None = None
+        self._tsreadex_process: subprocess.Popen[bytes] | None = None
+        self._encoder_process: subprocess.Popen[bytes] | None = None
 
         # エンコードタスクを完了済みかどうか
         self._is_finished: bool = False
@@ -302,13 +303,11 @@ class VideoEncodingTask:
         return result
 
 
-    async def __runEncoder(self, segment: VideoStreamSegment) -> bool:
+    def __runEncoder(self, segment: VideoStreamSegment) -> bool:
         """
         録画 TS データから直接切り出した生の MPEG-TS チャンクをエンコードするエンコーダープロセスを開始する
         セグメントのキューに入れられた TS パケットをエンコーダーに順次投入し、エンコード済みのセグメントデータを VideoStreamSegment に書き込む
-
-        このメソッドはエンコードが完了するか、エンコードに失敗するか、エンコードタスクがキャンセルされるまで戻らない
-        このメソッドを並列に実行してはならない
+        非同期 (asyncio.create_task()) で実行するとイベントループがビジーになったりなど厄介な問題が発生するため同期関数とし、__run() とは別のスレッド上で実行する
 
         Args:
             segment (VideoStreamSegment): エンコード対象の VideoStreamSegment のデータ
@@ -325,7 +324,7 @@ class VideoEncodingTask:
         if self._encoder_process is not None:
             Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                          f'Waiting previous {ENCODER_TYPE} to finish...')
-            await self._encoder_process.wait()
+            self._encoder_process.wait()
 
         Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] Encoding HLS segment...')
 
@@ -365,19 +364,13 @@ class VideoEncodingTask:
             '-',
         ]
 
-        # tsreadex の読み込み用パイプと書き込み用パイプを作成
-        tsreadex_read_pipe, tsreadex_write_pipe = os.pipe()
-
         # tsreadex のプロセスを非同期で作成・実行
-        self._tsreadex_process = await asyncio.subprocess.create_subprocess_exec(
-            *[LIBRARY_PATH['tsreadex'], *tsreadex_options],
-            stdin = asyncio.subprocess.PIPE,  # 録画 TS データから直接切り出した生の MPEG-TS チャンクを書き込む
-            stdout = tsreadex_write_pipe,  # エンコーダーに繋ぐ
-            stderr = asyncio.subprocess.DEVNULL,  # 利用しない
+        self._tsreadex_process = subprocess.Popen(
+            [LIBRARY_PATH['tsreadex'], *tsreadex_options],
+            stdin = subprocess.PIPE,  # 録画 TS データから直接切り出した生の MPEG-TS チャンクを書き込む
+            stdout = subprocess.PIPE,  # エンコーダーに繋ぐ
+            stderr = subprocess.DEVNULL,  # 利用しない
         )
-
-        # tsreadex の書き込み用パイプを閉じる
-        os.close(tsreadex_write_pipe)
 
         # ***** エンコーダープロセスの作成と実行 *****
 
@@ -390,11 +383,11 @@ class VideoEncodingTask:
                          f'FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
             # エンコーダープロセスを非同期で作成・実行
-            self._encoder_process = await asyncio.subprocess.create_subprocess_exec(
-                *[LIBRARY_PATH['FFmpeg'], *encoder_options],
-                stdin = tsreadex_read_pipe,  # tsreadex からの入力
-                stdout = asyncio.subprocess.PIPE,  # ストリーム出力
-                # stderr = asyncio.subprocess.DEVNULL,
+            self._encoder_process = subprocess.Popen(
+                [LIBRARY_PATH['FFmpeg'], *encoder_options],
+                stdin = self._tsreadex_process.stdout,  # tsreadex からの入力
+                stdout = subprocess.PIPE,  # ストリーム出力
+                # stderr = subprocess.DEVNULL,
                 stderr = None,  # デバッグ用
             )
 
@@ -407,16 +400,13 @@ class VideoEncodingTask:
                          f' {ENCODER_TYPE} Commands:\n{ENCODER_TYPE} {" ".join(encoder_options)}')
 
             # エンコーダープロセスを非同期で作成・実行
-            self._encoder_process = await asyncio.subprocess.create_subprocess_exec(
-                *[LIBRARY_PATH[ENCODER_TYPE], *encoder_options, '--log-packets', f'seg_{segment.sequence_index}_in_packets.log', '--log-mux-ts', f'seg_{segment.sequence_index}_out_muxts.log'],
-                stdin = tsreadex_read_pipe,  # tsreadex からの入力
-                stdout = asyncio.subprocess.PIPE,  # ストリーム出力
-                # stderr = asyncio.subprocess.DEVNULL,
+            self._encoder_process = subprocess.Popen(
+                [LIBRARY_PATH[ENCODER_TYPE], *encoder_options, '--log-packets', f'seg_{segment.sequence_index}_in_packets.log', '--log-mux-ts', f'seg_{segment.sequence_index}_out_muxts.log'],
+                stdin = self._tsreadex_process.stdout,  # tsreadex からの入力
+                stdout = subprocess.PIPE,  # ストリーム出力
+                # stderr = subprocess.DEVNULL,
                 stderr = None,  # デバッグ用
             )
-
-        # tsreadex の読み込み用パイプを閉じる
-        os.close(tsreadex_read_pipe)
 
         # ***** エンコーダーへの切り出した TS パケットの書き込み *****
 
@@ -430,7 +420,7 @@ class VideoEncodingTask:
         while True:
 
             # Queue から切り出された TS パケットを随時取得
-            ts_packet = await segment.segment_ts_packet_queue.get()
+            ts_packet = segment.segment_ts_packet_queue.get()
 
             # バッファに TS パケットを追加
             if ts_packet is not None:
@@ -442,9 +432,10 @@ class VideoEncodingTask:
                 Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                                      f'Writing TS packets to {ENCODER_TYPE}... (Buffer Size: {len(ts_packet_buffer)}B)')
                 self._tsreadex_process.stdin.write(ts_packet_buffer)
-                await self._tsreadex_process.stdin.drain()
-                segment_bytes_count += len(ts_packet_buffer)  # エンコーダーに投入した TS パケットのバイト数を加算
-                ts_packet_buffer = bytearray()  # バッファを空にする
+                # エンコーダーに投入した TS パケットのバイト数を加算
+                segment_bytes_count += len(ts_packet_buffer)
+                # バッファを空にする
+                ts_packet_buffer = bytearray()
                 Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                                      f'Write TS packets to {ENCODER_TYPE}. Cut out {segment_bytes_count / 1024 / 1024:.3f} MiB in total.')
 
@@ -457,11 +448,19 @@ class VideoEncodingTask:
                 self._tsreadex_process.stdin.close()
                 break  # ループを抜ける
 
+            # すでにエンコーダーが終了しているならループを抜ける
+            if self._tsreadex_process.poll() is not None or self._encoder_process.poll() is not None:
+                break
+
+            # すでにエンコードタスクがキャンセルされている
+            if self._is_cancelled is True:
+                break
+
         # ***** エンコーダーからの出力の読み取り *****
 
         # 上記処理で None を Queue から受け取ったタイミングで正常終了するはずなので、エンコード済みのセグメントデータを取得する
         assert self._encoder_process.stdout is not None
-        segment_ts = await self._encoder_process.stdout.read()
+        segment_ts = self._encoder_process.stdout.read()
 
         # 処理対象の VideoStreamSegment をエンコード完了状態に設定
         assert segment.encoded_segment_ts_future.done() is False  # すでに完了しているはずはない
@@ -478,10 +477,10 @@ class VideoEncodingTask:
             return False
 
         # この時点でエンコーダーの exit code が 0 か None (まだプロセスが起動している) でなければ何らかの理由でエンコードに失敗している
-        if self._encoder_process.returncode != 0 and self._encoder_process.returncode is not None:
+        if self._encoder_process.poll() != 0 and self._encoder_process.poll() is not None:
             self.__terminateEncoder()
             Logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
-                          f'{ENCODER_TYPE} exited with exit code {self._encoder_process.returncode}.')
+                          f'{ENCODER_TYPE} exited with exit code {self._encoder_process.poll()}.')
             # 返すデータがないが復旧もできないので、Future には空のデータを設定する
             segment.encoded_segment_ts_future.set_result(b'')
             return False
@@ -524,11 +523,14 @@ class VideoEncodingTask:
             Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] Terminated {ENCODER_TYPE} process.')
 
 
-    async def run(self, first_segment_index: int) -> None:
+    def __run(self, first_segment_index: int) -> None:
         """
         HLS エンコードタスクを実行する
-        biim の実装をかなり参考にした
+        非同期 (asyncio.create_task()) で実行するとイベントループがビジーになったりなど厄介な問題が発生するため、意図的に同期関数としている
+        aiofiles は単に裏でスレッドプールに投げてるだけなので、それなら全部別スレッドで実行したほうがパフォーマンスが良いと判断
         TODO: 現状 PCR や PTS が一周した時の処理は何も考えてない
+
+        biim の実装をかなり参考にした
         ref: https://github.com/monyone/biim/blob/other/static-ondemand-hls/seekable.py
         ref: https://github.com/monyone/biim/blob/other/static-ondemand-hls/vod_main.py
         ref: https://github.com/monyone/biim/blob/other/static-ondemand-hls/vod_fmp4.py
@@ -545,7 +547,7 @@ class VideoEncodingTask:
         if self._is_finished is True:
             assert False, 'VideoEncodingTask is already finished.'
 
-        # すでにキャンセルされている
+        # すでにエンコードタスクがキャンセルされている
         if self._is_cancelled is True:
             assert False, 'VideoEncodingTask is already cancelled.'
 
@@ -574,12 +576,12 @@ class VideoEncodingTask:
         latest_pcr_value: int | None = None  # 前回の PCR 値
         latest_pcr_ts_packet_bytes: int | None = None  # 最初の PCR 値を取得してから読み取った TS パケットの累計バイト数
         pcr_remain_count: int = 30  # 30 回分の PCR 値を取得する (PCR を取得するたびに 1 減らす)
-        async with aiofiles.open(self.recorded_video.file_path, 'rb') as reader:
+        with open(self.recorded_video.file_path, 'rb') as reader:
             while True:
 
                 # 同期バイトを探す
                 while True:
-                    sync_byte: bytes = await reader.read(1)
+                    sync_byte: bytes = reader.read(1)
                     if sync_byte == ts.SYNC_BYTE:
                         break
                     elif sync_byte == b'':
@@ -587,7 +589,7 @@ class VideoEncodingTask:
                         assert False, 'Invalid TS file. Sync byte is not found.'
 
                 # 速度向上のため 188 * 10000 バイトのチャンクで一気に読み込んだ後、188 バイトごとの TS パケットに分割して処理する
-                chunk = ts.SYNC_BYTE + await reader.read((ts.PACKET_SIZE * 10000) - 1)
+                chunk = ts.SYNC_BYTE + reader.read((ts.PACKET_SIZE * 10000) - 1)
                 for ts_packet in [chunk[i:i + ts.PACKET_SIZE] for i in range(0, len(chunk), ts.PACKET_SIZE)]:
                     if len(ts_packet) != ts.PACKET_SIZE:
                         Logging.error(f'[Video: {self.video_stream.video_stream_id}] Packet size is not 188 bytes.')
@@ -733,9 +735,9 @@ class VideoEncodingTask:
 
         # 取得した概算バイトレートをもとに、指定された開始タイムスタンプに近い位置までシークする
         # 余裕を持ってエンコードを開始する HLS セグメントのファイル上の位置 - 5 秒分の位置にシークする
-        async with aiofiles.open(self.recorded_video.file_path, 'rb') as reader:
+        with open(self.recorded_video.file_path, 'rb') as reader:
             seek_offset_bytes = int(max(0, self.video_stream.segments[first_segment_index].start_file_position - (5 * BYTE_RATE)))
-            await reader.seek(seek_offset_bytes, os.SEEK_SET)
+            reader.seek(seek_offset_bytes, os.SEEK_SET)
             Logging.info(f'[Video: {self.video_stream.video_stream_id}] Seeked to {seek_offset_bytes} bytes.')
 
             while True:
@@ -743,7 +745,7 @@ class VideoEncodingTask:
                 # 同期バイトを探す
                 isEOF = False
                 while True:
-                    sync_byte: bytes = await reader.read(1)
+                    sync_byte: bytes = reader.read(1)
                     if sync_byte == ts.SYNC_BYTE:
                         break
                     elif sync_byte == b'':
@@ -757,7 +759,7 @@ class VideoEncodingTask:
                     break
 
                 # 速度向上のため 188 * 10000 バイトのチャンクで一気に読み込んだ後、188 バイトごとの TS パケットに分割して処理する
-                chunk = ts.SYNC_BYTE + await reader.read((ts.PACKET_SIZE * 10000) - 1)
+                chunk = ts.SYNC_BYTE + reader.read((ts.PACKET_SIZE * 10000) - 1)
                 for ts_packet in [chunk[i:i + ts.PACKET_SIZE] for i in range(0, len(chunk), ts.PACKET_SIZE)]:
                     if len(ts_packet) != ts.PACKET_SIZE:
                         Logging.error(f'[Video: {self.video_stream.video_stream_id}] Packet size is not 188 bytes.')
@@ -796,7 +798,7 @@ class VideoEncodingTask:
                             pat_continuity_counter = (pat_continuity_counter + len(pat_packets)) & 0x0F  # Continuity Counter を更新
                             if monotonic_segment_index >= 0 and self.video_stream.segments[monotonic_segment_index].is_encode_completed is False:
                                 for pat_packet in pat_packets:
-                                    await self.video_stream.segments[monotonic_segment_index].segment_ts_packet_queue.put(pat_packet)
+                                    self.video_stream.segments[monotonic_segment_index].segment_ts_packet_queue.put(pat_packet)
                                 if len(pat_packets) > 0:
                                     Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {monotonic_segment_index}] '
                                                             f'Put PAT packets to segment queue.')
@@ -862,7 +864,7 @@ class VideoEncodingTask:
                             pmt_continuity_counter = (pmt_continuity_counter + len(pmt_packets)) & 0x0F  # Continuity Counter を更新
                             if monotonic_segment_index >= 0 and self.video_stream.segments[monotonic_segment_index].is_encode_completed is False:
                                 for pmt_packet in pmt_packets:
-                                    await self.video_stream.segments[monotonic_segment_index].segment_ts_packet_queue.put(pmt_packet)
+                                    self.video_stream.segments[monotonic_segment_index].segment_ts_packet_queue.put(pmt_packet)
                                 if len(pmt_packets) > 0:
                                     Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {monotonic_segment_index}] '
                                                             f'Put PMT packets to segment queue.')
@@ -897,13 +899,14 @@ class VideoEncodingTask:
                                 if (segment.sequence_index - 1 >= 0) and \
                                    (self.video_stream.segments[segment.sequence_index - 1].is_encode_completed is False) and \
                                    (current_pts - self.video_stream.segments[segment.sequence_index - 1].end_pts >= 3 * ts.HZ):
-                                    await self.video_stream.segments[segment.sequence_index - 1].segment_ts_packet_queue.put(None)
+                                    self.video_stream.segments[segment.sequence_index - 1].segment_ts_packet_queue.put(None)
                                     Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index - 1}] '
                                                          f'Put None to segment queue.')
 
                                     # エンコーダーの終了を待つ (重要)
                                     ## ファイルの読み取りよりエンコードの方が基本的に遅いので、前のセグメントのエンコード中に次のエンコードを開始しないようにする
-                                    await self.video_stream.segments[segment.sequence_index - 1].encoded_segment_ts_future
+                                    if self._encoder_process is not None:
+                                        self._encoder_process.wait()
 
                                 # 当該セグメントのエンコードがすでに完了している場合は何もしない
                                 ## 中間に数個だけ既にエンコードされているセグメントがあるケースでは、
@@ -920,17 +923,18 @@ class VideoEncodingTask:
                                     Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                                         f'Start: {(segment.start_pts - self.video_stream.segments[0].start_pts) / ts.HZ:.3f} / '
                                         f'End: {((segment.start_pts - self.video_stream.segments[0].start_pts) / ts.HZ) + segment.duration_seconds:.3f}')
-                                    asyncio.create_task(self.__runEncoder(segment))
+                                    thread = threading.Thread(target=self.__runEncoder, args=(segment,))
+                                    thread.start()
 
                                     # 前回取得した最新の PAT / PMT を投入する
                                     ## エンコーダーは最初の PAT / PMT より前のデータをデコードできないため、最初のパケットを投入する前に入れておく必要がある
                                     for pat_packet in latest_pat_packets:
-                                        await segment.segment_ts_packet_queue.put(pat_packet)
+                                        segment.segment_ts_packet_queue.put(pat_packet)
                                     if len(latest_pat_packets) > 0:
                                         Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                                                              f'Put initial PAT packets to segment queue.')
                                     for pmt_packet in latest_pmt_packets:
-                                        await segment.segment_ts_packet_queue.put(pmt_packet)
+                                        segment.segment_ts_packet_queue.put(pmt_packet)
                                     if len(latest_pmt_packets) > 0:
                                         Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                                                              f'Put initial PMT packets to segment queue.')
@@ -954,7 +958,7 @@ class VideoEncodingTask:
 
                                 # ここで Queue に投入したパケットがそのまま tsreadex → エンコーダーに投入される
                                 ## セグメント間で PTS レンジが重複することはないので、最初に一致したセグメントの Queue だけ処理すればよい
-                                await segment.segment_ts_packet_queue.put(ts_packet)
+                                segment.segment_ts_packet_queue.put(ts_packet)
                                 Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                                                      f'Put PES header packet to segment queue.')
                                 break
@@ -981,7 +985,7 @@ class VideoEncodingTask:
 
                                 # ここで Queue に投入したパケットがそのまま tsreadex → エンコーダーに投入される
                                 ## セグメント間で PTS レンジが重複することはないので、最初に一致したセグメントの Queue だけ処理すればよい
-                                await segment.segment_ts_packet_queue.put(ts_packet)
+                                segment.segment_ts_packet_queue.put(ts_packet)
                                 break
 
                     # PSI/SI などのセクションパケットの場合
@@ -991,25 +995,31 @@ class VideoEncodingTask:
                         # monotonic_segment_index が正の値である (初期値でない) ことを確認する
                         if monotonic_segment_index >= 0:
 
-                            # 当該セグメントのエンコードがすでに完了している場合は何もしない
+                            # 当該セグメントのエンコードが完了していない場合のみ、TS パケットを投入する
                             ## 中間に数個だけ既にエンコードされているセグメントがあるケースでは、
                             ## それらのエンコード完了済みセグメントの切り出し&エンコード処理をスキップして次のセグメントに進むことになる
-                            if self.video_stream.segments[monotonic_segment_index].is_encode_completed is True:
-                                continue
-
-                            # そのインデックスに該当するセグメントに TS パケットを投入する
-                            await self.video_stream.segments[monotonic_segment_index].segment_ts_packet_queue.put(ts_packet)
+                            if self.video_stream.segments[monotonic_segment_index].is_encode_completed is False:
+                                self.video_stream.segments[monotonic_segment_index].segment_ts_packet_queue.put(ts_packet)
 
                     # 途中でエンコードタスクがキャンセルされた場合、処理中のセグメントがあるかに関わらずエンコードタスクを終了する
                     # このとき、エンコーダーの出力はエンコードの完了を待つことなく破棄され、セグメントは処理開始前の状態にリセットされる
                     if self._is_cancelled is True:
                         return
 
-                    # 基本ずっとビジーなのでこのタイミングで他のタスクに処理を譲る
-                    await asyncio.sleep(0.0001)
-
         self._is_finished = True
         Logging.info(f'[Video: {self.video_stream.video_stream_id}] VideoEncodingTask finished.')
+
+
+    async def run(self, first_segment_index: int) -> None:
+        """
+        HLS エンコードタスクを実行する
+        実際は asyncio.to_thread で別スレッドで実行される
+
+        Args:
+            first_segment_index (int): エンコードを開始する HLS セグメントのインデックス (HLS セグメントのシーケンス番号と一致する)
+        """
+
+        await asyncio.to_thread(self.__run, first_segment_index)
 
 
     def cancel(self) -> None:
