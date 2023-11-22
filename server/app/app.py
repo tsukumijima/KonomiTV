@@ -36,9 +36,6 @@ from app.utils import Logging
 from app.utils.EDCB import EDCBTuner
 
 
-# このアプリケーションの実行中のイベントループ
-loop = asyncio.get_running_loop()
-
 # もし Config() の実行時に AssertionError が発生した場合は、LoadConfig() を実行してサーバー設定データをロードする
 ## 自動リロードモードでは app.py がサーバープロセスのエントリーポイントになるため、
 ## サーバープロセス上にサーバー設定データがロードされていない状態になる

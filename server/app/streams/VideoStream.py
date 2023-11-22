@@ -10,7 +10,7 @@ import time
 from biim.mpeg2ts import ts
 from dataclasses import dataclass
 from rich import print
-from typing import Any, Callable, ClassVar
+from typing import Any, Callable, ClassVar, Literal
 
 from app.config import Config
 from app.constants import LIBRARY_PATH, QUALITY_TYPES
@@ -55,7 +55,7 @@ class VideoStreamSegment:
     # 上記の情報に基づいて切り出された HLS セグメントの MPEG-TS データを入れる Queue (エンコーダーが同期関数なので同期用の Queue にしている)
     ## 切り出す際に随時入れられた後、同時に稼働中のエンコーダーに投入するために取り出される
     ## None が入れられたらこれ以上データは入らないことを示す
-    ## TS パケットは最大 256 個までに制限されている (188 * 256 = 48128B)
+    ## TS パケットは最大 10000 個までに制限されている (188 * 10000 = 1880000 バイト = 1.88 MB)
     ## Queue に TS パケットが溜まりすぎてもエンコーダーが追いつかないので、256 個以上溜まったら一旦読み取りを中断してエンコーダーに投入されるようにする
     segment_ts_packet_queue: queue.Queue[bytes | None]
 
@@ -66,21 +66,21 @@ class VideoStreamSegment:
     ## 一度 True になるとリセットされない限り False には戻らない
     is_started: bool = False
 
-    # HLS セグメントのエンコードが完了したかどうか
-    ## エンコードが完了したら True になる
-    is_encode_completed: bool = False
+    # HLS セグメントのエンコードの状態
+    encode_status: Literal['Pending', 'Encoding', 'Completed'] = 'Pending'
 
 
-    def resetState(self) -> None:
+    async def resetState(self) -> None:
         """
         このセグメントの状態をリセットする
-        主にエンコード中にエンコードタスクがキャンセルされた場合に呼び出される
+        主にエンコード中にエンコードタスクがキャンセルされたか、セグメントのエンコードが失敗した場合に呼び出される
+        asyncio.Future を初期化するにはイベントループ上でなければならないらしいので、このメソッドを非同期関数にしている
         """
 
-        self.segment_ts_packet_queue = queue.Queue(maxsize=256)
+        self.segment_ts_packet_queue = queue.Queue(maxsize=188 * 10000)
         self.encoded_segment_ts_future = asyncio.Future()
         self.is_started = False
-        self.is_encode_completed = False
+        self.encode_status = 'Pending'
 
 
 class VideoStream:
@@ -233,7 +233,7 @@ class VideoStream:
                         end_pts = 0,  # 仮の値
                         end_file_position = 0,  # 仮の値
                         duration_seconds = 0,  # 仮の値
-                        segment_ts_packet_queue = queue.Queue(maxsize=256),  # dataclass 側に書くと全ての参照が同じになってしまうので毎回新たに生成する
+                        segment_ts_packet_queue = queue.Queue(maxsize=188 * 10000),  # dataclass 側に書くと全ての参照が同じになってしまうので毎回新たに生成する
                         encoded_segment_ts_future = asyncio.Future(),  # dataclass 側に書くと全ての参照が同じになってしまうので毎回新たに生成する
                     ))
                     is_first_keyframe_found = True
@@ -261,7 +261,7 @@ class VideoStream:
                             end_pts = 0,  # 仮の値
                             end_file_position = 0,  # 仮の値
                             duration_seconds = 0,  # 仮の値
-                            segment_ts_packet_queue = queue.Queue(maxsize=256),  # dataclass 側に書くと全ての参照が同じになってしまうので毎回新たに生成する
+                            segment_ts_packet_queue = queue.Queue(maxsize=188 * 10000),  # dataclass 側に書くと全ての参照が同じになってしまうので毎回新たに生成する
                             encoded_segment_ts_future = asyncio.Future(),  # dataclass 側に書くと全ての参照が同じになってしまうので毎回新たに生成する
                         ))
                         segment_sequence += 1
@@ -322,14 +322,14 @@ class VideoStream:
             asyncio.create_task(self._encoding_task.run(segment_sequence))
             Logging.info(f'[Video: {self.video_stream_id}][Segment {segment_sequence}] New Encoding Task Started.')
 
-        # エンコードタスクは既に起動しているがこの時点でまだセグメントのエンコードが完了していなければ、このセグメントからエンコードタスクを非同期で開始する
+        # エンコードタスクは既に起動しているがこの時点でまだセグメントのエンコードが開始されていなければ、このセグメントからエンコードタスクを非同期で開始する
         # この HLS セグメントのエンコード処理が現在進行中の場合は完了まで待つ
-        elif segment.encoded_segment_ts_future.done() is False and segment.is_encode_completed is False:
+        elif segment.encoded_segment_ts_future.done() is False and segment.encode_status == 'Pending':
 
             # 0.5 秒待ってみて、それでも同じ状態のときだけエンコードタスクを再起動する
             # タイミングの関係であともう少しだけ待てば当該セグメントのエンコードが開始するのに…！という場合に備える
             await asyncio.sleep(0.5)
-            if segment.encoded_segment_ts_future.done() is False and segment.is_encode_completed is False:
+            if segment.encoded_segment_ts_future.done() is False and segment.encode_status == 'Pending':
 
                 # 以前のエンコードタスクをキャンセルする
                 # この時点で以前のエンコードタスクでエンコードが完了していたセグメントに関してはそのまま self.segments に格納されている
