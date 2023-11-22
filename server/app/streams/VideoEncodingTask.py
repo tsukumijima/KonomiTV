@@ -7,6 +7,7 @@ import asyncio
 import os
 import subprocess
 import threading
+import time
 from biim.mpeg2ts import ts
 from biim.mpeg2ts.packetize import packetize_section
 from biim.mpeg2ts.pat import PATSection
@@ -142,8 +143,9 @@ class VideoEncodingTask:
         elif self.recorded_video.video_scan_type == 'Progressive':
             options.append(f'-r 30000/1001 -g {int(gop_length_second * 30)}')
 
-        # 音声は HLS セグメント化の都合上、当面ソースの音声をそのままコピーする
-        options.append('-acodec copy')
+        # 音声
+        ## 音声が 5.1ch かどうかに関わらず、ステレオにダウンミックスする
+        options.append(f'-acodec aac -aac_coder twoloop -ac 2 -ab {QUALITY[quality].audio_bitrate} -ar 48000 -af volume=2.0')
 
         # 出力するセグメント TS のタイムスタンプのオフセット
         # タイムスタンプが前回エンコードしたセグメントの続きになるようにする
@@ -191,9 +193,9 @@ class VideoEncodingTask:
             options.append('--avhw')
 
         # ストリームのマッピング
-        ## 音声は HLS セグメント化の都合上、当面ソースの音声をそのままコピーする
         ## 音声切り替えのため、主音声・副音声両方をエンコード後の TS に含む
-        options.append('--audio-copy --data-copy timed_id3')
+        ## 音声が 5.1ch かどうかに関わらず、ステレオにダウンミックスする
+        options.append('--audio-stream 1?:stereo --audio-stream 2?:stereo --data-copy timed_id3')
 
         # フラグ
         ## 主に HWEncC の起動を高速化するための設定
@@ -290,6 +292,10 @@ class VideoEncodingTask:
 
         # 入力のタイムスタンプを出力にコピーする
         options.append(f'--timestamp-passthrough --log-level trace')
+
+        # 音声
+        options.append(f'--audio-codec aac:aac_coder=twoloop --audio-bitrate {QUALITY[quality].audio_bitrate}')
+        options.append('--audio-samplerate 48000 --audio-filter volume=2.0 --audio-ignore-decode-error 30')
 
         # 出力
         options.append('--output-format mpegts')  # MPEG-TS 出力ということを明示
@@ -417,6 +423,9 @@ class VideoEncodingTask:
         # エンコーダーに投入した TS パケットのバイト数
         segment_bytes_count = 0
 
+        # Queue からの TS パケットの取得に移る前に少し待つ (重要)
+        time.sleep(0.1)
+
         while True:
 
             # Queue から切り出された TS パケットを随時取得
@@ -431,7 +440,12 @@ class VideoEncodingTask:
             if len(ts_packet_buffer) >= 188 * 256 or ts_packet is None:
                 Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                                      f'Writing TS packets to {ENCODER_TYPE}... (Buffer Size: {len(ts_packet_buffer)}B)')
-                self._tsreadex_process.stdin.write(ts_packet_buffer)
+                try:
+                    self._tsreadex_process.stdin.write(ts_packet_buffer)
+                except Exception as ex:
+                    Logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                                  f'Failed to write TS packets to {ENCODER_TYPE}.')
+                    Logging.error(ex)
                 # エンコーダーに投入した TS パケットのバイト数を加算
                 segment_bytes_count += len(ts_packet_buffer)
                 # バッファを空にする
