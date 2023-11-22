@@ -124,7 +124,7 @@ class VideoStream:
 
             # キャンセルされない限り VIDEO_STREAM_TIMEOUT 秒後にインスタンスを破棄するタイマー
             # cancel_destroy_timer() を呼び出すことでタイマーをキャンセルできる
-            instance._cancel_destroy_timer = SetTimeout(lambda: instance.destroy(), cls.VIDEO_STREAM_TIMEOUT)
+            instance._cancel_destroy_timer = SetTimeout(lambda: asyncio.create_task(instance.destroy()), cls.VIDEO_STREAM_TIMEOUT)
 
             # 生成したインスタンスを登録する
             cls.__instances[video_stream_id] = instance
@@ -184,7 +184,7 @@ class VideoStream:
         self._cancel_destroy_timer()
 
         # キャンセルされない限り VIDEO_STREAM_TIMEOUT 秒後にインスタンスを破棄するタイマーを設定する
-        self._cancel_destroy_timer = SetTimeout(lambda: self.destroy(), self.VIDEO_STREAM_TIMEOUT)
+        self._cancel_destroy_timer = SetTimeout(lambda: asyncio.create_task(self.destroy()), self.VIDEO_STREAM_TIMEOUT)
 
 
     async def getVirtualPlaylist(self) -> str:
@@ -333,7 +333,7 @@ class VideoStream:
 
                 # 以前のエンコードタスクをキャンセルする
                 # この時点で以前のエンコードタスクでエンコードが完了していたセグメントに関してはそのまま self.segments に格納されている
-                self._encoding_task.cancel()
+                await self._encoding_task.cancel()
                 Logging.info(f'[Video: {self.video_stream_id}][Segment {segment_sequence}] Previous Encoding Task Canceled.')
 
                 # 新たにエンコードタスクを非同期で開始する
@@ -346,7 +346,7 @@ class VideoStream:
         return encoded_segment_ts
 
 
-    def destroy(self) -> None:
+    async def destroy(self) -> None:
         """
         ビデオストリームで実行中のエンコードなどの処理を終了し、ビデオストリームを破棄する
         ユーザーが番組の視聴を終了した (keepAlive() が呼び出されなくなった) 場合に自動的に呼び出される
@@ -355,7 +355,7 @@ class VideoStream:
         # 起動中のエンコードタスクがあればキャンセルする
         # この時点ですでにエンコードを完了して終了している場合もある
         if self._encoding_task is not None:
-            self._encoding_task.cancel()
+            await self._encoding_task.cancel()
             self._encoding_task = None
 
         # すべての HLS セグメントを削除する
