@@ -335,6 +335,10 @@ class VideoEncodingTask:
             if self._is_cancelled is True:
                 return  # メソッドの実行自体を終了する
 
+            # すでにエンコード対象のエンコードが完了している (あってはならない)
+            assert segment.encode_status != 'Completed', 'This segment has already been encoded.'
+            assert segment.encoded_segment_ts_future.done() is False, 'This segment has already been encoded. (Future is done)'
+
             Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] Encoding HLS segment...')
 
             # ***** tsreadex プロセスの作成と実行 *****
@@ -601,17 +605,15 @@ class VideoEncodingTask:
             first_segment_index (int): エンコードを開始する HLS セグメントのインデックス (HLS セグメントのシーケンス番号と一致する)
         """
 
-        # first_segment_index が self.video_stream.segments の範囲外
+        # first_segment_index が self.video_stream.segments の範囲外 (あってはならない)
         if first_segment_index < 0 or first_segment_index >= len(self.video_stream.segments):
             assert False, f'first_segment_index ({first_segment_index}) is out of range, allowed range is 0 to {len(self.video_stream.segments) - 1}.'
 
-        # すでにタスクが完了している
-        if self._is_finished is True:
-            assert False, 'VideoEncodingTask is already finished.'
+        # すでにタスクが完了している (あってはならない)
+        assert self._is_finished is False, 'VideoEncodingTask is already finished.'
 
-        # すでにエンコードタスクがキャンセルされている
-        if self._is_cancelled is True:
-            assert False, 'VideoEncodingTask is already cancelled.'
+        # すでにエンコードタスクがキャンセルされている (あってはならない)
+        assert self._is_cancelled is False, 'VideoEncodingTask is already cancelled.'
 
         Logging.info(f'[Video: {self.video_stream.video_stream_id}] VideoEncodingTask started.')
 
@@ -981,11 +983,20 @@ class VideoEncodingTask:
                                     if self._is_cancelled is True:
                                         return  # メソッドの実行自体を終了する
 
-                                    # エンコーダースレッドをバックグラウンドで起動する
                                     Logging.info(f'[Video: {self.video_stream.video_stream_id}] Switched to next segment: {segment.sequence_index}')
                                     Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                                         f'Start: {(segment.start_pts - self.video_stream.segments[0].start_pts) / ts.HZ:.3f} / '
                                         f'End: {((segment.start_pts - self.video_stream.segments[0].start_pts) / ts.HZ) + segment.duration_seconds:.3f}')
+
+                                    # 当該セグメントのエンコードがすでに完了している場合は何もしない
+                                    ## 中間に数個だけ既にエンコードされているセグメントがあるケースでは、
+                                    ## それらのエンコード完了済みセグメントの切り出し&エンコード処理をスキップして次のセグメントに進むことになる
+                                    if segment.encode_status == 'Completed':
+                                        Logging.warning(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                                                         'Segment is already encoded. Skip this segment.')
+                                        break
+
+                                    # エンコーダースレッドをバックグラウンドで起動する
                                     encoder_thread = threading.Thread(target=self.__runEncoder, args=(segment,), daemon=True)
                                     encoder_thread.start()
 
@@ -1049,6 +1060,12 @@ class VideoEncodingTask:
 
                             # PTS がレンジ内にあれば
                             if segment.start_pts <= current_pts <= segment.end_pts:
+
+                                # 当該セグメントのエンコードがすでに完了している場合は何もしない
+                                ## 中間に数個だけ既にエンコードされているセグメントがあるケースでは、
+                                ## それらのエンコード完了済みセグメントの切り出し&エンコード処理をスキップして次のセグメントに進むことになる
+                                if segment.encode_status == 'Completed':
+                                    break
 
                                 # ここで Queue に投入したパケットがそのまま tsreadex → エンコーダーに投入される
                                 ## セグメント間で PTS レンジが重複することはないので、最初に一致したセグメントの Queue だけ処理すればよい
