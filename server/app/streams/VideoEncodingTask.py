@@ -7,7 +7,6 @@ import asyncio
 import os
 import subprocess
 import threading
-import time
 from biim.mpeg2ts import ts
 from biim.mpeg2ts.packetize import packetize_section
 from biim.mpeg2ts.pat import PATSection
@@ -54,6 +53,9 @@ class VideoEncodingTask:
         # tsreadex とエンコーダーのプロセス
         self._tsreadex_process: subprocess.Popen[bytes] | None = None
         self._encoder_process: subprocess.Popen[bytes] | None = None
+
+        # エンコーダーの多重起動を防止するためのロック
+        self._encoder_lock = threading.Lock()
 
         # エンコードタスクを完了済みかどうか
         self._is_finished: bool = False
@@ -326,239 +328,235 @@ class VideoEncodingTask:
         # エンコーダーの種類を取得
         ENCODER_TYPE = Config().general.encoder
 
-        # まだエンコーダーが起動している場合、前のエンコーダーが終了するまで待つ
-        ## ファイルの読み取りよりエンコードの方が基本的に遅いので、前のセグメントのエンコード中に次のエンコードを開始しないようにする
-        ## TODO: 多分 Mutex を使ったほうが良い
-        if self._encoder_process is not None:
-            Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
-                         f'Waiting for previous {ENCODER_TYPE} to finish...')
-            self._encoder_process.wait()
-            time.sleep(0.1)  # ちょっと待つ
+        # エンコーダーの多重起動を防止するためのロックを確保
+        with self._encoder_lock:
 
-        # 待機後にエンコードタスクがキャンセルされた場合、処理を中断する
-        if self._is_cancelled is True:
-            return  # メソッドの実行自体を終了する
+            # ロック確保後にエンコードタスクがキャンセルされた場合、処理を中断する
+            if self._is_cancelled is True:
+                return  # メソッドの実行自体を終了する
 
-        Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] Encoding HLS segment...')
+            Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] Encoding HLS segment...')
 
-        # ***** tsreadex プロセスの作成と実行 *****
+            # ***** tsreadex プロセスの作成と実行 *****
 
-        # tsreadex のオプション
-        ## 放送波の前処理を行い、エンコードを安定させるツール
-        ## オプション内容は https://github.com/xtne6f/tsreadex を参照
-        tsreadex_options = [
-            # 取り除く TS パケットの10進数の PID
-            ## EIT の PID を指定
-            '-x', '18/38/39',
-            # 特定サービスのみを選択して出力するフィルタを有効にする
-            ## 有効にすると、特定のストリームのみ PID を固定して出力される
-            ## 視聴対象の録画番組が放送されたチャンネルのサービス ID があれば指定する
-            '-n', f'{self.recorded_program.channel.service_id}' if self.recorded_program.channel is not None else '-1',
-            # 主音声ストリームが常に存在する状態にする
-            ## ストリームが存在しない場合、無音の AAC ストリームが出力される
-            ## 音声がモノラルであればステレオにする
-            ## デュアルモノを2つのモノラル音声に分離し、右チャンネルを副音声として扱う
-            '-a', '13',
-            # 副音声ストリームが常に存在する状態にする
-            ## ストリームが存在しない場合、無音の AAC ストリームが出力される
-            ## 音声がモノラルであればステレオにする
-            '-b', '5',
-            # 字幕ストリームが常に存在する状態にする
-            ## ストリームが存在しない場合、PMT の項目が補われて出力される
-            '-c', '1',
-            # 文字スーパーストリームが常に存在する状態にする
-            ## ストリームが存在しない場合、PMT の項目が補われて出力される
-            '-u', '1',
-            # 字幕と文字スーパーを aribb24.js が解釈できる ID3 timed-metadata に変換する
-            ## +4: FFmpeg のバグを打ち消すため、変換後のストリームに規格外の5バイトのデータを追加する
-            ## +8: FFmpeg のエラーを防ぐため、変換後のストリームの PTS が単調増加となるように調整する
-            '-d', '13',
-            # 標準入力からの入力を受け付ける
-            '-',
-        ]
+            # tsreadex のオプション
+            ## 放送波の前処理を行い、エンコードを安定させるツール
+            ## オプション内容は https://github.com/xtne6f/tsreadex を参照
+            tsreadex_options = [
+                # 取り除く TS パケットの10進数の PID
+                ## EIT の PID を指定
+                '-x', '18/38/39',
+                # 特定サービスのみを選択して出力するフィルタを有効にする
+                ## 有効にすると、特定のストリームのみ PID を固定して出力される
+                ## 視聴対象の録画番組が放送されたチャンネルのサービス ID があれば指定する
+                '-n', f'{self.recorded_program.channel.service_id}' if self.recorded_program.channel is not None else '-1',
+                # 主音声ストリームが常に存在する状態にする
+                ## ストリームが存在しない場合、無音の AAC ストリームが出力される
+                ## 音声がモノラルであればステレオにする
+                ## デュアルモノを2つのモノラル音声に分離し、右チャンネルを副音声として扱う
+                '-a', '13',
+                # 副音声ストリームが常に存在する状態にする
+                ## ストリームが存在しない場合、無音の AAC ストリームが出力される
+                ## 音声がモノラルであればステレオにする
+                '-b', '5',
+                # 字幕ストリームが常に存在する状態にする
+                ## ストリームが存在しない場合、PMT の項目が補われて出力される
+                '-c', '1',
+                # 文字スーパーストリームが常に存在する状態にする
+                ## ストリームが存在しない場合、PMT の項目が補われて出力される
+                '-u', '1',
+                # 字幕と文字スーパーを aribb24.js が解釈できる ID3 timed-metadata に変換する
+                ## +4: FFmpeg のバグを打ち消すため、変換後のストリームに規格外の5バイトのデータを追加する
+                ## +8: FFmpeg のエラーを防ぐため、変換後のストリームの PTS が単調増加となるように調整する
+                '-d', '13',
+                # 標準入力からの入力を受け付ける
+                '-',
+            ]
 
-        # tsreadex のプロセスを非同期で作成・実行
-        self._tsreadex_process = subprocess.Popen(
-            [LIBRARY_PATH['tsreadex'], *tsreadex_options],
-            stdin = subprocess.PIPE,  # 録画 TS データから直接切り出した生の MPEG-TS チャンクを書き込む
-            stdout = subprocess.PIPE,  # エンコーダーに繋ぐ
-            stderr = subprocess.DEVNULL,  # 利用しない
-        )
-
-        # ***** エンコーダープロセスの作成と実行 *****
-
-        # FFmpeg
-        if ENCODER_TYPE == 'FFmpeg':
-
-            # オプションを取得
-            encoder_options = self.buildFFmpegOptions(self.video_stream.quality, segment.start_pts / ts.HZ)
-            Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
-                         f'FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
-
-            # エンコーダープロセスを非同期で作成・実行
-            self._encoder_process = subprocess.Popen(
-                [LIBRARY_PATH['FFmpeg'], *encoder_options],
-                stdin = self._tsreadex_process.stdout,  # tsreadex からの入力
-                stdout = subprocess.PIPE,  # ストリーム出力
-                stderr = subprocess.DEVNULL,
-                # stderr = None,  # デバッグ用
+            # tsreadex のプロセスを非同期で作成・実行
+            self._tsreadex_process = subprocess.Popen(
+                [LIBRARY_PATH['tsreadex'], *tsreadex_options],
+                stdin = subprocess.PIPE,  # 録画 TS データから直接切り出した生の MPEG-TS チャンクを書き込む
+                stdout = subprocess.PIPE,  # エンコーダーに繋ぐ
+                stderr = subprocess.DEVNULL,  # 利用しない
             )
 
-        # HWEncC
-        else:
+            # ***** エンコーダープロセスの作成と実行 *****
 
-            # オプションを取得
-            encoder_options = self.buildHWEncCOptions(self.video_stream.quality, ENCODER_TYPE)
-            Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
-                         f'{ENCODER_TYPE} Commands:\n{ENCODER_TYPE} {" ".join(encoder_options)}')
+            # FFmpeg
+            if ENCODER_TYPE == 'FFmpeg':
 
-            # エンコーダープロセスを非同期で作成・実行
-            self._encoder_process = subprocess.Popen(
-                [LIBRARY_PATH[ENCODER_TYPE], *encoder_options],
-                stdin = self._tsreadex_process.stdout,  # tsreadex からの入力
-                stdout = subprocess.PIPE,  # ストリーム出力
-                stderr = subprocess.DEVNULL,
-                # stderr = None,  # デバッグ用
-            )
+                # オプションを取得
+                encoder_options = self.buildFFmpegOptions(self.video_stream.quality, segment.start_pts / ts.HZ)
+                Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                             f'FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
-        # 処理対象の VideoStreamSegment をエンコード中状態に設定
-        segment.encode_status = 'Encoding'
+                # エンコーダープロセスを非同期で作成・実行
+                self._encoder_process = subprocess.Popen(
+                    [LIBRARY_PATH['FFmpeg'], *encoder_options],
+                    stdin = self._tsreadex_process.stdout,  # tsreadex からの入力
+                    stdout = subprocess.PIPE,  # ストリーム出力
+                    stderr = subprocess.DEVNULL,
+                    # stderr = None,  # デバッグ用
+                )
 
-        # 受信したエンコード済み TS パケットのバッファ
-        ## 最終的に単一のセグメントのすべての TS パケットが入る
-        encoded_ts_packet_buffer = bytearray()
+            # HWEncC
+            else:
 
-        # ***** 切り出した TS パケットをエンコーダーに送信するスレッド *****
+                # オプションを取得
+                encoder_options = self.buildHWEncCOptions(self.video_stream.quality, ENCODER_TYPE)
+                Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                             f'{ENCODER_TYPE} Commands:\n{ENCODER_TYPE} {" ".join(encoder_options)}')
 
-        def Writer() -> None:
+                # エンコーダープロセスを非同期で作成・実行
+                self._encoder_process = subprocess.Popen(
+                    [LIBRARY_PATH[ENCODER_TYPE], *encoder_options],
+                    stdin = self._tsreadex_process.stdout,  # tsreadex からの入力
+                    stdout = subprocess.PIPE,  # ストリーム出力
+                    stderr = subprocess.DEVNULL,
+                    # stderr = None,  # デバッグ用
+                )
 
-            # 送信する TS パケットのバッファ
-            # バッファサイズ: 188B (TS Packet Size) * 256 = 48128B
-            ts_packet_buffer = bytearray()
+            # 処理対象の VideoStreamSegment をエンコード中状態に設定
+            segment.encode_status = 'Encoding'
 
-            # エンコーダーに投入した TS パケットのバイト数
-            segment_bytes_count = 0
+            # 受信したエンコード済み TS パケットのバッファ
+            ## 最終的に単一のセグメントのすべての TS パケットが入る
+            encoded_ts_packet_buffer = bytearray()
 
-            while True:
+            # ***** 切り出した TS パケットをエンコーダーに送信するスレッド *****
 
-                # すでにエンコーダーが強制終了されているならループを抜ける
-                ## 強制終了された後は None になるのを利用する
-                ## エンコードタスクがキャンセルされた時にしか発生しないはず
-                if self._tsreadex_process is None or self._encoder_process is None or self._is_cancelled is True:
-                    break
+            def Writer() -> None:
 
-                # Queue から切り出された TS パケットを随時取得
-                ts_packet = segment.segment_ts_packet_queue.get()
-                if ts_packet is not None:
-                    ts_packet_buffer += ts_packet
+                # 送信する TS パケットのバッファ
+                # バッファサイズ: 188B (TS Packet Size) * 256 = 48128B
+                ts_packet_buffer = bytearray()
 
-                # 48128B に到達した or これ以上エンコーダーに投入するパケットがなくなったら、
-                # バッファをエンコーダー (正確にはその前段の tsreadex) に投入
-                if len(ts_packet_buffer) >= 188 * 256 or ts_packet is None:
-                    try:
+                # エンコーダーに投入した TS パケットのバイト数
+                segment_bytes_count = 0
+
+                while True:
+
+                    # すでにエンコーダーが強制終了されているならループを抜ける
+                    ## 強制終了された後は None になるのを利用する
+                    ## エンコードタスクがキャンセルされた時にしか発生しないはず
+                    if self._tsreadex_process is None or self._encoder_process is None or self._is_cancelled is True:
+                        break
+
+                    # Queue から切り出された TS パケットを随時取得
+                    ts_packet = segment.segment_ts_packet_queue.get()
+                    if ts_packet is not None:
+                        ts_packet_buffer += ts_packet
+
+                    # 48128B に到達した or これ以上エンコーダーに投入するパケットがなくなったら、
+                    # バッファをエンコーダー (正確にはその前段の tsreadex) に投入
+                    if len(ts_packet_buffer) >= 188 * 256 or ts_packet is None:
+                        try:
+                            if self._tsreadex_process is not None:  # 念のため
+                                # 書き込んだ後フラッシュする
+                                assert self._tsreadex_process.stdin is not None
+                                self._tsreadex_process.stdin.write(ts_packet_buffer)
+                                self._tsreadex_process.stdin.flush()
+                                # エンコーダーに投入した TS パケットのバイト数を加算
+                                segment_bytes_count += len(ts_packet_buffer)
+                                # バッファを空にする
+                                ts_packet_buffer = bytearray()
+                        except Exception as ex:
+                            # エンコードタスクがキャンセルされエンコーダーが強制終了されたことで書き込みに失敗した場合、ループを抜ける
+                            if self._is_cancelled is True:
+                                break
+                            Logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                                          f'Failed to write TS packets to {ENCODER_TYPE}. ({ex})')
+
+                    # これ以上エンコーダーに投入するパケットがなくなったら tsreadex の標準入力を閉じ、エンコーダーの出力の読み取りを待つ
+                    if ts_packet is None:  # None はこれ以上投入するパケットがないことを示す
+                        Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                                     f'Cut out {segment_bytes_count / 1024 / 1024:.3f} MiB.')
+                        Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                                     f'Waiting for current {ENCODER_TYPE} to finish...')
                         if self._tsreadex_process is not None:  # 念のため
                             assert self._tsreadex_process.stdin is not None
-                            self._tsreadex_process.stdin.write(ts_packet_buffer)
-                            self._tsreadex_process.stdin.flush()
-                    except Exception as ex:
-                        Logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
-                                    f'Failed to write TS packets to {ENCODER_TYPE}. ({ex})')
+                            self._tsreadex_process.stdin.close()
+                        break  # ループを抜ける
 
-                    # エンコーダーに投入した TS パケットのバイト数を加算
-                    segment_bytes_count += len(ts_packet_buffer)
+            # ***** エンコード済み TS パケット (セグメントデータ) をエンコーダーから受信するスレッド *****
 
-                    # バッファを空にする
-                    ts_packet_buffer = bytearray()
+            def Reader() -> None:
+                nonlocal encoded_ts_packet_buffer
 
-                # これ以上エンコーダーに投入するパケットがなくなったら tsreadex の標準入力を閉じ、エンコーダーの出力の読み取りを待つ
-                if ts_packet is None:  # None はこれ以上投入するパケットがないことを示す
-                    Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
-                                f'Cut out {segment_bytes_count / 1024 / 1024:.3f} MiB.')
-                    Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
-                                f'Waiting for current {ENCODER_TYPE} to finish...')
-                    if self._tsreadex_process is not None:  # 念のため
-                        assert self._tsreadex_process.stdin is not None
-                        self._tsreadex_process.stdin.close()
-                    break  # ループを抜ける
+                while True:
 
-        # ***** エンコード済み TS パケット (セグメントデータ) をエンコーダーから受信するスレッド *****
+                    # すでにエンコーダーが強制終了されているならループを抜ける
+                    ## 強制終了された後は None になるのを利用する
+                    ## エンコードタスクがキャンセルされた時にしか発生しないはず
+                    if self._tsreadex_process is None or self._encoder_process is None or self._is_cancelled is True:
+                        break
 
-        def Reader() -> None:
-            nonlocal encoded_ts_packet_buffer
+                    if self._encoder_process is not None:  # 念のため
+                        try:
+                            # エンコーダーの出力を 48128B (188 * 256) ずつ受信してバッファに保存する
+                            assert self._encoder_process.stdout is not None
+                            ts_packets = self._encoder_process.stdout.read(188 * 256)
+                            # 出力の終端に到達したらループを抜ける
+                            if ts_packets == b'':
+                                break
+                            # バッファに受信したエンコード済み TS パケットを追加
+                            encoded_ts_packet_buffer += ts_packets
+                        except Exception as ex:
+                            # エンコードタスクがキャンセルされエンコーダーが強制終了されたことで読み取りに失敗した場合、ループを抜ける
+                            if self._is_cancelled is True:
+                                break
+                            Logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                                          f'Failed to read encoded TS packets from {ENCODER_TYPE}. ({ex})')
 
-            while True:
+            # ***** Writer と Reader の終了後、 ンコード済み TS パケットを VideoStreamSegment に書き込む *****
 
-                # すでにエンコーダーが強制終了されているならループを抜ける
-                ## 強制終了された後は None になるのを利用する
-                ## エンコードタスクがキャンセルされた時にしか発生しないはず
-                if self._tsreadex_process is None or self._encoder_process is None or self._is_cancelled is True:
-                    break
+            # Writer と Reader を同時実行して、スレッドを終了するまで待つ
+            writer_thread = threading.Thread(target=Writer, daemon=True)
+            reader_thread = threading.Thread(target=Reader, daemon=True)
+            writer_thread.start()
+            reader_thread.start()
+            writer_thread.join()
+            reader_thread.join()
 
-                if self._encoder_process is not None:  # 念のため
-                    try:
-                        # エンコーダーの出力を 48128B (188 * 256) ずつ受信してバッファに保存する
-                        assert self._encoder_process.stdout is not None
-                        ts_packets = self._encoder_process.stdout.read(188 * 256)
+            # この時点でエンコードタスクがキャンセルされていればエンコード済みのセグメントデータを放棄して中断する
+            ## この時点でエンコーダープロセスが None になっている場合もキャンセルされたと判断する
+            if self._is_cancelled is True or self._encoder_process is None:
+                self.__terminateEncoder()
+                Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                                      'Discarded encoded segment data because cancelled.')
 
-                        # 出力の終端に到達したらループを抜ける
-                        if ts_packets == b'':
-                            break
+                # エンコード作業自体を中断したので、このセグメントの状態をリセットする
+                ## resetState() は asyncio.Future() を作り直す関係で非同期なので、メインスレッドに移譲して実行する
+                asyncio.run_coroutine_threadsafe(segment.resetState(), self._loop)
 
-                        # バッファに受信したエンコード済み TS パケットを追加
-                        encoded_ts_packet_buffer += ts_packets
+                # エンコードタスクの完了フラグを立てる
+                ## 完了フラグを立てたタイミングで cancel() が戻る
+                self._is_finished = True
+                return
 
-                    except Exception as ex:
-                        Logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
-                                        f'Failed to read encoded TS packets from {ENCODER_TYPE}. ({ex})')
+            # この時点でエンコーダーの exit code が None (まだプロセスが起動している) か 0 でなければ何らかの理由でエンコードに失敗している
+            if self._encoder_process.poll() is not None and self._encoder_process.poll() != 0:
+                self.__terminateEncoder()
+                Logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                              f'{ENCODER_TYPE} exited with exit code {self._encoder_process.poll()}.')
 
-        # ***** Writer と Reader の終了後、エンコード済み TS パケットを VideoStreamSegment に書き込む *****
+                # おそらく復旧しようがないが、一応このセグメントの状態をリセットする
+                ## resetState() は asyncio.Future() を作り直す関係で非同期なので、メインスレッドに移譲して実行する
+                asyncio.run_coroutine_threadsafe(segment.resetState(), self._loop)
+                return
 
-        # Writer と Reader を同時実行して、スレッドを終了するまで待つ
-        writer_thread = threading.Thread(target=Writer, daemon=True)
-        reader_thread = threading.Thread(target=Reader, daemon=True)
-        writer_thread.start()
-        reader_thread.start()
-        writer_thread.join()
-        reader_thread.join()
+            # 処理対象の VideoStreamSegment をエンコード完了状態に設定
+            segment.encode_status = 'Completed'
 
-        # この時点でエンコードタスクがキャンセルされていればエンコード済みのセグメントデータを放棄して中断する
-        ## この時点でエンコーダープロセスが None になっている場合もキャンセルされたと判断する
-        if self._is_cancelled is True or self._encoder_process is None:
+            # エンコード後のセグメントデータを VideoStreamSegment に書き込む
+            # ここで設定したエンコード済みのセグメントデータが API で返される
+            segment.encoded_segment_ts_future.set_result(bytes(encoded_ts_packet_buffer))
+            Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] Successfully encoded HLS segment.')
+
+            # この時点で tsreadex とエンコーダーは終了しているはずだが、念のため強制終了しておく
+            # 最後に行うのが重要 (kill すると exit code が 0 以外になる可能性があるため)
             self.__terminateEncoder()
-            Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
-                                'Discarded encoded segment data because cancelled.')
-
-            # エンコード作業自体を中断したので、このセグメントの状態をリセットする
-            ## resetState() は asyncio.Future() を作り直す関係で非同期なので、メインスレッドに移譲して実行する
-            asyncio.run_coroutine_threadsafe(segment.resetState(), self._loop)
-
-            # エンコードタスクの完了フラグを立てる
-            ## 完了フラグを立てたタイミングで cancel() が戻る
-            self._is_finished = True
-            return
-
-        # この時点でエンコーダーの exit code が None (まだプロセスが起動している) か 0 でなければ何らかの理由でエンコードに失敗している
-        if self._encoder_process.poll() is not None and self._encoder_process.poll() != 0:
-            self.__terminateEncoder()
-            Logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
-                        f'{ENCODER_TYPE} exited with exit code {self._encoder_process.poll()}.')
-
-            # おそらく復旧しようがないが、一応このセグメントの状態をリセットする
-            ## resetState() は asyncio.Future() を作り直す関係で非同期なので、メインスレッドに移譲して実行する
-            asyncio.run_coroutine_threadsafe(segment.resetState(), self._loop)
-            return
-
-        # 処理対象の VideoStreamSegment をエンコード完了状態に設定
-        segment.encode_status = 'Completed'
-
-        # エンコード後のセグメントデータを VideoStreamSegment に書き込む
-        # ここで設定したエンコード済みのセグメントデータが API で返される
-        segment.encoded_segment_ts_future.set_result(bytes(encoded_ts_packet_buffer))
-        Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] Successfully encoded HLS segment.')
-
-        # この時点で tsreadex とエンコーダーは終了しているはずだが、念のため強制終了しておく
-        # 最後に行うのが重要 (kill すると exit code が 0 以外になる可能性があるため)
-        self.__terminateEncoder()
 
 
     def __terminateEncoder(self) -> None:
@@ -785,9 +783,8 @@ class VideoEncodingTask:
         pat_continuity_counter: int = 0
         pmt_continuity_counter: int = 0
 
-        # 最後に取得した PES ヘッダーとその PID
-        latest_pes_header: PES | None = None
-        latest_pes_header_pid: int | None = None
+        # 最後に取得した PID ごとの PES ヘッダー
+        latest_pes_headers: dict[int, PES] = {}
 
         # 現在処理中のセグメントのインデックス (HLS セグメントのシーケンス番号と一致する)
         ## self.video_stream.segments[monotonic_segment_index] が処理中のセグメントになる
@@ -797,12 +794,23 @@ class VideoEncodingTask:
         ## OpenGOP など一部 TS ではこの値がカウントアップした後に前のセグメント用のフレームが出てくることもあるが、その場合でも値が減ることはない
         monotonic_segment_index: int = -99999  # -99999 は初期値で、この値のときは TS パケットの投入は行われない
 
+        # エンコーダースレッドの参照
+        encoder_thread: threading.Thread | None = None
+
         # 取得した概算バイトレートをもとに、指定された開始タイムスタンプに近い位置までシークする
         # 余裕を持ってエンコードを開始する HLS セグメントのファイル上の位置 - 5 秒分の位置にシークする
         with open(self.recorded_video.file_path, 'rb') as reader:
-            seek_offset_bytes = int(max(0, self.video_stream.segments[first_segment_index].start_file_position - (5 * BYTE_RATE)))
+            first_segment = self.video_stream.segments[first_segment_index]
+            seek_offset_bytes = int(max(0, first_segment.start_file_position - (5 * BYTE_RATE)))
             reader.seek(seek_offset_bytes, os.SEEK_SET)
             Logging.info(f'[Video: {self.video_stream.video_stream_id}] Seeked to {seek_offset_bytes} bytes.')
+
+            # 処理対象の最初のセグメントのエンコーダースレッドをバックグラウンドで起動する
+            Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {first_segment_index}] '
+                f'Start: {(first_segment.start_pts - self.video_stream.segments[0].start_pts) / ts.HZ:.3f} / '
+                f'End: {((first_segment.start_pts - self.video_stream.segments[0].start_pts) / ts.HZ) + first_segment.duration_seconds:.3f}')
+            encoder_thread = threading.Thread(target=self.__runEncoder, args=(first_segment,), daemon=True)
+            encoder_thread.start()
 
             while True:
 
@@ -934,8 +942,7 @@ class VideoEncodingTask:
                     elif PID in PES_PIDS and pes_header is not None and pes_header.has_pts() is True:
 
                         # 今回取得した PES ヘッダーを保持する
-                        latest_pes_header = pes_header
-                        latest_pes_header_pid = PID
+                        latest_pes_headers[PID] = pes_header
 
                         # インデックスが first_segment_index 以降のセグメントの中から、
                         # 開始 PTS 〜 終了 PTS のレンジに一致するセグメントが持つ Queue に TS パケットを投入する
@@ -953,27 +960,34 @@ class VideoEncodingTask:
 
                                 # この時点で前のセグメントのエンコードが終わっておらず、かつ現在の PTS が切り出し終了 PTS から 3 秒以上が経過している場合、
                                 # もう前のセグメントに該当するパケットは降ってこないだろうと判断し、もう投入するパケットがないことをエンコーダーに通知する
+                                # 前のセグメントのエンコーダーが終了したら、次のセグメントのエンコーダーを起動する
                                 if (segment.sequence_index - 1 >= first_segment_index) and \
                                    (self.video_stream.segments[segment.sequence_index - 1].encode_status != 'Completed') and \
                                    (current_pts - self.video_stream.segments[segment.sequence_index - 1].end_pts >= 3 * ts.HZ):
 
-                                    ## エンコーダーの開始タイミングの関係で 0.1 秒待つ
-                                    time.sleep(0.1)
-
                                     # 最後のセグメントにもう投入するパケットがないことをエンコーダーに通知する
-                                    ## これで tsreadex の標準入力が閉じられ、エンコードが完了する
+                                    ## これで tsreadex の標準入力が閉じられ、エンコード完了状態 (encode_status == 'Completed') になる
                                     self.video_stream.segments[segment.sequence_index - 1].segment_ts_packet_queue.put(None)
                                     Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index - 1}] '
                                                           'Cut off TS packets to be passed to the encoder.')
 
                                     # もう投入するパケットがないことを通知したので、エンコーダーの終了を待つ (重要)
                                     ## ファイルの読み取りよりエンコードの方が基本的に遅いので、前のセグメントのエンコード中に次のエンコードを開始しないようにする
-                                    if self._encoder_process is not None:
-                                        self._encoder_process.wait()
+                                    if encoder_thread is not None:
+                                        encoder_thread.join()
+                                        encoder_thread = None
 
-                                    # 待機後にエンコードタスクがキャンセルされた場合、処理を中断してエンコードタスクを終了する
+                                    # エンコーダーの終了待機後にエンコードタスクがキャンセルされた場合、処理を中断してエンコードタスクを終了する
                                     if self._is_cancelled is True:
                                         return  # メソッドの実行自体を終了する
+
+                                    # エンコーダースレッドをバックグラウンドで起動する
+                                    Logging.info(f'[Video: {self.video_stream.video_stream_id}] Switched to next segment: {segment.sequence_index}')
+                                    Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                                        f'Start: {(segment.start_pts - self.video_stream.segments[0].start_pts) / ts.HZ:.3f} / '
+                                        f'End: {((segment.start_pts - self.video_stream.segments[0].start_pts) / ts.HZ) + segment.duration_seconds:.3f}')
+                                    encoder_thread = threading.Thread(target=self.__runEncoder, args=(segment,), daemon=True)
+                                    encoder_thread.start()
 
                                 # 当該セグメントのエンコードがすでに完了している場合は何もしない
                                 ## 中間に数個だけ既にエンコードされているセグメントがあるケースでは、
@@ -981,23 +995,10 @@ class VideoEncodingTask:
                                 if segment.encode_status == 'Completed':
                                     break
 
-                                # 当該セグメントの PTS レンジに一致する最初のパケットのみ、Queue への投入前に非同期でエンコーダーを起動する
+                                # 当該セグメントの PTS レンジに一致する最初のパケットのみ
                                 if segment.is_started is False:
-
-                                    # バックグラウンドでエンコーダーを起動する
-                                    ## 実際にエンコーダーが起動するタイミングは前のセグメントのエンコーダーが終了した後になる
-                                    Logging.info(f'[Video: {self.video_stream.video_stream_id}] Switched to next segment: {segment.sequence_index}')
-                                    Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
-                                        f'Start: {(segment.start_pts - self.video_stream.segments[0].start_pts) / ts.HZ:.3f} / '
-                                        f'End: {((segment.start_pts - self.video_stream.segments[0].start_pts) / ts.HZ) + segment.duration_seconds:.3f}')
-                                    threading.Thread(target=self.__runEncoder, args=(segment,), daemon=True).start()
-
-                                    # 前回取得した最新の PAT / PMT を投入する
-                                    ## エンコーダーは最初の PAT / PMT より前のデータをデコードできないため、最初のパケットを投入する前に入れておく必要がある
-                                    for pat_packet in latest_pat_packets:
-                                        segment.segment_ts_packet_queue.put(pat_packet)
-                                    for pmt_packet in latest_pmt_packets:
-                                        segment.segment_ts_packet_queue.put(pmt_packet)
+                                    Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                                                          'First TS packet is arrived.')
 
                                     # このタイミングで monotonic_segment_index が初期値の場合のみ、
                                     # PTS が存在しないパケットがどのセグメントに TS パケットを投入すれば良いかのインデックスを切り替える
@@ -1006,14 +1007,23 @@ class VideoEncodingTask:
                                     if monotonic_segment_index < 0:
                                         monotonic_segment_index = segment.sequence_index
 
+                                    # 前回取得した最新の PAT / PMT を投入する
+                                    ## エンコーダーは最初の PAT / PMT より前のデータをデコードできないため、最初のパケットを投入する前に入れておく必要がある
+                                    for pat_packet in latest_pat_packets:
+                                        segment.segment_ts_packet_queue.put(pat_packet)
+                                    for pmt_packet in latest_pmt_packets:
+                                        segment.segment_ts_packet_queue.put(pmt_packet)
+
                                     # セグメントの開始フラグを立てる
                                     segment.is_started = True
 
-                                # 映像パケットかつ PTS がセグメントの開始 PTS と完全に一致した場合
+                                # 映像パケットかつ PTS がセグメントの開始 PTS (最初のキーフレームの PTS) と完全に一致した場合、
                                 # PTS が存在しないパケットがどのセグメントに TS パケットを投入すれば良いかのインデックスを切り替える
                                 ## OpenGOP など一部 TS ではこの値がカウントアップした後に前のセグメント用のフレームが出てくることもあるが、
                                 ## インデックスは単調増加のため一度カウントアップしたらカウントが減ることはない
                                 if PID == VIDEO_PID and segment.start_pts == current_pts and monotonic_segment_index < segment.sequence_index:
+                                    Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                                                          'First keyframe TS packet is arrived.')
                                     monotonic_segment_index = segment.sequence_index
 
                                 # ここで Queue に投入したパケットがそのまま tsreadex → エンコーダーに投入される
@@ -1021,11 +1031,10 @@ class VideoEncodingTask:
                                 segment.segment_ts_packet_queue.put(ts_packet)
                                 break
 
-                    # ヘッダなしの続きの PES パケット (映像・音声・字幕・メタデータ) かつ、PID が一致する前回取得した PES ヘッダに PTS が含まれている場合
+                    # ヘッダなしの続きの PES パケット (映像・音声・字幕・メタデータ) かつ、前回取得した PID が一致する PES ヘッダに PTS が含まれている場合
                     ## PES は当然ほとんどの場合 188 バイトには収まりきらないので、複数の TS パケットに分割されている
                     ## PES ヘッダは分割された PES の最初の TS パケットにのみ含まれる (はず)
-                    elif PID in PES_PIDS and pes_header is None and \
-                         PID == latest_pes_header_pid and latest_pes_header is not None and latest_pes_header.has_pts() is True:
+                    elif PID in PES_PIDS and PID in latest_pes_headers and latest_pes_headers[PID].has_pts() is True:
 
                         # インデックスが first_segment_index 以降のセグメントの中から、
                         # 開始 PTS 〜 終了 PTS のレンジに一致するセグメントが持つ Queue に TS パケットを投入する
@@ -1035,7 +1044,7 @@ class VideoEncodingTask:
                         for segment in self.video_stream.segments[first_segment_index:]:
 
                             # 現在の PES パケットの PTS を前回取得した PES ヘッダから取得する
-                            current_pts = latest_pes_header.pts()
+                            current_pts = latest_pes_headers[PID].pts()
                             assert current_pts is not None
 
                             # PTS がレンジ内にあれば
@@ -1065,18 +1074,18 @@ class VideoEncodingTask:
                         return  # メソッドの実行自体を終了する
 
         # ここまできたら EOF に到達している
-        ## エンコーダーの開始タイミングの関係で 0.1 秒待つ
-        time.sleep(0.1)
 
         # 最後のセグメントにもう投入するパケットがないことをエンコーダーに通知する
-        ## これで tsreadex の標準入力が閉じられ、エンコードが完了する
-        self.video_stream.segments[len(self.video_stream.segments) - 1].segment_ts_packet_queue.put(None)
+        ## これで tsreadex の標準入力が閉じられ、エンコード完了状態 (encode_status == 'Completed') になる
+        if self.video_stream.segments[len(self.video_stream.segments) - 1].encode_status != 'Completed':
+            self.video_stream.segments[len(self.video_stream.segments) - 1].segment_ts_packet_queue.put(None)
 
-        # もう投入するパケットがないことを通知したので、エンコーダーの終了を待つ (重要)
-        if self._encoder_process is not None:
+            # もう投入するパケットがないことを通知したので、エンコーダーの終了を待つ (重要)
             Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {len(self.video_stream.segments) - 1}] '
-                                  'Cut off TS packets to be passed to the encoder.')
-            self._encoder_process.wait()
+                                    'Cut off TS packets to be passed to the encoder.')
+            if encoder_thread is not None:
+                encoder_thread.join()
+                encoder_thread = None
 
         # エンコードタスクでのすべての処理を完了した
         self._is_finished = True
