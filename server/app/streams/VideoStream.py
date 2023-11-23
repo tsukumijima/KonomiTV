@@ -48,6 +48,9 @@ class VideoStreamSegment:
     # HLS セグメントの切り出しを終了する映像パケットがあるファイルの位置 (バイト)
     end_file_position: int
 
+    # HLS セグメントに含まれるフレーム数
+    frame_count: int
+
     # HLS セグメント長 (秒単位)
     ## 基本 SEGMENT_DURATION_SECONDS に近い値になるが、キーフレーム単位で切り出すために少し長くなる
     duration_seconds: float
@@ -235,6 +238,7 @@ class VideoStream:
                         end_dts = 0,  # 仮の値
                         end_file_position = 0,  # 仮の値
                         duration_seconds = 0,  # 仮の値
+                        frame_count = 1,
                         segment_ts_packet_queue = queue.Queue(maxsize=188 * 10000),  # dataclass 側に書くと全ての参照が同じになってしまうので毎回新たに生成する
                         encoded_segment_ts_future = asyncio.Future(),  # dataclass 側に書くと全ての参照が同じになってしまうので毎回新たに生成する
                     ))
@@ -266,10 +270,16 @@ class VideoStream:
                             end_dts = 0,  # 仮の値
                             end_file_position = 0,  # 仮の値
                             duration_seconds = 0,  # 仮の値
+                            frame_count = 1,
                             segment_ts_packet_queue = queue.Queue(maxsize=188 * 10000),  # dataclass 側に書くと全ての参照が同じになってしまうので毎回新たに生成する
                             encoded_segment_ts_future = asyncio.Future(),  # dataclass 側に書くと全ての参照が同じになってしまうので毎回新たに生成する
                         ))
                         segment_sequence += 1
+                    else:
+                        self._segments[-1].frame_count += 1
+
+                elif is_first_keyframe_found:
+                    self._segments[-1].frame_count += 1
 
             # 映像の最後のフレーム (キーフレームかどうかは問わない) の情報から最後のセグメントの終了位置と長さを確定する
             self._segments[-1].end_pts = packets[-1]['pts']  # 次のセグメントはないので、最後のパケットの PTS をそのまま採用する
