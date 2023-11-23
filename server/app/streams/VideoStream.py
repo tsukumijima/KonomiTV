@@ -32,18 +32,18 @@ class VideoStreamSegment:
     ## リストのインデックスと一致する (0 から始まるので注意)
     sequence_index: int
 
-    # HLS セグメントの切り出しを開始する映像パケットの PTS (秒ではないので注意)
-    ## この PTS を元に HLS セグメントが録画データから切り出される
-    ## DTS だと必ずしも表示順にならず本来切り出すべきパケットをロストしてしまうことがあるため、PTS を使用する
+    # HLS セグメントの切り出しを開始する映像パケットの PTS / DTS (秒ではないので注意)
+    ## この PTS / DTS を元に録画データが  HLS セグメントから切り出される
     start_pts: int
+    start_dts: int
 
     # HLS セグメントの切り出しを開始する映像パケットがあるファイルの位置 (バイト)
     start_file_position: int
 
-    # HLS セグメントの切り出しを終了する映像パケットの PTS (秒ではないので注意)
-    ## この PTS を元に HLS セグメントが録画データから切り出される
-    ## DTS だと必ずしも表示順にならず本来切り出すべきパケットをロストしてしまうことがあるため、PTS を使用する
+    # HLS セグメントの切り出しを終了する映像パケットの PTS / DTS (秒ではないので注意)
+    ## この PTS / DTS を元に録画データが  HLS セグメントから切り出される
     end_pts: int
+    end_dts: int
 
     # HLS セグメントの切り出しを終了する映像パケットがあるファイルの位置 (バイト)
     end_file_position: int
@@ -229,8 +229,10 @@ class VideoStream:
                     self._segments.append(VideoStreamSegment(
                         sequence_index = segment_sequence,
                         start_pts = int(packet['pts']),  # 映像の最初のパケットの PTS
+                        start_dts = int(packet['dts']),  # 映像の最初のパケットの DTS
                         start_file_position = int(packet['pos']),  # 映像の最初のパケットのファイル上の位置 (バイト)
                         end_pts = 0,  # 仮の値
+                        end_dts = 0,  # 仮の値
                         end_file_position = 0,  # 仮の値
                         duration_seconds = 0,  # 仮の値
                         segment_ts_packet_queue = queue.Queue(maxsize=188 * 10000),  # dataclass 側に書くと全ての参照が同じになってしまうので毎回新たに生成する
@@ -250,6 +252,7 @@ class VideoStream:
 
                         # 前のセグメントの終了位置と長さを確定する
                         self._segments[-1].end_pts = int(packet['pts']) - 1  # - 1 して次のセグメントの開始 PTS と重複しないようにする
+                        self._segments[-1].end_dts = int(packet['dts']) - 1  # - 1 して次のセグメントの開始 DTS と重複しないようにする
                         self._segments[-1].end_file_position = int(packet['pos']) - 1   # - 1 して次のセグメントの開始位置と重複しないようにする
                         self._segments[-1].duration_seconds = (self._segments[-1].end_pts - self._segments[-1].start_pts + 1) / ts.HZ
 
@@ -257,8 +260,10 @@ class VideoStream:
                         self._segments.append(VideoStreamSegment(
                             sequence_index = segment_sequence,
                             start_pts = int(packet['pts']),
+                            start_dts = int(packet['dts']),
                             start_file_position = int(packet['pos']),
                             end_pts = 0,  # 仮の値
+                            end_dts = 0,  # 仮の値
                             end_file_position = 0,  # 仮の値
                             duration_seconds = 0,  # 仮の値
                             segment_ts_packet_queue = queue.Queue(maxsize=188 * 10000),  # dataclass 側に書くと全ての参照が同じになってしまうので毎回新たに生成する
@@ -268,6 +273,7 @@ class VideoStream:
 
             # 映像の最後のフレーム (キーフレームかどうかは問わない) の情報から最後のセグメントの終了位置と長さを確定する
             self._segments[-1].end_pts = packets[-1]['pts']  # 次のセグメントはないので、最後のパケットの PTS をそのまま採用する
+            self._segments[-1].end_dts = packets[-1]['dts']  # 次のセグメントはないので、最後のパケットの DTS をそのまま採用する
             self._segments[-1].end_file_position = packets[-1]['pos']  # 次のセグメントはないので、最後のパケットのファイル上の位置をそのまま採用する
             self._segments[-1].duration_seconds = (self._segments[-1].end_pts - self._segments[-1].start_pts + 1) / ts.HZ
 

@@ -322,7 +322,7 @@ class VideoEncodingTask:
         このメソッドはエンコードが完了/失敗するか、エンコードタスクがキャンセルされるまでブロックする
 
         Args:
-            segment (VideoStreamSegment): エンコード対象の VideoStreamSegment のデータ
+            segment (VideoStreamSegment): エンコード対象のセグメントの情報
         """
 
         # エンコーダーの種類を取得
@@ -585,6 +585,31 @@ class VideoEncodingTask:
                 Logging.error(f'[Video: {self.video_stream.video_stream_id}] Failed to terminate {ENCODER_TYPE} process. ({ex})')
             self._encoder_process = None
             Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] Terminated {ENCODER_TYPE} process.')
+
+
+    def __isPESPacketInSegment(self, pes_header: PES, is_video_stream: bool, segment: VideoStreamSegment) -> bool:
+        """
+        PES パケットが指定されたセグメントの切り出し範囲に含まれるかどうかを判定する
+
+        Args:
+            pes_header (PES): PES パケットヘッダ
+            is_video_stream (bool): PES パケットが映像ストリームかどうか
+            segment (VideoStreamSegment): エンコード対象のセグメントの情報
+
+        Returns:
+            bool: PES パケットが指定されたセグメントの切り出し範囲に含まれるかどうか
+        """
+
+        # 映像ストリームの場合は DTS (ない場合のみ PTS) がセグメントの範囲内にあるかどうかで判定する
+        if is_video_stream is True:
+            current_dts = pes_header.dts() if pes_header.has_dts() else pes_header.pts()
+            assert current_dts is not None
+            return segment.start_dts <= current_dts <= segment.end_dts
+
+        # それ以外のストリームの場合は PTS がセグメントの範囲内にあるかどうかで判定する
+        current_pts = pes_header.pts()
+        assert current_pts is not None
+        return segment.start_pts <= current_pts <= segment.end_pts
 
 
     def __run(self, first_segment_index: int) -> None:
@@ -954,8 +979,8 @@ class VideoEncodingTask:
                             current_pts = pes_header.pts()
                             assert current_pts is not None
 
-                            # PTS がレンジ内にあれば
-                            if segment.start_pts <= current_pts <= segment.end_pts:
+                            # 当該 PES が現在処理中のセグメントの切り出し範囲に含まれる
+                            if self.__isPESPacketInSegment(pes_header, PID == VIDEO_PID, segment) is True:
 
                                 # 現在の PTS が前のセグメントの切り出し終了 PTS から 3 秒以上が経過している場合
                                 if (segment.sequence_index - 1 >= first_segment_index) and \
@@ -1065,12 +1090,8 @@ class VideoEncodingTask:
                         ## 送出順 (符号化順) に関わらず PTS を基準に投入先のセグメントを振り分ける
                         for segment in self.video_stream.segments[first_segment_index:]:
 
-                            # 現在の PES パケットの PTS を前回取得した PES ヘッダから取得する
-                            current_pts = latest_pes_headers[PID].pts()
-                            assert current_pts is not None
-
-                            # PTS がレンジ内にあれば
-                            if segment.start_pts <= current_pts <= segment.end_pts:
+                            # 当該 PES が現在処理中のセグメントの切り出し範囲に含まれる
+                            if self.__isPESPacketInSegment(latest_pes_headers[PID], PID == VIDEO_PID, segment) is True:
 
                                 # 当該セグメントのエンコードがすでに完了している場合は何もしない
                                 ## 中間に数個だけ既にエンコードされているセグメントがあるケースでは、
