@@ -336,9 +336,12 @@ class VideoEncodingTask:
                 return  # メソッドの実行自体を終了する
 
             # すでにエンコード対象のエンコードが完了している (あってはならない)
+            assert segment.encode_status != 'Encoding', 'This segment is already being encoded.'
             assert segment.encode_status != 'Completed', 'This segment has already been encoded.'
             assert segment.encoded_segment_ts_future.done() is False, 'This segment has already been encoded. (Future is done)'
 
+            # 処理対象の VideoStreamSegment をエンコード中状態に設定
+            segment.encode_status = 'Encoding'
             Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] Encoding HLS segment...')
 
             # ***** tsreadex プロセスの作成と実行 *****
@@ -422,9 +425,6 @@ class VideoEncodingTask:
                     stderr = subprocess.DEVNULL,
                     # stderr = None,  # デバッグ用
                 )
-
-            # 処理対象の VideoStreamSegment をエンコード中状態に設定
-            segment.encode_status = 'Encoding'
 
             # 受信したエンコード済み TS パケットのバッファ
             ## 最終的に単一のセグメントのすべての TS パケットが入る
@@ -515,11 +515,11 @@ class VideoEncodingTask:
                             Logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                                           f'Failed to read encoded TS packets from {ENCODER_TYPE}. ({ex})')
 
-            # ***** Writer と Reader の終了後、 ンコード済み TS パケットを VideoStreamSegment に書き込む *****
+            # ***** Writer と Reader の終了後、エンコード済み TS パケットを VideoStreamSegment に書き込む *****
 
-            # Writer と Reader を同時実行して、スレッドを終了するまで待つ
-            writer_thread = threading.Thread(target=Writer, daemon=True)
-            reader_thread = threading.Thread(target=Reader, daemon=True)
+            # Writer スレッドと Reader スレッドを同時実行して、スレッドを終了するまで待つ
+            writer_thread = threading.Thread(target=Writer)
+            reader_thread = threading.Thread(target=Reader)
             writer_thread.start()
             reader_thread.start()
             writer_thread.join()
@@ -535,10 +535,6 @@ class VideoEncodingTask:
                 # エンコード作業自体を中断したので、このセグメントの状態をリセットする
                 ## resetState() は asyncio.Future() を作り直す関係で非同期なので、メインスレッドに移譲して実行する
                 asyncio.run_coroutine_threadsafe(segment.resetState(), self._loop)
-
-                # エンコードタスクの完了フラグを立てる
-                ## 完了フラグを立てたタイミングで cancel() が戻る
-                self._is_finished = True
                 return
 
             # この時点でエンコーダーの exit code が None (まだプロセスが起動している) か 0 でなければ何らかの理由でエンコードに失敗している
@@ -577,16 +573,16 @@ class VideoEncodingTask:
         if self._tsreadex_process is not None:
             try:
                 self._tsreadex_process.kill()
-            except Exception:
-                pass
+            except Exception as ex:
+                Logging.error(f'[Video: {self.video_stream.video_stream_id}] Failed to terminate tsreadex process. ({ex})')
             self._tsreadex_process = None
 
         # エンコーダープロセスを強制終了する
         if self._encoder_process is not None:
             try:
                 self._encoder_process.kill()
-            except Exception:
-                pass
+            except Exception as ex:
+                Logging.error(f'[Video: {self.video_stream.video_stream_id}] Failed to terminate {ENCODER_TYPE} process. ({ex})')
             self._encoder_process = None
             Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] Terminated {ENCODER_TYPE} process.')
 
@@ -813,7 +809,7 @@ class VideoEncodingTask:
             Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {first_segment_index}] '
                 f'Start: {(first_segment.start_pts - self.video_stream.segments[0].start_pts) / ts.HZ:.3f} / '
                 f'End: {((first_segment.start_pts - self.video_stream.segments[0].start_pts) / ts.HZ) + first_segment.duration_seconds:.3f}')
-            encoder_thread = threading.Thread(target=self.__runEncoder, args=(first_segment,), daemon=True)
+            encoder_thread = threading.Thread(target=self.__runEncoder, args=(first_segment,))
             encoder_thread.start()
 
             while True:
@@ -999,7 +995,7 @@ class VideoEncodingTask:
                                         Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                                             f'Start: {(segment.start_pts - self.video_stream.segments[0].start_pts) / ts.HZ:.3f} / '
                                             f'End: {((segment.start_pts - self.video_stream.segments[0].start_pts) / ts.HZ) + segment.duration_seconds:.3f}')
-                                        encoder_thread = threading.Thread(target=self.__runEncoder, args=(segment,), daemon=True)
+                                        encoder_thread = threading.Thread(target=self.__runEncoder, args=(segment,))
                                         encoder_thread.start()
                                     # 当該セグメントのエンコードがすでに完了している場合、エンコーダースレッドを起動せずスキップする
                                     elif segment.encode_status == 'Completed':
@@ -1160,9 +1156,5 @@ class VideoEncodingTask:
             # tsreadex とエンコーダーのプロセスを強制終了する
             Logging.info(f'[Video: {self.video_stream.video_stream_id}] VideoEncodingTask cancelling...')
             self.__terminateEncoder()
-
-            # 完全に終了するまで待機する
-            while self._is_finished is False:
-                await asyncio.sleep(0.1)
 
             Logging.info(f'[Video: {self.video_stream.video_stream_id}] VideoEncodingTask cancelled.')
