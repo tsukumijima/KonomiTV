@@ -1104,6 +1104,28 @@ class VideoEncodingTask:
                                 segment.segment_ts_packet_queue.put(ts_packet)
                                 break
 
+                    # PCR パケットの場合
+                    ## PTS と PCR を比較して、適切なセグメントに投入する
+                    elif PID == PCR_PID and ts.has_pcr(ts_packet):
+                        pcr_value = cast(int, ts.pcr(ts_packet))
+
+                        # 開始 PTS 〜 終了 PTS のレンジに一致するセグメントが持つ Queue に TS パケットを投入する
+                        for segment in self.video_stream.segments[first_segment_index:]:
+
+                            # 当該 PCR が現在処理中のセグメントの切り出し範囲に含まれる
+                            if segment.start_pts <= pcr_value <= segment.end_pts:
+
+                                # 当該セグメントのエンコードがすでに完了している場合は何もしない
+                                ## 中間に数個だけ既にエンコードされているセグメントがあるケースでは、
+                                ## それらのエンコード完了済みセグメントの切り出し&エンコード処理をスキップして次のセグメントに進むことになる
+                                if segment.encode_status == 'Completed':
+                                    break
+
+                                # ここで Queue に投入したパケットがそのまま tsreadex → エンコーダーに投入される
+                                ## セグメント間で PTS レンジが重複することはないので、最初に一致したセグメントの Queue だけ処理すればよい
+                                segment.segment_ts_packet_queue.put(ts_packet)
+                                break
+
                     # PSI/SI などのセクションパケットの場合
                     ## PAT / PMT は別途投入済みなのでここには含まれない
                     else:
