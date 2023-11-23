@@ -171,6 +171,7 @@ class VideoEncodingTask:
     def buildHWEncCOptions(self,
         quality: QUALITY_TYPES,
         encoder_type: Literal['QSVEncC', 'NVEncC', 'VCEEncC', 'rkmppenc'],
+        frame_count: int,
     ) -> list[str]:
         """
         QSVEncC・NVEncC・VCEEncC・rkmppenc (便宜上 HWEncC と総称) に渡すオプションを組み立てる
@@ -201,6 +202,9 @@ class VideoEncodingTask:
         ## 音声切り替えのため、主音声・副音声両方をエンコード後の TS に含む
         ## 音声が 5.1ch かどうかに関わらず、ステレオにダウンミックスする
         options.append('--audio-stream 1?:stereo --audio-stream 2?:stereo --data-copy timed_id3')
+
+        # エンコード対象フレーム数
+        options.append(f'--trim 0:{frame_count-1}')
 
         # フラグ
         ## 主に HWEncC の起動を高速化するための設定
@@ -411,7 +415,7 @@ class VideoEncodingTask:
             else:
 
                 # オプションを取得
-                encoder_options = self.buildHWEncCOptions(self.video_stream.quality, ENCODER_TYPE)
+                encoder_options = self.buildHWEncCOptions(self.video_stream.quality, ENCODER_TYPE, segment.frame_count)
                 Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                              f'{ENCODER_TYPE} Commands:\n{ENCODER_TYPE} {" ".join(encoder_options)}')
 
@@ -1073,6 +1077,12 @@ class VideoEncodingTask:
                                                           'First keyframe TS packet is arrived.')
                                     monotonic_segment_index = segment.sequence_index
 
+                                # OpenGOP を使用するソースの場合、前セグメントで残りのフレームを取得するため、
+                                # 現セグメントの先頭の pts 以前の pts を持つフレームは前のセグメントにも投入する必要がある
+                                if PID == VIDEO_PID and current_pts <= segment.start_pts:
+                                    if segment.sequence_index - 1 >= first_segment_index:
+                                        self.video_stream.segments[segment.sequence_index - 1].segment_ts_packet_queue.put(ts_packet)
+
                                 # ここで Queue に投入したパケットがそのまま tsreadex → エンコーダーに投入される
                                 ## セグメント間で PTS レンジが重複することはないので、最初に一致したセグメントの Queue だけ処理すればよい
                                 segment.segment_ts_packet_queue.put(ts_packet)
@@ -1102,6 +1112,13 @@ class VideoEncodingTask:
                                 # ここで Queue に投入したパケットがそのまま tsreadex → エンコーダーに投入される
                                 ## セグメント間で PTS レンジが重複することはないので、最初に一致したセグメントの Queue だけ処理すればよい
                                 segment.segment_ts_packet_queue.put(ts_packet)
+
+                                # OpenGOP を使用するソースの場合、前セグメントで残りのフレームを取得するため、
+                                # 現セグメントの先頭の pts 以前の pts を持つフレームは前のセグメントにも投入する必要がある
+                                if PID == VIDEO_PID and latest_pes_headers[PID].pts() <= segment.start_pts:
+                                    if segment.sequence_index - 1 >= first_segment_index:
+                                        self.video_stream.segments[segment.sequence_index - 1].segment_ts_packet_queue.put(ts_packet)
+
                                 break
 
                     # PSI/SI などのセクションパケットの場合
