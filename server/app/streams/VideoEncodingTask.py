@@ -33,7 +33,7 @@ class VideoEncodingTask:
 
     # エンコード後のストリームの GOP 長 (秒)
     ## LiveEncodingTask と異なりライブではないため、GOP 長は H.264 / H.265 共通で長めに設定する
-    GOP_LENGTH_SECOND: ClassVar[float] = float(5)  # 5秒
+    GOP_LENGTH_SECOND: ClassVar[float] = float(2.5)  # 2.5秒
 
 
     def __init__(self, video_stream: VideoStream) -> None:
@@ -414,7 +414,9 @@ class VideoEncodingTask:
 
                 # エンコーダープロセスを非同期で作成・実行
                 self._encoder_process = subprocess.Popen(
-                    [LIBRARY_PATH[ENCODER_TYPE], *encoder_options],
+                    [LIBRARY_PATH[ENCODER_TYPE], *encoder_options,
+                        '--log-packets', f'segment_{segment.sequence_index}_in_packets.log',
+                        '--log-mux-ts',  f'segment_{segment.sequence_index}_out_muxts.log'],
                     stdin = self._tsreadex_process.stdout,  # tsreadex からの入力
                     stdout = subprocess.PIPE,  # ストリーム出力
                     stderr = subprocess.DEVNULL,
@@ -825,7 +827,6 @@ class VideoEncodingTask:
                     elif sync_byte == b'':
                         # ファイルの終端に達した場合はループを抜けて終了する
                         isEOF = True
-                        Logging.info(f'[Video: {self.video_stream.video_stream_id}] Reached end of file.')
                         break
 
                 # ファイルの終端に達した場合はループを抜けて終了する
@@ -960,45 +961,59 @@ class VideoEncodingTask:
                             # PTS がレンジ内にあれば
                             if segment.start_pts <= current_pts <= segment.end_pts:
 
-                                # この時点で前のセグメントのエンコードが終わっておらず、かつ現在の PTS が切り出し終了 PTS から 3 秒以上が経過している場合、
-                                # もう前のセグメントに該当するパケットは降ってこないだろうと判断し、もう投入するパケットがないことをエンコーダーに通知する
-                                # 前のセグメントのエンコーダーが終了したら、次のセグメントのエンコーダーを起動する
+                                # 現在の PTS が前のセグメントの切り出し終了 PTS から 3 秒以上が経過している場合
                                 if (segment.sequence_index - 1 >= first_segment_index) and \
-                                   (self.video_stream.segments[segment.sequence_index - 1].encode_status != 'Completed') and \
                                    (current_pts - self.video_stream.segments[segment.sequence_index - 1].end_pts >= 3 * ts.HZ):
 
-                                    # 最後のセグメントにもう投入するパケットがないことをエンコーダーに通知する
-                                    ## これで tsreadex の標準入力が閉じられ、エンコード完了状態 (encode_status == 'Completed') になる
-                                    self.video_stream.segments[segment.sequence_index - 1].segment_ts_packet_queue.put(None)
-                                    Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index - 1}] '
-                                                          'Cut off TS packets to be passed to the encoder.')
+                                    # 前のセグメントのエンコードがまだ完了していない場合のみ
+                                    ## すでに前のセグメントのエンコードが完了している場合はスキップする
+                                    if self.video_stream.segments[segment.sequence_index - 1].encode_status != 'Completed':
 
-                                    # もう投入するパケットがないことを通知したので、エンコーダーの終了を待つ (重要)
-                                    ## ファイルの読み取りよりエンコードの方が基本的に遅いので、前のセグメントのエンコード中に次のエンコードを開始しないようにする
-                                    if encoder_thread is not None:
-                                        encoder_thread.join()
-                                        encoder_thread = None
+                                        # もう前のセグメントに該当するパケットは降ってこないだろうと判断し、もう投入するパケットがないことをエンコーダーに通知する
+                                        ## これで tsreadex の標準入力が閉じられ、エンコーダーの終了処理が開始される
+                                        self.video_stream.segments[segment.sequence_index - 1].segment_ts_packet_queue.put(None)
+                                        Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index - 1}] '
+                                                              'Cut off TS packets to be passed to the encoder.')
 
-                                    # エンコーダーの終了待機後にエンコードタスクがキャンセルされた場合、処理を中断してエンコードタスクを終了する
-                                    if self._is_cancelled is True:
-                                        return  # メソッドの実行自体を終了する
+                                        # もう投入するパケットがないことを通知したので、エンコーダーの終了を待つ (重要)
+                                        ## エンコーダーが終了すると、セグメントがエンコード完了状態 (encode_status == 'Completed') になる
+                                        ## ファイルの読み取りよりエンコードの方が基本的に遅いので、前のセグメントのエンコード中に次のエンコードを開始しないようにする
+                                        if encoder_thread is not None:
+                                            encoder_thread.join()
+                                            encoder_thread = None
 
-                                    Logging.info(f'[Video: {self.video_stream.video_stream_id}] Switched to next segment: {segment.sequence_index}')
-                                    Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
-                                        f'Start: {(segment.start_pts - self.video_stream.segments[0].start_pts) / ts.HZ:.3f} / '
-                                        f'End: {((segment.start_pts - self.video_stream.segments[0].start_pts) / ts.HZ) + segment.duration_seconds:.3f}')
+                                        # エンコーダーの終了待機後にエンコードタスクがキャンセルされた場合、処理を中断してエンコードタスクを終了する
+                                        if self._is_cancelled is True:
+                                            return  # メソッドの実行自体を終了する
 
-                                    # 当該セグメントのエンコードがすでに完了している場合は何もしない
-                                    ## 中間に数個だけ既にエンコードされているセグメントがあるケースでは、
-                                    ## それらのエンコード完了済みセグメントの切り出し&エンコード処理をスキップして次のセグメントに進むことになる
-                                    if segment.encode_status == 'Completed':
+                                    # ここに到達した時点で前のセグメントのエンコードが完了し、エンコーダースレッドが終了しているはず
+                                    assert self.video_stream.segments[segment.sequence_index - 1].encode_status == 'Completed'
+
+                                    # 次のセグメントのエンコーダースレッドを起動する
+                                    ## 前のセグメントのエンコードがすでに完了していても、次のセグメントのエンコードが完了しているとは限らないため、
+                                    ## 前のセグメントの完了状態にかかわらず次のセグメントのエンコーダースレッドを起動している
+
+                                    # エンコード中でもエンコード完了状態でもない場合のみ、エンコーダースレッドをバックグラウンドで起動する
+                                    if segment.encode_status == 'Pending':
+                                        Logging.info(f'[Video: {self.video_stream.video_stream_id}] Switched to next segment: {segment.sequence_index}')
+                                        Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                                            f'Start: {(segment.start_pts - self.video_stream.segments[0].start_pts) / ts.HZ:.3f} / '
+                                            f'End: {((segment.start_pts - self.video_stream.segments[0].start_pts) / ts.HZ) + segment.duration_seconds:.3f}')
+                                        encoder_thread = threading.Thread(target=self.__runEncoder, args=(segment,), daemon=True)
+                                        encoder_thread.start()
+                                    # 当該セグメントのエンコードがすでに完了している場合、エンコーダースレッドを起動せずスキップする
+                                    elif segment.encode_status == 'Completed':
+                                        Logging.info(f'[Video: {self.video_stream.video_stream_id}] Switched to next segment: {segment.sequence_index}')
+                                        Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                                            f'Start: {(segment.start_pts - self.video_stream.segments[0].start_pts) / ts.HZ:.3f} / '
+                                            f'End: {((segment.start_pts - self.video_stream.segments[0].start_pts) / ts.HZ) + segment.duration_seconds:.3f}')
                                         Logging.warning(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                                                          'Segment is already encoded. Skip this segment.')
-                                        break
-
-                                    # エンコーダースレッドをバックグラウンドで起動する
-                                    encoder_thread = threading.Thread(target=self.__runEncoder, args=(segment,), daemon=True)
-                                    encoder_thread.start()
+                                    # 現在エンコード中の場合は正常なのでそのまま何もしない
+                                    ## if 文の条件は「現在の PTS が前のセグメントの切り出し終了 PTS から 3 秒以上が経過している場合」なので、
+                                    ## エンコーダーを起動したあともここの行を通ることになる
+                                    elif segment.encode_status == 'Encoding':
+                                        pass
 
                                 # 当該セグメントのエンコードがすでに完了している場合は何もしない
                                 ## 中間に数個だけ既にエンコードされているセグメントがあるケースでは、
@@ -1091,15 +1106,19 @@ class VideoEncodingTask:
                         return  # メソッドの実行自体を終了する
 
         # ここまできたら EOF に到達している
+        Logging.info(f'[Video: {self.video_stream.video_stream_id}] Reached end of file.')
 
-        # 最後のセグメントにもう投入するパケットがないことをエンコーダーに通知する
-        ## これで tsreadex の標準入力が閉じられ、エンコード完了状態 (encode_status == 'Completed') になる
+        # 最後のセグメントのエンコードがまだ完了していない場合のみ
         if self.video_stream.segments[len(self.video_stream.segments) - 1].encode_status != 'Completed':
+
+            # EOF に到達したので、最後のセグメントにもう投入するパケットがないことをエンコーダーに通知する
+            ## これで tsreadex の標準入力が閉じられ、エンコーダーの終了処理が開始される
             self.video_stream.segments[len(self.video_stream.segments) - 1].segment_ts_packet_queue.put(None)
+            Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {len(self.video_stream.segments) - 1}] '
+                                  'Cut off TS packets to be passed to the encoder.')
 
             # もう投入するパケットがないことを通知したので、エンコーダーの終了を待つ (重要)
-            Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {len(self.video_stream.segments) - 1}] '
-                                    'Cut off TS packets to be passed to the encoder.')
+            ## エンコーダーが終了すると、セグメントがエンコード完了状態 (encode_status == 'Completed') になる
             if encoder_thread is not None:
                 encoder_thread.join()
                 encoder_thread = None
