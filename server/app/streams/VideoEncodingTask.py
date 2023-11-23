@@ -426,6 +426,11 @@ class VideoEncodingTask:
                     # stderr = None,  # デバッグ用
                 )
 
+            # エンコーダー起動後にエンコードタスクがキャンセルされた場合、処理を中断する
+            ## エンコーダーの強制終了は別途キャンセル時にやってくれるので、ここでは考慮しなくてよい
+            if self._is_cancelled is True:
+                return  # メソッドの実行自体を終了する
+
             # 受信したエンコード済み TS パケットのバッファ
             ## 最終的に単一のセグメントのすべての TS パケットが入る
             encoded_ts_packet_buffer = bytearray()
@@ -479,7 +484,7 @@ class VideoEncodingTask:
                         Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                                      f'Cut out {segment_bytes_count / 1024 / 1024:.3f} MiB.')
                         Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
-                                     f'Waiting for current {ENCODER_TYPE} to finish...')
+                                     f'Waiting for {ENCODER_TYPE} to finish...')
                         if self._tsreadex_process is not None:  # 念のため
                             assert self._tsreadex_process.stdin is not None
                             self._tsreadex_process.stdin.close()
@@ -522,8 +527,10 @@ class VideoEncodingTask:
             reader_thread = threading.Thread(target=Reader)
             writer_thread.start()
             reader_thread.start()
+            Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] {ENCODER_TYPE} started.')
             writer_thread.join()
             reader_thread.join()
+            Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] {ENCODER_TYPE} finished.')
 
             # この時点でエンコードタスクがキャンセルされていればエンコード済みのセグメントデータを放棄して中断する
             ## この時点でエンコーダープロセスが None になっている場合もキャンセルされたと判断する
