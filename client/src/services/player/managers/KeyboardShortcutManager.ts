@@ -94,13 +94,13 @@ class KeyboardShortcutManager implements PlayerManager {
 
             // ***** 全般 *****
 
-            // ↑: 前のチャンネルに切り替える
+            // ↑: ライブ視聴: 前のチャンネルに切り替える
             {mode: 'Live', key: 'ArrowUp', repeat: false, ctrl: false, shift: false, alt: false, handler: () => {
                 player_store.is_zapping = true;  // ザッピング状態にする
                 router.push({path: `/tv/watch/${channels_store.channel.previous.display_channel_id}`});
             }},
 
-            // ↓: 次のチャンネルに切り替える
+            // ↓: ライブ視聴: 次のチャンネルに切り替える
             {mode: 'Live', key: 'ArrowDown', repeat: false, ctrl: false, shift: false, alt: false, handler: () => {
                 player_store.is_zapping = true;  // ザッピング状態にする
                 router.push({path: `/tv/watch/${channels_store.channel.next.display_channel_id}`});
@@ -118,7 +118,7 @@ class KeyboardShortcutManager implements PlayerManager {
                 this.player.toggle();
             }},
 
-            // Ctrl + ←: 停止して0.5秒早戻し
+            // Ctrl + ←: ライブ視聴: 停止して0.5秒早戻し
             {mode: 'Live', key: 'ArrowLeft', repeat: true, ctrl: true, shift: false, alt: false, handler: () => {
                 if (this.player.video.paused === false) {
                     this.player.video.pause();
@@ -126,12 +126,52 @@ class KeyboardShortcutManager implements PlayerManager {
                 this.player.video.currentTime = this.player.video.currentTime - 0.5;
             }},
 
-            // Ctrl + →: 停止して0.5秒早送り
+            // Ctrl + →: ライブ視聴: 停止して0.5秒早送り
             {mode: 'Live', key: 'ArrowRight', repeat: true, ctrl: true, shift: false, alt: false, handler: () => {
                 if (this.player.video.paused === false) {
                     this.player.video.pause();
                 }
                 this.player.video.currentTime = this.player.video.currentTime + 0.5;
+            }},
+
+            // ←: ビデオ視聴: 5秒早戻し
+            {mode: 'Video', key: 'ArrowLeft', repeat: true, ctrl: false, shift: false, alt: false, handler: () => {
+                this.player.seek(this.player.video.currentTime - 5);
+            }},
+
+            // →: ビデオ視聴: 5秒早送り
+            {mode: 'Video', key: 'ArrowRight', repeat: true, ctrl: false, shift: false, alt: false, handler: () => {
+                this.player.seek(this.player.video.currentTime + 5);
+            }},
+
+            // Ctrl + ←: ビデオ視聴: 15秒早戻し
+            {mode: 'Video', key: 'ArrowLeft', repeat: true, ctrl: true, shift: false, alt: false, handler: () => {
+                this.player.seek(this.player.video.currentTime - 15);
+            }},
+
+            // Ctrl + →: ビデオ視聴: 15秒早送り
+            {mode: 'Video', key: 'ArrowRight', repeat: true, ctrl: true, shift: false, alt: false, handler: () => {
+                this.player.seek(this.player.video.currentTime + 15);
+            }},
+
+            // Shift + ←: ビデオ視聴: 30秒早戻し
+            {mode: 'Video', key: 'ArrowLeft', repeat: true, ctrl: false, shift: true, alt: false, handler: () => {
+                this.player.seek(this.player.video.currentTime - 30);
+            }},
+
+            // Shift + →: ビデオ視聴: 30秒早送り
+            {mode: 'Video', key: 'ArrowRight', repeat: true, ctrl: false, shift: true, alt: false, handler: () => {
+                this.player.seek(this.player.video.currentTime + 30);
+            }},
+
+            // Alt + ←: ビデオ視聴: 60秒早戻し
+            {mode: 'Video', key: 'ArrowLeft', repeat: true, ctrl: false, shift: false, alt: true, handler: () => {
+                this.player.seek(this.player.video.currentTime - 60);
+            }},
+
+            // Alt + →: ビデオ視聴: 60秒早送り
+            {mode: 'Video', key: 'ArrowRight', repeat: true, ctrl: false, shift: false, alt: true, handler: () => {
+                this.player.seek(this.player.video.currentTime + 60);
             }},
 
             // Ctrl + ↑: プレイヤーの音量を上げる
@@ -158,7 +198,7 @@ class KeyboardShortcutManager implements PlayerManager {
                 }
             }},
 
-            // W: ライブストリームの同期
+            // W: ライブ視聴: ライブストリームの同期
             {mode: 'Live', key: 'KeyW', repeat: false, ctrl: false, shift: false, alt: false, handler: () => {
                 this.player.sync();
             }},
@@ -213,7 +253,7 @@ class KeyboardShortcutManager implements PlayerManager {
                 comment_capture_button_element.click();
             }},
 
-            // M: コメント入力フォームにフォーカスする
+            // M: ライブ視聴: コメント入力フォームにフォーカスする
             // ビデオ視聴ではコメント送信自体ができないため有効化しない
             {mode: 'Live', key: 'KeyM', repeat: false, ctrl: false, shift: false, alt: false, handler: () => {
                 this.player.controller.show();
