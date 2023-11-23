@@ -1,6 +1,6 @@
 <template>
     <header class="watch-header" :class="{'watch-header--video': playback_mode === 'Video'}">
-        <router-link class="watch-header__back-icon" v-ripple :to="playback_mode === 'Live' ? '/tv/' : '/video/'">
+        <router-link class="watch-header__back-icon" v-ripple :to="playback_mode === 'Live' ? '/tv/' : '/videos/'">
             <Icon icon="fluent:arrow-left-12-filled" width="25px" />
         </router-link>
         <img class="watch-header__broadcaster" v-if="playback_mode === 'Live'"
