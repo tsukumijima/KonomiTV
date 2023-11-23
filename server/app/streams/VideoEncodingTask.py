@@ -817,8 +817,8 @@ class VideoEncodingTask:
         # 最後に取得した packetize 済み PAT / PMT パケット
         latest_pat_packets: list[bytes] = []
         latest_pmt_packets: list[bytes] = []
-        pat_continuity_counter: int = 0
-        pmt_continuity_counter: int = 0
+        new_pat_continuity_counter: int = 0
+        new_pmt_continuity_counter: int = 0
 
         # 最後に取得した PID ごとの PES ヘッダー
         latest_pes_headers: dict[int, PES] = {}
@@ -902,8 +902,8 @@ class VideoEncodingTask:
 
                             # PAT をパケット化して投入 (処理中のセグメントのエンコードが完了していない場合のみ)
                             ## monotonic_segment_index が初期値のときは TS パケットの投入は行われない
-                            pat_packets = packetize_section(PAT, False, False, PAT_PID, 0, pat_continuity_counter)
-                            pat_continuity_counter = (pat_continuity_counter + len(pat_packets)) & 0x0F  # Continuity Counter を更新
+                            pat_packets = packetize_section(PAT, False, False, PAT_PID, 0, new_pat_continuity_counter)
+                            new_pat_continuity_counter = (new_pat_continuity_counter + len(pat_packets)) & 0x0F  # Continuity Counter を更新
                             if monotonic_segment_index >= 0 and self.video_stream.segments[monotonic_segment_index].encode_status != 'Completed':
                                 for pat_packet in pat_packets:
                                     self.video_stream.segments[monotonic_segment_index].segment_ts_packet_queue.put(pat_packet)
@@ -965,8 +965,8 @@ class VideoEncodingTask:
 
                             # PMT をパケット化して投入 (処理中のセグメントのエンコードが完了していない場合のみ)
                             ## monotonic_segment_index が初期値のときは TS パケットの投入は行われない
-                            pmt_packets = packetize_section(PMT, False, False, PMT_PID, 0, pmt_continuity_counter)
-                            pmt_continuity_counter = (pmt_continuity_counter + len(pmt_packets)) & 0x0F  # Continuity Counter を更新
+                            pmt_packets = packetize_section(PMT, False, False, PMT_PID, 0, new_pmt_continuity_counter)
+                            new_pmt_continuity_counter = (new_pmt_continuity_counter + len(pmt_packets)) & 0x0F  # Continuity Counter を更新
                             if monotonic_segment_index >= 0 and self.video_stream.segments[monotonic_segment_index].encode_status != 'Completed':
                                 for pmt_packet in pmt_packets:
                                     self.video_stream.segments[monotonic_segment_index].segment_ts_packet_queue.put(pmt_packet)
@@ -1085,15 +1085,14 @@ class VideoEncodingTask:
                                                           'First keyframe TS packet is arrived.')
                                     monotonic_segment_index = segment.sequence_index
 
-                                # OpenGOP を使用するソースの場合、前セグメントで残りのフレームを取得するため、
-                                # 現セグメントの先頭の pts 以前の pts を持つフレームは前のセグメントにも投入する必要がある
-                                if PID == VIDEO_PID and current_pts <= segment.start_pts:
-                                    if segment.sequence_index - 1 >= first_segment_index:
-                                        self.video_stream.segments[segment.sequence_index - 1].segment_ts_packet_queue.put(ts_packet)
-
                                 # ここで Queue に投入したパケットがそのまま tsreadex → エンコーダーに投入される
                                 ## セグメント間で PTS レンジが重複することはないので、最初に一致したセグメントの Queue だけ処理すればよい
                                 segment.segment_ts_packet_queue.put(ts_packet)
+
+                                # OpenGOP を使用するソースの場合、前セグメントで残りのフレームを取得するため、
+                                # 現セグメントの先頭の PTS 以前の PTS を持つフレームは前のセグメントにも投入する必要がある
+                                if PID == VIDEO_PID and current_pts <= segment.start_pts and segment.sequence_index - 1 >= first_segment_index:
+                                    self.video_stream.segments[segment.sequence_index - 1].segment_ts_packet_queue.put(ts_packet)
                                 break
 
                     # ヘッダなしの続きの PES パケット (映像・音声・字幕・メタデータ) かつ、前回取得した PID が一致する PES ヘッダに PTS が含まれている場合
@@ -1126,11 +1125,9 @@ class VideoEncodingTask:
                                 segment.segment_ts_packet_queue.put(ts_packet)
 
                                 # OpenGOP を使用するソースの場合、前セグメントで残りのフレームを取得するため、
-                                # 現セグメントの先頭の pts 以前の pts を持つフレームは前のセグメントにも投入する必要がある
-                                if PID == VIDEO_PID and current_pts <= segment.start_pts:
-                                    if segment.sequence_index - 1 >= first_segment_index:
-                                        self.video_stream.segments[segment.sequence_index - 1].segment_ts_packet_queue.put(ts_packet)
-
+                                # 現セグメントの先頭の PTS 以前の PTS を持つフレームは前のセグメントにも投入する必要がある
+                                if PID == VIDEO_PID and current_pts <= segment.start_pts and segment.sequence_index - 1 >= first_segment_index:
+                                    self.video_stream.segments[segment.sequence_index - 1].segment_ts_packet_queue.put(ts_packet)
                                 break
 
                     # PCR パケットの場合
