@@ -179,6 +179,7 @@ class VideoEncodingTask:
         Args:
             quality (QUALITY_TYPES): 映像の品質
             encoder_type (Literal['QSVEncC', 'NVEncC', 'VCEEncC', 'rkmppenc']): エンコーダー (QSVEncC or NVEncC or VCEEncC or rkmppenc)
+            frame_count (int): エンコード対象フレーム数
 
         Returns:
             list[str]: HWEncC に渡すオプションが連なる配列
@@ -204,7 +205,7 @@ class VideoEncodingTask:
         options.append('--audio-stream 1?:stereo --audio-stream 2?:stereo --data-copy timed_id3')
 
         # エンコード対象フレーム数
-        options.append(f'--trim 0:{frame_count-1}')
+        options.append(f'--trim 0:{frame_count - 1}')  # フレーム数から 1 引いた値を指定する
 
         # フラグ
         ## 主に HWEncC の起動を高速化するための設定
@@ -1107,6 +1108,10 @@ class VideoEncodingTask:
                         ## 送出順 (符号化順) に関わらず PTS を基準に投入先のセグメントを振り分ける
                         for segment in self.video_stream.segments[first_segment_index:]:
 
+                            # 現在の PES パケットの PTS を取得する
+                            current_pts = latest_pes_headers[PID].pts()
+                            assert current_pts is not None
+
                             # 当該 PES が現在処理中のセグメントの切り出し範囲に含まれる
                             if self.__isPESPacketInSegment(latest_pes_headers[PID], PID == VIDEO_PID, segment) is True:
 
@@ -1122,7 +1127,7 @@ class VideoEncodingTask:
 
                                 # OpenGOP を使用するソースの場合、前セグメントで残りのフレームを取得するため、
                                 # 現セグメントの先頭の pts 以前の pts を持つフレームは前のセグメントにも投入する必要がある
-                                if PID == VIDEO_PID and latest_pes_headers[PID].pts() <= segment.start_pts:
+                                if PID == VIDEO_PID and current_pts <= segment.start_pts:
                                     if segment.sequence_index - 1 >= first_segment_index:
                                         self.video_stream.segments[segment.sequence_index - 1].segment_ts_packet_queue.put(ts_packet)
 
