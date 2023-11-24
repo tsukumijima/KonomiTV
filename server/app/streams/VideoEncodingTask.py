@@ -77,14 +77,12 @@ class VideoEncodingTask:
 
     def buildFFmpegOptions(self,
         quality: QUALITY_TYPES,
-        output_timestamp_offset: float,
     ) -> list[str]:
         """
         FFmpeg に渡すオプションを組み立てる
 
         Args:
             quality (QUALITY_TYPES): 映像の品質
-            output_timestamp_offset (float): セグメントを出力する際のタイムスタンプ類のオフセット (PTS)
 
         Returns:
             list[str]: FFmpeg に渡すオプションが連なる配列
@@ -95,7 +93,8 @@ class VideoEncodingTask:
 
         # 入力
         ## -analyzeduration をつけることで、ストリームの分析時間を短縮できる
-        options.append('-f mpegts -analyzeduration 500000 -i pipe:0')
+        ## -copyts で入力のタイムスタンプを出力にコピーする
+        options.append('-f mpegts -analyzeduration 500000 -copyts -i pipe:0')
 
         # ストリームのマッピング
         ## 音声切り替えのため、主音声・副音声両方をエンコード後の TS に含む
@@ -152,10 +151,6 @@ class VideoEncodingTask:
         ## 音声が 5.1ch かどうかに関わらず、ステレオにダウンミックスする
         options.append(f'-acodec aac -aac_coder twoloop -ac 2 -ab {QUALITY[quality].audio_bitrate} -ar 48000 -af volume=2.0')
 
-        # 出力するセグメント TS のタイムスタンプのオフセット
-        # タイムスタンプが前回エンコードしたセグメントの続きになるようにする
-        options.append(f'-output_ts_offset {output_timestamp_offset}')
-
         # 出力
         options.append('-y -f mpegts')  # MPEG-TS 出力ということを明示
         options.append('pipe:1')  # 標準入力へ出力
@@ -191,7 +186,8 @@ class VideoEncodingTask:
         # 入力
         ## --input-probesize, --input-analyze をつけることで、ストリームの分析時間を短縮できる
         ## 両方つけるのが重要で、--input-analyze だけだとエンコーダーがフリーズすることがある
-        options.append('--input-format mpegts --input-probesize 1000K --input-analyze 0.7 --input -')
+        ## --timestamp-passthrough で入力のタイムスタンプを出力にコピーする
+        options.append('--input-format mpegts --input-probesize 1000K --input-analyze 0.7 --timestamp-passthrough --input -')
         ## VCEEncC の HW デコーダーはエラー耐性が低く TS を扱う用途では不安定なので、SW デコーダーを利用する
         if encoder_type == 'VCEEncC':
             options.append('--avsw')
@@ -300,9 +296,6 @@ class VideoEncodingTask:
             video_width = 1920
         options.append(f'--output-res {video_width}x{video_height}')
 
-        # 入力のタイムスタンプを出力にコピーする
-        options.append(f'--timestamp-passthrough')
-
         # 音声
         options.append(f'--audio-codec aac:aac_coder=twoloop --audio-bitrate {QUALITY[quality].audio_bitrate}')
         options.append('--audio-samplerate 48000 --audio-filter volume=2.0 --audio-ignore-decode-error 30')
@@ -399,7 +392,7 @@ class VideoEncodingTask:
             if ENCODER_TYPE == 'FFmpeg':
 
                 # オプションを取得
-                encoder_options = self.buildFFmpegOptions(self.video_stream.quality, segment.start_pts / ts.HZ)
+                encoder_options = self.buildFFmpegOptions(self.video_stream.quality)
                 Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                              f'FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
@@ -422,9 +415,7 @@ class VideoEncodingTask:
 
                 # エンコーダープロセスを非同期で作成・実行
                 self._encoder_process = subprocess.Popen(
-                    [LIBRARY_PATH[ENCODER_TYPE], *encoder_options,
-                        '--log-packets', f'segment_{segment.sequence_index}_in_packets.log',
-                        '--log-mux-ts',  f'segment_{segment.sequence_index}_out_muxts.log'],
+                    [LIBRARY_PATH[ENCODER_TYPE], *encoder_options],
                     stdin = self._tsreadex_process.stdout,  # tsreadex からの入力
                     stdout = subprocess.PIPE,  # ストリーム出力
                     stderr = subprocess.DEVNULL,
