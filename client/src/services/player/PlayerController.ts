@@ -62,13 +62,11 @@ class PlayerController {
     // 設計上コンストラクタ以降で変更すべきでないため readonly にしている
     private readonly live_playback_buffer_seconds: number;
 
-    // ライブ視聴: mpegts.js のバッファ詰まり対策で定期的に強制シークするインターバルのタイマー ID
-    // 保持しておかないと clearInterval() でタイマーを止められない
-    private live_force_seek_interval_timer_id: number = 0;
+    // ライブ視聴: mpegts.js のバッファ詰まり対策で定期的に強制シークするインターバルをキャンセルする関数
+    private live_force_seek_interval_timer_cancel: (() => void) | null = null;
 
-    // ビデオ視聴: ビデオストリームのアクティブ状態を維持するために Keep-Alive API にリクエストを送るインターバルのタイマー ID
-    // 保持しておかないと clearInterval() でタイマーを止められない
-    private video_keep_alive_interval_timer_id: number = 0;
+    // ビデオ視聴: ビデオストリームのアクティブ状態を維持するために Keep-Alive API にリクエストを送るインターバルのキャンセルする関数
+    private video_keep_alive_interval_timer_cancel: (() => void) | null = null;
 
     // setupPlayerContainerResizeHandler() で利用する ResizeObserver
     // 保持しておかないと disconnect() で ResizeObserver を止められない
@@ -754,7 +752,7 @@ class PlayerController {
         // mpegts.js の仕様上、MSE 側に未再生のバッファが貯まり過ぎると新規に SourceBuffer が追加できなくなるため、強制的に接続が切断されてしまう
         // 再生停止状態でも定期的にシークすることで、バッファが貯まりすぎないように調節する
         if (this.playback_mode === 'Live') {
-            this.live_force_seek_interval_timer_id = window.setInterval(() => {
+            this.live_force_seek_interval_timer_cancel = Utils.setIntervalInWorker(() => {
                 if (this.player === null) return;
                 if ((this.player.video.paused && this.player.video.buffered.length >= 1) &&
                     (this.player.video.buffered.end(0) - this.player.video.currentTime > 30)) {
@@ -768,7 +766,7 @@ class PlayerController {
         // それだけではタイミング次第では十分ではないため、定期的に Keep-Alive を行う
         // Keep-Alive が行われなくなったタイミングで、サーバー側で自動的にビデオストリームの終了処理 (エンコードタスクの停止) が行われる
         if (this.playback_mode === 'Video') {
-            this.video_keep_alive_interval_timer_id = window.setInterval(async () => {
+            this.video_keep_alive_interval_timer_cancel = Utils.setIntervalInWorker(async () => {
                 // 画質切り替えでベース URL が変わることも想定し、あえて毎回 API URL を取得している
                 if (this.player === null) return;
                 const api_quality = PlayerUtils.extractVideoAPIQualityFromDPlayer(this.player);
@@ -1358,8 +1356,14 @@ class PlayerController {
         }
 
         // タイマーを破棄
-        window.clearInterval(this.live_force_seek_interval_timer_id);
-        window.clearInterval(this.video_keep_alive_interval_timer_id);
+        if (this.live_force_seek_interval_timer_cancel !== null) {
+            this.live_force_seek_interval_timer_cancel();
+            this.live_force_seek_interval_timer_cancel = null;
+        }
+        if (this.video_keep_alive_interval_timer_cancel !== null) {
+            this.video_keep_alive_interval_timer_cancel();
+            this.video_keep_alive_interval_timer_cancel = null;
+        }
         window.clearTimeout(this.player_control_ui_hide_timer_id);
 
         // プレイヤー全体のコンテナ要素の監視を停止

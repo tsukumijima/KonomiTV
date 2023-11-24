@@ -268,6 +268,35 @@ export default class Utils {
 
 
     /**
+     * setInterval() を Web Worker で実行する
+     * 実際にコールバック関数が実行される環境自体はメインスレッドで、タブがバックグラウンドに回った場合でも Web Worker 上でコールバックが叩き起こされる
+     * 通常タブがバックグラウンドに回ると setInterval() が勝手に間引かれてしまうので、その影響を受けない Web Worker から叩き起こすことで間引きを防ぐ (邪悪…)
+     * ref: https://gist.github.com/kawaz/72f61d8389fed0e9d4e7dc9eb01b39c8
+     * @param callback コールバック関数
+     * @param interval インターバル (ミリ秒単位)
+     * @param args コールバック関数に渡す引数 (可変長)
+     * @returns setInterval を停止するための関数 (戻り値が本家 setInterval() と異なるので注意)
+     */
+    static setIntervalInWorker(callback: (...args: any[]) => void, interval: number = 1000, ...args: any[]): () => void {
+        try {
+            const worker_code = `
+                self.addEventListener('message', msg => {
+                    setInterval(() => self.postMessage(null), msg.data);
+                });
+            `;
+            const worker = new Worker(`data:text/javascript;base64,${btoa(worker_code)}`);
+            worker.onmessage = () => callback(...args);  // Web Worker 側から叩き起こしてコールバック関数を実行する
+            worker.postMessage(interval);
+            return () => worker.terminate();
+        } catch (_) {
+            // なんらかの理由で Web Worker が使えなければ通常の setInterval() を使う
+            const timer_id = setInterval(callback, interval, ...args);
+            return () => clearInterval(timer_id);
+        }
+    }
+
+
+    /**
      * async/await でスリープ的なもの
      * @param seconds 待機する秒数 (ミリ秒単位ではないので注意)
      * @returns Promise を返すので、await sleep(1); のように使う
