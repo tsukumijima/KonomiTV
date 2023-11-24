@@ -77,6 +77,9 @@ class MetadataAnalyzer:
                 # 今のところ MPEG-TS 固定
                 if track.format == 'MPEG-TS':
                     recorded_video.container_format = 'MPEG-TS'
+                else:
+                    # MPEG-TS 以外のコンテナは KonomiTV で再生できない
+                    continue
                 if hasattr(track, 'start_time') and track.start_time is not None:
                     # 録画開始時刻と録画終了時刻を算出
                     ## 録画開始時刻は MediaInfo から "start_time" として取得できる (ただし小数点以下は省略されている)
@@ -107,6 +110,9 @@ class MetadataAnalyzer:
                     recorded_video.video_codec = 'H.264'
                 elif track.format == 'HEVC':
                     recorded_video.video_codec = 'H.265'
+                else:
+                    # MPEG-2, H.264, H.265 以外のフォーマットは KonomiTV で再生できない
+                    continue
                 # format_profile は Main@High や High@L5 など @ 区切りで Level や Tier などが付与されている場合があるので、それらを除去する
                 recorded_video.video_codec_profile = track.format_profile.split('@')[0]
                 # scan_type は現在一般的なプログレッシブ映像では属性自体が存在しないことが多いので、存在しない場合はプログレッシブとして扱う
@@ -128,12 +134,11 @@ class MetadataAnalyzer:
                 # 長さが取得できるが、全体の長さの 80% 以下の場合は不正なトラックと判断する
                 if float(track.duration) / 1000 < recorded_video.duration * 0.8:
                     continue
-                if track.format == 'AAC' and track.format_additionalfeatures == 'LC':
+                if track.format == 'AAC' and hasattr(track, 'format_additionalfeatures') and track.format_additionalfeatures == 'LC':
                     recorded_video.primary_audio_codec = 'AAC-LC'
-                elif track.format == 'AAC' and track.format_additionalfeatures == 'HE-AAC':
-                    recorded_video.primary_audio_codec = 'HE-AAC'
-                elif track.format == 'MPEG Audio':
-                    recorded_video.primary_audio_codec = 'MP2'
+                else:
+                    # AAC-LC 以外のフォーマットは KonomiTV で再生できない
+                    continue
                 if int(track.channel_s) == 1:
                     recorded_video.primary_audio_channel = 'Monaural'
                 elif int(track.channel_s) == 2:
@@ -141,6 +146,9 @@ class MetadataAnalyzer:
                     recorded_video.primary_audio_channel = 'Stereo'
                 elif int(track.channel_s) == 6:
                     recorded_video.primary_audio_channel = '5.1ch'
+                else:
+                    # 1ch, 2ch, 5.1ch 以外の音声チャンネル数は KonomiTV で再生できない
+                    continue
                 recorded_video.primary_audio_sampling_rate = int(track.sampling_rate)
                 is_primary_audio_track_read = True
 
@@ -153,12 +161,11 @@ class MetadataAnalyzer:
                 # 長さが取得できるが、全体の長さの 80% 以下の場合は不正なトラックと判断する
                 if float(track.duration) / 1000 < recorded_video.duration * 0.8:
                     continue
-                if track.format == 'AAC' and track.format_additionalfeatures == 'LC':
+                if track.format == 'AAC' and hasattr(track, 'format_additionalfeatures') and track.format_additionalfeatures == 'LC':
                     recorded_video.secondary_audio_codec = 'AAC-LC'
-                elif track.format == 'AAC' and track.format_additionalfeatures == 'HE-AAC':
-                    recorded_video.secondary_audio_codec = 'HE-AAC'
-                elif track.format == 'MPEG Audio':
-                    recorded_video.secondary_audio_codec = 'MP2'
+                else:
+                    # AAC-LC 以外のフォーマットは KonomiTV で再生できない
+                    continue
                 if int(track.channel_s) == 1:
                     recorded_video.secondary_audio_channel = 'Monaural'
                 elif int(track.channel_s) == 2:
@@ -166,18 +173,28 @@ class MetadataAnalyzer:
                     recorded_video.secondary_audio_channel = 'Stereo'
                 elif int(track.channel_s) == 6:
                     recorded_video.secondary_audio_channel = '5.1ch'
+                else:
+                    # 1ch, 2ch, 5.1ch 以外の音声チャンネル数は KonomiTV で再生できない
+                    continue
                 recorded_video.secondary_audio_sampling_rate = int(track.sampling_rate)
                 is_secondary_audio_track_read = True
 
         # 最低でも映像トラックと主音声トラックが含まれている必要がある
         # 映像か主音声、あるいは両方のトラックが含まれていない場合は None を返す
         if is_video_track_read is False or is_primary_audio_track_read is False:
-            Logging.warning(f'{self.recorded_file_path}: Video or primary audio track is missing. ignored.')
+            Logging.warning(f'{self.recorded_file_path}: Video or primary audio track is missing or invalid. ignored.')
             return None
 
         # duration が1分未満の場合は短すぎるので None を返す
         if recorded_video.duration < 60:
             Logging.warning(f'{self.recorded_file_path}: Duration is too short. ignored.')
+            return None
+
+        ## 現状 ariblib は先頭が sync_byte でない or 途中で同期が壊れる (破損した TS パケットが存在する) TS ファイルを想定していないため、
+        ## ariblib に入力する録画ファイルは必ず正常な TS ファイルである必要がある
+        ## ファイルの末尾の TS パケットだけ破損してるだけなら再生できるのでファイルサイズはチェックせず、ファイルの先頭が sync_byte であるかだけチェックする
+        if recorded_video.container_format == 'MPEG-TS' and self.recorded_file_path.read_bytes()[0] != 0x47:
+            Logging.warning(f'{self.recorded_file_path}: sync_byte is missing. ignored.')
             return None
 
         # MPEG-TS 形式のみ、TS ファイルに含まれる番組情報・チャンネル情報を解析する
@@ -287,7 +304,7 @@ class MetadataAnalyzer:
                 # 全般 (TS コンテナの情報)
                 if track.track_type == 'General':
                     # MPEG-TS コンテナではない (当面 MPEG-TS のみ対応)
-                    ## BDAV も MPEG-TS だが、TS パケット長が 192 byte で ariblib でパースできないため現状非対応
+                    ## "BDAV" も MPEG-TS だが、TS パケット長が 192 byte で ariblib でパースできないため現状非対応
                     if track.format != 'MPEG-TS':
                         Logging.warning(f'{self.recorded_file_path}: {track.format} is not supported.')
                         return None
@@ -306,12 +323,24 @@ class MetadataAnalyzer:
                     if track.encryption == 'Encrypted':
                         Logging.warning(f'{self.recorded_file_path}: Video stream is encrypted.')
                         return None
+                    # MPEG-2, H.264, H.265 以外のフォーマットは KonomiTV で再生できない
+                    if track.format not in ['MPEG Video', 'AVC', 'HEVC']:
+                        Logging.warning(f'{self.recorded_file_path}: {track.format} is not supported.')
+                        return None
 
                 # 音声ストリーム
                 elif track.track_type == 'Audio':
                     # スクランブルが解除されていない
                     if track.encryption == 'Encrypted':
                         Logging.warning(f'{self.recorded_file_path}: Audio stream is encrypted.')
+                        return None
+                    # AAC-LC 以外のフォーマットは KonomiTV で再生できない
+                    if track.format not in ['AAC']:
+                        Logging.warning(f'{self.recorded_file_path}: {track.format} is not supported.')
+                        return None
+                    # 1ch, 2ch, 5.1ch 以外の音声チャンネル数は KonomiTV で再生できない
+                    if int(track.channel_s) not in [1, 2, 6]:
+                        Logging.warning(f'{self.recorded_file_path}: {track.channel_s} channels are not supported.')
                         return None
 
         except Exception as ex:
