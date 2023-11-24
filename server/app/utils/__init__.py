@@ -6,6 +6,21 @@ from pathlib import Path
 from typing import Any, Callable, Literal
 
 
+def ClosestMultiple(n: int, multiple: int) -> int:
+    """
+    n に最も近い multiple の倍数を返す
+
+    Args:
+        n (int): 値
+        multiple (int): 倍数
+
+    Returns:
+        int: n に最も近い multiple の倍数
+    """
+
+    return round(n / multiple) * multiple
+
+
 def GetMirakurunAPIEndpointURL(endpoint: str) -> str:
     """
     /api/version などのエンドポイントを Mirakurun API の URL に変換する

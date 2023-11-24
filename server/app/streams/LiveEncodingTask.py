@@ -11,6 +11,7 @@ import os
 import re
 import time
 from aiofiles.threadpool.text import AsyncTextIOWrapper
+from biim.mpeg2ts import ts
 from typing import AsyncIterator, cast, ClassVar, Literal, TYPE_CHECKING
 
 from app.config import Config
@@ -659,7 +660,10 @@ class LiveEncodingTask:
 
             # 受信した放送波が入るイテレータを作成
             # R/W バッファ: 188B (TS Packet Size) * 256 = 48128B
-            async def GetIterator(stream_reader: asyncio.StreamReader | PipeStreamReader | aiohttp.StreamReader, chunk_size: int = 48128) -> AsyncIterator[bytes]:
+            async def GetIterator(
+                    stream_reader: asyncio.StreamReader | PipeStreamReader | aiohttp.StreamReader,
+                    chunk_size: int = ts.PACKET_SIZE * 256,
+                ) -> AsyncIterator[bytes]:
                 while True:
                     try:
                         yield await stream_reader.readexactly(chunk_size)
@@ -755,7 +759,7 @@ class LiveEncodingTask:
                     # エンコーダーからの出力を読み取る
                     ## TS パケットのサイズが 188 bytes なので、1回の readexactly() で 188 bytes ずつ読み取る
                     ## read() ではなく厳密な readexactly() を使わないとぴったり 188 bytes にならない場合がある
-                    chunk = await cast(asyncio.StreamReader, encoder.stdout).readexactly(188)
+                    chunk = await cast(asyncio.StreamReader, encoder.stdout).readexactly(ts.PACKET_SIZE)
 
                     # 同時に chunk_buffer / chunk_written_at にアクセスするタスクが1つだけであることを保証する (排他ロック)
                     async with writer_lock:

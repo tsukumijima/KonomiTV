@@ -9,6 +9,7 @@ from ariblib.sections import ActualNetworkNetworkInformationSection
 from ariblib.sections import ActualStreamPresentFollowingEventInformationSection
 from ariblib.sections import ActualStreamServiceDescriptionSection
 from ariblib.sections import ProgramAssociationSection
+from biim.mpeg2ts import ts
 from datetime import datetime
 from datetime import timedelta
 from pathlib import Path
@@ -19,6 +20,7 @@ from app.models.Channel import Channel
 from app.models.RecordedProgram import RecordedProgram
 from app.models.RecordedVideo import RecordedVideo
 from app.schemas import Genre
+from app.utils import ClosestMultiple
 from app.utils import Logging
 from app.utils.TSInformation import TSInformation
 
@@ -38,9 +40,11 @@ class TSInfoAnalyzer:
         """
 
         # TS ファイルを開く
-        # チャンクは 1000（だいたい 0.1 ～ 0.2 秒間隔）に設定
+        ## 188 * 10000 バイト (≒ 1.88MB) ごとに分割して読み込む
+        ## 現状 ariblib は先頭が sync_byte でない or 途中で同期が壊れる (破損した TS パケットが存在する) TS ファイルを想定していないため、
+        ## ariblib に入力する録画ファイルは必ず正常な TS ファイルである必要がある
         self.recorded_video = recorded_video
-        self.ts = ariblib.tsopen(self.recorded_video.file_path, chunk=1000)
+        self.ts = ariblib.tsopen(self.recorded_video.file_path, chunk=10000)
 
 
     def analyze(self) -> tuple[RecordedProgram, Channel] | None:
@@ -200,17 +204,13 @@ class TSInfoAnalyzer:
         else:
             eit_section_number = 0
 
-        def closest_multiple(n: int, multiple: int):
-            """ n に最も近い multiple の倍数を返す """
-            return round(n / multiple) * multiple
-
         # 誤動作防止のため必ず最初にシークを戻す
-        ## 録画ファイルのサイズ全体の 20% の位置にシークする (正確にはシーク単位は 188 バイトずつでなければならないので調整する)
+        ## 録画ファイルのサイズ全体の 20% の位置にシークする (正確にはシーク単位は 188 バイトずつでなければならないので 188 の倍数になるように調整する)
         ## 先頭にシークすると録画開始マージン分のデータを含んでしまうため、大体録画開始マージン分を除いた位置から始める
         ## 極端に録画開始マージンが大きいか番組長が短い録画でない限り、録画対象の番組が放送されているタイミングにシークできるはず
         ## 例えば30分10秒の録画 (前後5秒が録画マージン) の場合、全体の 20% の位置にシークすると大体6分2秒の位置になる
         ## 生の録画データはビットレートが一定のため、シーンによって大きくデータサイズが変動することはない
-        self.ts.seek(closest_multiple(int(self.recorded_video.file_size * 0.2), 188))
+        self.ts.seek(ClosestMultiple(int(self.recorded_video.file_size * 0.2), ts.PACKET_SIZE))
 
         # 録画番組情報を表すモデルを作成
         recorded_program = RecordedProgram()
@@ -380,9 +380,9 @@ class TSInfoAnalyzer:
                 break
 
             # ループが 100 で割り切れるたびに現在の位置から 188MB シークする
-            # ループが 100 以上に到達しているときはおそらく放送時間が未定の番組なので、放送時間が確定するまでシークする
+            ## ループが 100 以上に到達しているときはおそらく放送時間が未定の番組なので、放送時間が確定するまでシークする
             if count % 100 == 0:
-                self.ts.seek(188000000, 1)  # 188MB
+                self.ts.seek(ts.PACKET_SIZE * 1000000, 1)  # 188MB (188 * 1000000 バイト) 進める
 
         # この時点でタイトルを取得できていない場合、拡張子を除いたファイル名をフォーマットした上でタイトルとして使用する
         ## 他の値は RecordedProgram モデルで設定されたデフォルト値が自動的に入るので、タイトルだけここで設定する
