@@ -551,11 +551,12 @@ class VideoEncodingTask:
                 asyncio.run_coroutine_threadsafe(segment.resetState(), self._loop)
                 return
 
-            # この時点でエンコーダーの exit code が None (まだプロセスが起動している) か 0 でなければ何らかの理由でエンコードに失敗している
-            if self._encoder_process.poll() is not None and self._encoder_process.poll() != 0:
+            # この時点でエンコーダーの exit code が None (まだプロセスが起動している) でない & 0 でないならば何らかの理由でエンコードに失敗している
+            exit_code = self._encoder_process.poll()
+            if exit_code is not None and exit_code != 0:
                 self.__terminateEncoder()
                 Logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
-                              f'{ENCODER_TYPE} exited with exit code {self._encoder_process.poll()}.')
+                              f'{ENCODER_TYPE} exited with exit code {exit_code}.')
 
                 # おそらく復旧しようがないが、一応このセグメントの状態をリセットする
                 ## resetState() は asyncio.Future() を作り直す関係で非同期なので、メインスレッドに移譲して実行する
@@ -1033,7 +1034,11 @@ class VideoEncodingTask:
                                             return  # メソッドの実行自体を終了する
 
                                     # ここに到達した時点で前のセグメントのエンコードが完了し、エンコーダースレッドが終了しているはず
-                                    assert self.video_stream.segments[segment.sequence_index - 1].encode_status == 'Completed'
+                                    ## もし前のセグメントのエンコードが完了していない場合、前のセグメントのエンコードに失敗している
+                                    ## 基本復旧不可能だが一応エンコードタスクは続ける
+                                    if self.video_stream.segments[segment.sequence_index - 1].encode_status != 'Completed':
+                                        Logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index - 1}] '
+                                                       'Segment encoding failed. Skip this segment.')
 
                                     # 次のセグメントのエンコーダースレッドを起動する
                                     ## 前のセグメントのエンコードがすでに完了していても、次のセグメントのエンコードが完了しているとは限らないため、
