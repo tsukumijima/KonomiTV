@@ -160,8 +160,8 @@ class VideoEncodingTask:
             options.append(f'-r 30000/1001 -g {int(gop_length_second * 30)}')
 
         # 音声
-        ## 音声が 5.1ch かどうかに関わらず、ステレオにダウンミックスする
-        options.append(f'-acodec aac -aac_coder twoloop -ac 2 -ab {QUALITY[quality].audio_bitrate} -ar 48000 -af volume=2.0')
+        ## 音声は HLS セグメント化する際エンコードするとセグメントの繋ぎ目で音飛びするため、当面ソースの音声をそのままコピーする
+        options.append('-acodec copy')
 
         # 出力
         options.append('-y -f mpegts')  # MPEG-TS 出力ということを明示
@@ -209,8 +209,8 @@ class VideoEncodingTask:
 
         # ストリームのマッピング
         ## 音声切り替えのため、主音声・副音声両方をエンコード後の TS に含む
-        ## 音声が 5.1ch かどうかに関わらず、ステレオにダウンミックスする
-        options.append('--audio-stream 1?:stereo --audio-stream 2?:stereo --data-copy timed_id3')
+        ## 音声は HLS セグメント化する際エンコードするとセグメントの繋ぎ目で音飛びするため、当面ソースの音声をそのままコピーする
+        options.append('--audio-copy 1 --audio-copy 2 --data-copy timed_id3')
 
         # エンコード対象フレーム数
         ## FFmpeg と異なり、フレーム数から 1 引いた値を指定する
@@ -308,10 +308,6 @@ class VideoEncodingTask:
            (self.recorded_video.video_resolution_width == 1920 and self.recorded_video.video_resolution_height == 1080):
             video_width = 1920
         options.append(f'--output-res {video_width}x{video_height}')
-
-        # 音声
-        options.append(f'--audio-codec aac:aac_coder=twoloop --audio-bitrate {QUALITY[quality].audio_bitrate}')
-        options.append('--audio-samplerate 48000 --audio-filter volume=2.0 --audio-ignore-decode-error 30')
 
         # 出力
         options.append('--output-format mpegts')  # MPEG-TS 出力ということを明示
