@@ -458,13 +458,13 @@ class Jikkyo:
         """
 
         # ニコニコ実況 過去ログ API から過去ログコメントを取得する
-        ## 10秒応答がなかったらタイムアウト
+        ## 30秒応答がなかったらタイムアウト (レスポンスが結構重めなので場合によっては時間がかかることがある)
         try:
             start_time = int(recording_start_time.timestamp())
             end_time = int(recording_end_time.timestamp())
             kakolog_api_url = f'https://jikkyo.tsukumijima.net/api/kakolog/{self.jikkyo_id}?starttime={start_time}&endtime={end_time}&format=json'
             async with httpx.AsyncClient() as client:
-                kakolog_api_response = await client.get(kakolog_api_url, headers=API_REQUEST_HEADERS, timeout=10, follow_redirects=True)
+                kakolog_api_response = await client.get(kakolog_api_url, headers=API_REQUEST_HEADERS, timeout=30, follow_redirects=True)
         except (httpx.NetworkError, httpx.TimeoutException):  # 接続エラー（サーバー再起動やタイムアウトなど）
             return schemas.JikkyoComments(
                 is_success = False,
