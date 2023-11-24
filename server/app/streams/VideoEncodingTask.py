@@ -438,16 +438,12 @@ class VideoEncodingTask:
             if self._is_cancelled is True:
                 return  # メソッドの実行自体を終了する
 
-            # 受信したエンコード済み TS パケットのバッファ
-            ## 最終的に単一のセグメントのすべての TS パケットが入る
-            encoded_ts_packet_buffer = bytearray()
-
             # ***** 切り出した TS パケットをエンコーダーに送信するスレッド *****
 
             def Writer() -> None:
 
                 # 送信する TS パケットのバッファ
-                # バッファサイズ: 188B (TS Packet Size) * 256 = 48128B
+                # バッファサイズ: 188B (TS Packet Size) * 1000 = 188000B
                 ts_packet_buffer = bytearray()
 
                 # エンコーダーに投入した TS パケットのバイト数
@@ -466,9 +462,9 @@ class VideoEncodingTask:
                     if ts_packet is not None:
                         ts_packet_buffer += ts_packet
 
-                    # 48128B に到達した or これ以上エンコーダーに投入するパケットがなくなったら、
+                    # 188000B に到達した or これ以上エンコーダーに投入するパケットがなくなったら、
                     # バッファをエンコーダー (正確にはその前段の tsreadex) に投入
-                    if len(ts_packet_buffer) >= ts.PACKET_SIZE * 256 or ts_packet is None:
+                    if len(ts_packet_buffer) >= ts.PACKET_SIZE * 1000 or ts_packet is None:
                         try:
                             if self._tsreadex_process is not None:  # 念のため
                                 # 書き込んだ後フラッシュする
@@ -480,64 +476,43 @@ class VideoEncodingTask:
                                 # バッファを空にする
                                 ts_packet_buffer = bytearray()
                         except Exception as ex:
-                            # エンコードタスクがキャンセルされエンコーダーが強制終了されたことで書き込みに失敗した場合、ループを抜ける
-                            if self._is_cancelled is True:
-                                break
-                            Logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
-                                          f'Failed to write TS packets to {ENCODER_TYPE}. ({ex})')
+                            # エンコードタスクがキャンセルされエンコーダーが強制終了されたことで書き込みに失敗した場合はエラーを出さない
+                            if self._is_cancelled is False:
+                                Logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                                              f'Failed to write TS packets to {ENCODER_TYPE}. ({ex})')
 
                     # これ以上エンコーダーに投入するパケットがなくなったら tsreadex の標準入力を閉じ、エンコーダーの出力の読み取りを待つ
                     if ts_packet is None:  # None はこれ以上投入するパケットがないことを示す
                         Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                                      f'Cut out {segment_bytes_count / 1024 / 1024:.3f} MiB.')
-                        Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                        Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                                      f'Waiting for {ENCODER_TYPE} to finish...')
                         if self._tsreadex_process is not None:  # 念のため
                             assert self._tsreadex_process.stdin is not None
                             self._tsreadex_process.stdin.close()
                         break  # ループを抜ける
 
-            # ***** エンコード済み TS パケット (セグメントデータ) をエンコーダーから受信するスレッド *****
+            # ***** エンコード済み TS パケットを VideoStreamSegment に書き込む *****
 
-            def Reader() -> None:
-                nonlocal encoded_ts_packet_buffer
-
-                while True:
-
-                    # すでにエンコーダーが強制終了されているならループを抜ける
-                    ## 強制終了された後は None になるのを利用する
-                    ## エンコードタスクがキャンセルされた時にしか発生しないはず
-                    if self._tsreadex_process is None or self._encoder_process is None or self._is_cancelled is True:
-                        break
-
-                    if self._encoder_process is not None:  # 念のため
-                        try:
-                            # エンコーダーの出力を 48128B (188 * 256) ずつ受信してバッファに保存する
-                            assert self._encoder_process.stdout is not None
-                            ts_packets = self._encoder_process.stdout.read(ts.PACKET_SIZE * 256)
-                            # 出力の終端に到達したらループを抜ける
-                            if ts_packets == b'':
-                                break
-                            # バッファに受信したエンコード済み TS パケットを追加
-                            encoded_ts_packet_buffer += ts_packets
-                        except Exception as ex:
-                            # エンコードタスクがキャンセルされエンコーダーが強制終了されたことで読み取りに失敗した場合、ループを抜ける
-                            if self._is_cancelled is True:
-                                break
-                            Logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
-                                          f'Failed to read encoded TS packets from {ENCODER_TYPE}. ({ex})')
-
-            # ***** Writer と Reader の終了後、エンコード済み TS パケットを VideoStreamSegment に書き込む *****
-
-            # Writer スレッドと Reader スレッドを同時実行して、スレッドを終了するまで待つ
+            # Writer スレッドを開始
+            ## Writer スレッドはなぜかすぐに終了してくれないことがあるため終了は待たず、代わりにエンコーダーの出力が EOF になるまで待つ
             writer_thread = threading.Thread(target=Writer)
-            reader_thread = threading.Thread(target=Reader)
             writer_thread.start()
-            reader_thread.start()
             Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] {ENCODER_TYPE} started.')
-            writer_thread.join()
-            reader_thread.join()
-            Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] {ENCODER_TYPE} finished.')
+
+            # 受信したエンコード済み TS パケットのバッファ
+            ## 最終的に単一のセグメントのすべての TS パケットが入る
+            ## 読み取りはエンコードが完了し EOF になるまでブロックされる
+            try:
+                assert self._encoder_process.stdout is not None
+                encoded_ts_packet_buffer = self._encoder_process.stdout.read()  # 引数を指定しないと EOF まで読み取る
+            except Exception as ex:
+                encoded_ts_packet_buffer = b''
+                # エンコードタスクがキャンセルされエンコーダーが強制終了されたことで読み取りに失敗した場合はエラーを出さない
+                if self._is_cancelled is False:
+                    Logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                                  f'Failed to read encoded TS packets from {ENCODER_TYPE}. ({ex})')
+            Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] {ENCODER_TYPE} finished.')
 
             # この時点でエンコードタスクがキャンセルされていればエンコード済みのセグメントデータを放棄して中断する
             ## この時点でエンコーダープロセスが None になっている場合もキャンセルされたと判断する
@@ -552,8 +527,9 @@ class VideoEncodingTask:
                 return
 
             # この時点でエンコーダーの exit code が None (まだプロセスが起動している) でない & 0 でないならば何らかの理由でエンコードに失敗している
+            ## エンコード済み TS パケットのバッファが空の場合もエンコードに失敗していると判断する
             exit_code = self._encoder_process.poll()
-            if exit_code is not None and exit_code != 0:
+            if (exit_code is not None and exit_code != 0) or len(encoded_ts_packet_buffer) == 0:
                 self.__terminateEncoder()
                 Logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                               f'{ENCODER_TYPE} exited with exit code {exit_code}.')
