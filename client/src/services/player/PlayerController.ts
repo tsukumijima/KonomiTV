@@ -763,7 +763,7 @@ class PlayerController {
             }, 60 * 1000);
         }
 
-        // ビデオ視聴: ビデオストリームのアクティブ状態を維持するために 15 秒おきに Keep-Alive API にリクエストを送る
+        // ビデオ視聴: ビデオストリームのアクティブ状態を維持するために 5 秒おきに Keep-Alive API にリクエストを送る
         // HLS プレイリストやセグメントのリクエストが行われたタイミングでも Keep-Alive が行われるが、
         // それだけではタイミング次第では十分ではないため、定期的に Keep-Alive を行う
         // Keep-Alive が行われなくなったタイミングで、サーバー側で自動的にビデオストリームの終了処理 (エンコードタスクの停止) が行われる
@@ -773,7 +773,7 @@ class PlayerController {
                 if (this.player === null) return;
                 const api_quality = PlayerUtils.extractVideoAPIQualityFromDPlayer(this.player);
                 await APIClient.put(`${Utils.api_base_url}/streams/video/${player_store.recorded_program.id}/${api_quality}/keep-alive`);
-            }, 15 * 1000);
+            }, 5 * 1000);
         }
 
         // 再生/停止されたときのイベント

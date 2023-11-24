@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import asyncio
+import io
 import os
 import subprocess
 import threading
@@ -27,6 +28,10 @@ if TYPE_CHECKING:
 
 
 class VideoEncodingTask:
+
+    # TS の sync_byte (int)
+    ## ts.SYNC_BYTE は bytes なので、int 版の定数として定義する
+    SYNC_BYTE_INT: ClassVar[int] = 0x47
 
     # エンコードする HLS セグメントの長さ (秒)
     SEGMENT_DURATION_SECONDS: ClassVar[float] = float(10)  # 10秒
@@ -335,6 +340,8 @@ class VideoEncodingTask:
         ENCODER_TYPE = Config().general.encoder
 
         # エンコーダーの多重起動を防止するためのロックを確保
+        Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                              'Waiting for the encoder lock...')
         with self._encoder_lock:
 
             # ロック確保後にエンコードタスクがキャンセルされた場合、処理を中断する
@@ -598,6 +605,42 @@ class VideoEncodingTask:
             Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] Terminated {ENCODER_TYPE} process.')
 
 
+    def __findTSPacketSyncByte(self, reader: io.BufferedReader) -> bool:
+        """
+        指定された TS ファイルを sync_byte の直前まで読み進める (written with GPT-4)
+        このメソッドを実行した後 reader.read() を実行すると最初のバイトが sync_byte になる
+        TS ファイルには sync_byte ではない 0x47 も含まれているため、正しい sync_byte であることを毎回確認する必要がある
+
+        Args:
+            reader (io.BufferedReader): 読み込み対象の TS ファイル
+
+        Returns:
+            bool: 正しい sync_byte が見つかったかどうか
+        """
+
+        while True:
+            sync_byte = reader.read(1)
+            if not sync_byte:
+                return False  # End of file
+            if sync_byte[0] == VideoEncodingTask.SYNC_BYTE_INT:
+                # 次の 188 バイトも 0x47 で始まるかどうかを確認する
+                reader.seek(188 - 1, os.SEEK_CUR)  # 次の 187 バイトを読み飛ばす
+                next_sync_byte = reader.read(1)
+                if not next_sync_byte:
+                    return False  # End of file
+                if next_sync_byte[0] == VideoEncodingTask.SYNC_BYTE_INT:
+                    # 最初の sync_byte の "前" の位置に戻る
+                    ## これにより、reader.read() を実行すると最初のバイトが sync_byte になる
+                    reader.seek(-1, os.SEEK_CUR)  # 読み取った sync_byte 分を戻す
+                    reader.seek(-188, os.SEEK_CUR)  # TS パケット 1 つ分戻る
+                    return True
+                else:
+                    # 最初の sync_byte の "後" の位置に戻る
+                    ## ここに来ているということは最初に見つけた 0x47 が偶然の一致である可能性が高い
+                    ## 最初の sync_byte の直後から再度 sync_byte を探す
+                    reader.seek(-188, os.SEEK_CUR)  # TS パケット 1 つ分戻る
+
+
     def __isPESPacketInSegment(self, pes_header: PES, is_video_stream: bool, segment: VideoStreamSegment) -> bool:
         """
         PES パケットが指定されたセグメントの切り出し範囲に含まれるかどうかを判定する
@@ -675,23 +718,29 @@ class VideoEncodingTask:
         latest_pcr_ts_packet_bytes: int | None = None  # 最初の PCR 値を取得してから読み取った TS パケットの累計バイト数
         pcr_remain_count: int = 30  # 30 回分の PCR 値を取得する (PCR を取得するたびに 1 減らす)
         with open(self.recorded_video.file_path, 'rb') as reader:
+
+            # sync_byte を探す
+            is_sync_byte_found = self.__findTSPacketSyncByte(reader)
+            assert is_sync_byte_found is True, 'Failed to find sync byte.'
+
             while True:
 
-                # 同期バイトを探す
-                while True:
-                    sync_byte: bytes = reader.read(1)
-                    if sync_byte == ts.SYNC_BYTE:
-                        break
-                    elif sync_byte == b'':
-                        # このループでファイルの終端に達することは基本ないはず
-                        assert False, 'Invalid TS file. Sync byte is not found.'
-
                 # 速度向上のため 188 * 10000 バイトのチャンクで一気に読み込んだ後、188 バイトごとの TS パケットに分割して処理する
-                chunk = ts.SYNC_BYTE + reader.read((ts.PACKET_SIZE * 10000) - 1)
-                for ts_packet in [chunk[i:i + ts.PACKET_SIZE] for i in range(0, len(chunk), ts.PACKET_SIZE)]:
-                    if len(ts_packet) != ts.PACKET_SIZE:
-                        Logging.error(f'[Video: {self.video_stream.video_stream_id}] Packet size is not 188 bytes.')
-                        continue
+                # ファイルの終端に到達したら (read() してもデータが取れなくなったら) ループを抜ける
+                chunk = reader.read(ts.PACKET_SIZE * 10000)
+                if chunk == b'':
+                    break
+
+                # 取得したチャンクを TS パケットごとに分割する
+                ## 必ずしも 188 * 10000 バイト取得しているとは限らないが、188 バイトの倍数にはなっているはず
+                assert chunk[0] == VideoEncodingTask.SYNC_BYTE_INT, f'Invalid TS packet. sync_byte is not found. (0x{chunk[0]:02x})'
+                assert len(chunk) % ts.PACKET_SIZE == 0
+                ts_packets = [chunk[i:i + ts.PACKET_SIZE] for i in range(0, len(chunk), ts.PACKET_SIZE)]
+
+                # 各 TS パケットを処理する
+                for ts_packet in ts_packets:
+                    assert len(ts_packet) == ts.PACKET_SIZE, f'Packet size is not 188 bytes. ({len(ts_packet)} bytes)'
+                    assert ts_packet[0] == VideoEncodingTask.SYNC_BYTE_INT, f'Invalid TS packet. sync_byte is not found. (0x{ts_packet[0]:02x})'
 
                     # TS パケットの PID を取得する
                     PID = ts.pid(ts_packet)
@@ -848,29 +897,28 @@ class VideoEncodingTask:
             encoder_thread = threading.Thread(target=self.__runEncoder, args=(first_segment,))
             encoder_thread.start()
 
+            # sync_byte を探す
+            is_sync_byte_found = self.__findTSPacketSyncByte(reader)
+            assert is_sync_byte_found is True, 'Failed to find sync byte.'
+
             while True:
 
-                # 同期バイトを探す
-                isEOF = False
-                while True:
-                    sync_byte: bytes = reader.read(1)
-                    if sync_byte == ts.SYNC_BYTE:
-                        break
-                    elif sync_byte == b'':
-                        # ファイルの終端に達した場合はループを抜けて終了する
-                        isEOF = True
-                        break
-
-                # ファイルの終端に達した場合はループを抜けて終了する
-                if isEOF is True:
+                # 速度向上のため 188 * 10000 バイトのチャンクで一気に読み込んだ後、188 バイトごとの TS パケットに分割して処理する
+                # ファイルの終端に到達したら (read() してもデータが取れなくなったら) ループを抜ける
+                chunk = reader.read(ts.PACKET_SIZE * 10000)
+                if chunk == b'':
                     break
 
-                # 速度向上のため 188 * 10000 バイトのチャンクで一気に読み込んだ後、188 バイトごとの TS パケットに分割して処理する
-                chunk = ts.SYNC_BYTE + reader.read((ts.PACKET_SIZE * 10000) - 1)
-                for ts_packet in [chunk[i:i + ts.PACKET_SIZE] for i in range(0, len(chunk), ts.PACKET_SIZE)]:
-                    if len(ts_packet) != ts.PACKET_SIZE:
-                        Logging.error(f'[Video: {self.video_stream.video_stream_id}] Packet size is not 188 bytes.')
-                        continue
+                # 取得したチャンクを TS パケットごとに分割する
+                ## 必ずしも 188 * 10000 バイト取得しているとは限らないが、188 バイトの倍数にはなっているはず
+                assert chunk[0] == VideoEncodingTask.SYNC_BYTE_INT, f'Invalid TS packet. sync_byte is not found. (0x{chunk[0]:02x})'
+                assert len(chunk) % ts.PACKET_SIZE == 0
+                ts_packets = [chunk[i:i + ts.PACKET_SIZE] for i in range(0, len(chunk), ts.PACKET_SIZE)]
+
+                # 各 TS パケットを処理する
+                for ts_packet in ts_packets:
+                    assert len(ts_packet) == ts.PACKET_SIZE, f'Packet size is not 188 bytes. ({len(ts_packet)} bytes)'
+                    assert ts_packet[0] == VideoEncodingTask.SYNC_BYTE_INT, f'Invalid TS packet. sync_byte is not found. (0x{ts_packet[0]:02x})'
 
                     # TS パケットの PID を取得する
                     PID = ts.pid(ts_packet)
