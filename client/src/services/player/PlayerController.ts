@@ -125,8 +125,8 @@ class PlayerController {
         }
 
         // 01 ~ 14 まですべての RomSound を読み込む
-        for (let index = 1; index <= 14; index++) {
-            (async () => {
+        (async () => {
+            for (let index = 1; index <= 14; index++) {
                 // ArrayBuffer をデコードして AudioBuffer にし、すぐ呼び出せるように貯めておく
                 // ref: https://ics.media/entry/200427/
                 const romsound_url = `/assets/romsounds/${index.toString().padStart(2, '0')}.wav`;
@@ -137,8 +137,8 @@ class PlayerController {
                 if (romsound_response.type === 'success') {
                     this.romsounds_buffers.push(await this.romsounds_context.decodeAudioData(romsound_response.data));
                 }
-            })();
-        }
+            }
+        })();
     }
 
 
