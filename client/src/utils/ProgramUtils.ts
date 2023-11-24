@@ -469,6 +469,23 @@ export class ProgramUtils {
 
 
     /**
+     * 録画期間の文字列表現を取得する
+     * @param recorded_program 録画番組情報
+     * @returns 録画番組の録画開始時刻〜録画終了時刻
+     */
+    static getRecordingTime(recorded_program: IRecordedProgram): string {
+
+        const start_time = dayjs(recorded_program.recorded_video.recording_start_time);
+        const end_time = dayjs(recorded_program.recorded_video.recording_end_time);
+
+        // 分単位の番組長 (割り切れない場合は小数第2位で四捨五入)
+        const duration = Math.round(recorded_program.recorded_video.duration / 60 * 100) / 100;
+
+        return `${start_time.format('YYYY/MM/DD (dd) HH:mm:ss')} ～ ${end_time.format('HH:mm:ss')} (${duration}分)`;
+    }
+
+
+    /**
      * 文字列に含まれる英数や記号を半角に置換し、一律な表現に整える
      * server/app/utils/TSInformation.py の TSInformation.formatString() と同等の処理を行う
      * @param string 変換する文字列

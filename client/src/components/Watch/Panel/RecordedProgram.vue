@@ -25,9 +25,14 @@
                     {{genre.major}} / {{genre.middle}}
                 </div>
             </div>
-            <div class="program-info__status">
-                <div class="program-info__status-force">
-                    <Icon icon="bi:chat-left-text-fill" height="14px" style="margin-top: 3px" />
+            <div class="mt-5">
+                <div class="program-info__status">
+                    <Icon icon="ic:round-date-range" height="17px" style="margin-left: -2px; margin-right: -1.7px; margin-bottom: -3px;" />
+                    <span class="ml-2">録画期間: {{playerStore.recorded_program.is_partially_recorded ? '(一部のみ録画)' : ''}}</span><br>
+                    <span>{{ProgramUtils.getRecordingTime(playerStore.recorded_program)}}</span>
+                </div>
+                <div class="program-info__status">
+                    <Icon icon="bi:chat-left-text-fill" height="12.5px" style="margin-bottom: -3px" />
                     <span class="ml-2">コメント数:</span>
                     <span class="ml-2">{{comment_count ?? '--'}}</span>
                 </div>
@@ -110,6 +115,7 @@ export default defineComponent({
                 font-size: 19px;
             }
         }
+
         .program-info__broadcaster {
             display: flex;
             align-items: center;
@@ -125,19 +131,8 @@ export default defineComponent({
                 background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
                 object-fit: cover;
                 user-select: none;
-                @include tablet-vertical {
-                    width: 58px;
-                    height: 32px;
-                }
-                @include smartphone-horizontal {
-                    width: 42px;
-                    height: 23.5px;
-                }
-                @include smartphone-vertical {
-                    width: 58px;
-                    height: 32px;
-                }
             }
+
             .program-info__broadcaster-container {
                 display: flex;
                 flex-direction: column;
@@ -145,9 +140,8 @@ export default defineComponent({
                 .program-info__broadcaster-number {
                     flex-shrink: 0;
                     font-size: 14px;
-                    @include tablet-vertical {
-                        margin-left: 16px;
-                        font-size: 13px;
+                    @include smartphone-horizontal {
+                        font-size: 13.5px;
                     }
                 }
                 .program-info__broadcaster-name {
@@ -156,12 +150,8 @@ export default defineComponent({
                     overflow: hidden;
                     white-space: nowrap;
                     text-overflow: ellipsis;
-                    @include tablet-vertical {
-                        margin-left: 8px;
-                        font-size: 13px;
-                    }
-                    @include smartphone-vertical {
-                        font-size: 13px;
+                    @include smartphone-horizontal {
+                        font-size: 13.5px;
                     }
                 }
                 .program-info__broadcaster-time {
@@ -169,11 +159,15 @@ export default defineComponent({
                     color: var(--v-text-darken1);
                     font-size: 13.5px;
                     @include smartphone-horizontal {
+                        font-size: 12px;
+                    }
+                    @include smartphone-vertical {
                         font-size: 12.5px;
                     }
                 }
             }
         }
+
         .program-info__description {
             margin-top: 12px;
             color: var(--v-text-darken1);
@@ -187,6 +181,7 @@ export default defineComponent({
                 font-size: 11px;
             }
         }
+
         .program-info__genre-container {
             display: flex;
             flex-wrap: wrap;
@@ -207,19 +202,12 @@ export default defineComponent({
         }
 
         .program-info__status {
-            display: flex;
-            align-items: center;
-            margin-top: 16px;
-            font-size: 14px;
+            margin-top: 8px;
             color: var(--v-text-darken1);
+            font-size: 12.5px;
+            line-height: 170%;
             @include smartphone-horizontal {
-                margin-top: 10px;
-                font-size: 12px;
-            }
-
-            &-force, &-viewers {
-                display: flex;
-                align-items: center;
+                font-size: 11.5px;
             }
         }
     }
