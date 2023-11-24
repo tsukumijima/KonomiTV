@@ -9,7 +9,7 @@ import queue
 import time
 from biim.mpeg2ts import ts
 from dataclasses import dataclass
-from rich import print
+from pprint import pprint
 from typing import Any, Callable, ClassVar, Literal
 
 from app.config import Config
@@ -286,8 +286,8 @@ class VideoStream:
             self._segments[-1].duration_seconds = (self._segments[-1].end_pts - self._segments[-1].start_pts + 1) / ts.HZ
 
         if Config().general.debug is True:
-            print(f'[Video: {self.video_stream_id}] Segments:')
-            print(self._segments)
+            Logging.debug_simple(f'[Video: {self.video_stream_id}] Segments:')
+            pprint(self._segments)  # Logging に入れると pretty-print できないのでここだけ pprint() する
 
         # 仮想 HLS M3U8 プレイリストを生成
         virtual_playlist = ''
