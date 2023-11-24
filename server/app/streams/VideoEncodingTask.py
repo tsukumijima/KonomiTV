@@ -811,6 +811,10 @@ class VideoEncodingTask:
         # 最後に取得した PID ごとの PES ヘッダー
         latest_pes_headers: dict[int, PES] = {}
 
+        # インデックスが first_segment_index 以降のセグメントに絞った VideoStreamSegment のリスト
+        ## 毎回呼び出すと遅いので高速化のために事前に作成しておく
+        filtered_segments = self.video_stream.segments[first_segment_index:]
+
         # 現在処理中のセグメントのインデックス (HLS セグメントのシーケンス番号と一致する)
         ## self.video_stream.segments[monotonic_segment_index] が処理中のセグメントになる
         ## PTS がある PES パケットではこの値に関わらず PTS レンジに一致するセグメントに TS パケットが投入されるが、
@@ -826,9 +830,9 @@ class VideoEncodingTask:
         with open(self.recorded_video.file_path, 'rb') as reader:
             first_segment = self.video_stream.segments[first_segment_index]
 
-            # 余裕を持ってエンコードを開始する HLS セグメントのファイル上の位置 - 5 秒分の位置にシークする
+            # 余裕を持ってエンコードを開始する HLS セグメントのファイル上の位置 - 2 秒分の位置にシークする
             ## 正確にはシーク単位は 188 バイトずつでなければならないので 188 の倍数になるように調整する
-            seek_offset_bytes = ClosestMultiple(int(max(0, first_segment.start_file_position - (5 * BYTE_RATE))), ts.PACKET_SIZE)
+            seek_offset_bytes = ClosestMultiple(int(max(0, first_segment.start_file_position - (2 * BYTE_RATE))), ts.PACKET_SIZE)
             reader.seek(seek_offset_bytes, os.SEEK_SET)
             Logging.info(f'[Video: {self.video_stream.video_stream_id}] Seeked to {seek_offset_bytes} bytes.')
 
@@ -975,14 +979,14 @@ class VideoEncodingTask:
                         ## TS は OpenGOP や送出タイミング (音声は映像より先行して送出されることが多い) の関係で
                         ## 特定のファイル位置以前と以降の境目ではきれいに分割することができないため、
                         ## 送出順 (符号化順) に関わらず PTS を基準に投入先のセグメントを振り分ける
-                        for segment in self.video_stream.segments[first_segment_index:]:
-
-                            # 現在の PES パケットの PTS を取得する
-                            current_pts = pes_header.pts()
-                            assert current_pts is not None
+                        for segment in filtered_segments:
 
                             # 当該 PES が現在処理中のセグメントの切り出し範囲に含まれる
                             if self.__isPESPacketInSegment(pes_header, PID == VIDEO_PID, segment) is True:
+
+                                # 現在の PES パケットの PTS を取得する
+                                current_pts = pes_header.pts()
+                                assert current_pts is not None
 
                                 # 現在の PTS が前のセグメントの切り出し終了 PTS から 3 秒以上が経過している場合
                                 if (segment.sequence_index - 1 >= first_segment_index) and \
@@ -1051,7 +1055,7 @@ class VideoEncodingTask:
                                 # 当該セグメントの PTS レンジに一致する最初のパケットのみ
                                 if segment.is_started is False:
                                     Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
-                                                          'First TS packet is arrived.')
+                                                          'First PES packet is arrived.')
 
                                     # このタイミングで monotonic_segment_index が初期値の場合のみ、
                                     # PTS が存在しないパケットがどのセグメントに TS パケットを投入すれば良いかのインデックスを切り替える
@@ -1076,7 +1080,7 @@ class VideoEncodingTask:
                                 ## インデックスは単調増加のため一度カウントアップしたらカウントが減ることはない
                                 if PID == VIDEO_PID and segment.start_pts == current_pts and monotonic_segment_index < segment.sequence_index:
                                     Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
-                                                          'First keyframe TS packet is arrived.')
+                                                          'First keyframe PES packet is arrived.')
                                     monotonic_segment_index = segment.sequence_index
 
                                 # ここで Queue に投入したパケットがそのまま tsreadex → エンコーダーに投入される
@@ -1099,14 +1103,14 @@ class VideoEncodingTask:
                         ## TS は OpenGOP や送出タイミング (音声は映像より先行して送出されることが多い) の関係で
                         ## 特定のファイル位置以前と以降の境目ではきれいに分割することができないため、
                         ## 送出順 (符号化順) に関わらず PTS を基準に投入先のセグメントを振り分ける
-                        for segment in self.video_stream.segments[first_segment_index:]:
-
-                            # 現在の PES パケットの PTS を取得する
-                            current_pts = latest_pes_headers[PID].pts()
-                            assert current_pts is not None
+                        for segment in filtered_segments:
 
                             # 当該 PES が現在処理中のセグメントの切り出し範囲に含まれる
                             if self.__isPESPacketInSegment(latest_pes_headers[PID], PID == VIDEO_PID, segment) is True:
+
+                                # 現在の PES パケットの PTS を取得する
+                                current_pts = latest_pes_headers[PID].pts()
+                                assert current_pts is not None
 
                                 # 当該セグメントのエンコードがすでに完了している場合は何もしない
                                 ## 中間に数個だけ既にエンコードされているセグメントがあるケースでは、
@@ -1130,7 +1134,7 @@ class VideoEncodingTask:
                         pcr_value = cast(int, ts.pcr(ts_packet))
 
                         # 開始 PTS 〜 終了 PTS のレンジに一致するセグメントが持つ Queue に TS パケットを投入する
-                        for segment in self.video_stream.segments[first_segment_index:]:
+                        for segment in filtered_segments:
 
                             # 当該 PCR が現在処理中のセグメントの切り出し範囲に含まれる
                             if segment.start_pts <= pcr_value <= segment.end_pts:
@@ -1150,14 +1154,12 @@ class VideoEncodingTask:
                     ## PAT / PMT は別途投入済みなのでここには含まれない
                     else:
 
-                        # monotonic_segment_index が正の値である (初期値でない) ことを確認する
-                        if monotonic_segment_index >= 0:
-
-                            # 当該セグメントのエンコードが完了していない場合のみ、TS パケットを投入する
-                            ## 中間に数個だけ既にエンコードされているセグメントがあるケースでは、
-                            ## それらのエンコード完了済みセグメントの切り出し&エンコード処理をスキップして次のセグメントに進むことになる
-                            if self.video_stream.segments[monotonic_segment_index].encode_status != 'Completed':
-                                self.video_stream.segments[monotonic_segment_index].segment_ts_packet_queue.put(ts_packet)
+                        # 事前に monotonic_segment_index が正の値である (初期値でない) ことを確認する
+                        # 当該セグメントのエンコードが完了していない場合のみ、TS パケットを投入する
+                        ## 中間に数個だけ既にエンコードされているセグメントがあるケースでは、
+                        ## それらのエンコード完了済みセグメントの切り出し&エンコード処理をスキップして次のセグメントに進むことになる
+                        if monotonic_segment_index >= 0 and self.video_stream.segments[monotonic_segment_index].encode_status != 'Completed':
+                            self.video_stream.segments[monotonic_segment_index].segment_ts_packet_queue.put(ts_packet)
 
                     # 途中でエンコードタスクがキャンセルされた場合、処理中のセグメントがあるかに関わらずエンコードタスクを終了する
                     # このとき、エンコーダーの出力はエンコードの完了を待つことなく破棄され、セグメントは処理開始前の状態にリセットされる
