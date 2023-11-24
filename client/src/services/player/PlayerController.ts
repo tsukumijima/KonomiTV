@@ -804,8 +804,10 @@ class PlayerController {
             if (player_store.is_loading === false) {
                 player_store.is_video_buffering = false;
             }
-            // 再生が開始できていない場合に再生状態の復旧を試みる
-            this.recoverPlayback();
+            // ライブ視聴: 再生が開始できていない場合に再生状態の復旧を試みる
+            if (this.playback_mode === 'Live') {
+                this.recoverPlayback();
+            }
         });
 
         // 今回 (DPlayer 初期化直後) と画質切り替え開始時の両方のタイミングで実行する必要がある処理
