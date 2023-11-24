@@ -185,8 +185,8 @@ class MetadataAnalyzer:
             Logging.warning(f'{self.recorded_file_path}: Video or primary audio track is missing or invalid. ignored.')
             return None
 
-        # duration が1分未満の場合は短すぎるので None を返す
-        if recorded_video.duration < 60:
+        # duration が 30 秒未満の場合は短すぎるので None を返す
+        if recorded_video.duration < 30:
             Logging.warning(f'{self.recorded_file_path}: Duration is too short. ignored.')
             return None
 
