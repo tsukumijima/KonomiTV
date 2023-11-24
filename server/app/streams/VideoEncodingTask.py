@@ -77,12 +77,14 @@ class VideoEncodingTask:
 
     def buildFFmpegOptions(self,
         quality: QUALITY_TYPES,
+        frame_count: int,
     ) -> list[str]:
         """
         FFmpeg に渡すオプションを組み立てる
 
         Args:
             quality (QUALITY_TYPES): 映像の品質
+            frame_count (int): エンコード対象フレーム数
 
         Returns:
             list[str]: FFmpeg に渡すオプションが連なる配列
@@ -131,20 +133,25 @@ class VideoEncodingTask:
         ## 30fps なら ×30 、 60fps なら ×60 された値が --gop-len で使われる
         gop_length_second = self.GOP_LENGTH_SECOND
 
+        # エンコード対象フレーム数
+        ## HWEncC と異なり、フレーム数をそのまま指定する (こうするとぴったりセグメントの映像を接合できる)
+        trim_filter = f'trim=start_frame=0:end_frame={frame_count}'
+
         # インターレース映像のみ
         if self.recorded_video.video_scan_type == 'Interlaced':
             ## インターレース解除 (60i → 60p (フレームレート: 60fps))
             if QUALITY[quality].is_60fps is True:
-                options.append(f'-vf yadif=mode=1:parity=-1:deint=1,scale={video_width}:{video_height}')
+                options.append(f'-vf {trim_filter},yadif=mode=1:parity=-1:deint=1,scale={video_width}:{video_height}')
                 options.append(f'-r 60000/1001 -g {int(gop_length_second * 60)}')
             ## インターレース解除 (60i → 30p (フレームレート: 30fps))
             else:
-                options.append(f'-vf yadif=mode=0:parity=-1:deint=1,scale={video_width}:{video_height}')
+                options.append(f'-vf {trim_filter},yadif=mode=0:parity=-1:deint=1,scale={video_width}:{video_height}')
                 options.append(f'-r 30000/1001 -g {int(gop_length_second * 30)}')
         # プログレッシブ映像
         ## プログレッシブ映像の場合は 60fps 化する方法はないため、無視して元映像と同じフレームレートでエンコードする
         ## GOP は 30fps だと仮定して設定する
         elif self.recorded_video.video_scan_type == 'Progressive':
+            options.append(f'-vf {trim_filter},scale={video_width}:{video_height}')
             options.append(f'-r 30000/1001 -g {int(gop_length_second * 30)}')
 
         # 音声
@@ -201,7 +208,8 @@ class VideoEncodingTask:
         options.append('--audio-stream 1?:stereo --audio-stream 2?:stereo --data-copy timed_id3')
 
         # エンコード対象フレーム数
-        options.append(f'--trim 0:{frame_count - 1}')  # フレーム数から 1 引いた値を指定する
+        ## FFmpeg と異なり、フレーム数から 1 引いた値を指定する
+        options.append(f'--trim 0:{frame_count - 1}')
 
         # フラグ
         ## 主に HWEncC の起動を高速化するための設定
@@ -249,7 +257,7 @@ class VideoEncodingTask:
             options.append('--profile main')
         else:
             options.append('--profile high')
-        options.append(f'--interlace tff --dar 16:9')
+        options.append('--interlace tff --dar 16:9')
 
         ## 最大 GOP 長 (秒)
         ## 30fps なら ×30 、 60fps なら ×60 された値が --gop-len で使われる
@@ -275,9 +283,9 @@ class VideoEncodingTask:
             ## VCEEncC では --vpp-deinterlace 自体が使えないので、代わりに --vpp-afs を使う
             else:
                 if encoder_type == 'QSVEncC':
-                    options.append(f'--vpp-deinterlace normal')
+                    options.append('--vpp-deinterlace normal')
                 elif encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
-                    options.append(f'--vpp-afs preset=default')
+                    options.append('--vpp-afs preset=default')
                 elif encoder_type == 'rkmppenc':
                     options.append('--vpp-deinterlace normal_i5')
                 options.append(f'--avsync vfr --gop-len {int(gop_length_second * 30)}')
@@ -392,7 +400,7 @@ class VideoEncodingTask:
             if ENCODER_TYPE == 'FFmpeg':
 
                 # オプションを取得
-                encoder_options = self.buildFFmpegOptions(self.video_stream.quality)
+                encoder_options = self.buildFFmpegOptions(self.video_stream.quality, segment.frame_count)
                 Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                              f'FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
@@ -401,8 +409,8 @@ class VideoEncodingTask:
                     [LIBRARY_PATH['FFmpeg'], *encoder_options],
                     stdin = self._tsreadex_process.stdout,  # tsreadex からの入力
                     stdout = subprocess.PIPE,  # ストリーム出力
-                    stderr = subprocess.DEVNULL,
-                    # stderr = None,  # デバッグ用
+                    # stderr = subprocess.DEVNULL,
+                    stderr = None,  # デバッグ用
                 )
 
             # HWEncC
@@ -418,8 +426,8 @@ class VideoEncodingTask:
                     [LIBRARY_PATH[ENCODER_TYPE], *encoder_options],
                     stdin = self._tsreadex_process.stdout,  # tsreadex からの入力
                     stdout = subprocess.PIPE,  # ストリーム出力
-                    stderr = subprocess.DEVNULL,
-                    # stderr = None,  # デバッグ用
+                    # stderr = subprocess.DEVNULL,
+                    stderr = None,  # デバッグ用
                 )
 
             # エンコーダー起動後にエンコードタスクがキャンセルされた場合、処理を中断する
