@@ -9,10 +9,8 @@ import queue
 import time
 from biim.mpeg2ts import ts
 from dataclasses import dataclass
-from pprint import pprint
 from typing import Any, Callable, ClassVar, Literal
 
-from app.config import Config
 from app.constants import LIBRARY_PATH, QUALITY_TYPES
 from app.models.RecordedProgram import RecordedProgram
 from app.streams.VideoEncodingTask import VideoEncodingTask
@@ -284,10 +282,6 @@ class VideoStream:
             self._segments[-1].end_dts = packets[-1]['dts']  # 次のセグメントはないので、最後のパケットの DTS をそのまま採用する
             self._segments[-1].end_file_position = packets[-1]['pos']  # 次のセグメントはないので、最後のパケットのファイル上の位置をそのまま採用する
             self._segments[-1].duration_seconds = (self._segments[-1].end_pts - self._segments[-1].start_pts + 1) / ts.HZ
-
-        if Config().general.debug is True:
-            Logging.debug_simple(f'[Video: {self.video_stream_id}] Segments:')
-            pprint(self._segments)  # Logging に入れると pretty-print できないのでここだけ pprint() する
 
         # 仮想 HLS M3U8 プレイリストを生成
         virtual_playlist = ''
