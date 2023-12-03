@@ -30,10 +30,10 @@ env:
   FFMPEG_HWENCC_MAJOR_VERSION: '4.4'
   FFMPEG_HWENCC_VERSION: '4.4.4-6-gd5fa6e3a91'
   # QSVEncC・NVEncC・VCEEncC・rkmppenc のバージョン
-  QSVENCC_VERSION: '7.54'
-  NVENCC_VERSION: '7.36'
-  VCEENCC_VERSION: '8.19'
-  RKMPPENC_VERSION: '0.05'
+  QSVENCC_VERSION: '7.56'
+  NVENCC_VERSION: '7.39'
+  VCEENCC_VERSION: '8.20'
+  RKMPPENC_VERSION: '0.06'
   # libmediainfo のバージョン
   ## Windows 版の pymediainfo (ビルド済みの MediaInfo.dll が同梱されている) とバージョンを合わせる
   ## ref: https://github.com/sbraz/pymediainfo/blob/v6.0.1/appveyor.yml#L6
