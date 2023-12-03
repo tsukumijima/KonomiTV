@@ -14,30 +14,30 @@ dev = "python KonomiTV.py --reload"
 python = "3.11.*"
 aerich = { url = "https://github.com/tsukumijima/aerich/releases/download/v0.7.1-patch/aerich-0.7.2-py3-none-any.whl" }
 aiofiles = "^23.2.1"
-aiohttp = "^3.8.5"
+aiohttp = "^3.9.1"
 ariblib = { url = "https://github.com/tsukumijima/ariblib/releases/download/v0.1.4/ariblib-0.1.4-py3-none-any.whl" }
-biim = { url = "https://github.com/tsukumijima/biim/releases/download/v1.10.2-patch/biim-1.10.2-py3-none-any.whl" }
+biim = { url = "https://github.com/tsukumijima/biim/releases/download/v1.10.2-patch2/biim-1.10.2-py3-none-any.whl" }
 colorama = "^0.4.6"
 elevate = "^0.1.3"
-fastapi = "^0.103.1"
+fastapi = "^0.104.1"
 fastapi-restful = "^0.5.0"
 hashids = "^1.3.1"
-httpx = {version = "^0.25.0", extras = ["http2"]}
+httpx = {version = "^0.25.2", extras = ["http2"]}
 passlib = {version = "^1.7.4", extras = ["bcrypt"]}
-pillow = "^10.0.1"
-psutil = "^5.9.5"
+pillow = "^10.1.0"
+psutil = "^5.9.6"
 puremagic = "^1.15"
-py7zr = "^0.20.6"
-pydantic = "^2.3.0"
-pymediainfo = "6.0.1"
+py7zr = "^0.20.8"
+pydantic = "^2.5.2"
+pymediainfo = "^6.1.0"
 python-jose = {version = "^3.3.0", extras = ["cryptography"]}
 python-multipart = "^0.0.6"
 pywin32 = {version = "^306", platform = "win32"}
 requests = "^2.31.0"
-rich = "^13.5.3"
-"ruamel.yaml" = "^0.17.32"
-sse-starlette = "^1.6.5"
-taskipy = "^1.12.0"
+rich = "^13.7.0"
+"ruamel.yaml" = "^0.18.5"
+sse-starlette = "^1.8.2"
+taskipy = "^1.12.2"
 tortoise-orm = "^0.20.0"
 typer = "^0.9.0"
 typing-extensions = "^4.8.0"
@@ -45,9 +45,9 @@ typing-inspect = "^0.9.0"
 tweepy = "^4.14.0"
 tweepy-authlib = "^1.3.0"
 tzdata = "^2023.3"
-uvicorn = {version = "^0.23.2", extras = ["standard"]}
-uvloop = {version = "^0.17.0", platform = "linux"}
-watchfiles = "^0.20.0"
+uvicorn = {version = "^0.24.0.post1", extras = ["standard"]}
+uvloop = {version = "^0.19.0", platform = "linux"}
+watchfiles = "^0.21.0"
 
 [tool.poetry.group.dev.dependencies]
 
