@@ -292,6 +292,12 @@ class LiveEncodingTask:
         options.append(f'-m max_interleave_delta:{max_interleave_delta}K --output-thread 0 --lowlatency')
         ## その他の設定
         options.append('--log-level debug')
+        ## QSVEncC と rkmppenc では OpenCL を使用しないので、無効化することで初期化フェーズを高速化する
+        if encoder_type == 'QSVEncC' or encoder_type == 'rkmppenc':
+            options.append('--disable-opencl')
+        ## NVEncC では NVML によるモニタリングを無効化することで初期化フェーズを高速化する
+        if encoder_type == 'NVEncC':
+            options.append('--disable-nvml 1')
 
         # 映像
         ## コーデック
