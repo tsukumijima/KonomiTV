@@ -1,56 +1,55 @@
 <!DOCTYPE html>
 <html lang="ja">
-  <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width,viewport-fit=cover,initial-scale=1.0,user-scalable=no,interactive-widget=resizes-visual">
-    <link rel="icon" href="<%= BASE_URL %>favicon.ico">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mizunoko/depot@next/dist/css/common.css">
-    <title><%= htmlWebpackPlugin.options.title %></title>
-    <style>
-        @font-face {
-            font-family: 'Open Sans';
-            font-weight: 500;
-            font-display: swap;
-            src: url('/assets/fonts/OpenSans-Medium.woff2') format('woff2');
-        }
-        @font-face {
-            font-family: 'Open Sans';
-            font-weight: 700;
-            font-display: swap;
-            src: url('/assets/fonts/OpenSans-Bold.woff2') format('woff2');
-        }
-        @font-face {
-            font-family: 'YakuHanJPs';
-            font-weight: 500;
-            font-display: swap;
-            src: url('/assets/fonts/YakuHanJPs-Medium.woff2') format('woff2');
-        }
-        @font-face {
-            font-family: 'YakuHanJPs';
-            font-weight: 700;
-            font-display: swap;
-            src: url('/assets/fonts/YakuHanJPs-Bold.woff2') format('woff2');
-        }
-        @font-face {
-            font-family: 'Noto Sans JP';
-            font-weight: 500;
-            font-display: swap;
-            src: url('/assets/fonts/NotoSansJP-Medium.woff2') format('woff2');
-        }
-        @font-face {
-            font-family: 'Noto Sans JP';
-            font-weight: 700;
-            font-display: swap;
-            src: url('/assets/fonts/NotoSansJP-Bold.woff2') format('woff2');
-        }
-    </style>
-  </head>
-  <body style="background:#1E1310; color:#FFEAEA;">
-    <noscript>
-      <strong>We're sorry but <%= htmlWebpackPlugin.options.title %> doesn't work properly without JavaScript enabled. Please enable it to continue.</strong>
-    </noscript>
-    <div id="app"></div>
-    <!-- built files will be auto injected -->
-  </body>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,viewport-fit=cover,initial-scale=1.0,user-scalable=no,interactive-widget=resizes-visual">
+        <link rel="icon" href="<%= BASE_URL %>favicon.ico">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mizunoko/depot@next/dist/css/common.css">
+        <title><%= htmlWebpackPlugin.options.title %></title>
+        <style>
+            @font-face {
+                font-family: 'Open Sans';
+                font-weight: 500;
+                font-display: swap;
+                src: url('/assets/fonts/OpenSans-Medium.woff2') format('woff2');
+            }
+            @font-face {
+                font-family: 'Open Sans';
+                font-weight: 700;
+                font-display: swap;
+                src: url('/assets/fonts/OpenSans-Bold.woff2') format('woff2');
+            }
+            @font-face {
+                font-family: 'YakuHanJPs';
+                font-weight: 500;
+                font-display: swap;
+                src: url('/assets/fonts/YakuHanJPs-Medium.woff2') format('woff2');
+            }
+            @font-face {
+                font-family: 'YakuHanJPs';
+                font-weight: 700;
+                font-display: swap;
+                src: url('/assets/fonts/YakuHanJPs-Bold.woff2') format('woff2');
+            }
+            @font-face {
+                font-family: 'Noto Sans JP';
+                font-weight: 500;
+                font-display: swap;
+                src: url('/assets/fonts/NotoSansJP-Medium.woff2') format('woff2');
+            }
+            @font-face {
+                font-family: 'Noto Sans JP';
+                font-weight: 700;
+                font-display: swap;
+                src: url('/assets/fonts/NotoSansJP-Bold.woff2') format('woff2');
+            }
+        </style>
+    </head>
+    <body style="background: #1E1310; color: #FFEAEA;">
+        <noscript>
+            <strong>We're sorry but <%= htmlWebpackPlugin.options.title %> doesn't work properly without JavaScript enabled. Please enable it to continue.</strong>
+        </noscript>
+        <div id="app"></div>
+        <!-- built files will be auto injected -->
+    </body>
 </html>
