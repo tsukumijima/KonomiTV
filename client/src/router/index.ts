@@ -20,6 +20,7 @@ import TVHome from '@/views/TV/Home.vue';
 import TVWatch from '@/views/TV/Watch.vue';
 import VideosWatch from '@/views/Videos/Watch.vue';
 
+
 Vue.use(VueRouter);
 
 const router = new VueRouter({

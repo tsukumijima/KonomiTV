@@ -1,6 +1,7 @@
 
 import DPlayer from 'dplayer';
 
+
 /**
  * ライブストリーミング API で設定できる動画の画質
  */

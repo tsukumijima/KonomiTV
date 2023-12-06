@@ -29,6 +29,7 @@ export const dayjs = (date?: ConfigType): Dayjs => {
     return dayjsOriginal(date);
 };
 
+
 // 共通ユーティリティをデフォルトとしてインポート
 import Utils from '@/utils/Utils';
 export default Utils;
