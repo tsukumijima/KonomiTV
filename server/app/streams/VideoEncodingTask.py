@@ -664,7 +664,7 @@ class VideoEncodingTask:
         latest_pcr_value: int | None = None  # 前回の PCR 値
         latest_pcr_ts_packet_bytes: int | None = None  # 最初の PCR 値を取得してから読み取った TS パケットの累計バイト数
         pcr_remain_count: int = 30  # 30 回分の PCR 値を取得する (PCR を取得するたびに 1 減らす)
-        with open(self.recorded_video.file_path, 'rb') as reader:
+        with open(self.recorded_video.file_path, mode='rb') as reader:
 
             # 現状 ariblib は先頭が sync_byte でない or 途中で同期が壊れる (破損した TS パケットが存在する) TS ファイルを想定していないため、
             # ariblib に入力する録画ファイルは必ず正常な TS ファイルである必要がある
@@ -837,7 +837,7 @@ class VideoEncodingTask:
         encoder_thread: threading.Thread | None = None
 
         # 取得した概算バイトレートをもとに、指定された開始タイムスタンプに近い位置までシークする
-        with open(self.recorded_video.file_path, 'rb') as reader:
+        with open(self.recorded_video.file_path, mode='rb') as reader:
             first_segment = self.video_stream.segments[first_segment_index]
 
             # 余裕を持ってエンコードを開始する HLS セグメントのファイル上の位置 - 2 秒分の位置にシークする

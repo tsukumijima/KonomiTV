@@ -122,7 +122,7 @@ def main(
     ## HTTP/2 対応と HTTPS 化を一手に行う Golang 製の特殊なリバースプロキシサーバー
     ## ログは server/logs/Akebi-HTTPS-Server.log に出力する
     ## ref: https://github.com/tsukumijima/Akebi
-    with open(AKEBI_LOG_PATH, 'w', encoding='utf-8') as file:
+    with open(AKEBI_LOG_PATH, mode='w', encoding='utf-8') as file:
         reverse_proxy_process = subprocess.Popen(
             [
                 LIBRARY_PATH['Akebi'],

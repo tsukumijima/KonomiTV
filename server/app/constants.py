@@ -362,8 +362,8 @@ NICONICO_OAUTH_CLIENT_ID = '4JTJdyBZLwMJwaI7'
 ## jwt_secret.dat がない場合は自動生成する
 JWT_SECRET_KEY_PATH = DATA_DIR / 'jwt_secret.dat'
 if Path.exists(JWT_SECRET_KEY_PATH) is False:
-    with open(JWT_SECRET_KEY_PATH, mode='w', encoding='utf-8') as fp:
-        fp.write(secrets.token_hex(32))  # 32ビット (256文字) の乱数を書き込む
+    with open(JWT_SECRET_KEY_PATH, mode='w', encoding='utf-8') as file:
+        file.write(secrets.token_hex(32))  # 32ビット (256文字) の乱数を書き込む
 ## jwt_secret.dat からシークレットキーをロードする
-with open(JWT_SECRET_KEY_PATH, encoding='utf-8') as fp:
-    JWT_SECRET_KEY = fp.read().strip()
+with open(JWT_SECRET_KEY_PATH, mode='r', encoding='utf-8') as file:
+    JWT_SECRET_KEY = file.read().strip()

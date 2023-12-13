@@ -334,7 +334,7 @@ def Installer(version: str) -> None:
         # ARM 環境のみ、もし  /proc/device-tree/compatible が存在し、その中に "rockchip" と "rk35" という文字列が含まれていたら、
         # Rockchip SoC 搭載の ARM SBC と判断して rkmppenc を利用可能とする
         if platform_type == 'Linux' and Path('/proc/device-tree/compatible').exists():
-            with open('/proc/device-tree/compatible', 'r') as compatible_file:
+            with open('/proc/device-tree/compatible', mode='r', encoding='utf-8') as compatible_file:
                 compatible_data = compatible_file.read()
                 if 'rockchip' in compatible_data and 'rk35' in compatible_data:
                     rkmppenc_available = '✅利用できます'
@@ -505,8 +505,8 @@ def Installer(version: str) -> None:
 
         # config.yaml から既定の設定値を取得
         config_dict: dict[str, dict[str, Any]]
-        with open(install_path / 'config.yaml', mode='r', encoding='utf-8') as fp:
-            config_dict = dict(ruamel.yaml.YAML().load(fp))
+        with open(install_path / 'config.yaml', mode='r', encoding='utf-8') as file:
+            config_dict = dict(ruamel.yaml.YAML().load(file))
 
         # サーバー設定データの一部を事前に取得しておいた値で置き換え
         ## インストーラーで置換するのはバックエンドや EDCB / Mirakurun の URL など、サーバーの起動に不可欠な値のみ

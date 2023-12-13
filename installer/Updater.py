@@ -306,8 +306,8 @@ def Updater(version: str) -> None:
         # 旧バージョンの config.yaml の設定値を取得
         ## config.yaml の上書き更新前に行うのが重要
         config_dict: dict[str, dict[str, Any]]
-        with open(update_path / 'config.yaml', mode='r', encoding='utf-8') as fp:
-            config_dict = dict(ruamel.yaml.YAML().load(fp))
+        with open(update_path / 'config.yaml', mode='r', encoding='utf-8') as file:
+            config_dict = dict(ruamel.yaml.YAML().load(file))
 
         # サーバーのリッスンポートの設定値を取得
         server_port = cast(int, config_dict['server']['port'])

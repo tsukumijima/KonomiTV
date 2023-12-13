@@ -338,7 +338,7 @@ def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
 
     # 設定ファイルからサーバー設定をロードする
     try:
-        with open(_CONFIG_YAML_PATH, encoding='utf-8') as file:
+        with open(_CONFIG_YAML_PATH, mode='r', encoding='utf-8') as file:
             config_raw = ruamel.yaml.YAML().load(file)
             if config_raw is None:
                 Logging.error('設定ファイルが空のため、KonomiTV を起動できません。')
@@ -486,7 +486,7 @@ def GetServerPort() -> int:
     try:
 
         # 設定ファイルからサーバー設定をロードし、ポート番号だけを返す
-        with open(_CONFIG_YAML_PATH, encoding='utf-8') as file:
+        with open(_CONFIG_YAML_PATH, mode='r', encoding='utf-8') as file:
             config_dict: dict[str, dict[str, Any]] = dict(ruamel.yaml.YAML().load(file))
         return config_dict['server']['port']
 

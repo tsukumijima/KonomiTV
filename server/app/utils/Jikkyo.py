@@ -22,7 +22,7 @@ class Jikkyo:
 
     # 実況 ID とサービス ID (SID)・ネットワーク ID (NID) の対照表
     ## NicoJK の jkch.sh.txt (https://github.com/xtne6f/NicoJK/blob/master/jkch.sh.txt) を情報を更新の上で JSON に変換したもの
-    with open(JIKKYO_CHANNELS_PATH, encoding='utf-8') as file:
+    with open(JIKKYO_CHANNELS_PATH, mode='r', encoding='utf-8') as file:
         jikkyo_channels: ClassVar[list[dict[str, Any]]] = json.load(file)
 
     # 実況チャンネルのステータスが入る辞書
