@@ -240,10 +240,10 @@ export class ChannelUtils {
             'BSフジ': '#bsfuji',
             'BS11イレブン': '#bs11',
             'BS12トゥエルビ': '#bs12',
-            'AT-X': '#at_x',
             'BS松竹東急': '#bs260ch',
             'BSJapanext': '#bsjapanext',
             'BSよしもと': '#bsyoshimoto',
+            'AT-X': '#at_x',
         };
         const result = Object.keys(channel_list).find(key => channel_name.startsWith(key));
         return result ? channel_list[result] : null;

@@ -102,7 +102,6 @@
                 <label class="settings__item-heading" for="auto_add_watching_channel_hashtag">視聴中のチャンネルに対応する局タグを自動で追加する</label>
                 <label class="settings__item-label" for="auto_add_watching_channel_hashtag">
                     この設定をオンにすると、視聴中のチャンネルに対応する局タグ (#nhk, #tokyomx など) がハッシュタグフォームに自動で追加されます。<br>
-                    現時点で、局タグは三大首都圏の地上波・BS の一部チャンネル・AT-X にのみ対応しています。<br>
                     なお、ビデオをみるときは視聴中のチャンネルに対応する局タグは追加されません。<br>
                 </label>
                 <v-switch class="settings__item-switch" id="auto_add_watching_channel_hashtag" inset hide-details
