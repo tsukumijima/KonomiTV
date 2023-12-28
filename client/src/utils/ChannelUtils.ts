@@ -57,83 +57,195 @@ export class ChannelUtils {
 
     /**
      * チャンネル名から対応する局タグを取得する
-     * とりあえず三大首都圏 + BS のみ対応
      * @param channel_name チャンネル名
      * @returns 局タグ (一致するものがない場合は null)
      */
     static getChannelHashtag(channel_name: string): string | null {
-        // NHK
-        if (channel_name.startsWith('NHK総合')) {
-            return '#nhk';
-        } else if (channel_name.startsWith('NHKEテレ')) {
-            return '#etv';
-        // 民放
-        } else if (channel_name.startsWith('日テレ')) {
-            return '#ntv';
-        } else if (channel_name.startsWith('読売テレビ')) {
-            return '#ytv';
-        } else if (channel_name.startsWith('中京テレビ')) {
-            return '#chukyotv';
-        } else if (channel_name.startsWith('テレビ朝日')) {
-            return '#tvasahi';
-        } else if (channel_name.startsWith('ABCテレビ')) {
-            return '#abc';
-        } else if (channel_name.startsWith('メ~テレ') || channel_name.startsWith('メ〜テレ')) {
-            return '#nagoyatv';
-        } else if (channel_name.startsWith('TBS') && !channel_name.includes('TBSチャンネル')) {
-            return '#tbs';
-        } else if (channel_name.startsWith('MBS')) {
-            return '#mbs';
-        } else if (channel_name.startsWith('CBC')) {
-            return '#cbc';
-        } else if (channel_name.startsWith('テレビ東京')) {
-            return '#tvtokyo';
-        } else if (channel_name.startsWith('テレビ大阪')) {
-            return '#tvo';
-        } else if (channel_name.startsWith('テレビ愛知')) {
-            return '#tva';
-        } else if (channel_name.startsWith('フジテレビ')) {
-            return '#fujitv';
-        } else if (channel_name.startsWith('関西テレビ')) {
-            return '#kantele';
-        } else if (channel_name.startsWith('東海テレビ')) {
-            return '#tokaitv';
-        // 独立局
-        } else if (channel_name.startsWith('TOKYO MX')) {
-            return '#tokyomx';
-        } else if (channel_name.startsWith('tvk')) {
-            return '#tvk';
-        } else if (channel_name.startsWith('チバテレ')) {
-            return '#chibatv';
-        } else if (channel_name.startsWith('テレ玉')) {
-            return '#teletama';
-        } else if (channel_name.startsWith('サンテレビ')) {
-            return '#suntv';
-        } else if (channel_name.startsWith('KBS京都')) {
-            return '#kbs';
-        // BS・CS
-        } else if (channel_name.startsWith('NHKBS1')) {
-            return '#nhkbs1';
-        } else if (channel_name.startsWith('NHKBSプレミアム')) {
-            return '#nhkbsp';
-        } else if (channel_name.startsWith('BS日テレ')) {
-            return '#bsntv';
-        } else if (channel_name.startsWith('BS朝日')) {
-            return '#bsasahi';
-        } else if (channel_name.startsWith('BS-TBS')) {
-            return '#bstbs';
-        } else if (channel_name.startsWith('BSテレ東')) {
-            return '#bstvtokyo';
-        } else if (channel_name.startsWith('BSフジ')) {
-            return '#bsfuji';
-        } else if (channel_name.startsWith('BS11イレブン')) {
-            return '#bs11';
-        } else if (channel_name.startsWith('BS12トゥエルビ')) {
-            return '#bs12';
-        } else if (channel_name.startsWith('AT-X')) {
-            return '#at_x';
-        }
-
-        return null;
+        const channel_list = {
+            // NHK
+            'NHK総合': '#nhk',
+            'NHKEテレ': '#etv',
+            // 民放
+            // 北海道
+            'HBC': '#hbc',
+            '札幌テレビ': '#stv',
+            'HTB': '#htv',
+            'TVh': '#tvh',
+            '北海道文化放送': '#uhb',
+            // 青森
+            'RAB青森放送': '#rab',
+            '青森朝日放送': '#aba',
+            'ATV青森テレビ': '#atv',
+            // 岩手
+            'テレビ岩手': '#tvi',
+            '岩手朝日テレビ': '#iat',
+            'IBCテレビ': '#ibc',
+            'めんこいテレビ': '#mit',
+            // 宮城
+            'TBCテレビ': '#tbc',
+            'ミヤギテレビ': '#mmt',
+            '東日本放送': '#khb',
+            '仙台放送': '#oxtv',
+            // 秋田
+            'ABS秋田放送': '#abs',
+            '秋田朝日放送': '#aab',
+            'AKT秋田テレビ': '#akt',
+            // 山形
+            '山形放送': '#ybc',
+            '山形テレビ': '#yts',
+            'TUY': '#tuy',
+            'さくらんぼテレビ': '#say',
+            // 福島
+            '福島中央テレビ': '#fct',
+            'KFB福島放送': '#kfb',
+            'テレビユー福島': '#tuf',
+            'FTV福島テレビ': '#ftv',
+            // 新潟
+            'TeNY': '#TeNY',
+            '新潟テレビ21': '#uxtv',
+            'BSN': '#bsn',
+            'NST': '#nst',
+            // 富山
+            'KNBテレビ': '#knb',
+            'チューリップテレビ': '#tut',
+            '富山テレビ放送': '#toyamatv',
+            // 石川
+            'テレビ金沢': '#tv_kanazawa',
+            'HAB': '#hab',
+            'MRO': '#mro',
+            '石川テレビ': '#ishikawatv',
+            // 福井
+            '福井放送': '#fbc',
+            '福井テレビ': '#fukuitv',
+            // 山梨
+            '山梨放送': '#ybs',
+            'UTYテレビ山梨': '#uty',
+            // 長野
+            'テレビ信州': '#tsb',
+            '長野朝日放送': '#abn',
+            'SBC信越放送': '#sbc',
+            '長野放送': '#nbs',
+            // 静岡
+            'Daiichi-TV': '#sdt',
+            '静岡朝日テレビ': '#satv',
+            'SBS': '#sbs',
+            'テレビ静岡': '#sut',
+            // 三重
+            '三重テレビ': '#mietv',
+            // 岐阜
+            'ぎふチャン': '#gifuchan',
+            // 滋賀
+            'BBCびわ湖放送': '#BBC_biwako',
+            // 奈良
+            '奈良テレビ': '#tvn',
+            // 和歌山
+            'WTV': '#telewaka',
+            // 岡山香川
+            'RNC西日本テレビ': '#rnc',
+            '瀬戸内海放送': '#ksb',
+            'RSKテレビ': '#rsk',
+            'TSCテレビせとうち': '#tvsetouchi',
+            'OHK': '#ohk',
+            // 広島
+            'RCCテレビ': '#rcc',
+            '広島テレビ': '#htv',
+            '広島ホームテレビ': '#hometv',
+            'テレビ新広島': '#tss',
+            // 鳥取島根
+            '日本海テレビ': '#nkt',
+            'BSSテレビ': '#bss',
+            'さんいん中央テレビ': '#tsk',
+            // 山口
+            'tysテレビ山口': '#tys',
+            '山口放送': '#kry',
+            'yab山口朝日': '#yab',
+            // 徳島
+            '四国放送': '#jrt',
+            // 高知
+            '高知放送': '#rkc',
+            'テレビ高知': '#kutv',
+            '高知さんさんテレビ': '#kss',
+            // 愛媛
+            '南海放送': '#rnb',
+            '愛媛朝日テレビ': '#eat',
+            'あいテレビ': '#itv',
+            'テレビ愛媛': '#ebc',
+            // 福岡
+            'KBCテレビ': '#kbc',
+            'RKB毎日放送': '#rkb',
+            'FBS福岡放送': '#fbs',
+            'TVQ九州放送': '#tvq',
+            'テレビ西日本': '#tnc',
+            // 佐賀
+            'STSサガテレビ': '#sagatv',
+            // 長崎
+            'NBC長崎放送': '#nbc',
+            '長崎国際テレビ': '#nib',
+            'NCC長崎文化放送': '#ncc',
+            'テレビ長崎': '#ktn',
+            // 熊本
+            'RKK熊本放送': '#rkk',
+            'くまもと県民': '#kkt',
+            'KAB熊本朝日放送': '#kab',
+            'テレビ熊本': '#tku',
+            // 大分
+            'OBS大分放送': '#obs',
+            'TOSテレビ大分': '#tos',
+            'OAB大分朝日放送': '#oab',
+            // 宮崎
+            'MRT宮崎放送': '#mrt',
+            'テレビ宮崎': '#umk',
+            // 鹿児島
+            'MBC南日本放送': '#mbc',
+            '鹿児島讀賣テレビ': '#kyt',
+            'KKB鹿児島放送': '#kkb',
+            '鹿児島テレビ放送': '#kts',
+            // 沖縄
+            'RBCテレビ': '#rbc',
+            '琉球朝日放送': '#qab',
+            '沖縄テレビ': '#otv',
+            // 三大首都圏
+            '日テレ': '#ntv',
+            '読売テレビ': '#ytv',
+            '中京テレビ': '#chukyotv',
+            'テレビ朝日': '#tvasahi',
+            'ABCテレビ': '#abc',
+            'メ~テレ': '#nagoyatv', 'メ〜テレ': '#nagoyatv',
+            'TBSチャンネル': null, 'TBS': '#tbs',
+            'MBS': '#mbs',
+            'CBC': '#cbc',
+            'テレビ東京': '#tvtokyo',
+            'テレビ大阪': '#tvo',
+            'テレビ愛知': '#tva',
+            'フジテレビ': '#fujitv',
+            '関西テレビ': '#kantele',
+            '東海テレビ': '#tokaitv',
+            // 独立局
+            'TOKYO MX': '#tokyomx',
+            'tvk': '#tvk',
+            'チバテレ': '#chibatv',
+            'テレ玉': '#teletama',
+            '群馬テレビ': '#gtv',
+            'とちぎテレビ': '#tochitere',
+            'サンテレビ': '#suntv',
+            'KBS京都': '#kbs',
+            // BS・CS
+            'NHKBS1': '#nhkbs1',
+            'NHKBS': '#nhkbs',
+            'NHKBSプレミアム': '#nhkbsp',
+            'BS日テレ': '#bsntv',
+            'BS朝日': '#bsasahi',
+            'BS-TBS': '#bstbs',
+            'BSテレ東': '#bstvtokyo',
+            'BSフジ': '#bsfuji',
+            'BS11イレブン': '#bs11',
+            'BS12トゥエルビ': '#bs12',
+            'AT-X': '#at_x',
+            'BS松竹東急': '#bs260ch',
+            'BSJapanext': '#bsjapanext',
+            'BSよしもと': '#bsyoshimoto',
+        };
+        const result = Object.keys(channel_list).find(key => channel_name.startsWith(key));
+        return result ? channel_list[result] : null;
     }
 }
