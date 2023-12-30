@@ -1,8 +1,8 @@
 
 import * as Comlink from 'comlink';
 import DPlayer from 'dplayer';
-import { BMLBrowser, BMLBrowserFontFace } from 'web-bml/client/bml_browser';
-import { AribKeyCode } from 'web-bml/client/content';
+import { BMLBrowser, BMLBrowserFontFace } from 'web-bml';
+import { AribKeyCode } from 'web-bml';
 
 import router from '@/router';
 import PlayerManager from '@/services/player/PlayerManager';

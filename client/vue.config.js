@@ -22,32 +22,6 @@ module.exports = {
         }
     },
     // Webpack の設定
-    // web-bml の動作に必要
-    // ref: https://github.com/tsukumijima/web-bml/blob/master/webpack.config.js
-    configureWebpack: {
-        plugins: [
-            new webpack.ProvidePlugin({
-                acorn: path.resolve(__dirname, 'node_modules/web-bml/JS-Interpreter/acorn.js'),
-                Buffer: ['buffer', 'Buffer'],
-                process: 'process/browser',
-            }),
-        ],
-        resolve: {
-            extensions: ['.ts', '.js'],
-            fallback: {
-                fs: false,
-                path: false,
-                url: false,
-                vm: false,
-                assert: require.resolve('assert'),
-                Buffer: require.resolve('buffer'),
-                process: require.resolve('process/browser'),
-                stream: require.resolve('stream-browserify'),
-                util: require.resolve('util'),
-                zlib: require.resolve('browserify-zlib'),
-            }
-        }
-    },
     chainWebpack: (config) => {
         if (process.env.NODE_ENV === 'development') {
             // 開発時は Minify を行わない

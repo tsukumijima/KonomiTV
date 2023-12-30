@@ -4,8 +4,8 @@ import { Buffer } from 'buffer';
 import { TsChar, TsDate } from '@tsukumijima/aribts';
 import { EIT } from '@tsukumijima/aribts/lib/table/eit';
 import * as Comlink from 'comlink';
-import { decodeTS } from 'web-bml/server/decode_ts';
-import { ResponseMessage } from 'web-bml/server/ws_api';
+import { decodeTS } from 'web-bml';
+import { ResponseMessage } from 'web-bml';
 
 import { ILiveChannel } from '@/services/Channels';
 import { IProgram, IProgramPF, IProgramDefault } from '@/services/Programs';
@@ -243,7 +243,7 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
         }
 
         // IProgram の生成に必要な記述子を取得
-        const descriptors: any[] = event.descriptors;
+        const descriptors = event.descriptors;
         const short_event_descriptor = descriptors.find(d => d.descriptor_tag === 0x4D) ?? null;  // 短形式イベント記述子
         const extended_event_descriptors = descriptors.filter(d => d.descriptor_tag === 0x4E);  // 拡張形式イベント記述子 (これのみ複数必要)
         const content_descriptor = descriptors.find(d => d.descriptor_tag === 0x54) ?? null;  // コンテント記述子

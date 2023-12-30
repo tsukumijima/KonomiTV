@@ -13,6 +13,7 @@
     "dependencies": {
         "@github/mini-throttle": "^2.1.1",
         "@mdi/font": "^6.9.96",
+        "@tsukumijima/aribts": "github:tsukumijima/node-aribts#v1.5.1",
         "assert": "^2.1.0",
         "axios": "^1.6.1",
         "buffer": "^6.0.3",
@@ -36,11 +37,12 @@
         "vue-virtual-scroller": "^1.1.2",
         "vuedraggable": "^2.24.3",
         "vuetify": "^2.7.1",
-        "web-bml": "github:tsukumijima/web-bml#dc77635cd61222d0d01d92d8ca6401b047421977"
+        "web-bml": "github:tsukumijima/web-bml#eb5c5aad330f9e2253c01d5d5ec93ebf1c508411"
     },
     "devDependencies": {
         "@iconify/vue2": "^2.1.0",
         "@types/offscreencanvas": "^2019.7.3",
+        "@types/readable-stream": "^4.0.10",
         "@types/resize-observer-browser": "^0.1.10",
         "@types/wicg-mediasession": "^1.1.7",
         "@typescript-eslint/eslint-plugin": "^6.11.0",
