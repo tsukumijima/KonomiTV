@@ -171,6 +171,7 @@ export default defineComponent({
             display: flex;
             align-items: center;
             justify-content: center;
+            flex-shrink: 0;
             width: 35px;
             height: 40px;
             margin-left: auto;
@@ -183,6 +184,7 @@ export default defineComponent({
             display: flex;
             align-items: center;
             justify-content: center;
+            flex-shrink: 0;
             width: 35px;
             height: 40px;
             margin-left: 4px;
