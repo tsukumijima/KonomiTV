@@ -1317,6 +1317,20 @@ docs = ["furo", "olefile", "sphinx (>=2.4)", "sphinx-copybutton", "sphinx-inline
 tests = ["check-manifest", "coverage", "defusedxml", "markdown2", "olefile", "packaging", "pyroma", "pytest", "pytest-cov", "pytest-timeout"]
 
 [[package]]
+name = "ping3"
+version = "4.0.4"
+description = "A pure python3 version of ICMP ping implementation using raw socket."
+optional = false
+python-versions = ">=3"
+files = [
+    {file = "ping3-4.0.4-py3-none-any.whl", hash = "sha256:dd8439ced69d6fec5885c8d4faefb055aacffb5a20f5e38a78459a5b18cc5e5a"},
+    {file = "ping3-4.0.4.tar.gz", hash = "sha256:1ea12acf6752d4666616341fd7c6393c664cffc510c693ef06f736fb267a13ba"},
+]
+
+[package.extras]
+dev = ["build", "pycodestyle", "wheel"]
+
+[[package]]
 name = "psutil"
 version = "5.9.6"
 description = "Cross-platform lib for process and system monitoring in Python."
@@ -2767,5 +2781,5 @@ multidict = ">=4.0"
 
 [metadata]
 lock-version = "2.0"
-python-versions = "3.11.*"
-content-hash = "0af9ad0fe8ee33fb5b833db1901bdfd1c6a400356859f311e901319eb8bd3806"
+python-versions = ">=3.11,<3.12"
+content-hash = "37fba2aa2abdcdd618ce4d2ed03331e1b505c8352a9a6d88bc42c692b2176c21"

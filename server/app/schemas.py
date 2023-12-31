@@ -215,6 +215,11 @@ class JikkyoSession(BaseModel):
     audience_token: str | None = None
     detail: str
 
+class DataBroadcastingInternetStatus(BaseModel):
+    success: bool
+    ip_address: str | None
+    response_time_milliseconds: int | None
+
 class LiveStreamStatus(BaseModel):
     status: Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart']
     detail: str

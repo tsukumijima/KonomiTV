@@ -17,10 +17,10 @@ from app.config import LoadConfig
 from app.constants import CLIENT_DIR, DATABASE_CONFIG, QUALITY, VERSION
 from app.models.Channel import Channel
 from app.models.Program import Program
-from app.models.RecordedVideo import RecordedVideo
 from app.models.TwitterAccount import TwitterAccount
 from app.routers import CapturesRouter
 from app.routers import ChannelsRouter
+from app.routers import DataBroadcastingRouter
 from app.routers import LiveStreamsRouter
 from app.routers import MaintenanceRouter
 from app.routers import NiconicoRouter
@@ -73,6 +73,7 @@ app.include_router(SeriesRouter.router)
 app.include_router(LiveStreamsRouter.router)
 app.include_router(VideoStreamsRouter.router)
 app.include_router(CapturesRouter.router)
+app.include_router(DataBroadcastingRouter.router)
 app.include_router(NiconicoRouter.router)
 app.include_router(TwitterRouter.router)
 app.include_router(UsersRouter.router)
