@@ -178,7 +178,7 @@ async def Startup():
     async def run():
         # サーバーの起動完了を待ってから実行する
         await asyncio.sleep(0.1)
-        await RecordedVideo.update()
+        # await RecordedVideo.update()
     asyncio.create_task(run())
 
 # サーバー設定で指定された時間 (デフォルト: 15分) ごとに1回、チャンネル情報と番組情報を更新する
