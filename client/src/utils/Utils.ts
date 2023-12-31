@@ -1,4 +1,7 @@
 
+import { AxiosResponseHeaders, RawAxiosResponseHeaders } from 'axios';
+
+
 /**
  * 共通ユーティリティ
  */
@@ -75,6 +78,22 @@ export default class Utils {
      */
     static CtrlOrCmd(): 'Ctrl' | 'Cmd' {
         return Utils.isMacOS() ? 'Cmd' : 'Ctrl';
+    }
+
+
+    /**
+     * Axios のレスポンスヘッダを Headers (fetch) に変換する
+     * @param headers Axios のレスポンスヘッダ
+     * @returns Headers (fetch) オブジェクト
+     */
+    static convertAxiosHeadersToFetchHeaders(headers: RawAxiosResponseHeaders | AxiosResponseHeaders): Headers {
+        const fetchHeaders = new Headers();
+        for (const key in headers) {
+            if (Object.prototype.hasOwnProperty.call(headers, key)) {
+                fetchHeaders.append(key, headers[key] as string);
+            }
+        }
+        return fetchHeaders;
     }
 
 

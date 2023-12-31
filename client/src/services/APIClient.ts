@@ -4,7 +4,7 @@
  * API レスポンスの受け取りと、エラーが発生した際のエラーハンドリング (エラーメッセージ表示) までを責務として負う
  */
 
-import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosError, AxiosRequestConfig, AxiosResponse, AxiosResponseHeaders, RawAxiosResponseHeaders } from 'axios';
 
 import Message from '@/message';
 import useUserStore from '@/stores/UserStore';
@@ -15,6 +15,7 @@ import Utils from '@/utils';
 export interface ISuccessResponse<T> {
     type: 'success';
     status: number;
+    headers: RawAxiosResponseHeaders | AxiosResponseHeaders;
     data: T;
 }
 
@@ -22,6 +23,7 @@ export interface ISuccessResponse<T> {
 export interface IErrorResponse {
     type: 'error';
     status: number;
+    headers: RawAxiosResponseHeaders | AxiosResponseHeaders;
     data: IErrorResponseData;
     error: AxiosError<IErrorResponseData>;
 }
@@ -101,6 +103,7 @@ class APIClient {
                 return {
                     type: 'error',
                     status: result.response.status,
+                    headers: result.response.headers,
                     data: result.response.data,  // data には IErrorResponseData が入る
                     error: result,  // AxiosError をそのまま入れる
                 };
@@ -110,6 +113,7 @@ class APIClient {
                 return {
                     type: 'error',
                     status: NaN,  // ステータスコードは取得できないので NaN にする
+                    headers: {},  // ヘッダーも取得できないので空のオブジェクトにする
                     data: {detail: result.message},  // data.detail に AxiosError のエラーメッセージを入れる
                     error: result,  // AxiosError をそのまま入れる
                 };
@@ -119,6 +123,7 @@ class APIClient {
         } else {
             return {
                 type: 'success',
+                headers: result.headers,
                 status: result.status,
                 data: result.data,
             };
