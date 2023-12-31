@@ -3,7 +3,7 @@
         "target": "ES2022",
         "module": "ESNext",
         "baseUrl": ".",
-        "moduleResolution": "Node",  // Bundler だと謎のエラーが出る…
+        "moduleResolution": "Bundler",  // Bundler にしないと package.json の exports フィールドが考慮されない (web-bml で必要)
         "incremental": true,  // 差分ビルドを有効化 (差分情報は .tsbuildinfo に保存される)
         "sourceMap": true,  // ソースマップを出力
         "removeComments": false,  // ビルド後にコメントを残す
@@ -27,6 +27,7 @@
             "vuetify",
             "vuetify2-component-types",
             "webpack-env",
+            "w3c-screen-orientation",
             "wicg-mediasession",
         ],
         "paths": {

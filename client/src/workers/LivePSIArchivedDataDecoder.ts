@@ -4,8 +4,7 @@ import { Buffer } from 'buffer';
 import { TsChar, TsDate } from '@tsukumijima/aribts';
 import { EIT } from '@tsukumijima/aribts/lib/table/eit';
 import * as Comlink from 'comlink';
-import { decodeTS } from 'web-bml';
-import { ResponseMessage } from 'web-bml';
+import { decodeTS, ResponseMessage } from 'web-bml/worker';
 
 import { ILiveChannel } from '@/services/Channels';
 import { IProgram, IProgramPF, IProgramDefault } from '@/services/Programs';
