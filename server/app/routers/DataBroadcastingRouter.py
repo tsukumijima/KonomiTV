@@ -58,7 +58,8 @@ async def BMLBrowserRequestGETProxyAPI(
         if key.lower() in allowed_request_headers:
             headers[key] = value
 
-    async with httpx.AsyncClient(follow_redirects=True) as client:
+    # データ放送からアクセスされるサイトは HTTPS の場合でも証明書が切れていることが日常茶飯事なので、証明書の検証を行わない
+    async with httpx.AsyncClient(follow_redirects=True, verify=False) as client:
         response = await client.get(request_url, headers=headers)
 
     allowed_response_headers = [
@@ -116,7 +117,8 @@ async def BMLBrowserRequestPOSTProxyAPI(
         'Content-Length': str(len(body)),
     }
 
-    async with httpx.AsyncClient(follow_redirects=True) as client:
+    # データ放送からアクセスされるサイトは HTTPS の場合でも証明書が切れていることが日常茶飯事なので、証明書の検証を行わない
+    async with httpx.AsyncClient(follow_redirects=True, verify=False) as client:
         response = await client.post(request_url, content=body, headers=headers)
 
     allowed_response_headers = [
