@@ -33,6 +33,7 @@ export interface IClientSettings {
     tv_show_superimpose: boolean;
     video_show_superimpose: boolean;
     // tv_show_data_broadcasting: 同期無効
+    // enable_internet_access_from_data_broadcasting: 同期無効
     // capture_copy_to_clipboard: 同期無効
     capture_save_mode: 'Browser' | 'UploadServer' | 'Both';
     capture_caption_mode: 'VideoOnly' | 'CompositingCaption' | 'Both';

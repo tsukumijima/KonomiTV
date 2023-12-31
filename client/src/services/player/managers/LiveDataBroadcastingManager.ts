@@ -233,10 +233,19 @@ class LiveDataBroadcastingManager implements PlayerManager {
                         // 1: IP 接続は自動接続によって確立している
                         // 2: IP 接続は connectPPP() / connectPPPWithISPParams() により確立している
                         // NaN 失敗
-                        return 1;
+                        if (useSettingsStore().settings.enable_internet_access_from_data_broadcasting === true) {
+                            return 1;
+                        } else {
+                            return 0;
+                        }
                     },
                     // サーバー側のプロキシ API 経由で HTTP GET リクエストを送信し、レスポンスを受け取る
                     async get(uri: string) {
+                        // データ放送からのインターネットアクセスが無効なときは何もしない
+                        if (useSettingsStore().settings.enable_internet_access_from_data_broadcasting === false) {
+                            return {};
+                        }
+                        // サーバー側のプロキシ API 経由で HTTP GET リクエストを送信する
                         const response = await APIClient.get<ArrayBuffer>(`/data-broadcasting/request/${uri}`, {
                             // レスポンスを ArrayBuffer として受け取る
                             responseType: 'arraybuffer',
@@ -256,6 +265,15 @@ class LiveDataBroadcastingManager implements PlayerManager {
                     },
                     // サーバー側のプロキシ API 経由で HTTP POST リクエストを送信し、レスポンスを受け取る
                     async transmitTextDataOverIP(uri: string, body: Uint8Array) {
+                        // データ放送からのインターネットアクセスが無効なときは何もしない
+                        if (useSettingsStore().settings.enable_internet_access_from_data_broadcasting === false) {
+                            return {
+                                resultCode: NaN,
+                                statusCode: '',
+                                response: new Uint8Array(),
+                            };
+                        }
+                        // サーバー側のプロキシ API 経由で HTTP POST リクエストを送信する
                         const response = await APIClient.post<ArrayBuffer>(`/data-broadcasting/request/${uri}`, body, {
                             // バイナリをそのまま送信する
                             headers: {'Content-Type': 'application/octet-stream'},
@@ -282,6 +300,10 @@ class LiveDataBroadcastingManager implements PlayerManager {
                     },
                     // サーバー側のプロキシ API 経由でインターネット接続状態を確認する
                     async confirmIPNetwork(destination: string, isICMP: boolean, timeoutMillis: number) {
+                        // データ放送からのインターネットアクセスが無効なときは何もしない
+                        if (useSettingsStore().settings.enable_internet_access_from_data_broadcasting === false) {
+                            return null;
+                        }
                         interface DataBroadcastingInternetStatus {
                             success: boolean;
                             ip_address: string | null;

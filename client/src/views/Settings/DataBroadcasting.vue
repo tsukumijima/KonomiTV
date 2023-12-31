@@ -24,6 +24,21 @@
                     v-model="settingsStore.settings.tv_show_data_broadcasting">
                 </v-switch>
             </div>
+            <div class="settings__item settings__item--switch settings__item--sync-disabled">
+                <label class="settings__item-heading" for="enable_internet_access_from_data_broadcasting">データ放送からのインターネットアクセスを有効にする</label>
+                <label class="settings__item-label" for="enable_internet_access_from_data_broadcasting">
+                    この設定をオンにすると、データ放送機能を利用する際に、データ放送からインターネットにアクセスできるようになります。<br>
+                    たとえば紅白歌合戦の視聴者投票をはじめとした双方向番組に参加したり、ネット接続時限定のミニゲームが遊べるようになります。<br>
+                </label>
+                <label class="settings__item-label" for="enable_internet_access_from_data_broadcasting">
+                    その一方で、<b>データ放送からのインターネットアクセスが有効な場合、あなたの視聴データがテレビ局に送信されることがあります。</b><br>
+                    大半のチャンネルでは個別に視聴データの送信を無効化できますが、依然プライバシー上の問題が残ります。
+                    通常はオフにしておき、双方向コンテンツを使うときだけオンにすることをおすすめします。<br>
+                </label>
+                <v-switch class="settings__item-switch" id="enable_internet_access_from_data_broadcasting" inset hide-details
+                    v-model="settingsStore.settings.enable_internet_access_from_data_broadcasting">
+                </v-switch>
+            </div>
             <v-divider class="mt-6"></v-divider>
             <v-form class="settings__item settings__item--sync-disabled" ref="data_broadcasting_zip_code" @submit.prevent>
                 <label class="settings__item-heading">お住まいの郵便番号</label>

@@ -38,6 +38,7 @@ interface ILocalClientSettings {
     tv_show_superimpose: boolean;
     video_show_superimpose: boolean;
     tv_show_data_broadcasting: boolean;
+    enable_internet_access_from_data_broadcasting: boolean;
     capture_copy_to_clipboard: boolean;
     capture_save_mode: 'Browser' | 'UploadServer' | 'Both';
     capture_caption_mode: 'VideoOnly' | 'CompositingCaption' | 'Both';
@@ -90,6 +91,7 @@ const sync_settings_keys = [
     'tv_show_superimpose',
     'video_show_superimpose',
     // tv_show_data_broadcasting: 同期無効
+    // enable_internet_access_from_data_broadcasting: 同期無効
     // capture_copy_to_clipboard: 同期無効
     'capture_save_mode',
     'capture_caption_mode',
@@ -181,6 +183,9 @@ const default_settings: ILocalClientSettings = {
 
     // テレビをみるときにデータ放送を表示する (Default: 表示する) (同期無効)
     tv_show_data_broadcasting: true,
+
+    // データ放送からのインターネットアクセスを有効にする (Default: 無効) (同期無効)
+    enable_internet_access_from_data_broadcasting: false,
 
     // ***** 設定 → キャプチャ *****
 
