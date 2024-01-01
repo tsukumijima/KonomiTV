@@ -89,7 +89,7 @@ class TwitterAccount(models.Model):
         tweepy の認証ハンドラーを取得する
 
         Returns:
-            zCookieSessionUserHandler: tweepy の認証ハンドラー
+            CookieSessionUserHandler: tweepy の認証ハンドラー (Cookie セッション)
         """
 
         # パスワード認証 (Cookie セッション) の場合

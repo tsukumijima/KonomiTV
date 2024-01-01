@@ -1,18 +1,17 @@
 
 import httpx
 import json
-import tweepy
-from tweepy_authlib import CookieSessionUserHandler
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 from app import schemas
+from app.models.TwitterAccount import TwitterAccount
 from app.utils import Logging
 
 
 class TwitterGraphQLAPI:
     """
-    Twitter Web App の GraphQL API への薄いラッパー
-    外部ライブラリを使うより自前で書いたほうが柔軟に対応できると考え実装した
+    Twitter Web App で利用されている GraphQL API の薄いラッパー
+    外部ライブラリを使うよりすべて自前で書いたほうが柔軟に対応でき凍結リスクを回避できると考え実装した
     以下に実装されているリクエストペイロードなどはすべて実装時点の Twitter Web App が実際に送信するリクエストを可能な限り模倣したもの
     メソッド名は GraphQL API でのエンドポイント名に対応している
     """
@@ -43,25 +42,31 @@ class TwitterGraphQLAPI:
     }
 
 
-    def __init__(self, tweepy_api: tweepy.API) -> None:
+    def __init__(self, twitter_account: TwitterAccount) -> None:
         """
         TwitterAPI クライアントを初期化する
-        渡す tweepy.API インスタンスは TwitterAccount.getTweepyAPI() から取得したものでなければならない
 
         Args:
-            tweepy_api (tweepy.API): tweepy.API インスタンス
+            twitter_accounts: Twitter アカウントのモデル
         """
 
-        self.tweepy_api = tweepy_api
-
-        # httpx の非同期 HTTP クライアントのインスタンスを作成
-        ## 可能な限り Chrome からのリクエストに偽装するため、HTTP/1.1 ではなく明示的に HTTP/2 で接続する
-        self.httpx_client = httpx.AsyncClient(http2=True)
+        self.twitter_account = twitter_account
 
         # Chrome への偽装用 HTTP リクエストヘッダーと Cookie を取得
-        self.cookie_session_user_handler = cast(CookieSessionUserHandler, tweepy_api.auth)
-        self.cookies_dict = self.cookie_session_user_handler.get_cookies_as_dict()
-        self.headers_dict = self.cookie_session_user_handler.get_graphql_api_headers()
+        cookie_session_user_handler = self.twitter_account.getTweepyAuthHandler()
+        headers_dict = cookie_session_user_handler.get_graphql_api_headers()
+        cookies_dict = cookie_session_user_handler.get_cookies_as_dict()
+
+        # httpx の非同期 HTTP クライアントのインスタンスを作成
+        self.httpx_client = httpx.AsyncClient(
+            ## リクエストヘッダーと Cookie を設定
+            headers = headers_dict,
+            cookies = cookies_dict,
+            ## リダイレクトを追跡する
+            follow_redirects = True,
+            ## 可能な限り Chrome からのリクエストに偽装するため、HTTP/1.1 ではなく明示的に HTTP/2 で接続する
+            http2 = True,
+        )
 
 
     async def invokeGraphQLAPI(self,
@@ -95,26 +100,20 @@ class TwitterGraphQLAPI:
                     # POST の場合はペイロードを組み立てて JSON にして渡す
                     response = await self.httpx_client.post(
                         url = f'https://twitter.com/i/api/graphql/{query_id}/{endpoint}',
-                        headers = self.headers_dict,
-                        cookies = self.cookies_dict,
                         json = {
                             'variables': variables,
                             'features': features,
                             'queryId': query_id,  # クエリ ID も JSON に含める必要がある
                         },
-                        follow_redirects = True,
                     )
                 elif method == 'GET':
                     # GET の場合は queryId はパスに、variables と features はクエリパラメータに JSON エンコードした上で渡す
                     response = await self.httpx_client.get(
                         url = f'https://twitter.com/i/api/graphql/{query_id}/{endpoint}',
-                        headers = self.headers_dict,
-                        cookies = self.cookies_dict,
                         params = {
                             'variables': json.dumps(variables, ensure_ascii=False),
                             'features': json.dumps(features, ensure_ascii=False),
                         },
-                        follow_redirects = True,
                     )
 
         # 接続エラー（サーバーメンテナンスやタイムアウトなど）
@@ -122,6 +121,12 @@ class TwitterGraphQLAPI:
             Logging.error('[TwitterAPI] Failed to connect to Twitter GraphQL API')
             # return 'Failed to connect to Twitter GraphQL API'
             return error_message_prefix + 'Twitter API に接続できませんでした。'
+
+        # この時点でリクエスト自体は成功しているはずなので、httpx のセッションが持つ Cookie を DB に反映する
+        ## 基本 API リクエストでは Cookie は更新されないはずだが、不審がられないように念のためブラウザ同様リクエストごとに永続化する
+        session_cookies_dict = dict(self.httpx_client.cookies)
+        self.twitter_account.access_token_secret = json.dumps(session_cookies_dict, ensure_ascii=False)
+        await self.twitter_account.save()
 
         # HTTP ステータスコードが 200 系以外の場合
         if not (200 <= response.status_code < 300):

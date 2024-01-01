@@ -292,7 +292,7 @@ async def TwitterAccountDeleteAPI(
 async def TwitterTweetAPI(
     tweet: str = Form('', description='ツイートの本文 (基本的には140文字までだが、プレミアムの加入状態や英数字の量に依存する) 。'),
     images: list[UploadFile] = File([], description='ツイートに添付する画像 (4枚まで) 。'),
-    twitter_account_api: tweepy.API = Depends(GetCurrentTwitterAccountAPI),
+    twitter_account: TwitterAccount = Depends(GetCurrentTwitterAccount),
 ):
     """
     Twitter にツイートを送信する。ツイート本文 or 画像のみ送信することもできる。<br>
@@ -300,6 +300,8 @@ async def TwitterTweetAPI(
 
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
+
+    tweepy_api = twitter_account.getTweepyAPI()
 
     # 画像が4枚を超えている
     if len(images) > 4:
@@ -317,7 +319,7 @@ async def TwitterTweetAPI(
         # 画像をアップロードするタスク
         image_upload_task: list[Coroutine[Any, Any, Any | None]] = []
         for image in images:
-            image_upload_task.append(asyncio.to_thread(twitter_account_api.media_upload, filename=image.filename, file=image.file))
+            image_upload_task.append(asyncio.to_thread(tweepy_api.media_upload, filename=image.filename, file=image.file))
 
         # 画像を Twitter にアップロード
         ## asyncio.gather() で同時にアップロードし、ツイートをより早く送信できるように
@@ -342,7 +344,7 @@ async def TwitterTweetAPI(
         }
 
     # GraphQL API を使ってツイートを送信し、結果をそのまま返す
-    return await TwitterGraphQLAPI(twitter_account_api).createTweet(tweet, media_ids)
+    return await TwitterGraphQLAPI(twitter_account).createTweet(tweet, media_ids)
 
 
 @router.put(
