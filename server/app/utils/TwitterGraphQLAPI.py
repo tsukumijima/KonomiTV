@@ -44,10 +44,10 @@ class TwitterGraphQLAPI:
 
     def __init__(self, twitter_account: TwitterAccount) -> None:
         """
-        TwitterAPI クライアントを初期化する
+        Twitter GraphQL API クライアントを初期化する
 
         Args:
-            twitter_accounts: Twitter アカウントのモデル
+            twitter_account: Twitter アカウントのモデル
         """
 
         self.twitter_account = twitter_account
@@ -74,7 +74,7 @@ class TwitterGraphQLAPI:
         query_id: str,
         endpoint: str,
         variables: dict[str, Any],
-        features: dict[str, bool],
+        features: dict[str, bool] | None = None,
         error_message_prefix: str = 'Twitter API の操作に失敗しました。',
     ) -> dict[str, Any] | str:
         """
@@ -86,7 +86,7 @@ class TwitterGraphQLAPI:
             query_id (str): GraphQL API のクエリ ID
             endpoint (str): GraphQL API のエンドポイント (例: CreateTweet)
             variables (dict[str, Any]): GraphQL API のクエリに渡すペイロードのうち variables 以下の部分 (基本 API に送信するパラメータのはず)
-            features (dict[str, bool]): GraphQL API のクエリに渡すペイロードのうち features 以下の部分 (頻繁に変わる謎のフラグが入る)
+            features (dict[str, bool] | None): GraphQL API のクエリに渡すペイロードのうち features 以下の部分 (頻繁に変わる謎のフラグが入る)
             error_message_prefix (str, optional): エラー発生時に付与する prefix (例: 'ツイートの送信に失敗しました。')
 
         Returns:
@@ -98,22 +98,37 @@ class TwitterGraphQLAPI:
             async with self.httpx_client:
                 if method == 'POST':
                     # POST の場合はペイロードを組み立てて JSON にして渡す
-                    response = await self.httpx_client.post(
-                        url = f'https://twitter.com/i/api/graphql/{query_id}/{endpoint}',
-                        json = {
+                    ## features が存在しない API のときは features を省略する
+                    if features is not None:
+                        payload = {
                             'variables': variables,
                             'features': features,
                             'queryId': query_id,  # クエリ ID も JSON に含める必要がある
-                        },
+                        }
+                    else:
+                        payload = {
+                            'variables': variables,
+                            'queryId': query_id,  # クエリ ID も JSON に含める必要がある
+                        }
+                    response = await self.httpx_client.post(
+                        url = f'https://twitter.com/i/api/graphql/{query_id}/{endpoint}',
+                        json = payload,
                     )
                 elif method == 'GET':
                     # GET の場合は queryId はパスに、variables と features はクエリパラメータに JSON エンコードした上で渡す
-                    response = await self.httpx_client.get(
-                        url = f'https://twitter.com/i/api/graphql/{query_id}/{endpoint}',
+                    ## features が存在しない API のときは features を省略する
+                    if features is not None:
                         params = {
                             'variables': json.dumps(variables, ensure_ascii=False),
                             'features': json.dumps(features, ensure_ascii=False),
-                        },
+                        }
+                    else:
+                        params = {
+                            'variables': json.dumps(variables, ensure_ascii=False),
+                        }
+                    response = await self.httpx_client.get(
+                        url = f'https://twitter.com/i/api/graphql/{query_id}/{endpoint}',
+                        params = params,
                     )
 
         # 接続エラー（サーバーメンテナンスやタイムアウトなど）
@@ -180,6 +195,9 @@ class TwitterGraphQLAPI:
         Args:
             tweet (str): ツイート内容
             media_ids (list[str], optional): 添付するメディアの ID のリスト (デフォルトは空リスト)
+
+        Returns:
+            schemas.TweetResult: ツイートの送信結果
         """
 
         # 画像の media_id をリストに格納 (画像がない場合は空のリストになる)
@@ -250,4 +268,146 @@ class TwitterGraphQLAPI:
             is_success = True,
             detail = 'ツイートを送信しました。',
             tweet_url = f'https://twitter.com/i/status/{tweet_id}',
+        )
+
+
+    async def createRetweet(self, tweet_id: str) -> schemas.TwitterAPIResult:
+        """
+        ツイートをリツイートする
+
+        Args:
+            tweet_id (str): リツイートするツイートの ID
+
+        Returns:
+            schemas.TwitterAPIResult: リツイートの結果
+        """
+
+        # Twitter GraphQL API にリクエスト
+        response = await self.invokeGraphQLAPI(
+            method = 'POST',
+            query_id = 'ojPdsZsimiJrUGLR1sjUtA',
+            endpoint = 'CreateRetweet',
+            variables = {
+                'tweet_id': tweet_id,
+                'dark_request': False,
+            },
+            error_message_prefix = 'リツイートに失敗しました。',
+        )
+
+        # 戻り値が str の場合、リツイートに失敗している (エラーメッセージが返ってくる)
+        if isinstance(response, str):
+            return schemas.TwitterAPIResult(
+                is_success = False,
+                detail = response,  # エラーメッセージをそのまま返す
+            )
+
+        return schemas.TwitterAPIResult(
+            is_success = True,
+            detail = 'リツイートしました。',
+        )
+
+
+    async def deleteRetweet(self, tweet_id: str) -> schemas.TwitterAPIResult:
+        """
+        ツイートのリツイートを取り消す
+
+        Args:
+            tweet_id (str): リツイートを取り消すツイートの ID
+
+        Returns:
+            schemas.TwitterAPIResult: リツイートの取り消し結果
+        """
+
+        # Twitter GraphQL API にリクエスト
+        response = await self.invokeGraphQLAPI(
+            method = 'POST',
+            query_id = 'iQtK4dl5hBmXewYZuEOKVw',
+            endpoint = 'DeleteRetweet',
+            variables = {
+                'source_tweet_id': tweet_id,
+                'dark_request': False,
+            },
+            error_message_prefix = 'リツイートの取り消しに失敗しました。',
+        )
+
+        # 戻り値が str の場合、リツイートの取り消しに失敗している (エラーメッセージが返ってくる)
+        if isinstance(response, str):
+            return schemas.TwitterAPIResult(
+                is_success = False,
+                detail = response,  # エラーメッセージをそのまま返す
+            )
+
+        return schemas.TwitterAPIResult(
+            is_success = True,
+            detail = 'リツイートを取り消ししました。',
+        )
+
+
+    async def favoriteTweet(self, tweet_id: str) -> schemas.TwitterAPIResult:
+        """
+        ツイートをいいねする
+
+        Args:
+            tweet_id (str): いいねするツイートの ID
+
+        Returns:
+            schemas.TwitterAPIResult: いいねの結果
+        """
+
+        # Twitter GraphQL API にリクエスト
+        response = await self.invokeGraphQLAPI(
+            method = 'POST',
+            query_id = 'lI07N6Otwv1PhnEgXILM7A',
+            endpoint = 'FavoriteTweet',
+            variables = {
+                'tweet_id': tweet_id,
+            },
+            error_message_prefix = 'いいねに失敗しました。',
+        )
+
+        # 戻り値が str の場合、いいねに失敗している (エラーメッセージが返ってくる)
+        if isinstance(response, str):
+            return schemas.TwitterAPIResult(
+                is_success = False,
+                detail = response,  # エラーメッセージをそのまま返す
+            )
+
+        return schemas.TwitterAPIResult(
+            is_success = True,
+            detail = 'いいねしました。',
+        )
+
+
+    async def unfavoriteTweet(self, tweet_id: str) -> schemas.TwitterAPIResult:
+        """
+        ツイートのいいねを取り消す
+
+        Args:
+            tweet_id (str): いいねを取り消すツイートの ID
+
+        Returns:
+            schemas.TwitterAPIResult: いいねの取り消し結果
+        """
+
+        # Twitter GraphQL API にリクエスト
+        response = await self.invokeGraphQLAPI(
+            method = 'POST',
+            query_id = 'ZYKSe-w7KEslx3JhSIk5LA',
+            endpoint = 'UnfavoriteTweet',
+            variables = {
+                'tweet_id': tweet_id,
+            },
+            error_message_prefix = 'いいねの取り消しに失敗しました。',
+        )
+
+        # 戻り値が str の場合、いいねの取り消しに失敗している (エラーメッセージが返ってくる)
+        if isinstance(response, str):
+            return schemas.TwitterAPIResult(
+                is_success = False,
+                detail = response,  # エラーメッセージをそのまま返す
+            )
+
+        return schemas.TwitterAPIResult(
+            is_success = True,
+            detail = 'いいねを取り消しました。',
         )

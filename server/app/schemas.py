@@ -262,9 +262,11 @@ class Tweet(BaseModel):
 class Tweets(RootModel[list[Tweet]]):
     pass
 
-class TweetResult(BaseModel):
+class TwitterAPIResult(BaseModel):
     is_success: bool
     detail: str
+
+class TweetResult(TwitterAPIResult):
     tweet_url: str | None = None
 
 class Users(RootModel[list[User]]):
