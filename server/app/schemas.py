@@ -264,8 +264,8 @@ class Tweets(RootModel[list[Tweet]]):
 
 class TweetResult(BaseModel):
     is_success: bool
-    tweet_url: str | None = None
     detail: str
+    tweet_url: str | None = None
 
 class Users(RootModel[list[User]]):
     pass

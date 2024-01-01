@@ -1,6 +1,5 @@
 
 import asyncio
-import httpx
 import json
 import re
 import tweepy
@@ -25,6 +24,7 @@ from app.models.TwitterAccount import TwitterAccount
 from app.models.User import User
 from app.routers.UsersRouter import GetCurrentUser
 from app.utils import Logging
+from app.utils.TwitterGraphQLAPI import TwitterGraphQLAPI
 
 
 # ルーター
@@ -32,32 +32,6 @@ router = APIRouter(
     tags = ['Twitter'],
     prefix = '/api/twitter',
 )
-
-
-# Twitter API のエラーメッセージの定義
-## 実際に返ってくる可能性があるものだけ
-## ref: https://developer.twitter.com/ja/docs/basics/response-codes
-error_messages = {
-    32:  'Twitter アカウントの認証に失敗しました。もう一度連携し直してください。',
-    63:  'Twitter アカウントが凍結またはロックされています。',
-    64:  'Twitter アカウントが凍結またはロックされています。',
-    88:  'Twitter API エンドポイントのレート制限を超えました。',
-    89:  'Twitter アクセストークンの有効期限が切れています。',
-    99:  'Twitter OAuth クレデンシャルの認証に失敗しました。',
-    131: 'Twitter でサーバーエラーが発生しています。',
-    135: 'Twitter アカウントの認証に失敗しました。もう一度連携し直してください。',
-    139: 'すでにいいねされています。',
-    144: 'ツイートが削除されています。',
-    179: 'フォローしていない非公開アカウントのツイートは表示できません。',
-    185: 'ツイート数の上限に達しました。',
-    186: 'ツイートが長過ぎます。',
-    187: 'ツイートが重複しています。',
-    226: 'ツイートが自動化されたスパムと判定されました。',
-    261: 'Twitter API アプリケーションが凍結されています。',
-    326: 'Twitter アカウントが一時的にロックされています。',
-    327: 'すでにリツイートされています。',
-    416: 'Twitter API アプリケーションが無効化されています。',
-}
 
 
 async def GetCurrentTwitterAccount(
@@ -90,7 +64,7 @@ def GetCurrentTwitterAccountAPI(twitter_account: TwitterAccount = Depends(GetCur
 def RaiseHTTPException(ex: tweepy.HTTPException) -> None:
     """ Twitter API のエラーコードからエラーメッセージを生成して HTTPException を発生させる """
     if len(ex.api_codes) > 0 and len(ex.api_messages) > 0:
-        error_message = f'Code: {ex.api_codes[0]}, Message: {error_messages.get(ex.api_codes[0], ex.api_messages[0])}'
+        error_message = f'Code: {ex.api_codes[0]}, Message: {TwitterGraphQLAPI.ERROR_MESSAGES.get(ex.api_codes[0], ex.api_messages[0])}'
     else:
         error_message = f'Unknown Error (HTTP Error {ex.response.status_code})'
     raise HTTPException(
@@ -227,11 +201,11 @@ async def TwitterPasswordAuthAPI(
     )
 
     # tweepy の API インスタンスを取得
-    api = twitter_account.getTweepyAPI()
+    tweepy_api = twitter_account.getTweepyAPI()
 
     # アカウント情報を更新
     try:
-        verify_credentials = await asyncio.to_thread(api.verify_credentials)
+        verify_credentials = await asyncio.to_thread(tweepy_api.verify_credentials)
     except tweepy.TweepyException:
         Logging.error('[TwitterRouter][TwitterPasswordAuthAPI] Failed to get user information')
         return HTTPException(
@@ -316,8 +290,8 @@ async def TwitterAccountDeleteAPI(
     response_model = schemas.TweetResult,
 )
 async def TwitterTweetAPI(
-    tweet: str = Form('', description='ツイートの本文（基本的には140文字まで）。'),
-    images: list[UploadFile] = File([], description='ツイートに添付する画像（4枚まで）。'),
+    tweet: str = Form('', description='ツイートの本文 (基本的には140文字までだが、プレミアムの加入状態や英数字の量に依存する) 。'),
+    images: list[UploadFile] = File([], description='ツイートに添付する画像 (4枚まで) 。'),
     twitter_account_api: tweepy.API = Depends(GetCurrentTwitterAccountAPI),
 ):
     """
@@ -349,117 +323,26 @@ async def TwitterTweetAPI(
         ## asyncio.gather() で同時にアップロードし、ツイートをより早く送信できるように
         ## ref: https://developer.twitter.com/ja/docs/media/upload-media/api-reference/post-media-upload-init
         for image_upload_result in await asyncio.gather(*image_upload_task):
-            media_ids.append(image_upload_result.media_id)
+            if image_upload_result is not None:
+                media_ids.append(str(image_upload_result.media_id))
 
-    # 送信失敗
+    # 画像のアップロードに失敗した
     except tweepy.HTTPException as ex:
-
         if len(ex.api_codes) > 0 and len(ex.api_messages) > 0:
             # 定義されていないエラーコードの時は Twitter API から返ってきたエラーメッセージをそのまま返す
-            error_message = error_messages.get(ex.api_codes[0], f'Code: {ex.api_codes[0]}, Message: {ex.api_messages[0]}')
+            error_message = 'ツイート画像のアップロードに失敗しました。' + \
+                TwitterGraphQLAPI.ERROR_MESSAGES.get(ex.api_codes[0], f'Code: {ex.api_codes[0]}, Message: {ex.api_messages[0]}')
         else:
+            error_message = f'ツイート画像のアップロード中に Twitter API から HTTP {ex.response.status_code} エラーが返されました。'
             if len(ex.api_errors) > 0:
-                error_message = f'Message: {ex.api_errors[0]} (HTTP Error {ex.response.status_code})'
-            else:
-                error_message = f'Unknown Error (HTTP Error {ex.response.status_code})'
-
+                error_message += f'Message: {ex.api_errors[0]}'  # エラーメッセージがあれば追加
         return {
             'is_success': False,
             'detail': error_message,
         }
 
-    # ツイートを送信 (GraphQL API)
-    ## 以下のリクエストペイロードなどはすべて実際に Twitter Web App が送信するリクエストを模倣したもの
-
-    # Chrome への偽装用 HTTP リクエストヘッダーと Cookie を取得
-    cookie_session_user_handler = cast(CookieSessionUserHandler, twitter_account_api.auth)
-    cookies_dict = cookie_session_user_handler.get_cookies_as_dict()
-    headers_dict = cookie_session_user_handler.get_graphql_api_headers()
-
-    # queryId: どうも API のバージョン (?) を示しているらしい謎の値で、数週間単位で変更されうる
-    query_id = '5V_dkq1jfalfiFOEZ4g47A'
-
-    # 画像の media_id をリストに格納 (画像がない場合は空のリストになる)
-    media_entities: list[dict[str, Any]] = []
-    for media_id in media_ids:
-        media_entities.append({
-            'media_id': media_id,
-            'tagged_users': []
-        })
-
-    # Twitter GraphQL API にリクエスト
-    ## 可能な限り Chrome からのリクエストに偽装するため、HTTP/1.1 ではなく明示的に HTTP/2 で接続する
-    try:
-        async with httpx.AsyncClient(http2=True) as client:
-            response = await client.post(
-                url = f'https://twitter.com/i/api/graphql/{query_id}/CreateTweet',
-                headers = headers_dict,
-                cookies = cookies_dict,
-                json = {
-                    'variables': {
-                        'tweet_text': tweet,
-                        'dark_request': False,
-                        'media': {
-                            'media_entities': media_entities,
-                            'possibly_sensitive': False,
-                        },
-                        'semantic_annotation_ids': [],
-                    },
-                    # 以下の謎のフラグも数週間単位で頻繁に変更されうるが、Twitter Web App と完全に一致していないからといって
-                    # 必ずしも動かなくなるわけではなく、queryId 同様にある程度は古い値でも動くようになっているらしい
-                    'features': {
-                        'c9s_tweet_anatomy_moderator_badge_enabled': True,
-                        'tweetypie_unmention_optimization_enabled': True,
-                        'responsive_web_edit_tweet_api_enabled': True,
-                        'graphql_is_translatable_rweb_tweet_is_translatable_enabled': True,
-                        'view_counts_everywhere_api_enabled': True,
-                        'longform_notetweets_consumption_enabled': True,
-                        'responsive_web_twitter_article_tweet_consumption_enabled': False,
-                        'tweet_awards_web_tipping_enabled': False,
-                        'responsive_web_home_pinned_timelines_enabled': True,
-                        'longform_notetweets_rich_text_read_enabled': True,
-                        'longform_notetweets_inline_media_enabled': True,
-                        'responsive_web_graphql_exclude_directive_enabled': True,
-                        'verified_phone_label_enabled': False,
-                        'freedom_of_speech_not_reach_fetch_enabled': True,
-                        'standardized_nudges_misinfo': True,
-                        'tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled': True,
-                        'responsive_web_media_download_video_enabled': False,
-                        'responsive_web_graphql_skip_user_profile_image_extensions_enabled': False,
-                        'responsive_web_graphql_timeline_navigation_enabled': True,
-                        'responsive_web_enhance_cards_enabled': False,
-                    },
-                    'queryId': query_id,
-                },
-                follow_redirects = True,
-            )
-        if response.status_code != 200:
-            return {
-                'is_success': False,
-                'detail': f'Twitter GraphQL API Error (HTTP Error {response.status_code})',
-            }
-
-    # 接続エラー（サーバーメンテナンスやタイムアウトなど）
-    except (httpx.NetworkError, httpx.TimeoutException):
-        Logging.error('[TwitterRouter][TwitterTweetAPI] Failed to connect to Twitter GraphQL API')
-        return {
-            'is_success': False,
-            'detail': 'Failed to connect to Twitter GraphQL API',
-        }
-
-    # 取得できていればツイートの ID を取得
-    tweet_id: str
-    try:
-        tweet_id = str(response.json()['data']['create_tweet']['tweet_results']['result']['rest_id'])
-    except Exception:
-        # API レスポンスが変わっているなどでツイート ID を取得できなかった
-        tweet_id = '__error__'
-
-    return {
-        'is_success': True,
-        'tweet_url': f'https://twitter.com/i/status/{tweet_id}',
-        'detail': 'ツイートを送信しました。',
-    }
+    # GraphQL API を使ってツイートを送信し、結果をそのまま返す
+    return await TwitterGraphQLAPI(twitter_account_api).createTweet(tweet, media_ids)
 
 
 @router.put(
