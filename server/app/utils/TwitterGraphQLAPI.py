@@ -29,7 +29,7 @@ class TwitterGraphQLAPI:
         131: 'Twitter でサーバーエラーが発生しています。',
         135: 'Twitter アカウントの認証に失敗しました。もう一度連携し直してください。',
         139: 'すでにいいねされています。',
-        144: 'ツイートが削除されています。',
+        144: 'ツイートが非公開かすでに削除されています。',
         179: 'フォローしていない非公開アカウントのツイートは表示できません。',
         185: 'ツイート数の上限に達しました。',
         186: 'ツイートが長過ぎます。',
@@ -38,6 +38,7 @@ class TwitterGraphQLAPI:
         261: 'Twitter API アプリケーションが凍結されています。',
         326: 'Twitter アカウントが一時的にロックされています。',
         327: 'すでにリツイートされています。',
+        328: 'このツイートではリツイートは許可されていません。',
         416: 'Twitter API アプリケーションが無効化されています。',
     }
 
@@ -171,7 +172,7 @@ class TwitterGraphQLAPI:
             response_error_message = response_json["errors"][0]["message"]
 
             # 想定外のエラーコードが返ってきた場合のエラーメッセージ
-            alternative_error_message = f'Code: {response_error_code}, Message: {response_error_message}'
+            alternative_error_message = f'Code: {response_error_code} / Message: {response_error_message}'
             Logging.error(f'[TwitterAPI] Failed to invoke GraphQL API ({alternative_error_message})')
 
             # エラーコードに対応するエラーメッセージを返し、対応するものがない場合は alternative_error_message を返す
