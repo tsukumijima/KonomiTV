@@ -13,7 +13,7 @@ from tortoise import models
 from tweepy_authlib import CookieSessionUserHandler
 from typing import TYPE_CHECKING
 
-from app.utils import Logging
+from app import logging
 
 if TYPE_CHECKING:
     from app.models.User import User
@@ -48,7 +48,7 @@ class TwitterAccount(models.Model):
         """ 登録されているすべての Twitter アカウントの情報を更新する """
 
         timestamp = time.time()
-        Logging.info('Twitter accounts updating...')
+        logging.info('Twitter accounts updating...')
 
         for twitter_account in await TwitterAccount.all():
 
@@ -81,7 +81,7 @@ class TwitterAccount(models.Model):
             # 更新したアカウント情報を保存
             await twitter_account.save()
 
-        Logging.info(f'Twitter accounts update complete. ({round(time.time() - timestamp, 3)} sec)')
+        logging.info(f'Twitter accounts update complete. ({round(time.time() - timestamp, 3)} sec)')
 
 
     def getTweepyAuthHandler(self) -> CookieSessionUserHandler:

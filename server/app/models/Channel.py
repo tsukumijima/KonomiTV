@@ -17,10 +17,10 @@ from tortoise.expressions import Q
 from typing import Any, Literal, TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
+from app import logging
 from app.config import Config
 from app.constants import API_REQUEST_HEADERS, DATABASE_CONFIG
 from app.utils import GetMirakurunAPIEndpointURL
-from app.utils import Logging
 from app.utils.EDCB import CtrlCmdUtil
 from app.utils.EDCB import EDCBUtil
 from app.utils.Jikkyo import Jikkyo
@@ -84,7 +84,7 @@ class Channel(models.Model):
         """ チャンネル情報を更新する """
 
         timestamp = time.time()
-        Logging.info('Channels updating...')
+        logging.info('Channels updating...')
 
         try:
             # Mirakurun バックエンド
@@ -97,7 +97,7 @@ class Channel(models.Model):
         except Exception:
             traceback.print_exc()
 
-        Logging.info(f'Channels update complete. ({round(time.time() - timestamp, 3)} sec)')
+        logging.info(f'Channels update complete. ({round(time.time() - timestamp, 3)} sec)')
 
 
     @classmethod
@@ -121,14 +121,14 @@ class Channel(models.Model):
                         timeout = 5,
                     )
                 if mirakurun_services_api_response.status_code != 200:  # Mirakurun からエラーが返ってきた
-                    Logging.error(f'Failed to get channels from Mirakurun. (HTTP Error {mirakurun_services_api_response.status_code})')
+                    logging.error(f'Failed to get channels from Mirakurun. (HTTP Error {mirakurun_services_api_response.status_code})')
                     raise Exception(f'Failed to get channels from Mirakurun. (HTTP Error {mirakurun_services_api_response.status_code})')
                 services = mirakurun_services_api_response.json()
             except httpx.NetworkError as ex:
-                Logging.error(f'Failed to get channels from Mirakurun. (Network Error)')
+                logging.error(f'Failed to get channels from Mirakurun. (Network Error)')
                 raise ex
             except httpx.TimeoutException as ex:
-                Logging.error(f'Failed to get channels from Mirakurun. (Connection Timeout)')
+                logging.error(f'Failed to get channels from Mirakurun. (Connection Timeout)')
                 raise ex
 
             # 同じネットワーク ID のサービスのカウント
@@ -165,7 +165,7 @@ class Channel(models.Model):
                     if unwatchable_channel is not None:
                         channel = unwatchable_channel
                         channel.is_watchable = True
-                        Logging.warning(f'Channel: {channel.name} ({channel.id}) is already registered but is_watchable = False.')
+                        logging.warning(f'Channel: {channel.name} ({channel.id}) is already registered but is_watchable = False.')
                     else:
                         channel = Channel()
                 else:
@@ -256,7 +256,7 @@ class Channel(models.Model):
                 # 枝番処理がミスらないようソートしておく
                 services.sort(key = lambda temp: temp['onid'] * 100000 + temp['sid'])
             else:
-                Logging.error('Failed to get channels from EDCB.')
+                logging.error('Failed to get channels from EDCB.')
                 raise Exception('Failed to get channels from EDCB.')
 
             # EDCB から EPG 由来のチャンネル情報を取得する
@@ -298,7 +298,7 @@ class Channel(models.Model):
                     if unwatchable_channel is not None:
                         channel = unwatchable_channel
                         channel.is_watchable = True
-                        Logging.warning(f'Channel: {channel.name} ({channel.id}) is already registered but is_watchable = False.')
+                        logging.warning(f'Channel: {channel.name} ({channel.id}) is already registered but is_watchable = False.')
                     else:
                         channel = Channel()
                 else:
@@ -381,7 +381,7 @@ class Channel(models.Model):
                     await channel.save()
                 # 既に登録されているチャンネルならスキップ
                 except IntegrityError:
-                    Logging.warning(f'Channel: {channel.name} ({channel.id}) is already registered.')
+                    logging.warning(f'Channel: {channel.name} ({channel.id}) is already registered.')
                     pass
 
             # 不要なチャンネル情報を削除する

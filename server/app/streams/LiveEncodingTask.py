@@ -14,12 +14,12 @@ from aiofiles.threadpool.text import AsyncTextIOWrapper
 from biim.mpeg2ts import ts
 from typing import AsyncIterator, cast, ClassVar, Literal, TYPE_CHECKING
 
+from app import logging
 from app.config import Config
 from app.constants import API_REQUEST_HEADERS, LIBRARY_PATH, LOGS_DIR, QUALITY, QUALITY_TYPES
 from app.models.Channel import Channel
 from app.streams.LivePSIDataArchiver import LivePSIDataArchiver
 from app.utils import GetMirakurunAPIEndpointURL
-from app.utils import Logging
 from app.utils.EDCB import EDCBTuner, PipeStreamReader
 
 if TYPE_CHECKING:
@@ -416,9 +416,9 @@ class LiveEncodingTask:
         # 現在の番組情報を取得する
         program_present = (await channel.getCurrentAndNextProgram())[0]
         if program_present is not None:
-            Logging.info(f'[Live: {self.live_stream.live_stream_id}] Title: {program_present.title}')
+            logging.info(f'[Live: {self.live_stream.live_stream_id}] Title: {program_present.title}')
         else:
-            Logging.info(f'[Live: {self.live_stream.live_stream_id}] Title: 番組情報がありません')
+            logging.info(f'[Live: {self.live_stream.live_stream_id}] Title: 番組情報がありません')
 
         # PSI/SI データアーカイバーを初期化
         ## psisiarc は API リクエストがある度に都度起動される
@@ -509,7 +509,7 @@ class LiveEncodingTask:
                 encoder_options = self.buildFFmpegOptionsForRadio()
             else:
                 encoder_options = self.buildFFmpegOptions(self.live_stream.quality, is_fullhd_channel, channel.type == 'SKY')
-            Logging.info(f'[Live: {self.live_stream.live_stream_id}] FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
+            logging.info(f'[Live: {self.live_stream.live_stream_id}] FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
             # エンコーダープロセスを非同期で作成・実行
             encoder = await asyncio.subprocess.create_subprocess_exec(
@@ -524,7 +524,7 @@ class LiveEncodingTask:
 
             # オプションを取得
             encoder_options = self.buildHWEncCOptions(self.live_stream.quality, encoder_type, is_fullhd_channel, channel.type == 'SKY')
-            Logging.info(f'[Live: {self.live_stream.live_stream_id}] {encoder_type} Commands:\n{encoder_type} {" ".join(encoder_options)}')
+            logging.info(f'[Live: {self.live_stream.live_stream_id}] {encoder_type} Commands:\n{encoder_type} {" ".join(encoder_options)}')
 
             # エンコーダープロセスを非同期で作成・実行
             encoder = await asyncio.subprocess.create_subprocess_exec(
@@ -599,7 +599,7 @@ class LiveEncodingTask:
 
             # チューナーを起動する
             # アンロック状態のチューナーインスタンスがあれば、自動的にそのチューナーが再利用される
-            Logging.debug_simple(f'[Live: {self.live_stream.live_stream_id}] EDCB NetworkTV ID: {self.live_stream.tuner.getEDCBNetworkTVID()}')
+            logging.debug_simple(f'[Live: {self.live_stream.live_stream_id}] EDCB NetworkTV ID: {self.live_stream.tuner.getEDCBNetworkTVID()}')
             self.live_stream.setStatus('Standby', 'チューナーを起動しています…')
             is_tuner_opened = await self.live_stream.tuner.open()
 
@@ -911,7 +911,7 @@ class LiveEncodingTask:
                     # ストリーム関連のログを表示
                     ## エンコーダーのログ出力が有効なら、ストリーム関連に限らずすべてのログを出力する
                     if 'Stream #0:' in line or CONFIG.general.debug_encoder is True:
-                        Logging.debug_simple(f'[Live: {self.live_stream.live_stream_id}] [{encoder_type}] ' + line)
+                        logging.debug_simple(f'[Live: {self.live_stream.live_stream_id}] [{encoder_type}] ' + line)
 
                     # エンコーダーのログ出力が有効なら、エンコーダーのログファイルに書き込む
                     if CONFIG.general.debug_encoder is True and encoder_log is not None:
@@ -967,7 +967,7 @@ class LiveEncodingTask:
                         # 直近 50 件のログを表示
                         if result is True:
                             for log in lines[-51:-1]:
-                                Logging.warning(log)
+                                logging.warning(log)
                 ## HWEncC
                 else:
                     if 'error finding stream information.' in line:
@@ -1007,7 +1007,7 @@ class LiveEncodingTask:
                         # 直近 150 件のログを表示
                         if result is True:
                             for log in lines[-151:-1]:
-                                Logging.warning(log)
+                                logging.warning(log)
 
                 # エンコードタスクが終了しているか既にエンコーダープロセスが終了していたら、タスクを終了
                 if is_running is False or tsreadex.returncode is not None or encoder.returncode is not None:
@@ -1044,7 +1044,7 @@ class LiveEncodingTask:
                         # 現在の番組のタイトルをログに出力
                         ## TODO: 番組の解像度が変わった際にエンコーダーがクラッシュorフリーズする可能性があるが、
                         ## その場合はここでエンコードタスクを再起動させる必要があるかも
-                        Logging.info(f'[Live: {self.live_stream.live_stream_id}] Title: {program_following.title}')
+                        logging.info(f'[Live: {self.live_stream.live_stream_id}] Title: {program_following.title}')
 
                     program_present = program_following
                     del program_following
@@ -1114,10 +1114,10 @@ class LiveEncodingTask:
                         if result is True:
                             if encoder_type == 'FFmpeg':
                                 for log in lines[-51:-1]:
-                                    Logging.warning(log)
+                                    logging.warning(log)
                             else:
                                 for log in lines[-151:-1]:
-                                    Logging.warning(log)
+                                    logging.warning(log)
 
                 # チューナーとの接続が切断された場合
                 ## ref: https://stackoverflow.com/a/45251241/17124142
@@ -1166,10 +1166,10 @@ class LiveEncodingTask:
                         if result is True:
                             if encoder_type == 'FFmpeg':
                                 for log in lines[-51:-1]:
-                                    Logging.warning(log)
+                                    logging.warning(log)
                             else:
                                 for log in lines[-151:-1]:
-                                    Logging.warning(log)
+                                    logging.warning(log)
 
                 # この時点で最新のライブストリームのステータスが Offline か Restart に変更されていたら、エンコードタスクの終了処理に移る
                 live_stream_status = self.live_stream.getStatus()  # 更新されているかもしれないので再取得

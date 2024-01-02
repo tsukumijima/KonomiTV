@@ -7,10 +7,10 @@ from fastapi import Query
 from fastapi import status
 from fastapi.responses import Response
 
+from app import logging
 from app.constants import QUALITY, QUALITY_TYPES
 from app.models.RecordedProgram import RecordedProgram
 from app.streams.VideoStream import VideoStream
-from app.utils import Logging
 
 
 # ルーター
@@ -26,7 +26,7 @@ async def ValidateVideoID(video_id: int = Path(..., description='録画番組の
         .select_related('recorded_video') \
         .select_related('channel')
     if recorded_program is None:
-        Logging.error(f'[VideoStreamsRouter][ValidateVideoID] Specified video_id was not found [video_id: {video_id}]')
+        logging.error(f'[VideoStreamsRouter][ValidateVideoID] Specified video_id was not found [video_id: {video_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified video_id was not found',
@@ -37,7 +37,7 @@ async def ValidateVideoID(video_id: int = Path(..., description='録画番組の
 async def ValidateQuality(quality: str = Path(..., description='映像の品質。ex:1080p')) -> QUALITY_TYPES:
     """ 映像の品質のバリデーション """
     if quality not in QUALITY:
-        Logging.error(f'[VideoStreamsRouter][ValidateQuality] Specified quality was not found [quality: {quality}]')
+        logging.error(f'[VideoStreamsRouter][ValidateQuality] Specified quality was not found [quality: {quality}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified quality was not found',

@@ -23,11 +23,11 @@ from PIL import Image
 from typing import BinaryIO
 from zoneinfo import ZoneInfo
 
+from app import logging
 from app import schemas
 from app.constants import ACCOUNT_ICON_DIR, ACCOUNT_ICON_DEFAULT_DIR, JWT_SECRET_KEY
 from app.models.TwitterAccount import TwitterAccount
 from app.models.User import User
-from app.utils import Logging
 
 
 # ルーター
@@ -46,7 +46,7 @@ async def GetCurrentUser(token: str = Depends(OAuth2PasswordBearer(tokenUrl='use
 
         # ユーザー ID が JWT に含まれていない (JWT トークンが不正)
         if jwt_payload.get('sub') is None:
-            Logging.error('[UsersRouter][GetCurrentUser] Access token data is invalid')
+            logging.error('[UsersRouter][GetCurrentUser] Access token data is invalid')
             raise HTTPException(
                 status_code = status.HTTP_401_UNAUTHORIZED,
                 detail = 'Access token data is invalid',
@@ -58,7 +58,7 @@ async def GetCurrentUser(token: str = Depends(OAuth2PasswordBearer(tokenUrl='use
 
     # JWT トークンが不正
     except JWTError:
-        Logging.error('[UsersRouter][GetCurrentUser] Access token is invalid')
+        logging.error('[UsersRouter][GetCurrentUser] Access token is invalid')
         raise HTTPException(
             status_code = status.HTTP_401_UNAUTHORIZED,
             detail = 'Access token is invalid',
@@ -70,7 +70,7 @@ async def GetCurrentUser(token: str = Depends(OAuth2PasswordBearer(tokenUrl='use
 
     # そのユーザー ID のユーザーが存在しない
     if not current_user:
-        Logging.error(f'[UsersRouter][GetCurrentUser] User associated with access token does not exist [user_id: {user_id}]')
+        logging.error(f'[UsersRouter][GetCurrentUser] User associated with access token does not exist [user_id: {user_id}]')
         raise HTTPException(
             status_code = status.HTTP_401_UNAUTHORIZED,
             detail = 'User associated with access token does not exist',
@@ -85,7 +85,7 @@ async def GetCurrentAdminUser(current_user: User = Depends(GetCurrentUser)) -> U
 
     # 取得したユーザーが管理者ではない
     if current_user.is_admin is False:
-        Logging.error(f'[UsersRouter][GetCurrentAdminUser] Don\'t have permission to access this resource [user_id: {current_user.id}]')
+        logging.error(f'[UsersRouter][GetCurrentAdminUser] Don\'t have permission to access this resource [user_id: {current_user.id}]')
         raise HTTPException(
             status_code = status.HTTP_403_FORBIDDEN,
             detail = 'Don\'t have permission to access this resource',
@@ -106,7 +106,7 @@ async def GetSpecifiedUser(
 
     # 指定されたユーザー名のユーザーが存在しない
     if not user:
-        Logging.error(f'[UsersRouter][GetSpecifiedUser] Specified user was not found [username: {username}]')
+        logging.error(f'[UsersRouter][GetSpecifiedUser] Specified user was not found [username: {username}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified user was not found',
@@ -167,7 +167,7 @@ async def UserCreateAPI(
     # 同じユーザー名のアカウントがあったら 422 を返す
     ## ユーザー名がそのままログイン ID になるので、同じユーザー名のアカウントがあると重複する
     if await User.filter(name=user_create_request.username).get_or_none() is not None:
-        Logging.error(f'[UsersRouter][UserCreateAPI] Specified username is duplicated [username: {user_create_request.username}]')
+        logging.error(f'[UsersRouter][UserCreateAPI] Specified username is duplicated [username: {user_create_request.username}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified username is duplicated',
@@ -177,7 +177,7 @@ async def UserCreateAPI(
     ## /api/users/me と /api/users/token があるので、もしその名前で登録できてしまうと重複して面倒なことになる
     ## そんな名前で登録する人はいないとは思うけど、念のため…。
     if user_create_request.username.lower() == 'me' or user_create_request.username.lower() == 'token':
-        Logging.error(f'[UsersRouter][UserCreateAPI] Specified username is not accepted due to system limitations [username: {user_create_request.username}]')
+        logging.error(f'[UsersRouter][UserCreateAPI] Specified username is not accepted due to system limitations [username: {user_create_request.username}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified username is not accepted due to system limitations',
@@ -221,7 +221,7 @@ async def UserAccessTokenAPI(
 
     # 指定されたユーザーが存在しない
     if not user:
-        Logging.error(f'[UsersRouter][UserAccessTokenAPI] Incorrect username [username: {form_data.username}]')
+        logging.error(f'[UsersRouter][UserAccessTokenAPI] Incorrect username [username: {form_data.username}]')
         raise HTTPException(
             status_code = status.HTTP_401_UNAUTHORIZED,
             detail = 'Incorrect username',
@@ -230,7 +230,7 @@ async def UserAccessTokenAPI(
 
     # 指定されたパスワードのハッシュが DB にあるものと一致しない
     if not passlib_context.verify(form_data.password, user.password):
-        Logging.error(f'[UsersRouter][UserAccessTokenAPI] Incorrect password [username: {form_data.username}]')
+        logging.error(f'[UsersRouter][UserAccessTokenAPI] Incorrect password [username: {form_data.username}]')
         raise HTTPException(
             status_code = status.HTTP_401_UNAUTHORIZED,
             detail = 'Incorrect password',
@@ -328,7 +328,7 @@ async def UserUpdateMeAPI(
         # ユーザー名がそのままログイン ID になるので、同じユーザー名のアカウントがあると重複する
         if ((await User.filter(name=user_update_request.username).get_or_none() is not None) and
             (user_update_request.username != current_user.name)):  # ログイン中のユーザーと同じなら問題ないので除外
-            Logging.error(f'[UsersRouter][UserUpdateMeAPI] Specified username is duplicated [username: {user_update_request.username}]')
+            logging.error(f'[UsersRouter][UserUpdateMeAPI] Specified username is duplicated [username: {user_update_request.username}]')
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = 'Specified username is duplicated',
@@ -338,7 +338,7 @@ async def UserUpdateMeAPI(
         ## /api/users/me と /api/users/token があるので、もしその名前で登録できてしまうと重複して面倒なことになる
         ## そんな名前で登録する人はいないとは思うけど、念のため…。
         if user_update_request.username.lower() == 'me' or user_update_request.username.lower() == 'token':
-            Logging.error(f'[UsersRouter][UserUpdateMeAPI] Specified username is not accepted due to system limitations [username: {user_update_request.username}]')
+            logging.error(f'[UsersRouter][UserUpdateMeAPI] Specified username is not accepted due to system limitations [username: {user_update_request.username}]')
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = 'Specified username is not accepted due to system limitations',
@@ -405,7 +405,7 @@ async def UserUpdateIconMeAPI(
 
     # MIME タイプが image/jpeg or image/png 以外
     if image.content_type != 'image/jpeg' and image.content_type != 'image/png':
-        Logging.error(f'[UsersRouter][UserUpdateIconMeAPI] Please upload JPEG or PNG image [content_type: {image.content_type}]')
+        logging.error(f'[UsersRouter][UserUpdateIconMeAPI] Please upload JPEG or PNG image [content_type: {image.content_type}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Please upload JPEG or PNG image',
@@ -491,7 +491,7 @@ async def UserUpdateAPI(
         # ユーザー名がそのままログイン ID になるので、同じユーザー名のアカウントがあると重複する
         if ((await User.filter(name=user_update_request.username).get_or_none() is not None) and
             (user_update_request.username != user.name)):  # ログイン中のユーザーと同じなら問題ないので除外
-            Logging.error(f'[UsersRouter][UserUpdateAPI] Specified username is duplicated [username: {user_update_request.username}]')
+            logging.error(f'[UsersRouter][UserUpdateAPI] Specified username is duplicated [username: {user_update_request.username}]')
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = 'Specified username is duplicated',
@@ -501,7 +501,7 @@ async def UserUpdateAPI(
         ## /api/users/me と /api/users/token があるので、もしその名前で登録できてしまうと重複して面倒なことになる
         ## そんな名前で登録する人はいないとは思うけど、念のため…。
         if user_update_request.username.lower() == 'me' or user_update_request.username.lower() == 'token':
-            Logging.error(f'[UsersRouter][UserUpdateAPI] Specified username is not accepted due to system limitations [username: {user_update_request.username}]')
+            logging.error(f'[UsersRouter][UserUpdateAPI] Specified username is not accepted due to system limitations [username: {user_update_request.username}]')
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = 'Specified username is not accepted due to system limitations',
@@ -572,7 +572,7 @@ async def UserUpdateIconAPI(
 
     # MIME タイプが image/jpeg or image/png 以外
     if image.content_type != 'image/jpeg' and image.content_type != 'image/png':
-        Logging.error(f'[UsersRouter][UserUpdateIconAPI] Please upload JPEG or PNG image [content_type: {image.content_type}]')
+        logging.error(f'[UsersRouter][UserUpdateIconAPI] Please upload JPEG or PNG image [content_type: {image.content_type}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Please upload JPEG or PNG image',

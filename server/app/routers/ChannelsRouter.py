@@ -20,6 +20,7 @@ from tortoise import connections
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from app import logging
 from app import schemas
 from app.config import Config
 from app.constants import API_REQUEST_HEADERS, LOGO_DIR, VERSION
@@ -27,7 +28,6 @@ from app.models.Channel import Channel
 from app.routers.UsersRouter import GetCurrentUser
 from app.streams.LiveStream import LiveStream
 from app.utils import GetMirakurunAPIEndpointURL
-from app.utils import Logging
 from app.utils.EDCB import CtrlCmdUtil
 from app.utils.EDCB import EDCBUtil
 from app.utils.Jikkyo import Jikkyo
@@ -48,7 +48,7 @@ async def GetChannel(channel_id: str = Path(..., description='チャンネル ID
     else:
         channel = await Channel.filter(display_channel_id=channel_id).get_or_none()
     if channel is None:
-        Logging.error(f'[ChannelsRouter][GetChannel] Specified display_channel_id was not found [display_channel_id: {channel_id}]')
+        logging.error(f'[ChannelsRouter][GetChannel] Specified display_channel_id was not found [display_channel_id: {channel_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified display_channel_id was not found',

@@ -20,13 +20,13 @@ from tortoise import Tortoise
 from tortoise import transactions
 from typing import Literal
 
+from app import logging
 from app.config import Config
 from app.config import LoadConfig
 from app.constants import DATABASE_CONFIG
 from app.models.Channel import Channel
 from app.models.RecordedProgram import RecordedProgram
 from app.schemas import CMSection
-from app.utils import Logging
 
 
 class RecordedVideo(models.Model):
@@ -38,7 +38,7 @@ class RecordedVideo(models.Model):
     # テーブル設計は Notion を参照のこと
     id: int = fields.IntField(pk=True)  # type: ignore
     recorded_program: fields.OneToOneRelation[RecordedProgram] = \
-        fields.OneToOneField('models.RecordedProgram', related_name='recorded_video', on_delete=fields.CASCADE)
+        fields.OneToOneField('models.RecordedProgram', related_name='recorded_video', on_delete=fields.CASCADE)  # type: ignore
     recorded_program_id: int
     file_path: str = fields.TextField()  # type: ignore
     file_hash: str = fields.TextField()  # type: ignore
@@ -73,7 +73,7 @@ class RecordedVideo(models.Model):
         """
 
         timestamp = time.time()
-        Logging.info('Recorded videos updating...')
+        logging.info('Recorded videos updating...')
 
         # サーバー設定から録画フォルダリストを取得
         recorded_folders = Config().video.recorded_folders
@@ -82,7 +82,7 @@ class RecordedVideo(models.Model):
         ## RecordedProgram に紐づく RecordedVideo も CASCADE 制約で同時に削除される
         ## この処理により、録画フォルダリストが空の状態でサーバーを起動した場合、すべての録画番組が DB 上から削除される
         if len(recorded_folders) == 0:
-            Logging.info('No recorded folders are specified. Delete all recorded videos.')
+            logging.info('No recorded folders are specified. Delete all recorded videos.')
             await RecordedProgram.all().delete()
             return
 
@@ -110,9 +110,9 @@ class RecordedVideo(models.Model):
             for recorded_video in await RecordedVideo.all().select_related('recorded_program'):
                 if recorded_video.file_path not in existing_files:
                     await recorded_video.recorded_program.delete()
-                    Logging.info(f'Delete Recorded: {Path(recorded_video.file_path).name}')
+                    logging.info(f'Delete Recorded: {Path(recorded_video.file_path).name}')
 
-        Logging.info(f'Recorded videos update complete. ({round(time.time() - timestamp, 3)} sec)')
+        logging.info(f'Recorded videos update complete. ({round(time.time() - timestamp, 3)} sec)')
 
 
     @classmethod
@@ -175,7 +175,7 @@ class RecordedVideo(models.Model):
                     ## 最終更新日時が 30 秒以内 (=現在録画中) のファイルを無視する
                     ## 録画中のファイルはメタデータの解析に失敗したり、不正確なメタデータが取得される可能性があるため
                     if (time.time() - file_path.stat().st_mtime) < 30:
-                        Logging.warning(f'{file_path}: File is being recorded. ignored.')
+                        logging.warning(f'{file_path}: File is being recorded. ignored.')
                         continue
 
                     existing_files.append(str(file_path))
@@ -186,7 +186,7 @@ class RecordedVideo(models.Model):
                     try:
                         file_hash = MetadataAnalyzer(file_path).calculateTSFileHash()
                     except ValueError:
-                        Logging.warning(f'{file_path}: File size is too small. ignored.')
+                        logging.warning(f'{file_path}: File size is too small. ignored.')
                         continue
 
                     # 同一のパスを持つ録画ファイルが DB に存在するか確認する
@@ -206,14 +206,14 @@ class RecordedVideo(models.Model):
                             result = await asyncio.to_thread(MetadataAnalyzer(file_path).analyze)
                             if result is None:
                                 # メタデータの解析に失敗するファイルが出ることは一定数想定されうるので warning 扱い
-                                Logging.warning(f'{file_path}: Failed to analyze metadata. ignored.')
+                                logging.warning(f'{file_path}: Failed to analyze metadata. ignored.')
                                 continue
                             recorded_video, recorded_program, channel = result
                         except Exception:
                             # メタデータの解析中に予期せぬエラーが発生した場合
                             # ログ出力した上でスキップする
-                            Logging.error(f'{file_path}: Unexpected error occurred while analyzing metadata. ignored.')
-                            Logging.error(traceback.format_exc())
+                            logging.error(f'{file_path}: Unexpected error occurred while analyzing metadata. ignored.')
+                            logging.error(traceback.format_exc())
                             continue
 
                         # メタデータの解析に成功したなら DB に保存するタスクの引数を追加する
@@ -224,11 +224,11 @@ class RecordedVideo(models.Model):
                         save_args_list.append((current_recorded_video, recorded_video, recorded_program, channel))
 
                         if current_recorded_video is None:
-                            Logging.info(f'Add Recorded: {file_path.name}')
+                            logging.info(f'Add Recorded: {file_path.name}')
                         else:
-                            Logging.info(f'Update Recorded: {file_path.name}')
+                            logging.info(f'Update Recorded: {file_path.name}')
                     else:
-                        #Logging.debug(f'Skip Recorded: {file_path.name}')
+                        #logging.debug(f'Skip Recorded: {file_path.name}')
                         pass
 
             async def save(
@@ -287,20 +287,20 @@ class RecordedVideo(models.Model):
                 except exceptions.OperationalError as ex:
                     if 'database is locked' in str(ex).lower():
                         retry_count -= 1
-                        Logging.warning(f'Failed to save to database. Retrying... ({retry_count}/10)')
+                        logging.warning(f'Failed to save to database. Retrying... ({retry_count}/10)')
                         await asyncio.sleep(0.25)
                     else:
                         # 予期せぬ OperationalError が発生した場合はリトライせずに例外を投げる
                         raise ex
 
             if 0 < retry_count < 10:
-                Logging.info(f'Succeeded to save to database after retrying.')
+                logging.info(f'Succeeded to save to database after retrying.')
             elif retry_count == 0:
-                Logging.error(f'Failed to save to database after retrying. ignored.')
+                logging.error(f'Failed to save to database after retrying. ignored.')
 
         # 明示的に例外を拾わないとなぜかメインプロセスも含め全体がフリーズしてしまう
         except Exception:
-            Logging.error(traceback.format_exc())
+            logging.error(traceback.format_exc())
 
         # 開いた Tortoise ORM のコネクションを明示的に閉じる
         # コネクションを閉じないと Ctrl+C を押下しても終了できない

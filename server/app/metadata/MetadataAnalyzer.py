@@ -9,6 +9,7 @@ from rich import print
 from typing import cast
 from zoneinfo import ZoneInfo
 
+from app import logging
 from app import schemas
 from app.constants import LIBRARY_DIR
 from app.metadata.TSInfoAnalyzer import TSInfoAnalyzer
@@ -16,7 +17,6 @@ from app.models.Channel import Channel
 from app.models.RecordedProgram import RecordedProgram
 from app.models.RecordedVideo import RecordedVideo
 from app.utils import GetPlatformEnvironment
-from app.utils import Logging
 from app.utils.TSInformation import TSInformation
 
 
@@ -56,7 +56,7 @@ class MetadataAnalyzer:
         try:
             recorded_video.file_hash = self.calculateTSFileHash()
         except ValueError:
-            Logging.warning(f'{self.recorded_file_path}: File size is too small. ignored.')
+            logging.warning(f'{self.recorded_file_path}: File size is too small. ignored.')
             return None
 
         # MediaInfo から録画ファイルのメディア情報を取得
@@ -182,19 +182,19 @@ class MetadataAnalyzer:
         # 最低でも映像トラックと主音声トラックが含まれている必要がある
         # 映像か主音声、あるいは両方のトラックが含まれていない場合は None を返す
         if is_video_track_read is False or is_primary_audio_track_read is False:
-            Logging.warning(f'{self.recorded_file_path}: Video or primary audio track is missing or invalid. ignored.')
+            logging.warning(f'{self.recorded_file_path}: Video or primary audio track is missing or invalid. ignored.')
             return None
 
         # duration が 30 秒未満の場合は短すぎるので None を返す
         if recorded_video.duration < 30:
-            Logging.warning(f'{self.recorded_file_path}: Duration is too short. ignored.')
+            logging.warning(f'{self.recorded_file_path}: Duration is too short. ignored.')
             return None
 
         ## 現状 ariblib は先頭が sync_byte でない or 途中で同期が壊れる (破損した TS パケットが存在する) TS ファイルを想定していないため、
         ## ariblib に入力する録画ファイルは必ず正常な TS ファイルである必要がある
         ## ファイルの末尾の TS パケットだけ破損してるだけなら再生できるのでファイルサイズはチェックせず、ファイルの先頭が sync_byte であるかだけチェックする
         if recorded_video.container_format == 'MPEG-TS' and self.recorded_file_path.read_bytes()[0] != 0x47:
-            Logging.warning(f'{self.recorded_file_path}: sync_byte is missing. ignored.')
+            logging.warning(f'{self.recorded_file_path}: sync_byte is missing. ignored.')
             return None
 
         # MPEG-TS 形式のみ、TS ファイルに含まれる番組情報・チャンネル情報を解析する
@@ -290,8 +290,8 @@ class MetadataAnalyzer:
         try:
             media_info = cast(MediaInfo, MediaInfo.parse(str(self.recorded_file_path), library_file=libmediainfo_path))
         except Exception as ex:
-            Logging.warning(f'{self.recorded_file_path}: Failed to parse media info.')
-            Logging.warning(ex)
+            logging.warning(f'{self.recorded_file_path}: Failed to parse media info.')
+            logging.warning(ex)
             return None
 
         # 最低限 KonomiTV で再生可能なファイルであるかのバリデーションを行う
@@ -306,46 +306,46 @@ class MetadataAnalyzer:
                     # MPEG-TS コンテナではない (当面 MPEG-TS のみ対応)
                     ## "BDAV" も MPEG-TS だが、TS パケット長が 192 byte で ariblib でパースできないため現状非対応
                     if track.format != 'MPEG-TS':
-                        Logging.warning(f'{self.recorded_file_path}: {track.format} is not supported.')
+                        logging.warning(f'{self.recorded_file_path}: {track.format} is not supported.')
                         return None
                     # 映像 or 音声ストリームが存在しない
                     if track.count_of_video_streams == 0 and track.count_of_audio_streams == 0:
-                        Logging.warning(f'{self.recorded_file_path}: Video or audio stream is missing.')
+                        logging.warning(f'{self.recorded_file_path}: Video or audio stream is missing.')
                         return None
                     # 長さが取得できない
                     if hasattr(track, 'duration') is False or track.duration is None:
-                        Logging.warning(f'{self.recorded_file_path}: Duration is missing.')
+                        logging.warning(f'{self.recorded_file_path}: Duration is missing.')
                         return None
 
                 # 映像ストリーム
                 elif track.track_type == 'Video':
                     # スクランブルが解除されていない
                     if track.encryption == 'Encrypted':
-                        Logging.warning(f'{self.recorded_file_path}: Video stream is encrypted.')
+                        logging.warning(f'{self.recorded_file_path}: Video stream is encrypted.')
                         return None
                     # MPEG-2, H.264, H.265 以外のフォーマットは KonomiTV で再生できない
                     if track.format not in ['MPEG Video', 'AVC', 'HEVC']:
-                        Logging.warning(f'{self.recorded_file_path}: {track.format} is not supported.')
+                        logging.warning(f'{self.recorded_file_path}: {track.format} is not supported.')
                         return None
 
                 # 音声ストリーム
                 elif track.track_type == 'Audio':
                     # スクランブルが解除されていない
                     if track.encryption == 'Encrypted':
-                        Logging.warning(f'{self.recorded_file_path}: Audio stream is encrypted.')
+                        logging.warning(f'{self.recorded_file_path}: Audio stream is encrypted.')
                         return None
                     # AAC-LC 以外のフォーマットは KonomiTV で再生できない
                     if track.format not in ['AAC']:
-                        Logging.warning(f'{self.recorded_file_path}: {track.format} is not supported.')
+                        logging.warning(f'{self.recorded_file_path}: {track.format} is not supported.')
                         return None
                     # 1ch, 2ch, 5.1ch 以外の音声チャンネル数は KonomiTV で再生できない
                     if int(track.channel_s) not in [1, 2, 6]:
-                        Logging.warning(f'{self.recorded_file_path}: {track.channel_s} channels are not supported.')
+                        logging.warning(f'{self.recorded_file_path}: {track.channel_s} channels are not supported.')
                         return None
 
         except Exception as ex:
-            Logging.warning(f'{self.recorded_file_path}: Failed to validate media info.')
-            Logging.warning(ex)
+            logging.warning(f'{self.recorded_file_path}: Failed to validate media info.')
+            logging.warning(ex)
             return None
 
         return media_info

@@ -4,9 +4,9 @@ from fastapi import HTTPException
 from fastapi import status
 from typing import Literal
 
+from app import logging
 from app import schemas
 from app.models.RecordedProgram import RecordedProgram
-from app.utils import Logging
 from app.utils.Jikkyo import Jikkyo
 
 
@@ -62,7 +62,7 @@ async def VideoAPI(video_id: int):
         .select_related('recorded_video') \
         .select_related('channel')
     if recorded_program is None:
-        Logging.error(f'[VideosRouter][VideoAPI] Specified video_id was not found [video_id: {video_id}]')
+        logging.error(f'[VideosRouter][VideoAPI] Specified video_id was not found [video_id: {video_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified video_id was not found',
@@ -87,7 +87,7 @@ async def VideoJikkyoCommentsAPI(video_id: int):
         .select_related('recorded_video') \
         .select_related('channel')
     if recorded_program is None:
-        Logging.error(f'[VideosRouter][VideoAPI] Specified video_id was not found [video_id: {video_id}]')
+        logging.error(f'[VideosRouter][VideoAPI] Specified video_id was not found [video_id: {video_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified video_id was not found',

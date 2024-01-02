@@ -11,10 +11,10 @@ from biim.mpeg2ts import ts
 from dataclasses import dataclass
 from typing import Any, Callable, ClassVar, Literal
 
+from app import logging
 from app.constants import LIBRARY_PATH, QUALITY_TYPES
 from app.models.RecordedProgram import RecordedProgram
 from app.streams.VideoEncodingTask import VideoEncodingTask
-from app.utils import Logging
 from app.utils import SetTimeout
 
 
@@ -128,7 +128,7 @@ class VideoStream:
             # 生成したインスタンスを登録する
             cls.__instances[video_stream_id] = instance
 
-            Logging.info(f'[Video: {instance.video_stream_id}] Streaming Session Started.')
+            logging.info(f'[Video: {instance.video_stream_id}] Streaming Session Started.')
 
         # 登録されているインスタンスを返す
         return cls.__instances[video_stream_id]
@@ -328,7 +328,7 @@ class VideoStream:
         if self._encoding_task is None:
             self._encoding_task = VideoEncodingTask(self)
             asyncio.create_task(self._encoding_task.run(segment_sequence))
-            Logging.info(f'[Video: {self.video_stream_id}][Segment {segment_sequence}] New Encoding Task Started.')
+            logging.info(f'[Video: {self.video_stream_id}][Segment {segment_sequence}] New Encoding Task Started.')
 
         # エンコードタスクは既に起動しているがこの時点でまだセグメントのエンコードが開始されていなければ、このセグメントからエンコードタスクを非同期で開始する
         # この HLS セグメントのエンコード処理が現在進行中の場合は完了まで待つ
@@ -342,12 +342,12 @@ class VideoStream:
                 # 以前のエンコードタスクをキャンセルする
                 # この時点で以前のエンコードタスクでエンコードが完了していたセグメントに関してはそのまま self.segments に格納されている
                 await self._encoding_task.cancel()
-                Logging.info(f'[Video: {self.video_stream_id}][Segment {segment_sequence}] Previous Encoding Task Canceled.')
+                logging.info(f'[Video: {self.video_stream_id}][Segment {segment_sequence}] Previous Encoding Task Canceled.')
 
                 # 新たにエンコードタスクを非同期で開始する
                 self._encoding_task = VideoEncodingTask(self)
                 asyncio.create_task(self._encoding_task.run(segment_sequence))
-                Logging.info(f'[Video: {self.video_stream_id}][Segment {segment_sequence}] New Encoding Task Started.')
+                logging.info(f'[Video: {self.video_stream_id}][Segment {segment_sequence}] New Encoding Task Started.')
 
         # セグメントデータの Future が完了したらそのデータを返す
         encoded_segment_ts = await asyncio.shield(segment.encoded_segment_ts_future)
@@ -374,4 +374,4 @@ class VideoStream:
         ## 今後同じビデオストリーム ID が指定された場合は新たに別のインスタンスが生成される
         self.__instances.pop(self.video_stream_id)
 
-        Logging.info(f'[Video: {self.video_stream_id}] Streaming Session Finished.')
+        logging.info(f'[Video: {self.video_stream_id}] Streaming Session Finished.')

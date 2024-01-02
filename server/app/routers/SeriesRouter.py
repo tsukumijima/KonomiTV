@@ -4,9 +4,9 @@ from fastapi import HTTPException
 from fastapi import status
 from typing import Literal
 
+from app import logging
 from app import schemas
 from app.models.Series import Series
-from app.utils import Logging
 
 
 # ルーター
@@ -67,7 +67,7 @@ async def SeriesAPI(series_id: int):
         .select_related('broadcast_periods__recorded_programs__recorded_video') \
         .select_related('broadcast_periods__recorded_programs__channel')
     if series is None:
-        Logging.error(f'[SeriesRouter][SeriesAPI] Specified series_id was not found [series_id: {series_id}]')
+        logging.error(f'[SeriesRouter][SeriesAPI] Specified series_id was not found [series_id: {series_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified series_id was not found',

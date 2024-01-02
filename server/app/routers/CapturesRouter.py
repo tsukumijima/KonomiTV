@@ -11,8 +11,8 @@ from fastapi import UploadFile
 from pathlib import Path
 from typing import cast
 
+from app import logging
 from app.config import Config
-from app.utils import Logging
 
 
 # ルーター
@@ -39,7 +39,7 @@ async def CaptureUploadAPI(
     ## 万が一悪意ある攻撃者から危険なファイルを送り込まれないように
     mimetype: str = puremagic.magic_stream(image.file)[0].mime_type
     if mimetype != 'image/jpeg' and mimetype != 'image/png':
-        Logging.error('[CapturesRouter][CaptureUploadAPI] Invalid image file was uploaded.')
+        logging.error('[CapturesRouter][CaptureUploadAPI] Invalid image file was uploaded.')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Please upload JPEG or PNG image',
@@ -56,7 +56,7 @@ async def CaptureUploadAPI(
     try:
         upload_folder.joinpath(filename).resolve().relative_to(upload_folder.resolve())
     except ValueError:
-        Logging.error('[CapturesRouter][CaptureUploadAPI] Invalid filename was specified.')
+        logging.error('[CapturesRouter][CaptureUploadAPI] Invalid filename was specified.')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified filename is invalid',
@@ -77,7 +77,7 @@ async def CaptureUploadAPI(
         with await asyncio.to_thread(open, filepath, mode='wb') as buffer:
             await asyncio.to_thread(shutil.copyfileobj, image.file, buffer)
     except PermissionError:
-        Logging.error('[CapturesRouter][CaptureUploadAPI] Permission denied to save the file.')
+        logging.error('[CapturesRouter][CaptureUploadAPI] Permission denied to save the file.')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Permission denied to save the file',
@@ -89,13 +89,13 @@ async def CaptureUploadAPI(
         if hasattr(ex, 'errno'):
             is_disk_full_error = ex.errno == errno.ENOSPC
         if is_disk_full_error is True:
-            Logging.error('[CapturesRouter][CaptureUploadAPI] No space left on the device.')
+            logging.error('[CapturesRouter][CaptureUploadAPI] No space left on the device.')
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = 'No space left on the device',
             )
         else:
-            Logging.error(f'[CapturesRouter][CaptureUploadAPI] Unexpected OSError: {ex}')
+            logging.error(f'[CapturesRouter][CaptureUploadAPI] Unexpected OSError: {ex}')
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = 'Unexpected error occurred while saving the file',

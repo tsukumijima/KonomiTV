@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi_restful.tasks import repeat_every
 from pathlib import Path
 
+from app import logging
 from app.config import Config
 from app.config import LoadConfig
 from app.constants import CLIENT_DIR, DATABASE_CONFIG, QUALITY, VERSION
@@ -32,7 +33,6 @@ from app.routers import VersionRouter
 from app.routers import VideosRouter
 from app.routers import VideoStreamsRouter
 from app.streams.LiveStream import LiveStream
-from app.utils import Logging
 from app.utils.EDCB import EDCBTuner
 
 
@@ -143,7 +143,7 @@ async def ExceptionHandler(request: Request, exc: Exception):
 # Tortoise ORM の初期化
 ## ロガーを Uvicorn に統合する
 ## ref: https://github.com/tortoise/tortoise-orm/issues/529
-tortoise.contrib.fastapi.logging = Logging.logger  # type: ignore
+tortoise.contrib.fastapi.logging = logging.logger  # type: ignore
 ## Tortoise ORM を登録する
 ## ref: https://tortoise-orm.readthedocs.io/en/latest/contrib/fastapi.html
 tortoise.contrib.fastapi.register_tortoise(
@@ -189,7 +189,7 @@ async def Startup():
 @repeat_every(
     seconds = CONFIG.general.program_update_interval * 60,
     wait_first = CONFIG.general.program_update_interval * 60,
-    logger = Logging.logger,
+    logger = logging.logger,
 )
 async def UpdateChannelAndProgram():
     await Channel.update()
@@ -198,13 +198,13 @@ async def UpdateChannelAndProgram():
 
 # 30秒に1回、ニコニコ実況関連のステータスを更新する
 @app.on_event('startup')
-@repeat_every(seconds=0.5 * 60, wait_first=0.5 * 60, logger=Logging.logger)
+@repeat_every(seconds=0.5 * 60, wait_first=0.5 * 60, logger=logging.logger)
 async def UpdateChannelJikkyoStatus():
     await Channel.updateJikkyoStatus()
 
 # 1時間に1回、登録されている Twitter アカウントの情報を更新する
 @app.on_event('startup')
-@repeat_every(seconds=60 * 60, wait_first=60 * 60, logger=Logging.logger)
+@repeat_every(seconds=60 * 60, wait_first=60 * 60, logger=logging.logger)
 async def UpdateTwitterAccountInformation():
     await TwitterAccount.updateAccountsInformation()
 

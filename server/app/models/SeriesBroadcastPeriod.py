@@ -22,10 +22,10 @@ class SeriesBroadcastPeriod(models.Model):
     # テーブル設計は Notion を参照のこと
     id: int = fields.IntField(pk=True)  # type: ignore
     series: fields.ForeignKeyRelation[Series] = \
-        fields.ForeignKeyField('models.Series', related_name='broadcast_periods', on_delete=fields.CASCADE)
+        fields.ForeignKeyField('models.Series', related_name='broadcast_periods', on_delete=fields.CASCADE)  # type: ignore
     series_id: int
     channel: fields.ForeignKeyRelation[Channel] = \
-        fields.ForeignKeyField('models.Channel', related_name=None, on_delete=fields.CASCADE)
+        fields.ForeignKeyField('models.Channel', related_name=None, on_delete=fields.CASCADE)  # type: ignore
     channel_id: str
     start_date = fields.DateField()
     end_date = fields.DateField()

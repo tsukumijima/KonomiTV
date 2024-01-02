@@ -15,12 +15,12 @@ from biim.mpeg2ts.pes import PES
 from biim.mpeg2ts.parser import SectionParser
 from typing import cast, ClassVar, Literal, TYPE_CHECKING
 
+from app import logging
 from app.config import Config
 from app.constants import LIBRARY_PATH, QUALITY, QUALITY_TYPES
 from app.models.RecordedProgram import RecordedProgram
 from app.models.RecordedVideo import RecordedVideo
 from app.utils import ClosestMultiple
-from app.utils import Logging
 
 if TYPE_CHECKING:
     from app.streams.VideoStream import VideoStream
@@ -346,7 +346,7 @@ class VideoEncodingTask:
         ENCODER_TYPE = Config().general.encoder
 
         # エンコーダーの多重起動を防止するためのロックを確保
-        Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+        logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                               'Waiting for the encoder lock...')
         with self._encoder_lock:
 
@@ -361,7 +361,7 @@ class VideoEncodingTask:
 
             # 処理対象の VideoStreamSegment をエンコード中状態に設定
             segment.encode_status = 'Encoding'
-            Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] Encoding HLS segment...')
+            logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] Encoding HLS segment...')
 
             # ***** tsreadex プロセスの作成と実行 *****
 
@@ -414,7 +414,7 @@ class VideoEncodingTask:
 
                 # オプションを取得
                 encoder_options = self.buildFFmpegOptions(self.video_stream.quality, segment.frame_count)
-                Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                              f'FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
                 # エンコーダープロセスを非同期で作成・実行
@@ -431,7 +431,7 @@ class VideoEncodingTask:
 
                 # オプションを取得
                 encoder_options = self.buildHWEncCOptions(self.video_stream.quality, ENCODER_TYPE, segment.frame_count)
-                Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                              f'{ENCODER_TYPE} Commands:\n{ENCODER_TYPE} {" ".join(encoder_options)}')
 
                 # エンコーダープロセスを非同期で作成・実行
@@ -488,14 +488,14 @@ class VideoEncodingTask:
                         except Exception as ex:
                             # エンコードタスクがキャンセルされエンコーダーが強制終了されたことで書き込みに失敗した場合はエラーを出さない
                             if self._is_cancelled is False:
-                                Logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                                logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                                               f'Failed to write TS packets to {ENCODER_TYPE}. ({ex})')
 
                     # これ以上エンコーダーに投入するパケットがなくなったら tsreadex の標準入力を閉じ、エンコーダーの出力の読み取りを待つ
                     if ts_packet is None:  # None はこれ以上投入するパケットがないことを示す
-                        Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                        logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                                      f'Cut out {segment_bytes_count / 1024 / 1024:.3f} MiB.')
-                        Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                        logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                                      f'Waiting for {ENCODER_TYPE} to finish...')
                         if self._tsreadex_process is not None:  # 念のため
                             assert self._tsreadex_process.stdin is not None
@@ -508,7 +508,7 @@ class VideoEncodingTask:
             ## Writer スレッドはなぜかすぐに終了してくれないことがあるため終了は待たず、代わりにエンコーダーの出力が EOF になるまで待つ
             writer_thread = threading.Thread(target=Writer)
             writer_thread.start()
-            Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] {ENCODER_TYPE} started.')
+            logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] {ENCODER_TYPE} started.')
 
             # 受信したエンコード済み TS パケットのバッファ
             ## 最終的に単一のセグメントのすべての TS パケットが入る
@@ -520,15 +520,15 @@ class VideoEncodingTask:
                 encoded_ts_packet_buffer = b''
                 # エンコードタスクがキャンセルされエンコーダーが強制終了されたことで読み取りに失敗した場合はエラーを出さない
                 if self._is_cancelled is False:
-                    Logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                    logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                                   f'Failed to read encoded TS packets from {ENCODER_TYPE}. ({ex})')
-            Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] {ENCODER_TYPE} finished.')
+            logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] {ENCODER_TYPE} finished.')
 
             # この時点でエンコードタスクがキャンセルされていればエンコード済みのセグメントデータを放棄して中断する
             ## この時点でエンコーダープロセスが None になっている場合もキャンセルされたと判断する
             if self._is_cancelled is True or self._encoder_process is None:
                 self.__terminateEncoder()
-                Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                                       'Discarded encoded segment data because cancelled.')
 
                 # エンコード作業自体を中断したので、このセグメントの状態をリセットする
@@ -541,7 +541,7 @@ class VideoEncodingTask:
             exit_code = self._encoder_process.poll()
             if (exit_code is not None and exit_code != 0) or len(encoded_ts_packet_buffer) == 0:
                 self.__terminateEncoder()
-                Logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                               f'{ENCODER_TYPE} exited with exit code {exit_code}.')
 
                 # おそらく復旧しようがないが、一応このセグメントの状態をリセットする
@@ -555,7 +555,7 @@ class VideoEncodingTask:
             # エンコード後のセグメントデータを VideoStreamSegment に書き込む
             # ここで設定したエンコード済みのセグメントデータが API で返される
             segment.encoded_segment_ts_future.set_result(bytes(encoded_ts_packet_buffer))
-            Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] Successfully encoded HLS segment.')
+            logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] Successfully encoded HLS segment.')
 
             # この時点で tsreadex とエンコーダーは終了しているはずだが、念のため強制終了しておく
             # 最後に行うのが重要 (kill すると exit code が 0 以外になる可能性があるため)
@@ -575,7 +575,7 @@ class VideoEncodingTask:
             try:
                 self._tsreadex_process.kill()
             except Exception as ex:
-                Logging.error(f'[Video: {self.video_stream.video_stream_id}] Failed to terminate tsreadex process. ({ex})')
+                logging.error(f'[Video: {self.video_stream.video_stream_id}] Failed to terminate tsreadex process. ({ex})')
             self._tsreadex_process = None
 
         # エンコーダープロセスを強制終了する
@@ -583,9 +583,9 @@ class VideoEncodingTask:
             try:
                 self._encoder_process.kill()
             except Exception as ex:
-                Logging.error(f'[Video: {self.video_stream.video_stream_id}] Failed to terminate {ENCODER_TYPE} process. ({ex})')
+                logging.error(f'[Video: {self.video_stream.video_stream_id}] Failed to terminate {ENCODER_TYPE} process. ({ex})')
             self._encoder_process = None
-            Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] Terminated {ENCODER_TYPE} process.')
+            logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] Terminated {ENCODER_TYPE} process.')
 
 
     def __isPESPacketInSegment(self, pes_header: PES, is_video_stream: bool, segment: VideoStreamSegment) -> bool:
@@ -639,7 +639,7 @@ class VideoEncodingTask:
         # すでにエンコードタスクがキャンセルされている (あってはならない)
         assert self._is_cancelled is False, 'VideoEncodingTask is already cancelled.'
 
-        Logging.info(f'[Video: {self.video_stream.video_stream_id}] VideoEncodingTask started.')
+        logging.info(f'[Video: {self.video_stream.video_stream_id}] VideoEncodingTask started.')
 
         # 視聴対象の録画番組が放送されたチャンネルのサービス ID
         SERVICE_ID: int | None = self.recorded_program.channel.service_id if self.recorded_program.channel is not None else None
@@ -734,24 +734,24 @@ class VideoEncodingTask:
                                 if not is_video_pid_found:
                                     if stream_type == 0x02:
                                         if VIDEO_PID != elementary_PID:
-                                            Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] MPEG-2 PID: 0x{elementary_PID:04x}')
+                                            logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] MPEG-2 PID: 0x{elementary_PID:04x}')
                                         VIDEO_PID = elementary_PID
                                         is_video_pid_found = True
                                     elif stream_type == 0x1b:
                                         if VIDEO_PID != elementary_PID:
-                                            Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] H.264 PID: 0x{elementary_PID:04x}')
+                                            logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] H.264 PID: 0x{elementary_PID:04x}')
                                         VIDEO_PID = elementary_PID
                                         is_video_pid_found = True
                                     elif stream_type == 0x24:
                                         if VIDEO_PID != elementary_PID:
-                                            Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] H.265 PID: 0x{elementary_PID:04x}')
+                                            logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] H.265 PID: 0x{elementary_PID:04x}')
                                         VIDEO_PID = elementary_PID
                                         is_video_pid_found = True
                                 # 主音声ストリームの PID を取得する
                                 if not is_primary_audio_pid_found:
                                     if stream_type == 0x0f:
                                         if PRIMARY_AUDIO_PID != elementary_PID:
-                                            Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] Primary AAC PID: 0x{elementary_PID:04x}')
+                                            logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] Primary AAC PID: 0x{elementary_PID:04x}')
                                         PRIMARY_AUDIO_PID = elementary_PID
                                         is_primary_audio_pid_found = True
                                 # 副音声ストリームの PID を取得する
@@ -759,7 +759,7 @@ class VideoEncodingTask:
                                 elif not is_secondary_audio_pid_found:
                                     if stream_type == 0x0f:
                                         if SECONDARY_AUDIO_PID != elementary_PID:
-                                            Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] Secondary AAC PID: 0x{elementary_PID:04x}')
+                                            logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] Secondary AAC PID: 0x{elementary_PID:04x}')
                                         SECONDARY_AUDIO_PID = elementary_PID
                                         is_secondary_audio_pid_found = True
 
@@ -781,7 +781,7 @@ class VideoEncodingTask:
                                     ((cast(int, ts.pcr(ts_packet)) - latest_pcr_value + ts.PCR_CYCLE) % ts.PCR_CYCLE)
                                 )
                                 assert BYTE_RATE is not None
-                                Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] '
+                                logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] '
                                                      f'Approximate Bitrate: {(BYTE_RATE / 1024 / 1024 * 8):.3f} Mbps')
 
                     # 最初の PCR 値を取得してから読み取った TS パケットの累計バイト数を更新する
@@ -844,10 +844,10 @@ class VideoEncodingTask:
             ## 正確にはシーク単位は 188 バイトずつでなければならないので 188 の倍数になるように調整する
             seek_offset_bytes = ClosestMultiple(int(max(0, first_segment.start_file_position - (2 * BYTE_RATE))), ts.PACKET_SIZE)
             reader.seek(seek_offset_bytes, os.SEEK_SET)
-            Logging.info(f'[Video: {self.video_stream.video_stream_id}] Seeked to {seek_offset_bytes} bytes.')
+            logging.info(f'[Video: {self.video_stream.video_stream_id}] Seeked to {seek_offset_bytes} bytes.')
 
             # 処理対象の最初のセグメントのエンコーダースレッドをバックグラウンドで起動する
-            Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {first_segment_index}] '
+            logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {first_segment_index}] '
                 f'Start: {(first_segment.start_pts - self.video_stream.segments[0].start_pts) / ts.HZ:.3f} / '
                 f'End: {((first_segment.start_pts - self.video_stream.segments[0].start_pts) / ts.HZ) + first_segment.duration_seconds:.3f}')
             encoder_thread = threading.Thread(target=self.__runEncoder, args=(first_segment,))
@@ -938,24 +938,24 @@ class VideoEncodingTask:
                                 if not is_video_pid_found:
                                     if stream_type == 0x02:
                                         if VIDEO_PID != elementary_PID:
-                                            Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] MPEG-2 PID: 0x{elementary_PID:04x}')
+                                            logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] MPEG-2 PID: 0x{elementary_PID:04x}')
                                         VIDEO_PID = elementary_PID
                                         is_video_pid_found = True
                                     elif stream_type == 0x1b:
                                         if VIDEO_PID != elementary_PID:
-                                            Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] H.264 PID: 0x{elementary_PID:04x}')
+                                            logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] H.264 PID: 0x{elementary_PID:04x}')
                                         VIDEO_PID = elementary_PID
                                         is_video_pid_found = True
                                     elif stream_type == 0x24:
                                         if VIDEO_PID != elementary_PID:
-                                            Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] H.265 PID: 0x{elementary_PID:04x}')
+                                            logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] H.265 PID: 0x{elementary_PID:04x}')
                                         VIDEO_PID = elementary_PID
                                         is_video_pid_found = True
                                 # 主音声ストリームの PID を取得する
                                 if not is_primary_audio_pid_found:
                                     if stream_type == 0x0f:
                                         if PRIMARY_AUDIO_PID != elementary_PID:
-                                            Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] Primary AAC PID: 0x{elementary_PID:04x}')
+                                            logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] Primary AAC PID: 0x{elementary_PID:04x}')
                                         PRIMARY_AUDIO_PID = elementary_PID
                                         is_primary_audio_pid_found = True
                                 # 副音声ストリームの PID を取得する
@@ -963,7 +963,7 @@ class VideoEncodingTask:
                                 elif not is_secondary_audio_pid_found:
                                     if stream_type == 0x0f:
                                         if SECONDARY_AUDIO_PID != elementary_PID:
-                                            Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] Secondary AAC PID: 0x{elementary_PID:04x}')
+                                            logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}] Secondary AAC PID: 0x{elementary_PID:04x}')
                                         SECONDARY_AUDIO_PID = elementary_PID
                                         is_secondary_audio_pid_found = True
 
@@ -1009,7 +1009,7 @@ class VideoEncodingTask:
                                         # もう前のセグメントに該当するパケットは降ってこないだろうと判断し、もう投入するパケットがないことをエンコーダーに通知する
                                         ## これで tsreadex の標準入力が閉じられ、エンコーダーの終了処理が開始される
                                         self.video_stream.segments[segment.sequence_index - 1].segment_ts_packet_queue.put(None)
-                                        Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index - 1}] '
+                                        logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index - 1}] '
                                                               'Cut off TS packets to be passed to the encoder.')
 
                                         # もう投入するパケットがないことを通知したので、エンコーダーの終了を待つ (重要)
@@ -1027,7 +1027,7 @@ class VideoEncodingTask:
                                     ## もし前のセグメントのエンコードが完了していない場合、前のセグメントのエンコードに失敗している
                                     ## 基本復旧不可能だが一応エンコードタスクは続ける
                                     if self.video_stream.segments[segment.sequence_index - 1].encode_status != 'Completed':
-                                        Logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index - 1}] '
+                                        logging.error(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index - 1}] '
                                                        'Segment encoding failed. Skip this segment.')
 
                                     # 次のセグメントのエンコーダースレッドを起動する
@@ -1036,19 +1036,19 @@ class VideoEncodingTask:
 
                                     # エンコード中でもエンコード完了状態でもない場合のみ、エンコーダースレッドをバックグラウンドで起動する
                                     if segment.encode_status == 'Pending':
-                                        Logging.info(f'[Video: {self.video_stream.video_stream_id}] Switched to next segment: {segment.sequence_index}')
-                                        Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                                        logging.info(f'[Video: {self.video_stream.video_stream_id}] Switched to next segment: {segment.sequence_index}')
+                                        logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                                             f'Start: {(segment.start_pts - self.video_stream.segments[0].start_pts) / ts.HZ:.3f} / '
                                             f'End: {((segment.start_pts - self.video_stream.segments[0].start_pts) / ts.HZ) + segment.duration_seconds:.3f}')
                                         encoder_thread = threading.Thread(target=self.__runEncoder, args=(segment,))
                                         encoder_thread.start()
                                     # 当該セグメントのエンコードがすでに完了している場合、エンコーダースレッドを起動せずスキップする
                                     elif segment.encode_status == 'Completed':
-                                        Logging.info(f'[Video: {self.video_stream.video_stream_id}] Switched to next segment: {segment.sequence_index}')
-                                        Logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                                        logging.info(f'[Video: {self.video_stream.video_stream_id}] Switched to next segment: {segment.sequence_index}')
+                                        logging.info(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                                             f'Start: {(segment.start_pts - self.video_stream.segments[0].start_pts) / ts.HZ:.3f} / '
                                             f'End: {((segment.start_pts - self.video_stream.segments[0].start_pts) / ts.HZ) + segment.duration_seconds:.3f}')
-                                        Logging.warning(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                                        logging.warning(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                                                          'Segment is already encoded. Skip this segment.')
                                     # 現在エンコード中の場合は正常なのでそのまま何もしない
                                     ## if 文の条件は「現在の PTS が前のセグメントの切り出し終了 PTS から 3 秒以上が経過している場合」なので、
@@ -1064,7 +1064,7 @@ class VideoEncodingTask:
 
                                 # 当該セグメントの PTS レンジに一致する最初のパケットのみ
                                 if segment.is_started is False:
-                                    Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                                    logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                                                           'First PES packet is arrived.')
 
                                     # このタイミングで monotonic_segment_index が初期値の場合のみ、
@@ -1089,7 +1089,7 @@ class VideoEncodingTask:
                                 ## OpenGOP など一部 TS ではこの値がカウントアップした後に前のセグメント用のフレームが出てくることもあるが、
                                 ## インデックスは単調増加のため一度カウントアップしたらカウントが減ることはない
                                 if PID == VIDEO_PID and segment.start_pts == current_pts and monotonic_segment_index < segment.sequence_index:
-                                    Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
+                                    logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {segment.sequence_index}] '
                                                           'First keyframe PES packet is arrived.')
                                     monotonic_segment_index = segment.sequence_index
 
@@ -1177,7 +1177,7 @@ class VideoEncodingTask:
                         return  # メソッドの実行自体を終了する
 
         # ここまできたら EOF に到達している
-        Logging.info(f'[Video: {self.video_stream.video_stream_id}] Reached end of file.')
+        logging.info(f'[Video: {self.video_stream.video_stream_id}] Reached end of file.')
 
         # 最後のセグメントのエンコードがまだ完了していない場合のみ
         if self.video_stream.segments[len(self.video_stream.segments) - 1].encode_status != 'Completed':
@@ -1185,7 +1185,7 @@ class VideoEncodingTask:
             # EOF に到達したので、最後のセグメントにもう投入するパケットがないことをエンコーダーに通知する
             ## これで tsreadex の標準入力が閉じられ、エンコーダーの終了処理が開始される
             self.video_stream.segments[len(self.video_stream.segments) - 1].segment_ts_packet_queue.put(None)
-            Logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {len(self.video_stream.segments) - 1}] '
+            logging.debug_simple(f'[Video: {self.video_stream.video_stream_id}][Segment {len(self.video_stream.segments) - 1}] '
                                   'Cut off TS packets to be passed to the encoder.')
 
             # もう投入するパケットがないことを通知したので、エンコーダーの終了を待つ (重要)
@@ -1196,7 +1196,7 @@ class VideoEncodingTask:
 
         # エンコードタスクでのすべての処理を完了した
         self._is_finished = True
-        Logging.info(f'[Video: {self.video_stream.video_stream_id}] VideoEncodingTask finished.')
+        logging.info(f'[Video: {self.video_stream.video_stream_id}] VideoEncodingTask finished.')
 
 
     async def run(self, first_segment_index: int) -> None:
@@ -1218,7 +1218,7 @@ class VideoEncodingTask:
 
         # すでにエンコードタスクが完了している場合は何もしない
         if self._is_finished is True:
-            Logging.info(f'[Video: {self.video_stream.video_stream_id}] VideoEncodingTask is already finished.')
+            logging.info(f'[Video: {self.video_stream.video_stream_id}] VideoEncodingTask is already finished.')
             return
 
         if self._is_cancelled is False:
@@ -1229,7 +1229,7 @@ class VideoEncodingTask:
             self._is_cancelled = True
 
             # tsreadex とエンコーダーのプロセスを強制終了する
-            Logging.info(f'[Video: {self.video_stream.video_stream_id}] VideoEncodingTask cancelling...')
+            logging.info(f'[Video: {self.video_stream.video_stream_id}] VideoEncodingTask cancelling...')
             self.__terminateEncoder()
 
-            Logging.info(f'[Video: {self.video_stream.video_stream_id}] VideoEncodingTask cancelled.')
+            logging.info(f'[Video: {self.video_stream.video_stream_id}] VideoEncodingTask cancelled.')

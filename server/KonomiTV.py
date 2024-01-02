@@ -64,14 +64,14 @@ def main(
         RESTART_REQUIRED_LOCK_PATH.unlink()
 
     # 前回のログをすべて削除してから、config.py と constants.py 以外の内部モジュールをインポートする
-    ## ロギング設定は Logging.py が読み込まれた瞬間に行われるが、その際に前回のログファイルが残っているとエラーになる
+    ## ロギング設定は logging.py が読み込まれた瞬間に行われるが、その際に前回のログファイルが残っているとエラーになる
     ## constants.py は内部モジュールへの依存がなく、config.py も constants.py 以外への依存はないので、この2つのみトップレベルでインポートしている
-    ## 前回のログをすべて削除する処理を Logging.py 自体に記述してしまうとマルチプロセス実行時や自動リロードモード時に意図せずファイルが削除されてしまう
+    ## 前回のログをすべて削除する処理を logging.py 自体に記述してしまうとマルチプロセス実行時や自動リロードモード時に意図せずファイルが削除されてしまう
     from app.utils import IsRunningAsWindowsService
-    from app.utils import Logging
+    from app import logging
 
     # バージョン情報をログに出力
-    Logging.info(f'KonomiTV version {VERSION}')
+    logging.info(f'KonomiTV version {VERSION}')
 
     # ***** サポートされているアーキテクチャかのバリデーション *****
 
@@ -82,7 +82,7 @@ def main(
     ## aarch64: Linux (arm64)
     current_arch = platform.machine()
     if current_arch not in ['AMD64', 'x86_64', 'aarch64']:
-        Logging.error(f'KonomiTV は {current_arch} アーキテクチャに対応していません。')
+        logging.error(f'KonomiTV は {current_arch} アーキテクチャに対応していません。')
         sys.exit(1)
 
     # ***** サードパーティーライブラリが配置されているかのバリデーション *****
@@ -96,8 +96,8 @@ def main(
         if current_arch == 'aarch64' and library_name in ['QSVEncC', 'NVEncC', 'VCEEncC']:
             continue
         if Path(library_path).is_file() is False:
-            Logging.error(f'{library_name} がサードパーティーライブラリとして配置されていないため、KonomiTV を起動できません。')
-            Logging.error(f'{library_name} が {library_path} に配置されているかを確認してください。')
+            logging.error(f'{library_name} がサードパーティーライブラリとして配置されていないため、KonomiTV を起動できません。')
+            logging.error(f'{library_name} が {library_path} に配置されているかを確認してください。')
             sys.exit(1)
 
     # ***** サーバー設定データのロード *****
@@ -142,8 +142,8 @@ def main(
     # Uvicorn を自動リロードモードで起動するかのフラグ
     ## 基本的に開発時用で、コードを変更するとアプリケーションサーバーを自動で再起動してくれる
     if sys.platform == 'win32' and reload is True:
-        Logging.warning('Python の asyncio の技術的な制約により、Windows では自動リロードモードは正常に動作しません。')
-        Logging.warning('なお、外部プロセス実行を伴うストリーミング視聴を行わなければ一応 Windows でも機能します。')
+        logging.warning('Python の asyncio の技術的な制約により、Windows では自動リロードモードは正常に動作しません。')
+        logging.warning('なお、外部プロセス実行を伴うストリーミング視聴を行わなければ一応 Windows でも機能します。')
 
     # Uvicorn の設定
     server_config = uvicorn.Config(
@@ -199,7 +199,7 @@ def main(
     # もしこの時点で再起動が必要であることを示すロックファイルが存在する場合、KonomiTV サーバーを再起動する
     ## このロックファイルは ServerRestartAPI によって作成される
     if RESTART_REQUIRED_LOCK_PATH.exists():
-        Logging.warning('Server restart requested. Restarting...')
+        logging.warning('Server restart requested. Restarting...')
 
         # Windows サービスとして実行されている場合は、Windows サービス側で再起動処理が行われるので、ここでは何もしない
         if IsRunningAsWindowsService():

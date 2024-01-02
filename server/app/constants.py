@@ -76,7 +76,7 @@ DATABASE_CONFIG = {
 }
 
 # Uvicorn のロギング設定
-## この dictConfig を Uvicorn に渡す (KonomiTV 本体のロギング設定は app.utils.Logging に別で存在する)
+## この dictConfig を Uvicorn に渡す (KonomiTV 本体のロギング設定は app.logging に別で存在する)
 ## Uvicorn のもとの dictConfig を参考にして作成した
 ## ref: https://github.com/encode/uvicorn/blob/0.18.2/uvicorn/config.py#L95-L126
 LOGGING_CONFIG: dict[str, Any] = {

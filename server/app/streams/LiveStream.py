@@ -8,11 +8,11 @@ import time
 from hashids import Hashids
 from typing import ClassVar, Literal
 
+from app import logging
 from app.constants import QUALITY_TYPES
 from app.schemas import LiveStreamStatus
 from app.streams.LiveEncodingTask import LiveEncodingTask
 from app.streams.LivePSIDataArchiver import LivePSIDataArchiver
-from app.utils import Logging
 from app.utils.EDCB import EDCBTuner
 
 
@@ -313,7 +313,7 @@ class LiveStream():
         # ライブストリームクライアントのインスタンスを生成・登録する
         client = LiveStreamClient(self, client_type)
         self._clients.append(client)
-        Logging.info(f'[Live: {self.live_stream_id}] Client Connected. Client ID: {client.client_id}')
+        logging.info(f'[Live: {self.live_stream_id}] Client Connected. Client ID: {client.client_id}')
 
         # ***** アイドリングからの復帰 *****
 
@@ -339,7 +339,7 @@ class LiveStream():
         ## すでにタイムアウトなどで削除されていたら何もしない
         try:
             self._clients.remove(client)
-            Logging.info(f'[Live: {self.live_stream_id}] Client Disconnected. Client ID: {client.client_id}')
+            logging.info(f'[Live: {self.live_stream_id}] Client Disconnected. Client ID: {client.client_id}')
         except ValueError:
             pass
         del client
@@ -416,11 +416,11 @@ class LiveStream():
 
         # ステータス変更のログを出力
         if quiet is False:
-            Logging.info(f'[Live: {self.live_stream_id}] [Status: {status}] {detail}')
+            logging.info(f'[Live: {self.live_stream_id}] [Status: {status}] {detail}')
 
         # ストリーム起動完了時 (Standby → ONAir) 時のみ、ストリームの起動にかかった時間も出力
         if self._status == 'Standby' and status == 'ONAir':
-            Logging.info(f'[Live: {self.live_stream_id}] Startup complete. ({round(time.time() - self._started_at, 2)} sec)')
+            logging.info(f'[Live: {self.live_stream_id}] Startup complete. ({round(time.time() - self._started_at, 2)} sec)')
 
         # ログ出力を待ってからステータスと詳細をライブストリームにセット
         self._status = status
@@ -476,7 +476,7 @@ class LiveStream():
             ## 主にネットワークが切断されたなどの理由で発生する
             if now - client.stream_data_read_at > timeout:
                 self._clients.remove(client)
-                Logging.info(f'[Live: {self.live_stream_id}] Client Disconnected (Timeout). Client ID: {client.client_id}')
+                logging.info(f'[Live: {self.live_stream_id}] Client Disconnected (Timeout). Client ID: {client.client_id}')
                 del client
                 continue
 

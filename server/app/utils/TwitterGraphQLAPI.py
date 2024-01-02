@@ -3,9 +3,9 @@ import httpx
 import json
 from typing import Any, Literal
 
+from app import logging
 from app import schemas
 from app.models.TwitterAccount import TwitterAccount
-from app.utils import Logging
 
 
 class TwitterGraphQLAPI:
@@ -134,7 +134,7 @@ class TwitterGraphQLAPI:
 
         # 接続エラー（サーバーメンテナンスやタイムアウトなど）
         except (httpx.NetworkError, httpx.TimeoutException):
-            Logging.error('[TwitterAPI] Failed to connect to Twitter GraphQL API')
+            logging.error('[TwitterAPI] Failed to connect to Twitter GraphQL API')
             # return 'Failed to connect to Twitter GraphQL API'
             return error_message_prefix + 'Twitter API に接続できませんでした。'
 
@@ -146,20 +146,20 @@ class TwitterGraphQLAPI:
 
         # HTTP ステータスコードが 200 系以外の場合
         if not (200 <= response.status_code < 300):
-            Logging.error(f'[TwitterAPI] Failed to invoke GraphQL API (HTTP {response.status_code})')
+            logging.error(f'[TwitterAPI] Failed to invoke GraphQL API (HTTP {response.status_code})')
             return error_message_prefix + f'Twitter API から HTTP {response.status_code} エラーが返されました。'
 
         # JSON でないレスポンスが返ってきた場合
         ## charset=utf-8 が付いている場合もあるので完全一致ではなく部分一致で判定
         if 'application/json' not in response.headers['Content-Type']:
-            Logging.error('[TwitterAPI] Response is not JSON')
+            logging.error('[TwitterAPI] Response is not JSON')
             return error_message_prefix + 'Twitter API から不正なレスポンスが返されました。'
 
         # レスポンスを JSON としてパース
         try:
             response_json = response.json()
         except Exception:
-            Logging.error('[TwitterAPI] Failed to parse response as JSON')
+            logging.error('[TwitterAPI] Failed to parse response as JSON')
             return error_message_prefix + 'Twitter API のレスポンスを JSON としてパースできませんでした。'
 
         # API レスポンスにエラーが含まれている場合
@@ -173,7 +173,7 @@ class TwitterGraphQLAPI:
 
             # 想定外のエラーコードが返ってきた場合のエラーメッセージ
             alternative_error_message = f'Code: {response_error_code} / Message: {response_error_message}'
-            Logging.error(f'[TwitterAPI] Failed to invoke GraphQL API ({alternative_error_message})')
+            logging.error(f'[TwitterAPI] Failed to invoke GraphQL API ({alternative_error_message})')
 
             # エラーコードに対応するエラーメッセージを返し、対応するものがない場合は alternative_error_message を返す
             return error_message_prefix + self.ERROR_MESSAGES.get(response_error_code, alternative_error_message)
@@ -182,7 +182,7 @@ class TwitterGraphQLAPI:
         ## 実装時点の GraphQL API は必ず成功時は 'data' キーの下にレスポンスが格納されるはず
         ## もし 'data' キーが存在しない場合は、API 仕様が変更されている可能性がある
         elif 'data' not in response_json:
-            Logging.error('[TwitterAPI] Response does not have "data" key')
+            logging.error('[TwitterAPI] Response does not have "data" key')
             return error_message_prefix + 'Twitter API のレスポンスに "data" キーが存在しません。開発者に修正を依頼してください。'
 
         # ここまで来たら (中身のデータ構造はともかく) API レスポンスの取得には成功しているはず

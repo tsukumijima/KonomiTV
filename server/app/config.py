@@ -26,6 +26,7 @@ from pydantic_core import Url
 from pathlib import Path
 from typing import Annotated, Any, cast, Literal
 
+from app import logging
 from app.constants import (
     API_REQUEST_HEADERS,
     BASE_DIR,
@@ -133,8 +134,7 @@ class _ServerSettingsGeneral(BaseModel):
                     f'EDCB ({edcb_url}) にアクセスできませんでした。\n'
                     'EDCB が起動していないか、URL を間違えている可能性があります。'
                 )
-            from app.utils import Logging
-            Logging.info(f'Backend: EDCB ({edcb_url})')
+            logging.info(f'Backend: EDCB ({edcb_url})')
         return edcb_url
 
     @field_validator('mirakurun_url')
@@ -171,8 +171,7 @@ class _ServerSettingsGeneral(BaseModel):
                     f'{mirakurun_url} は Mirakurun の URL ではありません。\n'
                     'Mirakurun の URL を間違えている可能性があります。'
                 )
-            from app.utils import Logging
-            Logging.info(f'Backend: Mirakurun {response_json.get("current")} ({mirakurun_url})')
+            logging.info(f'Backend: Mirakurun {response_json.get("current")} ({mirakurun_url})')
         return mirakurun_url
 
     @field_validator('encoder')
@@ -180,7 +179,6 @@ class _ServerSettingsGeneral(BaseModel):
         # バリデーションをスキップする場合はここで終了
         if type(info.context) is dict and info.context.get('bypass_validation') is True:
             return encoder
-        from app.utils import Logging
         current_arch = platform.machine()
         # x64 なのにエンコーダーとして rkmppenc が指定されている場合
         if current_arch in ['AMD64', 'x86_64'] and encoder == 'rkmppenc':
@@ -211,7 +209,7 @@ class _ServerSettingsGeneral(BaseModel):
                 )
             # H.265/HEVC に対応していない環境では、通信節約モードが利用できない旨を出力する
             if 'H.265/HEVC' not in result_stdout:
-                Logging.warning(f'お使いの環境では {encoder} での H.265/HEVC エンコードがサポートされていないため、通信節約モードは利用できません。')
+                logging.warning(f'お使いの環境では {encoder} での H.265/HEVC エンコードがサポートされていないため、通信節約モードは利用できません。')
         # エンコーダーのバージョン情報を取得する
         ## バージョン情報は出力の1行目にある
         result = subprocess.run(
@@ -224,7 +222,7 @@ class _ServerSettingsGeneral(BaseModel):
         encoder_version = re.sub(r' Copyright.*$', '', encoder_version)
         encoder_version = re.sub(r' by rigaya.*$', '', encoder_version)
         encoder_version = encoder_version.replace('ffmpeg', 'FFmpeg').strip()
-        Logging.info(f'Encoder: {encoder_version}')
+        logging.info(f'Encoder: {encoder_version}')
         return encoder
 
 class _ServerSettingsServer(BaseModel):
@@ -329,12 +327,11 @@ def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
 
     # 循環参照を避けるために遅延インポート
     from app.utils import GetPlatformEnvironment
-    from app.utils import Logging
 
     # 設定ファイルが配置されていない場合、エラーを表示して終了する
     if Path.exists(_CONFIG_YAML_PATH) is False:
-        Logging.error('設定ファイルが配置されていないため、KonomiTV を起動できません。')
-        Logging.error('config.example.yaml を config.yaml にコピーし、お使いの環境に合わせて編集してください。')
+        logging.error('設定ファイルが配置されていないため、KonomiTV を起動できません。')
+        logging.error('config.example.yaml を config.yaml にコピーし、お使いの環境に合わせて編集してください。')
         sys.exit(1)
 
     # 設定ファイルからサーバー設定をロードする
@@ -342,13 +339,13 @@ def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
         with open(_CONFIG_YAML_PATH, mode='r', encoding='utf-8') as file:
             config_raw = ruamel.yaml.YAML().load(file)
             if config_raw is None:
-                Logging.error('設定ファイルが空のため、KonomiTV を起動できません。')
-                Logging.error('config.example.yaml を config.yaml にコピーし、お使いの環境に合わせて編集してください。')
+                logging.error('設定ファイルが空のため、KonomiTV を起動できません。')
+                logging.error('config.example.yaml を config.yaml にコピーし、お使いの環境に合わせて編集してください。')
                 sys.exit(1)
         config_dict: dict[str, dict[str, Any]] = dict(config_raw)
     except Exception as error:
-        Logging.error('設定ファイルのロード中にエラーが発生したため、KonomiTV を起動できません。')
-        Logging.error(f'{type(error).__name__}: {error}')
+        logging.error('設定ファイルのロード中にエラーが発生したため、KonomiTV を起動できません。')
+        logging.error(f'{type(error).__name__}: {error}')
         sys.exit(1)
 
     try:
@@ -366,7 +363,7 @@ def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
     if bypass_validation is False:
         try:
             _CONFIG = ServerSettings.model_validate(config_dict, context={'bypass_validation': False})
-            Logging.debug_simple('Server settings loaded.')
+            logging.debug_simple('Server settings loaded.')
         except ValidationError as error:
 
             # エラーのうちどれか一つでもカスタムバリデーターからのエラーだった場合、エラーメッセージを表示して終了する
@@ -376,18 +373,18 @@ def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
                 if 'ctx' in error_message and 'error' in error_message['ctx'] and type(error_message['ctx']['error']) is str:
                     custom_error = True
                     for message in error_message['ctx']['error'].split('\n'):
-                        Logging.error(message)
+                        logging.error(message)
             if custom_error is True:
                 sys.exit(1)
 
             # それ以外のバリデーションエラー
-            Logging.error('設定内容が不正なため、KonomiTV を起動できません。')
-            Logging.error('以下のエラーメッセージを参考に、config.yaml の記述が正しいかを確認してください。')
-            Logging.error(error)
+            logging.error('設定内容が不正なため、KonomiTV を起動できません。')
+            logging.error('以下のエラーメッセージを参考に、config.yaml の記述が正しいかを確認してください。')
+            logging.error(error)
             sys.exit(1)
     else:
         _CONFIG = ServerSettings.model_validate(config_dict, context={'bypass_validation': True})
-        Logging.debug_simple('Server settings loaded (bypassed validation).')
+        logging.debug_simple('Server settings loaded (bypassed validation).')
 
     return _CONFIG
 

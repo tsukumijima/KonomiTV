@@ -16,12 +16,12 @@ from pathlib import Path
 from typing import Any, cast
 from zoneinfo import ZoneInfo
 
+from app import logging
 from app.models.Channel import Channel
 from app.models.RecordedProgram import RecordedProgram
 from app.models.RecordedVideo import RecordedVideo
 from app.schemas import Genre
 from app.utils import ClosestMultiple
-from app.utils import Logging
 from app.utils.TSInformation import TSInformation
 
 
@@ -109,7 +109,7 @@ class TSInfoAnalyzer:
                 # 他にも pid があるかもしれないが（複数のチャンネルが同じストリームに含まれている場合など）、最初の pid のみを取得する
                 break
         if channel.service_id is None:
-            Logging.warning(f'{self.recorded_video.file_path}: service_id not found.')
+            logging.warning(f'{self.recorded_video.file_path}: service_id not found.')
             return None
 
         # TS から SDT (Service Description Table) を抽出
@@ -118,7 +118,7 @@ class TSInfoAnalyzer:
             channel.network_id = int(sdt.original_network_id)
             channel_type = TSInformation.getNetworkType(channel.network_id)
             if channel_type == 'OTHER':
-                Logging.warning(f'{self.recorded_video.file_path}: Unknown network_id: {channel.network_id}')
+                logging.warning(f'{self.recorded_video.file_path}: Unknown network_id: {channel.network_id}')
                 return None
             channel.type = channel_type
             # SDT に含まれるサービスごとの情報を取得
@@ -139,7 +139,7 @@ class TSInfoAnalyzer:
                 continue
             break
         if channel.network_id is None or channel.name is None:
-            Logging.warning(f'{self.recorded_video.file_path}: network_id or channel name not found.')
+            logging.warning(f'{self.recorded_video.file_path}: network_id or channel name not found.')
             return None
 
         # リモコン番号を取得
@@ -376,7 +376,7 @@ class TSInfoAnalyzer:
             # ループが 2000 回を超えたら (≒20回シークしても放送時間が確定しなかったら) 、タイムアウトでループを抜ける
             if count > 2000:
                 p_or_f = 'following' if is_following is True else 'present'
-                Logging.warning(f'{self.recorded_video.file_path}: Analyzing EIT information ({p_or_f}) timed out.')
+                logging.warning(f'{self.recorded_video.file_path}: Analyzing EIT information ({p_or_f}) timed out.')
                 break
 
             # ループが 100 で割り切れるたびに現在の位置から 188MB シークする

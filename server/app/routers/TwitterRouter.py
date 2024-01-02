@@ -19,11 +19,11 @@ from tweepy_authlib import CookieSessionUserHandler
 from typing import Any, cast, Coroutine
 from zoneinfo import ZoneInfo
 
+from app import logging
 from app import schemas
 from app.models.TwitterAccount import TwitterAccount
 from app.models.User import User
 from app.routers.UsersRouter import GetCurrentUser
-from app.utils import Logging
 from app.utils.TwitterGraphQLAPI import TwitterGraphQLAPI
 
 
@@ -47,7 +47,7 @@ async def GetCurrentTwitterAccount(
     # 指定された Twitter アカウントがユーザーアカウントに紐付けられていない or 登録されていない
     ## 実際に Twitter にそのスクリーンネームのアカウントが登録されているかとは無関係
     if not twitter_account:
-        Logging.error(f'[TwitterRouter][GetCurrentTwitterAccount] TwitterAccount associated with screen_name does not exist [screen_name: {screen_name}]')
+        logging.error(f'[TwitterRouter][GetCurrentTwitterAccount] TwitterAccount associated with screen_name does not exist [screen_name: {screen_name}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'TwitterAccount associated with screen_name does not exist',
@@ -170,7 +170,7 @@ async def TwitterPasswordAuthAPI(
             error_message = f'Code: {ex.api_codes[0]} / Message: {ex.api_messages[0]}'
         else:
             error_message = f'Unknown Error (HTTP Error {ex.response.status_code})'
-        Logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] Failed to authenticate with password ({error_message}) [screen_name: {password_auth_request.screen_name}]')
+        logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] Failed to authenticate with password ({error_message}) [screen_name: {password_auth_request.screen_name}]')
         raise HTTPException(
             status_code = status.HTTP_401_UNAUTHORIZED,
             detail = f'Failed to authenticate with password ({error_message})',
@@ -178,7 +178,7 @@ async def TwitterPasswordAuthAPI(
     except tweepy.TweepyException as ex:
         # 認証フローの途中で予期せぬエラーが発生し、ログインに失敗した
         error_message = f'Message: {ex}'
-        Logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] Unexpected error occurred while authenticate with password ({error_message}) [screen_name: {password_auth_request.screen_name}]')
+        logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] Unexpected error occurred while authenticate with password ({error_message}) [screen_name: {password_auth_request.screen_name}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = f'Unexpected error occurred while authenticate with password ({error_message})',
@@ -207,7 +207,7 @@ async def TwitterPasswordAuthAPI(
     try:
         verify_credentials = await asyncio.to_thread(tweepy_api.verify_credentials)
     except tweepy.TweepyException:
-        Logging.error('[TwitterRouter][TwitterPasswordAuthAPI] Failed to get user information')
+        logging.error('[TwitterRouter][TwitterPasswordAuthAPI] Failed to get user information')
         return HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Failed to get user information',
@@ -264,7 +264,7 @@ async def TwitterAccountDeleteAPI(
             error_message = f'Code: {ex.api_codes[0]} / Message: {ex.api_messages[0]}'
         else:
             error_message = f'Unknown Error (HTTP Error {ex.response.status_code})'
-        Logging.error(f'[TwitterRouter][TwitterAccountDeleteAPI] Failed to logout ({error_message}) [screen_name: {twitter_account.screen_name}]')
+        logging.error(f'[TwitterRouter][TwitterAccountDeleteAPI] Failed to logout ({error_message}) [screen_name: {twitter_account.screen_name}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = f'Failed to logout ({error_message})',
@@ -272,7 +272,7 @@ async def TwitterAccountDeleteAPI(
     except tweepy.TweepyException as ex:
         # 予期せぬエラーが発生した
         error_message = f'Message: {ex}'
-        Logging.error(f'[TwitterRouter][TwitterAccountDeleteAPI] Unexpected error occurred while logout ({error_message}) [screen_name: {twitter_account.screen_name}]')
+        logging.error(f'[TwitterRouter][TwitterAccountDeleteAPI] Unexpected error occurred while logout ({error_message}) [screen_name: {twitter_account.screen_name}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = f'Unexpected error occurred while logging out ({error_message})',
@@ -305,7 +305,7 @@ async def TwitterTweetAPI(
 
     # 画像が4枚を超えている
     if len(images) > 4:
-        Logging.error(f'[TwitterRouter][TwitterTweetAPI] Can tweet up to 4 images [image length: {len(images)}]')
+        logging.error(f'[TwitterRouter][TwitterTweetAPI] Can tweet up to 4 images [image length: {len(images)}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Can tweet up to 4 images',

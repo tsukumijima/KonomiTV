@@ -12,12 +12,12 @@ from fastapi.security.utils import get_authorization_scheme_param
 from jose import jwt
 from typing import Any, cast
 
+from app import logging
 from app import schemas
 from app.constants import API_REQUEST_HEADERS, NICONICO_OAUTH_CLIENT_ID
 from app.models.User import User
 from app.routers.UsersRouter import GetCurrentUser
 from app.utils import Interlaced
-from app.utils import Logging
 from app.utils.OAuthCallbackResponse import OAuthCallbackResponse
 
 
@@ -121,7 +121,7 @@ async def NiconicoAuthCallbackAPI(
 
         # 401 エラーを送出
         ## コールバック元から渡されたエラーメッセージをそのまま表示する
-        Logging.error('[NiconicoRouter][NiconicoAuthCallbackAPI] Authorization was denied')
+        logging.error('[NiconicoRouter][NiconicoAuthCallbackAPI] Authorization was denied')
         return OAuthCallbackResponse(
             status_code = status.HTTP_401_UNAUTHORIZED,
             detail = f'Authorization was denied ({error})',
@@ -130,7 +130,7 @@ async def NiconicoAuthCallbackAPI(
 
     # なぜか code がない
     if code is None:
-        Logging.error('[NiconicoRouter][NiconicoAuthCallbackAPI] Authorization code does not exist')
+        logging.error('[NiconicoRouter][NiconicoAuthCallbackAPI] Authorization code does not exist')
         return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Authorization code does not exist',
@@ -169,7 +169,7 @@ async def NiconicoAuthCallbackAPI(
 
         # ステータスコードが 200 以外
         if token_api_response.status_code != 200:
-            Logging.error(f'[NiconicoRouter][NiconicoAuthCallbackAPI] Failed to get access token (HTTP Error {token_api_response.status_code})')
+            logging.error(f'[NiconicoRouter][NiconicoAuthCallbackAPI] Failed to get access token (HTTP Error {token_api_response.status_code})')
             return OAuthCallbackResponse(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = f'Failed to get access token (HTTP Error {token_api_response.status_code})',
@@ -180,7 +180,7 @@ async def NiconicoAuthCallbackAPI(
 
     # 接続エラー（サーバーメンテナンスやタイムアウトなど）
     except (httpx.NetworkError, httpx.TimeoutException):
-        Logging.error('[NiconicoRouter][NiconicoAuthCallbackAPI] Failed to get access token (Connection Timeout)')
+        logging.error('[NiconicoRouter][NiconicoAuthCallbackAPI] Failed to get access token (Connection Timeout)')
         return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Failed to get access token (Connection Timeout)',
@@ -208,7 +208,7 @@ async def NiconicoAuthCallbackAPI(
 
         # ステータスコードが 200 以外
         if user_api_response.status_code != 200:
-            Logging.error(f'[NiconicoRouter][NiconicoAuthCallbackAPI] Failed to get user information (HTTP Error {user_api_response.status_code})')
+            logging.error(f'[NiconicoRouter][NiconicoAuthCallbackAPI] Failed to get user information (HTTP Error {user_api_response.status_code})')
             return OAuthCallbackResponse(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = f'Failed to get user information (HTTP Error {user_api_response.status_code})',
@@ -222,7 +222,7 @@ async def NiconicoAuthCallbackAPI(
 
     # 接続エラー（サーバー再起動やタイムアウトなど）
     except (httpx.NetworkError, httpx.TimeoutException):
-        Logging.error('[NiconicoRouter][NiconicoAuthCallbackAPI] Failed to get user information (Connection Timeout)')
+        logging.error('[NiconicoRouter][NiconicoAuthCallbackAPI] Failed to get user information (Connection Timeout)')
         return OAuthCallbackResponse(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Failed to get user information (Connection Timeout)',

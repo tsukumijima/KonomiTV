@@ -12,12 +12,12 @@ from fastapi.responses import StreamingResponse
 from starlette.types import Receive
 from sse_starlette.sse import EventSourceResponse
 
+from app import logging
 from app import schemas
 from app.constants import QUALITY, QUALITY_TYPES
 from app.models.Channel import Channel
 from app.streams.LiveStream import LiveStream
 from app.streams.LiveStream import LiveStreamStatus
-from app.utils import Logging
 
 
 # ルーター
@@ -30,7 +30,7 @@ router = APIRouter(
 async def ValidateChannelID(display_channel_id: str = Path(..., description='チャンネル ID 。ex:gr011')) -> str:
     """ チャンネル ID のバリデーション """
     if await Channel.filter(display_channel_id=display_channel_id).get_or_none() is None:
-        Logging.error(f'[LiveStreamsRouter][ValidateChannelID] Specified display_channel_id was not found [display_channel_id: {display_channel_id}]')
+        logging.error(f'[LiveStreamsRouter][ValidateChannelID] Specified display_channel_id was not found [display_channel_id: {display_channel_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified display_channel_id was not found',
@@ -41,7 +41,7 @@ async def ValidateChannelID(display_channel_id: str = Path(..., description='チ
 async def ValidateQuality(quality: str = Path(..., description='映像の品質。ex:1080p')) -> QUALITY_TYPES:
     """ 映像の品質のバリデーション """
     if quality not in QUALITY:
-        Logging.error(f'[LiveStreamsRouter][ValidateQuality] Specified quality was not found [quality: {quality}]')
+        logging.error(f'[LiveStreamsRouter][ValidateQuality] Specified quality was not found [quality: {quality}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified quality was not found',
@@ -233,7 +233,7 @@ async def LivePSIArchivedDataAPI(
 
     # 10秒待っても起動しなかった場合はエラー
     if live_stream.psi_data_archiver is None:
-        Logging.error(f'[LiveStreamsRouter][LivePSIArchivedDataAPI] PSI/SI Data Archiver is not running')
+        logging.error(f'[LiveStreamsRouter][LivePSIArchivedDataAPI] PSI/SI Data Archiver is not running')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'PSI/SI Data Archiver is not running',
@@ -305,7 +305,7 @@ async def LiveMPEGTSStreamAPI(
             if await request.is_disconnected():
 
                 # ライブストリームへの接続を切断し、ループを終了する
-                Logging.debug_simple('[LiveStreamsRouter][LiveMPEGTSStreamAPI] Request is disconnected')
+                logging.debug_simple('[LiveStreamsRouter][LiveMPEGTSStreamAPI] Request is disconnected')
                 live_stream.disconnect(live_stream_client)
                 break
 
@@ -322,7 +322,7 @@ async def LiveMPEGTSStreamAPI(
                 else:
 
                     # ライブストリームへの接続を切断し、ループを終了する
-                    Logging.debug_simple('[LiveStreamsRouter][LiveMPEGTSStreamAPI] Encode task is finished')
+                    logging.debug_simple('[LiveStreamsRouter][LiveMPEGTSStreamAPI] Encode task is finished')
                     live_stream.disconnect(live_stream_client)  # 必要ないとは思うけど念のため
                     break
 
@@ -330,7 +330,7 @@ async def LiveMPEGTSStreamAPI(
             else:
 
                 # ライブストリームへの接続を切断し、ループを終了する
-                Logging.debug_simple('[LiveStreamsRouter][LiveMPEGTSStreamAPI] LiveStream is currently Offline')
+                logging.debug_simple('[LiveStreamsRouter][LiveMPEGTSStreamAPI] LiveStream is currently Offline')
                 live_stream.disconnect(live_stream_client)  # 必要ないとは思うけど念のため
                 break
 

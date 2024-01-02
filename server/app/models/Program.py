@@ -22,13 +22,13 @@ from tortoise import transactions
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from app import logging
 from app.config import Config
 from app.config import LoadConfig
 from app.constants import API_REQUEST_HEADERS, DATABASE_CONFIG
 from app.models.Channel import Channel
 from app.schemas import Genre
 from app.utils import GetMirakurunAPIEndpointURL
-from app.utils import Logging
 from app.utils.EDCB import CtrlCmdUtil
 from app.utils.EDCB import EDCBUtil
 from app.utils.TSInformation import TSInformation
@@ -43,7 +43,7 @@ class Program(models.Model):
     # テーブル設計は Notion を参照のこと
     id: str = fields.CharField(255, pk=True)  # type: ignore
     channel: fields.ForeignKeyRelation[Channel] = \
-        fields.ForeignKeyField('models.Channel', related_name='programs', index=True, on_delete=fields.CASCADE)
+        fields.ForeignKeyField('models.Channel', related_name='programs', index=True, on_delete=fields.CASCADE)  # type: ignore
     channel_id: str
     network_id: int = fields.IntField()  # type: ignore
     service_id: int = fields.IntField()  # type: ignore
@@ -77,7 +77,7 @@ class Program(models.Model):
         """
 
         timestamp = time.time()
-        Logging.info('Programs updating...')
+        logging.info('Programs updating...')
 
         # 番組情報をマルチプロセスで更新する
         if multiprocess is True:
@@ -119,7 +119,7 @@ class Program(models.Model):
             except Exception:
                 traceback.print_exc()
 
-        Logging.info(f'Programs update complete. ({round(time.time() - timestamp, 3)} sec)')
+        logging.info(f'Programs update complete. ({round(time.time() - timestamp, 3)} sec)')
 
 
     @classmethod
@@ -211,14 +211,14 @@ class Program(models.Model):
                             timeout = 10,  # 10秒後にタイムアウト (SPHD や CATV も映る環境だと時間がかかるので、少し伸ばす)
                         )
                     if mirakurun_programs_api_response.status_code != 200:  # Mirakurun からエラーが返ってきた
-                        Logging.error(f'Failed to get programs from Mirakurun. (HTTP Error {mirakurun_programs_api_response.status_code})')
+                        logging.error(f'Failed to get programs from Mirakurun. (HTTP Error {mirakurun_programs_api_response.status_code})')
                         raise Exception(f'Failed to get programs from Mirakurun. (HTTP Error {mirakurun_programs_api_response.status_code})')
                     programs: list[dict[str, Any]] = mirakurun_programs_api_response.json()
                 except httpx.NetworkError as ex:
-                    Logging.error(f'Failed to get programs from Mirakurun. (Network Error)')
+                    logging.error(f'Failed to get programs from Mirakurun. (Network Error)')
                     raise ex
                 except httpx.TimeoutException as ex:
-                    Logging.error(f'Failed to get programs from Mirakurun. (Connection Timeout)')
+                    logging.error(f'Failed to get programs from Mirakurun. (Connection Timeout)')
                     raise ex
 
                 # この変数から更新or更新不要な番組情報を削除していき、残った古い番組情報を最後にまとめて削除する
@@ -432,9 +432,9 @@ class Program(models.Model):
 
                     # 番組情報をデータベースに保存する
                     if duplicate_program is None:
-                        Logging.debug_simple(f'Add Program: {program.id}')
+                        logging.debug_simple(f'Add Program: {program.id}')
                     else:
-                        Logging.debug_simple(f'Update Program: {program.id}')
+                        logging.debug_simple(f'Update Program: {program.id}')
 
                     ## マルチプロセス実行時は、まれに保存する際にメインプロセスにデータベースがロックされている事がある
                     ## 3秒待ってから再試行し、それでも失敗した場合はスキップ
@@ -450,7 +450,7 @@ class Program(models.Model):
                 # この時点で残存している番組情報は放送が終わって EPG から削除された番組なので、まとめて削除する
                 # ここで削除しないと終了した番組の情報が幽霊のように残り続ける事になり、結果 DB が肥大化して遅くなってしまう
                 for duplicate_program in duplicate_programs.values():
-                    Logging.debug_simple(f'Delete Program: {duplicate_program.id}')
+                    logging.debug_simple(f'Delete Program: {duplicate_program.id}')
                     try:
                         await duplicate_program.delete()
                     except exceptions.OperationalError:
@@ -463,7 +463,7 @@ class Program(models.Model):
 
         # マルチプロセス実行時は、明示的に例外を拾わないとなぜかメインプロセスも含め全体がフリーズしてしまう
         except Exception:
-            Logging.error(traceback.format_exc())
+            logging.error(traceback.format_exc())
 
         # マルチプロセス実行時は、開いた Tortoise ORM のコネクションを明示的に閉じる
         # コネクションを閉じないと Ctrl+C を押下しても終了できない
@@ -505,7 +505,7 @@ class Program(models.Model):
                 # 開始時間未定をのぞく全番組を取得する (リスト引数の前2要素は全番組、残り2要素は全期間を意味)
                 program_services = await edcb.sendEnumPgInfoEx([0xffffffffffff, 0xffffffffffff, 1, 0x7fffffffffffffff])
                 if program_services is None:
-                    Logging.error('Failed to get programs from EDCB.')
+                    logging.error('Failed to get programs from EDCB.')
                     raise Exception('Failed to get programs from EDCB.')
 
                 # この変数から更新or更新不要な番組情報を削除していき、残った古い番組情報を最後にまとめて削除する
@@ -714,9 +714,9 @@ class Program(models.Model):
 
                         # 番組情報をデータベースに保存する
                         if duplicate_program is None:
-                            Logging.debug_simple(f'Add Program: {program.id}')
+                            logging.debug_simple(f'Add Program: {program.id}')
                         else:
-                            Logging.debug_simple(f'Update Program: {program.id}')
+                            logging.debug_simple(f'Update Program: {program.id}')
 
                         ## マルチプロセス実行時は、まれに保存する際にメインプロセスにデータベースがロックされている事がある
                         ## 3秒待ってから再試行し、それでも失敗した場合はスキップ
@@ -732,7 +732,7 @@ class Program(models.Model):
                 # この時点で残存している番組情報は放送が終わって EPG から削除された番組なので、まとめて削除する
                 # ここで削除しないと終了した番組の情報が幽霊のように残り続ける事になり、結果 DB が肥大化して遅くなってしまう
                 for duplicate_program in duplicate_programs.values():
-                    Logging.debug_simple(f'Delete Program: {duplicate_program.id}')
+                    logging.debug_simple(f'Delete Program: {duplicate_program.id}')
                     try:
                         await duplicate_program.delete()
                     except exceptions.OperationalError:
@@ -744,7 +744,7 @@ class Program(models.Model):
 
         # マルチプロセス実行時は、明示的に例外を拾わないとなぜかメインプロセスも含め全体がフリーズしてしまう
         except Exception:
-            Logging.error(traceback.format_exc())
+            logging.error(traceback.format_exc())
 
         # マルチプロセス実行時は、開いた Tortoise ORM のコネクションを明示的に閉じる
         # コネクションを閉じないと Ctrl+C を押下しても終了できない
