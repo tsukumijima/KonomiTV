@@ -82,8 +82,8 @@ class TwitterGraphQLAPI:
         error_message_prefix: str = 'Twitter API の操作に失敗しました。',
     ) -> dict[str, Any] | str:
         """
-        Twitter Web App の GraphQL API を叩く
-        実際には GraphQL と言いつつペイロードで JSON を渡しているので謎
+        Twitter Web App の GraphQL API に HTTP リクエストを送信する
+        実際には GraphQL と言いつつペイロードで JSON を渡しているので謎… (本当に GraphQL なのか？)
         クエリ ID はおそらく API のバージョン (?) を示しているらしい謎の値で、数週間単位で変更されうる (定期的に追従が必要)
 
         Args:
@@ -97,7 +97,7 @@ class TwitterGraphQLAPI:
             dict[str, Any] | str: GraphQL API のレスポンス (失敗時は日本語のエラーメッセージを返す)
         """
 
-        # Twitter GraphQL API にリクエストを飛ばす
+        # Twitter GraphQL API に HTTP リクエストを送信する
         try:
             async with self.httpx_client:
                 if method == 'POST':
@@ -419,7 +419,7 @@ class TwitterGraphQLAPI:
 
     def __getCursorIDFromTimelineAPIResponse(self, response: dict[str, Any], cursor_type: Literal['Top', 'Bottom']) -> str | None:
         """
-        GraphQL API のうちツイートタイムライン系の API レスポンスから指定されたタイプに一致するカーソル ID を取得する
+        GraphQL API のうちツイートタイムライン系の API レスポンスから、指定されたタイプに一致するカーソル ID を取得する
         次の API リクエスト時にカーソル ID を指定すると、そのカーソル ID から次のページを取得できる
 
         Args:
@@ -431,7 +431,7 @@ class TwitterGraphQLAPI:
         """
 
         # '__typename' が 'TimelineTimelineCursor' で、'cursorType' が指定されたタイプと一致し、'value' キーを持つオブジェクトを再帰的に探索する
-        # ただし、既に探索したオブジェクトは再度探索しないようにすることで、無限ループを防ぐ
+        ## 既に探索したオブジェクトは再度探索しないようにすることで、無限ループを防ぐ
         def find_cursor_id(object: Any, searched_objects: list[Any] = []) -> str | None:
             if object in searched_objects:
                 return None
@@ -456,13 +456,13 @@ class TwitterGraphQLAPI:
 
     def __getTweetsFromTimelineAPIResponse(self, response: dict[str, Any]) -> list[schemas.Tweet]:
         """
-        GraphQL API のうちツイートタイムライン系の API レスポンスからツイートのリストを取得する
+        GraphQL API のうちツイートタイムライン系の API レスポンスから、ツイートリストを取得する
 
         Args:
             response (dict[str, Any]): ツイートタイムライン系の API レスポンス
 
         Returns:
-            list[schemas.Tweet]: ツイートのリスト
+            list[schemas.Tweet]: ツイートリスト
         """
 
         # ここに API レスポンスから抽出したツイート情報を格納し、そこからさらに必要な情報を抽出して schemas.Tweet に格納する
@@ -471,6 +471,7 @@ class TwitterGraphQLAPI:
         # '__typename' が 'TimelineTweet' で、'tweetDisplayType' が 'Tweet' で、
         # 'promotedMetadata' キーを持たず、'tweet_results' オブジェクトを持つオブジェクトを再帰的に探索し、
         # tweet_results.result の '__typename' が 'Tweet' or 'TweetWithVisibilityResults ならそのオブジェクトを raw_tweet_objects に格納する
+        ## 既に探索したオブジェクトは再度探索しないようにすることで、無限ループを防ぐ
         def find_tweet_objects(object: Any, searched_objects: list[Any] = []) -> None:
             if object in searched_objects:
                 return
@@ -567,7 +568,7 @@ class TwitterGraphQLAPI:
         count: int = 20,
     ) -> schemas.TimelineTweetsResult | schemas.TwitterAPIResult:
         """
-        タイムラインを検索する
+        タイムラインの最新ツイートを取得する
         一応 API 上は取得するツイート数を指定できることになっているが、検索と異なり実際に返ってくるツイート数は保証されてないっぽい (100 件返ってくることもある)
 
         Args:
@@ -658,7 +659,7 @@ class TwitterGraphQLAPI:
         count: int = 20,
     ) -> schemas.TimelineTweetsResult | schemas.TwitterAPIResult:
         """
-        タイムラインを検索する
+        ツイートを検索する
 
         Args:
             search_type (Literal['Top', 'Latest']): 検索タイプ (Top: トップツイート, Latest: 最新ツイート)
