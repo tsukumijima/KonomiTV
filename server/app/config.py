@@ -26,7 +26,6 @@ from pydantic_core import Url
 from pathlib import Path
 from typing import Annotated, Any, cast, Literal
 
-from app import logging
 from app.constants import (
     API_REQUEST_HEADERS,
     BASE_DIR,
@@ -134,6 +133,7 @@ class _ServerSettingsGeneral(BaseModel):
                     f'EDCB ({edcb_url}) にアクセスできませんでした。\n'
                     'EDCB が起動していないか、URL を間違えている可能性があります。'
                 )
+            from app import logging
             logging.info(f'Backend: EDCB ({edcb_url})')
         return edcb_url
 
@@ -171,6 +171,7 @@ class _ServerSettingsGeneral(BaseModel):
                     f'{mirakurun_url} は Mirakurun の URL ではありません。\n'
                     'Mirakurun の URL を間違えている可能性があります。'
                 )
+            from app import logging
             logging.info(f'Backend: Mirakurun {response_json.get("current")} ({mirakurun_url})')
         return mirakurun_url
 
@@ -179,6 +180,7 @@ class _ServerSettingsGeneral(BaseModel):
         # バリデーションをスキップする場合はここで終了
         if type(info.context) is dict and info.context.get('bypass_validation') is True:
             return encoder
+        from app import logging
         current_arch = platform.machine()
         # x64 なのにエンコーダーとして rkmppenc が指定されている場合
         if current_arch in ['AMD64', 'x86_64'] and encoder == 'rkmppenc':
@@ -326,6 +328,7 @@ def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
     assert _CONFIG is None, 'LoadConfig() has already been called.'
 
     # 循環参照を避けるために遅延インポート
+    from app import logging
     from app.utils import GetPlatformEnvironment
 
     # 設定ファイルが配置されていない場合、エラーを表示して終了する
