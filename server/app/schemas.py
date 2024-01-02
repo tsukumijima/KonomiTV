@@ -259,15 +259,17 @@ class Tweet(BaseModel):
     retweeted_tweet: Union['Tweet', None]
     quoted_tweet: Union['Tweet', None]
 
-class Tweets(RootModel[list[Tweet]]):
-    pass
-
 class TwitterAPIResult(BaseModel):
     is_success: bool
     detail: str
 
-class TweetResult(TwitterAPIResult):
-    tweet_url: str | None = None
+class PostTweetResult(TwitterAPIResult):
+    tweet_url: str
+
+class TimelineTweetsResult(TwitterAPIResult):
+    next_cursor_id: str
+    previous_cursor_id: str
+    tweets: list[Tweet]
 
 class Users(RootModel[list[User]]):
     pass

@@ -1,7 +1,10 @@
 
 import httpx
 import json
+import re
+from datetime import datetime
 from typing import Any, Literal
+from zoneinfo import ZoneInfo
 
 from app import logging
 from app import schemas
@@ -13,7 +16,7 @@ class TwitterGraphQLAPI:
     Twitter Web App で利用されている GraphQL API の薄いラッパー
     外部ライブラリを使うよりすべて自前で書いたほうが柔軟に対応でき凍結リスクを回避できると考え実装した
     以下に実装されているリクエストペイロードなどはすべて実装時点の Twitter Web App が実際に送信するリクエストを可能な限り模倣したもの
-    メソッド名は GraphQL API でのエンドポイント名に対応している
+    メソッド名は概ね GraphQL API でのエンドポイント名に対応している
     """
 
     # Twitter API のエラーコードとエラーメッセージの対応表
@@ -189,7 +192,7 @@ class TwitterGraphQLAPI:
         return response_json['data']
 
 
-    async def createTweet(self, tweet: str, media_ids: list[str] = []) -> schemas.TweetResult:
+    async def createTweet(self, tweet: str, media_ids: list[str] = []) -> schemas.PostTweetResult | schemas.TwitterAPIResult:
         """
         ツイートを送信する
 
@@ -198,7 +201,7 @@ class TwitterGraphQLAPI:
             media_ids (list[str], optional): 添付するメディアの ID のリスト (デフォルトは空リスト)
 
         Returns:
-            schemas.TweetResult: ツイートの送信結果
+            schemas.PostTweetResult | schemas.TwitterAPIResult: ツイートの送信結果
         """
 
         # 画像の media_id をリストに格納 (画像がない場合は空のリストになる)
@@ -252,7 +255,7 @@ class TwitterGraphQLAPI:
 
         # 戻り値が str の場合、ツイートの送信に失敗している (エラーメッセージが返ってくる)
         if isinstance(response, str):
-            return schemas.TweetResult(
+            return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = response,  # エラーメッセージをそのまま返す
             )
@@ -265,7 +268,7 @@ class TwitterGraphQLAPI:
             # API レスポンスが変わっているなどでツイート ID を取得できなかった
             tweet_id = '__error__'
 
-        return schemas.TweetResult(
+        return schemas.PostTweetResult(
             is_success = True,
             detail = 'ツイートを送信しました。',
             tweet_url = f'https://twitter.com/i/status/{tweet_id}',
@@ -411,4 +414,328 @@ class TwitterGraphQLAPI:
         return schemas.TwitterAPIResult(
             is_success = True,
             detail = 'いいねを取り消しました。',
+        )
+
+
+    def __getCursorIDFromTimelineAPIResponse(self, response: dict[str, Any], cursor_type: Literal['Top', 'Bottom']) -> str | None:
+        """
+        GraphQL API のうちツイートタイムライン系の API レスポンスから指定されたタイプに一致するカーソル ID を取得する
+        次の API リクエスト時にカーソル ID を指定すると、そのカーソル ID から次のページを取得できる
+
+        Args:
+            response (dict[str, Any]): ツイートタイムライン系の API レスポンス
+            cursor_type (Literal['Top', 'Bottom']): カーソル ID タイプ (Top: 現在より最新のツイート, Bottom: 現在より過去のツイート)
+
+        Returns:
+            str | None: カーソル ID (仕様変更などで取得できなかった場合は None)
+        """
+
+        # '__typename' が 'TimelineTimelineCursor' で、'cursorType' が指定されたタイプと一致し、'value' キーを持つオブジェクトを再帰的に探索する
+        # ただし、既に探索したオブジェクトは再度探索しないようにすることで、無限ループを防ぐ
+        def find_cursor_id(object: Any, searched_objects: list[Any] = []) -> str | None:
+            if object in searched_objects:
+                return None
+            searched_objects.append(object)
+            if isinstance(object, dict):
+                if ('__typename' in object and 'cursorType' in object and 'value' in object) and \
+                   (object['__typename'] == 'TimelineTimelineCursor' and object['cursorType'] == cursor_type):
+                    return object['value']
+                for key in object:
+                    item = find_cursor_id(object[key], searched_objects)
+                    if item is not None:
+                        return item
+            elif isinstance(object, list):
+                for item in object:
+                    cursor_id = find_cursor_id(item, searched_objects)
+                    if cursor_id is not None:
+                        return cursor_id
+            return None
+
+        return find_cursor_id(response)
+
+
+    def __getTweetsFromTimelineAPIResponse(self, response: dict[str, Any]) -> list[schemas.Tweet]:
+        """
+        GraphQL API のうちツイートタイムライン系の API レスポンスからツイートのリストを取得する
+
+        Args:
+            response (dict[str, Any]): ツイートタイムライン系の API レスポンス
+
+        Returns:
+            list[schemas.Tweet]: ツイートのリスト
+        """
+
+        # ここに API レスポンスから抽出したツイート情報を格納し、そこからさらに必要な情報を抽出して schemas.Tweet に格納する
+        raw_tweet_objects: list[dict[str, Any]] = []
+
+        # '__typename' が 'TimelineTweet' で、'tweetDisplayType' が 'Tweet' で、
+        # 'promotedMetadata' キーを持たず、'tweet_results' オブジェクトを持つオブジェクトを再帰的に探索し、
+        # tweet_results.result の '__typename' が 'Tweet' or 'TweetWithVisibilityResults ならそのオブジェクトを raw_tweet_objects に格納する
+        def find_tweet_objects(object: Any, searched_objects: list[Any] = []) -> None:
+            if object in searched_objects:
+                return
+            searched_objects.append(object)
+            if isinstance(object, dict):
+                if ('__typename' in object and 'tweetDisplayType' in object and 'tweet_results' in object and 'promotedMetadata' not in object) and \
+                   (object['__typename'] == 'TimelineTweet' and object['tweetDisplayType'] == 'Tweet') and \
+                   ('result' in object['tweet_results'] and '__typename' in object['tweet_results']['result']) and \
+                   (object['tweet_results']['result']['__typename'] in ['Tweet', 'TweetWithVisibilityResults']):
+                    raw_tweet_objects.append(object['tweet_results']['result'])
+                for key in object:
+                    find_tweet_objects(object[key], searched_objects)
+            elif isinstance(object, list):
+                for item in object:
+                    find_tweet_objects(item, searched_objects)
+
+        # API レスポンスからツイート情報を抽出
+        find_tweet_objects(response)
+
+        def format_tweet(raw_tweet_object: dict[str, Any]) -> schemas.Tweet:
+            """ API レスポンスから取得したツイート情報を schemas.Tweet に変換する """
+
+            # もし '__typename' が 'TweetWithVisibilityResults' なら、ツイート情報がさらにネストされているのでそれを取得
+            if raw_tweet_object['__typename'] == 'TweetWithVisibilityResults':
+                raw_tweet_object = raw_tweet_object['tweet']
+
+            # リツイートがある場合は、リツイート元のツイートの情報を取得
+            retweeted_tweet = None
+            if 'retweeted_status_result' in raw_tweet_object['legacy']:
+                retweeted_tweet = format_tweet(raw_tweet_object['legacy']['retweeted_status_result']['result'])
+
+            # 引用リツイートがある場合は、引用リツイート元のツイートの情報を取得
+            ## なぜかリツイートと異なり legacy 以下ではなく直下に入っている
+            quoted_tweet = None
+            if 'quoted_status_result' in raw_tweet_object:
+                quoted_tweet = format_tweet(raw_tweet_object['quoted_status_result']['result'])
+
+            # 画像の URL を取得
+            image_urls = []
+            movie_url = None
+            if 'extended_entities' in raw_tweet_object['legacy']:
+                for media in raw_tweet_object['legacy']['extended_entities']['media']:
+                    if media['type'] == 'photo':
+                        image_urls.append(media['media_url_https'])
+                    elif media['type'] in ['video', 'animated_gif']:
+                        # content_type が video/mp4 かつ bitrate が最も高いものを取得
+                        mp4_variants: list[dict[str, Any]] = list(filter(lambda variant: variant['content_type'] == 'video/mp4', media['video_info']['variants']))
+                        if len(mp4_variants) > 0:
+                            highest_bitrate_variant: dict[str, Any] = max(
+                                mp4_variants,
+                                key = lambda variant: int(variant['bitrate']) if 'bitrate' in variant else 0,  # type: ignore
+                            )
+                            movie_url = str(highest_bitrate_variant['url']) if 'url' in highest_bitrate_variant else None
+
+            # t.co の URL を展開した URL に置換
+            expanded_text = raw_tweet_object['legacy']['full_text']
+            if 'entities' in raw_tweet_object['legacy'] and 'urls' in raw_tweet_object['legacy']['entities']:
+                for url_entity in raw_tweet_object['legacy']['entities']['urls']:
+                    expanded_text = expanded_text.replace(url_entity['url'], url_entity['expanded_url'])
+
+            # 残った t.co の URL を削除
+            if len(image_urls) > 0 or movie_url:
+                expanded_text = re.sub(r'\s*https://t\.co/\w+$', '', expanded_text)
+
+            return schemas.Tweet(
+                id = raw_tweet_object['legacy']['id_str'],
+                created_at = datetime.strptime(raw_tweet_object['legacy']['created_at'], '%a %b %d %H:%M:%S %z %Y').astimezone(ZoneInfo('Asia/Tokyo')),
+                user = schemas.TweetUser(
+                    id = raw_tweet_object['core']['user_results']['result']['rest_id'],
+                    name = raw_tweet_object['core']['user_results']['result']['legacy']['name'],
+                    screen_name = raw_tweet_object['core']['user_results']['result']['legacy']['screen_name'],
+                    # (ランダムな文字列)_normal.jpg だと画像サイズが小さいので、(ランダムな文字列).jpg に置換
+                    icon_url = raw_tweet_object['core']['user_results']['result']['legacy']['profile_image_url_https'].replace('_normal', ''),
+                ),
+                text = expanded_text,
+                lang = raw_tweet_object['legacy']['lang'],
+                via = re.sub(r'<.+?>', '', raw_tweet_object['source']),
+                image_urls = image_urls if len(image_urls) > 0 else None,
+                movie_url = movie_url,
+                retweet_count = raw_tweet_object['legacy']['retweet_count'],
+                favorite_count = raw_tweet_object['legacy']['favorite_count'],
+                retweeted = raw_tweet_object['legacy']['retweeted'],
+                favorited = raw_tweet_object['legacy']['favorited'],
+                retweeted_tweet = retweeted_tweet,
+                quoted_tweet = quoted_tweet,
+            )
+
+        # API レスポンスから取得したツイート情報を schemas.Tweet に変換して返す
+        return list(map(format_tweet, raw_tweet_objects))
+
+
+    async def homeLatestTimeline(self,
+        cursor_id: str | None = None,
+        count: int = 20,
+    ) -> schemas.TimelineTweetsResult | schemas.TwitterAPIResult:
+        """
+        タイムラインを検索する
+        一応 API 上は取得するツイート数を指定できることになっているが、検索と異なり実際に返ってくるツイート数は保証されてないっぽい (100 件返ってくることもある)
+
+        Args:
+            cursor_id (str | None, optional): 次のページを取得するためのカーソル ID (デフォルトは None)
+            count (int, optional): 取得するツイート数 (デフォルトは 20)
+
+        Returns:
+            schemas.TimelineTweets | schemas.TwitterAPIResult: 検索結果
+        """
+
+        # variables の挿入順序を Twitter Web App に厳密に合わせるためにこのような実装としている
+        variables: dict[str, Any] = {}
+        variables['count'] = count
+        if cursor_id is not None:
+            variables['cursor'] = cursor_id
+        variables['includePromotedContent'] = True
+        variables['latestControlAvailable'] = True
+        if cursor_id is None:
+            variables['requestContext'] = 'launch'
+        variables['seenTweetIds'] = []  # おそらく実際に表示されたツイートの ID を入れるキーだが、取得できないので空リストを入れておく
+
+        # Twitter GraphQL API にリクエスト
+        response = await self.invokeGraphQLAPI(
+            method = 'POST',
+            query_id = 'cXIyr6kbiuIGZ1qnP_R7xw',
+            endpoint = 'HomeLatestTimeline',
+            variables = variables,
+            features = {
+                'responsive_web_graphql_exclude_directive_enabled': True,
+                'verified_phone_label_enabled': False,
+                'creator_subscriptions_tweet_preview_api_enabled': True,
+                'responsive_web_graphql_timeline_navigation_enabled': True,
+                'responsive_web_graphql_skip_user_profile_image_extensions_enabled': False,
+                'c9s_tweet_anatomy_moderator_badge_enabled': True,
+                'tweetypie_unmention_optimization_enabled': True,
+                'responsive_web_edit_tweet_api_enabled': True,
+                'graphql_is_translatable_rweb_tweet_is_translatable_enabled': True,
+                'view_counts_everywhere_api_enabled': True,
+                'longform_notetweets_consumption_enabled': True,
+                'responsive_web_twitter_article_tweet_consumption_enabled': False,
+                'tweet_awards_web_tipping_enabled': False,
+                'freedom_of_speech_not_reach_fetch_enabled': True,
+                'standardized_nudges_misinfo': True,
+                'tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled': True,
+                'rweb_video_timestamps_enabled': True,
+                'longform_notetweets_rich_text_read_enabled': True,
+                'longform_notetweets_inline_media_enabled': True,
+                'responsive_web_media_download_video_enabled': False,
+                'responsive_web_enhance_cards_enabled': False,
+            },
+            error_message_prefix = 'タイムラインの取得に失敗しました。',
+        )
+
+        # 戻り値が str の場合、タイムラインの取得に失敗している (エラーメッセージが返ってくる)
+        if isinstance(response, str):
+            return schemas.TwitterAPIResult(
+                is_success = False,
+                detail = response,  # エラーメッセージをそのまま返す
+            )
+
+        # まずはカーソル ID を取得
+        ## カーソル ID が取得できなかった場合は仕様変更があったとみなし、エラーを返す
+        next_cursor_id = self.__getCursorIDFromTimelineAPIResponse(response, 'Top')  # 現在よりも新しいツイートを取得するためのカーソル ID
+        previous_cursor_id = self.__getCursorIDFromTimelineAPIResponse(response, 'Bottom')  # 現在よりも過去のツイートを取得するためのカーソル ID
+        if next_cursor_id is None or previous_cursor_id is None:
+            return schemas.TwitterAPIResult(
+                is_success = False,
+                detail = 'タイムラインの取得に失敗しました。カーソル ID を取得できませんでした。開発者に修正を依頼してください。',
+            )
+
+        # ツイートリストを取得
+        ## 取得できなかった場合、あるいは単純に一致する結果がない場合は空のリストになる
+        tweets = self.__getTweetsFromTimelineAPIResponse(response)
+
+        return schemas.TimelineTweetsResult(
+            is_success = True,
+            detail = 'タイムラインを取得しました。',
+            next_cursor_id = next_cursor_id,
+            previous_cursor_id = previous_cursor_id,
+            tweets = tweets,
+        )
+
+
+    async def searchTimeline(self,
+        search_type: Literal['Top', 'Latest'],
+        query: str,
+        cursor_id: str | None = None,
+        count: int = 20,
+    ) -> schemas.TimelineTweetsResult | schemas.TwitterAPIResult:
+        """
+        タイムラインを検索する
+
+        Args:
+            search_type (Literal['Top', 'Latest']): 検索タイプ (Top: トップツイート, Latest: 最新ツイート)
+            query (str): 検索クエリ
+            cursor_id (str | None, optional): 次のページを取得するためのカーソル ID (デフォルトは None)
+            count (int, optional): 取得するツイート数 (デフォルトは 20)
+
+        Returns:
+            schemas.TimelineTweets | schemas.TwitterAPIResult: 検索結果
+        """
+
+        # variables の挿入順序を Twitter Web App に厳密に合わせるためにこのような実装としている
+        variables: dict[str, Any] = {}
+        variables['rawQuery'] = query.strip() + ' exclude:replies lang:ja'
+        variables['count'] = count
+        if cursor_id is not None:
+            variables['cursor'] = cursor_id
+        variables['querySource'] = ''  # Twitter Web App 自体が空文字を送っているので合わせる
+        variables['product'] = search_type  # 検索タイプに Top か Latest を指定する
+
+        # Twitter GraphQL API にリクエスト
+        response = await self.invokeGraphQLAPI(
+            method = 'GET',
+            query_id = 'Aj1nGkALq99Xg3XI0OZBtw',
+            endpoint = 'SearchTimeline',
+            variables = variables,
+            features = {
+                'responsive_web_graphql_exclude_directive_enabled': True,
+                'verified_phone_label_enabled': False,
+                'creator_subscriptions_tweet_preview_api_enabled': True,
+                'responsive_web_graphql_timeline_navigation_enabled': True,
+                'responsive_web_graphql_skip_user_profile_image_extensions_enabled': False,
+                'c9s_tweet_anatomy_moderator_badge_enabled': True,
+                'tweetypie_unmention_optimization_enabled': True,
+                'responsive_web_edit_tweet_api_enabled': True,
+                'graphql_is_translatable_rweb_tweet_is_translatable_enabled': True,
+                'view_counts_everywhere_api_enabled': True,
+                'longform_notetweets_consumption_enabled': True,
+                'responsive_web_twitter_article_tweet_consumption_enabled': False,
+                'tweet_awards_web_tipping_enabled': False,
+                'freedom_of_speech_not_reach_fetch_enabled': True,
+                'standardized_nudges_misinfo': True,
+                'tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled': True,
+                'rweb_video_timestamps_enabled': True,
+                'longform_notetweets_rich_text_read_enabled': True,
+                'longform_notetweets_inline_media_enabled': True,
+                'responsive_web_media_download_video_enabled': False,
+                'responsive_web_enhance_cards_enabled': False,
+            },
+            error_message_prefix = 'ツイートの検索に失敗しました。',
+        )
+
+        # 戻り値が str の場合、ツイートの検索に失敗している (エラーメッセージが返ってくる)
+        if isinstance(response, str):
+            return schemas.TwitterAPIResult(
+                is_success = False,
+                detail = response,  # エラーメッセージをそのまま返す
+            )
+
+        # まずはカーソル ID を取得
+        ## カーソル ID が取得できなかった場合は仕様変更があったとみなし、エラーを返す
+        next_cursor_id = self.__getCursorIDFromTimelineAPIResponse(response, 'Top')  # 現在よりも新しいツイートを取得するためのカーソル ID
+        previous_cursor_id = self.__getCursorIDFromTimelineAPIResponse(response, 'Bottom')  # 現在よりも過去のツイートを取得するためのカーソル ID
+        if next_cursor_id is None or previous_cursor_id is None:
+            return schemas.TwitterAPIResult(
+                is_success = False,
+                detail = 'ツイートの検索に失敗しました。カーソル ID を取得できませんでした。開発者に修正を依頼してください。',
+            )
+
+        # ツイートリストを取得
+        ## 取得できなかった場合、あるいは単純に一致する結果がない場合は空のリストになる
+        tweets = self.__getTweetsFromTimelineAPIResponse(response)
+
+        return schemas.TimelineTweetsResult(
+            is_success = True,
+            detail = 'ツイートを検索しました。',
+            next_cursor_id = next_cursor_id,
+            previous_cursor_id = previous_cursor_id,
+            tweets = tweets,
         )
