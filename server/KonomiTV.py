@@ -63,12 +63,13 @@ def main(
     if RESTART_REQUIRED_LOCK_PATH.exists():
         RESTART_REQUIRED_LOCK_PATH.unlink()
 
-    # 前回のログをすべて削除してから、config.py と constants.py 以外の内部モジュールをインポートする
+    # ここでロガーとユーティリティをインポートする
+    ## 前回のログを削除する前でないと正しく動作しない
     ## ロギング設定は logging.py が読み込まれた瞬間に行われるが、その際に前回のログファイルが残っているとエラーになる
-    ## constants.py は内部モジュールへの依存がなく、config.py も constants.py 以外への依存はないので、この2つのみトップレベルでインポートしている
     ## 前回のログをすべて削除する処理を logging.py 自体に記述してしまうとマルチプロセス実行時や自動リロードモード時に意図せずファイルが削除されてしまう
-    from app.utils import IsRunningAsWindowsService
+    ## constants.py は内部モジュールへの依存がなく、config.py も constants.py 以外への依存はないので、この2つのみトップレベルでインポートしている
     from app import logging
+    from app.utils import IsRunningAsWindowsService
 
     # バージョン情報をログに出力
     logging.info(f'KonomiTV version {VERSION}')

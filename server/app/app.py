@@ -5,32 +5,41 @@ import tortoise.contrib.fastapi
 from fastapi import FastAPI
 from fastapi import Request
 from fastapi import status
+from fastapi.middleware import Middleware
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi_restful.tasks import repeat_every
 from pathlib import Path
+from typing import Any, Type
 
 from app import logging
 from app.config import Config
 from app.config import LoadConfig
-from app.constants import CLIENT_DIR, DATABASE_CONFIG, QUALITY, VERSION
+from app.constants import (
+    CLIENT_DIR,
+    DATABASE_CONFIG,
+    QUALITY,
+    VERSION,
+)
 from app.models.Channel import Channel
 from app.models.Program import Program
 from app.models.TwitterAccount import TwitterAccount
-from app.routers import CapturesRouter
-from app.routers import ChannelsRouter
-from app.routers import DataBroadcastingRouter
-from app.routers import LiveStreamsRouter
-from app.routers import MaintenanceRouter
-from app.routers import NiconicoRouter
-from app.routers import SeriesRouter
-from app.routers import SettingsRouter
-from app.routers import TwitterRouter
-from app.routers import UsersRouter
-from app.routers import VersionRouter
-from app.routers import VideosRouter
+from app.routers import (
+    CapturesRouter,
+    ChannelsRouter,
+    DataBroadcastingRouter,
+    LiveStreamsRouter,
+    MaintenanceRouter,
+    NiconicoRouter,
+    SeriesRouter,
+    SettingsRouter,
+    TwitterRouter,
+    UsersRouter,
+    VersionRouter,
+    VideosRouter,
+)
 from app.routers import VideoStreamsRouter
 from app.streams.LiveStream import LiveStream
 from app.utils.EDCB import EDCBTuner
@@ -55,17 +64,6 @@ app = FastAPI(
     version = VERSION,
 )
 
-# CORS の設定
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        '*' if CONFIG.general.debug is True else '',  # デバッグ時のみ CORS ヘッダーを有効化
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # ルーターの追加
 app.include_router(ChannelsRouter.router)
 app.include_router(VideosRouter.router)
@@ -80,6 +78,18 @@ app.include_router(UsersRouter.router)
 app.include_router(SettingsRouter.router)
 app.include_router(MaintenanceRouter.router)
 app.include_router(VersionRouter.router)
+
+# CORS の設定
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins = [
+        # デバッグモード時のみ CORS ヘッダーを有効化 (クライアント側の開発サーバーからのアクセスに必要)
+        '*' if CONFIG.general.debug is True else '',
+    ],
+    allow_methods = ["*"],
+    allow_headers = ["*"],
+    allow_credentials = True,
+)
 
 # 静的ファイルの配信
 app.mount('/assets', StaticFiles(directory=CLIENT_DIR / 'assets', html=True))
@@ -135,10 +145,32 @@ async def Root(file: str):
 # Internal Server Error のハンドリング
 @app.exception_handler(Exception)
 async def ExceptionHandler(request: Request, exc: Exception):
-    return JSONResponse(
+    response = JSONResponse(
         {'detail': f'Oops! {type(exc).__name__} did something. There goes a rainbow...'},
         status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
     )
+    # FastAPI の謎仕様で CORSMiddleware は exception_handler に対しては効かないので、ここで自前で CORS ヘッダーを付与する
+    # ref: https://github.com/tiangolo/fastapi/discussions/8027
+    def GetAppMiddleware(app: FastAPI, middleware_class: Type[Any]) -> Middleware | None:
+        middleware_index = None
+        for index, middleware in enumerate(app.user_middleware):
+            if middleware.cls == middleware_class:
+                middleware_index = index
+        return None if middleware_index is None else app.user_middleware[middleware_index]
+    cors_middleware = GetAppMiddleware(app=request.app, middleware_class=CORSMiddleware)
+    if cors_middleware is not None:
+        request_origin = request.headers.get('origin', '')
+        if '*' in cors_middleware.options['allow_origins']:
+            response.headers['Access-Control-Allow-Origin'] = '*'
+        elif request_origin in cors_middleware.options['allow_origins']:
+            response.headers['Access-Control-Allow-Origin'] = request_origin
+        if cors_middleware.options['allow_credentials']:
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
+        if cors_middleware.options['allow_methods']:
+            response.headers['Access-Control-Allow-Methods'] = ', '.join(cors_middleware.options['allow_methods'])
+        if cors_middleware.options['allow_headers']:
+            response.headers['Access-Control-Allow-Headers'] = ', '.join(cors_middleware.options['allow_headers'])
+        return response
 
 # Tortoise ORM の初期化
 ## ロガーを Uvicorn に統合する
