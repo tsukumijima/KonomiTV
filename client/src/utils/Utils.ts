@@ -197,6 +197,15 @@ export default class Utils {
 
 
     /**
+     * ブラウザが Safari かどうか
+     * @returns ブラウザが Safari なら true を返す
+     */
+    static isSafari(): boolean {
+        return /Safari/i.test(navigator.userAgent) && !/Chrome/i.test(navigator.userAgent);
+    }
+
+
+    /**
      * デバイスの OS が macOS かどうか
      * キーボードショートカットで使うキーを OS によって分けるために使う
      * @returns デバイスの OS が macOS なら true を返す
@@ -208,16 +217,7 @@ export default class Utils {
 
 
     /**
-     * ブラウザが Safari かどうか
-     * @returns ブラウザが Safari なら true を返す
-     */
-    static isSafari(): boolean {
-        return /Safari/i.test(navigator.userAgent) && !/Chrome/i.test(navigator.userAgent);
-    }
-
-
-    /**
-     * モバイルデバイス (スマホ・タブレット) かどうか
+     * モバイルデバイス (スマホ・タブレット) かどうかを User-Agent から判定する
      * @returns モバイルデバイス (スマホ・タブレット) なら true を返す
      */
     static isMobileDevice(): boolean {
@@ -229,11 +229,39 @@ export default class Utils {
 
 
     /**
+     * 表示端末がタッチデバイスかどうか (Utils.isMobileDevice() とは異なり、モバイルデバイスかどうかは問わない)
+     * おそらく Windows タブレットや Chromebook なども含まれる
+     * @returns タッチデバイスなら true を返す
+     */
+    static isTouchDevice(): boolean {
+        return window.matchMedia('(hover: none)').matches;
+    }
+
+
+    /**
+     * 表示画面がデスクトップかどうか (メディアクエリの定義は variables.scss と同一)
+     * @returns デスクトップなら true を返す
+     */
+    static isDesktop(): boolean {
+        return window.matchMedia('(min-width: 1280.01px)').matches;
+    }
+
+
+    /**
      * 表示画面がタブレット横画面かどうか (メディアクエリの定義は variables.scss と同一)
      * @returns タブレット横画面なら true を返す
      */
     static isTabletHorizontal(): boolean {
-        return window.matchMedia('(min-width: 1000.01px) and (max-width: 1264px) and (max-height: 850px)').matches;
+        return window.matchMedia('(min-width: 960.01px) and (max-width: 1280px) and (orientation: landscape)').matches;
+    }
+
+
+    /**
+     * 表示画面がスマホ横画面かどうか (メディアクエリの定義は variables.scss と同一)
+     * @returns スマホ横画面なら true を返す
+     */
+    static isSmartphoneHorizontal(): boolean {
+        return window.matchMedia('(max-width: 960px) and (orientation: landscape)').matches;
     }
 
 
@@ -242,16 +270,7 @@ export default class Utils {
      * @returns タブレット縦画面なら true を返す
      */
     static isTabletVertical(): boolean {
-        return window.matchMedia('(min-width: 600.1px) and (max-width: 850px) and (min-height: 850.01px)').matches;
-    }
-
-
-    /**
-     * 表示画面がスマホ横画面かどうか
-     * @returns スマホ横画面なら true を返す
-     */
-    static isSmartphoneHorizontal(): boolean {
-        return window.matchMedia('(max-width: 1000px) and (max-height: 500px)').matches;
+        return window.matchMedia('(min-width: 600.1px) and (max-width: 1280px) and (orientation: portrait)').matches;
     }
 
 
@@ -260,17 +279,7 @@ export default class Utils {
      * @returns スマホ縦画面なら true を返す
      */
     static isSmartphoneVertical(): boolean {
-        return window.matchMedia('(max-width: 600px) and (min-height: 375.01px)').matches;
-    }
-
-
-    /**
-     * 表示端末がタッチデバイスかどうか (Utils.isMobileDevice() とは異なり、モバイルデバイスかどうかは問わない)
-     * おそらく Windows タブレットや Chromebook なども含まれる
-     * @returns タッチデバイスなら true を返す
-     */
-    static isTouchDevice(): boolean {
-        return window.matchMedia('(hover: none)').matches;
+        return window.matchMedia('(max-width: 600px) and (orientation: portrait)').matches;
     }
 
 
