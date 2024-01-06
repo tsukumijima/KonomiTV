@@ -1,12 +1,14 @@
 {
     "compilerOptions": {
+        "baseUrl": ".",
         "target": "ES2022",
         "module": "ESNext",
-        "baseUrl": ".",
         "moduleResolution": "Bundler",  // Bundler にしないと package.json の exports フィールドが考慮されない (web-bml で必要)
+        "useDefineForClassFields": true,
         "incremental": true,  // 差分ビルドを有効化 (差分情報は .tsbuildinfo に保存される)
         "sourceMap": true,  // ソースマップを出力
         "removeComments": false,  // ビルド後にコメントを残す
+        "resolveJsonModule": true,  // JSON ファイルを import できるようにする
         "importHelpers": true,  // tslib から polyfill を import する
         "esModuleInterop": true,  // CommonJS モジュールとの相互運用性を有効化
         "forceConsistentCasingInFileNames": true,  // ファイル名の大文字小文字に一貫性がないときにエラーにする
@@ -20,6 +22,13 @@
         "strictBindCallApply": true,
         "strictPropertyInitialization": true,
         "useUnknownInCatchVariables": true,
+        "lib": [
+            "ESNext",
+            "DOM",
+            "DOM.Iterable",
+            "ScriptHost",
+            "WebWorker",
+        ],
         "types": [
             "network-information-types",
             "offscreencanvas",
@@ -35,13 +44,6 @@
                 "src/*",
             ]
         },
-        "lib": [
-            "ESNext",
-            "DOM",
-            "DOM.Iterable",
-            "ScriptHost",
-            "WebWorker",
-        ]
     },
     "vueCompilerOptions": {
         // for Volar
@@ -66,10 +68,9 @@
     },
     "include": [
         "src/**/*.ts",
+        "src/**/*.d.ts",
         "src/**/*.tsx",
         "src/**/*.vue",
-        "tests/**/*.ts",
-        "tests/**/*.tsx",
     ],
     "exclude": [
         "node_modules",
