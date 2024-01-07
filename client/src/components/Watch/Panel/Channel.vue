@@ -114,22 +114,22 @@ export default defineComponent({
         top: 0px;
         padding-left: 16px;
         padding-right: 16px;
-        margin-bottom: 14px;
+        padding-bottom: 14px;
         background: rgb(var(--v-theme-background));
         box-sizing: content-box;
         z-index: 1;
         @include tablet-vertical {
             padding-left: 24px;
             padding-right: 24px;
-            margin-bottom: 10px;
+            padding-bottom: 10px;
         }
         @include smartphone-horizontal {
+            padding-bottom: 8px;
             margin-top: 0px;
-            margin-bottom: 8px;
         }
         @include smartphone-vertical {
+            padding-bottom: 8px;
             margin-top: 0px;
-            margin-bottom: 8px;
         }
 
         .channels-tab__item {

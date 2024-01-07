@@ -88,6 +88,7 @@ export default defineComponent({
 
     .settings-navigation {
         display: flex;
+        align-self: flex-start;
         flex-direction: column;
         flex-shrink: 0;
         width: 195px;

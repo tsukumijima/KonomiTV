@@ -13,6 +13,7 @@ export default defineConfig({
     // バージョン情報をビルド時に埋め込む
     // ref: https://stackoverflow.com/a/68093777/17124142
     define: {
+        'process.env': {},  // これがないと assert がエラーになる
         'import.meta.env.KONOMITV_VERSION': JSON.stringify(process.env.npm_package_version),
     },
     // ビルドの設定

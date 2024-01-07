@@ -266,21 +266,21 @@ export default defineComponent({
         position: sticky;
         flex: none;
         top: 65px;  // ヘッダーの高さ分
-        margin-top: 5px;
-        margin-bottom: 12px;
+        padding-top: 5px;
+        padding-bottom: 12px;
         background: rgb(var(--v-theme-background));
         box-sizing: content-box;
         z-index: 1;
 
         @include smartphone-horizontal {
             top: 0px;
-            margin-top: 0px;
-            margin-bottom: 8px;
+            padding-top: 0px;
+            padding-bottom: 8px;
         }
         @include smartphone-vertical {
             top: 0px;
-            margin-top: 0px;
-            margin-bottom: 10px;
+            padding-top: 0px;
+            padding-bottom: 10px;
         }
 
         .channels-tab__item {

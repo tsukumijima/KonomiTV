@@ -167,6 +167,12 @@ body .route-container {
     opacity: 0.46 !important;
 }
 
+// スライダーのつまみのラベルの色を Vuetify 2 に合わせる
+.v-slider-thumb__label {
+    background: rgb(var(--v-theme-primary)) !important;
+    color: rgb(var(--v-theme-text)) !important;
+}
+
 // TODO: 以下は Vuetify 3 向けに改修が必要
 
 // ダイヤログ

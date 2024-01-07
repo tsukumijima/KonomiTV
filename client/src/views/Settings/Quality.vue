@@ -254,13 +254,17 @@ export default defineComponent({
     position: sticky;
     top: 65px;
     z-index: 4;
-    background: rgb(var(--v-theme-background-lighten-1));
+    background-color: rgb(var(--v-theme-background-lighten-1)) !important;
     @include smartphone-horizontal {
         top: 0px;
     }
     @include smartphone-vertical {
         top: 60px;
         background: rgb(var(--v-theme-background));
+    }
+
+    .v-tab {
+        letter-spacing: 0.0892857143em !important;
     }
 }
 
