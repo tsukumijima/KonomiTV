@@ -162,6 +162,16 @@ body .route-container {
 }
 
 // オーバーレイのスタイルを Vuetify 2 に合わせる (既定の --v-theme-on-surface では明るすぎる)
+.v-overlay__content {
+    @include smartphone-vertical {
+        margin: 24px 6px !important;
+        width: calc(100% - 12px) !important;
+        max-width: calc(100% - 12px) !important;
+        &--fullscreen {
+            margin: 0 !important;
+        }
+    }
+}
 .v-overlay__scrim {
     background: rgb(33, 33, 33) !important;
     opacity: 0.46 !important;
@@ -173,21 +183,21 @@ body .route-container {
     color: rgb(var(--v-theme-text)) !important;
 }
 
-// TODO: 以下は Vuetify 3 向けに改修が必要
-
-// ダイヤログ
-.v-dialog {
-    @include smartphone-vertical {
-        margin: 24px 6px !important;
-        &--fullscreen {
-            margin: 0 !important;
-        }
-    }
-}
-
-.v-card__text {
+// カードテキストのテキストスタイルを Vuetify 2 に合わせる
+.v-card-text {
+    color: rgb(var(--v-theme-text-darken-1)) !important;
+    font-size: .875rem !important;
     font-weight: inherit !important;
+    line-height: 1.375rem !important;
+    letter-spacing: .0071428571em !important;
 }
+
+// density が compact のときのフォントサイズを Vuetify 2 に合わせる
+.v-input--density-compact input {
+    font-size: 14px !important;
+}
+
+// TODO: 以下は Vuetify 3 向けに改修が必要
 
 .v-menu__content {
     @include smartphone-vertical {

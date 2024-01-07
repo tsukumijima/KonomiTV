@@ -6,18 +6,20 @@
             <div class="register-container-wrapper d-flex align-center w-100 mb-13">
                 <v-card class="register-container px-10 pt-8 pb-11 mx-auto" elevation="10"
                     width="100%" max-width="450">
-                    <v-card-title class="register__logo flex-column justify-center">
-                        <v-img max-width="250" src="/assets/images/logo.svg"></v-img>
+                    <v-card-title class="register__logo py-4 d-flex flex-column justify-center align-center">
+                        <img class="d-block" src="/assets/images/logo.svg" style="max-width: 250px;" />
                         <h4 class="mt-10">アカウントを作成</h4>
                     </v-card-title>
                     <v-divider></v-divider>
                     <v-form ref="register" @submit.prevent>
-                        <v-text-field class="mt-12" variant="outlined" placeholder="ユーザー名" autofocus
+                        <v-text-field class="mt-12" color="primary" variant="outlined"
+                            placeholder="ユーザー名" autofocus
                             :density="is_form_dense ? 'compact' : 'default'"
                             v-model="username"
                             :rules="[username_validation]">
                         </v-text-field>
-                        <v-text-field style="margin-top: 2px;" variant="outlined" placeholder="パスワード"
+                        <v-text-field style="margin-top: 10px;" color="primary" variant="outlined"
+                            placeholder="パスワード"
                             :density="is_form_dense ? 'compact' : 'default'"
                             v-model="password"
                             :type="password_showing ? 'text' : 'password'"
@@ -135,7 +137,7 @@ export default defineComponent({
             @include smartphone-horizontal {
                 padding-top: 4px !important;
                 padding-bottom: 8px !important;
-                .v-image {
+                img {
                     max-width: 200px !important;
                 }
                 h4 {
@@ -146,7 +148,7 @@ export default defineComponent({
             @include smartphone-vertical {
                 padding-top: 4px !important;
                 padding-bottom: 12px !important;
-                .v-image {
+                img {
                     max-width: 200px !important;
                 }
                 h4 {
@@ -158,11 +160,11 @@ export default defineComponent({
 
         .v-input {
             @include smartphone-horizontal {
-                margin-top: 0px !important;
+                margin-top: 8px !important;
                 font-size: 14px !important;
             }
             @include smartphone-vertical {
-                margin-top: 2px !important;
+                margin-top: 10px !important;
                 font-size: 16px !important;
             }
         }
@@ -177,17 +179,17 @@ export default defineComponent({
 
         .register-button {
             border-radius: 7px;
-            margin-top: 18px !important;
+            margin-top: 26px !important;
             font-size: 18px;
             letter-spacing: 0px;
             @include smartphone-horizontal {
                 height: 44px !important;
-                margin-top: 0px !important;
+                margin-top: 8px !important;
                 font-size: 16px;
             }
             @include smartphone-vertical {
                 height: 50px !important;
-                margin-top: 2px !important;
+                margin-top: 10px !important;
                 font-size: 15.5px;
             }
         }

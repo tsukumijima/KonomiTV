@@ -103,13 +103,13 @@ export default defineComponent({
 <style lang="scss" scoped>
 
 .pinned-channels-settings {
-    .v-card__title, & > div {
+    .v-card-title, & > div {
         @include smartphone-vertical {
             padding-left: 12px !important;
             padding-right: 12px !important;
         }
     }
-    .v-card__title span {
+    .v-card-title span {
         font-size: 20px;
         @include smartphone-vertical {
             font-size: 15.5px;

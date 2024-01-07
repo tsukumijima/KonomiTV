@@ -95,23 +95,24 @@
                 </div>
                 <v-dialog max-width="530" v-model="sync_settings_dialog">
                     <v-card>
-                        <v-card-title class="justify-center">設定データの競合</v-card-title>
-                        <v-card-text>
+                        <v-card-title class="d-flex justify-center font-weight-bold pt-6">設定データの競合</v-card-title>
+                        <v-card-text class="pt-2 pb-5">
                             このデバイスの設定と、サーバーに保存されている設定が競合しています。<br>
                             一度上書きすると、元に戻すことはできません。慎重に選択してください。<br>
                         </v-card-text>
-                        <div class="d-flex flex-column px-4 pb-4 settings__conflict-dialog">
-                            <v-btn class="settings__save-button text-error-lighten-1" variant="flat"
+                        <div class="d-flex flex-column px-4 pb-5 settings__conflict-dialog">
+                            <v-btn class="settings__save-button text-error-lighten-1" color="background-lighten-1" variant="flat"
                                 @click="overrideServerSettingsFromClient()">
                                 <Icon icon="fluent:document-arrow-up-16-filled" class="mr-2" height="22px" />
                                 サーバーに保存されている設定を、<br class="smartphone-vertical-only">このデバイスの設定で上書きする
                             </v-btn>
-                            <v-btn class="settings__save-button text-error-lighten-1 mt-3" variant="flat"
+                            <v-btn class="settings__save-button text-error-lighten-1 mt-3" color="background-lighten-1" variant="flat"
                                 @click="overrideClientSettingsFromServer()">
                                 <Icon icon="fluent:document-arrow-down-16-filled" class="mr-2" height="22px" />
                                 このデバイスの設定を、<br class="smartphone-vertical-only">サーバーに保存されている設定で上書きする
                             </v-btn>
-                            <v-btn class="settings__save-button mt-3" variant="flat" @click="sync_settings_dialog = false">
+                            <v-btn class="settings__save-button mt-3" variant="flat" color="background-lighten-1"
+                                @click="sync_settings_dialog = false">
                                 <Icon icon="fluent:dismiss-16-filled" class="mr-2" height="22px" />
                                 キャンセル
                             </v-btn>
@@ -124,13 +125,13 @@
                         KonomiTV アカウントのユーザー名を設定します。アルファベットだけでなく日本語や記号も使えます。<br>
                         同じ KonomiTV サーバー上の他のアカウントと同じユーザー名には変更できません。<br>
                     </div>
-                    <v-text-field class="settings__item-form" variant="outlined" placeholder="ユーザー名"
+                    <v-text-field class="settings__item-form" color="primary" variant="outlined" placeholder="ユーザー名"
                         :density="is_form_dense ? 'compact' : 'default'"
                         v-model="settings_username"
                         :rules="[settings_username_validation]">
                     </v-text-field>
                 </v-form>
-                <v-btn class="settings__save-button" variant="flat" @click="updateAccountInfo('username')">
+                <v-btn class="settings__save-button mt-2" variant="flat" @click="updateAccountInfo('username')">
                     <Icon icon="fluent:save-16-filled" class="mr-2" height="24px" />ユーザー名を更新
                 </v-btn>
                 <v-form class="settings__item" @submit.prevent>
@@ -139,7 +140,8 @@
                         KonomiTV アカウントのアイコン画像を設定します。<br>
                         アップロードされた画像は自動で 400×400 の正方形にリサイズされます。<br>
                     </div>
-                    <v-file-input class="settings__item-form" variant="outlined" hide-details placeholder="アイコン画像を選択"
+                    <v-file-input class="settings__item-form" color="primary" variant="outlined" hide-details
+                        label="アイコン画像を選択"
                         :density="is_form_dense ? 'compact' : 'default'"
                         accept="image/jpeg, image/png"
                         prepend-icon=""
@@ -155,7 +157,7 @@
                     <div class="settings__item-label">
                         KonomiTV アカウントの新しいパスワードを設定します。<br>
                     </div>
-                    <v-text-field class="settings__item-form" variant="outlined" placeholder="新しいパスワード"
+                    <v-text-field class="settings__item-form" color="primary" variant="outlined" placeholder="新しいパスワード"
                         :density="is_form_dense ? 'compact' : 'default'"
                         v-model="settings_password"
                         :type="settings_password_showing ? 'text' : 'password'"
@@ -164,7 +166,7 @@
                         @click:append="settings_password_showing = !settings_password_showing">
                     </v-text-field>
                 </v-form>
-                <v-btn class="settings__save-button" variant="flat" @click="updateAccountInfo('password')">
+                <v-btn class="settings__save-button mt-2" variant="flat" @click="updateAccountInfo('password')">
                     <Icon icon="fluent:save-16-filled" class="mr-2" height="24px" />パスワードを更新
                 </v-btn>
                 <v-divider class="mt-6"></v-divider>
@@ -182,7 +184,7 @@
                         </v-btn>
                     </template>
                     <v-card>
-                        <v-card-title class="justify-center pt-6 font-weight-bold">本当にアカウントを削除しますか？</v-card-title>
+                        <v-card-title class="d-flex justify-center pt-6 font-weight-bold">本当にアカウントを削除しますか？</v-card-title>
                         <v-card-text class="pt-2 pb-0">
                             アカウントに紐づくすべてのデータが削除されます。元に戻すことはできません。<br>
                             本当にアカウントを削除しますか？
@@ -190,7 +192,7 @@
                         <v-card-actions class="pt-4 px-6 pb-5">
                             <v-spacer></v-spacer>
                             <v-btn color="text" variant="text" @click="account_delete_confirm_dialog = false">キャンセル</v-btn>
-                            <v-btn color="error" @click="deleteAccount()">削除</v-btn>
+                            <v-btn color="error" variant="flat" @click="deleteAccount()">削除</v-btn>
                         </v-card-actions>
                     </v-card>
                 </v-dialog>

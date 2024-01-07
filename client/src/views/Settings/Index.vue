@@ -131,29 +131,6 @@ export default defineComponent({
                 font-size: 22px !important;
             }
         }
-
-        .v-navigation-drawer__content .v-list {
-            @include smartphone-horizontal {
-                margin-top: 12px !important;
-                padding: 0 !important;
-            }
-        }
-
-        .v-list-item--link, .v-list-item--link:before {
-            background: rgb(var(--v-theme-background-lighten-1));
-            border-radius: 6px !important;
-            margin-top: 6px !important;
-            margin-bottom: 0px !important;
-        }
-        .v-list-item--link {
-            &:first-of-type {
-                margin-top: 0 !important;
-            }
-        }
-        .v-list-item__icon {
-            margin: 14px 0 !important;
-            margin-right: 16px !important;
-        }
     }
 }
 

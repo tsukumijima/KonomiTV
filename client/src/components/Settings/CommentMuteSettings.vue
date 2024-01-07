@@ -97,11 +97,13 @@
                     <div class="muted-comment-item"
                         v-for="(muted_comment_keyword, index) in settingsStore.settings.muted_comment_keywords" :key="index">
                         <!-- 以下では Icon コンポーネントを使うと個数が多いときに高負荷になるため、意図的に SVG を直書きしている -->
-                        <v-text-field type="search" class="muted-comment-item__input" density="compact" variant="outlined" hide-details
+                        <v-text-field type="search" class="muted-comment-item__input" color="primary"
+                            density="compact" variant="outlined" hide-details
                             placeholder="ミュートするキーワードを入力"
                             v-model="settingsStore.settings.muted_comment_keywords[index].pattern">
                         </v-text-field>
-                        <v-select class="muted-comment-item__match-type" density="compact" variant="outlined" hide-details
+                        <v-select class="muted-comment-item__match-type" color="primary"
+                            density="compact" variant="outlined" hide-details
                             :items="muted_comment_keyword_match_type"
                             v-model="settingsStore.settings.muted_comment_keywords[index].match">
                         </v-select>
@@ -127,7 +129,8 @@
                     <div class="muted-comment-item"
                         v-for="(muted_niconico_user_id, index) in settingsStore.settings.muted_niconico_user_ids" :key="index">
                         <!-- 以下では Icon コンポーネントを使うと個数が多いときに高負荷になるため、意図的に SVG を直書きしている -->
-                        <v-text-field type="search" class="muted-comment-item__input" density="compact" variant="outlined" hide-details
+                        <v-text-field type="search" class="muted-comment-item__input" color="primary"
+                            density="compact" variant="outlined" hide-details
                             placeholder="ミュートするニコニコユーザー ID を入力" v-model="settingsStore.settings.muted_niconico_user_ids[index]">
                         </v-text-field>
                         <button v-ripple class="muted-comment-item__delete-button"
@@ -198,7 +201,7 @@ export default defineComponent({
 <style lang="scss" scoped>
 
 .comment-mute-settings {
-    .v-card__title, & > div {
+    .v-card-title, & > div {
         @include smartphone-vertical {
             padding-left: 12px !important;
             padding-right: 12px !important;

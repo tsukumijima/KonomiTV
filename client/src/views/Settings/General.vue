@@ -36,7 +36,8 @@
                 <div class="settings__item-label">
                     視聴画面を開いたときに、右側のパネルをどう表示するかを設定します。<br>
                 </div>
-                <v-select class="settings__item-form" variant="outlined" hide-details :density="is_form_dense ? 'compact' : 'default'"
+                <v-select class="settings__item-form" color="primary" variant="outlined" hide-details
+                    :density="is_form_dense ? 'compact' : 'default'"
                     :items="panel_display_state" v-model="settingsStore.settings.panel_display_state">
                 </v-select>
             </div>
@@ -45,7 +46,8 @@
                 <div class="settings__item-label">
                     テレビの視聴画面を開いたときに、右側のパネルで最初に表示されるタブを設定します。<br>
                 </div>
-                <v-select class="settings__item-form" variant="outlined" hide-details :density="is_form_dense ? 'compact' : 'default'"
+                <v-select class="settings__item-form" color="primary" variant="outlined" hide-details
+                    :density="is_form_dense ? 'compact' : 'default'"
                     :items="tv_panel_active_tab" v-model="settingsStore.settings.tv_panel_active_tab">
                 </v-select>
             </div>
@@ -54,7 +56,8 @@
                 <div class="settings__item-label">
                     ビデオの視聴画面を開いたときに、右側のパネルで最初に表示されるタブを設定します。<br>
                 </div>
-                <v-select class="settings__item-form" variant="outlined" hide-details :density="is_form_dense ? 'compact' : 'default'"
+                <v-select class="settings__item-form" color="primary" variant="outlined" hide-details
+                    :density="is_form_dense ? 'compact' : 'default'"
                     :items="video_panel_active_tab" v-model="settingsStore.settings.video_panel_active_tab">
                 </v-select>
             </div>
@@ -76,7 +79,8 @@
                     設定をインポートすると、<b>現在のデバイス設定はすべて上書きされます。</b>元に戻すことはできません。<br>
                     設定のデバイス間同期がオンのときは、<b>同期が有効なすべてのデバイスに反映されます。</b>十分ご注意ください。<br>
                 </div>
-                <v-file-input class="settings__item-form" variant="outlined" hide-details placeholder="設定データ (KonomiTV-Settings.json) を選択"
+                <v-file-input class="settings__item-form" color="primary" variant="outlined" hide-details
+                label="設定データ (KonomiTV-Settings.json) を選択"
                     :density="is_form_dense ? 'compact' : 'default'"
                     accept="application/json"
                     prepend-icon=""

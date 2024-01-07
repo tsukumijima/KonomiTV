@@ -705,6 +705,7 @@ export default defineComponent({
 <style lang="scss">
 
 // 上書きしたいスタイル
+// TODO: 修正必須
 @include smartphone-horizontal {
     .zoom-capture-modal-container.v-dialog {
         width: auto !important;

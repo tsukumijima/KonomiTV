@@ -25,6 +25,9 @@
         width: 210px;
         height: 48px;
         justify-content: center;
+        .v-spacer {
+            display: none;
+        }
     }
     @include smartphone-horizontal-short {
         width: 190px;

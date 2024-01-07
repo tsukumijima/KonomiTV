@@ -46,7 +46,8 @@
                     ここで設定した郵便番号をもとに、データ放送の地域情報（ニュース・天気予報など）が表示されます。<br>
                     設定しない場合、データ放送の一部のコンテンツが利用できないことがあります。<br>
                 </label>
-                <v-text-field class="settings__item-form" variant="outlined" placeholder="郵便番号" :density="is_form_dense ? 'compact' : 'default'"
+                <v-text-field class="settings__item-form" color="primary" variant="outlined"
+                    placeholder="郵便番号" :density="is_form_dense ? 'compact' : 'default'"
                     :rules="[data_broadcasting_zip_code_validation]" v-model="data_broadcasting_zip_code">
                 </v-text-field>
             </v-form>
@@ -56,7 +57,8 @@
                     ここで設定した都道府県をもとに、データ放送の地域情報（ニュース・天気予報など）が表示されます。<br>
                     設定しない場合、データ放送の一部のコンテンツが利用できないことがあります。<br>
                 </label>
-                <v-select class="settings__item-form" variant="outlined" hide-details :density="is_form_dense ? 'compact' : 'default'"
+                <v-select class="settings__item-form" color="primary" variant="outlined" hide-details
+                    :density="is_form_dense ? 'compact' : 'default'"
                     :items="data_broadcasting_prefectures" v-model="data_broadcasting_prefecture">
                 </v-select>
             </div>

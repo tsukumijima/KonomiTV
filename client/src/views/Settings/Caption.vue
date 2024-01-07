@@ -14,7 +14,8 @@
                 <label class="settings__item-label">
                     プレイヤーで字幕表示をオンにしているときの、字幕のフォントを設定します。<br>
                 </label>
-                <v-select class="settings__item-form" variant="outlined" hide-details :density="is_form_dense ? 'compact' : 'default'"
+                <v-select class="settings__item-form" color="primary" variant="outlined" hide-details
+                    :density="is_form_dense ? 'compact' : 'default'"
                     :items="caption_font" v-model="settingsStore.settings.caption_font">
                 </v-select>
             </div>

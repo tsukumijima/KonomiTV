@@ -27,10 +27,12 @@
                     <div class="settings__item-label mt-1">
                         Fire HD 10 (2021) などの一部のローエンド Android (特に MediaTek SoC 搭載) デバイスでは、1080p 以上の映像描画が不安定なことが確認されています。その場合は 720p 以下の画質を選択することをおすすめします。<br>
                     </div>
-                    <v-select class="settings__item-form" variant="outlined" hide-details :density="is_form_dense ? 'compact' : 'default'" v-if="network_circuit !== 'モバイル回線時'"
+                    <v-select class="settings__item-form" color="primary" variant="outlined" hide-details
+                        :density="is_form_dense ? 'compact' : 'default'" v-if="network_circuit !== 'モバイル回線時'"
                         :items="tv_streaming_quality" v-model="settingsStore.settings.tv_streaming_quality">
                     </v-select>
-                    <v-select class="settings__item-form" variant="outlined" hide-details :density="is_form_dense ? 'compact' : 'default'" v-if="network_circuit === 'モバイル回線時'"
+                    <v-select class="settings__item-form" color="primary" variant="outlined" hide-details
+                        :density="is_form_dense ? 'compact' : 'default'" v-if="network_circuit === 'モバイル回線時'"
                         :items="tv_streaming_quality_cellular" v-model="settingsStore.settings.tv_streaming_quality_cellular">
                     </v-select>
                 </div>
@@ -89,10 +91,12 @@
                     <div class="settings__item-label mt-1">
                         Fire HD 10 (2021) などの一部のローエンド Android (特に MediaTek SoC 搭載) デバイスでは、1080p 以上の映像描画が不安定なことが確認されています。その場合は 720p 以下の画質を選択することをおすすめします。<br>
                     </div>
-                    <v-select class="settings__item-form" variant="outlined" hide-details :density="is_form_dense ? 'compact' : 'default'" v-if="network_circuit !== 'モバイル回線時'"
+                    <v-select class="settings__item-form" color="primary" variant="outlined" hide-details
+                        :density="is_form_dense ? 'compact' : 'default'" v-if="network_circuit !== 'モバイル回線時'"
                         :items="video_streaming_quality" v-model="settingsStore.settings.video_streaming_quality">
                     </v-select>
-                    <v-select class="settings__item-form" variant="outlined" hide-details :density="is_form_dense ? 'compact' : 'default'" v-if="network_circuit === 'モバイル回線時'"
+                    <v-select class="settings__item-form" color="primary" variant="outlined" hide-details
+                        :density="is_form_dense ? 'compact' : 'default'" v-if="network_circuit === 'モバイル回線時'"
                         :items="video_streaming_quality_cellular" v-model="settingsStore.settings.video_streaming_quality_cellular">
                     </v-select>
                 </div>
