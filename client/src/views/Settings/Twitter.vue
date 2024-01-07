@@ -84,7 +84,7 @@
                     この設定をオンにすると、ツイートを送信した後に、パネルが自動で折りたたまれます。<br>
                     ツイートするとき以外はできるだけ映像を大きくして見たい方におすすめです。<br>
                 </label>
-                <v-switch class="settings__item-switch" id="fold_panel_after_sending_tweet" inset hide-details
+                <v-switch class="settings__item-switch" color="primary" id="fold_panel_after_sending_tweet" hide-details
                     v-model="settingsStore.settings.fold_panel_after_sending_tweet">
                 </v-switch>
             </div>
@@ -94,7 +94,7 @@
                     チャンネルを切り替えたときや、視聴中の番組が終了し次の番組の放送が開始されたときに、ハッシュタグフォームをリセットするかを設定します。<br>
                     この設定をオンにしておけば、「誤って前番組のハッシュタグをつけたまま次番組の実況ツイートをしてしまう」といったミスを回避できます。<br>
                 </label>
-                <v-switch class="settings__item-switch" id="reset_hashtag_when_program_switches" inset hide-details
+                <v-switch class="settings__item-switch" color="primary" id="reset_hashtag_when_program_switches" hide-details
                     v-model="settingsStore.settings.reset_hashtag_when_program_switches">
                 </v-switch>
             </div>
@@ -104,7 +104,7 @@
                     この設定をオンにすると、視聴中のチャンネルに対応する局タグ (#nhk, #tokyomx など) がハッシュタグフォームに自動で追加されます。<br>
                     なお、ビデオをみるときは視聴中のチャンネルに対応する局タグは追加されません。<br>
                 </label>
-                <v-switch class="settings__item-switch" id="auto_add_watching_channel_hashtag" inset hide-details
+                <v-switch class="settings__item-switch" color="primary" id="auto_add_watching_channel_hashtag" hide-details
                     v-model="settingsStore.settings.auto_add_watching_channel_hashtag">
                 </v-switch>
             </div>

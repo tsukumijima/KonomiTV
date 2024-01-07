@@ -3,8 +3,14 @@
         <transition>
             <router-view/>
         </transition>
+        <Snackbars />
     </v-app>
 </template>
+<script lang="ts" setup>
+
+import Snackbars from '@/components/Snackbars.vue';
+
+</script>
 <style lang="scss">
 
 // ***** ブラウザのデフォルトスタイルの上書き *****
@@ -69,6 +75,7 @@ a, a:link, a:visited, a:hover, a:active {
 
 // 全体のスタイル
 html {
+    position: static !important;  // Vuetify による fixed への書き換えを防止する
     overflow-y: auto !important;
     touch-action: manipulation;
 }
@@ -82,6 +89,8 @@ html {
     overflow-x: clip;  // clip なら position: sticky; が効く
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    background: rgb(var(--v-theme-background)) !important;
+    color: rgb(var(--v-theme-text)) !important;
 
     // Safari は Twemoji COLR をうまく描画できない？ので当面無効にする
     @supports (-webkit-touch-callout: none) {
@@ -118,7 +127,7 @@ body .route-container {
     background: rgb(var(--v-theme-background));
 }
 
-// ***** Vuetify 2 のスタイルの上書き *****
+// ***** Vuetify 3 のスタイルの上書き *****
 
 // ツールチップのスタイル
 .v-popper--theme-tooltip {
@@ -139,6 +148,27 @@ body .route-container {
     }
 }
 
+// ボタン内のテキストの字間をオフ
+// 大文字への強制変換をオフ
+.v-btn {
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+}
+
+// v-btn に hover したときの transition が効かなくなっている Vuetify 3 のバグを打ち消す
+// ref: https://github.com/vuetifyjs/vuetify/blob/v3.4.9/packages/vuetify/src/components/VBtn/VBtn.sass#L233
+.v-btn__overlay {
+    transition: opacity 0.2s ease-in-out;
+}
+
+// オーバーレイのスタイルを Vuetify 2 に合わせる (既定の --v-theme-on-surface では明るすぎる)
+.v-overlay__scrim {
+    background: rgb(33, 33, 33) !important;
+    opacity: 0.46 !important;
+}
+
+// TODO: 以下は Vuetify 3 向けに改修が必要
+
 // ダイヤログ
 .v-dialog {
     @include smartphone-vertical {
@@ -147,13 +177,6 @@ body .route-container {
             margin: 0 !important;
         }
     }
-}
-
-// ボタン内のテキストの字間をオフ
-// 大文字への強制変換をオフ
-.v-btn {
-    letter-spacing: 0 !important;
-    text-transform: none !important;
 }
 
 .v-card__text {
@@ -179,26 +202,18 @@ body .route-container {
     }
 }
 
-.v-snack {
-    @include smartphone-vertical {
-        padding-bottom: 56px !important;
-    }
-    .v-btn__content {
-        color: rgb(var(--v-theme-primary-lighten-1));
-        letter-spacing: 0.3;
-    }
-    .success, .info, .warning, .error {
-        .v-btn__content {
-            color: rgb(var(--v-theme-text));
-            letter-spacing: 0.3;
-        }
-    }
-    &:not(.v-snack--absolute) {
-        height: 100dvh !important;
+// ***** ユーティリティクラス *****
+
+// リンク用のスタイル
+.link {
+    color: rgb(var(--v-theme-primary)) !important;
+    text-decoration: underline !important;
+    cursor: pointer;
+
+    &:visited {
+        color: rgb(var(--v-theme-primary-darken-1)) !important;
     }
 }
-
-// ***** ユーティリティクラス *****
 
 // 番組情報内の囲み文字の装飾
 .decorate-symbol {

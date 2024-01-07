@@ -43,7 +43,7 @@
                         <div class="capture__focused-border"></div>
                         <div v-ripple class="capture__zoom"
                             @click.prevent.stop="playerStore.twitter_zoom_capture_modal = true; playerStore.twitter_zoom_capture = capture"
-                            @mousedown.prevent.stop="/* 親要素の波紋が広がらないように */">
+                            @mousedown.prevent.stop=""> <!-- ← 親要素の波紋が広がらないように -->
                             <svg class="iconify iconify--fluent" width="32px" height="32px" viewBox="0 0 16 16">
                                 <path fill="currentColor" d="M7 4.5a.5.5 0 0 0-1 0V6H4.5a.5.5 0 0 0 0 1H6v1.5a.5.5 0 0 0 1 0V7h1.5a.5.5 0 0 0 0-1H7V4.5ZM6.5 11a4.481 4.481 0 0 0 2.809-.984l3.837 3.838a.5.5 0 0 0 .708-.708L10.016 9.31A4.5 4.5 0 1 0 6.5 11Zm0-8a3.5 3.5 0 1 1 0 7a3.5 3.5 0 0 1 0-7Z"></path>
                             </svg>

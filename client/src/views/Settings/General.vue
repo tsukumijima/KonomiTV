@@ -26,7 +26,7 @@
                     この設定をオンにすると、数字キーまたはテンキーに対応するリモコン番号（1～12）のチャンネルに切り替える際、{{Utils.AltOrOption()}} キーを同時に押す必要があります。<br>
                     コメントやツイートを入力しようとして誤って数字キーを押してしまい、チャンネルが変わってしまう事態を避けたい方におすすめです。<br>
                 </label>
-                <v-switch class="settings__item-switch" id="tv_channel_selection_requires_alt_key" inset hide-details
+                <v-switch class="settings__item-switch" color="primary" id="tv_channel_selection_requires_alt_key" hide-details
                     v-model="settingsStore.settings.tv_channel_selection_requires_alt_key">
                 </v-switch>
             </div>

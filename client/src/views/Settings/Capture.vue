@@ -15,7 +15,7 @@
                     この設定をオンにすると、撮ったキャプチャ画像がクリップボードにもコピーされます。<br>
                     クリップボードの履歴をサポートしていない OS では、この設定をオンにしてキャプチャを撮ると、以前のクリップボードが上書きされます。注意してください。<br>
                 </label>
-                <v-switch class="settings__item-switch" id="capture_copy_to_clipboard" inset hide-details
+                <v-switch class="settings__item-switch" color="primary" id="capture_copy_to_clipboard" hide-details
                     v-model="settingsStore.settings.capture_copy_to_clipboard">
                 </v-switch>
             </div>

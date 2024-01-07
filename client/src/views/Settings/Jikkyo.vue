@@ -62,7 +62,7 @@
                     プレイヤーに流れるコメントの速さを設定します。<br>
                     たとえば 1.2 に設定すると、コメントが 1.2 倍速く流れます。<br>
                 </div>
-                <v-slider class="settings__item-form" show-ticks="always" thumb-label hide-details
+                <v-slider class="settings__item-form" color="primary" show-ticks="always" thumb-label hide-details
                     :step="0.1" :min="0.5" :max="2" v-model="settingsStore.settings.comment_speed_rate">
                 </v-slider>
             </div>
@@ -72,7 +72,7 @@
                     プレイヤーに流れるコメントの文字サイズの基準値を設定します。<br>
                     実際の文字サイズは画面サイズに合わせて調整されます。デフォルトの文字サイズは 34px です。<br>
                 </div>
-                <v-slider class="settings__item-form" show-ticks="always" thumb-label hide-details
+                <v-slider class="settings__item-form" color="primary" show-ticks="always" thumb-label hide-details
                     :min="20" :max="60" v-model="settingsStore.settings.comment_font_size">
                 </v-slider>
             </div>
@@ -82,7 +82,7 @@
                     この設定をオンにすると、コメントを送信した後に、コメント入力フォームが自動で閉じるようになります。<br>
                     コメント入力フォームが表示されたままだと、大半のショートカットキーが文字入力と競合して使えなくなります。とくに理由がなければ、オンにしておくのがおすすめです。<br>
                 </label>
-                <v-switch class="settings__item-switch" id="close_comment_form_after_sending" inset hide-details
+                <v-switch class="settings__item-switch" color="primary" id="close_comment_form_after_sending" hide-details
                     v-model="settingsStore.settings.close_comment_form_after_sending">
                 </v-switch>
             </div>

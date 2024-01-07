@@ -99,10 +99,19 @@ const vuetify = createVuetify({
                     'info-darken-3': '#004d9f',
                     'info-darken-4': '#003784',
                     // Vuetify 3 のデフォルトカラーパレットの上書き
-                    // surface / surface-* は、Vuetify 2 のデフォルトカラーパレットには存在しない
-                    'surface': '#2f221f',
-                    'surface-bright': '#2f221f',
-                    'surface-variant': '#2f221f',
+                    // surface / surface-* / on-* は、Vuetify 2 のデフォルトカラーパレットには存在しない
+                    'surface': '#1e1310',
+                    'surface-bright': '#786968',
+                    'surface-variant': '#786968',
+                    'on-background': '#ffeaea',
+                    'on-surface': '#ffeaea',
+                    'on-surface-bright': '#ffeaea',
+                    'on-primary': '#ffeaea',
+                    'on-secondary': '#ffeaea',
+                    'on-success': '#ffeaea',
+                    'on-warning': '#ffeaea',
+                    'on-error': '#ffeaea',
+                    'on-info': '#ffeaea',
                     // KonomiTV 独自定義のカラーパレット
                     // 上記までと異なり、すべてのバリアントが網羅されているわけではない (実際に使う色のみ定義されている)
                     'background': '#1e1310',
@@ -123,8 +132,9 @@ const vuetify = createVuetify({
                 },
                 // CSS 変数の定義
                 variables: {
-                    // hover 時のオーバーレイの透明度を Vuetify 2 と同じにする
+                    // 各種オーバーレイの透明度を Vuetify 2 と同じにする
                     'hover-opacity': 0.08,
+                    'activated-opacity': 0.24,
                 }
             }
         }

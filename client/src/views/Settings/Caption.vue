@@ -24,7 +24,7 @@
                     字幕表示時、縁取りをオンにすると、字幕が見やすくきれいになります。とくに理由がなければ、オンにしておくのがおすすめです。<br>
                     この設定がオフのときも、字幕データ側で縁取りが指定されていれば、オンのときと同様に縁取り付きで描画されます。<br>
                 </label>
-                <v-switch class="settings__item-switch" id="always_border_caption_text" inset hide-details
+                <v-switch class="settings__item-switch" color="primary" id="always_border_caption_text" hide-details
                     v-model="settingsStore.settings.always_border_caption_text">
                 </v-switch>
             </div>
@@ -34,7 +34,7 @@
                     字幕表示時、不透明度を自分で指定するか設定できます。<br>
                     この設定がオフのときは、字幕データ側で指定されている不透明度で描画します。とくに理由がなければ、オフにしておくのがおすすめです。<br>
                 </label>
-                <v-switch class="settings__item-switch" id="specify_caption_opacity" inset hide-details
+                <v-switch class="settings__item-switch" color="primary" id="specify_caption_opacity" hide-details
                     v-model="settingsStore.settings.specify_caption_opacity">
                 </v-switch>
             </div>
@@ -44,7 +44,7 @@
                     上の [字幕の不透明度を指定する] をオンに設定したときのみ有効です。不透明度を 0 に設定すれば、字幕の背景を非表示にできます。<br>
                 </label>
                 <div class="settings__item-label" ref="caption_opacity">
-                    <v-slider class="settings__item-form" show-ticks="always" thumb-label hide-details
+                    <v-slider class="settings__item-form" color="primary" show-ticks="always" thumb-label hide-details
                         :min="0" :max="1" :step="0.05" v-model="settingsStore.settings.caption_opacity"
                         :disabled="settingsStore.settings.specify_caption_opacity === false">
                     </v-slider>
@@ -56,7 +56,7 @@
                 <label class="settings__item-label" for="tv_show_superimpose">
                     文字スーパーは、緊急地震速報の赤テロップや、NHK BS のニュース速報のテロップなどで利用されています。とくに理由がなければ、オンにしておくのがおすすめです。<br>
                 </label>
-                <v-switch class="settings__item-switch" id="tv_show_superimpose" inset hide-details
+                <v-switch class="settings__item-switch" color="primary" id="tv_show_superimpose" hide-details
                     v-model="settingsStore.settings.tv_show_superimpose">
                 </v-switch>
             </div>
@@ -65,7 +65,7 @@
                 <label class="settings__item-label" for="video_show_superimpose">
                     文字スーパーは、緊急地震速報の赤テロップや、NHK BS のニュース速報のテロップなどで利用されています。録画当時の文字スーパーによるニュース速報を確認したい方以外は、オフにしておくのがおすすめです。<br>
                 </label>
-                <v-switch class="settings__item-switch" id="video_show_superimpose" inset hide-details
+                <v-switch class="settings__item-switch" color="primary" id="video_show_superimpose" hide-details
                     v-model="settingsStore.settings.video_show_superimpose">
                 </v-switch>
             </div>

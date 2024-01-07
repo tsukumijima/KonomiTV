@@ -21,7 +21,7 @@
                     <label class="settings__item-label" for="mute_vulgar_comments">
                         性的な単語などの露骨・下品な表現を含むコメントを、一括でミュートするかを設定します。<br>
                     </label>
-                    <v-switch class="settings__item-switch" id="mute_vulgar_comments" inset hide-details
+                    <v-switch class="settings__item-switch" color="primary" id="mute_vulgar_comments" hide-details
                         v-model="settingsStore.settings.mute_vulgar_comments">
                     </v-switch>
                 </div>
@@ -32,7 +32,7 @@
                     <label class="settings__item-label" for="mute_abusive_discriminatory_prejudiced_comments">
                         『死ね』『殺す』などのネガティブな表現、特定の国や人々への差別的な表現、政治的に偏った表現を含むコメントを、一括でミュートするかを設定します。<br>
                     </label>
-                    <v-switch class="settings__item-switch" id="mute_abusive_discriminatory_prejudiced_comments" inset hide-details
+                    <v-switch class="settings__item-switch" color="primary" id="mute_abusive_discriminatory_prejudiced_comments" hide-details
                         v-model="settingsStore.settings.mute_abusive_discriminatory_prejudiced_comments">
                     </v-switch>
                 </div>
@@ -44,7 +44,7 @@
                         通常より大きい文字サイズで表示されるコメントを、一括でミュートするかを設定します。<br>
                         文字サイズが大きいコメントには迷惑なコメントが多いです。基本的にはオンにしておくのがおすすめです。<br>
                     </label>
-                    <v-switch class="settings__item-switch" id="mute_big_size_comments" inset hide-details
+                    <v-switch class="settings__item-switch" color="primary" id="mute_big_size_comments" hide-details
                         v-model="settingsStore.settings.mute_big_size_comments">
                     </v-switch>
                 </div>
@@ -56,7 +56,7 @@
                         映像の上下に固定された状態で表示されるコメントを、一括でミュートするかを設定します。<br>
                         固定表示されるコメントが煩わしい方におすすめです。<br>
                     </label>
-                    <v-switch class="settings__item-switch" id="mute_fixed_comments" inset hide-details
+                    <v-switch class="settings__item-switch" color="primary" id="mute_fixed_comments" hide-details
                         v-model="settingsStore.settings.mute_fixed_comments">
                     </v-switch>
                 </div>
@@ -68,7 +68,7 @@
                         白以外の色で表示される色付きのコメントを、一括でミュートするかを設定します。<br>
                         この設定をオンにしておくと、目立つ色のコメントを一掃できます。<br>
                     </label>
-                    <v-switch class="settings__item-switch" id="mute_colored_comments" inset hide-details
+                    <v-switch class="settings__item-switch" color="primary" id="mute_colored_comments" hide-details
                         v-model="settingsStore.settings.mute_colored_comments">
                     </v-switch>
                 </div>
@@ -80,7 +80,7 @@
                         『wwwwwwwwwww』『あばばばばばばばばば』など、8文字以上同じ文字が連続しているコメントを、一括でミュートするかを設定します。<br>
                         しばしばあるテンプレコメントが煩わしい方におすすめです。<br>
                     </label>
-                    <v-switch class="settings__item-switch" id="mute_consecutive_same_characters_comments" inset hide-details
+                    <v-switch class="settings__item-switch" color="primary" id="mute_consecutive_same_characters_comments" hide-details
                         v-model="settingsStore.settings.mute_consecutive_same_characters_comments">
                     </v-switch>
                 </div>
@@ -246,11 +246,12 @@ export default defineComponent({
         }
     }
     &-switch {
+        display: flex !important;
         align-items: center;
         position: absolute;
         top: 0;
-        right: -74px;
-        bottom: 0;
+        right: -60px;
+        bottom: 0px;
         margin-top: 0;
     }
 

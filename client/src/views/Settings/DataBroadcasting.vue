@@ -20,7 +20,7 @@
                 <label class="settings__item-label" for="tv_show_data_broadcasting">
                     データ放送機能をオンにすると、視聴時の負荷が若干高くなります。データ放送を利用しない場合や、スペックの低い Android デバイスで動作が重い場合は、オフに設定してみてください。<br>
                 </label>
-                <v-switch class="settings__item-switch" id="tv_show_data_broadcasting" inset hide-details
+                <v-switch class="settings__item-switch" color="primary" id="tv_show_data_broadcasting" hide-details
                     v-model="settingsStore.settings.tv_show_data_broadcasting">
                 </v-switch>
             </div>
@@ -35,7 +35,7 @@
                     大半のチャンネルでは個別に視聴データの送信を無効化できますが、依然プライバシー上の問題が残ります。
                     通常はオフにしておき、双方向コンテンツを使うときだけオンにすることをおすすめします。<br>
                 </label>
-                <v-switch class="settings__item-switch" id="enable_internet_access_from_data_broadcasting" inset hide-details
+                <v-switch class="settings__item-switch" color="primary" id="enable_internet_access_from_data_broadcasting" hide-details
                     v-model="settingsStore.settings.enable_internet_access_from_data_broadcasting">
                 </v-switch>
             </div>

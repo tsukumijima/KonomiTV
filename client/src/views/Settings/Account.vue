@@ -89,7 +89,7 @@
                         同期をオンにすると、同期をオンにしているすべてのデバイスで共通の設定が使えます。ピン留めチャンネルやハッシュタグリストなども同期されます。<br>
                         なお、デバイス固有の設定（画質設定など）は、同期後も各デバイスで個別に反映されます。<br>
                     </label>
-                    <v-switch class="settings__item-switch" id="sync_settings" inset hide-details
+                    <v-switch class="settings__item-switch" color="primary" id="sync_settings" hide-details
                         v-model="sync_settings">
                     </v-switch>
                 </div>

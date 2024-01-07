@@ -51,10 +51,10 @@
                             お使いの Firefox ブラウザでは通信節約モードがサポートされていません。
                         </p>
                     </div>
-                    <v-switch class="settings__item-switch" id="tv_data_saver_mode" inset hide-details v-if="network_circuit !== 'モバイル回線時'"
+                    <v-switch class="settings__item-switch" color="primary" id="tv_data_saver_mode" hide-details v-if="network_circuit !== 'モバイル回線時'"
                         v-model="settingsStore.settings.tv_data_saver_mode" :disabled="PlayerUtils.isHEVCVideoSupported() === false">
                     </v-switch>
-                    <v-switch class="settings__item-switch" id="tv_data_saver_mode_cellular" inset hide-details v-if="network_circuit === 'モバイル回線時'"
+                    <v-switch class="settings__item-switch" color="primary" id="tv_data_saver_mode_cellular" hide-details v-if="network_circuit === 'モバイル回線時'"
                         v-model="settingsStore.settings.tv_data_saver_mode_cellular" :disabled="PlayerUtils.isHEVCVideoSupported() === false">
                     </v-switch>
                 </div>
@@ -69,10 +69,10 @@
                     <div class="settings__item-label mt-1">
                         映像がカクつきやすくなるため、通信が不安定になりがちなモバイル回線やフリー Wi-Fi から視聴するときは、低遅延ストリーミングをオフにすることをおすすめします。<br>
                     </div>
-                    <v-switch class="settings__item-switch" id="tv_low_latency_mode" inset hide-details v-if="network_circuit !== 'モバイル回線時'"
+                    <v-switch class="settings__item-switch" color="primary" id="tv_low_latency_mode" hide-details v-if="network_circuit !== 'モバイル回線時'"
                         v-model="settingsStore.settings.tv_low_latency_mode">
                     </v-switch>
-                    <v-switch class="settings__item-switch" id="tv_low_latency_mode_cellular" inset hide-details v-if="network_circuit === 'モバイル回線時'"
+                    <v-switch class="settings__item-switch" color="primary" id="tv_low_latency_mode_cellular" hide-details v-if="network_circuit === 'モバイル回線時'"
                         v-model="settingsStore.settings.tv_low_latency_mode_cellular">
                     </v-switch>
                 </div>
@@ -113,10 +113,10 @@
                             お使いの Firefox ブラウザでは通信節約モードがサポートされていません。
                         </p>
                     </div>
-                    <v-switch class="settings__item-switch" id="video_data_saver_mode" inset hide-details v-if="network_circuit !== 'モバイル回線時'"
+                    <v-switch class="settings__item-switch" color="primary" id="video_data_saver_mode" hide-details v-if="network_circuit !== 'モバイル回線時'"
                         v-model="settingsStore.settings.video_data_saver_mode" :disabled="PlayerUtils.isHEVCVideoSupported() === false">
                     </v-switch>
-                    <v-switch class="settings__item-switch" id="video_data_saver_mode_cellular" inset hide-details v-if="network_circuit === 'モバイル回線時'"
+                    <v-switch class="settings__item-switch" color="primary" id="video_data_saver_mode_cellular" hide-details v-if="network_circuit === 'モバイル回線時'"
                         v-model="settingsStore.settings.video_data_saver_mode_cellular" :disabled="PlayerUtils.isHEVCVideoSupported() === false">
                     </v-switch>
                 </div>

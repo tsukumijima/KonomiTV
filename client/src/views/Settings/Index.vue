@@ -3,10 +3,10 @@
         <Header/>
         <main>
             <Navigation/>
-            <v-card class="settings-container d-flex px-5 py-5 mx-auto bg-background" elevation="0" width="100%" max-width="1000">
+            <v-card class="settings-container d-flex px-5 py-5 mx-auto" elevation="0" width="100%" max-width="1000">
                 <nav class="settings-navigation">
-                    <h1>設定</h1>
-                    <v-btn variant="flat" class="settings-navigation__button mt-3" to="/settings/general">
+                    <h1 class="mt-2" style="font-size: 24px;">設定</h1>
+                    <v-btn variant="flat" class="settings-navigation__button mt-6" to="/settings/general">
                         <Icon icon="fa-solid:sliders-h" width="26px" style="padding: 0 3px;" />
                         <span class="ml-4">全般</span>
                     </v-btn>
@@ -84,6 +84,7 @@ export default defineComponent({
 <style lang="scss" scoped>
 
 .settings-container {
+    background: rgb(var(--v-theme-background)) !important;
     width: 100%;
     min-width: 0;
     @include smartphone-horizontal {
