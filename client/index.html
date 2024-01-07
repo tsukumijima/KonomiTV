@@ -3,9 +3,16 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width,viewport-fit=cover,initial-scale=1.0,user-scalable=no,interactive-widget=resizes-visual">
-        <link rel="icon" href="<%= BASE_URL %>favicon.ico">
+        <link rel="icon" type="image/svg+xml" href="/assets/images/icons/favicon.svg">
+        <link rel="icon" type="image/png" sizes="32x32" href="/assets/images/icons/favicon-32px.png">
+        <link rel="icon" type="image/png" sizes="16x16" href="/assets/images/icons/favicon-16px.png">
+        <link rel="apple-touch-icon" href="/assets/images/icons/apple-touch-icon.png">
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mizunoko/depot@next/dist/css/common.css">
-        <title><%= htmlWebpackPlugin.options.title %></title>
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black">
+        <meta name="apple-mobile-web-app-title" content="KonomiTV">
+        <meta name="theme-color" content="#0D0807">
+        <title>KonomiTV</title>
         <style>
             @font-face {
                 font-family: 'Open Sans';
@@ -43,13 +50,19 @@
                 font-display: swap;
                 src: url('/assets/fonts/NotoSansJP-Bold.woff2') format('woff2');
             }
+            @font-face {
+                font-family: 'Twemoji';
+                font-weight: 500;
+                font-display: swap;
+                src: url('/assets/fonts/Twemoji.woff2') format('woff2');
+            }
         </style>
     </head>
     <body style="background: #1E1310; color: #FFEAEA;">
         <noscript>
-            <strong>We're sorry but <%= htmlWebpackPlugin.options.title %> doesn't work properly without JavaScript enabled. Please enable it to continue.</strong>
+            <strong>We're sorry but KonomiTV doesn't work properly without JavaScript enabled. Please enable it to continue.</strong>
         </noscript>
         <div id="app"></div>
-        <!-- built files will be auto injected -->
+        <script type="module" src="/src/main.ts"></script>
     </body>
 </html>

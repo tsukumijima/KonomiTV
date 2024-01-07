@@ -1,0 +1,8 @@
+
+// ***** Vuetify の SASS 変数の上書き *****
+
+@use 'vuetify/settings' with (
+
+    // フォントの定義
+    $body-font-family: ('Open Sans', 'YakuHanJPs', 'Hiragino Sans', 'Noto Sans JP', sans-serif),
+);

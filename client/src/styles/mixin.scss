@@ -1,0 +1,61 @@
+
+// ***** メディアクエリの定義 *****
+
+// 600px, 960px などの基準値は Vuetify 3 のブレークポイント定義に合わせている
+// ref: https://vuetifyjs.com/en/styles/display/
+
+// デスクトップ
+@mixin desktop {
+    // 画面幅が 1280px より大きい場合に適用
+    @media (min-width: 1280.01px) {
+        @content;
+    }
+}
+
+// タブレット横画面
+@mixin tablet-horizontal {
+    // 画面幅が 960px より大きく 1280px 以下 & 画面の向きが landscape (横) の場合に適用
+    @media (min-width: 960.01px) and (max-width: 1280px) and (orientation: landscape) {
+        @content;
+    }
+}
+
+// スマホ横画面
+@mixin smartphone-horizontal {
+    // 画面幅が 960px 以下 & 画面の向きが landscape (横) の場合に適用
+    @media (max-width: 960px) and (orientation: landscape) {
+        @content;
+    }
+}
+// スマホ横画面 (iPhone SE2 などの小さい短いサイズのスマホ)
+// スマホ横画面向けのスタイルを smartphone-horizontal で定義した後、小さいスマホ向けに上書きしたい箇所だけをこの mixin でピンポイントで上書きする
+@mixin smartphone-horizontal-short {
+    // 画面幅が 680px 以下 & 画面の向きが landscape (横) の場合に適用
+    @media (max-width: 680px) and (orientation: landscape) {
+        @content;
+    }
+}
+
+// タブレット縦画面
+@mixin tablet-vertical {
+    // 画面幅が 600px より大きく 1280px 以下 & 画面の向きが portrait (縦) の場合に適用
+    @media (min-width: 600.1px) and (max-width: 1280px) and (orientation: portrait) {
+        @content;
+    }
+}
+
+// スマホ縦画面
+@mixin smartphone-vertical {
+    // 画面幅が 600px 以下 & 画面の向きが portrait (縦) の場合に適用
+    @media (max-width: 600px) and (orientation: portrait) {
+        @content;
+    }
+}
+// スマホ縦画面 (iPhone SE2 などの小さいサイズのスマホ)
+// スマホ縦画面向けのスタイルを smartphone-vertical で定義した後、小さいスマホ向けに上書きしたい箇所だけをこの mixin でピンポイントで上書きする
+@mixin smartphone-vertical-short {
+    // 画面幅が 380px 以下 & 画面の向きが portrait (縦) の場合に適用
+    @media (max-width: 380px) and (orientation: portrait) {
+        @content;
+    }
+}

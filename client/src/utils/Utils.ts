@@ -9,12 +9,12 @@ export default class Utils {
 
     // バージョン情報
     // ビルド時の環境変数 (vue.config.js に記載) から取得
-    static readonly version: string = process.env.VUE_APP_VERSION as string;
+    static readonly version: string = import.meta.env.KONOMITV_VERSION;
 
     // バックエンドの API のベース URL
     // Worker からも参照できるように self.location を使う
     static readonly api_base_url = (() => {
-        if (process.env.NODE_ENV === 'development') {
+        if (import.meta.env.DEV === true) {
             // デバッグ時はポートを 7000 に強制する
             return `${self.location.protocol}//${self.location.hostname}:7000/api`;
         } else {

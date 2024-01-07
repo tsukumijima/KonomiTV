@@ -1,34 +1,21 @@
 
-import { MessageOption, MessageType } from 'vuetify-message-snackbar/src/message';
+import { useSnackbarsStore } from '@/stores/SnackbarsStore';
 
 
-interface MessageReturnValue {
-    close(): void;
-    again(): void;
-}
-
-// Vue コンポーネント以外からも this.$message を使えるようにするための (強引な) ラッパー
-// …だったのだが、defineComponent に移行した結果 this.$message が使えなくなったので結局こっちに統一した
-// 将来的にはちゃんと実装する予定
 export default {
-    success(message: MessageType | MessageOption): MessageReturnValue {
-        // @ts-ignore
-        return window.KonomiTVVueInstance?.$message.success(message);
+    success(message: string, timeout?: number): void {
+        useSnackbarsStore().show('success', message, timeout);
     },
-    info(message: MessageType | MessageOption): MessageReturnValue {
-        // @ts-ignore
-        return window.KonomiTVVueInstance?.$message.info(message);
+    info(message: string, timeout?: number): void {
+        useSnackbarsStore().show('info', message, timeout);
     },
-    warning(message: MessageType | MessageOption): MessageReturnValue {
-        // @ts-ignore
-        return window.KonomiTVVueInstance?.$message.warning(message);
+    warning(message: string, timeout?: number): void {
+        useSnackbarsStore().show('warning', message, timeout);
     },
-    error(message: MessageType | MessageOption): MessageReturnValue {
-        // @ts-ignore
-        return window.KonomiTVVueInstance?.$message.error(message);
+    error(message: string, timeout?: number): void {
+        useSnackbarsStore().show('error', message, timeout);
     },
-    show(message: MessageType | MessageOption): MessageReturnValue {
-        // @ts-ignore
-        return window.KonomiTVVueInstance?.$message.show(message);
+    show(message: string, timeout?: number): void {
+        useSnackbarsStore().show('default', message, timeout);
     }
 };

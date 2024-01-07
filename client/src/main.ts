@@ -1,23 +1,19 @@
 
-import { Icon } from '@iconify/vue2';
-import '@mdi/font/css/materialdesignicons.css';
-import { createPinia, PiniaVuePlugin } from 'pinia';
+import { Icon } from '@iconify/vue';
+import FloatingVue from 'floating-vue';
+import 'floating-vue/dist/style.css';
+import { createPinia } from 'pinia';
 import { polyfill as SeamlessScrollPolyfill } from 'seamless-scroll-polyfill';
-import VTooltip from 'v-tooltip';
-import 'v-tooltip/dist/v-tooltip.css';
-import Vue from 'vue';
+import { useRegisterSW } from 'virtual:pwa-register/vue';
+import { createApp } from 'vue';
 import VueVirtualScroller from 'vue-virtual-scroller';
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
-import VuetifyMessageSnackbar from 'vuetify-message-snackbar';
 
 import App from '@/App.vue';
-import VTabItem from '@/components/Vuetify/VTabItem';
-import VTabs from '@/components/Vuetify/VTabs';
-import VTabsItems from '@/components/Vuetify/VTabsItems';
+import Message from '@/message';
 import vuetify from '@/plugins/vuetify';
 import router from '@/router';
 import useSettingsStore, { setLocalStorageSettings } from '@/stores/SettingsStore';
-import '@/service-worker';
 import Utils from '@/utils';
 
 
@@ -25,69 +21,65 @@ import Utils from '@/utils';
 // Element.scrollInfoView() のオプション指定を使うために必要
 SeamlessScrollPolyfill();
 
-// Production Tip を非表示にする
-Vue.config.productionTip = false;
+// ***** Vue アプリケーションの初期化 *****
 
-// 常に Vue.js devtools を有効にする
-Vue.config.devtools = true;
+// Vue アプリケーションを作成
+const app = createApp(App);
 
 // Pinia を使う
 // ref: https://pinia.vuejs.org/cookbook/options-api.html
-Vue.use(PiniaVuePlugin);
-const pinia = createPinia();
+app.use(createPinia());
+
+// Iconify (アイコン) のグローバルコンポーネントを登録
+app.component('Icon', Icon);
+
+// Vue Router を使う
+app.use(router);
+
+// Vuetify を使う
+app.use(vuetify);
 
 // vue-virtual-scroller を使う
-Vue.use(VueVirtualScroller);
+app.use(VueVirtualScroller);
 
-// vuetify-message-snackbar を使う
-// マイナーな OSS（しかも中国語…）だけど、Snackbar を関数で呼びたかったのでちょうどよかった
-// ref: https://github.com/thinkupp/vuetify-message-snackbar
-Vue.use(VuetifyMessageSnackbar, {
-    // 画面上に配置しない
-    top: false,
-    // 画面下に配置する
-    bottom: true,
-    // デフォルトの背景色
-    color: '#433532',
-    // ダークテーマを適用する
-    dark: true,
-    // 影 (Elevation) の設定
-    elevation: 8,
-    // 2.5秒でタイムアウト
-    timeout: 2500,
-    // 要素が非表示になった後に DOM から要素を削除する
-    autoRemove: true,
-    // 閉じるボタンのテキスト
-    closeButtonContent: '閉じる',
-    // Vuetify のインスタンス
-    vuetifyInstance: vuetify,
+// FloatingVue を使う
+// タッチデバイスでは無効化する
+// ref: https://v-tooltip.netlify.app/guide/config#default-values
+FloatingVue.options.themes.tooltip.triggers = Utils.isTouchDevice() ? [] : ['hover', 'focus', 'touch'];
+FloatingVue.options.themes.tooltip.delay.show = 0;
+FloatingVue.options.offset = [0, 7];
+app.use(FloatingVue);
+
+// マウントを実行
+app.mount('#app');
+
+// ***** Service Worker のイベントを登録 *****
+
+const { updateServiceWorker } = useRegisterSW({
+    // Service Worker の登録に成功したとき
+    onRegisteredSW(registration) {
+        console.log('Service worker has been registered.');
+    },
+    // Service Worker の登録に失敗したとき
+    onRegisterError(error) {
+        console.error('Error during service worker registration:', error);
+    },
+    // PWA がオフラインで利用可能になったとき
+    onOfflineReady() {
+        console.log('Content has been cached for offline use.');
+    },
+    // PWA の更新が必要なとき
+    async onNeedRefresh() {
+        console.log('New content is available; please refresh.');
+        // リロードするまでトーストを表示し続ける
+        Message.show('クライアントが新しいバージョンに更新されました。5秒後にリロードします。', 10);  // 10秒間表示
+        await Utils.sleep(5);  // 5秒待つ
+        // PWA (Service Worker) を更新し、ページをリロードする
+        updateServiceWorker(true);
+    },
 });
 
-// VTooltip を使う
-// タッチデバイスでは無効化する
-// ref: https://v-tooltip.netlify.app/guide/config.html#default-values
-const trigger = Utils.isTouchDevice() ? [] : ['hover', 'focus', 'touch'];
-VTooltip.options.themes.tooltip.showTriggers = trigger;
-VTooltip.options.themes.tooltip.hideTriggers = trigger;
-VTooltip.options.themes.tooltip.delay.show = 0;
-VTooltip.options.offset = [0, 7];
-Vue.use(VTooltip);
-
-// Iconify（アイコン）のグローバルコンポーネント
-Vue.component('Icon', Icon);
-
-// VTabItem / VTabs / VTabsItems の挙動を改善するグローバルコンポーネント
-Vue.component('v-tab-item-fix', VTabItem);
-Vue.component('v-tabs-fix', VTabs);
-Vue.component('v-tabs-items-fix', VTabsItems);
-
-// Vue を初期化
-(window as any).KonomiTVVueInstance = new Vue({
-    pinia,
-    router,
-    vuetify,
-    render: h => h(App),
-}).$mount('#app');
+// ***** 設定データの同期 *****
 
 // 設定データをサーバーにアップロード中かどうか
 let is_uploading_settings = false;

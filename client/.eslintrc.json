@@ -1,7 +1,6 @@
 {
     "root": true,
     "env": {
-        "browser": true,
         "node": true
     },
     "parserOptions": {
@@ -13,9 +12,14 @@
         "unused-imports"
     ],
     "extends": [
-        "plugin:vue/essential",
+        "plugin:vue/vue3-essential",
+        "plugin:vuetify/recommended",
         "eslint:recommended",
-        "@vue/typescript"
+        "@vue/eslint-config-typescript"
+    ],
+    "ignorePatterns": [
+        "dist/",
+        "node_modules/"
     ],
     "rules": {
         "@typescript-eslint/indent": ["error", 4, {"SwitchCase": 1}],
