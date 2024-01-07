@@ -8,13 +8,13 @@
             <Icon icon="fluent:video-clip-multiple-16-filled" width="26px" />
             <span class="ml-3">画質</span>
         </h2>
-        <v-tabs-fix class="settings__tab" background-color="transparent" centered v-model="tab">
+        <v-tabs class="settings__tab" color="primary" bg-color="transparent" align-tabs="center" v-model="tab">
             <v-tab style="text-transform: none !important;" v-for="network_circuit in network_circuits" :key="network_circuit">
                 {{network_circuit}}
             </v-tab>
-        </v-tabs-fix>
-        <v-tabs-items-fix v-model="tab">
-            <v-tab-item-fix class="settings__content mt-0" v-for="network_circuit in network_circuits" :key="network_circuit">
+        </v-tabs>
+         <v-window v-model="tab">
+            <v-window-item class="settings__content mt-0" v-for="network_circuit in network_circuits" :key="network_circuit">
                 <div class="settings__item settings__item--sync-disabled">
                     <div class="settings__item-heading">テレビのデフォルトのストリーミング画質</div>
                     <div class="settings__item-label">
@@ -120,8 +120,8 @@
                         v-model="settingsStore.settings.video_data_saver_mode_cellular" :disabled="PlayerUtils.isHEVCVideoSupported() === false">
                     </v-switch>
                 </div>
-            </v-tab-item-fix>
-        </v-tabs-items-fix>
+            </v-window-item>
+         </v-window>
     </SettingsBase>
 </template>
 <script lang="ts">

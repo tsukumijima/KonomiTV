@@ -1,14 +1,14 @@
 <template>
     <div class="channels-container channels-container--watch">
-        <v-tabs-fix centered show-arrows class="channels-tab" v-model="tab">
+        <v-tabs class="channels-tab" color="primary" align-tabs="center" show-arrows v-model="tab">
             <v-tab class="channels-tab__item"
                 v-for="[channels_type,] in Array.from(channelsStore.channels_list_with_pinned_for_watch)" :key="channels_type">
                 {{channels_type}}
             </v-tab>
-        </v-tabs-fix>
+        </v-tabs>
         <div class="channels-list-container">
-            <v-tabs-items-fix class="channels-list" v-model="tab">
-                <v-tab-item-fix class="channels"
+             <v-window class="channels-list" v-model="tab">
+                <v-window-item class="channels"
                     v-for="[channels_type, channels] in Array.from(channelsStore.channels_list_with_pinned_for_watch)" :key="channels_type">
                     <router-link v-ripple class="channel" v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.display_channel_id}`">
                         <!-- 以下では Icon コンポーネントを使うとチャンネルが多いときに高負荷になるため、意図的に SVG を直書きしている -->
@@ -48,8 +48,8 @@
                                  :style="`width:${ProgramUtils.getProgramProgress(channel.program_present)}%;`"></div>
                         </div>
                     </router-link>
-                </v-tab-item-fix>
-            </v-tabs-items-fix>
+                </v-window-item>
+             </v-window>
         </div>
     </div>
 </template>

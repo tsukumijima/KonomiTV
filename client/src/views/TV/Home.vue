@@ -4,14 +4,14 @@
         <main>
             <Navigation/>
             <div class="channels-container channels-container--home" :class="{'channels-container--loading': is_loading}">
-                <v-tabs-fix centered class="channels-tab" v-model="tab">
+                <v-tabs class="channels-tab" color="primary" align-tabs="center" v-model="tab">
                     <v-tab class="channels-tab__item"
                         v-for="[channels_type,] in Array.from(channelsStore.channels_list_with_pinned)" :key="channels_type">
                         {{channels_type}}
                     </v-tab>
-                </v-tabs-fix>
-                <v-tabs-items-fix class="channels-list" v-model="tab">
-                    <v-tab-item-fix class="channels-tabitem"
+                </v-tabs>
+                <v-window class="channels-list" v-model="tab">
+                    <v-window-item class="channels-tabitem"
                         v-for="[channels_type, channels] in Array.from(channelsStore.channels_list_with_pinned)" :key="channels_type">
                         <div class="channels" :class="`channels--tab-${channels_type} channels--length-${channels.length}`">
                             <router-link v-ripple class="channel"
@@ -85,8 +85,8 @@
                                 </div>
                             </div>
                         </div>
-                    </v-tab-item-fix>
-                </v-tabs-items-fix>
+                    </v-window-item>
+                </v-window>
             </div>
         </main>
     </div>
