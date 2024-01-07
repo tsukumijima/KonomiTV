@@ -4,7 +4,7 @@
 <script lang="ts">
 
 import { mapStores } from 'pinia';
-import Vue from 'vue';
+import { defineComponent } from 'vue';
 
 import Watch from '@/components/Watch/Watch.vue';
 import PlayerController from '@/services/player/PlayerController';
@@ -17,7 +17,7 @@ import Utils from '@/utils';
 // data() 内に記述すると再帰的にリアクティブ化され重くなる上リアクティブにする必要自体がないので、グローバル変数にしている
 let player_controller: PlayerController | null = null;
 
-export default Vue.extend({
+export default defineComponent({
     name: 'TV-Watch',
     components: {
         Watch,
@@ -39,7 +39,7 @@ export default Vue.extend({
         // 下記以外の視聴画面の開始処理は Watch コンポーネントの方で自動的に行われる
 
         // チャンネル ID をセット
-        this.channelsStore.display_channel_id = this.$route.params.display_channel_id;
+        this.channelsStore.display_channel_id = this.$route.params.display_channel_id as string;
 
         // 再生セッションを初期化
         this.init();
@@ -55,7 +55,7 @@ export default Vue.extend({
         const destroy_promise = this.destroy();
 
         // チャンネル ID を次のチャンネルのものに切り替える
-        this.channelsStore.display_channel_id = to.params.display_channel_id;
+        this.channelsStore.display_channel_id = to.params.display_channel_id as string;
 
         (async () => {
 
@@ -78,7 +78,7 @@ export default Vue.extend({
         next();
     },
     // 終了前に実行
-    beforeDestroy() {
+    beforeUnmount() {
 
         // destroy() を実行
         // 別のページへ遷移するため、DPlayer のインスタンスを確実に破棄する

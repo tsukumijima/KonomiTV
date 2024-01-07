@@ -21,7 +21,7 @@
                         </span>
                     </div>
                 </div>
-                <v-btn class="niconico-account__login ml-auto" color="secondary" width="130" height="56" depressed
+                <v-btn class="niconico-account__login ml-auto" color="secondary" width="130" height="56" variant="flat"
                     @click="loginNiconicoAccount()">
                     <Icon icon="fluent:plug-connected-20-filled" class="mr-2" height="26" />連携する
                 </v-btn>
@@ -37,11 +37,11 @@
                             <span class="mr-2" style="white-space: nowrap;">Niconico User ID:</span>
                             <a class="mr-2" :href="`https://www.nicovideo.jp/user/${userStore.user.niconico_user_id}`"
                                 target="_blank">{{userStore.user.niconico_user_id}}</a>
-                            <span class="secondary--text" v-if="userStore.user.niconico_user_premium === true">(Premium)</span>
+                            <span class="text-secondary" v-if="userStore.user.niconico_user_premium === true">(Premium)</span>
                         </span>
                     </div>
                 </div>
-                <v-btn class="niconico-account__login ml-auto" color="secondary" width="130" height="56" depressed
+                <v-btn class="niconico-account__login ml-auto" color="secondary" width="130" height="56" variant="flat"
                     @click="logoutNiconicoAccount()">
                     <Icon icon="fluent:plug-disconnected-20-filled" class="mr-2" height="26" />連携解除
                 </v-btn>
@@ -52,7 +52,7 @@
                     表示したくないコメントを、映像上やコメントリストに表示しないようにミュートできます。<br>
                 </div>
             </div>
-            <v-btn class="settings__save-button mt-4" depressed @click="comment_mute_settings_modal = !comment_mute_settings_modal">
+            <v-btn class="settings__save-button mt-4" variant="flat" @click="comment_mute_settings_modal = !comment_mute_settings_modal">
                 <Icon icon="heroicons-solid:filter" height="19px" />
                 <span class="ml-1">コメントのミュート設定を開く</span>
             </v-btn>
@@ -62,7 +62,7 @@
                     プレイヤーに流れるコメントの速さを設定します。<br>
                     たとえば 1.2 に設定すると、コメントが 1.2 倍速く流れます。<br>
                 </div>
-                <v-slider class="settings__item-form" ticks="always" thumb-label hide-details
+                <v-slider class="settings__item-form" show-ticks="always" thumb-label hide-details
                     :step="0.1" :min="0.5" :max="2" v-model="settingsStore.settings.comment_speed_rate">
                 </v-slider>
             </div>
@@ -72,7 +72,7 @@
                     プレイヤーに流れるコメントの文字サイズの基準値を設定します。<br>
                     実際の文字サイズは画面サイズに合わせて調整されます。デフォルトの文字サイズは 34px です。<br>
                 </div>
-                <v-slider class="settings__item-form" ticks="always" thumb-label hide-details
+                <v-slider class="settings__item-form" show-ticks="always" thumb-label hide-details
                     :min="20" :max="60" v-model="settingsStore.settings.comment_font_size">
                 </v-slider>
             </div>

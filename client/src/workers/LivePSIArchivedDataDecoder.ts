@@ -1,4 +1,5 @@
 
+import assert from 'assert';
 import { Buffer } from 'buffer';
 
 import { TsChar, TsDate } from '@tsukumijima/aribts';
@@ -559,7 +560,8 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
 
             position += this.psi_archived_data_context.code_list_position!;
             time_list_position += this.psi_archived_data_context.time_list_count! * 4;
-            for (; this.psi_archived_data_context.time_list_count! < time_list_len; this.psi_archived_data_context.time_list_count!++, time_list_position += 4) {
+            assert(this.psi_archived_data_context.time_list_count !== undefined);
+            for (; this.psi_archived_data_context.time_list_count! < time_list_len; this.psi_archived_data_context.time_list_count++, time_list_position += 4) {
                 let init_time = this.psi_archived_data_context.init_time!;
                 let curr_time = this.psi_archived_data_context.curr_time!;
                 const abs_time = data.getUint32(time_list_position, true);
@@ -576,7 +578,8 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
                         curr_time += data.getUint16(time_list_position, true);
                         const sec = ((curr_time + 0x40000000 - init_time) & 0x3fffffff) / 11250;
                         if (sec >= (start_second || 0)) {
-                            for (; this.psi_archived_data_context.code_count! < n; this.psi_archived_data_context.code_count!++, position += 2, this.psi_archived_data_context.code_list_position! += 2) {
+                            assert(this.psi_archived_data_context.code_count !== undefined);
+                            for (; this.psi_archived_data_context.code_count! < n; this.psi_archived_data_context.code_count++, position += 2, this.psi_archived_data_context.code_list_position! += 2) {
                                 const code = data.getUint16(position, true) - 4096;
                                 callback(sec, this.psi_archived_data_context.dict![code]!, this.psi_archived_data_context.pids[code]);
                             }

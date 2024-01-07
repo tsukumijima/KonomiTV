@@ -371,7 +371,7 @@ export default defineComponent({
             this.addCaptureList(event.capture, event.filename);
         });
     },
-    beforeDestroy() {
+    beforeUnmount() {
 
         // 終了前にすべてのキャプチャの Blob URL を revoke してリソースを解放する
         for (const capture of this.playerStore.twitter_captures) {

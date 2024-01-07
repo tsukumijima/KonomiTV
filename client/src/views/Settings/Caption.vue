@@ -14,7 +14,7 @@
                 <label class="settings__item-label">
                     プレイヤーで字幕表示をオンにしているときの、字幕のフォントを設定します。<br>
                 </label>
-                <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
+                <v-select class="settings__item-form" variant="outlined" hide-details :density="is_form_dense ? 'compact' : 'default'"
                     :items="caption_font" v-model="settingsStore.settings.caption_font">
                 </v-select>
             </div>
@@ -44,7 +44,7 @@
                     上の [字幕の不透明度を指定する] をオンに設定したときのみ有効です。不透明度を 0 に設定すれば、字幕の背景を非表示にできます。<br>
                 </label>
                 <div class="settings__item-label" ref="caption_opacity">
-                    <v-slider class="settings__item-form" ticks="always" thumb-label hide-details
+                    <v-slider class="settings__item-form" show-ticks="always" thumb-label hide-details
                         :min="0" :max="1" :step="0.05" v-model="settingsStore.settings.caption_opacity"
                         :disabled="settingsStore.settings.specify_caption_opacity === false">
                     </v-slider>

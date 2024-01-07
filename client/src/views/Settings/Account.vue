@@ -19,7 +19,7 @@
                         <span class="account__info-id">Not logged in</span>
                     </div>
                 </div>
-                <v-btn class="account__login ml-auto" color="secondary" width="140" height="56" depressed to="/login/">
+                <v-btn class="account__login ml-auto" color="secondary" width="140" height="56" variant="flat" to="/login/">
                     <Icon icon="fa:sign-in" class="mr-2" />ログイン
                 </v-btn>
             </div>
@@ -34,7 +34,7 @@
                         <span class="account__info-id">User ID: {{userStore.user.id}}</span>
                     </div>
                 </div>
-                <v-btn class="account__login ml-auto" color="secondary" width="140" height="56" depressed @click="userStore.logout()">
+                <v-btn class="account__login ml-auto" color="secondary" width="140" height="56" variant="flat" @click="userStore.logout()">
                     <Icon icon="fa:sign-out" class="mr-2" />ログアウト
                 </v-btn>
             </div>
@@ -77,7 +77,7 @@
                     アカウントはローカルに導入した<br class="smartphone-vertical-only"> KonomiTV サーバーにのみ保存されます。<br>
                     外部のサービスには保存されませんので、ご安心ください。<br>
                 </div>
-                <v-btn class="account-register__button" color="secondary" width="100%" max-width="250" height="50" depressed to="/register/">
+                <v-btn class="account-register__button" color="secondary" width="100%" max-width="250" height="50" variant="flat" to="/register/">
                     <Icon icon="fluent:person-add-20-filled" class="mr-2" height="24" />アカウントを作成
                 </v-btn>
             </div>
@@ -101,17 +101,17 @@
                             一度上書きすると、元に戻すことはできません。慎重に選択してください。<br>
                         </v-card-text>
                         <div class="d-flex flex-column px-4 pb-4 settings__conflict-dialog">
-                            <v-btn class="settings__save-button error--text text--lighten-1" depressed
+                            <v-btn class="settings__save-button text-error-lighten-1" variant="flat"
                                 @click="overrideServerSettingsFromClient()">
                                 <Icon icon="fluent:document-arrow-up-16-filled" class="mr-2" height="22px" />
                                 サーバーに保存されている設定を、<br class="smartphone-vertical-only">このデバイスの設定で上書きする
                             </v-btn>
-                            <v-btn class="settings__save-button error--text text--lighten-1 mt-3" depressed
+                            <v-btn class="settings__save-button text-error-lighten-1 mt-3" variant="flat"
                                 @click="overrideClientSettingsFromServer()">
                                 <Icon icon="fluent:document-arrow-down-16-filled" class="mr-2" height="22px" />
                                 このデバイスの設定を、<br class="smartphone-vertical-only">サーバーに保存されている設定で上書きする
                             </v-btn>
-                            <v-btn class="settings__save-button mt-3" depressed @click="sync_settings_dialog = false">
+                            <v-btn class="settings__save-button mt-3" variant="flat" @click="sync_settings_dialog = false">
                                 <Icon icon="fluent:dismiss-16-filled" class="mr-2" height="22px" />
                                 キャンセル
                             </v-btn>
@@ -124,13 +124,13 @@
                         KonomiTV アカウントのユーザー名を設定します。アルファベットだけでなく日本語や記号も使えます。<br>
                         同じ KonomiTV サーバー上の他のアカウントと同じユーザー名には変更できません。<br>
                     </div>
-                    <v-text-field class="settings__item-form" outlined placeholder="ユーザー名"
-                        :dense="is_form_dense"
+                    <v-text-field class="settings__item-form" variant="outlined" placeholder="ユーザー名"
+                        :density="is_form_dense ? 'compact' : 'default'"
                         v-model="settings_username"
                         :rules="[settings_username_validation]">
                     </v-text-field>
                 </v-form>
-                <v-btn class="settings__save-button" depressed @click="updateAccountInfo('username')">
+                <v-btn class="settings__save-button" variant="flat" @click="updateAccountInfo('username')">
                     <Icon icon="fluent:save-16-filled" class="mr-2" height="24px" />ユーザー名を更新
                 </v-btn>
                 <v-form class="settings__item" @submit.prevent>
@@ -139,15 +139,15 @@
                         KonomiTV アカウントのアイコン画像を設定します。<br>
                         アップロードされた画像は自動で 400×400 の正方形にリサイズされます。<br>
                     </div>
-                    <v-file-input class="settings__item-form" outlined hide-details placeholder="アイコン画像を選択"
-                        :dense="is_form_dense"
+                    <v-file-input class="settings__item-form" variant="outlined" hide-details placeholder="アイコン画像を選択"
+                        :density="is_form_dense ? 'compact' : 'default'"
                         accept="image/jpeg, image/png"
                         prepend-icon=""
                         prepend-inner-icon="mdi-paperclip"
-                        v-model="settings_icon">
+                        v-model="settings_icon_file">
                     </v-file-input>
                 </v-form>
-                <v-btn class="settings__save-button mt-5" depressed @click="updateAccountIcon()">
+                <v-btn class="settings__save-button mt-5" variant="flat" @click="updateAccountIcon()">
                     <Icon icon="fluent:save-16-filled" class="mr-2" height="24px" />アイコン画像を更新
                 </v-btn>
                 <v-form class="settings__item" ref="settings_password" @submit.prevent>
@@ -155,8 +155,8 @@
                     <div class="settings__item-label">
                         KonomiTV アカウントの新しいパスワードを設定します。<br>
                     </div>
-                    <v-text-field class="settings__item-form" outlined placeholder="新しいパスワード"
-                        :dense="is_form_dense"
+                    <v-text-field class="settings__item-form" variant="outlined" placeholder="新しいパスワード"
+                        :density="is_form_dense ? 'compact' : 'default'"
                         v-model="settings_password"
                         :type="settings_password_showing ? 'text' : 'password'"
                         :append-icon="settings_password_showing ? 'mdi-eye' : 'mdi-eye-off'"
@@ -164,20 +164,20 @@
                         @click:append="settings_password_showing = !settings_password_showing">
                     </v-text-field>
                 </v-form>
-                <v-btn class="settings__save-button" depressed @click="updateAccountInfo('password')">
+                <v-btn class="settings__save-button" variant="flat" @click="updateAccountInfo('password')">
                     <Icon icon="fluent:save-16-filled" class="mr-2" height="24px" />パスワードを更新
                 </v-btn>
                 <v-divider class="mt-6"></v-divider>
                 <div class="settings__item mt-6">
-                    <div class="settings__item-heading error--text text--lighten-1">アカウントを削除</div>
+                    <div class="settings__item-heading text-error-lighten-1">アカウントを削除</div>
                     <div class="settings__item-label">
                         現在ログインしている KonomiTV アカウントを削除します。<br>
                         <b>アカウントに紐づくすべてのデータが削除されます。</b>元に戻すことはできません。<br>
                     </div>
                 </div>
                 <v-dialog max-width="385" v-model="account_delete_confirm_dialog">
-                    <template v-slot:activator="{ on }">
-                        <v-btn class="settings__save-button error mt-5" depressed v-on="on">
+                    <template v-slot:activator="{ props }">
+                        <v-btn class="settings__save-button bg-error mt-5" variant="flat" v-bind="props">
                             <Icon icon="fluent:delete-16-filled" class="mr-2" height="24px" />アカウントを削除
                         </v-btn>
                     </template>
@@ -189,7 +189,7 @@
                         </v-card-text>
                         <v-card-actions class="pt-4 px-6 pb-5">
                             <v-spacer></v-spacer>
-                            <v-btn color="text" text @click="account_delete_confirm_dialog = false">キャンセル</v-btn>
+                            <v-btn color="text" variant="text" @click="account_delete_confirm_dialog = false">キャンセル</v-btn>
                             <v-btn color="error" @click="deleteAccount()">削除</v-btn>
                         </v-card-actions>
                     </v-card>
@@ -242,7 +242,8 @@ export default defineComponent({
             },
 
             // アップロードするアイコン画像
-            settings_icon: null as File | null,
+            // 基本1ファイルしか入らない (Vuetify 側の都合で配列になっている)
+            settings_icon_file: [] as File[],
 
             // アカウント削除確認ダイヤログ
             account_delete_confirm_dialog: false,
@@ -364,13 +365,13 @@ export default defineComponent({
         async updateAccountIcon() {
 
             // アイコン画像が選択されていないなら更新しない
-            if (this.settings_icon === null) {
+            if (this.settings_icon_file.length === 0) {
                 Message.error('アップロードする画像を選択してください！');
                 return;
             }
 
             // アイコン画像の更新処理 (エラーハンドリングを含む) を実行
-            await this.userStore.updateUserIcon(this.settings_icon);
+            await this.userStore.updateUserIcon(this.settings_icon_file[0]);
         },
 
         async deleteAccount() {

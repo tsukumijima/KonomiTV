@@ -87,7 +87,7 @@
                 <div class="text-subtitle-1 d-flex align-center font-weight-bold mt-4">
                     <Icon icon="fluent:comment-dismiss-20-filled" width="24px" />
                     <span class="ml-2 mr-2">ミュート済みのキーワード</span>
-                    <v-btn class="ml-auto" depressed
+                    <v-btn class="ml-auto" variant="flat"
                         @click="settingsStore.settings.muted_comment_keywords.push({match: 'partial', pattern: ''})">
                         <Icon icon="fluent:add-12-filled" height="17px" />
                         <span class="ml-1">追加</span>
@@ -97,11 +97,11 @@
                     <div class="muted-comment-item"
                         v-for="(muted_comment_keyword, index) in settingsStore.settings.muted_comment_keywords" :key="index">
                         <!-- 以下では Icon コンポーネントを使うと個数が多いときに高負荷になるため、意図的に SVG を直書きしている -->
-                        <v-text-field type="search" class="muted-comment-item__input" dense outlined hide-details
+                        <v-text-field type="search" class="muted-comment-item__input" density="compact" variant="outlined" hide-details
                             placeholder="ミュートするキーワードを入力"
                             v-model="settingsStore.settings.muted_comment_keywords[index].pattern">
                         </v-text-field>
-                        <v-select class="muted-comment-item__match-type" dense outlined hide-details
+                        <v-select class="muted-comment-item__match-type" density="compact" variant="outlined" hide-details
                             :items="muted_comment_keyword_match_type"
                             v-model="settingsStore.settings.muted_comment_keywords[index].match">
                         </v-select>
@@ -117,7 +117,7 @@
                 <div class="text-subtitle-1 d-flex align-center font-weight-bold mt-4">
                     <Icon icon="fluent:person-prohibited-20-filled" width="24px" />
                     <span class="ml-2 mr-2">ミュート済みのニコニコユーザー ID</span>
-                    <v-btn class="ml-auto" depressed
+                    <v-btn class="ml-auto" variant="flat"
                         @click="settingsStore.settings.muted_niconico_user_ids.push('')">
                         <Icon icon="fluent:add-12-filled" height="17px" />
                         <span class="ml-1">追加</span>
@@ -127,7 +127,7 @@
                     <div class="muted-comment-item"
                         v-for="(muted_niconico_user_id, index) in settingsStore.settings.muted_niconico_user_ids" :key="index">
                         <!-- 以下では Icon コンポーネントを使うと個数が多いときに高負荷になるため、意図的に SVG を直書きしている -->
-                        <v-text-field type="search" class="muted-comment-item__input" dense outlined hide-details
+                        <v-text-field type="search" class="muted-comment-item__input" density="compact" variant="outlined" hide-details
                             placeholder="ミュートするニコニコユーザー ID を入力" v-model="settingsStore.settings.muted_niconico_user_ids[index]">
                         </v-text-field>
                         <button v-ripple class="muted-comment-item__delete-button"

@@ -22,7 +22,7 @@
 <script lang="ts">
 
 import { mapStores } from 'pinia';
-import Vue, { PropType } from 'vue';
+import { defineComponent, PropType } from 'vue';
 
 import WatchHeader from '@/components/Watch/Header.vue';
 import KeyboardShortcutList from '@/components/Watch/KeyboardShortcutList.vue';
@@ -34,7 +34,7 @@ import useSettingsStore from '@/stores/SettingsStore';
 import Utils from '@/utils';
 
 // ライブ視聴・ビデオ視聴共通の視聴画面
-export default Vue.extend({
+export default defineComponent({
     name: 'Watch',
     components: {
         KeyboardShortcutList,
@@ -88,7 +88,7 @@ export default Vue.extend({
         this.playerStore.startWatching();
     },
     // 終了前に実行
-    beforeDestroy() {
+    beforeUnmount() {
 
         // PlayerStore に視聴画面を閉じたことを伝える
         this.playerStore.stopWatching();

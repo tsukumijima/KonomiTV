@@ -35,7 +35,7 @@
                         他のデバイスでキャプチャを見るにはキャプチャ保存フォルダをネットワークに共有する必要があること、スマホ・タブレットではネットワーク上のフォルダへのアクセスがやや面倒なことがデメリットです。(将来的には、保存フォルダ内のキャプチャを Google フォトのように表示する機能を追加予定)<br>
                     </p>
                 </div>
-                <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
+                <v-select class="settings__item-form" variant="outlined" hide-details :density="is_form_dense ? 'compact' : 'default'"
                     :items="capture_save_mode" v-model="settingsStore.settings.capture_save_mode">
                 </v-select>
             </div>
@@ -46,7 +46,7 @@
                     映像のみのキャプチャと、字幕を合成したキャプチャを両方同時に保存することもできます。<br>
                     なお、字幕非表示時は、常に映像のみ (+コメント付きキャプチャではコメントを合成して) 保存されます。<br>
                 </div>
-                <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
+                <v-select class="settings__item-form" variant="outlined" hide-details :density="is_form_dense ? 'compact' : 'default'"
                     :items="capture_caption_mode" v-model="settingsStore.settings.capture_caption_mode">
                 </v-select>
             </div>

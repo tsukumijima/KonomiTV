@@ -4,7 +4,7 @@
         <main>
             <Navigation/>
             <div class="login-container-wrapper d-flex align-center w-100 mb-13">
-                <v-card class="login-container px-10 pt-8 pb-11 mx-auto background lighten-1" elevation="10"
+                <v-card class="login-container px-10 pt-8 pb-11 mx-auto background-lighten-1" elevation="10"
                     width="100%" max-width="450">
                     <v-card-title class="login__logo flex-column justify-center">
                         <v-img max-width="250" src="/assets/images/logo.svg"></v-img>
@@ -12,18 +12,18 @@
                     </v-card-title>
                     <v-divider></v-divider>
                     <v-form ref="login" @submit.prevent>
-                        <v-text-field class="mt-12" outlined placeholder="ユーザー名" hide-details autofocus
-                            :dense="is_form_dense"
+                        <v-text-field class="mt-12" variant="outlined" placeholder="ユーザー名" hide-details autofocus
+                            :density="is_form_dense ? 'compact' : 'default'"
                             v-model="username">
                         </v-text-field>
-                        <v-text-field class="mt-8" outlined placeholder="パスワード" hide-details
-                            :dense="is_form_dense"
+                        <v-text-field class="mt-8" variant="outlined" placeholder="パスワード" hide-details
+                            :density="is_form_dense ? 'compact' : 'default'"
                             v-model="password"
                             :type="password_showing ? 'text' : 'password'"
                             :append-icon="password_showing ? 'mdi-eye' : 'mdi-eye-off'"
                             @click:append="password_showing = !password_showing">
                         </v-text-field>
-                        <v-btn class="login-button mt-5" color="secondary" depressed width="100%" height="56"
+                        <v-btn class="login-button mt-5" color="secondary" variant="flat" width="100%" height="56"
                             @click="login()">
                             <Icon icon="fa:sign-in" class="mr-2" />ログイン
                         </v-btn>

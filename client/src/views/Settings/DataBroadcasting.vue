@@ -46,7 +46,7 @@
                     ここで設定した郵便番号をもとに、データ放送の地域情報（ニュース・天気予報など）が表示されます。<br>
                     設定しない場合、データ放送の一部のコンテンツが利用できないことがあります。<br>
                 </label>
-                <v-text-field class="settings__item-form" outlined placeholder="郵便番号" :dense="is_form_dense"
+                <v-text-field class="settings__item-form" variant="outlined" placeholder="郵便番号" :density="is_form_dense ? 'compact' : 'default'"
                     :rules="[data_broadcasting_zip_code_validation]" v-model="data_broadcasting_zip_code">
                 </v-text-field>
             </v-form>
@@ -56,19 +56,19 @@
                     ここで設定した都道府県をもとに、データ放送の地域情報（ニュース・天気予報など）が表示されます。<br>
                     設定しない場合、データ放送の一部のコンテンツが利用できないことがあります。<br>
                 </label>
-                <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
+                <v-select class="settings__item-form" variant="outlined" hide-details :density="is_form_dense ? 'compact' : 'default'"
                     :items="data_broadcasting_prefectures" v-model="data_broadcasting_prefecture">
                 </v-select>
             </div>
             <div class="settings__item">
-                <div class="settings__item-heading error--text text--lighten-1">データ放送の保存データをリセット</div>
+                <div class="settings__item-heading text-error-lighten-1">データ放送の保存データをリセット</div>
                 <div class="settings__item-label">
                     このデバイス（ブラウザ）に保存されているデータ放送の保存データを、初期状態にリセット (消去) できます。<br>
                     保存データには、データ放送内のミニゲームの得点データや、設定データなどが含まれます。<br>
                     保存データをリセットすると、元に戻すことはできません。十分ご注意ください。<br>
                 </div>
             </div>
-            <v-btn class="settings__save-button error mt-5" depressed @click="resetNVRAMSettings()">
+            <v-btn class="settings__save-button bg-error mt-5" variant="flat" @click="resetNVRAMSettings()">
                 <Icon icon="material-symbols:device-reset-rounded" class="mr-2" height="23px" />保存データをリセット
             </v-btn>
         </div>

@@ -27,10 +27,10 @@
                     <div class="settings__item-label mt-1">
                         Fire HD 10 (2021) などの一部のローエンド Android (特に MediaTek SoC 搭載) デバイスでは、1080p 以上の映像描画が不安定なことが確認されています。その場合は 720p 以下の画質を選択することをおすすめします。<br>
                     </div>
-                    <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense" v-if="network_circuit !== 'モバイル回線時'"
+                    <v-select class="settings__item-form" variant="outlined" hide-details :density="is_form_dense ? 'compact' : 'default'" v-if="network_circuit !== 'モバイル回線時'"
                         :items="tv_streaming_quality" v-model="settingsStore.settings.tv_streaming_quality">
                     </v-select>
-                    <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense" v-if="network_circuit === 'モバイル回線時'"
+                    <v-select class="settings__item-form" variant="outlined" hide-details :density="is_form_dense ? 'compact' : 'default'" v-if="network_circuit === 'モバイル回線時'"
                         :items="tv_streaming_quality_cellular" v-model="settingsStore.settings.tv_streaming_quality_cellular">
                     </v-select>
                 </div>
@@ -44,10 +44,10 @@
                     </label>
                     <div class="settings__item-label mt-1">
                         通信が不安定になりがちなモバイル回線 (4G/5G)・通信速度の遅いフリー Wi-Fi から視聴するときに特におすすめです。<br>
-                        <p class="mt-1 mb-0 error--text lighten-1" v-if="PlayerUtils.isHEVCVideoSupported() === false && Utils.isFirefox() === false">
+                        <p class="mt-1 mb-0 text-error-lighten-1" v-if="PlayerUtils.isHEVCVideoSupported() === false && Utils.isFirefox() === false">
                             このデバイスでは通信節約モードがサポートされていません。
                         </p>
-                        <p class="mt-1 mb-0 error--text lighten-1" v-if="PlayerUtils.isHEVCVideoSupported() === false && Utils.isFirefox() === true">
+                        <p class="mt-1 mb-0 text-error-lighten-1" v-if="PlayerUtils.isHEVCVideoSupported() === false && Utils.isFirefox() === true">
                             お使いの Firefox ブラウザでは通信節約モードがサポートされていません。
                         </p>
                     </div>
@@ -89,10 +89,10 @@
                     <div class="settings__item-label mt-1">
                         Fire HD 10 (2021) などの一部のローエンド Android (特に MediaTek SoC 搭載) デバイスでは、1080p 以上の映像描画が不安定なことが確認されています。その場合は 720p 以下の画質を選択することをおすすめします。<br>
                     </div>
-                    <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense" v-if="network_circuit !== 'モバイル回線時'"
+                    <v-select class="settings__item-form" variant="outlined" hide-details :density="is_form_dense ? 'compact' : 'default'" v-if="network_circuit !== 'モバイル回線時'"
                         :items="video_streaming_quality" v-model="settingsStore.settings.video_streaming_quality">
                     </v-select>
-                    <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense" v-if="network_circuit === 'モバイル回線時'"
+                    <v-select class="settings__item-form" variant="outlined" hide-details :density="is_form_dense ? 'compact' : 'default'" v-if="network_circuit === 'モバイル回線時'"
                         :items="video_streaming_quality_cellular" v-model="settingsStore.settings.video_streaming_quality_cellular">
                     </v-select>
                 </div>
@@ -106,10 +106,10 @@
                     </label>
                     <div class="settings__item-label mt-1">
                         通信が不安定になりがちなモバイル回線 (4G/5G)・通信速度の遅いフリー Wi-Fi から視聴するときに特におすすめです。<br>
-                        <p class="mt-1 mb-0 error--text lighten-1" v-if="PlayerUtils.isHEVCVideoSupported() === false && Utils.isFirefox() === false">
+                        <p class="mt-1 mb-0 text-error-lighten-1" v-if="PlayerUtils.isHEVCVideoSupported() === false && Utils.isFirefox() === false">
                             このデバイスでは通信節約モードがサポートされていません。
                         </p>
-                        <p class="mt-1 mb-0 error--text lighten-1" v-if="PlayerUtils.isHEVCVideoSupported() === false && Utils.isFirefox() === true">
+                        <p class="mt-1 mb-0 text-error-lighten-1" v-if="PlayerUtils.isHEVCVideoSupported() === false && Utils.isFirefox() === true">
                             お使いの Firefox ブラウザでは通信節約モードがサポートされていません。
                         </p>
                     </div>

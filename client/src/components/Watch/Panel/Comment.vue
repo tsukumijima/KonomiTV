@@ -14,19 +14,19 @@
             <div class="comment-list-dropdown" :class="{'comment-list-dropdown--display': is_comment_list_dropdown_display}"
                 :style="{'--comment-list-dropdown-top': `${comment_list_dropdown_top}px`}">
                 <v-list style="background: var(--v-background-lighten1)">
-                    <v-list-item dense style="min-height: 30px" @click="copyTextToClipboard()">
+                    <v-list-item density="compact" style="min-height: 30px" @click="copyTextToClipboard()">
                         <v-list-item-title class="d-flex align-center">
                             <Icon icon="fluent:clipboard-paste-20-filled" width="20px" />
                             <span class="ml-2">クリップボードにコピー</span>
                         </v-list-item-title>
                     </v-list-item>
-                    <v-list-item dense style="min-height: 30px" @click="addMutedKeywords()">
+                    <v-list-item density="compact" style="min-height: 30px" @click="addMutedKeywords()">
                         <v-list-item-title class="d-flex align-center">
                             <Icon icon="fluent:comment-dismiss-20-filled" width="20px" />
                             <span class="ml-2">このコメントをミュート</span>
                         </v-list-item-title>
                     </v-list-item>
-                    <v-list-item dense style="min-height: 30px" @click="addMutedNiconicoUserIds()">
+                    <v-list-item density="compact" style="min-height: 30px" @click="addMutedNiconicoUserIds()">
                         <v-list-item-title class="d-flex align-center" >
                             <Icon icon="fluent:person-prohibited-20-filled" width="20px" />
                             <span class="ml-2">このコメントの投稿者をミュート</span>
@@ -172,14 +172,14 @@ export default defineComponent({
 
         // mousedown → mouseup 中: スクロールバーをマウスでドラッグ
         // 残念ながらスクロールバーのドラッグ中は mousemove のイベントが発火しないため、直接 is_user_scrolling を設定する
-        this.comment_list_element.onmousedown = (event: MouseEvent) => {
+        this.comment_list_element!.onmousedown = (event: MouseEvent) => {
             // コメントリストの要素の左上を起点としたカーソルのX座標を求める
             if (this.comment_list_element === null) return;
             const x = event.clientX - this.comment_list_element.getBoundingClientRect().left;
             // 座標が clientWidth 以上であれば、スクロールバー上で mousedown されたものとする
             if (x > this.comment_list_element.clientWidth) is_user_scrolling = true;
         };
-        this.comment_list_element.onmouseup = (event: MouseEvent) => {
+        this.comment_list_element!.onmouseup = (event: MouseEvent) => {
             // コメントリストの要素の左上を起点としたカーソルのX座標を求める
             if (this.comment_list_element === null) return;
             const x = event.clientX - this.comment_list_element.getBoundingClientRect().left;
@@ -197,17 +197,17 @@ export default defineComponent({
         // 現在コメントリストがドラッグされているかどうか
         let is_dragging = false;
         // touchstart → touchend 中: スクロールバーをタップでドラッグ
-        this.comment_list_element.ontouchstart = () => is_dragging = true;
-        this.comment_list_element.ontouchend = () => is_dragging = false;
+        this.comment_list_element!.ontouchstart = () => is_dragging = true;
+        this.comment_list_element!.ontouchend = () => is_dragging = false;
         // touchmove + is_dragging 中: コメントリストをタップでドラッグしてスクロール
-        this.comment_list_element.ontouchmove = () => is_dragging === true ? on_user_scrolling(): '';
+        this.comment_list_element!.ontouchmove = () => is_dragging === true ? on_user_scrolling(): '';
 
         // wheel 中: マウスホイールの回転
-        this.comment_list_element.onwheel = on_user_scrolling;
+        this.comment_list_element!.onwheel = on_user_scrolling;
 
         // コメントリストがスクロールされた際、自動スクロール中でない&ユーザーイベントで操作されていれば、手動スクロールモードに設定
         // 手動スクロールモードでは自動スクロールを行わず、ユーザーがコメントリストをスクロールできるようにする
-        this.comment_list_element.onscroll = async () => {
+        this.comment_list_element!.onscroll = async () => {
             if (this.comment_list_element === null) return;
 
             // scroll イベントは自動スクロールでも発火してしまうので、ユーザーイベントによるスクロールかを確認しないといけない
@@ -318,7 +318,7 @@ export default defineComponent({
         document.addEventListener('visibilitychange', this.visibilitychange_listener);
     },
     // 終了前に実行
-    beforeDestroy() {
+    beforeUnmount() {
 
         // ***** イベントリスナーの登録解除 *****
 

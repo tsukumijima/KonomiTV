@@ -17,7 +17,7 @@
                     <Icon class="flex-shrink-0" icon="fa-brands:twitter" width="45px" />
                     <div class="ml-4">
                         <div class="font-weight-bold text-h6">Twitter アカウントと連携していません</div>
-                        <div class="text--text text--darken-1 text-subtitle-2 mt-1">
+                        <div class="text-text-darken-1 text-subtitle-2 mt-1">
                             Twitter アカウントと連携すると、テレビを見ながら Twitter にツイートしたり、ほかの実況ツイートをリアルタイムで表示できるようになります。
                         </div>
                     </div>
@@ -35,12 +35,12 @@
                             <span v-if="twitter_account.is_oauth_session === true">(Legacy Session)</span>
                         </span>
                     </div>
-                    <v-btn class="twitter-account__logout ml-auto" width="124" height="52" depressed
+                    <v-btn class="twitter-account__logout ml-auto" width="124" height="52" variant="flat"
                         @click="logoutTwitterAccount(twitter_account.screen_name)">
                         <Icon icon="fluent:plug-disconnected-20-filled" class="mr-2" height="24" />連携解除
                     </v-btn>
                 </div>
-                <v-btn class="twitter-account__login" color="secondary" max-width="250" height="50" depressed
+                <v-btn class="twitter-account__login" color="secondary" max-width="250" height="50" variant="flat"
                     @click="loginTwitterAccountWithPasswordForm()">
                     <Icon icon="fluent:plug-connected-20-filled" class="mr-2" height="24" />連携するアカウントを追加
                 </v-btn>
@@ -54,14 +54,14 @@
                             <p class="mb-1">ここで入力したパスワードは一切保存されず、取得した Cookie セッションはローカルの KonomiTV サーバーにのみ保存されます。Cookie セッションが Twitter API 以外の外部サービスに送信されることはありません。</p>
                             <p class="mb-1">万全は期していますが、非公式な方法のため、使い方次第ではアカウントにペナルティが適用される可能性もあります。自己の責任のもとでご利用ください。</p>
                             <v-form class="settings__item" ref="twitter_form" @submit.prevent>
-                                <v-text-field class="settings__item-form mt-6" outlined label="ユーザー名 (@ から始まる ID)" placeholder="screen_name"
+                                <v-text-field class="settings__item-form mt-6" variant="outlined" label="ユーザー名 (@ から始まる ID)" placeholder="screen_name"
                                     ref="twitter_screen_name"
-                                    :dense="is_form_dense"
+                                    :density="is_form_dense ? 'compact' : 'default'"
                                     v-model="twitter_screen_name"
                                     :rules="[(value) => !!value || 'ユーザー名を入力してください。']">
                                 </v-text-field>
-                                <v-text-field class="settings__item-form" outlined label="パスワード"
-                                    :dense="is_form_dense"
+                                <v-text-field class="settings__item-form" variant="outlined" label="パスワード"
+                                    :density="is_form_dense ? 'compact' : 'default'"
                                     v-model="twitter_password"
                                     :type="twitter_password_showing ? 'text' : 'password'"
                                     :append-icon="twitter_password_showing ? 'mdi-eye' : 'mdi-eye-off'"
@@ -72,7 +72,7 @@
                         </v-card-text>
                         <v-card-actions class="pt-0 px-6 pb-5">
                             <v-spacer></v-spacer>
-                            <v-btn color="text" height="40" text @click="twitter_password_auth_dialog = false">キャンセル</v-btn>
+                            <v-btn color="text" height="40" variant="text" @click="twitter_password_auth_dialog = false">キャンセル</v-btn>
                             <v-btn color="secondary" height="40" class="px-4" @click="loginTwitterAccountWithPassword()">ログイン</v-btn>
                         </v-card-actions>
                     </v-card>
@@ -113,7 +113,7 @@
                 <div class="settings__item-label">
                     視聴画面を開いたときに、パネルの Twitter タブの中で最初に表示されるタブを設定します。<br>
                 </div>
-                <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
+                <v-select class="settings__item-form" variant="outlined" hide-details :density="is_form_dense ? 'compact' : 'default'"
                     :items="twitter_active_tab" v-model="settingsStore.settings.twitter_active_tab">
                 </v-select>
             </div>
@@ -122,7 +122,7 @@
                 <div class="settings__item-label">
                     ツイート本文から見て、ハッシュタグをどの位置につけてツイートするかを設定します。<br>
                 </div>
-                <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
+                <v-select class="settings__item-form" variant="outlined" hide-details :density="is_form_dense ? 'compact' : 'default'"
                     :items="tweet_hashtag_position" v-model="settingsStore.settings.tweet_hashtag_position">
                 </v-select>
             </div>
@@ -132,12 +132,12 @@
                     ツイートするキャプチャに、透かしとして視聴中の番組タイトルを描画するかを設定します。<br>
                     透かしの描画位置は 左上・右上・左下・右下 から選択できます。<br>
                 </div>
-                <v-select class="settings__item-form" outlined hide-details :dense="is_form_dense"
+                <v-select class="settings__item-form" variant="outlined" hide-details :density="is_form_dense ? 'compact' : 'default'"
                     :items="tweet_capture_watermark_position" v-model="settingsStore.settings.tweet_capture_watermark_position">
                 </v-select>
             </div>
         </div>
-        <v-overlay :value="is_twitter_password_auth_sending" z-index="300">
+        <v-overlay :model-value="is_twitter_password_auth_sending" z-index="300">
             <v-progress-circular color="secondary" indeterminate size="64" />
         </v-overlay>
     </SettingsBase>

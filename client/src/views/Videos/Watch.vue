@@ -4,7 +4,7 @@
 <script lang="ts">
 
 import { mapStores } from 'pinia';
-import Vue from 'vue';
+import { defineComponent } from 'vue';
 
 import Watch from '@/components/Watch/Watch.vue';
 import PlayerController from '@/services/player/PlayerController';
@@ -16,7 +16,7 @@ import useSettingsStore from '@/stores/SettingsStore';
 // data() 内に記述すると再帰的にリアクティブ化され重くなる上リアクティブにする必要自体がないので、グローバル変数にしている
 let player_controller: PlayerController | null = null;
 
-export default Vue.extend({
+export default defineComponent({
     name: 'Video-Watch',
     components: {
         Watch,
@@ -45,7 +45,7 @@ export default Vue.extend({
         next();
     },
     // 終了前に実行
-    beforeDestroy() {
+    beforeUnmount() {
 
         // destroy() を実行
         // 別のページへ遷移するため、DPlayer のインスタンスを確実に破棄する
@@ -67,7 +67,7 @@ export default Vue.extend({
             }
 
             // 録画番組情報を更新する
-            const recorded_program = await Videos.fetchVideo(parseFloat(this.$route.params.video_id));
+            const recorded_program = await Videos.fetchVideo(parseFloat(this.$route.params.video_id as string));
             if (recorded_program === null) {
                 this.$router.push({path: '/not-found/'});
                 return;

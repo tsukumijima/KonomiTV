@@ -78,7 +78,7 @@ export default defineComponent({
             }
         });
     },
-    beforeDestroy() {
+    beforeUnmount() {
         // CommentReceived イベントの全てのイベントハンドラーを削除
         this.playerStore.event_emitter.off('CommentReceived');
     },
