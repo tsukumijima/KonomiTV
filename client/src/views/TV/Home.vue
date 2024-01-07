@@ -4,7 +4,7 @@
         <main>
             <Navigation/>
             <div class="channels-container channels-container--home" :class="{'channels-container--loading': is_loading}">
-                <v-tabs class="channels-tab" color="primary" align-tabs="center" v-model="tab">
+                <v-tabs class="channels-tab" color="primary" align-tabs="center" height="51px" v-model="tab">
                     <v-tab class="channels-tab__item"
                         v-for="[channels_type,] in Array.from(channelsStore.channels_list_with_pinned)" :key="channels_type">
                         {{channels_type}}
@@ -222,32 +222,23 @@ export default defineComponent({
 
 // 上書きしたいスタイル
 .channels-container.channels-container--home {
-    .v-tabs-bar {
-        height: 54px;
+    .v-slide-group__container {
         // 下線を引く
         background: linear-gradient(to bottom, rgb(var(--v-theme-background)) calc(100% - 3px), rgb(var(--v-theme-background-lighten-1)) 3px);
-        @include smartphone-horizontal {
-            height: 46px;
-        }
     }
-    .v-tabs-slider-wrapper {
+    .v-tab__slider {
         height: 3px !important;
+        color: rgb(var(--v-theme-primary)) !important;
         transition: left 0.3s cubic-bezier(0.25, 0.8, 0.5, 1);
     }
-
     .v-window__container {
         // 1px はスクロールバーを表示させるためのもの
-        min-height: calc(100vh - 65px - 116px + 1px);
-        min-height: calc(100dvh - 65px - 116px + 1px);
+        min-height: calc(100vh - 65px - 88px + 1px);
+        min-height: calc(100dvh - 65px - 88px + 1px);
         // タッチデバイスではスクロールバーを気にする必要がないので無効化
         @media (hover: none) {
             min-height: auto;
         }
-    }
-}
-.channels-container.channels-container--home.channels-container--loading {
-    .v-tabs-slider-wrapper {
-        transition: none !important;
     }
 }
 
@@ -275,19 +266,21 @@ export default defineComponent({
         position: sticky;
         flex: none;
         top: 65px;  // ヘッダーの高さ分
-        padding-top: 2px;
-        padding-bottom: 12px;
-        background:rgb(var(--v-theme-background));
+        margin-top: 5px;
+        margin-bottom: 12px;
+        background: rgb(var(--v-theme-background));
+        box-sizing: content-box;
         z-index: 1;
+
         @include smartphone-horizontal {
             top: 0px;
-            padding-top: 0px;
-            padding-bottom: 8px;
+            margin-top: 0px;
+            margin-bottom: 8px;
         }
         @include smartphone-vertical {
             top: 0px;
-            padding-top: 0px;
-            padding-bottom: 10px;
+            margin-top: 0px;
+            margin-bottom: 10px;
         }
 
         .channels-tab__item {
@@ -295,6 +288,7 @@ export default defineComponent({
             padding: 0;
             color: rgb(var(--v-theme-text)) !important;
             font-size: 16px;
+            letter-spacing: 0.0892857143em !important;
             text-transform: none;
             @include smartphone-horizontal {
                 font-size: 15px;
@@ -309,7 +303,7 @@ export default defineComponent({
     .channels-list {
         padding-bottom: 20px;
         background: transparent !important;
-        overflow: inherit;
+        overflow: hidden;
         @include smartphone-horizontal {
             padding-bottom: 12px;
         }

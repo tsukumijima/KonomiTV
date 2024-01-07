@@ -183,10 +183,6 @@ body .route-container {
     font-weight: inherit !important;
 }
 
-.v-tabs-items {
-    background-color: transparent !important;
-}
-
 .v-menu__content {
     @include smartphone-vertical {
         .v-list {

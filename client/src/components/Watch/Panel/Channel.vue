@@ -85,30 +85,19 @@ export default defineComponent({
 
 // 上書きしたいスタイル
 .channels-container.channels-container--watch {
-    .v-tabs-bar {
-        // スペースが少ないので高さを抑える
-        height: 42px;
+    .v-slide-group__container {
         // 下線を引く
         background: linear-gradient(to bottom, rgb(var(--v-theme-background)) calc(100% - 3px), rgb(var(--v-theme-background-lighten-1)) 3px);
-        @include tablet-vertical {
-            height: 50px;
-        }
-        @include smartphone-horizontal {
-            height: 44px;
-        }
-        @include smartphone-vertical {
-            height: 46px;
-        }
-
-        // 幅を縮める
-        .v-slide-group__prev, .v-slide-group__next {
-            flex: auto !important;
-            min-width: 28px !important;
-        }
     }
-    .v-tabs-slider-wrapper {
+    .v-tab__slider {
         height: 3px !important;
+        color: rgb(var(--v-theme-primary)) !important;
         transition: left 0.3s cubic-bezier(0.25, 0.8, 0.5, 1);
+    }
+    // 幅を縮める
+    .v-slide-group__prev, .v-slide-group__next {
+        flex: auto !important;
+        min-width: 28px !important;
     }
 }
 
@@ -125,21 +114,22 @@ export default defineComponent({
         top: 0px;
         padding-left: 16px;
         padding-right: 16px;
-        padding-bottom: 14px;
+        margin-bottom: 14px;
         background: rgb(var(--v-theme-background));
+        box-sizing: content-box;
         z-index: 1;
         @include tablet-vertical {
             padding-left: 24px;
             padding-right: 24px;
-            padding-bottom: 10px;
+            margin-bottom: 10px;
         }
         @include smartphone-horizontal {
-            padding-bottom: 8px;
             margin-top: 0px;
+            margin-bottom: 8px;
         }
         @include smartphone-vertical {
-            padding-bottom: 8px;
             margin-top: 0px;
+            margin-bottom: 8px;
         }
 
         .channels-tab__item {
@@ -147,6 +137,7 @@ export default defineComponent({
             padding: 0 8px;
             color: rgb(var(--v-theme-text)) !important;
             font-size: 15px;
+            letter-spacing: 0.0892857143em !important;
             text-transform: none;
             @include smartphone-horizontal {
                 font-size: 14.5px;
