@@ -105,7 +105,7 @@ export default defineComponent({
         padding: 24px 16px;
         margin: 0 auto;
         border-radius: 8px;
-        background: var(--v-background-base);
+        background: rgb(var(--v-theme-background));
         user-select: none;
 
         .remote-control__close {
@@ -140,7 +140,7 @@ export default defineComponent({
                 top: 50%;
                 left: 50%;
                 transform: translate(-50%, -50%);
-                color: var(--v-gray-base);
+                color: rgb(var(--v-theme-gray));
                 filter: drop-shadow(0px 0px 3px rgba(0, 0, 0, 0.3));
                 opacity: 0;
                 visibility: hidden;
@@ -158,7 +158,7 @@ export default defineComponent({
                 margin-left: auto;
                 margin-right: auto;
                 border-radius: 50%;
-                background: var(--v-background-lighten1);
+                background: rgb(var(--v-theme-background-lighten-1));
                 overflow: hidden;
 
                 button {
@@ -166,8 +166,8 @@ export default defineComponent({
                     align-items: center;
                     justify-content: center;
                     border-radius: 8px;
-                    background: var(--v-background-lighten1);
-                    color: var(--v-text-base);
+                    background: rgb(var(--v-theme-background-lighten-1));
+                    color: rgb(var(--v-theme-text));
                     font-size: 14px;
                     font-weight: bold;
                     outline: none;
@@ -185,7 +185,7 @@ export default defineComponent({
                         grid-column: 2;
                         grid-row: 2;
                         border-radius: 50%;
-                        background: var(--v-background-base);
+                        background: rgb(var(--v-theme-background));
                     }
                     &.remote-control-button-right {
                         grid-column: 3;
@@ -214,8 +214,8 @@ export default defineComponent({
                     align-items: center;
                     justify-content: center;
                     border-radius: 5px;
-                    background: var(--v-background-lighten1);
-                    color: var(--v-text-base);
+                    background: rgb(var(--v-theme-background-lighten-1));
+                    color: rgb(var(--v-theme-text));
                     font-size: 15px;
                     font-weight: bold;
                     outline: none;
@@ -245,8 +245,8 @@ export default defineComponent({
                 align-items: center;
                 justify-content: center;
                 border-radius: 5px;
-                background: var(--v-background-lighten1);
-                color: var(--v-text-base);
+                background: rgb(var(--v-theme-background-lighten-1));
+                color: rgb(var(--v-theme-text));
                 font-size: 26px;
                 font-weight: bold;
                 outline: none;

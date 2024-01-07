@@ -88,7 +88,7 @@ export default defineComponent({
         margin-bottom: 17px;
         border-radius: 11px;
         font-size: 16px;
-        color: var(--v-text-base);
+        color: rgb(var(--v-theme-text));
         transition: background-color 0.15s;
         text-decoration: none;
         user-select: none;
@@ -112,7 +112,7 @@ export default defineComponent({
         height: 52px;
         border-radius: 11px;
         font-size: 16px;
-        color: var(--v-text-base);
+        color: rgb(var(--v-theme-text));
         transition: background-color 0.15s;
         text-decoration: none;
         user-select: none;
@@ -137,7 +137,7 @@ export default defineComponent({
         }
 
         &--active {
-            color: var(--v-primary-base);
+            color: rgb(var(--v-theme-primary));
             background: #433532A0;
         }
         + .watch-navigation__link {

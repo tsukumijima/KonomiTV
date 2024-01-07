@@ -254,13 +254,13 @@ export default defineComponent({
     position: sticky;
     top: 65px;
     z-index: 4;
-    background: var(--v-background-lighten1);
+    background: rgb(var(--v-theme-background-lighten-1));
     @include smartphone-horizontal {
         top: 0px;
     }
     @include smartphone-vertical {
         top: 60px;
-        background: var(--v-background-base);
+        background: rgb(var(--v-theme-background));
     }
 }
 

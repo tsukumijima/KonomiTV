@@ -28,10 +28,10 @@
         box-sizing: content-box;
     }
     .v-btn.bottom-navigation-button {
-        color: var(--v-text-darken1) !important;
+        color: rgb(var(--v-theme-text-darken-1)) !important;
         font-weight: bold;
         &.v-btn--active {
-            color: var(--v-primary-base) !important;
+            color: rgb(var(--v-theme-primary)) !important;
         }
     }
 }

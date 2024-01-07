@@ -89,7 +89,7 @@ export default defineComponent({
         // スペースが少ないので高さを抑える
         height: 42px;
         // 下線を引く
-        background: linear-gradient(to bottom, var(--v-background-base) calc(100% - 3px), var(--v-background-lighten1) 3px);
+        background: linear-gradient(to bottom, rgb(var(--v-theme-background)) calc(100% - 3px), rgb(var(--v-theme-background-lighten-1)) 3px);
         @include tablet-vertical {
             height: 50px;
         }
@@ -126,7 +126,7 @@ export default defineComponent({
         padding-left: 16px;
         padding-right: 16px;
         padding-bottom: 14px;
-        background:var(--v-background-base);
+        background: rgb(var(--v-theme-background));
         z-index: 1;
         @include tablet-vertical {
             padding-left: 24px;
@@ -145,7 +145,7 @@ export default defineComponent({
         .channels-tab__item {
             min-width: 72px !important;
             padding: 0 8px;
-            color: var(--v-text-base) !important;
+            color: rgb(var(--v-theme-text)) !important;
             font-size: 15px;
             text-transform: none;
             @include smartphone-horizontal {
@@ -200,8 +200,8 @@ export default defineComponent({
                     margin-top: 12px;
                     padding: 10px 12px 14px 12px;
                     border-radius: 10px;
-                    color: var(--v-text-base);
-                    background: var(--v-background-lighten1);
+                    color: rgb(var(--v-theme-text));
+                    background: rgb(var(--v-theme-background-lighten-1));
                     transition: background-color 0.15s;
                     overflow: hidden;  // progressbar を切り抜くために必要
                     text-decoration: none;
@@ -228,12 +228,12 @@ export default defineComponent({
                     }
 
                     &:hover {
-                        background: var(--v-background-lighten2);
+                        background: rgb(var(--v-theme-background-lighten-2));
                     }
                     // タッチデバイスで hover を無効にする
                     @media (hover: none) {
                         &:hover {
-                            background: var(--v-background-lighten1);
+                            background: rgb(var(--v-theme-background-lighten-1));
                         }
                     }
 
@@ -250,7 +250,7 @@ export default defineComponent({
                             width: 48px;
                             height: 100%;
                             border-radius: 4px;
-                            background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
+                            background: linear-gradient(150deg, rgb(var(--v-theme-gray)), rgb(var(--v-theme-background-lighten-2)));
                             object-fit: cover;
                             @include smartphone-horizontal {
                                 width: 46px;
@@ -289,7 +289,7 @@ export default defineComponent({
                             margin-left: auto;
                             padding-left: 6px;
                             font-size: 12px;
-                            color: var(--v-text-darken1);
+                            color: rgb(var(--v-theme-text-darken-1));
 
                             &--festival {
                                 color: #E7556E;
@@ -331,7 +331,7 @@ export default defineComponent({
 
                         &-time {
                             margin-top: 4px;
-                            color: var(--v-text-darken1);
+                            color: rgb(var(--v-theme-text-darken-1));
                             font-size: 11.5px;
                             @include smartphone-horizontal {
                                 margin-top: 1px;
@@ -348,7 +348,7 @@ export default defineComponent({
                         display: flex;
                         flex-direction: column;
                         margin-top: 4px;
-                        color: var(--v-text-darken1);
+                        color: rgb(var(--v-theme-text-darken-1));
                         font-size: 11.5px;
                         @include smartphone-horizontal {
                             margin-top: 2px;
@@ -393,11 +393,11 @@ export default defineComponent({
                         right: 0;
                         bottom: 0;
                         height: 4px;
-                        background: var(--v-gray-base);
+                        background: rgb(var(--v-theme-gray));
 
                         &-progress {
                             height: 4px;
-                            background: var(--v-primary-base);
+                            background: rgb(var(--v-theme-primary));
                             transition: width 0.3s;
                         }
                     }

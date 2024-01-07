@@ -13,7 +13,7 @@
         <section class="comment-list-wrapper" ref="comment_list_wrapper">
             <div class="comment-list-dropdown" :class="{'comment-list-dropdown--display': is_comment_list_dropdown_display}"
                 :style="{'--comment-list-dropdown-top': `${comment_list_dropdown_top}px`}">
-                <v-list style="background: var(--v-background-lighten1)">
+                <v-list style="background: rgb(var(--v-theme-background-lighten-1))">
                     <v-list-item density="compact" style="min-height: 30px" @click="copyTextToClipboard()">
                         <v-list-item-title class="d-flex align-center">
                             <Icon icon="fluent:clipboard-paste-20-filled" width="20px" />
@@ -486,7 +486,7 @@ export default defineComponent({
             height: 26px;
             padding: 0 9px;
             border-radius: 4px;
-            background: var(--v-background-lighten3);
+            background: rgb(var(--v-theme-background-lighten-3));
             font-size: 11px;
             line-height: 1.8;
             letter-spacing: 0;
@@ -567,7 +567,7 @@ export default defineComponent({
                 padding-top: 6px;
                 word-break: break-all;
                 &--my-post {
-                    color: var(--v-secondary-lighten2);
+                    color: rgb(var(--v-theme-secondary-lighten-2));
                 }
 
                 &__text {
@@ -578,7 +578,7 @@ export default defineComponent({
                     flex-shrink: 0;
                     margin-left: auto;
                     padding-left: 8px;
-                    color: var(--v-text-darken1);
+                    color: rgb(var(--v-theme-text-darken-1));
                     font-size: 13px;
                 }
 
@@ -587,7 +587,7 @@ export default defineComponent({
                     height: 20px;
                     margin-left: 8px;
                     border-radius: 5px;
-                    color: var(--v-text-base);
+                    color: rgb(var(--v-theme-text));
                     cursor: pointer;
                 }
             }
@@ -615,7 +615,7 @@ export default defineComponent({
             }
             &__text {
                 margin-top: 12px;
-                color: var(--v-text-darken1);
+                color: rgb(var(--v-theme-text-darken-1));
                 font-size: 13.5px;
                 text-align: center;
                 @include smartphone-horizontal {
@@ -637,7 +637,7 @@ export default defineComponent({
         height: 42px;
         margin: 0 auto;
         border-radius: 50%;
-        background: var(--v-primary-base);
+        background: rgb(var(--v-theme-primary));
         transition: background-color 0.15s, opacity 0.3s, visibility 0.3s;
         visibility: hidden;
         opacity: 0;

@@ -3,7 +3,7 @@
         <Header/>
         <main>
             <Navigation/>
-            <v-card class="settings-container d-flex px-5 py-5 mx-auto background" elevation="0" width="100%" max-width="1000">
+            <v-card class="settings-container d-flex px-5 py-5 mx-auto bg-background" elevation="0" width="100%" max-width="1000">
                 <nav class="settings-navigation">
                     <h1>設定</h1>
                     <v-btn variant="flat" class="settings-navigation__button mt-3" to="/settings/general">
@@ -120,7 +120,7 @@ export default defineComponent({
                     display: flex;
                 }
                 &-highlight {
-                    color: var(--v-secondary-lighten1);
+                    color: rgb(var(--v-theme-secondary-lighten-1));
                 }
             }
         }
@@ -139,7 +139,7 @@ export default defineComponent({
         }
 
         .v-list-item--link, .v-list-item--link:before {
-            background: var(--v-background-lighten1);
+            background: rgb(var(--v-theme-background-lighten-1));
             border-radius: 6px !important;
             margin-top: 6px !important;
             margin-bottom: 0px !important;

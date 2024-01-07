@@ -3,7 +3,7 @@
         <Header/>
         <main>
             <Navigation/>
-            <v-card class="settings-container d-flex px-5 py-5 mx-auto background" elevation="0" width="100%" max-width="1000">
+            <v-card class="settings-container d-flex px-5 py-5 mx-auto bg-background" elevation="0" width="100%" max-width="1000">
                 <div><!-- ← position: sticky; を効かせるためのボックス -->
                     <nav class="settings-navigation">
                         <h1>設定</h1>
@@ -47,7 +47,7 @@
                         </v-btn>
                     </nav>
                 </div>
-                <v-card class="settings ml-5 px-7 py-7 background-lighten-1" width="100%">
+                <v-card class="settings ml-5 px-7 py-7 bg-background-lighten-1" width="100%">
                     <!-- この slot にそれぞれの設定画面の内容が入る -->
                     <slot></slot>
                 </v-card>
@@ -128,7 +128,7 @@ export default defineComponent({
         width: 100%;
         min-width: 0;
         border-radius: 11px !important;
-        background-color: var(--v-background-lighten1);
+        background-color: rgb(var(--v-theme-background-lighten-1));
         @include tablet-vertical {
             margin-left: 0 !important;
             padding-top: 20px !important;
@@ -147,7 +147,7 @@ export default defineComponent({
             padding-left: 16px !important;
             padding-right: 16px !important;
             border-radius: 0 !important;
-            background-color: var(--v-background-base);
+            background-color: rgb(var(--v-theme-background));
         }
 
         .settings__heading {
@@ -165,7 +165,7 @@ export default defineComponent({
                 height: 60px;
                 padding: 16px;
                 border-radius: 0;
-                background: var(--v-background-lighten1);
+                background: rgb(var(--v-theme-background-lighten-1));
                 box-shadow: 0px 3px 14px 2px rgb(0 0 0 / 12%);
                 z-index: 5;
             }
@@ -176,7 +176,7 @@ export default defineComponent({
                 left: -6px;
                 padding: 6px;
                 border-radius: 50%;
-                color: var(--v-text-base);
+                color: rgb(var(--v-theme-text));
                 @include tablet-vertical {
                     display: flex;
                 }
@@ -241,7 +241,7 @@ export default defineComponent({
                             padding: 2px 4px;
                             margin-left: auto;
                             border-radius: 4px;
-                            background: var(--v-background-lighten2);
+                            background: rgb(var(--v-theme-background-lighten-2));
                             font-size: 11px;
                         }
                     }
@@ -266,7 +266,7 @@ export default defineComponent({
                 &-heading {
                     display: flex;
                     align-items: center;
-                    color: var(--v-text-base);
+                    color: rgb(var(--v-theme-text));
                     font-size: 16.5px;
                     @include smartphone-horizontal {
                         font-size: 15px;
@@ -274,7 +274,7 @@ export default defineComponent({
                 }
                 &-label {
                     margin-top: 8px;
-                    color: var(--v-text-darken1);
+                    color: rgb(var(--v-theme-text-darken-1));
                     font-size: 13.5px;
                     line-height: 1.6;
                     @include smartphone-horizontal {
@@ -308,7 +308,7 @@ export default defineComponent({
             .settings__save-button {
                 max-width: 100%;
                 height: 45px;
-                background: var(--v-background-lighten2);
+                background: rgb(var(--v-theme-background-lighten-2));
                 font-size: 15.5px;
                 letter-spacing: 0;
                 @include smartphone-horizontal {

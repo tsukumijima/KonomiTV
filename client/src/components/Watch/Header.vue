@@ -122,7 +122,7 @@ export default defineComponent({
             padding: 6px;
             margin-right: 2px;
             border-radius: 50%;
-            color: var(--v-text-base);
+            color: rgb(var(--v-theme-text));
         }
         @include smartphone-horizontal {
             display: flex;
@@ -136,7 +136,7 @@ export default defineComponent({
             padding: 6px;
             margin-right: 2px;
             border-radius: 50%;
-            color: var(--v-text-base);
+            color: rgb(var(--v-theme-text));
         }
         @include smartphone-vertical {
             display: flex;
@@ -150,7 +150,7 @@ export default defineComponent({
             padding: 6px;
             margin-right: 2px;
             border-radius: 50%;
-            color: var(--v-text-base);
+            color: rgb(var(--v-theme-text));
         }
     }
 
@@ -161,7 +161,7 @@ export default defineComponent({
         height: 36px;
         margin-right: 18px;
         border-radius: 5px;
-        background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
+        background: linear-gradient(150deg, rgb(var(--v-theme-gray)), rgb(var(--v-theme-background-lighten-2)));
         object-fit: cover;
         user-select: none;
 

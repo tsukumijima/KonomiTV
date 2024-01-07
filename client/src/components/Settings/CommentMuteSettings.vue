@@ -223,7 +223,7 @@ export default defineComponent({
     &-heading {
         display: flex;
         align-items: center;
-        color: var(--v-text-base);
+        color: rgb(var(--v-theme-text));
         font-size: 16.5px;
         @include smartphone-horizontal {
             font-size: 15px;
@@ -231,7 +231,7 @@ export default defineComponent({
     }
     &-label {
         margin-top: 8px;
-        color: var(--v-text-darken1);
+        color: rgb(var(--v-theme-text-darken-1));
         font-size: 13.5px;
         line-height: 1.6;
         @include smartphone-horizontal {
@@ -270,7 +270,7 @@ export default defineComponent({
         display: flex;
         align-items: center;
         padding: 6px 0px;
-        border-bottom: 1px solid var(--v-background-lighten2);
+        border-bottom: 1px solid rgb(var(--v-theme-background-lighten-2));
         transition: background-color 0.15s ease;
 
         &:last-of-type {

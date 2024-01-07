@@ -270,7 +270,7 @@ export default defineComponent({
     min-height: 28px;
     padding: 3px 8px;
     border-radius: 5px;
-    background-color: var(--v-background-lighten2);
+    background-color: rgb(var(--v-theme-background-lighten-2));
     font-size: 14.5px;
     text-align: center;
 }

@@ -20,7 +20,7 @@
                 @click="playerStore.event_emitter.emit('SetControlDisplayTimer', {event: $event})">
             <div v-ripple class="switch-button switch-button-up" v-tooltip.top="'前のチャンネル'" v-if="playback_mode === 'Live'"
                 @click="playerStore.is_zapping = true; $router.push({path: `/tv/watch/${channelsStore.channel.previous.display_channel_id}`})">
-                <Icon class="switch-button-icon" icon="fluent:ios-arrow-left-24-filled" width="32px" rotate="1" />
+                <Icon class="switch-button-icon" icon="fluent:ios-arrow-left-24-filled" width="32px" />
             </div>
             <div v-ripple class="switch-button switch-button-panel switch-button-panel--open"
                 @click="playerStore.is_panel_display = !playerStore.is_panel_display">
@@ -28,7 +28,7 @@
             </div>
             <div v-ripple class="switch-button switch-button-down" v-tooltip.bottom="'次のチャンネル'" v-if="playback_mode === 'Live'"
                     @click="playerStore.is_zapping = true; $router.push({path: `/tv/watch/${channelsStore.channel.next.display_channel_id}`})">
-                <Icon class="switch-button-icon" icon="fluent:ios-arrow-right-24-filled" width="33px" rotate="1" />
+                <Icon class="switch-button-icon" icon="fluent:ios-arrow-right-24-filled" width="33px" />
             </div>
         </div>
     </div>
@@ -67,7 +67,7 @@ export default defineComponent({
 // DPlayer のデフォルトスタイルを上書き
 .watch-player__dplayer {
     svg circle, svg path {
-        fill: var(--v-text-base) !important;
+        fill: rgb(var(--v-theme-text)) !important;
     }
     .dplayer-video-wrap {
         background: transparent !important;
@@ -147,10 +147,10 @@ export default defineComponent({
             box-sizing: border-box;
         }
         .dplayer-time, .dplayer-live-badge {
-            color: var(--v-text-base) !important;
+            color: rgb(var(--v-theme-text)) !important;
         }
         .dplayer-volume-bar {
-            background: var(--v-text-base) !important;
+            background: rgb(var(--v-theme-text)) !important;
         }
         .dplayer-icons {
             bottom: auto !important;
@@ -199,7 +199,7 @@ export default defineComponent({
                     transition: background-color 0.08s ease;
                     border-radius: 6px;
                     &.dplayer-capturing {
-                        background: var(--v-secondary-lighten1);
+                        background: rgb(var(--v-theme-secondary-lighten-1));
                         .dplayer-icon-content {
                             opacity: 1;
                         }
@@ -289,14 +289,14 @@ export default defineComponent({
     .dplayer-comment-setting-box {
         z-index: 10 !important;
         .dplayer-comment-setting-title {
-            color: var(--v-text-base);
+            color: rgb(var(--v-theme-text));
         }
         .dplayer-comment-setting-type, .dplayer-comment-setting-size {
             span {
-                border: 1px solid (--v-text-base);
+                border: 1px solid rgb(var(--v-theme-text));
             }
             input:checked + span {
-                background: var(--v-text-base);
+                background: rgb(var(--v-theme-text));
             }
         }
     }
@@ -458,7 +458,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 height: 34px;
                 right: 56px;
                 bottom: 44px;
-                filter: drop-shadow(0px 0px 5px var(--v-black-base));
+                filter: drop-shadow(0px 0px 5px rgb(var(--v-theme-black)));
 
                 @include tablet-vertical {
                     height: 30px;
@@ -484,7 +484,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        color: var(--v-background-lighten3);
+        color: rgb(var(--v-theme-background-lighten-3));
         filter: drop-shadow(0px 0px 3px rgba(0, 0, 0, 0.3));
         opacity: 0;
         visibility: hidden;
@@ -534,7 +534,7 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             align-items: center;
             width: 48px;
             height: 48px;
-            color: var(--v-text-base);
+            color: rgb(var(--v-theme-text));
             background: #2F221FC0;
             border-radius: 7px;
             transition: background-color 0.15s;

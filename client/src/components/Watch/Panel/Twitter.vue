@@ -735,7 +735,7 @@ export default defineComponent({
         width: 80px;
         height: 80px;
         border-radius: 50%;
-        color: var(--v-text-base);
+        color: rgb(var(--v-theme-text));
         filter: drop-shadow(0px 0px 4.5px rgba(0, 0, 0, 90%));
     }
 }
@@ -829,7 +829,7 @@ export default defineComponent({
                     height: 82px;
                     border-radius: 11px;
                     // 読み込まれるまでのキャプチャの背景
-                    background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
+                    background: linear-gradient(150deg, rgb(var(--v-theme-gray)), rgb(var(--v-theme-background-lighten-2)));
                     overflow: hidden;
                     user-select: none;
                     cursor: pointer;
@@ -909,7 +909,7 @@ export default defineComponent({
                         left: 7px;
                         width: 20px;
                         height: 20px;
-                        color: var(--v-primary-base);
+                        color: rgb(var(--v-theme-primary));
                     }
 
                     &__selected-border {
@@ -920,7 +920,7 @@ export default defineComponent({
                         right: 0;
                         bottom: 0;
                         border-radius: 11px;
-                        border: 4px solid var(--v-primary-base);
+                        border: 4px solid rgb(var(--v-theme-primary));
                     }
 
                     &__focused-border {
@@ -931,7 +931,7 @@ export default defineComponent({
                         right: 0;
                         bottom: 0;
                         border-radius: 11px;
-                        border: 4px solid var(--v-secondary-base);
+                        border: 4px solid rgb(var(--v-theme-secondary));
                     }
 
                     &--selected {
@@ -975,7 +975,7 @@ export default defineComponent({
                 }
                 &__text {
                     margin-top: 12px;
-                    color: var(--v-text-darken1);
+                    color: rgb(var(--v-theme-text-darken-1));
                     font-size: 13.5px;
                     text-align: center;
                     @include smartphone-horizontal {
@@ -1014,7 +1014,7 @@ export default defineComponent({
             align-items: center;
             justify-content: center;
             flex: 1;
-            background: var(--v-background-lighten2);
+            background: rgb(var(--v-theme-background-lighten-2));
             border-radius: 7px;
             font-size: 11px;
             transition: background-color 0.15s ease;
@@ -1033,7 +1033,7 @@ export default defineComponent({
                 border-radius: 6px;
             }
             &--active {
-                background: var(--v-twitter-base);
+                background: rgb(var(--v-theme-twitter));
             }
 
             &__text {
@@ -1055,7 +1055,7 @@ export default defineComponent({
         border-radius: 12px;
         border-bottom-left-radius: 7px;
         border-bottom-right-radius: 7px;
-        background: var(--v-background-lighten1);
+        background: rgb(var(--v-theme-background-lighten-1));
         transition: box-shadow 0.09s ease;
         @include tablet-vertical {
             margin-left: 24px;
@@ -1116,7 +1116,7 @@ export default defineComponent({
                 height: 100%;
                 flex-grow: 1;
                 font-size: 12.5px;
-                color: var(--v-twitter-lighten2);
+                color: rgb(var(--v-theme-twitter-lighten-2));
                 outline: none;
                 @include smartphone-horizontal {
                     width: calc(100% - 22px);
@@ -1158,7 +1158,7 @@ export default defineComponent({
                 height: 34px;
                 padding: 6px;
                 border-radius: 50%;
-                color: var(--v-twitter-lighten2);
+                color: rgb(var(--v-theme-twitter-lighten-2));
                 cursor: pointer;
                 @include smartphone-horizontal {
                     right: -11px;
@@ -1176,7 +1176,7 @@ export default defineComponent({
             margin-left: 12px;
             margin-right: 12px;
             font-size: 12.5px;
-            color: var(--v-text-base);
+            color: rgb(var(--v-theme-text));
             word-break: break-all;
             resize: none;
             outline: none;
@@ -1212,7 +1212,7 @@ export default defineComponent({
                 }
             }
             &::placeholder {
-                color: var(--v-text-darken2);
+                color: rgb(var(--v-theme-text-darken-2));
             }
         }
 
@@ -1244,8 +1244,8 @@ export default defineComponent({
                 height: 100%;
                 border-radius: 7px;
                 font-size: 13px;
-                color: var(--v-text-base);
-                background: var(--v-background-lighten2);
+                color: rgb(var(--v-theme-text));
+                background: rgb(var(--v-theme-background-lighten-2));
                 user-select: none;
                 cursor: pointer;
                 @include tablet-vertical {
@@ -1279,7 +1279,7 @@ export default defineComponent({
                     height: 100%;
                     border-radius: 7px;
                     // 読み込まれるまでのアイコンの背景
-                    background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
+                    background: linear-gradient(150deg, rgb(var(--v-theme-gray)), rgb(var(--v-theme-background-lighten-2)));
                     @include smartphone-horizontal {
                         width: 26px;
                     }
@@ -1306,7 +1306,7 @@ export default defineComponent({
                 flex-grow: 1;
                 row-gap: 0.5px;
                 font-size: 10px;
-                color: var(--v-text-darken1);
+                color: rgb(var(--v-theme-text-darken-1));
                 user-select: none;
                 @include tablet-vertical {
                     flex-grow: 1;
@@ -1357,10 +1357,10 @@ export default defineComponent({
                         }
                     }
                     &--yellow {
-                        color: var(--v-warning-base);
+                        color: rgb(var(--v-theme-warning));
                     }
                     &--red {
-                        color: var(--v-error-base);
+                        color: rgb(var(--v-theme-error));
                     }
                 }
             }
@@ -1374,8 +1374,8 @@ export default defineComponent({
                 border-radius: 7px;
                 font-size: 12.5px;
                 line-height: 2;
-                color: var(--v-text-base);
-                background: var(--v-twitter-base);
+                color: rgb(var(--v-theme-text));
+                background: rgb(var(--v-theme-twitter));
                 user-select: none;
                 outline: none;
                 cursor: pointer;
@@ -1415,7 +1415,7 @@ export default defineComponent({
         border-radius: 7px;
         // スクロールバーが表示されると角が丸くなくなる問題への対処
         clip-path: inset(0% 0% 0% 0% round 7px);
-        background: var(--v-background-lighten2);
+        background: rgb(var(--v-theme-background-lighten-2));
         box-shadow: 0px 3px 4px rgba(0, 0, 0, 53%);
         transition: opacity 0.15s ease, visibility 0.15s ease;
         opacity: 0;
@@ -1467,12 +1467,12 @@ export default defineComponent({
             }
         }
         &::-webkit-scrollbar-track {
-            background: var(--v-background-lighten2);
+            background: rgb(var(--v-theme-background-lighten-2));
         }
         &::-webkit-scrollbar-thumb {
-                background: var(--v-gray-base);
+                background: rgb(var(--v-theme-gray));
             &:hover {
-                background: var(--v-gray-base);
+                background: rgb(var(--v-theme-gray));
             }
         }
         // iOS Safari 向け
@@ -1576,7 +1576,7 @@ export default defineComponent({
                     display: block;
                     flex-grow: 1;
                     border-radius: 2px;
-                    color: var(--v-twitter-lighten2);
+                    color: rgb(var(--v-theme-twitter-lighten-2));
                     opacity: 1;
                     outline: none;
                     cursor: pointer;
@@ -1638,7 +1638,7 @@ export default defineComponent({
         border-radius: 7px;
         // スクロールバーが表示されると角が丸くなくなる問題への対処
         clip-path: inset(0% 0% 0% 0% round 7px);
-        background: var(--v-background-lighten2);
+        background: rgb(var(--v-theme-background-lighten-2));
         box-shadow: 0px 3px 4px rgba(0, 0, 0, 53%);
         transition: opacity 0.15s ease, visibility 0.15s ease;
         opacity: 0;
@@ -1669,12 +1669,12 @@ export default defineComponent({
             visibility: visible;
         }
         &::-webkit-scrollbar-track {
-            background: var(--v-background-lighten2);
+            background: rgb(var(--v-theme-background-lighten-2));
         }
         &::-webkit-scrollbar-thumb {
-                background: var(--v-gray-base);
+                background: rgb(var(--v-theme-gray));
             &:hover {
-                background: var(--v-gray-base);
+                background: rgb(var(--v-theme-gray));
             }
         }
 
@@ -1729,7 +1729,7 @@ export default defineComponent({
                 }
             }
             &__screen-name {
-                color: var(--v-text-darken1);
+                color: rgb(var(--v-theme-text-darken-1));
                 font-size: 14px;
                 @include smartphone-horizontal {
                     font-size: 13px;
@@ -1740,7 +1740,7 @@ export default defineComponent({
             }
             &__check {
                 flex-shrink: 0;
-                color: var(--v-twitter-lighten1);
+                color: rgb(var(--v-theme-twitter-lighten-1));
             }
         }
     }

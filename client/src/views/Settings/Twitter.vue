@@ -299,7 +299,7 @@ export default defineComponent({
     flex-direction: column;
     padding: 20px 20px;
     border-radius: 15px;
-    background: var(--v-background-lighten2);
+    background: rgb(var(--v-theme-background-lighten-2));
     @include smartphone-horizontal {
         padding: 16px 20px;
         border-radius: 10px;
@@ -363,7 +363,7 @@ export default defineComponent({
             border-radius: 50%;
             object-fit: cover;
             // 読み込まれるまでのアイコンの背景
-            background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
+            background: linear-gradient(150deg, rgb(var(--v-theme-gray)), rgb(var(--v-theme-background-lighten-2)));
             // 低解像度で表示する画像がぼやけないようにする
             // ref: https://sho-log.com/chrome-image-blurred/
             image-rendering: -webkit-optimize-contrast;
@@ -393,7 +393,7 @@ export default defineComponent({
 
                 &-text {
                     display: inline-block;
-                    color: var(--v-text-base);
+                    color: rgb(var(--v-theme-text));
                     font-size: 20px;
                     font-weight: bold;
                     overflow: hidden;
@@ -410,7 +410,7 @@ export default defineComponent({
 
             &-screen-name {
                 display: inline-block;
-                color: var(--v-text-darken1);
+                color: rgb(var(--v-theme-text-darken-1));
                 font-size: 16px;
                 @include smartphone-horizontal {
                     font-size: 14px;
@@ -443,7 +443,7 @@ export default defineComponent({
         }
 
         &__logout {
-            background: var(--v-gray-base);
+            background: rgb(var(--v-theme-gray));
             border-radius: 7px;
             font-size: 15px;
             letter-spacing: 0;

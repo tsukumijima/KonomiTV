@@ -115,7 +115,7 @@ body header + main {
 // ルートコンテナ
 body .route-container {
     height: 100%;
-    background: var(--v-background-base);
+    background: rgb(var(--v-theme-background));
 }
 
 // ***** Vuetify 2 のスタイルの上書き *****
@@ -126,8 +126,8 @@ body .route-container {
         display: inline-block;
         padding: 4px 10px;
         border-radius: 4px;
-        background: var(--v-background-lighten1);
-        color: var(--v-text-base);
+        background: rgb(var(--v-theme-background-lighten-1));
+        color: rgb(var(--v-theme-text));
         font-size: 12px;
         font-family: 'Open Sans', 'YakuHanJPs', 'Twemoji', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
         font-weight: 500;
@@ -167,7 +167,7 @@ body .route-container {
 .v-menu__content {
     @include smartphone-vertical {
         .v-list {
-            background-color: var(--v-background-lighten1) !important;
+            background-color: rgb(var(--v-theme-background-lighten-1)) !important;
         }
     }
     &::-webkit-scrollbar {
@@ -175,7 +175,7 @@ body .route-container {
         height: 12px;
     }
     &::-webkit-scrollbar-thumb {
-        border: solid 3.5px var(--v-background-base);
+        border: solid 3.5px rgb(var(--v-theme-background));
     }
 }
 
@@ -184,12 +184,12 @@ body .route-container {
         padding-bottom: 56px !important;
     }
     .v-btn__content {
-        color: var(--v-primary-lighten1);
+        color: rgb(var(--v-theme-primary-lighten-1));
         letter-spacing: 0.3;
     }
     .success, .info, .warning, .error {
         .v-btn__content {
-            color: var(--v-text-base);
+            color: rgb(var(--v-theme-text));
             letter-spacing: 0.3;
         }
     }
@@ -210,8 +210,8 @@ body .route-container {
     margin-left: 2.5px;
     margin-right: 2.5px;
     border-radius: 4px;
-    color: var(--v-text-base);
-    background: var(--v-primary-base);
+    color: rgb(var(--v-theme-text));
+    background: rgb(var(--v-theme-primary));
     font-size: 0.94em;
 }
 

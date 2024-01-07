@@ -119,7 +119,7 @@ export default defineComponent({
 
 .pinned-channels-settings__label {
     margin-top: 8px;
-    color: var(--v-text-darken1);
+    color: rgb(var(--v-theme-text-darken-1));
     font-size: 13.5px;
     line-height: 1.6;
     @include smartphone-horizontal {
@@ -137,7 +137,7 @@ export default defineComponent({
         display: flex;
         align-items: center;
         padding: 6px 0px;
-        border-bottom: 1px solid var(--v-background-lighten2);
+        border-bottom: 1px solid rgb(var(--v-theme-background-lighten-2));
         transition: background-color 0.15s ease;
 
         &:last-of-type {
@@ -151,7 +151,7 @@ export default defineComponent({
             height: 36px;
             border-radius: 4px;
             // 読み込まれるまでのアイコンの背景
-            background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
+            background: linear-gradient(150deg, rgb(var(--v-theme-gray)), rgb(var(--v-theme-background-lighten-2)));
             object-fit: cover;
         }
 

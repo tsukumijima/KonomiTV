@@ -112,7 +112,7 @@ export default defineComponent({
             width: 43px;
             height: 24px;
             border-radius: 3px;
-            background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
+            background: linear-gradient(150deg, rgb(var(--v-theme-gray)), rgb(var(--v-theme-background-lighten-2)));
             object-fit: cover;
             user-select: none;
             @include tablet-vertical {
@@ -176,7 +176,7 @@ export default defineComponent({
         }
         .program-info__time {
             margin-top: 8px;
-            color: var(--v-text-darken1);
+            color: rgb(var(--v-theme-text-darken-1));
             font-size: 14px;
             @include smartphone-horizontal {
                 font-size: 13px;
@@ -184,7 +184,7 @@ export default defineComponent({
         }
         .program-info__description {
             margin-top: 12px;
-            color: var(--v-text-darken1);
+            color: rgb(var(--v-theme-text-darken-1));
             font-size: 12px;
             line-height: 168%;
             overflow-wrap: break-word;
@@ -207,7 +207,7 @@ export default defineComponent({
                 margin-top: 4px;
                 margin-right: 4px;
                 border-radius: 4px;
-                background: var(--v-background-lighten2);
+                background: rgb(var(--v-theme-background-lighten-2));
                 @include smartphone-horizontal {
                     font-size: 9px;
                 }
@@ -217,7 +217,7 @@ export default defineComponent({
             display: flex;
             align-items: center;
             margin-top: 18px;
-            color: var(--v-text-base);
+            color: rgb(var(--v-theme-text));
             font-size: 14px;
             font-weight: bold;
             user-select: none;
@@ -237,7 +237,7 @@ export default defineComponent({
         .program-info__next-title {
             display: -webkit-box;
             margin-top: 2px;
-            color: var(--v-text-base);
+            color: rgb(var(--v-theme-text));
             font-size: 14px;
             font-weight: bold;
             overflow: hidden;
@@ -249,7 +249,7 @@ export default defineComponent({
         }
         .program-info__next-time {
             margin-top: 3px;
-            color: var(--v-text-darken1);
+            color: rgb(var(--v-theme-text-darken-1));
             font-size: 13.5px;
         }
 
@@ -258,7 +258,7 @@ export default defineComponent({
             align-items: center;
             margin-top: 16px;
             font-size: 14px;
-            color: var(--v-text-darken1);
+            color: rgb(var(--v-theme-text-darken-1));
             @include smartphone-horizontal {
                 margin-top: 10px;
                 font-size: 12px;
@@ -304,7 +304,7 @@ export default defineComponent({
             }
             .program-detail__text {
                 margin-top: 8px;
-                color: var(--v-text-darken1);
+                color: rgb(var(--v-theme-text-darken-1));
                 font-size: 12px;
                 line-height: 168%;
                 overflow-wrap: break-word;
@@ -317,7 +317,7 @@ export default defineComponent({
 
                 // リンクの色
                 :deep(a:link), :deep(a:visited) {
-                    color: var(--v-primary-lighten1);
+                    color: rgb(var(--v-theme-primary-lighten-1));
                     text-underline-offset: 3px;  // 下線と字の間隔を空ける
                 }
             }

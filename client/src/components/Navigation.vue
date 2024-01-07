@@ -75,7 +75,7 @@ export default defineComponent({
 .navigation-container {
     flex-shrink: 0;
     width: 220px;  // .navigation を fixed にするため、浮いた分の幅を確保する
-    background: var(--v-background-lighten1);
+    background: rgb(var(--v-theme-background-lighten-1));
     @include smartphone-horizontal {
         width: 210px;
     }
@@ -95,7 +95,7 @@ export default defineComponent({
         // その間下に何も背景がない部分ができてしまうのを防ぐ
         bottom: -100px;
         padding-bottom: 100px;
-        background: var(--v-background-lighten1);
+        background: rgb(var(--v-theme-background-lighten-1));
         z-index: 1;
         @include smartphone-horizontal {
             top: 48px;
@@ -118,7 +118,7 @@ export default defineComponent({
                 padding: 10px 8px;
             }
             &::-webkit-scrollbar-track {
-                background: var(--v-background-lighten1);
+                background: rgb(var(--v-theme-background-lighten-1));
             }
 
             .navigation__link {
@@ -130,7 +130,7 @@ export default defineComponent({
                 margin-top: 4px;
                 border-radius: 11px;
                 font-size: 16px;
-                color: var(--v-text-base);
+                color: rgb(var(--v-theme-text));
                 transition: background-color 0.15s;
                 text-decoration: none;
                 user-select: none;
@@ -142,20 +142,20 @@ export default defineComponent({
                 }
 
                 &:hover {
-                    background: var(--v-background-lighten2);
+                    background: rgb(var(--v-theme-background-lighten-2));
                 }
                 &:first-of-type {
                     margin-top: 0;
                 }
                 &--active {
-                    color: var(--v-primary-base);
+                    color: rgb(var(--v-theme-primary));
                     background: #5b2d3c;
                     &:hover {
                         background: #5b2d3c;
                     }
                 }
                 &--highlight {
-                    color: var(--v-secondary-lighten1);
+                    color: rgb(var(--v-theme-secondary-lighten-1));
                 }
                 &--version {
                     font-size: 15px;

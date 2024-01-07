@@ -15,7 +15,7 @@
     width: 100%;
     height: 65px;
     padding: 4px 16px;
-    background: var(--v-background-base);
+    background: rgb(var(--v-theme-background));
     box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 20%),
                 0px 8px 10px 1px rgb(0 0 0 / 14%),
                 0px 3px 14px 2px rgb(0 0 0 / 12%);

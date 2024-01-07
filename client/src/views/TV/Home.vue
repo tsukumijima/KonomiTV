@@ -44,7 +44,7 @@
                                         v-tooltip="isPinnedChannel(channel) ? 'ピン留めを外す' : 'ピン留めする'"
                                         :class="{'channel__broadcaster-pin--pinned': isPinnedChannel(channel)}"
                                         @click.prevent.stop="isPinnedChannel(channel) ? removePinnedChannel(channel) : addPinnedChannel(channel)"
-                                        @mousedown.prevent.stop="/* 親要素の波紋が広がらないように */">
+                                        @mousedown.prevent.stop=""> <!-- ← 親要素の波紋が広がらないように -->
                                         <svg class="iconify iconify--fluent" width="24px" height="24px" viewBox="0 0 20 20">
                                             <path fill="currentColor" d="M13.325 2.617a2 2 0 0 0-3.203.52l-1.73 3.459a1.5 1.5 0 0 1-.784.721l-3.59 1.436a1 1 0 0 0-.335 1.636L6.293 13L3 16.292V17h.707L7 13.706l2.61 2.61a1 1 0 0 0 1.636-.335l1.436-3.59a1.5 1.5 0 0 1 .722-.784l3.458-1.73a2 2 0 0 0 .52-3.203l-4.057-4.057Z"></path>
                                         </svg>
@@ -225,7 +225,7 @@ export default defineComponent({
     .v-tabs-bar {
         height: 54px;
         // 下線を引く
-        background: linear-gradient(to bottom, var(--v-background-base) calc(100% - 3px), var(--v-background-lighten1) 3px);
+        background: linear-gradient(to bottom, rgb(var(--v-theme-background)) calc(100% - 3px), rgb(var(--v-theme-background-lighten-1)) 3px);
         @include smartphone-horizontal {
             height: 46px;
         }
@@ -277,7 +277,7 @@ export default defineComponent({
         top: 65px;  // ヘッダーの高さ分
         padding-top: 2px;
         padding-bottom: 12px;
-        background:var(--v-background-base);
+        background:rgb(var(--v-theme-background));
         z-index: 1;
         @include smartphone-horizontal {
             top: 0px;
@@ -293,7 +293,7 @@ export default defineComponent({
         .channels-tab__item {
             width: 98px;
             padding: 0;
-            color: var(--v-text-base) !important;
+            color: rgb(var(--v-theme-text)) !important;
             font-size: 16px;
             text-transform: none;
             @include smartphone-horizontal {
@@ -326,7 +326,7 @@ export default defineComponent({
             grid-column-gap: 16px;
             justify-content: center;
             // 背後を通過する別のタブのアニメーションが写らないようにするのに必要
-            background: var(--v-background-base);
+            background: rgb(var(--v-theme-background));
             // will-change を入れておく事で、アニメーションが GPU で処理される
             will-change: transform;
             @include tablet-vertical {
@@ -417,8 +417,8 @@ export default defineComponent({
                 padding: 18px 20px;
                 padding-bottom: 19px;
                 border-radius: 14px;
-                color: var(--v-text-base);
-                background: var(--v-background-lighten1);
+                color: rgb(var(--v-theme-text));
+                background: rgb(var(--v-theme-background-lighten-1));
                 transition: background-color 0.15s;
                 overflow: hidden;  // progressbar を切り抜くために必要
                 text-decoration: none;
@@ -455,12 +455,12 @@ export default defineComponent({
                 }
 
                 &:hover {
-                    background: var(--v-background-lighten2);
+                    background: rgb(var(--v-theme-background-lighten-2));
                 }
                 // タッチデバイスで hover を無効にする
                 @media (hover: none) {
                     &:hover {
-                        background: var(--v-background-lighten1);
+                        background: rgb(var(--v-theme-background-lighten-1));
                     }
                 }
 
@@ -484,7 +484,7 @@ export default defineComponent({
                         height: 44px;
                         border-radius: 5px;
                         // 読み込まれるまでのアイコンの背景
-                        background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
+                        background: linear-gradient(150deg, rgb(var(--v-theme-gray)), rgb(var(--v-theme-background-lighten-2)));
                         object-fit: cover;
                         @include tablet-vertical {
                             width: 69px;
@@ -549,7 +549,7 @@ export default defineComponent({
                         align-items: center;
                         margin-top: 2px;
                         font-size: 12px;
-                        color: var(--v-text-darken1);
+                        color: rgb(var(--v-theme-text-darken-1));
                         @include tablet-vertical {
                             margin-top: 2px;
                             font-size: 11px;
@@ -602,7 +602,7 @@ export default defineComponent({
                         width: 34px;
                         height: 34px;
                         padding: 4px;
-                        color: var(--v-text-darken1);
+                        color: rgb(var(--v-theme-text-darken-1));
                         border-radius: 50%;
                         transition: color 0.15s ease, background-color 0.15s ease;
                         user-select: none;
@@ -625,26 +625,26 @@ export default defineComponent({
                             pointer-events: none;
                         }
                         &:hover {
-                            color: var(--v-text-base);
+                            color: rgb(var(--v-theme-text));
                             &:before {
                                 opacity: 0.15;
                             }
                         }
                         &--pinned {
-                            color: var(--v-primary-base);
+                            color: rgb(var(--v-theme-primary));
                             &:hover{
-                                color: var(--v-primary-lighten1);
+                                color: rgb(var(--v-theme-primary-lighten-1));
                             }
                             @include smartphone-horizontal {
-                                color: var(--v-secondary-lighten2);
+                                color: rgb(var(--v-theme-secondary-lighten-2));
                                 &:hover{
-                                    color: var(--v-secondary-lighten3);
+                                    color: rgb(var(--v-theme-secondary-lighten-3));
                                 }
                             }
                             @include smartphone-vertical {
-                                color: var(--v-secondary-lighten2);
+                                color: rgb(var(--v-theme-secondary-lighten-2));
                                 &:hover{
-                                    color: var(--v-secondary-lighten3);
+                                    color: rgb(var(--v-theme-secondary-lighten-3));
                                 }
                             }
                         }
@@ -699,7 +699,7 @@ export default defineComponent({
 
                     &-time {
                         margin-top: 4px;
-                        color: var(--v-text-darken1);
+                        color: rgb(var(--v-theme-text-darken-1));
                         font-size: 13.5px;
                         @include tablet-vertical {
                             flex-shrink: 0;
@@ -727,7 +727,7 @@ export default defineComponent({
                     &-description {
                         display: -webkit-box;
                         margin-top: 6px;
-                        color: var(--v-text-darken1);
+                        color: rgb(var(--v-theme-text-darken-1));
                         font-size: 10.5px;
                         line-height: 175%;
                         overflow-wrap: break-word;
@@ -760,7 +760,7 @@ export default defineComponent({
                 .channel__program-following {
                     display: flex;
                     flex-direction: column;
-                    color: var(--v-text-base);
+                    color: rgb(var(--v-theme-text));
                     font-size: 12.5px;
                     // 1列表示
                     @media (max-width: 1007.9px) {
@@ -797,7 +797,7 @@ export default defineComponent({
                         }
                     }
                     &-time {
-                        color: var(--v-text-darken1);
+                        color: rgb(var(--v-theme-text-darken-1));
                         @include smartphone-horizontal {
                             flex-shrink: 0;
                             margin-left: auto;
@@ -821,11 +821,11 @@ export default defineComponent({
                     right: 0;
                     bottom: 0;
                     height: 4px;
-                    background: var(--v-gray-base);
+                    background: rgb(var(--v-theme-gray));
 
                     &-progress {
                         height: 4px;
-                        background: var(--v-primary-base);
+                        background: rgb(var(--v-theme-primary));
                         transition: width 0.3s;
                     }
                 }

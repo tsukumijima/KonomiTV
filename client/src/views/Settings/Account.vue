@@ -418,7 +418,7 @@ export default defineComponent({
     height: 130px;
     padding: 18px 20px;
     border-radius: 15px;
-    background: var(--v-background-lighten2);
+    background: rgb(var(--v-theme-background-lighten-2));
     @include tablet-horizontal {
         align-items: normal;
         flex-direction: column;
@@ -466,7 +466,7 @@ export default defineComponent({
         border-radius: 50%;
         object-fit: cover;
         // 読み込まれるまでのアイコンの背景
-        background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
+        background: linear-gradient(150deg, rgb(var(--v-theme-gray)), rgb(var(--v-theme-background-lighten-2)));
         // 低解像度で表示する画像がぼやけないようにする
         // ref: https://sho-log.com/chrome-image-blurred/
         image-rendering: -webkit-optimize-contrast;
@@ -497,7 +497,7 @@ export default defineComponent({
             &-text {
                 display: inline-block;
                 font-size: 23px;
-                color: var(--v-text-base);
+                color: rgb(var(--v-theme-text));
                 font-weight: bold;
                 overflow: hidden;
                 white-space: nowrap;
@@ -520,7 +520,7 @@ export default defineComponent({
             height: 28px;
             margin-left: 10px;
             border-radius: 5px;
-            background: var(--v-secondary-base);
+            background: rgb(var(--v-theme-secondary));
             font-size: 14px;
             font-weight: 500;
             line-height: 2;
@@ -541,7 +541,7 @@ export default defineComponent({
         &-id {
             display: inline-block;
             margin-top: 2px;
-            color: var(--v-text-darken1);
+            color: rgb(var(--v-theme-text-darken-1));
             font-size: 16px;
             @include smartphone-horizontal {
                 font-size: 14.5px;
@@ -630,7 +630,7 @@ export default defineComponent({
                 height: 46px;
                 flex-shrink: 0;
                 margin-right: 16px;
-                color: var(--v-secondary-lighten1);
+                color: rgb(var(--v-theme-secondary-lighten-1));
             }
 
             &__info {
@@ -641,7 +641,7 @@ export default defineComponent({
                 }
                 &-text {
                     margin-top: 3px;
-                    color: var(--v-text-darken1);
+                    color: rgb(var(--v-theme-text-darken-1));
                     font-size: 12.5px;
                     line-height: 1.65;
                 }

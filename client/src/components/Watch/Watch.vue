@@ -277,16 +277,16 @@ export default defineComponent({
 .route-container {
     height: 100vh !important;
     height: 100dvh !important;
-    border-bottom: env(safe-area-inset-bottom) solid var(--v-background-base);  // Home Indicator 分浮かせる余白の背景色
-    background: var(--v-black-base) !important;
+    border-bottom: env(safe-area-inset-bottom) solid rgb(var(--v-theme-background));  // Home Indicator 分浮かせる余白の背景色
+    background: rgb(var(--v-theme-black)) !important;
     overflow: hidden;
-    // タブレット横画面・スマホ横画面のみ Home Indicator 分浮かせる余白の背景色を var(--v-black-base) にする
+    // タブレット横画面・スマホ横画面のみ Home Indicator 分浮かせる余白の背景色を rgb(var(--v-theme-black)) にする
     // 映像の左右の黒い余白と背景色を合わせる
     @include tablet-horizontal {
-        border-bottom: env(safe-area-inset-bottom) solid var(--v-black-base);
+        border-bottom: env(safe-area-inset-bottom) solid rgb(var(--v-theme-black));
     }
     @include smartphone-horizontal {
-        border-bottom: env(safe-area-inset-bottom) solid var(--v-black-base);
+        border-bottom: env(safe-area-inset-bottom) solid rgb(var(--v-theme-black));
     }
 }
 
@@ -332,7 +332,7 @@ export default defineComponent({
 
         // パネルアイコンをハイライト
         .switch-button-panel .switch-button-icon {
-            color: var(--v-primary-base);
+            color: rgb(var(--v-theme-primary));
         }
 
         // タッチデバイスのみ、content-visibility: visible で明示的にパネルを描画する

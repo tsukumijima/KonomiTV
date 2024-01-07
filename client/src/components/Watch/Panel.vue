@@ -138,7 +138,7 @@ export default defineComponent({
     flex-shrink: 0;
     width: 352px;
     height: 100%;
-    background: var(--v-background-base);
+    background: rgb(var(--v-theme-background));
     @include tablet-vertical {
         width: 100%;
         height: auto;
@@ -210,7 +210,7 @@ export default defineComponent({
                 width: 43px;
                 height: 24px;
                 border-radius: 3px;
-                background: linear-gradient(150deg, var(--v-gray-base), var(--v-background-lighten2));
+                background: linear-gradient(150deg, rgb(var(--v-theme-gray)), rgb(var(--v-theme-background-lighten-2)));
                 object-fit: cover;
                 user-select: none;
             }
@@ -244,7 +244,7 @@ export default defineComponent({
             left: 0;
             right: 0;
             bottom: 0;
-            background: var(--v-background-base);
+            background: rgb(var(--v-theme-background));
             transition: opacity 0.2s, visibility 0.2s;
             opacity: 0;
             visibility: hidden;
@@ -272,7 +272,7 @@ export default defineComponent({
             width: 48px;
             height: 48px;
             border-radius: 50%;
-            background: var(--v-background-lighten1);
+            background: rgb(var(--v-theme-background-lighten-1));
             outline: none;
             transition: opacity 0.2s, visibility 0.2s;
             opacity: 0;
@@ -294,17 +294,17 @@ export default defineComponent({
         justify-content: space-evenly;
         flex-shrink: 0;
         height: 77px;
-        background: var(--v-background-lighten1);
+        background: rgb(var(--v-theme-background-lighten-1));
         @include tablet-vertical {
             height: 66px;
-            background: var(--v-background-base);
+            background: rgb(var(--v-theme-background));
         }
         @include smartphone-horizontal {
             height: 34px;
         }
         @include smartphone-vertical {
             height: 50px;
-            background: var(--v-background-base);
+            background: rgb(var(--v-theme-background));
         }
 
         .panel-navigation-button {
@@ -316,7 +316,7 @@ export default defineComponent({
             height: 56px;
             padding: 6px 0px;
             border-radius: 5px;
-            color: var(--v-text-base);
+            color: rgb(var(--v-theme-text));
             box-sizing: content-box;
             transition: color 0.3s;
             user-select: none;
@@ -339,9 +339,9 @@ export default defineComponent({
             }
 
             &--active {
-                color: var(--v-primary-base);
+                color: rgb(var(--v-theme-primary));
                 .panel-navigation-button__icon {
-                    color: var(--v-primary-base);
+                    color: rgb(var(--v-theme-primary));
                 }
                 @include tablet-vertical {
                     background: #5b2d3c;
@@ -354,10 +354,10 @@ export default defineComponent({
             &__icon {
                 height: 34px;
                 @include tablet-vertical {
-                    color: var(--v-text-base);
+                    color: rgb(var(--v-theme-text));
                 }
                 @include smartphone-vertical {
-                    color: var(--v-text-base);
+                    color: rgb(var(--v-theme-text));
                 }
             }
             &__text {
