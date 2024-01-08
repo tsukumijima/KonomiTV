@@ -73,7 +73,7 @@
                     実際の文字サイズは画面サイズに合わせて調整されます。デフォルトの文字サイズは 34px です。<br>
                 </div>
                 <v-slider class="settings__item-form" color="primary" show-ticks="always" thumb-label hide-details
-                    :min="20" :max="60" v-model="settingsStore.settings.comment_font_size">
+                    :step="1" :min="20" :max="60" v-model="settingsStore.settings.comment_font_size">
                 </v-slider>
             </div>
             <div class="settings__item settings__item--switch">

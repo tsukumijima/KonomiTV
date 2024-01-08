@@ -121,7 +121,7 @@ export default defineComponent({
                     display: flex;
                 }
                 &-highlight {
-                    color: rgb(var(--v-theme-secondary-lighten-1));
+                    color: rgb(var(--v-theme-secondary-lighten-1)) !important;
                 }
             }
         }

@@ -132,7 +132,7 @@ const vuetify = createVuetify({
                 },
                 // CSS 変数の定義
                 variables: {
-                    // 各種オーバーレイの透明度を Vuetify 2 と同じにする
+                    // 各透明度を Vuetify 2 に合わせる
                     'hover-opacity': 0.08,
                     'activated-opacity': 0.24,
                 }

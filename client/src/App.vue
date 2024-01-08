@@ -1,8 +1,10 @@
 <template>
     <v-app id="app">
-        <transition>
-            <router-view/>
-        </transition>
+        <router-view v-slot="{ Component }">
+            <transition>
+                <component :is="Component" />
+            </transition>
+        </router-view>
         <Snackbars />
     </v-app>
 </template>
@@ -39,13 +41,6 @@ import Snackbars from '@/components/Snackbars.vue';
     -webkit-tap-highlight-color: transparent;
 }
 
-// タッチデバイスで hover を無効にする
-@media (hover: none) {
-    :hover:before {
-        background-color: transparent !important;
-    }
-}
-
 // 選択時の色
 *::selection {
 	background-color: #E64F9780;
@@ -58,20 +53,6 @@ a, a:link, a:visited, a:hover, a:active {
 }
 
 // ***** SPA 全体に適用されるスタイル *****
-
-// ページ遷移アニメーション
-.v-enter-active, .v-leave-active {
-    transition: opacity 0.25s;
-}
-.v-enter, .v-leave-to {
-    opacity: 0;
-}
-.v-enter-active.route-container {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-}
 
 // 全体のスタイル
 html {
@@ -182,10 +163,28 @@ body .route-container {
     text-transform: none !important;
 }
 
-// v-btn に hover したときの transition が効かなくなっている Vuetify 3 のバグを打ち消す
+// ボタンに hover したときの transition が効かなくなっている Vuetify 3 のバグを打ち消す
 // ref: https://github.com/vuetifyjs/vuetify/blob/v3.4.9/packages/vuetify/src/components/VBtn/VBtn.sass#L233
 .v-btn__overlay {
     transition: opacity 0.2s ease-in-out;
+}
+
+// タッチデバイスでボタンへの hover を無効にする
+@media (hover: none) {
+    .v-btn:hover > .v-btn__overlay {
+        opacity: 0 !important;
+    }
+}
+
+// テキスト入力フォーム/セレクトボックスのボーダーの色を Vuetify 2 に合わせる
+.v-field__outline {
+    --v-field-border-opacity: 0.25 !important;
+}
+.v-field:hover .v-field__outline {
+    --v-field-border-opacity: 0.5 !important;
+}
+.v-field.v-field--focused .v-field__outline {
+    --v-field-border-opacity: 1 !important;
 }
 
 // テキスト入力フォーム/セレクトボックスの density が compact のときのフォントサイズを Vuetify 2 に合わせる
@@ -199,6 +198,9 @@ body .route-container {
 .v-slider-thumb__label {
     background: rgb(var(--v-theme-primary)) !important;
     color: rgb(var(--v-theme-text)) !important;
+    &:before {
+        color: rgb(var(--v-theme-primary)) !important;
+    }
 }
 
 // Progress Circular (indeterminate) のアニメーション速度を Vuetify 2 に合わせる

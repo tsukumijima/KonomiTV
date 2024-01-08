@@ -41,7 +41,7 @@
                     </router-link>
                     <a v-ripple class="navigation__link" active-class="navigation__link--active" href="https://github.com/tsukumijima/KonomiTV"
                         :class="{
-                            'navigation__link--version': versionStore.is_client_develop_version,
+                            'navigation__link--develop-version': versionStore.is_client_develop_version,
                             'navigation__link--highlight': versionStore.is_update_available,
                         }"
                         v-tooltip.top="versionStore.is_update_available ?
@@ -164,7 +164,7 @@ export default defineComponent({
                 &--highlight {
                     color: rgb(var(--v-theme-secondary-lighten-1));
                 }
-                &--version {
+                &--develop-version {
                     font-size: 15px;
                     @include smartphone-horizontal {
                         font-size: 14.5px;
