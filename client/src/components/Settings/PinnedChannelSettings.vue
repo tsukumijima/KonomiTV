@@ -19,25 +19,27 @@
                     <div><b>ピン留めされているチャンネルがありません。</b></div>
                     <div class="mt-1">TV ホーム画面のチャンネルリストの <Icon style="position: relative; bottom: -5px;" icon="fluent:pin-20-filled" width="18.5px" /> アイコンから、よくみるチャンネルをピン留めできます。</div>
                 </div>
-                <draggable class="pinned-channels" v-model="settingsStore.settings.pinned_channel_ids" handle=".pinned-channel__sort-handle"
-                    v-if="(channelsStore.channels_list_with_pinned.get('ピン留め') ?? []).length > 0">
-                    <!-- 以下では Icon コンポーネントを使うと個数が多いときに高負荷になるため、意図的に SVG を直書きしている -->
-                    <div class="pinned-channel"
-                        v-for="channel in channelsStore.channels_list_with_pinned.get('ピン留め') ?? []" :key="channel.id">
-                        <img class="pinned-channel__icon" :src="`${Utils.api_base_url}/channels/${channel.id}/logo`">
-                        <span class="pinned-channel__name">Ch: {{channel.channel_number}} {{channel.name}}</span>
-                        <button class="pinned-channel__sort-handle">
-                            <svg class="iconify iconify--material-symbols" width="20px" height="20px" viewBox="0 0 24 24">
-                                <path fill="currentColor" d="M5 15q-.425 0-.713-.288T4 14q0-.425.288-.713T5 13h14q.425 0 .713.288T20 14q0 .425-.288.713T19 15H5Zm0-4q-.425 0-.713-.288T4 10q0-.425.288-.713T5 9h14q.425 0 .713.288T20 10q0 .425-.288.713T19 11H5Z"></path>
-                            </svg>
-                        </button>
-                        <button v-ripple class="pinned-channel__delete-button"
-                            @click="settingsStore.settings.pinned_channel_ids.splice(settingsStore.settings.pinned_channel_ids.indexOf(channel.id), 1)">
-                            <svg class="iconify iconify--fluent" width="20px" height="20px" viewBox="0 0 16 16">
-                                <path fill="currentColor" d="M7 3h2a1 1 0 0 0-2 0ZM6 3a2 2 0 1 1 4 0h4a.5.5 0 0 1 0 1h-.564l-1.205 8.838A2.5 2.5 0 0 1 9.754 15H6.246a2.5 2.5 0 0 1-2.477-2.162L2.564 4H2a.5.5 0 0 1 0-1h4Zm1 3.5a.5.5 0 0 0-1 0v5a.5.5 0 0 0 1 0v-5ZM9.5 6a.5.5 0 0 0-.5.5v5a.5.5 0 0 0 1 0v-5a.5.5 0 0 0-.5-.5Z"></path>
-                            </svg>
-                        </button>
-                    </div>
+                <draggable class="pinned-channels" handle=".pinned-channel__sort-handle" item-key="id"
+                    v-model="pinned_channels" v-if="pinned_channels.length > 0">
+                    <!-- スロットの仕様上、名前は element 固定なので注意 -->
+                    <template #item="{ element }: { element: ILiveChannel }">
+                        <div class="pinned-channel">
+                            <!-- 以下では Icon コンポーネントを使うと個数が多いときに高負荷になるため、意図的に SVG を直書きしている -->
+                            <img class="pinned-channel__icon" :src="`${Utils.api_base_url}/channels/${element.id}/logo`">
+                            <span class="pinned-channel__name">Ch: {{element.channel_number}} {{element.name}}</span>
+                            <button class="pinned-channel__sort-handle">
+                                <svg class="iconify iconify--material-symbols" width="20px" height="20px" viewBox="0 0 24 24">
+                                    <path fill="currentColor" d="M5 15q-.425 0-.713-.288T4 14q0-.425.288-.713T5 13h14q.425 0 .713.288T20 14q0 .425-.288.713T19 15H5Zm0-4q-.425 0-.713-.288T4 10q0-.425.288-.713T5 9h14q.425 0 .713.288T20 10q0 .425-.288.713T19 11H5Z"></path>
+                                </svg>
+                            </button>
+                            <button v-ripple class="pinned-channel__delete-button"
+                                @click="pinned_channels = pinned_channels.filter(channel => channel.id !== element.id)">
+                                <svg class="iconify iconify--fluent" width="20px" height="20px" viewBox="0 0 16 16">
+                                    <path fill="currentColor" d="M7 3h2a1 1 0 0 0-2 0ZM6 3a2 2 0 1 1 4 0h4a.5.5 0 0 1 0 1h-.564l-1.205 8.838A2.5 2.5 0 0 1 9.754 15H6.246a2.5 2.5 0 0 1-2.477-2.162L2.564 4H2a.5.5 0 0 1 0-1h4Zm1 3.5a.5.5 0 0 0-1 0v5a.5.5 0 0 0 1 0v-5ZM9.5 6a.5.5 0 0 0-.5.5v5a.5.5 0 0 0 1 0v-5a.5.5 0 0 0-.5-.5Z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </template>
                 </draggable>
             </div>
         </v-card>
@@ -49,6 +51,7 @@ import { mapStores } from 'pinia';
 import { defineComponent, PropType } from 'vue';
 import draggable from 'vuedraggable';
 
+import { ILiveChannel } from '@/services/Channels';
 import useChannelsStore from '@/stores/ChannelsStore';
 import useSettingsStore from '@/stores/SettingsStore';
 import Utils from '@/utils';
@@ -75,6 +78,9 @@ export default defineComponent({
 
             // ピン留め中チャンネルの並び替え設定のモーダルを表示するか
             pinned_channel_settings_modal: false,
+
+            // ピン留め中チャンネルの情報
+            pinned_channels: [] as ILiveChannel[],
         };
     },
     computed: {
@@ -90,12 +96,20 @@ export default defineComponent({
         // pinned_channel_settings_modal (子コンポーネント側) の変更を監視し、変更されたら this.$emit() で親コンポーネントに伝える
         pinned_channel_settings_modal() {
             this.$emit('update:modelValue', this.pinned_channel_settings_modal);
-        }
+        },
+
+        // ピン留め中チャンネルのリストが並び替えられたら、その並び順を設定に反映する
+        pinned_channels() {
+            this.settingsStore.settings.pinned_channel_ids = this.pinned_channels.map(channel => channel.id);
+        },
     },
     async created() {
 
         // チャンネル情報を更新
         await this.channelsStore.update();
+
+        // ピン留め中チャンネルのリストを取得
+        this.pinned_channels = this.channelsStore.channels_list_with_pinned.get('ピン留め') ?? [];
     }
 });
 

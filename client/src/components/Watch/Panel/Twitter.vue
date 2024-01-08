@@ -144,34 +144,40 @@
                     <span class="ml-1">追加</span>
                 </button>
             </div>
-            <draggable class="hashtag-container" v-model="saved_twitter_hashtags" handle=".hashtag__sort-handle">
-                <div v-ripple="!hashtag.editing" class="hashtag" :class="{'hashtag--editing': hashtag.editing}"
-                    v-for="hashtag in saved_twitter_hashtags" :key="hashtag.id"
-                    @click="clickHashtag(hashtag)">
+            <draggable class="hashtag-container" handle=".hashtag__sort-handle" item-key="id"
+                v-model="saved_twitter_hashtags">
+                <!-- スロットの仕様上、名前は element 固定なので注意 -->
+                <template #item="{ element }: { element: IHashtag }">
+                    <div v-ripple="!element.editing" class="hashtag" :class="{'hashtag--editing': element.editing}"
+                        @click="clickHashtag(element)">
                         <!-- 以下では Icon コンポーネントを使うと個数が多いときに高負荷になるため、意図的に SVG を直書きしている -->
-                    <input type="search" class="hashtag__input" spellcheck="false" v-model="hashtag.text" :disabled="!hashtag.editing" @click.stop="">
-                    <button v-ripple class="hashtag__edit-button"
-                        @click.prevent.stop="hashtag.editing = !hashtag.editing;
-                            hashtag.text = formatHashtag(hashtag.text, true); updateTweetLetterCount()">
-                        <svg class="iconify iconify--fluent" width="17px" height="17px" viewBox="0 0 16 16" v-if="hashtag.editing === false">
-                            <path fill="currentColor" d="M10.529 1.764a2.621 2.621 0 1 1 3.707 3.707l-.779.779L9.75 2.543l.779-.779ZM9.043 3.25L2.657 9.636a2.955 2.955 0 0 0-.772 1.354l-.87 3.386a.5.5 0 0 0 .61.608l3.385-.869a2.95 2.95 0 0 0 1.354-.772l6.386-6.386L9.043 3.25Z"></path>
-                        </svg>
-                        <svg class="iconify iconify--fluent" width="17px" height="17px" viewBox="0 0 16 16" v-if="hashtag.editing === true">
-                            <path fill="currentColor" d="M14.046 3.486a.75.75 0 0 1-.032 1.06l-7.93 7.474a.85.85 0 0 1-1.188-.022l-2.68-2.72a.75.75 0 1 1 1.068-1.053l2.234 2.267l7.468-7.038a.75.75 0 0 1 1.06.032Z"></path>
-                        </svg>
-                    </button>
-                    <button v-ripple class="hashtag__delete-button"
-                        @click.prevent.stop="saved_twitter_hashtags.splice(saved_twitter_hashtags.indexOf(hashtag), 1)">
-                        <svg class="iconify iconify--fluent" width="17px" height="17px" viewBox="0 0 16 16">
-                            <path fill="currentColor" d="M7 3h2a1 1 0 0 0-2 0ZM6 3a2 2 0 1 1 4 0h4a.5.5 0 0 1 0 1h-.564l-1.205 8.838A2.5 2.5 0 0 1 9.754 15H6.246a2.5 2.5 0 0 1-2.477-2.162L2.564 4H2a.5.5 0 0 1 0-1h4Zm1 3.5a.5.5 0 0 0-1 0v5a.5.5 0 0 0 1 0v-5ZM9.5 6a.5.5 0 0 0-.5.5v5a.5.5 0 0 0 1 0v-5a.5.5 0 0 0-.5-.5Z"></path>
-                        </svg>
-                    </button>
-                    <div class="hashtag__sort-handle">
-                        <svg class="iconify iconify--material-symbols" width="17px" height="17px" viewBox="0 0 24 24">
-                            <path fill="currentColor" d="M5 15q-.425 0-.713-.288T4 14q0-.425.288-.713T5 13h14q.425 0 .713.288T20 14q0 .425-.288.713T19 15H5Zm0-4q-.425 0-.713-.288T4 10q0-.425.288-.713T5 9h14q.425 0 .713.288T20 10q0 .425-.288.713T19 11H5Z"></path>
-                        </svg>
+                        <input type="search" class="hashtag__input" spellcheck="false" v-model="element.text"
+                            :disabled="!element.editing" @click.stop="">
+                        <button v-ripple class="hashtag__edit-button"
+                            @click.prevent.stop="element.editing = !element.editing;
+                                element.text = formatHashtag(element.text, true); updateTweetLetterCount()">
+                            <svg class="iconify iconify--fluent" width="17px" height="17px" viewBox="0 0 16 16"
+                                v-if="element.editing === false">
+                                <path fill="currentColor" d="M10.529 1.764a2.621 2.621 0 1 1 3.707 3.707l-.779.779L9.75 2.543l.779-.779ZM9.043 3.25L2.657 9.636a2.955 2.955 0 0 0-.772 1.354l-.87 3.386a.5.5 0 0 0 .61.608l3.385-.869a2.95 2.95 0 0 0 1.354-.772l6.386-6.386L9.043 3.25Z"></path>
+                            </svg>
+                            <svg class="iconify iconify--fluent" width="17px" height="17px" viewBox="0 0 16 16"
+                                v-if="element.editing === true">
+                                <path fill="currentColor" d="M14.046 3.486a.75.75 0 0 1-.032 1.06l-7.93 7.474a.85.85 0 0 1-1.188-.022l-2.68-2.72a.75.75 0 1 1 1.068-1.053l2.234 2.267l7.468-7.038a.75.75 0 0 1 1.06.032Z"></path>
+                            </svg>
+                        </button>
+                        <button v-ripple class="hashtag__delete-button"
+                            @click.prevent.stop="saved_twitter_hashtags.splice(saved_twitter_hashtags.indexOf(element), 1)">
+                            <svg class="iconify iconify--fluent" width="17px" height="17px" viewBox="0 0 16 16">
+                                <path fill="currentColor" d="M7 3h2a1 1 0 0 0-2 0ZM6 3a2 2 0 1 1 4 0h4a.5.5 0 0 1 0 1h-.564l-1.205 8.838A2.5 2.5 0 0 1 9.754 15H6.246a2.5 2.5 0 0 1-2.477-2.162L2.564 4H2a.5.5 0 0 1 0-1h4Zm1 3.5a.5.5 0 0 0-1 0v5a.5.5 0 0 0 1 0v-5ZM9.5 6a.5.5 0 0 0-.5.5v5a.5.5 0 0 0 1 0v-5a.5.5 0 0 0-.5-.5Z"></path>
+                            </svg>
+                        </button>
+                        <div class="hashtag__sort-handle">
+                            <svg class="iconify iconify--material-symbols" width="17px" height="17px" viewBox="0 0 24 24">
+                                <path fill="currentColor" d="M5 15q-.425 0-.713-.288T4 14q0-.425.288-.713T5 13h14q.425 0 .713.288T20 14q0 .425-.288.713T19 15H5Zm0-4q-.425 0-.713-.288T4 10q0-.425.288-.713T5 9h14q.425 0 .713.288T20 10q0 .425-.288.713T19 11H5Z"></path>
+                            </svg>
+                        </div>
                     </div>
-                </div>
+                </template>
             </draggable>
         </div>
         <div class="twitter-account-list" :class="{'twitter-account-list--display': is_twitter_account_list_display}">
