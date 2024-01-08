@@ -121,9 +121,9 @@
                     </div>
                 </div>
                 <button v-ripple class="tweet-button"
-                    :disabled="is_logged_in_twitter === false || tweet_letter_remain_count < 0 ||
-                        ((tweet_text.trim() === '' || tweet_letter_remain_count === 140) && tweet_captures.length === 0)"
-                    @click="sendTweet()" @touchstart="sendTweet()">
+                    :disabled="is_tweet_button_disabled"
+                    @click="(is_tweet_button_disabled === false) && sendTweet()"
+                    @touchstart="(is_tweet_button_disabled === false) && sendTweet()">
                     <Icon icon="fa-brands:twitter" height="16px" />
                     <span class="ml-1">ツイート</span>
                 </button>
@@ -290,6 +290,12 @@ export default defineComponent({
     },
     computed: {
         ...mapStores(useChannelsStore, usePlayerStore, useSettingsStore, useUserStore),
+
+        // ツイートボタンが無効かどうか
+        is_tweet_button_disabled(): boolean {
+            return this.is_logged_in_twitter === false || this.tweet_letter_remain_count < 0 ||
+                ((this.tweet_text.trim() === '' || this.tweet_letter_remain_count === 140) && this.tweet_captures.length === 0);
+        },
     },
     watch: {
 

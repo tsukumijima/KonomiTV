@@ -125,7 +125,13 @@ const router = createRouter({
 // ルーティングの変更時に View Transitions API を適用する
 // ref: https://developer.mozilla.org/ja/docs/Web/API/View_Transitions_API
 router.beforeResolve((to, from, next) => {
-    if (document.startViewTransition) {
+    // View Transition API を適用しないルートの prefix
+    // to と from の両方のパスがこの prefix で始まる場合は View Transition API を適用しない
+    const no_transition_routes = [
+        '/tv/watch/',
+        '/videos/watch/',
+    ];
+    if (document.startViewTransition && !no_transition_routes.some((route) => to.path.startsWith(route) && from.path.startsWith(route))) {
         document.startViewTransition(() => {
             next();
         });
