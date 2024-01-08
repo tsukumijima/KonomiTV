@@ -189,7 +189,8 @@ export default defineComponent({
         addPinnedChannel(channel: ILiveChannel) {
 
             // ピン留めするチャンネルの ID リストに追加 (保存は自動で行われる)
-            this.settingsStore.settings.pinned_channel_ids.push(channel.id);
+            // UI に変更を反映するため、意図的に指定チャンネルの ID が追加された配列を新しく作り再代入している
+            this.settingsStore.settings.pinned_channel_ids = [...this.settingsStore.settings.pinned_channel_ids, channel.id];
 
             // ピン留めしたチャンネルを通知
             Message.show(`${channel.name}をピン留めしました。`);
@@ -199,7 +200,8 @@ export default defineComponent({
         removePinnedChannel(channel: ILiveChannel) {
 
             // ピン留めするチャンネルの ID リストから削除 (保存は自動で行われる)
-            this.settingsStore.settings.pinned_channel_ids.splice(this.settingsStore.settings.pinned_channel_ids.indexOf(channel.id), 1);
+            // UI に変更を反映するため、意図的に指定チャンネルの ID が削除された配列を新しく作り再代入している
+            this.settingsStore.settings.pinned_channel_ids = this.settingsStore.settings.pinned_channel_ids.filter((id) => id !== channel.id);
 
             // この時点でピン留めされているチャンネルがないなら、タブを地デジタブに切り替える
             if (this.channelsStore.channels_list_with_pinned.get('ピン留め')?.length === 0) {
