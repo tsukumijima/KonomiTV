@@ -39,7 +39,7 @@
                     <button v-ripple class="remote-control-button-blue bg-blue-darken-3" data-arib-key-code="21">青</button>
                     <button v-ripple class="remote-control-button-red bg-red-darken-3" data-arib-key-code="22">赤</button>
                     <button v-ripple class="remote-control-button-green bg-green-darken-3" data-arib-key-code="23">緑</button>
-                    <button v-ripple class="remote-control-button-yellow bg-yellow-darken-3" data-arib-key-code="24">黄</button>
+                    <button v-ripple class="remote-control-button-yellow bg-yellow-darken-3 text-text" data-arib-key-code="24">黄</button>
                 </div>
             </div>
             <div class="remote-control__number-key">

@@ -713,7 +713,7 @@ export default defineComponent({
 // 上書きしたいスタイル
 // TODO: 修正必須
 @include smartphone-horizontal {
-    .zoom-capture-modal-container.v-dialog {
+    .zoom-capture-modal-container {
         width: auto !important;
         max-width: auto !important;
         aspect-ratio: 16 / 9;
@@ -1629,7 +1629,7 @@ export default defineComponent({
                     }
                 }
                 &__sort-handle {
-                    cursor: move;
+                    cursor: grab;
                 }
             }
         }

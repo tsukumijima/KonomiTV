@@ -528,6 +528,11 @@ export default defineComponent({
                 opacity: 1;
                 visibility: visible;
             }
+
+            .v-list-item-title {
+                font-size: 13px;
+                font-weight: 500;
+            }
         }
 
         .comment-list-cover {

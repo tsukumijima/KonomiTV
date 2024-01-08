@@ -139,6 +139,13 @@ body .route-container {
 }
 
 // オーバーレイのスタイルを Vuetify 2 に合わせる (既定の --v-theme-on-surface では明るすぎる)
+.v-overlay-container {
+    font-family: 'Open Sans', 'YakuHanJPs', 'Twemoji', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+    font-weight: 500;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    color: rgb(var(--v-theme-text)) !important;
+}
 .v-overlay__scrim {
     background: rgb(33, 33, 33) !important;
     opacity: 0.46 !important;
@@ -188,6 +195,9 @@ body .route-container {
 }
 
 // テキスト入力フォーム/セレクトボックスの density が compact のときのフォントサイズを Vuetify 2 に合わせる
+.v-input, .v-input__details {
+    font-weight: 500 !important;
+}
 .v-input--density-compact {
     input, .v-field {
         font-size: 14px !important;
@@ -203,26 +213,12 @@ body .route-container {
     }
 }
 
-// Progress Circular (indeterminate) のアニメーション速度を Vuetify 2 に合わせる
+// Progress Circular (indeterminate) のスタイルとアニメーション速度を Vuetify 2 に合わせる
+.v-progress-circular__underlay {
+    display: none !important;
+}
 .v-progress-circular--indeterminate > svg {
     animation: none !important;
-}
-
-// TODO: 以下は Vuetify 3 向けに改修が必要
-
-.v-menu__content {
-    @include smartphone-vertical {
-        .v-list {
-            background-color: rgb(var(--v-theme-background-lighten-1)) !important;
-        }
-    }
-    &::-webkit-scrollbar {
-        width: 12px;
-        height: 12px;
-    }
-    &::-webkit-scrollbar-thumb {
-        border: solid 3.5px rgb(var(--v-theme-background));
-    }
 }
 
 // ***** ユーティリティクラス *****

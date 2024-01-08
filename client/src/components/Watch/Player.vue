@@ -20,15 +20,16 @@
                 @click="playerStore.event_emitter.emit('SetControlDisplayTimer', {event: $event})">
             <div v-ripple class="switch-button switch-button-up" v-tooltip.top="'前のチャンネル'" v-if="playback_mode === 'Live'"
                 @click="playerStore.is_zapping = true; $router.push({path: `/tv/watch/${channelsStore.channel.previous.display_channel_id}`})">
-                <Icon class="switch-button-icon" icon="fluent:ios-arrow-left-24-filled" width="32px" />
+                <Icon class="switch-button-icon" icon="fluent:ios-arrow-left-24-filled" width="32px" style="transform: rotate(90deg)" />
             </div>
-            <div v-ripple class="switch-button switch-button-panel switch-button-panel--open"
+            <div v-ripple class="switch-button switch-button-panel"
+                :class="{'switch-button-panel--open': playerStore.is_panel_display}"
                 @click="playerStore.is_panel_display = !playerStore.is_panel_display">
                 <Icon class="switch-button-icon" icon="fluent:navigation-16-filled" width="32px" />
             </div>
             <div v-ripple class="switch-button switch-button-down" v-tooltip.bottom="'次のチャンネル'" v-if="playback_mode === 'Live'"
                     @click="playerStore.is_zapping = true; $router.push({path: `/tv/watch/${channelsStore.channel.next.display_channel_id}`})">
-                <Icon class="switch-button-icon" icon="fluent:ios-arrow-right-24-filled" width="33px" />
+                <Icon class="switch-button-icon" icon="fluent:ios-arrow-right-24-filled" width="33px" style="transform: rotate(90deg)" />
             </div>
         </div>
     </div>
@@ -578,6 +579,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
                 top: 6px;
             }
             &-panel {
+                &.switch-button-panel--open {
+                    color: rgb(var(--v-theme-primary));
+                }
                 @include tablet-vertical {
                     display: none;
                 }

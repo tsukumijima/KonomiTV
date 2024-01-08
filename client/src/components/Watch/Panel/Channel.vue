@@ -109,9 +109,10 @@ export default defineComponent({
     flex-direction: column;
 
     .channels-tab {
-        position: sticky;
         flex: none;
+        position: sticky;
         top: 0px;
+        height: 42px;
         padding-left: 16px;
         padding-right: 16px;
         padding-bottom: 14px;
@@ -119,28 +120,39 @@ export default defineComponent({
         box-sizing: content-box;
         z-index: 1;
         @include tablet-vertical {
+            height: 50px;
             padding-left: 24px;
             padding-right: 24px;
             padding-bottom: 10px;
         }
         @include smartphone-horizontal {
+            height: 44px;
             padding-bottom: 8px;
             margin-top: 0px;
         }
         @include smartphone-vertical {
+            height: 46px;
             padding-bottom: 8px;
             margin-top: 0px;
         }
 
         .channels-tab__item {
             min-width: 72px !important;
+            height: 42px;
             padding: 0 8px;
             color: rgb(var(--v-theme-text)) !important;
             font-size: 15px;
             letter-spacing: 0.0892857143em !important;
             text-transform: none;
+            @include tablet-vertical {
+                height: 50px;
+            }
             @include smartphone-horizontal {
+                height: 44px;
                 font-size: 14.5px;
+            }
+            @include smartphone-vertical {
+                height: 46px;
             }
         }
     }
@@ -149,14 +161,14 @@ export default defineComponent({
         overflow-y: auto;
 
         .channels-list {
-            padding-left: 16px;
-            padding-right: 10px;
+            margin-left: 16px;
+            margin-right: 10px;
             padding-bottom: 16px;
             background: transparent !important;
-            overflow: visible !important;
+            overflow: hidden;
             @include tablet-vertical {
-                padding-left: 24px;
-                padding-right: 24px;
+                margin-left: 24px;
+                margin-right: 24px;
             }
             @include smartphone-horizontal {
                 padding-bottom: 12px;
