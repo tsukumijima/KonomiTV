@@ -127,8 +127,6 @@ body .route-container {
     background: rgb(var(--v-theme-background));
 }
 
-// ***** Vuetify 3 のスタイルの上書き *****
-
 // ツールチップのスタイル
 .v-popper--theme-tooltip {
     .v-popper__inner {
@@ -148,6 +146,35 @@ body .route-container {
     }
 }
 
+// ***** Vuetify 3 のスタイルの上書き *****
+
+// カードテキストのテキストスタイルを Vuetify 2 に合わせる
+.v-card-text {
+    color: rgb(var(--v-theme-text-darken-1)) !important;
+    font-size: .875rem !important;
+    font-weight: inherit !important;
+    line-height: 1.375rem !important;
+    letter-spacing: .0071428571em !important;
+}
+
+// オーバーレイのスタイルを Vuetify 2 に合わせる (既定の --v-theme-on-surface では明るすぎる)
+.v-overlay__scrim {
+    background: rgb(33, 33, 33) !important;
+    opacity: 0.46 !important;
+}
+
+// スマホ縦画面でのダイヤログの表示幅を広げる
+.v-dialog .v-overlay__content {
+    @include smartphone-vertical {
+        margin: 24px 6px !important;
+        width: calc(100% - 12px) !important;
+        max-width: calc(100% - 12px) !important;
+        &--fullscreen {
+            margin: 0 !important;
+        }
+    }
+}
+
 // ボタン内のテキストの字間をオフ
 // 大文字への強制変換をオフ
 .v-btn {
@@ -161,20 +188,11 @@ body .route-container {
     transition: opacity 0.2s ease-in-out;
 }
 
-// オーバーレイのスタイルを Vuetify 2 に合わせる (既定の --v-theme-on-surface では明るすぎる)
-.v-overlay__content {
-    @include smartphone-vertical {
-        margin: 24px 6px !important;
-        width: calc(100% - 12px) !important;
-        max-width: calc(100% - 12px) !important;
-        &--fullscreen {
-            margin: 0 !important;
-        }
+// テキスト入力フォーム/セレクトボックスの density が compact のときのフォントサイズを Vuetify 2 に合わせる
+.v-input--density-compact {
+    input, .v-field {
+        font-size: 14px !important;
     }
-}
-.v-overlay__scrim {
-    background: rgb(33, 33, 33) !important;
-    opacity: 0.46 !important;
 }
 
 // スライダーのつまみのラベルの色を Vuetify 2 に合わせる
@@ -183,18 +201,9 @@ body .route-container {
     color: rgb(var(--v-theme-text)) !important;
 }
 
-// カードテキストのテキストスタイルを Vuetify 2 に合わせる
-.v-card-text {
-    color: rgb(var(--v-theme-text-darken-1)) !important;
-    font-size: .875rem !important;
-    font-weight: inherit !important;
-    line-height: 1.375rem !important;
-    letter-spacing: .0071428571em !important;
-}
-
-// density が compact のときのフォントサイズを Vuetify 2 に合わせる
-.v-input--density-compact input {
-    font-size: 14px !important;
+// Progress Circular (indeterminate) のアニメーション速度を Vuetify 2 に合わせる
+.v-progress-circular--indeterminate > svg {
+    animation: none !important;
 }
 
 // TODO: 以下は Vuetify 3 向けに改修が必要

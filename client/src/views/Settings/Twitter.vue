@@ -66,13 +66,13 @@
                                     v-model="twitter_password"
                                     :density="is_form_dense ? 'compact' : 'default'"
                                     :type="twitter_password_showing ? 'text' : 'password'"
-                                    :append-icon="twitter_password_showing ? 'mdi-eye' : 'mdi-eye-off'"
+                                    :append-inner-icon="twitter_password_showing ? 'mdi-eye' : 'mdi-eye-off'"
                                     :rules="[(value) => !!value || 'パスワードを入力してください。']"
                                     @click:append="twitter_password_showing = !twitter_password_showing">
                                 </v-text-field>
                             </v-form>
                         </v-card-text>
-                        <v-card-actions class="pt-0 px-6 pb-5">
+                        <v-card-actions class="pt-0 px-6 pb-6">
                             <v-spacer></v-spacer>
                             <v-btn color="text" variant="text" height="40" @click="twitter_password_auth_dialog = false">キャンセル</v-btn>
                             <v-btn color="secondary" variant="flat" height="40" class="px-4" @click="loginTwitterAccountWithPassword()">ログイン</v-btn>
@@ -142,7 +142,8 @@
                 </v-select>
             </div>
         </div>
-        <v-overlay :model-value="is_twitter_password_auth_sending" z-index="300">
+        <v-overlay class="align-center justify-center" :persistent="true"
+            :model-value="is_twitter_password_auth_sending" z-index="300">
             <v-progress-circular color="secondary" indeterminate size="64" />
         </v-overlay>
     </SettingsBase>
@@ -151,6 +152,7 @@
 
 import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
+import { VForm } from 'vuetify/components';
 
 import Message from '@/message';
 import Twitter from '@/services/Twitter';
@@ -172,26 +174,26 @@ export default defineComponent({
 
             // デフォルトで表示されるパネルのタブの選択肢
             twitter_active_tab: [
-                {text: 'ツイート検索タブ', value: 'Search'},
-                {text: 'タイムラインタブ', value: 'Timeline'},
-                {text: 'キャプチャタブ', value: 'Capture'},
+                {title: 'ツイート検索タブ', value: 'Search'},
+                {title: 'タイムラインタブ', value: 'Timeline'},
+                {title: 'キャプチャタブ', value: 'Capture'},
             ],
 
             // ツイートにつけるハッシュタグの位置の選択肢
             tweet_hashtag_position: [
-                {text: 'ツイート本文の前に追加する', value: 'Prepend'},
-                {text: 'ツイート本文の後に追加する', value: 'Append'},
-                {text: 'ツイート本文の前に追加してから改行する', value: 'PrependWithLineBreak'},
-                {text: 'ツイート本文の後に改行してから追加する', value: 'AppendWithLineBreak'},
+                {title: 'ツイート本文の前に追加する', value: 'Prepend'},
+                {title: 'ツイート本文の後に追加する', value: 'Append'},
+                {title: 'ツイート本文の前に追加してから改行する', value: 'PrependWithLineBreak'},
+                {title: 'ツイート本文の後に改行してから追加する', value: 'AppendWithLineBreak'},
             ],
 
             // ツイートするキャプチャに番組タイトルの透かしを描画する位置の選択肢
             tweet_capture_watermark_position: [
-                {text: '透かしを描画しない', value: 'None'},
-                {text: '透かしをキャプチャの左上に描画する', value: 'TopLeft'},
-                {text: '透かしをキャプチャの右上に描画する', value: 'TopRight'},
-                {text: '透かしをキャプチャの左下に描画する', value: 'BottomLeft'},
-                {text: '透かしをキャプチャの右下に描画する', value: 'BottomRight'},
+                {title: '透かしを描画しない', value: 'None'},
+                {title: '透かしをキャプチャの左上に描画する', value: 'TopLeft'},
+                {title: '透かしをキャプチャの右上に描画する', value: 'TopRight'},
+                {title: '透かしをキャプチャの左下に描画する', value: 'BottomLeft'},
+                {title: '透かしをキャプチャの右下に描画する', value: 'BottomRight'},
             ],
 
             // ローディング中かどうか
@@ -235,7 +237,7 @@ export default defineComponent({
         async loginTwitterAccountWithPassword() {
 
             // バリデーションを実行
-            if ((this.$refs.twitter_form as any).validate() === false) {
+            if ((await (this.$refs.twitter_form as VForm).validate()).valid === false) {
                 return;
             }
 
@@ -267,7 +269,7 @@ export default defineComponent({
             Message.success(`Twitter @${current_twitter_account.screen_name} と連携しました。`);
 
             // フォームをリセットし、非表示にする
-            (this.$refs.twitter_form as any).reset();
+            (this.$refs.twitter_form as VForm).reset();
             this.twitter_password_auth_dialog = false;
         },
 

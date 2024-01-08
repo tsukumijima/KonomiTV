@@ -1,7 +1,7 @@
 <template>
     <v-dialog max-width="1050" transition="slide-y-transition" v-model="playerStore.shortcut_key_modal">
         <v-card>
-            <v-card-title class="px-5 pt-4 pb-3 d-flex align-center font-weight-bold">
+            <v-card-title class="px-5 pt-6 pb-3 d-flex align-center font-weight-bold">
                 <Icon icon="fluent:keyboard-20-filled" height="28px" />
                 <span class="ml-3">キーボードショートカット</span>
                 <v-spacer></v-spacer>
@@ -9,7 +9,7 @@
                     <Icon icon="fluent:dismiss-12-filled" width="23px" height="23px" />
                 </div>
             </v-card-title>
-            <div class="px-5 pb-4">
+            <div class="px-5 pb-6">
                 <v-row>
                     <v-col cols="6" v-for="(shortcut_key_column, shortcut_key_column_name) in shortcut_list" :key="shortcut_key_column_name">
                         <div class="mt-3" v-for="shortcut_keys in shortcut_key_column" :key="shortcut_keys.name">

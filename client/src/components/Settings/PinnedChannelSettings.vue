@@ -1,7 +1,7 @@
 <template>
     <v-dialog max-width="550" transition="slide-y-transition" v-model="pinned_channel_settings_modal">
         <v-card class="pinned-channels-settings">
-            <v-card-title class="px-5 pt-5 pb-3 d-flex align-center font-weight-bold" style="height: 60px;">
+            <v-card-title class="px-5 pt-6 pb-3 d-flex align-center font-weight-bold" style="height: 60px;">
                 <Icon icon="iconamoon:sorting-left-bold" height="26px" />
                 <span class="ml-3">ピン留め中チャンネルの並び替え</span>
                 <v-spacer></v-spacer>
@@ -9,7 +9,7 @@
                     <Icon icon="fluent:dismiss-12-filled" width="23px" height="23px" />
                 </div>
             </v-card-title>
-            <div class="px-5 pb-5">
+            <div class="px-5 pb-6">
                 <div class="pinned-channels-settings__label"
                     v-if="(channelsStore.channels_list_with_pinned.get('ピン留め') ?? []).length > 0">
                     <div>各チャンネルのつまみをドラッグして並べ替えできます。</div>

@@ -163,7 +163,11 @@ const useUserStore = defineStore('user', {
         async updateUser(user_update_request: IUserUpdateRequest): Promise<void> {
 
             // ユーザーアカウントの情報を更新する
-            await Users.updateUser(user_update_request);
+            const result = await Users.updateUser(user_update_request);
+            if (result === false) {
+                console.log('Update user failed.');
+                return;  // 更新失敗 (エラーハンドリングは services 層で行われる)
+            }
 
             // ユーザーアカウントの情報を再取得する
             await this.fetchUser(true);

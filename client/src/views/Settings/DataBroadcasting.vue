@@ -40,7 +40,7 @@
                 </v-switch>
             </div>
             <v-divider class="mt-6"></v-divider>
-            <v-form class="settings__item settings__item--sync-disabled" ref="data_broadcasting_zip_code" @submit.prevent>
+            <div class="settings__item settings__item--sync-disabled" @submit.prevent>
                 <label class="settings__item-heading">お住まいの郵便番号</label>
                 <label class="settings__item-label">
                     ここで設定した郵便番号をもとに、データ放送の地域情報（ニュース・天気予報など）が表示されます。<br>
@@ -50,8 +50,8 @@
                     placeholder="郵便番号" :density="is_form_dense ? 'compact' : 'default'"
                     :rules="[data_broadcasting_zip_code_validation]" v-model="data_broadcasting_zip_code">
                 </v-text-field>
-            </v-form>
-            <div class="settings__item settings__item--sync-disabled mt-0">
+            </div>
+            <div class="settings__item settings__item--sync-disabled mt-2">
                 <label class="settings__item-heading">お住まいの都道府県</label>
                 <label class="settings__item-label">
                     ここで設定した都道府県をもとに、データ放送の地域情報（ニュース・天気予報など）が表示されます。<br>
@@ -117,57 +117,57 @@ export default defineComponent({
             // データ放送向け都道府県設定
             data_broadcasting_prefecture: '255-0b0' as string,
             data_broadcasting_prefectures: [
-                {text: '未設定', value: '255-0b0'},
-                {text: '西北海道', value: '2-0b000101101011'},
-                {text: '東北海道', value: '1-0b000101101011'},
-                {text: '青森県', value: '3-0b010001100111'},
-                {text: '岩手県', value: '4-0b010111010100'},
-                {text: '宮城県', value: '5-0b011101011000'},
-                {text: '秋田県', value: '6-0b101011000110'},
-                {text: '山形県', value: '7-0b111001001100'},
-                {text: '福島県', value: '8-0b000110101110'},
-                {text: '茨城県', value: '9-0b110001101001'},
-                {text: '栃木県', value: '10-0b111000111000'},
-                {text: '群馬県', value: '11-0b100110001011'},
-                {text: '埼玉県', value: '12-0b011001001011'},
-                {text: '千葉県', value: '13-0b000111000111'},
-                {text: '東京都 (島部を除く)', value: '14-0b101010101100'},
-                {text: '東京都島部 (伊豆・小笠原諸島)', value: '49-0b101010101100'},
-                {text: '神奈川県', value: '15-0b010101101100'},
-                {text: '新潟県', value: '16-0b010011001110'},
-                {text: '富山県', value: '17-0b010100111001'},
-                {text: '石川県', value: '18-0b011010100110'},
-                {text: '福井県', value: '19-0b100100101101'},
-                {text: '山梨県', value: '20-0b110101001010'},
-                {text: '長野県', value: '21-0b100111010010'},
-                {text: '岐阜県', value: '22-0b101001100101'},
-                {text: '静岡県', value: '23-0b101001011010'},
-                {text: '愛知県', value: '24-0b100101100110'},
-                {text: '三重県', value: '25-0b001011011100'},
-                {text: '滋賀県', value: '26-0b110011100100'},
-                {text: '京都府', value: '27-0b010110011010'},
-                {text: '大阪府', value: '28-0b110010110010'},
-                {text: '兵庫県', value: '29-0b011001110100'},
-                {text: '奈良県', value: '30-0b101010010011'},
-                {text: '和歌山県', value: '31-0b001110010110'},
-                {text: '鳥取県', value: '32-0b110100100011'},
-                {text: '島根県', value: '33-0b001100011011'},
-                {text: '岡山県', value: '34-0b001010110101'},
-                {text: '広島県', value: '35-0b101100110001'},
-                {text: '山口県', value: '36-0b101110011000'},
-                {text: '徳島県', value: '37-0b111001100010'},
-                {text: '香川県', value: '38-0b100110110100'},
-                {text: '愛媛県', value: '39-0b000110011101'},
-                {text: '高知県', value: '40-0b001011100011'},
-                {text: '福岡県', value: '41-0b011000101101'},
-                {text: '佐賀県', value: '42-0b100101011001'},
-                {text: '長崎県', value: '43-0b101000101011'},
-                {text: '熊本県', value: '44-0b100010100111'},
-                {text: '大分県', value: '45-0b110010001101'},
-                {text: '宮崎県', value: '46-0b110100011100'},
-                {text: '鹿児島県 (南西諸島を除く)', value: '47-0b110101000101'},
-                {text: '鹿児島県島部 (南西諸島の鹿児島県域)', value: '50-0b110101000101'},
-                {text: '沖縄県', value: '48-0b001101110010'},
+                {title: '未設定', value: '255-0b0'},
+                {title: '西北海道', value: '2-0b000101101011'},
+                {title: '東北海道', value: '1-0b000101101011'},
+                {title: '青森県', value: '3-0b010001100111'},
+                {title: '岩手県', value: '4-0b010111010100'},
+                {title: '宮城県', value: '5-0b011101011000'},
+                {title: '秋田県', value: '6-0b101011000110'},
+                {title: '山形県', value: '7-0b111001001100'},
+                {title: '福島県', value: '8-0b000110101110'},
+                {title: '茨城県', value: '9-0b110001101001'},
+                {title: '栃木県', value: '10-0b111000111000'},
+                {title: '群馬県', value: '11-0b100110001011'},
+                {title: '埼玉県', value: '12-0b011001001011'},
+                {title: '千葉県', value: '13-0b000111000111'},
+                {title: '東京都 (島部を除く)', value: '14-0b101010101100'},
+                {title: '東京都島部 (伊豆・小笠原諸島)', value: '49-0b101010101100'},
+                {title: '神奈川県', value: '15-0b010101101100'},
+                {title: '新潟県', value: '16-0b010011001110'},
+                {title: '富山県', value: '17-0b010100111001'},
+                {title: '石川県', value: '18-0b011010100110'},
+                {title: '福井県', value: '19-0b100100101101'},
+                {title: '山梨県', value: '20-0b110101001010'},
+                {title: '長野県', value: '21-0b100111010010'},
+                {title: '岐阜県', value: '22-0b101001100101'},
+                {title: '静岡県', value: '23-0b101001011010'},
+                {title: '愛知県', value: '24-0b100101100110'},
+                {title: '三重県', value: '25-0b001011011100'},
+                {title: '滋賀県', value: '26-0b110011100100'},
+                {title: '京都府', value: '27-0b010110011010'},
+                {title: '大阪府', value: '28-0b110010110010'},
+                {title: '兵庫県', value: '29-0b011001110100'},
+                {title: '奈良県', value: '30-0b101010010011'},
+                {title: '和歌山県', value: '31-0b001110010110'},
+                {title: '鳥取県', value: '32-0b110100100011'},
+                {title: '島根県', value: '33-0b001100011011'},
+                {title: '岡山県', value: '34-0b001010110101'},
+                {title: '広島県', value: '35-0b101100110001'},
+                {title: '山口県', value: '36-0b101110011000'},
+                {title: '徳島県', value: '37-0b111001100010'},
+                {title: '香川県', value: '38-0b100110110100'},
+                {title: '愛媛県', value: '39-0b000110011101'},
+                {title: '高知県', value: '40-0b001011100011'},
+                {title: '福岡県', value: '41-0b011000101101'},
+                {title: '佐賀県', value: '42-0b100101011001'},
+                {title: '長崎県', value: '43-0b101000101011'},
+                {title: '熊本県', value: '44-0b100010100111'},
+                {title: '大分県', value: '45-0b110010001101'},
+                {title: '宮崎県', value: '46-0b110100011100'},
+                {title: '鹿児島県 (南西諸島を除く)', value: '47-0b110101000101'},
+                {title: '鹿児島県島部 (南西諸島の鹿児島県域)', value: '50-0b110101000101'},
+                {title: '沖縄県', value: '48-0b001101110010'},
             ],
         };
     },
@@ -175,9 +175,10 @@ export default defineComponent({
         ...mapStores(useSettingsStore),
     },
     watch: {
-        data_broadcasting_zip_code(new_value: string) {
+        async data_broadcasting_zip_code(new_value: string) {
             // バリデーションチェック
-            if ((this.$refs.data_broadcasting_zip_code as any).validate() === false) {
+            // なぜか Vuetify のバリデーション機能を使うと一つ前の入力値のバリデーション結果が返ってきてしまう (?) ので、自前でチェックする
+            if (this.data_broadcasting_zip_code_validation(new_value) !== true) {
                 return;
             }
             // 郵便番号設定を LocalStorage に保存する

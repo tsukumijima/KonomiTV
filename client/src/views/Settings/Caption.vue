@@ -22,8 +22,8 @@
             <div class="settings__item settings__item--switch">
                 <label class="settings__item-heading" for="always_border_caption_text">字幕の文字を常に縁取りする</label>
                 <label class="settings__item-label" for="always_border_caption_text">
-                    字幕表示時、縁取りをオンにすると、字幕が見やすくきれいになります。とくに理由がなければ、オンにしておくのがおすすめです。<br>
-                    この設定がオフのときも、字幕データ側で縁取りが指定されていれば、オンのときと同様に縁取り付きで描画されます。<br>
+                    この設定をオンにすると、字幕の文字が縁取りされてより見やすくなります。とくに理由がなければ、オンにしておくのがおすすめです。<br>
+                    この設定がオフのときも、字幕データから明示的に縁取りが指定されている場合は、オンのときと同様に字幕の文字が縁取りされます。<br>
                 </label>
                 <v-switch class="settings__item-switch" color="primary" id="always_border_caption_text" hide-details
                     v-model="settingsStore.settings.always_border_caption_text">
@@ -33,7 +33,7 @@
                 <label class="settings__item-heading" for="specify_caption_opacity">字幕の不透明度を指定する</label>
                 <label class="settings__item-label" for="specify_caption_opacity">
                     字幕表示時、不透明度を自分で指定するか設定できます。<br>
-                    この設定がオフのときは、字幕データ側で指定されている不透明度で描画します。とくに理由がなければ、オフにしておくのがおすすめです。<br>
+                    この設定がオフのときは、字幕データから指定されている不透明度で描画します。とくに理由がなければ、オフにしておくのがおすすめです。<br>
                 </label>
                 <v-switch class="settings__item-switch" color="primary" id="specify_caption_opacity" hide-details
                     v-model="settingsStore.settings.specify_caption_opacity">
@@ -95,14 +95,14 @@ export default defineComponent({
 
             // 字幕のフォントの選択肢
             caption_font: [
-                {text: 'Windows TV ゴシック', value: 'Windows TV Gothic'},
-                {text: 'Windows TV 丸ゴシック', value: 'Windows TV MaruGothic'},
-                {text: 'Windows TV 太丸ゴシック', value: 'Windows TV FutoMaruGothic'},
-                {text: 'ヒラギノTV丸ゴ', value: 'Hiragino TV Sans Rd S'},
-                {text: '新丸ゴ ARIB', value: 'TT-ShinMGo-regular'},
-                {text: 'Rounded M+ 1m for ARIB', value: 'Rounded M+ 1m for ARIB'},
-                {text: 'Noto Sans JP', value: 'Noto Sans JP'},
-                {text: 'デフォルトのフォント', value: 'sans-serif'},
+                {title: 'Windows TV ゴシック', value: 'Windows TV Gothic'},
+                {title: 'Windows TV 丸ゴシック', value: 'Windows TV MaruGothic'},
+                {title: 'Windows TV 太丸ゴシック', value: 'Windows TV FutoMaruGothic'},
+                {title: 'ヒラギノTV丸ゴ', value: 'Hiragino TV Sans Rd S'},
+                {title: '新丸ゴ ARIB', value: 'TT-ShinMGo-regular'},
+                {title: 'Rounded M+ 1m for ARIB', value: 'Rounded M+ 1m for ARIB'},
+                {title: 'Noto Sans JP', value: 'Noto Sans JP'},
+                {title: 'デフォルトのフォント', value: 'sans-serif'},
             ],
         };
     },

@@ -1,7 +1,7 @@
 <template>
     <v-dialog max-width="770" transition="slide-y-transition" v-model="comment_mute_settings_modal">
         <v-card class="comment-mute-settings">
-            <v-card-title class="px-5 pt-5 pb-3 d-flex align-center font-weight-bold" style="height: 60px;">
+            <v-card-title class="px-5 pt-6 pb-3 d-flex align-center font-weight-bold" style="height: 60px;">
                 <Icon icon="heroicons-solid:filter" height="26px" />
                 <span class="ml-3">コメントのミュート設定</span>
                 <v-spacer></v-spacer>
@@ -9,7 +9,7 @@
                     <Icon icon="fluent:dismiss-12-filled" width="23px" height="23px" />
                 </div>
             </v-card-title>
-            <div class="px-5 pb-5">
+            <div class="px-5 pb-6">
                 <div class="text-subtitle-1 d-flex align-center font-weight-bold mt-4">
                     <Icon icon="fa-solid:sliders-h" width="24px" height="20px" />
                     <span class="ml-2">クイック設定</span>
@@ -87,7 +87,7 @@
                 <div class="text-subtitle-1 d-flex align-center font-weight-bold mt-4">
                     <Icon icon="fluent:comment-dismiss-20-filled" width="24px" />
                     <span class="ml-2 mr-2">ミュート済みのキーワード</span>
-                    <v-btn class="ml-auto" variant="flat"
+                    <v-btn class="ml-auto" color="background-lighten-1" variant="flat"
                         @click="settingsStore.settings.muted_comment_keywords.push({match: 'partial', pattern: ''})">
                         <Icon icon="fluent:add-12-filled" height="17px" />
                         <span class="ml-1">追加</span>
@@ -119,7 +119,7 @@
                 <div class="text-subtitle-1 d-flex align-center font-weight-bold mt-4">
                     <Icon icon="fluent:person-prohibited-20-filled" width="24px" />
                     <span class="ml-2 mr-2">ミュート済みのニコニコユーザー ID</span>
-                    <v-btn class="ml-auto" variant="flat"
+                    <v-btn class="ml-auto" color="background-lighten-1" variant="flat"
                         @click="settingsStore.settings.muted_niconico_user_ids.push('')">
                         <Icon icon="fluent:add-12-filled" height="17px" />
                         <span class="ml-1">追加</span>
@@ -172,11 +172,11 @@ export default defineComponent({
 
             // ミュート済みのキーワードのマッチタイプ
             muted_comment_keyword_match_type: [
-                {text: '部分一致', value: 'partial'},
-                {text: '前方一致', value: 'forward'},
-                {text: '後方一致', value: 'backward'},
-                {text: '完全一致', value: 'exact'},
-                {text: '正規表現', value: 'regex'},
+                {title: '部分一致', value: 'partial'},
+                {title: '前方一致', value: 'forward'},
+                {title: '後方一致', value: 'backward'},
+                {title: '完全一致', value: 'exact'},
+                {title: '正規表現', value: 'regex'},
             ],
         };
     },
@@ -290,7 +290,7 @@ export default defineComponent({
             margin-left: 12px;
             font-size: 14px;
             @include smartphone-vertical {
-                max-width: 115px;
+                max-width: 117px;
             }
         }
 

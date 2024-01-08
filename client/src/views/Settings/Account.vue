@@ -100,7 +100,7 @@
                             このデバイスの設定と、サーバーに保存されている設定が競合しています。<br>
                             一度上書きすると、元に戻すことはできません。慎重に選択してください。<br>
                         </v-card-text>
-                        <div class="d-flex flex-column px-4 pb-5 settings__conflict-dialog">
+                        <div class="d-flex flex-column px-4 pb-6 settings__conflict-dialog">
                             <v-btn class="settings__save-button text-error-lighten-1" color="background-lighten-1" variant="flat"
                                 @click="overrideServerSettingsFromClient()">
                                 <Icon icon="fluent:document-arrow-up-16-filled" class="mr-2" height="22px" />
@@ -161,7 +161,7 @@
                         :density="is_form_dense ? 'compact' : 'default'"
                         v-model="settings_password"
                         :type="settings_password_showing ? 'text' : 'password'"
-                        :append-icon="settings_password_showing ? 'mdi-eye' : 'mdi-eye-off'"
+                        :append-inner-icon="settings_password_showing ? 'mdi-eye' : 'mdi-eye-off'"
                         :rules="[settings_password_validation]"
                         @click:append="settings_password_showing = !settings_password_showing">
                     </v-text-field>
@@ -177,19 +177,17 @@
                         <b>アカウントに紐づくすべてのデータが削除されます。</b>元に戻すことはできません。<br>
                     </div>
                 </div>
+                <v-btn class="settings__save-button bg-error mt-5" variant="flat" @click="account_delete_confirm_dialog = true">
+                    <Icon icon="fluent:delete-16-filled" class="mr-2" height="24px" />アカウントを削除
+                </v-btn>
                 <v-dialog max-width="385" v-model="account_delete_confirm_dialog">
-                    <template v-slot:activator="{ props }">
-                        <v-btn class="settings__save-button bg-error mt-5" variant="flat" v-bind="props">
-                            <Icon icon="fluent:delete-16-filled" class="mr-2" height="24px" />アカウントを削除
-                        </v-btn>
-                    </template>
                     <v-card>
                         <v-card-title class="d-flex justify-center pt-6 font-weight-bold">本当にアカウントを削除しますか？</v-card-title>
                         <v-card-text class="pt-2 pb-0">
                             アカウントに紐づくすべてのデータが削除されます。元に戻すことはできません。<br>
                             本当にアカウントを削除しますか？
                         </v-card-text>
-                        <v-card-actions class="pt-4 px-6 pb-5">
+                        <v-card-actions class="pt-4 px-6 pb-6">
                             <v-spacer></v-spacer>
                             <v-btn color="text" variant="text" @click="account_delete_confirm_dialog = false">キャンセル</v-btn>
                             <v-btn color="error" variant="flat" @click="deleteAccount()">削除</v-btn>
@@ -204,6 +202,7 @@
 
 import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
+import { VForm } from 'vuetify/components';
 
 import Message from '@/message';
 import Settings from '@/services/Settings';
@@ -349,9 +348,9 @@ export default defineComponent({
             // すべてのバリデーションが通過したときのみ
             // ref: https://qiita.com/Hijiri_Ishi/items/56cac99c8f3806a6fa24
             if (update_type === 'username') {
-                if ((this.$refs.settings_username as any).validate() === false) return;
+                if ((await (this.$refs.settings_username as VForm).validate()).valid === false) return;
             } else {
-                if ((this.$refs.settings_password as any).validate() === false) return;
+                if ((await (this.$refs.settings_password as VForm).validate()).valid === false) return;
             }
 
             // アカウント情報の更新処理 (エラーハンドリングを含む) を実行

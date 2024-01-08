@@ -158,8 +158,9 @@ class Users {
     /**
      * 現在ログイン中のユーザーアカウントの情報を更新する
      * @param user_update_request ユーザー名 or パスワード
+     * @returns 更新に成功した場合は true
      */
-    static async updateUser(user_update_request: IUserUpdateRequest): Promise<void> {
+    static async updateUser(user_update_request: IUserUpdateRequest): Promise<boolean> {
 
         // API リクエストを実行
         const response = await APIClient.put('/users/me', user_update_request);
@@ -180,8 +181,10 @@ class Users {
                     break;
                 }
             }
-            return;
+            return false;
         }
+
+        return true;
     }
 
 

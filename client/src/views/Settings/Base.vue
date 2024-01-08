@@ -76,6 +76,7 @@ export default defineComponent({
     background: rgb(var(--v-theme-background)) !important;
     width: 100%;
     min-width: 0;
+    max-width: 1000px;
     @include smartphone-horizontal {
         padding: 16px 20px !important;
     }

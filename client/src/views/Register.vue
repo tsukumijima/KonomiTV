@@ -23,7 +23,7 @@
                             :density="is_form_dense ? 'compact' : 'default'"
                             v-model="password"
                             :type="password_showing ? 'text' : 'password'"
-                            :append-icon="password_showing ? 'mdi-eye' : 'mdi-eye-off'"
+                            :append-inner-icon="password_showing ? 'mdi-eye' : 'mdi-eye-off'"
                             :rules="[password_validation]"
                             @click:append="password_showing = !password_showing">
                         </v-text-field>
@@ -41,6 +41,7 @@
 
 import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
+import { VForm } from 'vuetify/components';
 
 import Header from '@/components/Header.vue';
 import Navigation from '@/components/Navigation.vue';
@@ -93,7 +94,7 @@ export default defineComponent({
 
             // すべてのバリデーションが通過したときのみ
             // ref: https://qiita.com/Hijiri_Ishi/items/56cac99c8f3806a6fa24
-            if ((this.$refs.register as any).validate() === false) return;
+            if ((await (this.$refs.register as VForm).validate()).valid === false) return;
             if (this.username === null || this.password === null) return;
 
             // アカウント作成 & ログイン処理 (エラーハンドリング含む) を実行

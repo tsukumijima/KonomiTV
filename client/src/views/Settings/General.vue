@@ -137,25 +137,25 @@ export default defineComponent({
 
             // デフォルトのパネルの表示状態の選択肢
             panel_display_state: [
-                {text: '前回の状態を復元する', value: 'RestorePreviousState'},
-                {text: '常に表示する', value: 'AlwaysDisplay'},
-                {text: '常に折りたたむ', value: 'AlwaysFold'},
+                {title: '前回の状態を復元する', value: 'RestorePreviousState'},
+                {title: '常に表示する', value: 'AlwaysDisplay'},
+                {title: '常に折りたたむ', value: 'AlwaysFold'},
             ],
 
             // テレビをみるときにデフォルトで表示されるパネルのタブの選択肢
             tv_panel_active_tab: [
-                {text: '番組情報タブ', value: 'Program'},
-                {text: 'チャンネルタブ', value: 'Channel'},
-                {text: 'コメントタブ', value: 'Comment'},
-                {text: 'Twitter タブ', value: 'Twitter'},
+                {title: '番組情報タブ', value: 'Program'},
+                {title: 'チャンネルタブ', value: 'Channel'},
+                {title: 'コメントタブ', value: 'Comment'},
+                {title: 'Twitter タブ', value: 'Twitter'},
             ],
 
             // ビデオをみるときにデフォルトで表示されるパネルのタブの選択肢
             video_panel_active_tab: [
-                {text: '番組情報タブ', value: 'RecordedProgram'},
-                {text: 'シリーズタブ', value: 'Series'},
-                {text: 'コメントタブ', value: 'Comment'},
-                {text: 'Twitter タブ', value: 'Twitter'},
+                {title: '番組情報タブ', value: 'RecordedProgram'},
+                {title: 'シリーズタブ', value: 'Series'},
+                {title: 'コメントタブ', value: 'Comment'},
+                {title: 'Twitter タブ', value: 'Twitter'},
             ],
 
             // 選択された設定データ (KonomiTV-Settings.json) が入る

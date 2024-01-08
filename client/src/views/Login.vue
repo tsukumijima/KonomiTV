@@ -22,7 +22,7 @@
                             :density="is_form_dense ? 'compact' : 'default'"
                             v-model="password"
                             :type="password_showing ? 'text' : 'password'"
-                            :append-icon="password_showing ? 'mdi-eye' : 'mdi-eye-off'"
+                            :append-inner-icon="password_showing ? 'mdi-eye' : 'mdi-eye-off'"
                             @click:append="password_showing = !password_showing">
                         </v-text-field>
                         <v-btn class="login-button mt-5" color="secondary" variant="flat" width="100%" height="56"

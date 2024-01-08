@@ -3,32 +3,39 @@
         <div class="navigation-container elevation-8">
             <nav class="navigation">
                 <div class="navigation-scroll">
-                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/tv/">
+                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/tv/"
+                        :class="{'navigation__link--active': $route.path.startsWith('/tv')}">
                         <Icon class="navigation__link-icon" icon="fluent:tv-20-regular" width="26px" />
                         <span class="navigation__link-text">テレビをみる</span>
                     </router-link>
-                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/videos/">
+                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/videos/"
+                        :class="{'navigation__link--active': $route.path.startsWith('/videos')}">
                         <Icon class="navigation__link-icon" icon="fluent:movies-and-tv-20-regular" width="26px" />
                         <span class="navigation__link-text">ビデオをみる</span>
                     </router-link>
-                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/timetable/">
+                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/timetable/"
+                        :class="{'navigation__link--active': $route.path.startsWith('/timetable')}">
                         <Icon class="navigation__link-icon" icon="fluent:calendar-ltr-20-regular" width="26px" />
                         <span class="navigation__link-text">番組表</span>
                     </router-link>
-                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/reserves/">
+                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/reserves/"
+                        :class="{'navigation__link--active': $route.path.startsWith('/reserves')}">
                         <Icon class="navigation__link-icon" icon="fluent:timer-16-regular" width="26px" style="padding: 0.5px;" />
                         <span class="navigation__link-text">録画予約</span>
                     </router-link>
-                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/mylist/">
+                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/mylist/"
+                        :class="{'navigation__link--active': $route.path.startsWith('/mylist')}">
                         <Icon class="navigation__link-icon" icon="ic:round-playlist-play" width="26px" />
                         <span class="navigation__link-text">マイリスト</span>
                     </router-link>
-                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/captures/">
+                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/captures/"
+                        :class="{'navigation__link--active': $route.path.startsWith('/captures')}">
                         <Icon class="navigation__link-icon" icon="fluent:image-multiple-24-regular" width="26px" />
                         <span class="navigation__link-text">キャプチャ</span>
                     </router-link>
                     <v-spacer></v-spacer>
-                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/settings/">
+                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/settings/"
+                        :class="{'navigation__link--active': $route.path.startsWith('/settings')}">
                         <Icon class="navigation__link-icon" icon="fluent:settings-20-regular" width="26px" />
                         <span class="navigation__link-text">設定</span>
                     </router-link>
