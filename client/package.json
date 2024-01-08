@@ -20,9 +20,9 @@
         "buffer": "^6.0.3",
         "comlink": "^4.4.1",
         "copy-image-clipboard": "^2.1.2",
-        "floating-vue": "^2.0.0-beta.24",
         "dayjs": "^1.11.10",
         "dplayer": "github:tsukumijima/DPlayer#v1.31.2",
+        "floating-vue": "^2.0.0-beta.24",
         "hls.js": "github:tsukumijima/hls.js#21275da882015871338b9da6350a5c18ec4efc5a",
         "mitt": "^3.0.1",
         "mpegts.js": "github:tsukumijima/mpegts.js#314d85c937463bcb50aa9d133812cb13b9c32286",
@@ -62,6 +62,7 @@
         "sass": "^1.69.7",
         "typescript": "~5.3.3",
         "vite": "^5.0.11",
+        "vite-plugin-comlink": "^4.0.2",
         "vite-plugin-pwa": "^0.17.4",
         "vite-plugin-vuetify": "^2.0.1",
         "vue-tsc": "^1.8.27"

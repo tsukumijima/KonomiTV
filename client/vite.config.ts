@@ -3,6 +3,7 @@ import { fileURLToPath, URL } from 'node:url';
 
 import vue from '@vitejs/plugin-vue';
 import { defineConfig } from 'vite';
+import { comlink } from 'vite-plugin-comlink';
 import { VitePWA } from 'vite-plugin-pwa';
 import vuetify, { transformAssetUrls } from 'vite-plugin-vuetify';
 
@@ -57,6 +58,7 @@ export default defineConfig({
     },
     // プラグインの設定
     plugins: [
+        comlink(),
         vue({
             template: {
                 transformAssetUrls: transformAssetUrls,
@@ -120,4 +122,10 @@ export default defineConfig({
             }
         }),
     ],
+    // Web Worker 上のプラグインの設定
+    worker: {
+        plugins: () => [
+            comlink(),
+        ]
+    }
 });
