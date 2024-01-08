@@ -122,4 +122,16 @@ const router = createRouter({
     }
 });
 
+// ルーティングの変更時に View Transitions API を適用する
+// ref: https://developer.mozilla.org/ja/docs/Web/API/View_Transitions_API
+router.beforeResolve((to, from, next) => {
+    if (document.startViewTransition) {
+        document.startViewTransition(() => {
+            next();
+        });
+    } else {
+        next();
+    }
+});
+
 export default router;
