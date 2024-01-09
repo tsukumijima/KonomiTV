@@ -1,8 +1,8 @@
 <template>
     <div class="route-container">
-        <Header/>
+        <HeaderBar />
         <main>
-            <Navigation/>
+            <Navigation />
             <v-card class="settings-container d-flex px-5 py-5 mx-auto" elevation="0" width="100%" max-width="1000">
                 <nav class="settings-navigation">
                     <h1 class="mt-2" style="font-size: 24px;">設定</h1>
@@ -62,14 +62,14 @@
 import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
 
-import Header from '@/components/Header.vue';
+import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
 import useVersionStore from '@/stores/VersionStore';
 
 export default defineComponent({
     name: 'Settings-Index',
     components: {
-        Header,
+        HeaderBar,
         Navigation,
     },
     computed: {

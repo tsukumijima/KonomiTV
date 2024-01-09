@@ -1,8 +1,8 @@
 <template>
     <div class="route-container">
-        <Header/>
+        <HeaderBar />
         <main>
-            <Navigation/>
+            <Navigation />
             <div class="d-flex justify-center align-center w-100">
                 <div class="d-flex justify-center align-center flex-column">
                     <h1>Not Found, or Under Development...</h1>
@@ -16,13 +16,13 @@
 
 import { defineComponent } from 'vue';
 
-import Header from '@/components/Header.vue';
+import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
 
 export default defineComponent({
     name: 'NotFound',
     components: {
-        Header,
+        HeaderBar,
         Navigation,
     },
 });

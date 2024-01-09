@@ -1,8 +1,8 @@
 <template>
     <div class="route-container">
-        <Header/>
+        <HeaderBar />
         <main>
-            <Navigation/>
+            <Navigation />
             <div class="channels-container channels-container--home" :class="{'channels-container--loading': is_loading}">
                 <v-tabs class="channels-tab" color="primary" align-tabs="center" height="51px" v-model="tab">
                     <v-tab class="channels-tab__item"
@@ -96,7 +96,7 @@
 import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
 
-import Header from '@/components/Header.vue';
+import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
 import Message from '@/message';
 import { ILiveChannel } from '@/services/Channels';
@@ -107,7 +107,7 @@ import Utils, { ChannelUtils, ProgramUtils } from '@/utils';
 export default defineComponent({
     name: 'TV-Home',
     components: {
-        Header,
+        HeaderBar,
         Navigation,
     },
     data() {

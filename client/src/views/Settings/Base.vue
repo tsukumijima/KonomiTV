@@ -1,8 +1,8 @@
 <template>
     <div class="route-container">
-        <Header/>
+        <HeaderBar />
         <main>
-            <Navigation/>
+            <Navigation />
             <div class="settings-container d-flex px-5 py-5 mx-auto" width="100%" max-width="1000">
                 <nav class="settings-navigation">
                     <h1 class="mt-2 ml-4" style="font-size: 24px;">設定</h1>
@@ -57,14 +57,14 @@
 
 import { defineComponent } from 'vue';
 
-import Header from '@/components/Header.vue';
+import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
 
 // 設定のベース画面なので、ロジックは基本置かない
 export default defineComponent({
     name: 'Settings-Base',
     components: {
-        Header,
+        HeaderBar,
         Navigation,
     }
 });

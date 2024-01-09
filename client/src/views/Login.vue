@@ -1,8 +1,8 @@
 <template>
     <div class="route-container">
-        <Header/>
+        <HeaderBar />
         <main>
-            <Navigation/>
+            <Navigation />
             <div class="login-container-wrapper d-flex align-center w-100 mb-13">
                 <v-card class="login-container px-10 pt-8 pb-11 mx-auto" elevation="10"
                     width="100%" max-width="450">
@@ -40,7 +40,7 @@
 import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
 
-import Header from '@/components/Header.vue';
+import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
 import Message from '@/message';
 import useUserStore from '@/stores/UserStore';
@@ -49,7 +49,7 @@ import Utils from '@/utils';
 export default defineComponent({
     name: 'Login',
     components: {
-        Header,
+        HeaderBar,
         Navigation,
     },
     data() {
