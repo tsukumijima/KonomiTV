@@ -129,6 +129,14 @@ body .route-container {
 
 // ***** Vuetify 3 のスタイルの上書き *****
 
+// font-weight を 400 から 500 に変更
+.v-list-item-title {
+    font-weight: 500 !important;
+}
+.v-input, .v-input__details {
+    font-weight: 500 !important;
+}
+
 // カードテキストのテキストスタイルを Vuetify 2 に合わせる
 .v-card-text {
     color: rgb(var(--v-theme-text-darken-1)) !important;
@@ -195,9 +203,6 @@ body .route-container {
 }
 
 // テキスト入力フォーム/セレクトボックスの density が compact のときのフォントサイズを Vuetify 2 に合わせる
-.v-input, .v-input__details {
-    font-weight: 500 !important;
-}
 .v-input--density-compact {
     input, .v-field {
         font-size: 14px !important;
