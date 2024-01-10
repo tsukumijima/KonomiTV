@@ -5,11 +5,11 @@
             <Navigation />
             <div class="channels-container channels-container--home" :class="{'channels-container--loading': is_loading}">
                 <div class="channels-tab">
-                    <button v-ripple class="channels-tab__item"
+                    <v-btn variant="flat" class="channels-tab__item"
                         v-for="([channels_type,], index) in Array.from(channelsStore.channels_list_with_pinned)" :key="channels_type"
                         @click="active_tab_index = index">
                         {{channels_type}}
-                    </button>
+                    </v-btn>
                     <div class="channels-tab__highlight"></div>
                 </div>
                 <Swiper class="channels-list" auto-height :space-between="32"
@@ -338,7 +338,9 @@ export default defineComponent({
             width: 98px;
             height: 100%;
             padding: 0;
+            border-radius: 2.5px;
             color: rgb(var(--v-theme-text)) !important;
+            background-color: transparent !important;
             font-size: 16px;
             letter-spacing: 0.0892857143em !important;
             text-transform: none;
@@ -378,14 +380,19 @@ export default defineComponent({
             padding-right: 8px;
         }
 
+        .swiper-slide {
+            display: flex;
+            flex-direction: column;
+            min-height: calc(100vh - var(--header-height) - var(--channels-tab-height) - var(--channels-list-padding-bottom) - var(--bottom-navigation-height));
+            min-height: calc(100dvh - var(--header-height) - var(--channels-tab-height) - var(--channels-list-padding-bottom) - var(--bottom-navigation-height));
+        }
+
         .channels {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(365px, 1fr));
             grid-row-gap: 12px;
             grid-column-gap: 16px;
             justify-content: center;
-            min-height: calc(100vh - var(--header-height) - var(--channels-tab-height) - var(--channels-list-padding-bottom) - var(--bottom-navigation-height));
-            min-height: calc(100dvh - var(--header-height) - var(--channels-tab-height) - var(--channels-list-padding-bottom) - var(--bottom-navigation-height));
             // 背後を通過する別のタブのアニメーションが写らないようにするのに必要
             background: rgb(var(--v-theme-background));
             // will-change を入れておく事で、アニメーションが GPU で処理される
@@ -425,6 +432,7 @@ export default defineComponent({
             &.channels--length-0.channels--tab-ピン留め {
                 display: flex;
                 justify-content: center !important;
+                flex-grow: 1;
             }
 
             // カードが横いっぱいに表示されてしまうのを回避する
