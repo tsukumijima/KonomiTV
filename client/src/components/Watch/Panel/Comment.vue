@@ -164,7 +164,7 @@ export default defineComponent({
 
         // コメントリストの要素を取得
         if (this.comment_list_element === null) {
-            this.comment_list_element = this.$el.querySelector('.comment-list')!;
+            this.comment_list_element = document.querySelector('.comment-list')!;
         }
 
         // 現在コメントリストがユーザーイベントでスクロールされているかどうか

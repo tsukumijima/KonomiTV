@@ -4,15 +4,18 @@
         <main>
             <Navigation />
             <div class="channels-container channels-container--home" :class="{'channels-container--loading': is_loading}">
-                <v-tabs class="channels-tab" color="primary" align-tabs="center" height="51px" v-model="tab">
-                    <v-tab class="channels-tab__item"
-                        v-for="[channels_type,] in Array.from(channelsStore.channels_list_with_pinned)" :key="channels_type">
+                <div class="channels-tab">
+                    <button v-ripple class="channels-tab__item"
+                        v-for="([channels_type,], index) in Array.from(channelsStore.channels_list_with_pinned)" :key="channels_type"
+                        @click="active_tab_index = index">
                         {{channels_type}}
-                    </v-tab>
-                </v-tabs>
-                <v-window class="channels-list" v-model="tab">
-                    <v-window-item class="channels-tabitem"
-                        v-for="[channels_type, channels] in Array.from(channelsStore.channels_list_with_pinned)" :key="channels_type">
+                    </button>
+                    <div class="channels-tab__highlight"></div>
+                </div>
+                <Swiper class="channels-list" auto-height :space-between="32"
+                    @swiper="swiper_instance = $event"
+                    @slide-change="active_tab_index = $event.activeIndex">
+                    <SwiperSlide v-for="[channels_type, channels] in Array.from(channelsStore.channels_list_with_pinned)" :key="channels_type">
                         <div class="channels" :class="`channels--tab-${channels_type} channels--length-${channels.length}`">
                             <router-link v-ripple class="channel"
                                 v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.display_channel_id}`">
@@ -85,8 +88,8 @@
                                 </div>
                             </div>
                         </div>
-                    </v-window-item>
-                </v-window>
+                    </SwiperSlide>
+                </Swiper>
             </div>
         </main>
     </div>
@@ -94,6 +97,9 @@
 <script lang="ts">
 
 import { mapStores } from 'pinia';
+import { Swiper as SwiperClass } from 'swiper';
+import { Swiper, SwiperSlide } from 'swiper/vue';
+import 'swiper/css';
 import { defineComponent } from 'vue';
 
 import HeaderBar from '@/components/HeaderBar.vue';
@@ -109,6 +115,8 @@ export default defineComponent({
     components: {
         HeaderBar,
         Navigation,
+        Swiper,
+        SwiperSlide,
     },
     data() {
         return {
@@ -118,8 +126,11 @@ export default defineComponent({
             ChannelUtils: Object.freeze(ChannelUtils),
             ProgramUtils: Object.freeze(ProgramUtils),
 
-            // タブの状態管理
-            tab: null as number | null,
+            // 現在アクティブなタブ
+            active_tab_index: 0 as number,
+
+            // Swiper のインスタンス
+            swiper_instance: null as SwiperClass | null,
 
             // ローディング中かどうか
             is_loading: true,
@@ -133,13 +144,22 @@ export default defineComponent({
     computed: {
         ...mapStores(useChannelsStore, useSettingsStore),
     },
+    watch: {
+        active_tab_index() {
+            // 現在なアクティブなタブを Swiper 側に随時反映する
+            // ローディング中のみスライドアニメーションを実行せずに即座に切り替える
+            this.swiper_instance?.slideTo(this.active_tab_index, this.is_loading === true ? 0 : undefined);
+            // タブのハイライトの位置を更新
+            this.updateTabHighlightPosition();
+        }
+    },
     // 開始時に実行
-    async created() {
+    async mounted() {
 
         // ピン留めされているチャンネルがないなら、タブを地デジタブに切り替える
         // ピン留めができる事を示唆するためにピン留めタブ自体は残す
         if (this.settingsStore.settings.pinned_channel_ids.length === 0) {
-            this.tab = 1;
+            this.active_tab_index = 1;
         }
 
         // 00秒までの残り秒数を取得
@@ -161,15 +181,15 @@ export default defineComponent({
         // チャンネル情報を更新 (初回)
         await this.channelsStore.update();
 
-        // 少しだけ待つ
-        // v-tabs-slider-wrapper をアニメーションさせないために必要
-        await Utils.sleep(0.01);
-
         // この時点でピン留めされているチャンネルがないなら、タブを地デジタブに切り替える
         // ピン留めされているチャンネル自体はあるが、現在放送されていないため表示できない場合に備える
         if (this.channelsStore.channels_list_with_pinned.get('ピン留め')?.length === 0) {
-            this.tab = 1;
+            this.active_tab_index = 1;
         }
+
+        // タブのハイライトの位置を更新し、少し待つ
+        this.updateTabHighlightPosition();
+        await Utils.sleep(0.01);  // 少し待たないとタブのハイライトがアニメーションされてしまう
 
         // チャンネル情報の更新が終わったタイミングでローディング状態を解除する
         this.is_loading = false;
@@ -184,6 +204,17 @@ export default defineComponent({
         }
     },
     methods: {
+
+        // タブのハイライトの位置を更新
+        updateTabHighlightPosition() {
+            const tabs = document.querySelectorAll<HTMLButtonElement>('.channels-tab__item');
+            const highlight = document.querySelector<HTMLDivElement>('.channels-tab__highlight');
+            if (tabs.length > 0 && highlight) {
+                const tab = tabs[this.active_tab_index];
+                highlight.style.width = `${tab.offsetWidth}px`;
+                highlight.style.transform = `translateX(${tab.offsetLeft}px)`;
+            }
+        },
 
         // チャンネルをピン留めする
         addPinnedChannel(channel: ILiveChannel) {
@@ -205,7 +236,7 @@ export default defineComponent({
 
             // この時点でピン留めされているチャンネルがないなら、タブを地デジタブに切り替える
             if (this.channelsStore.channels_list_with_pinned.get('ピン留め')?.length === 0) {
-                this.tab = 1;
+                this.active_tab_index = 1;
             }
 
             // ピン留めを外したチャンネルを通知
@@ -220,37 +251,12 @@ export default defineComponent({
 });
 
 </script>
-<style lang="scss">
-
-// 上書きしたいスタイル
-.channels-container.channels-container--home {
-    .v-slide-group__container {
-        // 下線を引く
-        background: linear-gradient(to bottom, rgb(var(--v-theme-background)) calc(100% - 3px), rgb(var(--v-theme-background-lighten-1)) 3px);
-    }
-    .v-tab__slider {
-        height: 3px !important;
-        color: rgb(var(--v-theme-primary)) !important;
-        transition: left 0.3s cubic-bezier(0.25, 0.8, 0.5, 1);
-    }
-    .v-window__container {
-        // 1px はスクロールバーを表示させるためのもの
-        min-height: calc(100vh - 65px - 88px + 1px);
-        min-height: calc(100dvh - 65px - 88px + 1px);
-        // タッチデバイスではスクロールバーを気にする必要がないので無効化
-        @media (hover: none) {
-            min-height: auto;
-        }
-    }
-}
-
-</style>
 <style lang="scss" scoped>
 
 .channels-container {
     display: flex;
     flex-direction: column;
-    width: 100%;
+    min-width: 0;  // magic!
     margin-left: 21px;
     margin-right: 21px;
     opacity: 1;
@@ -262,36 +268,81 @@ export default defineComponent({
 
     &--loading {
         opacity: 0;
+
+        // ローディング中はタブのハイライトのアニメーションを無効にする
+        .channels-tab__highlight {
+            transition: none !important;
+        }
+    }
+
+    // レスポンシブに変化する各要素の高さを定義
+    // 実装上一部の要素の height を 100dvh から自分以外の要素の高さを引く形で実装しなければならないため、CSS 変数にまとめている
+    --header-height: 65px;
+    --channels-tab-height: 68px;
+    --channels-list-padding-bottom: 20px;
+    --bottom-navigation-height: 0px;
+    @include smartphone-horizontal {
+        --header-height: 0px;
+        --channels-tab-height: 54px;
+        --channels-list-padding-bottom: 12px;
+        --bottom-navigation-height: 0px;
+    }
+    @include smartphone-vertical {
+        --header-height: 0px;
+        --channels-tab-height: 64px;
+        --channels-list-padding-bottom: 12px;
+        --bottom-navigation-height: 56px;
     }
 
     .channels-tab {
+        --channels-tab-padding-bottom: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         position: sticky;
         flex: none;
-        top: 65px;  // ヘッダーの高さ分
+        top: 65px;
+        height: var(--channels-tab-height);
         padding-top: 5px;
-        padding-bottom: 12px;
+        padding-bottom: var(--channels-tab-padding-bottom);
         background: rgb(var(--v-theme-background));
-        box-sizing: content-box;
-        z-index: 1;
+        box-sizing: border-box;
+        z-index: 5;
+
+        // 下線を引く
+        background: linear-gradient(
+            to bottom,
+            rgb(var(--v-theme-background)) calc(100% - calc(var(--channels-tab-padding-bottom) + 3px)),
+            rgb(var(--v-theme-background-lighten-1))
+                calc(100% - calc(var(--channels-tab-padding-bottom) + 3px))
+                calc(100% - var(--channels-tab-padding-bottom)),
+            rgb(var(--v-theme-background)) calc(100% - 12px)
+        );
 
         @include smartphone-horizontal {
             top: 0px;
             padding-top: 0px;
-            padding-bottom: 8px;
+            --channels-tab-padding-bottom: 8px;
         }
         @include smartphone-vertical {
             top: 0px;
             padding-top: 0px;
-            padding-bottom: 10px;
+            --channels-tab-padding-bottom: 10px;
         }
 
         .channels-tab__item {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 90px;
             width: 98px;
+            height: 100%;
             padding: 0;
             color: rgb(var(--v-theme-text)) !important;
             font-size: 16px;
             letter-spacing: 0.0892857143em !important;
             text-transform: none;
+            cursor: pointer;
             @include smartphone-horizontal {
                 font-size: 15px;
             }
@@ -300,19 +351,31 @@ export default defineComponent({
                 font-size: 15px;
             }
         }
+
+        .channels-tab__highlight {
+            position: absolute;
+            bottom: var(--channels-tab-padding-bottom);
+            left: 0;
+            width: 0;
+            height: 3px;
+            background: rgb(var(--v-theme-primary));
+            transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.5, 1);
+            transform: translateX(0);
+            will-change: transform;
+        }
     }
 
     .channels-list {
-        padding-bottom: 20px;
+        width: 100%;
+        // タブとボトムナビゲーション分の高さを引き、スクロールバーが出るよう 1px 足す
+        min-height: calc(100% - var(--channels-tab-height) + var(--bottom-navigation-height) + 1px);
+        padding-bottom: var(--channels-list-padding-bottom);
         background: transparent !important;
         overflow: hidden;
-        @include smartphone-horizontal {
-            padding-bottom: 12px;
-        }
+
         @include smartphone-vertical {
             padding-left: 8px;
             padding-right: 8px;
-            padding-bottom: 12px;
         }
 
         .channels {
@@ -321,28 +384,36 @@ export default defineComponent({
             grid-row-gap: 12px;
             grid-column-gap: 16px;
             justify-content: center;
+            min-height: calc(100vh - var(--header-height) - var(--channels-tab-height) - var(--channels-list-padding-bottom) - var(--bottom-navigation-height));
+            min-height: calc(100dvh - var(--header-height) - var(--channels-tab-height) - var(--channels-list-padding-bottom) - var(--bottom-navigation-height));
             // 背後を通過する別のタブのアニメーションが写らないようにするのに必要
             background: rgb(var(--v-theme-background));
             // will-change を入れておく事で、アニメーションが GPU で処理される
             will-change: transform;
+
             @include tablet-vertical {
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-start;
                 grid-row-gap: 10px;
-                grid-template-columns: 1fr;
             }
             @include smartphone-horizontal {
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-start;
                 grid-row-gap: 8px;
-                grid-template-columns: 1fr;
             }
             @include smartphone-vertical {
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-start;
                 grid-row-gap: 10px;
-                grid-template-columns: 1fr;
             }
 
             // チャンネルリストでの content-visibility: auto; はちょっと描画上の副作用もあるので、
             // パフォーマンス向上が顕著なスマホ・タブレット (タッチデバイス) のみに適用する
             @media (hover: none) {
                 content-visibility: auto;
-                contain-intrinsic-height: 2000px;  // だいたい 2000px 分の高さを確保
             }
 
             // 1630px 以上で幅を 445px に固定
@@ -353,12 +424,7 @@ export default defineComponent({
             // ピン留めされているチャンネルがないとき
             &.channels--length-0.channels--tab-ピン留め {
                 display: flex;
-                min-height: calc(100vh - 65px - 116px + 1px);
-                min-height: calc(100dvh - 65px - 116px + 1px);
-                @include smartphone-horizontal {
-                    min-height: calc(100vh - 54px - 12px);
-                    min-height: calc(100dvh - 54px - 12px);
-                }
+                justify-content: center !important;
             }
 
             // カードが横いっぱいに表示されてしまうのを回避する
@@ -419,10 +485,11 @@ export default defineComponent({
                 overflow: hidden;  // progressbar を切り抜くために必要
                 text-decoration: none;
                 user-select: none;
+                box-sizing: border-box;
                 cursor: pointer;
                 // content-visibility: auto; を付与するだけでスマホでの描画パフォーマンスが大幅に向上する
                 content-visibility: auto;
-                contain-intrinsic-height: 233px;
+                contain-intrinsic-height: auto 233px;
 
                 // 1列表示
                 @media (max-width: 1007.9px) {
@@ -433,21 +500,21 @@ export default defineComponent({
                     padding-top: 12px;
                     height: auto;
                     border-radius: 11px;
-                    contain-intrinsic-height: 162.25px;
+                    contain-intrinsic-height: auto 162.25px;
                 }
                 @include smartphone-horizontal {
                     padding: 12px 14px;
                     padding-top: 10px;
                     height: auto;
                     border-radius: 11px;
-                    contain-intrinsic-height: 125px;
+                    contain-intrinsic-height: auto 125px;
                 }
                 @include smartphone-vertical {
                     padding: 12px 14px;
                     padding-top: 10px;
                     height: auto;
                     border-radius: 11px;
-                    contain-intrinsic-height: 162.25px;
+                    contain-intrinsic-height: auto 162.25px;
                 }
 
                 &:hover {
@@ -843,7 +910,6 @@ export default defineComponent({
             }
         }
         @include smartphone-horizontal {
-            padding-top: 12px;
             h2 {
                 font-size: 21px !important;
             }
@@ -870,9 +936,6 @@ export default defineComponent({
             }
         }
         @include smartphone-vertical {
-            min-height: calc(100vh - 56px - 64px - 12px);
-            min-height: calc(100dvh - 56px - 64px - 12px);
-            padding-top: 12px;
             br {
                 display: inline;
             }

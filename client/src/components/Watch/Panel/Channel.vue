@@ -185,9 +185,9 @@ export default defineComponent({
                 // パフォーマンス向上が顕著なスマホ・タブレット (タッチデバイス) のみに適用する
                 @media (hover: none) {
                     content-visibility: auto;
-                    contain-intrinsic-size: 319.3px 2000px;  // だいたい 2000px 分の高さを確保
+                    contain-intrinsic-width: auto 319.3px;
                     @include smartphone-horizontal {
-                        contain-intrinsic-size: 277.3px 2000px;
+                        contain-intrinsic-width: auto 277.3px;
                     }
                 }
 
@@ -212,7 +212,7 @@ export default defineComponent({
                     cursor: pointer;
                     // content-visibility: auto; を付与するだけでスマホでの描画パフォーマンスが大幅に向上する
                     content-visibility: auto;
-                    contain-intrinsic-size: 295.3px 137.3px;
+                    contain-intrinsic-size: auto 295.3px auto 137.3px;
 
                     &:first-of-type {
                         margin-top: 0px;
@@ -221,13 +221,13 @@ export default defineComponent({
                         margin-top: 8px;
                         padding: 8px 12px 12px 12px;
                         border-radius: 8px;
-                        contain-intrinsic-size: 253.3px 107.2px;
+                        contain-intrinsic-size: auto 253.3px auto 107.2px;
                     }
                     @include smartphone-vertical {
                         margin-top: 8px;
                         padding: 8px 12px 12px 12px;
                         border-radius: 8px;
-                        contain-intrinsic-size: 253.3px 107.2px;
+                        contain-intrinsic-size: auto 253.3px auto 107.2px;
                     }
 
                     &:hover {

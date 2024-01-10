@@ -491,7 +491,7 @@ export default defineComponent({
         addCaptureList(blob: Blob, filename: string) {
 
             if (this.captures_element === null) {
-                this.captures_element = this.$el.querySelector('.tab-content--capture')!;
+                this.captures_element = document.querySelector('.tab-content--capture')!;
             }
 
             // 撮ったキャプチャが 100 枚を超えていたら、重くなるので古いものから削除する
