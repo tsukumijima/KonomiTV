@@ -1,61 +1,74 @@
 <template>
     <div class="channels-container channels-container--watch">
-        <v-tabs class="channels-tab" color="primary" align-tabs="center" show-arrows v-model="tab">
-            <v-tab class="channels-tab__item"
-                v-for="[channels_type,] in Array.from(channelsStore.channels_list_with_pinned_for_watch)" :key="channels_type">
-                {{channels_type}}
-            </v-tab>
-        </v-tabs>
+        <div class="channels-tab">
+            <div class="channels-tab__buttons" :style="{
+                '--tab-length': Array.from(channelsStore.channels_list_with_pinned_for_watch).length,
+                '--active-tab-index': active_tab_index,
+            }">
+                <v-btn variant="flat" class="channels-tab__button"
+                    v-for="([channels_type,], index) in Array.from(channelsStore.channels_list_with_pinned_for_watch)" :key="channels_type"
+                    @click="active_tab_index = index">
+                    {{channels_type}}
+                </v-btn>
+                <div class="channels-tab__highlight"></div>
+            </div>
+        </div>
         <div class="channels-list-container">
-             <v-window class="channels-list" v-model="tab">
-                <v-window-item class="channels"
-                    v-for="[channels_type, channels] in Array.from(channelsStore.channels_list_with_pinned_for_watch)" :key="channels_type">
-                    <router-link v-ripple class="channel" v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.display_channel_id}`">
-                        <!-- 以下では Icon コンポーネントを使うとチャンネルが多いときに高負荷になるため、意図的に SVG を直書きしている -->
-                        <div class="channel__broadcaster">
-                            <img class="channel__broadcaster-icon" :src="`${Utils.api_base_url}/channels/${channel.id}/logo`">
-                            <div class="channel__broadcaster-content">
-                                <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.name}}</span>
-                                <div class="channel__broadcaster-force"
-                                    :class="`channel__broadcaster-force--${ChannelUtils.getChannelForceType(channel.jikkyo_force)}`">
-                                    <svg class="iconify iconify--fa-solid" width="9.63px" height="11px" viewBox="0 0 448 512">
-                                        <path fill="currentColor" d="M323.56 51.2c-20.8 19.3-39.58 39.59-56.22 59.97C240.08 73.62 206.28 35.53 168 0C69.74 91.17 0 209.96 0 281.6C0 408.85 100.29 512 224 512s224-103.15 224-230.4c0-53.27-51.98-163.14-124.44-230.4zm-19.47 340.65C282.43 407.01 255.72 416 226.86 416C154.71 416 96 368.26 96 290.75c0-38.61 24.31-72.63 72.79-130.75c6.93 7.98 98.83 125.34 98.83 125.34l58.63-66.88c4.14 6.85 7.91 13.55 11.27 19.97c27.35 52.19 15.81 118.97-33.43 153.42z"></path>
-                                    </svg>
-                                    <span class="ml-1">{{channel.jikkyo_force ?? '--'}}</span>
+            <Swiper class="channels-list" auto-height :space-between="32"
+                @swiper="swiper_instance = $event"
+                @slide-change="active_tab_index = $event.activeIndex">
+                <SwiperSlide v-for="[channels_type, channels] in Array.from(channelsStore.channels_list_with_pinned_for_watch)" :key="channels_type">
+                    <div class="channels">
+                        <router-link v-ripple class="channel" v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.display_channel_id}`">
+                            <!-- 以下では Icon コンポーネントを使うとチャンネルが多いときに高負荷になるため、意図的に SVG を直書きしている -->
+                            <div class="channel__broadcaster">
+                                <img class="channel__broadcaster-icon" :src="`${Utils.api_base_url}/channels/${channel.id}/logo`">
+                                <div class="channel__broadcaster-content">
+                                    <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.name}}</span>
+                                    <div class="channel__broadcaster-force"
+                                        :class="`channel__broadcaster-force--${ChannelUtils.getChannelForceType(channel.jikkyo_force)}`">
+                                        <svg class="iconify iconify--fa-solid" width="9.63px" height="11px" viewBox="0 0 448 512">
+                                            <path fill="currentColor" d="M323.56 51.2c-20.8 19.3-39.58 39.59-56.22 59.97C240.08 73.62 206.28 35.53 168 0C69.74 91.17 0 209.96 0 281.6C0 408.85 100.29 512 224 512s224-103.15 224-230.4c0-53.27-51.98-163.14-124.44-230.4zm-19.47 340.65C282.43 407.01 255.72 416 226.86 416C154.71 416 96 368.26 96 290.75c0-38.61 24.31-72.63 72.79-130.75c6.93 7.98 98.83 125.34 98.83 125.34l58.63-66.88c4.14 6.85 7.91 13.55 11.27 19.97c27.35 52.19 15.81 118.97-33.43 153.42z"></path>
+                                        </svg>
+                                        <span class="ml-1">{{channel.jikkyo_force ?? '--'}}</span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="channel__program-present">
-                            <span class="channel__program-present-title"
-                                v-html="ProgramUtils.decorateProgramInfo(channel.program_present, 'title')">
-                            </span>
-                            <span class="channel__program-present-time">{{ProgramUtils.getProgramTime(channel.program_present)}}</span>
-                        </div>
-                        <div class="channel__program-following">
-                            <div class="channel__program-following-title">
-                                <span class="channel__program-following-title-decorate">NEXT</span>
-                                <svg class="channel__program-following-title-icon iconify iconify--fluent" width="16px" height="16px" viewBox="0 0 20 20">
-                                    <path fill="currentColor" d="M10.018 5.486a1 1 0 0 1 1.592-.806l5.88 4.311a1.25 1.25 0 0 1 0 2.017l-5.88 4.311a1 1 0 0 1-1.592-.806v-3.16L4.61 15.319a1 1 0 0 1-1.592-.806V5.486A1 1 0 0 1 4.61 4.68l5.408 3.966v-3.16Z"></path>
-                                </svg>
-                                <span class="channel__program-following-title-text"
-                                    v-html="ProgramUtils.decorateProgramInfo(channel.program_following, 'title')">
+                            <div class="channel__program-present">
+                                <span class="channel__program-present-title"
+                                    v-html="ProgramUtils.decorateProgramInfo(channel.program_present, 'title')">
                                 </span>
+                                <span class="channel__program-present-time">{{ProgramUtils.getProgramTime(channel.program_present)}}</span>
                             </div>
-                            <span class="channel__program-following-time">{{ProgramUtils.getProgramTime(channel.program_following)}}</span>
-                        </div>
-                        <div class="channel__progressbar">
-                            <div class="channel__progressbar-progress"
-                                 :style="`width:${ProgramUtils.getProgramProgress(channel.program_present)}%;`"></div>
-                        </div>
-                    </router-link>
-                </v-window-item>
-             </v-window>
+                            <div class="channel__program-following">
+                                <div class="channel__program-following-title">
+                                    <span class="channel__program-following-title-decorate">NEXT</span>
+                                    <svg class="channel__program-following-title-icon iconify iconify--fluent" width="16px" height="16px" viewBox="0 0 20 20">
+                                        <path fill="currentColor" d="M10.018 5.486a1 1 0 0 1 1.592-.806l5.88 4.311a1.25 1.25 0 0 1 0 2.017l-5.88 4.311a1 1 0 0 1-1.592-.806v-3.16L4.61 15.319a1 1 0 0 1-1.592-.806V5.486A1 1 0 0 1 4.61 4.68l5.408 3.966v-3.16Z"></path>
+                                    </svg>
+                                    <span class="channel__program-following-title-text"
+                                        v-html="ProgramUtils.decorateProgramInfo(channel.program_following, 'title')">
+                                    </span>
+                                </div>
+                                <span class="channel__program-following-time">{{ProgramUtils.getProgramTime(channel.program_following)}}</span>
+                            </div>
+                            <div class="channel__progressbar">
+                                <div class="channel__progressbar-progress"
+                                    :style="`width:${ProgramUtils.getProgramProgress(channel.program_present)}%;`"></div>
+                            </div>
+                        </router-link>
+                    </div>
+                </SwiperSlide>
+             </Swiper>
         </div>
     </div>
 </template>
 <script lang="ts">
 
 import { mapStores } from 'pinia';
+import { Swiper as SwiperClass } from 'swiper';
+import { Swiper, SwiperSlide } from 'swiper/vue';
+import 'swiper/css';
 import { defineComponent } from 'vue';
 
 import useChannelsStore from '@/stores/ChannelsStore';
@@ -63,6 +76,10 @@ import Utils, { ChannelUtils, ProgramUtils } from '@/utils';
 
 export default defineComponent({
     name: 'Panel-ChannelTab',
+    components: {
+        Swiper,
+        SwiperSlide,
+    },
     data() {
         return {
 
@@ -71,12 +88,21 @@ export default defineComponent({
             ChannelUtils: Object.freeze(ChannelUtils),
             ProgramUtils: Object.freeze(ProgramUtils),
 
-            // タブの状態管理
-            tab: null as number | null,
+            // 現在アクティブなタブ
+            active_tab_index: 0 as number,
+
+            // Swiper のインスタンス
+            swiper_instance: null as SwiperClass | null,
         };
     },
     computed: {
         ...mapStores(useChannelsStore),
+    },
+    watch: {
+        active_tab_index() {
+            // 現在なアクティブなタブを Swiper 側に随時反映する
+            this.swiper_instance?.slideTo(this.active_tab_index);
+        }
     }
 });
 
@@ -107,52 +133,90 @@ export default defineComponent({
 .channels-container {
     display: flex;
     flex-direction: column;
+    min-width: 0;  // magic!
 
     .channels-tab {
-        flex: none;
+        --channels-tab-padding-bottom: 14px;
+        display: flex;
+        align-items: center;
         position: sticky;
+        flex: none;
         top: 0px;
-        height: 42px;
-        padding-left: 16px;
-        padding-right: 16px;
-        padding-bottom: 14px;
+        height: 56px;
+        margin-left: 16px;
+        margin-right: 16px;
+        padding-bottom: var(--channels-tab-padding-bottom);
         background: rgb(var(--v-theme-background));
-        box-sizing: content-box;
-        z-index: 1;
+        box-sizing: border-box;
+        z-index: 5;
+
+        // 下線を引く
+        background: linear-gradient(
+            to bottom,
+            rgb(var(--v-theme-background)) calc(100% - calc(var(--channels-tab-padding-bottom) + 3px)),
+            rgb(var(--v-theme-background-lighten-1))
+                calc(100% - calc(var(--channels-tab-padding-bottom) + 3px))
+                calc(100% - var(--channels-tab-padding-bottom)),
+            rgb(var(--v-theme-background)) calc(100% - 12px)
+        );
+
         @include tablet-vertical {
-            height: 50px;
+            height: 60px;
             padding-left: 24px;
             padding-right: 24px;
-            padding-bottom: 10px;
+            --channels-tab-padding-bottom: 10px;
         }
         @include smartphone-horizontal {
-            height: 44px;
-            padding-bottom: 8px;
+            height: 52px;
             margin-top: 0px;
+            --channels-tab-padding-bottom: 8px;
         }
         @include smartphone-vertical {
-            height: 46px;
-            padding-bottom: 8px;
+            height: 54px;
             margin-top: 0px;
+            --channels-tab-padding-bottom: 8px;
         }
 
-        .channels-tab__item {
-            min-width: 72px !important;
-            height: 42px;
-            padding: 0 8px;
-            color: rgb(var(--v-theme-text)) !important;
-            font-size: 15px;
-            letter-spacing: 0.0892857143em !important;
-            text-transform: none;
-            @include tablet-vertical {
-                height: 50px;
+        .channels-tab__buttons {
+            display: flex;
+            position: relative;
+            align-items: center;
+            max-width: 100%;
+            height: 100%;
+            margin-left: auto;
+            margin-right: auto;
+            overflow-x: auto;
+            overflow-y: clip;
+
+            .channels-tab__button {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 82px;
+                height: 100%;
+                padding: 0 8px;
+                border-radius: 2.5px;
+                color: rgb(var(--v-theme-text)) !important;
+                background-color: transparent !important;
+                font-size: 15px;
+                letter-spacing: 0.0892857143em !important;
+                text-transform: none;
+                cursor: pointer;
+                @include smartphone-horizontal {
+                    font-size: 14.5px;
+                }
             }
-            @include smartphone-horizontal {
-                height: 44px;
-                font-size: 14.5px;
-            }
-            @include smartphone-vertical {
-                height: 46px;
+
+            .channels-tab__highlight {
+                position: absolute;
+                left: 0;
+                bottom: 0;
+                width: calc(100% / var(--tab-length, 0));
+                height: 3px;
+                background: rgb(var(--v-theme-primary));
+                transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.5, 1);
+                transform: translateX(calc(100% * var(--active-tab-index, 0)));
+                will-change: transform;
             }
         }
     }
