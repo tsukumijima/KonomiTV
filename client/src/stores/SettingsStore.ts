@@ -13,10 +13,10 @@ export const VIDEO_STREAMING_QUALITIES: VideoStreamingQuality[] = ['1080p-60fps'
 
 // LocalStorage に保存される KonomiTV の設定データ
 interface ILocalClientSettings {
-    pinned_channel_ids: string[];
     showed_panel_last_time: boolean;
     selected_twitter_account_id: number | null;
     saved_twitter_hashtags: string[];
+    pinned_channel_ids: string[];
     panel_display_state: 'RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold';
     tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
     video_panel_active_tab: 'RecordedProgram' | 'Series' | 'Comment' | 'Twitter';
@@ -39,21 +39,21 @@ interface ILocalClientSettings {
     video_show_superimpose: boolean;
     tv_show_data_broadcasting: boolean;
     enable_internet_access_from_data_broadcasting: boolean;
-    capture_copy_to_clipboard: boolean;
     capture_save_mode: 'Browser' | 'UploadServer' | 'Both';
     capture_caption_mode: 'VideoOnly' | 'CompositingCaption' | 'Both';
+    capture_copy_to_clipboard: boolean;
     sync_settings: boolean;
     comment_speed_rate: number;
     comment_font_size: number;
     close_comment_form_after_sending: boolean;
-    muted_comment_keywords: IMutedCommentKeywords[];
-    muted_niconico_user_ids: string[];
     mute_vulgar_comments: boolean;
     mute_abusive_discriminatory_prejudiced_comments: boolean;
     mute_big_size_comments: boolean;
     mute_fixed_comments: boolean;
     mute_colored_comments: boolean;
     mute_consecutive_same_characters_comments: boolean;
+    muted_comment_keywords: IMutedCommentKeywords[];
+    muted_niconico_user_ids: string[];
     fold_panel_after_sending_tweet: boolean;
     reset_hashtag_when_program_switches: boolean;
     auto_add_watching_channel_hashtag: boolean;
@@ -66,10 +66,10 @@ interface ILocalClientSettings {
 // サーバー側の app.schemas.ClientSettings と
 // client/src/services/Settings.ts 内の IClientSettings で定義されているものと同じ
 const sync_settings_keys = [
-    'pinned_channel_ids',
     // showed_panel_last_time: 同期無効
     // selected_twitter_account_id: 同期無効
     'saved_twitter_hashtags',
+    'pinned_channel_ids',
     'panel_display_state',
     'tv_panel_active_tab',
     'video_panel_active_tab',
@@ -92,21 +92,21 @@ const sync_settings_keys = [
     'video_show_superimpose',
     // tv_show_data_broadcasting: 同期無効
     // enable_internet_access_from_data_broadcasting: 同期無効
-    // capture_copy_to_clipboard: 同期無効
     'capture_save_mode',
     'capture_caption_mode',
+    // capture_copy_to_clipboard: 同期無効
     // sync_settings: 同期無効
     'comment_speed_rate',
     'comment_font_size',
     'close_comment_form_after_sending',
-    'muted_comment_keywords',
-    'muted_niconico_user_ids',
     'mute_vulgar_comments',
     'mute_abusive_discriminatory_prejudiced_comments',
     'mute_big_size_comments',
     'mute_fixed_comments',
     'mute_colored_comments',
     'mute_consecutive_same_characters_comments',
+    'muted_comment_keywords',
+    'muted_niconico_user_ids',
     'fold_panel_after_sending_tweet',
     'reset_hashtag_when_program_switches',
     'auto_add_watching_channel_hashtag',
@@ -120,8 +120,6 @@ const default_settings: ILocalClientSettings = {
 
     // ***** 設定画面から直接変更できない設定値 *****
 
-    // ピン留めしているチャンネルの ID (ex: gr011) が入るリスト
-    pinned_channel_ids: [],
     // 前回視聴画面を開いた際にパネルが表示されていたかどうか (同期無効)
     showed_panel_last_time: true,
     // 現在ツイート対象として選択されている Twitter アカウントの ID (同期無効)
@@ -131,6 +129,8 @@ const default_settings: ILocalClientSettings = {
 
     // ***** 設定 → 全般 *****
 
+    // ピン留めしているチャンネルの ID (ex: gr011) が入るリスト
+    pinned_channel_ids: [],
     // デフォルトのパネルの表示状態 (Default: 前回の状態を復元する)
     panel_display_state: 'RestorePreviousState',
     // テレビをみるときにデフォルトで表示されるパネルのタブ (Default: 番組情報タブ)
@@ -189,12 +189,12 @@ const default_settings: ILocalClientSettings = {
 
     // ***** 設定 → キャプチャ *****
 
-    // キャプチャをクリップボードにコピーする (Default: 無効) (同期無効)
-    capture_copy_to_clipboard: false,
     // キャプチャの保存先 (Default: KonomiTV サーバーにアップロード)
     capture_save_mode: 'UploadServer',
     // 字幕が表示されているときのキャプチャの保存モード (Default: 映像のみのキャプチャと、字幕を合成したキャプチャを両方保存する)
     capture_caption_mode: 'Both',
+    // キャプチャをクリップボードにコピーする (Default: 無効) (同期無効)
+    capture_copy_to_clipboard: false,
 
     // ***** 設定 → アカウント *****
 
@@ -212,10 +212,6 @@ const default_settings: ILocalClientSettings = {
 
     // ***** 設定 → ニコニコ実況 (ミュート設定) *****
 
-    // ミュート済みのコメントのキーワードが入るリスト
-    muted_comment_keywords: [],
-    // ミュート済みのニコニコユーザー ID が入るリスト
-    muted_niconico_user_ids: [],
     // 露骨な表現を含むコメントをミュートする (Default: ミュートする)
     mute_vulgar_comments: true,
     // 罵倒や誹謗中傷、差別的な表現、政治的に偏った表現を含むコメントをミュートする (Default: ミュートする)
@@ -228,6 +224,10 @@ const default_settings: ILocalClientSettings = {
     mute_colored_comments: false,
     // 8文字以上同じ文字が連続しているコメントをミュートする (Default: ミュートしない)
     mute_consecutive_same_characters_comments: false,
+    // ミュート済みのコメントのキーワードが入るリスト
+    muted_comment_keywords: [],
+    // ミュート済みのニコニコユーザー ID が入るリスト
+    muted_niconico_user_ids: [],
 
     // ***** 設定 → Twitter *****
 

@@ -38,10 +38,10 @@ from app.constants import (
 # 詳細は client/src/services/Settings.ts と client/src/stores/SettingsStore.ts を参照
 
 class ClientSettings(BaseModel):
-    pinned_channel_ids: list[str] = Field([])
     # showed_panel_last_time: 同期無効
     # selected_twitter_account_id: 同期無効
     saved_twitter_hashtags: list[str] = Field([])
+    pinned_channel_ids: list[str] = Field([])
     panel_display_state: Literal['RestorePreviousState', 'AlwaysDisplay', 'AlwaysFold'] = Field('RestorePreviousState')
     tv_panel_active_tab: Literal['Program', 'Channel', 'Comment', 'Twitter'] = Field('Program')
     video_panel_active_tab: Literal['RecordedProgram', 'Series', 'Comment', 'Twitter'] = Field('RecordedProgram')
@@ -64,21 +64,21 @@ class ClientSettings(BaseModel):
     video_show_superimpose: bool = Field(False)
     # tv_show_data_broadcasting: 同期無効
     # enable_internet_access_from_data_broadcasting: 同期無効
-    # capture_copy_to_clipboard: 同期無効
     capture_save_mode: Literal['Browser', 'UploadServer', 'Both'] = Field('UploadServer')
     capture_caption_mode: Literal['VideoOnly', 'CompositingCaption', 'Both'] = Field('Both')
+    # capture_copy_to_clipboard: 同期無効
     # sync_settings: 同期無効
     comment_speed_rate: float = Field(1)
     comment_font_size: int = Field(34)
     close_comment_form_after_sending: bool = Field(True)
-    muted_comment_keywords: list[dict[str, str]] = Field([])
-    muted_niconico_user_ids: list[str] = Field([])
     mute_vulgar_comments: bool = Field(True)
     mute_abusive_discriminatory_prejudiced_comments: bool = Field(True)
     mute_big_size_comments: bool = Field(True)
     mute_fixed_comments: bool = Field(False)
     mute_colored_comments: bool = Field(False)
     mute_consecutive_same_characters_comments: bool = Field(False)
+    muted_comment_keywords: list[dict[str, str]] = Field([])
+    muted_niconico_user_ids: list[str] = Field([])
     fold_panel_after_sending_tweet: bool = Field(False)
     reset_hashtag_when_program_switches: bool = Field(True)
     auto_add_watching_channel_hashtag: bool = Field(True)
