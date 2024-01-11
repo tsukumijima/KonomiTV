@@ -14,7 +14,7 @@
             </div>
         </div>
         <div class="channels-list-container">
-            <Swiper class="channels-list" auto-height :space-between="32"
+            <Swiper class="channels-list" auto-height :touch-start-prevent-default="false" :space-between="32"
                 @swiper="swiper_instance = $event"
                 @slide-change="active_tab_index = $event.activeIndex">
                 <SwiperSlide v-for="[channels_type, channels] in Array.from(channelsStore.channels_list_with_pinned_for_watch)" :key="channels_type">
