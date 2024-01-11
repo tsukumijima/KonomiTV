@@ -22,7 +22,7 @@
                     @slide-change="active_tab_index = $event.activeIndex">
                     <SwiperSlide v-for="[channels_type, channels] in Array.from(channelsStore.channels_list_with_pinned)" :key="channels_type">
                         <div class="channels" :class="`channels--tab-${channels_type} channels--length-${channels.length}`">
-                            <router-link v-ripple class="channel"
+                            <router-link v-ripple class="channel" draggable="false"
                                 v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.display_channel_id}`">
                                 <!-- 以下では Icon コンポーネントを使うとチャンネルが多いときに高負荷になるため、意図的に SVG を直書きしている -->
                                 <div class="channel__broadcaster">
