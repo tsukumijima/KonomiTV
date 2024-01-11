@@ -17,7 +17,8 @@
                         <div class="channels-tab__highlight"></div>
                     </div>
                 </div>
-                <Swiper class="channels-list" auto-height :touch-start-prevent-default="false" :space-between="32"
+                <Swiper class="channels-list" :space-between="32" :auto-height="true" :touch-start-prevent-default="false"
+                    :observer="true" :observe-parents="true"
                     @swiper="swiper_instance = $event"
                     @slide-change="active_tab_index = $event.activeIndex">
                     <SwiperSlide v-for="[channels_type, channels] in Array.from(channelsStore.channels_list_with_pinned)" :key="channels_type">
@@ -151,6 +152,8 @@ export default defineComponent({
     },
     watch: {
         active_tab_index() {
+            // content-visibility: auto の指定の関係でうまく計算されないことがある Swiper の autoHeight を強制的に再計算する
+            this.swiper_instance?.updateAutoHeight();
             // 現在なアクティブなタブを Swiper 側に随時反映する
             // ローディング中のみスライドアニメーションを実行せずに即座に切り替える
             this.swiper_instance?.slideTo(this.active_tab_index, this.is_loading === true ? 0 : undefined);
@@ -189,6 +192,9 @@ export default defineComponent({
         if (this.channelsStore.channels_list_with_pinned.get('ピン留め')?.length === 0) {
             this.active_tab_index = 1;
         }
+
+        // content-visibility: auto の指定の関係でうまく計算されないことがある Swiper の autoHeight を強制的に再計算する
+        this.swiper_instance?.updateAutoHeight();
 
         // チャンネル情報の更新が終わったタイミングでローディング状態を解除する
         await Utils.sleep(0.01);  // 少し待たないとタブのハイライトがアニメーションされてしまう

@@ -231,8 +231,8 @@ export class ChannelUtils {
             'KBS京都': '#kbs',
             // BS・CS
             'NHKBS1': '#nhkbs1',
-            'NHKBS': '#nhkbs',
             'NHKBSプレミアム': '#nhkbsp',
+            'NHKBS': '#nhkbs',
             'BS日テレ': '#bsntv',
             'BS朝日': '#bsasahi',
             'BS-TBS': '#bstbs',

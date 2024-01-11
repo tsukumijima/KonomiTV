@@ -14,7 +14,8 @@
             </div>
         </div>
         <div class="channels-list-container">
-            <Swiper class="channels-list" auto-height :touch-start-prevent-default="false" :space-between="32"
+            <Swiper class="channels-list" :space-between="32" :auto-height="true" :touch-start-prevent-default="false"
+                :observer="true" :observe-parents="true"
                 @swiper="swiper_instance = $event"
                 @slide-change="active_tab_index = $event.activeIndex">
                 <SwiperSlide v-for="[channels_type, channels] in Array.from(channelsStore.channels_list_with_pinned_for_watch)" :key="channels_type">
@@ -73,6 +74,7 @@ import 'swiper/css';
 import { defineComponent } from 'vue';
 
 import useChannelsStore from '@/stores/ChannelsStore';
+import usePlayerStore from '@/stores/PlayerStore';
 import Utils, { ChannelUtils, ProgramUtils } from '@/utils';
 
 export default defineComponent({
@@ -97,14 +99,46 @@ export default defineComponent({
         };
     },
     computed: {
-        ...mapStores(useChannelsStore),
+        ...mapStores(useChannelsStore, usePlayerStore),
     },
     watch: {
         active_tab_index() {
+            // content-visibility: auto の指定の関係でうまく計算されないことがある Swiper の autoHeight を強制的に再計算する
+            this.swiper_instance?.updateAutoHeight();
             // 現在なアクティブなタブを Swiper 側に随時反映する
             this.swiper_instance?.slideTo(this.active_tab_index);
+        },
+        async 'playerStore.tv_panel_active_tab'() {
+            // content-visibility: auto の指定の関係でうまく計算されないことがある Swiper の autoHeight を強制的に再計算する
+            await Utils.sleep(0.05);  // 少し待ってから
+            this.swiper_instance?.updateAutoHeight();
+        },
+        async 'playerStore.video_panel_active_tab'() {
+            // content-visibility: auto の指定の関係でうまく計算されないことがある Swiper の autoHeight を強制的に再計算する
+            await Utils.sleep(0.05);  // 少し待ってから
+            this.swiper_instance?.updateAutoHeight();
+        },
+    },
+    async mounted() {
+
+        // content-visibility: auto の指定の関係でうまく計算されないことがある Swiper の autoHeight を強制的に再計算する
+        await Utils.sleep(0.05);  // 少し待ってから
+        this.swiper_instance?.updateAutoHeight();
+
+        // .channels-list-container がスクロールされたときに Swiper の autoHeight を再計算する
+        document.querySelector<HTMLDivElement>('.channels-list-container')?.addEventListener('scroll', () => {
+            this.swiper_instance?.updateAutoHeight();
+        }, { passive: true });
+
+        // 既定のパネルのアクティブなタブがチャンネルタブ (つまりもうこのタブが表示されている) 場合は、さらに 0.1 秒間隔で 2 秒間繰り返す
+        // ゴリ押し以外になんとかする方法がなかった…
+        if (this.playerStore.tv_panel_active_tab === 'Channel') {
+            for (let i = 0; i < 20; i++) {
+                await Utils.sleep(0.1);
+                this.swiper_instance?.updateAutoHeight();
+            }
         }
-    }
+    },
 });
 
 </script>
