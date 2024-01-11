@@ -9,16 +9,6 @@
             <span class="ml-2">キャプチャ</span>
         </h2>
         <div class="settings__content">
-            <div class="settings__item settings__item--switch settings__item--sync-disabled">
-                <label class="settings__item-heading" for="capture_copy_to_clipboard">キャプチャをクリップボードにコピーする</label>
-                <label class="settings__item-label" for="capture_copy_to_clipboard">
-                    この設定をオンにすると、撮ったキャプチャ画像がクリップボードにもコピーされます。<br>
-                    クリップボードの履歴をサポートしていない OS では、この設定をオンにしてキャプチャを撮ると、以前のクリップボードが上書きされます。注意してください。<br>
-                </label>
-                <v-switch class="settings__item-switch" color="primary" id="capture_copy_to_clipboard" hide-details
-                    v-model="settingsStore.settings.capture_copy_to_clipboard">
-                </v-switch>
-            </div>
             <div class="settings__item">
                 <div class="settings__item-heading">キャプチャの保存先</div>
                 <div class="settings__item-label">
@@ -51,6 +41,16 @@
                     :density="is_form_dense ? 'compact' : 'default'"
                     :items="capture_caption_mode" v-model="settingsStore.settings.capture_caption_mode">
                 </v-select>
+            </div>
+            <div class="settings__item settings__item--switch settings__item--sync-disabled">
+                <label class="settings__item-heading" for="capture_copy_to_clipboard">キャプチャをクリップボードにコピーする</label>
+                <label class="settings__item-label" for="capture_copy_to_clipboard">
+                    この設定をオンにすると、撮ったキャプチャ画像がクリップボードにもコピーされます。<br>
+                    クリップボードの履歴をサポートしていない環境では、この設定をオンにしてキャプチャを撮ると、以前のクリップボードが上書きされます。注意してください。<br>
+                </label>
+                <v-switch class="settings__item-switch" color="primary" id="capture_copy_to_clipboard" hide-details
+                    v-model="settingsStore.settings.capture_copy_to_clipboard">
+                </v-switch>
             </div>
         </div>
     </SettingsBase>
