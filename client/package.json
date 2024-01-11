@@ -23,7 +23,7 @@
         "dayjs": "^1.11.10",
         "dplayer": "github:tsukumijima/DPlayer#v1.31.2",
         "floating-vue": "^2.0.0-beta.24",
-        "hls.js": "github:tsukumijima/hls.js#21275da882015871338b9da6350a5c18ec4efc5a",
+        "hls.js": "github:tsukumijima/hls.js#4e8c7c9adcc6ee99aeb8eadcd273cedc60b8f141",
         "mitt": "^3.0.1",
         "mpegts.js": "github:tsukumijima/mpegts.js#314d85c937463bcb50aa9d133812cb13b9c32286",
         "nanoid": "^5.0.4",

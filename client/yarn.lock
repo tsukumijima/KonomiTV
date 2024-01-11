@@ -3094,9 +3094,9 @@ hls.js@^1.4.14:
   resolved "https://registry.yarnpkg.com/hls.js/-/hls.js-1.4.14.tgz#a48a34a1fbcd4c3451b82a78a02fb8ad8a8812e0"
   integrity sha512-UppQjyvPVclg+6t2KY/Rv03h0+bA5u6zwqVoz4LAC/L0fgYmIaCD7ZCrwe8WI1Gv01be1XL0QFsRbSdIHV/Wbw==
 
-"hls.js@github:tsukumijima/hls.js#21275da882015871338b9da6350a5c18ec4efc5a":
-  version "1.5.0-alpha.1"
-  resolved "https://codeload.github.com/tsukumijima/hls.js/tar.gz/21275da882015871338b9da6350a5c18ec4efc5a"
+"hls.js@github:tsukumijima/hls.js#4e8c7c9adcc6ee99aeb8eadcd273cedc60b8f141":
+  version "1.5.1-patch.1"
+  resolved "https://codeload.github.com/tsukumijima/hls.js/tar.gz/4e8c7c9adcc6ee99aeb8eadcd273cedc60b8f141"
 
 http-assert@^1.3.0:
   version "1.5.0"
