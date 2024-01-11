@@ -5,12 +5,17 @@
             <Navigation />
             <div class="channels-container channels-container--home" :class="{'channels-container--loading': is_loading}">
                 <div class="channels-tab">
-                    <v-btn variant="flat" class="channels-tab__item"
-                        v-for="([channels_type,], index) in Array.from(channelsStore.channels_list_with_pinned)" :key="channels_type"
-                        @click="active_tab_index = index">
-                        {{channels_type}}
-                    </v-btn>
-                    <div class="channels-tab__highlight"></div>
+                    <div class="channels-tab__buttons" :style="{
+                        '--tab-length': Array.from(channelsStore.channels_list_with_pinned).length,
+                        '--active-tab-index': active_tab_index,
+                    }">
+                        <v-btn variant="flat" class="channels-tab__button"
+                            v-for="([channels_type,], index) in Array.from(channelsStore.channels_list_with_pinned)" :key="channels_type"
+                            @click="active_tab_index = index">
+                            {{channels_type}}
+                        </v-btn>
+                        <div class="channels-tab__highlight"></div>
+                    </div>
                 </div>
                 <Swiper class="channels-list" auto-height :space-between="32"
                     @swiper="swiper_instance = $event"
@@ -149,8 +154,6 @@ export default defineComponent({
             // 現在なアクティブなタブを Swiper 側に随時反映する
             // ローディング中のみスライドアニメーションを実行せずに即座に切り替える
             this.swiper_instance?.slideTo(this.active_tab_index, this.is_loading === true ? 0 : undefined);
-            // タブのハイライトの位置を更新
-            this.updateTabHighlightPosition();
         }
     },
     // 開始時に実行
@@ -187,11 +190,8 @@ export default defineComponent({
             this.active_tab_index = 1;
         }
 
-        // タブのハイライトの位置を更新し、少し待つ
-        this.updateTabHighlightPosition();
-        await Utils.sleep(0.01);  // 少し待たないとタブのハイライトがアニメーションされてしまう
-
         // チャンネル情報の更新が終わったタイミングでローディング状態を解除する
+        await Utils.sleep(0.01);  // 少し待たないとタブのハイライトがアニメーションされてしまう
         this.is_loading = false;
     },
     // 終了前に実行
@@ -204,17 +204,6 @@ export default defineComponent({
         }
     },
     methods: {
-
-        // タブのハイライトの位置を更新
-        updateTabHighlightPosition() {
-            const tabs = document.querySelectorAll<HTMLButtonElement>('.channels-tab__item');
-            const highlight = document.querySelector<HTMLDivElement>('.channels-tab__highlight');
-            if (tabs.length > 0 && highlight) {
-                const tab = tabs[this.active_tab_index];
-                highlight.style.width = `${tab.offsetWidth}px`;
-                highlight.style.transform = `translateX(${tab.offsetLeft}px)`;
-            }
-        },
 
         // チャンネルをピン留めする
         addPinnedChannel(channel: ILiveChannel) {
@@ -330,40 +319,48 @@ export default defineComponent({
             --channels-tab-padding-bottom: 10px;
         }
 
-        .channels-tab__item {
+        .channels-tab__buttons {
             display: flex;
             align-items: center;
             justify-content: center;
-            min-width: 90px;
-            width: 98px;
             height: 100%;
-            padding: 0;
-            border-radius: 2.5px;
-            color: rgb(var(--v-theme-text)) !important;
-            background-color: transparent !important;
-            font-size: 16px;
-            letter-spacing: 0.0892857143em !important;
-            text-transform: none;
-            cursor: pointer;
-            @include smartphone-horizontal {
-                font-size: 15px;
-            }
-            @include smartphone-vertical {
-                width: auto;
-                font-size: 15px;
-            }
-        }
+            position: relative;
 
-        .channels-tab__highlight {
-            position: absolute;
-            bottom: var(--channels-tab-padding-bottom);
-            left: 0;
-            width: 0;
-            height: 3px;
-            background: rgb(var(--v-theme-primary));
-            transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.5, 1);
-            transform: translateX(0);
-            will-change: transform;
+            .channels-tab__button {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                min-width: 90px;
+                width: 98px;
+                height: 100%;
+                padding: 0;
+                border-radius: 2.5px;
+                color: rgb(var(--v-theme-text)) !important;
+                background-color: transparent !important;
+                font-size: 16px;
+                letter-spacing: 0.0892857143em !important;
+                text-transform: none;
+                cursor: pointer;
+                @include smartphone-horizontal {
+                    font-size: 15px;
+                }
+                @include smartphone-vertical {
+                    width: auto;
+                    font-size: 15px;
+                }
+            }
+
+            .channels-tab__highlight {
+                position: absolute;
+                left: 0;
+                bottom: 0;
+                width: calc(100% / var(--tab-length, 0));
+                height: 3px;
+                background: rgb(var(--v-theme-primary));
+                transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.5, 1);
+                transform: translateX(calc(100% * var(--active-tab-index, 0)));
+                will-change: transform;
+            }
         }
     }
 
