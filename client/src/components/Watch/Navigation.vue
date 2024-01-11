@@ -7,31 +7,38 @@
             <img class="watch-navigation__icon-image" src="/assets/images/icon.svg" width="23px">
         </router-link>
         <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
+            :class="{'watch-navigation__link--active': $route.path.startsWith('/tv')}"
             v-tooltip.right="'テレビをみる'" to="/tv/">
             <Icon class="watch-navigation__link-icon" icon="fluent:tv-20-regular" width="26px" />
         </router-link>
         <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
+            :class="{'watch-navigation__link--active': $route.path.startsWith('/videos')}"
             v-tooltip.right="'ビデオをみる'"  to="/videos/">
             <Icon class="watch-navigation__link-icon" icon="fluent:movies-and-tv-20-regular" width="26px" />
         </router-link>
         <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
+            :class="{'watch-navigation__link--active': $route.path.startsWith('/timetable')}"
             v-tooltip.right="'番組表'" to="/timetable/">
             <Icon class="watch-navigation__link-icon" icon="fluent:calendar-ltr-20-regular" width="26px" />
         </router-link>
         <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
+            :class="{'watch-navigation__link--active': $route.path.startsWith('/reserves')}"
             v-tooltip.right="'録画予約'" to="/reserves/">
             <Icon class="watch-navigation__link-icon" icon="fluent:timer-16-regular" width="26px" style="padding: 0.5px;"/>
         </router-link>
         <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
+            :class="{'watch-navigation__link--active': $route.path.startsWith('/mylist')}"
             v-tooltip.right="'マイリスト'" to="/mylist/">
             <Icon class="watch-navigation__link-icon" icon="ic:round-playlist-play" width="26px" />
         </router-link>
         <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
+            :class="{'watch-navigation__link--active': $route.path.startsWith('/captures')}"
             v-tooltip.right="'キャプチャ'" to="/captures/">
             <Icon class="watch-navigation__link-icon" icon="fluent:image-multiple-24-regular" width="26px" />
         </router-link>
         <v-spacer></v-spacer>
         <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
+            :class="{'watch-navigation__link--active': $route.path.startsWith('/settings')}"
             v-tooltip.right="'設定'" to="/settings/">
             <Icon class="watch-navigation__link-icon" icon="fluent:settings-20-regular" width="26px" />
         </router-link>

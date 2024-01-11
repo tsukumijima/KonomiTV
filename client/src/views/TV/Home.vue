@@ -287,7 +287,6 @@ export default defineComponent({
         --channels-tab-padding-bottom: 12px;
         display: flex;
         align-items: center;
-        justify-content: center;
         position: sticky;
         flex: none;
         top: 65px;
@@ -321,16 +320,19 @@ export default defineComponent({
 
         .channels-tab__buttons {
             display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
             position: relative;
+            align-items: center;
+            max-width: 100%;
+            height: 100%;
+            margin-left: auto;
+            margin-right: auto;
+            overflow-x: auto;
+            overflow-y: clip;
 
             .channels-tab__button {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                min-width: 90px;
                 width: 98px;
                 height: 100%;
                 padding: 0;
@@ -345,7 +347,7 @@ export default defineComponent({
                     font-size: 15px;
                 }
                 @include smartphone-vertical {
-                    width: auto;
+                    width: 90px;
                     font-size: 15px;
                 }
             }

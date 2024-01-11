@@ -318,6 +318,7 @@ export default defineComponent({
                 // リンクの色
                 :deep(a:link), :deep(a:visited) {
                     color: rgb(var(--v-theme-primary-lighten-1));
+                    text-decoration: underline;
                     text-underline-offset: 3px;  // 下線と字の間隔を空ける
                 }
             }
