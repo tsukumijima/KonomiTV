@@ -127,6 +127,7 @@ class CaptureCompositor implements ICaptureCompositor {
         const font_faces: FontFace[] = [
             new FontFace('Open Sans', 'url(/assets/fonts/OpenSans-Bold.woff2)', {weight: 'bold'}),
             new FontFace('YakuHanJPs', 'url(/assets/fonts/YakuHanJPs-Bold.woff2)', {weight: 'bold'}),
+            new FontFace('Twemoji', 'url(/assets/fonts/Twemoji.woff2)', {weight: 'bold'}),
             new FontFace('Noto Sans JP', 'url(/assets/fonts/NotoSansJP-Bold.woff2)', {weight: 'bold'}),
         ];
 
@@ -330,7 +331,7 @@ class CaptureCompositor implements ICaptureCompositor {
         for (const comment of this.options.capture_comment_data.comments) {
             comment_canvas_context.fillStyle = comment.color;
             // UI 側と同じフォント指定なので、明示的にロードせずとも OffscreenCanvas に描画できる状態にあるはず
-            comment_canvas_context.font = `bold ${comment.font_size * magnification_ratio}px 'Open Sans', 'YakuHanJPs', 'Hiragino Sans', 'Noto Sans JP', sans-serif`;
+            comment_canvas_context.font = `bold ${comment.font_size * magnification_ratio}px 'Open Sans', 'YakuHanJPs', 'Twemoji', 'Hiragino Sans', 'Noto Sans JP', sans-serif`;
             // UI 側と同じテキストシャドウを付ける
             comment_canvas_context.shadowOffsetX = 1.2 * magnification_ratio;
             comment_canvas_context.shadowOffsetY = 1.2 * magnification_ratio;
