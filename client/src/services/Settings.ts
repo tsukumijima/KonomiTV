@@ -1,11 +1,11 @@
 
 import APIClient from '@/services/APIClient';
+import { getSyncableClientSettings } from '@/stores/SettingsStore';
 
 
 /**
  * サーバーに保存されるクライアント設定を表すインターフェース
- * サーバー側の app.schemas.ClientSettings と
- * client/src/stores/SettingsStore.ts 内の sync_settings_keys で定義されているものと同じ
+ * サーバー側の app.config.ClientSettings で定義されているものと同じ
  */
 export interface IClientSettings {
     // showed_panel_last_time: 同期無効
@@ -82,7 +82,9 @@ class Settings {
             return null;
         }
 
-        return response.data;
+        // クライアント側の IClientSettings とサーバー側の app.config.ClientSettings は、バージョン差などで微妙に並び替え順序などが異なることがある
+        // JSON シリアライズでの文字列比較を正しく行うため、厳密にクライアント側の IClientSettings と一致するように変換する
+        return getSyncableClientSettings(response.data);
     }
 
 

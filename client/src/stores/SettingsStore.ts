@@ -11,8 +11,11 @@ export const LIVE_STREAMING_QUALITIES: LiveStreamingQuality[] = ['1080p-60fps', 
 export type VideoStreamingQuality = '1080p-60fps' | '1080p' | '810p' | '720p' | '540p' | '480p' | '360p' | '240p';
 export const VIDEO_STREAMING_QUALITIES: VideoStreamingQuality[] = ['1080p-60fps', '1080p', '810p', '720p', '540p', '480p', '360p', '240p'];
 
-// LocalStorage に保存される KonomiTV の設定データ
-interface ILocalClientSettings {
+/**
+ * LocalStorage に保存される KonomiTV の設定データ
+ * IClientSettings とは異なり、同期対象外の設定キーも含まれる
+ */
+export interface ILocalClientSettings extends IClientSettings {
     showed_panel_last_time: boolean;
     selected_twitter_account_id: number | null;
     saved_twitter_hashtags: string[];
@@ -62,61 +65,11 @@ interface ILocalClientSettings {
     tweet_capture_watermark_position: 'None' | 'TopLeft' | 'TopRight' | 'BottomLeft' | 'BottomRight';
 }
 
-// 設定データのうち、同期対象の設定キー
-// サーバー側の app.schemas.ClientSettings と
-// client/src/services/Settings.ts 内の IClientSettings で定義されているものと同じ
-const sync_settings_keys = [
-    // showed_panel_last_time: 同期無効
-    // selected_twitter_account_id: 同期無効
-    'saved_twitter_hashtags',
-    'pinned_channel_ids',
-    'panel_display_state',
-    'tv_panel_active_tab',
-    'video_panel_active_tab',
-    'tv_channel_selection_requires_alt_key',
-    // tv_streaming_quality: 同期無効
-    // tv_streaming_quality_cellular: 同期無効
-    // tv_data_saver_mode: 同期無効
-    // tv_data_saver_mode_cellular: 同期無効
-    // tv_low_latency_mode: 同期無効
-    // tv_low_latency_mode_cellular: 同期無効
-    // video_streaming_quality: 同期無効
-    // video_streaming_quality_cellular: 同期無効
-    // video_data_saver_mode: 同期無効
-    // video_data_saver_mode_cellular: 同期無効
-    'caption_font',
-    'always_border_caption_text',
-    'specify_caption_opacity',
-    'caption_opacity',
-    'tv_show_superimpose',
-    'video_show_superimpose',
-    // tv_show_data_broadcasting: 同期無効
-    // enable_internet_access_from_data_broadcasting: 同期無効
-    'capture_save_mode',
-    'capture_caption_mode',
-    // capture_copy_to_clipboard: 同期無効
-    // sync_settings: 同期無効
-    'comment_speed_rate',
-    'comment_font_size',
-    'close_comment_form_after_sending',
-    'mute_vulgar_comments',
-    'mute_abusive_discriminatory_prejudiced_comments',
-    'mute_big_size_comments',
-    'mute_fixed_comments',
-    'mute_colored_comments',
-    'mute_consecutive_same_characters_comments',
-    'muted_comment_keywords',
-    'muted_niconico_user_ids',
-    'fold_panel_after_sending_tweet',
-    'reset_hashtag_when_program_switches',
-    'auto_add_watching_channel_hashtag',
-    'twitter_active_tab',
-    'tweet_hashtag_position',
-    'tweet_capture_watermark_position',
-];
-
-// LocalStorage に保存される KonomiTV の設定データのデフォルト値
-const default_settings: ILocalClientSettings = {
+/**
+ * LocalStorage に保存される KonomiTV の設定データのデフォルト値
+ * IClientSettings とは異なり、同期対象外の設定キーも含まれる
+ */
+export const ILocalClientSettingsDefault: ILocalClientSettings = {
 
     // ***** 設定画面から直接変更できない設定値 *****
 
@@ -245,9 +198,62 @@ const default_settings: ILocalClientSettings = {
     tweet_capture_watermark_position: 'None',
 };
 
+// 同期対象の設定データのキーのみを列挙した配列
+const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
+    // showed_panel_last_time: 同期無効
+    // selected_twitter_account_id: 同期無効
+    'saved_twitter_hashtags',
+    'pinned_channel_ids',
+    'panel_display_state',
+    'tv_panel_active_tab',
+    'video_panel_active_tab',
+    'tv_channel_selection_requires_alt_key',
+    // tv_streaming_quality: 同期無効
+    // tv_streaming_quality_cellular: 同期無効
+    // tv_data_saver_mode: 同期無効
+    // tv_data_saver_mode_cellular: 同期無効
+    // tv_low_latency_mode: 同期無効
+    // tv_low_latency_mode_cellular: 同期無効
+    // video_streaming_quality: 同期無効
+    // video_streaming_quality_cellular: 同期無効
+    // video_data_saver_mode: 同期無効
+    // video_data_saver_mode_cellular: 同期無効
+    'caption_font',
+    'always_border_caption_text',
+    'specify_caption_opacity',
+    'caption_opacity',
+    'tv_show_superimpose',
+    'video_show_superimpose',
+    // tv_show_data_broadcasting: 同期無効
+    // enable_internet_access_from_data_broadcasting: 同期無効
+    'capture_save_mode',
+    'capture_caption_mode',
+    // capture_copy_to_clipboard: 同期無効
+    // sync_settings: 同期無効
+    'comment_speed_rate',
+    'comment_font_size',
+    'close_comment_form_after_sending',
+    'mute_vulgar_comments',
+    'mute_abusive_discriminatory_prejudiced_comments',
+    'mute_big_size_comments',
+    'mute_fixed_comments',
+    'mute_colored_comments',
+    'mute_consecutive_same_characters_comments',
+    'muted_comment_keywords',
+    'muted_niconico_user_ids',
+    'fold_panel_after_sending_tweet',
+    'reset_hashtag_when_program_switches',
+    'auto_add_watching_channel_hashtag',
+    'twitter_active_tab',
+    'tweet_hashtag_position',
+    'tweet_capture_watermark_position',
+];
+
+
 /**
- * LocalStorage の KonomiTV-Settings キーから設定データを取得する
- * @returns 設定データ
+ * LocalStorage の KonomiTV-Settings キーから生の設定データを取得する
+ * 返されるデータはノーマライズされていない生データで、最新であるかや ILocalClientSettings と一致するかは保証されない
+ * @returns 生の設定データ
  */
 export function getLocalStorageSettings(): {[key: string]: any} {
     const settings = localStorage.getItem('KonomiTV-Settings');
@@ -255,41 +261,67 @@ export function getLocalStorageSettings(): {[key: string]: any} {
         return JSON.parse(settings);
     } else {
         // もし LocalStorage に KonomiTV-Settings キーがまだない場合、あらかじめデフォルトの設定値を保存しておく
-        setLocalStorageSettings(default_settings);
-        return default_settings;
+        setLocalStorageSettings(ILocalClientSettingsDefault);
+        return ILocalClientSettingsDefault;
     }
 }
 
 /**
- * LocalStorage の KonomiTV-Settings キーに設定データを保存する
+ * LocalStorage の KonomiTV-Settings キーに設定データを JSON にシリアライズして保存する
  * @param settings 設定データ
  */
-export function setLocalStorageSettings(settings: {[key: string]: any}): void {
+export function setLocalStorageSettings(settings: ILocalClientSettings): void {
     localStorage.setItem('KonomiTV-Settings', JSON.stringify(settings));
 }
 
 /**
- * 与えられた設定データを並び替えたり足りない設定キーを補完したり不要な設定キーを削除したりと整形して返す
- * @param settings 設定データ
+ * 与えられた生の設定データにソート・足りない設定キーの補完・不要な設定キーの削除を行って返す
+ * @param settings 生の設定データ
+ * @returns ノーマライズされた設定データ (LocalClientSettings と厳密に一致する)
  */
-function getNormalizedSettings(settings: {[key: string]: any}): ILocalClientSettings {
+export function getNormalizedLocalClientSettings(settings: {[key: string]: any}): ILocalClientSettings {
 
-    // (名前が変わった、廃止されたなどの理由で) 現在の default_settings に存在しない設定キーを排除した上で並び替え
-    // 並び替えられていないと設定データの比較がうまくいかない
-    const new_settings: {[key: string]: any} = {};
-    for (const default_settings_key of Object.keys(default_settings)) {
+    // (名前が変わった、廃止されたなどの理由で) 現在の ILocalClientSettingsDefault に存在しない設定キーを排除した上でソート
+    // ソートされていないと設定データの比較がうまくいかない
+    const normalized_settings: Partial<ILocalClientSettings> = {};
+    for (const default_settings_key of Object.keys(ILocalClientSettingsDefault)) {
         if (default_settings_key in settings) {
-            new_settings[default_settings_key] = settings[default_settings_key];
+            normalized_settings[default_settings_key] = settings[default_settings_key];
         } else {
             // 後のバージョンで追加されたなどの理由で現状の KonomiTV-Settings に存在しない設定キーの場合
             // その設定キーのデフォルト値を取得する
-            new_settings[default_settings_key] = default_settings[default_settings_key];
+            normalized_settings[default_settings_key] = ILocalClientSettingsDefault[default_settings_key];
         }
     }
 
-    // この状態の新しい設定データを返す
-    return new_settings as ILocalClientSettings;
+    return normalized_settings as ILocalClientSettings;
 }
+
+/**
+ * 与えられた生の設定データにソート・足りない設定キーの補完・不要な設定キーの削除を行い、
+ * サーバーへの同期対象の設定キーのみで構成された設定データを返す
+ * @param settings 生の設定データ
+ * @returns サーバーへの同期対象の設定キーのみで構成された設定データ (IClientSettings と厳密に一致する)
+ */
+export function getSyncableClientSettings(settings: {[key: string]: any}): IClientSettings {
+
+    // 同期対象の設定キーのみで設定データをまとめ直す
+    // この syncable_settings には同期対象外の設定データは含まれない
+    // getNormalizedLocalClientSettings() 同様、ソートと現在の ILocalClientSettingsDefault に存在しない設定キーの排除も同時に行われる
+    const syncable_settings: Partial<IClientSettings> = {};
+    for (const sync_settings_key of SYNCABLE_SETTINGS_KEYS) {
+        if (sync_settings_key in settings) {
+            syncable_settings[sync_settings_key as string] = settings[sync_settings_key];
+        } else {
+            // 後から追加された設定キーなどの理由で設定キーが現状の KonomiTV-Settings に存在しない場合
+            // その設定キーのデフォルト値を取得する
+            syncable_settings[sync_settings_key as string] = ILocalClientSettingsDefault[sync_settings_key];
+        }
+    }
+
+    return syncable_settings as IClientSettings;
+}
+
 
 /**
  * 設定データを共有するストア
@@ -299,18 +331,18 @@ const useSettingsStore = defineStore('settings', {
 
         // ref: https://www.vuemastery.com/blog/refresh-proof-your-pinia-stores/
 
-        // LocalStorage から設定データを取得する
+        // LocalStorage から生の設定データを取得する
         const settings = getLocalStorageSettings();
 
-        // (名前が変わった、廃止されたなどの理由で) 現在の default_settings に存在しない設定キーを排除した上で並び替え
-        const new_settings = getNormalizedSettings(settings);
+        // 生の設定データに対してソート・足りない設定キーの補完・不要な設定キーの削除を行う
+        const normalized_settings = getNormalizedLocalClientSettings(settings);
 
         // この状態の新しい設定データを LocalStorage に保存する
-        setLocalStorageSettings(new_settings);
+        setLocalStorageSettings(normalized_settings);
 
         // 設定データを Store の state のデフォルト値として返す
         return {
-            settings: new_settings as ILocalClientSettings,
+            settings: normalized_settings,
         };
     },
     actions: {
@@ -333,13 +365,13 @@ const useSettingsStore = defineStore('settings', {
                 return false;
             }
 
-            // (名前が変わった、廃止されたなどの理由で) 現在の default_settings に存在しない設定キーを排除した上で並び替え
-            const new_settings = getNormalizedSettings(settings);
+            // 生の設定データに対してソート・足りない設定キーの補完・不要な設定キーの削除を行う
+            const normalized_settings = getNormalizedLocalClientSettings(settings);
 
             // この状態の新しい設定データを LocalStorage に保存し、Store の state に反映する
             // このとき、既存の設定データはすべて上書きされる
-            setLocalStorageSettings(new_settings);
-            this.settings = new_settings;
+            setLocalStorageSettings(normalized_settings);
+            this.settings = normalized_settings;
 
             // 設定データをサーバーに同期する
             await this.syncClientSettingsToServer();
@@ -354,7 +386,7 @@ const useSettingsStore = defineStore('settings', {
 
             // デフォルトの設定に現在設定の同期がオンになっているかだけ反映した設定データ
             const default_settings_modified: ILocalClientSettings = {
-                ...default_settings,
+                ...ILocalClientSettingsDefault,
                 sync_settings: this.settings.sync_settings,
             };
 
@@ -364,28 +396,6 @@ const useSettingsStore = defineStore('settings', {
 
             // 設定データをサーバーに同期する
             await this.syncClientSettingsToServer();
-        },
-
-        /**
-         * 設定データのうち、サーバーへの同期対象の設定キーのみで構成されたオブジェクト (IClientSettings と一致する) を返す
-         * @returns サーバーへの同期対象の設定キーのみで構成されたオブジェクト
-         */
-        getSyncableClientSettings(): IClientSettings {
-
-            // 同期対象の設定キーのみで設定データをまとめ直す
-            // sync_settings には同期対象外の設定は含まれない
-            const sync_settings: {[key: string]: any} = {};
-            for (const sync_settings_key of sync_settings_keys) {
-                if (sync_settings_key in this.settings) {
-                    sync_settings[sync_settings_key] = this.settings[sync_settings_key];
-                } else {
-                    // 後から追加された設定キーなどの理由で設定キーが現状の KonomiTV-Settings に存在しない場合
-                    // その設定キーのデフォルト値を取得する
-                    sync_settings[sync_settings_key] = default_settings[sync_settings_key];
-                }
-            }
-
-            return sync_settings as IClientSettings;
         },
 
         /**
@@ -427,7 +437,7 @@ const useSettingsStore = defineStore('settings', {
             }
 
             // 同期対象の設定キーのみで設定データをまとめ直す
-            const sync_settings = this.getSyncableClientSettings();
+            const sync_settings = getSyncableClientSettings(this.settings);
 
             // サーバーに設定データをアップロード
             await Settings.updateClientSettings(sync_settings);

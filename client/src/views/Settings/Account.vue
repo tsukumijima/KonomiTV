@@ -206,7 +206,7 @@ import { VForm } from 'vuetify/components';
 
 import Message from '@/message';
 import Settings from '@/services/Settings';
-import useSettingsStore from '@/stores/SettingsStore';
+import useSettingsStore, { getSyncableClientSettings } from '@/stores/SettingsStore';
 import useUserStore from '@/stores/UserStore';
 import Utils from '@/utils';
 import SettingsBase from '@/views/Settings/Base.vue';
@@ -267,13 +267,13 @@ export default defineComponent({
             if (this.sync_settings === true && this.sync_settings_dialog === false) {
 
                 // 同期対象の設定キーのみで設定データをまとめ直す
-                const sync_settings = this.settingsStore.getSyncableClientSettings();
+                const sync_settings = getSyncableClientSettings(this.settingsStore.settings);
 
-                // 同期対象のこのクライアントの設定を再度 JSON にする（文字列比較のため）
+                // 同期対象のこのクライアントの設定を再度 JSON にする (文字列比較のため)
                 const sync_settings_json = JSON.stringify(sync_settings);
 
                 // サーバーから設定データをダウンロード
-                // 一度オブジェクトに戻したものをを再度 JSON にする（文字列比較のため）
+                // 一度オブジェクトに戻したものをを再度 JSON にする (文字列比較のため)
                 const server_sync_settings = await Settings.fetchClientSettings();
                 if (server_sync_settings === null) {
                     Message.error('サーバーから設定データを取得できませんでした。');
@@ -282,6 +282,7 @@ export default defineComponent({
                 const server_sync_settings_json = JSON.stringify(server_sync_settings);
 
                 // このクライアントの設定とサーバーに保存されている設定が一致しない（=競合している）
+                // ここで比較している設定データは文字列比較できるよう JSON シリアライズ前に同じ条件でソートされている
                 if (sync_settings_json !== server_sync_settings_json) {
 
                     // 一度同期のスイッチをオフにして、クライアントとサーバーどちらの設定を使うのかを選択させるダイヤログを表示
