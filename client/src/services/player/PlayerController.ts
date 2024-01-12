@@ -1044,7 +1044,7 @@ class PlayerController {
         const player_store = usePlayerStore();
 
         // フルスクリーンにするコンテナ要素 (ページ全体)
-        const fullscreen_container = document.querySelector('.v-application')!;
+        const fullscreen_container = document.body;
 
         // フルスクリーンかどうか
         this.player.fullScreen.isFullScreen = (type?: DPlayerType.FullscreenType) => {
