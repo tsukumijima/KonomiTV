@@ -8,9 +8,7 @@ import * as piexif from 'piexifjs';
 import Utils, { dayjs } from '@/utils';
 
 
-/**
- * キャプチャに合成する際に必要なコメント情報のインターフェイス
- */
+/** キャプチャに合成する際に必要なコメント情報のインターフェイス */
 export interface ICaptureCommentData {
     // DOM 上のコメントのコンテナ要素の幅と高さ (px)
     container_width: number;
