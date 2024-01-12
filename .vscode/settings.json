@@ -1,7 +1,7 @@
 {
     // 保存時に ESLint による自動フォーマットを行う
     "editor.codeActionsOnSave": {
-        "source.fixAll.eslint": true,
+        "source.fixAll.eslint": "explicit",
     },
     // poetry の仮想環境のあるフォルダを指定（指定しないと認識しない）
     "python.defaultInterpreterPath": "${workspaceFolder}/server/.venv/bin/python",
