@@ -54,11 +54,31 @@ a, a:link, a:visited, a:hover, a:active {
 
 // ***** SPA 全体に適用されるスタイル *****
 
+// ページ遷移アニメーション (View Transitions API)
+// ref: https://developer.mozilla.org/ja/docs/Web/API/View_Transitions_API
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation-duration: 0.25s;  // 0.25 秒クロスフェード
+}
+
 // 全体のスタイル
 html {
-    position: static !important;  // Vuetify による fixed への書き換えを防止する
     overflow-y: auto !important;
     touch-action: manipulation;
+
+    // scrollbar-gutter: stable を指定すると、overflow: hidden 指定時にもスクロールバー分の領域が確保される
+    // もっと早くに知りたかった…
+    // ref: https://ics.media/entry/230206/
+    scrollbar-gutter: stable;
+
+    // Vuetify 3 では position: fixed でモーダル表示時のスクロールを防止しようとしているが、これだとレイアウトがぶっ壊れるので使えない
+    // そのため position を static に固定して、代わりに overflow: hidden でスクロールを防止する
+    // iOS 16 から Safari でも overflow: hidden でスクロールを防止できるようになったため問題ない
+    // ref: https://zenn.dev/lclco/articles/f5b20817a15b9a
+    &.v-overlay-scroll-blocked {
+        position: static !important;
+        overflow: hidden !important;
+    }
 }
 
 // アプリケーションのルート
