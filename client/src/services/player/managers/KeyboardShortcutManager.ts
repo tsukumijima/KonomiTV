@@ -88,6 +88,21 @@ class KeyboardShortcutManager implements PlayerManager {
         const tweet_form_element = document.querySelector<HTMLDivElement>('.tweet-form__textarea')!;
         const tweet_button_element = document.querySelector<HTMLButtonElement>('.tweet-button')!;
 
+        // データ放送リモコンの各ボタンの HTML 要素を取得
+        // データ放送リモコンコンポーネントが視聴画面に追加されていることが前提
+        // ビデオ視聴時はデータ放送リモコンコンポーネントが表示されないためすべて null になる
+        const remocon_data_button = document.querySelector<HTMLDivElement>('.remote-control-button-data');
+        const remocon_back_button = document.querySelector<HTMLDivElement>('.remote-control-button-back');
+        const remocon_select_button = document.querySelector<HTMLDivElement>('.remote-control-button-select');
+        const remocon_up_button = document.querySelector<HTMLDivElement>('.remote-control-button-up');
+        const remocon_left_button = document.querySelector<HTMLDivElement>('.remote-control-button-left');
+        const remocon_right_button = document.querySelector<HTMLDivElement>('.remote-control-button-right');
+        const remocon_down_button = document.querySelector<HTMLDivElement>('.remote-control-button-down');
+        const remocon_blue_button = document.querySelector<HTMLDivElement>('.remote-control-button-blue');
+        const remocon_red_button = document.querySelector<HTMLDivElement>('.remote-control-button-red');
+        const remocon_green_button = document.querySelector<HTMLDivElement>('.remote-control-button-green');
+        const remocon_yellow_button = document.querySelector<HTMLDivElement>('.remote-control-button-yellow');
+
         // 一般的なキーボードショートカットの定義
         // 一部の特殊なキーコンビネーションは表現しきれないため、キーボードイベント発生時の条件分岐で直接実装している
         const shortcuts: ShortcutDefinition[] = [
@@ -322,6 +337,63 @@ class KeyboardShortcutManager implements PlayerManager {
             // \(￥)キー: キャプチャタブを表示する
             {mode: 'Both', key: 'IntlRo', repeat: false, ctrl: false, shift: false, alt: false, handler: () => {
                 player_store.twitter_active_tab = 'Capture';
+            }},
+
+            // ***** データ放送 *****
+
+            // Alt + D: ライブ視聴: リモコンの d ボタンを押す
+            {mode: 'Live', key: 'KeyD', repeat: false, ctrl: false, shift: false, alt: true, handler: () => {
+                remocon_data_button?.click();
+            }},
+
+            // Alt + Backspace: ライブ視聴: リモコンの戻るボタンを押す
+            {mode: 'Live', key: 'Backspace', repeat: false, ctrl: false, shift: false, alt: true, handler: () => {
+                remocon_back_button?.click();
+            }},
+
+            // Alt + Enter: ライブ視聴: リモコンの決定ボタンを押す
+            {mode: 'Live', key: 'Enter', repeat: false, ctrl: false, shift: false, alt: true, handler: () => {
+                remocon_select_button?.click();
+            }},
+
+            // Alt + ↑: ライブ視聴: リモコンの ↑ ボタンを押す
+            {mode: 'Live', key: 'ArrowUp', repeat: false, ctrl: false, shift: false, alt: true, handler: () => {
+                remocon_up_button?.click();
+            }},
+
+            // Alt + ←: ライブ視聴: リモコンの ← ボタンを押す
+            {mode: 'Live', key: 'ArrowLeft', repeat: false, ctrl: false, shift: false, alt: true, handler: () => {
+                remocon_left_button?.click();
+            }},
+
+            // Alt + →: ライブ視聴: リモコンの → ボタンを押す
+            {mode: 'Live', key: 'ArrowRight', repeat: false, ctrl: false, shift: false, alt: true, handler: () => {
+                remocon_right_button?.click();
+            }},
+
+            // Alt + ↓: ライブ視聴: リモコンの ↓ ボタンを押す
+            {mode: 'Live', key: 'ArrowDown', repeat: false, ctrl: false, shift: false, alt: true, handler: () => {
+                remocon_down_button?.click();
+            }},
+
+            // Alt + F9: ライブ視聴: リモコンの青ボタンを押す
+            {mode: 'Live', key: 'F9', repeat: false, ctrl: false, shift: false, alt: true, handler: () => {
+                remocon_blue_button?.click();
+            }},
+
+            // Alt + F10: ライブ視聴: リモコンの赤ボタンを押す
+            {mode: 'Live', key: 'F10', repeat: false, ctrl: false, shift: false, alt: true, handler: () => {
+                remocon_red_button?.click();
+            }},
+
+            // Alt + F11: ライブ視聴: リモコンの緑ボタンを押す
+            {mode: 'Live', key: 'F11', repeat: false, ctrl: false, shift: false, alt: true, handler: () => {
+                remocon_green_button?.click();
+            }},
+
+            // Alt + F12: ライブ視聴: リモコンの黄ボタンを押す
+            {mode: 'Live', key: 'F12', repeat: false, ctrl: false, shift: false, alt: true, handler: () => {
+                remocon_yellow_button?.click();
             }},
         ];
 
