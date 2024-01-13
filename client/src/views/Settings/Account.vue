@@ -161,9 +161,9 @@
                         :density="is_form_dense ? 'compact' : 'default'"
                         v-model="settings_password"
                         :type="settings_password_showing ? 'text' : 'password'"
-                        :append-inner-icon="settings_password_showing ? 'mdi-eye' : 'mdi-eye-off'"
                         :rules="[settings_password_validation]"
-                        @click:append="settings_password_showing = !settings_password_showing">
+                        :append-inner-icon="settings_password_showing ? 'mdi-eye' : 'mdi-eye-off'"
+                        @click:appendInner="settings_password_showing = !settings_password_showing">
                     </v-text-field>
                 </v-form>
                 <v-btn class="settings__save-button mt-2" variant="flat" @click="updateAccountInfo('password')">

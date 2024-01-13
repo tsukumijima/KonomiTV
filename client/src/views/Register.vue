@@ -23,9 +23,9 @@
                             :density="is_form_dense ? 'compact' : 'default'"
                             v-model="password"
                             :type="password_showing ? 'text' : 'password'"
-                            :append-inner-icon="password_showing ? 'mdi-eye' : 'mdi-eye-off'"
                             :rules="[password_validation]"
-                            @click:append="password_showing = !password_showing">
+                            :append-inner-icon="password_showing ? 'mdi-eye' : 'mdi-eye-off'"
+                            @click:appendInner="password_showing = !password_showing">
                         </v-text-field>
                         <v-btn class="register-button mt-5" color="secondary" variant="flat" width="100%" height="56"
                             @click="register()">

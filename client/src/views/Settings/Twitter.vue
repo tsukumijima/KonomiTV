@@ -66,9 +66,9 @@
                                     v-model="twitter_password"
                                     :density="is_form_dense ? 'compact' : 'default'"
                                     :type="twitter_password_showing ? 'text' : 'password'"
-                                    :append-inner-icon="twitter_password_showing ? 'mdi-eye' : 'mdi-eye-off'"
                                     :rules="[(value) => !!value || 'パスワードを入力してください。']"
-                                    @click:append="twitter_password_showing = !twitter_password_showing">
+                                    :append-inner-icon="twitter_password_showing ? 'mdi-eye' : 'mdi-eye-off'"
+                                    @click:appendInner="twitter_password_showing = !twitter_password_showing">
                                 </v-text-field>
                             </v-form>
                         </v-card-text>
