@@ -148,6 +148,10 @@ const usePlayerStore = defineStore('player', {
         // UI 上と KeyboardShortcutManager の両方から操作する必要があるため PlayerStore に持たせている
         twitter_captures: [] as ITweetCapture[],
 
+        // Twitter パネルコンポーネントで利用する、ツイートに添付するキャプチャの Blob データのリスト
+        // Twitter パネル本体とキャプチャタブの間で共有するため PlayerStore に持たせている
+        twitter_selected_capture_blobs: [] as Blob[],
+
         // Twitter パネルコンポーネントで利用する、キャプチャを拡大表示するモーダルの表示状態
         // UI 上と KeyboardShortcutManager の両方から操作する必要があるため PlayerStore に持たせている
         twitter_zoom_capture_modal: false,
