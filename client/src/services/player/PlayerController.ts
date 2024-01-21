@@ -939,13 +939,17 @@ class PlayerController {
                     this.player.video.muted = false;
                     this.player.video.volume = 0;
                     // 0.5 秒間かけて 0 から current_volume まで音量を上げる
-                    const current_volume = this.player.user.get('volume');
+                    const current_volume = this.player.user.get('volume');  // 0.0 ~ 1.0 の範囲
                     const volume_step = current_volume / 10;
-                    for (let i = 0; i < 10; i++) {
+                    for (let i = 0; i < 10; i++) {  // 10 回に分けて音量を上げる
                         await Utils.sleep(0.5 / 10);
                         // 音量が current_volume を超えないようにする
-                        this.player.video.volume = Math.min(Utils.mathFloor(this.player.video.volume + volume_step, 2), current_volume);
+                        // 浮動小数点絡みの問題 (丸め誤差) が出るため小数第3位で切り捨てる
+                        this.player.video.volume = Math.min(Utils.mathFloor(this.player.video.volume + volume_step, 3), current_volume);
                     }
+                    // 最後に current_volume に設定し直す
+                    // 上記ロジックでは丸め誤差の関係で完全に current_volume とは一致しないことがあるため
+                    this.player.video.volume = current_volume;
                 };
                 this.player.video.oncanplaythrough = on_canplay;
 
@@ -1343,16 +1347,20 @@ class PlayerController {
         // この 0.2 秒の間に音量をフェードアウトさせる
         if (this.player !== null) {
             // 0.2 秒間かけて current_volume から 0 まで音量を下げる
-            const current_volume = this.player.user.get('volume');
+            const current_volume = this.player.user.get('volume');  // 0.0 ~ 1.0 の範囲
             const volume_step = current_volume / 10;
-            for (let i = 0; i < 10; i++) {
+            for (let i = 0; i < 10; i++) {  // 10 回に分けて音量を下げる
                 await Utils.sleep(0.2 / 10);
                 // ごく稀に映像が既に破棄されている or まだ再生開始されていない場合がある (?) ので、その場合は実行しない
                 if (this.player && this.player.video) {
                     // 音量が 0 より小さくならないようにする
-                    this.player.video.volume = Math.max(Utils.mathFloor(this.player.video.volume - volume_step, 2), 0);
+                    // 浮動小数点絡みの問題 (丸め誤差) が出るため小数第3位で切り捨てる
+                    this.player.video.volume = Math.max(Utils.mathFloor(this.player.video.volume - volume_step, 3), 0);
                 }
             }
+            // 最後に音量を 0 に設定
+            // 上記ロジックでは丸め誤差の関係で完全に 0 とは一致しないことがあるため
+            this.player.video.volume = 0;
         }
 
         // タイマーを破棄
