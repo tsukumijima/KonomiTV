@@ -1,9 +1,7 @@
 <template>
     <v-app id="app">
         <router-view v-slot="{ Component }">
-            <transition>
-                <component :is="Component" />
-            </transition>
+            <component :is="Component" />
         </router-view>
         <Snackbars />
     </v-app>
