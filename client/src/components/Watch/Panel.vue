@@ -277,6 +277,7 @@ export default defineComponent({
             transition: opacity 0.2s, visibility 0.2s;
             opacity: 0;
             visibility: hidden;
+            z-index: 10;
 
             @media (hover: none) {
                 transition: none;
