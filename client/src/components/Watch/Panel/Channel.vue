@@ -227,7 +227,7 @@ export default defineComponent({
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                width: 82px;
+                width: 80px;
                 height: 100%;
                 padding: 0 8px;
                 border-radius: 2.5px;
@@ -246,7 +246,7 @@ export default defineComponent({
                 position: absolute;
                 left: 0;
                 bottom: 0;
-                width: calc(100% / var(--tab-length, 0));
+                width: calc(80px * (var(--tab-length, 0)) / var(--tab-length, 0));
                 height: 3px;
                 background: rgb(var(--v-theme-primary));
                 transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.5, 1);
