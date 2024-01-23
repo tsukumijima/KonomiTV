@@ -35,6 +35,7 @@
 
     .v-btn.bottom-navigation-button {
         flex-basis: 0;  // 均等に割り振る
+        padding: 0 !important;
         color: rgb(var(--v-theme-text-darken-1)) !important;
         font-weight: bold;
 
