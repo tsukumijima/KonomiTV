@@ -17,6 +17,13 @@
         </v-btn>
     </v-bottom-navigation>
 </template>
+<style lang="scss">
+
+.bottom-navigation-container .v-btn--active > .v-btn__overlay {
+    opacity: 0 !important;
+}
+
+</style>
 <style lang="scss" scoped>
 
 .bottom-navigation-container {
