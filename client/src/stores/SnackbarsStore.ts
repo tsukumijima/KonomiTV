@@ -26,9 +26,9 @@ export const useSnackbarsStore = defineStore('snackbars', {
          * 指定されたレベルとテキストで Snackbar を表示する
          * @param level Snackbar のレベル
          * @param text Snackbar に表示するテキスト
-         * @param timeout Snackbar を表示する秒数 (秒単位、デフォルトは 2.5 秒)
+         * @param timeout Snackbar を表示する秒数 (秒単位、デフォルトは 5 秒)
          */
-        async show(level: 'success' | 'error' | 'warning' | 'info' | 'default', text: string, timeout: number = 2.5) {
+        async show(level: 'success' | 'error' | 'warning' | 'info' | 'default', text: string, timeout: number = 5.0) {
 
             // Snackbar をスタックに追加
             // 一度 push() してからオブジェクトの参照を取得しないと何故かリアクティブにならない
