@@ -4,6 +4,7 @@ import httpx
 import socket
 import time
 from fastapi import APIRouter
+from fastapi import Form
 from fastapi import HTTPException
 from fastapi import Path
 from fastapi import Query
@@ -13,6 +14,7 @@ from fastapi.responses import StreamingResponse
 from ping3 import ping
 from typing import Annotated
 
+from app import logging
 from app import schemas
 
 
@@ -47,6 +49,8 @@ async def BMLBrowserRequestGETProxyAPI(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Request URL must be http or https URL',
         )
+
+    logging.debug_simple(f'Request URL: {request_url}')
 
     headers = {
         'Accept': '*/*',
@@ -87,12 +91,13 @@ async def BMLBrowserRequestGETProxyAPI(
 )
 async def BMLBrowserRequestPOSTProxyAPI(
     request_url: Annotated[str, Path(description='リクエスト URL 。')],
-    request: Request,
+    Denbun: Annotated[str, Form(description='データ放送ブラウザからのリクエストボディ (Denbun) 。', max_length=4096)],
 ):
     """
     データ放送ブラウザ (web-bml) のネット接続機能から利用される、HTTP (POST) プロキシ。<br>
     Web ブラウザからの HTTP リクエストには CORS の制限があるため、この API を経由してリクエストを送信する。<br>
-    web-bml のネット接続機能専用の API で、web-bml 以外からは利用されない。
+    web-bml のネット接続機能専用の API で、web-bml 以外からは利用されない。<br>
+    Denbun は仕様書いわく「電文」のことらしく、データ放送ブラウザからの x-www-form-urlencoded 形式の値のキー名は Denbun で固定されている。
     """
 
     # URLが HTTP または HTTPS URL かのバリデーション
@@ -102,24 +107,18 @@ async def BMLBrowserRequestPOSTProxyAPI(
             detail = 'Request URL must be http or https URL',
         )
 
-    # リクエストボディのサイズが 4096 + len('Denbun=') を超えていたらエラー
-    body = await request.body()
-    if len(body) > 4096 + len('Denbun='):
-        raise HTTPException(
-            status_code = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail = 'Request body is too large',
-        )
+    logging.debug_simple(f'Request URL: {request_url}')
+    logging.debug_simple(f'Denbun: {Denbun}')
 
     headers = {
         'Accept': '*/*',
         'Pragma': 'no-cache',
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Content-Length': str(len(body)),
     }
 
     # データ放送からアクセスされるサイトは HTTPS の場合でも証明書が切れていることが日常茶飯事なので、証明書の検証を行わない
     async with httpx.AsyncClient(follow_redirects=True, verify=False) as client:
-        response = await client.post(request_url, content=body, headers=headers)
+        response = await client.post(request_url, headers=headers, content=f'Denbun={Denbun}')
 
     allowed_response_headers = [
         'accept-ranges',
