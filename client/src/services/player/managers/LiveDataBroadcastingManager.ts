@@ -275,8 +275,8 @@ class LiveDataBroadcastingManager implements PlayerManager {
                         }
                         // サーバー側のプロキシ API 経由で HTTP POST リクエストを送信する
                         const response = await APIClient.post<ArrayBuffer>(`/data-broadcasting/request/${uri}`, body, {
-                            // バイナリをそのまま送信する
-                            headers: {'Content-Type': 'application/octet-stream'},
+                            // 受け取ったフォームデータをそのまま送信する
+                            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                             // レスポンスを ArrayBuffer として受け取る
                             responseType: 'arraybuffer',
                             // すべてのステータスコードで AxiosError にならないようにする
