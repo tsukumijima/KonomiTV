@@ -13,7 +13,6 @@
     },
     "dependencies": {
         "@github/mini-throttle": "^2.1.1",
-        "@mdi/font": "7.4.47",
         "@tsukumijima/aribts": "github:tsukumijima/node-aribts#v1.5.1",
         "assert": "^2.1.0",
         "axios": "^1.6.5",

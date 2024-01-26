@@ -75,6 +75,7 @@ export default defineConfig({
         // ref: https://vite-pwa-org.netlify.app/guide/
         VitePWA({
             // Service Worker の登録方法
+            strategies: 'generateSW',
             registerType: 'prompt',  // PWA の更新前にユーザーに確認する
             injectRegister: 'auto',
             // PWA のキャッシュに含めるファイル
@@ -117,8 +118,11 @@ export default defineConfig({
             },
             // Workbox の設定
             workbox: {
-                navigateFallbackDenylist: [/^\/api/],
+                // 古いキャッシュを自動削除する
                 cleanupOutdatedCaches: true,
+                // /api/ 以下のリクエストでは index.html を返さない
+                navigateFallbackDenylist: [/^\/api/],
+                // キャッシュするファイルの最大サイズ
                 maximumFileSizeToCacheInBytes: 1024 * 1024 * 15,  // 15MB
             }
         }),
