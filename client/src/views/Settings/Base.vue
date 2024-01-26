@@ -178,6 +178,7 @@ export default defineComponent({
                 padding: 6px;
                 border-radius: 50%;
                 color: rgb(var(--v-theme-text));
+                cursor: pointer;
                 @include tablet-vertical {
                     display: flex;
                 }

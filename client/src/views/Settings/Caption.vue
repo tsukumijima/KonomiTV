@@ -2,9 +2,9 @@
     <!-- ベース画面の中にそれぞれの設定画面で異なる部分を記述する -->
     <SettingsBase>
         <h2 class="settings__heading">
-            <router-link v-ripple class="settings__back-button" to="/settings/">
+            <a v-ripple class="settings__back-button" @click="$router.back()">
                 <Icon icon="fluent:arrow-left-12-filled" width="25px" />
-            </router-link>
+            </a>
             <Icon icon="fluent:subtitles-16-filled" width="25px" />
             <span class="ml-3">字幕</span>
         </h2>
