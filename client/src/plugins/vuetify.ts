@@ -1,6 +1,6 @@
 
 import 'vuetify/styles';
-import '@/styles/materialdesignicons.css';
+import '@/styles/materialdesignicons.min.css';
 import { createVuetify } from 'vuetify';
 import { ja } from 'vuetify/locale';
 
