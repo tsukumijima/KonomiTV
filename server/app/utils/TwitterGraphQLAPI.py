@@ -215,7 +215,7 @@ class TwitterGraphQLAPI:
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
             method = 'POST',
-            query_id = 'bDE2rBtZb3uyrczSZ_pI9g',
+            query_id = 'XQXK9Ei5fXUPxCF4zRmBLA',
             endpoint = 'CreateTweet',
             variables = {
                 'tweet_text': tweet,
@@ -235,7 +235,7 @@ class TwitterGraphQLAPI:
                 'graphql_is_translatable_rweb_tweet_is_translatable_enabled': True,
                 'view_counts_everywhere_api_enabled': True,
                 'longform_notetweets_consumption_enabled': True,
-                'responsive_web_twitter_article_tweet_consumption_enabled': False,
+                'responsive_web_twitter_article_tweet_consumption_enabled': True,
                 'tweet_awards_web_tipping_enabled': False,
                 'longform_notetweets_rich_text_read_enabled': True,
                 'longform_notetweets_inline_media_enabled': True,
@@ -593,7 +593,7 @@ class TwitterGraphQLAPI:
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
             method = 'POST',
-            query_id = 'cXIyr6kbiuIGZ1qnP_R7xw',
+            query_id = 'J1AQiEIiEDyF-1zgyrXHCA',
             endpoint = 'HomeLatestTimeline',
             variables = variables,
             features = {
@@ -608,7 +608,7 @@ class TwitterGraphQLAPI:
                 'graphql_is_translatable_rweb_tweet_is_translatable_enabled': True,
                 'view_counts_everywhere_api_enabled': True,
                 'longform_notetweets_consumption_enabled': True,
-                'responsive_web_twitter_article_tweet_consumption_enabled': False,
+                'responsive_web_twitter_article_tweet_consumption_enabled': True,
                 'tweet_awards_web_tipping_enabled': False,
                 'freedom_of_speech_not_reach_fetch_enabled': True,
                 'standardized_nudges_misinfo': True,
@@ -683,7 +683,7 @@ class TwitterGraphQLAPI:
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
             method = 'GET',
-            query_id = 'Aj1nGkALq99Xg3XI0OZBtw',
+            query_id = 'Lb34NbSpm24cOO75mjdvnQ',
             endpoint = 'SearchTimeline',
             variables = variables,
             features = {
@@ -698,7 +698,7 @@ class TwitterGraphQLAPI:
                 'graphql_is_translatable_rweb_tweet_is_translatable_enabled': True,
                 'view_counts_everywhere_api_enabled': True,
                 'longform_notetweets_consumption_enabled': True,
-                'responsive_web_twitter_article_tweet_consumption_enabled': False,
+                'responsive_web_twitter_article_tweet_consumption_enabled': True,
                 'tweet_awards_web_tipping_enabled': False,
                 'freedom_of_speech_not_reach_fetch_enabled': True,
                 'standardized_nudges_misinfo': True,
