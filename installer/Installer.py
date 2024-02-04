@@ -518,7 +518,7 @@ def Installer(version: str) -> None:
         config_dict['general']['encoder'] = encoder
         config_dict['server']['port'] = server_port
         config_dict['video']['recorded_folders'] = []  # TODO: 本来はインストーラーで設定できるべき
-        config_dict['capture']['upload_folder'] = str(capture_upload_folder)
+        config_dict['capture']['upload_folders'] = [str(capture_upload_folder)]
 
         # サーバー設定データを保存
         SaveConfig(install_path / 'config.yaml', config_dict)

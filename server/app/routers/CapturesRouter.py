@@ -49,54 +49,76 @@ async def CaptureUploadAPI(
     ## puremagic を使った時点でファイルはシークされているため、戻さないと 0 バイトになる
     image.file.seek(0)
 
-    # ディレクトリトラバーサル対策のためのチェック
-    ## ref: https://stackoverflow.com/a/45190125/17124142
-    filename = Path(cast(str, image.filename))
-    upload_folder = Path(Config().capture.upload_folder)
-    try:
-        upload_folder.joinpath(filename).resolve().relative_to(upload_folder.resolve())
-    except ValueError:
-        logging.error('[CapturesRouter][CaptureUploadAPI] Invalid filename was specified.')
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Specified filename is invalid',
-        )
+    # 先頭から順に保存容量が空いている保存先フォルダを探す
+    upload_folders: list[Path] = [Path(folder) for folder in Config().capture.upload_folders]
+    for index, upload_folder in enumerate(upload_folders):
 
-    # 保存するファイルパス
-    filepath = upload_folder / filename
+        # 万が一保存先フォルダが存在しない場合は次の保存先フォルダを探す
+        if not upload_folder.exists():
+            continue
 
-    # 既にファイルが存在していた場合は上書きしないようにリネーム
-    ## ref: https://note.nkmk.me/python-pathlib-name-suffix-parent/
-    count = 1
-    while filepath.exists():
-        filepath = upload_folder / f'{filename.stem}-{count}{filename.suffix}'
-        count += 1
+        # 保存先フォルダの空き容量が 10MB 未満なら、最後のフォルダでなければ次の保存先フォルダを探す
+        upload_folder_disk_usage = shutil.disk_usage(upload_folder)
+        if upload_folder_disk_usage.free < 10 * 1024 * 1024 and index < len(upload_folders) - 1:
+            continue
 
-    # キャプチャを保存
-    try:
-        with await asyncio.to_thread(open, filepath, mode='wb') as buffer:
-            await asyncio.to_thread(shutil.copyfileobj, image.file, buffer)
-    except PermissionError:
-        logging.error('[CapturesRouter][CaptureUploadAPI] Permission denied to save the file.')
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Permission denied to save the file',
-        )
-    except OSError as ex:
-        is_disk_full_error = False
-        if hasattr(ex, 'winerror'):
-            is_disk_full_error = ex.winerror == 112  # type: ignore
-        if hasattr(ex, 'errno'):
-            is_disk_full_error = ex.errno == errno.ENOSPC
-        if is_disk_full_error is True:
-            logging.error('[CapturesRouter][CaptureUploadAPI] No space left on the device.')
+        # ディレクトリトラバーサル対策のためのチェック
+        ## ref: https://stackoverflow.com/a/45190125/17124142
+        filename = Path(cast(str, image.filename))
+        try:
+            upload_folder.joinpath(filename).resolve().relative_to(upload_folder.resolve())
+        except ValueError:
+            logging.error('[CapturesRouter][CaptureUploadAPI] Invalid filename was specified.')
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail = 'No space left on the device',
+                detail = 'Specified filename is invalid',
             )
-        else:
-            logging.error(f'[CapturesRouter][CaptureUploadAPI] Unexpected OSError: {ex}')
+
+        # 保存するファイルパス
+        filepath = upload_folder / filename
+
+        # 既にファイルが存在していた場合は上書きしないようにリネーム
+        ## ref: https://note.nkmk.me/python-pathlib-name-suffix-parent/
+        count = 1
+        while filepath.exists():
+            filepath = upload_folder / f'{filename.stem}-{count}{filename.suffix}'
+            count += 1
+
+        # キャプチャを保存
+        try:
+            with await asyncio.to_thread(open, filepath, mode='wb') as buffer:
+                await asyncio.to_thread(shutil.copyfileobj, image.file, buffer)
+        except PermissionError:
+            logging.error('[CapturesRouter][CaptureUploadAPI] Permission denied to save the file.')
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail = 'Unexpected error occurred while saving the file',
+                detail = 'Permission denied to save the file',
             )
+        except OSError as ex:
+            is_disk_full_error = False
+            if hasattr(ex, 'winerror'):
+                is_disk_full_error = ex.winerror == 112  # type: ignore
+            if hasattr(ex, 'errno'):
+                is_disk_full_error = ex.errno == errno.ENOSPC
+            if is_disk_full_error is True:
+                logging.error('[CapturesRouter][CaptureUploadAPI] No space left on the device.')
+                raise HTTPException(
+                    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail = 'No space left on the device',
+                )
+            else:
+                logging.error(f'[CapturesRouter][CaptureUploadAPI] Unexpected OSError: {ex}')
+                raise HTTPException(
+                    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail = 'Unexpected error occurred while saving the file',
+                )
+
+        # キャプチャのアップロードに成功したら 204 No Content を返す
+        return
+
+    # 保存先フォルダが見つからなかった場合はエラー
+    logging.error('[CapturesRouter][CaptureUploadAPI] No available folder to save the file.')
+    raise HTTPException(
+        status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail = 'No available folder to save the file',
+    )

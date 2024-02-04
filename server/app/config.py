@@ -289,7 +289,7 @@ class _ServerSettingsVideo(BaseModel):
     recorded_folders: list[DirectoryPath]
 
 class _ServerSettingsCapture(BaseModel):
-    upload_folder: DirectoryPath
+    upload_folders: list[DirectoryPath]
 
 class ServerSettings(BaseModel):
     general: _ServerSettingsGeneral
@@ -356,7 +356,7 @@ def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
         ## /host-rootfs (docker-compose.yaml で定義) を通してホストマシンのファイルシステムにアクセスできる
         if GetPlatformEnvironment() == 'Linux-Docker':
             config_dict['video']['recorded_folders'] = [_DOCKER_PATH_PREFIX + folder for folder in config_dict['video']['recorded_folders']]
-            config_dict['capture']['upload_folder'] = _DOCKER_PATH_PREFIX + config_dict['capture']['upload_folder']
+            config_dict['capture']['upload_folders'] = [_DOCKER_PATH_PREFIX + folder for folder in config_dict['capture']['upload_folders']]
             if type(config_dict['tv']['debug_mode_ts_path']) is str:
                 config_dict['tv']['debug_mode_ts_path'] = _DOCKER_PATH_PREFIX + config_dict['tv']['debug_mode_ts_path']
     except Exception:
@@ -414,7 +414,7 @@ def SaveConfig(config: ServerSettings) -> None:
     ## LoadConfig() で実行されている処理と逆の処理を行う
     if GetPlatformEnvironment() == 'Linux-Docker':
         config_dict['video']['recorded_folders'] = [str(folder).replace(_DOCKER_PATH_PREFIX, '') for folder in config_dict['video']['recorded_folders']]
-        config_dict['capture']['upload_folder'] = str(config_dict['capture']['upload_folder']).replace(_DOCKER_PATH_PREFIX, '')
+        config_dict['capture']['upload_folders'] = [str(folder).replace(_DOCKER_PATH_PREFIX, '') for folder in config_dict['capture']['upload_folders']]
         if type(config_dict['tv']['debug_mode_ts_path']) is str or config_dict['tv']['debug_mode_ts_path'] is Path:
             config_dict['tv']['debug_mode_ts_path'] = str(config_dict['tv']['debug_mode_ts_path']).replace(_DOCKER_PATH_PREFIX, '')
 
