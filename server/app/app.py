@@ -5,14 +5,12 @@ import tortoise.contrib.fastapi
 from fastapi import FastAPI
 from fastapi import Request
 from fastapi import status
-from fastapi.middleware import Middleware
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi_restful.tasks import repeat_every
 from pathlib import Path
-from typing import Any, Type
 
 from app import logging
 from app.config import Config
@@ -145,32 +143,12 @@ async def Root(file: str):
 # Internal Server Error のハンドリング
 @app.exception_handler(Exception)
 async def ExceptionHandler(request: Request, exc: Exception):
-    response = JSONResponse(
+    return JSONResponse(
         {'detail': f'Oops! {type(exc).__name__} did something. There goes a rainbow...'},
         status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+        # FastAPI の謎仕様で CORSMiddleware は exception_handler に対しては効かないので、ここで自前で CORS ヘッダーを付与する
+        headers = {'Access-Control-Allow-Origin': '*'},
     )
-    # FastAPI の謎仕様で CORSMiddleware は exception_handler に対しては効かないので、ここで自前で CORS ヘッダーを付与する
-    # ref: https://github.com/tiangolo/fastapi/discussions/8027
-    def GetAppMiddleware(app: FastAPI, middleware_class: Type[Any]) -> Middleware | None:
-        middleware_index = None
-        for index, middleware in enumerate(app.user_middleware):
-            if middleware.cls == middleware_class:
-                middleware_index = index
-        return None if middleware_index is None else app.user_middleware[middleware_index]
-    cors_middleware = GetAppMiddleware(app=request.app, middleware_class=CORSMiddleware)
-    if cors_middleware is not None:
-        request_origin = request.headers.get('origin', '')
-        if '*' in cors_middleware.options['allow_origins']:
-            response.headers['Access-Control-Allow-Origin'] = '*'
-        elif request_origin in cors_middleware.options['allow_origins']:
-            response.headers['Access-Control-Allow-Origin'] = request_origin
-        if cors_middleware.options['allow_credentials']:
-            response.headers['Access-Control-Allow-Credentials'] = 'true'
-        if cors_middleware.options['allow_methods']:
-            response.headers['Access-Control-Allow-Methods'] = ', '.join(cors_middleware.options['allow_methods'])
-        if cors_middleware.options['allow_headers']:
-            response.headers['Access-Control-Allow-Headers'] = ', '.join(cors_middleware.options['allow_headers'])
-        return response
 
 # Tortoise ORM の初期化
 ## ロガーを Uvicorn に統合する
