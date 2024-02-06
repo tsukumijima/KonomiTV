@@ -9,6 +9,7 @@ import datetime
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
+from enum import IntEnum
 from io import BufferedReader
 from pydantic_core import Url
 from typing import Callable, cast, ClassVar, Literal, TypedDict, TypeVar
@@ -819,7 +820,7 @@ class NotifySrvInfo(TypedDict):
 # 以上、 CtrlCmdUtil で受け渡しする辞書の型ヒント
 
 
-class NotifyUpdate:
+class NotifyUpdate(IntEnum):
     """ 通知情報の種類 """
     EPGDATA = 1  # EPGデータが更新された
     RESERVE_INFO = 2  # 予約情報が更新された

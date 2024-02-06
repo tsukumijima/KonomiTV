@@ -10,6 +10,7 @@ import ruamel.yaml.scalarstring
 import rich
 import subprocess
 import time
+from enum import IntEnum
 from pathlib import Path
 from rich import box
 from rich import print
@@ -88,18 +89,34 @@ class CustomConfirm(Confirm):
 # ジェネリック型
 T = TypeVar('T')
 
-class ServiceInfo(TypedDict):
-    """ サービス情報 """
-    onid: int
-    tsid: int
-    sid: int
-    service_type: int
-    partial_reception_flag: int
-    service_provider_name: str
-    service_name: str
-    network_name: str
-    ts_name: str
-    remote_control_key_id: int
+class NotifySrvInfo(TypedDict):
+    """ 情報通知用パラメーター """
+    notify_id: int  # 通知情報の種類
+    time: datetime.datetime  # 通知状態の発生した時間
+    param1: int  # パラメーター1 (種類によって内容変更)
+    param2: int  # パラメーター2 (種類によって内容変更)
+    count: int  # 通知の巡回カウンタ
+    param4: str  # パラメーター4 (種類によって内容変更)
+    param5: str  # パラメーター5 (種類によって内容変更)
+    param6: str  # パラメーター6 (種類によって内容変更)
+
+class NotifyUpdate(IntEnum):
+    """ 通知情報の種類 """
+    EPGDATA = 1  # EPGデータが更新された
+    RESERVE_INFO = 2  # 予約情報が更新された
+    REC_INFO = 3  # 録画済み情報が更新された
+    AUTOADD_EPG = 4  # 自動予約登録情報が更新された
+    AUTOADD_MANUAL = 5  # 自動予約 (プログラム) 登録情報が更新された
+    PROFILE = 51  # 設定ファイル (ini) が更新された
+    SRV_STATUS = 100  # Srv の動作状況が変更 (param1: ステータス 0:通常、1:録画中、2:EPG取得中)
+    PRE_REC_START = 101  # 録画準備開始 (param4: ログ用メッセージ)
+    REC_START = 102  # 録画開始 (param4: ログ用メッセージ)
+    REC_END = 103  # 録画終了 (param4: ログ用メッセージ)
+    REC_TUIJYU = 104  # 録画中に追従が発生 (param4: ログ用メッセージ)
+    CHG_TUIJYU = 105  # 追従が発生 (param4: ログ用メッセージ)
+    PRE_EPGCAP_START = 106  # EPG 取得準備開始
+    EPGCAP_START = 107  # EPG 取得開始
+    EPGCAP_END = 108  # EPG 取得終了
 
 class CtrlCmdConnectionCheckUtil:
     """ server/app/utils/EDCB.py の CtrlCmdUtil クラスのうち、接続確認に必要なロジックだけを抜き出したもの"""
@@ -130,19 +147,28 @@ class CtrlCmdConnectionCheckUtil:
             self.__host = hostname
             self.__port = cast(int, port)
 
-    async def sendEnumService(self) -> list[ServiceInfo] | None:
-        """ サービス一覧を取得する """
-        ret, rbuf = await self.__sendCmd(self.__CMD_EPG_SRV_ENUM_SERVICE)
+    async def sendGetNotifySrvInfo(self, target_count: int) -> NotifySrvInfo | None:
+        """ target_count より大きいカウントの通知を待つ (TCP/IP モードのときロングポーリング) """
+        ret, rbuf = await self.__sendCmd2(self.__CMD_EPG_SRV_GET_STATUS_NOTIFY2,
+                                          lambda buf: self.__writeUint(buf, target_count))
         if ret == self.__CMD_SUCCESS:
+            bufview = memoryview(rbuf)
+            pos = [0]
             try:
-                return self.__readVector(self.__readServiceInfo, memoryview(rbuf), [0], len(rbuf))
+                if self.__readUshort(bufview, pos, len(rbuf)) >= self.__CMD_VER:
+                    return self.__readNotifySrvInfo(bufview, pos, len(rbuf))
             except self.__ReadError:
                 pass
         return None
 
+    async def sendGetNotifySrvStatus(self) -> NotifySrvInfo | None:
+        """ 現在の NotifyUpdate.SRV_STATUS を取得する """
+        return await self.sendGetNotifySrvInfo(0)
+
     # EDCB/EpgTimer の CtrlCmd.cs より
     __CMD_SUCCESS = 1
-    __CMD_EPG_SRV_ENUM_SERVICE = 1021
+    __CMD_VER = 5
+    __CMD_EPG_SRV_GET_STATUS_NOTIFY2 = 2200
 
     async def __sendAndReceive(self, buf: bytearray) -> tuple[int | None, bytes]:
         to = time.monotonic() + self.__connect_timeout_sec
@@ -203,18 +229,27 @@ class CtrlCmdConnectionCheckUtil:
             return ret, rbuf
         return None, b''
 
-    async def __sendCmd(self, cmd: int, write_func: Callable[[bytearray], None] | None = None) -> tuple[int | None, bytes]:
+    async def __sendCmd2(self, cmd2: int, write_func: Callable[[bytearray], None] | None = None) -> tuple[int | None, bytes]:
         buf = bytearray()
-        self.__writeInt(buf, cmd)
+        self.__writeInt(buf, cmd2)
         self.__writeInt(buf, 0)
+        self.__writeUshort(buf, self.__CMD_VER)
         if write_func:
             write_func(buf)
         self.__writeIntInplace(buf, 4, len(buf) - 8)
         return await self.__sendAndReceive(buf)
 
     @staticmethod
+    def __writeUshort(buf: bytearray, v: int) -> None:
+        buf.extend(v.to_bytes(2, 'little'))
+
+    @staticmethod
     def __writeInt(buf: bytearray, v: int) -> None:
         buf.extend(v.to_bytes(4, 'little', signed=True))
+
+    @staticmethod
+    def __writeUint(buf: bytearray, v: int) -> None:
+        buf.extend(v.to_bytes(4, 'little'))
 
     @staticmethod
     def __writeIntInplace(buf: bytearray, pos: int, v: int) -> None:
@@ -223,14 +258,6 @@ class CtrlCmdConnectionCheckUtil:
     class __ReadError(Exception):
         """ バッファをデータ構造として読み取るのに失敗したときの内部エラー """
         pass
-
-    @classmethod
-    def __readByte(cls, buf: memoryview, pos: list[int], size: int) -> int:
-        if size - pos[0] < 1:
-            raise cls.__ReadError
-        v = buf[pos[0]]
-        pos[0] += 1
-        return v
 
     @classmethod
     def __readUshort(cls, buf: memoryview, pos: list[int], size: int) -> int:
@@ -249,25 +276,38 @@ class CtrlCmdConnectionCheckUtil:
         return v
 
     @classmethod
+    def __readUint(cls, buf: memoryview, pos: list[int], size: int) -> int:
+        if size - pos[0] < 4:
+            raise cls.__ReadError
+        v = int.from_bytes(buf[pos[0]:pos[0] + 4], 'little')
+        pos[0] += 4
+        return v
+
+    @classmethod
+    def __readSystemTime(cls, buf: memoryview, pos: list[int], size: int) -> datetime.datetime:
+        if size - pos[0] < 16:
+            raise cls.__ReadError
+        try:
+            pos0 = pos[0]
+            v = datetime.datetime(buf[pos0] | buf[pos0 + 1] << 8,
+                                  buf[pos0 + 2] | buf[pos0 + 3] << 8,
+                                  buf[pos0 + 6] | buf[pos0 + 7] << 8,
+                                  buf[pos0 + 8] | buf[pos0 + 9] << 8,
+                                  buf[pos0 + 10] | buf[pos0 + 11] << 8,
+                                  buf[pos0 + 12] | buf[pos0 + 13] << 8,
+                                  tzinfo=cls.TZ)
+        except Exception:
+            v = cls.UNIX_EPOCH
+        pos[0] += 16
+        return v
+
+    @classmethod
     def __readString(cls, buf: memoryview, pos: list[int], size: int) -> str:
         vs = cls.__readInt(buf, pos, size)
         if vs < 6 or size - pos[0] < vs - 4:
             raise cls.__ReadError
         v = str(buf[pos[0]:pos[0] + vs - 6], 'utf_16_le')
         pos[0] += vs - 4
-        return v
-
-    @classmethod
-    def __readVector(cls, read_func: Callable[[memoryview, list[int], int], T], buf: memoryview, pos: list[int], size: int) -> list[T]:
-        vs = cls.__readInt(buf, pos, size)
-        vc = cls.__readInt(buf, pos, size)
-        if vs < 8 or vc < 0 or size - pos[0] < vs - 8:
-            raise cls.__ReadError
-        size = pos[0] + vs - 8
-        v: list[T] = []
-        for _ in range(vc):
-            v.append(read_func(buf, pos, size))
-        pos[0] = size
         return v
 
     @classmethod
@@ -280,19 +320,17 @@ class CtrlCmdConnectionCheckUtil:
     # 以下、各構造体のリーダー
 
     @classmethod
-    def __readServiceInfo(cls, buf: memoryview, pos: list[int], size: int) -> ServiceInfo:
+    def __readNotifySrvInfo(cls, buf: memoryview, pos: list[int], size: int) -> NotifySrvInfo:
         size = cls.__readStructIntro(buf, pos, size)
-        v: ServiceInfo = {
-            'onid': cls.__readUshort(buf, pos, size),
-            'tsid': cls.__readUshort(buf, pos, size),
-            'sid': cls.__readUshort(buf, pos, size),
-            'service_type': cls.__readByte(buf, pos, size),
-            'partial_reception_flag': cls.__readByte(buf, pos, size),
-            'service_provider_name': cls.__readString(buf, pos, size),
-            'service_name': cls.__readString(buf, pos, size),
-            'network_name': cls.__readString(buf, pos, size),
-            'ts_name': cls.__readString(buf, pos, size),
-            'remote_control_key_id': cls.__readByte(buf, pos, size)
+        v: NotifySrvInfo = {
+            'notify_id': cls.__readUint(buf, pos, size),
+            'time': cls.__readSystemTime(buf, pos, size),
+            'param1': cls.__readUint(buf, pos, size),
+            'param2': cls.__readUint(buf, pos, size),
+            'count': cls.__readUint(buf, pos, size),
+            'param4': cls.__readString(buf, pos, size),
+            'param5': cls.__readString(buf, pos, size),
+            'param6': cls.__readString(buf, pos, size)
         }
         pos[0] = size
         return v

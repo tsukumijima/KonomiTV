@@ -212,9 +212,9 @@ def Installer(version: str) -> None:
                 continue
             edcb_host = edcb_url_parse.hostname
             edcb_port = edcb_url_parse.port
-            ## 接続できたかの確認として、サービス一覧が取得できるか試してみる
+            ## 接続できたかの確認として、現在の EpgTimerSrv の動作ステータスを取得できるか試してみる
             edcb = CtrlCmdConnectionCheckUtil(edcb_host, edcb_port)
-            result = asyncio.run(edcb.sendEnumService())
+            result = asyncio.run(edcb.sendGetNotifySrvStatus())
             if result is None:
                 print(Padding(str(
                     f'[red]EDCB ({edcb_url}) にアクセスできませんでした。\n'

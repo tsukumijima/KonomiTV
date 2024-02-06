@@ -121,13 +121,14 @@ class _ServerSettingsGeneral(BaseModel):
                     'URL 内にホスト名またはポートが指定されていません。\n'
                     'EDCB の URL を間違えている可能性があります。'
                 )
-            # サービス一覧が取得できるか試してみる
+            # 現在の EpgTimerSrv の動作ステータスを取得できるか試してみる
+            ## result['param1'] に EpgTimerSrv の動作ステータスが入っている (0: 通常 / 1: 録画中 / 2: EPG 取得中)
             ## RecursionError 回避のために edcb_url を明示的に指定
             ## ThreadPoolExecutor 上で実行し、自動リロードモード時に発生するイベントループ周りの謎エラーを回避する
             edcb = CtrlCmdUtil(edcb_url)
             edcb.setConnectTimeOutSec(5)  # 5秒後にタイムアウト
             with concurrent.futures.ThreadPoolExecutor(1) as executor:
-                result = executor.submit(asyncio.run, edcb.sendEnumService()).result()
+                result = executor.submit(asyncio.run, edcb.sendGetNotifySrvStatus()).result()
             if result is None:
                 raise ValueError(
                     f'EDCB ({edcb_url}) にアクセスできませんでした。\n'
@@ -135,6 +136,12 @@ class _ServerSettingsGeneral(BaseModel):
                 )
             from app import logging
             logging.info(f'Backend: EDCB ({edcb_url})')
+            if result['param1'] == 0:
+                logging.info('EpgTimerSrv Status: Normal')
+            elif result['param1'] == 1:
+                logging.info('EpgTimerSrv Status: Recording')
+            elif result['param1'] == 2:
+                logging.info('EpgTimerSrv Status: Gathering EPG')
         return edcb_url
 
     @field_validator('mirakurun_url')
