@@ -798,6 +798,12 @@ class ManualAutoAddData(TypedDict, total=False):
     rec_setting: RecSettingData
 
 
+class NWPlayTimeShiftInfo(TypedDict):
+    """ CMD_EPG_SRV_NWPLAY_TF_OPEN で受け取る情報 """
+    ctrl_id: int
+    file_path: str
+
+
 class NotifySrvInfo(TypedDict):
     """ 情報通知用パラメーター """
     notify_id: int  # 通知情報の種類
@@ -903,6 +909,16 @@ class CtrlCmdUtil:
     async def sendViewAppClose(self) -> bool:
         """ アプリケーションの終了 """
         ret, _ = await self.__sendCmd(self.__CMD_VIEW_APP_CLOSE)
+        return ret == self.__CMD_SUCCESS
+
+    async def sendReloadEpg(self) -> bool:
+        """ EPG 再読み込みを開始する """
+        ret, _ = await self.__sendCmd(self.__CMD_EPG_SRV_RELOAD_EPG)
+        return ret == self.__CMD_SUCCESS
+
+    async def sendReloadSetting(self) -> bool:
+        """ 設定を再読み込みする """
+        ret, _ = await self.__sendCmd(self.__CMD_EPG_SRV_RELOAD_SETTING)
         return ret == self.__CMD_SUCCESS
 
     async def sendEnumService(self) -> list[ServiceInfo] | None:
@@ -1075,6 +1091,22 @@ class CtrlCmdUtil:
                 pass
         return None
 
+    async def sendGetRecFilePath(self, reserve_id: int) -> str | None:
+        """ 録画中かつ視聴予約でない予約の録画ファイルパスを取得する """
+        ret, rbuf = await self.__sendCmd(self.__CMD_EPG_SRV_NWPLAY_TF_OPEN,
+                                         lambda buf: self.__writeInt(buf, reserve_id))
+        if ret == self.__CMD_SUCCESS:
+            bufview = memoryview(rbuf)
+            pos = [0]
+            try:
+                info = self.__readNWPlayTimeShiftInfo(bufview, pos, len(rbuf))
+                await self.__sendCmd(self.__CMD_EPG_SRV_NWPLAY_CLOSE,
+                                     lambda buf: self.__writeInt(buf, info['ctrl_id']))
+                return info['file_path']
+            except self.__ReadError:
+                pass
+        return None
+
     async def sendEnumTunerReserve(self) -> list[TunerReserveInfo] | None:
         """ チューナーごとの予約一覧を取得する """
         ret, rbuf = await self.__sendCmd(self.__CMD_EPG_SRV_ENUM_TUNER_RESERVE)
@@ -1084,6 +1116,11 @@ class CtrlCmdUtil:
             except self.__ReadError:
                 pass
         return None
+
+    async def sendEpgCapNow(self) -> bool:
+        """ EPG 取得開始を要求する """
+        ret, _ = await self.__sendCmd(self.__CMD_EPG_SRV_EPG_CAP_NOW)
+        return ret == self.__CMD_SUCCESS
 
     async def sendEnumPlugIn(self, index: Literal[1, 2]) -> list[str] | None:
         """ PlugIn ファイルの一覧を取得する """
@@ -1236,6 +1273,8 @@ class CtrlCmdUtil:
     __CMD_VIEW_APP_GET_BONDRIVER = 202
     __CMD_VIEW_APP_SET_CH = 205
     __CMD_VIEW_APP_CLOSE = 208
+    __CMD_EPG_SRV_RELOAD_EPG = 2
+    __CMD_EPG_SRV_RELOAD_SETTING = 3
     __CMD_EPG_SRV_RELAY_VIEW_STREAM = 301
     __CMD_EPG_SRV_DEL_RESERVE = 1014
     __CMD_EPG_SRV_ENUM_TUNER_RESERVE = 1016
@@ -1247,10 +1286,13 @@ class CtrlCmdUtil:
     __CMD_EPG_SRV_ENUM_PG_ARC = 1030
     __CMD_EPG_SRV_DEL_AUTO_ADD = 1033
     __CMD_EPG_SRV_DEL_MANU_ADD = 1043
+    __CMD_EPG_SRV_EPG_CAP_NOW = 1053
     __CMD_EPG_SRV_FILE_COPY = 1060
     __CMD_EPG_SRV_ENUM_PLUGIN = 1061
     __CMD_EPG_SRV_NWTV_ID_SET_CH = 1073
     __CMD_EPG_SRV_NWTV_ID_CLOSE = 1074
+    __CMD_EPG_SRV_NWPLAY_CLOSE = 1081
+    __CMD_EPG_SRV_NWPLAY_TF_OPEN = 1087
     __CMD_EPG_SRV_GET_NETWORK_PATH = 1299
     __CMD_EPG_SRV_ENUM_RESERVE2 = 2011
     __CMD_EPG_SRV_GET_RESERVE2 = 2012
@@ -2049,6 +2091,16 @@ class CtrlCmdUtil:
             'tsid': cls.__readUshort(buf, pos, size),
             'sid': cls.__readUshort(buf, pos, size),
             'rec_setting': cls.__readRecSettingData(buf, pos, size)
+        }
+        pos[0] = size
+        return v
+
+    @classmethod
+    def __readNWPlayTimeShiftInfo(cls, buf: memoryview, pos: list[int], size: int) -> NWPlayTimeShiftInfo:
+        size = cls.__readStructIntro(buf, pos, size)
+        v: NWPlayTimeShiftInfo = {
+            'ctrl_id': cls.__readInt(buf, pos, size),
+            'file_path': cls.__readString(buf, pos, size)
         }
         pos[0] = size
         return v
