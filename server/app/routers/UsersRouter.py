@@ -477,42 +477,9 @@ async def UserUpdateAPI(
     user: User = Depends(GetSpecifiedUser),
 ):
     """
-    指定されたユーザーアカウントの情報を更新する。管理者権限を付与/剥奪できるのが /api/users/me との最大の違い。<br>
+    指定されたユーザーアカウントの情報を更新する。/api/users/me と異なり、管理者権限の付与/剥奪のみ可能。<br>
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
     """
-
-    # Passlib のコンテキストを作成
-    passlib_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
-
-    # ユーザー名を更新
-    if user_update_request.username is not None:
-
-        # 同じユーザー名のアカウントがあったら 422 を返す
-        # ユーザー名がそのままログイン ID になるので、同じユーザー名のアカウントがあると重複する
-        if ((await User.filter(name=user_update_request.username).get_or_none() is not None) and
-            (user_update_request.username != user.name)):  # ログイン中のユーザーと同じなら問題ないので除外
-            logging.error(f'[UsersRouter][UserUpdateAPI] Specified username is duplicated [username: {user_update_request.username}]')
-            raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail = 'Specified username is duplicated',
-            )
-
-        # ユーザー名が token or me だったら 422 を返す
-        ## /api/users/me と /api/users/token があるので、もしその名前で登録できてしまうと重複して面倒なことになる
-        ## そんな名前で登録する人はいないとは思うけど、念のため…。
-        if user_update_request.username.lower() == 'me' or user_update_request.username.lower() == 'token':
-            logging.error(f'[UsersRouter][UserUpdateAPI] Specified username is not accepted due to system limitations [username: {user_update_request.username}]')
-            raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail = 'Specified username is not accepted due to system limitations',
-            )
-
-        # 新しいユーザー名を設定
-        user.name = user_update_request.username
-
-    # パスワードを更新
-    if user_update_request.password is not None:
-        user.password = passlib_context.hash(user_update_request.password)  # ハッシュ化されたパスワード
 
     # 管理者権限を付与/剥奪
     if user_update_request.is_admin is not None:

@@ -178,8 +178,6 @@ class UserUpdateRequest(BaseModel):
     password: str | None = None
 
 class UserUpdateRequestForAdmin(BaseModel):
-    username: str | None = None
-    password: str | None = None
     is_admin: bool | None = None
 
 class TwitterPasswordAuthRequest(BaseModel):
