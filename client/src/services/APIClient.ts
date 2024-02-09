@@ -84,7 +84,10 @@ class APIClient {
         }
 
         // リクエストのタイムアウト時間を30秒に設定
-        request.timeout = 30 * 1000;
+        // 既にタイムアウト時間が設定されている場合は上書きしない
+        if (request.timeout === undefined) {
+            request.timeout = 30 * 1000;
+        }
 
         // リクエストのタイムアウト時に、一般的な ECONNABORTED の代わりに ETIMEDOUT を送出する
         request.transitional = {
@@ -134,6 +137,7 @@ class APIClient {
     /**
      * GET リクエストを送信する
      * @param url リクエスト先の URL
+     * @param config AxiosRequestConfig
      * @returns 成功なら ISuccessResponse 、失敗なら IErrorResponse を返す
      */
     static async get<T = any, D = any>(url: string, config?: AxiosRequestConfig<D>): Promise<ISuccessResponse<T> | IErrorResponse> {
@@ -149,6 +153,8 @@ class APIClient {
     /**
      * POST リクエストを送信する
      * @param url リクエスト先の URL
+     * @param data 送信するデータ
+     * @param config AxiosRequestConfig
      * @returns 成功なら ISuccessResponse 、失敗なら IErrorResponse を返す
      */
     static async post<T = any, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<ISuccessResponse<T> | IErrorResponse> {
@@ -165,6 +171,8 @@ class APIClient {
     /**
      * PUT リクエストを送信する
      * @param url リクエスト先の URL
+     * @param data 送信するデータ
+     * @param config AxiosRequestConfig
      * @returns 成功なら ISuccessResponse 、失敗なら IErrorResponse を返す
      */
     static async put<T = any, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<ISuccessResponse<T> | IErrorResponse> {
@@ -181,6 +189,7 @@ class APIClient {
     /**
      * DELETE リクエストを送信する
      * @param url リクエスト先の URL
+     * @param config AxiosRequestConfig
      * @returns 成功なら ISuccessResponse 、失敗なら IErrorResponse を返す
      */
     static async delete<T = any, D = any>(url: string, config?: AxiosRequestConfig<D>): Promise<ISuccessResponse<T> | IErrorResponse> {
