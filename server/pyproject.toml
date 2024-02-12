@@ -32,7 +32,7 @@ py7zr = "^0.20.8"
 pydantic = "^2.5.2"
 pymediainfo = "^6.1.0"
 python-jose = {version = "^3.3.0", extras = ["cryptography"]}
-python-multipart = "^0.0.6"
+python-multipart = "^0.0.7"
 pywin32 = {version = "^306", platform = "win32"}
 requests = "^2.31.0"
 rich = "^13.7.0"
