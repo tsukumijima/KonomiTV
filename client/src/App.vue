@@ -241,11 +241,13 @@ body .route-container {
 }
 
 // Progress Circular (indeterminate) のスタイルとアニメーション速度を Vuetify 2 に合わせる
-.v-progress-circular__underlay {
-    display: none !important;
-}
-.v-progress-circular--indeterminate > svg {
-    animation: none !important;
+.v-progress-circular--indeterminate {
+    svg {
+        animation: none !important;
+        .v-progress-circular__underlay {
+            display: none !important;
+        }
+    }
 }
 
 // ***** ユーティリティクラス *****
