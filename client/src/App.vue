@@ -100,8 +100,8 @@ html {
         font-family: 'Open Sans', 'YakuHanJPs', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
     }
 
-    .v-application--wrap {
-        min-height: 100% !important;
+    .v-application__wrap {
+        flex-direction: row !important;
     }
 }
 
@@ -243,9 +243,11 @@ body .route-container {
 // Progress Circular (indeterminate) のスタイルとアニメーション速度を Vuetify 2 に合わせる
 .v-progress-circular--indeterminate {
     svg {
-        animation: none !important;
         .v-progress-circular__underlay {
             display: none !important;
+        }
+        .v-progress-circular__overlay {
+            animation: progress-circular-dash 1.4s ease-in-out infinite !important;
         }
     }
 }
