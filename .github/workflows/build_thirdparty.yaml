@@ -25,8 +25,8 @@ env:
   ## FFmpeg-Builds は毎月末のリリースが長期間保持されるため、基本毎月末のリリースを指定する
   ## ref: https://github.com/BtbN/FFmpeg-Builds/releases
   FFMPEG_TAG: 'autobuild-2024-01-31-12-54'
-  FFMPEG_MAJOR_VERSION: '5.1'
-  FFMPEG_VERSION: '5.1.4-2-gdd885ab2f5'
+  FFMPEG_MAJOR_VERSION: '6.1'
+  FFMPEG_VERSION: '6.1.1-1-g61b88b4dda'
   FFMPEG_HWENCC_MAJOR_VERSION: '4.4'
   FFMPEG_HWENCC_VERSION: '4.4.4-89-g25841e4f90'
   # QSVEncC・NVEncC・VCEEncC・rkmppenc のバージョン
