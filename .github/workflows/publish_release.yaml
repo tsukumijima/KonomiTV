@@ -35,39 +35,39 @@ jobs:
 
       # ビルド済みのインストーラーとサードパーティーライブラリをダウンロード
       - name: Download Installer (for Windows)
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: KonomiTV-Installer.exe
           path: ${{ github.workspace }}/
       - name: Download Installer (for Linux)
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: KonomiTV-Installer.elf
           path: ${{ github.workspace }}/
       - name: Download Installer (for Linux ARM)
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: KonomiTV-Installer-ARM.elf
           path: ${{ github.workspace }}/
       - name: Download Thirdparty Library (for Windows)
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: thirdparty-windows.7z
           path: ${{ github.workspace }}/
       - name: Download Thirdparty Library (for Linux)
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: thirdparty-linux.tar.xz
           path: ${{ github.workspace }}/
       - name: Download Thirdparty Library (for Linux ARM)
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: thirdparty-linux-arm.tar.xz
           path: ${{ github.workspace }}/
 
       # KonomiTV のソースコードをチェックアウト
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           path: KonomiTV

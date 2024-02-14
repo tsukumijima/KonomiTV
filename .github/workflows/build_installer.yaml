@@ -23,7 +23,7 @@ jobs:
 
       # KonomiTV のソースコードをチェックアウト
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # Python 3.11 環境をセットアップ
       ## 事前に Runner 自体に入っている Python に Poetry をインストールしておく必要がある
@@ -31,7 +31,7 @@ jobs:
         run: |
           python -m pip install poetry
       - name: Setup Python 3.11
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'poetry'
@@ -51,7 +51,7 @@ jobs:
 
       # 単一実行ファイルにビルドされたインストーラーを Artifact としてアップロード
       - name: Upload Installer Executable as Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: KonomiTV-Installer.exe
           path: installer/dist/KonomiTV-Installer.exe
@@ -63,7 +63,7 @@ jobs:
 
       # KonomiTV のソースコードをチェックアウト
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # Python 3.11 環境をセットアップ
       ## 事前に Runner 自体に入っている Python に Poetry をインストールしておく必要がある
@@ -71,7 +71,7 @@ jobs:
         run: |
           python -m pip install poetry
       - name: Setup Python 3.11
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'poetry'
@@ -91,7 +91,7 @@ jobs:
 
       # 単一実行ファイルにビルドされたインストーラーを Artifact としてアップロード
       - name: Upload Installer Executable as Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: KonomiTV-Installer.elf
           path: installer/dist/KonomiTV-Installer.elf
@@ -103,13 +103,13 @@ jobs:
 
       # QEMU のセットアップ
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
         with:
           platforms: linux/arm64
 
       # Docker Buildx のセットアップ
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       # Dockerfile の作成
       - name: Create Dockerfile
@@ -137,7 +137,7 @@ jobs:
 
       # ARM64 版 Docker イメージのビルド
       - name: Build Docker Image
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v5
         with:
           context: .
           tags: arm64v8/ubuntu:build
@@ -152,7 +152,7 @@ jobs:
 
       # KonomiTV のソースコードをチェックアウト
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # インストーラーを PyInstaller でビルド
       - name: Build Installer with PyInstaller
@@ -164,7 +164,7 @@ jobs:
 
       # 単一実行ファイルにビルドされたインストーラーを Artifact としてアップロード
       - name: Upload Installer Executable as Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: KonomiTV-Installer-ARM.elf
           path: installer/dist/KonomiTV-Installer-ARM.elf

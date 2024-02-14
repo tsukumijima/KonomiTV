@@ -55,7 +55,7 @@ jobs:
 
       # MSBuild を PATH に追加
       - name: Add MSBuild to PATH
-        uses: microsoft/setup-msbuild@v1.1
+        uses: microsoft/setup-msbuild@v2
 
       # サードパーティーライブラリの配置フォルダを作成
       - name: Create Thirdparty Folder
@@ -159,7 +159,7 @@ jobs:
 
       # 7z で圧縮したサードパーティーライブラリを Artifact としてアップロード
       - name: Upload Thirdparty Libraries as Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: thirdparty-windows.7z
           path: thirdparty-windows.7z
@@ -323,7 +323,7 @@ jobs:
 
       # 7z で圧縮したサードパーティーライブラリを Artifact としてアップロード
       - name: Upload Thirdparty Libraries as Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: thirdparty-linux.tar.xz
           path: thirdparty-linux.tar.xz
@@ -339,13 +339,13 @@ jobs:
 
       # QEMU のセットアップ
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
         with:
           platforms: linux/arm64
 
       # Docker Buildx のセットアップ
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       # Dockerfile の作成
       - name: Create Dockerfile
@@ -359,7 +359,7 @@ jobs:
 
       # ARM64 版 Docker イメージのビルド
       - name: Build Docker Image
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v5
         with:
           context: .
           tags: arm64v8/ubuntu:build
@@ -500,7 +500,7 @@ jobs:
 
       # 7z で圧縮したサードパーティーライブラリを Artifact としてアップロード
       - name: Upload Thirdparty Libraries as Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: thirdparty-linux-arm.tar.xz
           path: thirdparty-linux-arm.tar.xz
