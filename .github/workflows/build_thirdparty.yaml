@@ -85,7 +85,7 @@ jobs:
 
       # Golang 環境のセットアップ
       - name: Setup Golang Environment
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GOLANG_VERSION }}
           cache: false
@@ -204,7 +204,7 @@ jobs:
 
       # Golang 環境のセットアップ
       - name: Setup Golang Environment
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GOLANG_VERSION }}
           cache: false
@@ -399,7 +399,7 @@ jobs:
 
       # Golang 環境のセットアップ
       - name: Setup Golang Environment
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GOLANG_VERSION }}
           cache: false
