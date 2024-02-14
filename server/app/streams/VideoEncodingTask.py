@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import os
 import subprocess
+import sys
 import threading
 from biim.mpeg2ts import ts
 from biim.mpeg2ts.packetize import packetize_section
@@ -394,7 +395,9 @@ class VideoEncodingTask:
                 # 字幕と文字スーパーを aribb24.js が解釈できる ID3 timed-metadata に変換する
                 ## +4: FFmpeg のバグを打ち消すため、変換後のストリームに規格外の5バイトのデータを追加する
                 ## +8: FFmpeg のエラーを防ぐため、変換後のストリームの PTS が単調増加となるように調整する
-                '-d', '13',
+                ## +4 は FFmpeg 6.1 以降不要になった (付与していると字幕が表示されなくなる) ため、
+                ## FFmpeg 4.4 系に依存している Linux 版 HWEncC 利用時のみ付与する
+                '-d', '13' if ENCODER_TYPE != 'FFmpeg' and sys.platform == 'linux' else '9',
                 # 標準入力からの入力を受け付ける
                 '-',
             ]

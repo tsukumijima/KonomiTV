@@ -9,6 +9,7 @@ import asyncio
 import gc
 import os
 import re
+import sys
 import time
 from aiofiles.threadpool.text import AsyncTextIOWrapper
 from biim.mpeg2ts import ts
@@ -405,6 +406,9 @@ class LiveEncodingTask:
 
         CONFIG = Config()
 
+        # エンコーダーの種類を取得
+        ENCODER_TYPE = CONFIG.general.encoder
+
         # まだ Standby になっていなければ、ステータスを Standby に設定
         # 基本はエンコードタスクの呼び出し元である self.live_stream.connect() の方で Standby に設定されるが、再起動の場合はそこを経由しないため必要
         if not (self.live_stream.getStatus().status == 'Standby' and self.live_stream.getStatus().detail == 'エンコードタスクを起動しています…'):
@@ -455,7 +459,9 @@ class LiveEncodingTask:
             # 字幕と文字スーパーを aribb24.js が解釈できる ID3 timed-metadata に変換する
             ## +4: FFmpeg のバグを打ち消すため、変換後のストリームに規格外の5バイトのデータを追加する
             ## +8: FFmpeg のエラーを防ぐため、変換後のストリームの PTS が単調増加となるように調整する
-            '-d', '13',
+            ## +4 は FFmpeg 6.1 以降不要になった (付与していると字幕が表示されなくなる) ため、
+            ## FFmpeg 4.4 系に依存している Linux 版 HWEncC 利用時のみ付与する
+            '-d', '13' if ENCODER_TYPE != 'FFmpeg' and sys.platform == 'linux' else '9',
         ]
 
         if CONFIG.tv.debug_mode_ts_path is None:
@@ -493,15 +499,12 @@ class LiveEncodingTask:
         # フル HD 放送が行われているチャンネルかを取得
         is_fullhd_channel = self.isFullHDChannel(channel.network_id, channel.service_id)
 
-        # エンコーダーの種類を取得
-        encoder_type = CONFIG.general.encoder
-
         ## ラジオチャンネルでは HW エンコードの意味がないため、FFmpeg に固定する
         if channel.is_radiochannel is True:
-            encoder_type = 'FFmpeg'
+            ENCODER_TYPE = 'FFmpeg'
 
         # FFmpeg
-        if encoder_type == 'FFmpeg':
+        if ENCODER_TYPE == 'FFmpeg':
 
             # オプションを取得
             # ラジオチャンネルかどうかでエンコードオプションを切り替え
@@ -523,12 +526,12 @@ class LiveEncodingTask:
         else:
 
             # オプションを取得
-            encoder_options = self.buildHWEncCOptions(self.live_stream.quality, encoder_type, is_fullhd_channel, channel.type == 'SKY')
-            logging.info(f'[Live: {self.live_stream.live_stream_id}] {encoder_type} Commands:\n{encoder_type} {" ".join(encoder_options)}')
+            encoder_options = self.buildHWEncCOptions(self.live_stream.quality, ENCODER_TYPE, is_fullhd_channel, channel.type == 'SKY')
+            logging.info(f'[Live: {self.live_stream.live_stream_id}] {ENCODER_TYPE} Commands:\n{ENCODER_TYPE} {" ".join(encoder_options)}')
 
             # エンコーダープロセスを非同期で作成・実行
             encoder = await asyncio.subprocess.create_subprocess_exec(
-                *[LIBRARY_PATH[encoder_type], *encoder_options],
+                *[LIBRARY_PATH[ENCODER_TYPE], *encoder_options],
                 stdin = tsreadex_read_pipe,  # tsreadex からの入力
                 stdout = asyncio.subprocess.PIPE,  # ストリーム出力
                 stderr = asyncio.subprocess.PIPE,  # ログ出力
@@ -911,7 +914,7 @@ class LiveEncodingTask:
                     # ストリーム関連のログを表示
                     ## エンコーダーのログ出力が有効なら、ストリーム関連に限らずすべてのログを出力する
                     if 'Stream #0:' in line or CONFIG.general.debug_encoder is True:
-                        logging.debug_simple(f'[Live: {self.live_stream.live_stream_id}] [{encoder_type}] ' + line)
+                        logging.debug_simple(f'[Live: {self.live_stream.live_stream_id}] [{ENCODER_TYPE}] ' + line)
 
                     # エンコーダーのログ出力が有効なら、エンコーダーのログファイルに書き込む
                     if CONFIG.general.debug_encoder is True and encoder_log is not None:
@@ -925,7 +928,7 @@ class LiveEncodingTask:
                 # 誤作動防止のため、ステータスが Standby の間のみ更新できるようにする
                 if live_stream_status.status == 'Standby':
                     # FFmpeg
-                    if encoder_type == 'FFmpeg':
+                    if ENCODER_TYPE == 'FFmpeg':
                         if 'arib parser was created' in line or 'Invalid frame dimensions 0x0.' in line:
                             self.live_stream.setStatus('Standby', 'エンコードを開始しています…')
                         elif 'frame=    1 fps=0.0 q=0.0' in line or 'size=       0kB time=00:00' in line:
@@ -952,7 +955,7 @@ class LiveEncodingTask:
                 # 特定のエラーログが出力されている場合は回復が見込めないため、エンコーダーを終了する
                 ## エンコーダーを再起動することで回復が期待できる場合は、ステータスを Restart に設定しエンコードタスクを再起動する
                 ## FFmpeg
-                if encoder_type == 'FFmpeg':
+                if ENCODER_TYPE == 'FFmpeg':
                     if 'Stream map \'0:v:0\' matches no streams.' in line:
                         # 何らかの要因で tsreadex から放送波が受信できなかったことによるエラーのため、エンコーダーの再起動は行わない
                         ## 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないなら放送波の受信に失敗したものとする
@@ -977,19 +980,19 @@ class LiveEncodingTask:
                             self.live_stream.setStatus('Offline', 'この時間は放送を休止しています。(E-05H)')
                         else:
                             self.live_stream.setStatus('Offline', 'チューナーからの放送波の受信に失敗したため、エンコードを開始できません。(E-05H)')
-                    elif encoder_type == 'NVEncC' and 'due to the NVIDIA\'s driver limitation.' in line:
+                    elif ENCODER_TYPE == 'NVEncC' and 'due to the NVIDIA\'s driver limitation.' in line:
                         # NVEncC で、同時にエンコードできるセッション数 (Geforceだと5つ) を全て使い果たしている時のエラー
                         self.live_stream.setStatus('Offline', 'NVENC のエンコードセッションが不足しているため、エンコードを開始できません。(E-06HN)')
-                    elif encoder_type == 'QSVEncC' and ('unable to decode by qsv.' in line or 'No device found for QSV encoding!' in line):
+                    elif ENCODER_TYPE == 'QSVEncC' and ('unable to decode by qsv.' in line or 'No device found for QSV encoding!' in line):
                         # QSVEncC 非対応の環境
                         self.live_stream.setStatus('Offline', 'お使いの PC 環境は QSVEncC エンコーダーに対応していません。(E-07HQ)')
-                    elif encoder_type == 'QSVEncC' and 'iHD_drv_video.so init failed' in line:
+                    elif ENCODER_TYPE == 'QSVEncC' and 'iHD_drv_video.so init failed' in line:
                         # QSVEncC 非対応の環境 (Linux かつ第5世代以前の Intel CPU)
                         self.live_stream.setStatus('Offline', 'お使いの PC 環境は Linux 版 QSVEncC エンコーダーに対応していません。第5世代以前の古い CPU をお使いの可能性があります。(E-08HQ)')
-                    elif encoder_type == 'NVEncC' and 'CUDA not available.' in line:
+                    elif ENCODER_TYPE == 'NVEncC' and 'CUDA not available.' in line:
                         # NVEncC 非対応の環境
                         self.live_stream.setStatus('Offline', 'お使いの PC 環境は NVEncC エンコーダーに対応していません。(E-09HN)')
-                    elif encoder_type == 'VCEEncC' and \
+                    elif ENCODER_TYPE == 'VCEEncC' and \
                         ('Failed to initalize VCE factory:' in line or 'Assertion failed:Init() failed to vkCreateInstance' in line):
                         # VCEEncC 非対応の環境
                         self.live_stream.setStatus('Offline', 'お使いの PC 環境は VCEEncC エンコーダーに対応していません。(E-10HV)')
@@ -1090,7 +1093,7 @@ class LiveEncodingTask:
                 # ENCODER_TS_READ_TIMEOUT_ONAIR 秒以上が経過している場合も、エンコーダーがフリーズしたものとみなす
                 ## 何らかの理由でエンコードが途中で停止した場合、live_stream.write() が実行されなくなることを利用している
                 encoder_ts_read_timeout_onair = \
-                    self.ENCODER_TS_READ_TIMEOUT_ONAIR_VCEENCC if encoder_type == 'VCEEncC' else self.ENCODER_TS_READ_TIMEOUT_ONAIR
+                    self.ENCODER_TS_READ_TIMEOUT_ONAIR_VCEENCC if ENCODER_TYPE == 'VCEEncC' else self.ENCODER_TS_READ_TIMEOUT_ONAIR
                 stream_data_last_write_time = time.time() - self.live_stream.getStreamDataWrittenAt()
                 if ((live_stream_status.status == 'Standby' and stream_data_last_write_time > self.ENCODER_TS_READ_TIMEOUT_STANDBY) or
                     (live_stream_status.status == 'ONAir' and stream_data_last_write_time > encoder_ts_read_timeout_onair)):
@@ -1112,7 +1115,7 @@ class LiveEncodingTask:
 
                         # エンコーダーのログを表示 (FFmpeg は最後の50行、HWEncC は最後の150行を表示)
                         if result is True:
-                            if encoder_type == 'FFmpeg':
+                            if ENCODER_TYPE == 'FFmpeg':
                                 for log in lines[-51:-1]:
                                     logging.warning(log)
                             else:
@@ -1137,11 +1140,11 @@ class LiveEncodingTask:
                     if self._retry_count == 0:
                         for line in lines:
                             # QSVEncC: H.265/HEVC でのエンコードに非対応の環境
-                            if encoder_type == 'QSVEncC' and 'HEVC encoding is not supported on current platform.' in line:
+                            if ENCODER_TYPE == 'QSVEncC' and 'HEVC encoding is not supported on current platform.' in line:
                                 self.live_stream.setStatus('Offline', 'お使いの Intel GPU は H.265/HEVC でのエンコードに対応していません。(E-14HQ)')
                                 break
                             # NVEncC: H.265/HEVC でのエンコードに非対応の環境
-                            elif encoder_type == 'NVEncC' and 'does not support H.265/HEVC encoding.' in line:
+                            elif ENCODER_TYPE == 'NVEncC' and 'does not support H.265/HEVC encoding.' in line:
                                 # 他の行に available for encode. という文字列が含まれている場合は除外
                                 available_for_encode = False
                                 for line2 in lines:
@@ -1152,7 +1155,7 @@ class LiveEncodingTask:
                                     self.live_stream.setStatus('Offline', 'お使いの NVIDIA GPU は H.265/HEVC でのエンコードに対応していません。(E-15HN)')
                                     break
                             # VCEEncC: H.265/HEVC でのエンコードに非対応の環境
-                            elif encoder_type == 'VCEEncC' and 'HW Acceleration of H.265/HEVC is not supported on this platform.' in line:
+                            elif ENCODER_TYPE == 'VCEEncC' and 'HW Acceleration of H.265/HEVC is not supported on this platform.' in line:
                                 self.live_stream.setStatus('Offline', 'お使いの AMD GPU は H.265/HEVC でのエンコードに対応していません。(E-16HV)')
                                 break
 
@@ -1164,7 +1167,7 @@ class LiveEncodingTask:
 
                         # エンコーダーのログを表示 (FFmpeg は最後の50行、HWEncC は最後の150行を表示)
                         if result is True:
-                            if encoder_type == 'FFmpeg':
+                            if ENCODER_TYPE == 'FFmpeg':
                                 for log in lines[-51:-1]:
                                     logging.warning(log)
                             else:
