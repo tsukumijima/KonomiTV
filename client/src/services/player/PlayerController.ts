@@ -170,6 +170,12 @@ class PlayerController {
         const is_show_superimpose = this.playback_mode === 'Live' ?
             settings_store.settings.tv_show_superimpose : settings_store.settings.video_show_superimpose;
 
+        // この時点で LocalStorage に dplayer-danmaku-opacity キーが存在しなければ、コメントの透明度の既定値を設定する
+        // DPlayer のデフォルトは 1.0 (全表示) だが映像が見づらくなるため、0.5 に設定する
+        if (localStorage.getItem('dplayer-danmaku-opacity') === null) {
+            localStorage.setItem('dplayer-danmaku-opacity', '0.5');
+        }
+
         // DPlayer を初期化
         this.player = new DPlayer({
             // DPlayer を配置する要素
