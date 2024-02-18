@@ -138,6 +138,9 @@ export default defineComponent({
             // Swiper のインスタンス
             swiper_instance: null as SwiperClass | null,
 
+            // スクロールイベントを解除するための AbortController
+            scroll_abort_controller: new AbortController(),
+
             // ローディング中かどうか
             is_loading: true,
 
@@ -196,6 +199,11 @@ export default defineComponent({
         // content-visibility: auto の指定の関係でうまく計算されないことがある Swiper の autoHeight を強制的に再計算する
         this.swiper_instance?.updateAutoHeight();
 
+        // 画面がスクロールされたときに Swiper の autoHeight を再計算する
+        window.addEventListener('scroll', () => {
+            this.swiper_instance?.updateAutoHeight();
+        }, { passive: true, signal: this.scroll_abort_controller.signal });
+
         // チャンネル情報の更新が終わったタイミングでローディング状態を解除する
         await Utils.sleep(0.01);  // 少し待たないとタブのハイライトがアニメーションされてしまう
         this.is_loading = false;
@@ -208,6 +216,10 @@ export default defineComponent({
         for (const interval_id of this.interval_ids) {
             window.clearInterval(interval_id);
         }
+
+        // スクロールイベントを解除する
+        this.scroll_abort_controller.abort();
+        this.scroll_abort_controller = new AbortController();
     },
     methods: {
 
