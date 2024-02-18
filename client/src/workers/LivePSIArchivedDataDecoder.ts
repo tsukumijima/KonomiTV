@@ -277,9 +277,12 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
                 } else {
                     let head = ProgramUtils.formatString(new TsChar(item.item_description_char).decode());
                     // 項目名が重複する場合はタブ文字を追加して区別する
-                    while (detail_array.some(detail => detail.head === head)) {
-                        head += '\t';
+                    const original_head = head;
+                    let tab_suffix = '';
+                    while (detail_array.some(detail => detail.head === original_head + tab_suffix)) {
+                        tab_suffix += '\t';
                     }
+                    head += tab_suffix;
                     detail_array.push({head: head, raw_text: item.item_char});
                 }
             }
