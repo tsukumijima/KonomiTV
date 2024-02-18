@@ -309,7 +309,7 @@ class Channel(models.Model):
                 channel.service_id = int(service['sid'])
                 channel.network_id = int(service['onid'])
                 channel.transport_stream_id = int(service['tsid'])
-                channel.remocon_id = 0  # リモコン番号を取得できなかった際は 0 がそのまま設定される
+                channel.remocon_id = int(service['remocon_id'])  # EDCB-240213 未満の EDCB では ChSet5.txt からリモコン番号を取得できず、常に 0 になる
                 channel.type = channel_type
                 channel.name = TSInformation.formatString(service['service_name'])
                 channel.jikkyo_force = None
@@ -343,9 +343,9 @@ class Channel(models.Model):
                 ## 地デジ: EDCB からリモコン番号を取得
                 if channel.type == 'GR':
 
-                    # EPG 由来のチャンネル情報を取得
-                    ## 現在のチャンネルのリモコン番号が含まれる
-                    ## EDCB では EPG 由来のチャンネル情報からしかリモコン番号の情報を取得できない
+                    # EPG 由来のチャンネル情報から現在のチャンネルのリモコン番号を取得
+                    ## EDCB-240213 以降であれば ChSet5.txt にリモコン番号が含まれているが、それ以前のバージョンでは
+                    ## EPG 由来のチャンネル情報以外からはリモコン番号を取得できないことによる対応
                     epg_service = next(filter(lambda temp: temp['onid'] == channel.network_id and temp['sid'] == channel.service_id, epg_services), None)
 
                     if epg_service is not None:
@@ -353,7 +353,8 @@ class Channel(models.Model):
                         channel.remocon_id = int(epg_service['remote_control_key_id'])
                     else:
                         # 取得できなかったので、あれば以前のバックアップからリモコン番号を取得
-                        channel.remocon_id = backup_remocon_ids.get(channel.id, 0)
+                        if channel.remocon_id <= 0 and channel.id in backup_remocon_ids:
+                            channel.remocon_id = backup_remocon_ids.get(channel.id, 0)
 
                         # それでもリモコン番号が不明の時は、同じネットワーク ID を持つ別サービスのリモコン番号を取得する
                         ## 地上波の臨時サービスはリモコン番号が取得できないことが多い問題への対応

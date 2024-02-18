@@ -365,6 +365,7 @@ class ChSet5Item(TypedDict):
     partial_flag: bool
     epg_cap_flag: bool
     search_flag: bool
+    remocon_id: int
 
 
 class EDCBUtil:
@@ -432,7 +433,11 @@ class EDCBUtil:
                         'service_type': int(field[5]),
                         'partial_flag': int(field[6]) != 0,
                         'epg_cap_flag': int(field[7]) != 0,
-                        'search_flag': int(field[8]) != 0
+                        'search_flag': int(field[8]) != 0,
+                        # リモコン ID は EDCB-240213 以降にのみ存在する
+                        ## ref: https://github.com/xtne6f/EDCB/commit/aefe0eec87e495f92165ae67b50115353fb28599
+                        ## ref: https://github.com/xtne6f/EDCB/commit/f19dd4031bff9cc41134d5e3dc6fd8b17373020c
+                        'remocon_id': int(field[9]) if len(field) >= 10 else 0,
                     })
                 except Exception:
                     pass
