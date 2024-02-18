@@ -88,7 +88,7 @@
                     <Icon icon="fluent:comment-dismiss-20-filled" width="24px" />
                     <span class="ml-2 mr-2">ミュート済みのキーワード</span>
                     <v-btn class="ml-auto" color="background-lighten-1" variant="flat"
-                        @click="settingsStore.settings.muted_comment_keywords.push({match: 'partial', pattern: ''})">
+                        @click="settingsStore.settings.muted_comment_keywords.unshift({match: 'partial', pattern: ''})">
                         <Icon icon="fluent:add-12-filled" height="17px" />
                         <span class="ml-1">追加</span>
                     </v-btn>
@@ -120,7 +120,7 @@
                     <Icon icon="fluent:person-prohibited-20-filled" width="24px" />
                     <span class="ml-2 mr-2">ミュート済みのニコニコユーザー ID</span>
                     <v-btn class="ml-auto" color="background-lighten-1" variant="flat"
-                        @click="settingsStore.settings.muted_niconico_user_ids.push('')">
+                        @click="settingsStore.settings.muted_niconico_user_ids.unshift('')">
                         <Icon icon="fluent:add-12-filled" height="17px" />
                         <span class="ml-1">追加</span>
                     </v-btn>
