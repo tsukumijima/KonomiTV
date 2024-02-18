@@ -14,18 +14,22 @@ if sys.platform != 'win32':
     except AttributeError:
         pass
 
+import asyncio
 import atexit
 import platform
 import subprocess
 import typer
 import uvicorn
+from aerich import Command
 from pathlib import Path
+from tortoise import Tortoise
 from uvicorn.supervisors.watchfilesreload import WatchFilesReload
 
 from app.config import LoadConfig
 from app.constants import (
     AKEBI_LOG_PATH,
     BASE_DIR,
+    DATABASE_CONFIG,
     KONOMITV_ACCESS_LOG_PATH,
     KONOMITV_SERVER_LOG_PATH,
     LIBRARY_PATH,
@@ -73,6 +77,20 @@ def main(
 
     # バージョン情報をログに出力
     logging.info(f'KonomiTV version {VERSION}')
+
+    # Aerich でデータベースをアップグレードする
+    ## 特にデータベースのアップグレードが必要ない場合は何も起こらない
+    async def UpgradeDatabase():
+        command = Command(tortoise_config=DATABASE_CONFIG, app='models', location='./app/migrations/')
+        await command.init()
+        migrated = await command.upgrade(run_in_transaction=True)
+        await Tortoise.close_connections()
+        if not migrated:
+            logging.info('No database migration is required.')
+        else:
+            for version_file in migrated:
+                logging.info(f'Successfully migrated to {version_file}.')
+    asyncio.run(UpgradeDatabase())
 
     # ***** サポートされているアーキテクチャかのバリデーション *****
 

@@ -100,5 +100,5 @@ COPY --from=client-builder /code/client/dist/ /code/client/dist/
 # config.example.yaml をコピー
 COPY ./config.example.yaml /code/config.example.yaml
 
-# データベースを必要な場合にアップグレードし、起動
-ENTRYPOINT /code/server/thirdparty/Python/bin/python -m poetry run aerich upgrade && exec /code/server/.venv/bin/python KonomiTV.py
+# KonomiTV サーバーを起動
+ENTRYPOINT /code/server/.venv/bin/python KonomiTV.py
