@@ -32,7 +32,6 @@
             <div class="settings__item settings__item--switch">
                 <label class="settings__item-heading" for="specify_caption_opacity">字幕の不透明度を指定する</label>
                 <label class="settings__item-label" for="specify_caption_opacity">
-                    字幕表示時、不透明度を自分で指定するか設定できます。<br>
                     この設定がオフのときは、字幕データから指定されている不透明度で描画します。とくに理由がなければ、オフにしておくのがおすすめです。<br>
                 </label>
                 <v-switch class="settings__item-switch" color="primary" id="specify_caption_opacity" hide-details

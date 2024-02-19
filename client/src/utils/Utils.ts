@@ -186,6 +186,14 @@ export default class Utils {
         return document.activeElement.classList.contains(class_name);
     }
 
+    /**
+     * デバイスの OS が Android かどうか
+     * @returns デバイスの OS が Android なら true を返す
+     */
+    static isAndroid(): boolean {
+        return /Android/i.test(navigator.userAgent);
+    }
+
 
     /**
      * ブラウザが Firefox かどうか

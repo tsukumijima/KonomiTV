@@ -23,7 +23,7 @@
             <div class="settings__item settings__item--switch">
                 <label class="settings__item-heading" for="tv_channel_selection_requires_alt_key">チャンネル選局のキーボードショートカットを {{Utils.AltOrOption()}} + 数字キー/テンキーに変更する</label>
                 <label class="settings__item-label" for="tv_channel_selection_requires_alt_key">
-                    この設定をオンにすると、数字キーまたはテンキーに対応するリモコン番号（1～12）のチャンネルに切り替える際、{{Utils.AltOrOption()}} キーを同時に押す必要があります。<br>
+                    この設定をオンにすると、数字キーまたはテンキーに対応するリモコン番号（1～12）のチャンネルに切り替えるとき、{{Utils.AltOrOption()}} キーを同時に押す必要があります。<br>
                     コメントやツイートを入力しようとして誤って数字キーを押してしまい、チャンネルが変わってしまう事態を避けたい方におすすめです。<br>
                 </label>
                 <v-switch class="settings__item-switch" color="primary" id="tv_channel_selection_requires_alt_key" hide-details
@@ -65,7 +65,7 @@
             <div class="settings__item">
                 <div class="settings__item-heading">設定をエクスポート</div>
                 <div class="settings__item-label">
-                    このデバイス（ブラウザ）に保存されている設定データを、エクスポート（ダウンロード）できます。<br>
+                    このデバイス (ブラウザ) に保存されている設定データを、エクスポート (ダウンロード) できます。<br>
                     ダウンロードした設定データ (KonomiTV-Settings.json) は、[設定をインポート] からインポートできます。異なるサーバーの KonomiTV を同じ設定で使いたいときなどに使ってください。<br>
                 </div>
             </div>
@@ -75,9 +75,9 @@
             <div class="settings__item">
                 <div class="settings__item-heading text-error-lighten-1">設定をインポート</div>
                 <div class="settings__item-label">
-                    [設定をエクスポート] でダウンロードした設定データを、このデバイス（ブラウザ）にインポートできます。<br>
-                    設定をインポートすると、<b>現在のデバイス設定はすべて上書きされます。</b>元に戻すことはできません。<br>
-                    設定のデバイス間同期がオンのときは、<b>同期が有効なすべてのデバイスに反映されます。</b>十分ご注意ください。<br>
+                    [設定をエクスポート] でダウンロードした設定データを、このデバイス (ブラウザ) にインポートできます。<br>
+                    <strong class="text-error-lighten-1">設定をインポートすると、現在のデバイス設定はすべて上書きされます。元に戻すことはできません。</strong><br>
+                    <strong class="text-error-lighten-1">設定のデバイス間同期がオンのときは、同期が有効なすべてのデバイスに反映されます。</strong>十分ご注意ください。<br>
                 </div>
                 <v-file-input class="settings__item-form" color="primary" variant="outlined" hide-details
                 label="設定データ (KonomiTV-Settings.json) を選択"
@@ -94,9 +94,9 @@
             <div class="settings__item">
                 <div class="settings__item-heading text-error-lighten-1">設定を初期状態にリセット</div>
                 <div class="settings__item-label">
-                    このデバイス（ブラウザ）に保存されている設定データを、初期状態のデフォルト値にリセットできます。<br>
-                    設定をリセットすると、元に戻すことはできません。<br>
-                    設定のデバイス間同期がオンのときは、<b>同期が有効なすべてのデバイスに反映されます。</b>十分ご注意ください。<br>
+                    このデバイス (ブラウザ) に保存されている設定データを、初期状態のデフォルト値にリセットできます。<br>
+                    <strong class="text-error-lighten-1">設定をリセットすると、元に戻すことはできません。</strong><br>
+                    <strong class="text-error-lighten-1">設定のデバイス間同期がオンのときは、同期が有効なすべてのデバイスに反映されます。</strong>十分ご注意ください。<br>
                 </div>
             </div>
             <v-btn class="settings__save-button bg-error mt-5" variant="flat" @click="resetSettings()">

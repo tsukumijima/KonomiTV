@@ -12,9 +12,8 @@
         </h2>
         <div class="settings__content">
             <div class="settings__item settings__item--switch settings__item--sync-disabled">
-                <label class="settings__item-heading" for="tv_show_data_broadcasting">テレビをみるときにデータ放送を表示する</label>
+                <label class="settings__item-heading" for="tv_show_data_broadcasting">テレビをみるときにデータ放送機能を利用する</label>
                 <label class="settings__item-label" for="tv_show_data_broadcasting">
-                    この設定をオンにすると、テレビをみるときにデータ放送機能を利用できます。<br>
                     データ放送画面自体のオン/オフは、視聴画面右側のパネルからリモコンを表示した上で、リモコンの d ボタンから切り替えられます。<br>
                 </label>
                 <label class="settings__item-label" for="tv_show_data_broadcasting">
@@ -67,7 +66,7 @@
                 <div class="settings__item-label">
                     このデバイス（ブラウザ）に保存されているデータ放送の保存データを、初期状態にリセット (消去) できます。<br>
                     保存データには、データ放送内のミニゲームの得点、プレゼント企画のスタンプ個数、設定などが含まれます。<br>
-                    保存データをリセットすると、元に戻すことはできません。十分ご注意ください。<br>
+                    <strong class="text-error-lighten-1">保存データをリセットすると、元に戻すことはできません。十分ご注意ください。</strong><br>
                 </div>
             </div>
             <v-btn class="settings__save-button bg-error mt-5" variant="flat" @click="resetNVRAMSettings()">

@@ -174,7 +174,7 @@
                     <div class="settings__item-heading text-error-lighten-1">アカウントを削除</div>
                     <div class="settings__item-label">
                         現在ログインしている KonomiTV アカウントを削除します。<br>
-                        <b>アカウントに紐づくすべてのデータが削除されます。</b>元に戻すことはできません。<br>
+                        <strong class="text-error-lighten-1">アカウントに紐づくすべてのデータが削除されます。元に戻すことはできません。</strong><br>
                     </div>
                 </div>
                 <v-btn class="settings__save-button bg-error mt-5" variant="flat" @click="account_delete_confirm_dialog = true">

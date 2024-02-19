@@ -134,7 +134,7 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
 
     // ***** 設定 → データ放送 *****
 
-    // テレビをみるときにデータ放送を表示する (Default: 表示する) (同期無効)
+    // テレビをみるときにデータ放送機能を利用する (Default: 表示する) (同期無効)
     tv_show_data_broadcasting: true,
 
     // データ放送からのインターネットアクセスを有効にする (Default: 無効) (同期無効)
