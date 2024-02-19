@@ -215,7 +215,7 @@ class TwitterGraphQLAPI:
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
             method = 'POST',
-            query_id = 'XQXK9Ei5fXUPxCF4zRmBLA',
+            query_id = '_BCvBRcat20zPDIAxmH5ag',
             endpoint = 'CreateTweet',
             variables = {
                 'tweet_text': tweet,
@@ -593,7 +593,7 @@ class TwitterGraphQLAPI:
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
             method = 'POST',
-            query_id = 'J1AQiEIiEDyF-1zgyrXHCA',
+            query_id = 'B8Vl9DEr2lCmRtlTA-yZjA',
             endpoint = 'HomeLatestTimeline',
             variables = variables,
             features = {
@@ -683,7 +683,7 @@ class TwitterGraphQLAPI:
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
             method = 'GET',
-            query_id = 'Lb34NbSpm24cOO75mjdvnQ',
+            query_id = 'ummoVKaeoT01eUyXutiSVQ',
             endpoint = 'SearchTimeline',
             variables = variables,
             features = {
