@@ -91,6 +91,7 @@ class ClientSettings(BaseModel):
 
 class _ServerSettingsGeneral(BaseModel):
     backend: Literal['EDCB', 'Mirakurun'] = 'EDCB'
+    always_receive_tv_from_mirakurun: bool = False
     edcb_url: Annotated[Url, UrlConstraints(allowed_schemes=['tcp'])] = Url('tcp://127.0.0.1:4510/')
     mirakurun_url: AnyHttpUrl = AnyHttpUrl('http://127.0.0.1:40772/')
     encoder: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC', 'rkmppenc'] = 'FFmpeg'
@@ -108,7 +109,6 @@ class _ServerSettingsGeneral(BaseModel):
         # EDCB バックエンドの接続確認
         if info.data.get('backend') == 'EDCB':
             # 循環参照を避けるために遅延インポート
-            from app.utils.EDCB import CtrlCmdUtil
             from app.utils.EDCB import EDCBUtil
             # edcb_url を明示的に指定
             ## edcb_url を省略すると内部で再帰的に LoadConfig() が呼ばれてしまい RecursionError が発生する
@@ -121,26 +121,17 @@ class _ServerSettingsGeneral(BaseModel):
                     'EDCB の URL を間違えている可能性があります。'
                 )
             # 現在の EpgTimerSrv の動作ステータスを取得できるか試してみる
-            ## result['param1'] に EpgTimerSrv の動作ステータスが入っている (0: 通常 / 1: 録画中 / 2: EPG 取得中)
             ## RecursionError 回避のために edcb_url を明示的に指定
             ## ThreadPoolExecutor 上で実行し、自動リロードモード時に発生するイベントループ周りの謎エラーを回避する
-            edcb = CtrlCmdUtil(edcb_url)
-            edcb.setConnectTimeOutSec(5)  # 5秒後にタイムアウト
             with concurrent.futures.ThreadPoolExecutor(1) as executor:
-                result = executor.submit(asyncio.run, edcb.sendGetNotifySrvStatus()).result()
-            if result is None:
+                result = executor.submit(asyncio.run, EDCBUtil.getEDCBStatus(edcb_url)).result()
+            if result == 'Unknown':
                 raise ValueError(
                     f'EDCB ({edcb_url}) にアクセスできませんでした。\n'
                     'EDCB が起動していないか、URL を間違えている可能性があります。'
                 )
             from app import logging
-            logging.info(f'Backend: EDCB ({edcb_url})')
-            if result['param1'] == 0:
-                logging.info('EpgTimerSrv Status: Normal')
-            elif result['param1'] == 1:
-                logging.info('EpgTimerSrv Status: Recording')
-            elif result['param1'] == 2:
-                logging.info('EpgTimerSrv Status: Gathering EPG')
+            logging.info(f'Backend: EDCB ({edcb_url}) Status: {result}')
         return edcb_url
 
     @field_validator('mirakurun_url')
@@ -153,7 +144,7 @@ class _ServerSettingsGeneral(BaseModel):
         if type(info.context) is dict and info.context.get('bypass_validation') is True:
             return mirakurun_url
         # Mirakurun バックエンドの接続確認
-        if info.data.get('backend') == 'Mirakurun':
+        if info.data.get('backend') == 'Mirakurun' or info.data.get('always_receive_tv_from_mirakurun') is True:
             # 試しにリクエストを送り、200 (OK) が返ってきたときだけ有効な URL とみなす
             try:
                 response = httpx.get(
@@ -179,6 +170,8 @@ class _ServerSettingsGeneral(BaseModel):
                 )
             from app import logging
             logging.info(f'Backend: Mirakurun {response_json.get("current")} ({mirakurun_url})')
+            if info.data.get('always_receive_tv_from_mirakurun') is True:
+                logging.info(f'Always receive TV from Mirakurun.')
         return mirakurun_url
 
     @field_validator('encoder')

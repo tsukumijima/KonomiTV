@@ -405,6 +405,33 @@ class EDCBUtil:
         return edcb_url.port
 
     @staticmethod
+    async def getEDCBStatus(edcb_url: Url | None = None) -> Literal['Normal', 'Recording', 'EPGGathering', 'Unknown']:
+        """
+        現在の EDCB (EpgTimerSrv) の動作ステータスを取得する
+        Unknown が返る場合はおそらく EpgTimerSrv が起動していない
+
+        Returns:
+            Literal['Normal', 'Recording', 'EPGGathering', 'Unknown']: EDCB (EpgTimerSrv) の動作ステータス
+        """
+
+        # 現在の EpgTimerSrv の動作ステータスを取得できるか試してみる
+        edcb = CtrlCmdUtil(edcb_url)
+        edcb.setConnectTimeOutSec(5)  # 5秒後にタイムアウト
+        result = await edcb.sendGetNotifySrvStatus()
+        if result is None:
+            return 'Unknown'
+
+        # result['param1'] に EpgTimerSrv の動作ステータスが入っている (0: 通常 / 1: 録画中 / 2: EPG 取得中)
+        if result['param1'] == 0:
+            return 'Normal'
+        elif result['param1'] == 1:
+            return 'Recording'
+        elif result['param1'] == 2:
+            return 'EPGGathering'
+
+        return 'Unknown'
+
+    @staticmethod
     def convertBytesToString(buffer: bytes) -> str:
         """ BOM に基づいて Bytes データを文字列に変換する """
         if len(buffer) == 0:

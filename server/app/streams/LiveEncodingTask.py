@@ -406,6 +406,10 @@ class LiveEncodingTask:
 
         CONFIG = Config()
 
+        # バックエンドの種類を取得
+        ## always_receive_tv_from_mirakurun が True なら、バックエンドに関わらず常に Mirakurun から受信する
+        BACKEND_TYPE: Literal['EDCB', 'Mirakurun'] = 'Mirakurun' if CONFIG.general.always_receive_tv_from_mirakurun is True else CONFIG.general.backend
+
         # エンコーダーの種類を取得
         ENCODER_TYPE = CONFIG.general.encoder
 
@@ -553,7 +557,7 @@ class LiveEncodingTask:
         session: aiohttp.ClientSession | None = None
 
         # Mirakurun バックエンド
-        if CONFIG.general.backend == 'Mirakurun':
+        if BACKEND_TYPE == 'Mirakurun':
 
             # Mirakurun 形式のサービス ID
             # NID と SID を 5 桁でゼロ埋めした上で int に変換する
@@ -594,7 +598,7 @@ class LiveEncodingTask:
             stream_reader = response.content
 
         # EDCB バックエンド
-        elif CONFIG.general.backend == 'EDCB':
+        elif BACKEND_TYPE == 'EDCB':
 
             # チューナーインスタンスを初期化
             ## Idling への切り替え、ONAir への復帰時に LiveStream 側でチューナーのアンロック/ロックが行われる
@@ -731,11 +735,11 @@ class LiveEncodingTask:
 
             # EDCB バックエンド: チューナーとのストリーミング接続を閉じる
             ## チャンネル切り替え時に再利用するため、ここではチューナー自体は閉じない
-            if CONFIG.general.backend == 'EDCB' and self.live_stream.tuner is not None:
+            if BACKEND_TYPE == 'EDCB' and self.live_stream.tuner is not None:
                 await self.live_stream.tuner.disconnect()
 
             # Mirakurun バックエンド: Service Stream API とのストリーミング接続を閉じる
-            if CONFIG.general.backend == 'Mirakurun' and response is not None and session is not None:
+            if BACKEND_TYPE == 'Mirakurun' and response is not None and session is not None:
                 await session.close()
                 response.close()
 
@@ -1077,7 +1081,7 @@ class LiveEncodingTask:
                             self.live_stream.setStatus('Offline', 'チューナーからの放送波の受信がタイムアウトしました。チューナー側に何らかの問題があるかもしれません。(E-11)')
 
                 # Mirakurun の Service Stream API からエラーが返された場合
-                if CONFIG.general.backend == 'Mirakurun' and response is not None and response.status != 200:
+                if BACKEND_TYPE == 'Mirakurun' and response is not None and response.status != 200:
                     # Offline にしてエンコードタスクを停止する
                     if response.status == 503:
                         self.live_stream.setStatus('Offline', 'チューナーの起動に失敗しました。チューナー不足が原因かもしれません。(E-12M)')
@@ -1124,8 +1128,8 @@ class LiveEncodingTask:
 
                 # チューナーとの接続が切断された場合
                 ## ref: https://stackoverflow.com/a/45251241/17124142
-                if ((CONFIG.general.backend == 'Mirakurun' and response is not None and response.closed is True) or
-                    (CONFIG.general.backend == 'EDCB' and self.live_stream.tuner is not None and self.live_stream.tuner.isDisconnected() is True)):
+                if ((BACKEND_TYPE == 'Mirakurun' and response is not None and response.closed is True) or
+                    (BACKEND_TYPE == 'EDCB' and self.live_stream.tuner is not None and self.live_stream.tuner.isDisconnected() is True)):
 
                     # エンコードタスクを再起動
                     self.live_stream.setStatus('Restart', 'チューナーとの接続が切断されました。エンコードタスクを再起動しています… (ER-05)')
@@ -1212,7 +1216,7 @@ class LiveEncodingTask:
             # チューナーをアンロックする (EDCB バックエンドのみ)
             ## 新しいエンコードタスクが今回立ち上げたチューナーを再利用できるようにする
             ## エンコーダーの再起動が必要なだけでチューナー自体はそのまま使えるし、わざわざ閉じてからもう一度開くのは無駄
-            if CONFIG.general.backend == 'EDCB' and self.live_stream.tuner is not None:
+            if BACKEND_TYPE == 'EDCB' and self.live_stream.tuner is not None:
                 self.live_stream.tuner.unlock()
 
             # 再起動回数が最大再起動回数に達していなければ、再起動する
@@ -1234,7 +1238,7 @@ class LiveEncodingTask:
 
                 # チューナーを終了する (EDCB バックエンドのみ)
                 ## tuner.close() した時点でそのチューナーインスタンスは意味をなさなくなるので、LiveStream インスタンスのプロパティからも削除する
-                if CONFIG.general.backend == 'EDCB' and self.live_stream.tuner is not None:
+                if BACKEND_TYPE == 'EDCB' and self.live_stream.tuner is not None:
                     await self.live_stream.tuner.close()
                     self.live_stream.tuner = None
 
@@ -1242,7 +1246,7 @@ class LiveEncodingTask:
         else:
 
             # EDCB バックエンドのみ
-            if CONFIG.general.backend == 'EDCB' and self.live_stream.tuner is not None:
+            if BACKEND_TYPE == 'EDCB' and self.live_stream.tuner is not None:
 
                 # チャンネル切り替え時にチューナーが再利用されるように、3秒ほど待つ
                 # 3秒間の間にチューナーの制御権限が新しいエンコードタスクに委譲されれば、下記の通り実際にチューナーが閉じられることはない

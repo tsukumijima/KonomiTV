@@ -4,19 +4,26 @@ general:
 
     # 利用するバックエンド
     # EDCB・Mirakurun のいずれかを選択してください。
+    # バックエンドに Mirakurun が選択されているときは、録画予約機能は利用できません。
     backend: 'EDCB'
 
+    # 利用するバックエンドが EDCB のとき、常に Mirakurun から放送波を受信するか
+    # バックエンドに Mirakurun が選択されているときは効果がありません。
+    # EDCB に加えて mirakurun_url で指定した Mirakurun / mirakc にアクセスできる必要があります。
+    # EDCB はチューナー起動やチャンネル切り替えに時間がかかるため、Mirakurun が利用できる環境であれば、この設定を有効にするとより快適に使えます。
+    always_receive_tv_from_mirakurun: false
+
     # EDCB (EpgTimerNW) の TCP API の URL
-    # バックエンドに EDCB を選択したときに利用されます。
+    # バックエンドに EDCB が選択されているときに利用されます。
     # tcp://edcb-namedpipe/ と指定すると、TCP API の代わりに名前付きパイプを使って通信します (ローカルのみ)。
     # 一部 Windows 環境では localhost の名前解決が遅いため、ストリーミング開始までの待機時間が長くなる場合があります。
     # EDCB と同じ PC に KonomiTV をインストールしている場合、localhost ではなく 127.0.0.1 の利用を推奨します。
     edcb_url: 'tcp://127.0.0.1:4510/'
 
-    # Mirakurun の HTTP API の URL
-    # バックエンドに Mirakurun を選択したときに利用されます。
+    # Mirakurun / mirakc の HTTP API の URL
+    # バックエンドに Mirakurun が選択されているときに利用されます。
     # 一部 Windows 環境では localhost の名前解決が遅いため、ストリーミング開始までの待機時間が長くなる場合があります。
-    # Mirakurun と同じ PC に KonomiTV をインストールしている場合、localhost ではなく 127.0.0.1 の利用を推奨します。
+    # Mirakurun / mirakc と同じ PC に KonomiTV をインストールしている場合、localhost ではなく 127.0.0.1 の利用を推奨します。
     mirakurun_url: 'http://127.0.0.1:40772/'
 
     # 利用するエンコーダー
@@ -86,7 +93,7 @@ capture:
 
     # アップロードしたキャプチャ画像の保存先フォルダの絶対パス
     # クライアントの [キャプチャの保存先] 設定で [KonomiTV サーバーにアップロード] または
-    # [ブラウザでのダウンロードと、KonomiTV サーバーへのアップロードを両方行う] を選択したときに利用されます。
+    # [ブラウザでのダウンロードと、KonomiTV サーバーへのアップロードを両方行う] が選択されているときに利用されます。
     # 複数の保存先フォルダを指定できます。先頭から順に利用され、保存先フォルダがいっぱいになったら次の保存先フォルダに保存されます。
     # Docker でインストールした場合も、ホストマシン側のフォルダの絶対パスを指定してください。
     upload_folders: [
