@@ -20,7 +20,8 @@
                 <Swiper class="channels-list" :space-between="32" :auto-height="true" :touch-start-prevent-default="false"
                     :observer="true" :observe-parents="true"
                     @swiper="swiper_instance = $event"
-                    @slide-change="active_tab_index = $event.activeIndex">
+                    @slide-change="active_tab_index = $event.activeIndex"
+                    v-show="Array.from(channelsStore.channels_list_with_pinned).length > 0">
                     <SwiperSlide v-for="[channels_type, channels] in Array.from(channelsStore.channels_list_with_pinned)" :key="channels_type">
                         <div class="channels" :class="`channels--tab-${channels_type} channels--length-${channels.length}`">
                             <router-link v-ripple class="channel" draggable="false"
@@ -96,6 +97,14 @@
                         </div>
                     </SwiperSlide>
                 </Swiper>
+                <div class="channels-list pinned-container d-flex justify-center align-center w-100" style="flex-grow: 1;"
+                    v-if="Array.from(channelsStore.channels_list_with_pinned).length === 0">
+                    <div class="d-flex justify-center align-center flex-column">
+                        <h2>視聴可能なチャンネルが<br class="d-sm-none">ありません。</h2>
+                        <div class="mt-4 text-text-darken-1">前回チャンネルスキャンしたときに<br class="d-sm-none">受信可能なチャンネルを見つけられませんでした。</div>
+                        <div class="mt-1 text-text-darken-1">再度チャンネルスキャンを行ってください。</div>
+                    </div>
+                </div>
             </div>
         </main>
     </div>
@@ -263,6 +272,7 @@ export default defineComponent({
 .channels-container {
     display: flex;
     flex-direction: column;
+    width: 100%;
     min-width: 0;  // magic!
     margin-left: 21px;
     margin-right: 21px;
