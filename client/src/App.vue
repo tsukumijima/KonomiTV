@@ -99,10 +99,6 @@ html {
     @supports (-webkit-touch-callout: none) {
         font-family: 'Open Sans', 'YakuHanJPs', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
     }
-
-    .v-application__wrap {
-        flex-direction: row !important;
-    }
 }
 
 // ヘッダー以外のメインコンテンツのルート
