@@ -1,4 +1,8 @@
 
+# Type Hints を指定できるように
+# ref: https://stackoverflow.com/a/33533514/17124142
+from __future__ import annotations
+
 import warnings
 from datetime import date
 from datetime import datetime
@@ -14,14 +18,44 @@ warnings.filterwarnings('ignore', category=UserWarning)
 from tortoise.contrib.pydantic import PydanticModel
 
 
-# モデルを表す Pydantic モデル
-# Pydantic モデルに含まれていないカラムは、API レスポンス返却時に自動で除外される (パスワードなど)
-# 以前は pydantic_model_creator() で自動生成していたが、だんだん実態と合わなくなってきたため手動で定義している
-# PydanticModel を使うところがポイント (BaseModel だとバリデーションエラーが発生する)
+# モデルとモデルに関連する API レスポンスの構造を表す Pydantic モデル
+## この Pydantic モデルに含まれていないカラムは、API レスポンス返却時に自動で除外される (パスワードなど)
+## 以前は pydantic_model_creator() で自動生成していたが、だんだん実態と合わなくなってきたため手動で定義している
+## PydanticModel を使うところがポイント (BaseModel だとバリデーションエラーが発生する)
 
-class Genre(TypedDict):
-    major: str
-    middle: str
+# ***** チャンネル *****
+
+class Channel(PydanticModel):
+    id: str
+    display_channel_id: str
+    network_id: int
+    service_id: int
+    transport_stream_id: int | None
+    remocon_id: int
+    channel_number: str
+    type: str
+    name: str
+    jikkyo_force: int | None
+    is_subchannel: bool
+    is_radiochannel: bool
+    is_watchable: bool
+
+class LiveChannel(Channel):
+    # 以下はすべて動的に生成される TV ライブストリーミング用の追加カラム
+    is_display: bool
+    viewer_count: int
+    program_present: Program | None
+    program_following: Program | None
+
+class LiveChannels(BaseModel):
+    GR: list[LiveChannel]
+    BS: list[LiveChannel]
+    CS: list[LiveChannel]
+    CATV: list[LiveChannel]
+    SKY: list[LiveChannel]
+    STARDIGIO: list[LiveChannel]
+
+# ***** 放送中/放送予定の番組 *****
 
 class Program(PydanticModel):
     id: str
@@ -47,31 +81,11 @@ class Program(PydanticModel):
     secondary_audio_language: str | None
     secondary_audio_sampling_rate: str | None
 
-class Channel(PydanticModel):
-    id: str
-    display_channel_id: str
-    network_id: int
-    service_id: int
-    transport_stream_id: int | None
-    remocon_id: int
-    channel_number: str
-    type: str
-    name: str
-    jikkyo_force: int | None
-    is_subchannel: bool
-    is_radiochannel: bool
-    is_watchable: bool
+class Genre(TypedDict):
+    major: str
+    middle: str
 
-class LiveChannel(Channel):
-    # 以下はすべて動的に生成される TV ライブストリーミング用の追加カラム
-    is_display: bool
-    viewer_count: int
-    program_present: Program | None
-    program_following: Program | None
-
-class CMSection(TypedDict):
-    start_time: float
-    end_time: float
+# ***** 録画ファイル *****
 
 class RecordedVideo(PydanticModel):
     id: int
@@ -95,6 +109,12 @@ class RecordedVideo(PydanticModel):
     secondary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] | None
     secondary_audio_sampling_rate: int | None
     cm_sections: list[CMSection]
+
+class CMSection(TypedDict):
+    start_time: float
+    end_time: float
+
+# ***** 録画番組 *****
 
 class RecordedProgram(PydanticModel):
     id: int
@@ -128,11 +148,7 @@ class RecordedPrograms(BaseModel):
     total: int
     recorded_programs: list[RecordedProgram]
 
-class SeriesBroadcastPeriod(PydanticModel):
-    channel: Channel
-    start_date: date
-    end_date: date
-    recorded_programs: list[RecordedProgram]
+# ***** シリーズ *****
 
 class Series(PydanticModel):
     id: int
@@ -146,14 +162,13 @@ class SeriesList(BaseModel):
     total: int
     series_list: list[Series]
 
-class TwitterAccount(PydanticModel):
-    id: int
-    name: str
-    screen_name: str
-    icon_url: str
-    is_oauth_session: bool  # 追加カラム
-    created_at: datetime
-    updated_at: datetime
+class SeriesBroadcastPeriod(PydanticModel):
+    channel: Channel
+    start_date: date
+    end_date: date
+    recorded_programs: list[RecordedProgram]
+
+# ***** ユーザー *****
 
 class User(PydanticModel):
     id: int
@@ -166,8 +181,24 @@ class User(PydanticModel):
     created_at: datetime
     updated_at: datetime
 
-# API リクエストに利用する Pydantic モデル
-# リクエストボティの JSON 構造を表す
+class Users(RootModel[list[User]]):
+    pass
+
+# ***** Twitter 連携 *****
+
+class TwitterAccount(PydanticModel):
+    id: int
+    name: str
+    screen_name: str
+    icon_url: str
+    is_oauth_session: bool  # 追加カラム
+    created_at: datetime
+    updated_at: datetime
+
+# モデルに関連しない API リクエストの構造を表す Pydantic モデル
+## リクエストボティの JSON 構造と一致する
+
+# ***** ユーザー *****
 
 class UserCreateRequest(BaseModel):
     username: str
@@ -180,20 +211,39 @@ class UserUpdateRequest(BaseModel):
 class UserUpdateRequestForAdmin(BaseModel):
     is_admin: bool | None = None
 
+# ***** Twitter 連携 *****
+
 class TwitterPasswordAuthRequest(BaseModel):
     screen_name: str
     password: str
 
-# API レスポンスに利用する Pydantic モデル
-# レスポンスボディの JSON 構造を表す
+# モデルに関連しない API レスポンスの構造を表す Pydantic モデル
+## レスポンスボディの JSON 構造と一致する
 
-class LiveChannels(BaseModel):
-    GR: list[LiveChannel]
-    BS: list[LiveChannel]
-    CS: list[LiveChannel]
-    CATV: list[LiveChannel]
-    SKY: list[LiveChannel]
-    STARDIGIO: list[LiveChannel]
+# ***** ライブストリーム *****
+
+class LiveStreamStatus(BaseModel):
+    status: Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart']
+    detail: str
+    started_at: float
+    updated_at: float
+    client_count: int
+
+class LiveStreamStatuses(BaseModel):
+    Restart: dict[str, LiveStreamStatus]
+    Idling: dict[str, LiveStreamStatus]
+    ONAir: dict[str, LiveStreamStatus]
+    Standby: dict[str, LiveStreamStatus]
+    Offline: dict[str, LiveStreamStatus]
+
+# ***** データ放送 *****
+
+class DataBroadcastingInternetStatus(BaseModel):
+    success: bool
+    ip_address: str | None
+    response_time_milliseconds: int | None
+
+# ***** ニコニコ実況連携 *****
 
 class JikkyoComment(BaseModel):
     time: float
@@ -213,33 +263,10 @@ class JikkyoSession(BaseModel):
     audience_token: str | None = None
     detail: str
 
-class DataBroadcastingInternetStatus(BaseModel):
-    success: bool
-    ip_address: str | None
-    response_time_milliseconds: int | None
-
-class LiveStreamStatus(BaseModel):
-    status: Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart']
-    detail: str
-    started_at: float
-    updated_at: float
-    client_count: int
-
-class LiveStreamStatuses(BaseModel):
-    Restart: dict[str, LiveStreamStatus]
-    Idling: dict[str, LiveStreamStatus]
-    ONAir: dict[str, LiveStreamStatus]
-    Standby: dict[str, LiveStreamStatus]
-    Offline: dict[str, LiveStreamStatus]
-
 class ThirdpartyAuthURL(BaseModel):
     authorization_url: str
 
-class TweetUser(BaseModel):
-    id: str
-    name: str
-    screen_name: str
-    icon_url: str
+# ***** Twitter 連携 *****
 
 class Tweet(BaseModel):
     id: str
@@ -257,6 +284,12 @@ class Tweet(BaseModel):
     retweeted_tweet: Union['Tweet', None]
     quoted_tweet: Union['Tweet', None]
 
+class TweetUser(BaseModel):
+    id: str
+    name: str
+    screen_name: str
+    icon_url: str
+
 class TwitterAPIResult(BaseModel):
     is_success: bool
     detail: str
@@ -269,12 +302,13 @@ class TimelineTweetsResult(TwitterAPIResult):
     previous_cursor_id: str
     tweets: list[Tweet]
 
-class Users(RootModel[list[User]]):
-    pass
+# ***** ユーザー *****
 
 class UserAccessToken(BaseModel):
     access_token: str
     token_type: str
+
+# ***** バージョン情報 *****
 
 class VersionInformation(BaseModel):
     version: str
