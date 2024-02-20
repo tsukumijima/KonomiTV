@@ -7,10 +7,10 @@ general:
     # バックエンドに Mirakurun が選択されているときは、録画予約機能は利用できません。
     backend: 'EDCB'
 
-    # 利用するバックエンドが EDCB のとき、常に Mirakurun から放送波を受信するか
+    # 利用するバックエンドが EDCB のとき、常に Mirakurun / mirakc から放送波を受信するか
     # バックエンドに Mirakurun が選択されているときは効果がありません。
     # EDCB に加えて mirakurun_url で指定した Mirakurun / mirakc にアクセスできる必要があります。
-    # EDCB はチューナー起動やチャンネル切り替えに時間がかかるため、Mirakurun が利用できる環境であれば、この設定を有効にするとより快適に使えます。
+    # EDCB はチューナー起動やチャンネル切り替えに時間がかかるため、Mirakurun / mirakc が利用できる環境であれば、この設定を有効にするとより快適に使えます。
     always_receive_tv_from_mirakurun: false
 
     # EDCB (EpgTimerNW) の TCP API の URL
@@ -37,7 +37,7 @@ general:
     encoder: 'FFmpeg'
 
     # 番組情報の更新間隔 (分)
-    # 番組情報を EDCB または Mirakurun から取得する間隔を設定します。デフォルトは 15 (分) です。
+    # 番組情報を EDCB または Mirakurun / mirakc から取得する間隔を設定します。デフォルトは 15 (分) です。
     program_update_interval: 15.0
 
     # デバッグモードを有効にするか

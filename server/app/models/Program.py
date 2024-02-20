@@ -201,7 +201,7 @@ class Program(models.Model):
             # このトランザクションはパフォーマンス向上と、取得失敗時のロールバックのためのもの
             async with transactions.in_transaction():
 
-                # Mirakurun の API から番組情報を取得する
+                # Mirakurun / mirakc の API から番組情報を取得する
                 try:
                     mirakurun_programs_api_url = GetMirakurunAPIEndpointURL('/api/programs')
                     async with httpx.AsyncClient() as client:
@@ -210,15 +210,15 @@ class Program(models.Model):
                             headers = API_REQUEST_HEADERS,
                             timeout = 10,  # 10秒後にタイムアウト (SPHD や CATV も映る環境だと時間がかかるので、少し伸ばす)
                         )
-                    if mirakurun_programs_api_response.status_code != 200:  # Mirakurun からエラーが返ってきた
-                        logging.error(f'Failed to get programs from Mirakurun. (HTTP Error {mirakurun_programs_api_response.status_code})')
-                        raise Exception(f'Failed to get programs from Mirakurun. (HTTP Error {mirakurun_programs_api_response.status_code})')
+                    if mirakurun_programs_api_response.status_code != 200:  # Mirakurun / mirakc からエラーが返ってきた
+                        logging.error(f'Failed to get programs from Mirakurun / mirakc. (HTTP Error {mirakurun_programs_api_response.status_code})')
+                        raise Exception(f'Failed to get programs from Mirakurun / mirakc. (HTTP Error {mirakurun_programs_api_response.status_code})')
                     programs: list[dict[str, Any]] = mirakurun_programs_api_response.json()
                 except httpx.NetworkError as ex:
-                    logging.error(f'Failed to get programs from Mirakurun. (Network Error)')
+                    logging.error(f'Failed to get programs from Mirakurun / mirakc. (Network Error)')
                     raise ex
                 except httpx.TimeoutException as ex:
-                    logging.error(f'Failed to get programs from Mirakurun. (Connection Timeout)')
+                    logging.error(f'Failed to get programs from Mirakurun / mirakc. (Connection Timeout)')
                     raise ex
 
                 # この変数から更新or更新不要な番組情報を削除していき、残った古い番組情報を最後にまとめて削除する

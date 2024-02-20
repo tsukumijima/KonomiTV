@@ -23,13 +23,13 @@ def ClosestMultiple(n: int, multiple: int) -> int:
 
 def GetMirakurunAPIEndpointURL(endpoint: str) -> str:
     """
-    /api/version などのエンドポイントを Mirakurun API の URL に変換する
+    /api/version などのエンドポイントを Mirakurun / mirakc API の URL に変換する
 
     Args:
         endpoint (str): エンドポイントのパス
 
     Returns:
-        str: Mirakurun API の URL
+        str: Mirakurun / mirakc API の URL
     """
 
     from app.config import Config

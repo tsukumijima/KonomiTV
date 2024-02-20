@@ -6,6 +6,7 @@ from __future__ import annotations
 import aiofiles
 import aiohttp
 import asyncio
+import httpx
 import gc
 import os
 import re
@@ -399,6 +400,63 @@ class LiveEncodingTask:
         return result
 
 
+    async def acquireMirakurunTuner(self, channel_type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO']) -> bool:
+        """
+        Mirakurun / mirakc で空きチューナーを確保できるまで待機する
+        mirakc は空きチューナーがない場合に 404 を返すので (バグ？) 、それを避けるために予め空きチューナーがあるかどうかを確認する
+        0.5 秒間待機しても空きチューナーがなければ False を返す (共聴できる場合もあるので、受信できないとは限らない)
+
+        Args:
+            channel_type (Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO']): チャンネルタイプ
+
+        Returns:
+            bool: チューナーを確保できたかどうか
+        """
+
+        CONFIG = Config()
+        BACKEND_TYPE: Literal['EDCB', 'Mirakurun'] = 'Mirakurun' if CONFIG.general.always_receive_tv_from_mirakurun is True else CONFIG.general.backend
+        assert BACKEND_TYPE == 'Mirakurun', 'This method is only for Mirakurun backend.'
+
+        # Mirakurun はチャンネルタイプが GR, BS, CS, SKY しかないので、CATV を CS に、STARDIGIO を SKY に変換する
+        channel_type = 'CS' if channel_type == 'CATV' else channel_type
+        channel_type = 'SKY' if channel_type == 'STARDIGIO' else channel_type
+
+        async with httpx.AsyncClient(headers=API_REQUEST_HEADERS, timeout=5) as client:
+
+            # 0.1 秒間隔で最大 0.5 秒間チューナーの空きを確認する
+            ## 空きチューナーがなくても利用状況によっては共聴できるので、あまり待ちすぎると無駄な時間がかかる
+            ## Mirakurun / mirakc はチャンネル切り替え時に 1 秒弱使い終わった前チャンネルのチューナープロセスが残るので、シングルチューナー環境では
+            ## それを解放し終わってからチューナーを起動できるようにする (実際はだいたい 0.25 秒程度で空きチューナーを確保できる)
+            ## 複数チューナーがある場合は他の空きチューナーを使って起動できるため、待ち時間はほとんどかからない
+            start_time = time.time()
+            for _ in range(int(0.5 / 0.1)):
+
+                # Mirakurun / mirakc からチューナーの状態を取得
+                try:
+                    response = await client.get(GetMirakurunAPIEndpointURL('/api/tuners'))
+                    tuners = response.json()
+                except httpx.NetworkError:
+                    logging.error(f'Failed to get tuner statuses from Mirakurun / mirakc. (Network Error)')
+                    return False
+                except httpx.TimeoutException:
+                    logging.error(f'Failed to get tuner statuses from Mirakurun / mirakc. (Connection Timeout)')
+                    return False
+
+                # 指定されたチャンネルタイプが受信可能なチューナーが1つでも利用可能であれば True を返す
+                for tuner in tuners:
+                    if tuner['isAvailable'] is True and tuner['isFree'] is True and channel_type in tuner['types']:
+                        logging.info('Acquired a tuner from Mirakurun / mirakc.')
+                        logging.info(f'Tuner: {tuner["name"]} / Type: {channel_type}) / Acquired in {round(time.time() - start_time, 2)} seconds')
+                        return True
+
+                await asyncio.sleep(0.1)
+
+        # 空きチューナーは確保できなかったが、同じチャンネルが受信中であれば共聴することは可能なので warning に留める
+        logging.warning(f'Failed to acquire a tuner from Mirakurun / mirakc.')
+        logging.warning(f'If the same channel is being received, it can be shared with the same tuner.')
+        return False
+
+
     async def run(self) -> None:
         """
         エンコードタスクを実行する
@@ -559,18 +617,21 @@ class LiveEncodingTask:
         # Mirakurun バックエンド
         if BACKEND_TYPE == 'Mirakurun':
 
+            # チューナーを確保できるまで待機する
+            ## 確保できなかった場合でも共聴で受信できる可能性があるので、戻り値は無視する
+            self.live_stream.setStatus('Standby', 'チューナーを確保しています…')
+            await self.acquireMirakurunTuner(channel.type)
+
             # Mirakurun 形式のサービス ID
             # NID と SID を 5 桁でゼロ埋めした上で int に変換する
             mirakurun_service_id = int(str(channel.network_id).zfill(5) + str(channel.service_id).zfill(5))
-            # Mirakurun API の URL を作成
-            mirakurun_stream_api_url = GetMirakurunAPIEndpointURL(f'/api/services/{mirakurun_service_id}/stream')
 
             # Mirakurun の Service Stream API へ HTTP リクエストを開始
             self.live_stream.setStatus('Standby', 'チューナーを起動しています…')
             session = aiohttp.ClientSession()
             try:
                 response = await session.get(
-                    url = mirakurun_stream_api_url,
+                    url = GetMirakurunAPIEndpointURL(f'/api/services/{mirakurun_service_id}/stream'),
                     headers = {**API_REQUEST_HEADERS, 'X-Mirakurun-Priority': '0'},
                     timeout = aiohttp.ClientTimeout(connect=15, sock_connect=15, sock_read=15)
                 )
@@ -614,7 +675,7 @@ class LiveEncodingTask:
             # ほとんどがチューナー不足によるものなので、ステータス詳細でもそのように表示する
             # 成功時は tuner.close() するか予約などに割り込まれるまで起動しつづけるので注意
             if is_tuner_opened is False:
-                self.live_stream.setStatus('Offline', 'チューナーの起動に失敗しました。チューナー不足が原因かもしれません。(E-02E)')
+                self.live_stream.setStatus('Offline', 'チューナーの起動に失敗しました。空きチューナーが不足していると考えられます。(E-02E)')
 
                 # チューナーを閉じる
                 await self.live_stream.tuner.close()
@@ -1083,8 +1144,9 @@ class LiveEncodingTask:
                 # Mirakurun の Service Stream API からエラーが返された場合
                 if BACKEND_TYPE == 'Mirakurun' and response is not None and response.status != 200:
                     # Offline にしてエンコードタスクを停止する
-                    if response.status == 503:
-                        self.live_stream.setStatus('Offline', 'チューナーの起動に失敗しました。チューナー不足が原因かもしれません。(E-12M)')
+                    ## mirakc はなぜか 503 ではなく 404 を返すことがある (バグ?)
+                    if response.status == 503 or response.status == 404:
+                        self.live_stream.setStatus('Offline', 'チューナーの起動に失敗しました。空きチューナーが不足しています。(E-12M)')
                     else:
                         self.live_stream.setStatus('Offline', f'チューナーで不明なエラーが発生しました。Mirakurun 側に問題があるかもしれません。(HTTP Error {response.status}) (E-12M)')
                     break

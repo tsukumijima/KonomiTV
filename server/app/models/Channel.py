@@ -111,7 +111,7 @@ class Channel(models.Model):
             # この変数から更新対象のチャンネル情報を削除していき、残った古いチャンネル情報を最後にまとめて削除する
             duplicate_channels = {temp.id:temp for temp in await Channel.filter(is_watchable=True)}
 
-            # Mirakurun の API からチャンネル情報を取得する
+            # Mirakurun / mirakc の API からチャンネル情報を取得する
             try:
                 mirakurun_services_api_url = GetMirakurunAPIEndpointURL('/api/services')
                 async with httpx.AsyncClient() as client:
@@ -120,15 +120,15 @@ class Channel(models.Model):
                         headers = API_REQUEST_HEADERS,
                         timeout = 5,
                     )
-                if mirakurun_services_api_response.status_code != 200:  # Mirakurun からエラーが返ってきた
-                    logging.error(f'Failed to get channels from Mirakurun. (HTTP Error {mirakurun_services_api_response.status_code})')
-                    raise Exception(f'Failed to get channels from Mirakurun. (HTTP Error {mirakurun_services_api_response.status_code})')
+                if mirakurun_services_api_response.status_code != 200:  # Mirakurun / mirakc からエラーが返ってきた
+                    logging.error(f'Failed to get channels from Mirakurun / mirakc. (HTTP Error {mirakurun_services_api_response.status_code})')
+                    raise Exception(f'Failed to get channels from Mirakurun / mirakc. (HTTP Error {mirakurun_services_api_response.status_code})')
                 services = mirakurun_services_api_response.json()
             except httpx.NetworkError as ex:
-                logging.error(f'Failed to get channels from Mirakurun. (Network Error)')
+                logging.error(f'Failed to get channels from Mirakurun / mirakc. (Network Error)')
                 raise ex
             except httpx.TimeoutException as ex:
-                logging.error(f'Failed to get channels from Mirakurun. (Connection Timeout)')
+                logging.error(f'Failed to get channels from Mirakurun / mirakc. (Connection Timeout)')
                 raise ex
 
             # 同じネットワーク ID のサービスのカウント
