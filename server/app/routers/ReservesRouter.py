@@ -1,4 +1,5 @@
 
+import asyncio
 from datetime import datetime
 from datetime import timedelta
 from fastapi import APIRouter
@@ -6,10 +7,13 @@ from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import Path
 from fastapi import status
-from typing import Annotated, Literal
+from tortoise import transactions
+from typing import Annotated, Any, cast, Literal
 
 from app import schemas
 from app.config import Config
+from app.models.Channel import Channel
+from app.models.Program import Program
 from app.utils.EDCB import CtrlCmdUtil
 from app.utils.EDCB import RecSettingDataRequired
 from app.utils.EDCB import ReserveDataRequired
@@ -40,15 +44,45 @@ async def ConvertEDCBReserveDataToReserve(reserve_data: ReserveDataRequired) -> 
     # 録画対象チャンネルのネットワーク ID
     network_id: int = reserve_data['onid']
 
-    # 録画対象チャンネルのトランスポートストリーム ID
-    transport_stream_id: int = reserve_data['tsid']
-
     # 録画対象チャンネルのサービス ID
     service_id: int = reserve_data['sid']
+
+    # 録画対象チャンネルのトランスポートストリーム ID
+    transport_stream_id: int = reserve_data['tsid']
 
     # 録画対象チャンネルのサービス名
     ## 基本全角なので半角に変換する必要がある
     service_name: str = TSInformation.formatString(reserve_data['station_name'])
+
+    # ここでネットワーク ID・サービス ID・トランスポートストリーム ID が一致するチャンネルをデータベースから取得する
+    channel: Channel | None = await Channel.filter(network_id=network_id, service_id=service_id, transport_stream_id=transport_stream_id).get_or_none()
+    if channel is None:
+        # 取得できなかった場合のみ、上記の限定的な情報を使って間に合わせのチャンネル情報を作成する
+        ## 通常ここでチャンネル情報が取得できないのはワンセグやデータ放送など KonomiTV ではサポートしていないサービスを予約している場合だけのはず
+        channel = Channel(
+            id = f'NID{network_id}-SID{service_id}',
+            display_channel_id = 'gr001',  # 取得できないため一旦 'gr001' を設定
+            network_id = network_id,
+            service_id = service_id,
+            transport_stream_id = transport_stream_id,
+            remocon_id = 0,  # 取得できないため一旦 0 を設定
+            channel_number = '001',  # 取得できないため一旦 '001' を設定
+            type = TSInformation.getNetworkType(network_id),
+            name = service_name,
+            jikkyo_force = False,
+            is_subchannel = False,
+            is_radiochannel = False,
+            is_watchable = False,
+        )
+        # GR 以外のみサービス ID からリモコン ID を算出できるので、それを実行
+        if channel.type != 'GR':
+            channel.remocon_id = channel.calculateRemoconID()
+        # チャンネル番号を算出
+        channel.channel_number = await channel.calculateChannelNumber()
+        # 改めて表示用チャンネル ID を算出
+        channel.display_channel_id = channel.type.lower() + channel.channel_number
+        # このチャンネルがサブチャンネルかを算出
+        channel.is_subchannel = channel.calculateIsSubchannel()
 
     # 録画予約番組のイベント ID
     event_id: int = reserve_data['eid']
@@ -66,14 +100,51 @@ async def ConvertEDCBReserveDataToReserve(reserve_data: ReserveDataRequired) -> 
     # 録画予約番組の番組長 (秒)
     duration: float = float(reserve_data['duration_second'])
 
+    # ここでネットワーク ID・サービス ID・イベント ID が一致する番組をデータベースから取得する
+    program: Program | None = await Program.filter(network_id=channel.network_id, service_id=channel.service_id, event_id=event_id).get_or_none()
+    if program is None:
+        # 取得できなかった場合のみ、上記の限定的な情報を使って間に合わせの番組情報を作成する
+        ## 通常ここで番組情報が取得できないのは同じ番組を放送しているサブチャンネルやまだ KonomiTV に反映されていない番組情報など、特殊なケースだけのはず
+        program = Program(
+            id = f'NID{channel.network_id}-SID{channel.service_id}-EID{event_id}',
+            channel_id = channel.id,
+            network_id = channel.network_id,
+            service_id = channel.service_id,
+            event_id = event_id,
+            title = title,
+            description = '',
+            detail = {},
+            start_time = start_time,
+            end_time = end_time,
+            duration = duration,
+            is_free = True,
+            genres = [],
+            video_type = '映像1080i(1125i)、アスペクト比16:9 パンベクトルなし',
+            video_codec = 'mpeg2',
+            video_resolution = '1080i',
+            primary_audio_type = '1/0モード(シングルモノ)',
+            primary_audio_language = '日本語',
+            primary_audio_sampling_rate = '48kHz',
+            secondary_audio_type = None,
+            secondary_audio_language = None,
+            secondary_audio_sampling_rate = None,
+        )
+    else:
+        # 番組情報をデータベースから取得できた場合でも、番組タイトル・番組開始時刻・番組終了時刻・番組長は
+        # EDCB から返される情報の方が正確な可能性があるため (特に追従時など)、それらの情報を上書きする
+        program.title = title
+        program.start_time = start_time
+        program.end_time = end_time
+        program.duration = duration
+
     # 録画予約の被り状態: 被りなし (予約可能) / 被ってチューナー足りない予約あり / チューナー足りないため予約できない
     # ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/CommonDef.h#L32-L34
     # ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/StructDef.h#L62
-    overlay_status: Literal['NoOverlay', 'HasOverlay', 'CannotReserve'] = 'NoOverlay'
+    overlap_status: Literal['NoOverlap', 'HasOverlap', 'CannotReserve'] = 'NoOverlap'
     if reserve_data['overlap_mode'] == 1:
-        overlay_status = 'HasOverlay'
+        overlap_status = 'HasOverlap'
     elif reserve_data['overlap_mode'] == 2:
-        overlay_status = 'CannotReserve'
+        overlap_status = 'CannotReserve'
 
     # コメント: EPG 予約で自動追加された予約なら "EPG自動予約" と入る
     comment: str = reserve_data['comment']
@@ -88,18 +159,13 @@ async def ConvertEDCBReserveDataToReserve(reserve_data: ReserveDataRequired) -> 
     ## EDCB からのレスポンスでは常にすべてのキーが存在するため、RecSettingDataRequired にキャストして問題ない
     record_settings: schemas.RecordSettings = ConvertEDCBRecSettingDataToReRecordSettings(reserve_data['rec_setting'])
 
+    # Tortoise ORM モデルは本来 Pydantic モデルと型が非互換だが、FastAPI がよしなに変換してくれるので雑に Any にキャストしている
+    ## 逆に自前で変換する方法がわからない…
     return schemas.Reserve(
         id = reserve_id,
-        network_id = network_id,
-        transport_stream_id = transport_stream_id,
-        service_id = service_id,
-        service_name = service_name,
-        event_id = event_id,
-        title = title,
-        start_time = start_time,
-        end_time = end_time,
-        duration = duration,
-        overlay_status = overlay_status,
+        channel = cast(Any, channel),
+        program = cast(Any, program),
+        overlap_status = overlap_status,
         comment = comment,
         scheduled_recording_file_name = scheduled_recording_file_name,
         record_settings = record_settings,
@@ -170,6 +236,11 @@ def ConvertEDCBRecSettingDataToReRecordSettings(rec_settings_data: RecSettingDat
     if rec_settings_data['bat_file_path'] != '':
         post_recording_bat_file_path = rec_settings_data['bat_file_path']
 
+    # 保存先の録画フォルダのパスのリスト
+    recording_folders: list[str] = []
+    for rec_folder in rec_settings_data['rec_folder_list']:
+        recording_folders.append(rec_folder['rec_folder'])
+
     # イベントリレーの追従を行うかどうか
     is_event_relay_follow_enabled: bool = rec_settings_data['tuijyuu_flag']
 
@@ -205,11 +276,6 @@ def ConvertEDCBRecSettingDataToReRecordSettings(rec_settings_data: RecSettingDat
     if rec_settings_data['tuner_id'] != 0:  # 0 は自動選択
         forced_tuner_id = rec_settings_data['tuner_id']
 
-    # 保存先の録画フォルダのパスのリスト
-    recording_folders: list[str] = []
-    for rec_folder in rec_settings_data['rec_folder_list']:
-        recording_folders.append(rec_folder['rec_folder'])
-
     return schemas.RecordSettings(
         record_mode = record_mode,
         is_enabled = is_enabled,
@@ -218,6 +284,7 @@ def ConvertEDCBRecSettingDataToReRecordSettings(rec_settings_data: RecSettingDat
         recording_end_margin = recording_end_margin,
         post_recording_mode = post_recording_mode,
         post_recording_bat_file_path = post_recording_bat_file_path,
+        recording_folders = recording_folders,
         is_event_relay_follow_enabled = is_event_relay_follow_enabled,
         is_exact_recording_enabled = is_exact_recording_enabled,
         is_oneseg_separate_output_enabled = is_oneseg_separate_output_enabled,
@@ -225,7 +292,6 @@ def ConvertEDCBRecSettingDataToReRecordSettings(rec_settings_data: RecSettingDat
         caption_recording_mode = caption_recording_mode,
         data_broadcasting_recording_mode = data_broadcasting_recording_mode,
         forced_tuner_id = forced_tuner_id,
-        recording_folders = recording_folders,
     )
 
 
@@ -288,10 +354,12 @@ async def ReservesAPI(
         return schemas.ReserveList(total=0, reserves=[])
 
     # EDCB の ReserveData オブジェクトを schemas.Reserve オブジェクトに変換
-    reserves = [await ConvertEDCBReserveDataToReserve(reserve_data) for reserve_data in edcb_reserves]
+    # データベースアクセスを伴うので、トランザクション下に入れた上で並行して行う
+    async with transactions.in_transaction():
+        reserves = await asyncio.gather(*(ConvertEDCBReserveDataToReserve(reserve_data) for reserve_data in edcb_reserves))
 
     # 録画予約番組の番組開始時刻でソート
-    reserves.sort(key=lambda reserve: reserve.start_time)
+    reserves.sort(key=lambda reserve: reserve.program.start_time)
 
     return schemas.ReserveList(total=len(edcb_reserves), reserves=reserves)
 
@@ -310,7 +378,7 @@ async def ReserveAPI(
     """
 
     # EDCB の ReserveData オブジェクトを schemas.Reserve オブジェクトに変換して返す
-    return ConvertEDCBReserveDataToReserve(reserve_data)
+    return await ConvertEDCBReserveDataToReserve(reserve_data)
 
 
 @router.delete(
@@ -334,4 +402,3 @@ async def DeleteReserveAPI(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to delete the specified recording reservation',
         )
-    return

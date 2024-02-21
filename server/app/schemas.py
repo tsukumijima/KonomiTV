@@ -240,34 +240,20 @@ class LiveStreamStatuses(BaseModel):
 
 # 以下は EDCB の生のデータモデルをフロントエンドが扱いやすいようモダンに整形し、KonomiTV 独自のプロパティを追加したもの
 # EDCB の生のデータモデルは数十年に及ぶ歴史的経緯により複雑怪奇であり、そのままでは非常に扱いにくい
-# KonomiTV では以下のモデルを API リクエスト・レスポンスに利用し、サーバー側で EDCB の生のデータモデルと相互に変換している
+# KonomiTV では以下のモデルを API レスポンスに利用し、サーバー側で EDCB の生のデータモデルから変換している
 
 # 録画予約情報
 class Reserve(BaseModel):
     # 録画予約 ID
     id: int
-    # 録画対象チャンネルのネットワーク ID
-    network_id: int
-    # 録画対象チャンネルのトランスポートストリーム ID
-    transport_stream_id: int
-    # 録画対象チャンネルのサービス ID
-    service_id: int
-    # 録画対象チャンネルのサービス名
-    service_name: str
-    # 録画予約番組のイベント ID
-    event_id: int
-    # 録画予約番組のタイトル
-    title: str
-    # 録画予約番組の番組開始時刻
-    start_time: datetime
-    # 録画予約番組の番組終了時刻
-    end_time: datetime
-    # 録画予約番組の番組長 (秒)
-    duration: float
+    # 録画予約番組の放送チャンネル
+    channel: Channel
+    # 録画予約番組の情報
+    program: Program
     # 録画予約の被り状態: 被りなし (予約可能) / 被ってチューナー足りない予約あり / チューナー足りないため予約できない
     # ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/CommonDef.h#L32-L34
     # ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/StructDef.h#L62
-    overlay_status: Literal['NoOverlay', 'HasOverlay', 'CannotReserve']
+    overlap_status: Literal['NoOverlap', 'HasOverlap', 'CannotReserve']
     # コメント: EPG 予約で自動追加された予約なら "EPG自動予約" と入る
     comment: str
     # 録画予定のファイル名
@@ -301,6 +287,10 @@ class RecordSettings(BaseModel):
     post_recording_mode: Literal['Default', 'Nothing', 'Standby', 'Suspend', 'Shutdown', 'Reboot']
     # 録画後に実行する bat ファイルのパス / 指定しない場合は None
     post_recording_bat_file_path: str | None
+    # 保存先の録画フォルダのパスのリスト
+    ## 指定されない場合はデフォルトの録画フォルダに順に保存される
+    ## UI 上では単一の録画フォルダしか指定できない (複数のフォルダに同じ内容を保存するユースケースが皆無なため)
+    recording_folders: list[str]
     # イベントリレーの追従を行うかどうか
     ## UI 上では非表示 (新規追加時は True で固定)
     is_event_relay_follow_enabled: bool
@@ -323,10 +313,6 @@ class RecordSettings(BaseModel):
     # チューナーを強制指定する際のチューナー ID / 自動選択の場合は None
     # UI 上では非表示 (新規追加時は None で固定)
     forced_tuner_id: int | None
-    # 保存先の録画フォルダのパスのリスト
-    ## 指定されない場合はデフォルトの録画フォルダに順に保存される
-    ## UI 上では単一の録画フォルダしか指定できない (複数のフォルダに同じ内容を保存するユースケースが皆無なため)
-    recording_folders: list[str]
 
 # ***** データ放送 *****
 
