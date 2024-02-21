@@ -265,20 +265,98 @@ class Reserve(BaseModel):
     record_settings: RecordSettings
 
 # 録画予約情報のリスト
-class ReserveList(BaseModel):
+class Reserves(BaseModel):
     total: int
     reserves: list[Reserve]
+
+# キーワード自動予約条件
+class ReserveCondition(BaseModel):
+    id: int
+    # このキーワード自動予約条件で登録されている録画予約の数
+    reserve_count: int
+    # 番組検索条件
+    program_search_condition: ProgramSearchCondition
+    # 録画設定
+    record_settings: RecordSettings
+
+# キーワード自動予約条件のリスト
+class ReserveConditions(BaseModel):
+    total: int
+    reserve_conditions: list[ReserveCondition]
+
+# 番組検索条件
+class ProgramSearchCondition(BaseModel):
+    # 番組検索条件が有効かどうか
+    is_enabled: bool = True
+    # 検索キーワード
+    keyword: str
+    # 除外キーワード
+    exclude_keyword: str
+    # 番組名のみを検索対象とするかどうか
+    is_title_only: bool = False
+    # 大文字小文字を区別するかどうか
+    is_case_sensitive: bool = False
+    # あいまい検索を行うかどうか
+    is_fuzzy_search_enabled: bool = False
+    # 正規表現検索を行うかどうか
+    is_regex_search_enabled: bool = False
+    # 検索対象を絞り込むチャンネル範囲のリスト
+    ## 指定しない場合は None になる
+    channel_ranges: list[Channel] | None = None
+    # 検索対象を絞り込むジャンルの範囲のリスト
+    ## 指定しない場合は None になる
+    genre_ranges: list[Genre] | None = None
+    # genre_ranges で指定したジャンルを逆に検索対象から除外するかどうか
+    is_exclude_genres: bool = False
+    # 検索対象を絞り込む放送日時の範囲のリスト
+    ## 指定しない場合は None になる
+    date_ranges: list[ProgramSearchConditionDate] | None = None
+    # date_ranges で指定した放送日時を逆に検索対象から除外するかどうか
+    is_exclude_dates: bool = False
+    # 番組長で絞り込む最小範囲 (秒)
+    ## 指定しない場合は None になる
+    duration_range_min: int | None = None
+    # 番組長で絞り込む最大範囲 (秒)
+    ## 指定しない場合は None になる
+    duration_range_max: int | None = None
+    # 番組の放送種別で絞り込む: すべて / 無料のみ / 有料のみ
+    broadcast_type: Literal['All', 'FreeOnly', 'PaidOnly'] = 'All'
+    # 同じ番組名の既存録画との重複チェック: 何もしない / 同じチャンネルのみ対象にする / 全てのチャンネルを対象にする
+    ## 同じチャンネルのみ対象にする: 同じチャンネルで同名の番組が既に録画されていれば、新しい予約を無効状態で登録する
+    ## 全てのチャンネルを対象にする: 任意のチャンネルで同名の番組が既に録画されていれば、新しい予約を無効状態で登録する
+    ## 仕様上予約自体を削除してしまうとすぐ再登録されてしまうので、無効状態で登録することで有効になるのを防いでいるらしい
+    duplicate_title_check_scope: Literal['None', 'SameChannelOnly', 'AllChannels'] = 'None'
+    # 同じ番組名の既存録画との重複チェックの対象期間 (日単位)
+    duplicate_title_check_period_days: int = 6
+
+
+# 番組検索条件の日付範囲
+class ProgramSearchConditionDate(BaseModel):
+    # 検索開始曜日 (0: 日曜日, 1: 月曜日, 2: 火曜日, 3: 水曜日, 4: 木曜日, 5: 金曜日, 6: 土曜日)
+    ## 文字列にした方がわかりやすいとも思ったが、day.js が数値で曜日を扱うため数値で統一する
+    start_day_of_week: int
+    # 検索開始時刻 (時)
+    start_hour: int
+    # 検索開始時刻 (分)
+    start_minute: int
+    # 検索終了曜日 (0: 日曜日, 1: 月曜日, 2: 火曜日, 3: 水曜日, 4: 木曜日, 5: 金曜日, 6: 土曜日)
+    ## 文字列にした方がわかりやすいとも思ったが、day.js が数値で曜日を扱うため数値で統一する
+    end_day_of_week: int
+    # 検索終了時刻 (時)
+    end_hour: int
+    # 検索終了時刻 (分)
+    end_minute: int
 
 # 録画設定
 ## 現実的にほとんど使わないため UI からは設定できない値も含まれる (録画設定変更時に意図せず設定値が抜け落ちることは避けたい)
 class RecordSettings(BaseModel):
+    # 録画予約が有効かどうか
+    is_enabled: bool = True
     # 録画モード: 全サービス / 全サービス (デコードなし) / 指定サービスのみ / 指定サービスのみ (デコードなし) / 視聴
     # 通常の用途では「指定サービスのみ」以外はまず使わない
     ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/CommonDef.h#L26-L30
     ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Document/Readme_Mod.txt#L264-L266
     record_mode: Literal['AllService', 'AllServiceWithoutDecoding', 'SpecifiedService', 'SpecifiedServiceWithoutDecoding', 'View'] = 'SpecifiedService'
-    # 録画予約が有効かどうか
-    is_enabled: bool = True
     # 録画予約の優先度: 1 ~ 5 の数値で数値が大きいほど優先度が高い
     priority: int = 3
     # 録画開始マージン (秒) / デフォルト設定に従う場合は None

@@ -825,6 +825,15 @@ class SearchDateInfo(TypedDict, total=False):
     end_hour: int
     end_min: int
 
+class SearchDateInfoRequired(TypedDict):
+    """ 対象期間 (すべてのキーが必須) """
+    start_day_of_week: int
+    start_hour: int
+    start_min: int
+    end_day_of_week: int
+    end_hour: int
+    end_min: int
+
 
 class SearchKeyInfo(TypedDict, total=False):
     """ 検索条件 """
@@ -849,12 +858,42 @@ class SearchKeyInfo(TypedDict, total=False):
     chk_duration_min: int
     chk_duration_max: int
 
+class SearchKeyInfoRequired(TypedDict):
+    """ 検索条件 (すべてのキーが必須) """
+    and_key: str  # 登録無効、大小文字区別、番組長についての接頭辞は処理済み
+    not_key: str
+    key_disabled: bool
+    case_sensitive: bool
+    reg_exp_flag: bool
+    title_only_flag: bool
+    content_list: list[ContentData]
+    date_list: list[SearchDateInfoRequired]
+    service_list: list[int]  # (onid << 32 | tsid << 16 | sid) のリスト
+    video_list: list[int]  # 無視してよい
+    audio_list: list[int]  # 無視してよい
+    aimai_flag: bool
+    not_contet_flag: bool
+    not_date_flag: bool
+    free_ca_flag: int
+    chk_rec_end: bool
+    chk_rec_day: int
+    chk_rec_no_service: bool
+    chk_duration_min: int
+    chk_duration_max: int
+
 
 class AutoAddData(TypedDict, total=False):
     """ 自動予約登録情報 """
     data_id: int
     search_info: SearchKeyInfo
     rec_setting: RecSettingData
+    add_count: int
+
+class AutoAddDataRequired(TypedDict):
+    """ 自動予約登録情報 (すべてのキーが必須) """
+    data_id: int
+    search_info: SearchKeyInfoRequired
+    rec_setting: RecSettingDataRequired
     add_count: int
 
 
@@ -1218,7 +1257,7 @@ class CtrlCmdUtil:
                 pass
         return None
 
-    async def sendEnumAutoAdd(self) -> list[AutoAddData] | None:
+    async def sendEnumAutoAdd(self) -> list[AutoAddDataRequired] | None:
         """ 自動予約登録情報一覧を取得する """
         ret, rbuf = await self.__sendCmd2(self.__CMD_EPG_SRV_ENUM_AUTO_ADD2)
         if ret == self.__CMD_SUCCESS:
@@ -1226,7 +1265,7 @@ class CtrlCmdUtil:
             pos = [0]
             try:
                 if self.__readUshort(bufview, pos, len(rbuf)) >= self.__CMD_VER:
-                    return self.__readVector(self.__readAutoAddData, bufview, pos, len(rbuf))
+                    return cast(list[AutoAddDataRequired], self.__readVector(self.__readAutoAddData, bufview, pos, len(rbuf)))
             except self.__ReadError:
                 pass
         return None

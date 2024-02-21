@@ -175,7 +175,7 @@ async def ConvertEDCBReserveDataToReserve(reserve_data: ReserveDataRequired, cha
         scheduled_recording_file_name = reserve_data['rec_file_name_list'][0]
 
     # 録画設定
-    record_settings: schemas.RecordSettings = ConvertEDCBRecSettingDataToReRecordSettings(reserve_data['rec_setting'])
+    record_settings = ConvertEDCBRecSettingDataToRecordSettings(reserve_data['rec_setting'])
 
     # Tortoise ORM モデルは本来 Pydantic モデルと型が非互換だが、FastAPI がよしなに変換してくれるので雑に Any にキャストしている
     ## 逆に自前で変換する方法がわからない…
@@ -191,7 +191,7 @@ async def ConvertEDCBReserveDataToReserve(reserve_data: ReserveDataRequired, cha
     )
 
 
-def ConvertEDCBRecSettingDataToReRecordSettings(rec_settings_data: RecSettingDataRequired) -> schemas.RecordSettings:
+def ConvertEDCBRecSettingDataToRecordSettings(rec_settings_data: RecSettingDataRequired) -> schemas.RecordSettings:
     """
     EDCB の RecSettingData オブジェクトを schemas.RecordSettings オブジェクトに変換する
 
@@ -201,6 +201,9 @@ def ConvertEDCBRecSettingDataToReRecordSettings(rec_settings_data: RecSettingDat
     Returns:
         schemas.RecordSettings: schemas.RecordSettings オブジェクト
     """
+
+    # 録画予約が有効かどうか
+    is_enabled: bool = rec_settings_data['rec_mode'] <= 4  # 0 ~ 4 なら有効
 
     # 録画モード: 全サービス / 全サービス (デコードなし) / 指定サービスのみ / 指定サービスのみ (デコードなし) / 視聴
     # 通常の用途では「指定サービスのみ」以外はまず使わない
@@ -217,9 +220,6 @@ def ConvertEDCBRecSettingDataToReRecordSettings(rec_settings_data: RecSettingDat
         record_mode = 'SpecifiedServiceWithoutDecoding'  # 指定サービスのみ (デコードなし)
     elif rec_settings_data['rec_mode'] == 4 or rec_settings_data['rec_mode'] == 8:
         record_mode = 'View'
-
-    # 録画予約が有効かどうか
-    is_enabled: bool = rec_settings_data['rec_mode'] <= 4  # 0 ~ 4 なら有効
 
     # 録画予約の優先度: 1 ~ 5 の数値で数値が大きいほど優先度が高い
     priority: int = rec_settings_data['priority']
@@ -296,8 +296,8 @@ def ConvertEDCBRecSettingDataToReRecordSettings(rec_settings_data: RecSettingDat
         forced_tuner_id = rec_settings_data['tuner_id']
 
     return schemas.RecordSettings(
-        record_mode = record_mode,
         is_enabled = is_enabled,
+        record_mode = record_mode,
         priority = priority,
         recording_start_margin = recording_start_margin,
         recording_end_margin = recording_end_margin,
@@ -357,7 +357,7 @@ async def GetReserveData(
     '',
     summary = '録画予約情報一覧 API',
     response_description = '録画予約情報のリスト。',
-    response_model = schemas.ReserveList,
+    response_model = schemas.Reserves,
 )
 async def ReservesAPI(
     edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
@@ -370,7 +370,7 @@ async def ReservesAPI(
     edcb_reserves: list[ReserveDataRequired] | None = await edcb.sendEnumReserve()
     if edcb_reserves is None:
         # None が返ってきた場合は空のリストを返す
-        return schemas.ReserveList(total=0, reserves=[])
+        return schemas.Reserves(total=0, reserves=[])
 
     # データベースアクセスを伴うので、トランザクション下に入れた上で並行して行う
     async with transactions.in_transaction():
@@ -384,7 +384,7 @@ async def ReservesAPI(
     # 録画予約番組の番組開始時刻でソート
     reserves.sort(key=lambda reserve: reserve.program.start_time)
 
-    return schemas.ReserveList(total=len(edcb_reserves), reserves=reserves)
+    return schemas.Reserves(total=len(edcb_reserves), reserves=reserves)
 
 
 @router.get(
