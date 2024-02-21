@@ -636,7 +636,7 @@ class RecSettingData(TypedDict, total=False):
     tuner_id: int
     partial_rec_folder: list[RecFileSetInfo]
 
-class RecSettingDataRequired(RecSettingData):
+class RecSettingDataRequired(TypedDict):
     """ 録画設定 (基本すべてのキーが必須) """
     rec_mode: int  # 0-4: 全サービス～視聴, 5-8: 無効の指定サービス～視聴, 9: 無効の全サービス
     priority: int
@@ -672,7 +672,7 @@ class ReserveData(TypedDict, total=False):
     rec_setting: RecSettingData
     rec_file_name_list: list[str]  # 録画予定ファイル名
 
-class ReserveDataRequired(ReserveData):
+class ReserveDataRequired(TypedDict):
     """ 予約情報 (すべてのキーが必須) """
     title: str
     start_time: datetime.datetime
@@ -686,7 +686,7 @@ class ReserveDataRequired(ReserveData):
     reserve_id: int
     overlap_mode: int
     start_time_epg: datetime.datetime
-    rec_setting: RecSettingData
+    rec_setting: RecSettingDataRequired
     rec_file_name_list: list[str]  # 録画予定ファイル名
 
 
@@ -1072,7 +1072,7 @@ class CtrlCmdUtil:
                                       lambda buf: self.__writeInt(buf, nwtv_id))
         return ret == self.__CMD_SUCCESS
 
-    async def sendEnumReserve(self) -> list[ReserveData] | None:
+    async def sendEnumReserve(self) -> list[ReserveDataRequired] | None:
         """ 予約一覧を取得する """
         ret, rbuf = await self.__sendCmd2(self.__CMD_EPG_SRV_ENUM_RESERVE2)
         if ret == self.__CMD_SUCCESS:
@@ -1080,7 +1080,7 @@ class CtrlCmdUtil:
             pos = [0]
             try:
                 if self.__readUshort(bufview, pos, len(rbuf)) >= self.__CMD_VER:
-                    return self.__readVector(self.__readReserveData, bufview, pos, len(rbuf))
+                    return cast(list[ReserveDataRequired], self.__readVector(self.__readReserveData, bufview, pos, len(rbuf)))
             except self.__ReadError:
                 pass
         return None

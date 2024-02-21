@@ -6,13 +6,12 @@ from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import Path
 from fastapi import status
-from typing import Annotated, cast, Literal
+from typing import Annotated, Literal
 
 from app import schemas
 from app.config import Config
 from app.utils.EDCB import CtrlCmdUtil
 from app.utils.EDCB import RecSettingDataRequired
-from app.utils.EDCB import ReserveData
 from app.utils.EDCB import ReserveDataRequired
 from app.utils.TSInformation import TSInformation
 
@@ -24,7 +23,7 @@ router = APIRouter(
 )
 
 
-def ConvertEDCBReserveDataToReserve(reserve_data: ReserveDataRequired) -> schemas.Reserve:
+async def ConvertEDCBReserveDataToReserve(reserve_data: ReserveDataRequired) -> schemas.Reserve:
     """
     EDCB の ReserveData オブジェクトを schemas.Reserve オブジェクトに変換する
 
@@ -87,7 +86,7 @@ def ConvertEDCBReserveDataToReserve(reserve_data: ReserveDataRequired) -> schema
 
     # 録画設定
     ## EDCB からのレスポンスでは常にすべてのキーが存在するため、RecSettingDataRequired にキャストして問題ない
-    record_settings: schemas.RecordSettings = ConvertEDCBRecSettingDataToReRecordSettings(cast(RecSettingDataRequired, reserve_data['rec_setting']))
+    record_settings: schemas.RecordSettings = ConvertEDCBRecSettingDataToReRecordSettings(reserve_data['rec_setting'])
 
     return schemas.Reserve(
         id = reserve_id,
@@ -247,7 +246,7 @@ async def GetReserveData(
 ) -> ReserveDataRequired:
     """ EDCB から指定された録画予約の情報を取得する """
     # EDCB から現在のすべての録画予約の情報を取得
-    reserves: list[ReserveData] | None = await edcb.sendEnumReserve()
+    reserves: list[ReserveDataRequired] | None = await edcb.sendEnumReserve()
     if reserves is None:
         # None が返ってきた場合はエラーを返す
         raise HTTPException(
@@ -255,9 +254,9 @@ async def GetReserveData(
             detail = 'Failed to get the list of recording reservations',
         )
     # 指定された録画予約の情報を取得
-    reserve_data: ReserveData | None = None
+    reserve_data: ReserveDataRequired | None = None
     for reserve in reserves:
-        if cast(ReserveDataRequired, reserve)['reserve_id'] == reserve_id:
+        if reserve['reserve_id'] == reserve_id:
             reserve_data = reserve
             break
     # 指定された録画予約が見つからなかった場合はエラーを返す
@@ -266,8 +265,7 @@ async def GetReserveData(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified reserve_id was not found',
         )
-    # EDCB からのレスポンスでは常にすべてのキーが存在するため、ReserveDataRequired にキャストして問題ない
-    return cast(ReserveDataRequired, reserve_data)
+    return reserve_data
 
 
 @router.get(
@@ -284,14 +282,13 @@ async def ReservesAPI(
     """
 
     # EDCB から現在のすべての録画予約の情報を取得
-    edcb_reserves: list[ReserveData] | None = await edcb.sendEnumReserve()
+    edcb_reserves: list[ReserveDataRequired] | None = await edcb.sendEnumReserve()
     if edcb_reserves is None:
         # None が返ってきた場合は空のリストを返す
         return schemas.ReserveList(total=0, reserves=[])
 
     # EDCB の ReserveData オブジェクトを schemas.Reserve オブジェクトに変換
-    ## EDCB からのレスポンスでは常にすべてのキーが存在するため、ReserveDataRequired にキャストして問題ない
-    reserves = [ConvertEDCBReserveDataToReserve(cast(ReserveDataRequired, reserve_data)) for reserve_data in edcb_reserves]
+    reserves = [await ConvertEDCBReserveDataToReserve(reserve_data) for reserve_data in edcb_reserves]
 
     # 録画予約番組の番組開始時刻でソート
     reserves.sort(key=lambda reserve: reserve.start_time)
