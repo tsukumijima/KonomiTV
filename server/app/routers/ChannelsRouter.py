@@ -23,7 +23,7 @@ from zoneinfo import ZoneInfo
 from app import logging
 from app import schemas
 from app.config import Config
-from app.constants import API_REQUEST_HEADERS, LOGO_DIR, VERSION
+from app.constants import HTTPX_CLIENT, LOGO_DIR, VERSION
 from app.models.Channel import Channel
 from app.routers.UsersRouter import GetCurrentUser
 from app.streams.LiveStream import LiveStream
@@ -434,12 +434,8 @@ async def ChannelLogoAPI(
             # 同梱のロゴが存在しない場合のみ
             try:
                 mirakurun_logo_api_url = GetMirakurunAPIEndpointURL(f'/api/services/{mirakurun_service_id}/logo')
-                async with httpx.AsyncClient() as client:
-                    mirakurun_logo_api_response = await client.get(
-                        url = mirakurun_logo_api_url,
-                        headers = API_REQUEST_HEADERS,
-                        timeout = 5,
-                    )
+                async with HTTPX_CLIENT as client:
+                    mirakurun_logo_api_response = await client.get(mirakurun_logo_api_url, timeout=5)
 
                 # ステータスコードが 200 であれば
                 # ステータスコードが 503 の場合はロゴデータが存在しない

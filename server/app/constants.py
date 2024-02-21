@@ -1,4 +1,5 @@
 
+import httpx
 import pkgutil
 import secrets
 import sys
@@ -349,12 +350,6 @@ QUALITY: dict[QUALITY_TYPES, Quality] = {
     ),
 }
 
-# 外部 API に送信するリクエストヘッダー
-## KonomiTV のユーザーエージェントを指定
-API_REQUEST_HEADERS: dict[str, str] = {
-    'User-Agent': f'KonomiTV/{VERSION}',
-}
-
 # ニコニコ OAuth の Client ID
 NICONICO_OAUTH_CLIENT_ID = '4JTJdyBZLwMJwaI7'
 
@@ -367,3 +362,19 @@ if Path.exists(JWT_SECRET_KEY_PATH) is False:
 ## jwt_secret.dat からシークレットキーをロードする
 with open(JWT_SECRET_KEY_PATH, mode='r', encoding='utf-8') as file:
     JWT_SECRET_KEY = file.read().strip()
+
+# 外部 API に送信するリクエストヘッダー
+## KonomiTV の User-Agent を指定
+API_REQUEST_HEADERS: dict[str, str] = {
+    'User-Agent': f'KonomiTV/{VERSION}',
+}
+
+# KonomiTV で利用する httpx.AsyncClient の設定
+HTTPX_CLIENT = httpx.AsyncClient(
+    # KonomiTV の User-Agent を指定
+    headers = API_REQUEST_HEADERS,
+    # リダイレクトを追跡する
+    follow_redirects = True,
+    # 3 秒応答がない場合はタイムアウトする
+    timeout = 3.0,
+)

@@ -18,7 +18,7 @@ from typing import AsyncIterator, cast, ClassVar, Literal, TYPE_CHECKING
 
 from app import logging
 from app.config import Config
-from app.constants import API_REQUEST_HEADERS, LIBRARY_PATH, LOGS_DIR, QUALITY, QUALITY_TYPES
+from app.constants import API_REQUEST_HEADERS, HTTPX_CLIENT, LIBRARY_PATH, LOGS_DIR, QUALITY, QUALITY_TYPES
 from app.models.Channel import Channel
 from app.streams.LivePSIDataArchiver import LivePSIDataArchiver
 from app.utils import GetMirakurunAPIEndpointURL
@@ -421,7 +421,7 @@ class LiveEncodingTask:
         channel_type = 'CS' if channel_type == 'CATV' else channel_type
         channel_type = 'SKY' if channel_type == 'STARDIGIO' else channel_type
 
-        async with httpx.AsyncClient(headers=API_REQUEST_HEADERS, timeout=5) as client:
+        async with HTTPX_CLIENT as client:
 
             # 0.1 秒間隔で最大 0.5 秒間チューナーの空きを確認する
             ## 空きチューナーがなくても利用状況によっては共聴できるので、あまり待ちすぎると無駄な時間がかかる
@@ -433,7 +433,7 @@ class LiveEncodingTask:
 
                 # Mirakurun / mirakc からチューナーの状態を取得
                 try:
-                    response = await client.get(GetMirakurunAPIEndpointURL('/api/tuners'))
+                    response = await client.get(GetMirakurunAPIEndpointURL('/api/tuners'), timeout=5)
                     tuners = response.json()
                 except httpx.NetworkError:
                     logging.error(f'Failed to get tuner statuses from Mirakurun / mirakc. (Network Error)')

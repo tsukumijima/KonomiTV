@@ -14,7 +14,7 @@ from typing import Any, cast
 
 from app import logging
 from app import schemas
-from app.constants import API_REQUEST_HEADERS, NICONICO_OAUTH_CLIENT_ID
+from app.constants import API_REQUEST_HEADERS, HTTPX_CLIENT, NICONICO_OAUTH_CLIENT_ID
 from app.models.User import User
 from app.routers.UsersRouter import GetCurrentUser
 from app.utils import Interlaced
@@ -152,9 +152,10 @@ async def NiconicoAuthCallbackAPI(
 
         # 認証コードを使い、ニコニコ OAuth のアクセストークンとリフレッシュトークンを取得
         token_api_url = 'https://oauth.nicovideo.jp/oauth2/token'
-        async with httpx.AsyncClient() as httpx_client:
+        async with HTTPX_CLIENT as httpx_client:
             token_api_response = await httpx_client.post(
                 url = token_api_url,
+                headers = {**API_REQUEST_HEADERS, 'Content-Type': 'application/x-www-form-urlencoded'},
                 data = {
                     'grant_type': 'authorization_code',
                     'client_id': NICONICO_OAUTH_CLIENT_ID,
@@ -162,9 +163,6 @@ async def NiconicoAuthCallbackAPI(
                     'code': code,
                     'redirect_uri': 'https://app.konomi.tv/api/redirect/niconico',
                 },
-                headers = {**API_REQUEST_HEADERS, 'Content-Type': 'application/x-www-form-urlencoded'},
-                timeout = 3,  # 3秒応答がなかったらタイムアウト
-                follow_redirects = True,  # リダイレクトを追跡する
             )
 
         # ステータスコードが 200 以外
@@ -202,9 +200,9 @@ async def NiconicoAuthCallbackAPI(
         # ニコニコアカウントのユーザー情報を取得
         ## 3秒応答がなかったらタイムアウト
         user_api_url = f'https://nvapi.nicovideo.jp/v1/users/{current_user.niconico_user_id}'
-        user_api_headers = {**API_REQUEST_HEADERS, 'X-Frontend-Id': '6'}  # X-Frontend-Id がないと INVALID_PARAMETER になる
-        async with httpx.AsyncClient() as httpx_client:
-            user_api_response = await httpx_client.get(user_api_url, headers=user_api_headers, timeout=3, follow_redirects=True)
+        async with HTTPX_CLIENT as httpx_client:
+            # X-Frontend-Id がないと INVALID_PARAMETER になる
+            user_api_response = await httpx_client.get(user_api_url, headers={**API_REQUEST_HEADERS, 'X-Frontend-Id': '6'})
 
         # ステータスコードが 200 以外
         if user_api_response.status_code != 200:

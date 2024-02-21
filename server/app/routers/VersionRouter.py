@@ -6,7 +6,7 @@ from typing import Any
 
 from app import schemas
 from app.config import Config
-from app.constants import API_REQUEST_HEADERS, VERSION
+from app.constants import HTTPX_CLIENT, VERSION
 from app.utils import GetPlatformEnvironment
 
 
@@ -39,13 +39,8 @@ async def VersionInformationAPI():
     ## GitHub API は無認証だと60回/1時間までしかリクエストできないので、リクエスト結果を10分ほどキャッシュする
     if latest_version is None or (time.time() - latest_version_updated_at) > 60 * 10:
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    url = 'https://api.github.com/repos/tsukumijima/KonomiTV/tags',
-                    headers = API_REQUEST_HEADERS,
-                    timeout = 3,
-                    follow_redirects = True,
-                )
+            async with HTTPX_CLIENT as client:
+                response = await client.get('https://api.github.com/repos/tsukumijima/KonomiTV/tags')
             if response.status_code == 200:
                 latest_version = response.json()[0]['name'].replace('v', '')  # 先頭の v を取り除く
                 latest_version_updated_at = time.time()

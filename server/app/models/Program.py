@@ -25,7 +25,7 @@ from zoneinfo import ZoneInfo
 from app import logging
 from app.config import Config
 from app.config import LoadConfig
-from app.constants import API_REQUEST_HEADERS, DATABASE_CONFIG
+from app.constants import DATABASE_CONFIG, HTTPX_CLIENT
 from app.models.Channel import Channel
 from app.schemas import Genre
 from app.utils import GetMirakurunAPIEndpointURL
@@ -204,12 +204,9 @@ class Program(models.Model):
                 # Mirakurun / mirakc の API から番組情報を取得する
                 try:
                     mirakurun_programs_api_url = GetMirakurunAPIEndpointURL('/api/programs')
-                    async with httpx.AsyncClient() as client:
-                        mirakurun_programs_api_response = await client.get(
-                            url = mirakurun_programs_api_url,
-                            headers = API_REQUEST_HEADERS,
-                            timeout = 10,  # 10秒後にタイムアウト (SPHD や CATV も映る環境だと時間がかかるので、少し伸ばす)
-                        )
+                    async with HTTPX_CLIENT as client:
+                        # 10秒後にタイムアウト (SPHD や CATV も映る環境だと時間がかかるので、少し伸ばす)
+                        mirakurun_programs_api_response = await client.get(mirakurun_programs_api_url, timeout=10)
                     if mirakurun_programs_api_response.status_code != 200:  # Mirakurun / mirakc からエラーが返ってきた
                         logging.error(f'Failed to get programs from Mirakurun / mirakc. (HTTP Error {mirakurun_programs_api_response.status_code})')
                         raise Exception(f'Failed to get programs from Mirakurun / mirakc. (HTTP Error {mirakurun_programs_api_response.status_code})')
