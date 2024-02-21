@@ -4,6 +4,7 @@ from datetime import timedelta
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
+from fastapi import Path
 from fastapi import status
 from typing import Annotated, cast, Literal
 
@@ -21,17 +22,6 @@ router = APIRouter(
     tags = ['Reserves'],
     prefix = '/api/reserves',
 )
-
-
-async def GetCtrlCmdUtil() -> CtrlCmdUtil:
-    """ バックエンドが EDCB かのチェックを行い、EDCB であれば EDCB の CtrlCmdUtil インスタンスを返す """
-    if Config().general.backend == 'EDCB':
-        return CtrlCmdUtil()
-    else:
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'This API is only available when the backend is EDCB',
-        )
 
 
 def ConvertEDCBReserveDataToReserve(reserve_data: ReserveDataRequired) -> schemas.Reserve:
@@ -77,9 +67,6 @@ def ConvertEDCBReserveDataToReserve(reserve_data: ReserveDataRequired) -> schema
     # 録画予約番組の番組長 (秒)
     duration: float = float(reserve_data['duration_second'])
 
-    # コメント: EPG 予約で自動追加された予約なら "EPG自動予約" と入る
-    comment: str = reserve_data['comment']
-
     # 録画予約の被り状態: 被りなし (予約可能) / 被ってチューナー足りない予約あり / チューナー足りないため予約できない
     # ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/CommonDef.h#L32-L34
     # ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/StructDef.h#L62
@@ -88,6 +75,9 @@ def ConvertEDCBReserveDataToReserve(reserve_data: ReserveDataRequired) -> schema
         overlay_status = 'HasOverlay'
     elif reserve_data['overlap_mode'] == 2:
         overlay_status = 'CannotReserve'
+
+    # コメント: EPG 予約で自動追加された予約なら "EPG自動予約" と入る
+    comment: str = reserve_data['comment']
 
     # 録画予定のファイル名
     ## EDCB からのレスポンスでは配列になっているが、大半の場合は 1 つしかないため単一の値としている
@@ -110,8 +100,8 @@ def ConvertEDCBReserveDataToReserve(reserve_data: ReserveDataRequired) -> schema
         start_time = start_time,
         end_time = end_time,
         duration = duration,
-        comment = comment,
         overlay_status = overlay_status,
+        comment = comment,
         scheduled_recording_file_name = scheduled_recording_file_name,
         record_settings = record_settings,
     )
@@ -240,6 +230,46 @@ def ConvertEDCBRecSettingDataToReRecordSettings(rec_settings_data: RecSettingDat
     )
 
 
+async def GetCtrlCmdUtil() -> CtrlCmdUtil:
+    """ バックエンドが EDCB かのチェックを行い、EDCB であれば EDCB の CtrlCmdUtil インスタンスを返す """
+    if Config().general.backend == 'EDCB':
+        return CtrlCmdUtil()
+    else:
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'This API is only available when the backend is EDCB',
+        )
+
+
+async def GetReserveData(
+    reserve_id: Annotated[int, Path(description='録画予約 ID 。')],
+    edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
+) -> ReserveDataRequired:
+    """ EDCB から指定された録画予約の情報を取得する """
+    # EDCB から現在のすべての録画予約の情報を取得
+    reserves: list[ReserveData] | None = await edcb.sendEnumReserve()
+    if reserves is None:
+        # None が返ってきた場合はエラーを返す
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = 'Failed to get the list of recording reservations',
+        )
+    # 指定された録画予約の情報を取得
+    reserve_data: ReserveData | None = None
+    for reserve in reserves:
+        if cast(ReserveDataRequired, reserve)['reserve_id'] == reserve_id:
+            reserve_data = reserve
+            break
+    # 指定された録画予約が見つからなかった場合はエラーを返す
+    if reserve_data is None:
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Specified reserve_id was not found',
+        )
+    # EDCB からのレスポンスでは常にすべてのキーが存在するため、ReserveDataRequired にキャストして問題ない
+    return cast(ReserveDataRequired, reserve_data)
+
+
 @router.get(
     '',
     summary = '録画予約情報一覧 API',
@@ -276,36 +306,35 @@ async def ReservesAPI(
     response_model = schemas.Reserve,
 )
 async def ReserveAPI(
-    reserve_id: int,
-    edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
+    reserve_data: Annotated[ReserveDataRequired, Depends(GetReserveData)],
 ):
     """
     EDCB から指定された録画予約の情報を取得する。
     """
 
-    # EDCB から現在のすべての録画予約の情報を取得
-    edcb_reserves: list[ReserveData] | None = await edcb.sendEnumReserve()
-    if edcb_reserves is None:
-        # None が返ってきた場合はエラーを返す
+    # EDCB の ReserveData オブジェクトを schemas.Reserve オブジェクトに変換して返す
+    return ConvertEDCBReserveDataToReserve(reserve_data)
+
+
+@router.delete(
+    '/{reserve_id}',
+    summary = '録画予約削除 API',
+    status_code = status.HTTP_204_NO_CONTENT,
+)
+async def DeleteReserveAPI(
+    edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
+    reserve_data: Annotated[ReserveDataRequired, Depends(GetReserveData)],
+):
+    """
+    EDCB から指定された録画予約を削除する。
+    """
+
+    # EDCB に指定された録画予約を削除するように指示
+    result = await edcb.sendDelReserve([reserve_data['reserve_id']])
+    if result is False:
+        # False が返ってきた場合はエラーを返す
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail = 'Failed to get the list of recording reservations',
+            detail = 'Failed to delete the specified recording reservation',
         )
-
-    # 指定された録画予約の情報を取得
-    edcb_reserve: ReserveData | None = None
-    for reserve in edcb_reserves:
-        if cast(ReserveDataRequired, reserve)['reserve_id'] == reserve_id:
-            edcb_reserve = reserve
-            break
-
-    # 指定された録画予約が見つからなかった場合はエラーを返す
-    if edcb_reserve is None:
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Specified reserve_id was not found',
-        )
-
-    # EDCB の ReserveData オブジェクトを schemas.Reserve オブジェクトに変換して返す
-    ## EDCB からのレスポンスでは常にすべてのキーが存在するため、ReserveDataRequired にキャストして問題ない
-    return ConvertEDCBReserveDataToReserve(cast(ReserveDataRequired, edcb_reserve))
+    return

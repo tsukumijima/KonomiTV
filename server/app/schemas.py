@@ -264,12 +264,12 @@ class Reserve(BaseModel):
     end_time: datetime
     # 録画予約番組の番組長 (秒)
     duration: float
-    # コメント: EPG 予約で自動追加された予約なら "EPG自動予約" と入る
-    comment: str
     # 録画予約の被り状態: 被りなし (予約可能) / 被ってチューナー足りない予約あり / チューナー足りないため予約できない
     # ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/CommonDef.h#L32-L34
     # ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/StructDef.h#L62
     overlay_status: Literal['NoOverlay', 'HasOverlay', 'CannotReserve']
+    # コメント: EPG 予約で自動追加された予約なら "EPG自動予約" と入る
+    comment: str
     # 録画予定のファイル名
     ## EDCB からのレスポンスでは配列になっているが、大半の場合は 1 つしか入っていないため単一の値としている
     scheduled_recording_file_name: str
