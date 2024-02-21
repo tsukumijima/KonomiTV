@@ -137,6 +137,12 @@ async def ConvertEDCBReserveDataToReserve(reserve_data: ReserveDataRequired) -> 
         program.end_time = end_time
         program.duration = duration
 
+    # 録画予約が現在進行中かどうか
+    ## CtrlCmdUtil.sendGetRecFilePath() で「録画中かつ視聴予約でない予約の録画ファイルパス」が返ってくる場合は True、それ以外は False
+    ## 歴史的経緯でこう取得することになっているらしい
+    edcb = CtrlCmdUtil()
+    is_recording_in_progress: bool = type(await edcb.sendGetRecFilePath(reserve_id)) is str
+
     # 録画予約の被り状態: 被りなし (予約可能) / 被ってチューナー足りない予約あり / チューナー足りないため予約できない
     # ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/CommonDef.h#L32-L34
     # ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/StructDef.h#L62
@@ -156,7 +162,6 @@ async def ConvertEDCBReserveDataToReserve(reserve_data: ReserveDataRequired) -> 
         scheduled_recording_file_name = reserve_data['rec_file_name_list'][0]
 
     # 録画設定
-    ## EDCB からのレスポンスでは常にすべてのキーが存在するため、RecSettingDataRequired にキャストして問題ない
     record_settings: schemas.RecordSettings = ConvertEDCBRecSettingDataToReRecordSettings(reserve_data['rec_setting'])
 
     # Tortoise ORM モデルは本来 Pydantic モデルと型が非互換だが、FastAPI がよしなに変換してくれるので雑に Any にキャストしている
@@ -165,6 +170,7 @@ async def ConvertEDCBReserveDataToReserve(reserve_data: ReserveDataRequired) -> 
         id = reserve_id,
         channel = cast(Any, channel),
         program = cast(Any, program),
+        is_recording_in_progress = is_recording_in_progress,
         overlap_status = overlap_status,
         comment = comment,
         scheduled_recording_file_name = scheduled_recording_file_name,
