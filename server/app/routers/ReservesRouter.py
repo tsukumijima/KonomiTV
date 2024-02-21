@@ -27,12 +27,13 @@ router = APIRouter(
 )
 
 
-async def ConvertEDCBReserveDataToReserve(reserve_data: ReserveDataRequired) -> schemas.Reserve:
+async def ConvertEDCBReserveDataToReserve(reserve_data: ReserveDataRequired, channels: list[Channel] | None = None) -> schemas.Reserve:
     """
     EDCB の ReserveData オブジェクトを schemas.Reserve オブジェクトに変換する
 
     Args:
         reserve_data (ReserveDataRequired): EDCB の ReserveData オブジェクト
+        channels (list[Channel] | None): あらかじめ全てのチャンネル情報を取得しておく場合はそのリスト、そうでない場合は None
 
     Returns:
         schemas.Reserve: schemas.Reserve オブジェクト
@@ -55,10 +56,22 @@ async def ConvertEDCBReserveDataToReserve(reserve_data: ReserveDataRequired) -> 
     service_name: str = TSInformation.formatString(reserve_data['station_name'])
 
     # ここでネットワーク ID・サービス ID・トランスポートストリーム ID が一致するチャンネルをデータベースから取得する
-    channel: Channel | None = await Channel.filter(network_id=network_id, service_id=service_id, transport_stream_id=transport_stream_id).get_or_none()
+    channel: Channel | None
+    if channels is not None:
+        # あらかじめ全てのチャンネル情報を取得しておく場合はそのリストを使う
+        channel = next(
+            (channel for channel in channels if (
+                channel.network_id == network_id and
+                channel.service_id == service_id and
+                channel.transport_stream_id == transport_stream_id
+            )
+        ), None)
+    else:
+        # そうでない場合はデータベースから取得する
+        channel = await Channel.filter(network_id=network_id, service_id=service_id, transport_stream_id=transport_stream_id).get_or_none()
+    ## 取得できなかった場合のみ、上記の限定的な情報を使って間に合わせのチャンネル情報を作成する
+    ## 通常ここでチャンネル情報が取得できないのはワンセグやデータ放送など KonomiTV ではサポートしていないサービスを予約している場合だけのはず
     if channel is None:
-        # 取得できなかった場合のみ、上記の限定的な情報を使って間に合わせのチャンネル情報を作成する
-        ## 通常ここでチャンネル情報が取得できないのはワンセグやデータ放送など KonomiTV ではサポートしていないサービスを予約している場合だけのはず
         channel = Channel(
             id = f'NID{network_id}-SID{service_id}',
             display_channel_id = 'gr001',  # 取得できないため一旦 'gr001' を設定
@@ -102,9 +115,9 @@ async def ConvertEDCBReserveDataToReserve(reserve_data: ReserveDataRequired) -> 
 
     # ここでネットワーク ID・サービス ID・イベント ID が一致する番組をデータベースから取得する
     program: Program | None = await Program.filter(network_id=channel.network_id, service_id=channel.service_id, event_id=event_id).get_or_none()
+    ## 取得できなかった場合のみ、上記の限定的な情報を使って間に合わせの番組情報を作成する
+    ## 通常ここで番組情報が取得できないのは同じ番組を放送しているサブチャンネルやまだ KonomiTV に反映されていない番組情報など、特殊なケースだけのはず
     if program is None:
-        # 取得できなかった場合のみ、上記の限定的な情報を使って間に合わせの番組情報を作成する
-        ## 通常ここで番組情報が取得できないのは同じ番組を放送しているサブチャンネルやまだ KonomiTV に反映されていない番組情報など、特殊なケースだけのはず
         program = Program(
             id = f'NID{channel.network_id}-SID{channel.service_id}-EID{event_id}',
             channel_id = channel.id,
@@ -129,9 +142,9 @@ async def ConvertEDCBReserveDataToReserve(reserve_data: ReserveDataRequired) -> 
             secondary_audio_language = None,
             secondary_audio_sampling_rate = None,
         )
+    ## 番組情報をデータベースから取得できた場合でも、番組タイトル・番組開始時刻・番組終了時刻・番組長は
+    ## EDCB から返される情報の方が正確な可能性があるため (特に追従時など)、それらの情報を上書きする
     else:
-        # 番組情報をデータベースから取得できた場合でも、番組タイトル・番組開始時刻・番組終了時刻・番組長は
-        # EDCB から返される情報の方が正確な可能性があるため (特に追従時など)、それらの情報を上書きする
         program.title = title
         program.start_time = start_time
         program.end_time = end_time
@@ -359,10 +372,14 @@ async def ReservesAPI(
         # None が返ってきた場合は空のリストを返す
         return schemas.ReserveList(total=0, reserves=[])
 
-    # EDCB の ReserveData オブジェクトを schemas.Reserve オブジェクトに変換
     # データベースアクセスを伴うので、トランザクション下に入れた上で並行して行う
     async with transactions.in_transaction():
-        reserves = await asyncio.gather(*(ConvertEDCBReserveDataToReserve(reserve_data) for reserve_data in edcb_reserves))
+
+        # 高速化のため、あらかじめ全てのチャンネル情報を取得しておく
+        channels = await Channel.all()
+
+        # EDCB の ReserveData オブジェクトを schemas.Reserve オブジェクトに変換
+        reserves = await asyncio.gather(*(ConvertEDCBReserveDataToReserve(reserve_data, channels) for reserve_data in edcb_reserves))
 
     # 録画予約番組の番組開始時刻でソート
     reserves.sort(key=lambda reserve: reserve.program.start_time)

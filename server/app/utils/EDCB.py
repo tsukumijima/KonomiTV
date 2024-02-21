@@ -611,8 +611,14 @@ class FileData(TypedDict):
     data: bytes
 
 
-class RecFileSetInfo(TypedDict):
+class RecFileSetInfo(TypedDict, total=False):
     """ 録画フォルダ情報 """
+    rec_folder: str
+    write_plug_in: str
+    rec_name_plug_in: str
+
+class RecFileSetInfoRequired(TypedDict):
+    """ 録画フォルダ情報 (すべてのキーが必須) """
     rec_folder: str
     write_plug_in: str
     rec_name_plug_in: str
@@ -644,7 +650,7 @@ class RecSettingDataRequired(TypedDict):
     service_mode: int
     pittari_flag: bool
     bat_file_path: str
-    rec_folder_list: list[RecFileSetInfo]
+    rec_folder_list: list[RecFileSetInfoRequired]
     suspend_mode: int
     reboot_flag: bool
     start_margin: NotRequired[int]  # デフォルトのとき存在しない
@@ -652,7 +658,7 @@ class RecSettingDataRequired(TypedDict):
     continue_rec_flag: bool
     partial_rec_flag: int
     tuner_id: int
-    partial_rec_folder: list[RecFileSetInfo]
+    partial_rec_folder: list[RecFileSetInfoRequired]
 
 
 class ReserveData(TypedDict, total=False):
