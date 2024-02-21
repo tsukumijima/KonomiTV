@@ -17,7 +17,7 @@ from fastapi.responses import JSONResponse
 from fastapi.responses import Response
 from fastapi.security.utils import get_authorization_scheme_param
 from tortoise import connections
-from typing import Any
+from typing import Annotated, Any
 from zoneinfo import ZoneInfo
 
 from app import logging
@@ -40,7 +40,7 @@ router = APIRouter(
 )
 
 
-async def GetChannel(channel_id: str = Path(..., description='チャンネル ID (id or display_channel_id) 。ex: NID32736-SID1024, gr011')) -> Channel:
+async def GetChannel(channel_id: Annotated[str, Path(description='チャンネル ID (id or display_channel_id) 。ex: NID32736-SID1024, gr011')]) -> Channel:
     """ チャンネル ID (id or display_channel_id) からチャンネル情報を取得する """
     # display_channel_id ではなく通常の id が指定されている場合は、そのまま id からチャンネル情報を取得する
     if 'NID' in channel_id and 'SID' in channel_id:
@@ -256,7 +256,7 @@ async def ChannelsAPI():
     response_model = schemas.LiveChannel,
 )
 async def ChannelAPI(
-    channel: Channel = Depends(GetChannel),
+    channel: Annotated[Channel, Depends(GetChannel)],
 ):
     """
     指定されたチャンネルの情報を取得する。
@@ -282,7 +282,7 @@ async def ChannelAPI(
 )
 async def ChannelLogoAPI(
     request: Request,
-    channel_id: str = Path(..., description='チャンネル ID (id or display_channel_id) 。ex: NID32736-SID1024, gr011')
+    channel_id: Annotated[str, Path(description='チャンネル ID (id or display_channel_id) 。ex: NID32736-SID1024, gr011')],
 ):
     """
     指定されたチャンネルに紐づくロゴを取得する。
@@ -525,7 +525,7 @@ async def ChannelLogoAPI(
 )
 async def ChannelJikkyoSessionAPI(
     request: Request,
-    channel: Channel = Depends(GetChannel),
+    channel: Annotated[Channel, Depends(GetChannel)],
 ):
     """
     指定されたチャンネルに紐づくニコニコ実況のセッション情報を取得する。

@@ -1,8 +1,10 @@
 
 from fastapi import APIRouter
 from fastapi import HTTPException
+from fastapi import Path
+from fastapi import Query
 from fastapi import status
-from typing import Literal
+from typing import Annotated, Literal
 
 from app import logging
 from app import schemas
@@ -24,8 +26,8 @@ router = APIRouter(
     response_model = schemas.RecordedPrograms,
 )
 async def VideosAPI(
-    order: Literal['desc', 'asc'] = 'desc',
-    page: int = 1,
+    order: Annotated[Literal['desc', 'asc'], Query(description='ソート順序 (desc or asc) 。')] = 'desc',
+    page: Annotated[int, Query(description='ページ番号。')] = 1,
 ):
     """
     すべての録画番組を一度に 100 件ずつ取得する。<br>
@@ -53,7 +55,9 @@ async def VideosAPI(
     response_description = '録画番組の情報。',
     response_model = schemas.RecordedProgram,
 )
-async def VideoAPI(video_id: int):
+async def VideoAPI(
+    video_id: Annotated[int, Path(description='録画番組の ID 。')],
+):
     """
     指定された録画番組を取得する。
     """
@@ -77,7 +81,9 @@ async def VideoAPI(video_id: int):
     response_description = '録画番組の放送中に投稿されたニコニコ実況の過去ログコメント。',
     response_model = schemas.JikkyoComments,
 )
-async def VideoJikkyoCommentsAPI(video_id: int):
+async def VideoJikkyoCommentsAPI(
+    video_id: Annotated[int, Path(description='録画番組の ID 。')],
+):
     """
     指定された録画番組の放送中に投稿されたニコニコ実況の過去ログコメントを取得する。
     ニコニコ実況 過去ログ API をラップし、DPlayer が受け付けるコメント形式に変換して返す。

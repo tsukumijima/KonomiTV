@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from fastapi import Body
 from fastapi import Depends
 from fastapi import status
+from typing import Annotated
 
 from app.config import ClientSettings
 from app.config import Config
@@ -27,7 +28,7 @@ router = APIRouter(
     response_model = ClientSettings,
 )
 async def ClientSettingsAPI(
-    current_user: User = Depends(GetCurrentUser),
+    current_user: Annotated[User, Depends(GetCurrentUser)],
 ):
     """
     現在ログイン中のユーザーアカウントのクライアント設定を取得する。<br>
@@ -42,8 +43,8 @@ async def ClientSettingsAPI(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def ClientSettingsUpdateAPI(
-    client_settings: ClientSettings = Body(..., description='更新するクライアント設定のデータ。'),
-    current_user: User = Depends(GetCurrentUser),
+    client_settings: Annotated[ClientSettings, Body(description='更新するクライアント設定のデータ。')],
+    current_user: Annotated[User, Depends(GetCurrentUser)],
 ):
     """
     現在ログイン中のユーザーアカウントのクライアント設定を更新する。<br>
@@ -65,7 +66,7 @@ async def ClientSettingsUpdateAPI(
     response_model = ServerSettings,
 )
 async def ServerSettingsAPI(
-    current_user: User = Depends(GetCurrentAdminUser),
+    current_user: Annotated[User, Depends(GetCurrentAdminUser)],
 ):
     """
     現在稼働中の KonomiTV サーバーのサーバー設定を取得する。<br>
@@ -83,8 +84,8 @@ async def ServerSettingsAPI(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def ServerSettingsUpdateAPI(
-    server_settings: ServerSettings = Body(..., description='更新するサーバー設定のデータ。'),
-    current_user: User = Depends(GetCurrentAdminUser),
+    server_settings: Annotated[ServerSettings, Body(description='更新するサーバー設定のデータ。')],
+    current_user: Annotated[User, Depends(GetCurrentAdminUser)],
 ):
     """
     現在稼働中の KonomiTV サーバーのサーバー設定を更新する。<br>

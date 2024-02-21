@@ -11,6 +11,7 @@ from fastapi.responses import Response
 from fastapi.responses import StreamingResponse
 from starlette.types import Receive
 from sse_starlette.sse import EventSourceResponse
+from typing import Annotated
 
 from app import logging
 from app import schemas
@@ -27,7 +28,7 @@ router = APIRouter(
 )
 
 
-async def ValidateChannelID(display_channel_id: str = Path(..., description='チャンネル ID 。ex:gr011')) -> str:
+async def ValidateChannelID(display_channel_id: Annotated[str, Path(description='チャンネル ID 。ex: gr011')]) -> str:
     """ チャンネル ID のバリデーション """
     if await Channel.filter(display_channel_id=display_channel_id).get_or_none() is None:
         logging.error(f'[LiveStreamsRouter][ValidateChannelID] Specified display_channel_id was not found [display_channel_id: {display_channel_id}]')
@@ -38,7 +39,7 @@ async def ValidateChannelID(display_channel_id: str = Path(..., description='チ
     return display_channel_id
 
 
-async def ValidateQuality(quality: str = Path(..., description='映像の品質。ex:1080p')) -> QUALITY_TYPES:
+async def ValidateQuality(quality: Annotated[str, Path(description='映像の品質。ex: 1080p')]) -> QUALITY_TYPES:
     """ 映像の品質のバリデーション """
     if quality not in QUALITY:
         logging.error(f'[LiveStreamsRouter][ValidateQuality] Specified quality was not found [quality: {quality}]')
@@ -86,8 +87,8 @@ async def LiveStreamsAPI():
     response_model = schemas.LiveStreamStatus,
 )
 async def LiveStreamAPI(
-    display_channel_id: str = Depends(ValidateChannelID),
-    quality: QUALITY_TYPES = Depends(ValidateQuality),
+    display_channel_id: Annotated[str, Depends(ValidateChannelID)],
+    quality: Annotated[QUALITY_TYPES, Depends(ValidateQuality)],
 ):
     """
     ライブストリームの状態を取得する。<br>
@@ -114,8 +115,8 @@ async def LiveStreamAPI(
     }
 )
 async def LiveStreamEventAPI(
-    display_channel_id: str = Depends(ValidateChannelID),
-    quality: QUALITY_TYPES = Depends(ValidateQuality),
+    display_channel_id: Annotated[str, Depends(ValidateChannelID)],
+    quality: Annotated[QUALITY_TYPES, Depends(ValidateQuality)],
 ):
     """
     ライブストリームのイベントを Server-Sent Events で随時配信する。
@@ -211,8 +212,8 @@ async def LiveStreamEventAPI(
 )
 async def LivePSIArchivedDataAPI(
     request: Request,
-    display_channel_id: str = Depends(ValidateChannelID),
-    quality: QUALITY_TYPES = Depends(ValidateQuality),
+    display_channel_id: Annotated[str, Depends(ValidateChannelID)],
+    quality: Annotated[QUALITY_TYPES, Depends(ValidateQuality)],
 ):
     """
     ライブ PSI/SI アーカイブデータストリームを配信する。
@@ -277,8 +278,8 @@ async def LivePSIArchivedDataAPI(
 )
 async def LiveMPEGTSStreamAPI(
     request: Request,
-    display_channel_id: str = Depends(ValidateChannelID),
-    quality: QUALITY_TYPES = Depends(ValidateQuality),
+    display_channel_id: Annotated[str, Depends(ValidateChannelID)],
+    quality: Annotated[QUALITY_TYPES, Depends(ValidateQuality)],
 ):
     """
     ライブ MPEG-TS ストリームを配信する。

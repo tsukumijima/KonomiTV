@@ -9,7 +9,7 @@ from fastapi import HTTPException
 from fastapi import status
 from fastapi import UploadFile
 from pathlib import Path
-from typing import cast
+from typing import Annotated, cast
 
 from app import logging
 from app.config import Config
@@ -28,7 +28,7 @@ router = APIRouter(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def CaptureUploadAPI(
-    image: UploadFile = File(description='アップロードするキャプチャ画像 (JPEG or PNG)。'),
+    image: Annotated[UploadFile, File(description='アップロードするキャプチャ画像 (JPEG or PNG)。')],
 ):
     """
     クライアント側でキャプチャした画像をサーバーにアップロードする。<br>

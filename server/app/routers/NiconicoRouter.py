@@ -10,7 +10,7 @@ from fastapi import Request
 from fastapi import status
 from fastapi.security.utils import get_authorization_scheme_param
 from jose import jwt
-from typing import Any, cast
+from typing import Annotated, Any, cast
 
 from app import logging
 from app import schemas
@@ -36,7 +36,7 @@ router = APIRouter(
 )
 async def NiconicoAuthURLAPI(
     request: Request,
-    current_user: User = Depends(GetCurrentUser),
+    current_user: Annotated[User, Depends(GetCurrentUser)],
 ):
     """
     ニコニコアカウントと連携するための認証 URL を取得する。<br>
@@ -103,10 +103,10 @@ async def NiconicoAuthURLAPI(
     response_description = 'ユーザーアカウントにニコニコアカウントのアクセストークン・リフレッシュトークンが登録できたことを示す。',
 )
 async def NiconicoAuthCallbackAPI(
-    client: str = Query(..., description='OAuth 連携元の KonomiTV クライアントの URL 。'),
-    user_access_token: str = Query(None, description='コールバック元から渡された、ユーザーの JWT アクセストークン。'),
-    code: str | None = Query(None, description='コールバック元から渡された認証コード。OAuth 認証が成功したときのみセットされる。'),
-    error: str | None = Query(None, description='このパラメーターがセットされているとき、OAuth 認証がユーザーによって拒否されたことを示す。'),
+    client: Annotated[str, Query(description='OAuth 連携元の KonomiTV クライアントの URL 。')],
+    user_access_token: Annotated[str, Query(description='コールバック元から渡された、ユーザーの JWT アクセストークン。')],
+    code: Annotated[str | None, Query(description='コールバック元から渡された認証コード。OAuth 認証が成功したときのみセットされる。')] = None,
+    error: Annotated[str | None, Query(description='このパラメーターがセットされているとき、OAuth 認証がユーザーによって拒否されたことを示す。')] = None,
 ):
     """
     ニコニコの OAuth 認証のコールバックを受け取り、ログイン中のユーザーアカウントとニコニコアカウントを紐づける。
@@ -244,7 +244,7 @@ async def NiconicoAuthCallbackAPI(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def NiconicoAccountLogoutAPI(
-    current_user: User = Depends(GetCurrentUser),
+    current_user: Annotated[User, Depends(GetCurrentUser)],
 ):
     """
     現在ログイン中のユーザーアカウントに紐づくニコニコアカウントとの連携を解除する。<br>

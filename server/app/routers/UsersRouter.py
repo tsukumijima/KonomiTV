@@ -20,7 +20,7 @@ from jose import jwt
 from jose import JWTError
 from passlib.context import CryptContext
 from PIL import Image
-from typing import BinaryIO
+from typing import Annotated, BinaryIO
 from zoneinfo import ZoneInfo
 
 from app import logging
@@ -37,7 +37,7 @@ router = APIRouter(
 )
 
 
-async def GetCurrentUser(token: str = Depends(OAuth2PasswordBearer(tokenUrl='users/token'))) -> User:
+async def GetCurrentUser(token: Annotated[str, Depends(OAuth2PasswordBearer(tokenUrl='users/token'))]) -> User:
     """ 現在ログイン中のユーザーを取得する """
 
     try:
@@ -80,7 +80,7 @@ async def GetCurrentUser(token: str = Depends(OAuth2PasswordBearer(tokenUrl='use
     return current_user
 
 
-async def GetCurrentAdminUser(current_user: User = Depends(GetCurrentUser)) -> User:
+async def GetCurrentAdminUser(current_user: Annotated[User, Depends(GetCurrentUser)]) -> User:
     """ 現在ログイン中の管理者ユーザーを取得する """
 
     # 取得したユーザーが管理者ではない
@@ -96,8 +96,8 @@ async def GetCurrentAdminUser(current_user: User = Depends(GetCurrentUser)) -> U
 
 
 async def GetSpecifiedUser(
-    username: str = Path(..., description='アカウントのユーザー名。'),
-    current_user: User = Depends(GetCurrentAdminUser),  # 管理者ユーザーのみアクセス可能
+    username: Annotated[str, Path(description='アカウントのユーザー名。')],
+    current_user: Annotated[User, Depends(GetCurrentAdminUser)],  # 管理者ユーザーのみアクセス可能
 ) -> User:
     """ 指定されたユーザー名のユーザーを取得する """
 
@@ -152,7 +152,7 @@ async def TrimSquareAndResizeAndSave(file: BinaryIO, save_path: pathlib.Path, re
     status_code = status.HTTP_201_CREATED,
 )
 async def UserCreateAPI(
-    user_create_request: schemas.UserCreateRequest = Body(..., description='作成するユーザーの名前とパスワード。'),
+    user_create_request: Annotated[schemas.UserCreateRequest, Body(description='作成するユーザーの名前とパスワード。')],
 ):
     """
     新しいユーザーアカウントを作成する。
@@ -203,7 +203,7 @@ async def UserCreateAPI(
     response_model = schemas.UserAccessToken,
 )
 async def UserAccessTokenAPI(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
 ):
     """
     指定されたユーザー名とパスワードを検証し、そのユーザーの JWT エンコードされたアクセストークンを発行する。<br>
@@ -268,7 +268,7 @@ async def UserAccessTokenAPI(
     response_model = schemas.Users,
 )
 async def UsersAPI(
-    current_user: User = Depends(GetCurrentAdminUser),
+    current_user: Annotated[User, Depends(GetCurrentAdminUser)],
 ):
     """
     すべてのユーザーアカウントのリストを取得する。<br>
@@ -288,7 +288,7 @@ async def UsersAPI(
     response_model = schemas.User,
 )
 async def UserMeAPI(
-    current_user: User = Depends(GetCurrentUser),
+    current_user: Annotated[User, Depends(GetCurrentUser)],
 ):
     """
     現在ログイン中のユーザーアカウントの情報を取得する。<br>
@@ -310,8 +310,8 @@ async def UserMeAPI(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def UserUpdateMeAPI(
-    user_update_request: schemas.UserUpdateRequest = Body(..., description='更新するユーザーアカウントの情報。'),
-    current_user: User = Depends(GetCurrentUser),
+    user_update_request: Annotated[schemas.UserUpdateRequest, Body(description='更新するユーザーアカウントの情報。')],
+    current_user: Annotated[User, Depends(GetCurrentUser)],
 ):
     """
     現在ログイン中のユーザーアカウントの情報を更新する。<br>
@@ -367,7 +367,7 @@ async def UserUpdateMeAPI(
     }
 )
 async def UserIconMeAPI(
-    current_user: User = Depends(GetCurrentUser),
+    current_user: Annotated[User, Depends(GetCurrentUser)],
 ):
     """
     現在ログイン中のユーザーアカウントのアイコン画像を取得する。<br>
@@ -395,8 +395,8 @@ async def UserIconMeAPI(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def UserUpdateIconMeAPI(
-    image: UploadFile = File(description='アカウントのアイコン画像 (JPEG or PNG)。'),
-    current_user: User = Depends(GetCurrentUser),
+    image: Annotated[UploadFile, File(description='アカウントのアイコン画像 (JPEG or PNG)。')],
+    current_user: Annotated[User, Depends(GetCurrentUser)],
 ):
     """
     現在ログイン中のユーザーアカウントのアイコン画像を更新する。<br>
@@ -422,7 +422,7 @@ async def UserUpdateIconMeAPI(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def UserDeleteMeAPI(
-    current_user: User = Depends(GetCurrentUser),
+    current_user: Annotated[User, Depends(GetCurrentUser)],
 ):
     """
     現在ログイン中のユーザーアカウントを削除する。<br>
@@ -457,7 +457,7 @@ async def UserDeleteMeAPI(
     response_model = schemas.User,
 )
 async def UserAPI(
-    user: User = Depends(GetSpecifiedUser),
+    user: Annotated[User, Depends(GetSpecifiedUser)],
 ):
     """
     指定されたユーザーアカウントの情報を取得する。<br>
@@ -473,8 +473,8 @@ async def UserAPI(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def UserUpdateAPI(
-    user_update_request: schemas.UserUpdateRequestForAdmin = Body(..., description='更新するユーザーアカウントの情報。'),
-    user: User = Depends(GetSpecifiedUser),
+    user_update_request: Annotated[schemas.UserUpdateRequestForAdmin, Body(description='更新するユーザーアカウントの情報。')],
+    user: Annotated[User, Depends(GetSpecifiedUser)],
 ):
     """
     指定されたユーザーアカウントの情報を更新する。/api/users/me と異なり、管理者権限の付与/剥奪のみ可能。<br>
@@ -501,7 +501,7 @@ async def UserUpdateAPI(
     }
 )
 async def UserIconAPI(
-    user: User = Depends(GetSpecifiedUser),
+    user: Annotated[User, Depends(GetSpecifiedUser)],
 ):
     """
     指定されたユーザーアカウントのユーザーアカウントのアイコン画像を取得する。<br>
@@ -529,8 +529,8 @@ async def UserIconAPI(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def UserUpdateIconAPI(
-    image: UploadFile = File(description='アカウントのアイコン画像 (JPEG or PNG)。'),
-    user: User = Depends(GetSpecifiedUser),
+    image: Annotated[UploadFile, File(description='アカウントのアイコン画像 (JPEG or PNG)。')],
+    user: Annotated[User, Depends(GetSpecifiedUser)],
 ):
     """
     指定されたユーザーアカウントのアイコン画像を更新する。<br>
@@ -556,7 +556,7 @@ async def UserUpdateIconAPI(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def UserDeleteAPI(
-    user: User = Depends(GetSpecifiedUser),
+    user: Annotated[User, Depends(GetSpecifiedUser)],
 ):
     """
     指定されたユーザーアカウントを削除する。<br>

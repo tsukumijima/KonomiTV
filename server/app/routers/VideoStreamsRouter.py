@@ -6,6 +6,7 @@ from fastapi import Path
 from fastapi import Query
 from fastapi import status
 from fastapi.responses import Response
+from typing import Annotated
 
 from app import logging
 from app.constants import QUALITY, QUALITY_TYPES
@@ -20,7 +21,7 @@ router = APIRouter(
 )
 
 
-async def ValidateVideoID(video_id: int = Path(..., description='録画番組の ID 。')) -> RecordedProgram:
+async def ValidateVideoID(video_id: Annotated[int, Path(description='録画番組の ID 。')]) -> RecordedProgram:
     """ 録画番組 ID のバリデーション """
     recorded_program = await RecordedProgram.filter(id=video_id).get_or_none() \
         .select_related('recorded_video') \
@@ -34,7 +35,7 @@ async def ValidateVideoID(video_id: int = Path(..., description='録画番組の
     return recorded_program
 
 
-async def ValidateQuality(quality: str = Path(..., description='映像の品質。ex:1080p')) -> QUALITY_TYPES:
+async def ValidateQuality(quality: Annotated[str, Path(description='映像の品質。ex: 1080p')]) -> QUALITY_TYPES:
     """ 映像の品質のバリデーション """
     if quality not in QUALITY:
         logging.error(f'[VideoStreamsRouter][ValidateQuality] Specified quality was not found [quality: {quality}]')
@@ -57,8 +58,8 @@ async def ValidateQuality(quality: str = Path(..., description='映像の品質�
     }
 )
 async def VideoHLSPlaylistAPI(
-    recorded_program: RecordedProgram = Depends(ValidateVideoID),
-    quality: QUALITY_TYPES = Depends(ValidateQuality),
+    recorded_program: Annotated[RecordedProgram, Depends(ValidateVideoID)],
+    quality: Annotated[QUALITY_TYPES, Depends(ValidateQuality)],
 ):
     """
     指定された画質に対応する、録画番組のストリーミング用 HLS M3U8 プレイリストを返す。<br>
@@ -82,9 +83,9 @@ async def VideoHLSPlaylistAPI(
     }
 )
 async def VideoHLSSegmentAPI(
-    recorded_program: RecordedProgram = Depends(ValidateVideoID),
-    quality: QUALITY_TYPES = Depends(ValidateQuality),
-    sequence: int = Query(..., description='HLS セグメントの 0 スタートのシーケンス番号。'),
+    recorded_program: Annotated[RecordedProgram, Depends(ValidateVideoID)],
+    quality: Annotated[QUALITY_TYPES, Depends(ValidateQuality)],
+    sequence: Annotated[int, Query(description='HLS セグメントの 0 スタートのシーケンス番号。')],
 ):
     """
     指定された画質に対応する、録画番組のストリーミング用 HLS セグメントを返す。<br>
@@ -110,8 +111,8 @@ async def VideoHLSSegmentAPI(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def VideoHLSKeepAliveAPI(
-    recorded_program: RecordedProgram = Depends(ValidateVideoID),
-    quality: QUALITY_TYPES = Depends(ValidateQuality),
+    recorded_program: Annotated[RecordedProgram, Depends(ValidateVideoID)],
+    quality: Annotated[QUALITY_TYPES, Depends(ValidateQuality)],
 ):
     """
     録画番組のストリーミング用 HLS セグメントの生成を継続するための API 。<br>

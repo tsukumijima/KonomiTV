@@ -1,8 +1,10 @@
 
 from fastapi import APIRouter
 from fastapi import HTTPException
+from fastapi import Path
+from fastapi import Query
 from fastapi import status
-from typing import Literal
+from typing import Annotated, Literal
 
 from app import logging
 from app import schemas
@@ -23,8 +25,8 @@ router = APIRouter(
     response_model = schemas.SeriesList,
 )
 async def SeriesListAPI(
-    order: Literal['desc', 'asc'] = 'desc',
-    page: int = 1,
+    order: Annotated[Literal['desc', 'asc'], Query(description='ソート順序 (desc or asc) 。')] = 'desc',
+    page: Annotated[int, Query(description='ページ番号。')] = 1,
 ):
     """
     すべてのシリーズ番組をを一度に 100 件ずつ取得する。<br>
@@ -55,7 +57,9 @@ async def SeriesListAPI(
     response_description = 'シリーズ番組。',
     response_model = schemas.Series,
 )
-async def SeriesAPI(series_id: int):
+async def SeriesAPI(
+    series_id: Annotated[int, Path(description='シリーズ番組の ID 。')],
+):
     """
     指定されたシリーズ番組を取得する。
     """
