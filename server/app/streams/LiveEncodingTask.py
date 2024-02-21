@@ -421,7 +421,7 @@ class LiveEncodingTask:
         channel_type = 'CS' if channel_type == 'CATV' else channel_type
         channel_type = 'SKY' if channel_type == 'STARDIGIO' else channel_type
 
-        async with HTTPX_CLIENT as client:
+        async with HTTPX_CLIENT() as client:
 
             # 0.1 秒間隔で最大 0.5 秒間チューナーの空きを確認する
             ## 空きチューナーがなくても利用状況によっては共聴できるので、あまり待ちすぎると無駄な時間がかかる

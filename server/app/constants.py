@@ -370,7 +370,8 @@ API_REQUEST_HEADERS: dict[str, str] = {
 }
 
 # KonomiTV で利用する httpx.AsyncClient の設定
-HTTPX_CLIENT = httpx.AsyncClient(
+## httpx.AsyncClient 自体は一度使ったら再利用できないので、httpx.AsyncClient を返す関数にしている
+HTTPX_CLIENT = lambda: httpx.AsyncClient(
     # KonomiTV の User-Agent を指定
     headers = API_REQUEST_HEADERS,
     # リダイレクトを追跡する

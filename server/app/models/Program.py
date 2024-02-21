@@ -204,7 +204,7 @@ class Program(models.Model):
                 # Mirakurun / mirakc の API から番組情報を取得する
                 try:
                     mirakurun_programs_api_url = GetMirakurunAPIEndpointURL('/api/programs')
-                    async with HTTPX_CLIENT as client:
+                    async with HTTPX_CLIENT() as client:
                         # 10秒後にタイムアウト (SPHD や CATV も映る環境だと時間がかかるので、少し伸ばす)
                         mirakurun_programs_api_response = await client.get(mirakurun_programs_api_url, timeout=10)
                     if mirakurun_programs_api_response.status_code != 200:  # Mirakurun / mirakc からエラーが返ってきた

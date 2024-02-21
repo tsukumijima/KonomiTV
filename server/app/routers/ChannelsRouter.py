@@ -434,7 +434,7 @@ async def ChannelLogoAPI(
             # 同梱のロゴが存在しない場合のみ
             try:
                 mirakurun_logo_api_url = GetMirakurunAPIEndpointURL(f'/api/services/{mirakurun_service_id}/logo')
-                async with HTTPX_CLIENT as client:
+                async with HTTPX_CLIENT() as client:
                     mirakurun_logo_api_response = await client.get(mirakurun_logo_api_url, timeout=5)
 
                 # ステータスコードが 200 であれば

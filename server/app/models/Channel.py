@@ -114,7 +114,7 @@ class Channel(models.Model):
             # Mirakurun / mirakc の API からチャンネル情報を取得する
             try:
                 mirakurun_services_api_url = GetMirakurunAPIEndpointURL('/api/services')
-                async with HTTPX_CLIENT as client:
+                async with HTTPX_CLIENT() as client:
                     mirakurun_services_api_response = await client.get(mirakurun_services_api_url, timeout=5)
                 if mirakurun_services_api_response.status_code != 200:  # Mirakurun / mirakc からエラーが返ってきた
                     logging.error(f'Failed to get channels from Mirakurun / mirakc. (HTTP Error {mirakurun_services_api_response.status_code})')

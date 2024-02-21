@@ -152,7 +152,7 @@ async def NiconicoAuthCallbackAPI(
 
         # 認証コードを使い、ニコニコ OAuth のアクセストークンとリフレッシュトークンを取得
         token_api_url = 'https://oauth.nicovideo.jp/oauth2/token'
-        async with HTTPX_CLIENT as httpx_client:
+        async with HTTPX_CLIENT() as httpx_client:
             token_api_response = await httpx_client.post(
                 url = token_api_url,
                 headers = {**API_REQUEST_HEADERS, 'Content-Type': 'application/x-www-form-urlencoded'},
@@ -200,7 +200,7 @@ async def NiconicoAuthCallbackAPI(
         # ニコニコアカウントのユーザー情報を取得
         ## 3秒応答がなかったらタイムアウト
         user_api_url = f'https://nvapi.nicovideo.jp/v1/users/{current_user.niconico_user_id}'
-        async with HTTPX_CLIENT as httpx_client:
+        async with HTTPX_CLIENT() as httpx_client:
             # X-Frontend-Id がないと INVALID_PARAMETER になる
             user_api_response = await httpx_client.get(user_api_url, headers={**API_REQUEST_HEADERS, 'X-Frontend-Id': '6'})
 
