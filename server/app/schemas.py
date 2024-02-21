@@ -236,6 +236,98 @@ class LiveStreamStatuses(BaseModel):
     Standby: dict[str, LiveStreamStatus]
     Offline: dict[str, LiveStreamStatus]
 
+# ***** 録画予約 *****
+
+# 以下は EDCB の生のデータモデルをフロントエンドが扱いやすいようモダンに整形したもの
+# EDCB の生のデータモデルは数十年に及ぶ歴史的経緯により複雑怪奇であり、そのままでは非常に扱いにくい
+# KonomiTV では以下のモデルを API リクエスト・レスポンスに利用し、サーバー側で EDCB の生のデータモデルと相互に変換している
+
+# 録画予約情報
+class Reserve(BaseModel):
+    # 録画予約 ID
+    id: int
+    # 録画対象チャンネルのネットワーク ID
+    network_id: int
+    # 録画対象チャンネルのトランスポートストリーム ID
+    transport_stream_id: int
+    # 録画対象チャンネルのサービス ID
+    service_id: int
+    # 録画対象チャンネルのサービス名
+    service_name: str
+    # 録画予約番組のイベント ID
+    event_id: int
+    # 録画予約番組のタイトル
+    title: str
+    # 録画予約番組の番組開始時刻
+    start_time: datetime
+    # 録画予約番組の番組終了時刻
+    end_time: datetime
+    # 録画予約番組の番組長 (秒)
+    duration: float
+    # コメント: EPG 予約で自動追加された予約なら "EPG自動予約" と入る
+    comment: str
+    # 録画予約の被り状態: 被りなし (予約可能) / 被ってチューナー足りない予約あり / チューナー足りないため予約できない
+    # ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/CommonDef.h#L32-L34
+    # ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/StructDef.h#L62
+    overlay_status: Literal['NoOverlay', 'HasOverlay', 'CannotReserve']
+    # 録画予定のファイル名
+    ## EDCB からのレスポンスでは配列になっているが、大半の場合は 1 つしか入っていないため単一の値としている
+    scheduled_recording_file_name: str
+    # 録画設定
+    record_settings: RecordSettings
+
+# 録画予約情報のリスト
+class ReserveList(BaseModel):
+    total: int
+    reserves: list[Reserve]
+
+# 録画設定
+## 現実的にほとんど使わないため UI からは設定できない値も含まれる (録画設定変更時に意図せず設定値が抜け落ちることは避けたい)
+class RecordSettings(BaseModel):
+    # 録画モード: 全サービス / 全サービス (デコードなし) / 指定サービスのみ / 指定サービスのみ (デコードなし) / 視聴
+    # 通常の用途では「指定サービスのみ」以外はまず使わない
+    ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/CommonDef.h#L26-L30
+    ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Document/Readme_Mod.txt#L264-L266
+    record_mode: Literal['AllService', 'AllServiceWithoutDecoding', 'SpecifiedService', 'SpecifiedServiceWithoutDecoding', 'View']
+    # 録画予約が有効かどうか
+    is_enabled: bool
+    # 録画予約の優先度: 1 ~ 5 の数値で数値が大きいほど優先度が高い
+    priority: int
+    # 録画開始マージン (秒) / デフォルト設定に従う場合は None
+    recording_start_margin: int | None
+    # 録画終了マージン (秒) / デフォルト設定に従う場合は None
+    recording_end_margin: int | None
+    # 録画後の動作モード: デフォルト設定に従う / 何もしない / スタンバイ / 休止 / シャットダウン / 再起動
+    post_recording_mode: Literal['Default', 'Nothing', 'Standby', 'Suspend', 'Shutdown', 'Reboot']
+    # 録画後に実行する bat ファイルのパス / 指定しない場合は None
+    post_recording_bat_file_path: str | None
+    # イベントリレーの追従を行うかどうか
+    ## UI 上では非表示 (新規追加時は True で固定)
+    is_event_relay_follow_enabled: bool
+    # 「ぴったり録画」(録画マージンののりしろを残さず本編のみを正確に録画する？) を行うかどうか
+    ## 番組は EPG 上の開始時刻よりも早く放送開始することがあるため、基本推奨されないらしい
+    ## UI 上では非表示 (新規追加時は False で固定)
+    is_exact_recording_enabled: bool
+    # 録画対象のチャンネルにワンセグ放送が含まれる場合、ワンセグ放送を別ファイルに同時録画するかどうか
+    ## UI 上では非表示 (新規追加時は False で固定)
+    is_oneseg_separate_output_enabled: bool
+    # 同一チャンネルで時間的に隣接した録画予約がある場合に、それらを同一の録画ファイルに続けて出力するかどうか
+    ## UI 上では非表示 (新規追加時は False で固定)
+    is_sequential_recording_in_single_file_enabled: bool
+    # 字幕データを録画するかどうか (Default のとき、デフォルト設定に従う)
+    ## UI 上では非表示 (新規追加時は Default で固定)
+    caption_recording_mode: Literal['Default', 'Enable', 'Disable']
+    # データ放送を録画するかどうか (Default のとき、デフォルト設定に従う)
+    ## UI 上では非表示 (新規追加時は Default で固定)
+    data_broadcasting_recording_mode: Literal['Default', 'Enable', 'Disable']
+    # チューナーを強制指定する際のチューナー ID / 自動選択の場合は None
+    # UI 上では非表示 (新規追加時は None で固定)
+    forced_tuner_id: int | None
+    # 保存先の録画フォルダのパスのリスト
+    ## 指定されない場合はデフォルトの録画フォルダに順に保存される
+    ## UI 上では単一の録画フォルダしか指定できない (複数のフォルダに同じ内容を保存するユースケースが皆無なため)
+    recording_folders: list[str]
+
 # ***** データ放送 *****
 
 class DataBroadcastingInternetStatus(BaseModel):

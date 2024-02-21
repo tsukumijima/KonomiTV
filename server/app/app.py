@@ -31,6 +31,7 @@ from app.routers import (
     LiveStreamsRouter,
     MaintenanceRouter,
     NiconicoRouter,
+    ReservesRouter,
     SeriesRouter,
     SettingsRouter,
     TwitterRouter,
@@ -68,6 +69,7 @@ app.include_router(VideosRouter.router)
 app.include_router(SeriesRouter.router)
 app.include_router(LiveStreamsRouter.router)
 app.include_router(VideoStreamsRouter.router)
+app.include_router(ReservesRouter.router)
 app.include_router(CapturesRouter.router)
 app.include_router(DataBroadcastingRouter.router)
 app.include_router(NiconicoRouter.router)

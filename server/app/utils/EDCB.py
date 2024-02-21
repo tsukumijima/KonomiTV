@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 from enum import IntEnum
 from io import BufferedReader
 from pydantic_core import Url
-from typing import Callable, cast, ClassVar, Literal, TypedDict, TypeVar
+from typing import Callable, cast, ClassVar, Literal, NotRequired, TypedDict, TypeVar
 from zoneinfo import ZoneInfo
 
 from app.config import Config
@@ -611,7 +611,7 @@ class FileData(TypedDict):
     data: bytes
 
 
-class RecFileSetInfo(TypedDict, total=False):
+class RecFileSetInfo(TypedDict):
     """ 録画フォルダ情報 """
     rec_folder: str
     write_plug_in: str
@@ -629,8 +629,26 @@ class RecSettingData(TypedDict, total=False):
     rec_folder_list: list[RecFileSetInfo]
     suspend_mode: int
     reboot_flag: bool
-    start_margin: int  # デフォルトのとき存在しない
-    end_margin: int  # デフォルトのとき存在しない
+    start_margin: NotRequired[int]  # デフォルトのとき存在しない
+    end_margin: NotRequired[int]  # デフォルトのとき存在しない
+    continue_rec_flag: bool
+    partial_rec_flag: int
+    tuner_id: int
+    partial_rec_folder: list[RecFileSetInfo]
+
+class RecSettingDataRequired(RecSettingData):
+    """ 録画設定 (基本すべてのキーが必須) """
+    rec_mode: int  # 0-4: 全サービス～視聴, 5-8: 無効の指定サービス～視聴, 9: 無効の全サービス
+    priority: int
+    tuijyuu_flag: bool
+    service_mode: int
+    pittari_flag: bool
+    bat_file_path: str
+    rec_folder_list: list[RecFileSetInfo]
+    suspend_mode: int
+    reboot_flag: bool
+    start_margin: NotRequired[int]  # デフォルトのとき存在しない
+    end_margin: NotRequired[int]  # デフォルトのとき存在しない
     continue_rec_flag: bool
     partial_rec_flag: int
     tuner_id: int
@@ -639,6 +657,23 @@ class RecSettingData(TypedDict, total=False):
 
 class ReserveData(TypedDict, total=False):
     """ 予約情報 """
+    title: str
+    start_time: datetime.datetime
+    duration_second: int
+    station_name: str
+    onid: int
+    tsid: int
+    sid: int
+    eid: int
+    comment: str
+    reserve_id: int
+    overlap_mode: int
+    start_time_epg: datetime.datetime
+    rec_setting: RecSettingData
+    rec_file_name_list: list[str]  # 録画予定ファイル名
+
+class ReserveDataRequired(ReserveData):
+    """ 予約情報 (すべてのキーが必須) """
     title: str
     start_time: datetime.datetime
     duration_second: int
