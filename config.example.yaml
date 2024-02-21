@@ -37,8 +37,8 @@ general:
     encoder: 'FFmpeg'
 
     # 番組情報の更新間隔 (分)
-    # 番組情報を EDCB または Mirakurun / mirakc から取得する間隔を設定します。デフォルトは 15 (分) です。
-    program_update_interval: 15.0
+    # 番組情報を EDCB または Mirakurun / mirakc から取得する間隔を設定します。デフォルトは 5 (分) です。
+    program_update_interval: 5.0
 
     # デバッグモードを有効にするか
     # 有効にすると、デバッグログも出力されるようになります。

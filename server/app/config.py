@@ -95,7 +95,7 @@ class _ServerSettingsGeneral(BaseModel):
     edcb_url: Annotated[Url, UrlConstraints(allowed_schemes=['tcp'])] = Url('tcp://127.0.0.1:4510/')
     mirakurun_url: AnyHttpUrl = AnyHttpUrl('http://127.0.0.1:40772/')
     encoder: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC', 'rkmppenc'] = 'FFmpeg'
-    program_update_interval: Annotated[float, confloat(ge=0.1)] = 15.0
+    program_update_interval: Annotated[float, confloat(ge=0.1)] = 5.0
     debug: bool = False
     debug_encoder: bool = False
 
