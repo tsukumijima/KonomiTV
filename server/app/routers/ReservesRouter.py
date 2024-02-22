@@ -266,9 +266,15 @@ def ConvertEDCBRecSettingDataToRecordSettings(rec_settings_data: RecSettingDataR
         post_recording_bat_file_path = rec_settings_data['bat_file_path']
 
     # 保存先の録画フォルダのパスのリスト
-    recording_folders: list[str] = []
+    recording_folders: list[schemas.RecordingFolder] = []
     for rec_folder in rec_settings_data['rec_folder_list']:
-        recording_folders.append(rec_folder['rec_folder'])
+        # rec_name_plug_in は ? 以降が録画ファイル名テンプレート (マクロ) の値になっているので抽出
+        ## RecName_Macro.dll?$title$.ts のような形式で返ってくる
+        recording_file_name_template = rec_folder['rec_name_plug_in'].split('?')[1] if '?' in rec_folder['rec_name_plug_in'] else ''
+        recording_folders.append(schemas.RecordingFolder(
+            recording_folder_path = rec_folder['rec_folder'],
+            recording_file_name_template = recording_file_name_template if recording_file_name_template != '' else None,
+        ))
 
     # イベントリレーの追従を行うかどうか
     is_event_relay_follow_enabled: bool = rec_settings_data['tuijyuu_flag']
@@ -392,10 +398,17 @@ def ConvertRecordSettingsToEDCBRecSettingData(record_settings: schemas.RecordSet
     # 保存先の録画フォルダのパスのリスト
     rec_folder_list: list[RecFileSetInfoRequired] = []
     for rec_folder in record_settings.recording_folders:
+        # TS 書き込みプラグインは基本 Write_Default.dll しかないので固定
+        ## 一応 Write_OneService.dll や Write_Multi とかがなくもないが、利用用途があるのかすら知らないため無視
+        write_plug_in = 'Write_Default.dll'
+        # 録画ファイル名変更プラグインは RecName_Macro.dll しかないので固定
+        rec_name_plug_in = ''
+        if rec_folder.recording_file_name_template is not None:
+            rec_name_plug_in = f'RecName_Macro.dll?{rec_folder.recording_file_name_template}'
         rec_folder_list.append({
-            'rec_folder': rec_folder,
-            'write_plug_in': 'Write_Default.dll',
-            'rec_name_plug_in': '',
+            'rec_folder': rec_folder.recording_folder_path,
+            'write_plug_in': write_plug_in,
+            'rec_name_plug_in': rec_name_plug_in,
         })
 
     # 録画後の動作モード: デフォルト設定に従う / 何もしない / スタンバイ / 休止 / シャットダウン / 再起動

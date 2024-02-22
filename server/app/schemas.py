@@ -399,7 +399,7 @@ class RecordSettings(BaseModel):
     # 保存先の録画フォルダのパスのリスト
     ## 指定されない場合はデフォルトの録画フォルダに順に保存される
     ## UI 上では単一の録画フォルダしか指定できない (複数のフォルダに同じ内容を保存するユースケースが皆無なため)
-    recording_folders: list[str] = []
+    recording_folders: list[RecordingFolder] = []
     # イベントリレーの追従を行うかどうか
     ## UI 上では非表示 (新規追加時は True で固定)
     is_event_relay_follow_enabled: bool = True
@@ -422,6 +422,14 @@ class RecordSettings(BaseModel):
     # チューナーを強制指定する際のチューナー ID / 自動選択の場合は None
     # UI 上では非表示 (新規追加時は None で固定)
     forced_tuner_id: Annotated[int, Field(ge=0)] | None = None
+
+# 録画フォルダ
+class RecordingFolder(BaseModel):
+    # 録画フォルダのパス
+    recording_folder_path: str
+    # 録画ファイル名テンプレート: RecName_Macro.dll によるファイル名テンプレートの文字列
+    ## None のとき、RecName_Macro.dll のデフォルト設定に従う
+    recording_file_name_template: str | None = None
 
 # ***** データ放送 *****
 
