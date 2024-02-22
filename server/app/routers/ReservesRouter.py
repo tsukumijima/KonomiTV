@@ -587,15 +587,20 @@ async def AddReserveAPI(
             )
 
     # EDCB の ReserveData オブジェクトを組み立てる
-    ## 録画予約対象の番組のネットワーク ID・トランスポートストリーム ID・サービス ID・イベント ID を指定する
-    ## 録画予約 ID は追加時は 0 で固定
-    ## それ以外の取得系のみしか使わないキーは省略できる
+    ## 一見省略しても良さそうな録画予約対象のチャンネル情報や番組情報なども省略せずに全て含める必要がある (さもないと録画予約情報が破壊される…)
+    ## ただし reserve_id / overlap_mode / rec_file_name_list は EDCB 側で自動設定される (?) ため省略している
+    ## ref: https://github.com/EMWUI/EDCB_Material_WebUI/blob/master/HttpPublic/api/SetReserve#L4-L39
     add_reserve_data: ReserveData = {
+        'title': program.title,
+        'start_time': program.start_time,
+        'start_time_epg': program.start_time,
+        'duration_second': int(program.duration),
+        'station_name': channel.name,
         'onid': channel.network_id,
         'tsid': channel.transport_stream_id,
         'sid': channel.service_id,
         'eid': program.event_id,
-        'reserve_id': 0,
+        'comment': '',  # 単発予約の場合は空文字列で問題ないはず
         'rec_setting': cast(RecSettingData, ConvertRecordSettingsToEDCBRecSettingData(reserve_add_request.record_settings)),
     }
 
