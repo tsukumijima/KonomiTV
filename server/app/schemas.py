@@ -7,8 +7,9 @@ import warnings
 from datetime import date
 from datetime import datetime
 from pydantic import BaseModel
+from pydantic import Field
 from pydantic import RootModel
-from typing import Literal, Union
+from typing import Annotated, Literal, Union
 from typing_extensions import TypedDict
 
 # Tortoise ORM がまだ Pydantic V2 に移行できていないため、インポート時や Pydantic モデル定義時に
@@ -202,14 +203,8 @@ class TwitterAccount(PydanticModel):
 
 # 録画予約を追加する
 class ReserveAddRequest(BaseModel):
-    # 録画予約を追加する番組のネットワーク ID
-    network_id: int
-    # 録画予約を追加する番組のトランスポートストリーム ID
-    transport_stream_id: int
-    # 録画予約を追加する番組のサービス ID
-    service_id: int
-    # 録画予約を追加する番組のイベント ID
-    event_id: int
+    # 録画予約を追加する番組の ID (NID32736-SID1024-EID65535 の形式)
+    program_id: str
     # 録画設定
     record_settings: RecordSettings
 
@@ -348,12 +343,12 @@ class ProgramSearchCondition(BaseModel):
     date_ranges: list[ProgramSearchConditionDate] | None = None
     # date_ranges で指定した放送日時を逆に検索対象から除外するかどうか
     is_exclude_dates: bool = False
-    # 番組長で絞り込む最小範囲 (秒)
+    # 番組長で絞り込む最小範囲 (分)
     ## 指定しない場合は None になる
-    duration_range_min: int | None = None
-    # 番組長で絞り込む最大範囲 (秒)
+    duration_range_min: Annotated[int, Field(ge=0)] | None = None
+    # 番組長で絞り込む最大範囲 (分)
     ## 指定しない場合は None になる
-    duration_range_max: int | None = None
+    duration_range_max: Annotated[int, Field(ge=0)] | None = None
     # 番組の放送種別で絞り込む: すべて / 無料のみ / 有料のみ
     broadcast_type: Literal['All', 'FreeOnly', 'PaidOnly'] = 'All'
     # 同じ番組名の既存録画との重複チェック: 何もしない / 同じチャンネルのみ対象にする / 全てのチャンネルを対象にする
@@ -362,25 +357,24 @@ class ProgramSearchCondition(BaseModel):
     ## 仕様上予約自体を削除してしまうとすぐ再登録されてしまうので、無効状態で登録することで有効になるのを防いでいるらしい
     duplicate_title_check_scope: Literal['None', 'SameChannelOnly', 'AllChannels'] = 'None'
     # 同じ番組名の既存録画との重複チェックの対象期間 (日単位)
-    duplicate_title_check_period_days: int = 6
-
+    duplicate_title_check_period_days: Annotated[int, Field(ge=0)] = 6
 
 # 番組検索条件の日付範囲
 class ProgramSearchConditionDate(BaseModel):
     # 検索開始曜日 (0: 日曜日, 1: 月曜日, 2: 火曜日, 3: 水曜日, 4: 木曜日, 5: 金曜日, 6: 土曜日)
     ## 文字列にした方がわかりやすいとも思ったが、day.js が数値で曜日を扱うため数値で統一する
-    start_day_of_week: int
+    start_day_of_week: Annotated[int, Field(ge=0, le=6)]
     # 検索開始時刻 (時)
-    start_hour: int
+    start_hour: Annotated[int, Field(ge=0, le=23)]
     # 検索開始時刻 (分)
-    start_minute: int
+    start_minute: Annotated[int, Field(ge=0, le=59)]
     # 検索終了曜日 (0: 日曜日, 1: 月曜日, 2: 火曜日, 3: 水曜日, 4: 木曜日, 5: 金曜日, 6: 土曜日)
     ## 文字列にした方がわかりやすいとも思ったが、day.js が数値で曜日を扱うため数値で統一する
-    end_day_of_week: int
+    end_day_of_week: Annotated[int, Field(ge=0, le=6)]
     # 検索終了時刻 (時)
-    end_hour: int
+    end_hour: Annotated[int, Field(ge=0, le=23)]
     # 検索終了時刻 (分)
-    end_minute: int
+    end_minute: Annotated[int, Field(ge=0, le=59)]
 
 # 録画設定
 ## 現実的にほとんど使わないため UI からは設定できない値も含まれる (録画設定変更時に意図せず設定値が抜け落ちることは避けたい)
@@ -393,7 +387,7 @@ class RecordSettings(BaseModel):
     ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Document/Readme_Mod.txt#L264-L266
     record_mode: Literal['AllService', 'AllServiceWithoutDecoding', 'SpecifiedService', 'SpecifiedServiceWithoutDecoding', 'View'] = 'SpecifiedService'
     # 録画予約の優先度: 1 ~ 5 の数値で数値が大きいほど優先度が高い
-    priority: int = 3
+    priority: Annotated[int, Field(ge=1, le=5)] = 3
     # 録画開始マージン (秒) / デフォルト設定に従う場合は None
     recording_start_margin: int | None = None
     # 録画終了マージン (秒) / デフォルト設定に従う場合は None
@@ -427,7 +421,7 @@ class RecordSettings(BaseModel):
     data_broadcasting_recording_mode: Literal['Default', 'Enable', 'Disable'] = 'Default'
     # チューナーを強制指定する際のチューナー ID / 自動選択の場合は None
     # UI 上では非表示 (新規追加時は None で固定)
-    forced_tuner_id: int | None = None
+    forced_tuner_id: Annotated[int, Field(ge=0)] | None = None
 
 # ***** データ放送 *****
 

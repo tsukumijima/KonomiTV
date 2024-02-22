@@ -13,6 +13,7 @@ from fastapi.exceptions import HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from typing import Annotated
 
+from app import logging
 from app.config import Config
 from app.constants import RESTART_REQUIRED_LOCK_PATH
 from app.models.Channel import Channel
@@ -47,6 +48,7 @@ async def GetCurrentAdminUserOrLocal(
 
     # それ以外である場合、管理者ユーザーでログインしているかを確認する
     if token is None:
+        logging.error('[MaintenanceRouter][GetCurrentAdminUserOrLocal] Not authenticated')
         raise HTTPException(
             status_code = status.HTTP_401_UNAUTHORIZED,
             detail = 'Not authenticated',

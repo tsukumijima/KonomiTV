@@ -46,6 +46,7 @@ async def BMLBrowserRequestGETProxyAPI(
 
     # URLが HTTP または HTTPS URL かのバリデーション
     if not (request_url.startswith("http://") or request_url.startswith("https://")):
+        logging.error(f'[DataBroadcastingRouter][BMLBrowserRequestGETProxyAPI] Request URL must be http or https URL: {request_url}')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Request URL must be http or https URL',
@@ -105,6 +106,7 @@ async def BMLBrowserRequestPOSTProxyAPI(
 
     # URLが HTTP または HTTPS URL かのバリデーション
     if not (request_url.startswith("http://") or request_url.startswith("https://")):
+        logging.error(f'[DataBroadcastingRouter][BMLBrowserRequestPOSTProxyAPI] Request URL must be http or https URL: {request_url}')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Request URL must be http or https URL',

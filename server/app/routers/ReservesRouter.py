@@ -11,12 +11,13 @@ from fastapi import status
 from tortoise import transactions
 from typing import Annotated, Any, cast, Literal
 
+from app import logging
 from app import schemas
 from app.config import Config
 from app.models.Channel import Channel
 from app.models.Program import Program
 from app.utils.EDCB import CtrlCmdUtil
-from app.utils.EDCB import RecFileSetInfo
+from app.utils.EDCB import RecFileSetInfoRequired
 from app.utils.EDCB import RecSettingData
 from app.utils.EDCB import RecSettingDataRequired
 from app.utils.EDCB import ReserveData
@@ -251,7 +252,9 @@ def ConvertEDCBRecSettingDataToRecordSettings(rec_settings_data: RecSettingDataR
         post_recording_mode = 'Shutdown'
     elif rec_settings_data['suspend_mode'] == 4:
         post_recording_mode = 'Nothing'
-    if rec_settings_data['reboot_flag'] is True:  # なぜか再起動フラグだけ分かれているが、KonomiTV では同一の Literal 値にまとめている
+    ## なぜか再起動フラグだけ分かれているが、KonomiTV では同一の Literal 値にまとめている
+    ## デフォルト設定に従う場合は万が一再起動フラグが立っていても Reboot にはしてはならない
+    if rec_settings_data['suspend_mode'] != 0 and rec_settings_data['reboot_flag'] is True:
         post_recording_mode = 'Reboot'
 
     # 録画後に実行する bat ファイルのパス / 指定しない場合は None
@@ -318,10 +321,9 @@ def ConvertEDCBRecSettingDataToRecordSettings(rec_settings_data: RecSettingDataR
     )
 
 
-def ConvertRecordSettingsToEDCBRecSettingData(record_settings: schemas.RecordSettings) -> RecSettingData:
+def ConvertRecordSettingsToEDCBRecSettingData(record_settings: schemas.RecordSettings) -> RecSettingDataRequired:
     """
     schemas.RecordSettings オブジェクトを EDCB の RecSettingData オブジェクトに変換する
-    EDCB に更新用として送るためのデータなので、あえて RecSettingDataRequired ではなく RecSettingData にしている
 
     Args:
         record_settings (schemas.RecordSettings): schemas.RecordSettings オブジェクト
@@ -385,12 +387,15 @@ def ConvertRecordSettingsToEDCBRecSettingData(record_settings: schemas.RecordSet
         bat_file_path = record_settings.post_recording_bat_file_path
 
     # 保存先の録画フォルダのパスのリスト
-    rec_folder_list: list[RecFileSetInfo] = []
+    rec_folder_list: list[RecFileSetInfoRequired] = []
     for rec_folder in record_settings.recording_folders:
-        rec_folder_list.append({'rec_folder': rec_folder})
+        rec_folder_list.append({
+            'rec_folder': rec_folder,
+            'write_plug_in': 'Write_Default.dll',
+            'rec_name_plug_in': '',
+        })
 
-    # 録画後の動作モード: デフォルト設定に従う / 何もしない / スタンバイ / 休止 / シャットダウン
-    ## 再起動だけ別フラグなので、それ以外の場合は suspend_mode に値を入れる
+    # 録画後の動作モード: デフォルト設定に従う / 何もしない / スタンバイ / 休止 / シャットダウン / 再起動
     suspend_mode: int = 0
     reboot_flag: bool = False
     if record_settings.post_recording_mode == 'Default':
@@ -403,7 +408,10 @@ def ConvertRecordSettingsToEDCBRecSettingData(record_settings: schemas.RecordSet
         suspend_mode = 2
     elif record_settings.post_recording_mode == 'Shutdown':
         suspend_mode = 3
+    ## 再起動時は suspend_mode を Nothing にした上で再起動フラグを立てないといけない (?)
+    ## この辺仕様がわからなさすぎる…
     elif record_settings.post_recording_mode == 'Reboot':
+        suspend_mode = 4
         reboot_flag = True
 
     # 録画開始マージン (秒) / デフォルト設定に従う場合は存在しない (一旦ここでは None にしておく)
@@ -425,10 +433,10 @@ def ConvertRecordSettingsToEDCBRecSettingData(record_settings: schemas.RecordSet
 
     # ワンセグ放送を別ファイルに同時録画する場合の録画フォルダのパスのリスト
     ## ほとんど使われていないと考えられるため KonomiTV のモデル構造には含まれておらず、常に空リストを渡す
-    partial_rec_folder: list[RecFileSetInfo] = []
+    partial_rec_folder: list[RecFileSetInfoRequired] = []
 
     # EDCB の RecSettingData オブジェクトを作成
-    rec_setting_data: RecSettingData = {
+    rec_setting_data: RecSettingDataRequired = {
         'rec_mode': rec_mode,
         'priority': priority,
         'tuijyuu_flag': tuijyuu_flag,
@@ -458,10 +466,26 @@ async def GetCtrlCmdUtil() -> CtrlCmdUtil:
     if Config().general.backend == 'EDCB':
         return CtrlCmdUtil()
     else:
+        logging.error('[ReservesRouter][GetCtrlCmdUtil] This API is only available when the backend is EDCB')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'This API is only available when the backend is EDCB',
         )
+
+
+async def GetReserveDataList(
+    edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
+) -> list[ReserveDataRequired]:
+    """ すべての録画予約の情報を取得する """
+    reserve_data_list: list[ReserveDataRequired] | None = await edcb.sendEnumReserve()
+    if reserve_data_list is None:
+        # None が返ってきた場合はエラーを返す
+        logging.error('[ReservesRouter][GetReserveDataList] Failed to get the list of recording reservations')
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = 'Failed to get the list of recording reservations',
+        )
+    return reserve_data_list
 
 
 async def GetReserveData(
@@ -469,27 +493,16 @@ async def GetReserveData(
     edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ) -> ReserveDataRequired:
     """ 指定された録画予約の情報を取得する """
-    # EDCB から現在のすべての録画予約の情報を取得
-    reserves: list[ReserveDataRequired] | None = await edcb.sendEnumReserve()
-    if reserves is None:
-        # None が返ってきた場合はエラーを返す
-        raise HTTPException(
-            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail = 'Failed to get the list of recording reservations',
-        )
     # 指定された録画予約の情報を取得
-    reserve_data: ReserveDataRequired | None = None
-    for reserve in reserves:
-        if reserve['reserve_id'] == reserve_id:
-            reserve_data = reserve
-            break
+    for reserve_data in await GetReserveDataList(edcb):
+        if reserve_data['reserve_id'] == reserve_id:
+            return reserve_data
     # 指定された録画予約が見つからなかった場合はエラーを返す
-    if reserve_data is None:
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Specified reserve_id was not found',
-        )
-    return reserve_data
+    logging.error(f'[ReservesRouter][GetReserveData] Specified reserve_id was not found [reserve_id: {reserve_id}]')
+    raise HTTPException(
+        status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail = 'Specified reserve_id was not found',
+    )
 
 
 @router.get(
@@ -506,8 +519,8 @@ async def ReservesAPI(
     """
 
     # EDCB から現在のすべての録画予約の情報を取得
-    edcb_reserves: list[ReserveDataRequired] | None = await edcb.sendEnumReserve()
-    if edcb_reserves is None:
+    reserve_data_list: list[ReserveDataRequired] | None = await edcb.sendEnumReserve()
+    if reserve_data_list is None:
         # None が返ってきた場合は空のリストを返す
         return schemas.Reserves(total=0, reserves=[])
 
@@ -518,12 +531,12 @@ async def ReservesAPI(
         channels = await Channel.all()
 
         # EDCB の ReserveData オブジェクトを schemas.Reserve オブジェクトに変換
-        reserves = await asyncio.gather(*(ConvertEDCBReserveDataToReserve(reserve_data, channels) for reserve_data in edcb_reserves))
+        reserves = await asyncio.gather(*(ConvertEDCBReserveDataToReserve(reserve_data, channels) for reserve_data in reserve_data_list))
 
     # 録画予約番組の番組開始時刻でソート
     reserves.sort(key=lambda reserve: reserve.program.start_time)
 
-    return schemas.Reserves(total=len(edcb_reserves), reserves=reserves)
+    return schemas.Reserves(total=len(reserve_data_list), reserves=reserves)
 
 
 @router.post(
@@ -540,30 +553,80 @@ async def AddReserveAPI(
     録画予約を追加する。
     """
 
+    # 指定された番組 ID の番組があるかを確認
+    program = await Program.filter(id=reserve_add_request.program_id).get_or_none()
+    if program is None:
+        logging.error(f'[ReservesRouter][AddReserveAPI] Specified program was not found [program_id: {reserve_add_request.program_id}]')
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Specified program was not found',
+        )
+
+    # 指定された番組 ID に関連付けられたチャンネルがあるかを確認
+    channel = await Channel.filter(id=program.channel_id).get_or_none()
+    if channel is None:
+        logging.error(f'[ReservesRouter][AddReserveAPI] Specified channel was not found [channel_id: {program.channel_id}]')
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Specified channel was not found',
+        )
+
+    # EDCB バックエンド利用時は必ずチャンネル情報に transport_stream_id が含まれる
+    assert channel.transport_stream_id is not None, 'transport_stream_id is missing.'
+
+    # すでに同じ番組 ID の録画予約が存在するかを確認
+    for reserve_data in await GetReserveDataList(edcb):
+        if (reserve_data['onid'] == channel.network_id and
+            reserve_data['tsid'] == channel.transport_stream_id and
+            reserve_data['sid'] == channel.service_id and
+            reserve_data['eid'] == program.event_id):
+            logging.error(f'[ReservesRouter][AddReserveAPI] The same program_id is already reserved [program_id: {reserve_add_request.program_id}]')
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'The same program_id is already reserved',
+            )
+
     # EDCB の ReserveData オブジェクトを組み立てる
-    ## ネットワークID・トランスポートストリームID・サービスID・イベントIDの 4 つの ID は追加時でも必ず正しい値を指定する必要がある
-    ## 録画予約 ID は追加時は 0 を固定で指定する
+    ## 録画予約対象の番組のネットワーク ID・トランスポートストリーム ID・サービス ID・イベント ID を指定する
+    ## 録画予約 ID は追加時は 0 で固定
     ## それ以外の取得系のみしか使わないキーは省略できる
     add_reserve_data: ReserveData = {
-        'onid': reserve_add_request.network_id,
-        'tsid': reserve_add_request.transport_stream_id,
-        'sid': reserve_add_request.service_id,
-        'eid': reserve_add_request.event_id,
+        'onid': channel.network_id,
+        'tsid': channel.transport_stream_id,
+        'sid': channel.service_id,
+        'eid': program.event_id,
         'reserve_id': 0,
-        'rec_setting': ConvertRecordSettingsToEDCBRecSettingData(reserve_add_request.record_settings),
+        'rec_setting': cast(RecSettingData, ConvertRecordSettingsToEDCBRecSettingData(reserve_add_request.record_settings)),
     }
 
     # EDCB に録画予約を追加するように指示
     result = await edcb.sendAddReserve([add_reserve_data])
     if result is False:
         # False が返ってきた場合はエラーを返す
+        logging.error('[ReservesRouter][AddReserveAPI] Failed to add a recording reservation')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to add a recording reservation',
         )
 
-    # 追加された録画予約の情報を schemas.Reserve オブジェクトに変換して返す
-    return await ConvertEDCBReserveDataToReserve(await GetReserveData(result, edcb))
+    # この時点ではどの録画予約 ID で追加されたかがわからないので、上記四種の ID に一致する録画予約を探す
+    reserve_data_list = await GetReserveDataList(edcb)
+
+    # 追加された録画予約の情報を取得して返す
+    for reserve_data in reserve_data_list:
+        if (reserve_data['onid'] == channel.network_id and
+            reserve_data['tsid'] == channel.transport_stream_id and
+            reserve_data['sid'] == channel.service_id and
+            reserve_data['eid'] == program.event_id):
+            # EDCB の ReserveData オブジェクトを schemas.Reserve オブジェクトに変換して返す
+            return await ConvertEDCBReserveDataToReserve(reserve_data)
+
+    # ここに到達することは基本ないはずだが、もし到達した場合は正常に追加されていない可能性が高いためエラーを返す
+    logging.error('[ReservesRouter][AddReserveAPI] Failed to get the added recording reservation')
+    raise HTTPException(
+        status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail = 'Failed to get the added recording reservation',
+    )
 
 
 @router.get(
@@ -598,33 +661,22 @@ async def UpdateReserveAPI(
     指定された録画予約の設定を更新する。
     """
 
-    # EDCB の ReserveData オブジェクトを schemas.Reserve オブジェクトに変換する
-    ## 録画予約 ID に紐づくチャンネル情報を取得するために使っている
-    reserve = await ConvertEDCBReserveDataToReserve(reserve_data)
-
-    # EDCB の ReserveData オブジェクトを組み立てる
-    ## 録画予約 ID に加え、ネットワークID・トランスポートストリームID・サービスID・イベントIDの 4 つの ID は更新時でも必ず正しい値を指定する必要がある
-    ## それ以外の取得系のみしか使わないキーは省略できる
-    update_reserve_data: ReserveData = {
-        'onid': reserve.channel.network_id,
-        'tsid': cast(int, reserve.channel.transport_stream_id),  # EDCB バックエンド利用時は transport_stream_id は必ず存在する
-        'sid': reserve.channel.service_id,
-        'eid': reserve.program.event_id,
-        'reserve_id': reserve.id,
-        'rec_setting': ConvertRecordSettingsToEDCBRecSettingData(reserve_update_request.record_settings),
-    }
+    # 現在の録画予約の ReserveData のうち録画設定のみを更新する形で EDCB に送信する
+    ## 一見省略しても良さそうな録画予約対象のチャンネル情報や番組情報なども省略せずに全て含める必要がある (さもないと録画予約情報が破壊される…)
+    reserve_data['rec_setting'] = ConvertRecordSettingsToEDCBRecSettingData(reserve_update_request.record_settings)
 
     # EDCB に指定された録画予約を更新するように指示
-    result = await edcb.sendChgReserve([update_reserve_data])
+    result = await edcb.sendChgReserve([cast(ReserveData, reserve_data)])
     if result is False:
         # False が返ってきた場合はエラーを返す
+        logging.error('[ReservesRouter][UpdateReserveAPI] Failed to update the specified recording reservation')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to update the specified recording reservation',
         )
 
     # 更新された録画予約の情報を schemas.Reserve オブジェクトに変換して返す
-    return await ConvertEDCBReserveDataToReserve(await GetReserveData(reserve.id, edcb))
+    return await ConvertEDCBReserveDataToReserve(await GetReserveData(reserve_data['reserve_id'], edcb))
 
 
 @router.delete(
@@ -644,6 +696,7 @@ async def DeleteReserveAPI(
     result = await edcb.sendDelReserve([reserve_data['reserve_id']])
     if result is False:
         # False が返ってきた場合はエラーを返す
+        logging.error('[ReservesRouter][DeleteReserveAPI] Failed to delete the specified recording reservation')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to delete the specified recording reservation',
