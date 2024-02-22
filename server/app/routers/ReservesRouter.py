@@ -3,6 +3,7 @@ import asyncio
 from datetime import datetime
 from datetime import timedelta
 from fastapi import APIRouter
+from fastapi import Body
 from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import Path
@@ -15,7 +16,10 @@ from app.config import Config
 from app.models.Channel import Channel
 from app.models.Program import Program
 from app.utils.EDCB import CtrlCmdUtil
+from app.utils.EDCB import RecFileSetInfo
+from app.utils.EDCB import RecSettingData
 from app.utils.EDCB import RecSettingDataRequired
+from app.utils.EDCB import ReserveData
 from app.utils.EDCB import ReserveDataRequired
 from app.utils.TSInformation import TSInformation
 
@@ -208,7 +212,7 @@ def ConvertEDCBRecSettingDataToRecordSettings(rec_settings_data: RecSettingDataR
     # 録画モード: 全サービス / 全サービス (デコードなし) / 指定サービスのみ / 指定サービスのみ (デコードなし) / 視聴
     # 通常の用途では「指定サービスのみ」以外はまず使わない
     ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/CommonDef.h#L26-L30
-    ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Document/Readme_Mod.txt#L264-L266
+    ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Document/Readme_Mod.txt?plain=1#L264-L266
     record_mode: Literal['AllService', 'AllServiceWithoutDecoding', 'SpecifiedService', 'SpecifiedServiceWithoutDecoding', 'View'] = 'SpecifiedService'
     if rec_settings_data['rec_mode'] == 0 or rec_settings_data['rec_mode'] == 9:
         record_mode = 'AllService'  # 全サービス
@@ -314,6 +318,141 @@ def ConvertEDCBRecSettingDataToRecordSettings(rec_settings_data: RecSettingDataR
     )
 
 
+def ConvertRecordSettingsToEDCBRecSettingData(record_settings: schemas.RecordSettings) -> RecSettingData:
+    """
+    schemas.RecordSettings オブジェクトを EDCB の RecSettingData オブジェクトに変換する
+    EDCB に更新用として送るためのデータなので、あえて RecSettingDataRequired ではなく RecSettingData にしている
+
+    Args:
+        record_settings (schemas.RecordSettings): schemas.RecordSettings オブジェクト
+
+    Returns:
+        RecSettingData: EDCB の RecSettingData オブジェクト
+    """
+
+    # 録画モード: 0: 全サービス / 1: 指定サービスのみ / 2: 全サービス (デコードなし) / 3: 指定サービスのみ (デコードなし) / 4: 視聴
+    # 5: 指定サービスのみ (無効) / 6: 全サービス (デコードなし) (無効) / 7: 指定サービスのみ (デコードなし) (無効) / 8: 視聴 (無効) / 9: 全サービス (無効)
+    ## 歴史的経緯で予約無効を後から追加したためにこうなっているらしい (5 以降の値は無効)
+    rec_mode: int = 1
+    if record_settings.is_enabled is True:
+        if record_settings.record_mode == 'AllService':
+            rec_mode = 0
+        elif record_settings.record_mode == 'SpecifiedService':
+            rec_mode = 1
+        elif record_settings.record_mode == 'AllServiceWithoutDecoding':
+            rec_mode = 2
+        elif record_settings.record_mode == 'SpecifiedServiceWithoutDecoding':
+            rec_mode = 3
+        elif record_settings.record_mode == 'View':
+            rec_mode = 4
+    else:
+        if record_settings.record_mode == 'AllService':
+            rec_mode = 9
+        elif record_settings.record_mode == 'SpecifiedService':
+            rec_mode = 5
+        elif record_settings.record_mode == 'AllServiceWithoutDecoding':
+            rec_mode = 6
+        elif record_settings.record_mode == 'SpecifiedServiceWithoutDecoding':
+            rec_mode = 7
+        elif record_settings.record_mode == 'View':
+            rec_mode = 8
+
+    # 録画予約の優先度: 1 ~ 5 の数値で数値が大きいほど優先度が高い
+    priority: int = record_settings.priority
+
+    # イベントリレーの追従を行うかどうか
+    tuijyuu_flag: bool = record_settings.is_event_relay_follow_enabled
+
+    # 字幕データ/データ放送の録画設定
+    ## ビットフラグになっているため、それぞれのフラグを立てる
+    service_mode: int = 0
+    ## 両方が Default ではない場合のみ個別の設定値を使用するフラグを立てる
+    if record_settings.caption_recording_mode != 'Default' and record_settings.data_broadcasting_recording_mode != 'Default':
+        service_mode = 1  # 個別の設定値を使用する
+    ## 字幕データを含むかどうか
+    if record_settings.caption_recording_mode == 'Enable':
+        service_mode |= 0x00000010
+    ## データカルーセルを含むかどうか
+    if record_settings.data_broadcasting_recording_mode == 'Enable':
+        service_mode |= 0x00000020
+
+    # 「ぴったり録画」(録画マージンののりしろを残さず本編のみを正確に録画する？) を行うかどうか
+    pittari_flag: bool = record_settings.is_exact_recording_enabled
+
+    # 録画後に実行する bat ファイルのパス
+    bat_file_path: str = ''
+    if record_settings.post_recording_bat_file_path is not None:
+        bat_file_path = record_settings.post_recording_bat_file_path
+
+    # 保存先の録画フォルダのパスのリスト
+    rec_folder_list: list[RecFileSetInfo] = []
+    for rec_folder in record_settings.recording_folders:
+        rec_folder_list.append({'rec_folder': rec_folder})
+
+    # 録画後の動作モード: デフォルト設定に従う / 何もしない / スタンバイ / 休止 / シャットダウン
+    ## 再起動だけ別フラグなので、それ以外の場合は suspend_mode に値を入れる
+    suspend_mode: int = 0
+    reboot_flag: bool = False
+    if record_settings.post_recording_mode == 'Default':
+        suspend_mode = 0
+    elif record_settings.post_recording_mode == 'Nothing':
+        suspend_mode = 4
+    elif record_settings.post_recording_mode == 'Standby':
+        suspend_mode = 1
+    elif record_settings.post_recording_mode == 'Suspend':
+        suspend_mode = 2
+    elif record_settings.post_recording_mode == 'Shutdown':
+        suspend_mode = 3
+    elif record_settings.post_recording_mode == 'Reboot':
+        reboot_flag = True
+
+    # 録画開始マージン (秒) / デフォルト設定に従う場合は存在しない (一旦ここでは None にしておく)
+    start_margin: int | None = record_settings.recording_start_margin
+
+    # 録画終了マージン (秒) / デフォルト設定に従う場合は存在しない (一旦ここでは None にしておく)
+    end_margin: int | None = record_settings.recording_end_margin
+
+    # 同一チャンネルで時間的に隣接した録画予約がある場合に、それらを同一の録画ファイルに続けて出力するかどうか
+    continue_rec_flag: bool = record_settings.is_sequential_recording_in_single_file_enabled
+
+    # 録画対象のチャンネルにワンセグ放送が含まれる場合、ワンセグ放送を別ファイルに同時録画するかどうか
+    partial_rec_flag: int = 1 if record_settings.is_oneseg_separate_output_enabled is True else 0  # これだけ何故か int で指定が必要
+
+    # チューナーを強制指定する際のチューナー ID / 自動選択の場合は 0 を指定
+    tuner_id: int = 0
+    if record_settings.forced_tuner_id is not None:
+        tuner_id = record_settings.forced_tuner_id
+
+    # ワンセグ放送を別ファイルに同時録画する場合の録画フォルダのパスのリスト
+    ## ほとんど使われていないと考えられるため KonomiTV のモデル構造には含まれておらず、常に空リストを渡す
+    partial_rec_folder: list[RecFileSetInfo] = []
+
+    # EDCB の RecSettingData オブジェクトを作成
+    rec_setting_data: RecSettingData = {
+        'rec_mode': rec_mode,
+        'priority': priority,
+        'tuijyuu_flag': tuijyuu_flag,
+        'service_mode': service_mode,
+        'pittari_flag': pittari_flag,
+        'bat_file_path': bat_file_path,
+        'rec_folder_list': rec_folder_list,
+        'suspend_mode': suspend_mode,
+        'reboot_flag': reboot_flag,
+        'continue_rec_flag': continue_rec_flag,
+        'partial_rec_flag': partial_rec_flag,
+        'tuner_id': tuner_id,
+        'partial_rec_folder': partial_rec_folder,
+    }
+
+    # 録画マージンはデフォルト設定に従う場合は存在しないため、それぞれの値が None でない場合のみ追加する
+    if start_margin is not None:
+        rec_setting_data['start_margin'] = start_margin
+    if end_margin is not None:
+        rec_setting_data['end_margin'] = end_margin
+
+    return rec_setting_data
+
+
 async def GetCtrlCmdUtil() -> CtrlCmdUtil:
     """ バックエンドが EDCB かのチェックを行い、EDCB であれば EDCB の CtrlCmdUtil インスタンスを返す """
     if Config().general.backend == 'EDCB':
@@ -329,7 +468,7 @@ async def GetReserveData(
     reserve_id: Annotated[int, Path(description='録画予約 ID 。')],
     edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ) -> ReserveDataRequired:
-    """ EDCB から指定された録画予約の情報を取得する """
+    """ 指定された録画予約の情報を取得する """
     # EDCB から現在のすべての録画予約の情報を取得
     reserves: list[ReserveDataRequired] | None = await edcb.sendEnumReserve()
     if reserves is None:
@@ -356,14 +495,14 @@ async def GetReserveData(
 @router.get(
     '',
     summary = '録画予約情報一覧 API',
-    response_description = '録画予約情報のリスト。',
+    response_description = '録画予約の情報のリスト。',
     response_model = schemas.Reserves,
 )
 async def ReservesAPI(
     edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ):
     """
-    EDCB からすべての録画予約の情報を取得する。
+    すべての録画予約の情報を取得する。
     """
 
     # EDCB から現在のすべての録画予約の情報を取得
@@ -387,21 +526,105 @@ async def ReservesAPI(
     return schemas.Reserves(total=len(edcb_reserves), reserves=reserves)
 
 
+@router.post(
+    '',
+    summary = '録画予約追加 API',
+    response_description = '追加された録画予約の情報。',
+    response_model = schemas.Reserve,
+)
+async def AddReserveAPI(
+    reserve_add_request: Annotated[schemas.ReserveAddRequest, Body(description='追加する録画予約の設定。')],
+    edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
+):
+    """
+    録画予約を追加する。
+    """
+
+    # EDCB の ReserveData オブジェクトを組み立てる
+    ## ネットワークID・トランスポートストリームID・サービスID・イベントIDの 4 つの ID は追加時でも必ず正しい値を指定する必要がある
+    ## 録画予約 ID は追加時は 0 を固定で指定する
+    ## それ以外の取得系のみしか使わないキーは省略できる
+    add_reserve_data: ReserveData = {
+        'onid': reserve_add_request.network_id,
+        'tsid': reserve_add_request.transport_stream_id,
+        'sid': reserve_add_request.service_id,
+        'eid': reserve_add_request.event_id,
+        'reserve_id': 0,
+        'rec_setting': ConvertRecordSettingsToEDCBRecSettingData(reserve_add_request.record_settings),
+    }
+
+    # EDCB に録画予約を追加するように指示
+    result = await edcb.sendAddReserve([add_reserve_data])
+    if result is False:
+        # False が返ってきた場合はエラーを返す
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = 'Failed to add a recording reservation',
+        )
+
+    # 追加された録画予約の情報を schemas.Reserve オブジェクトに変換して返す
+    return await ConvertEDCBReserveDataToReserve(await GetReserveData(result, edcb))
+
+
 @router.get(
     '/{reserve_id}',
     summary = '録画予約情報取得 API',
-    response_description = '録画予約情報。',
+    response_description = '録画予約の情報。',
     response_model = schemas.Reserve,
 )
 async def ReserveAPI(
     reserve_data: Annotated[ReserveDataRequired, Depends(GetReserveData)],
 ):
     """
-    EDCB から指定された録画予約の情報を取得する。
+    指定された録画予約の情報を取得する。
     """
 
     # EDCB の ReserveData オブジェクトを schemas.Reserve オブジェクトに変換して返す
     return await ConvertEDCBReserveDataToReserve(reserve_data)
+
+
+@router.put(
+    '/{reserve_id}',
+    summary = '録画予約設定更新 API',
+    response_description = '更新された録画予約の情報。',
+    response_model = schemas.Reserve,
+)
+async def UpdateReserveAPI(
+    reserve_data: Annotated[ReserveDataRequired, Depends(GetReserveData)],
+    reserve_update_request: Annotated[schemas.ReserveUpdateRequest, Body(description='更新する録画予約の設定。')],
+    edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
+):
+    """
+    指定された録画予約の設定を更新する。
+    """
+
+    # EDCB の ReserveData オブジェクトを schemas.Reserve オブジェクトに変換する
+    ## 録画予約 ID に紐づくチャンネル情報を取得するために使っている
+    reserve = await ConvertEDCBReserveDataToReserve(reserve_data)
+
+    # EDCB の ReserveData オブジェクトを組み立てる
+    ## 録画予約 ID に加え、ネットワークID・トランスポートストリームID・サービスID・イベントIDの 4 つの ID は更新時でも必ず正しい値を指定する必要がある
+    ## それ以外の取得系のみしか使わないキーは省略できる
+    update_reserve_data: ReserveData = {
+        'onid': reserve.channel.network_id,
+        'tsid': cast(int, reserve.channel.transport_stream_id),  # EDCB バックエンド利用時は transport_stream_id は必ず存在する
+        'sid': reserve.channel.service_id,
+        'eid': reserve.program.event_id,
+        'reserve_id': reserve.id,
+        'rec_setting': ConvertRecordSettingsToEDCBRecSettingData(reserve_update_request.record_settings),
+    }
+
+    # EDCB に指定された録画予約を更新するように指示
+    result = await edcb.sendChgReserve([update_reserve_data])
+    if result is False:
+        # False が返ってきた場合はエラーを返す
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = 'Failed to update the specified recording reservation',
+        )
+
+    # 更新された録画予約の情報を schemas.Reserve オブジェクトに変換して返す
+    return await ConvertEDCBReserveDataToReserve(await GetReserveData(reserve.id, edcb))
 
 
 @router.delete(
@@ -410,11 +633,11 @@ async def ReserveAPI(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def DeleteReserveAPI(
-    edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
     reserve_data: Annotated[ReserveDataRequired, Depends(GetReserveData)],
+    edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ):
     """
-    EDCB から指定された録画予約を削除する。
+    指定された録画予約を削除する。
     """
 
     # EDCB に指定された録画予約を削除するように指示

@@ -248,7 +248,7 @@ async def GetReserveConditionData(
     reserve_condition_id: Annotated[int, Path(description='キーワード自動予約条件 ID 。')],
     edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ) -> AutoAddDataRequired:
-    """ EDCB から指定されたキーワード自動予約条件の情報を取得する """
+    """ 指定されたキーワード自動予約条件の情報を取得する """
     # EDCB から現在のすべてのキーワード自動予約条件の情報を取得
     auto_add_data_list: list[AutoAddDataRequired] | None = await edcb.sendEnumAutoAdd()
     if auto_add_data_list is None:
@@ -282,7 +282,7 @@ async def ReserveConditionsAPI(
     edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ):
     """
-    EDCB からすべてのキーワード自動予約条件 (EPG 予約) の情報を取得する。
+    すべてのキーワード自動予約条件 (EPG 予約) の情報を取得する。
     """
 
     # EDCB から現在のすべてのキーワード自動予約条件の情報を取得
@@ -307,7 +307,7 @@ async def ReserveConditionAPI(
     auto_add_data: Annotated[AutoAddDataRequired, Depends(GetReserveConditionData)],
 ):
     """
-    EDCB から指定されたキーワード自動予約条件の情報を取得する。
+    指定されたキーワード自動予約条件の情報を取得する。
     """
 
     # EDCB の AutoAddData オブジェクトを schemas.ReserveCondition オブジェクトに変換して返す
@@ -320,11 +320,11 @@ async def ReserveConditionAPI(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def DeleteReserveConditionAPI(
-    edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
     auto_add_data: Annotated[AutoAddDataRequired, Depends(GetReserveConditionData)],
+    edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ):
     """
-    EDCB から指定されたキーワード自動予約条件を削除する。
+    指定されたキーワード自動予約条件を削除する。
     """
 
     # TODO: キーワード自動予約条件を削除した後に残った予約をクリーンアップする処理を追加する

@@ -198,6 +198,41 @@ class TwitterAccount(PydanticModel):
 # モデルに関連しない API リクエストの構造を表す Pydantic モデル
 ## リクエストボティの JSON 構造と一致する
 
+# ***** 録画予約 *****
+
+# 録画予約を追加する
+class ReserveAddRequest(BaseModel):
+    # 録画予約を追加する番組のネットワーク ID
+    network_id: int
+    # 録画予約を追加する番組のトランスポートストリーム ID
+    transport_stream_id: int
+    # 録画予約を追加する番組のサービス ID
+    service_id: int
+    # 録画予約を追加する番組のイベント ID
+    event_id: int
+    # 録画設定
+    record_settings: RecordSettings
+
+# 録画予約を変更する
+class ReserveUpdateRequest(BaseModel):
+    # 録画設定
+    record_settings: RecordSettings
+
+# キーワード自動予約条件を追加する
+class ReserveConditionAddRequest(BaseModel):
+    # 番組検索条件
+    program_search_condition: ProgramSearchCondition
+    # 録画設定
+    record_settings: RecordSettings
+
+# キーワード自動予約条件を変更する
+## 内容は ReserveConditionAddRequest と同じ (録画予約 ID はパスパラメータから取得するため不要)
+class ReserveConditionUpdateRequest(BaseModel):
+    # 番組検索条件
+    program_search_condition: ProgramSearchCondition
+    # 録画設定
+    record_settings: RecordSettings
+
 # ***** ユーザー *****
 
 class UserCreateRequest(BaseModel):
@@ -240,7 +275,7 @@ class LiveStreamStatuses(BaseModel):
 
 # 以下は EDCB の生のデータモデルをフロントエンドが扱いやすいようモダンに整形し、KonomiTV 独自のプロパティを追加したもの
 # EDCB の生のデータモデルは数十年に及ぶ歴史的経緯により複雑怪奇であり、そのままでは非常に扱いにくい
-# KonomiTV では以下のモデルを API レスポンスに利用し、サーバー側で EDCB の生のデータモデルから変換している
+# KonomiTV では以下のモデルを API リクエスト/レスポンスに利用し、サーバー側で EDCB の生のデータモデルと相互に変換している
 
 # 録画予約情報
 class Reserve(BaseModel):
@@ -289,9 +324,9 @@ class ProgramSearchCondition(BaseModel):
     # 番組検索条件が有効かどうか
     is_enabled: bool = True
     # 検索キーワード
-    keyword: str
+    keyword: str = ''
     # 除外キーワード
-    exclude_keyword: str
+    exclude_keyword: str = ''
     # 番組名のみを検索対象とするかどうか
     is_title_only: bool = False
     # 大文字小文字を区別するかどうか
