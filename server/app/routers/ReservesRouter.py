@@ -2,6 +2,7 @@
 import asyncio
 from datetime import datetime
 from datetime import timedelta
+from datetime import timezone
 from fastapi import APIRouter
 from fastapi import Body
 from fastapi import Depends
@@ -17,11 +18,13 @@ from app.config import Config
 from app.models.Channel import Channel
 from app.models.Program import Program
 from app.utils.EDCB import CtrlCmdUtil
+from app.utils.EDCB import EDCBUtil
 from app.utils.EDCB import RecFileSetInfoRequired
 from app.utils.EDCB import RecSettingData
 from app.utils.EDCB import RecSettingDataRequired
 from app.utils.EDCB import ReserveData
 from app.utils.EDCB import ReserveDataRequired
+from app.utils.EDCB import ServiceEventInfo
 from app.utils.TSInformation import TSInformation
 
 
@@ -505,6 +508,47 @@ async def GetReserveData(
     )
 
 
+async def GetServiceEventInfo(
+    channel: Channel,
+    program: Program,
+    edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
+) -> ServiceEventInfo:
+    """ 指定されたチャンネル・番組情報に合致する番組情報 (ServiceEventInfo) を EDCB から取得する """
+    # EDCB からサービスと当該番組の開始時刻を指定して番組情報を取得
+    ## API 仕様がお世辞にも意味わからんのだが、一応これでほぼピンポイントで当該番組のみ取得できる
+    assert channel.transport_stream_id is not None, 'transport_stream_id is missing.'
+    search_event_infos = await edcb.sendEnumPgInfoEx([
+        # 絞り込み対象のネットワーク ID・トランスポートストリーム ID・サービス ID に掛けるビットマスク (?????)
+        ## 意味が分からないけどとりあえず今回はビットマスクは使用しないので 0 を指定
+        0,
+        # 絞り込み対象のネットワーク ID・トランスポートストリーム ID・サービス ID
+        ## (network_id << 32 | transport_stream_id << 16 | service_id) の形式で指定しなければならないらしい
+        channel.network_id << 32 | channel.transport_stream_id << 16 | channel.service_id,
+        # 絞り込み対象の番組開始時刻の最小値
+        EDCBUtil.datetimeToFileTime(program.start_time, timezone(timedelta(hours=9))),
+        # 絞り込み対象の番組開始時刻の最大値
+        EDCBUtil.datetimeToFileTime(program.start_time + timedelta(minutes=1), timezone(timedelta(hours=9))),
+    ])
+    # 番組情報が取得できなかった場合はエラーを返す
+    if search_event_infos is None or len(search_event_infos) == 0:
+        logging.error(f'[ReservesRouter][GetServiceEventInfo] Failed to get the program information [channel_id: {channel.id} / program_id: {program.id}]')
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = 'Failed to get the program information',
+        )
+    # イベント ID が一致する番組情報を探す
+    for search_event_info in search_event_infos:
+        if ('event_list' in search_event_info and len(search_event_info['event_list']) > 0 and
+            search_event_info['event_list'][0]['eid'] == program.event_id):
+            return search_event_info
+    # イベント ID が一致する番組情報が見つからなかった場合はエラーを返す
+    logging.error(f'[ReservesRouter][GetServiceEventInfo] Failed to get the program information [channel_id: {channel.id} / program_id: {program.id}]')
+    raise HTTPException(
+        status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail = 'Failed to get the program information',
+    )
+
+
 @router.get(
     '',
     summary = '録画予約情報一覧 API',
@@ -586,16 +630,38 @@ async def AddReserveAPI(
                 detail = 'The same program_id is already reserved',
             )
 
+    # EDCB から録画予約対象の番組に一致する ServiceEventInfo を取得
+    ## KonomiTV のデータベースに保存されているチャンネル名・番組名は表示上に半角に加工されているため、EDCB に設定するには不適切
+    ## 内部仕様がわからないけど予約に設定されている番組名と EPG 上の番組名が異なると予期せぬ問題が発生しそうな気もする
+    ## それ以外にも KonomiTV 側に保存されている情報が古くなっている可能性もあるため、毎回 EDCB から最新の情報を取得する
+    service_event_info = await GetServiceEventInfo(channel, program, edcb)
+
+    # ReserveData オブジェクトに設定するチャンネル情報・番組情報を取得
+    ## 放送時間未定運用などでごく稀に取得できないことも考えられるため、その場合は KonomiTV 側が持っている情報にフォールバックする
+    ## 当然 TSInformation.formatString() はかけずにそのままの情報を使う
+    ## ref: https://github.com/EMWUI/EDCB_Material_WebUI/blob/master/HttpPublic/api/SetReserve#L4-L39
+    title: str = program.title
+    start_time: datetime = program.start_time
+    duration_second: int = int(program.duration)
+    station_name: str = service_event_info['service_info']['service_name']
+    if len(service_event_info['event_list']) > 0:
+        if 'short_info' in service_event_info['event_list'][0]:
+            if 'event_name' in service_event_info['event_list'][0]['short_info']:
+                title = service_event_info['event_list'][0]['short_info']['event_name']
+        if 'start_time' in service_event_info['event_list'][0]:
+            start_time = service_event_info['event_list'][0]['start_time']
+        if 'duration_sec' in service_event_info['event_list'][0]:
+            duration_second = service_event_info['event_list'][0]['duration_sec']
+
     # EDCB の ReserveData オブジェクトを組み立てる
     ## 一見省略しても良さそうな録画予約対象のチャンネル情報や番組情報なども省略せずに全て含める必要がある (さもないと録画予約情報が破壊される…)
     ## ただし reserve_id / overlap_mode / rec_file_name_list は EDCB 側で自動設定される (?) ため省略している
-    ## ref: https://github.com/EMWUI/EDCB_Material_WebUI/blob/master/HttpPublic/api/SetReserve#L4-L39
     add_reserve_data: ReserveData = {
-        'title': program.title,
-        'start_time': program.start_time,
-        'start_time_epg': program.start_time,
-        'duration_second': int(program.duration),
-        'station_name': channel.name,
+        'title': title,
+        'start_time': start_time,
+        'start_time_epg': start_time,
+        'duration_second': duration_second,
+        'station_name': station_name,
         'onid': channel.network_id,
         'tsid': channel.transport_stream_id,
         'sid': channel.service_id,
@@ -666,7 +732,7 @@ async def UpdateReserveAPI(
     指定された録画予約の設定を更新する。
     """
 
-    # 現在の録画予約の ReserveData のうち録画設定のみを更新する形で EDCB に送信する
+    # 現在の録画予約の ReserveData に新しい録画設定を上書きマージする形で EDCB に送信する
     ## 一見省略しても良さそうな録画予約対象のチャンネル情報や番組情報なども省略せずに全て含める必要がある (さもないと録画予約情報が破壊される…)
     reserve_data['rec_setting'] = ConvertRecordSettingsToEDCBRecSettingData(reserve_update_request.record_settings)
 
