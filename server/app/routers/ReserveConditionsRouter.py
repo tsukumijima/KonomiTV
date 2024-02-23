@@ -284,9 +284,42 @@ def ConvertProgramSearchConditionToEDCBSearchKeyInfo(program_search_condition: s
     ## content_list は ContentData のリストになっている
     content_list: list[ContentData] = []
     if program_search_condition.genre_ranges is not None:
-        for _ in program_search_condition.genre_ranges:
-            pass
-            # TODO: genre を ContentData に変換する処理を追加する
+        for genre in program_search_condition.genre_ranges:
+            # KonomiTV では見栄えのために ／ を ・ に置換しているので、ここで元に戻す
+            major = genre['major'].replace('・', '／')
+            middle = genre['middle'].replace('・', '／')
+            # 万が一見つからなかった場合のデフォルト値
+            content_nibble_level1 = 0xF
+            content_nibble_level2 = 0xF
+            user_nibble = 0x0  # user_nibble はユーザージャンルがある場合のみ値が入る
+            # ariblib.constants.CONTENT_TYPE から文字列表現と一致する値を探す
+            for major_key, major_value in ariblib.constants.CONTENT_TYPE.items():
+                if major_value[0] == major:
+                    # content_nibble_level1 には大分類の値を入れる
+                    content_nibble_level1 = major_key
+                    # もし大分類が "拡張" の時のみ、中分類の文字列表現に当てはまるBS/地上デジタル放送用番組付属情報を探す
+                    # TODO: 本来は広帯域CSデジタル放送用拡張にも対応すべきだが、ariblib に対応する定数がなく各所で対応できてないため今のところ未対応
+                    if content_nibble_level1 == 0xE:
+                        for user_key, user_value in ariblib.constants.USER_TYPE.items():
+                            if user_value == middle:
+                                # content_nibble_level2 にはBS/地上デジタル放送用番組付属情報を示す値を入れる
+                                content_nibble_level2 = 0x0
+                                # user_nibble には中分類の値を入れる
+                                user_nibble = user_key
+                                break
+                    # 中分類の値を探す
+                    else:
+                        for middle_key, middle_value in major_value[1].items():
+                            if middle_value == middle:
+                                # content_nibble_level2 には中分類の値を入れる
+                                content_nibble_level2 = middle_key
+                                break
+            # EDCB の ContentData の content_nibble は content_nibble_level1 * 256 + content_nibble_level2 になっている
+            ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240221/Document/Readme_Mod.txt?plain=1#L1450
+            content_list.append({
+                'content_nibble': content_nibble_level1 * 256 + content_nibble_level2,
+                'user_nibble': user_nibble,
+            })
 
     # 検索対象を絞り込む放送日時の範囲のリスト
     ## date_list は SearchDateInfoRequired のリストになっている
