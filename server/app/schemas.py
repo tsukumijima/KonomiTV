@@ -430,6 +430,8 @@ class RecordingFolder(BaseModel):
     # 録画ファイル名テンプレート: RecName_Macro.dll によるファイル名テンプレートの文字列
     ## None のとき、RecName_Macro.dll のデフォルト設定に従う
     recording_file_name_template: str | None = None
+    # ワンセグ放送を別ファイルに同時録画する場合の録画フォルダかどうか
+    is_oneseg_recording_folder: bool = False
 
 # ***** データ放送 *****
 

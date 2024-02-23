@@ -267,14 +267,16 @@ def ConvertEDCBRecSettingDataToRecordSettings(rec_settings_data: RecSettingDataR
 
     # 保存先の録画フォルダのパスのリスト
     recording_folders: list[schemas.RecordingFolder] = []
-    for rec_folder in rec_settings_data['rec_folder_list']:
-        # rec_name_plug_in は ? 以降が録画ファイル名テンプレート (マクロ) の値になっているので抽出
-        ## RecName_Macro.dll?$title$.ts のような形式で返ってくる
-        recording_file_name_template = rec_folder['rec_name_plug_in'].split('?')[1] if '?' in rec_folder['rec_name_plug_in'] else ''
-        recording_folders.append(schemas.RecordingFolder(
-            recording_folder_path = rec_folder['rec_folder'],
-            recording_file_name_template = recording_file_name_template if recording_file_name_template != '' else None,
-        ))
+    for key in ('rec_folder_list', 'partial_rec_folder'):
+        for rec_folder in rec_settings_data[key]:
+            # rec_name_plug_in は ? 以降が録画ファイル名テンプレート (マクロ) の値になっているので抽出
+            ## RecName_Macro.dll?$title$.ts のような形式で返ってくる
+            recording_file_name_template = rec_folder['rec_name_plug_in'].split('?')[1] if '?' in rec_folder['rec_name_plug_in'] else ''
+            recording_folders.append(schemas.RecordingFolder(
+                recording_folder_path = rec_folder['rec_folder'],
+                recording_file_name_template = recording_file_name_template if recording_file_name_template != '' else None,
+                is_oneseg_recording_folder = key == 'partial_rec_folder',
+            ))
 
     # イベントリレーの追従を行うかどうか
     is_event_relay_follow_enabled: bool = rec_settings_data['tuijyuu_flag']
@@ -397,19 +399,28 @@ def ConvertRecordSettingsToEDCBRecSettingData(record_settings: schemas.RecordSet
 
     # 保存先の録画フォルダのパスのリスト
     rec_folder_list: list[RecFileSetInfoRequired] = []
-    for rec_folder in record_settings.recording_folders:
+    partial_rec_folder: list[RecFileSetInfoRequired] = []
+    for recording_folder in record_settings.recording_folders:
         # TS 書き込みプラグインは基本 Write_Default.dll しかないので固定
         ## 一応 Write_OneService.dll や Write_Multi とかがなくもないが、利用用途があるのかすら知らないため無視
         write_plug_in = 'Write_Default.dll'
         # 録画ファイル名変更プラグインは RecName_Macro.dll しかないので固定
         rec_name_plug_in = ''
-        if rec_folder.recording_file_name_template is not None:
-            rec_name_plug_in = f'RecName_Macro.dll?{rec_folder.recording_file_name_template}'
-        rec_folder_list.append({
-            'rec_folder': rec_folder.recording_folder_path,
-            'write_plug_in': write_plug_in,
-            'rec_name_plug_in': rec_name_plug_in,
-        })
+        if recording_folder.recording_file_name_template is not None:
+            rec_name_plug_in = f'RecName_Macro.dll?{recording_folder.recording_file_name_template}'
+        # ワンセグ録画フォルダかどうかで分ける
+        if recording_folder.is_oneseg_recording_folder is False:
+            rec_folder_list.append({
+                'rec_folder': recording_folder.recording_folder_path,
+                'write_plug_in': write_plug_in,
+                'rec_name_plug_in': rec_name_plug_in,
+            })
+        else:
+            partial_rec_folder.append({
+                'rec_folder': recording_folder.recording_folder_path,
+                'write_plug_in': write_plug_in,
+                'rec_name_plug_in': rec_name_plug_in,
+            })
 
     # 録画後の動作モード: デフォルト設定に従う / 何もしない / スタンバイ / 休止 / シャットダウン / 再起動
     suspend_mode: int = 0
@@ -446,10 +457,6 @@ def ConvertRecordSettingsToEDCBRecSettingData(record_settings: schemas.RecordSet
     tuner_id: int = 0
     if record_settings.forced_tuner_id is not None:
         tuner_id = record_settings.forced_tuner_id
-
-    # ワンセグ放送を別ファイルに同時録画する場合の録画フォルダのパスのリスト
-    ## ほとんど使われていないと考えられるため KonomiTV のモデル構造には含まれておらず、常に空リストを渡す
-    partial_rec_folder: list[RecFileSetInfoRequired] = []
 
     # EDCB の RecSettingData オブジェクトを作成
     rec_setting_data: RecSettingDataRequired = {
