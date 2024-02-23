@@ -1,6 +1,7 @@
 
 import ariblib.constants
 from fastapi import APIRouter
+from fastapi import Body
 from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import Path
@@ -11,9 +12,15 @@ from app import logging
 from app import schemas
 from app.models.Channel import Channel
 from app.routers.ReservesRouter import ConvertEDCBRecSettingDataToRecordSettings
+from app.routers.ReservesRouter import ConvertRecordSettingsToEDCBRecSettingData
 from app.routers.ReservesRouter import GetCtrlCmdUtil
-from app.utils.EDCB import CtrlCmdUtil
+from app.utils.EDCB import AutoAddData
 from app.utils.EDCB import AutoAddDataRequired
+from app.utils.EDCB import ContentData
+from app.utils.EDCB import CtrlCmdUtil
+from app.utils.EDCB import RecSettingData
+from app.utils.EDCB import SearchDateInfoRequired
+from app.utils.EDCB import SearchKeyInfo
 from app.utils.EDCB import SearchKeyInfoRequired
 from app.utils.TSInformation import TSInformation
 
@@ -245,6 +252,84 @@ async def ConvertEDCBSearchKeyInfoToProgramSearchCondition(search_info: SearchKe
     )
 
 
+def ConvertProgramSearchConditionToEDCBSearchKeyInfo(program_search_condition: schemas.ProgramSearchCondition) -> SearchKeyInfoRequired:
+    """
+    schemas.ProgramSearchCondition オブジェクトを EDCB の SearchKeyInfo オブジェクトに変換する
+
+    Args:
+        program_search_condition (schemas.ProgramSearchCondition): schemas.ProgramSearchCondition オブジェクト
+
+    Returns:
+        SearchKeyInfoRequired: EDCB の SearchKeyInfo オブジェクト
+    """
+
+    # 番組の放送種別で絞り込む: すべて / 無料のみ / 有料のみ
+    free_ca_flag: int = 0
+    if program_search_condition.broadcast_type == 'All':
+        free_ca_flag = 0
+    elif program_search_condition.broadcast_type == 'FreeOnly':
+        free_ca_flag = 1
+    elif program_search_condition.broadcast_type == 'PaidOnly':
+        free_ca_flag = 2
+
+    # 検索対象を絞り込むチャンネル範囲ののリスト
+    ## service_list は (NID << 32 | TSID << 16 | SID) のリストになっている
+    service_list: list[int] = []
+    if program_search_condition.channel_ranges is not None:
+        for channel in program_search_condition.channel_ranges:
+            assert channel.transport_stream_id is not None, 'transport_stream_id is missing.'
+            service_list.append(channel.network_id << 32 | channel.transport_stream_id << 16 | channel.service_id)
+
+    # 検索対象を絞り込むジャンルの範囲のリスト
+    ## content_list は ContentData のリストになっている
+    content_list: list[ContentData] = []
+    if program_search_condition.genre_ranges is not None:
+        for _ in program_search_condition.genre_ranges:
+            pass
+            # TODO: genre を ContentData に変換する処理を追加する
+
+    # 検索対象を絞り込む放送日時の範囲のリスト
+    ## date_list は SearchDateInfoRequired のリストになっている
+    date_list: list[SearchDateInfoRequired] = []
+    if program_search_condition.date_ranges is not None:
+        for date in program_search_condition.date_ranges:
+            # これだけデータ構造がキー名以外 EDCB と KonomiTV で同一なのでそのまま追加
+            date_list.append({
+                'start_day_of_week': date.start_day_of_week,
+                'start_hour': date.start_hour,
+                'start_min': date.start_minute,
+                'end_day_of_week': date.end_day_of_week,
+                'end_hour': date.end_hour,
+                'end_min': date.end_minute,
+            })
+
+    # EDCB の SearchKeyInfo オブジェクトを作成
+    search_info: SearchKeyInfoRequired = {
+        'and_key': program_search_condition.keyword,
+        'not_key': program_search_condition.exclude_keyword,
+        'key_disabled': not program_search_condition.is_enabled,
+        'case_sensitive': program_search_condition.is_case_sensitive,
+        'reg_exp_flag': program_search_condition.is_regex_search_enabled,
+        'title_only_flag': program_search_condition.is_title_only,
+        'content_list': content_list,
+        'date_list': date_list,
+        'service_list': service_list,
+        'video_list': [],  # 未使用
+        'audio_list': [],  # 未使用
+        'aimai_flag': program_search_condition.is_fuzzy_search_enabled,
+        'not_contet_flag': program_search_condition.is_exclude_genres,
+        'not_date_flag': program_search_condition.is_exclude_dates,
+        'free_ca_flag': free_ca_flag,
+        'chk_rec_end': program_search_condition.duplicate_title_check_scope != 'None',
+        'chk_rec_day': program_search_condition.duplicate_title_check_period_days,
+        'chk_rec_no_service': program_search_condition.duplicate_title_check_scope == 'AllChannels',
+        'chk_duration_min': program_search_condition.duration_range_min if program_search_condition.duration_range_min is not None else 0,
+        'chk_duration_max': program_search_condition.duration_range_max if program_search_condition.duration_range_max is not None else 0,
+    }
+
+    return search_info
+
+
 async def GetAutoAddDataList(
     edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ) -> list[AutoAddDataRequired]:
@@ -302,6 +387,37 @@ async def ReserveConditionsAPI(
     reserve_conditions = [await ConvertEDCBAutoAddDataToReserveCondition(auto_add_data) for auto_add_data in auto_add_data_list]
 
     return schemas.ReserveConditions(total=len(reserve_conditions), reserve_conditions=reserve_conditions)
+
+
+@router.post(
+    '',
+    summary = 'キーワード自動予約条件登録 API',
+    status_code = status.HTTP_201_CREATED,
+)
+async def RegisterReserveConditionAPI(
+    reserve_condition_add_request: Annotated[schemas.ReserveConditionAddRequest, Body(description='登録するキーワード自動予約条件。')],
+    edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
+):
+    """
+    キーワード自動予約条件を登録する。
+    """
+
+    # EDCB の AutoAddData オブジェクトを組み立てる
+    ## data_id は EDCB 側で自動で割り振られるため省略している
+    auto_add_data: AutoAddData = {
+        'search_info': cast(SearchKeyInfo, ConvertProgramSearchConditionToEDCBSearchKeyInfo(reserve_condition_add_request.program_search_condition)),
+        'rec_setting': cast(RecSettingData, ConvertRecordSettingsToEDCBRecSettingData(reserve_condition_add_request.record_settings)),
+    }
+
+    # EDCB にキーワード自動予約条件を登録するように指示
+    result = await edcb.sendAddAutoAdd([auto_add_data])
+    if result is False:
+        # False が返ってきた場合はエラーを返す
+        logging.error('[ReserveConditionsRouter][RegisterReserveConditionAPI] Failed to register the reserve condition')
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = 'Failed to register the reserve condition',
+        )
 
 
 @router.get(
