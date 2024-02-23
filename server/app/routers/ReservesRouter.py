@@ -599,8 +599,7 @@ async def ReservesAPI(
 @router.post(
     '',
     summary = '録画予約追加 API',
-    response_description = '追加された録画予約の情報。',
-    response_model = schemas.Reserve,
+    status_code = status.HTTP_201_CREATED,
 )
 async def AddReserveAPI(
     reserve_add_request: Annotated[schemas.ReserveAddRequest, Body(description='追加する録画予約の設定。')],
@@ -693,24 +692,7 @@ async def AddReserveAPI(
             detail = 'Failed to add a recording reservation',
         )
 
-    # この時点ではどの録画予約 ID で追加されたかがわからないので、上記四種の ID に一致する録画予約を探す
-    reserve_data_list = await GetReserveDataList(edcb)
-
-    # 追加された録画予約の情報を取得して返す
-    for reserve_data in reserve_data_list:
-        if (reserve_data['onid'] == channel.network_id and
-            reserve_data['tsid'] == channel.transport_stream_id and
-            reserve_data['sid'] == channel.service_id and
-            reserve_data['eid'] == program.event_id):
-            # EDCB の ReserveData オブジェクトを schemas.Reserve オブジェクトに変換して返す
-            return await ConvertEDCBReserveDataToReserve(reserve_data)
-
-    # ここに到達することは基本ないはずだが、もし到達した場合は正常に追加されていない可能性が高いためエラーを返す
-    logging.error('[ReservesRouter][AddReserveAPI] Failed to get the added recording reservation')
-    raise HTTPException(
-        status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail = 'Failed to get the added recording reservation',
-    )
+    # どの録画予約 ID で追加されたかは sendAddReserve() のレスポンスからは取れないので、201 Created を返す
 
 
 @router.get(

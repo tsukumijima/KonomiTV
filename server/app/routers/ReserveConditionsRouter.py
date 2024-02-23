@@ -419,6 +419,8 @@ async def RegisterReserveConditionAPI(
             detail = 'Failed to register the reserve condition',
         )
 
+    # どのキーワード自動予約条件 ID で追加されたかは sendAddAutoAdd() のレスポンスからは取れないので、201 Created を返す
+
 
 @router.get(
     '/{reserve_condition_id}',
@@ -435,6 +437,40 @@ async def ReserveConditionAPI(
 
     # EDCB の AutoAddData オブジェクトを schemas.ReserveCondition オブジェクトに変換して返す
     return await ConvertEDCBAutoAddDataToReserveCondition(auto_add_data)
+
+
+@router.put(
+    '/{reserve_condition_id}',
+    summary = 'キーワード自動予約条件更新 API',
+    response_description = '更新されたキーワード自動予約条件。',
+    response_model = schemas.ReserveCondition,
+)
+async def UpdateReserveConditionAPI(
+    auto_add_data: Annotated[AutoAddDataRequired, Depends(GetAutoAddData)],
+    reserve_condition_update_request: Annotated[schemas.ReserveConditionUpdateRequest, Body(description='更新するキーワード自動予約条件。')],
+    edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
+):
+    """
+    指定されたキーワード自動予約条件を更新する。
+    """
+
+    # 現在のキーワード自動予約条件の AutoAddData に新しい検索条件・録画設定を上書きマージする形で EDCB に送信する
+    auto_add_data['search_info'] = ConvertProgramSearchConditionToEDCBSearchKeyInfo(reserve_condition_update_request.program_search_condition)
+    auto_add_data['rec_setting'] = ConvertRecordSettingsToEDCBRecSettingData(reserve_condition_update_request.record_settings)
+
+    # EDCB に指定されたキーワード自動予約条件を更新するように指示
+    result = await edcb.sendChgAutoAdd([cast(AutoAddData, auto_add_data)])
+    if result is False:
+        # False が返ってきた場合はエラーを返す
+        logging.error('[ReserveConditionsRouter][UpdateReserveConditionAPI] Failed to update the specified reserve condition '
+                      f'[reserve_condition_id: {auto_add_data["data_id"]}]')
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = 'Failed to update the specified reserve condition',
+        )
+
+    # 更新されたキーワード自動予約条件の情報を schemas.ReserveCondition オブジェクトに変換して返す
+    return await ConvertEDCBAutoAddDataToReserveCondition(await GetAutoAddData(auto_add_data['data_id'], edcb))
 
 
 @router.delete(
