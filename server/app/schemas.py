@@ -337,12 +337,12 @@ class ProgramSearchCondition(BaseModel):
     ## 指定しない場合は None になる
     genre_ranges: list[Genre] | None = None
     # genre_ranges で指定したジャンルを逆に検索対象から除外するかどうか
-    is_exclude_genres: bool = False
+    is_exclude_genre_ranges: bool = False
     # 検索対象を絞り込む放送日時の範囲のリスト
     ## 指定しない場合は None になる
     date_ranges: list[ProgramSearchConditionDate] | None = None
     # date_ranges で指定した放送日時を逆に検索対象から除外するかどうか
-    is_exclude_dates: bool = False
+    is_exclude_date_ranges: bool = False
     # 番組長で絞り込む最小範囲 (分)
     ## 指定しない場合は None になる
     duration_range_min: Annotated[int, Field(ge=0)] | None = None
@@ -431,7 +431,7 @@ class RecordingFolder(BaseModel):
     ## None のとき、RecName_Macro.dll のデフォルト設定に従う
     recording_file_name_template: str | None = None
     # ワンセグ放送を別ファイルに同時録画する場合の録画フォルダかどうか
-    is_oneseg_recording_folder: bool = False
+    is_oneseg_separate_recording_folder: bool = False
 
 # ***** データ放送 *****
 

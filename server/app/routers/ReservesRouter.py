@@ -275,7 +275,7 @@ def ConvertEDCBRecSettingDataToRecordSettings(rec_settings_data: RecSettingDataR
             recording_folders.append(schemas.RecordingFolder(
                 recording_folder_path = rec_folder['rec_folder'],
                 recording_file_name_template = recording_file_name_template if recording_file_name_template != '' else None,
-                is_oneseg_recording_folder = key == 'partial_rec_folder',
+                is_oneseg_separate_recording_folder = key == 'partial_rec_folder',
             ))
 
     # イベントリレーの追従を行うかどうか
@@ -409,7 +409,7 @@ def ConvertRecordSettingsToEDCBRecSettingData(record_settings: schemas.RecordSet
         if recording_folder.recording_file_name_template is not None:
             rec_name_plug_in = f'RecName_Macro.dll?{recording_folder.recording_file_name_template}'
         # ワンセグ録画フォルダかどうかで分ける
-        if recording_folder.is_oneseg_recording_folder is False:
+        if recording_folder.is_oneseg_separate_recording_folder is False:
             rec_folder_list.append({
                 'rec_folder': recording_folder.recording_folder_path,
                 'write_plug_in': write_plug_in,

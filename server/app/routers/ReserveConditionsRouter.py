@@ -175,7 +175,7 @@ async def ConvertEDCBSearchKeyInfoToProgramSearchCondition(search_info: SearchKe
             genre_ranges.append(genre_dict)
 
     # genre_ranges で指定したジャンルを逆に検索対象から除外するかどうか
-    is_exclude_genres: bool = search_info['not_contet_flag']
+    is_exclude_genre_ranges: bool = search_info['not_contet_flag']
 
     # 検索対象を絞り込む放送日時の範囲のリスト
     ## 指定しない場合は None になる
@@ -193,7 +193,7 @@ async def ConvertEDCBSearchKeyInfoToProgramSearchCondition(search_info: SearchKe
         ))
 
     # date_ranges で指定した放送日時を逆に検索対象から除外するかどうか
-    is_exclude_dates: bool = search_info['not_date_flag']
+    is_exclude_date_ranges: bool = search_info['not_date_flag']
 
     # 番組長で絞り込む最小範囲 (秒)
     ## 指定しない場合は None になる
@@ -241,9 +241,9 @@ async def ConvertEDCBSearchKeyInfoToProgramSearchCondition(search_info: SearchKe
         is_regex_search_enabled = is_regex_search_enabled,
         channel_ranges = cast(Any, channel_ranges),
         genre_ranges = genre_ranges,
-        is_exclude_genres = is_exclude_genres,
+        is_exclude_genre_ranges = is_exclude_genre_ranges,
         date_ranges = date_ranges,
-        is_exclude_dates = is_exclude_dates,
+        is_exclude_date_ranges = is_exclude_date_ranges,
         duration_range_min = duration_range_min,
         duration_range_max = duration_range_max,
         broadcast_type = broadcast_type,
@@ -317,8 +317,8 @@ def ConvertProgramSearchConditionToEDCBSearchKeyInfo(program_search_condition: s
         'video_list': [],  # 未使用
         'audio_list': [],  # 未使用
         'aimai_flag': program_search_condition.is_fuzzy_search_enabled,
-        'not_contet_flag': program_search_condition.is_exclude_genres,
-        'not_date_flag': program_search_condition.is_exclude_dates,
+        'not_contet_flag': program_search_condition.is_exclude_genre_ranges,
+        'not_date_flag': program_search_condition.is_exclude_date_ranges,
         'free_ca_flag': free_ca_flag,
         'chk_rec_end': program_search_condition.duplicate_title_check_scope != 'None',
         'chk_rec_day': program_search_condition.duplicate_title_check_period_days,
