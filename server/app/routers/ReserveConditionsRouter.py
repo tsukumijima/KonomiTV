@@ -99,12 +99,12 @@ async def ConvertEDCBSearchKeyInfoToProgramSearchCondition(search_info: SearchKe
     # 正規表現で検索するかどうか
     is_regex_search_enabled: bool = search_info['reg_exp_flag']
 
-    # 検索対象を絞り込むチャンネル範囲ののリスト
-    ## 指定しない場合は None になる
-    channel_ranges: list[Channel] | None = None
+    # 検索対象を絞り込むチャンネル範囲のリスト
+    ## 空リストの場合は何もヒットしないため、全選択で全てのチャンネルを検索対象にするには全チャンネルの情報を入れる必要がある
+    ## 全てのチャンネルを検索対象にすると検索処理が比較的重くなるので、可能であれば絞り込む方が望ましいとのこと
+    ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Document/Readme_Mod.txt?plain=1#L165-L170
+    channel_ranges: list[Channel] = []
     for service in search_info['service_list']:
-        if channel_ranges is None:
-            channel_ranges = []
         # service_list は (NID << 32 | TSID << 16 | SID) のリストになっているので、まずはそれらの値を分解する
         network_id = service >> 32
         transport_stream_id = (service >> 16) & 0xffff
@@ -143,7 +143,7 @@ async def ConvertEDCBSearchKeyInfoToProgramSearchCondition(search_info: SearchKe
             channel.is_subchannel = channel.calculateIsSubchannel()
             channel_ranges.append(channel)
 
-    # 検索対象を絞り込むジャンルの範囲のリスト
+    # 検索対象を絞り込むジャンル範囲のリスト
     ## 指定しない場合は None になる
     ## 以下の処理は app.models.Program から移植して少し調整したもの
     genre_ranges: list[schemas.Genre] | None = None
@@ -177,7 +177,7 @@ async def ConvertEDCBSearchKeyInfoToProgramSearchCondition(search_info: SearchKe
     # genre_ranges で指定したジャンルを逆に検索対象から除外するかどうか
     is_exclude_genre_ranges: bool = search_info['not_contet_flag']
 
-    # 検索対象を絞り込む放送日時の範囲のリスト
+    # 検索対象を絞り込む放送日時範囲のリスト
     ## 指定しない場合は None になる
     date_ranges: list[schemas.ProgramSearchConditionDate] | None = None
     for date in search_info['date_list']:
@@ -272,7 +272,7 @@ def ConvertProgramSearchConditionToEDCBSearchKeyInfo(program_search_condition: s
     elif program_search_condition.broadcast_type == 'PaidOnly':
         free_ca_flag = 2
 
-    # 検索対象を絞り込むチャンネル範囲ののリスト
+    # 検索対象を絞り込むチャンネル範囲のリスト
     ## service_list は (NID << 32 | TSID << 16 | SID) のリストになっている
     service_list: list[int] = []
     if program_search_condition.channel_ranges is not None:
@@ -280,7 +280,7 @@ def ConvertProgramSearchConditionToEDCBSearchKeyInfo(program_search_condition: s
             assert channel.transport_stream_id is not None, 'transport_stream_id is missing.'
             service_list.append(channel.network_id << 32 | channel.transport_stream_id << 16 | channel.service_id)
 
-    # 検索対象を絞り込むジャンルの範囲のリスト
+    # 検索対象を絞り込むジャンル範囲のリスト
     ## content_list は ContentData のリストになっている
     content_list: list[ContentData] = []
     if program_search_condition.genre_ranges is not None:
@@ -321,7 +321,7 @@ def ConvertProgramSearchConditionToEDCBSearchKeyInfo(program_search_condition: s
                 'user_nibble': user_nibble,
             })
 
-    # 検索対象を絞り込む放送日時の範囲のリスト
+    # 検索対象を絞り込む放送日時範囲のリスト
     ## date_list は SearchDateInfoRequired のリストになっている
     date_list: list[SearchDateInfoRequired] = []
     if program_search_condition.date_ranges is not None:
