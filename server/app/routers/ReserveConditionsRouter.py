@@ -289,8 +289,8 @@ def ConvertProgramSearchConditionToEDCBSearchKeyInfo(program_search_condition: s
             major = genre['major'].replace('・', '／')
             middle = genre['middle'].replace('・', '／')
             # 万が一見つからなかった場合のデフォルト値
-            content_nibble_level1 = 0xF
-            content_nibble_level2 = 0xF
+            content_nibble_level1 = 0xF  # "その他"
+            content_nibble_level2 = 0xF  # "その他"
             user_nibble = 0x0  # user_nibble はユーザージャンルがある場合のみ値が入る
             # ariblib.constants.CONTENT_TYPE から文字列表現と一致する値を探す
             for major_key, major_value in ariblib.constants.CONTENT_TYPE.items():
@@ -307,6 +307,12 @@ def ConvertProgramSearchConditionToEDCBSearchKeyInfo(program_search_condition: s
                                 # user_nibble には中分類の値を入れる
                                 user_nibble = user_key
                                 break
+                    # もし中分類の文字列が "すべて" だった場合、その大分類の全ての中分類を検索対象にする
+                    elif middle == 'すべて':
+                        # 0xFF は全ての中分類を示す (おそらく EDCB 独自仕様？)
+                        ## 本来の放送波に含まれる content_nibble_level2 は 4 ビットの値なので本来は 0x0 ~ 0xF までの値が入る
+                        content_nibble_level2 = 0xFF
+                        break
                     # 中分類の値を探す
                     else:
                         for middle_key, middle_value in major_value[1].items():
