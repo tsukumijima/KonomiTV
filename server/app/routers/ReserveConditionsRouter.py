@@ -1,5 +1,6 @@
 
 import ariblib.constants
+import re
 from fastapi import APIRouter
 from fastapi import Body
 from fastapi import Depends
@@ -85,7 +86,17 @@ async def ConvertEDCBSearchKeyInfoToProgramSearchCondition(search_info: SearchKe
     keyword: str = search_info['and_key']
 
     # 除外キーワード
-    exclude_keyword: str = search_info['not_key']
+    ## 後述のメモ欄が :note: から始まる除外キーワードになっているので除去している
+    ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240221/EpgTimer/EpgTimer/DefineClass/EpgAutoDataItem.cs#L35-L38
+    exclude_keyword: str = re.sub(r'^:note:[^ 　]*[ 　]?', '', search_info['not_key'])
+
+    # メモ欄
+    ## EDCB の内部実装上は :note: から始まる除外キーワードになっているので抽出する
+    ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240221/EpgTimer/EpgTimer/DefineClass/EpgAutoDataItem.cs#L39-L50
+    note: str = ''
+    note_match = re.match(r"^:note:([^ 　]*)", search_info['not_key'])
+    if note_match is not None:
+        note = note_match.group(1).replace('\\s', ' ').replace('\\m', '　').replace('\\\\', '\\')
 
     # 番組名のみを検索対象とするかどうか
     is_title_only: bool = search_info['title_only_flag']
@@ -235,6 +246,7 @@ async def ConvertEDCBSearchKeyInfoToProgramSearchCondition(search_info: SearchKe
         is_enabled = is_enabled,
         keyword = keyword,
         exclude_keyword = exclude_keyword,
+        note = note,
         is_title_only = is_title_only,
         is_case_sensitive = is_case_sensitive,
         is_fuzzy_search_enabled = is_fuzzy_search_enabled,
@@ -262,6 +274,14 @@ def ConvertProgramSearchConditionToEDCBSearchKeyInfo(program_search_condition: s
     Returns:
         SearchKeyInfoRequired: EDCB の SearchKeyInfo オブジェクト
     """
+
+    ## メモ欄は EDCB の内部実装上は :note: から始まる除外キーワードになっているので再構築する
+    ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240221/EpgTimer/EpgTimer/UserCtrlView/SearchKeyView.xaml.cs#L141-L142
+    not_key: str = program_search_condition.exclude_keyword
+    if program_search_condition.note != '':
+        not_key = ':note:' + program_search_condition.note.replace('\\', '\\\\').replace(' ', '\\s').replace('　', '\\m')
+        if program_search_condition.exclude_keyword != '':
+            not_key += f' {program_search_condition.exclude_keyword}'  # 半角スペースを挟んでから元の除外キーワードを追加
 
     # 番組の放送種別で絞り込む: すべて / 無料のみ / 有料のみ
     free_ca_flag: int = 0
@@ -345,7 +365,7 @@ def ConvertProgramSearchConditionToEDCBSearchKeyInfo(program_search_condition: s
     # EDCB の SearchKeyInfo オブジェクトを作成
     search_info: SearchKeyInfoRequired = {
         'and_key': program_search_condition.keyword,
-        'not_key': program_search_condition.exclude_keyword,
+        'not_key': not_key,
         'key_disabled': not program_search_condition.is_enabled,
         'case_sensitive': program_search_condition.is_case_sensitive,
         'reg_exp_flag': program_search_condition.is_regex_search_enabled,
@@ -353,8 +373,8 @@ def ConvertProgramSearchConditionToEDCBSearchKeyInfo(program_search_condition: s
         'content_list': content_list,
         'date_list': date_list,
         'service_list': service_list,
-        'video_list': [],  # 未使用
-        'audio_list': [],  # 未使用
+        'video_list': [],  # 内部で未使用らしい
+        'audio_list': [],  # 内部で未使用らしい
         'aimai_flag': program_search_condition.is_fuzzy_search_enabled,
         'not_contet_flag': program_search_condition.is_exclude_genre_ranges,
         'not_date_flag': program_search_condition.is_exclude_date_ranges,

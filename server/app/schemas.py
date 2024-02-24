@@ -322,6 +322,8 @@ class ProgramSearchCondition(BaseModel):
     keyword: str = ''
     # 除外キーワード
     exclude_keyword: str = ''
+    # メモ欄
+    note: str = ''
     # 番組名のみを検索対象とするかどうか
     is_title_only: bool = False
     # 大文字小文字を区別するかどうか
