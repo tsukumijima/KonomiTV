@@ -12,8 +12,8 @@ from typing import Annotated, Any, cast, Literal
 from app import logging
 from app import schemas
 from app.models.Channel import Channel
-from app.routers.ReservesRouter import ConvertEDCBRecSettingDataToRecordSettings
-from app.routers.ReservesRouter import ConvertRecordSettingsToEDCBRecSettingData
+from app.routers.ReservesRouter import DecodeEDCBRecSettingData
+from app.routers.ReservesRouter import EncodeEDCBRecSettingData
 from app.routers.ReservesRouter import GetCtrlCmdUtil
 from app.utils.EDCB import AutoAddData
 from app.utils.EDCB import AutoAddDataRequired
@@ -33,7 +33,7 @@ router = APIRouter(
 )
 
 
-async def ConvertEDCBAutoAddDataToReserveCondition(auto_add_data: AutoAddDataRequired) -> schemas.ReserveCondition:
+async def DecodeEDCBAutoAddData(auto_add_data: AutoAddDataRequired) -> schemas.ReserveCondition:
     """
     EDCB の AutoAddData オブジェクトを schemas.ReserveCondition オブジェクトに変換する
 
@@ -51,10 +51,10 @@ async def ConvertEDCBAutoAddDataToReserveCondition(auto_add_data: AutoAddDataReq
     reserve_count = auto_add_data['add_count']
 
     # 番組検索条件
-    program_search_condition = await ConvertEDCBSearchKeyInfoToProgramSearchCondition(auto_add_data['search_info'])
+    program_search_condition = await DecodeEDCBSearchKeyInfo(auto_add_data['search_info'])
 
     # 録画設定
-    record_settings = ConvertEDCBRecSettingDataToRecordSettings(auto_add_data['rec_setting'])
+    record_settings = DecodeEDCBRecSettingData(auto_add_data['rec_setting'])
 
     return schemas.ReserveCondition(
         id = reserve_condition_id,
@@ -64,7 +64,7 @@ async def ConvertEDCBAutoAddDataToReserveCondition(auto_add_data: AutoAddDataReq
     )
 
 
-async def ConvertEDCBSearchKeyInfoToProgramSearchCondition(search_info: SearchKeyInfoRequired) -> schemas.ProgramSearchCondition:
+async def DecodeEDCBSearchKeyInfo(search_info: SearchKeyInfoRequired) -> schemas.ProgramSearchCondition:
     """
     EDCB の SearchKeyInfo オブジェクトを schemas.ProgramSearchCondition オブジェクトに変換する
 
@@ -264,7 +264,7 @@ async def ConvertEDCBSearchKeyInfoToProgramSearchCondition(search_info: SearchKe
     )
 
 
-def ConvertProgramSearchConditionToEDCBSearchKeyInfo(program_search_condition: schemas.ProgramSearchCondition) -> SearchKeyInfoRequired:
+def EncodeEDCBSearchKeyInfo(program_search_condition: schemas.ProgramSearchCondition) -> SearchKeyInfoRequired:
     """
     schemas.ProgramSearchCondition オブジェクトを EDCB の SearchKeyInfo オブジェクトに変換する
 
@@ -443,7 +443,7 @@ async def ReserveConditionsAPI(
         return schemas.ReserveConditions(total=0, reserve_conditions=[])
 
     # EDCB の AutoAddData オブジェクトを schemas.ReserveCondition オブジェクトに変換
-    reserve_conditions = [await ConvertEDCBAutoAddDataToReserveCondition(auto_add_data) for auto_add_data in auto_add_data_list]
+    reserve_conditions = [await DecodeEDCBAutoAddData(auto_add_data) for auto_add_data in auto_add_data_list]
 
     return schemas.ReserveConditions(total=len(reserve_conditions), reserve_conditions=reserve_conditions)
 
@@ -464,8 +464,8 @@ async def RegisterReserveConditionAPI(
     # EDCB の AutoAddData オブジェクトを組み立てる
     ## data_id は EDCB 側で自動で割り振られるため省略している
     auto_add_data: AutoAddData = {
-        'search_info': cast(SearchKeyInfo, ConvertProgramSearchConditionToEDCBSearchKeyInfo(reserve_condition_add_request.program_search_condition)),
-        'rec_setting': cast(RecSettingData, ConvertRecordSettingsToEDCBRecSettingData(reserve_condition_add_request.record_settings)),
+        'search_info': cast(SearchKeyInfo, EncodeEDCBSearchKeyInfo(reserve_condition_add_request.program_search_condition)),
+        'rec_setting': cast(RecSettingData, EncodeEDCBRecSettingData(reserve_condition_add_request.record_settings)),
     }
 
     # EDCB にキーワード自動予約条件を登録するように指示
@@ -495,7 +495,7 @@ async def ReserveConditionAPI(
     """
 
     # EDCB の AutoAddData オブジェクトを schemas.ReserveCondition オブジェクトに変換して返す
-    return await ConvertEDCBAutoAddDataToReserveCondition(auto_add_data)
+    return await DecodeEDCBAutoAddData(auto_add_data)
 
 
 @router.put(
@@ -514,8 +514,8 @@ async def UpdateReserveConditionAPI(
     """
 
     # 現在のキーワード自動予約条件の AutoAddData に新しい検索条件・録画設定を上書きマージする形で EDCB に送信する
-    auto_add_data['search_info'] = ConvertProgramSearchConditionToEDCBSearchKeyInfo(reserve_condition_update_request.program_search_condition)
-    auto_add_data['rec_setting'] = ConvertRecordSettingsToEDCBRecSettingData(reserve_condition_update_request.record_settings)
+    auto_add_data['search_info'] = EncodeEDCBSearchKeyInfo(reserve_condition_update_request.program_search_condition)
+    auto_add_data['rec_setting'] = EncodeEDCBRecSettingData(reserve_condition_update_request.record_settings)
 
     # EDCB に指定されたキーワード自動予約条件を更新するように指示
     result = await edcb.sendChgAutoAdd([cast(AutoAddData, auto_add_data)])
@@ -529,7 +529,7 @@ async def UpdateReserveConditionAPI(
         )
 
     # 更新されたキーワード自動予約条件の情報を schemas.ReserveCondition オブジェクトに変換して返す
-    return await ConvertEDCBAutoAddDataToReserveCondition(await GetAutoAddData(auto_add_data['data_id'], edcb))
+    return await DecodeEDCBAutoAddData(await GetAutoAddData(auto_add_data['data_id'], edcb))
 
 
 @router.delete(

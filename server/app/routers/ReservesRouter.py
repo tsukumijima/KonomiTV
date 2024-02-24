@@ -35,7 +35,7 @@ router = APIRouter(
 )
 
 
-async def ConvertEDCBReserveDataToReserve(reserve_data: ReserveDataRequired, channels: list[Channel] | None = None) -> schemas.Reserve:
+async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: list[Channel] | None = None) -> schemas.Reserve:
     """
     EDCB の ReserveData オブジェクトを schemas.Reserve オブジェクトに変換する
 
@@ -183,7 +183,7 @@ async def ConvertEDCBReserveDataToReserve(reserve_data: ReserveDataRequired, cha
         scheduled_recording_file_name = reserve_data['rec_file_name_list'][0]
 
     # 録画設定
-    record_settings = ConvertEDCBRecSettingDataToRecordSettings(reserve_data['rec_setting'])
+    record_settings = DecodeEDCBRecSettingData(reserve_data['rec_setting'])
 
     # Tortoise ORM モデルは本来 Pydantic モデルと型が非互換だが、FastAPI がよしなに変換してくれるので雑に Any にキャストしている
     ## 逆に自前で変換する方法がわからない…
@@ -199,7 +199,7 @@ async def ConvertEDCBReserveDataToReserve(reserve_data: ReserveDataRequired, cha
     )
 
 
-def ConvertEDCBRecSettingDataToRecordSettings(rec_settings_data: RecSettingDataRequired) -> schemas.RecordSettings:
+def DecodeEDCBRecSettingData(rec_settings_data: RecSettingDataRequired) -> schemas.RecordSettings:
     """
     EDCB の RecSettingData オブジェクトを schemas.RecordSettings オブジェクトに変換する
 
@@ -332,7 +332,7 @@ def ConvertEDCBRecSettingDataToRecordSettings(rec_settings_data: RecSettingDataR
     )
 
 
-def ConvertRecordSettingsToEDCBRecSettingData(record_settings: schemas.RecordSettings) -> RecSettingDataRequired:
+def EncodeEDCBRecSettingData(record_settings: schemas.RecordSettings) -> RecSettingDataRequired:
     """
     schemas.RecordSettings オブジェクトを EDCB の RecSettingData オブジェクトに変換する
 
@@ -595,7 +595,7 @@ async def ReservesAPI(
         channels = await Channel.all()
 
         # EDCB の ReserveData オブジェクトを schemas.Reserve オブジェクトに変換
-        reserves = await asyncio.gather(*(ConvertEDCBReserveDataToReserve(reserve_data, channels) for reserve_data in reserve_data_list))
+        reserves = await asyncio.gather(*(DecodeEDCBReserveData(reserve_data, channels) for reserve_data in reserve_data_list))
 
     # 録画予約番組の番組開始時刻でソート
     reserves.sort(key=lambda reserve: reserve.program.start_time)
@@ -686,7 +686,7 @@ async def AddReserveAPI(
         'sid': channel.service_id,
         'eid': program.event_id,
         'comment': '',  # 単発予約の場合は空文字列で問題ないはず
-        'rec_setting': cast(RecSettingData, ConvertRecordSettingsToEDCBRecSettingData(reserve_add_request.record_settings)),
+        'rec_setting': cast(RecSettingData, EncodeEDCBRecSettingData(reserve_add_request.record_settings)),
     }
 
     # EDCB に録画予約を追加するように指示
@@ -716,7 +716,7 @@ async def ReserveAPI(
     """
 
     # EDCB の ReserveData オブジェクトを schemas.Reserve オブジェクトに変換して返す
-    return await ConvertEDCBReserveDataToReserve(reserve_data)
+    return await DecodeEDCBReserveData(reserve_data)
 
 
 @router.put(
@@ -736,7 +736,7 @@ async def UpdateReserveAPI(
 
     # 現在の録画予約の ReserveData に新しい録画設定を上書きマージする形で EDCB に送信する
     ## 一見省略しても良さそうな録画予約対象のチャンネル情報や番組情報なども省略せずに全て含める必要がある (さもないと録画予約情報が破壊される…)
-    reserve_data['rec_setting'] = ConvertRecordSettingsToEDCBRecSettingData(reserve_update_request.record_settings)
+    reserve_data['rec_setting'] = EncodeEDCBRecSettingData(reserve_update_request.record_settings)
 
     # EDCB に指定された録画予約を更新するように指示
     result = await edcb.sendChgReserve([cast(ReserveData, reserve_data)])
@@ -749,7 +749,7 @@ async def UpdateReserveAPI(
         )
 
     # 更新された録画予約の情報を schemas.Reserve オブジェクトに変換して返す
-    return await ConvertEDCBReserveDataToReserve(await GetReserveData(reserve_data['reserve_id'], edcb))
+    return await DecodeEDCBReserveData(await GetReserveData(reserve_data['reserve_id'], edcb))
 
 
 @router.delete(
