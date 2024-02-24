@@ -339,6 +339,36 @@ class Program(models.Model):
                         program.end_time = end_time
                     program.duration = (program.end_time - program.start_time).total_seconds()
 
+                    # ジャンル
+                    ## 数字だけでは開発中の視認性が低いのでテキストに変換する
+                    program.genres = []  # デフォルト値
+                    if 'genres' in program_info:
+                        for genre in program_info['genres']:  # ジャンルごとに
+
+                            # 大まかなジャンルを取得
+                            genre_tuple = ariblib.constants.CONTENT_TYPE.get(genre['lv1'])
+                            if genre_tuple is not None:
+
+                                # major … 大分類
+                                # middle … 中分類
+                                genre_dict: Genre = {
+                                    'major': genre_tuple[0].replace('／', '・'),
+                                    'middle': genre_tuple[1].get(genre['lv2'], '未定義').replace('／', '・'),
+                                }
+
+                                # BS/地上デジタル放送用番組付属情報がジャンルに含まれている場合、user_nibble から値を取得して書き換える
+                                # たとえば「中止の可能性あり」や「延長の可能性あり」といった情報が取れる
+                                if genre_dict['major'] == '拡張':
+                                    if genre_dict['middle'] == 'BS/地上デジタル放送用番組付属情報':
+                                        user_nibble = (genre['un1'] * 0x10) + genre['un2']
+                                        genre_dict['middle'] = ariblib.constants.USER_TYPE.get(user_nibble, '未定義')
+                                    # 「拡張」はあるがBS/地上デジタル放送用番組付属情報でない場合はなんの値なのかわからないのでパス
+                                    else:
+                                        continue
+
+                                # ジャンルを追加
+                                program.genres.append(genre_dict)
+
                     # 映像情報
                     program.video_type = None
                     program.video_codec = None
@@ -356,7 +386,6 @@ class Program(models.Model):
                     program.secondary_audio_type = None
                     program.secondary_audio_language = None
                     program.secondary_audio_sampling_rate = None
-
                     ## Mirakurun 3.9 以降向け
                     ## ref: https://github.com/Chinachu/Mirakurun/blob/master/api.d.ts#L88-L105
                     if 'audios' in program_info:
@@ -396,36 +425,6 @@ class Program(models.Model):
                         ## デュアルモノのみ
                         if program.primary_audio_type == '1/0+1/0モード(デュアルモノ)':
                             program.primary_audio_language = '日本語+英語'  # 日本語+英語で固定
-
-                    # ジャンル
-                    ## 数字だけでは開発中の視認性が低いのでテキストに変換する
-                    program.genres = []  # デフォルト値
-                    if 'genres' in program_info:
-                        for genre in program_info['genres']:  # ジャンルごとに
-
-                            # 大まかなジャンルを取得
-                            genre_tuple = ariblib.constants.CONTENT_TYPE.get(genre['lv1'])
-                            if genre_tuple is not None:
-
-                                # major … 大分類
-                                # middle … 中分類
-                                genre_dict: Genre = {
-                                    'major': genre_tuple[0].replace('／', '・'),
-                                    'middle': genre_tuple[1].get(genre['lv2'], '未定義').replace('／', '・'),
-                                }
-
-                                # BS/地上デジタル放送用番組付属情報がジャンルに含まれている場合、user_nibble から値を取得して書き換える
-                                # たとえば「中止の可能性あり」や「延長の可能性あり」といった情報が取れる
-                                if genre_dict['major'] == '拡張':
-                                    if genre_dict['middle'] == 'BS/地上デジタル放送用番組付属情報':
-                                        user_nibble = (genre['un1'] * 0x10) + genre['un2']
-                                        genre_dict['middle'] = ariblib.constants.USER_TYPE.get(user_nibble, '未定義')
-                                    # 「拡張」はあるがBS/地上デジタル放送用番組付属情報でない場合はなんの値なのかわからないのでパス
-                                    else:
-                                        continue
-
-                                # ジャンルを追加
-                                program.genres.append(genre_dict)
 
                     # 番組情報をデータベースに保存する
                     if duplicate_program is None:
@@ -500,8 +499,8 @@ class Program(models.Model):
                 edcb.setConnectTimeOutSec(10)  # 10秒後にタイムアウト (SPHD や CATV も映る環境だと時間がかかるので、少し伸ばす)
 
                 # 開始時間未定をのぞく全番組を取得する (リスト引数の前2要素は全番組、残り2要素は全期間を意味)
-                program_services = await edcb.sendEnumPgInfoEx([0xffffffffffff, 0xffffffffffff, 1, 0x7fffffffffffffff])
-                if program_services is None:
+                service_event_info_list = await edcb.sendEnumPgInfoEx([0xffffffffffff, 0xffffffffffff, 1, 0x7fffffffffffffff])
+                if service_event_info_list is None:
                     logging.error('Failed to get programs from EDCB.')
                     raise Exception('Failed to get programs from EDCB.')
 
@@ -509,12 +508,12 @@ class Program(models.Model):
                 duplicate_programs = {temp.id:temp for temp in await Program.all()}
 
                 # チャンネルごとに
-                for program_service in program_services:
+                for service_event_info in service_event_info_list:
 
                     # NID・SID・TSID を取得
-                    nid = int(program_service['service_info']['onid'])
-                    sid = int(program_service['service_info']['sid'])
-                    tsid = int(program_service['service_info']['tsid'])
+                    nid = int(service_event_info['service_info']['onid'])
+                    sid = int(service_event_info['service_info']['sid'])
+                    tsid = int(service_event_info['service_info']['tsid'])
 
                     # チャンネル情報を取得
                     channel = await Channel.filter(network_id=nid, service_id=sid).first()
@@ -522,15 +521,15 @@ class Program(models.Model):
                         continue
 
                     # 番組情報ごとに
-                    for program_info in program_service['event_list']:
+                    for event_info in service_event_info['event_list']:
 
                         # メインの番組でないなら弾く
-                        group_info = program_info.get('event_group_info')
+                        group_info = event_info.get('event_group_info')
                         if (group_info is not None and len(group_info['event_data_list']) == 1 and
                         (group_info['event_data_list'][0]['onid'] != nid or
                             group_info['event_data_list'][0]['tsid'] != tsid or
                             group_info['event_data_list'][0]['sid'] != sid or
-                            group_info['event_data_list'][0]['eid'] != program_info['eid'])):
+                            group_info['event_data_list'][0]['eid'] != event_info['eid'])):
                             continue
 
                         # 重複する番組情報が登録されているかの判定に使うため、ここで先に番組情報を取得する
@@ -538,16 +537,16 @@ class Program(models.Model):
                         # 番組タイトル・番組概要
                         title = ''  # デフォルト値
                         description = ''  # デフォルト値
-                        if 'short_info' in program_info:
-                            title = TSInformation.formatString(program_info['short_info']['event_name']).strip()
-                            description = TSInformation.formatString(program_info['short_info']['text_char']).strip()
+                        if 'short_info' in event_info:
+                            title = TSInformation.formatString(event_info['short_info']['event_name']).strip()
+                            description = TSInformation.formatString(event_info['short_info']['text_char']).strip()
 
                         # 番組詳細
                         detail: dict[str, str] = {}  # デフォルト値
-                        if 'ext_info' in program_info:
+                        if 'ext_info' in event_info:
 
                             # 番組詳細テキストから取得した、見出しと本文の辞書ごとに
-                            for head, text in EDCBUtil.parseProgramExtendedText(program_info['ext_info']['text_char']).items():
+                            for head, text in EDCBUtil.parseProgramExtendedText(event_info['ext_info']['text_char']).items():
 
                                 # 見出しと本文
                                 ## 見出しのみ ariblib 側で意図的に重複防止のためのタブ文字付加が行われる場合があるため、
@@ -568,11 +567,12 @@ class Program(models.Model):
                                     description = text_hankaku
 
                         # 番組開始時刻
-                        start_time = program_info['start_time']
+                        ## 万が一取得できなかった場合は 1970/1/1 9:00 とする
+                        start_time = event_info.get('start_time', datetime(1970, 1, 1, 9, tzinfo=ZoneInfo('Asia/Tokyo')))
 
                         # 番組終了時刻
                         ## 終了時間未定の場合、とりあえず5分とする
-                        end_time = start_time + timedelta(seconds=program_info.get('duration_sec', 300))
+                        end_time = start_time + timedelta(seconds=event_info.get('duration_sec', 300))
 
                         # 番組終了時刻が現在時刻より1時間以上前な番組を弾く
                         if datetime.now(CtrlCmdUtil.TZ) - end_time > timedelta(hours=1):
@@ -583,7 +583,7 @@ class Program(models.Model):
                         # DB は読み取りよりも書き込みの方が負荷と時間がかかるため、不要な書き込みは極力避ける
 
                         # 番組 ID
-                        program_id = f'NID{nid}-SID{sid:03d}-EID{program_info["eid"]}'
+                        program_id = f'NID{nid}-SID{sid:03d}-EID{event_info["eid"]}'
 
                         # 重複する番組 ID の番組情報があれば取得する
                         duplicate_program = duplicate_programs.get(program_id)
@@ -614,21 +614,52 @@ class Program(models.Model):
                         program.channel_id = channel.id
                         program.network_id = channel.network_id
                         program.service_id = channel.service_id
-                        program.event_id = int(program_info['eid'])
+                        program.event_id = int(event_info['eid'])
                         program.title = title
                         program.description = description
                         program.detail = detail
                         program.start_time = start_time
                         program.end_time = end_time
                         program.duration = (program.end_time - program.start_time).total_seconds()
-                        program.is_free = bool(program_info['free_ca_flag'] == 0)  # free_ca_flag が 0 であれば無料放送
+                        program.is_free = bool(event_info['free_ca_flag'] == 0)  # free_ca_flag が 0 であれば無料放送
+
+                        # ジャンル
+                        ## 数字だけでは開発中の視認性が低いのでテキストに変換する
+                        program.genres = []  # デフォルト値
+                        content_info = event_info.get('content_info')
+                        if content_info is not None:
+                            for content_data in content_info['nibble_list']:  # ジャンルごとに
+
+                                # 大まかなジャンルを取得
+                                genre_tuple = ariblib.constants.CONTENT_TYPE.get(content_data['content_nibble'] >> 8)
+                                if genre_tuple is not None:
+
+                                    # major … 大分類
+                                    # middle … 中分類
+                                    genre_dict: Genre = {
+                                        'major': genre_tuple[0].replace('／', '・'),
+                                        'middle': genre_tuple[1].get(content_data['content_nibble'] & 0xf, '未定義').replace('／', '・'),
+                                    }
+
+                                    # BS/地上デジタル放送用番組付属情報がジャンルに含まれている場合、user_nibble から値を取得して書き換える
+                                    # たとえば「中止の可能性あり」や「延長の可能性あり」といった情報が取れる
+                                    if genre_dict['major'] == '拡張':
+                                        if genre_dict['middle'] == 'BS/地上デジタル放送用番組付属情報':
+                                            user_nibble = (content_data['user_nibble'] >> 8 << 4) | (content_data['user_nibble'] & 0xf)
+                                            genre_dict['middle'] = ariblib.constants.USER_TYPE.get(user_nibble, '未定義')
+                                        # 「拡張」はあるがBS/地上デジタル放送用番組付属情報でない場合はなんの値なのかわからないのでパス
+                                        else:
+                                            continue
+
+                                    # ジャンルを追加
+                                    program.genres.append(genre_dict)
 
                         # 映像情報
                         ## テキストにするために ariblib.constants や TSInformation の値を使う
                         program.video_type = None
                         program.video_codec = None
                         program.video_resolution = None
-                        component_info = program_info.get('component_info')
+                        component_info = event_info.get('component_info')
                         if component_info is not None:
                             ## 映像の種類
                             component_types = ariblib.constants.COMPONENT_TYPE.get(component_info['stream_content'])
@@ -646,7 +677,7 @@ class Program(models.Model):
                         program.secondary_audio_type = None
                         program.secondary_audio_language = None
                         program.secondary_audio_sampling_rate = None
-                        audio_info = program_info.get('audio_info')
+                        audio_info = event_info.get('audio_info')
                         if audio_info is not None and len(audio_info['component_list']) > 0:
 
                             ## 主音声
@@ -677,37 +708,6 @@ class Program(models.Model):
                                         program.secondary_audio_language += '+英語'
                                     else:
                                         program.secondary_audio_language += '+副音声'
-
-                        # ジャンル
-                        ## 数字だけでは開発中の視認性が低いのでテキストに変換する
-                        program.genres = []  # デフォルト値
-                        content_info = program_info.get('content_info')
-                        if content_info is not None:
-                            for content_data in content_info['nibble_list']:  # ジャンルごとに
-
-                                # 大まかなジャンルを取得
-                                genre_tuple = ariblib.constants.CONTENT_TYPE.get(content_data['content_nibble'] >> 8)
-                                if genre_tuple is not None:
-
-                                    # major … 大分類
-                                    # middle … 中分類
-                                    genre_dict: Genre = {
-                                        'major': genre_tuple[0].replace('／', '・'),
-                                        'middle': genre_tuple[1].get(content_data['content_nibble'] & 0xf, '未定義').replace('／', '・'),
-                                    }
-
-                                    # BS/地上デジタル放送用番組付属情報がジャンルに含まれている場合、user_nibble から値を取得して書き換える
-                                    # たとえば「中止の可能性あり」や「延長の可能性あり」といった情報が取れる
-                                    if genre_dict['major'] == '拡張':
-                                        if genre_dict['middle'] == 'BS/地上デジタル放送用番組付属情報':
-                                            user_nibble = (content_data['user_nibble'] >> 8 << 4) | (content_data['user_nibble'] & 0xf)
-                                            genre_dict['middle'] = ariblib.constants.USER_TYPE.get(user_nibble, '未定義')
-                                        # 「拡張」はあるがBS/地上デジタル放送用番組付属情報でない場合はなんの値なのかわからないのでパス
-                                        else:
-                                            continue
-
-                                    # ジャンルを追加
-                                    program.genres.append(genre_dict)
 
                         # 番組情報をデータベースに保存する
                         if duplicate_program is None:

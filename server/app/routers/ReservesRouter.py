@@ -537,7 +537,7 @@ async def GetServiceEventInfo(
     # EDCB からサービスと当該番組の開始時刻を指定して番組情報を取得
     ## API 仕様がお世辞にも意味わからんのだが、一応これでほぼピンポイントで当該番組のみ取得できる
     assert channel.transport_stream_id is not None, 'transport_stream_id is missing.'
-    search_event_infos = await edcb.sendEnumPgInfoEx([
+    service_event_info_list = await edcb.sendEnumPgInfoEx([
         # 絞り込み対象のネットワーク ID・トランスポートストリーム ID・サービス ID に掛けるビットマスク (?????)
         ## 意味が分からないけどとりあえず今回はビットマスクは使用しないので 0 を指定
         0,
@@ -550,17 +550,17 @@ async def GetServiceEventInfo(
         EDCBUtil.datetimeToFileTime(program.start_time + timedelta(minutes=1), timezone(timedelta(hours=9))),
     ])
     # 番組情報が取得できなかった場合はエラーを返す
-    if search_event_infos is None or len(search_event_infos) == 0:
+    if service_event_info_list is None or len(service_event_info_list) == 0:
         logging.error(f'[ReservesRouter][GetServiceEventInfo] Failed to get the program information [channel_id: {channel.id} / program_id: {program.id}]')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to get the program information',
         )
     # イベント ID が一致する番組情報を探す
-    for search_event_info in search_event_infos:
-        if ('event_list' in search_event_info and len(search_event_info['event_list']) > 0 and
-            search_event_info['event_list'][0]['eid'] == program.event_id):
-            return search_event_info
+    for service_event_info in service_event_info_list:
+        if ('event_list' in service_event_info and len(service_event_info['event_list']) > 0 and
+            service_event_info['event_list'][0]['eid'] == program.event_id):
+            return service_event_info
     # イベント ID が一致する番組情報が見つからなかった場合はエラーを返す
     logging.error(f'[ReservesRouter][GetServiceEventInfo] Failed to get the program information [channel_id: {channel.id} / program_id: {program.id}]')
     raise HTTPException(
