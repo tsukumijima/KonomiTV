@@ -340,7 +340,7 @@ class ProgramSearchCondition(BaseModel):
     ## 空リストの場合は何もヒットしないため、全選択で全てのチャンネルを検索対象にするには全チャンネルの情報を入れる必要がある
     ## 全てのチャンネルを検索対象にすると検索処理が比較的重くなるので、可能であれば絞り込む方が望ましいとのこと
     ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Document/Readme_Mod.txt?plain=1#L165-L170
-    channel_ranges: list[ProgramSearchConditionChannel] = []
+    service_ranges: list[ProgramSearchConditionService] = []
     # 検索対象を絞り込むジャンル範囲のリスト
     ## 指定しない場合は None になる
     genre_ranges: list[Genre] | None = None
@@ -372,7 +372,7 @@ class ProgramSearchCondition(BaseModel):
 ## EDCB はこれらに加えてトランスポートストリーム ID も必要なため、トランスポートストリーム ID も含めている
 ## 通常の Channel モデルだと API リクエスト時に余計な情報を送らなければならなくため、必要な情報だけを抜き出したモデルを使っている
 ## チャンネル名などはこれらの ID を元に別途フロントエンド側で取得してもらう想定
-class ProgramSearchConditionChannel(BaseModel):
+class ProgramSearchConditionService(BaseModel):
     # ネットワーク ID
     network_id: int
     # トランスポートストリーム ID

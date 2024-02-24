@@ -108,14 +108,14 @@ def DecodeEDCBSearchKeyInfo(search_info: SearchKeyInfoRequired) -> schemas.Progr
     ## 空リストの場合は何もヒットしないため、全選択で全てのチャンネルを検索対象にするには全チャンネルの情報を入れる必要がある
     ## 全てのチャンネルを検索対象にすると検索処理が比較的重くなるので、可能であれば絞り込む方が望ましいとのこと
     ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Document/Readme_Mod.txt?plain=1#L165-L170
-    channel_ranges: list[schemas.ProgramSearchConditionChannel] = []
+    service_ranges: list[schemas.ProgramSearchConditionService] = []
     for service in search_info['service_list']:
         # service_list は (NID << 32 | TSID << 16 | SID) のリストになっているので、まずはそれらの値を分解する
         network_id = service >> 32
         transport_stream_id = (service >> 16) & 0xffff
         service_id = service & 0xffff
         # schemas.ProgramSearchConditionChannel オブジェクトを作成
-        channel_ranges.append(schemas.ProgramSearchConditionChannel(
+        service_ranges.append(schemas.ProgramSearchConditionService(
             network_id = network_id,
             transport_stream_id = transport_stream_id,
             service_id = service_id,
@@ -218,7 +218,7 @@ def DecodeEDCBSearchKeyInfo(search_info: SearchKeyInfoRequired) -> schemas.Progr
         is_case_sensitive = is_case_sensitive,
         is_fuzzy_search_enabled = is_fuzzy_search_enabled,
         is_regex_search_enabled = is_regex_search_enabled,
-        channel_ranges = cast(Any, channel_ranges),
+        service_ranges = cast(Any, service_ranges),
         genre_ranges = genre_ranges,
         is_exclude_genre_ranges = is_exclude_genre_ranges,
         date_ranges = date_ranges,
@@ -262,8 +262,8 @@ def EncodeEDCBSearchKeyInfo(program_search_condition: schemas.ProgramSearchCondi
     # 検索対象を絞り込むチャンネル範囲のリスト
     ## service_list は (NID << 32 | TSID << 16 | SID) のリストになっている
     service_list: list[int] = []
-    if program_search_condition.channel_ranges is not None:
-        for channel in program_search_condition.channel_ranges:
+    if program_search_condition.service_ranges is not None:
+        for channel in program_search_condition.service_ranges:
             assert channel.transport_stream_id is not None, 'transport_stream_id is missing.'
             service_list.append(channel.network_id << 32 | channel.transport_stream_id << 16 | channel.service_id)
 
