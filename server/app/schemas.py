@@ -340,7 +340,7 @@ class ProgramSearchCondition(BaseModel):
     ## 空リストの場合は何もヒットしないため、全選択で全てのチャンネルを検索対象にするには全チャンネルの情報を入れる必要がある
     ## 全てのチャンネルを検索対象にすると検索処理が比較的重くなるので、可能であれば絞り込む方が望ましいとのこと
     ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Document/Readme_Mod.txt?plain=1#L165-L170
-    channel_ranges: list[Channel] = []
+    channel_ranges: list[ProgramSearchConditionChannel] = []
     # 検索対象を絞り込むジャンル範囲のリスト
     ## 指定しない場合は None になる
     genre_ranges: list[Genre] | None = None
@@ -367,7 +367,20 @@ class ProgramSearchCondition(BaseModel):
     # 同じ番組名の既存録画との重複チェックの対象期間 (日単位)
     duplicate_title_check_period_days: Annotated[int, Field(ge=0)] = 6
 
-# 番組検索条件の日付範囲
+# 番組検索条件のチャンネル
+## KonomiTV 的にはネットワーク ID とサービス ID があればチャンネルを特定できるのだが、
+## EDCB はこれらに加えてトランスポートストリーム ID も必要なため、トランスポートストリーム ID も含めている
+## 通常の Channel モデルだと API リクエスト時に余計な情報を送らなければならなくため、必要な情報だけを抜き出したモデルを使っている
+## チャンネル名などはこれらの ID を元に別途フロントエンド側で取得してもらう想定
+class ProgramSearchConditionChannel(BaseModel):
+    # ネットワーク ID
+    network_id: int
+    # トランスポートストリーム ID
+    transport_stream_id: int
+    # サービス ID
+    service_id: int
+
+# 番組検索条件の日付
 class ProgramSearchConditionDate(BaseModel):
     # 検索開始曜日 (0: 日曜日, 1: 月曜日, 2: 火曜日, 3: 水曜日, 4: 木曜日, 5: 金曜日, 6: 土曜日)
     ## 文字列にした方がわかりやすいとも思ったが、day.js が数値で曜日を扱うため数値で統一する

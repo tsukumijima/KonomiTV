@@ -11,7 +11,6 @@ from typing import Annotated, Any, cast, Literal
 
 from app import logging
 from app import schemas
-from app.models.Channel import Channel
 from app.routers.ReservesRouter import DecodeEDCBRecSettingData
 from app.routers.ReservesRouter import EncodeEDCBRecSettingData
 from app.routers.ReservesRouter import GetCtrlCmdUtil
@@ -23,7 +22,6 @@ from app.utils.EDCB import RecSettingData
 from app.utils.EDCB import SearchDateInfoRequired
 from app.utils.EDCB import SearchKeyInfo
 from app.utils.EDCB import SearchKeyInfoRequired
-from app.utils.TSInformation import TSInformation
 
 
 # ルーター
@@ -51,7 +49,7 @@ async def DecodeEDCBAutoAddData(auto_add_data: AutoAddDataRequired) -> schemas.R
     reserve_count = auto_add_data['add_count']
 
     # 番組検索条件
-    program_search_condition = await DecodeEDCBSearchKeyInfo(auto_add_data['search_info'])
+    program_search_condition = DecodeEDCBSearchKeyInfo(auto_add_data['search_info'])
 
     # 録画設定
     record_settings = DecodeEDCBRecSettingData(auto_add_data['rec_setting'])
@@ -64,7 +62,7 @@ async def DecodeEDCBAutoAddData(auto_add_data: AutoAddDataRequired) -> schemas.R
     )
 
 
-async def DecodeEDCBSearchKeyInfo(search_info: SearchKeyInfoRequired) -> schemas.ProgramSearchCondition:
+def DecodeEDCBSearchKeyInfo(search_info: SearchKeyInfoRequired) -> schemas.ProgramSearchCondition:
     """
     EDCB の SearchKeyInfo オブジェクトを schemas.ProgramSearchCondition オブジェクトに変換する
 
@@ -74,10 +72,6 @@ async def DecodeEDCBSearchKeyInfo(search_info: SearchKeyInfoRequired) -> schemas
     Returns:
         schemas.ProgramSearchCondition: schemas.ProgramSearchCondition オブジェクト
     """
-
-    # 高速化のため、あらかじめ全てのチャンネル情報を取得し、ID がキー、チャンネル情報が値の辞書を作成しておく
-    ## チャンネル ID は NID32736-SID1024 の形式なので、ネットワーク ID とサービス ID があればそれをキーにしてチャンネル情報を即座に取得できる
-    channels_dict = {channel.id: channel for channel in await Channel.all()}
 
     # 番組検索条件が有効かどうか
     is_enabled: bool = not search_info['key_disabled']
@@ -114,45 +108,18 @@ async def DecodeEDCBSearchKeyInfo(search_info: SearchKeyInfoRequired) -> schemas
     ## 空リストの場合は何もヒットしないため、全選択で全てのチャンネルを検索対象にするには全チャンネルの情報を入れる必要がある
     ## 全てのチャンネルを検索対象にすると検索処理が比較的重くなるので、可能であれば絞り込む方が望ましいとのこと
     ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Document/Readme_Mod.txt?plain=1#L165-L170
-    channel_ranges: list[Channel] = []
+    channel_ranges: list[schemas.ProgramSearchConditionChannel] = []
     for service in search_info['service_list']:
         # service_list は (NID << 32 | TSID << 16 | SID) のリストになっているので、まずはそれらの値を分解する
         network_id = service >> 32
         transport_stream_id = (service >> 16) & 0xffff
         service_id = service & 0xffff
-        # チャンネル ID を組み立てる
-        channel_id = f'NID{network_id}-SID{service_id}'
-        # チャンネル ID が channels_dict に存在する場合はそのチャンネル情報を取得し、リストに追加する
-        if channel_id in channels_dict:
-            channel_ranges.append(channels_dict[channel_id])
-        # 取得できなかった場合のみ、上記の限定的な情報を使って間に合わせのチャンネル情報を作成する
-        # 通常ここでチャンネル情報が取得できないのはワンセグやデータ放送など KonomiTV ではサポートしていないサービスを予約している場合だけのはず
-        else:
-            channel = Channel(
-                id = channel_id,
-                display_channel_id = 'gr001',  # 取得できないため一旦 'gr001' を設定
-                network_id = network_id,
-                service_id = service_id,
-                transport_stream_id = transport_stream_id,
-                remocon_id = 0,  # 取得できないため一旦 0 を設定
-                channel_number = '001',  # 取得できないため一旦 '001' を設定
-                type = TSInformation.getNetworkType(network_id),
-                name = f'Unknown Channel (NID:{network_id} / SID: {service_id})',
-                jikkyo_force = False,
-                is_subchannel = False,
-                is_radiochannel = False,
-                is_watchable = False,
-            )
-            # GR 以外のみサービス ID からリモコン ID を算出できるので、それを実行
-            if channel.type != 'GR':
-                channel.remocon_id = channel.calculateRemoconID()
-            # チャンネル番号を算出
-            channel.channel_number = await channel.calculateChannelNumber()
-            # 改めて表示用チャンネル ID を算出
-            channel.display_channel_id = channel.type.lower() + channel.channel_number
-            # このチャンネルがサブチャンネルかを算出
-            channel.is_subchannel = channel.calculateIsSubchannel()
-            channel_ranges.append(channel)
+        # schemas.ProgramSearchConditionChannel オブジェクトを作成
+        channel_ranges.append(schemas.ProgramSearchConditionChannel(
+            network_id = network_id,
+            transport_stream_id = transport_stream_id,
+            service_id = service_id,
+        ))
 
     # 検索対象を絞り込むジャンル範囲のリスト
     ## 指定しない場合は None になる
