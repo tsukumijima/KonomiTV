@@ -82,6 +82,10 @@ class Program(PydanticModel):
     secondary_audio_language: str | None
     secondary_audio_sampling_rate: str | None
 
+class Programs(BaseModel):
+    total: int
+    programs: list[Program]
+
 class Genre(TypedDict):
     major: str
     middle: str

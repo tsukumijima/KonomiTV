@@ -31,6 +31,7 @@ from app.routers import (
     LiveStreamsRouter,
     MaintenanceRouter,
     NiconicoRouter,
+    ProgramsRouter,
     ReservesRouter,
     ReserveConditionsRouter,
     SeriesRouter,
@@ -66,6 +67,7 @@ app = FastAPI(
 
 # ルーターの追加
 app.include_router(ChannelsRouter.router)
+app.include_router(ProgramsRouter.router)
 app.include_router(VideosRouter.router)
 app.include_router(SeriesRouter.router)
 app.include_router(LiveStreamsRouter.router)

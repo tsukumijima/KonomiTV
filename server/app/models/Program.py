@@ -246,8 +246,8 @@ class Program(models.Model):
                     # 重複する番組情報が登録されているかの判定に使うため、ここで先に番組情報を取得する
 
                     # 番組タイトル・番組概要
-                    title = ''  # デフォルト値
-                    description = ''  # デフォルト値
+                    title: str = ''  # デフォルト値
+                    description: str = ''  # デフォルト値
                     if 'name' in program_info:
                         title = TSInformation.formatString(program_info['name']).strip()
                     if 'description' in program_info:
@@ -535,8 +535,8 @@ class Program(models.Model):
                         # 重複する番組情報が登録されているかの判定に使うため、ここで先に番組情報を取得する
 
                         # 番組タイトル・番組概要
-                        title = ''  # デフォルト値
-                        description = ''  # デフォルト値
+                        title: str = ''  # デフォルト値
+                        description: str = ''  # デフォルト値
                         if 'short_info' in event_info:
                             title = TSInformation.formatString(event_info['short_info']['event_name']).strip()
                             description = TSInformation.formatString(event_info['short_info']['text_char']).strip()
