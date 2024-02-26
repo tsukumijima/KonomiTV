@@ -161,8 +161,7 @@ async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: lis
     # 録画予約が現在進行中かどうか
     ## CtrlCmdUtil.sendGetRecFilePath() で「録画中かつ視聴予約でない予約の録画ファイルパス」が返ってくる場合は True、それ以外は False
     ## 歴史的経緯でこう取得することになっているらしい
-    edcb = CtrlCmdUtil()
-    is_recording_in_progress: bool = type(await edcb.sendGetRecFilePath(reserve_id)) is str
+    is_recording_in_progress: bool = type(await CtrlCmdUtil().sendGetRecFilePath(reserve_id)) is str
 
     # 録画予約の被り状態: 被りなし (予約可能) / 被ってチューナー足りない予約あり / チューナー足りないため予約できない
     # ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/CommonDef.h#L32-L34
@@ -484,7 +483,7 @@ def EncodeEDCBRecSettingData(record_settings: schemas.RecordSettings) -> RecSett
     return rec_setting_data
 
 
-async def GetCtrlCmdUtil() -> CtrlCmdUtil:
+def GetCtrlCmdUtil() -> CtrlCmdUtil:
     """ バックエンドが EDCB かのチェックを行い、EDCB であれば EDCB の CtrlCmdUtil インスタンスを返す """
     if Config().general.backend == 'EDCB':
         return CtrlCmdUtil()

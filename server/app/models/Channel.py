@@ -246,9 +246,9 @@ class Channel(models.Model):
             edcb.setConnectTimeOutSec(5)  # 5秒後にタイムアウト
 
             # EDCB の ChSet5.txt からチャンネル情報を取得する
-            services = await edcb.sendFileCopy('ChSet5.txt')
-            if services is not None:
-                services = EDCBUtil.parseChSet5(EDCBUtil.convertBytesToString(services))
+            chset5_txt = await edcb.sendFileCopy('ChSet5.txt')
+            if chset5_txt is not None:
+                services = EDCBUtil.parseChSet5(EDCBUtil.convertBytesToString(chset5_txt))
                 # 枝番処理がミスらないようソートしておく
                 services.sort(key = lambda temp: temp['onid'] * 100000 + temp['sid'])
             else:
