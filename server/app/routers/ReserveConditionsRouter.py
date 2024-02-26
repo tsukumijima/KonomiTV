@@ -11,6 +11,7 @@ from typing import Annotated, Any, cast, Literal
 
 from app import logging
 from app import schemas
+from app.models.Channel import Channel
 from app.routers.ReservesRouter import DecodeEDCBRecSettingData
 from app.routers.ReservesRouter import EncodeEDCBRecSettingData
 from app.routers.ReservesRouter import GetCtrlCmdUtil
@@ -18,12 +19,10 @@ from app.utils.EDCB import AutoAddData
 from app.utils.EDCB import AutoAddDataRequired
 from app.utils.EDCB import ContentData
 from app.utils.EDCB import CtrlCmdUtil
-from app.utils.EDCB import EDCBUtil
 from app.utils.EDCB import RecSettingData
 from app.utils.EDCB import SearchDateInfoRequired
 from app.utils.EDCB import SearchKeyInfo
 from app.utils.EDCB import SearchKeyInfoRequired
-from app.utils.TSInformation import TSInformation
 
 
 # ルーター
@@ -123,15 +122,12 @@ async def DecodeEDCBSearchKeyInfo(search_info: SearchKeyInfoRequired) -> schemas
             transport_stream_id = transport_stream_id,
             service_id = service_id,
         ))
-    ## 地上波・BS・CS・CATV・SKY・STARDIGIO・その他の順に並べ替える
-    service_ranges = SortServiceRanges(service_ranges)
-    ## この時点で service_ranges の内容がデフォルトの番組検索条件のチャンネル範囲のリストと一致する場合、
+    ## この時点で service_ranges の内容がデフォルトの番組検索条件のチャンネル範囲のリスト (全チャンネルが検索対象) と一致する場合、
     ## 全チャンネルを検索対象にしているのと同義なので、None に変換する
-    ## 比較のために一旦リストの中の Pydantic モデルを dict に変換してから比較している
+    ## 一旦リストの中の Pydantic モデルを dict に変換し、サービス ID でソートして条件を整えてから比較している
     default_service_ranges = await GetDefaultServiceRanges()
-    print([service.model_dump() for service in service_ranges])
-    print([service.model_dump() for service in default_service_ranges])
-    if [service.model_dump() for service in service_ranges] == [service.model_dump() for service in default_service_ranges]:
+    if (sorted([service.model_dump() for service in service_ranges], key=lambda x: x['service_id']) ==
+        sorted([service.model_dump() for service in default_service_ranges], key=lambda x: x['service_id'])):
         service_ranges = None
 
     # 検索対象を絞り込むジャンル範囲のリスト
@@ -275,7 +271,7 @@ async def EncodeEDCBSearchKeyInfo(program_search_condition: schemas.ProgramSearc
     # 検索対象を絞り込むチャンネル範囲のリスト
     ## service_list は (NID << 32 | TSID << 16 | SID) のリストになっている
     ## ジャンル範囲や放送日時範囲とは異なり、空リストにしても全チャンネルが検索対象にはならないため、
-    ## もし service_ranges が None だった場合はデフォルトの番組検索条件のチャンネル範囲のリストを設定する
+    ## もし service_ranges が None だった場合はデフォルトの番組検索条件のチャンネル範囲のリスト (全チャンネルが検索対象) を設定する
     service_list: list[int] = []
     for channel in program_search_condition.service_ranges or await GetDefaultServiceRanges():
         service_list.append(channel.network_id << 32 | channel.transport_stream_id << 16 | channel.service_id)
@@ -373,73 +369,44 @@ async def EncodeEDCBSearchKeyInfo(program_search_condition: schemas.ProgramSearc
 
 async def GetDefaultServiceRanges() -> list[schemas.ProgramSearchConditionService]:
     """
-    デフォルトの番組検索条件のチャンネル範囲のリストを取得する
-    EDCB 本家に倣い、ChSet5.txt に記載されているサービスのうち、EPG 取得対象のものだけを地上波から順に返す
-    ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240221/ini/HttpPublic/legacy/autoaddepginfo.html#L249-L258
+    デフォルトの番組検索条件のチャンネル範囲のリスト (全チャンネルが検索対象) を取得する
+    KonomiTV のデータベース上に保存されているチャンネル数と EDCB 上で有効とされている (EPG 取得対象の) チャンネル数が一致する前提の元、
+    Channel モデルから EPG 取得対象のチャンネルの情報を取得している
 
     Returns:
         list[schemas.ProgramSearchConditionService]: デフォルトの番組検索条件のチャンネル範囲のリスト
     """
 
-    # EDCB の ChSet5.txt を取得
-    ## CtrlCmdUtil.sendEnumService() は EPG に存在しないサービスの情報は取得できないので、こちらを使う
-    edcb = CtrlCmdUtil()
-    chset5_txt: bytes | None = await edcb.sendFileCopy('ChSet5.txt')
-    if chset5_txt is None:
-        # None が返ってきた場合はエラーを返す
-        logging.error('[ReserveConditionsRouter][GetDefaultServiceRanges] Failed to get the list of channels')
-        raise HTTPException(
-            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail = 'Failed to get the list of channels',
-        )
+    # チャンネル情報を取得
+    ## リモコン番号順にソートしておく
+    ## EDCB が返すレスポンスが必ずしもリモコン ID でソートされているとは限らない (サービス ID でソートされていることもある？) ので、
+    ## この関数で返す値が順序含めて完全に一致するとは限らないし、等価か比較する際は別途ソートする必要がある
+    channels = await Channel.filter(is_watchable=True).order_by('channel_number').order_by('remocon_id')
 
-    # ChSet5.txt をパースしてチャンネル情報を取得
-    channels = EDCBUtil.parseChSet5(EDCBUtil.convertBytesToString(chset5_txt))
-
-    # EPG 取得対象のチャンネルのみを ProgramSearchConditionService オブジェクトに変換
-    services: list[schemas.ProgramSearchConditionService] = []
+    # チャンネルタイプごとにグループ化
+    ground_channels: dict[Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO'], list[Channel]] = {}
     for channel in channels:
-        if channel['epg_cap_flag'] is True:
-            services.append(schemas.ProgramSearchConditionService(
-                network_id = channel['onid'],
-                transport_stream_id = channel['tsid'],
-                service_id = channel['sid'],
-            ))
+        if channel.type not in ground_channels:
+            ground_channels[channel.type] = []
+        ground_channels[channel.type].append(channel)
 
-    # ソートしてから返す
-    return SortServiceRanges(services)
+    # 地上波・BS・110度CS・CATV・124/128度CS・スターデジオの順に連結
+    sorted_channels: list[Channel] = []
+    for channel_type in ['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO']:
+        if channel_type in ground_channels:
+            sorted_channels.extend(ground_channels[channel_type])
 
+    # ProgramSearchConditionService オブジェクトに変換
+    default_service_ranges: list[schemas.ProgramSearchConditionService] = []
+    for channel in sorted_channels:
+        assert channel.transport_stream_id is not None, 'transport_stream_id is missing.'
+        default_service_ranges.append(schemas.ProgramSearchConditionService(
+            network_id = channel.network_id,
+            transport_stream_id = channel.transport_stream_id,
+            service_id = channel.service_id,
+        ))
 
-def SortServiceRanges(services: list[schemas.ProgramSearchConditionService]) -> list[schemas.ProgramSearchConditionService]:
-    """
-    番組検索条件のチャンネル範囲のリストを地上波・BS・110度CS・CATV・124/128度CS・スターデジオ・その他の順にソートする
-    概ね EDCB / EMWUI のソート順序と同じはずだが、EDCB / EMWUI では CATV がソート時に考慮されていない点が異なる
-
-    Args:
-        services (list[schemas.ProgramSearchConditionService]): チャンネル範囲のリスト
-
-    Returns:
-        list[schemas.ProgramSearchConditionService]: ソートされたチャンネル範囲のリスト
-    """
-
-    # まずネットワーク種別ごとのリストに分ける
-    ground_services: dict[Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO', 'OTHER'], list[schemas.ProgramSearchConditionService]] = {}
-    for service in services:
-        network_type = TSInformation.getNetworkType(service.network_id)
-        if network_type not in ground_services:
-            ground_services[network_type] = []
-        ground_services[network_type].append(service)
-
-    # 地上波・BS・110度CS・CATV・124/128度CS・スターデジオ・その他の順にソートしてから連結
-    sorted_services: list[schemas.ProgramSearchConditionService] = []
-    for network_type in ['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO', 'OTHER']:
-        if network_type in ground_services:
-            # 各ネットワーク種別ごとにサービス ID でソート
-            ground_services[network_type].sort(key=lambda service: service.service_id)
-            # 連結
-            sorted_services.extend(ground_services[network_type])
-
-    return sorted_services
+    return default_service_ranges
 
 
 async def GetAutoAddDataList(

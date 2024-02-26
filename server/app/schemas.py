@@ -338,6 +338,7 @@ class ProgramSearchCondition(BaseModel):
     is_regex_search_enabled: bool = False
     # 検索対象を絞り込むチャンネル範囲のリスト
     ## None を指定すると全てのチャンネルが検索対象になる
+    ## 中のチャンネル ID の順序は保証されない
     service_ranges: list[ProgramSearchConditionService] | None = None
     # 検索対象を絞り込むジャンル範囲のリスト
     ## None を指定すると全てのジャンルが検索対象になる
