@@ -207,7 +207,7 @@ async def SearchAPI(
     """
 
     # schemas.ProgramSearchCondition オブジェクトを SearchKeyInfo オブジェクトに変換
-    search_key_info = EncodeEDCBSearchKeyInfo(program_search_condition)
+    search_key_info = await EncodeEDCBSearchKeyInfo(program_search_condition)
 
     # EDCB の EPG ストアに保存されているすべての番組情報を検索
     ## 過去番組は検索対象外

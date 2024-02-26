@@ -18,10 +18,12 @@ from app.utils.EDCB import AutoAddData
 from app.utils.EDCB import AutoAddDataRequired
 from app.utils.EDCB import ContentData
 from app.utils.EDCB import CtrlCmdUtil
+from app.utils.EDCB import EDCBUtil
 from app.utils.EDCB import RecSettingData
 from app.utils.EDCB import SearchDateInfoRequired
 from app.utils.EDCB import SearchKeyInfo
 from app.utils.EDCB import SearchKeyInfoRequired
+from app.utils.TSInformation import TSInformation
 
 
 # ルーター
@@ -49,7 +51,7 @@ async def DecodeEDCBAutoAddData(auto_add_data: AutoAddDataRequired) -> schemas.R
     reserve_count = auto_add_data['add_count']
 
     # 番組検索条件
-    program_search_condition = DecodeEDCBSearchKeyInfo(auto_add_data['search_info'])
+    program_search_condition = await DecodeEDCBSearchKeyInfo(auto_add_data['search_info'])
 
     # 録画設定
     record_settings = DecodeEDCBRecSettingData(auto_add_data['rec_setting'])
@@ -62,7 +64,7 @@ async def DecodeEDCBAutoAddData(auto_add_data: AutoAddDataRequired) -> schemas.R
     )
 
 
-def DecodeEDCBSearchKeyInfo(search_info: SearchKeyInfoRequired) -> schemas.ProgramSearchCondition:
+async def DecodeEDCBSearchKeyInfo(search_info: SearchKeyInfoRequired) -> schemas.ProgramSearchCondition:
     """
     EDCB の SearchKeyInfo オブジェクトを schemas.ProgramSearchCondition オブジェクトに変換する
 
@@ -105,10 +107,11 @@ def DecodeEDCBSearchKeyInfo(search_info: SearchKeyInfoRequired) -> schemas.Progr
     is_regex_search_enabled: bool = search_info['reg_exp_flag']
 
     # 検索対象を絞り込むチャンネル範囲のリスト
-    ## 空リストの場合は何もヒットしないため、全選択で全てのチャンネルを検索対象にするには全チャンネルの情報を入れる必要がある
+    ## None を指定すると全てのチャンネルが検索対象になる
+    ## ジャンル範囲や放送日時範囲とは異なり、全チャンネルが検索対象の場合は空リストにはならず、全チャンネルの ID が返ってくる
     ## 全てのチャンネルを検索対象にすると検索処理が比較的重くなるので、可能であれば絞り込む方が望ましいとのこと
     ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Document/Readme_Mod.txt?plain=1#L165-L170
-    service_ranges: list[schemas.ProgramSearchConditionService] = []
+    service_ranges: list[schemas.ProgramSearchConditionService] | None = []
     for service in search_info['service_list']:
         # service_list は (NID << 32 | TSID << 16 | SID) のリストになっているので、まずはそれらの値を分解する
         network_id = service >> 32
@@ -120,9 +123,19 @@ def DecodeEDCBSearchKeyInfo(search_info: SearchKeyInfoRequired) -> schemas.Progr
             transport_stream_id = transport_stream_id,
             service_id = service_id,
         ))
+    ## 地上波・BS・CS・CATV・SKY・STARDIGIO・その他の順に並べ替える
+    service_ranges = SortServiceRanges(service_ranges)
+    ## この時点で service_ranges の内容がデフォルトの番組検索条件のチャンネル範囲のリストと一致する場合、
+    ## 全チャンネルを検索対象にしているのと同義なので、None に変換する
+    ## 比較のために一旦リストの中の Pydantic モデルを dict に変換してから比較している
+    default_service_ranges = await GetDefaultServiceRanges()
+    print([service.model_dump() for service in service_ranges])
+    print([service.model_dump() for service in default_service_ranges])
+    if [service.model_dump() for service in service_ranges] == [service.model_dump() for service in default_service_ranges]:
+        service_ranges = None
 
     # 検索対象を絞り込むジャンル範囲のリスト
-    ## 指定しない場合は None になる
+    ## None を指定すると全てのジャンルが検索対象になる
     ## 以下の処理は app.models.Program から移植して少し調整したもの
     genre_ranges: list[schemas.Genre] | None = None
     for content in search_info['content_list']:  # ジャンルごとに
@@ -156,7 +169,7 @@ def DecodeEDCBSearchKeyInfo(search_info: SearchKeyInfoRequired) -> schemas.Progr
     is_exclude_genre_ranges: bool = search_info['not_contet_flag']
 
     # 検索対象を絞り込む放送日時範囲のリスト
-    ## 指定しない場合は None になる
+    ## None を指定すると全ての放送日時が検索対象になる
     date_ranges: list[schemas.ProgramSearchConditionDate] | None = None
     for date in search_info['date_list']:
         if date_ranges is None:
@@ -231,7 +244,7 @@ def DecodeEDCBSearchKeyInfo(search_info: SearchKeyInfoRequired) -> schemas.Progr
     )
 
 
-def EncodeEDCBSearchKeyInfo(program_search_condition: schemas.ProgramSearchCondition) -> SearchKeyInfoRequired:
+async def EncodeEDCBSearchKeyInfo(program_search_condition: schemas.ProgramSearchCondition) -> SearchKeyInfoRequired:
     """
     schemas.ProgramSearchCondition オブジェクトを EDCB の SearchKeyInfo オブジェクトに変換する
 
@@ -261,13 +274,14 @@ def EncodeEDCBSearchKeyInfo(program_search_condition: schemas.ProgramSearchCondi
 
     # 検索対象を絞り込むチャンネル範囲のリスト
     ## service_list は (NID << 32 | TSID << 16 | SID) のリストになっている
+    ## ジャンル範囲や放送日時範囲とは異なり、空リストにしても全チャンネルが検索対象にはならないため、
+    ## もし service_ranges が None だった場合はデフォルトの番組検索条件のチャンネル範囲のリストを設定する
     service_list: list[int] = []
-    if program_search_condition.service_ranges is not None:
-        for channel in program_search_condition.service_ranges:
-            assert channel.transport_stream_id is not None, 'transport_stream_id is missing.'
-            service_list.append(channel.network_id << 32 | channel.transport_stream_id << 16 | channel.service_id)
+    for channel in program_search_condition.service_ranges or await GetDefaultServiceRanges():
+        service_list.append(channel.network_id << 32 | channel.transport_stream_id << 16 | channel.service_id)
 
     # 検索対象を絞り込むジャンル範囲のリスト
+    ## 空リストを指定すると全てのジャンルが検索対象になる
     ## content_list は ContentData のリストになっている
     content_list: list[ContentData] = []
     if program_search_condition.genre_ranges is not None:
@@ -315,6 +329,7 @@ def EncodeEDCBSearchKeyInfo(program_search_condition: schemas.ProgramSearchCondi
             })
 
     # 検索対象を絞り込む放送日時範囲のリスト
+    ## 空リストを指定すると全ての放送日時が検索対象になる
     ## date_list は SearchDateInfoRequired のリストになっている
     date_list: list[SearchDateInfoRequired] = []
     if program_search_condition.date_ranges is not None:
@@ -354,6 +369,77 @@ def EncodeEDCBSearchKeyInfo(program_search_condition: schemas.ProgramSearchCondi
     }
 
     return search_info
+
+
+async def GetDefaultServiceRanges() -> list[schemas.ProgramSearchConditionService]:
+    """
+    デフォルトの番組検索条件のチャンネル範囲のリストを取得する
+    EDCB 本家に倣い、ChSet5.txt に記載されているサービスのうち、EPG 取得対象のものだけを地上波から順に返す
+    ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240221/ini/HttpPublic/legacy/autoaddepginfo.html#L249-L258
+
+    Returns:
+        list[schemas.ProgramSearchConditionService]: デフォルトの番組検索条件のチャンネル範囲のリスト
+    """
+
+    # EDCB の ChSet5.txt を取得
+    ## CtrlCmdUtil.sendEnumService() は EPG に存在しないサービスの情報は取得できないので、こちらを使う
+    edcb = CtrlCmdUtil()
+    chset5_txt: bytes | None = await edcb.sendFileCopy('ChSet5.txt')
+    if chset5_txt is None:
+        # None が返ってきた場合はエラーを返す
+        logging.error('[ReserveConditionsRouter][GetDefaultServiceRanges] Failed to get the list of channels')
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = 'Failed to get the list of channels',
+        )
+
+    # ChSet5.txt をパースしてチャンネル情報を取得
+    channels = EDCBUtil.parseChSet5(EDCBUtil.convertBytesToString(chset5_txt))
+
+    # EPG 取得対象のチャンネルのみを ProgramSearchConditionService オブジェクトに変換
+    services: list[schemas.ProgramSearchConditionService] = []
+    for channel in channels:
+        if channel['epg_cap_flag'] is True:
+            services.append(schemas.ProgramSearchConditionService(
+                network_id = channel['onid'],
+                transport_stream_id = channel['tsid'],
+                service_id = channel['sid'],
+            ))
+
+    # ソートしてから返す
+    return SortServiceRanges(services)
+
+
+def SortServiceRanges(services: list[schemas.ProgramSearchConditionService]) -> list[schemas.ProgramSearchConditionService]:
+    """
+    番組検索条件のチャンネル範囲のリストを地上波・BS・110度CS・CATV・124/128度CS・スターデジオ・その他の順にソートする
+    概ね EDCB / EMWUI のソート順序と同じはずだが、EDCB / EMWUI では CATV がソート時に考慮されていない点が異なる
+
+    Args:
+        services (list[schemas.ProgramSearchConditionService]): チャンネル範囲のリスト
+
+    Returns:
+        list[schemas.ProgramSearchConditionService]: ソートされたチャンネル範囲のリスト
+    """
+
+    # まずネットワーク種別ごとのリストに分ける
+    ground_services: dict[Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO', 'OTHER'], list[schemas.ProgramSearchConditionService]] = {}
+    for service in services:
+        network_type = TSInformation.getNetworkType(service.network_id)
+        if network_type not in ground_services:
+            ground_services[network_type] = []
+        ground_services[network_type].append(service)
+
+    # 地上波・BS・110度CS・CATV・124/128度CS・スターデジオ・その他の順にソートしてから連結
+    sorted_services: list[schemas.ProgramSearchConditionService] = []
+    for network_type in ['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO', 'OTHER']:
+        if network_type in ground_services:
+            # 各ネットワーク種別ごとにサービス ID でソート
+            ground_services[network_type].sort(key=lambda service: service.service_id)
+            # 連結
+            sorted_services.extend(ground_services[network_type])
+
+    return sorted_services
 
 
 async def GetAutoAddDataList(
@@ -431,7 +517,7 @@ async def RegisterReserveConditionAPI(
     # EDCB の AutoAddData オブジェクトを組み立てる
     ## data_id は EDCB 側で自動で割り振られるため省略している
     auto_add_data: AutoAddData = {
-        'search_info': cast(SearchKeyInfo, EncodeEDCBSearchKeyInfo(reserve_condition_add_request.program_search_condition)),
+        'search_info': cast(SearchKeyInfo, await EncodeEDCBSearchKeyInfo(reserve_condition_add_request.program_search_condition)),
         'rec_setting': cast(RecSettingData, EncodeEDCBRecSettingData(reserve_condition_add_request.record_settings)),
     }
 
@@ -481,7 +567,7 @@ async def UpdateReserveConditionAPI(
     """
 
     # 現在のキーワード自動予約条件の AutoAddData に新しい検索条件・録画設定を上書きマージする形で EDCB に送信する
-    auto_add_data['search_info'] = EncodeEDCBSearchKeyInfo(reserve_condition_update_request.program_search_condition)
+    auto_add_data['search_info'] = await EncodeEDCBSearchKeyInfo(reserve_condition_update_request.program_search_condition)
     auto_add_data['rec_setting'] = EncodeEDCBRecSettingData(reserve_condition_update_request.record_settings)
 
     # EDCB に指定されたキーワード自動予約条件を更新するように指示

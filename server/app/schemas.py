@@ -337,17 +337,15 @@ class ProgramSearchCondition(BaseModel):
     # 正規表現検索を行うかどうか
     is_regex_search_enabled: bool = False
     # 検索対象を絞り込むチャンネル範囲のリスト
-    ## 空リストの場合は何もヒットしないため、全選択で全てのチャンネルを検索対象にするには全チャンネルの情報を入れる必要がある
-    ## 全てのチャンネルを検索対象にすると検索処理が比較的重くなるので、可能であれば絞り込む方が望ましいとのこと
-    ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Document/Readme_Mod.txt?plain=1#L165-L170
-    service_ranges: list[ProgramSearchConditionService] = []
+    ## None を指定すると全てのチャンネルが検索対象になる
+    service_ranges: list[ProgramSearchConditionService] | None = None
     # 検索対象を絞り込むジャンル範囲のリスト
-    ## 指定しない場合は None になる
+    ## None を指定すると全てのジャンルが検索対象になる
     genre_ranges: list[Genre] | None = None
     # genre_ranges で指定したジャンルを逆に検索対象から除外するかどうか
     is_exclude_genre_ranges: bool = False
     # 検索対象を絞り込む放送日時範囲のリスト
-    ## 指定しない場合は None になる
+    ## None を指定すると全ての放送日時が検索対象になる
     date_ranges: list[ProgramSearchConditionDate] | None = None
     # date_ranges で指定した放送日時を逆に検索対象から除外するかどうか
     is_exclude_date_ranges: bool = False
