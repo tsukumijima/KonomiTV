@@ -28,7 +28,7 @@ from app.utils.EDCB import SearchKeyInfoRequired
 # ルーター
 router = APIRouter(
     tags = ['Reserve Conditions'],
-    prefix = '/api/reserve-conditions',
+    prefix = '/api/reserves/conditions',
 )
 
 

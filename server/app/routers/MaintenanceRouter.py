@@ -67,7 +67,7 @@ async def UpdateDatabaseAPI(
 ):
     """
     データベースに保存されている、チャンネル情報・番組情報・Twitter アカウント情報などの外部 API に依存するデータをすべて更新する。<br>
-    即座に外部 API でのデータ更新を反映させたい場合に利用する。<br>
+    即座に外部 API からのデータ更新を反映させたい場合に利用する。<br>
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
     """
 
@@ -129,7 +129,7 @@ def ServerShutdownAPI(
 ):
     """
     KonomiTV サーバーを終了する。<br>
-    なお、PM2 環境 / Docker 環境では、サーバー終了後に自動的にプロセスが再起動されるため、事実上 /api/maintenance/restart と等価。<br>
+    なお、PM2 環境 / Docker 環境ではサーバー終了後に自動的にプロセスが再起動されるため、事実上 /api/maintenance/restart と等価。<br>
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
     """
 
