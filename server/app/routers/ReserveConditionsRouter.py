@@ -413,6 +413,7 @@ async def GetAutoAddDataList(
     edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ) -> list[AutoAddDataRequired]:
     """ すべてのキーワード自動予約条件の情報を取得する """
+
     # EDCB から現在のすべてのキーワード自動予約条件の情報を取得
     auto_add_data_list: list[AutoAddDataRequired] | None = await edcb.sendEnumAutoAdd()
     if auto_add_data_list is None:
@@ -422,6 +423,7 @@ async def GetAutoAddDataList(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to get the list of reserve conditions',
         )
+
     return auto_add_data_list
 
 
@@ -430,10 +432,12 @@ async def GetAutoAddData(
     edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ) -> AutoAddDataRequired:
     """ 指定されたキーワード自動予約条件の情報を取得する """
+
     # 指定されたキーワード自動予約条件の情報を取得
     for auto_add_data in await GetAutoAddDataList(edcb):
         if auto_add_data['data_id'] == reserve_condition_id:
             return auto_add_data
+
     # 指定されたキーワード自動予約条件が見つからなかった場合はエラーを返す
     logging.error('[ReserveConditionsRouter][GetAutoAddData] Specified reserve_condition_id was not found '
                     f'[reserve_condition_id: {reserve_condition_id}]')

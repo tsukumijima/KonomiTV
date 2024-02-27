@@ -485,6 +485,7 @@ def EncodeEDCBRecSettingData(record_settings: schemas.RecordSettings) -> RecSett
 
 def GetCtrlCmdUtil() -> CtrlCmdUtil:
     """ バックエンドが EDCB かのチェックを行い、EDCB であれば EDCB の CtrlCmdUtil インスタンスを返す """
+
     if Config().general.backend == 'EDCB':
         return CtrlCmdUtil()
     else:
@@ -499,6 +500,8 @@ async def GetReserveDataList(
     edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ) -> list[ReserveDataRequired]:
     """ すべての録画予約の情報を取得する """
+
+    # EDCB から録画予約の一覧を取得
     reserve_data_list: list[ReserveDataRequired] | None = await edcb.sendEnumReserve()
     if reserve_data_list is None:
         # None が返ってきた場合はエラーを返す
@@ -507,6 +510,7 @@ async def GetReserveDataList(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to get the list of recording reservations',
         )
+
     return reserve_data_list
 
 
@@ -515,10 +519,12 @@ async def GetReserveData(
     edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ) -> ReserveDataRequired:
     """ 指定された録画予約の情報を取得する """
+
     # 指定された録画予約の情報を取得
     for reserve_data in await GetReserveDataList(edcb):
         if reserve_data['reserve_id'] == reserve_id:
             return reserve_data
+
     # 指定された録画予約が見つからなかった場合はエラーを返す
     logging.error(f'[ReservesRouter][GetReserveData] Specified reserve_id was not found [reserve_id: {reserve_id}]')
     raise HTTPException(
@@ -532,7 +538,8 @@ async def GetServiceEventInfo(
     program: Program,
     edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ) -> ServiceEventInfo:
-    """ 指定されたチャンネル・番組情報に合致する番組情報 (ServiceEventInfo) を EDCB から取得する """
+    """ EDCB から指定されたチャンネル情報・番組情報に合致する ServiceEventInfo を取得する """
+
     # EDCB からサービスと当該番組の開始時刻を指定して番組情報を取得
     ## API 仕様がお世辞にも意味わからんのだが、一応これでほぼピンポイントで当該番組のみ取得できる
     assert channel.transport_stream_id is not None, 'transport_stream_id is missing.'
@@ -548,6 +555,7 @@ async def GetServiceEventInfo(
         # 絞り込み対象の番組開始時刻の最大値
         EDCBUtil.datetimeToFileTime(program.start_time + timedelta(minutes=1), timezone(timedelta(hours=9))),
     ])
+
     # 番組情報が取得できなかった場合はエラーを返す
     if service_event_info_list is None or len(service_event_info_list) == 0:
         logging.error(f'[ReservesRouter][GetServiceEventInfo] Failed to get the program information [channel_id: {channel.id} / program_id: {program.id}]')
@@ -555,11 +563,13 @@ async def GetServiceEventInfo(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to get the program information',
         )
+
     # イベント ID が一致する番組情報を探す
     for service_event_info in service_event_info_list:
         if ('event_list' in service_event_info and len(service_event_info['event_list']) > 0 and
             service_event_info['event_list'][0]['eid'] == program.event_id):
             return service_event_info
+
     # イベント ID が一致する番組情報が見つからなかった場合はエラーを返す
     logging.error(f'[ReservesRouter][GetServiceEventInfo] Failed to get the program information [channel_id: {channel.id} / program_id: {program.id}]')
     raise HTTPException(

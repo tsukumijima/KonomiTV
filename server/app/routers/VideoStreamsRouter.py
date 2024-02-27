@@ -23,6 +23,8 @@ router = APIRouter(
 
 async def ValidateVideoID(video_id: Annotated[int, Path(description='録画番組の ID 。')]) -> RecordedProgram:
     """ 録画番組 ID のバリデーション """
+
+    # 指定された video_id が存在するか確認
     recorded_program = await RecordedProgram.filter(id=video_id).get_or_none() \
         .select_related('recorded_video') \
         .select_related('channel')
@@ -32,17 +34,21 @@ async def ValidateVideoID(video_id: Annotated[int, Path(description='録画番�
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified video_id was not found',
         )
+
     return recorded_program
 
 
 async def ValidateQuality(quality: Annotated[str, Path(description='映像の品質。ex: 1080p')]) -> QUALITY_TYPES:
     """ 映像の品質のバリデーション """
+
+    # 指定された品質が存在するか確認
     if quality not in QUALITY:
         logging.error(f'[VideoStreamsRouter][ValidateQuality] Specified quality was not found [quality: {quality}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified quality was not found',
         )
+
     return quality
 
 
