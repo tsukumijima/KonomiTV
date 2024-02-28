@@ -95,7 +95,7 @@ async def BMLBrowserRequestGETProxyAPI(
 )
 async def BMLBrowserRequestPOSTProxyAPI(
     request_url: Annotated[str, Path(description='リクエスト URL 。')],
-    Denbun: Annotated[str, Form(description='データ放送ブラウザからのリクエストボディ (Denbun) 。', max_length=4096)],
+    Denbun: Annotated[str, Form(max_length=4096, description='データ放送ブラウザからのリクエストボディ (Denbun) 。')] = '',
 ):
     """
     データ放送ブラウザ (web-bml) のネット接続機能から利用される、HTTP (POST) プロキシ。<br>
