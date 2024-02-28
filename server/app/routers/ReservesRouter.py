@@ -270,7 +270,7 @@ def DecodeEDCBRecSettingData(rec_settings_data: RecSettingDataRequired) -> schem
         for rec_folder in rec_settings_data[key]:
             # rec_name_plug_in は ? 以降が録画ファイル名テンプレート (マクロ) の値になっているので抽出
             ## RecName_Macro.dll?$title$.ts のような形式で返ってくる
-            recording_file_name_template = rec_folder['rec_name_plug_in'].split('?')[1] if '?' in rec_folder['rec_name_plug_in'] else ''
+            recording_file_name_template = rec_folder['rec_name_plug_in'].split('?', 1)[1] if '?' in rec_folder['rec_name_plug_in'] else ''
             recording_folders.append(schemas.RecordingFolder(
                 recording_folder_path = rec_folder['rec_folder'],
                 recording_file_name_template = recording_file_name_template if recording_file_name_template != '' else None,
