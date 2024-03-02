@@ -301,7 +301,8 @@ def DecodeEDCBRecSettingData(rec_settings_data: RecSettingDataRequired) -> schem
     is_exact_recording_enabled: bool = rec_settings_data['pittari_flag']
 
     # 録画対象のチャンネルにワンセグ放送が含まれる場合、ワンセグ放送を別ファイルに同時録画するかどうか
-    is_oneseg_separate_output_enabled: bool = rec_settings_data['partial_rec_flag'] == 1  # これだけ何故かフラグなのに int で返ってくる…
+    ## partial_rec_flag が 2 の時はワンセグ放送だけを出力できるそうだが、EpgTimer の UI ですら設定できない隠し機能のため無視する
+    is_oneseg_separate_output_enabled: bool = rec_settings_data['partial_rec_flag'] == 1
 
     # 同一チャンネルで時間的に隣接した録画予約がある場合に、それらを同一の録画ファイルに続けて出力するかどうか
     is_sequential_recording_in_single_file_enabled: bool = rec_settings_data['continue_rec_flag']
@@ -396,6 +397,7 @@ def EncodeEDCBRecSettingData(record_settings: schemas.RecordSettings) -> RecSett
         bat_file_path = record_settings.post_recording_bat_file_path
 
     # 保存先の録画フォルダのパスのリスト
+    ## 空リストのときはデフォルトの録画フォルダに保存されるため問題ない
     rec_folder_list: list[RecFileSetInfoRequired] = []
     partial_rec_folder: list[RecFileSetInfoRequired] = []
     for recording_folder in record_settings.recording_folders:
@@ -403,7 +405,10 @@ def EncodeEDCBRecSettingData(record_settings: schemas.RecordSettings) -> RecSett
         ## 一応 Write_OneService.dll や Write_Multi とかがなくもないが、利用用途があるのかすら知らないため無視
         write_plug_in = 'Write_Default.dll'
         # 録画ファイル名変更プラグインは RecName_Macro.dll しかないので固定
-        rec_name_plug_in = ''
+        ## 空文字列にすると EpgTimerSrv 設定の「録画時のファイル名に PlugIn を使用する」が有効かどうか次第になるが、
+        ## わざわざ無効にするユースケースがほとんどないため、KonomiTV では EpgTimerSrv での設定値に関わらず常に有効化する
+        rec_name_plug_in = 'RecName_Macro.dll'
+        # ファイル名テンプレートが指定されている場合は ? 以降に RecName_Macro.dll へのオプションとして追加する
         if recording_folder.recording_file_name_template is not None:
             rec_name_plug_in = f'RecName_Macro.dll?{recording_folder.recording_file_name_template}'
         # ワンセグ録画フォルダかどうかで分ける
@@ -450,7 +455,8 @@ def EncodeEDCBRecSettingData(record_settings: schemas.RecordSettings) -> RecSett
     continue_rec_flag: bool = record_settings.is_sequential_recording_in_single_file_enabled
 
     # 録画対象のチャンネルにワンセグ放送が含まれる場合、ワンセグ放送を別ファイルに同時録画するかどうか
-    partial_rec_flag: int = 1 if record_settings.is_oneseg_separate_output_enabled is True else 0  # これだけ何故か int で指定が必要
+    ## partial_rec_flag が 2 の時はワンセグ放送だけを出力できるそうだが、EpgTimer の UI ですら設定できない隠し機能のため無視する
+    partial_rec_flag: int = 1 if record_settings.is_oneseg_separate_output_enabled is True else 0
 
     # チューナーを強制指定する際のチューナー ID / 自動選択の場合は 0 を指定
     tuner_id: int = 0
