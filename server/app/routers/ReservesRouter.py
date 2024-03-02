@@ -241,13 +241,13 @@ def DecodeEDCBRecSettingData(rec_settings_data: RecSettingDataRequired) -> schem
     # 録画モード: 全サービス / 全サービス (デコードなし) / 指定サービスのみ / 指定サービスのみ (デコードなし) / 視聴
     ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/CommonDef.h#L26-L30
     ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Document/Readme_Mod.txt?plain=1#L264-L266
-    recording_mode: Literal['AllService', 'AllServiceWithoutDecoding', 'SpecifiedService', 'SpecifiedServiceWithoutDecoding', 'View'] = 'SpecifiedService'
+    recording_mode: Literal['AllServices', 'AllServicesWithoutDecoding', 'SpecifiedService', 'SpecifiedServiceWithoutDecoding', 'View'] = 'SpecifiedService'
     if rec_settings_data['rec_mode'] == 0 or rec_settings_data['rec_mode'] == 9:
-        recording_mode = 'AllService'  # 全サービス
+        recording_mode = 'AllServices'  # 全サービス
     elif rec_settings_data['rec_mode'] == 1 or rec_settings_data['rec_mode'] == 5:
         recording_mode = 'SpecifiedService'  # 指定サービスのみ
     elif rec_settings_data['rec_mode'] == 2 or rec_settings_data['rec_mode'] == 6:
-        recording_mode = 'AllServiceWithoutDecoding'  # 全サービス (デコードなし)
+        recording_mode = 'AllServicesWithoutDecoding'  # 全サービス (デコードなし)
     elif rec_settings_data['rec_mode'] == 3 or rec_settings_data['rec_mode'] == 7:
         recording_mode = 'SpecifiedServiceWithoutDecoding'  # 指定サービスのみ (デコードなし)
     elif rec_settings_data['rec_mode'] == 4 or rec_settings_data['rec_mode'] == 8:
@@ -346,22 +346,22 @@ def EncodeEDCBRecSettingData(record_settings: schemas.RecordSettings) -> RecSett
     ## 歴史的経緯で予約無効を後から追加したためにこうなっているらしい (5 以降の値は無効)
     rec_mode: int = 1
     if record_settings.is_enabled is True:
-        if record_settings.recording_mode == 'AllService':
+        if record_settings.recording_mode == 'AllServices':
             rec_mode = 0
         elif record_settings.recording_mode == 'SpecifiedService':
             rec_mode = 1
-        elif record_settings.recording_mode == 'AllServiceWithoutDecoding':
+        elif record_settings.recording_mode == 'AllServicesWithoutDecoding':
             rec_mode = 2
         elif record_settings.recording_mode == 'SpecifiedServiceWithoutDecoding':
             rec_mode = 3
         elif record_settings.recording_mode == 'View':
             rec_mode = 4
     else:
-        if record_settings.recording_mode == 'AllService':
+        if record_settings.recording_mode == 'AllServices':
             rec_mode = 9
         elif record_settings.recording_mode == 'SpecifiedService':
             rec_mode = 5
-        elif record_settings.recording_mode == 'AllServiceWithoutDecoding':
+        elif record_settings.recording_mode == 'AllServicesWithoutDecoding':
             rec_mode = 6
         elif record_settings.recording_mode == 'SpecifiedServiceWithoutDecoding':
             rec_mode = 7

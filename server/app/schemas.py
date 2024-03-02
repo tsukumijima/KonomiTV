@@ -404,7 +404,7 @@ class RecordSettings(BaseModel):
     # 録画予約の優先度: 1 ~ 5 の数値で数値が大きいほど優先度が高い
     priority: Annotated[int, Field(ge=1, le=5)] = 3
     # 保存先の録画フォルダのパスのリスト
-    ## 指定されない場合はデフォルトの録画フォルダに順に保存される
+    ## 空リストにするとデフォルトの録画フォルダに保存される
     ## UI 上では単一の録画フォルダしか指定できない (複数のフォルダに同じ内容を保存するユースケースが皆無なため)
     recording_folders: list[RecordingFolder] = []
     # 録画開始マージン (秒) / デフォルト設定に従う場合は None
@@ -416,7 +416,7 @@ class RecordSettings(BaseModel):
     ## UI 上では非表示 (新規追加時は「指定サービスのみ」で固定)
     ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/CommonDef.h#L26-L30
     ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Document/Readme_Mod.txt#L264-L266
-    recording_mode: Literal['AllService', 'AllServiceWithoutDecoding', 'SpecifiedService', 'SpecifiedServiceWithoutDecoding', 'View'] = 'SpecifiedService'
+    recording_mode: Literal['AllServices', 'AllServicesWithoutDecoding', 'SpecifiedService', 'SpecifiedServiceWithoutDecoding', 'View'] = 'SpecifiedService'
     # 字幕データを録画するかどうか (Default のとき、デフォルト設定に従う)
     caption_recording_mode: Literal['Default', 'Enable', 'Disable'] = 'Default'
     # データ放送を録画するかどうか (Default のとき、デフォルト設定に従う)
