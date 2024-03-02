@@ -401,25 +401,30 @@ class ProgramSearchConditionDate(BaseModel):
 class RecordSettings(BaseModel):
     # 録画予約が有効かどうか
     is_enabled: bool = True
-    # 録画モード: 全サービス / 全サービス (デコードなし) / 指定サービスのみ / 指定サービスのみ (デコードなし) / 視聴
-    # 通常の用途では「指定サービスのみ」以外はまず使わない
-    ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/CommonDef.h#L26-L30
-    ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Document/Readme_Mod.txt#L264-L266
-    record_mode: Literal['AllService', 'AllServiceWithoutDecoding', 'SpecifiedService', 'SpecifiedServiceWithoutDecoding', 'View'] = 'SpecifiedService'
     # 録画予約の優先度: 1 ~ 5 の数値で数値が大きいほど優先度が高い
     priority: Annotated[int, Field(ge=1, le=5)] = 3
-    # 録画開始マージン (秒) / デフォルト設定に従う場合は None
-    recording_start_margin: int | None = None
-    # 録画終了マージン (秒) / デフォルト設定に従う場合は None
-    recording_end_margin: int | None = None
-    # 録画後の動作モード: デフォルト設定に従う / 何もしない / スタンバイ / 休止 / シャットダウン / 再起動
-    post_recording_mode: Literal['Default', 'Nothing', 'Standby', 'Suspend', 'Shutdown', 'Reboot'] = 'Default'
-    # 録画後に実行する bat ファイルのパス / 指定しない場合は None
-    post_recording_bat_file_path: str | None = None
     # 保存先の録画フォルダのパスのリスト
     ## 指定されない場合はデフォルトの録画フォルダに順に保存される
     ## UI 上では単一の録画フォルダしか指定できない (複数のフォルダに同じ内容を保存するユースケースが皆無なため)
     recording_folders: list[RecordingFolder] = []
+    # 録画開始マージン (秒) / デフォルト設定に従う場合は None
+    recording_start_margin: int | None = None
+    # 録画終了マージン (秒) / デフォルト設定に従う場合は None
+    recording_end_margin: int | None = None
+    # 録画モード: 全サービス / 全サービス (デコードなし) / 指定サービスのみ / 指定サービスのみ (デコードなし) / 視聴
+    ## 通常の用途では「指定サービスのみ」以外はまず使わない
+    ## UI 上では非表示 (新規追加時は「指定サービスのみ」で固定)
+    ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/CommonDef.h#L26-L30
+    ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Document/Readme_Mod.txt#L264-L266
+    recording_mode: Literal['AllService', 'AllServiceWithoutDecoding', 'SpecifiedService', 'SpecifiedServiceWithoutDecoding', 'View'] = 'SpecifiedService'
+    # 字幕データを録画するかどうか (Default のとき、デフォルト設定に従う)
+    caption_recording_mode: Literal['Default', 'Enable', 'Disable'] = 'Default'
+    # データ放送を録画するかどうか (Default のとき、デフォルト設定に従う)
+    data_broadcasting_recording_mode: Literal['Default', 'Enable', 'Disable'] = 'Default'
+    # 録画後動作モード: デフォルト設定に従う / 何もしない / スタンバイ / スタンバイ (復帰後再起動) / 休止 / 休止 (復帰後再起動) / シャットダウン
+    post_recording_mode: Literal['Default', 'Nothing', 'Standby', 'StandbyAndReboot', 'Suspend', 'SuspendAndReboot', 'Shutdown'] = 'Default'
+    # 録画後に実行する bat ファイルのパス / 指定しない場合は None
+    post_recording_bat_file_path: str | None = None
     # イベントリレーの追従を行うかどうか
     ## UI 上では非表示 (新規追加時は True で固定)
     is_event_relay_follow_enabled: bool = True
@@ -433,12 +438,6 @@ class RecordSettings(BaseModel):
     # 同一チャンネルで時間的に隣接した録画予約がある場合に、それらを同一の録画ファイルに続けて出力するかどうか
     ## UI 上では非表示 (新規追加時は False で固定)
     is_sequential_recording_in_single_file_enabled: bool = False
-    # 字幕データを録画するかどうか (Default のとき、デフォルト設定に従う)
-    ## UI 上では非表示 (新規追加時は Default で固定)
-    caption_recording_mode: Literal['Default', 'Enable', 'Disable'] = 'Default'
-    # データ放送を録画するかどうか (Default のとき、デフォルト設定に従う)
-    ## UI 上では非表示 (新規追加時は Default で固定)
-    data_broadcasting_recording_mode: Literal['Default', 'Enable', 'Disable'] = 'Default'
     # チューナーを強制指定する際のチューナー ID / 自動選択の場合は None
     # UI 上では非表示 (新規追加時は None で固定)
     forced_tuner_id: Annotated[int, Field(ge=0)] | None = None

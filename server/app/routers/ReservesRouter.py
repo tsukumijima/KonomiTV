@@ -212,57 +212,8 @@ def DecodeEDCBRecSettingData(rec_settings_data: RecSettingDataRequired) -> schem
     # 録画予約が有効かどうか
     is_enabled: bool = rec_settings_data['rec_mode'] <= 4  # 0 ~ 4 なら有効
 
-    # 録画モード: 全サービス / 全サービス (デコードなし) / 指定サービスのみ / 指定サービスのみ (デコードなし) / 視聴
-    # 通常の用途では「指定サービスのみ」以外はまず使わない
-    ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/CommonDef.h#L26-L30
-    ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Document/Readme_Mod.txt?plain=1#L264-L266
-    record_mode: Literal['AllService', 'AllServiceWithoutDecoding', 'SpecifiedService', 'SpecifiedServiceWithoutDecoding', 'View'] = 'SpecifiedService'
-    if rec_settings_data['rec_mode'] == 0 or rec_settings_data['rec_mode'] == 9:
-        record_mode = 'AllService'  # 全サービス
-    elif rec_settings_data['rec_mode'] == 1 or rec_settings_data['rec_mode'] == 5:
-        record_mode = 'SpecifiedService'  # 指定サービスのみ
-    elif rec_settings_data['rec_mode'] == 2 or rec_settings_data['rec_mode'] == 6:
-        record_mode = 'AllServiceWithoutDecoding'  # 全サービス (デコードなし)
-    elif rec_settings_data['rec_mode'] == 3 or rec_settings_data['rec_mode'] == 7:
-        record_mode = 'SpecifiedServiceWithoutDecoding'  # 指定サービスのみ (デコードなし)
-    elif rec_settings_data['rec_mode'] == 4 or rec_settings_data['rec_mode'] == 8:
-        record_mode = 'View'
-
     # 録画予約の優先度: 1 ~ 5 の数値で数値が大きいほど優先度が高い
     priority: int = rec_settings_data['priority']
-
-    # 録画開始マージン (秒) / デフォルト設定に従う場合は None
-    recording_start_margin: int | None = None
-    if 'start_margin' in rec_settings_data:
-        recording_start_margin = rec_settings_data['start_margin']
-
-    # 録画終了マージン (秒) / デフォルト設定に従う場合は None
-    recording_end_margin: int | None = None
-    if 'end_margin' in rec_settings_data:
-        recording_end_margin = rec_settings_data['end_margin']
-
-    # 録画後の動作モード: デフォルト設定に従う / 何もしない / スタンバイ / 休止 / シャットダウン / 再起動
-    # ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/ini/HttpPublic/legacy/util.lua#L522-L528
-    post_recording_mode: Literal['Default', 'Nothing', 'Standby', 'Suspend', 'Shutdown', 'Reboot'] = 'Default'
-    if rec_settings_data['suspend_mode'] == 0:
-        post_recording_mode = 'Default'
-    elif rec_settings_data['suspend_mode'] == 1:
-        post_recording_mode = 'Standby'
-    elif rec_settings_data['suspend_mode'] == 2:
-        post_recording_mode = 'Suspend'
-    elif rec_settings_data['suspend_mode'] == 3:
-        post_recording_mode = 'Shutdown'
-    elif rec_settings_data['suspend_mode'] == 4:
-        post_recording_mode = 'Nothing'
-    ## なぜか再起動フラグだけ分かれているが、KonomiTV では同一の Literal 値にまとめている
-    ## デフォルト設定に従う場合は万が一再起動フラグが立っていても Reboot にはしてはならない
-    if rec_settings_data['suspend_mode'] != 0 and rec_settings_data['reboot_flag'] is True:
-        post_recording_mode = 'Reboot'
-
-    # 録画後に実行する bat ファイルのパス / 指定しない場合は None
-    post_recording_bat_file_path: str | None = None
-    if rec_settings_data['bat_file_path'] != '':
-        post_recording_bat_file_path = rec_settings_data['bat_file_path']
 
     # 保存先の録画フォルダのパスのリスト
     recording_folders: list[schemas.RecordingFolder] = []
@@ -277,17 +228,30 @@ def DecodeEDCBRecSettingData(rec_settings_data: RecSettingDataRequired) -> schem
                 is_oneseg_separate_recording_folder = key == 'partial_rec_folder',
             ))
 
-    # イベントリレーの追従を行うかどうか
-    is_event_relay_follow_enabled: bool = rec_settings_data['tuijyuu_flag']
+    # 録画開始マージン (秒) / デフォルト設定に従う場合は None
+    recording_start_margin: int | None = None
+    if 'start_margin' in rec_settings_data:
+        recording_start_margin = rec_settings_data['start_margin']
 
-    # 「ぴったり録画」(録画マージンののりしろを残さず本編のみを正確に録画する？) を行うかどうか
-    is_exact_recording_enabled: bool = rec_settings_data['pittari_flag']
+    # 録画終了マージン (秒) / デフォルト設定に従う場合は None
+    recording_end_margin: int | None = None
+    if 'end_margin' in rec_settings_data:
+        recording_end_margin = rec_settings_data['end_margin']
 
-    # 録画対象のチャンネルにワンセグ放送が含まれる場合、ワンセグ放送を別ファイルに同時録画するかどうか
-    is_oneseg_separate_output_enabled: bool = rec_settings_data['partial_rec_flag'] == 1  # これだけ何故かフラグなのに int で返ってくる…
-
-    # 同一チャンネルで時間的に隣接した録画予約がある場合に、それらを同一の録画ファイルに続けて出力するかどうか
-    is_sequential_recording_in_single_file_enabled: bool = rec_settings_data['continue_rec_flag']
+    # 録画モード: 全サービス / 全サービス (デコードなし) / 指定サービスのみ / 指定サービスのみ (デコードなし) / 視聴
+    ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/CommonDef.h#L26-L30
+    ## ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Document/Readme_Mod.txt?plain=1#L264-L266
+    recording_mode: Literal['AllService', 'AllServiceWithoutDecoding', 'SpecifiedService', 'SpecifiedServiceWithoutDecoding', 'View'] = 'SpecifiedService'
+    if rec_settings_data['rec_mode'] == 0 or rec_settings_data['rec_mode'] == 9:
+        recording_mode = 'AllService'  # 全サービス
+    elif rec_settings_data['rec_mode'] == 1 or rec_settings_data['rec_mode'] == 5:
+        recording_mode = 'SpecifiedService'  # 指定サービスのみ
+    elif rec_settings_data['rec_mode'] == 2 or rec_settings_data['rec_mode'] == 6:
+        recording_mode = 'AllServiceWithoutDecoding'  # 全サービス (デコードなし)
+    elif rec_settings_data['rec_mode'] == 3 or rec_settings_data['rec_mode'] == 7:
+        recording_mode = 'SpecifiedServiceWithoutDecoding'  # 指定サービスのみ (デコードなし)
+    elif rec_settings_data['rec_mode'] == 4 or rec_settings_data['rec_mode'] == 8:
+        recording_mode = 'View'
 
     # 字幕データ/データ放送の録画設定は、デフォルト設定を使うか否かを含めすべて下記のビットフラグになっている
     # ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/CommonDef.h#L36-L39
@@ -307,6 +271,41 @@ def DecodeEDCBRecSettingData(rec_settings_data: RecSettingDataRequired) -> schem
         caption_recording_mode = 'Default'
         data_broadcasting_recording_mode = 'Default'
 
+    # 録画後動作モード: デフォルト設定に従う / 何もしない / スタンバイ / スタンバイ (復帰後再起動) / 休止 / 休止 (復帰後再起動) / シャットダウン
+    # ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/ini/HttpPublic/legacy/util.lua#L522-L528
+    post_recording_mode: Literal['Default', 'Nothing', 'Standby', 'StandbyAndReboot', 'Suspend', 'SuspendAndReboot', 'Shutdown'] = 'Default'
+    if rec_settings_data['suspend_mode'] == 0:
+        post_recording_mode = 'Default'
+    elif rec_settings_data['suspend_mode'] == 1 and rec_settings_data['reboot_flag'] is False:
+        post_recording_mode = 'Standby'
+    elif rec_settings_data['suspend_mode'] == 1 and rec_settings_data['reboot_flag'] is True:
+        post_recording_mode = 'StandbyAndReboot'
+    elif rec_settings_data['suspend_mode'] == 2 and rec_settings_data['reboot_flag'] is False:
+        post_recording_mode = 'Suspend'
+    elif rec_settings_data['suspend_mode'] == 2 and rec_settings_data['reboot_flag'] is True:
+        post_recording_mode = 'SuspendAndReboot'
+    elif rec_settings_data['suspend_mode'] == 3:
+        post_recording_mode = 'Shutdown'
+    elif rec_settings_data['suspend_mode'] == 4:
+        post_recording_mode = 'Nothing'
+
+    # 録画後に実行する bat ファイルのパス / 指定しない場合は None
+    post_recording_bat_file_path: str | None = None
+    if rec_settings_data['bat_file_path'] != '':
+        post_recording_bat_file_path = rec_settings_data['bat_file_path']
+
+    # イベントリレーの追従を行うかどうか
+    is_event_relay_follow_enabled: bool = rec_settings_data['tuijyuu_flag']
+
+    # 「ぴったり録画」(録画マージンののりしろを残さず本編のみを正確に録画する？) を行うかどうか
+    is_exact_recording_enabled: bool = rec_settings_data['pittari_flag']
+
+    # 録画対象のチャンネルにワンセグ放送が含まれる場合、ワンセグ放送を別ファイルに同時録画するかどうか
+    is_oneseg_separate_output_enabled: bool = rec_settings_data['partial_rec_flag'] == 1  # これだけ何故かフラグなのに int で返ってくる…
+
+    # 同一チャンネルで時間的に隣接した録画予約がある場合に、それらを同一の録画ファイルに続けて出力するかどうか
+    is_sequential_recording_in_single_file_enabled: bool = rec_settings_data['continue_rec_flag']
+
     # チューナーを強制指定する際のチューナー ID / 自動選択の場合は None
     forced_tuner_id: int | None = None
     if rec_settings_data['tuner_id'] != 0:  # 0 は自動選択
@@ -314,19 +313,19 @@ def DecodeEDCBRecSettingData(rec_settings_data: RecSettingDataRequired) -> schem
 
     return schemas.RecordSettings(
         is_enabled = is_enabled,
-        record_mode = record_mode,
         priority = priority,
+        recording_folders = recording_folders,
         recording_start_margin = recording_start_margin,
         recording_end_margin = recording_end_margin,
+        recording_mode = recording_mode,
+        caption_recording_mode = caption_recording_mode,
+        data_broadcasting_recording_mode = data_broadcasting_recording_mode,
         post_recording_mode = post_recording_mode,
         post_recording_bat_file_path = post_recording_bat_file_path,
-        recording_folders = recording_folders,
         is_event_relay_follow_enabled = is_event_relay_follow_enabled,
         is_exact_recording_enabled = is_exact_recording_enabled,
         is_oneseg_separate_output_enabled = is_oneseg_separate_output_enabled,
         is_sequential_recording_in_single_file_enabled = is_sequential_recording_in_single_file_enabled,
-        caption_recording_mode = caption_recording_mode,
-        data_broadcasting_recording_mode = data_broadcasting_recording_mode,
         forced_tuner_id = forced_tuner_id,
     )
 
@@ -347,26 +346,26 @@ def EncodeEDCBRecSettingData(record_settings: schemas.RecordSettings) -> RecSett
     ## 歴史的経緯で予約無効を後から追加したためにこうなっているらしい (5 以降の値は無効)
     rec_mode: int = 1
     if record_settings.is_enabled is True:
-        if record_settings.record_mode == 'AllService':
+        if record_settings.recording_mode == 'AllService':
             rec_mode = 0
-        elif record_settings.record_mode == 'SpecifiedService':
+        elif record_settings.recording_mode == 'SpecifiedService':
             rec_mode = 1
-        elif record_settings.record_mode == 'AllServiceWithoutDecoding':
+        elif record_settings.recording_mode == 'AllServiceWithoutDecoding':
             rec_mode = 2
-        elif record_settings.record_mode == 'SpecifiedServiceWithoutDecoding':
+        elif record_settings.recording_mode == 'SpecifiedServiceWithoutDecoding':
             rec_mode = 3
-        elif record_settings.record_mode == 'View':
+        elif record_settings.recording_mode == 'View':
             rec_mode = 4
     else:
-        if record_settings.record_mode == 'AllService':
+        if record_settings.recording_mode == 'AllService':
             rec_mode = 9
-        elif record_settings.record_mode == 'SpecifiedService':
+        elif record_settings.recording_mode == 'SpecifiedService':
             rec_mode = 5
-        elif record_settings.record_mode == 'AllServiceWithoutDecoding':
+        elif record_settings.recording_mode == 'AllServiceWithoutDecoding':
             rec_mode = 6
-        elif record_settings.record_mode == 'SpecifiedServiceWithoutDecoding':
+        elif record_settings.recording_mode == 'SpecifiedServiceWithoutDecoding':
             rec_mode = 7
-        elif record_settings.record_mode == 'View':
+        elif record_settings.recording_mode == 'View':
             rec_mode = 8
 
     # 録画予約の優先度: 1 ~ 5 の数値で数値が大きいほど優先度が高い
@@ -421,7 +420,7 @@ def EncodeEDCBRecSettingData(record_settings: schemas.RecordSettings) -> RecSett
                 'rec_name_plug_in': rec_name_plug_in,
             })
 
-    # 録画後の動作モード: デフォルト設定に従う / 何もしない / スタンバイ / 休止 / シャットダウン / 再起動
+    # 録画後動作モード: デフォルト設定に従う / 何もしない / スタンバイ / スタンバイ (復帰後再起動) / 休止 / 休止 (復帰後再起動) / シャットダウン
     suspend_mode: int = 0
     reboot_flag: bool = False
     if record_settings.post_recording_mode == 'Default':
@@ -430,15 +429,16 @@ def EncodeEDCBRecSettingData(record_settings: schemas.RecordSettings) -> RecSett
         suspend_mode = 4
     elif record_settings.post_recording_mode == 'Standby':
         suspend_mode = 1
+    elif record_settings.post_recording_mode == 'StandbyAndReboot':
+        suspend_mode = 1
+        reboot_flag = True
     elif record_settings.post_recording_mode == 'Suspend':
         suspend_mode = 2
+    elif record_settings.post_recording_mode == 'SuspendAndReboot':
+        suspend_mode = 2
+        reboot_flag = True
     elif record_settings.post_recording_mode == 'Shutdown':
         suspend_mode = 3
-    ## 再起動時は suspend_mode を Nothing にした上で再起動フラグを立てないといけない (?)
-    ## この辺仕様がわからなさすぎる…
-    elif record_settings.post_recording_mode == 'Reboot':
-        suspend_mode = 4
-        reboot_flag = True
 
     # 録画開始マージン (秒) / デフォルト設定に従う場合は存在しない (一旦ここでは None にしておく)
     start_margin: int | None = record_settings.recording_start_margin
