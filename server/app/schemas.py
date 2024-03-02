@@ -286,10 +286,10 @@ class Reserve(BaseModel):
     program: Program
     # 録画予約が現在進行中かどうか
     is_recording_in_progress: bool
-    # 録画予約の被り状態: 被りなし (予約可能) / 被ってチューナー足りない予約あり / チューナー足りないため予約できない
+    # 実際に録画可能かどうか: 全編録画可能 / チューナー不足のため部分的にのみ録画可能 (一部録画できない) / チューナー不足のため全編録画不可能
     # ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/CommonDef.h#L32-L34
     # ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/StructDef.h#L62
-    overlap_status: Literal['NoOverlap', 'HasOverlap', 'CannotReserve']
+    recording_availability: Literal['Full', 'Partial', 'Unavailable']
     # コメント: EPG 予約で自動追加された予約なら "EPG自動予約" と入る
     comment: str
     # 録画予定のファイル名

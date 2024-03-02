@@ -163,14 +163,14 @@ async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: lis
     ## 歴史的経緯でこう取得することになっているらしい
     is_recording_in_progress: bool = type(await CtrlCmdUtil().sendGetRecFilePath(reserve_id)) is str
 
-    # 録画予約の被り状態: 被りなし (予約可能) / 被ってチューナー足りない予約あり / チューナー足りないため予約できない
+    # 実際に録画可能かどうか: 全編録画可能 / チューナー不足のため部分的にのみ録画可能 (一部録画できない) / チューナー不足のため全編録画不可能
     # ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/CommonDef.h#L32-L34
     # ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/StructDef.h#L62
-    overlap_status: Literal['NoOverlap', 'HasOverlap', 'CannotReserve'] = 'NoOverlap'
+    recording_availability: Literal['Full', 'Partial', 'Unavailable'] = 'Full'
     if reserve_data['overlap_mode'] == 1:
-        overlap_status = 'HasOverlap'
+        recording_availability = 'Partial'
     elif reserve_data['overlap_mode'] == 2:
-        overlap_status = 'CannotReserve'
+        recording_availability = 'Unavailable'
 
     # コメント: EPG 予約で自動追加された予約なら "EPG自動予約" と入る
     comment: str = reserve_data['comment']
@@ -191,7 +191,7 @@ async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: lis
         channel = cast(Any, channel),
         program = cast(Any, program),
         is_recording_in_progress = is_recording_in_progress,
-        overlap_status = overlap_status,
+        recording_availability = recording_availability,
         comment = comment,
         scheduled_recording_file_name = scheduled_recording_file_name,
         record_settings = record_settings,
