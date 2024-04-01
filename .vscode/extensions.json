@@ -1,6 +1,7 @@
 {
     "recommendations": [
         "dbaeumer.vscode-eslint",
+        "editorconfig.editorconfig",
         "ms-python.python",
         "ms-python.vscode-pylance",
         "vue.volar",
