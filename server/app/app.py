@@ -2,6 +2,7 @@
 import asyncio
 import atexit
 import tortoise.contrib.fastapi
+import tortoise.log
 from fastapi import FastAPI
 from fastapi import Request
 from fastapi import status
@@ -21,6 +22,7 @@ from app.constants import (
     QUALITY,
     VERSION,
 )
+from app.logging import logger
 from app.models.Channel import Channel
 from app.models.Program import Program
 from app.models.TwitterAccount import TwitterAccount
@@ -157,10 +159,11 @@ async def ExceptionHandler(request: Request, exc: Exception):
     )
 
 # Tortoise ORM の初期化
-## ロガーを Uvicorn に統合する
+## Tortoise ORM が利用するロガーを Uvicorn のロガーに差し替える
 ## ref: https://github.com/tortoise/tortoise-orm/issues/529
-tortoise.contrib.fastapi.logging = logging.logger  # type: ignore
-## Tortoise ORM を登録する
+tortoise.log.logger = logger
+tortoise.log.db_client_logger = logger
+## Tortoise ORM を FastAPI に登録する
 ## ref: https://tortoise-orm.readthedocs.io/en/latest/contrib/fastapi.html
 tortoise.contrib.fastapi.register_tortoise(
     app = app,
