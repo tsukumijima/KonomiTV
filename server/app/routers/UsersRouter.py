@@ -504,7 +504,7 @@ async def UserIconAPI(
     user: Annotated[User, Depends(GetSpecifiedUser)],
 ):
     """
-    指定されたユーザーアカウントのユーザーアカウントのアイコン画像を取得する。<br>
+    指定されたユーザーアカウントのアイコン画像を取得する。<br>
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
     """
 
