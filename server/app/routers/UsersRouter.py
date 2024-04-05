@@ -381,9 +381,9 @@ async def UserIconMeAPI(
     }
 
     # アイコン画像が保存されていればそれを返す
-    save_path = ACCOUNT_ICON_DIR / f'{current_user.id:02}.png'
-    if pathlib.Path.exists(save_path):
-        return FileResponse(save_path, headers=header)
+    icon_save_path = ACCOUNT_ICON_DIR / f'{current_user.id:02}.png'
+    if icon_save_path.exists():
+        return FileResponse(icon_save_path, headers=header)
 
     # デフォルトのアイコン画像を返す
     return FileResponse(ACCOUNT_ICON_DEFAULT_DIR / 'default.png', headers=header)
@@ -430,9 +430,9 @@ async def UserDeleteMeAPI(
     """
 
     # アイコン画像が保存されていれば削除する
-    save_path = ACCOUNT_ICON_DIR / f'{current_user.id:02}.png'
-    if pathlib.Path.exists(save_path):
-        save_path.unlink()
+    icon_save_path = ACCOUNT_ICON_DIR / f'{current_user.id:02}.png'
+    if icon_save_path.exists():
+        icon_save_path.unlink()
 
     # 現在ログイン中のユーザーアカウント（自分自身）を削除
     # アカウントを削除すると、それ以降は（当然ながら）ログインを要求する API へアクセスできなくなる
@@ -515,9 +515,9 @@ async def UserIconAPI(
     }
 
     # アイコン画像が保存されていればそれを返す
-    save_path = ACCOUNT_ICON_DIR / f'{user.id:02}.png'
-    if pathlib.Path.exists(save_path):
-        return FileResponse(save_path, headers=header)
+    icon_save_path = ACCOUNT_ICON_DIR / f'{user.id:02}.png'
+    if icon_save_path.exists():
+        return FileResponse(icon_save_path, headers=header)
 
     # デフォルトのアイコン画像を返す
     return FileResponse(ACCOUNT_ICON_DEFAULT_DIR / 'default.png', headers=header)
@@ -564,9 +564,9 @@ async def UserDeleteAPI(
     """
 
     # アイコン画像が保存されていれば削除する
-    save_path = ACCOUNT_ICON_DIR / f'{user.id:02}.png'
-    if pathlib.Path.exists(save_path):
-        save_path.unlink()
+    icon_save_path = ACCOUNT_ICON_DIR / f'{user.id:02}.png'
+    if icon_save_path.exists():
+        icon_save_path.unlink()
 
     # 指定されたユーザーを削除
     await user.delete()
