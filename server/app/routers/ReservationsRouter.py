@@ -31,7 +31,7 @@ from app.utils.TSInformation import TSInformation
 # ルーター
 router = APIRouter(
     tags = ['Reservations'],
-    prefix = '/api/recording/reserves',
+    prefix = '/api/recording/reservations',
 )
 
 
