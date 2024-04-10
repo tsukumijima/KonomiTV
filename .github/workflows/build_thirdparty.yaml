@@ -246,7 +246,9 @@ jobs:
           mv thirdparty/FFmpeg/ffprobe thirdparty/FFmpeg/ffprobe.elf
           rm thirdparty/FFmpeg/ffplay
           chmod a+x thirdparty/FFmpeg/ffmpeg.elf
+          patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../Library' thirdparty/FFmpeg/ffmpeg.elf
           chmod a+x thirdparty/FFmpeg/ffprobe.elf
+          patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../Library' thirdparty/FFmpeg/ffprobe.elf
 
           # QSV/NV/VCEEncC が依存しているライブラリをダウンロードしてまとめる
           ## ref: https://stackoverflow.com/questions/13756800/how-to-download-all-dependencies-and-packages-to-directory
