@@ -190,7 +190,6 @@ class TwitterAccount(PydanticModel):
     name: str
     screen_name: str
     icon_url: str
-    is_oauth_session: bool  # 追加カラム
     created_at: datetime
     updated_at: datetime
 

@@ -38,10 +38,6 @@ class TwitterAccount(TortoiseModel):
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
-    @property
-    def is_oauth_session(self) -> bool:
-        return self.access_token != 'COOKIE_SESSION'
-
 
     @classmethod
     async def updateAccountsInformation(cls):
@@ -54,11 +50,6 @@ class TwitterAccount(TortoiseModel):
 
             # アイコン URL が Temporary になってる仮のアカウント情報が何らかの理由で残っていたら、ここで削除する
             if twitter_account.icon_url == 'Temporary':
-                await twitter_account.delete()
-                continue
-
-            # OAuth 認証アカウントは Twitter API v1.1 の廃止で利用できなくなったため、ここで削除する
-            if twitter_account.is_oauth_session is True:
                 await twitter_account.delete()
                 continue
 
