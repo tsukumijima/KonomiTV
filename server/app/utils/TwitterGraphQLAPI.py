@@ -217,7 +217,7 @@ class TwitterGraphQLAPI:
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
             method = 'POST',
-            query_id = '_BCvBRcat20zPDIAxmH5ag',
+            query_id = 'k2pU6e55rNv8lpEGsVIH3A',
             endpoint = 'CreateTweet',
             variables = {
                 'tweet_text': tweet,
@@ -231,6 +231,7 @@ class TwitterGraphQLAPI:
             # 以下の謎のフラグも数週間単位で頻繁に変更されうるが、Twitter Web App と完全に一致していないからといって
             # 必ずしも動かなくなるわけではなく、queryId 同様にある程度は古い値でも動くようになっているらしい
             features = {
+                'communities_web_enable_tweet_community_results_fetch': True,
                 'c9s_tweet_anatomy_moderator_badge_enabled': True,
                 'tweetypie_unmention_optimization_enabled': True,
                 'responsive_web_edit_tweet_api_enabled': True,
@@ -239,15 +240,17 @@ class TwitterGraphQLAPI:
                 'longform_notetweets_consumption_enabled': True,
                 'responsive_web_twitter_article_tweet_consumption_enabled': True,
                 'tweet_awards_web_tipping_enabled': False,
+                'creator_subscriptions_quote_tweet_preview_enabled': False,
                 'longform_notetweets_rich_text_read_enabled': True,
                 'longform_notetweets_inline_media_enabled': True,
                 'rweb_video_timestamps_enabled': True,
+                'rweb_tipjar_consumption_enabled': False,
                 'responsive_web_graphql_exclude_directive_enabled': True,
                 'verified_phone_label_enabled': False,
                 'freedom_of_speech_not_reach_fetch_enabled': True,
                 'standardized_nudges_misinfo': True,
                 'tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled': True,
-                'responsive_web_media_download_video_enabled': False,
+                'tweet_with_visibility_results_prefer_gql_media_interstitial_enabled': True,
                 'responsive_web_graphql_skip_user_profile_image_extensions_enabled': False,
                 'responsive_web_graphql_timeline_navigation_enabled': True,
                 'responsive_web_enhance_cards_enabled': False,
@@ -595,15 +598,17 @@ class TwitterGraphQLAPI:
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
             method = 'POST',
-            query_id = 'B8Vl9DEr2lCmRtlTA-yZjA',
+            query_id = '7kz66Htb3Af1hr3UzLehJA',
             endpoint = 'HomeLatestTimeline',
             variables = variables,
             features = {
+                'rweb_tipjar_consumption_enabled': False,
                 'responsive_web_graphql_exclude_directive_enabled': True,
                 'verified_phone_label_enabled': False,
                 'creator_subscriptions_tweet_preview_api_enabled': True,
                 'responsive_web_graphql_timeline_navigation_enabled': True,
                 'responsive_web_graphql_skip_user_profile_image_extensions_enabled': False,
+                'communities_web_enable_tweet_community_results_fetch': True,
                 'c9s_tweet_anatomy_moderator_badge_enabled': True,
                 'tweetypie_unmention_optimization_enabled': True,
                 'responsive_web_edit_tweet_api_enabled': True,
@@ -612,13 +617,14 @@ class TwitterGraphQLAPI:
                 'longform_notetweets_consumption_enabled': True,
                 'responsive_web_twitter_article_tweet_consumption_enabled': True,
                 'tweet_awards_web_tipping_enabled': False,
+                'creator_subscriptions_quote_tweet_preview_enabled': False,
                 'freedom_of_speech_not_reach_fetch_enabled': True,
                 'standardized_nudges_misinfo': True,
                 'tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled': True,
+                'tweet_with_visibility_results_prefer_gql_media_interstitial_enabled': True,
                 'rweb_video_timestamps_enabled': True,
                 'longform_notetweets_rich_text_read_enabled': True,
                 'longform_notetweets_inline_media_enabled': True,
-                'responsive_web_media_download_video_enabled': False,
                 'responsive_web_enhance_cards_enabled': False,
             },
             error_message_prefix = 'タイムラインの取得に失敗しました。',
@@ -685,15 +691,17 @@ class TwitterGraphQLAPI:
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
             method = 'GET',
-            query_id = 'ummoVKaeoT01eUyXutiSVQ',
+            query_id = 'LcI5kBN8BLC7ovF7mBEBHg',
             endpoint = 'SearchTimeline',
             variables = variables,
             features = {
+                'rweb_tipjar_consumption_enabled': False,
                 'responsive_web_graphql_exclude_directive_enabled': True,
                 'verified_phone_label_enabled': False,
                 'creator_subscriptions_tweet_preview_api_enabled': True,
                 'responsive_web_graphql_timeline_navigation_enabled': True,
                 'responsive_web_graphql_skip_user_profile_image_extensions_enabled': False,
+                'communities_web_enable_tweet_community_results_fetch': True,
                 'c9s_tweet_anatomy_moderator_badge_enabled': True,
                 'tweetypie_unmention_optimization_enabled': True,
                 'responsive_web_edit_tweet_api_enabled': True,
@@ -702,13 +710,14 @@ class TwitterGraphQLAPI:
                 'longform_notetweets_consumption_enabled': True,
                 'responsive_web_twitter_article_tweet_consumption_enabled': True,
                 'tweet_awards_web_tipping_enabled': False,
+                'creator_subscriptions_quote_tweet_preview_enabled': False,
                 'freedom_of_speech_not_reach_fetch_enabled': True,
                 'standardized_nudges_misinfo': True,
                 'tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled': True,
+                'tweet_with_visibility_results_prefer_gql_media_interstitial_enabled': True,
                 'rweb_video_timestamps_enabled': True,
                 'longform_notetweets_rich_text_read_enabled': True,
                 'longform_notetweets_inline_media_enabled': True,
-                'responsive_web_media_download_video_enabled': False,
                 'responsive_web_enhance_cards_enabled': False,
             },
             error_message_prefix = 'ツイートの検索に失敗しました。',
@@ -741,4 +750,4 @@ class TwitterGraphQLAPI:
             next_cursor_id = next_cursor_id,
             previous_cursor_id = previous_cursor_id,
             tweets = tweets,
-        )#
+        )
