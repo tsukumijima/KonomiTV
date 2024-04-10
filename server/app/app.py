@@ -61,10 +61,10 @@ except AssertionError:
 app = FastAPI(
     title = 'KonomiTV',
     description = 'KonomiTV: Kept Organized, Notably Optimized, Modern Interface TV media server',
+    version = VERSION,
     openapi_url = '/api/openapi.json',
     docs_url = '/api/docs',
     redoc_url = '/api/redoc',
-    version = VERSION,
 )
 
 # ルーターの追加
@@ -86,14 +86,13 @@ app.include_router(MaintenanceRouter.router)
 app.include_router(VersionRouter.router)
 
 # CORS の設定
+## デバッグモード時のみ全てのオリジンからのリクエストを許可 (クライアント側の開発サーバーからのアクセスに必要)
+CORS_ORIGINS = ['*'] if CONFIG.general.debug is True else []
 app.add_middleware(
     CORSMiddleware,
-    allow_origins = [
-        # デバッグモード時のみ CORS ヘッダーを有効化 (クライアント側の開発サーバーからのアクセスに必要)
-        '*' if CONFIG.general.debug is True else '',
-    ],
-    allow_methods = ["*"],
-    allow_headers = ["*"],
+    allow_origins = CORS_ORIGINS,
+    allow_methods = CORS_ORIGINS,
+    allow_headers = CORS_ORIGINS,
     allow_credentials = True,
 )
 
@@ -155,7 +154,7 @@ async def ExceptionHandler(request: Request, exc: Exception):
         {'detail': f'Oops! {type(exc).__name__} did something. There goes a rainbow...'},
         status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
         # FastAPI の謎仕様で CORSMiddleware は exception_handler に対しては効かないので、ここで自前で CORS ヘッダーを付与する
-        headers = {'Access-Control-Allow-Origin': '*'},
+        headers = {'Access-Control-Allow-Origin': CORS_ORIGINS[0] if len(CORS_ORIGINS) > 0 else ''},
     )
 
 # Tortoise ORM の初期化
