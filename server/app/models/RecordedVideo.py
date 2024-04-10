@@ -15,10 +15,11 @@ from pathlib import Path
 from tortoise import connections
 from tortoise import exceptions
 from tortoise import fields
-from tortoise import models
 from tortoise import Tortoise
 from tortoise import transactions
-from typing import Literal
+from tortoise.fields import Field as TortoiseField
+from tortoise.models import Model as TortoiseModel
+from typing import cast, Literal
 
 from app import logging
 from app.config import Config
@@ -29,40 +30,40 @@ from app.models.RecordedProgram import RecordedProgram
 from app.schemas import CMSection
 
 
-class RecordedVideo(models.Model):
+class RecordedVideo(TortoiseModel):
 
     # データベース上のテーブル名
-    class Meta:  # type: ignore
+    class Meta(TortoiseModel.Meta):
         table: str = 'recorded_videos'
 
     # テーブル設計は Notion を参照のこと
-    id: int = fields.IntField(pk=True)  # type: ignore
+    id = fields.IntField(pk=True)
     recorded_program: fields.OneToOneRelation[RecordedProgram] = \
-        fields.OneToOneField('models.RecordedProgram', related_name='recorded_video', on_delete=fields.CASCADE)  # type: ignore
+        fields.OneToOneField('models.RecordedProgram', related_name='recorded_video', on_delete=fields.CASCADE)
     recorded_program_id: int
-    file_path: str = fields.TextField()  # type: ignore
-    file_hash: str = fields.TextField()  # type: ignore
-    file_size: int = fields.IntField()  # type: ignore
-    recording_start_time: datetime | None = fields.DatetimeField(null=True)  # type: ignore
-    recording_end_time: datetime | None = fields.DatetimeField(null=True)  # type: ignore
-    duration: float = fields.FloatField()  # type: ignore
+    file_path = fields.TextField()
+    file_hash = fields.TextField()
+    file_size = fields.IntField()
+    recording_start_time = cast(TortoiseField[datetime | None], fields.DatetimeField(null=True))
+    recording_end_time = cast(TortoiseField[datetime | None], fields.DatetimeField(null=True))
+    duration = fields.FloatField()
     # 万が一将来他のコンテナ形式をサポートすることになった時のために一応定義しているが、当面の間 MPEG-TS 以外はサポートしない
-    container_format: Literal['MPEG-TS'] = fields.CharField(255)  # type: ignore
-    video_codec: Literal['MPEG-2', 'H.264', 'H.265'] = fields.CharField(255)  # type: ignore
+    container_format = cast(TortoiseField[Literal['MPEG-TS']], fields.CharField(255))
+    video_codec = cast(TortoiseField[Literal['MPEG-2', 'H.264', 'H.265']], fields.CharField(255))
     # プロファイルは他にも多くあるが、現実的に使われそうなものだけを列挙
-    video_codec_profile: Literal['High', 'High 10', 'Main', 'Main 10', 'Baseline'] = fields.CharField(255)  # type: ignore
-    video_scan_type: Literal['Interlaced', 'Progressive'] = fields.CharField(255)  # type: ignore
-    video_frame_rate: float = fields.FloatField()  # type: ignore
-    video_resolution_width: int = fields.IntField()  # type: ignore
-    video_resolution_height: int = fields.IntField()  # type: ignore
-    primary_audio_codec: Literal['AAC-LC'] = fields.CharField(255)  # type: ignore
-    primary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] = fields.CharField(255)  # type: ignore
-    primary_audio_sampling_rate: int = fields.IntField()  # type: ignore
-    secondary_audio_codec: Literal['AAC-LC'] | None = fields.CharField(255, null=True)  # type: ignore
-    secondary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] | None = fields.CharField(255, null=True)  # type: ignore
-    secondary_audio_sampling_rate: int | None = fields.IntField(null=True)  # type: ignore
-    cm_sections: list[CMSection] = \
-        fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
+    video_codec_profile = cast(TortoiseField[Literal['High', 'High 10', 'Main', 'Main 10', 'Baseline']], fields.CharField(255))
+    video_scan_type = cast(TortoiseField[Literal['Interlaced', 'Progressive']], fields.CharField(255))
+    video_frame_rate = fields.FloatField()
+    video_resolution_width = fields.IntField()
+    video_resolution_height = fields.IntField()
+    primary_audio_codec = cast(TortoiseField[Literal['AAC-LC']], fields.CharField(255))
+    primary_audio_channel = cast(TortoiseField[Literal['Monaural', 'Stereo', '5.1ch']], fields.CharField(255))
+    primary_audio_sampling_rate = fields.IntField()
+    secondary_audio_codec = cast(TortoiseField[Literal['AAC-LC'] | None], fields.CharField(255, null=True))
+    secondary_audio_channel = cast(TortoiseField[Literal['Monaural', 'Stereo', '5.1ch'] | None], fields.CharField(255, null=True))
+    secondary_audio_sampling_rate = cast(TortoiseField[int | None], fields.IntField(null=True))
+    cm_sections = cast(TortoiseField[list[CMSection]],
+        fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False)))  # type: ignore
 
 
     @classmethod

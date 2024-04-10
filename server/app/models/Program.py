@@ -16,10 +16,11 @@ from datetime import timedelta
 from tortoise import connections
 from tortoise import exceptions
 from tortoise import fields
-from tortoise import models
 from tortoise import Tortoise
 from tortoise import transactions
-from typing import Any
+from tortoise.fields import Field as TortoiseField
+from tortoise.models import Model as TortoiseModel
+from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 from app import logging
@@ -34,37 +35,37 @@ from app.utils.EDCB import EDCBUtil
 from app.utils.TSInformation import TSInformation
 
 
-class Program(models.Model):
+class Program(TortoiseModel):
 
     # データベース上のテーブル名
-    class Meta:  # type: ignore
+    class Meta(TortoiseModel.Meta):
         table: str = 'programs'
 
     # テーブル設計は Notion を参照のこと
-    id: str = fields.CharField(255, pk=True)  # type: ignore
+    id = fields.CharField(255, pk=True)
     channel: fields.ForeignKeyRelation[Channel] = \
-        fields.ForeignKeyField('models.Channel', related_name='programs', index=True, on_delete=fields.CASCADE)  # type: ignore
+        fields.ForeignKeyField('models.Channel', related_name='programs', index=True, on_delete=fields.CASCADE)
     channel_id: str
-    network_id: int = fields.IntField()  # type: ignore
-    service_id: int = fields.IntField()  # type: ignore
-    event_id: int = fields.IntField()  # type: ignore
-    title: str = fields.TextField()  # type: ignore
-    description: str = fields.TextField()  # type: ignore
-    detail: dict[str, str] = fields.JSONField(default={}, encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
+    network_id = fields.IntField()
+    service_id = fields.IntField()
+    event_id = fields.IntField()
+    title = fields.TextField()
+    description = fields.TextField()
+    detail = cast(TortoiseField[dict[str, str]], fields.JSONField(default={}, encoder=lambda x: json.dumps(x, ensure_ascii=False)))  # type: ignore
     start_time = fields.DatetimeField(index=True)
     end_time = fields.DatetimeField(index=True)
-    duration: float = fields.FloatField()  # type: ignore
-    is_free: bool = fields.BooleanField()  # type: ignore
-    genres: list[Genre] = fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
-    video_type: str | None = fields.TextField(null=True)  # type: ignore
-    video_codec: str | None = fields.TextField(null=True)  # type: ignore
-    video_resolution: str | None = fields.TextField(null=True)  # type: ignore
-    primary_audio_type: str = fields.TextField()  # type: ignore
-    primary_audio_language: str = fields.TextField()  # type: ignore
-    primary_audio_sampling_rate: str = fields.TextField()  # type: ignore
-    secondary_audio_type: str | None = fields.TextField(null=True)  # type: ignore
-    secondary_audio_language: str | None = fields.TextField(null=True)  # type: ignore
-    secondary_audio_sampling_rate: str | None = fields.TextField(null=True)  # type: ignore
+    duration = fields.FloatField()
+    is_free = fields.BooleanField()
+    genres = cast(TortoiseField[list[Genre]], fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False)))  # type: ignore
+    video_type = cast(TortoiseField[str | None], fields.TextField(null=True))
+    video_codec = cast(TortoiseField[str | None], fields.TextField(null=True))
+    video_resolution = cast(TortoiseField[str | None], fields.TextField(null=True))
+    primary_audio_type = fields.TextField()
+    primary_audio_language = fields.TextField()
+    primary_audio_sampling_rate = fields.TextField()
+    secondary_audio_type = cast(TortoiseField[str | None], fields.TextField(null=True))
+    secondary_audio_language = cast(TortoiseField[str | None], fields.TextField(null=True))
+    secondary_audio_sampling_rate = cast(TortoiseField[str | None], fields.TextField(null=True))
 
 
     @classmethod

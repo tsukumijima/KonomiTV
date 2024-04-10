@@ -8,13 +8,14 @@ import time
 import traceback
 from datetime import datetime
 from tortoise import fields
-from tortoise import models
 from tortoise import Tortoise
 from tortoise import transactions
+from tortoise.fields import Field as TortoiseField
+from tortoise.models import Model as TortoiseModel
 from tortoise.exceptions import ConfigurationError
 from tortoise.exceptions import IntegrityError
 from tortoise.expressions import Q
-from typing import Any, Literal, TYPE_CHECKING
+from typing import Any, cast, Literal, TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 from app import logging
@@ -30,26 +31,26 @@ if TYPE_CHECKING:
     from app.models.Program import Program
 
 
-class Channel(models.Model):
+class Channel(TortoiseModel):
 
     # データベース上のテーブル名
-    class Meta:  # type: ignore
+    class Meta(TortoiseModel.Meta):
         table: str = 'channels'
 
     # テーブル設計は Notion を参照のこと
-    id: str = fields.CharField(255, pk=True)  # type: ignore
-    display_channel_id: str = fields.CharField(255, unique=True)  # type: ignore
-    network_id: int = fields.IntField()  # type: ignore
-    service_id: int = fields.IntField()  # type: ignore
-    transport_stream_id: int | None = fields.IntField(null=True)  # type: ignore
-    remocon_id: int = fields.IntField()  # type: ignore
-    channel_number: str = fields.CharField(255)  # type: ignore
-    type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO'] = fields.CharField(255)  # type: ignore
-    name: str = fields.TextField()  # type: ignore
-    jikkyo_force: int | None = fields.IntField(null=True)  # type: ignore
-    is_subchannel: bool = fields.BooleanField()  # type: ignore
-    is_radiochannel: bool = fields.BooleanField()  # type: ignore
-    is_watchable: bool = fields.BooleanField()  # type: ignore
+    id = fields.CharField(255, pk=True)
+    display_channel_id = fields.CharField(255, unique=True)
+    network_id = fields.IntField()
+    service_id = fields.IntField()
+    transport_stream_id = cast(TortoiseField[int | None], fields.IntField(null=True))
+    remocon_id = fields.IntField()
+    channel_number = fields.CharField(255)
+    type = cast(TortoiseField[Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO']], fields.CharField(255))
+    name = fields.TextField()
+    jikkyo_force = cast(TortoiseField[int | None], fields.IntField(null=True))
+    is_subchannel = fields.BooleanField()
+    is_radiochannel = fields.BooleanField()
+    is_watchable = fields.BooleanField()
     # 本当は型を追加したいが、元々動的に追加される追加カラムなので、型を追加すると諸々エラーが出る
     ## 実際の値は Channel モデルの利用側で Channel.getCurrentAndNextProgram() を呼び出して取得する
     ## モデルの取得は非同期のため、@property は使えない

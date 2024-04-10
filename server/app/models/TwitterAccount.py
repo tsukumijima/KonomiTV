@@ -9,7 +9,7 @@ import time
 import tweepy
 from requests.cookies import RequestsCookieJar
 from tortoise import fields
-from tortoise import models
+from tortoise.models import Model as TortoiseModel
 from tweepy_authlib import CookieSessionUserHandler
 from typing import TYPE_CHECKING
 
@@ -19,22 +19,22 @@ if TYPE_CHECKING:
     from app.models.User import User
 
 
-class TwitterAccount(models.Model):
+class TwitterAccount(TortoiseModel):
 
     # データベース上のテーブル名
-    class Meta:  # type: ignore
+    class Meta(TortoiseModel.Meta):
         table: str = 'twitter_accounts'
 
     # テーブル設計は Notion を参照のこと
-    id: int = fields.IntField(pk=True)  # type: ignore
+    id = fields.IntField(pk=True)
     user: fields.ForeignKeyRelation[User] = \
-        fields.ForeignKeyField('models.User', related_name='twitter_accounts', on_delete=fields.CASCADE)  # type: ignore
+        fields.ForeignKeyField('models.User', related_name='twitter_accounts', on_delete=fields.CASCADE)
     user_id: int
-    name: str = fields.TextField()  # type: ignore
-    screen_name: str = fields.TextField()  # type: ignore
-    icon_url: str = fields.TextField()  # type: ignore
-    access_token: str = fields.TextField()  # type: ignore
-    access_token_secret: str = fields.TextField()  # type: ignore
+    name = fields.TextField()
+    screen_name = fields.TextField()
+    icon_url = fields.TextField()
+    access_token = fields.TextField()
+    access_token_secret = fields.TextField()
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 

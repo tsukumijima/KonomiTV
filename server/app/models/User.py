@@ -5,30 +5,31 @@ from __future__ import annotations
 
 import json
 from tortoise import fields
-from tortoise import models
-from typing import Any, TYPE_CHECKING
+from tortoise.fields import Field as TortoiseField
+from tortoise.models import Model as TortoiseModel
+from typing import Any, cast, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.models.TwitterAccount import TwitterAccount
 
 
-class User(models.Model):
+class User(TortoiseModel):
 
     # データベース上のテーブル名
-    class Meta:  # type: ignore
+    class Meta(TortoiseModel.Meta):
         table: str = 'users'
 
     # テーブル設計は Notion を参照のこと
-    id: int = fields.IntField(pk=True)  # type: ignore
-    name: str = fields.TextField()  # type: ignore
-    password: str = fields.TextField()  # type: ignore
-    is_admin: bool = fields.BooleanField()  # type: ignore
-    client_settings: dict[str, Any] = fields.JSONField(default={}, encoder=lambda x: json.dumps(x, ensure_ascii=False))  # type: ignore
-    niconico_user_id: int | None = fields.IntField(null=True)  # type: ignore
-    niconico_user_name: str | None = fields.TextField(null=True)  # type: ignore
-    niconico_user_premium: bool | None = fields.BooleanField(null=True)  # type: ignore
-    niconico_access_token: str | None = fields.TextField(null=True)  # type: ignore
-    niconico_refresh_token: str | None = fields.TextField(null=True)  # type: ignore
+    id = fields.IntField(pk=True)
+    name = fields.TextField()
+    password = fields.TextField()
+    is_admin = fields.BooleanField()
+    client_settings = cast(TortoiseField[dict[str, Any]], fields.JSONField(default={}, encoder=lambda x: json.dumps(x, ensure_ascii=False)))  # type: ignore
+    niconico_user_id = cast(TortoiseField[int | None], fields.IntField(null=True))
+    niconico_user_name = cast(TortoiseField[str | None], fields.TextField(null=True))
+    niconico_user_premium = cast(TortoiseField[bool | None], fields.BooleanField(null=True))
+    niconico_access_token = cast(TortoiseField[str | None], fields.TextField(null=True))
+    niconico_refresh_token = cast(TortoiseField[str | None], fields.TextField(null=True))
     twitter_accounts: fields.ReverseRelation[TwitterAccount]
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
