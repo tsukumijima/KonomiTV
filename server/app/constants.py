@@ -3,6 +3,7 @@ import httpx
 import pkgutil
 import secrets
 import sys
+from passlib.context import CryptContext
 from pathlib import Path
 from pydantic import BaseModel, PositiveInt
 from typing import Any, Literal
@@ -362,6 +363,12 @@ if Path.exists(JWT_SECRET_KEY_PATH) is False:
 ## jwt_secret.dat からシークレットキーをロードする
 with open(JWT_SECRET_KEY_PATH, mode='r', encoding='utf-8') as file:
     JWT_SECRET_KEY = file.read().strip()
+
+# パスワードハッシュ化のための設定
+PASSWORD_CONTEXT = CryptContext(
+    schemes = ['bcrypt'],
+    deprecated = 'auto',
+)
 
 # 外部 API に送信するリクエストヘッダー
 ## KonomiTV の User-Agent を指定

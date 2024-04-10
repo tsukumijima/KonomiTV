@@ -1,7 +1,7 @@
 
 import asyncio
 import pathlib
-import json
+import uuid
 from datetime import datetime
 from datetime import timedelta
 from fastapi import APIRouter
@@ -18,14 +18,13 @@ from fastapi.security import OAuth2PasswordBearer
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import jwt
 from jose import JWTError
-from passlib.context import CryptContext
 from PIL import Image
 from typing import Annotated, BinaryIO
 from zoneinfo import ZoneInfo
 
 from app import logging
 from app import schemas
-from app.constants import ACCOUNT_ICON_DIR, ACCOUNT_ICON_DEFAULT_DIR, JWT_SECRET_KEY
+from app.constants import ACCOUNT_ICON_DIR, ACCOUNT_ICON_DEFAULT_DIR, PASSWORD_CONTEXT, JWT_SECRET_KEY
 from app.models.TwitterAccount import TwitterAccount
 from app.models.User import User
 
@@ -37,40 +36,90 @@ router = APIRouter(
 )
 
 
+def GenerateAccessToken(user_id: int) -> str:
+    """
+    ユーザー ID を受け取り、そのユーザー ID を含む JWT アクセストークンを生成する
+
+    Args:
+        user_id (int): ユーザー ID
+
+    Returns:
+        str: JWT アクセストークン (有効期限は 180 日間)
+    """
+
+    # JWT エンコードするペイロード
+    jwt_payload = {
+        # トークンの発行者
+        'iss': 'KonomiTV Server',
+        # トークンの種類
+        'typ': 'AccessToken',
+        # ユーザーの識別子 (ユーザー ID を文字列化したもの)
+        'sub': f'{user_id}',
+        # JWT の発行時間
+        'iat': datetime.now(ZoneInfo('Asia/Tokyo')),
+        # JWT の有効期限 (JWT の発行から 180 日間)
+        'exp': datetime.now(ZoneInfo('Asia/Tokyo')) + timedelta(days=180),
+        # JWT ごとの一意な ID (UUID v4)
+        'jti': str(uuid.uuid4()),
+    }
+
+    # JWT エンコードを行い、JWT アクセストークンを生成
+    return jwt.encode(
+        claims = jwt_payload,
+        key = JWT_SECRET_KEY,
+        algorithm = 'HS256',
+    )
+
+
 async def GetCurrentUser(token: Annotated[str, Depends(OAuth2PasswordBearer(tokenUrl='users/token'))]) -> User:
     """ 現在ログイン中のユーザーを取得する """
 
     try:
         # JWT トークンをデコード
-        jwt_payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=['HS256'])
+        jwt_payload = jwt.decode(
+            token = token,
+            key = JWT_SECRET_KEY,
+            algorithms = ['HS256'],
+            issuer = 'KonomiTV Server',
+        )
 
-        # ユーザー ID が JWT に含まれていない (JWT トークンが不正)
+        # typ が AccessToken でない (JWT トークンが不正)
+        if jwt_payload.get('typ') != 'AccessToken':
+            logging.error('[GetCurrentUser] Access token type is invalid')
+            raise HTTPException(
+                status_code = status.HTTP_401_UNAUTHORIZED,
+                detail = 'Access token type is invalid',
+                headers = {'WWW-Authenticate': 'Bearer'},
+            )
+
+        # Subject が JWT ペイロードに含まれていない (JWT トークンが不正)
         if jwt_payload.get('sub') is None:
-            logging.error('[UsersRouter][GetCurrentUser] Access token data is invalid')
+            logging.error('[GetCurrentUser] Access token data is invalid')
             raise HTTPException(
                 status_code = status.HTTP_401_UNAUTHORIZED,
                 detail = 'Access token data is invalid',
                 headers = {'WWW-Authenticate': 'Bearer'},
             )
 
-        # ペイロード内のユーザー ID（ユーザー名ではなく、ユーザーごとに一意な数値）を取得
-        user_id: str = json.loads(jwt_payload.get('sub', {}))['user_id']
-
     # JWT トークンが不正
-    except JWTError:
-        logging.error('[UsersRouter][GetCurrentUser] Access token is invalid')
+    except JWTError as ex:
+        logging.error('[GetCurrentUser] Access token is invalid')
+        logging.error(ex)
         raise HTTPException(
             status_code = status.HTTP_401_UNAUTHORIZED,
             detail = 'Access token is invalid',
             headers = {'WWW-Authenticate': 'Bearer'},
         )
 
+    # JWT ペイロードの Subject をユーザー ID として取得
+    user_id: int = int(jwt_payload['sub'])
+
     # JWT トークンに刻まれたユーザー ID に紐づくユーザー情報を取得
     current_user = await User.filter(id=user_id).prefetch_related('twitter_accounts').get_or_none()
 
     # そのユーザー ID のユーザーが存在しない
     if not current_user:
-        logging.error(f'[UsersRouter][GetCurrentUser] User associated with access token does not exist [user_id: {user_id}]')
+        logging.error(f'[GetCurrentUser] User associated with access token does not exist [user_id: {user_id}]')
         raise HTTPException(
             status_code = status.HTTP_401_UNAUTHORIZED,
             detail = 'User associated with access token does not exist',
@@ -85,7 +134,7 @@ async def GetCurrentAdminUser(current_user: Annotated[User, Depends(GetCurrentUs
 
     # 取得したユーザーが管理者ではない
     if current_user.is_admin is False:
-        logging.error(f'[UsersRouter][GetCurrentAdminUser] Don\'t have permission to access this resource [user_id: {current_user.id}]')
+        logging.error(f'[GetCurrentAdminUser] Don\'t have permission to access this resource [user_id: {current_user.id}]')
         raise HTTPException(
             status_code = status.HTTP_403_FORBIDDEN,
             detail = 'Don\'t have permission to access this resource',
@@ -106,7 +155,7 @@ async def GetSpecifiedUser(
 
     # 指定されたユーザー名のユーザーが存在しない
     if not user:
-        logging.error(f'[UsersRouter][GetSpecifiedUser] Specified user was not found [username: {username}]')
+        logging.error(f'[GetSpecifiedUser] Specified user was not found [username: {username}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified user was not found',
@@ -115,9 +164,10 @@ async def GetSpecifiedUser(
     return user
 
 
-async def TrimSquareAndResizeAndSave(file: BinaryIO, save_path: pathlib.Path, resize_width_and_height: int = 400) -> None:
+def ResizeAndSaveIcon(file: BinaryIO, save_path: pathlib.Path) -> None:
     """
-    正方形の 400×400 の PNG にトリミング&リサイズして保存する
+    アイコンを 512×512 の正方形 PNG にリサイズして保存する
+    この関数は同期的なので、非同期関数から呼ぶ場合は asyncio.to_thread() を使うこと
     ref: https://note.nkmk.me/python-pillow-basic/
     ref: https://note.nkmk.me/python-pillow-image-resize/
     ref: https://note.nkmk.me/python-pillow-image-crop-trimming/
@@ -125,23 +175,25 @@ async def TrimSquareAndResizeAndSave(file: BinaryIO, save_path: pathlib.Path, re
     Args:
         file (io.BytesIO): 入力元のファイルオブジェクト
         save_path (pathlib.Path): トリミング&リサイズしたファイルの保存先のパス
-        resize_width_and_height (int, optional): リサイズする幅と高さ. Defaults to 400.
     """
 
-    ## 画像を開く
-    pillow_image = await asyncio.to_thread(Image.open, file)
+    # リサイズする画像の幅と高さ
+    RESIZE_WIDTH_AND_HEIGHT = 512
 
-    ## 縦横どちらか長さが短い方に合わせて正方形にクロップ
-    pillow_image_crop = await asyncio.to_thread(pillow_image.crop, (
+    # 画像を開く
+    pillow_image = Image.open(file)
+
+    # 縦横どちらか長さが短い方に合わせて正方形にクロップ
+    pillow_image_crop = pillow_image.crop((
         (pillow_image.size[0] - min(pillow_image.size)) // 2,
         (pillow_image.size[1] - min(pillow_image.size)) // 2,
         (pillow_image.size[0] + min(pillow_image.size)) // 2,
         (pillow_image.size[1] + min(pillow_image.size)) // 2,
     ))
 
-    ## 400×400 にリサイズして保存
-    pillow_image_resize = await asyncio.to_thread(pillow_image_crop.resize, (resize_width_and_height, resize_width_and_height))
-    await asyncio.to_thread(pillow_image_resize.save, save_path)
+    # リサイズして保存
+    pillow_image_resize = pillow_image_crop.resize((RESIZE_WIDTH_AND_HEIGHT, RESIZE_WIDTH_AND_HEIGHT))
+    pillow_image_resize.save(save_path, 'PNG')
 
 
 @router.post(
@@ -161,9 +213,6 @@ async def UserCreateAPI(
     また、最初に作成されたアカウントのみ、特別に管理者権限 (is_admin: true) が付与される。
     """
 
-    # Passlib のコンテキストを作成
-    passlib_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
-
     # 同じユーザー名のアカウントがあったら 422 を返す
     ## ユーザー名がそのままログイン ID になるので、同じユーザー名のアカウントがあると重複する
     if await User.filter(name=user_create_request.username).get_or_none() is not None:
@@ -173,27 +222,28 @@ async def UserCreateAPI(
             detail = 'Specified username is duplicated',
         )
 
-    # ユーザー名が token or me だったら 422 を返す
+    # 利用不可なユーザー名だったら 422 を返す
     ## /api/users/me と /api/users/token があるので、もしその名前で登録できてしまうと重複して面倒なことになる
-    ## そんな名前で登録する人はいないとは思うけど、念のため…。
-    if user_create_request.username.lower() == 'me' or user_create_request.username.lower() == 'token':
-        logging.error(f'[UsersRouter][UserCreateAPI] Specified username is not accepted due to system limitations [username: {user_create_request.username}]')
+    ## そんな名前で登録する人はいないとは思うけど、念のため…
+    PERMITTED_USERNAMES = ['me', 'token']
+    if user_create_request.username.lower() in PERMITTED_USERNAMES:
+        logging.error(f'[UsersRouter][UserCreateAPI] Specified username is not permitted [username: {user_create_request.username}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Specified username is not accepted due to system limitations',
+            detail = 'Specified username is not permitted',
         )
 
     # 新しいユーザーアカウントのモデルを作成・保存
-    user = await User.create(
+    current_user = await User.create(
         name = user_create_request.username,  # ユーザー名
-        password = passlib_context.hash(user_create_request.password),  # ハッシュ化されたパスワード
+        password = PASSWORD_CONTEXT.hash(user_create_request.password),  # ハッシュ化されたパスワード
         is_admin = False if await User.all().count() > 0 else True,  # 他のユーザーアカウントがまだ作成されていないなら、特別に管理者権限を付与
         client_settings = {},  # クライアント側の設定（ひとまず空の辞書を設定）
     )
 
     # 外部テーブルのデータを取得してから返す
-    await user.fetch_related('twitter_accounts')
-    return user
+    await current_user.fetch_related('twitter_accounts')
+    return current_user
 
 
 @router.post(
@@ -213,14 +263,11 @@ async def UserAccessTokenAPI(
     この API はアクセストークンを発行するだけで、ログインそのものは行わない。
     """
 
-    # Passlib のコンテキストを作成
-    passlib_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
-
     # ユーザーを取得
-    user = await User.filter(name=form_data.username).get_or_none()
+    current_user = await User.filter(name=form_data.username).get_or_none()
 
     # 指定されたユーザーが存在しない
-    if not user:
+    if not current_user:
         logging.error(f'[UsersRouter][UserAccessTokenAPI] Incorrect username [username: {form_data.username}]')
         raise HTTPException(
             status_code = status.HTTP_401_UNAUTHORIZED,
@@ -229,7 +276,7 @@ async def UserAccessTokenAPI(
         )
 
     # 指定されたパスワードのハッシュが DB にあるものと一致しない
-    if not passlib_context.verify(form_data.password, user.password):
+    if not PASSWORD_CONTEXT.verify(form_data.password, current_user.password):
         logging.error(f'[UsersRouter][UserAccessTokenAPI] Incorrect password [username: {form_data.username}]')
         raise HTTPException(
             status_code = status.HTTP_401_UNAUTHORIZED,
@@ -237,28 +284,11 @@ async def UserAccessTokenAPI(
             headers = {'WWW-Authenticate': 'Bearer'},
         )
 
-    # JWT エンコードするペイロード
-    jwt_payload = {
-        # トークンの発行者
-        'iss': 'KonomiTV Server',
-        # ユーザーの識別子
-        ## 今のところユーザー ID のみ含める
-        ## ユーザー名は他のアカウントと被らなければ変更できるため使えない
-        'sub': json.dumps({'user_id': user.id}),
-        # JWT の発行時間
-        'iat': datetime.now(ZoneInfo('Asia/Tokyo')),
-        # JWT の有効期限 (JWT の発行から 180 日間)
-        'exp': datetime.now(ZoneInfo('Asia/Tokyo')) + timedelta(days=180),
-    }
-
-    # JWT エンコードを行い、アクセストークンを生成
-    access_token = jwt.encode(jwt_payload, JWT_SECRET_KEY, algorithm='HS256')
-
-    # JWT トークンを OAuth2 準拠の JSON で返す
-    return {
-        'access_token': access_token,
-        'token_type': 'bearer',
-    }
+    # JWT アクセストークンを生成して返す
+    return schemas.UserAccessToken(
+        access_token = GenerateAccessToken(current_user.id),
+        token_type = 'bearer',
+    )
 
 
 @router.get(
@@ -287,7 +317,7 @@ async def UsersAPI(
     response_description = 'ログイン中のユーザーアカウントの情報。',
     response_model = schemas.User,
 )
-async def UserMeAPI(
+async def UserAPI(
     current_user: Annotated[User, Depends(GetCurrentUser)],
 ):
     """
@@ -309,7 +339,7 @@ async def UserMeAPI(
     summary = 'アカウント情報更新 API (ログイン中のユーザー)',
     status_code = status.HTTP_204_NO_CONTENT,
 )
-async def UserUpdateMeAPI(
+async def UserUpdateAPI(
     user_update_request: Annotated[schemas.UserUpdateRequest, Body(description='更新するユーザーアカウントの情報。')],
     current_user: Annotated[User, Depends(GetCurrentUser)],
 ):
@@ -318,30 +348,27 @@ async def UserUpdateMeAPI(
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
 
-    # Passlib のコンテキストを作成
-    passlib_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
-
     # ユーザー名を更新（存在する場合）
     if user_update_request.username is not None:
 
-        # 同じユーザー名のアカウントがあったら 422 を返す
-        # ユーザー名がそのままログイン ID になるので、同じユーザー名のアカウントがあると重複する
-        if ((await User.filter(name=user_update_request.username).get_or_none() is not None) and
-            (user_update_request.username != current_user.name)):  # ログイン中のユーザーと同じなら問題ないので除外
-            logging.error(f'[UsersRouter][UserUpdateMeAPI] Specified username is duplicated [username: {user_update_request.username}]')
+        # 重複しないように、同じユーザー名のアカウントがあったら 422 を返す
+        ## 新しいユーザー名が現在のユーザー名と同じなら問題ないので除外
+        if user_update_request.username != current_user.name and await User.filter(name=user_update_request.username).get_or_none():
+            logging.error(f'[UsersRouter][UserUpdateAPI] Specified username is duplicated [username: {user_update_request.username}]')
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = 'Specified username is duplicated',
             )
 
-        # ユーザー名が token or me だったら 422 を返す
+        # 利用不可なユーザー名だったら 422 を返す
         ## /api/users/me と /api/users/token があるので、もしその名前で登録できてしまうと重複して面倒なことになる
-        ## そんな名前で登録する人はいないとは思うけど、念のため…。
-        if user_update_request.username.lower() == 'me' or user_update_request.username.lower() == 'token':
-            logging.error(f'[UsersRouter][UserUpdateMeAPI] Specified username is not accepted due to system limitations [username: {user_update_request.username}]')
+        ## そんな名前で登録する人はいないとは思うけど、念のため…
+        PERMITTED_USERNAMES = ['me', 'token']
+        if user_update_request.username.lower() in PERMITTED_USERNAMES:
+            logging.error(f'[UsersRouter][UserUpdateAPI] Specified username is not permitted [username: {user_update_request.username}]')
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail = 'Specified username is not accepted due to system limitations',
+                detail = 'Specified username is not permitted',
             )
 
         # 新しいユーザー名を設定
@@ -349,7 +376,7 @@ async def UserUpdateMeAPI(
 
     # パスワードを更新（存在する場合）
     if user_update_request.password is not None:
-        current_user.password = passlib_context.hash(user_update_request.password)  # ハッシュ化されたパスワード
+        current_user.password = PASSWORD_CONTEXT.hash(user_update_request.password)  # ハッシュ化されたパスワード
 
     # レコードを保存する
     await current_user.save()
@@ -366,7 +393,7 @@ async def UserUpdateMeAPI(
         }
     }
 )
-async def UserIconMeAPI(
+async def UserIconAPI(
     current_user: Annotated[User, Depends(GetCurrentUser)],
 ):
     """
@@ -394,7 +421,7 @@ async def UserIconMeAPI(
     summary = 'アカウントアイコン画像更新 API (ログイン中のユーザー)',
     status_code = status.HTTP_204_NO_CONTENT,
 )
-async def UserUpdateIconMeAPI(
+async def UserUpdateIconAPI(
     image: Annotated[UploadFile, File(description='アカウントのアイコン画像 (JPEG or PNG)。')],
     current_user: Annotated[User, Depends(GetCurrentUser)],
 ):
@@ -405,15 +432,15 @@ async def UserUpdateIconMeAPI(
 
     # MIME タイプが image/jpeg or image/png 以外
     if image.content_type != 'image/jpeg' and image.content_type != 'image/png':
-        logging.error(f'[UsersRouter][UserUpdateIconMeAPI] Please upload JPEG or PNG image [content_type: {image.content_type}]')
+        logging.error(f'[UsersRouter][UserUpdateIconAPI] Please upload JPEG or PNG image [content_type: {image.content_type}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Please upload JPEG or PNG image',
         )
 
-    # 正方形の 400×400 の PNG にリサイズして保存
-    # 保存するファイルパス: (ユーザー ID を0埋めしたもの).png
-    await TrimSquareAndResizeAndSave(image.file, ACCOUNT_ICON_DIR / f'{current_user.id:02}.png', resize_width_and_height=400)
+    # 正方形の PNG にリサイズして保存
+    # 保存先ファイルパス: (ユーザー ID を0埋めしたもの).png
+    await asyncio.to_thread(ResizeAndSaveIcon, image.file, ACCOUNT_ICON_DIR / f'{current_user.id:02}.png')
 
 
 @router.delete(
@@ -421,7 +448,7 @@ async def UserUpdateIconMeAPI(
     summary = 'アカウント削除 API (ログイン中のユーザー)',
     status_code = status.HTTP_204_NO_CONTENT,
 )
-async def UserDeleteMeAPI(
+async def UserDeleteAPI(
     current_user: Annotated[User, Depends(GetCurrentUser)],
 ):
     """
@@ -456,7 +483,7 @@ async def UserDeleteMeAPI(
     response_description = 'ユーザーアカウントの情報。',
     response_model = schemas.User,
 )
-async def UserAPI(
+async def SpecifiedUserAPI(
     user: Annotated[User, Depends(GetSpecifiedUser)],
 ):
     """
@@ -472,7 +499,7 @@ async def UserAPI(
     summary = 'アカウント情報更新 API',
     status_code = status.HTTP_204_NO_CONTENT,
 )
-async def UserUpdateAPI(
+async def SpecifiedUserUpdateAPI(
     user_update_request: Annotated[schemas.UserUpdateRequestForAdmin, Body(description='更新するユーザーアカウントの情報。')],
     user: Annotated[User, Depends(GetSpecifiedUser)],
 ):
@@ -500,7 +527,7 @@ async def UserUpdateAPI(
         }
     }
 )
-async def UserIconAPI(
+async def SpecifiedUserIconAPI(
     user: Annotated[User, Depends(GetSpecifiedUser)],
 ):
     """
@@ -523,39 +550,12 @@ async def UserIconAPI(
     return FileResponse(ACCOUNT_ICON_DEFAULT_DIR / 'default.png', headers=header)
 
 
-@router.put(
-    '/{username}/icon',
-    summary = 'アカウントアイコン画像更新 API',
-    status_code = status.HTTP_204_NO_CONTENT,
-)
-async def UserUpdateIconAPI(
-    image: Annotated[UploadFile, File(description='アカウントのアイコン画像 (JPEG or PNG)。')],
-    user: Annotated[User, Depends(GetSpecifiedUser)],
-):
-    """
-    指定されたユーザーアカウントのアイコン画像を更新する。<br>
-    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
-    """
-
-    # MIME タイプが image/jpeg or image/png 以外
-    if image.content_type != 'image/jpeg' and image.content_type != 'image/png':
-        logging.error(f'[UsersRouter][UserUpdateIconAPI] Please upload JPEG or PNG image [content_type: {image.content_type}]')
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Please upload JPEG or PNG image',
-        )
-
-    # 正方形の 400×400 の PNG にリサイズして保存
-    # 保存するファイルパス: (ユーザー ID を0埋めしたもの).png
-    await TrimSquareAndResizeAndSave(image.file, ACCOUNT_ICON_DIR / f'{user.id:02}.png', resize_width_and_height=400)
-
-
 @router.delete(
     '/{username}',
     summary = 'アカウント削除 API',
     status_code = status.HTTP_204_NO_CONTENT,
 )
-async def UserDeleteAPI(
+async def SpecifiedUserDeleteAPI(
     user: Annotated[User, Depends(GetSpecifiedUser)],
 ):
     """

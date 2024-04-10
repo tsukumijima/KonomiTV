@@ -58,7 +58,7 @@ class OAuthCallbackResponse(HTMLResponse):
                 };
             </script>
         </head>
-        <body style="background:#1E1310;color:#FFEAEA;">
+        <body style="background: #1E1310; color: #FFEAEA;">
         </body>
         </html>
         """
