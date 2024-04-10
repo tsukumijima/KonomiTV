@@ -12,9 +12,9 @@ from typing import Annotated, Any, cast, Literal
 from app import logging
 from app import schemas
 from app.models.Channel import Channel
-from app.routers.ReservesRouter import DecodeEDCBRecSettingData
-from app.routers.ReservesRouter import EncodeEDCBRecSettingData
-from app.routers.ReservesRouter import GetCtrlCmdUtil
+from app.routers.ReservationsRouter import DecodeEDCBRecSettingData
+from app.routers.ReservationsRouter import EncodeEDCBRecSettingData
+from app.routers.ReservationsRouter import GetCtrlCmdUtil
 from app.utils.EDCB import AutoAddData
 from app.utils.EDCB import AutoAddDataRequired
 from app.utils.EDCB import ContentData
@@ -27,20 +27,20 @@ from app.utils.EDCB import SearchKeyInfoRequired
 
 # ルーター
 router = APIRouter(
-    tags = ['Reserve Conditions'],
-    prefix = '/api/reserves/conditions',
+    tags = ['Reservation Conditions'],
+    prefix = '/api/recording/conditions',
 )
 
 
-async def DecodeEDCBAutoAddData(auto_add_data: AutoAddDataRequired) -> schemas.ReserveCondition:
+async def DecodeEDCBAutoAddData(auto_add_data: AutoAddDataRequired) -> schemas.ReservationCondition:
     """
-    EDCB の AutoAddData オブジェクトを schemas.ReserveCondition オブジェクトに変換する
+    EDCB の AutoAddData オブジェクトを schemas.ReservationCondition オブジェクトに変換する
 
     Args:
         auto_add_data (AutoAddDataRequired): EDCB の AutoAddData オブジェクト
 
     Returns:
-        schemas.ReserveCondition: schemas.ReserveCondition オブジェクト
+        schemas.ReservationCondition: schemas.ReservationCondition オブジェクト
     """
 
     # キーワード自動予約条件 ID
@@ -55,7 +55,7 @@ async def DecodeEDCBAutoAddData(auto_add_data: AutoAddDataRequired) -> schemas.R
     # 録画設定
     record_settings = DecodeEDCBRecSettingData(auto_add_data['rec_setting'])
 
-    return schemas.ReserveCondition(
+    return schemas.ReservationCondition(
         id = reserve_condition_id,
         reserve_count = reserve_count,
         program_search_condition = program_search_condition,
@@ -418,7 +418,7 @@ async def GetAutoAddDataList(
     auto_add_data_list: list[AutoAddDataRequired] | None = await edcb.sendEnumAutoAdd()
     if auto_add_data_list is None:
         # None が返ってきた場合はエラーを返す
-        logging.error('[ReserveConditionsRouter][GetAutoAddDataList] Failed to get the list of reserve conditions')
+        logging.error('[ReservationConditionsRouter][GetAutoAddDataList] Failed to get the list of reserve conditions')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to get the list of reserve conditions',
@@ -439,7 +439,7 @@ async def GetAutoAddData(
             return auto_add_data
 
     # 指定されたキーワード自動予約条件が見つからなかった場合はエラーを返す
-    logging.error('[ReserveConditionsRouter][GetAutoAddData] Specified reserve_condition_id was not found '
+    logging.error('[ReservationConditionsRouter][GetAutoAddData] Specified reserve_condition_id was not found '
                     f'[reserve_condition_id: {reserve_condition_id}]')
     raise HTTPException(
         status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -451,9 +451,9 @@ async def GetAutoAddData(
     '',
     summary = 'キーワード自動予約条件一覧 API',
     response_description = 'キーワード自動予約条件のリスト。',
-    response_model = schemas.ReserveConditions,
+    response_model = schemas.ReservationConditions,
 )
-async def ReserveConditionsAPI(
+async def ReservationConditionsAPI(
     edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ):
     """
@@ -464,12 +464,12 @@ async def ReserveConditionsAPI(
     auto_add_data_list: list[AutoAddDataRequired] | None = await edcb.sendEnumAutoAdd()
     if auto_add_data_list is None:
         # None が返ってきた場合は空のリストを返す
-        return schemas.ReserveConditions(total=0, reserve_conditions=[])
+        return schemas.ReservationConditions(total=0, reserve_conditions=[])
 
-    # EDCB の AutoAddData オブジェクトを schemas.ReserveCondition オブジェクトに変換
+    # EDCB の AutoAddData オブジェクトを schemas.ReservationCondition オブジェクトに変換
     reserve_conditions = [await DecodeEDCBAutoAddData(auto_add_data) for auto_add_data in auto_add_data_list]
 
-    return schemas.ReserveConditions(total=len(reserve_conditions), reserve_conditions=reserve_conditions)
+    return schemas.ReservationConditions(total=len(reserve_conditions), reserve_conditions=reserve_conditions)
 
 
 @router.post(
@@ -477,8 +477,8 @@ async def ReserveConditionsAPI(
     summary = 'キーワード自動予約条件登録 API',
     status_code = status.HTTP_201_CREATED,
 )
-async def RegisterReserveConditionAPI(
-    reserve_condition_add_request: Annotated[schemas.ReserveConditionAddRequest, Body(description='登録するキーワード自動予約条件。')],
+async def RegisterReservationConditionAPI(
+    reserve_condition_add_request: Annotated[schemas.ReservationConditionAddRequest, Body(description='登録するキーワード自動予約条件。')],
     edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ):
     """
@@ -496,7 +496,7 @@ async def RegisterReserveConditionAPI(
     result = await edcb.sendAddAutoAdd([auto_add_data])
     if result is False:
         # False が返ってきた場合はエラーを返す
-        logging.error('[ReserveConditionsRouter][RegisterReserveConditionAPI] Failed to register the reserve condition')
+        logging.error('[ReservationConditionsRouter][RegisterReservationConditionAPI] Failed to register the reserve condition')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to register the reserve condition',
@@ -509,16 +509,16 @@ async def RegisterReserveConditionAPI(
     '/{reserve_condition_id}',
     summary = 'キーワード自動予約条件取得 API',
     response_description = 'キーワード自動予約条件。',
-    response_model = schemas.ReserveCondition,
+    response_model = schemas.ReservationCondition,
 )
-async def ReserveConditionAPI(
+async def ReservationConditionAPI(
     auto_add_data: Annotated[AutoAddDataRequired, Depends(GetAutoAddData)],
 ):
     """
     指定されたキーワード自動予約条件の情報を取得する。
     """
 
-    # EDCB の AutoAddData オブジェクトを schemas.ReserveCondition オブジェクトに変換して返す
+    # EDCB の AutoAddData オブジェクトを schemas.ReservationCondition オブジェクトに変換して返す
     return await DecodeEDCBAutoAddData(auto_add_data)
 
 
@@ -526,11 +526,11 @@ async def ReserveConditionAPI(
     '/{reserve_condition_id}',
     summary = 'キーワード自動予約条件更新 API',
     response_description = '更新されたキーワード自動予約条件。',
-    response_model = schemas.ReserveCondition,
+    response_model = schemas.ReservationCondition,
 )
-async def UpdateReserveConditionAPI(
+async def UpdateReservationConditionAPI(
     auto_add_data: Annotated[AutoAddDataRequired, Depends(GetAutoAddData)],
-    reserve_condition_update_request: Annotated[schemas.ReserveConditionUpdateRequest, Body(description='更新するキーワード自動予約条件。')],
+    reserve_condition_update_request: Annotated[schemas.ReservationConditionUpdateRequest, Body(description='更新するキーワード自動予約条件。')],
     edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ):
     """
@@ -545,14 +545,14 @@ async def UpdateReserveConditionAPI(
     result = await edcb.sendChgAutoAdd([cast(AutoAddData, auto_add_data)])
     if result is False:
         # False が返ってきた場合はエラーを返す
-        logging.error('[ReserveConditionsRouter][UpdateReserveConditionAPI] Failed to update the specified reserve condition '
+        logging.error('[ReservationConditionsRouter][UpdateReservationConditionAPI] Failed to update the specified reserve condition '
                       f'[reserve_condition_id: {auto_add_data["data_id"]}]')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to update the specified reserve condition',
         )
 
-    # 更新されたキーワード自動予約条件の情報を schemas.ReserveCondition オブジェクトに変換して返す
+    # 更新されたキーワード自動予約条件の情報を schemas.ReservationCondition オブジェクトに変換して返す
     return await DecodeEDCBAutoAddData(await GetAutoAddData(auto_add_data['data_id'], edcb))
 
 
@@ -561,7 +561,7 @@ async def UpdateReserveConditionAPI(
     summary = 'キーワード自動予約条件削除 API',
     status_code = status.HTTP_204_NO_CONTENT,
 )
-async def DeleteReserveConditionAPI(
+async def DeleteReservationConditionAPI(
     auto_add_data: Annotated[AutoAddDataRequired, Depends(GetAutoAddData)],
     edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ):
@@ -575,7 +575,7 @@ async def DeleteReserveConditionAPI(
     result = await edcb.sendDelAutoAdd([auto_add_data['data_id']])
     if result is False:
         # False が返ってきた場合はエラーを返す
-        logging.error('[ReserveConditionsRouter][DeleteReserveConditionAPI] Failed to delete the specified reserve condition '
+        logging.error('[ReservationConditionsRouter][DeleteReservationConditionAPI] Failed to delete the specified reserve condition '
                       f'[reserve_condition_id: {auto_add_data["data_id"]}]')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,

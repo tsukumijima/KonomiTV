@@ -30,21 +30,21 @@ from app.utils.TSInformation import TSInformation
 
 # ルーター
 router = APIRouter(
-    tags = ['Reserves'],
-    prefix = '/api/reserves',
+    tags = ['Reservations'],
+    prefix = '/api/recording/reserves',
 )
 
 
-async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: list[Channel] | None = None) -> schemas.Reserve:
+async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: list[Channel] | None = None) -> schemas.Reservation:
     """
-    EDCB の ReserveData オブジェクトを schemas.Reserve オブジェクトに変換する
+    EDCB の ReserveData オブジェクトを schemas.Reservation オブジェクトに変換する
 
     Args:
         reserve_data (ReserveDataRequired): EDCB の ReserveData オブジェクト
         channels (list[Channel] | None): あらかじめ全てのチャンネル情報を取得しておく場合はそのリスト、そうでない場合は None
 
     Returns:
-        schemas.Reserve: schemas.Reserve オブジェクト
+        schemas.Reservation: schemas.Reservation オブジェクト
     """
 
     # 録画予約 ID
@@ -186,7 +186,7 @@ async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: lis
 
     # Tortoise ORM モデルは本来 Pydantic モデルと型が非互換だが、FastAPI がよしなに変換してくれるので雑に Any にキャストしている
     ## 逆に自前で変換する方法がわからない…
-    return schemas.Reserve(
+    return schemas.Reservation(
         id = reserve_id,
         channel = cast(Any, channel),
         program = cast(Any, program),
@@ -495,7 +495,7 @@ def GetCtrlCmdUtil() -> CtrlCmdUtil:
     if Config().general.backend == 'EDCB':
         return CtrlCmdUtil()
     else:
-        logging.error('[ReservesRouter][GetCtrlCmdUtil] This API is only available when the backend is EDCB')
+        logging.error('[ReservationsRouter][GetCtrlCmdUtil] This API is only available when the backend is EDCB')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'This API is only available when the backend is EDCB',
@@ -511,7 +511,7 @@ async def GetReserveDataList(
     reserve_data_list: list[ReserveDataRequired] | None = await edcb.sendEnumReserve()
     if reserve_data_list is None:
         # None が返ってきた場合はエラーを返す
-        logging.error('[ReservesRouter][GetReserveDataList] Failed to get the list of recording reservations')
+        logging.error('[ReservationsRouter][GetReserveDataList] Failed to get the list of recording reservations')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to get the list of recording reservations',
@@ -588,9 +588,9 @@ async def GetServiceEventInfo(
     '',
     summary = '録画予約情報一覧 API',
     response_description = '録画予約の情報のリスト。',
-    response_model = schemas.Reserves,
+    response_model = schemas.Reservations,
 )
-async def ReservesAPI(
+async def ReservationsAPI(
     edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ):
     """
@@ -601,7 +601,7 @@ async def ReservesAPI(
     reserve_data_list: list[ReserveDataRequired] | None = await edcb.sendEnumReserve()
     if reserve_data_list is None:
         # None が返ってきた場合は空のリストを返す
-        return schemas.Reserves(total=0, reserves=[])
+        return schemas.Reservations(total=0, reserves=[])
 
     # データベースアクセスを伴うので、トランザクション下に入れた上で並行して行う
     async with transactions.in_transaction():
@@ -609,13 +609,13 @@ async def ReservesAPI(
         # 高速化のため、あらかじめ全てのチャンネル情報を取得しておく
         channels = await Channel.all()
 
-        # EDCB の ReserveData オブジェクトを schemas.Reserve オブジェクトに変換
+        # EDCB の ReserveData オブジェクトを schemas.Reservation オブジェクトに変換
         reserves = await asyncio.gather(*(DecodeEDCBReserveData(reserve_data, channels) for reserve_data in reserve_data_list))
 
     # 録画予約番組の番組開始時刻でソート
     reserves.sort(key=lambda reserve: reserve.program.start_time)
 
-    return schemas.Reserves(total=len(reserve_data_list), reserves=reserves)
+    return schemas.Reservations(total=len(reserve_data_list), reserves=reserves)
 
 
 @router.post(
@@ -623,8 +623,8 @@ async def ReservesAPI(
     summary = '録画予約追加 API',
     status_code = status.HTTP_201_CREATED,
 )
-async def AddReserveAPI(
-    reserve_add_request: Annotated[schemas.ReserveAddRequest, Body(description='追加する録画予約の設定。')],
+async def AddReservationAPI(
+    reserve_add_request: Annotated[schemas.ReservationAddRequest, Body(description='追加する録画予約の設定。')],
     edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ):
     """
@@ -708,7 +708,7 @@ async def AddReserveAPI(
     result = await edcb.sendAddReserve([add_reserve_data])
     if result is False:
         # False が返ってきた場合はエラーを返す
-        logging.error('[ReservesRouter][AddReserveAPI] Failed to add a recording reservation')
+        logging.error('[ReservationsRouter][AddReserveAPI] Failed to add a recording reservation')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to add a recording reservation',
@@ -721,16 +721,16 @@ async def AddReserveAPI(
     '/{reserve_id}',
     summary = '録画予約情報取得 API',
     response_description = '録画予約の情報。',
-    response_model = schemas.Reserve,
+    response_model = schemas.Reservation,
 )
-async def ReserveAPI(
+async def ReservationAPI(
     reserve_data: Annotated[ReserveDataRequired, Depends(GetReserveData)],
 ):
     """
     指定された録画予約の情報を取得する。
     """
 
-    # EDCB の ReserveData オブジェクトを schemas.Reserve オブジェクトに変換して返す
+    # EDCB の ReserveData オブジェクトを schemas.Reservation オブジェクトに変換して返す
     return await DecodeEDCBReserveData(reserve_data)
 
 
@@ -738,11 +738,11 @@ async def ReserveAPI(
     '/{reserve_id}',
     summary = '録画予約設定更新 API',
     response_description = '更新された録画予約の情報。',
-    response_model = schemas.Reserve,
+    response_model = schemas.Reservation,
 )
-async def UpdateReserveAPI(
+async def UpdateReservationAPI(
     reserve_data: Annotated[ReserveDataRequired, Depends(GetReserveData)],
-    reserve_update_request: Annotated[schemas.ReserveUpdateRequest, Body(description='更新する録画予約の設定。')],
+    reserve_update_request: Annotated[schemas.ReservationUpdateRequest, Body(description='更新する録画予約の設定。')],
     edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ):
     """
@@ -757,13 +757,13 @@ async def UpdateReserveAPI(
     result = await edcb.sendChgReserve([cast(ReserveData, reserve_data)])
     if result is False:
         # False が返ってきた場合はエラーを返す
-        logging.error('[ReservesRouter][UpdateReserveAPI] Failed to update the specified recording reservation')
+        logging.error('[ReservationsRouter][UpdateReserveAPI] Failed to update the specified recording reservation')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to update the specified recording reservation',
         )
 
-    # 更新された録画予約の情報を schemas.Reserve オブジェクトに変換して返す
+    # 更新された録画予約の情報を schemas.Reservation オブジェクトに変換して返す
     return await DecodeEDCBReserveData(await GetReserveData(reserve_data['reserve_id'], edcb))
 
 
@@ -772,7 +772,7 @@ async def UpdateReserveAPI(
     summary = '録画予約削除 API',
     status_code = status.HTTP_204_NO_CONTENT,
 )
-async def DeleteReserveAPI(
+async def DeleteReservationAPI(
     reserve_data: Annotated[ReserveDataRequired, Depends(GetReserveData)],
     edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ):
@@ -784,7 +784,7 @@ async def DeleteReserveAPI(
     result = await edcb.sendDelReserve([reserve_data['reserve_id']])
     if result is False:
         # False が返ってきた場合はエラーを返す
-        logging.error('[ReservesRouter][DeleteReserveAPI] Failed to delete the specified recording reservation')
+        logging.error('[ReservationsRouter][DeleteReserveAPI] Failed to delete the specified recording reservation')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to delete the specified recording reservation',

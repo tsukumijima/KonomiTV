@@ -9,8 +9,8 @@ from typing import Annotated, cast
 from zoneinfo import ZoneInfo
 
 from app import schemas
-from app.routers.ReservesRouter import GetCtrlCmdUtil
-from app.routers.ReserveConditionsRouter import EncodeEDCBSearchKeyInfo
+from app.routers.ReservationConditionsRouter import EncodeEDCBSearchKeyInfo
+from app.routers.ReservationsRouter import GetCtrlCmdUtil
 from app.utils.EDCB import CtrlCmdUtil
 from app.utils.EDCB import EDCBUtil
 from app.utils.EDCB import EventInfo

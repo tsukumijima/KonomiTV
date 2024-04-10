@@ -3,20 +3,14 @@
 # ref: https://stackoverflow.com/a/33533514/17124142
 from __future__ import annotations
 
-import warnings
 from datetime import date
 from datetime import datetime
 from pydantic import BaseModel
 from pydantic import Field
 from pydantic import RootModel
+from tortoise.contrib.pydantic import PydanticModel
 from typing import Annotated, Literal, Union
 from typing_extensions import TypedDict
-
-# Tortoise ORM がまだ Pydantic V2 に移行できていないため、インポート時や Pydantic モデル定義時に
-# 非推奨 API が利用されていることを示す UserWarning が出力される
-# 毎回警告が出るのは邪魔なため、このモジュールの読み込みが終わるまで一時的に UserWarning を抑制する
-warnings.filterwarnings('ignore', category=UserWarning)
-from tortoise.contrib.pydantic import PydanticModel
 
 
 # モデルとモデルに関連する API レスポンスの構造を表す Pydantic モデル
@@ -206,27 +200,27 @@ class TwitterAccount(PydanticModel):
 # ***** 録画予約 *****
 
 # 録画予約を追加する
-class ReserveAddRequest(BaseModel):
+class ReservationAddRequest(BaseModel):
     # 録画予約を追加する番組の ID (NID32736-SID1024-EID65535 の形式)
     program_id: str
     # 録画設定
     record_settings: RecordSettings
 
 # 録画予約を変更する
-class ReserveUpdateRequest(BaseModel):
+class ReservationUpdateRequest(BaseModel):
     # 録画設定
     record_settings: RecordSettings
 
 # キーワード自動予約条件を追加する
-class ReserveConditionAddRequest(BaseModel):
+class ReservationConditionAddRequest(BaseModel):
     # 番組検索条件
     program_search_condition: ProgramSearchCondition
     # 録画設定
     record_settings: RecordSettings
 
 # キーワード自動予約条件を変更する
-## 内容は ReserveConditionAddRequest と同じ (録画予約 ID はパスパラメータから取得するため不要)
-class ReserveConditionUpdateRequest(BaseModel):
+## 内容は ReservationConditionAddRequest と同じ (録画予約 ID はパスパラメータから取得するため不要)
+class ReservationConditionUpdateRequest(BaseModel):
     # 番組検索条件
     program_search_condition: ProgramSearchCondition
     # 録画設定
@@ -277,7 +271,7 @@ class LiveStreamStatuses(BaseModel):
 # KonomiTV では以下のモデルを API リクエスト/レスポンスに利用し、サーバー側で EDCB の生のデータモデルと相互に変換している
 
 # 録画予約情報
-class Reserve(BaseModel):
+class Reservation(BaseModel):
     # 録画予約 ID
     id: int
     # 録画予約番組の放送チャンネル
@@ -299,12 +293,12 @@ class Reserve(BaseModel):
     record_settings: RecordSettings
 
 # 録画予約情報のリスト
-class Reserves(BaseModel):
+class Reservations(BaseModel):
     total: int
-    reserves: list[Reserve]
+    reserves: list[Reservation]
 
 # キーワード自動予約条件
-class ReserveCondition(BaseModel):
+class ReservationCondition(BaseModel):
     id: int
     # このキーワード自動予約条件で登録されている録画予約の数
     reserve_count: int
@@ -314,9 +308,9 @@ class ReserveCondition(BaseModel):
     record_settings: RecordSettings
 
 # キーワード自動予約条件のリスト
-class ReserveConditions(BaseModel):
+class ReservationConditions(BaseModel):
     total: int
-    reserve_conditions: list[ReserveCondition]
+    reserve_conditions: list[ReservationCondition]
 
 # 番組検索条件
 class ProgramSearchCondition(BaseModel):
@@ -532,6 +526,3 @@ class VersionInformation(BaseModel):
     environment: Literal['Windows', 'Linux', 'Linux-Docker', 'Linux-ARM']
     backend: Literal['EDCB', 'Mirakurun']
     encoder: Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC', 'rkmppenc']
-
-# UserWarning を再度有効化
-warnings.filterwarnings('default', category=UserWarning)
