@@ -295,13 +295,13 @@ class Reservation(BaseModel):
 # 録画予約情報のリスト
 class Reservations(BaseModel):
     total: int
-    reserves: list[Reservation]
+    reservations: list[Reservation]
 
 # キーワード自動予約条件
 class ReservationCondition(BaseModel):
     id: int
     # このキーワード自動予約条件で登録されている録画予約の数
-    reserve_count: int
+    reservation_count: int
     # 番組検索条件
     program_search_condition: ProgramSearchCondition
     # 録画設定
@@ -310,7 +310,7 @@ class ReservationCondition(BaseModel):
 # キーワード自動予約条件のリスト
 class ReservationConditions(BaseModel):
     total: int
-    reserve_conditions: list[ReservationCondition]
+    reservation_conditions: list[ReservationCondition]
 
 # 番組検索条件
 class ProgramSearchCondition(BaseModel):

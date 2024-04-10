@@ -601,7 +601,7 @@ async def ReservationsAPI(
     reserve_data_list: list[ReserveDataRequired] | None = await edcb.sendEnumReserve()
     if reserve_data_list is None:
         # None が返ってきた場合は空のリストを返す
-        return schemas.Reservations(total=0, reserves=[])
+        return schemas.Reservations(total=0, reservations=[])
 
     # データベースアクセスを伴うので、トランザクション下に入れた上で並行して行う
     async with transactions.in_transaction():
@@ -615,7 +615,7 @@ async def ReservationsAPI(
     # 録画予約番組の番組開始時刻でソート
     reserves.sort(key=lambda reserve: reserve.program.start_time)
 
-    return schemas.Reservations(total=len(reserve_data_list), reserves=reserves)
+    return schemas.Reservations(total=len(reserve_data_list), reservations=reserves)
 
 
 @router.post(

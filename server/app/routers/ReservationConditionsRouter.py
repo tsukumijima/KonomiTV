@@ -57,7 +57,7 @@ async def DecodeEDCBAutoAddData(auto_add_data: AutoAddDataRequired) -> schemas.R
 
     return schemas.ReservationCondition(
         id = reserve_condition_id,
-        reserve_count = reserve_count,
+        reservation_count = reserve_count,
         program_search_condition = program_search_condition,
         record_settings = record_settings,
     )
@@ -464,12 +464,12 @@ async def ReservationConditionsAPI(
     auto_add_data_list: list[AutoAddDataRequired] | None = await edcb.sendEnumAutoAdd()
     if auto_add_data_list is None:
         # None が返ってきた場合は空のリストを返す
-        return schemas.ReservationConditions(total=0, reserve_conditions=[])
+        return schemas.ReservationConditions(total=0, reservation_conditions=[])
 
     # EDCB の AutoAddData オブジェクトを schemas.ReservationCondition オブジェクトに変換
     reserve_conditions = [await DecodeEDCBAutoAddData(auto_add_data) for auto_add_data in auto_add_data_list]
 
-    return schemas.ReservationConditions(total=len(reserve_conditions), reserve_conditions=reserve_conditions)
+    return schemas.ReservationConditions(total=len(reserve_conditions), reservation_conditions=reserve_conditions)
 
 
 @router.post(
