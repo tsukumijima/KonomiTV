@@ -12,7 +12,7 @@ dev = "python KonomiTV.py --reload"
 
 [tool.poetry.dependencies]
 python = ">=3.11,<3.12"
-aerich = { url = "https://github.com/tsukumijima/aerich/releases/download/v0.7.1-patch/aerich-0.7.2-py3-none-any.whl" }
+aerich = "^0.7.2"
 aiofiles = "^23.2.1"
 aiohttp = "^3.9.2"
 ariblib = { url = "https://github.com/tsukumijima/ariblib/releases/download/v0.1.4/ariblib-0.1.4-py3-none-any.whl" }
