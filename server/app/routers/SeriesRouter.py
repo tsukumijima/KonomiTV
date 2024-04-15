@@ -36,9 +36,9 @@ async def SeriesListAPI(
 
     PAGE_SIZE = 100
     series_list = await Series.all() \
-        .prefetch_related('broadcast_periods') \
-        .prefetch_related('broadcast_periods__recorded_programs') \
+        .select_related('broadcast_periods') \
         .select_related('broadcast_periods__channel') \
+        .select_related('broadcast_periods__recorded_programs') \
         .select_related('broadcast_periods__recorded_programs__recorded_video') \
         .select_related('broadcast_periods__recorded_programs__channel') \
         .order_by('-updated_at' if order == 'desc' else 'updated_at') \
@@ -64,12 +64,13 @@ async def SeriesAPI(
     指定されたシリーズ番組を取得する。
     """
 
-    series = await Series.get_or_none(id=series_id) \
-        .prefetch_related('broadcast_periods') \
-        .prefetch_related('broadcast_periods__recorded_programs') \
+    series = await Series.all() \
+        .select_related('broadcast_periods') \
         .select_related('broadcast_periods__channel') \
+        .select_related('broadcast_periods__recorded_programs') \
         .select_related('broadcast_periods__recorded_programs__recorded_video') \
-        .select_related('broadcast_periods__recorded_programs__channel')
+        .select_related('broadcast_periods__recorded_programs__channel') \
+        .get_or_none(id=series_id)
     if series is None:
         logging.error(f'[SeriesRouter][SeriesAPI] Specified series_id was not found [series_id: {series_id}]')
         raise HTTPException(

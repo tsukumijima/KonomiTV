@@ -62,9 +62,10 @@ async def VideoAPI(
     指定された録画番組を取得する。
     """
 
-    recorded_program = await RecordedProgram.get_or_none(id=video_id) \
+    recorded_program = await RecordedProgram.all() \
         .select_related('recorded_video') \
-        .select_related('channel')
+        .select_related('channel') \
+        .get_or_none(id=video_id)
     if recorded_program is None:
         logging.error(f'[VideosRouter][VideoAPI] Specified video_id was not found [video_id: {video_id}]')
         raise HTTPException(
@@ -89,9 +90,10 @@ async def VideoJikkyoCommentsAPI(
     ニコニコ実況 過去ログ API をラップし、DPlayer が受け付けるコメント形式に変換して返す。
     """
 
-    recorded_program = await RecordedProgram.get_or_none(id=video_id) \
+    recorded_program = await RecordedProgram.all() \
         .select_related('recorded_video') \
-        .select_related('channel')
+        .select_related('channel') \
+        .get_or_none(id=video_id)
     if recorded_program is None:
         logging.error(f'[VideosRouter][VideoAPI] Specified video_id was not found [video_id: {video_id}]')
         raise HTTPException(
