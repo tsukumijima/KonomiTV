@@ -29,12 +29,12 @@ async def SeriesListAPI(
     page: Annotated[int, Query(description='ページ番号。')] = 1,
 ):
     """
-    すべてのシリーズ番組をを一度に 100 件ずつ取得する。<br>
+    すべてのシリーズ番組を一度に 100 件ずつ取得する。<br>
     order には "desc" か "asc" を指定する。<br>
     page (ページ番号) には 1 以上の整数を指定する。
     """
 
-    PAGE_SIZE = 20
+    PAGE_SIZE = 100
     series_list = await Series.all() \
         .prefetch_related('broadcast_periods') \
         .prefetch_related('broadcast_periods__recorded_programs') \
