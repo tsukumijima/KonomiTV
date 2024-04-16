@@ -2,9 +2,7 @@
 name = "KonomiTV-Installer"
 version = "0.9.0"
 description = "KonomiTV Installer"
-authors = ["tsukumi <tsukumijima@users.noreply.github.com>"]
-# ref: https://github.com/python-poetry/poetry/issues/1537#issuecomment-1154642727
-classifiers = ["Private :: Do Not Upload"]
+package-mode = false
 
 [tool.taskipy.tasks]
 dev = "python KonomiTV-Installer.py"
