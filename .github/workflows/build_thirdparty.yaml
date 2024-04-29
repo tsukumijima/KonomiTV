@@ -15,9 +15,9 @@ on:
 env:
   # Python のバージョン (Python Standalone Builds のリリースを指定する)
   ## ref: https://github.com/indygreg/python-build-standalone/releases
-  PYTHON_TAG: '20240224'
+  PYTHON_TAG: '20240415'
   PYTHON_MAJOR_VERSION: '3.11'
-  PYTHON_VERSION: '3.11.8'
+  PYTHON_VERSION: '3.11.9'
   # Poetry のバージョン
   POETRY_VERSION: '1.8.2'
   # FFmpeg のバージョン (FFmpeg-Builds のリリースを指定する)
@@ -141,7 +141,7 @@ jobs:
         run: |
 
           # Python 本体のダウンロード
-          curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/${{ env.PYTHON_TAG }}/cpython-${{ env.PYTHON_VERSION }}+${{ env.PYTHON_TAG }}-x86_64-pc-windows-msvc-shared-install_only.tar.gz
+          curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/${{ env.PYTHON_TAG }}/cpython-${{ env.PYTHON_VERSION }}+${{ env.PYTHON_TAG }}-x86_64-pc-windows-msvc-install_only.tar.gz
           tar xvf python.tar.gz
           mv python/ thirdparty/Python/
           Rename-Item thirdparty/Python/LICENSE.txt License.txt
