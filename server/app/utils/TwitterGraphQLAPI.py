@@ -217,7 +217,7 @@ class TwitterGraphQLAPI:
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
             method = 'POST',
-            query_id = 'k2pU6e55rNv8lpEGsVIH3A',
+            query_id = 'zIdRTsSqcD6R5uMtm_N0pw',
             endpoint = 'CreateTweet',
             variables = {
                 'tweet_text': tweet,
@@ -243,8 +243,9 @@ class TwitterGraphQLAPI:
                 'creator_subscriptions_quote_tweet_preview_enabled': False,
                 'longform_notetweets_rich_text_read_enabled': True,
                 'longform_notetweets_inline_media_enabled': True,
+                'articles_preview_enabled': True,
                 'rweb_video_timestamps_enabled': True,
-                'rweb_tipjar_consumption_enabled': False,
+                'rweb_tipjar_consumption_enabled': True,
                 'responsive_web_graphql_exclude_directive_enabled': True,
                 'verified_phone_label_enabled': False,
                 'freedom_of_speech_not_reach_fetch_enabled': True,
@@ -598,11 +599,11 @@ class TwitterGraphQLAPI:
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
             method = 'POST',
-            query_id = '7kz66Htb3Af1hr3UzLehJA',
+            query_id = 'eL8vHLgEw2ZL9X9dKdakLQ',
             endpoint = 'HomeLatestTimeline',
             variables = variables,
             features = {
-                'rweb_tipjar_consumption_enabled': False,
+                'rweb_tipjar_consumption_enabled': True,
                 'responsive_web_graphql_exclude_directive_enabled': True,
                 'verified_phone_label_enabled': False,
                 'creator_subscriptions_tweet_preview_api_enabled': True,
@@ -610,6 +611,7 @@ class TwitterGraphQLAPI:
                 'responsive_web_graphql_skip_user_profile_image_extensions_enabled': False,
                 'communities_web_enable_tweet_community_results_fetch': True,
                 'c9s_tweet_anatomy_moderator_badge_enabled': True,
+                'articles_preview_enabled': True,
                 'tweetypie_unmention_optimization_enabled': True,
                 'responsive_web_edit_tweet_api_enabled': True,
                 'graphql_is_translatable_rweb_tweet_is_translatable_enabled': True,
@@ -691,11 +693,11 @@ class TwitterGraphQLAPI:
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
             method = 'GET',
-            query_id = 'LcI5kBN8BLC7ovF7mBEBHg',
+            query_id = '5yhbMCF0-WQ6M8UOAs1mAg',
             endpoint = 'SearchTimeline',
             variables = variables,
             features = {
-                'rweb_tipjar_consumption_enabled': False,
+                'rweb_tipjar_consumption_enabled': True,
                 'responsive_web_graphql_exclude_directive_enabled': True,
                 'verified_phone_label_enabled': False,
                 'creator_subscriptions_tweet_preview_api_enabled': True,
@@ -703,6 +705,7 @@ class TwitterGraphQLAPI:
                 'responsive_web_graphql_skip_user_profile_image_extensions_enabled': False,
                 'communities_web_enable_tweet_community_results_fetch': True,
                 'c9s_tweet_anatomy_moderator_badge_enabled': True,
+                'articles_preview_enabled': True,
                 'tweetypie_unmention_optimization_enabled': True,
                 'responsive_web_edit_tweet_api_enabled': True,
                 'graphql_is_translatable_rweb_tweet_is_translatable_enabled': True,
