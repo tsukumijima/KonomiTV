@@ -857,13 +857,6 @@ poetry env use /Develop/KonomiTV/server/thirdparty/Python/bin/python
 
 # 依存パッケージのインストール
 poetry install --no-root
-
-# データベースのアップグレード
-## SQLite の仕様上後からのテーブル定義の変更が難しいため、
-## 開発版 KonomiTV では Aerich のマイグレーションファイル (server/app/migrations/models/ 以下) 自体が後から変更されることがある
-## その場合は手動で server/data/database.sqlite のテーブル定義を変更するか、
-## poetry run aerich downgrade で一つ前の状態に戻してから、再度 poetry run aerich upgrade を実行する必要がある
-poetry run aerich upgrade
 ```
 
 ### サーバーの起動
