@@ -2411,13 +2411,13 @@ test = ["vcrpy (>=1.10.3)"]
 
 [[package]]
 name = "tweepy-authlib"
-version = "1.3.0"
+version = "1.3.1"
 description = "Twitter Web App (Web 版公式クライアント) の内部 API を使い、Tweepy でスクリーンネームとパスワードで認証するためのライブラリ"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "tweepy_authlib-1.3.0-py3-none-any.whl", hash = "sha256:1930d66b24e0798de249c6c7a02a0ace159a787c517209645a71f96104f253ba"},
-    {file = "tweepy_authlib-1.3.0.tar.gz", hash = "sha256:13e16c98e88390f1e9232c4ee1c935cadd9ce63d6bae49dfe1efea10c3fc1627"},
+    {file = "tweepy_authlib-1.3.1-py3-none-any.whl", hash = "sha256:8367338a5bae7206112c9efff5c05a62cde0247b854f4ee6d8be395f5501e684"},
+    {file = "tweepy_authlib-1.3.1.tar.gz", hash = "sha256:ab91598f4fe2c5e1ca4a8b5dd99ad3fd83f1645da79008256b790b2daa64a6df"},
 ]
 
 [package.dependencies]
@@ -2860,4 +2860,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<3.12"
-content-hash = "a131e48a2792500957f398a02710c835b0ef7de61ffd6c470dbcd5bee3e0db93"
+content-hash = "2afa44d9fba4b7d3d7178f12532d556e276f5fdbc3da5a1a645dcfb04bd55030"
