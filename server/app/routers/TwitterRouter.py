@@ -174,6 +174,13 @@ async def TwitterAccountDeleteAPI(
     except tweepy.HTTPException as ex:
         # サーバーエラーが発生した
         if len(ex.api_codes) > 0 and len(ex.api_messages) > 0:
+            # Code: 32 が返された場合、現在のログインセッションが強制的に無効化 (強制ログアウト) されている
+            ## この場合同時にアカウントごとロックされ (解除には Arkose チャレンジのクリアが必要) 、
+            ## また当該アカウントの Twitter Web App でのログインセッションが全て無効化されるケースが大半
+            ## エラーは送出せず、当該 Twitter アカウントに紐づくレコードを削除して連携解除とする
+            if ex.api_codes[0] == 32:
+                await twitter_account.delete()
+                return
             error_message = f'Code: {ex.api_codes[0]} / Message: {ex.api_messages[0]}'
         else:
             error_message = f'Unknown Error (HTTP Error {ex.response.status_code})'
