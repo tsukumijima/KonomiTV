@@ -1,14 +1,21 @@
 
+import asyncio
 import httpx
 import json
 import re
+import time
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal, TypedDict
 from zoneinfo import ZoneInfo
 
 from app import logging
 from app import schemas
 from app.models.TwitterAccount import TwitterAccount
+
+
+class TweetLockInfo(TypedDict):
+    lock: asyncio.Lock
+    last_tweet_time: float
 
 
 class TwitterGraphQLAPI:
@@ -44,6 +51,12 @@ class TwitterGraphQLAPI:
         328: 'このツイートではリツイートは許可されていません。',
         416: 'Twitter API アプリケーションが無効化されています。',
     }
+
+    # ツイートの最小送信間隔 (秒)
+    MINIMUM_TWEET_INTERVAL = 10  # 必ずアカウントごとに 10 秒以上間隔を空けてツイートする
+
+    # アカウントごとにロックと最後のツイート時刻を管理する辞書 (ツイート送信時の排他制御用)
+    __tweet_locks: ClassVar[dict[str, TweetLockInfo]] = {}
 
 
     def __init__(self, twitter_account: TwitterAccount) -> None:
@@ -206,79 +219,97 @@ class TwitterGraphQLAPI:
             schemas.PostTweetResult | schemas.TwitterAPIResult: ツイートの送信結果
         """
 
-        # 画像の media_id をリストに格納 (画像がない場合は空のリストになる)
-        media_entities: list[dict[str, Any]] = []
-        for media_id in media_ids:
-            media_entities.append({
-                'media_id': media_id,
-                'tagged_users': []
-            })
+        # まだ排他制御用のロックが存在しない場合は初期化
+        screen_name = self.twitter_account.screen_name
+        if screen_name not in self.__tweet_locks:
+            self.__tweet_locks[screen_name] = TweetLockInfo(lock=asyncio.Lock(), last_tweet_time=0.0)
 
-        # Twitter GraphQL API にリクエスト
-        response = await self.invokeGraphQLAPI(
-            method = 'POST',
-            query_id = 'zIdRTsSqcD6R5uMtm_N0pw',
-            endpoint = 'CreateTweet',
-            variables = {
-                'tweet_text': tweet,
-                'dark_request': False,
-                'media': {
-                    'media_entities': media_entities,
-                    'possibly_sensitive': False,
+        # ツイートの最小送信間隔を守るためにロックを取得
+        async with self.__tweet_locks[screen_name]['lock']:
+
+            # 最後のツイート時刻から最小送信間隔を経過していない場合は待機
+            current_time = time.time()
+            last_tweet_time = self.__tweet_locks[screen_name]['last_tweet_time']
+            wait_time = max(0, self.MINIMUM_TWEET_INTERVAL - (current_time - last_tweet_time))
+            if wait_time > 0:
+                await asyncio.sleep(wait_time)
+
+            # 画像の media_id をリストに格納 (画像がない場合は空のリストになる)
+            media_entities: list[dict[str, Any]] = []
+            for media_id in media_ids:
+                media_entities.append({
+                    'media_id': media_id,
+                    'tagged_users': []
+                })
+
+            # Twitter GraphQL API にリクエスト
+            response = await self.invokeGraphQLAPI(
+                method = 'POST',
+                query_id = 'zIdRTsSqcD6R5uMtm_N0pw',
+                endpoint = 'CreateTweet',
+                variables = {
+                    'tweet_text': tweet,
+                    'dark_request': False,
+                    'media': {
+                        'media_entities': media_entities,
+                        'possibly_sensitive': False,
+                    },
+                    'semantic_annotation_ids': [],
                 },
-                'semantic_annotation_ids': [],
-            },
-            # 以下の謎のフラグも数週間単位で頻繁に変更されうるが、Twitter Web App と完全に一致していないからといって
-            # 必ずしも動かなくなるわけではなく、queryId 同様にある程度は古い値でも動くようになっているらしい
-            features = {
-                'communities_web_enable_tweet_community_results_fetch': True,
-                'c9s_tweet_anatomy_moderator_badge_enabled': True,
-                'tweetypie_unmention_optimization_enabled': True,
-                'responsive_web_edit_tweet_api_enabled': True,
-                'graphql_is_translatable_rweb_tweet_is_translatable_enabled': True,
-                'view_counts_everywhere_api_enabled': True,
-                'longform_notetweets_consumption_enabled': True,
-                'responsive_web_twitter_article_tweet_consumption_enabled': True,
-                'tweet_awards_web_tipping_enabled': False,
-                'creator_subscriptions_quote_tweet_preview_enabled': False,
-                'longform_notetweets_rich_text_read_enabled': True,
-                'longform_notetweets_inline_media_enabled': True,
-                'articles_preview_enabled': True,
-                'rweb_video_timestamps_enabled': True,
-                'rweb_tipjar_consumption_enabled': True,
-                'responsive_web_graphql_exclude_directive_enabled': True,
-                'verified_phone_label_enabled': False,
-                'freedom_of_speech_not_reach_fetch_enabled': True,
-                'standardized_nudges_misinfo': True,
-                'tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled': True,
-                'tweet_with_visibility_results_prefer_gql_media_interstitial_enabled': True,
-                'responsive_web_graphql_skip_user_profile_image_extensions_enabled': False,
-                'responsive_web_graphql_timeline_navigation_enabled': True,
-                'responsive_web_enhance_cards_enabled': False,
-            },
-            error_message_prefix = 'ツイートの送信に失敗しました。',
-        )
-
-        # 戻り値が str の場合、ツイートの送信に失敗している (エラーメッセージが返ってくる)
-        if isinstance(response, str):
-            return schemas.TwitterAPIResult(
-                is_success = False,
-                detail = response,  # エラーメッセージをそのまま返す
+                # 以下の謎のフラグも数週間単位で頻繁に変更されうるが、Twitter Web App と完全に一致していないからといって
+                # 必ずしも動かなくなるわけではなく、queryId 同様にある程度は古い値でも動くようになっているらしい
+                features = {
+                    'communities_web_enable_tweet_community_results_fetch': True,
+                    'c9s_tweet_anatomy_moderator_badge_enabled': True,
+                    'tweetypie_unmention_optimization_enabled': True,
+                    'responsive_web_edit_tweet_api_enabled': True,
+                    'graphql_is_translatable_rweb_tweet_is_translatable_enabled': True,
+                    'view_counts_everywhere_api_enabled': True,
+                    'longform_notetweets_consumption_enabled': True,
+                    'responsive_web_twitter_article_tweet_consumption_enabled': True,
+                    'tweet_awards_web_tipping_enabled': False,
+                    'creator_subscriptions_quote_tweet_preview_enabled': False,
+                    'longform_notetweets_rich_text_read_enabled': True,
+                    'longform_notetweets_inline_media_enabled': True,
+                    'articles_preview_enabled': True,
+                    'rweb_video_timestamps_enabled': True,
+                    'rweb_tipjar_consumption_enabled': True,
+                    'responsive_web_graphql_exclude_directive_enabled': True,
+                    'verified_phone_label_enabled': False,
+                    'freedom_of_speech_not_reach_fetch_enabled': True,
+                    'standardized_nudges_misinfo': True,
+                    'tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled': True,
+                    'tweet_with_visibility_results_prefer_gql_media_interstitial_enabled': True,
+                    'responsive_web_graphql_skip_user_profile_image_extensions_enabled': False,
+                    'responsive_web_graphql_timeline_navigation_enabled': True,
+                    'responsive_web_enhance_cards_enabled': False,
+                },
+                error_message_prefix = 'ツイートの送信に失敗しました。',
             )
 
-        # おそらくツイートに成功しているはずなので、可能であれば送信したツイートの ID を取得
-        tweet_id: str
-        try:
-            tweet_id = str(response['create_tweet']['tweet_results']['result']['rest_id'])
-        except Exception:
-            # API レスポンスが変わっているなどでツイート ID を取得できなかった
-            tweet_id = '__error__'
+            # 最後のツイート時刻を更新
+            self.__tweet_locks[screen_name]['last_tweet_time'] = time.time()
 
-        return schemas.PostTweetResult(
-            is_success = True,
-            detail = 'ツイートを送信しました。',
-            tweet_url = f'https://twitter.com/i/status/{tweet_id}',
-        )
+            # 戻り値が str の場合、ツイートの送信に失敗している (エラーメッセージが返ってくる)
+            if isinstance(response, str):
+                return schemas.TwitterAPIResult(
+                    is_success = False,
+                    detail = response,  # エラーメッセージをそのまま返す
+                )
+
+            # おそらくツイートに成功しているはずなので、可能であれば送信したツイートの ID を取得
+            tweet_id: str
+            try:
+                tweet_id = str(response['create_tweet']['tweet_results']['result']['rest_id'])
+            except Exception:
+                # API レスポンスが変わっているなどでツイート ID を取得できなかった
+                tweet_id = '__error__'
+
+            return schemas.PostTweetResult(
+                is_success = True,
+                detail = 'ツイートを送信しました。',
+                tweet_url = f'https://twitter.com/i/status/{tweet_id}',
+            )
 
 
     async def createRetweet(self, tweet_id: str) -> schemas.TwitterAPIResult:
