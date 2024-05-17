@@ -130,7 +130,7 @@ class TwitterGraphQLAPI:
                             'queryId': query_id,  # クエリ ID も JSON に含める必要がある
                         }
                     response = await self.httpx_client.post(
-                        url = f'https://twitter.com/i/api/graphql/{query_id}/{endpoint}',
+                        url = f'https://x.com/i/api/graphql/{query_id}/{endpoint}',
                         json = payload,
                     )
                 elif method == 'GET':
@@ -146,7 +146,7 @@ class TwitterGraphQLAPI:
                             'variables': json.dumps(variables, ensure_ascii=False),
                         }
                     response = await self.httpx_client.get(
-                        url = f'https://twitter.com/i/api/graphql/{query_id}/{endpoint}',
+                        url = f'https://x.com/i/api/graphql/{query_id}/{endpoint}',
                         params = params,
                     )
 
