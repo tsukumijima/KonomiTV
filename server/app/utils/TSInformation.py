@@ -242,7 +242,8 @@ class TSInformation:
         # デジタル放送高度リマックス: 0xFFFA (ケーブル4Kチャンネル (H.264, H.265))
         # JC-HITSトランスモジュレーション: 0xFFFD (HD・SD チャンネル (MPEG-2))
         # 高度JC-HITSトランスモジュレーション: 0xFFF9 (ケーブル4Kチャンネル (H.264, H.265))
-        if network_id == 0xFFFE or network_id == 0xFFFA or network_id == 0xFFFD or network_id == 0xFFF9:
+        # ケーブルテレビの独自4Kチャンネル: 0xFFF7 (一部ケーブルテレビ事業者)
+        if network_id == 0xFFFE or network_id == 0xFFFA or network_id == 0xFFFD or network_id == 0xFFF9 or network_id == 0xFFF7:
             return 'CATV'
 
         # 124/128度CSデジタル放送
