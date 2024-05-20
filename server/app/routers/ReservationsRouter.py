@@ -521,21 +521,21 @@ async def GetReserveDataList(
 
 
 async def GetReserveData(
-    reserve_id: Annotated[int, Path(description='録画予約 ID 。')],
+    reservation_id: Annotated[int, Path(description='録画予約 ID 。')],
     edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ) -> ReserveDataRequired:
     """ 指定された録画予約の情報を取得する """
 
     # 指定された録画予約の情報を取得
     for reserve_data in await GetReserveDataList(edcb):
-        if reserve_data['reserve_id'] == reserve_id:
+        if reserve_data['reserve_id'] == reservation_id:
             return reserve_data
 
     # 指定された録画予約が見つからなかった場合はエラーを返す
-    logging.error(f'[ReservesRouter][GetReserveData] Specified reserve_id was not found [reserve_id: {reserve_id}]')
+    logging.error(f'[ReservesRouter][GetReserveData] Specified reservation_id was not found [reservation_id: {reservation_id}]')
     raise HTTPException(
         status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-        detail = 'Specified reserve_id was not found',
+        detail = 'Specified reservation_id was not found',
     )
 
 
@@ -718,7 +718,7 @@ async def AddReservationAPI(
 
 
 @router.get(
-    '/{reserve_id}',
+    '/{reservation_id}',
     summary = '録画予約情報取得 API',
     response_description = '録画予約の情報。',
     response_model = schemas.Reservation,
@@ -735,7 +735,7 @@ async def ReservationAPI(
 
 
 @router.put(
-    '/{reserve_id}',
+    '/{reservation_id}',
     summary = '録画予約設定更新 API',
     response_description = '更新された録画予約の情報。',
     response_model = schemas.Reservation,
@@ -768,7 +768,7 @@ async def UpdateReservationAPI(
 
 
 @router.delete(
-    '/{reserve_id}',
+    '/{reservation_id}',
     summary = '録画予約削除 API',
     status_code = status.HTTP_204_NO_CONTENT,
 )
