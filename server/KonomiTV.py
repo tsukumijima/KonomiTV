@@ -16,6 +16,7 @@ if sys.platform != 'win32':
 
 import asyncio
 import atexit
+import logging
 import platform
 import subprocess
 import typer
@@ -38,6 +39,10 @@ from app.constants import (
     VERSION,
 )
 
+
+# passlib が送出する bcrypt のバージョン差異による警告を無視
+# ref: https://github.com/pyca/bcrypt/issues/684
+logging.getLogger('passlib').setLevel(logging.ERROR)
 
 cli = typer.Typer()
 
