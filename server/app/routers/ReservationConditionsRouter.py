@@ -44,7 +44,7 @@ async def DecodeEDCBAutoAddData(auto_add_data: AutoAddDataRequired) -> schemas.R
     """
 
     # キーワード自動予約条件 ID
-    reserve_condition_id = auto_add_data['data_id']
+    reservation_condition_id = auto_add_data['data_id']
 
     # このキーワード自動予約条件で登録されている録画予約の数
     reserve_count = auto_add_data['add_count']
@@ -56,7 +56,7 @@ async def DecodeEDCBAutoAddData(auto_add_data: AutoAddDataRequired) -> schemas.R
     record_settings = DecodeEDCBRecSettingData(auto_add_data['rec_setting'])
 
     return schemas.ReservationCondition(
-        id = reserve_condition_id,
+        id = reservation_condition_id,
         reservation_count = reserve_count,
         program_search_condition = program_search_condition,
         record_settings = record_settings,
@@ -428,22 +428,22 @@ async def GetAutoAddDataList(
 
 
 async def GetAutoAddData(
-    reserve_condition_id: Annotated[int, Path(description='キーワード自動予約条件 ID 。')],
+    reservation_condition_id: Annotated[int, Path(description='キーワード自動予約条件 ID 。')],
     edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ) -> AutoAddDataRequired:
     """ 指定されたキーワード自動予約条件の情報を取得する """
 
     # 指定されたキーワード自動予約条件の情報を取得
     for auto_add_data in await GetAutoAddDataList(edcb):
-        if auto_add_data['data_id'] == reserve_condition_id:
+        if auto_add_data['data_id'] == reservation_condition_id:
             return auto_add_data
 
     # 指定されたキーワード自動予約条件が見つからなかった場合はエラーを返す
-    logging.error('[ReservationConditionsRouter][GetAutoAddData] Specified reserve_condition_id was not found '
-                    f'[reserve_condition_id: {reserve_condition_id}]')
+    logging.error('[ReservationConditionsRouter][GetAutoAddData] Specified reservation_condition_id was not found '
+                    f'[reservation_condition_id: {reservation_condition_id}]')
     raise HTTPException(
         status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-        detail = 'Specified reserve_condition_id was not found',
+        detail = 'Specified reservation_condition_id was not found',
     )
 
 
@@ -506,7 +506,7 @@ async def RegisterReservationConditionAPI(
 
 
 @router.get(
-    '/{reserve_condition_id}',
+    '/{reservation_condition_id}',
     summary = 'キーワード自動予約条件取得 API',
     response_description = 'キーワード自動予約条件。',
     response_model = schemas.ReservationCondition,
@@ -523,7 +523,7 @@ async def ReservationConditionAPI(
 
 
 @router.put(
-    '/{reserve_condition_id}',
+    '/{reservation_condition_id}',
     summary = 'キーワード自動予約条件更新 API',
     response_description = '更新されたキーワード自動予約条件。',
     response_model = schemas.ReservationCondition,
@@ -546,7 +546,7 @@ async def UpdateReservationConditionAPI(
     if result is False:
         # False が返ってきた場合はエラーを返す
         logging.error('[ReservationConditionsRouter][UpdateReservationConditionAPI] Failed to update the specified reserve condition '
-                      f'[reserve_condition_id: {auto_add_data["data_id"]}]')
+                      f'[reservation_condition_id: {auto_add_data["data_id"]}]')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to update the specified reserve condition',
@@ -557,7 +557,7 @@ async def UpdateReservationConditionAPI(
 
 
 @router.delete(
-    '/{reserve_condition_id}',
+    '/{reservation_condition_id}',
     summary = 'キーワード自動予約条件削除 API',
     status_code = status.HTTP_204_NO_CONTENT,
 )
@@ -576,7 +576,7 @@ async def DeleteReservationConditionAPI(
     if result is False:
         # False が返ってきた場合はエラーを返す
         logging.error('[ReservationConditionsRouter][DeleteReservationConditionAPI] Failed to delete the specified reserve condition '
-                      f'[reserve_condition_id: {auto_add_data["data_id"]}]')
+                      f'[reservation_condition_id: {auto_add_data["data_id"]}]')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to delete the specified reserve condition',
