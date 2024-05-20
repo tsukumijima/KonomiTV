@@ -5026,10 +5026,10 @@ vuedraggable@^4.1.0:
   dependencies:
     sortablejs "1.14.0"
 
-vuetify@^3.6.6:
-  version "3.6.6"
-  resolved "https://registry.yarnpkg.com/vuetify/-/vuetify-3.6.6.tgz#05954117664f3a2a1188bc8bb9a1f47f899e29f1"
-  integrity sha512-7RkL0kuLsVUbc0YCwhPhVq54gSFKt5xv+SOrF01dxwJz7Ke3tAbvO616WhhQIfS78h1q/Ev952WJj5jpsdK58g==
+vuetify@~3.5.18:
+  version "3.5.18"
+  resolved "https://registry.yarnpkg.com/vuetify/-/vuetify-3.5.18.tgz#98b6ff6b193aad7786a3ba18f509ebc567db6ca7"
+  integrity sha512-33eRhaLkKaiyH7PDau1xDvFzAGFKNo/nFvyiKhB+DePDZBkvMEphUul+zCitHgUrQCZo1i7kfY97k6q+7QURuQ==
 
 "web-bml@github:tsukumijima/web-bml#a27035a5494475591937f0aba9d3ef7d581acccf":
   version "1.0.0"
