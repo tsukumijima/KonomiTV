@@ -33,7 +33,7 @@ env:
   QSVENCC_VERSION: '7.63'
   NVENCC_VERSION: '7.50'
   VCEENCC_VERSION: '8.22'
-  RKMPPENC_VERSION: '0.07'
+  RKMPPENC_VERSION: '0.08'
   # libmediainfo のバージョン
   ## Windows 版の pymediainfo (ビルド済みの MediaInfo.dll が同梱されている) とバージョンを合わせる
   ## ref: https://github.com/sbraz/pymediainfo/blob/v6.0.1/appveyor.yml#L6
