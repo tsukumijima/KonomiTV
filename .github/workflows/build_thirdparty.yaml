@@ -19,14 +19,17 @@ env:
   PYTHON_MAJOR_VERSION: '3.11'
   PYTHON_VERSION: '3.11.9'
   # Poetry のバージョン
-  POETRY_VERSION: '1.8.2'
+  POETRY_VERSION: '1.8.3'
   # FFmpeg のバージョン (FFmpeg-Builds のリリースを指定する)
-  ## FFMPEG_HWENCC_* は QSVEncC・NVEncC・VCEEncC・rkmppenc (Linux 版) が依存する FFmpeg のバージョンを示す
   ## FFmpeg-Builds は毎月末のリリースが長期間保持されるため、基本毎月末のリリースを指定する
+  ## FFMPEG_HWENCC_* は QSVEncC・NVEncC・VCEEncC (for Ubuntu 20.04 LTS) が依存する FFmpeg のバージョンを示す
+  ## FFmpeg-Builds の最新リリースでは FFmpeg 4.4 系がビルドされなくなったため、FFMPEG_HWENCC_* は 4.4 系の最終ビルドで固定されている
+  ## (正確には Ubuntu 20.04 LTS で入る FFmpeg は 4.2 系だが、FFmpeg 4.x 系であれば ABI 互換性があるため 4.4 系でも動作する)
   ## ref: https://github.com/BtbN/FFmpeg-Builds/releases
-  FFMPEG_TAG: 'autobuild-2024-03-31-17-28'
-  FFMPEG_MAJOR_VERSION: '6.1'
-  FFMPEG_VERSION: '6.1.1-31-gaa5e6017a5'
+  FFMPEG_TAG: 'autobuild-2024-04-30-12-51'
+  FFMPEG_MAJOR_VERSION: '7.0'
+  FFMPEG_VERSION: '7.0-21-gfb8f0ea7b3'
+  FFMPEG_HWENCC_TAG: 'autobuild-2024-03-31-17-28'
   FFMPEG_HWENCC_MAJOR_VERSION: '4.4'
   FFMPEG_HWENCC_VERSION: '4.4.4-94-g5d07afd482'
   # QSVEncC・NVEncC・VCEEncC・rkmppenc のバージョン
@@ -254,7 +257,7 @@ jobs:
           ## ref: https://stackoverflow.com/questions/13756800/how-to-download-all-dependencies-and-packages-to-directory
           ## ref: https://askubuntu.com/questions/1260559/how-to-install-deb-packages-in-a-custom-folder-different-from-root-using-dp
           mkdir thirdparty/Library/
-          curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/${{ env.FFMPEG_TAG }}/ffmpeg-n${{ env.FFMPEG_HWENCC_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_HWENCC_MAJOR_VERSION }}.tar.xz
+          curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/${{ env.FFMPEG_HWENCC_TAG }}/ffmpeg-n${{ env.FFMPEG_HWENCC_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_HWENCC_MAJOR_VERSION }}.tar.xz
           tar xvf ffmpeg-n${{ env.FFMPEG_HWENCC_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_HWENCC_MAJOR_VERSION }}.tar.xz
           cp -ar ffmpeg-n${{ env.FFMPEG_HWENCC_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_HWENCC_MAJOR_VERSION }}/lib/* thirdparty/Library/
           sudo apt-get download libass9 libbrotli1 libexpat1 libfontconfig1 libfreetype6 libfribidi0 libglib2.0-0 libgraphite2-3 libharfbuzz0b libpcre3 libpng16-16 libuuid1 zlib1g
