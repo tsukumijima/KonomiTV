@@ -220,7 +220,8 @@ class TSInformation:
         """
 
         # 以下は ARIB STD-B10 第2部 付録N より抜粋
-        # https://web.archive.org/web/2if_/http://www.arib.or.jp/english/html/overview/doc/2-STD-B10v5_3.pdf#page=256
+        # ref: https://web.archive.org/web/2if_/http://www.arib.or.jp/english/html/overview/doc/2-STD-B10v5_3.pdf#page=256
+        # ref: https://www.arib.or.jp/english/html/overview/doc/6-STD-B10v5_13-E1.pdf#page=274
 
         # 地上デジタルテレビジョン放送 (network_id: 30848 ~ 32744)
         if network_id >= 0x7880 and network_id <= 0x7FE8:
@@ -242,7 +243,7 @@ class TSInformation:
         # デジタル放送高度リマックス: 0xFFFA (ケーブル4Kチャンネル (H.264, H.265))
         # JC-HITSトランスモジュレーション: 0xFFFD (HD・SD チャンネル (MPEG-2))
         # 高度JC-HITSトランスモジュレーション: 0xFFF9 (ケーブル4Kチャンネル (H.264, H.265))
-        # ケーブルテレビの独自4Kチャンネル: 0xFFF7 (一部ケーブルテレビ事業者)
+        # 高度ケーブル自主放送: 0xFFF7 (ケーブル4Kチャンネル (H.264, H.265))
         if network_id == 0xFFFE or network_id == 0xFFFA or network_id == 0xFFFD or network_id == 0xFFF9 or network_id == 0xFFF7:
             return 'CATV'
 
@@ -253,8 +254,8 @@ class TSInformation:
             return 'SKY'
 
         # 124/128度CSデジタル放送
-        # SPSD-PerfecTV: 0x0001 (スターデジオ)
-        if network_id == 1:
+        # SPSD-PerfecTV: 0x0001 (スターデジオ: 運用終了)
+        if network_id == 0x0001:
             return 'STARDIGIO'
 
         # 不明なネットワーク ID のチャンネル
