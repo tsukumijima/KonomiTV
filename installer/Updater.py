@@ -308,6 +308,10 @@ def Updater(version: str) -> None:
         config_dict: dict[str, dict[str, Any]]
         with open(update_path / 'config.yaml', mode='r', encoding='utf-8') as file:
             config_dict = dict(ruamel.yaml.YAML().load(file))
+            # 0.9.0 -> 0.10.0: config_dict['capture']['upload_folder'] (str) を config_dict['capture']['upload_folders'] (list[str]) に移行
+            if 'upload_folder' in config_dict['capture']:
+                config_dict['capture']['upload_folders'] = [config_dict['capture']['upload_folder']]
+                del config_dict['capture']['upload_folder']
 
         # サーバーのリッスンポートの設定値を取得
         server_port = cast(int, config_dict['server']['port'])
