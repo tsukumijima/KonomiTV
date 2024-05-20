@@ -245,7 +245,7 @@ class TwitterGraphQLAPI:
             # Twitter GraphQL API にリクエスト
             response = await self.invokeGraphQLAPI(
                 method = 'POST',
-                query_id = 'zIdRTsSqcD6R5uMtm_N0pw',
+                query_id = 'BTWYQFqX-WbKZOhykzDpRg',
                 endpoint = 'CreateTweet',
                 variables = {
                     'tweet_text': tweet,
@@ -279,7 +279,6 @@ class TwitterGraphQLAPI:
                     'freedom_of_speech_not_reach_fetch_enabled': True,
                     'standardized_nudges_misinfo': True,
                     'tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled': True,
-                    'tweet_with_visibility_results_prefer_gql_media_interstitial_enabled': True,
                     'responsive_web_graphql_skip_user_profile_image_extensions_enabled': False,
                     'responsive_web_graphql_timeline_navigation_enabled': True,
                     'responsive_web_enhance_cards_enabled': False,
@@ -630,7 +629,7 @@ class TwitterGraphQLAPI:
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
             method = 'POST',
-            query_id = 'eL8vHLgEw2ZL9X9dKdakLQ',
+            query_id = 'DMcXrg09aYpRMKk7PekcBg',
             endpoint = 'HomeLatestTimeline',
             variables = variables,
             features = {
@@ -654,7 +653,6 @@ class TwitterGraphQLAPI:
                 'freedom_of_speech_not_reach_fetch_enabled': True,
                 'standardized_nudges_misinfo': True,
                 'tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled': True,
-                'tweet_with_visibility_results_prefer_gql_media_interstitial_enabled': True,
                 'rweb_video_timestamps_enabled': True,
                 'longform_notetweets_rich_text_read_enabled': True,
                 'longform_notetweets_inline_media_enabled': True,
@@ -724,7 +722,7 @@ class TwitterGraphQLAPI:
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
             method = 'GET',
-            query_id = '5yhbMCF0-WQ6M8UOAs1mAg',
+            query_id = 'Ow4YOCqr4TR1W5vDqb0HAw',
             endpoint = 'SearchTimeline',
             variables = variables,
             features = {
@@ -748,7 +746,6 @@ class TwitterGraphQLAPI:
                 'freedom_of_speech_not_reach_fetch_enabled': True,
                 'standardized_nudges_misinfo': True,
                 'tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled': True,
-                'tweet_with_visibility_results_prefer_gql_media_interstitial_enabled': True,
                 'rweb_video_timestamps_enabled': True,
                 'longform_notetweets_rich_text_read_enabled': True,
                 'longform_notetweets_inline_media_enabled': True,
