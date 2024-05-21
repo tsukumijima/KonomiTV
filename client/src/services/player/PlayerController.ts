@@ -665,7 +665,7 @@ class PlayerController {
                 new LiveCommentManager(this.player),
                 new LiveDataBroadcastingManager(this.player),
                 new CaptureManager(this.player, this.playback_mode),
-                new DocumentPiPManager(this.player),
+                new DocumentPiPManager(this.player, this.playback_mode),
                 new KeyboardShortcutManager(this.player, this.playback_mode),
                 new MediaSessionManager(this.player, this.playback_mode),
             ];
@@ -673,7 +673,7 @@ class PlayerController {
             // ビデオ視聴時に設定する PlayerManager
             this.player_managers = [
                 new CaptureManager(this.player, this.playback_mode),
-                new DocumentPiPManager(this.player),
+                new DocumentPiPManager(this.player, this.playback_mode),
                 new KeyboardShortcutManager(this.player, this.playback_mode),
                 new MediaSessionManager(this.player, this.playback_mode),
             ];

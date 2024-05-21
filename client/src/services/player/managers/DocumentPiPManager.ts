@@ -3,6 +3,7 @@
 import DPlayer from 'dplayer';
 import { watch } from 'vue';
 
+import KeyboardShortcutManager from '@/services/player/managers/KeyboardShortcutManager';
 import PlayerManager from '@/services/player/PlayerManager';
 import usePlayerStore from '@/stores/PlayerStore';
 
@@ -20,6 +21,9 @@ class DocumentPiPManager implements PlayerManager {
     // DPlayer のインスタンス
     // 設計上コンストラクタ以降で変更すべきでないため readonly にしている
     private readonly player: DPlayer;
+
+    // 再生モード (Live: ライブ視聴, Video: ビデオ視聴)
+    private readonly playback_mode: 'Live' | 'Video';
 
     // 視聴画面内のコンテンツ全体の DOM 要素
     private readonly watch_content_element: HTMLDivElement;
@@ -39,9 +43,11 @@ class DocumentPiPManager implements PlayerManager {
     /**
      * コンストラクタ
      * @param player DPlayer のインスタンス
+     * @param playback_mode 再生モード (Live: ライブ視聴, Video: ビデオ視聴)
      */
-    constructor(player: DPlayer) {
+    constructor(player: DPlayer, playback_mode: 'Live' | 'Video') {
         this.player = player;
+        this.playback_mode = playback_mode;
         this.watch_content_element = document.querySelector<HTMLDivElement>('.watch-content')!;
         this.watch_header_element = document.querySelector<HTMLDivElement>('.watch-header')!;
         this.watch_player_element = document.querySelector<HTMLDivElement>('.watch-player')!;
@@ -85,6 +91,7 @@ class DocumentPiPManager implements PlayerManager {
             };
 
             // Document Picture-in-Picture の開始をリクエスト
+            // ここで指定する幅・高さはあくまで初期値で、ユーザーが手動でリサイズした後はリサイズ後の値が利用される
             const pip_window = await documentPictureInPicture.requestWindow({
                 width: 540,
                 height: 304,
@@ -164,9 +171,19 @@ class DocumentPiPManager implements PlayerManager {
             watch_content.addEventListener('touchmove', event_listener);
             watch_content.addEventListener('click', event_listener);
 
+            // キーボードショートカットを登録
+            // 通常 KeyboardShortcutManager は PlayerController で管理されるが、この Document Picture-in-Picture ウインドウには
+            // キーボードショートカットイベントが登録されておらず、さらにウインドウが閉じられればウインドウ内に登録したイベントも全削除されるため、
+            // 別途このウインドウにおいてキーボードショートカットを管理する KeyboardShortcutManager を生成・初期化している
+            // 第3引数に Document Picture-in-Picture ウインドウの Document オブジェクトを渡しているのがポイント
+            const keyboard_shortcut_manager = new KeyboardShortcutManager(this.player, this.playback_mode, pip_window.document);
+            keyboard_shortcut_manager.init();  // 完了を待たない
+
             // Document Picture-in-Picture ウインドウが閉じられた際のイベントを登録
             pip_window.addEventListener('pagehide', () => {
                 player_store.is_document_pip = false;
+                // キーボードショートカットを削除
+                keyboard_shortcut_manager.destroy();  // 完了を待たない
                 // メインウインドウ側の「ピクチャー イン ピクチャーを再生しています」テキストを削除
                 playing_in_pip_container.remove();
                 // DOM 要素を視聴画面内に戻す

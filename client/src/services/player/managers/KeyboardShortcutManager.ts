@@ -50,6 +50,9 @@ class KeyboardShortcutManager implements PlayerManager {
     // 再生モード (Live: ライブ視聴, Video: ビデオ視聴)
     private readonly playback_mode: 'Live' | 'Video';
 
+    // キーボードショートカットをバインドする Document オブジェクト
+    private readonly document: Document;
+
     // キーボードショートカットイベントをキャンセルする AbortController
     private abort_controller: AbortController | null = null;
 
@@ -57,10 +60,12 @@ class KeyboardShortcutManager implements PlayerManager {
      * コンストラクタ
      * @param player DPlayer のインスタンス
      * @param playback_mode 再生モード (Live: ライブ視聴, Video: ビデオ視聴)
+     * @param document キーボードショートカットをバインドする Document オブジェクト
      */
-    constructor(player: DPlayer, playback_mode: 'Live' | 'Video') {
+    constructor(player: DPlayer, playback_mode: 'Live' | 'Video', document: Document = window.document) {
         this.player = player;
         this.playback_mode = playback_mode;
+        this.document = document;
     }
 
 
@@ -398,8 +403,9 @@ class KeyboardShortcutManager implements PlayerManager {
         ];
 
         // ドキュメント全体のキーボードショートカットイベント
+        // this.document に対してイベントを登録することで、メインウインドウ配下以外の Document にも対応できる
         let last_key_pressed_at = 0;  // 最終押下時刻
-        document.addEventListener('keydown', (event: KeyboardEvent) => {
+        this.document.addEventListener('keydown', (event: KeyboardEvent) => {
 
             // 日本語 IME による入力中は無視
             // event.keyCode === 229 は日本語 IME 変換確定時に発火するらしい (謎のテクニック)
@@ -561,6 +567,11 @@ class KeyboardShortcutManager implements PlayerManager {
                         player_store.video_panel_active_tab = 'Twitter';
                     }
 
+                    // 現在 Document Picture-in-Picture 表示状態の場合のみ、まずメインウインドウにフォーカスを当てる
+                    if (player_store.is_document_pip === true) {
+                        window.focus();
+                    }
+
                     // ツイート入力フォームの textarea 要素にフォーカスを当てる
                     tweet_form_element.focus();
 
@@ -587,7 +598,8 @@ class KeyboardShortcutManager implements PlayerManager {
             }
 
             // Shift + Space: 再生 / 一時停止の切り替え
-            // パネルが表示されていて、かつパネルで Twitter タブが表示されていて、Twitter タブ内でキャプチャタブが表示されているときのみ有効
+            // Document Picture-in-Picture 表示状態ではなく、パネルが表示されていて、
+            // かつパネルで Twitter タブが表示されていて、Twitter タブ内でキャプチャタブが表示されているときのみ有効
             // キャプチャタブではツイート対象のキャプチャを選択する際に Space キーを使っているため、再生 / 一時停止の切り替えのショートカットが使えない
             // そこでキャプチャタブ表示中のみ、代わりに Shift + Space キーで再生 / 一時停止の切り替えを行えるようにしている
             // フォーカスが input or textarea にあるときは誤動作防止のため無効化
@@ -596,6 +608,7 @@ class KeyboardShortcutManager implements PlayerManager {
                 (is_ctrl_or_cmd_pressed === false) &&
                 (is_shift_pressed === true) &&
                 (is_alt_pressed === false) &&
+                (player_store.is_document_pip === false) &&
                 (player_store.is_panel_display === true) &&
                 (panel_active_tab === 'Twitter') &&
                 (player_store.twitter_active_tab === 'Capture') &&
@@ -612,12 +625,14 @@ class KeyboardShortcutManager implements PlayerManager {
 
             // Twitter タブ内のキャプチャタブ専用の、キャプチャ選択操作用キーボードショートカット
             // キーリピート状態でも実行する
-            // パネルが表示されていて、かつパネルで Twitter タブが表示されていて、Twitter タブ内でキャプチャタブが表示されているときのみ有効
+            // Document Picture-in-Picture 表示状態ではなく、パネルが表示されていて、
+            // かつパネルで Twitter タブが表示されていて、Twitter タブ内でキャプチャタブが表示されているときのみ有効
             // この場合キーが重複するため、通常プレイヤー操作に割り当てられている矢印キー/スペースキーのショートカットは動作しない
             // フォーカスが input or textarea にあるときは誤動作防止のため無効化
             if ((is_ctrl_or_cmd_pressed === false) &&
                 (is_shift_pressed === false) &&
                 (is_alt_pressed === false) &&
+                (player_store.is_document_pip === false) &&
                 (player_store.is_panel_display === true) &&
                 (panel_active_tab === 'Twitter') &&
                 (player_store.twitter_active_tab === 'Capture') &&
