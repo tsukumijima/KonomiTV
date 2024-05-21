@@ -72,6 +72,10 @@ html {
         // 視聴画面では全体のスクロールバーが不要なため、スクロールバー分の領域を確保しない
         scrollbar-gutter: auto;
     }
+    @media all and (display-mode: picture-in-picture) {
+        // Document Picture-in-Picture モードでは全体のスクロールバーが不要なため、スクロールバー分の領域を確保しない
+        scrollbar-gutter: auto;
+    }
 
     // Vuetify 3 では position: fixed でモーダル表示時のスクロールを防止しようとしているが、これだとレイアウトがぶっ壊れるので使えない
     // そのため position を static に固定して、代わりに overflow: hidden でスクロールを防止する

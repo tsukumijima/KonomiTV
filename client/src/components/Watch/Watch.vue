@@ -4,6 +4,7 @@
                 'watch-container--control-display': playerStore.is_control_display,
                 'watch-container--panel-display': Utils.isSmartphoneVertical() || Utils.isTabletVertical() ? true : playerStore.is_panel_display,
                 'watch-container--fullscreen': playerStore.is_fullscreen,
+                'watch-container--document-pip': playerStore.is_document_pip,
                 'watch-container--video': playback_mode === 'Video',
             }">
             <WatchNavigation />
@@ -238,6 +239,15 @@ export default defineComponent({
     }
 }
 
+// Document Picture-in-Picture 時
+.watch-container.watch-container--document-pip {
+    // ナビゲーションを強制表示
+    .watch-navigation {
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+}
+
 // ビデオ視聴時 + コントロール表示時のみ適用されるスタイル
 .watch-container.watch-container--video.watch-container--control-display {
     .watch-player__dplayer {
@@ -266,6 +276,34 @@ export default defineComponent({
             }
             @include smartphone-vertical {
                 width: calc(100% - (18px * 2));
+            }
+        }
+    }
+}
+
+// Document Picture-in-Picture 時の「ピクチャー イン ピクチャーを再生しています」のテキスト
+.watch-container {
+    .playing-in-pip {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        color: rgb(var(--v-theme-text-darken-1));
+        font-size: 24px;
+        padding: 20px;
+
+        &__close-button {
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 15px;
+            background: rgb(var(--v-theme-background-lighten-1));
+            transition: background-color 0.15s;
+            cursor: pointer;
+
+            &:hover {
+                background: rgb(var(--v-theme-background-lighten-2));
             }
         }
     }

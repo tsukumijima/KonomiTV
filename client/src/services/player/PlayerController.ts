@@ -9,6 +9,7 @@ import KeyboardShortcutManager from './managers/KeyboardShortcutManager';
 
 import APIClient from '@/services/APIClient';
 import CaptureManager from '@/services/player/managers/CaptureManager';
+import DocumentPiPManager from '@/services/player/managers/DocumentPiPManager';
 import LiveCommentManager from '@/services/player/managers/LiveCommentManager';
 import LiveDataBroadcastingManager from '@/services/player/managers/LiveDataBroadcastingManager';
 import LiveEventManager from '@/services/player/managers/LiveEventManager';
@@ -625,7 +626,7 @@ class PlayerController {
         // このイベントは常にアプリケーション上で1つだけ登録されていなければならない
         player_store.event_emitter.off('SetControlDisplayTimer');  // SetControlDisplayTimer イベントの全てのイベントハンドラーを削除
         player_store.event_emitter.on('SetControlDisplayTimer', (event) => {
-            this.setControlDisplayTimer(event.event, event.is_player_region_event);
+            this.setControlDisplayTimer(event.event, event.is_player_region_event, event.timeout_seconds);
         });
 
         // プレイヤー再起動ボタンを DPlayer の UI に追加する (再生が止まった際などに利用する想定)
@@ -664,6 +665,7 @@ class PlayerController {
                 new LiveCommentManager(this.player),
                 new LiveDataBroadcastingManager(this.player),
                 new CaptureManager(this.player, this.playback_mode),
+                new DocumentPiPManager(this.player),
                 new KeyboardShortcutManager(this.player, this.playback_mode),
                 new MediaSessionManager(this.player, this.playback_mode),
             ];
@@ -671,6 +673,7 @@ class PlayerController {
             // ビデオ視聴時に設定する PlayerManager
             this.player_managers = [
                 new CaptureManager(this.player, this.playback_mode),
+                new DocumentPiPManager(this.player),
                 new KeyboardShortcutManager(this.player, this.playback_mode),
                 new MediaSessionManager(this.player, this.playback_mode),
             ];
@@ -1248,8 +1251,13 @@ class PlayerController {
      * 本来は View 側に実装すべきだが、プレイヤー側のロジックとも密接に関連しているため PlayerController に実装した
      * @param event マウスやタッチイベント (手動実行する際は省略する)
      * @param is_player_region_event プレイヤー画面の中で発火したイベントなら true に設定する
+     * @param timeout_seconds 何も操作がない場合にコントロール UI を非表示にするまでの秒数
      */
-    private setControlDisplayTimer(event: Event | null = null, is_player_region_event: boolean = false): void {
+    private setControlDisplayTimer(
+        event: Event | null = null,
+        is_player_region_event: boolean = false,
+        timeout_seconds: number = 3,
+    ): void {
         const player_store = usePlayerStore();
 
         // タッチデバイスで mousemove 、あるいはタッチデバイス以外で touchmove か click が発火した時は実行じない
@@ -1268,7 +1276,8 @@ class PlayerController {
             // コメント入力フォームが表示されているときは実行しない
             // タイマーを掛け直してから抜ける
             if (this.player.template.controller.classList.contains('dplayer-controller-comment')) {
-                this.player_control_ui_hide_timer_id = window.setTimeout(player_control_ui_hide_timer, 3 * 1000);  // 3秒後に再実行
+                this.player_control_ui_hide_timer_id =
+                    window.setTimeout(player_control_ui_hide_timer, timeout_seconds * 1000);  // 3秒後に再実行
                 return;
             }
 
@@ -1297,7 +1306,8 @@ class PlayerController {
 
                 // 3秒間何も操作がなければコントロールを非表示にする
                 // 3秒間の間一度でもタッチされればタイマーが解除されてやり直しになる
-                this.player_control_ui_hide_timer_id = window.setTimeout(player_control_ui_hide_timer, 3 * 1000);
+                this.player_control_ui_hide_timer_id =
+                    window.setTimeout(player_control_ui_hide_timer, timeout_seconds * 1000);
 
             } else {
 
@@ -1320,7 +1330,8 @@ class PlayerController {
 
             // 3秒間何も操作がなければコントロールを非表示にする
             // 3秒間の間一度でもマウスが動けばタイマーが解除されてやり直しになる
-            this.player_control_ui_hide_timer_id = window.setTimeout(player_control_ui_hide_timer, 3 * 1000);
+            this.player_control_ui_hide_timer_id =
+                window.setTimeout(player_control_ui_hide_timer, timeout_seconds * 1000);
         }
     }
 

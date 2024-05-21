@@ -147,14 +147,22 @@ export default defineComponent({
             width: calc(100% - 68px - (18px * 2));
             box-sizing: border-box;
         }
-        .dplayer-time, .dplayer-live-badge {
-            color: rgb(var(--v-theme-text)) !important;
-        }
-        .dplayer-volume-bar {
-            background: rgb(var(--v-theme-text)) !important;
-        }
         .dplayer-icons {
             bottom: auto !important;
+            &.dplayer-icons-left {
+                .dplayer-time, .dplayer-live-badge {
+                    color: rgb(var(--v-theme-text)) !important;
+                }
+                .dplayer-volume {
+                    .dplayer-volume-bar {
+                        background: rgb(var(--v-theme-text)) !important;
+                    }
+                    // Document Picture-in-Picture ウインドウでは非表示
+                    @media all and (display-mode: picture-in-picture) {
+                        display: none;
+                    }
+                }
+            }
             &.dplayer-icons-right {
                 right: 22px !important;
                 @include tablet-vertical {
@@ -167,10 +175,6 @@ export default defineComponent({
                     right: 11px !important;
                 }
             }
-            // ブラウザフルスクリーンボタンを削除（実質あまり意味がないため）
-            .dplayer-icon.dplayer-full-in-icon {
-                display: none !important;
-            }
             .dplayer-icon {
                 @include tablet-vertical {
                     &.dplayer-pip-icon:after {
@@ -178,6 +182,12 @@ export default defineComponent({
                     }
                     &.dplayer-full-icon:after {
                         left: -20%;
+                    }
+                    // Document Picture-in-Picture ウインドウでは Picture-in-Picture ボタンのツールチップを左に寄せる
+                    &.dplayer-pip-icon:after {
+                        @media all and (display-mode: picture-in-picture) {
+                            left: -25%;
+                        }
                     }
                 }
                 @include smartphone-horizontal {
@@ -187,6 +197,12 @@ export default defineComponent({
                     &.dplayer-full-icon:after {
                         left: -20%;
                     }
+                    // Document Picture-in-Picture ウインドウでは Picture-in-Picture ボタンのツールチップを左に寄せる
+                    &.dplayer-pip-icon:after {
+                        @media all and (display-mode: picture-in-picture) {
+                            left: -25%;
+                        }
+                    }
                 }
                 @include smartphone-vertical {
                     &.dplayer-pip-icon:after {
@@ -194,6 +210,12 @@ export default defineComponent({
                     }
                     &.dplayer-full-icon:after {
                         left: -20%;
+                    }
+                    // Document Picture-in-Picture ウインドウでは Picture-in-Picture ボタンのツールチップを左に寄せる
+                    &.dplayer-pip-icon:after {
+                        @media all and (display-mode: picture-in-picture) {
+                            left: -25%;
+                        }
                     }
                 }
                 &.dplayer-capture-icon, &.dplayer-comment-capture-icon {
@@ -204,6 +226,16 @@ export default defineComponent({
                         .dplayer-icon-content {
                             opacity: 1;
                         }
+                    }
+                }
+                // ブラウザフルスクリーンボタンを削除（実質あまり意味がないため）
+                &.dplayer-full-in-icon {
+                    display: none !important;
+                }
+                // Document Picture-in-Picture ウインドウでは非表示
+                &.dplayer-full-icon {
+                    @media all and (display-mode: picture-in-picture) {
+                        display: none;
                     }
                 }
             }
@@ -276,6 +308,14 @@ export default defineComponent({
         }
         @include smartphone-vertical {
             height: calc(100% - 60px) !important;
+        }
+        .dplayer-setting-origin-panel {
+            .dplayer-setting-item.dplayer-setting-keyboard-shortcut {
+                // Document Picture-in-Picture ウインドウでは非表示
+                @media all and (display-mode: picture-in-picture) {
+                    display: none;
+                }
+            }
         }
         .dplayer-setting-audio-panel {
             // 副音声がない番組で副音声を選択できないように
@@ -527,6 +567,11 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
         @include smartphone-vertical {
             right: 15px;
             height: 100px;
+        }
+
+        // Document Picture-in-Picture ウインドウでは非表示
+        @media all and (display-mode: picture-in-picture) {
+            display: none;
         }
 
         .switch-button {

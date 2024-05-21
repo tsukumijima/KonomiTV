@@ -46,103 +46,120 @@ class MediaSessionManager implements PlayerManager {
         const channels_store = useChannelsStore();
         const player_store = usePlayerStore();
 
+        // MediaSession API がサポートされていない場合は何もしない
+        if (('mediaSession' in navigator) === false) {
+            console.log('[MediaSessionManager] Initialized. (MediaSession API is not supported.)');
+            return;
+        }
+
         // 破棄済みかどうかのフラグを下ろす
         this.destroyed = false;
 
         // MediaSession API を使い、メディア通知の表示をカスタマイズ
-        if ('mediaSession' in navigator) {
 
-            // ライブ視聴でアートワークとして表示するアイコン
-            const live_artwork = [
-                {src: '/assets/images/icons/icon-maskable-192px.png', sizes: '192x192', type: 'image/png'},
-                {src: '/assets/images/icons/icon-maskable-512px.png', sizes: '512x512', type: 'image/png'},
-            ];
+        // ライブ視聴でアートワークとして表示するアイコン
+        const live_artwork = [
+            {src: '/assets/images/icons/icon-maskable-192px.png', sizes: '192x192', type: 'image/png'},
+            {src: '/assets/images/icons/icon-maskable-512px.png', sizes: '512x512', type: 'image/png'},
+        ];
 
-            // ビデオ視聴でアートワークとして表示する番組サムネイル
-            // TODO: ちゃんと録画番組のサムネイルを設定すべき
-            const video_artwork = [
-                {src: '/assets/images/icons/icon-maskable-192px.png', sizes: '192x192', type: 'image/png'},
-                {src: '/assets/images/icons/icon-maskable-512px.png', sizes: '512x512', type: 'image/png'},
-            ];
+        // ビデオ視聴でアートワークとして表示する番組サムネイル
+        // TODO: ちゃんと録画番組のサムネイルを設定すべき
+        const video_artwork = [
+            {src: '/assets/images/icons/icon-maskable-192px.png', sizes: '192x192', type: 'image/png'},
+            {src: '/assets/images/icons/icon-maskable-512px.png', sizes: '512x512', type: 'image/png'},
+        ];
 
-            // メディア通知の表示をカスタマイズ
-            // ライブ視聴: 番組タイトル・チャンネル名・アイコンを表示
+        // メディア通知の表示をカスタマイズ
+        // ライブ視聴: 番組タイトル・チャンネル名・アイコンを表示
+        if (this.playback_mode === 'Live') {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: channels_store.channel.current.program_present?.title ?? '放送休止',
+                artist: channels_store.channel.current.name,
+                artwork: live_artwork,
+            });
+        // ビデオ視聴: 番組タイトル・シリーズタイトル・サムネイルを表示
+        // シリーズタイトルが取得できていない場合は番組タイトルが代わりに設定される
+        } else {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: player_store.recorded_program.title,
+                artist: player_store.recorded_program.series_title ?? player_store.recorded_program.title,
+                artwork: video_artwork,
+            });
+        }
+
+        // 再生速度や再生位置が変更された際に MediaSession の情報を更新する
+        // ライブ視聴時は再生位置自体が無限なので何も起こらない
+        this.player.on('ratechange', this.updateMediaSessionPositionState.bind(this));
+        this.player.on('seeking', this.updateMediaSessionPositionState.bind(this));
+        this.player.on('seeked', this.updateMediaSessionPositionState.bind(this));
+
+        // メディア通知上のボタンが押されたときのイベント
+        // 再生
+        navigator.mediaSession.setActionHandler('play', () => this.player?.play());
+        // 停止
+        navigator.mediaSession.setActionHandler('pause', () => this.player?.pause());
+        // 前/次の再生位置にシーク (ビデオ視聴時のみ)
+        if (this.playback_mode === 'Video') {
+            // 前の再生位置にシーク
+            navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+                const seek_offset = details.seekOffset ?? 10;  // デフォルト: 10 秒早戻し
+                this.player.seek(this.player.video.currentTime - seek_offset);
+            });
+            // 次の再生位置にシーク
+            navigator.mediaSession.setActionHandler('seekforward', (details) => {
+                const seek_offset = details.seekOffset ?? 10;  // デフォルト: 10 秒早送り
+                this.player.seek(this.player.video.currentTime + seek_offset);
+            });
+            // イベントで渡された再生位置にシーク
+            navigator.mediaSession.setActionHandler('seekto', (details) => {
+                this.player.seek(details.seekTime!);
+            });
+        }
+        // 前のトラックに移動
+        navigator.mediaSession.setActionHandler('previoustrack', async () => {
+            // ライブ視聴: 前のチャンネルに切り替え
             if (this.playback_mode === 'Live') {
                 navigator.mediaSession.metadata = new MediaMetadata({
-                    title: channels_store.channel.current.program_present?.title ?? '放送休止',
-                    artist: channels_store.channel.current.name,
+                    title: channels_store.channel.previous.program_present?.title ?? '放送休止',
+                    artist: channels_store.channel.previous.name,
                     artwork: live_artwork,
                 });
-            // ビデオ視聴: 番組タイトル・シリーズタイトル・サムネイルを表示
-            // シリーズタイトルが取得できていない場合は番組タイトルが代わりに設定される
+                // ルーティングを前のチャンネルに置き換える
+                await router.push({path: `/tv/watch/${channels_store.channel.previous.display_channel_id}`});
+            // ビデオ視聴: シリーズ番組の前の話数に切り替え
             } else {
+                // TODO: 未実装
+            }
+        });
+        // 次のトラックに移動
+        navigator.mediaSession.setActionHandler('nexttrack', async () => {  // 次のチャンネルに切り替え
+            // ライブ視聴: 次のチャンネルに切り替え
+            if (this.playback_mode === 'Live') {
                 navigator.mediaSession.metadata = new MediaMetadata({
-                    title: player_store.recorded_program.title,
-                    artist: player_store.recorded_program.series_title ?? player_store.recorded_program.title,
-                    artwork: video_artwork,
+                    title: channels_store.channel.next.program_present?.title ?? '放送休止',
+                    artist: channels_store.channel.next.name,
+                    artwork: live_artwork,
                 });
+                // ルーティングを次のチャンネルに置き換える
+                await router.push({path: `/tv/watch/${channels_store.channel.next.display_channel_id}`});
+            // ビデオ視聴: シリーズ番組の次の話数に切り替え
+            } else {
+                // TODO: 未実装
             }
-
-            // 再生速度や再生位置が変更された際に MediaSession の情報を更新する
-            // ライブ視聴時は再生位置自体が無限なので何も起こらない
-            this.player.on('ratechange', this.updateMediaSessionPositionState.bind(this));
-            this.player.on('seeking', this.updateMediaSessionPositionState.bind(this));
-            this.player.on('seeked', this.updateMediaSessionPositionState.bind(this));
-
-            // メディア通知上のボタンが押されたときのイベント
-            // 再生
-            navigator.mediaSession.setActionHandler('play', () => this.player?.play());
-            // 停止
-            navigator.mediaSession.setActionHandler('pause', () => this.player?.pause());
-            // 前/次の再生位置にシーク (ビデオ視聴時のみ)
-            if (this.playback_mode === 'Video') {
-                // 前の再生位置にシーク
-                navigator.mediaSession.setActionHandler('seekbackward', (details) => {
-                    const seek_offset = details.seekOffset ?? 10;  // デフォルト: 10 秒早戻し
-                    this.player.seek(this.player.video.currentTime - seek_offset);
-                });
-                // 次の再生位置にシーク
-                navigator.mediaSession.setActionHandler('seekforward', (details) => {
-                    const seek_offset = details.seekOffset ?? 10;  // デフォルト: 10 秒早送り
-                    this.player.seek(this.player.video.currentTime + seek_offset);
-                });
-                // イベントで渡された再生位置にシーク
-                navigator.mediaSession.setActionHandler('seekto', (details) => {
-                    this.player.seek(details.seekTime!);
-                });
-            }
-            // 前のトラックに移動
-            navigator.mediaSession.setActionHandler('previoustrack', async () => {
-                // ライブ視聴: 前のチャンネルに切り替え
-                if (this.playback_mode === 'Live') {
-                    navigator.mediaSession.metadata = new MediaMetadata({
-                        title: channels_store.channel.previous.program_present?.title ?? '放送休止',
-                        artist: channels_store.channel.previous.name,
-                        artwork: live_artwork,
-                    });
-                    // ルーティングを前のチャンネルに置き換える
-                    await router.push({path: `/tv/watch/${channels_store.channel.previous.display_channel_id}`});
-                // ビデオ視聴: シリーズ番組の前の話数に切り替え
-                } else {
-                    // TODO: 未実装
-                }
+        });
+        // Picture-in-Picture モードに切り替える (Chrome 120 以降のみ対応)
+        // これによりブラウザのメディアコントロールから Document Picture-in-Picture を開始できるようになる
+        // ref: https://developer.chrome.com/blog/automatic-picture-in-picture
+        try {
+            (navigator.mediaSession as any).setActionHandler('enterpictureinpicture', async () => {
+                // DocumentPiPManager が正常に初期化されていれば HTMLVideoElement.requestPictureInPicture() に注入したフックにより
+                // 映像のみの Picture-in-Picture の代わりに Document Picture-in-Picture が開始される
+                // Document Picture-in-Picture API がサポートされていない場合は通常の Picture-in-Picture が開始される
+                this.player.video.requestPictureInPicture();
             });
-            // 次のトラックに移動
-            navigator.mediaSession.setActionHandler('nexttrack', async () => {  // 次のチャンネルに切り替え
-                // ライブ視聴: 次のチャンネルに切り替え
-                if (this.playback_mode === 'Live') {
-                    navigator.mediaSession.metadata = new MediaMetadata({
-                        title: channels_store.channel.next.program_present?.title ?? '放送休止',
-                        artist: channels_store.channel.next.name,
-                        artwork: live_artwork,
-                    });
-                    // ルーティングを次のチャンネルに置き換える
-                    await router.push({path: `/tv/watch/${channels_store.channel.next.display_channel_id}`});
-                // ビデオ視聴: シリーズ番組の次の話数に切り替え
-                } else {
-                    // TODO: 未実装
-                }
-            });
+        } catch (error) {
+            console.log('[MediaSessionManager] The enterpictureinpicture action is not yet supported.');
         }
 
         console.log('[MediaSessionManager] Initialized.');
@@ -181,25 +198,34 @@ class MediaSessionManager implements PlayerManager {
      */
     public async destroy(): Promise<void> {
 
+        // MediaSession API がサポートされていない場合は何もしない
+        if (('mediaSession' in navigator) === false) {
+            console.log('[MediaSessionManager] Destroyed. (MediaSession API is not supported.)');
+            return;
+        }
+
         // DPlayer からイベントを削除
         this.player.off('ratechange', this.updateMediaSessionPositionState.bind(this));
         this.player.off('seeking', this.updateMediaSessionPositionState.bind(this));
         this.player.off('seeked', this.updateMediaSessionPositionState.bind(this));
 
         // MediaSession API を使い、メディア通知の表示をリセット
-        if ('mediaSession' in navigator) {
-            navigator.mediaSession.metadata = null;
-            navigator.mediaSession.setActionHandler('play', null);
-            navigator.mediaSession.setActionHandler('pause', null);
-            navigator.mediaSession.setActionHandler('seekbackward', null);
-            navigator.mediaSession.setActionHandler('seekforward', null);
-            navigator.mediaSession.setActionHandler('previoustrack', null);
-            navigator.mediaSession.setActionHandler('nexttrack', null);
-            if ('setPositionState' in navigator.mediaSession) {
-                // Safari ではなぜかエラーになるので実行しない
-                if (Utils.isSafari() === false) {
-                    navigator.mediaSession.setPositionState({});  // 空のオブジェクトを渡して状態をリセット
-                }
+        navigator.mediaSession.metadata = null;
+        navigator.mediaSession.setActionHandler('play', null);
+        navigator.mediaSession.setActionHandler('pause', null);
+        navigator.mediaSession.setActionHandler('seekbackward', null);
+        navigator.mediaSession.setActionHandler('seekforward', null);
+        navigator.mediaSession.setActionHandler('previoustrack', null);
+        navigator.mediaSession.setActionHandler('nexttrack', null);
+        try {
+            (navigator.mediaSession as any).setActionHandler('enterpictureinpicture', null);
+        } catch (error) {
+            // 何もしない
+        }
+        if ('setPositionState' in navigator.mediaSession) {
+            // Safari ではなぜかエラーになるので実行しない
+            if (Utils.isSafari() === false) {
+                navigator.mediaSession.setPositionState({});  // 空のオブジェクトを渡して状態をリセット
             }
         }
 

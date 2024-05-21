@@ -30,6 +30,7 @@ export type PlayerEvents = {
     SetControlDisplayTimer: {
         event?: Event;  // マウスやタッチイベント (手動実行する際は省略する)
         is_player_region_event?: boolean;  // プレイヤー画面の中で発火したイベントなら true に設定する
+        timeout_seconds?: number;  // 何も操作がない場合にコントロール UI を非表示にするまでの秒数
     }
     // CaptureManager からキャプチャの撮影が完了したことを通知する
     CaptureCompleted: {
@@ -75,6 +76,9 @@ const usePlayerStore = defineStore('player', {
 
         // フルスクリーン状態かどうか
         is_fullscreen: false,
+
+        // Document Picture-in-Picture モードかどうか
+        is_document_pip: false,
 
         // コントロールを表示するか
         is_control_display: true,
@@ -190,6 +194,7 @@ const usePlayerStore = defineStore('player', {
             this.recorded_program = IRecordedProgramDefault;
             this.is_virtual_keyboard_display = false;
             this.is_fullscreen = false;
+            this.is_document_pip = false;
             this.is_control_display = true;
             this.is_panel_display = (() => {
                 const settings_store = useSettingsStore();
