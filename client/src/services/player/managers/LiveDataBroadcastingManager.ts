@@ -22,10 +22,10 @@ class LiveDataBroadcastingManager implements PlayerManager {
     public readonly restart_required_when_quality_switched = true;
 
     // BML 用フォント
-    private static readonly ROUND_GOTHIC: BMLBrowserFontFace = {
+    public static readonly ROUND_GOTHIC: BMLBrowserFontFace = {
         source: 'url("/assets/fonts/KosugiMaru-Regular.woff2"), local("sans-serif")',
     };
-    private static readonly SQUARE_GOTHIC: BMLBrowserFontFace = {
+    public static readonly SQUARE_GOTHIC: BMLBrowserFontFace = {
         source: 'url("/assets/fonts/Kosugi-Regular.woff2"), local("sans-serif")',
     };
 
@@ -337,6 +337,11 @@ class LiveDataBroadcastingManager implements PlayerManager {
             });
             this.bml_browser_width = 960;
             this.bml_browser_height = 540;
+
+            // BML ブラウザが保持する FontFace をこの時点で全て明示的にロードしておき、画面のチラつきを防ぐ
+            for (const font of (this.#bml_browser as any).fonts) {
+                font.load();  // ロード完了を待たない
+            }
 
             // BML ブラウザがロードされたときのイベント
             this.#bml_browser.addEventListener('load', (event) => {

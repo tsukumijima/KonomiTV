@@ -1,9 +1,10 @@
 
-
 import DPlayer from 'dplayer';
 import { watch } from 'vue';
+import { bmlBrowserFontNames } from 'web-bml';
 
 import KeyboardShortcutManager from '@/services/player/managers/KeyboardShortcutManager';
+import LiveDataBroadcastingManager from '@/services/player/managers/LiveDataBroadcastingManager';
 import PlayerManager from '@/services/player/PlayerManager';
 import usePlayerStore from '@/stores/PlayerStore';
 
@@ -97,6 +98,13 @@ class DocumentPiPManager implements PlayerManager {
                 height: 304,
             });
 
+            // Dark Reader 拡張機能を使っている場合、何故か Document Picture-in-Picture ウインドウでは
+            // サイトごとの無効化設定に関わらずダークモード CSS が追加されてしまうため、Dark Reader 自体を無効化する
+            // ref: https://github.com/darkreader/darkreader/blob/main/CONTRIBUTING.md#disabling-dark-reader-on-your-site
+            const lock = pip_window.document.createElement('meta');
+            lock.name = 'darkreader-lock';
+            pip_window.document.head.appendChild(lock);
+
             // すべてのスタイルシートを Document Picture-in-Picture ウインドウにコピー
             // 以前の仕様には copyStyleSheets オプションがあったが、議論の末に削除されてしまったらしい
             [...document.styleSheets].forEach((style_sheet) => {
@@ -115,12 +123,14 @@ class DocumentPiPManager implements PlayerManager {
                 }
             });
 
-            // Dark Reader 拡張機能のサイトごとの無効化設定に関わらずダークモード CSS が追加されてしまうので、
-            // Dark Reader 自体を無効化する
-            // ref: https://github.com/darkreader/darkreader/blob/main/CONTRIBUTING.md#disabling-dark-reader-on-your-site
-            const lock = pip_window.document.createElement('meta');
-            lock.name = 'darkreader-lock';
-            pip_window.document.head.appendChild(lock);
+            // データ放送用のフォントを読み込む
+            // web-bml 側でロードしたフォントはメインウインドウにしか存在しないため、別途ロードする必要がある
+            const round_gothic_font = new FontFace(bmlBrowserFontNames.roundGothic, LiveDataBroadcastingManager.ROUND_GOTHIC.source);
+            round_gothic_font.load();
+            pip_window.document.fonts.add(round_gothic_font);
+            const square_gothic_font = new FontFace(bmlBrowserFontNames.squareGothic, LiveDataBroadcastingManager.SQUARE_GOTHIC.source);
+            square_gothic_font.load();
+            pip_window.document.fonts.add(square_gothic_font);
 
             // body 要素を .watch-container に見立ててクラスを追加
             pip_window.document.body.classList.add('watch-container');
