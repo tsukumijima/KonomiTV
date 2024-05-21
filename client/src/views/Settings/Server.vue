@@ -12,7 +12,7 @@
             サーバー設定を変更するには、管理者アカウントでログインしている必要があります。<br>
         </div>
         <div class="settings__description mt-1">
-            [サーバー設定を更新] ボタンを押さずにこのページから離れたときは、変更内容は破棄されます。<br>
+            [サーバー設定を更新] ボタンを押さずにこのページから離れると、変更内容は破棄されます。<br>
             変更を反映するには KonomiTV サーバーの再起動が必要です。<br>
         </div>
         <div class="settings__content" :class="{'settings__content--disabled': is_disabled}">
@@ -148,12 +148,12 @@
                     基本空欄のままで問題ありません。HTTPS 証明書について詳細に理解している方のみ設定してください。<br>
                 </div>
                 <v-text-field class="settings__item-form" color="primary" variant="outlined" hide-details
-                    label="カスタム HTTPS 証明書ファイルへの絶対パス"
+                    label="例: C:\path\to\cert.pem"
                     :density="is_form_dense ? 'compact' : 'default'"
                     v-model="server_settings.server.custom_https_certificate">
                 </v-text-field>
                 <v-text-field class="settings__item-form" color="primary" variant="outlined" hide-details
-                    label="カスタム HTTPS 秘密鍵ファイルへの絶対パス"
+                    label="例: C:\path\to\key.pem"
                     :density="is_form_dense ? 'compact' : 'default'"
                     v-model="server_settings.server.custom_https_private_key">
                 </v-text-field>
@@ -185,6 +185,7 @@
                 <div v-for="(folder, index) in server_settings.video.recorded_folders" :key="'recorded-folder-' + index">
                     <div class="d-flex align-center mt-3">
                         <v-text-field class="settings__item-form mt-0" color="primary" variant="outlined" hide-details
+                            placeholder="例: E:\TV-Record"
                             :density="is_form_dense ? 'compact' : 'default'"
                             v-model="server_settings.video.recorded_folders[index]">
                         </v-text-field>
@@ -218,6 +219,7 @@
                 <div v-for="(folder, index) in server_settings.capture.upload_folders" :key="'upload-folder-' + index">
                     <div class="d-flex align-center mt-3">
                         <v-text-field class="settings__item-form mt-0" color="primary" variant="outlined" hide-details
+                            placeholder="例: E:\TV-Capture"
                             :density="is_form_dense ? 'compact' : 'default'"
                             v-model="server_settings.capture.upload_folders[index]">
                         </v-text-field>
@@ -235,12 +237,10 @@
                     <span class="ml-1">保存先フォルダを追加</span>
                 </v-btn>
             </div>
-            <div class="mt-6 d-flex justify-center">
-                <v-btn class="settings__save-button bg-secondary" variant="flat" @click="updateServerSettings()">
-                    <Icon icon="fluent:save-16-filled" class="mr-2" height="23px" />サーバー設定を更新
-                </v-btn>
-            </div>
-            <div class="settings__content-heading mt-6">
+            <v-btn class="settings__save-button bg-secondary mt-6" variant="flat" @click="updateServerSettings()">
+                <Icon icon="fluent:save-16-filled" class="mr-2" height="23px" />サーバー設定を更新
+            </v-btn>
+            <div class="settings__content-heading mt-8">
                 <Icon icon="fluent:wrench-settings-20-filled" width="22px" />
                 <span class="ml-2">メンテナンス</span>
             </div>
@@ -251,13 +251,11 @@
                     即座に外部 API からのデータ更新を反映させたいときに利用してください。<br>
                 </div>
             </div>
-            <div class="mt-5 d-flex justify-center">
-                <v-btn class="settings__save-button" color="background-lighten-2" variant="flat"
-                    @click="updateDatabase()">
-                    <Icon icon="iconoir:database-backup" height="20px" />
-                    <span class="ml-2">データベースを更新</span>
-                </v-btn>
-            </div>
+            <v-btn class="settings__save-button mt-5" color="background-lighten-2" variant="flat"
+                @click="updateDatabase()">
+                <Icon icon="iconoir:database-backup" height="20px" />
+                <span class="ml-2">データベースを更新</span>
+            </v-btn>
             <div class="settings__item">
                 <div class="settings__item-heading text-error-lighten-1">KonomiTV サーバーを再起動</div>
                 <div class="settings__item-label">
@@ -266,27 +264,26 @@
                     <strong>再起動を実行すると、すべての視聴中セッションが切断されます。</strong>十分注意してください。<br>
                 </div>
             </div>
-            <div class="mt-5 d-flex justify-center">
-                <v-btn class="settings__save-button bg-error" variant="flat"
-                    @click="restartServer()">
-                    <Icon icon="fluent:arrow-counterclockwise-20-filled" height="20px" />
-                    <span class="ml-2">KonomiTV サーバーを再起動</span>
-                </v-btn>
-            </div>
+            <v-btn class="settings__save-button bg-error mt-5" variant="flat"
+                @click="restartServer()">
+                <Icon icon="fluent:arrow-counterclockwise-20-filled" height="20px" />
+                <span class="ml-2">KonomiTV サーバーを再起動</span>
+            </v-btn>
             <div class="settings__item">
                 <div class="settings__item-heading text-error-lighten-1">KonomiTV サーバーをシャットダウン</div>
                 <div class="settings__item-label">
                     KonomiTV サーバーをシャットダウンします。<br>
                     <strong>シャットダウンを実行すると、再度手動で KonomiTV サーバーを起動するまで KonomiTV にアクセスできなくなります。</strong>十分注意してください。<br>
                 </div>
+                <div class="settings__item-label mt-1">
+                    なお、Linux 版 KonomiTV サーバーはプロセス管理を PM2 / Docker に委譲しているため、シャットダウン後は自動で再起動されます。完全にシャットダウンするには、PM2 / Docker 側でサービスを停止してください。<br>
+                </div>
             </div>
-            <div class="mt-5 d-flex justify-center">
-                <v-btn class="settings__save-button bg-error" variant="flat"
-                    @click="shutdownServer()">
-                    <Icon icon="fluent:power-20-filled" height="20px" />
-                    <span class="ml-2">KonomiTV サーバーをシャットダウン</span>
-                </v-btn>
-            </div>
+            <v-btn class="settings__save-button bg-error mt-5" variant="flat"
+                @click="shutdownServer()">
+                <Icon icon="fluent:power-20-filled" height="20px" />
+                <span class="ml-2">KonomiTV サーバーをシャットダウン</span>
+            </v-btn>
         </div>
     </SettingsBase>
 </template>
