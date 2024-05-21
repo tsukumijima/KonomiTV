@@ -65,14 +65,10 @@ async def ClientSettingsUpdateAPI(
     response_description = '現在稼働中の KonomiTV サーバーのサーバー設定。',
     response_model = ServerSettings,
 )
-async def ServerSettingsAPI(
-    current_user: Annotated[User, Depends(GetCurrentAdminUser)],
-):
+async def ServerSettingsAPI():
     """
     現在稼働中の KonomiTV サーバーのサーバー設定を取得する。<br>
     Docker 環境では、パス指定の項目は Docker 環境向けの Prefix (/host-rootfs) が付与された状態で返される。<br>
-
-    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
     """
 
     return Config()

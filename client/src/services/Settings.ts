@@ -4,6 +4,14 @@ import { getSyncableClientSettings } from '@/stores/SettingsStore';
 
 
 /**
+ * ミュート対象のコメントのキーワードのインターフェイス
+ */
+export interface IMutedCommentKeywords {
+    match: 'partial' | 'forward' | 'backward' | 'exact' | 'regex';
+    pattern: string;
+}
+
+/**
  * サーバーに保存されるクライアント設定を表すインターフェース
  * サーバー側の app.config.ClientSettings で定義されているものと同じ
  */
@@ -58,12 +66,65 @@ export interface IClientSettings {
 }
 
 /**
- * ミュート対象のコメントのキーワードのインターフェイス
+ * サーバー設定を表すインターフェース
+ * サーバー側の app.config.ServerSettings で定義されているものと同じ
  */
-export interface IMutedCommentKeywords {
-    match: 'partial' | 'forward' | 'backward' | 'exact' | 'regex';
-    pattern: string;
+export interface IServerSettings {
+    general: {
+        backend: 'EDCB' | 'Mirakurun';
+        always_receive_tv_from_mirakurun: boolean;
+        edcb_url: string;
+        mirakurun_url: string;
+        encoder: 'FFmpeg' | 'QSVEncC' | 'NVEncC' | 'VCEEncC' | 'rkmppenc';
+        program_update_interval: number;
+        debug: boolean;
+        debug_encoder: boolean;
+    };
+    server: {
+        port: number;
+        custom_https_certificate: string | null;
+        custom_https_private_key: string | null;
+    };
+    tv: {
+        max_alive_time: number;
+        debug_mode_ts_path: string | null;
+    };
+    video: {
+        recorded_folders: string[];
+    };
+    capture: {
+        upload_folders: string[];
+    };
 }
+
+/* サーバー設定を表すインターフェースのデフォルト値 */
+export const IServerSettingsDefault: IServerSettings = {
+    general: {
+        backend: 'EDCB',
+        always_receive_tv_from_mirakurun: false,
+        edcb_url: 'tcp://127.0.0.1:4510/',
+        mirakurun_url: 'http://127.0.0.1:40772/',
+        encoder: 'FFmpeg',
+        program_update_interval: 5.0,
+        debug: false,
+        debug_encoder: false,
+    },
+    server: {
+        port: 7000,
+        custom_https_certificate: null,
+        custom_https_private_key: null,
+    },
+    tv: {
+        max_alive_time: 10,
+        debug_mode_ts_path: null,
+    },
+    video: {
+        recorded_folders: [],
+    },
+    capture: {
+        upload_folders: [],
+    },
+};
 
 
 class Settings {
@@ -97,6 +158,52 @@ class Settings {
         // API リクエストを実行
         // 正常時は 204 No Content が返るし、エラーは基本起こらないはずなので何もしない
         await APIClient.put<IClientSettings>('/settings/client', settings);
+    }
+
+
+    /**
+     * サーバー設定を取得する
+     * @return サーバー設定 (取得に失敗した場合は null)
+     */
+    static async fetchServerSettings(): Promise<IServerSettings | null> {
+
+        // API リクエストを実行
+        const response = await APIClient.get<IServerSettings>('/settings/server');
+
+        // エラー処理
+        if (response.type === 'error') {
+            switch (response.data.detail) {
+                default:
+                    APIClient.showGenericError(response, 'サーバー設定を取得できませんでした。');
+                    break;
+            }
+            return null;
+        }
+
+        return response.data;
+    }
+
+    /**
+     * サーバー設定を更新する
+     * @param settings サーバー設定
+     * @return 成功した場合は true
+     */
+    static async updateServerSettings(settings: IServerSettings): Promise<boolean> {
+
+        // API リクエストを実行
+        const response = await APIClient.put<IServerSettings>('/settings/server', settings);
+
+        // エラー処理
+        if (response.type === 'error') {
+            switch (response.data.detail) {
+                default:
+                    APIClient.showGenericError(response, 'サーバー設定を更新できませんでした。');
+                    break;
+            }
+            return false;
+        }
+
+        return true;
     }
 }
 

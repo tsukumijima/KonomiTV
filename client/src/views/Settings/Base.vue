@@ -215,10 +215,43 @@ export default defineComponent({
             }
         }
 
+        .settings__description {
+            margin-top: 16px;
+            font-size: 13.5px;
+            color: rgb(var(--v-theme-text-darken-1));
+            line-height: 1.6;
+            @include smartphone-horizontal {
+                margin-top: 12px;
+                font-size: 12px;
+                line-height: 1.65;
+            }
+            @include smartphone-vertical {
+                margin-top: 24px;
+            }
+        }
+
         .settings__content {
             margin-top: 24px;
             @include smartphone-horizontal {
                 margin-top: 16px;
+            }
+
+            &--disabled {
+                opacity: 0.65;
+                pointer-events: none;
+                cursor: default;
+            }
+
+            &-heading {
+                display: flex;
+                align-items: center;
+                font-size: 18px;
+                color: rgb(var(--v-theme-text-darken-1));
+                padding-bottom: 10px;
+                border-bottom: 2px solid rgb(var(--v-theme-background-lighten-2));
+                @include smartphone-horizontal {
+                    font-size: 16px;
+                }
             }
 
             .settings__item {
@@ -280,8 +313,8 @@ export default defineComponent({
                     font-size: 13.5px;
                     line-height: 1.6;
                     @include smartphone-horizontal {
-                        font-size: 11px;
-                        line-height: 1.7;
+                        font-size: 12px;
+                        line-height: 1.65;
                     }
                 }
                 &-form {
@@ -298,6 +331,19 @@ export default defineComponent({
                     right: -60px;
                     bottom: 0px;
                     margin-top: 0;
+                }
+
+                &-delete-button {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex-shrink: 0;
+                    width: 35px;
+                    height: 40px;
+                    margin-left: 4px;
+                    border-radius: 5px;
+                    outline: none;
+                    cursor: pointer;
                 }
 
                 p {
