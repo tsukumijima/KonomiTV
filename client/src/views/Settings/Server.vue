@@ -12,12 +12,12 @@
             サーバー設定を変更するには、管理者アカウントでログインしている必要があります。<br>
         </div>
         <div class="settings__description mt-1">
-            [変更を保存] ボタンを押さずにこのページから離れたときは、変更内容は破棄されます。<br>
+            [サーバー設定を更新] ボタンを押さずにこのページから離れたときは、変更内容は破棄されます。<br>
             変更を反映するには KonomiTV サーバーの再起動が必要です。<br>
         </div>
         <div class="settings__content" :class="{'settings__content--disabled': is_disabled}">
             <div class="settings__content-heading">
-                <Icon icon="fluent:settings-16-filled" width="22px" />
+                <Icon icon="fa-solid:sliders-h" width="22px" style="padding: 0 3px;" />
                 <span class="ml-2">全般</span>
             </div>
             <div class="settings__item">
@@ -79,6 +79,8 @@
                 <div class="settings__item-label">
                     FFmpeg はソフトウェアエンコーダーです。<br>
                     すべての PC で利用できますが、CPU に多大な負荷がかかり、パフォーマンスが悪いです。<br>
+                </div>
+                <div class="settings__item-label mt-1">
                     QSVEncC・NVEncC・VCEEncC・rkmppenc はハードウェアエンコーダーです。<br>
                     CPU 負荷が低く、パフォーマンスがとても高いです（おすすめ）。<br>
                 </div>
@@ -86,10 +88,10 @@
                     :density="is_form_dense ? 'compact' : 'default'"
                     :items="[
                         {title: 'FFmpeg : ソフトウェアエンコーダー', value: 'FFmpeg'},
-                        {title: 'QSVEncC : Intel Graphics 搭載 CPU / Arc GPU で利用可能', value: 'QSVEncC'},
+                        {title: 'QSVEncC : Intel Graphics 搭載 CPU / Intel Arc GPU で利用可能', value: 'QSVEncC'},
                         {title: 'NVEncC : NVIDIA GPU で利用可能', value: 'NVEncC'},
                         {title: 'VCEEncC : AMD GPU で利用可能', value: 'VCEEncC'},
-                        {title: 'rkmppenc : Rockchip SoC 搭載の ARM SBC で利用可能', value: 'rkmppenc'}
+                        {title: 'rkmppenc : Rockchip RK3588 系 SoC 搭載 SBC で利用可能', value: 'rkmppenc'}
                     ]"
                     v-model="server_settings.general.encoder">
                 </v-select>
@@ -235,7 +237,54 @@
             </div>
             <div class="mt-6 d-flex justify-center">
                 <v-btn class="settings__save-button bg-secondary" variant="flat" @click="updateServerSettings()">
-                    <Icon icon="fluent:save-16-filled" class="mr-2" height="23px" />変更を保存
+                    <Icon icon="fluent:save-16-filled" class="mr-2" height="23px" />サーバー設定を更新
+                </v-btn>
+            </div>
+            <div class="settings__content-heading mt-6">
+                <Icon icon="fluent:wrench-settings-20-filled" width="22px" />
+                <span class="ml-2">メンテナンス</span>
+            </div>
+            <div class="settings__item">
+                <div class="settings__item-heading">KonomiTV のデータベースを更新</div>
+                <div class="settings__item-label">
+                    KonomiTV のデータベースに保存されている、チャンネル情報・番組情報・Twitter アカウント情報などの外部 API に依存するデータをすべて更新します。<br>
+                    即座に外部 API からのデータ更新を反映させたいときに利用してください。<br>
+                </div>
+            </div>
+            <div class="mt-5 d-flex justify-center">
+                <v-btn class="settings__save-button" color="background-lighten-2" variant="flat"
+                    @click="updateDatabase()">
+                    <Icon icon="iconoir:database-backup" height="20px" />
+                    <span class="ml-2">データベースを更新</span>
+                </v-btn>
+            </div>
+            <div class="settings__item">
+                <div class="settings__item-heading text-error-lighten-1">KonomiTV サーバーを再起動</div>
+                <div class="settings__item-label">
+                    KonomiTV サーバーを再起動します。<br>
+                    サーバー設定の変更を反映するためには、再起動が必要です。<br>
+                    <strong>再起動を実行すると、すべての視聴中セッションが切断されます。</strong>十分注意してください。<br>
+                </div>
+            </div>
+            <div class="mt-5 d-flex justify-center">
+                <v-btn class="settings__save-button bg-error" variant="flat"
+                    @click="restartServer()">
+                    <Icon icon="fluent:arrow-counterclockwise-20-filled" height="20px" />
+                    <span class="ml-2">KonomiTV サーバーを再起動</span>
+                </v-btn>
+            </div>
+            <div class="settings__item">
+                <div class="settings__item-heading text-error-lighten-1">KonomiTV サーバーをシャットダウン</div>
+                <div class="settings__item-label">
+                    KonomiTV サーバーをシャットダウンします。<br>
+                    <strong>シャットダウンを実行すると、再度手動で KonomiTV サーバーを起動するまで KonomiTV にアクセスできなくなります。</strong>十分注意してください。<br>
+                </div>
+            </div>
+            <div class="mt-5 d-flex justify-center">
+                <v-btn class="settings__save-button bg-error" variant="flat"
+                    @click="shutdownServer()">
+                    <Icon icon="fluent:power-20-filled" height="20px" />
+                    <span class="ml-2">KonomiTV サーバーをシャットダウン</span>
                 </v-btn>
             </div>
         </div>
@@ -246,7 +295,9 @@
 import { ref } from 'vue';
 
 import Message from '@/message';
+import Maintenance from '@/services/Maintenance';
 import Settings, { IServerSettings, IServerSettingsDefault } from '@/services/Settings';
+import Version from '@/services/Version';
 import useUserStore from '@/stores/UserStore';
 import Utils from '@/utils';
 import SettingsBase from '@/views/Settings/Base.vue';
@@ -291,6 +342,31 @@ async function updateServerSettings() {
     if (result === true) {
         Message.success('サーバー設定を更新しました。\n変更を反映するためには、KonomiTV サーバーを再起動してください。');
     }
+}
+
+// データベースを更新する関数
+async function updateDatabase() {
+    Message.show('データベースを更新しています...');
+    await Maintenance.updateDatabase();
+    Message.success('データベースを更新しました。');
+}
+
+// KonomiTV サーバーの再起動を行う関数
+async function restartServer() {
+    await Maintenance.restartServer();
+    Message.show('KonomiTV サーバーを再起動しています...');
+    // バージョン情報が取得できるようになるまで待つ
+    await Utils.sleep(1.0);
+    while (await Version.fetchServerVersion(true) === null) {
+        await Utils.sleep(1.0);
+    }
+    Message.success('KonomiTV サーバーを再起動しました。');
+}
+
+// KonomiTV サーバーのシャットダウンを行う関数
+async function shutdownServer() {
+    await Maintenance.shutdownServer();
+    Message.success('KonomiTV サーバーをシャットダウンしました。');
 }
 
 </script>
