@@ -88,6 +88,8 @@ class DocumentPiPManager implements PlayerManager {
             // すでに登録されている場合は上書きされる
             documentPictureInPicture.onenter = (event) => {
                 player_store.is_document_pip = true;
+                // 一旦コントロール UI を非表示にする
+                player_store.is_control_display = false;
                 console.log('[DocumentPiPManager] Picture-in-Picture window entered.');
             };
 
