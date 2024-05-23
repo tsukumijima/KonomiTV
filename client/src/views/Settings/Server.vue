@@ -31,20 +31,6 @@
                     :items="['EDCB', 'Mirakurun']" v-model="server_settings.general.backend">
                 </v-select>
             </div>
-            <div class="settings__item settings__item--switch">
-                <label class="settings__item-heading" for="always_receive_tv_from_mirakurun">常に Mirakurun / mirakc から放送波を受信する</label>
-                <label class="settings__item-label" for="always_receive_tv_from_mirakurun">
-                    利用するバックエンドが EDCB のとき、常に Mirakurun / mirakc から放送波を受信するかを設定します。
-                    バックエンドに Mirakurun が選択されているときは効果がありません。<br>
-                </label>
-                <label class="settings__item-label mt-1" for="always_receive_tv_from_mirakurun">
-                    KonomiTV から EDCB と Mirakurun / mirakc 両方にアクセスできる必要があります。<br>
-                    EDCB はチューナー起動やチャンネル切り替えに時間がかかるため、Mirakurun / mirakc が利用できる環境であれば、この設定を有効にするとより快適に使えます。<br>
-                </label>
-                <v-switch class="settings__item-switch" color="primary" id="always_receive_tv_from_mirakurun" hide-details
-                    v-model="server_settings.general.always_receive_tv_from_mirakurun">
-                </v-switch>
-            </div>
             <div class="settings__item">
                 <div class="settings__item-heading">EDCB (EpgTimerNW) の TCP API の URL</div>
                 <div class="settings__item-label">
@@ -162,16 +148,31 @@
                 <Icon icon="fluent:tv-20-filled" width="22px" />
                 <span class="ml-2">テレビのライブストリーミング</span>
             </div>
+            <div class="settings__item settings__item--switch">
+                <label class="settings__item-heading" for="always_receive_tv_from_mirakurun">常に Mirakurun / mirakc から放送波を受信する</label>
+                <label class="settings__item-label" for="always_receive_tv_from_mirakurun">
+                    利用するバックエンドが EDCB のとき、常に Mirakurun / mirakc から放送波を受信するかを設定します。
+                    バックエンドに Mirakurun が選択されているときは効果がありません。<br>
+                </label>
+                <label class="settings__item-label mt-1" for="always_receive_tv_from_mirakurun">
+                    KonomiTV から EDCB と Mirakurun / mirakc 両方にアクセスできる必要があります。<br>
+                    EDCB はチューナー起動やチャンネル切り替えに時間がかかるため、Mirakurun / mirakc が利用できる環境であれば、この設定を有効にするとより快適に使えます。<br>
+                </label>
+                <v-switch class="settings__item-switch" color="primary" id="always_receive_tv_from_mirakurun" hide-details
+                    v-model="server_settings.general.always_receive_tv_from_mirakurun">
+                </v-switch>
+            </div>
             <div class="settings__item">
-                <div class="settings__item-heading">誰も見ていないチャンネルのエンコードタスクを何秒まで維持するか</div>
+                <div class="settings__item-heading">誰も見ていないチャンネルのエンコードタスクを維持する秒数</div>
                 <div class="settings__item-label">
                     10 秒に設定したなら、10 秒間誰も見ていない状態が継続したらエンコードタスク（エンコーダー）を終了します。<br>
-                    0 秒に設定すると、リロードしただけでチューナーとエンコーダーの起動がやり直しになってしまいます。余裕をもたせておく事をおすすめします。<br>
+                    0 秒に設定すると、ネット回線が瞬断したりリロードしただけでチューナーとエンコーダーの再起動が必要になり、再生復帰までに時間がかかります。余裕をもたせておく事をおすすめします。<br>
                 </div>
-                <v-text-field class="settings__item-form" color="primary" variant="outlined" hide-details
+                <v-slider class="settings__item-form" color="primary" show-ticks="always" thumb-label hide-details
+                    :min="0" :max="60" :step="1"
                     :density="is_form_dense ? 'compact' : 'default'"
                     v-model="server_settings.tv.max_alive_time">
-                </v-text-field>
+                </v-slider>
             </div>
             <div class="settings__content-heading mt-6">
                 <Icon icon="fluent:movies-and-tv-20-filled" width="22px" />
@@ -259,8 +260,7 @@
             <div class="settings__item">
                 <div class="settings__item-heading text-error-lighten-1">KonomiTV サーバーを再起動</div>
                 <div class="settings__item-label">
-                    KonomiTV サーバーを再起動します。<br>
-                    サーバー設定の変更を反映するためには、再起動が必要です。<br>
+                    KonomiTV サーバーを再起動します。サーバー設定の変更を反映するには再起動が必要です。<br>
                     <strong>再起動を実行すると、すべての視聴中セッションが切断されます。</strong>十分注意してください。<br>
                 </div>
             </div>

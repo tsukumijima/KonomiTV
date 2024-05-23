@@ -15,6 +15,10 @@
         </v-tabs>
          <v-window v-model="tab">
             <v-window-item class="settings__content mt-0" v-for="network_circuit in network_circuits" :key="network_circuit">
+                <div class="settings__content-heading mt-6">
+                    <Icon icon="fluent:tv-20-filled" width="22px" />
+                    <span class="ml-2">テレビのライブストリーミング</span>
+                </div>
                 <div class="settings__item settings__item--sync-disabled">
                     <div class="settings__item-heading">テレビのデフォルトのストリーミング画質</div>
                     <div class="settings__item-label">
@@ -78,7 +82,10 @@
                         v-model="settingsStore.settings.tv_low_latency_mode_cellular">
                     </v-switch>
                 </div>
-                <v-divider class="mt-6"></v-divider>
+                <div class="settings__content-heading mt-6">
+                    <Icon icon="fluent:movies-and-tv-20-filled" width="22px" />
+                    <span class="ml-2">ビデオのオンデマンドストリーミング</span>
+                </div>
                 <div class="settings__item settings__item--sync-disabled">
                     <div class="settings__item-heading">ビデオのデフォルトのストリーミング画質</div>
                     <div class="settings__item-label">
