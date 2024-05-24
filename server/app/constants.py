@@ -10,7 +10,7 @@ from typing import Any, Literal
 
 
 # バージョン
-VERSION = '0.10.0-dev'
+VERSION = '0.10.0'
 
 # ベースディレクトリ
 BASE_DIR = Path(__file__).resolve().parent.parent
