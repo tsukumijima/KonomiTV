@@ -467,7 +467,7 @@ async def UserDeleteAPI(
 
     # ユーザーを削除した結果、管理者アカウントがいなくなってしまった場合
     ## ID が一番若いアカウントに管理者権限を付与する（そうしないと誰も管理者権限を行使できないし付与できない）
-    if await User.filter(is_admin=True).get_or_none() is None:
+    if await User.filter(is_admin=True).count() == 0:
         id_young_user = await User.all().order_by('id').first()
         if id_young_user is not None:
             id_young_user.is_admin = True
@@ -583,7 +583,7 @@ async def SpecifiedUserDeleteAPI(
 
     # ユーザーを削除した結果、管理者アカウントがいなくなってしまった場合
     ## ID が一番若いアカウントに管理者権限を付与する（そうしないと誰も管理者権限を行使できないし付与できない）
-    if await User.filter(is_admin=True).get_or_none() is None:
+    if await User.filter(is_admin=True).count() == 0:
         id_young_user = await User.all().order_by('id').first()
         if id_young_user is not None:
             id_young_user.is_admin = True
