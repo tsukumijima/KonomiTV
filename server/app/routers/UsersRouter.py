@@ -512,6 +512,16 @@ async def SpecifiedUserUpdateAPI(
     if user_update_request.is_admin is not None:
         user.is_admin = user_update_request.is_admin
 
+    # 管理者権限を剥奪する場合、この処理によってシステム内に管理者が一人もいなくならないかを確認
+    if user_update_request.is_admin is False:
+        remaining_admins = await User.filter(is_admin=True).exclude(id=user.id).count()
+        if remaining_admins == 0:
+            logging.error('[UsersRouter][SpecifiedUserUpdateAPI] Cannot revoke admin permission because there are no more admins')
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'Cannot revoke admin permission because there are no more admins',
+            )
+
     # レコードを保存する
     await user.save()
 
