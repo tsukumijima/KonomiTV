@@ -87,10 +87,13 @@ class DocumentPiPManager implements PlayerManager {
             // Document Picture-in-Picture ウインドウが表示された時のイベントを登録
             // すでに登録されている場合は上書きされる
             documentPictureInPicture.onenter = (event) => {
-                player_store.is_document_pip = true;
-                // 一旦コントロール UI を非表示にする
-                player_store.is_control_display = false;
                 console.log('[DocumentPiPManager] Picture-in-Picture window entered.');
+                player_store.is_document_pip = true;
+                // コントロール表示タイマーをリセット
+                player_store.event_emitter.emit('SetControlDisplayTimer', {
+                    is_player_region_event: true,
+                    timeout_seconds: 0,
+                });
             };
 
             // Document Picture-in-Picture の開始をリクエスト
@@ -137,7 +140,6 @@ class DocumentPiPManager implements PlayerManager {
             // body 要素を .watch-container に見立ててクラスを追加
             pip_window.document.body.classList.add('watch-container');
             pip_window.document.body.classList.add('watch-container--fullscreen');
-            pip_window.document.body.classList.add('watch-container--control-display');
 
             // player_store.is_control_display が変更された時に .watch-container--control-display クラスを追加・削除する
             watch(() => player_store.is_control_display, (value) => {
