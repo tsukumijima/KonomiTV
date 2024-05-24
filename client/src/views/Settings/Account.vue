@@ -184,7 +184,7 @@
                     <v-card>
                         <v-card-title class="d-flex justify-center pt-6 font-weight-bold">本当にアカウントを削除しますか？</v-card-title>
                         <v-card-text class="pt-2 pb-0">
-                            アカウントに紐づくすべてのデータが削除されます。元に戻すことはできません。<br>
+                            アカウントに紐づくすべてのユーザーデータが削除されます。元に戻すことはできません。<br>
                             本当にアカウントを削除しますか？
                         </v-card-text>
                         <v-card-actions class="pt-4 px-6 pb-6">

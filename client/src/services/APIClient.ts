@@ -231,6 +231,10 @@ class APIClient {
                 Message.error(`${template}\nログインセッションに紐づくユーザーが存在しないか、削除されています。`);
                 return;
             }
+            case 'Don\'t have permission to access this resource': {
+                Message.error(`${template}\nこのリソースにアクセスする権限がありません。`);
+                return;
+            }
             default: {
                 if (Array.isArray(error_response.data.detail)) {
                     // バリデーションエラーが発生した場合

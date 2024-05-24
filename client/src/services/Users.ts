@@ -236,11 +236,30 @@ class Users {
 
 
     /**
+     * すべてのユーザーアカウントのリストを取得する
+     * @returns すべてのユーザーアカウントのリスト
+     */
+    static async fetchAllUsers(): Promise<IUser[] | null> {
+
+        // API リクエストを実行
+        const response = await APIClient.get<IUser[]>('/users');
+
+        // エラー処理
+        if (response.type === 'error') {
+            APIClient.showGenericError(response, 'ユーザー情報リストを取得できませんでした。');
+            return null;
+        }
+
+        return response.data;
+    }
+
+
+    /**
      * 指定されたユーザー名のユーザーアカウントの情報を取得する
      * @param username ユーザー名
      * @returns 指定されたユーザーアカウントの情報
      */
-    static async getSpecifiedUser(username: string): Promise<IUser> {
+    static async fetchSpecifiedUser(username: string): Promise<IUser | null> {
 
         // API リクエストを実行
         const response = await APIClient.get<IUser>(`/users/${username}`);
@@ -249,15 +268,15 @@ class Users {
         if (response.type === 'error') {
             switch (response.data.detail) {
                 case 'Specified user was not found': {
-                    Message.error('指定されたユーザーが見つかりませんでした。');
+                    Message.error(`${username} のユーザーが見つかりませんでした。`);
                     break;
                 }
                 default: {
-                    APIClient.showGenericError(response, 'ユーザー情報を取得できませんでした。');
+                    APIClient.showGenericError(response, `${username} のユーザー情報を取得できませんでした。`);
                     break;
                 }
             }
-            throw new Error('Failed to get specified user');
+            return null;
         }
 
         return response.data;
@@ -269,16 +288,18 @@ class Users {
      * @param username ユーザー名
      * @param is_admin 管理者権限の付与/剥奪
      */
-    static async updateSpecifiedUser(username: string, is_admin: boolean | null): Promise<void> {
+    static async updateSpecifiedUser(username: string, is_admin: boolean | null): Promise<boolean> {
 
         // API リクエストを実行
-        const response = await APIClient.put(`/users/${username}`, {is_admin});
+        const response = await APIClient.put(`/users/${username}`, { is_admin });
 
         // エラー処理
         if (response.type === 'error') {
-            APIClient.showGenericError(response, 'ユーザー情報を更新できませんでした。');
-            return;
+            APIClient.showGenericError(response, `${username} のユーザー情報を更新できませんでした。`);
+            return false;
         }
+
+        return true;
     }
 
 
@@ -287,14 +308,14 @@ class Users {
      * @param username ユーザー名
      * @returns 指定されたユーザーアカウントのアイコン画像の Blob URL
      */
-    static async getSpecifiedUserIcon(username: string): Promise<string> {
+    static async fetchSpecifiedUserIcon(username: string): Promise<string> {
 
         // API リクエストを実行
         const response = await APIClient.get(`/users/${username}/icon`, { responseType: 'blob' });
 
         // エラー処理
         if (response.type === 'error') {
-            APIClient.showGenericError(response, 'ユーザーアイコン画像を取得できませんでした。');
+            APIClient.showGenericError(response, `${username} のユーザーアイコン画像を取得できませんでした。`);
             throw new Error('Failed to get specified user icon');
         }
 
@@ -307,17 +328,20 @@ class Users {
     /**
      * 指定されたユーザー名のユーザーアカウントを削除する
      * @param username ユーザー名
+     * @returns 削除に成功した場合は true
      */
-    static async deleteSpecifiedUser(username: string): Promise<void> {
+    static async deleteSpecifiedUser(username: string): Promise<boolean> {
 
         // API リクエストを実行
         const response = await APIClient.delete(`/users/${username}`);
 
         // エラー処理
         if (response.type === 'error') {
-            APIClient.showGenericError(response, 'ユーザーアカウントを削除できませんでした。');
-            return;
+            APIClient.showGenericError(response, `${username} のユーザーアカウントを削除できませんでした。`);
+            return false;
         }
+
+        return true;
     }
 }
 

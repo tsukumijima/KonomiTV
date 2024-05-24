@@ -242,6 +242,23 @@
                 <Icon icon="fluent:save-16-filled" class="mr-2" height="23px" />サーバー設定を更新
             </v-btn>
             <div class="settings__content-heading mt-8">
+                <Icon icon="fluent:person-board-20-filled" width="22px" />
+                <span class="ml-2">アカウント</span>
+            </div>
+            <div class="settings__item">
+                <div class="settings__item-heading">アカウントの管理</div>
+                <div class="settings__item-label">
+                    現在 KonomiTV に登録されているすべてのアカウントの一覧の確認、管理者権限の付与/剥奪、アカウントの削除ができます。<br>
+                </div>
+                <div class="settings__item-label mt-1">
+                    ログイン中ユーザーの設定変更は、別途 <router-link class="link" to="/settings/account">アカウント設定画面</router-link> から行ってください。<br>
+                </div>
+            </div>
+            <v-btn class="settings__save-button mt-4" variant="flat" @click="account_manage_settings_modal = !account_manage_settings_modal">
+                <Icon icon="fluent:person-board-20-filled" height="20px" />
+                <span class="ml-1">アカウントの管理設定を開く</span>
+            </v-btn>
+            <div class="settings__content-heading mt-8">
                 <Icon icon="fluent:wrench-settings-20-filled" width="22px" />
                 <span class="ml-2">メンテナンス</span>
             </div>
@@ -285,12 +302,14 @@
                 <span class="ml-2">KonomiTV サーバーをシャットダウン</span>
             </v-btn>
         </div>
+        <AccountManageSettings :modelValue="account_manage_settings_modal" @update:modelValue="account_manage_settings_modal = $event" />
     </SettingsBase>
 </template>
 <script lang="ts" setup>
 
 import { ref } from 'vue';
 
+import AccountManageSettings from '@/components/Settings/AccountManageSettings.vue';
 import Message from '@/message';
 import Maintenance from '@/services/Maintenance';
 import Settings, { IServerSettings, IServerSettingsDefault } from '@/services/Settings';
@@ -340,6 +359,9 @@ async function updateServerSettings() {
         Message.success('サーバー設定を更新しました。\n変更を反映するためには、KonomiTV サーバーを再起動してください。');
     }
 }
+
+// ユーザー管理モーダルの表示状態
+const account_manage_settings_modal = ref(false);
 
 // データベースを更新する関数
 async function updateDatabase() {
