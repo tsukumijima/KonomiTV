@@ -61,6 +61,7 @@ export class ChannelUtils {
      * @returns 局タグ (一致するものがない場合は null)
      */
     static getChannelHashtag(channel_name: string): string | null {
+
         const channel_list = {
             // NHK
             'NHK総合': '#nhk',
@@ -214,7 +215,7 @@ export class ChannelUtils {
             'TBSチャンネル': null, 'TBS': '#tbs',
             'MBS': '#mbs',
             'CBC': '#cbc',
-            'テレビ東京': '#tvtokyo',
+            'テレビ東京': '#tvtokyo', 'テレ東': '#tvtokyo',
             'テレビ大阪': '#tvo',
             'テレビ愛知': '#tva',
             'フジテレビ': '#fujitv',
@@ -226,7 +227,7 @@ export class ChannelUtils {
             'チバテレ': '#chibatv',
             'テレ玉': '#teletama',
             '群馬テレビ': '#gtv',
-            'とちぎテレビ': '#tochitere',
+            'とちぎテレビ': '#tochitere', 'とちテレ': '#tochitere',
             'サンテレビ': '#suntv',
             'KBS京都': '#kbs',
             // BS・CS
@@ -238,13 +239,15 @@ export class ChannelUtils {
             'BS-TBS': '#bstbs',
             'BSテレ東': '#bstvtokyo',
             'BSフジ': '#bsfuji',
-            'BS11イレブン': '#bs11',
-            'BS12トゥエルビ': '#bs12',
+            'BS11': '#bs11',
+            'BS12': '#bs12',
             'BS松竹東急': '#bs260ch',
             'BSJapanext': '#bsjapanext',
             'BSよしもと': '#bsyoshimoto',
             'AT-X': '#at_x',
         };
+
+        // 前方一致でチャンネルを検出する
         const result = Object.keys(channel_list).find(key => channel_name.startsWith(key));
         return result ? channel_list[result] : null;
     }
