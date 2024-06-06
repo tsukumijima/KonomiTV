@@ -242,22 +242,25 @@ class TwitterGraphQLAPI:
                     'tagged_users': []
                 })
 
+            # variables を組み立てる
+            variables = {
+                'tweet_text': tweet,
+                'dark_request': False,
+                'media': {
+                    'media_entities': media_entities,
+                    'possibly_sensitive': False,
+                },
+                'semantic_annotation_ids': [],
+            }
+
             # Twitter GraphQL API にリクエスト
+            ## features 以下の謎のフラグも数週間単位で頻繁に変更されうるが、Twitter Web App と完全に一致していないからといって
+            ## 必ずしも動かなくなるわけではなく、queryId 同様にある程度は古い値でも動くようになっているらしい
             response = await self.invokeGraphQLAPI(
                 method = 'POST',
-                query_id = 'BTWYQFqX-WbKZOhykzDpRg',
+                query_id = 'oB-5XsHNAbjvARJEc8CZFw',
                 endpoint = 'CreateTweet',
-                variables = {
-                    'tweet_text': tweet,
-                    'dark_request': False,
-                    'media': {
-                        'media_entities': media_entities,
-                        'possibly_sensitive': False,
-                    },
-                    'semantic_annotation_ids': [],
-                },
-                # 以下の謎のフラグも数週間単位で頻繁に変更されうるが、Twitter Web App と完全に一致していないからといって
-                # 必ずしも動かなくなるわけではなく、queryId 同様にある程度は古い値でも動くようになっているらしい
+                variables = variables,
                 features = {
                     'communities_web_enable_tweet_community_results_fetch': True,
                     'c9s_tweet_anatomy_moderator_badge_enabled': True,
@@ -629,7 +632,7 @@ class TwitterGraphQLAPI:
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
             method = 'POST',
-            query_id = 'DMcXrg09aYpRMKk7PekcBg',
+            query_id = '9EwYy8pLBOSFlEoSP2STiQ',
             endpoint = 'HomeLatestTimeline',
             variables = variables,
             features = {
@@ -722,7 +725,7 @@ class TwitterGraphQLAPI:
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
             method = 'GET',
-            query_id = 'Ow4YOCqr4TR1W5vDqb0HAw',
+            query_id = 'TQmyZ_haUqANuyBcFBLkUw',
             endpoint = 'SearchTimeline',
             variables = variables,
             features = {
