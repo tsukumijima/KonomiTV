@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+
+# Usage: poetry run python -m misc.TwitterAPIQueryGenerator
 
 import json
 import re
