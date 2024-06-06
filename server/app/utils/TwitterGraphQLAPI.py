@@ -53,7 +53,7 @@ class TwitterGraphQLAPI:
     }
 
     # ツイートの最小送信間隔 (秒)
-    MINIMUM_TWEET_INTERVAL = 10  # 必ずアカウントごとに 10 秒以上間隔を空けてツイートする
+    MINIMUM_TWEET_INTERVAL = 20  # 必ずアカウントごとに 20 秒以上間隔を空けてツイートする
 
     # アカウントごとにロックと最後のツイート時刻を管理する辞書 (ツイート送信時の排他制御用)
     __tweet_locks: ClassVar[dict[str, TweetLockInfo]] = {}
