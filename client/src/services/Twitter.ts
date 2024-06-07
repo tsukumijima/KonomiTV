@@ -115,6 +115,9 @@ class Twitter {
         // API リクエストを実行
         const response = await APIClient.post<ITweetResult>(`/twitter/accounts/${screen_name}/tweets`, form_data, {
             headers: {'Content-Type': 'multipart/form-data'},
+            // 連投間隔によってはツイート送信に時間がかかるため、
+            // タイムアウトを 10 分に設定
+            timeout: 10 * 60 * 1000,
         });
 
         // エラー処理 (API リクエスト自体に失敗した場合)
