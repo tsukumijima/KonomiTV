@@ -10,6 +10,7 @@ import re
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from typing import Any, cast, ClassVar, Literal, NotRequired, TypedDict
+from zoneinfo import ZoneInfo
 
 from app import schemas
 from app.config import Config
@@ -213,6 +214,37 @@ class Jikkyo:
         全ての実況チャンネルのステータスを更新する
         更新したステータスは getStatus() で取得できる
         """
+
+        # NX-Jikkyo 互換の代替コメントサーバーを使う場合は、常に当該サーバーの API から取得する
+        CONFIG = Config()
+        if CONFIG.tv.alternative_comment_server_url is not None:
+
+            # 代替コメントサーバーの API から実況チャンネルのステータスを取得する
+            alternative_comment_server_url = f'{CONFIG.tv.alternative_comment_server_url}/api/v1/channels'
+            try:
+                async with HTTPX_CLIENT() as client:
+                    response = await client.get(alternative_comment_server_url)
+                    response.raise_for_status()
+                    channels_data = response.json()
+            except (httpx.NetworkError, httpx.TimeoutException, httpx.HTTPStatusError):
+                return  # ステータス更新を中断
+
+            # 現在時刻に対応するスレッドを取得する
+            current_time = datetime.now(ZoneInfo('Asia/Tokyo'))
+            for channel in channels_data:
+                jikkyo_id = channel['id']
+                if jikkyo_id in cls.jikkyo_nicolive_id_table:
+                    for thread in channel['threads']:
+                        if datetime.fromisoformat(thread['start_at']) <= current_time <= datetime.fromisoformat(thread['end_at']):
+                            cls.jikkyo_channels_status[jikkyo_id] = {
+                                'force': thread['jikkyo_force'],
+                                'viewers': thread['viewers'],
+                                'comments': thread['comments'],
+                            }
+                            break
+
+            # getchannels API からは取得しない
+            return
 
         # getchannels API から実況チャンネルのステータスを取得する
         ## 3秒応答がなかったらタイムアウト
