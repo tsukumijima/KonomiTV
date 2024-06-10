@@ -87,6 +87,7 @@ export interface IServerSettings {
     };
     tv: {
         max_alive_time: number;
+        nx_jikkyo_url: string | null;
         debug_mode_ts_path: string | null;
     };
     video: {
@@ -116,6 +117,7 @@ export const IServerSettingsDefault: IServerSettings = {
     },
     tv: {
         max_alive_time: 10,
+        nx_jikkyo_url: null,
         debug_mode_ts_path: null,
     },
     video: {

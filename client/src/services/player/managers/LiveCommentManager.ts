@@ -55,6 +55,9 @@ class LiveCommentManager implements PlayerManager {
     // destroy() 時に EventListener を全解除するための AbortController
     private abort_controller: AbortController = new AbortController();
 
+    // 代替コメントサーバーから視聴セッションを取得したかどうか
+    private is_alternate_server = false;
+
     // 破棄済みかどうか
     private destroyed = false;
 
@@ -131,6 +134,10 @@ class LiveCommentManager implements PlayerManager {
                 detail: watch_session_info.detail,
             };
         }
+
+        // 視聴セッション WebSocket の URL に 'nicovideo.jp' が含まれない場合は
+        // NX-Jikkyo 互換の代替コメントサーバーから視聴セッションを取得したとみなす
+        this.is_alternate_server = watch_session_info.audience_token!.includes('nicovideo.jp') === false;
 
         // 視聴セッション WebSocket を開く
         this.watch_session = new WebSocket(watch_session_info.audience_token!);
@@ -513,21 +520,24 @@ class LiveCommentManager implements PlayerManager {
         }
 
         // ログイン関連のバリデーション
-        if (user_store.user === null) {
-            options.error('コメントするには、KonomiTV アカウントにログインしてください。');
-            return;
-        }
-        if (user_store.user.niconico_user_id === null) {
-            options.error('コメントするには、ニコニコアカウントと連携してください。');
-            return;
-        }
-        if (user_store.user.niconico_user_premium === false && (options.data.type === 'top' || options.data.type === 'bottom')) {
-            options.error('コメントを上下に固定するには、ニコニコアカウントのプレミアム会員登録が必要です。');
-            return;
-        }
-        if (user_store.user.niconico_user_premium === false && options.data.size === 'big') {
-            options.error('コメントサイズを大きめに設定するには、ニコニコアカウントのプレミアム会員登録が必要です。');
-            return;
+        // ニコニコ実況公式コメントサーバーの場合のみ実行
+        if (this.is_alternate_server === false) {
+            if (user_store.user === null) {
+                options.error('コメントするには、KonomiTV アカウントにログインしてください。');
+                return;
+            }
+            if (user_store.user.niconico_user_id === null) {
+                options.error('コメントするには、ニコニコアカウントと連携してください。');
+                return;
+            }
+            if (user_store.user.niconico_user_premium === false && (options.data.type === 'top' || options.data.type === 'bottom')) {
+                options.error('コメントを上下に固定するには、ニコニコアカウントのプレミアム会員登録が必要です。');
+                return;
+            }
+            if (user_store.user.niconico_user_premium === false && options.data.size === 'big') {
+                options.error('コメントサイズを大きめに設定するには、ニコニコアカウントのプレミアム会員登録が必要です。');
+                return;
+            }
         }
 
         // 視聴セッションが null か、接続が既に切れている場合
@@ -598,7 +608,7 @@ class LiveCommentManager implements PlayerManager {
                             text: options.data.text,  // コメント本文
                             time: dayjs().format('HH:mm:ss'),  // 現在時刻
                             playback_position: this.player.video.currentTime,  // 現在の再生位置
-                            user_id: `${user_store.user!.niconico_user_id!}`,  // ニコニコユーザー ID
+                            user_id: `${user_store.user?.niconico_user_id ?? 'Unknown'}`,  // ニコニコユーザー ID
                             my_post: true,  // 自分のコメントであることを示すフラグ
                         }
                     });

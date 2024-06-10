@@ -174,6 +174,24 @@
                     v-model="server_settings.tv.max_alive_time">
                 </v-slider>
             </div>
+            <div class="settings__item">
+                <div class="settings__item-heading">NX-Jikkyo コメントサーバーの URL</div>
+                <div class="settings__item-label">
+                    ニコニコ実況が長期間サーバーダウンしている場合に、代替のコメントサーバー (NX-Jikkyo 互換) を利用できます。<br>
+                </div>
+                <div class="settings__item-label mt-1">
+                    URL (ex: https://nx-jikkyo.tsukumijima.net/) を指定すると、そのコメントサーバーからリアルタイムに実況コメントを取得します。<br>
+                    代替コメントサーバー利用時は、ニコニコアカウントへのログイン状態に関係なくコメントを表示・投稿できます。<br>
+                </div>
+                <div class="settings__item-label mt-1">
+                    なお、録画再生時の実況過去ログは、常に「ニコニコ実況 過去ログ API」(https://jikkyo.tsukumijima.net/) から取得されます。<br>
+                </div>
+                <v-text-field class="settings__item-form mt-5" color="primary" variant="outlined" hide-details
+                    label="例: https://nx-jikkyo.tsukumijima.net/"
+                    :density="is_form_dense ? 'compact' : 'default'"
+                    v-model="server_settings.tv.nx_jikkyo_url">
+                </v-text-field>
+            </div>
             <div class="settings__content-heading mt-6">
                 <Icon icon="fluent:movies-and-tv-20-filled" width="22px" />
                 <span class="ml-2">ビデオのオンデマンドストリーミング</span>
@@ -347,6 +365,10 @@ async function updateServerSettings() {
     }
     if (server_settings.value.server.custom_https_private_key === '') {
         server_settings.value.server.custom_https_private_key = null;
+    }
+    // nx_jikkyo_url が空文字列の場合は null に変換
+    if (server_settings.value.tv.nx_jikkyo_url === '') {
+        server_settings.value.tv.nx_jikkyo_url = null;
     }
 
     // サーバー設定を更新
