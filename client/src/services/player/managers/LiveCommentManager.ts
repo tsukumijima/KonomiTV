@@ -56,7 +56,7 @@ class LiveCommentManager implements PlayerManager {
     private abort_controller: AbortController = new AbortController();
 
     // 代替コメントサーバーから視聴セッションを取得したかどうか
-    private is_alternate_server = false;
+    private is_alternative_comment_server_session = false;
 
     // 破棄済みかどうか
     private destroyed = false;
@@ -137,7 +137,7 @@ class LiveCommentManager implements PlayerManager {
 
         // 視聴セッション WebSocket の URL に 'nicovideo.jp' が含まれない場合は
         // NX-Jikkyo 互換の代替コメントサーバーから視聴セッションを取得したとみなす
-        this.is_alternate_server = watch_session_info.audience_token!.includes('nicovideo.jp') === false;
+        this.is_alternative_comment_server_session = watch_session_info.audience_token!.includes('nicovideo.jp') === false;
 
         // 視聴セッション WebSocket を開く
         this.watch_session = new WebSocket(watch_session_info.audience_token!);
@@ -521,7 +521,7 @@ class LiveCommentManager implements PlayerManager {
 
         // ログイン関連のバリデーション
         // ニコニコ実況公式コメントサーバーの場合のみ実行
-        if (this.is_alternate_server === false) {
+        if (this.is_alternative_comment_server_session === false) {
             if (user_store.user === null) {
                 options.error('コメントするには、KonomiTV アカウントにログインしてください。');
                 return;

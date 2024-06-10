@@ -338,8 +338,8 @@ class Jikkyo:
 
         # NX-Jikkyo 互換の代替コメントサーバーを使う場合は、常に実況 ID を入れた WebSocket URL を返す
         CONFIG = Config()
-        if CONFIG.tv.nx_jikkyo_url is not None:
-            websocket_url = f'{CONFIG.tv.nx_jikkyo_url.replace("http", "ws").rstrip("/")}/api/v1/channels/{self.jikkyo_id}/ws/watch'
+        if CONFIG.tv.alternative_comment_server_url is not None:
+            websocket_url = f'{CONFIG.tv.alternative_comment_server_url.replace("http", "ws").rstrip("/")}/api/v1/channels/{self.jikkyo_id}/ws/watch'
             return schemas.JikkyoSession(is_success=True, audience_token=websocket_url, detail='視聴セッションを取得しました。')
 
         # ニコ生の視聴ページの HTML を取得する

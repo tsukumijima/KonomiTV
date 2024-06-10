@@ -189,7 +189,7 @@
                 <v-text-field class="settings__item-form mt-5" color="primary" variant="outlined" hide-details
                     label="例: https://nx-jikkyo.tsukumijima.net/"
                     :density="is_form_dense ? 'compact' : 'default'"
-                    v-model="server_settings.tv.nx_jikkyo_url">
+                    v-model="server_settings.tv.alternative_comment_server_url">
                 </v-text-field>
             </div>
             <div class="settings__content-heading mt-6">
@@ -366,9 +366,9 @@ async function updateServerSettings() {
     if (server_settings.value.server.custom_https_private_key === '') {
         server_settings.value.server.custom_https_private_key = null;
     }
-    // nx_jikkyo_url が空文字列の場合は null に変換
-    if (server_settings.value.tv.nx_jikkyo_url === '') {
-        server_settings.value.tv.nx_jikkyo_url = null;
+    // alternative_comment_server_url が空文字列の場合は null に変換
+    if (server_settings.value.tv.alternative_comment_server_url === '') {
+        server_settings.value.tv.alternative_comment_server_url = null;
     }
 
     // サーバー設定を更新
