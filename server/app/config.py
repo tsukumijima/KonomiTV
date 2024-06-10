@@ -282,6 +282,7 @@ class _ServerSettingsServer(BaseModel):
 
 class _ServerSettingsTV(BaseModel):
     max_alive_time: PositiveInt = 10
+    nx_jikkyo_url: str | None = None
     debug_mode_ts_path: FilePath | None = None
 
 class _ServerSettingsVideo(BaseModel):

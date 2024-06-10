@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any, cast, ClassVar, Literal, NotRequired, TypedDict
 
 from app import schemas
+from app.config import Config
 from app.constants import API_REQUEST_HEADERS, HTTPX_CLIENT, JIKKYO_CHANNELS_PATH, NICONICO_OAUTH_CLIENT_ID
 from app.models.User import User
 from app.utils import Interlaced
@@ -334,6 +335,12 @@ class Jikkyo:
         # 廃止されたなどの理由でニコ生上の実況チャンネル/コミュニティ ID が取得できていない
         if self.jikkyo_nicolive_id is None:
             return schemas.JikkyoSession(is_success=False, detail='このチャンネルはニコニコ実況に対応していません。')
+
+        # NX-Jikkyo 互換の代替コメントサーバーを使う場合は、常に実況 ID を入れた WebSocket URL を返す
+        CONFIG = Config()
+        if CONFIG.tv.nx_jikkyo_url is not None:
+            websocket_url = f'{CONFIG.tv.nx_jikkyo_url.replace("http", "ws").rstrip("/")}/api/v1/channels/{self.jikkyo_id}/ws/watch'
+            return schemas.JikkyoSession(is_success=True, audience_token=websocket_url, detail='視聴セッションを取得しました。')
 
         # ニコ生の視聴ページの HTML を取得する
         ## 結構重いんだけど、ログインなしで視聴セッションを取るには視聴ページのスクレイピングしかない（はず）
