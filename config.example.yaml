@@ -73,9 +73,9 @@ tv:
     # 再生復帰までに時間がかかります。余裕をもたせておく事をおすすめします。
     max_alive_time: 10
 
-    # ニコニコ実況の代わりに、NX-Jikkyo (https://github.com/tsukumijima/NX-Jikkyo) 互換のコメントサーバーを利用するか
-    # ニコニコ実況が長期間サーバーダウンしている場合に、代替のコメントサーバー (NX-Jikkyo 互換) を利用できます。
-    # この値に URL (ex: https://nx-jikkyo.tsukumijima.net/) を指定すると、そのコメントサーバーからリアルタイムに実況コメントを取得します。
+    # NX-Jikkyo 互換の代替コメントサーバーの URL
+    # ニコニコ実況がサーバーダウンしている際に、NX-Jikkyo (https://github.com/tsukumijima/NX-Jikkyo) 互換の代替コメントサーバーを利用できます。
+    # この値に URL (ex: https://nx-jikkyo.tsukumijima.net/) を指定すると、代替コメントサーバーからリアルタイムに実況コメントを取得します。
     # 代替コメントサーバー利用時は、ニコニコアカウントへのログイン状態に関係なくコメントを表示・投稿できます。
     # なお、録画再生時の実況過去ログは、常に「ニコニコ実況 過去ログ API」(https://jikkyo.tsukumijima.net/) から取得されます。
     alternative_comment_server_url: null

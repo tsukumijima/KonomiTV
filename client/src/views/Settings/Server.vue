@@ -175,16 +175,16 @@
                 </v-slider>
             </div>
             <div class="settings__item">
-                <div class="settings__item-heading">NX-Jikkyo コメントサーバーの URL</div>
+                <div class="settings__item-heading">NX-Jikkyo 互換の代替コメントサーバーの URL</div>
                 <div class="settings__item-label">
-                    ニコニコ実況が長期間サーバーダウンしている場合に、代替のコメントサーバー (NX-Jikkyo 互換) を利用できます。<br>
+                    ニコニコ実況がサーバーダウンしている際に、<a class="link" href="https://github.com/tsukumijima/NX-Jikkyo" target="_blank">NX-Jikkyo</a> 互換の代替コメントサーバーを利用できます。<br>
                 </div>
                 <div class="settings__item-label mt-1">
-                    URL (ex: https://nx-jikkyo.tsukumijima.net/) を指定すると、そのコメントサーバーからリアルタイムに実況コメントを取得します。<br>
+                    URL (ex: https://nx-jikkyo.tsukumijima.net/) を指定すると、代替コメントサーバーからリアルタイムに実況コメントを取得します。
                     代替コメントサーバー利用時は、ニコニコアカウントへのログイン状態に関係なくコメントを表示・投稿できます。<br>
                 </div>
                 <div class="settings__item-label mt-1">
-                    なお、録画再生時の実況過去ログは、常に「ニコニコ実況 過去ログ API」(https://jikkyo.tsukumijima.net/) から取得されます。<br>
+                    なお、録画再生時の実況過去ログは、常に <a class="link" href="https://jikkyo.tsukumijima.net/" target="_blank">ニコニコ実況 過去ログ API</a> から取得されます。<br>
                 </div>
                 <v-text-field class="settings__item-form mt-5" color="primary" variant="outlined" hide-details
                     label="例: https://nx-jikkyo.tsukumijima.net/"
@@ -369,6 +369,10 @@ async function updateServerSettings() {
     // alternative_comment_server_url が空文字列の場合は null に変換
     if (server_settings.value.tv.alternative_comment_server_url === '') {
         server_settings.value.tv.alternative_comment_server_url = null;
+    }
+    // alternative_comment_server_url の前後の空白を取り除く
+    if (server_settings.value.tv.alternative_comment_server_url) {
+        server_settings.value.tv.alternative_comment_server_url = server_settings.value.tv.alternative_comment_server_url.trim();
     }
 
     // サーバー設定を更新
