@@ -46,10 +46,24 @@
                     <Icon icon="fluent:plug-disconnected-20-filled" class="mr-2" height="26" />連携解除
                 </v-btn>
             </div>
-            <div class="settings__item mt-7">
+            <div class="settings__item-label mt-7" style="border-left: 3px solid rgb(var(--v-theme-text-darken-1)); padding-left: 12px;">
+                コメントの透明度は、プレイヤー下にある設定アイコン ⚙️ から変更できます。<br>
+                <div class="mt-1"></div>
+                <a class="link" href="https://jk.nicovideo.jp" target="_blank">ニコニコ実況</a> の代わりに <a class="link" href="https://nx-jikkyo.tsukumijima.net" target="_blank">NX-Jikkyo</a> の実況コメントをリアルタイム表示するには、<router-link class="link" to="/settings/server">サーバー設定</router-link> → ［テレビのライブストリーミング］に移動してください。
+            </div>
+            <div class="settings__item">
                 <div class="settings__item-heading">コメントのミュート設定</div>
                 <div class="settings__item-label">
                     表示したくないコメントを、映像上やコメントリストに表示しないようにミュートできます。<br>
+                </div>
+                <div class="settings__item-label mt-2">
+                    デフォルトでは、下記のミュート設定がオンになっています。<br>
+                    これらのコメントも表示したい方は、適宜オフに設定してください。<br>
+                    <ul class="ml-5 mt-2">
+                        <li>露骨な表現を含むコメントをミュートする</li>
+                        <li>ネガティブな表現、差別的な表現、政治的に偏った表現を含むコメントをミュートする</li>
+                        <li>文字サイズが大きいコメントをミュートする</li>
+                    </ul>
                 </div>
             </div>
             <v-btn class="settings__save-button mt-4" variant="flat" @click="comment_mute_settings_modal = !comment_mute_settings_modal">

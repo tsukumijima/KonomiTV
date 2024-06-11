@@ -387,7 +387,7 @@ class LiveCommentManager implements PlayerManager {
                         thread: comment_session_info.thread_id,  // スレッド ID
                         threadkey: comment_session_info.your_post_key,  // スレッドキー
                         user_id: '',  // ユーザー ID（設定不要らしい）
-                        res_from: -50,  // 最初にコメントを 50 個送信する
+                        res_from: -100,  // 最初にコメントを 100 個送信する
                     }
                 },
                 {ping: {content: 'pf:0'}},

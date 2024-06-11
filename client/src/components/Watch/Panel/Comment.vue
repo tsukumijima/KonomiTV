@@ -399,13 +399,19 @@ export default defineComponent({
 
             // window.requestAnimationFrame() でアニメーション更新を待ってからスクロールする (重要)
             // すぐに scrollTo() を実行すると、DOM 描画のタイミングの関係なのか、なぜか最後までスクロールされないことがある
-            window.requestAnimationFrame(() => {
-                if (smooth === true) {  // スムーズスクロール
-                    this.comment_list_element?.scrollTo({top: this.comment_list_element.scrollHeight, left: 0, behavior: 'smooth'});
-                } else {
-                    this.comment_list_element?.scrollTo(0, this.comment_list_element.scrollHeight);
-                }
-            });
+            // 念のため 3 回実行する
+            const scroll_to_bottom = (count = 3) => {
+                if (count <= 0) return;
+                window.requestAnimationFrame(() => {
+                    if (smooth === true) {  // スムーズスクロール
+                        this.comment_list_element?.scrollTo({top: this.comment_list_element.scrollHeight, left: 0, behavior: 'smooth'});
+                    } else {
+                        this.comment_list_element?.scrollTo(0, this.comment_list_element.scrollHeight);
+                    }
+                    scroll_to_bottom(count - 1);
+                });
+            };
+            scroll_to_bottom();
 
             // 0.1 秒待つ（重要）
             await Utils.sleep(0.1);
