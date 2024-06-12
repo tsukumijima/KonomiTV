@@ -162,6 +162,22 @@
                     v-model="server_settings.general.always_receive_tv_from_mirakurun">
                 </v-switch>
             </div>
+            <div class="settings__item settings__item--switch">
+                <label class="settings__item-heading d-block" for="use_nx_jikkyo_instead">
+                    ニコニコ実況の代わりに <a class="link" href="https://nx-jikkyo.tsukumijima.net" target="_blank">NX-Jikkyo</a> からリアルタイムに実況コメントを取得する
+                </label>
+                <label class="settings__item-label" for="use_nx_jikkyo_instead">
+                    この設定をオンにすると、ニコニコ実況の代わりに <a class="link" href="https://nx-jikkyo.tsukumijima.net" target="_blank">NX-Jikkyo</a> のコメントサーバーからリアルタイムに実況コメントを取得します。ニコニコ実況で長期間障害が発生している場合の避難所として使えます。<br>
+                    この設定をオンにしたときは、ニコニコアカウントへのログイン状態に関係なくコメントを表示・投稿できます。<br>
+                </label>
+                <label class="settings__item-label mt-1" for="use_nx_jikkyo_instead">
+                    なお、録画再生時の実況過去ログは、常に <a class="link" href="https://jikkyo.tsukumijima.net/" target="_blank">ニコニコ実況 過去ログ API</a> から取得します。<br>
+                    NX-Jikkyo に投稿されたコメントは、ニコニコ実況のコメントと統合の上で <a class="link" href="https://jikkyo.tsukumijima.net/" target="_blank">ニコニコ実況 過去ログ API</a> から取得できます。<br>
+                </label>
+                <v-switch class="settings__item-switch" color="primary" id="use_nx_jikkyo_instead" hide-details
+                    v-model="server_settings.tv.use_nx_jikkyo_instead">
+                </v-switch>
+            </div>
             <div class="settings__item">
                 <div class="settings__item-heading">誰も見ていないチャンネルのエンコードタスクを維持する秒数</div>
                 <div class="settings__item-label">
@@ -173,24 +189,6 @@
                     :density="is_form_dense ? 'compact' : 'default'"
                     v-model="server_settings.tv.max_alive_time">
                 </v-slider>
-            </div>
-            <div class="settings__item">
-                <div class="settings__item-heading">NX-Jikkyo 互換の代替コメントサーバーの URL</div>
-                <div class="settings__item-label">
-                    ニコニコ実況がサーバーダウンしている際に、<a class="link" href="https://github.com/tsukumijima/NX-Jikkyo" target="_blank">NX-Jikkyo</a> 互換の代替コメントサーバーを利用できます。<br>
-                </div>
-                <div class="settings__item-label mt-1">
-                    URL (ex: https://nx-jikkyo.tsukumijima.net/) を指定すると、代替コメントサーバーからリアルタイムに実況コメントを取得します。
-                    代替コメントサーバー利用時は、ニコニコアカウントへのログイン状態に関係なくコメントを表示・投稿できます。<br>
-                </div>
-                <div class="settings__item-label mt-1">
-                    なお、録画再生時の実況過去ログは、常に <a class="link" href="https://jikkyo.tsukumijima.net/" target="_blank">ニコニコ実況 過去ログ API</a> から取得されます。<br>
-                </div>
-                <v-text-field class="settings__item-form mt-5" color="primary" variant="outlined" hide-details
-                    label="例: https://nx-jikkyo.tsukumijima.net/"
-                    :density="is_form_dense ? 'compact' : 'default'"
-                    v-model="server_settings.tv.alternative_comment_server_url">
-                </v-text-field>
             </div>
             <div class="settings__content-heading mt-6">
                 <Icon icon="fluent:movies-and-tv-20-filled" width="22px" />
@@ -365,14 +363,6 @@ async function updateServerSettings() {
     }
     if (server_settings.value.server.custom_https_private_key === '') {
         server_settings.value.server.custom_https_private_key = null;
-    }
-    // alternative_comment_server_url が空文字列の場合は null に変換
-    if (server_settings.value.tv.alternative_comment_server_url === '') {
-        server_settings.value.tv.alternative_comment_server_url = null;
-    }
-    // alternative_comment_server_url の前後の空白を取り除く
-    if (server_settings.value.tv.alternative_comment_server_url) {
-        server_settings.value.tv.alternative_comment_server_url = server_settings.value.tv.alternative_comment_server_url.trim();
     }
 
     // サーバー設定を更新

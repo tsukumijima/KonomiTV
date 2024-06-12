@@ -86,8 +86,8 @@ export interface IServerSettings {
         custom_https_private_key: string | null;
     };
     tv: {
+        use_nx_jikkyo_instead: boolean;
         max_alive_time: number;
-        alternative_comment_server_url: string | null;
         debug_mode_ts_path: string | null;
     };
     video: {
@@ -116,8 +116,8 @@ export const IServerSettingsDefault: IServerSettings = {
         custom_https_private_key: null,
     },
     tv: {
+        use_nx_jikkyo_instead: false,
         max_alive_time: 10,
-        alternative_comment_server_url: null,
         debug_mode_ts_path: null,
     },
     video: {
