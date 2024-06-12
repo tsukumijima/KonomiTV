@@ -215,15 +215,14 @@ class Jikkyo:
         更新したステータスは getStatus() で取得できる
         """
 
-        # NX-Jikkyo 互換の代替コメントサーバーを使う場合は、常に当該サーバーの API から取得する
+        # ニコニコ実況の代わりに NX-Jikkyo からリアルタイムに実況コメントを取得する場合は、常に NX-Jikkyo の API からステータスを取得する
         CONFIG = Config()
-        if CONFIG.tv.alternative_comment_server_url is not None:
+        if CONFIG.tv.use_nx_jikkyo_instead is True:
 
-            # 代替コメントサーバーの API から実況チャンネルのステータスを取得する
-            alternative_comment_server_url = f'{CONFIG.tv.alternative_comment_server_url}/api/v1/channels'
+            # NX-Jikkyo の API から実況チャンネルのステータスを取得する
             try:
                 async with HTTPX_CLIENT() as client:
-                    response = await client.get(alternative_comment_server_url)
+                    response = await client.get('https://nx-jikkyo.tsukumijima.net/api/v1/channels')
                     response.raise_for_status()
                     channels_data = response.json()
             except (httpx.NetworkError, httpx.TimeoutException, httpx.HTTPStatusError):
@@ -368,11 +367,14 @@ class Jikkyo:
         if self.jikkyo_nicolive_id is None:
             return schemas.JikkyoSession(is_success=False, detail='このチャンネルはニコニコ実況に対応していません。')
 
-        # NX-Jikkyo 互換の代替コメントサーバーを使う場合は、常に実況 ID を入れた WebSocket URL を返す
+        # ニコニコ実況の代わりに NX-Jikkyo からリアルタイムに実況コメントを取得する場合は、常に実況 ID を入れた WebSocket URL を返す
         CONFIG = Config()
-        if CONFIG.tv.alternative_comment_server_url is not None:
-            websocket_url = f'{CONFIG.tv.alternative_comment_server_url.replace("http", "ws").rstrip("/")}/api/v1/channels/{self.jikkyo_id}/ws/watch'
-            return schemas.JikkyoSession(is_success=True, audience_token=websocket_url, detail='視聴セッションを取得しました。')
+        if CONFIG.tv.use_nx_jikkyo_instead is True:
+            return schemas.JikkyoSession(
+                is_success = True,
+                audience_token = f'wss://nx-jikkyo.tsukumijima.net/api/v1/channels/{self.jikkyo_id}/ws/watch',
+                detail = '視聴セッションを取得しました。',
+            )
 
         # ニコ生の視聴ページの HTML を取得する
         ## 結構重いんだけど、ログインなしで視聴セッションを取るには視聴ページのスクレイピングしかない（はず）
