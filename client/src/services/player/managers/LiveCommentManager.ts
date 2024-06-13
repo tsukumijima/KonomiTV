@@ -58,6 +58,9 @@ class LiveCommentManager implements PlayerManager {
     // NX-Jikkyo から視聴セッションを取得したかどうか
     private is_nx_jikkyo_server_session = false;
 
+    // 再接続中かどうか
+    private reconnecting = false;
+
     // 破棄済みかどうか
     private destroyed = false;
 
@@ -396,6 +399,23 @@ class LiveCommentManager implements PlayerManager {
 
         }, { signal: this.abort_controller.signal });
 
+        // コメントセッションの接続が閉じられたとき（ネットワークが切断された場合など）
+        this.comment_session.addEventListener('close', async (event) => {
+
+            // 接続切断の理由を表示
+            if (this.player.template.notice.textContent!.includes('再起動しています…') === false) {
+                this.player.notice(`ニコニコ実況との接続が切断されました。(Code: ${event.code})`, undefined, undefined, '#FF6F6A');
+            }
+            console.error(`[LiveCommentManager][CommentSession] Connection closed. (Code: ${event.code})`);
+
+            // 10 秒ほど待ってから再接続する
+            // ニコ生側から切断された場合と異なりネットワークが切断された可能性が高いので、間を多めに取る
+            // 視聴セッション側が同時に切断され再接続中の場合、this.reconnect() は何も行わない
+            await Utils.sleep(10);
+            await this.reconnect();
+
+        }, { signal: this.abort_controller.signal });
+
         // 受信したコメントをイベントリスナーに送信する関数
         // スロットルを設定し、333ms 未満の間隔でイベントが発火しないようにする
         const emit_comments = throttle(() => {
@@ -648,7 +668,13 @@ class LiveCommentManager implements PlayerManager {
     private async reconnect(): Promise<void> {
         const player_store = usePlayerStore();
 
+        // 現在すでに再接続中であれば何もしない
+        if (this.reconnecting === true) {
+            return;
+        }
+
         // 再接続を開始
+        this.reconnecting = true;
         console.warn('[LiveCommentManager] Reconnecting...');
         if (this.player.template.notice.textContent!.includes('再起動しています…') === false) {
             this.player.notice('ニコニコ実況に再接続しています…');
@@ -670,6 +696,11 @@ class LiveCommentManager implements PlayerManager {
             if (this.player.template.notice.textContent!.includes('再起動しています…') === false) {
                 this.player.notice(watch_session_info.detail, undefined, undefined, '#FF6F6A');
             }
+
+            // 視聴セッションへの接続情報自体を取得できなかったので再接続を諦める
+            // 視聴セッションへの接続情報は取得できたが、また WebSocket が予期せず閉じられてしまった場合は
+            // 上記 this.initWatchSession() 内で再度この this.reconnect() が再帰的に呼ばれる
+            this.reconnecting = false;
             return;
         }
 
@@ -677,6 +708,12 @@ class LiveCommentManager implements PlayerManager {
         // 取得したコメントサーバーへの接続情報を使い、非同期でコメントセッションを初期化
         this.initCommentSession(watch_session_info);
 
+        // ここまできたら再初期化が完了しているので破棄済みかどうかのフラグを false にする
+        // ここでフラグを false にしないと再接続後にコメントリストにコメントが送信されない
+        this.destroyed = false;
+
+        // 再接続完了
+        this.reconnecting = false;
         console.warn('[LiveCommentManager] Reconnected.');
     }
 
