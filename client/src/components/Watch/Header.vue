@@ -50,10 +50,10 @@ export default defineComponent({
         ...mapStores(useChannelsStore, usePlayerStore),
     },
     created() {
-        // 現在時刻を1秒おきに更新
+        // 現在時刻を 0.1 秒おきに更新
         this.time_interval_id = window.setInterval(() => {
             this.time = dayjs().format(Utils.isSmartphoneHorizontal() ? 'HH:mm:ss' : 'YYYY/MM/DD HH:mm:ss');
-        }, 1 * 1000);
+        }, 0.1 * 1000);
     },
     beforeUnmount() {
         // インターバルをクリア
