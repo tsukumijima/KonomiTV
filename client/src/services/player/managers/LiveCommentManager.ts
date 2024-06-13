@@ -673,8 +673,16 @@ class LiveCommentManager implements PlayerManager {
     private async reconnect(): Promise<void> {
         const player_store = usePlayerStore();
 
-        // 現在すでに再接続中であれば何もしない
-        if (this.reconnecting === true) {
+        // 現在再接続中ではない && 視聴セッションとコメントセッションのどちらも開かれている場合のみ終了
+        // 現在再接続中であっても視聴セッションとコメントセッションのどちらかが閉じられている場合は、
+        // this.initWatchSession() から再帰的に reconnect() が呼ばれた可能性が高いため続行する
+        const is_watch_session_closed = (this.watch_session !== null &&
+            (this.watch_session.readyState === WebSocket.CLOSING || this.watch_session.readyState === WebSocket.CLOSED));
+        const is_comment_session_closed = (this.comment_session !== null &&
+            (this.comment_session.readyState === WebSocket.CLOSING || this.comment_session.readyState === WebSocket.CLOSED));
+        if (this.reconnecting === true &&
+            is_watch_session_closed === false &&
+            is_comment_session_closed === false) {
             return;
         }
 
