@@ -174,9 +174,9 @@ class LiveCommentManager implements PlayerManager {
             }
             console.error(`[LiveCommentManager][WatchSession] Connection closed. (Code: ${event.code})`);
 
-            // 10 秒ほど待ってから再接続する
+            // 3 秒ほど待ってから再接続する
             // ニコ生側から切断された場合と異なりネットワークが切断された可能性が高いので、間を多めに取る
-            await Utils.sleep(10);
+            await Utils.sleep(3);
             await this.reconnect();
 
         }, { signal: this.abort_controller.signal });
@@ -259,8 +259,8 @@ class LiveCommentManager implements PlayerManager {
                     }
                     console.error(`[LiveCommentManager][WatchSession] Error occurred. (Code: ${message.data.code})`);
 
-                    // 5 秒ほど待ってから再接続する
-                    await Utils.sleep(5);
+                    // 3 秒ほど待ってから再接続する
+                    await Utils.sleep(3);
                     await this.reconnect();
                     break;
                 }
@@ -318,8 +318,8 @@ class LiveCommentManager implements PlayerManager {
                     }
                     console.error(`[LiveCommentManager][WatchSession] Disconnected. (Reason: ${message.data.reason})`);
 
-                    // 5 秒ほど待ってから再接続する
-                    await Utils.sleep(5);
+                    // 3 秒ほど待ってから再接続する
+                    await Utils.sleep(3);
                     await this.reconnect();
                     break;
                 }
@@ -408,10 +408,10 @@ class LiveCommentManager implements PlayerManager {
             }
             console.error(`[LiveCommentManager][CommentSession] Connection closed. (Code: ${event.code})`);
 
-            // 10 秒ほど待ってから再接続する
+            // 3 秒ほど待ってから再接続する
             // ニコ生側から切断された場合と異なりネットワークが切断された可能性が高いので、間を多めに取る
             // 視聴セッション側が同時に切断され再接続中の場合、this.reconnect() は何も行わない
-            await Utils.sleep(10);
+            await Utils.sleep(3);
             await this.reconnect();
 
         }, { signal: this.abort_controller.signal });
