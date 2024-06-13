@@ -161,7 +161,7 @@ class LiveCommentManager implements PlayerManager {
         }, { signal: this.abort_controller.signal });
 
         // 視聴セッションの接続が閉じられたとき（ネットワークが切断された場合など）
-        this.watch_session.addEventListener('close', async (event) => {
+        const on_close = async (event: CloseEvent | Event) => {
 
             // すでに disconnect メッセージが送られてきている場合は何もしない
             if (is_disconnect_message_received === true) {
@@ -169,17 +169,20 @@ class LiveCommentManager implements PlayerManager {
             }
 
             // 接続切断の理由を表示
+            const code = (event instanceof CloseEvent) ? event.code : 'Error';
             if (this.player.template.notice.textContent!.includes('再起動しています…') === false) {
-                this.player.notice(`ニコニコ実況との接続が切断されました。(Code: ${event.code})`, undefined, undefined, '#FF6F6A');
+                this.player.notice(`ニコニコ実況との接続が切断されました。(Code: ${code})`, undefined, undefined, '#FF6F6A');
             }
-            console.error(`[LiveCommentManager][WatchSession] Connection closed. (Code: ${event.code})`);
+            console.error(`[LiveCommentManager][WatchSession] Connection closed. (Code: ${code})`);
 
             // 3 秒ほど待ってから再接続する
             // ニコ生側から切断された場合と異なりネットワークが切断された可能性が高いので、間を多めに取る
             await Utils.sleep(3);
             await this.reconnect();
 
-        }, { signal: this.abort_controller.signal });
+        };
+        this.watch_session.addEventListener('close', on_close, { signal: this.abort_controller.signal });
+        this.watch_session.addEventListener('error', on_close, { signal: this.abort_controller.signal });
 
         // 視聴セッション WebSocket からメッセージを受信したとき
         // 視聴セッションはコメント送信時のために維持し続ける必要がある
@@ -400,21 +403,23 @@ class LiveCommentManager implements PlayerManager {
         }, { signal: this.abort_controller.signal });
 
         // コメントセッションの接続が閉じられたとき（ネットワークが切断された場合など）
-        this.comment_session.addEventListener('close', async (event) => {
+        const on_close = async (event: CloseEvent | Event) => {
 
             // 接続切断の理由を表示
+            const code = (event instanceof CloseEvent) ? event.code : 'Error';
             if (this.player.template.notice.textContent!.includes('再起動しています…') === false) {
-                this.player.notice(`ニコニコ実況との接続が切断されました。(Code: ${event.code})`, undefined, undefined, '#FF6F6A');
+                this.player.notice(`ニコニコ実況との接続が切断されました。(Code: ${code})`, undefined, undefined, '#FF6F6A');
             }
-            console.error(`[LiveCommentManager][CommentSession] Connection closed. (Code: ${event.code})`);
+            console.error(`[LiveCommentManager][CommentSession] Connection closed. (Code: ${code})`);
 
             // 3 秒ほど待ってから再接続する
             // ニコ生側から切断された場合と異なりネットワークが切断された可能性が高いので、間を多めに取る
             // 視聴セッション側が同時に切断され再接続中の場合、this.reconnect() は何も行わない
             await Utils.sleep(3);
             await this.reconnect();
-
-        }, { signal: this.abort_controller.signal });
+        };
+        this.comment_session.addEventListener('close', on_close, { signal: this.abort_controller.signal });
+        this.comment_session.addEventListener('error', on_close, { signal: this.abort_controller.signal });
 
         // 受信したコメントをイベントリスナーに送信する関数
         // スロットルを設定し、333ms 未満の間隔でイベントが発火しないようにする
