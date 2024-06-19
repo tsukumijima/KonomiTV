@@ -37,10 +37,10 @@ env:
   ## ref: https://github.com/rigaya/NVEnc/releases
   ## ref: https://github.com/rigaya/VCEEnc/releases
   ## ref: https://github.com/rigaya/rkmppenc/releases
-  QSVENCC_VERSION: '7.64'
-  NVENCC_VERSION: '7.53'
+  QSVENCC_VERSION: '7.66'
+  NVENCC_VERSION: '7.54'
   VCEENCC_VERSION: '8.22'
-  RKMPPENC_VERSION: '0.08'
+  RKMPPENC_VERSION: '0.09'
   # libmediainfo のバージョン
   ## Windows 版の pymediainfo (ビルド済みの MediaInfo.dll が同梱されている) とバージョンを合わせる
   ## ref: https://github.com/sbraz/pymediainfo/blob/v6.0.1/appveyor.yml#L6
