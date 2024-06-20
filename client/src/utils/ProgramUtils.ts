@@ -475,6 +475,11 @@ export class ProgramUtils {
      */
     static getRecordingTime(recorded_program: IRecordedProgram): string {
 
+        // 録画期間が不明な場合は代替文字列を返す
+        if (recorded_program.recorded_video.recording_start_time === null || recorded_program.recorded_video.recording_end_time === null) {
+            return '----/--/-- (-) --:--:-- ～ --:--:-- (--分)';
+        }
+
         const start_time = dayjs(recorded_program.recorded_video.recording_start_time);
         const end_time = dayjs(recorded_program.recorded_video.recording_end_time);
 
