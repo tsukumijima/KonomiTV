@@ -468,9 +468,10 @@ class LiveCommentManager implements PlayerManager {
             // コメントデータを取得
             const comment = message.chat;
 
-            // コメントデータが不正な場合 or 自分のコメントの場合は弾く
+            // コメントデータが不正な場合 or 自分が投稿したコメントの場合は弾く
+            // ただし初期コメント受信中のみ、自分が投稿したコメントであっても通常コメント同様に続行する
             if ((comment === undefined || comment.content === undefined || comment.content === '') ||
-                (comment.yourpost && comment.yourpost === 1)) {
+                (comment.yourpost && comment.yourpost === 1 && initial_comments_received === true)) {
                 return;
             }
 
