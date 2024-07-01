@@ -68,7 +68,16 @@ async def BMLBrowserRequestGETProxyAPI(
     # さらにデータ放送からアクセスされるサイトは HTTPS の場合でも証明書が切れていることが日常茶飯事なので、証明書の検証を行わない
     ## 正確には放送波経由で古い規格の HTTPS 証明書が降ってきているらしいが、どのみち実装困難なので証明書の状態は無視する
     async with httpx.AsyncClient(headers={**API_REQUEST_HEADERS, **headers}, follow_redirects=True, verify=False) as client:
-        response = await client.get(request_url)
+        try:
+            response = await client.get(request_url)
+        except Exception as e:
+            # リクエスト中に例外が発生した場合は、エラーメッセージをログに出力して 500 エラーを返す
+            ## HTTP リクエスト自体が DNS 名前解決エラーや接続エラーで失敗した場合に発生する
+            logging.error(f'[DataBroadcastingRouter][BMLBrowserRequestGETProxyAPI] Failed to request: {e}')
+            raise HTTPException(
+                status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail = f'Failed to request: {e}',
+            )
 
     allowed_response_headers = [
         'accept-ranges',
@@ -125,7 +134,16 @@ async def BMLBrowserRequestPOSTProxyAPI(
     # さらにデータ放送からアクセスされるサイトは HTTPS の場合でも証明書が切れていることが日常茶飯事なので、証明書の検証を行わない
     ## 正確には放送波経由で古い規格の HTTPS 証明書が降ってきているらしいが、どのみち実装困難なので証明書の状態は無視する
     async with httpx.AsyncClient(headers={**API_REQUEST_HEADERS, **headers}, follow_redirects=True, verify=False) as client:
-        response = await client.post(request_url, content=f'Denbun={Denbun}')
+        try:
+            response = await client.post(request_url, content=f'Denbun={Denbun}')
+        except Exception as e:
+            # リクエスト中に例外が発生した場合は、エラーメッセージをログに出力して 500 エラーを返す
+            ## HTTP リクエスト自体が DNS 名前解決エラーや接続エラーで失敗した場合に発生する
+            logging.error(f'[DataBroadcastingRouter][BMLBrowserRequestPOSTProxyAPI] Failed to request: {e}')
+            raise HTTPException(
+                status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail = f'Failed to request: {e}',
+            )
 
     allowed_response_headers = [
         'accept-ranges',
