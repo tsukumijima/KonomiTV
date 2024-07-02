@@ -251,12 +251,13 @@ QSVEncC では、別途 Intel Media Driver のインストールが必要です�
 > なお、Windows 版の Intel QSV は、Haswell (第4世代) 以下の CPU でも利用できます。
 
 ```bash
-curl -fsSL https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --dearmor --yes -o /usr/share/keyrings/intel-graphics-keyring.gpg
 
 # Ubuntu 22.04 LTS
-echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/graphics/ubuntu jammy arc' | sudo tee /etc/apt/sources.list.d/intel-graphics.list > /dev/null
-# Ubuntu 20.04 LTS
-echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/graphics/ubuntu focal-devel main' | sudo tee /etc/apt/sources.list.d/intel-graphics.list > /dev/null
+curl -fsSL https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --dearmor --yes -o /usr/share/keyrings/intel-graphics-keyring.gpg
+echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/gpu/ubuntu jammy client' | sudo tee /etc/apt/sources.list.d/intel-graphics.list > /dev/null
+# Ubuntu 20.04 LTS (対応する GPG 鍵のダウンロード URL が微妙に異なる)
+curl -fsSL https://repositories.intel.com/graphics/intel-graphics.key | sudo gpg --dearmor --yes -o /usr/share/keyrings/intel-graphics-keyring.gpg
+echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/gpu/ubuntu focal client' | sudo tee /etc/apt/sources.list.d/intel-graphics.list > /dev/null
 
 sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-opencl-icd libmfxgen1
 ```
