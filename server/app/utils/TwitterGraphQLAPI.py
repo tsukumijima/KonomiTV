@@ -258,7 +258,7 @@ class TwitterGraphQLAPI:
             ## 必ずしも動かなくなるわけではなく、queryId 同様にある程度は古い値でも動くようになっているらしい
             response = await self.invokeGraphQLAPI(
                 method = 'POST',
-                query_id = 'oB-5XsHNAbjvARJEc8CZFw',
+                query_id = 'jUuX3C2RKpYMn2rJcflBAw',
                 endpoint = 'CreateTweet',
                 variables = variables,
                 features = {
@@ -632,7 +632,7 @@ class TwitterGraphQLAPI:
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
             method = 'POST',
-            query_id = '9EwYy8pLBOSFlEoSP2STiQ',
+            query_id = 'swa5tm06UZNTKxtXsCwz8A',
             endpoint = 'HomeLatestTimeline',
             variables = variables,
             features = {
@@ -725,7 +725,7 @@ class TwitterGraphQLAPI:
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
             method = 'GET',
-            query_id = 'TQmyZ_haUqANuyBcFBLkUw',
+            query_id = '5szMMrM2iJYt2JJI97mOug',
             endpoint = 'SearchTimeline',
             variables = variables,
             features = {
