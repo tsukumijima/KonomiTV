@@ -389,6 +389,12 @@ export default defineComponent({
             this.settingsStore.settings.selected_twitter_account_id = twitter_account.id;
             this.twitterStore.selected_twitter_account = twitter_account;
 
+            // 選択中の Twitter アカウントに対応する Challenge Solver 用 iframe を非同期で初期化する
+            // この関数はどのみち API リクエスト時に実行されるが、事前に実行しておいた方が時間短縮になる
+            // 一方で複数ログインしているアカウント全てに一括でこの処理を行うのは無駄だしリスクもあるので、必要な時のみ行っている
+            // すでに初期化されている場合は何も行われない
+            this.twitterStore.initChallengeSolverIframe(twitter_account.screen_name);
+
             // Twitter アカウントリストのオーバーレイを閉じる (少し待ってから閉じたほうが体感が良い)
             window.setTimeout(() => this.is_twitter_account_list_display = false, 150);
         },
