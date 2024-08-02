@@ -74,9 +74,6 @@ const useTwitterStore = defineStore('twitter', {
                         return twitter_account.id === settings_store.settings.selected_twitter_account_id;
                     });
                     this.selected_twitter_account = user_store.user.twitter_accounts[twitter_account_index];
-
-                    // 現在ツイート対象として選択されている Twitter アカウントに対応する Challenge Solver 用 iframe を初期化する
-                    this.initChallengeSolverIframe(this.selected_twitter_account.screen_name);
                 }
             }
         },
