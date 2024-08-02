@@ -511,6 +511,11 @@ class TimelineTweetsResult(TwitterAPIResult):
     previous_cursor_id: str
     tweets: list[Tweet]
 
+class TwitterChallengeData(TwitterAPIResult):
+    verification_code: str
+    challenge_js_code: str
+    challenge_animation_svg_codes: list[str]
+
 # ***** ユーザー *****
 
 class UserAccessToken(BaseModel):

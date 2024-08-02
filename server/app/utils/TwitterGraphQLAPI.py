@@ -4,8 +4,9 @@ import httpx
 import json
 import re
 import time
+from bs4 import BeautifulSoup
 from datetime import datetime
-from typing import Any, ClassVar, Literal, TypedDict
+from typing import Any, cast, ClassVar, Literal, TypedDict
 from zoneinfo import ZoneInfo
 
 from app import logging
@@ -71,20 +72,98 @@ class TwitterGraphQLAPI:
 
         # Chrome への偽装用 HTTP リクエストヘッダーと Cookie を取得
         ## User-Agent ヘッダーも Chrome に偽装されている
-        cookie_session_user_handler = self.twitter_account.getTweepyAuthHandler()
-        headers_dict = cookie_session_user_handler.get_graphql_api_headers()
-        cookies_dict = cookie_session_user_handler.get_cookies_as_dict()
+        self.cookie_session_user_handler = self.twitter_account.getTweepyAuthHandler()
+        self.graphql_headers_dict = self.cookie_session_user_handler.get_graphql_api_headers()  # GraphQL API 用ヘッダー
+        self.html_headers_dict = self.cookie_session_user_handler.get_html_headers()  # HTML 用ヘッダー
+        self.cookies_dict = self.cookie_session_user_handler.get_cookies_as_dict()
 
         # httpx の非同期 HTTP クライアントのインスタンスを作成
         ## 可能な限り Chrome からのリクエストに偽装するため、app.constants.HTTPX_CLIENT は使わずに独自のインスタンスを作成する
         self.httpx_client = httpx.AsyncClient(
             ## リクエストヘッダーと Cookie を設定
-            headers = headers_dict,
-            cookies = cookies_dict,
+            headers = self.graphql_headers_dict,
+            cookies = self.cookies_dict,
             ## リダイレクトを追跡する
             follow_redirects = True,
             ## 可能な限り Chrome からのリクエストに偽装するため、HTTP/1.1 ではなく明示的に HTTP/2 で接続する
             http2 = True,
+        )
+
+
+    async def fetchChallengeData(self) -> schemas.TwitterChallengeData | schemas.TwitterAPIResult:
+        """
+        Twitter Web App の API リクエスト内の X-Client-Transaction-ID ヘッダーを算出するために必要なチャレンジデータを取得する
+        X-Client-Transaction-ID はスクレイピング回避のためのヘッダーで、難読化された JavaScript に含まれる算出関数に検証コード
+        (twitter-site-verification) とアニメーション SVG (svg[id^="loading-x"] の outerHTML) を投入することで算出される
+
+        詳細な動作原理はよく理解できていないが、ともかくアニメーション SVG のレンダリングや JavaScript の実行にブラウザエンジンが必要になるため、
+        Python 製のサーバーだけでは X-Client-Transaction-ID を算出できない
+        そのため、サーバー側では X-Client-Transaction-ID の算出に必要なチャレンジデータを返し、そのデータを元にブラウザ上のフロントエンドで算出した
+        X-Client-Transaction-ID をサーバーへの API リクエストに含めてもらい、受け取った値を GraphQL API リクエスト時に送信する設計としている
+
+        ref: https://github.com/dimdenGD/OldTweetDeck/blob/main/src/challenge.js#L150-L169
+        ref: https://antibot.blog/twitter-header-part-3/
+
+        Returns:
+            schemas.TwitterChallengeData | schemas.TwitterAPIResult: チャレンジデータまたはエラーメッセージ
+        """
+
+        # Twitter Web App (SPA) の HTML を取得
+        ## デフォルトでセットされている GraphQL API リクエスト用のヘッダーではなく、HTML リクエスト用のヘッダーに差し替えるのが重要
+        twitter_web_app_html = await self.httpx_client.get(
+            url = 'https://x.com/',
+            headers = self.html_headers_dict,
+        )
+        if twitter_web_app_html.status_code != 200:
+            return schemas.TwitterAPIResult(
+                is_success = False,
+                detail = f'Twitter Web App の HTML を取得できませんでした。(HTTP Error {twitter_web_app_html.status_code})',
+            )
+        twitter_web_app_html_text = twitter_web_app_html.text
+
+        # BeautifulSoup を使って HTML をパース
+        soup = BeautifulSoup(twitter_web_app_html_text, 'html.parser')
+
+        # HTML の meta タグに含まれる検証コードを取得
+        meta_tag = soup.select_one('meta[name="twitter-site-verification"]')
+        if meta_tag is None:
+            return schemas.TwitterAPIResult(
+                is_success = False,
+                detail = 'Twitter Web App の HTML から検証コードを取得できませんでした。',
+            )
+        verification_code = cast(str, meta_tag['content'])
+
+        # HTML からチャレンジコードを取得
+        challenge_code_match = re.search(r'"ondemand.s":"(\w+)"', twitter_web_app_html_text)
+        if not challenge_code_match:
+            return schemas.TwitterAPIResult(
+                is_success = False,
+                detail = 'Twitter Web App の HTML からチャレンジコードを取得できませんでした。',
+            )
+        challenge_code = challenge_code_match.group(1)
+
+        # HTML からアニメーション SVG の outerHTML を取得
+        challenge_animation_svg_codes = [str(svg) for svg in soup.select('svg[id^="loading-x"]')]
+
+        # チャレンジデータを取得
+        challenge_js_code_response = await self.httpx_client.get(
+            url = f'https://abs.twimg.com/responsive-web/client-web/ondemand.s.{challenge_code}a.js',
+            headers = self.html_headers_dict,
+        )
+        if challenge_js_code_response.status_code != 200:
+            return schemas.TwitterAPIResult(
+                is_success = False,
+                detail = f'Twitter Web App のチャレンジコードからチャレンジコードを取得できませんでした。(HTTP Error {challenge_js_code_response.status_code})',
+            )
+        challenge_js_code = challenge_js_code_response.text
+
+        # チャレンジデータを返す
+        return schemas.TwitterChallengeData(
+            is_success = True,
+            detail = 'Twitter Web App のチャレンジデータを取得しました。',
+            verification_code = verification_code,
+            challenge_js_code = challenge_js_code,
+            challenge_animation_svg_codes = challenge_animation_svg_codes,
         )
 
 
