@@ -522,7 +522,7 @@ class TwitterGraphQLAPIEndpointInfo(BaseModel):
     method: Literal['GET', 'POST']
     query_id: str
     endpoint: str
-    features: dict[str, Any] | None = None
+    features: dict[str, Any] | None
 
     @computed_field
     @property
