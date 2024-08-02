@@ -766,7 +766,8 @@ class TwitterGraphQLAPI:
             expanded_text = raw_tweet_object['legacy']['full_text']
             if 'entities' in raw_tweet_object['legacy'] and 'urls' in raw_tweet_object['legacy']['entities']:
                 for url_entity in raw_tweet_object['legacy']['entities']['urls']:
-                    expanded_text = expanded_text.replace(url_entity['url'], url_entity['expanded_url'])
+                    if 'expanded_url' in url_entity:  # 展開後の URL が存在する場合のみ (稀に存在しない場合がある)
+                        expanded_text = expanded_text.replace(url_entity['url'], url_entity['expanded_url'])
 
             # 残った t.co の URL を削除
             if len(image_urls) > 0 or movie_url:
