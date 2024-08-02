@@ -99,7 +99,7 @@ const useTwitterStore = defineStore('twitter', {
             // 指定されたスクリーンネームの Challenge 情報を取得する
             const challenge_data = await Twitter.fetchChallengeData(screen_name);
             if (challenge_data === null) {
-                console.error(`[TwitterStore] Failed to fetch challenge data for ${screen_name}.`);
+                console.error(`[TwitterStore] Failed to fetch challenge data for @${screen_name}.`);
                 return;
             }
 
@@ -136,12 +136,12 @@ const useTwitterStore = defineStore('twitter', {
                     // 初期化成功
                     if (data.action === 'ready') {
                         window.removeEventListener('message', messageHandler);
-                        console.log(`[TwitterStore] Challenge Solver for ${screen_name} initialized successfully.`);
+                        console.log(`[TwitterStore] Challenge Solver for @${screen_name} initialized successfully.`);
                         resolve();
                     // 初期化失敗
                     } else if (data.action === 'initError') {
                         window.removeEventListener('message', messageHandler);
-                        console.error(`[TwitterStore] Challenge Solver for ${screen_name} failed to initialize.`);
+                        console.error(`[TwitterStore] Challenge Solver for @${screen_name} failed to initialize.`);
                         Message.error(`Twitter @${screen_name} の Challenge Solver の初期化に失敗しました。`);
                         resolve();  // エラーにしないために成功扱い
                     }
@@ -164,7 +164,7 @@ const useTwitterStore = defineStore('twitter', {
                 await this.initChallengeSolverIframe(screen_name);
                 // 何らかの理由で初期化に失敗している
                 if (!this.challenge_solvers[screen_name]) {
-                    console.error(`[TwitterStore] Failed to initialize challenge solver for ${screen_name}.`);
+                    console.error(`[TwitterStore] Failed to initialize challenge solver for @${screen_name}.`);
                     return null;
                 }
             }
@@ -200,7 +200,7 @@ const useTwitterStore = defineStore('twitter', {
                     // Challenge の解決失敗
                     } else if (data.action === 'error') {
                         window.removeEventListener('message', messageHandler);
-                        console.error(`[TwitterStore] Challenge Solver for ${screen_name} failed to solve challenge. (${data.error})`);
+                        console.error(`[TwitterStore] Challenge Solver for @${screen_name} failed to solve challenge. (${data.error})`);
                         Message.error(`Twitter @${screen_name} の Challenge Solver が Challenge を解決できませんでした。`);
                         resolve(null);  // エラーにしないために成功扱い
                     }

@@ -12,6 +12,7 @@ from fastapi import Form
 from fastapi import HTTPException
 from fastapi import Path
 from fastapi import Query
+from fastapi import Request
 from fastapi import status
 from fastapi import UploadFile
 from tweepy_authlib import CookieSessionUserHandler
@@ -229,6 +230,7 @@ async def TwitterChallengeAPI(
     response_model = schemas.PostTweetResult | schemas.TwitterAPIResult,
 )
 async def TwitterTweetAPI(
+    request: Request,
     twitter_account: Annotated[TwitterAccount, Depends(GetCurrentTwitterAccount)],
     tweet: Annotated[str, Form(description='ツイートの本文 (基本的には140文字までだが、プレミアムの加入状態や英数字の量に依存する) 。')] = '',
     images: Annotated[list[UploadFile], File(description='ツイートに添付する画像 (4枚まで) 。')] = [],
@@ -283,7 +285,7 @@ async def TwitterTweetAPI(
         }
 
     # GraphQL API を使ってツイートを送信し、結果をそのまま返す
-    return await TwitterGraphQLAPI(twitter_account).createTweet(tweet, media_ids)
+    return await TwitterGraphQLAPI(twitter_account).createTweet(tweet, media_ids, request.headers.get('x-client-transaction-id'))
 
 
 @router.put(
@@ -293,6 +295,7 @@ async def TwitterTweetAPI(
     response_model = schemas.TwitterAPIResult,
 )
 async def TwitterRetweetAPI(
+    request: Request,
     twitter_account: Annotated[TwitterAccount, Depends(GetCurrentTwitterAccount)],
     tweet_id: Annotated[str, Path(description='リツイートするツイートの ID。')],
 ):
@@ -303,7 +306,7 @@ async def TwitterRetweetAPI(
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
 
-    return await TwitterGraphQLAPI(twitter_account).createRetweet(tweet_id)
+    return await TwitterGraphQLAPI(twitter_account).createRetweet(tweet_id, request.headers.get('x-client-transaction-id'))
 
 
 @router.delete(
@@ -313,6 +316,7 @@ async def TwitterRetweetAPI(
     response_model = schemas.TwitterAPIResult,
 )
 async def TwitterRetweetCancelAPI(
+    request: Request,
     twitter_account: Annotated[TwitterAccount, Depends(GetCurrentTwitterAccount)],
     tweet_id: Annotated[str, Path(description='リツイートを取り消すツイートの ID。')],
 ):
@@ -323,7 +327,7 @@ async def TwitterRetweetCancelAPI(
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
 
-    return await TwitterGraphQLAPI(twitter_account).deleteRetweet(tweet_id)
+    return await TwitterGraphQLAPI(twitter_account).deleteRetweet(tweet_id, request.headers.get('x-client-transaction-id'))
 
 
 @router.put(
@@ -333,6 +337,7 @@ async def TwitterRetweetCancelAPI(
     response_model = schemas.TwitterAPIResult,
 )
 async def TwitterFavoriteAPI(
+    request: Request,
     twitter_account: Annotated[TwitterAccount, Depends(GetCurrentTwitterAccount)],
     tweet_id: Annotated[str, Path(description='いいねするツイートの ID。')],
 ):
@@ -343,7 +348,7 @@ async def TwitterFavoriteAPI(
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
 
-    return await TwitterGraphQLAPI(twitter_account).favoriteTweet(tweet_id)
+    return await TwitterGraphQLAPI(twitter_account).favoriteTweet(tweet_id, request.headers.get('x-client-transaction-id'))
 
 
 @router.delete(
@@ -353,6 +358,7 @@ async def TwitterFavoriteAPI(
     response_model = schemas.TwitterAPIResult,
 )
 async def TwitterFavoriteCancelAPI(
+    request: Request,
     twitter_account: Annotated[TwitterAccount, Depends(GetCurrentTwitterAccount)],
     tweet_id: Annotated[str, Path(description='いいねを取り消すツイートの ID。')],
 ):
@@ -363,7 +369,7 @@ async def TwitterFavoriteCancelAPI(
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
 
-    return await TwitterGraphQLAPI(twitter_account).unfavoriteTweet(tweet_id)
+    return await TwitterGraphQLAPI(twitter_account).unfavoriteTweet(tweet_id, request.headers.get('x-client-transaction-id'))
 
 
 @router.get(
@@ -373,6 +379,7 @@ async def TwitterFavoriteCancelAPI(
     response_model = schemas.TimelineTweetsResult | schemas.TwitterAPIResult,
 )
 async def TwitterTimelineAPI(
+    request: Request,
     twitter_account: Annotated[TwitterAccount, Depends(GetCurrentTwitterAccount)],
     cursor_id: Annotated[str | None, Query(description='前回のレスポンスから取得した、次のページを取得するためのカーソル ID 。')] = None,
 ):
@@ -383,7 +390,11 @@ async def TwitterTimelineAPI(
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
 
-    return await TwitterGraphQLAPI(twitter_account).homeLatestTimeline(cursor_id, count=20)
+    return await TwitterGraphQLAPI(twitter_account).homeLatestTimeline(
+        cursor_id = cursor_id,
+        count = 20,
+        x_client_transaction_id = request.headers.get('x-client-transaction-id'),
+    )
 
 
 @router.get(
@@ -393,6 +404,7 @@ async def TwitterTimelineAPI(
     response_model = schemas.TimelineTweetsResult | schemas.TwitterAPIResult,
 )
 async def TwitterSearchAPI(
+    request: Request,
     twitter_account: Annotated[TwitterAccount, Depends(GetCurrentTwitterAccount)],
     query: Annotated[str, Query(description='検索クエリ。')],
     cursor_id: Annotated[str | None, Query(description='前回のレスポンスから取得した、次のページを取得するためのカーソル ID 。')] = None,
@@ -403,4 +415,10 @@ async def TwitterSearchAPI(
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
 
-    return await TwitterGraphQLAPI(twitter_account).searchTimeline('Latest', query, cursor_id, count=20)
+    return await TwitterGraphQLAPI(twitter_account).searchTimeline(
+        search_type = 'Latest',
+        query = query,
+        cursor_id = cursor_id,
+        count = 20,
+        x_client_transaction_id = request.headers.get('x-client-transaction-id'),
+    )

@@ -331,6 +331,7 @@ class TwitterGraphQLAPI:
     async def invokeGraphQLAPI(self,
         endpoint_info: schemas.TwitterGraphQLAPIEndpointInfo,
         variables: dict[str, Any],
+        x_client_transaction_id: str | None = None,
         error_message_prefix: str = 'Twitter API の操作に失敗しました。',
     ) -> dict[str, Any] | str:
         """
@@ -340,11 +341,19 @@ class TwitterGraphQLAPI:
         Args:
             endpoint_info (schemas.TwitterGraphQLAPIEndpointInfo): GraphQL API の各エンドポイントごとに固有の静的な情報
             variables (dict[str, Any]): GraphQL API へのリクエストパラメータ (ペイロードのうち "variables" の部分)
+            x_client_transaction_id (str | None, optional): ブラウザ側で算出して API リクエストヘッダーに添付された X-Client-Transaction-ID ヘッダーの値
             error_message_prefix (str, optional): エラー発生時に付与する prefix (例: 'ツイートの送信に失敗しました。')
 
         Returns:
             dict[str, Any] | str: GraphQL API のレスポンス (失敗時は日本語のエラーメッセージを返す)
         """
+
+        # リクエストヘッダーを組み立てる
+        # X-Client-Transaction-ID は指定されている場合のみ付与する
+        headers = self.graphql_headers_dict.copy()
+        if x_client_transaction_id is not None:
+            headers['x-client-transaction-id'] = x_client_transaction_id
+            logging.info(f'[TwitterGraphQLAPI][{endpoint_info.endpoint}] X-Client-Transaction-ID: {x_client_transaction_id}')
 
         # Twitter GraphQL API に HTTP リクエストを送信する
         try:
@@ -366,7 +375,7 @@ class TwitterGraphQLAPI:
                 response = await self.httpx_client.post(
                     url = 'https://x.com' + endpoint_info.path,
                     json = payload,
-                    headers = self.graphql_headers_dict,
+                    headers = headers,
                 )
             elif endpoint_info.method == 'GET':
                 # GET の場合は queryId はパスに、variables と features はクエリパラメータに JSON エンコードした上で渡す
@@ -384,14 +393,14 @@ class TwitterGraphQLAPI:
                 response = await self.httpx_client.get(
                     url = 'https://x.com' + endpoint_info.path,
                     params = params,
-                    headers = self.graphql_headers_dict,
+                    headers = headers,
                 )
             else:
                 raise ValueError(f'Invalid method: {endpoint_info.method}')
 
         # 接続エラー（サーバーメンテナンスやタイムアウトなど）
         except (httpx.NetworkError, httpx.TimeoutException):
-            logging.error('[TwitterAPI] Failed to connect to Twitter GraphQL API')
+            logging.error('[TwitterGraphQLAPI] Failed to connect to Twitter GraphQL API')
             # return 'Failed to connect to Twitter GraphQL API'
             return error_message_prefix + 'Twitter API に接続できませんでした。'
 
@@ -401,20 +410,20 @@ class TwitterGraphQLAPI:
 
         # HTTP ステータスコードが 200 系以外の場合
         if not (200 <= response.status_code < 300):
-            logging.error(f'[TwitterAPI] Failed to invoke GraphQL API (HTTP {response.status_code})')
+            logging.error(f'[TwitterGraphQLAPI] Failed to invoke GraphQL API (HTTP {response.status_code})')
             return error_message_prefix + f'Twitter API から HTTP {response.status_code} エラーが返されました。'
 
         # JSON でないレスポンスが返ってきた場合
         ## charset=utf-8 が付いている場合もあるので完全一致ではなく部分一致で判定
         if 'application/json' not in response.headers['Content-Type']:
-            logging.error('[TwitterAPI] Response is not JSON')
+            logging.error('[TwitterGraphQLAPI] Response is not JSON')
             return error_message_prefix + 'Twitter API から不正なレスポンスが返されました。'
 
         # レスポンスを JSON としてパース
         try:
             response_json = response.json()
         except Exception:
-            logging.error('[TwitterAPI] Failed to parse response as JSON')
+            logging.error('[TwitterGraphQLAPI] Failed to parse response as JSON')
             return error_message_prefix + 'Twitter API のレスポンスを JSON としてパースできませんでした。'
 
         # API レスポンスにエラーが含まれている場合
@@ -428,7 +437,7 @@ class TwitterGraphQLAPI:
 
             # 想定外のエラーコードが返ってきた場合のエラーメッセージ
             alternative_error_message = f'Code: {response_error_code} / Message: {response_error_message}'
-            logging.error(f'[TwitterAPI] Failed to invoke GraphQL API ({alternative_error_message})')
+            logging.error(f'[TwitterGraphQLAPI] Failed to invoke GraphQL API ({alternative_error_message})')
 
             # エラーコードに対応するエラーメッセージを返し、対応するものがない場合は alternative_error_message を返す
             return error_message_prefix + self.ERROR_MESSAGES.get(response_error_code, alternative_error_message)
@@ -437,20 +446,25 @@ class TwitterGraphQLAPI:
         ## 実装時点の GraphQL API は必ず成功時は 'data' キーの下にレスポンスが格納されるはず
         ## もし 'data' キーが存在しない場合は、API 仕様が変更されている可能性がある
         elif 'data' not in response_json:
-            logging.error('[TwitterAPI] Response does not have "data" key')
+            logging.error('[TwitterGraphQLAPI] Response does not have "data" key')
             return error_message_prefix + 'Twitter API のレスポンスに "data" キーが存在しません。開発者に修正を依頼してください。'
 
         # ここまで来たら (中身のデータ構造はともかく) API レスポンスの取得には成功しているはず
         return response_json['data']
 
 
-    async def createTweet(self, tweet: str, media_ids: list[str] = []) -> schemas.PostTweetResult | schemas.TwitterAPIResult:
+    async def createTweet(self,
+        tweet: str,
+        media_ids: list[str] = [],
+        x_client_transaction_id: str | None = None,
+    ) -> schemas.PostTweetResult | schemas.TwitterAPIResult:
         """
         ツイートを送信する
 
         Args:
             tweet (str): ツイート内容
             media_ids (list[str], optional): 添付するメディアの ID のリスト (デフォルトは空リスト)
+            x_client_transaction_id (str, optional): ブラウザ側で算出して API リクエストヘッダーに添付された X-Client-Transaction-ID ヘッダーの値
 
         Returns:
             schemas.PostTweetResult | schemas.TwitterAPIResult: ツイートの送信結果
@@ -491,6 +505,7 @@ class TwitterGraphQLAPI:
                     },
                     'semantic_annotation_ids': [],
                 },
+                x_client_transaction_id = x_client_transaction_id,
                 error_message_prefix = 'ツイートの送信に失敗しました。',
             )
 
@@ -519,12 +534,13 @@ class TwitterGraphQLAPI:
             )
 
 
-    async def createRetweet(self, tweet_id: str) -> schemas.TwitterAPIResult:
+    async def createRetweet(self, tweet_id: str, x_client_transaction_id: str | None = None) -> schemas.TwitterAPIResult:
         """
         ツイートをリツイートする
 
         Args:
             tweet_id (str): リツイートするツイートの ID
+            x_client_transaction_id (str, optional): ブラウザ側で算出して API リクエストヘッダーに添付された X-Client-Transaction-ID ヘッダーの値
 
         Returns:
             schemas.TwitterAPIResult: リツイートの結果
@@ -537,6 +553,7 @@ class TwitterGraphQLAPI:
                 'tweet_id': tweet_id,
                 'dark_request': False,
             },
+            x_client_transaction_id = x_client_transaction_id,
             error_message_prefix = 'リツイートに失敗しました。',
         )
 
@@ -553,12 +570,13 @@ class TwitterGraphQLAPI:
         )
 
 
-    async def deleteRetweet(self, tweet_id: str) -> schemas.TwitterAPIResult:
+    async def deleteRetweet(self, tweet_id: str, x_client_transaction_id: str | None = None) -> schemas.TwitterAPIResult:
         """
         ツイートのリツイートを取り消す
 
         Args:
             tweet_id (str): リツイートを取り消すツイートの ID
+            x_client_transaction_id (str, optional): ブラウザ側で算出して API リクエストヘッダーに添付された X-Client-Transaction-ID ヘッダーの値
 
         Returns:
             schemas.TwitterAPIResult: リツイートの取り消し結果
@@ -571,6 +589,7 @@ class TwitterGraphQLAPI:
                 'source_tweet_id': tweet_id,
                 'dark_request': False,
             },
+            x_client_transaction_id = x_client_transaction_id,
             error_message_prefix = 'リツイートの取り消しに失敗しました。',
         )
 
@@ -587,12 +606,13 @@ class TwitterGraphQLAPI:
         )
 
 
-    async def favoriteTweet(self, tweet_id: str) -> schemas.TwitterAPIResult:
+    async def favoriteTweet(self, tweet_id: str, x_client_transaction_id: str | None = None) -> schemas.TwitterAPIResult:
         """
         ツイートをいいねする
 
         Args:
             tweet_id (str): いいねするツイートの ID
+            x_client_transaction_id (str, optional): ブラウザ側で算出して API リクエストヘッダーに添付された X-Client-Transaction-ID ヘッダーの値
 
         Returns:
             schemas.TwitterAPIResult: いいねの結果
@@ -604,6 +624,7 @@ class TwitterGraphQLAPI:
             variables = {
                 'tweet_id': tweet_id,
             },
+            x_client_transaction_id = x_client_transaction_id,
             error_message_prefix = 'いいねに失敗しました。',
         )
 
@@ -620,12 +641,13 @@ class TwitterGraphQLAPI:
         )
 
 
-    async def unfavoriteTweet(self, tweet_id: str) -> schemas.TwitterAPIResult:
+    async def unfavoriteTweet(self, tweet_id: str, x_client_transaction_id: str | None = None) -> schemas.TwitterAPIResult:
         """
         ツイートのいいねを取り消す
 
         Args:
             tweet_id (str): いいねを取り消すツイートの ID
+            x_client_transaction_id (str, optional): ブラウザ側で算出して API リクエストヘッダーに添付された X-Client-Transaction-ID ヘッダーの値
 
         Returns:
             schemas.TwitterAPIResult: いいねの取り消し結果
@@ -637,6 +659,7 @@ class TwitterGraphQLAPI:
             variables = {
                 'tweet_id': tweet_id,
             },
+            x_client_transaction_id = x_client_transaction_id,
             error_message_prefix = 'いいねの取り消しに失敗しました。',
         )
 
@@ -803,6 +826,7 @@ class TwitterGraphQLAPI:
     async def homeLatestTimeline(self,
         cursor_id: str | None = None,
         count: int = 20,
+        x_client_transaction_id: str | None = None,
     ) -> schemas.TimelineTweetsResult | schemas.TwitterAPIResult:
         """
         タイムラインの最新ツイートを取得する
@@ -811,6 +835,7 @@ class TwitterGraphQLAPI:
         Args:
             cursor_id (str | None, optional): 次のページを取得するためのカーソル ID (デフォルトは None)
             count (int, optional): 取得するツイート数 (デフォルトは 20)
+            x_client_transaction_id (str, optional): ブラウザ側で算出して API リクエストヘッダーに添付された X-Client-Transaction-ID ヘッダーの値
 
         Returns:
             schemas.TimelineTweets | schemas.TwitterAPIResult: 検索結果
@@ -831,6 +856,7 @@ class TwitterGraphQLAPI:
         response = await self.invokeGraphQLAPI(
             endpoint_info = self.ENDPOINT_INFOS['HomeLatestTimeline'],
             variables = variables,
+            x_client_transaction_id = x_client_transaction_id,
             error_message_prefix = 'タイムラインの取得に失敗しました。',
         )
 
@@ -869,6 +895,7 @@ class TwitterGraphQLAPI:
         query: str,
         cursor_id: str | None = None,
         count: int = 20,
+        x_client_transaction_id: str | None = None,
     ) -> schemas.TimelineTweetsResult | schemas.TwitterAPIResult:
         """
         ツイートを検索する
@@ -878,6 +905,7 @@ class TwitterGraphQLAPI:
             query (str): 検索クエリ
             cursor_id (str | None, optional): 次のページを取得するためのカーソル ID (デフォルトは None)
             count (int, optional): 取得するツイート数 (デフォルトは 20)
+            x_client_transaction_id (str, optional): ブラウザ側で算出して API リクエストヘッダーに添付された X-Client-Transaction-ID ヘッダーの値
 
         Returns:
             schemas.TimelineTweets | schemas.TwitterAPIResult: 検索結果
@@ -896,6 +924,7 @@ class TwitterGraphQLAPI:
         response = await self.invokeGraphQLAPI(
             endpoint_info = self.ENDPOINT_INFOS['SearchTimeline'],
             variables = variables,
+            x_client_transaction_id = x_client_transaction_id,
             error_message_prefix = 'ツイートの検索に失敗しました。',
         )
 
