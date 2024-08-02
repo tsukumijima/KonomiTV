@@ -96,7 +96,7 @@ def main():
     print('以下のコードを TwitterGraphQLAPI.py にコピペしてください。')
     print(Rule(characters='='))
     generated_code = f"""
-        '{endpoint}': schemas.TwitterGraphQLAPIEndpoint(
+        '{endpoint}': schemas.TwitterGraphQLAPIEndpointInfo(
             method = '{method}',
             query_id = '{query_id}',
             endpoint = '{endpoint}',

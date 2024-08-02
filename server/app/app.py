@@ -109,7 +109,6 @@ for suffix, mime_type in [
     ]:
     guess = mimetypes.guess_type(f'foo{suffix}')[0]
     if guess != mime_type:
-        logging.info(f'Override {suffix} MIME type: {guess} -> {mime_type}.')
         mimetypes.add_type(mime_type, suffix)
 
 # 静的ファイルの配信

@@ -516,7 +516,7 @@ class TwitterChallengeData(TwitterAPIResult):
     challenge_js_code: str
     challenge_animation_svg_codes: list[str]
 
-class TwitterGraphQLAPIEndpoint(BaseModel):
+class TwitterGraphQLAPIEndpointInfo(BaseModel):
     method: Literal['GET', 'POST']
     query_id: str
     endpoint: str
