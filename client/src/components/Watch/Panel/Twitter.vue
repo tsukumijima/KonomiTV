@@ -44,12 +44,12 @@
                 @blur="is_tweet_text_form_focused = false">
             </textarea>
             <div class="tweet-form__control">
-                <div v-ripple class="account-button" :class="{'account-button--no-login': !is_logged_in_twitter}"
+                <div v-ripple class="account-button" :class="{'account-button--no-login': !twitterStore.is_logged_in_twitter}"
                     @click="clickAccountButton()">
                     <img class="account-button__icon"
-                        :src="is_logged_in_twitter ? selected_twitter_account?.icon_url : '/assets/images/account-icon-default.png'">
+                        :src="twitterStore.is_logged_in_twitter ? twitterStore.selected_twitter_account?.icon_url : '/assets/images/account-icon-default.png'">
                     <span class="account-button__screen-name">
-                        {{is_logged_in_twitter ? `@${selected_twitter_account?.screen_name}` : '連携されていません'}}
+                        {{twitterStore.is_logged_in_twitter ? `@${twitterStore.selected_twitter_account?.screen_name}` : '連携されていません'}}
                     </span>
                     <Icon class="account-button__menu" icon="fluent:more-circle-20-regular" width="22px" />
                 </div>
@@ -158,6 +158,7 @@ import { ITwitterAccount } from '@/services/Users';
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
 import useSettingsStore from '@/stores/SettingsStore';
+import useTwitterStore from '@/stores/TwitterStore';
 import useUserStore from '@/stores/UserStore';
 import Utils, { ChannelUtils } from '@/utils';
 
@@ -197,12 +198,6 @@ export default defineComponent({
             // ユーティリティをテンプレートで使えるように
             Utils: Object.freeze(Utils),
 
-            // Twitter アカウントを1つでも連携しているかどうか
-            is_logged_in_twitter: false,
-
-            // 現在ツイート対象として選択されている Twitter アカウント
-            selected_twitter_account: null as ITwitterAccount | null,
-
             // 連携している Twitter アカウントリストを表示しているか
             is_twitter_account_list_display: false,
 
@@ -238,11 +233,11 @@ export default defineComponent({
         };
     },
     computed: {
-        ...mapStores(useChannelsStore, usePlayerStore, useSettingsStore, useUserStore),
+        ...mapStores(useChannelsStore, usePlayerStore, useSettingsStore, useUserStore, useTwitterStore),
 
         // ツイートボタンが無効かどうか
         is_tweet_button_disabled(): boolean {
-            return this.is_logged_in_twitter === false || this.tweet_letter_remain_count < 0 ||
+            return this.twitterStore.is_logged_in_twitter === false || this.tweet_letter_remain_count < 0 ||
                 ((this.tweet_text.trim() === '' || this.tweet_letter_remain_count === 140) && this.playerStore.twitter_selected_capture_blobs.length === 0);
         },
     },
@@ -296,31 +291,8 @@ export default defineComponent({
         // アカウント情報を更新
         await this.userStore.fetchUser();
 
-        // ログイン時のみ
-        if (this.userStore.is_logged_in === true) {
-
-            // 連携している Twitter アカウントがあれば true に設定
-            if (this.userStore.user && this.userStore.user.twitter_accounts.length > 0) {
-                this.is_logged_in_twitter = true;
-
-                // 現在ツイート対象として選択されている Twitter アカウントの ID が設定されていない or ID に紐づく Twitter アカウントがない
-                // 連携している Twitter アカウントのうち、一番最初のものを自動選択する
-                // ここで言う Twitter アカウントの ID は DB 上で連番で振られるもので、Twitter アカウントそのものの固有 ID ではない
-                if (this.settingsStore.settings.selected_twitter_account_id === null ||
-                    !this.userStore.user.twitter_accounts.some((twitter_account) => {
-                        return twitter_account.id === this.settingsStore.settings.selected_twitter_account_id;
-                    })) {
-                    this.settingsStore.settings.selected_twitter_account_id = this.userStore.user.twitter_accounts[0].id;
-                }
-
-                // 現在ツイート対象として選択されている Twitter アカウントを取得・設定
-                const twitter_account_index = this.userStore.user.twitter_accounts.findIndex((twitter_account) => {
-                    // Twitter アカウントの ID が選択されているものと一致する
-                    return twitter_account.id === this.settingsStore.settings.selected_twitter_account_id;
-                });
-                this.selected_twitter_account = this.userStore.user.twitter_accounts[twitter_account_index];
-            }
-        }
+        // Twitter 関連の状態を一括更新
+        await this.twitterStore.update();
 
         // 局タグ追加処理を走らせる (ハッシュタグフォームのフォーマット処理も同時に行われるが、元々空なので無意味)
         this.tweet_hashtag = this.formatHashtag(this.tweet_hashtag);
@@ -392,7 +364,7 @@ export default defineComponent({
         clickAccountButton() {
 
             // Twitter アカウントが連携されていない場合は Twitter 設定画面に飛ばす
-            if (!this.is_logged_in_twitter) {
+            if (!this.twitterStore.is_logged_in_twitter) {
 
                 // 視聴画面以外に遷移するため、フルスクリーンを解除しないと画面が崩れる
                 if (document.fullscreenElement) {
@@ -415,7 +387,7 @@ export default defineComponent({
         // 選択されている Twitter アカウントを更新する
         updateSelectedTwitterAccount(twitter_account: ITwitterAccount) {
             this.settingsStore.settings.selected_twitter_account_id = twitter_account.id;
-            this.selected_twitter_account = twitter_account;
+            this.twitterStore.selected_twitter_account = twitter_account;
 
             // Twitter アカウントリストのオーバーレイを閉じる (少し待ってから閉じたほうが体感が良い)
             window.setTimeout(() => this.is_twitter_account_list_display = false, 150);
@@ -571,7 +543,7 @@ export default defineComponent({
         async sendTweet() {
 
             // Twitter アカウントが連携されていない場合は何もしない
-            if (this.selected_twitter_account === null) return;
+            if (this.twitterStore.selected_twitter_account === null) return;
 
             // 送信中フラグを立てる (重複送信防止)
             if (this.is_tweet_sending === true) return;
@@ -630,7 +602,7 @@ export default defineComponent({
 
             // ツイート送信 API にリクエスト
             // レスポンスは待たない
-            Twitter.sendTweet(this.selected_twitter_account.screen_name, tweet_text, tweet_capture_blobs).then((result) => {
+            Twitter.sendTweet(this.twitterStore.selected_twitter_account.screen_name, tweet_text, tweet_capture_blobs).then((result) => {
                 this.playerStore.event_emitter.emit('SendNotification', {
                     message: result.message,
                     color: result.is_error ? '#FF6F6A' : undefined,

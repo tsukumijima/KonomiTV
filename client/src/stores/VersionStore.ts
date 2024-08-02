@@ -6,7 +6,7 @@ import Utils from '@/utils';
 
 
 /**
- * 現在ログイン中のユーザーアカウントの情報を共有するストア
+ * バージョン情報を共有するストア
  */
 const useVersionStore = defineStore('version', {
     state: () => ({
