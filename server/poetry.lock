@@ -35,13 +35,13 @@ files = [
 
 [[package]]
 name = "aiohappyeyeballs"
-version = "2.3.2"
-description = "Happy Eyeballs"
+version = "2.3.4"
+description = "Happy Eyeballs for asyncio"
 optional = false
-python-versions = ">=3.8,<4.0"
+python-versions = "<4.0,>=3.8"
 files = [
-    {file = "aiohappyeyeballs-2.3.2-py3-none-any.whl", hash = "sha256:903282fb08c8cfb3de356fd546b263248a477c99cb147e20a115e14ab942a4ae"},
-    {file = "aiohappyeyeballs-2.3.2.tar.gz", hash = "sha256:77e15a733090547a1f5369a1287ddfc944bd30df0eb8993f585259c34b405f4e"},
+    {file = "aiohappyeyeballs-2.3.4-py3-none-any.whl", hash = "sha256:40a16ceffcf1fc9e142fd488123b2e218abc4188cf12ac20c67200e1579baa42"},
+    {file = "aiohappyeyeballs-2.3.4.tar.gz", hash = "sha256:7e1ae8399c320a8adec76f6c919ed5ceae6edd4c3672f4d9eae2b27e37c80ff6"},
 ]
 
 [[package]]
@@ -2435,13 +2435,13 @@ test = ["vcrpy (>=1.10.3)"]
 
 [[package]]
 name = "tweepy-authlib"
-version = "1.5.1"
+version = "1.5.2"
 description = "Twitter Web App (Web 版公式クライアント) の内部 API を使い、Tweepy でスクリーンネームとパスワードで認証するためのライブラリ"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "tweepy_authlib-1.5.1-py3-none-any.whl", hash = "sha256:0b653018be811fd3574fe87d05eda933c3f2bfe2a8ab1de281337c42634eea66"},
-    {file = "tweepy_authlib-1.5.1.tar.gz", hash = "sha256:5507aa2a83c90b0cc650115db2833cf7cba9aa68cea79b2d76843c7d704effdd"},
+    {file = "tweepy_authlib-1.5.2-py3-none-any.whl", hash = "sha256:30c89345a71f5ce101e52daa37776320ec69dde9c620e086a6e418abf89d1050"},
+    {file = "tweepy_authlib-1.5.2.tar.gz", hash = "sha256:73cc5a46dc9700e98a16a1b9b98e7507c4f3d165b89bf8e1805da1a084ecdc2c"},
 ]
 
 [package.dependencies]
@@ -2884,4 +2884,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<3.12"
-content-hash = "25a49071a724491ea25f8f17f9a1c226f07a310d21defb5df9240271295ad902"
+content-hash = "b37d4c90ebc7d8dd443271d072273b2c1c484d5c631168f681fb0eaf6eb13978"

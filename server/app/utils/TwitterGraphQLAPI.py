@@ -200,6 +200,7 @@ class TwitterGraphQLAPI:
         self.cookie_session_user_handler = self.twitter_account.getTweepyAuthHandler()
         self.graphql_headers_dict = self.cookie_session_user_handler.get_graphql_api_headers()  # GraphQL API 用ヘッダー
         self.html_headers_dict = self.cookie_session_user_handler.get_html_headers()  # HTML 用ヘッダー
+        self.js_headers_dict = self.cookie_session_user_handler.get_js_headers(cross_origin=True)  # JavaScript 用ヘッダー
 
         # 指定されたアカウントへの認証情報が含まれる Cookie を取得し、httpx.Cookies に変換
         ## ここで生成した httpx.Cookies を HTTP クライアントに渡す
@@ -298,10 +299,10 @@ class TwitterGraphQLAPI:
         challenge_animation_svg_codes = [str(svg) for svg in soup.select('svg[id^="loading-x"]')]
 
         # チャレンジデータを取得
-        ## HTML リクエスト用のヘッダーに差し替えるのが重要
+        ## JavaScript リクエスト用のヘッダーに差し替えるのが重要
         challenge_js_code_response = await self.httpx_client.get(
             url = f'https://abs.twimg.com/responsive-web/client-web/ondemand.s.{challenge_code}a.js',
-            headers = self.html_headers_dict,
+            headers = self.js_headers_dict,
         )
         if challenge_js_code_response.status_code != 200:
             return schemas.TwitterAPIResult(
