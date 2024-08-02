@@ -51,7 +51,7 @@ def main():
             return
         body_json_str = body_match.group(1).replace('\\', '')
         body_json = json.loads(body_json_str)
-        features = body_json.get('features', {})
+        features = body_json.get('features', None)
     else:
         # GET リクエストの場合、まず URL を抽出
         url_match = re.search(r'"(https?://[^"]+)"', fetch_code)
@@ -71,15 +71,13 @@ def main():
         # features を取得
         features_json_str = query_dict.get('features', [None])[0]
         if features_json_str is None:
-            print('features の抽出に失敗しました。')
-            print(Rule(characters='='))
-            return
-        try:
-            features = json.loads(features_json_str)
-        except json.JSONDecodeError:
-            print('features の JSON パースに失敗しました。')
-            print(Rule(characters='='))
-            return
+            features = None
+        else:
+            try:
+                features = json.loads(features_json_str)
+            except json.JSONDecodeError:
+                print('features の JSON パースに失敗しました。features は None として続行します。')
+                features = None
 
     # features を JSON としてフォーマットした後、Python の dict として正しい形式に変換
     # " を ' に置換し、true/false を True/False に置換
@@ -91,19 +89,19 @@ def main():
     features = features.replace('e\n}', 'e,\n}')
     # インデントを追加
     features = features.replace('\n', '\n            ')
+    # null を None に変更
+    features = features.replace('null', 'None')
 
     # 生成するコードをフォーマット
     print('以下のコードを TwitterGraphQLAPI.py にコピペしてください。')
     print(Rule(characters='='))
     generated_code = f"""
-        response = await self.invokeGraphQLAPI(
+        '{endpoint}': schemas.TwitterGraphQLAPIEndpoint(
             method = '{method}',
             query_id = '{query_id}',
             endpoint = '{endpoint}',
-            variables = variables,
             features = {features},
-            error_message_prefix = 'APIの操作に失敗しました。',
-        )
+        ),
     """
     print(generated_code)
     print(Rule(characters='='))

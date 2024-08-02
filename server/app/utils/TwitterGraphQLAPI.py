@@ -27,6 +27,130 @@ class TwitterGraphQLAPI:
     メソッド名は概ね GraphQL API でのエンドポイント名に対応している
     """
 
+    # GraphQL API のエンドポイント定義
+    ## クエリ ID はおそらく API のバージョン (?) を示しているらしい謎の値で、数週間単位で変更されうる (定期的に追従が必要)
+    ## features 以下のフラグ (機能フラグ？) も数週間単位で頻繁に変更されうるが、Twitter Web App と完全に一致していないからといって
+    ## 必ずしも動かなくなるわけではなく、クエリ ID 同様にある程度は古い値でも動くようになっているらしい
+    ## 以下のコードはエンドポイントごとに poetry run python -m misc.TwitterAPIQueryGenerator で半自動生成できる
+    ENDPOINTS: dict[str, schemas.TwitterGraphQLAPIEndpoint] = {
+        'CreateTweet': schemas.TwitterGraphQLAPIEndpoint(
+            method = 'POST',
+            query_id = 'jUuX3C2RKpYMn2rJcflBAw',
+            endpoint = 'CreateTweet',
+            features = {
+                'communities_web_enable_tweet_community_results_fetch': True,
+                'c9s_tweet_anatomy_moderator_badge_enabled': True,
+                'tweetypie_unmention_optimization_enabled': True,
+                'responsive_web_edit_tweet_api_enabled': True,
+                'graphql_is_translatable_rweb_tweet_is_translatable_enabled': True,
+                'view_counts_everywhere_api_enabled': True,
+                'longform_notetweets_consumption_enabled': True,
+                'responsive_web_twitter_article_tweet_consumption_enabled': True,
+                'tweet_awards_web_tipping_enabled': False,
+                'creator_subscriptions_quote_tweet_preview_enabled': False,
+                'longform_notetweets_rich_text_read_enabled': True,
+                'longform_notetweets_inline_media_enabled': True,
+                'articles_preview_enabled': True,
+                'rweb_video_timestamps_enabled': True,
+                'rweb_tipjar_consumption_enabled': True,
+                'responsive_web_graphql_exclude_directive_enabled': True,
+                'verified_phone_label_enabled': False,
+                'freedom_of_speech_not_reach_fetch_enabled': True,
+                'standardized_nudges_misinfo': True,
+                'tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled': True,
+                'responsive_web_graphql_skip_user_profile_image_extensions_enabled': False,
+                'responsive_web_graphql_timeline_navigation_enabled': True,
+                'responsive_web_enhance_cards_enabled': False,
+            },
+        ),
+        'CreateRetweet': schemas.TwitterGraphQLAPIEndpoint(
+            method = 'POST',
+            query_id = 'ojPdsZsimiJrUGLR1sjUtA',
+            endpoint = 'CreateRetweet',
+            features = None,
+        ),
+        'DeleteRetweet': schemas.TwitterGraphQLAPIEndpoint(
+            method = 'POST',
+            query_id = 'iQtK4dl5hBmXewYZuEOKVw',
+            endpoint = 'DeleteRetweet',
+            features = None,
+        ),
+        'FavoriteTweet': schemas.TwitterGraphQLAPIEndpoint(
+            method = 'POST',
+            query_id = 'lI07N6Otwv1PhnEgXILM7A',
+            endpoint = 'FavoriteTweet',
+            features = None,
+        ),
+        'UnfavoriteTweet': schemas.TwitterGraphQLAPIEndpoint(
+            method = 'POST',
+            query_id = 'ZYKSe-w7KEslx3JhSIk5LA',
+            endpoint = 'UnfavoriteTweet',
+            features = None,
+        ),
+        'HomeLatestTimeline': schemas.TwitterGraphQLAPIEndpoint(
+            method = 'POST',
+            query_id = 'swa5tm06UZNTKxtXsCwz8A',
+            endpoint = 'HomeLatestTimeline',
+            features = {
+                'rweb_tipjar_consumption_enabled': True,
+                'responsive_web_graphql_exclude_directive_enabled': True,
+                'verified_phone_label_enabled': False,
+                'creator_subscriptions_tweet_preview_api_enabled': True,
+                'responsive_web_graphql_timeline_navigation_enabled': True,
+                'responsive_web_graphql_skip_user_profile_image_extensions_enabled': False,
+                'communities_web_enable_tweet_community_results_fetch': True,
+                'c9s_tweet_anatomy_moderator_badge_enabled': True,
+                'articles_preview_enabled': True,
+                'tweetypie_unmention_optimization_enabled': True,
+                'responsive_web_edit_tweet_api_enabled': True,
+                'graphql_is_translatable_rweb_tweet_is_translatable_enabled': True,
+                'view_counts_everywhere_api_enabled': True,
+                'longform_notetweets_consumption_enabled': True,
+                'responsive_web_twitter_article_tweet_consumption_enabled': True,
+                'tweet_awards_web_tipping_enabled': False,
+                'creator_subscriptions_quote_tweet_preview_enabled': False,
+                'freedom_of_speech_not_reach_fetch_enabled': True,
+                'standardized_nudges_misinfo': True,
+                'tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled': True,
+                'rweb_video_timestamps_enabled': True,
+                'longform_notetweets_rich_text_read_enabled': True,
+                'longform_notetweets_inline_media_enabled': True,
+                'responsive_web_enhance_cards_enabled': False,
+            },
+        ),
+        'SearchTimeline': schemas.TwitterGraphQLAPIEndpoint(
+            method = 'GET',
+            query_id = '5szMMrM2iJYt2JJI97mOug',
+            endpoint = 'SearchTimeline',
+            features = {
+                'rweb_tipjar_consumption_enabled': True,
+                'responsive_web_graphql_exclude_directive_enabled': True,
+                'verified_phone_label_enabled': False,
+                'creator_subscriptions_tweet_preview_api_enabled': True,
+                'responsive_web_graphql_timeline_navigation_enabled': True,
+                'responsive_web_graphql_skip_user_profile_image_extensions_enabled': False,
+                'communities_web_enable_tweet_community_results_fetch': True,
+                'c9s_tweet_anatomy_moderator_badge_enabled': True,
+                'articles_preview_enabled': True,
+                'tweetypie_unmention_optimization_enabled': True,
+                'responsive_web_edit_tweet_api_enabled': True,
+                'graphql_is_translatable_rweb_tweet_is_translatable_enabled': True,
+                'view_counts_everywhere_api_enabled': True,
+                'longform_notetweets_consumption_enabled': True,
+                'responsive_web_twitter_article_tweet_consumption_enabled': True,
+                'tweet_awards_web_tipping_enabled': False,
+                'creator_subscriptions_quote_tweet_preview_enabled': False,
+                'freedom_of_speech_not_reach_fetch_enabled': True,
+                'standardized_nudges_misinfo': True,
+                'tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled': True,
+                'rweb_video_timestamps_enabled': True,
+                'longform_notetweets_rich_text_read_enabled': True,
+                'longform_notetweets_inline_media_enabled': True,
+                'responsive_web_enhance_cards_enabled': False,
+            },
+        ),
+    }
+
     # Twitter API のエラーコードとエラーメッセージの対応表
     ## 実際に返ってくる可能性があるものだけ
     ## ref: https://developer.twitter.com/ja/docs/basics/response-codes
@@ -215,7 +339,6 @@ class TwitterGraphQLAPI:
         """
         Twitter Web App の GraphQL API に HTTP リクエストを送信する
         実際には GraphQL と言いつつペイロードで JSON を渡しているので謎… (本当に GraphQL なのか？)
-        クエリ ID はおそらく API のバージョン (?) を示しているらしい謎の値で、数週間単位で変更されうる (定期的に追従が必要)
 
         Args:
             query_id (str): GraphQL API のクエリ ID
@@ -359,50 +482,21 @@ class TwitterGraphQLAPI:
                     'tagged_users': []
                 })
 
-            # variables を組み立てる
-            variables = {
-                'tweet_text': tweet,
-                'dark_request': False,
-                'media': {
-                    'media_entities': media_entities,
-                    'possibly_sensitive': False,
-                },
-                'semantic_annotation_ids': [],
-            }
-
             # Twitter GraphQL API にリクエスト
-            ## features 以下の謎のフラグも数週間単位で頻繁に変更されうるが、Twitter Web App と完全に一致していないからといって
-            ## 必ずしも動かなくなるわけではなく、queryId 同様にある程度は古い値でも動くようになっているらしい
             response = await self.invokeGraphQLAPI(
-                method = 'POST',
-                query_id = 'jUuX3C2RKpYMn2rJcflBAw',
-                endpoint = 'CreateTweet',
-                variables = variables,
-                features = {
-                    'communities_web_enable_tweet_community_results_fetch': True,
-                    'c9s_tweet_anatomy_moderator_badge_enabled': True,
-                    'tweetypie_unmention_optimization_enabled': True,
-                    'responsive_web_edit_tweet_api_enabled': True,
-                    'graphql_is_translatable_rweb_tweet_is_translatable_enabled': True,
-                    'view_counts_everywhere_api_enabled': True,
-                    'longform_notetweets_consumption_enabled': True,
-                    'responsive_web_twitter_article_tweet_consumption_enabled': True,
-                    'tweet_awards_web_tipping_enabled': False,
-                    'creator_subscriptions_quote_tweet_preview_enabled': False,
-                    'longform_notetweets_rich_text_read_enabled': True,
-                    'longform_notetweets_inline_media_enabled': True,
-                    'articles_preview_enabled': True,
-                    'rweb_video_timestamps_enabled': True,
-                    'rweb_tipjar_consumption_enabled': True,
-                    'responsive_web_graphql_exclude_directive_enabled': True,
-                    'verified_phone_label_enabled': False,
-                    'freedom_of_speech_not_reach_fetch_enabled': True,
-                    'standardized_nudges_misinfo': True,
-                    'tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled': True,
-                    'responsive_web_graphql_skip_user_profile_image_extensions_enabled': False,
-                    'responsive_web_graphql_timeline_navigation_enabled': True,
-                    'responsive_web_enhance_cards_enabled': False,
+                method = self.ENDPOINTS['CreateTweet'].method,
+                query_id = self.ENDPOINTS['CreateTweet'].query_id,
+                endpoint = self.ENDPOINTS['CreateTweet'].endpoint,
+                variables = {
+                    'tweet_text': tweet,
+                    'dark_request': False,
+                    'media': {
+                        'media_entities': media_entities,
+                        'possibly_sensitive': False,
+                    },
+                    'semantic_annotation_ids': [],
                 },
+                features = self.ENDPOINTS['CreateTweet'].features,
                 error_message_prefix = 'ツイートの送信に失敗しました。',
             )
 
@@ -444,9 +538,9 @@ class TwitterGraphQLAPI:
 
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
-            method = 'POST',
-            query_id = 'ojPdsZsimiJrUGLR1sjUtA',
-            endpoint = 'CreateRetweet',
+            method = self.ENDPOINTS['CreateRetweet'].method,
+            query_id = self.ENDPOINTS['CreateRetweet'].query_id,
+            endpoint = self.ENDPOINTS['CreateRetweet'].endpoint,
             variables = {
                 'tweet_id': tweet_id,
                 'dark_request': False,
@@ -480,9 +574,9 @@ class TwitterGraphQLAPI:
 
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
-            method = 'POST',
-            query_id = 'iQtK4dl5hBmXewYZuEOKVw',
-            endpoint = 'DeleteRetweet',
+            method = self.ENDPOINTS['DeleteRetweet'].method,
+            query_id = self.ENDPOINTS['DeleteRetweet'].query_id,
+            endpoint = self.ENDPOINTS['DeleteRetweet'].endpoint,
             variables = {
                 'source_tweet_id': tweet_id,
                 'dark_request': False,
@@ -516,9 +610,9 @@ class TwitterGraphQLAPI:
 
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
-            method = 'POST',
-            query_id = 'lI07N6Otwv1PhnEgXILM7A',
-            endpoint = 'FavoriteTweet',
+            method = self.ENDPOINTS['FavoriteTweet'].method,
+            query_id = self.ENDPOINTS['FavoriteTweet'].query_id,
+            endpoint = self.ENDPOINTS['FavoriteTweet'].endpoint,
             variables = {
                 'tweet_id': tweet_id,
             },
@@ -551,9 +645,9 @@ class TwitterGraphQLAPI:
 
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
-            method = 'POST',
-            query_id = 'ZYKSe-w7KEslx3JhSIk5LA',
-            endpoint = 'UnfavoriteTweet',
+            method = self.ENDPOINTS['UnfavoriteTweet'].method,
+            query_id = self.ENDPOINTS['UnfavoriteTweet'].query_id,
+            endpoint = self.ENDPOINTS['UnfavoriteTweet'].endpoint,
             variables = {
                 'tweet_id': tweet_id,
             },
@@ -748,36 +842,11 @@ class TwitterGraphQLAPI:
 
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
-            method = 'POST',
-            query_id = 'swa5tm06UZNTKxtXsCwz8A',
-            endpoint = 'HomeLatestTimeline',
+            method = self.ENDPOINTS['HomeLatestTimeline'].method,
+            query_id = self.ENDPOINTS['HomeLatestTimeline'].query_id,
+            endpoint = self.ENDPOINTS['HomeLatestTimeline'].endpoint,
             variables = variables,
-            features = {
-                'rweb_tipjar_consumption_enabled': True,
-                'responsive_web_graphql_exclude_directive_enabled': True,
-                'verified_phone_label_enabled': False,
-                'creator_subscriptions_tweet_preview_api_enabled': True,
-                'responsive_web_graphql_timeline_navigation_enabled': True,
-                'responsive_web_graphql_skip_user_profile_image_extensions_enabled': False,
-                'communities_web_enable_tweet_community_results_fetch': True,
-                'c9s_tweet_anatomy_moderator_badge_enabled': True,
-                'articles_preview_enabled': True,
-                'tweetypie_unmention_optimization_enabled': True,
-                'responsive_web_edit_tweet_api_enabled': True,
-                'graphql_is_translatable_rweb_tweet_is_translatable_enabled': True,
-                'view_counts_everywhere_api_enabled': True,
-                'longform_notetweets_consumption_enabled': True,
-                'responsive_web_twitter_article_tweet_consumption_enabled': True,
-                'tweet_awards_web_tipping_enabled': False,
-                'creator_subscriptions_quote_tweet_preview_enabled': False,
-                'freedom_of_speech_not_reach_fetch_enabled': True,
-                'standardized_nudges_misinfo': True,
-                'tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled': True,
-                'rweb_video_timestamps_enabled': True,
-                'longform_notetweets_rich_text_read_enabled': True,
-                'longform_notetweets_inline_media_enabled': True,
-                'responsive_web_enhance_cards_enabled': False,
-            },
+            features = self.ENDPOINTS['HomeLatestTimeline'].features,
             error_message_prefix = 'タイムラインの取得に失敗しました。',
         )
 
@@ -841,36 +910,11 @@ class TwitterGraphQLAPI:
 
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
-            method = 'GET',
-            query_id = '5szMMrM2iJYt2JJI97mOug',
-            endpoint = 'SearchTimeline',
+            method = self.ENDPOINTS['SearchTimeline'].method,
+            query_id = self.ENDPOINTS['SearchTimeline'].query_id,
+            endpoint = self.ENDPOINTS['SearchTimeline'].endpoint,
             variables = variables,
-            features = {
-                'rweb_tipjar_consumption_enabled': True,
-                'responsive_web_graphql_exclude_directive_enabled': True,
-                'verified_phone_label_enabled': False,
-                'creator_subscriptions_tweet_preview_api_enabled': True,
-                'responsive_web_graphql_timeline_navigation_enabled': True,
-                'responsive_web_graphql_skip_user_profile_image_extensions_enabled': False,
-                'communities_web_enable_tweet_community_results_fetch': True,
-                'c9s_tweet_anatomy_moderator_badge_enabled': True,
-                'articles_preview_enabled': True,
-                'tweetypie_unmention_optimization_enabled': True,
-                'responsive_web_edit_tweet_api_enabled': True,
-                'graphql_is_translatable_rweb_tweet_is_translatable_enabled': True,
-                'view_counts_everywhere_api_enabled': True,
-                'longform_notetweets_consumption_enabled': True,
-                'responsive_web_twitter_article_tweet_consumption_enabled': True,
-                'tweet_awards_web_tipping_enabled': False,
-                'creator_subscriptions_quote_tweet_preview_enabled': False,
-                'freedom_of_speech_not_reach_fetch_enabled': True,
-                'standardized_nudges_misinfo': True,
-                'tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled': True,
-                'rweb_video_timestamps_enabled': True,
-                'longform_notetweets_rich_text_read_enabled': True,
-                'longform_notetweets_inline_media_enabled': True,
-                'responsive_web_enhance_cards_enabled': False,
-            },
+            features = self.ENDPOINTS['SearchTimeline'].features,
             error_message_prefix = 'ツイートの検索に失敗しました。',
         )
 

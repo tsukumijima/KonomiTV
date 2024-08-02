@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from pydantic import Field
 from pydantic import RootModel
 from tortoise.contrib.pydantic import PydanticModel
-from typing import Annotated, Literal, Union
+from typing import Annotated, Any, Literal, Union
 from typing_extensions import TypedDict
 
 
@@ -515,6 +515,12 @@ class TwitterChallengeData(TwitterAPIResult):
     verification_code: str
     challenge_js_code: str
     challenge_animation_svg_codes: list[str]
+
+class TwitterGraphQLAPIEndpoint(BaseModel):
+    method: Literal['GET', 'POST']
+    query_id: str
+    endpoint: str
+    features: dict[str, Any] | None = None
 
 # ***** ユーザー *****
 
