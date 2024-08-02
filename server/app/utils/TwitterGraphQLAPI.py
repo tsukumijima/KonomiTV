@@ -70,24 +70,56 @@ class TwitterGraphQLAPI:
 
         self.twitter_account = twitter_account
 
-        # Chrome への偽装用 HTTP リクエストヘッダーと Cookie を取得
+        # Chrome への偽装用 HTTP リクエストヘッダーを取得
         ## User-Agent ヘッダーも Chrome に偽装されている
         self.cookie_session_user_handler = self.twitter_account.getTweepyAuthHandler()
         self.graphql_headers_dict = self.cookie_session_user_handler.get_graphql_api_headers()  # GraphQL API 用ヘッダー
         self.html_headers_dict = self.cookie_session_user_handler.get_html_headers()  # HTML 用ヘッダー
-        self.cookies_dict = self.cookie_session_user_handler.get_cookies_as_dict()
+
+        # 指定されたアカウントへの認証情報が含まれる Cookie を取得し、httpx.Cookies に変換
+        ## ここで生成した httpx.Cookies を HTTP クライアントに渡す
+        cookies_dict = self.cookie_session_user_handler.get_cookies_as_dict()
+        cookies = httpx.Cookies()
+        for name, value in cookies_dict.items():
+            # ドメインを ".x.com" 、パスを "/" に設定しておくことが重要 (でないと Cookie 更新時にちゃんと上書きできない)
+            ## ただし "lang" キーだけは ".x.com" でなく "x.com" にする必要がある
+            if name == 'lang':
+                cookies.set(name, value, domain='x.com', path='/')
+            else:
+                cookies.set(name, value, domain='.x.com', path='/')
 
         # httpx の非同期 HTTP クライアントのインスタンスを作成
         ## 可能な限り Chrome からのリクエストに偽装するため、app.constants.HTTPX_CLIENT は使わずに独自のインスタンスを作成する
         self.httpx_client = httpx.AsyncClient(
-            ## リクエストヘッダーと Cookie を設定
-            headers = self.graphql_headers_dict,
-            cookies = self.cookies_dict,
+            ## Cookie を設定
+            ## Cookie はこの HTTP クライアントで行う全リクエストで共有されてほしいので、ここで設定している
+            ## 一方リクエストヘッダーはリクエスト先のリソース種類によって異なるためここでは設定せず、リクエスト毎に個別に設定する
+            ## (HTTP クライアントレベルで設定されたヘッダーは上書きや削除が難しそうなため)
+            cookies = cookies,
             ## リダイレクトを追跡する
             follow_redirects = True,
             ## 可能な限り Chrome からのリクエストに偽装するため、HTTP/1.1 ではなく明示的に HTTP/2 で接続する
             http2 = True,
         )
+
+
+    async def persistCookies(self) -> None:
+        """
+        HTTP クライアントの Cookie をデータベースに永続化する
+        """
+
+        # 既存の access_token_secret から Cookie を取得
+        existing_cookies: dict[str, str] = json.loads(self.twitter_account.access_token_secret)
+
+        # HTTP クライアントが現在持つ Cookie で既存の Cookie を更新
+        print(self.httpx_client.cookies)
+        for name, value in self.httpx_client.cookies.items():
+            existing_cookies[name] = value
+        print(existing_cookies)
+
+        # 更新された Cookie を再び JSON にして保存
+        self.twitter_account.access_token_secret = json.dumps(existing_cookies, ensure_ascii = False)
+        await self.twitter_account.save()
 
 
     async def fetchChallengeData(self) -> schemas.TwitterChallengeData | schemas.TwitterAPIResult:
@@ -109,11 +141,8 @@ class TwitterGraphQLAPI:
         """
 
         # Twitter Web App (SPA) の HTML を取得
-        ## デフォルトでセットされている GraphQL API リクエスト用のヘッダーではなく、HTML リクエスト用のヘッダーに差し替えるのが重要
-        twitter_web_app_html = await self.httpx_client.get(
-            url = 'https://x.com/',
-            headers = self.html_headers_dict,
-        )
+        ## HTML リクエスト用のヘッダーに差し替えるのが重要
+        twitter_web_app_html = await self.httpx_client.get('https://x.com/', headers=self.html_headers_dict)
         if twitter_web_app_html.status_code != 200:
             return schemas.TwitterAPIResult(
                 is_success = False,
@@ -138,7 +167,7 @@ class TwitterGraphQLAPI:
         if not challenge_code_match:
             return schemas.TwitterAPIResult(
                 is_success = False,
-                detail = 'Twitter Web App の HTML からチャレンジコードを取得できませんでした。',
+                detail = 'Twitter Web App の HML からチャレンジコードを取得できませんでした。',
             )
         challenge_code = challenge_code_match.group(1)
 
@@ -146,6 +175,7 @@ class TwitterGraphQLAPI:
         challenge_animation_svg_codes = [str(svg) for svg in soup.select('svg[id^="loading-x"]')]
 
         # チャレンジデータを取得
+        ## HTML リクエスト用のヘッダーに差し替えるのが重要
         challenge_js_code_response = await self.httpx_client.get(
             url = f'https://abs.twimg.com/responsive-web/client-web/ondemand.s.{challenge_code}a.js',
             headers = self.html_headers_dict,
@@ -153,9 +183,16 @@ class TwitterGraphQLAPI:
         if challenge_js_code_response.status_code != 200:
             return schemas.TwitterAPIResult(
                 is_success = False,
-                detail = f'Twitter Web App のチャレンジコードからチャレンジコードを取得できませんでした。(HTTP Error {challenge_js_code_response.status_code})',
+                detail = (
+                    f'Twitter Web App のチャレンジコードからチャレンジコードを取得できませんでした。'
+                    f'(HTTP Error {challenge_js_code_response.status_code})'
+                ),
             )
         challenge_js_code = challenge_js_code_response.text
+
+        # この時点でリクエスト自体は成功しているはずなので、httpx のセッションが持つ Cookie を DB に反映する
+        ## HTML リクエスト時に Cookie が更新される可能性があるため、ここで変更された可能性がある Cookie を永続化する
+        await self.persistCookies()
 
         # チャレンジデータを返す
         return schemas.TwitterChallengeData(
@@ -193,41 +230,44 @@ class TwitterGraphQLAPI:
 
         # Twitter GraphQL API に HTTP リクエストを送信する
         try:
-            async with self.httpx_client:
-                if method == 'POST':
-                    # POST の場合はペイロードを組み立てて JSON にして渡す
-                    ## features が存在しない API のときは features を省略する
-                    if features is not None:
-                        payload = {
-                            'variables': variables,
-                            'features': features,
-                            'queryId': query_id,  # クエリ ID も JSON に含める必要がある
-                        }
-                    else:
-                        payload = {
-                            'variables': variables,
-                            'queryId': query_id,  # クエリ ID も JSON に含める必要がある
-                        }
-                    response = await self.httpx_client.post(
-                        url = f'https://x.com/i/api/graphql/{query_id}/{endpoint}',
-                        json = payload,
-                    )
-                elif method == 'GET':
-                    # GET の場合は queryId はパスに、variables と features はクエリパラメータに JSON エンコードした上で渡す
-                    ## features が存在しない API のときは features を省略する
-                    if features is not None:
-                        params = {
-                            'variables': json.dumps(variables, ensure_ascii=False),
-                            'features': json.dumps(features, ensure_ascii=False),
-                        }
-                    else:
-                        params = {
-                            'variables': json.dumps(variables, ensure_ascii=False),
-                        }
-                    response = await self.httpx_client.get(
-                        url = f'https://x.com/i/api/graphql/{query_id}/{endpoint}',
-                        params = params,
-                    )
+            if method == 'POST':
+                # POST の場合はペイロードを組み立てて JSON にして渡す
+                ## features が存在しない API のときは features を省略する
+                if features is not None:
+                    payload = {
+                        'variables': variables,
+                        'features': features,
+                        'queryId': query_id,  # クエリ ID も JSON に含める必要がある
+                    }
+                else:
+                    payload = {
+                        'variables': variables,
+                        'queryId': query_id,  # クエリ ID も JSON に含める必要がある
+                    }
+                # GraphQL API リクエスト用のヘッダーに差し替えるのが重要
+                response = await self.httpx_client.post(
+                    url = f'https://x.com/i/api/graphql/{query_id}/{endpoint}',
+                    json = payload,
+                    headers = self.graphql_headers_dict,
+                )
+            elif method == 'GET':
+                # GET の場合は queryId はパスに、variables と features はクエリパラメータに JSON エンコードした上で渡す
+                ## features が存在しない API のときは features を省略する
+                if features is not None:
+                    params = {
+                        'variables': json.dumps(variables, ensure_ascii=False),
+                        'features': json.dumps(features, ensure_ascii=False),
+                    }
+                else:
+                    params = {
+                        'variables': json.dumps(variables, ensure_ascii=False),
+                    }
+                # GraphQL API リクエスト用のヘッダーに差し替えるのが重要
+                response = await self.httpx_client.get(
+                    url = f'https://x.com/i/api/graphql/{query_id}/{endpoint}',
+                    params = params,
+                    headers = self.graphql_headers_dict,
+                )
 
         # 接続エラー（サーバーメンテナンスやタイムアウトなど）
         except (httpx.NetworkError, httpx.TimeoutException):
@@ -237,9 +277,7 @@ class TwitterGraphQLAPI:
 
         # この時点でリクエスト自体は成功しているはずなので、httpx のセッションが持つ Cookie を DB に反映する
         ## 基本 API リクエストでは Cookie は更新されないはずだが、不審がられないように念のためブラウザ同様リクエストごとに永続化する
-        session_cookies_dict = dict(self.httpx_client.cookies)
-        self.twitter_account.access_token_secret = json.dumps(session_cookies_dict, ensure_ascii=False)
-        await self.twitter_account.save()
+        await self.persistCookies()
 
         # HTTP ステータスコードが 200 系以外の場合
         if not (200 <= response.status_code < 300):
