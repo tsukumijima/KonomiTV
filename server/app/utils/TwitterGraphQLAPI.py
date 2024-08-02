@@ -237,10 +237,8 @@ class TwitterGraphQLAPI:
         existing_cookies: dict[str, str] = json.loads(self.twitter_account.access_token_secret)
 
         # HTTP クライアントが現在持つ Cookie で既存の Cookie を更新
-        print(self.httpx_client.cookies)
         for name, value in self.httpx_client.cookies.items():
             existing_cookies[name] = value
-        print(existing_cookies)
 
         # 更新された Cookie を再び JSON にして保存
         self.twitter_account.access_token_secret = json.dumps(existing_cookies, ensure_ascii = False)
