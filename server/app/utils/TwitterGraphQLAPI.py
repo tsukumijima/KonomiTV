@@ -33,7 +33,7 @@ class TwitterGraphQLAPI:
     ## リクエストペイロードのうち "features" 内に入っている機能フラグ (？) も数週間単位で頻繁に変更されうるが、Twitter Web App と
     ## 完全に一致していないからといって必ずしも動かなくなるわけではなく、クエリ ID 同様にある程度は古い値でも動くようになっているらしい
     ## 以下のコードはエンドポイントごとに poetry run python -m misc.TwitterAPIQueryGenerator を実行して半自動生成できる
-    ENDPOINTS: dict[str, schemas.TwitterGraphQLAPIEndpointInfo] = {
+    ENDPOINT_INFOS: dict[str, schemas.TwitterGraphQLAPIEndpointInfo] = {
         'CreateTweet': schemas.TwitterGraphQLAPIEndpointInfo(
             method = 'POST',
             query_id = 'jUuX3C2RKpYMn2rJcflBAw',
@@ -323,6 +323,7 @@ class TwitterGraphQLAPI:
         return schemas.TwitterChallengeData(
             is_success = True,
             detail = 'Twitter Web App のチャレンジデータを取得しました。',
+            endpoint_infos = self.ENDPOINT_INFOS,
             verification_code = verification_code,
             challenge_js_code = challenge_js_code,
             challenge_animation_svg_codes = challenge_animation_svg_codes,
@@ -365,7 +366,7 @@ class TwitterGraphQLAPI:
                     }
                 # GraphQL API リクエスト用のヘッダーに差し替えるのが重要
                 response = await self.httpx_client.post(
-                    url = f'https://x.com/i/api/graphql/{endpoint_info.query_id}/{endpoint_info.endpoint}',
+                    url = 'https://x.com' + endpoint_info.path,
                     json = payload,
                     headers = self.graphql_headers_dict,
                 )
@@ -383,7 +384,7 @@ class TwitterGraphQLAPI:
                     }
                 # GraphQL API リクエスト用のヘッダーに差し替えるのが重要
                 response = await self.httpx_client.get(
-                    url = f'https://x.com/i/api/graphql/{endpoint_info.query_id}/{endpoint_info.endpoint}',
+                    url = 'https://x.com' + endpoint_info.path,
                     params = params,
                     headers = self.graphql_headers_dict,
                 )
@@ -482,7 +483,7 @@ class TwitterGraphQLAPI:
 
             # Twitter GraphQL API にリクエスト
             response = await self.invokeGraphQLAPI(
-                endpoint_info = self.ENDPOINTS['CreateTweet'],
+                endpoint_info = self.ENDPOINT_INFOS['CreateTweet'],
                 variables = {
                     'tweet_text': tweet,
                     'dark_request': False,
@@ -533,7 +534,7 @@ class TwitterGraphQLAPI:
 
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
-            endpoint_info = self.ENDPOINTS['CreateRetweet'],
+            endpoint_info = self.ENDPOINT_INFOS['CreateRetweet'],
             variables = {
                 'tweet_id': tweet_id,
                 'dark_request': False,
@@ -567,7 +568,7 @@ class TwitterGraphQLAPI:
 
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
-            endpoint_info = self.ENDPOINTS['DeleteRetweet'],
+            endpoint_info = self.ENDPOINT_INFOS['DeleteRetweet'],
             variables = {
                 'source_tweet_id': tweet_id,
                 'dark_request': False,
@@ -601,7 +602,7 @@ class TwitterGraphQLAPI:
 
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
-            endpoint_info = self.ENDPOINTS['FavoriteTweet'],
+            endpoint_info = self.ENDPOINT_INFOS['FavoriteTweet'],
             variables = {
                 'tweet_id': tweet_id,
             },
@@ -634,7 +635,7 @@ class TwitterGraphQLAPI:
 
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
-            endpoint_info = self.ENDPOINTS['UnfavoriteTweet'],
+            endpoint_info = self.ENDPOINT_INFOS['UnfavoriteTweet'],
             variables = {
                 'tweet_id': tweet_id,
             },
@@ -829,7 +830,7 @@ class TwitterGraphQLAPI:
 
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
-            endpoint_info = self.ENDPOINTS['HomeLatestTimeline'],
+            endpoint_info = self.ENDPOINT_INFOS['HomeLatestTimeline'],
             variables = variables,
             error_message_prefix = 'タイムラインの取得に失敗しました。',
         )
@@ -894,7 +895,7 @@ class TwitterGraphQLAPI:
 
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
-            endpoint_info = self.ENDPOINTS['SearchTimeline'],
+            endpoint_info = self.ENDPOINT_INFOS['SearchTimeline'],
             variables = variables,
             error_message_prefix = 'ツイートの検索に失敗しました。',
         )

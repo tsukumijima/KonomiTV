@@ -6,6 +6,7 @@ from __future__ import annotations
 from datetime import date
 from datetime import datetime
 from pydantic import BaseModel
+from pydantic import computed_field
 from pydantic import Field
 from pydantic import RootModel
 from tortoise.contrib.pydantic import PydanticModel
@@ -512,6 +513,7 @@ class TimelineTweetsResult(TwitterAPIResult):
     tweets: list[Tweet]
 
 class TwitterChallengeData(TwitterAPIResult):
+    endpoint_infos: dict[str, TwitterGraphQLAPIEndpointInfo]
     verification_code: str
     challenge_js_code: str
     challenge_animation_svg_codes: list[str]
@@ -521,6 +523,11 @@ class TwitterGraphQLAPIEndpointInfo(BaseModel):
     query_id: str
     endpoint: str
     features: dict[str, Any] | None = None
+
+    @computed_field
+    @property
+    def path(self) -> str:
+        return f'/i/api/graphql/{self.query_id}/{self.endpoint}'
 
 # ***** ユーザー *****
 
