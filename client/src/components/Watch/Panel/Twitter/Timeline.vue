@@ -157,7 +157,6 @@ watch(selected_twitter_account, () => {
 .timeline-settings {
     padding: 0px 12px;
     border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.12);
-    background-color: rgb(var(--v-theme-background-lighten-1));
 }
 
 .timeline-tweets {

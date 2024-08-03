@@ -8,7 +8,7 @@
                     class="search-input"
                     type="text"
                     placeholder="検索キーワードを入力"
-                    @keydown.ctrl.enter="performSearchTweets"
+                    @keydown="onKeyDown($event)"
                 />
             </div>
             <div class="d-flex align-center ml-auto h-100">
@@ -41,6 +41,7 @@ import { storeToRefs } from 'pinia';
 import { ref, watch } from 'vue';
 
 import Tweet from '@/components/Watch/Panel/Twitter/Tweet.vue';
+import Message from '@/message';
 import Twitter, { ITweet } from '@/services/Twitter';
 import useTwitterStore from '@/stores/TwitterStore';
 import useUserStore from '@/stores/UserStore';
@@ -62,8 +63,18 @@ const toggleSettings = () => {
     showSettings.value = !showSettings.value;
 };
 
+const onKeyDown = (event: KeyboardEvent) => {
+    // 変換中は検索しない
+    if (event.key === 'Enter' && event.isComposing === false) {
+        performSearchTweets();
+    }
+};
+
 const performSearchTweets = async () => {
-    if (isFetching.value || !searchQuery.value.trim()) return;
+    if (isFetching.value || !searchQuery.value.trim()) {
+        Message.warning('検索キーワードを入力してください！');
+        return;
+    }
     isFetching.value = true;
     await useUserStore().fetchUser();
     if (!selected_twitter_account.value) {
@@ -124,7 +135,7 @@ watch(selected_twitter_account, () => {
     align-items: center;
     flex-grow: 1;
     height: 100%;
-    padding-left: 12px;
+    padding-left: 8px;
     margin-right: 6px;
     background-color: rgb(var(--v-theme-background-lighten-2));
     border-radius: 5px;
@@ -136,7 +147,7 @@ watch(selected_twitter_account, () => {
     background: none;
     border: none;
     outline: none;
-    font-size: 14px;
+    font-size: 13px;
     color: rgb(var(--v-theme-text));
 }
 
@@ -168,7 +179,6 @@ watch(selected_twitter_account, () => {
 .search-settings {
     padding: 0px 12px;
     border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.12);
-    background-color: rgb(var(--v-theme-background-lighten-1));
 }
 
 .search-tweets {
