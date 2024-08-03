@@ -735,6 +735,13 @@ class TwitterGraphQLAPI:
                     if (content.get('entryType') == 'TimelineTimelineCursor' and \
                         content.get('cursorType') == cursor_type):
                         return content.get('value')
+            elif instruction.get('type') == 'TimelineReplaceEntry':
+                entry = instruction.get('entry', {})
+                content = entry.get('content', {})
+                if (content.get('entryType') == 'TimelineTimelineCursor' and \
+                    content.get('cursorType') == cursor_type):
+                    return content.get('value')
+
         return None
 
 

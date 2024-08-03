@@ -14,7 +14,7 @@
                         <span class="tweet__user-name">{{ displayedTweet.user.name }}</span>
                         <span class="tweet__user-screen-name">@{{ displayedTweet.user.screen_name }}</span>
                     </a>
-                    <span class="tweet__timestamp">{{ dayjs(displayedTweet.created_at).format('MM/DD HH:mm') }}</span>
+                    <span class="tweet__timestamp">{{ dayjs(displayedTweet.created_at).format('MM/DD HH:mm:ss') }}</span>
                 </div>
                 <p class="tweet__text" v-html="formattedText"></p>
                 <div v-if="displayedTweet.image_urls && displayedTweet.image_urls.length > 0" class="tweet__images">
