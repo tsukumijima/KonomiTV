@@ -707,28 +707,16 @@ class TwitterGraphQLAPI:
             str | None: カーソル ID (仕様変更などで取得できなかった場合は None)
         """
 
-        # '__typename' が 'TimelineTimelineCursor' で、'cursorType' が指定されたタイプと一致し、'value' キーを持つオブジェクトを再帰的に探索する
-        ## 既に探索したオブジェクトは再度探索しないようにすることで、無限ループを防ぐ
-        def find_cursor_id(object: Any, searched_objects: list[Any] = []) -> str | None:
-            if object in searched_objects:
-                return None
-            searched_objects.append(object)
-            if isinstance(object, dict):
-                if ('__typename' in object and 'cursorType' in object and 'value' in object) and \
-                   (object['__typename'] == 'TimelineTimelineCursor' and object['cursorType'] == cursor_type):
-                    return object['value']
-                for key in object:
-                    item = find_cursor_id(object[key], searched_objects)
-                    if item is not None:
-                        return item
-            elif isinstance(object, list):
-                for item in object:
-                    cursor_id = find_cursor_id(item, searched_objects)
-                    if cursor_id is not None:
-                        return cursor_id
-            return None
-
-        return find_cursor_id(response)
+        instructions = response.get('home', {}).get('home_timeline_urt', {}).get('instructions', [])
+        for instruction in instructions:
+            if instruction.get('type') == 'TimelineAddEntries':
+                entries = instruction.get('entries', [])
+                for entry in entries:
+                    content = entry.get('content', {})
+                    if (content.get('entryType') == 'TimelineTimelineCursor' and \
+                        content.get('cursorType') == cursor_type):
+                        return content.get('value')
+        return None
 
 
     def __getTweetsFromTimelineAPIResponse(self, response: dict[str, Any]) -> list[schemas.Tweet]:
@@ -741,32 +729,6 @@ class TwitterGraphQLAPI:
         Returns:
             list[schemas.Tweet]: ツイートリスト
         """
-
-        # ここに API レスポンスから抽出したツイート情報を格納し、そこからさらに必要な情報を抽出して schemas.Tweet に格納する
-        raw_tweet_objects: list[dict[str, Any]] = []
-
-        # '__typename' が 'TimelineTweet' で、'tweetDisplayType' が 'Tweet' で、
-        # 'promotedMetadata' キーを持たず、'tweet_results' オブジェクトを持つオブジェクトを再帰的に探索し、
-        # tweet_results.result の '__typename' が 'Tweet' or 'TweetWithVisibilityResults ならそのオブジェクトを raw_tweet_objects に格納する
-        ## 既に探索したオブジェクトは再度探索しないようにすることで、無限ループを防ぐ
-        def find_tweet_objects(object: Any, searched_objects: list[Any] = []) -> None:
-            if object in searched_objects:
-                return
-            searched_objects.append(object)
-            if isinstance(object, dict):
-                if ('__typename' in object and 'tweetDisplayType' in object and 'tweet_results' in object and 'promotedMetadata' not in object) and \
-                   (object['__typename'] == 'TimelineTweet' and object['tweetDisplayType'] == 'Tweet') and \
-                   ('result' in object['tweet_results'] and '__typename' in object['tweet_results']['result']) and \
-                   (object['tweet_results']['result']['__typename'] in ['Tweet', 'TweetWithVisibilityResults']):
-                    raw_tweet_objects.append(object['tweet_results']['result'])
-                for key in object:
-                    find_tweet_objects(object[key], searched_objects)
-            elif isinstance(object, list):
-                for item in object:
-                    find_tweet_objects(item, searched_objects)
-
-        # API レスポンスからツイート情報を抽出
-        find_tweet_objects(response)
 
         def format_tweet(raw_tweet_object: dict[str, Any]) -> schemas.Tweet:
             """ API レスポンスから取得したツイート情報を schemas.Tweet に変換する """
@@ -837,8 +799,24 @@ class TwitterGraphQLAPI:
                 quoted_tweet = quoted_tweet,
             )
 
-        # API レスポンスから取得したツイート情報を schemas.Tweet に変換して返す
-        return list(map(format_tweet, raw_tweet_objects))
+        tweets: list[schemas.Tweet] = []
+
+        instructions = response.get('home', {}).get('home_timeline_urt', {}).get('instructions', [])
+        for instruction in instructions:
+            if instruction.get('type') == 'TimelineAddEntries':
+                entries = instruction.get('entries', [])
+                for entry in entries:
+                    # entryId が promoted- から始まるツイートは広告ツイートなので除外
+                    if entry.get('entryId', '').startswith('promoted-'):
+                        continue
+                    content = entry.get('content', {})
+                    if content.get('entryType') == 'TimelineTimelineItem' and \
+                    content.get('itemContent', {}).get('itemType') == 'TimelineTweet':
+                        tweet_results = content.get('itemContent', {}).get('tweet_results', {}).get('result')
+                        if tweet_results and tweet_results.get('__typename') in ['Tweet', 'TweetWithVisibilityResults']:
+                            tweets.append(format_tweet(tweet_results))
+
+        return tweets
 
 
     async def homeLatestTimeline(self,
