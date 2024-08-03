@@ -22,11 +22,8 @@
                 label="リツイートを表示する"
             />
         </div>
-        <div class="timeline-tweets" ref="tweetContainer">
-            <div v-for="tweet in visibleTweets" :key="tweet.id" class="tweet-wrapper">
-                <Tweet :tweet="tweet" />
-            </div>
-            <div ref="loadingTrigger" class="loading-trigger"></div>
+        <div class="timeline-tweets">
+            <Tweet v-for="tweet in tweets" :key="tweet.id" :tweet="tweet" />
         </div>
     </div>
 </template>
@@ -44,16 +41,13 @@ const twitterStore = useTwitterStore();
 const { selected_twitter_account } = storeToRefs(twitterStore);
 
 const tweets = ref<ITweet[]>([]);
-const visibleTweets = ref<ITweet[]>([]);
 const showSettings = ref(false);
 const showRetweets = ref(true);
 const isFetching = ref(false);
-const tweetContainer = ref<HTMLElement | null>(null);
-const loadingTrigger = ref<HTMLElement | null>(null);
-const observer = ref<IntersectionObserver | null>(null);
-const next_cursor_id = ref<string | undefined>(undefined);
+const nextCursorId = ref<string | undefined>(undefined);
 
-const MAX_TWEETS = 100;  // データとして保持する最大ツイート数
+// 表示する最大ツイート数
+const MAX_TWEETS = 50;
 
 const toggleSettings = () => {
     showSettings.value = !showSettings.value;
@@ -71,63 +65,45 @@ const fetchTweets = async () => {
     }
 
     // タイムラインのツイートを「投稿時刻が新しい順」に取得
-    // つまり新しいツイートを取得したら tweets の先頭に追加する必要がある
-    const result = await Twitter.getHomeTimeline(selected_twitter_account.value.screen_name, next_cursor_id.value);
+    // つまり後ろの要素になるほど古いツイートになる
+    const result = await Twitter.getHomeTimeline(selected_twitter_account.value.screen_name, nextCursorId.value);
     if (result && result.tweets) {
-        const newTweets = result.tweets.filter(tweet => showRetweets.value || !tweet.retweeted_tweet);
-        tweets.value = next_cursor_id.value ? [ ...newTweets, ...tweets.value] : newTweets;
-        tweets.value = tweets.value.slice(0, MAX_TWEETS);  // 最大100ツイートに制限
-        next_cursor_id.value = result.next_cursor_id;
-        updateVisibleTweets();
+        // 「リツイートを表示しない」がチェックされている場合はリツイートのツイートを除外
+        if (showRetweets.value === false) {
+            result.tweets = result.tweets.filter(tweet => !tweet.retweeted_tweet);
+        }
+        // 新しいツイートを取得したら tweets の先頭に追加し、
+        // 表示対象のツイートを最大 MAX_TWEETS ツイートに制限した上で tweets.value を更新
+        tweets.value = [ ...result.tweets, ...tweets.value].slice(0, MAX_TWEETS);
+        // 次のツイートを取得するためのカーソル ID を更新
+        nextCursorId.value = result.next_cursor_id;
     }
     isFetching.value = false;
 };
 
-const updateVisibleTweets = () => {
-    visibleTweets.value = tweets.value;
-};
-
-const loadMoreTweets = () => {
-    if (tweets.value.length < MAX_TWEETS) {
-        fetchTweets();
-    }
-};
-
+// コンポーネントマウント時のみ自動取得
+// これ以降は原則ボタンが押された時のみ手動取得となる
 onMounted(() => {
-    observer.value = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && !isFetching.value) {
-            loadMoreTweets();
-        }
-    }, { threshold: 0.5 });
-
-    if (loadingTrigger.value) {
-        observer.value.observe(loadingTrigger.value);
-    }
-
     fetchTweets();
 });
 
 // 「リツイートを表示する」のスイッチが変更されたらタイムラインの内容をまっさらにした上で再取得
 watch(showRetweets, () => {
-    tweets.value = tweets.value.filter(tweet => showRetweets.value || !tweet.retweeted_tweet);
-    visibleTweets.value = [];
-    loadMoreTweets();
+    tweets.value = [];
+    nextCursorId.value = undefined;
+    fetchTweets();
 });
 
 // 選択中の Twitter アカウントが変更されたらタイムラインの内容をまっさらにした上で再取得
 // このイベントはコンポーネントのマウント時にも実行される (マウント時に selected_twitter_account が変更されるため)
 watch(selected_twitter_account, () => {
     tweets.value = [];
-    visibleTweets.value = [];
+    nextCursorId.value = undefined;
     fetchTweets();
 });
 
 </script>
 <style lang="scss" scoped>
-
-.loading-trigger {
-    height: 20px;
-}
 
 .tab-content--timeline {
     display: flex;
@@ -198,6 +174,7 @@ watch(selected_twitter_account, () => {
 .timeline-tweets {
     flex-grow: 1;
     overflow-y: auto;
+    will-change: transform;
 }
 
 @keyframes spin {

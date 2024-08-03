@@ -16,7 +16,7 @@
                     </a>
                     <span class="tweet__timestamp">{{ dayjs(displayedTweet.created_at).format('MM/DD HH:mm') }}</span>
                 </div>
-                <p class="tweet__text">{{ displayedTweet.text }}</p>
+                <p class="tweet__text" v-html="formattedText"></p>
                 <div v-if="displayedTweet.image_urls && displayedTweet.image_urls.length > 0" class="tweet__images">
                     <img v-for="(url, index) in displayedTweet.image_urls" :key="index" :src="url" alt="Tweet Image" class="tweet__image" loading="lazy" decoding="async">
                 </div>
@@ -27,7 +27,7 @@
                         <span class="tweet__quoted-user-name">{{ displayedTweet.quoted_tweet.user.name }}</span>
                         <span class="tweet__quoted-user-screen-name">@{{ displayedTweet.quoted_tweet.user.screen_name }}</span>
                     </div>
-                    <p class="tweet__quoted-text">{{ displayedTweet.quoted_tweet.text }}</p>
+                    <p class="tweet__quoted-text" v-html="formattedQuotedText"></p>
                 </a>
                 <div class="tweet__actions">
                     <button v-ripple class="tweet__action tweet__action--retweet" :class="{ 'tweet__action--active': displayedTweet.retweeted }"
@@ -64,6 +64,20 @@ const { selected_twitter_account } = storeToRefs(twitterStore);
 const tweet = ref(props.tweet);
 
 const displayedTweet = computed(() => tweet.value.retweeted_tweet || tweet.value);
+
+const formatText = (text: string) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const mentionRegex = /@(\w+)/g;
+    const hashtagRegex = /#([\w\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}ー]+)/gu;
+
+    return text
+        .replace(urlRegex, '<a class="tweet-link" href="$1" target="_blank">$1</a>')
+        .replace(mentionRegex, '<a class="tweet-link" href="https://x.com/$1" target="_blank">@$1</a>')
+        .replace(hashtagRegex, '<a class="tweet-link" href="https://x.com/hashtag/$1" target="_blank">#$1</a>');
+};
+
+const formattedText = computed(() => formatText(displayedTweet.value.text));
+const formattedQuotedText = computed(() => displayedTweet.value.quoted_tweet ? formatText(displayedTweet.value.quoted_tweet.text) : '');
 
 const handleRetweet = async () => {
     if (!selected_twitter_account.value) return;
@@ -117,6 +131,15 @@ const handleFavorite = async () => {
 
     &:hover {
         background-color: rgba(var(--v-theme-on-surface), 0.04);
+    }
+
+    :deep(.tweet-link) {
+        color: rgb(var(--v-theme-twitter));
+        text-decoration: none;
+
+        &:hover {
+            text-decoration: underline;
+        }
     }
 
     &__retweet-info {
