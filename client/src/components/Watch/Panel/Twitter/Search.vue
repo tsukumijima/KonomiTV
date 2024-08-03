@@ -107,14 +107,6 @@ watch(showRetweets, () => {
     performSearchTweets();
 });
 
-// 選択中の Twitter アカウントが変更されたらタイムラインの内容をまっさらにした上でカーソル ID も消して再取得
-// このイベントはコンポーネントのマウント時にも実行される (マウント時に selected_twitter_account が変更されるため)
-watch(selected_twitter_account, () => {
-    tweets.value = [];
-    nextCursorId.value = undefined;
-    performSearchTweets();
-});
-
 </script>
 <style lang="scss" scoped>
 
