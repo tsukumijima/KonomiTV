@@ -6,7 +6,7 @@
         </object>
         <object class="tweet__main-content">
             <a :href="`https://x.com/${displayedTweet.user.screen_name}`" target="_blank">
-                <img :src="displayedTweet.user.icon_url" alt="User Icon" class="tweet__user-icon">
+                <img :src="displayedTweet.user.icon_url" alt="User Icon" class="tweet__user-icon" loading="lazy" decoding="async">
             </a>
             <div class="tweet__content">
                 <div class="tweet__user-info">
@@ -18,7 +18,7 @@
                 </div>
                 <p class="tweet__text">{{ displayedTweet.text }}</p>
                 <div v-if="displayedTweet.image_urls && displayedTweet.image_urls.length > 0" class="tweet__images">
-                    <img v-for="(url, index) in displayedTweet.image_urls" :key="index" :src="url" alt="Tweet Image" class="tweet__image">
+                    <img v-for="(url, index) in displayedTweet.image_urls" :key="index" :src="url" alt="Tweet Image" class="tweet__image" loading="lazy" decoding="async">
                 </div>
                 <a v-if="displayedTweet.quoted_tweet"
                     :href="`https://x.com/${displayedTweet.quoted_tweet.user.screen_name}/status/${displayedTweet.quoted_tweet.id}`"

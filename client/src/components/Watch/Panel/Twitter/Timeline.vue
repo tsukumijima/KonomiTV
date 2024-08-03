@@ -22,36 +22,18 @@
                 label="リツイートを表示する"
             />
         </div>
-        <div class="timeline-tweets">
-            <DynamicScroller
-                :items="tweets"
-                :min-item-size="80"
-                class="scroller"
-            >
-                <template v-slot="{ item, index, active }">
-                    <DynamicScrollerItem
-                        :item="item"
-                        :active="active"
-                        :data-index="index"
-                        :size-dependencies="[
-                            item.text,
-                            item.media,
-                            item.quoted_tweet,
-                            item.retweeted_tweet
-                        ]"
-                    >
-                        <Tweet :tweet="item" />
-                    </DynamicScrollerItem>
-                </template>
-            </DynamicScroller>
+        <div class="timeline-tweets" ref="tweetContainer">
+            <div v-for="tweet in visibleTweets" :key="tweet.id" class="tweet-wrapper">
+                <Tweet :tweet="tweet" />
+            </div>
+            <div ref="loadingTrigger" class="loading-trigger"></div>
         </div>
     </div>
 </template>
-<script lang="ts" setup>
 
+<script lang="ts" setup>
 import { storeToRefs } from 'pinia';
-import { ref, watch } from 'vue';
-import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller';
+import { ref, onMounted, watch } from 'vue';
 
 import Tweet from '@/components/Watch/Panel/Twitter/Tweet.vue';
 import Twitter, { ITweet } from '@/services/Twitter';
@@ -62,9 +44,16 @@ const twitterStore = useTwitterStore();
 const { selected_twitter_account } = storeToRefs(twitterStore);
 
 const tweets = ref<ITweet[]>([]);
+const visibleTweets = ref<ITweet[]>([]);
 const showSettings = ref(false);
 const showRetweets = ref(true);
 const isFetching = ref(false);
+const tweetContainer = ref<HTMLElement | null>(null);
+const loadingTrigger = ref<HTMLElement | null>(null);
+const observer = ref<IntersectionObserver | null>(null);
+const next_cursor_id = ref<string | undefined>(undefined);
+
+const MAX_TWEETS = 100;  // データとして保持する最大ツイート数
 
 const toggleSettings = () => {
     showSettings.value = !showSettings.value;
@@ -81,42 +70,63 @@ const fetchTweets = async () => {
         return;
     }
 
-    const result = await Twitter.getHomeTimeline(selected_twitter_account.value.screen_name);
+    // タイムラインのツイートを「投稿時刻が新しい順」に取得
+    // つまり新しいツイートを取得したら tweets の先頭に追加する必要がある
+    const result = await Twitter.getHomeTimeline(selected_twitter_account.value.screen_name, next_cursor_id.value);
     if (result && result.tweets) {
-        for (const tweet of result.tweets) {
-            if (!showRetweets.value && tweet.retweeted_tweet) continue;
-            tweets.value.unshift(tweet);
-        }
-        // 100件を超えたら古いツイートから削除
-        if (tweets.value.length > 100) {
-            tweets.value.splice(100);
-        }
+        const newTweets = result.tweets.filter(tweet => showRetweets.value || !tweet.retweeted_tweet);
+        tweets.value = next_cursor_id.value ? [ ...newTweets, ...tweets.value] : newTweets;
+        tweets.value = tweets.value.slice(0, MAX_TWEETS);  // 最大100ツイートに制限
+        next_cursor_id.value = result.next_cursor_id;
+        updateVisibleTweets();
     }
     isFetching.value = false;
 };
 
-// 「リツイートを表示する」のスイッチが変更されたらタイムラインの内容をまっさらにした上で再取得
-watch(showRetweets, () => {
-    tweets.value = [];
+const updateVisibleTweets = () => {
+    visibleTweets.value = tweets.value;
+};
+
+const loadMoreTweets = () => {
+    if (tweets.value.length < MAX_TWEETS) {
+        fetchTweets();
+    }
+};
+
+onMounted(() => {
+    observer.value = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && !isFetching.value) {
+            loadMoreTweets();
+        }
+    }, { threshold: 0.5 });
+
+    if (loadingTrigger.value) {
+        observer.value.observe(loadingTrigger.value);
+    }
+
     fetchTweets();
 });
 
+// 「リツイートを表示する」のスイッチが変更されたらタイムラインの内容をまっさらにした上で再取得
+watch(showRetweets, () => {
+    tweets.value = tweets.value.filter(tweet => showRetweets.value || !tweet.retweeted_tweet);
+    visibleTweets.value = [];
+    loadMoreTweets();
+});
+
 // 選択中の Twitter アカウントが変更されたらタイムラインの内容をまっさらにした上で再取得
-// このイベントはコンポーネントのマウント時にも実行される
+// このイベントはコンポーネントのマウント時にも実行される (マウント時に selected_twitter_account が変更されるため)
 watch(selected_twitter_account, () => {
     tweets.value = [];
+    visibleTweets.value = [];
     fetchTweets();
 });
 
 </script>
 <style lang="scss" scoped>
-.timeline-tweets {
-    flex: 1;
-    overflow: hidden;
-}
 
-.scroller {
-    height: 100%;
+.loading-trigger {
+    height: 20px;
 }
 
 .tab-content--timeline {
