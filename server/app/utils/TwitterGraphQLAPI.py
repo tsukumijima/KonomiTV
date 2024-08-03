@@ -716,7 +716,17 @@ class TwitterGraphQLAPI:
             str | None: カーソル ID (仕様変更などで取得できなかった場合は None)
         """
 
-        instructions = response.get('home', {}).get('home_timeline_urt', {}).get('instructions', [])
+        # HomeLatestTimeline からのレスポンス
+        if 'home' in response:
+            instructions = response.get('home', {}).get('home_timeline_urt', {}).get('instructions', [])
+        # SearchTimeline からのレスポンス
+        elif 'search_by_raw_query' in response:
+            instructions = response.get('search_by_raw_query', {}).get('search_timeline', {}).get('timeline', {}).get('instructions', [])
+        # それ以外のレスポンス (通常あり得ないため、ここに到達した場合はレスポンス構造が変わった可能性が高い)
+        else:
+            instructions = []
+            logging.warning(f'[TwitterGraphQLAPI] Unknown timeline response format: {response}')
+
         for instruction in instructions:
             if instruction.get('type') == 'TimelineAddEntries':
                 entries = instruction.get('entries', [])
@@ -808,9 +818,18 @@ class TwitterGraphQLAPI:
                 quoted_tweet = quoted_tweet,
             )
 
-        tweets: list[schemas.Tweet] = []
+        # HomeLatestTimeline からのレスポンス
+        if 'home' in response:
+            instructions = response.get('home', {}).get('home_timeline_urt', {}).get('instructions', [])
+        # SearchTimeline からのレスポンス
+        elif 'search_by_raw_query' in response:
+            instructions = response.get('search_by_raw_query', {}).get('search_timeline', {}).get('timeline', {}).get('instructions', [])
+        # それ以外のレスポンス (通常あり得ないため、ここに到達した場合はレスポンス構造が変わった可能性が高い)
+        else:
+            instructions = []
+            logging.warning(f'[TwitterGraphQLAPI] Unknown timeline response format: {response}')
 
-        instructions = response.get('home', {}).get('home_timeline_urt', {}).get('instructions', [])
+        tweets: list[schemas.Tweet] = []
         for instruction in instructions:
             if instruction.get('type') == 'TimelineAddEntries':
                 entries = instruction.get('entries', [])
