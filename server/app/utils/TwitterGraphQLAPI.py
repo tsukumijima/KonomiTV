@@ -281,6 +281,7 @@ class TwitterGraphQLAPI:
         ## HTML リクエスト用のヘッダーに差し替えるのが重要
         twitter_web_app_html = await self.httpx_client.get('https://x.com/', headers=self.html_headers_dict)
         if twitter_web_app_html.status_code != 200:
+            logging.error(f'[TwitterGraphQLAPI] Failed to fetch Twitter Web App HTML: {twitter_web_app_html.status_code}')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = f'Twitter Web App の HTML を取得できませんでした。(HTTP Error {twitter_web_app_html.status_code})',
@@ -293,6 +294,7 @@ class TwitterGraphQLAPI:
         # HTML の meta タグに含まれる検証コードを取得
         meta_tag = soup.select_one('meta[name="twitter-site-verification"]')
         if meta_tag is None:
+            logging.error(f'[TwitterGraphQLAPI] Failed to fetch verification code from Twitter Web App HTML')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = 'Twitter Web App の HTML から検証コードを取得できませんでした。',
@@ -302,6 +304,7 @@ class TwitterGraphQLAPI:
         # HTML からチャレンジコードを取得
         challenge_code_match = re.search(r'"ondemand.s":"(\w+)"', twitter_web_app_html_text)
         if not challenge_code_match:
+            logging.error(f'[TwitterGraphQLAPI] Failed to fetch challenge code from Twitter Web App HTML')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = 'Twitter Web App の HML からチャレンジコードを取得できませんでした。',
@@ -318,6 +321,7 @@ class TwitterGraphQLAPI:
             headers = self.js_headers_dict,
         )
         if challenge_js_code_response.status_code != 200:
+            logging.error(f'[TwitterGraphQLAPI] Failed to fetch challenge code from Twitter Web App HTML')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = (
@@ -532,6 +536,7 @@ class TwitterGraphQLAPI:
 
             # 戻り値が str の場合、ツイートの送信に失敗している (エラーメッセージが返ってくる)
             if isinstance(response, str):
+                logging.error(f'[TwitterGraphQLAPI] Failed to create tweet: {response}')
                 return schemas.TwitterAPIResult(
                     is_success = False,
                     detail = response,  # エラーメッセージをそのまま返す
@@ -577,6 +582,7 @@ class TwitterGraphQLAPI:
 
         # 戻り値が str の場合、リツイートに失敗している (エラーメッセージが返ってくる)
         if isinstance(response, str):
+            logging.error(f'[TwitterGraphQLAPI] Failed to create retweet: {response}')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = response,  # エラーメッセージをそのまま返す
@@ -613,6 +619,7 @@ class TwitterGraphQLAPI:
 
         # 戻り値が str の場合、リツイートの取り消しに失敗している (エラーメッセージが返ってくる)
         if isinstance(response, str):
+            logging.error(f'[TwitterGraphQLAPI] Failed to delete retweet: {response}')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = response,  # エラーメッセージをそのまま返す
@@ -648,6 +655,7 @@ class TwitterGraphQLAPI:
 
         # 戻り値が str の場合、いいねに失敗している (エラーメッセージが返ってくる)
         if isinstance(response, str):
+            logging.error(f'[TwitterGraphQLAPI] Failed to favorite tweet: {response}')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = response,  # エラーメッセージをそのまま返す
@@ -683,6 +691,7 @@ class TwitterGraphQLAPI:
 
         # 戻り値が str の場合、いいねの取り消しに失敗している (エラーメッセージが返ってくる)
         if isinstance(response, str):
+            logging.error(f'[TwitterGraphQLAPI] Failed to unfavorite tweet: {response}')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = response,  # エラーメッセージをそのまま返す
@@ -858,6 +867,7 @@ class TwitterGraphQLAPI:
 
         # 戻り値が str の場合、タイムラインの取得に失敗している (エラーメッセージが返ってくる)
         if isinstance(response, str):
+            logging.error(f'[TwitterGraphQLAPI] Failed to fetch timeline: {response}')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = response,  # エラーメッセージをそのまま返す
@@ -868,6 +878,7 @@ class TwitterGraphQLAPI:
         next_cursor_id = self.__getCursorIDFromTimelineAPIResponse(response, 'Top')  # 現在よりも新しいツイートを取得するためのカーソル ID
         previous_cursor_id = self.__getCursorIDFromTimelineAPIResponse(response, 'Bottom')  # 現在よりも過去のツイートを取得するためのカーソル ID
         if next_cursor_id is None or previous_cursor_id is None:
+            logging.error(f'[TwitterGraphQLAPI] Failed to fetch timeline: Cursor ID not found')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = 'タイムラインの取得に失敗しました。カーソル ID を取得できませんでした。開発者に修正を依頼してください。',
@@ -926,6 +937,7 @@ class TwitterGraphQLAPI:
 
         # 戻り値が str の場合、ツイートの検索に失敗している (エラーメッセージが返ってくる)
         if isinstance(response, str):
+            logging.error(f'[TwitterGraphQLAPI] Failed to search tweets: {response}')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = response,  # エラーメッセージをそのまま返す
@@ -936,6 +948,7 @@ class TwitterGraphQLAPI:
         next_cursor_id = self.__getCursorIDFromTimelineAPIResponse(response, 'Top')  # 現在よりも新しいツイートを取得するためのカーソル ID
         previous_cursor_id = self.__getCursorIDFromTimelineAPIResponse(response, 'Bottom')  # 現在よりも過去のツイートを取得するためのカーソル ID
         if next_cursor_id is None or previous_cursor_id is None:
+            logging.error(f'[TwitterGraphQLAPI] Failed to search tweets: Cursor ID not found')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = 'ツイートの検索に失敗しました。カーソル ID を取得できませんでした。開発者に修正を依頼してください。',
