@@ -41,7 +41,6 @@ import { storeToRefs } from 'pinia';
 import { ref, watch } from 'vue';
 
 import Tweet from '@/components/Watch/Panel/Twitter/Tweet.vue';
-import Message from '@/message';
 import Twitter, { ITweet } from '@/services/Twitter';
 import useTwitterStore from '@/stores/TwitterStore';
 import useUserStore from '@/stores/UserStore';
@@ -64,7 +63,7 @@ const toggleSettings = () => {
 };
 
 const onKeyDown = (event: KeyboardEvent) => {
-    // 変換中は検索しない
+    // 変換中でない場合のみ検索を実行
     if (event.key === 'Enter' && event.isComposing === false) {
         performSearchTweets();
     }
@@ -72,7 +71,6 @@ const onKeyDown = (event: KeyboardEvent) => {
 
 const performSearchTweets = async () => {
     if (isFetching.value || !searchQuery.value.trim()) {
-        Message.warning('検索キーワードを入力してください！');
         return;
     }
     isFetching.value = true;
@@ -95,14 +93,21 @@ const performSearchTweets = async () => {
     isFetching.value = false;
 };
 
-// 「リツイートを表示する」のスイッチが変更されたらタイムラインの内容をまっさらにした上で再取得
+// 検索クエリが変更された場合、同じ検索クエリではなくなるのでタイムラインの内容をまっさらにした上でカーソル ID も消す
+// この時点では検索処理自体は実行しない
+watch(searchQuery, () => {
+    tweets.value = [];
+    nextCursorId.value = undefined;
+});
+
+// 「リツイートを表示する」のスイッチが変更されたらタイムラインの内容をまっさらにした上でカーソル ID も消して再取得
 watch(showRetweets, () => {
     tweets.value = [];
     nextCursorId.value = undefined;
     performSearchTweets();
 });
 
-// 選択中の Twitter アカウントが変更されたらタイムラインの内容をまっさらにした上で再取得
+// 選択中の Twitter アカウントが変更されたらタイムラインの内容をまっさらにした上でカーソル ID も消して再取得
 // このイベントはコンポーネントのマウント時にも実行される (マウント時に selected_twitter_account が変更されるため)
 watch(selected_twitter_account, () => {
     tweets.value = [];
