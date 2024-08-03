@@ -668,15 +668,6 @@ export default defineComponent({
             &::-webkit-scrollbar {
                 width: 6px;
             }
-            @include tablet-vertical {
-                padding-top: 16px;
-            }
-            @include smartphone-horizontal {
-                padding-top: 8px;
-            }
-            @include smartphone-vertical {
-                padding-top: 8px;
-            }
 
             // スマホ・タブレット (タッチデバイス) ではアニメーションが重めなので、アニメーションを無効化
             // アクティブなタブ以外は明示的に描画しない

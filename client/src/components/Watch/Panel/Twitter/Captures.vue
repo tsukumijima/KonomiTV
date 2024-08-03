@@ -107,6 +107,19 @@ function clickCapture(capture: ITweetCapture) {
         filter: drop-shadow(0px 0px 4.5px rgba(0, 0, 0, 90%));
     }
 }
+
+.tab-content--capture {
+    @include tablet-vertical {
+        padding-top: 16px;
+    }
+    @include smartphone-horizontal {
+        padding-top: 8px;
+    }
+    @include smartphone-vertical {
+        padding-top: 8px;
+    }
+}
+
 .captures {
     display: grid;
     grid-template-columns: 1fr 1fr;

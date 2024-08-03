@@ -205,7 +205,7 @@ const handleFavorite = async () => {
 
     &__image {
         max-width: 100%;
-        max-height: 200px;
+        max-height: 175px;
         object-fit: cover;
         margin-top: 8px;
         margin-right: 6px;
