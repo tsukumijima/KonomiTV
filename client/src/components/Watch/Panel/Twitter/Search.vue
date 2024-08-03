@@ -15,8 +15,8 @@
                 <button v-ripple class="search-header__settings" @click="toggleSettings">
                     <Icon icon="fluent:settings-16-filled" width="20" />
                 </button>
-                <button v-ripple class="search-header__refresh" style="color: rgb(var(--v-theme-twitter-lighten-1))" @click="performSearchTweets"
-                    v-tooltip.bottom="'検索結果を更新'">
+                <button v-ripple class="search-header__refresh" style="color: rgb(var(--v-theme-twitter-lighten-1))"
+                    @click="performSearchTweets" v-tooltip.bottom="'検索結果を更新'">
                     <Icon icon="ic:round-refresh" width="20" :class="isFetching ? 'animate-spin' : ''" />
                 </button>
             </div>
