@@ -175,7 +175,7 @@ class Twitter {
 
         // HTTP エラーではないが、実際には処理が失敗した場合
         if (response.data.is_success === false) {
-            Message.error(`Twitter の Challenge 情報の取得に失敗しました。${response.data.detail}`);
+            Message.error(response.data.detail);
             return null;
         }
 
@@ -268,7 +268,7 @@ class Twitter {
 
         // HTTP エラーではないが、実際には処理が失敗した場合
         if (response.data.is_success === false) {
-            Message.error(`ツイートのリツイートに失敗しました。${response.data.detail}`);
+            Message.error(response.data.detail);
             return null;
         }
 
@@ -305,7 +305,7 @@ class Twitter {
 
         // HTTP エラーではないが、実際には処理が失敗した場合
         if (response.data.is_success === false) {
-            Message.error(`リツイートの取り消しに失敗しました。${response.data.detail}`);
+            Message.error(response.data.detail);
             return null;
         }
 
@@ -342,7 +342,7 @@ class Twitter {
 
         // HTTP エラーではないが、実際には処理が失敗した場合
         if (response.data.is_success === false) {
-            Message.error(`ツイートのいいねに失敗しました。${response.data.detail}`);
+            Message.error(response.data.detail);
             return null;
         }
 
@@ -379,7 +379,7 @@ class Twitter {
 
         // HTTP エラーではないが、実際には処理が失敗した場合
         if (response.data.is_success === false) {
-            Message.error(`いいねの取り消しに失敗しました。${response.data.detail}`);
+            Message.error(response.data.detail);
             return null;
         }
 
@@ -417,7 +417,7 @@ class Twitter {
 
         // HTTP エラーではないが、実際には処理が失敗した場合
         if ('is_success' in response.data && response.data.is_success === false) {
-            Message.error(`ホームタイムラインの取得に失敗しました。${response.data.detail}`);
+            Message.error(response.data.detail);
             return null;
         }
 
@@ -456,7 +456,7 @@ class Twitter {
 
         // HTTP エラーではないが、実際には処理が失敗した場合
         if ('is_success' in response.data && response.data.is_success === false) {
-            Message.error(`ツイートの検索に失敗しました。${response.data.detail}`);
+            Message.error(response.data.detail);
             return null;
         }
 

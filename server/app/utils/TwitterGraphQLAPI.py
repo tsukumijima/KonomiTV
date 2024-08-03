@@ -284,7 +284,7 @@ class TwitterGraphQLAPI:
             logging.error(f'[TwitterGraphQLAPI] Failed to fetch Twitter Web App HTML: {twitter_web_app_html.status_code}')
             return schemas.TwitterAPIResult(
                 is_success = False,
-                detail = f'Twitter Web App の HTML を取得できませんでした。(HTTP Error {twitter_web_app_html.status_code})',
+                detail = f'Challenge 情報の取得に失敗しました。Twitter Web App の HTML を取得できませんでした。(HTTP Error {twitter_web_app_html.status_code})',
             )
         twitter_web_app_html_text = twitter_web_app_html.text
 
@@ -297,7 +297,7 @@ class TwitterGraphQLAPI:
             logging.error(f'[TwitterGraphQLAPI] Failed to fetch verification code from Twitter Web App HTML')
             return schemas.TwitterAPIResult(
                 is_success = False,
-                detail = 'Twitter Web App の HTML から検証コードを取得できませんでした。',
+                detail = 'Challenge 情報の取得に失敗しました。Twitter Web App の HTML から検証コードを取得できませんでした。',
             )
         verification_code = cast(str, meta_tag['content'])
 
@@ -307,7 +307,7 @@ class TwitterGraphQLAPI:
             logging.error(f'[TwitterGraphQLAPI] Failed to fetch challenge code from Twitter Web App HTML')
             return schemas.TwitterAPIResult(
                 is_success = False,
-                detail = 'Twitter Web App の HML からチャレンジコードを取得できませんでした。',
+                detail = 'Challenge 情報の取得に失敗しました。Twitter Web App の HML からチャレンジコードを取得できませんでした。',
             )
         challenge_code = challenge_code_match.group(1)
 
@@ -325,7 +325,7 @@ class TwitterGraphQLAPI:
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = (
-                    f'Twitter Web App のチャレンジコードからチャレンジコードを取得できませんでした。'
+                    f'Challenge 情報の取得に失敗しました。Twitter Web App のチャレンジコードからチャレンジコードを取得できませんでした。'
                     f'(HTTP Error {challenge_js_code_response.status_code})'
                 ),
             )
