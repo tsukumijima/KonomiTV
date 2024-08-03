@@ -1,28 +1,31 @@
 <template>
-    <a :href="`https://x.com/${displayedTweet.user.screen_name}/status/${displayedTweet.id}`" target="_blank" class="tweet">
-        <object v-if="tweet.retweeted_tweet" class="tweet__retweet-info">
+    <div class="tweet" @click="handleTweetClick">
+        <div v-if="tweet.retweeted_tweet" class="tweet__retweet-info">
             <Icon icon="fa-solid:retweet" height="13px" style="color: rgb(var(--v-theme-success-lighten-1))" />
-            <span class="ml-2"><a class="tweet__retweet-info-link" :href="`https://x.com/${tweet.user.screen_name}`" target="_blank">{{ tweet.user.name }}</a>さんがリツイートしました</span>
-        </object>
-        <object class="tweet__main-content">
-            <a :href="`https://x.com/${displayedTweet.user.screen_name}`" target="_blank">
+            <span class="ml-2"><a class="tweet__retweet-info-link" :href="`https://x.com/${tweet.user.screen_name}`" target="_blank" @click.stop>{{ tweet.user.name }}</a>さんがリツイートしました</span>
+        </div>
+        <div class="tweet__main-content">
+            <a class="tweet__user-icon" :href="`https://x.com/${displayedTweet.user.screen_name}`" target="_blank" @click.stop>
                 <img :src="displayedTweet.user.icon_url" alt="User Icon" class="tweet__user-icon" loading="lazy" decoding="async">
             </a>
             <div class="tweet__content">
                 <div class="tweet__user-info">
-                    <a :href="`https://x.com/${displayedTweet.user.screen_name}`" target="_blank" class="tweet__user-info-left">
-                        <span class="tweet__user-name">{{ displayedTweet.user.name }}</span>
+                    <div class="tweet__user-info-left">
+                        <a class="tweet__user-name" :href="`https://x.com/${displayedTweet.user.screen_name}`" target="_blank" @click.stop >{{ displayedTweet.user.name }}</a>
                         <span class="tweet__user-screen-name">@{{ displayedTweet.user.screen_name }}</span>
-                    </a>
+                    </div>
                     <span class="tweet__timestamp">{{ dayjs(displayedTweet.created_at).format('MM/DD HH:mm:ss') }}</span>
                 </div>
                 <p class="tweet__text" v-html="formattedText"></p>
-                <div v-if="displayedTweet.image_urls && displayedTweet.image_urls.length > 0" class="tweet__images">
-                    <img v-for="(url, index) in displayedTweet.image_urls" :key="index" :src="url" alt="Tweet Image" class="tweet__image" loading="lazy" decoding="async">
+                <div class="tweet__images" v-if="displayedTweet.image_urls && displayedTweet.image_urls.length > 0">
+                    <a v-for="(url, index) in displayedTweet.image_urls" :key="index" :href="url" target="_blank" @click.stop>
+                        <img :src="url" alt="Tweet Image" class="tweet__image" loading="lazy" decoding="async">
+                    </a>
                 </div>
+                <video class="tweet__movie" v-if="displayedTweet.movie_url" :src="displayedTweet.movie_url" controls @click.stop></video>
                 <a v-if="displayedTweet.quoted_tweet"
                     :href="`https://x.com/${displayedTweet.quoted_tweet.user.screen_name}/status/${displayedTweet.quoted_tweet.id}`"
-                    target="_blank" class="tweet__quoted-tweet">
+                    target="_blank" class="tweet__quoted-tweet" @click.stop>
                     <div class="tweet__quoted-user-info">
                         <span class="tweet__quoted-user-name">{{ displayedTweet.quoted_tweet.user.name }}</span>
                         <span class="tweet__quoted-user-screen-name">@{{ displayedTweet.quoted_tweet.user.screen_name }}</span>
@@ -31,19 +34,19 @@
                 </a>
                 <div class="tweet__actions">
                     <button v-ripple class="tweet__action tweet__action--retweet" :class="{ 'tweet__action--active': displayedTweet.retweeted }"
-                        @click.stop.prevent="handleRetweet">
+                        @click.stop="handleRetweet">
                         <Icon icon="fa-solid:retweet" />
                         <span>{{ displayedTweet.retweet_count }}</span>
                     </button>
                     <button v-ripple class="tweet__action tweet__action--favorite" :class="{ 'tweet__action--active': displayedTweet.favorited }"
-                        @click.stop.prevent="handleFavorite">
+                        @click.stop="handleFavorite">
                         <Icon icon="fa-solid:heart" />
                         <span>{{ displayedTweet.favorite_count }}</span>
                     </button>
                 </div>
             </div>
-        </object>
-    </a>
+        </div>
+    </div>
 </template>
 <script lang="ts" setup>
 
@@ -70,14 +73,36 @@ const formatText = (text: string) => {
     const mentionRegex = /@(\w+)/g;
     const hashtagRegex = /#([\w\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}ー]+)/gu;
 
-    return text
-        .replace(urlRegex, '<a class="tweet-link" href="$1" target="_blank">$1</a>')
-        .replace(mentionRegex, '<a class="tweet-link" href="https://x.com/$1" target="_blank">@$1</a>')
-        .replace(hashtagRegex, '<a class="tweet-link" href="https://x.com/hashtag/$1" target="_blank">#$1</a>');
+    // URLを先に処理し、プレースホルダーで置き換える
+    const urls: string[] = [];
+    let formattedText = text.replace(urlRegex, (url) => {
+        urls.push(url);
+        return `__URL_PLACEHOLDER_${urls.length - 1}__`;
+    });
+
+    // メンションとハッシュタグを処理
+    formattedText = formattedText.replace(mentionRegex, '<a class="tweet-link" href="https://x.com/$1" target="_blank">@$1</a>');
+    formattedText = formattedText.replace(hashtagRegex, '<a class="tweet-link" href="https://x.com/hashtag/$1" target="_blank">#$1</a>');
+
+    // プレースホルダーを実際のURLリンクに置き換える
+    formattedText = formattedText.replace(/__URL_PLACEHOLDER_(\d+)__/g, (_, index) => {
+        const url = urls[parseInt(index)];
+        return `<a class="tweet-link" href="${url}" target="_blank">${url}</a>`;
+    });
+
+    return formattedText;
 };
 
 const formattedText = computed(() => formatText(displayedTweet.value.text));
 const formattedQuotedText = computed(() => displayedTweet.value.quoted_tweet ? formatText(displayedTweet.value.quoted_tweet.text) : '');
+
+const handleTweetClick = (event: MouseEvent) => {
+    // Check if the clicked element or its parent is a link or a button
+    const isClickableElement = (event.target as HTMLElement).closest('a, button, video');
+    if (!isClickableElement) {
+        window.open(`https://x.com/${displayedTweet.value.user.screen_name}/status/${displayedTweet.value.id}`, '_blank');
+    }
+};
 
 const handleRetweet = async () => {
     if (!selected_twitter_account.value) return;
@@ -167,10 +192,16 @@ const handleFavorite = async () => {
     }
 
     &__user-icon {
+        display: block;
         width: 36px;
         height: 36px;
         border-radius: 50%;
         margin-right: 8px;
+        transition: opacity 0.15s ease;
+
+        &:hover {
+            opacity: 0.9;
+        }
     }
 
     &__content {
@@ -239,6 +270,16 @@ const handleFavorite = async () => {
         }
     }
 
+    &__movie {
+        max-width: 100%;
+        max-height: 300px;
+        object-fit: cover;
+        margin-top: 8px;
+        margin-right: 6px;
+        border-radius: 8px;
+        cursor: auto;
+    }
+
     &__quoted-tweet {
         display: block;
         border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
@@ -288,33 +329,24 @@ const handleFavorite = async () => {
         font-size: 12px;
         background: none;
         border: none;
-        transition: color 0.15s ease;
+        transition: color 0.15s ease, background-color 0.15s ease;
         cursor: pointer;
 
+        &:hover {
+            background-color: rgba(var(--v-theme-on-surface), 0.1);
+        }
+
         &--retweet {
-            &:hover {
-                color: rgb(var(--v-theme-success-darken-1));
-            }
             &.tweet__action--active {
                 color: rgb(var(--v-theme-success));
-                &:hover {
-                    color: rgb(var(--v-theme-success-darken-1));
-                }
             }
         }
 
         &--favorite {
-            &:hover {
-                color: rgb(var(--v-theme-primary-darken-2));
-            }
             &.tweet__action--active {
                 color: rgb(var(--v-theme-primary-darken-1));
-                &:hover {
-                    color: rgb(var(--v-theme-primary-darken-2));
-                }
             }
         }
-
 
         span {
             margin-left: 6px;
