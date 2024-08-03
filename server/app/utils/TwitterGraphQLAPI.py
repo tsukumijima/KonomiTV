@@ -179,9 +179,11 @@ class TwitterGraphQLAPI:
     }
 
     # Challenge 情報のキャッシュの有効期限 (秒)
-    CHALLENGE_INFO_CACHE_EXPIRATION_TIME = 15 * 60  # 15 分
+    CHALLENGE_INFO_CACHE_EXPIRATION_TIME = 60 * 60  # 1 時間
 
-    # アカウントごとに Challenge 情報を 15 分間キャッシュするための辞書
+    # アカウントごとに Challenge 情報を 60 分間キャッシュするための辞書
+    ## Twitter Web App は PWA のため、2回目以降のロードでは Service Worker から HTML や JS が返されている
+    ## そのため、毎回取得するのではなく一定期間同一の Challenge 情報を返した方がより公式のロジックに近くなると考えられる
     __challenge_info_cache: ClassVar[dict[str, tuple[float, schemas.TwitterChallengeData]]] = {}
 
     # ツイートの最小送信間隔 (秒)
@@ -279,7 +281,7 @@ class TwitterGraphQLAPI:
 
         # Twitter Web App (SPA) の HTML を取得
         ## HTML リクエスト用のヘッダーに差し替えるのが重要
-        twitter_web_app_html = await self.httpx_client.get('https://x.com/', headers=self.html_headers_dict)
+        twitter_web_app_html = await self.httpx_client.get('https://x.com/home', headers=self.html_headers_dict)
         if twitter_web_app_html.status_code != 200:
             logging.error(f'[TwitterGraphQLAPI] Failed to fetch Twitter Web App HTML: {twitter_web_app_html.status_code}')
             return schemas.TwitterAPIResult(
@@ -345,6 +347,7 @@ class TwitterGraphQLAPI:
         )
 
         # Challenge 情報をキャッシュに保存
+        ## 短期間に何回もアクセスされた場合でも、同一の Challenge 情報が返される (そうした方がより精度高く偽装できるはず)
         self.__challenge_info_cache[self.twitter_account.screen_name] = (time.time(), challenge_data)
 
         return challenge_data
