@@ -206,15 +206,15 @@ async def TwitterAccountDeleteAPI(
 
 @router.get(
     '/accounts/{screen_name}/challenge-data',
-    summary = 'Twitter Web App チャレンジデータ取得 API',
-    response_description = 'Twitter Web App のチャレンジデータ。',
+    summary = 'Twitter Web App Challenge 情報取得 API',
+    response_description = 'Twitter Web App の Challenge 情報。',
     response_model = schemas.TwitterChallengeData | schemas.TwitterAPIResult,
 )
 async def TwitterChallengeAPI(
     twitter_account: Annotated[TwitterAccount, Depends(GetCurrentTwitterAccount)],
 ):
     """
-    Twitter Web App の API リクエスト内の X-Client-Transaction-ID ヘッダーを算出するために必要なチャレンジデータを取得する。<br>
+    Twitter Web App の API リクエスト内の X-Client-Transaction-ID ヘッダーを算出するために必要な Challenge 情報を取得する。<br>
     この API のレスポンスを元にブラウザ上のフロントエンドで算出した X-Client-Transaction-ID を API リクエスト時に含めてもらう想定。
 
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。

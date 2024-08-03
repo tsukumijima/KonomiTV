@@ -178,6 +178,12 @@ class TwitterGraphQLAPI:
         416: 'Twitter API アプリケーションが無効化されています。',
     }
 
+    # Challenge 情報のキャッシュの有効期限 (秒)
+    CHALLENGE_INFO_CACHE_EXPIRATION_TIME = 15 * 60  # 15 分
+
+    # アカウントごとに Challenge 情報を 15 分間キャッシュするための辞書
+    __challenge_info_cache: ClassVar[dict[str, tuple[float, schemas.TwitterChallengeData]]] = {}
+
     # ツイートの最小送信間隔 (秒)
     MINIMUM_TWEET_INTERVAL = 20  # 必ずアカウントごとに 20 秒以上間隔を空けてツイートする
 
@@ -248,21 +254,28 @@ class TwitterGraphQLAPI:
 
     async def fetchChallengeData(self) -> schemas.TwitterChallengeData | schemas.TwitterAPIResult:
         """
-        Twitter Web App の API リクエスト内の X-Client-Transaction-ID ヘッダーを算出するために必要なチャレンジデータを取得する
+        Twitter Web App の API リクエスト内の X-Client-Transaction-ID ヘッダーを算出するために必要な Challenge 情報を取得する
         X-Client-Transaction-ID はスクレイピング回避のためのヘッダーで、難読化された JavaScript に含まれる算出関数に検証コード
         (twitter-site-verification) とアニメーション SVG (svg[id^="loading-x"] の outerHTML) を投入することで算出される
 
         詳細な動作原理はよく理解できていないが、ともかくアニメーション SVG のレンダリングや JavaScript の実行にブラウザエンジンが必要になるため、
         Python 製のサーバーだけでは X-Client-Transaction-ID を算出できない
-        そのため、サーバー側では X-Client-Transaction-ID の算出に必要なチャレンジデータを返し、そのデータを元にブラウザ上のフロントエンドで算出した
+        そのため、サーバー側では X-Client-Transaction-ID の算出に必要な Challenge 情報を返し、そのデータを元にブラウザ上のフロントエンドで算出した
         X-Client-Transaction-ID をサーバーへの API リクエストに含めてもらい、受け取った値を GraphQL API リクエスト時に送信する設計としている
 
         ref: https://github.com/dimdenGD/OldTweetDeck/blob/main/src/challenge.js#L150-L169
         ref: https://antibot.blog/twitter-header-part-3/
 
         Returns:
-            schemas.TwitterChallengeData | schemas.TwitterAPIResult: チャレンジデータまたはエラーメッセージ
+            schemas.TwitterChallengeData | schemas.TwitterAPIResult: Challenge 情報またはエラーメッセージ
         """
+
+        # まだ有効であればキャッシュから Challenge 情報を取得
+        ## 頻繁にこの操作が行われると不審と判断される可能性があるため、一定期間フロントエンドに対し同一の Challenge 情報を使わせる
+        if self.twitter_account.screen_name in self.__challenge_info_cache:
+            cached_time, cached_challenge_data = self.__challenge_info_cache[self.twitter_account.screen_name]
+            if time.time() - cached_time < self.CHALLENGE_INFO_CACHE_EXPIRATION_TIME:
+                return cached_challenge_data
 
         # Twitter Web App (SPA) の HTML を取得
         ## HTML リクエスト用のヘッダーに差し替えるのが重要
@@ -298,7 +311,7 @@ class TwitterGraphQLAPI:
         # HTML からアニメーション SVG の outerHTML を取得
         challenge_animation_svg_codes = [str(svg) for svg in soup.select('svg[id^="loading-x"]')]
 
-        # チャレンジデータを取得
+        # Challenge 情報を取得
         ## JavaScript リクエスト用のヘッダーに差し替えるのが重要
         challenge_js_code_response = await self.httpx_client.get(
             url = f'https://abs.twimg.com/responsive-web/client-web/ondemand.s.{challenge_code}a.js',
@@ -318,15 +331,19 @@ class TwitterGraphQLAPI:
         ## HTML リクエスト時に Cookie が更新される可能性があるため、ここで変更された可能性がある Cookie を永続化する
         await self.persistCookies()
 
-        # チャレンジデータを返す
-        return schemas.TwitterChallengeData(
+        challenge_data = schemas.TwitterChallengeData(
             is_success = True,
-            detail = 'Twitter Web App のチャレンジデータを取得しました。',
+            detail = 'Twitter Web App の Challenge 情報を取得しました。',
             endpoint_infos = self.ENDPOINT_INFOS,
             verification_code = verification_code,
             challenge_js_code = challenge_js_code,
             challenge_animation_svg_codes = challenge_animation_svg_codes,
         )
+
+        # Challenge 情報をキャッシュに保存
+        self.__challenge_info_cache[self.twitter_account.screen_name] = (time.time(), challenge_data)
+
+        return challenge_data
 
 
     async def invokeGraphQLAPI(self,
