@@ -738,6 +738,11 @@ class TwitterGraphQLAPI:
                     if (content.get('entryType') == 'TimelineTimelineCursor' and \
                         content.get('cursorType') == cursor_type):
                         return content.get('value')
+                    # Bottom 指定時、たまに通常 cursorType が Bottom になるところ Gap になっている場合がある
+                    # その場合は Bottom の Cursor として解釈する
+                    elif (content.get('entryType') == 'TimelineTimelineCursor' and \
+                        content.get('cursorType') == 'Gap' and cursor_type == 'Bottom'):
+                        return content.get('value')
             elif instruction.get('type') == 'TimelineReplaceEntry':
                 entry = instruction.get('entry', {})
                 content = entry.get('content', {})
