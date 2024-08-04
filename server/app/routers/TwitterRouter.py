@@ -41,18 +41,20 @@ async def GetCurrentTwitterAccount(
 
     # 指定されたスクリーンネームに紐づく Twitter アカウントを取得
     # 自分が所有していない Twitter アカウントでツイートできないよう、ログイン中のユーザーに限って絞り込む
-    twitter_account = await TwitterAccount.filter(user_id=current_user.id, screen_name=screen_name).get_or_none()
+    ## 通常あり得ないが、万が一同一スクリーンネームのアカウントが作成されてしまった場合に削除できるよう
+    ## あえて get_or_none() ではなく all() で取得している
+    twitter_account = await TwitterAccount.filter(user_id=current_user.id, screen_name=screen_name).all()
 
     # 指定された Twitter アカウントがユーザーアカウントに紐付けられていない or 登録されていない
     ## 実際に Twitter にそのスクリーンネームのアカウントが登録されているかとは無関係
-    if not twitter_account:
+    if len(twitter_account) == 0:
         logging.error(f'[TwitterRouter][GetCurrentTwitterAccount] TwitterAccount associated with screen_name does not exist [screen_name: {screen_name}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'TwitterAccount associated with screen_name does not exist',
         )
 
-    return twitter_account
+    return twitter_account[0]
 
 
 @router.post(
