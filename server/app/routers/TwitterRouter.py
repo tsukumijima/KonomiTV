@@ -99,16 +99,16 @@ async def TwitterPasswordAuthAPI(
         )
 
     # 現在のログインセッションの Cookie を取得
-    cookies: dict[str, str] = auth_handler.get_cookies().get_dict()
+    cookies: dict[str, str] = auth_handler.get_cookies_as_dict()
 
     # TwitterAccount のレコードを作成
     ## アクセストークンは今までの OAuth 認証 (廃止) との互換性を保つため "COOKIE_SESSION" の固定値、
     ## アクセストークンシークレットとして Cookie を JSON 化した文字列を入れる
-    ## ここではまだ保存しない
+    ## ここでは ORM クラスのみを作成し、Twitter アカウント情報を取得した後に DB に保存する
     twitter_account = TwitterAccount(
         user = current_user,
         name = 'Temporary',
-        screen_name = 'Temporary',
+        screen_name = password_auth_request.screen_name,
         icon_url = 'Temporary',
         access_token = 'COOKIE_SESSION',
         access_token_secret = json.dumps(cookies, ensure_ascii=False),
@@ -117,7 +117,7 @@ async def TwitterPasswordAuthAPI(
     # tweepy の API インスタンスを取得
     tweepy_api = twitter_account.getTweepyAPI()
 
-    # アカウント情報を更新
+    # 自分の Twitter アカウント情報を取得
     try:
         verify_credentials = await asyncio.to_thread(tweepy_api.verify_credentials)
     except tweepy.TweepyException:
@@ -127,30 +127,36 @@ async def TwitterPasswordAuthAPI(
             detail = 'Failed to get user information',
         )
 
-    # アカウント名
+    # アカウント名を設定
     twitter_account.name = verify_credentials.name
-    # スクリーンネーム
+    # スクリーンネームを設定
     twitter_account.screen_name = verify_credentials.screen_name
-    # アイコン URL
+    # アイコン URL を設定
     ## (ランダムな文字列)_normal.jpg だと画像サイズが小さいので、(ランダムな文字列).jpg に置換
     twitter_account.icon_url = verify_credentials.profile_image_url_https.replace('_normal', '')
 
-    # ログインセッションとアカウント情報を保存
-    await twitter_account.save()
-
-    # 同じスクリーンネームを持つアカウントが重複している場合、古い方のレコードのデータを更新する
-    # すでに作成されている新しいレコード（まだ save() していないので仮の情報しか入っていない）は削除される
-    twitter_account_existing = await TwitterAccount.filter(
+    # 同じユーザー ID とスクリーンネームを持つアカウント情報の重複チェック
+    # この処理を通るケースの大半は、強制ログアウトなどでセッションが無効化されたため再ログインしているケース
+    existing_accounts = await TwitterAccount.filter(
         user_id = cast(Any, twitter_account).user_id,
         screen_name = twitter_account.screen_name,
     )
-    if len(twitter_account_existing) > 1:
-        twitter_account_existing[0].name = twitter_account.name  # アカウント名
-        twitter_account_existing[0].icon_url = twitter_account.icon_url  # アイコン URL
-        twitter_account_existing[0].access_token = twitter_account.access_token  # アクセストークン
-        twitter_account_existing[0].access_token_secret = twitter_account.access_token_secret  # アクセストークンシークレット
-        await twitter_account_existing[0].save()
-        await twitter_account.delete()
+    if len(existing_accounts) > 1:
+        # 重複が見つかった場合、最も古いアカウント情報を更新し、新しいアカウント情報を削除
+        oldest_account = existing_accounts[0]
+
+        # 最も古いアカウント情報を更新
+        oldest_account.name = twitter_account.name  # アカウント名
+        oldest_account.icon_url = twitter_account.icon_url  # アイコン URL
+        oldest_account.access_token = twitter_account.access_token  # アクセストークン
+        oldest_account.access_token_secret = twitter_account.access_token_secret  # アクセストークンシークレット
+        await oldest_account.save()
+
+        # 新しく作成したアカウント情報の方は DB に保存せずに戻る
+        return
+
+    # 重複が見つからなかった場合は、新しく作成した Twitter アカウント情報を DB に保存
+    await twitter_account.save()
 
 
 @router.delete(
