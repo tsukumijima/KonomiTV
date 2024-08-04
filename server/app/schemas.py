@@ -243,7 +243,9 @@ class UserUpdateRequestForAdmin(BaseModel):
 
 class TwitterPasswordAuthRequest(BaseModel):
     screen_name: str
-    password: str
+    # パスワードまたは Cookies.txt (Netscape 形式) のどちらかが必須
+    password: str | None = None
+    cookies_txt: str | None = None
 
 # モデルに関連しない API レスポンスの構造を表す Pydantic モデル
 ## レスポンスボディの JSON 構造と一致する

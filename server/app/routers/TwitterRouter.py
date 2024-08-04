@@ -71,35 +71,75 @@ async def TwitterPasswordAuthAPI(
     # 万が一スクリーンネームに @ が含まれていた場合は事前に削除する
     password_auth_request.screen_name = password_auth_request.screen_name.replace('@', '')
 
-    # スクリーンネームとパスワードを指定して認証
-    try:
-        # ログインには数秒かかるため、非同期で実行
-        auth_handler = await asyncio.to_thread(CookieSessionUserHandler,
-            screen_name=password_auth_request.screen_name,
-            password=password_auth_request.password,
-        )
-    except tweepy.HTTPException as ex:
-        # パスワードが間違っているなどの理由で認証に失敗した
-        if len(ex.api_codes) > 0 and len(ex.api_messages) > 0:
-            error_message = f'Code: {ex.api_codes[0]} / Message: {ex.api_messages[0]}'
-        else:
-            error_message = f'Unknown Error (HTTP Error {ex.response.status_code})'
-        logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] Failed to authenticate with password ({error_message}) [screen_name: {password_auth_request.screen_name}]')
-        raise HTTPException(
-            status_code = status.HTTP_401_UNAUTHORIZED,
-            detail = f'Failed to authenticate with password ({error_message})',
-        )
-    except tweepy.TweepyException as ex:
-        # 認証フローの途中で予期せぬエラーが発生し、ログインに失敗した
-        error_message = f'Message: {ex}'
-        logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] Unexpected error occurred while authenticate with password ({error_message}) [screen_name: {password_auth_request.screen_name}]')
+    # スクリーンネームとパスワードでログインを実行し、Cookie を取得
+    if password_auth_request.password is not None:
+        try:
+            # ログインには数秒かかるため、非同期で実行
+            auth_handler = await asyncio.to_thread(CookieSessionUserHandler,
+                screen_name=password_auth_request.screen_name,
+                password=password_auth_request.password,
+            )
+        except tweepy.HTTPException as ex:
+            # パスワードが間違っているなどの理由で認証に失敗した
+            if len(ex.api_codes) > 0 and len(ex.api_messages) > 0:
+                error_message = f'Code: {ex.api_codes[0]} / Message: {ex.api_messages[0]}'
+            else:
+                error_message = f'Unknown Error (HTTP Error {ex.response.status_code})'
+            logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] Failed to authenticate with password ({error_message}) [screen_name: {password_auth_request.screen_name}]')
+            raise HTTPException(
+                status_code = status.HTTP_401_UNAUTHORIZED,
+                detail = f'Failed to authenticate with password ({error_message})',
+            )
+        except tweepy.TweepyException as ex:
+            # 認証フローの途中で予期せぬエラーが発生し、ログインに失敗した
+            error_message = f'Message: {ex}'
+            logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] Unexpected error occurred while authenticate with password ({error_message}) [screen_name: {password_auth_request.screen_name}]')
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = f'Unexpected error occurred while authenticate with password ({error_message})',
+            )
+
+        # 現在のログインセッションの Cookie を取得
+        cookies: dict[str, str] = auth_handler.get_cookies_as_dict()
+
+    # Cookies.txt (Netscape 形式) をパースして Cookie を取得
+    elif password_auth_request.cookies_txt is not None:
+        try:
+            # Cookies.txt の内容を行ごとに分割
+            cookies_lines = password_auth_request.cookies_txt.strip().split('\n')
+            cookies: dict[str, str] = {}
+            for line in cookies_lines:
+                # コメント行やヘッダー行をスキップ
+                if line.startswith('#') or line.startswith('# ') or not line.strip():
+                    continue
+                # タブで分割し、必要な情報を取得
+                parts = line.split('\t')
+                if len(parts) >= 7:
+                    domain, _, _, _, _, name, value = parts[:7]
+                    # ドメインが .twitter.com または .x.com の場合のみ処理
+                    if domain in ['.twitter.com', 'twitter.com', '.x.com', 'x.com']:
+                        cookies[name] = value
+            if not cookies:
+                logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] No valid cookies found in the provided Cookies.txt [screen_name: {password_auth_request.screen_name}]')
+                raise HTTPException(
+                    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail = 'No valid cookies found in the provided Cookies.txt',
+                )
+        except Exception as ex:
+            error_message = f'Failed to parse Cookies.txt: {str(ex)}'
+            logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] {error_message} [screen_name: {password_auth_request.screen_name}]')
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = error_message,
+            )
+
+    # パスワードか Cookies.txt (Netscape 形式) のどちらかが必須
+    else:
+        logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] Either password or cookies_txt is required [screen_name: {password_auth_request.screen_name}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = f'Unexpected error occurred while authenticate with password ({error_message})',
+            detail = 'Either password or cookies_txt is required',
         )
-
-    # 現在のログインセッションの Cookie を取得
-    cookies: dict[str, str] = auth_handler.get_cookies_as_dict()
 
     # TwitterAccount のレコードを作成
     ## アクセストークンは今までの OAuth 認証 (廃止) との互換性を保つため "COOKIE_SESSION" の固定値、
