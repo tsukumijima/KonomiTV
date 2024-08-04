@@ -16,7 +16,7 @@ from fastapi import Request
 from fastapi import status
 from fastapi import UploadFile
 from tweepy_authlib import CookieSessionUserHandler
-from typing import Annotated, Any, cast, Coroutine
+from typing import Annotated, Any, cast, Coroutine, Literal
 
 from app import logging
 from app import schemas
@@ -407,6 +407,7 @@ async def TwitterSearchAPI(
     request: Request,
     twitter_account: Annotated[TwitterAccount, Depends(GetCurrentTwitterAccount)],
     query: Annotated[str, Query(description='検索クエリ。')],
+    search_type: Annotated[Literal['Top', 'Latest'], Query(description='検索タイプ。Top は話題のツイート、Latest は最新のツイート。')] = 'Latest',
     cursor_id: Annotated[str | None, Query(description='前回のレスポンスから取得した、次のページを取得するためのカーソル ID 。')] = None,
 ):
     """
@@ -416,7 +417,7 @@ async def TwitterSearchAPI(
     """
 
     return await TwitterGraphQLAPI(twitter_account).searchTimeline(
-        search_type = 'Latest',
+        search_type = search_type,
         query = query,
         cursor_id = cursor_id,
         count = 20,
