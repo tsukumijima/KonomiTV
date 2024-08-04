@@ -1,7 +1,9 @@
 <template>
     <div class="tweet" @click="handleTweetClick">
         <div v-if="tweet.retweeted_tweet" class="tweet__retweet-info">
-            <Icon icon="fa-solid:retweet" height="13px" style="color: rgb(var(--v-theme-success-lighten-1))" />
+            <svg xmlns="http://www.w3.org/2000/svg" width="16.25px" height="13px" viewBox="0 0 640 512" style="color: rgb(var(--v-theme-success-lighten-1));">
+                <path fill="currentColor" d="M629.657 343.598L528.971 444.284c-9.373 9.372-24.568 9.372-33.941 0L394.343 343.598c-9.373-9.373-9.373-24.569 0-33.941l10.823-10.823c9.562-9.562 25.133-9.34 34.419.492L480 342.118V160H292.451a24.005 24.005 0 0 1-16.971-7.029l-16-16C244.361 121.851 255.069 96 276.451 96H520c13.255 0 24 10.745 24 24v222.118l40.416-42.792c9.285-9.831 24.856-10.054 34.419-.492l10.823 10.823c9.372 9.372 9.372 24.569-.001 33.941m-265.138 15.431A23.999 23.999 0 0 0 347.548 352H160V169.881l40.416 42.792c9.286 9.831 24.856 10.054 34.419.491l10.822-10.822c9.373-9.373 9.373-24.569 0-33.941L144.971 67.716c-9.373-9.373-24.569-9.373-33.941 0L10.343 168.402c-9.373 9.373-9.373 24.569 0 33.941l10.822 10.822c9.562 9.562 25.133 9.34 34.419-.491L96 169.881V392c0 13.255 10.745 24 24 24h243.549c21.382 0 32.09-25.851 16.971-40.971z"></path>
+            </svg>
             <span class="ml-2"><a class="tweet__retweet-info-link" :href="`https://x.com/${tweet.user.screen_name}`" target="_blank" @click.stop>{{ tweet.user.name }}</a>さんがリツイートしました</span>
         </div>
         <div class="tweet__main-content">
@@ -35,12 +37,16 @@
                 <div class="tweet__actions">
                     <button v-ripple class="tweet__action tweet__action--retweet" :class="{ 'tweet__action--active': displayedTweet.retweeted }"
                         @click.stop="handleRetweet">
-                        <Icon icon="fa-solid:retweet" />
+                        <svg xmlns="http://www.w3.org/2000/svg" role="img" width="1.25em" height="1em" viewBox="0 0 640 512">
+                            <path fill="currentColor" d="M629.657 343.598L528.971 444.284c-9.373 9.372-24.568 9.372-33.941 0L394.343 343.598c-9.373-9.373-9.373-24.569 0-33.941l10.823-10.823c9.562-9.562 25.133-9.34 34.419.492L480 342.118V160H292.451a24.005 24.005 0 0 1-16.971-7.029l-16-16C244.361 121.851 255.069 96 276.451 96H520c13.255 0 24 10.745 24 24v222.118l40.416-42.792c9.285-9.831 24.856-10.054 34.419-.492l10.823 10.823c9.372 9.372 9.372 24.569-.001 33.941m-265.138 15.431A23.999 23.999 0 0 0 347.548 352H160V169.881l40.416 42.792c9.286 9.831 24.856 10.054 34.419.491l10.822-10.822c9.373-9.373 9.373-24.569 0-33.941L144.971 67.716c-9.373-9.373-24.569-9.373-33.941 0L10.343 168.402c-9.373 9.373-9.373 24.569 0 33.941l10.822 10.822c9.562 9.562 25.133 9.34 34.419-.491L96 169.881V392c0 13.255 10.745 24 24 24h243.549c21.382 0 32.09-25.851 16.971-40.971z"></path>
+                        </svg>
                         <span>{{ displayedTweet.retweet_count }}</span>
                     </button>
                     <button v-ripple class="tweet__action tweet__action--favorite" :class="{ 'tweet__action--active': displayedTweet.favorited }"
                         @click.stop="handleFavorite">
-                        <Icon icon="fa-solid:heart" />
+                        <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 512 512">
+                            <path fill="currentColor" d="M462.3 62.6C407.5 15.9 326 24.3 275.7 76.2L256 96.5l-19.7-20.3C186.1 24.3 104.5 15.9 49.7 62.6c-62.8 53.6-66.1 149.8-9.9 207.9l193.5 199.8c12.5 12.9 32.8 12.9 45.3 0l193.5-199.8c56.3-58.1 53-154.3-9.8-207.9"></path>
+                        </svg>
                         <span>{{ displayedTweet.favorite_count }}</span>
                     </button>
                 </div>
