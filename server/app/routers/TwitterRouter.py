@@ -173,14 +173,14 @@ async def TwitterPasswordAuthAPI(
     twitter_account.icon_url = verify_credentials.profile_image_url_https.replace('_normal', '')
 
     # 同じユーザー ID とスクリーンネームを持つアカウント情報の重複チェック
-    # この処理を通るケースの大半は、強制ログアウトなどでセッションが無効化されたため再ログインしているケース
     existing_accounts = await TwitterAccount.filter(
         user_id = cast(Any, twitter_account).user_id,
         screen_name = twitter_account.screen_name,
     )
-    if len(existing_accounts) > 1:
-        # 重複が見つかった場合、最も古いアカウント情報を更新し、新しいアカウント情報を削除
-        oldest_account = existing_accounts[0]
+
+    # 既存のアカウントが見つかった場合、最も古いアカウント情報を更新
+    if existing_accounts:
+        oldest_account = min(existing_accounts, key=lambda x: x.id)
 
         # 最も古いアカウント情報を更新
         oldest_account.name = twitter_account.name  # アカウント名
@@ -189,11 +189,23 @@ async def TwitterPasswordAuthAPI(
         oldest_account.access_token_secret = twitter_account.access_token_secret  # アクセストークンシークレット
         await oldest_account.save()
 
-        # 新しく作成したアカウント情報の方は DB に保存せずに戻る
-        return
+        # 他の重複アカウントを削除
+        for account in existing_accounts:
+            if account.id != oldest_account.id:
+                await account.delete()
 
-    # 重複が見つからなかった場合は、新しく作成した Twitter アカウント情報を DB に保存
-    await twitter_account.save()
+        logging.info(f'[TwitterRouter][TwitterPasswordAuthAPI] Updated existing account and removed {len(existing_accounts) - 1} duplicate(s) [screen_name: {twitter_account.screen_name}]')
+
+    # 既存のアカウントが見つからなかった場合、新しいアカウント情報を DB に保存
+    else:
+        await twitter_account.save()
+        logging.info(f'[TwitterRouter][TwitterPasswordAuthAPI] Created new account [screen_name: {twitter_account.screen_name}]')
+
+    # 処理完了
+    if isinstance(auth_request, schemas.TwitterCookieAuthRequest):
+        logging.info(f'[TwitterRouter][TwitterPasswordAuthAPI] Logged in with cookie [screen_name: {twitter_account.screen_name}]')
+    else:
+        logging.info(f'[TwitterRouter][TwitterPasswordAuthAPI] Logged in with password [screen_name: {twitter_account.screen_name}]')
 
 
 @router.delete(
@@ -218,6 +230,7 @@ async def TwitterAccountDeleteAPI(
         cookie_session_user_handler = twitter_account.getTweepyAuthHandler()
         try:
             await asyncio.to_thread(cookie_session_user_handler.logout)
+            logging.info(f'[TwitterRouter][TwitterAccountDeleteAPI] Logged out with password [screen_name: {twitter_account.screen_name}]')
         except tweepy.HTTPException as ex:
             # サーバーエラーが発生した
             if len(ex.api_codes) > 0 and len(ex.api_messages) > 0:
