@@ -103,11 +103,11 @@ async def TwitterPasswordAuthAPI(
         # 現在のログインセッションの Cookie を取得
         cookies: dict[str, str] = auth_handler.get_cookies_as_dict()
 
-    # Cookies.txt (Netscape 形式) をパースして Cookie を取得
+    # cookies.txt (Netscape 形式) をパースして Cookie を取得
     else:
 
         try:
-            # Cookies.txt の内容を行ごとに分割
+            # cookies.txt の内容を行ごとに分割
             cookies_lines = auth_request.cookies_txt.strip().split('\n')
             cookies: dict[str, str] = {}
             for line in cookies_lines:
@@ -122,13 +122,13 @@ async def TwitterPasswordAuthAPI(
                     if domain in ['.twitter.com', 'twitter.com', '.x.com', 'x.com']:
                         cookies[name] = value
             if not cookies:
-                logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] No valid cookies found in the provided Cookies.txt')
+                logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] No valid cookies found in the provided cookies.txt')
                 raise HTTPException(
                     status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail = 'No valid cookies found in the provided Cookies.txt',
+                    detail = 'No valid cookies found in the provided cookies.txt',
                 )
         except Exception as ex:
-            error_message = f'Failed to parse Cookies.txt: {str(ex)}'
+            error_message = f'Failed to parse cookies.txt: {str(ex)}'
             logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] {error_message}')
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,

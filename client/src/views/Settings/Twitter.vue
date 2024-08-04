@@ -43,33 +43,66 @@
                     @click="loginTwitterAccountWithPasswordForm()">
                     <Icon icon="fluent:plug-connected-20-filled" class="mr-2" height="24" />連携するアカウントを追加
                 </v-btn>
-                <v-dialog max-width="600" v-model="twitter_password_auth_dialog">
+                <v-dialog max-width="700" v-model="twitter_password_auth_dialog">
                     <v-card>
                         <v-card-title class="d-flex justify-center pt-6 font-weight-bold">Twitter にログイン</v-card-title>
                         <!-- スクリーンネームとパスワードフォーム -->
                         <v-card-text class="pt-2 pb-0">
-                            <p class="mb-1">2023/07 以降、Twitter のサードパーティー API の事実上の廃止により、従来のアプリ連携では Twitter にアクセスできなくなりました。</p>
-                            <p class="mb-1">そこで KonomiTV では、代わりに <a class="link" href="https://github.com/tsukumijima/tweepy-authlib" target="_blank">ユーザー名とパスワードでログイン</a> することで、これまで通り Twitter 連携ができるようにしています (2要素認証を設定しているアカウントには対応していません) 。</p>
-                            <p class="mb-1">ここで入力したパスワードは一切保存されず、取得した Cookie セッションはローカルの KonomiTV サーバーにのみ保存されます。Cookie セッションが Twitter API 以外の外部サービスに送信されることはありません。</p>
-                            <p class="mb-1">万全は期していますが、非公式な方法のため、使い方次第ではアカウントにペナルティが適用される可能性もあります。自己の責任のもとでご利用ください。</p>
-                            <v-form class="settings__item" ref="twitter_form" @submit.prevent>
-                                <v-text-field class="settings__item-form mt-6" color="primary" variant="outlined"
-                                    label="ユーザー名 (@ から始まる ID)" placeholder="screen_name"
-                                    ref="twitter_screen_name"
-                                    v-model="twitter_screen_name"
-                                    :density="is_form_dense ? 'compact' : 'default'"
-                                    :rules="[(value) => !!value || 'ユーザー名を入力してください。']">
-                                </v-text-field>
-                                <v-text-field class="settings__item-form mt-2" color="primary" variant="outlined"
-                                    label="パスワード"
-                                    v-model="twitter_password"
-                                    :density="is_form_dense ? 'compact' : 'default'"
-                                    :type="twitter_password_showing ? 'text' : 'password'"
-                                    :rules="[(value) => !!value || 'パスワードを入力してください。']"
-                                    :append-inner-icon="twitter_password_showing ? 'mdi-eye' : 'mdi-eye-off'"
-                                    @click:appendInner="twitter_password_showing = !twitter_password_showing">
-                                </v-text-field>
-                            </v-form>
+                            <p>2023/07 以降、Twitter のサードパーティー API の事実上の廃止により、従来のアプリ連携では Twitter にアクセスできなくなりました。</p>
+                            <p class="mt-1">そこで KonomiTV では、代わりに <u><a class="link" href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank">Chrome 拡張機能</a> を使いブラウザからエクスポートした Cookie でログイン</u> または <u><a class="link" href="https://github.com/tsukumijima/tweepy-authlib" target="_blank">パスワードログイン</a></u> での Twitter 連携に対応しています。</p>
+                            <p class="mt-2">ここで入力されたパスワードは一切保存されず、入力/取得した Cookie はローカルの KonomiTV サーバーにのみ保存されます。Cookie が Twitter API 以外の外部サービスに送信されることはありません。</p>
+                            <p class="mt-1">万全は期していますが、非公式な方法のため、使い方次第ではアカウントにペナルティが適用される可能性もあります。自己の責任のもとでご利用ください。</p>
+                            <blockquote class="mt-3">
+                                <p>基本的にはユーザー名とブラウザからエクスポートした Cookie をインポートしてのログインを推奨します。その方がスパム判定されづらいためです。</p>
+                                <p class="mt-1">また、パスワードログインは2段階認証には対応していません。</p>
+                            </blockquote>
+                            <v-tabs class="settings__tab mt-1" color="primary" bg-color="transparent" align-tabs="center" v-model="twitter_auth_tab">
+                                <v-tab style="text-transform: none !important;" v-for="auth_type in ['Cookie でログイン', 'パスワードでログイン']" :key="auth_type">
+                                    {{auth_type}}
+                                </v-tab>
+                            </v-tabs>
+                            <v-window v-model="twitter_auth_tab">
+                                <v-window-item class="settings__content mt-0">
+                                    <v-form class="settings__item" ref="twitter_form" @submit.prevent>
+                                        <v-textarea class="settings__item-form mt-4" color="primary" variant="outlined"
+                                            label='Cookie (Netscape cookies.txt 形式)'
+                                            placeholder='まず PC ブラウザ版 Twitter で連携したいアカウントに切り替えます。その後 PC ブラウザ版 Twitter の表示中に「Get cookies.txt LOCALLY」拡張機能を起動し、[Copy] ボタンを押してクリップボードにコピーした Cookie をここに貼り付けてください。'
+                                            v-model="twitter_cookie"
+                                            :density="is_form_dense ? 'compact' : 'default'"
+                                            :rules="[(value) => {
+                                                if (!value && twitter_auth_tab === 0) return 'Cookie を入力してください。';
+                                                return true;
+                                            }]">
+                                        </v-textarea>
+                                    </v-form>
+                                </v-window-item>
+                                <v-window-item class="settings__content mt-0">
+                                    <v-form class="settings__item" ref="twitter_form" @submit.prevent>
+                                        <v-text-field class="settings__item-form mt-4" color="primary" variant="outlined"
+                                            label="ユーザー名 (@ から始まる ID)" placeholder="screen_name"
+                                            ref="twitter_screen_name"
+                                            v-model="twitter_screen_name"
+                                            :density="is_form_dense ? 'compact' : 'default'"
+                                            :rules="[(value) => {
+                                                if (!value && twitter_auth_tab === 1) return 'ユーザー名を入力してください。';
+                                                return true;
+                                            }]">
+                                        </v-text-field>
+                                        <v-text-field class="settings__item-form mt-2" color="primary" variant="outlined"
+                                            label="パスワード"
+                                            v-model="twitter_password"
+                                            :density="is_form_dense ? 'compact' : 'default'"
+                                            :type="twitter_password_showing ? 'text' : 'password'"
+                                            :rules="[(value) => {
+                                                if (!value && twitter_auth_tab === 1) return 'パスワードを入力してください。';
+                                                return true;
+                                            }]"
+                                            :append-inner-icon="twitter_password_showing ? 'mdi-eye' : 'mdi-eye-off'"
+                                            @click:appendInner="twitter_password_showing = !twitter_password_showing">
+                                        </v-text-field>
+                                    </v-form>
+                                </v-window-item>
+                            </v-window>
                         </v-card-text>
                         <v-card-actions class="pt-0 px-6 pb-6">
                             <v-spacer></v-spacer>
@@ -154,7 +187,7 @@ import { defineComponent } from 'vue';
 import { VForm } from 'vuetify/components';
 
 import Message from '@/message';
-import Twitter from '@/services/Twitter';
+import Twitter, { ITwitterPasswordAuthRequest, ITwitterCookieAuthRequest } from '@/services/Twitter';
 import useSettingsStore from '@/stores/SettingsStore';
 import useUserStore from '@/stores/UserStore';
 import Utils from '@/utils';
@@ -204,8 +237,10 @@ export default defineComponent({
             // パスワード認証用ダイヤログ
             twitter_password_auth_dialog: false,
 
-            // Twitter のスクリーンネームとパスワード
+            // Twitter のスクリーンネームと (Cookie or パスワード)
+            twitter_auth_tab: 0,
             twitter_screen_name: '',
+            twitter_cookie: '',
             twitter_password: '',
             twitter_password_showing: false,
         };
@@ -240,12 +275,23 @@ export default defineComponent({
                 return;
             }
 
-            // Twitter パスワード認証 API にリクエスト
+            let twitter_auth_request: ITwitterPasswordAuthRequest | ITwitterCookieAuthRequest;
+            if (this.twitter_auth_tab === 1) {
+                // パスワード認証
+                twitter_auth_request = {
+                    screen_name: this.twitter_screen_name,
+                    password: this.twitter_password,
+                };
+            } else {
+                // Cookie 認証
+                twitter_auth_request = {
+                    cookies_txt: this.twitter_cookie,
+                };
+            }
+
+            // Twitter 認証 API にリクエスト
             this.is_twitter_password_auth_sending = true;
-            const result = await Twitter.authWithPassword({
-                screen_name: this.twitter_screen_name,
-                password: this.twitter_password,
-            });
+            const result = await Twitter.auth(twitter_auth_request);
             this.is_twitter_password_auth_sending = false;
             if (result === false) {
                 return;
@@ -468,6 +514,13 @@ export default defineComponent({
             }
         }
     }
+}
+
+blockquote {
+    border-left: 3px solid rgb(var(--v-theme-secondary));
+    background-color: rgb(var(--v-theme-background-lighten-1));
+    padding: 8px 12px;
+    border-radius: 4px;
 }
 
 </style>

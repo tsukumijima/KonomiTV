@@ -15,6 +15,11 @@ export interface ITwitterPasswordAuthRequest {
     password: string;
 }
 
+/** Twitter アカウントと Cookie 認証で連携するためのリクエストを表すインターフェイス */
+export interface ITwitterCookieAuthRequest {
+    cookies_txt: string;
+}
+
 /** ツイートを表すインターフェイス */
 export interface ITweet {
     id: string;
@@ -99,14 +104,14 @@ class Twitter {
 
 
     /**
-     * Twitter アカウントとパスワード認証で連携する
-     * @param twitter_password_auth_request スクリーンネームとパスワード
+     * Twitter アカウントと Cookie or パスワードログインで連携する
+     * @param twitter_auth_request cookies.txt または スクリーンネーム&パスワード
      * @returns ログインできた場合は true, 失敗した場合は false
      */
-    static async authWithPassword(twitter_password_auth_request: ITwitterPasswordAuthRequest): Promise<boolean> {
+    static async auth(twitter_auth_request: ITwitterPasswordAuthRequest | ITwitterCookieAuthRequest): Promise<boolean> {
 
         // API リクエストを実行
-        const response = await APIClient.post('/twitter/password-auth', twitter_password_auth_request);
+        const response = await APIClient.post('/twitter/auth', twitter_auth_request);
 
         // エラー処理
         if (response.type === 'error') {
