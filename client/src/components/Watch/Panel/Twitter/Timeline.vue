@@ -22,10 +22,14 @@
                 label="リツイートを表示する"
             />
         </div>
-        <DynamicScroller class="timeline-tweets" :direction="'vertical'" :items="tweets" :min-item-size="80">
+        <DynamicScroller class="timeline-tweets" :direction="'vertical'" :items="tweets"
+            :min-item-size="80" :buffer="400">
             <template v-slot="{item, active}">
-            <DynamicScrollerItem :item="item" :active="active" :size-dependencies="[item.text, item.image_urls, item.movie_url]">
-                <Tweet :key="item.id" :tweet="item" />
+                <DynamicScrollerItem
+                    :item="item"
+                    :active="active"
+                    :size-dependencies="[item.text, item.image_urls, item.movie_url]">
+                    <Tweet :key="item.id" :tweet="item" />
                 </DynamicScrollerItem>
             </template>
         </DynamicScroller>
@@ -74,7 +78,7 @@ const fetchTimelineTweets = async () => {
             result.tweets = result.tweets.filter(tweet => !tweet.retweeted_tweet);
         }
         // 新しいツイートを取得したら tweets の先頭に追加し、tweets.value を更新
-        tweets.value = [ ...result.tweets, ...tweets.value];
+        tweets.value = [...result.tweets, ...tweets.value];
         // 次のタイムラインを取得するためのカーソル ID を更新
         nextCursorId.value = result.next_cursor_id;
     }

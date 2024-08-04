@@ -30,10 +30,14 @@
                 label="リツイートを表示する"
             />
         </div>
-        <DynamicScroller class="search-tweets" :direction="'vertical'" :items="tweets" :min-item-size="80">
+        <DynamicScroller ref="scroller" class="search-tweets" :direction="'vertical'" :items="tweets"
+            :min-item-size="80" :buffer="400">
             <template v-slot="{item, active}">
-            <DynamicScrollerItem :item="item" :active="active" :size-dependencies="[item.text, item.image_urls, item.movie_url]">
-                <Tweet :key="item.id" :tweet="item" />
+                <DynamicScrollerItem
+                    :item="item"
+                    :active="active"
+                    :size-dependencies="[item.text, item.image_urls, item.movie_url]">
+                    <Tweet :key="item.id" :tweet="item" />
                 </DynamicScrollerItem>
             </template>
         </DynamicScroller>
@@ -42,7 +46,7 @@
 <script lang="ts" setup>
 
 import { storeToRefs } from 'pinia';
-import { ref, watch } from 'vue';
+import { ref, watch, onMounted, nextTick } from 'vue';
 
 import Tweet from '@/components/Watch/Panel/Twitter/Tweet.vue';
 import Twitter, { ITweet } from '@/services/Twitter';
@@ -57,10 +61,12 @@ const showSettings = ref(false);
 const showRetweets = ref(true);
 const isFetching = ref(false);
 const nextCursorId = ref<string | undefined>(undefined);
+const previousCursorId = ref<string | undefined>(undefined);
 const searchQuery = ref('');
+const scroller = ref<any>(null);
 
 // 表示する最大ツイート数
-const MAX_TWEETS = 50;
+const MAX_TWEETS = 1000;
 
 const toggleSettings = () => {
     showSettings.value = !showSettings.value;
@@ -88,16 +94,49 @@ const performSearchTweets = async () => {
 
     // 検索結果のツイートを「投稿時刻が新しい順」に取得
     // つまり後ろの要素になるほど古いツイートになる
+    // タイムラインと異なり、検索結果は一度に 20 件しか返ってこない
     const result = await Twitter.searchTweets(selected_twitter_account.value.screen_name, searchQuery.value, nextCursorId.value);
     if (result && result.tweets) {
         // 「リツイートを表示しない」がチェックされている場合はリツイートのツイートを除外
         if (showRetweets.value === false) {
             result.tweets = result.tweets.filter(tweet => !tweet.retweeted_tweet);
         }
-        // 新しいツイートを取得したら tweets の先頭に追加し、tweets.value を更新
-        tweets.value = [ ...result.tweets, ...tweets.value];
+        // 新しいツイートを取得したら tweets の先頭に追加
+        // これで新しいツイートが上部に表示される
+        tweets.value = [...result.tweets, ...tweets.value];
         // 次の検索結果を取得するためのカーソル ID を更新
         nextCursorId.value = result.next_cursor_id;
+        // 初回実行時のみ、previousCursorId を更新
+        // 2回目以降更新してしまうと previousCursorId がより新しいスナップショットに紐づいてしまうので更新しない
+        // これ以降 previousCursorId が更新されるのは過去のツイートを遡って取得した際のみ
+        if (previousCursorId.value === undefined) {
+            previousCursorId.value = result.previous_cursor_id;
+        }
+    }
+    isFetching.value = false;
+};
+
+const fetchOlderTweets = async () => {
+    if (isFetching.value || !previousCursorId.value || tweets.value.length >= MAX_TWEETS) {
+        return;
+    }
+    isFetching.value = true;
+    if (!selected_twitter_account.value) {
+        console.warn('selected_twitter_account is null');
+        isFetching.value = false;
+        return;
+    }
+
+    const result = await Twitter.searchTweets(selected_twitter_account.value.screen_name, searchQuery.value, previousCursorId.value);
+    if (result && result.tweets) {
+        if (showRetweets.value === false) {
+            result.tweets = result.tweets.filter(tweet => !tweet.retweeted_tweet);
+        }
+        // 古いツイートを取得したら tweets の末尾に追加
+        // これで古いツイートが下部に表示される
+        tweets.value = [...tweets.value, ...result.tweets];
+        // さらに過去の検索結果を取得するためのカーソル ID を更新
+        previousCursorId.value = result.previous_cursor_id;
     }
     isFetching.value = false;
 };
@@ -107,13 +146,37 @@ const performSearchTweets = async () => {
 watch(searchQuery, () => {
     tweets.value = [];
     nextCursorId.value = undefined;
+    previousCursorId.value = undefined;
 });
 
 // 「リツイートを表示する」のスイッチが変更されたらタイムラインの内容をまっさらにした上でカーソル ID も消して再取得
 watch(showRetweets, () => {
     tweets.value = [];
     nextCursorId.value = undefined;
+    previousCursorId.value = undefined;
     performSearchTweets();
+});
+
+const checkScrollPosition = () => {
+    if (!scroller.value || !scroller.value.$el) return;
+
+    const container = scroller.value.$el;
+    const scrollTop = container.scrollTop;
+    const scrollHeight = container.scrollHeight;
+    const clientHeight = container.clientHeight;
+
+    // スクロール位置が下部から 30px 以内に近づいたら追加のツイートを読み込む
+    if (scrollHeight - scrollTop - clientHeight < 30) {
+        fetchOlderTweets();
+    }
+};
+
+onMounted(() => {
+    nextTick(() => {
+        if (scroller.value && scroller.value.$el) {
+            scroller.value.$el.addEventListener('scroll', checkScrollPosition);
+        }
+    });
 });
 
 </script>
