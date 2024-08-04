@@ -138,7 +138,7 @@ async def TwitterPasswordAuthAPI(
             )
 
     # TwitterAccount のレコードを作成
-    ## アクセストークンは今までの OAuth 認証 (廃止) との互換性を保つため "COOKIE_SESSION" の固定値、
+    ## アクセストークンは今までの OAuth 認証 (廃止) との互換性を保つため "DIRECT_COOKIE_SESSION" または "COOKIE_SESSION" の固定値、
     ## アクセストークンシークレットとして Cookie を JSON 化した文字列を入れる
     ## ここでは ORM クラスのみを作成し、Twitter アカウント情報を取得した後に DB に保存する
     twitter_account = TwitterAccount(
@@ -146,7 +146,8 @@ async def TwitterPasswordAuthAPI(
         name = 'Temporary',
         screen_name = 'Temporary',
         icon_url = 'Temporary',
-        access_token = 'COOKIE_SESSION',
+        # Cookie ログインの場合は "DIRECT_COOKIE_SESSION" で、パスワードログインの場合は "COOKIE_SESSION" で固定
+        access_token = 'DIRECT_COOKIE_SESSION' if isinstance(auth_request, schemas.TwitterCookieAuthRequest) else 'COOKIE_SESSION',
         access_token_secret = json.dumps(cookies, ensure_ascii=False),
     )
 
@@ -208,41 +209,44 @@ async def TwitterAccountDeleteAPI(
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
 
-    # 明示的にログアウト処理を行う
+    assert twitter_account.access_token in ['COOKIE_SESSION', 'DIRECT_COOKIE_SESSION'], 'OAuth session is no longer available.'
+
+    # パスワードログイン (COOKIE_SESSION) の場合は明示的にログアウト処理を行う
     ## 単に Cookie を削除するだけだと Twitter 側にログインセッションが残り続けてしまう
-    assert twitter_account.access_token == 'COOKIE_SESSION', 'OAuth session is no longer available.'
-    auth_handler = twitter_account.getTweepyAuthHandler()
-    try:
-        await asyncio.to_thread(auth_handler.logout)
-    except tweepy.HTTPException as ex:
-        # サーバーエラーが発生した
-        if len(ex.api_codes) > 0 and len(ex.api_messages) > 0:
-            # Code: 32 が返された場合、現在のログインセッションが強制的に無効化 (強制ログアウト) されている
-            ## この場合同時にアカウントごとロックされ (解除には Arkose チャレンジのクリアが必要) 、
-            ## また当該アカウントの Twitter Web App でのログインセッションが全て無効化されるケースが大半
-            ## エラーは送出せず、当該 Twitter アカウントに紐づくレコードを削除して連携解除とする
-            if ex.api_codes[0] == 32:
-                await twitter_account.delete()
-                return
-            error_message = f'Code: {ex.api_codes[0]} / Message: {ex.api_messages[0]}'
-        else:
-            error_message = f'Unknown Error (HTTP Error {ex.response.status_code})'
-        logging.error(f'[TwitterRouter][TwitterAccountDeleteAPI] Failed to logout ({error_message}) [screen_name: {twitter_account.screen_name}]')
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = f'Failed to logout ({error_message})',
-        )
-    except tweepy.TweepyException as ex:
-        # 予期せぬエラーが発生した
-        error_message = f'Message: {ex}'
-        logging.error(f'[TwitterRouter][TwitterAccountDeleteAPI] Unexpected error occurred while logout ({error_message}) [screen_name: {twitter_account.screen_name}]')
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = f'Unexpected error occurred while logging out ({error_message})',
-        )
+    ## Cookie ログイン (DIRECT_COOKIE_SESSION) の場合はここでログアウトするとブラウザ側もログアウトされてしまうので、行わない
+    if twitter_account.access_token == 'COOKIE_SESSION':
+        cookie_session_user_handler = twitter_account.getTweepyAuthHandler()
+        try:
+            await asyncio.to_thread(cookie_session_user_handler.logout)
+        except tweepy.HTTPException as ex:
+            # サーバーエラーが発生した
+            if len(ex.api_codes) > 0 and len(ex.api_messages) > 0:
+                # Code: 32 が返された場合、現在のログインセッションが強制的に無効化 (強制ログアウト) されている
+                ## この場合同時にアカウントごとロックされ (解除には Arkose チャレンジのクリアが必要) 、
+                ## また当該アカウントの Twitter Web App でのログインセッションが全て無効化されるケースが大半
+                ## エラーは送出せず、当該 Twitter アカウントに紐づくレコードを削除して連携解除とする
+                if ex.api_codes[0] == 32:
+                    await twitter_account.delete()
+                    return
+                error_message = f'Code: {ex.api_codes[0]} / Message: {ex.api_messages[0]}'
+            else:
+                error_message = f'Unknown Error (HTTP Error {ex.response.status_code})'
+            logging.error(f'[TwitterRouter][TwitterAccountDeleteAPI] Failed to logout ({error_message}) [screen_name: {twitter_account.screen_name}]')
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = f'Failed to logout ({error_message})',
+            )
+        except tweepy.TweepyException as ex:
+            # 予期せぬエラーが発生した
+            error_message = f'Message: {ex}'
+            logging.error(f'[TwitterRouter][TwitterAccountDeleteAPI] Unexpected error occurred while logout ({error_message}) [screen_name: {twitter_account.screen_name}]')
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = f'Unexpected error occurred while logging out ({error_message})',
+            )
 
     # 指定された Twitter アカウントのレコードを削除
-    ## アクセストークンなどが保持されたレコードを削除することで連携解除とする
+    ## Cookie 情報などが保持されたレコードを削除することで連携解除とする
     await twitter_account.delete()
 
 
