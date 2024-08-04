@@ -301,8 +301,6 @@ async def TwitterTweetAPI(
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
 
-    tweepy_api = twitter_account.getTweepyAPI()
-
     # 画像が4枚を超えている
     if len(images) > 4:
         logging.error(f'[TwitterRouter][TwitterTweetAPI] Can tweet up to 4 images [image length: {len(images)}]')
@@ -316,10 +314,19 @@ async def TwitterTweetAPI(
 
     try:
 
+        tweepy_api = twitter_account.getTweepyAPI()
+
         # 画像をアップロードするタスク
         image_upload_task: list[Coroutine[Any, Any, Any | None]] = []
         for image in images:
-            image_upload_task.append(asyncio.to_thread(tweepy_api.media_upload, filename=image.filename, file=image.file))
+            image_upload_task.append(asyncio.to_thread(tweepy_api.media_upload,
+                filename = image.filename,
+                file = image.file,
+                # Twitter Web App の挙動に合わせて常にチャンク送信方式でアップロードする
+                chunk = True,
+                # Twitter Web App の挙動に合わせる
+                media_category = 'tweet_image',
+            ))
 
         # 画像を Twitter にアップロード
         ## asyncio.gather() で同時にアップロードし、ツイートをより早く送信できるように
