@@ -46,9 +46,6 @@ const showRetweets = ref(true);
 const isFetching = ref(false);
 const nextCursorId = ref<string | undefined>(undefined);
 
-// 表示する最大ツイート数
-const MAX_TWEETS = 50;
-
 const toggleSettings = () => {
     showSettings.value = !showSettings.value;
 };
@@ -72,10 +69,9 @@ const fetchTimelineTweets = async () => {
         if (showRetweets.value === false) {
             result.tweets = result.tweets.filter(tweet => !tweet.retweeted_tweet);
         }
-        // 新しいツイートを取得したら tweets の先頭に追加し、
-        // 表示対象のツイートを最大 MAX_TWEETS ツイートに制限した上で tweets.value を更新
-        tweets.value = [ ...result.tweets, ...tweets.value].slice(0, MAX_TWEETS);
-        // 次のツイートを取得するためのカーソル ID を更新
+        // 新しいツイートを取得したら tweets の先頭に追加し、tweets.value を更新
+        tweets.value = [ ...result.tweets, ...tweets.value];
+        // 次のタイムラインを取得するためのカーソル ID を更新
         nextCursorId.value = result.next_cursor_id;
     }
     isFetching.value = false;

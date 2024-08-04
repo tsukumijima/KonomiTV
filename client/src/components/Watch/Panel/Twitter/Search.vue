@@ -82,12 +82,17 @@ const performSearchTweets = async () => {
         return;
     }
 
+    // 検索結果のツイートを「投稿時刻が新しい順」に取得
+    // つまり後ろの要素になるほど古いツイートになる
     const result = await Twitter.searchTweets(selected_twitter_account.value.screen_name, searchQuery.value, nextCursorId.value);
     if (result && result.tweets) {
+        // 「リツイートを表示しない」がチェックされている場合はリツイートのツイートを除外
         if (showRetweets.value === false) {
             result.tweets = result.tweets.filter(tweet => !tweet.retweeted_tweet);
         }
-        tweets.value = [ ...result.tweets, ...tweets.value].slice(0, MAX_TWEETS);
+        // 新しいツイートを取得したら tweets の先頭に追加し、tweets.value を更新
+        tweets.value = [ ...result.tweets, ...tweets.value];
+        // 次の検索結果を取得するためのカーソル ID を更新
         nextCursorId.value = result.next_cursor_id;
     }
     isFetching.value = false;
