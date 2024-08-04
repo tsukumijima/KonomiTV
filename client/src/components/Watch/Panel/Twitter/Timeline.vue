@@ -22,9 +22,13 @@
                 label="リツイートを表示する"
             />
         </div>
-        <div class="timeline-tweets">
-            <Tweet v-for="tweet in tweets" :key="tweet.id" :tweet="tweet" />
-        </div>
+        <DynamicScroller class="timeline-tweets" :direction="'vertical'" :items="tweets" :min-item-size="80">
+            <template v-slot="{item, active}">
+            <DynamicScrollerItem :item="item" :active="active" :size-dependencies="[item.text, item.image_urls, item.movie_url]">
+                <Tweet :key="item.id" :tweet="item" />
+                </DynamicScrollerItem>
+            </template>
+        </DynamicScroller>
     </div>
 </template>
 
