@@ -145,6 +145,15 @@ class KeyboardShortcutManager implements PlayerManager {
                 this.player.toggle();
             }},
 
+            // Shift + Space: 再生 / 一時停止の切り替え
+            // キャプチャタブではツイート対象のキャプチャを選択する際に Space キーを使っているため、再生 / 一時停止の切り替えのショートカットが使えない
+            // そこでキャプチャタブ表示中でも、Shift + Space キーを押せば再生 / 一時停止の切り替えを行えるようにしている
+            // 以前はキャプチャタブ表示中のみ使えるショートカットだったが、キャプチャタブ以外を開いた際にキーが効かずに混乱することが分かったため、
+            // 現在は常時 Space と Shift + Space 両方のショートカットを使えるようにしている
+            {mode: 'Both', key: 'Space', repeat: false, ctrl: false, shift: true, alt: false, handler: () => {
+                this.player.toggle();
+            }},
+
             // Ctrl + ←: ライブ視聴: 停止して0.5秒早戻し
             {mode: 'Live', key: 'ArrowLeft', repeat: true, ctrl: true, shift: false, alt: false, handler: () => {
                 if (this.player.video.paused === false) {
@@ -597,32 +606,6 @@ class KeyboardShortcutManager implements PlayerManager {
 
                     }, 0.1 * 1000);
                 }
-
-                // 既定のキーボードショートカットイベントをキャンセルして終了
-                event.preventDefault();
-                event.stopPropagation();
-                return;
-            }
-
-            // Shift + Space: 再生 / 一時停止の切り替え
-            // Document Picture-in-Picture 表示状態ではなく、パネルが表示されていて、
-            // かつパネルで Twitter タブが表示されていて、Twitter タブ内でキャプチャタブが表示されているときのみ有効
-            // キャプチャタブではツイート対象のキャプチャを選択する際に Space キーを使っているため、再生 / 一時停止の切り替えのショートカットが使えない
-            // そこでキャプチャタブ表示中のみ、代わりに Shift + Space キーで再生 / 一時停止の切り替えを行えるようにしている
-            // フォーカスが input or textarea にあるときは誤動作防止のため無効化
-            if ((event.code === 'Space') &&
-                (is_repeat === false) &&
-                (is_ctrl_or_cmd_pressed === false) &&
-                (is_shift_pressed === true) &&
-                (is_alt_pressed === false) &&
-                (player_store.is_document_pip === false) &&
-                (player_store.is_panel_display === true) &&
-                (panel_active_tab === 'Twitter') &&
-                (player_store.twitter_active_tab === 'Capture') &&
-                (is_form_focused === false)) {
-
-                // 再生 / 一時停止の切り替え
-                this.player.toggle();
 
                 // 既定のキーボードショートカットイベントをキャンセルして終了
                 event.preventDefault();
