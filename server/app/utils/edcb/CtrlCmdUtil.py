@@ -6,6 +6,7 @@ from __future__ import annotations
 import aiofiles
 import asyncio
 import struct
+import sys
 import time
 from pydantic_core import Url
 from typing import Callable, cast, Literal, TypeVar
@@ -34,13 +35,15 @@ class CtrlCmdUtil:
     UNIX_EPOCH = datetime.datetime(1970, 1, 1, 9, tzinfo=TZ)
 
     __connect_timeout_sec: float
+    __pipe_dir: str
     __pipe_name: str
     __host: str | None
     __port: int
 
     def __init__(self, edcb_url: Url | None = None) -> None:
         self.__connect_timeout_sec = 15.
-        self.__pipe_name = 'EpgTimerSrvNoWaitPipe'
+        self.__pipe_dir = '\\\\.\\pipe\\' if sys.platform == 'win32' else '/var/local/edcb/'
+        self.__pipe_name = 'EpgTimerSrvNoWaitPipe' if sys.platform == 'win32' else 'EpgTimerSrvPipe'
         self.__host = None
         self.__port = 0
 
@@ -59,9 +62,10 @@ class CtrlCmdUtil:
         self.__host = host
         self.__port = port
 
-    def setPipeSetting(self, name: str) -> None:
-        """ 名前付きパイプモードにする """
-        self.__pipe_name = name
+    def setPipeSetting(self, name: str, dir: str | None = None) -> None:
+        """ 名前付きパイプ / UNIX ドメインソケットモードにする """
+        self.__pipe_dir = dir if dir is not None else '\\\\.\\pipe\\' if sys.platform == 'win32' else '/var/local/edcb/'
+        self.__pipe_name = name if sys.platform == 'win32' else name.replace('NoWait', '')
         self.__host = None
 
     def setConnectTimeOutSec(self, timeout: float) -> None:
@@ -507,11 +511,11 @@ class CtrlCmdUtil:
 
     async def __sendAndReceive(self, buf: bytearray) -> tuple[int | None, bytes]:
         to = time.monotonic() + self.__connect_timeout_sec
-        if self.__host is None:
+        if sys.platform == 'win32' and self.__host is None:
             # 名前付きパイプモード
             while True:
                 try:
-                    async with aiofiles.open('\\\\.\\pipe\\' + self.__pipe_name, mode='r+b') as f:
+                    async with aiofiles.open(self.__pipe_dir + self.__pipe_name, mode='r+b') as f:
                         await f.write(buf)
                         await f.flush()
                         rbuf = await f.read(8)
@@ -533,9 +537,13 @@ class CtrlCmdUtil:
                     break
             return None, b''
 
-        # TCP/IP モード
+        # UNIX ドメインソケットまたは TCP/IP モード
         try:
-            connection = await asyncio.wait_for(asyncio.open_connection(self.__host, self.__port), max(to - time.monotonic(), 0.))
+            if self.__host is None:
+                connection_future = asyncio.open_unix_connection(self.__pipe_dir + self.__pipe_name)
+            else:
+                connection_future = asyncio.open_connection(self.__host, self.__port)
+            connection = await asyncio.wait_for(connection_future, max(to - time.monotonic(), 0.))
             reader: asyncio.StreamReader = connection[0]
             writer: asyncio.StreamWriter = connection[1]
         except Exception:

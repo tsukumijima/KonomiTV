@@ -77,7 +77,7 @@ class EDCBUtil:
         return 'Unknown'
 
     @staticmethod
-    def convertBytesToString(buffer: bytes) -> str:
+    def convertBytesToString(buffer: bytes | bytearray | memoryview, default_encoding: str = 'cp932') -> str:
         """ BOM に基づいて Bytes データを文字列に変換する """
         if len(buffer) == 0:
             return ''
@@ -86,7 +86,7 @@ class EDCBUtil:
         elif len(buffer) >= 3 and buffer[0] == 0xef and buffer[1] == 0xbb and buffer[2] == 0xbf:
             return str(memoryview(buffer)[3:], 'utf_8', 'replace')
         else:
-            return str(buffer, 'cp932', 'replace')
+            return str(buffer, default_encoding, 'replace')
 
     @staticmethod
     def parseChSet5(chset5_txt: str) -> list[ChSet5Item]:
@@ -195,22 +195,38 @@ class EDCBUtil:
         return None
 
     @staticmethod
-    async def openPipeStream(process_id: int, timeout_sec: float = 10.0) -> PipeStreamReader | None:
-        """ システムに存在する SrvPipe ストリームを開く """
-        if sys.platform != 'win32':
-            raise NotImplementedError('Windows Only')
-
+    async def openPipeStream(process_id: int, buffering: int = -1, timeout_sec: float = 10.0, dir: str | None = None) -> PipeStreamReader | None:
+        """ システムに存在する SrvPipe ストリームを開き、PipeStreamReader を返す """
         to = time.monotonic() + timeout_sec
         wait = 0.1
         while time.monotonic() < to:
             # ポートは必ず 0 から 29 まで
             for port in range(30):
-                try:
-                    path = '\\\\.\\pipe\\SendTSTCP_' + str(port) + '_' + str(process_id)
-                    pipe = await asyncio.to_thread(open, path, mode='rb')
-                    return PipeStreamReader(pipe, ThreadPoolExecutor())
-                except Exception:
-                    pass
+                pipe = None
+                for index in range(2):
+                    try:
+                        if sys.platform == 'win32':
+                            # 同時利用でも名前は同じ
+                            path = ('\\\\.\\pipe\\' if dir is None else dir) + 'SendTSTCP_' + str(port) + '_' + str(process_id)
+                            pipe = await asyncio.to_thread(open, path, mode='rb', buffering=buffering)
+                            return PipeStreamReader(pipe, ThreadPoolExecutor())
+                        else:
+                            # 同時利用のための index がつく
+                            path = ('/var/local/edcb/' if dir is None else dir) + 'SendTSTCP_' + str(port) + '_' + str(process_id) + '_' + str(index) + '.fifo'
+                            pipe = await asyncio.to_thread(open, path, mode='rb', buffering=buffering)
+                    except Exception:
+                        break
+                    # アドバイザリロックを使って index を自動選択する
+                    assert sys.platform != 'win32'
+                    import fcntl
+                    try:
+                        fcntl.flock(pipe.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        return PipeStreamReader(pipe, ThreadPoolExecutor())
+                    except Exception:
+                        pipe.close()
+                # オープンが成功していれば他のポートは調べない
+                if pipe is not None:
+                    break
             await asyncio.sleep(wait)
             # 初期に成功しなければ見込みは薄いので問い合わせを疎にしていく
             wait = min(wait + 0.1, 1.0)

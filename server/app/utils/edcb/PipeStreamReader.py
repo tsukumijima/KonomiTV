@@ -1,7 +1,7 @@
 
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-from io import BufferedReader
+from typing import BinaryIO
 
 
 class PipeStreamReader:
@@ -11,7 +11,7 @@ class PipeStreamReader:
     内部で Win32API の CreateFile に渡すフラグが不適切で使い物にならないためつなぎとして用意したもの
     """
 
-    def __init__(self, pipe: BufferedReader, executor: ThreadPoolExecutor) -> None:
+    def __init__(self, pipe: BinaryIO, executor: ThreadPoolExecutor) -> None:
         self.__pipe = pipe
         self.__executor = executor
         self.__loop = asyncio.get_running_loop()
