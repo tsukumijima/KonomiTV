@@ -123,27 +123,29 @@ class LiveCommentManager implements PlayerManager {
         // サーバーから disconnect メッセージが送られてきた際のフラグ
         let is_disconnect_message_received = false;
 
-        // セッション情報を取得
-        const watch_session_info = await Channels.fetchJikkyoSession(channels_store.channel.current.id);
-        if (watch_session_info === null) {
+        // 視聴セッション WebSocket の URL を取得
+        // 実際は旧ニコニコ生放送の WebSocket API と互換性がある NX-Jikkyo の WebSocket API の URL が返る
+        const watch_session_url = await Channels.fetchJikkyoWebSocketURL(channels_store.channel.current.id);
+        if (watch_session_url === null) {
             return {
                 is_success: false,
-                detail: 'ニコニコ実況のセッション情報を取得できませんでした。',
+                detail: 'ニコニコ実況の WebSocket API の URL を取得できませんでした。',
             };
         }
-        if (watch_session_info.is_success === false) {
+        // チャンネルに対応するニコニコ実況チャンネルが存在しない場合
+        if (watch_session_url.websocket_url === null) {
             return {
                 is_success: false,
-                detail: watch_session_info.detail,
+                detail: 'このチャンネルはニコニコ実況に対応していません。',
             };
         }
 
         // 視聴セッション WebSocket の URL に 'nicovideo.jp' が含まれない場合は
         // NX-Jikkyo から視聴セッションを取得したとみなす
-        this.is_nx_jikkyo_server_session = watch_session_info.audience_token!.includes('nicovideo.jp') === false;
+        this.is_nx_jikkyo_server_session = watch_session_url.websocket_url.includes('nicovideo.jp') === false;
 
         // 視聴セッション WebSocket を開く
-        this.watch_session = new WebSocket(watch_session_info.audience_token!);
+        this.watch_session = new WebSocket(watch_session_url.websocket_url);
 
         // 視聴セッションの接続が開かれたとき
         this.watch_session.addEventListener('open', () => {

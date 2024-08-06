@@ -3,7 +3,6 @@
 # ref: https://stackoverflow.com/a/33533514/17124142
 from __future__ import annotations
 
-import html
 import httpx
 import json
 import re
@@ -12,59 +11,62 @@ from typing import Any, ClassVar, Literal, NotRequired, TypedDict
 from zoneinfo import ZoneInfo
 
 from app import schemas
-from app.config import Config
 from app.constants import API_REQUEST_HEADERS, HTTPX_CLIENT, JIKKYO_CHANNELS_PATH, NICONICO_OAUTH_CLIENT_ID
 from app.models.User import User
 from app.utils import Interlaced
 
 
+class JikkyoChannelStatus(TypedDict):
+    force: int
+    viewers: int
+    comments: int
+
+
 class Jikkyo:
-    """ ニコニコ実況関連 API のクライアント実装 """
+    """ ニコニコ実況関連のクライアント実装 """
 
-    # 実況 ID とサービス ID (SID)・ネットワーク ID (NID) の対照表
-    ## NicoJK の jkch.sh.txt (https://github.com/xtne6f/NicoJK/blob/master/jkch.sh.txt) を情報を更新の上で JSON に変換したもの
+    # ニコニコ実況チャンネル ID とサービス ID (SID)・ネットワーク ID (NID) の対照表
+    ## NicoJK の jkch.sh.txt (https://github.com/xtne6f/NicoJK/blob/master/jkch.sh.txt) をベースに、情報更新の上で JSON に変換したもの
     with open(JIKKYO_CHANNELS_PATH, mode='r', encoding='utf-8') as file:
-        jikkyo_channels: ClassVar[list[dict[str, Any]]] = json.load(file)
+        JIKKYO_CHANNELS: ClassVar[list[dict[str, Any]]] = json.load(file)
 
-    # 実況チャンネルのステータスが入る辞書
-    ## getchannels API のリクエスト結果をキャッシュする
-    jikkyo_channels_status: ClassVar[dict[str, dict[str, int]]] = {}
-
-    # 実況 ID と実況チャンネル/コミュニティ ID の対照表
-    jikkyo_nicolive_id_table: ClassVar[dict[str, dict[str, str]]] = {
-        'jk1': {'type': 'channel', 'id': 'ch2646436', 'name': 'NHK総合'},
-        'jk2': {'type': 'channel', 'id': 'ch2646437', 'name': 'NHK Eテレ'},
-        'jk4': {'type': 'channel', 'id': 'ch2646438', 'name': '日本テレビ'},
-        'jk5': {'type': 'channel', 'id': 'ch2646439', 'name': 'テレビ朝日'},
-        'jk6': {'type': 'channel', 'id': 'ch2646440', 'name': 'TBSテレビ'},
-        'jk7': {'type': 'channel', 'id': 'ch2646441', 'name': 'テレビ東京'},
-        'jk8': {'type': 'channel', 'id': 'ch2646442', 'name': 'フジテレビ'},
-        'jk9': {'type': 'channel', 'id': 'ch2646485', 'name': 'TOKYO MX'},
-        'jk10': {'type': 'community', 'id': 'co5253063', 'name': 'テレ玉'},
-        'jk11': {'type': 'community', 'id': 'co5215296', 'name': 'tvk'},
-        'jk12': {'type': 'community', 'id': 'co5359761', 'name': 'チバテレビ'},
-        'jk101': {'type': 'channel', 'id': 'ch2647992', 'name': 'NHK BS1'},
-        'jk103': {'type': 'community', 'id': 'co5175227', 'name': 'NHK BSプレミアム'},
-        'jk141': {'type': 'community', 'id': 'co5175341', 'name': 'BS日テレ'},
-        'jk151': {'type': 'community', 'id': 'co5175345', 'name': 'BS朝日'},
-        'jk161': {'type': 'community', 'id': 'co5176119', 'name': 'BS-TBS'},
-        'jk171': {'type': 'community', 'id': 'co5176122', 'name': 'BSテレ東'},
-        'jk181': {'type': 'community', 'id': 'co5176125', 'name': 'BSフジ'},
-        'jk191': {'type': 'community', 'id': 'co5251972', 'name': 'WOWOW PRIME'},
-        'jk192': {'type': 'community', 'id': 'co5251976', 'name': 'WOWOW LIVE'},
-        'jk193': {'type': 'community', 'id': 'co5251983', 'name': 'WOWOW CINEMA'},
-        'jk211': {'type': 'channel',   'id': 'ch2646846', 'name': 'BS11'},
-        'jk222': {'type': 'community', 'id': 'co5193029', 'name': 'BS12'},
-        'jk236': {'type': 'community', 'id': 'co5296297', 'name': 'BSアニマックス'},
-        'jk252': {'type': 'community', 'id': 'co5683458', 'name': 'WOWOW PLUS'},
-        'jk260': {'type': 'community', 'id': 'co5682554', 'name': 'BS松竹東急'},
-        'jk263': {'type': 'community', 'id': 'co5682551', 'name': 'BSJapanext'},
-        'jk265': {'type': 'community', 'id': 'co5682548', 'name': 'BSよしもと'},
-        'jk333': {'type': 'community', 'id': 'co5245469', 'name': 'AT-X'},
+    # ニコニコ実況チャンネル ID とニコニコ生放送上の番組 ID の対照表
+    ## 現在アクティブ (実況可能) なニコニコ実況チャンネルがここに記載されている
+    ## id が None のチャンネルは NX-Jikkyo にのみ存在する実況チャンネル
+    JIKKYO_NICOLIVE_PROGRAM_ID_TABLE: ClassVar[dict[str, str | None]] = {
+        'jk1': 'ch2646436',
+        'jk2': 'ch2646437',
+        'jk4': 'ch2646438',
+        'jk5': 'ch2646439',
+        'jk6': 'ch2646440',
+        'jk7': 'ch2646441',
+        'jk8': 'ch2646442',
+        'jk9': 'ch2646485',
+        'jk10': None,
+        'jk11': None,
+        'jk12': None,
+        'jk101': 'ch2647992',
+        'jk103': None,
+        'jk141': None,
+        'jk151': None,
+        'jk161': None,
+        'jk171': None,
+        'jk181': None,
+        'jk191': None,
+        'jk192': None,
+        'jk193': None,
+        'jk211': 'ch2646846',
+        'jk222': None,
+        'jk236': None,
+        'jk252': None,
+        'jk260': None,
+        'jk263': None,
+        'jk265': None,
+        'jk333': None,
     }
 
     # ニコニコの色指定を 16 進数カラーコードに置換するテーブル
-    color_table: dict[str, str] = {
+    COLOR_TABLE: dict[str, str] = {
         'white': '#FFEAEA',
         'red': '#F02840',
         'pink': '#FD7E80',
@@ -94,28 +96,45 @@ class Jikkyo:
         'black2': '#666666',
     }
 
+    # 実況チャンネルのステータスをキャッシュするための辞書
+    __jikkyo_channels_statuses: ClassVar[dict[str, JikkyoChannelStatus]] = {}
+
 
     def __init__(self, network_id: int, service_id: int) -> None:
         """
         ニコニコ実況クライアントを初期化する
 
         Args:
-            network_id (int): ネットワーク ID
-            service_id (int): サービス ID
+            network_id (int): チャンネルのネットワーク ID
+            service_id (int): チャンネルのサービス ID
         """
 
-        # NID と SID を設定
         self.network_id: int = network_id
         self.service_id: int = service_id
 
-        # 実況 ID
-        self.jikkyo_id: str
+        # ネットワーク ID + サービス ID に対応するニコニコ実況チャンネル ID (ex: jk101) を取得
+        self.jikkyo_id: str | None = self.__getJikkyoChannelID()
 
-        # ニコ生上の実況チャンネル/コミュニティ ID
-        self.jikkyo_nicolive_id: str | None
+        # ニコニコ実況チャンネル ID に対応するニコニコ生放送上の ID を取得する
+        # ニコニコ生放送上の ID が存在しない実況チャンネルは NX-Jikkyo にのみ存在する
+        if (self.jikkyo_id in Jikkyo.JIKKYO_NICOLIVE_PROGRAM_ID_TABLE) and \
+           (Jikkyo.JIKKYO_NICOLIVE_PROGRAM_ID_TABLE[self.jikkyo_id] is not None):
+            self.nicolive_program_id: str | None = Jikkyo.JIKKYO_NICOLIVE_PROGRAM_ID_TABLE[self.jikkyo_id]
+        else:
+            self.nicolive_program_id: str | None = None
 
-        # 実況 ID を取得する
-        for jikkyo_channel in Jikkyo.jikkyo_channels:
+
+    def __getJikkyoChannelID(self) -> str | None:
+        """
+        ネットワーク ID + サービス ID に対応するニコニコ実況チャンネル ID (ex: jk101) を取得する
+        対応するニコニコ実況チャンネル ID が存在しない場合は None を返す
+
+        Returns:
+            str | None: ニコニコ実況チャンネル ID (対応するニコニコ実況チャンネルが存在しない場合は None を返す)
+        """
+
+        # ネットワーク ID + サービス ID に対応するニコニコ実況チャンネル ID を特定する
+        for jikkyo_channel in Jikkyo.JIKKYO_CHANNELS:
 
             # マッチ条件が複雑すぎるので、絞り込みのための関数を定義する
             def match() -> bool:
@@ -155,82 +174,68 @@ class Jikkyo:
                 # CATV・SKY・STARDIGIO は実況チャンネル/コミュニティ自体が存在しない
                 return False
 
-            # 上記の条件に一致する場合のみ
-            if match():
+            # 上記の条件に一致し、かつニコニコ実況チャンネル ID が存在する場合のみ
+            # -1 は対応するニコニコ実況チャンネルが存在しないことを示す
+            if match() and jikkyo_channel['jikkyo_id'] != -1:
+                jikkyo_id = 'jk' + str(jikkyo_channel['jikkyo_id'])
 
-                # 実況 ID が -1 なら jk0 に
-                if jikkyo_channel['jikkyo_id'] == -1:
-                    self.jikkyo_id = 'jk0'
-                else:
-                    self.jikkyo_id = 'jk' + str(jikkyo_channel['jikkyo_id'])
-                break
+                # さらに対照表に存在するかをチェックする
+                # jikkyo_channels.json には現在は存在しない実況チャンネルの ID (ex: jk256) が含まれているため
+                if jikkyo_id in Jikkyo.JIKKYO_NICOLIVE_PROGRAM_ID_TABLE:
+                    return jikkyo_id
 
-        # この時点で実況 ID を設定できていないなら (jikkyo_channels.json に未定義のチャンネル) jk0 を設定する
-        if hasattr(self, 'jikkyo_id') is False:
-            self.jikkyo_id = 'jk0'
-
-        # ニコ生上の実況チャンネル/コミュニティ ID を取得する
-        if self.jikkyo_id != 'jk0':
-            if self.jikkyo_id in Jikkyo.jikkyo_nicolive_id_table:
-                # 対照表に存在する実況 ID
-                self.jikkyo_nicolive_id = Jikkyo.jikkyo_nicolive_id_table[self.jikkyo_id]['id']
-            else:
-                # ニコ生への移行時に廃止されたなどの理由で対照表に存在しない実況 ID
-                self.jikkyo_nicolive_id = None
-        else:
-            self.jikkyo_nicolive_id = None
+        # ニコニコ実況チャンネル ID が取得できていなければ None を返す
+        return None
 
 
-    async def getStatus(self) -> dict[str, int] | None:
+    async def getStatus(self) -> JikkyoChannelStatus | None:
         """
         実況チャンネルの現在のステータスを取得する (ステータス更新は updateStatus() で行う)
-        戻り値は force: 実況勢い / viewers: 累計視聴者数 / comments: 累計コメント数 の各カウントの辞書だが、force 以外は未使用
+        戻り値は force: 実況勢い / viewers: 累計視聴者数 / comments: 累計コメント数 の各カウントの辞書だが、force 以外は現在未使用
 
         Returns:
-            dict[str, int] | None: 実況チャンネルのステータス
+            JikkyoChannelStatus | None: 実況チャンネルのステータス
         """
 
-        # まだ実況チャンネルのステータスが更新されていなければ更新する
-        if Jikkyo.jikkyo_channels_status == {}:
-            await self.updateStatus()
+        # 起動してから一度も実況チャンネルのステータスが取得されていなければここで更新する
+        if self.__jikkyo_channels_statuses == {}:
+            await self.updateStatuses()
 
-        # 実況 ID が jk0（実況チャンネル/コミュニティが存在しない）であれば None を返す
-        if self.jikkyo_id == 'jk0':
-            return None
-
-        # 実況チャンネルのステータスが存在しない場合は None を返す
-        # 主にニコ生への移行時に実況が廃止されたチャンネル向け
-        if self.jikkyo_id not in Jikkyo.jikkyo_channels_status:
+        # ネットワーク ID + サービス ID に対応するニコニコ実況チャンネルがない場合は None を返す
+        ## 実況チャンネルが昔から存在しない CS や、2020年12月のニコニコ実況リニューアルで廃止された BS スカパーのチャンネルなどが該当
+        if self.jikkyo_id is None:
             return None
 
         # このインスタンスに紐づく実況チャンネルのステータスを返す
-        return Jikkyo.jikkyo_channels_status[self.jikkyo_id]
+        return self.__jikkyo_channels_statuses[self.jikkyo_id]
 
 
     @classmethod
-    async def updateStatus(cls) -> None:
+    async def updateStatuses(cls) -> None:
         """
         全ての実況チャンネルのステータスを更新する
         更新したステータスは getStatus() で取得できる
         """
 
         # NX-Jikkyo のチャンネル情報 API から実況チャンネルのステータスを取得する
+        ## サーバー混雑時は若干時間がかかることがあるのでタイムアウトを 5 秒に伸ばしている
         try:
             async with HTTPX_CLIENT() as client:
-                response = await client.get('https://nx-jikkyo.tsukumijima.net/api/v1/channels')
+                response = await client.get('https://nx-jikkyo.tsukumijima.net/api/v1/channels', timeout=5.0)
                 response.raise_for_status()
                 channels_data = response.json()
         except (httpx.NetworkError, httpx.TimeoutException, httpx.HTTPStatusError):
-            return  # ステータス更新を中断
+            # エラー発生時はステータス更新を中断
+            return
 
-        # 現在時刻に対応するスレッドを取得する
+        # 現在時刻に対応するスレッドから実況チャンネルのステータスを取得する
         current_time = datetime.now(ZoneInfo('Asia/Tokyo'))
         for channel in channels_data:
             jikkyo_id = channel['id']
-            if jikkyo_id in cls.jikkyo_nicolive_id_table:
+            if jikkyo_id in cls.JIKKYO_NICOLIVE_PROGRAM_ID_TABLE:
                 for thread in channel['threads']:
                     if datetime.fromisoformat(thread['start_at']) <= current_time <= datetime.fromisoformat(thread['end_at']):
-                        cls.jikkyo_channels_status[jikkyo_id] = {
+                        cls.__jikkyo_channels_statuses[jikkyo_id] = {
                             'force': thread['jikkyo_force'],
                             'viewers': thread['viewers'],
                             'comments': thread['comments'],
@@ -241,6 +246,7 @@ class Jikkyo:
     async def refreshNiconicoAccessToken(self, current_user: User) -> None:
         """
         指定されたユーザーに紐づくニコニコアカウントのアクセストークンを、リフレッシュトークンで更新する
+        更新されたアクセストークンはこの関数内で DB に永続化される
 
         Args:
             current_user (User): ログイン中のユーザーのモデルオブジェクト
@@ -311,9 +317,15 @@ class Jikkyo:
         ニコニコ実況からコメントを受信するための WebSocket API の URL を取得する
         2024/08/05 以降の新ニコニコ生放送でコメントサーバーが刷新された影響で、従来 KonomiTV で実装していた
         「ブラウザから直接ニコ生の WebSocket API に接続しコメントを受信する」手法が使えなくなったため、
-        当面 NX-Jikkyo の旧ニコニコ生放送互換 WebSocket API の URL を返す
+        当面の間、常に NX-Jikkyo の旧ニコニコ生放送互換 WebSocket API の URL を返す
         """
 
+        # ネットワーク ID + サービス ID に対応するニコニコ実況チャンネルがない場合
+        ## 実況チャンネルが昔から存在しない CS や、2020年12月のニコニコ実況リニューアルで廃止された BS スカパーのチャンネルなどが該当
+        if self.jikkyo_id is None:
+            return schemas.JikkyoWebSocketURL(websocket_url=None)
+
+        # NX-Jikkyo の旧ニコニコ生放送「視聴セッション維持用 WebSocket API」互換の WebSocket API の URL を生成して返す
         return schemas.JikkyoWebSocketURL(websocket_url=f'wss://nx-jikkyo.tsukumijima.net/api/v1/channels/{self.jikkyo_id}/ws/watch')
 
 
@@ -587,7 +599,7 @@ class Jikkyo:
         Returns:
             str | None: 16 進数カラーコード
         """
-        return Jikkyo.color_table.get(color)
+        return Jikkyo.COLOR_TABLE.get(color)
 
 
     @staticmethod

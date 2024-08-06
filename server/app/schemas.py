@@ -472,7 +472,7 @@ class JikkyoComments(BaseModel):
     detail: str
 
 class JikkyoWebSocketURL(BaseModel):
-    websocket_url: str
+    websocket_url: str | None
 
 class ThirdpartyAuthURL(BaseModel):
     authorization_url: str

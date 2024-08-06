@@ -529,7 +529,8 @@ async def ChannelJikkyoWebSocketURLAPI(
     channel: Annotated[Channel, Depends(GetChannel)],
 ):
     """
-    指定されたチャンネルに対応する、ニコニコ実況からコメントを受信するための WebSocket API の URL を取得する。
+    指定されたチャンネルに対応する、ニコニコ実況からコメントを受信するための WebSocket API の URL を取得する。<br>
+    当面の間、常に NX-Jikkyo の旧ニコニコ生放送互換 WebSocket API の URL を返す。
     """
 
     # ニコニコ実況からコメントを受信するための WebSocket API の URL を取得する

@@ -66,11 +66,9 @@ export interface ILiveChannelsList {
     STARDIGIO: ILiveChannel[];
 }
 
-/** ニコニコ実況のセッション情報を表すインターフェイス */
-export interface IJikkyoSession {
-    is_success: boolean;
-    audience_token: string | null;
-    detail: string;
+/** ニコニコ実況の WebSocket API の URL を表すインターフェイス */
+export interface IJikkyoWebSocketURL {
+    websocket_url: string | null;
 }
 
 
@@ -117,18 +115,18 @@ class Channels {
 
 
     /**
-     * 指定したチャンネルに紐づくニコニコ実況のセッション情報を取得する
+     * 指定されたチャンネルに対応する、ニコニコ実況からコメントを受信するための WebSocket API の URL を取得する
      * @param channel_id チャンネル ID (id or display_channel_id)
-     * @return 指定したチャンネルに紐づくニコニコ実況のセッション情報
+     * @return ニコニコ実況からコメントを受信するための WebSocket API の URL の情報
      */
-    static async fetchJikkyoSession(channel_id: string): Promise<IJikkyoSession | null> {
+    static async fetchJikkyoWebSocketURL(channel_id: string): Promise<IJikkyoWebSocketURL | null> {
 
         // API リクエストを実行
-        const response = await APIClient.get<IJikkyoSession>(`/channels/${channel_id}/jikkyo`);
+        const response = await APIClient.get<IJikkyoWebSocketURL>(`/channels/${channel_id}/jikkyo`);
 
         // エラー処理
         if (response.type === 'error') {
-            APIClient.showGenericError(response, 'ニコニコ実況のセッション情報を取得できませんでした。');
+            APIClient.showGenericError(response, 'ニコニコ実況の WebSocket API の URL を取得できませんでした。');
             return null;
         }
 

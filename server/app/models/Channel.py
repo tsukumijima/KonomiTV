@@ -602,7 +602,7 @@ class Channel(TortoiseModel):
         """ チャンネル情報のうち、ニコニコ実況関連のステータスを更新する """
 
         # 全ての実況チャンネルのステータスを更新
-        await Jikkyo.updateStatus()
+        await Jikkyo.updateStatuses()
 
         # 全てのチャンネル情報を取得
         channels = await Channel.filter(is_watchable=True)
@@ -614,9 +614,8 @@ class Channel(TortoiseModel):
             jikkyo = Jikkyo(channel.network_id, channel.service_id)
             status = await jikkyo.getStatus()
 
-            # ステータスが None（実況チャンネル自体が存在しないか、コミュニティの場合で実況枠が存在しない）でなく、force が -1 でなければ
+            # ステータスが None（実況チャンネル自体が存在しないか、コミュニティの場合で実況枠が存在しない）でなく、
+            # force が -1 (何らかのエラー) でなければステータスを更新
             if status != None and status['force'] != -1:
-
-                # ステータスを更新
                 channel.jikkyo_force = status['force']
                 await channel.save()
