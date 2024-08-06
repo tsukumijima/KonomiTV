@@ -7,9 +7,8 @@ import html
 import httpx
 import json
 import re
-import xml.etree.ElementTree as ET
 from datetime import datetime
-from typing import Any, cast, ClassVar, Literal, NotRequired, TypedDict
+from typing import Any, ClassVar, Literal, NotRequired, TypedDict
 from zoneinfo import ZoneInfo
 
 from app import schemas
@@ -215,73 +214,28 @@ class Jikkyo:
         更新したステータスは getStatus() で取得できる
         """
 
-        # ニコニコ実況の代わりに NX-Jikkyo からリアルタイムに実況コメントを取得する場合は、常に NX-Jikkyo の API からステータスを取得する
-        CONFIG = Config()
-        if CONFIG.tv.use_nx_jikkyo_instead is True:
-
-            # NX-Jikkyo の API から実況チャンネルのステータスを取得する
-            try:
-                async with HTTPX_CLIENT() as client:
-                    response = await client.get('https://nx-jikkyo.tsukumijima.net/api/v1/channels')
-                    response.raise_for_status()
-                    channels_data = response.json()
-            except (httpx.NetworkError, httpx.TimeoutException, httpx.HTTPStatusError):
-                return  # ステータス更新を中断
-
-            # 現在時刻に対応するスレッドを取得する
-            current_time = datetime.now(ZoneInfo('Asia/Tokyo'))
-            for channel in channels_data:
-                jikkyo_id = channel['id']
-                if jikkyo_id in cls.jikkyo_nicolive_id_table:
-                    for thread in channel['threads']:
-                        if datetime.fromisoformat(thread['start_at']) <= current_time <= datetime.fromisoformat(thread['end_at']):
-                            cls.jikkyo_channels_status[jikkyo_id] = {
-                                'force': thread['jikkyo_force'],
-                                'viewers': thread['viewers'],
-                                'comments': thread['comments'],
-                            }
-                            break
-
-            # getchannels API からは取得しない
-            return
-
-        # getchannels API から実況チャンネルのステータスを取得する
-        ## 3秒応答がなかったらタイムアウト
+        # NX-Jikkyo のチャンネル情報 API から実況チャンネルのステータスを取得する
         try:
-            getchannels_api_url = 'https://jikkyo.tsukumijima.net/namami/api/v2/getchannels'
             async with HTTPX_CLIENT() as client:
-                getchannels_api_response = await client.get(getchannels_api_url)
-        except (httpx.NetworkError, httpx.TimeoutException):  # 接続エラー（サーバー再起動やタイムアウトなど）
-            return # ステータス更新を中断
-
-        # ステータスコードが 200 以外
-        if getchannels_api_response.status_code != 200:
+                response = await client.get('https://nx-jikkyo.tsukumijima.net/api/v1/channels')
+                response.raise_for_status()
+                channels_data = response.json()
+        except (httpx.NetworkError, httpx.TimeoutException, httpx.HTTPStatusError):
             return  # ステータス更新を中断
 
-        # XML をパース
-        channels = ET.fromstring(getchannels_api_response.text)
-
-        # 実況チャンネルごとに
-        for channel in channels:
-
-            # 実況 ID を取得
-            jikkyo_id = channel.find('video').text  # type: ignore
-
-            # 対照表に存在する実況 ID のみ
+        # 現在時刻に対応するスレッドを取得する
+        current_time = datetime.now(ZoneInfo('Asia/Tokyo'))
+        for channel in channels_data:
+            jikkyo_id = channel['id']
             if jikkyo_id in cls.jikkyo_nicolive_id_table:
-
-                # ステータス (force: 実況勢い, viewers: 累計視聴者数, comments: 累計コメント数) を更新
-                # XML だと色々めんどくさいので、辞書にまとめ直す
-                cls.jikkyo_channels_status[jikkyo_id] = {
-                    'force': int(cast(Any, channel.find('./thread/force')).text),
-                    'viewers': int(cast(Any, channel.find('./thread/viewers')).text),
-                    'comments': int(cast(Any, channel.find('./thread/comments')).text),
-                }
-
-                # viewers と comments が -1 の場合、force も -1 に設定する
-                if (cls.jikkyo_channels_status[jikkyo_id]['viewers'] == -1 and
-                    cls.jikkyo_channels_status[jikkyo_id]['comments'] == -1):
-                    cls.jikkyo_channels_status[jikkyo_id]['force'] = -1
+                for thread in channel['threads']:
+                    if datetime.fromisoformat(thread['start_at']) <= current_time <= datetime.fromisoformat(thread['end_at']):
+                        cls.jikkyo_channels_status[jikkyo_id] = {
+                            'force': thread['jikkyo_force'],
+                            'viewers': thread['viewers'],
+                            'comments': thread['comments'],
+                        }
+                        break
 
 
     async def refreshNiconicoAccessToken(self, current_user: User) -> None:
