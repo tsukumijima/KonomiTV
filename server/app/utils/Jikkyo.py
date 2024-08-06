@@ -266,7 +266,7 @@ class Jikkyo:
             websocket_url = f'wss://nx-jikkyo.tsukumijima.net/api/v1/channels/{self.jikkyo_id}/ws/watch',
             # 現在では NX-Jikkyo 固有のニコニコ実況チャンネルかどうかを表すフラグ
             ## 実況チャンネル ID に対応するニコニコ生放送 ID が存在しない場合、NX-Jikkyo 固有のニコニコ実況チャンネルと判定する (jk141 など)
-            is_nxjikkyo_exclusive = self.nicolive_program_id is not None,
+            is_nxjikkyo_exclusive = self.nicolive_program_id is None,
         )
 
 
@@ -282,6 +282,13 @@ class Jikkyo:
         Returns:
             schemas.JikkyoSendCommentResult: コメント送信結果
         """
+
+        # 対応するニコニコ生放送番組 ID が存在しないチャンネル
+        if self.nicolive_program_id is None:
+            return schemas.JikkyoSendCommentResult(
+                is_success = False,
+                detail = 'ニコニコ実況に存在しない実況チャンネルです。',
+            )
 
         # ニコニコアカウントと連携されていないユーザーアカウント
         ## フロントエンド側で事前にニコニコアカウント連携済みかバリデーションされてから送信しているため、通常は発生しないはず
