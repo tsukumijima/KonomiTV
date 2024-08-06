@@ -243,7 +243,7 @@ class Jikkyo:
         指定されたユーザーに紐づくニコニコアカウントのアクセストークンを、リフレッシュトークンで更新する
 
         Args:
-            user (User): ログイン中のユーザーのモデルオブジェクト
+            current_user (User): ログイン中のユーザーのモデルオブジェクト
         """
 
         try:
@@ -306,6 +306,18 @@ class Jikkyo:
         await current_user.save()
 
 
+    def getJikkyoWebSocketURL(self) -> schemas.JikkyoWebSocketURL:
+        """
+        ニコニコ実況からコメントを受信するための WebSocket API の URL を取得する
+        2024/08/05 以降の新ニコニコ生放送でコメントサーバーが刷新された影響で、従来 KonomiTV で実装していた
+        「ブラウザから直接ニコ生の WebSocket API に接続しコメントを受信する」手法が使えなくなったため、
+        当面 NX-Jikkyo の旧ニコニコ生放送互換 WebSocket API の URL を返す
+        """
+
+        return schemas.JikkyoWebSocketURL(websocket_url=f'wss://nx-jikkyo.tsukumijima.net/api/v1/channels/{self.jikkyo_id}/ws/watch')
+
+
+    '''
     async def fetchJikkyoSession(self, current_user: User | None = None) -> schemas.JikkyoSession:
         """
         ニコニコ実況（ニコ生）の視聴セッション情報を取得する
@@ -433,6 +445,7 @@ class Jikkyo:
 
         # 視聴セッションの WebSocket URL を返す
         return schemas.JikkyoSession(is_success=True, audience_token=session, detail='視聴セッションを取得しました。')
+    '''
 
 
     async def fetchJikkyoComments(self, recording_start_time: datetime, recording_end_time: datetime) -> schemas.JikkyoComments:

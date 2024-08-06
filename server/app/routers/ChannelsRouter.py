@@ -15,7 +15,6 @@ from fastapi import status
 from fastapi.responses import FileResponse
 from fastapi.responses import JSONResponse
 from fastapi.responses import Response
-from fastapi.security.utils import get_authorization_scheme_param
 from tortoise import connections
 from typing import Annotated, Any
 from zoneinfo import ZoneInfo
@@ -25,7 +24,6 @@ from app import schemas
 from app.config import Config
 from app.constants import HTTPX_CLIENT, LOGO_DIR, VERSION
 from app.models.Channel import Channel
-from app.routers.UsersRouter import GetCurrentUser
 from app.streams.LiveStream import LiveStream
 from app.utils import GetMirakurunAPIEndpointURL
 from app.utils.EDCB import CtrlCmdUtil
@@ -522,35 +520,18 @@ async def ChannelLogoAPI(
 
 @router.get(
     '/{channel_id}/jikkyo',
-    summary = 'ニコニコ実況セッション情報 API',
-    response_description = 'ニコニコ実況のセッション情報。',
-    response_model = schemas.JikkyoSession,
+    summary = 'ニコニコ実況 WebSocket URL API',
+    response_description = 'ニコニコ実況からコメントを受信するための WebSocket API の URL。',
+    response_model = schemas.JikkyoWebSocketURL,
 )
-async def ChannelJikkyoSessionAPI(
+async def ChannelJikkyoWebSocketURLAPI(
     request: Request,
     channel: Annotated[Channel, Depends(GetChannel)],
 ):
     """
-    指定されたチャンネルに紐づくニコニコ実況のセッション情報を取得する。
+    指定されたチャンネルに対応する、ニコニコ実況からコメントを受信するための WebSocket API の URL を取得する。
     """
 
-    # もし Authorization ヘッダーがあるなら、ログイン中のユーザーアカウントを取得する
-    current_user = None
-    if request.headers.get('Authorization') is not None:
-
-        # JWT アクセストークンを取得
-        _, user_access_token = get_authorization_scheme_param(request.headers.get('Authorization'))
-
-        # アクセストークンに紐づくユーザーアカウントを取得
-        ## もともとバリデーション用なので HTTPException が送出されるが、ここではエラーにする必要はないのでパス
-        try:
-            current_user = await GetCurrentUser(token=user_access_token)
-        except HTTPException:
-            pass
-
-    # ニコニコ実況クライアントを初期化する
+    # ニコニコ実況からコメントを受信するための WebSocket API の URL を取得する
     jikkyo = Jikkyo(channel.network_id, channel.service_id)
-
-    # ニコニコ実況（ニコ生）のセッション情報を取得する
-    # 取得してきた値をそのまま返す
-    return await jikkyo.fetchJikkyoSession(current_user)
+    return jikkyo.getJikkyoWebSocketURL()

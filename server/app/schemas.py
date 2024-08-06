@@ -471,10 +471,8 @@ class JikkyoComments(BaseModel):
     comments: list[JikkyoComment]
     detail: str
 
-class JikkyoSession(BaseModel):
-    is_success: bool
-    audience_token: str | None = None
-    detail: str
+class JikkyoWebSocketURL(BaseModel):
+    websocket_url: str
 
 class ThirdpartyAuthURL(BaseModel):
     authorization_url: str
