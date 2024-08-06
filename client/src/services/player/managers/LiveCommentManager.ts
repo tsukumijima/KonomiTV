@@ -55,7 +55,7 @@ class LiveCommentManager implements PlayerManager {
     // destroy() 時に EventListener を全解除するための AbortController
     private abort_controller: AbortController = new AbortController();
 
-    // 現在では NX-Jikkyo 固有のニコニコ実況チャンネルかどうか
+    // 現在は NX-Jikkyo のみ存在するニコニコ実況チャンネルかどうか
     private is_nxjikkyo_exclusive = false;
 
     // 再接続中かどうか
@@ -140,7 +140,7 @@ class LiveCommentManager implements PlayerManager {
             };
         }
 
-        // 現在では NX-Jikkyo 固有のニコニコ実況チャンネルかどうかを設定
+        // 現在は NX-Jikkyo のみ存在するニコニコ実況チャンネルかどうかを設定
         this.is_nxjikkyo_exclusive = watch_session_info.is_nxjikkyo_exclusive;
 
         // 視聴セッション WebSocket を開く

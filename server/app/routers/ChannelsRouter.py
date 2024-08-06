@@ -523,7 +523,7 @@ async def ChannelLogoAPI(
 @router.get(
     '/{channel_id}/jikkyo',
     summary = 'ニコニコ実況 WebSocket URL API',
-    response_description = 'ニコニコ実況からコメントを受信するための WebSocket API の情報。',
+    response_description = 'ニコニコ実況コメント受信用 WebSocket API の情報。',
     response_model = schemas.JikkyoWebSocketInfo,
 )
 async def ChannelJikkyoWebSocketInfoAPI(
@@ -531,7 +531,7 @@ async def ChannelJikkyoWebSocketInfoAPI(
     channel: Annotated[Channel, Depends(GetChannel)],
 ):
     """
-    指定されたチャンネルに対応する、ニコニココメント受信用 WebSocket API の情報を取得する。<br>
+    指定されたチャンネルに対応する、ニコニコ実況コメント受信用 WebSocket API の情報を取得する。<br>
     当面の間、常に NX-Jikkyo の旧ニコニコ生放送互換 WebSocket API の情報を返す。
     """
 

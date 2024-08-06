@@ -469,7 +469,7 @@ class DataBroadcastingInternetStatus(BaseModel):
 
 class JikkyoWebSocketInfo(BaseModel):
     websocket_url: str | None
-    # 現在では NX-Jikkyo 固有のニコニコ実況チャンネルかどうか
+    # 現在は NX-Jikkyo のみ存在するニコニコ実況チャンネルかどうか
     is_nxjikkyo_exclusive: bool
 
 class JikkyoSendCommentResult(BaseModel):

@@ -264,7 +264,7 @@ class Jikkyo:
         # NX-Jikkyo の旧ニコニコ生放送「視聴セッション維持用 WebSocket API」互換の WebSocket API の URL を生成して返す
         return schemas.JikkyoWebSocketInfo(
             websocket_url = f'wss://nx-jikkyo.tsukumijima.net/api/v1/channels/{self.jikkyo_id}/ws/watch',
-            # 現在では NX-Jikkyo 固有のニコニコ実況チャンネルかどうかを表すフラグ
+            # 現在は NX-Jikkyo のみ存在するニコニコ実況チャンネルかどうかを表すフラグ
             ## 実況チャンネル ID に対応するニコニコ生放送 ID が存在しない場合、NX-Jikkyo 固有のニコニコ実況チャンネルと判定する (jk141 など)
             is_nxjikkyo_exclusive = self.nicolive_program_id is None,
         )
@@ -287,7 +287,7 @@ class Jikkyo:
         if self.nicolive_program_id is None:
             return schemas.JikkyoSendCommentResult(
                 is_success = False,
-                detail = 'ニコニコ実況に存在しない実況チャンネルです。',
+                detail = 'ニコニコ実況に存在しない実況チャンネルにはコメントを送信できません。',
             )
 
         # ニコニコアカウントと連携されていないユーザーアカウント
@@ -336,7 +336,7 @@ class Jikkyo:
                 except Exception:
                     pass
                 return schemas.JikkyoSendCommentResult(is_success=False, detail=(
-                    '現在、ニコニコ実況でエラーが発生しています。'
+                    '現在、ニコニコ生放送でエラーが発生しています。'
                     f'(HTTP Error {wsendpoint_api_response.status_code}{error_code})'
                 ))
 
@@ -347,7 +347,7 @@ class Jikkyo:
         except (httpx.NetworkError, httpx.TimeoutException):
             return schemas.JikkyoSendCommentResult(
                 is_success = False,
-                detail = 'ニコニコ実況に接続できませんでした。ニコニコで障害が発生している可能性があります。',
+                detail = 'ニコニコ生放送に接続できませんでした。ニコニコで障害が発生している可能性があります。',
             )
 
         # ニコニコ生放送の視聴セッション WebSocket に接続する
