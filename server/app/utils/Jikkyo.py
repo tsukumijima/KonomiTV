@@ -6,12 +6,16 @@ from __future__ import annotations
 import httpx
 import json
 import re
+import traceback
+import websockets
 from datetime import datetime
 from typing import Any, ClassVar, Literal, NotRequired, TypedDict
 from zoneinfo import ZoneInfo
 
+from app import logging
 from app import schemas
-from app.constants import HTTPX_CLIENT, JIKKYO_CHANNELS_PATH
+from app.constants import API_REQUEST_HEADERS, HTTPX_CLIENT, JIKKYO_CHANNELS_PATH
+from app.models.User import User
 
 
 class JikkyoChannelStatus(TypedDict):
@@ -23,12 +27,12 @@ class JikkyoChannelStatus(TypedDict):
 class Jikkyo:
     """ ニコニコ実況関連のクライアント実装 """
 
-    # ニコニコ実況チャンネル ID とサービス ID (SID)・ネットワーク ID (NID) の対照表
+    # 実況チャンネル ID とサービス ID (SID)・ネットワーク ID (NID) の対照表
     ## NicoJK の jkch.sh.txt (https://github.com/xtne6f/NicoJK/blob/master/jkch.sh.txt) をベースに、情報更新の上で JSON に変換したもの
     with open(JIKKYO_CHANNELS_PATH, mode='r', encoding='utf-8') as file:
         JIKKYO_CHANNELS: ClassVar[list[dict[str, Any]]] = json.load(file)
 
-    # ニコニコ実況チャンネル ID とニコニコ生放送上の番組 ID の対照表
+    # 実況チャンネル ID とニコニコ生放送上の番組 ID の対照表
     ## 現在アクティブ (実況可能) なニコニコ実況チャンネルがここに記載されている
     ## id が None のチャンネルは NX-Jikkyo にのみ存在する実況チャンネル
     JIKKYO_NICOLIVE_PROGRAM_ID_TABLE: ClassVar[dict[str, str | None]] = {
@@ -110,10 +114,10 @@ class Jikkyo:
         self.network_id: int = network_id
         self.service_id: int = service_id
 
-        # ネットワーク ID + サービス ID に対応するニコニコ実況チャンネル ID (ex: jk101) を取得
+        # ネットワーク ID + サービス ID に対応する実況チャンネル ID (ex: jk101) を取得
         self.jikkyo_id: str | None = self.__getJikkyoChannelID()
 
-        # ニコニコ実況チャンネル ID に対応するニコニコ生放送上の ID を取得する
+        # 実況チャンネル ID に対応するニコニコ生放送上の ID を取得する
         # ニコニコ生放送上の ID が存在しない実況チャンネルは NX-Jikkyo にのみ存在する
         if (self.jikkyo_id in Jikkyo.JIKKYO_NICOLIVE_PROGRAM_ID_TABLE) and \
            (Jikkyo.JIKKYO_NICOLIVE_PROGRAM_ID_TABLE[self.jikkyo_id] is not None):
@@ -124,14 +128,14 @@ class Jikkyo:
 
     def __getJikkyoChannelID(self) -> str | None:
         """
-        ネットワーク ID + サービス ID に対応するニコニコ実況チャンネル ID (ex: jk101) を取得する
-        対応するニコニコ実況チャンネル ID が存在しない場合は None を返す
+        ネットワーク ID + サービス ID に対応する実況チャンネル ID (ex: jk101) を取得する
+        対応する実況チャンネル ID が存在しない場合は None を返す
 
         Returns:
-            str | None: ニコニコ実況チャンネル ID (対応するニコニコ実況チャンネルが存在しない場合は None を返す)
+            str | None: 実況チャンネル ID (対応するニコニコ実況チャンネルが存在しない場合は None を返す)
         """
 
-        # ネットワーク ID + サービス ID に対応するニコニコ実況チャンネル ID を特定する
+        # ネットワーク ID + サービス ID に対応する実況チャンネル ID を特定する
         for jikkyo_channel in Jikkyo.JIKKYO_CHANNELS:
 
             # マッチ条件が複雑すぎるので、絞り込みのための関数を定義する
@@ -172,7 +176,7 @@ class Jikkyo:
                 # CATV・SKY・STARDIGIO は実況チャンネル/コミュニティ自体が存在しない
                 return False
 
-            # 上記の条件に一致し、かつニコニコ実況チャンネル ID が存在する場合のみ
+            # 上記の条件に一致し、かつ実況チャンネル ID が存在する場合のみ
             # -1 は対応するニコニコ実況チャンネルが存在しないことを示す
             if match() and jikkyo_channel['jikkyo_id'] != -1:
                 jikkyo_id = 'jk' + str(jikkyo_channel['jikkyo_id'])
@@ -182,7 +186,7 @@ class Jikkyo:
                 if jikkyo_id in Jikkyo.JIKKYO_NICOLIVE_PROGRAM_ID_TABLE:
                     return jikkyo_id
 
-        # ニコニコ実況チャンネル ID が取得できていなければ None を返す
+        # 実況チャンネル ID が取得できていなければ None を返す
         return None
 
 
@@ -241,9 +245,9 @@ class Jikkyo:
                         break
 
 
-    def getJikkyoWebSocketURL(self) -> schemas.JikkyoWebSocketURL:
+    def getJikkyoWebSocketInfo(self) -> schemas.JikkyoWebSocketInfo:
         """
-        ニコニコ実況からコメントを受信するための WebSocket API の URL を取得する
+        ニコニコ実況からコメントを受信するための WebSocket API の情報を取得する
         2024/08/05 以降の新ニコニコ生放送でコメントサーバーが刷新された影響で、従来 KonomiTV で実装していた
         「ブラウザから直接ニコ生の WebSocket API に接続しコメントを受信する」手法が使えなくなったため、
         当面の間、常に NX-Jikkyo の旧ニコニコ生放送互換 WebSocket API の URL を返す
@@ -252,141 +256,169 @@ class Jikkyo:
         # ネットワーク ID + サービス ID に対応するニコニコ実況チャンネルがない場合
         ## 実況チャンネルが昔から存在しない CS や、2020年12月のニコニコ実況リニューアルで廃止された BS スカパーのチャンネルなどが該当
         if self.jikkyo_id is None:
-            return schemas.JikkyoWebSocketURL(websocket_url=None)
-
-        # NX-Jikkyo の旧ニコニコ生放送「視聴セッション維持用 WebSocket API」互換の WebSocket API の URL を生成して返す
-        return schemas.JikkyoWebSocketURL(websocket_url=f'wss://nx-jikkyo.tsukumijima.net/api/v1/channels/{self.jikkyo_id}/ws/watch')
-
-
-    '''
-    async def fetchJikkyoSession(self, current_user: User | None = None) -> schemas.JikkyoSession:
-        """
-        ニコニコ実況（ニコ生）の視聴セッション情報を取得する
-
-        Args:
-            current_user (User | None): ログイン中のユーザーのモデルオブジェクト or None
-
-        Returns:
-            schemas.JikkyoSession: 視聴セッション情報 or エラーメッセージ
-        """
-
-        # 廃止されたなどの理由でニコ生上の実況チャンネル/コミュニティ ID が取得できていない
-        if self.jikkyo_nicolive_id is None:
-            return schemas.JikkyoSession(is_success=False, detail='このチャンネルはニコニコ実況に対応していません。')
-
-        # ニコニコ実況の代わりに NX-Jikkyo からリアルタイムに実況コメントを取得する場合は、常に実況 ID を入れた WebSocket URL を返す
-        CONFIG = Config()
-        if CONFIG.tv.use_nx_jikkyo_instead is True:
-            return schemas.JikkyoSession(
-                is_success = True,
-                audience_token = f'wss://nx-jikkyo.tsukumijima.net/api/v1/channels/{self.jikkyo_id}/ws/watch',
-                detail = '視聴セッションを取得しました。',
+            return schemas.JikkyoWebSocketInfo(
+                websocket_url = None,
+                is_nxjikkyo_exclusive = False,
             )
 
-        # ニコ生の視聴ページの HTML を取得する
-        ## 結構重いんだけど、ログインなしで視聴セッションを取るには視聴ページのスクレイピングしかない（はず）
-        ## 3秒応答がなかったらタイムアウト
-        watch_page_url = f'https://live.nicovideo.jp/watch/{self.jikkyo_nicolive_id}'
-        try:
-            async with HTTPX_CLIENT() as client:
-                watch_page_response = await client.get(watch_page_url)
-        except (httpx.NetworkError, httpx.TimeoutException):  # 接続エラー（サーバー再起動やタイムアウトなど）
-            return schemas.JikkyoSession(is_success=False, detail='ニコニコ実況に接続できませんでした。ニコニコで障害が発生している可能性があります。')
-        watch_page_code = watch_page_response.status_code
+        # NX-Jikkyo の旧ニコニコ生放送「視聴セッション維持用 WebSocket API」互換の WebSocket API の URL を生成して返す
+        return schemas.JikkyoWebSocketInfo(
+            websocket_url = f'wss://nx-jikkyo.tsukumijima.net/api/v1/channels/{self.jikkyo_id}/ws/watch',
+            # 現在では NX-Jikkyo 固有のニコニコ実況チャンネルかどうかを表すフラグ
+            ## 実況チャンネル ID に対応するニコニコ生放送 ID が存在しない場合、NX-Jikkyo 固有のニコニコ実況チャンネルと判定する (jk141 など)
+            is_nxjikkyo_exclusive = self.nicolive_program_id is not None,
+        )
 
-        # ステータスコードを判定
-        if watch_page_code != 200:
-            # 404: Not Found
-            if watch_page_code != 404:
-                return schemas.JikkyoSession(is_success=False, detail='現在放送中のニコニコ実況がありません。(HTTP Error 404)')
-            # 500: Internal Server Error
-            elif watch_page_code != 500:
-                return schemas.JikkyoSession(is_success=False, detail='現在、ニコニコ実況で障害が発生しています。(HTTP Error 500)')
-            # 503: Service Unavailable
-            elif watch_page_code != 500:
-                return schemas.JikkyoSession(is_success=False, detail='現在、ニコニコ実況はメンテナンス中です。(HTTP Error 503)')
-            # それ以外のステータスコード
-            else:
-                return schemas.JikkyoSession(is_success=False, detail=f'現在、ニコニコ実況でエラーが発生しています。(HTTP Error {watch_page_code})')
 
-        # HTML から embedded-data を取得
-        embedded_data_raw = re.search(r'<script id="embedded-data" data-props="(.*?)"><\/script>', watch_page_response.text)
+    async def sendComment(self, current_user: User, comment: schemas.JikkyoSendCommentRequest) -> schemas.JikkyoSendCommentResult:
+        """
+        ニコニコ実況 (ニコニコ生放送) の現在放送中の実況枠にコメントを送信する
+        NX-Jikkyo 固有のニコニコ実況チャンネルには送信できないため、常に失敗する
 
-        # embedded-data の取得に失敗
-        if embedded_data_raw is None:
-            return schemas.JikkyoSession(is_success=False, detail='ニコニコ実況の番組情報の取得に失敗しました。')
+        Args:
+            current_user (User): ログイン中のユーザーのモデルオブジェクト
+            comment (schemas.JikkyoSendCommentRequest): コメント送信リクエスト
 
-        # HTML エスケープを解除してから JSON デコード
-        embedded_data = json.loads(html.unescape(embedded_data_raw[1]))
+        Returns:
+            schemas.JikkyoSendCommentResult: コメント送信結果
+        """
 
-        # 現在放送中 (ON_AIR) でない
-        if embedded_data['program']['status'] != 'ON_AIR':
-            return schemas.JikkyoSession(is_success=False, detail='現在放送中のニコニコ実況がありません。')
-
-        # 視聴セッションの WebSocket URL
-        session = embedded_data['site']['relive']['webSocketUrl']
-        if session == '':
-            return schemas.JikkyoSession(is_success=False, detail='視聴セッションを取得できませんでした。')
-
-        # ログイン中でかつニコニコアカウントと連携している場合のみ、OAuth API (wsendpoint) から視聴セッションを取得する
-        ## wsendpoint から視聴セッションを取得すると、アクセストークンに紐づくユーザーとしてコメントできる
-        ## wsendpoint ではニコニコチャンネルやニコニコミュニティの ID を直接指定できず、事前に放送中の番組 ID を取得しておく必要がある
-        ## 現在放送中の番組があるかの判定 & 番組 ID の取得がめんどくさいのと、wsendpoint の API レスポンスが早いため、
-        ## wsendpoint から視聴セッションを取得する際も番組 ID を取得する目的で視聴ページにアクセスしている
-        if current_user is not None and all([
+        # ニコニコアカウントと連携されていないユーザーアカウント
+        ## フロントエンド側で事前にニコニコアカウント連携済みかバリデーションされてから送信しているため、通常は発生しないはず
+        if not all([
             current_user.niconico_user_id,
             current_user.niconico_user_name,
             current_user.niconico_access_token,
             current_user.niconico_refresh_token,
         ]):
-            try:
+            return schemas.JikkyoSendCommentResult(
+                is_success = False,
+                detail = 'コメントするには、ニコニコアカウントと連携してください。',
+            )
 
-                # 視聴セッションの WebSocket URL を取得する
-                ## レスポンスで取得できる WebSocket に接続すると、ログイン中のユーザーに紐づくニコニコアカウントでコメントできる
-                session_api_url = (
-                    'https://api.live2.nicovideo.jp/api/v1/wsendpoint?'
-                    f'nicoliveProgramId={embedded_data["program"]["nicoliveProgramId"]}&userId={current_user.niconico_user_id}'
-                )
+        try:
+            # 視聴セッションの WebSocket URL を取得する
+            ## レスポンスで取得できる WebSocket に接続すると、ログイン中のユーザーに紐づくニコニコアカウントでコメントできる
+            wsendpoint_api_url = (
+                'https://api.live2.nicovideo.jp/api/v1/wsendpoint?'
+                f'nicoliveProgramId={self.nicolive_program_id}&userId={current_user.niconico_user_id}'
+            )
 
-                async def getSession():  # 使い回せるように関数化
-                    async with HTTPX_CLIENT() as client:
-                        return await client.get(
-                            url = session_api_url,
-                            headers = {**API_REQUEST_HEADERS, 'Authorization': f'Bearer {current_user.niconico_access_token}'},
+            async def getSession():  # 使い回せるように関数化
+                async with HTTPX_CLIENT() as client:
+                    return await client.get(
+                        url = wsendpoint_api_url,
+                        headers = {**API_REQUEST_HEADERS, 'Authorization': f'Bearer {current_user.niconico_access_token}'},
+                    )
+            wsendpoint_api_response = await getSession()
+
+            # ステータスコードが 401 (Unauthorized)
+            ## アクセストークンの有効期限が切れているため、リフレッシュトークンでアクセストークンを更新してからやり直す
+            if wsendpoint_api_response.status_code == 401:
+                try:
+                    await current_user.refreshNiconicoAccessToken()
+                except Exception as ex:
+                    return schemas.JikkyoSendCommentResult(is_success=False, detail=ex.args[0])
+                wsendpoint_api_response = await getSession()
+
+            # ステータスコードが 200 以外
+            if wsendpoint_api_response.status_code != 200:
+                error_code = ''
+                try:
+                    error_code = f' ({wsendpoint_api_response.json()["meta"]["errorCode"]})'
+                except Exception:
+                    pass
+                return schemas.JikkyoSendCommentResult(is_success=False, detail=(
+                    '現在、ニコニコ実況でエラーが発生しています。'
+                    f'(HTTP Error {wsendpoint_api_response.status_code}{error_code})'
+                ))
+
+            # 視聴セッションの WebSocket URL を取得
+            websocket_url = wsendpoint_api_response.json()['data']['url']
+
+        # 接続エラー（サーバー再起動やタイムアウトなど）
+        except (httpx.NetworkError, httpx.TimeoutException):
+            return schemas.JikkyoSendCommentResult(
+                is_success = False,
+                detail = 'ニコニコ実況に接続できませんでした。ニコニコで障害が発生している可能性があります。',
+            )
+
+        # ニコニコ生放送の視聴セッション WebSocket に接続する
+        ## 2024/08/05 以降のニコニコ生放送ではコメントサーバーが刷新されたが、コメント送信は従来同様に WebSocket から行う
+        try:
+            async with websockets.connect(websocket_url) as websocket:
+
+                # 接続が確立したら、視聴開始リクエストを送る
+                await websocket.send(json.dumps({
+                    'type': 'startWatching',
+                    'data': {
+                        'reconnect': False,
+                    },
+                }))
+
+                # その後、コメント送信リクエストを送る
+                await websocket.send(json.dumps({
+                    'type': 'postComment',
+                    'data': {
+                        # コメント本文
+                        'text': comment.text,
+                        # コメントの色
+                        'color': comment.color,
+                        # コメント位置
+                        'position': comment.position,
+                        # コメントサイズ
+                        'size': comment.size,
+                        # 番組開始時間からの累計秒 (10ミリ秒単位)
+                        'vpos': comment.vpos,
+                        # 匿名コメント (184) にするかどうか
+                        'isAnonymous': True,
+                    }
+                }))
+
+                # メッセージを受信
+                while True:
+                    raw_message = await websocket.recv()
+                    message: dict[str, Any] = json.loads(raw_message)
+
+                    # postCommentResult が送られてきた → コメント送信に成功している
+                    if message['type'] == 'postCommentResult':
+                        logging.info('Comment sent successfully.')
+
+                        # 明示的に WebSocket 接続を閉じてから返す
+                        await websocket.close()
+                        return schemas.JikkyoSendCommentResult(is_success=True, detail='コメントを送信しました。')
+
+                    # コメント送信直後に error が送られてきた → コメント送信に失敗している
+                    if message['type'] == 'error':
+                        error_code: str = message['data']['code']
+                        error_message: str = f'コメントの送信に失敗しました。({error_code})'
+                        if error_code == 'COMMENT_POST_NOT_ALLOWED':
+                            error_message = 'コメントが許可されていません。'
+                        elif error_code == 'INVALID_MESSAGE':
+                            error_message = 'コメント内容が無効です。'
+                        logging.error(f'Comment sending failed. (Code: {error_code})')
+
+                        # 明示的に WebSocket 接続を閉じてから返す
+                        await websocket.close()
+                        return schemas.JikkyoSendCommentResult(
+                            is_success = False,
+                            detail = error_message,
                         )
-                session_api_response = await getSession()
 
-                # ステータスコードが 401 (Unauthorized)
-                ## アクセストークンの有効期限が切れているため、リフレッシュトークンでアクセストークンを更新してからやり直す
-                if session_api_response.status_code == 401:
-                    try:
-                        await self.refreshNiconicoAccessToken(current_user)
-                    except Exception as ex:
-                        return schemas.JikkyoSession(is_success=False, detail=ex.args[0])
-                    session_api_response = await getSession()
-
-                # ステータスコードが 200 以外
-                if session_api_response.status_code != 200:
-                    error_code = ''
-                    try:
-                        error_code = f' ({session_api_response.json()["meta"]["errorCode"]})'
-                    except Exception:
-                        pass
-                    return schemas.JikkyoSession(is_success=False, detail=(
-                        '現在、ニコニコ実況でエラーが発生しています。'
-                        f'(HTTP Error {session_api_response.status_code}{error_code})'
-                    ))
-
-                # 視聴セッションの WebSocket URL を OAuth API から取得したものに置き換える
-                session = session_api_response.json()['data']['url']
-
-            # 接続エラー（サーバー再起動やタイムアウトなど）
-            except (httpx.NetworkError, httpx.TimeoutException):
-                return schemas.JikkyoSession(is_success=False, detail='ニコニコ実況に接続できませんでした。ニコニコで障害が発生している可能性があります。')
-
-        # 視聴セッションの WebSocket URL を返す
-        return schemas.JikkyoSession(is_success=True, audience_token=session, detail='視聴セッションを取得しました。')
-    '''
+        except websockets.WebSocketException:
+            logging.error('An error occurred while connecting to the NicoLive WebSocket API.')
+            logging.error(traceback.format_exc())
+            return schemas.JikkyoSendCommentResult(
+                is_success = False,
+                detail = 'ニコニコ生放送の WebSocket API に接続できませんでした。ニコニコで障害が発生している可能性があります。',
+            )
+        except Exception:
+            logging.error('An error occurred while communicating with the NicoLive WebSocket API.')
+            logging.error(traceback.format_exc())
+            return schemas.JikkyoSendCommentResult(
+                is_success = False,
+                detail = 'ニコニコ生放送の WebSocket API との通信時に不明なエラーが発生しました。',
+            )
 
 
     async def fetchJikkyoComments(self, recording_start_time: datetime, recording_end_time: datetime) -> schemas.JikkyoComments:

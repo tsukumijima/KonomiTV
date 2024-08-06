@@ -239,14 +239,23 @@ class UserUpdateRequest(BaseModel):
 class UserUpdateRequestForAdmin(BaseModel):
     is_admin: bool | None = None
 
+# ***** ニコニコ実況連携 *****
+
+class JikkyoSendCommentRequest(BaseModel):
+    text: str
+    color: str
+    position: str
+    size: str
+    vpos: int
+
 # ***** Twitter 連携 *****
+
+class TwitterCookieAuthRequest(BaseModel):
+    cookies_txt: str
 
 class TwitterPasswordAuthRequest(BaseModel):
     screen_name: str
     password: str
-
-class TwitterCookieAuthRequest(BaseModel):
-    cookies_txt: str
 
 # モデルに関連しない API レスポンスの構造を表す Pydantic モデル
 ## レスポンスボディの JSON 構造と一致する
@@ -458,6 +467,15 @@ class DataBroadcastingInternetStatus(BaseModel):
 
 # ***** ニコニコ実況連携 *****
 
+class JikkyoWebSocketInfo(BaseModel):
+    websocket_url: str | None
+    # 現在では NX-Jikkyo 固有のニコニコ実況チャンネルかどうか
+    is_nxjikkyo_exclusive: bool
+
+class JikkyoSendCommentResult(BaseModel):
+    is_success: bool
+    detail: str
+
 class JikkyoComment(BaseModel):
     time: float
     type: Literal['top', 'right', 'bottom']
@@ -470,9 +488,6 @@ class JikkyoComments(BaseModel):
     is_success: bool
     comments: list[JikkyoComment]
     detail: str
-
-class JikkyoWebSocketURL(BaseModel):
-    websocket_url: str | None
 
 class ThirdpartyAuthURL(BaseModel):
     authorization_url: str
