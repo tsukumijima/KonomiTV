@@ -6,6 +6,7 @@ from __future__ import annotations
 import aiofiles
 import asyncio
 import datetime
+import struct
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -725,6 +726,22 @@ class TunerReserveInfo(TypedDict):
     reserve_list: list[int]
 
 
+class TunerProcessStatusInfo(TypedDict):
+    """ 起動中のチューナー情報 """
+    tuner_id: int
+    process_id: int
+    drop: int
+    scramble: int
+    signal_lv: float
+    space: int
+    ch: int
+    onid: int
+    tsid: int
+    rec_flag: bool
+    epg_cap_flag: bool
+    extra_flags: int  # 未使用
+
+
 class ShortEventInfo(TypedDict):
     """ イベントの基本情報 """
     event_name: str
@@ -1230,6 +1247,16 @@ class CtrlCmdUtil:
                 pass
         return None
 
+    async def sendEnumTunerProcess(self) -> list[TunerProcessStatusInfo] | None:
+        """ 起動中のチューナーについてサーバーが把握している情報の一覧を取得する """
+        ret, rbuf = await self.__sendCmd(self.__CMD_EPG_SRV_ENUM_TUNER_PROCESS)
+        if ret == self.__CMD_SUCCESS:
+            try:
+                return self.__readVector(self.__readTunerProcessStatusInfo, memoryview(rbuf), [0], len(rbuf))
+            except self.__ReadError:
+                pass
+        return None
+
     async def sendEpgCapNow(self) -> bool:
         """ EPG 取得開始を要求する """
         ret, _ = await self.__sendCmd(self.__CMD_EPG_SRV_EPG_CAP_NOW)
@@ -1402,6 +1429,7 @@ class CtrlCmdUtil:
     __CMD_EPG_SRV_EPG_CAP_NOW = 1053
     __CMD_EPG_SRV_FILE_COPY = 1060
     __CMD_EPG_SRV_ENUM_PLUGIN = 1061
+    __CMD_EPG_SRV_ENUM_TUNER_PROCESS = 1066
     __CMD_EPG_SRV_NWTV_ID_SET_CH = 1073
     __CMD_EPG_SRV_NWTV_ID_CLOSE = 1074
     __CMD_EPG_SRV_NWPLAY_CLOSE = 1081
@@ -1936,6 +1964,27 @@ class CtrlCmdUtil:
             'tuner_id': cls.__readUint(buf, pos, size),
             'tuner_name': cls.__readString(buf, pos, size),
             'reserve_list': cls.__readVector(cls.__readInt, buf, pos, size)
+        }
+        pos[0] = size
+        return v
+
+    @classmethod
+    def __readTunerProcessStatusInfo(cls, buf: memoryview, pos: list[int], size: int) -> TunerProcessStatusInfo:
+        size = cls.__readStructIntro(buf, pos, size)
+        v: TunerProcessStatusInfo = {
+            'tuner_id': cls.__readUint(buf, pos, size),
+            'process_id': cls.__readInt(buf, pos, size),
+            'drop': cls.__readLong(buf, pos, size),
+            'scramble': cls.__readLong(buf, pos, size),
+            # ほとんどないと思うが float が IEEE 754 以外の形式でアンパックされる環境では正しくない
+            'signal_lv': struct.unpack('>f', cls.__readUint(buf, pos, size).to_bytes(4))[0],
+            'space': cls.__readInt(buf, pos, size),
+            'ch': cls.__readInt(buf, pos, size),
+            'onid': cls.__readInt(buf, pos, size),
+            'tsid': cls.__readInt(buf, pos, size),
+            'rec_flag': cls.__readByte(buf, pos, size) != 0,
+            'epg_cap_flag': cls.__readByte(buf, pos, size) != 0,
+            'extra_flags': cls.__readUshort(buf, pos, size)
         }
         pos[0] = size
         return v
