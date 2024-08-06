@@ -55,8 +55,8 @@ class LiveCommentManager implements PlayerManager {
     // destroy() 時に EventListener を全解除するための AbortController
     private abort_controller: AbortController = new AbortController();
 
-    // NX-Jikkyo から視聴セッションを取得したかどうか
-    private is_nx_jikkyo_server_session = false;
+    // 現在では NX-Jikkyo 固有のニコニコ実況チャンネルかどうか
+    private is_nxjikkyo_exclusive = false;
 
     // 再接続中かどうか
     private reconnecting = false;
@@ -125,27 +125,26 @@ class LiveCommentManager implements PlayerManager {
 
         // 視聴セッション WebSocket の URL を取得
         // 実際は旧ニコニコ生放送の WebSocket API と互換性がある NX-Jikkyo の WebSocket API の URL が返る
-        const watch_session_url = await Channels.fetchJikkyoWebSocketURL(channels_store.channel.current.id);
-        if (watch_session_url === null) {
+        const watch_session_info = await Channels.fetchJikkyoWebSocketInfo(channels_store.channel.current.id);
+        if (watch_session_info === null) {
             return {
                 is_success: false,
-                detail: 'ニコニコ実況の WebSocket API の URL を取得できませんでした。',
+                detail: 'コメント受信用 WebSocket API の情報を取得できませんでした。',
             };
         }
         // チャンネルに対応するニコニコ実況チャンネルが存在しない場合
-        if (watch_session_url.websocket_url === null) {
+        if (watch_session_info.websocket_url === null) {
             return {
                 is_success: false,
                 detail: 'このチャンネルはニコニコ実況に対応していません。',
             };
         }
 
-        // 視聴セッション WebSocket の URL に 'nicovideo.jp' が含まれない場合は
-        // NX-Jikkyo から視聴セッションを取得したとみなす
-        this.is_nx_jikkyo_server_session = watch_session_url.websocket_url.includes('nicovideo.jp') === false;
+        // 現在では NX-Jikkyo 固有のニコニコ実況チャンネルかどうかを設定
+        this.is_nxjikkyo_exclusive = watch_session_info.is_nxjikkyo_exclusive;
 
         // 視聴セッション WebSocket を開く
-        this.watch_session = new WebSocket(watch_session_url.websocket_url);
+        this.watch_session = new WebSocket(watch_session_info.websocket_url);
 
         // 視聴セッションの接続が開かれたとき
         this.watch_session.addEventListener('open', () => {
@@ -535,9 +534,11 @@ class LiveCommentManager implements PlayerManager {
 
     /**
      * ニコニコ実況にコメントを送信する
+     * DPlayer からコメントオプションを受け取り、成功 or 失敗をコールバックで通知する
      * @param options DPlayer のコメントオプション
      */
     public sendComment(options: DPlayerType.APIBackendSendOptions): void {
+        const channels_store = useChannelsStore();
         const player_store = usePlayerStore();
         const user_store = useUserStore();
 
@@ -547,23 +548,28 @@ class LiveCommentManager implements PlayerManager {
             return;
         }
 
+        // 可能であればニコニコ実況 (ニコニコ生放送) にコメントを投稿するかどうか
+        // 当面常に固定 (将来的に設定値にする予定)
+        const prefer_posting_to_nicolive = true;
+
         // ログイン関連のバリデーション
-        // ニコニコ実況公式コメントサーバーの場合のみ実行
-        if (this.is_nx_jikkyo_server_session === false) {
+        // 「可能であればニコニコ実況 (ニコニコ生放送) にコメントを投稿する」がオンかつ
+        // NX-Jikkyo 固有のニコニコ実況チャンネルではないときだけ実行
+        if (prefer_posting_to_nicolive === true && this.is_nxjikkyo_exclusive === false) {
             if (user_store.user === null) {
-                options.error('コメントするには、KonomiTV アカウントにログインしてください。');
+                options.error('ニコニコ実況にコメントを投稿するには、KonomiTV アカウントにログインしてください。');
                 return;
             }
             if (user_store.user.niconico_user_id === null) {
-                options.error('コメントするには、ニコニコアカウントと連携してください。');
+                options.error('ニコニコ実況にコメントを投稿するには、ニコニコアカウントと連携してください。');
                 return;
             }
             if (user_store.user.niconico_user_premium === false && (options.data.type === 'top' || options.data.type === 'bottom')) {
-                options.error('コメントを上下に固定するには、ニコニコアカウントのプレミアム会員登録が必要です。');
+                options.error('ニコニコ実況でコメントを上下に固定するには、ニコニコアカウントのプレミアム会員登録が必要です。');
                 return;
             }
             if (user_store.user.niconico_user_premium === false && options.data.size === 'big') {
-                options.error('コメントサイズを大きめに設定するには、ニコニコアカウントのプレミアム会員登録が必要です。');
+                options.error('ニコニコ実況でコメントサイズを大きめに設定するには、ニコニコアカウントのプレミアム会員登録が必要です。');
                 return;
             }
         }
@@ -599,33 +605,22 @@ class LiveCommentManager implements PlayerManager {
         // 小数点以下は丸めないとコメントサーバー側で投稿エラーになる
         const vpos = Math.round((dayjs().valueOf() - this.vpos_base_timestamp) / 10);
 
-        // コメントを送信
-        this.watch_session.send(JSON.stringify({
-            'type': 'postComment',
-            'data': {
-                // コメント本文
-                'text': options.data.text,
-                // コメントの色
-                'color': color_table[options.data.color.toUpperCase()],
-                // コメント位置
-                'position': position_table[options.data.type],
-                // コメントサイズ (DPlayer とニコニコで表現が共通なため、変換不要)
-                'size': options.data.size,
-                // 番組開始時間からの累計秒 (10ミリ秒単位)
-                'vpos': vpos,
-                // 匿名コメント (184) にするかどうか
-                'isAnonymous': true,
-            }
-        }));
+        // 「可能であればニコニコ実況 (ニコニコ生放送) にコメントを投稿する」がオンかつ
+        // NX-Jikkyo 固有のニコニコ実況チャンネルではないときは、ニコニコ実況にコメントを送信する
+        if (prefer_posting_to_nicolive === true && this.is_nxjikkyo_exclusive === false) {
 
-        // コメント送信のレスポンスを取得
-        const abort_controller = new AbortController();
-        this.watch_session.addEventListener('message', (event) => {
-            const message = JSON.parse(event.data);
-            switch (message.type) {
+            // コメントを送信
+            Channels.sendJikkyoComment(channels_store.channel.current.id, {
+                text: options.data.text,
+                color: color_table[options.data.color.toUpperCase()],
+                position: position_table[options.data.type],
+                size: options.data.size,
+                vpos: vpos,
+            }).then((result) => {
 
-                // postCommentResult が送られてきた → コメント送信に成功している
-                case 'postCommentResult': {
+                // コメント送信成功
+                if (result !== null && result.is_success === true) {
+
                     // コメント成功を DPlayer にコールバックで通知
                     options.success();
 
@@ -641,32 +636,90 @@ class LiveCommentManager implements PlayerManager {
                         }
                     });
 
-                    // イベントリスナーを削除
-                    abort_controller.abort();
-                    break;
-                }
+                // コメント送信失敗
+                } else {
 
-                // コメント送信直後に error が送られてきた → コメント送信に失敗している
-                case 'error': {
                     // コメント失敗を DPlayer にコールバックで通知
-                    let error = `コメントの送信に失敗しました。(${message.data.code})`;
-                    switch (message.data.code) {
-                        case 'COMMENT_POST_NOT_ALLOWED':
-                            error = 'コメントが許可されていません。';
-                            break;
-                        case 'INVALID_MESSAGE':
-                            error = 'コメント内容が無効です。';
-                            break;
-                    }
-                    console.error(`[LiveCommentManager][WatchSession] Comment sending failed. (Code: ${message.data.code})`);
-                    options.error(error);
-
-                    // イベントリスナーを解除
-                    abort_controller.abort();
-                    break;
+                    const error_message = result !== null ? result.detail : 'コメントの送信に失敗しました。';
+                    console.error(`[LiveCommentManager][WatchSession] Comment sending failed. (Message: ${error_message})`);
+                    options.error(error_message);
                 }
-            }
-        }, { signal: abort_controller.signal });
+            });
+
+        // それ以外では現在接続している NX-Jikkyo の WebSocket にコメントを送信する
+        // BS日テレなど、ニコニコ実況に公式で用意されていない実況チャンネルでは常に NX-Jikkyo に送信される
+        } else {
+
+            // コメントを送信
+            this.watch_session.send(JSON.stringify({
+                'type': 'postComment',
+                'data': {
+                    // コメント本文
+                    'text': options.data.text,
+                    // コメントの色
+                    'color': color_table[options.data.color.toUpperCase()],
+                    // コメント位置
+                    'position': position_table[options.data.type],
+                    // コメントサイズ (DPlayer とニコニコで表現が共通なため、変換不要)
+                    'size': options.data.size,
+                    // 番組開始時間からの累計秒 (10ミリ秒単位)
+                    'vpos': vpos,
+                    // 匿名コメント (184) にするかどうか
+                    'isAnonymous': true,
+                }
+            }));
+
+            // コメント送信のレスポンスを取得
+            const abort_controller = new AbortController();
+            this.watch_session.addEventListener('message', (event) => {
+                const message = JSON.parse(event.data);
+                switch (message.type) {
+
+                    // postCommentResult が送られてきた → コメント送信に成功している
+                    case 'postCommentResult': {
+                        // コメント成功を DPlayer にコールバックで通知
+                        options.success();
+
+                        // 送信したコメントを整形してコメントリストに送信
+                        player_store.event_emitter.emit('CommentSendCompleted', {
+                            comment: {
+                                id: Utils.time(),  // ID は取得できないので現在の時間をユニークな ID として利用する
+                                text: options.data.text,  // コメント本文
+                                time: dayjs().format('HH:mm:ss'),  // 現在時刻
+                                playback_position: this.player.video.currentTime,  // 現在の再生位置
+                                user_id: `${user_store.user?.niconico_user_id ?? 'Unknown'}`,  // ニコニコユーザー ID
+                                my_post: true,  // 自分のコメントであることを示すフラグ
+                            }
+                        });
+
+                        // イベントリスナーを削除
+                        abort_controller.abort();
+                        break;
+                    }
+
+                    // コメント送信直後に error が送られてきた → コメント送信に失敗している
+                    case 'error': {
+                        // コメント失敗を DPlayer にコールバックで通知
+                        let error = `コメントの送信に失敗しました。(${message.data.code})`;
+                        switch (message.data.code) {
+                            case 'COMMENT_POST_NOT_ALLOWED':
+                                error = 'コメントが許可されていません。';
+                                break;
+                            case 'INVALID_MESSAGE':
+                                error = 'コメント内容が無効です。';
+                                break;
+                        }
+                        console.error(`[LiveCommentManager][WatchSession] Comment sending failed. (Code: ${message.data.code})`);
+                        options.error(error);
+
+                        // イベントリスナーを解除
+                        abort_controller.abort();
+                        break;
+                    }
+                }
+
+            }, { signal: abort_controller.signal });
+        }
     }
 
 

@@ -66,11 +66,26 @@ export interface ILiveChannelsList {
     STARDIGIO: ILiveChannel[];
 }
 
-/** ニコニコ実況の WebSocket API の URL を表すインターフェイス */
-export interface IJikkyoWebSocketURL {
+/** ニコニコ実況の WebSocket API の情報を表すインターフェイス */
+export interface IJikkyoWebSocketInfo {
     websocket_url: string | null;
+    is_nxjikkyo_exclusive: boolean;
 }
 
+/** ニコニコ実況へのコメント送信リクエストを表すインターフェイス */
+export interface IJikkyoSendCommentRequest {
+    text: string;
+    color: string;
+    position: string;
+    size: string;
+    vpos: number;
+}
+
+/** ニコニコ実況へのコメント送信結果を表すインターフェイス */
+export interface IJikkyoSendCommentResult {
+    is_success: boolean;
+    detail: string;
+}
 
 class Channels {
 
@@ -115,18 +130,38 @@ class Channels {
 
 
     /**
-     * 指定されたチャンネルに対応する、ニコニコ実況からコメントを受信するための WebSocket API の URL を取得する
+     * 指定されたチャンネルに対応する、ニコニコ実況からコメントを受信するための WebSocket API の情報を取得する
      * @param channel_id チャンネル ID (id or display_channel_id)
-     * @return ニコニコ実況からコメントを受信するための WebSocket API の URL の情報
+     * @return ニコニコ実況からコメントを受信するための WebSocket API の情報
      */
-    static async fetchJikkyoWebSocketURL(channel_id: string): Promise<IJikkyoWebSocketURL | null> {
+    static async fetchJikkyoWebSocketInfo(channel_id: string): Promise<IJikkyoWebSocketInfo | null> {
 
         // API リクエストを実行
-        const response = await APIClient.get<IJikkyoWebSocketURL>(`/channels/${channel_id}/jikkyo`);
+        const response = await APIClient.get<IJikkyoWebSocketInfo>(`/channels/${channel_id}/jikkyo`);
 
         // エラー処理
         if (response.type === 'error') {
-            APIClient.showGenericError(response, 'ニコニコ実況の WebSocket API の URL を取得できませんでした。');
+            APIClient.showGenericError(response, 'コメント受信用 WebSocket API の情報を取得できませんでした。');
+            return null;
+        }
+
+        return response.data;
+    }
+
+    /**
+     * 指定されたチャンネルに対応するニコニコ実況チャンネルにコメントを送信する
+     * @param channel_id チャンネル ID (id or display_channel_id)
+     * @param comment 送信するコメントの内容
+     * @return コメント送信結果
+     */
+    static async sendJikkyoComment(channel_id: string, comment: IJikkyoSendCommentRequest): Promise<IJikkyoSendCommentResult | null> {
+
+        // API リクエストを実行
+        const response = await APIClient.post<IJikkyoSendCommentResult>(`/channels/${channel_id}/jikkyo/comment`, comment);
+
+        // エラー処理
+        if (response.type === 'error') {
+            APIClient.showGenericError(response, 'ニコニコ実況へのコメント送信に失敗しました。');
             return null;
         }
 
