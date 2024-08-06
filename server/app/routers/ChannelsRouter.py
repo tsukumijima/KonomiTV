@@ -26,8 +26,8 @@ from app.constants import HTTPX_CLIENT, LOGO_DIR, VERSION
 from app.models.Channel import Channel
 from app.streams.LiveStream import LiveStream
 from app.utils import GetMirakurunAPIEndpointURL
-from app.utils.EDCB import CtrlCmdUtil
-from app.utils.EDCB import EDCBUtil
+from app.utils.edcb.CtrlCmdUtil import CtrlCmdUtil
+from app.utils.edcb.EDCBUtil import EDCBUtil
 from app.utils.Jikkyo import Jikkyo
 
 

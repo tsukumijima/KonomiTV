@@ -22,7 +22,8 @@ from app.constants import API_REQUEST_HEADERS, HTTPX_CLIENT, LIBRARY_PATH, LOGS_
 from app.models.Channel import Channel
 from app.streams.LivePSIDataArchiver import LivePSIDataArchiver
 from app.utils import GetMirakurunAPIEndpointURL
-from app.utils.EDCB import EDCBTuner, PipeStreamReader
+from app.utils.edcb.EDCBTuner import EDCBTuner
+from app.utils.edcb.PipeStreamReader import PipeStreamReader
 
 if TYPE_CHECKING:
     from app.streams.LiveStream import LiveStream

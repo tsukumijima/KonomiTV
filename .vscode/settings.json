@@ -15,6 +15,7 @@
     // Pylance の Type Checking のうち、いくつかのエラー報告を抑制する
     "python.analysis.diagnosticSeverityOverrides": {
         "reportConstantRedefinition": "none",
+        "reportDeprecated": "warning",
         "reportMissingTypeStubs": "none",
         "reportPrivateImportUsage": "none",
         "reportShadowedImports": "none",

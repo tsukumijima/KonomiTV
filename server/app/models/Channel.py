@@ -22,8 +22,8 @@ from app import logging
 from app.config import Config
 from app.constants import DATABASE_CONFIG, HTTPX_CLIENT
 from app.utils import GetMirakurunAPIEndpointURL
-from app.utils.EDCB import CtrlCmdUtil
-from app.utils.EDCB import EDCBUtil
+from app.utils.edcb.CtrlCmdUtil import CtrlCmdUtil
+from app.utils.edcb.EDCBUtil import EDCBUtil
 from app.utils.Jikkyo import Jikkyo
 from app.utils.TSInformation import TSInformation
 

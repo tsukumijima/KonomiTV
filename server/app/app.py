@@ -45,7 +45,7 @@ from app.routers import (
 )
 from app.routers import VideoStreamsRouter
 from app.streams.LiveStream import LiveStream
-from app.utils.EDCB import EDCBTuner
+from app.utils.edcb.EDCBTuner import EDCBTuner
 
 
 # もし Config() の実行時に AssertionError が発生した場合は、LoadConfig() を実行してサーバー設定データをロードする

@@ -13,7 +13,7 @@ from app.constants import QUALITY_TYPES
 from app.schemas import LiveStreamStatus
 from app.streams.LiveEncodingTask import LiveEncodingTask
 from app.streams.LivePSIDataArchiver import LivePSIDataArchiver
-from app.utils.EDCB import EDCBTuner
+from app.utils.edcb.EDCBTuner import EDCBTuner
 
 
 class LiveStreamClient():

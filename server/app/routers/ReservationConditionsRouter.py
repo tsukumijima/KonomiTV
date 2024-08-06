@@ -15,14 +15,16 @@ from app.models.Channel import Channel
 from app.routers.ReservationsRouter import DecodeEDCBRecSettingData
 from app.routers.ReservationsRouter import EncodeEDCBRecSettingData
 from app.routers.ReservationsRouter import GetCtrlCmdUtil
-from app.utils.EDCB import AutoAddData
-from app.utils.EDCB import AutoAddDataRequired
-from app.utils.EDCB import ContentData
-from app.utils.EDCB import CtrlCmdUtil
-from app.utils.EDCB import RecSettingData
-from app.utils.EDCB import SearchDateInfoRequired
-from app.utils.EDCB import SearchKeyInfo
-from app.utils.EDCB import SearchKeyInfoRequired
+from app.utils.edcb import (
+    AutoAddData,
+    AutoAddDataRequired,
+    ContentData,
+    RecSettingData,
+    SearchDateInfoRequired,
+    SearchKeyInfo,
+    SearchKeyInfoRequired,
+)
+from app.utils.edcb.CtrlCmdUtil import CtrlCmdUtil
 
 
 # ルーター

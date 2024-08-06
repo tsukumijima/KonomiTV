@@ -17,14 +17,16 @@ from app import schemas
 from app.config import Config
 from app.models.Channel import Channel
 from app.models.Program import Program
-from app.utils.EDCB import CtrlCmdUtil
-from app.utils.EDCB import EDCBUtil
-from app.utils.EDCB import RecFileSetInfoRequired
-from app.utils.EDCB import RecSettingData
-from app.utils.EDCB import RecSettingDataRequired
-from app.utils.EDCB import ReserveData
-from app.utils.EDCB import ReserveDataRequired
-from app.utils.EDCB import ServiceEventInfo
+from app.utils.edcb import (
+    RecFileSetInfoRequired,
+    RecSettingData,
+    RecSettingDataRequired,
+    ReserveData,
+    ReserveDataRequired,
+    ServiceEventInfo,
+)
+from app.utils.edcb.CtrlCmdUtil import CtrlCmdUtil
+from app.utils.edcb.EDCBUtil import EDCBUtil
 from app.utils.TSInformation import TSInformation
 
 

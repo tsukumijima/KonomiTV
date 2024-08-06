@@ -109,7 +109,7 @@ class _ServerSettingsGeneral(BaseModel):
         # EDCB バックエンドの接続確認
         if info.data.get('backend') == 'EDCB':
             # 循環参照を避けるために遅延インポート
-            from app.utils.EDCB import EDCBUtil
+            from app.utils.edcb.EDCBUtil import EDCBUtil
             # edcb_url を明示的に指定
             ## edcb_url を省略すると内部で再帰的に LoadConfig() が呼ばれてしまい RecursionError が発生する
             edcb_host = EDCBUtil.getEDCBHost(edcb_url)
