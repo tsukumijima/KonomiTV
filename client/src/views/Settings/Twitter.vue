@@ -49,12 +49,12 @@
                         <!-- スクリーンネームとパスワードフォーム -->
                         <v-card-text class="pt-2 pb-0">
                             <p>2023/07 以降、Twitter のサードパーティー API の事実上の廃止により、従来のアプリ連携では Twitter にアクセスできなくなりました。</p>
-                            <p class="mt-1">そこで KonomiTV では、代わりに <u><a class="link" href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank">Chrome 拡張機能</a> を使いブラウザからエクスポートした Cookie でログイン</u> または <u><a class="link" href="https://github.com/tsukumijima/tweepy-authlib" target="_blank">パスワードログイン</a></u> での Twitter 連携に対応しています。</p>
+                            <p class="mt-1">そこで KonomiTV では、代わりに <a class="link" href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank">Chrome 拡張機能</a> を使い <a class="link" href="https://x.com/TVRemotePlus/status/1821283471727493413" target="_blank">ブラウザからエクスポートした Cookie でログイン</a> または <a class="link" href="https://github.com/tsukumijima/tweepy-authlib" target="_blank">パスワードログイン</a> での Twitter 連携に対応しています。</p>
                             <p class="mt-2">ここで入力されたパスワードは一切保存されず、入力/取得した Cookie はローカルの KonomiTV サーバーにのみ保存されます。Cookie が Twitter API 以外の外部サービスに送信されることはありません。</p>
                             <p class="mt-1">万全は期していますが、非公式な方法のため、使い方次第ではアカウントにペナルティが適用される可能性もあります。自己の責任のもとでご利用ください。</p>
                             <blockquote class="mt-3">
-                                <p>基本的にはユーザー名とブラウザからエクスポートした Cookie をインポートしてのログインを推奨します。その方がスパム判定されづらいためです。</p>
-                                <p class="mt-1">また、パスワードログインは2段階認証には対応していません。</p>
+                                <p>基本的には Cookie でのログインを推奨します。その方がスパム判定されづらいためです。</p>
+                                <p class="mt-1">また、2要素認証 (2FA)が設定されているアカウントではパスワードログインを利用できません。</p>
                             </blockquote>
                             <v-tabs class="settings__tab mt-1" color="primary" bg-color="transparent" align-tabs="center" v-model="twitter_auth_tab">
                                 <v-tab style="text-transform: none !important;" v-for="auth_type in ['Cookie でログイン', 'パスワードでログイン']" :key="auth_type">
@@ -284,6 +284,11 @@ export default defineComponent({
                 };
             } else {
                 // Cookie 認証
+                // 空文字が入力されている場合は弾く
+                if (this.twitter_cookie === null || this.twitter_cookie.trim() === '') {
+                    Message.warning('Cookie を入力してください！');
+                    return;
+                }
                 twitter_auth_request = {
                     cookies_txt: this.twitter_cookie,
                 };
