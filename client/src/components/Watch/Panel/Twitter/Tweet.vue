@@ -77,7 +77,7 @@ const displayedTweet = computed(() => tweet.value.retweeted_tweet || tweet.value
 const formatText = (text: string) => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const mentionRegex = /@(\w+)/g;
-    const hashtagRegex = /#([\w\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}ー]+)/gu;
+    const hashtagRegex = /[#＃]([\w\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}ー]+)/gu;
 
     // URLを先に処理し、プレースホルダーで置き換える
     const urls: string[] = [];
