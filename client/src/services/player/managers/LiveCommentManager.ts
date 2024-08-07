@@ -555,6 +555,7 @@ class LiveCommentManager implements PlayerManager {
         // ログイン関連のバリデーション
         // 「可能であればニコニコ実況 (ニコニコ生放送) にコメントを投稿する」がオンかつ
         // NX-Jikkyo 固有のニコニコ実況チャンネルではないときだけ実行
+        // @ts-ignore
         if (prefer_posting_to_nicolive === true && this.is_nxjikkyo_exclusive === false) {
             if (user_store.user === null) {
                 options.error('ニコニコ実況にコメントを投稿するには、KonomiTV アカウントにログインしてください。');
@@ -607,6 +608,7 @@ class LiveCommentManager implements PlayerManager {
 
         // 「可能であればニコニコ実況 (ニコニコ生放送) にコメントを投稿する」がオンかつ
         // NX-Jikkyo 固有のニコニコ実況チャンネルではないときは、ニコニコ実況にコメントを送信する
+        // @ts-ignore
         if (prefer_posting_to_nicolive === true && this.is_nxjikkyo_exclusive === false) {
 
             // コメントを送信
