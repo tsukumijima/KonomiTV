@@ -36,12 +36,11 @@ class TwitterGraphQLAPI:
     ENDPOINT_INFOS: dict[str, schemas.TwitterGraphQLAPIEndpointInfo] = {
         'CreateTweet': schemas.TwitterGraphQLAPIEndpointInfo(
             method = 'POST',
-            query_id = 'jUuX3C2RKpYMn2rJcflBAw',
+            query_id = 'xT36w0XM3A8jDynpkram2A',
             endpoint = 'CreateTweet',
             features = {
                 'communities_web_enable_tweet_community_results_fetch': True,
                 'c9s_tweet_anatomy_moderator_badge_enabled': True,
-                'tweetypie_unmention_optimization_enabled': True,
                 'responsive_web_edit_tweet_api_enabled': True,
                 'graphql_is_translatable_rweb_tweet_is_translatable_enabled': True,
                 'view_counts_everywhere_api_enabled': True,
