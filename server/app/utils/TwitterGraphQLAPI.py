@@ -373,11 +373,19 @@ class TwitterGraphQLAPI:
         """
 
         # リクエストヘッダーを組み立てる
-        # X-Client-Transaction-ID は指定されている場合のみ付与する
+        ## X-Client-Transaction-ID は指定されている場合のみ付与する
         headers = self.graphql_headers_dict.copy()
         if x_client_transaction_id is not None:
             headers['x-client-transaction-id'] = x_client_transaction_id
             logging.info(f'[TwitterGraphQLAPI][{endpoint_info.endpoint}] X-Client-Transaction-ID: {x_client_transaction_id}')
+        ## CreateTweet エンドポイントのみ、Bearer トークンを旧 TweetDeck / 現 X Pro 用のものに差し替える
+        ## 旧 TweetDeck 用 Bearer トークン自体は現在も X Pro 用として使われているからか (ただしエンドポイントは pro.x.com 配下) 、
+        ## 2024/08/08 時点では Twitter Web App 用 Bearer トークンを付与した際と異なり、スパム判定によるツイート失敗がほとんどないメリットがある
+        ## なぜこの Bearer トークンが使えるのかはよく分からないが、実際 OldTweetDeck でも同様の実装で数ヶ月運用されている
+        ## 今後対策される可能性もなくもないが実装時点ではうまく機能しているので、推定ユーザー数万人を有する OldTweetDeck の実装に合わせる
+        ## ref: https://github.com/dimdenGD/OldTweetDeck/blob/main/src/interception.js#L1106-L1119
+        if endpoint_info.endpoint == 'CreateTweet':
+            headers['authorization'] = self.cookie_session_user_handler.TWEETDECK_BEARER_TOKEN
 
         # Twitter GraphQL API に HTTP リクエストを送信する
         try:
