@@ -1,7 +1,7 @@
 <template>
     <div class="tab-content tab-content--search">
         <div class="search-header">
-            <div class="search-input-wrapper">
+            <div class="search-input-wrapper" :class="{'search-input-wrapper--focused': isSearchFormFocused}">
                 <Icon icon="fluent:search-16-filled" height="18px" />
                 <input
                     v-model="searchQuery"
@@ -9,6 +9,8 @@
                     type="text"
                     placeholder="検索キーワードを入力"
                     @keydown="onKeyDown($event)"
+                    @focus="isSearchFormFocused = true"
+                    @blur="isSearchFormFocused = false"
                 />
             </div>
             <div class="d-flex align-center ml-auto h-100">
@@ -62,6 +64,7 @@ const showRetweets = ref(true);
 const isFetching = ref(false);
 const nextCursorId = ref<string | undefined>(undefined);
 const previousCursorId = ref<string | undefined>(undefined);
+const isSearchFormFocused = ref(false);
 const searchQuery = ref('');
 const scroller = ref<any>(null);
 
@@ -208,6 +211,11 @@ onMounted(() => {
     margin-right: 6px;
     background-color: rgb(var(--v-theme-background-lighten-2));
     border-radius: 5px;
+    transition: box-shadow 0.09s ease;
+
+    &--focused {
+        box-shadow: rgba(79, 130, 230, 60%) 0 0 0 3.5px;
+    }
 }
 
 .search-input {
