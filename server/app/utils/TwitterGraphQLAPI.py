@@ -528,6 +528,7 @@ class TwitterGraphQLAPI:
                         'possibly_sensitive': False,
                     },
                     'semantic_annotation_ids': [],
+                    'disallowed_reply_options': None,
                 },
                 x_client_transaction_id = x_client_transaction_id,
                 error_message_prefix = 'ツイートの送信に失敗しました。',
