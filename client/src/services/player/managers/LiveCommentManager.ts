@@ -550,7 +550,7 @@ class LiveCommentManager implements PlayerManager {
 
         // 可能であればニコニコ実況 (ニコニコ生放送) にコメントを投稿するかどうか
         // 当面常に固定 (将来的に設定値にする予定)
-        const prefer_posting_to_nicolive = true;
+        const prefer_posting_to_nicolive = false;
 
         // ログイン関連のバリデーション
         // 「可能であればニコニコ実況 (ニコニコ生放送) にコメントを投稿する」がオンかつ
