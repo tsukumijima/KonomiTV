@@ -162,22 +162,6 @@
                     v-model="server_settings.general.always_receive_tv_from_mirakurun">
                 </v-switch>
             </div>
-            <div class="settings__item settings__item--switch">
-                <label class="settings__item-heading d-block" for="use_nx_jikkyo_instead">
-                    ニコニコ実況の代わりに <a class="link" href="https://nx-jikkyo.tsukumijima.net" target="_blank">NX-Jikkyo</a> からリアルタイムに実況コメントを取得する
-                </label>
-                <label class="settings__item-label" for="use_nx_jikkyo_instead">
-                    この設定をオンにすると、ニコニコ実況の代わりに <a class="link" href="https://nx-jikkyo.tsukumijima.net" target="_blank">NX-Jikkyo</a> のコメントサーバーからリアルタイムに実況コメントを取得します。ニコニコ実況で長期間障害が発生している場合の避難所として使えます。<br>
-                    この設定をオンにしたときは、ニコニコアカウントへのログイン状態に関係なくコメントを表示・投稿できます。<br>
-                </label>
-                <label class="settings__item-label mt-1" for="use_nx_jikkyo_instead">
-                    なお、録画再生時の実況過去ログは、常に <a class="link" href="https://jikkyo.tsukumijima.net/" target="_blank">ニコニコ実況 過去ログ API</a> から取得します。<br>
-                    NX-Jikkyo に投稿されたコメントは、ニコニコ実況のコメントと統合の上で <a class="link" href="https://jikkyo.tsukumijima.net/" target="_blank">ニコニコ実況 過去ログ API</a> から取得できます。<br>
-                </label>
-                <v-switch class="settings__item-switch" color="primary" id="use_nx_jikkyo_instead" hide-details
-                    v-model="server_settings.tv.use_nx_jikkyo_instead">
-                </v-switch>
-            </div>
             <div class="settings__item">
                 <div class="settings__item-heading">誰も見ていないチャンネルのエンコードタスクを維持する秒数</div>
                 <div class="settings__item-label">

@@ -125,15 +125,15 @@ class LiveCommentManager implements PlayerManager {
 
         // 視聴セッション WebSocket の URL を取得
         // 実際は旧ニコニコ生放送の WebSocket API と互換性がある NX-Jikkyo の WebSocket API の URL が返る
-        const watch_session_info = await Channels.fetchJikkyoWebSocketInfo(channels_store.channel.current.id);
-        if (watch_session_info === null) {
+        const websocket_info = await Channels.fetchJikkyoWebSocketInfo(channels_store.channel.current.id);
+        if (websocket_info === null) {
             return {
                 is_success: false,
                 detail: 'コメント受信用 WebSocket API の情報を取得できませんでした。',
             };
         }
         // チャンネルに対応するニコニコ実況チャンネルが存在しない場合
-        if (watch_session_info.websocket_url === null) {
+        if (websocket_info.websocket_url === null) {
             return {
                 is_success: false,
                 detail: 'このチャンネルはニコニコ実況に対応していません。',
@@ -141,10 +141,10 @@ class LiveCommentManager implements PlayerManager {
         }
 
         // 現在は NX-Jikkyo のみ存在するニコニコ実況チャンネルかどうかを設定
-        this.is_nxjikkyo_exclusive = watch_session_info.is_nxjikkyo_exclusive;
+        this.is_nxjikkyo_exclusive = websocket_info.is_nxjikkyo_exclusive;
 
         // 視聴セッション WebSocket を開く
-        this.watch_session = new WebSocket(watch_session_info.websocket_url);
+        this.watch_session = new WebSocket(websocket_info.websocket_url);
 
         // 視聴セッションの接続が開かれたとき
         this.watch_session.addEventListener('open', () => {

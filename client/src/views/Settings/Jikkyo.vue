@@ -48,8 +48,6 @@
             </div>
             <div class="settings__item-label mt-7" style="border-left: 3px solid rgb(var(--v-theme-text-darken-1)); padding-left: 12px;">
                 コメントの透明度は、プレイヤー下にある設定アイコン ⚙️ から変更できます。<br>
-                <div class="mt-1"></div>
-                <a class="link" href="https://jk.nicovideo.jp" target="_blank">ニコニコ実況</a> の代わりに <a class="link" href="https://nx-jikkyo.tsukumijima.net" target="_blank">NX-Jikkyo</a> の実況コメントをリアルタイム表示するには、<router-link class="link" to="/settings/server">サーバー設定</router-link> → ［テレビのライブストリーミング］に移動してください。
             </div>
             <div class="settings__item">
                 <div class="settings__item-heading">コメントのミュート設定</div>
