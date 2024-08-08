@@ -62,6 +62,10 @@ export class CommentUtils {
      * @return 16 進数カラーコード
      */
     static getCommentColor(color: string): string | null {
+        // 16進数カラーコードがそのまま入っている場合はそのまま返す
+        if (/^#[0-9A-Fa-f]{6}$/.test(color)) {
+            return color;
+        }
         return this.color_table[color] || null;
     }
 
