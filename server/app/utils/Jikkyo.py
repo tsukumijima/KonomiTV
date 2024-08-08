@@ -567,6 +567,11 @@ class Jikkyo:
         Returns:
             str | None: 16 進数カラーコード
         """
+
+        # 16進数カラーコードがそのまま入っている場合はそのまま返す
+        if re.match(r'^#[0-9A-Fa-f]{6}$', color):
+            return color
+
         return Jikkyo.COLOR_CODE_MAP.get(color)
 
 
