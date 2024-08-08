@@ -32,22 +32,22 @@ class Jikkyo:
     with open(JIKKYO_CHANNELS_PATH, mode='r', encoding='utf-8') as file:
         JIKKYO_CHANNELS: ClassVar[list[dict[str, Any]]] = json.load(file)
 
-    # 実況チャンネル ID とニコニコ生放送上の番組 ID の対照表
+    # 旧来の実況チャンネル ID とニコニコチャンネル ID のマッピング
     ## 現在アクティブ (実況可能) なニコニコ実況チャンネルがここに記載されている
     ## id が None のチャンネルは NX-Jikkyo にのみ存在する実況チャンネル
-    JIKKYO_NICOLIVE_PROGRAM_ID_TABLE: ClassVar[dict[str, str | None]] = {
-        'jk1': 'lv345479988',
-        'jk2': 'lv345479989',
-        'jk4': 'lv345479991',
-        'jk5': 'lv345479993',
-        'jk6': 'lv345479994',
-        'jk7': 'lv345479995',
-        'jk8': 'lv345479996',
-        'jk9': 'lv345479997',
+    JIKKYO_CHANNEL_ID_MAP: ClassVar[dict[str, str | None]] = {
+        'jk1': 'ch2646436',
+        'jk2': 'ch2646437',
+        'jk4': 'ch2646438',
+        'jk5': 'ch2646439',
+        'jk6': 'ch2646440',
+        'jk7': 'ch2646441',
+        'jk8': 'ch2646442',
+        'jk9': 'ch2646485',
         'jk10': None,
         'jk11': None,
         'jk12': None,
-        'jk101': 'lv345479990',
+        'jk101': 'ch2647992',
         'jk103': None,
         'jk141': None,
         'jk151': None,
@@ -57,7 +57,7 @@ class Jikkyo:
         'jk191': None,
         'jk192': None,
         'jk193': None,
-        'jk211': 'lv345479998',
+        'jk211': 'ch2646846',
         'jk222': None,
         'jk236': None,
         'jk252': None,
@@ -67,8 +67,8 @@ class Jikkyo:
         'jk333': None,
     }
 
-    # ニコニコの色指定を 16 進数カラーコードに置換するテーブル
-    COLOR_TABLE: dict[str, str] = {
+    # ニコニコの色指定と 16 進数カラーコードのマッピング
+    COLOR_CODE_MAP: dict[str, str] = {
         'white': '#FFEAEA',
         'red': '#F02840',
         'pink': '#FD7E80',
@@ -119,9 +119,9 @@ class Jikkyo:
 
         # 実況チャンネル ID に対応するニコニコ生放送上の ID を取得する
         # ニコニコ生放送上の ID が存在しない実況チャンネルは NX-Jikkyo にのみ存在する
-        if (self.jikkyo_id in Jikkyo.JIKKYO_NICOLIVE_PROGRAM_ID_TABLE) and \
-           (Jikkyo.JIKKYO_NICOLIVE_PROGRAM_ID_TABLE[self.jikkyo_id] is not None):
-            self.nicolive_program_id: str | None = Jikkyo.JIKKYO_NICOLIVE_PROGRAM_ID_TABLE[self.jikkyo_id]
+        if (self.jikkyo_id in Jikkyo.JIKKYO_CHANNEL_ID_MAP) and \
+           (Jikkyo.JIKKYO_CHANNEL_ID_MAP[self.jikkyo_id] is not None):
+            self.nicolive_program_id: str | None = Jikkyo.JIKKYO_CHANNEL_ID_MAP[self.jikkyo_id]
         else:
             self.nicolive_program_id: str | None = None
 
@@ -183,7 +183,7 @@ class Jikkyo:
 
                 # さらに対照表に存在するかをチェックする
                 # jikkyo_channels.json には現在は存在しない実況チャンネルの ID (ex: jk256) が含まれているため
-                if jikkyo_id in Jikkyo.JIKKYO_NICOLIVE_PROGRAM_ID_TABLE:
+                if jikkyo_id in Jikkyo.JIKKYO_CHANNEL_ID_MAP:
                     return jikkyo_id
 
         # 実況チャンネル ID が取得できていなければ None を返す
@@ -234,7 +234,7 @@ class Jikkyo:
         current_time = datetime.now(ZoneInfo('Asia/Tokyo'))
         for channel in channels_data:
             jikkyo_id = channel['id']
-            if jikkyo_id in cls.JIKKYO_NICOLIVE_PROGRAM_ID_TABLE:
+            if jikkyo_id in cls.JIKKYO_CHANNEL_ID_MAP:
                 for thread in channel['threads']:
                     if datetime.fromisoformat(thread['start_at']) <= current_time <= datetime.fromisoformat(thread['end_at']):
                         cls.__jikkyo_channels_statuses[jikkyo_id] = {
@@ -567,7 +567,7 @@ class Jikkyo:
         Returns:
             str | None: 16 進数カラーコード
         """
-        return Jikkyo.COLOR_TABLE.get(color)
+        return Jikkyo.COLOR_CODE_MAP.get(color)
 
 
     @staticmethod
