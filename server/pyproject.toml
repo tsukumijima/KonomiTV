@@ -12,7 +12,7 @@ dev = "python KonomiTV.py --reload"
 python = ">=3.11,<3.12"
 aerich = "^0.7.2"
 aiofiles = "^23.2.1"
-aiohttp = "^3.9.4"
+aiohttp = "^3.10.2"
 ariblib = { url = "https://github.com/tsukumijima/ariblib/releases/download/v0.1.4/ariblib-0.1.4-py3-none-any.whl" }
 beautifulsoup4 = "^4.12.3"
 biim = { url = "https://github.com/tsukumijima/biim/releases/download/v1.10.2-patch2/biim-1.10.2-py3-none-any.whl" }
