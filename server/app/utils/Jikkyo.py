@@ -533,10 +533,10 @@ class Jikkyo:
             # コメントコマンドをパース
             color, position, size = self.parseCommentCommand(raw_jikkyo_comment['chat'].get('mail'))
 
-            # コメント時間 (秒単位) を算出
-            chat_date = float(raw_jikkyo_comment["chat"]["date"])
-            chat_date_usec = int(raw_jikkyo_comment["chat"].get("date_usec", 0))
-            comment_time = float(f'{int(chat_date - start_time)}.{chat_date_usec}')
+            # コメント投稿日時 (秒単位) を算出
+            chat_date = float(raw_jikkyo_comment['chat']['date'])
+            chat_date_usec = int(raw_jikkyo_comment['chat'].get('date_usec', 0))
+            comment_time: float = int(chat_date - start_time) + chat_date_usec / 1000000
 
             # コメントデータを整形して追加
             jikkyo_comments.append(schemas.JikkyoComment(
