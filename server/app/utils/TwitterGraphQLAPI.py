@@ -4,6 +4,7 @@ import httpx
 import json
 import re
 import time
+import traceback
 from bs4 import BeautifulSoup
 from datetime import datetime
 from typing import Any, cast, ClassVar, Literal, TypedDict
@@ -11,6 +12,7 @@ from zoneinfo import ZoneInfo
 
 from app import logging
 from app import schemas
+from app.constants import HTTPX_CLIENT
 from app.models.TwitterAccount import TwitterAccount
 
 
@@ -89,7 +91,7 @@ class TwitterGraphQLAPI:
         ),
         'HomeLatestTimeline': schemas.TwitterGraphQLAPIEndpointInfo(
             method = 'POST',
-            query_id = 'swa5tm06UZNTKxtXsCwz8A',
+            query_id = 'DiTkXJgLqBBxCs7zaYsbtA',
             endpoint = 'HomeLatestTimeline',
             features = {
                 'rweb_tipjar_consumption_enabled': True,
@@ -101,7 +103,6 @@ class TwitterGraphQLAPI:
                 'communities_web_enable_tweet_community_results_fetch': True,
                 'c9s_tweet_anatomy_moderator_badge_enabled': True,
                 'articles_preview_enabled': True,
-                'tweetypie_unmention_optimization_enabled': True,
                 'responsive_web_edit_tweet_api_enabled': True,
                 'graphql_is_translatable_rweb_tweet_is_translatable_enabled': True,
                 'view_counts_everywhere_api_enabled': True,
@@ -120,7 +121,7 @@ class TwitterGraphQLAPI:
         ),
         'SearchTimeline': schemas.TwitterGraphQLAPIEndpointInfo(
             method = 'GET',
-            query_id = '5szMMrM2iJYt2JJI97mOug',
+            query_id = 'UN1i3zUiCWa-6r-Uaho4fw',
             endpoint = 'SearchTimeline',
             features = {
                 'rweb_tipjar_consumption_enabled': True,
@@ -132,7 +133,6 @@ class TwitterGraphQLAPI:
                 'communities_web_enable_tweet_community_results_fetch': True,
                 'c9s_tweet_anatomy_moderator_badge_enabled': True,
                 'articles_preview_enabled': True,
-                'tweetypie_unmention_optimization_enabled': True,
                 'responsive_web_edit_tweet_api_enabled': True,
                 'graphql_is_translatable_rweb_tweet_is_translatable_enabled': True,
                 'view_counts_everywhere_api_enabled': True,
@@ -234,6 +234,72 @@ class TwitterGraphQLAPI:
             ## 可能な限り Chrome からのリクエストに偽装するため、HTTP/1.1 ではなく明示的に HTTP/2 で接続する
             http2 = True,
         )
+
+
+    @classmethod
+    async def updateEndpointInfos(cls) -> None:
+        """
+        頻繁に更新される Twitter GraphQL API のエンドポイント定義を最新のものに更新する
+        更新できなくても直ちに問題が出るわけではないため、取得失敗時は何もしない (エラーはログに出力するだけ)
+        ref: https://github.com/fa0311/TwitterInternalAPIDocument
+        """
+
+        try:
+            # GraphQL API のエンドポイント情報を取得
+            async with HTTPX_CLIENT() as client:
+                response = await client.get('https://raw.githubusercontent.com/fa0311/TwitterInternalAPIDocument/develop/docs/json/GraphQL.json')
+                response.raise_for_status()
+                endpoint_infos = response.json()
+
+            for endpoint in endpoint_infos:
+                exports = endpoint['exports']
+                operation_name = exports['operationName']
+
+                # 前から ENDPOINT_INFOS に定義されているエンドポイント情報のみ更新
+                if operation_name in cls.ENDPOINT_INFOS:
+
+                    # method は HomeLatestTimeline を除き、operationType が mutation かで判定する
+                    ## HomeLatestTimeline は operationType は query だが、実際の挙動を観察するに POST で送信されることの方が多いため
+                    if operation_name != 'HomeLatestTimeline':
+                        if exports['operationType'] == 'mutation':
+                            method = 'POST'
+                        else:
+                            method = 'GET'
+                    else:
+                        method = cls.ENDPOINT_INFOS[operation_name].method
+
+                    # features に設定する用の最新の Feature Switches 情報を取得
+                    ## longform_notetweets_consumption_enabled: true みたいなやつ
+                    metadata = exports['metadata']
+                    feature_switches = metadata['featureSwitches']
+                    feature_switch = metadata['featureSwitch']
+                    features = {}
+                    for switch in feature_switches:
+                        if switch in feature_switch:
+                            features[switch] = feature_switch[switch]['value'] == 'true'
+                    if not features:
+                        features = None
+
+                    # TwitterGraphQLAPIEndpointInfo 型に合わせて更新
+                    old_endpoint_info = cls.ENDPOINT_INFOS[operation_name]
+                    cls.ENDPOINT_INFOS[operation_name] = schemas.TwitterGraphQLAPIEndpointInfo(
+                        method = method,
+                        query_id = exports['queryId'],
+                        endpoint = operation_name,
+                        features = features,  # features が存在しないエンドポイントでは None が入る
+                    )
+
+                    # 変更差分があるときのみ出力
+                    if old_endpoint_info.query_id != cls.ENDPOINT_INFOS[operation_name].query_id or \
+                       old_endpoint_info.method != cls.ENDPOINT_INFOS[operation_name].method or \
+                       old_endpoint_info.features != cls.ENDPOINT_INFOS[operation_name].features:
+                        logging.debug_simple(f'[TwitterGraphQLAPI] {cls.ENDPOINT_INFOS[operation_name].endpoint}: '
+                                             f'[{cls.ENDPOINT_INFOS[operation_name].method}] {cls.ENDPOINT_INFOS[operation_name].path}')
+
+            logging.info('[TwitterGraphQLAPI] Successfully updated endpoint infos.')
+        except Exception:
+            logging.error(f'[TwitterGraphQLAPI] Failed to update endpoint infos:')
+            logging.error(traceback.format_exc())
 
 
     async def persistCookies(self) -> None:
@@ -377,7 +443,7 @@ class TwitterGraphQLAPI:
         headers = self.graphql_headers_dict.copy()
         if x_client_transaction_id is not None:
             headers['x-client-transaction-id'] = x_client_transaction_id
-            logging.info(f'[TwitterGraphQLAPI][{endpoint_info.endpoint}] X-Client-Transaction-ID: {x_client_transaction_id}')
+            logging.debug_simple(f'[TwitterGraphQLAPI][{endpoint_info.endpoint}] X-Client-Transaction-ID: {x_client_transaction_id}')
         ## CreateTweet / CreateRetweet エンドポイントのみ、Bearer トークンを旧 TweetDeck / 現 X Pro 用のものに差し替える
         ## 旧 TweetDeck 用 Bearer トークン自体は現在も X Pro 用として使われているからか (ただし URL は https://pro.x.com/i/graphql/ 配下) 、
         ## 2024/08/08 現在では Twitter Web App 用 Bearer トークンでリクエストした際と異なり、スパム判定によるツイート失敗がほとんどないメリットがある

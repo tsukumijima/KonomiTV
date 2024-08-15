@@ -74,6 +74,10 @@ class TwitterAccount(TortoiseModel):
 
         logging.info(f'Twitter accounts update complete. ({round(time.time() - timestamp, 3)} sec)')
 
+        # せっかくなので Twitter GraphQL API のエンドポイント情報もここで更新する
+        from app.utils.TwitterGraphQLAPI import TwitterGraphQLAPI
+        await TwitterGraphQLAPI.updateEndpointInfos()
+
 
     def getTweepyAuthHandler(self) -> CookieSessionUserHandler:
         """
