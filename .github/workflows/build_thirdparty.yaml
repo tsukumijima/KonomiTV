@@ -27,7 +27,7 @@ env:
   ## (正確には Ubuntu 20.04 LTS で入る FFmpeg は 4.2 系だが、FFmpeg 4.x 系であれば ABI 互換性があるため 4.4 系でも動作する)
   ## ref: https://github.com/BtbN/FFmpeg-Builds/releases
   FFMPEG_TAG: 'autobuild-2024-07-31-12-50'
-  FFMPEG_MAJOR_VERSION: '7.0.1'
+  FFMPEG_MAJOR_VERSION: '7.0'
   FFMPEG_VERSION: '7.0.1-221-g0ab20b5788'
   FFMPEG_HWENCC_TAG: 'autobuild-2024-03-31-17-28'
   FFMPEG_HWENCC_MAJOR_VERSION: '4.4'
