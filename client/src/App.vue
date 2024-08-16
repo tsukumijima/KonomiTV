@@ -16,9 +16,11 @@ import Snackbars from '@/components/Snackbars.vue';
 // ***** ブラウザのデフォルトスタイルの上書き *****
 
 // スクロールバーのスタイル
-* {
-    scrollbar-color: rgb(var(--v-theme-gray)) rgb(var(--v-theme-background));
-    scrollbar-width: thin;
+@supports (-moz-appearance: none) {
+    * {
+        scrollbar-color: rgb(var(--v-theme-gray)) rgb(var(--v-theme-background));
+        scrollbar-width: thin;
+    }
 }
 ::-webkit-scrollbar {
     width: 7px;

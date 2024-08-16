@@ -558,12 +558,12 @@ export default defineComponent({
             width: 100%;
             height: 100%;
             padding-left: 16px;
-            padding-right: 10px;
+            padding-right: 4px;
             padding-bottom: 12px;
             overflow-y: scroll !important;
             @include tablet-vertical {
                 padding-left: 24px;
-                padding-right: 18px;
+                padding-right: 10px;
                 padding-bottom: 0px;
             }
             @include smartphone-vertical {
@@ -596,7 +596,7 @@ export default defineComponent({
                 &__icon {
                     width: 20px;
                     height: 20px;
-                    margin-left: 8px;
+                    margin-left: 2px;
                     border-radius: 5px;
                     color: rgb(var(--v-theme-text));
                     cursor: pointer;
