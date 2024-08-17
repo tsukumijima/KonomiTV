@@ -47,6 +47,8 @@ class Jikkyo:
         'jk10': None,
         'jk11': None,
         'jk12': None,
+        'jk13': None,
+        'jk14': None,
         'jk101': 'ch2647992',
         'jk103': None,
         'jk141': None,
