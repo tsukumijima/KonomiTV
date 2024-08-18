@@ -266,7 +266,13 @@ class APIClient {
                     }
                 } else {
                     // HTTP リクエスト自体は成功したが、API からエラーレスポンスが返ってきた場合
-                    Message.error(`${template}(HTTP Error ${error_response.status} / ${error_response.data.detail})`);
+                    if (error_response.status === 502) {
+                        Message.error(`${template}\n現在サーバーを起動/再起動しています。もうしばらくお待ちください。(HTTP Error 502)`);
+                    } else if (error_response.data.detail !== undefined) {
+                        Message.error(`${template}(HTTP Error ${error_response.status} / ${error_response.data.detail})`);
+                    } else {
+                        Message.error(`${template}(HTTP Error ${error_response.status} / ${error_response.error.message})`);
+                    }
                 }
                 return;
             }
