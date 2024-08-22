@@ -23,7 +23,7 @@
             />
         </div>
         <DynamicScroller class="timeline-tweets" :direction="'vertical'" :items="tweets"
-            :min-item-size="80" :buffer="400">
+            :min-item-size="80" :buffer="400" v-show="tweets.length > 0">
             <template v-slot="{item, active}">
                 <DynamicScrollerItem
                     :item="item"
@@ -33,6 +33,12 @@
                 </DynamicScrollerItem>
             </template>
         </DynamicScroller>
+        <div class="timeline-announce" v-show="tweets.length === 0">
+            <div class="timeline-announce__heading">まだツイートがありません。</div>
+            <div class="timeline-announce__text">
+                <p class="mt-0 mb-0">右上の更新ボタンを押すと、最新の<br>ホームタイムラインを時系列で表示できます。</p>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -180,6 +186,37 @@ watch(selected_twitter_account, () => {
 
 .animate-spin {
     animation: spin 1s linear infinite;
+}
+
+.timeline-announce {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    height: 100%;
+    padding-left: 12px;
+    padding-right: 5px;
+    @include tablet-vertical {
+        padding-left: 24px;
+        padding-right: 24px;
+    }
+
+    &__heading {
+        font-size: 20px;
+        font-weight: bold;
+        @include smartphone-horizontal {
+            font-size: 16px;
+        }
+    }
+    &__text {
+        margin-top: 12px;
+        color: rgb(var(--v-theme-text-darken-1));
+        font-size: 13.5px;
+        text-align: center;
+        @include smartphone-horizontal {
+            font-size: 12px;
+        }
+    }
 }
 
 </style>
