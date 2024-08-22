@@ -157,7 +157,7 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
 
     // ***** 設定 → ニコニコ実況 *****
 
-    // 可能であればニコニコ実況へコメントする (Default: オン)
+    // 可能であればニコニコ実況にコメントする (Default: オン)
     prefer_posting_to_nicolive: true,
     // コメントの速さ (Default: 1倍)
     comment_speed_rate: 1,

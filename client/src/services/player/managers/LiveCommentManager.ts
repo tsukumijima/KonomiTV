@@ -143,7 +143,7 @@ class LiveCommentManager implements PlayerManager {
         // デフォルト: NX-Jikkyo の視聴セッションに接続する
         let watch_session_url = websocket_info.watch_session_url;
 
-        // 「可能であればニコニコ実況へコメントする」設定がオンのときのみ
+        // 「可能であればニコニコ実況にコメントする」設定がオンのときのみ
         // ニコニコ生放送の視聴セッション WebSocket URL を取得できなかった場合もコメント受信と NX-Jikkyo へのコメント送信は可能なので、
         // 致命的なエラーとはせずあえて警告メッセージにとどめている
         if (settings_store.settings.prefer_posting_to_nicolive === true) {

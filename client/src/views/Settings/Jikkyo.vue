@@ -47,14 +47,20 @@
                 </v-btn>
             </div>
             <div class="settings__item settings__item--switch">
-                <label class="settings__item-heading" for="prefer_posting_to_nicolive">可能であればニコニコ実況へコメントする</label>
+                <label class="settings__item-heading" for="prefer_posting_to_nicolive">可能であればニコニコ実況にコメントする</label>
                 <label class="settings__item-label" for="prefer_posting_to_nicolive">
-                    この設定がオンのときは、可能であれば <a class="link" href="https://jk.nicovideo.jp" target="_blank">ニコニコ実況</a> の各実況チャンネルにコメントを送信します。<br>
-                    この設定がオフのときは、常に <a class="link" href="https://nx-jikkyo.tsukumijima.net" target="_blank">NX-Jikkyo</a> の各実況チャンネルにコメントを送信します。<br>
+                    <ul class="ml-4 mb-2 font-weight-bold">
+                        <li>オン：<a class="link" href="https://jk.nicovideo.jp" target="_blank">ニコニコ実況</a> に優先的にコメントを送信</li>
+                        <li>オフ：<a class="link" href="https://nx-jikkyo.tsukumijima.net" target="_blank">NX-Jikkyo</a> にコメントを送信</li>
+                    </ul>
+                    ニコニコ実況が利用できない場合（BS 民放など公式では廃止された実況チャンネル・ニコニコ生放送のメンテナンス中など）は、常に NX-Jikkyo にコメントします。
                 </label>
                 <label class="settings__item-label mt-2" for="prefer_posting_to_nicolive">
                     ニコニコ実況にコメントするには、ニコニコアカウントとの連携が必要です。<br>
-                    ニコニコ実況に存在しない実況チャンネル (BS 民放など) やニコニコ実況のメンテナンス中は、この設定のオン/オフに関わらず、常に代わりに NX-Jikkyo にコメントします。
+                    NX-Jikkyo は「ニコニコ実況の Web 版非公式コメントビューア」＋「ニコニコ実況公式にない実況チャンネルを補完する互換コメントサーバー」で、アカウント不要でコメントできます。<br>
+                </label>
+                <label class="settings__item-label mt-2" for="prefer_posting_to_nicolive">
+                    ニコニコアカウント未連携でのコメント送信時に「代わりに NX-Jikkyo にコメントします」という通知を表示しないようにするには、この設定をオフにしてください。
                 </label>
                 <v-switch class="settings__item-switch" color="primary" id="prefer_posting_to_nicolive" hide-details
                     v-model="settingsStore.settings.prefer_posting_to_nicolive">
