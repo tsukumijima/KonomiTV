@@ -46,6 +46,7 @@ export interface IClientSettings {
     capture_caption_mode: 'VideoOnly' | 'CompositingCaption' | 'Both';
     // capture_copy_to_clipboard: 同期無効
     // sync_settings: 同期無効
+    prefer_posting_to_nicolive: boolean;
     comment_speed_rate: number;
     comment_font_size: number;
     close_comment_form_after_sending: boolean;

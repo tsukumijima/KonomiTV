@@ -46,8 +46,19 @@
                     <Icon icon="fluent:plug-disconnected-20-filled" class="mr-2" height="26" />連携解除
                 </v-btn>
             </div>
-            <div class="settings__item-label mt-7" style="border-left: 3px solid rgb(var(--v-theme-text-darken-1)); padding-left: 12px;">
-                コメントの透明度は、プレイヤー下にある設定アイコン ⚙️ から変更できます。<br>
+            <div class="settings__item settings__item--switch">
+                <label class="settings__item-heading" for="prefer_posting_to_nicolive">可能であればニコニコ実況へコメントする</label>
+                <label class="settings__item-label" for="prefer_posting_to_nicolive">
+                    この設定がオンのときは、可能であれば <a class="link" href="https://jk.nicovideo.jp" target="_blank">ニコニコ実況</a> の各実況チャンネルにコメントを送信します。<br>
+                    この設定がオフのときは、常に <a class="link" href="https://nx-jikkyo.tsukumijima.net" target="_blank">NX-Jikkyo</a> の各実況チャンネルにコメントを送信します。<br>
+                </label>
+                <label class="settings__item-label mt-2" for="prefer_posting_to_nicolive">
+                    ニコニコ実況にコメントするには、ニコニコアカウントとの連携が必要です。<br>
+                    ニコニコ実況に存在しない実況チャンネル (BS 民放など) やニコニコ実況のメンテナンス中は、この設定のオン/オフに関わらず、常に代わりに NX-Jikkyo にコメントします。
+                </label>
+                <v-switch class="settings__item-switch" color="primary" id="prefer_posting_to_nicolive" hide-details
+                    v-model="settingsStore.settings.prefer_posting_to_nicolive">
+                </v-switch>
             </div>
             <div class="settings__item">
                 <div class="settings__item-heading">コメントのミュート設定</div>
@@ -68,6 +79,9 @@
                 <Icon icon="heroicons-solid:filter" height="19px" />
                 <span class="ml-1">コメントのミュート設定を開く</span>
             </v-btn>
+            <div class="settings__item-label mt-7" style="border-left: 3px solid rgb(var(--v-theme-text-darken-1)); padding-left: 12px;">
+                コメントの透明度は、プレイヤー下にある設定アイコン ⚙️ から変更できます。<br>
+            </div>
             <div class="settings__item">
                 <div class="settings__item-heading">コメントの速さ</div>
                 <div class="settings__item-label">

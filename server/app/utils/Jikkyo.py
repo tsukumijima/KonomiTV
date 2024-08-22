@@ -249,19 +249,19 @@ class Jikkyo:
 
     async def fetchWebSocketInfo(self, current_user: User | None) -> schemas.JikkyoWebSocketInfo:
         """
-        ニコニコ実況からコメントを送受信するための WebSocket API の情報を取得する
+        ニコニコ実況・NX-Jikkyo とコメントを送受信するための WebSocket API の情報を取得する
         2024/08/05 以降の新ニコニコ生放送でコメントサーバーが刷新された影響で、従来 KonomiTV で実装していた
         「ブラウザから直接ニコ生の WebSocket API に接続しコメントを送受信する」手法が使えなくなったため、
         デフォルトでは NX-Jikkyo の旧ニコニコ生放送互換 WebSocket API (視聴セッション・コメントセッション) の URL を返す
         ログイン中かつニコニコアカウントと連携している場合のみ、ニコ生の WebSocket API (視聴セッションのみ) の URL も返す
-        最終的にどちらの「視聴セッション維持用 WebSocket API」に接続するか (=どちらにコメントを投稿するか) はフロントエンドの裁量で決められる
+        最終的にどちらの「視聴セッション維持用 WebSocket API」に接続するか (=どちらにコメントを送信するか) はフロントエンドの裁量で決められる
         いずれの場合でも、「コメント受信用 WebSocket API」には常に NX-Jikkyo の WebSocket API を利用する
 
         Args:
             current_user (User | None): ログイン中のユーザーのモデルオブジェクト
 
         Returns:
-            schemas.JikkyoWebSocketInfo: ニコニコ実況からコメントを送受信するための WebSocket API の情報
+            schemas.JikkyoWebSocketInfo: ニコニコ実況・NX-Jikkyo とコメントを送受信するための WebSocket API の情報
         """
 
         # 現在は NX-Jikkyo のみ存在するニコニコ実況チャンネルかどうかを表すフラグ

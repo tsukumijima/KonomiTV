@@ -46,6 +46,7 @@ export interface ILocalClientSettings extends IClientSettings {
     capture_caption_mode: 'VideoOnly' | 'CompositingCaption' | 'Both';
     capture_copy_to_clipboard: boolean;
     sync_settings: boolean;
+    prefer_posting_to_nicolive: boolean;
     comment_speed_rate: number;
     comment_font_size: number;
     close_comment_form_after_sending: boolean;
@@ -156,6 +157,8 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
 
     // ***** 設定 → ニコニコ実況 *****
 
+    // 可能であればニコニコ実況へコメントする (Default: オン)
+    prefer_posting_to_nicolive: true,
     // コメントの速さ (Default: 1倍)
     comment_speed_rate: 1,
     // コメントのフォントサイズ (Default: 34px)
@@ -230,6 +233,7 @@ const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
     'capture_caption_mode',
     // capture_copy_to_clipboard: 同期無効
     // sync_settings: 同期無効
+    'prefer_posting_to_nicolive',
     'comment_speed_rate',
     'comment_font_size',
     'close_comment_form_after_sending',

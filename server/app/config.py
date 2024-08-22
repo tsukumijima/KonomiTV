@@ -67,6 +67,7 @@ class ClientSettings(BaseModel):
     capture_caption_mode: Literal['VideoOnly', 'CompositingCaption', 'Both'] = 'Both'
     # capture_copy_to_clipboard: 同期無効
     # sync_settings: 同期無効
+    prefer_posting_to_nicolive: bool = True
     comment_speed_rate: float = 1.0
     comment_font_size: int = 34
     close_comment_form_after_sending: bool = True
