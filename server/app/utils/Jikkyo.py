@@ -285,9 +285,9 @@ class Jikkyo:
         # NX-Jikkyo の旧ニコニコ生放送「コメント受信用 WebSocket API」互換の WebSocket API の URL を生成
         comment_session_url = f'wss://nx-jikkyo.tsukumijima.net/api/v1/channels/{self.jikkyo_id}/ws/comment'
 
-        # 未ログイン or ニコニコアカウントと連携していない場合は、ニコ生側の「視聴セッション維持用 WebSocket API」の URL は取得せず、
-        # そのまま NX-Jikkyo の WebSocket API の URL のみを返す
-        if not current_user or not all([
+        # 現在は NX-Jikkyo のみ存在するニコニコ実況チャンネル or 未ログイン or ニコニコアカウントと連携していない場合は、
+        # ニコ生側の「視聴セッション維持用 WebSocket API」の URL は取得せず、そのまま NX-Jikkyo の WebSocket API の URL のみを返す
+        if is_nxjikkyo_exclusive is True or current_user is None or not all([
             current_user.niconico_user_id,
             current_user.niconico_user_name,
             current_user.niconico_access_token,
@@ -308,7 +308,7 @@ class Jikkyo:
         ## このとき、フロントエンドではユーザーの設定に関わらず、フォールバックとして NX-Jikkyo の「視聴セッション維持用 WebSocket API」に接続する
 
         try:
-            # 実況チャンネル ID に対応するニコニコチャンネルで現在放送中のニコニコ生放送番組の ID をスクレイピングで取得する
+            # 実況チャンネル ID に対応するニコニコチャンネルで現在放送中のニコニコ生放送番組の ID を取得する
             nicolive_program_id = None
             async with HTTPX_CLIENT() as client:
                 response = await client.get(f'https://ch.nicovideo.jp/{self.nicochannel_id}/live')
@@ -339,13 +339,13 @@ class Jikkyo:
                 f'nicoliveProgramId={self.nicochannel_id}&userId={current_user.niconico_user_id}'
             )
 
-            async def getSession():  # 使い回せるように関数化
+            async def get_session():  # 使い回せるように関数化
                 async with HTTPX_CLIENT() as client:
                     return await client.get(
                         url = wsendpoint_api_url,
                         headers = {**API_REQUEST_HEADERS, 'Authorization': f'Bearer {current_user.niconico_access_token}'},
                     )
-            wsendpoint_api_response = await getSession()
+            wsendpoint_api_response = await get_session()
 
             # ステータスコードが 401 (Unauthorized)
             ## アクセストークンの有効期限が切れているため、リフレッシュトークンでアクセストークンを更新してからやり直す
@@ -362,7 +362,7 @@ class Jikkyo:
                         comment_session_url = comment_session_url,
                         is_nxjikkyo_exclusive = is_nxjikkyo_exclusive,
                     )
-                wsendpoint_api_response = await getSession()
+                wsendpoint_api_response = await get_session()
 
             # ステータスコードが 200 以外
             if wsendpoint_api_response.status_code != 200:
