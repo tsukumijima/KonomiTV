@@ -244,6 +244,9 @@ class TwitterGraphQLAPI:
         ref: https://github.com/fa0311/TwitterInternalAPIDocument
         """
 
+        start_time = time.time()
+        logging.info('Twitter GraphQL API endpoint infos updating...')
+
         try:
             # GraphQL API のエンドポイント情報を取得
             async with HTTPX_CLIENT() as client:
@@ -296,9 +299,9 @@ class TwitterGraphQLAPI:
                         logging.debug_simple(f'[TwitterGraphQLAPI] {cls.ENDPOINT_INFOS[operation_name].endpoint}: '
                                              f'[{cls.ENDPOINT_INFOS[operation_name].method}] {cls.ENDPOINT_INFOS[operation_name].path}')
 
-            logging.info('[TwitterGraphQLAPI] Successfully updated endpoint infos.')
+            logging.info(f'Twitter GraphQL API endpoint infos update complete. ({round(time.time() - start_time, 3)} sec)')
         except Exception:
-            logging.error(f'[TwitterGraphQLAPI] Failed to update endpoint infos:')
+            logging.error('Failed to update Twitter GraphQL API endpoint infos:')
             logging.error(traceback.format_exc())
 
 
