@@ -57,6 +57,7 @@ import { storeToRefs } from 'pinia';
 import { ref, watch, onMounted, nextTick } from 'vue';
 
 import Tweet from '@/components/Watch/Panel/Twitter/Tweet.vue';
+import Message from '@/message';
 import Twitter, { ITweet } from '@/services/Twitter';
 import useTwitterStore from '@/stores/TwitterStore';
 import useUserStore from '@/stores/UserStore';
@@ -95,7 +96,7 @@ const performSearchTweets = async () => {
     isFetching.value = true;
     await useUserStore().fetchUser();
     if (!selected_twitter_account.value) {
-        console.warn('selected_twitter_account is null');
+        Message.warning('検索結果を更新するには、Twitter アカウントと連携してください。');
         tweets.value = [];
         isFetching.value = false;
         return;
