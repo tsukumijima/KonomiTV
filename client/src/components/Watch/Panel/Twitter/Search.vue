@@ -46,7 +46,7 @@
         <div class="search-announce" v-show="tweets.length === 0">
             <div class="search-announce__heading">まだツイートがありません。</div>
             <div class="search-announce__text">
-                <p class="mt-0 mb-0">右上の更新ボタンを押すと、最新の検索結果を<br>時系列で表示できます。</p>
+                <p class="mt-0 mb-0">右上の更新ボタンを押すと、最新の<br>ツイート検索結果を時系列で表示できます。</p>
             </div>
         </div>
     </div>
@@ -90,13 +90,17 @@ const onKeyDown = (event: KeyboardEvent) => {
 };
 
 const performSearchTweets = async () => {
-    if (isFetching.value || !searchQuery.value.trim()) {
+    if (isFetching.value) {
+        return;
+    }
+    if (!searchQuery.value.trim()) {
+        Message.warning('検索キーワードを入力してください。');
         return;
     }
     isFetching.value = true;
     await useUserStore().fetchUser();
     if (!selected_twitter_account.value) {
-        Message.warning('検索結果を更新するには、Twitter アカウントと連携してください。');
+        Message.warning('ツイートを検索するには、Twitter アカウントと連携してください。');
         tweets.value = [];
         isFetching.value = false;
         return;
