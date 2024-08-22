@@ -336,7 +336,7 @@ class Jikkyo:
             ## レスポンスで取得できる WebSocket に接続すると、ログイン中のユーザーに紐づくニコニコアカウントでコメントできる
             wsendpoint_api_url = (
                 'https://api.live2.nicovideo.jp/api/v1/wsendpoint?'
-                f'nicoliveProgramId={self.nicochannel_id}&userId={current_user.niconico_user_id}'
+                f'nicoliveProgramId={nicolive_program_id}&userId={current_user.niconico_user_id}'
             )
 
             async def get_session():  # 使い回せるように関数化
