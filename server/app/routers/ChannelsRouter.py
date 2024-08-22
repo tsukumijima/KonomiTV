@@ -15,6 +15,7 @@ from fastapi import status
 from fastapi.responses import FileResponse
 from fastapi.responses import JSONResponse
 from fastapi.responses import Response
+from fastapi.security.utils import get_authorization_scheme_param
 from tortoise import connections
 from typing import Annotated, Any
 from zoneinfo import ZoneInfo
@@ -24,7 +25,6 @@ from app import schemas
 from app.config import Config
 from app.constants import HTTPX_CLIENT, LOGO_DIR, VERSION
 from app.models.Channel import Channel
-from app.models.User import User
 from app.routers.UsersRouter import GetCurrentUser
 from app.streams.LiveStream import LiveStream
 from app.utils import GetMirakurunAPIEndpointURL
@@ -523,7 +523,7 @@ async def ChannelLogoAPI(
 @router.get(
     '/{channel_id}/jikkyo',
     summary = 'ニコニコ実況 WebSocket URL API',
-    response_description = 'ニコニコ実況コメント受信用 WebSocket API の情報。',
+    response_description = 'ニコニコ実況コメント送受信用 WebSocket API の情報。',
     response_model = schemas.JikkyoWebSocketInfo,
 )
 async def ChannelJikkyoWebSocketInfoAPI(
@@ -531,28 +531,23 @@ async def ChannelJikkyoWebSocketInfoAPI(
     channel: Annotated[Channel, Depends(GetChannel)],
 ):
     """
-    指定されたチャンネルに対応する、ニコニコ実況コメント受信用 WebSocket API の情報を取得する。<br>
-    当面の間、常に NX-Jikkyo の旧ニコニコ生放送互換 WebSocket API の情報を返す。
+    指定されたチャンネルに対応する、ニコニコ実況コメント送受信用 WebSocket API の情報を取得する。
     """
 
-    # ニコニココメント受信用 WebSocket API の情報を取得する
+    # もし Authorization ヘッダーがあるなら、ログイン中のユーザーアカウントを取得する
+    current_user = None
+    if request.headers.get('Authorization') is not None:
+
+        # JWT アクセストークンを取得
+        _, user_access_token = get_authorization_scheme_param(request.headers.get('Authorization'))
+
+        # アクセストークンに紐づくユーザーアカウントを取得
+        ## もともとバリデーション用なので HTTPException が送出されるが、ここではエラーにする必要はないのでパス
+        try:
+            current_user = await GetCurrentUser(token=user_access_token)
+        except HTTPException:
+            pass
+
+    # ニコニココメント送受信用 WebSocket API の情報を取得する
     jikkyo = Jikkyo(channel.network_id, channel.service_id)
-    return jikkyo.getJikkyoWebSocketInfo()
-
-
-@router.post(
-    '/{channel_id}/jikkyo/comment',
-    summary = 'ニコニコ実況コメント送信 API',
-    response_model = schemas.JikkyoSendCommentResult,
-)
-async def ChannelJikkyoSendCommentAPI(
-    current_user: Annotated[User, Depends(GetCurrentUser)],
-    channel: Annotated[Channel, Depends(GetChannel)],
-    comment: schemas.JikkyoSendCommentRequest,
-):
-    """
-    指定されたチャンネルに対応するニコニコ実況チャンネルにコメントを送信する。
-    """
-
-    jikkyo = Jikkyo(channel.network_id, channel.service_id)
-    return await jikkyo.sendComment(current_user, comment)
+    return await jikkyo.fetchWebSocketInfo(current_user)

@@ -239,15 +239,6 @@ class UserUpdateRequest(BaseModel):
 class UserUpdateRequestForAdmin(BaseModel):
     is_admin: bool | None = None
 
-# ***** ニコニコ実況連携 *****
-
-class JikkyoSendCommentRequest(BaseModel):
-    text: str
-    color: str
-    position: str
-    size: str
-    vpos: int
-
 # ***** Twitter 連携 *****
 
 class TwitterCookieAuthRequest(BaseModel):
@@ -468,13 +459,16 @@ class DataBroadcastingInternetStatus(BaseModel):
 # ***** ニコニコ実況連携 *****
 
 class JikkyoWebSocketInfo(BaseModel):
-    websocket_url: str | None
+    # 視聴セッション維持用 WebSocket API の URL (NX-Jikkyo)
+    watch_session_url: str | None
+    # 視聴セッション維持用 WebSocket API の URL (ニコニコ生放送)
+    nicolive_watch_session_url: str | None = None
+    # 視聴セッション維持用 WebSocket API のエラー情報 (ニコニコ生放送)
+    nicolive_watch_session_error: str | None = None
+    # コメント受信用 WebSocket API の URL (NX-Jikkyo)
+    comment_session_url: str | None
     # 現在は NX-Jikkyo のみ存在するニコニコ実況チャンネルかどうか
     is_nxjikkyo_exclusive: bool
-
-class JikkyoSendCommentResult(BaseModel):
-    is_success: bool
-    detail: str
 
 class JikkyoComment(BaseModel):
     time: float
