@@ -34,8 +34,8 @@ import Utils, { dayjs, PlayerUtils } from '@/utils';
 class PlayerController {
 
     // ライブ視聴: 低遅延モードオンでの再生バッファ (秒単位)
-    // 0.8 秒程度余裕を持たせる
-    private static readonly LIVE_PLAYBACK_BUFFER_SECONDS_LOW_LATENCY = 0.8;
+    // 0.9 秒程度余裕を持たせる
+    private static readonly LIVE_PLAYBACK_BUFFER_SECONDS_LOW_LATENCY = 0.9;
 
     // ライブ視聴: 低遅延モードオフでの再生バッファ (秒単位)
     // 4 秒程度の遅延を許容する
