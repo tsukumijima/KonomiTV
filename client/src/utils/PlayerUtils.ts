@@ -104,6 +104,10 @@ export class PlayerUtils {
             switch (navigator.connection.type) {
                 case 'cellular':
                     return 'Cellular';
+                // 複数の Android 端末での検証の結果、モバイル回線 (4G/5G) に接続されているにも関わらず "unknown" が返されることがある
+                // 一方 Wi-Fi 接続時は確実に "wi-fi" が返されるため、"unknown" の場合は "Cellular" として扱う
+                case 'unknown':
+                    return 'Cellular';
                 default:
                     return 'Wi-Fi';
             }
