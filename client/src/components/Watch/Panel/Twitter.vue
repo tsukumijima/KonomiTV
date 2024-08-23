@@ -1090,6 +1090,8 @@ export default defineComponent({
                 &[disabled] {
                     opacity: 0.7;
                     cursor: auto;
+                    // スマホでクリック時の波紋が発動しないようにする
+                    pointer-events: none;
                 }
             }
         }
