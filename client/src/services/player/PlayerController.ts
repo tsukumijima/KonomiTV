@@ -1210,7 +1210,7 @@ class PlayerController {
         // 設定パネルにL字画面のクロップ設定を表示するボタンを動的に追加する
         this.player.template.settingOriginPanel.insertAdjacentHTML('beforeend', `
             <div class="dplayer-setting-item dplayer-setting-lshaped-screen-crop">
-                <span class="dplayer-label">L字画面のクロップ設定</span>
+                <span class="dplayer-label">Ｌ字画面のクロップ</span>
                 <div class="dplayer-toggle">
                     <svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 32 32">
                         <path d="M22 16l-10.105-10.6-1.895 1.987 8.211 8.613-8.211 8.612 1.895 1.988 8.211-8.613z"></path>

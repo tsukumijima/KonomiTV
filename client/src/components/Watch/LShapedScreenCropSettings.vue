@@ -1,9 +1,9 @@
 <template>
     <v-dialog max-width="700" transition="slide-y-transition" v-model="playerStore.lshaped_screen_crop_settings_modal">
-        <v-card>
+        <v-card class="lshaped-screen-crop-settings-modal">
             <v-card-title class="px-5 pt-3 pb-3 d-flex align-center font-weight-bold">
                 <Icon icon="fluent:crop-20-filled" height="28px" />
-                <span class="ml-4">L字画面のクロップ</span>
+                <span class="ml-4">Ｌ字画面のクロップ</span>
                 <v-spacer></v-spacer>
                 <v-switch class="mr-4" color="primary" hide-details v-model="settingsStore.settings.lshaped_screen_crop_enabled"></v-switch>
                 <div v-ripple class="d-flex align-center rounded-circle cursor-pointer px-2 py-2"
@@ -82,6 +82,13 @@ const playerStore = usePlayerStore();
     column-gap: 12px;
     .v-label {
         opacity: 1 !important;
+    }
+}
+
+.lshaped-screen-crop-settings-modal > div {
+    @include smartphone-vertical {
+        padding-left: 12px !important;
+        padding-right: 12px !important;
     }
 }
 
