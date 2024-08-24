@@ -29,7 +29,7 @@
                     <template v-slot:prepend>
                         <div class="d-flex align-center" style="width: 85px;">
                             <Icon icon="mdi:arrow-left-right" width="20px" />
-                            <span class="ml-2">X座標</span>
+                            <span class="ml-2">Ｘ座標</span>
                         </div>
                     </template>
                     <template v-slot:append>
@@ -41,7 +41,7 @@
                     <template v-slot:prepend>
                         <div class="d-flex align-center" style="width: 85px;">
                             <Icon icon="mdi:arrow-up-down" width="20px" />
-                            <span class="ml-2">Y座標</span>
+                            <span class="ml-2">Ｙ座標</span>
                         </div>
                     </template>
                     <template v-slot:append>
