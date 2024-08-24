@@ -4,7 +4,7 @@
             <img class="konomitv-logo__image" src="/assets/images/logo.svg" height="21">
         </router-link>
         <v-spacer></v-spacer>
-        <div v-ripple class="search-button" @click="Message.warning('検索機能は開発中です。')">
+        <div v-ripple class="search-button" @click="Message.warning('検索機能は現在開発中です。')">
             <Icon icon="fluent:search-20-filled" height="24px" />
         </div>
     </header>

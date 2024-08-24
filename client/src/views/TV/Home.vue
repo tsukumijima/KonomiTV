@@ -108,6 +108,12 @@
                 </div>
             </div>
         </main>
+        <div v-ripple class="floating-button" @click="Message.warning('番組表は現在開発中です。')">
+            <div class="floating-button__content">
+                <Icon class="floating-button__icon" icon="fluent:calendar-20-regular" width="26px" />
+                <div class="floating-button__text">番組表</div>
+            </div>
+        </div>
     </div>
 </template>
 <script lang="ts">
@@ -143,6 +149,7 @@ export default defineComponent({
             Utils: Object.freeze(Utils),
             ChannelUtils: Object.freeze(ChannelUtils),
             ProgramUtils: Object.freeze(ProgramUtils),
+            Message: Object.freeze(Message),
 
             // 現在アクティブなタブ
             active_tab_index: 0 as number,
@@ -993,6 +1000,38 @@ export default defineComponent({
                 }
             }
         }
+    }
+}
+
+.floating-button {
+    display: none;
+    justify-content: center;
+    align-items: center;
+    position: fixed;
+    bottom: 72px;
+    right: 20px;
+    padding: 12px 20px;
+    background: rgb(var(--v-theme-background-lighten-2));
+    box-shadow: 0px 4px 7.5px rgba(0, 0, 0, 0.61);
+    border-radius: 12px;
+    user-select: none;
+    cursor: pointer;
+    z-index: 1005;
+    @include smartphone-vertical {
+        display: flex;
+    }
+
+    &__content {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    &__text {
+        margin-left: 10px;
+        color: #FFEAEA;
+        font-size: 16px;
+        font-weight: 500;
     }
 }
 

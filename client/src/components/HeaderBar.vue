@@ -4,7 +4,7 @@
             <img class="konomitv-logo__image" src="/assets/images/logo.svg" height="21">
         </router-link>
         <v-spacer></v-spacer>
-        <v-btn v-if="isButtonDisplay" variant="flat" color="background-lighten-3" class="pwa-install-button"
+        <v-btn v-show="isButtonDisplay" variant="flat" color="background-lighten-3" class="pwa-install-button"
             @click="pwaInstallHandler.install()">
             <Icon icon="material-symbols:install-desktop-rounded" height="20px" class="mr-1" />
             アプリとしてインストール

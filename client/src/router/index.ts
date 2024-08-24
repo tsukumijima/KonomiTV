@@ -35,6 +35,11 @@ const router = createRouter({
             component: () => import('@/views/Videos/Watch.vue'),
         },
         {
+            path: '/mypage/',
+            name: 'MyPage',
+            component: () => import('@/views/MyPage.vue'),
+        },
+        {
             path: '/settings/',
             name: 'Settings Index',
             component: () => import('@/views/Settings/Index.vue'),

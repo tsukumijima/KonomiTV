@@ -8,7 +8,7 @@
             <Icon icon="fluent:video-clip-multiple-16-filled" width="26px" />
             <span class="ml-3">画質</span>
         </h2>
-        <div class="settings__quote mt-5 pb-1">
+        <div class="settings__quote mt-5 pb-2">
             視聴開始時の画質プロファイルは、デバイスの回線状況に応じて自動的に選択されます (Android のみ) 。<br>
             画質プロファイルは、プレイヤー下にある設定アイコン ⚙️ から変更できます。<br>
         </div>

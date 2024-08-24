@@ -5,7 +5,12 @@
             <Navigation />
             <v-card class="settings-container d-flex px-5 py-5 mx-auto" elevation="0" width="100%" max-width="1000">
                 <nav class="settings-navigation">
-                    <h1 class="mt-2" style="font-size: 24px;">設定</h1>
+                    <h1 class="mt-2 d-flex align-center" style="font-size: 24px;">
+                        <a v-ripple class="settings-navigation__back-button" @click="$router.back()">
+                            <Icon icon="fluent:arrow-left-12-filled" width="25px" />
+                        </a>
+                        <span>設定</span>
+                    </h1>
                     <v-btn variant="flat" class="settings-navigation__button mt-6" to="/settings/general">
                         <Icon icon="fa-solid:sliders-h" width="26px" style="padding: 0 3px;" />
                         <span class="ml-4">全般</span>
@@ -44,41 +49,15 @@
                         <Icon icon="fluent:server-surface-16-filled" width="26px" />
                         <span class="ml-4">サーバー設定</span>
                     </v-btn>
-                    <v-btn variant="flat" class="settings-navigation__button settings-navigation__button--version"
-                        :class="{'settings-navigation__button--version-highlight': versionStore.is_update_available}"
-                        href="https://github.com/tsukumijima/KonomiTV" target="_blank">
-                        <Icon icon="fluent:info-16-regular" width="26px" />
-                        <span class="ml-4">
-                            version {{versionStore.client_version}}{{versionStore.is_update_available ? ' (Update Available)' : ''}}
-                        </span>
-                    </v-btn>
                 </nav>
             </v-card>
         </main>
     </div>
 </template>
-<script lang="ts">
-
-import { mapStores } from 'pinia';
-import { defineComponent } from 'vue';
+<script lang="ts" setup>
 
 import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
-import useVersionStore from '@/stores/VersionStore';
-
-export default defineComponent({
-    name: 'Settings-Index',
-    components: {
-        HeaderBar,
-        Navigation,
-    },
-    computed: {
-        ...mapStores(useVersionStore),
-    },
-    async created() {
-        await this.versionStore.fetchServerVersion();
-    }
-});
 
 </script>
 <style lang="scss" scoped>
@@ -123,6 +102,19 @@ export default defineComponent({
                 &-highlight {
                     color: rgb(var(--v-theme-secondary-lighten-1)) !important;
                 }
+            }
+        }
+
+        .settings-navigation__back-button {
+            display: none;
+            position: relative;
+            left: -6px;
+            padding: 6px;
+            border-radius: 50%;
+            color: rgb(var(--v-theme-text));
+            cursor: pointer;
+            @include smartphone-vertical {
+                display: flex;
             }
         }
 
