@@ -603,16 +603,16 @@ class LiveDataBroadcastingManager implements PlayerManager {
             if (child instanceof HTMLVideoElement) {
                 (child as HTMLVideoElement).style.width = '100%';
                 (child as HTMLVideoElement).style.height = '100%';
-                // BML ブラウザのアスペクト比が 16:9 以外のケース (運用上は 720×480 のみ該当) に限定して適用する
-                if (this.bml_browser_width / this.bml_browser_height !== 16 / 9) {
-                    const magnification = (this.bml_browser_height * 16 / 9) / this.bml_browser_width;
-                    (child as HTMLVideoElement).style.transform = `scaleY(${magnification})`;
-                    (child as HTMLVideoElement).style.transformOrigin = 'center center';
-                } else {
-                    (child as HTMLVideoElement).style.transform = '';
-                    (child as HTMLVideoElement).style.transformOrigin = '';
-                }
             }
+        }
+        // BML ブラウザのアスペクト比が 16:9 以外のケース (運用上は 720×480 のみ該当) に限定して適用する
+        if (this.bml_browser_width / this.bml_browser_height !== 16 / 9) {
+            const magnification = (this.bml_browser_height * 16 / 9) / this.bml_browser_width;
+            this.media_element.style.transform = `scaleY(${magnification})`;
+            this.media_element.style.transformOrigin = 'center center';
+        } else {
+            this.media_element.style.transform = '';
+            this.media_element.style.transformOrigin = '';
         }
 
         this.is_video_element_moved_to_bml_browser = true;
@@ -650,10 +650,10 @@ class LiveDataBroadcastingManager implements PlayerManager {
             if (child instanceof HTMLVideoElement) {
                 (child as HTMLVideoElement).style.width = '';
                 (child as HTMLVideoElement).style.height = '';
-                (child as HTMLVideoElement).style.transform = '';
-                (child as HTMLVideoElement).style.transformOrigin = '';
             }
         }
+        this.media_element.style.transform = '';
+        this.media_element.style.transformOrigin = '';
 
         this.is_video_element_moved_to_bml_browser = false;
     }
