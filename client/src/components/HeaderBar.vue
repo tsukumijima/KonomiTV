@@ -151,8 +151,10 @@ const showSearchInput = computed(() => {
         background: rgb(var(--v-theme-background-lighten-1));
         color: rgb(var(--v-theme-text-darken-1));
         font-size: 15px;
+        transition: box-shadow 0.09s ease;
 
         &:focus {
+            box-shadow: rgb(var(--v-theme-primary), 50%) 0 0 0 3.5px;
             outline: none;
         }
 
