@@ -41,15 +41,90 @@
             <div class="settings__item">
                 <div class="settings__item-heading">キャプチャの保存ファイル名パターン</div>
                 <div class="settings__item-label">
-                    キャプチャの保存ファイル名パターン（拡張子なし）を設定します。デフォルトは Capture_%date%-%time% です。<br>
+                    キャプチャの保存ファイル名（拡張子なし）を設定します。デフォルトは Capture_%date%-%time% です。<br>
                     字幕を合成したキャプチャのファイル名には、自動的に _caption のサフィックスが追加されます。<br>
-                    ファイル名には、下記の TVTest 互換マクロ（一部）を使用できます。<br>
-                    <ul class="ml-4 mt-1">
-                        <li>%date%: 現在日時 - 年月日 (YYYYMMDD)</li>
-                        <li>%time%: 現在日時 - 時分秒 (HHMMSS)</li>
+                    ファイル名には、下記の TVTest 互換マクロを使用できます。<br>
+                    <v-btn class="settings__save-button mt-3 px-3 py-0" style="height: 36px; font-size: 14px;" variant="flat"
+                        @click="is_macro_list_visible = !is_macro_list_visible">
+                        <Icon icon="fluent:text-bullet-list-20-filled" class="mr-2" height="19px" />マクロ一覧を表示
+                    </v-btn>
+                    <ul class="ml-4 mt-3" v-if="is_macro_list_visible">
+                        <li>現在日時
+                            <ul class="ml-4">
+                                <li>%date%: 年月日 (YYYYMMDD)</li>
+                                <li>%year%: 年 (YYYY)</li>
+                                <li>%year2%: 年 (YY)</li>
+                                <li>%month%: 月</li>
+                                <li>%month2%: 月 (2桁)</li>
+                                <li>%day%: 日</li>
+                                <li>%day2%: 日 (2桁)</li>
+                                <li>%time%: 時分秒 (時分秒 / HHMMSS)</li>
+                                <li>%hour%: 時</li>
+                                <li>%hour2%: 時 (2桁)</li>
+                                <li>%minute%: 分</li>
+                                <li>%minute2%: 分 (2桁)</li>
+                                <li>%second%: 秒</li>
+                                <li>%second2%: 秒 (2桁)</li>
+                                <li>%day-of-week%: 曜日 (漢字)</li>
+                            </ul>
+                        </li>
+                        <li>番組開始日時
+                            <ul class="ml-4">
+                                <li>%start-date%: 年月日 (YYYYMMDD)</li>
+                                <li>%start-year%: 年 (YYYY)</li>
+                                <li>%start-year2%: 年 (YY)</li>
+                                <li>%start-month%: 月</li>
+                                <li>%start-month2%: 月 (2桁)</li>
+                                <li>%start-day%: 日</li>
+                                <li>%start-day2%: 日 (2桁)</li>
+                                <li>%start-time%: 時刻 (時分秒 / HHMMSS)</li>
+                                <li>%start-hour%: 時</li>
+                                <li>%start-hour2%: 時 (2桁)</li>
+                                <li>%start-minute%: 分</li>
+                                <li>%start-minute2%: 分 (2桁)</li>
+                                <li>%start-second%: 秒</li>
+                                <li>%start-second2%: 秒 (2桁)</li>
+                                <li>%start-day-of-week%: 曜日 (漢字)</li>
+                            </ul>
+                        </li>
+                        <li>番組終了日時
+                            <ul class="ml-4">
+                                <li>%end-date%: 年月日 (YYYYMMDD)</li>
+                                <li>%end-year%: 年 (YYYY)</li>
+                                <li>%end-year2%: 年 (YY)</li>
+                                <li>%end-month%: 月</li>
+                                <li>%end-month2%: 月 (2桁)</li>
+                                <li>%end-day%: 日</li>
+                                <li>%end-day2%: 日 (2桁)</li>
+                                <li>%end-time%: 時分秒 (時分秒 / HHMMSS)</li>
+                                <li>%end-hour%: 時</li>
+                                <li>%end-hour2%: 時 (2桁)</li>
+                                <li>%end-minute%: 分</li>
+                                <li>%end-minute2%: 分 (2桁)</li>
+                                <li>%end-second%: 秒</li>
+                                <li>%end-second2%: 秒 (2桁)</li>
+                                <li>%end-day-of-week%: 曜日 (漢字)</li>
+                            </ul>
+                        </li>
+                        <li>番組長
+                            <ul class="ml-4">
+                                <li>%event-duration-hour%: 時間</li>
+                                <li>%event-duration-hour2%: 時間 (2桁)</li>
+                                <li>%event-duration-min%: 分</li>
+                                <li>%event-duration-min2%: 分 (2桁)</li>
+                                <li>%event-duration-sec%: 秒</li>
+                                <li>%event-duration-sec2%: 秒 (2桁)</li>
+                            </ul>
+                        </li>
+                        <li>%channel-name%: チャンネル名</li>
+                        <li>%channel-no%: チャンネル番号 (3桁)</li>
+                        <li>%event-name%: 番組名</li>
+                        <li>%event-id%: イベント ID</li>
+                        <li>%service-name%: サービス名</li>
+                        <li>%service-id%: サービス ID</li>
                     </ul>
                 </div>
-                <v-text-field class="settings__item-form mt-5" color="primary" variant="outlined" hide-details
+                <v-text-field class="settings__item-form mt-6" color="primary" variant="outlined" hide-details
                     :density="is_form_dense ? 'compact' : 'default'"
                     :label="capture_filename_pattern_preview"
                     v-model="settingsStore.settings.capture_filename_pattern">
@@ -105,6 +180,9 @@ export default defineComponent({
 
             // キャプチャの保存ファイル名パターンのプレビュー
             capture_filename_pattern_preview: '',
+
+            // マクロ一覧を表示するか
+            is_macro_list_visible: false,
         };
     },
     computed: {

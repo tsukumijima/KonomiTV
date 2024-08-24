@@ -6,6 +6,7 @@ import { convertBlobToPng, copyBlobToClipboard } from 'copy-image-clipboard';
 import DPlayer from 'dplayer';
 
 import Captures from '@/services/Captures';
+import { ILiveChannelDefault } from '@/services/Channels';
 import PlayerManager from '@/services/player/PlayerManager';
 import { IProgramDefault } from '@/services/Programs';
 import useChannelsStore from '@/stores/ChannelsStore';
@@ -508,18 +509,25 @@ class CaptureManager implements PlayerManager {
     public static generateCaptureFilename(): string {
         const channels_store = useChannelsStore();
         const settings_store = useSettingsStore();
+        const filename_pattern = settings_store.settings.capture_filename_pattern;
 
         // マクロ置換用データを準備
-        const filename_pattern = settings_store.settings.capture_filename_pattern;
         const now = dayjs();
-        const channel = structuredClone(channels_store.channel.current);
+        const channel = channels_store.channel.current.id === 'NID0-SID0' ? structuredClone(ILiveChannelDefault) : channels_store.channel.current;
         const program = channel.program_present ?? structuredClone(IProgramDefault);
+        if (channel.id === 'NID0-SID0') {
+            // 現在視聴中のチャンネルがないプレビュー時はダミーの番組情報が返るので、プレビューに適した番組情報に置き換える
+            channel.service_id = 1024;
+            channel.name = 'アフリカ中央テレビ';
+            channel.channel_number = '011';
+            program.event_id = 65535;
+            program.title = '[二][字]今日のニュース';
+            program.start_time = '2024-04-01T12:00:00+09:00';
+            program.end_time = '2024-04-01T12:15:00+09:00';
+            program.duration = 15 * 60 * 1000;
+        }
         const program_start_time = dayjs(program.start_time);
         const program_end_time = dayjs(program.end_time);
-        if (channel.id === 'NID0-SID0') {  // まだ視聴が開始されていないときのみ
-            channel.name = 'アフリカ中央テレビ';
-            program.title = 'アフテレ1';
-        }
         const program_duration = dayjsOriginal.duration(program_end_time.diff(program_start_time));
 
         // TVTest でファイル名に使えるマクロのサブセットを実装している
@@ -584,10 +592,6 @@ class CaptureManager implements PlayerManager {
             .replace('%channel-name%', channel.name)
             // チャンネル番号
             .replace('%channel-no%', channel.channel_number)
-            // チャンネル番号 (2桁)
-            .replace('%channel-no2%', channel.channel_number.padStart(2, '0'))
-            // チャンネル番号 (3桁)
-            .replace('%channel-no3%', channel.channel_number.padStart(3, '0'))
             // 番組名
             .replace('%event-name%', program.title)
             // イベント ID
