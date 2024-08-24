@@ -1,21 +1,74 @@
 <template>
-    <header class="header">
-        <router-link v-ripple class="konomitv-logo" to="/tv/">
-            <img class="konomitv-logo__image" src="/assets/images/logo.svg" height="21">
-        </router-link>
-        <v-spacer></v-spacer>
-        <div v-ripple class="search-button" @click="Message.warning('検索機能は現在開発中です。')">
-            <Icon icon="fluent:search-20-filled" height="24px" />
-        </div>
+    <header class="header" :class="{ 'search-active': is_search_active }">
+        <template v-if="!is_search_active">
+            <router-link v-ripple class="konomitv-logo" to="/tv/">
+                <img class="konomitv-logo__image" src="/assets/images/logo.svg" height="21">
+            </router-link>
+            <v-spacer></v-spacer>
+            <div v-ripple class="search-button" @click="activateSearch">
+                <Icon icon="fluent:search-20-filled" height="24px" />
+            </div>
+        </template>
+        <template v-else>
+            <div class="search-box">
+                <input ref="search_input" type="text" :placeholder="search_placeholder"
+                    v-model="search_query" @keydown="handleKeyDown">
+                <div v-ripple class="search-box__close" @click="deactivateSearch">
+                    <Icon icon="fluent:dismiss-20-filled" height="24px" />
+                </div>
+            </div>
+        </template>
     </header>
 </template>
+
 <script lang="ts" setup>
+import { ref, computed } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 
-import Message from '@/message';
+const router = useRouter();
+const route = useRoute();
+const is_search_active = ref(false);
+const search_query = ref('');
+const search_input = ref<HTMLInputElement | null>(null);
 
+const search_placeholder = computed(() => {
+    return route.path.startsWith('/videos')
+        ? '録画番組を検索...'
+        : '放送予定の番組を検索...';
+});
+
+const getSearchPath = () => {
+    return route.path.startsWith('/videos')
+        ? '/videos/search'
+        : '/tv/search';
+};
+
+const activateSearch = () => {
+    is_search_active.value = true;
+    // 次のティックで入力フォーカスを設定
+    setTimeout(() => {
+        search_input.value?.focus();
+    }, 0);
+};
+
+const deactivateSearch = () => {
+    is_search_active.value = false;
+    search_query.value = '';
+};
+
+const handleKeyDown = (event: KeyboardEvent) => {
+    if (event.key === 'Enter' && !event.isComposing) {
+        if (search_query.value.trim()) {
+            const search_path = getSearchPath();
+            router.push(`${search_path}?query=${encodeURIComponent(search_query.value.trim())}`);
+        }
+    } else if (event.key === 'Escape') {
+        deactivateSearch();
+    }
+};
 </script>
-<style lang="scss" scoped>
 
+<style lang="scss" scoped>
 .header {
     display: none;
     justify-content: center;
@@ -27,6 +80,10 @@ import Message from '@/message';
     background: rgb(var(--v-theme-background));
     @include smartphone-vertical {
         display: flex;
+    }
+
+    &.search-active {
+        padding: 0;
     }
 
     .konomitv-logo {
@@ -47,7 +104,44 @@ import Message from '@/message';
         margin-right: -2px;
         padding: 2px;
         border-radius: 8px;
+        cursor: pointer;
+    }
+
+    .search-box {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        height: 100%;
+        padding: 0 16px;
+        padding-top: 14px;
+
+        input {
+            flex-grow: 1;
+            height: 100%;
+            border: none;
+            background: transparent;
+            color: rgb(var(--v-theme-text));
+            font-size: 16px;
+
+            &:focus {
+                outline: none;
+            }
+
+            &::placeholder {
+                color: rgb(var(--v-theme-text-darken-2));
+            }
+        }
+
+        &__close {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            margin-right: -2px;
+            padding: 2px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
     }
 }
-
 </style>
