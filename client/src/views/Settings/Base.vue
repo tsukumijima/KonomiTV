@@ -284,9 +284,15 @@ export default defineComponent({
 
                 &--switch {
                     margin-right: 62px;
+                    @include smartphone-vertical {
+                        margin-right: 50px;
+                    }
 
                     .settings__item-heading {
                         width: calc(100% + 62px);
+                        @include smartphone-vertical {
+                            width: calc(100% + 50px);
+                        }
                     }
 
                     .settings__item-heading, .settings__item-label {
@@ -331,6 +337,9 @@ export default defineComponent({
                     right: -60px;
                     bottom: 0px;
                     margin-top: 0;
+                    @include smartphone-vertical {
+                        right: -48px;
+                    }
                 }
 
                 &-delete-button {

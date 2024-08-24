@@ -4,6 +4,7 @@
         <main>
             <Navigation />
             <div class="channels-container channels-container--home" :class="{'channels-container--loading': is_loading}">
+                <SPHeaderBar />
                 <div class="channels-tab">
                     <div class="channels-tab__buttons" :style="{
                         '--tab-length': Array.from(channelsStore.channels_list_with_pinned).length,
@@ -119,6 +120,7 @@ import { defineComponent } from 'vue';
 
 import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
+import SPHeaderBar from '@/components/SPHeaderBar.vue';
 import Message from '@/message';
 import { ILiveChannel } from '@/services/Channels';
 import useChannelsStore from '@/stores/ChannelsStore';
@@ -128,6 +130,7 @@ import Utils, { ChannelUtils, ProgramUtils } from '@/utils';
 export default defineComponent({
     name: 'TV-Home',
     components: {
+        SPHeaderBar,
         HeaderBar,
         Navigation,
         Swiper,
@@ -403,6 +406,7 @@ export default defineComponent({
         overflow: hidden;
 
         @include smartphone-vertical {
+            min-height: calc(100% - 54px - var(--channels-tab-height) + var(--bottom-navigation-height) + 1px);
             padding-left: 8px;
             padding-right: 8px;
         }
