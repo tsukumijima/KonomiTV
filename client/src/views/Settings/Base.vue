@@ -370,6 +370,14 @@ export default defineComponent({
                 }
             }
         }
+
+        .settings__quote {
+            border-left: 3px solid rgb(var(--v-theme-text-darken-1));
+            padding-left: 12px;
+            color: rgb(var(--v-theme-text-darken-1));
+            font-size: 13.5px;
+            line-height: 1.6;
+        }
     }
 }
 

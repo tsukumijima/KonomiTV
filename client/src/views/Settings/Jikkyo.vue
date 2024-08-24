@@ -85,7 +85,7 @@
                 <Icon icon="heroicons-solid:filter" height="19px" />
                 <span class="ml-1">コメントのミュート設定を開く</span>
             </v-btn>
-            <div class="settings__item-label mt-7" style="border-left: 3px solid rgb(var(--v-theme-text-darken-1)); padding-left: 12px;">
+            <div class="settings__quote mt-7">
                 コメントの透明度は、プレイヤー下にある設定アイコン ⚙️ から変更できます。<br>
             </div>
             <div class="settings__item">
