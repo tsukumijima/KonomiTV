@@ -85,10 +85,18 @@ const fetchTimelineTweets = async () => {
     // つまり後ろの要素になるほど古いツイートになる
     const result = await Twitter.getHomeTimeline(selected_twitter_account.value.screen_name, nextCursorId.value);
     if (result && result.tweets) {
-        // 「リツイートを表示しない」がチェックされている場合はリツイートのツイートを除外
-        if (showRetweets.value === false) {
-            result.tweets = result.tweets.filter(tweet => !tweet.retweeted_tweet);
-        }
+        result.tweets = result.tweets.filter(tweet => {
+            let result = true;
+            // 「リツイートを表示する」がオフの場合はリツイートのツイートを除外
+            if (showRetweets.value === false) {
+                result = !tweet.retweeted_tweet;
+            }
+            // 自分の RT を除外
+            if (tweet.retweeted_tweet !== null && tweet.user.screen_name === selected_twitter_account.value?.screen_name) {
+                result = false;
+            }
+            return result;
+        });
         // 新しいツイートを取得したら tweets の先頭に追加し、tweets.value を更新
         tweets.value = [...result.tweets, ...tweets.value];
         // 次のタイムラインを取得するためのカーソル ID を更新

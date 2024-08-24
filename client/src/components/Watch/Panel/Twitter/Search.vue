@@ -111,7 +111,7 @@ const performSearchTweets = async () => {
     // タイムラインと異なり、検索結果は一度に 20 件しか返ってこない
     const result = await Twitter.searchTweets(selected_twitter_account.value.screen_name, searchQuery.value, nextCursorId.value);
     if (result && result.tweets) {
-        // 「リツイートを表示しない」がチェックされている場合はリツイートのツイートを除外
+        // 「リツイートを表示する」がオフの場合はリツイートのツイートを除外
         if (showRetweets.value === false) {
             result.tweets = result.tweets.filter(tweet => !tweet.retweeted_tweet);
         }
