@@ -96,8 +96,8 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
     lshaped_screen_crop_x_position: 0,
     // L字画面のクロップのY座標 (Default: 0%)
     lshaped_screen_crop_y_position: 0,
-    // L字画面のクロップの拡大起点 (Default: 左上)
-    lshaped_screen_crop_zoom_origin: 'TopLeft',
+    // L字画面のクロップの拡大起点 (Default: 右下)
+    lshaped_screen_crop_zoom_origin: 'BottomRight',
 
     // ***** 設定 → 全般 *****
 

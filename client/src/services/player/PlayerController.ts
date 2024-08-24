@@ -4,6 +4,7 @@ import assert from 'assert';
 import DPlayer, { DPlayerType } from 'dplayer';
 import Hls from 'hls.js';
 import mpegts from 'mpegts.js';
+import { watch } from 'vue';
 
 import KeyboardShortcutManager from './managers/KeyboardShortcutManager';
 
@@ -582,6 +583,9 @@ class PlayerController {
 
         // DPlayer の設定パネルを無理やり拡張し、KonomiTV 独自の項目を追加する
         this.setupSettingPanelHandler();
+
+        // LShaped Screen Crop の設定が変更されたときのイベントハンドラーを登録する
+        this.setupLShapedScreenCropHandler();
 
         // KonomiTV 本体の UI を含むプレイヤー全体のコンテナ要素がリサイズされたときのイベントハンドラーを登録する
         this.setupPlayerContainerResizeHandler();
@@ -1247,6 +1251,110 @@ class PlayerController {
                 player_store.shortcut_key_modal = true;
             });
         }
+    }
+
+
+    /*
+     * L字画面のクロップ設定に応じて映像のクロップを変更する
+     */
+    private setupLShapedScreenCropHandler(): void {
+        assert(this.player !== null);
+        const settings_store = useSettingsStore();
+
+        // リサイズ対象の映像要素
+        let video_element = this.player.video;
+        // 画質切り替え後に新しい映像要素が生成されるため、画質切り替え後にリサイズ対象を更新する
+        this.player.on('quality_end', () => {
+            video_element = this.player!.video;
+            crop();
+        });
+
+        // 現在の設定状態を DOM に反映する関数
+        // 基本 TVRemotePlus のときの実装をそのまま移植した
+        // ref: https://github.com/tsukumijima/TVRemotePlus/blob/master/htdocs/files/index.js#L410-L536
+        const crop = () => {
+
+            // L字画面のクロップが無効なときはスタイルを削除
+            if (settings_store.settings.lshaped_screen_crop_enabled === false) {
+                video_element.style.position = '';
+                video_element.style.transform = '';
+                video_element.style.transformOrigin = '';
+                return;
+            }
+
+            // 現在の設定値を取得
+            const lshaped_screen_crop_zoom_level = settings_store.settings.lshaped_screen_crop_zoom_level;
+            const lshaped_screen_crop_x_position = settings_store.settings.lshaped_screen_crop_x_position;
+            const lshaped_screen_crop_y_position = settings_store.settings.lshaped_screen_crop_y_position;
+            const lshaped_screen_crop_zoom_origin = settings_store.settings.lshaped_screen_crop_zoom_origin;
+
+            // 全てデフォルト（オフ）状態ならスタイルを削除
+            // 空文字を入れると style 属性から当該スタイルが除去される
+            if (lshaped_screen_crop_zoom_level === 100 && lshaped_screen_crop_x_position === 0 && lshaped_screen_crop_y_position === 0) {
+                video_element.style.position = '';
+                video_element.style.transform = '';
+                video_element.style.transformOrigin = '';
+            } else {
+                // transform をクリア
+                video_element.style.position = 'relative';
+                video_element.style.transform = '';
+
+                // 拡大起点別に
+                switch (lshaped_screen_crop_zoom_origin) {
+                    // 右上
+                    case 'TopRight': {
+                        // 拡大起点を右上に設定
+                        video_element.style.transformOrigin = 'right top';
+                        // 動画の表示サイズを 100% として、拡大率を超えない範囲で座標をずらす
+                        video_element.style.transform += `translateX(${(lshaped_screen_crop_zoom_level - 100) * (lshaped_screen_crop_x_position / 100)}%) `;
+                        video_element.style.transform += `translateY(-${(lshaped_screen_crop_zoom_level - 100) * (lshaped_screen_crop_y_position / 100)}%) `;
+                        break;
+                    }
+                    // 右下
+                    case 'BottomRight': {
+                        // 拡大起点を右下に設定
+                        video_element.style.transformOrigin = 'right bottom';
+                        // 動画の表示サイズを 100% として、拡大率を超えない範囲で座標をずらす
+                        video_element.style.transform += `translateX(${(lshaped_screen_crop_zoom_level - 100) * (lshaped_screen_crop_x_position / 100)}%) `;
+                        video_element.style.transform += `translateY(${(lshaped_screen_crop_zoom_level - 100) * (lshaped_screen_crop_y_position / 100)}%) `;
+                        break;
+                    }
+                    // 左上
+                    case 'TopLeft': {
+                        // 拡大起点を左上に設定
+                        video_element.style.transformOrigin = 'left top';
+                        // 動画の表示サイズを 100% として、拡大率を超えない範囲で座標をずらす
+                        video_element.style.transform += `translateX(-${(lshaped_screen_crop_zoom_level - 100) * (lshaped_screen_crop_x_position / 100)}%) `;
+                        video_element.style.transform += `translateY(-${(lshaped_screen_crop_zoom_level - 100) * (lshaped_screen_crop_y_position / 100)}%) `;
+                        break;
+                    }
+                    // 左下
+                    case 'BottomLeft': {
+                        // 拡大起点を左下に設定
+                        video_element.style.transformOrigin = 'left bottom';
+                        // 動画の表示サイズを 100% として、拡大率を超えない範囲で座標をずらす
+                        video_element.style.transform += `translateX(-${(lshaped_screen_crop_zoom_level - 100) * (lshaped_screen_crop_x_position / 100)}%) `;
+                        video_element.style.transform += `translateY(${(lshaped_screen_crop_zoom_level - 100) * (lshaped_screen_crop_y_position / 100)}%) `;
+                        break;
+                    }
+                }
+
+                // video 要素を拡大
+                // transform は後ろから適用されるため、先にリサイズしておかないと正しく座標をずらせない
+                // ref: https://techblog.kayac.com/css-transform-tips
+                video_element.style.transform += `scale(${lshaped_screen_crop_zoom_level / 100})`;
+            }
+        };
+
+        // 初回実行
+        crop();
+
+        // 設定値が変更されたときに実行
+        watch(() => settings_store.settings.lshaped_screen_crop_enabled, crop, { immediate: true });
+        watch(() => settings_store.settings.lshaped_screen_crop_zoom_level, crop, { immediate: true });
+        watch(() => settings_store.settings.lshaped_screen_crop_x_position, crop, { immediate: true });
+        watch(() => settings_store.settings.lshaped_screen_crop_y_position, crop, { immediate: true });
+        watch(() => settings_store.settings.lshaped_screen_crop_zoom_origin, crop, { immediate: true });
     }
 
 
