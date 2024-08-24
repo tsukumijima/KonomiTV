@@ -665,6 +665,7 @@ export default defineComponent({
             opacity: 0;
             visibility: hidden;
             overflow-y: scroll;
+            outline: none;
             &::-webkit-scrollbar {
                 width: 6px;
             }
