@@ -50,18 +50,9 @@ class PlayerController {
     // 再生モード (Live: ライブ視聴, Video: ビデオ視聴)
     private readonly playback_mode: 'Live' | 'Video';
 
-    // ライブ視聴: 画質プロファイル
-    private readonly tv_streaming_quality: LiveStreamingQuality;
-    private readonly tv_data_saver_mode: boolean;
-    private readonly tv_low_latency_mode: boolean;
-
-    // ビデオ視聴: 画質プロファイル
-    private readonly video_streaming_quality: VideoStreamingQuality;
-    private readonly video_data_saver_mode: boolean;
-
-    // ライブ視聴: 許容する HTMLMediaElement の内部再生バッファの秒数
-    // 設計上コンストラクタ以降で変更すべきでないため readonly にしている
-    private readonly live_playback_buffer_seconds: number;
+    // 画質プロファイル (Wi-Fi 回線時 / モバイル回線時)
+    // デフォルトは自動判定だが、ユーザーによって手動変更されうる
+    private quality_profile_type: 'Wi-Fi' | 'Cellular';
 
     // ライブ視聴: mpegts.js のバッファ詰まり対策で定期的に強制シークするインターバルをキャンセルする関数
     private live_force_seek_interval_timer_cancel: (() => void) | null = null;
@@ -103,31 +94,14 @@ class PlayerController {
         // 再生モードをセット
         this.playback_mode = playback_mode;
 
-        // ネットワーク回線が Cellular (モバイル回線) であれば、モバイル回線用の画質プロファイルを適用する
-        // Wi-Fi or 取得できなかった場合は、通常の画質プロファイルを適用する
-        const settings_store = useSettingsStore();
+        // デフォルトでは、現在のネットワーク回線が Cellular (モバイル回線) のとき、モバイル回線向けの画質プロファイルを適用する
+        // Wi-Fi 回線またはネットワーク回線種別を取得できなかった場合は、Wi-Fi 回線向けの画質プロファイルを適用する
+        // この画質プロファイルはユーザーによって手動で変更されうる
         const network_circuit_type = PlayerUtils.getNetworkCircuitType();
-        // ライブ視聴の画質プロファイル
-        this.tv_streaming_quality = network_circuit_type === 'Cellular' ?
-            settings_store.settings.tv_streaming_quality_cellular : settings_store.settings.tv_streaming_quality;
-        this.tv_data_saver_mode = network_circuit_type === 'Cellular' ?
-            settings_store.settings.tv_data_saver_mode_cellular : settings_store.settings.tv_data_saver_mode;
-        this.tv_low_latency_mode = network_circuit_type === 'Cellular' ?
-            settings_store.settings.tv_low_latency_mode_cellular : settings_store.settings.tv_low_latency_mode;
-        // ビデオ視聴の画質プロファイル
-        this.video_streaming_quality = network_circuit_type === 'Cellular' ?
-            settings_store.settings.video_streaming_quality_cellular : settings_store.settings.video_streaming_quality;
-        this.video_data_saver_mode = network_circuit_type === 'Cellular' ?
-            settings_store.settings.video_data_saver_mode_cellular : settings_store.settings.video_data_saver_mode;
-
-        // 低遅延モードであれば低遅延向けの再生バッファを、そうでなければ通常の再生バッファをセット (秒単位)
-        this.live_playback_buffer_seconds = this.tv_low_latency_mode ?
-            PlayerController.LIVE_PLAYBACK_BUFFER_SECONDS_LOW_LATENCY : PlayerController.LIVE_PLAYBACK_BUFFER_SECONDS;
-
-        // Safari の Media Source Extensions API の実装はどうもバッファの揺らぎが大きい (?) ようなので、バッファ詰まり対策で
-        // さらに 0.3 秒程度余裕を持たせる
-        if (Utils.isSafari() === true) {
-            this.live_playback_buffer_seconds += 0.3;
+        if (network_circuit_type === 'Cellular') {
+            this.quality_profile_type = 'Cellular';
+        } else {
+            this.quality_profile_type = 'Wi-Fi';
         }
 
         // 01 ~ 14 まですべての RomSound を読み込む
@@ -145,6 +119,55 @@ class PlayerController {
                 }
             }
         })();
+    }
+
+
+    /**
+     * 現在の画質プロファイルタイプに応じた画質プロファイル
+     */
+    private get quality_profile(): {
+        tv_streaming_quality: LiveStreamingQuality;
+        tv_data_saver_mode: boolean;
+        tv_low_latency_mode: boolean;
+        video_streaming_quality: VideoStreamingQuality;
+        video_data_saver_mode: boolean;
+    } {
+        const settings_store = useSettingsStore();
+        // モバイル回線向けの画質プロファイルを返す
+        if (this.quality_profile_type === 'Cellular') {
+            return {
+                tv_streaming_quality: settings_store.settings.tv_streaming_quality_cellular,
+                tv_data_saver_mode: settings_store.settings.tv_data_saver_mode_cellular,
+                tv_low_latency_mode: settings_store.settings.tv_low_latency_mode_cellular,
+                video_streaming_quality: settings_store.settings.video_streaming_quality_cellular,
+                video_data_saver_mode: settings_store.settings.video_data_saver_mode_cellular,
+            };
+        // Wi-Fi 回線向けの画質プロファイルを返す
+        } else {
+            return {
+                tv_streaming_quality: settings_store.settings.tv_streaming_quality,
+                tv_data_saver_mode: settings_store.settings.tv_data_saver_mode,
+                tv_low_latency_mode: settings_store.settings.tv_low_latency_mode,
+                video_streaming_quality: settings_store.settings.video_streaming_quality,
+                video_data_saver_mode: settings_store.settings.video_data_saver_mode,
+            };
+        }
+    }
+
+
+    /**
+     * ライブ視聴: 許容する HTMLMediaElement の内部再生バッファの秒数
+     */
+    private get live_playback_buffer_seconds(): number {
+        // 低遅延モードであれば低遅延向けの再生バッファを、そうでなければ通常の再生バッファ (秒単位)
+        let live_playback_buffer_seconds = this.quality_profile.tv_low_latency_mode ?
+            PlayerController.LIVE_PLAYBACK_BUFFER_SECONDS_LOW_LATENCY : PlayerController.LIVE_PLAYBACK_BUFFER_SECONDS;
+        // Safari の Media Source Extensions API の実装はどうもバッファの揺らぎが大きい (?) ようなので、バッファ詰まり対策で
+        // さらに 0.3 秒程度余裕を持たせる
+        if (Utils.isSafari() === true) {
+            live_playback_buffer_seconds += 0.3;
+        }
+        return live_playback_buffer_seconds;
     }
 
 
@@ -219,8 +242,8 @@ class PlayerController {
                 // API に渡す画質に -hevc のプレフィックスをつける
                 let hevc_prefix = '';
                 if (PlayerUtils.isHEVCVideoSupported() &&
-                    ((this.playback_mode === 'Live' && this.tv_data_saver_mode === true) ||
-                     (this.playback_mode === 'Video' && this.video_data_saver_mode === true))) {
+                    ((this.playback_mode === 'Live' && this.quality_profile.tv_data_saver_mode === true) ||
+                     (this.playback_mode === 'Video' && this.quality_profile.video_data_saver_mode === true))) {
                     hevc_prefix = '-hevc';
                 }
 
@@ -256,7 +279,7 @@ class PlayerController {
 
                     // デフォルトの画質
                     // ラジオチャンネルのみ常に 48KHz/192kbps に固定する
-                    let default_quality: string = this.tv_streaming_quality;
+                    let default_quality: string = this.quality_profile.tv_streaming_quality;
                     if (channels_store.channel.current.is_radiochannel) {
                         default_quality = '48kHz/192kbps';
                     }
@@ -284,7 +307,7 @@ class PlayerController {
 
                     // デフォルトの画質
                     // 録画ではラジオは考慮しない
-                    const default_quality: string = this.video_streaming_quality;
+                    const default_quality: string = this.quality_profile.video_streaming_quality;
 
                     return {
                         quality: qualities,
@@ -389,7 +412,7 @@ class PlayerController {
                         // HTMLMediaElement の内部バッファによるライブストリームの遅延を追跡する
                         // liveBufferLatencyChasing と異なり、いきなり再生時間をスキップするのではなく、
                         // 再生速度を少しだけ上げることで再生を途切れさせることなく遅延を追跡する
-                        liveSync: this.tv_low_latency_mode,
+                        liveSync: this.quality_profile.tv_low_latency_mode,
                         // 許容する HTMLMediaElement の内部バッファの最大値 (秒単位, 3秒)
                         liveSyncMaxLatency: 3,
                         // HTMLMediaElement の内部バッファ (遅延) が liveSyncMaxLatency を超えたとき、ターゲットとする遅延時間 (秒単位)
@@ -616,6 +639,7 @@ class PlayerController {
             assert(this.player !== null);
             if (event.message) {
                 // 明示的にエラーメッセージではないことが指定されていればデフォルトの色で通知を表示する
+                // デフォルトではメッセージは赤色で表示される
                 const color = event.is_error_message === false ? undefined : '#FF6F6A';
                 this.player.notice(event.message, undefined, undefined, color);
             }
@@ -930,8 +954,9 @@ class PlayerController {
                     // 再生バッファが live_playback_buffer_seconds を切ると再生が途切れやすくなるので (特に動きの激しい映像)、
                     // 再生開始までの時間を若干犠牲にして、再生バッファの調整と同期に時間を割く
                     // live_playback_buffer_seconds の値は mpegts.js の liveSyncTargetLatency 設定に渡す値と共通
+                    const live_playback_buffer_seconds = this.live_playback_buffer_seconds;  // 毎回取得すると負荷が掛かるのでキャッシュする
                     let current_playback_buffer_sec = this.getPlaybackBufferSeconds();
-                    while (current_playback_buffer_sec < this.live_playback_buffer_seconds) {
+                    while (current_playback_buffer_sec < live_playback_buffer_seconds) {
                         await Utils.sleep(0.1);
                         current_playback_buffer_sec = this.getPlaybackBufferSeconds();
                     }
@@ -1137,18 +1162,56 @@ class PlayerController {
         assert(this.player !== null);
         const player_store = usePlayerStore();
 
+        // モバイル回線プロファイルに切り替えるボタンを動的に追加する
+        this.player.template.audio.insertAdjacentHTML('afterend', `
+            <div class="dplayer-setting-item dplayer-setting-mobile-profile">
+                <span class="dplayer-label">モバイル回線向け画質</span>
+                <div class="dplayer-toggle">
+                    <input class="dplayer-mobile-profile-setting-input" type="checkbox" name="dplayer-toggle-mobile-profile">
+                    <label for="dplayer-toggle-mobile-profile" style="--theme-color:#E64F97"></label>
+                </div>
+            </div>
+        `);
+
+        // デフォルトのチェック状態を画質プロファイルタイプに合わせる
+        const toggle_mobile_profile_input = this.player.container.querySelector<HTMLInputElement>('.dplayer-mobile-profile-setting-input')!;
+        toggle_mobile_profile_input.checked = this.quality_profile_type === 'Cellular';
+
+        // モバイル回線プロファイルに切り替えるボタンがクリックされた時のイベントハンドラーを登録
+        const toggle_mobile_profile_button = this.player.container.querySelector('.dplayer-setting-mobile-profile')!;
+        toggle_mobile_profile_button.addEventListener('click', () => {
+            // チェックボックスの状態を切り替える
+            toggle_mobile_profile_input.checked = !toggle_mobile_profile_input.checked;
+            // 画質プロファイルをモバイル回線向けに切り替えてから、プレイヤーを再起動
+            if (toggle_mobile_profile_input.checked) {
+                this.quality_profile_type = 'Cellular';
+                player_store.event_emitter.emit('PlayerRestartRequired', {
+                    message: 'モバイル回線向けの画質プロファイルに切り替えています…',
+                    is_error_message: false,
+                });
+            // 画質プロファイルを Wi-Fi 回線向けに切り替えてから、プレイヤーを再起動
+            } else {
+                this.quality_profile_type = 'Wi-Fi';
+                player_store.event_emitter.emit('PlayerRestartRequired', {
+                    message: 'Wi-Fi 回線向けの画質プロファイルに切り替えています…',
+                    is_error_message: false,
+                });
+            }
+        });
+
         // 設定パネルにショートカット一覧を表示するボタンを動的に追加する
         // スマホなどのタッチデバイスでは基本キーボードが使えないため、タッチデバイスの場合はボタンを表示しない
         if (Utils.isTouchDevice() === false) {
             this.player.template.settingOriginPanel.insertAdjacentHTML('beforeend', `
-            <div class="dplayer-setting-item dplayer-setting-keyboard-shortcut">
-                <span class="dplayer-label">キーボードショートカット</span>
-                <div class="dplayer-toggle">
-                    <svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 32 32">
-                        <path d="M22 16l-10.105-10.6-1.895 1.987 8.211 8.613-8.211 8.612 1.895 1.988 8.211-8.613z"></path>
-                    </svg>
+                <div class="dplayer-setting-item dplayer-setting-keyboard-shortcut">
+                    <span class="dplayer-label">キーボードショートカット</span>
+                    <div class="dplayer-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 32 32">
+                            <path d="M22 16l-10.105-10.6-1.895 1.987 8.211 8.613-8.211 8.612 1.895 1.988 8.211-8.613z"></path>
+                        </svg>
+                    </div>
                 </div>
-            </div>`);
+            `);
 
             // ショートカット一覧モーダルを表示するボタンがクリックされたときのイベントハンドラーを登録
             this.player.template.settingOriginPanel.querySelector('.dplayer-setting-keyboard-shortcut')!.addEventListener('click', () => {
