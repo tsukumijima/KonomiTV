@@ -632,18 +632,20 @@ class PlayerController {
             // PlayerController 自身を再初期化
             // この時点で PlayerRestartRequired のイベントハンドラーは再登録されているはず
             await this.init();
+            is_player_restarting = false;
 
             // プレイヤー側にイベントの発火元から送られたメッセージ (プレイヤーを再起動中である旨) を通知する
             // 再初期化により、作り直した DPlayer が再び this.player にセットされているはず
             // 通知を表示してから PlayerController を破棄すると DPlayer の DOM 要素ごと消えてしまうので、DPlayer を作り直した後に通知を表示する
             assert(this.player !== null);
             if (event.message) {
+                // 遅延時間が指定されていれば待つ
+                await Utils.sleep(event.message_delay_seconds ?? 0);
                 // 明示的にエラーメッセージではないことが指定されていればデフォルトの色で通知を表示する
                 // デフォルトではメッセージは赤色で表示される
                 const color = event.is_error_message === false ? undefined : '#FF6F6A';
                 this.player.notice(event.message, undefined, undefined, color);
             }
-            is_player_restarting = false;
         });
 
         // PlayerController.setControlDisplayTimer() の呼び出しを要求されたときのイベントハンドラーを登録する
@@ -1186,14 +1188,16 @@ class PlayerController {
             if (toggle_mobile_profile_input.checked) {
                 this.quality_profile_type = 'Cellular';
                 player_store.event_emitter.emit('PlayerRestartRequired', {
-                    message: 'モバイル回線向けの画質プロファイルに切り替えています…',
+                    message: 'モバイル回線向けの画質プロファイルに切り替えました。',
+                    message_delay_seconds: 4.5,  // 他の通知と被らないように、メッセージを遅らせて表示する
                     is_error_message: false,
                 });
             // 画質プロファイルを Wi-Fi 回線向けに切り替えてから、プレイヤーを再起動
             } else {
                 this.quality_profile_type = 'Wi-Fi';
                 player_store.event_emitter.emit('PlayerRestartRequired', {
-                    message: 'Wi-Fi 回線向けの画質プロファイルに切り替えています…',
+                    message: 'Wi-Fi 回線向けの画質プロファイルに切り替えました。',
+                    message_delay_seconds: 2,  // 他の通知と被らないように、メッセージを遅らせて表示する
                     is_error_message: false,
                 });
             }
