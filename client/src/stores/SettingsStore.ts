@@ -19,6 +19,11 @@ export interface ILocalClientSettings extends IClientSettings {
     showed_panel_last_time: boolean;
     selected_twitter_account_id: number | null;
     saved_twitter_hashtags: string[];
+    lshaped_screen_crop_enabled: boolean;
+    lshaped_screen_crop_zoom_level: number;
+    lshaped_screen_crop_x_position: number;
+    lshaped_screen_crop_y_position: number;
+    lshaped_screen_crop_zoom_origin: 'TopLeft' | 'TopRight' | 'BottomLeft' | 'BottomRight';
     pinned_channel_ids: string[];
     panel_display_state: 'RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold';
     tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
@@ -80,6 +85,19 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
     selected_twitter_account_id: null,
     // 保存している Twitter のハッシュタグが入るリスト
     saved_twitter_hashtags: [],
+
+    // ***** L字画面のクロップ設定 *****
+
+    // L字画面のクロップを有効にする (Default: 無効)
+    lshaped_screen_crop_enabled: false,
+    // L字画面のクロップの拡大率 (Default: 100%)
+    lshaped_screen_crop_zoom_level: 100,
+    // L字画面のクロップのX座標 (Default: 0%)
+    lshaped_screen_crop_x_position: 0,
+    // L字画面のクロップのY座標 (Default: 0%)
+    lshaped_screen_crop_y_position: 0,
+    // L字画面のクロップの拡大起点 (Default: 左上)
+    lshaped_screen_crop_zoom_origin: 'TopLeft',
 
     // ***** 設定 → 全般 *****
 
@@ -206,6 +224,11 @@ const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
     // showed_panel_last_time: 同期無効
     // selected_twitter_account_id: 同期無効
     'saved_twitter_hashtags',
+    // lshaped_screen_crop_enabled: 同期無効
+    // lshaped_screen_crop_zoom_level: 同期無効
+    // lshaped_screen_crop_x_position: 同期無効
+    // lshaped_screen_crop_y_position: 同期無効
+    // lshaped_screen_crop_zoom_origin: 同期無効
     'pinned_channel_ids',
     'panel_display_state',
     'tv_panel_active_tab',

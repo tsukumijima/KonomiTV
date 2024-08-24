@@ -137,6 +137,9 @@ const usePlayerStore = defineStore('player', {
         // キーボードショートカットの一覧のモーダルを表示するか
         shortcut_key_modal: false,
 
+        // L字画面のクロップ設定のモーダルを表示するか
+        lshaped_screen_crop_settings_modal: false,
+
         // ライブ視聴: 現在のライブストリームのステータス
         // 既定で null (未視聴) とする
         live_stream_status: null as 'Offline' | 'Standby' | 'ONAir' | 'Idling' | 'Restart' | null,

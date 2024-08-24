@@ -18,6 +18,7 @@
             <WatchPanel :playback_mode="playback_mode" />
         </main>
         <KeyboardShortcutList :playback_mode="playback_mode" />
+        <LShapedScreenCropSettings />
     </div>
 </template>
 <script lang="ts">
@@ -27,6 +28,7 @@ import { defineComponent, PropType } from 'vue';
 
 import WatchHeader from '@/components/Watch/Header.vue';
 import KeyboardShortcutList from '@/components/Watch/KeyboardShortcutList.vue';
+import LShapedScreenCropSettings from '@/components/Watch/LShapedScreenCropSettings.vue';
 import WatchNavigation from '@/components/Watch/Navigation.vue';
 import WatchPanel from '@/components/Watch/Panel.vue';
 import WatchPlayer from '@/components/Watch/Player.vue';
@@ -39,6 +41,7 @@ export default defineComponent({
     name: 'Watch',
     components: {
         KeyboardShortcutList,
+        LShapedScreenCropSettings,
         WatchHeader,
         WatchNavigation,
         WatchPanel,
