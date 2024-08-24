@@ -7,10 +7,11 @@ import DPlayer from 'dplayer';
 
 import Captures from '@/services/Captures';
 import PlayerManager from '@/services/player/PlayerManager';
+import { IProgramDefault } from '@/services/Programs';
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
 import useSettingsStore from '@/stores/SettingsStore';
-import Utils, { dayjs } from '@/utils';
+import Utils, { dayjs, dayjsOriginal } from '@/utils';
 import { ICaptureCommentData, ICaptureExifData } from '@/workers/CaptureCompositor';
 import CaptureCompositorProxy from '@/workers/CaptureCompositorProxy';
 
@@ -505,11 +506,96 @@ class CaptureManager implements PlayerManager {
      * @returns キャプチャの保存ファイル名 (拡張子なし)
      */
     public static generateCaptureFilename(): string {
+        const channels_store = useChannelsStore();
         const settings_store = useSettingsStore();
-        const filename_base = settings_store.settings.capture_filename_pattern;
-        return filename_base
-            .replace('%date%', dayjs().format('YYYYMMDD'))
-            .replace('%time%', dayjs().format('HHmmss'));
+
+        // マクロ置換用データを準備
+        const filename_pattern = settings_store.settings.capture_filename_pattern;
+        const now = dayjs();
+        const channel = structuredClone(channels_store.channel.current);
+        const program = channel.program_present ?? structuredClone(IProgramDefault);
+        const program_start_time = dayjs(program.start_time);
+        const program_end_time = dayjs(program.end_time);
+        if (channel.id === 'NID0-SID0') {  // まだ視聴が開始されていないときのみ
+            channel.name = 'アフリカ中央テレビ';
+            program.title = 'アフテレ1';
+        }
+        const program_duration = dayjsOriginal.duration(program_end_time.diff(program_start_time));
+
+        // TVTest でファイル名に使えるマクロのサブセットを実装している
+        // KonomiTV では仕組み上実装できないマクロの実装は省略している
+        return filename_pattern
+            // 現在日時
+            .replace('%date%', now.format('YYYYMMDD'))
+            .replace('%year%', now.format('YYYY'))
+            .replace('%year2%', now.format('YY'))
+            .replace('%month%', now.format('M'))
+            .replace('%month2%', now.format('MM'))
+            .replace('%day%', now.format('D'))
+            .replace('%day2%', now.format('DD'))
+            .replace('%time%', now.format('HHmmss'))
+            .replace('%hour%', now.format('H'))
+            .replace('%hour2%', now.format('HH'))
+            .replace('%minute%', now.format('m'))
+            .replace('%minute2%', now.format('mm'))
+            .replace('%second%', now.format('s'))
+            .replace('%second2%', now.format('ss'))
+            .replace('%day-of-week%', now.format('ddd'))
+            // 番組開始日時
+            .replace('%start-date%', program_start_time.format('YYYYMMDD'))
+            .replace('%start-year%', program_start_time.format('YYYY'))
+            .replace('%start-year2%', program_start_time.format('YY'))
+            .replace('%start-month%', program_start_time.format('M'))
+            .replace('%start-month2%', program_start_time.format('MM'))
+            .replace('%start-day%', program_start_time.format('D'))
+            .replace('%start-day2%', program_start_time.format('DD'))
+            .replace('%start-time%', program_start_time.format('HHmmss'))
+            .replace('%start-hour%', program_start_time.format('H'))
+            .replace('%start-hour2%', program_start_time.format('HH'))
+            .replace('%start-minute%', program_start_time.format('m'))
+            .replace('%start-minute2%', program_start_time.format('mm'))
+            .replace('%start-second%', program_start_time.format('s'))
+            .replace('%start-second2%', program_start_time.format('ss'))
+            .replace('%start-day-of-week%', program_start_time.format('ddd'))
+            // 番組終了日時
+            .replace('%end-date%', program_end_time.format('YYYYMMDD'))
+            .replace('%end-year%', program_end_time.format('YYYY'))
+            .replace('%end-year2%', program_end_time.format('YY'))
+            .replace('%end-month%', program_end_time.format('M'))
+            .replace('%end-month2%', program_end_time.format('MM'))
+            .replace('%end-day%', program_end_time.format('D'))
+            .replace('%end-day2%', program_end_time.format('DD'))
+            .replace('%end-time%', program_end_time.format('HHmmss'))
+            .replace('%end-hour%', program_end_time.format('H'))
+            .replace('%end-hour2%', program_end_time.format('HH'))
+            .replace('%end-minute%', program_end_time.format('m'))
+            .replace('%end-minute2%', program_end_time.format('mm'))
+            .replace('%end-second%', program_end_time.format('s'))
+            .replace('%end-second2%', program_end_time.format('ss'))
+            .replace('%end-day-of-week%', program_end_time.format('ddd'))
+            // 番組長
+            .replace('%event-duration-hour%', program_duration.hours().toString())
+            .replace('%event-duration-hour2%', program_duration.hours().toString().padStart(2, '0'))
+            .replace('%event-duration-min%', program_duration.minutes().toString())
+            .replace('%event-duration-min2%', program_duration.minutes().toString().padStart(2, '0'))
+            .replace('%event-duration-sec%', program_duration.seconds().toString())
+            .replace('%event-duration-sec2%', program_duration.seconds().toString().padStart(2, '0'))
+            // チャンネル名
+            .replace('%channel-name%', channel.name)
+            // チャンネル番号
+            .replace('%channel-no%', channel.channel_number)
+            // チャンネル番号 (2桁)
+            .replace('%channel-no2%', channel.channel_number.padStart(2, '0'))
+            // チャンネル番号 (3桁)
+            .replace('%channel-no3%', channel.channel_number.padStart(3, '0'))
+            // 番組名
+            .replace('%event-name%', program.title)
+            // イベント ID
+            .replace('%event-id%', program.event_id.toString())
+            // サービス名
+            .replace('%service-name%', channel.name)
+            // サービス ID
+            .replace('%service-id%', channel.service_id.toString());
     }
 }
 

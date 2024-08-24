@@ -6,6 +6,7 @@
 
 import dayjsOriginal from 'dayjs';
 import ja from 'dayjs/locale/ja';
+import duration from 'dayjs/plugin/duration';
 import isBetween from 'dayjs/plugin/isBetween';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
@@ -14,6 +15,7 @@ import utc from 'dayjs/plugin/utc';
 
 import type { ConfigType, Dayjs } from 'dayjs';
 
+dayjsOriginal.extend(duration);
 dayjsOriginal.extend(isBetween);
 dayjsOriginal.extend(isSameOrAfter);
 dayjsOriginal.extend(isSameOrBefore);
@@ -28,6 +30,7 @@ export const dayjs = (date?: ConfigType): Dayjs => {
     // dayjs.tz() を使わないようにするだけで低スペ端末でのパフォーマンスが大幅に向上した…
     return dayjsOriginal(date);
 };
+export { dayjsOriginal };
 
 
 // 共通ユーティリティをデフォルトとしてインポート
