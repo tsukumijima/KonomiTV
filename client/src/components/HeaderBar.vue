@@ -4,24 +4,71 @@
             <img class="konomitv-logo__image" src="/assets/images/logo.svg" height="21">
         </router-link>
         <v-spacer></v-spacer>
-        <v-btn v-show="isButtonDisplay" variant="flat" color="background-lighten-3" class="pwa-install-button"
+        <div v-if="showSearchInput" class="search-box">
+            <input class="search-input" type="text" :placeholder="search_placeholder"
+                v-model="search_query" @keydown="handleKeyDown">
+            <Icon class="search-input__icon" icon="fluent:search-20-filled" height="24px" />
+        </div>
+        <v-btn v-show="isButtonDisplay" variant="flat" class="pwa-install-button"
             @click="pwaInstallHandler.install()">
             <Icon icon="material-symbols:install-desktop-rounded" height="20px" class="mr-1" />
             アプリとしてインストール
         </v-btn>
+        <div class="mr-3 mr-md-6"></div>
     </header>
 </template>
 <script lang="ts" setup>
 
 import { pwaInstallHandler } from 'pwa-install-handler';
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, computed, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 
 const isButtonDisplay = ref(false);
+const search_query = ref('');
+const router = useRouter();
+const route = useRoute();
+
+// 検索クエリの初期化関数
+const initialize_search_query = () => {
+    if (route.path.endsWith('/search') && route.query.query) {
+        search_query.value = decodeURIComponent(route.query.query as string);
+    }
+};
 
 onMounted(() => {
     pwaInstallHandler.addListener((canInstall) => {
         isButtonDisplay.value = canInstall;
     });
+    initialize_search_query();
+});
+
+// ルートの変更を監視して検索クエリを更新
+watch(() => route.fullPath, initialize_search_query);
+
+const search_placeholder = computed(() => {
+    return route.path.startsWith('/videos') || route.path.startsWith('/mylist') || route.path.startsWith('/viewing-history')
+        ? '録画番組を検索...'
+        : '放送予定の番組を検索...';
+});
+
+const getSearchPath = () => {
+    return route.path.startsWith('/videos') || route.path.startsWith('/mylist') || route.path.startsWith('/viewing-history')
+        ? '/videos/search'
+        : '/tv/search';
+};
+
+const handleKeyDown = (event: KeyboardEvent) => {
+    if (event.key === 'Enter' && !event.isComposing) {
+        if (search_query.value.trim()) {
+            const search_path = getSearchPath();
+            router.push(`${search_path}?query=${encodeURIComponent(search_query.value.trim())}`);
+        }
+    }
+};
+
+const showSearchInput = computed(() => {
+    const path = route.path;
+    return !path.startsWith('/captures') && !path.startsWith('/settings');
 });
 
 </script>
@@ -78,12 +125,50 @@ onMounted(() => {
     }
 
     .pwa-install-button {
+        height: 46px;
+        margin-left: 12px;
+        background: rgb(var(--v-theme-background-lighten-1));
+        color: rgb(var(--v-theme-text));
+
         @include smartphone-horizontal {
             display: none !important;
         }
         @media (display-mode: standalone) {
             display: none !important;
         }
+    }
+}
+
+.search-box {
+    position: relative;
+
+    .search-input {
+        width: 230px;
+        height: 46px;
+        padding: 0 12px;
+        border-radius: 6px;
+        border: 1.5px solid rgb(var(--v-theme-background-lighten-2));
+        background: rgb(var(--v-theme-background-lighten-1));
+        color: rgb(var(--v-theme-text-darken-1));
+        font-size: 15px;
+
+        &:focus {
+            outline: none;
+        }
+
+        &::placeholder {
+            color: rgb(var(--v-theme-text-darken-2));
+        }
+    }
+
+    .search-input__icon {
+        position: absolute;
+        top: 50%;
+        right: 8px;
+        transform: translateY(-50%);
+        padding-left: 4px;
+        color: rgb(var(--v-theme-text-darken-2));
+        background: rgb(var(--v-theme-background-lighten-1));
     }
 }
 

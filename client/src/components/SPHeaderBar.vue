@@ -20,9 +20,9 @@
         </template>
     </header>
 </template>
-
 <script lang="ts" setup>
-import { ref, computed } from 'vue';
+
+import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 
 const router = useRouter();
@@ -32,13 +32,13 @@ const search_query = ref('');
 const search_input = ref<HTMLInputElement | null>(null);
 
 const search_placeholder = computed(() => {
-    return route.path.startsWith('/videos')
+    return route.path.startsWith('/videos') || route.path.startsWith('/mylist') || route.path.startsWith('/viewing-history')
         ? '録画番組を検索...'
         : '放送予定の番組を検索...';
 });
 
 const getSearchPath = () => {
-    return route.path.startsWith('/videos')
+    return route.path.startsWith('/videos') || route.path.startsWith('/mylist') || route.path.startsWith('/viewing-history')
         ? '/videos/search'
         : '/tv/search';
 };
@@ -66,9 +66,26 @@ const handleKeyDown = (event: KeyboardEvent) => {
         deactivateSearch();
     }
 };
-</script>
 
+// 検索クエリの初期化関数
+const initialize_search_query = () => {
+    if (route.path.endsWith('/search') && route.query.query) {
+        search_query.value = decodeURIComponent(route.query.query as string);
+        is_search_active.value = true;
+    }
+};
+
+// コンポーネントのマウント時に初期化
+onMounted(() => {
+    initialize_search_query();
+});
+
+// ルートの変更を監視して検索クエリを更新
+watch(() => route.fullPath, initialize_search_query);
+
+</script>
 <style lang="scss" scoped>
+
 .header {
     display: none;
     justify-content: center;
@@ -120,7 +137,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
             height: 100%;
             border: none;
             background: transparent;
-            color: rgb(var(--v-theme-text));
+            color: rgb(var(--v-theme-text-darken-1));
             font-size: 16px;
 
             &:focus {
@@ -144,4 +161,5 @@ const handleKeyDown = (event: KeyboardEvent) => {
         }
     }
 }
+
 </style>
