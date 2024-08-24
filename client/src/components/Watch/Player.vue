@@ -228,6 +228,12 @@ export default defineComponent({
                         }
                     }
                 }
+                &.dplayer-comment-capture-icon {
+                    padding: 7.3px !important;
+                    @include smartphone-vertical {
+                        padding: 5.4px !important;
+                    }
+                }
                 // ブラウザフルスクリーンボタンを削除（実質あまり意味がないため）
                 &.dplayer-full-in-icon {
                     display: none !important;
