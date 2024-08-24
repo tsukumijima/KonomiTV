@@ -249,6 +249,63 @@ class CaptureManager implements PlayerManager {
 
 
     /**
+     * 現在のL字画面クロップ設定に合わせてキャプチャをクロップする
+     * @param source クロップ対象のキャプチャ
+     * @returns クロップ後のキャプチャ
+     */
+    private async cropImageForLShapedScreen(source: ImageBitmap): Promise<ImageBitmap> {
+        const settings_store = useSettingsStore();
+
+        // 画像加工用の OffscreenCanvas を生成
+        const canvas = new OffscreenCanvas(source.width, source.height);
+        const context = canvas.getContext('2d', {
+            alpha: false,
+            desynchronized: true,
+            willReadFrequently: false,
+        })!;
+
+        // クロップ設定を取得
+        const zoom_level = settings_store.settings.lshaped_screen_crop_zoom_level / 100;
+        const x_position = settings_store.settings.lshaped_screen_crop_x_position / 100;
+        const y_position = settings_store.settings.lshaped_screen_crop_y_position / 100;
+        const zoom_origin = settings_store.settings.lshaped_screen_crop_zoom_origin;
+
+        // クロップ後の表示領域を計算
+        const crop_width = canvas.width / zoom_level;
+        const crop_height = canvas.height / zoom_level;
+
+        // 拡大起点に基づいて開始位置を計算
+        let start_x = 0;
+        let start_y = 0;
+
+        switch (zoom_origin) {
+            case 'TopRight':
+                start_x = canvas.width - crop_width - (canvas.width - crop_width) * x_position;
+                start_y = (canvas.height - crop_height) * y_position;
+                break;
+            case 'BottomRight':
+                start_x = canvas.width - crop_width - (canvas.width - crop_width) * x_position;
+                start_y = canvas.height - crop_height - (canvas.height - crop_height) * y_position;
+                break;
+            case 'TopLeft':
+                start_x = (canvas.width - crop_width) * x_position;
+                start_y = (canvas.height - crop_height) * y_position;
+                break;
+            case 'BottomLeft':
+                start_x = (canvas.width - crop_width) * x_position;
+                start_y = canvas.height - crop_height - (canvas.height - crop_height) * y_position;
+                break;
+        }
+
+        // クロップして描画
+        context.drawImage(source, start_x, start_y, crop_width, crop_height, 0, 0, canvas.width, canvas.height);
+
+        // 最後にキャンバスの内容を ImageBitmap に変換して返す
+        return await createImageBitmap(canvas);
+    }
+
+
+    /**
      * 映像をキャプチャし、設定で指定された方法で保存する
      * 映像のみと字幕付き (字幕表示時のみ) の両方のキャプチャを生成できる
      * @param is_comment_composite キャプチャにコメントを合成するかどうか
@@ -311,9 +368,16 @@ class CaptureManager implements PlayerManager {
             // 文字スーパーが表示されていれば、文字スーパーの Canvas を ImageBitmap として取得
             is_superimpose_showing ? createImageBitmap(superimpose_canvas!) : null,
         ]);
-        const image_bitmaps = create_image_bitmap_results.filter((image_bitmap) => image_bitmap !== null) as ImageBitmap[];
-        const capture_image_bitmap = create_image_bitmap_results[0];
+
+        // 動画のキャプチャ
+        let capture_image_bitmap = create_image_bitmap_results[0];
+        // L字画面のクロップが有効な場合のみ、キャプチャにクロップ処理を適用
+        if (settings_store.settings.lshaped_screen_crop_enabled) {
+            capture_image_bitmap = await this.cropImageForLShapedScreen(capture_image_bitmap);
+        }
+        // 字幕の Canvas
         const caption_image_bitmap = create_image_bitmap_results[1];
+        // 文字スーパーの Canvas
         const superimpose_image_bitmap = create_image_bitmap_results[2];
 
         // キャプチャにコメントを合成する場合、コメントを取得する
@@ -322,6 +386,9 @@ class CaptureManager implements PlayerManager {
         // キャプチャに書き込む EXIF メタデータを取得
         // is_caption_composited / is_comment_composited のみ、実際の状態に合わせて CaptureCompositor 側で上書きされる
         const capture_exif_data = this.createCaptureExifData();
+
+        // この後 Web Worker に渡すための ImageBitmap の配列を作成
+        const image_bitmaps = [capture_image_bitmap, caption_image_bitmap, superimpose_image_bitmap].filter((bitmap) => bitmap !== null);
 
         // キャプチャの合成を実行し、字幕なしキャプチャと字幕ありキャプチャを生成する
         // Web Worker 側に ImageBitmap を移譲するため、Comlink.transfer() を使う
