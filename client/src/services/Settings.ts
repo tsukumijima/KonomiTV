@@ -49,6 +49,7 @@ export interface IClientSettings {
     // enable_internet_access_from_data_broadcasting: 同期無効
     capture_save_mode: 'Browser' | 'UploadServer' | 'Both';
     capture_caption_mode: 'VideoOnly' | 'CompositingCaption' | 'Both';
+    capture_filename_pattern: string;
     // capture_copy_to_clipboard: 同期無効
     // sync_settings: 同期無効
     prefer_posting_to_nicolive: boolean;

@@ -13,15 +13,11 @@
                 <div class="settings__item-heading">キャプチャの保存先</div>
                 <div class="settings__item-label">
                     <p>
-                        キャプチャした画像をブラウザでダウンロードするか、KonomiTV サーバーにアップロードするかを設定します。<br>
-                        ブラウザでのダウンロードと、KonomiTV サーバーへのアップロードを両方同時に行うこともできます。<br>
-                    </p>
-                    <p>
-                        ブラウザでダウンロードすると、視聴中のデバイスのダウンロードフォルダに保存されます。<br>
+                        [ブラウザでダウンロード] に設定すると、視聴中のデバイスのダウンロードフォルダに保存されます。<br>
                         視聴中のデバイスにそのまま保存されるためシンプルですが、保存先のフォルダを変更できないこと、iOS Safari (PWA モード) ではダウンロードするとファイル概要画面が表示されて視聴に支障することがデメリットです (将来的には、iOS / Android アプリ版や拡張機能などで解消される予定) 。<br>
                     </p>
                     <p>
-                        KonomiTV サーバーにアップロードすると、サーバー設定で指定されたキャプチャ保存フォルダに保存されます。視聴したデバイスにかかわらず、今までに撮ったキャプチャをひとつのフォルダにまとめて保存できます。<br>
+                        [KonomiTV サーバーにアップロード] に設定すると、サーバー設定で指定されたキャプチャ保存フォルダに保存されます。視聴したデバイスにかかわらず、今までに撮ったキャプチャをひとつのフォルダにまとめて保存できます。<br>
                         他のデバイスでキャプチャを見るにはキャプチャ保存フォルダをネットワークに共有する必要があること、スマホ・タブレットではネットワーク上のフォルダへのアクセスがやや面倒なことがデメリットです。(将来的には、保存フォルダ内のキャプチャを Google フォトのように表示する機能を追加予定)<br>
                     </p>
                 </div>
@@ -42,6 +38,23 @@
                     :items="capture_caption_mode" v-model="settingsStore.settings.capture_caption_mode">
                 </v-select>
             </div>
+            <div class="settings__item">
+                <div class="settings__item-heading">キャプチャの保存ファイル名パターン</div>
+                <div class="settings__item-label">
+                    キャプチャの保存ファイル名パターン（拡張子なし）を設定します。デフォルトは Capture_%date%-%time% です。<br>
+                    字幕を合成したキャプチャのファイル名には、自動的に _caption のサフィックスが追加されます。<br>
+                    ファイル名には、下記の TVTest 互換マクロ（一部）を使用できます。<br>
+                    <ul class="ml-4 mt-1">
+                        <li>%date%: 現在日時 - 年月日 (YYYYMMDD)</li>
+                        <li>%time%: 現在日時 - 時分秒 (HHMMSS)</li>
+                    </ul>
+                </div>
+                <v-text-field class="settings__item-form mt-5" color="primary" variant="outlined" hide-details
+                    :density="is_form_dense ? 'compact' : 'default'"
+                    :label="capture_filename_pattern_preview"
+                    v-model="settingsStore.settings.capture_filename_pattern">
+                </v-text-field>
+            </div>
             <div class="settings__item settings__item--switch settings__item--sync-disabled">
                 <label class="settings__item-heading" for="capture_copy_to_clipboard">キャプチャをクリップボードにコピーする</label>
                 <label class="settings__item-label" for="capture_copy_to_clipboard">
@@ -60,6 +73,7 @@
 import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
 
+import CaptureManager from '@/services/player/managers/CaptureManager';
 import useSettingsStore from '@/stores/SettingsStore';
 import Utils from '@/utils';
 import SettingsBase from '@/views/Settings/Base.vue';
@@ -88,10 +102,21 @@ export default defineComponent({
                 {title: '字幕を合成したキャプチャを保存する', value: 'CompositingCaption'},
                 {title: '映像のみのキャプチャと、字幕を合成したキャプチャを両方保存する', value: 'Both'},
             ],
+
+            // キャプチャの保存ファイル名パターンのプレビュー
+            capture_filename_pattern_preview: '',
         };
     },
     computed: {
         ...mapStores(useSettingsStore),
+    },
+    watch: {
+        'settingsStore.settings.capture_filename_pattern': {
+            handler() {
+                this.capture_filename_pattern_preview = `プレビュー: ${CaptureManager.generateCaptureFilename()}.jpg`;
+            },
+            immediate: true,
+        },
     }
 });
 

@@ -70,6 +70,7 @@ class ClientSettings(BaseModel):
     # enable_internet_access_from_data_broadcasting: 同期無効
     capture_save_mode: Literal['Browser', 'UploadServer', 'Both'] = 'UploadServer'
     capture_caption_mode: Literal['VideoOnly', 'CompositingCaption', 'Both'] = 'Both'
+    capture_filename_pattern: str = 'Capture_%date%-%time%'
     # capture_copy_to_clipboard: 同期無効
     # sync_settings: 同期無効
     prefer_posting_to_nicolive: bool = True

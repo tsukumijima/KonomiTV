@@ -49,6 +49,7 @@ export interface ILocalClientSettings extends IClientSettings {
     enable_internet_access_from_data_broadcasting: boolean;
     capture_save_mode: 'Browser' | 'UploadServer' | 'Both';
     capture_caption_mode: 'VideoOnly' | 'CompositingCaption' | 'Both';
+    capture_filename_pattern: string;
     capture_copy_to_clipboard: boolean;
     sync_settings: boolean;
     prefer_posting_to_nicolive: boolean;
@@ -165,6 +166,8 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
     capture_save_mode: 'UploadServer',
     // 字幕が表示されているときのキャプチャの保存モード (Default: 映像のみのキャプチャと、字幕を合成したキャプチャを両方保存する)
     capture_caption_mode: 'Both',
+    // キャプチャの保存ファイル名 (Default: Capture_%date%-%time%)
+    capture_filename_pattern: 'Capture_%date%-%time%',
     // キャプチャをクリップボードにコピーする (Default: 無効) (同期無効)
     capture_copy_to_clipboard: false,
 
@@ -254,6 +257,7 @@ const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
     // enable_internet_access_from_data_broadcasting: 同期無効
     'capture_save_mode',
     'capture_caption_mode',
+    'capture_filename_pattern',
     // capture_copy_to_clipboard: 同期無効
     // sync_settings: 同期無効
     'prefer_posting_to_nicolive',

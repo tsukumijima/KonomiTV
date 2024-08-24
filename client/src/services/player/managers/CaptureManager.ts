@@ -406,9 +406,8 @@ class CaptureManager implements PlayerManager {
         const result = await capture_compositor.composite();
         console.log('\u001b[36m[CaptureManager] Composite end:', Utils.mathFloor(Utils.time() - capture_compositor_start_time, 3), 'sec');
 
-        // ファイル名（拡張子なし）
-        // TODO: ファイル名パターンを設定で変更できるようにする
-        const filename_base = `Capture_${dayjs().format('YYYYMMDD-HHmmss')}`;
+        // 設定で指定されたファイル名パターンに基づいてキャプチャの保存ファイル名 (拡張子なし) を生成する
+        const filename_base = CaptureManager.generateCaptureFilename();
         const filename_normal = `${filename_base}.jpg`;  // 字幕なしキャプチャ
         const filename_caption = `${filename_base}_caption.jpg`;  // 字幕ありキャプチャ
 
@@ -497,6 +496,20 @@ class CaptureManager implements PlayerManager {
 
         // 何もしない
         console.log('[CaptureManager] Destroyed.');
+    }
+
+
+    /**
+     * 設定で指定されたファイル名パターンに基づいてキャプチャの保存ファイル名を生成する
+     * このメソッドのみ、特別にプレビュー時に設定画面からも呼ばれる
+     * @returns キャプチャの保存ファイル名 (拡張子なし)
+     */
+    public static generateCaptureFilename(): string {
+        const settings_store = useSettingsStore();
+        const filename_base = settings_store.settings.capture_filename_pattern;
+        return filename_base
+            .replace('%date%', dayjs().format('YYYYMMDD'))
+            .replace('%time%', dayjs().format('HHmmss'));
     }
 }
 
