@@ -141,6 +141,9 @@ const showSearchInput = computed(() => {
 
 .search-box {
     position: relative;
+    @include smartphone-horizontal {
+        display: none;
+    }
 
     .search-input {
         width: 230px;
