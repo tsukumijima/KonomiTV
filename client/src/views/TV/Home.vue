@@ -1010,7 +1010,7 @@ export default defineComponent({
     position: fixed;
     bottom: 72px;
     right: 20px;
-    padding: 12px 20px;
+    padding: 12px 16px;
     background: rgb(var(--v-theme-background-lighten-2));
     box-shadow: 0px 4px 7.5px rgba(0, 0, 0, 0.61);
     border-radius: 12px;
@@ -1028,7 +1028,8 @@ export default defineComponent({
     }
 
     &__text {
-        margin-left: 10px;
+        margin-left: 8px;
+        margin-right: 2px;
         color: #FFEAEA;
         font-size: 16px;
         font-weight: 500;
