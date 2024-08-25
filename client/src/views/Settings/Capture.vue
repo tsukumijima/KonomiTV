@@ -46,7 +46,9 @@
                     ファイル名には、下記の TVTest 互換マクロを使用できます。<br>
                     <v-btn class="settings__save-button mt-3 px-3 py-0" style="height: 36px; font-size: 14px;" variant="flat"
                         @click="is_macro_list_visible = !is_macro_list_visible">
-                        <Icon icon="fluent:text-bullet-list-20-filled" class="mr-2" height="19px" />マクロ一覧を表示
+                        <Icon :icon="is_macro_list_visible ? 'fluent:chevron-up-20-filled' : 'fluent:chevron-down-20-filled'"
+                            class="mr-1" height="19px" />
+                        {{ is_macro_list_visible ? 'マクロ一覧を非表示' : 'マクロ一覧を表示' }}
                     </v-btn>
                     <ul class="ml-4 mt-3" v-if="is_macro_list_visible">
                         <li>現在日時

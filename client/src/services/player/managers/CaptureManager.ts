@@ -390,7 +390,8 @@ class CaptureManager implements PlayerManager {
         const capture_exif_data = this.createCaptureExifData();
 
         // この後 Web Worker に渡すための ImageBitmap の配列を作成
-        const image_bitmaps = [capture_image_bitmap, caption_image_bitmap, superimpose_image_bitmap].filter((bitmap) => bitmap !== null);
+        const image_bitmaps = [capture_image_bitmap, caption_image_bitmap, superimpose_image_bitmap]
+            .filter((bitmap) => bitmap !== null) as ImageBitmap[];
 
         // キャプチャの合成を実行し、字幕なしキャプチャと字幕ありキャプチャを生成する
         // Web Worker 側に ImageBitmap を移譲するため、Comlink.transfer() を使う
@@ -532,78 +533,86 @@ class CaptureManager implements PlayerManager {
 
         // TVTest でファイル名に使えるマクロのサブセットを実装している
         // KonomiTV では仕組み上実装できないマクロの実装は省略している
-        return filename_pattern
+        const replacements = {
             // 現在日時
-            .replace('%date%', now.format('YYYYMMDD'))
-            .replace('%year%', now.format('YYYY'))
-            .replace('%year2%', now.format('YY'))
-            .replace('%month%', now.format('M'))
-            .replace('%month2%', now.format('MM'))
-            .replace('%day%', now.format('D'))
-            .replace('%day2%', now.format('DD'))
-            .replace('%time%', now.format('HHmmss'))
-            .replace('%hour%', now.format('H'))
-            .replace('%hour2%', now.format('HH'))
-            .replace('%minute%', now.format('m'))
-            .replace('%minute2%', now.format('mm'))
-            .replace('%second%', now.format('s'))
-            .replace('%second2%', now.format('ss'))
-            .replace('%day-of-week%', now.format('ddd'))
+            '%date%': now.format('YYYYMMDD'),
+            '%year%': now.format('YYYY'),
+            '%year2%': now.format('YY'),
+            '%month%': now.format('M'),
+            '%month2%': now.format('MM'),
+            '%day%': now.format('D'),
+            '%day2%': now.format('DD'),
+            '%time%': now.format('HHmmss'),
+            '%hour%': now.format('H'),
+            '%hour2%': now.format('HH'),
+            '%minute%': now.format('m'),
+            '%minute2%': now.format('mm'),
+            '%second%': now.format('s'),
+            '%second2%': now.format('ss'),
+            '%day-of-week%': now.format('ddd'),
             // 番組開始日時
-            .replace('%start-date%', program_start_time.format('YYYYMMDD'))
-            .replace('%start-year%', program_start_time.format('YYYY'))
-            .replace('%start-year2%', program_start_time.format('YY'))
-            .replace('%start-month%', program_start_time.format('M'))
-            .replace('%start-month2%', program_start_time.format('MM'))
-            .replace('%start-day%', program_start_time.format('D'))
-            .replace('%start-day2%', program_start_time.format('DD'))
-            .replace('%start-time%', program_start_time.format('HHmmss'))
-            .replace('%start-hour%', program_start_time.format('H'))
-            .replace('%start-hour2%', program_start_time.format('HH'))
-            .replace('%start-minute%', program_start_time.format('m'))
-            .replace('%start-minute2%', program_start_time.format('mm'))
-            .replace('%start-second%', program_start_time.format('s'))
-            .replace('%start-second2%', program_start_time.format('ss'))
-            .replace('%start-day-of-week%', program_start_time.format('ddd'))
+            '%start-date%': program_start_time.format('YYYYMMDD'),
+            '%start-year%': program_start_time.format('YYYY'),
+            '%start-year2%': program_start_time.format('YY'),
+            '%start-month%': program_start_time.format('M'),
+            '%start-month2%': program_start_time.format('MM'),
+            '%start-day%': program_start_time.format('D'),
+            '%start-day2%': program_start_time.format('DD'),
+            '%start-time%': program_start_time.format('HHmmss'),
+            '%start-hour%': program_start_time.format('H'),
+            '%start-hour2%': program_start_time.format('HH'),
+            '%start-minute%': program_start_time.format('m'),
+            '%start-minute2%': program_start_time.format('mm'),
+            '%start-second%': program_start_time.format('s'),
+            '%start-second2%': program_start_time.format('ss'),
+            '%start-day-of-week%': program_start_time.format('ddd'),
             // 番組終了日時
-            .replace('%end-date%', program_end_time.format('YYYYMMDD'))
-            .replace('%end-year%', program_end_time.format('YYYY'))
-            .replace('%end-year2%', program_end_time.format('YY'))
-            .replace('%end-month%', program_end_time.format('M'))
-            .replace('%end-month2%', program_end_time.format('MM'))
-            .replace('%end-day%', program_end_time.format('D'))
-            .replace('%end-day2%', program_end_time.format('DD'))
-            .replace('%end-time%', program_end_time.format('HHmmss'))
-            .replace('%end-hour%', program_end_time.format('H'))
-            .replace('%end-hour2%', program_end_time.format('HH'))
-            .replace('%end-minute%', program_end_time.format('m'))
-            .replace('%end-minute2%', program_end_time.format('mm'))
-            .replace('%end-second%', program_end_time.format('s'))
-            .replace('%end-second2%', program_end_time.format('ss'))
-            .replace('%end-day-of-week%', program_end_time.format('ddd'))
+            '%end-date%': program_end_time.format('YYYYMMDD'),
+            '%end-year%': program_end_time.format('YYYY'),
+            '%end-year2%': program_end_time.format('YY'),
+            '%end-month%': program_end_time.format('M'),
+            '%end-month2%': program_end_time.format('MM'),
+            '%end-day%': program_end_time.format('D'),
+            '%end-day2%': program_end_time.format('DD'),
+            '%end-time%': program_end_time.format('HHmmss'),
+            '%end-hour%': program_end_time.format('H'),
+            '%end-hour2%': program_end_time.format('HH'),
+            '%end-minute%': program_end_time.format('m'),
+            '%end-minute2%': program_end_time.format('mm'),
+            '%end-second%': program_end_time.format('s'),
+            '%end-second2%': program_end_time.format('ss'),
+            '%end-day-of-week%': program_end_time.format('ddd'),
             // 番組長
-            .replace('%event-duration-hour%', program_duration.hours().toString())
-            .replace('%event-duration-hour2%', program_duration.hours().toString().padStart(2, '0'))
-            .replace('%event-duration-min%', program_duration.minutes().toString())
-            .replace('%event-duration-min2%', program_duration.minutes().toString().padStart(2, '0'))
-            .replace('%event-duration-sec%', program_duration.seconds().toString())
-            .replace('%event-duration-sec2%', program_duration.seconds().toString().padStart(2, '0'))
+            '%event-duration-hour%': program_duration.hours().toString(),
+            '%event-duration-hour2%': program_duration.hours().toString().padStart(2, '0'),
+            '%event-duration-min%': program_duration.minutes().toString(),
+            '%event-duration-min2%': program_duration.minutes().toString().padStart(2, '0'),
+            '%event-duration-sec%': program_duration.seconds().toString(),
+            '%event-duration-sec2%': program_duration.seconds().toString().padStart(2, '0'),
             // チャンネル名
-            .replace('%channel-name%', channel.name)
+            '%channel-name%': channel.name,
             // リモコン番号
-            .replace('%channel-no%', channel.remocon_id.toString())
+            '%channel-no%': channel.remocon_id.toString(),
             // リモコン番号 (2桁)
-            .replace('%channel-no2%', channel.remocon_id.toString().padStart(2, '0'))
+            '%channel-no2%': channel.remocon_id.toString().padStart(2, '0'),
             // リモコン番号 (3桁)
-            .replace('%channel-no3%', channel.remocon_id.toString().padStart(3, '0'))
+            '%channel-no3%': channel.remocon_id.toString().padStart(3, '0'),
             // 番組名
-            .replace('%event-name%', program.title)
+            '%event-name%': program.title,
             // イベント ID
-            .replace('%event-id%', program.event_id.toString())
+            '%event-id%': program.event_id.toString(),
             // サービス名
-            .replace('%service-name%', channel.name)
+            '%service-name%': channel.name,
             // サービス ID
-            .replace('%service-id%', channel.service_id.toString());
+            '%service-id%': channel.service_id.toString(),
+        };
+
+        // マクロを長さの降順でソート
+        const sorted_macros = Object.keys(replacements).sort((a, b) => b.length - a.length);
+
+        // 正規表現を使用した一括置換
+        const regex = new RegExp(sorted_macros.map(macro => macro.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g');
+        return filename_pattern.replace(regex, match => replacements[match]);
     }
 }
 
