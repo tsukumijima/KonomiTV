@@ -66,10 +66,8 @@
                         <span>{{playerStore.twitter_selected_capture_blobs.length}}/4</span>
                     </div>
                 </div>
-                <button v-ripple class="tweet-button"
-                    :disabled="is_tweet_button_disabled"
-                    @click="(is_tweet_button_disabled === false) && sendTweet()"
-                    @touchstart="(is_tweet_button_disabled === false) && sendTweet()">
+                <button class="tweet-button" v-ripple="Utils.isTouchDevice() === false" :disabled="is_tweet_button_disabled"
+                    @click="sendTweet()" @touchstart="sendTweet()">
                     <Icon icon="fa-brands:twitter" height="16px" />
                     <span class="ml-1">ツイート</span>
                 </button>
@@ -547,6 +545,9 @@ export default defineComponent({
 
         // ツイートを送信する
         async sendTweet() {
+
+            // ツイートボタンが無効なら何もしない
+            if (this.is_tweet_button_disabled === true) return;
 
             // Twitter アカウントが連携されていない場合は何もしない
             if (this.twitterStore.selected_twitter_account === null) return;
@@ -1089,7 +1090,7 @@ export default defineComponent({
                 }
 
                 &[disabled] {
-                    opacity: 0.7;
+                    opacity: 0.6;
                     cursor: auto;
                     // スマホでクリック時の波紋が発動しないようにする
                     pointer-events: none;

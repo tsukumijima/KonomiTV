@@ -519,7 +519,7 @@ class CaptureManager implements PlayerManager {
             // 現在視聴中のチャンネルがないプレビュー時はダミーの番組情報が返るので、プレビューに適した番組情報に置き換える
             channel.service_id = 1024;
             channel.name = 'アフリカ中央テレビ';
-            channel.channel_number = '011';
+            channel.remocon_id = 9;
             program.event_id = 65535;
             program.title = '[二][字]今日のニュース';
             program.start_time = '2024-04-01T12:00:00+09:00';
@@ -590,8 +590,12 @@ class CaptureManager implements PlayerManager {
             .replace('%event-duration-sec2%', program_duration.seconds().toString().padStart(2, '0'))
             // チャンネル名
             .replace('%channel-name%', channel.name)
-            // チャンネル番号
-            .replace('%channel-no%', channel.channel_number)
+            // リモコン番号
+            .replace('%channel-no%', channel.remocon_id.toString())
+            // リモコン番号 (2桁)
+            .replace('%channel-no2%', channel.remocon_id.toString().padStart(2, '0'))
+            // リモコン番号 (3桁)
+            .replace('%channel-no3%', channel.remocon_id.toString().padStart(3, '0'))
             // 番組名
             .replace('%event-name%', program.title)
             // イベント ID

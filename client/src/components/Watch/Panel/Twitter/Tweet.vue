@@ -163,6 +163,12 @@ const handleFavorite = async () => {
     &:hover {
         background-color: rgba(var(--v-theme-on-surface), 0.04);
     }
+    // タッチデバイスで hover を無効にする
+    @media (hover: none) {
+        &:hover {
+            background-color: transparent;
+        }
+    }
 
     :deep(.tweet-link) {
         color: rgb(var(--v-theme-twitter));
@@ -207,6 +213,12 @@ const handleFavorite = async () => {
 
         &:hover {
             opacity: 0.9;
+        }
+        // タッチデバイスで hover を無効にする
+        @media (hover: none) {
+            &:hover {
+                opacity: 1;
+            }
         }
     }
 
@@ -301,6 +313,12 @@ const handleFavorite = async () => {
         &:hover {
             background-color: rgba(var(--v-theme-on-surface), 0.04);
         }
+        // タッチデバイスで hover を無効にする
+        @media (hover: none) {
+            &:hover {
+                background-color: transparent;
+            }
+        }
     }
 
     &__quoted-user-info {
@@ -347,6 +365,12 @@ const handleFavorite = async () => {
 
         &:hover {
             background-color: rgba(var(--v-theme-on-surface), 0.1);
+        }
+        // タッチデバイスで hover を無効にする
+        @media (hover: none) {
+            &:hover {
+                background-color: transparent;
+            }
         }
 
         &--retweet {

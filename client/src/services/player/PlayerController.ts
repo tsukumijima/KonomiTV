@@ -1193,7 +1193,8 @@ class PlayerController {
                 this.quality_profile_type = 'Cellular';
                 player_store.event_emitter.emit('PlayerRestartRequired', {
                     message: 'モバイル回線向けの画質プロファイルに切り替えました。',
-                    message_delay_seconds: 4.5,  // 他の通知と被らないように、メッセージを遅らせて表示する
+                    // 他の通知と被らないように、メッセージを遅らせて表示する
+                    message_delay_seconds: this.quality_profile.tv_low_latency_mode || this.playback_mode === 'Video' ? 2 : 4.5,
                     is_error_message: false,
                 });
             // 画質プロファイルを Wi-Fi 回線向けに切り替えてから、プレイヤーを再起動
@@ -1201,7 +1202,8 @@ class PlayerController {
                 this.quality_profile_type = 'Wi-Fi';
                 player_store.event_emitter.emit('PlayerRestartRequired', {
                     message: 'Wi-Fi 回線向けの画質プロファイルに切り替えました。',
-                    message_delay_seconds: 2,  // 他の通知と被らないように、メッセージを遅らせて表示する
+                    // 他の通知と被らないように、メッセージを遅らせて表示する
+                    message_delay_seconds: this.quality_profile.tv_low_latency_mode || this.playback_mode === 'Video' ? 2 : 4.5,
                     is_error_message: false,
                 });
             }

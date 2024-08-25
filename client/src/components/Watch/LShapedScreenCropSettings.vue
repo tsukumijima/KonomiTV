@@ -3,7 +3,7 @@
         <v-card class="lshaped-screen-crop-settings-modal">
             <v-card-title class="px-5 pt-3 pb-3 d-flex align-center font-weight-bold">
                 <Icon icon="fluent:crop-20-filled" height="28px" />
-                <span class="ml-4">Ｌ字画面のクロップ</span>
+                <span class="ml-3">Ｌ字画面のクロップ</span>
                 <v-spacer></v-spacer>
                 <v-switch class="mr-4" color="primary" hide-details v-model="settingsStore.settings.lshaped_screen_crop_enabled"></v-switch>
                 <div v-ripple class="d-flex align-center rounded-circle cursor-pointer px-2 py-2"

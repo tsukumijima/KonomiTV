@@ -117,7 +117,9 @@
                             </ul>
                         </li>
                         <li>%channel-name%: チャンネル名</li>
-                        <li>%channel-no%: チャンネル番号 (3桁)</li>
+                        <li>%channel-no%: リモコン番号</li>
+                        <li>%channel-no2%: リモコン番号 (2桁)</li>
+                        <li>%channel-no3%: リモコン番号 (3桁)</li>
                         <li>%event-name%: 番組名</li>
                         <li>%event-id%: イベント ID</li>
                         <li>%service-name%: サービス名</li>
