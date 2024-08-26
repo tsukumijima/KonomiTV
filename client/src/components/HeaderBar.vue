@@ -7,7 +7,7 @@
         <div v-if="showSearchInput" class="search-box">
             <input class="search-input" type="text" :placeholder="search_placeholder"
                 v-model="search_query" @keydown="handleKeyDown">
-            <Icon class="search-input__icon" icon="fluent:search-20-filled" height="24px" />
+            <Icon class="search-input__icon" icon="fluent:search-20-filled" height="24px" @click="doSearch" />
         </div>
         <v-btn v-show="isButtonDisplay" variant="flat" class="pwa-install-button"
             @click="pwaInstallHandler.install()">
@@ -59,10 +59,14 @@ const getSearchPath = () => {
 
 const handleKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Enter' && !event.isComposing) {
-        if (search_query.value.trim()) {
-            const search_path = getSearchPath();
-            router.push(`${search_path}?query=${encodeURIComponent(search_query.value.trim())}`);
-        }
+        doSearch();
+    }
+};
+
+const doSearch = () => {
+    if (search_query.value.trim()) {
+        const search_path = getSearchPath();
+        router.push(`${search_path}?query=${encodeURIComponent(search_query.value.trim())}`);
     }
 };
 
@@ -174,6 +178,7 @@ const showSearchInput = computed(() => {
         padding-left: 4px;
         color: rgb(var(--v-theme-text-darken-2));
         background: rgb(var(--v-theme-background-lighten-1));
+        cursor: pointer;
     }
 }
 
