@@ -26,6 +26,7 @@
         "mitt": "^3.0.1",
         "mpegts.js": "github:tsukumijima/mpegts.js#953900315a3c80b9d8e15fa74334a13866ccd016",
         "nanoid": "^5.0.7",
+        "ohash": "^1.1.3",
         "piexifjs": "^2.0.0-beta.9",
         "pinia": "^2.2.0",
         "pwa-install-handler": "^2.6.0",
