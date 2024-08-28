@@ -65,7 +65,7 @@
         "network-information-types": "^0.1.1",
         "run-script-os": "^1.1.6",
         "sass": "1.77.6",
-        "typescript": "~5.3.3",
+        "typescript": "~5.5.4",
         "vite": "^5.3.5",
         "vite-plugin-comlink": "^4.1.0",
         "vite-plugin-pwa": "^0.20.1",
