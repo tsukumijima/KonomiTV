@@ -194,24 +194,6 @@ const useChannelsStore = defineStore('channels', {
             channels_list_with_pinned.set('SKY', []);
             channels_list_with_pinned.set('StarDigio', []);
 
-            // pinned_channel_ids がもし NIDxxx-SIDxxx の形式の ID でなければ、NIDxxx-SIDxxx の形式に変換する
-            // pinned_channel_ids に display_channel_id が格納されている古い環境への互換性のため
-            settings_store.settings.pinned_channel_ids = settings_store.settings.pinned_channel_ids.map((channel_id) => {
-                if (channel_id.includes('NID') && channel_id.includes('SID')) {
-                    // すでに NIDxxx-SIDxxx の形式の ID になっているので、そのまま返す
-                    return channel_id;
-                } else {
-                    // display_channel_id (ex: gr011) の形式の ID なので、NIDxxx-SIDxxx の形式に変換する
-                    // チャンネルタイプごとのチャンネル情報リストを取得する (すべてのチャンネルリストから探索するより効率的)
-                    const channel_type = ChannelUtils.getChannelType(channel_id);
-                    if (channel_type === null) return 'NID0-SID0';  // 不正なチャンネル ID なことを示す特別な値
-                    const channels: ILiveChannel[] = this.channels_list[channel_type];
-                    const channel = channels.find((channel) => channel.display_channel_id === channel_id) ?? null;
-                    if (channel === null) return 'NID0-SID0';  // 不正なチャンネル ID なことを示す特別な値
-                    return channel.id;
-                }
-            }).filter((channel_id) => channel_id !== 'NID0-SID0');  // NID0-SID0 は不正なチャンネル ID なので除外する
-
             // channels_list に格納されているすべてのチャンネルに対しループを回し、
             // 順次 channels_list_with_pinned に追加していく
             // 1つのチャンネルに対するループ回数が少なくなる分、毎回 filter() や find() するよりも高速になるはず
@@ -263,9 +245,14 @@ const useChannelsStore = defineStore('channels', {
 
             // この時点で pinned_channels に存在していないピン留め中チャンネルの ID を pinned_channel_ids から削除する
             // 受信環境の変化などでピン留め中チャンネルのチャンネル情報が取得できなくなった場合に備える
-            settings_store.settings.pinned_channel_ids = settings_store.settings.pinned_channel_ids.filter((channel_id) => {
-                return pinned_channels.some((channel) => channel.id === channel_id);
-            });
+            // Vue.js 3.4.13 以降で発生する Maximum recursive updates exceeded in component エラーを回避するには、async/await を使い
+            // 副作用を持ってはならない getter 関数が完了してから SettingsStore の更新処理を実行する必要がある
+            (async () => {
+                await Utils.sleep(100);  // 少し待つのが重要
+                settings_store.settings.pinned_channel_ids = settings_store.settings.pinned_channel_ids.filter((channel_id) => {
+                    return pinned_channels.some((channel) => channel.id === channel_id);
+                });
+            })();
 
             // ピン留め中チャンネルを pinned_channel_ids の順に並び替える
             channels_list_with_pinned.get('ピン留め')?.push(...pinned_channels.sort((a, b) => {

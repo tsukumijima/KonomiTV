@@ -36,7 +36,7 @@
         "seamless-scroll-polyfill": "^2.3.4",
         "swiper": "^11.1.8",
         "tslib": "^2.6.3",
-        "vue": "3.4.12",
+        "vue": "^3.4.38",
         "vue-router": "^4.4.0",
         "vue-virtual-scroller": "^2.0.0-beta.8",
         "vuedraggable": "^4.1.0",
