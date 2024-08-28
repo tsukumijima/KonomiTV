@@ -145,7 +145,7 @@
   - **Fire HD 10 (2021) などの一部のローエンド Android (特に MediaTek SoC 搭載) デバイスでは、1080p 以上の映像描画が不安定なことが確認されています。** その場合は 720p 以下の画質を選択することをおすすめします。
 - **今後、開発の過程で設定や構成が互換性なく大幅に変更される可能性があります。**
 - **ユーザービリティなどのフィードバック・不具合報告・Pull Requests (PR) などは歓迎します。**
-  - 技術スタックはサーバー側が Python 3.11 + [FastAPI](https://github.com/tiangolo/fastapi) + [Tortoise ORM](https://github.com/tortoise/tortoise-orm) + [Uvicorn](https://github.com/encode/uvicorn) 、クライアント側が Vue.js 2.x + [Vuetify](https://github.com/vuetifyjs/vuetify) 2.x の SPA です。
+  - 技術スタックはサーバー側が Python 3.11 + [FastAPI](https://github.com/tiangolo/fastapi) + [Tortoise ORM](https://github.com/tortoise/tortoise-orm) + [Uvicorn](https://github.com/encode/uvicorn) 、クライアント側が Vue.js 3.x + [Vuetify](https://github.com/vuetifyjs/vuetify) 3.x の SPA です。
     - Vuetify は補助的に利用しているだけで、大部分は独自で書いた SCSS スタイルを適用しています。
   - コメントを多めに書いたりそれなりにきれいにコーディングしているつもりなので、少なくとも TVRemotePlus なんかよりかは読みやすいコードになっている…はず。
   - 他人が見るために書いたものではないのであれですが、一応自分用の [開発資料](https://mango-garlic-eff.notion.site/KonomiTV-90f4b25555c14b9ba0cf5498e6feb1c3) と [DB設計](https://mango-garlic-eff.notion.site/KonomiTV-544e02334c89420fa24804ec70f46b6d) 的なメモを公開しておきます。もし PR される場合などの参考になれば。
@@ -828,7 +828,7 @@ VS Code を開発に利用しています。
 
 - Python 3.11.x
 - Poetry (最新版)
-- Node.js 18.17.1 (クライアントの開発やビルドを行う場合のみ)
+- Node.js 20.16.0 (クライアントの開発やビルドを行う場合のみ)
 - yarn 1.x (クライアントの開発やビルドを行う場合のみ)
 
 事前に、上記ソフトウェアをインストールしている必要があります。
@@ -995,12 +995,8 @@ sudo pm2 save
 
 ### クライアントの開発・ビルド
 
-クライアント (フロントエンド) は Vue.js 2.x の SPA (Single Page Application) で開発されており、コーディングとビルドには少なくとも Node.js が必要です。  
-Node.js 18.17.1 / yarn 1.x で開発しています。
-
-> [!WARNING]  
-> 情報がほとんどなく詳細不明ですが、Node.js 18.18.0 以降ではどういう訳か `vue-cli-service build` がハングアップし、クライアントのビルド時にフリーズしてしまう問題があります。  
-> 開発者側で直接対応可能な問題ではないので、当面の間 Node.js のバージョンを 18.17.1 に固定しています。  
+クライアント (フロントエンド) は Vue.js 3.x の SPA (Single Page Application) で開発されており、コーディングとビルドには少なくとも Node.js が必要です。  
+Node.js 20.16.0 / yarn 1.x で開発しています。
 
 ```bash
 cd /Develop/KonomiTV/client/

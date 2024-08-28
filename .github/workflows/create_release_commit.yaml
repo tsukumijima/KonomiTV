@@ -26,11 +26,11 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GIT_PUSH_TOKEN }}
 
-      # Node.js 18 環境をセットアップ
-      - name: Setup Node.js 18
+      # Node.js 20 環境をセットアップ
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: '18.17.1'
+          node-version: '20.16.0'
           cache: 'yarn'
           cache-dependency-path: '${{ github.workspace }}/client/yarn.lock'
 

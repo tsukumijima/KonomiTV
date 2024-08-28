@@ -11,6 +11,9 @@
         "preview": "concurrently --raw \"npm:akebi\" \"vite preview\"",
         "lint": "eslint . --fix --ignore-path .gitignore"
     },
+    "engines": {
+        "node": "20.16.0"
+    },
     "dependencies": {
         "@github/mini-throttle": "^2.1.1",
         "@tsukumijima/aribts": "github:tsukumijima/node-aribts#v1.5.1",
@@ -43,7 +46,7 @@
     "devDependencies": {
         "@babel/types": "^7.25.2",
         "@iconify/vue": "^4.1.2",
-        "@types/node": "^18.19.42",
+        "@types/node": "20.16.0",
         "@types/offscreencanvas": "^2019.7.3",
         "@types/readable-stream": "^4.0.15",
         "@types/resize-observer-browser": "^0.1.11",
