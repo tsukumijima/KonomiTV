@@ -16,6 +16,7 @@ import Snackbars from '@/components/Snackbars.vue';
 // ***** ブラウザのデフォルトスタイルの上書き *****
 
 // スクロールバーのスタイル
+// なるべく ::webkit-scrollbar を優先させるため、::webkit-scrollbar 未対応の Firefox でのみ scrollbar-color/width を有効化する
 @supports (-moz-appearance: none) {
     * {
         scrollbar-color: rgb(var(--v-theme-gray)) rgb(var(--v-theme-background));
