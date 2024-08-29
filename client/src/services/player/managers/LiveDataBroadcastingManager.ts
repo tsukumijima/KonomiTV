@@ -610,9 +610,23 @@ class LiveDataBroadcastingManager implements PlayerManager {
             const magnification = (this.bml_browser_height * 16 / 9) / this.bml_browser_width;
             this.media_element.style.transform = `scaleY(${magnification})`;
             this.media_element.style.transformOrigin = 'center center';
+            // 上記ケースでは親要素に映像のアスペクト比を矯正する目的で
+            // scaleY() が設定されるため、Canvas 要素のみ親要素の scaleY() を打ち消す縮小方向の scaleY() を設定する
+            for (const child of this.media_element.children) {
+                if (child instanceof HTMLCanvasElement) {
+                    child.style.transform = `scaleY(${1 / magnification})`;
+                    child.style.transformOrigin = 'center center';
+                }
+            }
         } else {
             this.media_element.style.transform = '';
             this.media_element.style.transformOrigin = '';
+            for (const child of this.media_element.children) {
+                if (child instanceof HTMLCanvasElement) {
+                    child.style.transform = '';
+                    child.style.transformOrigin = '';
+                }
+            }
         }
 
         this.is_video_element_moved_to_bml_browser = true;
@@ -650,6 +664,10 @@ class LiveDataBroadcastingManager implements PlayerManager {
             if (child instanceof HTMLVideoElement) {
                 (child as HTMLVideoElement).style.width = '';
                 (child as HTMLVideoElement).style.height = '';
+            }
+            if (child instanceof HTMLCanvasElement) {
+                child.style.transform = '';
+                child.style.transformOrigin = '';
             }
         }
         this.media_element.style.transform = '';
