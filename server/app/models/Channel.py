@@ -178,9 +178,10 @@ class Channel(TortoiseModel):
                 channel.jikkyo_force = None
                 channel.is_watchable = True
 
-                # すでに放送が終了した「FOXスポーツ＆エンターテインメント」「BSスカパー」「Dlife」を除外
+                # すでに放送が終了した「NHK BSプレミアム」「FOXスポーツ&エンターテインメント」「BSスカパー」「Dlife」を除外
                 ## 放送終了後にチャンネルスキャンしていないなどの理由でバックエンド側にチャンネル情報が残っている場合がある
-                if channel.type == 'BS' and channel.service_id in [238, 241, 258]:
+                ## 特に「NHK BSプレミアム」(Ch: 103) は互換性の兼ね合いで停波後も SDT にサービス情報が残っているため、明示的に除外する必要がある
+                if channel.type == 'BS' and channel.service_id in [103, 238, 241, 258]:
                     continue
 
                 # チャンネルタイプが STARDIGIO でサービス ID が 400 ～ 499 以外のチャンネルを除外
@@ -323,9 +324,10 @@ class Channel(TortoiseModel):
                 channel.jikkyo_force = None
                 channel.is_watchable = True
 
-                # すでに放送が終了した「FOXスポーツ＆エンターテインメント」「BSスカパー」「Dlife」を除外
+                # すでに放送が終了した「NHK BSプレミアム」「FOXスポーツ&エンターテインメント」「BSスカパー」「Dlife」を除外
                 ## 放送終了後にチャンネルスキャンしていないなどの理由でバックエンド側にチャンネル情報が残っている場合がある
-                if channel.type == 'BS' and channel.service_id in [238, 241, 258]:
+                ## 特に「NHK BSプレミアム」(Ch: 103) は互換性の兼ね合いで停波後も SDT にサービス情報が残っているため、明示的に除外する必要がある
+                if channel.type == 'BS' and channel.service_id in [103, 238, 241, 258]:
                     continue
 
                 # チャンネルタイプが STARDIGIO でサービス ID が 400 ～ 499 以外のチャンネルを除外
