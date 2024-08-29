@@ -12,8 +12,10 @@ declare module '*.vue' {
 
 // **** ライブラリの型定義 *****
 
-// グローバルコンポーネント
-declare module '@vue/runtime-core' {
+// グローバルコンポーネントの型定義
+// "@vue/runtime-core" ではなく "vue" の型を拡張しないとすべての型が壊れてしまう
+// ref: https://github.com/nuxt/nuxt/pull/28542
+declare module 'vue' {
     export interface GlobalComponents {
         Icon: typeof Icon;
     }
