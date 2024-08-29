@@ -8,7 +8,7 @@
                     <Icon icon="fluent:settings-16-filled" width="20" />
                 </button>
                 <button v-ripple class="timeline-header__refresh" style="color: rgb(var(--v-theme-twitter-lighten-1))" @click="fetchTimelineTweets"
-                    v-tooltip.bottom="'タイムラインを更新'">
+                    v-ftooltip.bottom="'タイムラインを更新'">
                     <Icon icon="ic:round-refresh" width="20" :class="isFetching ? 'animate-spin' : ''" />
                 </button>
             </div>

@@ -1,6 +1,5 @@
 
 import { Icon } from '@iconify/vue';
-import FloatingVue from 'floating-vue';
 import 'floating-vue/dist/style.css';
 import { createPinia } from 'pinia';
 import { polyfill as SeamlessScrollPolyfill } from 'seamless-scroll-polyfill';
@@ -11,6 +10,7 @@ import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
 
 import App from '@/App.vue';
 import Message from '@/message';
+import FloatingVue from '@/plugins/floating-vue';
 import vuetify from '@/plugins/vuetify';
 import router from '@/router';
 import useSettingsStore, { setLocalStorageSettings } from '@/stores/SettingsStore';

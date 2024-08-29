@@ -50,7 +50,7 @@
                             'navigation__link--develop-version': versionStore.is_client_develop_version,
                             'navigation__link--highlight': versionStore.is_update_available,
                         }"
-                        v-tooltip.top="versionStore.is_update_available ?
+                        v-ftooltip.top="versionStore.is_update_available ?
                             `アップデートがあります (version ${versionStore.latest_version})` : ''">
                         <Icon class="navigation__link-icon" icon="fluent:info-16-regular" width="26px" />
                         <span class="navigation__link-text">version {{versionStore.client_version}}</span>

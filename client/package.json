@@ -40,7 +40,7 @@
         "vue-router": "^4.4.3",
         "vue-virtual-scroller": "^2.0.0-beta.8",
         "vuedraggable": "^4.1.0",
-        "vuetify": "~3.5.18",
+        "vuetify": "^3.7.1",
         "web-bml": "github:tsukumijima/web-bml#a27035a5494475591937f0aba9d3ef7d581acccf"
     },
     "devDependencies": {

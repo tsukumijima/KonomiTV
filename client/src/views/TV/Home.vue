@@ -52,7 +52,7 @@
                                         </div>
                                     </div>
                                     <div v-ripple class="channel__broadcaster-pin"
-                                        v-tooltip="isPinnedChannel(channel) ? 'ピン留めを外す' : 'ピン留めする'"
+                                        v-ftooltip="isPinnedChannel(channel) ? 'ピン留めを外す' : 'ピン留めする'"
                                         :class="{'channel__broadcaster-pin--pinned': isPinnedChannel(channel)}"
                                         @click.prevent.stop="isPinnedChannel(channel) ? removePinnedChannel(channel) : addPinnedChannel(channel)"
                                         @mousedown.prevent.stop=""> <!-- ← 親要素の波紋が広がらないように -->
