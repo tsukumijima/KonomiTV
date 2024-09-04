@@ -159,8 +159,7 @@ export default defineComponent({
             ],
 
             // 選択された設定データ (KonomiTV-Settings.json) が入る
-            // 基本1ファイルしか入らない (Vuetify 側の都合で配列になっている)
-            import_settings_file: [] as File[],
+            import_settings_file: null as File | null,
         };
     },
     computed: {
@@ -184,13 +183,13 @@ export default defineComponent({
         async importSettings() {
 
             // 設定データが選択されていないときは実行しない
-            if (this.import_settings_file.length === 0) {
+            if (this.import_settings_file === null) {
                 Message.error('インポートする設定データを選択してください！');
                 return;
             }
 
             // 設定データのインポートを実行
-            const result = await this.settingsStore.importClientSettings(this.import_settings_file[0]);
+            const result = await this.settingsStore.importClientSettings(this.import_settings_file);
             if (result === true) {
                 Message.success('設定をインポートしました。');
                 window.setTimeout(() => this.$router.go(0), 300);  // 念のためリロード

@@ -244,7 +244,7 @@ export default defineComponent({
 
             // アップロードするアイコン画像
             // 基本1ファイルしか入らない (Vuetify 側の都合で配列になっている)
-            settings_icon_file: [] as File[],
+            settings_icon_file: null as File | null,
 
             // アカウント削除確認ダイヤログ
             account_delete_confirm_dialog: false,
@@ -367,13 +367,13 @@ export default defineComponent({
         async updateAccountIcon() {
 
             // アイコン画像が選択されていないなら更新しない
-            if (this.settings_icon_file.length === 0) {
+            if (this.settings_icon_file === null) {
                 Message.error('アップロードする画像を選択してください！');
                 return;
             }
 
             // アイコン画像の更新処理 (エラーハンドリングを含む) を実行
-            await this.userStore.updateUserIcon(this.settings_icon_file[0]);
+            await this.userStore.updateUserIcon(this.settings_icon_file);
         },
 
         async deleteAccount() {
