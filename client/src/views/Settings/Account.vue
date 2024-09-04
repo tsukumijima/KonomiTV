@@ -200,14 +200,13 @@
 </template>
 <script lang="ts">
 
-import { hash } from 'ohash';
 import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
 import { VForm } from 'vuetify/components';
 
 import Message from '@/message';
 import Settings from '@/services/Settings';
-import useSettingsStore, { getSyncableClientSettings } from '@/stores/SettingsStore';
+import useSettingsStore, { getSyncableClientSettings, hashClientSettings } from '@/stores/SettingsStore';
 import useUserStore from '@/stores/UserStore';
 import Utils from '@/utils';
 import SettingsBase from '@/views/Settings/Base.vue';
@@ -271,7 +270,7 @@ export default defineComponent({
                 const sync_settings = getSyncableClientSettings(this.settingsStore.settings);
 
                 // 同期対象のこのクライアントの設定をハッシュ化する
-                const sync_settings_hash = hash(sync_settings);
+                const sync_settings_hash = hashClientSettings(sync_settings);
 
                 // サーバーから設定データをダウンロード
                 // 一度オブジェクトに戻したものをハッシュ化する
@@ -280,7 +279,7 @@ export default defineComponent({
                     Message.error('サーバーから設定データを取得できませんでした。');
                     return;
                 }
-                const server_sync_settings_hash = hash(server_sync_settings);
+                const server_sync_settings_hash = hashClientSettings(server_sync_settings);
                 console.log('[Settings-Account] sync_settings_hash:', sync_settings_hash);
                 console.log('[Settings-Account] server_sync_settings_hash:', server_sync_settings_hash);
 

@@ -2,9 +2,11 @@
 from fastapi import APIRouter
 from fastapi import Body
 from fastapi import Depends
+from fastapi import HTTPException
 from fastapi import status
 from typing import Annotated
 
+from app import logging
 from app.config import ClientSettings
 from app.config import Config
 from app.config import SaveConfig
@@ -50,6 +52,15 @@ async def ClientSettingsUpdateAPI(
     現在ログイン中のユーザーアカウントのクライアント設定を更新する。<br>
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
+
+    # 現在サーバーに保存されているクライアント設定の最終同期時刻よりも古いクライアント設定が送られてきた場合、エラーを返す
+    current_client_settings = ClientSettings.model_validate(current_user.client_settings)
+    if client_settings.last_synced_at < current_client_settings.last_synced_at:
+        logging.error(f'[ClientSettingsUpdateAPI] Client settings are outdated! [{client_settings.last_synced_at} < {current_client_settings.last_synced_at}]')
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'The client settings are outdated. Please update the client settings from the server.',
+        )
 
     # dict に変換してから入れる
     ## Pydantic モデルのままだと JSON にシリアライズできないので怒られる

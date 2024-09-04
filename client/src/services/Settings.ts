@@ -16,6 +16,7 @@ export interface IMutedCommentKeywords {
  * サーバー側の app.config.ClientSettings で定義されているものと同じ
  */
 export interface IClientSettings {
+    last_synced_at: number;
     // showed_panel_last_time: 同期無効
     // selected_twitter_account_id: 同期無効
     saved_twitter_hashtags: string[];
@@ -151,7 +152,7 @@ class Settings {
         }
 
         // クライアント側の IClientSettings とサーバー側の app.config.ClientSettings は、バージョン差などで微妙に並び替え順序などが異なることがある
-        // JSON シリアライズでの文字列比較を正しく行うため、厳密にクライアント側の IClientSettings と一致するように変換する
+        // ハッシュ化時の文字列比較を正しく行うため、厳密にクライアント側の IClientSettings と一致するように変換する
         return getSyncableClientSettings(response.data);
     }
 
@@ -159,12 +160,24 @@ class Settings {
     /**
      * クライアント設定を更新する
      * @param settings クライアント設定
+     * @return 成功した場合は true
      */
-    static async updateClientSettings(settings: IClientSettings): Promise<void> {
+    static async updateClientSettings(settings: IClientSettings): Promise<boolean> {
 
         // API リクエストを実行
-        // 正常時は 204 No Content が返るし、エラーは基本起こらないはずなので何もしない
-        await APIClient.put<IClientSettings>('/settings/client', settings);
+        const response = await APIClient.put<IClientSettings>('/settings/client', settings);
+
+        // エラー処理
+        if (response.type === 'error') {
+            switch (response.data.detail) {
+                default:
+                    APIClient.showGenericError(response, 'クライアント設定を更新できませんでした。');
+                    break;
+            }
+            return false;
+        }
+
+        return true;
     }
 
 
