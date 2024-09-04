@@ -200,6 +200,7 @@
 </template>
 <script lang="ts">
 
+import { hash } from 'ohash';
 import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
 import { VForm } from 'vuetify/components';
@@ -269,21 +270,22 @@ export default defineComponent({
                 // 同期対象の設定キーのみで設定データをまとめ直す
                 const sync_settings = getSyncableClientSettings(this.settingsStore.settings);
 
-                // 同期対象のこのクライアントの設定を再度 JSON にする (文字列比較のため)
-                const sync_settings_json = JSON.stringify(sync_settings);
+                // 同期対象のこのクライアントの設定をハッシュ化する
+                const sync_settings_hash = hash(sync_settings);
 
                 // サーバーから設定データをダウンロード
-                // 一度オブジェクトに戻したものをを再度 JSON にする (文字列比較のため)
+                // 一度オブジェクトに戻したものをハッシュ化する
                 const server_sync_settings = await Settings.fetchClientSettings();
                 if (server_sync_settings === null) {
                     Message.error('サーバーから設定データを取得できませんでした。');
                     return;
                 }
-                const server_sync_settings_json = JSON.stringify(server_sync_settings);
+                const server_sync_settings_hash = hash(server_sync_settings);
+                console.log('[Settings-Account] sync_settings_hash:', sync_settings_hash);
+                console.log('[Settings-Account] server_sync_settings_hash:', server_sync_settings_hash);
 
                 // このクライアントの設定とサーバーに保存されている設定が一致しない（=競合している）
-                // ここで比較している設定データは文字列比較できるよう JSON シリアライズ前に同じ条件でソートされている
-                if (sync_settings_json !== server_sync_settings_json) {
+                if (sync_settings_hash !== server_sync_settings_hash) {
 
                     // 一度同期のスイッチをオフにして、クライアントとサーバーどちらの設定を使うのかを選択させるダイヤログを表示
                     this.sync_settings_dialog = true;
