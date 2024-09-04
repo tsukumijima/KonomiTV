@@ -1,4 +1,5 @@
 
+import { isEqual } from 'ohash';
 import { defineStore } from 'pinia';
 
 import Settings, { IClientSettings, IMutedCommentKeywords } from '@/services/Settings';
@@ -450,7 +451,7 @@ const useSettingsStore = defineStore('settings', {
             // 両者の値に変更がある場合のみ上書きする
             // さもなければ、実際にはサーバー側で値が変更されていない場合でも定義されているストアに紐づく全てのコンポーネントの再描画が発生してしまう (?)
             for (const [settings_server_key, settings_server_value] of Object.entries(settings_server)) {
-                if (JSON.stringify(this.settings[settings_server_key]) !== JSON.stringify(settings_server_value)) {
+                if (isEqual(this.settings[settings_server_key], settings_server_value) === false) {
                     this.settings[settings_server_key] = settings_server_value;
                 }
             }
