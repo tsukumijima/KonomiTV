@@ -377,7 +377,7 @@ class TwitterGraphQLAPI:
             logging.error(f'[TwitterGraphQLAPI] Failed to fetch challenge code from Twitter Web App HTML')
             return schemas.TwitterAPIResult(
                 is_success = False,
-                detail = 'Challenge 情報の取得に失敗しました。Twitter Web App の HML からチャレンジコードを取得できませんでした。',
+                detail = 'Challenge 情報の取得に失敗しました。Twitter Web App の HTML からチャレンジコードを取得できませんでした。',
             )
         challenge_code = challenge_code_match.group(1)
 
