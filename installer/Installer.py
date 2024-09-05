@@ -227,23 +227,23 @@ def Installer(version: str) -> None:
             # すべてのバリデーションを通過したのでループを抜ける
             break
 
-    # ***** Mirakurun の HTTP API の URL *****
+    # ***** Mirakurun / mirakc の HTTP API の URL *****
 
     elif backend == 'Mirakurun':
 
         table_04 = CreateTable()
-        table_04.add_column('04. Mirakurun の HTTP API の URL を入力してください。')
+        table_04.add_column('04. Mirakurun / mirakc の HTTP API の URL を入力してください。')
         table_04.add_row('http://192.168.1.11:40772/ のような形式の URL で指定します。')
-        table_04.add_row('Mirakurun と同じ PC に KonomiTV をインストールしようとしている場合は、')
+        table_04.add_row('Mirakurun / mirakc と同じ PC に KonomiTV をインストールしようとしている場合は、')
         table_04.add_row('http://127.0.0.1:40772/ と入力してください。')
         print(Padding(table_04, (1, 2, 1, 2)))
 
-        # Mirakurun の HTTP API の URL を取得
+        # Mirakurun / mirakc の HTTP API の URL を取得
         while True:
 
             # 入力プロンプト (バリデーションに失敗し続ける限り何度でも表示される)
             ## 末尾のスラッシュは常に付与する
-            mirakurun_url = CustomPrompt.ask('Mirakurun の HTTP API の URL').rstrip('/') + '/'
+            mirakurun_url = CustomPrompt.ask('Mirakurun / mirakc の HTTP API の URL').rstrip('/') + '/'
             ## localhost を 127.0.0.1 に置き換え (localhost だと一部 Windows 環境で TCP API への接続が遅くなる)
             mirakurun_url = mirakurun_url.replace('localhost', '127.0.0.1')
 
@@ -254,14 +254,14 @@ def Installer(version: str) -> None:
                 response = requests.get(f'{mirakurun_url.rstrip("/")}/api/version', timeout=20)
             except Exception:
                 print(Padding(str(
-                    f'[red]Mirakurun ({mirakurun_url}) にアクセスできませんでした。\n'
-                    'Mirakurun が起動していないか、URL を間違えている可能性があります。',
+                    f'[red]Mirakurun / mirakc ({mirakurun_url}) にアクセスできませんでした。\n'
+                    'Mirakurun / mirakc が起動していないか、URL を間違えている可能性があります。',
                 ), (0, 2, 0, 2)))
                 continue
             if response.status_code != 200:
                 print(Padding(str(
-                    f'[red]{mirakurun_url} は Mirakurun の URL ではありません。\n'
-                    'Mirakurun の URL を間違えている可能性があります。',
+                    f'[red]{mirakurun_url} は Mirakurun / mirakc の URL ではありません。\n'
+                    'Mirakurun / mirakc の URL を間違えている可能性があります。',
                 ), (0, 2, 0, 2)))
                 continue
 
