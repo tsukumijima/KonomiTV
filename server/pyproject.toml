@@ -7,6 +7,7 @@ package-mode = false
 [tool.taskipy.tasks]
 serve = "python KonomiTV.py"
 dev = "python KonomiTV.py --reload"
+update-thirdparty = "python -m misc.UpdateThirdparty latest"
 
 [tool.poetry.dependencies]
 python = ">=3.11,<3.12"
