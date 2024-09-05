@@ -72,7 +72,7 @@ const doSearch = () => {
 
 const showSearchInput = computed(() => {
     const path = route.path;
-    return !path.startsWith('/captures') && !path.startsWith('/settings');
+    return !path.startsWith('/captures') && !path.startsWith('/settings') && !path.startsWith('/login') && !path.startsWith('/register');
 });
 
 </script>
