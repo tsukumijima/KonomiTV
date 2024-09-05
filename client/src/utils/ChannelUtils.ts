@@ -70,7 +70,7 @@ export class ChannelUtils {
             // 北海道
             'HBC': '#hbc',
             '札幌テレビ': '#stv',
-            'HTB': '#htv',
+            'HTB': '#htb',
             'TVh': '#tvh',
             '北海道文化放送': '#uhb',
             // 青森
