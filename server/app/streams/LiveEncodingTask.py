@@ -418,10 +418,11 @@ class LiveEncodingTask:
         BACKEND_TYPE: Literal['EDCB', 'Mirakurun'] = 'Mirakurun' if CONFIG.general.always_receive_tv_from_mirakurun is True else CONFIG.general.backend
         assert BACKEND_TYPE == 'Mirakurun', 'This method is only for Mirakurun backend.'
 
-        # Mirakurun はチャンネルタイプが GR, BS, CS, SKY しかないので、CATV を CS に、STARDIGIO を SKY に変換する
+        # Mirakurun / mirakc はチャンネルタイプが GR, BS, CS, SKY しかないので、CATV を CS に、STARDIGIO を SKY に変換する
         channel_type = 'CS' if channel_type == 'CATV' else channel_type
         channel_type = 'SKY' if channel_type == 'STARDIGIO' else channel_type
 
+        mirakurun_or_mirakc = 'Mirakurun'
         async with HTTPX_CLIENT() as client:
 
             # 0.1 秒間隔で最大 0.5 秒間チューナーの空きを確認する
@@ -435,6 +436,9 @@ class LiveEncodingTask:
                 # Mirakurun / mirakc からチューナーの状態を取得
                 try:
                     response = await client.get(GetMirakurunAPIEndpointURL('/api/tuners'), timeout=5)
+                    # レスポンスヘッダーの server が mirakc であれば mirakc と判定できる
+                    if ('server' in response.headers) and ('mirakc' in response.headers['server']):
+                        mirakurun_or_mirakc = 'mirakc'
                     tuners = response.json()
                 except httpx.NetworkError:
                     logging.error(f'Failed to get tuner statuses from Mirakurun / mirakc. (Network Error)')
@@ -446,14 +450,14 @@ class LiveEncodingTask:
                 # 指定されたチャンネルタイプが受信可能なチューナーが1つでも利用可能であれば True を返す
                 for tuner in tuners:
                     if tuner['isAvailable'] is True and tuner['isFree'] is True and channel_type in tuner['types']:
-                        logging.info('Acquired a tuner from Mirakurun / mirakc.')
+                        logging.info(f'Acquired a tuner from {mirakurun_or_mirakc}.')
                         logging.info(f'Tuner: {tuner["name"]} / Type: {channel_type}) / Acquired in {round(time.time() - start_time, 2)} seconds')
                         return True
 
                 await asyncio.sleep(0.1)
 
         # 空きチューナーは確保できなかったが、同じチャンネルが受信中であれば共聴することは可能なので warning に留める
-        logging.warning(f'Failed to acquire a tuner from Mirakurun / mirakc.')
+        logging.warning(f'Failed to acquire a tuner from {mirakurun_or_mirakc}.')
         logging.warning(f'If the same channel is being received, it can be shared with the same tuner.')
         return False
 
@@ -466,7 +470,7 @@ class LiveEncodingTask:
         CONFIG = Config()
 
         # バックエンドの種類を取得
-        ## always_receive_tv_from_mirakurun が True なら、バックエンドに関わらず常に Mirakurun から受信する
+        ## always_receive_tv_from_mirakurun が True なら、バックエンドに関わらず常に Mirakurun / mirakc から受信する
         BACKEND_TYPE: Literal['EDCB', 'Mirakurun'] = 'Mirakurun' if CONFIG.general.always_receive_tv_from_mirakurun is True else CONFIG.general.backend
 
         # エンコーダーの種類を取得
@@ -731,7 +735,7 @@ class LiveEncodingTask:
         tuner_ts_read_at: float = time.monotonic()
         tuner_ts_read_at_lock = asyncio.Lock()
 
-        async def Reader():
+        async def Reader() -> None:
             nonlocal tuner_ts_read_at
 
             # 受信した放送波が入るイテレータを作成
@@ -825,7 +829,7 @@ class LiveEncodingTask:
         ## そうしないと稀にパケロスするらしく、ブラウザ側で突如再生できなくなることがある
         writer_lock = asyncio.Lock()
 
-        async def Writer():
+        async def Writer() -> None:
 
             nonlocal chunk_buffer, chunk_written_at, writer_lock
 
@@ -866,7 +870,7 @@ class LiveEncodingTask:
 
         # 前回のチャンク書き込みから 0.025 秒以上経ったもののチャンクが 64KB に達していない際に Writer に代わってチャンク書き込みを行うタスク
         ## ラジオチャンネルは通常のチャンネルと比べてデータ量が圧倒的に少ないため、64KB に達することは稀で SubWriter でのチャンク書き込みがメインになる
-        async def SubWriter():
+        async def SubWriter() -> None:
 
             nonlocal tuner_ts_read_at, tuner_ts_read_at_lock, chunk_buffer, chunk_written_at, writer_lock
 
@@ -905,7 +909,7 @@ class LiveEncodingTask:
         # エンコーダーの出力ログのリスト
         lines: list[str] = []
 
-        async def EncoderObServer():
+        async def EncoderObServer() -> None:
 
             # 1つ上のスコープ (Enclosing Scope) の変数を書き替えるために必要
             # ref: https://excel-ubara.com/python/python014.html#sec04
@@ -1092,7 +1096,7 @@ class LiveEncodingTask:
 
         # ***** エンコードタスク全体の制御 *****
 
-        async def Controller():
+        async def Controller() -> None:
 
             # 1つ上のスコープ (Enclosing Scope) の変数を書き替えるために必要
             # ref: https://excel-ubara.com/python/python014.html#sec04
@@ -1145,12 +1149,19 @@ class LiveEncodingTask:
 
                 # Mirakurun の Service Stream API からエラーが返された場合
                 if BACKEND_TYPE == 'Mirakurun' and response is not None and response.status != 200:
-                    # Offline にしてエンコードタスクを停止する
-                    ## mirakc はなぜか 503 ではなく 404 を返すことがある (バグ?)
-                    if response.status == 503 or response.status == 404:
-                        self.live_stream.setStatus('Offline', 'チューナーの起動に失敗しました。空きチューナーが不足しています。(E-12M)')
+                    # レスポンスヘッダーの server が mirakc であれば mirakc と判定できる
+                    if ('server' in response.headers) and ('mirakc' in response.headers['server']):
+                        mirakurun_or_mirakc = 'mirakc'
                     else:
-                        self.live_stream.setStatus('Offline', f'チューナーで不明なエラーが発生しました。Mirakurun 側に問題があるかもしれません。(HTTP Error {response.status}) (E-12M)')
+                        mirakurun_or_mirakc = 'Mirakurun'
+                    # Offline にしてエンコードタスクを停止する
+                    ## mirakc はなぜかチューナー不足時に 503 ではなく 404 を返すことがある (バグ?)
+                    if response.status == 503 or (response.status == 404 and mirakurun_or_mirakc == 'mirakc'):
+                        self.live_stream.setStatus('Offline', 'チューナーの起動に失敗しました。空きチューナーが不足しています。(E-12M)')
+                    elif response.status == 404:
+                        self.live_stream.setStatus('Offline', f'現在このチャンネルは受信できません。{mirakurun_or_mirakc} 側に問題があるかもしれません。(HTTP Error {response.status}) (E-12M)')
+                    else:
+                        self.live_stream.setStatus('Offline', f'チューナーで不明なエラーが発生しました。{mirakurun_or_mirakc} 側に問題があるかもしれません。(HTTP Error {response.status}) (E-12M)')
                     break
 
                 # ***** 異常処理 (エンコードタスク再起動による回復が可能) *****

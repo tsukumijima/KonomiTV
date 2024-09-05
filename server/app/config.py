@@ -162,10 +162,15 @@ class _ServerSettingsGeneral(BaseModel):
                     headers = API_REQUEST_HEADERS,
                     timeout = 20,  # 久々のアクセスだとなぜか時間がかかることがあるため、ここだけタイムアウトを長めに設定
                 )
+                # レスポンスヘッダーの server が mirakc であれば mirakc と判定できる
+                if ('server' in response.headers) and ('mirakc' in response.headers['server']):
+                    mirakurun_or_mirakc = 'mirakc'
+                else:
+                    mirakurun_or_mirakc = 'Mirakurun'
             except (httpx.NetworkError, httpx.TimeoutException):
                 raise ValueError(
-                    f'Mirakurun ({mirakurun_url}) にアクセスできませんでした。\n'
-                    'Mirakurun が起動していないか、URL を間違えている可能性があります。'
+                    f'Mirakurun / mirakc ({mirakurun_url}) にアクセスできませんでした。\n'
+                    'Mirakurun / mirakc が起動していないか、URL を間違えている可能性があります。'
                 )
             try:
                 response_json = response.json()
@@ -173,13 +178,13 @@ class _ServerSettingsGeneral(BaseModel):
                     raise ValueError()
             except Exception:
                 raise ValueError(
-                    f'{mirakurun_url} は Mirakurun の URL ではありません。\n'
-                    'Mirakurun の URL を間違えている可能性があります。'
+                    f'{mirakurun_url} は {mirakurun_or_mirakc} の URL ではありません。\n'
+                    f'{mirakurun_or_mirakc} の URL を間違えている可能性があります。'
                 )
             from app import logging
-            logging.info(f'Backend: Mirakurun {response_json.get("current")} ({mirakurun_url})')
+            logging.info(f'Backend: {mirakurun_or_mirakc} {response_json.get("current")} ({mirakurun_url})')
             if info.data.get('always_receive_tv_from_mirakurun') is True:
-                logging.info(f'Always receive TV from Mirakurun.')
+                logging.info(f'Always receive TV from {mirakurun_or_mirakc}.')
         return mirakurun_url
 
     @field_validator('encoder')

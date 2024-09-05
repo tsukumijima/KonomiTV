@@ -433,8 +433,8 @@ async def ChannelLogoAPI(
             # NID と SID を 5 桁でゼロ埋めした上で int に変換する
             mirakurun_service_id = int(str(channel.network_id).zfill(5) + str(channel.service_id).zfill(5))
 
-            # Mirakurun の API からロゴを取得する
-            # 同梱のロゴが存在しない場合のみ
+            # 同梱のロゴが存在しない場合のみ、Mirakurun の API からロゴを取得する
+            ## mirakc においては、ユーザーが mirakc にロゴを手動設定している場合のみ局ロゴを取得できる
             try:
                 mirakurun_logo_api_url = GetMirakurunAPIEndpointURL(f'/api/services/{mirakurun_service_id}/logo')
                 async with HTTPX_CLIENT() as client:
