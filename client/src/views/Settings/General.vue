@@ -192,7 +192,7 @@ export default defineComponent({
             const result = await this.settingsStore.importClientSettings(this.import_settings_file);
             if (result === true) {
                 Message.success('設定をインポートしました。');
-                window.setTimeout(() => this.$router.go(0), 300);  // 念のためリロード
+                window.setTimeout(() => this.$router.go(0), 500);  // 念のためリロード
             } else {
                 Message.error('設定データが不正なため、インポートできませんでした。');
             }
@@ -202,7 +202,7 @@ export default defineComponent({
         async resetSettings() {
             await this.settingsStore.resetClientSettings();
             Message.success('設定をリセットしました。');
-            window.setTimeout(() => this.$router.go(0), 300);  // 念のためリロード
+            window.setTimeout(() => this.$router.go(0), 500);  // 念のためリロード
         },
     }
 });
