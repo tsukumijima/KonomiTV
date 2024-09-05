@@ -169,7 +169,7 @@ class Channel(TortoiseModel):
                     channel = duplicate_channel
 
                 # 取得してきた値を設定
-                channel.id = f'NID{service["networkId"]}-SID{service["serviceId"]:03d}'
+                channel.id = channel_id
                 channel.service_id = int(service['serviceId'])
                 channel.network_id = int(service['networkId'])
                 channel.remocon_id = int(service['remoteControlKeyId']) if ('remoteControlKeyId' in service) else 0
@@ -182,16 +182,25 @@ class Channel(TortoiseModel):
                 ## 放送終了後にチャンネルスキャンしていないなどの理由でバックエンド側にチャンネル情報が残っている場合がある
                 ## 特に「NHK BSプレミアム」(Ch: 103) は互換性の兼ね合いで停波後も SDT にサービス情報が残っているため、明示的に除外する必要がある
                 if channel.type == 'BS' and channel.service_id in [103, 238, 241, 258]:
+                    # このチャンネル情報は上記処理で duplicate_channels から削除されているが、
+                    # 上記条件に一致するチャンネル情報は DB から削除したいので、再度 duplicate_channels に追加し、最後にまとめて削除する
+                    duplicate_channels[channel.id] = channel
                     continue
 
                 # チャンネルタイプが STARDIGIO でサービス ID が 400 ～ 499 以外のチャンネルを除外
                 # だいたい謎の試験チャンネルとかで見るに耐えない
                 if channel.type == 'STARDIGIO' and not 400 <= channel.service_id <= 499:
+                    # このチャンネル情報は上記処理で duplicate_channels から削除されているが、
+                    # 上記条件に一致するチャンネル情報は DB から削除したいので、再度 duplicate_channels に追加し、最後にまとめて削除する
+                    duplicate_channels[channel.id] = channel
                     continue
 
                 # 「試験チャンネル」という名前（前方一致）のチャンネルを除外
                 # CATV や SKY に存在するが、だいたいどれもやってないし表示されてるだけ邪魔
                 if channel.name.startswith('試験チャンネル'):
+                    # このチャンネル情報は上記処理で duplicate_channels から削除されているが、
+                    # 上記条件に一致するチャンネル情報は DB から削除したいので、再度 duplicate_channels に追加し、最後にまとめて削除する
+                    duplicate_channels[channel.id] = channel
                     continue
 
                 # type が 0x02 のサービスのみ、ラジオチャンネルとして設定する
@@ -328,16 +337,25 @@ class Channel(TortoiseModel):
                 ## 放送終了後にチャンネルスキャンしていないなどの理由でバックエンド側にチャンネル情報が残っている場合がある
                 ## 特に「NHK BSプレミアム」(Ch: 103) は互換性の兼ね合いで停波後も SDT にサービス情報が残っているため、明示的に除外する必要がある
                 if channel.type == 'BS' and channel.service_id in [103, 238, 241, 258]:
+                    # このチャンネル情報は上記処理で duplicate_channels から削除されているが、
+                    # 上記条件に一致するチャンネル情報は DB から削除したいので、再度 duplicate_channels に追加し、最後にまとめて削除する
+                    duplicate_channels[channel.id] = channel
                     continue
 
                 # チャンネルタイプが STARDIGIO でサービス ID が 400 ～ 499 以外のチャンネルを除外
                 # だいたい謎の試験チャンネルとかで見るに耐えない
                 if channel.type == 'STARDIGIO' and not 400 <= channel.service_id <= 499:
+                    # このチャンネル情報は上記処理で duplicate_channels から削除されているが、
+                    # 上記条件に一致するチャンネル情報は DB から削除したいので、再度 duplicate_channels に追加し、最後にまとめて削除する
+                    duplicate_channels[channel.id] = channel
                     continue
 
                 # 「試験チャンネル」という名前（前方一致）のチャンネルを除外
                 # CATV や SKY に存在するが、だいたいどれもやってないし表示されてるだけ邪魔
                 if channel.name.startswith('試験チャンネル'):
+                    # このチャンネル情報は上記処理で duplicate_channels から削除されているが、
+                    # 上記条件に一致するチャンネル情報は DB から削除したいので、再度 duplicate_channels に追加し、最後にまとめて削除する
+                    duplicate_channels[channel.id] = channel
                     continue
 
                 # type が 0x02 のサービスのみ、ラジオチャンネルとして設定する
