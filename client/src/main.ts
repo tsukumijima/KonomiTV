@@ -1,7 +1,7 @@
 
 import { Icon } from '@iconify/vue';
 import 'floating-vue/dist/style.css';
-import { isEqual } from 'ohash';
+import { diff } from 'ohash';
 import { createPinia } from 'pinia';
 import { polyfill as SeamlessScrollPolyfill } from 'seamless-scroll-polyfill';
 import { useRegisterSW } from 'virtual:pwa-register/vue';
@@ -14,7 +14,12 @@ import Message from '@/message';
 import FloatingVue from '@/plugins/floating-vue';
 import vuetify from '@/plugins/vuetify';
 import router from '@/router';
-import useSettingsStore, { getLocalStorageSettings, getNormalizedLocalClientSettings, setLocalStorageSettings, is_last_synced_at_updating } from '@/stores/SettingsStore';
+import useSettingsStore, {
+    getLocalStorageSettings,
+    getNormalizedLocalClientSettings,
+    hashClientSettings,
+    setLocalStorageSettings,
+} from '@/stores/SettingsStore';
 import Utils from '@/utils';
 
 
@@ -88,23 +93,24 @@ const settings_store = useSettingsStore();
 settings_store.$subscribe(async () => {
 
     // 現在 LocalStorage に保存されている設定データを取得
-    const current_settings = getNormalizedLocalClientSettings(getLocalStorageSettings());
+    const current_saved_settings = getNormalizedLocalClientSettings(getLocalStorageSettings());
 
     // 設定データが変更されている場合は、サーバーにアップロードする
-    if (isEqual(current_settings, settings_store.settings) === false) {
-
-        // last_synced_at の更新中は特別なログを出力し、通常の設定更新と区別できるようにする
-        if (is_last_synced_at_updating === true) {
-            console.log('Last Synced At Changed:', settings_store.settings.last_synced_at);
-        } else {
-            console.log('Client Settings Changed:', settings_store.settings);
-        }
+    if (hashClientSettings(current_saved_settings) !== hashClientSettings(settings_store.settings)) {
 
         // 設定データを LocalStorage に保存
+        console.trace('Client Settings Changed:', diff(current_saved_settings, settings_store.settings));
         setLocalStorageSettings(settings_store.settings);
 
         // このクライアントの設定をサーバーに同期する (ログイン時かつ同期が有効な場合のみ実行される)
         await settings_store.syncClientSettingsToServer();
+
+    // 設定データが変更されているが更新されたキーが last_synced_at だけの場合は、LocalStorage への保存のみ行う
+    // hashClientSettings() は last_synced_at への変更を除外してハッシュ化を行う
+    } else if (current_saved_settings.last_synced_at < settings_store.settings.last_synced_at) {
+
+        // 設定データを LocalStorage に保存
+        setLocalStorageSettings(settings_store.settings);
     }
 
 }, {detached: true});
@@ -116,8 +122,5 @@ window.setInterval(async () => {
 
         // サーバーに保存されている設定データをこのクライアントに同期する
         await settings_store.syncClientSettingsFromServer();
-
-        // 設定データを LocalStorage に保存
-        setLocalStorageSettings(settings_store.settings);
     }
 }, 3 * 1000);  // 3秒おき

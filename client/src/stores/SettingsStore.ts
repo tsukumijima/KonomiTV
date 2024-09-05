@@ -371,11 +371,21 @@ export function hashClientSettings(settings: IClientSettings): string {
     });
 }
 
-// 最終同期時刻を更新中かどうかを表すフラグ
-// main.ts 側で最終同期時刻の更新が検知され syncClientSettingsToServer() が呼び出されると無限ループが発生するため、
-// 最終同期時刻の更新中はサーバーへのデータ同期を行わないようにする
-// このフラグを Store に含めると Store の更新イベントが発生して意味がないので、やむを得ず Store の外に定義している
+/**
+ * 最終同期時刻を更新中かどうかを表すフラグ
+ * main.ts 側で最終同期時刻の更新が検知され syncClientSettingsToServer() が呼び出されると無限ループが発生するため、
+ * 最終同期時刻の更新中はサーバーへのデータ同期を行わないようにする
+ * このフラグを Store に含めると Store の更新イベントが発生して意味がないので、やむを得ず Store の外に定義している
+ */
 export let is_last_synced_at_updating: boolean = false;
+
+/**
+ * 現在サーバーに保存されている設定データをこのクライアントに同期中かどうか
+ * サーバーからクライアントへの pull 後、クライアントからサーバーへ即座に push されるのは無駄なため、
+ * それを抑制するために必要なフラグ
+ * このフラグを Store に含めると Store の更新イベントが発生して意味がないので、やむを得ず Store の外に定義している
+ */
+export let is_syncing_client_settings_from_server: boolean = false;
 
 
 /**
@@ -464,6 +474,9 @@ const useSettingsStore = defineStore('settings', {
                 return;
             }
 
+            // ここから先、設定データの pull 中に syncClientSettingsToServer() が実行されないようロックする
+            is_syncing_client_settings_from_server = true;
+
             // サーバーから設定データをダウンロード
             const settings_server = await Settings.fetchClientSettings();
             if (settings_server === null) {
@@ -475,6 +488,8 @@ const useSettingsStore = defineStore('settings', {
             if (settings_server.last_synced_at < this.settings.last_synced_at) {
                 console.warn('Server has older settings than this client. Skipping sync.');
                 return;
+            } else if (settings_server.last_synced_at > this.settings.last_synced_at) {
+                console.log('Last Synced At Changed (From Server):', settings_server.last_synced_at);
             }
 
             // クライアントの設定データをサーバーからの設定データで上書き
@@ -485,6 +500,10 @@ const useSettingsStore = defineStore('settings', {
                     this.settings[settings_server_key] = settings_server_value;
                 }
             }
+
+            // 設定データの pull が完了したので、ロックを解除する
+            await Utils.sleep(0.01);  // ここで若干待つことで、フラグが正しく機能するようにする
+            is_syncing_client_settings_from_server = false;
         },
 
         /**
@@ -498,8 +517,8 @@ const useSettingsStore = defineStore('settings', {
                 return;
             }
 
-            // 最終同期時刻の更新中はサーバーへのデータ同期を行わない
-            if (is_last_synced_at_updating === true) {
+            // 最終同期時刻の更新中・syncClientSettingsFromServer() の実行中はサーバーへのデータ同期を行わない
+            if (is_last_synced_at_updating === true || is_syncing_client_settings_from_server === true) {
                 return;
             }
 
@@ -525,6 +544,7 @@ const useSettingsStore = defineStore('settings', {
                 this.settings.last_synced_at = new_last_synced_at;
                 await Utils.sleep(0.01);  // ここで若干待つことで、フラグが正しく機能するようにする
                 is_last_synced_at_updating = false;
+                console.log('Last Synced At Changed (To Server):', this.settings.last_synced_at);
             }
         }
     }
