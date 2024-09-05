@@ -10,6 +10,7 @@ from datetime import datetime
 from tortoise import fields
 from tortoise import Tortoise
 from tortoise import transactions
+from tortoise.exceptions import OperationalError
 from tortoise.fields import Field as TortoiseField
 from tortoise.models import Model as TortoiseModel
 from tortoise.exceptions import ConfigurationError
@@ -235,7 +236,12 @@ class Channel(TortoiseModel):
 
             # 不要なチャンネル情報を削除する
             for duplicate_channel in duplicate_channels.values():
-                await duplicate_channel.delete()
+                try:
+                    await duplicate_channel.delete()
+                # tortoise.exceptions.OperationalError: Can't delete unpersisted record を無視
+                except OperationalError as e:
+                    if 'Can\'t delete unpersisted record' not in str(e):
+                        raise e
 
 
     @classmethod
@@ -415,7 +421,12 @@ class Channel(TortoiseModel):
 
             # 不要なチャンネル情報を削除する
             for duplicate_channel in duplicate_channels.values():
-                await duplicate_channel.delete()
+                try:
+                    await duplicate_channel.delete()
+                # tortoise.exceptions.OperationalError: Can't delete unpersisted record を無視
+                except OperationalError as e:
+                    if 'Can\'t delete unpersisted record' not in str(e):
+                        raise e
 
 
     def calculateRemoconID(self) -> int:
