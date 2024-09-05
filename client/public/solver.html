@@ -24,6 +24,10 @@ to check it's source code to make sure it's safe.
         // ) {
         //   return;
         // }
+        // 同一オリジンからのメッセージのみを受け付ける
+        if (event.origin !== location.origin) {
+          return;
+        }
         let data = event.data;
         // console.log("Solver got message", data);
         if (data.action === "init") {
