@@ -73,7 +73,7 @@ class LiveCommentManager implements PlayerManager {
 
     private get watch_session_type(): 'ニコニコ実況' | 'NX-Jikkyo ' {
         // 英字と日本語の間にスペースを入れるため、意図的に "NX-Jikkyo " の末尾にスペースを付けている
-        return this.watch_session?.url.includes('live.nicovideo.jp') === true ? 'ニコニコ実況' : 'NX-Jikkyo ';
+        return this.watch_session?.url.includes('nicovideo.jp') === true ? 'ニコニコ実況' : 'NX-Jikkyo ';
     }
 
 
