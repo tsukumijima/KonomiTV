@@ -31,8 +31,10 @@ const useUserStore = defineStore('user', {
             if (this.user === null || this.user.niconico_user_id === null) {
                 return null;
             }
-            const user_id_slice = this.user.niconico_user_id.toString().slice(0, 4);
-            return `https://secure-dcdn.cdn.nimg.jp/nicoaccount/usericon/${user_id_slice}/${this.user.niconico_user_id}.jpg`;
+            const user_id = this.user.niconico_user_id.toString();
+            // ユーザー ID が 4 桁以下の場合は '0' 、5 桁以上の場合は一万位より上の値を使う
+            const user_id_prefix = user_id.length <= 4 ? '0' : user_id.slice(0, -4);
+            return `https://secure-dcdn.cdn.nimg.jp/nicoaccount/usericon/${user_id_prefix}/${user_id}.jpg`;
         }
     },
     actions: {
