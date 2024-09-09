@@ -30,7 +30,7 @@ interface IWatchSessionInfo {
 
 
 /**
- * ライブ視聴: ニコニコ実況からリアルタイムに受信したコメントを DPlayer やイベントリスナーに送信する PlayerManager
+ * ライブ視聴: ニコニコ実況または NX-Jikkyo からリアルタイムに受信したコメントを DPlayer やイベントリスナーに送信する PlayerManager
  */
 class LiveCommentManager implements PlayerManager {
 
@@ -71,8 +71,14 @@ class LiveCommentManager implements PlayerManager {
     }
 
 
+    private get watch_session_type(): 'ニコニコ実況' | 'NX-Jikkyo ' {
+        // 英字と日本語の間にスペースを入れるため、意図的に "NX-Jikkyo " の末尾にスペースを付けている
+        return this.watch_session?.url.includes('live.nicovideo.jp') === true ? 'ニコニコ実況' : 'NX-Jikkyo ';
+    }
+
+
     /**
-     * ニコニコ実況に接続し、セッションを初期化する
+     * ニコニコ実況または NX-Jikkyo に接続し、セッションを初期化する
      */
     public async init(): Promise<void> {
         const player_store = usePlayerStore();
@@ -206,7 +212,7 @@ class LiveCommentManager implements PlayerManager {
             // 接続切断の理由を表示
             const code = (event instanceof CloseEvent) ? event.code : 'Error';
             if (this.player.template.notice.textContent!.includes('再起動しています…') === false) {
-                this.player.notice(`ニコニコ実況との接続が切断されました。(Code: ${code})`, undefined, undefined, '#FF6F6A');
+                this.player.notice(`${this.watch_session_type}との接続が切断されました。(Code: ${code})`, undefined, undefined, '#FF6F6A');
             }
             console.error(`[LiveCommentManager][WatchSession] Connection closed. (Code: ${code})`);
 
@@ -263,31 +269,31 @@ class LiveCommentManager implements PlayerManager {
                         break;
                     }
 
-                    let error = `ニコニコ実況でエラーが発生しています。(Code: ${message.data.code})`;
+                    let error = `${this.watch_session_type}でエラーが発生しています。(Code: ${message.data.code})`;
                     switch (message.data.code) {
                         case 'CONNECT_ERROR':
-                            error = 'ニコニコ実況のコメントサーバーに接続できません。';
+                            error = `${this.watch_session_type}のコメントサーバーに接続できません。`;
                             break;
                         case 'CONTENT_NOT_READY':
-                            error = 'ニコニコ実況が配信できない状態です。';
+                            error = `${this.watch_session_type}が配信できない状態です。`;
                             break;
                         case 'NO_THREAD_AVAILABLE':
-                            error = 'ニコニコ実況のコメントスレッドを取得できません。';
+                            error = `${this.watch_session_type}のコメントスレッドを取得できません。`;
                             break;
                         case 'NO_ROOM_AVAILABLE':
-                            error = 'ニコニコ実況のコメント部屋を取得できません。';
+                            error = `${this.watch_session_type}のコメント部屋を取得できません。`;
                             break;
                         case 'NO_PERMISSION':
-                            error = 'ニコニコ実況の API にアクセスする権限がありません。';
+                            error = `${this.watch_session_type}の API にアクセスする権限がありません。`;
                             break;
                         case 'NOT_ON_AIR':
-                            error = 'ニコニコ実況が放送中ではありません。';
+                            error = `${this.watch_session_type}が放送中ではありません。`;
                             break;
                         case 'BROADCAST_NOT_FOUND':
-                            error = 'ニコニコ実況の配信情報を取得できません。';
+                            error = `${this.watch_session_type}の配信情報を取得できません。`;
                             break;
                         case 'INTERNAL_SERVERERROR':
-                            error = 'ニコニコ実況でサーバーエラーが発生しています。';
+                            error = `${this.watch_session_type}でサーバーエラーが発生しています。`;
                             break;
                     }
 
@@ -319,34 +325,34 @@ class LiveCommentManager implements PlayerManager {
                     is_disconnect_message_received = true;
 
                     // 接続切断の理由
-                    let disconnect_reason = `ニコニコ実況との接続が切断されました。(${message.data.reason})`;
+                    let disconnect_reason = `${this.watch_session_type}との接続が切断されました。(${message.data.reason})`;
                     switch (message.data.reason) {
                         case 'TAKEOVER':
-                            disconnect_reason = 'ニコニコ実況の番組から追い出されました。';
+                            disconnect_reason = `${this.watch_session_type}の番組から追い出されました。`;
                             break;
                         case 'NO_PERMISSION':
-                            disconnect_reason = 'ニコニコ実況の番組の座席を取得できませんでした。';
+                            disconnect_reason = `${this.watch_session_type}の番組の座席を取得できませんでした。`;
                             break;
                         case 'END_PROGRAM':
-                            disconnect_reason = 'ニコニコ実況がリセットされたか、コミュニティの番組が終了しました。';
+                            disconnect_reason = `${this.watch_session_type}がリセットされたか、コミュニティの番組が終了しました。`;
                             break;
                         case 'PING_TIMEOUT':
                             disconnect_reason = 'コメントサーバーとの接続生存確認に失敗しました。';
                             break;
                         case 'TOO_MANY_CONNECTIONS':
-                            disconnect_reason = 'ニコニコ実況の同一ユーザからの接続数上限を越えています。';
+                            disconnect_reason = `${this.watch_session_type}の同一ユーザからの接続数上限を越えています。`;
                             break;
                         case 'TOO_MANY_WATCHINGS':
-                            disconnect_reason = 'ニコニコ実況の同一ユーザからの視聴番組数上限を越えています。';
+                            disconnect_reason = `${this.watch_session_type}の同一ユーザからの視聴番組数上限を越えています。`;
                             break;
                         case 'CROWDED':
-                            disconnect_reason = 'ニコニコ実況の番組が満席です。';
+                            disconnect_reason = `${this.watch_session_type}の番組が満席です。`;
                             break;
                         case 'MAINTENANCE_IN':
-                            disconnect_reason = 'ニコニコ実況はメンテナンス中です。';
+                            disconnect_reason = `${this.watch_session_type}はメンテナンス中です。`;
                             break;
                         case 'SERVICE_TEMPORARILY_UNAVAILABLE':
-                            disconnect_reason = 'ニコニコ実況で一時的にサーバーエラーが発生しています。';
+                            disconnect_reason = `${this.watch_session_type}で一時的にサーバーエラーが発生しています。`;
                             break;
                     }
 
@@ -477,7 +483,7 @@ class LiveCommentManager implements PlayerManager {
             // 接続切断の理由を表示
             const code = (event instanceof CloseEvent) ? event.code : 'Error';
             if (this.player.template.notice.textContent!.includes('再起動しています…') === false) {
-                this.player.notice(`ニコニコ実況との接続が切断されました。(Code: ${code})`, undefined, undefined, '#FF6F6A');
+                this.player.notice(`NX-Jikkyo との接続が切断されました。(Code: ${code})`, undefined, undefined, '#FF6F6A');
             }
             console.error(`[LiveCommentManager][CommentSession] Connection closed. (Code: ${code})`);
 
@@ -604,7 +610,7 @@ class LiveCommentManager implements PlayerManager {
 
 
     /**
-     * ニコニコ実況にコメントを送信する
+     * ニコニコ実況または NX-Jikkyo にコメントを送信する
      * DPlayer からコメントオプションを受け取り、成功 or 失敗をコールバックで通知する
      * @param options DPlayer のコメントオプション
      */
@@ -632,7 +638,7 @@ class LiveCommentManager implements PlayerManager {
         }
 
         // 視聴セッションの接続先がニコニコ生放送のときのみのバリデーション
-        if (this.watch_session?.url.includes('live.nicovideo.jp') === true) {
+        if (this.watch_session_type === 'ニコニコ実況') {
             if (user_store.user?.niconico_user_premium === false && (options.data.type === 'top' || options.data.type === 'bottom')) {
                 options.error('ニコニコ実況でコメントを上下に固定するには、ニコニコアカウントのプレミアム会員登録が必要です。');
                 return;
@@ -747,7 +753,7 @@ class LiveCommentManager implements PlayerManager {
 
 
     /**
-     * 同じ設定でニコニコ実況に再接続する
+     * 同じ設定でニコニコ実況または NX-Jikkyo に再接続する
      */
     private async reconnect(): Promise<void> {
         const player_store = usePlayerStore();
@@ -769,7 +775,7 @@ class LiveCommentManager implements PlayerManager {
         this.reconnecting = true;
         console.warn('[LiveCommentManager] Reconnecting...');
         if (this.player.template.notice.textContent!.includes('再起動しています…') === false) {
-            this.player.notice('ニコニコ実況に再接続しています…');
+            this.player.notice(`${this.watch_session_type}に再接続しています…`);
         }
 
         // 前の視聴セッション・コメントセッションを破棄
