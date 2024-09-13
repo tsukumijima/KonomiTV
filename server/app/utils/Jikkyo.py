@@ -194,20 +194,16 @@ class Jikkyo:
 
     async def getStatus(self) -> JikkyoChannelStatus | None:
         """
-        実況チャンネルの現在のステータスを取得する (ステータス更新は updateStatus() で行う)
+        実況チャンネルの現在のステータスを取得する (ステータス更新は updateStatuses() で行う)
         戻り値は force: 実況勢い / viewers: 累計視聴者数 / comments: 累計コメント数 の各カウントの辞書だが、force 以外は現在未使用
 
         Returns:
             JikkyoChannelStatus | None: 実況チャンネルのステータス
         """
 
-        # 起動してから一度も実況チャンネルのステータスが取得されていなければここで更新する
-        if self.__jikkyo_channels_statuses == {}:
-            await self.updateStatuses()
-
         # ネットワーク ID + サービス ID に対応するニコニコ実況チャンネルがない場合は None を返す
         ## 実況チャンネルが昔から存在しない CS や、2020年12月のニコニコ実況リニューアルで廃止された BS スカパーのチャンネルなどが該当
-        if self.jikkyo_id is None:
+        if self.jikkyo_id is None or self.jikkyo_id not in self.__jikkyo_channels_statuses:
             return None
 
         # このインスタンスに紐づく実況チャンネルのステータスを返す
