@@ -38,7 +38,7 @@ env:
   ## ref: https://github.com/rigaya/VCEEnc/releases
   ## ref: https://github.com/rigaya/rkmppenc/releases
   QSVENCC_VERSION: '7.69'
-  NVENCC_VERSION: '7.66'
+  NVENCC_VERSION: '7.67'
   VCEENCC_VERSION: '8.23'
   RKMPPENC_VERSION: '0.09'
   # libmediainfo のバージョン
