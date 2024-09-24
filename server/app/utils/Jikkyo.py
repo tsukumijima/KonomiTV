@@ -175,7 +175,7 @@ class Jikkyo:
                         return True
 
                 # ここまでの条件に一致しなかったら False を返す
-                # CATV・SKY・STARDIGIO は実況チャンネル/コミュニティ自体が存在しない
+                # CATV・SKY・BS4K は実況チャンネル/コミュニティ自体が存在しない
                 return False
 
             # 上記の条件に一致し、かつ実況チャンネル ID が存在する場合のみ

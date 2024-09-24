@@ -386,15 +386,15 @@ async def GetDefaultServiceRanges() -> list[schemas.ProgramSearchConditionServic
     channels = await Channel.filter(is_watchable=True).order_by('channel_number').order_by('remocon_id')
 
     # チャンネルタイプごとにグループ化
-    ground_channels: dict[Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO'], list[Channel]] = {}
+    ground_channels: dict[Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K'], list[Channel]] = {}
     for channel in channels:
         if channel.type not in ground_channels:
             ground_channels[channel.type] = []
         ground_channels[channel.type].append(channel)
 
-    # 地上波・BS・110度CS・CATV・124/128度CS・スターデジオの順に連結
+    # 地上波・BS・110度CS・CATV・124/128度CS・BS4K の順に連結
     sorted_channels: list[Channel] = []
-    for channel_type in ['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO']:
+    for channel_type in ['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K']:
         if channel_type in ground_channels:
             sorted_channels.extend(ground_channels[channel_type])
 

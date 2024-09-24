@@ -49,7 +49,7 @@ class LiveChannels(BaseModel):
     CS: list[LiveChannel]
     CATV: list[LiveChannel]
     SKY: list[LiveChannel]
-    STARDIGIO: list[LiveChannel]
+    BS4K: list[LiveChannel]
 
 # ***** 放送中/放送予定の番組 *****
 

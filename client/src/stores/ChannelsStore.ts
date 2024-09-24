@@ -22,7 +22,7 @@ const useChannelsStore = defineStore('channels', {
             CS: [],
             CATV: [],
             SKY: [],
-            STARDIGIO: [],
+            BS4K: [],
         } as ILiveChannelsList,
 
         // 初回のチャンネル情報更新が実行された後かどうか
@@ -192,7 +192,7 @@ const useChannelsStore = defineStore('channels', {
             channels_list_with_pinned.set('CS', []);
             channels_list_with_pinned.set('CATV', []);
             channels_list_with_pinned.set('SKY', []);
-            channels_list_with_pinned.set('StarDigio', []);
+            channels_list_with_pinned.set('BS4K', []);
 
             // channels_list に格納されているすべてのチャンネルに対しループを回し、
             // 順次 channels_list_with_pinned に追加していく
@@ -235,8 +235,8 @@ const useChannelsStore = defineStore('channels', {
                             channels_list_with_pinned.get('SKY')?.push(channel);
                             break;
                         }
-                        case 'STARDIGIO': {
-                            channels_list_with_pinned.get('StarDigio')?.push(channel);
+                        case 'BS4K': {
+                            channels_list_with_pinned.get('BS4K')?.push(channel);
                             break;
                         }
                     }

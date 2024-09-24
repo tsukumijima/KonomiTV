@@ -207,20 +207,21 @@ class TSInformation:
 
 
     @staticmethod
-    def getNetworkType(network_id: int) -> Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO', 'OTHER']:
+    def getNetworkType(network_id: int) -> Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K', 'OTHER']:
         """
         ネットワーク ID からネットワークの種別を取得する
-        種別は GR (地デジ)・BS・CS・CATV・SKY (SPHD)・STARDIGIO (スターデジオ)・OTHER (不明なネットワーク ID のチャンネル) のいずれか
+        種別は GR (地デジ)・BS・CS・CATV・SKY (SPHD)・BS4K・OTHER (不明なネットワーク ID のチャンネル) のいずれか
 
         Args:
             network_id (int): ネットワーク ID
 
         Returns:
-            str: GR・BS・CS・CATV・SKY・STARDIGIO・OTHER のいずれか
+            str: GR・BS・CS・CATV・SKY・BS4K・OTHER のいずれか
         """
 
         # 以下は ARIB STD-B10 第2部 付録N より抜粋
         # ref: https://web.archive.org/web/2if_/http://www.arib.or.jp/english/html/overview/doc/2-STD-B10v5_3.pdf#page=256
+        # ref: https://www.arib.or.jp/english/html/overview/doc/6-STD-B10v5_13-E1.pdf#page=273
         # ref: https://www.arib.or.jp/english/html/overview/doc/6-STD-B10v5_13-E1.pdf#page=274
 
         # 地上デジタルテレビジョン放送 (network_id: 30848 ~ 32744)
@@ -249,14 +250,15 @@ class TSInformation:
 
         # 124/128度CSデジタル放送
         # SPHD: 0x000A (スカパー！プレミアムサービス)
+        # SPSD-PerfecTV: 0x0001 (スターデジオ: 運用終了)
         # SPSD-SKY: 0x0003 (運用終了)
-        if network_id == 0x000A or network_id == 0x0003:
+        if network_id == 0x000A or network_id == 0x0001 or network_id == 0x0003:
             return 'SKY'
 
-        # 124/128度CSデジタル放送
-        # SPSD-PerfecTV: 0x0001 (スターデジオ: 運用終了)
-        if network_id == 0x0001:
-            return 'STARDIGIO'
+        # 高度BSデジタル放送: 0x000B (BS4K)
+        # 高度110度CSデジタル放送: 0x000C (CS4K: 運用終了)
+        if network_id == 0x000B or network_id == 0x000C:
+            return 'BS4K'
 
         # 不明なネットワーク ID のチャンネル
         return 'OTHER'

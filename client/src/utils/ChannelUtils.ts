@@ -21,7 +21,7 @@ export class ChannelUtils {
                 case 'CS': return 'CS';
                 case 'CATV': return 'CATV';
                 case 'SKY': return 'SKY';
-                case 'STARDIGIO': return 'STARDIGIO';
+                case 'BS4K': return 'BS4K';
                 // 正規表現ではエラーになっていないが、ChannelType のいずれにもマッチしない
                 default: return null;
             }

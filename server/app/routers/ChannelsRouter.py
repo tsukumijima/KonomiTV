@@ -67,7 +67,7 @@ async def GetChannel(channel_id: Annotated[str, Path(description='チャンネ�
 )
 async def ChannelsAPI():
     """
-    地デジ (GR)・BS・CS・CATV・SKY (SPHD)・STARDIGIO それぞれ全てのチャンネルの情報を取得する。
+    地デジ (GR)・BS・CS・CATV・SKY (SPHD)・BS4K それぞれ全てのチャンネルの情報を取得する。
     """
 
     # 現在時刻
@@ -129,7 +129,7 @@ async def ChannelsAPI():
         'CS': [],
         'CATV': [],
         'SKY': [],
-        'STARDIGIO': [],
+        'BS4K': [],
     }
 
     # チャンネルごとに実行
@@ -356,7 +356,7 @@ async def ChannelLogoAPI(
 
         # スターデジオ
         ## 本来は局ロゴは存在しないが、見栄えが悪いので 100 チャンネルすべてで同じ局ロゴを表示する
-        if channel.type == 'STARDIGIO':
+        if channel.type == 'SKY' and 400 <= channel.service_id <= 499:
             return LOGO_DIR / 'NID1-SID400.png'
 
         # ***** サブチャンネルのロゴを取得 *****

@@ -46,7 +46,7 @@ class Channel(TortoiseModel):
     transport_stream_id = cast(TortoiseField[int | None], fields.IntField(null=True))
     remocon_id = fields.IntField()
     channel_number = fields.CharField(255)
-    type = cast(TortoiseField[Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO']], fields.CharField(255))
+    type = cast(TortoiseField[Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K']], fields.CharField(255))
     name = fields.TextField()
     jikkyo_force = cast(TortoiseField[int | None], fields.IntField(null=True))
     is_subchannel = fields.BooleanField()
@@ -188,14 +188,6 @@ class Channel(TortoiseModel):
                     duplicate_channels[channel.id] = channel
                     continue
 
-                # チャンネルタイプが STARDIGIO でサービス ID が 400 ～ 499 以外のチャンネルを除外
-                # だいたい謎の試験チャンネルとかで見るに耐えない
-                if channel.type == 'STARDIGIO' and not 400 <= channel.service_id <= 499:
-                    # このチャンネル情報は上記処理で duplicate_channels から削除されているが、
-                    # 上記条件に一致するチャンネル情報は DB から削除したいので、再度 duplicate_channels に追加し、最後にまとめて削除する
-                    duplicate_channels[channel.id] = channel
-                    continue
-
                 # 「試験チャンネル」という名前（前方一致）のチャンネルを除外
                 # CATV や SKY に存在するが、だいたいどれもやってないし表示されてるだけ邪魔
                 if channel.name.startswith('試験チャンネル'):
@@ -205,7 +197,7 @@ class Channel(TortoiseModel):
                     continue
 
                 # type が 0x02 のサービスのみ、ラジオチャンネルとして設定する
-                # 今のところ、ラジオに該当するチャンネルは放送大学ラジオとスターデジオのみ
+                # 今のところ、ラジオに該当するチャンネルは放送大学ラジオのみ
                 channel.is_radiochannel = True if (service['type'] == 0x02) else False
 
                 # 同じネットワーク内にあるサービスのカウントを追加
@@ -348,14 +340,6 @@ class Channel(TortoiseModel):
                     duplicate_channels[channel.id] = channel
                     continue
 
-                # チャンネルタイプが STARDIGIO でサービス ID が 400 ～ 499 以外のチャンネルを除外
-                # だいたい謎の試験チャンネルとかで見るに耐えない
-                if channel.type == 'STARDIGIO' and not 400 <= channel.service_id <= 499:
-                    # このチャンネル情報は上記処理で duplicate_channels から削除されているが、
-                    # 上記条件に一致するチャンネル情報は DB から削除したいので、再度 duplicate_channels に追加し、最後にまとめて削除する
-                    duplicate_channels[channel.id] = channel
-                    continue
-
                 # 「試験チャンネル」という名前（前方一致）のチャンネルを除外
                 # CATV や SKY に存在するが、だいたいどれもやってないし表示されてるだけ邪魔
                 if channel.name.startswith('試験チャンネル'):
@@ -365,7 +349,7 @@ class Channel(TortoiseModel):
                     continue
 
                 # type が 0x02 のサービスのみ、ラジオチャンネルとして設定する
-                # 今のところ、ラジオに該当するチャンネルは放送大学ラジオとスターデジオのみ
+                # 今のところ、ラジオに該当するチャンネルは放送大学ラジオのみ
                 channel.is_radiochannel = True if (service['service_type'] == 0x02) else False
 
                 # 同じネットワーク内にあるサービスのカウントを追加

@@ -401,14 +401,14 @@ class LiveEncodingTask:
         return result
 
 
-    async def acquireMirakurunTuner(self, channel_type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO']) -> bool:
+    async def acquireMirakurunTuner(self, channel_type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K']) -> bool:
         """
         Mirakurun / mirakc で空きチューナーを確保できるまで待機する
         mirakc は空きチューナーがない場合に 404 を返すので (バグ？) 、それを避けるために予め空きチューナーがあるかどうかを確認する
         0.5 秒間待機しても空きチューナーがなければ False を返す (共聴できる場合もあるので、受信できないとは限らない)
 
         Args:
-            channel_type (Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO']): チャンネルタイプ
+            channel_type (Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K']): チャンネルタイプ
 
         Returns:
             bool: チューナーを確保できたかどうか
@@ -418,9 +418,9 @@ class LiveEncodingTask:
         BACKEND_TYPE: Literal['EDCB', 'Mirakurun'] = 'Mirakurun' if CONFIG.general.always_receive_tv_from_mirakurun is True else CONFIG.general.backend
         assert BACKEND_TYPE == 'Mirakurun', 'This method is only for Mirakurun backend.'
 
-        # Mirakurun / mirakc はチャンネルタイプが GR, BS, CS, SKY しかないので、CATV を CS に、STARDIGIO を SKY に変換する
+        # Mirakurun / mirakc はチャンネルタイプが GR, BS, CS, SKY しかないので、BS4K を BS に、CATV を CS に変換する
+        channel_type = 'BS' if channel_type == 'BS4K' else channel_type
         channel_type = 'CS' if channel_type == 'CATV' else channel_type
-        channel_type = 'SKY' if channel_type == 'STARDIGIO' else channel_type
 
         mirakurun_or_mirakc = 'Mirakurun'
         async with HTTPX_CLIENT() as client:
