@@ -6,11 +6,10 @@ import Hls from 'hls.js';
 import mpegts from 'mpegts.js';
 import { watch } from 'vue';
 
-import KeyboardShortcutManager from './managers/KeyboardShortcutManager';
-
 import APIClient from '@/services/APIClient';
 import CaptureManager from '@/services/player/managers/CaptureManager';
 import DocumentPiPManager from '@/services/player/managers/DocumentPiPManager';
+import KeyboardShortcutManager from '@/services/player/managers/KeyboardShortcutManager';
 import LiveCommentManager from '@/services/player/managers/LiveCommentManager';
 import LiveDataBroadcastingManager from '@/services/player/managers/LiveDataBroadcastingManager';
 import LiveEventManager from '@/services/player/managers/LiveEventManager';
@@ -77,6 +76,9 @@ class PlayerController {
     // RomSound の AudioContext と AudioBuffer のリスト
     private readonly romsounds_context: AudioContext = new AudioContext();
     private readonly romsounds_buffers: AudioBuffer[] = [];
+
+    // L字画面のクロップ設定で使うウォッチャーを保持する配列
+    private lshaped_screen_crop_watchers: (() => void)[] = [];
 
     // 破棄中かどうか
     // 破棄中は destroy() が呼ばれても何もしない
@@ -584,7 +586,7 @@ class PlayerController {
         // DPlayer の設定パネルを無理やり拡張し、KonomiTV 独自の項目を追加する
         this.setupSettingPanelHandler();
 
-        // LShaped Screen Crop の設定が変更されたときのイベントハンドラーを登録する
+        // L字画面のクロップ設定が変更されたときのイベントハンドラーを登録する
         this.setupLShapedScreenCropHandler();
 
         // KonomiTV 本体の UI を含むプレイヤー全体のコンテナ要素がリサイズされたときのイベントハンドラーを登録する
@@ -1352,11 +1354,13 @@ class PlayerController {
         crop();
 
         // 設定値が変更されたときに実行
-        watch(() => settings_store.settings.lshaped_screen_crop_enabled, crop, { immediate: true });
-        watch(() => settings_store.settings.lshaped_screen_crop_zoom_level, crop, { immediate: true });
-        watch(() => settings_store.settings.lshaped_screen_crop_x_position, crop, { immediate: true });
-        watch(() => settings_store.settings.lshaped_screen_crop_y_position, crop, { immediate: true });
-        watch(() => settings_store.settings.lshaped_screen_crop_zoom_origin, crop, { immediate: true });
+        this.lshaped_screen_crop_watchers = [
+            watch(() => settings_store.settings.lshaped_screen_crop_enabled, crop, { immediate: true }),
+            watch(() => settings_store.settings.lshaped_screen_crop_zoom_level, crop, { immediate: true }),
+            watch(() => settings_store.settings.lshaped_screen_crop_x_position, crop, { immediate: true }),
+            watch(() => settings_store.settings.lshaped_screen_crop_y_position, crop, { immediate: true }),
+            watch(() => settings_store.settings.lshaped_screen_crop_zoom_origin, crop, { immediate: true }),
+        ];
     }
 
 
@@ -1615,6 +1619,12 @@ class PlayerController {
         if (this.player_container_resize_observer !== null) {
             this.player_container_resize_observer.disconnect();
             this.player_container_resize_observer = null;
+        }
+
+        // L字画面のクロップ設定で使うウォッチャーを破棄
+        if (this.lshaped_screen_crop_watchers.length > 0) {
+            this.lshaped_screen_crop_watchers.forEach((unwatcher) => unwatcher());
+            this.lshaped_screen_crop_watchers = [];
         }
 
         // DPlayer 本体を破棄
