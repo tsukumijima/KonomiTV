@@ -100,7 +100,9 @@ export default defineComponent({
                 {title: 'ヒラギノTV丸ゴ', value: 'Hiragino TV Sans Rd S'},
                 {title: '新丸ゴ ARIB', value: 'TT-ShinMGo-regular'},
                 {title: 'Rounded M+ 1m for ARIB', value: 'Rounded M+ 1m for ARIB'},
+                {title: 'BIZ UDゴシック', value: 'BIZ UDGothic'},
                 {title: 'Noto Sans JP', value: 'Noto Sans JP'},
+                {title: '游ゴシック', value: 'Yu Gothic'},
                 {title: 'デフォルトのフォント', value: 'sans-serif'},
             ],
         };

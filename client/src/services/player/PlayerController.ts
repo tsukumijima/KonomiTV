@@ -487,7 +487,14 @@ class PlayerController {
                     // 文字スーパーレンダラーを無効にするかどうか
                     disableSuperimposeRenderer: is_show_superimpose === false,
                     // 描画フォント
-                    normalFont: `"${settings_store.settings.caption_font}", "Rounded M+ 1m for ARIB", sans-serif`,
+                    normalFont: (() => {
+                        let font = settings_store.settings.caption_font;
+                        if (font === 'Yu Gothic') {
+                            // 游ゴシックのみ、Windows と Mac で名前が異なる
+                            font = 'Yu Gothic Medium","Yu Gothic","YuGothic';
+                        }
+                        return `"${font}", "Rounded M+ 1m for ARIB", sans-serif`;
+                    })(),
                     // 縁取りする色
                     forceStrokeColor: settings_store.settings.always_border_caption_text,
                     // 背景色
