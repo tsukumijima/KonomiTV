@@ -754,7 +754,7 @@ class PlayerController {
         // この時点で映像が停止していて、かつ readyState が HAVE_FUTURE_DATA な場合、復旧を試みる
         // Safari ではタイミングによっては this.player.video が null になる場合があるらしいので ? を付ける
         if (player_store.is_video_buffering === true && this.player?.video?.readyState < 3) {
-            console.warn('\u001b[31m[PlayerController] Video still buffering. (HTMLVideoElement.readyState < HAVE_FUTURE_DATA) trying to recover.');
+            console.warn('\u001b[31m[PlayerController] Video still buffering. (HTMLVideoElement.readyState < HAVE_FUTURE_DATA) Trying to recover.');
 
             // 一旦停止して、0.25 秒間を置く
             this.player.video.pause();
@@ -773,7 +773,7 @@ class PlayerController {
             // さらに 0.5 秒待った時点で映像が停止している場合、復旧を試みる
             await Utils.sleep(0.5);
             if (player_store.is_video_buffering === true && this.player?.video?.readyState < 3) {
-                console.warn('\u001b[31m[PlayerController] Video still buffering. (HTMLVideoElement.readyState < HAVE_FUTURE_DATA) trying to recover.');
+                console.warn('\u001b[31m[PlayerController] Video still buffering. (HTMLVideoElement.readyState < HAVE_FUTURE_DATA) Trying to recover.');
 
                 // 一旦停止して、0.25 秒間を置く
                 this.player.video.pause();
@@ -941,6 +941,29 @@ class PlayerController {
                 // 一旦音量をミュートする
                 this.player.video.muted = true;
 
+                // この時点で HTMLVideoElement.paused が true のとき、再生できるようになるまで 0.05 秒間を開けて 5 回試す
+                if (this.player.video.paused === true) {
+                    let attempts = 0;
+                    const maxAttempts = 5;  // 試行回数
+                    const attemptInterval = 0.05;  // 試行間隔 (秒)
+                    const attemptPlay = async (): Promise<void> => {
+                        if (attempts >= maxAttempts) {
+                            console.warn(`\u001b[31m[PlayerController] Failed to start playback after ${maxAttempts} attempts.`);
+                            return;
+                        }
+                        try {
+                            await this.player?.video.play();
+                            console.log('\u001b[31m[PlayerController] Playback started successfully.');
+                        } catch (error) {
+                            console.warn(`\u001b[31m[PlayerController] Attempt ${attempts + 1} to start playback failed:`, error);
+                            attempts++;
+                            await Utils.sleep(attemptInterval);
+                            await attemptPlay();
+                        }
+                    };
+                    await attemptPlay();
+                }
+
                 // 再生準備ができた段階で再生バッファを調整し、再生準備ができた段階でローディング中の背景画像を非表示にするイベントハンドラーを登録
                 let on_canplay_called = false;
                 const on_canplay = async () => {
@@ -954,7 +977,7 @@ class PlayerController {
 
                     // 再生バッファ調整のため、一旦停止させる
                     // this.player.video.pause() を使うとプレイヤーの UI アイコンが停止してしまうので、代わりに playbackRate を使う
-                    console.log('\u001b[31m[PlayerController] buffering...');
+                    console.log('\u001b[31m[PlayerController] Buffering...');
                     this.player.video.playbackRate = 0;
 
                     // 再生バッファが live_playback_buffer_seconds を超えるまで 0.1 秒おきに再生バッファをチェックする
@@ -970,7 +993,7 @@ class PlayerController {
 
                     // 再生バッファ調整のため一旦停止していた再生を再び開始
                     this.player.video.playbackRate = 1;
-                    console.log('\u001b[31m[PlayerController] buffering completed.');
+                    console.log('\u001b[31m[PlayerController] Buffering completed.');
 
                     // ローディング状態を解除し、映像を表示する
                     player_store.is_loading = false;
@@ -1009,17 +1032,33 @@ class PlayerController {
                 this.player.video.oncanplay = on_canplay;
                 this.player.video.oncanplaythrough = on_canplay;
 
-                // 万が一 canplaythrough が発火しなかった場合のための処理
+                // 万が一 canplay(through) が発火しなかった場合のために (ほぼ Safari 向け) 、
+                // mpegts.js 側でメディア情報が取得できたタイミングでも再生開始を試みる
+                // 特に Safari 18 以降では MSE の canplay(through) が場合によっては発火しなかったり、発火が異常に遅かったりする…
+                // Safari 18 以降、MSE において canplay(through) の発火タイミングと readyState の値は信頼できない
+                this.player.plugins.mpegts?.on(mpegts.Events.MEDIA_INFO, async (info: {[key: string]: any}) => {
+                    console.log('\u001b[31m[PlayerController] mpegts.js media info:', info);
+                    // 一応ブラウザネイティブの canplay(through) を優先したいので、0.25 秒待ってから再生開始を試みる
+                    // 既に再生開始処理を実行済みの場合は実行しない
+                    await Utils.sleep(0.25);
+                    if (on_canplay_called === false) {
+                        console.warn('\u001b[31m[PlayerController] mpegts.js media info fired, but canplay(through) event not fired. Trying to manually start playback.');
+                        on_canplay();
+                    }
+                });
+
+                // 万が一 canplay(through) が発火しなかった場合のために (ほぼ Safari 向け) 、
                 // 非同期で 0.05 秒おきに直接 readyState === HAVE_ENOUGH_DATA かどうかを確認する
-                // この処理は先に canplaythrough が発火した場合は実行されない
+                // ほとんどのケースでは 先に上記 mpegts.js の MEDIA_INFO イベントが発火するため、この処理は実行されない
                 (async () => {
                     while (this.player !== null && this.player.video.readyState < 4) {
                         await Utils.sleep(0.05);
                     }
-                    // さらに 0.1 秒待ってから実行
+                    // ループを終えた時点で readyState === HAVE_ENOUGH_DATA になっているので、再生開始を試みる
+                    // 既に再生開始処理を実行済みの場合は実行しない
                     await Utils.sleep(0.1);
                     if (on_canplay_called === false) {
-                        console.warn('\u001b[31m[PlayerController] canplaythrough event not fired. trying to recover.');
+                        console.warn('\u001b[31m[PlayerController] canplay(through) event not fired. Trying to manually start playback.');
                         on_canplay();
                     }
                 })();
