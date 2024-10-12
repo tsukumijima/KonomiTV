@@ -948,6 +948,7 @@ class PlayerController {
                     // 重複実行を回避する
                     if (this.player === null) return;
                     if (on_canplay_called === true) return;
+                    this.player.video.oncanplay = null;
                     this.player.video.oncanplaythrough = null;
                     on_canplay_called = true;
 
@@ -1005,6 +1006,7 @@ class PlayerController {
                     // 上記ロジックでは丸め誤差の関係で完全に current_volume とは一致しないことがあるため
                     this.player.video.volume = current_volume;
                 };
+                this.player.video.oncanplay = on_canplay;
                 this.player.video.oncanplaythrough = on_canplay;
 
                 // 万が一 canplaythrough が発火しなかった場合のための処理
