@@ -66,6 +66,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          provenance: false
 
       # おそらく使われることのない、Untagged なイメージをすべて削除する
       # ref: https://github.com/vlaurin/action-ghcr-prune
