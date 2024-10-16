@@ -44,7 +44,7 @@ typer = "^0.9.0"
 typing-extensions = "^4.8.0"
 typing-inspect = "^0.9.0"
 tweepy = "^4.14.0"
-tweepy-authlib = "^1.5.3"
+tweepy-authlib = "^1.5.5"
 tzdata = "^2023.3"
 uvicorn = {version = "^0.24.0.post1", extras = ["standard"]}
 uvloop = {version = "^0.19.0", platform = "linux"}
