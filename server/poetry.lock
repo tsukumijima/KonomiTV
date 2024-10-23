@@ -1194,37 +1194,6 @@ six = ">=1.10"
 tzlocal = ">=1.2"
 
 [[package]]
-name = "legacycrypt"
-version = "0.3"
-description = "Wrapper to the POSIX crypt library call and associated functionality."
-optional = false
-python-versions = ">=3.5"
-files = [
-    {file = "legacycrypt-0.3-py3-none-any.whl", hash = "sha256:b5e373506ccb442f8d715e29fa75f53a11bbec3ca0d7b63445f4dbb656555218"},
-    {file = "legacycrypt-0.3.tar.gz", hash = "sha256:e76e7fd25666a451428b20d5afbbecf3654565b2e11511b53226be955c4d2292"},
-]
-
-[[package]]
-name = "libpass"
-version = "1.8.1"
-description = "Fork of passlib, a comprehensive password hashing framework supporting over 30 schemes"
-optional = false
-python-versions = ">=3.9"
-files = [
-    {file = "libpass-1.8.1-py3-none-any.whl", hash = "sha256:9eef494740e3bc1455935cba21f91d2e0a8dac1ae9980bd171fbacd25517a9ba"},
-    {file = "libpass-1.8.1.tar.gz", hash = "sha256:a4a4a936ddb8a886ca6d2c37859bff1f6de25f57eb74466d01454a7fb6c5ce1b"},
-]
-
-[package.dependencies]
-bcrypt = {version = ">=3.1.0", optional = true, markers = "extra == \"bcrypt\""}
-legacycrypt = ">=0.3"
-
-[package.extras]
-argon2 = ["argon2-cffi (>=18.2.0)"]
-bcrypt = ["bcrypt (>=3.1.0)"]
-totp = ["cryptography (>=43.0.1)"]
-
-[[package]]
 name = "markdown-it-py"
 version = "3.0.0"
 description = "Python port of markdown-it. Markdown parsing, done right!"
@@ -1413,6 +1382,26 @@ files = [
 rsa = ["cryptography (>=3.0.0)"]
 signals = ["blinker (>=1.4.0)"]
 signedtoken = ["cryptography (>=3.0.0)", "pyjwt (>=2.0.0,<3)"]
+
+[[package]]
+name = "passlib"
+version = "1.7.4"
+description = "comprehensive password hashing framework supporting over 30 schemes"
+optional = false
+python-versions = "*"
+files = [
+    {file = "passlib-1.7.4-py2.py3-none-any.whl", hash = "sha256:aa6bca462b8d8bda89c70b382f0c298a20b5560af6cbfa2dce410c0a2fb669f1"},
+    {file = "passlib-1.7.4.tar.gz", hash = "sha256:defd50f72b65c5402ab2c573830a6978e5f202ad0d984793c8dde2c4152ebe04"},
+]
+
+[package.dependencies]
+bcrypt = {version = ">=3.1.0", optional = true, markers = "extra == \"bcrypt\""}
+
+[package.extras]
+argon2 = ["argon2-cffi (>=18.2.0)"]
+bcrypt = ["bcrypt (>=3.1.0)"]
+build-docs = ["cloud-sptheme (>=1.10.1)", "sphinx (>=1.6)", "sphinxcontrib-fulltoc (>=1.2.0)"]
+totp = ["cryptography"]
 
 [[package]]
 name = "pillow"
@@ -3095,4 +3084,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<3.12"
-content-hash = "917cd2760c30b39581bab1417c3bdee6479b83d938c5d6f6fa7a75262b867a43"
+content-hash = "d6a56ead11dccc6c74633cb52e6f5eef72dabae9875d77ed0274c6fb72304880"
