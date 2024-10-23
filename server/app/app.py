@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi_restful.tasks import repeat_every
+from fastapi_utils.tasks import repeat_every
 from pathlib import Path
 
 from app import logging
