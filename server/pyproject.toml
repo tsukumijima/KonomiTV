@@ -50,6 +50,8 @@ uvicorn = {version = "^0.32.0", extras = ["standard"]}
 uvloop = {version = "^0.21.0", platform = "linux"}
 watchfiles = "^0.24.0"
 
+[tool.poetry.group.dev.dependencies]
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
