@@ -33,7 +33,9 @@ from rich.style import Style
 from rich.table import Table
 from rich.text import TextType
 from typing import Any, Callable, cast, Literal, Optional, TypedDict, TypeVar
+from watchdog.events import DirCreatedEvent
 from watchdog.events import FileCreatedEvent
+from watchdog.events import DirModifiedEvent
 from watchdog.events import FileModifiedEvent
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers.polling import PollingObserver
@@ -50,6 +52,7 @@ class CustomPrompt(Prompt):
         console: Optional[Console] = None,
         password: bool = False,
         choices: Optional[list[str]] = None,
+        case_sensitive: bool = True,
         show_default: bool = True,
         show_choices: bool = True,
     ) -> None:
@@ -58,7 +61,15 @@ class CustomPrompt(Prompt):
             prompt = f'  {prompt}'  # 左に半角スペース2つ分余白を空ける
 
         # 親クラスのコンストラクタを実行
-        super().__init__(prompt, console=console, password=password, choices=choices, show_default=show_default, show_choices=show_choices)
+        super().__init__(
+            prompt,
+            console=console,
+            password=password,
+            choices=choices,
+            case_sensitive=case_sensitive,
+            show_default=show_default,
+            show_choices=show_choices,
+        )
 
         if self.choices is not None:
             self.illegal_choice_message = Padding(f'[prompt.invalid.choice][{"/".join(self.choices)}] のいずれかを選択してください！', (0, 2, 0, 2))
@@ -75,6 +86,7 @@ class CustomConfirm(Confirm):
         console: Optional[Console] = None,
         password: bool = False,
         choices: Optional[list[str]] = None,
+        case_sensitive: bool = True,
         show_default: bool = True,
         show_choices: bool = True,
     ) -> None:
@@ -83,7 +95,15 @@ class CustomConfirm(Confirm):
             prompt = f'  {prompt}'  # 左に半角スペース2つ分余白を空ける
 
         # 親クラスのコンストラクタを実行
-        super().__init__(prompt, console=console, password=password, choices=choices, show_default=show_default, show_choices=show_choices)
+        super().__init__(
+            prompt,
+            console=console,
+            password=password,
+            choices=choices,
+            case_sensitive=case_sensitive,
+            show_default=show_default,
+            show_choices=show_choices,
+        )
 
 
 # ジェネリック型
@@ -685,18 +705,18 @@ def RunKonomiTVServiceWaiter(platform_type: Literal['Windows', 'Linux', 'Linux-D
     class LogFolderWatchHandler(FileSystemEventHandler):
 
         # 何かしらログフォルダに新しいファイルが作成されたら、サービスが起動したものとみなす
-        def on_created(self, event: FileCreatedEvent) -> None:
+        def on_created(self, event: DirCreatedEvent | FileCreatedEvent) -> None:
             nonlocal is_service_started
             is_service_started = True
 
         # ログファイルが更新されたら、ログの中に Application startup complete. という文字列が含まれていないかを探す
         # ログの中に Application startup complete. という文字列が含まれていたら、KonomiTV サーバーの起動が完了したとみなす
-        def on_modified(self, event: FileModifiedEvent) -> None:
+        def on_modified(self, event: DirModifiedEvent | FileModifiedEvent) -> None:
             # もし on_created をハンドリングできなかった場合に備え、on_modified でもサービス起動フラグを立てる
             nonlocal is_service_started, is_server_started, is_programs_update_completed, is_error_occurred
             is_service_started = True
             # ファイルのみに限定（フォルダの変更も検知されることがあるが、当然フォルダは開けないのでエラーになる）
-            if Path(event.src_path).is_file() is True:
+            if Path(str(event.src_path)).is_file() is True:
                 with open(event.src_path, mode='r', encoding='utf-8') as log:
                     text = log.read()
                     if 'ERROR:' in text or 'Traceback (most recent call last):' in text:

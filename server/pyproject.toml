@@ -46,7 +46,7 @@ typing-inspect = "^0.9.0"
 tweepy = "^4.14.0"
 tweepy-authlib = "^1.5.5"
 tzdata = "^2024.2"
-uvicorn = {version = "0.32.0", extras = ["standard"]}
+uvicorn = {version = "^0.32.0", extras = ["standard"]}
 uvloop = {version = "^0.21.0", platform = "linux"}
 watchfiles = "^0.24.0"
 
