@@ -371,6 +371,7 @@ jobs:
         with:
           context: .
           tags: arm64v8/ubuntu:build
+          platforms: linux/arm64
           build-args: IMAGE=arm64v8/ubuntu:20.04
           cache-from: type=gha,scope=arm64v8/ubuntu
           cache-to: type=gha,scope=arm64v8/ubuntu,mode=max
