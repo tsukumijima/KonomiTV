@@ -125,21 +125,21 @@ jobs:
           # QSVEncC のアーカイブのダウンロード
           curl -LO https://github.com/rigaya/QSVEnc/releases/download/${{ env.QSVENCC_VERSION }}/QSVEncC_${{ env.QSVENCC_VERSION }}_x64.7z
           7z x -y -o"thirdparty/QSVEncC" QSVEncC_${{ env.QSVENCC_VERSION }}_x64.7z
-          rm thirdparty/QSVEncC/hdr10plus_gen.exe
+          rm -f thirdparty/QSVEncC/hdr10plus_gen.exe
           mv thirdparty/QSVEncC/QSVEncC64.exe thirdparty/QSVEncC/QSVEncC.exe
           curl -L -o thirdparty/QSVEncC/License.txt https://raw.githubusercontent.com/rigaya/QSVEnc/master/license.txt
 
           # NVEncC のアーカイブのダウンロード
           curl -LO https://github.com/rigaya/NVEnc/releases/download/${{ env.NVENCC_VERSION }}/NVEncC_${{ env.NVENCC_VERSION }}_x64.7z
           7z x -y -o"thirdparty/NVEncC" NVEncC_${{ env.NVENCC_VERSION }}_x64.7z
-          rm thirdparty/NVEncC/hdr10plus_gen.exe
+          rm -f thirdparty/NVEncC/hdr10plus_gen.exe
           mv thirdparty/NVEncC/NVEncC64.exe thirdparty/NVEncC/NVEncC.exe
           curl -L -o thirdparty/NVEncC/License.txt https://raw.githubusercontent.com/rigaya/NVEnc/master/NVEnc_license.txt
 
           # VCEEncC のアーカイブのダウンロード
           curl -LO https://github.com/rigaya/VCEEnc/releases/download/${{ env.VCEENCC_VERSION }}/VCEEncC_${{ env.VCEENCC_VERSION }}_x64.7z
           7z x -y -o"thirdparty/VCEEncC" VCEEncC_${{ env.VCEENCC_VERSION }}_x64.7z
-          rm thirdparty/VCEEncC/hdr10plus_gen.exe
+          rm -f thirdparty/VCEEncC/hdr10plus_gen.exe
           mv thirdparty/VCEEncC/VCEEncC64.exe thirdparty/VCEEncC/VCEEncC.exe
           curl -L -o thirdparty/VCEEncC/License.txt https://raw.githubusercontent.com/rigaya/VCEEnc/master/VCEEnc_license.txt
 
