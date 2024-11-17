@@ -5126,9 +5126,9 @@ vuetify@^3.7.1:
   resolved "https://registry.yarnpkg.com/vuetify/-/vuetify-3.7.1.tgz#102dc8b6c8795955d874da85375a98e369c102d6"
   integrity sha512-N1XlczbgeGt/O+JUk72QPrqcDaRIXUdptUciJqGyTvZ9cfMoSlEWs6TZO+dOOfXbKvmIMFMycYg4dgSHDpCPhg==
 
-"web-bml@github:tsukumijima/web-bml#a27035a5494475591937f0aba9d3ef7d581acccf":
+"web-bml@github:tsukumijima/web-bml#6849e03550e82f1e7822574b4e84bc112b5c2069":
   version "1.0.0"
-  resolved "https://codeload.github.com/tsukumijima/web-bml/tar.gz/a27035a5494475591937f0aba9d3ef7d581acccf"
+  resolved "https://codeload.github.com/tsukumijima/web-bml/tar.gz/6849e03550e82f1e7822574b4e84bc112b5c2069"
   dependencies:
     "@tsukumijima/aribts" "github:tsukumijima/node-aribts#v1.5.1"
     arib-subtitle-timedmetadater "^4.0.10"
