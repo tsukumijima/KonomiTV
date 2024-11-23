@@ -153,6 +153,7 @@ class DocumentPiPManager implements PlayerManager {
             // Document Picture-in-Picture ウインドウに DOM 要素を移動
             const watch_content = pip_window.document.createElement('div');
             watch_content.classList.add('watch-content');
+            watch_content.style.height = '100vh';  // ここで 100vh を指定しないと、Chrome 131 以降データ放送表示時に高さが 0px になり PiP ウインドウが真っ黒になる
             watch_content.append(this.watch_header_element);
             watch_content.append(this.watch_player_element);
             pip_window.document.body.append(watch_content);
