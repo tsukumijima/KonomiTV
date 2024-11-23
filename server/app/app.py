@@ -86,13 +86,15 @@ app.include_router(MaintenanceRouter.router)
 app.include_router(VersionRouter.router)
 
 # CORS の設定
-## デバッグモード時のみ全てのオリジンからのリクエストを許可 (クライアント側の開発サーバーからのアクセスに必要)
-CORS_ORIGINS = ['*'] if CONFIG.general.debug is True else []
+## 開発環境では全てのオリジンからのリクエストを許可
+## 本番環境では app.konomi.tv 以外のオリジンからのリクエストを拒否
+CORS_ORIGINS = ['*'] if CONFIG.general.debug is True else ['https://app.konomi.tv']
 app.add_middleware(
     CORSMiddleware,
     allow_origins = CORS_ORIGINS,
-    allow_methods = CORS_ORIGINS,
-    allow_headers = CORS_ORIGINS,
+    # すべての HTTP メソッドと HTTP ヘッダーを許可
+    allow_methods = ['*'],
+    allow_headers = ['*'],
     allow_credentials = True,
 )
 
