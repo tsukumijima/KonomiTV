@@ -15,11 +15,11 @@ on:
 env:
   # Python のバージョン (Python Standalone Builds のリリースを指定する)
   ## ref: https://github.com/indygreg/python-build-standalone/releases
-  PYTHON_TAG: '20241008'
+  PYTHON_TAG: '20241016'
   PYTHON_MAJOR_VERSION: '3.11'
   PYTHON_VERSION: '3.11.10'
   # Poetry のバージョン
-  POETRY_VERSION: '1.8.3'
+  POETRY_VERSION: '1.8.4'
   # FFmpeg のバージョン (FFmpeg-Builds のリリースを指定する)
   ## FFmpeg-Builds は毎月末のリリースが長期間保持されるため、基本毎月末のリリースを指定する
   ## FFMPEG_HWENCC_* は QSVEncC・NVEncC・VCEEncC (for Ubuntu 20.04 LTS) が依存する FFmpeg のバージョンを示す
