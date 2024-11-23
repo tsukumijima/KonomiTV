@@ -13,7 +13,7 @@ update-thirdparty = "python -m misc.UpdateThirdparty latest"
 python = ">=3.11,<3.12"
 aerich = "^0.7.2"
 aiofiles = "^24.1.0"
-aiohttp = "^3.10.10"
+aiohttp = "^3.10.11"
 ariblib = { url = "https://github.com/tsukumijima/ariblib/releases/download/v0.1.4/ariblib-0.1.4-py3-none-any.whl" }
 beautifulsoup4 = "^4.12.3"
 biim = { url = "https://github.com/tsukumijima/biim/releases/download/v1.10.2-patch2/biim-1.10.2-py3-none-any.whl" }
