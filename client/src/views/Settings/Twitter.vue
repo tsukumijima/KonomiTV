@@ -18,7 +18,7 @@
                     <div class="ml-4">
                         <div class="font-weight-bold text-h6">Twitter アカウントと連携していません</div>
                         <div class="text-text-darken-1 text-subtitle-2 mt-1">
-                            Twitter アカウントと連携すると、テレビを見ながら Twitter にツイートしたり、ほかの実況ツイートをリアルタイムで表示できるようになります。
+                            Twitter アカウントと連携すると、テレビを見ながら Twitter にポスト (ツイート)したり、ほかの実況ポスト (ツイート)をリアルタイムで表示できるようになります。
                         </div>
                     </div>
                 </div>
@@ -113,10 +113,10 @@
                 </v-dialog>
             </div>
             <div class="settings__item settings__item--switch">
-                <label class="settings__item-heading" for="fold_panel_after_sending_tweet">ツイート送信後にパネルを折りたたむ</label>
+                <label class="settings__item-heading" for="fold_panel_after_sending_tweet">ポスト (ツイート)送信後にパネルを折りたたむ</label>
                 <label class="settings__item-label" for="fold_panel_after_sending_tweet">
-                    この設定をオンにすると、ツイートを送信した後に、パネルが自動で折りたたまれます。<br>
-                    ツイートするとき以外はできるだけ映像を大きくして見たい方におすすめです。<br>
+                    この設定をオンにすると、ポスト (ツイート)を送信した後に、パネルが自動で折りたたまれます。<br>
+                    ポスト (ツイート)するとき以外はできるだけ映像を大きくして見たい方におすすめです。<br>
                 </label>
                 <v-switch class="settings__item-switch" color="primary" id="fold_panel_after_sending_tweet" hide-details
                     v-model="settingsStore.settings.fold_panel_after_sending_tweet">
@@ -126,7 +126,7 @@
                 <label class="settings__item-heading" for="reset_hashtag_when_program_switches">番組が切り替わったときにハッシュタグフォームをリセットする</label>
                 <label class="settings__item-label" for="reset_hashtag_when_program_switches">
                     チャンネルを切り替えたときや、視聴中の番組が終了し次の番組の放送が開始されたときに、ハッシュタグフォームをリセットするかを設定します。<br>
-                    この設定をオンにしておけば、「誤って前番組のハッシュタグをつけたまま次番組の実況ツイートをしてしまう」といったミスを回避できます。<br>
+                    この設定をオンにしておけば、「誤って前番組のハッシュタグをつけたまま次番組の実況ポスト (ツイート)をしてしまう」といったミスを回避できます。<br>
                 </label>
                 <v-switch class="settings__item-switch" color="primary" id="reset_hashtag_when_program_switches" hide-details
                     v-model="settingsStore.settings.reset_hashtag_when_program_switches">
@@ -153,9 +153,9 @@
                 </v-select>
             </div>
             <div class="settings__item">
-                <div class="settings__item-heading">ツイートにつけるハッシュタグの位置</div>
+                <div class="settings__item-heading">ポスト (ツイート)につけるハッシュタグの位置</div>
                 <div class="settings__item-label">
-                    ツイート本文から見て、ハッシュタグをどの位置につけてツイートするかを設定します。<br>
+                    ポスト (ツイート)本文から見て、ハッシュタグをどの位置につけてポスト (ツイート)するかを設定します。<br>
                 </div>
                 <v-select class="settings__item-form" color="primary" variant="outlined" hide-details
                     :density="is_form_dense ? 'compact' : 'default'"
@@ -163,9 +163,9 @@
                 </v-select>
             </div>
             <div class="settings__item">
-                <div class="settings__item-heading">ツイートするキャプチャに番組タイトルの透かしを描画する</div>
+                <div class="settings__item-heading">ポスト (ツイート)するキャプチャに番組タイトルの透かしを描画する</div>
                 <div class="settings__item-label">
-                    ツイートするキャプチャに、透かしとして視聴中の番組タイトルを描画するかを設定します。<br>
+                    ポスト (ツイート)するキャプチャに、透かしとして視聴中の番組タイトルを描画するかを設定します。<br>
                     透かしの描画位置は 左上・右上・左下・右下 から選択できます。<br>
                 </div>
                 <v-select class="settings__item-form" color="primary" variant="outlined" hide-details
@@ -206,20 +206,20 @@ export default defineComponent({
 
             // デフォルトで表示されるパネルのタブの選択肢
             twitter_active_tab: [
-                {title: 'ツイート検索タブ', value: 'Search'},
+                {title: 'ポスト (ツイート)検索タブ', value: 'Search'},
                 {title: 'タイムラインタブ', value: 'Timeline'},
                 {title: 'キャプチャタブ', value: 'Capture'},
             ],
 
-            // ツイートにつけるハッシュタグの位置の選択肢
+            // ポスト (ツイート)につけるハッシュタグの位置の選択肢
             tweet_hashtag_position: [
-                {title: 'ツイート本文の前に追加する', value: 'Prepend'},
-                {title: 'ツイート本文の後に追加する', value: 'Append'},
-                {title: 'ツイート本文の前に追加してから改行する', value: 'PrependWithLineBreak'},
-                {title: 'ツイート本文の後に改行してから追加する', value: 'AppendWithLineBreak'},
+                {title: 'ポスト (ツイート)本文の前に追加する', value: 'Prepend'},
+                {title: 'ポスト (ツイート)本文の後に追加する', value: 'Append'},
+                {title: 'ポスト (ツイート)本文の前に追加してから改行する', value: 'PrependWithLineBreak'},
+                {title: 'ポスト (ツイート)本文の後に改行してから追加する', value: 'AppendWithLineBreak'},
             ],
 
-            // ツイートするキャプチャに番組タイトルの透かしを描画する位置の選択肢
+            // ポスト (ツイート)するキャプチャに番組タイトルの透かしを描画する位置の選択肢
             tweet_capture_watermark_position: [
                 {title: '透かしを描画しない', value: 'None'},
                 {title: '透かしをキャプチャの左上に描画する', value: 'TopLeft'},

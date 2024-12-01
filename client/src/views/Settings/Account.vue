@@ -54,7 +54,7 @@
                         <Icon class="account-feature__icon" icon="fa-brands:twitter" />
                         <div class="account-feature__info">
                             <span class="account-feature__info-heading">Twitter 連携機能</span>
-                            <span class="account-feature__info-text">テレビを見ながら Twitter にツイートしたり、検索したツイートをリアルタイムで表示できます。別途、Twitter アカウントとの連携が必要です。</span>
+                            <span class="account-feature__info-text">テレビを見ながら Twitter にポスト (ツイート)したり、検索したポスト (ツイート)をリアルタイムで表示できます。別途、Twitter アカウントとの連携が必要です。</span>
                         </div>
                     </div>
                     <div class="account-feature">
