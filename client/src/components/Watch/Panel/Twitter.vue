@@ -9,7 +9,7 @@
             <div v-ripple class="tab-button" :class="{'tab-button--active': playerStore.twitter_active_tab === 'Search'}"
                 @click="playerStore.twitter_active_tab = 'Search'">
                 <Icon icon="fluent:search-16-filled" height="18px" />
-                <span class="tab-button__text">ツイート検索</span>
+                <span class="tab-button__text">ポスト検索</span>
             </div>
             <div v-ripple class="tab-button" :class="{'tab-button--active': playerStore.twitter_active_tab === 'Timeline'}"
                 @click="playerStore.twitter_active_tab = 'Timeline'">
@@ -37,7 +37,7 @@
                     <Icon icon="fluent:clipboard-text-ltr-32-regular" height="22px" />
                 </div>
             </div>
-            <textarea class="tweet-form__textarea" placeholder="ツイート" spellcheck="false" v-model="tweet_text" ref="tweet_text"
+            <textarea class="tweet-form__textarea" placeholder="ポスト" spellcheck="false" v-model="tweet_text" ref="tweet_text"
                 @input="updateTweetLetterCount()"
                 @paste="pasteClipboardData($event)"
                 @focus="is_tweet_text_form_focused = true"
@@ -69,7 +69,7 @@
                 <button class="tweet-button" v-ripple="Utils.isTouchDevice() === false" :disabled="is_tweet_button_disabled"
                     @click="sendTweet()" @touchstart="sendTweet()">
                     <Icon icon="fa-brands:x-twitter" height="16px" />
-                    <span class="ml-1">ツイート</span>
+                    <span class="ml-1">ポスト</span>
                 </button>
             </div>
         </div>
@@ -211,29 +211,29 @@ export default defineComponent({
             // キャプチャリストの要素
             captures_element: null as HTMLDivElement | null,
 
-            // ツイートハッシュタグフォームにフォーカスしているか
+            // ポストハッシュタグフォームにフォーカスしているか
             is_tweet_hashtag_form_focused: false,
 
-            // ツイート本文フォームにフォーカスしているか
+            // ポスト本文フォームにフォーカスしているか
             is_tweet_text_form_focused: false,
 
-            // ツイートのハッシュタグ
+            // ポストのハッシュタグ
             tweet_hashtag: '',
 
-            // ツイート本文
+            // ポスト本文
             tweet_text: '',
 
             // 140 文字から引いた残りの文字数カウント
             tweet_letter_remain_count: 140,
 
-            // ツイートを送信中か (API リクエストを実行するまで)
+            // ポストを送信中か (API リクエストを実行するまで)
             is_tweet_sending: false,
         };
     },
     computed: {
         ...mapStores(useChannelsStore, usePlayerStore, useSettingsStore, useUserStore, useTwitterStore),
 
-        // ツイートボタンが無効かどうか
+        // ポストボタンが無効かどうか
         is_tweet_button_disabled(): boolean {
             return this.twitterStore.is_logged_in_twitter === false || this.tweet_letter_remain_count < 0 ||
                 ((this.tweet_text.trim() === '' || this.tweet_letter_remain_count === 140) && this.playerStore.twitter_selected_capture_blobs.length === 0);
@@ -543,10 +543,10 @@ export default defineComponent({
             return tweet_hashtag_array.join(' ');
         },
 
-        // ツイートを送信する
+        // ポストを送信する
         async sendTweet() {
 
-            // ツイートボタンが無効なら何もしない
+            // ポストボタンが無効なら何もしない
             if (this.is_tweet_button_disabled === true) return;
 
             // Twitter アカウントが連携されていない場合は何もしない
@@ -561,26 +561,26 @@ export default defineComponent({
             const tweet_hashtag = this.tweet_hashtag;
             this.updateTweetLetterCount();
 
-            // 実際に送るツイート本文を作成
+            // 実際に送るポスト本文を作成
             let tweet_text = this.tweet_text;
             if (tweet_hashtag !== '') {  // ハッシュタグが入力されているときのみ
                 switch (this.settingsStore.settings.tweet_hashtag_position) {
-                    // ツイート本文の前に追加する
+                    // ポスト本文の前に追加する
                     case 'Prepend': {
                         tweet_text = `${tweet_hashtag} ${this.tweet_text}`;
                         break;
                     }
-                    // ツイート本文の後に追加する
+                    // ポスト本文の後に追加する
                     case 'Append': {
                         tweet_text = `${this.tweet_text} ${tweet_hashtag}`;
                         break;
                     }
-                    // ツイート本文の前に追加してから改行する
+                    // ポスト本文の前に追加してから改行する
                     case 'PrependWithLineBreak': {
                         tweet_text = `${tweet_hashtag}\n${this.tweet_text}`;
                         break;
                     }
-                    // ツイート本文の後に改行してから追加する
+                    // ポスト本文の後に改行してから追加する
                     case 'AppendWithLineBreak': {
                         tweet_text = `${this.tweet_text}\n${tweet_hashtag}`;
                         break;
@@ -597,7 +597,7 @@ export default defineComponent({
                 tweet_capture_blobs.push(tweet_capture_blob);
             }
 
-            // 連投防止のため、フォーム上のツイート本文・キャプチャの選択・キャプチャのフォーカスを消去
+            // 連投防止のため、フォーム上のポスト本文・キャプチャの選択・キャプチャのフォーカスを消去
             // 送信した感を出す意味合いもある
             this.tweet_text = '';
             this.updateTweetLetterCount();
@@ -607,7 +607,7 @@ export default defineComponent({
             }
             this.playerStore.twitter_selected_capture_blobs = [];
 
-            // ツイート送信 API にリクエスト
+            // ポスト送信 API にリクエスト
             // レスポンスは待たない
             Twitter.sendTweet(this.twitterStore.selected_twitter_account.screen_name, tweet_text, tweet_capture_blobs).then((result) => {
                 this.playerStore.event_emitter.emit('SendNotification', {
