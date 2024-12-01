@@ -27,8 +27,8 @@ export interface IClientSettings {
     // lshaped_screen_crop_zoom_origin: 同期無効
     pinned_channel_ids: string[];
     panel_display_state: 'RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold';
-    tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
-    video_panel_active_tab: 'RecordedProgram' | 'Series' | 'Comment' | 'Twitter';
+    tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'X';
+    video_panel_active_tab: 'RecordedProgram' | 'Series' | 'Comment' | 'X';
     tv_channel_selection_requires_alt_key: boolean;
     // tv_streaming_quality: 同期無効
     // tv_streaming_quality_cellular: 同期無効

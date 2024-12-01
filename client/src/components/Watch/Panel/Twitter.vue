@@ -58,7 +58,7 @@
                         'limit-meter__content--yellow': tweet_letter_remain_count <= 20,
                         'limit-meter__content--red': tweet_letter_remain_count <= 0,
                     }">
-                        <Icon icon="fa-brands:twitter" width="12px" style="margin-right: -2px;" />
+                        <Icon icon="fa-brands:x-twitter" width="12px" style="margin-right: -2px;" />
                         <span>{{tweet_letter_remain_count}}</span>
                     </div>
                     <div class="limit-meter__content">
@@ -68,7 +68,7 @@
                 </div>
                 <button class="tweet-button" v-ripple="Utils.isTouchDevice() === false" :disabled="is_tweet_button_disabled"
                     @click="sendTweet()" @touchstart="sendTweet()">
-                    <Icon icon="fa-brands:twitter" height="16px" />
+                    <Icon icon="fa-brands:x-twitter" height="16px" />
                     <span class="ml-1">ツイート</span>
                 </button>
             </div>

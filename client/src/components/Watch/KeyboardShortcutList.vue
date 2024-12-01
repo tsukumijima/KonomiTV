@@ -126,8 +126,8 @@ const LIVE_SHORTCUT_LIST: IShortcutList = {
             ]
         },
         {
-            name: 'Twitter',
-            icon: 'fa-brands:twitter',
+            name: 'X',
+            icon: 'fa-brands:x-twitter',
             icon_height: '22px',
             shortcuts: [
                 { name: 'ツイート検索タブを表示する', keys: [{name: '［ (「)', icon: false}] },
@@ -217,8 +217,8 @@ const VIDEO_SHORTCUT_LIST: IShortcutList = {
             ]
         },
         {
-            name: 'Twitter',
-            icon: 'fa-brands:twitter',
+            name: 'X',
+            icon: 'fa-brands:x-twitter',
             icon_height: '22px',
             shortcuts: [
                 { name: 'ツイート検索タブを表示する', keys: [{name: '［ (「)', icon: false}] },

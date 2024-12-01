@@ -25,7 +25,7 @@
             <Comment class="watch-panel__content" :playback_mode="playback_mode"
                 :class="{'watch-panel__content--active': panel_active_tab === 'Comment'}" />
             <Twitter class="watch-panel__content" :playback_mode="playback_mode"
-                :class="{'watch-panel__content--active': panel_active_tab === 'Twitter'}" />
+                :class="{'watch-panel__content--active': panel_active_tab === 'X'}" />
             <button v-ripple class="watch-panel__content-remocon-button elevation-8" v-if="playback_mode === 'Live'"
                 :class="{'watch-panel__content-remocon-button--active': panel_active_tab === 'Program' || panel_active_tab === 'Channel'}"
                 @click="playerStore.is_remocon_display = !playerStore.is_remocon_display">
@@ -68,9 +68,9 @@
                 <span class="panel-navigation-button__text">コメント</span>
             </div>
             <div v-ripple class="panel-navigation-button"
-                 :class="{'panel-navigation-button--active': panel_active_tab === 'Twitter'}"
-                 @click="playback_mode === 'Live' ? playerStore.tv_panel_active_tab = 'Twitter' : playerStore.video_panel_active_tab = 'Twitter'">
-                <Icon class="panel-navigation-button__icon" icon="fa-brands:twitter" width="34px" />
+                 :class="{'panel-navigation-button--active': panel_active_tab === 'X'}"
+                 @click="playback_mode === 'Live' ? playerStore.tv_panel_active_tab = 'X' : playerStore.video_panel_active_tab = 'X'">
+                <Icon class="panel-navigation-button__icon" icon="fa-brands:x-twitter" width="34px" />
                 <span class="panel-navigation-button__text">Twitter</span>
             </div>
         </div>
