@@ -1,4 +1,4 @@
-fa-brands:x-twitter<template>
+<template>
     <div class="route-container">
         <HeaderBar />
         <main>

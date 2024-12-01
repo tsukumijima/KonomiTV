@@ -1,4 +1,4 @@
-fa-brands:x-twitter<template>
+<template>
     <!-- ベース画面の中にそれぞれの設定画面で異なる部分を記述する -->
     <SettingsBase>
         <h2 class="settings__heading">
