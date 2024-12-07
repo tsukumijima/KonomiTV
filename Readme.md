@@ -307,6 +307,10 @@ sudo apt install -y nvidia-docker2
 VCEEncC では、[AMDGPU-PRO Driver](https://www.amd.com/ja/support/linux-drivers) のインストールが必要です。  
 古いドライバーがインストールされていると、VCEEncC を利用できないことがあります。最新のドライバーをインストールしてください。
 
+> [!WARNING]  
+> VCEEncC を使うには AMDGPU-PRO ドライバーが必要です。  
+> オープンソース版の AMDGPU ドライバーには AMD AMF (Advanced Media Framework) が含まれていないため、VCEEncC を利用できません。
+
 ```bash
 # Ubuntu 20.04 LTS (2024/09時点で最新の amdgpu-install パッケージの URL)
 curl -LO https://repo.radeon.com/amdgpu-install/23.40.3/ubuntu/focal/amdgpu-install_6.0.60003-1_all.deb
