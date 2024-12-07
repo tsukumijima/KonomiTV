@@ -658,6 +658,7 @@ def Installer(version: str) -> None:
                     '    #     reservations:\n'
                     '    #       devices:\n'
                     '    #         - driver: nvidia\n'
+                    '    #           count: all\n'
                     '    #           capabilities: [compute, utility, video]'
                 )
                 # 置換後の config.yaml の記述
@@ -667,6 +668,7 @@ def Installer(version: str) -> None:
                     '        reservations:\n'
                     '          devices:\n'
                     '            - driver: nvidia\n'
+                    '              count: all\n'
                     '              capabilities: [compute, utility, video]'
                 )
                 text = text.replace(old_text, new_text)
