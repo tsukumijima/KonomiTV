@@ -197,6 +197,17 @@ class PlayerController {
         (window as any).mpegts = mpegts;
         (window as any).Hls = Hls;
 
+        // ブラウザが H.265 / HEVC の再生に対応していて、かつ通信節約モードが有効なとき、H.265 / HEVC で再生する
+        let is_hevc_playback = false;
+        if (PlayerUtils.isHEVCVideoSupported() &&
+            ((this.playback_mode === 'Live' && this.quality_profile.tv_data_saver_mode === true) ||
+             (this.playback_mode === 'Video' && this.quality_profile.video_data_saver_mode === true))) {
+            is_hevc_playback = true;
+        }
+
+        // ブラウザが MSE in Worker での H.265 / HEVC 再生に対応しているかどうか
+        const is_hevc_video_supported_in_worker = await mpegts.supportWorkerForMSEH265Playback();
+
         // 文字スーパーの表示設定
         // ライブ視聴とビデオ視聴で設定キーが異なる
         const is_show_superimpose = this.playback_mode === 'Live' ?
@@ -241,14 +252,8 @@ class PlayerController {
                 // 画質リスト
                 const qualities: DPlayerType.VideoQuality[] = [];
 
-                // ブラウザが H.265 / HEVC の再生に対応していて、かつ通信節約モードが有効なとき
-                // API に渡す画質に -hevc のプレフィックスをつける
-                let hevc_prefix = '';
-                if (PlayerUtils.isHEVCVideoSupported() &&
-                    ((this.playback_mode === 'Live' && this.quality_profile.tv_data_saver_mode === true) ||
-                     (this.playback_mode === 'Video' && this.quality_profile.video_data_saver_mode === true))) {
-                    hevc_prefix = '-hevc';
-                }
+                // H.265 / HEVC 再生時のみ、API に渡す画質に -hevc のプレフィックスをつける
+                const hevc_prefix = is_hevc_playback === true ? '-hevc' : '';
 
                 // ライブ視聴: チャンネル情報がセットされているはず
                 if (this.playback_mode === 'Live') {
@@ -404,8 +409,9 @@ class PlayerController {
                         enableWorker: true,
                         // Media Source Extensions API 向けの Web Worker を有効にする
                         // メインスレッドから再生処理を分離することで、低スペック端末で DOM 描画の遅延が影響して映像再生が詰まる問題が解消される
-                        // MSE in Worker が使えない環境では自動的に mpegts.js 側でフォールバックされるため、true を設定する
-                        enableWorkerForMSE: true,
+                        // MSE in Worker が使えない環境では自動的に mpegts.js 側でフォールバックされるため、基本的に true を設定する
+                        // ただし Windows 版 Microsoft Edge では MSE in Worker 有効時のみ H.265 / HEVC 再生が動作しないため、この場合のみ無効化する
+                        enableWorkerForMSE: (is_hevc_playback === true && is_hevc_video_supported_in_worker === false) ? false : true,
                         // 再生開始まで 2048KB のバッファを貯める (?)
                         // あまり大きくしすぎてもどうも効果がないようだが、小さくしたり無効化すると特に Safari で不安定になる
                         enableStashBuffer: true,
