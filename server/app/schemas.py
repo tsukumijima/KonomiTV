@@ -10,7 +10,7 @@ from pydantic import computed_field
 from pydantic import Field
 from pydantic import RootModel
 from tortoise.contrib.pydantic import PydanticModel
-from typing import Annotated, Any, Literal, Union
+from typing import Annotated, Literal, Union
 from typing_extensions import TypedDict
 
 
@@ -532,7 +532,7 @@ class TwitterGraphQLAPIEndpointInfo(BaseModel):
     method: Literal['GET', 'POST']
     query_id: str
     endpoint: str
-    features: dict[str, Any] | None
+    features: dict[str, bool] | None
 
     @computed_field
     @property

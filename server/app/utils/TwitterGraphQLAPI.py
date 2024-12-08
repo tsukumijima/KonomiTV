@@ -289,6 +289,10 @@ class TwitterGraphQLAPI:
                     for switch in feature_switches:
                         if switch in feature_switch:
                             features[switch] = feature_switch[switch]['value'] == 'true'
+                        else:
+                            # ごく稀に featureSwitch にデフォルト値が書かれていない場合があるので、
+                            # その場合は true をデフォルト値とする
+                            features[switch] = True
                     if not features:
                         features = None
 
@@ -522,7 +526,8 @@ class TwitterGraphQLAPI:
 
         # HTTP ステータスコードが 200 系以外の場合
         if not (200 <= response.status_code < 300):
-            logging.error(f'[TwitterGraphQLAPI] Failed to invoke GraphQL API (HTTP {response.status_code})')
+            logging.error(f'[TwitterGraphQLAPI] Failed to invoke GraphQL API (HTTP Error {response.status_code})')
+            logging.error(f'[TwitterGraphQLAPI] Response: {response.text}')
             return error_message_prefix + f'Twitter API から HTTP {response.status_code} エラーが返されました。'
 
         # JSON でないレスポンスが返ってきた場合
