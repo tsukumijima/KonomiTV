@@ -102,4 +102,4 @@ COPY --from=client-builder /code/client/dist/ /code/client/dist/
 COPY ./config.example.yaml /code/config.example.yaml
 
 # KonomiTV サーバーを起動
-ENTRYPOINT /code/server/.venv/bin/python KonomiTV.py
+ENTRYPOINT ["/code/server/.venv/bin/python", "KonomiTV.py"]
