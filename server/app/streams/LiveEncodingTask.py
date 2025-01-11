@@ -1157,7 +1157,7 @@ class LiveEncodingTask:
                     # Offline にしてエンコードタスクを停止する
                     ## mirakc はなぜかチューナー不足時に 503 ではなく 404 を返すことがある (バグ?)
                     if response.status == 503 or (response.status == 404 and mirakurun_or_mirakc == 'mirakc'):
-                        self.live_stream.setStatus('Offline', 'チューナーの起動に失敗しました。空きチューナーが不足しています。(E-12M)')
+                        self.live_stream.setStatus('Offline', 'チューナーの起動に失敗しました。空きチューナーが不足している可能性があります。(E-12M)')
                     elif response.status == 404:
                         self.live_stream.setStatus('Offline', f'現在このチャンネルは受信できません。{mirakurun_or_mirakc} 側に問題があるかもしれません。(HTTP Error {response.status}) (E-12M)')
                     else:
