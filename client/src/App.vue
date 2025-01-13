@@ -9,7 +9,22 @@
 <script lang="ts" setup>
 
 import Snackbars from '@/components/Snackbars.vue';
+import useCFZTStore from '@/stores/CloudflareZerotrustStone';
 
+// Confirm CFZT
+if(document.referrer.endsWith('.cloudflareaccess.com/')) {
+    const CFZTStore = useCFZTStore();
+    if (!CFZTStore.is_CFZT) {
+        CFZTStore.fetchCFZTIdentity();
+    }
+    // 現在の URL を解析
+    const u = new URL(location.href);
+    // 'pwa' パラメータが 'false' の場合、URL から削除する
+    if (u.searchParams.get('pwa') === 'false') {
+        u.searchParams.delete('pwa');
+        history.pushState('', '', u.href);
+    }
+}
 </script>
 <style lang="scss">
 

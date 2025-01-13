@@ -264,8 +264,6 @@ class APIClient {
                         if (!error_response.error.config?.url?.startsWith('/cdn-cgi/')){
                             (async ()=>{
                                 const CFZTStore = useCFZTStore();
-                                // @ts-ignore
-                                window.CFZTStore = CFZTStore;
                                 await CFZTStore.fetchCFZTIdentity();
                                 const u = new URL(location.href);
                                 if (u.searchParams.get('pwa') !== 'false' && !u.searchParams.get('__cf_access_message') && CFZTStore.is_CFZT && !CFZTStore.is_login) {
