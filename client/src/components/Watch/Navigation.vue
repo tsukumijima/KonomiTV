@@ -42,6 +42,10 @@
             <Icon class="watch-navigation__link-icon" icon="fluent:history-20-regular" width="26px" />
         </router-link>
         <v-spacer></v-spacer>
+        <a v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active" v-if="settingsStore.settings.is_cloudflare_zerotrust"
+            v-ftooltip.right="'CFからログアウト'" href="/cdn-cgi/access/logout">
+            <Icon class="watch-navigation__link-icon" icon="fluent:sign-out-20-regular" width="26px" />
+        </a>   
         <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
             :class="{'watch-navigation__link--active': $route.path.startsWith('/settings')}"
             v-ftooltip.right="'設定'" to="/settings/">
@@ -55,11 +59,13 @@ import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
 
 import usePlayerStore from '@/stores/PlayerStore';
+import useSettingsStore from '@/stores/SettingsStore';
 
 export default defineComponent({
     name: 'Watch-Navigation',
     computed: {
         ...mapStores(usePlayerStore),
+        ...mapStores(useSettingsStore),
     }
 });
 

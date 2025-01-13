@@ -124,3 +124,13 @@ window.setInterval(async () => {
         await settings_store.syncClientSettingsFromServer();
     }
 }, 3 * 1000);  // 3秒おき
+
+// ***** NO PWA パラメータの処理 *****
+
+// 現在の URL を解析
+const u = new URL(location.href);
+// 'pwa' パラメータが 'false' の場合、URL から削除する
+if (u.searchParams.get('pwa') === 'false') {
+    u.searchParams.delete('pwa');
+    history.pushState('', '', u.href);
+}

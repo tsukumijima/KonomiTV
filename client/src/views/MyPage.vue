@@ -30,6 +30,10 @@
                         <Icon icon="fluent:history-20-regular" width="26px" />
                         <span class="ml-4">視聴履歴</span>
                     </v-btn>
+                    <v-btn variant="flat" class="settings-navigation__button mt-3" href="/cdn-cgi/access/logout" v-if="settingsStore.settings.is_cloudflare_zerotrust">
+                        <Icon icon="fluent:sign-out-20-regular" width="26px" />
+                        <span class="ml-4">CFからログアウト</span>
+                    </v-btn>
                     <v-btn variant="flat" class="settings-navigation__button settings-navigation__button--version mt-3"
                         :class="{'settings-navigation__button--version-highlight': versionStore.is_update_available}"
                         href="https://github.com/tsukumijima/KonomiTV" target="_blank">
@@ -51,9 +55,11 @@ import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
 import useUserStore from '@/stores/UserStore';
 import useVersionStore from '@/stores/VersionStore';
+import useSettingsStore from '@/stores/SettingsStore';
 
 const userStore = useUserStore();
 const versionStore = useVersionStore();
+const settingsStore = useSettingsStore();
 
 onMounted(async () => {
     await userStore.fetchUser();

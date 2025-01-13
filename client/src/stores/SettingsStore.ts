@@ -72,6 +72,7 @@ export interface ILocalClientSettings extends IClientSettings {
     twitter_active_tab: 'Search' | 'Timeline' | 'Capture';
     tweet_hashtag_position: 'Prepend' | 'Append' | 'PrependWithLineBreak' | 'AppendWithLineBreak';
     tweet_capture_watermark_position: 'None' | 'TopLeft' | 'TopRight' | 'BottomLeft' | 'BottomRight';
+    is_cloudflare_zerotrust: boolean | null;
 }
 
 /**
@@ -226,6 +227,9 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
     tweet_hashtag_position: 'Append',
     // ツイートするキャプチャに番組名の透かしを描画する (Default: 透かしを描画しない)
     tweet_capture_watermark_position: 'None',
+
+    // CFZT 判定
+    is_cloudflare_zerotrust: null,
 };
 
 // 同期対象の設定データのキーのみを列挙した配列
