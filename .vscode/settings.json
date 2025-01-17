@@ -3,11 +3,11 @@
     "editor.codeActionsOnSave": {
         "source.fixAll.eslint": "explicit",
     },
-    // poetry の仮想環境のあるフォルダを指定（指定しないと認識しない）
+    // Poetry の仮想環境のあるフォルダを指定（指定しないと認識しない）
     "python.defaultInterpreterPath": "${workspaceFolder}/server/.venv/bin/python",
-    // 相対インポートが解決されるようにする
+    // server/ 以下の相対インポートが解決されるようにする
     "python.analysis.extraPaths": [
-        "./server",
+        "${workspaceFolder}/server",
     ],
     // Pylance の Type Checking を有効化
     "python.languageServer": "Pylance",
@@ -25,6 +25,10 @@
         "reportUnknownVariableType": "none",
         "reportUnusedFunction": "none",
     },
+    // TypeScript で自動インポートを有効化
+    "typescript.suggest.autoImports": true,
+    // TypeScript でファイルの名前を変更または移動するときにインポートパスを自動更新する
+	"typescript.updateImportsOnFileMove.enabled": "always",
     // TypeScript の SDK をプロジェクトの node_modules から読み込む
     "typescript.tsdk": "client/node_modules/typescript/lib",
 }
