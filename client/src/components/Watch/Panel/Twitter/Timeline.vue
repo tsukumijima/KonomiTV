@@ -97,7 +97,7 @@ const refreshScroller = async () => {
     if (scroller.value) {
         const offset = scroller.value.scrollOffset;
         scroller.value.scrollToIndex(offset + 1000);  // 一旦 1000px ずらしてスクロール
-        await Utils.sleep(0.01);  // 0.01 秒待機
+        await Utils.sleep(0.02);  // 0.02 秒待機
         scroller.value.scrollToIndex(offset);  // 元のスクロール位置に戻す
     }
 };
