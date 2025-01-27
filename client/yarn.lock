@@ -5040,6 +5040,11 @@ vary@^1.1.2:
   resolved "https://registry.yarnpkg.com/vary/-/vary-1.1.2.tgz#2299f02c6ded30d4a5961b0b9f74524a18f634fc"
   integrity sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg==
 
+virtua@^0.39.3:
+  version "0.39.3"
+  resolved "https://registry.yarnpkg.com/virtua/-/virtua-0.39.3.tgz#6c7389b993a305516f361107849cfa73c2816f66"
+  integrity sha512-Ep3aiJXSGPm1UUniThr5mGDfG0upAleP7pqQs5mvvCgM1wPhII1ZKa7eNCWAJRLkC+InpXKokKozyaaj/aMYOQ==
+
 vite-plugin-comlink@^5.0.1:
   version "5.1.0"
   resolved "https://registry.yarnpkg.com/vite-plugin-comlink/-/vite-plugin-comlink-5.1.0.tgz#c0c563b6d1f414a0ed7afb41b9c3cbf4542a6afe"

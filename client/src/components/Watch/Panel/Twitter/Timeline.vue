@@ -22,26 +22,19 @@
                 label="リツイートを表示する"
             />
         </div>
-        <DynamicScroller ref="scroller" class="timeline-tweets" :direction="'vertical'" :items="timelineItems"
-            :min-item-size="80" :buffer="400" v-show="timelineItems.length > 0">
-            <template v-slot="{item, active}">
-                <DynamicScrollerItem
-                    :item="item"
-                    :active="active"
-                    :size-dependencies="item.type === 'tweet_block' ? item.tweets.map(t => [t.text, t.image_urls, t.movie_url]).flat() : []">
-                    <template v-if="item.type === 'tweet_block'">
-                        <Tweet v-for="tweet in item.tweets" :key="tweet.id" :tweet="tweet" />
-                    </template>
-                    <button v-else class="load-more-button" @click="handleLoadMore(item)" :disabled="isFetching">
-                        <div class="load-more-button__content">
-                            <Icon icon="ic:round-refresh" width="20" :class="isFetching ? 'animate-spin' : ''" class="mr-2" />
-                            ツイートをさらに表示
-                        </div>
-                    </button>
-                </DynamicScrollerItem>
-            </template>
-        </DynamicScroller>
-        <div class="timeline-announce" v-show="timelineItems.length === 0">
+        <VirtuaList ref="scroller" class="timeline-tweets" :data="flattenedItems" #default="{ item }"
+            v-show="flattenedItems.length > 0">
+            <div class="timeline-item">
+                <Tweet v-if="'text' in item" :tweet="item" />
+                <button v-else class="load-more-button" @click="handleLoadMore(item)" :disabled="isFetching">
+                    <div class="load-more-button__content">
+                        <Icon icon="ic:round-refresh" width="20" :class="isFetching ? 'animate-spin' : ''" class="mr-2" />
+                        ツイートをさらに表示
+                    </div>
+                </button>
+            </div>
+        </VirtuaList>
+        <div class="timeline-announce" v-show="flattenedItems.length === 0">
             <div class="timeline-announce__heading">まだツイートがありません。</div>
             <div class="timeline-announce__text">
                 <p class="mt-0 mb-0">右上の更新ボタンを押すと、最新の<br>ホームタイムラインを時系列で表示できます。</p>
@@ -52,7 +45,8 @@
 
 <script lang="ts" setup>
 import { storeToRefs } from 'pinia';
-import { ref, onMounted, watch, nextTick } from 'vue';
+import { VList as VirtuaList } from 'virtua/vue';
+import { ref, onMounted, watch, nextTick, computed } from 'vue';
 
 import Tweet from '@/components/Watch/Panel/Twitter/Tweet.vue';
 import Message from '@/message';
@@ -88,6 +82,19 @@ const scroller = ref<any>(null);
 
 // 表示する最大ツイート数
 const MAX_TWEETS = 1000;
+
+// フラットな構造の配列を生成する computed プロパティ
+const flattenedItems = computed(() => {
+    const items: (ITweet | ILoadMoreItem)[] = [];
+    for (const item of timelineItems.value) {
+        if (item.type === 'tweet_block') {
+            items.push(...item.tweets);
+        } else {
+            items.push(item);
+        }
+    }
+    return items;
+});
 
 const getTotalTweetCount = () => {
     return timelineItems.value.reduce((count, item) => {

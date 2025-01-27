@@ -648,6 +648,7 @@ export default defineComponent({
     &.watch-panel__content--active .tab-container .tab-content--active {
         opacity: 1;
         visibility: visible;
+        z-index: 10;
         @media (hover: none) {
             content-visibility: auto;
         }
