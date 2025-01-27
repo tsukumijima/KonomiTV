@@ -51,11 +51,13 @@ export default defineConfig({
         host: '0.0.0.0',
         port: 7011,
         strictPort: true,
+        allowedHosts: true,
     },
     preview: {
         host: '0.0.0.0',
         port: 7011,
         strictPort: true,
+        allowedHosts: true,
     },
     // プラグインの設定
     plugins: [
