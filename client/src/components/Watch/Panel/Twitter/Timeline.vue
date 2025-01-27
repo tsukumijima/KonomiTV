@@ -46,13 +46,14 @@
 <script lang="ts" setup>
 import { storeToRefs } from 'pinia';
 import { VList as VirtuaList } from 'virtua/vue';
-import { ref, onMounted, watch, nextTick, computed } from 'vue';
+import { ref, onMounted, watch, nextTick, computed, useTemplateRef } from 'vue';
 
 import Tweet from '@/components/Watch/Panel/Twitter/Tweet.vue';
 import Message from '@/message';
 import Twitter, { ITweet } from '@/services/Twitter';
 import useTwitterStore from '@/stores/TwitterStore';
 import useUserStore from '@/stores/UserStore';
+import Utils from '@/utils';
 
 const twitterStore = useTwitterStore();
 const { selected_twitter_account } = storeToRefs(twitterStore);
@@ -78,10 +79,7 @@ const timelineItems = ref<TimelineItem[]>([]);
 const showSettings = ref(false);
 const showRetweets = ref(true);
 const isFetching = ref(false);
-const scroller = ref<any>(null);
-
-// 表示する最大ツイート数
-const MAX_TWEETS = 1000;
+const scroller = useTemplateRef('scroller');
 
 // フラットな構造の配列を生成する computed プロパティ
 const flattenedItems = computed(() => {
@@ -96,16 +94,20 @@ const flattenedItems = computed(() => {
     return items;
 });
 
-const getTotalTweetCount = () => {
-    return timelineItems.value.reduce((count, item) => {
-        if (item.type === 'tweet_block') {
-            return count + item.tweets.length;
-        }
-        return count;
-    }, 0);
+// 仮想スクローラーの描画をリフレッシュする
+// 2025/01 現在の Virtua の Vue バインディングは下方向への無限スクロールのみ考慮しているようで、
+// 上方向の無限スクロールだと更新しても一見して更新内容が反映されていないように見える問題への回避策
+// 一旦下方向にスクロールしてからすぐ元に戻すことで、表示状態の DOM を強制的に更新させる
+const refreshScroller = async () => {
+    if (scroller.value) {
+        const offset = scroller.value.scrollOffset;
+        scroller.value.scrollToIndex(offset + 1000);  // 一旦 1000px ずらしてスクロール
+        await Utils.sleep(0.01);  // 0.01 秒待機
+        scroller.value.scrollToIndex(offset);  // 元のスクロール位置に戻す
+    }
 };
 
-// 既存のツイートIDのセットを取得
+// 既存のツイート ID のセットを取得
 const getExistingTweetIds = () => {
     const ids = new Set<string>();
     for (const item of timelineItems.value) {
@@ -197,12 +199,16 @@ const fetchTimelineTweets = async () => {
                 id: `load_more_${result.previous_cursor_id}`,
             });
         }
+
+        // 仮想スクローラーの描画をリフレッシュ
+        refreshScroller();
     }
     isFetching.value = false;
 };
 
+// 「さらに読み込む」ボタンが押されたら当該範囲のタイムラインを取得
 const handleLoadMore = async (item: ILoadMoreItem) => {
-    if (isFetching.value || getTotalTweetCount() >= MAX_TWEETS) {
+    if (isFetching.value) {
         return;
     }
     isFetching.value = true;
