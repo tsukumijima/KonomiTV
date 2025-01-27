@@ -123,10 +123,10 @@ class Channel(TortoiseModel):
                     raise Exception(f'Failed to get channels from Mirakurun / mirakc. (HTTP Error {mirakurun_services_api_response.status_code})')
                 services = mirakurun_services_api_response.json()
             except httpx.NetworkError as ex:
-                logging.error(f'Failed to get channels from Mirakurun / mirakc. (Network Error)')
+                logging.error('Failed to get channels from Mirakurun / mirakc. (Network Error)')
                 raise ex
             except httpx.TimeoutException as ex:
-                logging.error(f'Failed to get channels from Mirakurun / mirakc. (Connection Timeout)')
+                logging.error('Failed to get channels from Mirakurun / mirakc. (Connection Timeout)')
                 raise ex
 
             # 同じネットワーク ID のサービスのカウント
@@ -298,7 +298,7 @@ class Channel(TortoiseModel):
                 ## (上記処理で除外しているワンセグなどのチャンネルが EPG 取得対象になっている場合は一致しないが、基本ないと思うので考慮しない)
                 ## これにより、番組検索時のサービス絞り込みリストに EPG 取得対象でないチャンネルが紛れ込むのを回避できる
                 ## デジタル音声サービス (service_type: 0x02 / 現在は Ch:531 放送大学ラジオのみ) のみ、デフォルトでは EPG 取得対象に含まれないため通す
-                if service['epg_cap_flag'] == False and service['service_type'] != 0x02:
+                if service['epg_cap_flag'] is False and service['service_type'] != 0x02:
                     continue
 
                 # チャンネル ID
@@ -632,6 +632,6 @@ class Channel(TortoiseModel):
 
             # ステータスが None（実況チャンネル自体が存在しないか、コミュニティの場合で実況枠が存在しない）でなく、
             # force が -1 (何らかのエラー) でなければステータスを更新
-            if status != None and status['force'] != -1:
+            if status is not None and status['force'] != -1:
                 channel.jikkyo_force = status['force']
                 await channel.save()

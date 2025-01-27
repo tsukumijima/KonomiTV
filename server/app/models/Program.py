@@ -213,10 +213,10 @@ class Program(TortoiseModel):
                         raise Exception(f'Failed to get programs from Mirakurun / mirakc. (HTTP Error {mirakurun_programs_api_response.status_code})')
                     programs: list[dict[str, Any]] = mirakurun_programs_api_response.json()
                 except httpx.NetworkError as ex:
-                    logging.error(f'Failed to get programs from Mirakurun / mirakc. (Network Error)')
+                    logging.error('Failed to get programs from Mirakurun / mirakc. (Network Error)')
                     raise ex
                 except httpx.TimeoutException as ex:
-                    logging.error(f'Failed to get programs from Mirakurun / mirakc. (Connection Timeout)')
+                    logging.error('Failed to get programs from Mirakurun / mirakc. (Connection Timeout)')
                     raise ex
 
                 # この変数から更新or更新不要な番組情報を削除していき、残った古い番組情報を最後にまとめて削除する

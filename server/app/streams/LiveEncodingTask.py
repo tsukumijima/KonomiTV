@@ -343,7 +343,7 @@ class LiveEncodingTask:
             options.append('--profile main')
         else:
             options.append('--profile high')
-        options.append(f'--interlace tff --dar 16:9')
+        options.append('--interlace tff --dar 16:9')
 
         ## 最大 GOP 長 (秒)
         ## 30fps なら ×30 、 60fps なら ×60 された値が --gop-len で使われる
@@ -370,9 +370,9 @@ class LiveEncodingTask:
         ## VCEEncC では --vpp-deinterlace 自体が使えないので、代わりに --vpp-afs を使う
         else:
             if encoder_type == 'QSVEncC':
-                options.append(f'--vpp-deinterlace normal')
+                options.append('--vpp-deinterlace normal')
             elif encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
-                options.append(f'--vpp-afs preset=default')
+                options.append('--vpp-afs preset=default')
             elif encoder_type == 'rkmppenc':
                 options.append('--vpp-deinterlace normal_i5')
             options.append(f'--avsync vfr --gop-len {int(gop_length_second * 30)}')
@@ -441,10 +441,10 @@ class LiveEncodingTask:
                         mirakurun_or_mirakc = 'mirakc'
                     tuners = response.json()
                 except httpx.NetworkError:
-                    logging.error(f'Failed to get tuner statuses from Mirakurun / mirakc. (Network Error)')
+                    logging.error('Failed to get tuner statuses from Mirakurun / mirakc. (Network Error)')
                     return False
                 except httpx.TimeoutException:
-                    logging.error(f'Failed to get tuner statuses from Mirakurun / mirakc. (Connection Timeout)')
+                    logging.error('Failed to get tuner statuses from Mirakurun / mirakc. (Connection Timeout)')
                     return False
 
                 # 指定されたチャンネルタイプが受信可能なチューナーが1つでも利用可能であれば True を返す
@@ -458,7 +458,7 @@ class LiveEncodingTask:
 
         # 空きチューナーは確保できなかったが、同じチャンネルが受信中であれば共聴することは可能なので warning に留める
         logging.warning(f'Failed to acquire a tuner from {mirakurun_or_mirakc}.')
-        logging.warning(f'If the same channel is being received, it can be shared with the same tuner.')
+        logging.warning('If the same channel is being received, it can be shared with the same tuner.')
         return False
 
 
@@ -1304,7 +1304,7 @@ class LiveEncodingTask:
             else:
 
                 # Offline に設定
-                if program_present is None or program_present.is_free == True:
+                if program_present is None or program_present.is_free is True:
                     # 無料番組
                     self.live_stream.setStatus('Offline', 'ライブストリームの再起動に失敗しました。(E-17)')
                 else:
