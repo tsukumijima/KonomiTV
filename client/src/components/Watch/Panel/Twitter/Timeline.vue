@@ -14,13 +14,8 @@
             </div>
         </div>
         <div v-if="showSettings" class="timeline-settings">
-            <v-switch
-                v-model="showRetweets"
-                color="primary"
-                hide-details
-                density="comfortable"
-                label="リツイートを表示する"
-            />
+            <v-switch id="show_retweets" color="primary" density="compact" hide-details v-model="showRetweets" />
+            <label class="ml-4 cursor-pointer" for="show_retweets">リツイートを表示する</label>
         </div>
         <VirtuaList ref="scroller" class="timeline-tweets" :data="flattenedItems" #default="{ item }"
             v-show="flattenedItems.length > 0">
@@ -42,11 +37,11 @@
         </div>
     </div>
 </template>
-
 <script lang="ts" setup>
+
 import { storeToRefs } from 'pinia';
 import { VList as VirtuaList } from 'virtua/vue';
-import { ref, onMounted, watch, nextTick, computed, useTemplateRef } from 'vue';
+import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from 'vue';
 
 import Tweet from '@/components/Watch/Panel/Twitter/Tweet.vue';
 import Message from '@/message';
@@ -289,7 +284,7 @@ watch(selected_twitter_account, () => {
     fetchTimelineTweets();
 });
 
-// 「リツイートを表示する」のスイッチが変更されたらタイムラインの内容をまっさらにした上で再取得
+// 「リツイートを表示する」のスイッチが変更されたらタイムラインの内容をまっさらにして再取得
 watch(showRetweets, () => {
     timelineItems.value = [];
     fetchTimelineTweets();
@@ -377,7 +372,12 @@ onMounted(() => {
 }
 
 .timeline-settings {
+    display: flex;
+    align-items: center;
+    height: 45px;
     padding: 0px 12px;
+    font-size: 14px;
+    color: rgb(var(--v-theme-text-darken-1));
     border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.12);
 }
 

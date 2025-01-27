@@ -24,13 +24,8 @@
             </div>
         </div>
         <div v-if="showSettings" class="search-settings">
-            <v-switch
-                v-model="showRetweets"
-                color="primary"
-                hide-details
-                density="comfortable"
-                label="リツイートを表示する"
-            />
+            <v-switch id="show_retweets" color="primary" density="compact" hide-details v-model="showRetweets" />
+            <label class="ml-4 cursor-pointer" for="show_retweets">リツイートを表示する</label>
         </div>
         <VirtuaList ref="scroller" class="search-tweets" :data="flattenedItems" #default="{ item }"
             v-show="flattenedItems.length > 0">
@@ -56,7 +51,7 @@
 
 import { storeToRefs } from 'pinia';
 import { VList as VirtuaList } from 'virtua/vue';
-import { ref, watch, onMounted, nextTick, computed, useTemplateRef } from 'vue';
+import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from 'vue';
 
 import Tweet from '@/components/Watch/Panel/Twitter/Tweet.vue';
 import Message from '@/message';
@@ -87,7 +82,7 @@ type TimelineItem = ITweetBlock | ILoadMoreItem;
 
 const timelineItems = ref<TimelineItem[]>([]);
 const showSettings = ref(false);
-const showRetweets = ref(true);
+const showRetweets = ref(false);
 const isFetching = ref(false);
 const isSearchFormFocused = ref(false);
 const searchQuery = ref('');
@@ -167,7 +162,8 @@ const performSearchTweets = async () => {
 
     // 検索結果のツイートを「投稿時刻が新しい順」に取得
     // タイムラインと異なり、検索結果は一度に 20 件しか返ってこない
-    const result = await Twitter.searchTweets(selected_twitter_account.value.screen_name, searchQuery.value);
+    const query = `${searchQuery.value}${showRetweets.value ? 'include:nativeretweets' : ''}`;
+    const result = await Twitter.searchTweets(selected_twitter_account.value.screen_name, query);
     if (result && result.tweets) {
         // 「リツイートを表示する」がオフの場合はリツイートのツイートを除外
         if (showRetweets.value === false) {
@@ -233,7 +229,8 @@ const handleLoadMore = async (item: ILoadMoreItem) => {
 
     // 検索結果のツイートを「投稿時刻が新しい順」に取得
     // タイムラインと異なり、検索結果は一度に 20 件しか返ってこない
-    const result = await Twitter.searchTweets(selected_twitter_account.value.screen_name, searchQuery.value, item.cursor_id);
+    const query = `${searchQuery.value}${showRetweets.value ? 'include:nativeretweets' : ''}`;
+    const result = await Twitter.searchTweets(selected_twitter_account.value.screen_name, query, item.cursor_id);
     if (result && result.tweets) {
         // 「リツイートを表示する」がオフの場合はリツイートのツイートを除外
         if (showRetweets.value === false) {
@@ -397,7 +394,12 @@ onMounted(() => {
 }
 
 .search-settings {
+    display: flex;
+    align-items: center;
+    height: 45px;
     padding: 0px 12px;
+    font-size: 14px;
+    color: rgb(var(--v-theme-text-darken-1));
     border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.12);
 }
 
