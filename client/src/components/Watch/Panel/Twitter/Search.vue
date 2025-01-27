@@ -218,8 +218,11 @@ const handleLoadMore = async (item: ILoadMoreItem) => {
         return;
     }
 
+    // 検索結果のツイートを「投稿時刻が新しい順」に取得
+    // タイムラインと異なり、検索結果は一度に 20 件しか返ってこない
     const result = await Twitter.searchTweets(selected_twitter_account.value.screen_name, searchQuery.value, item.cursor_id);
     if (result && result.tweets) {
+        // 「リツイートを表示する」がオフの場合はリツイートのツイートを除外
         if (showRetweets.value === false) {
             result.tweets = result.tweets.filter(tweet => !tweet.retweeted_tweet);
         }
