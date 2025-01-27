@@ -27,7 +27,7 @@
         "floating-vue": "^5.2.2",
         "hls.js": "^1.6.0-beta.1",
         "mitt": "^3.0.1",
-        "mpegts.js": "github:tsukumijima/mpegts.js#ecd5e86761c0c696fb9ce25665b49cffffbe3e7a",
+        "mpegts.js": "github:tsukumijima/mpegts.js#05252cf94aed0626876facb2803af8afde2f4ac4",
         "nanoid": "^5.0.9",
         "ohash": "^1.1.3",
         "piexifjs": "^2.0.0-beta.9",
