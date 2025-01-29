@@ -88,6 +88,10 @@ const isSearchFormFocused = ref(false);
 const searchQuery = ref('');
 const scroller = useTemplateRef('scroller');
 
+// タイムライン更新履歴を管理するための変数
+// ユニークなツイートが得られた更新時の next_cursor_id のみを保持
+const cursorIdHistory = ref<string[]>([]);  // 更新履歴を保持
+
 // フラットな構造の配列を生成する computed プロパティ
 const flattenedItems = computed(() => {
     const items: (ITweet | ILoadMoreItem)[] = [];
@@ -105,12 +109,21 @@ const flattenedItems = computed(() => {
 // 2025/01 現在の Virtua の Vue バインディングは下方向への無限スクロールのみ考慮しているようで、
 // 上方向の無限スクロールだと更新しても一見して更新内容が反映されていないように見える問題への回避策
 // 一旦下方向にスクロールしてからすぐ元に戻すことで、表示状態の DOM を強制的に更新させる
+const isRefreshing = ref(false);
 const refreshScroller = async () => {
     if (scroller.value) {
+        isRefreshing.value = true;
         const offset = scroller.value.scrollOffset;
-        scroller.value.scrollToIndex(offset + 1000);  // 一旦 1000px ずらしてスクロール
+        const viewportSize = scroller.value.viewportSize;
+        // scrollOffset が 0 ~ (viewportSize * 2) 範囲に収まっていない (一番上にスクロールされていない) 場合はリフレッシュしない
+        if (offset < 0 || offset > viewportSize * 2) {
+            isRefreshing.value = false;
+            return;
+        }
+        scroller.value.scrollToIndex(offset + (viewportSize * 2));  // 一旦 viewportSize * 2 分ずらしてスクロール
         await Utils.sleep(0.02);  // 0.02 秒待機
         scroller.value.scrollToIndex(offset);  // 元のスクロール位置に戻す
+        isRefreshing.value = false;
     }
 };
 
@@ -160,10 +173,17 @@ const performSearchTweets = async () => {
         return;
     }
 
+    // 使用するカーソル ID を決定
+    // 履歴が2件以上ある場合は末尾から2番目のカーソル ID を使用
+    let cursor_id: string | undefined;
+    if (cursorIdHistory.value.length >= 2) {
+        cursor_id = cursorIdHistory.value[cursorIdHistory.value.length - 2];
+    }
+
     // 検索結果のツイートを「投稿時刻が新しい順」に取得
     // タイムラインと異なり、検索結果は一度に 20 件しか返ってこない
     const query = `${searchQuery.value}${showRetweets.value ? 'include:nativeretweets' : ''}`;
-    const result = await Twitter.searchTweets(selected_twitter_account.value.screen_name, query);
+    const result = await Twitter.searchTweets(selected_twitter_account.value.screen_name, query, cursor_id);
     if (result && result.tweets) {
         // 「リツイートを表示する」がオフの場合はリツイートのツイートを除外
         if (showRetweets.value === false) {
@@ -173,6 +193,15 @@ const performSearchTweets = async () => {
         // 既存のツイートとの重複を除外
         const existingIds = getExistingTweetIds();
         const uniqueTweets = filterDuplicateTweets(result.tweets, existingIds);
+
+        // ユニークなツイートが得られた場合のみ next_cursor_id を履歴に追加
+        if (uniqueTweets.length > 0 && result.next_cursor_id) {
+            cursorIdHistory.value.push(result.next_cursor_id);
+            // 履歴は最新の10件のみ保持
+            if (cursorIdHistory.value.length > 10) {
+                cursorIdHistory.value.shift();
+            }
+        }
 
         // 新しいツイートブロックを作成
         const newBlock: ITweetBlock = {
@@ -288,16 +317,22 @@ const handleLoadMore = async (item: ILoadMoreItem) => {
 // 検索クエリが変更された場合、同じ検索クエリではなくなるのでタイムラインの内容をまっさらにする
 watch(searchQuery, () => {
     timelineItems.value = [];
+    cursorIdHistory.value = [];  // カーソル履歴をリセット
 });
 
 // 「リツイートを表示する」のスイッチが変更されたらタイムラインの内容をまっさらにして再取得
 watch(showRetweets, () => {
     timelineItems.value = [];
+    cursorIdHistory.value = [];  // カーソル履歴をリセット
     performSearchTweets();
 });
 
 const checkScrollPosition = () => {
-    if (!scroller.value || !scroller.value.$el || isFetching.value) return;
+    if (!scroller.value || !scroller.value.$el) return;
+    // 現在他のタイミングでツイートを取得中なら常にイベントを無視
+    if (isFetching.value) return;
+    // 仮想スクローラーの描画リフレッシュ中なら常にイベントを無視
+    if (isRefreshing.value) return;
 
     const container = scroller.value.$el;
     const scrollTop = container.scrollTop;
