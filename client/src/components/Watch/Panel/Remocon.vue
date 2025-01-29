@@ -92,7 +92,7 @@ export default defineComponent({
     overflow-y: scroll;
     opacity: 0;
     visibility: hidden;
-    z-index: 5;
+    z-index: 20;
     &--showing {
         opacity: 1;
         visibility: visible;
@@ -146,7 +146,7 @@ export default defineComponent({
                 visibility: hidden;
                 transition: opacity 0.2s cubic-bezier(0.4, 0.38, 0.49, 0.94), visibility 0.2s cubic-bezier(0.4, 0.38, 0.49, 0.94);
                 will-change: opacity;
-                z-index: 3;
+                z-index: 21;
             }
 
             .remote-control__directional-key {

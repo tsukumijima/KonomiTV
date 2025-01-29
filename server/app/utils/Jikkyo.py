@@ -59,6 +59,8 @@ class Jikkyo:
         'jk191': None,
         'jk192': None,
         'jk193': None,
+        'jk200': None,
+        'jk201': None,
         'jk211': 'ch2646846',
         'jk222': None,
         'jk236': None,

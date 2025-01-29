@@ -295,9 +295,9 @@ class RecordedVideo(TortoiseModel):
                         raise ex
 
             if 0 < retry_count < 10:
-                logging.info(f'Succeeded to save to database after retrying.')
+                logging.info('Succeeded to save to database after retrying.')
             elif retry_count == 0:
-                logging.error(f'Failed to save to database after retrying. ignored.')
+                logging.error('Failed to save to database after retrying. ignored.')
 
         # 明示的に例外を拾わないとなぜかメインプロセスも含め全体がフリーズしてしまう
         except Exception:

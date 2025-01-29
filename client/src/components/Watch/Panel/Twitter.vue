@@ -648,6 +648,7 @@ export default defineComponent({
     &.watch-panel__content--active .tab-container .tab-content--active {
         opacity: 1;
         visibility: visible;
+        z-index: 10;
         @media (hover: none) {
             content-visibility: auto;
         }
@@ -1117,7 +1118,7 @@ export default defineComponent({
         opacity: 0;
         visibility: hidden;
         overflow-y: auto;
-        z-index: 2;
+        z-index: 20;
         @include tablet-vertical {
             left: 24px;
             right: 24px;
@@ -1340,7 +1341,7 @@ export default defineComponent({
         opacity: 0;
         visibility: hidden;
         overflow-y: auto;
-        z-index: 3;
+        z-index: 20;
         @include tablet-vertical {
             left: 24px;
             right: 24px;

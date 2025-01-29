@@ -248,19 +248,15 @@ class PlayerController {
 
             // 動画の設定
             video: (() => {
-
                 // 画質リスト
                 const qualities: DPlayerType.VideoQuality[] = [];
-
                 // H.265 / HEVC 再生時のみ、API に渡す画質に -hevc のプレフィックスをつける
                 const hevc_prefix = is_hevc_playback === true ? '-hevc' : '';
 
                 // ライブ視聴: チャンネル情報がセットされているはず
                 if (this.playback_mode === 'Live') {
-
                     // ライブストリーミング API のベース URL
                     const streaming_api_base_url = `${Utils.api_base_url}/streams/live/${channels_store.channel.current.display_channel_id}`;
-
                     // ラジオチャンネルの場合
                     // API が受け付ける画質の値は通常のチャンネルと同じだが (手抜き…)、実際の画質は 48KHz/192kbps で固定される
                     // ラジオチャンネルの場合は、1080p と渡しても 48kHz/192kbps 固定の音声だけの MPEG-TS が配信される
@@ -270,10 +266,8 @@ class PlayerController {
                             type: 'mpegts',
                             url: `${streaming_api_base_url}/1080p/mpegts`,
                         });
-
                     // 通常のチャンネルの場合
                     } else {
-
                         // 画質リストを作成
                         for (const quality_name of LIVE_STREAMING_QUALITIES) {
                             qualities.push({
@@ -284,14 +278,12 @@ class PlayerController {
                             });
                         }
                     }
-
                     // デフォルトの画質
                     // ラジオチャンネルのみ常に 48KHz/192kbps に固定する
                     let default_quality: string = this.quality_profile.tv_streaming_quality;
                     if (channels_store.channel.current.is_radiochannel) {
                         default_quality = '48kHz/192kbps';
                     }
-
                     return {
                         quality: qualities,
                         defaultQuality: default_quality,
@@ -299,10 +291,8 @@ class PlayerController {
 
                 // ビデオ視聴: 録画番組情報がセットされているはず
                 } else {
-
                     // ビデオストリーミング API のベース URL
                     const streaming_api_base_url = `${Utils.api_base_url}/streams/video/${player_store.recorded_program.id}`;
-
                     // 画質リストを作成
                     for (const quality_name of VIDEO_STREAMING_QUALITIES) {
                         qualities.push({
@@ -312,11 +302,9 @@ class PlayerController {
                             url: `${streaming_api_base_url}/${quality_name}${hevc_prefix}/playlist`,
                         });
                     }
-
                     // デフォルトの画質
                     // 録画ではラジオは考慮しない
                     const default_quality: string = this.quality_profile.video_streaming_quality;
-
                     return {
                         quality: qualities,
                         defaultQuality: default_quality,
@@ -534,35 +522,27 @@ class PlayerController {
                     })(),
                     // 文字スーパーの PRA (内蔵音再生コマンド) のコールバックを指定
                     PRACallback: async (index: number) => {
-
                         // 設定で文字スーパーが無効なら実行しない
                         if (is_show_superimpose === false) return;
-
                         // index に応じた内蔵音を鳴らす
                         // ref: https://ics.media/entry/200427/
                         // ref: https://www.ipentec.com/document/javascript-web-audio-api-change-volume
-
                         // 自動再生ポリシーに引っかかったなどで AudioContext が一時停止されている場合、一度 resume() する必要がある
                         // resume() するまでに何らかのユーザーのジェスチャーが行われているはず…
                         // なくても動くこともあるみたいだけど、念のため
                         if (this.romsounds_context.state === 'suspended') {
                             await this.romsounds_context.resume();
                         }
-
                         // index で指定された音声データを読み込み
                         const buffer_source_node = this.romsounds_context.createBufferSource();
                         buffer_source_node.buffer = this.romsounds_buffers[index];
-
                         // GainNode につなげる
                         const gain_node = this.romsounds_context.createGain();
                         buffer_source_node.connect(gain_node);
-
                         // 出力につなげる
                         gain_node.connect(this.romsounds_context.destination);
-
                         // 音量を元の wav の3倍にする (1倍だと結構小さめ)
                         gain_node.gain.value = 3;
-
                         // 再生開始
                         buffer_source_node.start(0);
                     }

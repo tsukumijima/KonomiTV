@@ -377,7 +377,7 @@ class TwitterGraphQLAPI:
         # HTML の meta タグに含まれる検証コードを取得
         meta_tag = soup.select_one('meta[name="twitter-site-verification"]')
         if meta_tag is None:
-            logging.error(f'[TwitterGraphQLAPI] Failed to fetch verification code from Twitter Web App HTML')
+            logging.error('[TwitterGraphQLAPI] Failed to fetch verification code from Twitter Web App HTML')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = 'Challenge 情報の取得に失敗しました。Twitter Web App の HTML から検証コードを取得できませんでした。',
@@ -387,7 +387,7 @@ class TwitterGraphQLAPI:
         # HTML からチャレンジコードを取得
         challenge_code_match = re.search(r'"ondemand.s":"(\w+)"', twitter_web_app_html_text)
         if not challenge_code_match:
-            logging.error(f'[TwitterGraphQLAPI] Failed to fetch challenge code from Twitter Web App HTML')
+            logging.error('[TwitterGraphQLAPI] Failed to fetch challenge code from Twitter Web App HTML')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = 'Challenge 情報の取得に失敗しました。Twitter Web App の HTML からチャレンジコードを取得できませんでした。',
@@ -404,7 +404,7 @@ class TwitterGraphQLAPI:
             headers = self.js_headers_dict,
         )
         if challenge_js_code_response.status_code != 200:
-            logging.error(f'[TwitterGraphQLAPI] Failed to fetch challenge code from Twitter Web App HTML')
+            logging.error('[TwitterGraphQLAPI] Failed to fetch challenge code from Twitter Web App HTML')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = (
@@ -878,7 +878,11 @@ class TwitterGraphQLAPI:
             ## なぜかリツイートと異なり legacy 以下ではなく直下に入っている
             quoted_tweet = None
             if 'quoted_status_result' in raw_tweet_object:
-                quoted_tweet = format_tweet(raw_tweet_object['quoted_status_result']['result'])
+                if 'result' not in raw_tweet_object['quoted_status_result']:
+                    # ごく稀に quoted_status_result.result が空のツイート情報が返ってくるので、その場合は警告を出した上で無視する
+                    logging.warning(f'[TwitterGraphQLAPI] Quoted tweet not found: {raw_tweet_object.get("rest_id", "unknown")}')
+                else:
+                    quoted_tweet = format_tweet(raw_tweet_object['quoted_status_result']['result'])
 
             # 画像の URL を取得
             image_urls = []
@@ -1010,7 +1014,7 @@ class TwitterGraphQLAPI:
         next_cursor_id = self.__getCursorIDFromTimelineAPIResponse(response, 'Top')  # 現在よりも新しいツイートを取得するためのカーソル ID
         previous_cursor_id = self.__getCursorIDFromTimelineAPIResponse(response, 'Bottom')  # 現在よりも過去のツイートを取得するためのカーソル ID
         if next_cursor_id is None or previous_cursor_id is None:
-            logging.error(f'[TwitterGraphQLAPI] Failed to fetch timeline: Cursor ID not found')
+            logging.error('[TwitterGraphQLAPI] Failed to fetch timeline: Cursor ID not found')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = 'タイムラインの取得に失敗しました。カーソル ID を取得できませんでした。開発者に修正を依頼してください。',
@@ -1080,7 +1084,7 @@ class TwitterGraphQLAPI:
         next_cursor_id = self.__getCursorIDFromTimelineAPIResponse(response, 'Top')  # 現在よりも新しいツイートを取得するためのカーソル ID
         previous_cursor_id = self.__getCursorIDFromTimelineAPIResponse(response, 'Bottom')  # 現在よりも過去のツイートを取得するためのカーソル ID
         if next_cursor_id is None or previous_cursor_id is None:
-            logging.error(f'[TwitterGraphQLAPI] Failed to search tweets: Cursor ID not found')
+            logging.error('[TwitterGraphQLAPI] Failed to search tweets: Cursor ID not found')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = 'ツイートの検索に失敗しました。カーソル ID を取得できませんでした。開発者に修正を依頼してください。',
