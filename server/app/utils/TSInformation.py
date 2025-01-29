@@ -1,11 +1,16 @@
 
 import re
 from ariblib.aribstr import AribString
+from tortoise import Tortoise
+from tortoise.exceptions import ConfigurationError
+from tortoise.expressions import Q
 from typing import cast, Literal
+
+from app.constants import DATABASE_CONFIG
 
 
 class TSInformation:
-    """ 録画 TS ファイル内に含まれる番組情報のユーティリティ """
+    """ 録画 TS ファイル内に含まれるメタデータの解析に役立つユーティリティ """
 
     # 映像のコーデック
     # ref: https://github.com/Chinachu/Mirakurun/blob/master/src/Mirakurun/EPG.ts#L23-L27
@@ -296,3 +301,191 @@ class TSInformation:
             return 'スペイン語'
         else:
             return 'その他の言語'
+
+
+    @staticmethod
+    def calculateRemoconID(type: Literal['BS', 'CS', 'CATV', 'SKY', 'BS4K'], service_id: int) -> int:
+        """
+        サービス ID からチャンネルのリモコン番号を算出する (地デジ以外向け)
+
+        Args:
+            type (Literal['BS', 'CS', 'CATV', 'SKY', 'BS4K']): チャンネル種別 (地デジ以外)
+            service_id (int): サービス ID
+
+        Returns:
+            int: 算出されたリモコン番号
+        """
+
+        assert type != 'GR', 'GR type channel is not supported.'
+
+        # 基本的にはサービス ID をリモコン番号とする
+        remocon_id = service_id
+
+        # BS: 一部のチャンネルに決め打ちでチャンネル番号を割り当てる
+        if type == 'BS':
+            if 101 <= service_id <= 102:
+                remocon_id = 1
+            elif 103 <= service_id <= 104:
+                remocon_id = 3
+            elif 141 <= service_id <= 149:
+                remocon_id = 4
+            elif 151 <= service_id <= 159:
+                remocon_id = 5
+            elif 161 <= service_id <= 169:
+                remocon_id = 6
+            elif 171 <= service_id <= 179:
+                remocon_id = 7
+            elif 181 <= service_id <= 189:
+                remocon_id = 8
+            elif 191 <= service_id <= 193:
+                remocon_id = 9
+            elif 200 <= service_id <= 202:
+                remocon_id = 10
+            elif service_id == 211:
+                remocon_id = 11
+            elif service_id == 222:
+                remocon_id = 12
+
+        # SKY: サービス ID を 1024 で割った余りをリモコン番号 (=チャンネル番号) とする
+        ## SPHD (network_id=10) のチャンネル番号は service_id - 32768 、
+        ## SPSD (SKYサービス系: network_id=3) のチャンネル番号は service_id - 16384 で求められる
+        ## 両者とも 1024 の倍数なので、1024 で割った余りからチャンネル番号が算出できる
+        elif type == 'SKY':
+            remocon_id = service_id % 1024
+
+        return remocon_id
+
+
+    @staticmethod
+    async def calculateChannelNumber(
+        type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K'],
+        network_id: int,
+        service_id: int,
+        remocon_id: int,
+        same_network_id_counts: dict[int, int] | None = None,
+        same_remocon_id_counts: dict[int, int] | None = None,
+    ) -> str:
+        """
+        チャンネルの3桁チャンネル番号を算出する (ex: 011, 031-1, 211)
+
+        Args:
+            type (Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K']): チャンネル種別
+            network_id (int): ネットワーク ID
+            service_id (int): サービス ID
+            remocon_id (int): リモコン番号
+            same_network_id_counts (dict[int, int] | None): 同じネットワーク ID のサービスのカウント
+            same_remocon_id_counts (dict[int, int] | None): 同じリモコン番号のサービスのカウント
+
+        Returns:
+            str: 算出されたチャンネル番号
+        """
+
+        # 基本的にはサービス ID をチャンネル番号とする
+        channel_number = str(service_id).zfill(3)
+
+        # 地デジ: リモコン番号からチャンネル番号を算出する (枝番処理も行う)
+        if type == 'GR' and same_remocon_id_counts is not None and same_network_id_counts is not None:
+
+            # 同じリモコン番号のサービスのカウントを定義
+            if remocon_id not in same_remocon_id_counts:  # まだキーが存在しないとき
+                # 011(-0), 011-1, 011-2 のように枝番をつけるため、ネットワーク ID とは異なり -1 を基点とする
+                same_remocon_id_counts[remocon_id] = -1
+
+            # 同じネットワーク内にある最初のサービスのときだけ、同じリモコン番号のサービスのカウントを追加
+            # これをやらないと、サブチャンネルまで枝番処理の対象になってしまう
+            if same_network_id_counts[network_id] == 1:
+                same_remocon_id_counts[remocon_id] += 1
+
+            # 上2桁はリモコン番号から、下1桁は同じネットワーク内にあるサービスのカウント
+            channel_number = str(remocon_id).zfill(2) + str(same_network_id_counts[network_id])
+
+            # 同じリモコン番号のサービスが複数ある場合、枝番をつける
+            if same_remocon_id_counts[remocon_id] > 0:
+                channel_number += '-' + str(same_remocon_id_counts[remocon_id])
+
+        # 地デジ (録画番組向け): リモコン番号からチャンネル番号を算出する (枝番処理も行うが、DB アクセスが発生する)
+        elif type == 'GR':
+            from app.models.Channel import Channel
+
+            # 同じネットワーク内にあるサービスのカウントを取得
+            ## 地デジのサービス ID は、ARIB TR-B14 第五分冊 第七編 9.1 によると
+            ## (地域種別:6bit)(県複フラグ:1bit)(サービス種別:2bit)(地域事業者識別:4bit)(サービス番号:3bit) の 16bit で構成されている
+            ## 0x0007 はビット単位に直すと 0b0000000110000111 になるので、AND 演算でビットマスク（1以外のビットを強制的に0に設定）すると、
+            ## サービス番号 (0~7) のみを取得できる (1~8 に直すために +1 する)
+            same_network_id_count = (service_id & 0x0007) + 1
+
+            # 上2桁はリモコン番号から、下1桁は同じネットワーク内にあるサービスのカウント
+            channel_number = str(remocon_id).zfill(2) + str(same_network_id_count)
+
+            # Tortoise ORM のコネクションが取得できない時は Tortoise ORM を初期化する
+            ## 基本 MetadataAnalyzer を単独で実行したときくらいしか起きないはず…
+            cleanup_required = False
+            try:
+                Tortoise.get_connection('default')
+            except ConfigurationError:
+                await Tortoise.init(config=DATABASE_CONFIG)
+                cleanup_required = True
+
+            # 同じチャンネル番号のサービスのカウントを DB から取得
+            ## network_id と service_id の組み合わせは (CATV を除き日本全国で一意) なので、
+            ## これらが異なる場合は同じリモコン番号/チャンネル番号でも別チャンネルになる
+            ## ex: tvk1 (gr031) / NHK総合1・福岡 (gr031)
+            same_channel_number_count = await Channel.filter(
+                ~(Q(network_id=network_id) & Q(service_id=service_id)),  # network_id と service_id の組み合わせが異なる
+                channel_number=channel_number,  # チャンネル番号が同じ
+                type='GR',  # 地デジのみ
+            ).count()
+
+            # Tortoise ORM を独自に初期化した場合は、開いた Tortoise ORM のコネクションを明示的に閉じる
+            # コネクションを閉じないと Ctrl+C を押下しても終了できない
+            if cleanup_required is True:
+                await Tortoise.close_connections()
+
+            # 異なる NID-SID で同じチャンネル番号のサービスが複数ある場合、枝番をつける
+            ## same_channel_number_count は自身を含まないため、1 以上の場合は枝番をつける
+            if same_channel_number_count >= 1:
+                channel_number += '-' + str(same_channel_number_count)
+
+        # SKY: サービス ID を 1024 で割った余りをチャンネル番号とする
+        ## SPHD (network_id=10) のチャンネル番号は service_id - 32768 、
+        ## SPSD (SKYサービス系: network_id=3) のチャンネル番号は service_id - 16384 で求められる
+        ## 両者とも 1024 の倍数なので、1024 で割った余りからチャンネル番号が
+        ## 両者とも 1024 の倍数なので、1024 で割った余りからチャンネル番号が算出できる
+        elif type == 'SKY':
+            channel_number = str(service_id % 1024).zfill(3)
+
+        return channel_number
+
+
+    @staticmethod
+    def calculateIsSubchannel(type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K'], service_id: int) -> bool:
+        """ チャンネルがサブチャンネルかどうかを算出する """
+
+        # 地デジ: サービス ID に 0x0187 を AND 演算（ビットマスク）した時に 0 でない場合
+        ## 地デジのサービス ID は、ARIB TR-B14 第五分冊 第七編 9.1 によると
+        ## (地域種別:6bit)(県複フラグ:1bit)(サービス種別:2bit)(地域事業者識別:4bit)(サービス番号:3bit) の 16bit で構成されている
+        ## 0x0187 はビット単位に直すと 0b0000000110000111 になるので、AND 演算でビットマスク（1以外のビットを強制的に0に設定）すると、
+        ## サービス種別とサービス番号のみを取得できる  ビットマスクした値のサービス種別が 0（テレビ型）でサービス番号が 0（プライマリサービス）であれば
+        ## メインチャンネルと判定できるし、そうでなければサブチャンネルだと言える
+        if type == 'GR':
+            is_subchannel = (service_id & 0x0187) != 0
+
+        # BS: EDCB / Mirakurun から得られる情報からはサブチャンネルかを判定できないため、決め打ちで設定
+        elif type == 'BS':
+            # サービス ID が以下のリストに含まれるかどうか
+            if ((service_id in [102, 104]) or
+                (142 <= service_id <= 149) or
+                (152 <= service_id <= 159) or
+                (162 <= service_id <= 169) or
+                (172 <= service_id <= 179) or
+                (182 <= service_id <= 189) or
+                (service_id in [232, 233])):
+                is_subchannel = True
+            else:
+                is_subchannel = False
+
+        # それ以外: サブチャンネルという概念自体がないため一律で False に設定
+        else:
+            is_subchannel = False
+
+        return is_subchannel
