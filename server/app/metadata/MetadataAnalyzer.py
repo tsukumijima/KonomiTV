@@ -73,7 +73,6 @@ class MetadataAnalyzer:
         ## 取得に失敗した場合は KonomiTV で再生可能なファイルではないと判断し、None を返す
         media_info = self.__analyzeMediaInfo()
         if media_info is None:
-            logging.debug_simple(f'{self.recorded_file_path}: MediaInfo analysis failed.')
             return None
         logging.debug_simple(f'{self.recorded_file_path}: MediaInfo analysis completed.')
 
@@ -217,9 +216,11 @@ class MetadataAnalyzer:
         ## 現状 ariblib は先頭が sync_byte でない or 途中で同期が壊れる (破損した TS パケットが存在する) TS ファイルを想定していないため、
         ## ariblib に入力する録画ファイルは必ず正常な TS ファイルである必要がある
         ## ファイルの末尾の TS パケットだけ破損してるだけなら再生できるのでファイルサイズはチェックせず、ファイルの先頭が sync_byte であるかだけチェックする
-        if container_format == 'MPEG-TS' and self.recorded_file_path.read_bytes()[0] != 0x47:
-            logging.warning(f'{self.recorded_file_path}: sync_byte is missing. ignored.')
-            return None
+        ## ファイルの先頭1バイトだけを読み込んで sync_byte をチェックする
+        with self.recorded_file_path.open('rb') as f:
+            if container_format == 'MPEG-TS' and f.read(1)[0] != 0x47:
+                logging.warning(f'{self.recorded_file_path}: sync_byte is missing. ignored.')
+                return None
 
         # 録画ファイル情報を表すモデルを作成
         recorded_video = schemas.RecordedVideo(
@@ -248,7 +249,7 @@ class MetadataAnalyzer:
         recorded_program = None
         if container_format == 'MPEG-TS':
             recorded_program = TSInfoAnalyzer(recorded_video).analyze()
-            logging.debug_simple(f'{self.recorded_file_path}: MPEG-TS info analysis completed.')
+            logging.debug_simple(f'{self.recorded_file_path}: MPEG-TS SDT/EIT analysis completed.')
 
         # それ以外の形式では番組情報を取得できないので、ファイル名などから最低限の情報を設定する
         # MPEG-TS 形式だが TS ファイルからチャンネル情報を取得できなかった場合も同様
