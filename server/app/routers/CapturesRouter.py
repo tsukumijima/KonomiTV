@@ -107,7 +107,7 @@ async def CaptureUploadAPI(
                     detail = 'No space left on the device',
                 )
             else:
-                logging.error(f'[CapturesRouter][CaptureUploadAPI] Unexpected OSError: {ex}')
+                logging.error('[CapturesRouter][CaptureUploadAPI] Unexpected OSError:', exc_info=ex)
                 raise HTTPException(
                     status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail = 'Unexpected error occurred while saving the file',

@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 
 from app import logging
 from app import schemas
-from app.config import LoadConfig
+from app.config import Config, LoadConfig
 from app.constants import LIBRARY_DIR
 from app.metadata.TSInfoAnalyzer import TSInfoAnalyzer
 from app.utils import GetPlatformEnvironment
@@ -43,6 +43,15 @@ class MetadataAnalyzer:
             schemas.RecordedProgram | None: 録画番組情報（中に録画ファイル情報・チャンネル情報が含まれる）を表すモデル
                 (KonomiTV で再生可能なファイルではない場合は None が返される)
         """
+
+        # もし Config() の実行時に AssertionError が発生した場合は、LoadConfig() を実行してサーバー設定データをロードする
+        ## 通常ならこの関数を ProcessPoolExecutor で実行した場合もサーバー設定データはロード状態になっているはずだが、
+        ## 自動リロードモード時のみなぜかグローバル変数がマルチプロセスに引き継がれないため、明示的にロードさせる必要がある
+        try:
+            Config()
+        except AssertionError:
+            # バリデーションは既にサーバー起動時に行われているためスキップする
+            LoadConfig(bypass_validation=True)
 
         # 必要な情報を一旦変数として保持
         recording_start_time: datetime | None = None
@@ -208,11 +217,6 @@ class MetadataAnalyzer:
         assert primary_audio_channel is not None, 'primary_audio_channel not found.'
         assert primary_audio_sampling_rate is not None, 'primary_audio_sampling_rate not found.'
 
-        # duration が 30 秒未満の場合は短すぎるので None を返す
-        if duration < 30:
-            logging.warning(f'{self.recorded_file_path}: Duration is too short. ignored.')
-            return None
-
         ## 現状 ariblib は先頭が sync_byte でない or 途中で同期が壊れる (破損した TS パケットが存在する) TS ファイルを想定していないため、
         ## ariblib に入力する録画ファイルは必ず正常な TS ファイルである必要がある
         ## ファイルの末尾の TS パケットだけ破損してるだけなら再生できるのでファイルサイズはチェックせず、ファイルの先頭が sync_byte であるかだけチェックする
@@ -225,12 +229,12 @@ class MetadataAnalyzer:
         # 録画ファイル情報を表すモデルを作成
         stat_info = self.recorded_file_path.stat()
         recorded_video = schemas.RecordedVideo(
-            status = 'Recorded',  # TODO: 状態に応じて変更する
+            status = 'Recorded',  # この時点では録画済みとしておく
             file_path = str(self.recorded_file_path),
             file_hash = file_hash,
             file_size = stat_info.st_size,
             file_created_at = datetime.fromtimestamp(stat_info.st_ctime, tz=ZoneInfo('Asia/Tokyo')),
-            file_updated_at = datetime.fromtimestamp(stat_info.st_mtime, tz=ZoneInfo('Asia/Tokyo')),
+            file_modified_at = datetime.fromtimestamp(stat_info.st_mtime, tz=ZoneInfo('Asia/Tokyo')),
             recording_start_time = recording_start_time,
             recording_end_time = recording_end_time,
             duration = duration,
@@ -414,7 +418,7 @@ if __name__ == '__main__':
     # デバッグ用: 録画ファイルのパスを引数に取り、そのファイルのメタデータを解析する
     # Usage: poetry run python -m app.metadata.MetadataAnalyzer /path/to/recorded_file.ts
     def main(recorded_file_path: Path = typer.Argument(..., exists=True, file_okay=True, dir_okay=False, readable=True, resolve_path=True)):
-        LoadConfig()  # 一度実行しておかないと設定値を参照できない
+        LoadConfig(bypass_validation=True)  # 一度実行しておかないと設定値を参照できない
         metadata_analyzer = MetadataAnalyzer(recorded_file_path)
         result = metadata_analyzer.analyze()
         if result is not None:
