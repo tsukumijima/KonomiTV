@@ -146,6 +146,10 @@ class LiveStream():
             ## エンコーダーがフリーズしたものとみなしてエンコードタスクを再起動する
             instance._stream_data_written_at = 0
 
+            # 実行中の LiveEncodingTask のタスクへの参照
+            # ref: https://docs.astral.sh/ruff/rules/asyncio-dangling-task/
+            instance._live_encoding_task_ref = None
+
             # PSI/SI データアーカイバーのインスタンス
             ## LiveStreamsRouter からアクセスする必要があるためここに設置している
             instance.psi_data_archiver = None
@@ -181,6 +185,7 @@ class LiveStream():
         self._started_at: float
         self._updated_at: float
         self._stream_data_written_at: float
+        self._live_encoding_task_ref: asyncio.Task[None] | None
         self.psi_data_archiver: LivePSIDataArchiver | None
         self.tuner: EDCBTuner | None
 
@@ -306,7 +311,7 @@ class LiveStream():
 
             # エンコードタスクを非同期で実行
             instance = LiveEncodingTask(self)
-            asyncio.create_task(instance.run())
+            self._live_encoding_task_ref = asyncio.create_task(instance.run())
 
         # ***** クライアントの登録 *****
 

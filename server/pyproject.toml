@@ -81,7 +81,3 @@ ignore = [
     "RUF002",  # 全角記号など `ambiguous unicode character` も使いたいため
     "RUF003",  # 全角記号など `ambiguous unicode character` も使いたいため
 ]
-
-[tool.ruff.lint.isort]
-# インポートブロックの後に2行空ける
-lines-after-imports = 2

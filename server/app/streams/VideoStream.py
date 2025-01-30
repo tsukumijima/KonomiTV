@@ -1,3 +1,4 @@
+# ruff: noqa: RUF006 <= 将来改修予定
 
 # Type Hints を指定できるように
 # ref: https://stackoverflow.com/a/33533514/17124142

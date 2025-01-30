@@ -88,6 +88,7 @@ def IsRunningAsWindowsService() -> bool:
     return hWnd == 0
 
 
+background_tasks: set[asyncio.Task[None]] = set()
 def SetTimeout(callback: Callable[[], Any], delay: float) -> Callable[[], None]:
     """
     指定した時間後にコールバックを呼び出すタイムアウトを設定する
@@ -114,7 +115,11 @@ def SetTimeout(callback: Callable[[], Any], delay: float) -> Callable[[], None]:
         nonlocal is_cancelled
         is_cancelled = True
 
-    asyncio.create_task(timeout())
+    # 実行中のタスクへの参照を保持しておく
+    # ref: https://docs.astral.sh/ruff/rules/asyncio-dangling-task/
+    task = asyncio.create_task(timeout())
+    background_tasks.add(task)
+    task.add_done_callback(lambda _: background_tasks.discard(task))
     return cancel
 
 

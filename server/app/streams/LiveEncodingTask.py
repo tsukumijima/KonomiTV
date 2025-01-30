@@ -729,6 +729,11 @@ class LiveEncodingTask:
 
         # ***** チューナーからの出力の読み込み → tsreadex・エンコーダーへの書き込み *****
 
+        # 実行中のタスクへの参照を保持しておく
+        ## run() の実行が完了するまで、ガベージコレクタによりタスクが勝手に破棄されることを防ぐ
+        ## ref: https://docs.astral.sh/ruff/rules/asyncio-dangling-task/
+        background_tasks: set[asyncio.Task[None]] = set()
+
         # チューナーからの放送波 TS の最終読み取り時刻 (単調増加時間)
         ## 単に時刻を比較する用途でしか使わないので、time.monotonic() から取得した単調増加時間が入る
         ## Unix Time とかではないので注意
@@ -777,7 +782,7 @@ class LiveEncodingTask:
                         ## 放送波の tsreadex への書き込みを最優先で行うため、非同期タスクとして実行する
                         ## ここで tsreadex への書き込みがブロックされると放送波の受信ループが止まり、ライブストリームの異常終了に繋がりかねない
                         if self.live_stream.psi_data_archiver is not None:
-                            asyncio.create_task(self.live_stream.psi_data_archiver.pushTSPacketData(chunk))
+                            background_tasks.add(asyncio.create_task(self.live_stream.psi_data_archiver.pushTSPacketData(chunk)))
 
                     # 並列タスク処理中に何らかの例外が発生した
                     # BrokenPipeError・asyncio.TimeoutError などが想定されるが、何が発生するかわからないためすべての例外をキャッチする
@@ -811,7 +816,7 @@ class LiveEncodingTask:
                 response.close()
 
         # タスクを非同期で実行
-        asyncio.create_task(Reader())
+        background_tasks.add(asyncio.create_task(Reader()))
 
         # ***** tsreadex・エンコーダーからの出力の読み込み → ライブストリームへの書き込み *****
 
@@ -901,8 +906,8 @@ class LiveEncodingTask:
                     break
 
         # タスクを非同期で実行
-        asyncio.create_task(Writer())
-        asyncio.create_task(SubWriter())
+        background_tasks.add(asyncio.create_task(Writer()))
+        background_tasks.add(asyncio.create_task(SubWriter()))
 
         # ***** エンコーダーの状態監視 *****
 
@@ -1092,7 +1097,7 @@ class LiveEncodingTask:
                 await encoder_log.close()
 
         # タスクを非同期で実行
-        asyncio.create_task(EncoderObServer())
+        background_tasks.add(asyncio.create_task(EncoderObServer()))
 
         # ***** エンコードタスク全体の制御 *****
 
@@ -1298,7 +1303,7 @@ class LiveEncodingTask:
             if self._retry_count < self._max_retry_count:
                 self._retry_count += 1  # カウントを増やす
                 await asyncio.sleep(0.1)  # 少し待つ
-                asyncio.create_task(self.run())  # 新しいタスクを立ち上げる
+                background_tasks.add(asyncio.create_task(self.run()))  # 新しいタスクを立ち上げる
 
             # 最大再起動回数を使い果たしたので、Offline にする
             else:

@@ -179,8 +179,10 @@ tortoise.contrib.fastapi.register_tortoise(
 )
 
 # サーバーの起動時に実行する
+update_metadata_task: asyncio.Task[None] | None = None
 @app.on_event('startup')
 async def Startup():
+    global update_metadata_task
 
     # チャンネル情報を更新
     await Channel.update()
@@ -201,11 +203,14 @@ async def Startup():
 
     # 録画フォルダ配下の録画ファイルのメタデータを更新/同期
     ## 録画ファイルの量次第では録画ファイルの更新確認に時間がかかるため、非同期で実行する
-    async def run():
-        # サーバーの起動完了を待ってから実行する
+    async def UpdateMetadata():
+        # startup イベント発火後のサーバーの起動完了を待ってから実行する
         await asyncio.sleep(0.1)
         # await RecordedVideo.update()
-    asyncio.create_task(run())
+
+    # 録画ファイルのメタデータ更新タスクを起動
+    # ref: https://docs.astral.sh/ruff/rules/asyncio-dangling-task/
+    update_metadata_task = asyncio.create_task(UpdateMetadata())
 
 # サーバー設定で指定された時間 (デフォルト: 15分) ごとに1回、チャンネル情報と番組情報を更新する
 # チャンネル情報は頻繁に変わるわけではないけど、手動で再起動しなくても自動で変更が適用されてほしい
