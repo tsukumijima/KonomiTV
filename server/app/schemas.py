@@ -92,9 +92,12 @@ class Genre(TypedDict):
 class RecordedVideo(PydanticModel):
     # デフォルト値は録画番組からメタデータを取得する処理向け
     id: int = -1  # メタデータ取得時は ID が定まらないため -1 を設定
+    status: Literal['Recording', 'Recorded']
     file_path: str
     file_hash: str
     file_size: int
+    file_created_at: datetime
+    file_updated_at: datetime
     recording_start_time: datetime | None
     recording_end_time: datetime | None
     duration: float
@@ -111,7 +114,15 @@ class RecordedVideo(PydanticModel):
     secondary_audio_codec: Literal['AAC-LC', 'HE-AAC', 'MP2'] | None = None
     secondary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] | None = None
     secondary_audio_sampling_rate: int | None = None
+    key_frames: list[KeyFrame] = []
     cm_sections: list[CMSection] = []
+    created_at: datetime
+    updated_at: datetime
+
+class KeyFrame(TypedDict):
+    offset: int
+    dts: int
+    pts: int
 
 class CMSection(TypedDict):
     start_time: float
@@ -147,6 +158,8 @@ class RecordedProgram(PydanticModel):
     primary_audio_language: str = '日本語'
     secondary_audio_type: str | None = None
     secondary_audio_language: str | None = None
+    created_at: datetime
+    updated_at: datetime
 
 class RecordedPrograms(BaseModel):
     total: int
@@ -160,6 +173,7 @@ class Series(PydanticModel):
     description: str
     genres: list[Genre]
     broadcast_periods: list[SeriesBroadcastPeriod]
+    created_at: datetime
     updated_at: datetime
 
 class SeriesList(BaseModel):

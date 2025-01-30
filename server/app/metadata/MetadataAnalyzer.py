@@ -223,10 +223,14 @@ class MetadataAnalyzer:
                 return None
 
         # 録画ファイル情報を表すモデルを作成
+        stat_info = self.recorded_file_path.stat()
         recorded_video = schemas.RecordedVideo(
+            status = 'Recorded',  # TODO: 状態に応じて変更する
             file_path = str(self.recorded_file_path),
             file_hash = file_hash,
-            file_size = self.recorded_file_path.stat().st_size,
+            file_size = stat_info.st_size,
+            file_created_at = datetime.fromtimestamp(stat_info.st_ctime, tz=ZoneInfo('Asia/Tokyo')),
+            file_updated_at = datetime.fromtimestamp(stat_info.st_mtime, tz=ZoneInfo('Asia/Tokyo')),
             recording_start_time = recording_start_time,
             recording_end_time = recording_end_time,
             duration = duration,
@@ -243,6 +247,10 @@ class MetadataAnalyzer:
             secondary_audio_codec = secondary_audio_codec,
             secondary_audio_channel = secondary_audio_channel,
             secondary_audio_sampling_rate = secondary_audio_sampling_rate,
+            # 必須フィールドのため作成日時・更新日時は適当に現在時刻を入れている
+            # この値は参照されず、DB の値は別途自動生成される
+            created_at = datetime.now(tz=ZoneInfo('Asia/Tokyo')),
+            updated_at = datetime.now(tz=ZoneInfo('Asia/Tokyo')),
         )
 
         # MPEG-TS 形式のみ、TS ファイルに含まれる番組情報・チャンネル情報を解析する
@@ -269,6 +277,10 @@ class MetadataAnalyzer:
                 start_time = start_time,
                 end_time = start_time + timedelta(seconds=recorded_video.duration),
                 duration = recorded_video.duration,
+                # 必須フィールドのため作成日時・更新日時は適当に現在時刻を入れている
+                # この値は参照されず、DB の値は別途自動生成される
+                created_at = datetime.now(tz=ZoneInfo('Asia/Tokyo')),
+                updated_at = datetime.now(tz=ZoneInfo('Asia/Tokyo')),
             )
 
         return recorded_program

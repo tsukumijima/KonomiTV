@@ -27,7 +27,7 @@ from app.config import LoadConfig
 from app.constants import DATABASE_CONFIG
 from app.models.Channel import Channel
 from app.models.RecordedProgram import RecordedProgram
-from app.schemas import CMSection
+from app.schemas import CMSection, KeyFrame
 
 
 class RecordedVideo(TortoiseModel):
@@ -41,9 +41,12 @@ class RecordedVideo(TortoiseModel):
     recorded_program: fields.OneToOneRelation[RecordedProgram] = \
         fields.OneToOneField('models.RecordedProgram', related_name='recorded_video', on_delete=fields.CASCADE)
     recorded_program_id: int
-    file_path = fields.TextField()
+    status = cast(TortoiseField[Literal['Recording', 'Recorded']], fields.CharField(255))
+    file_path = fields.TextField()  # ファイルパスは可変長だが、TextField には unique 制約が付けられない
     file_hash = fields.TextField()
     file_size = fields.IntField()
+    file_created_at = fields.DatetimeField()
+    file_modified_at = fields.DatetimeField()
     recording_start_time = cast(TortoiseField[datetime | None], fields.DatetimeField(null=True))
     recording_end_time = cast(TortoiseField[datetime | None], fields.DatetimeField(null=True))
     duration = fields.FloatField()
@@ -62,8 +65,12 @@ class RecordedVideo(TortoiseModel):
     secondary_audio_codec = cast(TortoiseField[Literal['AAC-LC'] | None], fields.CharField(255, null=True))
     secondary_audio_channel = cast(TortoiseField[Literal['Monaural', 'Stereo', '5.1ch'] | None], fields.CharField(255, null=True))
     secondary_audio_sampling_rate = cast(TortoiseField[int | None], fields.IntField(null=True))
+    key_frames = cast(TortoiseField[list[KeyFrame]],
+        fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False)))  # type: ignore
     cm_sections = cast(TortoiseField[list[CMSection]],
         fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False)))  # type: ignore
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
 
 
     @classmethod

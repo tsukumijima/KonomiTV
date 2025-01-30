@@ -4,7 +4,12 @@ from tortoise import BaseDBAsyncClient
 
 async def upgrade(db: BaseDBAsyncClient) -> str:
     return """
+        -- Drop existing tables
         DROP TABLE IF EXISTS "recorded_programs";
+        DROP TABLE IF EXISTS "recorded_videos";
+        DROP TABLE IF EXISTS "series";
+
+        -- Recreate tables with new columns and indexes
         CREATE TABLE IF NOT EXISTS "recorded_programs" (
             "id" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
             "recording_start_margin" REAL NOT NULL,
@@ -30,15 +35,20 @@ async def upgrade(db: BaseDBAsyncClient) -> str:
             "primary_audio_type" TEXT NOT NULL,
             "primary_audio_language" TEXT NOT NULL,
             "secondary_audio_type" TEXT,
-            "secondary_audio_language" TEXT
+            "secondary_audio_language" TEXT,
+            "created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updated_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
-        DROP TABLE IF EXISTS "recorded_videos";
+
         CREATE TABLE IF NOT EXISTS "recorded_videos" (
             "id" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
             "recorded_program_id" INT NOT NULL REFERENCES "recorded_programs" ("id") ON DELETE CASCADE,
+            "status" VARCHAR(255) NOT NULL,
             "file_path" TEXT NOT NULL,
             "file_hash" TEXT NOT NULL,
             "file_size" INT NOT NULL,
+            "file_created_at" TIMESTAMP NOT NULL,
+            "file_modified_at" TIMESTAMP NOT NULL,
             "recording_start_time" TIMESTAMP,
             "recording_end_time" TIMESTAMP,
             "duration" REAL NOT NULL,
@@ -55,24 +65,27 @@ async def upgrade(db: BaseDBAsyncClient) -> str:
             "secondary_audio_codec" VARCHAR(255),
             "secondary_audio_channel" VARCHAR(255),
             "secondary_audio_sampling_rate" INT,
-            "cm_sections" JSON NOT NULL
+            "key_frames" JSON NOT NULL,
+            "cm_sections" JSON NOT NULL,
+            "created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updated_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
-        DROP TABLE IF EXISTS "series";
+
         CREATE TABLE IF NOT EXISTS "series" (
             "id" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
             "title" TEXT NOT NULL,
             "description" TEXT NOT NULL,
             "genres" JSON NOT NULL,
+            "created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             "updated_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
-        DROP TABLE IF EXISTS "series_broadcast_periods";
-        CREATE TABLE IF NOT EXISTS "series_broadcast_periods" (
-            "id" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-            "series_id" INT NOT NULL REFERENCES "series" ("id") ON DELETE CASCADE,
-            "channel_id" VARCHAR(255) NOT NULL REFERENCES "channels" ("id") ON DELETE CASCADE,
-            "start_date" DATE NOT NULL,
-            "end_date" DATE NOT NULL
-        );
+
+        -- Create indexes for better query performance
+        CREATE INDEX "recorded_programs_time_range" ON "recorded_programs" ("start_time", "end_time");
+        CREATE INDEX "recorded_programs_channel_time" ON "recorded_programs" ("channel_id", "start_time");
+        CREATE INDEX "recorded_videos_file_path" ON "recorded_videos" ("file_path");
+        CREATE INDEX "recorded_videos_file_hash" ON "recorded_videos" ("file_hash");
+        CREATE INDEX "series_title" ON "series" ("title");
     """
 
 
@@ -81,5 +94,9 @@ async def downgrade(db: BaseDBAsyncClient) -> str:
         DROP TABLE IF EXISTS "recorded_programs";
         DROP TABLE IF EXISTS "recorded_videos";
         DROP TABLE IF EXISTS "series";
-        DROP TABLE IF EXISTS "series_broadcast_periods";
+        DROP INDEX IF EXISTS "recorded_programs_time_range";
+        DROP INDEX IF EXISTS "recorded_programs_channel_time";
+        DROP INDEX IF EXISTS "recorded_videos_file_path";
+        DROP INDEX IF EXISTS "recorded_videos_file_hash";
+        DROP INDEX IF EXISTS "series_title";
     """

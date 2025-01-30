@@ -455,6 +455,10 @@ class TSInfoAnalyzer:
             start_time = start_time,
             end_time = end_time,
             duration = duration,
+            # 必須フィールドのため作成日時・更新日時は適当に現在時刻を入れている
+            # この値は参照されず、DB の値は別途自動生成される
+            created_at = datetime.now(tz=ZoneInfo('Asia/Tokyo')),
+            updated_at = datetime.now(tz=ZoneInfo('Asia/Tokyo')),
         )
 
         # 以下のフィールドは、対応するデータを取得できなかった場合に Pydantic モデルに設定されているデフォルト値が使われる
