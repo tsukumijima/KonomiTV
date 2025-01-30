@@ -26,7 +26,7 @@ logger = logging.getLogger('uvicorn')
 logger_debug = logging.getLogger('uvicorn.debug')
 
 
-def debug(message: Any) -> None:
+def debug(message: Any, *args: Any, exc_info: BaseException | bool | None = None) -> None:
     """
     デバッグログを出力する
 
@@ -34,10 +34,10 @@ def debug(message: Any) -> None:
         message (Any): ログメッセージ
     """
     if Config().general.debug is True:
-        logger_debug.debug(message, stacklevel=2)
+        logger_debug.debug(message, *args, exc_info=exc_info, stacklevel=2)
 
 
-def debug_simple(message: Any) -> None:
+def debug_simple(message: Any, *args: Any, exc_info: BaseException | bool | None = None) -> None:
     """
     デバッグログを出力する (スクリプトパス・行番号を出力しない)
 
@@ -46,35 +46,35 @@ def debug_simple(message: Any) -> None:
     """
     if Config().general.debug is True:
         logger.setLevel(logging.DEBUG)
-        logger.debug(message, stacklevel=2)
+        logger.debug(message, *args, exc_info=exc_info, stacklevel=2)
         logger.setLevel(logging.INFO)
 
 
-def info(message: Any) -> None:
+def info(message: Any, *args: Any, exc_info: BaseException | bool | None = None) -> None:
     """
     情報ログを出力する
 
     Args:
         message (Any): ログメッセージ
     """
-    logger.info(message, stacklevel=2)
+    logger.info(message, *args, exc_info=exc_info, stacklevel=2)
 
 
-def warning(message: Any) -> None:
+def warning(message: Any, *args: Any, exc_info: BaseException | bool | None = None) -> None:
     """
     警告ログを出力する
 
     Args:
         message (Any): ログメッセージ
     """
-    logger.warning(message, stacklevel=2)
+    logger.warning(message, *args, exc_info=exc_info, stacklevel=2)
 
 
-def error(message: Any) -> None:
+def error(message: Any, *args: Any, exc_info: BaseException | bool | None = None) -> None:
     """
     エラーログを出力する
 
     Args:
         message (Any): ログメッセージ
     """
-    logger.error(message, stacklevel=2)
+    logger.error(message, *args, exc_info=exc_info, stacklevel=2)
