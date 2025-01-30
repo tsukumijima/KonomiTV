@@ -4,7 +4,7 @@ from ariblib.aribstr import AribString
 from tortoise import Tortoise
 from tortoise.exceptions import ConfigurationError
 from tortoise.expressions import Q
-from typing import cast, Literal
+from typing import cast, ClassVar, Literal
 
 from app.constants import DATABASE_CONFIG
 
@@ -14,7 +14,7 @@ class TSInformation:
 
     # 映像のコーデック
     # ref: https://github.com/Chinachu/Mirakurun/blob/master/src/Mirakurun/EPG.ts#L23-L27
-    STREAM_CONTENT = {
+    STREAM_CONTENT: ClassVar[dict[int, str]] = {
         0x01: 'MPEG-2',
         0x05: 'H.264',
         0x09: 'H.265',
@@ -22,7 +22,7 @@ class TSInformation:
 
     # 映像の解像度
     # ref: https://github.com/Chinachu/Mirakurun/blob/master/src/Mirakurun/EPG.ts#L29-L63
-    COMPONENT_TYPE = {
+    COMPONENT_TYPE: ClassVar[dict[int, str]] = {
         0x01: '480i',
         0x02: '480i',
         0x03: '480i',

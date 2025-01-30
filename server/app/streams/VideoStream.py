@@ -297,7 +297,7 @@ class VideoStream:
             virtual_playlist += f'#EXTINF:{segment.duration_seconds:.6f},\n'  # セグメントの長さ (秒, 小数点以下6桁まで)
             virtual_playlist += f'segment?sequence={segment.sequence_index}&_={self._time_hash}\n'  # キャッシュ避けのためにタイムスタンプを付与する
 
-        virtual_playlist += f'#EXT-X-ENDLIST\n'
+        virtual_playlist += '#EXT-X-ENDLIST\n'
         return virtual_playlist
 
 

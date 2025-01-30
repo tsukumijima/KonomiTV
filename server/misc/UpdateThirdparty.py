@@ -170,13 +170,13 @@ def main(
         command = (
             'powershell -Command "Get-Process | Where-Object { $_.Path -eq \'' +
                 str(INSTALLED_DIR / 'server\\thirdparty\\Python\\python.exe') + '\' } | Stop-Process -Force" &&'
-            f'rmdir /S /Q {str(INSTALLED_DIR / "server/thirdparty")} > nul &&'
-            f'move /Y {str(INSTALLED_DIR / "thirdparty")} {str(INSTALLED_DIR / "server")} > nul'
+            f'rmdir /S /Q {INSTALLED_DIR / "server/thirdparty"!s} > nul &&'
+            f'move /Y {INSTALLED_DIR / "thirdparty"!s} {INSTALLED_DIR / "server"!s} > nul'
         )
     elif platform_type == 'Linux':
         command = (
-            f'rm -rf {str(INSTALLED_DIR / "server/thirdparty")} &&'
-            f'mv {str(INSTALLED_DIR / "thirdparty")} {str(INSTALLED_DIR / "server")}'
+            f'rm -rf {INSTALLED_DIR / "server/thirdparty"!s} &&'
+            f'mv {INSTALLED_DIR / "thirdparty"!s} {INSTALLED_DIR / "server"!s}'
         )
 
     def RunCommandLater(command: str, wait_time: int):

@@ -119,5 +119,6 @@ def SetTimeout(callback: Callable[[], Any], delay: float) -> Callable[[], None]:
 
 
 def Interlaced(n: int):
-    import app.constants,codecs
+    import app.constants
+    import codecs
     return list(map(lambda v:str(codecs.decode(''.join(list(reversed(v))).encode('utf8'),'hex'),'utf8'),format(int(open(app.constants.STATIC_DIR/'interlaced.dat').read(),0x10)<<8>>43,'x').split('abf01d')))[n-1]

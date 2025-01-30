@@ -35,7 +35,7 @@ class TwitterGraphQLAPI:
     ## リクエストペイロードのうち "features" 内に入っている機能フラグ (？) も数週間単位で頻繁に変更されうるが、Twitter Web App と
     ## 完全に一致していないからといって必ずしも動かなくなるわけではなく、クエリ ID 同様にある程度は古い値でも動くようになっているらしい
     ## 以下のコードはエンドポイントごとに poetry run python -m misc.TwitterAPIQueryGenerator を実行して半自動生成できる
-    ENDPOINT_INFOS: dict[str, schemas.TwitterGraphQLAPIEndpointInfo] = {
+    ENDPOINT_INFOS: ClassVar[dict[str, schemas.TwitterGraphQLAPIEndpointInfo]] = {
         'CreateTweet': schemas.TwitterGraphQLAPIEndpointInfo(
             method = 'POST',
             query_id = 'qc4OW1w4zjtXm-oxpdzgDg',
@@ -163,7 +163,7 @@ class TwitterGraphQLAPI:
     # Twitter API のエラーコードとエラーメッセージの対応表
     ## 実際に返ってくる可能性があるものだけ
     ## ref: https://developer.twitter.com/ja/docs/basics/response-codes
-    ERROR_MESSAGES = {
+    ERROR_MESSAGES: ClassVar[dict[int, str]] = {
         32:  'Twitter アカウントの認証に失敗しました。もう一度連携し直してください。',
         63:  'Twitter アカウントが凍結またはロックされています。',
         64:  'Twitter アカウントが凍結またはロックされています。',
@@ -214,7 +214,7 @@ class TwitterGraphQLAPI:
         # Chrome への偽装用 HTTP リクエストヘッダーを取得
         ## User-Agent ヘッダーも Chrome に偽装されている
         self.cookie_session_user_handler = self.twitter_account.getTweepyAuthHandler()
-        self.graphql_headers_dict = self.cookie_session_user_handler.get_graphql_api_headers()  # GraphQL API 用ヘッダー
+        self.graphql_headers_dict = cast(dict[str, str], self.cookie_session_user_handler.get_graphql_api_headers())  # GraphQL API 用ヘッダー
         self.html_headers_dict = self.cookie_session_user_handler.get_html_headers()  # HTML 用ヘッダー
         self.js_headers_dict = self.cookie_session_user_handler.get_js_headers(cross_origin=True)  # JavaScript 用ヘッダー
 
