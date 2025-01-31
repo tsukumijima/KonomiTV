@@ -14,6 +14,7 @@ from app import logging
 from app import schemas
 from app.config import Config
 from app.metadata.MetadataAnalyzer import MetadataAnalyzer
+from app.metadata.KeyFrameAnalyzer import KeyFrameAnalyzer
 from app.models.Channel import Channel
 from app.models.RecordedProgram import RecordedProgram
 from app.models.RecordedVideo import RecordedVideo
@@ -400,9 +401,12 @@ class RecordedScanTask:
         """
 
         try:
-            # TODO: 実際のキーフレーム解析・CM区間解析の実装
-            # 現状はダミー実装
-            await asyncio.sleep(5)  # 重い処理を想定した待機
+            # 各種解析タスクを非同期に実行
+            await asyncio.gather(
+                # 録画ファイルのキーフレーム解析
+                KeyFrameAnalyzer(file_path).analyze(),
+                # TODO: 今後 CM 区間解析などが追加された場合は、ここに追加する
+            )
             logging.info(f'{file_path}: Background analysis completed.')
 
         except Exception as ex:
