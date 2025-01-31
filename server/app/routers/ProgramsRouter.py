@@ -198,7 +198,7 @@ def DecodeEDCBEventInfo(event_info: EventInfo) -> schemas.Program:
     response_description = '検索結果の番組情報のリスト。',
     response_model = schemas.Programs,
 )
-async def SearchAPI(
+async def ProgramSearchAPI(
     program_search_condition: Annotated[schemas.ProgramSearchCondition, Body(description='番組検索条件。')],
     edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ):
