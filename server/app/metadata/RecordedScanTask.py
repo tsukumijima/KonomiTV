@@ -249,10 +249,10 @@ class RecordedScanTask:
                 logging.error(f'{file_path}: Failed to analyze metadata.')
                 return
 
-            # 60秒未満のファイルは録画中ファイルとして記録するのみ
+            # 60秒未満のファイルは録画失敗または切り抜きとみなしてスキップ
+            # 録画中だがまだ60秒に満たない場合、今後のファイル変更イベント発火時に60秒を超えていれば録画中ファイルとして処理される
             if recorded_program.recorded_video.duration < self.MINIMUM_RECORDING_SECONDS:
-                self._recording_files[file_path] = (last_modified, now, file_size)
-                logging.debug_simple(f'{file_path}: This file is recording or copying (duration < {self.MINIMUM_RECORDING_SECONDS}s).')
+                logging.debug_simple(f'{file_path}: This file is too short (duration < {self.MINIMUM_RECORDING_SECONDS}s). Skipped.')
                 return
 
             # 録画中のファイルとして処理
@@ -269,6 +269,9 @@ class RecordedScanTask:
                 if file_path not in self._background_tasks:
                     task = asyncio.create_task(self.__runBackgroundAnalysis(file_path))
                     self._background_tasks[file_path] = task
+                # status を Recorded に設定
+                # MetadataAnalyzer 側で既に Recorded に設定されているが、念のため
+                recorded_program.recorded_video.status = 'Recorded'
 
             # DB に永続化
             await self.__saveRecordedMetadataToDB(recorded_program, existing_db_recorded_video)
