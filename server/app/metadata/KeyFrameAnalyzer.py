@@ -2,7 +2,6 @@
 import anyio
 import asyncio
 import json
-from typing import cast
 
 from app import logging
 from app import schemas
@@ -53,19 +52,28 @@ class KeyFrameAnalyzer:
             ]
 
             # ffprobe を実行
-            ## stdout は JSON 形式の出力を受け取るためパイプに接続
-            ## stderr は不要なので /dev/null に捨てる
-            prober = await asyncio.subprocess.create_subprocess_exec(
+            ffprobe_process = await asyncio.subprocess.create_subprocess_exec(
                 LIBRARY_PATH['FFprobe'],
                 *options,
                 stdout = asyncio.subprocess.PIPE,
-                stderr = asyncio.subprocess.DEVNULL,
+                stderr = asyncio.subprocess.PIPE,
             )
 
+            # ffprobe の出力を取得
+            stdout, stderr = await ffprobe_process.communicate()
+
+            # 終了コードを確認
+            if ffprobe_process.returncode != 0:
+                error_message = stderr.decode('utf-8', errors='ignore')
+                logging.error(f'{self.file_path}: ffprobe analysis failed with return code {ffprobe_process.returncode}. Error: {error_message}')
+                return
+
             # ffprobe の出力を JSON としてパース
-            ## stdout は StreamReader | None 型だが、上で PIPE を指定しているので StreamReader 型として扱える
-            stdout = await cast(asyncio.StreamReader, prober.stdout).read()
-            packets = json.loads(stdout.decode('utf-8'))['packets']
+            try:
+                packets = json.loads(stdout.decode('utf-8'))['packets']
+            except (json.JSONDecodeError, KeyError) as ex:
+                logging.error(f'{self.file_path}: Failed to parse ffprobe output:', exc_info=ex)
+                return
 
             # キーフレーム情報を抽出
             ## flags に 'K' が含まれているパケットがキーフレーム
@@ -74,6 +82,11 @@ class KeyFrameAnalyzer:
             ## pts は Presentation Time Stamp (表示時刻)
             key_frames: list[schemas.KeyFrame] = []
             for packet in packets:
+                # 必要なフィールドが存在することを確認
+                if not all(field in packet for field in ['flags', 'pos', 'dts', 'pts']):
+                    logging.error(f'{self.file_path}: Invalid packet data found in ffprobe output')
+                    return
+
                 # キーフレームのみを抽出
                 if 'K' in packet['flags']:
                     key_frames.append({
@@ -82,6 +95,11 @@ class KeyFrameAnalyzer:
                         'pts': int(packet['pts']),
                     })
 
+            # パケットが1つも見つからなかった場合
+            if not packets:
+                logging.error(f'{self.file_path}: No packets found in ffprobe output')
+                return
+
             # 最後のフレームが非キーフレームの場合、シーク可能性のために追加
             if 'K' not in packets[-1]['flags']:
                 key_frames.append({
@@ -89,6 +107,11 @@ class KeyFrameAnalyzer:
                     'dts': int(packets[-1]['dts']),
                     'pts': int(packets[-1]['pts']),
                 })
+
+            # キーフレームが1つも見つからなかった場合
+            if not key_frames:
+                logging.error(f'{self.file_path}: No key frames found in the video')
+                return
 
             # DB に保存
             ## ファイルパスから対応する RecordedVideo レコードを取得
