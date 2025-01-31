@@ -82,7 +82,7 @@ class Channels {
      * すべてのチャンネルの情報を取得する
      * @return すべてのチャンネルの情報
      */
-    static async fetchAll(): Promise<ILiveChannelsList | null> {
+    static async fetchAllChannels(): Promise<ILiveChannelsList | null> {
 
         // API リクエストを実行
         const response = await APIClient.get<ILiveChannelsList>('/channels');

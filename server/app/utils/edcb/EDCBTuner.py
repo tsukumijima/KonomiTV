@@ -7,7 +7,7 @@ import asyncio
 import time
 from typing import ClassVar
 
-from app.utils.edcb import *
+from app.utils.edcb import SetChInfo
 from app.utils.edcb.CtrlCmdUtil import CtrlCmdUtil
 from app.utils.edcb.EDCBUtil import EDCBUtil
 from app.utils.edcb.PipeStreamReader import PipeStreamReader

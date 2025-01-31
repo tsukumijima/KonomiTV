@@ -13,14 +13,11 @@ from biim.mpeg2ts import ts
 from datetime import datetime
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, cast, Literal
 from zoneinfo import ZoneInfo
 
 from app import logging
-from app.models.Channel import Channel
-from app.models.RecordedProgram import RecordedProgram
-from app.models.RecordedVideo import RecordedVideo
-from app.schemas import Genre
+from app import schemas
 from app.utils import ClosestMultiple
 from app.utils.TSInformation import TSInformation
 
@@ -31,12 +28,12 @@ class TSInfoAnalyzer:
     ariblib の開発者の youzaka 氏に感謝します
     """
 
-    def __init__(self, recorded_video: RecordedVideo) -> None:
+    def __init__(self, recorded_video: schemas.RecordedVideo) -> None:
         """
         録画 TS ファイル内に含まれる番組情報を解析するクラスを初期化する
 
         Args:
-            recorded_video (RecordedVideo): 録画ファイル情報を表すモデル
+            recorded_video (schemas.RecordedVideo): 録画ファイル情報を表すモデル
         """
 
         # TS ファイルを開く
@@ -47,13 +44,13 @@ class TSInfoAnalyzer:
         self.ts = ariblib.tsopen(self.recorded_video.file_path, chunk=10000)
 
 
-    def analyze(self) -> tuple[RecordedProgram, Channel] | None:
+    def analyze(self) -> schemas.RecordedProgram | None:
         """
-        録画 TS ファイル内に含まれる番組情報を解析し、データベースに格納するモデルを作成する
-        各モデルの紐付けは行われていないので、子レコード作成後に別途紐付ける必要がある
+        録画 TS ファイル内に含まれる番組情報を解析する
 
         Returns:
-            tuple[RecordedProgram, Channel]: 録画番組情報とチャンネル情報を表すモデルのタプル (サービス情報が取得できなかった場合は None)
+            schemas.RecordedProgram:  録画番組情報（中に録画ファイル情報・チャンネル情報が含まれる）を表すモデル
+                (サービスまたは番組情報が取得できなかった場合は None)
         """
 
         # サービス (チャンネル) 情報を取得
@@ -76,61 +73,70 @@ class TSInfoAnalyzer:
         else:
             recorded_program = recorded_program_present
 
-        return recorded_program, channel
+        # 録画ファイル情報・チャンネル情報を紐付け
+        recorded_program.recorded_video = self.recorded_video
+        recorded_program.channel = channel
+
+        return recorded_program
 
 
-    def __analyzeSDTInformation(self) -> Channel | None:
+    def __analyzeSDTInformation(self) -> schemas.Channel | None:
         """
         TS 内の SDT (Service Description Table) からサービス（チャンネル）情報を解析する
         PAT (Program Association Table) と NIT (Network Information Table) からも補助的に情報を取得する
 
         Returns:
-            Channel: サービス（チャンネル）情報を表すモデル (サービス情報が取得できなかった場合は None)
+            schemas.Channel: サービス（チャンネル）情報を表すモデル (サービス情報が取得できなかった場合は None)
         """
 
         # 誤動作防止のため必ず最初にシークを戻す
         self.ts.seek(0)
 
-        # サービス (チャンネル) 情報を表すモデルを作成
-        channel = Channel()
+        # 必要な情報を一旦変数として保持
+        transport_stream_id: int | None = None
+        service_id: int | None = None
+        network_id: int | None = None
+        channel_type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K'] | None = None
+        channel_name: str | None = None
+        remocon_id: int | None = None
 
         # TS から PAT (Program Association Table) を抽出
         pat = next(self.ts.sections(ProgramAssociationSection))
 
         # トランスポートストリーム ID (TSID) を取得
-        channel.transport_stream_id = int(pat.transport_stream_id)
+        transport_stream_id = int(pat.transport_stream_id)
 
         # サービス ID を取得
         for pid in pat.pids:
             if pid.program_number:
                 # program_number は service_id と等しい
                 # PAT から抽出した service_id を使えば、映像や音声が存在するストリームの番組情報を的確に抽出できる
-                channel.service_id = int(pid.program_number)
+                service_id = int(pid.program_number)
                 # 他にも pid があるかもしれないが（複数のチャンネルが同じストリームに含まれている場合など）、最初の pid のみを取得する
                 break
-        if channel.service_id is None:
+        if service_id is None:
             logging.warning(f'{self.recorded_video.file_path}: service_id not found.')
             return None
 
         # TS から SDT (Service Description Table) を抽出
         for sdt in self.ts.sections(ActualStreamServiceDescriptionSection):
             # ネットワーク ID とサービス種別 (=チャンネルタイプ) を取得
-            channel.network_id = int(sdt.original_network_id)
-            channel_type = TSInformation.getNetworkType(channel.network_id)
-            if channel_type == 'OTHER':
-                logging.warning(f'{self.recorded_video.file_path}: Unknown network_id: {channel.network_id}')
+            network_id = int(sdt.original_network_id)
+            network_type = TSInformation.getNetworkType(network_id)
+            if network_type == 'OTHER':
+                logging.warning(f'{self.recorded_video.file_path}: Unknown network_id: {network_id}')
                 return None
-            channel.type = channel_type
+            channel_type = network_type  # ここで型が Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K'] に絞り込まれる
             # SDT に含まれるサービスごとの情報を取得
             for service in sdt.services:
                 # service_id が PAT から抽出したものと一致した場合のみ
                 # CS の場合同じ TS の中に複数のチャンネルが含まれている事があり、録画する場合は基本的に他のチャンネルは削除される
                 # そうすると ffprobe で確認できるがサービス情報や番組情報だけ残ってしまい、別のチャンネルの番組情報になるケースがある
                 # PAT にはそうした削除済みのチャンネルは含まれていないので、正しいチャンネルの service_id を抽出できる
-                if service.service_id == channel.service_id:
+                if service.service_id == service_id:
                     # SDT から得られる ServiceDescriptor 内の情報からチャンネル名を取得
                     for sd in service.descriptors[ServiceDescriptor]:
-                        channel.name = TSInformation.formatString(sd.service_name)
+                        channel_name = TSInformation.formatString(sd.service_name)
                         break
                     else:
                         continue
@@ -138,12 +144,18 @@ class TSInfoAnalyzer:
             else:
                 continue
             break
-        if channel.network_id is None or channel.name is None:
-            logging.warning(f'{self.recorded_video.file_path}: network_id or channel name not found.')
+        if network_id is None:
+            logging.warning(f'{self.recorded_video.file_path}: network_id not found.')
+            return None
+        if channel_type is None:
+            logging.warning(f'{self.recorded_video.file_path}: channel_type not found.')
+            return None
+        if channel_name is None:
+            logging.warning(f'{self.recorded_video.file_path}: channel_name not found.')
             return None
 
         # リモコン番号を取得
-        if channel.type == 'GR':
+        if channel_type == 'GR':
             ## 地デジ: TS から NIT (Network Information Table) を抽出
             for nit in self.ts.sections(ActualNetworkNetworkInformationSection):
                 # NIT に含まれるトランスポートストリームごとの情報を取得
@@ -151,52 +163,70 @@ class TSInfoAnalyzer:
                     # NIT から得られる TSInformationDescriptor 内の情報からリモコンキー ID を取得
                     # 地デジのみで、BS には TSInformationDescriptor 自体が存在しない
                     for ts_information in transport_stream.descriptors.get(TSInformationDescriptor, []):
-                        channel.remocon_id = int(ts_information.remote_control_key_id)
+                        remocon_id = int(ts_information.remote_control_key_id)
                         break
                     break
                 else:
                     continue
                 break
-            if channel.remocon_id is None:
-                channel.remocon_id = 0  # リモコン番号を取得できなかった際は 0 が自動設定される
+            if remocon_id is None:
+                remocon_id = 0  # リモコン番号を取得できなかった際は 0 が自動設定される
         else:
             ## それ以外: 共通のリモコン番号取得処理を実行
-            channel.remocon_id = channel.calculateRemoconID()
-
-        # チャンネル ID を生成
-        channel.id = f'NID{channel.network_id}-SID{channel.service_id:03d}'
+            remocon_id = TSInformation.calculateRemoconID(channel_type, service_id)
 
         # チャンネル番号を算出
-        channel.channel_number = asyncio.run(channel.calculateChannelNumber())
+        channel_number = asyncio.run(TSInformation.calculateChannelNumber(
+            channel_type,
+            network_id,
+            service_id,
+            remocon_id,
+        ))
+
+        # チャンネル ID を生成
+        channel_id = f'NID{network_id}-SID{service_id:03d}'
 
         # 表示用チャンネルID = チャンネルタイプ(小文字)+チャンネル番号
-        channel.display_channel_id = channel.type.lower() + channel.channel_number
+        display_channel_id = channel_type.lower() + channel_number
+
+        # チャンネル情報を表すモデルを作成
+        channel = schemas.Channel(
+            id = channel_id,
+            display_channel_id = display_channel_id,
+            network_id = network_id,
+            service_id = service_id,
+            transport_stream_id = transport_stream_id,
+            remocon_id = remocon_id,
+            channel_number = channel_number,
+            type = channel_type,
+            name = channel_name,
+        )
 
         # サブチャンネルかどうかを算出
-        channel.is_subchannel = channel.calculateIsSubchannel()
+        channel.is_subchannel = TSInformation.calculateIsSubchannel(channel.type, channel.service_id)
 
         # ラジオチャンネルにはなり得ない (録画ファイルのバリデーションの時点で映像と音声があることを確認している)
         channel.is_radiochannel = False
 
-        # 録画ファイル内の情報として含まれているだけのチャンネルなので（視聴できるとは限らない）、is_watchable を False に設定
+        # 録画ファイル内の情報として含まれているだけのチャンネルなので（現在視聴できるとは限らない）、is_watchable を False に設定
         ## もし視聴可能な場合はすでに channels テーブルにそのチャンネルのレコードが存在しているはずなので、そちらが優先される
         channel.is_watchable = False
 
         return channel
 
 
-    def __analyzeEITInformation(self, channel: Channel, is_following: bool = False) -> RecordedProgram:
+    def __analyzeEITInformation(self, channel: schemas.Channel, is_following: bool = False) -> schemas.RecordedProgram:
         """
         TS 内の EIT (Event Information Table) から番組情報を取得する
-        サービス ID が必要な理由は、CS などで別のチャンネルの番組情報が取得されるのを防ぐため
-        このため、事前に __analyzeSDTInformation() でサービス ID を含めたチャンネル情報を取得しておく必要がある
+        チャンネル情報（サービス ID も含まれる）が必須な理由は、CS など複数サービスを持つ TS で
+        意図しないチャンネルの番組情報が取得される問題を防ぐため
 
         Args:
-            channel (Channel): チャンネル情報を表すモデル
+            channel (schemas.Channel): チャンネル情報を表すモデル
             is_following (bool): 次の番組情報を取得するかどうか (デフォルト: 現在の番組情報)
 
         Returns:
-            RecordedProgram: 録画番組情報を表すモデル
+            schemas.RecordedProgram: 録画番組情報を表すモデル
         """
 
         if is_following is True:
@@ -212,10 +242,20 @@ class TSInfoAnalyzer:
         ## 生の録画データはビットレートが一定のため、シーンによって大きくデータサイズが変動することはない
         self.ts.seek(ClosestMultiple(int(self.recorded_video.file_size * 0.2), ts.PACKET_SIZE))
 
-        # 録画番組情報を表すモデルを作成
-        recorded_program = RecordedProgram()
-        recorded_program.network_id = channel.network_id
-        recorded_program.service_id = channel.service_id
+        # 必要な情報を一旦変数として保持
+        event_id: int | None = None
+        title: str | None = None
+        description: str | None = None
+        detail: dict[str, str] | None = None
+        start_time: datetime | None = None
+        end_time: datetime | None = None
+        duration: float | None = None
+        is_free: bool | None = None
+        genres: list[schemas.Genre] | None = None
+        primary_audio_type: str | None = None
+        primary_audio_language: str | None = None
+        secondary_audio_type: str | None = None
+        secondary_audio_language: str | None = None
 
         # TS から EIT (Event Information Table) を抽出
         count: int = 0
@@ -234,33 +274,33 @@ class TSInfoAnalyzer:
 
                     # デフォルトで毎回設定されている情報
                     ## イベント ID
-                    recorded_program.event_id = int(event.event_id)
+                    event_id = int(event.event_id)
                     ## 番組開始時刻 (タイムゾーンを日本時間 (+9:00) に設定)
                     ## 注意: present の duration が None (終了時間未定) の場合のみ、following の start_time が None になることがある
                     if event.start_time is not None:
-                        recorded_program.start_time = cast(datetime, event.start_time).astimezone(ZoneInfo('Asia/Tokyo'))
+                        start_time = cast(datetime, event.start_time).astimezone(ZoneInfo('Asia/Tokyo'))
                     ## 番組長 (秒)
                     ## 注意: 臨時ニュースなどで放送時間未定の場合は None になる
                     if event.duration is not None:
-                        recorded_program.duration = cast(timedelta, event.duration).total_seconds()
+                        duration = cast(timedelta, event.duration).total_seconds()
                     ## 番組終了時刻を start_time と duration から算出
-                    if recorded_program.start_time is not None and recorded_program.duration is not None:
-                        recorded_program.end_time = recorded_program.start_time + cast(timedelta, event.duration)
+                    if start_time is not None and duration is not None:
+                        end_time = start_time + timedelta(seconds=duration)
                     ## ARIB TR-B15 第三分冊 (https://vs1p.manualzilla.com/store/data/006629648.pdf)
                     ## free_CA_mode が 1 のとき有料番組、0 のとき無料番組だそう
                     ## bool に変換した後、真偽を反転させる
-                    recorded_program.is_free = not bool(event.free_CA_mode)
+                    is_free = not bool(event.free_CA_mode)
 
                     # 番組名, 番組概要 (ShortEventDescriptor)
                     if hasattr(event, 'title') and hasattr(event, 'desc'):
                         ## 番組名
-                        recorded_program.title = TSInformation.formatString(event.title)
+                        title = TSInformation.formatString(event.title)
                         ## 番組概要
-                        recorded_program.description = TSInformation.formatString(event.desc)
+                        description = TSInformation.formatString(event.desc)
 
                     # 番組詳細情報 (ExtendedEventDescriptor)
                     if hasattr(event, 'detail'):
-                        recorded_program.detail = {}
+                        detail = {}
                         # 番組詳細テキストから取得した、見出しと本文の辞書ごとに
                         for head, text in cast(dict[str, str], event.detail).items():
                             # 見出しと本文
@@ -268,25 +308,25 @@ class TSInfoAnalyzer:
                             ## strip() では明示的に半角スペースと改行のみを指定している
                             head_hankaku = TSInformation.formatString(head).replace('◇', '').strip(' \r\n')  # ◇ を取り除く
                             ## ないとは思うが、万が一この状態で見出しが衝突しうる場合は、見出しの後ろにタブ文字を付加する
-                            while head_hankaku in recorded_program.detail.keys():
+                            while head_hankaku in detail.keys():
                                 head_hankaku += '\t'
                             ## 見出しが空の場合、固定で「番組内容」としておく
                             if head_hankaku == '':
                                 head_hankaku = '番組内容'
                             text_hankaku = TSInformation.formatString(text).strip()
-                            recorded_program.detail[head_hankaku] = text_hankaku
+                            detail[head_hankaku] = text_hankaku
                             # 番組概要が空の場合、番組詳細の最初の本文を概要として使う
                             # 空でまったく情報がないよりかは良いはず
-                            if recorded_program.description.strip() == '':
-                                recorded_program.description = text_hankaku
+                            if description is not None and description.strip() == '':
+                                description = text_hankaku
 
                     ## ジャンル情報 (ContentDescriptor)
                     if hasattr(event, 'genre') and hasattr(event, 'subgenre') and hasattr(event, 'user_genre'):
-                        recorded_program.genres = []
+                        genres = []
                         for index, _ in enumerate(event.genre):  # ジャンルごとに
                             # major … 大分類
                             # middle … 中分類
-                            genre_dict: Genre = {
+                            genre_dict: schemas.Genre = {
                                 'major': event.genre[index].replace('／', '・'),
                                 'middle': event.subgenre[index].replace('／', '・'),
                             }
@@ -299,62 +339,56 @@ class TSInfoAnalyzer:
                                 else:
                                     continue
                             # ジャンルを追加
-                            recorded_program.genres.append(genre_dict)
+                            genres.append(genre_dict)
 
                     # 音声情報 (AudioComponentDescriptor)
                     ## 主音声情報
                     if hasattr(event, 'audio'):
                         ## 主音声の種別
-                        recorded_program.primary_audio_type = str(event.audio)
+                        primary_audio_type = str(event.audio)
                     ## 副音声情報
                     if hasattr(event, 'second_audio'):
                         ## 副音声の種別
-                        recorded_program.secondary_audio_type = str(event.second_audio)
+                        secondary_audio_type = str(event.second_audio)
                     ## 主音声・副音声の言語
                     ## event クラスには用意されていないので自前で取得する
                     for acd in event_data.descriptors.get(AudioComponentDescriptor, []):
                         if bool(acd.main_component_flag) is True:
                             ## 主音声の言語
-                            recorded_program.primary_audio_language = \
-                                TSInformation.getISO639LanguageCodeName(acd.ISO_639_language_code)
+                            primary_audio_language = TSInformation.getISO639LanguageCodeName(acd.ISO_639_language_code)
                             ## デュアルモノのみ
-                            if recorded_program.primary_audio_type == '1/0+1/0モード(デュアルモノ)':
+                            if primary_audio_type == '1/0+1/0モード(デュアルモノ)':
                                 if bool(acd.ES_multi_lingual_flag) is True:
-                                    recorded_program.primary_audio_language += '+' + \
+                                    primary_audio_language += '+' + \
                                         TSInformation.getISO639LanguageCodeName(acd.ISO_639_language_code_2)
                                 else:
-                                    recorded_program.primary_audio_language += '+副音声'  # 副音声で固定
+                                    primary_audio_language += '+副音声'  # 副音声で固定
                         else:
                             ## 副音声の言語
-                            recorded_program.secondary_audio_language = \
-                                TSInformation.getISO639LanguageCodeName(acd.ISO_639_language_code)
+                            secondary_audio_language = TSInformation.getISO639LanguageCodeName(acd.ISO_639_language_code)
                             ## デュアルモノのみ
-                            if recorded_program.secondary_audio_type == '1/0+1/0モード(デュアルモノ)':
+                            if secondary_audio_type == '1/0+1/0モード(デュアルモノ)':
                                 if bool(acd.ES_multi_lingual_flag) is True:
-                                    recorded_program.secondary_audio_language += '+' + \
+                                    secondary_audio_language += '+' + \
                                         TSInformation.getISO639LanguageCodeName(acd.ISO_639_language_code_2)
                                 else:
-                                    recorded_program.secondary_audio_language += '+副音声'  # 副音声で固定
+                                    secondary_audio_language += '+副音声'  # 副音声で固定
 
                     # EIT から取得できるすべての情報を取得できたら抜ける
                     ## 一回の EIT ですべての情報 (Descriptor) が降ってくるとは限らない
                     ## 副音声情報は副音声がない番組では当然取得できないので、除外している
-                    attributes: list[str] = [
-                        'event_id',
-                        'title',
-                        'description',
-                        'detail',
-                        'start_time',
-                        'end_time',
-                        'duration',
-                        'is_free',
-                        'genres',
-                        'primary_audio_type',
-                        'primary_audio_language',
-                    ]
                     if all([
-                        hasattr(recorded_program, attribute) and getattr(recorded_program, attribute) is not None
-                        for attribute in attributes
+                        event_id is not None,
+                        title is not None,
+                        description is not None,
+                        detail is not None,
+                        start_time is not None,
+                        end_time is not None,
+                        duration is not None,
+                        is_free is not None,
+                        genres is not None,
+                        primary_audio_type is not None,
+                        primary_audio_language is not None,
                     ]):
                         break
 
@@ -368,10 +402,10 @@ class TSInfoAnalyzer:
             # ループが 100 回を超えたら、番組詳細とジャンルの初期値を設定する
             # 稀に番組詳細やジャンルが全く設定されていない番組があり、存在しない情報を探して延々とループするのを避けるため
             if count > 100:
-                if recorded_program.detail is None:
-                    recorded_program.detail = {}
-                if recorded_program.genres is None:
-                    recorded_program.genres = []
+                if detail is None:
+                    detail = {}
+                if genres is None:
+                    genres = []
 
             # ループが 2000 回を超えたら (≒20回シークしても放送時間が確定しなかったら) 、タイムアウトでループを抜ける
             if count > 2000:
@@ -384,34 +418,69 @@ class TSInfoAnalyzer:
             if count % 100 == 0:
                 self.ts.seek(ts.PACKET_SIZE * 1000000, 1)  # 188MB (188 * 1000000 バイト) 進める
 
-        # この時点でタイトルを取得できていない場合、拡張子を除いたファイル名をフォーマットした上でタイトルとして使用する
-        ## 他の値は RecordedProgram モデルで設定されたデフォルト値が自動的に入るので、タイトルだけここで設定する
-        if recorded_program.title is None:
-            recorded_program.title = TSInformation.formatString(Path(self.recorded_video.file_path).stem)
+        # この時点でタイトルを取得できていない場合（タイムアウト発生時）、フォールバックとして拡張子を除いたファイル名をフォーマットした上でタイトルとして使用する
+        if title is None:
+            title = TSInformation.formatString(Path(self.recorded_video.file_path).stem)
 
         # この時点で番組開始時刻・番組終了時刻を取得できていない場合、適当なダミー値を設定する
         ## start_time が None になる組み合わせは「現在の番組の終了時間が未定」かつ「次の番組情報を取得しようとした」ときのみ
         ## 番組情報としては全く使い物にならないし、基本現在の番組情報を使わせるようにしたいので、後続の処理で使われないような値を設定する
-        if recorded_program.start_time is None and recorded_program.end_time is None:
-            recorded_program.start_time = datetime(1970, 1, 1, 9, tzinfo=ZoneInfo('Asia/Tokyo'))
-            recorded_program.end_time = datetime(1970, 1, 1, 9, tzinfo=ZoneInfo('Asia/Tokyo'))
-            recorded_program.duration = 0
+        if start_time is None and end_time is None:
+            start_time = datetime(1970, 1, 1, 9, tzinfo=ZoneInfo('Asia/Tokyo'))
+            end_time = datetime(1970, 1, 1, 9, tzinfo=ZoneInfo('Asia/Tokyo'))
+            duration = 0.0
+
+        # 番組開始時刻が取得できないが番組終了時刻のみ取得できる状況は仕様上発生し得ない
+        assert start_time is not None
 
         # この時点で番組終了時刻のみを取得できていない場合、フォールバックとして録画終了時刻を利用する
         ## さらにまずあり得ないとは思うが、もし録画終了時刻が取得できていない場合は、番組開始時刻 + 動画長を利用する
-        if recorded_program.end_time is None:
+        if end_time is None:
             if self.recorded_video.recording_end_time is not None:
-                recorded_program.end_time = self.recorded_video.recording_end_time
-                recorded_program.duration = (recorded_program.end_time - recorded_program.start_time).total_seconds()
+                end_time = self.recorded_video.recording_end_time
+                duration = (end_time - start_time).total_seconds()
             else:
-                recorded_program.end_time = recorded_program.start_time + timedelta(seconds=self.recorded_video.duration)
-                recorded_program.duration = self.recorded_video.duration
+                end_time = start_time + timedelta(seconds=self.recorded_video.duration)
+                duration = self.recorded_video.duration
+        assert duration is not None
 
-        assert recorded_program.start_time is not None, 'start_time not found.'
-        assert recorded_program.end_time is not None, 'end_time not found.'
-        assert recorded_program.duration is not None, 'duration not found.'
+        # 録画番組情報を表すモデルを作成 (ここでは確実に値を設定できるフィールドのみ設定)
+        recorded_program = schemas.RecordedProgram(
+            recorded_video = self.recorded_video,
+            channel = channel,
+            network_id = channel.network_id,
+            service_id = channel.service_id,
+            event_id = event_id,
+            title = title,
+            start_time = start_time,
+            end_time = end_time,
+            duration = duration,
+            # 必須フィールドのため作成日時・更新日時は適当に現在時刻を入れている
+            # この値は参照されず、DB の値は別途自動生成される
+            created_at = datetime.now(tz=ZoneInfo('Asia/Tokyo')),
+            updated_at = datetime.now(tz=ZoneInfo('Asia/Tokyo')),
+        )
 
-        # 録画開始時刻・録画終了時刻が取得できている場合
+        # 以下のフィールドは、対応するデータを取得できなかった場合に Pydantic モデルに設定されているデフォルト値が使われる
+        ## データが取得できなかったとしたら、そのデータが EIT に含まれていないが、タイムアウトした場合に限られるはず
+        if description is not None:
+            recorded_program.description = description
+        if detail is not None:
+            recorded_program.detail = detail
+        if is_free is not None:
+            recorded_program.is_free = is_free
+        if genres is not None:
+            recorded_program.genres = genres
+        if primary_audio_type is not None:
+            recorded_program.primary_audio_type = primary_audio_type
+        if primary_audio_language is not None:
+            recorded_program.primary_audio_language = primary_audio_language
+        if secondary_audio_type is not None:  # 音声多重放送のみ存在
+            recorded_program.secondary_audio_type = secondary_audio_type
+        if secondary_audio_language is not None:  # 音声多重放送のみ存在
+            recorded_program.secondary_audio_language = secondary_audio_language
+
+        # 録画開始時刻・録画終了時刻の両方が取得できている場合
         if (self.recorded_video.recording_start_time is not None and
             self.recorded_video.recording_end_time is not None):
 

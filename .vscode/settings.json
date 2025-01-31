@@ -1,4 +1,10 @@
 {
+    // 保存時に Ruff による自動フォーマットを行う (ruff check --fix 相当)
+    "[python]": {
+        "editor.codeActionsOnSave": {
+            "source.fixAll.ruff": "explicit",
+        },
+    },
     // 保存時に ESLint による自動フォーマットを行う
     "editor.codeActionsOnSave": {
         "source.fixAll.eslint": "explicit",

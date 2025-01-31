@@ -7,6 +7,7 @@ package-mode = false
 [tool.taskipy.tasks]
 serve = "python KonomiTV.py"
 dev = "python KonomiTV.py --reload"
+lint = "ruff check --fix ."
 update-thirdparty = "python -m misc.UpdateThirdparty latest"
 
 [tool.poetry.dependencies]
@@ -37,6 +38,7 @@ pywin32 = {version = "^308", platform = "win32"}
 requests = "^2.32.3"
 rich = "^13.9.4"
 "ruamel.yaml" = "^0.18.10"
+ruff = "^0.9.1"
 sse-starlette = "^2.1.3"
 taskipy = "^1.14.1"
 tortoise-orm = "^0.23.0"
@@ -60,3 +62,22 @@ build-backend = "poetry.core.masonry.api"
 tortoise_orm = "app.constants.DATABASE_CONFIG"
 location = "./app/migrations/"
 src_folder = "./"
+
+[tool.ruff]
+# インデントの幅を4スペースに設定
+indent-width = 4
+# Python 3.11 を利用する
+target-version = "py311"
+# data/, thirdparty/ ディレクトリは対象から除外する
+extend-exclude = ["data/", "thirdparty/"]
+
+[tool.ruff.lint]
+# flake8, pycodestyle, Ruff 固有のルールを使う
+select = ["F", "E", "W", "RUF"]
+ignore = [
+    "E501",    # 1行の長さを超えている場合の警告を抑制
+    "E731",    # Do not assign a `lambda` expression, use a `def` を抑制
+    "RUF001",  # 全角記号など `ambiguous unicode character` も使いたいため
+    "RUF002",  # 全角記号など `ambiguous unicode character` も使いたいため
+    "RUF003",  # 全角記号など `ambiguous unicode character` も使いたいため
+]

@@ -63,7 +63,7 @@ async def upgrade(db: BaseDBAsyncClient) -> str:
             "title" TEXT NOT NULL,
             "description" TEXT NOT NULL,
             "genres" JSON NOT NULL,
-            "updated_at" TIMESTAMP NOT NULL  DEFAULT CURRENT_TIMESTAMP
+            "updated_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
         DROP TABLE IF EXISTS "series_broadcast_periods";
         CREATE TABLE IF NOT EXISTS "series_broadcast_periods" (

@@ -1,3 +1,4 @@
+# ruff: noqa: RUF012
 
 # Type Hints を指定できるように
 # ref: https://stackoverflow.com/a/33533514/17124142
@@ -22,6 +23,7 @@ from typing_extensions import TypedDict
 # ***** チャンネル *****
 
 class Channel(PydanticModel):
+    # デフォルト値は録画番組からメタデータを取得する処理向け
     id: str
     display_channel_id: str
     network_id: int
@@ -29,12 +31,12 @@ class Channel(PydanticModel):
     transport_stream_id: int | None
     remocon_id: int
     channel_number: str
-    type: str
+    type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K']
     name: str
-    jikkyo_force: int | None
-    is_subchannel: bool
-    is_radiochannel: bool
-    is_watchable: bool
+    jikkyo_force: int | None = None
+    is_subchannel: bool = False
+    is_radiochannel: bool = False
+    is_watchable: bool = False
 
 class LiveChannel(Channel):
     # 以下はすべて動的に生成される TV ライブストリーミング用の追加カラム
@@ -88,10 +90,14 @@ class Genre(TypedDict):
 # ***** 録画ファイル *****
 
 class RecordedVideo(PydanticModel):
-    id: int
+    # デフォルト値は録画番組からメタデータを取得する処理向け
+    id: int = -1  # メタデータ取得時は ID が定まらないため -1 を設定
+    status: Literal['Recording', 'Recorded']
     file_path: str
     file_hash: str
     file_size: int
+    file_created_at: datetime
+    file_modified_at: datetime
     recording_start_time: datetime | None
     recording_end_time: datetime | None
     duration: float
@@ -102,13 +108,21 @@ class RecordedVideo(PydanticModel):
     video_frame_rate: float
     video_resolution_width: int
     video_resolution_height: int
-    primary_audio_codec: Literal['AAC-LC', 'HE-AAC', 'MP2']
+    primary_audio_codec: Literal['AAC-LC']
     primary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch']
     primary_audio_sampling_rate: int
-    secondary_audio_codec: Literal['AAC-LC', 'HE-AAC', 'MP2'] | None
-    secondary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] | None
-    secondary_audio_sampling_rate: int | None
-    cm_sections: list[CMSection]
+    secondary_audio_codec: Literal['AAC-LC'] | None = None
+    secondary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] | None = None
+    secondary_audio_sampling_rate: int | None = None
+    key_frames: list[KeyFrame] = []
+    cm_sections: list[CMSection] = []
+    created_at: datetime
+    updated_at: datetime
+
+class KeyFrame(TypedDict):
+    offset: int
+    dts: int
+    pts: int
 
 class CMSection(TypedDict):
     start_time: float
@@ -117,32 +131,35 @@ class CMSection(TypedDict):
 # ***** 録画番組 *****
 
 class RecordedProgram(PydanticModel):
-    id: int
+    # デフォルト値は録画番組からメタデータを取得する処理向け
+    id: int = -1  # メタデータ取得時は ID が定まらないため -1 を設定
     recorded_video: RecordedVideo
-    recording_start_margin: float
-    recording_end_margin: float
-    is_partially_recorded: bool
-    channel: Channel | None
-    network_id: int | None
-    service_id: int | None
-    event_id: int | None
-    series_id: int | None
-    series_broadcast_period_id: int | None
+    recording_start_margin: float = 0.0  # 取得できなかった場合のデフォルト値
+    recording_end_margin: float = 0.0  # 取得できなかった場合のデフォルト値
+    is_partially_recorded: bool = False
+    channel: Channel | None = None  # MPEG-TS 形式かつ SDT の解析に成功した場合のみセット
+    network_id: int | None = None  # MPEG-TS 形式かつ SDT の解析に成功した場合のみセット
+    service_id: int | None = None  # MPEG-TS 形式かつ SDT の解析に成功した場合のみセット
+    event_id: int | None = None  # MPEG-TS 形式かつ EIT の解析に成功した場合のみセット
+    series_id: int | None = None  # 番組タイトル解析に成功し、かつシリーズが存在する場合のみセット
+    series_broadcast_period_id: int | None = None  # 番組タイトル解析に成功し、かつシリーズが存在する場合のみセット
     title: str
-    series_title: str | None
-    episode_number: str | None
-    subtitle: str | None
-    description: str
-    detail: dict[str, str]
+    series_title: str | None = None  # 番組タイトル解析に成功した場合のみセット
+    episode_number: str | None = None  # 番組タイトル解析に成功した場合のみセット
+    subtitle: str | None = None  # 番組タイトル解析に成功した場合のみセット
+    description: str = '番組情報を取得できませんでした。'
+    detail: dict[str, str] = {}
     start_time: datetime
     end_time: datetime
     duration: float
-    is_free: bool
-    genres: list[Genre]
-    primary_audio_type: str
-    primary_audio_language: str
-    secondary_audio_type: str | None
-    secondary_audio_language: str | None
+    is_free: bool = True
+    genres: list[Genre] = []
+    primary_audio_type: str = '2/0モード(ステレオ)'
+    primary_audio_language: str = '日本語'
+    secondary_audio_type: str | None = None
+    secondary_audio_language: str | None = None
+    created_at: datetime
+    updated_at: datetime
 
 class RecordedPrograms(BaseModel):
     total: int
@@ -156,6 +173,7 @@ class Series(PydanticModel):
     description: str
     genres: list[Genre]
     broadcast_periods: list[SeriesBroadcastPeriod]
+    created_at: datetime
     updated_at: datetime
 
 class SeriesList(BaseModel):

@@ -67,7 +67,7 @@ __model_list = [name for _, name, _ in pkgutil.iter_modules(path=['app/models'])
 DATABASE_CONFIG = {
     'timezone': 'Asia/Tokyo',
     'connections': {
-        'default': f'sqlite://{str(DATA_DIR / "database.sqlite")}',
+        'default': f'sqlite://{DATA_DIR / "database.sqlite"!s}',
     },
     'apps': {
         'models': {

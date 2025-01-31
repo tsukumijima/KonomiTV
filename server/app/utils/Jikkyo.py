@@ -72,7 +72,7 @@ class Jikkyo:
     }
 
     # ニコニコの色指定と 16 進数カラーコードのマッピング
-    COLOR_CODE_MAP: dict[str, str] = {
+    COLOR_CODE_MAP: ClassVar[dict[str, str]] = {
         'white': '#FFEAEA',
         'red': '#F02840',
         'pink': '#FD7E80',

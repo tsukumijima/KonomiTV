@@ -27,4 +27,5 @@ class Series(TortoiseModel):
     description = fields.TextField()
     genres = cast(TortoiseField[list[Genre]], fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False)))  # type: ignore
     broadcast_periods: fields.ReverseRelation[SeriesBroadcastPeriod]
+    created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)

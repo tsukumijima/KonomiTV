@@ -124,13 +124,13 @@ async def TwitterPasswordAuthAPI(
                     if domain in ['.twitter.com', 'twitter.com', '.x.com', 'x.com']:
                         cookies[name] = value
             if not cookies:
-                logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] No valid cookies found in the provided cookies.txt')
+                logging.error('[TwitterRouter][TwitterPasswordAuthAPI] No valid cookies found in the provided cookies.txt')
                 raise HTTPException(
                     status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail = 'No valid cookies found in the provided cookies.txt',
                 )
         except Exception as ex:
-            error_message = f'Failed to parse cookies.txt: {str(ex)}'
+            error_message = f'Failed to parse cookies.txt: {ex!s}'
             logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] {error_message}')
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,

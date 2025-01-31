@@ -240,7 +240,7 @@ async def LivePSIArchivedDataAPI(
 
     # 10秒待っても起動しなかった場合はエラー
     if live_stream.psi_data_archiver is None:
-        logging.error(f'[LiveStreamsRouter][LivePSIArchivedDataAPI] PSI/SI Data Archiver is not running')
+        logging.error('[LiveStreamsRouter][LivePSIArchivedDataAPI] PSI/SI Data Archiver is not running')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'PSI/SI Data Archiver is not running',

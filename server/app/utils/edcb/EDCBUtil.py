@@ -7,7 +7,7 @@ from pydantic_core import Url
 from typing import Literal
 
 from app.config import Config
-from app.utils.edcb import *
+from app.utils.edcb import ChSet5Item
 from app.utils.edcb.CtrlCmdUtil import CtrlCmdUtil
 from app.utils.edcb.PipeStreamReader import PipeStreamReader
 

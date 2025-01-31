@@ -27,9 +27,9 @@ class RecordedProgram(TortoiseModel):
     # テーブル設計は Notion を参照のこと
     id = fields.IntField(pk=True)
     recorded_video: fields.OneToOneRelation[RecordedVideo]
-    recording_start_margin = fields.FloatField(default=0.0)
-    recording_end_margin = fields.FloatField(default=0.0)
-    is_partially_recorded = fields.BooleanField(default=False)
+    recording_start_margin = fields.FloatField()
+    recording_end_margin = fields.FloatField()
+    is_partially_recorded = fields.BooleanField()
     channel: fields.ForeignKeyNullableRelation[Channel] = \
         fields.ForeignKeyField('models.Channel', related_name=None, null=True, on_delete=fields.CASCADE)
     channel_id: str | None
@@ -46,14 +46,16 @@ class RecordedProgram(TortoiseModel):
     series_title = cast(TortoiseField[str | None], fields.TextField(null=True))
     episode_number = cast(TortoiseField[str | None], fields.CharField(255, null=True))
     subtitle = cast(TortoiseField[str | None], fields.TextField(null=True))
-    description = fields.TextField(default='番組情報を取得できませんでした。')
+    description = fields.TextField()
     detail = cast(TortoiseField[dict[str, str]], fields.JSONField(default={}, encoder=lambda x: json.dumps(x, ensure_ascii=False)))  # type: ignore
     start_time = fields.DatetimeField()
     end_time = fields.DatetimeField()
     duration = fields.FloatField()
-    is_free = fields.BooleanField(default=True)
+    is_free = fields.BooleanField()
     genres = cast(TortoiseField[list[Genre]], fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False)))  # type: ignore
-    primary_audio_type = fields.TextField(default='2/0モード(ステレオ)')
-    primary_audio_language = fields.TextField(default='日本語')
+    primary_audio_type = fields.TextField()
+    primary_audio_language = fields.TextField()
     secondary_audio_type = cast(TortoiseField[str | None], fields.TextField(null=True))
     secondary_audio_language = cast(TortoiseField[str | None], fields.TextField(null=True))
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)

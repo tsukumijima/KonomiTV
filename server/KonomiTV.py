@@ -232,7 +232,7 @@ def main(
         # os.execv() で現在のプロセスを新規に起動したプロセスに置き換える
         ## os.execv() は戻らないので、事前にロックファイルを削除しておく
         RESTART_REQUIRED_LOCK_PATH.unlink()
-        os.execv(sys.executable, [sys.executable] + sys.argv)
+        os.execv(sys.executable, [sys.executable, *sys.argv])
 
 
 if __name__ == '__main__':
