@@ -1,7 +1,7 @@
 
 import re
 from ariblib.aribstr import AribString
-from tortoise import Tortoise
+from tortoise import Tortoise, connections
 from tortoise.exceptions import ConfigurationError
 from tortoise.expressions import Q
 from typing import cast, ClassVar, Literal
@@ -418,11 +418,16 @@ class TSInformation:
             channel_number = str(remocon_id).zfill(2) + str(same_network_id_count)
 
             # Tortoise ORM のコネクションが取得できない時は Tortoise ORM を初期化する
-            ## 基本 MetadataAnalyzer を単独で実行したときくらいしか起きないはず…
+            ## MetadataAnalyzer はマルチプロセスまたは単独で実行されるため、通常メインプロセスのコネクションは使用できず、独自に初期化する必要がある
             cleanup_required = False
             try:
                 Tortoise.get_connection('default')
             except ConfigurationError:
+                # データベース接続を再初期化する前に、既存のコネクションを破棄
+                ## Windows だと既存のコネクションを破棄せずともフリーズせずに実行できるが、Linux では必ず必要になる
+                ## おそらくマルチプロセス時に変数の状態こそ fork 先に引き継がれるが、コネクション自体は正しく引き継がれない (?) のが原因
+                connections.discard('default')
+                # データベース接続を初期化
                 await Tortoise.init(config=DATABASE_CONFIG)
                 cleanup_required = True
 
