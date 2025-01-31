@@ -161,7 +161,9 @@ class RecordedScanTask:
             for file_path, existing_db_recorded_video in existing_db_recorded_videos.items():
                 # ファイルの存在確認を非同期に行う
                 if not await file_path.exists():
-                    await existing_db_recorded_video.delete()
+                    # RecordedVideo の親テーブルである RecordedProgram を削除すると、
+                    # CASCADE 制約により RecordedVideo も同時に削除される (Channel は親テーブルにあたるため削除されない)
+                    await existing_db_recorded_video.recorded_program.delete()
                     logging.info(f'{file_path}: Deleted record for non-existent file.')
 
         logging.info('Initial scan completed.')
@@ -506,7 +508,9 @@ class RecordedScanTask:
             # DB からレコードを削除
             db_recorded_video = await RecordedVideo.get_or_none(file_path=str(file_path))
             if db_recorded_video is not None:
-                await db_recorded_video.delete()
+                # RecordedVideo の親テーブルである RecordedProgram を削除すると、
+                # CASCADE 制約により RecordedVideo も同時に削除される (Channel は親テーブルにあたるため削除されない)
+                await db_recorded_video.recorded_program.delete()
                 logging.info(f'{file_path}: Deleted record for removed file.')
 
         except Exception as ex:
