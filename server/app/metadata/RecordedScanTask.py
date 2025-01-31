@@ -21,11 +21,10 @@ from app.models.RecordedVideo import RecordedVideo
 
 class RecordedScanTask:
     """
-    録画フォルダの監視とメタデータの同期を行うタスク
-    以下の処理を担う
-    - 起動時の一括同期
-    - watchfiles による継続的な監視
-    - メタデータ解析と DB への永続化
+    録画フォルダの監視とメタデータの DB への同期を行うタスク
+    サーバーの起動中は常時稼働し続け、以下の処理を担う
+    - サーバー起動時の録画フォルダの一括スキャン・同期
+    - 録画フォルダ以下のファイルシステム変更の監視を開始し、変更があれば随時メタデータを解析後、DB に永続化
     - 録画中ファイルの状態管理
     """
 
@@ -69,6 +68,7 @@ class RecordedScanTask:
     async def start(self) -> None:
         """
         録画フォルダの監視タスクを開始する
+        このメソッドはサーバー起動時に app.py から自動的に呼ばれ、サーバーの起動中は常時稼働し続ける
         """
 
         # 既に実行中の場合は何もしない
@@ -83,6 +83,7 @@ class RecordedScanTask:
     async def stop(self) -> None:
         """
         録画フォルダの監視タスクを停止する
+        このメソッドはサーバー終了時に app.py から自動的に呼ばれる
         """
 
         # 既に停止中の場合は何もしない
@@ -102,15 +103,16 @@ class RecordedScanTask:
 
     async def run(self) -> None:
         """
-        初回に録画フォルダ以下の録画フォルダをスキャン・同期した後、
-        watchfiles による継続的な監視を開始する
+        録画フォルダ以下の一括スキャンと DB への同期を実行した後、
+        録画フォルダ以下のファイルシステム変更の監視を開始し、変更があれば随時メタデータを解析後、DB に永続化する
+        このメソッドは start() 経由でサーバー起動時に app.py から自動的に呼ばれ、サーバーの起動中は常時稼働し続ける
         """
 
         try:
-            # 起動時の一括同期を実行
-            await self.__runInitialScan()
-            # ファイル監視を開始
-            await self.__watchDirectories()
+            # サーバー起動時の一括スキャン・同期を実行
+            await self.runBatchScan()
+            # 録画フォルダの監視を開始
+            await self.watchRecordedFolders()
         except asyncio.CancelledError:
             raise
         except Exception as ex:
@@ -119,15 +121,15 @@ class RecordedScanTask:
             self._is_running = False
 
 
-    async def __runInitialScan(self) -> None:
+    async def runBatchScan(self) -> None:
         """
-        起動時の一括同期を実行する
+        録画フォルダ以下の一括スキャンと DB への同期を実行する
         - 録画フォルダ内の全 TS ファイルをスキャン
-        - 変更があったファイルのみメタデータを解析
-        - DB に永続化
+        - 追加・変更があったファイルのみメタデータを解析し、DB に永続化
+        - 存在しない録画ファイルに対応するレコードを一括削除
         """
 
-        logging.info('Initial scan started.')
+        logging.info('Batch scan of recording folders has been started.')
 
         # 現在登録されている全ての RecordedVideo レコードをキャッシュ
         existing_db_recorded_videos = {
@@ -153,7 +155,7 @@ class RecordedScanTask:
                     # 見つかったファイルを処理
                     await self.__processRecordedFile(file_path, existing_db_recorded_videos)
                 except Exception as ex:
-                    logging.error(f'{file_path}: Failed to process file:', exc_info=ex)
+                    logging.error(f'{file_path}: Failed to process recorded file:', exc_info=ex)
 
         # 存在しない録画ファイルに対応するレコードを一括削除
         ## トランザクション配下に入れることでパフォーマンスが向上する
@@ -166,7 +168,7 @@ class RecordedScanTask:
                     await existing_db_recorded_video.recorded_program.delete()
                     logging.info(f'{file_path}: Deleted record for non-existent file.')
 
-        logging.info('Initial scan completed.')
+        logging.info('Batch scan of recording folders has been completed.')
 
 
     async def __processRecordedFile(
@@ -246,16 +248,18 @@ class RecordedScanTask:
             # 60秒未満のファイルは録画中ファイルとして記録するのみ
             if recorded_program.recorded_video.duration < self.MINIMUM_RECORDING_SECONDS:
                 self._recording_files[file_path] = (last_modified, now, file_size)
-                logging.debug_simple(f'{file_path}: This file is recording (duration < {self.MINIMUM_RECORDING_SECONDS}s).')
+                logging.debug_simple(f'{file_path}: This file is recording or copying (duration < {self.MINIMUM_RECORDING_SECONDS}s).')
                 return
 
             # 録画中のファイルとして処理
+            ## 他ドライブからファイルコピー中のファイルも、実際の録画処理より高速に書き込まれるだけで随時書き込まれることに変わりはないので、
+            ## 録画中として判断されることがある（その場合、ファイルコピーが完了した段階で「録画完了」扱いとなる）
             if is_recording or (now - last_modified).total_seconds() < self.RECORDING_COMPLETE_SECONDS:
                 # status を Recording に設定
                 recorded_program.recorded_video.status = 'Recording'
                 # 状態を更新
                 self._recording_files[file_path] = (last_modified, now, file_size)
-                logging.debug_simple(f'{file_path}: This file is recording (duration >= {self.MINIMUM_RECORDING_SECONDS}s).')
+                logging.debug_simple(f'{file_path}: This file is recording or copying (duration >= {self.MINIMUM_RECORDING_SECONDS}s).')
             else:
                 # 録画完了後のバックグラウンド解析タスクを開始
                 if file_path not in self._background_tasks:
@@ -381,7 +385,7 @@ class RecordedScanTask:
         """
         録画完了後のバックグラウンド解析タスク
         - キーフレーム解析
-        - CM区間解析
+        - CM 区間解析
         など、時間のかかる処理を非同期に実行する
 
         Args:
@@ -401,9 +405,12 @@ class RecordedScanTask:
             self._background_tasks.pop(file_path, None)
 
 
-    async def __watchDirectories(self) -> None:
-        """watchfiles による継続的な監視を実行する"""
-        logging.info('Starting file system watch.')
+    async def watchRecordedFolders(self) -> None:
+        """
+        録画フォルダ以下のファイルシステム変更の監視を開始し、変更があれば随時メタデータを解析後、DB に永続化する
+        """
+
+        logging.info('Starting file system watch of recording folders.')
 
         # 監視対象のディレクトリを設定
         watch_paths = [str(path) for path in self.recorded_folders]
@@ -443,14 +450,14 @@ class RecordedScanTask:
         except asyncio.CancelledError:
             raise
         except Exception as ex:
-            logging.error('Error in file system watch:', exc_info=ex)
+            logging.error('Error in file system watch of recording folders:', exc_info=ex)
         finally:
             completion_check_task.cancel()
             try:
                 await completion_check_task
             except asyncio.CancelledError:
                 pass
-            logging.info('File system watch stopped.')
+            logging.info('File system watch of recording folders has been stopped.')
 
 
     async def __handleFileChange(self, file_path: anyio.Path) -> None:
@@ -473,10 +480,12 @@ class RecordedScanTask:
             # 既に録画中とマークされているファイルの処理
             if file_path in self._recording_files:
                 last_checked = self._recording_files[file_path][1]
+                # 状態を更新
+                self._recording_files[file_path] = (last_modified, now, file_size)
                 # 前回のチェックから30秒以上経過していない場合はスキップ
                 if (now - last_checked).total_seconds() < self.UPDATE_THROTTLE_SECONDS:
                     return
-                # 状態を更新して処理
+                # メタデータ解析を実行
                 await self.__processRecordedFile(file_path, None)
                 return
 
@@ -519,8 +528,8 @@ class RecordedScanTask:
 
     async def __checkRecordingCompletion(self) -> None:
         """
-        録画完了状態を定期的にチェックする
-        - 30秒間ファイルの更新がない場合に録画完了と判断
+        録画 (またはファイルコピー) の完了状態を定期的にチェックする
+        - 30秒間ファイルの更新がない場合に録画完了 (またはファイルコピー完了) と判断
         - 完了したファイルは再度メタデータを解析して DB に保存
         """
 
@@ -528,8 +537,6 @@ class RecordedScanTask:
             try:
                 now = datetime.now(tz=ZoneInfo('Asia/Tokyo'))
                 completed_files = []
-                logging.debug_simple(f'{now}: Checking recording completion.')
-                logging.debug_simple(self._recording_files)
 
                 # 録画中ファイルをチェック
                 for file_path, (_, _, last_size) in self._recording_files.items():
@@ -557,7 +564,8 @@ class RecordedScanTask:
 
                         # ファイルが存在する場合のみ再解析
                         if await file_path.exists():
-                            logging.info(f'{file_path}: Recording has just completed or has already completed.')
+                            # この時点で、録画（またはファイルコピー）が確実に完了しているはず
+                            logging.info(f'{file_path}: Recording or copying has just completed or has already completed.')
                             await self.__processRecordedFile(file_path, None)
                     except Exception as ex:
                         logging.error(f'{file_path}: Error processing completed file:', exc_info=ex)
