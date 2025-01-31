@@ -162,7 +162,7 @@ class RecordedScanTask:
         async with transactions.in_transaction():
             for file_path, existing_db_recorded_video in existing_db_recorded_videos.items():
                 # ファイルの存在確認を非同期に行う
-                if not await file_path.exists():
+                if not await file_path.is_file():
                     # RecordedVideo の親テーブルである RecordedProgram を削除すると、
                     # CASCADE 制約により RecordedVideo も同時に削除される (Channel は親テーブルにあたるため削除されない)
                     await existing_db_recorded_video.recorded_program.delete()
@@ -187,6 +187,10 @@ class RecordedScanTask:
         """
 
         try:
+            # 万が一この時点でファイルが存在しない場合はスキップ
+            if not await file_path.is_file():
+                return
+
             # ファイルの状態をチェック
             stat = await file_path.stat()
             last_modified = datetime.fromtimestamp(stat.st_mtime, tz=ZoneInfo('Asia/Tokyo'))
@@ -536,7 +540,7 @@ class RecordedScanTask:
         while self._is_running:
             try:
                 now = datetime.now(tz=ZoneInfo('Asia/Tokyo'))
-                completed_files = []
+                completed_files: list[anyio.Path] = []
 
                 # 録画中ファイルをチェック
                 for file_path, (_, _, last_size) in self._recording_files.items():
@@ -563,7 +567,7 @@ class RecordedScanTask:
                         self._recording_files.pop(file_path, None)
 
                         # ファイルが存在する場合のみ再解析
-                        if await file_path.exists():
+                        if await file_path.is_file():
                             # この時点で、録画（またはファイルコピー）が確実に完了しているはず
                             logging.info(f'{file_path}: Recording or copying has just completed or has already completed.')
                             await self.__processRecordedFile(file_path, None)
