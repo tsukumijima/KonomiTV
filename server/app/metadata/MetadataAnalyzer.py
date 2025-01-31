@@ -64,10 +64,10 @@ class MetadataAnalyzer:
         video_frame_rate: float | None = None
         video_resolution_width: int | None = None
         video_resolution_height: int | None = None
-        primary_audio_codec: Literal['AAC-LC', 'HE-AAC', 'MP2'] | None = None
+        primary_audio_codec: Literal['AAC-LC'] | None = None
         primary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] | None = None
         primary_audio_sampling_rate: int | None = None
-        secondary_audio_codec: Literal['AAC-LC', 'HE-AAC', 'MP2'] | None = None
+        secondary_audio_codec: Literal['AAC-LC'] | None = None
         secondary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] | None = None
         secondary_audio_sampling_rate: int | None = None
 
@@ -80,6 +80,7 @@ class MetadataAnalyzer:
 
         # MediaInfo から録画ファイルのメディア情報を取得
         ## 取得に失敗した場合は KonomiTV で再生可能なファイルではないと判断し、None を返す
+        ## TODO: サブチャンネルの 480p 番組で誤って 1080p や音声多重放送と判断されることがある件の修正が必要
         media_info = self.__analyzeMediaInfo()
         if media_info is None:
             return None
@@ -183,7 +184,7 @@ class MetadataAnalyzer:
                 if track.format == 'AAC' and hasattr(track, 'format_additionalfeatures') and track.format_additionalfeatures == 'LC':
                     secondary_audio_codec = 'AAC-LC'
                 else:
-                    # AAC-LC 以外のフォーマットは KonomiTV で再生できない
+                    # AAC-LC 以外のフォーマットは当面 KonomiTV で再生できない
                     continue
                 if int(track.channel_s) == 1:
                     secondary_audio_channel = 'Monaural'

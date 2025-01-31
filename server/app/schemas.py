@@ -108,10 +108,10 @@ class RecordedVideo(PydanticModel):
     video_frame_rate: float
     video_resolution_width: int
     video_resolution_height: int
-    primary_audio_codec: Literal['AAC-LC', 'HE-AAC', 'MP2']
+    primary_audio_codec: Literal['AAC-LC']
     primary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch']
     primary_audio_sampling_rate: int
-    secondary_audio_codec: Literal['AAC-LC', 'HE-AAC', 'MP2'] | None = None
+    secondary_audio_codec: Literal['AAC-LC'] | None = None
     secondary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] | None = None
     secondary_audio_sampling_rate: int | None = None
     key_frames: list[KeyFrame] = []
