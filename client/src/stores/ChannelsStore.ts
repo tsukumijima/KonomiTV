@@ -320,7 +320,7 @@ const useChannelsStore = defineStore('channels', {
             const update = async () => {
 
                 // 最新のすべてのチャンネルの情報を取得
-                const channels_list = await Channels.fetchAll();
+                const channels_list = await Channels.fetchAllChannels();
                 if (channels_list === null) {
                     return;
                 }
