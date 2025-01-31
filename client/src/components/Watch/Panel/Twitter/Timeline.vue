@@ -1,8 +1,17 @@
 <template>
     <div class="tab-content tab-content--timeline">
         <div class="timeline-header">
-            <Icon icon="fluent:home-16-filled" height="18px" />
-            <h2 class="timeline-header__title ml-2">タイムライン</h2>
+            <div class="search-input-wrapper" :class="{'search-input-wrapper--focused': isFilterFormFocused}">
+                <Icon icon="fluent:filter-16-filled" height="18px" />
+                <input
+                    v-model="filterQuery"
+                    class="search-input"
+                    type="text"
+                    placeholder="タイムラインを絞り込む"
+                    @focus="isFilterFormFocused = true"
+                    @blur="isFilterFormFocused = false"
+                />
+            </div>
             <div class="d-flex align-center ml-auto h-100">
                 <button v-ripple class="timeline-header__settings" @click="toggleSettings">
                     <Icon icon="fluent:settings-16-filled" width="20" />
@@ -14,8 +23,14 @@
             </div>
         </div>
         <div v-if="showSettings" class="timeline-settings">
-            <v-switch id="show_retweets" color="primary" density="compact" hide-details v-model="showRetweets" />
-            <label class="ml-4 cursor-pointer" for="show_retweets">リツイートを表示する</label>
+            <div class="timeline-settings__item">
+                <v-switch id="show_retweets" color="primary" density="compact" hide-details v-model="showRetweets" />
+                <label class="ml-4 cursor-pointer" for="show_retweets">リツイートを表示する</label>
+            </div>
+            <div class="timeline-settings__item">
+                <v-switch id="is_not_filter" color="primary" density="compact" hide-details v-model="isNotFilter" />
+                <label class="ml-4 cursor-pointer" for="is_not_filter">指定文字列を含まないツイートを表示</label>
+            </div>
         </div>
         <VirtuaList ref="scroller" class="timeline-tweets" :data="flattenedItems" #default="{ item }"
             v-show="flattenedItems.length > 0">
@@ -30,9 +45,14 @@
             </div>
         </VirtuaList>
         <div class="timeline-announce" v-show="flattenedItems.length === 0">
-            <div class="timeline-announce__heading">まだツイートがありません。</div>
+            <div class="timeline-announce__heading">{{ filterQuery ? '絞り込み条件に一致するツイートがありません。' : 'まだツイートがありません。' }}</div>
             <div class="timeline-announce__text">
-                <p class="mt-0 mb-0">右上の更新ボタンを押すと、最新の<br>ホームタイムラインを時系列で表示できます。</p>
+                <p class="mt-0 mb-0" v-if="filterQuery">
+                    絞り込み条件を変更するか、右上の更新ボタンを<br>押して、タイムラインを更新してください。
+                </p>
+                <p class="mt-0 mb-0" v-else>
+                    右上の更新ボタンを押すと、最新の<br>ホームタイムラインを時系列で表示できます。
+                </p>
             </div>
         </div>
     </div>
@@ -80,16 +100,49 @@ const scroller = useTemplateRef('scroller');
 // ユニークなツイートが得られた更新時の next_cursor_id のみを保持
 const cursorIdHistory = ref<string[]>([]);  // 更新履歴を保持
 
+// フィルタリング用の状態
+const filterQuery = ref('');
+const isFilterFormFocused = ref(false);
+const isNotFilter = ref(false);
+const isRefreshingFilter = ref(false);  // フィルタリング更新中かどうかのフラグ
+
+// フィルタクエリまたは NOT フィルタの設定が変更された際に仮想スクローラーをリフレッシュ
+watch([filterQuery, isNotFilter], async () => {
+    isRefreshingFilter.value = true;  // 更新中フラグを立てる
+    await nextTick();  // DOM の更新を待つ
+    isRefreshingFilter.value = false;  // フラグを下ろす
+});
+
 // フラットな構造の配列を生成する computed プロパティ
 const flattenedItems = computed(() => {
+    // フィルタリング更新中は空配列を返す
+    if (isRefreshingFilter.value) {
+        return [];
+    }
+
     const items: (ITweet | ILoadMoreItem)[] = [];
     for (const item of timelineItems.value) {
         if (item.type === 'tweet_block') {
-            items.push(...item.tweets);
+            // フィルタクエリが存在する場合、ツイート本文でフィルタリング
+            const tweets = filterQuery.value
+                ? item.tweets.filter(tweet => {
+                    // リツイートの場合は retweeted_tweet の text を使用する
+                    const targetText = tweet.retweeted_tweet ? tweet.retweeted_tweet.text : tweet.text;
+                    const hasText = targetText.toLowerCase().includes(filterQuery.value.toLowerCase());
+                    return isNotFilter.value ? !hasText : hasText;
+                })
+                : item.tweets;
+            items.push(...tweets);
         } else {
             items.push(item);
         }
     }
+
+    // フィルタリング中で、かつツイートが1件も含まれていない場合は空配列を返す
+    if (filterQuery.value && !items.some(item => 'text' in item)) {
+        return [];
+    }
+
     return items;
 });
 
@@ -373,14 +426,43 @@ onMounted(() => {
     border-top: 1px solid rgba(var(--v-theme-on-surface), 0.12);
     border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.12);
 
-    &__title {
-        font-size: 16px;
-        font-weight: bold;
-        margin: 0;
+    .search-input-wrapper {
+        display: flex;
+        align-items: center;
+        flex-grow: 1;
+        height: 100%;
+        margin-right: 6px;
+        padding-left: 8px;
+        padding-right: 8px;
+        background-color: rgb(var(--v-theme-background-lighten-2));
+        border-radius: 5px;
+        transition: box-shadow 0.09s ease;
+
+        &--focused {
+            box-shadow: rgba(79, 130, 230, 60%) 0 0 0 3.5px;
+        }
+
+        .iconify {
+            color: rgb(var(--v-theme-text-darken-2));
+        }
     }
 
-    .timeline-header__settings,
-    .timeline-header__refresh {
+    .search-input {
+        flex-grow: 1;
+        margin-left: 8px;
+        background: none;
+        border: none;
+        outline: none;
+        font-size: 13px;
+        color: rgb(var(--v-theme-text));
+
+        &::placeholder {
+            color: rgb(var(--v-theme-text-darken-2));
+        }
+    }
+
+    &__settings,
+    &__refresh {
         display: flex;
         align-items: center;
         height: 100%;
@@ -399,21 +481,27 @@ onMounted(() => {
         }
     }
 
-    .timeline-header__refresh {
+    &__refresh {
         margin-left: 6px;
         background-color: rgb(var(--v-theme-twitter));
     }
-
 }
 
 .timeline-settings {
     display: flex;
-    align-items: center;
-    height: 45px;
-    padding: 0px 12px;
+    flex-direction: column;
+    padding: 8px 12px;
+    padding-left: 20px;
     font-size: 14px;
     color: rgb(var(--v-theme-text-darken-1));
     border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+
+    &__item {
+        display: flex;
+        align-items: center;
+        height: 32px;
+        user-select: none;
+    }
 }
 
 .timeline-tweets {
@@ -449,6 +537,7 @@ onMounted(() => {
     }
 
     &__heading {
+        text-align: center;
         font-size: 20px;
         font-weight: bold;
         @include smartphone-horizontal {
