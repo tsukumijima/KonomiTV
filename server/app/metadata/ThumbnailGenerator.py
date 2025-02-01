@@ -13,22 +13,24 @@ from typing import cast, ClassVar, Literal
 from app import logging
 from app import schemas
 from app.config import LoadConfig
-from app.constants import LIBRARY_PATH, THUMBNAILS_DIR
+from app.constants import LIBRARY_PATH, STATIC_DIR, THUMBNAILS_DIR
 
 
 class ThumbnailGenerator:
     """
-    プレイヤーのシークバー用タイル画像と、候補区間内で最も良い1枚の代表サムネイルを生成するクラス
+    プレイヤーのシークバー用タイル画像と、候補区間内で最も良い1枚の代表サムネイルを生成するクラス (with o1-pro)
     """
 
-    # タイル化の設定
+    # サムネイルのタイル化の設定
     TILE_INTERVAL_SEC: ClassVar[float] = 5.0  # タイル化する間隔 (秒)
     TILE_SCALE: ClassVar[tuple[int, int]] = (480, 270)  # タイル化時の1フレーム解像度 (width, height)
-    TILE_COLS: ClassVar[int] = 10  # タイルの横方向枚数
+    TILE_COLS: ClassVar[int] = 16  # タイルの横方向枚数 (480px * 16 = 7680px)
 
     # 顔検出の設定
     FACE_DETECTION_SCALE_FACTOR: ClassVar[float] = 1.2  # 顔検出時のスケールファクター
     FACE_DETECTION_MIN_NEIGHBORS: ClassVar[int] = 3  # 顔検出時の最小近傍数
+    FACE_SIZE_WEIGHT: ClassVar[float] = 0.3  # 顔サイズによるスコアの重み
+    FACE_SIZE_BASE_SCORE: ClassVar[float] = 10.0  # 顔サイズの基本スコア
 
     # 画質評価の重み付け
     SCORE_WEIGHTS: ClassVar[dict[str, float]] = {
@@ -43,7 +45,7 @@ class ThumbnailGenerator:
 
     # 顔検出用カスケード分類器のパス
     HUMAN_FACE_CASCADE_PATH: ClassVar[pathlib.Path] = pathlib.Path(cv2.__file__).parent / 'data' / 'haarcascade_frontalface_default.xml'
-    ANIME_FACE_CASCADE_PATH: ClassVar[pathlib.Path] = pathlib.Path('lbpcascade_animeface.xml')
+    ANIME_FACE_CASCADE_PATH: ClassVar[pathlib.Path] = STATIC_DIR / 'lbpcascade_animeface.xml'
 
 
     def __init__(
@@ -106,25 +108,25 @@ class ThumbnailGenerator:
         ## アニメが含まれている場合はアニメ顔検出を優先
         ## それ以外は実写人物が重要なジャンルかどうかで判断
         face_detection_mode: Literal['Human', 'Anime'] | None = None
-
         if recorded_program.genres:
             # アニメが含まれている場合はアニメ顔検出を優先
             if any('アニメ' in g['major'] or 'アニメ' in g['middle'] for g in recorded_program.genres):
                 face_detection_mode = 'Anime'
             else:
-                # 実写人物が重要なジャンル
+                # 実写人物がサムネイルに写っていることが重要なジャンル
                 human_face_genres = [
+                    'ニュース・報道',
+                    '情報・ワイドショー',
                     'ドラマ',
                     'バラエティ',
                     '映画',
-                    'ドキュメンタリー',
-                    '劇場／公演',
                 ]
                 # 最初のジャンルの major を取得
                 first_genre_major = recorded_program.genres[0]['major']
                 if any(genre in first_genre_major for genre in human_face_genres):
                     face_detection_mode = 'Human'
 
+        # コンストラクタに渡す
         return cls(
             file_path=file_path,
             duration_sec=duration_sec,
@@ -168,34 +170,36 @@ class ThumbnailGenerator:
     async def __generateThumbnailsTile(self) -> bool:
         """
         FFmpeg を使い、録画ファイル全体を対象にプレイヤーのシークバー用サムネイルタイル画像を生成する
+        5秒ごとにフレームを抽出し、タイル化する
 
         Returns:
             bool: 成功時は True、失敗時は False
         """
 
         try:
-            # フレーム数 = floor(duration_sec / tile_interval_sec)
-            total_frames = int(math.floor(self.duration_sec / self.TILE_INTERVAL_SEC))
+            # フレーム数 = ceil(duration_sec / tile_interval_sec)
+            # ※ ceil() を使うことで、端数でも切り捨てずに確実にすべての区間をカバー
+            total_frames = int(math.ceil(self.duration_sec / self.TILE_INTERVAL_SEC))
             if total_frames < 1:
                 # 短すぎるか、tile_interval_secが大きすぎる場合
                 total_frames = 1
 
             # 実際の行数(縦のタイル数) = ceil(total_frames / tile_cols)
+            # ※ ceil() を使うことで、最後の行が一部空いていても、すべてのフレームを表示
             tile_rows = math.ceil(total_frames / self.TILE_COLS)
 
             width, height = self.TILE_SCALE
 
-            # tile=WxH 形式の引数文字列
-            tile_filter = f"fps=1/{self.TILE_INTERVAL_SEC},scale={width}:{height},tile={self.TILE_COLS}x{tile_rows}"
-
-            # FFmpegコマンド
-            cmd = [
-                LIBRARY_PATH['FFmpeg'],
-                '-y',  # 上書き許可
-                '-i', str(self.file_path),
-                '-frames:v', '1',
-                '-vf', tile_filter,
-                str(self.seekbar_tile_path),
+            # フィルターチェーンを構築
+            # 1. fps=1/N: N秒ごとにフレームを抽出
+            # 2. scale=width:height: 指定サイズにリサイズ
+            # 3. tile=WxH:padding=0:margin=0: タイル化 (余白なし)
+            filter_chain = [
+                # 5秒ごとにフレームを抽出
+                f'fps=1/{self.TILE_INTERVAL_SEC}',
+                # リサイズしてタイル化
+                f'scale={width}:{height}',
+                f'tile={self.TILE_COLS}x{tile_rows}:padding=0:margin=0',
             ]
 
             # 出力先ディレクトリが無い場合は作成
@@ -205,9 +209,23 @@ class ThumbnailGenerator:
 
             # 非同期でプロセスを実行
             process = await asyncio.create_subprocess_exec(
-                *cmd,
+                *[
+                    LIBRARY_PATH['FFmpeg'],
+                    # 上書きを許可
+                    '-y',
+                    # 入力ファイル
+                    '-i', str(self.file_path),
+                    # 1枚の出力画像
+                    '-frames:v', '1',
+                    # フィルターチェーンを結合
+                    '-vf', ','.join(filter_chain),
+                    # JPEG 品質 (2=高品質)
+                    '-q:v', '2',
+                    # 出力ファイル
+                    str(self.seekbar_tile_path),
+                ],
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+                stderr=asyncio.subprocess.PIPE,
             )
             _, stderr = await process.communicate()
 
@@ -228,9 +246,9 @@ class ThumbnailGenerator:
     async def __extractBestFrameFromThumbnailTile(self) -> NDArray[np.uint8] | None:
         """
         生成したシークバー用タイル画像から、候補区間内に相当するフレームだけを
-        スコアリングし、最良の1枚を返す (画像は OpenCV 形式の BGR NDArray) 。
-        顔検出オプションが指定されている場合は顔があるフレームのみ優先し、なければ全フレームから選ぶ。
-        スコアリングで適切な候補が見つからない場合は、ランダムに1枚を選択する。
+        スコアリングし、最良の1枚を返す (画像は OpenCV 形式の BGR NDArray)
+        顔検出オプションが指定されている場合は顔があるフレームのみ優先し、なければ全フレームから選ぶ
+        スコアリングで適切な候補が見つからない場合は、ランダムに1枚を選択する
 
         Returns:
             NDArray[np.uint8] | None: 最良フレーム (BGR) / 予期せぬエラーが発生した場合のみ None
@@ -256,8 +274,10 @@ class ThumbnailGenerator:
             face_cascade = None
             if self.face_detection_mode == 'Human':
                 face_cascade = cv2.CascadeClassifier(str(self.HUMAN_FACE_CASCADE_PATH))
+                logging.debug_simple(f'{self.file_path}: Loaded human face cascade.')
             elif self.face_detection_mode == 'Anime':
                 face_cascade = cv2.CascadeClassifier(str(self.ANIME_FACE_CASCADE_PATH))
+                logging.debug_simple(f'{self.file_path}: Loaded anime face cascade.')
 
             # いったん全フレームを評価して保持し、後で「顔あり」→無ければ「全体」という二段階で決める
             frames_info: list[tuple[int, float, bool, NDArray[np.uint8]]] = []
@@ -328,7 +348,7 @@ class ThumbnailGenerator:
 
     async def __saveRepresentative(self, img_bgr: NDArray[np.uint8]) -> bool:
         """
-        代表サムネイルを JPEG ファイルに保存する。
+        代表サムネイルを JPEG ファイルに保存する
 
         Args:
             img_bgr (NDArray[np.uint8]): 保存する画像データ (BGR)
@@ -358,7 +378,7 @@ class ThumbnailGenerator:
 
     def __inCandidateIntervals(self, sec: float) -> bool:
         """
-        sec(秒)が candidate_intervals (start, end) のいずれかに入っているかどうか。
+        sec(秒)が candidate_intervals (start, end) のいずれかに入っているかどうか
 
         Args:
             sec (float): 判定する時刻 (秒)
@@ -379,7 +399,8 @@ class ThumbnailGenerator:
     ) -> tuple[float, bool]:
         """
         画質スコア(輝度・コントラスト・シャープネス)を計算し、
-        顔検出があれば found_face=True を返す。
+        顔検出があれば found_face=True を返す
+        顔が検出された場合、その大きさに応じてスコアを加算する
 
         Args:
             img_bgr (NDArray[np.uint8]): 評価する画像データ (BGR)
@@ -389,6 +410,7 @@ class ThumbnailGenerator:
             tuple[float, bool]: (score, found_face)
         """
         found_face = False
+        face_size_score = 0.0
 
         # 顔検出
         if face_cascade is not None:
@@ -400,6 +422,13 @@ class ThumbnailGenerator:
             )
             if len(faces) > 0:
                 found_face = True
+                # 最も大きい顔を基準にスコアを計算
+                max_face_area = max(w * h for (_, _, w, h) in faces)
+                img_area = img_bgr.shape[0] * img_bgr.shape[1]
+                # 顔の面積比を計算 (0.0 ~ 1.0)
+                face_area_ratio = max_face_area / img_area
+                # 基本スコアに面積比を掛けてスコアを計算
+                face_size_score = self.FACE_SIZE_BASE_SCORE * face_area_ratio
 
         # スコア計算
         # (1) 輝度 Y
@@ -425,11 +454,12 @@ class ThumbnailGenerator:
         if mean_lum < self.BRIGHTNESS_PENALTY_THRESHOLD[0] or mean_lum > self.BRIGHTNESS_PENALTY_THRESHOLD[1]:
             brightness_penalty = self.BRIGHTNESS_PENALTY_VALUE
 
-        # 重み付けしてスコアを計算
+        # 重み付けしてスコアを計算 (顔サイズのスコアを追加)
         score = (
             std_lum * self.SCORE_WEIGHTS['std_lum'] +
             contrast * self.SCORE_WEIGHTS['contrast'] +
-            sharpness * self.SCORE_WEIGHTS['sharpness'] -
+            sharpness * self.SCORE_WEIGHTS['sharpness'] +
+            face_size_score * self.FACE_SIZE_WEIGHT -
             brightness_penalty
         )
 
@@ -470,9 +500,9 @@ if __name__ == "__main__":
         ),
     ) -> None:
         """
-        録画ファイルからサムネイルを生成する。
+        録画ファイルからサムネイルを生成する
         メタデータ解析結果を用いて自動的にパラメータを設定するが、
-        オプションで明示的に指定された場合はそちらを優先する。
+        オプションで明示的に指定された場合はそちらを優先する
         """
 
         # 設定を読み込む (必須)
