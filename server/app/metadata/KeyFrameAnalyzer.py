@@ -2,6 +2,7 @@
 import anyio
 import asyncio
 import json
+import time
 
 from app import logging
 from app import schemas
@@ -36,6 +37,7 @@ class KeyFrameAnalyzer:
         - キーフレームの PTS (Presentation Time Stamp)
         """
 
+        start_time = time.time()
         try:
             # ffprobe のオプションを設定
             ## -i: 入力ファイルを指定
@@ -110,7 +112,7 @@ class KeyFrameAnalyzer:
 
             # キーフレームが1つも見つからなかった場合
             if not key_frames:
-                logging.error(f'{self.file_path}: No key frames found in the video')
+                logging.error(f'{self.file_path}: No keyframes found in the video')
                 return
 
             # DB に保存
@@ -120,9 +122,9 @@ class KeyFrameAnalyzer:
                 # キーフレーム情報を更新
                 db_recorded_video.key_frames = key_frames
                 await db_recorded_video.save()
-                logging.info(f'{self.file_path}: Keyframe analysis completed. ({len(key_frames)} key frames found)')
+                logging.info(f'{self.file_path}: Keyframe analysis completed. ({len(key_frames)} keyframes found / {time.time() - start_time:.2f} sec)')
             else:
                 logging.warning(f'{self.file_path}: RecordedVideo record not found.')
 
         except Exception as ex:
-            logging.error(f'{self.file_path}: Error in key frame analysis:', exc_info=ex)
+            logging.error(f'{self.file_path}: Error in keyframe analysis:', exc_info=ex)

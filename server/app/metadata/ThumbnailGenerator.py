@@ -6,6 +6,7 @@ import math
 import numpy as np
 import pathlib
 import random
+import time
 import typer
 from numpy.typing import NDArray
 from typing import cast, ClassVar, Literal
@@ -51,6 +52,7 @@ class ThumbnailGenerator:
     def __init__(
         self,
         file_path: anyio.Path,
+        file_hash: str,
         duration_sec: float,
         candidate_time_ranges: list[tuple[float, float]],
         face_detection_mode: Literal['Human', 'Anime'] | None = None,
@@ -60,6 +62,7 @@ class ThumbnailGenerator:
 
         Args:
             file_path (anyio.Path): 動画ファイルのパス
+            file_hash (str): 動画ファイルのハッシュ値（ファイル名の一意性を保証するため）
             duration_sec (float): 動画の再生時間(秒)
             candidate_time_ranges (list[tuple[float, float]]): 代表サムネ候補とする区間 [(start, end), ...]
             face_detection_mode (Literal['Human', 'Anime'] | None): 顔検出モード (デフォルト: None)
@@ -70,11 +73,9 @@ class ThumbnailGenerator:
         self.candidate_intervals = candidate_time_ranges
         self.face_detection_mode = face_detection_mode
 
-        # 実際に生成するファイル名(シークバータイル用, 代表サムネ用)
-        # 例: 動画ファイルが "myrecord.ts" -> basename "myrecord"
-        base_name = self.file_path.name.rsplit(".", 1)[0]
-        self.seekbar_tile_path = anyio.Path(str(THUMBNAILS_DIR / f"{base_name}_seekbar.jpg"))
-        self.representative_path = anyio.Path(str(THUMBNAILS_DIR / f"{base_name}_representative.jpg"))
+        # ファイルハッシュをベースにしたファイル名を生成
+        self.seekbar_tile_path = anyio.Path(str(THUMBNAILS_DIR / f"{file_hash}_seekbar.jpg"))
+        self.representative_path = anyio.Path(str(THUMBNAILS_DIR / f"{file_hash}.jpg"))
 
 
     @classmethod
@@ -129,6 +130,7 @@ class ThumbnailGenerator:
         # コンストラクタに渡す
         return cls(
             file_path=file_path,
+            file_hash=recorded_program.recorded_video.file_hash,
             duration_sec=duration_sec,
             candidate_time_ranges=candidate_time_ranges,
             face_detection_mode=face_detection_mode,
@@ -140,6 +142,8 @@ class ThumbnailGenerator:
         プレイヤーのシークバー用サムネイルタイル画像を生成し、
         さらに候補区間内のフレームから最も良い1枚を選び、代表サムネイルとして出力する
         """
+
+        start_time = time.time()
         try:
             # 1. プレイヤーのシークバー用サムネイルタイル画像を生成
             if not await self.__generateThumbnailsTile():
@@ -159,7 +163,7 @@ class ThumbnailGenerator:
                 logging.error(f'{self.file_path}: Failed to save representative thumbnail.')
                 return
 
-            logging.info(f'{self.file_path}: Thumbnail generation completed.')
+            logging.info(f'{self.file_path}: Thumbnail generation completed. ({time.time() - start_time:.2f} sec)')
 
         except Exception as ex:
             # 予期せぬエラーのみここでキャッチ
@@ -386,6 +390,7 @@ class ThumbnailGenerator:
         Returns:
             bool: 候補区間内なら True
         """
+
         for (start, end) in self.candidate_intervals:
             if start <= sec <= end:
                 return True
@@ -409,6 +414,7 @@ class ThumbnailGenerator:
         Returns:
             tuple[float, bool]: (score, found_face)
         """
+
         found_face = False
         face_size_score = 0.0
 
@@ -466,7 +472,6 @@ class ThumbnailGenerator:
         return (score, found_face)
 
 
-# ---- テスト用スクリプト ----
 if __name__ == "__main__":
     # デバッグ用: サムネイル画像を生成する
     # Usage: poetry run python -m app.metadata.ThumbnailGenerator /path/to/recorded_file.ts
