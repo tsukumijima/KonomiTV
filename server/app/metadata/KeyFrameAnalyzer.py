@@ -120,7 +120,7 @@ class KeyFrameAnalyzer:
                 # キーフレーム情報を更新
                 db_recorded_video.key_frames = key_frames
                 await db_recorded_video.save()
-                logging.info(f'{self.file_path}: Key frame analysis completed. ({len(key_frames)} key frames found)')
+                logging.info(f'{self.file_path}: Keyframe analysis completed. ({len(key_frames)} key frames found)')
             else:
                 logging.warning(f'{self.file_path}: RecordedVideo record not found.')
 
