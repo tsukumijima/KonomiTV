@@ -15,6 +15,7 @@ from app import schemas
 from app.config import Config
 from app.metadata.MetadataAnalyzer import MetadataAnalyzer
 from app.metadata.KeyFrameAnalyzer import KeyFrameAnalyzer
+from app.metadata.ThumbnailGenerator import ThumbnailGenerator
 from app.models.Channel import Channel
 from app.models.RecordedProgram import RecordedProgram
 from app.models.RecordedVideo import RecordedVideo
@@ -266,13 +267,13 @@ class RecordedScanTask:
                 self._recording_files[file_path] = (last_modified, now, file_size)
                 logging.debug_simple(f'{file_path}: This file is recording or copying (duration >= {self.MINIMUM_RECORDING_SECONDS}s).')
             else:
-                # 録画完了後のバックグラウンド解析タスクを開始
-                if file_path not in self._background_tasks:
-                    task = asyncio.create_task(self.__runBackgroundAnalysis(file_path))
-                    self._background_tasks[file_path] = task
                 # status を Recorded に設定
                 # MetadataAnalyzer 側で既に Recorded に設定されているが、念のため
                 recorded_program.recorded_video.status = 'Recorded'
+                # 録画完了後のバックグラウンド解析タスクを開始
+                if file_path not in self._background_tasks:
+                    task = asyncio.create_task(self.__runBackgroundAnalysis(recorded_program))
+                    self._background_tasks[file_path] = task
 
             # DB に永続化
             await self.__saveRecordedMetadataToDB(recorded_program, existing_db_recorded_video)
@@ -389,23 +390,27 @@ class RecordedScanTask:
             await db_recorded_video.save()
 
 
-    async def __runBackgroundAnalysis(self, file_path: anyio.Path) -> None:
+    async def __runBackgroundAnalysis(self, recorded_program: schemas.RecordedProgram) -> None:
         """
         録画完了後のバックグラウンド解析タスク
         - キーフレーム解析
-        - CM 区間解析
-        など、時間のかかる処理を非同期に実行する
+        - サムネイル生成
+        など、時間のかかる処理を非同期に同時実行する
 
         Args:
-            file_path (anyio.Path): 解析対象のファイルパス
+            recorded_program (schemas.RecordedProgram): 解析対象の録画番組情報
         """
 
+        # 録画ファイルのパスを anyio.Path に変換
+        file_path = anyio.Path(recorded_program.recorded_video.file_path)
+
         try:
-            # 各種解析タスクを非同期に実行
+            # 時間のかかる各種解析タスクを非同期に同時実行
             await asyncio.gather(
                 # 録画ファイルのキーフレーム解析
                 KeyFrameAnalyzer(file_path).analyze(),
-                # TODO: 今後 CM 区間解析などが追加された場合は、ここに追加する
+                # サムネイル生成
+                ThumbnailGenerator.fromRecordedProgram(recorded_program).generate(),
             )
             logging.info(f'{file_path}: Background analysis completed.')
 
