@@ -183,6 +183,34 @@ class Videos {
 
 
     /**
+     * 録画番組を検索する
+     * @param query 検索キーワード
+     * @param order ソート順序 ('desc' or 'asc')
+     * @param page ページ番号
+     * @returns 検索結果の録画番組一覧情報 or 検索に失敗した場合は null
+     */
+    static async searchVideos(query: string, order: 'desc' | 'asc' = 'desc', page: number = 1): Promise<IRecordedPrograms | null> {
+
+        // API リクエストを実行
+        const response = await APIClient.get<IRecordedPrograms>('/videos/search', {
+            params: {
+                query,
+                order,
+                page,
+            },
+        });
+
+        // エラー処理
+        if (response.type === 'error') {
+            APIClient.showGenericError(response, '録画番組の検索に失敗しました。');
+            return null;
+        }
+
+        return response.data;
+    }
+
+
+    /**
      * 録画番組情報を取得する
      * @param video_id 録画番組の ID
      * @returns 録画番組情報 or 録画番組情報の取得に失敗した場合は null

@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from fastapi import Path
 from fastapi import Query
 from fastapi import status
+from tortoise.expressions import Q
 from typing import Annotated, Literal
 
 from app import logging
@@ -17,6 +18,9 @@ router = APIRouter(
     tags = ['Videos'],
     prefix = '/api/videos',
 )
+
+# ページングで一度に取得する録画番組の数
+PAGE_SIZE = 100
 
 
 @router.get(
@@ -35,7 +39,6 @@ async def VideosAPI(
     page (ページ番号) には 1 以上の整数を指定する。
     """
 
-    PAGE_SIZE = 100
     recorded_programs = await RecordedProgram.all() \
         .select_related('recorded_video') \
         .select_related('channel') \
@@ -45,6 +48,57 @@ async def VideosAPI(
 
     return {
         'total': await RecordedProgram.all().count(),
+        'recorded_programs': recorded_programs,
+    }
+
+
+@router.get(
+    '/search',
+    summary = '録画番組検索 API',
+    response_description = '検索条件に一致する録画番組の情報のリスト。',
+    response_model = schemas.RecordedPrograms,
+)
+async def VideosSearchAPI(
+    query: Annotated[str, Query(description='検索キーワード。title または series_title または subtitle のいずれかに部分一致する録画番組を検索する。')] = '',
+    order: Annotated[Literal['desc', 'asc'], Query(description='ソート順序 (desc or asc) 。')] = 'desc',
+    page: Annotated[int, Query(description='ページ番号。')] = 1,
+):
+    """
+    指定されたキーワードで録画番組を一度に 100 件ずつ検索する。<br>
+    キーワードは title または series_title または subtitle のいずれかに部分一致する録画番組を検索する。<br>
+    order には "desc" か "asc" を指定する。<br>
+    page (ページ番号) には 1 以上の整数を指定する。
+    """
+
+    # クエリが空の場合は全件取得と同じ挙動にする
+    if not query:
+        return await VideosAPI(order=order, page=page)
+
+    # 検索条件を構築
+    # title または series_title または subtitle のいずれかに部分一致するレコードを検索
+    recorded_programs = await RecordedProgram.all() \
+        .select_related('recorded_video') \
+        .select_related('channel') \
+        .filter(
+            Q(title__icontains=query) |
+            Q(series_title__icontains=query) |
+            Q(subtitle__icontains=query)
+        ) \
+        .order_by('-start_time' if order == 'desc' else 'start_time') \
+        .offset((page - 1) * PAGE_SIZE) \
+        .limit(PAGE_SIZE)
+
+    # 検索条件に一致する総件数を取得
+    total = await RecordedProgram.all() \
+        .filter(
+            Q(title__icontains=query) |
+            Q(series_title__icontains=query) |
+            Q(subtitle__icontains=query)
+        ) \
+        .count()
+
+    return {
+        'total': total,
         'recorded_programs': recorded_programs,
     }
 
