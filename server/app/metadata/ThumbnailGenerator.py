@@ -35,18 +35,36 @@ class ThumbnailGenerator:
 
     # 画質評価の重み付け
     SCORE_WEIGHTS: ClassVar[dict[str, float]] = {
-        'std_lum': 1.0,  # 輝度の標準偏差
-        'contrast': 0.8,  # コントラスト
+        'std_lum': 0.8,  # 輝度の標準偏差 (全体的な明暗の差)
+        'contrast': 1.5,  # コントラスト (明暗の差の大きさ)
         'sharpness': 0.02,  # シャープネス
+        'edge_density': 0.8,  # エッジ密度 (情報量の指標)
+        'entropy': 1.0,  # エントロピー (情報量の指標)
     }
 
     # 画質評価のペナルティ
-    BRIGHTNESS_PENALTY_THRESHOLD: ClassVar[tuple[int, int]] = (30, 225)  # 輝度のペナルティ閾値 (min, max)
+    BRIGHTNESS_PENALTY_THRESHOLD: ClassVar[tuple[int, int]] = (20, 235)  # 輝度のペナルティ閾値 (min, max)
     BRIGHTNESS_PENALTY_VALUE: ClassVar[float] = 50.0  # 輝度のペナルティ値
+
+    # コントラスト評価の設定
+    CONTRAST_PERCENTILE_LOW: ClassVar[int] = 5  # コントラスト計算時の下位パーセンタイル
+    CONTRAST_PERCENTILE_HIGH: ClassVar[int] = 95  # コントラスト計算時の上位パーセンタイル
+
+    # 情報量評価の設定
+    EDGE_DENSITY_TARGET: ClassVar[float] = 0.15  # 目標とするエッジ密度 (0.0 ~ 1.0)
+    EDGE_DENSITY_TOLERANCE: ClassVar[float] = 0.1  # エッジ密度の許容範囲
+    ENTROPY_TARGET: ClassVar[float] = 5.0  # 目標とするエントロピー値
+    ENTROPY_TOLERANCE: ClassVar[float] = 2.0  # エントロピーの許容範囲
 
     # 顔検出用カスケード分類器のパス
     HUMAN_FACE_CASCADE_PATH: ClassVar[pathlib.Path] = pathlib.Path(cv2.__file__).parent / 'data' / 'haarcascade_frontalface_default.xml'
     ANIME_FACE_CASCADE_PATH: ClassVar[pathlib.Path] = STATIC_DIR / 'lbpcascade_animeface.xml'
+
+    # 単色判定の設定
+    COLOR_VARIANCE_THRESHOLD: ClassVar[float] = 10.0  # 各チャンネルの分散がこの値以下なら単色とみなす
+    BLACK_THRESHOLD: ClassVar[int] = 30  # 平均輝度がこの値以下なら黒とみなす（ログ出力用）
+    WHITE_THRESHOLD: ClassVar[int] = 225  # 平均輝度がこの値以上なら白とみなす（ログ出力用）
+    SOLID_COLOR_PENALTY: ClassVar[float] = 2000.0  # 単色フレームに対するペナルティ（すべての単色に対して同じ値）
 
 
     def __init__(
@@ -98,12 +116,15 @@ class ThumbnailGenerator:
         start_time = recorded_program.recording_start_margin
         end_time = duration_sec - recorded_program.recording_end_margin
 
-        # 番組前半の 25~40% の時間範囲を候補区間とする
-        ## ネタバレ防止のため後半は避け、OP や CM と被りにくい範囲を選択
-        middle_time = (end_time - start_time) / 2
-        candidate_start = start_time + (middle_time - start_time) * 0.25
-        candidate_end = start_time + (middle_time - start_time) * 0.40
-        candidate_time_ranges = [(candidate_start, candidate_end)]
+        # 番組の 25~35% と 60~70% の時間範囲を候補区間とする
+        ## OP や CM と被りにくい範囲を選択
+        total_time = end_time - start_time
+        candidate_time_ranges = [
+            # 25~35%
+            (start_time + total_time * 0.25, start_time + total_time * 0.35),
+            # 60~70%
+            (start_time + total_time * 0.60, start_time + total_time * 0.70),
+        ]
 
         # ジャンル情報から顔検出の要否を判断
         ## アニメが含まれている場合はアニメ顔検出を優先
@@ -418,6 +439,28 @@ class ThumbnailGenerator:
         found_face = False
         face_size_score = 0.0
 
+        # 単色判定
+        # 各チャンネルの分散を計算し、すべてのチャンネルの分散が閾値以下なら単色とみなす
+        solid_color_penalty = 0.0
+        channel_variances = [float(np.var(img_bgr[:,:,i])) for i in range(3)]
+        is_solid_color = all(var < self.COLOR_VARIANCE_THRESHOLD for var in channel_variances)
+
+        # 単色の場合、どの色かをログ出力用に判定し、一律で強いペナルティを与える
+        if is_solid_color:
+            mean_intensity = float(np.mean(img_bgr))
+            # ログ出力用の色判定（デバッグ時に役立つ）
+            if mean_intensity < self.BLACK_THRESHOLD:
+                logging.debug_simple(f'{self.file_path}: Solid black frame detected')
+            elif mean_intensity > self.WHITE_THRESHOLD:
+                logging.debug_simple(f'{self.file_path}: Solid white frame detected')
+            else:
+                # BGRの平均値から色を推定
+                mean_colors = [float(np.mean(img_bgr[:,:,i])) for i in range(3)]
+                logging.debug_simple(f'{self.file_path}: Solid color frame detected (BGR: {mean_colors})')
+
+            # すべての単色に対して同じ強いペナルティを与える
+            solid_color_penalty = self.SOLID_COLOR_PENALTY
+
         # 顔検出
         if face_cascade is not None:
             gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
@@ -443,19 +486,50 @@ class ThumbnailGenerator:
         mean_lum = np.mean(y)       # 平均輝度
         std_lum  = np.std(y)        # 分散(均一度の逆)
 
-        # (2) コントラスト: 10%タイルと90%タイルの差
+        # (2) コントラスト: より広い範囲のパーセンタイルを使用して、コントラストの差をより正確に評価
         y_flat = y.flatten()
-        p10 = np.percentile(y_flat, 10)
-        p90 = np.percentile(y_flat, 90)
-        contrast = p90 - p10
+        p_low = np.percentile(y_flat, self.CONTRAST_PERCENTILE_LOW)
+        p_high = np.percentile(y_flat, self.CONTRAST_PERCENTILE_HIGH)
+        contrast = p_high - p_low
+
+        # コントラストをさらに強調するため、平均輝度が中間値に近いほどボーナスを与える
+        # 中間値 (127.5) からの距離に応じてペナルティを与える
+        distance_ratio = abs(float(mean_lum) - 127.5) / 127.5
+        contrast_bonus = max(0.0, float(1.0 - distance_ratio)) * float(contrast) * 0.5
+        contrast += contrast_bonus
 
         # (3) シャープネス (Laplacian の分散)
         lap = cv2.Laplacian(img_bgr, cv2.CV_64F)
         sharpness = lap.var()
 
+        # (4) エッジ密度の計算
+        # Cannyエッジ検出を使用して、エッジの密度を計算
+        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+        edges = cv2.Canny(gray, 100, 200)
+        edge_density = float(np.count_nonzero(edges)) / edges.size
+
+        # エッジ密度が目標値に近いほど高いスコアを与える
+        edge_density_score = max(0.0, 1.0 - abs(edge_density - self.EDGE_DENSITY_TARGET) / self.EDGE_DENSITY_TOLERANCE)
+        # 情報量が多すぎる場合はペナルティを与える
+        if edge_density > self.EDGE_DENSITY_TARGET + self.EDGE_DENSITY_TOLERANCE:
+            edge_density_score *= 0.5
+
+        # (5) エントロピーの計算
+        # グレースケール画像のヒストグラムからエントロピーを計算
+        hist = cv2.calcHist([gray], [0], None, [256], [0, 256])
+        hist = hist.flatten() / hist.sum()
+        hist = hist[hist > 0]  # 0を除外
+        entropy = -np.sum(hist * np.log2(hist))
+
+        # エントロピーが目標値に近いほど高いスコアを与える
+        entropy_score = max(0.0, 1.0 - abs(entropy - self.ENTROPY_TARGET) / self.ENTROPY_TOLERANCE)
+        # 情報量が多すぎる場合はペナルティを与える
+        if entropy > self.ENTROPY_TARGET + self.ENTROPY_TOLERANCE:
+            entropy_score *= 0.5
+
         # スコア計算
         # - mean_lum が極端に暗い or 明るい時は減点
-        # - std_lum, contrast, sharpness を加点要素とする
+        # - std_lum, contrast, sharpness, edge_density, entropy を加点要素とする
         brightness_penalty = 0.0
         if mean_lum < self.BRIGHTNESS_PENALTY_THRESHOLD[0] or mean_lum > self.BRIGHTNESS_PENALTY_THRESHOLD[1]:
             brightness_penalty = self.BRIGHTNESS_PENALTY_VALUE
@@ -465,8 +539,11 @@ class ThumbnailGenerator:
             std_lum * self.SCORE_WEIGHTS['std_lum'] +
             contrast * self.SCORE_WEIGHTS['contrast'] +
             sharpness * self.SCORE_WEIGHTS['sharpness'] +
+            edge_density_score * self.SCORE_WEIGHTS['edge_density'] +
+            entropy_score * self.SCORE_WEIGHTS['entropy'] +
             face_size_score * self.FACE_SIZE_WEIGHT -
-            brightness_penalty
+            brightness_penalty -
+            solid_color_penalty
         )
 
         return (score, found_face)
