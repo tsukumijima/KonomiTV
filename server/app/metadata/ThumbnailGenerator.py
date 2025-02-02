@@ -17,6 +17,7 @@ from app import logging
 from app import schemas
 from app.config import LoadConfig
 from app.constants import LIBRARY_PATH, STATIC_DIR, THUMBNAILS_DIR
+from app.utils.ProcessLimiter import ProcessLimiter
 
 
 class ThumbnailGenerator:
@@ -260,30 +261,31 @@ class ThumbnailGenerator:
             if not await thumbnails_dir.is_dir():
                 await thumbnails_dir.mkdir(parents=True, exist_ok=True)
 
-            # 非同期でプロセスを実行
-            process = await asyncio.create_subprocess_exec(
-                *[
-                    LIBRARY_PATH['FFmpeg'],
-                    # 上書きを許可
-                    '-y',
-                    # 入力ファイル
-                    '-i', str(self.file_path),
-                    # 1枚の出力画像
-                    '-frames:v', '1',
-                    # フィルターチェーンを結合
-                    '-vf', ','.join(filter_chain),
-                    # WebP 出力設定
-                    '-vcodec', 'webp',
-                    '-quality', str(self.WEBP_QUALITY),  # 品質設定
-                    '-compression_level', str(self.WEBP_COMPRESSION),  # 圧縮レベル
-                    '-preset', 'photo',  # 写真向けプリセット
-                    # 出力ファイル
-                    str(self.seekbar_thumbnails_tile_path),
-                ],
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            _, stderr = await process.communicate()
+            # 非同期でプロセスを実行 (セマフォで同時実行数を制限)
+            async with ProcessLimiter.getSemaphore('ThumbnailGenerator'):
+                process = await asyncio.create_subprocess_exec(
+                    *[
+                        LIBRARY_PATH['FFmpeg'],
+                        # 上書きを許可
+                        '-y',
+                        # 入力ファイル
+                        '-i', str(self.file_path),
+                        # 1枚の出力画像
+                        '-frames:v', '1',
+                        # フィルターチェーンを結合
+                        '-vf', ','.join(filter_chain),
+                        # WebP 出力設定
+                        '-vcodec', 'webp',
+                        '-quality', str(self.WEBP_QUALITY),  # 品質設定
+                        '-compression_level', str(self.WEBP_COMPRESSION),  # 圧縮レベル
+                        '-preset', 'photo',  # 写真向けプリセット
+                        # 出力ファイル
+                        str(self.seekbar_thumbnails_tile_path),
+                    ],
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                _, stderr = await process.communicate()
 
             # エラーチェック
             if process.returncode != 0:
