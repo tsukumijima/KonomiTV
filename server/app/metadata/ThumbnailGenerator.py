@@ -1,4 +1,6 @@
 
+from __future__ import annotations
+
 import anyio
 import asyncio
 import cv2
@@ -97,7 +99,7 @@ class ThumbnailGenerator:
 
 
     @classmethod
-    def fromRecordedProgram(cls, recorded_program: schemas.RecordedProgram) -> 'ThumbnailGenerator':
+    def fromRecordedProgram(cls, recorded_program: schemas.RecordedProgram) -> ThumbnailGenerator:
         """
         RecordedProgram から ThumbnailGenerator を初期化する
 
@@ -108,20 +110,19 @@ class ThumbnailGenerator:
             ThumbnailGenerator: 初期化された ThumbnailGenerator インスタンス
         """
 
-        # ファイルパスと動画長を取得
-        file_path = anyio.Path(recorded_program.recorded_video.file_path)
-        duration_sec = recorded_program.duration
+        # 動画長を取得 (番組長ではなく動画ファイルの実際の長さを使わないと辻褄が合わない)
+        duration_sec = recorded_program.recorded_video.duration
 
         # 録画マージンを除いた有効な時間範囲を計算
         start_time = recorded_program.recording_start_margin
         end_time = duration_sec - recorded_program.recording_end_margin
 
-        # 番組の 25~35% と 60~70% の時間範囲を候補区間とする
+        # 番組の 23~26% と 60~70% の時間範囲を候補区間とする
         ## OP や CM と被りにくい範囲を選択
         total_time = end_time - start_time
         candidate_time_ranges = [
-            # 25~35%
-            (start_time + total_time * 0.25, start_time + total_time * 0.35),
+            # 23~26%
+            (start_time + total_time * 0.23, start_time + total_time * 0.26),
             # 60~70%
             (start_time + total_time * 0.60, start_time + total_time * 0.70),
         ]
@@ -150,7 +151,7 @@ class ThumbnailGenerator:
 
         # コンストラクタに渡す
         return cls(
-            file_path=file_path,
+            file_path=anyio.Path(recorded_program.recorded_video.file_path),
             file_hash=recorded_program.recorded_video.file_hash,
             duration_sec=duration_sec,
             candidate_time_ranges=candidate_time_ranges,
