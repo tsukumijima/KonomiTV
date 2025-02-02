@@ -33,7 +33,7 @@ class ThumbnailGenerator:
     FACE_DETECTION_SCALE_FACTOR: ClassVar[float] = 1.2  # 顔検出時のスケールファクター
     FACE_DETECTION_MIN_NEIGHBORS: ClassVar[int] = 3  # 顔検出時の最小近傍数
     FACE_SIZE_WEIGHT: ClassVar[float] = 0.3  # 顔サイズによるスコアの重み（実写向け）
-    ANIME_FACE_SIZE_WEIGHT: ClassVar[float] = 0.8  # アニメの顔サイズによるスコアの重み
+    ANIME_FACE_SIZE_WEIGHT: ClassVar[float] = 1.1  # アニメの顔サイズによるスコアの重み
     FACE_SIZE_BASE_SCORE: ClassVar[float] = 10.0  # 顔サイズの基本スコア
 
     # レターボックス検出の設定
@@ -41,14 +41,26 @@ class ThumbnailGenerator:
     LETTERBOX_MIN_HEIGHT_RATIO: ClassVar[float] = 0.05  # 最小の黒帯の高さ比率（画像の高さに対する割合）
     LETTERBOX_MAX_HEIGHT_RATIO: ClassVar[float] = 0.25  # 最大の黒帯の高さ比率
     LETTERBOX_UNIFORMITY_THRESHOLD: ClassVar[float] = 5.0  # 黒帯の一様性判定の閾値（標準偏差）
+    LETTERBOX_AREA_THRESHOLD: ClassVar[float] = 0.3  # レターボックスの面積比率の閾値（これを超えると除外）
 
-    # 画質評価の重み付け
+    # 画質評価の重み付け（実写向け）
     SCORE_WEIGHTS: ClassVar[dict[str, float]] = {
         'std_lum': 0.8,  # 輝度の標準偏差 (全体的な明暗の差)
         'contrast': 1.5,  # コントラスト (明暗の差の大きさ)
         'sharpness': 0.02,  # シャープネス
         'edge_density': 0.8,  # エッジ密度 (情報量の指標)
         'entropy': 1.0,  # エントロピー (情報量の指標)
+        'blur': 1.2,  # ブレ検出のペナルティ
+    }
+
+    # 画質評価の重み付け（アニメ向け）
+    ANIME_SCORE_WEIGHTS: ClassVar[dict[str, float]] = {
+        'std_lum': 0.6,  # 輝度の標準偏差 (全体的な明暗の差)
+        'contrast': 0.9,  # コントラスト (明暗の差の大きさ)
+        'sharpness': 0.02,  # シャープネス
+        'edge_density': 1.0,  # エッジ密度 (情報量の指標)
+        'entropy': 1.2,  # エントロピー (情報量の指標)
+        'blur': 1.5,  # ブレ検出のペナルティ (アニメはブレに特に厳しく)
     }
 
     # 画質評価のペナルティ
@@ -64,6 +76,14 @@ class ThumbnailGenerator:
     EDGE_DENSITY_TOLERANCE: ClassVar[float] = 0.1  # エッジ密度の許容範囲
     ENTROPY_TARGET: ClassVar[float] = 5.0  # 目標とするエントロピー値
     ENTROPY_TOLERANCE: ClassVar[float] = 2.0  # エントロピーの許容範囲
+
+    # ブレ検出の設定
+    BLUR_THRESHOLD: ClassVar[float] = 100.0  # ブレ判定の閾値 (この値以下でブレと判定)
+    BLUR_PENALTY: ClassVar[float] = 50.0  # ブレ検出時のペナルティ値
+
+    # WebP 出力の設定
+    WEBP_QUALITY: ClassVar[int] = 85  # WebP品質 (0-100)
+    WEBP_COMPRESSION: ClassVar[int] = 6  # 圧縮レベル (0-6, 6が最高品質)
 
     # 顔検出用カスケード分類器のパス
     HUMAN_FACE_CASCADE_PATH: ClassVar[pathlib.Path] = pathlib.Path(cv2.__file__).parent / 'data' / 'haarcascade_frontalface_default.xml'
@@ -101,7 +121,7 @@ class ThumbnailGenerator:
         self.face_detection_mode = face_detection_mode
 
         # ファイルハッシュをベースにしたファイル名を生成
-        self.seekbar_thumbnails_tile_path = anyio.Path(str(THUMBNAILS_DIR / f"{file_hash}_seekbar.jpg"))
+        self.seekbar_thumbnails_tile_path = anyio.Path(str(THUMBNAILS_DIR / f"{file_hash}_tile.jpg"))
         self.representative_thumbnail_path = anyio.Path(str(THUMBNAILS_DIR / f"{file_hash}.jpg"))
 
 
@@ -252,8 +272,11 @@ class ThumbnailGenerator:
                     '-frames:v', '1',
                     # フィルターチェーンを結合
                     '-vf', ','.join(filter_chain),
-                    # JPEG 品質 (2=高品質)
-                    '-q:v', '2',
+                    # WebP 出力設定
+                    '-vcodec', 'webp',
+                    '-quality', str(self.WEBP_QUALITY),  # 品質設定
+                    '-compression_level', str(self.WEBP_COMPRESSION),  # 圧縮レベル
+                    '-preset', 'photo',  # 写真向けプリセット
                     # 出力ファイル
                     str(self.seekbar_thumbnails_tile_path),
                 ],
@@ -380,7 +403,7 @@ class ThumbnailGenerator:
 
     async def __saveRepresentativeThumbnail(self, img_bgr: NDArray[np.uint8]) -> bool:
         """
-        代表サムネイルを JPEG ファイルに保存する
+        代表サムネイルを WebP ファイルに保存する
 
         Args:
             img_bgr (NDArray[np.uint8]): 保存する画像データ (BGR)
@@ -395,8 +418,13 @@ class ThumbnailGenerator:
             if not await thumbnails_dir.is_dir():
                 await thumbnails_dir.mkdir(parents=True, exist_ok=True)
 
+            # WebP 出力用のパラメータを設定
+            params = [
+                cv2.IMWRITE_WEBP_QUALITY, self.WEBP_QUALITY,
+            ]
+
             # 書き込み
-            if not await asyncio.to_thread(cv2.imwrite, str(self.representative_thumbnail_path), img_bgr):
+            if not await asyncio.to_thread(cv2.imwrite, str(self.representative_thumbnail_path), img_bgr, params):
                 logging.error(f'{self.file_path}: Failed to write representative thumbnail.')
                 return False
 
@@ -425,16 +453,17 @@ class ThumbnailGenerator:
         return False
 
 
-    def __detectLetterbox(self, img_bgr: NDArray[np.uint8]) -> tuple[slice, slice]:
+    def __detectLetterbox(self, img_bgr: NDArray[np.uint8]) -> tuple[slice, slice] | None:
         """
         レターボックス（上下左右の黒帯）を検出し、有効な映像領域のスライスを返す
+        レターボックス範囲が大きすぎる場合は None を返す
 
         Args:
             img_bgr (NDArray[np.uint8]): 入力画像 (BGR)
 
         Returns:
-            tuple[slice, slice]: (垂直方向のスライス, 水平方向のスライス)
-                                黒帯が検出されなかった場合は画像全体のスライスを返す
+            tuple[slice, slice] | None: (垂直方向のスライス, 水平方向のスライス)
+                                      レターボックス範囲が大きすぎる場合は None
         """
 
         height, width = img_bgr.shape[:2]
@@ -485,11 +514,43 @@ class ThumbnailGenerator:
                 right_border = x
                 break
 
+        # レターボックスの面積比率を計算
+        total_area = height * width
+        valid_area = (bottom_border - top_border) * (right_border - left_border)
+        letterbox_ratio = 1.0 - (valid_area / total_area)
+
+        # レターボックス範囲が大きすぎる場合は None を返す
+        if letterbox_ratio > self.LETTERBOX_AREA_THRESHOLD:
+            return None
+
         # 検出された黒帯の範囲を除いたスライスを返す
         return (
             slice(top_border, bottom_border),
             slice(left_border, right_border)
         )
+
+
+    def __detectBlur(self, img_gray: NDArray[Any]) -> float:
+        """
+        画像のブレを検出する
+        Laplacian の分散を使用してブレを検出し、ブレ具合をスコアとして返す
+
+        Args:
+            img_gray (NDArray[Any]): グレースケール画像
+
+        Returns:
+            float: ブレ検出スコア（値が小さいほどブレている）
+        """
+
+        # 入力画像を float64 に変換して処理
+        if img_gray.dtype != np.float64:
+            img_gray = img_gray.astype(np.float64)
+
+        # Laplacian フィルタを適用
+        laplacian = cast(NDArray[np.float64], cv2.Laplacian(img_gray, cv2.CV_64F))
+
+        # 分散を計算（値が小さいほどブレている）
+        return float(np.var(laplacian))
 
 
     def __computeImageScore(
@@ -514,8 +575,21 @@ class ThumbnailGenerator:
         face_size_score = 0.0
 
         # レターボックスを検出し、有効な映像領域を取得
-        v_slice, h_slice = self.__detectLetterbox(img_bgr)
+        letterbox_result = self.__detectLetterbox(img_bgr)
+        if letterbox_result is None:
+            # レターボックスが多すぎる場合は最低スコアを返す
+            return (-1000.0, False)
+        v_slice, h_slice = letterbox_result
         valid_region = img_bgr[v_slice, h_slice]
+
+        # グレースケール変換（複数の処理で使用）
+        gray = cv2.cvtColor(valid_region, cv2.COLOR_BGR2GRAY)
+
+        # ブレ検出
+        blur_score = self.__detectBlur(gray)
+        blur_penalty = 0.0
+        if blur_score < self.BLUR_THRESHOLD:
+            blur_penalty = self.BLUR_PENALTY
 
         # 単色判定
         # 各チャンネルの分散を計算し、すべてのチャンネルの分散が閾値以下なら単色とみなす
@@ -541,7 +615,6 @@ class ThumbnailGenerator:
 
         # 顔検出
         if face_cascade is not None:
-            gray = cv2.cvtColor(valid_region, cv2.COLOR_BGR2GRAY)
             faces = face_cascade.detectMultiScale(
                 gray,
                 scaleFactor=self.FACE_DETECTION_SCALE_FACTOR,
@@ -583,8 +656,6 @@ class ThumbnailGenerator:
         sharpness = lap.var()
 
         # (4) エッジ密度の計算
-        # Cannyエッジ検出を使用して、エッジの密度を計算
-        gray = cv2.cvtColor(valid_region, cv2.COLOR_BGR2GRAY)
         edges = cv2.Canny(gray, 100, 200)
         edge_density = float(np.count_nonzero(edges)) / edges.size
 
@@ -595,7 +666,6 @@ class ThumbnailGenerator:
             edge_density_score *= 0.5
 
         # (5) エントロピーの計算
-        # グレースケール画像のヒストグラムからエントロピーを計算
         hist = cv2.calcHist([gray], [0], None, [256], [0, 256])
         hist = hist.flatten() / hist.sum()
         hist = hist[hist > 0]  # 0を除外
@@ -614,16 +684,20 @@ class ThumbnailGenerator:
         if mean_lum < self.BRIGHTNESS_PENALTY_THRESHOLD[0] or mean_lum > self.BRIGHTNESS_PENALTY_THRESHOLD[1]:
             brightness_penalty = self.BRIGHTNESS_PENALTY_VALUE
 
-        # 重み付けしてスコアを計算 (顔サイズのスコアを追加)
+        # アニメと実写で異なる重み付けを使用
+        weights = self.ANIME_SCORE_WEIGHTS if self.face_detection_mode == 'Anime' else self.SCORE_WEIGHTS
+
+        # 重み付けしてスコアを計算
         score = (
-            std_lum * self.SCORE_WEIGHTS['std_lum'] +
-            contrast * self.SCORE_WEIGHTS['contrast'] +
-            sharpness * self.SCORE_WEIGHTS['sharpness'] +
-            edge_density_score * self.SCORE_WEIGHTS['edge_density'] +
-            entropy_score * self.SCORE_WEIGHTS['entropy'] +
+            std_lum * weights['std_lum'] +
+            contrast * weights['contrast'] +
+            sharpness * weights['sharpness'] +
+            edge_density_score * weights['edge_density'] +
+            entropy_score * weights['entropy'] +
             face_size_score -  # 重み付けは既に face_weight で適用済み
             brightness_penalty -
-            solid_color_penalty
+            solid_color_penalty -
+            blur_penalty * weights['blur']  # ブレペナルティを追加
         )
 
         return (score, found_face)
