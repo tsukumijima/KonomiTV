@@ -40,8 +40,7 @@ export default defineComponent({
             ProgramUtils: Object.freeze(ProgramUtils),
 
             // 現在時刻
-            time: '',
-
+            time: dayjs().format(Utils.isSmartphoneHorizontal() ? 'HH:mm:ss' : 'YYYY/MM/DD HH:mm:ss'),
         };
     },
     computed: {
