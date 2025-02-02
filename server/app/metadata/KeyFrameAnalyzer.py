@@ -94,7 +94,6 @@ class KeyFrameAnalyzer:
                     key_frames.append({
                         'offset': int(packet['pos']),
                         'dts': int(packet['dts']),
-                        'pts': int(packet['pts']),
                     })
 
             # パケットが1つも見つからなかった場合
@@ -107,7 +106,6 @@ class KeyFrameAnalyzer:
                 key_frames.append({
                     'offset': int(packets[-1]['pos']),
                     'dts': int(packets[-1]['dts']),
-                    'pts': int(packets[-1]['pts']),
                 })
 
             # キーフレームが1つも見つからなかった場合
