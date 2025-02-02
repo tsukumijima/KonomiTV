@@ -1,9 +1,9 @@
 
+import anyio
 import asyncio
 import hashlib
 import httpx
 import json
-import pathlib
 from datetime import datetime
 from datetime import timedelta
 from fastapi import APIRouter
@@ -291,24 +291,25 @@ async def ChannelLogoAPI(
     指定されたチャンネルに紐づくロゴを取得する。
     """
 
-    async def GetLogoFilePath(channel: Channel) -> pathlib.Path | None:
+    async def GetLogoFilePath(channel: Channel) -> anyio.Path | None:
         """ 同梱されているロゴの中からチャンネルに対応するロゴファイルのパスを取得する """
 
         # 放送波から取得できるロゴはどっちみち画質が悪いし、取得できていないケースもありうる
         # そのため、同梱されているロゴがあればそれを返すようにする
         ## ロゴは NID32736-SID1024.png のようなファイル名の PNG ファイル (256x256) を想定
-        if await asyncio.to_thread(pathlib.Path.exists, LOGO_DIR / f'{channel.id}.png') is True:
-            return LOGO_DIR / f'{channel.id}.png'
+        logo_dir = anyio.Path(str(LOGO_DIR))
+        if await (logo_dir /f'{channel.id}.png').exists():
+            return logo_dir / f'{channel.id}.png'
 
         # ***** ロゴが全国共通なので、チャンネル名の前方一致で決め打ち *****
 
         # NHK総合
         if channel.type == 'GR' and channel.name.startswith('NHK総合'):
-            return LOGO_DIR / 'NID32736-SID1024.png'
+            return logo_dir / 'NID32736-SID1024.png'
 
         # NHKEテレ
         if channel.type == 'GR' and channel.name.startswith('NHKEテレ'):
-            return LOGO_DIR / 'NID32737-SID1032.png'
+            return logo_dir / 'NID32737-SID1032.png'
 
         # 複数の地域で放送しているケーブルテレビの場合、コミュニティチャンネル (自主放送) の NID と SID は地域ごとに異なる
         # さらにコミュニティチャンネルの NID-SID は CATV 間で稀に重複していることがあるため、チャンネル名から決め打ちで判定する
@@ -316,48 +317,48 @@ async def ChannelLogoAPI(
 
         # J:COMテレビ
         if channel.type == 'GR' and channel.name.startswith('J:COMテレビ'):
-            return LOGO_DIR / 'community-channels/J：COMテレビ.png'
+            return logo_dir / 'community-channels/J：COMテレビ.png'
 
         # J:COMチャンネル
         if channel.type == 'GR' and channel.name.startswith('J:COMチャンネル'):
-            return LOGO_DIR / 'community-channels/J：COMチャンネル.png'
+            return logo_dir / 'community-channels/J：COMチャンネル.png'
 
         # イッツコムch10
         if channel.type == 'GR' and channel.name.startswith('イッツコムch10'):
-            return LOGO_DIR / 'community-channels/イッツコムch10.png'
+            return logo_dir / 'community-channels/イッツコムch10.png'
 
         # イッツコムch11
         if channel.type == 'GR' and channel.name.startswith('イッツコムch11'):
-            return LOGO_DIR / 'community-channels/イッツコムch11.png'
+            return logo_dir / 'community-channels/イッツコムch11.png'
 
         # スカパー！ナビ1
         if channel.type == 'GR' and channel.name.startswith('スカパー！ナビ1'):
-            return LOGO_DIR / 'community-channels/スカパー！ナビ1.png'
+            return logo_dir / 'community-channels/スカパー！ナビ1.png'
 
         # スカパー！ナビ2
         if channel.type == 'GR' and channel.name.startswith('スカパー！ナビ2'):
-            return LOGO_DIR / 'community-channels/スカパー！ナビ2.png'
+            return logo_dir / 'community-channels/スカパー！ナビ2.png'
 
         # eo光チャンネル
         if channel.type == 'GR' and channel.name.startswith('eo光チャンネル'):
-            return LOGO_DIR / 'community-channels/eo光チャンネル.png'
+            return logo_dir / 'community-channels/eo光チャンネル.png'
 
         # ZTV
         if channel.type == 'GR' and channel.name.startswith('ZTV'):
-            return LOGO_DIR / 'community-channels/ZTV.png'
+            return logo_dir / 'community-channels/ZTV.png'
 
         # BaycomCH
         if channel.type == 'GR' and channel.name.startswith('BaycomCH'):
-            return LOGO_DIR / 'community-channels/BaycomCH.png'
+            return logo_dir / 'community-channels/BaycomCH.png'
 
         # ベイコム12CH
         if channel.type == 'GR' and channel.name.startswith('ベイコム12CH'):
-            return LOGO_DIR / 'community-channels/ベイコム12CH.png'
+            return logo_dir / 'community-channels/ベイコム12CH.png'
 
         # スターデジオ
         ## 本来は局ロゴは存在しないが、見栄えが悪いので 100 チャンネルすべてで同じ局ロゴを表示する
         if channel.type == 'SKY' and 400 <= channel.service_id <= 499:
-            return LOGO_DIR / 'NID1-SID400.png'
+            return logo_dir / 'NID1-SID400.png'
 
         # ***** サブチャンネルのロゴを取得 *****
 
@@ -369,8 +370,8 @@ async def ChannelLogoAPI(
             main_channel = await Channel.filter(network_id=channel.network_id).order_by('service_id').first()
 
             # メインチャンネルが存在し、ロゴも存在する
-            if main_channel is not None and await asyncio.to_thread(pathlib.Path.exists, LOGO_DIR / f'{main_channel.id}.png') is True:
-                return LOGO_DIR / f'{main_channel.id}.png'
+            if main_channel is not None and await (logo_dir / f'{main_channel.id}.png').exists():
+                return logo_dir / f'{main_channel.id}.png'
 
         # BS でかつサブチャンネルのみ、メインチャンネルにロゴがあればそれを利用する
         if channel.type == 'BS' and channel.is_subchannel is True:
@@ -388,8 +389,8 @@ async def ChannelLogoAPI(
             main_channel = await Channel.filter(network_id=channel.network_id, service_id=main_service_id).first()
 
             # メインチャンネルが存在し、ロゴも存在する
-            if main_channel is not None and await asyncio.to_thread(pathlib.Path.exists, LOGO_DIR / f'{main_channel.id}.png') is True:
-                return LOGO_DIR / f'{main_channel.id}.png'
+            if main_channel is not None and await (logo_dir / f'{main_channel.id}.png').exists():
+                return logo_dir / f'{main_channel.id}.png'
 
         return None
 

@@ -1,5 +1,4 @@
 
-import asyncio
 import errno
 import puremagic
 import shutil
@@ -27,12 +26,13 @@ router = APIRouter(
     summary = 'キャプチャ画像アップロード API',
     status_code = status.HTTP_204_NO_CONTENT,
 )
-async def CaptureUploadAPI(
+def CaptureUploadAPI(
     image: Annotated[UploadFile, File(description='アップロードするキャプチャ画像 (JPEG or PNG)。')],
 ):
     """
     クライアント側でキャプチャした画像をサーバーにアップロードする。<br>
-    アップロードされた画像は、サーバー設定で指定されたフォルダに保存される。
+    アップロードされた画像は、サーバー設定で指定されたフォルダに保存される。<br>
+    同期ファイル I/O を伴うため敢えて同期関数として実装している。
     """
 
     # 画像が JPEG または PNG かをチェック
@@ -86,8 +86,8 @@ async def CaptureUploadAPI(
 
         # キャプチャを保存
         try:
-            with await asyncio.to_thread(open, filepath, mode='wb') as buffer:
-                await asyncio.to_thread(shutil.copyfileobj, image.file, buffer)
+            with open(filepath, mode='wb') as buffer:
+                shutil.copyfileobj(image.file, buffer)
         except PermissionError:
             logging.error('[CapturesRouter][CaptureUploadAPI] Permission denied to save the file.')
             raise HTTPException(

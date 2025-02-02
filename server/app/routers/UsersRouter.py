@@ -1,4 +1,5 @@
 
+import anyio
 import asyncio
 import pathlib
 import uuid
@@ -408,8 +409,8 @@ async def UserIconAPI(
     }
 
     # アイコン画像が保存されていればそれを返す
-    icon_save_path = ACCOUNT_ICON_DIR / f'{current_user.id:02}.png'
-    if icon_save_path.exists():
+    icon_save_path = anyio.Path(str(ACCOUNT_ICON_DIR)) / f'{current_user.id:02}.png'
+    if await icon_save_path.exists():
         return FileResponse(icon_save_path, headers=header)
 
     # デフォルトのアイコン画像を返す
@@ -457,9 +458,9 @@ async def UserDeleteAPI(
     """
 
     # アイコン画像が保存されていれば削除する
-    icon_save_path = ACCOUNT_ICON_DIR / f'{current_user.id:02}.png'
-    if icon_save_path.exists():
-        icon_save_path.unlink()
+    icon_save_path = anyio.Path(str(ACCOUNT_ICON_DIR)) / f'{current_user.id:02}.png'
+    if await icon_save_path.exists():
+        await icon_save_path.unlink()
 
     # 現在ログイン中のユーザーアカウント（自分自身）を削除
     # アカウントを削除すると、それ以降は（当然ながら）ログインを要求する API へアクセスできなくなる
@@ -552,8 +553,8 @@ async def SpecifiedUserIconAPI(
     }
 
     # アイコン画像が保存されていればそれを返す
-    icon_save_path = ACCOUNT_ICON_DIR / f'{user.id:02}.png'
-    if icon_save_path.exists():
+    icon_save_path = anyio.Path(str(ACCOUNT_ICON_DIR)) / f'{user.id:02}.png'
+    if await icon_save_path.exists():
         return FileResponse(icon_save_path, headers=header)
 
     # デフォルトのアイコン画像を返す
@@ -574,9 +575,9 @@ async def SpecifiedUserDeleteAPI(
     """
 
     # アイコン画像が保存されていれば削除する
-    icon_save_path = ACCOUNT_ICON_DIR / f'{user.id:02}.png'
-    if icon_save_path.exists():
-        icon_save_path.unlink()
+    icon_save_path = anyio.Path(str(ACCOUNT_ICON_DIR)) / f'{user.id:02}.png'
+    if await icon_save_path.exists():
+        await icon_save_path.unlink()
 
     # 指定されたユーザーを削除
     await user.delete()
