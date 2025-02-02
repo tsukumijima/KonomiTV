@@ -1,6 +1,8 @@
 
 import hashlib
+import io
 import typer
+from biim.mpeg2ts import ts
 from datetime import datetime
 from datetime import timedelta
 from pathlib import Path
@@ -14,7 +16,7 @@ from app import schemas
 from app.config import Config, LoadConfig
 from app.constants import LIBRARY_DIR
 from app.metadata.TSInfoAnalyzer import TSInfoAnalyzer
-from app.utils import GetPlatformEnvironment
+from app.utils import ClosestMultiple, GetPlatformEnvironment
 from app.utils.TSInformation import TSInformation
 
 
@@ -80,17 +82,14 @@ class MetadataAnalyzer:
 
         # MediaInfo から録画ファイルのメディア情報を取得
         ## 取得に失敗した場合は KonomiTV で再生可能なファイルではないと判断し、None を返す
-        ## TODO: サブチャンネルの 480p 番組で誤って 1080p や音声多重放送と判断されることがある件の修正が必要
-        media_info = self.__analyzeMediaInfo()
-        if media_info is None:
+        full_media_info, sample_media_info = self.__analyzeMediaInfo()
+        if full_media_info is None or sample_media_info is None:
             return None
         logging.debug_simple(f'{self.recorded_file_path}: MediaInfo analysis completed.')
 
         # メディア情報から録画ファイルのメタデータを取得
-        is_video_track_read = False
-        is_primary_audio_track_read = False
-        is_secondary_audio_track_read = False
-        for track in media_info.tracks:
+        ## 全体解析: コンテナ情報、録画時間などを取得
+        for track in full_media_info.tracks:
 
             # 全般（コンテナ情報）
             if track.track_type == 'General':
@@ -116,8 +115,14 @@ class MetadataAnalyzer:
                     ## 録画終了時刻は MediaInfo から "end_time" として取得できるが、値が不正確なので、録画開始時刻から録画時間を足したものを使用する
                     recording_end_time = recording_start_time + timedelta(seconds=duration)
 
+        ## 部分解析: 映像・音声情報を取得
+        is_video_track_read = False
+        is_primary_audio_track_read = False
+        is_secondary_audio_track_read = False
+        for track in sample_media_info.tracks:
+
             # 映像
-            elif track.track_type == 'Video' and is_video_track_read is False:
+            if track.track_type == 'Video' and is_video_track_read is False:
                 # 長さが取得できない映像トラックは基本的に不正なため無視する
                 # 録画データの一部分のみに主映像と異なる映像トラックが含まれている場合に発生する可能性がある (基本ないはずだが…)
                 if hasattr(track, 'duration') is False or track.duration is None:
@@ -149,10 +154,6 @@ class MetadataAnalyzer:
                 # 録画マージンに音声多重放送が含まれているなど、録画データの一部分のみに副音声トラックが含まれている場合に発生する
                 if hasattr(track, 'duration') is False or track.duration is None:
                     continue
-                # 長さが取得できるが、全体の長さの 80% 以下の場合は不正なトラックと判断する
-                assert duration is not None
-                if float(track.duration) / 1000 < duration * 0.8:
-                    continue
                 if track.format == 'AAC' and hasattr(track, 'format_additionalfeatures') and track.format_additionalfeatures == 'LC':
                     primary_audio_codec = 'AAC-LC'
                 else:
@@ -176,10 +177,6 @@ class MetadataAnalyzer:
                 # 長さが取得できない音声トラックは基本的に不正なため無視する
                 # 録画マージンに音声多重放送が含まれているなど、録画データの一部分のみに副音声トラックが含まれている場合に発生する
                 if hasattr(track, 'duration') is False or track.duration is None:
-                    continue
-                # 長さが取得できるが、全体の長さの 80% 以下の場合は不正なトラックと判断する
-                assert duration is not None
-                if float(track.duration) / 1000 < duration * 0.8:
                     continue
                 if track.format == 'AAC' and hasattr(track, 'format_additionalfeatures') and track.format_additionalfeatures == 'LC':
                     secondary_audio_codec = 'AAC-LC'
@@ -335,13 +332,15 @@ class MetadataAnalyzer:
         return hash_obj.hexdigest()
 
 
-    def __analyzeMediaInfo(self) -> MediaInfo | None:
+    def __analyzeMediaInfo(self) -> tuple[MediaInfo | None, MediaInfo | None]:
         """
         録画ファイルのメディア情報を MediaInfo を使って解析する
-        KonomiTV で再生可能なファイルではない場合は None を返す
+        全体解析と部分解析の2段階で解析を行う
+        全体解析では全般情報（コンテナ情報、録画時間など）を、部分解析では映像・音声情報を取得する
 
         Returns:
-            MediaInfo | None: 録画ファイルのメディア情報 (KonomiTV で再生可能なファイルではない場合は None)
+            tuple[MediaInfo | None, MediaInfo | None]: 全体解析と部分解析の結果のタプル
+                (KonomiTV で再生可能なファイルではない場合は None が返される)
         """
 
         # libmediainfo のパス (Linux のみ指定が必要、Windows では Wheel に含まれているため不要)
@@ -350,20 +349,40 @@ class MetadataAnalyzer:
         else:
             libmediainfo_path = str(LIBRARY_DIR / 'Library/libmediainfo.so.0')
 
-        # 録画ファイルのメディア情報を取得する
+        # 全体解析: 録画ファイル全体のメディア情報を取得する
         try:
-            media_info = cast(MediaInfo, MediaInfo.parse(str(self.recorded_file_path), library_file=libmediainfo_path))
+            full_media_info = cast(MediaInfo, MediaInfo.parse(str(self.recorded_file_path), library_file=libmediainfo_path))
         except Exception as ex:
-            logging.warning(f'{self.recorded_file_path}: Failed to parse media info.')
+            logging.warning(f'{self.recorded_file_path}: Failed to parse full media info.')
             logging.warning(ex)
-            return None
+            return None, None
+
+        # 部分解析: 録画ファイルの30%位置から30秒程度のデータを取得し、メディア情報を解析する
+        try:
+            # ファイルを開く
+            with open(self.recorded_file_path, 'rb') as f:
+                # 30%位置にシーク (TS パケットサイズに合わせて切り出す)
+                offset = ClosestMultiple(int(self.recorded_file_path.stat().st_size * 0.3), ts.PACKET_SIZE)
+                f.seek(offset)
+                # 30秒程度のデータを読み込む (ビットレートを 20Mbps と仮定)
+                ## 20Mbps * 30秒 = 75MB
+                sample_size = ClosestMultiple(20 * 1024 * 1024 * 30 // 8, ts.PACKET_SIZE)  # TS パケットサイズに合わせて切り出す
+                sample_data = f.read(sample_size)
+                # BytesIO オブジェクトを作成
+                sample_io = io.BytesIO(sample_data)
+                # メディア情報を解析
+                sample_media_info = cast(MediaInfo, MediaInfo.parse(sample_io, library_file=libmediainfo_path))
+        except Exception as ex:
+            logging.warning(f'{self.recorded_file_path}: Failed to parse sample media info.')
+            logging.warning(ex)
+            return None, None
 
         # 最低限 KonomiTV で再生可能なファイルであるかのバリデーションを行う
         ## この処理だけでエラーが発生する (=参照しているキーが MediaInfo から提供されていない) 場合、
         ## 基本的に KonomiTV で再生可能なファイルではないので None を返す
         try:
             # TS 内に含まれる各トラックの情報を取得する
-            for track in media_info.tracks:
+            for track in full_media_info.tracks:
 
                 # 全般 (TS コンテナの情報)
                 if track.track_type == 'General':
@@ -371,48 +390,51 @@ class MetadataAnalyzer:
                     ## "BDAV" も MPEG-TS だが、TS パケット長が 192 byte で ariblib でパースできないため現状非対応
                     if track.format != 'MPEG-TS':
                         logging.warning(f'{self.recorded_file_path}: {track.format} is not supported.')
-                        return None
+                        return None, None
                     # 映像 or 音声ストリームが存在しない
                     if track.count_of_video_streams == 0 and track.count_of_audio_streams == 0:
                         logging.warning(f'{self.recorded_file_path}: Video or audio stream is missing.')
-                        return None
+                        return None, None
                     # 長さが取得できない
                     if hasattr(track, 'duration') is False or track.duration is None:
                         logging.warning(f'{self.recorded_file_path}: Duration is missing.')
-                        return None
+                        return None, None
+
+            # サンプルデータからも同様にバリデーションを行う
+            for track in sample_media_info.tracks:
 
                 # 映像ストリーム
-                elif track.track_type == 'Video':
+                if track.track_type == 'Video':
                     # スクランブルが解除されていない
                     if track.encryption == 'Encrypted':
                         logging.warning(f'{self.recorded_file_path}: Video stream is encrypted.')
-                        return None
+                        return None, None
                     # MPEG-2, H.264, H.265 以外のフォーマットは KonomiTV で再生できない
                     if track.format not in ['MPEG Video', 'AVC', 'HEVC']:
                         logging.warning(f'{self.recorded_file_path}: {track.format} is not supported.')
-                        return None
+                        return None, None
 
                 # 音声ストリーム
                 elif track.track_type == 'Audio':
                     # スクランブルが解除されていない
                     if track.encryption == 'Encrypted':
                         logging.warning(f'{self.recorded_file_path}: Audio stream is encrypted.')
-                        return None
+                        return None, None
                     # AAC-LC 以外のフォーマットは KonomiTV で再生できない
                     if track.format not in ['AAC']:
                         logging.warning(f'{self.recorded_file_path}: {track.format} is not supported.')
-                        return None
+                        return None, None
                     # 1ch, 2ch, 5.1ch 以外の音声チャンネル数は KonomiTV で再生できない
                     if int(track.channel_s) not in [1, 2, 6]:
                         logging.warning(f'{self.recorded_file_path}: {track.channel_s} channels are not supported.')
-                        return None
+                        return None, None
 
         except Exception as ex:
             logging.warning(f'{self.recorded_file_path}: Failed to validate media info.')
             logging.warning(ex)
-            return None
+            return None, None
 
-        return media_info
+        return full_media_info, sample_media_info
 
 
 if __name__ == '__main__':
