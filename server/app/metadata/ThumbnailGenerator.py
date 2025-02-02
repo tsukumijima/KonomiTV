@@ -34,7 +34,7 @@ class ThumbnailGenerator:
     FACE_DETECTION_SCALE_FACTOR: ClassVar[float] = 1.2  # 顔検出時のスケールファクター
     FACE_DETECTION_MIN_NEIGHBORS: ClassVar[int] = 3  # 顔検出時の最小近傍数
     FACE_SIZE_WEIGHT: ClassVar[float] = 0.3  # 顔サイズによるスコアの重み（実写向け）
-    ANIME_FACE_SIZE_WEIGHT: ClassVar[float] = 1.1  # アニメの顔サイズによるスコアの重み
+    ANIME_FACE_SIZE_WEIGHT: ClassVar[float] = 1.8  # アニメの顔サイズによるスコアの重み (アニメは顔が大きく映っているシーンを重視)
     FACE_SIZE_BASE_SCORE: ClassVar[float] = 10.0  # 顔サイズの基本スコア
 
     # レターボックス検出の設定
@@ -56,12 +56,12 @@ class ThumbnailGenerator:
 
     # 画質評価の重み付け（アニメ向け）
     ANIME_SCORE_WEIGHTS: ClassVar[dict[str, float]] = {
-        'std_lum': 0.6,  # 輝度の標準偏差 (全体的な明暗の差)
-        'contrast': 0.9,  # コントラスト (明暗の差の大きさ)
+        'std_lum': 0.7,  # 輝度の標準偏差 (全体的な明暗の差)
+        'contrast': 1.3,  # コントラスト (明暗の差の大きさ)
         'sharpness': 0.02,  # シャープネス
-        'edge_density': 1.0,  # エッジ密度 (情報量の指標)
+        'edge_density': 0.9,  # エッジ密度 (情報量の指標)
         'entropy': 1.2,  # エントロピー (情報量の指標)
-        'blur': 1.5,  # ブレ検出のペナルティ (アニメはブレに特に厳しく)
+        'blur': 1.4,  # ブレ検出のペナルティ (アニメはブレに特に厳しく)
     }
 
     # 画質評価のペナルティ
@@ -83,8 +83,8 @@ class ThumbnailGenerator:
     BLUR_PENALTY: ClassVar[float] = 50.0  # ブレ検出時のペナルティ値
 
     # WebP 出力の設定
-    WEBP_QUALITY: ClassVar[int] = 85  # WebP品質 (0-100)
-    WEBP_COMPRESSION: ClassVar[int] = 5  # 圧縮レベル (0-6, 6が最高品質)
+    WEBP_QUALITY: ClassVar[int] = 90  # WebP品質 (0-100)
+    WEBP_COMPRESSION: ClassVar[int] = 6  # 圧縮レベル (0-6, 6が最高品質)
 
     # 顔検出用カスケード分類器のパス
     HUMAN_FACE_CASCADE_PATH: ClassVar[pathlib.Path] = pathlib.Path(cv2.__file__).parent / 'data' / 'haarcascade_frontalface_default.xml'
@@ -95,6 +95,16 @@ class ThumbnailGenerator:
     BLACK_THRESHOLD: ClassVar[int] = 30  # 平均輝度がこの値以下なら黒とみなす（ログ出力用）
     WHITE_THRESHOLD: ClassVar[int] = 225  # 平均輝度がこの値以上なら白とみなす（ログ出力用）
     SOLID_COLOR_PENALTY: ClassVar[float] = 2000.0  # 単色フレームに対するペナルティ（すべての単色に対して同じ値）
+
+    # レターボックス検出のペナルティ設定を追加
+    LETTERBOX_PENALTY: ClassVar[float] = 50.0  # レターボックスがある場合のペナルティ値
+
+    # アニメの色バランス評価の設定
+    COLOR_BALANCE_K: ClassVar[int] = 3  # 抽出する主要な色の数
+    COLOR_BALANCE_WEIGHT: ClassVar[float] = 0.8  # アニメの色バランススコアの重み
+    COLOR_BALANCE_MIN_RATIO: ClassVar[float] = 0.15  # 主要な色の最小占有率 (これ以下は無視)
+    COLOR_BALANCE_MAX_RATIO: ClassVar[float] = 0.7  # 主要な色の最大占有率 (これを超えると単調な画像とみなす)
+    COLOR_BALANCE_MIN_DISTANCE: ClassVar[float] = 30.0  # 主要な色同士の最小距離 (Lab色空間)
 
 
     def __init__(
@@ -555,6 +565,81 @@ class ThumbnailGenerator:
         return float(np.var(laplacian))
 
 
+    def __computeColorBalanceScore(self, img_bgr: NDArray[np.uint8]) -> float:
+        """
+        画像の色のバランスを評価する (アニメ向け)
+        k-means 法で主要な色を抽出し、その分布を評価する
+
+        Args:
+            img_bgr (NDArray[np.uint8]): 評価する画像データ (BGR)
+
+        Returns:
+            float: 色バランススコア (0.0 ~ 1.0)
+        """
+
+        # 計算を軽くするため画像を縮小
+        height, width = img_bgr.shape[:2]
+        scale = min(1.0, math.sqrt(128 * 128 / (height * width)))
+        if scale < 1.0:
+            small_img = cv2.resize(img_bgr, None, fx=scale, fy=scale)
+        else:
+            small_img = img_bgr
+
+        # Lab 色空間に変換 (知覚的な色差を計算するため)
+        lab_img = cv2.cvtColor(small_img, cv2.COLOR_BGR2Lab)
+        pixels = lab_img.reshape(-1, 3).astype(np.float32)
+
+        # k-means 法で主要な色を抽出
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
+        _, labels, centers = cv2.kmeans(
+            pixels,
+            self.COLOR_BALANCE_K,
+            np.array([]),
+            criteria,
+            10,
+            cv2.KMEANS_PP_CENTERS,
+        )
+
+        # 各クラスタの占有率を計算
+        total_pixels = len(labels)
+        ratios = np.bincount(labels.flatten()) / total_pixels
+
+        # 主要な色の評価
+        ## 1. 最大の占有率が大きすぎる場合は単調な画像とみなしスコアを下げる
+        if np.max(ratios) > self.COLOR_BALANCE_MAX_RATIO:
+            return 0.2
+
+        ## 2. 一定以上の占有率を持つ色の数をカウント
+        significant_colors = np.sum(ratios >= self.COLOR_BALANCE_MIN_RATIO)
+        if significant_colors < 2:
+            return 0.3
+
+        ## 3. 主要な色同士の距離を計算
+        min_distance = float('inf')
+        for i in range(len(centers)):
+            for j in range(i + 1, len(centers)):
+                if ratios[i] >= self.COLOR_BALANCE_MIN_RATIO and ratios[j] >= self.COLOR_BALANCE_MIN_RATIO:
+                    # Lab色空間でのユークリッド距離
+                    distance = float(np.linalg.norm(centers[i] - centers[j]))
+                    min_distance = min(min_distance, distance)
+
+        ## 4. 色の距離が近すぎる場合はスコアを下げる
+        if min_distance < self.COLOR_BALANCE_MIN_DISTANCE:
+            return 0.4
+
+        ## 5. 最終スコアの計算
+        ## - 有意な色の数が多いほど高スコア
+        ## - 色の距離が大きいほど高スコア
+        ## - 占有率のばらつきが適度にあるほど高スコア
+        score = (
+            (significant_colors / self.COLOR_BALANCE_K) * 0.4 +  # 有意な色の数
+            (min(min_distance / 100.0, 1.0)) * 0.3 +  # 色の距離
+            (1.0 - abs(np.std(ratios) - 0.2)) * 0.3  # 占有率の分散
+        )
+
+        return float(score)
+
+
     def __computeImageScore(
         self,
         img_bgr: NDArray[np.uint8],
@@ -576,13 +661,21 @@ class ThumbnailGenerator:
         found_face = False
         face_size_score = 0.0
 
-        # レターボックスを検出し、有効な映像領域を取得
+        # レターボックスを検出
         letterbox_result = self.__detectLetterbox(img_bgr)
+        letterbox_penalty = 0.0
         if letterbox_result is None:
             # レターボックスが多すぎる場合は最低スコアを返す
             return (-1000.0, False)
-        v_slice, h_slice = letterbox_result
-        valid_region = img_bgr[v_slice, h_slice]
+        elif letterbox_result != (slice(0, img_bgr.shape[0]), slice(0, img_bgr.shape[1])):
+            # レターボックスが検出された場合はペナルティを与える
+            letterbox_penalty = self.LETTERBOX_PENALTY
+            # レターボックスを除外した有効領域を取得
+            v_slice, h_slice = letterbox_result
+            valid_region = img_bgr[v_slice, h_slice]
+        else:
+            # レターボックスがない場合は画像全体を使用
+            valid_region = img_bgr
 
         # グレースケール変換（複数の処理で使用）
         gray = cv2.cvtColor(valid_region, cv2.COLOR_BGR2GRAY)
@@ -633,6 +726,11 @@ class ThumbnailGenerator:
                 face_weight = self.ANIME_FACE_SIZE_WEIGHT if self.face_detection_mode == 'Anime' else self.FACE_SIZE_WEIGHT
                 # 基本スコアに面積比を掛けてスコアを計算
                 face_size_score = self.FACE_SIZE_BASE_SCORE * face_area_ratio * face_weight
+
+        # アニメの場合は色のバランスも評価
+        color_balance_score = 0.0
+        if self.face_detection_mode == 'Anime':
+            color_balance_score = self.__computeColorBalanceScore(valid_region) * self.COLOR_BALANCE_WEIGHT
 
         # スコア計算
         # (1) 輝度 Y
@@ -696,10 +794,12 @@ class ThumbnailGenerator:
             sharpness * weights['sharpness'] +
             edge_density_score * weights['edge_density'] +
             entropy_score * weights['entropy'] +
-            face_size_score -  # 重み付けは既に face_weight で適用済み
+            face_size_score +  # 重み付けは既に face_weight で適用済み
+            color_balance_score -  # アニメの場合の色バランススコア
             brightness_penalty -
             solid_color_penalty -
-            blur_penalty * weights['blur']  # ブレペナルティを追加
+            blur_penalty * weights['blur'] -
+            letterbox_penalty
         )
 
         return (score, found_face)
