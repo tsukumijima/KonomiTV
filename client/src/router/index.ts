@@ -30,6 +30,21 @@ const router = createRouter({
             component: () => import('@/views/TV/Watch.vue'),
         },
         {
+            path: '/videos/',
+            name: 'Videos Home',
+            component: () => import('@/views/Videos/Home.vue'),
+        },
+        {
+            path: '/videos/search/',
+            name: 'Videos Search',
+            component: () => import('@/views/Videos/Search.vue'),
+        },
+        {
+            path: '/videos/programs/',
+            name: 'Videos Programs',
+            component: () => import('@/views/Videos/Programs.vue'),
+        },
+        {
             path: '/videos/watch/:video_id',
             name: 'Videos Watch',
             component: () => import('@/views/Videos/Watch.vue'),
