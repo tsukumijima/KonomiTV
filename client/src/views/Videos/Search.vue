@@ -110,14 +110,18 @@ onMounted(async () => {
     display: flex;
     flex-direction: column;
     width: 100%;
-    min-width: 0;  // magic!
-    margin-left: 21px;
-    margin-right: 21px;
-    margin-bottom: 24px;
+    padding: 20px;
+    margin: 0 auto;
+    min-width: 0;
+    max-width: 1000px;
+    @include smartphone-horizontal {
+        padding: 16px 20px !important;
+    }
+    @include smartphone-horizontal-short {
+        padding: 16px 16px !important;
+    }
     @include smartphone-vertical {
-        margin-left: 12px;
-        margin-right: 12px;
-        margin-bottom: 20px;
+        padding: 16px 8px !important;
     }
 }
 

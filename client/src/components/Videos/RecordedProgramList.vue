@@ -1,7 +1,17 @@
 <template>
     <div class="recorded-program-list">
         <div class="recorded-program-list__header" v-if="!hideHeader">
-            <h2 class="recorded-program-list__title">{{title}}</h2>
+            <h2 class="recorded-program-list__title">
+                {{title}}
+                <div class="recorded-program-list__title-count" v-if="!showMoreButton">{{total}}件</div>
+                <v-btn v-if="showMoreButton && Utils.isSmartphoneVertical()"
+                    variant="text"
+                    class="px-2"
+                    style="min-width: 24px; border-radius: 50%;"
+                    @click="$emit('more')">
+                    <Icon icon="fluent:chevron-right-12-regular" width="24px" class="text-text-darken-1" style="margin: 0px 0px;" />
+                </v-btn>
+            </h2>
             <div class="recorded-program-list__actions">
                 <v-select v-if="!hideSort"
                     v-model="sort_order"
@@ -11,17 +21,20 @@
                     ]"
                     item-title="title"
                     item-value="value"
-                    density="compact"
-                    hide-details
                     class="recorded-program-list__sort"
+                    color="primary"
+                    bg-color="background-lighten-1"
+                    variant="solo"
+                    density="comfortable"
+                    hide-details
                     @update:model-value="$emit('update:sortOrder', $event)">
                 </v-select>
-                <v-btn v-if="showMoreButton"
+                <v-btn v-if="showMoreButton && !Utils.isSmartphoneVertical()"
                     variant="text"
                     class="recorded-program-list__more"
                     @click="$emit('more')">
-                    もっと見る
-                    <Icon icon="fluent:chevron-right-20-regular" width="20px" class="ml-1" />
+                    <span class="text-primary">もっと見る</span>
+                    <Icon icon="fluent:chevron-right-12-regular" width="18px" class="ml-1 text-text-darken-1" style="margin: 0px -4px;" />
                 </v-btn>
             </div>
         </div>
@@ -31,9 +44,10 @@
         <div class="recorded-program-list__pagination" v-if="!hidePagination && total > 0">
             <v-pagination
                 v-model="current_page"
+                active-color="primary"
+                density="comfortable"
                 :length="Math.ceil(total / 30)"
                 :total-visible="7"
-                density="comfortable"
                 @update:model-value="$emit('update:page', $event)">
             </v-pagination>
         </div>
@@ -50,6 +64,7 @@ import { ref } from 'vue';
 
 import RecordedProgram from '@/components/Videos/RecordedProgram.vue';
 import { IRecordedProgram } from '@/services/Videos';
+import Utils from '@/utils';
 
 // Props
 const props = withDefaults(defineProps<{
@@ -97,17 +112,25 @@ const sort_order = ref(props.sortOrder);
     &__header {
         display: flex;
         align-items: center;
-        margin-bottom: 16px;
         @include smartphone-vertical {
-            margin-bottom: 12px;
+            padding: 0px 8px;
         }
     }
 
     &__title {
-        font-size: 20px;
+        display: flex;
+        align-items: end;
+        font-size: 24px;
         font-weight: 700;
-        @include smartphone-vertical {
-            font-size: 18px;
+        margin-top: 8px;
+        margin-bottom: 20px;
+
+        &-count {
+            margin-left: 10px;
+            margin-bottom: 4px;
+            font-size: 14px;
+            font-weight: 400;
+            color: rgb(var(--v-theme-text-darken-1));
         }
     }
 
@@ -115,14 +138,18 @@ const sort_order = ref(props.sortOrder);
         display: flex;
         align-items: center;
         margin-left: auto;
+        @include smartphone-vertical {
+            :deep(.v-field) {
+                padding-right: 4px !important;
+            }
+            :deep(.v-field__input) {
+                padding-left: 12px !important;
+                padding-right: 0px !important;
+            }
+        }
     }
 
     &__sort {
-        width: 120px;
-        @include smartphone-vertical {
-            width: 110px;
-        }
-
         :deep(.v-field__input) {
             font-size: 14px !important;
             padding-top: 6px !important;
@@ -132,13 +159,11 @@ const sort_order = ref(props.sortOrder);
     }
 
     &__more {
-        margin-left: 12px;
-        font-size: 14px;
+        margin-left: 8px;
+        margin-bottom: 8px;
+        padding: 0px 12px;
+        font-size: 15px;
         letter-spacing: 0.05em;
-        @include smartphone-vertical {
-            margin-left: 8px;
-            font-size: 13px;
-        }
     }
 
     &__grid {
@@ -146,12 +171,12 @@ const sort_order = ref(props.sortOrder);
         flex-direction: column;
         width: 100%;
         background: rgb(var(--v-theme-background-lighten-1));
-        border-radius: 4px;
+        border-radius: 8px;
         overflow: hidden;
 
         :deep(.recorded-program) {
             // 最後の項目以外の下にボーダーを追加
-            &:not(:last-child) {
+            &:not(:last-child) > .recorded-program__container {
                 border-bottom: 1px solid rgb(var(--v-theme-background-lighten-2));
             }
         }

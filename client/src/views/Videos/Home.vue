@@ -5,7 +5,7 @@
             <Navigation />
             <div class="videos-home-container">
                 <RecordedProgramList
-                    title="最近録画された番組"
+                    title="最近の録画番組"
                     :programs="recent_programs"
                     :total="total_programs"
                     :hideSort="true"
@@ -34,7 +34,7 @@ const total_programs = ref(0);
 const fetchRecentPrograms = async () => {
     const result = await Videos.fetchAllVideos('desc', 1);
     if (result) {
-        recent_programs.value = result.recorded_programs.slice(0, 12);  // 最新12件のみ表示
+        recent_programs.value = result.recorded_programs.slice(0, 10);  // 最新10件のみ表示
         total_programs.value = result.total;
     }
 };
@@ -51,14 +51,18 @@ onMounted(async () => {
     display: flex;
     flex-direction: column;
     width: 100%;
-    min-width: 0;  // magic!
-    margin-left: 21px;
-    margin-right: 21px;
-    margin-bottom: 24px;
+    padding: 20px;
+    margin: 0 auto;
+    min-width: 0;
+    max-width: 1000px;
+    @include smartphone-horizontal {
+        padding: 16px 20px !important;
+    }
+    @include smartphone-horizontal-short {
+        padding: 16px 16px !important;
+    }
     @include smartphone-vertical {
-        margin-left: 12px;
-        margin-right: 12px;
-        margin-bottom: 20px;
+        padding: 16px 8px !important;
     }
 }
 
