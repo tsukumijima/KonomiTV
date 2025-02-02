@@ -11,7 +11,7 @@ import random
 import time
 import typer
 from numpy.typing import NDArray
-from typing import cast, ClassVar, Literal
+from typing import cast, Any, ClassVar, Literal
 
 from app import logging
 from app import schemas
@@ -32,8 +32,15 @@ class ThumbnailGenerator:
     # 顔検出の設定
     FACE_DETECTION_SCALE_FACTOR: ClassVar[float] = 1.2  # 顔検出時のスケールファクター
     FACE_DETECTION_MIN_NEIGHBORS: ClassVar[int] = 3  # 顔検出時の最小近傍数
-    FACE_SIZE_WEIGHT: ClassVar[float] = 0.3  # 顔サイズによるスコアの重み
+    FACE_SIZE_WEIGHT: ClassVar[float] = 0.3  # 顔サイズによるスコアの重み（実写向け）
+    ANIME_FACE_SIZE_WEIGHT: ClassVar[float] = 0.8  # アニメの顔サイズによるスコアの重み
     FACE_SIZE_BASE_SCORE: ClassVar[float] = 10.0  # 顔サイズの基本スコア
+
+    # レターボックス検出の設定
+    LETTERBOX_THRESHOLD: ClassVar[int] = 30  # レターボックス判定の輝度閾値
+    LETTERBOX_MIN_HEIGHT_RATIO: ClassVar[float] = 0.05  # 最小の黒帯の高さ比率（画像の高さに対する割合）
+    LETTERBOX_MAX_HEIGHT_RATIO: ClassVar[float] = 0.25  # 最大の黒帯の高さ比率
+    LETTERBOX_UNIFORMITY_THRESHOLD: ClassVar[float] = 5.0  # 黒帯の一様性判定の閾値（標準偏差）
 
     # 画質評価の重み付け
     SCORE_WEIGHTS: ClassVar[dict[str, float]] = {
@@ -418,6 +425,73 @@ class ThumbnailGenerator:
         return False
 
 
+    def __detectLetterbox(self, img_bgr: NDArray[np.uint8]) -> tuple[slice, slice]:
+        """
+        レターボックス（上下左右の黒帯）を検出し、有効な映像領域のスライスを返す
+
+        Args:
+            img_bgr (NDArray[np.uint8]): 入力画像 (BGR)
+
+        Returns:
+            tuple[slice, slice]: (垂直方向のスライス, 水平方向のスライス)
+                                黒帯が検出されなかった場合は画像全体のスライスを返す
+        """
+
+        height, width = img_bgr.shape[:2]
+        min_height = int(height * self.LETTERBOX_MIN_HEIGHT_RATIO)
+        max_height = int(height * self.LETTERBOX_MAX_HEIGHT_RATIO)
+
+        # グレースケールに変換
+        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+
+        # 上下の黒帯を検出
+        top_border = 0
+        bottom_border = height
+        # 上から走査
+        for y in range(max_height):
+            row = cast(NDArray[Any], gray[y:y+min_height])
+            mean_val = float(np.mean(row, dtype=np.float64))
+            std_val = float(np.std(row, dtype=np.float64))
+            # 平均輝度が閾値以下で、かつ一様性が高い（標準偏差が小さい）場合を黒帯とみなす
+            if mean_val > self.LETTERBOX_THRESHOLD or std_val > self.LETTERBOX_UNIFORMITY_THRESHOLD:
+                top_border = y
+                break
+        # 下から走査
+        for y in range(height - 1, height - max_height - 1, -1):
+            row = cast(NDArray[Any], gray[y-min_height:y])
+            mean_val = float(np.mean(row, dtype=np.float64))
+            std_val = float(np.std(row, dtype=np.float64))
+            if mean_val > self.LETTERBOX_THRESHOLD or std_val > self.LETTERBOX_UNIFORMITY_THRESHOLD:
+                bottom_border = y
+                break
+
+        # 左右の黒帯を検出
+        left_border = 0
+        right_border = width
+        # 左から走査
+        for x in range(max_height):
+            col = cast(NDArray[Any], gray[:, x:x+min_height])
+            mean_val = float(np.mean(col, dtype=np.float64))
+            std_val = float(np.std(col, dtype=np.float64))
+            if mean_val > self.LETTERBOX_THRESHOLD or std_val > self.LETTERBOX_UNIFORMITY_THRESHOLD:
+                left_border = x
+                break
+        # 右から走査
+        for x in range(width - 1, width - max_height - 1, -1):
+            col = cast(NDArray[Any], gray[:, x-min_height:x])
+            mean_val = float(np.mean(col, dtype=np.float64))
+            std_val = float(np.std(col, dtype=np.float64))
+            if mean_val > self.LETTERBOX_THRESHOLD or std_val > self.LETTERBOX_UNIFORMITY_THRESHOLD:
+                right_border = x
+                break
+
+        # 検出された黒帯の範囲を除いたスライスを返す
+        return (
+            slice(top_border, bottom_border),
+            slice(left_border, right_border)
+        )
+
+
     def __computeImageScore(
         self,
         img_bgr: NDArray[np.uint8],
@@ -439,16 +513,19 @@ class ThumbnailGenerator:
         found_face = False
         face_size_score = 0.0
 
+        # レターボックスを検出し、有効な映像領域を取得
+        v_slice, h_slice = self.__detectLetterbox(img_bgr)
+        valid_region = img_bgr[v_slice, h_slice]
+
         # 単色判定
         # 各チャンネルの分散を計算し、すべてのチャンネルの分散が閾値以下なら単色とみなす
         solid_color_penalty = 0.0
-        channel_variances = [float(np.var(img_bgr[:,:,i])) for i in range(3)]
+        channel_variances = [float(np.var(valid_region[:,:,i])) for i in range(3)]
         is_solid_color = all(var < self.COLOR_VARIANCE_THRESHOLD for var in channel_variances)
 
         # 単色の場合、どの色かをログ出力用に判定し、一律で強いペナルティを与える
-        # これにより、ほとんどの場合単色フレームは無視されるようになる
         if is_solid_color:
-            mean_intensity = float(np.mean(img_bgr))
+            mean_intensity = float(np.mean(valid_region))
             # ログ出力用の色判定（デバッグ時に役立つ）
             if mean_intensity < self.BLACK_THRESHOLD:
                 logging.debug_simple(f'{self.file_path}: Solid black frame detected. Ignored.')
@@ -456,7 +533,7 @@ class ThumbnailGenerator:
                 logging.debug_simple(f'{self.file_path}: Solid white frame detected. Ignored.')
             else:
                 # BGRの平均値から色を推定
-                mean_colors = [float(np.mean(img_bgr[:,:,i])) for i in range(3)]
+                mean_colors = [float(np.mean(valid_region[:,:,i])) for i in range(3)]
                 logging.debug_simple(f'{self.file_path}: Solid color frame detected (BGR: {mean_colors}). Ignored.')
 
             # すべての単色に対して同じ強いペナルティを与える
@@ -464,7 +541,7 @@ class ThumbnailGenerator:
 
         # 顔検出
         if face_cascade is not None:
-            gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+            gray = cv2.cvtColor(valid_region, cv2.COLOR_BGR2GRAY)
             faces = face_cascade.detectMultiScale(
                 gray,
                 scaleFactor=self.FACE_DETECTION_SCALE_FACTOR,
@@ -474,15 +551,17 @@ class ThumbnailGenerator:
                 found_face = True
                 # 最も大きい顔を基準にスコアを計算
                 max_face_area = max(w * h for (_, _, w, h) in faces)
-                img_area = img_bgr.shape[0] * img_bgr.shape[1]
+                img_area = valid_region.shape[0] * valid_region.shape[1]
                 # 顔の面積比を計算 (0.0 ~ 1.0)
                 face_area_ratio = max_face_area / img_area
+                # アニメと実写で異なる重み付けを適用
+                face_weight = self.ANIME_FACE_SIZE_WEIGHT if self.face_detection_mode == 'Anime' else self.FACE_SIZE_WEIGHT
                 # 基本スコアに面積比を掛けてスコアを計算
-                face_size_score = self.FACE_SIZE_BASE_SCORE * face_area_ratio
+                face_size_score = self.FACE_SIZE_BASE_SCORE * face_area_ratio * face_weight
 
         # スコア計算
         # (1) 輝度 Y
-        img_float = img_bgr.astype(np.float32)
+        img_float = valid_region.astype(np.float32)
         y = 0.2126*img_float[:,:,2] + 0.7152*img_float[:,:,1] + 0.0722*img_float[:,:,0]
         mean_lum = np.mean(y)       # 平均輝度
         std_lum  = np.std(y)        # 分散(均一度の逆)
@@ -500,12 +579,12 @@ class ThumbnailGenerator:
         contrast += contrast_bonus
 
         # (3) シャープネス (Laplacian の分散)
-        lap = cv2.Laplacian(img_bgr, cv2.CV_64F)
+        lap = cv2.Laplacian(valid_region, cv2.CV_64F)
         sharpness = lap.var()
 
         # (4) エッジ密度の計算
         # Cannyエッジ検出を使用して、エッジの密度を計算
-        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(valid_region, cv2.COLOR_BGR2GRAY)
         edges = cv2.Canny(gray, 100, 200)
         edge_density = float(np.count_nonzero(edges)) / edges.size
 
@@ -542,7 +621,7 @@ class ThumbnailGenerator:
             sharpness * self.SCORE_WEIGHTS['sharpness'] +
             edge_density_score * self.SCORE_WEIGHTS['edge_density'] +
             entropy_score * self.SCORE_WEIGHTS['entropy'] +
-            face_size_score * self.FACE_SIZE_WEIGHT -
+            face_size_score -  # 重み付けは既に face_weight で適用済み
             brightness_penalty -
             solid_color_penalty
         )
