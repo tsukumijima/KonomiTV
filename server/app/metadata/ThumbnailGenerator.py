@@ -83,7 +83,7 @@ class ThumbnailGenerator:
 
     # WebP 出力の設定
     WEBP_QUALITY: ClassVar[int] = 85  # WebP品質 (0-100)
-    WEBP_COMPRESSION: ClassVar[int] = 6  # 圧縮レベル (0-6, 6が最高品質)
+    WEBP_COMPRESSION: ClassVar[int] = 5  # 圧縮レベル (0-6, 6が最高品質)
 
     # 顔検出用カスケード分類器のパス
     HUMAN_FACE_CASCADE_PATH: ClassVar[pathlib.Path] = pathlib.Path(cv2.__file__).parent / 'data' / 'haarcascade_frontalface_default.xml'
@@ -121,8 +121,8 @@ class ThumbnailGenerator:
         self.face_detection_mode = face_detection_mode
 
         # ファイルハッシュをベースにしたファイル名を生成
-        self.seekbar_thumbnails_tile_path = anyio.Path(str(THUMBNAILS_DIR / f"{file_hash}_tile.jpg"))
-        self.representative_thumbnail_path = anyio.Path(str(THUMBNAILS_DIR / f"{file_hash}.jpg"))
+        self.seekbar_thumbnails_tile_path = anyio.Path(str(THUMBNAILS_DIR / f"{file_hash}_tile.webp"))
+        self.representative_thumbnail_path = anyio.Path(str(THUMBNAILS_DIR / f"{file_hash}.webp"))
 
 
     @classmethod
@@ -195,16 +195,16 @@ class ThumbnailGenerator:
         start_time = time.time()
         try:
             # 1. プレイヤーのシークバー用サムネイルタイル画像を生成
-            if not await self.__generateThumbnailsTile():
-                logging.error(f'{self.file_path}: Failed to generate seekbar thumbnails tile.')
+            if not await self.__generateThumbnailTile():
+                logging.error(f'{self.file_path}: Failed to generate seekbar thumbnail tile.')
                 return
 
             # 2. プレイヤーのシークバー用サムネイルタイル画像を読み込み、各タイル(フレーム)を切り出し、
             #    そのタイムスタンプが candidate_intervals に含まれる場合だけ
             #    画質評価 + (必要なら) 顔検出してスコアを計算 → 最良を代表サムネイルとして取得
-            best_thumbnail = await self.__extractBestFrameFromThumbnailsTile()
+            best_thumbnail = await self.__extractBestFrameFromThumbnailTile()
             if best_thumbnail is None:
-                logging.error(f'{self.file_path}: Failed to extract best frame from seekbar thumbnails tile.')
+                logging.error(f'{self.file_path}: Failed to extract best frame from seekbar thumbnail tile.')
                 return
 
             # 3. 代表サムネイル画像をファイルに書き出し
@@ -220,7 +220,7 @@ class ThumbnailGenerator:
             return
 
 
-    async def __generateThumbnailsTile(self) -> bool:
+    async def __generateThumbnailTile(self) -> bool:
         """
         FFmpeg を使い、録画ファイル全体を対象にプレイヤーのシークバー用サムネイルタイル画像を生成する
         5秒ごとにフレームを抽出し、タイル化する
@@ -255,7 +255,7 @@ class ThumbnailGenerator:
                 f'tile={self.TILE_COLS}x{tile_rows}:padding=0:margin=0',
             ]
 
-            # 出力先ディレクトリが無い場合は作成
+            # 万が一出力先ディレクトリが無い場合は作成 (通常存在するはず)
             thumbnails_dir = anyio.Path(str(THUMBNAILS_DIR))
             if not await thumbnails_dir.is_dir():
                 await thumbnails_dir.mkdir(parents=True, exist_ok=True)
@@ -291,15 +291,15 @@ class ThumbnailGenerator:
                 logging.error(f'{self.file_path}: FFmpeg failed with return code {process.returncode}. Error: {error_message}')
                 return False
 
-            logging.debug_simple(f'{self.file_path}: Generated seekbar thumbnails tile.')
+            logging.debug_simple(f'{self.file_path}: Generated seekbar thumbnail tile.')
             return True
 
         except Exception as ex:
-            logging.error(f'{self.file_path}: Error in seekbar thumbnails tile generation:', exc_info=ex)
+            logging.error(f'{self.file_path}: Error in seekbar thumbnail tile generation:', exc_info=ex)
             return False
 
 
-    async def __extractBestFrameFromThumbnailsTile(self) -> NDArray[np.uint8] | None:
+    async def __extractBestFrameFromThumbnailTile(self) -> NDArray[np.uint8] | None:
         """
         生成したシークバー用タイル画像から、候補区間内に相当するフレームだけを
         スコアリングし、最良の1枚を返す (画像は OpenCV 形式の BGR NDArray)
@@ -314,7 +314,7 @@ class ThumbnailGenerator:
             # タイル画像を読み込み (同期 I/O なので asyncio.to_thread() でラップ)
             tile_bgr = await asyncio.to_thread(cv2.imread, str(self.seekbar_thumbnails_tile_path))
             if tile_bgr is None:
-                logging.error(f'{self.file_path}: Failed to read seekbar thumbnails tile.')
+                logging.error(f'{self.file_path}: Failed to read seekbar thumbnail tile.')
                 return None
 
             height, width, _ = tile_bgr.shape
