@@ -94,8 +94,8 @@ class ThumbnailGenerator:
         self.face_detection_mode = face_detection_mode
 
         # ファイルハッシュをベースにしたファイル名を生成
-        self.seekbar_tile_path = anyio.Path(str(THUMBNAILS_DIR / f"{file_hash}_seekbar.jpg"))
-        self.representative_path = anyio.Path(str(THUMBNAILS_DIR / f"{file_hash}.jpg"))
+        self.seekbar_thumbnails_tile_path = anyio.Path(str(THUMBNAILS_DIR / f"{file_hash}_seekbar.jpg"))
+        self.representative_thumbnail_path = anyio.Path(str(THUMBNAILS_DIR / f"{file_hash}.jpg"))
 
 
     @classmethod
@@ -169,19 +169,19 @@ class ThumbnailGenerator:
         try:
             # 1. プレイヤーのシークバー用サムネイルタイル画像を生成
             if not await self.__generateThumbnailsTile():
-                logging.error(f'{self.file_path}: Failed to generate seekbar tile image.')
+                logging.error(f'{self.file_path}: Failed to generate seekbar thumbnails tile.')
                 return
 
             # 2. プレイヤーのシークバー用サムネイルタイル画像を読み込み、各タイル(フレーム)を切り出し、
             #    そのタイムスタンプが candidate_intervals に含まれる場合だけ
             #    画質評価 + (必要なら) 顔検出してスコアを計算 → 最良を代表サムネイルとして取得
-            best_thumbnail = await self.__extractBestFrameFromThumbnailTile()
+            best_thumbnail = await self.__extractBestFrameFromThumbnailsTile()
             if best_thumbnail is None:
-                logging.error(f'{self.file_path}: Failed to extract best frame from tile.')
+                logging.error(f'{self.file_path}: Failed to extract best frame from seekbar thumbnails tile.')
                 return
 
             # 3. 代表サムネイル画像をファイルに書き出し
-            if not await self.__saveRepresentative(best_thumbnail):
+            if not await self.__saveRepresentativeThumbnail(best_thumbnail):
                 logging.error(f'{self.file_path}: Failed to save representative thumbnail.')
                 return
 
@@ -248,7 +248,7 @@ class ThumbnailGenerator:
                     # JPEG 品質 (2=高品質)
                     '-q:v', '2',
                     # 出力ファイル
-                    str(self.seekbar_tile_path),
+                    str(self.seekbar_thumbnails_tile_path),
                 ],
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -261,15 +261,15 @@ class ThumbnailGenerator:
                 logging.error(f'{self.file_path}: FFmpeg failed with return code {process.returncode}. Error: {error_message}')
                 return False
 
-            logging.info(f'{self.file_path}: Generated seekbar tile image.')
+            logging.debug_simple(f'{self.file_path}: Generated seekbar thumbnails tile.')
             return True
 
         except Exception as ex:
-            logging.error(f'{self.file_path}: Error in seekbar tile generation:', exc_info=ex)
+            logging.error(f'{self.file_path}: Error in seekbar thumbnails tile generation:', exc_info=ex)
             return False
 
 
-    async def __extractBestFrameFromThumbnailTile(self) -> NDArray[np.uint8] | None:
+    async def __extractBestFrameFromThumbnailsTile(self) -> NDArray[np.uint8] | None:
         """
         生成したシークバー用タイル画像から、候補区間内に相当するフレームだけを
         スコアリングし、最良の1枚を返す (画像は OpenCV 形式の BGR NDArray)
@@ -282,9 +282,10 @@ class ThumbnailGenerator:
 
         try:
             # タイル画像を読み込み (同期 I/O なので asyncio.to_thread() でラップ)
-            tile_bgr = await asyncio.to_thread(cv2.imread, str(self.seekbar_tile_path))
+            tile_bgr = await asyncio.to_thread(cv2.imread, str(self.seekbar_thumbnails_tile_path))
             if tile_bgr is None:
-                raise RuntimeError('Failed to read seekbar tile image.')
+                logging.error(f'{self.file_path}: Failed to read seekbar thumbnails tile.')
+                return None
 
             height, width, _ = tile_bgr.shape
             tile_w, tile_h = self.TILE_SCALE
@@ -300,10 +301,8 @@ class ThumbnailGenerator:
             face_cascade = None
             if self.face_detection_mode == 'Human':
                 face_cascade = cv2.CascadeClassifier(str(self.HUMAN_FACE_CASCADE_PATH))
-                logging.debug_simple(f'{self.file_path}: Loaded human face cascade.')
             elif self.face_detection_mode == 'Anime':
                 face_cascade = cv2.CascadeClassifier(str(self.ANIME_FACE_CASCADE_PATH))
-                logging.debug_simple(f'{self.file_path}: Loaded anime face cascade.')
 
             # いったん全フレームを評価して保持し、後で「顔あり」→無ければ「全体」という二段階で決める
             frames_info: list[tuple[int, float, bool, NDArray[np.uint8]]] = []
@@ -332,7 +331,7 @@ class ThumbnailGenerator:
 
                 # スコア計算＋顔検出
                 score, found_face = await asyncio.to_thread(
-                    self.__computeScoreWithFace,
+                    self.__computeImageScore,
                     sub_img,
                     face_cascade
                 )
@@ -372,7 +371,7 @@ class ThumbnailGenerator:
             return None
 
 
-    async def __saveRepresentative(self, img_bgr: NDArray[np.uint8]) -> bool:
+    async def __saveRepresentativeThumbnail(self, img_bgr: NDArray[np.uint8]) -> bool:
         """
         代表サムネイルを JPEG ファイルに保存する
 
@@ -390,11 +389,11 @@ class ThumbnailGenerator:
                 await thumbnails_dir.mkdir(parents=True, exist_ok=True)
 
             # 書き込み
-            if not await asyncio.to_thread(cv2.imwrite, str(self.representative_path), img_bgr):
+            if not await asyncio.to_thread(cv2.imwrite, str(self.representative_thumbnail_path), img_bgr):
                 logging.error(f'{self.file_path}: Failed to write representative thumbnail.')
                 return False
 
-            logging.info(f'{self.file_path}: Saved representative thumbnail.')
+            logging.debug_simple(f'{self.file_path}: Generated representative thumbnail. (Face detection mode: {self.face_detection_mode})')
             return True
 
         except Exception as ex:
@@ -419,13 +418,13 @@ class ThumbnailGenerator:
         return False
 
 
-    def __computeScoreWithFace(
+    def __computeImageScore(
         self,
         img_bgr: NDArray[np.uint8],
         face_cascade: cv2.CascadeClassifier | None
     ) -> tuple[float, bool]:
         """
-        画質スコア(輝度・コントラスト・シャープネス)を計算し、
+        画質スコア (輝度・コントラスト・シャープネス) を計算し、
         顔検出があれば found_face=True を返す
         顔が検出された場合、その大きさに応じてスコアを加算する
 
@@ -447,17 +446,18 @@ class ThumbnailGenerator:
         is_solid_color = all(var < self.COLOR_VARIANCE_THRESHOLD for var in channel_variances)
 
         # 単色の場合、どの色かをログ出力用に判定し、一律で強いペナルティを与える
+        # これにより、ほとんどの場合単色フレームは無視されるようになる
         if is_solid_color:
             mean_intensity = float(np.mean(img_bgr))
             # ログ出力用の色判定（デバッグ時に役立つ）
             if mean_intensity < self.BLACK_THRESHOLD:
-                logging.debug_simple(f'{self.file_path}: Solid black frame detected')
+                logging.debug_simple(f'{self.file_path}: Solid black frame detected. Ignored.')
             elif mean_intensity > self.WHITE_THRESHOLD:
-                logging.debug_simple(f'{self.file_path}: Solid white frame detected')
+                logging.debug_simple(f'{self.file_path}: Solid white frame detected. Ignored.')
             else:
                 # BGRの平均値から色を推定
                 mean_colors = [float(np.mean(img_bgr[:,:,i])) for i in range(3)]
-                logging.debug_simple(f'{self.file_path}: Solid color frame detected (BGR: {mean_colors})')
+                logging.debug_simple(f'{self.file_path}: Solid color frame detected (BGR: {mean_colors}). Ignored.')
 
             # すべての単色に対して同じ強いペナルティを与える
             solid_color_penalty = self.SOLID_COLOR_PENALTY
@@ -611,7 +611,7 @@ if __name__ == "__main__":
 
         # サムネイルを生成
         asyncio.run(generator.generate())
-        print(f"Seekbar tile   -> {generator.seekbar_tile_path}")
-        print(f"Representative -> {generator.representative_path}")
+        print(f"Thumbnail tile -> {generator.seekbar_thumbnails_tile_path}")
+        print(f"Representative -> {generator.representative_thumbnail_path}")
 
     typer.run(main)
