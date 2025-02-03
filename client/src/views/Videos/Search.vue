@@ -4,6 +4,10 @@
         <main>
             <Navigation />
             <div class="videos-search-container">
+                <Breadcrumbs :crumbs="[
+                    { name: 'ビデオをみる', path: '/videos/' },
+                    { name: '検索結果', path: `/videos/search?query=${encodeURIComponent(query)}`, disabled: true },
+                ]" />
                 <RecordedProgramList
                     :title="`「${query}」の検索結果`"
                     :programs="programs"
@@ -31,6 +35,7 @@
 import { onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
+import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
 import RecordedProgramList from '@/components/Videos/RecordedProgramList.vue';

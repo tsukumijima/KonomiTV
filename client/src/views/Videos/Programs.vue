@@ -4,18 +4,18 @@
         <main>
             <Navigation />
             <div class="recorded-programs-container">
+                <Breadcrumbs :crumbs="[
+                    { name: 'ビデオをみる', path: '/videos/' },
+                    { name: '録画番組一覧', path: '/videos/programs', disabled: true },
+                ]" />
                 <RecordedProgramList
-                    title="録画番組リスト"
+                    title="録画番組一覧"
                     :programs="programs"
                     :total="total_programs"
                     :page="current_page"
                     :sortOrder="sort_order"
                     :isLoading="is_loading"
                     :showBackButton="true"
-                    :breadcrumbs="[
-                        { name: 'ビデオをみる', path: '/videos/' },
-                        { name: '録画番組リスト', path: '/videos/programs' },
-                    ]"
                     :showEmptyMessage="!is_loading"
                     @update:page="updatePage"
                     @update:sortOrder="updateSortOrder" />
@@ -28,6 +28,7 @@
 import { onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
+import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
 import RecordedProgramList from '@/components/Videos/RecordedProgramList.vue';

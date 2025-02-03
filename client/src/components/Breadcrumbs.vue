@@ -1,8 +1,12 @@
 <template>
-    <div class="breadcrumbs" v-if="crumbs">
-        <router-link v-for="(crumb, index) in crumbs" :key="index" :to="crumb.path">
-            {{crumb.name}}
-            <Icon v-if="index < crumbs.length - 1" icon="fluent:chevron-right-12-regular" width="16px" class="mx-1" />
+    <div class="breadcrumbs">
+        <router-link v-for="(crumb, index) in crumbs" :key="index"
+            :to="crumb.path"
+            class="breadcrumbs__item"
+            :class="{'breadcrumbs__item--disabled': crumb.disabled}"
+            :event="crumb.disabled ? '' : 'click'">
+            <span class="breadcrumbs__item-text">{{crumb.name}}</span>
+            <Icon v-if="index < crumbs.length - 1" icon="fluent:chevron-right-12-regular" width="16px" class="breadcrumbs__item-separator" />
         </router-link>
     </div>
 </template>
@@ -11,7 +15,11 @@
 
 // Props
 defineProps<{
-    crumbs: { name: string; path: string; }[];
+    crumbs: {
+        name: string;
+        path: string;
+        disabled?: boolean;
+    }[];
 }>();
 
 </script>
@@ -22,20 +30,30 @@ defineProps<{
     align-items: center;
     margin-bottom: 8px;
     font-size: 13px;
-    color: rgb(var(--v-theme-text-darken-1));
     @include smartphone-vertical {
         display: none;
     }
 
-    a {
+    &__item {
         display: flex;
         align-items: center;
+        color: rgb(var(--v-theme-text-darken-1));
         text-decoration: none;
-        color: inherit;
-        transition: color 0.15s;
 
-        &:hover {
-            color: rgb(var(--v-theme-text));
+        &:not(&--disabled):hover {
+            text-decoration: underline;
+        }
+
+        &--disabled {
+            color: #b8aead;
+            cursor: default;
+            pointer-events: none;
+        }
+
+        &-separator {
+            color: #b8aead;
+            margin-left: 2px;
+            margin-right: 4px;
         }
     }
 }

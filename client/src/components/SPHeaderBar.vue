@@ -106,6 +106,7 @@ watch(() => route.fullPath, initialize_search_query);
     .konomitv-logo {
         display: block;
         padding: 12px 8px;
+        margin-left: -6px;
         border-radius: 8px;
 
         &__image {
