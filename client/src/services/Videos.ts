@@ -151,6 +151,11 @@ export interface IJikkyoComments {
     detail: string;
 }
 
+/** サムネイル再生成のレスポンスを表すインターフェース */
+export interface IThumbnailRegenerationStatus {
+    is_success: boolean;
+    detail: string;
+}
 
 class Videos {
 
@@ -252,6 +257,29 @@ class Videos {
         response.data.comments = response.data.comments.filter((comment) => {
             return CommentUtils.isMutedComment(comment.text, comment.author, comment.color, comment.type, comment.size) === false;
         });
+        return response.data;
+    }
+
+
+    /**
+     * 録画番組のサムネイルを再生成する
+     * @param video_id 録画番組の ID
+     * @returns サムネイル再生成のステータス
+     */
+    static async regenerateThumbnail(video_id: number): Promise<IThumbnailRegenerationStatus> {
+
+        // API リクエストを実行
+        const response = await APIClient.post<IThumbnailRegenerationStatus>(`/videos/${video_id}/thumbnail/regenerate`);
+
+        // エラー処理
+        if (response.type === 'error') {
+            APIClient.showGenericError(response, 'サムネイルの再生成に失敗しました。');
+            return {
+                is_success: false,
+                detail: 'サムネイルの再生成に失敗しました。',
+            };
+        }
+
         return response.data;
     }
 }

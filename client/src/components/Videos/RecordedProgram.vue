@@ -36,13 +36,35 @@
                     <path fill="currentColor" d="M8 2.5a.5.5 0 0 0-1 0V7H2.5a.5.5 0 0 0 0 1H7v4.5a.5.5 0 0 0 1 0V8h4.5a.5.5 0 0 0 0-1H8z"></path>
                 </svg>
             </div>
-            <div v-ripple class="recorded-program__info"
-                v-ftooltip="'録画ファイル情報を見る'"
-                @click.prevent.stop="show_video_info = true"
-                @mousedown.prevent.stop="">
-                <svg width="19px" height="19px" viewBox="0 0 16 16">
-                    <path fill="currentColor" d="M8.499 7.5a.5.5 0 1 0-1 0v3a.5.5 0 0 0 1 0zm.25-2a.749.749 0 1 1-1.499 0a.749.749 0 0 1 1.498 0M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1M2 8a6 6 0 1 1 12 0A6 6 0 0 1 2 8"></path>
-                </svg>
+            <div class="recorded-program__menu">
+                <v-menu location="bottom end" :close-on-content-click="true">
+                    <template v-slot:activator="{ props }">
+                        <div v-ripple class="recorded-program__menu-button"
+                            v-bind="props"
+                            @click.prevent.stop=""
+                            @mousedown.prevent.stop="">
+                            <svg width="19px" height="19px" viewBox="0 0 16 16">
+                                <path fill="currentColor" d="M9.5 13a1.5 1.5 0 1 1-3 0a1.5 1.5 0 0 1 3 0m0-5a1.5 1.5 0 1 1-3 0a1.5 1.5 0 0 1 3 0m0-5a1.5 1.5 0 1 1-3 0a1.5 1.5 0 0 1 3 0"/>
+                            </svg>
+                        </div>
+                    </template>
+                    <v-list density="compact" bg-color="background-lighten-1" class="recorded-program__menu-list">
+                        <v-list-item @click="show_video_info = true">
+                            <template v-slot:prepend>
+                                <svg width="20px" height="20px" viewBox="0 0 16 16">
+                                    <path fill="currentColor" d="M8.499 7.5a.5.5 0 1 0-1 0v3a.5.5 0 0 0 1 0zm.25-2a.749.749 0 1 1-1.499 0a.749.749 0 0 1 1.498 0M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1M2 8a6 6 0 1 1 12 0A6 6 0 0 1 2 8"></path>
+                                </svg>
+                            </template>
+                            <v-list-item-title class="ml-3">録画ファイル情報を表示</v-list-item-title>
+                        </v-list-item>
+                        <v-list-item @click="regenerateThumbnail">
+                            <template v-slot:prepend>
+                                <Icon icon="fluent:image-24-regular" width="20px" height="20px" />
+                            </template>
+                            <v-list-item-title class="ml-3">サムネイルを再生成</v-list-item-title>
+                        </v-list-item>
+                    </v-list>
+                </v-menu>
             </div>
         </div>
     </router-link>
@@ -54,16 +76,25 @@ import { ref } from 'vue';
 
 import RecordedFileInfoDialog from '@/components/Videos/Dialogs/RecordedFileInfoDialog.vue';
 import Message from '@/message';
-import { IRecordedProgram } from '@/services/Videos';
+import Videos, { IRecordedProgram } from '@/services/Videos';
 import Utils, { ProgramUtils } from '@/utils';
 
 // Props
-defineProps<{
+const props = defineProps<{
     program: IRecordedProgram;
 }>();
 
 // ファイル情報ダイアログの表示状態
 const show_video_info = ref(false);
+
+// サムネイル再生成
+const regenerateThumbnail = async () => {
+    Message.success('サムネイルの再生成を開始しました。完了までしばらくお待ちください。');
+    const result = await Videos.regenerateThumbnail(props.program.id);
+    if (result.is_success) {
+        Message.success('サムネイルの再生成が完了しました。');
+    }
+};
 
 </script>
 <style lang="scss" scoped>
@@ -218,6 +249,7 @@ const show_video_info = ref(false);
             }
             @include smartphone-vertical {
                 font-size: 13px;
+                margin-right: 24px;
                 -webkit-line-clamp: 2;  // 2行までに制限
             }
         }
@@ -334,7 +366,6 @@ const show_video_info = ref(false);
             }
             @include smartphone-vertical {
                 margin-top: 1.5px;
-                margin-right: 24px;
                 font-size: 11px;
                 -webkit-line-clamp: 1;  // 1行までに制限
             }
@@ -347,7 +378,7 @@ const show_video_info = ref(false);
         justify-content: center;
         flex-shrink: 0;
         position: absolute;
-        top: 50%;
+        top: 38%;
         right: 12px;
         transform: translateY(-50%);
         width: 32px;
@@ -414,74 +445,97 @@ const show_video_info = ref(false);
         }
     }
 
-    &__info {
+    &__menu {
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
         position: absolute;
+        top: 65%;
         right: 12px;
-        bottom: 8px;
-        width: 32px;
-        height: 32px;
-        color: rgb(var(--v-theme-text-darken-1));
-        border-radius: 50%;
-        transition: color 0.15s ease, background-color 0.15s ease;
-        user-select: none;
+        transform: translateY(-50%);
         @include tablet-vertical {
             right: 6px;
-            width: 28px;
-            height: 28px;
-            svg {
-                width: 18px;
-                height: 18px;
-            }
         }
         @include smartphone-horizontal {
             right: 6px;
-            width: 28px;
-            height: 28px;
-            svg {
-                width: 18px;
-                height: 18px;
-            }
         }
         @include smartphone-vertical {
             right: 4px;
-            width: 28px;
-            height: 28px;
-            svg {
-                width: 18px;
-                height: 18px;
+        }
+
+        &-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            color: rgb(var(--v-theme-text-darken-1));
+            border-radius: 50%;
+            transition: color 0.15s ease, background-color 0.15s ease;
+            user-select: none;
+            @include tablet-vertical {
+                width: 28px;
+                height: 28px;
+                svg {
+                    width: 18px;
+                    height: 18px;
+                }
+            }
+            @include smartphone-horizontal {
+                width: 28px;
+                height: 28px;
+                svg {
+                    width: 18px;
+                    height: 18px;
+                }
+            }
+            @include smartphone-vertical {
+                width: 28px;
+                height: 28px;
+                svg {
+                    width: 18px;
+                    height: 18px;
+                }
+            }
+
+            &:before {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                border-radius: inherit;
+                background-color: currentColor;
+                color: inherit;
+                opacity: 0;
+                transition: opacity 0.2s cubic-bezier(0.4, 0, 0.6, 1);
+                pointer-events: none;
+            }
+            &:hover {
+                color: rgb(var(--v-theme-text));
+                &:before {
+                    opacity: 0.15;
+                }
+            }
+            // タッチデバイスで hover を無効にする
+            @media (hover: none) {
+                &:hover {
+                    &:before {
+                        opacity: 0;
+                    }
+                }
             }
         }
 
-        &:before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            border-radius: inherit;
-            background-color: currentColor;
-            color: inherit;
-            opacity: 0;
-            transition: opacity 0.2s cubic-bezier(0.4, 0, 0.6, 1);
-            pointer-events: none;
-        }
-        &:hover {
-            color: rgb(var(--v-theme-text));
-            &:before {
-                opacity: 0.15;
+        &-list {
+            :deep(.v-list-item-title) {
+                font-size: 14px !important;
             }
-        }
-        // タッチデバイスで hover を無効にする
-        @media (hover: none) {
-            &:hover {
-                &:before {
-                    opacity: 0;
-                }
+
+            :deep(.v-list-item) {
+                min-height: 36px !important;
             }
         }
     }
