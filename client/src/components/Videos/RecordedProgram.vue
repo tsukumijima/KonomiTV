@@ -1,8 +1,16 @@
 <template>
-    <router-link v-ripple class="recorded-program" :to="`/videos/watch/${program.id}`">
+    <router-link v-ripple class="recorded-program" :to="program.recorded_video.status === 'Recording' ? { path: '' } : `/videos/watch/${program.id}`" :class="{ 'recorded-program--recording': program.recorded_video.status === 'Recording' }">
         <div class="recorded-program__container">
             <div class="recorded-program__thumbnail">
                 <img class="recorded-program__thumbnail-image" :src="`${Utils.api_base_url}/videos/${program.id}/thumbnail`">
+                <div class="recorded-program__thumbnail-duration">{{ProgramUtils.getProgramDuration(program)}}</div>
+                <div v-if="program.recorded_video.status === 'Recording'" class="recorded-program__thumbnail-status recorded-program__thumbnail-status--recording">
+                    <div class="recorded-program__thumbnail-status-dot"></div>
+                    録画中
+                </div>
+                <div v-else-if="program.is_partially_recorded" class="recorded-program__thumbnail-status recorded-program__thumbnail-status--partial">
+                    ⚠️ 一部のみ録画
+                </div>
             </div>
             <div class="recorded-program__content">
                 <div class="recorded-program__content-title"
@@ -28,11 +36,23 @@
                     <path fill="currentColor" d="M8 2.5a.5.5 0 0 0-1 0V7H2.5a.5.5 0 0 0 0 1H7v4.5a.5.5 0 0 0 1 0V8h4.5a.5.5 0 0 0 0-1H8z"></path>
                 </svg>
             </div>
+            <div v-ripple class="recorded-program__info"
+                v-ftooltip="'録画ファイル情報を見る'"
+                @click.prevent.stop="show_video_info = true"
+                @mousedown.prevent.stop="">
+                <svg width="19px" height="19px" viewBox="0 0 16 16">
+                    <path fill="currentColor" d="M8.499 7.5a.5.5 0 1 0-1 0v3a.5.5 0 0 0 1 0zm.25-2a.749.749 0 1 1-1.499 0a.749.749 0 0 1 1.498 0M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1M2 8a6 6 0 1 1 12 0A6 6 0 0 1 2 8"></path>
+                </svg>
+            </div>
         </div>
     </router-link>
+    <RecordedFileInfoDialog :program="program" v-model:show="show_video_info" />
 </template>
 <script lang="ts" setup>
 
+import { ref } from 'vue';
+
+import RecordedFileInfoDialog from '@/components/Videos/Dialogs/RecordedFileInfoDialog.vue';
 import Message from '@/message';
 import { IRecordedProgram } from '@/services/Videos';
 import Utils, { ProgramUtils } from '@/utils';
@@ -41,6 +61,9 @@ import Utils, { ProgramUtils } from '@/utils';
 defineProps<{
     program: IRecordedProgram;
 }>();
+
+// ファイル情報ダイアログの表示状態
+const show_video_info = ref(false);
 
 </script>
 <style lang="scss" scoped>
@@ -94,8 +117,10 @@ defineProps<{
         aspect-ratio: 16 / 9;
         height: 100%;
         overflow: hidden;
+        position: relative;
         @include smartphone-vertical {
             width: 120px;
+            height: auto;
             aspect-ratio: 3 / 2;
         }
 
@@ -106,6 +131,53 @@ defineProps<{
             object-fit: cover;
             @include smartphone-vertical {
                 aspect-ratio: 3 / 2;
+            }
+        }
+
+        &-duration {
+            position: absolute;
+            right: 4px;
+            bottom: 4px;
+            padding: 3px 4px;
+            border-radius: 2px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            font-size: 11px;
+            line-height: 1;
+            @include smartphone-vertical {
+                font-size: 10.5px;
+            }
+        }
+
+        &-status {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            padding: 4px 6px;
+            border-radius: 2px;
+            font-size: 10.5px;
+            font-weight: 700;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+
+            &--recording {
+                background: rgb(var(--v-theme-secondary));
+                color: #fff;
+            }
+
+            &--partial {
+                background: rgb(var(--v-theme-secondary-darken-1));
+                color: #fff;
+            }
+
+            &-dot {
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                background: #ff4444;
+                animation: blink 1s infinite;
             }
         }
     }
@@ -126,13 +198,13 @@ defineProps<{
         }
         @include smartphone-vertical {
             margin-left: 12px;
-            margin-right: 14px;
+            margin-right: 0px;
         }
 
         &-title {
             display: -webkit-box;
             font-size: 17px;
-            font-weight: 700;
+            font-weight: 600;
             font-feature-settings: "palt" 1;  // 文字詰め
             letter-spacing: 0.07em;  // 字間を少し空ける
             overflow: hidden;
@@ -262,6 +334,7 @@ defineProps<{
             }
             @include smartphone-vertical {
                 margin-top: 1.5px;
+                margin-right: 24px;
                 font-size: 11px;
                 -webkit-line-clamp: 1;  // 1行までに制限
             }
@@ -340,6 +413,109 @@ defineProps<{
             }
         }
     }
+
+    &__info {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        position: absolute;
+        right: 12px;
+        bottom: 8px;
+        width: 32px;
+        height: 32px;
+        color: rgb(var(--v-theme-text-darken-1));
+        border-radius: 50%;
+        transition: color 0.15s ease, background-color 0.15s ease;
+        user-select: none;
+        @include tablet-vertical {
+            right: 6px;
+            width: 28px;
+            height: 28px;
+            svg {
+                width: 18px;
+                height: 18px;
+            }
+        }
+        @include smartphone-horizontal {
+            right: 6px;
+            width: 28px;
+            height: 28px;
+            svg {
+                width: 18px;
+                height: 18px;
+            }
+        }
+        @include smartphone-vertical {
+            right: 4px;
+            width: 28px;
+            height: 28px;
+            svg {
+                width: 18px;
+                height: 18px;
+            }
+        }
+
+        &:before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: inherit;
+            background-color: currentColor;
+            color: inherit;
+            opacity: 0;
+            transition: opacity 0.2s cubic-bezier(0.4, 0, 0.6, 1);
+            pointer-events: none;
+        }
+        &:hover {
+            color: rgb(var(--v-theme-text));
+            &:before {
+                opacity: 0.15;
+            }
+        }
+        // タッチデバイスで hover を無効にする
+        @media (hover: none) {
+            &:hover {
+                &:before {
+                    opacity: 0;
+                }
+            }
+        }
+    }
+
+    &--recording {
+        pointer-events: none;
+        opacity: 0.7;
+    }
+}
+
+.video-info {
+    &__item {
+        display: flex;
+        margin-top: 8px;
+
+        &-label {
+            flex-shrink: 0;
+            width: 140px;
+            color: rgb(var(--v-theme-text-darken-1));
+            font-size: 14px;
+        }
+
+        &-value {
+            flex-grow: 1;
+            font-size: 14px;
+            word-break: break-all;
+        }
+    }
+}
+
+@keyframes blink {
+    0% { opacity: 0; }
+    50% { opacity: 1; }
+    100% { opacity: 0; }
 }
 
 </style>

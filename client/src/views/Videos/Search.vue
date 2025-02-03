@@ -10,9 +10,18 @@
                     :total="total_programs"
                     :page="current_page"
                     :sortOrder="sort_order"
+                    :isLoading="is_loading"
+                    :showBackButton="true"
+                    :breadcrumbs="[
+                        { name: 'ビデオをみる', path: '/videos/' },
+                        { name: '検索結果', path: `/videos/search?query=${encodeURIComponent(query)}` },
+                    ]"
                     @update:page="updatePage"
                     @update:sortOrder="updateSortOrder"
-                    :emptyMessage="`「${query}」に一致する録画番組は見つかりませんでした。`" />
+                    :emptyMessage="`「${query}」に一致する録画番組は見つかりませんでした。`"
+                    :emptySubMessage="'別のキーワードで検索をお試しください。'"
+                    :showEmptyMessage="!is_loading"
+                    v-if="!is_loading || programs.length > 0" />
             </div>
         </main>
     </div>
@@ -38,6 +47,7 @@ const query = ref('');
 // 録画番組のリスト
 const programs = ref<IRecordedProgram[]>([]);
 const total_programs = ref(0);
+const is_loading = ref(true);
 
 // 現在のページ番号
 const current_page = ref(1);
@@ -52,11 +62,13 @@ const searchPrograms = async () => {
         programs.value = result.recorded_programs;
         total_programs.value = result.total;
     }
+    is_loading.value = false;
 };
 
 // ページを更新
 const updatePage = async (page: number) => {
     current_page.value = page;
+    is_loading.value = true;
     await router.replace({
         query: {
             ...route.query,
@@ -69,6 +81,7 @@ const updatePage = async (page: number) => {
 const updateSortOrder = async (order: 'desc' | 'asc') => {
     sort_order.value = order;
     current_page.value = 1;  // ページを1に戻す
+    is_loading.value = true;
     await router.replace({
         query: {
             ...route.query,

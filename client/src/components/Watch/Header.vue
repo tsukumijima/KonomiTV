@@ -1,7 +1,7 @@
 <template>
     <header class="watch-header" :class="{'watch-header--video': playback_mode === 'Video'}">
         <router-link class="watch-header__back-icon" v-ripple :to="playback_mode === 'Live' ? '/tv/' : '/videos/'">
-            <Icon icon="fluent:arrow-left-12-filled" width="25px" />
+            <Icon icon="fluent:chevron-left-12-filled" width="21px" />
         </router-link>
         <img class="watch-header__broadcaster" v-if="playback_mode === 'Live'"
             :src="`${Utils.api_base_url}/channels/${channelsStore.channel.current.id}/logo`">
@@ -126,9 +126,9 @@ export default defineComponent({
             flex-shrink: 0;
             width: 40px;
             height: 40px;
-            left: -6px;
+            left: -8px;
             padding: 6px;
-            margin-right: 2px;
+            margin-right: -3px;
             border-radius: 50%;
             color: rgb(var(--v-theme-text));
         }
@@ -140,9 +140,9 @@ export default defineComponent({
             flex-shrink: 0;
             width: 36px;
             height: 36px;
-            left: -6px;
+            left: -8px;
             padding: 6px;
-            margin-right: 2px;
+            margin-right: -3px;
             border-radius: 50%;
             color: rgb(var(--v-theme-text));
         }
@@ -154,9 +154,9 @@ export default defineComponent({
             flex-shrink: 0;
             width: 36px;
             height: 36px;
-            left: -6px;
+            left: -8px;
             padding: 6px;
-            margin-right: 2px;
+            margin-right: -6px;
             border-radius: 50%;
             color: rgb(var(--v-theme-text));
         }

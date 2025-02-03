@@ -114,7 +114,7 @@ class RecordedVideo(PydanticModel):
     secondary_audio_codec: Literal['AAC-LC'] | None = None
     secondary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] | None = None
     secondary_audio_sampling_rate: int | None = None
-    key_frames: list[KeyFrame] = []
+    # key_frames は量が多い上にフロントエンドでは必要ないのでレスポンスに載せない
     cm_sections: list[CMSection] = []
     created_at: datetime
     updated_at: datetime

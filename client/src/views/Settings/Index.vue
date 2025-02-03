@@ -7,7 +7,7 @@
                 <nav class="settings-navigation">
                     <h1 class="mt-2 d-flex align-center" style="font-size: 24px;">
                         <a v-ripple class="settings-navigation__back-button" @click="$router.back()">
-                            <Icon icon="fluent:arrow-left-12-filled" width="25px" />
+                            <Icon icon="fluent:chevron-left-12-filled" width="27px" />
                         </a>
                         <span>設定</span>
                     </h1>
@@ -108,13 +108,19 @@ import Navigation from '@/components/Navigation.vue';
         .settings-navigation__back-button {
             display: none;
             position: relative;
-            left: -6px;
+            left: -8px;
             padding: 6px;
             border-radius: 50%;
             color: rgb(var(--v-theme-text));
             cursor: pointer;
             @include smartphone-vertical {
                 display: flex;
+            }
+
+            + span {
+                @include smartphone-vertical {
+                    margin-left: -4px;
+                }
             }
         }
 
