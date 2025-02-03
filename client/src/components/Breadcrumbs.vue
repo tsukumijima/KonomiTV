@@ -1,5 +1,5 @@
 <template>
-    <div class="breadcrumbs" v-if="crumbs && !Utils.isSmartphoneVertical()">
+    <div class="breadcrumbs" v-if="crumbs">
         <router-link v-for="(crumb, index) in crumbs" :key="index" :to="crumb.path">
             {{crumb.name}}
             <Icon v-if="index < crumbs.length - 1" icon="fluent:chevron-right-12-regular" width="16px" class="mx-1" />
@@ -8,7 +8,6 @@
 </template>
 <script lang="ts" setup>
 
-import Utils from '@/utils';
 
 // Props
 defineProps<{
@@ -24,6 +23,9 @@ defineProps<{
     margin-bottom: 8px;
     font-size: 13px;
     color: rgb(var(--v-theme-text-darken-1));
+    @include smartphone-vertical {
+        display: none;
+    }
 
     a {
         display: flex;

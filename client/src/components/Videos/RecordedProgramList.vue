@@ -205,19 +205,15 @@ const handleKeyDown = (event: KeyboardEvent) => {
             border-radius: 50%;
             color: rgb(var(--v-theme-text));
             cursor: pointer;
-            @include tablet-vertical {
-                display: flex;
-            }
-            @include smartphone-horizontal {
-                display: flex;
-            }
             @include smartphone-vertical {
                 display: flex;
             }
 
 
             & + .recorded-program-list__title-text {
-                margin-left: -8px;
+                @include smartphone-vertical {
+                    margin-left: -8px;
+                }
             }
         }
 

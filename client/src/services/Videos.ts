@@ -29,7 +29,6 @@ export interface IRecordedVideo {
     secondary_audio_codec: 'AAC-LC' | null;
     secondary_audio_channel: 'Monaural' | 'Stereo' | '5.1ch' | null;
     secondary_audio_sampling_rate: number | null;
-    key_frames: { offset: number; dts: number; }[];
     cm_sections: { start_time: number; end_time: number; }[];
     created_at: string;
     updated_at: string;
@@ -60,7 +59,6 @@ export const IRecordedVideoDefault: IRecordedVideo = {
     secondary_audio_codec: null,
     secondary_audio_channel: null,
     secondary_audio_sampling_rate: null,
-    key_frames: [],
     cm_sections: [],
     created_at: '2000-01-01T00:00:00+09:00',
     updated_at: '2000-01-01T00:00:00+09:00',

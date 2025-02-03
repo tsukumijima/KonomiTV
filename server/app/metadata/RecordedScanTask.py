@@ -385,7 +385,6 @@ class RecordedScanTask:
             db_recorded_video.secondary_audio_codec = recorded_program.recorded_video.secondary_audio_codec
             db_recorded_video.secondary_audio_channel = recorded_program.recorded_video.secondary_audio_channel
             db_recorded_video.secondary_audio_sampling_rate = recorded_program.recorded_video.secondary_audio_sampling_rate
-            db_recorded_video.key_frames = recorded_program.recorded_video.key_frames
             db_recorded_video.cm_sections = recorded_program.recorded_video.cm_sections
             await db_recorded_video.save()
 
