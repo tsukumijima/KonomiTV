@@ -3,29 +3,32 @@
         <HeaderBar />
         <main>
             <Navigation />
-            <div class="videos-search-container">
-                <Breadcrumbs :crumbs="[
-                    { name: 'ビデオをみる', path: '/videos/' },
-                    { name: '検索結果', path: `/videos/search?query=${encodeURIComponent(query)}`, disabled: true },
-                ]" />
-                <RecordedProgramList
-                    :title="`「${query}」の検索結果`"
-                    :programs="programs"
-                    :total="total_programs"
-                    :page="current_page"
-                    :sortOrder="sort_order"
-                    :isLoading="is_loading"
-                    :showBackButton="true"
-                    :breadcrumbs="[
+            <div class="videos-search-container-wrapper">
+                <SPHeaderBar />
+                <div class="videos-search-container">
+                    <Breadcrumbs :crumbs="[
                         { name: 'ビデオをみる', path: '/videos/' },
-                        { name: '検索結果', path: `/videos/search?query=${encodeURIComponent(query)}` },
-                    ]"
-                    @update:page="updatePage"
-                    @update:sortOrder="updateSortOrder"
-                    :emptyMessage="`「${query}」に一致する録画番組は見つかりませんでした。`"
-                    :emptySubMessage="'別のキーワードで検索をお試しください。'"
-                    :showEmptyMessage="!is_loading"
-                    v-if="!is_loading || programs.length > 0" />
+                        { name: '検索結果', path: `/videos/search?query=${encodeURIComponent(query)}`, disabled: true },
+                    ]" />
+                    <RecordedProgramList
+                        :title="Utils.isSmartphoneVertical() ? '検索結果' : `「${query}」の検索結果`"
+                        :programs="programs"
+                        :total="total_programs"
+                        :page="current_page"
+                        :sortOrder="sort_order"
+                        :isLoading="is_loading"
+                        :showBackButton="true"
+                        :breadcrumbs="[
+                            { name: 'ビデオをみる', path: '/videos/' },
+                            { name: '検索結果', path: `/videos/search?query=${encodeURIComponent(query)}` },
+                        ]"
+                        @update:page="updatePage"
+                        @update:sortOrder="updateSortOrder"
+                        :emptyMessage="`「${query}」に一致する録画番組は見つかりませんでした。`"
+                        :emptySubMessage="'別のキーワードで検索をお試しください。'"
+                        :showEmptyMessage="!is_loading"
+                        v-if="!is_loading || programs.length > 0" />
+                </div>
             </div>
         </main>
     </div>
@@ -38,9 +41,11 @@ import { useRoute, useRouter } from 'vue-router';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
+import SPHeaderBar from '@/components/SPHeaderBar.vue';
 import RecordedProgramList from '@/components/Videos/RecordedProgramList.vue';
 import { IRecordedProgram } from '@/services/Videos';
 import Videos from '@/services/Videos';
+import Utils from '@/utils';
 
 // ルーター
 const route = useRoute();
@@ -124,6 +129,12 @@ onMounted(async () => {
 </script>
 <style lang="scss" scoped>
 
+.videos-search-container-wrapper {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
 .videos-search-container {
     display: flex;
     flex-direction: column;
@@ -140,6 +151,7 @@ onMounted(async () => {
     }
     @include smartphone-vertical {
         padding: 16px 8px !important;
+        padding-top: 8px !important;
     }
 }
 

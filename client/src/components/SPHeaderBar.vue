@@ -1,6 +1,6 @@
 <template>
-    <header class="header" :class="{ 'search-active': is_search_active }">
-        <template v-if="!is_search_active">
+    <header class="header" :class="{ 'search-active': isSearchActive }">
+        <template v-if="!isSearchActive">
             <router-link v-ripple class="konomitv-logo" to="/tv/">
                 <img class="konomitv-logo__image" src="/assets/images/logo.svg" height="21">
             </router-link>
@@ -11,8 +11,11 @@
         </template>
         <template v-else>
             <div class="search-box">
-                <input ref="search_input" type="text" :placeholder="search_placeholder"
-                    v-model="search_query" @keydown="handleKeyDown">
+                <div class="search-box__icon">
+                    <Icon icon="fluent:search-20-filled" height="20px" />
+                </div>
+                <input ref="searchInput" type="text" :placeholder="searchPlaceholder"
+                    v-model="searchQuery" @keydown="handleKeyDown">
                 <div v-ripple class="search-box__close" @click="deactivateSearch">
                     <Icon icon="fluent:dismiss-20-filled" height="24px" />
                 </div>
@@ -22,66 +25,70 @@
 </template>
 <script lang="ts" setup>
 
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 
 const router = useRouter();
 const route = useRoute();
-const is_search_active = ref(false);
-const search_query = ref('');
-const search_input = ref<HTMLInputElement | null>(null);
 
-const search_placeholder = computed(() => {
+// 検索入力フィールドの参照
+const searchInput = ref<HTMLInputElement | null>(null);
+
+// 検索窓の表示状態
+const isSearchActive = ref(false);
+
+// 検索クエリ
+const searchQuery = ref('');
+
+// 検索プレースホルダー
+const searchPlaceholder = computed(() => {
     return route.path.startsWith('/videos') || route.path.startsWith('/mylist') || route.path.startsWith('/viewing-history')
         ? '録画番組を検索...'
         : '放送予定の番組を検索...';
 });
 
+// 検索パスを取得
 const getSearchPath = () => {
     return route.path.startsWith('/videos') || route.path.startsWith('/mylist') || route.path.startsWith('/viewing-history')
         ? '/videos/search'
         : '/tv/search';
 };
 
+// 検索窓を開く
 const activateSearch = () => {
-    is_search_active.value = true;
+    isSearchActive.value = true;
     // 次のティックで入力フォーカスを設定
     setTimeout(() => {
-        search_input.value?.focus();
+        searchInput.value?.focus();
     }, 0);
 };
 
+// 検索窓を閉じる
 const deactivateSearch = () => {
-    is_search_active.value = false;
-    search_query.value = '';
+    isSearchActive.value = false;
+    searchQuery.value = '';
 };
 
+// キーボードイベントの処理
 const handleKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Enter' && !event.isComposing) {
-        if (search_query.value.trim()) {
-            const search_path = getSearchPath();
-            router.push(`${search_path}?query=${encodeURIComponent(search_query.value.trim())}`);
+        if (searchQuery.value.trim()) {
+            const searchPath = getSearchPath();
+            router.push(`${searchPath}?query=${encodeURIComponent(searchQuery.value.trim())}`);
         }
     } else if (event.key === 'Escape') {
         deactivateSearch();
     }
 };
 
-// 検索クエリの初期化関数
-const initialize_search_query = () => {
-    if (route.path.endsWith('/search') && route.query.query) {
-        search_query.value = decodeURIComponent(route.query.query as string);
-        is_search_active.value = true;
-    }
-};
-
 // コンポーネントのマウント時に初期化
 onMounted(() => {
-    initialize_search_query();
+    // 検索ページにいる場合は検索状態を初期化
+    if (route.path.endsWith('/search') && route.query.query) {
+        searchQuery.value = decodeURIComponent(route.query.query as string);
+        isSearchActive.value = true;
+    }
 });
-
-// ルートの変更を監視して検索クエリを更新
-watch(() => route.fullPath, initialize_search_query);
 
 </script>
 <style lang="scss" scoped>
@@ -133,12 +140,20 @@ watch(() => route.fullPath, initialize_search_query);
         padding: 0 16px;
         padding-top: 14px;
 
+        &__icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 8px;
+            color: rgb(var(--v-theme-text-darken-1));
+        }
+
         input {
             flex-grow: 1;
             height: 100%;
             border: none;
             background: transparent;
-            color: rgb(var(--v-theme-text-darken-1));
+            color: rgb(var(--v-theme-text));
             font-size: 16px;
 
             &:focus {

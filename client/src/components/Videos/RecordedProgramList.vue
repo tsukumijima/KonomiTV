@@ -127,6 +127,7 @@ const sort_order = ref(props.sortOrder);
     &__title {
         display: flex;
         align-items: center;
+        position: relative;
         font-size: 24px;
         font-weight: 700;
         padding-top: 8px;
@@ -138,7 +139,7 @@ const sort_order = ref(props.sortOrder);
 
         &-back {
             display: none;
-            position: relative;
+            position: absolute;
             left: -8px;
             padding: 6px;
             border-radius: 50%;
@@ -150,7 +151,7 @@ const sort_order = ref(props.sortOrder);
 
             & + .recorded-program-list__title-text {
                 @include smartphone-vertical {
-                    margin-left: -8px;
+                    margin-left: 32px;
                 }
             }
         }
@@ -171,14 +172,13 @@ const sort_order = ref(props.sortOrder);
         display: flex;
         align-items: center;
         margin-left: auto;
-        @include smartphone-vertical {
-            :deep(.v-field) {
-                padding-right: 4px !important;
-            }
-            :deep(.v-field__input) {
-                padding-left: 12px !important;
-                padding-right: 0px !important;
-            }
+        width: 103px;
+        :deep(.v-field) {
+            padding-right: 4px !important;
+        }
+        :deep(.v-field__input) {
+            padding-left: 12px !important;
+            padding-right: 0px !important;
         }
     }
 
@@ -192,12 +192,13 @@ const sort_order = ref(props.sortOrder);
     }
 
     &__more {
-        margin-left: 8px;
-        margin-right: -4px;
-        margin-bottom: 8px;
-        padding: 0px 12px;
+        margin-bottom: 12px;
+        padding: 0px 10px;
         font-size: 15px;
         letter-spacing: 0.05em;
+        @include smartphone-vertical {
+            margin-bottom: 6px;
+        }
     }
 
     &__grid {
