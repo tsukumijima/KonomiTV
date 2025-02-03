@@ -30,7 +30,7 @@
                 </svg>
             </div>
             <div v-ripple class="recorded-program__info"
-                v-ftooltip="'ファイル情報を見る'"
+                v-ftooltip="'録画ファイル情報を見る'"
                 @click.prevent.stop="show_video_info = true"
                 @mousedown.prevent.stop="">
                 <svg width="19px" height="19px" viewBox="0 0 16 16">
@@ -63,11 +63,15 @@
                     <div class="video-info__item-value">{{Utils.formatBytes(program.recorded_video.file_size)}}</div>
                 </div>
                 <div class="video-info__item">
-                    <div class="video-info__item-label">録画時刻</div>
+                    <div class="video-info__item-label">録画期間</div>
                     <div class="video-info__item-value">
-                        {{dayjs(program.recorded_video.recording_start_time).format('YYYY/MM/DD (dd) HH:mm:ss')}} 〜
-                        {{dayjs(program.recorded_video.recording_end_time).format('HH:mm:ss')}}
-                        ({{ProgramUtils.getProgramDuration(program, true)}})
+                        {{ProgramUtils.getRecordingTime(program)}}
+                    </div>
+                </div>
+                <div class="video-info__item">
+                    <div class="video-info__item-label">最終更新日時</div>
+                    <div class="video-info__item-value">
+                        {{dayjs(program.recorded_video.file_modified_at).format('YYYY/MM/DD (dd) HH:mm:ss')}}
                     </div>
                 </div>
                 <div class="text-subtitle-1 d-flex align-center font-weight-bold mt-3">
@@ -200,6 +204,7 @@ const show_video_info = ref(false);
         position: relative;
         @include smartphone-vertical {
             width: 120px;
+            height: auto;
             aspect-ratio: 3 / 2;
         }
 
@@ -245,7 +250,7 @@ const show_video_info = ref(false);
         }
         @include smartphone-vertical {
             margin-left: 12px;
-            margin-right: 14px;
+            margin-right: 0px;
         }
 
         &-title {
@@ -381,6 +386,7 @@ const show_video_info = ref(false);
             }
             @include smartphone-vertical {
                 margin-top: 1.5px;
+                margin-right: 24px;
                 font-size: 11px;
                 -webkit-line-clamp: 1;  // 1行までに制限
             }
@@ -466,9 +472,8 @@ const show_video_info = ref(false);
         justify-content: center;
         flex-shrink: 0;
         position: absolute;
-        top: calc(50% + 36px);
         right: 12px;
-        transform: translateY(-50%);
+        bottom: 8px;
         width: 32px;
         height: 32px;
         color: rgb(var(--v-theme-text-darken-1));

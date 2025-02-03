@@ -12,9 +12,9 @@
                     <v-btn v-if="showMoreButton && Utils.isSmartphoneVertical()"
                         variant="text"
                         class="px-2"
-                        style="min-width: 24px; border-radius: 50%;"
+                        style="min-width: 24px; border-radius: 50%; padding: 0px 5.5px !important;"
                         @click="$emit('more')">
-                        <Icon icon="fluent:chevron-right-12-regular" width="24px" class="text-text-darken-1" style="margin: 0px 0px;" />
+                        <Icon icon="fluent:chevron-right-12-filled" width="25px" class="text-text-darken-1" style="margin: 0px 0px;" />
                     </v-btn>
                 </template>
                 <div v-else class="recorded-program-list__search">

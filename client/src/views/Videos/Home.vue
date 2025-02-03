@@ -5,7 +5,7 @@
             <Navigation />
             <div class="videos-home-container">
                 <RecordedProgramList
-                    title="最近の録画番組"
+                    title="新着の録画番組"
                     :programs="recent_programs"
                     :total="total_programs"
                     :hideSort="true"
