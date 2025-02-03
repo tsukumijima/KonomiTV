@@ -17,6 +17,7 @@ from typing import Annotated, Literal, Union
 from app import logging
 from app import schemas
 from app.constants import STATIC_DIR, THUMBNAILS_DIR
+from app.metadata.ThumbnailGenerator import ThumbnailGenerator
 from app.models.RecordedProgram import RecordedProgram
 from app.utils.Jikkyo import Jikkyo
 
@@ -250,7 +251,7 @@ async def VideoJikkyoCommentsAPI(
     recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
 ):
     """
-    指定された録画番組の放送中に投稿されたニコニコ実況の過去ログコメントを取得する。
+    指定された録画番組の放送中に投稿されたニコニコ実況の過去ログコメントを取得する。<br>
     ニコニコ実況 過去ログ API をラップし、DPlayer が受け付けるコメント形式に変換して返す。
     """
 
@@ -290,7 +291,7 @@ async def VideoThumbnailAPI(
     recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
 ):
     """
-    指定された録画番組のサムネイル画像を取得する。
+    指定された録画番組のサムネイル画像を取得する。<br>
     サムネイルが生成されていない場合はデフォルト画像を返す。
     """
 
@@ -298,9 +299,9 @@ async def VideoThumbnailAPI(
 
 
 @router.get(
-    '/{video_id}/thumbnail-tile',
-    summary = '録画番組シークバーサムネイル API',
-    response_description = '録画番組のシークバーサムネイル画像 (WebP) 。',
+    '/{video_id}/thumbnail/tile',
+    summary = '録画番組シークバー向けサムネイルタイル API',
+    response_description = '録画番組のシークバー向けサムネイルタイル画像 (WebP) 。',
     response_class = FileResponse,
     responses = {
         200: {'content': {'image/webp': {}}},
@@ -313,8 +314,45 @@ async def VideoThumbnailTileAPI(
     recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
 ):
     """
-    指定された録画番組のシークバーサムネイル画像を取得する。
+    指定された録画番組のシークバーサムネイル画像を取得する。<br>
     サムネイルが生成されていない場合はデフォルト画像を返す。
     """
 
     return await GetThumbnailResponse(request, recorded_program, is_tile=True)
+
+
+@router.post(
+    '/{video_id}/thumbnail/regenerate',
+    summary = 'サムネイル再生成 API',
+    response_description = 'サムネイル再生成のステータス。',
+    response_model = schemas.ThumbnailRegenerationStatus,
+)
+async def VideoThumbnailRegenerateAPI(
+    recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
+):
+    """
+    指定された録画番組のサムネイルを再生成する。<br>
+    サムネイル生成には数分程度かかる場合がある。
+    """
+
+    try:
+        # RecordedProgram モデルを schemas.RecordedProgram に変換
+        recorded_program_schema = schemas.RecordedProgram.model_validate(recorded_program, from_attributes=True)
+
+        # ThumbnailGenerator を初期化
+        generator = ThumbnailGenerator.fromRecordedProgram(recorded_program_schema)
+
+        # サムネイル生成を実行
+        await generator.generate()
+
+        return {
+            'is_success': True,
+            'detail': 'Successfully regenerated thumbnails.',
+        }
+
+    except Exception as ex:
+        logging.error(f'Failed to regenerate thumbnails for video_id {recorded_program.id}:', exc_info=ex)
+        return {
+            'is_success': False,
+            'detail': f'Failed to regenerate thumbnails: {ex!s}',
+        }
