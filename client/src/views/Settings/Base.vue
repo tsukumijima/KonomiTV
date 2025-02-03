@@ -174,7 +174,7 @@ export default defineComponent({
             .settings__back-button {
                 display: none;
                 position: relative;
-                left: -6px;
+                left: -8px;
                 padding: 6px;
                 border-radius: 50%;
                 color: rgb(var(--v-theme-text));
@@ -204,13 +204,13 @@ export default defineComponent({
 
             .settings__back-button + svg + span {
                 @include tablet-vertical {
-                    margin-left: 0px !important;
+                    margin-left: -4px !important;
                 }
                 @include smartphone-horizontal {
-                    margin-left: 0px !important;
+                    margin-left: -4px !important;
                 }
                 @include smartphone-vertical {
-                    margin-left: 0px !important;
+                    margin-left: -4px !important;
                 }
             }
         }

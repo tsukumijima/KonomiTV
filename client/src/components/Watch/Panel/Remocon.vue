@@ -33,7 +33,7 @@
                         <span class="ml-1">データ</span>
                     </button>
                     <button v-ripple class="remote-control-button-back" data-arib-key-code="19">
-                        <Icon icon="fluent:arrow-left-12-filled" width="20px" />
+                        <Icon icon="fluent:chevron-left-12-filled" width="20px" />
                         <span class="ml-1">戻る</span>
                     </button>
                     <button v-ripple class="remote-control-button-blue bg-blue-darken-3" data-arib-key-code="21">青</button>

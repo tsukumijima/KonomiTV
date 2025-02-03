@@ -4,10 +4,10 @@
         <div class="recorded-program-list__header" v-if="!hideHeader">
             <h2 class="recorded-program-list__title" :class="{'recorded-program-list__title--search-active': is_search_active}">
                 <div v-if="showBackButton" v-ripple class="recorded-program-list__title-back" @click="$router.push('/videos/')">
-                    <Icon icon="fluent:chevron-left-24-regular" width="24px" />
+                    <Icon icon="fluent:chevron-left-12-filled" width="27px" />
                 </div>
                 <template v-if="!is_search_active">
-                    {{title}}
+                    <span class="recorded-program-list__title-text">{{title}}</span>
                     <div class="recorded-program-list__title-count" v-if="!showMoreButton">{{total}}件</div>
                     <v-btn v-if="showMoreButton && Utils.isSmartphoneVertical()"
                         variant="text"
@@ -184,6 +184,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
     &__title {
         display: flex;
         align-items: end;
+        height: 36px;
         font-size: 24px;
         font-weight: 700;
         margin-top: 8px;
@@ -197,9 +198,10 @@ const handleKeyDown = (event: KeyboardEvent) => {
         &-back {
             display: none;
             position: relative;
-            left: -6px;
+            left: -8px;
+            bottom: -1px;
             padding: 6px;
-            margin-right: 4px;
+            margin-top: 2px;
             border-radius: 50%;
             color: rgb(var(--v-theme-text));
             cursor: pointer;
@@ -211,6 +213,11 @@ const handleKeyDown = (event: KeyboardEvent) => {
             }
             @include smartphone-vertical {
                 display: flex;
+            }
+
+
+            & + .recorded-program-list__title-text {
+                margin-left: -8px;
             }
         }
 

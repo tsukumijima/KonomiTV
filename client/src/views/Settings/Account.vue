@@ -3,7 +3,7 @@
     <SettingsBase>
         <h2 class="settings__heading">
             <a v-ripple class="settings__back-button" @click="$router.back()">
-                <Icon icon="fluent:arrow-left-12-filled" width="25px" />
+                <Icon icon="fluent:chevron-left-12-filled" width="27px" />
             </a>
             <Icon icon="fluent:person-20-filled" width="25px" />
             <span class="ml-2">アカウント</span>
