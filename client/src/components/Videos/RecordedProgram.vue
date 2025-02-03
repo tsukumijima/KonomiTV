@@ -3,6 +3,7 @@
         <div class="recorded-program__container">
             <div class="recorded-program__thumbnail">
                 <img class="recorded-program__thumbnail-image" :src="`${Utils.api_base_url}/videos/${program.id}/thumbnail`">
+                <div class="recorded-program__thumbnail-duration">{{ProgramUtils.getProgramDuration(program)}}</div>
             </div>
             <div class="recorded-program__content">
                 <div class="recorded-program__content-title"
@@ -28,19 +29,121 @@
                     <path fill="currentColor" d="M8 2.5a.5.5 0 0 0-1 0V7H2.5a.5.5 0 0 0 0 1H7v4.5a.5.5 0 0 0 1 0V8h4.5a.5.5 0 0 0 0-1H8z"></path>
                 </svg>
             </div>
+            <div v-ripple class="recorded-program__info"
+                v-ftooltip="'ファイル情報を見る'"
+                @click.prevent.stop="show_video_info = true"
+                @mousedown.prevent.stop="">
+                <svg width="19px" height="19px" viewBox="0 0 16 16">
+                    <path fill="currentColor" d="M8.499 7.5a.5.5 0 1 0-1 0v3a.5.5 0 0 0 1 0zm.25-2a.749.749 0 1 1-1.499 0a.749.749 0 0 1 1.498 0M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1M2 8a6 6 0 1 1 12 0A6 6 0 0 1 2 8"></path>
+                </svg>
+            </div>
         </div>
     </router-link>
+    <v-dialog max-width="770" transition="slide-y-transition" v-model="show_video_info">
+        <v-card class="video-info">
+            <v-card-title class="px-5 pt-6 pb-3 d-flex align-center font-weight-bold" style="height: 60px;">
+                <Icon icon="fluent:document-20-filled" height="26px" />
+                <span class="ml-3">録画ファイル情報</span>
+                <v-spacer></v-spacer>
+                <div v-ripple class="d-flex align-center rounded-circle cursor-pointer px-2 py-2" @click="show_video_info = false">
+                    <Icon icon="fluent:dismiss-12-filled" width="23px" height="23px" />
+                </div>
+            </v-card-title>
+            <div class="px-5 pb-6">
+                <div class="text-subtitle-1 d-flex align-center font-weight-bold mt-2">
+                    <Icon icon="fluent:video-clip-20-filled" width="24px" height="20px" />
+                    <span class="ml-2">ファイル情報</span>
+                </div>
+                <div class="video-info__item">
+                    <div class="video-info__item-label">ファイルパス</div>
+                    <div class="video-info__item-value">{{program.recorded_video.file_path}}</div>
+                </div>
+                <div class="video-info__item">
+                    <div class="video-info__item-label">ファイルサイズ</div>
+                    <div class="video-info__item-value">{{Utils.formatBytes(program.recorded_video.file_size)}}</div>
+                </div>
+                <div class="video-info__item">
+                    <div class="video-info__item-label">録画時刻</div>
+                    <div class="video-info__item-value">
+                        {{dayjs(program.recorded_video.recording_start_time).format('YYYY/MM/DD (dd) HH:mm:ss')}} 〜
+                        {{dayjs(program.recorded_video.recording_end_time).format('HH:mm:ss')}}
+                        ({{ProgramUtils.getProgramDuration(program, true)}})
+                    </div>
+                </div>
+                <div class="text-subtitle-1 d-flex align-center font-weight-bold mt-3">
+                    <Icon icon="fluent:video-20-filled" width="24px" height="20px" />
+                    <span class="ml-2">映像情報</span>
+                </div>
+                <div class="video-info__item">
+                    <div class="video-info__item-label">コーデック</div>
+                    <div class="video-info__item-value">{{program.recorded_video.video_codec}} ({{program.recorded_video.video_codec_profile}})</div>
+                </div>
+                <div class="video-info__item">
+                    <div class="video-info__item-label">解像度</div>
+                    <div class="video-info__item-value">{{program.recorded_video.video_resolution_width}}×{{program.recorded_video.video_resolution_height}}</div>
+                </div>
+                <div class="video-info__item">
+                    <div class="video-info__item-label">フレームレート</div>
+                    <div class="video-info__item-value">{{program.recorded_video.video_frame_rate}} fps</div>
+                </div>
+                <div class="video-info__item">
+                    <div class="video-info__item-label">スキャン方式</div>
+                    <div class="video-info__item-value">{{program.recorded_video.video_scan_type}}</div>
+                </div>
+                <div class="text-subtitle-1 d-flex align-center font-weight-bold mt-3">
+                    <Icon icon="fluent:speaker-2-20-filled" width="24px" height="20px" />
+                    <span class="ml-2">音声情報（主音声）</span>
+                </div>
+                <div class="video-info__item">
+                    <div class="video-info__item-label">コーデック</div>
+                    <div class="video-info__item-value">{{program.recorded_video.primary_audio_codec}}</div>
+                </div>
+                <div class="video-info__item">
+                    <div class="video-info__item-label">チャンネル</div>
+                    <div class="video-info__item-value">{{program.recorded_video.primary_audio_channel}}</div>
+                </div>
+                <div class="video-info__item">
+                    <div class="video-info__item-label">サンプリングレート</div>
+                    <div class="video-info__item-value">{{program.recorded_video.primary_audio_sampling_rate ? `${program.recorded_video.primary_audio_sampling_rate / 1000}kHz` : '不明'}}</div>
+                </div>
+
+                <div v-if="program.recorded_video.secondary_audio_codec" class="text-subtitle-1 d-flex align-center font-weight-bold mt-3">
+                    <Icon icon="fluent:speaker-2-20-filled" width="24px" height="20px" />
+                    <span class="ml-2">音声情報（副音声）</span>
+                </div>
+                <template v-if="program.recorded_video.secondary_audio_codec">
+                    <div class="video-info__item">
+                        <div class="video-info__item-label">コーデック</div>
+                        <div class="video-info__item-value">{{program.recorded_video.secondary_audio_codec}}</div>
+                    </div>
+                    <div class="video-info__item">
+                        <div class="video-info__item-label">チャンネル</div>
+                        <div class="video-info__item-value">{{program.recorded_video.secondary_audio_channel}}</div>
+                    </div>
+                    <div class="video-info__item">
+                        <div class="video-info__item-label">サンプリングレート</div>
+                        <div class="video-info__item-value">{{program.recorded_video.secondary_audio_sampling_rate ? `${program.recorded_video.secondary_audio_sampling_rate / 1000}kHz` : '不明'}}</div>
+                    </div>
+                </template>
+            </div>
+        </v-card>
+    </v-dialog>
 </template>
 <script lang="ts" setup>
 
+import { ref } from 'vue';
+
 import Message from '@/message';
 import { IRecordedProgram } from '@/services/Videos';
-import Utils, { ProgramUtils } from '@/utils';
+import Utils, { ProgramUtils, dayjs } from '@/utils';
 
 // Props
 defineProps<{
     program: IRecordedProgram;
 }>();
+
+// ファイル情報ダイアログの表示状態
+const show_video_info = ref(false);
 
 </script>
 <style lang="scss" scoped>
@@ -94,6 +197,7 @@ defineProps<{
         aspect-ratio: 16 / 9;
         height: 100%;
         overflow: hidden;
+        position: relative;
         @include smartphone-vertical {
             width: 120px;
             aspect-ratio: 3 / 2;
@@ -106,6 +210,21 @@ defineProps<{
             object-fit: cover;
             @include smartphone-vertical {
                 aspect-ratio: 3 / 2;
+            }
+        }
+
+        &-duration {
+            position: absolute;
+            right: 4px;
+            bottom: 4px;
+            padding: 3px 4px;
+            border-radius: 2px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            font-size: 11px;
+            line-height: 1;
+            @include smartphone-vertical {
+                font-size: 10.5px;
             }
         }
     }
@@ -132,7 +251,7 @@ defineProps<{
         &-title {
             display: -webkit-box;
             font-size: 17px;
-            font-weight: 700;
+            font-weight: 600;
             font-feature-settings: "palt" 1;  // 文字詰め
             letter-spacing: 0.07em;  // 字間を少し空ける
             overflow: hidden;
@@ -338,6 +457,99 @@ defineProps<{
                     opacity: 0;
                 }
             }
+        }
+    }
+
+    &__info {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        position: absolute;
+        top: calc(50% + 36px);
+        right: 12px;
+        transform: translateY(-50%);
+        width: 32px;
+        height: 32px;
+        color: rgb(var(--v-theme-text-darken-1));
+        border-radius: 50%;
+        transition: color 0.15s ease, background-color 0.15s ease;
+        user-select: none;
+        @include tablet-vertical {
+            right: 6px;
+            width: 28px;
+            height: 28px;
+            svg {
+                width: 18px;
+                height: 18px;
+            }
+        }
+        @include smartphone-horizontal {
+            right: 6px;
+            width: 28px;
+            height: 28px;
+            svg {
+                width: 18px;
+                height: 18px;
+            }
+        }
+        @include smartphone-vertical {
+            right: 4px;
+            width: 28px;
+            height: 28px;
+            svg {
+                width: 18px;
+                height: 18px;
+            }
+        }
+
+        &:before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: inherit;
+            background-color: currentColor;
+            color: inherit;
+            opacity: 0;
+            transition: opacity 0.2s cubic-bezier(0.4, 0, 0.6, 1);
+            pointer-events: none;
+        }
+        &:hover {
+            color: rgb(var(--v-theme-text));
+            &:before {
+                opacity: 0.15;
+            }
+        }
+        // タッチデバイスで hover を無効にする
+        @media (hover: none) {
+            &:hover {
+                &:before {
+                    opacity: 0;
+                }
+            }
+        }
+    }
+}
+
+.video-info {
+    &__item {
+        display: flex;
+        margin-top: 8px;
+
+        &-label {
+            flex-shrink: 0;
+            width: 140px;
+            color: rgb(var(--v-theme-text-darken-1));
+            font-size: 14px;
+        }
+
+        &-value {
+            flex-grow: 1;
+            font-size: 14px;
+            word-break: break-all;
         }
     }
 }

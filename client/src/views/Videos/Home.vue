@@ -11,6 +11,8 @@
                     :hideSort="true"
                     :hidePagination="true"
                     :showMoreButton="true"
+                    :showSearch="true"
+                    :isLoading="is_loading"
                     @more="$router.push('/videos/programs')" />
             </div>
         </main>
@@ -29,6 +31,7 @@ import Videos from '@/services/Videos';
 // 最近録画された番組のリスト
 const recent_programs = ref<IRecordedProgram[]>([]);
 const total_programs = ref(0);
+const is_loading = ref(true);
 
 // 最近録画された番組を取得
 const fetchRecentPrograms = async () => {
@@ -37,6 +40,7 @@ const fetchRecentPrograms = async () => {
         recent_programs.value = result.recorded_programs.slice(0, 10);  // 最新10件のみ表示
         total_programs.value = result.total;
     }
+    is_loading.value = false;
 };
 
 // 開始時に実行

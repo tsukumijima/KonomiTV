@@ -621,4 +621,52 @@ export class ProgramUtils {
             return 'その他の言語';
         }
     }
+
+    /**
+     * 番組の長さを「1:30:00」のような形式でフォーマットする
+     * @param program 番組情報
+     * @param use_kanji 1:30:00 ではなく「1時間30分00秒」のような形式で返すかどうか
+     * @returns フォーマットされた番組の長さ
+     */
+    static getProgramDuration(program: IProgram | IRecordedProgram, use_kanji: boolean = false): string {
+        // 録画番組の場合は recorded_video.duration を使用
+        if ('recorded_video' in program) {
+            const duration = program.recorded_video.duration;
+            const hours = Math.floor(duration / 3600);
+            const minutes = Math.floor((duration % 3600) / 60);
+            const seconds = Math.floor(duration % 60);
+            if (use_kanji) {
+                if (hours > 0) {
+                    return `${hours}時間${minutes}分${seconds}秒`;
+                } else {
+                    return `${minutes}分${seconds}秒`;
+                }
+            } else {
+                if (hours > 0) {
+                    return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                } else {
+                    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                }
+            }
+        }
+
+        // 通常の番組の場合は duration を使用
+        const duration = program.duration;
+        const hours = Math.floor(duration / 3600);
+        const minutes = Math.floor((duration % 3600) / 60);
+        const seconds = Math.floor(duration % 60);
+        if (use_kanji) {
+            if (hours > 0) {
+                return `${hours}時間${minutes}分${seconds}秒`;
+            } else {
+                return `${minutes}分${seconds}秒`;
+            }
+        } else {
+            if (hours > 0) {
+                return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            } else {
+                return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }
+        }
+    }
 }

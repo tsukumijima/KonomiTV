@@ -158,6 +158,24 @@ export default class Utils {
 
 
     /**
+     * バイト単位の数値をフォーマットする
+     * @param bytes バイト数
+     * @returns フォーマットされた文字列 (例: 1.23KB)
+     */
+    static formatBytes(bytes: number): string {
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        let unitIndex = 0;
+
+        while (bytes >= 1000 && unitIndex < units.length - 1) {
+            bytes /= 1000;
+            unitIndex++;
+        }
+
+        return `${bytes.toFixed(2)}${units[unitIndex]}`;
+    }
+
+
+    /**
      * OAuth 連携時のポップアップを画面中央に表示するための windowFeatures 文字列を取得する
      * ref: https://qiita.com/catatsuy/items/babce8726ea78f5d25b1
      * @returns window.open() で使う windowFeatures 文字列
