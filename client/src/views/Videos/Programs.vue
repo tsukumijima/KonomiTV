@@ -16,6 +16,7 @@
                         { name: 'ビデオをみる', path: '/videos/' },
                         { name: '録画番組リスト', path: '/videos/programs' },
                     ]"
+                    :showEmptyMessage="!is_loading"
                     @update:page="updatePage"
                     @update:sortOrder="updateSortOrder" />
             </div>

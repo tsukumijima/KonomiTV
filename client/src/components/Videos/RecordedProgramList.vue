@@ -69,7 +69,7 @@
                 @update:model-value="$emit('update:page', $event)">
             </v-pagination>
         </div>
-        <div class="recorded-program-list__empty" v-if="total === 0">
+        <div class="recorded-program-list__empty" v-if="total === 0 && showEmptyMessage">
             <div class="recorded-program-list__empty-content">
                 <h2>{{emptyMessage}}</h2>
                 <div class="recorded-program-list__empty-submessage" v-if="emptySubMessage">{{emptySubMessage}}</div>
@@ -102,6 +102,7 @@ const props = withDefaults(defineProps<{
     showMoreButton?: boolean;
     showBackButton?: boolean;
     showSearch?: boolean;
+    showEmptyMessage?: boolean;
     emptyMessage?: string;
     emptySubMessage?: string;
     isLoading?: boolean;
@@ -115,6 +116,7 @@ const props = withDefaults(defineProps<{
     showMoreButton: false,
     showBackButton: false,
     showSearch: false,
+    showEmptyMessage: true,
     emptyMessage: '録画番組が見つかりませんでした。',
     emptySubMessage: '',
     isLoading: false,
@@ -223,6 +225,9 @@ const handleKeyDown = (event: KeyboardEvent) => {
             font-size: 14px;
             font-weight: 400;
             color: rgb(var(--v-theme-text-darken-1));
+            @include smartphone-vertical {
+                margin-left: 8px;
+            }
         }
     }
 

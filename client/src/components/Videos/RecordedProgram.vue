@@ -1,9 +1,16 @@
 <template>
-    <router-link v-ripple class="recorded-program" :to="`/videos/watch/${program.id}`">
+    <router-link v-ripple class="recorded-program" :to="program.recorded_video.status === 'Recording' ? { path: '' } : `/videos/watch/${program.id}`" :class="{ 'recorded-program--recording': program.recorded_video.status === 'Recording' }">
         <div class="recorded-program__container">
             <div class="recorded-program__thumbnail">
                 <img class="recorded-program__thumbnail-image" :src="`${Utils.api_base_url}/videos/${program.id}/thumbnail`">
                 <div class="recorded-program__thumbnail-duration">{{ProgramUtils.getProgramDuration(program)}}</div>
+                <div v-if="program.recorded_video.status === 'Recording'" class="recorded-program__thumbnail-status recorded-program__thumbnail-status--recording">
+                    <div class="recorded-program__thumbnail-status-dot"></div>
+                    録画中
+                </div>
+                <div v-else-if="program.is_partially_recorded" class="recorded-program__thumbnail-status recorded-program__thumbnail-status--partial">
+                    ⚠️ 一部のみ録画
+                </div>
             </div>
             <div class="recorded-program__content">
                 <div class="recorded-program__content-title"
@@ -39,107 +46,16 @@
             </div>
         </div>
     </router-link>
-    <v-dialog max-width="770" transition="slide-y-transition" v-model="show_video_info">
-        <v-card class="video-info">
-            <v-card-title class="px-5 pt-6 pb-3 d-flex align-center font-weight-bold" style="height: 60px;">
-                <Icon icon="fluent:document-20-filled" height="26px" />
-                <span class="ml-3">録画ファイル情報</span>
-                <v-spacer></v-spacer>
-                <div v-ripple class="d-flex align-center rounded-circle cursor-pointer px-2 py-2" @click="show_video_info = false">
-                    <Icon icon="fluent:dismiss-12-filled" width="23px" height="23px" />
-                </div>
-            </v-card-title>
-            <div class="px-5 pb-6">
-                <div class="text-subtitle-1 d-flex align-center font-weight-bold mt-2">
-                    <Icon icon="fluent:video-clip-20-filled" width="24px" height="20px" />
-                    <span class="ml-2">ファイル情報</span>
-                </div>
-                <div class="video-info__item">
-                    <div class="video-info__item-label">ファイルパス</div>
-                    <div class="video-info__item-value">{{program.recorded_video.file_path}}</div>
-                </div>
-                <div class="video-info__item">
-                    <div class="video-info__item-label">ファイルサイズ</div>
-                    <div class="video-info__item-value">{{Utils.formatBytes(program.recorded_video.file_size)}}</div>
-                </div>
-                <div class="video-info__item">
-                    <div class="video-info__item-label">録画期間</div>
-                    <div class="video-info__item-value">
-                        {{ProgramUtils.getRecordingTime(program)}}
-                    </div>
-                </div>
-                <div class="video-info__item">
-                    <div class="video-info__item-label">最終更新日時</div>
-                    <div class="video-info__item-value">
-                        {{dayjs(program.recorded_video.file_modified_at).format('YYYY/MM/DD (dd) HH:mm:ss')}}
-                    </div>
-                </div>
-                <div class="text-subtitle-1 d-flex align-center font-weight-bold mt-3">
-                    <Icon icon="fluent:video-20-filled" width="24px" height="20px" />
-                    <span class="ml-2">映像情報</span>
-                </div>
-                <div class="video-info__item">
-                    <div class="video-info__item-label">コーデック</div>
-                    <div class="video-info__item-value">{{program.recorded_video.video_codec}} ({{program.recorded_video.video_codec_profile}})</div>
-                </div>
-                <div class="video-info__item">
-                    <div class="video-info__item-label">解像度</div>
-                    <div class="video-info__item-value">{{program.recorded_video.video_resolution_width}}×{{program.recorded_video.video_resolution_height}}</div>
-                </div>
-                <div class="video-info__item">
-                    <div class="video-info__item-label">フレームレート</div>
-                    <div class="video-info__item-value">{{program.recorded_video.video_frame_rate}} fps</div>
-                </div>
-                <div class="video-info__item">
-                    <div class="video-info__item-label">スキャン方式</div>
-                    <div class="video-info__item-value">{{program.recorded_video.video_scan_type}}</div>
-                </div>
-                <div class="text-subtitle-1 d-flex align-center font-weight-bold mt-3">
-                    <Icon icon="fluent:speaker-2-20-filled" width="24px" height="20px" />
-                    <span class="ml-2">音声情報（主音声）</span>
-                </div>
-                <div class="video-info__item">
-                    <div class="video-info__item-label">コーデック</div>
-                    <div class="video-info__item-value">{{program.recorded_video.primary_audio_codec}}</div>
-                </div>
-                <div class="video-info__item">
-                    <div class="video-info__item-label">チャンネル</div>
-                    <div class="video-info__item-value">{{program.recorded_video.primary_audio_channel}}</div>
-                </div>
-                <div class="video-info__item">
-                    <div class="video-info__item-label">サンプリングレート</div>
-                    <div class="video-info__item-value">{{program.recorded_video.primary_audio_sampling_rate ? `${program.recorded_video.primary_audio_sampling_rate / 1000}kHz` : '不明'}}</div>
-                </div>
-
-                <div v-if="program.recorded_video.secondary_audio_codec" class="text-subtitle-1 d-flex align-center font-weight-bold mt-3">
-                    <Icon icon="fluent:speaker-2-20-filled" width="24px" height="20px" />
-                    <span class="ml-2">音声情報（副音声）</span>
-                </div>
-                <template v-if="program.recorded_video.secondary_audio_codec">
-                    <div class="video-info__item">
-                        <div class="video-info__item-label">コーデック</div>
-                        <div class="video-info__item-value">{{program.recorded_video.secondary_audio_codec}}</div>
-                    </div>
-                    <div class="video-info__item">
-                        <div class="video-info__item-label">チャンネル</div>
-                        <div class="video-info__item-value">{{program.recorded_video.secondary_audio_channel}}</div>
-                    </div>
-                    <div class="video-info__item">
-                        <div class="video-info__item-label">サンプリングレート</div>
-                        <div class="video-info__item-value">{{program.recorded_video.secondary_audio_sampling_rate ? `${program.recorded_video.secondary_audio_sampling_rate / 1000}kHz` : '不明'}}</div>
-                    </div>
-                </template>
-            </div>
-        </v-card>
-    </v-dialog>
+    <RecordedFileInfoDialog :program="program" v-model:show="show_video_info" />
 </template>
 <script lang="ts" setup>
 
 import { ref } from 'vue';
 
+import RecordedFileInfoDialog from '@/components/Videos/Dialogs/RecordedFileInfoDialog.vue';
 import Message from '@/message';
 import { IRecordedProgram } from '@/services/Videos';
-import Utils, { ProgramUtils, dayjs } from '@/utils';
+import Utils, { ProgramUtils } from '@/utils';
 
 // Props
 defineProps<{
@@ -230,6 +146,38 @@ const show_video_info = ref(false);
             line-height: 1;
             @include smartphone-vertical {
                 font-size: 10.5px;
+            }
+        }
+
+        &-status {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            padding: 4px 6px;
+            border-radius: 2px;
+            font-size: 10.5px;
+            font-weight: 700;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+
+            &--recording {
+                background: rgb(var(--v-theme-secondary));
+                color: #fff;
+            }
+
+            &--partial {
+                background: rgb(var(--v-theme-secondary-darken-1));
+                color: #fff;
+            }
+
+            &-dot {
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                background: #ff4444;
+                animation: blink 1s infinite;
             }
         }
     }
@@ -537,6 +485,11 @@ const show_video_info = ref(false);
             }
         }
     }
+
+    &--recording {
+        pointer-events: none;
+        opacity: 0.7;
+    }
 }
 
 .video-info {
@@ -557,6 +510,12 @@ const show_video_info = ref(false);
             word-break: break-all;
         }
     }
+}
+
+@keyframes blink {
+    0% { opacity: 0; }
+    50% { opacity: 1; }
+    100% { opacity: 0; }
 }
 
 </style>

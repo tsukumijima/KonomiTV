@@ -13,6 +13,7 @@
                     :showMoreButton="true"
                     :showSearch="true"
                     :isLoading="is_loading"
+                    :showEmptyMessage="!is_loading"
                     @more="$router.push('/videos/programs')" />
             </div>
         </main>

@@ -35,12 +35,12 @@ const router = createRouter({
             component: () => import('@/views/Videos/Home.vue'),
         },
         {
-            path: '/videos/search/',
+            path: '/videos/search',
             name: 'Videos Search',
             component: () => import('@/views/Videos/Search.vue'),
         },
         {
-            path: '/videos/programs/',
+            path: '/videos/programs',
             name: 'Videos Programs',
             component: () => import('@/views/Videos/Programs.vue'),
         },
