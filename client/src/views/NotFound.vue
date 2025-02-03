@@ -12,20 +12,10 @@
         </main>
     </div>
 </template>
-<script lang="ts">
-
-import { defineComponent } from 'vue';
+<script lang="ts" setup>
 
 import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
-
-export default defineComponent({
-    name: 'NotFound',
-    components: {
-        HeaderBar,
-        Navigation,
-    },
-});
 
 </script>
 <style lang="scss" scoped>

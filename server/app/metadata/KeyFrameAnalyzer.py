@@ -2,11 +2,13 @@
 import anyio
 import asyncio
 import json
+import time
 
 from app import logging
 from app import schemas
 from app.constants import LIBRARY_PATH
 from app.models.RecordedVideo import RecordedVideo
+from app.utils.ProcessLimiter import ProcessLimiter
 
 
 class KeyFrameAnalyzer:
@@ -36,6 +38,7 @@ class KeyFrameAnalyzer:
         - キーフレームの PTS (Presentation Time Stamp)
         """
 
+        start_time = time.time()
         try:
             # ffprobe のオプションを設定
             ## -i: 入力ファイルを指定
@@ -51,16 +54,17 @@ class KeyFrameAnalyzer:
                 '-of', 'json',
             ]
 
-            # ffprobe を実行
-            ffprobe_process = await asyncio.subprocess.create_subprocess_exec(
-                LIBRARY_PATH['FFprobe'],
-                *options,
-                stdout = asyncio.subprocess.PIPE,
-                stderr = asyncio.subprocess.PIPE,
-            )
+            # ffprobe を実行 (セマフォで同時実行数を制限)
+            async with ProcessLimiter.getSemaphore('KeyFrameAnalyzer'):
+                ffprobe_process = await asyncio.subprocess.create_subprocess_exec(
+                    LIBRARY_PATH['FFprobe'],
+                    *options,
+                    stdout = asyncio.subprocess.PIPE,
+                    stderr = asyncio.subprocess.PIPE,
+                )
 
-            # ffprobe の出力を取得
-            stdout, stderr = await ffprobe_process.communicate()
+                # ffprobe の出力を取得
+                stdout, stderr = await ffprobe_process.communicate()
 
             # 終了コードを確認
             if ffprobe_process.returncode != 0:
@@ -92,7 +96,6 @@ class KeyFrameAnalyzer:
                     key_frames.append({
                         'offset': int(packet['pos']),
                         'dts': int(packet['dts']),
-                        'pts': int(packet['pts']),
                     })
 
             # パケットが1つも見つからなかった場合
@@ -105,12 +108,11 @@ class KeyFrameAnalyzer:
                 key_frames.append({
                     'offset': int(packets[-1]['pos']),
                     'dts': int(packets[-1]['dts']),
-                    'pts': int(packets[-1]['pts']),
                 })
 
             # キーフレームが1つも見つからなかった場合
             if not key_frames:
-                logging.error(f'{self.file_path}: No key frames found in the video')
+                logging.error(f'{self.file_path}: No keyframes found in the video')
                 return
 
             # DB に保存
@@ -120,9 +122,9 @@ class KeyFrameAnalyzer:
                 # キーフレーム情報を更新
                 db_recorded_video.key_frames = key_frames
                 await db_recorded_video.save()
-                logging.info(f'{self.file_path}: Key frame analysis completed. ({len(key_frames)} key frames found)')
+                logging.info(f'{self.file_path}: Keyframe analysis completed. ({len(key_frames)} keyframes found / {time.time() - start_time:.2f} sec)')
             else:
                 logging.warning(f'{self.file_path}: RecordedVideo record not found.')
 
         except Exception as ex:
-            logging.error(f'{self.file_path}: Error in key frame analysis:', exc_info=ex)
+            logging.error(f'{self.file_path}: Error in keyframe analysis:', exc_info=ex)

@@ -117,10 +117,10 @@ for suffix, mime_type in [
 # 静的ファイルの配信
 app.mount('/assets', StaticFiles(directory=CLIENT_DIR / 'assets', html=True))
 
-# ルート以下のルーティング
+# ルート以下のルーティング (同期ファイル I/O を伴うため同期関数として実装している)
 # ファイルが存在すればそのまま配信し、ファイルが存在しなければ index.html を返す
 @app.get('/{file:path}', include_in_schema=False)
-async def Root(file: str):
+def Root(file: str):
 
     # ディレクトリトラバーサル対策のためのチェック
     ## ref: https://stackoverflow.com/a/45190125/17124142

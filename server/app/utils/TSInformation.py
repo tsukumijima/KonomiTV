@@ -1,4 +1,5 @@
 
+import multiprocessing
 import re
 from ariblib.aribstr import AribString
 from tortoise import Tortoise, connections
@@ -417,19 +418,26 @@ class TSInformation:
             # 上2桁はリモコン番号から、下1桁は同じネットワーク内にあるサービスのカウント
             channel_number = str(remocon_id).zfill(2) + str(same_network_id_count)
 
-            # Tortoise ORM のコネクションが取得できない時は Tortoise ORM を初期化する
+            # Tortoise ORM のコネクションを初期化する
             ## MetadataAnalyzer はマルチプロセスまたは単独で実行されるため、通常メインプロセスのコネクションは使用できず、独自に初期化する必要がある
             cleanup_required = False
-            try:
-                Tortoise.get_connection('default')
-            except ConfigurationError:
-                # データベース接続を再初期化する前に、既存のコネクションを破棄
-                ## Windows だと既存のコネクションを破棄せずともフリーズせずに実行できるが、Linux では必ず必要になる
+            if multiprocessing.current_process().name != 'MainProcess':
+                # マルチプロセス時は問答無用でデータベース接続を初期化する
+                ## Windows だと既存のコネクションを破棄せずとも接続を初期化すれば良いが、Linux では必ず破棄してから初期化する必要があったはず
                 ## おそらくマルチプロセス時に変数の状態こそ fork 先に引き継がれるが、コネクション自体は正しく引き継がれない (?) のが原因
                 connections.discard('default')
-                # データベース接続を初期化
                 await Tortoise.init(config=DATABASE_CONFIG)
                 cleanup_required = True
+            else:
+                # シングルプロセス時はコネクションが取得できない場合のみ初期化
+                try:
+                    conn = Tortoise.get_connection('default')
+                    # コネクションが取得できても実際は使えない可能性があるのでテスト
+                    await conn.execute_query('SELECT 1')
+                except (ConfigurationError, Exception):
+                    connections.discard('default')
+                    await Tortoise.init(config=DATABASE_CONFIG)
+                    cleanup_required = True
 
             # 同じチャンネル番号のサービスのカウントを DB から取得
             ## network_id と service_id の組み合わせは (CATV を除き日本全国で一意) なので、

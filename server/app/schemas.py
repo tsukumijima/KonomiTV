@@ -122,7 +122,6 @@ class RecordedVideo(PydanticModel):
 class KeyFrame(TypedDict):
     offset: int
     dts: int
-    pts: int
 
 class CMSection(TypedDict):
     start_time: float

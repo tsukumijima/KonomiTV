@@ -19,7 +19,7 @@ router = APIRouter(
 )
 
 # ページングで一度に取得するシリーズ番組の数
-PAGE_SIZE = 100
+PAGE_SIZE = 30
 
 
 @router.get(

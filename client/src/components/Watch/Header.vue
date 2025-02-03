@@ -41,23 +41,31 @@ export default defineComponent({
 
             // 現在時刻
             time: dayjs().format(Utils.isSmartphoneHorizontal() ? 'HH:mm:ss' : 'YYYY/MM/DD HH:mm:ss'),
-
-            // 現在時刻更新用のインターバルの ID
-            time_interval_id: 0,
         };
     },
     computed: {
         ...mapStores(useChannelsStore, usePlayerStore),
     },
+    methods: {
+        updateTimeCore() {
+            const time = dayjs();
+            this.time = time.format(Utils.isSmartphoneHorizontal() ? 'HH:mm:ss' : 'YYYY/MM/DD HH:mm:ss');
+            const ms = time.millisecond();
+            return ms > 800 ? 500 : 1000 - ms;
+        },
+        uptimeTime() {
+            setTimeout(() => {
+                this.uptimeTime();
+            }, this.updateTimeCore());
+        },
+    },
     created() {
-        // 現在時刻を 0.1 秒おきに更新
-        this.time_interval_id = window.setInterval(() => {
-            this.time = dayjs().format(Utils.isSmartphoneHorizontal() ? 'HH:mm:ss' : 'YYYY/MM/DD HH:mm:ss');
-        }, 0.1 * 1000);
+        setTimeout(() => {
+            this.uptimeTime();
+        }, 1000);
     },
     beforeUnmount() {
-        // インターバルをクリア
-        window.clearInterval(this.time_interval_id);
+        this.uptimeTime = ()=>{ };
     },
 });
 

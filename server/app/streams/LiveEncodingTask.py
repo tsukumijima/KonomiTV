@@ -3,6 +3,7 @@
 # ref: https://stackoverflow.com/a/33533514/17124142
 from __future__ import annotations
 
+import anyio
 import aiofiles
 import aiohttp
 import asyncio
@@ -924,7 +925,7 @@ class LiveEncodingTask:
             ## ref: https://note.nkmk.me/python-pathlib-name-suffix-parent/
             count = 1
             encoder_log_path = LOGS_DIR / f'KonomiTV-Encoder-{self.live_stream.live_stream_id}.log'
-            while encoder_log_path.exists():
+            while await anyio.Path(str(encoder_log_path)).exists():
                 encoder_log_path = LOGS_DIR / f'KonomiTV-Encoder-{self.live_stream.live_stream_id}-{count}.log'
                 count += 1
 
