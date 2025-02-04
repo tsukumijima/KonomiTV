@@ -35,11 +35,15 @@ class ThumbnailGenerator:
     TILE_COLS: ClassVar[int] = 34   # WebP の最大サイズ制限 (16383px) を考慮し、1行あたりの最大フレーム数を設定
 
     # 顔検出の設定
-    FACE_DETECTION_SCALE_FACTOR: ClassVar[float] = 1.2  # 顔検出時のスケールファクター
+    FACE_DETECTION_SCALE_FACTOR: ClassVar[float] = 1.05  # 顔検出時のスケールファクター
     FACE_DETECTION_MIN_NEIGHBORS: ClassVar[int] = 3  # 顔検出時の最小近傍数
-    FACE_SIZE_WEIGHT: ClassVar[float] = 0.8  # 顔サイズによるスコアの重み（実写向け）
-    ANIME_FACE_SIZE_WEIGHT: ClassVar[float] = 1.2  # アニメの顔サイズによるスコアの重み (アニメは顔が大きく映っているシーンを重視)
+    ANIME_FACE_DETECTION_SCALE_FACTOR: ClassVar[float] = 1.05  # アニメ顔検出時のスケールファクター
+    ANIME_FACE_DETECTION_MIN_NEIGHBORS: ClassVar[int] = 2  # アニメ顔検出時の最小近傍数（より緩い判定）
+    FACE_SIZE_WEIGHT: ClassVar[float] = 1.5  # 顔サイズによるスコアの重み（実写向け）
+    ANIME_FACE_SIZE_WEIGHT: ClassVar[float] = 8.0  # アニメの顔サイズによるスコアの重み (アニメは顔が大きく映っているシーンを重視)
     FACE_SIZE_BASE_SCORE: ClassVar[float] = 20.0  # 顔サイズの基本スコア
+    ANIME_FACE_OPTIMAL_RATIO: ClassVar[float] = 0.24  # アニメの顔の最適な面積比（これを超えると緩やかにスコアを低下）
+    ANIME_FACE_RATIO_FALLOFF: ClassVar[float] = 0.5  # アニメの顔が大きすぎる場合のスコア低下率
 
     # レターボックス検出の設定
     LETTERBOX_MIN_HEIGHT_RATIO: ClassVar[float] = 0.05  # 最小の黒帯の高さ比率（画像の高さに対する割合）
@@ -60,10 +64,10 @@ class ThumbnailGenerator:
 
     # 画質評価の重み付け（アニメ向け）
     ANIME_SCORE_WEIGHTS: ClassVar[dict[str, float]] = {
-        'std_lum': 0.5,  # 輝度の標準偏差 (全体的な明暗の差)
+        'std_lum': 0.4,  # 輝度の標準偏差 (全体的な明暗の差)
         'contrast': 0.3,  # コントラスト (明暗の差の大きさ)
-        'sharpness': 0.6,  # シャープネス
-        'edge_density': 0.5,  # エッジ密度 (情報量の指標)
+        'sharpness': 0.17,  # シャープネス
+        'edge_density': 0.4,  # エッジ密度 (情報量の指標)
         'entropy': 0.4,  # エントロピー (情報量の指標)
     }
 
@@ -96,11 +100,23 @@ class ThumbnailGenerator:
 
     # 単色判定の設定
     COLOR_VARIANCE_THRESHOLD: ClassVar[float] = 10.0  # 各チャンネルの分散がこの値以下なら単色とみなす
-    BLACK_THRESHOLD: ClassVar[int] = 30  # 平均輝度がこの値以下なら黒とみなす（ログ出力用）
-    WHITE_THRESHOLD: ClassVar[int] = 225  # 平均輝度がこの値以上なら白とみなす（ログ出力用）
-    SOLID_COLOR_PENALTY: ClassVar[float] = 100.0  # 単色フレームに対するペナルティ（すべての単色に対して同じ値）
+    BLACK_THRESHOLD: ClassVar[int] = 30  # 平均輝度がこの値以下なら黒とみなす
+    WHITE_THRESHOLD: ClassVar[int] = 225  # 平均輝度がこの値以上なら白とみなす
+    SOLID_COLOR_PENALTY: ClassVar[float] = 100.0  # 単色フレームに対するペナルティ
 
-    # レターボックス検出のペナルティ設定を追加
+    # 画面端の単色領域検出の設定
+    EDGE_MARGIN_RATIO: ClassVar[float] = 0.08  # 画面端から何割をエッジ領域とするか
+    EDGE_CONTACT_THRESHOLD: ClassVar[float] = 0.6  # エッジ領域の何割が単色である必要があるか
+    MIN_EDGES_REQUIRED: ClassVar[int] = 2  # 最低何辺が単色である必要があるか
+    EDGE_COLOR_RANGE: ClassVar[float] = 30.0  # エッジ領域内での色の許容範囲
+    EDGE_BORDER_PENALTY: ClassVar[float] = 90.0  # 画面端の単色ペナルティ
+
+    # 演出効果を考慮した画面端の単色判定の設定を追加
+    EDGE_LUMINANCE_THRESHOLD: ClassVar[float] = 45.0  # エッジ領域の輝度閾値（これ以下を暗部とみなす）
+    EDGE_CONTINUOUS_RATIO: ClassVar[float] = 0.6  # 連続性判定の閾値（この割合以上が類似していれば連続とみなす）
+    EDGE_DARK_RATIO_THRESHOLD: ClassVar[float] = 0.7  # 暗部ピクセルの必要割合
+
+    # レターボックス検出のペナルティ設定
     LETTERBOX_PENALTY: ClassVar[float] = 50.0  # レターボックスがある場合のペナルティ値
 
     # アニメの色バランス評価の設定
@@ -192,6 +208,9 @@ class ThumbnailGenerator:
                 # 最初のジャンルの major を取得
                 first_genre_major = recorded_program.genres[0]['major']
                 if any(genre in first_genre_major for genre in human_face_genres):
+                    face_detection_mode = 'Human'
+                # 手話番組は人物の顔や手の動きが重要なので、人物顔検出を有効にする
+                if any(g['major'] == '福祉' and g['middle'] == '手話' for g in recorded_program.genres):
                     face_detection_mode = 'Human'
 
         # コンストラクタに渡す
@@ -690,8 +709,109 @@ class ThumbnailGenerator:
         # 検出された黒帯の範囲を除いたスライスを返す
         return (
             slice(top_border, bottom_border),
-            slice(left_border, right_border)
+            slice(left_border, right_border),
         )
+
+
+    def __checkEdgeRegion(
+        self,
+        img_slice: NDArray[np.uint8],
+        is_vertical: bool = True,
+        is_dark: bool = True,
+    ) -> tuple[bool, float]:
+        """
+        指定された領域が暗い（黒に近い）または明るい（白に近い）かどうかを判定する
+        演出効果による微細な変化は許容する
+
+        Args:
+            img_slice (NDArray[np.uint8]): 確認する画像の一部
+            is_vertical (bool): 垂直方向の確認かどうか
+            is_dark (bool): 暗部を検出するかどうか（False の場合は明部を検出）
+
+        Returns:
+            tuple[bool, float]: (暗部/明部と判定されたか, その割合)
+        """
+
+        # グレースケールに変換
+        gray = cv2.cvtColor(img_slice, cv2.COLOR_BGR2GRAY)
+
+        # 暗部または明部を検出
+        if is_dark:
+            mask = gray <= self.EDGE_LUMINANCE_THRESHOLD
+        else:
+            mask = gray >= self.WHITE_THRESHOLD
+
+        if is_vertical:
+            # 垂直方向の場合は、各行のピクセルの割合を計算
+            ratios = np.mean(mask, axis=1)
+        else:
+            # 水平方向の場合は、各列のピクセルの割合を計算
+            ratios = np.mean(mask, axis=0)
+
+        # 連続性を考慮した判定
+        # 暗部/明部の割合が閾値を超える行/列の数をカウント
+        continuous = np.sum(ratios >= self.EDGE_CONTINUOUS_RATIO)
+        total_lines = ratios.shape[0]
+
+        # 全体に対する暗部/明部の割合を計算
+        ratio = continuous / total_lines
+
+        # 暗部/明部の割合が閾値を超えていれば真
+        return ratio >= self.EDGE_DARK_RATIO_THRESHOLD, ratio
+
+
+    def __detectEdgeBorderIssues(self, img_bgr: NDArray[np.uint8]) -> tuple[float, str]:
+        """
+        画面の端に接する白/黒の領域を検出する
+        演出効果による微細な変化は許容しつつ、画面端の単色領域を検出する
+
+        Args:
+            img_bgr (NDArray[np.uint8]): 評価する画像データ (BGR)
+
+        Returns:
+            tuple[float, str]: (ペナルティスコア, 検出理由の説明)
+        """
+
+        height, width = img_bgr.shape[:2]
+        edge_margin_h = int(height * self.EDGE_MARGIN_RATIO)
+        edge_margin_w = int(width * self.EDGE_MARGIN_RATIO)
+
+        # エッジ領域を抽出
+        edges = {
+            'top': img_bgr[:edge_margin_h, :],
+            'bottom': img_bgr[-edge_margin_h:, :],
+            'left': img_bgr[:, :edge_margin_w],
+            'right': img_bgr[:, -edge_margin_w:],
+        }
+
+        affected_edges = []
+        total_penalty = 0.0
+        edge_ratios = []
+        edge_types = []
+
+        for edge_name, edge_region in edges.items():
+            # 暗部と明部の両方を検出（演出効果を許容）
+            is_vertical = edge_name in ['top', 'bottom']
+            is_dark_edge, dark_ratio = self.__checkEdgeRegion(edge_region, is_vertical, is_dark=True)
+            is_bright_edge, bright_ratio = self.__checkEdgeRegion(edge_region, is_vertical, is_dark=False)
+
+            if is_dark_edge or is_bright_edge:
+                affected_edges.append(edge_name)
+                edge_ratio = dark_ratio if is_dark_edge else bright_ratio
+                edge_ratios.append(edge_ratio)
+                edge_types.append('dark' if is_dark_edge else 'bright')
+                # エッジごとにペナルティを加算（ただし最大値は超えない）
+                total_penalty = min(
+                    total_penalty + self.EDGE_BORDER_PENALTY * (edge_ratio / len(edges)),
+                    self.EDGE_BORDER_PENALTY
+                )
+
+        # 結果の判定
+        if len(affected_edges) >= self.MIN_EDGES_REQUIRED:
+            edges_str = ', '.join(f'{edge}({ratio:.2f}/{type})' for edge, ratio, type in zip(affected_edges, edge_ratios, edge_types))
+            return total_penalty, f'Border effect detected on edges: {edges_str}'
+
+        return 0.0, ''
 
 
     def __computeColorBalanceScore(self, img_bgr: NDArray[np.uint8]) -> float:
@@ -815,7 +935,6 @@ class ThumbnailGenerator:
         gray = cv2.cvtColor(valid_region, cv2.COLOR_BGR2GRAY)
 
         # 単色判定
-        # 各チャンネルの分散を計算し、すべてのチャンネルの分散が閾値以下なら単色とみなす
         solid_color_penalty = 0.0
         channel_variances = [float(np.var(valid_region[:,:,i])) for i in range(3)]
         is_solid_color = all(var < self.COLOR_VARIANCE_THRESHOLD for var in channel_variances)
@@ -836,23 +955,42 @@ class ThumbnailGenerator:
             # すべての単色に対して同じ強いペナルティを与える
             solid_color_penalty = self.SOLID_COLOR_PENALTY
 
+        # 画面端の単色領域を検出（白/黒に限定）
+        edge_penalty, edge_reason = self.__detectEdgeBorderIssues(valid_region)
+        if edge_penalty > 0:
+            logging.debug_simple(f'{self.file_path}: {edge_reason} (row:{row}, col:{col})')
+
         # 顔検出
         if face_cascade is not None:
+            # アニメとそれ以外で異なるパラメータを使う
             faces = face_cascade.detectMultiScale(
                 gray,
-                scaleFactor=self.FACE_DETECTION_SCALE_FACTOR,
-                minNeighbors=self.FACE_DETECTION_MIN_NEIGHBORS
+                scaleFactor=self.ANIME_FACE_DETECTION_SCALE_FACTOR if self.face_detection_mode == 'Anime' else self.FACE_DETECTION_SCALE_FACTOR,
+                minNeighbors=self.ANIME_FACE_DETECTION_MIN_NEIGHBORS if self.face_detection_mode == 'Anime' else self.FACE_DETECTION_MIN_NEIGHBORS,
             )
             if len(faces) > 0:
-                logging.debug_simple(f'{self.file_path}: Face detected. Score applied. (row:{row}, col:{col})')
                 found_face = True
                 # 最も大きい顔を基準にスコアを計算
                 max_face_area = max(w * h for (_, _, w, h) in faces)
                 img_area = valid_region.shape[0] * valid_region.shape[1]
                 # 顔の面積比を計算 (0.0 ~ 1.0)
                 face_area_ratio = max_face_area / img_area
+                logging.debug_simple(f'{self.file_path}: Face detected. Face area ratio: {face_area_ratio:.2f} (row:{row}, col:{col})')
+
                 # アニメと実写で異なる重み付けを適用
-                face_weight = self.ANIME_FACE_SIZE_WEIGHT if self.face_detection_mode == 'Anime' else self.FACE_SIZE_WEIGHT
+                if self.face_detection_mode == 'Anime':
+                    # アニメの場合、最適な面積比を超えると緩やかにスコアを低下
+                    if face_area_ratio > self.ANIME_FACE_OPTIMAL_RATIO:
+                        # 超過分に対して緩やかな減衰を適用
+                        excess_ratio = (face_area_ratio - self.ANIME_FACE_OPTIMAL_RATIO) / self.ANIME_FACE_OPTIMAL_RATIO
+                        reduction_factor = 1.0 - (excess_ratio * self.ANIME_FACE_RATIO_FALLOFF)
+                        reduction_factor = max(0.5, reduction_factor)  # 最低でも50%は維持
+                        face_area_ratio = self.ANIME_FACE_OPTIMAL_RATIO + (face_area_ratio - self.ANIME_FACE_OPTIMAL_RATIO) * reduction_factor
+                        logging.debug_simple(f'{self.file_path}: Large anime face detected. Score adjusted by factor {reduction_factor:.2f}')
+                    face_weight = self.ANIME_FACE_SIZE_WEIGHT
+                else:
+                    face_weight = self.FACE_SIZE_WEIGHT
+
                 # 基本スコアに面積比を掛けてスコアを計算
                 face_size_score = self.FACE_SIZE_BASE_SCORE * face_area_ratio * face_weight
 
@@ -923,23 +1061,18 @@ class ThumbnailGenerator:
             sharpness_score +
             edge_density_weighted +
             entropy_weighted +
-            face_size_score +  # 重み付けは既に face_weight で適用済み
+            face_size_score +
             color_balance_score -  # アニメの場合の色バランススコア
             solid_color_penalty -
-            letterbox_penalty
+            letterbox_penalty -
+            edge_penalty
         )
 
         # 各指標のスコアをログ出力
         logging.debug_simple(f'{self.file_path}: Score: (row:{row}, col:{col}):')
-        logging.debug_simple(f'  Luminance STD: {std_lum_score:.2f}')
-        logging.debug_simple(f'  Contrast: {contrast_score:.2f}')
-        logging.debug_simple(f'  Sharpness: {sharpness_score:.2f}')
-        logging.debug_simple(f'  Edge Density: {edge_density_weighted:.2f}')
-        logging.debug_simple(f'  Entropy: {entropy_weighted:.2f}')
-        logging.debug_simple(f'  Face Size: {face_size_score:.2f}')
-        logging.debug_simple(f'  Color Balance: {color_balance_score:.2f}')
-        logging.debug_simple(f'  Solid Color Penalty: -{solid_color_penalty:.2f}')
-        logging.debug_simple(f'  Letterbox Penalty: -{letterbox_penalty:.2f}')
+        logging.debug_simple(f'  Luminance STD: {std_lum_score:.2f} / Contrast: {contrast_score:.2f} / Sharpness: {sharpness_score:.2f} / Edge Density: {edge_density_weighted:.2f}')
+        logging.debug_simple(f'  Entropy: {entropy_weighted:.2f} / Face Size: {face_size_score:.2f} / Color Balance: {color_balance_score:.2f}')
+        logging.debug_simple(f'  Solid Color Penalty: -{solid_color_penalty:.2f} / Letterbox Penalty: -{letterbox_penalty:.2f} / Edge Penalty: -{edge_penalty:.2f}')
         logging.debug_simple(f'  = Final Score: {score:.2f}')
 
         return (score, found_face)
