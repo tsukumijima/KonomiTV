@@ -5,7 +5,7 @@
         </router-link>
         <v-spacer></v-spacer>
         <div v-if="showSearchInput" class="search-box">
-            <input class="search-input" type="text" :placeholder="search_placeholder"
+            <input class="search-input" type="search" enterkeyhint="search" :placeholder="search_placeholder"
                 v-model="search_query" @keydown="handleKeyDown">
             <Icon class="search-input__icon" icon="fluent:search-20-filled" height="24px" @click="doSearch" />
         </div>

@@ -29,7 +29,8 @@
                 (() => {is_hashtag_list_display = false; return true;})(),
         }">
             <div class="tweet-form__hashtag">
-                <input class="tweet-form__hashtag-form" type="search" placeholder="#ハッシュタグ" spellcheck="false"
+                <!-- input[type=search] を使っているのは autocomplete 避け目的のはず -->
+                <input class="tweet-form__hashtag-form" type="search" enterkeyhint="done" placeholder="#ハッシュタグ" spellcheck="false"
                     v-model="tweet_hashtag" @input="updateTweetLetterCount()"
                     @focus="is_tweet_hashtag_form_focused = true" @blur="is_tweet_hashtag_form_focused = false"
                     @change="tweet_hashtag = formatHashtag(tweet_hashtag); updateTweetLetterCount()">
@@ -37,7 +38,7 @@
                     <Icon icon="fluent:clipboard-text-ltr-32-regular" height="22px" />
                 </div>
             </div>
-            <textarea class="tweet-form__textarea" placeholder="ツイート" spellcheck="false" v-model="tweet_text" ref="tweet_text"
+            <textarea class="tweet-form__textarea" enterkeyhint="enter" placeholder="ツイート" spellcheck="false" v-model="tweet_text" ref="tweet_text"
                 @input="updateTweetLetterCount()"
                 @paste="pasteClipboardData($event)"
                 @focus="is_tweet_text_form_focused = true"
@@ -95,7 +96,8 @@
                     <div v-ripple="!element.editing" class="hashtag" :class="{'hashtag--editing': element.editing}"
                         @click="clickHashtag(element)">
                         <!-- 以下では Icon コンポーネントを使うと個数が多いときに高負荷になるため、意図的に SVG を直書きしている -->
-                        <input type="search" class="hashtag__input" spellcheck="false" v-model="element.text"
+                        <!-- input[type=search] を使っているのは autocomplete 避け目的のはず -->
+                        <input type="search" enterkeyhint="done" class="hashtag__input" spellcheck="false" v-model="element.text"
                             :disabled="!element.editing" @click.stop="">
                         <button v-ripple class="hashtag__edit-button"
                             @click.prevent.stop="element.editing = !element.editing;
@@ -778,6 +780,7 @@ export default defineComponent({
         &--virtual-keyboard-display {
             position: relative;
             bottom: calc(env(keyboard-inset-height, 0px) - 77px);
+            z-index: 20;
             @include tablet-vertical {
                 bottom: calc(env(keyboard-inset-height, 0px) - 40px) !important;
             }

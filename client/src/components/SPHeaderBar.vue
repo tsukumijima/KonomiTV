@@ -14,7 +14,7 @@
                 <div class="search-box__icon">
                     <Icon icon="fluent:search-20-filled" height="20px" />
                 </div>
-                <input ref="searchInput" type="text" :placeholder="searchPlaceholder"
+                <input ref="searchInput" type="search" enterkeyhint="search" :placeholder="searchPlaceholder"
                     v-model="searchQuery" @keydown="handleKeyDown">
                 <div v-ripple class="search-box__close" @click="deactivateSearch">
                     <Icon icon="fluent:dismiss-20-filled" height="24px" />
@@ -42,14 +42,21 @@ const searchQuery = ref('');
 
 // 検索プレースホルダー
 const searchPlaceholder = computed(() => {
-    return route.path.startsWith('/videos') || route.path.startsWith('/mylist') || route.path.startsWith('/viewing-history')
-        ? '録画番組を検索...'
+    return isVideoSection(route.path)
+        ? '録画番組やシリーズを検索...'
         : '放送予定の番組を検索...';
 });
 
+// 動画セクションかどうかを判定
+const isVideoSection = (path: string) => {
+    return path.startsWith('/videos') ||
+           path.startsWith('/mylist') ||
+           path.startsWith('/viewing-history');
+};
+
 // 検索パスを取得
 const getSearchPath = () => {
-    return route.path.startsWith('/videos') || route.path.startsWith('/mylist') || route.path.startsWith('/viewing-history')
+    return isVideoSection(route.path)
         ? '/videos/search'
         : '/tv/search';
 };
@@ -69,13 +76,18 @@ const deactivateSearch = () => {
     searchQuery.value = '';
 };
 
+// 検索を実行
+const executeSearch = () => {
+    if (searchQuery.value.trim()) {
+        const searchPath = getSearchPath();
+        router.push(`${searchPath}?query=${encodeURIComponent(searchQuery.value.trim())}`);
+    }
+};
+
 // キーボードイベントの処理
 const handleKeyDown = (event: KeyboardEvent) => {
-    if (event.key === 'Enter' && !event.isComposing) {
-        if (searchQuery.value.trim()) {
-            const searchPath = getSearchPath();
-            router.push(`${searchPath}?query=${encodeURIComponent(searchQuery.value.trim())}`);
-        }
+    if (event.key === 'Enter') {
+        executeSearch();
     } else if (event.key === 'Escape') {
         deactivateSearch();
     }
@@ -155,6 +167,9 @@ onMounted(() => {
             background: transparent;
             color: rgb(var(--v-theme-text));
             font-size: 16px;
+            // type="search" のデフォルトスタイルを無効化
+            -webkit-appearance: none;
+            appearance: none;
 
             &:focus {
                 outline: none;
@@ -162,6 +177,11 @@ onMounted(() => {
 
             &::placeholder {
                 color: rgb(var(--v-theme-text-darken-2));
+            }
+
+            // type="search" のキャンセルボタンを非表示
+            &::-webkit-search-cancel-button {
+                display: none;
             }
         }
 
