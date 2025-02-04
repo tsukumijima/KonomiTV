@@ -11,7 +11,7 @@ import random
 import time
 import typer
 from numpy.typing import NDArray
-from typing import cast, Any, ClassVar, Literal
+from typing import cast, ClassVar, Literal
 
 from app import logging
 from app import schemas
@@ -37,40 +37,39 @@ class ThumbnailGenerator:
     # 顔検出の設定
     FACE_DETECTION_SCALE_FACTOR: ClassVar[float] = 1.2  # 顔検出時のスケールファクター
     FACE_DETECTION_MIN_NEIGHBORS: ClassVar[int] = 3  # 顔検出時の最小近傍数
-    FACE_SIZE_WEIGHT: ClassVar[float] = 0.3  # 顔サイズによるスコアの重み（実写向け）
-    ANIME_FACE_SIZE_WEIGHT: ClassVar[float] = 3.0  # アニメの顔サイズによるスコアの重み (アニメは顔が大きく映っているシーンを重視)
-    FACE_SIZE_BASE_SCORE: ClassVar[float] = 10.0  # 顔サイズの基本スコア
+    FACE_SIZE_WEIGHT: ClassVar[float] = 0.8  # 顔サイズによるスコアの重み（実写向け）
+    ANIME_FACE_SIZE_WEIGHT: ClassVar[float] = 1.2  # アニメの顔サイズによるスコアの重み (アニメは顔が大きく映っているシーンを重視)
+    FACE_SIZE_BASE_SCORE: ClassVar[float] = 20.0  # 顔サイズの基本スコア
 
     # レターボックス検出の設定
-    LETTERBOX_THRESHOLD: ClassVar[int] = 30  # レターボックス判定の輝度閾値
     LETTERBOX_MIN_HEIGHT_RATIO: ClassVar[float] = 0.05  # 最小の黒帯の高さ比率（画像の高さに対する割合）
     LETTERBOX_MAX_HEIGHT_RATIO: ClassVar[float] = 0.25  # 最大の黒帯の高さ比率
-    LETTERBOX_UNIFORMITY_THRESHOLD: ClassVar[float] = 5.0  # 黒帯の一様性判定の閾値（標準偏差）
-    LETTERBOX_AREA_THRESHOLD: ClassVar[float] = 0.3  # レターボックスの面積比率の閾値（これを超えると除外）
+    LETTERBOX_AREA_THRESHOLD: ClassVar[float] = 0.4  # レターボックスの面積比率の閾値（これを超えると除外）
+    LETTERBOX_LUMINANCE_THRESHOLD: ClassVar[int] = 45  # レターボックスの輝度閾値（これ以下を黒帯候補とする）
+    LETTERBOX_CONTINUOUS_RATIO: ClassVar[float] = 0.7  # 連続性判定の閾値（この割合以上が類似していれば連続とみなす）
+    LETTERBOX_EDGE_THRESHOLD: ClassVar[float] = 0.05  # エッジ密度の閾値（これ以下なら一様な領域とみなす）
 
     # 画質評価の重み付け（実写向け）
     SCORE_WEIGHTS: ClassVar[dict[str, float]] = {
-        'std_lum': 0.8,  # 輝度の標準偏差 (全体的な明暗の差)
-        'contrast': 1.5,  # コントラスト (明暗の差の大きさ)
-        'sharpness': 0.02,  # シャープネス
-        'edge_density': 0.8,  # エッジ密度 (情報量の指標)
-        'entropy': 1.0,  # エントロピー (情報量の指標)
-        'blur': 1.2,  # ブレ検出のペナルティ
+        'std_lum': 0.6,  # 輝度の標準偏差 (全体的な明暗の差)
+        'contrast': 0.4,  # コントラスト (明暗の差の大きさ)
+        'sharpness': 0.5,  # シャープネス
+        'edge_density': 0.4,  # エッジ密度 (情報量の指標)
+        'entropy': 0.3,  # エントロピー (情報量の指標)
     }
 
     # 画質評価の重み付け（アニメ向け）
     ANIME_SCORE_WEIGHTS: ClassVar[dict[str, float]] = {
-        'std_lum': 0.7,  # 輝度の標準偏差 (全体的な明暗の差)
-        'contrast': 1.3,  # コントラスト (明暗の差の大きさ)
-        'sharpness': 0.02,  # シャープネス
-        'edge_density': 0.9,  # エッジ密度 (情報量の指標)
-        'entropy': 1.2,  # エントロピー (情報量の指標)
-        'blur': 1.4,  # ブレ検出のペナルティ (アニメはブレに特に厳しく)
+        'std_lum': 0.5,  # 輝度の標準偏差 (全体的な明暗の差)
+        'contrast': 0.3,  # コントラスト (明暗の差の大きさ)
+        'sharpness': 0.6,  # シャープネス
+        'edge_density': 0.5,  # エッジ密度 (情報量の指標)
+        'entropy': 0.4,  # エントロピー (情報量の指標)
     }
 
     # 画質評価のペナルティ
     BRIGHTNESS_PENALTY_THRESHOLD: ClassVar[tuple[int, int]] = (20, 235)  # 輝度のペナルティ閾値 (min, max)
-    BRIGHTNESS_PENALTY_VALUE: ClassVar[float] = 50.0  # 輝度のペナルティ値
+    BRIGHTNESS_PENALTY_VALUE: ClassVar[float] = 20.0  # 輝度のペナルティ値
 
     # コントラスト評価の設定
     CONTRAST_PERCENTILE_LOW: ClassVar[int] = 5  # コントラスト計算時の下位パーセンタイル
@@ -82,12 +81,8 @@ class ThumbnailGenerator:
     ENTROPY_TARGET: ClassVar[float] = 5.0  # 目標とするエントロピー値
     ENTROPY_TOLERANCE: ClassVar[float] = 2.0  # エントロピーの許容範囲
 
-    # ブレ検出の設定
-    BLUR_THRESHOLD: ClassVar[float] = 100.0  # ブレ判定の閾値 (この値以下でブレと判定)
-    BLUR_PENALTY: ClassVar[float] = 50.0  # ブレ検出時のペナルティ値
-
     # WebP 出力の設定
-    WEBP_QUALITY: ClassVar[int] = 90  # WebP品質 (0-100)
+    WEBP_QUALITY: ClassVar[int] = 85  # WebP品質 (0-100)
     WEBP_COMPRESSION: ClassVar[int] = 6  # 圧縮レベル (0-6, 6が最高品質)
     WEBP_MAX_SIZE: ClassVar[int] = 16383  # WebP の最大サイズ制限 (px)
 
@@ -103,14 +98,14 @@ class ThumbnailGenerator:
     COLOR_VARIANCE_THRESHOLD: ClassVar[float] = 10.0  # 各チャンネルの分散がこの値以下なら単色とみなす
     BLACK_THRESHOLD: ClassVar[int] = 30  # 平均輝度がこの値以下なら黒とみなす（ログ出力用）
     WHITE_THRESHOLD: ClassVar[int] = 225  # 平均輝度がこの値以上なら白とみなす（ログ出力用）
-    SOLID_COLOR_PENALTY: ClassVar[float] = 2000.0  # 単色フレームに対するペナルティ（すべての単色に対して同じ値）
+    SOLID_COLOR_PENALTY: ClassVar[float] = 100.0  # 単色フレームに対するペナルティ（すべての単色に対して同じ値）
 
     # レターボックス検出のペナルティ設定を追加
     LETTERBOX_PENALTY: ClassVar[float] = 50.0  # レターボックスがある場合のペナルティ値
 
     # アニメの色バランス評価の設定
     COLOR_BALANCE_K: ClassVar[int] = 3  # 抽出する主要な色の数
-    COLOR_BALANCE_WEIGHT: ClassVar[float] = 0.8  # アニメの色バランススコアの重み
+    COLOR_BALANCE_WEIGHT: ClassVar[float] = 0.5  # アニメの色バランススコアの重み
     COLOR_BALANCE_MIN_RATIO: ClassVar[float] = 0.15  # 主要な色の最小占有率 (これ以下は無視)
     COLOR_BALANCE_MAX_RATIO: ClassVar[float] = 0.7  # 主要な色の最大占有率 (これを超えると単調な画像とみなす)
     COLOR_BALANCE_MIN_DISTANCE: ClassVar[float] = 30.0  # 主要な色同士の最小距離 (Lab色空間)
@@ -470,7 +465,8 @@ class ThumbnailGenerator:
                     self.__computeImageScore,
                     sub_img,
                     face_cascade,
-                    idx,
+                    row,
+                    col,
                 )
                 frames_info.append((idx, score, found_face, sub_img))
 
@@ -482,6 +478,7 @@ class ThumbnailGenerator:
                 col = idx % cols
                 y_start = row * tile_h
                 x_start = col * tile_w
+                logging.debug_simple(f'{self.file_path}: Random frame selected. (row:{row}, col:{col})')
                 return cast(NDArray[np.uint8], tile_bgr[y_start:y_start+tile_h, x_start:x_start+tile_w])
 
             # スコアリングで適切な候補を選定
@@ -491,11 +488,17 @@ class ThumbnailGenerator:
 
                 if face_cascade is not None and face_frames:
                     # 顔ありのみから最大スコアを選ぶ
-                    _, _, _, best_img = max(face_frames, key=lambda x: x[1])
+                    best_idx, _, _, best_img = max(face_frames, key=lambda x: x[1])
+                    best_row = best_idx // cols
+                    best_col = best_idx % cols
+                    logging.debug_simple(f'{self.file_path}: Best frame found. (row:{best_row}, col:{best_col})')
                     return best_img
                 else:
                     # 顔検出無し or 一つも顔が見つからなかった場合
-                    _, _, _, best_img = max(frames_info, key=lambda x: x[1])
+                    best_idx, _, _, best_img = max(frames_info, key=lambda x: x[1])
+                    best_row = best_idx // cols
+                    best_col = best_idx % cols
+                    logging.debug_simple(f'{self.file_path}: Best frame found. (row:{best_row}, col:{best_col})')
                     return best_img
 
             # スコアリングで適切な候補が見つからなかった場合は、候補区間内からランダムに1枚を選択
@@ -566,9 +569,9 @@ class ThumbnailGenerator:
         レターボックス範囲が大きすぎる場合は None を返す
 
         レターボックスの判定条件:
-        1. 左右/上下の対称な位置で同じような色が存在する
-        2. その色が一定の幅で連続している
-        3. 左右/上下で同じような色である
+        1. 輝度が一定以下の領域が存在
+        2. その領域のエッジ密度が低い（一様な領域である）
+        3. 一定の幅で連続している（ただし完全な連続性は要求しない）
 
         Args:
             img_bgr (NDArray[np.uint8]): 入力画像 (BGR)
@@ -582,33 +585,14 @@ class ThumbnailGenerator:
         min_height = int(height * self.LETTERBOX_MIN_HEIGHT_RATIO)
         max_height = int(height * self.LETTERBOX_MAX_HEIGHT_RATIO)
 
-        def is_similar_color(color1: NDArray[np.uint8], color2: NDArray[np.uint8], threshold: float = 15.0) -> bool:
-            """
-            2つの色が十分に似ているかどうかを判定する
-            エンコード時のアーティファクトを考慮し、ある程度の色の違いは許容する
-
-            Args:
-                color1 (NDArray[np.uint8]): 比較する色1 (BGR)
-                color2 (NDArray[np.uint8]): 比較する色2 (BGR)
-                threshold (float): 色の差の閾値 (デフォルト: 15.0)
-
-            Returns:
-                bool: 2つの色が十分に似ている場合は True
-            """
-            # BGR -> Lab 色空間に変換 (知覚的な色差を計算するため)
-            lab1 = cv2.cvtColor(color1.reshape(1, 1, 3), cv2.COLOR_BGR2Lab)
-            lab2 = cv2.cvtColor(color2.reshape(1, 1, 3), cv2.COLOR_BGR2Lab)
-            # Lab 色空間でのユークリッド距離を計算
-            diff = float(np.linalg.norm(lab1.reshape(3) - lab2.reshape(3)))
-            return bool(diff <= threshold)
-
-        def check_continuous_color(
+        def check_letterbox_region(
             img_slice: NDArray[np.uint8],
             width: int,
             is_vertical: bool = True,
-        ) -> tuple[bool, NDArray[np.uint8] | None]:
+        ) -> tuple[bool, int]:
             """
-            指定された幅で同じような色が連続しているかを確認する
+            指定された領域がレターボックスかどうかを判定する
+            輝度とエッジ密度の両方を考慮する
 
             Args:
                 img_slice (NDArray[np.uint8]): 確認する画像の一部
@@ -616,100 +600,83 @@ class ThumbnailGenerator:
                 is_vertical (bool): 垂直方向の確認かどうか
 
             Returns:
-                tuple[bool, NDArray[np.uint8] | None]: (連続した色が見つかったか, 見つかった場合はその色)
+                tuple[bool, int]: (レターボックスと判定されたか, 見つかった場合はその幅)
             """
+
+            # グレースケールに変換
+            gray = cv2.cvtColor(img_slice, cv2.COLOR_BGR2GRAY)
+
+            # 輝度の平均を計算
             if is_vertical:
-                # 垂直方向の場合は、各列の平均色を計算
-                colors = np.mean(img_slice[:width], axis=0, dtype=np.uint8)
+                # 垂直方向の場合は、各行の平均を計算
+                luminance = np.asarray(gray[:width]).mean(axis=1, dtype=np.float32)
             else:
-                # 水平方向の場合は、各行の平均色を計算
-                colors = np.mean(img_slice[:, :width], axis=1, dtype=np.uint8)
+                # 水平方向の場合は、各列の平均を計算
+                luminance = np.asarray(gray[:, :width]).mean(axis=0, dtype=np.float32)
 
-            # 最初の色を基準に、他の色との類似度を確認
-            base_color = colors[0]
-            for color in colors[1:]:
-                if not bool(is_similar_color(base_color, color)):
-                    return False, None
+            # 暗い画素の割合を計算
+            dark_ratio = np.sum(luminance <= self.LETTERBOX_LUMINANCE_THRESHOLD) / len(luminance)
 
-            return True, base_color
+            # エッジ検出
+            edges = cv2.Canny(gray, 50, 150)
+            if is_vertical:
+                edge_density = np.sum(edges[:width]) / (width * edges.shape[1])
+            else:
+                edge_density = np.sum(edges[:, :width]) / (width * edges.shape[0])
+
+            # 暗い領域が一定割合以上で、かつエッジが少ない場合をレターボックスと判定
+            if dark_ratio >= self.LETTERBOX_CONTINUOUS_RATIO and edge_density <= self.LETTERBOX_EDGE_THRESHOLD:
+                return True, width
+
+            # より狭い範囲で再帰的に確認
+            if width > min_height * 2:
+                return check_letterbox_region(img_slice, width // 2, is_vertical)
+
+            return False, 0
 
         # 上下のレターボックスを検出
         top_border = 0
         bottom_border = height
-        top_color = None
-        bottom_color = None
 
         # 上から走査
-        for y in range(max_height):
-            # 上端の連続した色を確認
-            is_continuous, color = check_continuous_color(
-                img_bgr[y:y+min_height],
-                min_height,
-                is_vertical=True,
-            )
-            if not is_continuous:
-                break
-            top_border = y + min_height
-            top_color = color
+        is_letterbox, top_width = check_letterbox_region(
+            img_bgr[:max_height],
+            max_height,
+            is_vertical=True,
+        )
+        if is_letterbox:
+            top_border = top_width
 
         # 下から走査
-        for y in range(height - 1, height - max_height - 1, -1):
-            # 下端の連続した色を確認
-            is_continuous, color = check_continuous_color(
-                img_bgr[y-min_height:y],
-                min_height,
-                is_vertical=True,
-            )
-            if not is_continuous:
-                break
-            bottom_border = y - min_height
-            bottom_color = color
-
-        # 上下の色が類似しているか確認
-        if top_color is not None and bottom_color is not None:
-            if not is_similar_color(top_color, bottom_color):
-                # 上下で色が異なる場合はレターボックスではない
-                top_border = 0
-                bottom_border = height
+        is_letterbox, bottom_width = check_letterbox_region(
+            img_bgr[height-max_height:],
+            max_height,
+            is_vertical=True,
+        )
+        if is_letterbox:
+            bottom_border = height - bottom_width
 
         # 左右のレターボックスを検出
         left_border = 0
         right_border = width
-        left_color = None
-        right_color = None
 
         # 左から走査
-        for x in range(max_height):
-            # 左端の連続した色を確認
-            is_continuous, color = check_continuous_color(
-                img_bgr[:, x:x+min_height],
-                min_height,
-                is_vertical=False,
-            )
-            if not is_continuous:
-                break
-            left_border = x + min_height
-            left_color = color
+        is_letterbox, left_width = check_letterbox_region(
+            img_bgr[:, :max_height],
+            max_height,
+            is_vertical=False,
+        )
+        if is_letterbox:
+            left_border = left_width
 
         # 右から走査
-        for x in range(width - 1, width - max_height - 1, -1):
-            # 右端の連続した色を確認
-            is_continuous, color = check_continuous_color(
-                img_bgr[:, x-min_height:x],
-                min_height,
-                is_vertical=False,
-            )
-            if not is_continuous:
-                break
-            right_border = x - min_height
-            right_color = color
-
-        # 左右の色が類似しているか確認
-        if left_color is not None and right_color is not None:
-            if not is_similar_color(left_color, right_color):
-                # 左右で色が異なる場合はレターボックスではない
-                left_border = 0
-                right_border = width
+        is_letterbox, right_width = check_letterbox_region(
+            img_bgr[:, width-max_height:],
+            max_height,
+            is_vertical=False,
+        )
+        if is_letterbox:
+            right_border = width - right_width
 
         # レターボックスの面積比率を計算
         total_area = height * width
@@ -725,29 +692,6 @@ class ThumbnailGenerator:
             slice(top_border, bottom_border),
             slice(left_border, right_border)
         )
-
-
-    def __detectBlur(self, img_gray: NDArray[Any]) -> float:
-        """
-        画像のブレを検出する
-        Laplacian の分散を使用してブレを検出し、ブレ具合をスコアとして返す
-
-        Args:
-            img_gray (NDArray[Any]): グレースケール画像
-
-        Returns:
-            float: ブレ検出スコア（値が小さいほどブレている）
-        """
-
-        # 入力画像を float64 に変換して処理
-        if img_gray.dtype != np.float64:
-            img_gray = img_gray.astype(np.float64)
-
-        # Laplacian フィルタを適用
-        laplacian = cast(NDArray[np.float64], cv2.Laplacian(img_gray, cv2.CV_64F))
-
-        # 分散を計算（値が小さいほどブレている）
-        return float(np.var(laplacian))
 
 
     def __computeColorBalanceScore(self, img_bgr: NDArray[np.uint8]) -> float:
@@ -816,20 +760,21 @@ class ThumbnailGenerator:
         ## - 有意な色の数が多いほど高スコア
         ## - 色の距離が大きいほど高スコア
         ## - 占有率のばらつきが適度にあるほど高スコア
-        score = (
+        score = float(
             (significant_colors / self.COLOR_BALANCE_K) * 0.4 +  # 有意な色の数
             (min(min_distance / 100.0, 1.0)) * 0.3 +  # 色の距離
             (1.0 - abs(np.std(ratios) - 0.2)) * 0.3  # 占有率の分散
         )
 
-        return float(score)
+        return score
 
 
     def __computeImageScore(
         self,
         img_bgr: NDArray[np.uint8],
         face_cascade: cv2.CascadeClassifier | None,
-        idx: int,
+        row: int,
+        col: int,
     ) -> tuple[float, bool]:
         """
         画質スコア (輝度・コントラスト・シャープネス) を計算し、
@@ -839,6 +784,8 @@ class ThumbnailGenerator:
         Args:
             img_bgr (NDArray[np.uint8]): 評価する画像データ (BGR)
             face_cascade (cv2.CascadeClassifier | None): 顔検出器
+            row (int): 評価する画像の行番号
+            col (int): 評価する画像の列番号
 
         Returns:
             tuple[float, bool]: (score, found_face)
@@ -854,7 +801,7 @@ class ThumbnailGenerator:
             # レターボックスが多すぎる場合は最低スコアを返す
             return (-1000.0, False)
         elif letterbox_result != (slice(0, img_bgr.shape[0]), slice(0, img_bgr.shape[1])):
-            logging.debug_simple(f'{self.file_path}: Letterbox detected. Penalty applied. (frame_idx={idx})')
+            logging.debug_simple(f'{self.file_path}: Letterbox detected. Penalty applied. (row:{row}, col:{col})')
             # レターボックスが検出された場合はペナルティを与える
             letterbox_penalty = self.LETTERBOX_PENALTY
             # レターボックスを除外した有効領域を取得
@@ -867,13 +814,6 @@ class ThumbnailGenerator:
         # グレースケール変換（複数の処理で使用）
         gray = cv2.cvtColor(valid_region, cv2.COLOR_BGR2GRAY)
 
-        # ブレ検出
-        blur_score = self.__detectBlur(gray)
-        blur_penalty = 0.0
-        if blur_score < self.BLUR_THRESHOLD:
-            logging.debug_simple(f'{self.file_path}: Blur detected. Penalty applied. (frame_idx={idx})')
-            blur_penalty = self.BLUR_PENALTY
-
         # 単色判定
         # 各チャンネルの分散を計算し、すべてのチャンネルの分散が閾値以下なら単色とみなす
         solid_color_penalty = 0.0
@@ -885,13 +825,13 @@ class ThumbnailGenerator:
             mean_intensity = float(np.mean(valid_region))
             # ログ出力用の色判定（デバッグ時に役立つ）
             if mean_intensity < self.BLACK_THRESHOLD:
-                logging.debug_simple(f'{self.file_path}: Solid black frame detected. Ignored.')
+                logging.debug_simple(f'{self.file_path}: Solid black frame detected. Ignored. (row:{row}, col:{col})')
             elif mean_intensity > self.WHITE_THRESHOLD:
-                logging.debug_simple(f'{self.file_path}: Solid white frame detected. Ignored.')
+                logging.debug_simple(f'{self.file_path}: Solid white frame detected. Ignored. (row:{row}, col:{col})')
             else:
                 # BGRの平均値から色を推定
                 mean_colors = [float(np.mean(valid_region[:,:,i])) for i in range(3)]
-                logging.debug_simple(f'{self.file_path}: Solid color frame detected (BGR: {mean_colors}). Ignored.')
+                logging.debug_simple(f'{self.file_path}: Solid color frame detected (BGR: {mean_colors}). Ignored. (row:{row}, col:{col})')
 
             # すべての単色に対して同じ強いペナルティを与える
             solid_color_penalty = self.SOLID_COLOR_PENALTY
@@ -904,7 +844,7 @@ class ThumbnailGenerator:
                 minNeighbors=self.FACE_DETECTION_MIN_NEIGHBORS
             )
             if len(faces) > 0:
-                logging.debug_simple(f'{self.file_path}: Face detected. Score applied. (frame_idx={idx})')
+                logging.debug_simple(f'{self.file_path}: Face detected. Score applied. (row:{row}, col:{col})')
                 found_face = True
                 # 最も大きい顔を基準にスコアを計算
                 max_face_area = max(w * h for (_, _, w, h) in faces)
@@ -937,12 +877,12 @@ class ThumbnailGenerator:
         # コントラストをさらに強調するため、平均輝度が中間値に近いほどボーナスを与える
         # 中間値 (127.5) からの距離に応じてペナルティを与える
         distance_ratio = abs(float(mean_lum) - 127.5) / 127.5
-        contrast_bonus = max(0.0, float(1.0 - distance_ratio)) * float(contrast) * 0.5
+        contrast_bonus = max(0.0, float(1.0 - distance_ratio)) * float(contrast) * 0.1  # ボーナスの影響を抑制
         contrast += contrast_bonus
 
         # (3) シャープネス (Laplacian の分散)
         lap = cv2.Laplacian(valid_region, cv2.CV_64F)
-        sharpness = lap.var()
+        sharpness = float(lap.var()) / 2000.0  # シャープネスの値をより強く正規化
 
         # (4) エッジ密度の計算
         edges = cv2.Canny(gray, 100, 200)
@@ -952,7 +892,7 @@ class ThumbnailGenerator:
         edge_density_score = max(0.0, 1.0 - abs(edge_density - self.EDGE_DENSITY_TARGET) / self.EDGE_DENSITY_TOLERANCE)
         # 情報量が多すぎる場合はペナルティを与える
         if edge_density > self.EDGE_DENSITY_TARGET + self.EDGE_DENSITY_TOLERANCE:
-            edge_density_score *= 0.5
+            edge_density_score *= 0.7  # ペナルティを緩和
 
         # (5) エントロピーの計算
         hist = cv2.calcHist([gray], [0], None, [256], [0, 256])
@@ -964,32 +904,43 @@ class ThumbnailGenerator:
         entropy_score = max(0.0, 1.0 - abs(entropy - self.ENTROPY_TARGET) / self.ENTROPY_TOLERANCE)
         # 情報量が多すぎる場合はペナルティを与える
         if entropy > self.ENTROPY_TARGET + self.ENTROPY_TOLERANCE:
-            entropy_score *= 0.5
+            entropy_score *= 0.7  # ペナルティを緩和
 
         # スコア計算
-        # - mean_lum が極端に暗い or 明るい時は減点
-        # - std_lum, contrast, sharpness, edge_density, entropy を加点要素とする
-        brightness_penalty = 0.0
-        if mean_lum < self.BRIGHTNESS_PENALTY_THRESHOLD[0] or mean_lum > self.BRIGHTNESS_PENALTY_THRESHOLD[1]:
-            brightness_penalty = self.BRIGHTNESS_PENALTY_VALUE
-
-        # アニメと実写で異なる重み付けを使用
         weights = self.ANIME_SCORE_WEIGHTS if self.face_detection_mode == 'Anime' else self.SCORE_WEIGHTS
 
-        # 重み付けしてスコアを計算
-        score = (
-            std_lum * weights['std_lum'] +
-            contrast * weights['contrast'] +
-            sharpness * weights['sharpness'] +
-            edge_density_score * weights['edge_density'] +
-            entropy_score * weights['entropy'] +
+        # 各指標のスコアを正規化して計算
+        std_lum_score = (std_lum / 50.0) * weights['std_lum'] * 100  # 輝度の標準偏差を正規化
+        contrast_score = (contrast / 200.0) * weights['contrast'] * 100  # コントラストを正規化
+        sharpness_score = min(sharpness * weights['sharpness'] * 100, 100)  # シャープネスに上限を設定
+        edge_density_weighted = edge_density_score * weights['edge_density'] * 100
+        entropy_weighted = entropy_score * weights['entropy'] * 100
+
+        # 最終スコアを計算
+        score = float(
+            std_lum_score +
+            contrast_score +
+            sharpness_score +
+            edge_density_weighted +
+            entropy_weighted +
             face_size_score +  # 重み付けは既に face_weight で適用済み
             color_balance_score -  # アニメの場合の色バランススコア
-            brightness_penalty -
             solid_color_penalty -
-            blur_penalty * weights['blur'] -
             letterbox_penalty
         )
+
+        # 各指標のスコアをログ出力
+        logging.debug_simple(f'{self.file_path}: Score: (row:{row}, col:{col}):')
+        logging.debug_simple(f'  Luminance STD: {std_lum_score:.2f}')
+        logging.debug_simple(f'  Contrast: {contrast_score:.2f}')
+        logging.debug_simple(f'  Sharpness: {sharpness_score:.2f}')
+        logging.debug_simple(f'  Edge Density: {edge_density_weighted:.2f}')
+        logging.debug_simple(f'  Entropy: {entropy_weighted:.2f}')
+        logging.debug_simple(f'  Face Size: {face_size_score:.2f}')
+        logging.debug_simple(f'  Color Balance: {color_balance_score:.2f}')
+        logging.debug_simple(f'  Solid Color Penalty: -{solid_color_penalty:.2f}')
+        logging.debug_simple(f'  Letterbox Penalty: -{letterbox_penalty:.2f}')
+        logging.debug_simple(f'  = Final Score: {score:.2f}')
 
         return (score, found_face)
 
