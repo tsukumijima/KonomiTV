@@ -269,7 +269,10 @@ class Videos {
     static async regenerateThumbnail(video_id: number): Promise<IThumbnailRegenerationStatus> {
 
         // API リクエストを実行
-        const response = await APIClient.post<IThumbnailRegenerationStatus>(`/videos/${video_id}/thumbnail/regenerate`);
+        const response = await APIClient.post<IThumbnailRegenerationStatus>(`/videos/${video_id}/thumbnail/regenerate`, undefined, {
+            // 数分以上かかるのでタイムアウトを 30 分に設定
+            timeout: 30 * 60 * 1000,
+        });
 
         // エラー処理
         if (response.type === 'error') {
