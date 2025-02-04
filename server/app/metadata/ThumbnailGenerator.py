@@ -27,7 +27,10 @@ class ThumbnailGenerator:
     """
 
     # サムネイルのタイル化の設定
-    TILE_INTERVAL_SEC: ClassVar[float] = 5.0  # タイル化する間隔 (秒)
+    BASE_DURATION_MIN: ClassVar[int] = 30  # 基準となる動画の長さ (30分)
+    BASE_INTERVAL_SEC: ClassVar[float] = 5.0  # 基準となる間隔 (5秒)
+    MIN_INTERVAL_SEC: ClassVar[float] = 5.0  # 最小間隔 (5秒)
+    MAX_INTERVAL_SEC: ClassVar[float] = 30.0  # 最大間隔 (30秒)
     TILE_SCALE: ClassVar[tuple[int, int]] = (480, 270)  # タイル化時の1フレーム解像度 (width, height)
     TILE_COLS: ClassVar[int] = 34   # WebP の最大サイズ制限 (16383px) を考慮し、1行あたりの最大フレーム数を設定
 
@@ -137,6 +140,9 @@ class ThumbnailGenerator:
         self.candidate_intervals = candidate_time_ranges
         self.face_detection_mode = face_detection_mode
 
+        # 動画の長さに応じて適切なタイル化間隔を計算
+        self.tile_interval_sec = self.__calculateTileInterval(duration_sec)
+
         # ファイルハッシュをベースにしたファイル名を生成
         self.seekbar_thumbnails_tile_path = anyio.Path(str(THUMBNAILS_DIR / f"{file_hash}_tile.webp"))
         self.representative_thumbnail_path = anyio.Path(str(THUMBNAILS_DIR / f"{file_hash}.webp"))
@@ -237,6 +243,48 @@ class ThumbnailGenerator:
             return
 
 
+    def __calculateTileInterval(self, duration_sec: float) -> float:
+        """
+        動画の長さに応じて適切なタイル化間隔を計算する
+        30分以下の番組は5秒間隔固定とし、それより長い番組は対数関数的にサムネイル数の増加を抑制する
+        録画マージンを考慮し、分単位で切り捨てて計算する
+
+        Args:
+            duration_sec (float): 動画の長さ (秒)
+
+        Returns:
+            float: タイル化間隔 (秒)
+        """
+
+        # 録画マージンを考慮し、分単位で切り捨て
+        duration_min = int(duration_sec / 60)
+
+        # 30分以下は一律5秒間隔
+        if duration_min <= self.BASE_DURATION_MIN:
+            logging.debug_simple(f'{self.file_path}: Short video ({duration_min} min), using fixed interval of {self.BASE_INTERVAL_SEC} sec.')
+            return self.BASE_INTERVAL_SEC
+
+        # 30分超の場合は対数関数的に増加を抑制
+        # duration_ratio = 2 (1時間) の時に、increase_ratio が約1.5になるように調整
+        duration_ratio = duration_min / self.BASE_DURATION_MIN
+        # log(1 + x) の代わりに log(1 + x/2) を使うことで、1時間の時に1.5倍程度になるよう調整
+        interval = min(
+            self.MAX_INTERVAL_SEC,
+            self.BASE_INTERVAL_SEC * duration_ratio / math.log2(1 + duration_ratio/2)
+        )
+
+        # 計算結果をログ出力
+        expected_tiles = duration_sec / interval
+        base_tiles = (self.BASE_DURATION_MIN * 60) / self.BASE_INTERVAL_SEC
+        increase_ratio = expected_tiles / base_tiles
+        logging.debug_simple(
+            f'{self.file_path}: Long video ({duration_min} min), '
+            f'using dynamic interval of {interval:.1f} sec. '
+            f'Expected {expected_tiles:.1f} tiles (x{increase_ratio:.2f} of base).'
+        )
+        return interval
+
+
     async def __generateThumbnailTile(self) -> bool:
         """
         FFmpeg を使い、録画ファイル全体を対象にプレイヤーのシークバー用サムネイルタイル画像を生成する
@@ -250,7 +298,7 @@ class ThumbnailGenerator:
         try:
             # フレーム数 = ceil(duration_sec / tile_interval_sec)
             # ※ ceil() を使うことで、端数でも切り捨てずに確実にすべての区間をカバー
-            total_frames = int(math.ceil(self.duration_sec / self.TILE_INTERVAL_SEC))
+            total_frames = int(math.ceil(self.duration_sec / self.tile_interval_sec))
             if total_frames < 1:
                 # 短すぎるか、tile_interval_secが大きすぎる場合
                 total_frames = 1
@@ -277,7 +325,7 @@ class ThumbnailGenerator:
             # 3. tile=WxH:padding=0:margin=0: タイル化 (余白なし)
             filter_chain = [
                 # 5秒ごとにフレームを抽出
-                f'fps=1/{self.TILE_INTERVAL_SEC}',
+                f'fps=1/{self.tile_interval_sec}',
                 # リサイズしてタイル化
                 f'scale={width}:{height}',
                 f'tile={self.TILE_COLS}x{tile_rows}:padding=0:margin=0',
@@ -386,7 +434,7 @@ class ThumbnailGenerator:
 
             for idx in range(total_frames):
                 # このフレームの動画内時間(秒)
-                time_offset = idx * self.TILE_INTERVAL_SEC
+                time_offset = idx * self.tile_interval_sec
                 # 候補区間に含まれているかどうか
                 if not self.__inCandidateIntervals(time_offset):
                     continue
