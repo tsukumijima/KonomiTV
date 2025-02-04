@@ -209,18 +209,34 @@ class ThumbnailGenerator:
         )
 
 
-    async def generate(self) -> None:
+    async def generate(self, skip_tile_if_exists: bool = False) -> None:
         """
         プレイヤーのシークバー用サムネイルタイル画像を生成し、
         さらに候補区間内のフレームから最も良い1枚を選び、代表サムネイルとして出力する
+
+        Args:
+            skip_tile_if_exists (bool): True の場合、サムネイルタイルが既に存在する場合は再生成をスキップ (デフォルト: False)
         """
 
         start_time = time.time()
         try:
             # 1. プレイヤーのシークバー用サムネイルタイル画像を生成
-            if not await self.__generateThumbnailTile():
-                logging.error(f'{self.file_path}: Failed to generate seekbar thumbnail tile.')
-                return
+            tile_exists = await self.seekbar_thumbnails_tile_path.exists()
+            tile_exists_jpg = False
+            if not tile_exists:
+                # WebP が存在しない場合は JPEG も確認
+                jpg_path = self.seekbar_thumbnails_tile_path.with_suffix('.jpg')
+                tile_exists_jpg = await jpg_path.exists()
+                if tile_exists_jpg:
+                    self.seekbar_thumbnails_tile_path = jpg_path
+                    tile_exists = True
+
+            if tile_exists and skip_tile_if_exists:
+                logging.debug_simple(f'{self.file_path}: Seekbar thumbnail tile already exists. Skipping generation.')
+            else:
+                if not await self.__generateThumbnailTile():
+                    logging.error(f'{self.file_path}: Failed to generate seekbar thumbnail tile.')
+                    return
 
             # 2. プレイヤーのシークバー用サムネイルタイル画像を読み込み、各タイル(フレーム)を切り出し、
             #    そのタイムスタンプが candidate_intervals に含まれる場合だけ
@@ -453,7 +469,8 @@ class ThumbnailGenerator:
                 score, found_face = await asyncio.to_thread(
                     self.__computeImageScore,
                     sub_img,
-                    face_cascade
+                    face_cascade,
+                    idx,
                 )
                 frames_info.append((idx, score, found_face, sub_img))
 
@@ -548,6 +565,11 @@ class ThumbnailGenerator:
         レターボックス（上下左右の黒帯）を検出し、有効な映像領域のスライスを返す
         レターボックス範囲が大きすぎる場合は None を返す
 
+        レターボックスの判定条件:
+        1. 左右/上下の対称な位置で同じような色が存在する
+        2. その色が一定の幅で連続している
+        3. 左右/上下で同じような色である
+
         Args:
             img_bgr (NDArray[np.uint8]): 入力画像 (BGR)
 
@@ -560,49 +582,134 @@ class ThumbnailGenerator:
         min_height = int(height * self.LETTERBOX_MIN_HEIGHT_RATIO)
         max_height = int(height * self.LETTERBOX_MAX_HEIGHT_RATIO)
 
-        # グレースケールに変換
-        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+        def is_similar_color(color1: NDArray[np.uint8], color2: NDArray[np.uint8], threshold: float = 15.0) -> bool:
+            """
+            2つの色が十分に似ているかどうかを判定する
+            エンコード時のアーティファクトを考慮し、ある程度の色の違いは許容する
 
-        # 上下の黒帯を検出
+            Args:
+                color1 (NDArray[np.uint8]): 比較する色1 (BGR)
+                color2 (NDArray[np.uint8]): 比較する色2 (BGR)
+                threshold (float): 色の差の閾値 (デフォルト: 15.0)
+
+            Returns:
+                bool: 2つの色が十分に似ている場合は True
+            """
+            # BGR -> Lab 色空間に変換 (知覚的な色差を計算するため)
+            lab1 = cv2.cvtColor(color1.reshape(1, 1, 3), cv2.COLOR_BGR2Lab)
+            lab2 = cv2.cvtColor(color2.reshape(1, 1, 3), cv2.COLOR_BGR2Lab)
+            # Lab 色空間でのユークリッド距離を計算
+            diff = float(np.linalg.norm(lab1.reshape(3) - lab2.reshape(3)))
+            return bool(diff <= threshold)
+
+        def check_continuous_color(
+            img_slice: NDArray[np.uint8],
+            width: int,
+            is_vertical: bool = True,
+        ) -> tuple[bool, NDArray[np.uint8] | None]:
+            """
+            指定された幅で同じような色が連続しているかを確認する
+
+            Args:
+                img_slice (NDArray[np.uint8]): 確認する画像の一部
+                width (int): 確認する幅
+                is_vertical (bool): 垂直方向の確認かどうか
+
+            Returns:
+                tuple[bool, NDArray[np.uint8] | None]: (連続した色が見つかったか, 見つかった場合はその色)
+            """
+            if is_vertical:
+                # 垂直方向の場合は、各列の平均色を計算
+                colors = np.mean(img_slice[:width], axis=0, dtype=np.uint8)
+            else:
+                # 水平方向の場合は、各行の平均色を計算
+                colors = np.mean(img_slice[:, :width], axis=1, dtype=np.uint8)
+
+            # 最初の色を基準に、他の色との類似度を確認
+            base_color = colors[0]
+            for color in colors[1:]:
+                if not bool(is_similar_color(base_color, color)):
+                    return False, None
+
+            return True, base_color
+
+        # 上下のレターボックスを検出
         top_border = 0
         bottom_border = height
+        top_color = None
+        bottom_color = None
+
         # 上から走査
         for y in range(max_height):
-            row = cast(NDArray[Any], gray[y:y+min_height])
-            mean_val = float(np.mean(row, dtype=np.float64))
-            std_val = float(np.std(row, dtype=np.float64))
-            # 平均輝度が閾値以下で、かつ一様性が高い（標準偏差が小さい）場合を黒帯とみなす
-            if mean_val > self.LETTERBOX_THRESHOLD or std_val > self.LETTERBOX_UNIFORMITY_THRESHOLD:
-                top_border = y
+            # 上端の連続した色を確認
+            is_continuous, color = check_continuous_color(
+                img_bgr[y:y+min_height],
+                min_height,
+                is_vertical=True,
+            )
+            if not is_continuous:
                 break
+            top_border = y + min_height
+            top_color = color
+
         # 下から走査
         for y in range(height - 1, height - max_height - 1, -1):
-            row = cast(NDArray[Any], gray[y-min_height:y])
-            mean_val = float(np.mean(row, dtype=np.float64))
-            std_val = float(np.std(row, dtype=np.float64))
-            if mean_val > self.LETTERBOX_THRESHOLD or std_val > self.LETTERBOX_UNIFORMITY_THRESHOLD:
-                bottom_border = y
+            # 下端の連続した色を確認
+            is_continuous, color = check_continuous_color(
+                img_bgr[y-min_height:y],
+                min_height,
+                is_vertical=True,
+            )
+            if not is_continuous:
                 break
+            bottom_border = y - min_height
+            bottom_color = color
 
-        # 左右の黒帯を検出
+        # 上下の色が類似しているか確認
+        if top_color is not None and bottom_color is not None:
+            if not is_similar_color(top_color, bottom_color):
+                # 上下で色が異なる場合はレターボックスではない
+                top_border = 0
+                bottom_border = height
+
+        # 左右のレターボックスを検出
         left_border = 0
         right_border = width
+        left_color = None
+        right_color = None
+
         # 左から走査
         for x in range(max_height):
-            col = cast(NDArray[Any], gray[:, x:x+min_height])
-            mean_val = float(np.mean(col, dtype=np.float64))
-            std_val = float(np.std(col, dtype=np.float64))
-            if mean_val > self.LETTERBOX_THRESHOLD or std_val > self.LETTERBOX_UNIFORMITY_THRESHOLD:
-                left_border = x
+            # 左端の連続した色を確認
+            is_continuous, color = check_continuous_color(
+                img_bgr[:, x:x+min_height],
+                min_height,
+                is_vertical=False,
+            )
+            if not is_continuous:
                 break
+            left_border = x + min_height
+            left_color = color
+
         # 右から走査
         for x in range(width - 1, width - max_height - 1, -1):
-            col = cast(NDArray[Any], gray[:, x-min_height:x])
-            mean_val = float(np.mean(col, dtype=np.float64))
-            std_val = float(np.std(col, dtype=np.float64))
-            if mean_val > self.LETTERBOX_THRESHOLD or std_val > self.LETTERBOX_UNIFORMITY_THRESHOLD:
-                right_border = x
+            # 右端の連続した色を確認
+            is_continuous, color = check_continuous_color(
+                img_bgr[:, x-min_height:x],
+                min_height,
+                is_vertical=False,
+            )
+            if not is_continuous:
                 break
+            right_border = x - min_height
+            right_color = color
+
+        # 左右の色が類似しているか確認
+        if left_color is not None and right_color is not None:
+            if not is_similar_color(left_color, right_color):
+                # 左右で色が異なる場合はレターボックスではない
+                left_border = 0
+                right_border = width
 
         # レターボックスの面積比率を計算
         total_area = height * width
@@ -721,7 +828,8 @@ class ThumbnailGenerator:
     def __computeImageScore(
         self,
         img_bgr: NDArray[np.uint8],
-        face_cascade: cv2.CascadeClassifier | None
+        face_cascade: cv2.CascadeClassifier | None,
+        idx: int,
     ) -> tuple[float, bool]:
         """
         画質スコア (輝度・コントラスト・シャープネス) を計算し、
@@ -746,6 +854,7 @@ class ThumbnailGenerator:
             # レターボックスが多すぎる場合は最低スコアを返す
             return (-1000.0, False)
         elif letterbox_result != (slice(0, img_bgr.shape[0]), slice(0, img_bgr.shape[1])):
+            logging.debug_simple(f'{self.file_path}: Letterbox detected. Penalty applied. (frame_idx={idx})')
             # レターボックスが検出された場合はペナルティを与える
             letterbox_penalty = self.LETTERBOX_PENALTY
             # レターボックスを除外した有効領域を取得
@@ -762,6 +871,7 @@ class ThumbnailGenerator:
         blur_score = self.__detectBlur(gray)
         blur_penalty = 0.0
         if blur_score < self.BLUR_THRESHOLD:
+            logging.debug_simple(f'{self.file_path}: Blur detected. Penalty applied. (frame_idx={idx})')
             blur_penalty = self.BLUR_PENALTY
 
         # 単色判定
@@ -794,6 +904,7 @@ class ThumbnailGenerator:
                 minNeighbors=self.FACE_DETECTION_MIN_NEIGHBORS
             )
             if len(faces) > 0:
+                logging.debug_simple(f'{self.file_path}: Face detected. Score applied. (frame_idx={idx})')
                 found_face = True
                 # 最も大きい顔を基準にスコアを計算
                 max_face_area = max(w * h for (_, _, w, h) in faces)
@@ -908,11 +1019,16 @@ if __name__ == "__main__":
             "-e",
             help="候補区間の終了時刻 (秒) / 指定しない場合はメタデータから自動取得",
         ),
-        face_detection_mode: Literal['Human', 'Anime'] | None = typer.Option(
+        face_detection_mode: str | None = typer.Option(
             None,
             "--face-detection",
             "-f",
             help="顔検出モード (Human/Anime) / 指定しない場合はメタデータから自動取得",
+        ),
+        skip_tile_if_exists: bool = typer.Option(
+            False,
+            "--skip-tile",
+            help="サムネイルタイルが既に存在する場合は再生成をスキップ",
         ),
     ) -> None:
         """
@@ -943,7 +1059,7 @@ if __name__ == "__main__":
             generator.face_detection_mode = face_detection_mode
 
         # サムネイルを生成
-        asyncio.run(generator.generate())
+        asyncio.run(generator.generate(skip_tile_if_exists=skip_tile_if_exists))
         print(f"Thumbnail tile -> {generator.seekbar_thumbnails_tile_path}")
         print(f"Representative -> {generator.representative_thumbnail_path}")
 
