@@ -17,6 +17,7 @@ from app import logging
 from app import schemas
 from app.config import LoadConfig
 from app.constants import LIBRARY_PATH, STATIC_DIR, THUMBNAILS_DIR
+from app.utils.ProcessAffinity import ProcessAffinity
 from app.utils.ProcessLimiter import ProcessLimiter
 
 
@@ -312,12 +313,18 @@ class ThumbnailGenerator:
                             '-qmax', '1',  # 最大品質
                             '-qscale:v', str(int((100 - self.JPEG_QUALITY) / 4)),  # 品質設定 (JPEG の場合は 1-31 のスケール)
                         ]),
+                        # シングルスレッドで実行
+                        '-threads', '1',
                         # 出力ファイル
                         str(self.seekbar_thumbnails_tile_path),
                     ],
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                 )
+
+                # プロセスの CPU アフィニティを設定
+                ProcessAffinity.setProcessAffinity(process.pid)
+
                 _, stderr = await process.communicate()
 
             # エラーチェック

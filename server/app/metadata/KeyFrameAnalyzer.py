@@ -8,6 +8,7 @@ from app import logging
 from app import schemas
 from app.constants import LIBRARY_PATH
 from app.models.RecordedVideo import RecordedVideo
+from app.utils.ProcessAffinity import ProcessAffinity
 from app.utils.ProcessLimiter import ProcessLimiter
 
 
@@ -44,13 +45,14 @@ class KeyFrameAnalyzer:
             ## -i: 入力ファイルを指定
             ## -select_streams v:0: 最初の映像ストリームのみを選択
             ## -show_packets: パケット情報を表示
-            ## -show_entries packet=pts,dts,flags,pos: パケットの PTS, DTS, フラグ, 位置を表示
+            ## -show_entries packet=dts,flags,pos: パケットの DTS, フラグ, 位置を表示
             ## -of json: JSON 形式で出力
             options = [
                 '-i', str(self.file_path),
                 '-select_streams', 'v:0',
                 '-show_packets',
-                '-show_entries', 'packet=pts,dts,flags,pos',
+                '-show_entries', 'packet=dts,flags,pos',
+                '-threads', '1',  # シングルスレッドで実行
                 '-of', 'json',
             ]
 
@@ -62,6 +64,9 @@ class KeyFrameAnalyzer:
                     stdout = asyncio.subprocess.PIPE,
                     stderr = asyncio.subprocess.PIPE,
                 )
+
+                # プロセスの CPU アフィニティを設定
+                ProcessAffinity.setProcessAffinity(ffprobe_process.pid)
 
                 # ffprobe の出力を取得
                 stdout, stderr = await ffprobe_process.communicate()
