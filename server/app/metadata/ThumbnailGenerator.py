@@ -28,13 +28,13 @@ class ThumbnailGenerator:
     # サムネイルのタイル化の設定
     TILE_INTERVAL_SEC: ClassVar[float] = 5.0  # タイル化する間隔 (秒)
     TILE_SCALE: ClassVar[tuple[int, int]] = (480, 270)  # タイル化時の1フレーム解像度 (width, height)
-    TILE_COLS: ClassVar[int] = 16  # タイルの横方向枚数 (480px * 16 = 7680px)
+    TILE_COLS: ClassVar[int] = 34   # WebP の最大サイズ制限 (16383px) を考慮し、1行あたりの最大フレーム数を設定
 
     # 顔検出の設定
     FACE_DETECTION_SCALE_FACTOR: ClassVar[float] = 1.2  # 顔検出時のスケールファクター
     FACE_DETECTION_MIN_NEIGHBORS: ClassVar[int] = 3  # 顔検出時の最小近傍数
     FACE_SIZE_WEIGHT: ClassVar[float] = 0.3  # 顔サイズによるスコアの重み（実写向け）
-    ANIME_FACE_SIZE_WEIGHT: ClassVar[float] = 1.8  # アニメの顔サイズによるスコアの重み (アニメは顔が大きく映っているシーンを重視)
+    ANIME_FACE_SIZE_WEIGHT: ClassVar[float] = 3.0  # アニメの顔サイズによるスコアの重み (アニメは顔が大きく映っているシーンを重視)
     FACE_SIZE_BASE_SCORE: ClassVar[float] = 10.0  # 顔サイズの基本スコア
 
     # レターボックス検出の設定
@@ -85,6 +85,11 @@ class ThumbnailGenerator:
     # WebP 出力の設定
     WEBP_QUALITY: ClassVar[int] = 90  # WebP品質 (0-100)
     WEBP_COMPRESSION: ClassVar[int] = 6  # 圧縮レベル (0-6, 6が最高品質)
+    WEBP_MAX_SIZE: ClassVar[int] = 16383  # WebP の最大サイズ制限 (px)
+
+    # JPEG フォールバック時の設定
+    JPEG_QUALITY: ClassVar[int] = 90  # JPEG 品質 (0-100)
+    JPEG_OPTIMIZE: ClassVar[bool] = True  # JPEG 最適化
 
     # 顔検出用カスケード分類器のパス
     HUMAN_FACE_CASCADE_PATH: ClassVar[pathlib.Path] = pathlib.Path(cv2.__file__).parent / 'data' / 'haarcascade_frontalface_default.xml'
@@ -235,6 +240,7 @@ class ThumbnailGenerator:
         """
         FFmpeg を使い、録画ファイル全体を対象にプレイヤーのシークバー用サムネイルタイル画像を生成する
         5秒ごとにフレームを抽出し、タイル化する
+        WebP の最大サイズ制限を超えそうな場合は JPEG にフォールバックする
 
         Returns:
             bool: 成功時は True、失敗時は False
@@ -253,6 +259,16 @@ class ThumbnailGenerator:
             tile_rows = math.ceil(total_frames / self.TILE_COLS)
 
             width, height = self.TILE_SCALE
+            total_width = width * self.TILE_COLS
+            total_height = height * tile_rows
+
+            # WebP の最大サイズ制限を超えるかどうかチェック
+            use_webp = total_width <= self.WEBP_MAX_SIZE and total_height <= self.WEBP_MAX_SIZE
+
+            # WebP の最大サイズ制限を超える場合は JPEG にフォールバック
+            if not use_webp:
+                self.seekbar_thumbnails_tile_path = self.seekbar_thumbnails_tile_path.with_suffix('.jpg')
+                logging.warning(f'{self.file_path}: Image size ({total_width}x{total_height}) exceeds WebP limits. Falling back to JPEG.')
 
             # フィルターチェーンを構築
             # 1. fps=1/N: N秒ごとにフレームを抽出
@@ -284,11 +300,18 @@ class ThumbnailGenerator:
                         '-frames:v', '1',
                         # フィルターチェーンを結合
                         '-vf', ','.join(filter_chain),
-                        # WebP 出力設定
-                        '-vcodec', 'webp',
-                        '-quality', str(self.WEBP_QUALITY),  # 品質設定
-                        '-compression_level', str(self.WEBP_COMPRESSION),  # 圧縮レベル
-                        '-preset', 'photo',  # 写真向けプリセット
+                        # WebP または JPEG 出力設定
+                        *([
+                            '-vcodec', 'webp',
+                            '-quality', str(self.WEBP_QUALITY),  # 品質設定
+                            '-compression_level', str(self.WEBP_COMPRESSION),  # 圧縮レベル
+                            '-preset', 'photo',  # 写真向けプリセット
+                        ] if use_webp else [
+                            '-vcodec', 'mjpeg',
+                            '-qmin', '1',  # 最小品質
+                            '-qmax', '1',  # 最大品質
+                            '-qscale:v', str(int((100 - self.JPEG_QUALITY) / 4)),  # 品質設定 (JPEG の場合は 1-31 のスケール)
+                        ]),
                         # 出力ファイル
                         str(self.seekbar_thumbnails_tile_path),
                     ],
@@ -303,7 +326,7 @@ class ThumbnailGenerator:
                 logging.error(f'{self.file_path}: FFmpeg failed with return code {process.returncode}. Error: {error_message}')
                 return False
 
-            logging.debug_simple(f'{self.file_path}: Generated seekbar thumbnail tile.')
+            logging.debug_simple(f'{self.file_path}: Generated seekbar thumbnail tile ({self.seekbar_thumbnails_tile_path.suffix[1:].upper()}).')
             return True
 
         except Exception as ex:

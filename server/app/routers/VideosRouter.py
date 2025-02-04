@@ -91,6 +91,7 @@ async def GetThumbnailResponse(
     """
     サムネイル画像のレスポンスを生成する共通処理
     ETags と Last-Modified を使ったキャッシュ制御を行う
+    WebP の最大サイズ制限を超えた場合は JPEG にフォールバックする
 
     Args:
         request (Request): FastAPI のリクエストオブジェクト
@@ -103,10 +104,20 @@ async def GetThumbnailResponse(
 
     # サムネイル画像のパスを生成
     suffix = '_tile' if is_tile else ''
-    thumbnail_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{recorded_program.recorded_video.file_hash}{suffix}.webp'
+    base_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{recorded_program.recorded_video.file_hash}{suffix}'
+
+    # WebP と JPEG の両方を試す
+    thumbnail_path = None
+    media_type = None
+    for ext, mime in [('.webp', 'image/webp'), ('.jpg', 'image/jpeg')]:
+        path = base_path.with_suffix(ext)
+        if await path.exists():
+            thumbnail_path = path
+            media_type = mime
+            break
 
     # サムネイル画像が存在しない場合はデフォルト画像を返す
-    if not await thumbnail_path.exists():
+    if thumbnail_path is None:
         default_thumbnail_path = STATIC_DIR / 'thumbnails/default.webp'
         # キャッシュさせないようにヘッダーを設定
         headers = {
@@ -127,7 +138,7 @@ async def GetThumbnailResponse(
     ## 事前に stat_result を渡すことで、返却前に ETag を含む返却予定のレスポンスヘッダーを確認できる
     response = FileResponse(
         path = thumbnail_path,
-        media_type = 'image/webp',
+        media_type = media_type,
         stat_result = stat_result,
         headers = {
             'Cache-Control': 'public, no-transform, immutable, max-age=2592000',  # 30日間キャッシュ
@@ -278,10 +289,10 @@ async def VideoJikkyoCommentsAPI(
 @router.get(
     '/{video_id}/thumbnail',
     summary = '録画番組サムネイル API',
-    response_description = '録画番組のサムネイル画像 (WebP) 。',
+    response_description = '録画番組のサムネイル画像 (WebP または JPEG) 。',
     response_class = FileResponse,
     responses = {
-        200: {'content': {'image/webp': {}}},
+        200: {'content': {'image/webp': {}, 'image/jpeg': {}}},
         304: {'description': 'Not Modified'},
         422: {'description': 'Specified video_id was not found'},
     },
@@ -301,10 +312,10 @@ async def VideoThumbnailAPI(
 @router.get(
     '/{video_id}/thumbnail/tile',
     summary = '録画番組シークバー向けサムネイルタイル API',
-    response_description = '録画番組のシークバー向けサムネイルタイル画像 (WebP) 。',
+    response_description = '録画番組のシークバー向けサムネイルタイル画像 (WebP または JPEG) 。',
     response_class = FileResponse,
     responses = {
-        200: {'content': {'image/webp': {}}},
+        200: {'content': {'image/webp': {}, 'image/jpeg': {}}},
         304: {'description': 'Not Modified'},
         422: {'description': 'Specified video_id was not found'},
     },
