@@ -229,7 +229,7 @@ class ThumbnailGenerator:
         さらに候補区間内のフレームから最も良い1枚を選び、代表サムネイルとして出力する
 
         Args:
-            skip_tile_if_exists (bool): True の場合、サムネイルタイルが既に存在する場合は再生成をスキップ (デフォルト: False)
+            skip_tile_if_exists (bool): True の場合、既に存在する場合はサムネイルタイルの生成をスキップするかどうか (デフォルト: False)
         """
 
         start_time = time.time()

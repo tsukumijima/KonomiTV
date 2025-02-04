@@ -340,6 +340,7 @@ async def VideoThumbnailTileAPI(
 )
 async def VideoThumbnailRegenerateAPI(
     recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
+    skip_tile_if_exists: Annotated[bool, Query(description='既に存在する場合はサムネイルタイルの生成をスキップするかどうか（通常のサムネイルは再度生成する）。')] = False,
 ):
     """
     指定された録画番組のサムネイルを再生成する。<br>
@@ -354,7 +355,7 @@ async def VideoThumbnailRegenerateAPI(
         generator = ThumbnailGenerator.fromRecordedProgram(recorded_program_schema)
 
         # サムネイル生成を実行
-        await generator.generate()
+        await generator.generate(skip_tile_if_exists=skip_tile_if_exists)
 
         return {
             'is_success': True,

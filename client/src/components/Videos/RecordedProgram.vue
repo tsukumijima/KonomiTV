@@ -90,7 +90,7 @@ const show_video_info = ref(false);
 // サムネイル再生成
 const regenerateThumbnail = async () => {
     Message.success('サムネイルの再生成を開始しました。完了までしばらくお待ちください。');
-    const result = await Videos.regenerateThumbnail(props.program.id);
+    const result = await Videos.regenerateThumbnail(props.program.id, true);
     if (result.is_success) {
         Message.success('サムネイルの再生成が完了しました。');
     }
