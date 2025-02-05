@@ -57,11 +57,17 @@
                             </template>
                             <v-list-item-title class="ml-3">録画ファイル情報を表示</v-list-item-title>
                         </v-list-item>
-                        <v-list-item @click="regenerateThumbnail">
+                        <v-list-item @click="regenerateThumbnail(true)">
                             <template v-slot:prepend>
                                 <Icon icon="fluent:image-24-regular" width="20px" height="20px" />
                             </template>
                             <v-list-item-title class="ml-3">サムネイルを再生成</v-list-item-title>
+                        </v-list-item>
+                        <v-list-item @click="regenerateThumbnail(false)">
+                            <template v-slot:prepend>
+                                <Icon icon="fluent:image-24-regular" width="20px" height="20px" />
+                            </template>
+                            <v-list-item-title class="ml-3">シークバーサムネイルを再生成</v-list-item-title>
                         </v-list-item>
                     </v-list>
                 </v-menu>
@@ -88,9 +94,9 @@ const props = defineProps<{
 const show_video_info = ref(false);
 
 // サムネイル再生成
-const regenerateThumbnail = async () => {
+const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
     Message.success('サムネイルの再生成を開始しました。完了までしばらくお待ちください。');
-    const result = await Videos.regenerateThumbnail(props.program.id, true);
+    const result = await Videos.regenerateThumbnail(props.program.id, skip_tile_if_exists);
     if (result.is_success) {
         Message.success('サムネイルの再生成が完了しました。');
     }
