@@ -1,29 +1,12 @@
 <template>
     <div class="recorded-program-list">
-        <Breadcrumbs v-if="breadcrumbs" :crumbs="breadcrumbs" />
         <div class="recorded-program-list__header" v-if="!hideHeader">
-            <h2 class="recorded-program-list__title" :class="{'recorded-program-list__title--search-active': is_search_active}">
+            <h2 class="recorded-program-list__title">
                 <div v-if="showBackButton" v-ripple class="recorded-program-list__title-back" @click="$router.push('/videos/')">
                     <Icon icon="fluent:chevron-left-12-filled" width="27px" />
                 </div>
-                <template v-if="!is_search_active">
-                    <span class="recorded-program-list__title-text">{{title}}</span>
-                    <div class="recorded-program-list__title-count" v-if="!showMoreButton">{{total}}件</div>
-                    <v-btn v-if="showMoreButton && Utils.isSmartphoneVertical()"
-                        variant="text"
-                        class="px-2"
-                        style="min-width: 24px; border-radius: 50%; padding: 0px 5.5px !important;"
-                        @click="$emit('more')">
-                        <Icon icon="fluent:chevron-right-12-filled" width="25px" class="text-text-darken-1" style="margin: 0px 0px;" />
-                    </v-btn>
-                </template>
-                <div v-else class="recorded-program-list__search">
-                    <input ref="search_input" type="text" placeholder="録画番組を検索..."
-                        v-model="search_query" @keydown="handleKeyDown">
-                    <div v-ripple class="recorded-program-list__search-close" @click="deactivateSearch">
-                        <Icon icon="fluent:dismiss-20-filled" height="24px" />
-                    </div>
-                </div>
+                <span class="recorded-program-list__title-text">{{title}}</span>
+                <div class="recorded-program-list__title-count" v-if="!showMoreButton">{{total}}件</div>
             </h2>
             <div class="recorded-program-list__actions">
                 <v-select v-if="!hideSort"
@@ -42,12 +25,7 @@
                     hide-details
                     @update:model-value="$emit('update:sortOrder', $event)">
                 </v-select>
-                <template v-if="showSearch && Utils.isSmartphoneVertical()">
-                    <div v-if="!is_search_active" v-ripple class="recorded-program-list__search-button" @click="activateSearch">
-                        <Icon icon="fluent:search-20-filled" height="24px" />
-                    </div>
-                </template>
-                <v-btn v-if="showMoreButton && !Utils.isSmartphoneVertical()"
+                <v-btn v-if="showMoreButton"
                     variant="text"
                     class="recorded-program-list__more"
                     @click="$emit('more')">
@@ -79,13 +57,11 @@
 </template>
 <script lang="ts" setup>
 
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
-import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import RecordedProgram from '@/components/Videos/RecordedProgram.vue';
 import { IRecordedProgram } from '@/services/Videos';
-import Utils from '@/utils';
 
 const router = useRouter();
 
@@ -101,12 +77,10 @@ const props = withDefaults(defineProps<{
     hidePagination?: boolean;
     showMoreButton?: boolean;
     showBackButton?: boolean;
-    showSearch?: boolean;
     showEmptyMessage?: boolean;
     emptyMessage?: string;
     emptySubMessage?: string;
     isLoading?: boolean;
-    breadcrumbs?: { name: string; path: string; }[];
 }>(), {
     page: 1,
     sortOrder: 'desc',
@@ -115,12 +89,10 @@ const props = withDefaults(defineProps<{
     hidePagination: false,
     showMoreButton: false,
     showBackButton: false,
-    showSearch: false,
     showEmptyMessage: true,
     emptyMessage: '録画番組が見つかりませんでした。',
-    emptySubMessage: '',
+    emptySubMessage: 'サーバー設定で録画フォルダのパスを正しく設定できているか確認してください。',
     isLoading: false,
-    breadcrumbs: undefined,
 });
 
 // Emits
@@ -136,36 +108,15 @@ const current_page = ref(props.page);
 // 並び順
 const sort_order = ref(props.sortOrder);
 
-// 検索関連の状態
-const is_search_active = ref(false);
-const search_query = ref('');
-const search_input = ref<HTMLInputElement | null>(null);
+// props の page が変更されたら current_page を更新
+watch(() => props.page, (newPage) => {
+    current_page.value = newPage;
+});
 
-// 検索フォームを表示
-const activateSearch = () => {
-    is_search_active.value = true;
-    // 次のティックで入力フォーカスを設定
-    setTimeout(() => {
-        search_input.value?.focus();
-    }, 0);
-};
-
-// 検索フォームを非表示
-const deactivateSearch = () => {
-    is_search_active.value = false;
-    search_query.value = '';
-};
-
-// キー入力を処理
-const handleKeyDown = (event: KeyboardEvent) => {
-    if (event.key === 'Enter' && !event.isComposing) {
-        if (search_query.value.trim()) {
-            router.push(`/videos/search?query=${encodeURIComponent(search_query.value.trim())}`);
-        }
-    } else if (event.key === 'Escape') {
-        deactivateSearch();
-    }
-};
+// props の sortOrder が変更されたら sort_order を更新
+watch(() => props.sortOrder, (newOrder) => {
+    sort_order.value = newOrder;
+});
 
 </script>
 <style lang="scss" scoped>
@@ -185,25 +136,22 @@ const handleKeyDown = (event: KeyboardEvent) => {
 
     &__title {
         display: flex;
-        align-items: end;
-        height: 36px;
+        align-items: center;
+        position: relative;
         font-size: 24px;
         font-weight: 700;
-        margin-top: 8px;
-        margin-bottom: 20px;
-        transition: opacity 0.2s;
-
-        &--search-active {
-            opacity: 0;
+        padding-top: 8px;
+        padding-bottom: 20px;
+        @include smartphone-vertical {
+            font-size: 22px;
+            padding-bottom: 16px;
         }
 
         &-back {
             display: none;
-            position: relative;
+            position: absolute;
             left: -8px;
-            bottom: -1px;
             padding: 6px;
-            margin-top: 2px;
             border-radius: 50%;
             color: rgb(var(--v-theme-text));
             cursor: pointer;
@@ -211,22 +159,21 @@ const handleKeyDown = (event: KeyboardEvent) => {
                 display: flex;
             }
 
-
             & + .recorded-program-list__title-text {
                 @include smartphone-vertical {
-                    margin-left: -8px;
+                    margin-left: 32px;
                 }
             }
         }
 
         &-count {
-            margin-left: 10px;
-            margin-bottom: 4px;
+            padding-top: 10px;
+            margin-left: 12px;
             font-size: 14px;
             font-weight: 400;
             color: rgb(var(--v-theme-text-darken-1));
             @include smartphone-vertical {
-                margin-left: 8px;
+                margin-left: 10px;
             }
         }
     }
@@ -235,14 +182,13 @@ const handleKeyDown = (event: KeyboardEvent) => {
         display: flex;
         align-items: center;
         margin-left: auto;
-        @include smartphone-vertical {
-            :deep(.v-field) {
-                padding-right: 4px !important;
-            }
-            :deep(.v-field__input) {
-                padding-left: 12px !important;
-                padding-right: 0px !important;
-            }
+        width: 103px;
+        :deep(.v-field) {
+            padding-right: 4px !important;
+        }
+        :deep(.v-field__input) {
+            padding-left: 12px !important;
+            padding-right: 0px !important;
         }
     }
 
@@ -256,11 +202,13 @@ const handleKeyDown = (event: KeyboardEvent) => {
     }
 
     &__more {
-        margin-left: 8px;
-        margin-bottom: 8px;
-        padding: 0px 12px;
+        margin-bottom: 12px;
+        padding: 0px 10px;
         font-size: 15px;
         letter-spacing: 0.05em;
+        @include smartphone-vertical {
+            margin-bottom: 6px;
+        }
     }
 
     &__grid {
@@ -316,58 +264,6 @@ const handleKeyDown = (event: KeyboardEvent) => {
             @include smartphone-vertical {
                 font-size: 13px;
             }
-        }
-    }
-
-    &__search {
-        display: flex;
-        align-items: center;
-        width: 100%;
-        height: 100%;
-        position: absolute;
-        top: 0;
-        left: 0;
-        background: rgb(var(--v-theme-background));
-        padding: 0 8px;
-        z-index: 1;
-
-        input {
-            flex-grow: 1;
-            height: 100%;
-            border: none;
-            background: transparent;
-            color: rgb(var(--v-theme-text));
-            font-size: 16px;
-
-            &:focus {
-                outline: none;
-            }
-
-            &::placeholder {
-                color: rgb(var(--v-theme-text-darken-2));
-            }
-        }
-
-        &-close {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            margin-right: -2px;
-            padding: 2px;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-
-        &-button {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            margin-right: -2px;
-            padding: 2px;
-            border-radius: 8px;
-            cursor: pointer;
         }
     }
 }

@@ -3,22 +3,25 @@
         <HeaderBar />
         <main>
             <Navigation />
-            <div class="recorded-programs-container">
-                <RecordedProgramList
-                    title="録画番組リスト"
-                    :programs="programs"
-                    :total="total_programs"
-                    :page="current_page"
-                    :sortOrder="sort_order"
-                    :isLoading="is_loading"
-                    :showBackButton="true"
-                    :breadcrumbs="[
+            <div class="recorded-programs-container-wrapper">
+                <SPHeaderBar />
+                <div class="recorded-programs-container">
+                    <Breadcrumbs :crumbs="[
                         { name: 'ビデオをみる', path: '/videos/' },
-                        { name: '録画番組リスト', path: '/videos/programs' },
-                    ]"
-                    :showEmptyMessage="!is_loading"
-                    @update:page="updatePage"
-                    @update:sortOrder="updateSortOrder" />
+                        { name: '録画番組一覧', path: '/videos/programs', disabled: true },
+                    ]" />
+                    <RecordedProgramList
+                        title="録画番組一覧"
+                        :programs="programs"
+                        :total="total_programs"
+                        :page="current_page"
+                        :sortOrder="sort_order"
+                        :isLoading="is_loading"
+                        :showBackButton="true"
+                        :showEmptyMessage="!is_loading"
+                        @update:page="updatePage"
+                        @update:sortOrder="updateSortOrder" />
+                </div>
             </div>
         </main>
     </div>
@@ -28,8 +31,10 @@
 import { onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
+import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
+import SPHeaderBar from '@/components/SPHeaderBar.vue';
 import RecordedProgramList from '@/components/Videos/RecordedProgramList.vue';
 import { IRecordedProgram } from '@/services/Videos';
 import Videos from '@/services/Videos';
@@ -86,7 +91,15 @@ const updateSortOrder = async (order: 'desc' | 'asc') => {
 };
 
 // クエリパラメータが変更されたら録画番組を再取得
-watch(() => route.query, async () => {
+watch(() => route.query, async (newQuery) => {
+    // ページ番号を同期
+    if (newQuery.page) {
+        current_page.value = parseInt(newQuery.page as string);
+    }
+    // ソート順を同期
+    if (newQuery.order) {
+        sort_order.value = newQuery.order as 'desc' | 'asc';
+    }
     await fetchPrograms();
 }, { deep: true });
 
@@ -107,6 +120,12 @@ onMounted(async () => {
 </script>
 <style lang="scss" scoped>
 
+.recorded-programs-container-wrapper {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
 .recorded-programs-container {
     display: flex;
     flex-direction: column;
@@ -123,6 +142,7 @@ onMounted(async () => {
     }
     @include smartphone-vertical {
         padding: 16px 8px !important;
+        padding-top: 8px !important;
     }
 }
 

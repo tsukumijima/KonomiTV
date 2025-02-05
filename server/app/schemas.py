@@ -284,6 +284,12 @@ class LiveStreamStatuses(BaseModel):
     Standby: dict[str, LiveStreamStatus]
     Offline: dict[str, LiveStreamStatus]
 
+# ***** サムネイル再生成 *****
+
+class ThumbnailRegenerationStatus(BaseModel):
+    is_success: bool
+    detail: str
+
 # ***** 録画予約 *****
 
 # 以下は EDCB の生のデータモデルをフロントエンドが扱いやすいようモダンに整形し、KonomiTV 独自のプロパティを追加したもの

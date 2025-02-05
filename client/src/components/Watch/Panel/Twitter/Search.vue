@@ -6,7 +6,8 @@
                 <input
                     v-model="searchQuery"
                     class="search-input"
-                    type="text"
+                    type="search"
+                    enterkeyhint="search"
                     placeholder="検索キーワードを入力"
                     @keydown="onKeyDown($event)"
                     @focus="isSearchFormFocused = true"

@@ -6,7 +6,8 @@
                 <input
                     v-model="filterQuery"
                     class="search-input"
-                    type="text"
+                    type="search"
+                    enterkeyhint="search"
                     placeholder="タイムラインを絞り込む"
                     @focus="isFilterFormFocused = true"
                     @blur="isFilterFormFocused = false"

@@ -17,6 +17,7 @@ from typing import Annotated, Literal, Union
 from app import logging
 from app import schemas
 from app.constants import STATIC_DIR, THUMBNAILS_DIR
+from app.metadata.ThumbnailGenerator import ThumbnailGenerator
 from app.models.RecordedProgram import RecordedProgram
 from app.utils.Jikkyo import Jikkyo
 
@@ -90,6 +91,7 @@ async def GetThumbnailResponse(
     """
     サムネイル画像のレスポンスを生成する共通処理
     ETags と Last-Modified を使ったキャッシュ制御を行う
+    WebP の最大サイズ制限を超えた場合は JPEG にフォールバックする
 
     Args:
         request (Request): FastAPI のリクエストオブジェクト
@@ -102,10 +104,20 @@ async def GetThumbnailResponse(
 
     # サムネイル画像のパスを生成
     suffix = '_tile' if is_tile else ''
-    thumbnail_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{recorded_program.recorded_video.file_hash}{suffix}.webp'
+    base_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{recorded_program.recorded_video.file_hash}{suffix}'
+
+    # WebP と JPEG の両方を試す
+    thumbnail_path = None
+    media_type = None
+    for ext, mime in [('.webp', 'image/webp'), ('.jpg', 'image/jpeg')]:
+        path = base_path.with_suffix(ext)
+        if await path.exists():
+            thumbnail_path = path
+            media_type = mime
+            break
 
     # サムネイル画像が存在しない場合はデフォルト画像を返す
-    if not await thumbnail_path.exists():
+    if thumbnail_path is None:
         default_thumbnail_path = STATIC_DIR / 'thumbnails/default.webp'
         # キャッシュさせないようにヘッダーを設定
         headers = {
@@ -126,7 +138,7 @@ async def GetThumbnailResponse(
     ## 事前に stat_result を渡すことで、返却前に ETag を含む返却予定のレスポンスヘッダーを確認できる
     response = FileResponse(
         path = thumbnail_path,
-        media_type = 'image/webp',
+        media_type = media_type,
         stat_result = stat_result,
         headers = {
             'Cache-Control': 'public, no-transform, immutable, max-age=2592000',  # 30日間キャッシュ
@@ -250,7 +262,7 @@ async def VideoJikkyoCommentsAPI(
     recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
 ):
     """
-    指定された録画番組の放送中に投稿されたニコニコ実況の過去ログコメントを取得する。
+    指定された録画番組の放送中に投稿されたニコニコ実況の過去ログコメントを取得する。<br>
     ニコニコ実況 過去ログ API をラップし、DPlayer が受け付けるコメント形式に変換して返す。
     """
 
@@ -277,10 +289,10 @@ async def VideoJikkyoCommentsAPI(
 @router.get(
     '/{video_id}/thumbnail',
     summary = '録画番組サムネイル API',
-    response_description = '録画番組のサムネイル画像 (WebP) 。',
+    response_description = '録画番組のサムネイル画像 (WebP または JPEG) 。',
     response_class = FileResponse,
     responses = {
-        200: {'content': {'image/webp': {}}},
+        200: {'content': {'image/webp': {}, 'image/jpeg': {}}},
         304: {'description': 'Not Modified'},
         422: {'description': 'Specified video_id was not found'},
     },
@@ -290,7 +302,7 @@ async def VideoThumbnailAPI(
     recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
 ):
     """
-    指定された録画番組のサムネイル画像を取得する。
+    指定された録画番組のサムネイル画像を取得する。<br>
     サムネイルが生成されていない場合はデフォルト画像を返す。
     """
 
@@ -298,12 +310,12 @@ async def VideoThumbnailAPI(
 
 
 @router.get(
-    '/{video_id}/thumbnail-tile',
-    summary = '録画番組シークバーサムネイル API',
-    response_description = '録画番組のシークバーサムネイル画像 (WebP) 。',
+    '/{video_id}/thumbnail/tiled',
+    summary = '録画番組シークバー向けサムネイルタイル API',
+    response_description = '録画番組のシークバー向けサムネイルタイル画像 (WebP または JPEG) 。',
     response_class = FileResponse,
     responses = {
-        200: {'content': {'image/webp': {}}},
+        200: {'content': {'image/webp': {}, 'image/jpeg': {}}},
         304: {'description': 'Not Modified'},
         422: {'description': 'Specified video_id was not found'},
     },
@@ -313,8 +325,46 @@ async def VideoThumbnailTileAPI(
     recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
 ):
     """
-    指定された録画番組のシークバーサムネイル画像を取得する。
+    指定された録画番組のシークバーサムネイル画像を取得する。<br>
     サムネイルが生成されていない場合はデフォルト画像を返す。
     """
 
     return await GetThumbnailResponse(request, recorded_program, is_tile=True)
+
+
+@router.post(
+    '/{video_id}/thumbnail/regenerate',
+    summary = 'サムネイル再生成 API',
+    response_description = 'サムネイル再生成のステータス。',
+    response_model = schemas.ThumbnailRegenerationStatus,
+)
+async def VideoThumbnailRegenerateAPI(
+    recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
+    skip_tile_if_exists: Annotated[bool, Query(description='既に存在する場合はサムネイルタイルの生成をスキップするかどうか（通常のサムネイルは再度生成する）。')] = False,
+):
+    """
+    指定された録画番組のサムネイルを再生成する。<br>
+    サムネイル生成には数分程度かかる場合がある。
+    """
+
+    try:
+        # RecordedProgram モデルを schemas.RecordedProgram に変換
+        recorded_program_schema = schemas.RecordedProgram.model_validate(recorded_program, from_attributes=True)
+
+        # ThumbnailGenerator を初期化
+        generator = ThumbnailGenerator.fromRecordedProgram(recorded_program_schema)
+
+        # サムネイル生成を実行
+        await generator.generate(skip_tile_if_exists=skip_tile_if_exists)
+
+        return {
+            'is_success': True,
+            'detail': 'Successfully regenerated thumbnails.',
+        }
+
+    except Exception as ex:
+        logging.error(f'Failed to regenerate thumbnails for video_id {recorded_program.id}:', exc_info=ex)
+        return {
+            'is_success': False,
+            'detail': f'Failed to regenerate thumbnails: {ex!s}',
+        }
