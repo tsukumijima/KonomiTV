@@ -91,7 +91,7 @@ const props = withDefaults(defineProps<{
     showBackButton: false,
     showEmptyMessage: true,
     emptyMessage: '録画番組が見つかりませんでした。',
-    emptySubMessage: '',
+    emptySubMessage: 'サーバー設定で録画フォルダのパスを正しく設定できているか確認してください。',
     isLoading: false,
 });
 

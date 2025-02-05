@@ -310,7 +310,7 @@ async def VideoThumbnailAPI(
 
 
 @router.get(
-    '/{video_id}/thumbnail/tile',
+    '/{video_id}/thumbnail/tiled',
     summary = '録画番組シークバー向けサムネイルタイル API',
     response_description = '録画番組のシークバー向けサムネイルタイル画像 (WebP または JPEG) 。',
     response_class = FileResponse,

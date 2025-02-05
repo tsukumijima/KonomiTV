@@ -308,6 +308,35 @@ class PlayerController {
                     return {
                         quality: qualities,
                         defaultQuality: default_quality,
+                        thumbnails: {
+                            url: `${Utils.api_base_url}/video/${player_store.recorded_program.id}/thumbnail/tiled`,
+                            interval: (() => {
+                                // 以下のロジックは server/app/metadata/ThumbnailGenerator.py のものと同一
+                                // 録画番組の長さ (分単位で切り捨て)
+                                const duration_min = Math.floor(player_store.recorded_program.recorded_video.duration / 60);
+                                // 基準となる動画の長さ (30分)
+                                const BASE_DURATION_MIN = 30;
+                                // 基準となる間隔 (5秒)
+                                const BASE_INTERVAL_SEC = 5.0;
+                                // 最大間隔 (30秒)
+                                const MAX_INTERVAL_SEC = 30.0;
+                                // 30分以下は一律5秒間隔
+                                if (duration_min <= BASE_DURATION_MIN) {
+                                    return BASE_INTERVAL_SEC;
+                                }
+                                // 30分超の場合は対数関数的に増加を抑制
+                                // duration_ratio = 2 (1時間) の時に、increase_ratio が約1.5になるように調整
+                                const duration_ratio = duration_min / BASE_DURATION_MIN;
+                                // log(1 + x) の代わりに log(1 + x/2) を使うことで、1時間の時に1.5倍程度になるよう調整
+                                return Math.min(
+                                    MAX_INTERVAL_SEC,
+                                    BASE_INTERVAL_SEC * duration_ratio / Math.log2(1 + duration_ratio/2)
+                                );
+                            })(),
+                            width: 480,  // サムネイルの幅
+                            height: 270,  // サムネイルの高さ
+                            columnCount: 34,  // サムネイルの列数
+                        }
                     };
                 }
             })(),
