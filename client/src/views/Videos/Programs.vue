@@ -91,7 +91,15 @@ const updateSortOrder = async (order: 'desc' | 'asc') => {
 };
 
 // クエリパラメータが変更されたら録画番組を再取得
-watch(() => route.query, async () => {
+watch(() => route.query, async (newQuery) => {
+    // ページ番号を同期
+    if (newQuery.page) {
+        current_page.value = parseInt(newQuery.page as string);
+    }
+    // ソート順を同期
+    if (newQuery.order) {
+        sort_order.value = newQuery.order as 'desc' | 'asc';
+    }
     await fetchPrograms();
 }, { deep: true });
 

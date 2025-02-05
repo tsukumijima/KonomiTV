@@ -57,7 +57,7 @@
 </template>
 <script lang="ts" setup>
 
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import RecordedProgram from '@/components/Videos/RecordedProgram.vue';
@@ -107,6 +107,16 @@ const current_page = ref(props.page);
 
 // 並び順
 const sort_order = ref(props.sortOrder);
+
+// props の page が変更されたら current_page を更新
+watch(() => props.page, (newPage) => {
+    current_page.value = newPage;
+});
+
+// props の sortOrder が変更されたら sort_order を更新
+watch(() => props.sortOrder, (newOrder) => {
+    sort_order.value = newOrder;
+});
 
 </script>
 <style lang="scss" scoped>
