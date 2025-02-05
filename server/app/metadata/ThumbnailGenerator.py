@@ -234,8 +234,6 @@ class ThumbnailGenerator:
         """
 
         start_time = time.time()
-        logging.info(f'{self.file_path}: Thumbnail generation started.')
-
         try:
             # 1. プレイヤーのシークバー用サムネイルタイル画像を生成
             tile_exists = await self.seekbar_thumbnails_tile_path.exists()
@@ -254,10 +252,12 @@ class ThumbnailGenerator:
                 if not await self.__generateThumbnailTile():
                     logging.error(f'{self.file_path}: Failed to generate seekbar thumbnail tile.')
                     return
+            logging.info(f'{self.file_path}: Seekbar thumbnail generation completed. ({time.time() - start_time:.2f} sec)')
 
             # 2. プレイヤーのシークバー用サムネイルタイル画像を読み込み、各タイル(フレーム)を切り出し、
             #    そのタイムスタンプが candidate_intervals に含まれる場合だけ
             #    画質評価 + (必要なら) 顔検出してスコアを計算 → 最良を代表サムネイルとして取得
+            start_time_best_frame = time.time()
             best_thumbnail = await self.__extractBestFrameFromThumbnailTile()
             if best_thumbnail is None:
                 logging.error(f'{self.file_path}: Failed to extract best frame from seekbar thumbnail tile.')
@@ -268,7 +268,7 @@ class ThumbnailGenerator:
                 logging.error(f'{self.file_path}: Failed to save representative thumbnail.')
                 return
 
-            logging.info(f'{self.file_path}: Thumbnail generation completed. ({time.time() - start_time:.2f} sec)')
+            logging.info(f'{self.file_path}: Thumbnail generation completed. ({time.time() - start_time_best_frame:.2f} sec / Total: {time.time() - start_time:.2f} sec)')
             logging.debug_simple(f'Thumbnail tile -> {self.seekbar_thumbnails_tile_path.name}')
             logging.debug_simple(f'Representative -> {self.representative_thumbnail_path.name}')
 
@@ -415,7 +415,7 @@ class ThumbnailGenerator:
                 logging.error(f'{self.file_path}: FFmpeg failed with return code {process.returncode}. Error: {error_message}')
                 return False
 
-            logging.debug_simple(f'Generated seekbar thumbnail tile ({self.seekbar_thumbnails_tile_path.suffix[1:].upper()}).')
+            logging.debug_simple(f'Generated seekbar thumbnail tile (Extension: {self.seekbar_thumbnails_tile_path.suffix}).')
             return True
 
         except Exception as ex:

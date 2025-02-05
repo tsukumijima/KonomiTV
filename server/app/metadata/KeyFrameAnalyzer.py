@@ -36,7 +36,6 @@ class KeyFrameAnalyzer:
         ffprobe を使い、録画ファイルから以下の情報を取得して、DB に保存する
         - キーフレームの位置 (ファイル内のバイトオフセット)
         - キーフレームの DTS (Decoding Time Stamp)
-        - キーフレームの PTS (Presentation Time Stamp)
         """
 
         start_time = time.time()
@@ -45,13 +44,13 @@ class KeyFrameAnalyzer:
             ## -i: 入力ファイルを指定
             ## -select_streams v:0: 最初の映像ストリームのみを選択
             ## -show_packets: パケット情報を表示
-            ## -show_entries packet=dts,flags,pos: パケットの DTS, フラグ, 位置を表示
+            ## -show_entries packet=pos,dts,flags: パケットの位置, DTS, フラグを表示
             ## -of json: JSON 形式で出力
             options = [
                 '-i', str(self.file_path),
                 '-select_streams', 'v:0',
                 '-show_packets',
-                '-show_entries', 'packet=dts,flags,pos',
+                '-show_entries', 'packet=pos,dts,flags',
                 '-threads', '1',  # シングルスレッドで実行
                 '-of', 'json',
             ]
@@ -85,14 +84,13 @@ class KeyFrameAnalyzer:
                 return
 
             # キーフレーム情報を抽出
-            ## flags に 'K' が含まれているパケットがキーフレーム
             ## pos はファイル内のバイトオフセット
             ## dts は Decoding Time Stamp (デコード時刻)
-            ## pts は Presentation Time Stamp (表示時刻)
+            ## flags に 'K' が含まれているパケットがキーフレーム
             key_frames: list[schemas.KeyFrame] = []
             for packet in packets:
                 # 必要なフィールドが存在することを確認
-                if not all(field in packet for field in ['flags', 'pos', 'dts', 'pts']):
+                if not all(field in packet for field in ['pos', 'dts', 'flags']):
                     logging.error(f'{self.file_path}: Invalid packet data found in ffprobe output')
                     return
 
