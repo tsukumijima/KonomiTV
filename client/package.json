@@ -7,9 +7,10 @@
         "akebi:windows": "..\\server\\thirdparty\\Akebi\\akebi-https-server.exe --listen-address 0.0.0.0:7001 --proxy-pass-url http://127.0.0.77:7011/ --keyless-server-url https://akebi.konomi.tv/ > nul",
         "akebi:nix": "../server/thirdparty/Akebi/akebi-https-server.elf --listen-address 0.0.0.0:7001 --proxy-pass-url http://127.0.0.77:7011/ --keyless-server-url https://akebi.konomi.tv/ > /dev/null",
         "dev": "concurrently --raw \"npm:akebi\" \"vite\"",
-        "build": "vue-tsc --noEmit && vite build",
+        "build": "node logoGenerator.js && vue-tsc --noEmit && vite build",
         "preview": "concurrently --raw \"npm:akebi\" \"vite preview\"",
-        "lint": "eslint . --fix --ignore-path .gitignore"
+        "lint": "eslint . --fix --ignore-path .gitignore",
+        "logo": "node logoGenerator.js"
     },
     "engines": {
         "node": "20.16.0"
@@ -34,6 +35,8 @@
         "pinia": "^2.2.2",
         "pwa-install-handler": "^2.6.0",
         "seamless-scroll-polyfill": "^2.3.4",
+        "sharp": "^0.33.5",
+        "spritesmith": "^3.5.1",
         "swiper": "^11.1.11",
         "tslib": "^2.7.0",
         "virtua": "^0.39.3",

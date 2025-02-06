@@ -5,7 +5,11 @@
                 v-html="ProgramUtils.decorateProgramInfo(playerStore.recorded_program, 'title')">
             </h1>
             <div class="program-info__broadcaster" v-if="playerStore.recorded_program.channel !== null">
-                <img class="program-info__broadcaster-icon" :src="`${Utils.api_base_url}/channels/${playerStore.recorded_program.channel.id}/logo`">
+                <div class="program-info__broadcaster-icon">
+                    <div class="ch-sprite" :chid="playerStore.recorded_program.channel.id">
+                        <img loading="lazy" :src="`${Utils.api_base_url}/channels/${playerStore.recorded_program.channel.id}/logo`">
+                    </div>
+                </div>
                 <div class="program-info__broadcaster-container">
                     <div class="d-flex align-center">
                         <div class="program-info__broadcaster-number">Ch: {{playerStore.recorded_program.channel.channel_number}}</div>
@@ -125,9 +129,15 @@ export default defineComponent({
             &-icon {
                 display: inline-block;
                 flex-shrink: 0;
-                width: 44px;
-                height: 36px;
-                border-radius: 3px;
+                --ch-sprite-width: 43;
+                --ch-sprite-height: 24;
+                --ch-sprite-border-radius: 3;
+                width: calc(var(--ch-sprite-width) * 1px);
+                height: calc(var(--ch-sprite-height) * 1px);
+                border-radius: calc(var(--ch-sprite-border-radius) * 1px);
+                --ch-sprite-width: 44;
+                --ch-sprite-height: 36;
+                --ch-sprite-border-radius: 3;
                 background: linear-gradient(150deg, rgb(var(--v-theme-gray)), rgb(var(--v-theme-background-lighten-2)));
                 object-fit: cover;
                 user-select: none;

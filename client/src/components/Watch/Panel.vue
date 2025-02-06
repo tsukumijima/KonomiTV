@@ -8,7 +8,11 @@
             </div>
             <v-spacer></v-spacer>
             <div class="panel-broadcaster" v-if="playback_mode === 'Live'">
-                <img class="panel-broadcaster__icon" :src="`${Utils.api_base_url}/channels/${channelsStore.channel.current.id}/logo`">
+                <div class="panel-broadcaster__icon">
+                    <div class="ch-sprite" :chid="channelsStore.channel.current.id">
+                        <img loading="lazy" :src="`${Utils.api_base_url}/channels/${channelsStore.channel.current.id}/logo`">
+                    </div>
+                </div>
                 <div class="panel-broadcaster__number">{{channelsStore.channel.current.channel_number}}</div>
                 <div class="panel-broadcaster__name">{{channelsStore.channel.current.name}}</div>
             </div>
@@ -207,9 +211,12 @@ export default defineComponent({
             &__icon {
                 display: inline-block;
                 flex-shrink: 0;
-                width: 43px;
-                height: 24px;
-                border-radius: 3px;
+                --ch-sprite-width: 43;
+                --ch-sprite-height: 24;
+                --ch-sprite-border-radius: 3;
+                width: calc(var(--ch-sprite-width) * 1px);
+                height: calc(var(--ch-sprite-height) * 1px);
+                border-radius: calc(var(--ch-sprite-border-radius) * 1px);
                 background: linear-gradient(150deg, rgb(var(--v-theme-gray)), rgb(var(--v-theme-background-lighten-2)));
                 object-fit: cover;
                 user-select: none;
