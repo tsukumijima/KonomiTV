@@ -2,7 +2,8 @@
     <router-link v-ripple class="recorded-program" :to="program.recorded_video.status === 'Recording' ? { path: '' } : `/videos/watch/${program.id}`" :class="{ 'recorded-program--recording': program.recorded_video.status === 'Recording' }">
         <div class="recorded-program__container">
             <div class="recorded-program__thumbnail">
-                <img class="recorded-program__thumbnail-image" :src="`${Utils.api_base_url}/videos/${program.id}/thumbnail`">
+                <img class="recorded-program__thumbnail-image" loading="lazy" decoding="async"
+                    :src="`${Utils.api_base_url}/videos/${program.id}/thumbnail`">
                 <div class="recorded-program__thumbnail-duration">{{ProgramUtils.getProgramDuration(program)}}</div>
                 <div v-if="program.recorded_video.status === 'Recording'" class="recorded-program__thumbnail-status recorded-program__thumbnail-status--recording">
                     <div class="recorded-program__thumbnail-status-dot"></div>
@@ -17,7 +18,8 @@
                     v-html="ProgramUtils.decorateProgramInfo(program, 'title')"></div>
                 <div class="recorded-program__content-meta">
                     <div class="recorded-program__content-meta-broadcaster" v-if="program.channel">
-                        <img class="recorded-program__content-meta-broadcaster-icon" :src="`${Utils.api_base_url}/channels/${program.channel.id}/logo`">
+                        <img class="recorded-program__content-meta-broadcaster-icon" loading="lazy" decoding="async"
+                            :src="`${Utils.api_base_url}/channels/${program.channel.id}/logo`">
                         <span class="recorded-program__content-meta-broadcaster-name">Ch: {{program.channel.channel_number}} {{program.channel.name}}</span>
                     </div>
                     <div class="recorded-program__content-meta-broadcaster" v-else>
