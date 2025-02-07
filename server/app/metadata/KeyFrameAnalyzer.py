@@ -58,6 +58,9 @@ class KeyFrameAnalyzer:
             ffprobe_process = await asyncio.subprocess.create_subprocess_exec(
                 LIBRARY_PATH['FFprobe'],
                 *options,
+                # 明示的に標準入力を無効化しないと、親プロセスの標準入力が引き継がれてしまう
+                stdin = asyncio.subprocess.DEVNULL,
+                # 標準出力・標準エラー出力をパイプで受け取る
                 stdout = asyncio.subprocess.PIPE,
                 stderr = asyncio.subprocess.PIPE,
             )

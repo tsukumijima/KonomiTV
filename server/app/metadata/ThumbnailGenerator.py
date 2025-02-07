@@ -375,6 +375,8 @@ class ThumbnailGenerator:
                     LIBRARY_PATH['FFmpeg'],
                     # 上書きを許可
                     '-y',
+                    # 非対話モードで実行し、不意のフリーズを回避する
+                    '-nostdin',
                     # デコードにハードウェアアクセラレーションを使う
                     '-hwaccel', 'auto',
                     # 入力ファイル
@@ -398,8 +400,11 @@ class ThumbnailGenerator:
                     # 出力ファイル
                     str(self.seekbar_thumbnails_tile_path),
                 ],
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+                # 明示的に標準入力を無効化しないと、親プロセスの標準入力が引き継がれてしまう
+                stdin = asyncio.subprocess.DEVNULL,
+                # 標準出力・標準エラー出力をパイプで受け取る
+                stdout = asyncio.subprocess.PIPE,
+                stderr = asyncio.subprocess.PIPE,
             )
 
             # プロセスの出力を取得
