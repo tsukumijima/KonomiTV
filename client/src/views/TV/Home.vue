@@ -29,7 +29,11 @@
                                 v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.display_channel_id}`">
                                 <!-- 以下では Icon コンポーネントを使うとチャンネルが多いときに高負荷になるため、意図的に SVG を直書きしている -->
                                 <div class="channel__broadcaster">
-                                    <img class="channel__broadcaster-icon" :src="`${Utils.api_base_url}/channels/${channel.id}/logo`">
+                                    <div class="channel__broadcaster-icon">
+                                        <div class="ch-sprite" :chid="channel.id">
+                                            <img loading="lazy" :src="`${Utils.api_base_url}/channels/${channel.id}/logo`">
+                                        </div>
+                                    </div>
                                     <div class="channel__broadcaster-content">
                                         <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.name}}</span>
                                         <div class="channel__broadcaster-status">
@@ -589,26 +593,29 @@ export default defineComponent({
                     &-icon {
                         display: inline-block;
                         flex-shrink: 0;
-                        width: 80px;
-                        height: 44px;
-                        border-radius: 5px;
+                        --ch-sprite-width: 80;
+                        --ch-sprite-height: 44;
+                        --ch-sprite-border-radius: 5;
+                        width: calc(var(--ch-sprite-width) * 1px);
+                        height: calc(var(--ch-sprite-height) * 1px);
+                        border-radius: calc(var(--ch-sprite-border-radius) * 1px);
                         // 読み込まれるまでのアイコンの背景
                         background: linear-gradient(150deg, rgb(var(--v-theme-gray)), rgb(var(--v-theme-background-lighten-2)));
                         object-fit: cover;
                         @include tablet-vertical {
-                            width: 69px;
-                            height: 40px;
-                            border-radius: 4px;
+                            --ch-sprite-width: 69;
+                            --ch-sprite-height: 40;
+                            --ch-sprite-border-radius: 4;
                         }
                         @include smartphone-horizontal {
-                            width: 54px;
-                            height: 29px;
-                            border-radius: 4px;
+                            --ch-sprite-width: 54;
+                            --ch-sprite-height: 29;
+                            --ch-sprite-border-radius: 4;
                         }
                         @include smartphone-vertical {
-                            width: 69px;
-                            height: 40px;
-                            border-radius: 4px;
+                            --ch-sprite-width: 69;
+                            --ch-sprite-height: 40;
+                            --ch-sprite-border-radius: 4;
                         }
                     }
 

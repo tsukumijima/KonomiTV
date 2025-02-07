@@ -1,6 +1,7 @@
 
 import 'vuetify/styles';
 import '@/styles/materialdesignicons.min.css';
+import '@/styles/channel-logo.css';
 import { createVuetify } from 'vuetify';
 import { ja } from 'vuetify/locale';
 

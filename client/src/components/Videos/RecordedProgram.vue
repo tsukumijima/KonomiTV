@@ -17,7 +17,11 @@
                     v-html="ProgramUtils.decorateProgramInfo(program, 'title')"></div>
                 <div class="recorded-program__content-meta">
                     <div class="recorded-program__content-meta-broadcaster" v-if="program.channel">
-                        <img class="recorded-program__content-meta-broadcaster-icon" :src="`${Utils.api_base_url}/channels/${program.channel.id}/logo`">
+                        <div class="recorded-program__content-meta-broadcaster-icon">
+                            <div class="ch-sprite" :chid="program.channel.id">
+                                <img loading="lazy" :src="`${Utils.api_base_url}/channels/${program.channel.id}/logo`">
+                            </div>
+                        </div>
                         <span class="recorded-program__content-meta-broadcaster-name">Ch: {{program.channel.channel_number}} {{program.channel.name}}</span>
                     </div>
                     <div class="recorded-program__content-meta-broadcaster" v-else>
@@ -285,10 +289,13 @@ const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
 
                 &-icon {
                     flex-shrink: 0;
-                    width: 28px;
-                    height: 16px;
+                    --ch-sprite-width: 28;
+                    --ch-sprite-height: 16;
+                    --ch-sprite-border-radius: 2;
+                    width: calc(var(--ch-sprite-width) * 1px);
+                    height: calc(var(--ch-sprite-height) * 1px);
+                    border-radius: calc(var(--ch-sprite-border-radius) * 1px);
                     margin-right: 10px;
-                    border-radius: 2px;
                     // 読み込まれるまでのアイコンの背景
                     background: linear-gradient(150deg, rgb(var(--v-theme-gray)), rgb(var(--v-theme-background-lighten-2)));
                     object-fit: cover;

@@ -3,8 +3,11 @@
         <router-link class="watch-header__back-icon" v-ripple :to="playback_mode === 'Live' ? '/tv/' : '/videos/'">
             <Icon icon="fluent:chevron-left-12-filled" width="21px" />
         </router-link>
-        <img class="watch-header__broadcaster" v-if="playback_mode === 'Live'"
-            :src="`${Utils.api_base_url}/channels/${channelsStore.channel.current.id}/logo`">
+        <div class="watch-header__broadcaster" v-if="playback_mode === 'Live'">
+            <div class="ch-sprite" :chid="channelsStore.channel.current.id">
+                <img loading="lazy" :src="`${Utils.api_base_url}/channels/${channelsStore.channel.current.id}/logo`">
+            </div>
+        </div>
         <span class="watch-header__program-title" v-html="ProgramUtils.decorateProgramInfo(
             playback_mode === 'Live' ? channelsStore.channel.current.program_present : playerStore.recorded_program, 'title'
         )"></span>
@@ -165,8 +168,12 @@ export default defineComponent({
     .watch-header__broadcaster {
         display: inline-block;
         flex-shrink: 0;
-        width: 64px;
-        height: 36px;
+        --ch-sprite-width: 64;
+        --ch-sprite-height: 36;
+        --ch-sprite-border-radius: 5;
+        width: calc(var(--ch-sprite-width) * 1px);
+        height: calc(var(--ch-sprite-height) * 1px);
+        border-radius: calc(var(--ch-sprite-border-radius) * 1px);
         margin-right: 18px;
         border-radius: 5px;
         background: linear-gradient(150deg, rgb(var(--v-theme-gray)), rgb(var(--v-theme-background-lighten-2)));
@@ -174,16 +181,16 @@ export default defineComponent({
         user-select: none;
 
         @include tablet-vertical {
-            width: 48px;
-            height: 28px;
+            --ch-sprite-width: 48;
+            --ch-sprite-height: 28;
+            --ch-sprite-border-radius: 4;
             margin-right: 12px;
-            border-radius: 4px;
         }
         @include smartphone-horizontal {
-            width: 36px;
-            height: 28px;
+            --ch-sprite-width: 36;
+            --ch-sprite-height: 28;
+            --ch-sprite-border-radius: 4;
             margin-right: 12px;
-            border-radius: 4px;
         }
         @include smartphone-vertical {
             display: none;

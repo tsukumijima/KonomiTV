@@ -24,7 +24,11 @@
                             v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.display_channel_id}`">
                             <!-- 以下では Icon コンポーネントを使うとチャンネルが多いときに高負荷になるため、意図的に SVG を直書きしている -->
                             <div class="channel__broadcaster">
-                                <img class="channel__broadcaster-icon" :src="`${Utils.api_base_url}/channels/${channel.id}/logo`">
+                                <div class="channel__broadcaster-icon">
+                                    <div class="ch-sprite" :chid="channel.id">
+                                        <img loading="lazy" :src="`${Utils.api_base_url}/channels/${channel.id}/logo`">
+                                    </div>
+                                </div>
                                 <div class="channel__broadcaster-content">
                                     <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.name}}</span>
                                     <div class="channel__broadcaster-force"
@@ -341,21 +345,24 @@ export default defineComponent({
 
                     .channel__broadcaster {
                         display: flex;
-                        height: 28px;
+                        --ch-sprite-height: 28;
+                        height: calc(var(--ch-sprite-height) * 1px);
                         @include smartphone-horizontal {
-                            height: 24px;
+                            --ch-sprite-height: 24;
                         }
 
                         &-icon {
                             display: inline-block;
                             flex-shrink: 0;
-                            width: 48px;
-                            height: 100%;
-                            border-radius: 4px;
+                            --ch-sprite-width: 48;
+                            --ch-sprite-border-radius: 4;
+                            width: calc(var(--ch-sprite-width) * 1px);
+                            height: calc(var(--ch-sprite-height) * 1px);
+                            border-radius: calc(var(--ch-sprite-border-radius) * 1px);
                             background: linear-gradient(150deg, rgb(var(--v-theme-gray)), rgb(var(--v-theme-background-lighten-2)));
                             object-fit: cover;
                             @include smartphone-horizontal {
-                                width: 46px;
+                                --ch-sprite-width: 46;
                             }
                         }
 

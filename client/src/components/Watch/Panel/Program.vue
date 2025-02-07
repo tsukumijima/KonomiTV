@@ -1,7 +1,11 @@
 <template>
     <div class="program-container">
         <section class="program-broadcaster">
-            <img class="program-broadcaster__icon" :src="`${Utils.api_base_url}/channels/${channelsStore.channel.current.id}/logo`">
+            <div class="program-broadcaster__icon">
+                <div class="ch-sprite" :chid="channelsStore.channel.current.id">
+                    <img loading="lazy" :src="`${Utils.api_base_url}/channels/${channelsStore.channel.current.id}/logo`">
+                </div>
+            </div>
             <div class="program-broadcaster__number">Ch: {{channelsStore.channel.current.channel_number}}</div>
             <div class="program-broadcaster__name">{{channelsStore.channel.current.name}}</div>
         </section>
@@ -109,23 +113,26 @@ export default defineComponent({
         &__icon {
             display: inline-block;
             flex-shrink: 0;
-            width: 43px;
-            height: 24px;
-            border-radius: 3px;
+            --ch-sprite-width: 43;
+            --ch-sprite-height: 24;
+            --ch-sprite-border-radius: 3;
+            width: calc(var(--ch-sprite-width) * 1px);
+            height: calc(var(--ch-sprite-height) * 1px);
+            border-radius: calc(var(--ch-sprite-border-radius) * 1px);
             background: linear-gradient(150deg, rgb(var(--v-theme-gray)), rgb(var(--v-theme-background-lighten-2)));
             object-fit: cover;
             user-select: none;
             @include tablet-vertical {
-                width: 58px;
-                height: 32px;
+                --ch-sprite-width: 58;
+                --ch-sprite-height: 32;
             }
             @include smartphone-horizontal {
-                width: 42px;
-                height: 23.5px;
+                --ch-sprite-width: 42;
+                --ch-sprite-height: 23.5;
             }
             @include smartphone-vertical {
-                width: 58px;
-                height: 32px;
+                --ch-sprite-width: 58;
+                --ch-sprite-height: 32;
             }
         }
 
