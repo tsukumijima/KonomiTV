@@ -115,7 +115,7 @@ class RecordedVideo(PydanticModel):
     secondary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] | None = None
     secondary_audio_sampling_rate: int | None = None
     # key_frames はデータ量が多いため、キーフレーム情報を取得できているかを表す has_key_frames のみ返す
-    has_key_frames: bool
+    has_key_frames: bool = False
     cm_sections: list[CMSection] = []
     created_at: datetime
     updated_at: datetime
