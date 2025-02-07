@@ -55,3 +55,7 @@ class RecordedVideo(TortoiseModel):
         fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False)))  # type: ignore
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
+
+    @property
+    def has_key_frames(self) -> bool:
+        return len(self.key_frames) > 0
