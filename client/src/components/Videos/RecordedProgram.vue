@@ -1,5 +1,10 @@
 <template>
-    <router-link v-ripple class="recorded-program" :to="program.recorded_video.status === 'Recording' ? { path: '' } : `/videos/watch/${program.id}`" :class="{ 'recorded-program--recording': program.recorded_video.status === 'Recording' }">
+    <router-link v-ripple class="recorded-program"
+        :to="program.recorded_video.status === 'Recording' || !program.recorded_video.has_key_frames ? { path: '' } : `/videos/watch/${program.id}`"
+        :class="{
+            'recorded-program--recording': program.recorded_video.status === 'Recording',
+            'recorded-program--analyzing': !program.recorded_video.has_key_frames,
+        }">
         <div class="recorded-program__container">
             <div class="recorded-program__thumbnail">
                 <img class="recorded-program__thumbnail-image" loading="lazy" decoding="async"
@@ -8,6 +13,10 @@
                 <div v-if="program.recorded_video.status === 'Recording'" class="recorded-program__thumbnail-status recorded-program__thumbnail-status--recording">
                     <div class="recorded-program__thumbnail-status-dot"></div>
                     録画中
+                </div>
+                <div v-else-if="!program.recorded_video.has_key_frames" class="recorded-program__thumbnail-status recorded-program__thumbnail-status--analyzing">
+                    <Icon icon="fluent:clock-12-regular" width="15px" height="15px" />
+                    メタデータ解析中
                 </div>
                 <div v-else-if="program.is_partially_recorded" class="recorded-program__thumbnail-status recorded-program__thumbnail-status--partial">
                     ⚠️ 一部のみ録画
@@ -199,10 +208,15 @@ const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
             line-height: 1;
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 3px;
 
             &--recording {
                 background: rgb(var(--v-theme-secondary));
+                color: #fff;
+            }
+
+            &--analyzing {
+                background: rgb(var(--v-theme-background-lighten-1));
                 color: #fff;
             }
 
@@ -548,7 +562,7 @@ const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
         }
     }
 
-    &--recording {
+    &--recording, &--analyzing {
         pointer-events: none;
         opacity: 0.7;
     }
