@@ -370,8 +370,8 @@ class MetadataAnalyzer:
         try:
             # ファイルを開く
             with open(self.recorded_file_path, 'rb') as f:
-                # 30%位置にシーク (TS パケットサイズに合わせて切り出す)
-                offset = ClosestMultiple(int(self.recorded_file_path.stat().st_size * 0.3), ts.PACKET_SIZE)
+                # 20%位置にシーク (TS パケットサイズに合わせて切り出す)
+                offset = ClosestMultiple(int(self.recorded_file_path.stat().st_size * 0.2), ts.PACKET_SIZE)
                 f.seek(offset)
                 # 30秒程度のデータを読み込む (ビットレートを 20Mbps と仮定)
                 ## 20Mbps * 30秒 = 75MB
