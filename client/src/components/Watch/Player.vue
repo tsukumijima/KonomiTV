@@ -325,6 +325,7 @@ export default defineComponent({
             height: calc(100% - 60px) !important;
         }
         .dplayer-setting-origin-panel {
+            .dplayer-setting-item.dplayer-setting-lshaped-screen-crop,
             .dplayer-setting-item.dplayer-setting-keyboard-shortcut {
                 // Document Picture-in-Picture ウインドウでは非表示
                 @media all and (display-mode: picture-in-picture) {
