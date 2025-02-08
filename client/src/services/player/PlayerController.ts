@@ -718,11 +718,12 @@ class PlayerController {
 
         // ビデオ視聴時のみ、指定秒数シークする
         if (this.playback_mode === 'Video') {
-            // シーク秒数が指定されていない（初回ロード時）は、録画開始マージン分シークする
+            // シーク秒数が指定されていない（初回ロード時）は、録画開始マージン + 2秒シークする
+            // 2秒プラスしているのは、実際の放送波では EPG (EIT[p/f]) の変更より2〜4秒後に実際に番組が切り替わる場合が多いため
+            // この誤差は放送局や TOT 精度によっておそらく異なるので、本編の最初が削れないように2秒のプラスに留めている
             if (seek_seconds === null) {
-                seek_seconds = player_store.recorded_program.recording_start_margin;
+                seek_seconds = player_store.recorded_program.recording_start_margin + 2;
             }
-            // 再生開始までは一旦コメント表示がオンになっていればオフにする
             this.player.seek(seek_seconds);
             this.player.play();
             console.log(`\u001b[31m[PlayerController] Video playback initialized, seeking to ${seek_seconds} seconds.`);
