@@ -82,7 +82,13 @@ async def VideoHLSPlaylistAPI(
 
     # 仮想 HLS M3U8 プレイリストを取得
     virtual_playlist = await video_stream.getVirtualPlaylist(cache_key)
-    return Response(content=virtual_playlist, media_type='application/vnd.apple.mpegurl')
+    return Response(
+        content = virtual_playlist,
+        media_type = 'application/vnd.apple.mpegurl',
+        headers = {
+            'Cache-Control': 'max-age=0',
+        },
+    )
 
 
 @router.get(
@@ -121,7 +127,14 @@ async def VideoHLSSegmentAPI(
         )
 
     # 取得した MPEG-TS データを返す
-    return Response(content=segment_data, media_type='video/mp2t')
+    return Response(
+        content = segment_data,
+        media_type = 'video/mp2t',
+        headers = {
+            # キャッシュ有効期間を3時間に設定
+            'Cache-Control': 'max-age=10800',
+        },
+    )
 
 
 @router.get(
