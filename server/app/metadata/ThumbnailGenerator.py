@@ -9,6 +9,7 @@ import math
 import numpy as np
 import pathlib
 import random
+import sys
 import time
 import typer
 from numpy.typing import NDArray
@@ -379,7 +380,9 @@ class ThumbnailGenerator:
                     # 非対話モードで実行し、不意のフリーズを回避する
                     '-nostdin',
                     # デコードにハードウェアアクセラレーションを使う
-                    '-hwaccel', 'auto',
+                    ## Windows では Windows サービス下でのエラーを回避するため明示的に d3d11va を指定
+                    ## ref: https://stackoverflow.com/questions/56268560/using-directx-from-subprocess-executed-by-windows-service
+                    '-hwaccel', 'd3d11va' if sys.platform == 'win32' else 'auto',
                     # 入力ファイル
                     '-i', str(self.file_path),
                     # 1枚の出力画像
