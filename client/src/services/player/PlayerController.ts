@@ -7,6 +7,7 @@ import mpegts from 'mpegts.js';
 import { watch } from 'vue';
 
 import APIClient from '@/services/APIClient';
+import CustomBufferController from '@/services/player/CustomBufferController';
 import CaptureManager from '@/services/player/managers/CaptureManager';
 import DocumentPiPManager from '@/services/player/managers/DocumentPiPManager';
 import KeyboardShortcutManager from '@/services/player/managers/KeyboardShortcutManager';
@@ -295,11 +296,14 @@ class PlayerController {
                     const streaming_api_base_url = `${Utils.api_base_url}/streams/video/${player_store.recorded_program.id}`;
                     // 画質リストを作成
                     for (const quality_name of VIDEO_STREAMING_QUALITIES) {
+                        // 画質ごとに異なるセッション ID を生成 (セッション ID は UUID の - で区切って一番左側のみを使う)
+                        const session_id = crypto.randomUUID().split('-')[0];
+                        // 画質設定を追加
                         qualities.push({
                             // 1080p-60fps のみ、見栄えの観点から表示上 "1080p (60fps)" と表示する
                             name: quality_name === '1080p-60fps' ? '1080p (60fps)' : quality_name,
                             type: 'hls',
-                            url: `${streaming_api_base_url}/${quality_name}${hevc_prefix}/playlist`,
+                            url: `${streaming_api_base_url}/${quality_name}${hevc_prefix}/playlist?session_id=${session_id}`,
                         });
                     }
                     // デフォルトの画質
@@ -309,7 +313,7 @@ class PlayerController {
                         quality: qualities,
                         defaultQuality: default_quality,
                         thumbnails: {
-                            url: `${Utils.api_base_url}/video/${player_store.recorded_program.id}/thumbnail/tiled`,
+                            url: `${Utils.api_base_url}/videos/${player_store.recorded_program.id}/thumbnail/tiled`,
                             interval: (() => {
                                 // 以下のロジックは server/app/metadata/ThumbnailGenerator.py のものと同一
                                 // 録画番組の長さ (分単位で切り捨て)
@@ -449,12 +453,13 @@ class PlayerController {
                 // hls.js
                 hls: {
                     ...Hls.DefaultConfig,
-                    // デバッグログを有効化
-                    debug: true,
                     // Web Worker を有効にする
                     enableWorker: true,
                     // MediaSource が存在しない場合のみ ManagedMediaSource を利用する
                     preferManagedMediaSource: false,
+                    // カスタムバッファコントローラーを設定
+                    // @ts-ignore
+                    bufferController: CustomBufferController,
                     // プレイリスト / セグメントのリクエスト時のタイムアウトを回避する
                     manifestLoadPolicy: {
                         default: {
@@ -845,7 +850,8 @@ class PlayerController {
                 // 画質切り替えでベース URL が変わることも想定し、あえて毎回 API URL を取得している
                 if (this.player === null) return;
                 const api_quality = PlayerUtils.extractVideoAPIQualityFromDPlayer(this.player);
-                await APIClient.put(`${Utils.api_base_url}/streams/video/${player_store.recorded_program.id}/${api_quality}/keep-alive`);
+                const session_id = PlayerUtils.extractSessionIdFromDPlayer(this.player);
+                await APIClient.put(`${Utils.api_base_url}/streams/video/${player_store.recorded_program.id}/${api_quality}/keep-alive?session_id=${session_id}`);
             }, 5 * 1000);
         }
 

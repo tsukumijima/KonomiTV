@@ -83,6 +83,20 @@ export class PlayerUtils {
 
 
     /**
+     * DPlayer のインスタンスから URL クエリパラメーターにある session_id を取得する
+     * @param player DPlayer のインスタンス
+     * @returns URL クエリパラメーターにある session_id (取得できなかった場合は null)
+     */
+    static extractSessionIdFromDPlayer(player: DPlayer): string | null {
+        if (player.quality === null) {
+            return null;
+        }
+        const url = new URL(player.quality.url);
+        return url.searchParams.get('session_id');
+    }
+
+
+    /**
      * プレイヤーの背景画像をランダムで取得し、その URL を返す
      * @returns ランダムで設定されたプレイヤーの背景画像の URL
      */
