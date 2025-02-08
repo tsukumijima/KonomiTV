@@ -27,26 +27,32 @@ class VideoStreamSegment:
     # HLS セグメントのシーケンス番号
     ## リストのインデックスと一致する (0 から始まるので注意)
     sequence_index: int
-
     # HLS セグメントの切り出しを開始するファイルの位置 (バイト)
     start_file_position: int
-
     # HLS セグメントの開始タイムスタンプ (90kHz)
     start_dts: int
-
     # HLS セグメント長 (秒単位)
     ## 基本 SEGMENT_DURATION_SECONDS に近い値になるが、キーフレーム単位で切り出すために少し長くなる
     duration_seconds: float
-
     # HLS セグメントのエンコードの状態
     encode_status: Literal['Pending', 'Encoding', 'Completed']
-
     # HLS セグメントのエンコード済み MPEG-TS データが返る asyncio.Future
     encoded_segment_ts_future: asyncio.Future[bytes]
-
     # HLS セグメントのエンコード済み MPEG-TS データが既にクライアントによって読み取られているかを表すフラグ
     ## このフラグが True の VideoStreamSegment は、メモリ節約のため順に破棄される (readed と意図的に過去形にしている)
     is_encoded_segment_ts_future_readed: bool = False
+
+    async def resetState(self) -> None:
+        """
+        このセグメントの状態をリセットする
+        リセットすると保持されている asyncio.Future は初期化され、ステータスも Pending に戻る
+        asyncio.Future を初期化するにはイベントループ上でなければならないらしいので、このメソッドを非同期関数にしている
+        """
+        if not self.encoded_segment_ts_future.done():
+            self.encoded_segment_ts_future.set_result(b'')  # 前の Future がまだ完了していない場合は空のデータで完了させる
+        self.encode_status = 'Pending'
+        self.encoded_segment_ts_future = asyncio.Future()  # asyncio.Future を再初期化
+        self.is_encoded_segment_ts_future_readed = False
 
 
 class VideoStream:
@@ -322,12 +328,9 @@ class VideoStream:
         # 読み取り済みのセグメントが MAX_READED_SEGMENTS 個以上ある場合、一番古いセグメントのデータを初期化する
         readed_segments = [s for s in self._segments if s.is_encoded_segment_ts_future_readed]
         if len(readed_segments) >= self.MAX_READED_SEGMENTS:
-            # 一番古いセグメントを取得
+            # 一番古いセグメントを取得し、状態をリセットする
             oldest_segment = readed_segments[0]
-            # Future とステータスを初期化
-            oldest_segment.encode_status = 'Pending'
-            oldest_segment.encoded_segment_ts_future = asyncio.Future()
-            oldest_segment.is_encoded_segment_ts_future_readed = False
+            await oldest_segment.resetState()
             logging.info(f'[Video: {self.session_id}][Segment {oldest_segment.sequence_index}] Reset segment data to free memory.')
 
         return encoded_segment_ts
