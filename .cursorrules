@@ -140,6 +140,10 @@ Windows では Windows サービス、Linux では pm2 サービスとして動�
 - 文字列にはシングルクォートを用いる (Docstring を除く)
 - Python 3.11 の機能を使う (3.10 以下での動作は考慮不要)
 - ビルトイン型を使用した Type Hint で実装する (from typing import List, Dict などは避ける)
+- 変数・インスタンス変数は snake_case で命名する
+- 関数・クラスは UpperCamelCase で命名する
+- メソッドは lowerCamelCase で命名する
+- クラス内のメソッドとメソッドの間には2行の空白行を挿入する
 - 複数行のコレクションには末尾カンマを含める
 
 ## Vue / TypeScript コード

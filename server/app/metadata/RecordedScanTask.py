@@ -19,6 +19,8 @@ from app.metadata.ThumbnailGenerator import ThumbnailGenerator
 from app.models.Channel import Channel
 from app.models.RecordedProgram import RecordedProgram
 from app.models.RecordedVideo import RecordedVideo
+from app.utils.DriveIOLimiter import DriveIOLimiter
+from app.utils.ProcessLimiter import ProcessLimiter
 
 
 class RecordedScanTask:
@@ -143,6 +145,9 @@ class RecordedScanTask:
         for folder in self.recorded_folders:
             async for file_path in folder.rglob('*'):
                 try:
+                    # シンボリックリンクはスキップ
+                    if await file_path.is_symlink():
+                        continue
                     # Mac の metadata ファイルをスキップ
                     if file_path.name.startswith('._'):
                         continue
@@ -404,13 +409,15 @@ class RecordedScanTask:
         file_path = anyio.Path(recorded_program.recorded_video.file_path)
 
         try:
-            # 時間のかかる各種解析タスクを非同期に同時実行
-            await asyncio.gather(
-                # 録画ファイルのキーフレーム解析
-                KeyFrameAnalyzer(file_path).analyze(),
-                # サムネイル生成
-                ThumbnailGenerator.fromRecordedProgram(recorded_program).generate(),
-            )
+            # ProcessLimiter で稼働中のバックグラウンドタスクの同時実行数を CPU コア数の 50% に制限
+            async with ProcessLimiter.getSemaphore('RecordedScanTask'):
+                # DriveIOLimiter で同一 HDD に対してのバックグラウンドタスクの同時実行数を1セッションに制限
+                async with DriveIOLimiter.getSemaphore(file_path):
+                    # キーフレーム解析・サムネイル生成を同時実行
+                    await asyncio.gather(
+                        KeyFrameAnalyzer(file_path).analyze(),
+                        ThumbnailGenerator.fromRecordedProgram(recorded_program).generate(),
+                    )
             logging.info(f'{file_path}: Background analysis completed.')
 
         except Exception as ex:

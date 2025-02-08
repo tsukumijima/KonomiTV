@@ -1,4 +1,6 @@
 
+import asyncio
+import json
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
@@ -6,6 +8,7 @@ from fastapi import Path
 from fastapi import Query
 from fastapi import status
 from fastapi.responses import Response
+from sse_starlette.sse import EventSourceResponse
 from typing import Annotated
 
 from app import logging
@@ -66,15 +69,26 @@ async def ValidateQuality(quality: Annotated[str, Path(description='映像の品
 async def VideoHLSPlaylistAPI(
     recorded_program: Annotated[RecordedProgram, Depends(ValidateVideoID)],
     quality: Annotated[QUALITY_TYPES, Depends(ValidateQuality)],
+    session_id: Annotated[str, Query(description='セッション ID（クライアント側で適宜生成したランダム値を指定する）。')],
+    cache_key: Annotated[str | None, Query(description='キャッシュ制御用のキー。')] = None,
 ):
     """
     指定された画質に対応する、録画番組のストリーミング用 HLS M3U8 プレイリストを返す。<br>
     この M3U8 プレイリストは仮想的なもので、すべてのセグメントデータがエンコード済みとは限らない。セグメントはリクエストされ次第随時生成される。
     """
 
-    video_stream = VideoStream(recorded_program, quality)
-    virtual_playlist = await video_stream.getVirtualPlaylist()
-    return Response(content=virtual_playlist, media_type='application/vnd.apple.mpegurl')
+    # 録画視聴セッションを取得
+    video_stream = VideoStream(session_id, recorded_program, quality)
+
+    # 仮想 HLS M3U8 プレイリストを取得
+    virtual_playlist = await video_stream.getVirtualPlaylist(cache_key)
+    return Response(
+        content = virtual_playlist,
+        media_type = 'application/vnd.apple.mpegurl',
+        headers = {
+            'Cache-Control': 'max-age=0',
+        },
+    )
 
 
 @router.get(
@@ -91,24 +105,109 @@ async def VideoHLSPlaylistAPI(
 async def VideoHLSSegmentAPI(
     recorded_program: Annotated[RecordedProgram, Depends(ValidateVideoID)],
     quality: Annotated[QUALITY_TYPES, Depends(ValidateQuality)],
+    session_id: Annotated[str, Query(description='セッション ID（クライアント側で適宜生成したランダム値を指定する）。')],
     sequence: Annotated[int, Query(description='HLS セグメントの 0 スタートのシーケンス番号。')],
+    cache_key: Annotated[str | None, Query(description='キャッシュ制御用のキー。')],
 ):
     """
     指定された画質に対応する、録画番組のストリーミング用 HLS セグメントを返す。<br>
     呼び出された時点でエンコードされていない場合は既存のエンコードタスクが終了され、<br>
-    segment_index の HLS セグメントが含まれる範囲から新たにエンコードタスクが開始される。
+    sequence の HLS セグメントが含まれる範囲から新たにエンコードタスクが開始される。
     """
 
-    # TODO: 適切な Cache-Control ヘッダーを返す
+    # 録画視聴セッションを取得
+    video_stream = VideoStream(session_id, recorded_program, quality)
 
-    video_stream = VideoStream(recorded_program, quality)
-    encoded_segment_ts = await video_stream.getSegment(sequence)
-    if encoded_segment_ts is None:
+    # セグメントを取得（キャッシュキーはブラウザキャッシュ避けのための ID なので特に使わない）
+    segment_data = await video_stream.getSegment(sequence)
+    if segment_data is None:
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_404_NOT_FOUND,
             detail = 'Specified sequence segment was not found',
         )
-    return Response(content=encoded_segment_ts, media_type='video/mp2t')
+
+    # 取得した MPEG-TS データを返す
+    return Response(
+        content = segment_data,
+        media_type = 'video/mp2t',
+        headers = {
+            # キャッシュ有効期間を3時間に設定
+            'Cache-Control': 'max-age=10800',
+        },
+    )
+
+
+@router.get(
+    '/{video_id}/{quality}/buffer',
+    summary = '録画番組 HLS バッファ範囲 API',
+    response_class = Response,
+    responses = {
+        status.HTTP_200_OK: {
+            'description': '録画番組の HLS バッファ範囲が随時配信されるイベントストリーム。',
+            'content': {'text/event-stream': {}},
+        }
+    }
+)
+async def VideoHLSBufferAPI(
+    recorded_program: Annotated[RecordedProgram, Depends(ValidateVideoID)],
+    quality: Annotated[QUALITY_TYPES, Depends(ValidateQuality)],
+    session_id: Annotated[str, Query(description='セッション ID（クライアント側で適宜生成したランダム値を指定する）。')],
+):
+    """
+    録画番組の HLS バッファ範囲を Server-Sent Events で随時配信する。
+
+    イベントには、
+
+    - バッファ範囲の更新を示す **buffer_range_update**
+
+    の1種類がある。
+
+    どのイベントでも配信される JSON 構造は同じ。<br>
+    エンコードタスクが終了した場合は、接続を終了する。
+    """
+
+    # 録画視聴セッションを取得
+    video_stream = VideoStream(session_id, recorded_program, quality)
+
+    # バッファ範囲の変更を監視し、変更があればバッファ範囲をイベントストリームとして出力する
+    async def generator():
+        """イベントストリームを出力するジェネレーター"""
+
+        # 初期値
+        previous_buffer_range = video_stream.getBufferRange()
+
+        # 初回接続時に必ず現在のバッファ範囲を返す
+        yield {
+            'event': 'buffer_range_update',  # buffer_range_update イベントを設定
+            'data': json.dumps({
+                'begin': previous_buffer_range[0],
+                'end': previous_buffer_range[1],
+            }),
+        }
+
+        while True:
+
+            # 現在のバッファ範囲を取得
+            buffer_range = video_stream.getBufferRange()
+
+            # 以前の結果と異なっている場合のみレスポンスを返す
+            if previous_buffer_range != buffer_range:
+                yield {
+                    'event': 'buffer_range_update',  # buffer_range_update イベントを設定
+                    'data': json.dumps({
+                        'begin': buffer_range[0],
+                        'end': buffer_range[1],
+                    }),
+                }
+
+                # 取得結果を保存
+                previous_buffer_range = buffer_range
+
+            # ビジーにならないように、0.1秒ごとにチェックする
+            await asyncio.sleep(0.1)
+
+    # EventSourceResponse でイベントストリームを配信する
+    return EventSourceResponse(generator())
 
 
 @router.put(
@@ -119,6 +218,7 @@ async def VideoHLSSegmentAPI(
 async def VideoHLSKeepAliveAPI(
     recorded_program: Annotated[RecordedProgram, Depends(ValidateVideoID)],
     quality: Annotated[QUALITY_TYPES, Depends(ValidateQuality)],
+    session_id: Annotated[str, Query(description='セッション ID（クライアント側で適宜生成したランダム値を指定する）。')],
 ):
     """
     録画番組のストリーミング用 HLS セグメントの生成を継続するための API 。<br>
@@ -126,5 +226,8 @@ async def VideoHLSKeepAliveAPI(
     この API が定期的に呼び出されなくなった場合、一定時間後にストリーミング用 HLS セグメントの生成が停止され、メモリ上のデータが破棄される。
     """
 
-    video_stream = VideoStream(recorded_program, quality)
+    # 録画視聴セッションを取得
+    video_stream = VideoStream(session_id, recorded_program, quality)
+
+    # セッションのアクティブ状態を維持する
     video_stream.keepAlive()

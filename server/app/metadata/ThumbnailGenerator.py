@@ -18,8 +18,6 @@ from app import logging
 from app import schemas
 from app.config import Config, LoadConfig
 from app.constants import LIBRARY_PATH, STATIC_DIR, THUMBNAILS_DIR
-from app.utils.ProcessAffinity import ProcessAffinity
-from app.utils.ProcessLimiter import ProcessLimiter
 
 
 class ThumbnailGenerator:
@@ -234,6 +232,7 @@ class ThumbnailGenerator:
         """
 
         start_time = time.time()
+        logging.info(f'{self.file_path}: Generating thumbnail... / Face detection mode: {self.face_detection_mode}')
         try:
             # 1. プレイヤーのシークバー用サムネイルタイル画像を生成
             tile_exists = await self.seekbar_thumbnails_tile_path.exists()
@@ -247,12 +246,12 @@ class ThumbnailGenerator:
                     tile_exists = True
 
             if tile_exists and skip_tile_if_exists:
-                logging.debug_simple('Seekbar thumbnail tile already exists. Skipping generation.')
+                logging.info(f'{self.file_path}: Seekbar thumbnail tile already exists. Skipping generation.')
             else:
                 if not await self.__generateThumbnailTile():
                     logging.error(f'{self.file_path}: Failed to generate seekbar thumbnail tile.')
                     return
-            logging.info(f'{self.file_path}: Seekbar thumbnail generation completed. ({time.time() - start_time:.2f} sec)')
+                logging.info(f'{self.file_path}: Seekbar thumbnail generation completed. ({time.time() - start_time:.2f} sec)')
 
             # 2. プレイヤーのシークバー用サムネイルタイル画像を読み込み、各タイル(フレーム)を切り出し、
             #    そのタイムスタンプが candidate_intervals に含まれる場合だけ
@@ -304,7 +303,7 @@ class ThumbnailGenerator:
         # log(1 + x) の代わりに log(1 + x/2) を使うことで、1時間の時に1.5倍程度になるよう調整
         interval = min(
             self.MAX_INTERVAL_SEC,
-            self.BASE_INTERVAL_SEC * duration_ratio / math.log2(1 + duration_ratio/2)
+            round(self.BASE_INTERVAL_SEC * duration_ratio / math.log2(1 + duration_ratio/2), 1)
         )
 
         # 計算結果をログ出力
@@ -334,7 +333,7 @@ class ThumbnailGenerator:
             # ※ ceil() を使うことで、端数でも切り捨てずに確実にすべての区間をカバー
             total_frames = int(math.ceil(self.duration_sec / self.tile_interval_sec))
             if total_frames < 1:
-                # 短すぎるか、tile_interval_secが大きすぎる場合
+                # 短すぎるか、tile_interval_sec が大きすぎる場合
                 total_frames = 1
 
             # 実際の行数(縦のタイル数) = ceil(total_frames / tile_cols)
@@ -358,7 +357,7 @@ class ThumbnailGenerator:
             # 2. scale=width:height: 指定サイズにリサイズ
             # 3. tile=WxH:padding=0:margin=0: タイル化 (余白なし)
             filter_chain = [
-                # 5秒ごとにフレームを抽出
+                # tile_interval_sec ごとにフレームを抽出
                 f'fps=1/{self.tile_interval_sec}',
                 # リサイズしてタイル化
                 f'scale={width}:{height}',
@@ -370,44 +369,46 @@ class ThumbnailGenerator:
             if not await thumbnails_dir.is_dir():
                 await thumbnails_dir.mkdir(parents=True, exist_ok=True)
 
-            # 非同期でプロセスを実行 (セマフォで同時実行数を制限)
-            async with ProcessLimiter.getSemaphore('ThumbnailGenerator'):
-                process = await asyncio.create_subprocess_exec(
-                    *[
-                        LIBRARY_PATH['FFmpeg'],
-                        # 上書きを許可
-                        '-y',
-                        # 入力ファイル
-                        '-i', str(self.file_path),
-                        # 1枚の出力画像
-                        '-frames:v', '1',
-                        # フィルターチェーンを結合
-                        '-vf', ','.join(filter_chain),
-                        # WebP または JPEG 出力設定
-                        *([
-                            '-vcodec', 'webp',
-                            '-quality', str(self.WEBP_QUALITY),  # 品質設定
-                            '-compression_level', str(self.WEBP_COMPRESSION),  # 圧縮レベル
-                            '-preset', 'photo',  # 写真向けプリセット
-                        ] if use_webp else [
-                            '-vcodec', 'mjpeg',
-                            '-qmin', '1',  # 最小品質
-                            '-qmax', '1',  # 最大品質
-                            '-qscale:v', str(int((100 - self.JPEG_QUALITY) / 4)),  # 品質設定 (JPEG の場合は 1-31 のスケール)
-                        ]),
-                        # シングルスレッドで実行
-                        '-threads', '1',
-                        # 出力ファイル
-                        str(self.seekbar_thumbnails_tile_path),
-                    ],
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
+            # FFmpeg プロセスを非同期で実行
+            process = await asyncio.create_subprocess_exec(
+                *[
+                    LIBRARY_PATH['FFmpeg'],
+                    # 上書きを許可
+                    '-y',
+                    # 非対話モードで実行し、不意のフリーズを回避する
+                    '-nostdin',
+                    # デコードにハードウェアアクセラレーションを使う
+                    '-hwaccel', 'auto',
+                    # 入力ファイル
+                    '-i', str(self.file_path),
+                    # 1枚の出力画像
+                    '-frames:v', '1',
+                    # フィルターチェーンを結合
+                    '-vf', ','.join(filter_chain),
+                    # WebP または JPEG 出力設定
+                    *([
+                        '-vcodec', 'webp',
+                        '-quality', str(self.WEBP_QUALITY),  # 品質設定
+                        '-compression_level', str(self.WEBP_COMPRESSION),  # 圧縮レベル
+                        '-preset', 'photo',  # 写真向けプリセット
+                    ] if use_webp else [
+                        '-vcodec', 'mjpeg',
+                        '-qmin', '1',  # 最小品質
+                        '-qmax', '1',  # 最大品質
+                        '-qscale:v', str(int((100 - self.JPEG_QUALITY) / 4)),  # 品質設定 (JPEG の場合は 1-31 のスケール)
+                    ]),
+                    # 出力ファイル
+                    str(self.seekbar_thumbnails_tile_path),
+                ],
+                # 明示的に標準入力を無効化しないと、親プロセスの標準入力が引き継がれてしまう
+                stdin = asyncio.subprocess.DEVNULL,
+                # 標準出力・標準エラー出力をパイプで受け取る
+                stdout = asyncio.subprocess.PIPE,
+                stderr = asyncio.subprocess.PIPE,
+            )
 
-                # プロセスの CPU アフィニティを設定
-                ProcessAffinity.setProcessAffinity(process.pid)
-
-                _, stderr = await process.communicate()
+            # プロセスの出力を取得
+            _, stderr = await process.communicate()
 
             # エラーチェック
             if process.returncode != 0:
@@ -415,7 +416,6 @@ class ThumbnailGenerator:
                 logging.error(f'{self.file_path}: FFmpeg failed with return code {process.returncode}. Error: {error_message}')
                 return False
 
-            logging.debug_simple(f'Generated seekbar thumbnail tile (Extension: {self.seekbar_thumbnails_tile_path.suffix}).')
             return True
 
         except Exception as ex:
@@ -498,14 +498,14 @@ class ThumbnailGenerator:
                     best_idx, _, _, best_img = max(face_frames, key=lambda x: x[1])
                     best_row = best_idx // cols
                     best_col = best_idx % cols
-                    logging.debug_simple(f'Best frame found. (row:{best_row + 1}, col:{best_col + 1})')
+                    logging.debug_simple(f'Best frame selected (face found / row:{best_row + 1}, col:{best_col + 1})')
                     return best_img
                 else:
                     # 顔検出無し or 一つも顔が見つからなかった場合
                     best_idx, _, _, best_img = max(frames_info, key=lambda x: x[1])
                     best_row = best_idx // cols
                     best_col = best_idx % cols
-                    logging.debug_simple(f'Best frame found. (face not found) (row:{best_row + 1}, col:{best_col + 1})')
+                    logging.debug_simple(f'Best frame selected (face not found / row:{best_row + 1}, col:{best_col + 1})')
                     return best_img
 
             # スコアリングで適切な候補が見つからなかった場合は、候補区間内からランダムに1枚を選択
@@ -545,7 +545,6 @@ class ThumbnailGenerator:
                 logging.error(f'{self.file_path}: Failed to write representative thumbnail.')
                 return False
 
-            logging.debug_simple(f'Generated representative thumbnail. (Face detection mode: {self.face_detection_mode})')
             return True
 
         except Exception as ex:

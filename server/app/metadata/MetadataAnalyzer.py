@@ -1,6 +1,7 @@
 
 import hashlib
 import io
+import re
 import typer
 from biim.mpeg2ts import ts
 from datetime import datetime
@@ -106,7 +107,15 @@ class MetadataAnalyzer:
                     ## "start_time" は "UTC 2023-06-26 23:59:52" のフォーマットになっているが、実際には JST の時刻が返される
                     ## ちゃんと JST のタイムゾーンが指定された datetime として扱うためには、datetime.fromisoformat() でパースする必要がある
                     ## 一度 ISO8601 に変換してからパースする
-                    start_time_iso8601 = str(track.start_time).replace('UTC ', '').replace(' ', 'T') + '+09:00'
+                    raw_time = str(track.start_time)
+                    # 正規表現で日付と時刻（例: 2024-09-13 と 01:05:00）を抽出する
+                    match = re.search(r'(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})', raw_time)
+                    if match is not None:
+                        # 抽出した値を使用して ISO 8601 形式に整形する
+                        start_time_iso8601 = f'{match.group(1)}T{match.group(2)}+09:00'
+                    else:
+                        # マッチしなかった場合は元の方法で変換を試みる
+                        start_time_iso8601 = raw_time.replace('UTC ', '').replace(' ', 'T').replace('TUTC', '') + '+09:00'
                     recording_start_time = datetime.fromisoformat(start_time_iso8601)
                     ## duration は小数点以下も含めた値が取得できるので、録画開始時刻を duration のうち小数点以下の部分を2で割った値だけ削る
                     ## これでかなり正確な録画開始時刻が算出できる
@@ -361,8 +370,8 @@ class MetadataAnalyzer:
         try:
             # ファイルを開く
             with open(self.recorded_file_path, 'rb') as f:
-                # 30%位置にシーク (TS パケットサイズに合わせて切り出す)
-                offset = ClosestMultiple(int(self.recorded_file_path.stat().st_size * 0.3), ts.PACKET_SIZE)
+                # 20%位置にシーク (TS パケットサイズに合わせて切り出す)
+                offset = ClosestMultiple(int(self.recorded_file_path.stat().st_size * 0.2), ts.PACKET_SIZE)
                 f.seek(offset)
                 # 30秒程度のデータを読み込む (ビットレートを 20Mbps と仮定)
                 ## 20Mbps * 30秒 = 75MB

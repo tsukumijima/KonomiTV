@@ -8,8 +8,6 @@ from app import logging
 from app import schemas
 from app.constants import LIBRARY_PATH
 from app.models.RecordedVideo import RecordedVideo
-from app.utils.ProcessAffinity import ProcessAffinity
-from app.utils.ProcessLimiter import ProcessLimiter
 
 
 class KeyFrameAnalyzer:
@@ -39,6 +37,7 @@ class KeyFrameAnalyzer:
         """
 
         start_time = time.time()
+        logging.info(f'{self.file_path}: Analyzing keyframes...')
         try:
             # ffprobe のオプションを設定
             ## -i: 入力ファイルを指定
@@ -55,20 +54,19 @@ class KeyFrameAnalyzer:
                 '-of', 'json',
             ]
 
-            # ffprobe を実行 (セマフォで同時実行数を制限)
-            async with ProcessLimiter.getSemaphore('KeyFrameAnalyzer'):
-                ffprobe_process = await asyncio.subprocess.create_subprocess_exec(
-                    LIBRARY_PATH['FFprobe'],
-                    *options,
-                    stdout = asyncio.subprocess.PIPE,
-                    stderr = asyncio.subprocess.PIPE,
-                )
+            # FFprobe プロセスを非同期で実行
+            ffprobe_process = await asyncio.subprocess.create_subprocess_exec(
+                LIBRARY_PATH['FFprobe'],
+                *options,
+                # 明示的に標準入力を無効化しないと、親プロセスの標準入力が引き継がれてしまう
+                stdin = asyncio.subprocess.DEVNULL,
+                # 標準出力・標準エラー出力をパイプで受け取る
+                stdout = asyncio.subprocess.PIPE,
+                stderr = asyncio.subprocess.PIPE,
+            )
 
-                # プロセスの CPU アフィニティを設定
-                ProcessAffinity.setProcessAffinity(ffprobe_process.pid)
-
-                # ffprobe の出力を取得
-                stdout, stderr = await ffprobe_process.communicate()
+            # プロセスの出力を取得
+            stdout, stderr = await ffprobe_process.communicate()
 
             # 終了コードを確認
             if ffprobe_process.returncode != 0:
