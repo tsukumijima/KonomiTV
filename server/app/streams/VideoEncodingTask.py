@@ -581,8 +581,6 @@ class VideoEncodingTask:
                                     encoded_segment += packet
                                     self._pmt_cc = (self._pmt_cc + 1) & 0x0F
 
-                            break
-
                         # PES パケットを再構築して candidate に追加
                         for packet in packetize_pes(video, False, False, cast(int, self._video_pid), 0, self._video_cc):
                             encoded_segment += packet
