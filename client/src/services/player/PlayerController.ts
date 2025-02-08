@@ -717,7 +717,11 @@ class PlayerController {
         }
 
         // ビデオ視聴時のみ、指定秒数シークする
-        if (this.playback_mode === 'Video' && seek_seconds !== null) {
+        if (this.playback_mode === 'Video') {
+            // シーク秒数が指定されていない（初回ロード時）は、録画開始マージン分シークする
+            if (seek_seconds === null) {
+                seek_seconds = player_store.recorded_program.recording_start_margin;
+            }
             // 再生開始までは一旦コメント表示がオンになっていればオフにする
             this.player.seek(seek_seconds);
             this.player.play();
