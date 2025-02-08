@@ -178,7 +178,7 @@ class PlayerController {
     /**
      * DPlayer と PlayerManager を初期化し、再生準備を行う
      */
-    public async init(): Promise<void> {
+    public async init(seek_seconds: number | null = null): Promise<void> {
         const channels_store = useChannelsStore();
         const player_store = usePlayerStore();
         const settings_store = useSettingsStore();
@@ -654,6 +654,9 @@ class PlayerController {
             }
             is_player_restarting = true;
 
+            // 現在の再生位置を取得
+            const current_time = this.player?.video.currentTime ?? 0;
+
             // PlayerController 自身を破棄
             await this.destroy();
 
@@ -662,7 +665,7 @@ class PlayerController {
 
             // PlayerController 自身を再初期化
             // この時点で PlayerRestartRequired のイベントハンドラーは再登録されているはず
-            await this.init();
+            await this.init(this.playback_mode === 'Video' ? current_time : null);
             is_player_restarting = false;
 
             // プレイヤー側にイベントの発火元から送られたメッセージ (プレイヤーを再起動中である旨) を通知する
@@ -698,8 +701,9 @@ class PlayerController {
         `);
         // PlayerRestartRequired イベントとは異なり、通知メッセージなしで即座に PlayerController を再起動する
         this.player.container.querySelector('.dplayer-player-restart-icon')!.addEventListener('click', async () => {
+            const current_time = this.player?.video.currentTime ?? 0;
             await this.destroy();
-            await this.init();
+            await this.init(this.playback_mode === 'Video' ? current_time : null);
             this.player?.notice('プレイヤーを再起動しました。', undefined, undefined, undefined);
         });
 
@@ -710,6 +714,14 @@ class PlayerController {
                 this.screen_wake_lock = wake_lock;  // 後で解除するために WakeLockSentinel を保持
                 console.log('\u001b[31m[PlayerController] Screen Wake Lock API: Screen Wake Lock acquired.');
             });
+        }
+
+        // ビデオ視聴時のみ、指定秒数シークする
+        if (this.playback_mode === 'Video' && seek_seconds !== null) {
+            // 再生開始までは一旦コメント表示がオンになっていればオフにする
+            this.player.seek(seek_seconds);
+            this.player.play();
+            console.log(`\u001b[31m[PlayerController] Video playback initialized, seeking to ${seek_seconds} seconds.`);
         }
 
         // 各 PlayerManager を初期化・登録

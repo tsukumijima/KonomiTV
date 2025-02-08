@@ -146,6 +146,15 @@ export default defineComponent({
             bottom: 54px !important;
             width: calc(100% - 68px - (18px * 2));
             box-sizing: border-box;
+            @include tablet-vertical {
+                width: calc(100% - (18px * 2));
+            }
+            @include smartphone-horizontal {
+                width: calc(100% - (18px * 2));
+            }
+            @include smartphone-vertical {
+                width: calc(100% - (18px * 2));
+            }
         }
         .dplayer-icons {
             bottom: auto !important;
@@ -368,15 +377,6 @@ export default defineComponent({
             .dplayer-bar-wrap {
                 bottom: 51px !important;
                 width: calc(100% - 68px - (30px * 2));
-                @include tablet-vertical {
-                    width: calc(100% - (18px * 2));
-                }
-                @include smartphone-horizontal {
-                    width: calc(100% - (18px * 2));
-                }
-                @include smartphone-vertical {
-                    width: calc(100% - (18px * 2));
-                }
             }
         }
         &.dplayer-hide-controller .dplayer-controller {

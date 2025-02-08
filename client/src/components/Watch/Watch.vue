@@ -267,18 +267,18 @@ export default defineComponent({
 .watch-container.watch-container--video.watch-container--fullscreen {
     .watch-player__dplayer {
         .dplayer-bar-wrap {
-            width: calc(100% - (18px * 2));
+            width: calc(100% - (18px * 2)) !important;
         }
         &.dplayer-mobile .dplayer-bar-wrap {
             width: calc(100% - (30px * 2));
             @include tablet-vertical {
-                width: calc(100% - (18px * 2));
+                width: calc(100% - (18px * 2)) !important;
             }
             @include smartphone-horizontal {
-                width: calc(100% - (18px * 2));
+                width: calc(100% - (18px * 2)) !important;
             }
             @include smartphone-vertical {
-                width: calc(100% - (18px * 2));
+                width: calc(100% - (18px * 2)) !important;
             }
         }
     }
