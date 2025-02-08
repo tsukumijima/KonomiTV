@@ -73,9 +73,6 @@ class VideoStream:
             instance.recorded_program = recorded_program
             instance.quality = quality
 
-            # HLS セグメントのバッファ範囲 (秒)
-            instance._buffer_range = (0, 0)
-
             # 基準となる DTS (最初のキーフレームの DTS)
             instance._base_dts = 0
 
@@ -124,7 +121,6 @@ class VideoStream:
         self.session_id: str
         self.recorded_program: RecordedProgram
         self.quality: QUALITY_TYPES
-        self._buffer_range: tuple[float, float]
         self._base_dts: int
         self._segments: list[VideoStreamSegment]
         self._encoding_task: VideoEncodingTask
@@ -141,14 +137,6 @@ class VideoStream:
         return tuple(self._segments)
 
 
-    @property
-    def buffer_range(self) -> tuple[float, float]:
-        """
-        HLS セグメントのバッファ範囲 (秒) (読み取り専用)
-        """
-        return self._buffer_range
-
-
     def keepAlive(self) -> None:
         """
         録画視聴セッションのアクティブ状態を維持する
@@ -160,6 +148,29 @@ class VideoStream:
 
         # キャンセルされない限り SESSION_TIMEOUT 秒後にインスタンスを破棄するタイマーを設定する
         self._cancel_destroy_timer = SetTimeout(lambda: asyncio.create_task(self.destroy()), self.SESSION_TIMEOUT)
+
+
+    def getBufferRange(self) -> tuple[float, float]:
+        """
+        エンコード完了済みの HLS セグメントのバッファ範囲 (秒) を返す
+
+        Returns:
+            tuple[float, float]: バッファ範囲 (開始時刻, 終了時刻)
+        """
+
+        # エンコード済みの全セグメントの範囲を計算する
+        # エンコード済み (Completed) のセグメントのみを対象とする
+        encoded_segments = [s for s in self._segments if s.encode_status == 'Completed']
+        if encoded_segments:
+            # エンコード済みの最初のセグメントの開始時刻から最後のセグメントの終了時刻までを計算
+            first_segment = encoded_segments[0]
+            last_segment = encoded_segments[-1]
+            buffer_start = (first_segment.start_dts - self._base_dts) / ts.HZ
+            buffer_end = (last_segment.start_dts - self._base_dts) / ts.HZ + last_segment.duration_seconds
+            return (buffer_start, buffer_end)
+        else:
+            # エンコード済みのセグメントがない場合は (0, 0) を返す
+            return (0, 0)
 
 
     async def getVirtualPlaylist(self, cache_key: str | None = None) -> str:
@@ -297,13 +308,6 @@ class VideoStream:
 
         # セグメントデータの Future が完了したらそのデータを返す
         encoded_segment_ts = await asyncio.shield(segment.encoded_segment_ts_future)
-
-        # バッファ範囲を更新
-        # エンコード済みのセグメントの開始時刻と終了時刻を計算
-        # 基準 DTS (self._base_dts) を差し引いて録画開始時刻からのタイムスタンプにする
-        start_time = (segment.start_dts - self._base_dts) / ts.HZ
-        end_time = start_time + segment.duration_seconds
-        self._buffer_range = (start_time, end_time)
 
         return encoded_segment_ts
 

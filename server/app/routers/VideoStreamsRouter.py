@@ -161,7 +161,7 @@ async def VideoHLSBufferAPI(
         """イベントストリームを出力するジェネレーター"""
 
         # 初期値
-        previous_buffer_range = video_stream.buffer_range
+        previous_buffer_range = video_stream.getBufferRange()
 
         # 初回接続時に必ず現在のバッファ範囲を返す
         yield {
@@ -175,7 +175,7 @@ async def VideoHLSBufferAPI(
         while True:
 
             # 現在のバッファ範囲を取得
-            buffer_range = video_stream.buffer_range
+            buffer_range = video_stream.getBufferRange()
 
             # 以前の結果と異なっている場合のみレスポンスを返す
             if previous_buffer_range != buffer_range:

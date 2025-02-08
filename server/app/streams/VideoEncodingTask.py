@@ -452,9 +452,19 @@ class VideoEncodingTask:
                 latest_pat: PATSection | None = None
                 latest_pmt: PMTSection | None = None
 
+                # エンコーダーの出力読み取りタイムアウトを設定
+                read_timeout = 10.0  # 10秒
+                last_read_time = asyncio.get_event_loop().time()
+
                 while True:
                     # エンコードタスクがキャンセルされた場合、処理を中断する
                     if self._is_cancelled is True:
+                        break
+
+                    # エンコーダーの出力読み取りタイムアウトをチェック
+                    current_time = asyncio.get_event_loop().time()
+                    if current_time - last_read_time > read_timeout:
+                        logging.warning(f'[Video: {self.video_stream.session_id}][Segment {current_sequence}] Encoder output read timeout.')
                         break
 
                     # 同期バイトを探す
@@ -462,12 +472,13 @@ class VideoEncodingTask:
                         if self._encoder_process is None:
                             # もしエンコーダープロセスが終了していたら処理を中断する
                             break
-                        sync_byte = await self._encoder_process.stdout.readexactly(1)
+                        sync_byte = await asyncio.wait_for(self._encoder_process.stdout.readexactly(1), timeout=5.0)
                         if sync_byte == b'':
                             break
                         if sync_byte != ts.SYNC_BYTE:
                             continue
-                    except asyncio.IncompleteReadError:
+                        last_read_time = current_time  # 正常に読み取れた場合はタイムアウトをリセット
+                    except (asyncio.IncompleteReadError, asyncio.TimeoutError):
                         break
 
                     # TS パケットを読み込む
@@ -475,8 +486,9 @@ class VideoEncodingTask:
                         if self._encoder_process is None:
                             # もしエンコーダープロセスが終了していたら処理を中断する
                             break
-                        packet = sync_byte + await self._encoder_process.stdout.readexactly(ts.PACKET_SIZE - 1)
-                    except asyncio.IncompleteReadError:
+                        packet = sync_byte + await asyncio.wait_for(self._encoder_process.stdout.readexactly(ts.PACKET_SIZE - 1), timeout=5.0)
+                        last_read_time = current_time  # 正常に読み取れた場合はタイムアウトをリセット
+                    except (asyncio.IncompleteReadError, asyncio.TimeoutError):
                         break
 
                     # PID を取得
@@ -545,21 +557,26 @@ class VideoEncodingTask:
 
                                 # 次のセグメントへ移行
                                 current_sequence += 1
-                                logging.info(f'[Video: {self.video_stream.session_id}][Segment {current_sequence}] Encoding...')
-                                if current_sequence < len(self.video_stream.segments):
-                                    self._current_segment = self.video_stream.segments[current_sequence]
-                                    self._current_segment.encode_status = 'Encoding'
-                                    encoded_segment = bytearray()
 
-                                    # 新しいセグメントの先頭に PAT と PMT を追加
-                                    if latest_pat is not None:
-                                        for packet in packetize_section(latest_pat, False, False, 0, 0, self._pat_cc):
-                                            encoded_segment += packet
-                                            self._pat_cc = (self._pat_cc + 1) & 0x0F
-                                    if latest_pmt is not None:
-                                        for packet in packetize_section(latest_pmt, False, False, cast(int, self._pmt_pid), 0, self._pmt_cc):
-                                            encoded_segment += packet
-                                            self._pmt_cc = (self._pmt_cc + 1) & 0x0F
+                                # 最終セグメントの場合はループを抜ける
+                                if current_sequence >= len(self.video_stream.segments):
+                                    logging.info(f'[Video: {self.video_stream.session_id}] Reached the final segment.')
+                                    break
+
+                                logging.info(f'[Video: {self.video_stream.session_id}][Segment {current_sequence}] Encoding...')
+                                self._current_segment = self.video_stream.segments[current_sequence]
+                                self._current_segment.encode_status = 'Encoding'
+                                encoded_segment = bytearray()
+
+                                # 新しいセグメントの先頭に PAT と PMT を追加
+                                if latest_pat is not None:
+                                    for packet in packetize_section(latest_pat, False, False, 0, 0, self._pat_cc):
+                                        encoded_segment += packet
+                                        self._pat_cc = (self._pat_cc + 1) & 0x0F
+                                if latest_pmt is not None:
+                                    for packet in packetize_section(latest_pmt, False, False, cast(int, self._pmt_pid), 0, self._pmt_cc):
+                                        encoded_segment += packet
+                                        self._pmt_cc = (self._pmt_cc + 1) & 0x0F
 
                                 break
 
@@ -586,7 +603,8 @@ class VideoEncodingTask:
                     try:
                         if self._encoder_process.returncode is None:
                             self._encoder_process.kill()
-                    except Exception as ex:
+                            await asyncio.wait_for(self._encoder_process.wait(), timeout=5.0)  # プロセスの終了を待機
+                    except (Exception, asyncio.TimeoutError) as ex:
                         logging.error(f'[Video: {self.video_stream.session_id}] Failed to terminate encoder process:', exc_info=ex)
                     self._encoder_process = None
 
@@ -595,8 +613,14 @@ class VideoEncodingTask:
                     try:
                         if self._tsreadex_process.returncode is None:
                             self._tsreadex_process.kill()
-                    except Exception as ex:
+                            await asyncio.wait_for(self._tsreadex_process.wait(), timeout=5.0)  # プロセスの終了を待機
+                    except (Exception, asyncio.TimeoutError) as ex:
                         logging.error(f'[Video: {self.video_stream.session_id}] Failed to terminate tsreadex process:', exc_info=ex)
+                    self._tsreadex_process = None
+
+                # 最終セグメントの場合はループを抜ける
+                if current_sequence >= len(self.video_stream.segments):
+                    break
 
         finally:
             # ファイルを閉じる
@@ -606,6 +630,7 @@ class VideoEncodingTask:
             if self._current_segment is not None and not self._is_cancelled and not self._current_segment.encoded_segment_ts_future.done():
                 self._current_segment.encoded_segment_ts_future.set_result(bytes(encoded_segment))
                 self._current_segment.encode_status = 'Completed'
+                logging.info(f'[Video: {self.video_stream.session_id}][Segment {current_sequence}] Successfully Encoded Final HLS Segment.')
 
             # エンコードタスクでのすべての処理を完了した
             self._is_finished = True
