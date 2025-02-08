@@ -1,26 +1,29 @@
 
+import anyio
+import asyncio
 import os
 import psutil
 import signal
 import sys
 import threading
-from fastapi import APIRouter
-from fastapi import Depends
-from fastapi import Request
-from fastapi import status
+from fastapi import APIRouter, Depends, Request, status
 from fastapi.exceptions import HTTPException
 from fastapi.security import OAuth2PasswordBearer
-from typing import Annotated
+from typing import Any, Annotated, Coroutine
 
 from app import logging
+from app import schemas
 from app.config import Config
-from app.constants import RESTART_REQUIRED_LOCK_PATH
+from app.constants import RESTART_REQUIRED_LOCK_PATH, THUMBNAILS_DIR
+from app.metadata.KeyFrameAnalyzer import KeyFrameAnalyzer
+from app.metadata.ThumbnailGenerator import ThumbnailGenerator
 from app.models.Channel import Channel
 from app.models.Program import Program
+from app.models.RecordedProgram import RecordedProgram
+from app.models.RecordedVideo import RecordedVideo
 from app.models.TwitterAccount import TwitterAccount
 from app.models.User import User
-from app.routers.UsersRouter import GetCurrentAdminUser
-from app.routers.UsersRouter import GetCurrentUser
+from app.routers.UsersRouter import GetCurrentAdminUser, GetCurrentUser
 
 
 # ルーター
@@ -28,6 +31,9 @@ router = APIRouter(
     tags = ['Maintenance'],
     prefix = '/api/maintenance',
 )
+
+# バックグラウンド解析タスクの asyncio.Task インスタンス
+background_analysis_task: asyncio.Task[None] | None = None
 
 
 async def GetCurrentAdminUserOrLocal(
@@ -74,6 +80,84 @@ async def UpdateDatabaseAPI(
     await Channel.updateJikkyoStatus()
     await Program.update(multiprocess=True)
     await TwitterAccount.updateAccountsInformation()
+
+
+@router.post(
+    '/background-analysis',
+    summary = 'バックグラウンド解析タスク手動実行 API',
+    status_code = status.HTTP_204_NO_CONTENT,
+)
+async def BackgroundAnalysisAPI():
+    """
+    キーフレーム情報が未解析の録画ファイルに対してキーフレーム情報を解析し、<br>
+    サムネイルが未生成の録画ファイルに対してサムネイルを生成する。<br>
+    """
+
+    global background_analysis_task
+
+    async def BackgroundAnalysis():
+        global background_analysis_task
+        logging.info('Manual background analysis has started.')
+
+        # キーフレーム情報が未生成、またはサムネイルが未生成の録画ファイルを取得
+        db_recorded_videos = await RecordedVideo.filter(status='Recorded')
+
+        # 各録画ファイルに対して直列にバックグラウンド解析タスクを実行
+        ## HDD は並列アクセスが遅いため、随時直列に実行していった方が結果的に早いことが多い
+        for db_recorded_video in db_recorded_videos:
+            file_path = anyio.Path(db_recorded_video.file_path)
+            try:
+                if not await file_path.is_file():
+                    logging.warning(f'{file_path}: File not found. Skipping...')
+                    continue
+
+                # キーフレーム情報解析とサムネイル生成を同時に実行
+                tasks: list[Coroutine[Any, Any, None]] = []
+
+                # キーフレーム情報が未解析の場合、タスクに追加
+                if not db_recorded_video.has_key_frames:
+                    tasks.append(KeyFrameAnalyzer(file_path).analyze())
+                else:
+                    logging.info(f'{file_path}: Keyframe analysis already completed.')
+
+                # サムネイルが未生成の場合、タスクに追加
+                thumbnail_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{db_recorded_video.file_hash}.webp'
+                if not await thumbnail_path.is_file():
+                    # 録画番組情報を取得
+                    db_recorded_program = await RecordedProgram.all() \
+                        .select_related('recorded_video') \
+                        .select_related('channel') \
+                        .get_or_none(id=db_recorded_video.id)
+                    if db_recorded_program is not None:
+                        # RecordedProgram モデルを schemas.RecordedProgram に変換
+                        recorded_program = schemas.RecordedProgram.model_validate(db_recorded_program, from_attributes=True)
+                        tasks.append(ThumbnailGenerator.fromRecordedProgram(recorded_program).generate(skip_tile_if_exists=True))
+                else:
+                    logging.info(f'{file_path}: Thumbnail already generated.')
+
+                # タスクが存在する場合、同時実行
+                if tasks:
+                    await asyncio.gather(*tasks)
+
+            except Exception as ex:
+                logging.error(f'{file_path}: Error in background analysis:', exc_info=ex)
+                continue
+
+        # すべての録画ファイルのバックグラウンド解析が完了した
+        logging.info('Manual background analysis has finished processing all recorded files.')
+        background_analysis_task = None  # 再度新しいタスクを作成できるように None にする
+
+    # タスクが実行中でない場合、新しくタスクを作成して実行
+    ## asyncio.create_task() で実行することで、API への HTTP コネクションが切断されてもタスクが継続される
+    if background_analysis_task is None:
+        background_analysis_task = asyncio.create_task(BackgroundAnalysis())
+        # タスクの実行が完了するまで待機
+        await background_analysis_task
+    else:
+        raise HTTPException(
+            status_code = status.HTTP_429_TOO_MANY_REQUESTS,
+            detail = 'Background analysis task is already running',
+        )
 
 
 @router.post(

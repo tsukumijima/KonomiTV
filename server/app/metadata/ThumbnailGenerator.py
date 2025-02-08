@@ -236,12 +236,12 @@ class ThumbnailGenerator:
         logging.info(f'{self.file_path}: Generating thumbnail... / Face detection mode: {self.face_detection_mode}')
         try:
             # 1. プレイヤーのシークバー用サムネイルタイル画像を生成
-            tile_exists = await self.seekbar_thumbnails_tile_path.exists()
+            tile_exists = await self.seekbar_thumbnails_tile_path.is_file()
             tile_exists_jpg = False
             if not tile_exists:
                 # WebP が存在しない場合は JPEG も確認
                 jpg_path = self.seekbar_thumbnails_tile_path.with_suffix('.jpg')
-                tile_exists_jpg = await jpg_path.exists()
+                tile_exists_jpg = await jpg_path.is_file()
                 if tile_exists_jpg:
                     self.seekbar_thumbnails_tile_path = jpg_path
                     tile_exists = True

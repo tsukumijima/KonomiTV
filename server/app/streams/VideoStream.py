@@ -213,7 +213,7 @@ class VideoStream:
             if not self.recorded_program.recorded_video.has_key_frames:
                 raise HTTPException(
                     status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail = 'Key frame information is not available',
+                    detail = 'Keyframe information is not available',
                 )
 
             # キーフレーム情報を取得
@@ -221,7 +221,7 @@ class VideoStream:
             if len(key_frames) < 2:  # 最低2つのキーフレームが必要
                 raise HTTPException(
                     status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail = 'Not enough key frames',
+                    detail = 'Not enough keyframes',
                 )
 
             # 最初のキーフレームの DTS を基準として保存する
@@ -239,7 +239,7 @@ class VideoStream:
             # キーフレーム間隔の最大値を最低セグメント間隔として使用する
             segment_duration_seconds = max(self.SEGMENT_DURATION_SECONDS, max_key_frame_interval)
             logging.info(f'[Video: {self.session_id}] Segment duration: {segment_duration_seconds:.3f} seconds'
-                         f'(max key frame interval: {max_key_frame_interval:.3f} seconds)')
+                         f'(max keyframe interval: {max_key_frame_interval:.3f} seconds)')
 
             segment_sequence = 0
             accumulated_duration: float = 0.0
