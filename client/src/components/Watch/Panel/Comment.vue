@@ -576,7 +576,7 @@ export default defineComponent({
                 align-items: center;
                 min-height: 28px;
                 padding-top: 6px;
-                word-break: break-all;
+                word-break: break-word;
                 &--my-post {
                     color: rgb(var(--v-theme-secondary-lighten-2));
                 }

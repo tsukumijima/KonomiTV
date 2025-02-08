@@ -127,7 +127,7 @@ defineEmits<{
         &-value {
             flex-grow: 1;
             font-size: 14px;
-            word-break: break-all;
+            word-break: break-word;
         }
     }
 }

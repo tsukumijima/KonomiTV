@@ -443,6 +443,7 @@ onMounted(() => {
 
 .search-tweets {
     flex-grow: 1;
+    overflow-x: hidden;
     overflow-y: auto;
     will-change: transform;
 }

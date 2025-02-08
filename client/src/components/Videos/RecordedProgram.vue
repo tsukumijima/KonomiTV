@@ -583,7 +583,7 @@ const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
         &-value {
             flex-grow: 1;
             font-size: 14px;
-            word-break: break-all;
+            word-break: break-word;
         }
     }
 }
