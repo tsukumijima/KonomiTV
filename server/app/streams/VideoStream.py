@@ -38,11 +38,15 @@ class VideoStreamSegment:
     ## 基本 SEGMENT_DURATION_SECONDS に近い値になるが、キーフレーム単位で切り出すために少し長くなる
     duration_seconds: float
 
+    # HLS セグメントのエンコードの状態
+    encode_status: Literal['Pending', 'Encoding', 'Completed']
+
     # HLS セグメントのエンコード済み MPEG-TS データが返る asyncio.Future
     encoded_segment_ts_future: asyncio.Future[bytes]
 
-    # HLS セグメントのエンコードの状態
-    encode_status: Literal['Pending', 'Encoding', 'Completed'] = 'Pending'
+    # HLS セグメントのエンコード済み MPEG-TS データが既にクライアントによって読み取られているかを表すフラグ
+    ## このフラグが True の VideoStreamSegment は、メモリ節約のため順に破棄される (readed と意図的に過去形にしている)
+    is_encoded_segment_ts_future_readed: bool = False
 
 
 class VideoStream:
@@ -51,6 +55,9 @@ class VideoStream:
     # 録画視聴セッションが再生されていない場合にタイムアウトするまでの時間 (秒)
     # この時間が経過すると、録画視聴セッションのインスタンスは自動的に破棄される
     SESSION_TIMEOUT: ClassVar[float] = float(10)  # 10 秒
+
+    # 一度でも読み取られた HLS セグメントの最大保持数
+    MAX_READED_SEGMENTS: ClassVar[int] = 10
 
     # 録画視聴セッションのインスタンスが入る、セッション ID をキーとした辞書
     # この辞書に録画視聴セッションに関する全てのデータが格納されている
@@ -228,6 +235,7 @@ class VideoStream:
                         start_file_position = segment_start_frame['offset'],
                         start_dts = segment_start_frame['dts'],
                         duration_seconds = accumulated_duration,
+                        encode_status = 'Pending',
                         encoded_segment_ts_future = asyncio.Future(),
                     ))
                     segment_sequence += 1
@@ -242,6 +250,7 @@ class VideoStream:
                     start_file_position = segment_start_frame['offset'],
                     start_dts = segment_start_frame['dts'],
                     duration_seconds = accumulated_duration,
+                    encode_status = 'Pending',
                     encoded_segment_ts_future = asyncio.Future(),
                 ))
 
@@ -308,6 +317,18 @@ class VideoStream:
 
         # セグメントデータの Future が完了したらそのデータを返す
         encoded_segment_ts = await asyncio.shield(segment.encoded_segment_ts_future)
+        segment.is_encoded_segment_ts_future_readed = True
+
+        # 読み取り済みのセグメントが MAX_READED_SEGMENTS 個以上ある場合、一番古いセグメントのデータを初期化する
+        readed_segments = [s for s in self._segments if s.is_encoded_segment_ts_future_readed]
+        if len(readed_segments) >= self.MAX_READED_SEGMENTS:
+            # 一番古いセグメントを取得
+            oldest_segment = readed_segments[0]
+            # Future とステータスを初期化
+            oldest_segment.encode_status = 'Pending'
+            oldest_segment.encoded_segment_ts_future = asyncio.Future()
+            oldest_segment.is_encoded_segment_ts_future_readed = False
+            logging.info(f'[Video: {self.session_id}][Segment {oldest_segment.sequence_index}] Reset segment data to free memory.')
 
         return encoded_segment_ts
 
