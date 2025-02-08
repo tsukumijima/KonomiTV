@@ -248,7 +248,7 @@ class RecordedScanTask:
             ## with 文で括ることで、with 文を抜けたときに ProcessPoolExecutor がクリーンアップされるようにする
             ## さもなければサーバーの終了後もプロセスが残り続けてゾンビプロセス化し、メモリリークを引き起こしてしまう
             loop = asyncio.get_running_loop()
-            with concurrent.futures.ProcessPoolExecutor() as executor:
+            with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
                 recorded_program = await loop.run_in_executor(executor, analyzer.analyze)
 
             if recorded_program is None:

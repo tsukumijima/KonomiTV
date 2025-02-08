@@ -4,7 +4,6 @@ import psutil
 import signal
 import sys
 import threading
-import time
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import Request
@@ -104,13 +103,6 @@ def ServerRestartAPI(
         else:
             target_process.send_signal(signal.SIGINT)
 
-        # Waiting for connections to close. となって終了できない場合があるので、少し待ってからもう一度シグナルを送る
-        time.sleep(0.5)
-        if sys.platform == 'win32':
-            target_process.send_signal(signal.CTRL_C_EVENT)
-        else:
-            target_process.send_signal(signal.SIGINT)
-
         # Uvicorn 終了後に再起動が必要であることを示すロックファイルを作成する
         # Uvicorn 終了後、KonomiTV.py でロックファイルの存在が確認され、もし存在していればサーバー再起動が行われる
         RESTART_REQUIRED_LOCK_PATH.touch(exist_ok=True)
@@ -142,13 +134,6 @@ def ServerShutdownAPI(
             target_process = target_process.parent()
 
         # 現在の Uvicorn サーバーを終了する
-        if sys.platform == 'win32':
-            target_process.send_signal(signal.CTRL_C_EVENT)
-        else:
-            target_process.send_signal(signal.SIGINT)
-
-        # Waiting for connections to close. となって終了できない場合があるので、少し待ってからもう一度シグナルを送る
-        time.sleep(0.5)
         if sys.platform == 'win32':
             target_process.send_signal(signal.CTRL_C_EVENT)
         else:
