@@ -584,17 +584,19 @@ class VideoEncodingTask:
                 # エンコーダープロセスを終了
                 if self._encoder_process is not None:
                     try:
-                        self._encoder_process.kill()
+                        if self._encoder_process.returncode is None:
+                            self._encoder_process.kill()
                     except Exception as ex:
-                        logging.error(f'[Video: {self.video_stream.session_id}] Failed to terminate encoder process. ({ex})')
+                        logging.error(f'[Video: {self.video_stream.session_id}] Failed to terminate encoder process:', exc_info=ex)
                     self._encoder_process = None
 
                 # tsreadex プロセスを終了
                 if self._tsreadex_process is not None:
                     try:
-                        self._tsreadex_process.kill()
+                        if self._tsreadex_process.returncode is None:
+                            self._tsreadex_process.kill()
                     except Exception as ex:
-                        logging.error(f'[Video: {self.video_stream.session_id}] Failed to terminate tsreadex process. ({ex})')
+                        logging.error(f'[Video: {self.video_stream.session_id}] Failed to terminate tsreadex process:', exc_info=ex)
 
         finally:
             # ファイルを閉じる
@@ -630,15 +632,17 @@ class VideoEncodingTask:
             # tsreadex プロセスを強制終了する
             if self._tsreadex_process is not None:
                 try:
-                    self._tsreadex_process.kill()
+                    if self._tsreadex_process.returncode is None:
+                        self._tsreadex_process.kill()
                 except Exception as ex:
-                    logging.error(f'[Video: {self.video_stream.session_id}] Failed to terminate tsreadex process. ({ex})')
+                    logging.error(f'[Video: {self.video_stream.session_id}] Failed to terminate tsreadex process:', exc_info=ex)
                 self._tsreadex_process = None
 
             # エンコーダープロセスを強制終了する
             if self._encoder_process is not None:
                 try:
-                    self._encoder_process.kill()
+                    if self._encoder_process.returncode is None:
+                        self._encoder_process.kill()
                 except Exception as ex:
-                    logging.error(f'[Video: {self.video_stream.session_id}] Failed to terminate encoder process. ({ex})')
+                    logging.error(f'[Video: {self.video_stream.session_id}] Failed to terminate encoder process:', exc_info=ex)
                 self._encoder_process = None
