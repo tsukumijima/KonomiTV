@@ -244,8 +244,9 @@ class ThumbnailGenerator:
                 if tile_exists_jpg:
                     self.seekbar_thumbnails_tile_path = jpg_path
                     tile_exists = True
-
-            if tile_exists and skip_tile_if_exists:
+            # ファイルが存在し、かつ0バイトでないことを確認
+            tile_is_not_empty = tile_exists and (await self.seekbar_thumbnails_tile_path.stat()).st_size > 0
+            if tile_is_not_empty and skip_tile_if_exists:
                 logging.info(f'{self.file_path}: Seekbar thumbnail tile already exists. Skipping generation.')
             else:
                 if not await self.__generateThumbnailTile():
