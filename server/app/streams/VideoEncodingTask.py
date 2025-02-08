@@ -24,9 +24,6 @@ if TYPE_CHECKING:
 
 class VideoEncodingTask:
 
-    # エンコードする HLS セグメントの長さ (秒)
-    SEGMENT_DURATION_SECONDS: ClassVar[float] = float(10)  # 10秒
-
     # エンコード後のストリームの GOP 長 (秒)
     ## ライブではないため、GOP 長は H.264 / H.265 共通で長めに設定する
     GOP_LENGTH_SECOND: ClassVar[float] = float(2.5)  # 2.5秒
