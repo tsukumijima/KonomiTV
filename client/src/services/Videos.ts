@@ -153,7 +153,7 @@ export interface IJikkyoComments {
     detail: string;
 }
 
-/** サムネイル再生成のレスポンスを表すインターフェース */
+/** サムネイル再作成のレスポンスを表すインターフェース */
 export interface IThumbnailRegenerationStatus {
     is_success: boolean;
     detail: string;
@@ -264,10 +264,10 @@ class Videos {
 
 
     /**
-     * 録画番組のサムネイルを再生成する
+     * 録画番組のサムネイルを再作成する
      * @param video_id 録画番組の ID
      * @param skip_tile_if_exists 既に存在する場合はサムネイルタイルの生成をスキップするかどうか (デフォルト: False)
-     * @returns サムネイル再生成のステータス
+     * @returns サムネイル再作成のステータス
      */
     static async regenerateThumbnail(video_id: number, skip_tile_if_exists: boolean = false): Promise<IThumbnailRegenerationStatus> {
 
@@ -282,10 +282,10 @@ class Videos {
 
         // エラー処理
         if (response.type === 'error') {
-            APIClient.showGenericError(response, 'サムネイルの再生成に失敗しました。');
+            APIClient.showGenericError(response, 'サムネイルの再作成に失敗しました。');
             return {
                 is_success: false,
-                detail: 'サムネイルの再生成に失敗しました。',
+                detail: 'サムネイルの再作成に失敗しました。',
             };
         }
 

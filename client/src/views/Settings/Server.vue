@@ -181,7 +181,11 @@
             <div class="settings__item">
                 <div class="settings__item-heading">録画済み番組の保存先フォルダの絶対パス</div>
                 <div class="settings__item-label" style="padding-bottom: 2px;">
-                    複数の保存先フォルダを指定できます。<br>
+                    指定フォルダ以下に保存されている MPEG-TS 形式の録画ファイルを KonomiTV サーバーが自動的に見つけ出し、メタデータの解析とサムネイルの作成を行います。<br>
+                    解析が完了すると、録画番組一覧から再生できるようになります。<br>
+                </div>
+                <div class="settings__item-label mt-1" style="padding-bottom: 2px;">
+                    複数の保存先フォルダを指定できます。シンボリックリンクには対応していません。<br>
                 </div>
                 <div v-for="(folder, index) in server_settings.video.recorded_folders" :key="'recorded-folder-' + index">
                     <div class="d-flex align-center mt-3">
@@ -273,6 +277,21 @@
                 @click="updateDatabase()">
                 <Icon icon="iconoir:database-backup" height="20px" />
                 <span class="ml-2">データベースを更新</span>
+            </v-btn>
+            <div class="settings__item">
+                <div class="settings__item-heading">録画ファイルのバックグラウンド解析タスクを再実行</div>
+                <div class="settings__item-label">
+                    録画ファイルのメタデータ解析やサムネイル作成が完了していない場合に、これらの処理を再度実行します。<br>
+                    PC のシャットダウンなどで途中で中断してしまった場合は、このボタンから処理を再開できます。<br>
+                </div>
+                <div class="settings__item-label mt-1">
+                    <strong>大量の録画ファイルが保存されている環境では、処理完了まで数時間〜数日以上かかることがあります。</strong><br>
+                </div>
+            </div>
+            <v-btn class="settings__save-button mt-5" color="background-lighten-2" variant="flat"
+                @click="startBackgroundAnalysis()">
+                <Icon icon="fluent:book-arrow-clockwise-20-regular" height="20px" />
+                <span class="ml-2">バックグラウンド解析タスクを再実行</span>
             </v-btn>
             <div class="settings__item">
                 <div class="settings__item-heading text-error-lighten-1">KonomiTV サーバーを再起動</div>
@@ -368,6 +387,21 @@ async function updateDatabase() {
     Message.show('データベースを更新しています...');
     await Maintenance.updateDatabase();
     Message.success('データベースを更新しました。');
+}
+
+// バックグラウンド解析タスクを開始する関数
+async function startBackgroundAnalysis() {
+    Message.info(
+        'バックグラウンド解析タスクを開始しています...\n' +
+        '大量の録画ファイルが保存されている環境では、処理完了まで数時間〜数日以上かかることがあります。'
+    );
+    const result = await Maintenance.startBackgroundAnalysis();
+    if (result === true) {
+        Message.success(
+            'バックグラウンド解析タスクの実行が完了しました。\n' +
+            'すべての録画番組のメタデータ解析/サムネイル生成が完了しているはずです。'
+        );
+    }
 }
 
 // KonomiTV サーバーの再起動を行う関数
