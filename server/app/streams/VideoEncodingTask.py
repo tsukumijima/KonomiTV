@@ -346,6 +346,14 @@ class VideoEncodingTask:
         # エンコーダーの種類を取得
         ENCODER_TYPE = Config().general.encoder
 
+        # 新しいエンコードタスクを起動させた時点で既にエンコード済みのセグメントは使えなくなるので、すべて破棄する
+        for segment in self.video_stream.segments:
+            if segment.encode_status != 'Pending':
+                if not segment.encoded_segment_ts_future.done():
+                    segment.encoded_segment_ts_future.set_result(b'')
+                segment.encoded_segment_ts_future = asyncio.Future()  # 破棄したセグメントの future を再生成
+                segment.encode_status = 'Pending'
+
         # 対象のセグメントを取得
         self._current_segment = self.video_stream.segments[start_sequence]
 
