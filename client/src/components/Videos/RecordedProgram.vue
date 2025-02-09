@@ -198,6 +198,9 @@ const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
         }
 
         &-status {
+            display: flex;
+            align-items: center;
+            gap: 4px;
             position: absolute;
             top: 4px;
             right: 4px;
@@ -206,26 +209,15 @@ const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
             font-size: 10.5px;
             font-weight: 700;
             line-height: 1;
-            display: flex;
-            align-items: center;
-            gap: 3px;
-
-            &--recording {
-                background: rgb(var(--v-theme-secondary));
-                color: #fff;
-            }
+            background: rgba(var(--v-theme-background-lighten-1), 0.9);
+            color: rgba(255, 255, 255, 0.85);
 
             &--analyzing {
-                background: rgb(var(--v-theme-background-lighten-1));
-                color: #fff;
+                gap: 3px;
                 svg {
+                    color: rgb(var(--v-theme-primary));
                     animation: progress-rotate 1.5s infinite;
                 }
-            }
-
-            &--partial {
-                background: rgb(var(--v-theme-secondary-darken-1));
-                color: #fff;
             }
 
             &-dot {
@@ -572,9 +564,10 @@ const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
         &:hover {
             background: rgb(var(--v-theme-background-lighten-1));
         }
-        .recorded-program__thumbnail,
+        .recorded-program__thumbnail-image,
+        .recorded-program__thumbnail-duration,
         .recorded-program__content {
-            opacity: 0.7;
+            opacity: 0.65;
         }
         .recorded-program__mylist,
         .recorded-program__menu {
