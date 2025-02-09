@@ -367,7 +367,7 @@ class VideoEncodingTask:
         current_sequence = start_sequence
         self._current_segment = self.video_stream.segments[current_sequence]
         self._current_segment.encode_status = 'Encoding'
-        logging.info(f'[Video: {self.video_stream.session_id}][Segment {current_sequence}] Starting the Encoder...')
+        logging.info(f'{self.video_stream.log_prefix}[Segment {current_sequence}] Starting the Encoder...')
 
         # エンコーダーに渡す出力 TS のタイムスタンプオフセットを算出
         output_ts_offset: float = 0.0
@@ -460,7 +460,7 @@ class VideoEncodingTask:
                 if ENCODER_TYPE == 'FFmpeg':
                     # オプションを取得
                     encoder_options = self.buildFFmpegOptions(self.video_stream.quality, output_ts_offset)
-                    logging.info(f'[Video: {self.video_stream.session_id}] FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
+                    logging.info(f'{self.video_stream.log_prefix} FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
                     # エンコーダープロセスを作成・実行
                     self._encoder_process = await asyncio.subprocess.create_subprocess_exec(
@@ -475,7 +475,7 @@ class VideoEncodingTask:
                 else:
                     # オプションを取得
                     encoder_options = self.buildHWEncCOptions(self.video_stream.quality, ENCODER_TYPE, output_ts_offset)
-                    logging.info(f'[Video: {self.video_stream.session_id}] {ENCODER_TYPE} Commands:\n{ENCODER_TYPE} {" ".join(encoder_options)}')
+                    logging.info(f'{self.video_stream.log_prefix} {ENCODER_TYPE} Commands:\n{ENCODER_TYPE} {" ".join(encoder_options)}')
 
                     # エンコーダープロセスを作成・実行
                     self._encoder_process = await asyncio.subprocess.create_subprocess_exec(
@@ -508,7 +508,7 @@ class VideoEncodingTask:
                     # エンコーダーの出力読み取りタイムアウトをチェック
                     current_time = asyncio.get_running_loop().time()
                     if current_time - last_read_time > read_timeout:
-                        logging.warning(f'[Video: {self.video_stream.session_id}][Segment {current_sequence}] Encoder output read timeout.')
+                        logging.warning(f'{self.video_stream.log_prefix}[Segment {current_sequence}] Encoder output read timeout.')
                         break
 
                     # 同期バイトを探す
@@ -575,15 +575,15 @@ class VideoEncodingTask:
                                 if stream_type == 0x1b:  # H.264
                                     if self._video_pid is None:
                                         self._video_pid = elementary_pid
-                                        logging.debug_simple(f'[Video: {self.video_stream.session_id}] H.264 PID: 0x{elementary_pid:04x}')
+                                        logging.debug_simple(f'{self.video_stream.log_prefix} H.264 PID: 0x{elementary_pid:04x}')
                                 elif stream_type == 0x24:  # H.265
                                     if self._video_pid is None:
                                         self._video_pid = elementary_pid
-                                        logging.debug_simple(f'[Video: {self.video_stream.session_id}] H.265 PID: 0x{elementary_pid:04x}')
+                                        logging.debug_simple(f'{self.video_stream.log_prefix} H.265 PID: 0x{elementary_pid:04x}')
                                 elif stream_type == 0x0F:  # AAC
                                     if self._audio_pid is None:
                                         self._audio_pid = elementary_pid
-                                        logging.debug_simple(f'[Video: {self.video_stream.session_id}] AAC PID: 0x{elementary_pid:04x}')
+                                        logging.debug_simple(f'{self.video_stream.log_prefix} AAC PID: 0x{elementary_pid:04x}')
                             # PMT を再構築して candidate に追加
                             for packet in packetize_section(pmt, False, False, cast(int, self._pmt_pid), 0, self._pmt_cc):
                                 encoded_segment += packet
@@ -602,17 +602,17 @@ class VideoEncodingTask:
                                 if not self._current_segment.encoded_segment_ts_future.done():
                                     self._current_segment.encoded_segment_ts_future.set_result(bytes(encoded_segment))
                                 self._current_segment.encode_status = 'Completed'
-                                logging.info(f'[Video: {self.video_stream.session_id}][Segment {current_sequence}] Successfully Encoded HLS Segment.')
+                                logging.info(f'{self.video_stream.log_prefix}[Segment {current_sequence}] Successfully Encoded HLS Segment.')
 
                                 # 次のセグメントへ移行
                                 current_sequence += 1
 
                                 # 最終セグメントの場合はループを抜ける
                                 if current_sequence >= len(self.video_stream.segments):
-                                    logging.info(f'[Video: {self.video_stream.session_id}] Reached the final segment.')
+                                    logging.info(f'{self.video_stream.log_prefix} Reached the final segment.')
                                     break
 
-                                logging.info(f'[Video: {self.video_stream.session_id}][Segment {current_sequence}] Encoding...')
+                                logging.info(f'{self.video_stream.log_prefix}[Segment {current_sequence}] Encoding...')
                                 self._current_segment = self.video_stream.segments[current_sequence]
                                 self._current_segment.encode_status = 'Encoding'
                                 encoded_segment = bytearray()
@@ -656,7 +656,7 @@ class VideoEncodingTask:
                             self._encoder_process.kill()
                             await asyncio.wait_for(self._encoder_process.wait(), timeout=5.0)  # プロセスの終了を待機
                     except (Exception, asyncio.TimeoutError) as ex:
-                        logging.error(f'[Video: {self.video_stream.session_id}] Failed to terminate encoder process:', exc_info=ex)
+                        logging.error(f'{self.video_stream.log_prefix} Failed to terminate encoder process:', exc_info=ex)
                     self._encoder_process = None
 
                 # tsreadex プロセスを終了
@@ -666,17 +666,17 @@ class VideoEncodingTask:
                             self._tsreadex_process.kill()
                             await asyncio.wait_for(self._tsreadex_process.wait(), timeout=5.0)  # プロセスの終了を待機
                     except (Exception, asyncio.TimeoutError) as ex:
-                        logging.error(f'[Video: {self.video_stream.session_id}] Failed to terminate tsreadex process:', exc_info=ex)
+                        logging.error(f'{self.video_stream.log_prefix} Failed to terminate tsreadex process:', exc_info=ex)
                     self._tsreadex_process = None
 
                 # video_pid と audio_pid が取得できていない場合は、エンコーダーの起動をリトライする
                 if self._video_pid is None or self._audio_pid is None:
                     self._retry_count += 1
                     if self._retry_count < self.MAX_RETRY_COUNT:
-                        logging.warning(f'[Video: {self.video_stream.session_id}] Failed to get video/audio PID. Retrying... ({self._retry_count}/{self.MAX_RETRY_COUNT})')
+                        logging.warning(f'{self.video_stream.log_prefix} Failed to get video/audio PID. Retrying... ({self._retry_count}/{self.MAX_RETRY_COUNT})')
                         continue
                     else:
-                        logging.error(f'[Video: {self.video_stream.session_id}] Failed to get video/audio PID after {self.MAX_RETRY_COUNT} retries.')
+                        logging.error(f'{self.video_stream.log_prefix} Failed to get video/audio PID after {self.MAX_RETRY_COUNT} retries.')
                         break
 
                 # video_pid と audio_pid が取得できている場合は、ループを抜ける
@@ -694,11 +694,11 @@ class VideoEncodingTask:
             if self._current_segment is not None and not self._current_segment.encoded_segment_ts_future.done():
                 self._current_segment.encoded_segment_ts_future.set_result(bytes(encoded_segment))
                 self._current_segment.encode_status = 'Completed'
-                logging.info(f'[Video: {self.video_stream.session_id}][Segment {current_sequence}] Successfully Encoded Final HLS Segment.')
+                logging.info(f'{self.video_stream.log_prefix}[Segment {current_sequence}] Successfully Encoded Final HLS Segment.')
 
             # エンコードタスクでのすべての処理を完了した
             self._is_finished = True
-            logging.info(f'[Video: {self.video_stream.session_id}] Finished the Encoding Task.')
+            logging.info(f'{self.video_stream.log_prefix} Finished the Encoding Task.')
 
 
     async def cancel(self) -> None:
@@ -708,7 +708,7 @@ class VideoEncodingTask:
 
         # すでにエンコードタスクが完了している場合は何もしない
         if self._is_finished is True:
-            logging.info(f'[Video: {self.video_stream.session_id}] The Encoding Task is already finished.')
+            logging.info(f'{self.video_stream.log_prefix} The Encoding Task is already finished.')
             return
 
         if self._is_cancelled is False:
@@ -724,7 +724,7 @@ class VideoEncodingTask:
                     if self._tsreadex_process.returncode is None:
                         self._tsreadex_process.kill()
                 except Exception as ex:
-                    logging.error(f'[Video: {self.video_stream.session_id}] Failed to terminate tsreadex process:', exc_info=ex)
+                    logging.error(f'{self.video_stream.log_prefix} Failed to terminate tsreadex process:', exc_info=ex)
                 self._tsreadex_process = None
 
             # エンコーダープロセスを強制終了する
@@ -733,5 +733,5 @@ class VideoEncodingTask:
                     if self._encoder_process.returncode is None:
                         self._encoder_process.kill()
                 except Exception as ex:
-                    logging.error(f'[Video: {self.video_stream.session_id}] Failed to terminate encoder process:', exc_info=ex)
+                    logging.error(f'{self.video_stream.log_prefix} Failed to terminate encoder process:', exc_info=ex)
                 self._encoder_process = None
