@@ -25,6 +25,32 @@ class Maintenance {
 
 
     /**
+     * バックグラウンド解析タスクを開始する
+     * @returns タスクの実行に成功した場合は true、失敗した場合は false
+     */
+    static async startBackgroundAnalysis(): Promise<boolean> {
+
+        // API リクエストを実行
+        const response = await APIClient.post('/maintenance/background-analysis', undefined, {
+            // 最大1日以上かかるのでタイムアウトを1日に設定
+            timeout: 24 * 60 * 60 * 1000,
+        });
+
+        // エラー処理
+        if (response.type === 'error') {
+            switch (response.data.detail) {
+                default:
+                    APIClient.showGenericError(response, 'バックグラウンド解析タスクを開始できませんでした。');
+                    break;
+            }
+            return false;
+        }
+
+        return true;
+    }
+
+
+    /**
      * サーバーを再起動する
      */
     static async restartServer(): Promise<void> {

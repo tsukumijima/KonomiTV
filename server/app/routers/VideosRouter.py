@@ -111,7 +111,7 @@ async def GetThumbnailResponse(
     media_type = None
     for ext, mime in [('.webp', 'image/webp'), ('.jpg', 'image/jpeg')]:
         path = base_path.with_suffix(ext)
-        if await path.exists():
+        if await path.is_file():
             thumbnail_path = path
             media_type = mime
             break
@@ -351,10 +351,8 @@ async def VideoThumbnailRegenerateAPI(
         # RecordedProgram モデルを schemas.RecordedProgram に変換
         recorded_program_schema = schemas.RecordedProgram.model_validate(recorded_program, from_attributes=True)
 
-        # ThumbnailGenerator を初期化
-        generator = ThumbnailGenerator.fromRecordedProgram(recorded_program_schema)
-
         # サムネイル生成を実行
+        generator = ThumbnailGenerator.fromRecordedProgram(recorded_program_schema)
         await generator.generate(skip_tile_if_exists=skip_tile_if_exists)
 
         return {

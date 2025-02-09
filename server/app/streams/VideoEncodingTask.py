@@ -24,9 +24,6 @@ if TYPE_CHECKING:
 
 class VideoEncodingTask:
 
-    # エンコードする HLS セグメントの長さ (秒)
-    SEGMENT_DURATION_SECONDS: ClassVar[float] = float(10)  # 10秒
-
     # エンコード後のストリームの GOP 長 (秒)
     ## ライブではないため、GOP 長は H.264 / H.265 共通で長めに設定する
     GOP_LENGTH_SECOND: ClassVar[float] = float(2.5)  # 2.5秒
@@ -77,12 +74,14 @@ class VideoEncodingTask:
 
     def buildFFmpegOptions(self,
         quality: QUALITY_TYPES,
+        output_ts_offset: float,
     ) -> list[str]:
         """
         FFmpeg に渡すオプションを組み立てる
 
         Args:
             quality (QUALITY_TYPES): 映像の品質
+            output_ts_offset (float): 出力 TS のタイムスタンプオフセット (秒)
 
         Returns:
             list[str]: FFmpeg に渡すオプションが連なる配列
@@ -93,8 +92,7 @@ class VideoEncodingTask:
 
         # 入力
         ## -analyzeduration をつけることで、ストリームの分析時間を短縮できる
-        ## -copyts で入力のタイムスタンプを出力にコピーする
-        options.append('-f mpegts -analyzeduration 500000 -copyts -i pipe:0')
+        options.append('-f mpegts -analyzeduration 500000 -i pipe:0')
 
         # ストリームのマッピング
         ## 音声切り替えのため、主音声・副音声両方をエンコード後の TS に含む
@@ -102,7 +100,7 @@ class VideoEncodingTask:
 
         # フラグ
         ## 主に FFmpeg の起動を高速化するための設定
-        options.append('-fflags nobuffer -flags low_delay -max_delay 0 -max_interleave_delta 500K -threads auto')
+        options.append('-fflags nobuffer -flags low_delay -max_delay 0 -tune zerolatency -max_interleave_delta 500K -threads auto')
 
         # 映像
         ## コーデック
@@ -111,8 +109,8 @@ class VideoEncodingTask:
         else:
             options.append('-vcodec libx264')  # H.264
 
-        ## バイトレートと品質
-        options.append(f'-flags +cgop -vb {QUALITY[quality].video_bitrate} -maxrate {QUALITY[quality].video_bitrate_max}')
+        ## ビットレートと品質
+        options.append(f'-flags +cgop+global_header -vb {QUALITY[quality].video_bitrate} -maxrate {QUALITY[quality].video_bitrate_max}')
         options.append('-preset veryfast -aspect 16:9')
         if QUALITY[quality].is_hevc is True:
             options.append('-profile:v main')
@@ -150,13 +148,7 @@ class VideoEncodingTask:
         options.append(f'-acodec aac -aac_coder twoloop -ac 2 -ab {QUALITY[quality].audio_bitrate} -ar 48000 -af volume=2.0')
 
         # 出力 TS のタイムスタンプオフセット
-        if self._current_segment is not None:
-            key_frames = self.video_stream.recorded_program.recorded_video.key_frames
-            for key_frame in key_frames:
-                if key_frame['offset'] == self._current_segment.start_file_position:
-                    output_ts_offset = key_frame['dts'] / ts.HZ
-                    options.append(f'-output_ts_offset {output_ts_offset}')
-                    break
+        options.append(f'-output_ts_offset {output_ts_offset}')
 
         # 出力
         options.append('-y -f mpegts')  # MPEG-TS 出力ということを明示
@@ -173,6 +165,7 @@ class VideoEncodingTask:
     def buildHWEncCOptions(self,
         quality: QUALITY_TYPES,
         encoder_type: Literal['QSVEncC', 'NVEncC', 'VCEEncC', 'rkmppenc'],
+        output_ts_offset: float,
     ) -> list[str]:
         """
         QSVEncC・NVEncC・VCEEncC・rkmppenc (便宜上 HWEncC と総称) に渡すオプションを組み立てる
@@ -180,6 +173,7 @@ class VideoEncodingTask:
         Args:
             quality (QUALITY_TYPES): 映像の品質
             encoder_type (Literal['QSVEncC', 'NVEncC', 'VCEEncC', 'rkmppenc']): エンコーダー (QSVEncC or NVEncC or VCEEncC or rkmppenc)
+            output_ts_offset (float): 出力 TS のタイムスタンプオフセット (秒)
 
         Returns:
             list[str]: HWEncC に渡すオプションが連なる配列
@@ -313,13 +307,7 @@ class VideoEncodingTask:
         options.append('--audio-samplerate 48000 --audio-filter volume=2.0 --audio-ignore-decode-error 30')
 
         # 出力 TS のタイムスタンプオフセット
-        if self._current_segment is not None:
-            key_frames = self.video_stream.recorded_program.recorded_video.key_frames
-            for key_frame in key_frames:
-                if key_frame['offset'] == self._current_segment.start_file_position:
-                    output_ts_offset = key_frame['dts'] / ts.HZ
-                    options.append(f'-m output_ts_offset:{output_ts_offset}')
-                    break
+        options.append(f'-m output_ts_offset:{output_ts_offset}')
 
         # 出力
         options.append('--output-format mpegts')  # MPEG-TS 出力ということを明示
@@ -356,6 +344,14 @@ class VideoEncodingTask:
         self._current_segment = self.video_stream.segments[current_sequence]
         self._current_segment.encode_status = 'Encoding'
         logging.info(f'[Video: {self.video_stream.session_id}][Segment {current_sequence}] Starting the Encoder...')
+
+        # エンコーダーに渡す出力 TS のタイムスタンプオフセットを算出
+        output_ts_offset: float = 0.0
+        for kf in self.video_stream.recorded_program.recorded_video.key_frames:
+            # セグメント開始位置よりも後のキーフレームは採用せず、直前の DTS を記録
+            if kf['offset'] > self._current_segment.start_file_position:
+                break
+            output_ts_offset = kf['dts'] / ts.HZ
 
         # 録画ファイルを開く
         file = open(self.video_stream.recorded_program.recorded_video.file_path, 'rb')
@@ -422,7 +418,7 @@ class VideoEncodingTask:
             # FFmpeg
             if ENCODER_TYPE == 'FFmpeg':
                 # オプションを取得
-                encoder_options = self.buildFFmpegOptions(self.video_stream.quality)
+                encoder_options = self.buildFFmpegOptions(self.video_stream.quality, output_ts_offset)
                 logging.info(f'[Video: {self.video_stream.session_id}] FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
                 # エンコーダープロセスを作成・実行
@@ -436,7 +432,7 @@ class VideoEncodingTask:
             # HWEncC
             else:
                 # オプションを取得
-                encoder_options = self.buildHWEncCOptions(self.video_stream.quality, ENCODER_TYPE)
+                encoder_options = self.buildHWEncCOptions(self.video_stream.quality, ENCODER_TYPE, output_ts_offset)
                 logging.info(f'[Video: {self.video_stream.session_id}] {ENCODER_TYPE} Commands:\n{ENCODER_TYPE} {" ".join(encoder_options)}')
 
                 # エンコーダープロセスを作成・実行
@@ -470,27 +466,32 @@ class VideoEncodingTask:
                     break
 
                 # 同期バイトを探す
-                try:
-                    if self._encoder_process is None:
-                        # もしエンコーダープロセスが終了していたら処理を中断する
-                        break
-                    sync_byte = await asyncio.wait_for(self._encoder_process.stdout.readexactly(1), timeout=5.0)
-                    if sync_byte == b'':
-                        break
-                    if sync_byte != ts.SYNC_BYTE:
-                        continue
-                    last_read_time = current_time  # 正常に読み取れた場合はタイムアウトをリセット
-                except (asyncio.IncompleteReadError, asyncio.TimeoutError):
+                isEOF = False
+                while True:
+                    try:
+                        # この時点で既にエンコーダープロセスが終了していたら処理中断
+                        if self._encoder_process is None:
+                            break
+                        sync_byte = await self._encoder_process.stdout.readexactly(1)
+                        if sync_byte == ts.SYNC_BYTE:
+                            break
+                        elif sync_byte == b'':
+                            isEOF = True
+                            break
+                    except asyncio.IncompleteReadError:
+                        isEOF = True
+                    break
+                if isEOF:
                     break
 
                 # TS パケットを読み込む
                 try:
+                    # この時点で既にエンコーダープロセスが終了していたら処理中断
                     if self._encoder_process is None:
-                        # もしエンコーダープロセスが終了していたら処理を中断する
                         break
-                    packet = sync_byte + await asyncio.wait_for(self._encoder_process.stdout.readexactly(ts.PACKET_SIZE - 1), timeout=5.0)
+                    packet = ts.SYNC_BYTE + await self._encoder_process.stdout.readexactly(ts.PACKET_SIZE - 1)
                     last_read_time = current_time  # 正常に読み取れた場合はタイムアウトをリセット
-                except (asyncio.IncompleteReadError, asyncio.TimeoutError):
+                except asyncio.IncompleteReadError:
                     break
 
                 # PID を取得
@@ -580,8 +581,6 @@ class VideoEncodingTask:
                                     encoded_segment += packet
                                     self._pmt_cc = (self._pmt_cc + 1) & 0x0F
 
-                            break
-
                         # PES パケットを再構築して candidate に追加
                         for packet in packetize_pes(video, False, False, cast(int, self._video_pid), 0, self._video_cc):
                             encoded_segment += packet
@@ -628,8 +627,12 @@ class VideoEncodingTask:
             # ファイルを閉じる
             file.close()
 
+            # このエンコードタスクがキャンセルされている場合は何もしない
+            if self._is_cancelled is True:
+                return
+
             # 最後のセグメントが完了していない場合は、現在のバッファを future にセット
-            if self._current_segment is not None and not self._is_cancelled and not self._current_segment.encoded_segment_ts_future.done():
+            if self._current_segment is not None and not self._current_segment.encoded_segment_ts_future.done():
                 self._current_segment.encoded_segment_ts_future.set_result(bytes(encoded_segment))
                 self._current_segment.encode_status = 'Completed'
                 logging.info(f'[Video: {self.video_stream.session_id}][Segment {current_sequence}] Successfully Encoded Final HLS Segment.')

@@ -75,13 +75,13 @@
                             <template v-slot:prepend>
                                 <Icon icon="fluent:image-24-regular" width="20px" height="20px" />
                             </template>
-                            <v-list-item-title class="ml-3">サムネイルを再生成</v-list-item-title>
+                            <v-list-item-title class="ml-3">サムネイルを再作成</v-list-item-title>
                         </v-list-item>
                         <v-list-item @click="regenerateThumbnail(false)">
                             <template v-slot:prepend>
                                 <Icon icon="fluent:image-24-regular" width="20px" height="20px" />
                             </template>
-                            <v-list-item-title class="ml-3">シークバーサムネイルを再生成</v-list-item-title>
+                            <v-list-item-title class="ml-3">シークバー用サムネイルを再作成</v-list-item-title>
                         </v-list-item>
                     </v-list>
                 </v-menu>
@@ -107,12 +107,12 @@ const props = defineProps<{
 // ファイル情報ダイアログの表示状態
 const show_video_info = ref(false);
 
-// サムネイル再生成
+// サムネイル再作成
 const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
-    Message.success('サムネイルの再生成を開始しました。完了までしばらくお待ちください。');
+    Message.success('サムネイルの再作成を開始しました。完了までしばらくお待ちください。');
     const result = await Videos.regenerateThumbnail(props.program.id, skip_tile_if_exists);
     if (result.is_success) {
-        Message.success('サムネイルの再生成が完了しました。');
+        Message.success('サムネイルの再作成が完了しました。');
     }
 };
 
@@ -589,7 +589,7 @@ const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
         &-value {
             flex-grow: 1;
             font-size: 14px;
-            word-break: break-all;
+            word-break: break-word;
         }
     }
 }

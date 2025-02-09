@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import uuid
 from biim.mpeg2ts import ts
 from dataclasses import dataclass
@@ -64,6 +65,11 @@ class VideoStream:
 
     # 一度でも読み取られた HLS セグメントの最大保持数
     MAX_READED_SEGMENTS: ClassVar[int] = 10
+
+    # エンコードする HLS セグメントの最低長さ (秒)
+    ## エンコード済みの MPEG-TS でキーフレーム間隔が3秒の場合など、セグメント 10 秒以上でキリの良い所で切ると
+    ## 10 秒をオーバーする場合があるので 、その場合は最大キーフレーム間隔をセグメント長とする
+    SEGMENT_DURATION_SECONDS: ClassVar[float] = float(10)  # 10秒
 
     # 録画視聴セッションのインスタンスが入る、セッション ID をキーとした辞書
     # この辞書に録画視聴セッションに関する全てのデータが格納されている
@@ -207,7 +213,7 @@ class VideoStream:
             if not self.recorded_program.recorded_video.has_key_frames:
                 raise HTTPException(
                     status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail = 'Key frame information is not available',
+                    detail = 'Keyframe information is not available',
                 )
 
             # キーフレーム情報を取得
@@ -215,11 +221,25 @@ class VideoStream:
             if len(key_frames) < 2:  # 最低2つのキーフレームが必要
                 raise HTTPException(
                     status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail = 'Not enough key frames',
+                    detail = 'Not enough keyframes',
                 )
 
             # 最初のキーフレームの DTS を基準として保存する
             self._base_dts = key_frames[0]['dts']
+
+            # キーフレーム間隔の最大値を計算する
+            max_key_frame_interval = 0.0
+            for i in range(1, len(key_frames)):
+                current_frame = key_frames[i - 1]
+                next_frame = key_frames[i]
+                interval = (next_frame['dts'] - current_frame['dts']) / ts.HZ
+                max_key_frame_interval = max(max_key_frame_interval, interval)
+
+            # キーフレーム間隔の最大値が SEGMENT_DURATION_SECONDS より大きい場合は、
+            # キーフレーム間隔の最大値を最低セグメント間隔として使用する
+            segment_duration_seconds = max(self.SEGMENT_DURATION_SECONDS, max_key_frame_interval)
+            logging.info(f'[Video: {self.session_id}] Segment duration: {segment_duration_seconds:.3f} seconds'
+                         f'(max keyframe interval: {max_key_frame_interval:.3f} seconds)')
 
             segment_sequence = 0
             accumulated_duration: float = 0.0
@@ -235,7 +255,7 @@ class VideoStream:
                 accumulated_duration += duration
 
                 # 十分な累積時間が確保できた場合、新しいセグメントを作成
-                if accumulated_duration >= VideoEncodingTask.SEGMENT_DURATION_SECONDS:
+                if accumulated_duration >= segment_duration_seconds:
                     self._segments.append(VideoStreamSegment(
                         sequence_index = segment_sequence,
                         start_file_position = segment_start_frame['offset'],
@@ -270,8 +290,9 @@ class VideoStream:
         virtual_playlist += '#EXT-X-VERSION:6\n'
         virtual_playlist += '#EXT-X-PLAYLIST-TYPE:VOD\n'
 
-        # HLS セグメントの実時間の最大値を指定する (SEGMENT_DURATION_SECONDS + 1 秒程度の余裕を持たせる)
-        virtual_playlist += f'#EXT-X-TARGETDURATION:{int(VideoEncodingTask.SEGMENT_DURATION_SECONDS + 1)}\n'
+        # HLS セグメントの実時間の最大値を指定する (小数点以下は切り上げ)
+        target_duration = max(s.duration_seconds for s in self._segments)
+        virtual_playlist += f'#EXT-X-TARGETDURATION:{math.ceil(target_duration)}\n'
 
         # 事前に算出したセグメントをすべて記述する
         for segment in self._segments:

@@ -9,6 +9,7 @@ import math
 import numpy as np
 import pathlib
 import random
+import sys
 import time
 import typer
 from numpy.typing import NDArray
@@ -235,17 +236,18 @@ class ThumbnailGenerator:
         logging.info(f'{self.file_path}: Generating thumbnail... / Face detection mode: {self.face_detection_mode}')
         try:
             # 1. プレイヤーのシークバー用サムネイルタイル画像を生成
-            tile_exists = await self.seekbar_thumbnails_tile_path.exists()
+            tile_exists = await self.seekbar_thumbnails_tile_path.is_file()
             tile_exists_jpg = False
             if not tile_exists:
                 # WebP が存在しない場合は JPEG も確認
                 jpg_path = self.seekbar_thumbnails_tile_path.with_suffix('.jpg')
-                tile_exists_jpg = await jpg_path.exists()
+                tile_exists_jpg = await jpg_path.is_file()
                 if tile_exists_jpg:
                     self.seekbar_thumbnails_tile_path = jpg_path
                     tile_exists = True
-
-            if tile_exists and skip_tile_if_exists:
+            # ファイルが存在し、かつ0バイトでないことを確認
+            tile_is_not_empty = tile_exists and (await self.seekbar_thumbnails_tile_path.stat()).st_size > 0
+            if tile_is_not_empty and skip_tile_if_exists:
                 logging.info(f'{self.file_path}: Seekbar thumbnail tile already exists. Skipping generation.')
             else:
                 if not await self.__generateThumbnailTile():
@@ -378,7 +380,9 @@ class ThumbnailGenerator:
                     # 非対話モードで実行し、不意のフリーズを回避する
                     '-nostdin',
                     # デコードにハードウェアアクセラレーションを使う
-                    '-hwaccel', 'auto',
+                    ## Windows では Windows サービス下でのエラーを回避するため明示的に d3d11va を指定
+                    ## ref: https://stackoverflow.com/questions/56268560/using-directx-from-subprocess-executed-by-windows-service
+                    '-hwaccel', 'd3d11va' if sys.platform == 'win32' else 'auto',
                     # 入力ファイル
                     '-i', str(self.file_path),
                     # 1枚の出力画像

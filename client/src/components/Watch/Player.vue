@@ -146,6 +146,15 @@ export default defineComponent({
             bottom: 54px !important;
             width: calc(100% - 68px - (18px * 2));
             box-sizing: border-box;
+            @include tablet-vertical {
+                width: calc(100% - (18px * 2));
+            }
+            @include smartphone-horizontal {
+                width: calc(100% - (18px * 2));
+            }
+            @include smartphone-vertical {
+                width: calc(100% - (18px * 2));
+            }
         }
         .dplayer-icons {
             bottom: auto !important;
@@ -316,6 +325,7 @@ export default defineComponent({
             height: calc(100% - 60px) !important;
         }
         .dplayer-setting-origin-panel {
+            .dplayer-setting-item.dplayer-setting-lshaped-screen-crop,
             .dplayer-setting-item.dplayer-setting-keyboard-shortcut {
                 // Document Picture-in-Picture ウインドウでは非表示
                 @media all and (display-mode: picture-in-picture) {
@@ -368,15 +378,6 @@ export default defineComponent({
             .dplayer-bar-wrap {
                 bottom: 51px !important;
                 width: calc(100% - 68px - (30px * 2));
-                @include tablet-vertical {
-                    width: calc(100% - (18px * 2));
-                }
-                @include smartphone-horizontal {
-                    width: calc(100% - (18px * 2));
-                }
-                @include smartphone-vertical {
-                    width: calc(100% - (18px * 2));
-                }
             }
         }
         &.dplayer-hide-controller .dplayer-controller {

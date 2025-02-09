@@ -875,7 +875,7 @@ export default defineComponent({
             margin-right: 12px;
             font-size: 12.5px;
             color: rgb(var(--v-theme-text));
-            word-break: break-all;
+            word-break: break-word;
             resize: none;
             outline: none;
             @include smartphone-horizontal {
