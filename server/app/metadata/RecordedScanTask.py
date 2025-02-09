@@ -297,7 +297,7 @@ class RecordedScanTask:
             # 60秒未満のファイルは録画失敗または切り抜きとみなしてスキップ
             # 録画中だがまだ60秒に満たない場合、今後のファイル変更イベント発火時に60秒を超えていれば録画中ファイルとして処理される
             if recorded_program.recorded_video.duration < self.MINIMUM_RECORDING_SECONDS:
-                logging.debug_simple(f'{file_path}: This file is too short (duration < {self.MINIMUM_RECORDING_SECONDS}s). Skipped.')
+                logging.debug_simple(f'{file_path}: This file is too short (duration {recorded_program.recorded_video.duration:.1f}s < {self.MINIMUM_RECORDING_SECONDS}s). Skipped.')
                 return
 
             # 録画中のファイルとして処理
@@ -313,7 +313,7 @@ class RecordedScanTask:
                     'file_size': file_size,
                     'mtime_continuous_start_at': last_modified,  # 初回は必ず mtime_continuous_start_at を設定
                 }
-                logging.debug_simple(f'{file_path}: This file is recording or copying (duration >= {self.MINIMUM_RECORDING_SECONDS}s).')
+                logging.debug_simple(f'{file_path}: This file is recording or copying (duration {recorded_program.recorded_video.duration:.1f}s >= {self.MINIMUM_RECORDING_SECONDS}s).')
             else:
                 # status を Recorded に設定
                 # MetadataAnalyzer 側で既に Recorded に設定されているが、念のため

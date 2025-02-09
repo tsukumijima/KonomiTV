@@ -83,7 +83,7 @@ class MetadataAnalyzer:
 
         # MediaInfo から録画ファイルのメディア情報を取得
         ## 取得に失敗した場合は KonomiTV で再生可能なファイルではないと判断し、None を返す
-        full_media_info, sample_media_info = self.__analyzeMediaInfo()
+        full_media_info, sample_media_info = self.analyzeMediaInfo()
         if full_media_info is None or sample_media_info is None:
             return None
         logging.debug_simple(f'{self.recorded_file_path}: MediaInfo analysis completed.')
@@ -341,7 +341,137 @@ class MetadataAnalyzer:
         return hash_obj.hexdigest()
 
 
-    def __analyzeMediaInfo(self) -> tuple[MediaInfo | None, MediaInfo | None]:
+    def calculateTSFileDuration(self, search_block_size: int = 1024 * 1024) -> float | None:
+        """
+        TS ファイル内の最初と最後の有効な PCR タイムスタンプから再生時間（秒）を算出する (written with o3-mini)
+        MediaInfo から再生時間を取得できなかった場合のフォールバックとして利用する
+        録画ファイルは録画時にスパースファイル（ゼロ埋めされた領域を含む）となる可能性があるため、
+        ファイル末尾はゼロ埋め領域を高速に検出し、実際にデータが存在する部分と区別している
+
+        Args:
+            search_block_size (int): PCR 抽出時に読み込むブロックサイズ (バイト単位). デフォルト: 1MB
+
+        Returns:
+            float | None: ファイルの再生時間（秒）（抽出できなかった場合は None を返す）
+        """
+
+        try:
+            # ファイルサイズを取得
+            file_size = self.recorded_file_path.stat().st_size
+
+            with self.recorded_file_path.open('rb') as f:
+                # --- 先頭ブロックからの PCR 抽出 ---
+                # 基本的にはファイル先頭の最初の TS パケットから PCR を取得する
+                f.seek(0)
+                head_data = f.read(search_block_size)
+                # 先頭ブロックが TS 同期バイト (0x47) で始まっていない場合、1バイトずつ探索して
+                # 最初の同期バイトの位置を特定する
+                if head_data and head_data[0] != ts.SYNC_BYTE[0]:
+                    logging.info('Head data is not aligned; searching for sync byte...')
+                    corrected_offset = None
+                    for idx in range(len(head_data)):
+                        if head_data[idx] == ts.SYNC_BYTE[0]:
+                            corrected_offset = idx
+                            break
+                    if corrected_offset is not None:
+                        head_data = head_data[corrected_offset:]
+                    else:
+                        logging.error('Failed to find sync byte in head data.')
+                        return None
+
+                first_timestamp: float | None = None
+                for i in range(0, len(head_data), ts.PACKET_SIZE):
+                    packet = head_data[i : i + ts.PACKET_SIZE]
+                    if len(packet) < ts.PACKET_SIZE:
+                        break
+                    if packet[0] != ts.SYNC_BYTE[0]:
+                        continue
+                    pcr_val = ts.pcr(packet)
+                    if pcr_val is not None:
+                        # PCR 値を ts.HZ (90000Hz) で割り、秒単位に変換する
+                        first_timestamp = pcr_val / ts.HZ
+                        break
+
+                if first_timestamp is None:
+                    logging.error('Failed to extract first PCR timestamp.')
+                    return None
+
+                # --- 末尾のゼロ埋め領域の境界をバイナリサーチで検出 ---
+                # TS ファイルは録画後にゼロ埋め領域が存在する場合があるため、
+                # 正常なデータが存在する最後のオフセット (valid_data_end) を求める
+                block_check_size = 4096  # ゼロ埋め判定用の小ブロックサイズ (4KB)
+                low = 0
+                high = file_size
+                zero_boundary = file_size  # もしゼロブロックが見つからなければ有効データはファイル全体とする
+
+                while low <= high:
+                    mid = (low + high) // 2
+                    f.seek(mid)
+                    candidate = f.read(block_check_size)
+                    if candidate and all(byte == 0 for byte in candidate):
+                        # candidate が全て 0x00 ならば、ゼロ埋め領域の一部と見なし、境界を mid に更新
+                        zero_boundary = mid
+                        high = mid - 1
+                    else:
+                        low = mid + 1
+
+                # valid_data_end はゼロ埋めが始まる境界、つまり有効データの終了位置
+                valid_data_end = zero_boundary if zero_boundary < file_size else file_size
+
+                # --- 末尾領域から最後の有効な PCR の取得 ---
+                # 有効データ領域の終端から search_block_size 分の範囲を読み込み、TS パケット単位で同期を取る
+                start_offset = valid_data_end - search_block_size
+                if start_offset < 0:
+                    start_offset = 0
+                # TS パケット境界に合わせるため、start_offset を ts.PACKET_SIZE の倍数に補正
+                start_offset = (start_offset // ts.PACKET_SIZE) * ts.PACKET_SIZE
+                f.seek(start_offset)
+                tail_chunk = f.read(valid_data_end - start_offset)
+
+                # --- TS パケット同期の調整 ---
+                # 読み込んだ tail_chunk の先頭が TS 同期バイト (0x47) でない場合、同期位置を調整する
+                offset_in_chunk = 0
+                if tail_chunk and tail_chunk[0] != ts.SYNC_BYTE[0]:
+                    for idx in range(len(tail_chunk)):
+                        if tail_chunk[idx] == ts.SYNC_BYTE[0]:
+                            offset_in_chunk = idx
+                            break
+
+                # --- tail_chunk 内の TS パケットから有効な PCR 値を収集 ---
+                valid_pcrs: list[float] = []
+                for j in range(offset_in_chunk, len(tail_chunk) - ts.PACKET_SIZE + 1, ts.PACKET_SIZE):
+                    packet = tail_chunk[j : j + ts.PACKET_SIZE]
+                    if packet[0] != ts.SYNC_BYTE[0]:
+                        continue
+                    pcr_val = ts.pcr(packet)
+                    if pcr_val is not None:
+                        valid_pcrs.append(pcr_val / ts.HZ)
+
+                if not valid_pcrs:
+                    logging.error('Failed to extract last PCR in tail region.')
+                    return None
+
+                last_timestamp = valid_pcrs[-1]
+
+                # --- PCR ラップアラウンドの補正 ---
+                # もし末尾の PCR が先頭の PCR より小さい場合は、PCR のラップアラウンドが発生しているとみなし、
+                # PCR の最大値に相当する秒数を加算する
+                if last_timestamp < first_timestamp:
+                    PCR_MAX_SECONDS = ts.PCR_CYCLE / ts.HZ
+                    last_timestamp += PCR_MAX_SECONDS
+
+                # --- 再生時間の算出 ---
+                # 先頭と末尾の PCR 値から再生時間（秒）を算出する
+                duration = last_timestamp - first_timestamp
+                logging.debug_simple(f'{self.recorded_file_path}: Duration calculated: {duration} seconds.')
+                return duration
+
+        except Exception as ex:
+            logging.error('Error in fallback duration calculation:', exc_info=ex)
+            return None
+
+
+    def analyzeMediaInfo(self) -> tuple[MediaInfo | None, MediaInfo | None]:
         """
         録画ファイルのメディア情報を MediaInfo を使って解析する
         全体解析と部分解析の2段階で解析を行う
@@ -377,10 +507,15 @@ class MetadataAnalyzer:
                 ## 20Mbps * 30秒 = 75MB
                 sample_size = ClosestMultiple(20 * 1024 * 1024 * 30 // 8, ts.PACKET_SIZE)  # TS パケットサイズに合わせて切り出す
                 sample_data = f.read(sample_size)
-                # BytesIO オブジェクトを作成
-                sample_io = io.BytesIO(sample_data)
-                # メディア情報を解析
-                sample_media_info = cast(MediaInfo, MediaInfo.parse(sample_io, library_file=libmediainfo_path))
+                # サンプルデータが全てゼロ埋めされているかチェック
+                if all(byte == 0 for byte in sample_data):
+                    # スパースファイルの可能性があるため、全体解析の結果を部分解析として使用
+                    sample_media_info = full_media_info
+                else:
+                    # BytesIO オブジェクトを作成
+                    sample_io = io.BytesIO(sample_data)
+                    # メディア情報を解析
+                    sample_media_info = cast(MediaInfo, MediaInfo.parse(sample_io, library_file=libmediainfo_path))
         except Exception as ex:
             logging.warning(f'{self.recorded_file_path}: Failed to parse sample media info.')
             logging.warning(ex)
@@ -404,10 +539,17 @@ class MetadataAnalyzer:
                     if track.count_of_video_streams == 0 and track.count_of_audio_streams == 0:
                         logging.warning(f'{self.recorded_file_path}: Video or audio stream is missing.')
                         return None, None
-                    # 長さが取得できない
+                    # MediaInfo から再生時間が取得できない
                     if hasattr(track, 'duration') is False or track.duration is None:
-                        logging.warning(f'{self.recorded_file_path}: Duration is missing.')
-                        return None, None
+                        # フォールバックとして自前で長さを算出する
+                        duration = self.calculateTSFileDuration()
+                        if duration is not None:
+                            # 再生時間を算出できた場合は代わりに算出した値を設定する
+                            track.duration = duration * 1000  # ミリ秒に変換
+                        else:
+                            # 再生時間を算出できなかった (ファイルが破損しているなど)
+                            logging.warning(f'{self.recorded_file_path}: Duration is missing.')
+                            return None, None
 
             # サンプルデータからも同様にバリデーションを行う
             for track in sample_media_info.tracks:
@@ -456,5 +598,5 @@ if __name__ == '__main__':
         if result is not None:
             print(result)
         else:
-            print('Not a KonomiTV playable TS file.')
+            logging.error('Not a KonomiTV playable TS file.')
     typer.run(main)
