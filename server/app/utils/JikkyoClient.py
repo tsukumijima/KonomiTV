@@ -24,7 +24,7 @@ class JikkyoChannelStatus(TypedDict):
     comments: int
 
 
-class Jikkyo:
+class JikkyoClient:
     """ ニコニコ実況関連のクライアント実装 """
 
     # 実況チャンネル ID とサービス ID (SID)・ネットワーク ID (NID) の対照表
@@ -123,9 +123,9 @@ class Jikkyo:
 
         # 実況チャンネル ID に対応するニコニコチャンネル ID を取得する
         # ニコニコチャンネル ID が存在しない実況チャンネルは NX-Jikkyo にのみ存在する
-        if (self.jikkyo_id in Jikkyo.JIKKYO_CHANNEL_ID_MAP) and \
-           (Jikkyo.JIKKYO_CHANNEL_ID_MAP[self.jikkyo_id] is not None):
-            self.nicochannel_id: str | None = Jikkyo.JIKKYO_CHANNEL_ID_MAP[self.jikkyo_id]
+        if (self.jikkyo_id in JikkyoClient.JIKKYO_CHANNEL_ID_MAP) and \
+           (JikkyoClient.JIKKYO_CHANNEL_ID_MAP[self.jikkyo_id] is not None):
+            self.nicochannel_id: str | None = JikkyoClient.JIKKYO_CHANNEL_ID_MAP[self.jikkyo_id]
         else:
             self.nicochannel_id: str | None = None
 
@@ -140,7 +140,7 @@ class Jikkyo:
         """
 
         # ネットワーク ID + サービス ID に対応する実況チャンネル ID を特定する
-        for jikkyo_channel in Jikkyo.JIKKYO_CHANNELS:
+        for jikkyo_channel in JikkyoClient.JIKKYO_CHANNELS:
 
             # マッチ条件が複雑すぎるので、絞り込みのための関数を定義する
             def match() -> bool:
@@ -187,7 +187,7 @@ class Jikkyo:
 
                 # さらに対照表に存在するかをチェックする
                 # jikkyo_channels.json には現在は存在しない実況チャンネルの ID (ex: jk256) が含まれているため
-                if jikkyo_id in Jikkyo.JIKKYO_CHANNEL_ID_MAP:
+                if jikkyo_id in JikkyoClient.JIKKYO_CHANNEL_ID_MAP:
                     return jikkyo_id
 
         # 実況チャンネル ID が取得できていなければ None を返す
@@ -547,7 +547,7 @@ class Jikkyo:
         if re.match(r'^#[0-9A-Fa-f]{6}$', color):
             return color
 
-        return Jikkyo.COLOR_CODE_MAP.get(color)
+        return JikkyoClient.COLOR_CODE_MAP.get(color)
 
 
     @staticmethod
@@ -604,9 +604,9 @@ class Jikkyo:
         if comment_mail is not None:
             commands = comment_mail.replace('184', '').split(' ')
             for command in commands:
-                parsed_color = Jikkyo.getCommentColor(command)
-                parsed_position = Jikkyo.getCommentPosition(command)
-                parsed_size = Jikkyo.getCommentSize(command)
+                parsed_color = JikkyoClient.getCommentColor(command)
+                parsed_position = JikkyoClient.getCommentPosition(command)
+                parsed_size = JikkyoClient.getCommentSize(command)
                 if parsed_color is not None:
                     color = parsed_color
                 if parsed_position is not None:
