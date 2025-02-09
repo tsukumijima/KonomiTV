@@ -57,17 +57,13 @@ class MediaSessionManager implements PlayerManager {
 
         // MediaSession API を使い、メディア通知の表示をカスタマイズ
 
-        // ライブ視聴でアートワークとして表示するアイコン
-        const live_artwork = [
+        // アートワークとして表示するアイコン
+        // ライブ視聴では KonomiTV のアイコンを、録画再生ではサムネイルを設定する
+        const artwork = (this.playback_mode === 'Live') ? [
             {src: '/assets/images/icons/icon-maskable-192px.png', sizes: '192x192', type: 'image/png'},
             {src: '/assets/images/icons/icon-maskable-512px.png', sizes: '512x512', type: 'image/png'},
-        ];
-
-        // ビデオ視聴でアートワークとして表示する番組サムネイル
-        // TODO: ちゃんと録画番組のサムネイルを設定すべき
-        const video_artwork = [
-            {src: '/assets/images/icons/icon-maskable-192px.png', sizes: '192x192', type: 'image/png'},
-            {src: '/assets/images/icons/icon-maskable-512px.png', sizes: '512x512', type: 'image/png'},
+        ] : [
+            {src: `${Utils.api_base_url}/videos/${player_store.recorded_program.id}/thumbnail`, sizes: '480x270', type: 'image/webp'},
         ];
 
         // メディア通知の表示をカスタマイズ
@@ -76,7 +72,7 @@ class MediaSessionManager implements PlayerManager {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: channels_store.channel.current.program_present?.title ?? '放送休止',
                 artist: channels_store.channel.current.name,
-                artwork: live_artwork,
+                artwork: artwork,
             });
         // ビデオ視聴: 番組タイトル・シリーズタイトル・サムネイルを表示
         // シリーズタイトルが取得できていない場合は番組タイトルが代わりに設定される
@@ -84,7 +80,7 @@ class MediaSessionManager implements PlayerManager {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: player_store.recorded_program.title,
                 artist: player_store.recorded_program.series_title ?? player_store.recorded_program.title,
-                artwork: video_artwork,
+                artwork: artwork,
             });
         }
 
@@ -123,7 +119,7 @@ class MediaSessionManager implements PlayerManager {
                 navigator.mediaSession.metadata = new MediaMetadata({
                     title: channels_store.channel.previous.program_present?.title ?? '放送休止',
                     artist: channels_store.channel.previous.name,
-                    artwork: live_artwork,
+                    artwork: artwork,
                 });
                 // ルーティングを前のチャンネルに置き換える
                 await router.push({path: `/tv/watch/${channels_store.channel.previous.display_channel_id}`});
@@ -139,7 +135,7 @@ class MediaSessionManager implements PlayerManager {
                 navigator.mediaSession.metadata = new MediaMetadata({
                     title: channels_store.channel.next.program_present?.title ?? '放送休止',
                     artist: channels_store.channel.next.name,
-                    artwork: live_artwork,
+                    artwork: artwork,
                 });
                 // ルーティングを次のチャンネルに置き換える
                 await router.push({path: `/tv/watch/${channels_store.channel.next.display_channel_id}`});

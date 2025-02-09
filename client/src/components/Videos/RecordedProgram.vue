@@ -201,6 +201,9 @@ const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
         }
 
         &-status {
+            display: flex;
+            align-items: center;
+            gap: 4px;
             position: absolute;
             top: 4px;
             right: 4px;
@@ -209,31 +212,23 @@ const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
             font-size: 10.5px;
             font-weight: 700;
             line-height: 1;
-            display: flex;
-            align-items: center;
-            gap: 3px;
-
-            &--recording {
-                background: rgb(var(--v-theme-secondary));
-                color: #fff;
-            }
+            background: rgba(var(--v-theme-background-lighten-1), 0.9);
+            color: rgba(255, 255, 255, 0.85);
 
             &--analyzing {
-                background: rgb(var(--v-theme-background-lighten-1));
-                color: #fff;
-            }
-
-            &--partial {
-                background: rgb(var(--v-theme-secondary-darken-1));
-                color: #fff;
+                gap: 3px;
+                svg {
+                    color: rgb(var(--v-theme-primary));
+                    animation: progress-rotate 1.5s infinite;
+                }
             }
 
             &-dot {
-                width: 6px;
-                height: 6px;
+                width: 7px;
+                height: 7px;
                 border-radius: 50%;
                 background: #ff4444;
-                animation: blink 1s infinite;
+                animation: blink 1.5s infinite;
             }
         }
     }
@@ -415,6 +410,7 @@ const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
         border-radius: 50%;
         transition: color 0.15s ease, background-color 0.15s ease;
         user-select: none;
+        cursor: pointer;
         @include tablet-vertical {
             right: 6px;
             width: 28px;
@@ -482,6 +478,7 @@ const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
         top: 65%;
         right: 12px;
         transform: translateY(-50%);
+        cursor: pointer;
         @include tablet-vertical {
             right: 6px;
         }
@@ -570,7 +567,18 @@ const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
 
     &--recording, &--analyzing {
         pointer-events: none;
-        opacity: 0.7;
+        &:hover {
+            background: rgb(var(--v-theme-background-lighten-1));
+        }
+        .recorded-program__thumbnail-image,
+        .recorded-program__thumbnail-duration,
+        .recorded-program__content {
+            opacity: 0.65;
+        }
+        .recorded-program__mylist,
+        .recorded-program__menu {
+            pointer-events: auto;
+        }
     }
 }
 
@@ -598,6 +606,11 @@ const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
     0% { opacity: 0; }
     50% { opacity: 1; }
     100% { opacity: 0; }
+}
+
+@keyframes progress-rotate {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 </style>

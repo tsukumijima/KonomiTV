@@ -399,7 +399,7 @@ def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
             sys.exit(1)
     else:
         _CONFIG = ServerSettings.model_validate(config_dict, context={'bypass_validation': True})
-        logging.debug_simple('Server settings loaded (bypassed validation).')
+        # logging.debug_simple('Server settings loaded (bypassed validation).')
 
     return _CONFIG
 

@@ -246,6 +246,8 @@ class PlayerController {
             crossOrigin: 'anonymous',
             // 音量の初期値
             volume: 1.0,
+            // 再生速度の設定 (x1.1 を追加)
+            playbackSpeed: [0.25, 0.5, 0.75, 1, 1.1, 1.25, 1.5, 1.75, 2],
 
             // 動画の設定
             video: (() => {

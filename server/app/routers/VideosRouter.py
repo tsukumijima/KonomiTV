@@ -19,7 +19,7 @@ from app import schemas
 from app.constants import STATIC_DIR, THUMBNAILS_DIR
 from app.metadata.ThumbnailGenerator import ThumbnailGenerator
 from app.models.RecordedProgram import RecordedProgram
-from app.utils.Jikkyo import Jikkyo
+from app.utils.JikkyoClient import JikkyoClient
 
 
 # ルーター
@@ -272,8 +272,8 @@ async def VideoJikkyoCommentsAPI(
         (recorded_program.recorded_video.recording_end_time is not None)):
 
         # ニコニコ実況 過去ログ API から一致する過去ログコメントを取得して返す
-        jikkyo = Jikkyo(recorded_program.channel.network_id, recorded_program.channel.service_id)
-        return await jikkyo.fetchJikkyoComments(
+        jikkyo_client = JikkyoClient(recorded_program.channel.network_id, recorded_program.channel.service_id)
+        return await jikkyo_client.fetchJikkyoComments(
             recorded_program.recorded_video.recording_start_time,
             recorded_program.recorded_video.recording_end_time,
         )

@@ -108,7 +108,7 @@ class VideoStream:
             # 生成したインスタンスを登録する
             cls.__instances[session_id] = instance
 
-            logging.info(f'[Video: {instance.session_id}] Streaming Session Started.')
+            logging.info(f'{instance.log_prefix} Streaming Session Started.')
 
         else:
             # 既存のインスタンスを取得
@@ -144,6 +144,14 @@ class VideoStream:
         self._segments: list[VideoStreamSegment]
         self._encoding_task: VideoEncodingTask
         self._cancel_destroy_timer: Callable[[], None]
+
+
+    @property
+    def log_prefix(self) -> str:
+        """
+        ログのプレフィックス
+        """
+        return f'[Video: {self.session_id}/{self.quality}]'
 
 
     @property
@@ -238,7 +246,7 @@ class VideoStream:
             # キーフレーム間隔の最大値が SEGMENT_DURATION_SECONDS より大きい場合は、
             # キーフレーム間隔の最大値を最低セグメント間隔として使用する
             segment_duration_seconds = max(self.SEGMENT_DURATION_SECONDS, max_key_frame_interval)
-            logging.info(f'[Video: {self.session_id}] Segment duration: {segment_duration_seconds:.3f} seconds'
+            logging.info(f'{self.log_prefix} Segment duration: {segment_duration_seconds:.3f} seconds'
                          f'(max keyframe interval: {max_key_frame_interval:.3f} seconds)')
 
             segment_sequence = 0
@@ -332,7 +340,7 @@ class VideoStream:
         if segment.encode_status == 'Pending':
             # 既存のエンコードタスクをキャンセル
             await self._encoding_task.cancel()
-            logging.info(f'[Video: {self.session_id}][Segment {segment_sequence}] Previous Encoding Task Canceled.')
+            logging.info(f'{self.log_prefix}[Segment {segment_sequence}] Previous Encoding Task Canceled.')
 
             # 新しいエンコードタスクのインスタンスを初期化
             ## エンコードタスクは基本使い回せないので、再度新しく初期化する
@@ -340,7 +348,7 @@ class VideoStream:
 
             # 新しいエンコードタスクを開始
             asyncio.create_task(self._encoding_task.run(segment_sequence))
-            logging.info(f'[Video: {self.session_id}][Segment {segment_sequence}] New Encoding Task Started.')
+            logging.info(f'{self.log_prefix}[Segment {segment_sequence}] New Encoding Task Started.')
 
         # セグメントデータの Future が完了したらそのデータを返す
         encoded_segment_ts = await asyncio.shield(segment.encoded_segment_ts_future)
@@ -352,7 +360,7 @@ class VideoStream:
             # 一番古いセグメントを取得し、状態をリセットする
             oldest_segment = readed_segments[0]
             await oldest_segment.resetState()
-            logging.info(f'[Video: {self.session_id}][Segment {oldest_segment.sequence_index}] Reset segment data to free memory.')
+            logging.info(f'{self.log_prefix}[Segment {oldest_segment.sequence_index}] Reset segment data to free memory.')
 
         return encoded_segment_ts
 
@@ -375,4 +383,4 @@ class VideoStream:
         ## 今後同じセッション ID が指定された場合は新たに別のインスタンスが生成される
         self.__instances.pop(self.session_id)
 
-        logging.info(f'[Video: {self.session_id}] Streaming Session Finished.')
+        logging.info(f'{self.log_prefix} Streaming Session Finished.')

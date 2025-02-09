@@ -30,7 +30,7 @@ from app.streams.LiveStream import LiveStream
 from app.utils import GetMirakurunAPIEndpointURL
 from app.utils.edcb.CtrlCmdUtil import CtrlCmdUtil
 from app.utils.edcb.EDCBUtil import EDCBUtil
-from app.utils.Jikkyo import Jikkyo
+from app.utils.JikkyoClient import JikkyoClient
 
 
 # ルーター
@@ -550,5 +550,5 @@ async def ChannelJikkyoWebSocketInfoAPI(
             pass
 
     # ニコニココメント送受信用 WebSocket API の情報を取得する
-    jikkyo = Jikkyo(channel.network_id, channel.service_id)
-    return await jikkyo.fetchWebSocketInfo(current_user)
+    jikkyo_client = JikkyoClient(channel.network_id, channel.service_id)
+    return await jikkyo_client.fetchWebSocketInfo(current_user)
