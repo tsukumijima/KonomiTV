@@ -332,7 +332,8 @@ class VideoEncodingTask:
         """
 
         # エンコーダーの種類を取得
-        ENCODER_TYPE = Config().general.encoder
+        CONFIG = Config()
+        ENCODER_TYPE = CONFIG.general.encoder
 
         # 新しいエンコードタスクを起動させた時点で既にエンコード済みのセグメントは使えなくなるので、すべてリセットする
         for segment in self.video_stream.segments:
@@ -426,7 +427,8 @@ class VideoEncodingTask:
                     LIBRARY_PATH['FFmpeg'], *encoder_options,
                     stdin = tsreadex_read_pipe,  # tsreadex からの入力
                     stdout = asyncio.subprocess.PIPE,  # ストリーム出力
-                    stderr = asyncio.subprocess.DEVNULL,  # デバッグ用
+                    # エンコーダーデバッグ時のみログをコンソールに出力
+                    stderr = None if CONFIG.general.debug_encoder is True else asyncio.subprocess.DEVNULL,
                 )
 
             # HWEncC
@@ -440,7 +442,8 @@ class VideoEncodingTask:
                     LIBRARY_PATH[ENCODER_TYPE], *encoder_options,
                     stdin = tsreadex_read_pipe,  # tsreadex からの入力
                     stdout = asyncio.subprocess.PIPE,  # ストリーム出力
-                    stderr = asyncio.subprocess.DEVNULL,  # デバッグ用
+                    # エンコーダーデバッグ時のみログをコンソールに出力
+                    stderr = None if CONFIG.general.debug_encoder is True else asyncio.subprocess.DEVNULL,
                 )
 
             # エンコーダーの出力を読み取り、MPEG-TS パーサーでパースする
