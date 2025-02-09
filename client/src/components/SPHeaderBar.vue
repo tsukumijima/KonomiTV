@@ -127,6 +127,7 @@ onMounted(() => {
         padding: 12px 8px;
         margin-left: -6px;
         border-radius: 8px;
+        user-select: none;
 
         &__image {
             display: block;

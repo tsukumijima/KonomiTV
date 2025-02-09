@@ -218,6 +218,9 @@ const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
             &--analyzing {
                 background: rgb(var(--v-theme-background-lighten-1));
                 color: #fff;
+                svg {
+                    animation: progress-rotate 1.5s infinite;
+                }
             }
 
             &--partial {
@@ -226,11 +229,11 @@ const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
             }
 
             &-dot {
-                width: 6px;
-                height: 6px;
+                width: 7px;
+                height: 7px;
                 border-radius: 50%;
                 background: #ff4444;
-                animation: blink 1s infinite;
+                animation: blink 1.5s infinite;
             }
         }
     }
@@ -409,6 +412,7 @@ const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
         border-radius: 50%;
         transition: color 0.15s ease, background-color 0.15s ease;
         user-select: none;
+        cursor: pointer;
         @include tablet-vertical {
             right: 6px;
             width: 28px;
@@ -476,6 +480,7 @@ const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
         top: 65%;
         right: 12px;
         transform: translateY(-50%);
+        cursor: pointer;
         @include tablet-vertical {
             right: 6px;
         }
@@ -564,7 +569,17 @@ const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
 
     &--recording, &--analyzing {
         pointer-events: none;
-        opacity: 0.7;
+        &:hover {
+            background: rgb(var(--v-theme-background-lighten-1));
+        }
+        .recorded-program__thumbnail,
+        .recorded-program__content {
+            opacity: 0.7;
+        }
+        .recorded-program__mylist,
+        .recorded-program__menu {
+            pointer-events: auto;
+        }
     }
 }
 
@@ -592,6 +607,11 @@ const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
     0% { opacity: 0; }
     50% { opacity: 1; }
     100% { opacity: 0; }
+}
+
+@keyframes progress-rotate {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 </style>
