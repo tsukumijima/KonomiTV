@@ -67,6 +67,9 @@ export default defineComponent({
 
 // DPlayer のデフォルトスタイルを上書き
 .watch-player__dplayer {
+    @include smartphone-vertical {
+        overflow: visible !important;
+    }
     svg circle, svg path {
         fill: rgb(var(--v-theme-text)) !important;
     }
@@ -321,9 +324,6 @@ export default defineComponent({
         @include tablet-vertical {
             height: calc(100% - 60px) !important;
         }
-        @include smartphone-vertical {
-            height: calc(100% - 60px) !important;
-        }
         .dplayer-setting-origin-panel {
             .dplayer-setting-item.dplayer-setting-lshaped-screen-crop,
             .dplayer-setting-item.dplayer-setting-keyboard-shortcut {
@@ -363,6 +363,23 @@ export default defineComponent({
         .dplayer-controller {
             padding-left: calc(68px + 30px) !important;
             padding-right: calc(0px + 30px) !important;
+            .dplayer-bar-wrap {
+                bottom: 51px !important;
+                width: calc(100% - 68px - (30px * 2));
+                @include tablet-vertical {
+                    width: calc(100% - (18px * 2));
+                }
+                @include smartphone-horizontal {
+                    width: calc(100% - (18px * 2));
+                }
+                @include smartphone-vertical {
+                    // スマホ縦画面のみ、シークバーをプレイヤーの下辺に配置
+                    width: 100%;
+                    left: 0px !important;
+                    bottom: -1.5px !important;
+                    z-index: 100;
+                }
+            }
             @include tablet-vertical {
                 padding-left: calc(0px + 18px) !important;
                 padding-right: calc(0px + 18px) !important;
@@ -374,10 +391,6 @@ export default defineComponent({
             @include smartphone-vertical {
                 padding-left: calc(0px + 18px) !important;
                 padding-right: calc(0px + 18px) !important;
-            }
-            .dplayer-bar-wrap {
-                bottom: 51px !important;
-                width: calc(100% - 68px - (30px * 2));
             }
         }
         &.dplayer-hide-controller .dplayer-controller {
