@@ -226,6 +226,11 @@ class RecordedScanTask:
             now = datetime.now(tz=ZoneInfo('Asia/Tokyo'))
             file_size = stat.st_size
 
+            # 全く録画できていない0バイトのファイルをスキップ
+            if file_size == 0:
+                logging.warning(f'{file_path}: File size is 0. ignored.')
+                return
+
             # 同じファイルパスの既存レコードがあれば取り出す
             if existing_db_recorded_videos is not None:
                 existing_db_recorded_video = existing_db_recorded_videos.pop(file_path, None)
