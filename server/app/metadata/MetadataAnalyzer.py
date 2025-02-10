@@ -514,9 +514,9 @@ class MetadataAnalyzer:
                 file_size = self.recorded_file_path.stat().st_size
                 offset = ClosestMultiple(int(file_size * 0.25), ts.PACKET_SIZE)
                 f.seek(offset)
-                # 60秒程度のデータを読み込む (ビットレートを 18Mbps と仮定)
-                ## サンプルとして MediaInfo に渡すデータが60秒より短いと正確に解析できないことがある
-                sample_size = ClosestMultiple(18 * 1024 * 1024 * 60 // 8, ts.PACKET_SIZE)  # TS パケットサイズに合わせて切り出す
+                # 30秒程度のデータを読み込む (ビットレートを 18Mbps と仮定)
+                ## サンプルとして MediaInfo に渡すデータが30秒より短いと正確に解析できないことがある
+                sample_size = ClosestMultiple(18 * 1024 * 1024 * 30 // 8, ts.PACKET_SIZE)  # TS パケットサイズに合わせて切り出す
                 sample_data = f.read(sample_size)
                 # サンプルデータが全てゼロ埋めされているかチェック
                 if all(byte == 0 for byte in sample_data):
@@ -530,13 +530,16 @@ class MetadataAnalyzer:
                     _, end_ts_offset = duration_result
                     offset = ClosestMultiple(int(end_ts_offset * 0.25), ts.PACKET_SIZE)
                     f.seek(offset)
-                    # 60秒程度のデータを読み込む (ビットレートを 18Mbps と仮定)
+                    # 30秒程度のデータを読み込む (ビットレートを 18Mbps と仮定)
                     sample_size = min(sample_size, end_ts_offset - offset)  # 有効データ範囲を超えないようにする
                     sample_data = f.read(sample_size)
                 # BytesIO オブジェクトを作成
                 sample_io = io.BytesIO(sample_data)
                 # メディア情報を解析
-                sample_media_info = cast(MediaInfo, MediaInfo.parse(sample_io, buffer_size=len(sample_data), library_file=libmediainfo_path))
+                ## 重要: バッファサイズを TS パケットサイズの100倍程度に抑えないと、ファイルによっては不正確な結果が返ってくることがある
+                ## なぜバッファサイズ次第で解析結果が変わるのか不可解だが、一回の送信サイズを小さく保った方が不正確な結果を避けられそう…？
+                ## 素直にファイルに書き出してから参照させるのが最も確実だが、比較的容量の大きいファイルをこのためだけに書き込むのは気が引ける
+                sample_media_info = cast(MediaInfo, MediaInfo.parse(sample_io, buffer_size=ts.PACKET_SIZE * 100, library_file=libmediainfo_path))
         except Exception as ex:
             logging.warning(f'{self.recorded_file_path}: Failed to parse sample media info.', exc_info=ex)
             return None
