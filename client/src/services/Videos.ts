@@ -165,15 +165,22 @@ class Videos {
      * 録画番組一覧を取得する
      * @param order ソート順序 ('desc' or 'asc')
      * @param page ページ番号
+     * @param ids 録画番組の ID のリスト
      * @returns 録画番組一覧情報 or 録画番組一覧情報の取得に失敗した場合は null
      */
-    static async fetchAllVideos(order: 'desc' | 'asc' = 'desc', page: number = 1): Promise<IRecordedPrograms | null> {
+    static async fetchVideos(order: 'desc' | 'asc' = 'desc', page: number = 1, ids: number[] | null = null): Promise<IRecordedPrograms | null> {
 
         // API リクエストを実行
         const response = await APIClient.get<IRecordedPrograms>('/videos', {
             params: {
                 order,
                 page,
+                ids,
+            },
+            // 録画番組の ID のリストを FastAPI が受け付ける &ids=1&ids=2&ids=3&... の形式にエンコードする
+            // ref: https://github.com/axios/axios/issues/5058#issuecomment-1272107602
+            paramsSerializer: {
+                indexes: null,
             },
         });
 

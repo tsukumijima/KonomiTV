@@ -56,7 +56,7 @@ const sort_order = ref<'desc' | 'asc'>('desc');
 
 // 録画番組を取得
 const fetchPrograms = async () => {
-    const result = await Videos.fetchAllVideos(sort_order.value, current_page.value);
+    const result = await Videos.fetchVideos(sort_order.value, current_page.value);
     if (result) {
         programs.value = result.recorded_programs;
         total_programs.value = result.total;

@@ -51,7 +51,7 @@ const AUTO_REFRESH_INTERVAL = 30 * 1000;  // 30秒
 
 // 最近録画された番組を取得
 const fetchRecentPrograms = async () => {
-    const result = await Videos.fetchAllVideos('desc', 1);
+    const result = await Videos.fetchVideos('desc', 1);
     if (result) {
         recent_programs.value = result.recorded_programs.slice(0, 10);  // 最新10件のみ表示
         total_programs.value = result.total;
