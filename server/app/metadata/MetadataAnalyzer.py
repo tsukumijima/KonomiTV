@@ -492,8 +492,7 @@ class MetadataAnalyzer:
         try:
             full_media_info = cast(MediaInfo, MediaInfo.parse(str(self.recorded_file_path), library_file=libmediainfo_path))
         except Exception as ex:
-            logging.warning(f'{self.recorded_file_path}: Failed to parse full media info.')
-            logging.warning(ex)
+            logging.warning(f'{self.recorded_file_path}: Failed to parse full media info.', exc_info=ex)
             return None, None
 
         # 部分解析: 録画ファイルの30%位置から30秒程度のデータを取得し、メディア情報を解析する
@@ -517,8 +516,7 @@ class MetadataAnalyzer:
                     # メディア情報を解析
                     sample_media_info = cast(MediaInfo, MediaInfo.parse(sample_io, buffer_size=len(sample_data), library_file=libmediainfo_path))
         except Exception as ex:
-            logging.warning(f'{self.recorded_file_path}: Failed to parse sample media info.')
-            logging.warning(ex)
+            logging.warning(f'{self.recorded_file_path}: Failed to parse sample media info.', exc_info=ex)
             return None, None
 
         # 最低限 KonomiTV で再生可能なファイルであるかのバリデーションを行う
@@ -581,8 +579,7 @@ class MetadataAnalyzer:
                         return None, None
 
         except Exception as ex:
-            logging.warning(f'{self.recorded_file_path}: Failed to validate media info.')
-            logging.warning(ex)
+            logging.warning(f'{self.recorded_file_path}: Failed to validate media info.', exc_info=ex)
             return None, None
 
         return full_media_info, sample_media_info

@@ -158,8 +158,7 @@ async def TwitterPasswordAuthAPI(
     try:
         verify_credentials = await asyncio.to_thread(tweepy_api.verify_credentials)
     except tweepy.TweepyException as ex:
-        logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] Failed to get user information for Twitter account @{twitter_account.screen_name}')
-        logging.error(ex)
+        logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] Failed to get user information for Twitter account @{twitter_account.screen_name}', exc_info=ex)
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Failed to get user information',

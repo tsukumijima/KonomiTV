@@ -104,8 +104,7 @@ async def GetCurrentUser(token: Annotated[str, Depends(OAuth2PasswordBearer(toke
 
     # JWT トークンが不正
     except JWTError as ex:
-        logging.error('[GetCurrentUser] Access token is invalid')
-        logging.error(ex)
+        logging.error('[GetCurrentUser] Access token is invalid', exc_info=ex)
         raise HTTPException(
             status_code = status.HTTP_401_UNAUTHORIZED,
             detail = 'Access token is invalid',

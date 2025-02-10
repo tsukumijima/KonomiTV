@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import httpx
 import time
-import traceback
 from datetime import datetime
 from tortoise import fields
 from tortoise import transactions
@@ -93,8 +92,8 @@ class Channel(TortoiseModel):
             # EDCB バックエンド
             elif Config().general.backend == 'EDCB':
                 await cls.updateFromEDCB()
-        except Exception:
-            traceback.print_exc()
+        except Exception as ex:
+            logging.error('Failed to update channels:', exc_info=ex)
 
         logging.info(f'Channels update complete. ({round(time.time() - timestamp, 3)} sec)')
 
