@@ -1,5 +1,6 @@
 
 import anyio
+import pathlib
 from email.utils import parsedate
 from fastapi import APIRouter
 from fastapi import Depends
@@ -272,6 +273,35 @@ async def VideoAPI(
     """
 
     return recorded_program
+
+
+@router.get(
+    '/{video_id}/download',
+    summary = '録画番組ダウンロード API',
+    response_description = '録画番組の MPEG-TS ファイル。',
+    response_class = FileResponse,
+    responses = {
+        200: {'content': {'video/mp2t': {}}},
+        422: {'description': 'Specified video_id was not found'},
+    },
+)
+async def VideoDownloadAPI(
+    recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
+):
+    """
+    指定された録画番組の MPEG-TS ファイルをダウンロードする。
+    """
+
+    # ファイルパスとファイル名を取得
+    file_path = recorded_program.recorded_video.file_path
+    filename = pathlib.Path(file_path).name
+
+    # MPEG-TS ファイルをダウンロードさせる
+    return FileResponse(
+        path = file_path,
+        filename = filename,
+        media_type = 'video/mp2t',
+    )
 
 
 @router.get(
