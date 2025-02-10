@@ -165,24 +165,46 @@ async def GetThumbnailResponse(
 async def VideosAPI(
     order: Annotated[Literal['desc', 'asc'], Query(description='ソート順序 (desc or asc) 。')] = 'desc',
     page: Annotated[int, Query(description='ページ番号。')] = 1,
+    ids: Annotated[list[int] | None, Query(description='録画番組 ID のリスト。指定時は指定された ID の録画番組のみを返す。')] = None,
 ):
     """
     すべての録画番組を一度に 100 件ずつ取得する。<br>
     order には "desc" か "asc" を指定する。<br>
-    page (ページ番号) には 1 以上の整数を指定する。
+    page (ページ番号) には 1 以上の整数を指定する。<br>
+    ids には録画番組 ID のリストを指定できる。指定時は指定された ID の録画番組のみを返す。
     """
 
-    recorded_programs = await RecordedProgram.all() \
-        .select_related('recorded_video') \
-        .select_related('channel') \
-        .order_by('-start_time' if order == 'desc' else 'start_time') \
-        .offset((page - 1) * PAGE_SIZE) \
-        .limit(PAGE_SIZE) \
+    # ids が指定されている場合は、指定された ID の録画番組のみを返す
+    if ids is not None:
+        # 指定された ID の録画番組を取得
+        recorded_programs = await RecordedProgram.all() \
+            .select_related('recorded_video') \
+            .select_related('channel') \
+            .filter(id__in=ids) \
+            .order_by('-start_time' if order == 'desc' else 'start_time') \
+            .offset((page - 1) * PAGE_SIZE) \
+            .limit(PAGE_SIZE)
 
-    return {
-        'total': await RecordedProgram.all().count(),
-        'recorded_programs': recorded_programs,
-    }
+        return {
+            # 指定された ID の録画番組の総数を取得
+            'total': await RecordedProgram.all().filter(id__in=ids).count(),
+            'recorded_programs': recorded_programs,
+        }
+
+    # ids が指定されていない場合は、すべての録画番組を返す
+    else:
+        recorded_programs = await RecordedProgram.all() \
+            .select_related('recorded_video') \
+            .select_related('channel') \
+            .order_by('-start_time' if order == 'desc' else 'start_time') \
+            .offset((page - 1) * PAGE_SIZE) \
+            .limit(PAGE_SIZE)
+
+        return {
+            # すべての録画番組の総数を取得
+            'total': await RecordedProgram.all().count(),
+            'recorded_programs': recorded_programs,
+        }
 
 
 @router.get(
