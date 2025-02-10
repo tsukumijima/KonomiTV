@@ -334,7 +334,6 @@ class RecordedScanTask:
 
         except Exception as ex:
             logging.error(f'{file_path}: Error processing file:', exc_info=ex)
-            raise
 
 
     @staticmethod

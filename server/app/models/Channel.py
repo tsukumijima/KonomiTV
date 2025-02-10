@@ -234,9 +234,9 @@ class Channel(TortoiseModel):
                 try:
                     await duplicate_channel.delete()
                 # tortoise.exceptions.OperationalError: Can't delete unpersisted record を無視
-                except OperationalError as e:
-                    if 'Can\'t delete unpersisted record' not in str(e):
-                        raise e
+                except OperationalError as ex:
+                    if 'Can\'t delete unpersisted record' not in str(ex):
+                        raise ex
 
 
     @classmethod
@@ -418,9 +418,9 @@ class Channel(TortoiseModel):
                 try:
                     await duplicate_channel.delete()
                 # tortoise.exceptions.OperationalError: Can't delete unpersisted record を無視
-                except OperationalError as e:
-                    if 'Can\'t delete unpersisted record' not in str(e):
-                        raise e
+                except OperationalError as ex:
+                    if 'Can\'t delete unpersisted record' not in str(ex):
+                        raise ex
 
 
     async def getCurrentAndNextProgram(self) -> tuple[Program | None, Program | None]:
