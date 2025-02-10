@@ -117,8 +117,6 @@ async def BackgroundAnalysisAPI():
                 # キーフレーム情報が未解析の場合、タスクに追加
                 if not db_recorded_video.has_key_frames:
                     tasks.append(KeyFrameAnalyzer(file_path).analyze())
-                else:
-                    logging.info(f'{file_path}: Keyframe analysis already completed.')
 
                 # サムネイルが未生成の場合、タスクに追加
                 thumbnail_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{db_recorded_video.file_hash}.webp'
@@ -132,8 +130,6 @@ async def BackgroundAnalysisAPI():
                         # RecordedProgram モデルを schemas.RecordedProgram に変換
                         recorded_program = schemas.RecordedProgram.model_validate(db_recorded_program, from_attributes=True)
                         tasks.append(ThumbnailGenerator.fromRecordedProgram(recorded_program).generate(skip_tile_if_exists=True))
-                else:
-                    logging.info(f'{file_path}: Thumbnail already generated.')
 
                 # タスクが存在する場合、同時実行
                 if tasks:
