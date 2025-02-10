@@ -110,6 +110,9 @@ export default defineComponent({
     &.watch-header--video {
         .watch-header__program-time {
             font-size: 13px;
+            @include smartphone-vertical {
+                display: none;
+            }
         }
         .watch-header__now {
             display: none;

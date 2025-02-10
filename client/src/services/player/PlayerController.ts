@@ -1264,6 +1264,20 @@ class PlayerController {
         assert(this.player !== null);
         const player_store = usePlayerStore();
 
+        // 設定パネルの開閉を把握するためモンキーパッチを追加し、PlayerStore に通知する
+        const original_hide = this.player.setting.hide;
+        const original_show = this.player.setting.show;
+        this.player.setting.hide = () => {
+            if (this.player === null) return;
+            original_hide.call(this.player.setting);
+            player_store.is_player_setting_panel_open = false;
+        };
+        this.player.setting.show = () => {
+            if (this.player === null) return;
+            original_show.call(this.player.setting);
+            player_store.is_player_setting_panel_open = true;
+        };
+
         // モバイル回線プロファイルに切り替えるボタンを動的に追加する
         this.player.template.audio.insertAdjacentHTML('afterend', `
             <div class="dplayer-setting-item dplayer-setting-mobile-profile">

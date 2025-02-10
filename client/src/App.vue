@@ -66,6 +66,7 @@ a, a:link, a:visited, a:hover, a:active {
 html {
     overflow-y: auto !important;
     touch-action: manipulation;
+    overscroll-behavior-x: none;
 
     // scrollbar-gutter: stable を指定すると、overflow: hidden 指定時にもスクロールバー分の領域が確保される
     // もっと早くに知りたかった…
