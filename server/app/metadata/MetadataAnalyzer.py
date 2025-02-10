@@ -234,6 +234,7 @@ class MetadataAnalyzer:
                 return None
 
         # 録画ファイル情報を表すモデルを作成
+        now = datetime.now(tz=ZoneInfo('Asia/Tokyo'))
         stat_info = self.recorded_file_path.stat()
         recorded_video = schemas.RecordedVideo(
             status = 'Recorded',  # この時点では録画済みとしておく
@@ -260,18 +261,24 @@ class MetadataAnalyzer:
             secondary_audio_sampling_rate = secondary_audio_sampling_rate,
             # 必須フィールドのため作成日時・更新日時は適当に現在時刻を入れている
             # この値は参照されず、DB の値は別途自動生成される
-            created_at = datetime.now(tz=ZoneInfo('Asia/Tokyo')),
-            updated_at = datetime.now(tz=ZoneInfo('Asia/Tokyo')),
+            created_at = now,
+            updated_at = now,
         )
 
         # MPEG-TS 形式のみ、TS ファイルに含まれる番組情報・チャンネル情報を解析する
         recorded_program = None
         if container_format == 'MPEG-TS':
-            recorded_program = TSInfoAnalyzer(recorded_video).analyze()
-            logging.debug_simple(f'{self.recorded_file_path}: MPEG-TS SDT/EIT analysis completed.')
+            recorded_program = TSInfoAnalyzer(recorded_video).analyze()  # 取得失敗時は None が返る
+            if recorded_program is not None:
+                logging.debug_simple(f'{self.recorded_file_path}: MPEG-TS SDT/EIT analysis completed.')
+            else:
+                # 取得失敗時、最終更新日時が現在時刻から30秒以内ならまだ録画中の可能性が高いので、None を返し DB には保存しない
+                if (now - recorded_video.file_modified_at).total_seconds() < 30:
+                    logging.warning(f'{self.recorded_file_path}: MPEG-TS SDT/EIT analysis failed. (still recording?)')
+                    return None
 
         # それ以外の形式では番組情報を取得できないので、ファイル名などから最低限の情報を設定する
-        # MPEG-TS 形式だが TS ファイルからチャンネル情報を取得できなかった場合も同様
+        # MPEG-TS 形式だが TS ファイルからチャンネル情報・番組情報を取得できなかった場合も同様
         ## 他の値は RecordedProgram モデルで設定されたデフォルト値が自動的に入るので、タイトルと日時だけここで設定する
         if recorded_program is None:
             ## ファイルの作成日時を番組開始時刻として使用する

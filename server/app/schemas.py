@@ -147,7 +147,7 @@ class RecordedProgram(PydanticModel):
     series_title: str | None = None  # 番組タイトル解析に成功した場合のみセット
     episode_number: str | None = None  # 番組タイトル解析に成功した場合のみセット
     subtitle: str | None = None  # 番組タイトル解析に成功した場合のみセット
-    description: str = '番組情報を取得できませんでした。'
+    description: str = '番組概要を取得できませんでした。'
     detail: dict[str, str] = {}
     start_time: datetime
     end_time: datetime

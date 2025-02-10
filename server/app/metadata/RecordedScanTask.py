@@ -218,6 +218,7 @@ class RecordedScanTask:
         try:
             # 万が一この時点でファイルが存在しない場合はスキップ
             if not await file_path.is_file():
+                logging.warning(f'{file_path}: File does not exist now! ignored.')
                 return
 
             # ファイルの状態をチェック
@@ -258,6 +259,7 @@ class RecordedScanTask:
                 if file_size == last_size:
                     # 最終更新日時の継続更新中でない場合はスキップ
                     if mtime_continuous_start_at is None:
+                        logging.warning(f'{file_path}: File is not recording. ignored.')
                         return
                     # 最終更新日時の継続更新が1分未満の場合もスキップ
                     continuous_duration = (now - mtime_continuous_start_at).total_seconds()
@@ -265,7 +267,7 @@ class RecordedScanTask:
                         return
                     # 最終更新日時の継続更新が24時間を超えた場合は何かがおかしい可能性が高いため打ち切る
                     if continuous_duration >= self.CONTINUOUS_UPDATE_MAX_SECONDS:
-                        logging.warning(f'{file_path}: Continuous mtime updates for {continuous_duration:.1f} seconds. ignored.')
+                        logging.warning(f'{file_path}: Continuous mtime updates for {continuous_duration:.1f} seconds (> {self.CONTINUOUS_UPDATE_MAX_SECONDS}s). ignored.')
                         return
                     # ここまで到達した時点で（ファイルサイズこそ変化していないが）最終更新日時の推移から1分以上ファイル内容の更新が続いているとみなし、
                     # 後続の処理でメタデータを解析し、解析に成功次第 DB に録画中として登録する

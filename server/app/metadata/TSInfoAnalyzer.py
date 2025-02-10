@@ -56,6 +56,7 @@ class TSInfoAnalyzer:
         # サービス (チャンネル) 情報を取得
         channel = self.__analyzeSDTInformation()
         if channel is None:
+            logging.warning(f'{self.recorded_video.file_path}: Channel information not found.')
             return None
 
         # 録画番組情報のモデルを作成
@@ -72,6 +73,12 @@ class TSInfoAnalyzer:
             recorded_program = recorded_program_following
         else:
             recorded_program = recorded_program_present
+
+        # 選択された番組情報の duration が 0 の場合は現在/次の両方とも正しい番組情報を取得できなかったことを意味するので、None を返す
+        # このとき番組開始時刻・番組終了時刻は 1970-01-01 09:00:00 になっているはず
+        if recorded_program.duration == 0.0:
+            logging.warning(f'{self.recorded_video.file_path}: Program information not found.')
+            return None
 
         # 録画ファイル情報・チャンネル情報を紐付け
         recorded_program.recorded_video = self.recorded_video
@@ -423,7 +430,8 @@ class TSInfoAnalyzer:
             title = TSInformation.formatString(Path(self.recorded_video.file_path).stem)
 
         # この時点で番組開始時刻・番組終了時刻を取得できていない場合、適当なダミー値を設定する
-        ## start_time が None になる組み合わせは「現在の番組の終了時間が未定」かつ「次の番組情報を取得しようとした」ときのみ
+        ## start_time が None になる組み合わせは「現在の番組の終了時間が未定」かつ「次の番組情報を取得しようとした」ときか、
+        ## 録画ファイルが短すぎて EIT のパースに失敗した場合のみ
         ## 番組情報としては全く使い物にならないし、基本現在の番組情報を使わせるようにしたいので、後続の処理で使われないような値を設定する
         if start_time is None and end_time is None:
             start_time = datetime(1970, 1, 1, 9, tzinfo=ZoneInfo('Asia/Tokyo'))
