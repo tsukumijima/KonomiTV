@@ -68,15 +68,21 @@
                             </template>
                             <v-list-item-title class="ml-3">録画ファイル情報を表示</v-list-item-title>
                         </v-list-item>
+                        <v-list-item @click="downloadVideo" :disabled="program.recorded_video.status === 'Recording'">
+                            <template v-slot:prepend>
+                                <Icon icon="fluent:arrow-download-24-regular" width="20px" height="20px" />
+                            </template>
+                            <v-list-item-title class="ml-3">録画ファイルをダウンロード ({{ Utils.formatBytes(program.recorded_video.file_size) }})</v-list-item-title>
+                        </v-list-item>
                         <v-list-item @click="regenerateThumbnail(true)">
                             <template v-slot:prepend>
-                                <Icon icon="fluent:image-24-regular" width="20px" height="20px" />
+                                <Icon icon="fluent:image-arrow-counterclockwise-24-regular" width="20px" height="20px" />
                             </template>
                             <v-list-item-title class="ml-3">サムネイルを再作成</v-list-item-title>
                         </v-list-item>
                         <v-list-item @click="regenerateThumbnail(false)">
                             <template v-slot:prepend>
-                                <Icon icon="fluent:image-24-regular" width="20px" height="20px" />
+                                <Icon icon="fluent:image-arrow-counterclockwise-24-regular" width="20px" height="20px" />
                             </template>
                             <v-list-item-title class="ml-3">シークバー用サムネイルを再作成</v-list-item-title>
                         </v-list-item>
@@ -103,6 +109,11 @@ const props = defineProps<{
 
 // ファイル情報ダイアログの表示状態
 const show_video_info = ref(false);
+
+// 録画ファイルのダウンロード (location.href を変更し、ダウンロード自体はブラウザに任せる)
+const downloadVideo = () => {
+    window.location.href = `${Utils.api_base_url}/videos/${props.program.id}/download`;
+};
 
 // サムネイル再作成
 const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
