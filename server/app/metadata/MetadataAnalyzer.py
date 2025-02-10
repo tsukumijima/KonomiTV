@@ -504,7 +504,7 @@ class MetadataAnalyzer:
                 offset = ClosestMultiple(int(self.recorded_file_path.stat().st_size * 0.2), ts.PACKET_SIZE)
                 f.seek(offset)
                 # 30秒程度のデータを読み込む (ビットレートを 20Mbps と仮定)
-                ## 20Mbps * 30秒 = 75MB
+                ## サンプルとして MediaInfo に渡すデータが30秒より短いと正確に解析できないことがある
                 sample_size = ClosestMultiple(20 * 1024 * 1024 * 30 // 8, ts.PACKET_SIZE)  # TS パケットサイズに合わせて切り出す
                 sample_data = f.read(sample_size)
                 # サンプルデータが全てゼロ埋めされているかチェック
@@ -515,7 +515,7 @@ class MetadataAnalyzer:
                     # BytesIO オブジェクトを作成
                     sample_io = io.BytesIO(sample_data)
                     # メディア情報を解析
-                    sample_media_info = cast(MediaInfo, MediaInfo.parse(sample_io, library_file=libmediainfo_path))
+                    sample_media_info = cast(MediaInfo, MediaInfo.parse(sample_io, buffer_size=len(sample_data), library_file=libmediainfo_path))
         except Exception as ex:
             logging.warning(f'{self.recorded_file_path}: Failed to parse sample media info.')
             logging.warning(ex)
