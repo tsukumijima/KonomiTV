@@ -599,10 +599,14 @@ class MetadataAnalyzer:
                     if track.format not in ['AAC']:
                         logging.warning(f'{self.recorded_file_path}: {track.format} is not supported.')
                         return None
-                    # 1ch, 2ch, 5.1ch 以外の音声チャンネル数は KonomiTV で再生できない
+                    # 1ch, 2ch, 5.1ch 以外の音声チャンネル数は KonomiTV で再生できないが、
+                    # 実際に上記以外の音声チャンネル数でエンコードされることはまずない (少なくとも放送仕様上は発生し得ない) ため、
+                    # 22 とか 8 とか突拍子ない値が返ってきた場合は何らかの理由で MediaInfo が誤解析してしまっている可能性の方が高い
+                    # 実際は普通のステレオ音声だと考えられるため、エラーにはせず、channel_s の値を 2 に固定する
                     if int(track.channel_s) not in [1, 2, 6]:
-                        logging.warning(f'{self.recorded_file_path}: {track.channel_s} channels are not supported.')
-                        return None
+                        print(track.to_data())
+                        logging.warning(f'{self.recorded_file_path}: {track.channel_s} channels detected. (Is MediaInfo misinterpreting the audio?)')
+                        track.channel_s = 2
 
         except Exception as ex:
             logging.warning(f'{self.recorded_file_path}: Failed to validate media info.', exc_info=ex)
