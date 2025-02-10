@@ -74,13 +74,6 @@ class MetadataAnalyzer:
         secondary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] | None = None
         secondary_audio_sampling_rate: int | None = None
 
-        # 録画ファイルのハッシュを計算
-        try:
-            file_hash = self.calculateTSFileHash()
-        except ValueError:
-            logging.warning(f'{self.recorded_file_path}: File size is too small. ignored.')
-            return None
-
         # MediaInfo から録画ファイルのメディア情報を取得
         ## 取得に失敗した場合は KonomiTV で再生可能なファイルではないと判断し、None を返す
         result = self.analyzeMediaInfo()
@@ -233,6 +226,13 @@ class MetadataAnalyzer:
             if container_format == 'MPEG-TS' and f.read(1)[0] != 0x47:
                 logging.warning(f'{self.recorded_file_path}: sync_byte is missing. ignored.')
                 return None
+
+        # ファイルハッシュを計算
+        try:
+            file_hash = self.calculateTSFileHash()
+        except ValueError:
+            logging.warning(f'{self.recorded_file_path}: File size is too small. ignored.')
+            return None
 
         # 録画ファイル情報を表すモデルを作成
         now = datetime.now(tz=ZoneInfo('Asia/Tokyo'))
