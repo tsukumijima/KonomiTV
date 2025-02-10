@@ -6,6 +6,7 @@ import asyncio
 import concurrent.futures
 import pathlib
 from datetime import datetime
+from fastapi import HTTPException, status
 from tortoise import transactions
 from typing import ClassVar, TypedDict
 from watchfiles import awatch, Change
@@ -46,6 +47,9 @@ class RecordedScanTask:
     - 録画中ファイルの状態管理
     """
 
+    # シングルトンインスタンス
+    __instance: ClassVar[RecordedScanTask | None] = None
+
     # スキャン対象の拡張子
     SCAN_TARGET_EXTENSIONS: ClassVar[list[str]] = ['.ts', '.m2t', '.m2ts', '.mts']
 
@@ -68,10 +72,28 @@ class RecordedScanTask:
     CONTINUOUS_UPDATE_MAX_SECONDS: ClassVar[int] = 86400  # 24時間
 
 
+    def __new__(cls) -> RecordedScanTask:
+        """
+        シングルトンインスタンスを作成または取得する
+        既にインスタンスが存在する場合はそれを返し、存在しない場合は新規作成する
+
+        Returns:
+            RecordedScanTask: シングルトンインスタンス
+        """
+
+        if cls.__instance is None:
+            cls.__instance = super().__new__(cls)
+        return cls.__instance
+
+
     def __init__(self) -> None:
         """
         録画フォルダの監視タスクを初期化する
         """
+
+        # 初期化済みの場合は何もしない
+        if hasattr(self, '_initialized') and self._initialized:
+            return
 
         # 設定を読み込む
         self.config = Config()
@@ -84,8 +106,14 @@ class RecordedScanTask:
         self._is_running = False
         self._task: asyncio.Task[None] | None = None
 
+        # 録画フォルダ以下の一括スキャンを実行中かどうか
+        self._is_batch_scan_running = False
+
         # バックグラウンドタスクの状態管理
         self._background_tasks: dict[anyio.Path, asyncio.Task[None]] = {}
+
+        # 初期化済みフラグをセット
+        self._initialized = True
 
 
     async def start(self) -> None:
@@ -155,7 +183,16 @@ class RecordedScanTask:
         - 存在しない録画ファイルに対応するレコードを一括削除
         """
 
+        # 既に一括スキャンを実行中の場合は HTTPException を発生させる
+        # API から手動で一括スキャンを実行した際に重複して実行されないようにするためのバリデーション
+        if self._is_batch_scan_running:
+            raise HTTPException(
+                status_code = status.HTTP_429_TOO_MANY_REQUESTS,
+                detail = 'Batch scan of recording folders is already running',
+            )
+
         logging.info('Batch scan of recording folders has been started.')
+        self._is_batch_scan_running = True
 
         # 現在登録されている全ての RecordedVideo レコードをキャッシュ
         existing_db_recorded_videos = {
@@ -182,7 +219,7 @@ class RecordedScanTask:
                         continue
 
                     # 見つかったファイルを処理
-                    await self.__processRecordedFile(file_path, existing_db_recorded_videos)
+                    await self.processRecordedFile(file_path, existing_db_recorded_videos)
                 except Exception as ex:
                     logging.error(f'{file_path}: Failed to process recorded file:', exc_info=ex)
 
@@ -198,9 +235,10 @@ class RecordedScanTask:
                     logging.info(f'{file_path}: Deleted record for non-existent file.')
 
         logging.info('Batch scan of recording folders has been completed.')
+        self._is_batch_scan_running = False
 
 
-    async def __processRecordedFile(
+    async def processRecordedFile(
         self,
         file_path: anyio.Path,
         existing_db_recorded_videos: dict[anyio.Path, RecordedVideo] | None,
@@ -591,7 +629,7 @@ class RecordedScanTask:
                 }
 
                 # メタデータ解析を実行
-                await self.__processRecordedFile(file_path, None)
+                await self.processRecordedFile(file_path, None)
 
             # まだ録画中とマークされていないファイルの処理
             else:
@@ -607,7 +645,7 @@ class RecordedScanTask:
                     logging.info(f'{file_path}: New recording or copying file detected.')
 
                 # メタデータ解析を実行
-                await self.__processRecordedFile(file_path, None)
+                await self.processRecordedFile(file_path, None)
 
         except FileNotFoundError:
             # ファイルが既に削除されている場合
@@ -680,7 +718,7 @@ class RecordedScanTask:
                         if await file_path.is_file():
                             # この時点で、録画（またはファイルコピー）が確実に完了しているはず
                             logging.info(f'{file_path}: Recording or copying has just completed or has already completed.')
-                            await self.__processRecordedFile(file_path, None)
+                            await self.processRecordedFile(file_path, None)
                     except Exception as ex:
                         logging.error(f'{file_path}: Error processing completed file:', exc_info=ex)
 

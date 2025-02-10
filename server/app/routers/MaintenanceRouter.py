@@ -16,6 +16,7 @@ from app import schemas
 from app.config import Config
 from app.constants import RESTART_REQUIRED_LOCK_PATH, THUMBNAILS_DIR
 from app.metadata.KeyFrameAnalyzer import KeyFrameAnalyzer
+from app.metadata.RecordedScanTask import RecordedScanTask
 from app.metadata.ThumbnailGenerator import ThumbnailGenerator
 from app.models.Channel import Channel
 from app.models.Program import Program
@@ -32,7 +33,8 @@ router = APIRouter(
     prefix = '/api/maintenance',
 )
 
-# バックグラウンド解析タスクの asyncio.Task インスタンス
+# 録画フォルダの一括スキャン・バックグラウンド解析タスクの asyncio.Task インスタンス
+batch_scan_task: asyncio.Task[None] | None = None
 background_analysis_task: asyncio.Task[None] | None = None
 
 
@@ -83,7 +85,37 @@ async def UpdateDatabaseAPI(
 
 
 @router.post(
-    '/background-analysis',
+    '/run-batch-scan',
+    summary = '録画フォルダ一括スキャン API',
+    status_code = status.HTTP_204_NO_CONTENT,
+)
+async def BatchScanAPI():
+    """
+    録画フォルダ内の全 TS ファイルをスキャンし、メタデータを解析して DB に永続化する。<br>
+    追加・変更があったファイルのみメタデータを解析し、DB に永続化する。<br>
+    存在しない録画ファイルに対応するレコードを一括削除する。<br>
+    """
+
+    global batch_scan_task
+
+    # 録画フォルダ監視タスクのインスタンスを取得
+    recorded_scan_task = RecordedScanTask()
+
+    # タスクが実行中でない場合、新しくタスクを作成して実行
+    ## asyncio.create_task() で実行することで、API への HTTP コネクションが切断されてもタスクが継続される
+    if batch_scan_task is None:
+        batch_scan_task = asyncio.create_task(recorded_scan_task.runBatchScan())
+        # タスクの実行が完了するまで待機
+        await batch_scan_task
+    else:
+        raise HTTPException(
+            status_code = status.HTTP_429_TOO_MANY_REQUESTS,
+            detail = 'Batch scan of recording folders is already running',
+        )
+
+
+@router.post(
+    '/run-background-analysis',
     summary = 'バックグラウンド解析タスク手動実行 API',
     status_code = status.HTTP_204_NO_CONTENT,
 )
