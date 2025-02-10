@@ -283,9 +283,12 @@ class RecordedScanTask:
                 logging.warning(f'{file_path}: File size is too small. ignored.')
                 return
 
-            # 同じファイルパスの既存レコードがある場合、先ほど計算した最新のハッシュと変わっていない場合は
+            # 同じファイルパスの既存レコードがあり、先ほど計算した最新のハッシュと変わっていない場合は
             # レコードの内容を更新する必要がないのでスキップ
-            if existing_db_recorded_video is not None and existing_db_recorded_video.file_hash == file_hash:
+            ## 万が一前回実行時からファイルサイズや最終更新日時の変更を伴わずに録画が完了した場合に状態を適切に反映できるよう、録画中はスキップしない
+            if (existing_db_recorded_video is not None and
+                existing_db_recorded_video.status == 'Recorded' and
+                existing_db_recorded_video.file_hash == file_hash):
                 return
 
             # ProcessPoolExecutor を使い、別プロセス上でメタデータを解析
