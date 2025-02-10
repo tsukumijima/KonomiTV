@@ -341,7 +341,7 @@ class MetadataAnalyzer:
         return hash_obj.hexdigest()
 
 
-    def calculateTSFileDuration(self, search_block_size: int = 1024 * 1024) -> float | None:
+    def calculateTSFileDuration(self, search_block_size: int = 1024 * 1024) -> tuple[float, int] | None:
         """
         TS ファイル内の最初と最後の有効な PCR タイムスタンプから再生時間（秒）を算出する (written with o3-mini)
         MediaInfo から再生時間を取得できなかった場合のフォールバックとして利用する
@@ -352,7 +352,8 @@ class MetadataAnalyzer:
             search_block_size (int): PCR 抽出時に読み込むブロックサイズ (バイト単位). デフォルト: 1MB
 
         Returns:
-            float | None: ファイルの再生時間（秒）（抽出できなかった場合は None を返す）
+            tuple[float, int] | None: (再生時間（秒）, 有効な TS データの終了位置) のタプル
+                （抽出できなかった場合は None を返す）
         """
 
         try:
@@ -464,7 +465,8 @@ class MetadataAnalyzer:
                 # 先頭と末尾の PCR 値から再生時間（秒）を算出する
                 duration = last_timestamp - first_timestamp
                 logging.debug_simple(f'{self.recorded_file_path}: Duration calculated: {duration} seconds.')
-                return duration
+
+                return (duration, valid_data_end)
 
         except Exception as ex:
             logging.error('Error in fallback duration calculation:', exc_info=ex)
@@ -496,11 +498,13 @@ class MetadataAnalyzer:
             return None, None
 
         # 部分解析: 録画ファイルの30%位置から30秒程度のデータを取得し、メディア情報を解析する
+        duration_result: tuple[float, int] | None = None
         try:
             # ファイルを開く
             with open(self.recorded_file_path, 'rb') as f:
                 # 20%位置にシーク (TS パケットサイズに合わせて切り出す)
-                offset = ClosestMultiple(int(self.recorded_file_path.stat().st_size * 0.2), ts.PACKET_SIZE)
+                file_size = self.recorded_file_path.stat().st_size
+                offset = ClosestMultiple(int(file_size * 0.2), ts.PACKET_SIZE)
                 f.seek(offset)
                 # 30秒程度のデータを読み込む (ビットレートを 20Mbps と仮定)
                 ## サンプルとして MediaInfo に渡すデータが30秒より短いと正確に解析できないことがある
@@ -508,13 +512,23 @@ class MetadataAnalyzer:
                 sample_data = f.read(sample_size)
                 # サンプルデータが全てゼロ埋めされているかチェック
                 if all(byte == 0 for byte in sample_data):
-                    # スパースファイルの可能性があるため、全体解析の結果を部分解析として使用
-                    sample_media_info = full_media_info
-                else:
-                    # BytesIO オブジェクトを作成
-                    sample_io = io.BytesIO(sample_data)
-                    # メディア情報を解析
-                    sample_media_info = cast(MediaInfo, MediaInfo.parse(sample_io, buffer_size=len(sample_data), library_file=libmediainfo_path))
+                    # ゼロ埋め領域の境界を取得するため calculateTSFileDuration を実行
+                    duration_result = self.calculateTSFileDuration()
+                    if duration_result is None:
+                        logging.warning(f'{self.recorded_file_path}: Failed to calculate duration.')
+                        return None, None
+                    # ゼロ埋め領域を除いた有効データ範囲から再度サンプルを取得
+                    # 有効データ範囲の20%位置にシーク
+                    _, end_ts_offset = duration_result
+                    offset = ClosestMultiple(int(end_ts_offset * 0.2), ts.PACKET_SIZE)
+                    f.seek(offset)
+                    # 30秒程度のデータを読み込む (ビットレートを 20Mbps と仮定)
+                    sample_size = min(sample_size, end_ts_offset - offset)  # 有効データ範囲を超えないようにする
+                    sample_data = f.read(sample_size)
+                # BytesIO オブジェクトを作成
+                sample_io = io.BytesIO(sample_data)
+                # メディア情報を解析
+                sample_media_info = cast(MediaInfo, MediaInfo.parse(sample_io, buffer_size=len(sample_data), library_file=libmediainfo_path))
         except Exception as ex:
             logging.warning(f'{self.recorded_file_path}: Failed to parse sample media info.', exc_info=ex)
             return None, None
@@ -538,11 +552,15 @@ class MetadataAnalyzer:
                         logging.warning(f'{self.recorded_file_path}: Video or audio stream is missing.')
                         return None, None
                     # MediaInfo から再生時間が取得できない
+                    # 録画中などでファイルアロケーションされており、ファイル後半がゼロ埋めされているケースで発生しやすい
                     if hasattr(track, 'duration') is False or track.duration is None:
                         # フォールバックとして自前で長さを算出する
-                        duration = self.calculateTSFileDuration()
-                        if duration is not None:
+                        if duration_result is None:
+                            # まだ calculateTSFileDuration() が実行されていない場合のみここで実行する
+                            duration_result = self.calculateTSFileDuration()
+                        if duration_result is not None:
                             # 再生時間を算出できた場合は代わりに算出した値を設定する
+                            duration, _ = duration_result
                             track.duration = duration * 1000  # ミリ秒に変換
                         else:
                             # 再生時間を算出できなかった (ファイルが破損しているなど)
