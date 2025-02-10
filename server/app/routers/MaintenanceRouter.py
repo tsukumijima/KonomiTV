@@ -98,13 +98,21 @@ async def BatchScanAPI():
 
     global batch_scan_task
 
-    # 録画フォルダ監視タスクのインスタンスを取得
-    recorded_scan_task = RecordedScanTask()
+    async def BatchScan():
+        global batch_scan_task
+        logging.info('Manual batch scan of recording folders has started.')
+
+        # 一括スキャンを実行
+        await RecordedScanTask().runBatchScan()
+
+        # 一括スキャンが完了した
+        logging.info('Manual batch scan of recording folders has finished.')
+        batch_scan_task = None  # 再度新しいタスクを作成できるように None にする
 
     # タスクが実行中でない場合、新しくタスクを作成して実行
     ## asyncio.create_task() で実行することで、API への HTTP コネクションが切断されてもタスクが継続される
     if batch_scan_task is None:
-        batch_scan_task = asyncio.create_task(recorded_scan_task.runBatchScan())
+        batch_scan_task = asyncio.create_task(BatchScan())
         # タスクの実行が完了するまで待機
         await batch_scan_task
     else:
