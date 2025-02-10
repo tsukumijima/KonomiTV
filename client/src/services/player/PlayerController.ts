@@ -398,6 +398,9 @@ class PlayerController {
                             });
                             options.success(jikkyo_comments.comments);
                         }
+                        // コメント表示をシーク状態に同期する
+                        // ここでシークしておかないと、DPlayer の初期化直後にシークした際にシーク位置より前のコメントが一斉に描画されてしまう
+                        this.player!.danmaku!.seek();
                     }
                 },
                 // コメント送信時
@@ -589,6 +592,19 @@ class PlayerController {
         // デバッグ用にプレイヤーインスタンスも window 直下に入れる
         (window as any).player = this.player;
 
+        // ビデオ視聴時のみ、指定秒数シークする
+        if (this.playback_mode === 'Video') {
+            // シーク秒数が指定されていない（初回ロード時）は、録画開始マージン + 2秒シークする
+            // 2秒プラスしているのは、実際の放送波では EPG (EIT[p/f]) の変更より2〜4秒後に実際に番組が切り替わる場合が多いため
+            // この誤差は放送局や TOT 精度によっておそらく異なるので、本編の最初が削れないように2秒のプラスに留めている
+            if (seek_seconds === null) {
+                seek_seconds = player_store.recorded_program.recording_start_margin + 2;
+            }
+            this.player.seek(seek_seconds);
+            this.player.play();
+            console.log(`\u001b[31m[PlayerController] Seeking to ${seek_seconds} seconds.`);
+        }
+
         // この時点で DPlayer のコンテナ要素に dplayer-mobile クラスが付与されている場合、
         // DPlayer は音量コントロールがないスマホ向けの UI になっている
         // 通常の UI で DPlayer の音量を 1.0 以外に設定した後スマホ向け UI になった場合、DPlayer の音量を変更できず OS の音量を上げるしかなくなる
@@ -716,19 +732,6 @@ class PlayerController {
                 this.screen_wake_lock = wake_lock;  // 後で解除するために WakeLockSentinel を保持
                 console.log('\u001b[31m[PlayerController] Screen Wake Lock API: Screen Wake Lock acquired.');
             });
-        }
-
-        // ビデオ視聴時のみ、指定秒数シークする
-        if (this.playback_mode === 'Video') {
-            // シーク秒数が指定されていない（初回ロード時）は、録画開始マージン + 2秒シークする
-            // 2秒プラスしているのは、実際の放送波では EPG (EIT[p/f]) の変更より2〜4秒後に実際に番組が切り替わる場合が多いため
-            // この誤差は放送局や TOT 精度によっておそらく異なるので、本編の最初が削れないように2秒のプラスに留めている
-            if (seek_seconds === null) {
-                seek_seconds = player_store.recorded_program.recording_start_margin + 2;
-            }
-            this.player.seek(seek_seconds);
-            this.player.play();
-            console.log(`\u001b[31m[PlayerController] Video playback initialized, seeking to ${seek_seconds} seconds.`);
         }
 
         // 各 PlayerManager を初期化・登録
