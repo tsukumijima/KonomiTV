@@ -83,9 +83,10 @@ class MetadataAnalyzer:
 
         # MediaInfo から録画ファイルのメディア情報を取得
         ## 取得に失敗した場合は KonomiTV で再生可能なファイルではないと判断し、None を返す
-        full_media_info, sample_media_info = self.analyzeMediaInfo()
-        if full_media_info is None or sample_media_info is None:
+        result = self.analyzeMediaInfo()
+        if result is None:
             return None
+        full_media_info, sample_media_info, end_ts_offset = result
         logging.debug_simple(f'{self.recorded_file_path}: MediaInfo analysis completed.')
 
         # メディア情報から録画ファイルのメタデータを取得
@@ -268,7 +269,7 @@ class MetadataAnalyzer:
         # MPEG-TS 形式のみ、TS ファイルに含まれる番組情報・チャンネル情報を解析する
         recorded_program = None
         if container_format == 'MPEG-TS':
-            recorded_program = TSInfoAnalyzer(recorded_video).analyze()  # 取得失敗時は None が返る
+            recorded_program = TSInfoAnalyzer(recorded_video, end_ts_offset).analyze()  # 取得失敗時は None が返る
             if recorded_program is not None:
                 logging.debug_simple(f'{self.recorded_file_path}: MPEG-TS SDT/EIT analysis completed.')
             else:
@@ -480,14 +481,14 @@ class MetadataAnalyzer:
             return None
 
 
-    def analyzeMediaInfo(self) -> tuple[MediaInfo | None, MediaInfo | None]:
+    def analyzeMediaInfo(self) -> tuple[MediaInfo, MediaInfo, int | None] | None:
         """
         録画ファイルのメディア情報を MediaInfo を使って解析する
         全体解析と部分解析の2段階で解析を行う
         全体解析では全般情報（コンテナ情報、録画時間など）を、部分解析では映像・音声情報を取得する
 
         Returns:
-            tuple[MediaInfo | None, MediaInfo | None]: 全体解析と部分解析の結果のタプル
+            tuple[MediaInfo, MediaInfo, int | None] | None: 全体解析と部分解析の結果、有効な TS データの終了位置のタプル
                 (KonomiTV で再生可能なファイルではない場合は None が返される)
         """
 
@@ -502,7 +503,7 @@ class MetadataAnalyzer:
             full_media_info = cast(MediaInfo, MediaInfo.parse(str(self.recorded_file_path), library_file=libmediainfo_path))
         except Exception as ex:
             logging.warning(f'{self.recorded_file_path}: Failed to parse full media info.', exc_info=ex)
-            return None, None
+            return None
 
         # 部分解析: 録画ファイルの30%位置から30秒程度のデータを取得し、メディア情報を解析する
         duration_result: tuple[float, int] | None = None
@@ -523,7 +524,7 @@ class MetadataAnalyzer:
                     duration_result = self.calculateTSFileDuration()
                     if duration_result is None:
                         logging.warning(f'{self.recorded_file_path}: Failed to calculate duration.')
-                        return None, None
+                        return None
                     # ゼロ埋め領域を除いた有効データ範囲から再度サンプルを取得
                     # 有効データ範囲の25%位置にシーク
                     _, end_ts_offset = duration_result
@@ -538,7 +539,7 @@ class MetadataAnalyzer:
                 sample_media_info = cast(MediaInfo, MediaInfo.parse(sample_io, buffer_size=len(sample_data), library_file=libmediainfo_path))
         except Exception as ex:
             logging.warning(f'{self.recorded_file_path}: Failed to parse sample media info.', exc_info=ex)
-            return None, None
+            return None
 
         # 最低限 KonomiTV で再生可能なファイルであるかのバリデーションを行う
         ## この処理だけでエラーが発生する (=参照しているキーが MediaInfo から提供されていない) 場合、
@@ -553,11 +554,11 @@ class MetadataAnalyzer:
                     ## "BDAV" も MPEG-TS だが、TS パケット長が 192 byte で ariblib でパースできないため現状非対応
                     if track.format != 'MPEG-TS':
                         logging.warning(f'{self.recorded_file_path}: {track.format} is not supported.')
-                        return None, None
+                        return None
                     # 映像 or 音声ストリームが存在しない
                     if track.count_of_video_streams == 0 and track.count_of_audio_streams == 0:
                         logging.warning(f'{self.recorded_file_path}: Video or audio stream is missing.')
-                        return None, None
+                        return None
                     # MediaInfo から再生時間が取得できない
                     # 録画中などでファイルアロケーションされており、ファイル後半がゼロ埋めされているケースで発生しやすい
                     if hasattr(track, 'duration') is False or track.duration is None:
@@ -572,7 +573,7 @@ class MetadataAnalyzer:
                         else:
                             # 再生時間を算出できなかった (ファイルが破損しているなど)
                             logging.warning(f'{self.recorded_file_path}: Duration is missing.')
-                            return None, None
+                            return None
 
             # サンプルデータからも同様にバリデーションを行う
             for track in sample_media_info.tracks:
@@ -582,32 +583,39 @@ class MetadataAnalyzer:
                     # スクランブルが解除されていない
                     if track.encryption == 'Encrypted':
                         logging.warning(f'{self.recorded_file_path}: Video stream is encrypted.')
-                        return None, None
+                        return None
                     # MPEG-2, H.264, H.265 以外のフォーマットは KonomiTV で再生できない
                     if track.format not in ['MPEG Video', 'AVC', 'HEVC']:
                         logging.warning(f'{self.recorded_file_path}: {track.format} is not supported.')
-                        return None, None
+                        return None
 
                 # 音声ストリーム
                 elif track.track_type == 'Audio':
                     # スクランブルが解除されていない
                     if track.encryption == 'Encrypted':
                         logging.warning(f'{self.recorded_file_path}: Audio stream is encrypted.')
-                        return None, None
+                        return None
                     # AAC-LC 以外のフォーマットは KonomiTV で再生できない
                     if track.format not in ['AAC']:
                         logging.warning(f'{self.recorded_file_path}: {track.format} is not supported.')
-                        return None, None
+                        return None
                     # 1ch, 2ch, 5.1ch 以外の音声チャンネル数は KonomiTV で再生できない
                     if int(track.channel_s) not in [1, 2, 6]:
                         logging.warning(f'{self.recorded_file_path}: {track.channel_s} channels are not supported.')
-                        return None, None
+                        return None
 
         except Exception as ex:
             logging.warning(f'{self.recorded_file_path}: Failed to validate media info.', exc_info=ex)
-            return None, None
+            return None
 
-        return full_media_info, sample_media_info
+        # 解析処理中に calculateTSFileDuration() を実行している場合は、有効な TS データの終了位置も一緒に返す
+        ## calculateTSFileDuration() が実行されている時点で、当該録画ファイルの後半部分にゼロ埋めデータが存在することを示す
+        ## この値は TSInfoAnalyzer で番組情報を解析する際に利用される
+        if duration_result is not None:
+            _, end_ts_offset = duration_result
+            return full_media_info, sample_media_info, end_ts_offset
+        else:
+            return full_media_info, sample_media_info, None
 
 
 if __name__ == '__main__':
