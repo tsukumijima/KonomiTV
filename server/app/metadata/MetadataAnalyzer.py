@@ -502,13 +502,13 @@ class MetadataAnalyzer:
         try:
             # ファイルを開く
             with open(self.recorded_file_path, 'rb') as f:
-                # 20%位置にシーク (TS パケットサイズに合わせて切り出す)
+                # 25%位置にシーク (TS パケットサイズに合わせて切り出す)
                 file_size = self.recorded_file_path.stat().st_size
-                offset = ClosestMultiple(int(file_size * 0.2), ts.PACKET_SIZE)
+                offset = ClosestMultiple(int(file_size * 0.25), ts.PACKET_SIZE)
                 f.seek(offset)
-                # 30秒程度のデータを読み込む (ビットレートを 20Mbps と仮定)
-                ## サンプルとして MediaInfo に渡すデータが30秒より短いと正確に解析できないことがある
-                sample_size = ClosestMultiple(20 * 1024 * 1024 * 30 // 8, ts.PACKET_SIZE)  # TS パケットサイズに合わせて切り出す
+                # 60秒程度のデータを読み込む (ビットレートを 18Mbps と仮定)
+                ## サンプルとして MediaInfo に渡すデータが60秒より短いと正確に解析できないことがある
+                sample_size = ClosestMultiple(18 * 1024 * 1024 * 60 // 8, ts.PACKET_SIZE)  # TS パケットサイズに合わせて切り出す
                 sample_data = f.read(sample_size)
                 # サンプルデータが全てゼロ埋めされているかチェック
                 if all(byte == 0 for byte in sample_data):
@@ -518,11 +518,11 @@ class MetadataAnalyzer:
                         logging.warning(f'{self.recorded_file_path}: Failed to calculate duration.')
                         return None, None
                     # ゼロ埋め領域を除いた有効データ範囲から再度サンプルを取得
-                    # 有効データ範囲の20%位置にシーク
+                    # 有効データ範囲の25%位置にシーク
                     _, end_ts_offset = duration_result
-                    offset = ClosestMultiple(int(end_ts_offset * 0.2), ts.PACKET_SIZE)
+                    offset = ClosestMultiple(int(end_ts_offset * 0.25), ts.PACKET_SIZE)
                     f.seek(offset)
-                    # 30秒程度のデータを読み込む (ビットレートを 20Mbps と仮定)
+                    # 60秒程度のデータを読み込む (ビットレートを 18Mbps と仮定)
                     sample_size = min(sample_size, end_ts_offset - offset)  # 有効データ範囲を超えないようにする
                     sample_data = f.read(sample_size)
                 # BytesIO オブジェクトを作成
