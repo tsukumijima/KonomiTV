@@ -46,13 +46,13 @@ onMounted(() => {
 watch(() => route.fullPath, initialize_search_query);
 
 const search_placeholder = computed(() => {
-    return route.path.startsWith('/videos') || route.path.startsWith('/mylist') || route.path.startsWith('/viewing-history')
+    return route.path.startsWith('/videos') || route.path.startsWith('/mylist') || route.path.startsWith('/history')
         ? '録画番組を検索...'
         : '放送予定の番組を検索...';
 });
 
 const getSearchPath = () => {
-    return route.path.startsWith('/videos') || route.path.startsWith('/mylist') || route.path.startsWith('/viewing-history')
+    return route.path.startsWith('/videos') || route.path.startsWith('/mylist') || route.path.startsWith('/history')
         ? '/videos/search'
         : '/tv/search';
 };
