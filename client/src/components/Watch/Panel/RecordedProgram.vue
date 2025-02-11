@@ -105,7 +105,7 @@ export default defineComponent({
                 this.settingsStore.settings.mylist.push({
                     type: 'RecordedProgram',
                     id: program.id,
-                    created_at: Date.now(),
+                    created_at: Utils.time(),  // 秒単位
                 });
             }
         },

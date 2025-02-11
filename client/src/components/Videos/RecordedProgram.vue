@@ -173,7 +173,7 @@ const toggleMylist = () => {
         settingsStore.settings.mylist.push({
             type: 'RecordedProgram',
             id: props.program.id,
-            created_at: Utils.time(),
+            created_at: Utils.time(),  // 秒単位
         });
         Message.success('マイリストに追加しました。');
     }

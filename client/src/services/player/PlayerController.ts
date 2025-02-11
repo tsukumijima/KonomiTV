@@ -1272,8 +1272,8 @@ class PlayerController {
                     settings_store.settings.watched_history.push({
                         video_id: video_id,
                         last_playback_position: this.player.video.currentTime,
-                        created_at: Utils.time(),
-                        updated_at: Utils.time(),
+                        created_at: Utils.time(),  // 秒単位
+                        updated_at: Utils.time(),  // 秒単位
                     });
                     console.log(`\u001b[31m[PlayerController] Watched history added. (Video ID: ${video_id}, last_playback_position: ${this.player.video.currentTime})`);
                 }
