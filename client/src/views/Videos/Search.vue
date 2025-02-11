@@ -24,7 +24,7 @@
                             { name: '検索結果', path: `/videos/search?query=${encodeURIComponent(query)}` },
                         ]"
                         @update:page="updatePage"
-                        @update:sortOrder="updateSortOrder"
+                        @update:sortOrder="updateSortOrder($event as SortOrder)"
                         :emptyMessage="`「${query}」に一致する録画番組は見つかりませんでした。`"
                         :emptySubMessage="'別のキーワードで検索をお試しください。'"
                         :showEmptyMessage="!is_loading"
@@ -44,7 +44,7 @@ import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
 import SPHeaderBar from '@/components/SPHeaderBar.vue';
 import RecordedProgramList from '@/components/Videos/RecordedProgramList.vue';
-import { IRecordedProgram } from '@/services/Videos';
+import { IRecordedProgram, SortOrder } from '@/services/Videos';
 import Videos from '@/services/Videos';
 import Utils from '@/utils';
 

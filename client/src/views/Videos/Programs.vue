@@ -21,7 +21,7 @@
                         :showBackButton="true"
                         :showEmptyMessage="!is_loading"
                         @update:page="updatePage"
-                        @update:sortOrder="updateSortOrder" />
+                        @update:sortOrder="updateSortOrder($event as SortOrder)" />
                 </div>
             </div>
         </main>
@@ -37,7 +37,7 @@ import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
 import SPHeaderBar from '@/components/SPHeaderBar.vue';
 import RecordedProgramList from '@/components/Videos/RecordedProgramList.vue';
-import { IRecordedProgram } from '@/services/Videos';
+import { IRecordedProgram, SortOrder } from '@/services/Videos';
 import Videos from '@/services/Videos';
 
 // ルーター
