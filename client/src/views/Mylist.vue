@@ -3,16 +3,14 @@
         <HeaderBar />
         <main>
             <Navigation />
-            <div class="recorded-programs-container-wrapper">
-                <SPHeaderBar />
-                <div class="recorded-programs-container">
+            <div class="mylist-container-wrapper">
+                <div class="mylist-container">
                     <Breadcrumbs :crumbs="[
                         { name: 'ホーム', path: '/' },
-                        { name: 'ビデオをみる', path: '/videos/' },
-                        { name: '録画番組一覧', path: '/videos/programs', disabled: true },
+                        { name: 'マイリスト', path: '/mylist/', disabled: true },
                     ]" />
                     <RecordedProgramList
-                        title="録画番組一覧"
+                        title="マイリスト"
                         :programs="programs"
                         :total="total_programs"
                         :page="current_page"
@@ -20,8 +18,11 @@
                         :isLoading="is_loading"
                         :showBackButton="true"
                         :showEmptyMessage="!is_loading"
+                        :emptyMessage="'マイリストに録画番組が<br class=\'d-sm-none\'>追加されていません。'"
+                        :emptySubMessage="'録画番組の右上にある「＋」ボタンから、<br class=\'d-sm-none\'>マイリストに追加できます。'"
+                        :forMylist="true"
                         @update:page="updatePage"
-                        @update:sortOrder="updateSortOrder" />
+                        @update:sortOrder="updateSortOrder($event as MylistSortOrder)" />
                 </div>
             </div>
         </main>
@@ -35,14 +36,15 @@ import { useRoute, useRouter } from 'vue-router';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
-import SPHeaderBar from '@/components/SPHeaderBar.vue';
 import RecordedProgramList from '@/components/Videos/RecordedProgramList.vue';
-import { IRecordedProgram } from '@/services/Videos';
+import { IRecordedProgram, MylistSortOrder } from '@/services/Videos';
 import Videos from '@/services/Videos';
+import useSettingsStore from '@/stores/SettingsStore';
 
 // ルーター
 const route = useRoute();
 const router = useRouter();
+const settingsStore = useSettingsStore();
 
 // 録画番組のリスト
 const programs = ref<IRecordedProgram[]>([]);
@@ -53,11 +55,47 @@ const is_loading = ref(true);
 const current_page = ref(1);
 
 // 並び順
-const sort_order = ref<'desc' | 'asc'>('desc');
+const sort_order = ref<MylistSortOrder>('mylist_added_desc');
 
 // 録画番組を取得
 const fetchPrograms = async () => {
-    const result = await Videos.fetchVideos(sort_order.value, current_page.value);
+    // マイリストに登録されている録画番組の ID を取得
+    const mylist_ids = settingsStore.settings.mylist
+        .filter(item => item.type === 'RecordedProgram')
+        .sort((a, b) => {
+            // ソート順に応じて並び替え
+            switch (sort_order.value) {
+                case 'mylist_added_desc':
+                    return b.created_at - a.created_at;
+                case 'mylist_added_asc':
+                    return a.created_at - b.created_at;
+                case 'recorded_desc':
+                case 'recorded_asc':
+                    // 録画番組の情報を取得する前なので、ここでは created_at でソート
+                    // 録画番組の情報を取得後に再度ソートする
+                    return b.created_at - a.created_at;
+                default:
+                    return 0;
+            }
+        })
+        .map(item => item.id);
+
+    // マイリストが空の場合は早期リターン
+    if (mylist_ids.length === 0) {
+        programs.value = [];
+        total_programs.value = 0;
+        is_loading.value = false;
+        return;
+    }
+
+    // 録画番組を取得
+    let order: 'desc' | 'asc' | 'ids' = 'ids';
+    if (sort_order.value === 'recorded_desc') {
+        order = 'desc';
+    } else if (sort_order.value === 'recorded_asc') {
+        order = 'asc';
+    }
+    const result = await Videos.fetchVideos(order, current_page.value, mylist_ids);
     if (result) {
         programs.value = result.recorded_programs;
         total_programs.value = result.total;
@@ -78,7 +116,7 @@ const updatePage = async (page: number) => {
 };
 
 // 並び順を更新
-const updateSortOrder = async (order: 'desc' | 'asc') => {
+const updateSortOrder = async (order: MylistSortOrder) => {
     sort_order.value = order;
     current_page.value = 1;  // ページを1に戻す
     is_loading.value = true;
@@ -99,8 +137,14 @@ watch(() => route.query, async (newQuery) => {
     }
     // ソート順を同期
     if (newQuery.order) {
-        sort_order.value = newQuery.order as 'desc' | 'asc';
+        sort_order.value = newQuery.order as MylistSortOrder;
     }
+    await fetchPrograms();
+}, { deep: true });
+
+// マイリストの変更を監視して即座に再取得
+watch(() => settingsStore.settings.mylist, async () => {
+    is_loading.value = true;
     await fetchPrograms();
 }, { deep: true });
 
@@ -111,7 +155,7 @@ onMounted(async () => {
         current_page.value = parseInt(route.query.page as string);
     }
     if (route.query.order) {
-        sort_order.value = route.query.order as 'desc' | 'asc';
+        sort_order.value = route.query.order as MylistSortOrder;
     }
 
     // 録画番組を取得
@@ -121,13 +165,16 @@ onMounted(async () => {
 </script>
 <style lang="scss" scoped>
 
-.recorded-programs-container-wrapper {
+.mylist-container-wrapper {
     display: flex;
     flex-direction: column;
     width: 100%;
+    @include smartphone-vertical {
+        padding-top: 10px !important;
+    }
 }
 
-.recorded-programs-container {
+.mylist-container {
     display: flex;
     flex-direction: column;
     width: 100%;

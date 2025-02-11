@@ -3,6 +3,11 @@ import APIClient from  '@/services/APIClient';
 import { IChannel } from '@/services/Channels';
 import { CommentUtils } from '@/utils';
 
+/** ソート順序を表す型 */
+export type SortOrder = 'desc' | 'asc';
+
+/** マイリストのソート順序を表す型 */
+export type MylistSortOrder = 'mylist_added_desc' | 'mylist_added_asc' | 'recorded_desc' | 'recorded_asc';
 
 /** 録画ファイル情報を表すインターフェース */
 export interface IRecordedVideo {
@@ -163,12 +168,12 @@ class Videos {
 
     /**
      * 録画番組一覧を取得する
-     * @param order ソート順序 ('desc' or 'asc')
+     * @param order ソート順序 ('desc' or 'asc' or 'ids')
      * @param page ページ番号
      * @param ids 録画番組の ID のリスト
      * @returns 録画番組一覧情報 or 録画番組一覧情報の取得に失敗した場合は null
      */
-    static async fetchVideos(order: 'desc' | 'asc' = 'desc', page: number = 1, ids: number[] | null = null): Promise<IRecordedPrograms | null> {
+    static async fetchVideos(order: 'desc' | 'asc' | 'ids' = 'desc', page: number = 1, ids: number[] | null = null): Promise<IRecordedPrograms | null> {
 
         // API リクエストを実行
         const response = await APIClient.get<IRecordedPrograms>('/videos', {

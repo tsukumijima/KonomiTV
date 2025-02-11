@@ -41,6 +41,8 @@ class ClientSettings(BaseModel):
     # showed_panel_last_time: 同期無効
     # selected_twitter_account_id: 同期無効
     saved_twitter_hashtags: list[str] = []
+    mylist: list[dict[str, Any]] = []
+    watched_history: list[dict[str, Any]] = []
     # lshaped_screen_crop_enabled: 同期無効
     # lshaped_screen_crop_zoom_level: 同期無効
     # lshaped_screen_crop_x_position: 同期無効

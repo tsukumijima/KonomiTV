@@ -40,12 +40,23 @@
                     v-html="ProgramUtils.decorateProgramInfo(program, 'description')"></div>
             </div>
             <div v-ripple class="recorded-program__mylist"
-                v-ftooltip="'マイリストに追加する'"
-                @click.prevent.stop="Message.warning('マイリスト機能は現在開発中です。')"
+                :class="{'recorded-program__mylist--highlight': isInMylist && !forMylist}"
+                v-ftooltip="isInMylist ? 'マイリストから削除する' : 'マイリストに追加する'"
+                @click.prevent.stop="toggleMylist"
                 @mousedown.prevent.stop="">
-                <svg width="22px" height="22px" viewBox="0 0 15.2 15.2">
-                    <path fill="currentColor" d="M8 2.5a.5.5 0 0 0-1 0V7H2.5a.5.5 0 0 0 0 1H7v4.5a.5.5 0 0 0 1 0V8h4.5a.5.5 0 0 0 0-1H8z"></path>
-                </svg>
+                <template v-if="forMylist">
+                    <svg width="22px" height="22px" viewBox="0 0 16 16">
+                        <path fill="currentColor" d="M7 3h2a1 1 0 0 0-2 0M6 3a2 2 0 1 1 4 0h4a.5.5 0 0 1 0 1h-.564l-1.205 8.838A2.5 2.5 0 0 1 9.754 15H6.246a2.5 2.5 0 0 1-2.477-2.162L2.564 4H2a.5.5 0 0 1 0-1zm1 3.5a.5.5 0 0 0-1 0v5a.5.5 0 0 0 1 0zM9.5 6a.5.5 0 0 0-.5.5v5a.5.5 0 0 0 1 0v-5a.5.5 0 0 0-.5-.5"></path>
+                     </svg>
+                </template>
+                <template v-else>
+                    <svg v-if="isInMylist" width="22px" height="22px" viewBox="0 0 16 16">
+                        <path fill="currentColor" d="M14.046 3.486a.75.75 0 0 1-.032 1.06l-7.93 7.474a.85.85 0 0 1-1.188-.022l-2.68-2.72a.75.75 0 1 1 1.068-1.053l2.234 2.267l7.468-7.038a.75.75 0 0 1 1.06.032"></path>
+                    </svg>
+                    <svg v-else width="22px" height="22px" viewBox="0 0 15.2 15.2">
+                        <path fill="currentColor" d="M8 2.5a.5.5 0 0 0-1 0V7H2.5a.5.5 0 0 0 0 1H7v4.5a.5.5 0 0 0 1 0V8h4.5a.5.5 0 0 0 0-1H8z"></path>
+                    </svg>
+                </template>
             </div>
             <div class="recorded-program__menu">
                 <v-menu location="bottom end" :close-on-content-click="true">
@@ -95,16 +106,18 @@
 </template>
 <script lang="ts" setup>
 
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 
 import RecordedFileInfoDialog from '@/components/Videos/Dialogs/RecordedFileInfoDialog.vue';
 import Message from '@/message';
 import Videos, { IRecordedProgram } from '@/services/Videos';
+import useSettingsStore from '@/stores/SettingsStore';
 import Utils, { ProgramUtils } from '@/utils';
 
 // Props
 const props = defineProps<{
     program: IRecordedProgram;
+    forMylist?: boolean;
 }>();
 
 // ファイル情報ダイアログの表示状態
@@ -123,6 +136,36 @@ const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
         Message.success('サムネイルの再作成が完了しました。');
     }
 };
+
+// マイリストに追加/削除
+const settingsStore = useSettingsStore();
+const toggleMylist = () => {
+    // マイリストに追加されているか確認
+    const isInMylist = settingsStore.settings.mylist.some(item => {
+        return item.type === 'RecordedProgram' && item.id === props.program.id;
+    });
+
+    if (isInMylist) {
+        // マイリストから削除
+        settingsStore.settings.mylist = settingsStore.settings.mylist.filter(item => {
+            return !(item.type === 'RecordedProgram' && item.id === props.program.id);
+        });
+        Message.show('マイリストから削除しました。');
+    } else {
+        // マイリストに追加
+        settingsStore.settings.mylist.push({
+            type: 'RecordedProgram',
+            id: props.program.id,
+            created_at: Utils.time(),
+        });
+        Message.success('マイリストに追加しました。');
+    }
+};
+
+// マイリストに追加されているか確認
+const isInMylist = computed(() => {
+    return settingsStore.settings.mylist.some(item => item.type === 'RecordedProgram' && item.id === props.program.id);
+});
 
 </script>
 <style lang="scss" scoped>
@@ -470,6 +513,13 @@ const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
                 &:before {
                     opacity: 0;
                 }
+            }
+        }
+
+        &--highlight {
+            color: rgb(var(--v-theme-primary));
+            &:hover {
+                color: rgb(var(--v-theme-primary));
             }
         }
     }

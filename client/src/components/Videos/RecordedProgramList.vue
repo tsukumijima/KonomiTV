@@ -1,17 +1,22 @@
 <template>
-    <div class="recorded-program-list">
+    <div class="recorded-program-list" :class="{'recorded-program-list--show-sort': !hideSort}">
         <div class="recorded-program-list__header" v-if="!hideHeader">
             <h2 class="recorded-program-list__title">
-                <div v-if="showBackButton" v-ripple class="recorded-program-list__title-back" @click="$router.push('/videos/')">
+                <div v-if="showBackButton" v-ripple class="recorded-program-list__title-back" @click="$router.back()">
                     <Icon icon="fluent:chevron-left-12-filled" width="27px" />
                 </div>
                 <span class="recorded-program-list__title-text">{{title}}</span>
                 <div class="recorded-program-list__title-count" v-if="!showMoreButton">{{total}}件</div>
             </h2>
-            <div class="recorded-program-list__actions">
+            <div class="recorded-program-list__actions" :class="{'recorded-program-list__actions--mylist': forMylist}">
                 <v-select v-if="!hideSort"
                     v-model="sort_order"
-                    :items="[
+                    :items="forMylist ? [
+                        { title: '追加が新しい順', value: 'mylist_added_desc' },
+                        { title: '追加が古い順', value: 'mylist_added_asc' },
+                        { title: '録画が新しい順', value: 'recorded_desc' },
+                        { title: '録画が古い順', value: 'recorded_asc' },
+                    ] : [
                         { title: '新しい順', value: 'desc' },
                         { title: '古い順', value: 'asc' },
                     ]"
@@ -35,7 +40,7 @@
             </div>
         </div>
         <div class="recorded-program-list__grid" :class="{'recorded-program-list__grid--loading': isLoading}">
-            <RecordedProgram v-for="program in programs" :key="program.id" :program="program" />
+            <RecordedProgram v-for="program in programs" :key="program.id" :program="program" :forMylist="forMylist" />
         </div>
         <div class="recorded-program-list__pagination" v-if="!hidePagination && total > 0">
             <v-pagination
@@ -49,8 +54,9 @@
         </div>
         <div class="recorded-program-list__empty" v-if="total === 0 && showEmptyMessage">
             <div class="recorded-program-list__empty-content">
-                <h2>{{emptyMessage}}</h2>
-                <div class="recorded-program-list__empty-submessage" v-if="emptySubMessage">{{emptySubMessage}}</div>
+                <h2 v-html="emptyMessage"></h2>
+                <div class="recorded-program-list__empty-submessage"
+                    v-if="emptySubMessage" v-html="emptySubMessage"></div>
             </div>
         </div>
     </div>
@@ -61,7 +67,7 @@ import { ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import RecordedProgram from '@/components/Videos/RecordedProgram.vue';
-import { IRecordedProgram } from '@/services/Videos';
+import { IRecordedProgram, MylistSortOrder, SortOrder } from '@/services/Videos';
 
 const router = useRouter();
 
@@ -71,7 +77,7 @@ const props = withDefaults(defineProps<{
     programs: IRecordedProgram[];
     total: number;
     page?: number;
-    sortOrder?: 'desc' | 'asc';
+    sortOrder?: SortOrder | MylistSortOrder;
     hideHeader?: boolean;
     hideSort?: boolean;
     hidePagination?: boolean;
@@ -81,6 +87,7 @@ const props = withDefaults(defineProps<{
     emptyMessage?: string;
     emptySubMessage?: string;
     isLoading?: boolean;
+    forMylist?: boolean;
 }>(), {
     page: 1,
     sortOrder: 'desc',
@@ -91,14 +98,15 @@ const props = withDefaults(defineProps<{
     showBackButton: false,
     showEmptyMessage: true,
     emptyMessage: '録画番組が見つかりませんでした。',
-    emptySubMessage: 'サーバー設定で録画フォルダのパスを正しく設定できているか確認してください。',
+    emptySubMessage: 'サーバー設定で録画フォルダのパスを<br class="d-sm-none">正しく設定できているか確認してください。',
     isLoading: false,
+    forMylist: false,
 });
 
 // Emits
 defineEmits<{
     (e: 'update:page', page: number): void;
-    (e: 'update:sortOrder', order: 'desc' | 'asc'): void;
+    (e: 'update:sortOrder', order: SortOrder | MylistSortOrder): void;
     (e: 'more'): void;
 }>();
 
@@ -106,7 +114,7 @@ defineEmits<{
 const current_page = ref(props.page);
 
 // 並び順
-const sort_order = ref(props.sortOrder);
+const sort_order = ref<SortOrder | MylistSortOrder>(props.sortOrder);
 
 // props の page が変更されたら current_page を更新
 watch(() => props.page, (newPage) => {
@@ -125,6 +133,15 @@ watch(() => props.sortOrder, (newOrder) => {
     display: flex;
     flex-direction: column;
     width: 100%;
+    height: 100%;
+
+    &--show-sort {
+        .recorded-program-list__grid {
+            @include smartphone-vertical {
+                margin-top: 3px;
+            }
+        }
+    }
 
     &__header {
         display: flex;
@@ -167,7 +184,7 @@ watch(() => props.sortOrder, (newOrder) => {
         }
 
         &-count {
-            padding-top: 10px;
+            padding-top: 8px;
             margin-left: 12px;
             font-size: 14px;
             font-weight: 400;
@@ -182,13 +199,21 @@ watch(() => props.sortOrder, (newOrder) => {
         display: flex;
         align-items: center;
         margin-left: auto;
-        width: 103px;
         :deep(.v-field) {
             padding-right: 4px !important;
         }
         :deep(.v-field__input) {
             padding-left: 12px !important;
             padding-right: 0px !important;
+        }
+
+        .v-select {
+            width: 103px;
+        }
+        &--mylist {
+            .v-select {
+                width: 143px;
+            }
         }
     }
 
@@ -245,24 +270,49 @@ watch(() => props.sortOrder, (newOrder) => {
         display: flex;
         justify-content: center;
         align-items: center;
-        min-height: 200px;
+        min-height: 170px;
+        flex-grow: 1;
 
         &-content {
             text-align: center;
             h2 {
-                font-size: 20px;
+                font-size: 21px;
+                @include tablet-vertical {
+                    font-size: 20px !important;
+                }
+                @include smartphone-horizontal {
+                    font-size: 20px !important;
+                }
+                @include smartphone-horizontal-short {
+                    font-size: 19px !important;
+                }
                 @include smartphone-vertical {
-                    font-size: 18px;
+                    font-size: 19px !important;
+                    text-align: center;
                 }
             }
         }
 
         &-submessage {
-            margin-top: 8px;
+            margin-top: 12px;
+            padding-bottom: 16px;
             color: rgb(var(--v-theme-text-darken-1));
-            font-size: 14px;
+            font-size: 15px;
+            @include tablet-vertical {
+                font-size: 12.5px !important;
+                text-align: center;
+                margin-top: 10px !important;
+            }
+            @include smartphone-horizontal {
+                font-size: 12.5px !important;
+                text-align: center;
+                margin-top: 10px !important;
+            }
             @include smartphone-vertical {
-                font-size: 13px;
+                padding-bottom: 12px;
+                font-size: 12.5px !important;
+                text-align: center;
+                margin-top: 8px !important;
             }
         }
     }

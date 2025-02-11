@@ -7,6 +7,7 @@
                 <SPHeaderBar />
                 <div class="videos-search-container">
                     <Breadcrumbs :crumbs="[
+                        { name: 'ホーム', path: '/' },
                         { name: 'ビデオをみる', path: '/videos/' },
                         { name: '検索結果', path: `/videos/search?query=${encodeURIComponent(query)}`, disabled: true },
                     ]" />
@@ -139,6 +140,7 @@ onMounted(async () => {
     display: flex;
     flex-direction: column;
     width: 100%;
+    height: 100%;
     padding: 20px;
     margin: 0 auto;
     min-width: 0;
