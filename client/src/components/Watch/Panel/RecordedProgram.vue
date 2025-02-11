@@ -40,7 +40,7 @@
                     <template v-if="isInMylist">
                         <Icon icon="fluent:checkmark-16-filled" width="18px" height="18px"
                             style="color: rgb(var(--v-theme-primary)); margin-bottom: -1px" />
-                        <span style="margin-left: 6px;">マイリストから削除</span>
+                        <span style="margin-left: 6px;">マイリストに追加済み</span>
                     </template>
                     <template v-else>
                         <Icon icon="fluent:add-16-filled" width="18px" height="18px" style="margin-bottom: -1px" />
@@ -63,6 +63,7 @@
 import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
 
+import Message from '@/message';
 import usePlayerStore from '@/stores/PlayerStore';
 import useSettingsStore from '@/stores/SettingsStore';
 import Utils, { ProgramUtils } from '@/utils';
@@ -98,6 +99,7 @@ export default defineComponent({
                 this.settingsStore.settings.mylist = this.settingsStore.settings.mylist.filter(item =>
                     !(item.type === 'RecordedProgram' && item.id === program.id)
                 );
+                Message.show('マイリストから削除しました。');
             } else {
                 // マイリストに追加
                 this.settingsStore.settings.mylist.push({
