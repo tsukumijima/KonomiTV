@@ -159,8 +159,10 @@ async def BackgroundAnalysisAPI():
                     tasks.append(KeyFrameAnalyzer(file_path).analyze())
 
                 # サムネイルが未生成の場合、タスクに追加
+                # どちらか片方だけがないパターンも考えられるので、その場合もサムネイル生成を実行する
+                thumbnail_tile_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{db_recorded_video.file_hash}_tile.webp'
                 thumbnail_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{db_recorded_video.file_hash}.webp'
-                if not await thumbnail_path.is_file():
+                if (not await thumbnail_tile_path.is_file()) or (not await thumbnail_path.is_file()):
                     # 録画番組情報を取得
                     db_recorded_program = await RecordedProgram.all() \
                         .select_related('recorded_video') \

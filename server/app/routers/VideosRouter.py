@@ -87,7 +87,7 @@ def IsContentNotModified(response_headers: Headers, request_headers: Headers) ->
 async def GetThumbnailResponse(
     request: Request,
     recorded_program: RecordedProgram,
-    is_tile: bool = False,
+    return_tiled: bool = False,
 ) -> Union[FileResponse, Response]:
     """
     サムネイル画像のレスポンスを生成する共通処理
@@ -104,7 +104,7 @@ async def GetThumbnailResponse(
     """
 
     # サムネイル画像のパスを生成
-    suffix = '_tile' if is_tile else ''
+    suffix = '_tile' if return_tiled else ''
     base_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{recorded_program.recorded_video.file_hash}{suffix}'
 
     # WebP と JPEG の両方を試す
@@ -403,7 +403,7 @@ async def VideoThumbnailTileAPI(
     サムネイルが生成されていない場合はデフォルト画像を返す。
     """
 
-    return await GetThumbnailResponse(request, recorded_program, is_tile=True)
+    return await GetThumbnailResponse(request, recorded_program, return_tiled=True)
 
 
 @router.post(
