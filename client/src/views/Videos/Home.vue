@@ -35,6 +35,19 @@
                         :isLoading="is_loading"
                         :forMylist="true"
                         @more="$router.push('/mylist/')" />
+                    <RecordedProgramList
+                        title="視聴履歴"
+                        :programs="watched_programs"
+                        :total="total_watched_programs"
+                        :hideSort="true"
+                        :hidePagination="true"
+                        :showMoreButton="true"
+                        :showEmptyMessage="!is_loading"
+                        :emptyMessage="'まだ視聴履歴がありません。'"
+                        :emptySubMessage="'録画番組を30秒以上みると、<br class=\'d-sm-none\'>視聴履歴に追加されます。'"
+                        :isLoading="is_loading"
+                        :forWatchedHistory="true"
+                        @more="$router.push('/watched-history/')" />
                 </div>
             </div>
         </main>
@@ -61,6 +74,10 @@ const total_programs = ref(0);
 const mylist_programs = ref<IRecordedProgram[]>([]);
 const total_mylist_programs = ref(0);
 
+// 視聴履歴の録画番組のリスト
+const watched_programs = ref<IRecordedProgram[]>([]);
+const total_watched_programs = ref(0);
+
 const is_loading = ref(true);
 
 // 自動更新用の interval ID を保持
@@ -73,6 +90,11 @@ const AUTO_REFRESH_INTERVAL = 30 * 1000;  // 30秒
 const settingsStore = useSettingsStore();
 watch(() => settingsStore.settings.mylist, async () => {
     await fetchMylistPrograms();
+}, { deep: true });
+
+// 視聴履歴の変更を監視して即座に再取得
+watch(() => settingsStore.settings.watched_history, async () => {
+    await fetchWatchedPrograms();
 }, { deep: true });
 
 // 最近録画された番組を取得
@@ -107,12 +129,33 @@ const fetchMylistPrograms = async () => {
     }
 };
 
+// 視聴履歴の録画番組を取得
+const fetchWatchedPrograms = async () => {
+    // 視聴履歴に登録されている録画番組の ID を取得
+    const watched_ids = settingsStore.settings.watched_history
+        .sort((a, b) => b.updated_at - a.updated_at)  // 最後に視聴した順
+        .map(history => history.video_id);
+
+    // 視聴履歴が空の場合は早期リターン
+    if (watched_ids.length === 0) {
+        watched_programs.value = [];
+        total_watched_programs.value = 0;
+        return;
+    }
+
+    // 録画番組を取得
+    const result = await Videos.fetchVideos('ids', 1, watched_ids);
+    if (result) {
+        watched_programs.value = result.recorded_programs.slice(0, 4);  // 最新4件のみ表示
+        total_watched_programs.value = result.total;
+    }
+};
+
 // 各セクションの更新関数を管理するオブジェクト
-// 将来的に新しいセクションが追加された場合、ここに更新関数を追加するだけで対応可能
 const sectionUpdaters = {
     recentPrograms: fetchRecentPrograms,
     mylistPrograms: fetchMylistPrograms,
-    // 将来的に他のセクションの更新関数をここに追加可能
+    watchedPrograms: fetchWatchedPrograms,
 } as const;
 
 // 全セクションの更新を実行

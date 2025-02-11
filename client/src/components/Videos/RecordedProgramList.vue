@@ -40,7 +40,8 @@
             </div>
         </div>
         <div class="recorded-program-list__grid" :class="{'recorded-program-list__grid--loading': isLoading}">
-            <RecordedProgram v-for="program in programs" :key="program.id" :program="program" :forMylist="forMylist" />
+            <RecordedProgram v-for="program in programs" :key="program.id" :program="program"
+                :forMylist="forMylist" :forWatchedHistory="forWatchedHistory" />
         </div>
         <div class="recorded-program-list__pagination" v-if="!hidePagination && total > 0">
             <v-pagination
@@ -88,6 +89,7 @@ const props = withDefaults(defineProps<{
     emptySubMessage?: string;
     isLoading?: boolean;
     forMylist?: boolean;
+    forWatchedHistory?: boolean;
 }>(), {
     page: 1,
     sortOrder: 'desc',
@@ -101,6 +103,7 @@ const props = withDefaults(defineProps<{
     emptySubMessage: 'サーバー設定で録画フォルダのパスを<br class="d-sm-none">正しく設定できているか確認してください。',
     isLoading: false,
     forMylist: false,
+    forWatchedHistory: false,
 });
 
 // Emits

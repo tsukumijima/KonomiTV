@@ -42,6 +42,15 @@ class PlayerController {
     // 4 秒程度の遅延を許容する
     private static readonly LIVE_PLAYBACK_BUFFER_SECONDS = 4.0;
 
+    // 視聴履歴の最大件数
+    private static readonly WATCHED_HISTORY_MAX_COUNT = 50;
+
+    // 何秒視聴したら視聴履歴に追加するかの閾値 (秒)
+    private static readonly WATCHED_HISTORY_THRESHOLD_SECONDS = 30;
+
+    // 視聴履歴の更新間隔 (秒)
+    private static readonly WATCHED_HISTORY_UPDATE_INTERVAL = 10;
+
     // DPlayer のインスタンス
     private player: DPlayer | null = null;
 
@@ -68,6 +77,9 @@ class PlayerController {
     // setControlDisplayTimer() で利用するタイマー ID
     // 保持しておかないと clearTimeout() でタイマーを止められない
     private player_control_ui_hide_timer_id: number = 0;
+
+    // 視聴履歴に追加すべきかを判断するためのタイムアウトの ID
+    private watched_history_threshold_timer_id: number = 0;
 
     // Screen Wake Lock API の WakeLockSentinel のインスタンス
     // 確保した起動ロックを解放するために保持しておく必要がある
@@ -594,13 +606,30 @@ class PlayerController {
 
         // ビデオ視聴時のみ、指定秒数シークする
         if (this.playback_mode === 'Video') {
-            // シーク秒数が指定されていない（初回ロード時）は、録画開始マージン + 2秒シークする
+            // シーク秒数が指定されていない（初回ロード時）は、視聴履歴があればその位置から再生を開始する
+            // なければ録画開始マージン + 2秒シークする
             // 2秒プラスしているのは、実際の放送波では EPG (EIT[p/f]) の変更より2〜4秒後に実際に番組が切り替わる場合が多いため
             // この誤差は放送局や TOT 精度によっておそらく異なるので、本編の最初が削れないように2秒のプラスに留めている
             if (seek_seconds === null) {
-                seek_seconds = player_store.recorded_program.recording_start_margin + 2;
+                const history = settings_store.settings.watched_history.find(
+                    history => history.video_id === player_store.recorded_program.id
+                );
+                if (history) {
+                    seek_seconds = history.last_playback_position;
+                    console.log(`\u001b[31m[PlayerController] Seeking to ${seek_seconds} seconds. (Watched History)`);
+                } else {
+                    seek_seconds = player_store.recorded_program.recording_start_margin + 2;
+                    console.log(`\u001b[31m[PlayerController] Seeking to ${seek_seconds} seconds. (Recording Start Margin + 2)`);
+                }
             }
             this.player.seek(seek_seconds);
+            // 視聴履歴から再生を再開する場合のみ通知を表示
+            // そうでない場合は seek() 実行後に表示される通知を即座に非表示にする
+            if (seek_seconds > player_store.recorded_program.recording_start_margin + 2) {
+                this.player.notice('前回視聴した続きから再生します');
+            } else {
+                this.player.hideNotice();
+            }
             this.player.play();
             console.log(`\u001b[31m[PlayerController] Seeking to ${seek_seconds} seconds.`);
         }
@@ -849,6 +878,7 @@ class PlayerController {
         assert(this.player !== null);
         const channels_store = useChannelsStore();
         const player_store = usePlayerStore();
+        const settings_store = useSettingsStore();
 
         // ライブ視聴: 再生停止状態かつ現在の再生位置からバッファが 30 秒以上離れていないかを 60 秒おきに監視し、そうなっていたら強制的にシークする
         // mpegts.js の仕様上、MSE 側に未再生のバッファが貯まり過ぎると新規に SourceBuffer が追加できなくなるため、強制的に接続が切断されてしまう
@@ -1188,6 +1218,66 @@ class PlayerController {
                 }
                 last_tap = current_time;
             };
+        }
+
+        // 視聴履歴の更新処理
+        if (this.playback_mode === 'Video') {
+
+            // timeupdate イベントを間引いて処理
+            // ここで登録したイベントは、destroy() を実行した際にプレイヤーごと破棄される
+            let last_timeupdate_fired_at = 0;
+            this.player.on('timeupdate', () => {
+                if (!this.player || !this.player.video) {
+                    return;
+                }
+                // 前回 timeupdate イベントが発火した時刻から WATCHED_HISTORY_UPDATE_INTERVAL 秒間は処理を実行しない（間引く）
+                const now = new Date().getTime();
+                if (now - last_timeupdate_fired_at < PlayerController.WATCHED_HISTORY_UPDATE_INTERVAL * 1000) {
+                    return;
+                }
+                last_timeupdate_fired_at = now;
+                const current_time = this.player.video.currentTime;
+                const video_id = player_store.recorded_program.id;
+                const history_index = settings_store.settings.watched_history.findIndex(
+                    history => history.video_id === video_id
+                );
+                // 視聴履歴が既に登録されている場合のみ、現在の再生位置を更新
+                if (history_index !== -1) {
+                    settings_store.settings.watched_history[history_index].last_playback_position = current_time;
+                    settings_store.settings.watched_history[history_index].updated_at = Utils.time();
+                    console.log(`\u001b[31m[PlayerController] Last playback position updated. (Video ID: ${video_id}, last_playback_position: ${current_time})`);
+                }
+            });
+
+            // 視聴開始から WATCHED_HISTORY_THRESHOLD_SECONDS 秒間このページが開かれ続けていたら、視聴履歴に追加する
+            this.watched_history_threshold_timer_id = window.setTimeout(() => {
+                if (!this.player || !this.player.video) {
+                    return;
+                }
+                const video_id = player_store.recorded_program.id;
+                const history_index = settings_store.settings.watched_history.findIndex(
+                    history => history.video_id === video_id
+                );
+                // まだ視聴履歴に存在しない場合のみ追加
+                if (history_index === -1) {
+                    // 視聴履歴が最大件数に達している場合は、最も古い履歴を削除
+                    if (settings_store.settings.watched_history.length >= PlayerController.WATCHED_HISTORY_MAX_COUNT) {
+                        // 最も古い created_at のタイムスタンプを持つ履歴のインデックスを探す
+                        const oldest_index = settings_store.settings.watched_history.reduce((oldest_idx, current, idx, arr) => {
+                            return current.created_at < arr[oldest_idx].created_at ? idx : oldest_idx;
+                        }, 0);
+                        // 最も古い履歴を削除
+                        settings_store.settings.watched_history.splice(oldest_index, 1);
+                    }
+                    settings_store.settings.watched_history.push({
+                        video_id: video_id,
+                        last_playback_position: this.player.video.currentTime,
+                        created_at: Utils.time(),
+                        updated_at: Utils.time(),
+                    });
+                    console.log(`\u001b[31m[PlayerController] Watched history added. (Video ID: ${video_id}, last_playback_position: ${this.player.video.currentTime})`);
+                }
+            }, PlayerController.WATCHED_HISTORY_THRESHOLD_SECONDS * 1000);
         }
     }
 
@@ -1656,18 +1746,33 @@ class PlayerController {
      * player_store.event_emitter.emit('PlayerRestartRequired', 'プレイヤーを再起動しています…') のようにイベントを発火させるべき
      */
     public async destroy(): Promise<void> {
+        const settings_store = useSettingsStore();
         const player_store = usePlayerStore();
 
         // すでに破棄されているのに再度実行してはならない
         if (this.destroyed === true) {
             return;
         }
-
         // すでに破棄中なら何もしない
         if (this.destroying === true) {
             return;
         }
         this.destroying = true;
+
+        // 視聴履歴の最終位置を更新
+        // 現在の再生位置を取得するため、プレイヤーの破棄前に実行する必要がある
+        if (this.playback_mode === 'Video' && this.player && this.player.video) {
+            const history_index = settings_store.settings.watched_history.findIndex(
+                history => history.video_id === player_store.recorded_program.id
+            );
+            if (history_index !== -1) {
+                // 次再生するときにスムーズに再開できるよう、現在の再生位置の10秒前の位置を記録する
+                const current_time = this.player.video.currentTime - 10;
+                settings_store.settings.watched_history[history_index].last_playback_position = current_time;
+                settings_store.settings.watched_history[history_index].updated_at = Utils.time();
+                console.log(`\u001b[31m[PlayerController] Last playback position updated. (Video ID: ${player_store.recorded_program.id}, last_playback_position: ${current_time})`);
+            }
+        }
 
         console.log('\u001b[31m[PlayerController] Destroying...');
 
@@ -1724,6 +1829,7 @@ class PlayerController {
             this.video_keep_alive_interval_timer_cancel();
             this.video_keep_alive_interval_timer_cancel = null;
         }
+        window.clearTimeout(this.watched_history_threshold_timer_id);
         window.clearTimeout(this.player_control_ui_hide_timer_id);
 
         // プレイヤー全体のコンテナ要素の監視を停止

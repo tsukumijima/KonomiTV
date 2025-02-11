@@ -26,9 +26,10 @@ export interface IClientSettings {
         created_at: number;
     }[];
     watched_history: {
-        type: 'RecordedProgram';
-        id: number;
+        video_id: number;
+        last_playback_position: number;
         created_at: number;
+        updated_at: number;
     }[];
     // lshaped_screen_crop_enabled: 同期無効
     // lshaped_screen_crop_zoom_level: 同期無効
