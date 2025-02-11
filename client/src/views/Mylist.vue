@@ -19,7 +19,7 @@
                         :showBackButton="true"
                         :showEmptyMessage="!is_loading"
                         :emptyMessage="'マイリストに録画番組が<br class=\'d-sm-none\'>追加されていません。'"
-                        :emptySubMessage="'録画番組の右上にある「＋」ボタンから、<br class=\'d-sm-none\'>マイリストに追加できます。'"
+                        :emptySubMessage="'録画番組の右上にある「＋」ボタンから、<br class=\'d-sm-none\'>マイリストに番組を追加できます。'"
                         :forMylist="true"
                         @update:page="updatePage"
                         @update:sortOrder="updateSortOrder($event as MylistSortOrder)" />
@@ -144,7 +144,6 @@ watch(() => route.query, async (newQuery) => {
 
 // マイリストの変更を監視して即座に再取得
 watch(() => settingsStore.settings.mylist, async () => {
-    is_loading.value = true;
     await fetchPrograms();
 }, { deep: true });
 

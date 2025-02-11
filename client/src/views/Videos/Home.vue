@@ -31,7 +31,7 @@
                         :showMoreButton="true"
                         :showEmptyMessage="!is_loading"
                         :emptyMessage="'マイリストに録画番組が<br class=\'d-sm-none\'>追加されていません。'"
-                        :emptySubMessage="'録画番組の右上にある「＋」ボタンから、<br class=\'d-sm-none\'>マイリストに追加できます。'"
+                        :emptySubMessage="'録画番組の右上にある「＋」ボタンから、<br class=\'d-sm-none\'>マイリストに番組を追加できます。'"
                         :isLoading="is_loading"
                         :forMylist="true"
                         @more="$router.push('/mylist/')" />
