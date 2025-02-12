@@ -604,36 +604,6 @@ class PlayerController {
         // デバッグ用にプレイヤーインスタンスも window 直下に入れる
         (window as any).player = this.player;
 
-        // ビデオ視聴時のみ、指定秒数シークする
-        if (this.playback_mode === 'Video') {
-            // シーク秒数が指定されていない（初回ロード時）は、視聴履歴があればその位置から再生を開始する
-            // なければ録画開始マージン + 2秒シークする
-            // 2秒プラスしているのは、実際の放送波では EPG (EIT[p/f]) の変更より2〜4秒後に実際に番組が切り替わる場合が多いため
-            // この誤差は放送局や TOT 精度によっておそらく異なるので、本編の最初が削れないように2秒のプラスに留めている
-            if (seek_seconds === null) {
-                const history = settings_store.settings.watched_history.find(
-                    history => history.video_id === player_store.recorded_program.id
-                );
-                if (history) {
-                    seek_seconds = history.last_playback_position;
-                    console.log(`\u001b[31m[PlayerController] Seeking to ${seek_seconds} seconds. (Watched History)`);
-                } else {
-                    seek_seconds = player_store.recorded_program.recording_start_margin + 2;
-                    console.log(`\u001b[31m[PlayerController] Seeking to ${seek_seconds} seconds. (Recording Start Margin + 2)`);
-                }
-            }
-            this.player.seek(seek_seconds);
-            // 視聴履歴から再生を再開する場合のみ通知を表示
-            // そうでない場合は seek() 実行後に表示される通知を即座に非表示にする
-            if (seek_seconds > player_store.recorded_program.recording_start_margin + 2) {
-                this.player.notice('前回視聴した続きから再生します');
-            } else {
-                this.player.hideNotice();
-            }
-            this.player.play();
-            console.log(`\u001b[31m[PlayerController] Seeking to ${seek_seconds} seconds.`);
-        }
-
         // この時点で DPlayer のコンテナ要素に dplayer-mobile クラスが付与されている場合、
         // DPlayer は音量コントロールがないスマホ向けの UI になっている
         // 通常の UI で DPlayer の音量を 1.0 以外に設定した後スマホ向け UI になった場合、DPlayer の音量を変更できず OS の音量を上げるしかなくなる
@@ -666,6 +636,44 @@ class PlayerController {
 
         // プレイヤーのコントロール UI を表示する (初回実行)
         this.setControlDisplayTimer();
+
+        // ビデオ視聴時のみ、指定秒数シークする
+        if (this.playback_mode === 'Video') {
+
+            // シーク秒数が指定されていない（初回ロード時）は、視聴履歴があればその位置から再生を開始する
+            // なければ録画開始マージン + 2秒シークする
+            // 2秒プラスしているのは、実際の放送波では EPG (EIT[p/f]) の変更より2〜4秒後に実際に番組が切り替わる場合が多いため
+            // この誤差は放送局や TOT 精度によっておそらく異なるので、本編の最初が削れないように2秒のプラスに留めている
+            if (seek_seconds === null) {
+                const history = settings_store.settings.watched_history.find(
+                    history => history.video_id === player_store.recorded_program.id
+                );
+                if (history) {
+                    seek_seconds = history.last_playback_position;
+                    console.log(`\u001b[31m[PlayerController] Seeking to ${seek_seconds} seconds. (Watched History)`);
+                } else {
+                    seek_seconds = player_store.recorded_program.recording_start_margin + 2;
+                    console.log(`\u001b[31m[PlayerController] Seeking to ${seek_seconds} seconds. (Recording Start Margin + 2)`);
+                }
+            }
+            this.player.seek(seek_seconds);
+
+            // 初回シーク時は確実にエンコーダーの起動が発生するため、ロードに若干時間がかかる
+            // このため DPlayer.seek() 内部で実行されているシークバーの更新処理は動作せず、再生が開始されるまで再生済み範囲は反映されない
+            // ここで再生済み範囲がシークバー上反映されていないとユーザーの認知的不協和を招くため、手動で再生済み範囲をシーク地点に移動する
+            // この時点ではまだ HLS プレイリストのロードが完了していないため、API から取得済みの動画長を用いて割合を計算する
+            this.player.bar.set('played', seek_seconds / player_store.recorded_program.recorded_video.duration, 'width');
+
+            // 視聴履歴から再生を再開する場合のみ通知を表示
+            // そうでない場合は seek() 実行後に表示される通知を即座に非表示にする
+            if (seek_seconds > player_store.recorded_program.recording_start_margin + 2) {
+                this.player.notice('前回視聴した続きから再生します');
+            } else {
+                this.player.hideNotice();
+            }
+            this.player.play();
+            console.log(`\u001b[31m[PlayerController] Seeking to ${seek_seconds} seconds.`);
+        }
 
         // UI コンポーネントからプレイヤーに通知メッセージの送信を要求されたときのイベントハンドラーを登録する
         // このイベントは常にアプリケーション上で1つだけ登録されていなければならない
