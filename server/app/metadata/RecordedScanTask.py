@@ -242,6 +242,7 @@ class RecordedScanTask:
         self,
         file_path: anyio.Path,
         existing_db_recorded_videos: dict[anyio.Path, RecordedVideo] | None,
+        force_update: bool = False,
     ) -> None:
         """
         指定された録画ファイルのメタデータを解析し、DB に永続化する
@@ -251,6 +252,7 @@ class RecordedScanTask:
             file_path (anyio.Path): 処理対象のファイルパス
             existing_db_recorded_videos (dict[anyio.Path, RecordedVideo] | None): 既に DB に永続化されている録画ファイルパスと RecordedVideo レコードのマッピング
                 (ファイル変更イベントから呼ばれた場合、watchfiles 初期化時に取得した全レコードと今で状態が一致しているとは限らないため、None が入る)
+            force_update (bool): 既に DB に登録されている録画ファイルのメタデータを強制的に再解析するかどうか
         """
 
         try:
@@ -289,7 +291,8 @@ class RecordedScanTask:
             # ファイル内容は変更されておらず、レコード内容は更新不要と判断してスキップ
             ## こうすることで、録画済みファイルに対しては HDD への I/O 負荷が高いハッシュ算出やメタデータ解析処理を省略できる
             ## 万が一前回実行時からファイルサイズや最終更新日時の変更を伴わずに録画が完了した場合に状態を適切に反映できるよう、録画中はスキップしない
-            if (existing_db_recorded_video is not None and
+            if (force_update is False and
+                existing_db_recorded_video is not None and
                 existing_db_recorded_video.status == 'Recorded'):
                 if (existing_db_recorded_video.file_created_at == file_created_at and
                     existing_db_recorded_video.file_modified_at == file_modified_at and
@@ -346,7 +349,8 @@ class RecordedScanTask:
 
             # 同じファイルパスの既存レコードがあり、先ほど計算した最新のハッシュと変わっていない場合は、レコード内容は更新不要と判断してスキップ
             ## 万が一前回実行時からファイルサイズや最終更新日時の変更を伴わずに録画が完了した場合に状態を適切に反映できるよう、録画中はスキップしない
-            if (existing_db_recorded_video is not None and
+            if (force_update is False and
+                existing_db_recorded_video is not None and
                 existing_db_recorded_video.status == 'Recorded' and
                 existing_db_recorded_video.file_hash == recorded_program.recorded_video.file_hash):
                 return

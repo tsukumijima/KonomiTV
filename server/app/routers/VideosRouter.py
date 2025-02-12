@@ -18,6 +18,7 @@ from typing import Annotated, Literal, Union
 from app import logging
 from app import schemas
 from app.constants import STATIC_DIR, THUMBNAILS_DIR
+from app.metadata.RecordedScanTask import RecordedScanTask
 from app.metadata.ThumbnailGenerator import ThumbnailGenerator
 from app.models.RecordedProgram import RecordedProgram
 from app.utils.JikkyoClient import JikkyoClient
@@ -360,6 +361,40 @@ async def VideoJikkyoCommentsAPI(
     )
 
 
+@router.post(
+    '/{video_id}/reanalyze',
+    summary = '録画番組メタデータ再解析 API',
+    response_description = 'メタデータ再解析結果のステータス。',
+    response_model = schemas.ReanalyzeStatus,
+)
+async def VideoReanalyzeAPI(
+    recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
+):
+    """
+    指定された録画番組のメタデータ（動画情報・番組情報・キーフレーム情報など）を再解析する。<br>
+    生成に時間のかかるシークバー用サムネイルタイルは既存ファイルがあれば再利用されるが、代表サムネイルはメタデータと同時に再度生成される。
+    """
+
+    try:
+        # メタデータ再解析を実行
+        await RecordedScanTask().processRecordedFile(
+            anyio.Path(recorded_program.recorded_video.file_path),
+            existing_db_recorded_videos = None,
+            force_update = True,
+        )
+        return {
+            'is_success': True,
+            'detail': 'Successfully reanalyzed the video.',
+        }
+
+    except Exception as ex:
+        logging.error(f'Failed to reanalyze the video_id {recorded_program.id}:', exc_info=ex)
+        return {
+            'is_success': False,
+            'detail': f'Failed to reanalyze the video: {ex!s}',
+        }
+
+
 @router.get(
     '/{video_id}/thumbnail',
     summary = '録画番組サムネイル API',
@@ -409,7 +444,7 @@ async def VideoThumbnailTileAPI(
 @router.post(
     '/{video_id}/thumbnail/regenerate',
     summary = 'サムネイル再生成 API',
-    response_description = 'サムネイル再生成のステータス。',
+    response_description = 'サムネイル再生成結果のステータス。',
     response_model = schemas.ThumbnailRegenerationStatus,
 )
 async def VideoThumbnailRegenerateAPI(
