@@ -21,6 +21,17 @@ export interface ILocalClientSettings extends IClientSettings {
     showed_panel_last_time: boolean;
     selected_twitter_account_id: number | null;
     saved_twitter_hashtags: string[];
+    mylist: {
+        type: 'Series' | 'RecordedProgram';
+        id: number;
+        created_at: number;
+    }[];
+    watched_history: {
+        video_id: number;
+        last_playback_position: number;
+        created_at: number;
+        updated_at: number;
+    }[];
     lshaped_screen_crop_enabled: boolean;
     lshaped_screen_crop_zoom_level: number;
     lshaped_screen_crop_x_position: number;
@@ -93,6 +104,11 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
     selected_twitter_account_id: null,
     // 保存している Twitter のハッシュタグが入るリスト
     saved_twitter_hashtags: [],
+
+    // マイリストに追加したシリーズ・録画番組
+    mylist: [],
+    // 「ビデオをみる」の視聴履歴
+    watched_history: [],
 
     // ***** L字画面のクロップ設定 *****
 
@@ -238,6 +254,8 @@ const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
     // showed_panel_last_time: 同期無効
     // selected_twitter_account_id: 同期無効
     'saved_twitter_hashtags',
+    'mylist',
+    'watched_history',
     // lshaped_screen_crop_enabled: 同期無効
     // lshaped_screen_crop_zoom_level: 同期無効
     // lshaped_screen_crop_x_position: 同期無効

@@ -40,6 +40,17 @@
                     <span class="ml-2">コメント数:</span>
                     <span class="ml-2">{{comment_count ?? '--'}}</span>
                 </div>
+                <div v-ripple class="program-info__button" @click="toggleMylist">
+                    <template v-if="isInMylist">
+                        <Icon icon="fluent:checkmark-16-filled" width="18px" height="18px"
+                            style="color: rgb(var(--v-theme-primary)); margin-bottom: -1px" />
+                        <span style="margin-left: 6px;">マイリストに追加済み</span>
+                    </template>
+                    <template v-else>
+                        <Icon icon="fluent:add-16-filled" width="18px" height="18px" style="margin-bottom: -1px" />
+                        <span style="margin-left: 6px;">マイリストに追加</span>
+                    </template>
+                </div>
             </div>
         </section>
         <section class="program-detail-container">
@@ -56,7 +67,9 @@
 import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
 
+import Message from '@/message';
 import usePlayerStore from '@/stores/PlayerStore';
+import useSettingsStore from '@/stores/SettingsStore';
 import Utils, { ProgramUtils } from '@/utils';
 
 export default defineComponent({
@@ -72,7 +85,34 @@ export default defineComponent({
         };
     },
     computed: {
-        ...mapStores(usePlayerStore),
+        ...mapStores(usePlayerStore, useSettingsStore),
+
+        // マイリストに追加されているかどうか
+        isInMylist(): boolean {
+            return this.settingsStore.settings.mylist.some(item =>
+                item.type === 'RecordedProgram' && item.id === this.playerStore.recorded_program.id
+            );
+        },
+    },
+    methods: {
+        // マイリストの追加/削除を切り替える
+        toggleMylist(): void {
+            const program = this.playerStore.recorded_program;
+            if (this.isInMylist) {
+                // マイリストから削除
+                this.settingsStore.settings.mylist = this.settingsStore.settings.mylist.filter(item =>
+                    !(item.type === 'RecordedProgram' && item.id === program.id)
+                );
+                Message.show('マイリストから削除しました。');
+            } else {
+                // マイリストに追加
+                this.settingsStore.settings.mylist.push({
+                    type: 'RecordedProgram',
+                    id: program.id,
+                    created_at: Utils.time(),  // 秒単位
+                });
+            }
+        },
     },
     created() {
         // PlayerController 側からCommentReceived イベントで過去ログコメントを受け取り、コメント数を算出する
@@ -218,6 +258,28 @@ export default defineComponent({
             line-height: 170%;
             @include smartphone-horizontal {
                 font-size: 11.5px;
+            }
+        }
+
+        .program-info__button {
+            display: inline-flex;
+            align-items: center;
+            padding: 5px 8px;
+            margin-top: 16px;
+            color: rgb(var(--v-theme-text-darken-1));
+            font-size: 12.7px;
+            line-height: 170%;
+            background: rgb(var(--v-theme-background-lighten-1));
+            border-radius: 4px;
+            user-select: none;
+            transition: color 0.15s ease;
+            cursor: pointer;
+            @include smartphone-horizontal {
+                font-size: 11.5px;
+            }
+
+            &:hover {
+                color: rgb(var(--v-theme-text));
             }
         }
     }

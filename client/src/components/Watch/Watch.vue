@@ -200,8 +200,12 @@ export default defineComponent({
                 bottom: env(safe-area-inset-bottom) !important;  // iPhone X 以降の Home Indicator の高さ分
                 width: 100% !important;
                 height: 100% !important;
-                background: rgb(var(--v-theme-background-lighten-1));
-                z-index: 100;
+                background: rgb(var(--v-theme-background));
+                transform: translateY(40%) !important;
+                z-index: 100 !important;
+            }
+            &.dplayer-setting-box-open {
+                transform: translateY(0%) !important;
             }
         }
     }
@@ -456,6 +460,9 @@ export default defineComponent({
         position: relative;
         width: 100%;
         cursor: none;
+        @include smartphone-vertical {
+            z-index: 5;  // スマホ縦画面のみ、シークバーのつまみを少しはみ出るように配置する
+        }
     }
 }
 

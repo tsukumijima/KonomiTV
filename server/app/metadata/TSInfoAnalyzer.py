@@ -28,13 +28,21 @@ class TSInfoAnalyzer:
     ariblib の開発者の youzaka 氏に感謝します
     """
 
-    def __init__(self, recorded_video: schemas.RecordedVideo) -> None:
+    def __init__(self, recorded_video: schemas.RecordedVideo, end_ts_offset: int | None = None) -> None:
         """
         録画 TS ファイル内に含まれる番組情報を解析するクラスを初期化する
 
         Args:
             recorded_video (schemas.RecordedVideo): 録画ファイル情報を表すモデル
+            end_ts_offset (int | None): 有効な TS データの終了位置 (バイト単位、ファイル後半がゼロ埋めされている場合に指定する)
         """
+
+        # 有効な TS データの終了位置 (EIT 解析時に必要)
+        # 未指定時はファイルサイズをそのまま利用する
+        if end_ts_offset is not None:
+            self.end_ts_offset = end_ts_offset
+        else:
+            self.end_ts_offset = recorded_video.file_size
 
         # TS ファイルを開く
         ## 188 * 10000 バイト (≒ 1.88MB) ごとに分割して読み込む
@@ -56,6 +64,7 @@ class TSInfoAnalyzer:
         # サービス (チャンネル) 情報を取得
         channel = self.__analyzeSDTInformation()
         if channel is None:
+            logging.warning(f'{self.recorded_video.file_path}: Channel information not found.')
             return None
 
         # 録画番組情報のモデルを作成
@@ -72,6 +81,12 @@ class TSInfoAnalyzer:
             recorded_program = recorded_program_following
         else:
             recorded_program = recorded_program_present
+
+        # 選択された番組情報の duration が 0 の場合は現在/次の両方とも正しい番組情報を取得できなかったことを意味するので、None を返す
+        # このとき番組開始時刻・番組終了時刻は 1970-01-01 09:00:00 になっているはず
+        if recorded_program.duration == 0.0:
+            logging.warning(f'{self.recorded_video.file_path}: Program information not found.')
+            return None
 
         # 録画ファイル情報・チャンネル情報を紐付け
         recorded_program.recorded_video = self.recorded_video
@@ -235,12 +250,13 @@ class TSInfoAnalyzer:
             eit_section_number = 0
 
         # 誤動作防止のため必ず最初にシークを戻す
-        ## 録画ファイルのサイズ全体の 20% の位置にシークする (正確にはシーク単位は 188 バイトずつでなければならないので 188 の倍数になるように調整する)
+        ## 有効な TS データの終了位置から換算して 20% の位置にシークする (正確には TS パケットサイズに合わせて 188 の倍数になるように調整している)
         ## 先頭にシークすると録画開始マージン分のデータを含んでしまうため、大体録画開始マージン分を除いた位置から始める
         ## 極端に録画開始マージンが大きいか番組長が短い録画でない限り、録画対象の番組が放送されているタイミングにシークできるはず
         ## 例えば30分10秒の録画 (前後5秒が録画マージン) の場合、全体の 20% の位置にシークすると大体6分2秒の位置になる
         ## 生の録画データはビットレートが一定のため、シーンによって大きくデータサイズが変動することはない
-        self.ts.seek(ClosestMultiple(int(self.recorded_video.file_size * 0.2), ts.PACKET_SIZE))
+        ## 録画中はファイルアロケーションの関係でファイル後半がゼロ埋めされている場合があるため、ファイルサイズではなく end_ts_offset を使う必要がある
+        self.ts.seek(ClosestMultiple(int(self.end_ts_offset * 0.2), ts.PACKET_SIZE))
 
         # 必要な情報を一旦変数として保持
         event_id: int | None = None
@@ -423,7 +439,8 @@ class TSInfoAnalyzer:
             title = TSInformation.formatString(Path(self.recorded_video.file_path).stem)
 
         # この時点で番組開始時刻・番組終了時刻を取得できていない場合、適当なダミー値を設定する
-        ## start_time が None になる組み合わせは「現在の番組の終了時間が未定」かつ「次の番組情報を取得しようとした」ときのみ
+        ## start_time が None になる組み合わせは「現在の番組の終了時間が未定」かつ「次の番組情報を取得しようとした」ときか、
+        ## 録画ファイルが短すぎて EIT のパースに失敗した場合のみ
         ## 番組情報としては全く使い物にならないし、基本現在の番組情報を使わせるようにしたいので、後続の処理で使われないような値を設定する
         if start_time is None and end_time is None:
             start_time = datetime(1970, 1, 1, 9, tzinfo=ZoneInfo('Asia/Tokyo'))

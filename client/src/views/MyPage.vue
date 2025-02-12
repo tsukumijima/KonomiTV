@@ -26,7 +26,7 @@
                         <Icon icon="ic:round-playlist-play" width="26px" />
                         <span class="ml-4">マイリスト</span>
                     </v-btn>
-                    <v-btn variant="flat" class="settings-navigation__button" to="/viewing-history/">
+                    <v-btn variant="flat" class="settings-navigation__button" to="/watched-history/">
                         <Icon icon="fluent:history-20-regular" width="26px" />
                         <span class="ml-4">視聴履歴</span>
                     </v-btn>

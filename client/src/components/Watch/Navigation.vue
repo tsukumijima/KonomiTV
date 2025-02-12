@@ -37,8 +37,8 @@
             <Icon class="watch-navigation__link-icon" icon="ic:round-playlist-play" width="26px" />
         </router-link>
         <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
-            :class="{'watch-navigation__link--active': $route.path.startsWith('/viewing-history')}"
-            v-ftooltip.right="'視聴履歴'" to="/viewing-history/">
+            :class="{'watch-navigation__link--active': $route.path.startsWith('/watched-history')}"
+            v-ftooltip.right="'視聴履歴'" to="/watched-history/">
             <Icon class="watch-navigation__link-icon" icon="fluent:history-20-regular" width="26px" />
         </router-link>
         <v-spacer></v-spacer>

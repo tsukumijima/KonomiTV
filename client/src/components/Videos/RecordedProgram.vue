@@ -21,6 +21,11 @@
                 <div v-else-if="program.is_partially_recorded" class="recorded-program__thumbnail-status recorded-program__thumbnail-status--partial">
                     ⚠️ 一部のみ録画
                 </div>
+                <div v-if="watchHistory" class="recorded-program__thumbnail-progress">
+                    <div class="recorded-program__thumbnail-progress-bar"
+                        :style="`width: ${(watchHistory.last_playback_position / program.recorded_video.duration) * 100}%`">
+                    </div>
+                </div>
             </div>
             <div class="recorded-program__content">
                 <div class="recorded-program__content-title"
@@ -42,12 +47,31 @@
                 <div class="recorded-program__content-description"
                     v-html="ProgramUtils.decorateProgramInfo(program, 'description')"></div>
             </div>
-            <div v-ripple class="recorded-program__mylist"
-                v-ftooltip="'マイリストに追加する'"
-                @click.prevent.stop="Message.warning('マイリスト機能は現在開発中です。')"
+            <div v-if="!forWatchedHistory" v-ripple class="recorded-program__mylist"
+                :class="{'recorded-program__mylist--highlight': isInMylist && !forMylist}"
+                v-ftooltip="isInMylist ? 'マイリストから削除する' : 'マイリストに追加する'"
+                @click.prevent.stop="toggleMylist"
                 @mousedown.prevent.stop="">
-                <svg width="22px" height="22px" viewBox="0 0 15.2 15.2">
-                    <path fill="currentColor" d="M8 2.5a.5.5 0 0 0-1 0V7H2.5a.5.5 0 0 0 0 1H7v4.5a.5.5 0 0 0 1 0V8h4.5a.5.5 0 0 0 0-1H8z"></path>
+                <template v-if="forMylist">
+                    <svg width="22px" height="22px" viewBox="0 0 16 16">
+                        <path fill="currentColor" d="M7 3h2a1 1 0 0 0-2 0M6 3a2 2 0 1 1 4 0h4a.5.5 0 0 1 0 1h-.564l-1.205 8.838A2.5 2.5 0 0 1 9.754 15H6.246a2.5 2.5 0 0 1-2.477-2.162L2.564 4H2a.5.5 0 0 1 0-1zm1 3.5a.5.5 0 0 0-1 0v5a.5.5 0 0 0 1 0zM9.5 6a.5.5 0 0 0-.5.5v5a.5.5 0 0 0 1 0v-5a.5.5 0 0 0-.5-.5"></path>
+                    </svg>
+                </template>
+                <template v-else>
+                    <svg v-if="isInMylist" width="22px" height="22px" viewBox="0 0 16 16">
+                        <path fill="currentColor" d="M14.046 3.486a.75.75 0 0 1-.032 1.06l-7.93 7.474a.85.85 0 0 1-1.188-.022l-2.68-2.72a.75.75 0 1 1 1.068-1.053l2.234 2.267l7.468-7.038a.75.75 0 0 1 1.06.032"></path>
+                    </svg>
+                    <svg v-else width="22px" height="22px" viewBox="0 0 15.2 15.2">
+                        <path fill="currentColor" d="M8 2.5a.5.5 0 0 0-1 0V7H2.5a.5.5 0 0 0 0 1H7v4.5a.5.5 0 0 0 1 0V8h4.5a.5.5 0 0 0 0-1H8z"></path>
+                    </svg>
+                </template>
+            </div>
+            <div v-if="forWatchedHistory" v-ripple class="recorded-program__mylist"
+                v-ftooltip="'視聴履歴から削除する'"
+                @click.prevent.stop="removeFromWatchedHistory"
+                @mousedown.prevent.stop="">
+                <svg width="22px" height="22px" viewBox="0 0 16 16">
+                    <path fill="currentColor" d="M7 3h2a1 1 0 0 0-2 0M6 3a2 2 0 1 1 4 0h4a.5.5 0 0 1 0 1h-.564l-1.205 8.838A2.5 2.5 0 0 1 9.754 15H6.246a2.5 2.5 0 0 1-2.477-2.162L2.564 4H2a.5.5 0 0 1 0-1zm1 3.5a.5.5 0 0 0-1 0v5a.5.5 0 0 0 1 0zM9.5 6a.5.5 0 0 0-.5.5v5a.5.5 0 0 0 1 0v-5a.5.5 0 0 0-.5-.5"></path>
                 </svg>
             </div>
             <div class="recorded-program__menu">
@@ -71,15 +95,21 @@
                             </template>
                             <v-list-item-title class="ml-3">録画ファイル情報を表示</v-list-item-title>
                         </v-list-item>
+                        <v-list-item @click="downloadVideo" :disabled="program.recorded_video.status === 'Recording'">
+                            <template v-slot:prepend>
+                                <Icon icon="fluent:arrow-download-24-regular" width="20px" height="20px" />
+                            </template>
+                            <v-list-item-title class="ml-3">録画ファイルをダウンロード ({{ Utils.formatBytes(program.recorded_video.file_size) }})</v-list-item-title>
+                        </v-list-item>
                         <v-list-item @click="regenerateThumbnail(true)">
                             <template v-slot:prepend>
-                                <Icon icon="fluent:image-24-regular" width="20px" height="20px" />
+                                <Icon icon="fluent:image-arrow-counterclockwise-24-regular" width="20px" height="20px" />
                             </template>
                             <v-list-item-title class="ml-3">サムネイルを再作成</v-list-item-title>
                         </v-list-item>
                         <v-list-item @click="regenerateThumbnail(false)">
                             <template v-slot:prepend>
-                                <Icon icon="fluent:image-24-regular" width="20px" height="20px" />
+                                <Icon icon="fluent:image-arrow-counterclockwise-24-regular" width="20px" height="20px" />
                             </template>
                             <v-list-item-title class="ml-3">シークバー用サムネイルを再作成</v-list-item-title>
                         </v-list-item>
@@ -92,20 +122,31 @@
 </template>
 <script lang="ts" setup>
 
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 
 import RecordedFileInfoDialog from '@/components/Videos/Dialogs/RecordedFileInfoDialog.vue';
 import Message from '@/message';
 import Videos, { IRecordedProgram } from '@/services/Videos';
+import useSettingsStore from '@/stores/SettingsStore';
 import Utils, { ProgramUtils } from '@/utils';
 
 // Props
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     program: IRecordedProgram;
-}>();
+    forMylist?: boolean;
+    forWatchedHistory?: boolean;
+}>(), {
+    forMylist: false,
+    forWatchedHistory: false,
+});
 
 // ファイル情報ダイアログの表示状態
 const show_video_info = ref(false);
+
+// 録画ファイルのダウンロード (location.href を変更し、ダウンロード自体はブラウザに任せる)
+const downloadVideo = () => {
+    window.location.href = `${Utils.api_base_url}/videos/${props.program.id}/download`;
+};
 
 // サムネイル再作成
 const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
@@ -114,6 +155,49 @@ const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
     if (result.is_success) {
         Message.success('サムネイルの再作成が完了しました。');
     }
+};
+
+// マイリストに追加/削除
+const settingsStore = useSettingsStore();
+const toggleMylist = () => {
+    // マイリストに追加されているか確認
+    const isInMylist = settingsStore.settings.mylist.some(item => {
+        return item.type === 'RecordedProgram' && item.id === props.program.id;
+    });
+
+    if (isInMylist) {
+        // マイリストから削除
+        settingsStore.settings.mylist = settingsStore.settings.mylist.filter(item => {
+            return !(item.type === 'RecordedProgram' && item.id === props.program.id);
+        });
+        Message.show('マイリストから削除しました。');
+    } else {
+        // マイリストに追加
+        settingsStore.settings.mylist.push({
+            type: 'RecordedProgram',
+            id: props.program.id,
+            created_at: Utils.time(),  // 秒単位
+        });
+        Message.success('マイリストに追加しました。');
+    }
+};
+
+// マイリストに追加されているか確認
+const isInMylist = computed(() => {
+    return settingsStore.settings.mylist.some(item => item.type === 'RecordedProgram' && item.id === props.program.id);
+});
+
+// 視聴履歴を取得
+const watchHistory = computed(() => {
+    return settingsStore.settings.watched_history.find(history => history.video_id === props.program.id);
+});
+
+// 視聴履歴から削除
+const removeFromWatchedHistory = () => {
+    settingsStore.settings.watched_history = settingsStore.settings.watched_history.filter(history => {
+        return history.video_id !== props.program.id;
+    });
+    Message.show('視聴履歴から削除しました。');
 };
 
 </script>
@@ -167,6 +251,7 @@ const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
         flex-shrink: 0;
         aspect-ratio: 16 / 9;
         height: 100%;
+        border-radius: 4px;
         overflow: hidden;
         position: relative;
         @include smartphone-vertical {
@@ -229,6 +314,21 @@ const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
                 border-radius: 50%;
                 background: #ff4444;
                 animation: blink 1.5s infinite;
+            }
+        }
+
+        &-progress {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 3px;
+            background: rgba(0, 0, 0, 0.6);
+
+            &-bar {
+                height: 100%;
+                background: rgb(var(--v-theme-secondary-lighten-1));
+                transition: width 0.2s ease;
             }
         }
     }
@@ -465,6 +565,13 @@ const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
                 &:before {
                     opacity: 0;
                 }
+            }
+        }
+
+        &--highlight {
+            color: rgb(var(--v-theme-primary));
+            &:hover {
+                color: rgb(var(--v-theme-primary));
             }
         }
     }

@@ -3,10 +3,14 @@ import anyio
 import asyncio
 import json
 import time
+import typer
+from pathlib import Path
+from tortoise import Tortoise
 
 from app import logging
 from app import schemas
-from app.constants import LIBRARY_PATH
+from app.config import LoadConfig
+from app.constants import DATABASE_CONFIG, LIBRARY_PATH
 from app.models.RecordedVideo import RecordedVideo
 
 
@@ -50,7 +54,6 @@ class KeyFrameAnalyzer:
                 '-select_streams', 'v:0',
                 '-show_packets',
                 '-show_entries', 'packet=pos,dts,flags',
-                '-threads', '1',  # シングルスレッドで実行
                 '-of', 'json',
             ]
 
@@ -87,11 +90,9 @@ class KeyFrameAnalyzer:
             ## flags に 'K' が含まれているパケットがキーフレーム
             key_frames: list[schemas.KeyFrame] = []
             for packet in packets:
-                # 必要なフィールドが存在することを確認
+                # 必要なフィールドが存在することを確認（存在しないパケットは無視）
                 if not all(field in packet for field in ['pos', 'dts', 'flags']):
-                    logging.error(f'{self.file_path}: Invalid packet data found in ffprobe output')
-                    return
-
+                    continue
                 # キーフレームのみを抽出
                 if 'K' in packet['flags']:
                     key_frames.append({
@@ -101,7 +102,7 @@ class KeyFrameAnalyzer:
 
             # パケットが1つも見つからなかった場合
             if not packets:
-                logging.error(f'{self.file_path}: No packets found in ffprobe output')
+                logging.error(f'{self.file_path}: No packets found in ffprobe output.')
                 return
 
             # 最後のフレームが非キーフレームの場合、シーク可能性のために追加
@@ -129,3 +130,17 @@ class KeyFrameAnalyzer:
 
         except Exception as ex:
             logging.error(f'{self.file_path}: Error in keyframe analysis:', exc_info=ex)
+
+
+if __name__ == '__main__':
+    # デバッグ用: 録画ファイルのパスを引数に取り、そのファイルのキーフレーム情報を解析する
+    # Usage: poetry run python -m app.metadata.KeyFrameAnalyzer /path/to/recorded_file.ts
+    def main(recorded_file_path: Path = typer.Argument(..., exists=True, file_okay=True, dir_okay=False, readable=True, resolve_path=True)):
+        LoadConfig(bypass_validation=True)  # 一度実行しておかないと設定値を参照できない
+        key_frame_analyzer = KeyFrameAnalyzer(anyio.Path(str(recorded_file_path)))
+        async def amain():
+            await Tortoise.init(config=DATABASE_CONFIG)
+            await key_frame_analyzer.analyze()
+            await Tortoise.close_connections()
+        asyncio.run(amain())
+    typer.run(main)

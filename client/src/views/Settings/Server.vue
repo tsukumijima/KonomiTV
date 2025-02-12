@@ -279,6 +279,21 @@
                 <span class="ml-2">データベースを更新</span>
             </v-btn>
             <div class="settings__item">
+                <div class="settings__item-heading">録画フォルダの一括スキャンを手動実行</div>
+                <div class="settings__item-label">
+                    録画フォルダ内のファイルは、通常 KonomiTV サーバーの起動時に自動的にスキャンされます。<br>
+                    録画ファイルが KonomiTV に正しく反映されていない場合にのみ実行してみてください。<br>
+                </div>
+                <div class="settings__item-label mt-1">
+                    <strong>大量の録画ファイルが保存されている環境では、処理完了まで数時間〜数日以上かかることがあります。</strong><br>
+                </div>
+            </div>
+            <v-btn class="settings__save-button mt-5" color="background-lighten-2" variant="flat"
+                @click="runBatchScan()">
+                <Icon icon="fluent:folder-sync-20-regular" height="20px" />
+                <span class="ml-2">録画フォルダの一括スキャンを手動実行</span>
+            </v-btn>
+            <div class="settings__item">
                 <div class="settings__item-heading">録画ファイルのバックグラウンド解析タスクを再実行</div>
                 <div class="settings__item-label">
                     録画ファイルのメタデータ解析やサムネイル作成が完了していない場合に、これらの処理を再度実行します。<br>
@@ -387,6 +402,21 @@ async function updateDatabase() {
     Message.show('データベースを更新しています...');
     await Maintenance.updateDatabase();
     Message.success('データベースを更新しました。');
+}
+
+// 録画フォルダの一括スキャンを実行する関数
+async function runBatchScan() {
+    Message.info(
+        '録画フォルダの一括スキャンを開始しています...\n' +
+        '大量の録画ファイルが保存されている環境では、処理完了まで数時間〜数日以上かかることがあります。'
+    );
+    const result = await Maintenance.runBatchScan();
+    if (result === true) {
+        Message.success(
+            '録画フォルダの一括スキャンが完了しました。\n' +
+            'すべての録画ファイルがデータベースに同期されているはずです。'
+        );
+    }
 }
 
 // バックグラウンド解析タスクを開始する関数

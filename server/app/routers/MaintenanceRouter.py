@@ -16,6 +16,7 @@ from app import schemas
 from app.config import Config
 from app.constants import RESTART_REQUIRED_LOCK_PATH, THUMBNAILS_DIR
 from app.metadata.KeyFrameAnalyzer import KeyFrameAnalyzer
+from app.metadata.RecordedScanTask import RecordedScanTask
 from app.metadata.ThumbnailGenerator import ThumbnailGenerator
 from app.models.Channel import Channel
 from app.models.Program import Program
@@ -32,7 +33,8 @@ router = APIRouter(
     prefix = '/api/maintenance',
 )
 
-# バックグラウンド解析タスクの asyncio.Task インスタンス
+# 録画フォルダの一括スキャン・バックグラウンド解析タスクの asyncio.Task インスタンス
+batch_scan_task: asyncio.Task[None] | None = None
 background_analysis_task: asyncio.Task[None] | None = None
 
 
@@ -83,7 +85,45 @@ async def UpdateDatabaseAPI(
 
 
 @router.post(
-    '/background-analysis',
+    '/run-batch-scan',
+    summary = '録画フォルダ一括スキャン API',
+    status_code = status.HTTP_204_NO_CONTENT,
+)
+async def BatchScanAPI():
+    """
+    録画フォルダ内の全 TS ファイルをスキャンし、メタデータを解析して DB に永続化する。<br>
+    追加・変更があったファイルのみメタデータを解析し、DB に永続化する。<br>
+    存在しない録画ファイルに対応するレコードを一括削除する。<br>
+    """
+
+    global batch_scan_task
+
+    async def BatchScan():
+        global batch_scan_task
+        logging.info('Manual batch scan of recording folders has started.')
+
+        # 一括スキャンを実行
+        await RecordedScanTask().runBatchScan()
+
+        # 一括スキャンが完了した
+        logging.info('Manual batch scan of recording folders has finished.')
+        batch_scan_task = None  # 再度新しいタスクを作成できるように None にする
+
+    # タスクが実行中でない場合、新しくタスクを作成して実行
+    ## asyncio.create_task() で実行することで、API への HTTP コネクションが切断されてもタスクが継続される
+    if batch_scan_task is None:
+        batch_scan_task = asyncio.create_task(BatchScan())
+        # タスクの実行が完了するまで待機
+        await batch_scan_task
+    else:
+        raise HTTPException(
+            status_code = status.HTTP_429_TOO_MANY_REQUESTS,
+            detail = 'Batch scan of recording folders is already running',
+        )
+
+
+@router.post(
+    '/run-background-analysis',
     summary = 'バックグラウンド解析タスク手動実行 API',
     status_code = status.HTTP_204_NO_CONTENT,
 )
@@ -117,12 +157,12 @@ async def BackgroundAnalysisAPI():
                 # キーフレーム情報が未解析の場合、タスクに追加
                 if not db_recorded_video.has_key_frames:
                     tasks.append(KeyFrameAnalyzer(file_path).analyze())
-                else:
-                    logging.info(f'{file_path}: Keyframe analysis already completed.')
 
                 # サムネイルが未生成の場合、タスクに追加
+                # どちらか片方だけがないパターンも考えられるので、その場合もサムネイル生成を実行する
+                thumbnail_tile_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{db_recorded_video.file_hash}_tile.webp'
                 thumbnail_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{db_recorded_video.file_hash}.webp'
-                if not await thumbnail_path.is_file():
+                if (not await thumbnail_tile_path.is_file()) or (not await thumbnail_path.is_file()):
                     # 録画番組情報を取得
                     db_recorded_program = await RecordedProgram.all() \
                         .select_related('recorded_video') \
@@ -132,8 +172,6 @@ async def BackgroundAnalysisAPI():
                         # RecordedProgram モデルを schemas.RecordedProgram に変換
                         recorded_program = schemas.RecordedProgram.model_validate(db_recorded_program, from_attributes=True)
                         tasks.append(ThumbnailGenerator.fromRecordedProgram(recorded_program).generate(skip_tile_if_exists=True))
-                else:
-                    logging.info(f'{file_path}: Thumbnail already generated.')
 
                 # タスクが存在する場合、同時実行
                 if tasks:

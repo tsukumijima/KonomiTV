@@ -1,5 +1,6 @@
 
 import anyio
+import pathlib
 from email.utils import parsedate
 from fastapi import APIRouter
 from fastapi import Depends
@@ -86,7 +87,7 @@ def IsContentNotModified(response_headers: Headers, request_headers: Headers) ->
 async def GetThumbnailResponse(
     request: Request,
     recorded_program: RecordedProgram,
-    is_tile: bool = False,
+    return_tiled: bool = False,
 ) -> Union[FileResponse, Response]:
     """
     サムネイル画像のレスポンスを生成する共通処理
@@ -103,7 +104,7 @@ async def GetThumbnailResponse(
     """
 
     # サムネイル画像のパスを生成
-    suffix = '_tile' if is_tile else ''
+    suffix = '_tile' if return_tiled else ''
     base_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{recorded_program.recorded_video.file_hash}{suffix}'
 
     # WebP と JPEG の両方を試す
@@ -163,26 +164,70 @@ async def GetThumbnailResponse(
     response_model = schemas.RecordedPrograms,
 )
 async def VideosAPI(
-    order: Annotated[Literal['desc', 'asc'], Query(description='ソート順序 (desc or asc) 。')] = 'desc',
+    order: Annotated[Literal['desc', 'asc', 'ids'], Query(description='ソート順序 (desc or asc or ids) 。ids を指定すると、ids パラメータで指定された順序を維持する。')] = 'desc',
     page: Annotated[int, Query(description='ページ番号。')] = 1,
+    ids: Annotated[list[int] | None, Query(description='録画番組 ID のリスト。指定時は指定された ID の録画番組のみを返す。')] = None,
 ):
     """
     すべての録画番組を一度に 100 件ずつ取得する。<br>
-    order には "desc" か "asc" を指定する。<br>
-    page (ページ番号) には 1 以上の整数を指定する。
+    order には "desc" か "asc" か "ids" を指定する。"ids" を指定すると、ids パラメータで指定された順序を維持する。<br>
+    page (ページ番号) には 1 以上の整数を指定する。<br>
+    ids には録画番組 ID のリストを指定できる。指定時は指定された ID の録画番組のみを返す。
     """
 
-    recorded_programs = await RecordedProgram.all() \
-        .select_related('recorded_video') \
-        .select_related('channel') \
-        .order_by('-start_time' if order == 'desc' else 'start_time') \
-        .offset((page - 1) * PAGE_SIZE) \
-        .limit(PAGE_SIZE) \
+    # ids が指定されている場合は、指定された ID の録画番組のみを返す
+    if ids is not None:
+        # 指定された ID の録画番組を取得
+        # order が 'ids' の場合は、指定された順序を維持する
+        if order == 'ids':
+            # 指定された ID の録画番組を取得
+            # ページングを考慮して必要な範囲の ID のみを使用
+            target_ids = ids[(page - 1) * PAGE_SIZE:page * PAGE_SIZE]
 
-    return {
-        'total': await RecordedProgram.all().count(),
-        'recorded_programs': recorded_programs,
-    }
+            # 録画番組を取得
+            recorded_programs = await RecordedProgram.all() \
+                .select_related('recorded_video') \
+                .select_related('channel') \
+                .filter(id__in=target_ids)
+
+            # 指定された順序でソート
+            id_to_index = {id: index for index, id in enumerate(target_ids)}
+            recorded_programs = sorted(recorded_programs, key=lambda x: id_to_index[x.id])
+
+            return {
+                # 指定された ID の録画番組の総数を取得
+                'total': await RecordedProgram.all().filter(id__in=ids).count(),
+                'recorded_programs': recorded_programs,
+            }
+        else:
+            recorded_programs = await RecordedProgram.all() \
+                .select_related('recorded_video') \
+                .select_related('channel') \
+                .filter(id__in=ids) \
+                .order_by('-start_time' if order == 'desc' else 'start_time') \
+                .offset((page - 1) * PAGE_SIZE) \
+                .limit(PAGE_SIZE)
+
+        return {
+            # 指定された ID の録画番組の総数を取得
+            'total': await RecordedProgram.all().filter(id__in=ids).count(),
+            'recorded_programs': recorded_programs,
+        }
+
+    # ids が指定されていない場合は、すべての録画番組を返す
+    else:
+        recorded_programs = await RecordedProgram.all() \
+            .select_related('recorded_video') \
+            .select_related('channel') \
+            .order_by('-start_time' if order == 'desc' else 'start_time') \
+            .offset((page - 1) * PAGE_SIZE) \
+            .limit(PAGE_SIZE)
+
+        return {
+            # すべての録画番組の総数を取得
+            'total': await RecordedProgram.all().count(),
+            'recorded_programs': recorded_programs,
+        }
 
 
 @router.get(
@@ -253,6 +298,35 @@ async def VideoAPI(
 
 
 @router.get(
+    '/{video_id}/download',
+    summary = '録画番組ダウンロード API',
+    response_description = '録画番組の MPEG-TS ファイル。',
+    response_class = FileResponse,
+    responses = {
+        200: {'content': {'video/mp2t': {}}},
+        422: {'description': 'Specified video_id was not found'},
+    },
+)
+async def VideoDownloadAPI(
+    recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
+):
+    """
+    指定された録画番組の MPEG-TS ファイルをダウンロードする。
+    """
+
+    # ファイルパスとファイル名を取得
+    file_path = recorded_program.recorded_video.file_path
+    filename = pathlib.Path(file_path).name
+
+    # MPEG-TS ファイルをダウンロードさせる
+    return FileResponse(
+        path = file_path,
+        filename = filename,
+        media_type = 'video/mp2t',
+    )
+
+
+@router.get(
     '/{video_id}/jikkyo',
     summary = '録画番組過去ログコメント API',
     response_description = '録画番組の放送中に投稿されたニコニコ実況の過去ログコメント。',
@@ -311,8 +385,8 @@ async def VideoThumbnailAPI(
 
 @router.get(
     '/{video_id}/thumbnail/tiled',
-    summary = '録画番組シークバー向けサムネイルタイル API',
-    response_description = '録画番組のシークバー向けサムネイルタイル画像 (WebP または JPEG) 。',
+    summary = '録画番組シークバー用サムネイルタイル API',
+    response_description = '録画番組のシークバー用サムネイルタイル画像 (WebP または JPEG) 。',
     response_class = FileResponse,
     responses = {
         200: {'content': {'image/webp': {}, 'image/jpeg': {}}},
@@ -329,7 +403,7 @@ async def VideoThumbnailTileAPI(
     サムネイルが生成されていない場合はデフォルト画像を返す。
     """
 
-    return await GetThumbnailResponse(request, recorded_program, is_tile=True)
+    return await GetThumbnailResponse(request, recorded_program, return_tiled=True)
 
 
 @router.post(

@@ -4,7 +4,6 @@ import httpx
 import json
 import re
 import time
-import traceback
 from bs4 import BeautifulSoup
 from datetime import datetime
 from typing import Any, cast, ClassVar, Literal, TypedDict
@@ -313,9 +312,8 @@ class TwitterGraphQLAPI:
                                              f'[{cls.ENDPOINT_INFOS[operation_name].method}] {cls.ENDPOINT_INFOS[operation_name].path}')
 
             logging.info(f'Twitter GraphQL API endpoint infos update complete. ({round(time.time() - start_time, 3)} sec)')
-        except Exception:
-            logging.error('Failed to update Twitter GraphQL API endpoint infos:')
-            logging.error(traceback.format_exc())
+        except Exception as ex:
+            logging.error('Failed to update Twitter GraphQL API endpoint infos:', exc_info=ex)
 
 
     async def persistCookies(self) -> None:

@@ -10,7 +10,6 @@ import gc
 import httpx
 import json
 import time
-import traceback
 from datetime import datetime
 from datetime import timedelta
 from tortoise import connections
@@ -117,8 +116,8 @@ class Program(TortoiseModel):
                 # EDCB バックエンド
                 elif Config().general.backend == 'EDCB':
                     await cls.updateFromEDCB()
-            except Exception:
-                traceback.print_exc()
+            except Exception as ex:
+                logging.error('Failed to update programs:', exc_info=ex)
 
         logging.info(f'Programs update complete. ({round(time.time() - timestamp, 3)} sec)')
 
@@ -459,8 +458,8 @@ class Program(TortoiseModel):
 
 
         # マルチプロセス実行時は、明示的に例外を拾わないとなぜかメインプロセスも含め全体がフリーズしてしまう
-        except Exception:
-            logging.error(traceback.format_exc())
+        except Exception as ex:
+            logging.error('Failed to update programs from Mirakurun:', exc_info=ex)
 
         # マルチプロセス実行時は、開いた Tortoise ORM のコネクションを明示的に閉じる
         # コネクションを閉じないと Ctrl+C を押下しても終了できない
@@ -744,8 +743,8 @@ class Program(TortoiseModel):
                             pass
 
         # マルチプロセス実行時は、明示的に例外を拾わないとなぜかメインプロセスも含め全体がフリーズしてしまう
-        except Exception:
-            logging.error(traceback.format_exc())
+        except Exception as ex:
+            logging.error('Failed to update programs from EDCB:', exc_info=ex)
 
         # マルチプロセス実行時は、開いた Tortoise ORM のコネクションを明示的に閉じる
         # コネクションを閉じないと Ctrl+C を押下しても終了できない

@@ -7,6 +7,7 @@
                 <SPHeaderBar />
                 <div class="recorded-programs-container">
                     <Breadcrumbs :crumbs="[
+                        { name: 'ホーム', path: '/' },
                         { name: 'ビデオをみる', path: '/videos/' },
                         { name: '録画番組一覧', path: '/videos/programs', disabled: true },
                     ]" />
@@ -20,7 +21,7 @@
                         :showBackButton="true"
                         :showEmptyMessage="!is_loading"
                         @update:page="updatePage"
-                        @update:sortOrder="updateSortOrder" />
+                        @update:sortOrder="updateSortOrder($event as SortOrder)" />
                 </div>
             </div>
         </main>
@@ -36,7 +37,7 @@ import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
 import SPHeaderBar from '@/components/SPHeaderBar.vue';
 import RecordedProgramList from '@/components/Videos/RecordedProgramList.vue';
-import { IRecordedProgram } from '@/services/Videos';
+import { IRecordedProgram, SortOrder } from '@/services/Videos';
 import Videos from '@/services/Videos';
 
 // ルーター
@@ -56,7 +57,7 @@ const sort_order = ref<'desc' | 'asc'>('desc');
 
 // 録画番組を取得
 const fetchPrograms = async () => {
-    const result = await Videos.fetchAllVideos(sort_order.value, current_page.value);
+    const result = await Videos.fetchVideos(sort_order.value, current_page.value);
     if (result) {
         programs.value = result.recorded_programs;
         total_programs.value = result.total;
@@ -130,6 +131,7 @@ onMounted(async () => {
     display: flex;
     flex-direction: column;
     width: 100%;
+    height: 100%;
     padding: 20px;
     margin: 0 auto;
     min-width: 0;

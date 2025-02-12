@@ -33,8 +33,8 @@
                         <Icon class="navigation__link-icon" icon="ic:round-playlist-play" width="26px" />
                         <span class="navigation__link-text">マイリスト</span>
                     </router-link>
-                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/viewing-history/"
-                        :class="{'navigation__link--active': $route.path.startsWith('/viewing-history')}">
+                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/watched-history/"
+                        :class="{'navigation__link--active': $route.path.startsWith('/watched-history')}">
                         <Icon class="navigation__link-icon" icon="fluent:history-20-regular" width="26px" />
                         <span class="navigation__link-text">視聴履歴</span>
                     </router-link>

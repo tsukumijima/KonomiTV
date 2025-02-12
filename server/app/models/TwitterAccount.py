@@ -60,8 +60,7 @@ class TwitterAccount(TortoiseModel):
             try:
                 verify_credentials = await asyncio.to_thread(api.verify_credentials)
             except tweepy.TweepyException as ex:
-                logging.error(f'Failed to get user information for Twitter account @{twitter_account.screen_name}')
-                logging.error(ex)
+                logging.error(f'Failed to get user information for Twitter account @{twitter_account.screen_name}', exc_info=ex)
                 continue
             # アカウント名
             twitter_account.name = verify_credentials.name

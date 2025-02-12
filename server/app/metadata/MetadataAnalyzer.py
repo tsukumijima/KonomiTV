@@ -74,18 +74,12 @@ class MetadataAnalyzer:
         secondary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] | None = None
         secondary_audio_sampling_rate: int | None = None
 
-        # 録画ファイルのハッシュを計算
-        try:
-            file_hash = self.calculateTSFileHash()
-        except ValueError:
-            logging.warning(f'{self.recorded_file_path}: File size is too small. ignored.')
-            return None
-
         # MediaInfo から録画ファイルのメディア情報を取得
         ## 取得に失敗した場合は KonomiTV で再生可能なファイルではないと判断し、None を返す
-        full_media_info, sample_media_info = self.analyzeMediaInfo()
-        if full_media_info is None or sample_media_info is None:
+        result = self.analyzeMediaInfo()
+        if result is None:
             return None
+        full_media_info, sample_media_info, end_ts_offset = result
         logging.debug_simple(f'{self.recorded_file_path}: MediaInfo analysis completed.')
 
         # メディア情報から録画ファイルのメタデータを取得
@@ -233,7 +227,15 @@ class MetadataAnalyzer:
                 logging.warning(f'{self.recorded_file_path}: sync_byte is missing. ignored.')
                 return None
 
+        # ファイルハッシュを計算
+        try:
+            file_hash = self.calculateTSFileHash()
+        except ValueError:
+            logging.warning(f'{self.recorded_file_path}: File size is too small. ignored.')
+            return None
+
         # 録画ファイル情報を表すモデルを作成
+        now = datetime.now(tz=ZoneInfo('Asia/Tokyo'))
         stat_info = self.recorded_file_path.stat()
         recorded_video = schemas.RecordedVideo(
             status = 'Recorded',  # この時点では録画済みとしておく
@@ -260,18 +262,24 @@ class MetadataAnalyzer:
             secondary_audio_sampling_rate = secondary_audio_sampling_rate,
             # 必須フィールドのため作成日時・更新日時は適当に現在時刻を入れている
             # この値は参照されず、DB の値は別途自動生成される
-            created_at = datetime.now(tz=ZoneInfo('Asia/Tokyo')),
-            updated_at = datetime.now(tz=ZoneInfo('Asia/Tokyo')),
+            created_at = now,
+            updated_at = now,
         )
 
         # MPEG-TS 形式のみ、TS ファイルに含まれる番組情報・チャンネル情報を解析する
         recorded_program = None
         if container_format == 'MPEG-TS':
-            recorded_program = TSInfoAnalyzer(recorded_video).analyze()
-            logging.debug_simple(f'{self.recorded_file_path}: MPEG-TS SDT/EIT analysis completed.')
+            recorded_program = TSInfoAnalyzer(recorded_video, end_ts_offset).analyze()  # 取得失敗時は None が返る
+            if recorded_program is not None:
+                logging.debug_simple(f'{self.recorded_file_path}: MPEG-TS SDT/EIT analysis completed.')
+            else:
+                # 取得失敗時、最終更新日時が現在時刻から30秒以内ならまだ録画中の可能性が高いので、None を返し DB には保存しない
+                if (now - recorded_video.file_modified_at).total_seconds() < 30:
+                    logging.warning(f'{self.recorded_file_path}: MPEG-TS SDT/EIT analysis failed. (still recording?)')
+                    return None
 
         # それ以外の形式では番組情報を取得できないので、ファイル名などから最低限の情報を設定する
-        # MPEG-TS 形式だが TS ファイルからチャンネル情報を取得できなかった場合も同様
+        # MPEG-TS 形式だが TS ファイルからチャンネル情報・番組情報を取得できなかった場合も同様
         ## 他の値は RecordedProgram モデルで設定されたデフォルト値が自動的に入るので、タイトルと日時だけここで設定する
         if recorded_program is None:
             ## ファイルの作成日時を番組開始時刻として使用する
@@ -341,7 +349,7 @@ class MetadataAnalyzer:
         return hash_obj.hexdigest()
 
 
-    def calculateTSFileDuration(self, search_block_size: int = 1024 * 1024) -> float | None:
+    def calculateTSFileDuration(self, search_block_size: int = 1024 * 1024) -> tuple[float, int] | None:
         """
         TS ファイル内の最初と最後の有効な PCR タイムスタンプから再生時間（秒）を算出する (written with o3-mini)
         MediaInfo から再生時間を取得できなかった場合のフォールバックとして利用する
@@ -352,7 +360,8 @@ class MetadataAnalyzer:
             search_block_size (int): PCR 抽出時に読み込むブロックサイズ (バイト単位). デフォルト: 1MB
 
         Returns:
-            float | None: ファイルの再生時間（秒）（抽出できなかった場合は None を返す）
+            tuple[float, int] | None: (再生時間（秒）, 有効な TS データの終了位置) のタプル
+                （抽出できなかった場合は None を返す）
         """
 
         try:
@@ -464,21 +473,22 @@ class MetadataAnalyzer:
                 # 先頭と末尾の PCR 値から再生時間（秒）を算出する
                 duration = last_timestamp - first_timestamp
                 logging.debug_simple(f'{self.recorded_file_path}: Duration calculated: {duration} seconds.')
-                return duration
+
+                return (duration, valid_data_end)
 
         except Exception as ex:
             logging.error('Error in fallback duration calculation:', exc_info=ex)
             return None
 
 
-    def analyzeMediaInfo(self) -> tuple[MediaInfo | None, MediaInfo | None]:
+    def analyzeMediaInfo(self) -> tuple[MediaInfo, MediaInfo, int | None] | None:
         """
         録画ファイルのメディア情報を MediaInfo を使って解析する
         全体解析と部分解析の2段階で解析を行う
         全体解析では全般情報（コンテナ情報、録画時間など）を、部分解析では映像・音声情報を取得する
 
         Returns:
-            tuple[MediaInfo | None, MediaInfo | None]: 全体解析と部分解析の結果のタプル
+            tuple[MediaInfo, MediaInfo, int | None] | None: 全体解析と部分解析の結果、有効な TS データの終了位置のタプル
                 (KonomiTV で再生可能なファイルではない場合は None が返される)
         """
 
@@ -492,34 +502,47 @@ class MetadataAnalyzer:
         try:
             full_media_info = cast(MediaInfo, MediaInfo.parse(str(self.recorded_file_path), library_file=libmediainfo_path))
         except Exception as ex:
-            logging.warning(f'{self.recorded_file_path}: Failed to parse full media info.')
-            logging.warning(ex)
-            return None, None
+            logging.warning(f'{self.recorded_file_path}: Failed to parse full media info.', exc_info=ex)
+            return None
 
         # 部分解析: 録画ファイルの30%位置から30秒程度のデータを取得し、メディア情報を解析する
+        duration_result: tuple[float, int] | None = None
         try:
             # ファイルを開く
             with open(self.recorded_file_path, 'rb') as f:
-                # 20%位置にシーク (TS パケットサイズに合わせて切り出す)
-                offset = ClosestMultiple(int(self.recorded_file_path.stat().st_size * 0.2), ts.PACKET_SIZE)
+                # 25%位置にシーク (TS パケットサイズに合わせて切り出す)
+                file_size = self.recorded_file_path.stat().st_size
+                offset = ClosestMultiple(int(file_size * 0.25), ts.PACKET_SIZE)
                 f.seek(offset)
-                # 30秒程度のデータを読み込む (ビットレートを 20Mbps と仮定)
-                ## 20Mbps * 30秒 = 75MB
-                sample_size = ClosestMultiple(20 * 1024 * 1024 * 30 // 8, ts.PACKET_SIZE)  # TS パケットサイズに合わせて切り出す
+                # 30秒程度のデータを読み込む (ビットレートを 18Mbps と仮定)
+                ## サンプルとして MediaInfo に渡すデータが30秒より短いと正確に解析できないことがある
+                sample_size = ClosestMultiple(18 * 1024 * 1024 * 30 // 8, ts.PACKET_SIZE)  # TS パケットサイズに合わせて切り出す
                 sample_data = f.read(sample_size)
                 # サンプルデータが全てゼロ埋めされているかチェック
                 if all(byte == 0 for byte in sample_data):
-                    # スパースファイルの可能性があるため、全体解析の結果を部分解析として使用
-                    sample_media_info = full_media_info
-                else:
-                    # BytesIO オブジェクトを作成
-                    sample_io = io.BytesIO(sample_data)
-                    # メディア情報を解析
-                    sample_media_info = cast(MediaInfo, MediaInfo.parse(sample_io, library_file=libmediainfo_path))
+                    # ゼロ埋め領域の境界を取得するため calculateTSFileDuration を実行
+                    duration_result = self.calculateTSFileDuration()
+                    if duration_result is None:
+                        logging.warning(f'{self.recorded_file_path}: Failed to calculate duration.')
+                        return None
+                    # ゼロ埋め領域を除いた有効データ範囲から再度サンプルを取得
+                    # 有効データ範囲の25%位置にシーク
+                    _, end_ts_offset = duration_result
+                    offset = ClosestMultiple(int(end_ts_offset * 0.25), ts.PACKET_SIZE)
+                    f.seek(offset)
+                    # 30秒程度のデータを読み込む (ビットレートを 18Mbps と仮定)
+                    sample_size = min(sample_size, end_ts_offset - offset)  # 有効データ範囲を超えないようにする
+                    sample_data = f.read(sample_size)
+                # BytesIO オブジェクトを作成
+                sample_io = io.BytesIO(sample_data)
+                # メディア情報を解析
+                ## 重要: バッファサイズを TS パケットサイズの100倍程度に抑えないと、ファイルによっては不正確な結果が返ってくることがある
+                ## なぜバッファサイズ次第で解析結果が変わるのか不可解だが、一回の送信サイズを小さく保った方が不正確な結果を避けられそう…？
+                ## 素直にファイルに書き出してから参照させるのが最も確実だが、比較的容量の大きいファイルをこのためだけに書き込むのは気が引ける
+                sample_media_info = cast(MediaInfo, MediaInfo.parse(sample_io, buffer_size=ts.PACKET_SIZE * 100, library_file=libmediainfo_path))
         except Exception as ex:
-            logging.warning(f'{self.recorded_file_path}: Failed to parse sample media info.')
-            logging.warning(ex)
-            return None, None
+            logging.warning(f'{self.recorded_file_path}: Failed to parse sample media info.', exc_info=ex)
+            return None
 
         # 最低限 KonomiTV で再生可能なファイルであるかのバリデーションを行う
         ## この処理だけでエラーが発生する (=参照しているキーが MediaInfo から提供されていない) 場合、
@@ -534,22 +557,26 @@ class MetadataAnalyzer:
                     ## "BDAV" も MPEG-TS だが、TS パケット長が 192 byte で ariblib でパースできないため現状非対応
                     if track.format != 'MPEG-TS':
                         logging.warning(f'{self.recorded_file_path}: {track.format} is not supported.')
-                        return None, None
+                        return None
                     # 映像 or 音声ストリームが存在しない
                     if track.count_of_video_streams == 0 and track.count_of_audio_streams == 0:
                         logging.warning(f'{self.recorded_file_path}: Video or audio stream is missing.')
-                        return None, None
+                        return None
                     # MediaInfo から再生時間が取得できない
+                    # 録画中などでファイルアロケーションされており、ファイル後半がゼロ埋めされているケースで発生しやすい
                     if hasattr(track, 'duration') is False or track.duration is None:
                         # フォールバックとして自前で長さを算出する
-                        duration = self.calculateTSFileDuration()
-                        if duration is not None:
+                        if duration_result is None:
+                            # まだ calculateTSFileDuration() が実行されていない場合のみここで実行する
+                            duration_result = self.calculateTSFileDuration()
+                        if duration_result is not None:
                             # 再生時間を算出できた場合は代わりに算出した値を設定する
+                            duration, _ = duration_result
                             track.duration = duration * 1000  # ミリ秒に変換
                         else:
                             # 再生時間を算出できなかった (ファイルが破損しているなど)
                             logging.warning(f'{self.recorded_file_path}: Duration is missing.')
-                            return None, None
+                            return None
 
             # サンプルデータからも同様にバリデーションを行う
             for track in sample_media_info.tracks:
@@ -559,33 +586,42 @@ class MetadataAnalyzer:
                     # スクランブルが解除されていない
                     if track.encryption == 'Encrypted':
                         logging.warning(f'{self.recorded_file_path}: Video stream is encrypted.')
-                        return None, None
+                        return None
                     # MPEG-2, H.264, H.265 以外のフォーマットは KonomiTV で再生できない
                     if track.format not in ['MPEG Video', 'AVC', 'HEVC']:
                         logging.warning(f'{self.recorded_file_path}: {track.format} is not supported.')
-                        return None, None
+                        return None
 
                 # 音声ストリーム
                 elif track.track_type == 'Audio':
                     # スクランブルが解除されていない
                     if track.encryption == 'Encrypted':
                         logging.warning(f'{self.recorded_file_path}: Audio stream is encrypted.')
-                        return None, None
+                        return None
                     # AAC-LC 以外のフォーマットは KonomiTV で再生できない
                     if track.format not in ['AAC']:
                         logging.warning(f'{self.recorded_file_path}: {track.format} is not supported.')
-                        return None, None
-                    # 1ch, 2ch, 5.1ch 以外の音声チャンネル数は KonomiTV で再生できない
+                        return None
+                    # 1ch, 2ch, 5.1ch 以外の音声チャンネル数は KonomiTV で再生できないが、
+                    # 実際に上記以外の音声チャンネル数でエンコードされることはまずない (少なくとも放送仕様上は発生し得ない) ため、
+                    # 22 とか 8 とか突拍子ない値が返ってきた場合は何らかの理由で MediaInfo が誤解析してしまっている可能性の方が高い
+                    # 実際は普通のステレオ音声だと考えられるため、エラーにはせず、channel_s の値を 2 に固定する
                     if int(track.channel_s) not in [1, 2, 6]:
-                        logging.warning(f'{self.recorded_file_path}: {track.channel_s} channels are not supported.')
-                        return None, None
+                        logging.warning(f'{self.recorded_file_path}: {track.channel_s} channels detected. (Is MediaInfo misinterpreting the audio?)')
+                        track.channel_s = 2
 
         except Exception as ex:
-            logging.warning(f'{self.recorded_file_path}: Failed to validate media info.')
-            logging.warning(ex)
-            return None, None
+            logging.warning(f'{self.recorded_file_path}: Failed to validate media info.', exc_info=ex)
+            return None
 
-        return full_media_info, sample_media_info
+        # 解析処理中に calculateTSFileDuration() を実行している場合は、有効な TS データの終了位置も一緒に返す
+        ## calculateTSFileDuration() が実行されている時点で、当該録画ファイルの後半部分にゼロ埋めデータが存在することを示す
+        ## この値は TSInfoAnalyzer で番組情報を解析する際に利用される
+        if duration_result is not None:
+            _, end_ts_offset = duration_result
+            return full_media_info, sample_media_info, end_ts_offset
+        else:
+            return full_media_info, sample_media_info, None
 
 
 if __name__ == '__main__':

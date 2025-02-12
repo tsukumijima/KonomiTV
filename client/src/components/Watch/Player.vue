@@ -14,6 +14,9 @@
             :class="{'watch-player__buffering--display': playerStore.is_video_buffering}">
         </v-progress-circular>
         <div class="watch-player__dplayer"></div>
+        <div class="watch-player__dplayer-setting-cover"
+            :class="{'watch-player__dplayer-setting-cover--display': playerStore.is_player_setting_panel_open}"
+            @click="handleSettingCoverClick"></div>
         <div class="watch-player__button"
                 @mousemove="playerStore.event_emitter.emit('SetControlDisplayTimer', {event: $event})"
                 @touchmove="playerStore.event_emitter.emit('SetControlDisplayTimer', {event: $event})"
@@ -34,33 +37,34 @@
         </div>
     </div>
 </template>
-<script lang="ts">
+<script setup lang="ts">
 
-import { mapStores } from 'pinia';
-import { defineComponent, PropType } from 'vue';
+import { PropType } from 'vue';
 
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
 import Utils from '@/utils';
 
-export default defineComponent({
-    name: 'Watch-Player',
-    props: {
-        playback_mode: {
-            type: String as PropType<'Live' | 'Video'>,
-            required: true,
-        },
+// Props の定義
+defineProps({
+    playback_mode: {
+        type: String as PropType<'Live' | 'Video'>,
+        required: true,
     },
-    data() {
-        return {
-            // ユーティリティをテンプレートで使えるように
-            Utils: Object.freeze(Utils),
-        };
-    },
-    computed: {
-        ...mapStores(useChannelsStore, usePlayerStore),
-    }
 });
+
+// Store の初期化
+const channelsStore = useChannelsStore();
+const playerStore = usePlayerStore();
+
+// watch-player__dplayer-setting-cover がクリックされたとき、設定パネルを閉じる
+const handleSettingCoverClick = () => {
+    const dplayer_mask = document.querySelector<HTMLDivElement>('.dplayer-mask');
+    if (dplayer_mask) {
+        // dplayer-mask をクリックすることで、player.setting.hide() が内部的に呼び出され、設定パネルが閉じられる
+        dplayer_mask.click();
+    }
+};
 
 </script>
 <style lang="scss">
@@ -376,8 +380,14 @@ export default defineComponent({
                     // スマホ縦画面のみ、シークバーをプレイヤーの下辺に配置
                     width: 100%;
                     left: 0px !important;
-                    bottom: -1.5px !important;
+                    bottom: -1px !important;
                     z-index: 100;
+                }
+                .dplayer-thumb {
+                    // タッチデバイスのみ、コントロール表示時は常にシークバーのつまみを表示する
+                    @media (hover: none) {
+                        transform: scale(1) !important;
+                    }
                 }
             }
             @include tablet-vertical {
@@ -481,6 +491,29 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             .switch-button {
                 border-top-right-radius: 0px;
                 border-bottom-right-radius: 0px;
+            }
+        }
+    }
+
+    .watch-player__dplayer-setting-cover {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s, visibility 0.3s;
+        z-index: 50;
+
+        &--display {
+            // タッチデバイスかつスマホ縦画面のみ、設定パネルを開いた時にカバーを表示する
+            @media (hover: none) {
+                @include smartphone-vertical {
+                    opacity: 1;
+                    visibility: visible;
+                }
             }
         }
     }
