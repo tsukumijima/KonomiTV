@@ -506,10 +506,13 @@ class RecordedScanTask:
             async with ProcessLimiter.getSemaphore('RecordedScanTask'):
                 # DriveIOLimiter で同一 HDD に対してのバックグラウンドタスクの同時実行数を1セッションに制限
                 async with DriveIOLimiter.getSemaphore(file_path):
-                    # キーフレーム解析・サムネイル生成を同時実行
                     await asyncio.gather(
+                        # 録画ファイルのキーフレーム情報を解析し DB に保存
                         KeyFrameAnalyzer(file_path).analyze(),
-                        ThumbnailGenerator.fromRecordedProgram(recorded_program).generate(),
+                        # シークバー用サムネイルとリスト表示用の代表サムネイルの両方を生成
+                        ## skip_tile_if_exists=True を指定し、同一内容のファイルが複数ある場合などに
+                        ## 既に生成されている時間のかかるシークバー用サムネイルを使い回し、処理時間短縮を図る
+                        ThumbnailGenerator.fromRecordedProgram(recorded_program).generate(skip_tile_if_exists=True),
                     )
             logging.info(f'{file_path}: Background analysis completed.')
 

@@ -36,6 +36,7 @@ class ThumbnailGenerator:
 
     # WebP 出力の設定
     WEBP_QUALITY: ClassVar[int] = 85  # WebP 品質 (0-100)
+    WEBP_COMPRESSION: ClassVar[int] = 4  # WebP 圧縮レベル (0-6)
     WEBP_MAX_SIZE: ClassVar[int] = 16383  # WebP の最大サイズ制限 (px)
 
     # JPEG フォールバック時の設定
@@ -54,8 +55,8 @@ class ThumbnailGenerator:
     FACE_SIZE_WEIGHT: ClassVar[float] = 1.5  # 顔サイズによるスコアの重み（実写向け）
     ANIME_FACE_SIZE_WEIGHT: ClassVar[float] = 8.0  # アニメの顔サイズによるスコアの重み (アニメは顔が大きく映っているシーンを重視)
     FACE_SIZE_BASE_SCORE: ClassVar[float] = 20.0  # 顔サイズの基本スコア
-    ANIME_FACE_OPTIMAL_RATIO: ClassVar[float] = 0.24  # アニメの顔の最適な面積比（これを超えると緩やかにスコアを低下）
-    ANIME_FACE_RATIO_FALLOFF: ClassVar[float] = 0.5  # アニメの顔が大きすぎる場合のスコア低下率
+    ANIME_FACE_OPTIMAL_RATIO: ClassVar[float] = 0.23  # アニメの顔の最適な面積比（これを超えると緩やかにスコアを低下）
+    ANIME_FACE_RATIO_FALLOFF: ClassVar[float] = 0.6  # アニメの顔が大きすぎる場合のスコア低下率
 
     # レターボックス検出の設定
     LETTERBOX_MIN_HEIGHT_RATIO: ClassVar[float] = 0.05  # 最小の黒帯の高さ比率（画像の高さに対する割合）
@@ -396,43 +397,40 @@ class ThumbnailGenerator:
                 # オフセットを HH:MM:SS または HH:MM:SS.xx 形式に変換
                 formatted_offset = self.__formatTime(offset)
 
-                # 個別に1枚抽出するための FFmpeg コマンドを構築
-                cmd = [
-                    LIBRARY_PATH['FFmpeg'],
-                    # 上書きを許可
-                    '-y',
-                    # 非対話モードで実行し、不意のフリーズを回避する
-                    '-nostdin',
-                    # デコードにハードウェアアクセラレーションを使う
-                    ## Windows では Windows サービス下でのエラーを回避するため明示的に d3d11va を指定
-                    ## ref: https://stackoverflow.com/questions/56268560/using-directx-from-subprocess-executed-by-windows-service
-                    '-hwaccel', 'd3d11va' if sys.platform == 'win32' else 'auto',
-                    # 入力フォーマットは現状 MPEG-TS 固定
-                    '-f', 'mpegts',
-                    # ストリームの分析時間を短縮する
-                    '-analyzeduration', '1000000',
-                    # 抽出開始位置
-                    '-ss', formatted_offset,
-                    # 入力ファイル
-                    '-i', str(self.file_path),
-                    # 音声ストリームを無効化し若干の高速化を図る
-                    '-an',
-                    # ffmpeg 側で直接サイズ調整（タイル化時に各画像は self.TILE_SCALE になるように）
-                    '-vf', f'scale={width}:{height}',
-                    # 1フレーム分のみ抽出する
-                    '-frames:v', '1',
-                    # エンコード負荷低減のため、中間フォーマットには BMP を使う
-                    '-c:v', 'bmp',
-                    # スレッド数を自動で設定する
-                    '-threads', 'auto',
-                    # 標準出力にパイプ出力する
-                    '-f', 'image2pipe',
-                    'pipe:1'
-                ]
-
-                # サブプロセスを作成
+                # 個別に1枚抽出するための FFmpeg コマンドを実行
                 process = await asyncio.create_subprocess_exec(
-                    *cmd,
+                    LIBRARY_PATH['FFmpeg'],
+                    *[
+                        # 上書きを許可
+                        '-y',
+                        # 非対話モードで実行し、不意のフリーズを回避する
+                        '-nostdin',
+                        # デコードにハードウェアアクセラレーションを使う
+                        ## Windows では Windows サービス下でのエラーを回避するため明示的に d3d11va を指定
+                        ## ref: https://stackoverflow.com/questions/56268560/using-directx-from-subprocess-executed-by-windows-service
+                        '-hwaccel', 'd3d11va' if sys.platform == 'win32' else 'auto',
+                        # 入力フォーマットを指定（現状 MPEG-TS 固定）
+                        '-f', 'mpegts',
+                        # ストリームの分析時間を短縮する
+                        '-analyzeduration', '1000000',
+                        # 抽出開始位置
+                        '-ss', formatted_offset,
+                        # 入力ファイル
+                        '-i', str(self.file_path),
+                        # 音声ストリームを無効化し若干の高速化を図る
+                        '-an',
+                        # ffmpeg 側で直接サイズ調整（タイル化時に各画像は self.TILE_SCALE になるように）
+                        '-vf', f'scale={width}:{height}',
+                        # 1フレーム分のみ抽出する
+                        '-frames:v', '1',
+                        # エンコード負荷低減のため、中間フォーマットには BMP を使う
+                        '-codec:v', 'bmp',
+                        # スレッド数を自動で設定する
+                        '-threads', 'auto',
+                        # 標準出力にパイプ出力する
+                        '-f', 'image2pipe',
+                        'pipe:1',
+                    ],
                     # 明示的に標準入力を無効化しないと、親プロセスの標準入力が引き継がれてしまう
                     stdin = asyncio.subprocess.DEVNULL,
                     # 標準出力・標準エラー出力をパイプで受け取る
@@ -610,25 +608,64 @@ class ThumbnailGenerator:
             tile_image = cv2.vconcat(rows)
 
             # 最終的なタイル画像をディスクへ書き込む（この時点で初めてディスク I/O が発生する）
-            if use_webp:
-                # WebP 出力用のパラメータを設定
-                params = [
-                    cv2.IMWRITE_WEBP_QUALITY, self.WEBP_QUALITY,  # 品質設定 (0-100)
-                ]
-                if not cv2.imwrite(str(self.seekbar_thumbnails_tile_path), tile_image, params):
-                    logging.error(f'{self.file_path}: Failed to write final tile image to disk.')
+            try:
+                # タイル画像を BMP としてメモリ上にエンコード
+                _, img_data = cv2.imencode('.bmp', tile_image)
+                if img_data is None:
+                    logging.error(f'{self.file_path}: Failed to encode tile image to BMP.')
                     return False
-            else:
-                # JPEG 出力用のパラメータを設定
-                params = [
-                    cv2.IMWRITE_JPEG_QUALITY, self.JPEG_QUALITY,
-                    cv2.IMWRITE_JPEG_OPTIMIZE, int(self.JPEG_OPTIMIZE),
-                ]
-                if not cv2.imwrite(str(self.seekbar_thumbnails_tile_path), tile_image, params):
-                    logging.error(f'{self.file_path}: Failed to write final tile image to disk.')
+                del tile_image
+
+                # FFmpeg でタイル画像を WebP または JPEG に圧縮保存
+                process = await asyncio.create_subprocess_exec(
+                    LIBRARY_PATH['FFmpeg'],
+                    *[
+                        # 上書きを許可
+                        '-y',
+                        # 非対話モードで実行し、不意のフリーズを回避する
+                        '-nostdin',
+                        # 入力フォーマットを指定
+                        '-f', 'image2pipe',
+                        # 入力コーデックを指定
+                        '-codec:v', 'bmp',
+                        # 標準入力からパイプ入力
+                        '-i', 'pipe:0',
+                        # WebP または JPEG 出力設定
+                        *([
+                            '-codec:v', 'webp',
+                            '-quality', str(self.WEBP_QUALITY),  # 品質設定
+                            '-compression_level', str(self.WEBP_COMPRESSION),  # 圧縮レベル
+                            '-preset', 'picture',  # 写真向けプリセット
+                        ] if use_webp else [
+                            '-codec:v', 'mjpeg',
+                            '-qmin', '1',  # 最小品質
+                            '-qmax', '1',  # 最大品質
+                            '-qscale:v', str(int((100 - self.JPEG_QUALITY) / 4)),  # 品質設定 (JPEG の場合は 1-31 のスケール)
+                        ]),
+                        # スレッド数を自動で設定する
+                        '-threads', 'auto',
+                        # 出力ファイル
+                        str(self.seekbar_thumbnails_tile_path),
+                    ],
+                    # 明示的に標準入力を有効化
+                    stdin = asyncio.subprocess.PIPE,
+                    # 標準出力・標準エラー出力をパイプで受け取る
+                    stdout = asyncio.subprocess.PIPE,
+                    stderr = asyncio.subprocess.PIPE,
+                )
+
+                # 画像データを標準入力に書き込み、プロセス終了を待つ
+                _, stderr = await process.communicate(input=img_data.tobytes())
+                if process.returncode != 0:
+                    error_message = stderr.decode('utf-8', errors='ignore')
+                    logging.error(f'{self.file_path}: FFmpeg tile image compression failed with error: {error_message}')
                     return False
 
-            return True
+                return True
+
+            except Exception as ex:
+                logging.error(f'{self.file_path}: Error in seekbar thumbnail tile compression:', exc_info=ex)
+                return False
 
         except Exception as ex:
             logging.error(f'{self.file_path}: Error in seekbar thumbnail tile generation (OpenCV tiling):', exc_info=ex)
