@@ -34,6 +34,18 @@ class ThumbnailGenerator:
     TILE_SCALE: ClassVar[tuple[int, int]] = (480, 270)  # タイル化時の1フレーム解像度 (width, height)
     TILE_COLS: ClassVar[int] = 34   # WebP の最大サイズ制限 (16383px) を考慮し、1行あたりの最大フレーム数を設定
 
+    # WebP 出力の設定
+    WEBP_QUALITY: ClassVar[int] = 85  # WebP 品質 (0-100)
+    WEBP_MAX_SIZE: ClassVar[int] = 16383  # WebP の最大サイズ制限 (px)
+
+    # JPEG フォールバック時の設定
+    JPEG_QUALITY: ClassVar[int] = 90  # JPEG 品質 (0-100)
+    JPEG_OPTIMIZE: ClassVar[bool] = True  # JPEG 最適化
+
+    # 顔検出用カスケード分類器のパス
+    HUMAN_FACE_CASCADE_PATH: ClassVar[pathlib.Path] = pathlib.Path(cv2.__file__).parent / 'data' / 'haarcascade_frontalface_default.xml'
+    ANIME_FACE_CASCADE_PATH: ClassVar[pathlib.Path] = STATIC_DIR / 'lbpcascade_animeface.xml'
+
     # 顔検出の設定
     FACE_DETECTION_SCALE_FACTOR: ClassVar[float] = 1.05  # 顔検出時のスケールファクター
     FACE_DETECTION_MIN_NEIGHBORS: ClassVar[int] = 3  # 顔検出時の最小近傍数
@@ -84,19 +96,6 @@ class ThumbnailGenerator:
     EDGE_DENSITY_TOLERANCE: ClassVar[float] = 0.1  # エッジ密度の許容範囲
     ENTROPY_TARGET: ClassVar[float] = 5.0  # 目標とするエントロピー値
     ENTROPY_TOLERANCE: ClassVar[float] = 2.0  # エントロピーの許容範囲
-
-    # WebP 出力の設定
-    WEBP_QUALITY: ClassVar[int] = 85  # WebP品質 (0-100)
-    WEBP_COMPRESSION: ClassVar[int] = 6  # 圧縮レベル (0-6, 6が最高品質)
-    WEBP_MAX_SIZE: ClassVar[int] = 16383  # WebP の最大サイズ制限 (px)
-
-    # JPEG フォールバック時の設定
-    JPEG_QUALITY: ClassVar[int] = 90  # JPEG 品質 (0-100)
-    JPEG_OPTIMIZE: ClassVar[bool] = True  # JPEG 最適化
-
-    # 顔検出用カスケード分類器のパス
-    HUMAN_FACE_CASCADE_PATH: ClassVar[pathlib.Path] = pathlib.Path(cv2.__file__).parent / 'data' / 'haarcascade_frontalface_default.xml'
-    ANIME_FACE_CASCADE_PATH: ClassVar[pathlib.Path] = STATIC_DIR / 'lbpcascade_animeface.xml'
 
     # 単色判定の設定
     COLOR_VARIANCE_THRESHOLD: ClassVar[float] = 10.0  # 各チャンネルの分散がこの値以下なら単色とみなす
@@ -320,60 +319,85 @@ class ThumbnailGenerator:
         return interval
 
 
+    def __formatTime(self, seconds: float) -> str:
+        """
+        秒数を HH:MM:SS または HH:MM:SS.xx 形式の文字列に変換するヘルパー関数。
+        秒数が整数に近い場合は HH:MM:SS、そうでなければ小数第2位まで出力する。
+
+        Args:
+            seconds (float): 秒数
+
+        Returns:
+            str: フォーマットされた時間文字列
+        """
+        hrs = int(seconds // 3600)
+        mins = int((seconds % 3600) // 60)
+        secs = seconds % 60
+        # 整数に近い場合は小数部を省略
+        if abs(secs - round(secs)) < 0.001:
+            return f'{hrs:02}:{mins:02}:{int(secs):02}'
+        else:
+            return f'{hrs:02}:{mins:02}:{secs:05.2f}'
+
+
     async def __generateThumbnailTile(self) -> bool:
         """
-        FFmpeg を使い、録画ファイル全体を対象にプレイヤーのシークバー用サムネイルタイル画像を生成する
-        5秒ごとにフレームを抽出し、タイル化する
-        WebP の最大サイズ制限を超えそうな場合は JPEG にフォールバックする
+        FFmpeg を使い、録画ファイルから各候補フレームを直列に抽出し、メモリ上で OpenCV によるタイル化を行う実装
+        ・各候補フレームは、指定オフセットから1フレームのみ抽出することで全編のデコードと I/O 負荷の増大を回避
+        ・抽出時は個別コマンドで出力をパイプで受け取り、中間ファイルを作らずメモリ上で画像変換を実施
+        ・全候補画像は OpenCV の hconcat/vconcat を用いてタイル状に連結し、最終的なサムネイルタイル画像としてディスク出力する
 
         Returns:
             bool: 成功時は True、失敗時は False
         """
 
         try:
-            # フレーム数 = ceil(duration_sec / tile_interval_sec)
+            # 動画の長さと tile_interval_sec から候補フレーム数を算出
             # ※ ceil() を使うことで、端数でも切り捨てずに確実にすべての区間をカバー
-            total_frames = int(math.ceil(self.duration_sec / self.tile_interval_sec))
-            if total_frames < 1:
-                # 短すぎるか、tile_interval_sec が大きすぎる場合
-                total_frames = 1
+            num_candidates = int(math.ceil(self.duration_sec / self.tile_interval_sec))
+            if num_candidates < 1:
+                num_candidates = 1
 
-            # 実際の行数(縦のタイル数) = ceil(total_frames / tile_cols)
-            # ※ ceil() を使うことで、最後の行が一部空いていても、すべてのフレームを表示
-            tile_rows = math.ceil(total_frames / self.TILE_COLS)
-
+            # タイルの行数を計算（列数は self.TILE_COLS 固定）
+            tile_rows = math.ceil(num_candidates / self.TILE_COLS)
             width, height = self.TILE_SCALE
             total_width = width * self.TILE_COLS
             total_height = height * tile_rows
 
-            # WebP の最大サイズ制限を超えるかどうかチェック
+            # WebP の最大サイズ制限をチェック（制限内なら WebP、越える場合は JPEG にフォールバック）
             use_webp = total_width <= self.WEBP_MAX_SIZE and total_height <= self.WEBP_MAX_SIZE
-
-            # WebP の最大サイズ制限を超える場合は JPEG にフォールバック
             if not use_webp:
                 self.seekbar_thumbnails_tile_path = self.seekbar_thumbnails_tile_path.with_suffix('.jpg')
                 logging.warning(f'{self.file_path}: Image size ({total_width}x{total_height}) exceeds WebP limits. Falling back to JPEG.')
 
-            # フィルターチェーンを構築
-            # 1. fps=1/N: N秒ごとにフレームを抽出
-            # 2. scale=width:height: 指定サイズにリサイズ
-            # 3. tile=WxH:padding=0:margin=0: タイル化 (余白なし)
-            filter_chain = [
-                # tile_interval_sec ごとにフレームを抽出
-                f'fps=1/{self.tile_interval_sec}',
-                # リサイズしてタイル化
-                f'scale={width}:{height}',
-                f'tile={self.TILE_COLS}x{tile_rows}:padding=0:margin=0',
-            ]
+            # 各候補フレーム抽出の開始位置（秒）を算出（動画末尾の場合は調整する）
+            candidate_offsets = []
+            for i in range(num_candidates):
+                offset = i * self.tile_interval_sec
+                # もし候補フレームの開始位置 + 0.01秒が動画長を超える場合、抽出可能な位置に調整する
+                if offset + 0.01 > self.duration_sec:
+                    offset = max(0, self.duration_sec - 0.02)
+                candidate_offsets.append(offset)
 
             # 万が一出力先ディレクトリが無い場合は作成 (通常存在するはず)
             thumbnails_dir = anyio.Path(str(THUMBNAILS_DIR))
             if not await thumbnails_dir.is_dir():
                 await thumbnails_dir.mkdir(parents=True, exist_ok=True)
 
-            # FFmpeg プロセスを非同期で実行
-            process = await asyncio.create_subprocess_exec(
-                *[
+            # 非同期キューの準備
+            frame_queue: asyncio.Queue[tuple[float, NDArray[np.uint8]]] = asyncio.Queue()
+
+            # エラー通知用のイベント
+            error_event = asyncio.Event()
+
+            async def extract_single_frame(offset: float, worker_name: str) -> NDArray[np.uint8] | None:
+                """ FFmpeg を使い1フレームを抽出する共通処理 """
+
+                # オフセットを HH:MM:SS または HH:MM:SS.xx 形式に変換
+                formatted_offset = self.__formatTime(offset)
+
+                # 個別に1枚抽出するための FFmpeg コマンドを構築
+                cmd = [
                     LIBRARY_PATH['FFmpeg'],
                     # 上書きを許可
                     '-y',
@@ -383,47 +407,231 @@ class ThumbnailGenerator:
                     ## Windows では Windows サービス下でのエラーを回避するため明示的に d3d11va を指定
                     ## ref: https://stackoverflow.com/questions/56268560/using-directx-from-subprocess-executed-by-windows-service
                     '-hwaccel', 'd3d11va' if sys.platform == 'win32' else 'auto',
+                    # 入力フォーマットは現状 MPEG-TS 固定
+                    '-f', 'mpegts',
+                    # ストリームの分析時間を短縮する
+                    '-analyzeduration', '1000000',
+                    # 抽出開始位置
+                    '-ss', formatted_offset,
                     # 入力ファイル
                     '-i', str(self.file_path),
-                    # 1枚の出力画像
+                    # 音声ストリームを無効化し若干の高速化を図る
+                    '-an',
+                    # ffmpeg 側で直接サイズ調整（タイル化時に各画像は self.TILE_SCALE になるように）
+                    '-vf', f'scale={width}:{height}',
+                    # 1フレーム分のみ抽出する
                     '-frames:v', '1',
-                    # フィルターチェーンを結合
-                    '-vf', ','.join(filter_chain),
-                    # WebP または JPEG 出力設定
-                    *([
-                        '-vcodec', 'webp',
-                        '-quality', str(self.WEBP_QUALITY),  # 品質設定
-                        '-compression_level', str(self.WEBP_COMPRESSION),  # 圧縮レベル
-                        '-preset', 'photo',  # 写真向けプリセット
-                    ] if use_webp else [
-                        '-vcodec', 'mjpeg',
-                        '-qmin', '1',  # 最小品質
-                        '-qmax', '1',  # 最大品質
-                        '-qscale:v', str(int((100 - self.JPEG_QUALITY) / 4)),  # 品質設定 (JPEG の場合は 1-31 のスケール)
-                    ]),
-                    # 出力ファイル
-                    str(self.seekbar_thumbnails_tile_path),
-                ],
-                # 明示的に標準入力を無効化しないと、親プロセスの標準入力が引き継がれてしまう
-                stdin = asyncio.subprocess.DEVNULL,
-                # 標準出力・標準エラー出力をパイプで受け取る
-                stdout = asyncio.subprocess.PIPE,
-                stderr = asyncio.subprocess.PIPE,
-            )
+                    # エンコード負荷低減のため、中間フォーマットには BMP を使う
+                    '-c:v', 'bmp',
+                    # スレッド数を自動で設定する
+                    '-threads', 'auto',
+                    # 標準出力にパイプ出力する
+                    '-f', 'image2pipe',
+                    'pipe:1'
+                ]
 
-            # プロセスの出力を取得
-            _, stderr = await process.communicate()
+                # サブプロセスを作成
+                process = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    # 明示的に標準入力を無効化しないと、親プロセスの標準入力が引き継がれてしまう
+                    stdin = asyncio.subprocess.DEVNULL,
+                    # 標準出力・標準エラー出力をパイプで受け取る
+                    stdout = asyncio.subprocess.PIPE,
+                    stderr = asyncio.subprocess.PIPE,
+                )
 
-            # エラーチェック
-            if process.returncode != 0:
-                error_message = stderr.decode('utf-8', errors='ignore')
-                logging.error(f'{self.file_path}: FFmpeg failed with return code {process.returncode}. Error: {error_message}')
+                # プロセス終了を待ち、エラー出力を取得
+                stdout, stderr = await process.communicate()
+                if process.returncode != 0:
+                    error_message = stderr.decode('utf-8', errors='ignore')
+                    logging.error(f'{self.file_path}: [{worker_name}] FFmpeg candidate extraction failed at offset {formatted_offset} with error: {error_message}')
+                    return None
+
+                # 受け取ったバイナリデータを numpy 配列に変換し、OpenCV で画像デコード
+                image_data = np.frombuffer(stdout, dtype=np.uint8)
+                frame = cast(NDArray[np.uint8], cv2.imdecode(image_data, cv2.IMREAD_COLOR))
+                if frame is None:
+                    logging.error(f'{self.file_path}: [{worker_name}] Failed to decode image at offset {formatted_offset}.')
+                    return None
+
+                return frame
+
+            async def extract_frames_worker(
+                offsets: list[float],
+                worker_name: str,
+                start_delay: float = 0.0
+            ) -> None:
+                """ フレーム抽出ワーカー """
+                try:
+                    # オフセットを WORKER_SYNC_COUNT 個ずつに分割
+                    for i in range(0, len(offsets), WORKER_SYNC_COUNT):
+                        # バッチの開始時にディレイを適用
+                        if start_delay > 0:
+                            await asyncio.sleep(start_delay)
+
+                        batch_offsets = offsets[i:i + WORKER_SYNC_COUNT]
+
+                        for offset in batch_offsets:
+                            # エラーチェック（他のワーカーでエラーが発生していたら終了）
+                            if error_event.is_set():
+                                return
+
+                            # FFmpegでフレーム抽出
+                            frame = await extract_single_frame(offset, worker_name)
+                            if frame is None:
+                                error_event.set()
+                                return
+
+                            # キューに結果を格納
+                            await frame_queue.put((offset, frame))
+
+                            # 同期カウンターをインクリメント
+                            nonlocal sync_counter
+                            sync_counter += 1
+                            if sync_counter >= sync_target:
+                                # 同期イベントを発火
+                                sync_event.set()
+
+                        try:
+                            # 同期イベントが発火するまで待機（キャンセル可能）
+                            await asyncio.wait_for(sync_event.wait(), timeout=10.0)
+                        except (asyncio.CancelledError, asyncio.TimeoutError):
+                            # キャンセルまたはタイムアウト時は即座に終了
+                            return
+                        finally:
+                            # 次のバッチに向けて同期イベントをクリア
+                            sync_event.clear()
+                            # 同期カウンターをリセット
+                            sync_counter = 0
+
+                except asyncio.CancelledError:
+                    # キャンセル時は即座に終了
+                    return
+                except Exception as ex:
+                    logging.error(f'{self.file_path}: [{worker_name}] Unexpected error:', exc_info=ex)
+                    error_event.set()
+
+            try:
+                # オフセットを WORKER_COUNT 個に分割 (0,5,10,...), (1,6,11,...), (2,7,12,...), (3,8,13,...), (4,9,14,...)
+                # 1プロセスの実行に約1秒弱かかるため、WORKER_DELAY 秒間隔で起動することで
+                # プロセス起動のタイミングを分散させつつ、なるべくシーケンシャルなアクセスになるよう調整
+                WORKER_COUNT = 5
+                WORKER_DELAY = 0.18
+                # 同期を取る間隔（各ワーカーがこの数だけフレームを取得したら同期を取る）
+                WORKER_SYNC_COUNT = 10
+
+                # オフセットをワーカー数で分割
+                worker_offsets = [
+                    candidate_offsets[i::WORKER_COUNT] for i in range(WORKER_COUNT)
+                ]
+
+                # 同期用のイベント
+                sync_event = asyncio.Event()
+                sync_counter = 0
+                sync_target = WORKER_COUNT * WORKER_SYNC_COUNT
+
+                # WORKER_COUNT 個のワーカーを WORKER_DELAY 秒間隔で起動
+                start_time = time.time()
+                workers = [
+                    extract_frames_worker(worker_offsets[i], f'Worker {i}', start_delay=i * WORKER_DELAY)
+                    for i in range(WORKER_COUNT)
+                ]
+
+                # 全フレームの収集を待機
+                frames_dict: dict[float, NDArray[np.uint8]] = {}
+                expected_frames = len(candidate_offsets)
+
+                # ワーカータスクを開始
+                worker_tasks = [asyncio.create_task(w) for w in workers]
+
+                try:
+                    # フレーム収集ループ
+                    while len(frames_dict) < expected_frames:
+                        if error_event.is_set():
+                            # エラーが発生した場合は中断
+                            raise RuntimeError('Error occurred in worker task')
+
+                        try:
+                            # タイムアウト付きでキューから結果を取得
+                            offset, frame = await asyncio.wait_for(frame_queue.get(), timeout=5.0)
+                            frames_dict[offset] = frame
+                            # 進捗をログ出力
+                            # logging.debug_simple(
+                            #     f'{self.file_path}: Frame collected {len(frames_dict)}/{expected_frames} '
+                            #     f'(offset: {self.__formatTime(offset)})'
+                            # )
+
+                            # 全フレームの収集が完了したら、残りのワーカータスクをキャンセル
+                            if len(frames_dict) >= expected_frames:
+                                # 全ワーカーをキャンセル
+                                for task in worker_tasks:
+                                    task.cancel()
+                                # キャンセルされたタスクの完了を待機（エラーは無視）
+                                await asyncio.gather(*worker_tasks, return_exceptions=True)
+                                break
+
+                        except asyncio.TimeoutError:
+                            # タイムアウト時はエラーとして扱う
+                            raise RuntimeError('Timeout while waiting for frame')
+
+                except Exception as ex:
+                    # エラー発生時は全ワーカーを確実にキャンセル
+                    error_event.set()
+                    for task in worker_tasks:
+                        task.cancel()
+                    # キャンセルされたタスクの完了を待機
+                    await asyncio.gather(*worker_tasks, return_exceptions=True)
+                    raise ex
+
+                # 時系列順にフレームを並べ直す
+                candidate_images = [
+                    frames_dict[offset] for offset in candidate_offsets
+                ]
+                logging.debug_simple(
+                    f'{self.file_path}: All frames collected and sorted in chronological order. ({time.time() - start_time:.2f} sec)'
+                )
+
+            except Exception as ex:
+                logging.error(f'{self.file_path}: Error in parallel thumbnail generation:', exc_info=ex)
                 return False
+
+            # OpenCV を用いてタイル化処理を行う
+            rows = []
+            num_cols = self.TILE_COLS
+            for r in range(tile_rows):
+                row_images = candidate_images[r * num_cols: (r + 1) * num_cols]
+                # 最終行が列数に満たない場合、黒画像で埋める
+                if len(row_images) < num_cols:
+                    black_image = np.zeros((height, width, 3), dtype=np.uint8)
+                    while len(row_images) < num_cols:
+                        row_images.append(black_image)
+                row_concat = cv2.hconcat(row_images)
+                rows.append(row_concat)
+            tile_image = cv2.vconcat(rows)
+
+            # 最終的なタイル画像をディスクへ書き込む（この時点で初めてディスク I/O が発生する）
+            if use_webp:
+                # WebP 出力用のパラメータを設定
+                params = [
+                    cv2.IMWRITE_WEBP_QUALITY, self.WEBP_QUALITY,  # 品質設定 (0-100)
+                ]
+                if not cv2.imwrite(str(self.seekbar_thumbnails_tile_path), tile_image, params):
+                    logging.error(f'{self.file_path}: Failed to write final tile image to disk.')
+                    return False
+            else:
+                # JPEG 出力用のパラメータを設定
+                params = [
+                    cv2.IMWRITE_JPEG_QUALITY, self.JPEG_QUALITY,
+                    cv2.IMWRITE_JPEG_OPTIMIZE, int(self.JPEG_OPTIMIZE),
+                ]
+                if not cv2.imwrite(str(self.seekbar_thumbnails_tile_path), tile_image, params):
+                    logging.error(f'{self.file_path}: Failed to write final tile image to disk.')
+                    return False
 
             return True
 
         except Exception as ex:
-            logging.error(f'{self.file_path}: Error in seekbar thumbnail tile generation:', exc_info=ex)
+            logging.error(f'{self.file_path}: Error in seekbar thumbnail tile generation (OpenCV tiling):', exc_info=ex)
             return False
 
 
@@ -544,7 +752,7 @@ class ThumbnailGenerator:
                 cv2.IMWRITE_WEBP_QUALITY, self.WEBP_QUALITY,
             ]
 
-            # 書き込み
+            # WebP ファイルを書き込む
             if not await asyncio.to_thread(cv2.imwrite, str(self.representative_thumbnail_path), img_bgr, params):
                 logging.error(f'{self.file_path}: Failed to write representative thumbnail.')
                 return False
