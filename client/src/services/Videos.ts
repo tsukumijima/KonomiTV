@@ -158,6 +158,12 @@ export interface IJikkyoComments {
     detail: string;
 }
 
+/** メタデータ再解析のレスポンスを表すインターフェース */
+export interface IReanalyzeStatus {
+    is_success: boolean;
+    detail: string;
+}
+
 /** サムネイル再作成のレスポンスを表すインターフェース */
 export interface IThumbnailRegenerationStatus {
     is_success: boolean;
@@ -276,10 +282,33 @@ class Videos {
 
 
     /**
+     * 録画番組のメタデータを再解析する
+     * @param video_id 録画番組の ID
+     * @returns メタデータ再解析結果のステータス
+     */
+    static async reanalyzeVideo(video_id: number): Promise<IReanalyzeStatus> {
+
+        // API リクエストを実行
+        const response = await APIClient.post<IReanalyzeStatus>(`/videos/${video_id}/reanalyze`);
+
+        // エラー処理
+        if (response.type === 'error') {
+            APIClient.showGenericError(response, 'メタデータの再解析に失敗しました。');
+            return {
+                is_success: false,
+                detail: 'メタデータの再解析に失敗しました。',
+            };
+        }
+
+        return response.data;
+    }
+
+
+    /**
      * 録画番組のサムネイルを再作成する
      * @param video_id 録画番組の ID
      * @param skip_tile_if_exists 既に存在する場合はサムネイルタイルの生成をスキップするかどうか (デフォルト: False)
-     * @returns サムネイル再作成のステータス
+     * @returns サムネイル再作成結果のステータス
      */
     static async regenerateThumbnail(video_id: number, skip_tile_if_exists: boolean = false): Promise<IThumbnailRegenerationStatus> {
 
