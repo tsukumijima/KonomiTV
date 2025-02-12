@@ -18,8 +18,9 @@
                         :isLoading="is_loading"
                         :showBackButton="true"
                         :showEmptyMessage="!is_loading"
-                        :emptyMessage="'マイリストに録画番組が<br class=\'d-sm-none\'>追加されていません。'"
-                        :emptySubMessage="'録画番組の右上にある「＋」ボタンから、<br class=\'d-sm-none\'>マイリストに番組を追加できます。'"
+                        :emptyIcon="'ic:round-playlist-play'"
+                        :emptyMessage="'あとで見たい番組を<br class=\'d-sm-none\'>マイリストに保存できます。'"
+                        :emptySubMessage="'録画番組の右上にある ＋ ボタンから、<br class=\'d-sm-none\'>番組をマイリストに追加できます。'"
                         :forMylist="true"
                         @update:page="updatePage"
                         @update:sortOrder="updateSortOrder($event as MylistSortOrder)" />

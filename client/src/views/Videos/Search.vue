@@ -25,7 +25,7 @@
                         ]"
                         @update:page="updatePage"
                         @update:sortOrder="updateSortOrder($event as SortOrder)"
-                        :emptyMessage="`「${query}」に一致する録画番組は見つかりませんでした。`"
+                        :emptyMessage="`「${query}」に一致する録画番組は<br class='d-sm-none'>見つかりませんでした。`"
                         :emptySubMessage="'別のキーワードで検索をお試しください。'"
                         :showEmptyMessage="!is_loading"
                         v-if="!is_loading || programs.length > 0" />

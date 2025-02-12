@@ -40,6 +40,14 @@
             </div>
         </div>
         <div class="recorded-program-list__grid" :class="{'recorded-program-list__grid--loading': isLoading}">
+            <div class="recorded-program-list__empty" v-if="total === 0 && showEmptyMessage">
+                <div class="recorded-program-list__empty-content">
+                    <Icon class="recorded-program-list__empty-icon" :icon="emptyIcon" width="54px" height="54px" />
+                    <h2 v-html="emptyMessage"></h2>
+                    <div class="recorded-program-list__empty-submessage"
+                        v-if="emptySubMessage" v-html="emptySubMessage"></div>
+                </div>
+            </div>
             <RecordedProgram v-for="program in programs" :key="program.id" :program="program"
                 :forMylist="forMylist" :forWatchedHistory="forWatchedHistory" />
         </div>
@@ -52,13 +60,6 @@
                 :total-visible="7"
                 @update:model-value="$emit('update:page', $event)">
             </v-pagination>
-        </div>
-        <div class="recorded-program-list__empty" v-if="total === 0 && showEmptyMessage">
-            <div class="recorded-program-list__empty-content">
-                <h2 v-html="emptyMessage"></h2>
-                <div class="recorded-program-list__empty-submessage"
-                    v-if="emptySubMessage" v-html="emptySubMessage"></div>
-            </div>
         </div>
     </div>
 </template>
@@ -85,6 +86,7 @@ const props = withDefaults(defineProps<{
     showMoreButton?: boolean;
     showBackButton?: boolean;
     showEmptyMessage?: boolean;
+    emptyIcon?: string;
     emptyMessage?: string;
     emptySubMessage?: string;
     isLoading?: boolean;
@@ -99,6 +101,7 @@ const props = withDefaults(defineProps<{
     showMoreButton: false,
     showBackButton: false,
     showEmptyMessage: true,
+    emptyIcon: 'fluent:warning-20-regular',
     emptyMessage: '録画番組が見つかりませんでした。',
     emptySubMessage: 'サーバー設定で録画フォルダのパスを<br class="d-sm-none">正しく設定できているか確認してください。',
     isLoading: false,
@@ -243,6 +246,7 @@ watch(() => props.sortOrder, (newOrder) => {
         display: flex;
         flex-direction: column;
         width: 100%;
+        height: 100%;
         background: rgb(var(--v-theme-background-lighten-1));
         border-radius: 8px;
         overflow: hidden;
@@ -273,18 +277,24 @@ watch(() => props.sortOrder, (newOrder) => {
         display: flex;
         justify-content: center;
         align-items: center;
-        min-height: 170px;
+        padding-top: 28px;
+        padding-bottom: 40px;
         flex-grow: 1;
 
         &-content {
             text-align: center;
+
+            .recorded-program-list__empty-icon {
+                color: rgb(var(--v-theme-text-darken-1));
+            }
+
             h2 {
                 font-size: 21px;
                 @include tablet-vertical {
-                    font-size: 20px !important;
+                    font-size: 19px !important;
                 }
                 @include smartphone-horizontal {
-                    font-size: 20px !important;
+                    font-size: 19px !important;
                 }
                 @include smartphone-horizontal-short {
                     font-size: 19px !important;
@@ -294,28 +304,25 @@ watch(() => props.sortOrder, (newOrder) => {
                     text-align: center;
                 }
             }
-        }
 
-        &-submessage {
-            margin-top: 12px;
-            padding-bottom: 16px;
-            color: rgb(var(--v-theme-text-darken-1));
-            font-size: 15px;
-            @include tablet-vertical {
-                font-size: 12.5px !important;
-                text-align: center;
-                margin-top: 10px !important;
-            }
-            @include smartphone-horizontal {
-                font-size: 12.5px !important;
-                text-align: center;
-                margin-top: 10px !important;
-            }
-            @include smartphone-vertical {
-                padding-bottom: 12px;
-                font-size: 12.5px !important;
-                text-align: center;
-                margin-top: 8px !important;
+            .recorded-program-list__empty-submessage {
+                margin-top: 8px;
+                color: rgb(var(--v-theme-text-darken-1));
+                font-size: 15px;
+                @include tablet-vertical {
+                    font-size: 13px !important;
+                    text-align: center;
+                }
+                @include smartphone-horizontal {
+                    font-size: 13px !important;
+                    text-align: center;
+                }
+                @include smartphone-vertical {
+                    font-size: 13px !important;
+                    text-align: center;
+                    margin-top: 7px !important;
+                    line-height: 1.65;
+                }
             }
         }
     }
