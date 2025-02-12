@@ -39,7 +39,11 @@
                 </v-btn>
             </div>
         </div>
-        <div class="recorded-program-list__grid" :class="{'recorded-program-list__grid--loading': isLoading}">
+        <div class="recorded-program-list__grid"
+            :class="{
+                'recorded-program-list__grid--loading': isLoading,
+                'recorded-program-list__grid--empty': total === 0 && showEmptyMessage,
+            }">
             <div class="recorded-program-list__empty" v-if="total === 0 && showEmptyMessage">
                 <div class="recorded-program-list__empty-content">
                     <Icon class="recorded-program-list__empty-icon" :icon="emptyIcon" width="54px" height="54px" />
@@ -246,7 +250,6 @@ watch(() => props.sortOrder, (newOrder) => {
         display: flex;
         flex-direction: column;
         width: 100%;
-        height: 100%;
         background: rgb(var(--v-theme-background-lighten-1));
         border-radius: 8px;
         overflow: hidden;
@@ -254,6 +257,9 @@ watch(() => props.sortOrder, (newOrder) => {
 
         &--loading {
             opacity: 0;
+        }
+        &--empty {
+            height: 100%;
         }
 
         :deep(.recorded-program) {
