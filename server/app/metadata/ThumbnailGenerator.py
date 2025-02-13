@@ -23,7 +23,7 @@ from app.constants import LIBRARY_PATH, STATIC_DIR, THUMBNAILS_DIR
 
 class ThumbnailGenerator:
     """
-    プレイヤーのシークバー用タイル画像と、候補区間内で最も良い1枚の代表サムネイルを生成するクラス (with o1-pro)
+    プレイヤーのシークバー用タイル画像と、候補区間内で最も良い1枚の代表サムネイルを生成するクラス (with o1 pro / Claude 3.5 Sonnet)
     """
 
     # サムネイルのタイル化の設定
@@ -48,13 +48,15 @@ class ThumbnailGenerator:
     ANIME_FACE_CASCADE_PATH: ClassVar[pathlib.Path] = STATIC_DIR / 'lbpcascade_animeface.xml'
 
     # 顔検出の設定
-    FACE_DETECTION_SCALE_FACTOR: ClassVar[float] = 1.05  # 顔検出時のスケールファクター
-    FACE_DETECTION_MIN_NEIGHBORS: ClassVar[int] = 3  # 顔検出時の最小近傍数
+    HUMAN_FACE_DETECTION_SCALE_FACTOR: ClassVar[float] = 1.05  # 実写顔検出時のスケールファクター
+    HUMAN_FACE_DETECTION_MIN_NEIGHBORS: ClassVar[int] = 3  # 実写顔検出時の最小近傍数
     ANIME_FACE_DETECTION_SCALE_FACTOR: ClassVar[float] = 1.01  # アニメ顔検出時のスケールファクター (より時間をかけて精度を重視)
     ANIME_FACE_DETECTION_MIN_NEIGHBORS: ClassVar[int] = 2  # アニメ顔検出時の最小近傍数（より緩い判定）
-    FACE_SIZE_WEIGHT: ClassVar[float] = 1.5  # 顔サイズによるスコアの重み（実写向け）
+    NON_ANIME_FACE_DETECTION_SCALE_FACTOR: ClassVar[float] = 1.10  # アニメ顔検出時に補助的に用いる実写顔検出のスケールファクター
+    NON_ANIME_FACE_DETECTION_MIN_NEIGHBORS: ClassVar[int] = 5  # アニメ顔検出時に補助的に用いる実写顔検出の最小近傍数
+    HUMAN_FACE_SIZE_WEIGHT: ClassVar[float] = 1.5  # 顔サイズによるスコアの重み（実写向け）
     ANIME_FACE_SIZE_WEIGHT: ClassVar[float] = 8.0  # アニメの顔サイズによるスコアの重み (アニメは顔が大きく映っているシーンを重視)
-    FACE_SIZE_BASE_SCORE: ClassVar[float] = 20.0  # 顔サイズの基本スコア
+    FACE_SIZE_BASE_SCORE: ClassVar[float] = 20.0  # 顔サイズの基本スコア（実写・アニメ共通）
     ANIME_FACE_OPTIMAL_RATIO: ClassVar[float] = 0.23  # アニメの顔の最適な面積比（これを超えると緩やかにスコアを低下）
     ANIME_FACE_RATIO_FALLOFF: ClassVar[float] = 0.6  # アニメの顔が大きすぎる場合のスコア低下率
 
@@ -171,6 +173,72 @@ class ThumbnailGenerator:
             ThumbnailGenerator: 初期化された ThumbnailGenerator インスタンス
         """
 
+        def IsAnimeGenre(genre: schemas.Genre) -> bool:
+            """ 指定されたジャンルが確実にアニメとして扱うべきジャンルかどうかを判定 """
+            major = genre['major']
+            middle = genre['middle']
+
+            # アニメ・特撮の場合、特撮以外はアニメ
+            if major == 'アニメ・特撮' and middle != '特撮':
+                return True
+            # 映画の場合、アニメのみアニメ
+            if major == '映画' and middle == 'アニメ':
+                return True
+
+            return False
+
+        def IsLiveActionGenre(genre: schemas.Genre) -> bool:
+            """ 指定されたジャンルが確実に実写人物が重要なジャンルかどうかを判定 """
+            major = genre['major']
+            middle = genre['middle']
+
+            # 一律で実写人物が重要なジャンルとして扱うメジャージャンル
+            if major in {
+                'ニュース・報道',
+                '情報・ワイドショー',
+                'ドラマ',
+                '劇場・公演',
+            }:
+                return True
+            # バラエティの場合、お笑い・コメディ以外は実写番組
+            ## 「アニメ・特撮/国内アニメ」が指定されているが、「お笑い・コメディ」以外のバラエティジャンルが指定されている場合は
+            ## 実写の声優特番などである可能性が高い
+            if major == 'バラエティ' and middle != 'お笑い・コメディ':
+                return True
+            # アニメ・特撮の場合、特撮は実写番組
+            if major == 'アニメ・特撮' and middle == '特撮':
+                return True
+            # 映画の場合、アニメ以外は実写番組
+            if major == '映画' and middle != 'アニメ':
+                return True
+            # ドキュメンタリー・教養の場合、特定のミドルジャンルは実写人物が重要
+            if major == 'ドキュメンタリー・教養' and middle in {
+                '社会・時事',
+                '歴史・紀行',
+                'インタビュー・討論',
+            }:
+                return True
+
+            return False
+
+        def DetermineFaceDetectionMode(genres: list[schemas.Genre]) -> Literal['Human', 'Anime'] | None:
+            """ 番組のジャンル情報から顔検出モードを決定（ジャンル情報は ariblib/constants.py の CONTENT_TYPE を参照） """
+            if len(genres) == 0:
+                return None
+
+            # アニメとして扱うべきジャンルが含まれているかチェック
+            has_anime = any(IsAnimeGenre(g) for g in genres)
+            # アニメとして扱うべきジャンルが含まれていて、かつ実写人物が重要なジャンルが含まれていない場合はアニメ顔検出を優先
+            # 実写人物が重要なジャンルが含まれている場合は、アニメ顔検出は使わない
+            if has_anime and not any(IsLiveActionGenre(g) for g in genres):
+                return 'Anime'
+            # 実写人物が重要なジャンルが含まれているかチェック
+            if any(IsLiveActionGenre(g) for g in genres):
+                return 'Human'
+            # アニメも実写人物が重要なジャンルも両方含まれていない場合は顔検出しない
+            # 実際には顔検出しない場合でも実写番組の場合は往々にしてあるが、ジャンルによっては必ずしもサムネで顔アップが求められるわけではない
+            return None
+
         # 動画長を取得 (番組長ではなく動画ファイルの実際の長さを使わないと辻褄が合わない)
         duration_sec = recorded_program.recorded_video.duration
 
@@ -188,30 +256,8 @@ class ThumbnailGenerator:
             (start_time + total_time * 0.60, start_time + total_time * 0.70),
         ]
 
-        # ジャンル情報から顔検出の要否を判断
-        ## アニメが含まれている場合はアニメ顔検出を優先
-        ## それ以外は実写人物が重要なジャンルかどうかで判断
-        face_detection_mode: Literal['Human', 'Anime'] | None = None
-        if recorded_program.genres:
-            # アニメが含まれている場合はアニメ顔検出を優先
-            if any('アニメ' in g['major'] or 'アニメ' in g['middle'] for g in recorded_program.genres):
-                face_detection_mode = 'Anime'
-            else:
-                # 実写人物がサムネイルに写っていることが重要なジャンル
-                human_face_genres = [
-                    'ニュース・報道',
-                    '情報・ワイドショー',
-                    'ドラマ',
-                    'バラエティ',
-                    '映画',
-                ]
-                # 最初のジャンルの major を取得
-                first_genre_major = recorded_program.genres[0]['major']
-                if any(genre in first_genre_major for genre in human_face_genres):
-                    face_detection_mode = 'Human'
-                # 手話番組は人物の顔や手の動きが重要なので、人物顔検出を有効にする
-                if any(g['major'] == '福祉' and g['middle'] == '手話' for g in recorded_program.genres):
-                    face_detection_mode = 'Human'
+        # ジャンル情報から顔検出の要否・アニメ or 実写人物が重要なジャンルを判断
+        face_detection_mode = DetermineFaceDetectionMode(recorded_program.genres)
 
         # コンストラクタに渡す
         return cls(
@@ -1150,15 +1196,18 @@ class ThumbnailGenerator:
 
         # 顔検出器のロード (必要な場合のみ)
         face_cascade = None
+        auxiliary_face_cascade = None
         if self.face_detection_mode == 'Human':
             face_cascade = cv2.CascadeClassifier(str(self.HUMAN_FACE_CASCADE_PATH))
         elif self.face_detection_mode == 'Anime':
             face_cascade = cv2.CascadeClassifier(str(self.ANIME_FACE_CASCADE_PATH))
+            # アニメ顔検出時は精度向上のため、実写顔検出器を併用
+            auxiliary_face_cascade = cv2.CascadeClassifier(str(self.HUMAN_FACE_CASCADE_PATH))
 
         # 各フレームのスコアを計算
         results: list[tuple[int, float, bool, NDArray[np.uint8]]] = []
         for idx, frame_bgr, row, col, sub_img in frames_data:
-            score, found_face = self.__computeImageScore(frame_bgr, face_cascade, row, col)
+            score, found_face = self.__computeImageScore(frame_bgr, face_cascade, auxiliary_face_cascade, row, col)
             results.append((idx, score, found_face, sub_img))
 
         return results
@@ -1168,6 +1217,7 @@ class ThumbnailGenerator:
         self,
         img_bgr: NDArray[np.uint8],
         face_cascade: cv2.CascadeClassifier | None,
+        auxiliary_face_cascade: cv2.CascadeClassifier | None,
         row: int,
         col: int,
     ) -> tuple[float, bool]:
@@ -1240,34 +1290,54 @@ class ThumbnailGenerator:
             # アニメとそれ以外で異なるパラメータを使う
             faces = face_cascade.detectMultiScale(
                 gray,
-                scaleFactor=self.ANIME_FACE_DETECTION_SCALE_FACTOR if self.face_detection_mode == 'Anime' else self.FACE_DETECTION_SCALE_FACTOR,
-                minNeighbors=self.ANIME_FACE_DETECTION_MIN_NEIGHBORS if self.face_detection_mode == 'Anime' else self.FACE_DETECTION_MIN_NEIGHBORS,
+                scaleFactor = self.ANIME_FACE_DETECTION_SCALE_FACTOR if self.face_detection_mode == 'Anime' else self.HUMAN_FACE_DETECTION_SCALE_FACTOR,
+                minNeighbors = self.ANIME_FACE_DETECTION_MIN_NEIGHBORS if self.face_detection_mode == 'Anime' else self.HUMAN_FACE_DETECTION_MIN_NEIGHBORS,
             )
+
+            # 顔が検出された場合の処理
             if len(faces) > 0:
-                found_face = True
                 # 最も大きい顔を基準にスコアを計算
                 max_face_area = max(w * h for (_, _, w, h) in faces)
                 img_area = valid_region.shape[0] * valid_region.shape[1]
                 # 顔の面積比を計算 (0.0 ~ 1.0)
                 face_area_ratio = max_face_area / img_area
-                logging.debug_simple(f'Face detected. Face area ratio: {face_area_ratio:.2f} (row:{row}, col:{col})')
 
-                # アニメと実写で異なる重み付けを適用
+                # アニメモードの場合の処理
                 if self.face_detection_mode == 'Anime':
-                    # アニメの場合、最適な面積比を超えると緩やかにスコアを低下
-                    if face_area_ratio > self.ANIME_FACE_OPTIMAL_RATIO:
-                        # 超過分に対して緩やかな減衰を適用
-                        excess_ratio = (face_area_ratio - self.ANIME_FACE_OPTIMAL_RATIO) / self.ANIME_FACE_OPTIMAL_RATIO
-                        reduction_factor = 1.0 - (excess_ratio * self.ANIME_FACE_RATIO_FALLOFF)
-                        reduction_factor = max(0.5, reduction_factor)  # 最低でも50%は維持
-                        face_area_ratio = self.ANIME_FACE_OPTIMAL_RATIO + (face_area_ratio - self.ANIME_FACE_OPTIMAL_RATIO) * reduction_factor
-                        logging.debug_simple(f'Large anime face detected. Score adjusted by factor {reduction_factor:.2f}')
-                    face_weight = self.ANIME_FACE_SIZE_WEIGHT
-                else:
-                    face_weight = self.FACE_SIZE_WEIGHT
+                    # 実写顔を検出
+                    assert auxiliary_face_cascade is not None
+                    human_faces = auxiliary_face_cascade.detectMultiScale(
+                        gray,
+                        scaleFactor = self.NON_ANIME_FACE_DETECTION_SCALE_FACTOR,
+                        minNeighbors = self.NON_ANIME_FACE_DETECTION_MIN_NEIGHBORS,
+                    )
+                    # 実写顔が検出された場合はアニメ顔を無効化
+                    if len(human_faces) > 0:
+                        logging.debug_simple(f'Human face detected in anime mode. Ignoring anime face. (row:{row}, col:{col})')
+                        found_face = False
+                        face_size_score = 0.0
+                    else:
+                        found_face = True
+                        logging.debug_simple(f'Anime face detected. Face area ratio: {face_area_ratio:.2f} (row:{row}, col:{col})')
 
-                # 基本スコアに面積比を掛けてスコアを計算
-                face_size_score = self.FACE_SIZE_BASE_SCORE * face_area_ratio * face_weight
+                        # アニメの場合、最適な面積比を超えると緩やかにスコアを低下
+                        if face_area_ratio > self.ANIME_FACE_OPTIMAL_RATIO:
+                            # 超過分に対して緩やかな減衰を適用
+                            excess_ratio = (face_area_ratio - self.ANIME_FACE_OPTIMAL_RATIO) / self.ANIME_FACE_OPTIMAL_RATIO
+                            reduction_factor = 1.0 - (excess_ratio * self.ANIME_FACE_RATIO_FALLOFF)
+                            reduction_factor = max(0.5, reduction_factor)  # 最低でも50%は維持
+                            face_area_ratio = self.ANIME_FACE_OPTIMAL_RATIO + (face_area_ratio - self.ANIME_FACE_OPTIMAL_RATIO) * reduction_factor
+                            logging.debug_simple(f'Large anime face detected. Score adjusted by factor {reduction_factor:.2f}')
+
+                        # アニメ顔のスコアを計算（アニメ用の重み付けを適用）
+                        face_size_score = self.FACE_SIZE_BASE_SCORE * face_area_ratio * self.ANIME_FACE_SIZE_WEIGHT
+
+                # 実写モードの場合の処理
+                else:
+                    found_face = True
+                    logging.debug_simple(f'Face detected. Face area ratio: {face_area_ratio:.2f} (row:{row}, col:{col})')
+                    # 実写顔のスコアを計算（実写用の重み付けを適用）
+                    face_size_score = self.FACE_SIZE_BASE_SCORE * face_area_ratio * self.HUMAN_FACE_SIZE_WEIGHT
 
         # アニメの場合は色のバランスも評価
         color_balance_score = 0.0
