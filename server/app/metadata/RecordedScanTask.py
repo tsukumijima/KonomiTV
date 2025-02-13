@@ -334,11 +334,15 @@ class RecordedScanTask:
             ## さもなければサーバーの終了後もプロセスが残り続けてゾンビプロセス化し、メモリリークを引き起こしてしまう
             loop = asyncio.get_running_loop()
             analyzer = MetadataAnalyzer(pathlib.Path(str(file_path)))  # anyio.Path -> pathlib.Path に変換
-            with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
-                recorded_program = await loop.run_in_executor(executor, analyzer.analyze)
-            if recorded_program is None:
-                # メタデータ解析に失敗した場合はエラーとして扱う
-                logging.error(f'{file_path}: Failed to analyze metadata.')
+            try:
+                with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
+                    recorded_program = await loop.run_in_executor(executor, analyzer.analyze)
+                if recorded_program is None:
+                    # メタデータ解析に失敗した場合はエラーとして扱う
+                    logging.error(f'{file_path}: Failed to analyze metadata.')
+                    return
+            except Exception as ex:
+                logging.error(f'{file_path}: Error analyzing metadata:', exc_info=ex)
                 return
 
             # 60秒未満のファイルは録画失敗または切り抜きとみなしてスキップ

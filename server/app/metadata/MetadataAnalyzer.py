@@ -88,15 +88,16 @@ class MetadataAnalyzer:
 
             # 全般（コンテナ情報）
             if track.track_type == 'General':
+                # この時点で duration は確実に取得されているはず
                 duration = float(track.duration) / 1000  # ミリ秒を秒に変換
-                # 今のところ MPEG-TS 固定
                 if track.format == 'MPEG-TS':
                     container_format = 'MPEG-TS'
                 else:
-                    # MPEG-TS 以外のコンテナは KonomiTV で再生できない
+                    # MPEG-TS 以外のコンテナ形式は KonomiTV で再生できない
                     continue
+                # 情報が存在する場合のみ、録画開始時刻と録画終了時刻を算出
+                # MPEG-TS 内に TOT が含まれていない場合は録画開始時刻・録画終了時刻は算出できない
                 if hasattr(track, 'start_time') and track.start_time is not None:
-                    # 録画開始時刻と録画終了時刻を算出
                     ## 録画開始時刻は MediaInfo から "start_time" として取得できる (ただし小数点以下は省略されている)
                     ## "start_time" は "UTC 2023-06-26 23:59:52" のフォーマットになっているが、実際には JST の時刻が返される
                     ## ちゃんと JST のタイムゾーンが指定された datetime として扱うためには、datetime.fromisoformat() でパースする必要がある
@@ -137,7 +138,7 @@ class MetadataAnalyzer:
                 elif track.format == 'HEVC':
                     video_codec = 'H.265'
                 else:
-                    # MPEG-2, H.264, H.265 以外のフォーマットは KonomiTV で再生できない
+                    # MPEG-2, H.264, H.265 以外のコーデックは KonomiTV で再生できない
                     continue
                 # format_profile は Main@High や High@L5 など @ 区切りで Level や Tier などが付与されている場合があるので、それらを除去する
                 video_codec_profile = cast(Literal['High', 'High 10', 'Main', 'Main 10', 'Baseline'], track.format_profile.split('@')[0])
@@ -146,8 +147,17 @@ class MetadataAnalyzer:
                     video_scan_type = 'Interlaced'
                 else:
                     video_scan_type = 'Progressive'
+                if hasattr(track, 'frame_rate') is False or track.frame_rate is None:
+                    logging.warning(f'{self.recorded_file_path}: Frame rate information is missing.')
+                    continue
                 video_frame_rate = float(track.frame_rate)
+                if hasattr(track, 'width') is False or track.width is None:
+                    logging.warning(f'{self.recorded_file_path}: Width information is missing.')
+                    continue
                 video_resolution_width = int(track.width)
+                if hasattr(track, 'height') is False or track.height is None:
+                    logging.warning(f'{self.recorded_file_path}: Height information is missing.')
+                    continue
                 video_resolution_height = int(track.height)
                 is_video_track_read = True
 
@@ -160,8 +170,9 @@ class MetadataAnalyzer:
                 if track.format == 'AAC' and hasattr(track, 'format_additionalfeatures') and track.format_additionalfeatures == 'LC':
                     primary_audio_codec = 'AAC-LC'
                 else:
-                    # AAC-LC 以外のフォーマットは KonomiTV で再生できない
+                    # AAC-LC 以外のコーデックは KonomiTV で再生できない
                     continue
+                # この時点で channel_s は必ず存在するはず
                 if int(track.channel_s) == 1:
                     primary_audio_channel = 'Monaural'
                 elif int(track.channel_s) == 2:
@@ -171,6 +182,9 @@ class MetadataAnalyzer:
                     primary_audio_channel = '5.1ch'
                 else:
                     # 1ch, 2ch, 5.1ch 以外の音声チャンネル数は KonomiTV で再生できない
+                    continue
+                if hasattr(track, 'sampling_rate') is False or track.sampling_rate is None:
+                    logging.warning(f'{self.recorded_file_path}: Sampling rate information is missing.')
                     continue
                 primary_audio_sampling_rate = int(track.sampling_rate)
                 is_primary_audio_track_read = True
@@ -186,6 +200,7 @@ class MetadataAnalyzer:
                 else:
                     # AAC-LC 以外のフォーマットは当面 KonomiTV で再生できない
                     continue
+                # この時点で channel_s は必ず存在するはず
                 if int(track.channel_s) == 1:
                     secondary_audio_channel = 'Monaural'
                 elif int(track.channel_s) == 2:
@@ -195,6 +210,9 @@ class MetadataAnalyzer:
                     secondary_audio_channel = '5.1ch'
                 else:
                     # 1ch, 2ch, 5.1ch 以外の音声チャンネル数は KonomiTV で再生できない
+                    continue
+                if hasattr(track, 'sampling_rate') is False or track.sampling_rate is None:
+                    logging.warning(f'{self.recorded_file_path}: Sampling rate information is missing.')
                     continue
                 secondary_audio_sampling_rate = int(track.sampling_rate)
                 is_secondary_audio_track_read = True
@@ -587,7 +605,7 @@ class MetadataAnalyzer:
                     if track.encryption == 'Encrypted':
                         logging.warning(f'{self.recorded_file_path}: Video stream is encrypted.')
                         return None
-                    # MPEG-2, H.264, H.265 以外のフォーマットは KonomiTV で再生できない
+                    # MPEG-2, H.264, H.265 以外のコーデックは KonomiTV で再生できない
                     if track.format not in ['MPEG Video', 'AVC', 'HEVC']:
                         logging.warning(f'{self.recorded_file_path}: {track.format} is not supported.')
                         return None
@@ -598,9 +616,13 @@ class MetadataAnalyzer:
                     if track.encryption == 'Encrypted':
                         logging.warning(f'{self.recorded_file_path}: Audio stream is encrypted.')
                         return None
-                    # AAC-LC 以外のフォーマットは KonomiTV で再生できない
+                    # AAC-LC 以外のコーデックは KonomiTV で再生できない
                     if track.format not in ['AAC']:
                         logging.warning(f'{self.recorded_file_path}: {track.format} is not supported.')
+                        return None
+                    # チャンネル数情報が存在しない
+                    if hasattr(track, 'channel_s') is False or track.channel_s is None:
+                        logging.warning(f'{self.recorded_file_path}: Channel count information is missing.')
                         return None
                     # 1ch, 2ch, 5.1ch 以外の音声チャンネル数は KonomiTV で再生できないが、
                     # 実際に上記以外の音声チャンネル数でエンコードされることはまずない (少なくとも放送仕様上は発生し得ない) ため、
