@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 from app import logging
 from app import schemas
 from app.config import Config
+from app.constants import THUMBNAILS_DIR
 from app.metadata.MetadataAnalyzer import MetadataAnalyzer
 from app.metadata.KeyFrameAnalyzer import KeyFrameAnalyzer
 from app.metadata.ThumbnailGenerator import ThumbnailGenerator
@@ -233,6 +234,35 @@ class RecordedScanTask:
                     # CASCADE 制約により RecordedVideo も同時に削除される (Channel は親テーブルにあたるため削除されない)
                     await existing_db_recorded_video.recorded_program.delete()
                     logging.info(f'{file_path}: Deleted record for non-existent file.')
+
+        # 不要なサムネイルファイルを削除
+        ## DB に存在する全ての RecordedVideo レコードのハッシュを取得
+        db_recorded_video_hashes = {video.file_hash for video in await RecordedVideo.all()}
+
+        ## サムネイルフォルダ内の全ファイルをスキャン
+        thumbnails_dir = anyio.Path(str(THUMBNAILS_DIR))
+        if await thumbnails_dir.is_dir():
+            async for thumbnail_path in thumbnails_dir.glob('*'):
+                try:
+                    # .git から始まるファイルは無視
+                    if thumbnail_path.name.startswith('.git'):
+                        continue
+
+                    # ファイル名からハッシュを抽出
+                    ## ファイル名は "{hash}.webp" または "{hash}_tile.webp" の形式
+                    ## JPEG フォールバックの場合は ".jpg" の可能性もある
+                    file_name = thumbnail_path.stem
+                    if file_name.endswith('_tile'):
+                        file_hash = file_name[:-5]  # "_tile" を除去
+                    else:
+                        file_hash = file_name
+
+                    # DB に存在しないハッシュのファイルを削除
+                    if file_hash not in db_recorded_video_hashes:
+                        await thumbnail_path.unlink()
+                        logging.info(f'{thumbnail_path.name}: Deleted orphaned thumbnail file.')
+                except Exception as ex:
+                    logging.error(f'{thumbnail_path}: Error deleting orphaned thumbnail file:', exc_info=ex)
 
         logging.info('Batch scan of recording folders has been completed.')
         self._is_batch_scan_running = False
