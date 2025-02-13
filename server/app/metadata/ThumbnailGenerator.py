@@ -457,8 +457,6 @@ class ThumbnailGenerator:
                         '-hwaccel', 'd3d11va' if sys.platform == 'win32' else 'auto',
                         # 入力フォーマットを指定（現状 MPEG-TS 固定）
                         '-f', 'mpegts',
-                        # ストリームの分析時間を短縮する
-                        '-analyzeduration', '1000000',
                         # 抽出開始位置
                         '-ss', formatted_offset,
                         # 入力ファイル
