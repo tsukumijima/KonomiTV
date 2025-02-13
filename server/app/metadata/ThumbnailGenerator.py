@@ -35,8 +35,8 @@ class ThumbnailGenerator:
     TILE_COLS: ClassVar[int] = 34   # WebP の最大サイズ制限 (16383px) を考慮し、1行あたりの最大フレーム数を設定
 
     # WebP 出力の設定
-    WEBP_QUALITY: ClassVar[int] = 85  # WebP 品質 (0-100)
-    WEBP_COMPRESSION: ClassVar[int] = 4  # WebP 圧縮レベル (0-6)
+    WEBP_QUALITY: ClassVar[int] = 68  # WebP 品質 (0-100)
+    WEBP_COMPRESSION: ClassVar[int] = 6  # WebP 圧縮レベル (0-6)
     WEBP_MAX_SIZE: ClassVar[int] = 16383  # WebP の最大サイズ制限 (px)
 
     # JPEG フォールバック時の設定
