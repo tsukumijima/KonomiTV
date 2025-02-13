@@ -616,6 +616,14 @@ class MetadataAnalyzer:
                     if track.encryption == 'Encrypted':
                         logging.warning(f'{self.recorded_file_path}: Audio stream is encrypted.')
                         return None
+                    # コーデックが "MPEG Audio" になっている場合は誤解析の可能性が高いので、やむを得ず AAC-LC ということにする
+                    # 現実的に放送波で MP3 が流れてくることはないし、エンコード後でも MP3 になることはほとんどないはず
+                    ## 稀に発生するが条件が本当に謎… MediaInfo の中身はブラックボックスなのでかなり不可解だが MediaInfo だけでは現状どうしようもない…
+                    if track.format == 'MPEG Audio':
+                        track.format = 'AAC'
+                        track.format_additionalfeatures = 'LC'
+                        track.sampling_rate = 48000  # サンプリングレートは 48000Hz に固定 (放送波は通常 48000Hz でエンコードされる)
+                        logging.warning(f'{self.recorded_file_path}: MPEG Audio is detected. Assuming AAC-LC. (Is MediaInfo misinterpreting the audio?)')
                     # AAC-LC 以外のコーデックは KonomiTV で再生できない
                     if track.format not in ['AAC']:
                         logging.warning(f'{self.recorded_file_path}: {track.format} is not supported.')
