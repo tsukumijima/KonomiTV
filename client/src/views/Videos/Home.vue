@@ -12,7 +12,7 @@
                     ]" />
                     <RecordedProgramList
                         class="videos-home-container__recent-programs"
-                        :class="{'videos-home-container__recent-programs--empty': recent_programs.length === 0 && !is_loading}"
+                        :class="{'videos-home-container__recent-programs--loading': recent_programs.length === 0 && is_loading}"
                         title="新着の録画番組"
                         :programs="recent_programs"
                         :total="total_programs"
@@ -241,12 +241,12 @@ onUnmounted(() => {
         }
     }
 
-    &__recent-programs:not(.videos-home-container__recent-programs--empty) {
+    &__recent-programs.videos-home-container__recent-programs--loading {
         // ローディング中にちらつかないように
         :deep(.recorded-program-list__grid) {
             height: calc(125px * 10);
             @include smartphone-vertical {
-                height: calc(115px * 10);
+                height: calc(100px * 10);
             }
         }
     }
