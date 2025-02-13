@@ -253,7 +253,7 @@ const removeFromWatchedHistory = () => {
         height: 100%;
         padding: 12px 0px;
         @include smartphone-vertical {
-            padding: 9px 0px;
+            padding: 8px 0px;
         }
     }
 
@@ -380,8 +380,9 @@ const removeFromWatchedHistory = () => {
                 font-size: 14px;
             }
             @include smartphone-vertical {
-                font-size: 13px;
                 margin-right: 24px;
+                font-size: 13px;
+                line-height: 1.45;
                 -webkit-line-clamp: 2;  // 2行までに制限
             }
         }
@@ -481,7 +482,7 @@ const removeFromWatchedHistory = () => {
             margin-top: 6px;
             color: rgb(var(--v-theme-text-darken-1));
             font-size: 11.5px;
-            line-height: 155%;
+            line-height: 1.55;
             overflow-wrap: break-word;
             font-feature-settings: "palt" 1;  // 文字詰め
             letter-spacing: 0.07em;  // 字間を少し空ける
@@ -499,6 +500,7 @@ const removeFromWatchedHistory = () => {
             @include smartphone-vertical {
                 margin-top: 1.5px;
                 font-size: 11px;
+                line-height: 1.45;
                 -webkit-line-clamp: 1;  // 1行までに制限
             }
         }
