@@ -397,7 +397,7 @@ def Installer(version: str) -> None:
         table_06.add_row('入力例: E:\\TV-Record')
     elif platform_type == 'Linux' or platform_type == 'Linux-Docker':
         table_06.add_row('入力例: /mnt/hdd/TV-Record')
-    table_06.add_row('複数のフォルダを指定する場合は、1つずつ入力してください。')
+    table_06.add_row('複数のフォルダを指定するには、パスを1つずつ入力してください。')
     table_06.add_row('入力を終了する場合は、何も入力せずに Enter キーを押してください。')
     print(Padding(table_06, (1, 2, 1, 2)))
 
@@ -407,7 +407,7 @@ def Installer(version: str) -> None:
     # 録画フォルダを1つずつ入力
     while True:
         # 入力プロンプト (バリデーションに失敗し続ける限り何度でも表示される)
-        recorded_folder = CustomPrompt.ask('録画フォルダのパス', default='')
+        recorded_folder = CustomPrompt.ask('録画フォルダのパス')
 
         # 何も入力されなかった場合は入力を終了
         if recorded_folder == '':
@@ -445,7 +445,7 @@ def Installer(version: str) -> None:
         table_07.add_row('入力例: E:\\TV-Capture')
     elif platform_type == 'Linux' or platform_type == 'Linux-Docker':
         table_07.add_row('入力例: /mnt/hdd/TV-Capture')
-    table_07.add_row('複数のフォルダを指定する場合は、1つずつ入力してください。')
+    table_07.add_row('複数のフォルダを指定するには、パスを1つずつ入力してください。')
     table_07.add_row('入力を終了する場合は、何も入力せずに Enter キーを押してください。')
     print(Padding(table_07, (1, 2, 1, 2)))
 
@@ -455,7 +455,7 @@ def Installer(version: str) -> None:
     # 録画フォルダを1つずつ入力
     while True:
         # 入力プロンプト (バリデーションに失敗し続ける限り何度でも表示される)
-        capture_upload_folder = CustomPrompt.ask('アップロードしたキャプチャ画像の保存先フォルダのパス', default='')
+        capture_upload_folder = CustomPrompt.ask('アップロードしたキャプチャ画像の保存先フォルダのパス')
 
         # 何も入力されなかった場合は入力を終了
         if capture_upload_folder == '':
