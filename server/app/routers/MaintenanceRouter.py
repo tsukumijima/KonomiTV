@@ -69,9 +69,7 @@ async def GetCurrentAdminUserOrLocal(
     summary = 'データベース更新 API',
     status_code = status.HTTP_204_NO_CONTENT,
 )
-async def UpdateDatabaseAPI(
-    current_user: Annotated[User, Depends(GetCurrentAdminUser)],
-):
+async def UpdateDatabaseAPI():
     """
     データベースに保存されている、チャンネル情報・番組情報・Twitter アカウント情報などの外部 API に依存するデータをすべて更新する。<br>
     即座に外部 API からのデータ更新を反映させたい場合に利用する。<br>

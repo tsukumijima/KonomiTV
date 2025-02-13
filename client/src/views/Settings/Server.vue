@@ -262,6 +262,8 @@
                 <Icon icon="fluent:person-board-20-filled" height="20px" />
                 <span class="ml-1">アカウントの管理設定を開く</span>
             </v-btn>
+        </div>
+        <div class="settings__content">
             <div class="settings__content-heading mt-8">
                 <Icon icon="fluent:wrench-settings-20-filled" width="22px" />
                 <span class="ml-2">メンテナンス</span>
@@ -308,6 +310,8 @@
                 <Icon icon="fluent:book-arrow-clockwise-20-regular" height="20px" />
                 <span class="ml-2">バックグラウンド解析タスクを再実行</span>
             </v-btn>
+        </div>
+        <div class="settings__content" :class="{'settings__content--disabled': is_disabled}">
             <div class="settings__item">
                 <div class="settings__item-heading text-error-lighten-1">KonomiTV サーバーを再起動</div>
                 <div class="settings__item-label">
@@ -436,20 +440,24 @@ async function startBackgroundAnalysis() {
 
 // KonomiTV サーバーの再起動を行う関数
 async function restartServer() {
-    await Maintenance.restartServer();
-    Message.show('KonomiTV サーバーを再起動しています...');
-    // バージョン情報が取得できるようになるまで待つ
-    await Utils.sleep(1.0);
-    while (await Version.fetchServerVersion(true) === null) {
+    const result = await Maintenance.restartServer();
+    if (result === true) {
+        Message.show('KonomiTV サーバーを再起動しています...');
+        // バージョン情報が取得できるようになるまで待つ
         await Utils.sleep(1.0);
+        while (await Version.fetchServerVersion(true) === null) {
+            await Utils.sleep(1.0);
+        }
+        Message.success('KonomiTV サーバーを再起動しました。');
     }
-    Message.success('KonomiTV サーバーを再起動しました。');
 }
 
 // KonomiTV サーバーのシャットダウンを行う関数
 async function shutdownServer() {
-    await Maintenance.shutdownServer();
-    Message.success('KonomiTV サーバーをシャットダウンしました。');
+    const result = await Maintenance.shutdownServer();
+    if (result === true) {
+        Message.success('KonomiTV サーバーをシャットダウンしました。');
+    }
 }
 
 </script>
