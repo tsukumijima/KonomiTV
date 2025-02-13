@@ -32,8 +32,15 @@ export default defineComponent({
     padding-right: 16px;
     overflow-y: auto;
     @include tablet-vertical {
+        margin-top: 20px;
         padding-left: 24px;
         padding-right: 24px;
+    }
+    @include smartphone-horizontal {
+        margin-top: 12px;
+    }
+    @include smartphone-vertical {
+        margin-top: 14px;
     }
 }
 
