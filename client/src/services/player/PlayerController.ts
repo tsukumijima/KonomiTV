@@ -226,6 +226,24 @@ class PlayerController {
         const is_show_superimpose = this.playback_mode === 'Live' ?
             settings_store.settings.tv_show_superimpose : settings_store.settings.video_show_superimpose;
 
+        // シーク秒数が指定されていない（初回ロード時）は、視聴履歴があればその位置から再生を開始する
+        // なければ録画開始マージン + 2秒シークする
+        // 2秒プラスしているのは、実際の放送波では EPG (EIT[p/f]) の変更より2〜4秒後に実際に番組が切り替わる場合が多いため
+        // この誤差は放送局や TOT 精度によっておそらく異なるので、本編の最初が削れないように2秒のプラスに留めている
+        // seek_seconds はこの後 DPlayer を初期化した後の初回シーク時に参照される
+        if (seek_seconds === null) {
+            const history = settings_store.settings.watched_history.find(
+                history => history.video_id === player_store.recorded_program.id
+            );
+            if (history) {
+                seek_seconds = history.last_playback_position;
+                console.log(`\u001b[31m[PlayerController] Seeking to ${seek_seconds} seconds. (Watched History)`);
+            } else {
+                seek_seconds = player_store.recorded_program.recording_start_margin + 2;
+                console.log(`\u001b[31m[PlayerController] Seeking to ${seek_seconds} seconds. (Recording Start Margin + 2)`);
+            }
+        }
+
         // この時点で LocalStorage に dplayer-danmaku-opacity キーが存在しなければ、コメントの透明度の既定値を設定する
         // DPlayer のデフォルトは 1.0 (全表示) だが映像が見づらくなるため、0.5 に設定する
         if (localStorage.getItem('dplayer-danmaku-opacity') === null) {
@@ -413,6 +431,17 @@ class PlayerController {
                         // コメント表示をシーク状態に同期する
                         // ここでシークしておかないと、DPlayer の初期化直後にシークした際にシーク位置より前のコメントが一斉に描画されてしまう
                         this.player!.danmaku!.seek();
+                        // コメントリストもシークバーに合わせてスクロールさせておく（コメントリストコンポーネントに通知）
+                        // この時点ではまだ映像の読み込みが完了していない可能性が高いので、currentTime がまだ 0 か非数の場合は seek_seconds をそのまま使う
+                        let comment_seek_seconds = this.player!.video.currentTime;
+                        if (comment_seek_seconds === 0 || isNaN(comment_seek_seconds)) {
+                            comment_seek_seconds = seek_seconds;
+                        }
+                        await Utils.sleep(0.1);  // 仮想スクローラーの準備ができるまで少し待つ
+                        player_store.event_emitter.emit('PlaybackPositionChanged', {
+                            playback_position: comment_seek_seconds,
+                        });
+                        console.log(`\u001b[31m[PlayerController] Comment list seeking to ${comment_seek_seconds} seconds.`);
                     }
                 },
                 // コメント送信時
@@ -640,22 +669,7 @@ class PlayerController {
         // ビデオ視聴時のみ、指定秒数シークする
         if (this.playback_mode === 'Video') {
 
-            // シーク秒数が指定されていない（初回ロード時）は、視聴履歴があればその位置から再生を開始する
-            // なければ録画開始マージン + 2秒シークする
-            // 2秒プラスしているのは、実際の放送波では EPG (EIT[p/f]) の変更より2〜4秒後に実際に番組が切り替わる場合が多いため
-            // この誤差は放送局や TOT 精度によっておそらく異なるので、本編の最初が削れないように2秒のプラスに留めている
-            if (seek_seconds === null) {
-                const history = settings_store.settings.watched_history.find(
-                    history => history.video_id === player_store.recorded_program.id
-                );
-                if (history) {
-                    seek_seconds = history.last_playback_position;
-                    console.log(`\u001b[31m[PlayerController] Seeking to ${seek_seconds} seconds. (Watched History)`);
-                } else {
-                    seek_seconds = player_store.recorded_program.recording_start_margin + 2;
-                    console.log(`\u001b[31m[PlayerController] Seeking to ${seek_seconds} seconds. (Recording Start Margin + 2)`);
-                }
-            }
+            // 初期化前に算出しておいた秒数分初回シークを実行
             this.player.seek(seek_seconds);
 
             // 初回シーク時は確実にエンコーダーの起動が発生するため、ロードに若干時間がかかる
@@ -1228,9 +1242,17 @@ class PlayerController {
             };
         }
 
-        // 視聴履歴の更新処理
+        // 録画再生時のみ実行する処理
         if (this.playback_mode === 'Video') {
 
+            // 再生位置の変更（再生の進行状況）を Comment.vue にイベントとして通知する
+            this.player.on('timeupdate', () => {
+                player_store.event_emitter.emit('PlaybackPositionChanged', {
+                    playback_position: this.player!.video.currentTime,
+                });
+            });
+
+            // 視聴履歴の更新処理
             // timeupdate イベントを間引いて処理
             // ここで登録したイベントは、destroy() を実行した際にプレイヤーごと破棄される
             let last_timeupdate_fired_at = 0;
