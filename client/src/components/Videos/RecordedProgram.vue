@@ -98,23 +98,23 @@
                             </template>
                             <v-list-item-title class="ml-3">録画ファイルをダウンロード ({{ Utils.formatBytes(program.recorded_video.file_size) }})</v-list-item-title>
                         </v-list-item>
-                        <v-list-item @click="reanalyzeVideo">
+                        <v-list-item @click="reanalyzeVideo" v-ftooltip="'再生時に必要な録画ファイル情報や番組情報などを解析し直します'">
                             <template v-slot:prepend>
                                 <Icon icon="fluent:book-arrow-clockwise-20-regular" width="20px" height="20px" />
                             </template>
                             <v-list-item-title class="ml-3">メタデータを再解析</v-list-item-title>
                         </v-list-item>
-                        <v-list-item @click="regenerateThumbnail(true)">
+                        <v-list-item @click="regenerateThumbnail(true)" v-ftooltip="'既存のシークバー用サムネイルから代表サムネイルを選び直します 変更反映にはブラウザキャッシュの削除が必要です'">
+                            <template v-slot:prepend>
+                                <Icon icon="fluent:image-arrow-counterclockwise-24-regular" width="20px" height="20px" />
+                            </template>
+                            <v-list-item-title class="ml-3">サムネイルを更新</v-list-item-title>
+                        </v-list-item>
+                        <v-list-item @click="regenerateThumbnail(false)" v-ftooltip="'サムネイルを完全に作り直します（数分かかります） 変更反映にはブラウザキャッシュの削除が必要です'">
                             <template v-slot:prepend>
                                 <Icon icon="fluent:image-arrow-counterclockwise-24-regular" width="20px" height="20px" />
                             </template>
                             <v-list-item-title class="ml-3">サムネイルを再作成</v-list-item-title>
-                        </v-list-item>
-                        <v-list-item @click="regenerateThumbnail(false)">
-                            <template v-slot:prepend>
-                                <Icon icon="fluent:image-arrow-counterclockwise-24-regular" width="20px" height="20px" />
-                            </template>
-                            <v-list-item-title class="ml-3">シークバー用サムネイルを再作成</v-list-item-title>
                         </v-list-item>
                     </v-list>
                 </v-menu>
