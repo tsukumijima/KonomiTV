@@ -6,7 +6,13 @@
                     <Icon icon="fluent:chevron-left-12-filled" width="27px" />
                 </div>
                 <span class="recorded-program-list__title-text">{{title}}</span>
-                <div class="recorded-program-list__title-count" v-if="!showMoreButton">{{total}}件</div>
+                <div class="recorded-program-list__title-count" v-if="!showMoreButton">
+                    <template v-if="isSearching">
+                        <Icon icon="line-md:loading-twotone-loop" class="mr-1 spin" width="20px" height="20px" />
+                        <span>検索中...</span>
+                    </template>
+                    <template v-else>{{total}}件</template>
+                </div>
             </h2>
             <div class="recorded-program-list__actions" :class="{'recorded-program-list__actions--mylist': forMylist}">
                 <v-select v-if="!hideSort"
@@ -41,10 +47,14 @@
         </div>
         <div class="recorded-program-list__grid"
             :class="{
-                'recorded-program-list__grid--loading': isLoading,
+                'recorded-program-list__grid--loading': isLoading || isSearching,
                 'recorded-program-list__grid--empty': total === 0 && showEmptyMessage,
+                'recorded-program-list__grid--searching': isSearching,
             }">
-            <div class="recorded-program-list__empty" v-if="total === 0 && showEmptyMessage">
+            <div class="recorded-program-list__empty"
+                :class="{
+                    'recorded-program-list__empty--show': total === 0 && showEmptyMessage && !isSearching,
+                }">
                 <div class="recorded-program-list__empty-content">
                     <Icon class="recorded-program-list__empty-icon" :icon="emptyIcon" width="54px" height="54px" />
                     <h2 v-html="emptyMessage"></h2>
@@ -52,8 +62,10 @@
                         v-if="emptySubMessage" v-html="emptySubMessage"></div>
                 </div>
             </div>
-            <RecordedProgram v-for="program in programs" :key="program.id" :program="program"
-                :forMylist="forMylist" :forWatchedHistory="forWatchedHistory" />
+            <div class="recorded-program-list__grid-content">
+                <RecordedProgram v-for="program in programs" :key="program.id" :program="program"
+                    :forMylist="forMylist" :forWatchedHistory="forWatchedHistory" />
+            </div>
         </div>
         <div class="recorded-program-list__pagination" v-if="!hidePagination && total > 0">
             <v-pagination
@@ -94,6 +106,7 @@ const props = withDefaults(defineProps<{
     emptyMessage?: string;
     emptySubMessage?: string;
     isLoading?: boolean;
+    isSearching?: boolean;
     forMylist?: boolean;
     forWatchedHistory?: boolean;
 }>(), {
@@ -109,6 +122,7 @@ const props = withDefaults(defineProps<{
     emptyMessage: '録画番組が見つかりませんでした。',
     emptySubMessage: 'サーバー設定で録画フォルダのパスを<br class="d-sm-none">正しく設定できているか確認してください。',
     isLoading: false,
+    isSearching: false,
     forMylist: false,
     forWatchedHistory: false,
 });
@@ -194,13 +208,26 @@ watch(() => props.sortOrder, (newOrder) => {
         }
 
         &-count {
+            display: flex;
+            align-items: center;
+            flex-shrink: 0;
             padding-top: 8px;
             margin-left: 12px;
             font-size: 14px;
             font-weight: 400;
             color: rgb(var(--v-theme-text-darken-1));
-            @include smartphone-vertical {
-                margin-left: 10px;
+
+            .spin {
+                animation: spin 1.15s linear infinite;
+            }
+
+            @keyframes spin {
+                from {
+                    transform: rotate(0deg);
+                }
+                to {
+                    transform: rotate(360deg);
+                }
             }
         }
     }
@@ -249,17 +276,25 @@ watch(() => props.sortOrder, (newOrder) => {
     &__grid {
         display: flex;
         flex-direction: column;
+        position: relative;
         width: 100%;
         background: rgb(var(--v-theme-background-lighten-1));
         border-radius: 8px;
         overflow: hidden;
-        transition: opacity 0.2s ease;
 
         &--loading {
-            opacity: 0;
+            .recorded-program-list__grid-content {
+                visibility: hidden;
+                opacity: 0;
+            }
         }
-        &--empty {
+        &--empty, &--searching {
             height: 100%;
+        }
+
+        .recorded-program-list__grid-content {
+            height: 100%;
+            transition: visibility 0.2s ease, opacity 0.2s ease;
         }
 
         :deep(.recorded-program) {
@@ -280,12 +315,25 @@ watch(() => props.sortOrder, (newOrder) => {
     }
 
     &__empty {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
         display: flex;
         justify-content: center;
         align-items: center;
         padding-top: 28px;
         padding-bottom: 40px;
         flex-grow: 1;
+        visibility: hidden;
+        opacity: 0;
+        transition: visibility 0.2s ease, opacity 0.2s ease;
+
+        &--show {
+            visibility: visible;
+            opacity: 1;
+        }
 
         &-content {
             text-align: center;
