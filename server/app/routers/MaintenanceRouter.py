@@ -142,6 +142,7 @@ async def BackgroundAnalysisAPI():
 
         # 各録画ファイルに対して直列にバックグラウンド解析タスクを実行
         ## HDD は並列アクセスが遅いため、随時直列に実行していった方が結果的に早いことが多い
+        ## すべて直列なので ProcessLimiter や DriveIOLimiter での制限は掛けていない
         for db_recorded_video in db_recorded_videos:
             file_path = anyio.Path(db_recorded_video.file_path)
             try:

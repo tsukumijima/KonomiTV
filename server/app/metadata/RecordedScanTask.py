@@ -542,7 +542,7 @@ class RecordedScanTask:
         try:
             # ProcessLimiter で稼働中のバックグラウンドタスクの同時実行数を CPU コア数の 50% に制限
             async with ProcessLimiter.getSemaphore('RecordedScanTask'):
-                # DriveIOLimiter で同一 HDD に対してのバックグラウンドタスクの同時実行数を1セッションに制限
+                # DriveIOLimiter で同一 HDD に対してのバックグラウンドタスクの同時実行数を原則1セッションに制限
                 async with DriveIOLimiter.getSemaphore(file_path):
                     await asyncio.gather(
                         # 録画ファイルのキーフレーム情報を解析し DB に保存

@@ -22,6 +22,7 @@ from app.constants import STATIC_DIR, THUMBNAILS_DIR
 from app.metadata.RecordedScanTask import RecordedScanTask
 from app.metadata.ThumbnailGenerator import ThumbnailGenerator
 from app.models.RecordedProgram import RecordedProgram
+from app.utils.DriveIOLimiter import DriveIOLimiter
 from app.utils.JikkyoClient import JikkyoClient
 
 
@@ -720,12 +721,16 @@ async def VideoReanalyzeAPI(
     """
 
     try:
-        # メタデータ再解析を実行
-        await RecordedScanTask().processRecordedFile(
-            anyio.Path(recorded_program.recorded_video.file_path),
-            existing_db_recorded_videos = None,
-            force_update = True,
-        )
+        # DriveIOLimiter で同一 HDD に対してのバックグラウンドタスクの同時実行数を原則1セッションに制限
+        file_path = anyio.Path(recorded_program.recorded_video.file_path)
+        async with DriveIOLimiter.getSemaphore(file_path):
+            # メタデータ再解析を実行
+            await RecordedScanTask().processRecordedFile(
+                file_path,
+                existing_db_recorded_videos = None,
+                force_update = True,
+            )
+
         return {
             'is_success': True,
             'detail': 'Successfully reanalyzed the video.',
@@ -804,9 +809,12 @@ async def VideoThumbnailRegenerateAPI(
         # RecordedProgram モデルを schemas.RecordedProgram に変換
         recorded_program_schema = schemas.RecordedProgram.model_validate(recorded_program, from_attributes=True)
 
-        # サムネイル生成を実行
-        generator = ThumbnailGenerator.fromRecordedProgram(recorded_program_schema)
-        await generator.generate(skip_tile_if_exists=skip_tile_if_exists)
+        # DriveIOLimiter で同一 HDD に対してのバックグラウンドタスクの同時実行数を原則1セッションに制限
+        file_path = anyio.Path(recorded_program.recorded_video.file_path)
+        async with DriveIOLimiter.getSemaphore(file_path):
+            # サムネイル生成を実行
+            generator = ThumbnailGenerator.fromRecordedProgram(recorded_program_schema)
+            await generator.generate(skip_tile_if_exists=skip_tile_if_exists)
 
         return {
             'is_success': True,
