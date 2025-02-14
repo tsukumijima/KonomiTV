@@ -454,6 +454,8 @@ class ThumbnailGenerator:
                         '-nostdin',
                         # 入力フォーマットを指定（現状 MPEG-TS 固定）
                         '-f', 'mpegts',
+                        # I フレームのみをデコードする (nokey ではなく nointra でないと一部フレームが緑色になる…)
+                        '-skip_frame', 'nointra',
                         # 抽出開始位置
                         '-ss', formatted_offset,
                         # 入力ファイル
