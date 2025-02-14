@@ -528,8 +528,8 @@ export default defineComponent({
                 }
             }
 
-            // ターゲットのコメントのインデックスが変更されていない時は実行しない
-            if (target_index === this.target_comment_index) {
+            // ターゲットのコメントのインデックスが変更されていない時は実行しない (smooth: false のみ)
+            if (target_index === this.target_comment_index && smooth === false) {
                 return;
             }
 
@@ -541,7 +541,7 @@ export default defineComponent({
                 this.virtua_scroller.scrollToIndex(target_index, {
                     align: 'end',  // スクロール位置をコメントの下部に合わせる
                     smooth: smooth,
-                    offset: -2,  // コメントの下部に合わせるため、-2px だけ上にずらす
+                    offset: -3,  // コメントの下部に合わせるため、-3px だけ上にずらす
                 });
                 // ターゲットのコメントのインデックスを更新
                 this.target_comment_index = target_index;
