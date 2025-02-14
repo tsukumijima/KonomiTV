@@ -14,7 +14,6 @@ from fastapi import status
 from fastapi.responses import FileResponse
 from starlette.datastructures import Headers
 from tortoise import connections
-from tortoise.expressions import Q
 from typing import Annotated, Any, Literal, Union
 
 from app import logging
@@ -36,6 +35,102 @@ router = APIRouter(
 PAGE_SIZE = 30
 
 
+async def ConvertRowToRecordedProgram(row: dict[str, Any]) -> schemas.RecordedProgram:
+    """ データベースの行データを RecordedProgram Pydantic モデルに変換する共通処理 """
+
+    # key_frames の JSON は巨大なので、存在確認のみ行う
+    has_key_frames: bool = row['key_frames'] != '[]'
+
+    # cm_sections は小さいので、通常通りパースする
+    cm_sections: list[schemas.CMSection] = json.loads(row['cm_sections'])
+
+    # recorded_video のデータを構築
+    recorded_video_dict = {
+        'id': row['rv_id'],
+        'status': row['status'],
+        'file_path': row['file_path'],
+        'file_hash': row['file_hash'],
+        'file_size': row['file_size'],
+        'file_created_at': row['file_created_at'],
+        'file_modified_at': row['file_modified_at'],
+        'recording_start_time': row['recording_start_time'],
+        'recording_end_time': row['recording_end_time'],
+        'duration': row['video_duration'],
+        'container_format': row['container_format'],
+        'video_codec': row['video_codec'],
+        'video_codec_profile': row['video_codec_profile'],
+        'video_scan_type': row['video_scan_type'],
+        'video_frame_rate': row['video_frame_rate'],
+        'video_resolution_width': row['video_resolution_width'],
+        'video_resolution_height': row['video_resolution_height'],
+        'primary_audio_codec': row['primary_audio_codec'],
+        'primary_audio_channel': row['primary_audio_channel'],
+        'primary_audio_sampling_rate': row['primary_audio_sampling_rate'],
+        'secondary_audio_codec': row['secondary_audio_codec'],
+        'secondary_audio_channel': row['secondary_audio_channel'],
+        'secondary_audio_sampling_rate': row['secondary_audio_sampling_rate'],
+        'has_key_frames': has_key_frames,
+        'cm_sections': cm_sections,
+        'created_at': row['created_at'],
+        'updated_at': row['updated_at'],
+    }
+
+    # channel のデータを構築 (channel_id が存在する場合のみ)
+    channel_dict: dict[str, Any] | None = None
+    if row['ch_id'] is not None:
+        channel_dict = {
+            'id': row['ch_id'],
+            'display_channel_id': row['display_channel_id'],
+            'network_id': row['ch_network_id'],
+            'service_id': row['ch_service_id'],
+            'transport_stream_id': row['transport_stream_id'],
+            'remocon_id': row['remocon_id'],
+            'channel_number': row['channel_number'],
+            'type': row['type'],
+            'name': row['ch_name'],
+            'jikkyo_force': row['jikkyo_force'],
+            'is_subchannel': bool(row['is_subchannel']),
+            'is_radiochannel': bool(row['is_radiochannel']),
+            'is_watchable': bool(row['is_watchable']),
+        }
+
+    # recorded_program のデータを構築
+    recorded_program_dict = {
+        'id': row['rp_id'],
+        'recorded_video': recorded_video_dict,
+        'recording_start_margin': row['recording_start_margin'],
+        'recording_end_margin': row['recording_end_margin'],
+        'is_partially_recorded': bool(row['is_partially_recorded']),
+        'channel': channel_dict,  # channel_id が存在しない場合は None
+        'channel_id': row['channel_id'],
+        'network_id': row['network_id'],
+        'service_id': row['service_id'],
+        'event_id': row['event_id'],
+        'series_id': row['series_id'],
+        'series_broadcast_period_id': row['series_broadcast_period_id'],
+        'title': row['title'],
+        'series_title': row['series_title'],
+        'episode_number': row['episode_number'],
+        'subtitle': row['subtitle'],
+        'description': row['description'],
+        'detail': json.loads(row['detail']),
+        'start_time': row['start_time'],
+        'end_time': row['end_time'],
+        'duration': row['duration'],
+        'is_free': bool(row['is_free']),
+        'genres': json.loads(row['genres']),
+        'primary_audio_type': row['primary_audio_type'],
+        'primary_audio_language': row['primary_audio_language'],
+        'secondary_audio_type': row['secondary_audio_type'],
+        'secondary_audio_language': row['secondary_audio_language'],
+        'created_at': row['created_at'],
+        'updated_at': row['updated_at'],
+    }
+
+    # Pydantic モデルに変換して返す
+    return schemas.RecordedProgram.model_validate(recorded_program_dict)
+
+
 async def GetRecordedProgram(video_id: Annotated[int, Path(description='録画番組の ID 。')]) -> RecordedProgram:
     """ 録画番組 ID から録画番組情報を取得する """
 
@@ -52,39 +147,6 @@ async def GetRecordedProgram(video_id: Annotated[int, Path(description='録画�
         )
 
     return recorded_program
-
-
-def IsContentNotModified(response_headers: Headers, request_headers: Headers) -> bool:
-    """
-    リクエストヘッダーとレスポンスヘッダーから、304 を返すべきかどうかを判定する
-
-    Args:
-        response_headers (Headers): レスポンスヘッダー
-        request_headers (Headers): リクエストヘッダー
-
-    Returns:
-        bool: 304 を返すべき場合は True
-    """
-
-    # If-None-Match による判定
-    try:
-        if_none_match = request_headers['if-none-match']
-        etag = response_headers['etag']
-        if etag in [tag.strip(' W/') for tag in if_none_match.split(',')]:
-            return True
-    except KeyError:
-        pass
-
-    # If-Modified-Since による判定
-    try:
-        if_modified_since = parsedate(request_headers['if-modified-since'])
-        last_modified = parsedate(response_headers['last-modified'])
-        if if_modified_since is not None and last_modified is not None and if_modified_since >= last_modified:
-            return True
-    except KeyError:
-        pass
-
-    return False
 
 
 async def GetThumbnailResponse(
@@ -105,6 +167,38 @@ async def GetThumbnailResponse(
     Returns:
         Union[FileResponse, Response]: サムネイル画像のレスポンス
     """
+
+    def IsContentNotModified(response_headers: Headers, request_headers: Headers) -> bool:
+        """
+        リクエストヘッダーとレスポンスヘッダーから、304 を返すべきかどうかを判定する
+
+        Args:
+            response_headers (Headers): レスポンスヘッダー
+            request_headers (Headers): リクエストヘッダー
+
+        Returns:
+            bool: 304 を返すべき場合は True
+        """
+
+        # If-None-Match による判定
+        try:
+            if_none_match = request_headers['if-none-match']
+            etag = response_headers['etag']
+            if etag in [tag.strip(' W/') for tag in if_none_match.split(',')]:
+                return True
+        except KeyError:
+            pass
+
+        # If-Modified-Since による判定
+        try:
+            if_modified_since = parsedate(request_headers['if-modified-since'])
+            last_modified = parsedate(response_headers['last-modified'])
+            if if_modified_since is not None and last_modified is not None and if_modified_since >= last_modified:
+                return True
+        except KeyError:
+            pass
+
+        return False
 
     # サムネイル画像のパスを生成
     suffix = '_tile' if return_tiled else ''
@@ -324,98 +418,7 @@ async def VideosAPI(
         # 結果を Pydantic モデルに変換
         recorded_programs: list[schemas.RecordedProgram] = []
         for row in rows[1]:  # rows[0] はカラム情報、rows[1] が実際のデータ
-
-            # key_frames の JSON は巨大なので、存在確認のみ行う
-            has_key_frames: bool = row['key_frames'] != '[]'
-
-            # cm_sections は小さいので、通常通りパースする
-            cm_sections: list[schemas.CMSection] = json.loads(row['cm_sections'])
-
-            # recorded_video のデータを構築
-            recorded_video_dict = {
-                'id': row['rv_id'],
-                'status': row['status'],
-                'file_path': row['file_path'],
-                'file_hash': row['file_hash'],
-                'file_size': row['file_size'],
-                'file_created_at': row['file_created_at'],
-                'file_modified_at': row['file_modified_at'],
-                'recording_start_time': row['recording_start_time'],
-                'recording_end_time': row['recording_end_time'],
-                'duration': row['video_duration'],
-                'container_format': row['container_format'],
-                'video_codec': row['video_codec'],
-                'video_codec_profile': row['video_codec_profile'],
-                'video_scan_type': row['video_scan_type'],
-                'video_frame_rate': row['video_frame_rate'],
-                'video_resolution_width': row['video_resolution_width'],
-                'video_resolution_height': row['video_resolution_height'],
-                'primary_audio_codec': row['primary_audio_codec'],
-                'primary_audio_channel': row['primary_audio_channel'],
-                'primary_audio_sampling_rate': row['primary_audio_sampling_rate'],
-                'secondary_audio_codec': row['secondary_audio_codec'],
-                'secondary_audio_channel': row['secondary_audio_channel'],
-                'secondary_audio_sampling_rate': row['secondary_audio_sampling_rate'],
-                'has_key_frames': has_key_frames,
-                'cm_sections': cm_sections,
-                'created_at': row['created_at'],
-                'updated_at': row['updated_at'],
-            }
-
-            # channel のデータを構築 (channel_id が存在する場合のみ)
-            channel_dict: dict[str, Any] | None = None
-            if row['ch_id'] is not None:
-                channel_dict = {
-                    'id': row['ch_id'],
-                    'display_channel_id': row['display_channel_id'],
-                    'network_id': row['ch_network_id'],
-                    'service_id': row['ch_service_id'],
-                    'transport_stream_id': row['transport_stream_id'],
-                    'remocon_id': row['remocon_id'],
-                    'channel_number': row['channel_number'],
-                    'type': row['type'],
-                    'name': row['ch_name'],
-                    'jikkyo_force': row['jikkyo_force'],
-                    'is_subchannel': bool(row['is_subchannel']),
-                    'is_radiochannel': bool(row['is_radiochannel']),
-                    'is_watchable': bool(row['is_watchable']),
-                }
-
-            # recorded_program のデータを構築
-            recorded_program_dict = {
-                'id': row['rp_id'],
-                'recorded_video': recorded_video_dict,
-                'recording_start_margin': row['recording_start_margin'],
-                'recording_end_margin': row['recording_end_margin'],
-                'is_partially_recorded': bool(row['is_partially_recorded']),
-                'channel': channel_dict,  # channel_id が存在しない場合は None
-                'channel_id': row['channel_id'],
-                'network_id': row['network_id'],
-                'service_id': row['service_id'],
-                'event_id': row['event_id'],
-                'series_id': row['series_id'],
-                'series_broadcast_period_id': row['series_broadcast_period_id'],
-                'title': row['title'],
-                'series_title': row['series_title'],
-                'episode_number': row['episode_number'],
-                'subtitle': row['subtitle'],
-                'description': row['description'],
-                'detail': json.loads(row['detail']),
-                'start_time': row['start_time'],
-                'end_time': row['end_time'],
-                'duration': row['duration'],
-                'is_free': bool(row['is_free']),
-                'genres': json.loads(row['genres']),
-                'primary_audio_type': row['primary_audio_type'],
-                'primary_audio_language': row['primary_audio_language'],
-                'secondary_audio_type': row['secondary_audio_type'],
-                'secondary_audio_language': row['secondary_audio_language'],
-                'created_at': row['created_at'],
-                'updated_at': row['updated_at'],
-            }
-
-            # Pydantic モデルに変換して追加
-            recorded_programs.append(schemas.RecordedProgram.model_validate(recorded_program_dict))
+            recorded_programs.append(await ConvertRowToRecordedProgram(row))
 
         # order が 'ids' の場合は、指定された順序を維持する
         if ids is not None and order == 'ids':
@@ -452,42 +455,175 @@ async def VideosSearchAPI(
     指定されたキーワードで録画番組を一度に 100 件ずつ検索する。<br>
     キーワードは title または series_title または subtitle のいずれかに部分一致する録画番組を検索する。<br>
     order には "desc" か "asc" を指定する。<br>
-    page (ページ番号) には 1 以上の整数を指定する。
+    page (ページ番号) には 1 以上の整数を指定する。<br>
+    半角または全角スペースで区切ることで、複数のキーワードによる AND 検索が可能。
     """
+
+    def BuildSearchConditions(query: str) -> tuple[str, list[str], list[str]]:
+        """
+        検索キーワードから SQL の WHERE 句とパラメータを生成する
+        半角または全角スペースで区切られた複数のキーワードを AND 検索する
+
+        Returns:
+            tuple[str, list[str], list[str]]: (WHERE 句, パラメータ, 検索キーワードのリスト)
+        """
+
+        # 半角・全角スペースで分割
+        keywords = [keyword.strip() for keyword in query.replace('　', ' ').split(' ') if keyword.strip()]
+        if not keywords:
+            return '', [], []
+
+        # 各キーワードに対する検索条件を生成
+        conditions: list[str] = []
+        params: list[str] = []
+        for keyword in keywords:
+            # LIKE 検索用のパラメータを生成（前後に % を付与）
+            param = f'%{keyword.lower()}%'
+            conditions.append('''
+                (
+                    LOWER(ch.name) LIKE ? OR
+                    LOWER(rp.title) LIKE ? OR
+                    LOWER(rp.series_title) LIKE ? OR
+                    LOWER(rp.subtitle) LIKE ?
+                )
+            '''.strip())
+            params.extend([param] * 4)  # 4つの検索対象カラムに同じパラメータを使用
+
+        # AND 検索のために conditions を結合
+        where_clause = ' AND '.join(conditions)
+        return where_clause, params, keywords
 
     # クエリが空の場合は全件取得と同じ挙動にする
     if not query:
         return await VideosAPI(order=order, page=page)
 
     # 検索条件を構築
-    # channel.name または title または series_title または subtitle のいずれかに部分一致するレコードを検索
-    recorded_programs = await RecordedProgram.all() \
-        .select_related('recorded_video') \
-        .select_related('channel') \
-        .filter(
-            Q(channel__name__icontains=query) |
-            Q(title__icontains=query) |
-            Q(series_title__icontains=query) |
-            Q(subtitle__icontains=query)
-        ) \
-        .order_by('-start_time' if order == 'desc' else 'start_time') \
-        .offset((page - 1) * PAGE_SIZE) \
-        .limit(PAGE_SIZE)
+    where_clause, params, keywords = BuildSearchConditions(query)
+    if not keywords:  # キーワードが空の場合は全件取得と同じ挙動にする
+        return await VideosAPI(order=order, page=page)
 
-    # 検索条件に一致する総件数を取得
-    total = await RecordedProgram.all() \
-        .filter(
-            Q(channel__name__icontains=query) |
-            Q(title__icontains=query) |
-            Q(series_title__icontains=query) |
-            Q(subtitle__icontains=query)
-        ) \
-        .count()
+    # 生 SQL クエリを構築
+    base_query = """
+        WITH target_records AS (
+            SELECT rp.id, rp.start_time
+            FROM recorded_programs rp
+            LEFT JOIN channels ch ON rp.channel_id = ch.id
+            WHERE {where_clause}
+            ORDER BY rp.start_time {order}, rp.id {order}
+            LIMIT ? OFFSET ?
+        )
+        SELECT
+            rp.id AS rp_id,
+            rp.recording_start_margin,
+            rp.recording_end_margin,
+            rp.is_partially_recorded,
+            rp.channel_id,
+            rp.network_id,
+            rp.service_id,
+            rp.event_id,
+            rp.series_id,
+            rp.series_broadcast_period_id,
+            rp.title,
+            rp.series_title,
+            rp.episode_number,
+            rp.subtitle,
+            rp.description,
+            rp.detail,
+            rp.start_time,
+            rp.end_time,
+            rp.duration,
+            rp.is_free,
+            rp.genres,
+            rp.primary_audio_type,
+            rp.primary_audio_language,
+            rp.secondary_audio_type,
+            rp.secondary_audio_language,
+            rp.created_at,
+            rp.updated_at,
+            rv.id AS rv_id,
+            rv.status,
+            rv.file_path,
+            rv.file_hash,
+            rv.file_size,
+            rv.file_created_at,
+            rv.file_modified_at,
+            rv.recording_start_time,
+            rv.recording_end_time,
+            rv.duration AS video_duration,
+            rv.container_format,
+            rv.video_codec,
+            rv.video_codec_profile,
+            rv.video_scan_type,
+            rv.video_frame_rate,
+            rv.video_resolution_width,
+            rv.video_resolution_height,
+            rv.primary_audio_codec,
+            rv.primary_audio_channel,
+            rv.primary_audio_sampling_rate,
+            rv.secondary_audio_codec,
+            rv.secondary_audio_channel,
+            rv.secondary_audio_sampling_rate,
+            rv.key_frames,
+            rv.cm_sections,
+            ch.id AS ch_id,
+            ch.display_channel_id,
+            ch.network_id AS ch_network_id,
+            ch.service_id AS ch_service_id,
+            ch.transport_stream_id,
+            ch.remocon_id,
+            ch.channel_number,
+            ch.type,
+            ch.name AS ch_name,
+            ch.jikkyo_force,
+            ch.is_subchannel,
+            ch.is_radiochannel,
+            ch.is_watchable
+        FROM target_records tr
+        JOIN recorded_programs rp ON tr.id = rp.id
+        JOIN recorded_videos rv ON rp.id = rv.recorded_program_id
+        LEFT JOIN channels ch ON rp.channel_id = ch.id
+        ORDER BY tr.start_time {order}, tr.id {order}
+    """
 
-    return {
-        'total': total,
-        'recorded_programs': recorded_programs,
-    }
+    # クエリとパラメータを構築
+    query = base_query.format(
+        where_clause = where_clause,
+        order = 'DESC' if order == 'desc' else 'ASC'
+    )
+    params.extend([str(PAGE_SIZE), str((page - 1) * PAGE_SIZE)])
+
+    # 総数を取得するクエリを構築
+    total_query = """
+        SELECT COUNT(*) as count
+        FROM recorded_programs rp
+        LEFT JOIN channels ch ON rp.channel_id = ch.id
+        WHERE {where_clause}
+    """.format(where_clause=where_clause)
+    total_params = params[:-2]  # LIMIT と OFFSET を除外
+
+    try:
+        # データベースから直接クエリを実行
+        conn = connections.get('default')
+        rows = await conn.execute_query(query, params)
+        total_result = await conn.execute_query(total_query, total_params)
+        total = total_result[1][0]['count']
+
+        # 結果を Pydantic モデルに変換
+        recorded_programs: list[schemas.RecordedProgram] = []
+        for row in rows[1]:  # rows[0] はカラム情報、rows[1] が実際のデータ
+            recorded_programs.append(await ConvertRowToRecordedProgram(row))
+
+        return schemas.RecordedPrograms(
+            total = total,
+            recorded_programs = recorded_programs,
+        )
+
+    except Exception as ex:
+        logging.error('[VideosSearchAPI] Failed to execute raw SQL query:', exc_info=ex)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail='Failed to execute raw SQL query',
+        )
 
 
 @router.get(
