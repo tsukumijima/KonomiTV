@@ -9,7 +9,6 @@ import math
 import numpy as np
 import pathlib
 import random
-import sys
 import time
 import typer
 from numpy.typing import NDArray
@@ -444,6 +443,8 @@ class ThumbnailGenerator:
                 formatted_offset = self.__formatTime(offset)
 
                 # 個別に1枚抽出するための FFmpeg コマンドを実行
+                ## 試行錯誤の結果、数フレーム読み取るだけのためにハードウェアアクセラレーションを使うと
+                ## デコーダーの初期化などでむしろ遅くなることが判明したため、-hwaccel はあえて指定していない
                 process = await asyncio.create_subprocess_exec(
                     LIBRARY_PATH['FFmpeg'],
                     *[
@@ -451,10 +452,6 @@ class ThumbnailGenerator:
                         '-y',
                         # 非対話モードで実行し、不意のフリーズを回避する
                         '-nostdin',
-                        # デコードにハードウェアアクセラレーションを使う
-                        ## Windows では Windows サービス下でのエラーを回避するため明示的に d3d11va を指定
-                        ## ref: https://stackoverflow.com/questions/56268560/using-directx-from-subprocess-executed-by-windows-service
-                        '-hwaccel', 'd3d11va' if sys.platform == 'win32' else 'auto',
                         # 入力フォーマットを指定（現状 MPEG-TS 固定）
                         '-f', 'mpegts',
                         # 抽出開始位置
@@ -467,8 +464,8 @@ class ThumbnailGenerator:
                         '-vf', f'scale={width}:{height}',
                         # 1フレーム分のみ抽出する
                         '-frames:v', '1',
-                        # エンコード負荷低減のため、中間フォーマットには BMP を使う
-                        '-codec:v', 'bmp',
+                        # エンコード負荷低減のため、中間フォーマットには PNG を使う
+                        '-codec:v', 'png',
                         # スレッド数を自動で設定する
                         '-threads', 'auto',
                         # 標準出力にパイプ出力する
@@ -536,7 +533,7 @@ class ThumbnailGenerator:
 
                         try:
                             # 同期イベントが発火するまで待機（キャンセル可能）
-                            await asyncio.wait_for(sync_event.wait(), timeout=10.0)
+                            await asyncio.wait_for(sync_event.wait(), timeout=30.0)
                         except (asyncio.CancelledError, asyncio.TimeoutError):
                             # キャンセルまたはタイムアウト時は即座に終了
                             return
@@ -595,7 +592,7 @@ class ThumbnailGenerator:
 
                         try:
                             # タイムアウト付きでキューから結果を取得
-                            offset, frame = await asyncio.wait_for(frame_queue.get(), timeout=5.0)
+                            offset, frame = await asyncio.wait_for(frame_queue.get(), timeout=30.0)
                             frames_dict[offset] = frame
                             # 進捗をログ出力
                             # logging.debug_simple(
@@ -653,10 +650,10 @@ class ThumbnailGenerator:
 
             # 最終的なタイル画像をディスクへ書き込む（この時点で初めてディスク I/O が発生する）
             try:
-                # タイル画像を BMP としてメモリ上にエンコード
-                _, img_data = cv2.imencode('.bmp', tile_image)
+                # タイル画像を PNG としてメモリ上にエンコード
+                _, img_data = cv2.imencode('.png', tile_image)
                 if img_data is None:
-                    logging.error(f'{self.file_path}: Failed to encode tile image to BMP.')
+                    logging.error(f'{self.file_path}: Failed to encode tile image to PNG.')
                     return False
                 del tile_image
 
@@ -671,7 +668,7 @@ class ThumbnailGenerator:
                         # 入力フォーマットを指定
                         '-f', 'image2pipe',
                         # 入力コーデックを指定
-                        '-codec:v', 'bmp',
+                        '-codec:v', 'png',
                         # 標準入力からパイプ入力
                         '-i', 'pipe:0',
                         # WebP または JPEG 出力設定
