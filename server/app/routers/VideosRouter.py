@@ -460,11 +460,12 @@ async def VideosSearchAPI(
         return await VideosAPI(order=order, page=page)
 
     # 検索条件を構築
-    # title または series_title または subtitle のいずれかに部分一致するレコードを検索
+    # channel.name または title または series_title または subtitle のいずれかに部分一致するレコードを検索
     recorded_programs = await RecordedProgram.all() \
         .select_related('recorded_video') \
         .select_related('channel') \
         .filter(
+            Q(channel__name__icontains=query) |
             Q(title__icontains=query) |
             Q(series_title__icontains=query) |
             Q(subtitle__icontains=query)
@@ -476,6 +477,7 @@ async def VideosSearchAPI(
     # 検索条件に一致する総件数を取得
     total = await RecordedProgram.all() \
         .filter(
+            Q(channel__name__icontains=query) |
             Q(title__icontains=query) |
             Q(series_title__icontains=query) |
             Q(subtitle__icontains=query)
