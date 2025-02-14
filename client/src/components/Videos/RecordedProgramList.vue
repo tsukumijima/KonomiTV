@@ -288,7 +288,11 @@ watch(() => props.sortOrder, (newOrder) => {
                 opacity: 0;
             }
         }
-        &--empty, &--searching {
+        &--empty {
+            height: 100%;
+            min-height: 200px;
+        }
+        &--searching {
             height: 100%;
         }
 
