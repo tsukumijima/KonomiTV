@@ -163,6 +163,12 @@ const handleFavorite = async () => {
     line-height: 1.45;
     transition: background-color 0.15s ease;
     cursor: pointer;
+    @include smartphone-horizontal {
+        font-size: 11.5px;
+    }
+    @include smartphone-vertical {
+        font-size: 12px;
+    }
 
     &:hover {
         background-color: rgba(var(--v-theme-on-surface), 0.04);

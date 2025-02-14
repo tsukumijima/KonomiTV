@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 from app import logging
 from app import schemas
 from app.config import Config
+from app.constants import THUMBNAILS_DIR
 from app.metadata.MetadataAnalyzer import MetadataAnalyzer
 from app.metadata.KeyFrameAnalyzer import KeyFrameAnalyzer
 from app.metadata.ThumbnailGenerator import ThumbnailGenerator
@@ -234,6 +235,35 @@ class RecordedScanTask:
                     await existing_db_recorded_video.recorded_program.delete()
                     logging.info(f'{file_path}: Deleted record for non-existent file.')
 
+        # 不要なサムネイルファイルを削除
+        ## DB に存在する全ての RecordedVideo レコードのハッシュを取得
+        db_recorded_video_hashes = {video.file_hash for video in await RecordedVideo.all()}
+
+        ## サムネイルフォルダ内の全ファイルをスキャン
+        thumbnails_dir = anyio.Path(str(THUMBNAILS_DIR))
+        if await thumbnails_dir.is_dir():
+            async for thumbnail_path in thumbnails_dir.glob('*'):
+                try:
+                    # .git から始まるファイルは無視
+                    if thumbnail_path.name.startswith('.git'):
+                        continue
+
+                    # ファイル名からハッシュを抽出
+                    ## ファイル名は "{hash}.webp" または "{hash}_tile.webp" の形式
+                    ## JPEG フォールバックの場合は ".jpg" の可能性もある
+                    file_name = thumbnail_path.stem
+                    if file_name.endswith('_tile'):
+                        file_hash = file_name[:-5]  # "_tile" を除去
+                    else:
+                        file_hash = file_name
+
+                    # DB に存在しないハッシュのファイルを削除
+                    if file_hash not in db_recorded_video_hashes:
+                        await thumbnail_path.unlink()
+                        logging.info(f'{thumbnail_path.name}: Deleted orphaned thumbnail file.')
+                except Exception as ex:
+                    logging.error(f'{thumbnail_path}: Error deleting orphaned thumbnail file:', exc_info=ex)
+
         logging.info('Batch scan of recording folders has been completed.')
         self._is_batch_scan_running = False
 
@@ -242,6 +272,7 @@ class RecordedScanTask:
         self,
         file_path: anyio.Path,
         existing_db_recorded_videos: dict[anyio.Path, RecordedVideo] | None,
+        force_update: bool = False,
     ) -> None:
         """
         指定された録画ファイルのメタデータを解析し、DB に永続化する
@@ -251,6 +282,7 @@ class RecordedScanTask:
             file_path (anyio.Path): 処理対象のファイルパス
             existing_db_recorded_videos (dict[anyio.Path, RecordedVideo] | None): 既に DB に永続化されている録画ファイルパスと RecordedVideo レコードのマッピング
                 (ファイル変更イベントから呼ばれた場合、watchfiles 初期化時に取得した全レコードと今で状態が一致しているとは限らないため、None が入る)
+            force_update (bool): 既に DB に登録されている録画ファイルのメタデータを強制的に再解析するかどうか
         """
 
         try:
@@ -289,7 +321,8 @@ class RecordedScanTask:
             # ファイル内容は変更されておらず、レコード内容は更新不要と判断してスキップ
             ## こうすることで、録画済みファイルに対しては HDD への I/O 負荷が高いハッシュ算出やメタデータ解析処理を省略できる
             ## 万が一前回実行時からファイルサイズや最終更新日時の変更を伴わずに録画が完了した場合に状態を適切に反映できるよう、録画中はスキップしない
-            if (existing_db_recorded_video is not None and
+            if (force_update is False and
+                existing_db_recorded_video is not None and
                 existing_db_recorded_video.status == 'Recorded'):
                 if (existing_db_recorded_video.file_created_at == file_created_at and
                     existing_db_recorded_video.file_modified_at == file_modified_at and
@@ -331,11 +364,15 @@ class RecordedScanTask:
             ## さもなければサーバーの終了後もプロセスが残り続けてゾンビプロセス化し、メモリリークを引き起こしてしまう
             loop = asyncio.get_running_loop()
             analyzer = MetadataAnalyzer(pathlib.Path(str(file_path)))  # anyio.Path -> pathlib.Path に変換
-            with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
-                recorded_program = await loop.run_in_executor(executor, analyzer.analyze)
-            if recorded_program is None:
-                # メタデータ解析に失敗した場合はエラーとして扱う
-                logging.error(f'{file_path}: Failed to analyze metadata.')
+            try:
+                with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
+                    recorded_program = await loop.run_in_executor(executor, analyzer.analyze)
+                if recorded_program is None:
+                    # メタデータ解析に失敗した場合はエラーとして扱う
+                    logging.error(f'{file_path}: Failed to analyze metadata.')
+                    return
+            except Exception as ex:
+                logging.error(f'{file_path}: Error analyzing metadata:', exc_info=ex)
                 return
 
             # 60秒未満のファイルは録画失敗または切り抜きとみなしてスキップ
@@ -346,7 +383,8 @@ class RecordedScanTask:
 
             # 同じファイルパスの既存レコードがあり、先ほど計算した最新のハッシュと変わっていない場合は、レコード内容は更新不要と判断してスキップ
             ## 万が一前回実行時からファイルサイズや最終更新日時の変更を伴わずに録画が完了した場合に状態を適切に反映できるよう、録画中はスキップしない
-            if (existing_db_recorded_video is not None and
+            if (force_update is False and
+                existing_db_recorded_video is not None and
                 existing_db_recorded_video.status == 'Recorded' and
                 existing_db_recorded_video.file_hash == recorded_program.recorded_video.file_hash):
                 return
@@ -504,7 +542,7 @@ class RecordedScanTask:
         try:
             # ProcessLimiter で稼働中のバックグラウンドタスクの同時実行数を CPU コア数の 50% に制限
             async with ProcessLimiter.getSemaphore('RecordedScanTask'):
-                # DriveIOLimiter で同一 HDD に対してのバックグラウンドタスクの同時実行数を1セッションに制限
+                # DriveIOLimiter で同一 HDD に対してのバックグラウンドタスクの同時実行数を原則1セッションに制限
                 async with DriveIOLimiter.getSemaphore(file_path):
                     await asyncio.gather(
                         # 録画ファイルのキーフレーム情報を解析し DB に保存

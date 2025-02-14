@@ -496,6 +496,9 @@ onMounted(() => {
     font-size: 14px;
     color: rgb(var(--v-theme-text-darken-1));
     border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+    @include smartphone-horizontal {
+        font-size: 13.5px;
+    }
 
     &__item {
         display: flex;

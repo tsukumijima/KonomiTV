@@ -69,9 +69,7 @@ async def GetCurrentAdminUserOrLocal(
     summary = 'データベース更新 API',
     status_code = status.HTTP_204_NO_CONTENT,
 )
-async def UpdateDatabaseAPI(
-    current_user: Annotated[User, Depends(GetCurrentAdminUser)],
-):
+async def UpdateDatabaseAPI():
     """
     データベースに保存されている、チャンネル情報・番組情報・Twitter アカウント情報などの外部 API に依存するデータをすべて更新する。<br>
     即座に外部 API からのデータ更新を反映させたい場合に利用する。<br>
@@ -144,6 +142,7 @@ async def BackgroundAnalysisAPI():
 
         # 各録画ファイルに対して直列にバックグラウンド解析タスクを実行
         ## HDD は並列アクセスが遅いため、随時直列に実行していった方が結果的に早いことが多い
+        ## すべて直列なので ProcessLimiter や DriveIOLimiter での制限は掛けていない
         for db_recorded_video in db_recorded_videos:
             file_path = anyio.Path(db_recorded_video.file_path)
             try:

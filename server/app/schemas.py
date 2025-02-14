@@ -285,7 +285,11 @@ class LiveStreamStatuses(BaseModel):
     Standby: dict[str, LiveStreamStatus]
     Offline: dict[str, LiveStreamStatus]
 
-# ***** サムネイル再生成 *****
+# ***** メタデータ・サムネイル再生成 *****
+
+class ReanalyzeStatus(BaseModel):
+    is_success: bool
+    detail: str
 
 class ThumbnailRegenerationStatus(BaseModel):
     is_success: bool

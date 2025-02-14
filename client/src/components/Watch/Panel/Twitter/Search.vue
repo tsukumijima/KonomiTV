@@ -439,6 +439,9 @@ onMounted(() => {
     color: rgb(var(--v-theme-text-darken-1));
     border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.12);
     user-select: none;
+    @include smartphone-horizontal {
+        font-size: 13.5px;
+    }
 }
 
 .search-tweets {

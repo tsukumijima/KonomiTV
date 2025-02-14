@@ -2590,9 +2590,9 @@ dotenv@^16.3.1:
   resolved "https://registry.yarnpkg.com/dotenv/-/dotenv-16.4.7.tgz#0e20c5b82950140aa99be360a8a5f52335f53c26"
   integrity sha512-47qPchRCykZC03FhkYAhrvwU4xDBFIj1QPqaarj6mdM/hgUzfPHcpkHJOn3mJAufFeeAxAzeGsr5X0M4k6fLZQ==
 
-"dplayer@github:tsukumijima/DPlayer#v1.32.0":
-  version "1.32.0"
-  resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/21974927cc7a2e3571d8bc723c6ec21ad1ceae97"
+"dplayer@github:tsukumijima/DPlayer#v1.32.3":
+  version "1.32.3"
+  resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/49f65f293144a24e2b7a2d775583cc9263338c64"
   dependencies:
     aribb24.js "1.11.2"
     axios "^1.7.2"
@@ -3412,10 +3412,10 @@ hls.js@^1.4.14:
   resolved "https://registry.yarnpkg.com/hls.js/-/hls.js-1.5.20.tgz#7eb23bb5e2595311d4e2761038ca6882673de7e2"
   integrity sha512-uu0VXUK52JhihhnN/MVVo1lvqNNuhoxkonqgO3IpjvQiGpJBdIXMGkofjQb/j9zvV7a1SW8U9g1FslWx/1HOiQ==
 
-hls.js@^1.6.0-beta.1:
-  version "1.6.0-beta.2.0.canary.10931"
-  resolved "https://registry.yarnpkg.com/hls.js/-/hls.js-1.6.0-beta.2.0.canary.10931.tgz#d1fbf68d9d9f7c0565267e2fae08ea2c3e3ee8a9"
-  integrity sha512-HmwK8XR4AaxSZd8ynk9V4/TTR6AoZFNzhv83FL+43PG6ItBwYN7DB+HAxiMXTzSHh5kH/GNJbPqpKHVkL2uUwQ==
+hls.js@^1.6.0-beta.3:
+  version "1.6.0-beta.3.0.canary.10952"
+  resolved "https://registry.yarnpkg.com/hls.js/-/hls.js-1.6.0-beta.3.0.canary.10952.tgz#d39763fde599983dd0fe4f79168b6a6c90fddad7"
+  integrity sha512-w0CLMRUDI9DxDmn5zac/4hbQFHp3Ze2DHHoAbNPlHySTHSUHK+vk2ZpWAGIRxAgemMQwTdsafEtBab1PIT/Mxw==
 
 http-assert@^1.3.0:
   version "1.5.0"
@@ -4002,9 +4002,9 @@ koa-router@^10.1.1:
     path-to-regexp "^6.1.0"
 
 koa@^2.15.0:
-  version "2.15.3"
-  resolved "https://registry.yarnpkg.com/koa/-/koa-2.15.3.tgz#062809266ee75ce0c75f6510a005b0e38f8c519a"
-  integrity sha512-j/8tY9j5t+GVMLeioLaxweJiKUayFhlGqNTzf2ZGwL0ZCQijd2RLHK0SLW5Tsko8YyyqCZC2cojIb0/s62qTAg==
+  version "2.15.4"
+  resolved "https://registry.yarnpkg.com/koa/-/koa-2.15.4.tgz#7000b3d8354558671adb1ba1b1c09bedb5f8da75"
+  integrity sha512-7fNBIdrU2PEgLljXoPWoyY4r1e+ToWCmzS/wwMPbUNs7X+5MMET1ObhJBlUkF5uZG9B6QhM2zS1TsH6adegkiQ==
   dependencies:
     accepts "^1.3.5"
     cache-content-type "^1.0.0"

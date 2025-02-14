@@ -380,7 +380,7 @@ const handleSettingCoverClick = () => {
                     // スマホ縦画面のみ、シークバーをプレイヤーの下辺に配置
                     width: 100%;
                     left: 0px !important;
-                    bottom: -1px !important;
+                    bottom: -6px !important;
                     z-index: 100;
                 }
                 .dplayer-thumb {

@@ -85,7 +85,7 @@ class Maintenance {
     /**
      * サーバーを再起動する
      */
-    static async restartServer(): Promise<void> {
+    static async restartServer(): Promise<boolean> {
 
         // API リクエストを実行
         const response = await APIClient.post('/maintenance/restart');
@@ -97,14 +97,17 @@ class Maintenance {
                     APIClient.showGenericError(response, 'サーバーを再起動できませんでした。');
                     break;
             }
+            return false;
         }
+
+        return true;
     }
 
 
     /**
      * サーバーをシャットダウンする
      */
-    static async shutdownServer(): Promise<void> {
+    static async shutdownServer(): Promise<boolean> {
 
         // API リクエストを実行
         const response = await APIClient.post('/maintenance/shutdown');
@@ -116,7 +119,10 @@ class Maintenance {
                     APIClient.showGenericError(response, 'サーバーをシャットダウンできませんでした。');
                     break;
             }
+            return false;
         }
+
+        return true;
     }
 }
 

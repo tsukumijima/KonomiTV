@@ -12,6 +12,7 @@
                     ]" />
                     <RecordedProgramList
                         class="videos-home-container__recent-programs"
+                        :class="{'videos-home-container__recent-programs--loading': recent_programs.length === 0 && is_loading}"
                         title="新着の録画番組"
                         :programs="recent_programs"
                         :total="total_programs"
@@ -30,8 +31,9 @@
                         :hidePagination="true"
                         :showMoreButton="true"
                         :showEmptyMessage="!is_loading"
-                        :emptyMessage="'マイリストに録画番組が<br class=\'d-sm-none\'>追加されていません。'"
-                        :emptySubMessage="'録画番組の右上にある「＋」ボタンから、<br class=\'d-sm-none\'>マイリストに番組を追加できます。'"
+                        :emptyIcon="'ic:round-playlist-play'"
+                        :emptyMessage="'あとで見たい番組を<br class=\'d-sm-none\'>マイリストに保存できます。'"
+                        :emptySubMessage="'録画番組の右上にある ＋ ボタンから、<br class=\'d-sm-none\'>番組をマイリストに追加できます。'"
                         :isLoading="is_loading"
                         :forMylist="true"
                         @more="$router.push('/mylist/')" />
@@ -43,6 +45,7 @@
                         :hidePagination="true"
                         :showMoreButton="true"
                         :showEmptyMessage="!is_loading"
+                        :emptyIcon="'fluent:history-20-regular'"
                         :emptyMessage="'まだ視聴履歴がありません。'"
                         :emptySubMessage="'録画番組を30秒以上みると、<br class=\'d-sm-none\'>視聴履歴に追加されます。'"
                         :isLoading="is_loading"
@@ -238,12 +241,12 @@ onUnmounted(() => {
         }
     }
 
-    &__recent-programs {
+    &__recent-programs.videos-home-container__recent-programs--loading {
         // ローディング中にちらつかないように
         :deep(.recorded-program-list__grid) {
             height: calc(125px * 10);
             @include smartphone-vertical {
-                height: calc(115px * 10);
+                height: calc(100px * 10);
             }
         }
     }

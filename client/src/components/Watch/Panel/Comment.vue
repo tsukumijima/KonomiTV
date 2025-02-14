@@ -1,5 +1,5 @@
 <template>
-    <div class="comment-container">
+    <div class="comment-container" :class="{'comment-container--video': playback_mode === 'Video'}">
         <section class="comment-header">
             <h2 class="comment-header__title">
                 <Icon class="comment-header__title-icon" icon="bi:chat-left-text-fill" height="18.5px" />
@@ -36,10 +36,29 @@
             </div>
             <div class="comment-list-cover" :class="{'comment-list-cover--display': is_comment_list_dropdown_display}"
                 @click="hideCommentListDropdown()"></div>
-            <DynamicScroller class="comment-list" :direction="'vertical'" :items="comment_list" :min-item-size="34">
-                <template v-slot="{item, active}">
-                <DynamicScrollerItem :item="item" :active="active" :size-dependencies="[item.text]">
-                    <!-- 以下では Icon コンポーネントを使うと個数が多いときに高負荷になるため、意図的に SVG を直書きしている -->
+            <template v-if="playback_mode === 'Live'">
+                <DynamicScroller class="comment-list" :direction="'vertical'" :items="comment_list" :min-item-size="34">
+                    <template v-slot="{item, active}">
+                    <DynamicScrollerItem :item="item" :active="active" :size-dependencies="[item.text]">
+                        <div class="comment" :class="{'comment--my-post': item.my_post}">
+                            <span class="comment__text">{{item.text}}</span>
+                            <span class="comment__time">{{item.time}}</span>
+                            <!-- なぜか @click だとスマホで発火しないので @touchend にしている -->
+                            <div class="comment__icon" v-ripple="!Utils.isTouchDevice()"
+                                @mouseup="showCommentListDropdown($event, item)"
+                                @touchend="showCommentListDropdown($event, item)">
+                                <!-- Icon コンポーネントを使うと個数が多いときに高負荷になるため、意図的に SVG を直書きしている -->
+                                <svg class="iconify iconify--fluent" width="20px" height="20px" viewBox="0 0 20 20">
+                                    <path fill="currentColor" d="M10 6.5A1.75 1.75 0 1 1 10 3a1.75 1.75 0 0 1 0 3.5ZM10 17a1.75 1.75 0 1 1 0-3.5a1.75 1.75 0 0 1 0 3.5Zm-1.75-7a1.75 1.75 0 1 0 3.5 0a1.75 1.75 0 0 0-3.5 0Z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                    </DynamicScrollerItem>
+                    </template>
+                </DynamicScroller>
+            </template>
+            <template v-else>
+                <VirtuaList ref="virtua_scroller" class="comment-list" :data="comment_list" #default="{ item }">
                     <div class="comment" :class="{'comment--my-post': item.my_post}">
                         <span class="comment__text">{{item.text}}</span>
                         <span class="comment__time">{{item.time}}</span>
@@ -47,14 +66,14 @@
                         <div class="comment__icon" v-ripple="!Utils.isTouchDevice()"
                             @mouseup="showCommentListDropdown($event, item)"
                             @touchend="showCommentListDropdown($event, item)">
+                            <!-- Icon コンポーネントを使うと個数が多いときに高負荷になるため、意図的に SVG を直書きしている -->
                             <svg class="iconify iconify--fluent" width="20px" height="20px" viewBox="0 0 20 20">
                                 <path fill="currentColor" d="M10 6.5A1.75 1.75 0 1 1 10 3a1.75 1.75 0 0 1 0 3.5ZM10 17a1.75 1.75 0 1 1 0-3.5a1.75 1.75 0 0 1 0 3.5Zm-1.75-7a1.75 1.75 0 1 0 3.5 0a1.75 1.75 0 0 0-3.5 0Z"></path>
                             </svg>
                         </div>
                     </div>
-                </DynamicScrollerItem>
-                </template>
-            </DynamicScroller>
+                </VirtuaList>
+            </template>
             <div class="comment-announce"
                 v-if="playback_mode === 'Live' && playerStore.live_comment_init_failed_message === null && comment_list.length === 0">
                 <div class="comment-announce__heading">まだコメントがありません。</div>
@@ -84,7 +103,7 @@
                 </div>
             </div>
         </section>
-        <div v-ripple class="comment-scroll-button elevation-5" @click="is_manual_scroll = false; scrollCommentList(true);"
+        <div v-ripple class="comment-scroll-button elevation-5" @click="handleAutoScrollButtonClick"
              :class="{'comment-scroll-button--display': is_manual_scroll}">
             <Icon icon="fluent:arrow-down-12-filled" height="29px" />
         </div>
@@ -94,6 +113,7 @@
 <script lang="ts">
 
 import { mapStores } from 'pinia';
+import { VList as VirtuaList } from 'virtua/vue';
 import { defineComponent, PropType } from 'vue';
 
 import CommentMuteSettings from '@/components/Settings/CommentMuteSettings.vue';
@@ -106,6 +126,7 @@ export default defineComponent({
     name: 'Panel-CommentTab',
     components: {
         CommentMuteSettings,
+        VirtuaList,
     },
     props: {
         playback_mode: {
@@ -142,6 +163,19 @@ export default defineComponent({
 
             // visibilitychange イベントのリスナー
             visibilitychange_listener: null as (() => void) | null,
+
+            // 録画再生時の現在の再生位置（秒）とスクロール対象のコメントのインデックス
+            current_playback_position: 0,
+            target_comment_index: 0,
+
+            // VirtuaList の参照
+            virtua_scroller: null as {
+                scrollToIndex: (index: number, opts?: {
+                    align?: 'start' | 'center' | 'end' | 'nearest';
+                    smooth?: boolean;
+                    offset?: number;
+                }) => void;
+            } | null,
         };
     },
     computed: {
@@ -165,6 +199,11 @@ export default defineComponent({
         // コメントリストの要素を取得
         if (this.comment_list_element === null) {
             this.comment_list_element = document.querySelector('.comment-list')!;
+        }
+
+        // VirtuaList の参照を取得（録画再生時のみ）
+        if (this.playback_mode === 'Video') {
+            this.virtua_scroller = this.$refs.virtua_scroller as any;
         }
 
         // 現在コメントリストがユーザーイベントでスクロールされているかどうか
@@ -217,14 +256,18 @@ export default defineComponent({
 
                 // 手動スクロールを有効化
                 this.is_manual_scroll = true;
+                console.log('[Comment.vue] Manual scroll is enabled.');
 
                 // イベント発火時点では scrollTop の値が完全に下にスクロールされていない場合があるため、0.1秒だけ待つ
                 await Utils.sleep(0.1);
 
-                // 一番下までスクロールされていたら自動スクロールに戻す
-                if ((this.comment_list_element.scrollTop + this.comment_list_element.offsetHeight) >
+                // ライブ視聴のみ: 一番下までスクロールされていたら自動スクロールに戻す
+                // ビデオ視聴時は明示的に自動スクロールボタンを押した時のみ手動スクロールを無効化する
+                if ((this.playback_mode === 'Live') &&
+                    (this.comment_list_element.scrollTop + this.comment_list_element.offsetHeight) >
                     (this.comment_list_element.scrollHeight - 10)) {  // 一番下から 10px 以内
                     this.is_manual_scroll = false;  // 手動スクロールを無効化
+                    console.log('[Comment.vue] Manual scroll is disabled because bottom of comment list is reached.');
                 }
             }
         };
@@ -243,7 +286,7 @@ export default defineComponent({
         // ビデオ視聴での過去ログコメントは PlayerController から直接このイベントに送信される
         this.playerStore.event_emitter.on('CommentReceived', async (event) => {
 
-            // 初回の過去コメント (最大50件) を受信したとき
+            // 初回の過去コメント (最大50件) を受信したとき or 録画再生時の番組に対応するすべての過去ログコメントを受信したとき
             if (event.is_initial_comments === true) {
 
                 // チャンネル or 録画番組が切り替わった可能性があるので、既存のコメントリストをクリア
@@ -251,10 +294,11 @@ export default defineComponent({
 
                 // コメントリストに一括で追加
                 this.comment_list.push(...event.comments);
+                console.log(`[Comment.vue] Comment list updated. ${this.comment_list.length} comments.`);
 
                 // ライブ視聴のみ: コメントリストを一番下までスクロール
                 if (this.playback_mode === 'Live') {
-                    this.scrollCommentList();
+                    this.scrollCommentList(false);  // スムーズスクロールは遅いので行わない
                 }
 
             // 通常のコメントを受信したとき
@@ -280,42 +324,60 @@ export default defineComponent({
 
                 // コメントリストを一番下までスクロール
                 // ビデオ視聴では is_initial_comments が true のイベントしか送られてこないので、そもそも実行されない
-                this.scrollCommentList();
+                this.scrollCommentList(false);  // スムーズスクロールは遅いので行わない
             }
         });
 
-        // LiveCommentManager からコメントの送信完了イベントを受信したときのイベントハンドラーを登録
-        // ビデオ視聴では利用しない
-        this.playerStore.event_emitter.on('CommentSendCompleted', async (event) => {
+        // ライブ視聴のみ登録されるイベントリスナー
+        if (this.playback_mode === 'Live') {
 
-            // 送信した自分のコメントをコメントリストに追加
-            this.comment_list.push(event.comment);
+            // LiveCommentManager からコメントの送信完了イベントを受信したときのイベントハンドラーを登録
+            this.playerStore.event_emitter.on('CommentSendCompleted', async (event) => {
 
-            // コメントリストを一番下までスクロール
-            // ビデオ視聴ではコメントを送信できないので、そもそも実行されない
-            this.scrollCommentList();
-        });
-
-        // タブが表示状態になったときのイベントハンドラーを登録
-        this.visibilitychange_listener = () => {
-            if (document.visibilityState === 'visible') {
-
-                // コメントリスト + バッファの合計コメント数が max_comment_count 件を超えたら、
-                // コメントリスト内のコメントを古いものから順に削除し、max_comment_count 件になるようにする
-                const comment_list_and_buffer_length = this.comment_list.length + comment_list_buffer.length;
-                if (comment_list_and_buffer_length >= max_comment_count && this.is_manual_scroll === false) {
-                    this.comment_list.splice(0, Math.max(0, comment_list_and_buffer_length - max_comment_count));
-                }
-
-                // バッファ内のコメントをコメントリストに一括で追加する
-                this.comment_list.push(...comment_list_buffer);
-                comment_list_buffer.length = 0;  // バッファを空にする
+                // 送信した自分のコメントをコメントリストに追加
+                this.comment_list.push(event.comment);
 
                 // コメントリストを一番下までスクロール
-                this.scrollCommentList();
-            }
-        };
-        document.addEventListener('visibilitychange', this.visibilitychange_listener);
+                // ビデオ視聴ではコメントを送信できないので、そもそも実行されない
+                this.scrollCommentList(false);  // スムーズスクロールは遅いので行わない
+            });
+
+            // タブが表示状態になったときのイベントハンドラーを登録
+            this.visibilitychange_listener = () => {
+                if (document.visibilityState === 'visible') {
+
+                    // コメントリスト + バッファの合計コメント数が max_comment_count 件を超えたら、
+                    // コメントリスト内のコメントを古いものから順に削除し、max_comment_count 件になるようにする
+                    const comment_list_and_buffer_length = this.comment_list.length + comment_list_buffer.length;
+                    if (comment_list_and_buffer_length >= max_comment_count && this.is_manual_scroll === false) {
+                        this.comment_list.splice(0, Math.max(0, comment_list_and_buffer_length - max_comment_count));
+                    }
+
+                    // バッファ内のコメントをコメントリストに一括で追加する
+                    this.comment_list.push(...comment_list_buffer);
+                    comment_list_buffer.length = 0;  // バッファを空にする
+
+                    // コメントリストを一番下までスクロール
+                    this.scrollCommentList(false);  // スムーズスクロールは遅いので行わない
+                }
+            };
+            document.addEventListener('visibilitychange', this.visibilitychange_listener);
+        }
+
+        // 録画再生時のみ登録されるイベントリスナー
+        if (this.playback_mode === 'Video') {
+
+            // PlaybackPositionChanged イベントに応答する
+            console.log('[Comment.vue] Setting up PlaybackPositionChanged event listener.');
+            this.playerStore.event_emitter.on('PlaybackPositionChanged', (payload) => {
+                // 現在再生位置を更新
+                this.current_playback_position = payload.playback_position;
+                // 手動スクロールが行われていなければ自動スクロール実行
+                if (this.is_manual_scroll === false) {
+                    this.scrollPlaybackComment(false);  // スムーズスクロールは遅いので行わない
+                }
+            });
+        }
     },
     // 終了前に実行
     beforeUnmount() {
@@ -323,14 +385,19 @@ export default defineComponent({
         // ***** イベントリスナーの登録解除 *****
 
         // タブの表示/非表示の状態が切り替わったときのイベントを削除
-        if (this.visibilitychange_listener !== null) {
+        if (this.playback_mode === 'Live' && this.visibilitychange_listener !== null) {
             document.removeEventListener('visibilitychange', this.visibilitychange_listener);
             this.visibilitychange_listener = null;
         }
 
-        // LiveCommentManager からコメントを受信したときのイベントハンドラーを削除
+        // LiveCommentManager / PlayerController からのイベントハンドラーを削除
         this.playerStore.event_emitter.off('CommentReceived');  // CommentReceived イベントの全てのイベントハンドラーを削除
-        this.playerStore.event_emitter.off('CommentSendCompleted');  // CommentSendCompleted イベントの全てのイベントハンドラーを削除
+        if (this.playback_mode === 'Live') {
+            this.playerStore.event_emitter.off('CommentSendCompleted');  // CommentSendCompleted イベントの全てのイベントハンドラーを削除
+        }
+        if (this.playback_mode === 'Video') {
+            this.playerStore.event_emitter.off('PlaybackPositionChanged');
+        }
 
         // コメントリストをクリア
         this.comment_list = [];
@@ -389,10 +456,13 @@ export default defineComponent({
             // ドロップダウンメニュー表示中なら手動スクロールモードに設定
             if (this.is_comment_list_dropdown_display === true) {
                 this.is_manual_scroll = true;
+                console.log('[Comment.vue] Manual scroll is enabled because dropdown menu is displayed.');
             }
 
-            // 手動スクロールモードの時は実行しない
-            if (this.is_manual_scroll === true) return;
+            // ユーザーによる手動操作中の場合は何もしない
+            if (this.is_manual_scroll === true) {
+                return;
+            }
 
             // 自動スクロール中のフラグを立てる
             this.is_auto_scrolling = true;
@@ -419,6 +489,88 @@ export default defineComponent({
             // 自動スクロール中のフラグを降ろす
             this.is_auto_scrolling = false;
         },
+
+        /**
+         * 録画再生時、現在の再生位置に対応するコメントまでスクロールする
+         * @param smooth スムーズスクロールを有効にするか
+         */
+        async scrollPlaybackComment(smooth: boolean = false): Promise<void> {
+            if (!this.virtua_scroller) {
+                console.log('[Comment.vue] VirtuaList reference is not available.');
+                return;
+            }
+
+            // ドロップダウンメニュー表示中なら手動スクロールモードに設定
+            if (this.is_comment_list_dropdown_display === true) {
+                this.is_manual_scroll = true;
+                console.log('[Comment.vue] Manual scroll is enabled because dropdown menu is displayed.');
+            }
+
+            // ユーザーによる手動操作中の場合は何もしない
+            if (this.is_manual_scroll === true) {
+                return;
+            }
+
+            // コメントリストが現在表示されていない時は何もしない
+            if (this.playerStore.video_panel_active_tab !== 'Comment') {
+                return;
+            }
+
+            // 再生位置に対応するコメントのインデックスを算出する
+            let target_index = -1;
+            for (let i = 0; i < this.comment_list.length; i++) {
+                const comment = this.comment_list[i];
+                // 各コメントの playback_position はコメント投稿時の再生位置（秒）である前提
+                if (comment.playback_position <= this.current_playback_position) {
+                    target_index = i;
+                } else {
+                    break;
+                }
+            }
+
+            // ターゲットのコメントのインデックスが変更されていない時は実行しない (smooth: false のみ)
+            if (target_index === this.target_comment_index && smooth === false) {
+                return;
+            }
+
+            // 自動スクロール中のフラグを立てる
+            this.is_auto_scrolling = true;
+
+            // VirtuaList の scrollToIndex API を呼び出し、指定インデックスへスクロール
+            if (target_index !== -1) {
+                this.virtua_scroller.scrollToIndex(target_index, {
+                    align: 'end',  // スクロール位置をコメントの下部に合わせる
+                    smooth: smooth,
+                    offset: -3,  // コメントの下部に合わせるため、-3px だけ上にずらす
+                });
+                // ターゲットのコメントのインデックスを更新
+                this.target_comment_index = target_index;
+            }
+
+            // 0.1 秒待つ（重要）
+            await Utils.sleep(0.1);
+
+            // 自動スクロール中のフラグを降ろす
+            this.is_auto_scrolling = false;
+        },
+
+        /**
+         * 自動スクロールボタンがクリックされたときの処理
+         */
+        handleAutoScrollButtonClick(): void {
+
+            // ユーザーによる手動スクロール状態をリセットし、自動スクロールを有効化
+            this.is_manual_scroll = false;
+            console.log('[Comment.vue] Manual scroll is disabled because Auto-scroll button clicked.');
+
+            // playback_mode に応じたスクロール処理の呼び出し
+            // 明示的に自動スクロールボタンが押されたときはスムーズスクロールを行う
+            if (this.playback_mode === 'Live') {
+                this.scrollCommentList(true);
+            } else if (this.playback_mode === 'Video') {
+                this.scrollPlaybackComment(true);
+            }
+        },
     }
 });
 
@@ -428,6 +580,11 @@ export default defineComponent({
 .comment-container {
     display: flex;
     flex-direction: column;
+    &--video {
+        // 録画再生時は Virtua の仮想スクローラーと content-visibility の相性が悪いっぽいので、
+        // 一律で content-visibility: visible を設定
+        content-visibility: visible !important;
+    }
 
     .comment-header {
         display: flex;

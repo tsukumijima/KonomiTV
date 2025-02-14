@@ -240,6 +240,8 @@ export class ChannelUtils {
             'BS-TBS': '#bstbs',
             'BSテレ東': '#bstvtokyo',
             'BSフジ': '#bsfuji',
+            'BS10スターチャンネル': '#bs10スターチャンネル',
+            'BS10': '#bs10',
             'BS11': '#bs11',
             'BS12': '#bs12',
             'BS松竹東急': '#bs260ch',

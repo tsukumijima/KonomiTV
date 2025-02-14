@@ -110,11 +110,11 @@ def Installer(version: str) -> None:
     if platform_type == 'Windows':
         table_02.add_row('なお、C:\\Users・C:\\Program Files 以下と、日本語(全角)が含まれるパス、')
         table_02.add_row('半角スペースを含むパスは不具合の原因となるため、避けてください。')
-        table_02.add_row('パスの入力例: C:\\DTV\\KonomiTV')
+        table_02.add_row('入力例: C:\\DTV\\KonomiTV')
     elif platform_type == 'Linux' or platform_type == 'Linux-Docker':
         table_02.add_row('なお、日本語(全角)が含まれるパス、半角スペースを含むパスは')
         table_02.add_row('不具合の原因となるため、避けてください。')
-        table_02.add_row('パスの入力例: /opt/KonomiTV')
+        table_02.add_row('入力例: /opt/KonomiTV')
     print(Padding(table_02, (1, 2, 1, 2)))
 
     # インストール先のフォルダを取得
@@ -389,35 +389,99 @@ def Installer(version: str) -> None:
             CustomPrompt.ask('利用するエンコーダー', default=default_encoder, choices=['FFmpeg', 'rkmppenc']),
         )
 
-    # ***** アップロードしたキャプチャ画像の保存先フォルダのパス *****
+    # ***** 録画済み番組の保存先フォルダのパス *****
 
     table_06 = CreateTable()
-    table_06.add_column('06. アップロードしたキャプチャ画像の保存先フォルダのパスを入力してください。')
-    table_06.add_row('クライアントの [キャプチャの保存先] 設定で [KonomiTV サーバーにアップロード] または')
-    table_06.add_row('[ブラウザでのダウンロードと、KonomiTV サーバーへのアップロードを両方行う] を選択したときに利用されます。')
+    table_06.add_column('06. 録画済み番組の保存先フォルダを入力してください。')
     if platform_type == 'Windows':
-        table_06.add_row('パスの入力例: E:\\TV-Capture')
+        table_06.add_row('入力例: E:\\TV-Record')
     elif platform_type == 'Linux' or platform_type == 'Linux-Docker':
-        table_06.add_row('パスの入力例: /mnt/hdd/TV-Capture')
+        table_06.add_row('入力例: /mnt/hdd/TV-Record')
+    table_06.add_row('複数のフォルダを指定するには、パスを1つずつ入力してください。')
+    table_06.add_row('入力を終了する場合は、何も入力せずに Enter キーを押してください。')
     print(Padding(table_06, (1, 2, 1, 2)))
 
-    # キャプチャ画像の保存先フォルダのパスを取得
-    capture_upload_folder: Path
-    while True:
+    # 録画フォルダのリスト
+    recorded_folders: list[str] = []
 
+    # 録画フォルダを1つずつ入力
+    while True:
         # 入力プロンプト (バリデーションに失敗し続ける限り何度でも表示される)
-        capture_upload_folder = Path(CustomPrompt.ask('アップロードしたキャプチャ画像の保存先フォルダのパス'))
+        recorded_folder = CustomPrompt.ask('録画フォルダのパス')
+
+        # 何も入力されなかった場合は入力を終了
+        if recorded_folder == '':
+            # 1つも入力されていない場合は再度入力を促す
+            if len(recorded_folders) == 0:
+                print(Padding('[red]少なくとも1つの録画フォルダを指定してください。', (0, 2, 0, 2)))
+                continue
+            break
+
+        # 入力されたパスを Path オブジェクトに変換
+        recorded_folder_path = Path(recorded_folder)
 
         # バリデーション
-        if capture_upload_folder.is_absolute() is False:
-            print(Padding('[red]アップロードしたキャプチャ画像の保存先フォルダは絶対パスで入力してください。', (0, 2, 0, 2)))
+        if recorded_folder_path.is_absolute() is False:
+            print(Padding('[red]録画フォルダは絶対パスで入力してください。', (0, 2, 0, 2)))
             continue
-        if capture_upload_folder.exists() is False:
-            print(Padding('[red]アップロードしたキャプチャ画像の保存先フォルダが存在しません。', (0, 2, 0, 2)))
+        if recorded_folder_path.exists() is False:
+            print(Padding('[red]指定された録画フォルダが存在しません。', (0, 2, 0, 2)))
+            continue
+        if recorded_folder_path.is_dir() is False:
+            print(Padding('[red]指定されたパスはフォルダではありません。', (0, 2, 0, 2)))
             continue
 
-        # すべてのバリデーションを通過したのでループを抜ける
-        break
+        # 現在指定されているフォルダの一覧を表示
+        recorded_folders.append(str(recorded_folder_path))
+        print(Padding(f'[green]現在指定されている録画フォルダ: {", ".join(recorded_folders)}', (0, 2, 0, 2)))
+
+    # ***** アップロードしたキャプチャ画像の保存先フォルダのパス *****
+
+    table_07 = CreateTable()
+    table_07.add_column('07. アップロードしたキャプチャ画像の保存先フォルダのパスを入力してください。')
+    table_07.add_row('クライアントの [キャプチャの保存先] 設定で [KonomiTV サーバーにアップロード] または')
+    table_07.add_row('[ブラウザでのダウンロードと、KonomiTV サーバーへのアップロードを両方行う] を選択したときに利用されます。')
+    if platform_type == 'Windows':
+        table_07.add_row('入力例: E:\\TV-Capture')
+    elif platform_type == 'Linux' or platform_type == 'Linux-Docker':
+        table_07.add_row('入力例: /mnt/hdd/TV-Capture')
+    table_07.add_row('複数のフォルダを指定するには、パスを1つずつ入力してください。')
+    table_07.add_row('入力を終了する場合は、何も入力せずに Enter キーを押してください。')
+    print(Padding(table_07, (1, 2, 1, 2)))
+
+    # キャプチャ画像の保存フォルダのリスト
+    capture_upload_folders: list[str] = []
+
+    # 録画フォルダを1つずつ入力
+    while True:
+        # 入力プロンプト (バリデーションに失敗し続ける限り何度でも表示される)
+        capture_upload_folder = CustomPrompt.ask('アップロードしたキャプチャ画像の保存先フォルダのパス')
+
+        # 何も入力されなかった場合は入力を終了
+        if capture_upload_folder == '':
+            # 1つも入力されていない場合は再度入力を促す
+            if len(capture_upload_folders) == 0:
+                print(Padding('[red]少なくとも1つのキャプチャ画像の保存先フォルダを指定してください。', (0, 2, 0, 2)))
+                continue
+            break
+
+        # 入力されたパスを Path オブジェクトに変換
+        capture_upload_folder_path = Path(capture_upload_folder)
+
+        # バリデーション
+        if capture_upload_folder_path.is_absolute() is False:
+            print(Padding('[red]キャプチャ画像の保存先フォルダは絶対パスで入力してください。', (0, 2, 0, 2)))
+            continue
+        if capture_upload_folder_path.exists() is False:
+            print(Padding('[red]指定されたキャプチャ画像の保存先フォルダが存在しません。', (0, 2, 0, 2)))
+            continue
+        if capture_upload_folder_path.is_dir() is False:
+            print(Padding('[red]指定されたパスはフォルダではありません。', (0, 2, 0, 2)))
+            continue
+
+        # 現在指定されているフォルダの一覧を表示
+        capture_upload_folders.append(str(capture_upload_folder_path))
+        print(Padding(f'[green]現在指定されているキャプチャ画像の保存先フォルダ: {", ".join(capture_upload_folders)}', (0, 2, 0, 2)))
 
     # ***** ソースコードのダウンロード *****
 
@@ -517,8 +581,8 @@ def Installer(version: str) -> None:
             config_dict['general']['mirakurun_url'] = mirakurun_url
         config_dict['general']['encoder'] = encoder
         config_dict['server']['port'] = server_port
-        config_dict['video']['recorded_folders'] = []  # TODO: 本来はインストーラーで設定できるべき
-        config_dict['capture']['upload_folders'] = [str(capture_upload_folder)]
+        config_dict['video']['recorded_folders'] = recorded_folders
+        config_dict['capture']['upload_folders'] = capture_upload_folders
 
         # サーバー設定データを保存
         SaveConfig(install_path / 'config.yaml', config_dict)
@@ -930,33 +994,33 @@ def Installer(version: str) -> None:
             text = True,  # 出力をテキストとして取得する
         ).stdout.strip()
 
-        table_07 = CreateTable()
-        table_07.add_column(f'07. KonomiTV の Windows サービスの実行ユーザー名を入力してください。')
-        table_07.add_row('KonomiTV の Windows サービスを一般ユーザーの権限で起動するために利用します。')
-        table_07.add_row('ほかのユーザー権限で実行したい場合は、そのユーザー名を入力してください。')
-        table_07.add_row(f'Enter キーを押すと、現在ログオン中のユーザー ({current_user_name_default}) が利用されます。')
-        print(Padding(table_07, (0, 2, 0, 2)))
+        table_08 = CreateTable()
+        table_08.add_column('08. KonomiTV の Windows サービスの実行ユーザー名を入力してください。')
+        table_08.add_row('KonomiTV の Windows サービスを一般ユーザーの権限で起動するために利用します。')
+        table_08.add_row('ほかのユーザー権限で実行したい場合は、そのユーザー名を入力してください。')
+        table_08.add_row(f'Enter キーを押すと、現在ログオン中のユーザー ({current_user_name_default}) が利用されます。')
+        print(Padding(table_08, (0, 2, 0, 2)))
 
         # ユーザー名を入力
-        current_user_name: str = CustomPrompt.ask(f'KonomiTV の Windows サービスの実行ユーザー名', default=current_user_name_default)
+        current_user_name: str = CustomPrompt.ask('KonomiTV の Windows サービスの実行ユーザー名', default=current_user_name_default)
 
-        table_08 = CreateTable()
-        table_08.add_column(f'08. ユーザー ({current_user_name}) のパスワードを入力してください。')
-        table_08.add_row('KonomiTV の Windows サービスを一般ユーザーの権限で起動するために利用します。')
-        table_08.add_row('入力されたパスワードがそれ以外の用途に利用されることはありません。')
-        table_08.add_row('間違ったパスワードを入力すると、KonomiTV が起動できなくなります。')
-        table_08.add_row('Enter キーを押す前に、正しいパスワードかどうか今一度確認してください。')
-        table_08.add_row('なお、PIN などのほかの認証方法には対応していません。')
-        table_08.add_row(CreateRule())
-        table_08.add_row('ログオン中のユーザーにパスワードを設定していない場合は、簡単なものでいいので')
-        table_08.add_row('何かパスワードを設定してから、その設定したパスワードを入力してください。')
-        table_08.add_row('なお、パスワードの設定後にインストーラーを起動し直す必要はありません。')
-        table_08.add_row(CreateRule())
-        table_08.add_row('ごく稀に、正しいパスワードを指定したのにログオンできない場合があります。')
-        table_08.add_row('その場合は、一度インストーラーを Ctrl+C で中断し、インストーラーの')
-        table_08.add_row('実行ファイルを Shift + 右クリック → [別のユーザーとして実行] から、')
-        table_08.add_row('ログオン中のユーザーとパスワードを指定して再度実行してみてください。')
-        print(Padding(table_08, (1, 2, 1, 2)))
+        table_09 = CreateTable()
+        table_09.add_column(f'09. ユーザー ({current_user_name}) のパスワードを入力してください。')
+        table_09.add_row('KonomiTV の Windows サービスを一般ユーザーの権限で起動するために利用します。')
+        table_09.add_row('入力されたパスワードがそれ以外の用途に利用されることはありません。')
+        table_09.add_row('間違ったパスワードを入力すると、KonomiTV が起動できなくなります。')
+        table_09.add_row('Enter キーを押す前に、正しいパスワードかどうか今一度確認してください。')
+        table_09.add_row('なお、PIN などのほかの認証方法には対応していません。')
+        table_09.add_row(CreateRule())
+        table_09.add_row('ログオン中のユーザーにパスワードを設定していない場合は、簡単なものでいいので')
+        table_09.add_row('何かパスワードを設定してから、その設定したパスワードを入力してください。')
+        table_09.add_row('なお、パスワードの設定後にインストーラーを起動し直す必要はありません。')
+        table_09.add_row(CreateRule())
+        table_09.add_row('ごく稀に、正しいパスワードを指定したのにログオンできない場合があります。')
+        table_09.add_row('その場合は、一度インストーラーを Ctrl+C で中断し、インストーラーの')
+        table_09.add_row('実行ファイルを Shift + 右クリック → [別のユーザーとして実行] から、')
+        table_09.add_row('ログオン中のユーザーとパスワードを指定して再度実行してみてください。')
+        print(Padding(table_09, (1, 2, 1, 2)))
 
         # ユーザーのパスワードを取得
         while True:
