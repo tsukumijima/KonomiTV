@@ -40,6 +40,7 @@ export interface IClientSettings {
     panel_display_state: 'RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold';
     tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
     video_panel_active_tab: 'RecordedProgram' | 'Series' | 'Comment' | 'Twitter';
+    show_player_background_image: boolean;
     tv_channel_selection_requires_alt_key: boolean;
     // tv_streaming_quality: 同期無効
     // tv_streaming_quality_cellular: 同期無効

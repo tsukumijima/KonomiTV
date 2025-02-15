@@ -21,6 +21,16 @@
                 <span class="ml-1">ピン留め中チャンネルの並び替え設定を開く</span>
             </v-btn>
             <div class="settings__item settings__item--switch">
+                <label class="settings__item-heading" for="show_player_background_image">コメントプレイヤーに背景画像を表示する</label>
+                <label class="settings__item-label" for="show_player_background_image">
+                    この設定をオンにすると、コメントプレイヤーにランダムで背景画像を表示します。<br>
+                    オフにした場合は、背景画像を表示しません。<br>
+                </label>
+                <v-switch class="settings__item-switch" color="primary" id="show_player_background_image" hide-details
+                    v-model="settingsStore.settings.show_player_background_image">
+                </v-switch>
+            </div>
+            <div class="settings__item settings__item--switch">
                 <label class="settings__item-heading" for="tv_channel_selection_requires_alt_key">チャンネル選局のキーボードショートカットを {{Utils.AltOrOption()}} + 数字キー/テンキーに変更する</label>
                 <label class="settings__item-label" for="tv_channel_selection_requires_alt_key">
                     この設定をオンにすると、数字キーまたはテンキーに対応するリモコン番号（1～12）のチャンネルに切り替えるとき、{{Utils.AltOrOption()}} キーを同時に押す必要があります。<br>
