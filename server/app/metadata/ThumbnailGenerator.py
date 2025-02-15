@@ -436,7 +436,7 @@ class ThumbnailGenerator:
             # エラー通知用のイベント
             error_event = asyncio.Event()
 
-            async def extract_single_frame(offset: float, worker_name: str) -> NDArray[np.uint8] | None:
+            async def ExtractSingleFrame(offset: float, worker_name: str) -> NDArray[np.uint8] | None:
                 """ FFmpeg を使い1フレームを抽出する共通処理 """
 
                 # オフセットを HH:MM:SS または HH:MM:SS.xx 形式に変換
@@ -490,14 +490,14 @@ class ThumbnailGenerator:
 
                 # 受け取ったバイナリデータを numpy 配列に変換し、OpenCV で画像デコード
                 image_data = np.frombuffer(stdout, dtype=np.uint8)
-                frame = cast(NDArray[np.uint8], cv2.imdecode(image_data, cv2.IMREAD_COLOR))
+                frame = cast(NDArray[np.uint8], await asyncio.to_thread(cv2.imdecode, image_data, cv2.IMREAD_COLOR))
                 if frame is None:
                     logging.error(f'{self.file_path}: [{worker_name}] Failed to decode image at offset {formatted_offset}.')
                     return None
 
                 return frame
 
-            async def extract_frames_worker(
+            async def ExtractFramesWorker(
                 offsets: list[float],
                 worker_name: str,
                 start_delay: float = 0.0
@@ -518,7 +518,7 @@ class ThumbnailGenerator:
                                 return
 
                             # FFmpegでフレーム抽出
-                            frame = await extract_single_frame(offset, worker_name)
+                            frame = await ExtractSingleFrame(offset, worker_name)
                             if frame is None:
                                 error_event.set()
                                 return
@@ -574,7 +574,7 @@ class ThumbnailGenerator:
                 # WORKER_COUNT 個のワーカーを WORKER_DELAY 秒間隔で起動
                 start_time = time.time()
                 workers = [
-                    extract_frames_worker(worker_offsets[i], f'Worker {i}', start_delay=i * WORKER_DELAY)
+                    ExtractFramesWorker(worker_offsets[i], f'Worker {i}', start_delay=i * WORKER_DELAY)
                     for i in range(WORKER_COUNT)
                 ]
 
@@ -636,30 +636,18 @@ class ThumbnailGenerator:
                 logging.error(f'{self.file_path}: Error in parallel thumbnail generation:', exc_info=ex)
                 return False
 
-            # OpenCV を用いてタイル化処理を行う
-            rows = []
-            num_cols = self.TILE_COLS
-            for r in range(tile_rows):
-                row_images = candidate_images[r * num_cols: (r + 1) * num_cols]
-                # 最終行が列数に満たない場合、黒画像で埋める
-                if len(row_images) < num_cols:
-                    black_image = np.zeros((height, width, 3), dtype=np.uint8)
-                    while len(row_images) < num_cols:
-                        row_images.append(black_image)
-                row_concat = cv2.hconcat(row_images)
-                rows.append(row_concat)
-            tile_image = cv2.vconcat(rows)
-
-            # 最終的なタイル画像をディスクへ書き込む（この時点で初めてディスク I/O が発生する）
-            try:
-                # タイル画像を PNG としてメモリ上にエンコード
-                _, img_data = cv2.imencode('.png', tile_image)
-                if img_data is None:
-                    logging.error(f'{self.file_path}: Failed to encode tile image to PNG.')
+            # タイル画像を生成
+            ## CPU バウンドな処理なので、イベントループをブロックしないよう ProcessPoolExecutor で実行する
+            loop = asyncio.get_running_loop()
+            with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
+                tile_image_data = await loop.run_in_executor(executor, self._generateTileImage, candidate_images, tile_rows, height, width)
+                if tile_image_data is None:
+                    logging.error(f'{self.file_path}: Failed to generate tile image.')
                     return False
-                del tile_image
 
+            try:
                 # FFmpeg でタイル画像を WebP または JPEG に圧縮保存
+                # これで最終的なタイル画像がディスクへ書き込まれる（この時点で初めてディスク I/O が発生する）
                 process = await asyncio.create_subprocess_exec(
                     LIBRARY_PATH['FFmpeg'],
                     *[
@@ -698,7 +686,7 @@ class ThumbnailGenerator:
                 )
 
                 # 画像データを標準入力に書き込み、プロセス終了を待つ
-                _, stderr = await process.communicate(input=img_data.tobytes())
+                _, stderr = await process.communicate(input=tile_image_data)
                 if process.returncode != 0:
                     error_message = stderr.decode('utf-8', errors='ignore')
                     logging.error(f'{self.file_path}: FFmpeg tile image compression failed with error: {error_message}')
@@ -711,8 +699,56 @@ class ThumbnailGenerator:
                 return False
 
         except Exception as ex:
-            logging.error(f'{self.file_path}: Error in seekbar thumbnail tile generation (OpenCV tiling):', exc_info=ex)
+            logging.error(f'{self.file_path}: Error in seekbar thumbnail tile generation:', exc_info=ex)
             return False
+
+
+    def _generateTileImage(
+        self,
+        candidate_images: list[NDArray[np.uint8]],
+        tile_rows: int,
+        height: int,
+        width: int,
+    ) -> bytes | None:
+        """
+        CPU バウンドな処理として、タイル画像を生成する
+        ProcessPoolExecutor で実行されるため、あえて prefix のアンダースコアは1つとしている
+
+        Args:
+            candidate_images (list[NDArray[np.uint8]]): タイル化する画像のリスト
+            tile_rows (int): タイルの行数
+            height (int): タイルの高さ
+            width (int): タイルの幅
+
+        Returns:
+            bytes | None: タイル画像の PNG データ / エラー時は None
+        """
+
+        try:
+            # OpenCV を用いてタイル化処理を行う
+            rows = []
+            num_cols = self.TILE_COLS
+            for r in range(tile_rows):
+                row_images = candidate_images[r * num_cols: (r + 1) * num_cols]
+                # 最終行が列数に満たない場合、黒画像で埋める
+                if len(row_images) < num_cols:
+                    black_image = np.zeros((height, width, 3), dtype=np.uint8)
+                    while len(row_images) < num_cols:
+                        row_images.append(black_image)
+                row_concat = cv2.hconcat(row_images)
+                rows.append(row_concat)
+            tile_image = cv2.vconcat(rows)
+
+            # タイル画像を PNG としてメモリ上にエンコード
+            _, img_data = cv2.imencode('.png', tile_image)
+            if img_data is None:
+                return None
+
+            return img_data.tobytes()
+
+        except Exception as ex:
+            logging.error('Error in tile image generation:', exc_info=ex)
+            return None
 
 
     async def __extractBestFrameFromThumbnailTile(self) -> NDArray[np.uint8] | None:
@@ -1173,7 +1209,8 @@ class ThumbnailGenerator:
         frames_data: list[tuple[int, NDArray[np.uint8], int, int, NDArray[np.uint8]]],
     ) -> list[tuple[int, float, bool, NDArray[np.uint8]]]:
         """
-        複数フレームのスコアを一括で計算する (外部プロセスで実行するため、あえて prefix のアンダースコアは1つとしている)
+        複数フレームのスコアを一括で計算する
+        ProcessPoolExecutor で実行されるため、あえて prefix のアンダースコアは1つとしている
 
         Args:
             frames_data (list[tuple[int, NDArray[np.uint8], int, int, NDArray[np.uint8]]]): (index, frame_bgr, row, col, sub_img) のリスト
