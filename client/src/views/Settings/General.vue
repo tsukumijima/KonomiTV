@@ -21,10 +21,10 @@
                 <span class="ml-1">ピン留め中チャンネルの並び替え設定を開く</span>
             </v-btn>
             <div class="settings__item settings__item--switch">
-                <label class="settings__item-heading" for="show_player_background_image">コメントプレイヤーに背景画像を表示する</label>
+                <label class="settings__item-heading" for="show_player_background_image">プレイヤーの読み込み中に背景写真を表示する</label>
                 <label class="settings__item-label" for="show_player_background_image">
-                    この設定をオンにすると、コメントプレイヤーにランダムで背景画像を表示します。<br>
-                    オフにした場合は、背景画像を表示しません。<br>
+                    プレイヤーの読み込み中にランダムで背景写真を表示できます。デフォルトはオンになっています。<br>
+                    背景写真を表示したくない場合は、この設定をオフにできます。<br>
                 </label>
                 <v-switch class="settings__item-switch" color="primary" id="show_player_background_image" hide-details
                     v-model="settingsStore.settings.show_player_background_image">

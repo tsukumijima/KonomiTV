@@ -133,7 +133,7 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
     tv_panel_active_tab: 'Program',
     // ビデオをみるときにデフォルトで表示されるパネルのタブ (Default: 番組情報タブ)
     video_panel_active_tab: 'RecordedProgram',
-    // コメントプレイヤーに背景画像を表示する (Default: オン)
+    // プレイヤーの読み込み中に背景写真を表示する (Default: オン)
     show_player_background_image: true,
     // チャンネル選局のキーボードショートカットを Alt or Option + 数字キー/テンキーに変更する (Default: オフ)
     tv_channel_selection_requires_alt_key: false,
