@@ -97,11 +97,11 @@ export class PlayerUtils {
 
 
     /**
-     * プレイヤーの背景画像をランダムで取得し、その URL を返す
-     * @returns ランダムで設定されたプレイヤーの背景画像の URL
+     * プレイヤーの背景写真をランダムで取得し、その URL を返す
+     * @returns ランダムで設定されたプレイヤーの背景写真の URL
      */
     static generatePlayerBackgroundURL(): string {
-        const background_count = 50;  // 50種類から選択
+        const background_count = 90;  // 90種類から選択
         const random = (Math.floor(Math.random() * background_count) + 1);
         return `/assets/images/player-backgrounds/${random.toString().padStart(2, '0')}.jpg`;
     }
