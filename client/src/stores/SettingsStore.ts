@@ -42,6 +42,7 @@ export interface ILocalClientSettings extends IClientSettings {
     tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
     video_panel_active_tab: 'RecordedProgram' | 'Series' | 'Comment' | 'Twitter';
     show_player_background_image: boolean;
+    use_pure_black_player_background: boolean;
     tv_channel_selection_requires_alt_key: boolean;
     tv_streaming_quality: LiveStreamingQuality;
     tv_streaming_quality_cellular: LiveStreamingQuality;
@@ -135,6 +136,8 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
     video_panel_active_tab: 'RecordedProgram',
     // プレイヤーの読み込み中に背景写真を表示する (Default: オン)
     show_player_background_image: true,
+    // プレイヤー表示領域の背景色を完全な黒にする (Default: オフ)
+    use_pure_black_player_background: false,
     // チャンネル選局のキーボードショートカットを Alt or Option + 数字キー/テンキーに変更する (Default: オフ)
     tv_channel_selection_requires_alt_key: false,
 
@@ -248,7 +251,8 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
 };
 
 // 同期対象の設定データのキーのみを列挙した配列
-const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
+// 同期されない設定も把握性向上のため、コメントとして残す
+export const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
     'last_synced_at',
     // showed_panel_last_time: 同期無効
     // selected_twitter_account_id: 同期無効
@@ -265,6 +269,7 @@ const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
     'tv_panel_active_tab',
     'video_panel_active_tab',
     'show_player_background_image',
+    'use_pure_black_player_background',
     'tv_channel_selection_requires_alt_key',
     // tv_streaming_quality: 同期無効
     // tv_streaming_quality_cellular: 同期無効

@@ -3,6 +3,7 @@
         'watch-player--loading': playerStore.is_loading,
         'watch-player--virtual-keyboard-display': playerStore.is_virtual_keyboard_display && Utils.hasActiveElementClass('dplayer-comment-input'),
         'watch-player--video': playback_mode === 'Video',
+        'watch-player--pure-black': settingsStore.settings.use_pure_black_player_background,
     }">
         <div class="watch-player__background-wrapper">
             <div class="watch-player__background" :class="{
@@ -483,6 +484,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
     height: 100%;
     background-size: contain;
     background-position: center;
+    &.watch-player--pure-black {
+        background-color: #000000;
+    }
     @include tablet-vertical {
         aspect-ratio: 16 / 9;
     }
