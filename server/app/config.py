@@ -52,6 +52,8 @@ class ClientSettings(BaseModel):
     panel_display_state: Literal['RestorePreviousState', 'AlwaysDisplay', 'AlwaysFold'] = 'RestorePreviousState'
     tv_panel_active_tab: Literal['Program', 'Channel', 'Comment', 'Twitter'] = 'Program'
     video_panel_active_tab: Literal['RecordedProgram', 'Series', 'Comment', 'Twitter'] = 'RecordedProgram'
+    show_player_background_image: bool = True
+    use_pure_black_player_background: bool = False
     tv_channel_selection_requires_alt_key: bool = False
     # tv_streaming_quality: 同期無効
     # tv_streaming_quality_cellular: 同期無効

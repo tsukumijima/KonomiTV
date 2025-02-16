@@ -1,13 +1,13 @@
 [tool.poetry]
 name = "KonomiTV-Installer"
-version = "0.11.0"
+version = "0.12.0"
 description = "KonomiTV Installer"
 package-mode = false
 
 [tool.taskipy.tasks]
 dev = "python KonomiTV-Installer.py"
-build-windows = "pyinstaller --onefile --uac-admin --icon=KonomiTV-Installer.ico KonomiTV-Installer.py"
-build-linux = "pyinstaller --onefile --name=KonomiTV-Installer.elf KonomiTV-Installer.py"
+build-windows = "pyinstaller --onefile --collect-datas=emoji --uac-admin --icon=KonomiTV-Installer.ico KonomiTV-Installer.py"
+build-linux = "pyinstaller --onefile --collect-datas=emoji --name=KonomiTV-Installer.elf KonomiTV-Installer.py"
 
 [tool.poetry.dependencies]
 python = "3.11.*"

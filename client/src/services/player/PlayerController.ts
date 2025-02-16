@@ -968,7 +968,7 @@ class PlayerController {
         const on_init_or_quality_change = async () => {
             assert(this.player !== null);
 
-            // ローディング中の背景画像をランダムに変更
+            // ローディング中の背景写真をランダムに変更
             player_store.background_url = PlayerUtils.generatePlayerBackgroundURL();
 
             // 実装上画質切り替え後にそのまま対応できない PlayerManager (LiveDataBroadcastingManager など) をここで再起動する
@@ -1066,7 +1066,7 @@ class PlayerController {
                     await attemptPlay();
                 }
 
-                // 再生準備ができた段階で再生バッファを調整し、再生準備ができた段階でローディング中の背景画像を非表示にするイベントハンドラーを登録
+                // 再生準備ができた段階で再生バッファを調整し、再生準備ができた段階でローディング中の背景写真を非表示にするイベントハンドラーを登録
                 let on_canplay_called = false;
                 const on_canplay = async () => {
 
@@ -1107,10 +1107,10 @@ class PlayerController {
                     this.recoverPlayback();
 
                     if (channels_store.channel.current.is_radiochannel === true) {
-                        // ラジオチャンネルでは引き続き映像の代わりとしてローディング中の背景画像を表示し続ける
+                        // ラジオチャンネルでは引き続き映像の代わりとしてローディング中の背景写真を表示し続ける
                         player_store.is_background_display = true;
                     } else {
-                        // ローディング中の背景画像をフェードアウト
+                        // ローディング中の背景写真をフェードアウト
                         player_store.is_background_display = false;
                     }
 
@@ -1186,11 +1186,11 @@ class PlayerController {
             // ビデオ視聴のみ
             } else {
 
-                // 必ず最初はローディング状態で、背景画像を表示する
+                // 必ず最初はローディング状態で、背景写真を表示する
                 player_store.is_loading = true;
                 player_store.is_background_display = true;
 
-                // 再生準備ができた段階でローディング中の背景画像を非表示にするイベントハンドラーを登録
+                // 再生準備ができた段階でローディング中の背景写真を非表示にするイベントハンドラーを登録
                 let on_canplay_called = false;
                 const on_canplay = async () => {
 
@@ -1206,7 +1206,7 @@ class PlayerController {
                     // バッファリング中の Progress Circular を非表示にする
                     player_store.is_video_buffering = false;
 
-                    // ローディング中の背景画像をフェードアウト
+                    // ローディング中の背景写真をフェードアウト
                     player_store.is_background_display = false;
                 };
                 this.player.video.oncanplaythrough = on_canplay;
@@ -1820,7 +1820,7 @@ class PlayerController {
             console.log('\u001b[31m[PlayerController] Screen Wake Lock API: Screen Wake Lock released.');
         }
 
-        // ローディング中の背景画像を隠す
+        // ローディング中の背景写真を隠す
         player_store.is_background_display = false;
 
         // 再びローディング状態にする

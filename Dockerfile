@@ -18,11 +18,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends aria2 ca-certif
 ## サードパーティーライブラリは変更が少ないので、先にダウンロード処理を実行してビルドキャッシュを効かせる
 WORKDIR /
 ## リリース版用
-# RUN aria2c -x10 https://github.com/tsukumijima/KonomiTV/releases/download/v0.11.0/thirdparty-linux.tar.xz
-# RUN tar xvf thirdparty-linux.tar.xz
+RUN aria2c -x10 https://github.com/tsukumijima/KonomiTV/releases/download/v0.12.0/thirdparty-linux.tar.xz
+RUN tar xvf thirdparty-linux.tar.xz
 ## 開発版 (0.x.x-dev) 用
-RUN aria2c -x10 https://nightly.link/tsukumijima/KonomiTV/actions/runs/13269769043/thirdparty-linux.tar.xz.zip
-RUN unzip thirdparty-linux.tar.xz.zip && tar xvf thirdparty-linux.tar.xz
+# RUN aria2c -x10 https://nightly.link/tsukumijima/KonomiTV/actions/runs/13269769043/thirdparty-linux.tar.xz.zip
+# RUN unzip thirdparty-linux.tar.xz.zip && tar xvf thirdparty-linux.tar.xz
 
 # --------------------------------------------------------------------------------------------------------------
 # クライアントをビルドするステージ

@@ -3,9 +3,13 @@
         'watch-player--loading': playerStore.is_loading,
         'watch-player--virtual-keyboard-display': playerStore.is_virtual_keyboard_display && Utils.hasActiveElementClass('dplayer-comment-input'),
         'watch-player--video': playback_mode === 'Video',
+        'watch-player--pure-black': settingsStore.settings.use_pure_black_player_background,
     }">
         <div class="watch-player__background-wrapper">
-            <div class="watch-player__background" :class="{'watch-player__background--display': playerStore.is_background_display}"
+            <div class="watch-player__background" :class="{
+                'watch-player__background--display': playerStore.is_background_display,
+                'watch-player__background--background-hide': settingsStore.settings.show_player_background_image === false,
+            }"
                 :style="{backgroundImage: `url(${playerStore.background_url})`}">
                 <img class="watch-player__background-logo" src="/assets/images/logo.svg">
             </div>
@@ -43,6 +47,7 @@ import { PropType } from 'vue';
 
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
+import useSettingsStore from '@/stores/SettingsStore';
 import Utils from '@/utils';
 
 // Props の定義
@@ -56,6 +61,7 @@ defineProps({
 // Store の初期化
 const channelsStore = useChannelsStore();
 const playerStore = usePlayerStore();
+const settingsStore = useSettingsStore();
 
 // watch-player__dplayer-setting-cover がクリックされたとき、設定パネルを閉じる
 const handleSettingCoverClick = () => {
@@ -478,6 +484,9 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
     height: 100%;
     background-size: contain;
     background-position: center;
+    &.watch-player--pure-black {
+        background-color: #000000;
+    }
     @include tablet-vertical {
         aspect-ratio: 16 / 9;
     }
@@ -544,6 +553,10 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
             &--display {
                 opacity: 1;
                 visibility: visible;
+            }
+            &--background-hide {
+                background-image: none !important;
+                background-color: #101010;
             }
 
             .watch-player__background-logo {

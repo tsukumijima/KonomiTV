@@ -668,17 +668,6 @@ def Installer(version: str) -> None:
         if result is False:
             return  # 処理中断
 
-        # ***** データベースのアップグレード *****
-
-        result = RunSubprocess(
-            'データベースをアップグレードしています…',
-            [python_executable_path, '-m', 'poetry', 'run', 'aerich', 'upgrade'],
-            cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-            error_message = 'データベースのアップグレード中に予期しないエラーが発生しました。'
-        )
-        if result is False:
-            return  # 処理中断
-
     # Linux-Docker: docker-compose.yaml を生成し、Docker イメージをビルド
     elif platform_type == 'Linux-Docker':
 

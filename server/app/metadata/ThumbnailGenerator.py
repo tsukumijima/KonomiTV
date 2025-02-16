@@ -9,6 +9,7 @@ import math
 import numpy as np
 import pathlib
 import random
+import subprocess
 import time
 import typer
 from numpy.typing import NDArray
@@ -260,11 +261,11 @@ class ThumbnailGenerator:
 
         # コンストラクタに渡す
         return cls(
-            file_path=anyio.Path(recorded_program.recorded_video.file_path),
-            file_hash=recorded_program.recorded_video.file_hash,
-            duration_sec=duration_sec,
-            candidate_time_ranges=candidate_time_ranges,
-            face_detection_mode=face_detection_mode,
+            file_path = anyio.Path(recorded_program.recorded_video.file_path),
+            file_hash = recorded_program.recorded_video.file_hash,
+            duration_sec = duration_sec,
+            candidate_time_ranges = candidate_time_ranges,
+            face_detection_mode = face_detection_mode,
         )
 
 
@@ -284,17 +285,18 @@ class ThumbnailGenerator:
             tile_exists = await self.seekbar_thumbnails_tile_path.is_file()
             tile_exists_jpg = False
             if not tile_exists:
-                # WebP が存在しない場合は JPEG も確認
+                ## WebP が存在しない場合は JPEG も確認
                 jpg_path = self.seekbar_thumbnails_tile_path.with_suffix('.jpg')
                 tile_exists_jpg = await jpg_path.is_file()
                 if tile_exists_jpg:
                     self.seekbar_thumbnails_tile_path = jpg_path
                     tile_exists = True
-            # ファイルが存在し、かつ0バイトでないことを確認
             tile_is_not_empty = tile_exists and (await self.seekbar_thumbnails_tile_path.stat()).st_size > 0
             if tile_is_not_empty and skip_tile_if_exists:
+                ## ファイルが存在し、かつ0バイトでないなら生成済みとみなしてスキップ
                 logging.info(f'{self.file_path}: Seekbar thumbnail tile already exists. Skipping generation.')
             else:
+                ## まだシークバー用サムネイルタイルが生成されていなければ生成
                 if not await self.__generateThumbnailTile():
                     logging.error(f'{self.file_path}: Failed to generate seekbar thumbnail tile.')
                     return
@@ -431,12 +433,12 @@ class ThumbnailGenerator:
                 await thumbnails_dir.mkdir(parents=True, exist_ok=True)
 
             # 非同期キューの準備
-            frame_queue: asyncio.Queue[tuple[float, NDArray[np.uint8]]] = asyncio.Queue()
+            frame_queue: asyncio.Queue[tuple[float, bytes]] = asyncio.Queue()
 
             # エラー通知用のイベント
             error_event = asyncio.Event()
 
-            async def extract_single_frame(offset: float, worker_name: str) -> NDArray[np.uint8] | None:
+            async def ExtractSingleFrame(offset: float, worker_name: str) -> bytes | None:
                 """ FFmpeg を使い1フレームを抽出する共通処理 """
 
                 # オフセットを HH:MM:SS または HH:MM:SS.xx 形式に変換
@@ -444,7 +446,7 @@ class ThumbnailGenerator:
 
                 # 個別に1枚抽出するための FFmpeg コマンドを実行
                 ## 試行錯誤の結果、数フレーム読み取るだけのためにハードウェアアクセラレーションを使うと
-                ## デコーダーの初期化などでむしろ遅くなることが判明したため、-hwaccel はあえて指定していない
+                ## HW デコーダーの初期化などでむしろ遅くなることが判明したため、-hwaccel はあえて指定していない
                 process = await asyncio.create_subprocess_exec(
                     LIBRARY_PATH['FFmpeg'],
                     *[
@@ -462,7 +464,7 @@ class ThumbnailGenerator:
                         '-i', str(self.file_path),
                         # 音声ストリームを無効化し若干の高速化を図る
                         '-an',
-                        # ffmpeg 側で直接サイズ調整（タイル化時に各画像は self.TILE_SCALE になるように）
+                        # 画像サイズを調整（タイル化時に各画像は self.TILE_SCALE になるように）
                         '-vf', f'scale={width}:{height}',
                         # 1フレーム分のみ抽出する
                         '-frames:v', '1',
@@ -488,16 +490,10 @@ class ThumbnailGenerator:
                     logging.error(f'{self.file_path}: [{worker_name}] FFmpeg candidate extraction failed at offset {formatted_offset} with error: {error_message}')
                     return None
 
-                # 受け取ったバイナリデータを numpy 配列に変換し、OpenCV で画像デコード
-                image_data = np.frombuffer(stdout, dtype=np.uint8)
-                frame = cast(NDArray[np.uint8], cv2.imdecode(image_data, cv2.IMREAD_COLOR))
-                if frame is None:
-                    logging.error(f'{self.file_path}: [{worker_name}] Failed to decode image at offset {formatted_offset}.')
-                    return None
+                # PNG バイナリをそのまま返す
+                return stdout
 
-                return frame
-
-            async def extract_frames_worker(
+            async def ExtractFramesWorker(
                 offsets: list[float],
                 worker_name: str,
                 start_delay: float = 0.0
@@ -518,7 +514,7 @@ class ThumbnailGenerator:
                                 return
 
                             # FFmpegでフレーム抽出
-                            frame = await extract_single_frame(offset, worker_name)
+                            frame = await ExtractSingleFrame(offset, worker_name)
                             if frame is None:
                                 error_event.set()
                                 return
@@ -574,12 +570,12 @@ class ThumbnailGenerator:
                 # WORKER_COUNT 個のワーカーを WORKER_DELAY 秒間隔で起動
                 start_time = time.time()
                 workers = [
-                    extract_frames_worker(worker_offsets[i], f'Worker {i}', start_delay=i * WORKER_DELAY)
+                    ExtractFramesWorker(worker_offsets[i], f'Worker {i}', start_delay=i * WORKER_DELAY)
                     for i in range(WORKER_COUNT)
                 ]
 
                 # 全フレームの収集を待機
-                frames_dict: dict[float, NDArray[np.uint8]] = {}
+                frames_dict: dict[float, bytes] = {}
                 expected_frames = len(candidate_offsets)
 
                 # ワーカータスクを開始
@@ -625,7 +621,7 @@ class ThumbnailGenerator:
                     raise ex
 
                 # 時系列順にフレームを並べ直す
-                candidate_images = [
+                png_frames = [
                     frames_dict[offset] for offset in candidate_offsets
                 ]
                 logging.debug_simple(
@@ -635,6 +631,66 @@ class ThumbnailGenerator:
             except Exception as ex:
                 logging.error(f'{self.file_path}: Error in parallel thumbnail generation:', exc_info=ex)
                 return False
+
+            # PNG 画像のフレームを繋ぎ合わせてタイル画像を生成し、FFmpeg で WebP または JPEG として保存
+            ## CPU バウンドな処理なので、イベントループをブロックしないよう ProcessPoolExecutor で実行する
+            loop = asyncio.get_running_loop()
+            with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
+                success = await loop.run_in_executor(
+                    executor,
+                    self._generateAndSaveTileImage,
+                    png_frames,
+                    tile_rows,
+                    height,
+                    width,
+                    use_webp,
+                )
+                if not success:
+                    logging.error(f'{self.file_path}: Failed to generate and save tile image.')
+                    return False
+
+            return True
+
+        except Exception as ex:
+            logging.error(f'{self.file_path}: Error in seekbar thumbnail tile generation:', exc_info=ex)
+            return False
+
+
+    def _generateAndSaveTileImage(
+        self,
+        png_frames: list[bytes],
+        tile_rows: int,
+        height: int,
+        width: int,
+        use_webp: bool,
+    ) -> bool:
+        """
+        PNG フレームからタイル画像を生成し、WebP または JPEG として保存する
+        ProcessPoolExecutor で実行されるため、あえて prefix のアンダースコアは1つとしている
+
+        Args:
+            png_frames (list[bytes]): PNG フレームのバイナリデータのリスト
+            tile_rows (int): タイルの行数
+            height (int): タイルの高さ
+            width (int): タイルの幅
+            use_webp (bool): WebP として保存するかどうか (False の場合は JPEG)
+
+        Returns:
+            bool: 成功時は True、失敗時は False
+        """
+
+        try:
+            # PNG フレームを OpenCV の画像データに変換
+            candidate_images = []
+            for png_data in png_frames:
+                # PNG バイナリを numpy 配列に変換
+                image_data = np.frombuffer(png_data, dtype=np.uint8)
+                # OpenCV で画像デコード
+                frame = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
+                if frame is None:
+                    logging.error(f'{self.file_path}: Failed to decode PNG frame.')
+                    return False
+                candidate_images.append(frame)
 
             # OpenCV を用いてタイル化処理を行う
             rows = []
@@ -650,68 +706,62 @@ class ThumbnailGenerator:
                 rows.append(row_concat)
             tile_image = cv2.vconcat(rows)
 
-            # 最終的なタイル画像をディスクへ書き込む（この時点で初めてディスク I/O が発生する）
-            try:
-                # タイル画像を PNG としてメモリ上にエンコード
-                _, img_data = cv2.imencode('.png', tile_image)
-                if img_data is None:
-                    logging.error(f'{self.file_path}: Failed to encode tile image to PNG.')
-                    return False
-                del tile_image
-
-                # FFmpeg でタイル画像を WebP または JPEG に圧縮保存
-                process = await asyncio.create_subprocess_exec(
-                    LIBRARY_PATH['FFmpeg'],
-                    *[
-                        # 上書きを許可
-                        '-y',
-                        # 非対話モードで実行し、不意のフリーズを回避する
-                        '-nostdin',
-                        # 入力フォーマットを指定
-                        '-f', 'image2pipe',
-                        # 入力コーデックを指定
-                        '-codec:v', 'png',
-                        # 標準入力からパイプ入力
-                        '-i', 'pipe:0',
-                        # WebP または JPEG 出力設定
-                        *([
-                            '-codec:v', 'webp',
-                            '-quality', str(self.WEBP_QUALITY),  # 品質設定
-                            '-compression_level', str(self.WEBP_COMPRESSION),  # 圧縮レベル
-                            '-preset', 'picture',  # 写真向けプリセット
-                        ] if use_webp else [
-                            '-codec:v', 'mjpeg',
-                            '-qmin', '1',  # 最小品質
-                            '-qmax', '1',  # 最大品質
-                            '-qscale:v', str(int((100 - self.JPEG_QUALITY) / 4)),  # 品質設定 (JPEG の場合は 1-31 のスケール)
-                        ]),
-                        # スレッド数を自動で設定する
-                        '-threads', 'auto',
-                        # 出力ファイル
-                        str(self.seekbar_thumbnails_tile_path),
-                    ],
-                    # 明示的に標準入力を有効化
-                    stdin = asyncio.subprocess.PIPE,
-                    # 標準出力・標準エラー出力をパイプで受け取る
-                    stdout = asyncio.subprocess.PIPE,
-                    stderr = asyncio.subprocess.PIPE,
-                )
-
-                # 画像データを標準入力に書き込み、プロセス終了を待つ
-                _, stderr = await process.communicate(input=img_data.tobytes())
-                if process.returncode != 0:
-                    error_message = stderr.decode('utf-8', errors='ignore')
-                    logging.error(f'{self.file_path}: FFmpeg tile image compression failed with error: {error_message}')
-                    return False
-
-                return True
-
-            except Exception as ex:
-                logging.error(f'{self.file_path}: Error in seekbar thumbnail tile compression:', exc_info=ex)
+            # タイル画像を PNG としてメモリ上にエンコード
+            _, tile_png_data = cv2.imencode('.png', tile_image)
+            if tile_png_data is None:
+                logging.error(f'{self.file_path}: Failed to encode tile image as PNG.')
                 return False
 
+            # FFmpeg でタイル画像を WebP または JPEG に圧縮保存
+            # これで最終的なタイル画像がディスクへ書き込まれる
+            process = subprocess.Popen(
+                [
+                    LIBRARY_PATH['FFmpeg'],
+                    # 上書きを許可
+                    '-y',
+                    # 非対話モードで実行し、不意のフリーズを回避する
+                    '-nostdin',
+                    # 入力フォーマットを指定
+                    '-f', 'image2pipe',
+                    # 入力コーデックを指定
+                    '-codec:v', 'png',
+                    # 標準入力からパイプ入力
+                    '-i', 'pipe:0',
+                    # WebP または JPEG 出力設定
+                    *([
+                        '-codec:v', 'webp',
+                        '-quality', str(self.WEBP_QUALITY),  # 品質設定
+                        '-compression_level', str(self.WEBP_COMPRESSION),  # 圧縮レベル
+                        '-preset', 'picture',  # 写真向けプリセット
+                    ] if use_webp else [
+                        '-codec:v', 'mjpeg',
+                        '-qmin', '1',  # 最小品質
+                        '-qmax', '1',  # 最大品質
+                        '-qscale:v', str(int((100 - self.JPEG_QUALITY) / 4)),  # 品質設定 (JPEG の場合は 1-31 のスケール)
+                    ]),
+                    # スレッド数を自動で設定する
+                    '-threads', 'auto',
+                    # 出力ファイル
+                    str(self.seekbar_thumbnails_tile_path),
+                ],
+                # 明示的に標準入力を有効化
+                stdin = subprocess.PIPE,
+                # 標準出力・標準エラー出力をパイプで受け取る
+                stdout = subprocess.PIPE,
+                stderr = subprocess.PIPE,
+            )
+
+            # 画像データを標準入力に書き込み、プロセス終了を待つ
+            _, stderr_data = process.communicate(input=tile_png_data.tobytes())
+            if process.returncode != 0:
+                error_message = stderr_data.decode('utf-8', errors='ignore')
+                logging.error(f'{self.file_path}: FFmpeg tile image compression failed with error: {error_message}')
+                return False
+
+            return True
+
         except Exception as ex:
-            logging.error(f'{self.file_path}: Error in seekbar thumbnail tile generation (OpenCV tiling):', exc_info=ex)
+            logging.error(f'{self.file_path}: Error in tile image generation and saving:', exc_info=ex)
             return False
 
 
@@ -883,7 +933,7 @@ class ThumbnailGenerator:
         min_height = int(height * self.LETTERBOX_MIN_HEIGHT_RATIO)
         max_height = int(height * self.LETTERBOX_MAX_HEIGHT_RATIO)
 
-        def check_letterbox_region(
+        def CheckLetterboxRegion(
             img_slice: NDArray[np.uint8],
             width: int,
             is_vertical: bool = True,
@@ -928,7 +978,7 @@ class ThumbnailGenerator:
 
             # より狭い範囲で再帰的に確認
             if width > min_height * 2:
-                return check_letterbox_region(img_slice, width // 2, is_vertical)
+                return CheckLetterboxRegion(img_slice, width // 2, is_vertical)
 
             return False, 0
 
@@ -937,7 +987,7 @@ class ThumbnailGenerator:
         bottom_border = height
 
         # 上から走査
-        is_letterbox, top_width = check_letterbox_region(
+        is_letterbox, top_width = CheckLetterboxRegion(
             img_bgr[:max_height],
             max_height,
             is_vertical=True,
@@ -946,7 +996,7 @@ class ThumbnailGenerator:
             top_border = top_width
 
         # 下から走査
-        is_letterbox, bottom_width = check_letterbox_region(
+        is_letterbox, bottom_width = CheckLetterboxRegion(
             img_bgr[height-max_height:],
             max_height,
             is_vertical=True,
@@ -959,7 +1009,7 @@ class ThumbnailGenerator:
         right_border = width
 
         # 左から走査
-        is_letterbox, left_width = check_letterbox_region(
+        is_letterbox, left_width = CheckLetterboxRegion(
             img_bgr[:, :max_height],
             max_height,
             is_vertical=False,
@@ -968,7 +1018,7 @@ class ThumbnailGenerator:
             left_border = left_width
 
         # 右から走査
-        is_letterbox, right_width = check_letterbox_region(
+        is_letterbox, right_width = CheckLetterboxRegion(
             img_bgr[:, width-max_height:],
             max_height,
             is_vertical=False,
@@ -1173,7 +1223,8 @@ class ThumbnailGenerator:
         frames_data: list[tuple[int, NDArray[np.uint8], int, int, NDArray[np.uint8]]],
     ) -> list[tuple[int, float, bool, NDArray[np.uint8]]]:
         """
-        複数フレームのスコアを一括で計算する (外部プロセスで実行するため、あえて prefix のアンダースコアは1つとしている)
+        複数フレームのスコアを一括で計算する
+        ProcessPoolExecutor で実行されるため、あえて prefix のアンダースコアは1つとしている
 
         Args:
             frames_data (list[tuple[int, NDArray[np.uint8], int, int, NDArray[np.uint8]]]): (index, frame_bgr, row, col, sub_img) のリスト
