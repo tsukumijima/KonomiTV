@@ -106,7 +106,7 @@ class KeyFrameAnalyzer:
                 return
 
             # 最後のフレームが非キーフレームの場合、シーク可能性のために追加
-            if 'K' not in packets[-1]['flags']:
+            if all(field in packets[-1] for field in ['pos', 'dts', 'flags']) and 'K' not in packets[-1]['flags']:
                 key_frames.append({
                     'offset': int(packets[-1]['pos']),
                     'dts': int(packets[-1]['dts']),
