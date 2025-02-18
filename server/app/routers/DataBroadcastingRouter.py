@@ -70,13 +70,13 @@ async def BMLBrowserRequestGETProxyAPI(
     async with httpx.AsyncClient(headers={**API_REQUEST_HEADERS, **headers}, follow_redirects=True, verify=False) as client:
         try:
             response = await client.get(request_url)
-        except Exception as e:
+        except Exception as ex:
             # リクエスト中に例外が発生した場合は、エラーメッセージをログに出力して 500 エラーを返す
             ## HTTP リクエスト自体が DNS 名前解決エラーや接続エラーで失敗した場合に発生する
-            logging.error(f'[DataBroadcastingRouter][BMLBrowserRequestGETProxyAPI] Failed to request: {e}')
+            logging.error('[DataBroadcastingRouter][BMLBrowserRequestGETProxyAPI] Failed to request:', exc_info=ex)
             raise HTTPException(
                 status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail = f'Failed to request: {e}',
+                detail = f'Failed to request: {ex}',
             )
 
     allowed_response_headers = [
@@ -136,13 +136,13 @@ async def BMLBrowserRequestPOSTProxyAPI(
     async with httpx.AsyncClient(headers={**API_REQUEST_HEADERS, **headers}, follow_redirects=True, verify=False) as client:
         try:
             response = await client.post(request_url, content=f'Denbun={Denbun}')
-        except Exception as e:
+        except Exception as ex:
             # リクエスト中に例外が発生した場合は、エラーメッセージをログに出力して 500 エラーを返す
             ## HTTP リクエスト自体が DNS 名前解決エラーや接続エラーで失敗した場合に発生する
-            logging.error(f'[DataBroadcastingRouter][BMLBrowserRequestPOSTProxyAPI] Failed to request: {e}')
+            logging.error('[DataBroadcastingRouter][BMLBrowserRequestPOSTProxyAPI] Failed to request:', exc_info=ex)
             raise HTTPException(
                 status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail = f'Failed to request: {e}',
+                detail = f'Failed to request: {ex}',
             )
 
     allowed_response_headers = [
