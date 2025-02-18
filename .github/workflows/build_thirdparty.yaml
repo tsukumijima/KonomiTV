@@ -37,10 +37,10 @@ env:
   ## ref: https://github.com/rigaya/NVEnc/releases
   ## ref: https://github.com/rigaya/VCEEnc/releases
   ## ref: https://github.com/rigaya/rkmppenc/releases
-  QSVENCC_VERSION: '7.79'
+  QSVENCC_VERSION: '7.81'
   NVENCC_VERSION: '7.82'
-  VCEENCC_VERSION: '8.28'
-  RKMPPENC_VERSION: '0.10'
+  VCEENCC_VERSION: '8.30'
+  RKMPPENC_VERSION: '0.12'
   # libmediainfo のバージョン
   ## Windows 版の pymediainfo (ビルド済みの MediaInfo.dll が同梱されている) とバージョンを合わせる
   ## ref: https://github.com/sbraz/pymediainfo/blob/v6.0.1/appveyor.yml#L6
@@ -459,8 +459,8 @@ jobs:
           ## ref: https://askubuntu.com/questions/1260559/how-to-install-deb-packages-in-a-custom-folder-different-from-root-using-dp
           mkdir thirdparty/Library/
           docker run --rm -i -v $(pwd):/work -w /work arm64v8/ubuntu:build bash -c 'apt-get update && apt-get download libasound2 libass9 libbluray2 libexpat1 libfontconfig1 libfreetype6 libfribidi0 libglib2.0-0 libgomp1 libgraphite2-3 libharfbuzz0b libicu66 liblzma5 libmp3lame0 libogg0 libopus0 libpcre3 libpng16-16 libsoxr0 libspeex1 libssl1.1 libtwolame0 libuuid1 libvorbis0a libvorbisenc2 libvpx6 libxml2 zlib1g'
-          curl -LO https://github.com/tsukumijima/mpp/releases/download/v1.5.0-1-866a9d8/librockchip-mpp1_1.5.0-1_arm64.deb
-          curl -LO https://github.com/tsukumijima/librga-rockchip/releases/download/v2.2.0-1-46d74b2/librga2_2.2.0-1_arm64.deb
+          curl -LO https://github.com/tsukumijima/mpp/releases/download/v1.5.0-1-a94f677/librockchip-mpp1_1.5.0-1_arm64.deb
+          curl -LO https://github.com/tsukumijima/librga-rockchip/releases/download/v2.2.0-1-5cb2d9d/librga2_2.2.0-1_arm64.deb
           ls -1 | grep [.]deb >> all_debs.txt && cat all_debs.txt | while read fn; do dpkg-deb -x $fn `pwd`/thirdparty/Library; done && rm all_debs.txt
           cp -ar thirdparty/Library/lib/aarch64-linux-gnu/* thirdparty/Library/
           rm -rf thirdparty/Library/lib/
