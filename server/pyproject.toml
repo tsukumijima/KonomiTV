@@ -33,7 +33,7 @@ puremagic = "^1.28"
 py7zr = "^0.22.0"
 pydantic = "^2.10.3"
 pymediainfo = "^6.1.0"
-python-jose = {version = "^3.3.0", extras = ["cryptography"]}
+python-jose = {version = "^3.4.0", extras = ["cryptography"]}
 python-multipart = "^0.0.20"
 pywin32 = {version = "^308", platform = "win32"}
 requests = "^2.32.3"
