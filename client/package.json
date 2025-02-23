@@ -7,7 +7,7 @@
         "akebi:windows": "..\\server\\thirdparty\\Akebi\\akebi-https-server.exe --listen-address 0.0.0.0:7001 --proxy-pass-url http://127.0.0.77:7011/ --keyless-server-url https://akebi.konomi.tv/ > nul",
         "akebi:nix": "../server/thirdparty/Akebi/akebi-https-server.elf --listen-address 0.0.0.0:7001 --proxy-pass-url http://127.0.0.77:7011/ --keyless-server-url https://akebi.konomi.tv/ > /dev/null",
         "dev": "concurrently --raw \"npm:akebi\" \"vite\"",
-        "build": "node logoGenerator.js && vue-tsc --noEmit && vite build",
+        "build": "vue-tsc --noEmit && vite build",
         "preview": "concurrently --raw \"npm:akebi\" \"vite preview\"",
         "lint": "eslint . --fix --ignore-path .gitignore",
         "logo": "node logoGenerator.js"

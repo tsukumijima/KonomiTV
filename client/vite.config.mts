@@ -80,6 +80,7 @@ export default defineConfig({
             strategies: 'generateSW',
             registerType: 'prompt',  // PWA の更新前にユーザーに確認する
             injectRegister: 'auto',
+            useCredentials: true,
             // PWA のキャッシュに含めるファイル
             includeAssets: [
                 'assets/**',
