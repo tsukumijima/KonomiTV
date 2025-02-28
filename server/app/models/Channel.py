@@ -173,24 +173,23 @@ class Channel(TortoiseModel):
                 channel.type = channel_type
                 channel.name = TSInformation.formatString(service['name'])
                 channel.jikkyo_force = None
-                channel.is_watchable = True
+                channel.is_watchable = True  # 下記条件を満たすチャンネルでない限り、ライブ視聴可能なチャンネルとして登録する
 
-                # すでに放送が終了した「NHK BSプレミアム」「FOXスポーツ&エンターテインメント」「BSスカパー」「Dlife」を除外
-                ## 放送終了後にチャンネルスキャンしていないなどの理由でバックエンド側にチャンネル情報が残っている場合がある
-                ## 特に「NHK BSプレミアム」(Ch: 103) は互換性の兼ね合いで停波後も SDT にサービス情報が残っているため、明示的に除外する必要がある
-                if channel.type == 'BS' and channel.service_id in [103, 238, 241, 258]:
-                    # このチャンネル情報は上記処理で duplicate_channels から削除されているが、
-                    # 上記条件に一致するチャンネル情報は DB から削除したいので、再度 duplicate_channels に追加し、最後にまとめて削除する
-                    duplicate_channels[channel.id] = channel
-                    continue
+                # すでに放送が終了した「NHK BSプレミアム」「FOXスポーツ&エンターテインメント」「BSスカパー」「BSJapanext」「Dlife」を is_watchable = False に設定
+                ## 放送終了後にチャンネルスキャンしていないなどの理由で、閉局後もバックエンド側にはチャンネル情報が残っている場合がある
+                ## 特に「NHK BSプレミアム」(Ch: 103) は既存受信機への互換性維持のためか停波後も SDT にサービス情報が残っているため、
+                ## 明示的に視聴不可としないとチャンネル一覧に表示されてしまう
+                ## 以前はレコードから完全に削除していたが、そうすると例えば NHK BSプレミアムで過去録画した番組情報も CASCADE 制約で削除されてしまうため、
+                ## is_watchable = False でチャンネル一覧からは非表示にした上で、DB 上には残しておく形に変更した
+                if channel.type == 'BS' and channel.service_id in [103, 104, 238, 241, 258, 263]:
+                    channel.is_watchable = False
 
-                # 「試験チャンネル」という名前（前方一致）のチャンネルを除外
-                # CATV や SKY に存在するが、だいたいどれもやってないし表示されてるだけ邪魔
+                # 「試験チャンネル」という名前（前方一致）のチャンネルを is_watchable = False に設定
+                ## CATV や SKY に存在するが、だいたいどれもやってないし表示されてるだけ邪魔
+                ## 以前はレコードから完全に削除していたが、そうすると例えば試験チャンネルを録画した際の番組情報も CASCADE 制約で削除されてしまうため、
+                ## is_watchable = False でチャンネル一覧からは非表示にした上で、DB 上には残しておく形に変更した
                 if channel.name.startswith('試験チャンネル'):
-                    # このチャンネル情報は上記処理で duplicate_channels から削除されているが、
-                    # 上記条件に一致するチャンネル情報は DB から削除したいので、再度 duplicate_channels に追加し、最後にまとめて削除する
-                    duplicate_channels[channel.id] = channel
-                    continue
+                    channel.is_watchable = False
 
                 # type が 0x02 のサービスのみ、ラジオチャンネルとして設定する
                 # 今のところ、ラジオに該当するチャンネルは放送大学ラジオのみ
@@ -332,24 +331,23 @@ class Channel(TortoiseModel):
                 channel.type = channel_type
                 channel.name = TSInformation.formatString(service['service_name'])
                 channel.jikkyo_force = None
-                channel.is_watchable = True
+                channel.is_watchable = True  # 下記条件を満たすチャンネルでない限り、ライブ視聴可能なチャンネルとして登録する
 
-                # すでに放送が終了した「NHK BSプレミアム」「FOXスポーツ&エンターテインメント」「BSスカパー」「Dlife」を除外
-                ## 放送終了後にチャンネルスキャンしていないなどの理由でバックエンド側にチャンネル情報が残っている場合がある
-                ## 特に「NHK BSプレミアム」(Ch: 103) は互換性の兼ね合いで停波後も SDT にサービス情報が残っているため、明示的に除外する必要がある
-                if channel.type == 'BS' and channel.service_id in [103, 238, 241, 258]:
-                    # このチャンネル情報は上記処理で duplicate_channels から削除されているが、
-                    # 上記条件に一致するチャンネル情報は DB から削除したいので、再度 duplicate_channels に追加し、最後にまとめて削除する
-                    duplicate_channels[channel.id] = channel
-                    continue
+                # すでに放送が終了した「NHK BSプレミアム」「FOXスポーツ&エンターテインメント」「BSスカパー」「BSJapanext」「Dlife」を is_watchable = False に設定
+                ## 放送終了後にチャンネルスキャンしていないなどの理由で、閉局後もバックエンド側にはチャンネル情報が残っている場合がある
+                ## 特に「NHK BSプレミアム」(Ch: 103) は既存受信機への互換性維持のためか停波後も SDT にサービス情報が残っているため、
+                ## 明示的に視聴不可としないとチャンネル一覧に表示されてしまう
+                ## 以前はレコードから完全に削除していたが、そうすると例えば NHK BSプレミアムで過去録画した番組情報も CASCADE 制約で削除されてしまうため、
+                ## is_watchable = False でチャンネル一覧からは非表示にした上で、DB 上には残しておく形に変更した
+                if channel.type == 'BS' and channel.service_id in [103, 104, 238, 241, 258, 263]:
+                    channel.is_watchable = False
 
-                # 「試験チャンネル」という名前（前方一致）のチャンネルを除外
-                # CATV や SKY に存在するが、だいたいどれもやってないし表示されてるだけ邪魔
+                # 「試験チャンネル」という名前（前方一致）のチャンネルを is_watchable = False に設定
+                ## CATV や SKY に存在するが、だいたいどれもやってないし表示されてるだけ邪魔
+                ## 以前はレコードから完全に削除していたが、そうすると例えば試験チャンネルを録画した際の番組情報も CASCADE 制約で削除されてしまうため、
+                ## is_watchable = False でチャンネル一覧からは非表示にした上で、DB 上には残しておく形に変更した
                 if channel.name.startswith('試験チャンネル'):
-                    # このチャンネル情報は上記処理で duplicate_channels から削除されているが、
-                    # 上記条件に一致するチャンネル情報は DB から削除したいので、再度 duplicate_channels に追加し、最後にまとめて削除する
-                    duplicate_channels[channel.id] = channel
-                    continue
+                    channel.is_watchable = False
 
                 # type が 0x02 のサービスのみ、ラジオチャンネルとして設定する
                 # 今のところ、ラジオに該当するチャンネルは放送大学ラジオのみ
