@@ -78,6 +78,23 @@ class Channel(TortoiseModel):
 
 
     @classmethod
+    async def isReferencedByRecordedProgram(cls, channel_id: str) -> bool:
+        """
+        指定されたチャンネル ID を持つチャンネルが RecordedProgram から参照されているかどうかを確認する
+
+        Args:
+            channel_id (str): チャンネル ID
+
+        Returns:
+            bool: RecordedProgram から参照されている場合は True、そうでない場合は False
+        """
+
+        # 循環参照を避けるために遅延インポート
+        from app.models.RecordedProgram import RecordedProgram
+        return await RecordedProgram.filter(channel_id=channel_id).exists()
+
+
+    @classmethod
     async def update(cls) -> None:
         """ チャンネル情報を更新する """
 
@@ -231,7 +248,17 @@ class Channel(TortoiseModel):
             # 不要なチャンネル情報を削除する
             for duplicate_channel in duplicate_channels.values():
                 try:
-                    await duplicate_channel.delete()
+                    # RecordedProgram から参照されているかどうかを確認
+                    if await cls.isReferencedByRecordedProgram(duplicate_channel.id):
+                        # 参照されている場合は削除せず、is_watchable を False に設定
+                        # RecordedProgram から参照されているのに削除すると、CASCADE 制約で録画番組情報も削除されてしまう
+                        duplicate_channel.is_watchable = False
+                        await duplicate_channel.save()
+                        logging.info(f'Channel: {duplicate_channel.name} ({duplicate_channel.id}) is referenced by RecordedProgram, set is_watchable to False.')
+                    else:
+                        # 参照されていない場合は削除
+                        await duplicate_channel.delete()
+                        logging.info(f'Delete Channel: {duplicate_channel.id}')
                 # tortoise.exceptions.OperationalError: Can't delete unpersisted record を無視
                 except OperationalError as ex:
                     if 'Can\'t delete unpersisted record' not in str(ex):
@@ -414,7 +441,17 @@ class Channel(TortoiseModel):
             # 不要なチャンネル情報を削除する
             for duplicate_channel in duplicate_channels.values():
                 try:
-                    await duplicate_channel.delete()
+                    # RecordedProgram から参照されているかどうかを確認
+                    if await cls.isReferencedByRecordedProgram(duplicate_channel.id):
+                        # 参照されている場合は削除せず、is_watchable を False に設定
+                        # RecordedProgram から参照されているのに削除すると、CASCADE 制約で録画番組情報も削除されてしまう
+                        duplicate_channel.is_watchable = False
+                        await duplicate_channel.save()
+                        logging.info(f'Channel: {duplicate_channel.name} ({duplicate_channel.id}) is referenced by RecordedProgram, set is_watchable to False.')
+                    else:
+                        # 参照されていない場合は削除
+                        await duplicate_channel.delete()
+                        logging.info(f'Delete Channel: {duplicate_channel.id}')
                 # tortoise.exceptions.OperationalError: Can't delete unpersisted record を無視
                 except OperationalError as ex:
                     if 'Can\'t delete unpersisted record' not in str(ex):
