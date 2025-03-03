@@ -157,6 +157,7 @@ import RecordedFileInfoDialog from '@/components/Videos/Dialogs/RecordedFileInfo
 import Message from '@/message';
 import Videos, { IRecordedProgram } from '@/services/Videos';
 import useSettingsStore from '@/stores/SettingsStore';
+import useUserStore from '@/stores/UserStore';
 import Utils, { ProgramUtils } from '@/utils';
 
 // Props
@@ -247,6 +248,11 @@ const removeFromWatchedHistory = () => {
 
 // 録画ファイル削除確認ダイアログを表示
 const showDeleteConfirmation = () => {
+    const userStore = useUserStore();
+    if (userStore.user === null || userStore.user.is_admin === false) {
+        Message.warning('録画ファイルを削除するには管理者権限が必要です。\n管理者アカウントでログインし直してください。');
+        return;
+    }
     show_delete_confirmation.value = true;
 };
 
