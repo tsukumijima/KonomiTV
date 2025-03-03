@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import os
 import sys
 from biim.mpeg2ts import ts
@@ -150,10 +151,11 @@ class VideoEncodingTask:
                 options.append(f'-vf yadif=mode=0:parity=-1:deint=1,scale={video_width}:{video_height}')
                 options.append(f'-r 30000/1001 -g {int(self.GOP_LENGTH_SECOND * 30)}')
         # プログレッシブ映像
-        ## プログレッシブ映像の場合は 60fps 化する方法はないため、無視して 30fps でエンコードする
+        ## プログレッシブ映像の場合は 60fps 化する方法はないため、無視して入力ファイルと同じ fps でエンコードする
         elif self.video_stream.recorded_program.recorded_video.video_scan_type == 'Progressive':
+            int_fps = math.ceil(self.video_stream.recorded_program.recorded_video.video_frame_rate)  # 29.97 -> 30
             options.append(f'-vf scale={video_width}:{video_height}')
-            options.append(f'-r 30000/1001 -g {int(self.GOP_LENGTH_SECOND * 30)}')
+            options.append(f'-g {int(self.GOP_LENGTH_SECOND * int_fps)}')
 
         # 音声
         ## 音声が 5.1ch かどうかに関わらず、ステレオにダウンミックスする
@@ -310,9 +312,10 @@ class VideoEncodingTask:
                     options.append('--vpp-deinterlace normal_i5')
                 options.append(f'--avsync vfr --gop-len {int(self.GOP_LENGTH_SECOND * 30)}')
         # プログレッシブ映像
-        ## プログレッシブ映像の場合は 60fps 化する方法はないため、無視して 30fps でエンコードする
+        ## プログレッシブ映像の場合は 60fps 化する方法はないため、無視して入力ファイルと同じ fps でエンコードする
         elif self.video_stream.recorded_program.recorded_video.video_scan_type == 'Progressive':
-            options.append(f'--avsync vfr --gop-len {int(self.GOP_LENGTH_SECOND * 30)}')
+            int_fps = math.ceil(self.video_stream.recorded_program.recorded_video.video_frame_rate)  # 29.97 -> 30
+            options.append(f'--avsync vfr --gop-len {int(self.GOP_LENGTH_SECOND * int_fps)}')
 
         ## 指定された品質の解像度が 1440×1080 (1080p) かつ入力ストリームがフル HD (1920×1080) の場合のみ、
         ## 特別に縦解像度を 1920 に変更してフル HD (1920×1080) でエンコードする

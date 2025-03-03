@@ -279,7 +279,9 @@ class LiveEncodingTask:
         # 入力
         ## --input-probesize, --input-analyze をつけることで、ストリームの分析時間を短縮できる
         ## 両方つけるのが重要で、--input-analyze だけだとエンコーダーがフリーズすることがある
-        options.append(f'--input-format mpegts --fps 30000/1001 --input-probesize {input_probesize}K --input-analyze {input_analyze} --input -')
+        ## BS4K では --fps を指定しない
+        input_fps = '' if channel_type == 'BS4K' else '--fps 30000/1001'
+        options.append(f'--input-format mpegts {input_fps} --input-probesize {input_probesize}K --input-analyze {input_analyze} --input -')
         ## VCEEncC の HW デコーダーはエラー耐性が低く TS を扱う用途では不安定なので、SW デコーダーを利用する
         if encoder_type == 'VCEEncC':
             options.append('--avsw')
