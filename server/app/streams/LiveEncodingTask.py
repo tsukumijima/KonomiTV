@@ -101,16 +101,16 @@ class LiveEncodingTask:
 
     def buildFFmpegOptions(self,
         quality: QUALITY_TYPES,
-        is_fullhd_channel: bool = False,
-        is_sphd_channel: bool = False,
+        channel_type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K'],
+        is_fullhd_channel: bool,
     ) -> list[str]:
         """
         FFmpeg に渡すオプションを組み立てる
 
         Args:
             quality (QUALITY_TYPES): 映像の品質
+            channel_type (Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K']): チャンネルの種類
             is_fullhd_channel (bool): フル HD 放送が実施されているチャンネルかどうか
-            is_sphd_channel (bool): スカパー！プレミアムサービスのチャンネルかどうか
 
         Returns:
             list[str]: FFmpeg に渡すオプションが連なる配列
@@ -121,7 +121,7 @@ class LiveEncodingTask:
 
         # 入力ストリームの解析時間
         analyzeduration = round(500000 + (self._retry_count * 200000))  # リトライ回数に応じて少し増やす
-        if is_sphd_channel is True:
+        if channel_type == 'SKY':
             # スカパー！プレミアムサービスのチャンネルは入力ストリームの解析時間を長めにする (その方がうまくいく)
             ## ほかと違い H.264 コーデックが採用されていることが影響しているのかも
             analyzeduration += 200000
@@ -170,14 +170,19 @@ class LiveEncodingTask:
             ## H.265/HEVC では高圧縮化のため、最大 GOP 長を長くする
             gop_length_second = self.GOP_LENGTH_SECONDS_H265
 
-        ## インターレース解除 (60i → 60p (フレームレート: 60fps))
-        if QUALITY[quality].is_60fps is True:
-            options.append(f'-vf yadif=mode=1:parity=-1:deint=1,scale={video_width}:{video_height}')
+        ## BS4K は 60p (プログレッシブ) で放送されているので、インターレース解除を行わず 60fps でエンコードする
+        if channel_type == "BS4K":
+            options.append(f'-vf scale={video_width}:{video_height}')
             options.append(f'-r 60000/1001 -g {int(gop_length_second * 60)}')
-        ## インターレース解除 (60i → 30p (フレームレート: 30fps))
         else:
-            options.append(f'-vf yadif=mode=0:parity=-1:deint=1,scale={video_width}:{video_height}')
-            options.append(f'-r 30000/1001 -g {int(gop_length_second * 30)}')
+            ## インターレース解除 (60i → 60p (フレームレート: 60fps))
+            if QUALITY[quality].is_60fps is True:
+                options.append(f'-vf yadif=mode=1:parity=-1:deint=1,scale={video_width}:{video_height}')
+                options.append(f'-r 60000/1001 -g {int(gop_length_second * 60)}')
+            ## インターレース解除 (60i → 30p (フレームレート: 30fps))
+            else:
+                options.append(f'-vf yadif=mode=0:parity=-1:deint=1,scale={video_width}:{video_height}')
+                options.append(f'-r 30000/1001 -g {int(gop_length_second * 30)}')
 
         # 音声
         ## 音声が 5.1ch かどうかに関わらず、ステレオにダウンミックスする
@@ -243,8 +248,8 @@ class LiveEncodingTask:
     def buildHWEncCOptions(self,
         quality: QUALITY_TYPES,
         encoder_type: Literal['QSVEncC', 'NVEncC', 'VCEEncC', 'rkmppenc'],
-        is_fullhd_channel: bool = False,
-        is_sphd_channel: bool = False,
+        channel_type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K'],
+        is_fullhd_channel: bool,
     ) -> list[str]:
         """
         QSVEncC・NVEncC・VCEEncC・rkmppenc (便宜上 HWEncC と総称) に渡すオプションを組み立てる
@@ -252,8 +257,8 @@ class LiveEncodingTask:
         Args:
             quality (QUALITY_TYPES): 映像の品質
             encoder_type (Literal['QSVEncC', 'NVEncC', 'VCEEncC', 'rkmppenc']): エンコーダー (QSVEncC or NVEncC or VCEEncC or rkmppenc)
+            channel_type (Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K']): チャンネルの種類
             is_fullhd_channel (bool): フル HD 放送が実施されているチャンネルかどうか
-            is_sphd_channel (bool): スカパー！プレミアムサービスのチャンネルかどうか
 
         Returns:
             list[str]: HWEncC に渡すオプションが連なる配列
@@ -265,7 +270,7 @@ class LiveEncodingTask:
         # 入力ストリームの解析時間
         input_probesize = round(1000 + (self._retry_count * 500))  # リトライ回数に応じて少し増やす
         input_analyze = round(0.7 + (self._retry_count * 0.2), 1)  # リトライ回数に応じて少し増やす
-        if is_sphd_channel is True:
+        if channel_type == 'SKY':
             # スカパー！プレミアムサービスのチャンネルは入力ストリームの解析時間を長めにする (その方がうまくいく)
             ## ほかと違い H.264 コーデックが採用されていることが影響しているのかも
             input_probesize += 500
@@ -353,30 +358,34 @@ class LiveEncodingTask:
             ## H.265/HEVC では高圧縮化のため、最大 GOP 長を長くする
             gop_length_second = self.GOP_LENGTH_SECONDS_H265
 
-        ## インターレース解除 (60i → 60p (フレームレート: 60fps))
-        ## NVEncC の --vpp-deinterlace bob は品質が悪いので、代わりに --vpp-yadif を使う
-        ## NVIDIA GPU は当然ながら Intel の内蔵 GPU よりも性能が高いので、GPU フィルタを使ってもパフォーマンスに問題はないと判断
-        ## VCEEncC では --vpp-deinterlace 自体が使えないので、代わりに --vpp-yadif を使う
-        if QUALITY[quality].is_60fps is True:
-            if encoder_type == 'QSVEncC':
-                options.append('--vpp-deinterlace bob')
-            elif encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
-                options.append('--vpp-yadif mode=bob')
-            elif encoder_type == 'rkmppenc':
-                options.append('--vpp-deinterlace bob_i5')
+        ## BS4K は 60p (プログレッシブ) で放送されているので、インターレース解除を行わず 60fps でエンコードする
+        if channel_type == "BS4K":
             options.append(f'--avsync vfr --gop-len {int(gop_length_second * 60)}')
-        ## インターレース解除 (60i → 30p (フレームレート: 30fps))
-        ## NVEncC の --vpp-deinterlace normal は GPU 機種次第では稀に解除漏れのジャギーが入るらしいので、代わりに --vpp-afs を使う
-        ## NVIDIA GPU は当然ながら Intel の内蔵 GPU よりも性能が高いので、GPU フィルタを使ってもパフォーマンスに問題はないと判断
-        ## VCEEncC では --vpp-deinterlace 自体が使えないので、代わりに --vpp-afs を使う
         else:
-            if encoder_type == 'QSVEncC':
-                options.append('--vpp-deinterlace normal')
-            elif encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
-                options.append('--vpp-afs preset=default')
-            elif encoder_type == 'rkmppenc':
-                options.append('--vpp-deinterlace normal_i5')
-            options.append(f'--avsync vfr --gop-len {int(gop_length_second * 30)}')
+            ## インターレース解除 (60i → 60p (フレームレート: 60fps))
+            ## NVEncC の --vpp-deinterlace bob は品質が悪いので、代わりに --vpp-yadif を使う
+            ## NVIDIA GPU は当然ながら Intel の内蔵 GPU よりも性能が高いので、GPU フィルタを使ってもパフォーマンスに問題はないと判断
+            ## VCEEncC では --vpp-deinterlace 自体が使えないので、代わりに --vpp-yadif を使う
+            if QUALITY[quality].is_60fps is True:
+                if encoder_type == 'QSVEncC':
+                    options.append('--vpp-deinterlace bob')
+                elif encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
+                    options.append('--vpp-yadif mode=bob')
+                elif encoder_type == 'rkmppenc':
+                    options.append('--vpp-deinterlace bob_i5')
+                options.append(f'--avsync vfr --gop-len {int(gop_length_second * 60)}')
+            ## インターレース解除 (60i → 30p (フレームレート: 30fps))
+            ## NVEncC の --vpp-deinterlace normal は GPU 機種次第では稀に解除漏れのジャギーが入るらしいので、代わりに --vpp-afs を使う
+            ## NVIDIA GPU は当然ながら Intel の内蔵 GPU よりも性能が高いので、GPU フィルタを使ってもパフォーマンスに問題はないと判断
+            ## VCEEncC では --vpp-deinterlace 自体が使えないので、代わりに --vpp-afs を使う
+            else:
+                if encoder_type == 'QSVEncC':
+                    options.append('--vpp-deinterlace normal')
+                elif encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
+                    options.append('--vpp-afs preset=default')
+                elif encoder_type == 'rkmppenc':
+                    options.append('--vpp-deinterlace normal_i5')
+                options.append(f'--avsync vfr --gop-len {int(gop_length_second * 30)}')
 
         ## フル HD 放送が行われているチャンネルかつ、指定された品質の解像度が 1440×1080 (1080p) の場合のみ、
         ## 特別に縦解像度を 1920 に変更してフル HD (1920×1080) でエンコードする
@@ -580,7 +589,7 @@ class LiveEncodingTask:
             if channel.is_radiochannel is True:
                 encoder_options = self.buildFFmpegOptionsForRadio()
             else:
-                encoder_options = self.buildFFmpegOptions(self.live_stream.quality, is_fullhd_channel, channel.type == 'SKY')
+                encoder_options = self.buildFFmpegOptions(self.live_stream.quality, channel.type, is_fullhd_channel)
             logging.info(f'[Live: {self.live_stream.live_stream_id}] FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
             # エンコーダープロセスを非同期で作成・実行
@@ -595,7 +604,7 @@ class LiveEncodingTask:
         else:
 
             # オプションを取得
-            encoder_options = self.buildHWEncCOptions(self.live_stream.quality, ENCODER_TYPE, is_fullhd_channel, channel.type == 'SKY')
+            encoder_options = self.buildHWEncCOptions(self.live_stream.quality, ENCODER_TYPE, channel.type, is_fullhd_channel)
             logging.info(f'[Live: {self.live_stream.live_stream_id}] {ENCODER_TYPE} Commands:\n{ENCODER_TYPE} {" ".join(encoder_options)}')
 
             # エンコーダープロセスを非同期で作成・実行
