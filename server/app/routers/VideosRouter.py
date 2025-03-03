@@ -872,7 +872,7 @@ async def VideoDeleteAPI(
                             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail = f'Failed to delete thumbnail file: {ex!s}',
                         )
-                else:
+                elif ext == '.webp':  # JPEG はよほど長尺でない限り発生しないので WebP のみチェック
                     logging.warning(f'[VideoDeleteAPI] Thumbnail file does not exist: {thumbnail_path}')
 
             # タイルサムネイル (.webp または .jpg)
@@ -887,7 +887,7 @@ async def VideoDeleteAPI(
                             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail = f'Failed to delete tile thumbnail file: {ex!s}',
                         )
-                else:
+                elif ext == '.webp':  # JPEG はよほど長尺でない限り発生しないので WebP のみチェック
                     logging.warning(f'[VideoDeleteAPI] Tile thumbnail file does not exist: {tile_thumbnail_path}')
 
         # 3. 関連する補助ファイルの削除 (.ts.program.txt, .ts.err)
