@@ -437,9 +437,13 @@ class LiveEncodingTask:
         BACKEND_TYPE: Literal['EDCB', 'Mirakurun'] = 'Mirakurun' if CONFIG.general.always_receive_tv_from_mirakurun is True else CONFIG.general.backend
         assert BACKEND_TYPE == 'Mirakurun', 'This method is only for Mirakurun backend.'
 
-        # Mirakurun / mirakc はチャンネルタイプが GR, BS, CS, SKY しかないので、BS4K を BS に、CATV を CS に変換する
-        channel_type = 'BS' if channel_type == 'BS4K' else channel_type
-        channel_type = 'CS' if channel_type == 'CATV' else channel_type
+        # Mirakurun / mirakc は通常チャンネルタイプが GR, BS, CS, SKY しかないので、
+        # フォールバックとして BS4K を BS に、CATV を CS に変換する
+        fallback_channel_type = channel_type
+        if channel_type == 'BS4K':
+            fallback_channel_type = 'BS'
+        elif channel_type == 'CATV':
+            fallback_channel_type = 'CS'
 
         mirakurun_or_mirakc = 'Mirakurun'
         async with HTTPX_CLIENT() as client:
@@ -471,6 +475,10 @@ class LiveEncodingTask:
                     if tuner['isAvailable'] is True and tuner['isFree'] is True and channel_type in tuner['types']:
                         logging.info(f'Acquired a tuner from {mirakurun_or_mirakc}.')
                         logging.info(f'Tuner: {tuner["name"]} / Type: {channel_type}) / Acquired in {round(time.time() - start_time, 2)} seconds')
+                        return True
+                    if tuner['isAvailable'] is True and tuner['isFree'] is True and fallback_channel_type in tuner['types']:
+                        logging.info(f'Acquired a tuner from {mirakurun_or_mirakc}. ({channel_type} -> {fallback_channel_type})')
+                        logging.info(f'Tuner: {tuner["name"]} / Type: {fallback_channel_type}) / Acquired in {round(time.time() - start_time, 2)} seconds')
                         return True
 
                 await asyncio.sleep(0.1)
