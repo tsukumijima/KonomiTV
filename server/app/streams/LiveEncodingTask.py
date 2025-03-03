@@ -351,7 +351,7 @@ class LiveEncodingTask:
             options.append('--profile main')
         else:
             options.append('--profile high')
-        options.append('--interlace tff --dar 16:9')
+        options.append('--dar 16:9')
 
         ## 最大 GOP 長 (秒)
         ## 30fps なら ×30 、 60fps なら ×60 された値が --gop-len で使われる
@@ -364,6 +364,8 @@ class LiveEncodingTask:
         if channel_type == "BS4K":
             options.append(f'--avsync vfr --gop-len {int(gop_length_second * 60)}')
         else:
+            ## インターレース映像として読み込む
+            options.append('--interlace tff')
             ## インターレース解除 (60i → 60p (フレームレート: 60fps))
             ## NVEncC の --vpp-deinterlace bob は品質が悪いので、代わりに --vpp-yadif を使う
             ## NVIDIA GPU は当然ながら Intel の内蔵 GPU よりも性能が高いので、GPU フィルタを使ってもパフォーマンスに問題はないと判断
