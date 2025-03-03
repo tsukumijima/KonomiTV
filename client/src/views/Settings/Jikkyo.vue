@@ -180,7 +180,7 @@ export default defineComponent({
     },
     methods: {
         setDefaultIcon(event: Event) {
-            (event.target as HTMLImageElement).src = '/assets/images/default-account-icon.png';
+            (event.target as HTMLImageElement).src = '/assets/images/account-icon-default.png';
         },
 
         async loginNiconicoAccount() {
