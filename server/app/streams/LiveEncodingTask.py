@@ -93,7 +93,12 @@ class LiveEncodingTask:
 
         # BS でフル HD 放送を行っているチャンネルのサービス ID と一致する
         ## NHK BSプレミアム・WOWOWプライム・WOWOWライブ・WOWOWシネマ・BS11
-        if network_id == 4 and service_id in [103, 191, 192, 193, 211]:
+        if network_id == 0x0004 and service_id in [103, 191, 192, 193, 211]:
+            return True
+
+        # BS4K・CS4K (放送終了) は 4K 放送なのでフル HD 扱いとする
+        # 現在の KonomiTV は 1920×1080 以上の解像度へのエンコードをサポートしていない
+        if network_id == 0x000B or network_id == 0x000C:
             return True
 
         return False
