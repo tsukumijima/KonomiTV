@@ -131,14 +131,14 @@
     <RecordedFileInfoDialog :program="program" v-model:show="show_video_info" />
 
     <!-- 録画ファイル削除確認ダイアログ -->
-    <v-dialog max-width="600" v-model="show_delete_confirmation">
+    <v-dialog max-width="750" v-model="show_delete_confirmation">
         <v-card>
             <v-card-title class="d-flex justify-center pt-6 font-weight-bold">本当に録画ファイルを削除しますか？</v-card-title>
             <v-card-text class="pt-2 pb-0">
                 <div class="delete-confirmation__file-path mb-4">{{ program.recorded_video.file_path }}</div>
                 <div class="text-error-lighten-1 font-weight-bold">
-                    録画ファイルに紐づくすべてのデータが削除されます。元に戻すことはできません。<br>
-                    本当に録画ファイルを削除しますか？
+                    この録画ファイルに関連するすべてのデータ (サムネイル / .ts.program.txt / .ts.err を含む) が削除されます。<br>
+                    元に戻すことはできません。本当に録画ファイルを削除しますか？
                 </div>
             </v-card-text>
             <v-card-actions class="pt-4 px-6 pb-6">
