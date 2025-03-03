@@ -711,8 +711,7 @@ async def VideoJikkyoCommentsAPI(
 @router.post(
     '/{video_id}/reanalyze',
     summary = '録画番組メタデータ再解析 API',
-    response_description = 'メタデータ再解析結果のステータス。',
-    response_model = schemas.ReanalyzeStatus,
+    status_code = status.HTTP_204_NO_CONTENT,
 )
 async def VideoReanalyzeAPI(
     recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
@@ -733,17 +732,12 @@ async def VideoReanalyzeAPI(
                 force_update = True,
             )
 
-        return {
-            'is_success': True,
-            'detail': 'Successfully reanalyzed the video.',
-        }
-
     except Exception as ex:
-        logging.error(f'Failed to reanalyze the video_id {recorded_program.id}:', exc_info=ex)
-        return {
-            'is_success': False,
-            'detail': f'Failed to reanalyze the video: {ex!s}',
-        }
+        logging.error(f'[VideoReanalyzeAPI] Failed to reanalyze the video_id {recorded_program.id}:', exc_info=ex)
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = f'Failed to reanalyze the video: {ex!s}',
+        )
 
 
 @router.get(
@@ -795,8 +789,7 @@ async def VideoThumbnailTileAPI(
 @router.post(
     '/{video_id}/thumbnail/regenerate',
     summary = 'サムネイル再生成 API',
-    response_description = 'サムネイル再生成結果のステータス。',
-    response_model = schemas.ThumbnailRegenerationStatus,
+    status_code = status.HTTP_204_NO_CONTENT,
 )
 async def VideoThumbnailRegenerateAPI(
     recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
@@ -818,17 +811,12 @@ async def VideoThumbnailRegenerateAPI(
             generator = ThumbnailGenerator.fromRecordedProgram(recorded_program_schema)
             await generator.generate(skip_tile_if_exists=skip_tile_if_exists)
 
-        return {
-            'is_success': True,
-            'detail': 'Successfully regenerated thumbnails.',
-        }
-
     except Exception as ex:
-        logging.error(f'Failed to regenerate thumbnails for video_id {recorded_program.id}:', exc_info=ex)
-        return {
-            'is_success': False,
-            'detail': f'Failed to regenerate thumbnails: {ex!s}',
-        }
+        logging.error(f'[VideoThumbnailRegenerateAPI] Failed to regenerate thumbnails for video_id {recorded_program.id}:', exc_info=ex)
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = f'Failed to regenerate thumbnails: {ex!s}',
+        )
 
 
 @router.delete(
