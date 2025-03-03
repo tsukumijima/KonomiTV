@@ -375,7 +375,7 @@ class Program(TortoiseModel):
                     program.video_resolution = None
                     if 'video' in program_info:
                         program.video_type = ariblib.constants.COMPONENT_TYPE \
-                            [program_info['video']['streamContent']][program_info['video']['componentType']]
+                            [program_info['video']['streamContent']].get(program_info['video']['componentType'], 'Unknown')
                         program.video_codec = program_info['video']['type']
                         program.video_resolution = program_info['video']['resolution']
 
@@ -391,7 +391,7 @@ class Program(TortoiseModel):
                     if 'audios' in program_info:
 
                         ## 主音声
-                        program.primary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02][program_info['audios'][0]['componentType']]
+                        program.primary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02].get(program_info['audios'][0]['componentType'], 'Unknown')
                         program.primary_audio_language = TSInformation.getISO639LanguageCodeName(program_info['audios'][0]['langs'][0])
                         program.primary_audio_sampling_rate = str(int(program_info['audios'][0]['samplingRate'] / 1000)) + 'kHz'  # kHz に変換
                         ## デュアルモノのみ
@@ -403,7 +403,7 @@ class Program(TortoiseModel):
 
                         ## 副音声（存在する場合）
                         if len(program_info['audios']) == 2:
-                            program.secondary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02][program_info['audios'][1]['componentType']]
+                            program.secondary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02].get(program_info['audios'][1]['componentType'], 'Unknown')
                             program.secondary_audio_language = TSInformation.getISO639LanguageCodeName(program_info['audios'][1]['langs'][0])
                             program.secondary_audio_sampling_rate = str(int(program_info['audios'][1]['samplingRate'] / 1000)) + 'kHz'  # kHz に変換
                             ## デュアルモノのみ
@@ -418,7 +418,7 @@ class Program(TortoiseModel):
 
                         ## 主音声
                         ## 副音声の情報は常に存在しないため省略
-                        program.primary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02][program_info['audio']['componentType']]
+                        program.primary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02].get(program_info['audio']['componentType'], 'Unknown')
                         program.primary_audio_sampling_rate = str(int(program_info['audio']['samplingRate'] / 1000)) + 'kHz'  # kHz に変換
                         ## Mirakurun 3.8 以下では言語コードが取得できないため、日本語で固定する
                         program.primary_audio_language = '日本語'
@@ -685,8 +685,8 @@ class Program(TortoiseModel):
 
                             ## 主音声
                             audio_component_info = audio_info['component_list'][0]
-                            program.primary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02].get(audio_component_info['component_type'], '')
-                            program.primary_audio_sampling_rate = ariblib.constants.SAMPLING_RATE.get(audio_component_info['sampling_rate'], '')
+                            program.primary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02].get(audio_component_info['component_type'], 'Unknown')
+                            program.primary_audio_sampling_rate = ariblib.constants.SAMPLING_RATE.get(audio_component_info['sampling_rate'], 'Unknown')
                             ## 2021/09 現在の EDCB では言語コードが取得できないため、日本語か英語で固定する
                             ## EpgDataCap3 のパーサー止まりで EDCB 側では取得していないらしい
                             program.primary_audio_language = '日本語'
@@ -700,8 +700,8 @@ class Program(TortoiseModel):
                             # 副音声（存在する場合）
                             if len(audio_info['component_list']) > 1:
                                 audio_component_info = audio_info['component_list'][1]
-                                program.secondary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02].get(audio_component_info['component_type'], '')
-                                program.secondary_audio_sampling_rate = ariblib.constants.SAMPLING_RATE.get(audio_component_info['sampling_rate'], '')
+                                program.secondary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02].get(audio_component_info['component_type'], 'Unknown')
+                                program.secondary_audio_sampling_rate = ariblib.constants.SAMPLING_RATE.get(audio_component_info['sampling_rate'], 'Unknown')
                                 ## 2021/09 現在の EDCB では言語コードが取得できないため、副音声で固定する
                                 ## 英語かもしれないし解説かもしれない
                                 program.secondary_audio_language = '副音声'
