@@ -179,6 +179,10 @@ export default defineComponent({
         }
     },
     methods: {
+        setDefaultIcon(event: Event) {
+            (event.target as HTMLImageElement).src = '/assets/images/default-account-icon.png';
+        },
+
         async loginNiconicoAccount() {
 
             // ログインしていない場合はエラーにする
@@ -277,13 +281,6 @@ export default defineComponent({
         },
     }
 });
-
-</script>
-<script lang="ts" setup>
-
-    const setDefaultIcon = (event) => {
-        event.target.src = '/assets/images/account-icon-default.png';
-    };
 
 </script>
 <style lang="scss" scoped>
