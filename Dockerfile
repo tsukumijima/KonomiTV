@@ -21,7 +21,7 @@ WORKDIR /
 RUN aria2c -x10 https://github.com/tsukumijima/KonomiTV/releases/download/v0.12.0/thirdparty-linux.tar.xz
 RUN tar xvf thirdparty-linux.tar.xz
 ## 開発版 (0.x.x-dev) 用
-# RUN aria2c -x10 https://nightly.link/tsukumijima/KonomiTV/actions/runs/13269769043/thirdparty-linux.tar.xz.zip
+# RUN aria2c -x10 https://nightly.link/tsukumijima/KonomiTV/actions/runs/13639792199/thirdparty-linux.tar.xz.zip
 # RUN unzip thirdparty-linux.tar.xz.zip && tar xvf thirdparty-linux.tar.xz
 
 # --------------------------------------------------------------------------------------------------------------
