@@ -116,12 +116,38 @@
                             </template>
                             <v-list-item-title class="ml-3">サムネイルを再作成</v-list-item-title>
                         </v-list-item>
+                        <v-divider></v-divider>
+                        <v-list-item @click="showDeleteConfirmation" :disabled="program.recorded_video.status === 'Recording'" class="recorded-program__menu-list-item--danger">
+                            <template v-slot:prepend>
+                                <Icon icon="fluent:delete-24-regular" width="20px" height="20px" />
+                            </template>
+                            <v-list-item-title class="ml-3">録画ファイルを削除</v-list-item-title>
+                        </v-list-item>
                     </v-list>
                 </v-menu>
             </div>
         </div>
     </router-link>
     <RecordedFileInfoDialog :program="program" v-model:show="show_video_info" />
+
+    <!-- 録画ファイル削除確認ダイアログ -->
+    <v-dialog max-width="600" v-model="show_delete_confirmation">
+        <v-card>
+            <v-card-title class="d-flex justify-center pt-6 font-weight-bold">本当に録画ファイルを削除しますか？</v-card-title>
+            <v-card-text class="pt-2 pb-0">
+                <div class="delete-confirmation__file-path mb-4">{{ program.recorded_video.file_path }}</div>
+                <div class="text-error-lighten-1 font-weight-bold">
+                    録画ファイルに紐づくすべてのデータが削除されます。元に戻すことはできません。<br>
+                    本当に録画ファイルを削除しますか？
+                </div>
+            </v-card-text>
+            <v-card-actions class="pt-4 px-6 pb-6">
+                <v-spacer></v-spacer>
+                <v-btn color="text" variant="text" @click="show_delete_confirmation = false">キャンセル</v-btn>
+                <v-btn color="error" variant="flat" @click="deleteVideo">削除</v-btn>
+            </v-card-actions>
+        </v-card>
+    </v-dialog>
 </template>
 <script lang="ts" setup>
 
@@ -143,8 +169,15 @@ const props = withDefaults(defineProps<{
     forWatchedHistory: false,
 });
 
+// Emits
+const emit = defineEmits<{
+    (e: 'deleted', id: number): void;
+}>();
+
 // ファイル情報ダイアログの表示状態
 const show_video_info = ref(false);
+// 削除確認ダイアログの表示状態
+const show_delete_confirmation = ref(false);
 
 // 録画ファイルのダウンロード (location.href を変更し、ダウンロード自体はブラウザに任せる)
 const downloadVideo = () => {
@@ -155,7 +188,7 @@ const downloadVideo = () => {
 const reanalyzeVideo = async () => {
     Message.success('メタデータの再解析を開始します。完了までしばらくお待ちください。');
     const result = await Videos.reanalyzeVideo(props.program.id);
-    if (result.is_success) {
+    if (result === true) {
         Message.success('メタデータの再解析が完了しました。');
     }
 };
@@ -164,7 +197,7 @@ const reanalyzeVideo = async () => {
 const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
     Message.success('サムネイルの再作成を開始しました。完了までしばらくお待ちください。');
     const result = await Videos.regenerateThumbnail(props.program.id, skip_tile_if_exists);
-    if (result.is_success) {
+    if (result === true) {
         Message.success('サムネイルの再作成が完了しました。');
     }
 };
@@ -210,6 +243,24 @@ const removeFromWatchedHistory = () => {
         return history.video_id !== props.program.id;
     });
     Message.show('視聴履歴から削除しました。');
+};
+
+// 録画ファイル削除確認ダイアログを表示
+const showDeleteConfirmation = () => {
+    show_delete_confirmation.value = true;
+};
+
+// 録画ファイル削除
+const deleteVideo = async () => {
+    show_delete_confirmation.value = false;
+    Message.info('録画ファイルの削除を開始します。完了までしばらくお待ちください。');
+
+    const result = await Videos.deleteVideo(props.program.id);
+    if (result === true) {
+        Message.success('録画ファイルを削除しました。');
+        // 親コンポーネントに削除イベントを発行
+        emit('deleted', props.program.id);
+    }
 };
 
 </script>
@@ -729,6 +780,21 @@ const removeFromWatchedHistory = () => {
 @keyframes progress-rotate {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+
+.delete-confirmation {
+    &__file-path {
+        padding: 12px;
+        background-color: rgb(var(--v-theme-background-lighten-1));
+        border-radius: 4px;
+        font-size: 14px;
+        word-break: break-all;
+        white-space: pre-wrap;
+    }
+}
+
+.recorded-program__menu-list-item--danger {
+    color: rgb(var(--v-theme-error)) !important;
 }
 
 </style>
