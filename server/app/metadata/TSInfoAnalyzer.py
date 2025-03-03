@@ -115,20 +115,24 @@ class TSInfoAnalyzer:
         channel_name: str | None = None
         remocon_id: int | None = None
 
-        # TS から PAT (Program Association Table) を抽出
-        pat = next(self.ts.sections(ProgramAssociationSection))
+        # PAT (Program Association Table) からサービス ID が取得できるまで繰り返し処理
+        for pat in self.ts.sections(ProgramAssociationSection):
+            # トランスポートストリーム ID (TSID) を取得
+            transport_stream_id = int(pat.transport_stream_id)
 
-        # トランスポートストリーム ID (TSID) を取得
-        transport_stream_id = int(pat.transport_stream_id)
+            # サービス ID を取得
+            for pid in pat.pids:
+                if pid.program_number:
+                    # program_number は service_id と等しい
+                    # PAT から抽出した service_id を使えば、映像や音声が存在するストリームの番組情報を的確に抽出できる
+                    service_id = int(pid.program_number)
+                    # 他にも pid があるかもしれないが（複数のチャンネルが同じストリームに含まれている場合など）、最初の pid のみを取得する
+                    break
 
-        # サービス ID を取得
-        for pid in pat.pids:
-            if pid.program_number:
-                # program_number は service_id と等しい
-                # PAT から抽出した service_id を使えば、映像や音声が存在するストリームの番組情報を的確に抽出できる
-                service_id = int(pid.program_number)
-                # 他にも pid があるかもしれないが（複数のチャンネルが同じストリームに含まれている場合など）、最初の pid のみを取得する
+            # service_id が見つかったらループを抜ける
+            if service_id is not None:
                 break
+
         if service_id is None:
             logging.warning(f'{self.recorded_video.file_path}: service_id not found.')
             return None
