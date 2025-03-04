@@ -97,6 +97,13 @@ def main(
                 logging.info(f'Successfully migrated to {version_file}.')
     asyncio.run(UpgradeDatabase())
 
+    # Aerich 0.8.2 以降では Windows のみインポート時にイベントループポリシーが SelectorEventLoop に変更されてしまうが、
+    # asyncio.subprocess.create_subprocess_exec() は ProactorEventLoop でないと動作しないため、明示的に ProactorEventLoop に戻す
+    # psycopg3 バックエンドが SelectorEventLoop しか対応していない件の対策らしいが、KonomiTV では SQLite を利用しているため問題ない
+    # ref: https://github.com/tortoise/aerich/pull/251
+    if sys.platform == 'win32':
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
     # ***** サポートされているアーキテクチャかのバリデーション *****
 
     # CPU のアーキテクチャから実行可否を判定
