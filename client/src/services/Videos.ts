@@ -277,7 +277,10 @@ class Videos {
     static async reanalyzeVideo(video_id: number): Promise<boolean> {
 
         // API リクエストを実行
-        const response = await APIClient.post(`/videos/${video_id}/reanalyze`);
+        const response = await APIClient.post(`/videos/${video_id}/reanalyze`, undefined, {
+            // 数分以上かかるのでタイムアウトを 10 分に設定
+            timeout: 10 * 60 * 1000,
+        });
 
         // エラー処理
         if (response.type === 'error') {
