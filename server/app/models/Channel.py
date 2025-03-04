@@ -28,6 +28,11 @@ if TYPE_CHECKING:
     from app.models.Program import Program
 
 
+# すでに閉局済みの BS チャンネルの service_id
+# 左から順に「NHK BSプレミアム」「FOXスポーツ&エンターテインメント」「BSスカパー」「BSJapanext」「Dlife」
+ALREADY_CLOSED_BS_SERVICE_IDS = [103, 104, 238, 241, 258, 263]
+
+
 class Channel(TortoiseModel):
 
     # データベース上のテーブル名
@@ -171,9 +176,13 @@ class Channel(TortoiseModel):
                 if duplicate_channel is None:
                     # 既に登録されているが、現在は is_watchable = False (録画番組のメタデータのみでライブで視聴不可) なチャンネル情報がある可能性もある
                     # その場合は is_watchable = True (ライブで視聴可能) なチャンネル情報として更新する
-                    # 録画番組更新とのタイミングの関係でごく稀に発生しうる問題への対応
+                    ## 録画番組更新とのタイミングの関係でごく稀に発生しうる問題への対応
                     unwatchable_channel = await Channel.filter(id=channel_id, is_watchable=False).first()
                     if unwatchable_channel is not None:
+                        ## すでに閉局済みの BS チャンネルだった場合、既に同じチャンネルの is_watchable = False な
+                        ## チャンネル情報が存在することになるので、以降の処理を全てスキップ
+                        if unwatchable_channel.type == 'BS' and unwatchable_channel.service_id in ALREADY_CLOSED_BS_SERVICE_IDS:
+                            continue
                         channel = unwatchable_channel
                         channel.is_watchable = True
                         logging.warning(f'Channel: {channel.name} ({channel.id}) is already registered but is_watchable = False.')
@@ -192,13 +201,13 @@ class Channel(TortoiseModel):
                 channel.jikkyo_force = None
                 channel.is_watchable = True  # 下記条件を満たすチャンネルでない限り、ライブ視聴可能なチャンネルとして登録する
 
-                # すでに放送が終了した「NHK BSプレミアム」「FOXスポーツ&エンターテインメント」「BSスカパー」「BSJapanext」「Dlife」を is_watchable = False に設定
+                # すでに閉局済みの BS チャンネルを is_watchable = False に設定
                 ## 放送終了後にチャンネルスキャンしていないなどの理由で、閉局後もバックエンド側にはチャンネル情報が残っている場合がある
                 ## 特に「NHK BSプレミアム」(Ch: 103) は既存受信機への互換性維持のためか停波後も SDT にサービス情報が残っているため、
                 ## 明示的に視聴不可としないとチャンネル一覧に表示されてしまう
                 ## 以前はレコードから完全に削除していたが、そうすると例えば NHK BSプレミアムで過去録画した番組情報も CASCADE 制約で削除されてしまうため、
                 ## is_watchable = False でチャンネル一覧からは非表示にした上で、DB 上には残しておく形に変更した
-                if channel.type == 'BS' and channel.service_id in [103, 104, 238, 241, 258, 263]:
+                if channel.type == 'BS' and channel.service_id in ALREADY_CLOSED_BS_SERVICE_IDS:
                     channel.is_watchable = False
 
                 # 「試験チャンネル」という名前（前方一致）のチャンネルを is_watchable = False に設定
@@ -338,9 +347,13 @@ class Channel(TortoiseModel):
                 if duplicate_channel is None:
                     # 既に登録されているが、現在は is_watchable = False (録画番組のメタデータのみでライブで視聴不可) なチャンネル情報がある可能性もある
                     # その場合は is_watchable = True (ライブで視聴可能) なチャンネル情報として更新する
-                    # 録画番組更新とのタイミングの関係でごく稀に発生しうる問題への対応
+                    ## 録画番組更新とのタイミングの関係でごく稀に発生しうる問題への対応
                     unwatchable_channel = await Channel.filter(id=channel_id, is_watchable=False).first()
                     if unwatchable_channel is not None:
+                        ## すでに閉局済みの BS チャンネルだった場合、既に同じチャンネルの is_watchable = False な
+                        ## チャンネル情報が存在することになるので、以降の処理を全てスキップ
+                        if unwatchable_channel.type == 'BS' and unwatchable_channel.service_id in ALREADY_CLOSED_BS_SERVICE_IDS:
+                            continue
                         channel = unwatchable_channel
                         channel.is_watchable = True
                         logging.warning(f'Channel: {channel.name} ({channel.id}) is already registered but is_watchable = False.')
@@ -360,13 +373,13 @@ class Channel(TortoiseModel):
                 channel.jikkyo_force = None
                 channel.is_watchable = True  # 下記条件を満たすチャンネルでない限り、ライブ視聴可能なチャンネルとして登録する
 
-                # すでに放送が終了した「NHK BSプレミアム」「FOXスポーツ&エンターテインメント」「BSスカパー」「BSJapanext」「Dlife」を is_watchable = False に設定
+                # すでに閉局済みの BS チャンネルを is_watchable = False に設定
                 ## 放送終了後にチャンネルスキャンしていないなどの理由で、閉局後もバックエンド側にはチャンネル情報が残っている場合がある
                 ## 特に「NHK BSプレミアム」(Ch: 103) は既存受信機への互換性維持のためか停波後も SDT にサービス情報が残っているため、
                 ## 明示的に視聴不可としないとチャンネル一覧に表示されてしまう
                 ## 以前はレコードから完全に削除していたが、そうすると例えば NHK BSプレミアムで過去録画した番組情報も CASCADE 制約で削除されてしまうため、
                 ## is_watchable = False でチャンネル一覧からは非表示にした上で、DB 上には残しておく形に変更した
-                if channel.type == 'BS' and channel.service_id in [103, 104, 238, 241, 258, 263]:
+                if channel.type == 'BS' and channel.service_id in ALREADY_CLOSED_BS_SERVICE_IDS:
                     channel.is_watchable = False
 
                 # 「試験チャンネル」という名前（前方一致）のチャンネルを is_watchable = False に設定
