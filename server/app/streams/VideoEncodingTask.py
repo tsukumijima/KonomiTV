@@ -27,7 +27,7 @@ class VideoEncodingTask:
 
     # エンコード後のストリームの GOP 長 (秒)
     ## ライブではないため、GOP 長は H.264 / H.265 共通で長めに設定する
-    GOP_LENGTH_SECOND: ClassVar[float] = float(2.5)  # 2.5秒
+    GOP_LENGTH_SECOND: ClassVar[float] = float(3)  # 3秒
 
     # エンコードタスクの最大リトライ回数
     ## この数を超えた場合はエンコードタスクを再起動しない（無限ループを避ける）

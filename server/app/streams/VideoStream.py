@@ -67,9 +67,9 @@ class VideoStream:
     MAX_READED_SEGMENTS: ClassVar[int] = 10
 
     # エンコードする HLS セグメントの最低長さ (秒)
-    ## エンコード済みの MPEG-TS でキーフレーム間隔が3秒の場合など、セグメント 10 秒以上でキリの良い所で切ると
-    ## 10 秒をオーバーする場合があるので 、その場合は最大キーフレーム間隔をセグメント長とする
-    SEGMENT_DURATION_SECONDS: ClassVar[float] = float(10)  # 10秒
+    ## キーフレーム間隔の最大値がこの SEGMENT_DURATION_SECONDS より大きい場合は、
+    ## キーフレーム間隔の最大値が最低セグメント間隔として利用される
+    SEGMENT_DURATION_SECONDS: ClassVar[float] = float(6)  # 6秒
 
     # 録画視聴セッションのインスタンスが入る、セッション ID をキーとした辞書
     # この辞書に録画視聴セッションに関する全てのデータが格納されている
@@ -247,7 +247,7 @@ class VideoStream:
             # キーフレーム間隔の最大値を最低セグメント間隔として使用する
             segment_duration_seconds = max(self.SEGMENT_DURATION_SECONDS, max_key_frame_interval)
             logging.info(f'{self.log_prefix} Segment duration: {segment_duration_seconds:.3f} seconds'
-                         f'(max keyframe interval: {max_key_frame_interval:.3f} seconds)')
+                         f' (max keyframe interval: {max_key_frame_interval:.3f} seconds)')
 
             segment_sequence = 0
             accumulated_duration: float = 0.0
