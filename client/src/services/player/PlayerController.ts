@@ -1325,8 +1325,11 @@ class PlayerController {
 
             // 再生位置の変更（再生の進行状況）を Comment.vue にイベントとして通知する
             this.player.on('timeupdate', () => {
+                if (!this.player || !this.player.video) {
+                    return;
+                }
                 player_store.event_emitter.emit('PlaybackPositionChanged', {
-                    playback_position: this.player!.video.currentTime,
+                    playback_position: this.player.video.currentTime,
                 });
             });
 
@@ -1578,7 +1581,10 @@ class PlayerController {
         let video_element = this.player.video;
         // 画質切り替え後に新しい映像要素が生成されるため、画質切り替え後にリサイズ対象を更新する
         this.player.on('quality_end', () => {
-            video_element = this.player!.video;
+            if (!this.player || !this.player.video) {
+                return;
+            }
+            video_element = this.player.video;
             crop();
         });
 
