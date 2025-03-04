@@ -69,7 +69,7 @@ class VideoStream:
     # エンコードする HLS セグメントの最低長さ (秒)
     ## キーフレーム間隔の最大値がこの SEGMENT_DURATION_SECONDS より大きい場合は、
     ## キーフレーム間隔の最大値が最低セグメント間隔として利用される
-    SEGMENT_DURATION_SECONDS: ClassVar[float] = float(6)  # 6秒
+    SEGMENT_DURATION_SECONDS: ClassVar[float] = float(10)  # 10秒
 
     # 録画視聴セッションのインスタンスが入る、セッション ID をキーとした辞書
     # この辞書に録画視聴セッションに関する全てのデータが格納されている

@@ -27,7 +27,7 @@ class VideoEncodingTask:
 
     # エンコード後のストリームの GOP 長 (秒)
     ## ライブではないため、GOP 長は H.264 / H.265 共通で長めに設定する
-    GOP_LENGTH_SECOND: ClassVar[float] = float(3)  # 3秒
+    GOP_LENGTH_SECOND: ClassVar[float] = float(2.5)  # 2.5秒
 
     # エンコードタスクの最大リトライ回数
     ## この数を超えた場合はエンコードタスクを再起動しない（無限ループを避ける）
@@ -140,7 +140,7 @@ class VideoEncodingTask:
              self.video_stream.recorded_program.recorded_video.video_resolution_height == 1080):
             video_width = 1920
 
-        # インターレース映像のみ
+        ## インターレース映像のみ
         if self.video_stream.recorded_program.recorded_video.video_scan_type == 'Interlaced':
             ## インターレース解除 (60i → 60p (フレームレート: 60fps))
             if QUALITY[quality].is_60fps is True:
@@ -150,7 +150,7 @@ class VideoEncodingTask:
             else:
                 options.append(f'-vf yadif=mode=0:parity=-1:deint=1,scale={video_width}:{video_height}')
                 options.append(f'-r 30000/1001 -g {int(self.GOP_LENGTH_SECOND * 30)}')
-        # プログレッシブ映像
+        ## プログレッシブ映像
         ## プログレッシブ映像の場合は 60fps 化する方法はないため、無視して入力ファイルと同じ fps でエンコードする
         elif self.video_stream.recorded_program.recorded_video.video_scan_type == 'Progressive':
             int_fps = math.ceil(self.video_stream.recorded_program.recorded_video.video_frame_rate)  # 29.97 -> 30
@@ -262,6 +262,13 @@ class VideoEncodingTask:
         if encoder_type != 'VCEEncC':
             options.append('--repeat-headers')
 
+        ## GOP 長を固定
+        ## VCEEncC / rkmppenc では下記オプションは存在しない
+        if encoder_type == 'QSVEncC':
+            options.append('--strict-gop')
+        elif encoder_type == 'NVEncC':
+            options.append('--no-i-adapt')
+
         ## 品質
         if encoder_type == 'QSVEncC':
             options.append('--quality balanced')
@@ -277,13 +284,7 @@ class VideoEncodingTask:
             options.append('--profile high')
         options.append('--dar 16:9')
 
-        # GOP 長を固定にする
-        if encoder_type == 'QSVEncC':
-            options.append('--strict-gop')
-        elif encoder_type == 'NVEncC':
-            options.append('--no-i-adapt')
-
-        # インターレース映像のみ
+        ## インターレース映像のみ
         if self.video_stream.recorded_program.recorded_video.video_scan_type == 'Interlaced':
             # インターレース映像として読み込む
             options.append('--interlace tff')
@@ -311,7 +312,7 @@ class VideoEncodingTask:
                 elif encoder_type == 'rkmppenc':
                     options.append('--vpp-deinterlace normal_i5')
                 options.append(f'--avsync vfr --gop-len {int(self.GOP_LENGTH_SECOND * 30)}')
-        # プログレッシブ映像
+        ## プログレッシブ映像
         ## プログレッシブ映像の場合は 60fps 化する方法はないため、無視して入力ファイルと同じ fps でエンコードする
         elif self.video_stream.recorded_program.recorded_video.video_scan_type == 'Progressive':
             int_fps = math.ceil(self.video_stream.recorded_program.recorded_video.video_frame_rate)  # 29.97 -> 30
