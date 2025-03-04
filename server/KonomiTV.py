@@ -97,13 +97,6 @@ def main(
                 logging.info(f'Successfully migrated to {version_file}.')
     asyncio.run(UpgradeDatabase())
 
-    # Aerich 0.8.2 以降では Windows のみインポート時にイベントループポリシーが SelectorEventLoop に変更されてしまうが、
-    # asyncio.subprocess.create_subprocess_exec() は ProactorEventLoop でないと動作しないため、明示的に ProactorEventLoop に戻す
-    # psycopg3 バックエンドが SelectorEventLoop しか対応していない件の対策らしいが、KonomiTV では SQLite を利用しているため問題ない
-    # ref: https://github.com/tortoise/aerich/pull/251
-    if sys.platform == 'win32':
-        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-
     # ***** サポートされているアーキテクチャかのバリデーション *****
 
     # CPU のアーキテクチャから実行可否を判定
@@ -170,12 +163,6 @@ def main(
     # このプロセスが終了されたときに、HTTPS リバースプロキシも一緒に終了する
     atexit.register(lambda: reverse_proxy_process.terminate())
 
-    # Uvicorn を自動リロードモードで起動するかのフラグ
-    ## 基本的に開発時用で、コードを変更するとアプリケーションサーバーを自動で再起動してくれる
-    if sys.platform == 'win32' and reload is True:
-        logging.warning('Python の asyncio の技術的な制約により、Windows では自動リロードモードは正常に動作しません。')
-        logging.warning('なお、外部プロセス実行を伴うストリーミング視聴を行わなければ一応 Windows でも機能します。')
-
     # Uvicorn の設定
     server_config = uvicorn.Config(
         # 起動するアプリケーション
@@ -197,14 +184,23 @@ def main(
         interface = 'asgi3',
         # HTTP プロトコルの実装として httptools を選択
         http = 'httptools',
-        # イベントループの実装として Windows では asyncio 、それ以外では uvloop を選択
-        loop = ('asyncio' if sys.platform == 'win32' else 'uvloop'),
+        # イベントループのセットアップは自前で行うため、ここでは none を指定
+        loop = 'none',
         # ストリーミング配信中にサーバーシャットダウンを要求された際、強制的に接続を切断するまでの秒数
         timeout_graceful_shutdown = 1,
     )
 
     # Uvicorn のサーバーインスタンスを初期化
     server = uvicorn.Server(server_config)
+
+    # Windows では Winloop 、Linux では Uvloop をイベントループとして利用する
+    # ref: https://github.com/Vizonex/Winloop
+    if sys.platform == 'win32':
+        import winloop
+        winloop.install()
+    else:
+        import uvloop
+        uvloop.install()
 
     # Uvicorn を起動
     ## 自動リロードモードと通常時で呼び方が異なる
