@@ -1023,14 +1023,14 @@ class PlayerController {
                     // すぐ再起動すると問題があるケースがあるので、少し待機する
                     await Utils.sleep(1);
 
-                    // MediaError オブジェクトは場合によっては存在しないことがあるらしい…
-                    // 存在しない場合は unknown error として扱う
                     if (this.player.video.error) {
                         console.error('\u001b[31m[PlayerController] HTMLVideoElement error event:', this.player.video.error);
                         player_store.event_emitter.emit('PlayerRestartRequired', {
                             message: `再生中にエラーが発生しました。(Native: ${this.player.video.error.code}: ${this.player.video.error.message}) プレイヤーを再起動しています…`,
                         });
                     } else {
+                        // MediaError オブジェクトは場合によっては存在しないことがあるらしい…
+                        // 存在しない場合は unknown error として扱う
                         player_store.event_emitter.emit('PlayerRestartRequired', {
                             message: '再生中にエラーが発生しました。(Native: unknown error) プレイヤーを再起動しています…',
                         });
@@ -1210,6 +1210,32 @@ class PlayerController {
                     player_store.is_background_display = false;
                 };
                 this.player.video.oncanplaythrough = on_canplay;
+
+                // HTMLVideoElement ネイティブの再生時エラーのイベントハンドラーを登録
+                // HLS 再生時にブラウザが呼び出す HW デコーダーがクラッシュした場合など、意図せず発生してしまうことがある
+                // プレイヤー自体の破棄・再生成以外では基本復旧できないので、PlayerController の再起動を要求する
+                this.player.on('error', async (event: MediaError) => {
+
+                    // DPlayer がすでに破棄されていれば何もしない
+                    if (this.player === null) {
+                        return;
+                    }
+
+                    // ライブ視聴時とは異なり、録画なので待たなくても再起動できる
+                    if (this.player.video.error) {
+                        console.error('\u001b[31m[PlayerController] HTMLVideoElement error event:', this.player.video.error);
+                        player_store.event_emitter.emit('PlayerRestartRequired', {
+                            message: `再生中にエラーが発生しました。(Native: ${this.player.video.error.code}: ${this.player.video.error.message}) プレイヤーを再起動しています…`,
+                        });
+                    } else {
+                        // MediaError オブジェクトは場合によっては存在しないことがあるらしい…
+                        // 存在しない場合は unknown error として扱う
+                        player_store.event_emitter.emit('PlayerRestartRequired', {
+                            message: '再生中にエラーが発生しました。(Native: unknown error) プレイヤーを再起動しています…',
+                        });
+                    }
+                });
+
             }
         };
 
