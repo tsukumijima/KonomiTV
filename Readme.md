@@ -993,7 +993,7 @@ poetry run task serve
 
 > [!NOTE]  
 > サーバー設定でデバッグモード (general -> debug) を有効にすると、デバッグログも出力されるようになります。開発環境では常にデバッグモードにしておくことをおすすめします。  
-> さらにエンコーダーのログ (general -> debug_encoder) を有効にすると、エンコーダーのログが `server/logs/KonomiTV-Encoder-(ストリームID).log` に保存されます。
+> さらにエンコーダーのログ (general -> debug_encoder) を有効にすると、ライブ視聴時のエンコーダーのログが `server/logs/KonomiTV-Encoder-(ストリームID).log` に保存されます。
 
 API ドキュメント (Swagger) は https://my.local.konomi.tv:7000/api/docs にあります。  
 API ドキュメントは FastAPI によって自動生成されたものです。  

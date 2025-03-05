@@ -105,7 +105,7 @@
             <div class="settings__item settings__item--switch">
                 <label class="settings__item-heading" for="debug_encoder">エンコーダーのログを有効にする</label>
                 <label class="settings__item-label" for="debug_encoder">
-                    有効にすると、エンコーダーのログが server/logs/ 以下に保存されます。
+                    有効にすると、ライブ視聴時のエンコーダーのログが server/logs/ 以下に保存されます。
                     さらにデバッグモードが有効のときは、デバッグログとしてリアルタイムにエンコーダーのログが出力されます。<br>
                 </label>
                 <v-switch class="settings__item-switch" color="primary" id="debug_encoder" hide-details

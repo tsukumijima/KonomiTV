@@ -45,7 +45,7 @@ general:
     debug: false
 
     # エンコーダーのログを有効にするか
-    # 有効にすると、エンコーダーのログが server/logs/KonomiTV-Encoder-(ストリームID).log に保存されます。
+    # 有効にすると、ライブ視聴時のエンコーダーのログが server/logs/KonomiTV-Encoder-(ストリームID).log に保存されます。
     # さらにデバッグモードが有効のときは、デバッグログとしてリアルタイムにエンコーダーのログが出力されます。
     debug_encoder: false
 

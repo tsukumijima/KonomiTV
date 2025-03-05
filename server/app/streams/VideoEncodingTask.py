@@ -471,8 +471,7 @@ class VideoEncodingTask:
                         LIBRARY_PATH['FFmpeg'], *encoder_options,
                         stdin = tsreadex_read_pipe,  # tsreadex からの入力
                         stdout = asyncio.subprocess.PIPE,  # ストリーム出力
-                        # エンコーダーデバッグ時のみログをコンソールに出力
-                        stderr = None if CONFIG.general.debug_encoder is True else asyncio.subprocess.DEVNULL,
+                        stderr = asyncio.subprocess.PIPE,  # ストリーム出力
                     )
 
                 # HWEncC
@@ -486,8 +485,7 @@ class VideoEncodingTask:
                         LIBRARY_PATH[ENCODER_TYPE], *encoder_options,
                         stdin = tsreadex_read_pipe,  # tsreadex からの入力
                         stdout = asyncio.subprocess.PIPE,  # ストリーム出力
-                        # エンコーダーデバッグ時のみログをコンソールに出力
-                        stderr = None if CONFIG.general.debug_encoder is True else asyncio.subprocess.DEVNULL,
+                        stderr = asyncio.subprocess.PIPE,  # ストリーム出力
                     )
 
                 # エンコーダーの出力を読み取り、MPEG-TS パーサーでパースする
@@ -661,7 +659,6 @@ class VideoEncodingTask:
                             await asyncio.wait_for(self._encoder_process.wait(), timeout=5.0)  # プロセスの終了を待機
                     except (Exception, asyncio.TimeoutError) as ex:
                         logging.error(f'{self.video_stream.log_prefix} Failed to terminate encoder process:', exc_info=ex)
-                    self._encoder_process = None
 
                 # tsreadex プロセスを終了
                 if self._tsreadex_process is not None:
@@ -671,24 +668,53 @@ class VideoEncodingTask:
                             await asyncio.wait_for(self._tsreadex_process.wait(), timeout=5.0)  # プロセスの終了を待機
                     except (Exception, asyncio.TimeoutError) as ex:
                         logging.error(f'{self.video_stream.log_prefix} Failed to terminate tsreadex process:', exc_info=ex)
-                    self._tsreadex_process = None
 
-                # video_pid と audio_pid が取得できていない場合は、エンコーダーの起動をリトライする
+                # この時点で video_pid と audio_pid が取得できていない場合、正常にエンコード済み TS が出力されていないと考えられるため、
+                # エンコーダー起動をリトライする
                 if self._video_pid is None or self._audio_pid is None:
                     self._retry_count += 1
                     if self._retry_count < self.MAX_RETRY_COUNT:
                         logging.warning(f'{self.video_stream.log_prefix} Failed to get video/audio PID. Retrying... ({self._retry_count}/{self.MAX_RETRY_COUNT})')
+                        # エンコーダーのデバッグログが有効な場合のみ、全てのログを出力
+                        if CONFIG.general.debug_encoder is True:
+                            logging.debug_simple(f'{self.video_stream.log_prefix} Encoder stderr:')
+                            assert self._encoder_process.stderr is not None
+                            while True:
+                                try:
+                                    line = await self._encoder_process.stderr.readline()
+                                    if not line:  # EOF
+                                        break
+                                    logging.debug_simple(f'{self.video_stream.log_prefix} [{ENCODER_TYPE}] {line.decode("utf-8").strip()}')
+                                except Exception:
+                                    pass
+                        self._encoder_process = None
+                        self._tsreadex_process = None
                         continue
                     else:
                         logging.error(f'{self.video_stream.log_prefix} Failed to get video/audio PID after {self.MAX_RETRY_COUNT} retries.')
                         break
 
-                # video_pid と audio_pid が取得できている場合は、ループを抜ける
+                # 正常に最終セグメントまでエンコードできたか途中でキャンセルされたと考えられるため、リトライループを抜ける
                 break
 
         finally:
             # ファイルを閉じる
             file.close()
+
+            # エンコーダーのデバッグログが有効 or リトライ失敗時のみ、全てのログを出力
+            if CONFIG.general.debug_encoder is True or self._retry_count >= self.MAX_RETRY_COUNT:
+                logging.debug_simple(f'{self.video_stream.log_prefix} Encoder stderr:')
+                assert self._encoder_process is not None and self._encoder_process.stderr is not None
+                while True:
+                    try:
+                        line = await self._encoder_process.stderr.readline()
+                        if not line:  # EOF
+                            break
+                        logging.debug_simple(f'{self.video_stream.log_prefix} [{ENCODER_TYPE}] {line.decode("utf-8").strip()}')
+                    except Exception:
+                        pass
+            self._encoder_process = None
+            self._tsreadex_process = None
 
             # このエンコードタスクがキャンセルされている場合は何もしない
             if self._is_cancelled is True:
@@ -729,7 +755,6 @@ class VideoEncodingTask:
                         self._tsreadex_process.kill()
                 except Exception as ex:
                     logging.error(f'{self.video_stream.log_prefix} Failed to terminate tsreadex process:', exc_info=ex)
-                self._tsreadex_process = None
 
             # エンコーダープロセスを強制終了する
             if self._encoder_process is not None:
@@ -738,4 +763,8 @@ class VideoEncodingTask:
                         self._encoder_process.kill()
                 except Exception as ex:
                     logging.error(f'{self.video_stream.log_prefix} Failed to terminate encoder process:', exc_info=ex)
-                self._encoder_process = None
+
+            # 少し待ってから完全に破棄
+            await asyncio.sleep(0.1)
+            self._tsreadex_process = None
+            self._encoder_process = None
